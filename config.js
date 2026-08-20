@@ -4,4 +4,4 @@
  * Apps Script > Implantar > Nova implantação > App da Web
  *   Executar como: Eu   |   Quem tem acesso: Qualquer pessoa
  */
-var API_URL = 'COLE_AQUI_A_URL_DO_APPS_SCRIPT_TERMINANDO_EM_exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycbytA98N8cQG2mQqikw8H8nz5h4CgLU93w0O3FORMFVb1Xp4s2Aq1rvjJz_0Alob5ENP/exec';
