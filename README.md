@@ -9,6 +9,13 @@ Modelo de referência: **crate ledger** — o mesmo desenho usado por SpireStock
 saldo do cliente = saídas − devoluções confirmadas − perdas baixadas
 ```
 
+## Manual de operação
+
+Manual completo, por perfil (motorista, promotor, galpão, escritório):
+**https://sinerggia-dev.github.io/qdelicia-caixas/manual.html**
+
+Fonte em [`manual.html`](manual.html) — página estática, sem dependência, publicada junto com o app.
+
 ## Como funciona a operação
 
 ```

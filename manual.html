@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Manual de operacao do controle de caixas retornaveis da Qdelicia Frutas.">
+<title>Manual do Controle de Caixas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --verde:#157f3c; --verde-fraco:#e7f5ec; --verde-linha:#8fc9a6;
+  --amarelo:#a97800; --amarelo-fraco:#fff8e1; --amarelo-linha:#f5b301;
+  --vermelho:#c62828; --vermelho-fraco:#fdecea; --vermelho-linha:#e79a98;
+  --ground:#f4f6f8; --surface:#ffffff; --surface2:#fafbfc;
+  --rule:#e2e7ec;
+  --ink:#16212b; --ink2:#5b6b7a; --ink3:#8a99a8;
+  --capa-de:#0e5b2a; --capa-para:#157f3c; --capa-ink:#ffffff;
+  --svg-amarelo:#a97800; --svg-verde:#157f3c; --svg-vermelho:#c62828;
+  --sombra:0 1px 2px rgba(16,33,43,.06), 0 6px 20px rgba(16,33,43,.05);
+  --raio:12px;
+  --medida:70ch;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --verde:#4fb771; --verde-fraco:#12291d; --verde-linha:#2c6941;
+    --amarelo:#efc054; --amarelo-fraco:#282112; --amarelo-linha:#8a6a15;
+    --vermelho:#ef7d78; --vermelho-fraco:#2c1918; --vermelho-linha:#7a3b39;
+    --ground:#0f1519; --surface:#18222a; --surface2:#1d2831;
+    --rule:#27333d;
+    --ink:#e4ecf1; --ink2:#9aabb8; --ink3:#75899a;
+    --capa-de:#0b3d1f; --capa-para:#12602f; --capa-ink:#eaf6ee;
+    --svg-amarelo:#efc054; --svg-verde:#4fb771; --svg-vermelho:#ef7d78;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --verde:#4fb771; --verde-fraco:#12291d; --verde-linha:#2c6941;
+  --amarelo:#efc054; --amarelo-fraco:#282112; --amarelo-linha:#8a6a15;
+  --vermelho:#ef7d78; --vermelho-fraco:#2c1918; --vermelho-linha:#7a3b39;
+  --ground:#0f1519; --surface:#18222a; --surface2:#1d2831;
+  --rule:#27333d;
+  --ink:#e4ecf1; --ink2:#9aabb8; --ink3:#75899a;
+  --capa-de:#0b3d1f; --capa-para:#12602f; --capa-ink:#eaf6ee;
+  --svg-amarelo:#efc054; --svg-verde:#4fb771; --svg-vermelho:#ef7d78;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.3);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  font-size:17px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:Archivo,"Segoe UI",system-ui,sans-serif;text-wrap:balance;margin:0}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+code{font-size:.88em;background:var(--surface2);border:1px solid var(--rule);border-radius:5px;padding:1px 5px}
+a{color:var(--verde);text-decoration:none;border-bottom:1px solid var(--verde-linha)}
+a:hover{border-bottom-width:2px}
+:focus-visible{outline:2px solid var(--verde);outline-offset:3px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+
+.capa{background:linear-gradient(135deg,var(--capa-de),var(--capa-para));color:var(--capa-ink);padding:46px 28px 42px}
+.capa-i{max-width:1180px;margin:0 auto}
+.capa .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.16em;text-transform:uppercase;opacity:.82;margin:0 0 12px}
+.capa h1{font-size:clamp(30px,5vw,46px);font-weight:700;line-height:1.06;letter-spacing:-.015em}
+.capa .lede{margin:16px 0 0;max-width:58ch;font-size:18px;opacity:.93}
+
+.wrap{max-width:1180px;margin:0 auto;padding:32px 28px 96px;display:grid;gap:44px}
+@media (min-width:1000px){
+  .wrap{grid-template-columns:230px minmax(0,1fr);align-items:start;padding-top:44px}
+  .sumario{position:sticky;top:28px}
+}
+
+.sumario h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);font-family:"IBM Plex Mono",monospace;font-weight:500;margin:0 0 12px}
+.sumario ul{list-style:none;margin:0;padding:0;display:grid;gap:1px}
+.sumario a{display:block;padding:5px 10px;border:0;border-radius:7px;color:var(--ink2);font-size:15px}
+.sumario a:hover{background:var(--surface);color:var(--ink)}
+.sumario .grupo{margin-top:16px;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);padding:0 10px 5px}
+
+main{display:grid;gap:54px;min-width:0}
+section{scroll-margin-top:24px}
+section>h2{font-size:clamp(22px,3vw,28px);font-weight:600;letter-spacing:-.01em;padding-bottom:10px;border-bottom:2px solid var(--rule);margin-bottom:22px}
+h3{font-size:19px;font-weight:600;margin:30px 0 8px}
+h4{font-size:15px;font-weight:600;margin:22px 0 6px;color:var(--ink2)}
+p,li{max-width:var(--medida)}
+p{margin:0 0 14px}
+ul,ol{margin:0 0 14px;padding-left:22px;display:grid;gap:8px}
+.nota{color:var(--ink2);font-size:15.5px}
+
+.perfil{display:grid;gap:6px}
+.perfil-cab{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px;border-bottom:2px solid var(--rule);padding-bottom:11px;margin-bottom:14px}
+.perfil-cab h2{border:0;padding:0;margin:0}
+.onde{font-size:13.5px;color:var(--ink3);font-family:"IBM Plex Mono",monospace}
+
+.chip{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;padding:2px 8px;border-radius:5px;white-space:nowrap}
+.chip.ok{background:var(--verde-fraco);color:var(--verde);border:1px solid var(--verde-linha)}
+.chip.aguarda{background:var(--amarelo-fraco);color:var(--amarelo);border:1px solid var(--amarelo-linha)}
+.chip.alerta{background:var(--vermelho-fraco);color:var(--vermelho);border:1px solid var(--vermelho-linha)}
+
+.tabela{overflow-x:auto;border:1px solid var(--rule);border-radius:var(--raio);background:var(--surface);box-shadow:var(--sombra)}
+table{border-collapse:collapse;width:100%;font-size:15.5px;min-width:480px}
+th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--rule);vertical-align:top}
+thead th{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:500;background:var(--surface2);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+.sim{color:var(--verde);font-weight:600}
+.nao{color:var(--ink3)}
+
+.passos{list-style:none;padding:0;margin:0;display:grid;gap:18px;counter-reset:p}
+.passos>li{counter-increment:p;display:grid;grid-template-columns:34px minmax(0,1fr);gap:16px;max-width:none}
+.passos>li::before{content:counter(p,decimal-leading-zero);font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:500;color:var(--verde);background:var(--verde-fraco);border-radius:8px;height:34px;display:flex;align-items:center;justify-content:center}
+.passos h4{margin:5px 0 4px;color:var(--ink);font-size:16.5px}
+.passos p{margin:0;font-size:16px;color:var(--ink2)}
+
+.regra{border-left:3px solid var(--amarelo-linha);background:var(--amarelo-fraco);padding:16px 20px;border-radius:0 var(--raio) var(--raio) 0}
+.regra>:last-child{margin-bottom:0}
+.regra .rot{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--amarelo);display:block;margin-bottom:7px}
+.perigo{border-left-color:var(--vermelho);background:var(--vermelho-fraco)}
+.perigo .rot{color:var(--vermelho)}
+
+.formula{font-family:"IBM Plex Mono",monospace;font-size:15px;background:var(--surface2);border:1px solid var(--rule);border-radius:var(--raio);padding:16px 20px;overflow-x:auto;margin:0 0 16px}
+
+figure{margin:0 0 26px;display:grid;gap:12px}
+figure svg{width:100%;max-width:100%;height:auto;display:block;background:var(--surface);border:1px solid var(--rule);border-radius:var(--raio);padding:14px;color:var(--ink)}
+figcaption{font-size:15px;color:var(--ink2);max-width:var(--medida)}
+/* var() nao vale em atributo de apresentacao do SVG — as cores do diagrama vem daqui */
+.dg .f-amb{fill:var(--svg-amarelo)}
+.dg .s-amb{stroke:var(--svg-amarelo)}
+.dg .f-ver{fill:var(--svg-verde)}
+.dg .s-ver{stroke:var(--svg-verde)}
+.dg .f-verm{fill:var(--svg-vermelho)}
+.dg .s-verm{stroke:var(--svg-vermelho)}
+.dg .rot{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:1.4px}
+.dg .tit{font-family:Archivo,sans-serif;font-size:16px;font-weight:600}
+.dg .txt{font-family:"Source Sans 3",sans-serif;font-size:12.5px}
+.dg .val{font-family:"IBM Plex Mono",monospace;font-size:20px}
+
+.acessos{display:grid;gap:12px;margin-bottom:16px}
+.acesso{display:grid;gap:3px;padding:14px 18px;background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--verde);border-radius:0 var(--raio) var(--raio) 0}
+.acesso .quem{font-family:Archivo,sans-serif;font-weight:600;font-size:16px}
+.acesso a{font-family:"IBM Plex Mono",monospace;font-size:14px;word-break:break-all}
+.acesso .como{font-size:14.5px;color:var(--ink2)}
+
+footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:var(--ink3);max-width:var(--medida)}
+</style>
+</head>
+<body>
+<header class="capa">
+  <div class="capa-i">
+    <p class="eyebrow">Qdelícia Frutas</p>
+    <h1>Manual do Controle de Caixas</h1>
+    <p class="lede">Como registrar saída, devolução e conferência de caixas retornáveis — e por que o saldo do cliente só baixa quando o galpão confere.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="sumario" aria-label="Sumário">
+  <h2>Sumário</h2>
+  <ul>
+    <li><a href="#problema">O que o app resolve</a></li>
+    <li><a href="#ciclo">O ciclo da caixa</a></li>
+    <li><a href="#acesso">Como acessar</a></li>
+    <li class="grupo">No campo</li>
+    <li><a href="#motorista">Motorista</a></li>
+    <li><a href="#promotor">Promotor</a></li>
+    <li><a href="#galpao">Galpão</a></li>
+    <li class="grupo">Escritório</li>
+    <li><a href="#painel">Painel e extratos</a></li>
+    <li><a href="#cadastros">Cadastros</a></li>
+    <li><a href="#lancar">Lançamento manual</a></li>
+    <li class="grupo">Referência</li>
+    <li><a href="#cliente">Link do cliente</a></li>
+    <li><a href="#offline">Trabalho offline</a></li>
+    <li><a href="#tabelas">Tipos e estados</a></li>
+    <li><a href="#tecnico">Nota técnica</a></li>
+  </ul>
+</nav>
+
+<main>
+
+<section id="problema">
+  <h2>O que o app resolve</h2>
+  <p>Contar caixa saindo do galpão é fácil. O problema é o retorno: parte não volta, ninguém sabe de quem é a falta, e a perda só aparece no fechamento do mês como prejuízo sem dono.</p>
+  <p>O app trata caixa como <strong>empréstimo</strong>, não como despesa. Cada cliente, filial e galpão tem saldo próprio, recalculado a cada movimento:</p>
+  <div class="formula">saldo do cliente = saídas − devoluções conferidas − perdas baixadas</div>
+  <p>Como todo lugar tem saldo, a caixa nunca some no meio do caminho: ela fica na conta de quem estiver com ela.</p>
+</section>
+
+<section id="ciclo">
+  <h2>O ciclo da caixa</h2>
+
+  <figure>
+    <svg class="dg" viewBox="0 0 800 300" role="img" aria-label="A contagem feita dentro do cliente não altera o saldo dele. O saldo só baixa quando o galpão confere na chegada, e a diferença entre as duas contagens fica registrada como divergência.">
+      <defs>
+        <marker id="seta" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="9" markerHeight="7" orient="auto">
+          <polygon points="0,0 10,4 0,8" fill="currentColor"></polygon>
+        </marker>
+        <marker id="setaVerm" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="9" markerHeight="7" orient="auto">
+          <polygon class="f-verm" points="0,0 10,4 0,8"></polygon>
+        </marker>
+      </defs>
+
+      <rect x="14" y="34" width="228" height="86" rx="10" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45"></rect>
+      <text class="rot" x="34" y="60" fill="currentColor" opacity=".6">ETAPA 1 · GALPÃO</text>
+      <text class="tit" x="34" y="84" fill="currentColor">Saída</text>
+      <text class="txt" x="34" y="105" fill="currentColor" opacity=".72">Motorista registra 100 caixas</text>
+
+      <rect class="s-amb" x="286" y="34" width="228" height="86" rx="10" fill="none" stroke-width="1.5" stroke-dasharray="5 4"></rect>
+      <text class="rot f-amb" x="306" y="60">ETAPA 2 · NO CLIENTE</text>
+      <text class="tit" x="306" y="84" fill="currentColor">Contagem</text>
+      <text class="txt" x="306" y="105" fill="currentColor" opacity=".72">Promotor conta 60 para devolver</text>
+
+      <rect x="558" y="34" width="228" height="86" rx="10" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45"></rect>
+      <text class="rot" x="578" y="60" fill="currentColor" opacity=".6">ETAPA 3 · GALPÃO</text>
+      <text class="tit" x="578" y="84" fill="currentColor">Conferência</text>
+      <text class="txt" x="578" y="105" fill="currentColor" opacity=".72">Chegaram 55 de verdade</text>
+
+      <line x1="244" y1="77" x2="278" y2="77" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta)"></line>
+      <line x1="516" y1="77" x2="550" y2="77" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta)"></line>
+
+      <text class="rot" x="14" y="172" fill="currentColor" opacity=".55">SALDO DO CLIENTE DEPOIS DE CADA ETAPA</text>
+
+      <rect x="14" y="184" width="228" height="54" rx="9" fill="none" stroke="currentColor" stroke-width="1" opacity=".28"></rect>
+      <text class="val" x="34" y="218" fill="currentColor">100</text>
+      <text class="txt" x="96" y="218" fill="currentColor" opacity=".7">caixas com ele</text>
+
+      <rect class="s-amb" x="286" y="184" width="228" height="54" rx="9" fill="none" stroke-width="1.2"></rect>
+      <text class="val f-amb" x="306" y="218">100</text>
+      <text class="txt f-amb" x="368" y="218">não muda — aguardando</text>
+
+      <rect class="s-ver" x="558" y="184" width="228" height="54" rx="9" fill="none" stroke-width="1.5"></rect>
+      <text class="val f-ver" x="578" y="218">45</text>
+      <text class="txt f-ver" x="622" y="218">baixou os 55 conferidos</text>
+
+      <line class="s-verm" x1="620" y1="240" x2="620" y2="262" stroke-width="1.4" marker-end="url(#setaVerm)"></line>
+      <text class="txt f-verm" x="636" y="268">divergência de −5</text>
+      <text class="txt f-verm" x="636" y="284">registrada com nome e hora</text>
+    </svg>
+    <figcaption>A contagem feita dentro do cliente não mexe no saldo dele. Só a conferência na chegada baixa — e a diferença entre as duas contagens vira registro, não discussão.</figcaption>
+  </figure>
+
+  <div class="regra">
+    <span class="rot">A regra que sustenta o app</span>
+    <p>Devolução lançada por <strong>motorista</strong> ou <strong>promotor</strong> nasce com estado <span class="chip aguarda">AGUARDANDO</span>. Devolução lançada pelo <strong>galpão</strong> ou pelo <strong>escritório</strong> já nasce <span class="chip ok">CONFIRMADO</span>.</p>
+    <p>É isso que desfaz o impasse antigo: quem conta dentro do cliente não dá baixa em si mesmo.</p>
+  </div>
+</section>
+
+<section id="acesso">
+  <h2>Como acessar</h2>
+  <p>Não há instalação nem loja de aplicativo. São três endereços, um para cada tipo de gente.</p>
+
+  <div class="acessos">
+    <div class="acesso">
+      <span class="quem">Campo — motorista, promotor, conferente</span>
+      <a href="https://sinerggia-dev.github.io/qdelicia-caixas/">sinerggia-dev.github.io/qdelicia-caixas/</a>
+      <span class="como">Escolhe o nome na lista, digita o PIN, entra.</span>
+    </div>
+    <div class="acesso">
+      <span class="quem">Escritório</span>
+      <a href="https://sinerggia-dev.github.io/qdelicia-caixas/admin.html">sinerggia-dev.github.io/qdelicia-caixas/admin.html</a>
+      <span class="como">Mesmo login, com usuário de perfil ADMIN.</span>
+    </div>
+    <div class="acesso">
+      <span class="quem">Cliente</span>
+      <a href="https://sinerggia-dev.github.io/qdelicia-caixas/extrato.html?t=b6p8xwmqr6">…/extrato.html?t=CÓDIGO</a>
+      <span class="como">Abre direto, sem login e sem senha. Cada cliente tem o seu código.</span>
+    </div>
+  </div>
+
+  <h3>No celular</h3>
+  <p>Abra o endereço do campo no Chrome e use <strong>⋮ → Adicionar à tela inicial</strong>. Vira ícone e abre em tela cheia, com cara de aplicativo. Mandar o link por WhatsApp para o motorista funciona bem — é link comum.</p>
+
+  <div class="regra perigo">
+    <span class="rot">Antes de distribuir</span>
+    <p>Troque o PIN do administrador. O sistema nasce com <code>1234</code> e o endereço é público.</p>
+  </div>
+</section>
+
+<section id="motorista" class="perfil">
+  <div class="perfil-cab">
+    <h2>Motorista</h2>
+    <span class="onde">Saída · Devolução · Saldo</span>
+  </div>
+
+  <h3>Registrar uma saída</h3>
+  <ol class="passos">
+    <li><div><h4>Preencha o cabeçalho</h4><p><strong>Sai de</strong> (galpão ou filial), <strong>Vai para</strong> (o cliente), a <strong>Data</strong> e, se houver, o número do <strong>Romaneio / NF</strong>.</p></div></li>
+    <li><div><h4>Informe a quantidade</h4><p>Uma linha por tipo de caixa. Os botões <code>−10</code> e <code>+10</code> agilizam volume grande.</p></div></li>
+    <li><div><h4>Colha o canhoto</h4><p>Quem recebeu assina com o dedo na tela, e dá para anexar foto do romaneio. A assinatura registra que a contagem foi aceita pelas duas partes.</p></div></li>
+    <li><div><h4>Registrar saída</h4><p>Entra como <span class="chip ok">CONFIRMADO</span> na hora — a contagem da saída é a fonte da verdade.</p></div></li>
+  </ol>
+
+  <h3>Coletar caixas na rua</h3>
+  <p>Use a aba <strong>Devolução</strong>: em <em>Devolvidas por</em> escolha o cliente, em <em>Recebidas em</em> o destino das caixas. A tela mostra o saldo atual do cliente antes de você digitar, o que já evita erro grosseiro.</p>
+  <p class="nota">A sua contagem na rua fica <span class="chip aguarda">AGUARDANDO</span>. Não é desconfiança: é o que faz a diferença encontrada na chegada ter um número de origem e um responsável.</p>
+</section>
+
+<section id="promotor" class="perfil">
+  <div class="perfil-cab">
+    <h2>Promotor</h2>
+    <span class="onde">Devolução · Saldo</span>
+  </div>
+  <p>O promotor trabalha dentro do cliente e tem uma função só: contar as caixas prontas para voltar. O app abre direto na tela de <strong>Devolução</strong> — esse perfil nem enxerga a aba de Saída.</p>
+  <ul>
+    <li><strong>Devolvidas por</strong> — o cliente onde você está</li>
+    <li><strong>Recebidas em</strong> — o galpão ou a filial que vai receber</li>
+    <li><strong>Quantidade contada</strong> — o que você contou de fato, por tipo de caixa</li>
+    <li><strong>Foto das caixas</strong> — opcional, mas é o que sustenta a sua contagem se der diferença</li>
+  </ul>
+  <p>Na aba <strong>Saldo</strong> você confere quantas caixas o cliente ainda tem em aberto.</p>
+</section>
+
+<section id="galpao" class="perfil">
+  <div class="perfil-cab">
+    <h2>Galpão</h2>
+    <span class="onde">Saída · Devolução · Conferência · Saldo</span>
+  </div>
+  <p>O conferente é o único perfil de campo que enxerga a aba <strong>Conferência</strong> — e é ali que o saldo se move de verdade.</p>
+
+  <ol class="passos">
+    <li><div><h4>Abra a lista de pendentes</h4><p>Cada linha traz a data, o tipo de caixa, quem contou e uma etiqueta <span class="chip aguarda">declarado 60</span> com o número que veio do cliente.</p></div></li>
+    <li><div><h4>Conte o que chegou</h4><p>Preencha <strong>Contei na chegada</strong> com o número real do caminhão — não repita o declarado.</p></div></li>
+    <li><div><h4>Confirmar</h4><p>O saldo do cliente baixa pelo número que você contou. Havendo diferença, ela é gravada como divergência, com o seu nome e o horário.</p></div></li>
+  </ol>
+
+  <p class="nota">Digitar o declarado só para “fechar” apaga exatamente a informação que o app existe para capturar. Se chegou diferente, registre diferente.</p>
+</section>
+
+<section id="painel">
+  <h2>Painel e extratos</h2>
+  <p>O escritório entra em <code>admin.html</code> e encontra cinco abas: <strong>Painel</strong>, <strong>Extratos</strong>, <strong>Lançar</strong>, <strong>Movimentos</strong> e <strong>Cadastros</strong>.</p>
+
+  <h3>Painel</h3>
+  <p>Abre com <em>Caixas em poder de clientes e filiais</em>, a <em>Idade das caixas na rua</em> e o <em>Estoque nos galpões</em>. As etiquetas fazem a triagem:</p>
+  <ul>
+    <li><span class="chip alerta">acima do limite</span> — o cliente passou do teto contratado</li>
+    <li><span class="chip alerta">div. −5</span> — divergência entre o contado no cliente e o conferido na chegada</li>
+    <li><span class="chip aguarda">a conferir</span> — há devolução esperando o galpão</li>
+  </ul>
+  <p>O botão <strong>⬇ Exportar CSV</strong> leva o quadro inteiro para a planilha.</p>
+
+  <h3>Extratos</h3>
+  <p>Escolha o cliente e o período e clique em <strong>Gerar extrato</strong>. A partir dali:</p>
+  <ul>
+    <li><strong>📲 WhatsApp</strong> — abre a conversa com o resumo do saldo já escrito</li>
+    <li><strong>🔗 Link do cliente</strong> — o endereço só-leitura para mandar a ele</li>
+    <li><strong>⬇ CSV</strong> e <strong>🖨 Imprimir</strong> — para anexar à cobrança</li>
+  </ul>
+
+  <h3>Idade das caixas</h3>
+  <p>O que está na rua é separado em quatro faixas — <strong>0-7</strong>, <strong>8-15</strong>, <strong>16-30</strong> e <strong>+30 dias</strong> — considerando que as caixas mais antigas são as que ainda não voltaram.</p>
+  <p>Serve para separar <em>pendência</em> de <em>perda</em>. Caixa de três dias é operação normal; caixa de quarenta dias não volta mais, e é onde a cobrança deve começar.</p>
+</section>
+
+<section id="cadastros">
+  <h2>Cadastros</h2>
+  <p>Três blocos, cada um com o seu botão de <strong>+ Novo</strong>.</p>
+
+  <h3>Clientes, filiais e galpões</h3>
+  <p>Todos ficam na mesma lista, mudando só o <strong>Tipo</strong>. Os campos que pesam no dia a dia:</p>
+  <div class="tabela">
+    <table>
+      <thead><tr><th>Campo</th><th>Para que serve</th></tr></thead>
+      <tbody>
+        <tr><td>Responsável / promotor</td><td>Nome que aparece no extrato e na conferência</td></tr>
+        <tr><td>WhatsApp (com DDD)</td><td>Habilita o botão de envio do extrato</td></tr>
+        <tr><td>Limite de caixas</td><td>Dispara a etiqueta <span class="chip alerta">acima do limite</span></td></tr>
+        <tr><td>Prazo de devolução (dias)</td><td>Define quando a caixa passa a contar como atrasada</td></tr>
+        <tr><td>Ativo</td><td>Some das listas sem apagar o histórico</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Tipos de caixa</h3>
+  <p>Nome e <strong>valor unitário</strong>. É o valor que transforma caixa perdida em reais no painel — sem ele, a perda fica só um número solto.</p>
+
+  <h3>Usuários</h3>
+  <p>Nome, perfil, PIN e local padrão. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá valor à divergência.</p>
+</section>
+
+<section id="lancar">
+  <h2>Lançamento manual</h2>
+  <p>A aba <strong>Lançar</strong> existe para o que não passou pelo celular — o histórico anterior ao app, o acerto de erro antigo, a baixa de perda negociada.</p>
+  <div class="tabela">
+    <table>
+      <thead><tr><th>Tipo</th><th>Quando usar</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Saída</strong></td><td>Entrega que não foi lançada no campo</td></tr>
+        <tr><td><strong>Transferência</strong></td><td>Caixas indo do galpão para a filial, ou o contrário</td></tr>
+        <tr><td><strong>Devolução</strong></td><td>Retorno que chegou sem registro do motorista</td></tr>
+        <tr><td><strong>Baixa de perda</strong></td><td>Caixa aceita como perdida — sai do saldo do cliente e entra no valor de perda do mês</td></tr>
+        <tr><td><strong>Ajuste / saldo inicial</strong></td><td>O ponto de partida de cada cliente no dia em que o app entra no ar</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="regra" style="margin-top:18px">
+    <span class="rot">Primeiro dia de uso</span>
+    <p>Antes de qualquer coisa, lance um <strong>Ajuste / saldo inicial</strong> por cliente com o que ele já deve hoje, e outro com o que existe no galpão. Sem isso o sistema começa do zero e o passado desaparece.</p>
+  </div>
+
+  <p style="margin-top:18px">Nada é apagado neste app. Lançamento errado se <strong>cancela</strong> na aba <strong>Movimentos</strong>, informando o motivo — a linha continua no histórico, marcada como cancelada.</p>
+</section>
+
+<section id="cliente">
+  <h2>Link do cliente</h2>
+  <p>Cada cliente tem um endereço próprio, com um código no fim. Abre sem login, em qualquer celular, e mostra três coisas: quantas caixas ele tem hoje, a idade delas e o histórico completo de saídas e devoluções. Tem botão de imprimir.</p>
+  <p>Pegue o link em <strong>Cadastros → o cliente → Link do cliente → Copiar link</strong>, ou no botão <strong>🔗 Link do cliente</strong> da aba Extratos.</p>
+  <p class="nota">É a peça que muda a conversa de cobrança: em vez de mandar um número que o cliente precisa acreditar, você manda o extrato que ele consulta sozinho, na hora que quiser.</p>
+</section>
+
+<section id="offline">
+  <h2>Trabalho offline</h2>
+  <p>Galpão de parede grossa e estrada de interior derrubam sinal. O app lida com isso sem pedir nada a quem está usando.</p>
+  <ul>
+    <li>Sem internet, o lançamento fica guardado no próprio celular, e o topo da tela mostra quantos estão na fila</li>
+    <li>Quando o sinal volta, sobe sozinho — ninguém precisa reenviar</li>
+    <li>Reenvio não duplica: cada lançamento carrega uma chave única e o servidor ignora repetição</li>
+    <li>Se a memória do celular apertar, o app guarda a contagem e descarta a foto — perder a foto é ruim, perder a contagem é pior</li>
+  </ul>
+  <p class="nota">O indicador <span class="chip ok">● Online</span> no topo fica vermelho quando a conexão cai, e mostra o número de itens na fila quando há pendência.</p>
+</section>
+
+<section id="tabelas">
+  <h2>Tipos e estados</h2>
+
+  <h3>Quem vê o quê</h3>
+  <div class="tabela">
+    <table>
+      <thead><tr><th>Perfil</th><th>Saída</th><th>Devolução</th><th>Conferência</th><th>Saldo</th><th>Painel</th></tr></thead>
+      <tbody>
+        <tr><td><code>MOTORISTA</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td></tr>
+        <tr><td><code>PROMOTOR</code></td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td></tr>
+        <tr><td><code>GALPAO</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">—</td></tr>
+        <tr><td><code>ADMIN</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Tipos de movimento</h3>
+  <div class="tabela">
+    <table>
+      <thead><tr><th>Tipo</th><th>Efeito no saldo</th></tr></thead>
+      <tbody>
+        <tr><td><code>SAIDA</code></td><td>Tira da origem e põe no destino</td></tr>
+        <tr><td><code>DEVOLUCAO</code></td><td>Tira do cliente e devolve ao galpão — só quando confirmada</td></tr>
+        <tr><td><code>TRANSFERENCIA</code></td><td>Move entre galpão e filial</td></tr>
+        <tr><td><code>PERDA</code></td><td>Baixa do saldo do cliente e vira valor em reais</td></tr>
+        <tr><td><code>AJUSTE</code></td><td>Corrige para mais ou para menos; é o que usa no saldo inicial</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Estados</h3>
+  <div class="tabela">
+    <table>
+      <thead><tr><th>Estado</th><th>O que significa</th></tr></thead>
+      <tbody>
+        <tr><td><span class="chip ok">CONFIRMADO</span></td><td>Já valeu no saldo</td></tr>
+        <tr><td><span class="chip aguarda">AGUARDANDO</span></td><td>Contado no cliente, esperando o galpão conferir. Ainda não mexeu no saldo.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="tecnico">
+  <h2>Nota técnica</h2>
+  <p>Site estático no GitHub Pages, sem servidor e sem mensalidade. Os dados ficam numa planilha do Google Sheets, acessada por um Google Apps Script publicado como aplicativo web.</p>
+  <div class="tabela">
+    <table>
+      <thead><tr><th>Aba da planilha</th><th>Conteúdo</th></tr></thead>
+      <tbody>
+        <tr><td><code>Locais</code></td><td>Galpões, filiais e clientes, com limite, prazo e o código do link</td></tr>
+        <tr><td><code>TiposCaixa</code></td><td>Tipos de caixa e valor unitário</td></tr>
+        <tr><td><code>Usuarios</code></td><td>Nome, perfil, PIN e local padrão</td></tr>
+        <tr><td><code>Movimentos</code></td><td>O livro-razão. Só acrescenta — nada é apagado</td></tr>
+        <tr><td><code>Config</code></td><td>Nome da empresa, prazo padrão e a pasta do Drive</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:18px">Assinaturas e fotos vão para a pasta <code>Qdelicia - Canhotos Caixas</code> no Drive, e o link aparece no extrato e na conferência.</p>
+  <p>Alterou o backend? Publique com <strong>Implantar → Gerenciar implantações → editar → Nova versão</strong>: o endereço não muda. Antes disso rode <code>node teste/teste_backend.js</code>, que executa o backend fora do Google contra uma planilha falsa e checa 38 pontos, incluindo o caminho da divergência e o cálculo de idade.</p>
+</section>
+
+<footer>
+  Qdelícia Frutas · Controle de Caixas — código em <code>sinerggia-dev/qdelicia-caixas</code>.
+</footer>
+
+</main>
+</div>
+</body>
+</html>
