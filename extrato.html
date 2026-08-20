@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#157f3c">
+<title>Extrato de Caixas · Qdelícia Frutas</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div style="font-size:22px">🍌</div>
+  <div class="marca">Extrato de Caixas<small id="cabNome">Qdelícia Frutas</small></div>
+</header>
+
+<main>
+  <div id="conteudo"><div class="card"><div class="vazio">Carregando extrato…</div></div></div>
+  <p style="font-size:12px;color:var(--txt3);text-align:center;margin:22px 0">
+    Qdelícia Frutas · Controle de Caixas — documento gerado automaticamente.
+  </p>
+</main>
+
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+(function(){
+  'use strict';
+  var Q = window.QDC;
+  var token = new URLSearchParams(location.search).get('t') || '';
+  var box = document.getElementById('conteudo');
+
+  if (!token){
+    box.innerHTML = '<div class="card"><div class="aviso-box erro">Link inválido — falta o código de acesso.</div></div>';
+    return;
+  }
+
+  Q.get({acao:'extratoToken', t:token}).then(function(r){
+    if (!r.ok) throw new Error(r.erro);
+    document.getElementById('cabNome').textContent = r.local.nome;
+    var ag = r.aging || {};
+    var linhas = r.linhas.slice().reverse();
+
+    box.innerHTML =
+      '<div class="kpis">'+
+        '<div class="kpi '+(r.saldo>0?'aviso':'ok')+'"><div class="v">'+Q.num(r.saldo)+'</div><div class="r">caixas em seu poder hoje</div></div>'+
+        (ag.d31?'<div class="kpi alerta"><div class="v">'+Q.num(ag.d31)+'</div><div class="r">parada há mais de 30 dias</div></div>':'')+
+        (r.emConferencia?'<div class="kpi info"><div class="v">'+Q.num(r.emConferencia)+'</div><div class="r">contadas, em conferência no galpão</div></div>':'')+
+        (ag.maisAntiga!==null&&ag.maisAntiga!==undefined?'<div class="kpi"><div class="v">'+ag.maisAntiga+'<span style="font-size:15px"> dias</span></div><div class="r">idade da caixa mais antiga</div></div>':'')+
+      '</div>'+
+      '<div class="card"><h2>Idade das caixas<span class="sub">Quanto mais antiga, maior o risco de a caixa não voltar.</span></h2>'+
+        Q.barraAging(ag)+
+        (r.porTipo && r.porTipo.length>1 ? '<h3>Por tipo de caixa</h3><div class="tabela-wrap"><table><thead><tr><th>Tipo</th><th class="num">Quantidade</th></tr></thead><tbody>'+
+          r.porTipo.map(function(t){ return '<tr><td>'+Q.esc(t.tipo)+'</td><td class="num"><b>'+Q.num(t.qtd)+'</b></td></tr>'; }).join('')+
+          '</tbody></table></div>' : '')+
+      '</div>'+
+      '<div class="card"><h2>Movimentação<span class="sub">Tudo que saiu para você e tudo que voltou para nós.</span></h2>'+
+        '<div class="tabela-wrap"><table><thead><tr><th>Data</th><th>Movimento</th><th>Caixa</th>'+
+        '<th class="num">Recebidas</th><th class="num">Devolvidas</th><th class="num">Saldo</th></tr></thead><tbody>'+
+        (linhas.length ? linhas.map(function(x){
+          return '<tr class="'+(x.status==='AGUARDANDO'?'destaque':'')+'"><td>'+Q.dataBR(x.data)+'</td>'+
+            '<td>'+Q.esc(x.descricao)+(x.status==='AGUARDANDO'?' <span class="tag amarela">em conferência</span>':'')+'</td>'+
+            '<td>'+Q.esc(x.tipoCaixa)+'</td>'+
+            '<td class="num">'+(x.entrada?Q.num(x.entrada):'')+'</td>'+
+            '<td class="num">'+(x.saida?Q.num(x.saida):'')+'</td>'+
+            '<td class="num"><b>'+Q.num(x.saldo)+'</b></td></tr>';
+        }).join('') : '<tr><td colspan="6" class="vazio">Sem movimentos registrados.</td></tr>')+
+        '</tbody></table></div>'+
+        '<div class="linha-btn"><button class="btn sec" onclick="window.print()" style="flex:0;min-width:150px">🖨 Imprimir</button></div>'+
+      '</div>'+
+      (r.saldo>0 ? '<div class="aviso-box atencao">Pedimos a gentileza de separar as caixas vazias para a próxima coleta. Qualquer divergência, fale com nosso escritório.</div>' : '');
+  }).catch(function(e){
+    box.innerHTML = '<div class="card"><div class="aviso-box erro">'+Q.esc(e.message)+'</div></div>';
+  });
+})();
+</script>
+</body>
+</html>

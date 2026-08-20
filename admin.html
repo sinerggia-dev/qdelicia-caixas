@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#157f3c">
+<title>Qdelícia Frutas · Painel de Caixas</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="telaLogin" class="login">
+  <div class="logo">📊📦</div>
+  <h1>Painel de Caixas</h1>
+  <p>Qdelícia Frutas · escritório</p>
+  <div class="card" style="text-align:left">
+    <label for="selUsuario">Usuário</label>
+    <select id="selUsuario"><option value="">Carregando…</option></select>
+    <label for="inPin">PIN</label>
+    <input id="inPin" class="pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off">
+    <div class="linha-btn"><button class="btn" id="btnEntrar">Entrar</button></div>
+    <div id="erroLogin"></div>
+  </div>
+  <p style="font-size:12.5px;color:var(--txt3)">Campo (motorista/promotor): <a href="index.html">app de lançamento</a>.</p>
+</div>
+
+<div id="app" style="display:none">
+<header>
+  <div style="font-size:22px">📦</div>
+  <div class="marca">Painel de Caixas<small id="cabUsuario">—</small></div>
+  <div class="chip" id="chipRede">● Online</div>
+  <div class="chip" id="chipSair">Sair</div>
+</header>
+
+<nav class="abas" id="abas">
+  <button class="ativa" data-pagina="pgPainel">Painel</button>
+  <button data-pagina="pgExtrato">Extratos</button>
+  <button data-pagina="pgLancar">Lançar</button>
+  <button data-pagina="pgMovimentos">Movimentos</button>
+  <button data-pagina="pgCadastros">Cadastros</button>
+</nav>
+
+<main>
+
+  <!-- ---------- PAINEL ---------- -->
+  <section id="pgPainel" class="pagina ativa">
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <h2>Caixas em poder de clientes e filiais<span class="sub">Ordenado por quem tem mais caixas nossas. Vermelho = tem caixa parada há mais de 30 dias.</span></h2>
+      <div class="busca"><input id="buscaPainel" type="text" placeholder="🔍 Buscar cliente ou filial"></div>
+      <div id="tabelaPainel"><div class="vazio">Carregando…</div></div>
+      <div class="linha-btn">
+        <button class="btn sec" id="btnCsvPainel" style="flex:0;min-width:180px">⬇ Exportar CSV</button>
+        <button class="btn neutro" id="btnAtualizarPainel" style="flex:0;min-width:140px">↻ Atualizar</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Idade das caixas na rua (geral)</h2>
+      <div id="agingGeral"></div>
+    </div>
+    <div class="card">
+      <h2>Estoque nos galpões<span class="sub">Precisa de um lançamento de Ajuste inicial para ficar correto.</span></h2>
+      <div id="tabelaGalpoes"></div>
+    </div>
+  </section>
+
+  <!-- ---------- EXTRATOS ---------- -->
+  <section id="pgExtrato" class="pagina">
+    <div class="card">
+      <h2>Extrato por cliente<span class="sub">É o documento de cobrança: mostra tudo que saiu, tudo que voltou e o que falta.</span></h2>
+      <div class="grid2">
+        <div><label for="exLocal">Cliente / Filial</label><select id="exLocal"></select></div>
+        <div><label for="exDe">De</label><input id="exDe" type="date"></div>
+        <div><label for="exAte">Até</label><input id="exAte" type="date"></div>
+      </div>
+      <div class="linha-btn">
+        <button class="btn" id="btnGerarExtrato">Gerar extrato</button>
+        <button class="btn sec" id="btnWhats" style="flex:0;min-width:150px">📲 WhatsApp</button>
+        <button class="btn neutro" id="btnLink" style="flex:0;min-width:170px">🔗 Link do cliente</button>
+        <button class="btn neutro" id="btnCsvExtrato" style="flex:0;min-width:130px">⬇ CSV</button>
+        <button class="btn neutro" id="btnImprimir" style="flex:0;min-width:130px">🖨 Imprimir</button>
+      </div>
+      <div id="extratoBox"></div>
+    </div>
+  </section>
+
+  <!-- ---------- LANÇAR ---------- -->
+  <section id="pgLancar" class="pagina">
+    <div class="card">
+      <h2>Lançamento manual<span class="sub">Para o escritório: digitar romaneio de papel, corrigir saldo inicial ou dar baixa de perda.</span></h2>
+      <div class="grid2">
+        <div>
+          <label for="lcTipo">Tipo de lançamento</label>
+          <select id="lcTipo">
+            <option value="SAIDA">Saída — galpão/filial → cliente</option>
+            <option value="TRANSFERENCIA">Transferência — galpão ↔ filial</option>
+            <option value="DEVOLUCAO">Devolução — cliente/filial → galpão</option>
+            <option value="PERDA">Baixa de perda — some do saldo do cliente</option>
+            <option value="AJUSTE">Ajuste / saldo inicial</option>
+          </select>
+        </div>
+        <div><label for="lcData">Data do movimento</label><input id="lcData" type="date"></div>
+        <div id="wrapOrigem"><label for="lcOrigem">Origem</label><select id="lcOrigem"></select></div>
+        <div id="wrapDestino"><label for="lcDestino">Destino</label><select id="lcDestino"></select></div>
+        <div><label for="lcRomaneio">Romaneio / NF</label><input id="lcRomaneio" type="text"></div>
+      </div>
+      <h3>Quantidade de caixas</h3>
+      <div class="itens" id="lcItens"></div>
+      <label for="lcObs">Observação / motivo</label>
+      <textarea id="lcObs" placeholder="Ex.: baixa de 12 caixas quebradas confirmadas pelo promotor"></textarea>
+      <div class="linha-btn"><button class="btn" id="btnLancar">Gravar lançamento</button></div>
+      <div id="lcAviso"></div>
+    </div>
+  </section>
+
+  <!-- ---------- MOVIMENTOS ---------- -->
+  <section id="pgMovimentos" class="pagina">
+    <div class="card">
+      <h2>Movimentos<span class="sub">Tudo que foi lançado, por qualquer usuário. Divergência = contado na chegada menos declarado no cliente.</span></h2>
+      <div class="grid2">
+        <div><label for="mvLocal">Local</label><select id="mvLocal"></select></div>
+        <div><label for="mvTipo">Tipo</label><select id="mvTipo">
+          <option value="">Todos</option><option value="SAIDA">Saída</option><option value="DEVOLUCAO">Devolução</option>
+          <option value="TRANSFERENCIA">Transferência</option><option value="PERDA">Perda</option><option value="AJUSTE">Ajuste</option>
+        </select></div>
+        <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
+        <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
+      </div>
+      <div class="linha-btn">
+        <button class="btn" id="btnFiltrarMov" style="flex:0;min-width:140px">Filtrar</button>
+        <button class="btn neutro" id="btnCsvMov" style="flex:0;min-width:130px">⬇ CSV</button>
+      </div>
+      <div id="tabelaMov"><div class="vazio">Use o filtro acima.</div></div>
+    </div>
+  </section>
+
+  <!-- ---------- CADASTROS ---------- -->
+  <section id="pgCadastros" class="pagina">
+    <div class="card">
+      <h2>Clientes, filiais e galpões</h2>
+      <div class="linha-btn" style="margin-top:2px">
+        <button class="btn" id="btnNovoLocal" style="flex:0;min-width:170px">+ Novo cadastro</button>
+      </div>
+      <div id="tabelaLocais"></div>
+    </div>
+    <div class="card">
+      <h2>Tipos de caixa<span class="sub">O valor unitário é o que transforma caixa perdida em prejuízo em R$.</span></h2>
+      <div class="linha-btn" style="margin-top:2px">
+        <button class="btn" id="btnNovoTipo" style="flex:0;min-width:170px">+ Novo tipo</button>
+      </div>
+      <div id="tabelaTipos"></div>
+    </div>
+    <div class="card">
+      <h2>Usuários<span class="sub">Perfis: ADMIN (tudo), GALPAO (lança e confere), MOTORISTA (lança na rua), PROMOTOR (conta no cliente).</span></h2>
+      <div class="linha-btn" style="margin-top:2px">
+        <button class="btn" id="btnNovoUsuario" style="flex:0;min-width:170px">+ Novo usuário</button>
+      </div>
+      <div id="tabelaUsuarios"></div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+(function(){
+  'use strict';
+  var Q = window.QDC;
+  var DADOS = null, PAINEL = null, EXTRATO = null, MOVS = [];
+
+  /* ---------------- login ---------------- */
+  function iniciarLogin(){
+    if (Q.semApi()){
+      document.getElementById('erroLogin').innerHTML =
+        '<div class="aviso-box erro">Configure a URL do Apps Script em <b>config.js</b>.</div>';
+      return;
+    }
+    Q.carregarDados().then(function(d){
+      DADOS = d;
+      var sel = document.getElementById('selUsuario');
+      var elegiveis = d.usuarios.filter(function(u){ return u.Perfil==='ADMIN' || u.Perfil==='GALPAO'; });
+      sel.innerHTML = '<option value="">Selecione…</option>' + elegiveis.map(function(u){
+        return '<option value="'+u.ID+'">'+Q.esc(u.Nome)+' · '+u.Perfil.toLowerCase()+'</option>';
+      }).join('');
+      var ultimo = localStorage.getItem('qdc_ultimo_admin');
+      if (ultimo) sel.value = ultimo;
+    }).catch(function(e){
+      document.getElementById('erroLogin').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
+    });
+  }
+  document.getElementById('btnEntrar').addEventListener('click', function(){
+    var id = document.getElementById('selUsuario').value;
+    if (!id) return Q.toast('Selecione o usuário.','erro');
+    var btn = this; btn.disabled = true; btn.textContent='Entrando…';
+    Q.post({acao:'login', usuarioId:id, pin:document.getElementById('inPin').value}).then(function(r){
+      btn.disabled=false; btn.textContent='Entrar';
+      if (!r.ok) return Q.toast(r.erro,'erro');
+      if (r.usuario.perfil!=='ADMIN' && r.usuario.perfil!=='GALPAO') return Q.toast('Este painel é só para ADMIN/GALPAO.','erro');
+      localStorage.setItem('qdc_ultimo_admin', id);
+      Q.entrar(r.usuario); abrirApp();
+    }).catch(function(e){ btn.disabled=false; btn.textContent='Entrar'; Q.toast(e.message,'erro'); });
+  });
+  document.getElementById('inPin').addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('btnEntrar').click(); });
+
+  /* ---------------- app ---------------- */
+  function abrirApp(){
+    var s = Q.sessao();
+    if (!s || (s.perfil!=='ADMIN' && s.perfil!=='GALPAO')){ iniciarLogin(); return; }
+    document.getElementById('telaLogin').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil.toLowerCase();
+    Q.abas('#abas');
+    var d1 = new Date(); d1.setDate(d1.getDate()-30);
+    document.getElementById('mvDe').value = d1.toISOString().slice(0,10);
+    document.getElementById('mvAte').value = Q.hoje();
+    document.getElementById('lcData').value = Q.hoje();
+    Q.carregarDados().then(function(d){ DADOS=d; montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
+    carregarPainel();
+  }
+  document.getElementById('chipSair').addEventListener('click', Q.sair);
+  window.aoAbrirAba = function(p){ if (p==='pgPainel') carregarPainel(); };
+
+  /* ---------------- selects e itens ---------------- */
+  function locaisPor(tipos){
+    return (DADOS.locais||[]).filter(function(l){ return tipos.indexOf(String(l.Tipo).toUpperCase())>=0; });
+  }
+  function opcoes(lista, vazio){
+    return '<option value="">'+(vazio||'Selecione…')+'</option>' + lista.map(function(l){
+      return '<option value="'+l.ID+'">'+(l.Tipo!=='CLIENTE'?'['+l.Tipo.charAt(0)+l.Tipo.slice(1).toLowerCase()+'] ':'')+Q.esc(l.Nome)+
+        (String(l.Ativo).toUpperCase()==='NAO'?' (inativo)':'')+'</option>';
+    }).join('');
+  }
+  function montarSelects(){
+    document.getElementById('exLocal').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL']));
+    document.getElementById('mvLocal').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL','GALPAO']), 'Todos');
+    document.getElementById('lcItens').innerHTML = (DADOS.tipos||[]).map(function(t){
+      return '<div class="item"><div class="nome">'+Q.esc(t.Nome)+'</div><div class="stepper">'+
+        '<input id="lc_'+t.ID+'" type="number" inputmode="numeric" placeholder="0"></div></div>';
+    }).join('');
+    ajustarLancamento();
+  }
+
+  /* ---------------- painel ---------------- */
+  function carregarPainel(){
+    Q.get({acao:'painel'}).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      PAINEL = r.painel; Q.cache('painel', PAINEL);
+      desenharKpis(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral();
+    }).catch(function(e){
+      PAINEL = Q.cache('painel');
+      if (PAINEL){ desenharKpis(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral(); Q.toast('Mostrando dados salvos: '+e.message,'erro'); }
+      else document.getElementById('tabelaPainel').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
+    });
+  }
+  function desenharKpis(){
+    var k = PAINEL.kpis;
+    document.getElementById('kpis').innerHTML =
+      kpi(Q.num(k.emPoderTerceiros),'caixas na rua (clientes+filiais)','aviso')+
+      kpi(Q.moeda(k.valorTerceiros),'valor exposto','info')+
+      kpi(Q.num(k.vencidas),'caixas fora do prazo de devolução', k.vencidas?'alerta':'ok')+
+      kpi(Q.num(k.aguardandoConferencia),'devoluções a conferir', k.aguardandoConferencia?'aviso':'ok')+
+      kpi(Q.num(k.perdasMes)+' · '+Q.moeda(k.perdasMesValor),'perdas baixadas no mês', k.perdasMes?'alerta':'ok')+
+      kpi(k.taxaRetorno===null?'—':k.taxaRetorno+'%','taxa de retorno do mês', k.taxaRetorno!==null&&k.taxaRetorno<90?'alerta':'ok')+
+      kpi(Q.num(k.divergenciaMes),'divergências de contagem no mês', k.divergenciaMes?'alerta':'ok')+
+      kpi(Q.num(k.clientesComSaldo),'clientes com caixa nossa','info');
+  }
+  function kpi(v,r,c){ return '<div class="kpi '+(c||'')+'"><div class="v">'+v+'</div><div class="r">'+r+'</div></div>'; }
+
+  function listaFiltrada(){
+    var b = (document.getElementById('buscaPainel').value||'').toLowerCase();
+    return (PAINEL.locais||[]).filter(function(l){ return !b || l.nome.toLowerCase().indexOf(b)>=0; });
+  }
+  function desenharTabelaPainel(){
+    var lista = listaFiltrada();
+    if (!lista.length){ document.getElementById('tabelaPainel').innerHTML='<div class="vazio">Nada encontrado.</div>'; return; }
+    document.getElementById('tabelaPainel').innerHTML =
+      '<div class="tabela-wrap"><table><thead><tr><th>Cliente / Filial</th><th class="num">Saldo</th><th class="num">Valor</th>'+
+      '<th class="num">≤7d</th><th class="num">8–15</th><th class="num">16–30</th><th class="num">+30</th>'+
+      '<th class="num">Mais antiga</th><th class="num">A conferir</th><th>Contato</th><th></th></tr></thead><tbody>'+
+      lista.map(function(l){
+        var cls = l.aging.d31>0 ? 'ruim' : (l.acimaLimite?'destaque':'');
+        return '<tr class="'+cls+'"><td><b>'+Q.esc(l.nome)+'</b>'+
+          (l.tipo==='FILIAL'?' <span class="tag cinza">filial</span>':'')+
+          (l.acimaLimite?' <span class="tag vermelha">limite '+Q.num(l.limite)+'</span>':'')+'</td>'+
+          '<td class="num"><b>'+Q.num(l.saldo)+'</b></td><td class="num">'+Q.moeda(l.valor)+'</td>'+
+          '<td class="num">'+Q.num(l.aging.d0_7)+'</td><td class="num">'+Q.num(l.aging.d8_15)+'</td>'+
+          '<td class="num">'+Q.num(l.aging.d16_30)+'</td><td class="num">'+(l.aging.d31?'<b style="color:var(--vermelho)">'+Q.num(l.aging.d31)+'</b>':'0')+'</td>'+
+          '<td class="num">'+(l.aging.maisAntiga===null?'—':l.aging.maisAntiga+'d')+'</td>'+
+          '<td class="num">'+(l.emConferencia?Q.num(l.emConferencia):'—')+'</td>'+
+          '<td>'+Q.esc(l.responsavel||'')+(l.telefone?'<br><span style="font-size:12px;color:var(--txt2)">'+Q.esc(l.telefone)+'</span>':'')+'</td>'+
+          '<td><button class="mini acao" data-ex="'+l.id+'">extrato</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+    document.querySelectorAll('#tabelaPainel button[data-ex]').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.querySelector('#abas button[data-pagina="pgExtrato"]').click();
+        document.getElementById('exLocal').value = b.dataset.ex;
+        gerarExtrato();
+      });
+    });
+  }
+  document.getElementById('buscaPainel').addEventListener('input', function(){ if (PAINEL) desenharTabelaPainel(); });
+  document.getElementById('btnAtualizarPainel').addEventListener('click', carregarPainel);
+  document.getElementById('btnCsvPainel').addEventListener('click', function(){
+    if (!PAINEL) return;
+    Q.csv('caixas_saldos_'+Q.hoje()+'.csv',
+      ['Cliente/Filial','Tipo','Saldo','Valor','Ate 7d','8-15d','16-30d','+30d','Mais antiga (dias)','A conferir','Limite','Responsavel','Telefone'],
+      listaFiltrada().map(function(l){ return [l.nome,l.tipo,l.saldo,String(l.valor).replace('.',','),l.aging.d0_7,l.aging.d8_15,l.aging.d16_30,l.aging.d31,l.aging.maisAntiga===null?'':l.aging.maisAntiga,l.emConferencia,l.limite||'',l.responsavel||'',l.telefone||'']; }));
+  });
+  function desenharAgingGeral(){
+    var t = {d0_7:0,d8_15:0,d16_30:0,d31:0,maisAntiga:null};
+    (PAINEL.locais||[]).forEach(function(l){
+      t.d0_7+=l.aging.d0_7; t.d8_15+=l.aging.d8_15; t.d16_30+=l.aging.d16_30; t.d31+=l.aging.d31;
+      if (l.aging.maisAntiga!==null && (t.maisAntiga===null || l.aging.maisAntiga>t.maisAntiga)) t.maisAntiga=l.aging.maisAntiga;
+    });
+    document.getElementById('agingGeral').innerHTML = Q.barraAging(t);
+  }
+  function desenharGalpoes(){
+    var g = PAINEL.galpoes||[];
+    var tipos = {}; (PAINEL.tipos||[]).forEach(function(t){ tipos[t.ID]=t.Nome; });
+    document.getElementById('tabelaGalpoes').innerHTML = g.length
+      ? '<div class="tabela-wrap"><table><thead><tr><th>Galpão</th><th class="num">Saldo</th><th>Por tipo</th></tr></thead><tbody>'+
+        g.map(function(x){
+          var det = Object.keys(x.porTipo||{}).map(function(t){ return Q.esc(tipos[t]||t)+': '+Q.num(x.porTipo[t]); }).join(' · ');
+          return '<tr><td><b>'+Q.esc(x.nome)+'</b></td><td class="num">'+Q.num(x.saldo)+'</td><td>'+(det||'—')+'</td></tr>';
+        }).join('')+'</tbody></table></div>'
+      : '<div class="vazio">Nenhum galpão cadastrado.</div>';
+  }
+
+  /* ---------------- extrato ---------------- */
+  function gerarExtrato(){
+    var id = document.getElementById('exLocal').value;
+    if (!id) return Q.toast('Escolha o cliente.','erro');
+    document.getElementById('extratoBox').innerHTML = '<div class="vazio">Carregando…</div>';
+    Q.get({acao:'extrato', local:id, de:document.getElementById('exDe').value, ate:document.getElementById('exAte').value})
+      .then(function(r){
+        if (!r.ok) throw new Error(r.erro);
+        EXTRATO = r;
+        var l = r.local;
+        document.getElementById('extratoBox').innerHTML =
+          '<h3 style="margin-top:18px">'+Q.esc(l.nome)+(l.responsavel?' · '+Q.esc(l.responsavel):'')+'</h3>'+
+          '<div class="kpis">'+
+            kpi(Q.num(r.saldo),'caixas em poder hoje', r.saldo>0?'aviso':'ok')+
+            kpi(Q.moeda(r.valor),'valor exposto','info')+
+            kpi(Q.num(r.saldoInicial),'saldo no início do período','')+
+            (r.emConferencia?kpi(Q.num(r.emConferencia),'contadas, aguardando conferência','aviso'):'')+
+          '</div>'+
+          Q.barraAging(r.aging)+
+          '<div class="tabela-wrap" style="margin-top:14px"><table><thead><tr>'+
+          '<th>Data</th><th>Movimento</th><th>Caixa</th><th class="num">Saiu</th><th class="num">Voltou</th>'+
+          '<th class="num">Divergência</th><th class="num">Saldo</th><th>Romaneio</th><th>Quem lançou</th><th>Comprovante</th>'+
+          '</tr></thead><tbody>'+
+          (r.linhas.length ? r.linhas.slice().reverse().map(function(x){
+            return '<tr class="'+(x.divergencia?'ruim':(x.status==='AGUARDANDO'?'destaque':''))+'">'+
+              '<td>'+Q.dataBR(x.data)+'</td><td>'+Q.esc(x.descricao)+
+                (x.status==='AGUARDANDO'?' <span class="tag amarela">a conferir</span>':'')+'</td>'+
+              '<td>'+Q.esc(x.tipoCaixa)+'</td>'+
+              '<td class="num">'+(x.entrada?Q.num(x.entrada):'')+'</td>'+
+              '<td class="num">'+(x.saida?Q.num(x.saida):'')+'</td>'+
+              '<td class="num">'+(x.divergencia?'<b style="color:var(--vermelho)">'+x.divergencia+'</b>':'')+'</td>'+
+              '<td class="num"><b>'+Q.num(x.saldo)+'</b></td>'+
+              '<td>'+Q.esc(x.romaneio||'')+'</td><td>'+Q.esc(x.usuario||'')+'</td>'+
+              '<td>'+(x.assinatura?'<a href="'+Q.esc(x.assinatura)+'" target="_blank">canhoto</a> ':'')+
+                     (x.foto?'<a href="'+Q.esc(x.foto)+'" target="_blank">foto</a>':'')+'</td></tr>';
+          }).join('') : '<tr><td colspan="10" class="vazio">Sem movimentos no período.</td></tr>')+
+          '</tbody></table></div>';
+      }).catch(function(e){ document.getElementById('extratoBox').innerHTML='<div class="aviso-box erro">'+Q.esc(e.message)+'</div>'; });
+  }
+  document.getElementById('btnGerarExtrato').addEventListener('click', gerarExtrato);
+  document.getElementById('btnImprimir').addEventListener('click', function(){ if (!EXTRATO) return Q.toast('Gere o extrato primeiro.','erro'); window.print(); });
+  document.getElementById('btnCsvExtrato').addEventListener('click', function(){
+    if (!EXTRATO) return Q.toast('Gere o extrato primeiro.','erro');
+    Q.csv('extrato_'+EXTRATO.local.nome.replace(/[^\w]+/g,'_')+'.csv',
+      ['Data','Movimento','Caixa','Saiu','Voltou','Declarada','Conferida','Divergencia','Saldo','Romaneio','Quem lancou','Obs'],
+      EXTRATO.linhas.map(function(x){ return [Q.dataBR(x.data),x.descricao,x.tipoCaixa,x.entrada,x.saida,x.declarada,x.conferida,x.divergencia,x.saldo,x.romaneio,x.usuario,x.obs]; }));
+  });
+  document.getElementById('btnWhats').addEventListener('click', function(){
+    if (!EXTRATO) return Q.toast('Gere o extrato primeiro.','erro');
+    var l = EXTRATO.local, ag = EXTRATO.aging;
+    var texto = '*Qdelícia Frutas — Controle de Caixas*\n' +
+      l.nome + '\n' +
+      'Posição em ' + Q.dataBR(Q.hoje()) + '\n\n' +
+      '📦 Caixas em seu poder: *' + Q.num(EXTRATO.saldo) + '*\n' +
+      (ag.d31 ? '⚠ Sendo *' + Q.num(ag.d31) + '* há mais de 30 dias\n' : '') +
+      (ag.maisAntiga !== null ? 'Mais antiga: ' + ag.maisAntiga + ' dias\n' : '') +
+      (EXTRATO.emConferencia ? 'Em conferência no galpão: ' + Q.num(EXTRATO.emConferencia) + '\n' : '') +
+      '\nÚltimos movimentos:\n' +
+      EXTRATO.linhas.slice(-6).reverse().map(function(x){
+        return '• ' + Q.dataBR(x.data) + ' — ' + (x.entrada ? 'saíram ' + x.entrada : 'voltaram ' + x.saida) + ' (saldo ' + x.saldo + ')';
+      }).join('\n') +
+      '\n\nPedimos a gentileza de separar as caixas para a próxima coleta. Obrigado!';
+    var tel = Q.soDigitos(l.telefone);
+    if (tel && tel.length >= 10 && tel.indexOf('55') !== 0) tel = '55' + tel;
+    var url = 'https://wa.me/' + (tel || '') + '?text=' + encodeURIComponent(texto);
+    window.open(url, '_blank');
+  });
+  document.getElementById('btnLink').addEventListener('click', function(){
+    var id = document.getElementById('exLocal').value;
+    var l = (DADOS.locais||[]).filter(function(x){ return String(x.ID)===String(id); })[0];
+    if (!l) return Q.toast('Escolha o cliente.','erro');
+    var url = location.href.replace(/admin\.html.*$/,'') + 'extrato.html?t=' + encodeURIComponent(l.Token);
+    modal('<h2>Link do cliente</h2><p style="font-size:14px;color:var(--txt2)">Só leitura, mostra o saldo e o extrato de <b>'+Q.esc(l.Nome)+'</b>. Pode mandar no WhatsApp.</p>'+
+      '<input type="text" id="lnk" value="'+Q.esc(url)+'" readonly>'+
+      '<div class="linha-btn"><button class="btn" id="btnCopiarLink">Copiar link</button>'+
+      '<button class="btn sec" onclick="window.open(\''+url+'\',\'_blank\')">Abrir</button></div>');
+    document.getElementById('btnCopiarLink').addEventListener('click', function(){
+      var i = document.getElementById('lnk'); i.select();
+      navigator.clipboard ? navigator.clipboard.writeText(i.value).then(function(){ Q.toast('Link copiado!','ok'); }) : document.execCommand('copy');
+    });
+  });
+
+  /* ---------------- lançamento manual ---------------- */
+  function ajustarLancamento(){
+    var t = document.getElementById('lcTipo').value;
+    var internos = locaisPor(['GALPAO','FILIAL']);
+    var externos = locaisPor(['CLIENTE','FILIAL']);
+    var todos = locaisPor(['GALPAO','FILIAL','CLIENTE']);
+    var wo = document.getElementById('wrapOrigem'), wd = document.getElementById('wrapDestino');
+    wo.style.display='block'; wd.style.display='block';
+    if (t==='SAIDA'){ document.getElementById('lcOrigem').innerHTML=opcoes(internos); document.getElementById('lcDestino').innerHTML=opcoes(externos); }
+    else if (t==='TRANSFERENCIA'){ document.getElementById('lcOrigem').innerHTML=opcoes(internos); document.getElementById('lcDestino').innerHTML=opcoes(internos); }
+    else if (t==='DEVOLUCAO'){ document.getElementById('lcOrigem').innerHTML=opcoes(externos); document.getElementById('lcDestino').innerHTML=opcoes(internos); }
+    else if (t==='PERDA'){ document.getElementById('lcOrigem').innerHTML=opcoes(todos); wd.style.display='none'; }
+    else if (t==='AJUSTE'){ document.getElementById('lcDestino').innerHTML=opcoes(todos); wo.style.display='none'; }
+  }
+  document.getElementById('lcTipo').addEventListener('change', ajustarLancamento);
+  document.getElementById('btnLancar').addEventListener('click', function(){
+    var s = Q.sessao();
+    var tipo = document.getElementById('lcTipo').value;
+    var itens = [];
+    (DADOS.tipos||[]).forEach(function(t){
+      var el = document.getElementById('lc_'+t.ID);
+      var v = Number(el && el.value);
+      // Só o Ajuste aceita número negativo (para corrigir saldo inicial lançado a mais).
+      if (el && el.value !== '' && !isNaN(v) && (tipo === 'AJUSTE' ? v !== 0 : v > 0)) {
+        itens.push({tipoCaixaId:t.ID, qtd:v});
+      }
+    });
+    if (!itens.length) return Q.toast('Informe a quantidade.','erro');
+    var total = itens.reduce(function(a,i){return a+i.qtd;},0);
+    if (tipo==='PERDA' && !confirm('Dar baixa de '+total+' caixa(s) como PERDA? Isso reduz o saldo do cliente e entra no prejuízo do mês.')) return;
+    var btn=this; btn.disabled=true; btn.textContent='Gravando…';
+    Q.enviar({
+      acao:'movimento', tipo:tipo,
+      origemId: document.getElementById('lcOrigem').value,
+      destinoId: document.getElementById('lcDestino').value,
+      itens: itens, dataRef: document.getElementById('lcData').value,
+      romaneio: document.getElementById('lcRomaneio').value,
+      obs: document.getElementById('lcObs').value,
+      usuarioId: s.id, perfil: 'ESCRITORIO', status:'CONFIRMADO'
+    }).then(function(r){
+      btn.disabled=false; btn.textContent='Gravar lançamento';
+      document.getElementById('lcAviso').innerHTML='<div class="aviso-box '+(r.offline?'atencao':'ok')+'">'+
+        (r.offline?'⏳ Sem conexão — guardado na fila.':'✓ Lançamento de <b>'+total+' caixa(s)</b> gravado.')+'</div>';
+      (DADOS.tipos||[]).forEach(function(t){ var el=document.getElementById('lc_'+t.ID); if (el) el.value=''; });
+      document.getElementById('lcObs').value=''; document.getElementById('lcRomaneio').value='';
+      if (!r.offline) carregarPainel();
+    }).catch(function(e){ btn.disabled=false; btn.textContent='Gravar lançamento'; Q.toast(e.message,'erro'); });
+  });
+
+  /* ---------------- movimentos ---------------- */
+  document.getElementById('btnFiltrarMov').addEventListener('click', carregarMovimentos);
+  function carregarMovimentos(){
+    var box = document.getElementById('tabelaMov');
+    box.innerHTML = '<div class="vazio">Carregando…</div>';
+    Q.get({acao:'movimentos', local:document.getElementById('mvLocal').value, tipo:document.getElementById('mvTipo').value,
+           de:document.getElementById('mvDe').value, ate:document.getElementById('mvAte').value, limit:500})
+      .then(function(r){
+        if (!r.ok) throw new Error(r.erro);
+        MOVS = r.movimentos;
+        if (!MOVS.length){ box.innerHTML='<div class="vazio">Nenhum movimento no filtro.</div>'; return; }
+        box.innerHTML = '<div class="tabela-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Destino</th>'+
+          '<th>Caixa</th><th class="num">Qtd</th><th class="num">Conferida</th><th class="num">Div.</th><th>Status</th>'+
+          '<th>Romaneio</th><th>Quem</th><th>Comprovante</th><th></th></tr></thead><tbody>'+
+          MOVS.map(function(m){
+            return '<tr class="'+(m.divergencia?'ruim':(m.status==='AGUARDANDO'?'destaque':''))+'">'+
+              '<td>'+Q.dataBR(m.dataRef)+'</td><td><span class="tag '+tagTipo(m.tipo)+'">'+m.tipo.toLowerCase()+'</span></td>'+
+              '<td>'+Q.esc(m.origem)+'</td><td>'+Q.esc(m.destino)+'</td><td>'+Q.esc(m.tipoCaixa)+'</td>'+
+              '<td class="num">'+Q.num(m.qtd)+'</td><td class="num">'+(m.qtdConferida===''?'—':Q.num(m.qtdConferida))+'</td>'+
+              '<td class="num">'+(m.divergencia?'<b style="color:var(--vermelho)">'+m.divergencia+'</b>':'')+'</td>'+
+              '<td>'+(m.status==='AGUARDANDO'?'<span class="tag amarela">a conferir</span>':'<span class="tag verde">ok</span>')+'</td>'+
+              '<td>'+Q.esc(m.romaneio||'')+'</td><td>'+Q.esc(m.usuario||'')+'</td>'+
+              '<td>'+(m.assinatura?'<a href="'+Q.esc(m.assinatura)+'" target="_blank">canhoto</a> ':'')+
+                     (m.foto?'<a href="'+Q.esc(m.foto)+'" target="_blank">foto</a>':'')+'</td>'+
+              '<td>'+(Q.ehAdmin()?'<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button>':'')+'</td></tr>';
+          }).join('')+'</tbody></table></div>';
+        box.querySelectorAll('button[data-cancelar]').forEach(function(b){
+          b.addEventListener('click', function(){
+            var motivo = prompt('Cancelar este movimento (ele deixa de contar no saldo).\nMotivo:');
+            if (motivo === null) return;
+            Q.post({acao:'cancelar', id:b.dataset.cancelar, motivo:motivo, usuarioId:Q.sessao().id}).then(function(r){
+              if (!r.ok) throw new Error(r.erro);
+              Q.toast('Movimento cancelado.','ok'); carregarMovimentos(); carregarPainel();
+            }).catch(function(e){ Q.toast(e.message,'erro'); });
+          });
+        });
+      }).catch(function(e){ box.innerHTML='<div class="aviso-box erro">'+Q.esc(e.message)+'</div>'; });
+  }
+  function tagTipo(t){
+    return t==='SAIDA'?'azul':(t==='DEVOLUCAO'?'verde':(t==='PERDA'?'vermelha':(t==='TRANSFERENCIA'?'cinza':'amarela')));
+  }
+  document.getElementById('btnCsvMov').addEventListener('click', function(){
+    if (!MOVS.length) return Q.toast('Filtre os movimentos primeiro.','erro');
+    Q.csv('movimentos_'+Q.hoje()+'.csv',
+      ['Data','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Quem','Obs'],
+      MOVS.map(function(m){ return [Q.dataBR(m.dataRef),m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,m.qtdConferida,m.divergencia,m.status,m.romaneio,m.usuario,m.obs]; }));
+  });
+
+  /* ---------------- cadastros ---------------- */
+  function desenharCadastros(){
+    var locais = DADOS.locais||[];
+    document.getElementById('tabelaLocais').innerHTML =
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Responsável</th><th>WhatsApp</th>'+
+      '<th class="num">Limite</th><th class="num">Prazo (dias)</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      locais.map(function(l){
+        return '<tr><td><b>'+Q.esc(l.Nome)+'</b></td><td><span class="tag cinza">'+Q.esc(String(l.Tipo).toLowerCase())+'</span></td>'+
+        '<td>'+Q.esc(l.Responsavel||'')+'</td><td>'+Q.esc(l.Telefone||'')+'</td>'+
+        '<td class="num">'+(l.LimiteCaixas||'—')+'</td><td class="num">'+(l.DiasPrazo||'—')+'</td>'+
+        '<td>'+(String(l.Ativo).toUpperCase()==='NAO'?'<span class="tag vermelha">não</span>':'<span class="tag verde">sim</span>')+'</td>'+
+        '<td><button class="mini acao" data-editar-local="'+l.ID+'">editar</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+    document.querySelectorAll('[data-editar-local]').forEach(function(b){
+      b.addEventListener('click', function(){ formLocal(locais.filter(function(l){return String(l.ID)===b.dataset.editarLocal;})[0]); });
+    });
+
+    document.getElementById('tabelaTipos').innerHTML =
+      '<div class="tabela-wrap"><table><thead><tr><th>Tipo de caixa</th><th class="num">Valor unitário</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      (DADOS.tipos||[]).map(function(t){
+        return '<tr><td><b>'+Q.esc(t.Nome)+'</b></td><td class="num">'+Q.moeda(t.ValorUnit)+'</td>'+
+        '<td>'+(String(t.Ativo).toUpperCase()==='NAO'?'<span class="tag vermelha">não</span>':'<span class="tag verde">sim</span>')+'</td>'+
+        '<td><button class="mini acao" data-editar-tipo="'+t.ID+'">editar</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+    document.querySelectorAll('[data-editar-tipo]').forEach(function(b){
+      b.addEventListener('click', function(){ formTipo((DADOS.tipos||[]).filter(function(t){return String(t.ID)===b.dataset.editarTipo;})[0]); });
+    });
+
+    document.getElementById('tabelaUsuarios').innerHTML =
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Local padrão</th><th>Telefone</th><th></th></tr></thead><tbody>'+
+      (DADOS.usuarios||[]).map(function(u){
+        var lp = (DADOS.locais||[]).filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
+        return '<tr><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil.toLowerCase())+'</span></td>'+
+        '<td>'+Q.esc(lp?lp.Nome:'')+'</td><td>'+Q.esc(u.Telefone||'')+'</td>'+
+        '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+    document.querySelectorAll('[data-editar-user]').forEach(function(b){
+      b.addEventListener('click', function(){ formUsuario((DADOS.usuarios||[]).filter(function(u){return String(u.ID)===b.dataset.editarUser;})[0]); });
+    });
+  }
+
+  function modal(html){
+    document.getElementById('modalBox').innerHTML = html +
+      '<div class="linha-btn"><button class="btn neutro" id="btnFecharModal">Fechar</button></div>';
+    document.getElementById('modal').classList.add('aberto');
+    document.getElementById('btnFecharModal').addEventListener('click', fecharModal);
+  }
+  function fecharModal(){ document.getElementById('modal').classList.remove('aberto'); }
+  document.getElementById('modal').addEventListener('click', function(e){ if (e.target === this) fecharModal(); });
+
+  function formLocal(l){
+    l = l || {};
+    modal('<h2>'+(l.ID?'Editar':'Novo')+' cliente / filial / galpão</h2>'+
+      '<label>Tipo</label><select id="fTipo">'+
+        ['CLIENTE','FILIAL','GALPAO'].map(function(t){ return '<option value="'+t+'"'+(String(l.Tipo)===t?' selected':'')+'>'+t.toLowerCase()+'</option>'; }).join('')+'</select>'+
+      '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(l.Nome||'')+'">'+
+      '<label>Responsável / promotor</label><input type="text" id="fResp" value="'+Q.esc(l.Responsavel||'')+'">'+
+      '<label>WhatsApp (com DDD)</label><input type="tel" id="fTel" value="'+Q.esc(l.Telefone||'')+'" placeholder="81 98151-7703">'+
+      '<div class="grid2">'+
+        '<div><label>Limite de caixas</label><input type="number" id="fLimite" value="'+Q.esc(l.LimiteCaixas||'')+'" placeholder="0 = sem limite"></div>'+
+        '<div><label>Prazo de devolução (dias)</label><input type="number" id="fPrazo" value="'+Q.esc(l.DiasPrazo||'')+'" placeholder="7"></div>'+
+      '</div>'+
+      '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(String(l.Ativo).toUpperCase()!=='NAO'?' selected':'')+'>sim</option><option value="NAO"'+(String(l.Ativo).toUpperCase()==='NAO'?' selected':'')+'>não</option></select>'+
+      '<label>Observação</label><textarea id="fObs">'+Q.esc(l.Obs||'')+'</textarea>'+
+      '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
+    document.getElementById('fSalvar').addEventListener('click', function(){
+      var reg = { ID:l.ID||'', Tipo:document.getElementById('fTipo').value, Nome:document.getElementById('fNome').value.trim(),
+        Responsavel:document.getElementById('fResp').value.trim(), Telefone:document.getElementById('fTel').value.trim(),
+        LimiteCaixas:document.getElementById('fLimite').value, DiasPrazo:document.getElementById('fPrazo').value,
+        Ativo:document.getElementById('fAtivo').value, Obs:document.getElementById('fObs').value };
+      if (!reg.Nome) return Q.toast('Informe o nome.','erro');
+      salvar('salvarLocal', reg, this);
+    });
+  }
+  function formTipo(t){
+    t = t || {};
+    modal('<h2>'+(t.ID?'Editar':'Novo')+' tipo de caixa</h2>'+
+      '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(t.Nome||'')+'" placeholder="Caixa Banana">'+
+      '<label>Valor unitário (R$)</label><input type="number" step="0.01" id="fValor" value="'+Q.esc(t.ValorUnit||'')+'">'+
+      '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(String(t.Ativo).toUpperCase()!=='NAO'?' selected':'')+'>sim</option><option value="NAO"'+(String(t.Ativo).toUpperCase()==='NAO'?' selected':'')+'>não</option></select>'+
+      '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
+    document.getElementById('fSalvar').addEventListener('click', function(){
+      var reg = { ID:t.ID||'', Nome:document.getElementById('fNome').value.trim(),
+        ValorUnit:document.getElementById('fValor').value, Ativo:document.getElementById('fAtivo').value };
+      if (!reg.Nome) return Q.toast('Informe o nome.','erro');
+      salvar('salvarTipo', reg, this);
+    });
+  }
+  function formUsuario(u){
+    u = u || {};
+    modal('<h2>'+(u.ID?'Editar':'Novo')+' usuário</h2>'+
+      '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(u.Nome||'')+'">'+
+      '<label>Perfil</label><select id="fPerfil">'+
+        ['ADMIN','GALPAO','MOTORISTA','PROMOTOR'].map(function(p){ return '<option value="'+p+'"'+(String(u.Perfil)===p?' selected':'')+'>'+p.toLowerCase()+'</option>'; }).join('')+'</select>'+
+      '<label>PIN (4 a 6 números)</label><input type="text" inputmode="numeric" id="fPin" value="'+Q.esc(u.PIN||'')+'" placeholder="deixe em branco para manter">'+
+      '<label>Telefone</label><input type="tel" id="fTel" value="'+Q.esc(u.Telefone||'')+'">'+
+      '<label>Local padrão (galpão/filial onde trabalha)</label><select id="fLocal">'+opcoes(locaisPor(['GALPAO','FILIAL']),'—')+'</select>'+
+      '<label>Ativo</label><select id="fAtivo"><option value="SIM">sim</option><option value="NAO">não</option></select>'+
+      '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
+    if (u.LocalPadrao) document.getElementById('fLocal').value = u.LocalPadrao;
+    document.getElementById('fSalvar').addEventListener('click', function(){
+      var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:document.getElementById('fPerfil').value,
+        Telefone:document.getElementById('fTel').value.trim(), LocalPadrao:document.getElementById('fLocal').value,
+        Ativo:document.getElementById('fAtivo').value };
+      var pin = document.getElementById('fPin').value.trim();
+      if (pin) reg.PIN = pin;
+      if (!reg.Nome) return Q.toast('Informe o nome.','erro');
+      if (!reg.ID && !pin) return Q.toast('Defina um PIN para o novo usuário.','erro');
+      salvar('salvarUsuario', reg, this);
+    });
+  }
+  function salvar(acao, registro, btn){
+    btn.disabled = true; btn.textContent = 'Salvando…';
+    Q.post({acao:acao, registro:registro}).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      Q.toast('Salvo!','ok'); fecharModal();
+      return Q.get({acao:'dados'}).then(function(d){ if (d.ok){ DADOS=d; Q.cache('dados',d); montarSelects(); desenharCadastros(); } });
+    }).catch(function(e){ btn.disabled=false; btn.textContent='Salvar'; Q.toast(e.message,'erro'); });
+  }
+
+  document.getElementById('btnNovoLocal').addEventListener('click', function(){ formLocal(null); });
+  document.getElementById('btnNovoTipo').addEventListener('click', function(){ formTipo(null); });
+  document.getElementById('btnNovoUsuario').addEventListener('click', function(){ formUsuario(null); });
+
+  window.addEventListener('dadosAtualizados', function(e){ DADOS = e.detail; montarSelects(); desenharCadastros(); });
+
+  if (Q.sessao() && (Q.sessao().perfil==='ADMIN' || Q.sessao().perfil==='GALPAO')) abrirApp(); else iniciarLogin();
+})();
+</script>
+</body>
+</html>

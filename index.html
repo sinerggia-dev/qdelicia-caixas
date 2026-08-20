@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#157f3c">
+<title>Qdelícia Frutas · Controle de Caixas</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="telaLogin" class="login">
+  <div class="logo">🍌📦</div>
+  <h1>Controle de Caixas</h1>
+  <p>Qdelícia Frutas</p>
+  <div class="card" style="text-align:left">
+    <label for="selUsuario">Quem é você?</label>
+    <select id="selUsuario"><option value="">Carregando…</option></select>
+    <label for="inPin">PIN</label>
+    <input id="inPin" class="pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off">
+    <div class="linha-btn"><button class="btn" id="btnEntrar">Entrar</button></div>
+    <div id="erroLogin"></div>
+  </div>
+  <p style="font-size:12.5px;color:var(--txt3)">Escritório: use o <a href="admin.html">painel administrativo</a>.</p>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app" style="display:none">
+<header>
+  <div style="font-size:22px">🍌</div>
+  <div class="marca">Controle de Caixas<small id="cabUsuario">—</small></div>
+  <div class="chip" id="chipRede">● Online</div>
+  <div class="chip" id="chipSair">Sair</div>
+</header>
+
+<nav class="abas" id="abas">
+  <button class="ativa" data-pagina="pgSaida">Saída</button>
+  <button data-pagina="pgDevolucao">Devolução</button>
+  <button data-pagina="pgConferencia" id="abaConferencia">Conferência</button>
+  <button data-pagina="pgSaldo">Saldo</button>
+</nav>
+
+<main>
+
+  <!-- ---------- SAÍDA ---------- -->
+  <section id="pgSaida" class="pagina ativa">
+    <div class="card">
+      <h2>Saída de caixas<span class="sub">Caixas saindo do galpão ou da filial. Confirmado na hora — a contagem da saída é a fonte da verdade.</span></h2>
+      <div class="grid2">
+        <div>
+          <label for="sdOrigem">Sai de</label>
+          <select id="sdOrigem"></select>
+        </div>
+        <div>
+          <label for="sdDestino">Vai para</label>
+          <select id="sdDestino"></select>
+        </div>
+        <div>
+          <label for="sdData">Data</label>
+          <input id="sdData" type="date">
+        </div>
+        <div>
+          <label for="sdRomaneio">Romaneio / NF (opcional)</label>
+          <input id="sdRomaneio" type="text" inputmode="numeric" placeholder="nº do documento">
+        </div>
+      </div>
+
+      <h3>Quantas caixas</h3>
+      <div class="itens" id="sdItens"></div>
+
+      <label for="sdObs">Observação (opcional)</label>
+      <textarea id="sdObs" placeholder="Ex.: entregue ao Sr. João, portaria dos fundos"></textarea>
+
+      <h3>Canhoto — assinatura de quem recebeu</h3>
+      <canvas id="sdAssina" class="assinatura"></canvas>
+      <div class="linha-btn" style="margin-top:8px">
+        <button class="mini" id="sdLimparAssina" style="flex:0">Limpar assinatura</button>
+        <label class="mini" style="flex:0;margin:0;cursor:pointer;display:inline-block;padding:7px 11px">
+          📷 Foto do romaneio
+          <input id="sdFoto" type="file" accept="image/*" capture="environment" style="display:none">
+        </label>
+        <span id="sdFotoOk" style="font-size:13px;color:var(--verde);align-self:center"></span>
+      </div>
+
+      <div class="linha-btn">
+        <button class="btn" id="btnSalvarSaida">Registrar saída</button>
+        <button class="btn neutro" id="btnLimparSaida" style="flex:0;min-width:110px">Limpar</button>
+      </div>
+      <div id="sdAviso"></div>
+    </div>
+  </section>
+
+  <!-- ---------- DEVOLUÇÃO ---------- -->
+  <section id="pgDevolucao" class="pagina">
+    <div class="card">
+      <h2>Devolução de caixas<span class="sub" id="devSub">Caixas voltando do cliente.</span></h2>
+      <div class="grid2">
+        <div>
+          <label for="dvOrigem">Devolvidas por</label>
+          <select id="dvOrigem"></select>
+        </div>
+        <div>
+          <label for="dvDestino">Recebidas em</label>
+          <select id="dvDestino"></select>
+        </div>
+        <div>
+          <label for="dvData">Data</label>
+          <input id="dvData" type="date">
+        </div>
+        <div>
+          <label for="dvRomaneio">Romaneio (opcional)</label>
+          <input id="dvRomaneio" type="text" inputmode="numeric">
+        </div>
+      </div>
+
+      <div id="dvSaldoAtual"></div>
+
+      <h3>Quantidade contada</h3>
+      <div class="itens" id="dvItens"></div>
+
+      <label for="dvObs">Observação (opcional)</label>
+      <textarea id="dvObs" placeholder="Ex.: 4 caixas quebradas, separadas"></textarea>
+
+      <h3>Assinatura de quem entregou (opcional)</h3>
+      <canvas id="dvAssina" class="assinatura"></canvas>
+      <div class="linha-btn" style="margin-top:8px">
+        <button class="mini" id="dvLimparAssina" style="flex:0">Limpar assinatura</button>
+        <label class="mini" style="flex:0;margin:0;cursor:pointer;display:inline-block;padding:7px 11px">
+          📷 Foto das caixas
+          <input id="dvFoto" type="file" accept="image/*" capture="environment" style="display:none">
+        </label>
+        <span id="dvFotoOk" style="font-size:13px;color:var(--verde);align-self:center"></span>
+      </div>
+
+      <div class="linha-btn">
+        <button class="btn" id="btnSalvarDevolucao">Registrar devolução</button>
+        <button class="btn neutro" id="btnLimparDevolucao" style="flex:0;min-width:110px">Limpar</button>
+      </div>
+      <div id="dvAviso"></div>
+    </div>
+  </section>
+
+  <!-- ---------- CONFERÊNCIA ---------- -->
+  <section id="pgConferencia" class="pagina">
+    <div class="card">
+      <h2>Conferência na chegada<span class="sub">Contagens feitas no cliente esperando validação. O saldo do cliente só baixa depois desta conferência.</span></h2>
+      <div class="linha-btn" style="margin-top:4px">
+        <button class="btn sec" id="btnRecarregarPend" style="flex:0;min-width:150px">↻ Atualizar lista</button>
+      </div>
+      <div id="listaPendentes"><div class="vazio">Carregando…</div></div>
+    </div>
+  </section>
+
+  <!-- ---------- SALDO ---------- -->
+  <section id="pgSaldo" class="pagina">
+    <div class="card">
+      <h2>Saldo de caixas<span class="sub">Quantas caixas cada cliente/filial está com a gente hoje.</span></h2>
+      <div class="busca"><input id="buscaSaldo" type="text" placeholder="🔍 Buscar cliente ou filial"></div>
+      <div id="listaSaldos"><div class="vazio">Carregando…</div></div>
+    </div>
+    <div class="card" id="cardExtrato" style="display:none">
+      <h2 id="extratoTitulo">Extrato</h2>
+      <div id="extratoConteudo"></div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+(function(){
+  'use strict';
+  var Q = window.QDC;
+  var DADOS = null, PAINEL = null, sdAssina = null, dvAssina = null, sdFotoData = '', dvFotoData = '';
+
+  /* ---------------- login ---------------- */
+  function iniciarLogin(){
+    if (Q.semApi()){
+      document.getElementById('erroLogin').innerHTML =
+        '<div class="aviso-box erro">Configure a URL do Apps Script no arquivo <b>config.js</b> antes de usar.</div>';
+      return;
+    }
+    Q.carregarDados().then(function(d){
+      DADOS = d;
+      var sel = document.getElementById('selUsuario');
+      sel.innerHTML = '<option value="">Selecione…</option>' + d.usuarios.map(function(u){
+        return '<option value="'+u.ID+'">'+Q.esc(u.Nome)+' · '+u.Perfil.toLowerCase()+'</option>';
+      }).join('');
+      var ultimo = localStorage.getItem('qdc_ultimo_usuario');
+      if (ultimo) sel.value = ultimo;
+    }).catch(function(e){
+      document.getElementById('erroLogin').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
+    });
+  }
+
+  document.getElementById('btnEntrar').addEventListener('click', function(){
+    var id = document.getElementById('selUsuario').value;
+    var pin = document.getElementById('inPin').value;
+    if (!id) return Q.toast('Selecione seu nome.','erro');
+    var btn = this; btn.disabled = true; btn.textContent = 'Entrando…';
+    Q.post({acao:'login', usuarioId:id, pin:pin}).then(function(r){
+      btn.disabled = false; btn.textContent = 'Entrar';
+      if (!r.ok) return Q.toast(r.erro,'erro');
+      localStorage.setItem('qdc_ultimo_usuario', id);
+      Q.entrar(r.usuario);
+      abrirApp();
+    }).catch(function(e){ btn.disabled=false; btn.textContent='Entrar'; Q.toast(e.message,'erro'); });
+  });
+  document.getElementById('inPin').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') document.getElementById('btnEntrar').click();
+  });
+
+  /* ---------------- app ---------------- */
+  function abrirApp(){
+    var s = Q.sessao();
+    document.getElementById('telaLogin').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil.toLowerCase();
+    if (!Q.podeConferir()) document.getElementById('abaConferencia').style.display = 'none';
+    Q.abas('#abas');
+    if (s.perfil === 'PROMOTOR'){
+      // Promotor só conta devolução no cliente.
+      document.querySelectorAll('#abas button').forEach(function(b){
+        if (b.dataset.pagina === 'pgSaida') b.style.display = 'none';
+      });
+      document.querySelector('#abas button[data-pagina="pgDevolucao"]').click();
+      document.getElementById('devSub').textContent =
+        'Você conta as caixas no cliente. O galpão confere na chegada e o saldo baixa nessa hora.';
+    }
+    Q.carregarDados().then(function(d){ DADOS = d; montarFormularios(); }).catch(function(e){ Q.toast(e.message,'erro'); });
+    carregarPainel();
+    if (Q.podeConferir()) carregarPendentes();
+  }
+
+  document.getElementById('chipSair').addEventListener('click', function(){
+    if (Q.fila().length && !confirm('Existem lançamentos ainda não enviados na fila. Sair mesmo assim?')) return;
+    Q.sair();
+  });
+
+  window.aoAbrirAba = function(pagina){
+    if (pagina === 'pgConferencia') carregarPendentes();
+    if (pagina === 'pgSaldo') carregarPainel();
+    if (pagina === 'pgDevolucao') mostrarSaldoDoOrigem();
+  };
+
+  /* ---------------- formulários ---------------- */
+  function locaisPor(tipos){
+    return (DADOS.locais||[]).filter(function(l){
+      return tipos.indexOf(String(l.Tipo).toUpperCase())>=0 && String(l.Ativo).toUpperCase()!=='NAO';
+    });
+  }
+  function opcoes(lista, selecionado){
+    return '<option value="">Selecione…</option>' + lista.map(function(l){
+      var rot = (l.Tipo==='CLIENTE'?'':'['+l.Tipo.charAt(0)+l.Tipo.slice(1).toLowerCase()+'] ');
+      return '<option value="'+l.ID+'"'+(String(selecionado)===String(l.ID)?' selected':'')+'>'+rot+Q.esc(l.Nome)+'</option>';
+    }).join('');
+  }
+  function itensHTML(prefixo){
+    return (DADOS.tipos||[]).filter(function(t){ return String(t.Ativo).toUpperCase()!=='NAO'; }).map(function(t){
+      return '<div class="item">'+
+        '<div class="nome">'+Q.esc(t.Nome)+(Number(t.ValorUnit)?'<small>'+Q.moeda(t.ValorUnit)+' por caixa</small>':'')+'</div>'+
+        '<div class="stepper">'+
+          '<button type="button" data-passo="-10" data-alvo="'+prefixo+t.ID+'" style="font-size:14px">−10</button>'+
+          '<input id="'+prefixo+t.ID+'" type="number" inputmode="numeric" min="0" step="1" value="" placeholder="0" data-tipo="'+t.ID+'">'+
+          '<button type="button" data-passo="10" data-alvo="'+prefixo+t.ID+'" style="font-size:14px">+10</button>'+
+        '</div></div>';
+    }).join('');
+  }
+  function ligarSteppers(container){
+    container.querySelectorAll('button[data-passo]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var inp = document.getElementById(b.dataset.alvo);
+        var v = Number(inp.value||0) + Number(b.dataset.passo);
+        inp.value = Math.max(0, v) || '';
+        if (container.id === 'dvItens') mostrarSaldoDoOrigem();
+      });
+    });
+    if (container.id === 'dvItens'){
+      container.querySelectorAll('input').forEach(function(i){ i.addEventListener('input', mostrarSaldoDoOrigem); });
+    }
+  }
+  function coletarItens(prefixo){
+    var itens = [];
+    (DADOS.tipos||[]).forEach(function(t){
+      var el = document.getElementById(prefixo+t.ID);
+      if (el && Number(el.value) > 0) itens.push({tipoCaixaId:t.ID, qtd:Number(el.value)});
+    });
+    return itens;
+  }
+  function zerarItens(prefixo){
+    (DADOS.tipos||[]).forEach(function(t){
+      var el = document.getElementById(prefixo+t.ID); if (el) el.value = '';
+    });
+  }
+
+  function montarFormularios(){
+    var s = Q.sessao();
+    var internos = locaisPor(['GALPAO','FILIAL']);
+    var destinos = locaisPor(['CLIENTE','FILIAL']);
+    document.getElementById('sdOrigem').innerHTML = opcoes(internos, s.localPadrao);
+    document.getElementById('sdDestino').innerHTML = opcoes(destinos);
+    document.getElementById('dvOrigem').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL']));
+    document.getElementById('dvDestino').innerHTML = opcoes(internos, s.localPadrao);
+    document.getElementById('sdData').value = Q.hoje();
+    document.getElementById('dvData').value = Q.hoje();
+    document.getElementById('sdItens').innerHTML = itensHTML('sd_');
+    document.getElementById('dvItens').innerHTML = itensHTML('dv_');
+    ligarSteppers(document.getElementById('sdItens'));
+    ligarSteppers(document.getElementById('dvItens'));
+    if (!sdAssina) sdAssina = Q.assinatura(document.getElementById('sdAssina'));
+    if (!dvAssina) dvAssina = Q.assinatura(document.getElementById('dvAssina'));
+    document.getElementById('dvOrigem').addEventListener('change', mostrarSaldoDoOrigem);
+  }
+
+  document.getElementById('sdLimparAssina').addEventListener('click', function(){ sdAssina.limpar(); });
+  document.getElementById('dvLimparAssina').addEventListener('click', function(){ dvAssina.limpar(); });
+
+  function ligarFoto(inputId, okId, setter){
+    document.getElementById(inputId).addEventListener('change', function(){
+      var f = this.files && this.files[0];
+      if (!f) return;
+      document.getElementById(okId).textContent = 'processando…';
+      Q.comprimirFoto(f, 1200, 0.7).then(function(dataUrl){
+        setter(dataUrl);
+        document.getElementById(okId).textContent = '✓ foto anexada';
+      }).catch(function(e){ document.getElementById(okId).textContent = ''; Q.toast(e.message,'erro'); });
+    });
+  }
+  ligarFoto('sdFoto','sdFotoOk',function(d){ sdFotoData=d; });
+  ligarFoto('dvFoto','dvFotoOk',function(d){ dvFotoData=d; });
+
+  /* ---------------- gravar saída ---------------- */
+  document.getElementById('btnSalvarSaida').addEventListener('click', function(){
+    var s = Q.sessao();
+    var origem = document.getElementById('sdOrigem').value;
+    var destino = document.getElementById('sdDestino').value;
+    var itens = coletarItens('sd_');
+    if (!origem) return Q.toast('Informe de onde as caixas estão saindo.','erro');
+    if (!destino) return Q.toast('Informe para quem as caixas vão.','erro');
+    if (!itens.length) return Q.toast('Informe a quantidade de caixas.','erro');
+    var total = itens.reduce(function(a,i){return a+i.qtd;},0);
+    if (!confirm('Confirmar saída de ' + total + ' caixa(s)?')) return;
+
+    var destinoTipo = (DADOS.locais.filter(function(l){return String(l.ID)===destino;})[0]||{}).Tipo;
+    var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
+    Q.enviar({
+      acao:'movimento',
+      tipo: destinoTipo === 'FILIAL' ? 'TRANSFERENCIA' : 'SAIDA',
+      origemId: origem, destinoId: destino,
+      itens: itens,
+      dataRef: document.getElementById('sdData').value,
+      romaneio: document.getElementById('sdRomaneio').value,
+      obs: document.getElementById('sdObs').value,
+      usuarioId: s.id, perfil: s.perfil,
+      assinatura: sdAssina.dataURL(), foto: sdFotoData
+    }).then(function(r){
+      btn.disabled = false; btn.textContent = 'Registrar saída';
+      document.getElementById('sdAviso').innerHTML = '<div class="aviso-box '+(r.offline?'atencao':'ok')+'">'+
+        (r.offline ? '⏳ Sem conexão — <b>'+total+' caixa(s)</b> na fila. Envia automaticamente quando a internet voltar.'
+                   : '✓ Saída de <b>'+total+' caixa(s)</b> registrada.')+'</div>';
+      Q.toast(r.offline ? 'Guardado na fila (offline).' : 'Saída registrada!', 'ok');
+      limparSaida(true);
+      if (!r.offline) carregarPainel();
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = 'Registrar saída';
+      Q.toast(e.message,'erro');
+    });
+  });
+  function limparSaida(manterLocais){
+    zerarItens('sd_');
+    document.getElementById('sdObs').value = '';
+    document.getElementById('sdRomaneio').value = '';
+    sdAssina.limpar(); sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
+    if (!manterLocais){ document.getElementById('sdDestino').value=''; document.getElementById('sdAviso').innerHTML=''; }
+  }
+  document.getElementById('btnLimparSaida').addEventListener('click', function(){ limparSaida(false); });
+
+  /* ---------------- gravar devolução ---------------- */
+  document.getElementById('btnSalvarDevolucao').addEventListener('click', function(){
+    var s = Q.sessao();
+    var origem = document.getElementById('dvOrigem').value;
+    var destino = document.getElementById('dvDestino').value;
+    var itens = coletarItens('dv_');
+    if (!origem) return Q.toast('Informe quem está devolvendo.','erro');
+    if (!destino) return Q.toast('Informe onde as caixas foram recebidas.','erro');
+    if (!itens.length) return Q.toast('Informe a quantidade contada.','erro');
+    var total = itens.reduce(function(a,i){return a+i.qtd;},0);
+
+    var aguarda = (s.perfil === 'PROMOTOR' || s.perfil === 'MOTORISTA');
+    var msg = aguarda
+      ? 'Registrar contagem de ' + total + ' caixa(s)? O galpão vai conferir na chegada.'
+      : 'Confirmar entrada de ' + total + ' caixa(s)?';
+    if (!confirm(msg)) return;
+
+    var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
+    Q.enviar({
+      acao:'movimento', tipo:'DEVOLUCAO',
+      origemId: origem, destinoId: destino, itens: itens,
+      dataRef: document.getElementById('dvData').value,
+      romaneio: document.getElementById('dvRomaneio').value,
+      obs: document.getElementById('dvObs').value,
+      usuarioId: s.id, perfil: s.perfil,
+      assinatura: dvAssina.dataURL(), foto: dvFotoData
+    }).then(function(r){
+      btn.disabled = false; btn.textContent = 'Registrar devolução';
+      var txt = r.offline
+        ? '⏳ Sem conexão — <b>'+total+' caixa(s)</b> na fila. Envia sozinho quando a internet voltar.'
+        : (aguarda
+            ? '✓ Contagem de <b>'+total+' caixa(s)</b> registrada. Aguardando conferência no galpão.'
+            : '✓ Entrada de <b>'+total+' caixa(s)</b> confirmada. Saldo do cliente já baixou.');
+      document.getElementById('dvAviso').innerHTML = '<div class="aviso-box '+(r.offline?'atencao':'ok')+'">'+txt+'</div>';
+      Q.toast(r.offline ? 'Guardado na fila (offline).' : 'Devolução registrada!','ok');
+      limparDevolucao(true);
+      if (!r.offline){ carregarPainel(); if (Q.podeConferir()) carregarPendentes(); }
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = 'Registrar devolução';
+      Q.toast(e.message,'erro');
+    });
+  });
+  function limparDevolucao(manter){
+    zerarItens('dv_');
+    document.getElementById('dvObs').value = '';
+    document.getElementById('dvRomaneio').value = '';
+    dvAssina.limpar(); dvFotoData=''; document.getElementById('dvFotoOk').textContent='';
+    if (!manter){ document.getElementById('dvOrigem').value=''; document.getElementById('dvAviso').innerHTML=''; mostrarSaldoDoOrigem(); }
+  }
+  document.getElementById('btnLimparDevolucao').addEventListener('click', function(){ limparDevolucao(false); });
+
+  /** Mostra o saldo do local escolhido e avisa se a contagem passou do saldo. */
+  function mostrarSaldoDoOrigem(){
+    var el = document.getElementById('dvSaldoAtual');
+    if (!el) return;
+    var id = document.getElementById('dvOrigem').value;
+    if (!id || !PAINEL){ el.innerHTML=''; return; }
+    var l = (PAINEL.locais||[]).filter(function(x){return String(x.id)===String(id);})[0];
+    if (!l){ el.innerHTML=''; return; }
+    var contado = coletarItens('dv_').reduce(function(a,i){return a+i.qtd;},0);
+    var html = '<div class="aviso-box info">Saldo atual de <b>'+Q.esc(l.nome)+'</b>: <b>'+Q.num(l.saldo)+' caixa(s)</b>'+
+      (l.emConferencia ? ' · '+Q.num(l.emConferencia)+' já em conferência' : '')+
+      (l.aging && l.aging.maisAntiga !== null ? ' · mais antiga há '+l.aging.maisAntiga+' dias' : '')+'</div>';
+    if (contado > l.saldo){
+      html += '<div class="aviso-box atencao">⚠ Você contou <b>'+Q.num(contado)+'</b>, mas o sistema mostra saldo de <b>'+Q.num(l.saldo)+'</b>. '+
+              'Pode ser saída não lançada — registre e avise o escritório.</div>';
+    }
+    el.innerHTML = html;
+  }
+
+  /* ---------------- conferência ---------------- */
+  function carregarPendentes(){
+    if (!Q.podeConferir()) return;
+    var box = document.getElementById('listaPendentes');
+    box.innerHTML = '<div class="vazio">Carregando…</div>';
+    Q.get({acao:'pendentes'}).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      if (!r.movimentos.length){
+        box.innerHTML = '<div class="vazio">✓ Nada aguardando conferência.</div>';
+        return;
+      }
+      box.innerHTML = r.movimentos.map(function(m){
+        return '<div class="card" style="margin:12px 0;box-shadow:none">'+
+          '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">'+
+            '<div><b>'+Q.esc(m.origem)+'</b><br><span style="font-size:13px;color:var(--txt2)">'+
+              Q.dataBR(m.dataRef)+' · '+Q.esc(m.tipoCaixa)+' · contado por '+Q.esc(m.perfil.toLowerCase())+
+              (m.romaneio?' · romaneio '+Q.esc(m.romaneio):'')+'</span></div>'+
+            '<div style="text-align:right"><span class="tag amarela">declarado '+Q.num(m.qtd)+'</span></div>'+
+          '</div>'+
+          (m.obs?'<div style="font-size:13px;color:var(--txt2);margin-top:6px">📝 '+Q.esc(m.obs)+'</div>':'')+
+          (m.assinatura?'<div style="margin-top:6px;font-size:13px"><a href="'+Q.esc(m.assinatura)+'" target="_blank">ver canhoto</a></div>':'')+
+          (m.foto?'<div style="font-size:13px"><a href="'+Q.esc(m.foto)+'" target="_blank">ver foto</a></div>':'')+
+          '<div style="display:flex;gap:8px;align-items:flex-end;margin-top:10px;flex-wrap:wrap">'+
+            '<div style="flex:1;min-width:130px"><label style="margin-top:0">Contei na chegada</label>'+
+              '<input type="number" inputmode="numeric" min="0" id="cf_'+m.id+'" value="'+m.qtd+'"></div>'+
+            '<button class="btn" style="flex:0;min-width:130px" data-conferir="'+m.id+'" data-decl="'+m.qtd+'">Confirmar</button>'+
+          '</div></div>';
+      }).join('');
+      box.querySelectorAll('button[data-conferir]').forEach(function(b){
+        b.addEventListener('click', function(){
+          var id = b.dataset.conferir;
+          var qtd = Number(document.getElementById('cf_'+id).value);
+          var decl = Number(b.dataset.decl);
+          if (isNaN(qtd) || qtd < 0) return Q.toast('Quantidade inválida.','erro');
+          var obs = '';
+          if (qtd !== decl){
+            obs = prompt('Divergência de ' + (qtd-decl) + ' caixa(s) (contado ' + qtd + ' × declarado ' + decl + ').\nMotivo / observação:', '');
+            if (obs === null) return;
+          }
+          b.disabled = true; b.textContent = 'Enviando…';
+          Q.post({acao:'conferir', id:id, qtdConferida:qtd, obs:obs, usuarioId:Q.sessao().id}).then(function(r){
+            if (!r.ok) throw new Error(r.erro);
+            Q.toast(r.divergencia ? 'Conferido com divergência de '+r.divergencia+'.' : 'Conferido, sem divergência.','ok');
+            carregarPendentes(); carregarPainel();
+          }).catch(function(e){ b.disabled=false; b.textContent='Confirmar'; Q.toast(e.message,'erro'); });
+        });
+      });
+    }).catch(function(e){ box.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>'; });
+  }
+  document.getElementById('btnRecarregarPend').addEventListener('click', carregarPendentes);
+
+  /* ---------------- saldos ---------------- */
+  function carregarPainel(){
+    Q.get({acao:'painel'}).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      PAINEL = r.painel;
+      Q.cache('painel', PAINEL);
+      desenharSaldos();
+      mostrarSaldoDoOrigem();
+    }).catch(function(e){
+      PAINEL = Q.cache('painel');
+      if (PAINEL) desenharSaldos();
+      else document.getElementById('listaSaldos').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
+    });
+  }
+
+  function desenharSaldos(){
+    var busca = (document.getElementById('buscaSaldo').value||'').toLowerCase();
+    var lista = (PAINEL.locais||[]).filter(function(l){
+      return !busca || l.nome.toLowerCase().indexOf(busca)>=0;
+    });
+    var box = document.getElementById('listaSaldos');
+    if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhum local encontrado.</div>'; return; }
+    box.innerHTML = '<div class="tabela-wrap"><table><thead><tr>'+
+      '<th>Cliente / Filial</th><th class="num">Saldo</th><th class="num">+30 dias</th><th class="num">Em conferência</th><th></th>'+
+      '</tr></thead><tbody>'+ lista.map(function(l){
+        var cls = l.aging && l.aging.d31 > 0 ? 'ruim' : (l.acimaLimite ? 'destaque' : '');
+        return '<tr class="'+cls+'">'+
+          '<td><b>'+Q.esc(l.nome)+'</b>'+(l.tipo==='FILIAL'?' <span class="tag cinza">filial</span>':'')+
+            (l.acimaLimite?' <span class="tag vermelha">acima do limite</span>':'')+'</td>'+
+          '<td class="num"><b>'+Q.num(l.saldo)+'</b></td>'+
+          '<td class="num">'+(l.aging&&l.aging.d31?'<span class="tag vermelha">'+Q.num(l.aging.d31)+'</span>':'—')+'</td>'+
+          '<td class="num">'+(l.emConferencia?Q.num(l.emConferencia):'—')+'</td>'+
+          '<td><button class="mini acao" data-extrato="'+l.id+'">extrato</button></td>'+
+        '</tr>';
+      }).join('') + '</tbody></table></div>';
+    box.querySelectorAll('button[data-extrato]').forEach(function(b){
+      b.addEventListener('click', function(){ abrirExtrato(b.dataset.extrato); });
+    });
+  }
+  document.getElementById('buscaSaldo').addEventListener('input', function(){ if (PAINEL) desenharSaldos(); });
+
+  function abrirExtrato(id){
+    var card = document.getElementById('cardExtrato');
+    card.style.display = 'block';
+    document.getElementById('extratoConteudo').innerHTML = '<div class="vazio">Carregando…</div>';
+    card.scrollIntoView({behavior:'smooth'});
+    Q.get({acao:'extrato', local:id}).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      document.getElementById('extratoTitulo').textContent = 'Extrato · ' + r.local.nome;
+      var ultimas = r.linhas.slice(-25).reverse();
+      document.getElementById('extratoConteudo').innerHTML =
+        '<div class="kpis"><div class="kpi '+(r.saldo>0?'aviso':'ok')+'"><div class="v">'+Q.num(r.saldo)+'</div><div class="r">caixas em poder</div></div>'+
+        '<div class="kpi info"><div class="v">'+Q.moeda(r.valor)+'</div><div class="r">valor em risco</div></div>'+
+        (r.emConferencia?'<div class="kpi"><div class="v">'+Q.num(r.emConferencia)+'</div><div class="r">em conferência</div></div>':'')+'</div>'+
+        Q.barraAging(r.aging)+
+        '<div class="tabela-wrap" style="margin-top:12px"><table><thead><tr><th>Data</th><th>Movimento</th><th class="num">Saiu</th><th class="num">Voltou</th><th class="num">Saldo</th></tr></thead><tbody>'+
+        (ultimas.length?ultimas.map(function(l){
+          return '<tr><td>'+Q.dataBR(l.data)+'</td><td>'+Q.esc(l.descricao)+
+            (l.divergencia?' <span class="tag vermelha">div. '+l.divergencia+'</span>':'')+
+            (l.status==='AGUARDANDO'?' <span class="tag amarela">a conferir</span>':'')+'</td>'+
+            '<td class="num">'+(l.entrada?Q.num(l.entrada):'')+'</td>'+
+            '<td class="num">'+(l.saida?Q.num(l.saida):'')+'</td>'+
+            '<td class="num"><b>'+Q.num(l.saldo)+'</b></td></tr>';
+        }).join(''):'<tr><td colspan="5" class="vazio">Sem movimentos.</td></tr>')+
+        '</tbody></table></div>';
+    }).catch(function(e){
+      document.getElementById('extratoConteudo').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
+    });
+  }
+
+  window.addEventListener('dadosAtualizados', function(e){ DADOS = e.detail; });
+
+  /* ---------------- arranque ---------------- */
+  if (Q.sessao()) abrirApp(); else iniciarLogin();
+})();
+</script>
+</body>
+</html>
