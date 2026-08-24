@@ -1,7 +1,12 @@
 /* Qdelícia Frutas — Controle de Caixas
  *
- * Cole abaixo a URL do App da Web do Apps Script (termina em /exec).
- * Apps Script > Implantar > Nova implantação > App da Web
- *   Executar como: Eu   |   Quem tem acesso: Qualquer pessoa
+ * Endereço da API. Na Vercel o site e a função são servidos na mesma origem,
+ * então o caminho relativo abaixo já resolve — não há nada para preencher aqui.
+ *
+ * A chave do banco NÃO fica neste arquivo (nem em nenhum outro do repositório):
+ * ela vive em SUPABASE_SERVICE_KEY, nas variáveis de ambiente da Vercel.
+ *
+ * Para apontar para outro ambiente (uma prévia, por exemplo), troque por uma
+ * URL absoluta terminando em /api.
  */
-var API_URL = 'https://script.google.com/macros/s/AKfycbytA98N8cQG2mQqikw8H8nz5h4CgLU93w0O3FORMFVb1Xp4s2Aq1rvjJz_0Alob5ENP/exec';
+var API_URL = '/api';

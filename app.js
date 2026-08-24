@@ -13,37 +13,45 @@
     return !API || API.indexOf('COLE_AQUI') >= 0;
   }
 
-  // GET via JSONP: não sofre CORS/preflight e funciona igual em qualquer navegador.
-  function get(params) {
-    return new Promise(function (resolve, reject) {
-      if (semApi()) return reject(new Error('URL do Apps Script não configurada em config.js.'));
-      var cb = 'qdc_cb_' + Math.random().toString(36).slice(2);
-      var timer = setTimeout(function () { limpar(); reject(new Error('Tempo esgotado ao consultar o servidor.')); }, 30000);
-      function limpar() {
-        clearTimeout(timer);
-        try { delete window[cb]; } catch (e) { window[cb] = undefined; }
-        if (s.parentNode) s.parentNode.removeChild(s);
-      }
-      window[cb] = function (r) { limpar(); resolve(r); };
-      var q = Object.keys(params).filter(function (k) { return params[k] !== undefined && params[k] !== null && params[k] !== ''; })
-        .map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
-      var s = document.createElement('script');
-      s.src = API + '?' + q + '&callback=' + cb + '&_=' + Date.now();
-      s.onerror = function () { limpar(); reject(new Error('Falha de rede ao consultar o servidor.')); };
-      document.head.appendChild(s);
+  /**
+   * A API é servida na mesma origem do site (/api na Vercel), então é fetch simples:
+   * sem JSONP e sem preflight. O tempo limite continua em 30s — no celular em rua ruim,
+   * pendurar a tela é pior do que avisar que falhou, porque a fila offline segura o dado.
+   */
+  function comLimite(url, opcoes) {
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var o = opcoes || {};
+    if (ctrl) o.signal = ctrl.signal;
+    var estourou = false;
+    var timer = setTimeout(function () { estourou = true; if (ctrl) ctrl.abort(); }, 30000);
+    return fetch(url, o).then(function (r) {
+      clearTimeout(timer);
+      return r.text().then(function (t) {
+        try { return JSON.parse(t); } catch (e) { throw new Error('Resposta inesperada do servidor.'); }
+      });
+    }).catch(function (e) {
+      clearTimeout(timer);
+      if (estourou) throw new Error('Tempo esgotado ao consultar o servidor.');
+      if (e && e.message && e.message.indexOf('Resposta inesperada') === 0) throw e;
+      throw new Error('Falha de rede ao consultar o servidor.');
     });
   }
 
-  // POST com Content-Type text/plain: evita preflight e ainda permite ler a resposta.
+  function get(params) {
+    if (semApi()) return Promise.reject(new Error('Endereço da API não configurado em config.js.'));
+    var q = Object.keys(params)
+      .filter(function (k) { return params[k] !== undefined && params[k] !== null && params[k] !== ''; })
+      .map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); })
+      .join('&');
+    return comLimite(API + '?' + q + '&_=' + Date.now(), { method: 'GET' });
+  }
+
   function post(payload) {
-    if (semApi()) return Promise.reject(new Error('URL do Apps Script não configurada em config.js.'));
-    return fetch(API, {
+    if (semApi()) return Promise.reject(new Error('Endereço da API não configurado em config.js.'));
+    return comLimite(API, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
-      redirect: 'follow'
-    }).then(function (r) { return r.text(); }).then(function (t) {
-      try { return JSON.parse(t); } catch (e) { throw new Error('Resposta inesperada do servidor.'); }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
   }
 
