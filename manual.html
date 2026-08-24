@@ -423,7 +423,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <ul>
     <li>Sem internet, o lançamento fica guardado no próprio celular, e o topo da tela mostra quantos estão na fila</li>
     <li>Quando o sinal volta, sobe sozinho — ninguém precisa reenviar</li>
-    <li>Reenvio não duplica: cada lançamento carrega uma chave única e o servidor ignora repetição</li>
+    <li>Reenvio não duplica: cada lançamento carrega uma chave única, e é o próprio banco que recusa a repetição</li>
     <li>Se a memória do celular apertar, o app guarda a contagem e descarta a foto — perder a foto é ruim, perder a contagem é pior</li>
   </ul>
   <p class="nota">O indicador <span class="chip ok">● Online</span> no topo fica vermelho quando a conexão cai, e mostra o número de itens na fila quando há pendência.</p>
@@ -473,21 +473,33 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 
 <section id="tecnico">
   <h2>Nota técnica</h2>
-  <p>Site estático no GitHub Pages, sem servidor e sem mensalidade. Os dados ficam numa planilha do Google Sheets, acessada por um Google Apps Script publicado como aplicativo web.</p>
+  <p>Site estático na Vercel, com banco Postgres no Supabase. Sem servidor para manter e sem mensalidade.</p>
+
+  <div class="formula">navegador → /api (função na Vercel) → Postgres (Supabase)</div>
+
+  <p>O navegador <strong>nunca</strong> fala com o banco. A chave que abre o Postgres fica no servidor, numa variável de ambiente; a página conhece só o caminho <code>/api</code>. É o que permite manter o PIN curto e o link aberto do cliente sem deixar o banco exposto — tentar ler o banco de fora responde <em>401 não autorizado</em>.</p>
+
   <div class="tabela">
     <table>
-      <thead><tr><th>Aba da planilha</th><th>Conteúdo</th></tr></thead>
+      <thead><tr><th>Tabela</th><th>Conteúdo</th></tr></thead>
       <tbody>
-        <tr><td><code>Locais</code></td><td>Galpões, filiais e clientes, com limite, prazo e o código do link</td></tr>
-        <tr><td><code>TiposCaixa</code></td><td>Tipos de caixa e valor unitário</td></tr>
-        <tr><td><code>Usuarios</code></td><td>Nome, perfil, PIN e local padrão</td></tr>
-        <tr><td><code>Movimentos</code></td><td>O livro-razão. Só acrescenta — nada é apagado</td></tr>
-        <tr><td><code>Config</code></td><td>Nome da empresa, prazo padrão e a pasta do Drive</td></tr>
+        <tr><td><code>locais</code></td><td>Galpões, filiais e clientes, com limite, prazo e o código do link</td></tr>
+        <tr><td><code>tipos_caixa</code></td><td>Tipos de caixa e valor unitário</td></tr>
+        <tr><td><code>usuarios</code></td><td>Nome, perfil, PIN e local padrão</td></tr>
+        <tr><td><code>movimentos</code></td><td>O livro-razão. Só acrescenta — nada é apagado</td></tr>
+        <tr><td><code>config</code></td><td>Nome da empresa e prazo padrão</td></tr>
       </tbody>
     </table>
   </div>
-  <p style="margin-top:18px">Assinaturas e fotos vão para a pasta <code>Qdelicia - Canhotos Caixas</code> no Drive, e o link aparece no extrato e na conferência.</p>
-  <p>Alterou o backend? Publique com <strong>Implantar → Gerenciar implantações → editar → Nova versão</strong>: o endereço não muda. Antes disso rode <code>node teste/teste_backend.js</code>, que executa o backend fora do Google contra uma planilha falsa e checa 38 pontos, incluindo o caminho da divergência e o cálculo de idade.</p>
+
+  <p style="margin-top:18px">Assinaturas e fotos ficam no armazenamento do Supabase, e o link aparece no extrato e na conferência.</p>
+
+  <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode <code>node teste/teste_api.js</code>, que executa as regras contra um banco falso em memória — sem rede e sem chave — e confere 45 pontos, incluindo o caminho da divergência e o cálculo de idade.</p>
+
+  <div class="regra">
+    <span class="rot">Plano gratuito</span>
+    <p>O banco <strong>pausa depois de cerca de 7 dias sem nenhum acesso</strong>. Despausar é um clique no painel do Supabase, mas o primeiro acesso depois da pausa falha. Em operação diária isso não acontece.</p>
+  </div>
 </section>
 
 <footer>
