@@ -89,6 +89,24 @@ O `teste/teste_backend.js` testa o backend antigo do Apps Script (38 verificaç�
 em `apps-script/` como referência e rota de volta. Pode apagar os dois quando a migração estiver
 validada em produção com dado real.
 
+## Gerar o PDF do manual
+
+
+
+O  tem um bloco  que esconde o sumário, força a paleta clara e impede
+tabela partida entre páginas. Rode de novo sempre que alterar o manual — o PDF não se atualiza
+sozinho.
+
+Duas coisas descobertas ao montar isso, para não repetir a investigação:
+
+- O bloco de impressão precisa dos **três seletores** (, ,
+  ). Só  perde em especificidade para o bloco de tema escuro, e o
+  PDF sai com fundo preto para quem estiver no tema escuro.
+- O exportador de PDF do Chrome **não embute Archivo nem Source Sans 3**, mesmo com as fontes
+  carregadas e checadas por . Ele cai para Segoe UI nos títulos. Embutir as
+  fontes como data URI não resolveu. É diferença só de tipografia; o layout, as cores e o diagrama
+  saem corretos. Não vale mais tempo.
+
 ## Armadilhas já pagas
 
 - **Node local é v14.** Os CLIs da Vercel e do Supabase pedem 18+, então não dá para usá-los aqui.

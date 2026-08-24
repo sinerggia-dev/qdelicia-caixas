@@ -148,6 +148,53 @@ figcaption{font-size:15px;color:var(--ink2);max-width:var(--medida)}
 .acesso .como{font-size:14.5px;color:var(--ink2)}
 
 footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:var(--ink3);max-width:var(--medida)}
+
+/* ---------- impressão e PDF ---------- */
+@media print{
+  /* O papel é sempre claro. Os três seletores existem de propósito: sem eles, o bloco de tema
+     escuro (`:root:not([data-theme="light"])`) tem especificidade maior e o PDF sai com fundo
+     preto no navegador de quem estiver no tema escuro. */
+  :root,
+  :root:not([data-theme="light"]),
+  :root[data-theme="dark"]{
+    --ground:#ffffff; --surface:#ffffff; --surface2:#f7f8fa; --rule:#d6dde3;
+    --ink:#101a22; --ink2:#3e4c58; --ink3:#63737e;
+    --verde:#0f6a31; --verde-fraco:#eaf5ee; --verde-linha:#9cc9ad;
+    --amarelo:#8a6100; --amarelo-fraco:#fff8e6; --amarelo-linha:#d9a300;
+    --vermelho:#a81f1f; --vermelho-fraco:#fdeceb; --vermelho-linha:#e0a3a1;
+    --capa-de:#0e5b2a; --capa-para:#157f3c; --capa-ink:#ffffff;
+    --svg-amarelo:#8a6100; --svg-verde:#0f6a31; --svg-vermelho:#a81f1f;
+    --sombra:none;
+  }
+  /* As cores das etiquetas carregam significado (amarelo = aguardando) — precisam sair na tinta. */
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{margin:14mm 12mm}
+  body{font-size:10.5pt;line-height:1.45}
+
+  .capa{padding:16mm 12mm 12mm}
+  .capa h1{font-size:26pt}
+  .capa .lede{font-size:11pt}
+  .capa .eyebrow{font-size:8pt}
+
+  .sumario{display:none}          /* sumário clicável não serve no papel */
+  .wrap{display:block;max-width:none;padding:0}
+  main{display:block}
+
+  section{margin-top:9mm}
+  section>h2{font-size:15pt;break-after:avoid}
+  h3{font-size:12pt;break-after:avoid}
+  h4{break-after:avoid}
+  p,li{max-width:none}
+
+  /* nada de tabela ou passo partido entre páginas */
+  .tabela,figure,.regra,.acesso,.formula,.passos>li{break-inside:avoid}
+  table{min-width:0}
+  .tabela{overflow:visible}
+
+  a{color:var(--ink);border-bottom:0}
+  .acesso a{word-break:break-all;font-size:9.5pt}
+  footer{margin-top:8mm}
+}
 </style>
 </head>
 <body>
