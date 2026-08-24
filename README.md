@@ -12,7 +12,7 @@ saldo do cliente = saídas − devoluções confirmadas − perdas baixadas
 ## Manual de operação
 
 Manual completo, por perfil (motorista, promotor, galpão, escritório):
-**https://sinerggia-dev.github.io/qdelicia-caixas/manual.html**
+**https://qdelicia-caixas.vercel.app/manual.html**
 
 Fonte em [`manual.html`](manual.html) — página estática, sem dependência, publicada junto com o app.
 
