@@ -116,6 +116,23 @@ Duas coisas descobertas ao montar isso, para não repetir a investigação:
   as instâncias estáticas da API v1. É diferença só de tipografia — layout, cores e diagrama saem
   corretos. Não vale mais tempo.
 
+## Gerar o Word do manual
+
+```
+python scripts/gerar_docx.py
+```
+
+Lê o `manual.html`, monta o `manual.docx` com estilos de título de verdade (o painel de navegação
+do Word funciona), tabelas, as caixas de destaque com barra lateral colorida e as etiquetas
+`AGUARDANDO` / `CONFIRMADO` nas cores certas. Depende de `python-docx`, já instalado.
+
+O diagrama do ciclo entra como imagem, de `scripts/diagrama.png`. Para regerar essa imagem depois
+de mudar o SVG do manual: extraia o bloco `<svg class="dg">` para um HTML com a paleta clara e
+rode o Chrome com `--screenshot --window-size=1600,600`.
+
+**Não edite o `manual.docx` à mão.** O conteúdo vive no `manual.html`; o Word e o PDF são saídas.
+Editar a saída faz as três versões divergirem em silêncio.
+
 ## Armadilhas já pagas
 
 - **Node local é v14.** Os CLIs da Vercel e do Supabase pedem 18+, então não dá para usá-los aqui.
