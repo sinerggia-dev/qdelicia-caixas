@@ -91,21 +91,30 @@ validada em produção com dado real.
 
 ## Gerar o PDF do manual
 
+```
+chrome --headless=new --disable-gpu --no-pdf-header-footer \
+  --virtual-time-budget=30000 \
+  --print-to-pdf="<abs>/manual.pdf" "file:///<abs>/manual.html"
+```
 
+`<abs>` precisa ser caminho absoluto no formato do Windows com barras normais — use `$(pwd -W)`
+no Git Bash. Com caminho errado o Chrome renderiza a página de erro dele e devolve um PDF de
+1 página, sem reclamar.
 
-O  tem um bloco  que esconde o sumário, força a paleta clara e impede
+O `manual.html` tem um bloco `@media print` que esconde o sumário, força a paleta clara e impede
 tabela partida entre páginas. Rode de novo sempre que alterar o manual — o PDF não se atualiza
 sozinho.
 
 Duas coisas descobertas ao montar isso, para não repetir a investigação:
 
-- O bloco de impressão precisa dos **três seletores** (, ,
-  ). Só  perde em especificidade para o bloco de tema escuro, e o
-  PDF sai com fundo preto para quem estiver no tema escuro.
+- O bloco de impressão precisa dos **três seletores** (`:root`, `:root:not([data-theme="light"])`
+  e `:root[data-theme="dark"]`). Só `:root` perde em especificidade para o bloco de tema escuro,
+  e o PDF sairia com fundo preto para quem estiver no tema escuro.
 - O exportador de PDF do Chrome **não embute Archivo nem Source Sans 3**, mesmo com as fontes
-  carregadas e checadas por . Ele cai para Segoe UI nos títulos. Embutir as
-  fontes como data URI não resolveu. É diferença só de tipografia; o layout, as cores e o diagrama
-  saem corretos. Não vale mais tempo.
+  carregadas e confirmadas por `document.fonts.check`. Ele cai para Segoe UI nos títulos. Embutir
+  as fontes como data URI não resolveu, nem trocar `display=swap` por `display=block`, nem usar
+  as instâncias estáticas da API v1. É diferença só de tipografia — layout, cores e diagrama saem
+  corretos. Não vale mais tempo.
 
 ## Armadilhas já pagas
 
