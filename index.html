@@ -15,8 +15,8 @@
   <h1>Controle de Caixas</h1>
   <p>Qdelícia Frutas</p>
   <div class="card" style="text-align:left">
-    <label for="selUsuario">Quem é você?</label>
-    <select id="selUsuario"><option value="">Carregando…</option></select>
+    <label for="inUsuario">Seu nome</label>
+    <input id="inUsuario" type="text" autocomplete="username" autocapitalize="words" placeholder="como está no cadastro">
     <label for="inPin">PIN</label>
     <input id="inPin" class="pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off">
     <div class="linha-btn"><button class="btn" id="btnEntrar">Entrar</button></div>
@@ -193,25 +193,24 @@
         '<div class="aviso-box erro">Configure a URL do Apps Script no arquivo <b>config.js</b> antes de usar.</div>';
       return;
     }
+    // A lista de usuários saiu daqui: mostrava o nome de toda a equipe para quem só
+    // abrisse o endereço. O celular guarda o último nome, então na prática ninguém redigita.
+    var ultimo = localStorage.getItem('qdc_ultimo_usuario');
+    if (ultimo) document.getElementById('inUsuario').value = ultimo;
+    document.getElementById('inPin').focus();
     Q.carregarDados().then(function(d){
       DADOS = d;
-      var sel = document.getElementById('selUsuario');
-      sel.innerHTML = '<option value="">Selecione…</option>' + d.usuarios.map(function(u){
-        return '<option value="'+u.ID+'">'+Q.esc(u.Nome)+' · '+u.Perfil.toLowerCase()+'</option>';
-      }).join('');
-      var ultimo = localStorage.getItem('qdc_ultimo_usuario');
-      if (ultimo) sel.value = ultimo;
     }).catch(function(e){
       document.getElementById('erroLogin').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
     });
   }
 
   document.getElementById('btnEntrar').addEventListener('click', function(){
-    var id = document.getElementById('selUsuario').value;
+    var id = document.getElementById('inUsuario').value.trim();
     var pin = document.getElementById('inPin').value;
-    if (!id) return Q.toast('Selecione seu nome.','erro');
+    if (!id) return Q.toast('Informe seu nome.','erro');
     var btn = this; btn.disabled = true; btn.textContent = 'Entrando…';
-    Q.post({acao:'login', usuarioId:id, pin:pin}).then(function(r){
+    Q.post({acao:'login', identificador:id, pin:pin}).then(function(r){
       btn.disabled = false; btn.textContent = 'Entrar';
       if (!r.ok) return Q.toast(r.erro,'erro');
       localStorage.setItem('qdc_ultimo_usuario', id);

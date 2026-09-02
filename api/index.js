@@ -13,6 +13,7 @@
 
 var L = require('./_logica');
 var db = require('./_supabase');
+var senha = require('./_senha');
 
 var TABELA = { Locais: 'locais', TiposCaixa: 'tipos_caixa', Usuarios: 'usuarios' };
 var PREFIXO = { Locais: 'L', TiposCaixa: 'T', Usuarios: 'U' };
@@ -40,12 +41,11 @@ async function rotaGet(p) {
 
   switch (acao) {
     case 'dados':
-      return {
-        ok: true,
-        locais: d.locais, tipos: d.tipos,
-        usuarios: L.usuariosPublicos(d.usuarios),
-        config: d.config
-      };
+      // A lista de usuários saiu daqui de propósito: era carregada na tela de login e expunha
+      // o nome de todo mundo para quem só abrisse o endereço. Quem precisa dela pede `equipe`.
+      return { ok: true, locais: d.locais, tipos: d.tipos, config: d.config };
+    case 'equipe':
+      return { ok: true, usuarios: L.usuariosPublicos(d.usuarios) };
     case 'painel':
       return { ok: true, painel: L.painel(d) };
     case 'pendentes':
@@ -69,15 +69,20 @@ async function rotaPost(p) {
 
   if (acao === 'login') {
     var d0 = await db.carregarTudo();
-    return L.login(d0.usuarios, p.usuarioId, p.pin);
+    // Escritório entra com identificador + senha; campo, com nome + PIN curto.
+    if (p.senha) return L.loginPorSenha(d0.usuarios, p.identificador || p.usuarioId, p.senha, senha.conferir);
+    return L.loginPorPin(d0.usuarios, p.identificador || p.nome || p.usuarioId, p.pin);
   }
+
+  if (acao === 'definirSenha') return await definirSenha(p);
 
   if (acao === 'movimento') return await gravarMovimento(p);
   if (acao === 'conferir') return await conferir(p);
   if (acao === 'cancelar') return await cancelar(p);
+  if (acao === 'corrigir') return await corrigir(p);
   if (acao === 'salvarLocal') return await salvarRegistro('Locais', p);
   if (acao === 'salvarTipo') return await salvarRegistro('TiposCaixa', p);
-  if (acao === 'salvarUsuario') return await salvarRegistro('Usuarios', p);
+  if (acao === 'salvarUsuario') return await salvarUsuario(p);
   if (acao === 'excluir') return await excluir(p.aba, p.id);
 
   return { ok: false, erro: 'Ação desconhecida: ' + acao };
@@ -122,6 +127,42 @@ async function gravarMovimento(p) {
   return { ok: true, criados: criados, status: r.status };
 }
 
+/**
+ * Troca da própria senha. Exige a senha atual; quem ainda não tem uma prova quem é pelo PIN.
+ * Sem isso, qualquer um definiria a senha do administrador — e não há sessão no servidor
+ * para impedir (ver CLAUDE.md).
+ */
+async function definirSenha(p) {
+  var d = await db.carregarTudo();
+  var u = L.acharPorIdentificador(d.usuarios, p.identificador || p.usuarioId);
+  if (!u) return { ok: false, erro: 'Usuário ou senha incorretos.' };
+
+  var autorizado = u.SenhaHash
+    ? senha.conferir(p.senhaAtual, u.SenhaHash)
+    : (String(u.PIN || '').trim() !== '' && String(u.PIN).trim() === String(p.pin || '').trim());
+  if (!autorizado) {
+    return { ok: false, erro: u.SenhaHash ? 'Senha atual incorreta.' : 'PIN incorreto.' };
+  }
+
+  var hash;
+  try { hash = senha.gerar(p.novaSenha); }
+  catch (e) { return { ok: false, erro: e.message }; }
+
+  await db.update('usuarios', u.ID, { senha_hash: hash });
+  return { ok: true };
+}
+
+async function corrigir(p) {
+  var d = await db.carregarTudo();
+  var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
+  var r = L.montarCorrecao(mov, p, new Date());
+  if (!r.ok) return r;
+  var patch = db.MOV.para(r.patch);
+  patch.historico = r.historico;
+  await db.update('movimentos', mov.ID, patch);
+  return { ok: true, alterou: r.entradas };
+}
+
 async function conferir(p) {
   var d = await db.carregarTudo();
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
@@ -140,6 +181,33 @@ async function cancelar(p) {
     motivo_cancel: String(p.motivo || '') + ' (' + (p.usuarioId || '') + ')'
   });
   return { ok: true };
+}
+
+/** A senha chega em texto do formulário e só existe em memória: o que vai ao banco é o hash. */
+async function salvarUsuario(p) {
+  var dados = p.registro;
+  if (typeof dados === 'string') { try { dados = JSON.parse(dados); } catch (e) { dados = null; } }
+  if (!dados) return { ok: false, erro: 'Nada para salvar.' };
+
+  delete dados.SenhaHash;                       // nunca aceite hash vindo do navegador
+  var nova = String(dados.Senha || '').trim();
+  delete dados.Senha;
+  if (nova) {
+    try { dados.SenhaHash = senha.gerar(nova); }
+    catch (e) { return { ok: false, erro: e.message }; }
+  }
+
+  if (dados.Email || dados.Usuario) {
+    var d = await db.carregarTudo();
+    var conflito = d.usuarios.filter(function (u) {
+      if (String(u.ID) === String(dados.ID || '')) return false;
+      function igual(a, b) { return a && b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase(); }
+      return igual(u.Email, dados.Email) || igual(u.Usuario, dados.Usuario);
+    })[0];
+    if (conflito) return { ok: false, erro: 'Já existe usuário com esse e-mail ou login: ' + conflito.Nome };
+  }
+
+  return await salvarRegistro('Usuarios', { registro: dados });
 }
 
 async function salvarRegistro(aba, p) {

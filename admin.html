@@ -14,12 +14,13 @@
   <h1>Painel de Caixas</h1>
   <p>Qdelícia Frutas · escritório</p>
   <div class="card" style="text-align:left">
-    <label for="selUsuario">Usuário</label>
-    <select id="selUsuario"><option value="">Carregando…</option></select>
-    <label for="inPin">PIN</label>
-    <input id="inPin" class="pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off">
+    <label for="inUsuario">E-mail ou usuário</label>
+    <input id="inUsuario" type="text" autocomplete="username" placeholder="voce@empresa.com.br">
+    <label for="inSenha">Senha</label>
+    <input id="inSenha" type="password" autocomplete="current-password" placeholder="sua senha">
     <div class="linha-btn"><button class="btn" id="btnEntrar">Entrar</button></div>
     <div id="erroLogin"></div>
+    <p style="font-size:12.5px;margin:12px 0 0"><a href="#" id="linkPrimeiroAcesso">Primeiro acesso ou esqueci a senha</a></p>
   </div>
   <p style="font-size:12.5px;color:var(--txt3)">Campo (motorista/promotor): <a href="index.html">app de lançamento</a>.</p>
 </div>
@@ -35,7 +36,7 @@
 <nav class="abas" id="abas">
   <button class="ativa" data-pagina="pgPainel">Painel</button>
   <button data-pagina="pgExtrato">Extratos</button>
-  <button data-pagina="pgLancar">Lançar</button>
+  <button data-pagina="pgLancar">Ajustes</button>
   <button data-pagina="pgMovimentos">Movimentos</button>
   <button data-pagina="pgCadastros">Cadastros</button>
 </nav>
@@ -95,16 +96,15 @@
   <!-- ---------- LANÇAR ---------- -->
   <section id="pgLancar" class="pagina">
     <div class="card">
-      <h2>Lançamento manual<span class="sub">Para o escritório: digitar romaneio de papel, corrigir saldo inicial ou dar baixa de perda.</span></h2>
+      <h2>Ajustes do escritório<span class="sub">Saldo inicial e baixa de perda. Saída, devolução e transferência são lançadas no campo — aqui elas se <b>corrigem</b>, na aba Movimentos.</span></h2>
       <div class="grid2">
         <div>
           <label for="lcTipo">Tipo de lançamento</label>
+          <!-- Saída, devolução e transferência nascem no campo, com canhoto e foto.
+               Aqui ficam só as duas que são decisão de escritório. -->
           <select id="lcTipo">
-            <option value="SAIDA">Saída — galpão/filial → cliente</option>
-            <option value="TRANSFERENCIA">Transferência — galpão ↔ filial</option>
-            <option value="DEVOLUCAO">Devolução — cliente/filial → galpão</option>
-            <option value="PERDA">Baixa de perda — some do saldo do cliente</option>
             <option value="AJUSTE">Ajuste / saldo inicial</option>
+            <option value="PERDA">Baixa de perda — some do saldo do cliente</option>
           </select>
         </div>
         <div><label for="lcData">Data do movimento</label><input id="lcData" type="date"></div>
@@ -188,32 +188,67 @@
         '<div class="aviso-box erro">Configure a URL do Apps Script em <b>config.js</b>.</div>';
       return;
     }
+    // Não carregamos mais a lista de usuários aqui: ela expunha o nome de toda a equipe
+    // para quem apenas abrisse o endereço. Agora o identificador é digitado.
+    var ultimo = localStorage.getItem('qdc_ultimo_admin');
+    if (ultimo) document.getElementById('inUsuario').value = ultimo;
+    document.getElementById('inUsuario').focus();
     Q.carregarDados().then(function(d){
       DADOS = d;
-      var sel = document.getElementById('selUsuario');
-      var elegiveis = d.usuarios.filter(function(u){ return u.Perfil==='ADMIN' || u.Perfil==='GALPAO'; });
-      sel.innerHTML = '<option value="">Selecione…</option>' + elegiveis.map(function(u){
-        return '<option value="'+u.ID+'">'+Q.esc(u.Nome)+' · '+u.Perfil.toLowerCase()+'</option>';
-      }).join('');
-      var ultimo = localStorage.getItem('qdc_ultimo_admin');
-      if (ultimo) sel.value = ultimo;
     }).catch(function(e){
       document.getElementById('erroLogin').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
     });
   }
   document.getElementById('btnEntrar').addEventListener('click', function(){
-    var id = document.getElementById('selUsuario').value;
-    if (!id) return Q.toast('Selecione o usuário.','erro');
+    var id = document.getElementById('inUsuario').value.trim();
+    if (!id) return Q.toast('Informe o e-mail ou usuário.','erro');
     var btn = this; btn.disabled = true; btn.textContent='Entrando…';
-    Q.post({acao:'login', usuarioId:id, pin:document.getElementById('inPin').value}).then(function(r){
+    Q.post({acao:'login', identificador:id, senha:document.getElementById('inSenha').value}).then(function(r){
       btn.disabled=false; btn.textContent='Entrar';
       if (!r.ok) return Q.toast(r.erro,'erro');
       if (r.usuario.perfil!=='ADMIN' && r.usuario.perfil!=='GALPAO') return Q.toast('Este painel é só para ADMIN/GALPAO.','erro');
       localStorage.setItem('qdc_ultimo_admin', id);
+      carregarEquipe();
       Q.entrar(r.usuario); abrirApp();
     }).catch(function(e){ btn.disabled=false; btn.textContent='Entrar'; Q.toast(e.message,'erro'); });
   });
-  document.getElementById('inPin').addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('btnEntrar').click(); });
+  document.getElementById('inSenha').addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('btnEntrar').click(); });
+  document.getElementById('inUsuario').addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('inSenha').focus(); });
+
+  /* Primeiro acesso: quem ainda não tem senha prova quem é pelo PIN antigo; quem já tem,
+     precisa da senha atual. É o que impede alguém de definir a senha do administrador. */
+  document.getElementById('linkPrimeiroAcesso').addEventListener('click', function(e){
+    e.preventDefault();
+    var ident = document.getElementById('inUsuario').value.trim();
+    modal('<h2>Definir senha</h2>'+
+      '<label>E-mail ou usuário</label><input type="text" id="psIdent" value="'+Q.esc(ident)+'">'+
+      '<label>PIN atual <span style="font-weight:400;color:var(--txt3)">— só no primeiro acesso</span></label>'+
+      '<input type="password" id="psPin" inputmode="numeric" maxlength="6" autocomplete="off">'+
+      '<label>Senha atual <span style="font-weight:400;color:var(--txt3)">— se você já tem uma</span></label>'+
+      '<input type="password" id="psAtual" autocomplete="current-password">'+
+      '<label>Nova senha <span style="font-weight:400;color:var(--txt3)">— mínimo 6 caracteres</span></label>'+
+      '<input type="password" id="psNova" autocomplete="new-password">'+
+      '<div class="linha-btn"><button class="btn" id="psSalvar">Salvar senha</button></div>');
+    document.getElementById('psSalvar').addEventListener('click', function(){
+      var b=this; b.disabled=true; b.textContent='Salvando…';
+      Q.post({acao:'definirSenha',
+              identificador:document.getElementById('psIdent').value.trim(),
+              pin:document.getElementById('psPin').value,
+              senhaAtual:document.getElementById('psAtual').value,
+              novaSenha:document.getElementById('psNova').value}).then(function(r){
+        b.disabled=false; b.textContent='Salvar senha';
+        if (!r.ok) return Q.toast(r.erro,'erro');
+        fecharModal(); Q.toast('Senha definida. Entre com ela agora.','ok');
+      }).catch(function(e){ b.disabled=false; b.textContent='Salvar senha'; Q.toast(e.message,'erro'); });
+    });
+  });
+
+  /* A equipe vem numa chamada à parte, só depois de entrar. */
+  function carregarEquipe(){
+    Q.get({acao:'equipe'}).then(function(r){
+      if (r && r.ok){ DADOS.usuarios = r.usuarios; desenharCadastros(); montarSelects(); }
+    }).catch(function(){});
+  }
 
   /* ---------------- app ---------------- */
   function abrirApp(){
@@ -239,7 +274,8 @@
     document.getElementById('mvDe').value = d1.toISOString().slice(0,10);
     document.getElementById('mvAte').value = Q.hoje();
     document.getElementById('lcData').value = Q.hoje();
-    Q.carregarDados().then(function(d){ DADOS=d; montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
+    carregarEquipe();
+    Q.carregarDados().then(function(d){ DADOS=Object.assign(d,{usuarios:(DADOS&&DADOS.usuarios)||[]}); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
   }
   document.getElementById('chipSair').addEventListener('click', Q.sair);
@@ -477,7 +513,7 @@
     var t = document.getElementById('lcTipo').value;
     var internos = locaisPor(['GALPAO','FILIAL']);
     var externos = locaisPor(['CLIENTE','FILIAL']);
-    var todos = locaisPor(['GALPAO','FILIAL','CLIENTE']);
+    var todos = locaisPor(['GALPAO','FILIAL','CLIENTE','ROTA']);   // rota tambem perde e ajusta caixa
     var wo = document.getElementById('wrapOrigem'), wd = document.getElementById('wrapDestino');
     wo.style.display='block'; wd.style.display='block';
     if (t==='SAIDA'){ document.getElementById('lcOrigem').innerHTML=opcoes(internos); document.getElementById('lcDestino').innerHTML=opcoes(externos); }
@@ -545,8 +581,17 @@
               '<td>'+Q.esc(m.romaneio||'')+'</td><td>'+Q.esc(m.usuario||'')+'</td>'+
               '<td>'+(m.assinatura?'<a href="'+Q.esc(m.assinatura)+'" target="_blank">canhoto</a> ':'')+
                      (m.foto?'<a href="'+Q.esc(m.foto)+'" target="_blank">foto</a>':'')+'</td>'+
-              '<td>'+(Q.ehAdmin()?'<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button>':'')+'</td></tr>';
+              '<td>'+(Q.ehAdmin()
+                 ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> '+
+                   '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button>'
+                 : '')+'</td></tr>';
           }).join('')+'</tbody></table></div>';
+        box.querySelectorAll('button[data-corrigir]').forEach(function(b){
+          b.addEventListener('click', function(){
+            var m = (r.movimentos||[]).filter(function(x){ return String(x.id)===b.dataset.corrigir; })[0];
+            if (m) formCorrigir(m);
+          });
+        });
         box.querySelectorAll('button[data-cancelar]').forEach(function(b){
           b.addEventListener('click', function(){
             var motivo = prompt('Cancelar este movimento (ele deixa de contar no saldo).\nMotivo:');
@@ -695,13 +740,68 @@
       salvar('salvarTipo', reg, this);
     });
   }
+  /**
+   * Corrigir não sobrescreve em silêncio: o backend empilha valor antigo, novo, autor e motivo
+   * no histórico do movimento. É o que mantém de pé a regra de que nada se apaga.
+   */
+  function formCorrigir(m){
+    var s = Q.sessao();
+    modal('<h2>Corrigir lançamento</h2>'+
+      '<p style="color:var(--txt2);font-size:13.5px;margin:0 0 10px">'+
+        Q.esc(m.tipo)+' · '+Q.dataBR(m.dataRef)+' · '+Q.esc(m.origem||'—')+' → '+Q.esc(m.destino||'—')+
+        ' · '+Q.esc(m.tipoCaixa||'')+'</p>'+
+      '<div class="grid2">'+
+        '<div><label>Quantidade</label><input type="number" id="cQtd" value="'+Q.esc(m.qtd)+'"></div>'+
+        '<div><label>Conferida</label><input type="number" id="cConf" value="'+Q.esc(m.qtdConferida===''?'':m.qtdConferida)+'"></div>'+
+        '<div><label>Data</label><input type="date" id="cData" value="'+Q.esc(String(m.dataRef||'').slice(0,10))+'"></div>'+
+        '<div><label>Romaneio</label><input type="text" id="cRom" value="'+Q.esc(m.romaneio||'')+'"></div>'+
+      '</div>'+
+      '<label>Observação</label><textarea id="cObs">'+Q.esc(m.obs||'')+'</textarea>'+
+      '<label>Motivo da correção <span style="font-weight:400;color:var(--txt3)">— obrigatório, fica no histórico</span></label>'+
+      '<input type="text" id="cMotivo" placeholder="ex.: romaneio de papel dizia 95">'+
+      (m.historico && m.historico.length
+        ? '<h3>Correções anteriores</h3><div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Campo</th><th>De</th><th>Para</th><th>Motivo</th></tr></thead><tbody>'+
+          m.historico.map(function(h){
+            return '<tr><td>'+Q.esc(String(h.em||'').slice(0,16).replace("T"," "))+'</td><td>'+Q.esc(h.campo)+'</td>'+
+              '<td>'+Q.esc(h.de)+'</td><td>'+Q.esc(h.para)+'</td><td>'+Q.esc(h.motivo||'')+'</td></tr>';
+          }).join('')+'</tbody></table></div>'
+        : '')+
+      '<div class="linha-btn"><button class="btn" id="cSalvar">Gravar correção</button></div>');
+
+    document.getElementById('cSalvar').addEventListener('click', function(){
+      var b=this; b.disabled=true; b.textContent='Gravando…';
+      Q.post({acao:'corrigir', id:m.id, usuarioId:s.id,
+              motivo:document.getElementById('cMotivo').value.trim(),
+              Qtd:document.getElementById('cQtd').value,
+              QtdConferida:document.getElementById('cConf').value,
+              DataRef:document.getElementById('cData').value,
+              Romaneio:document.getElementById('cRom').value,
+              Obs:document.getElementById('cObs').value}).then(function(r){
+        b.disabled=false; b.textContent='Gravar correção';
+        if (!r.ok) return Q.toast(r.erro,'erro');
+        fecharModal();
+        Q.toast('Corrigido: '+r.alterou.map(function(x){ return x.campo; }).join(', '),'ok');
+        document.getElementById('btnFiltrarMov').click();
+        carregarPainel();
+      }).catch(function(e){ b.disabled=false; b.textContent='Gravar correção'; Q.toast(e.message,'erro'); });
+    });
+  }
+
   function formUsuario(u){
+    // O PIN nunca volta preenchido: campo em branco quer dizer "mantenha o que está lá".
     u = u || {};
     modal('<h2>'+(u.ID?'Editar':'Novo')+' usuário</h2>'+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(u.Nome||'')+'">'+
       '<label>Perfil</label><select id="fPerfil">'+
         ['ADMIN','GALPAO','MOTORISTA','PROMOTOR'].map(function(p){ return '<option value="'+p+'"'+(String(u.Perfil)===p?' selected':'')+'>'+p.toLowerCase()+'</option>'; }).join('')+'</select>'+
-      '<label>PIN (4 a 6 números)</label><input type="text" inputmode="numeric" id="fPin" value="'+Q.esc(u.PIN||'')+'" placeholder="deixe em branco para manter">'+
+      '<label>PIN (4 a 6 números) <span style="font-weight:400;color:var(--txt3)">— entrada no app de campo</span></label>'+
+      '<input type="text" inputmode="numeric" id="fPin" value="" placeholder="'+(u.ID?'deixe em branco para manter':'ex.: 2468')+'">'+
+      '<h3 style="margin-top:20px">Acesso ao painel</h3>'+
+      '<label>E-mail</label><input type="email" id="fEmail" value="'+Q.esc(u.Email||'')+'" placeholder="voce@empresa.com.br">'+
+      '<label>Usuário (login curto)</label><input type="text" id="fLogin" value="'+Q.esc(u.Usuario||'')+'" placeholder="ex.: natanael">'+
+      '<label>Senha <span style="font-weight:400;color:var(--txt3)">— mínimo 6 caracteres</span></label>'+
+      '<input type="password" id="fSenha" autocomplete="new-password" placeholder="'+(u.ID?'deixe em branco para manter':'')+'">'+
+      '<h3 style="margin-top:20px">Outros</h3>'+
       '<label>Telefone</label><input type="tel" id="fTel" value="'+Q.esc(u.Telefone||'')+'">'+
       '<label>Local padrão (galpão/filial onde trabalha)</label><select id="fLocal">'+opcoes(locaisPor(['GALPAO','FILIAL']),'—')+'</select>'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM">sim</option><option value="NAO">não</option></select>'+
@@ -713,8 +813,15 @@
         Ativo:document.getElementById('fAtivo').value };
       var pin = document.getElementById('fPin').value.trim();
       if (pin) reg.PIN = pin;
+      reg.Email = document.getElementById('fEmail').value.trim();
+      reg.Usuario = document.getElementById('fLogin').value.trim();
+      var novaSenha = document.getElementById('fSenha').value;
+      if (novaSenha) reg.Senha = novaSenha;   // vai em texto e volta hash — nunca é guardada assim
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       if (!reg.ID && !pin) return Q.toast('Defina um PIN para o novo usuário.','erro');
+      if (reg.Perfil === 'ADMIN' && !reg.Email && !reg.Usuario) {
+        return Q.toast('Admin entra no painel por e-mail ou usuário: preencha um dos dois.','erro');
+      }
       salvar('salvarUsuario', reg, this);
     });
   }

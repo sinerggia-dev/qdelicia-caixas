@@ -149,7 +149,8 @@ var USUARIO = {
   de: function (r) {
     return {
       ID: r.id, Nome: r.nome, Perfil: String(r.perfil || '').toUpperCase(), PIN: String(r.pin),
-      Telefone: r.telefone || '', LocalPadrao: r.local_padrao, Ativo: r.ativo !== false
+      Telefone: r.telefone || '', LocalPadrao: r.local_padrao, Ativo: r.ativo !== false,
+      Email: r.email || '', Usuario: r.usuario || '', SenhaHash: r.senha_hash || ''
     };
   },
   para: function (o) {
@@ -161,6 +162,9 @@ var USUARIO = {
     if (o.Telefone !== undefined) r.telefone = o.Telefone || '';
     if (o.LocalPadrao !== undefined) r.local_padrao = nulo(o.LocalPadrao);
     if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
+    if (o.Email !== undefined) r.email = nulo(String(o.Email).trim().toLowerCase());
+    if (o.Usuario !== undefined) r.usuario = nulo(String(o.Usuario).trim().toLowerCase());
+    if (o.SenhaHash !== undefined) r.senha_hash = nulo(o.SenhaHash);
     return r;
   }
 };
@@ -178,7 +182,8 @@ var MOV = {
       Romaneio: r.romaneio || '', UsuarioID: r.usuario_id, Perfil: r.perfil, Obs: r.obs || '',
       AssinaturaURL: r.assinatura_url, FotoURL: r.foto_url,
       ConferidoEm: r.conferido_em, ConferidoPor: r.conferido_por,
-      Cancelado: r.cancelado === true, MotivoCancel: r.motivo_cancel
+      Cancelado: r.cancelado === true, MotivoCancel: r.motivo_cancel,
+      Historico: Array.isArray(r.historico) ? r.historico : []
     };
   },
   para: function (o) {
@@ -212,6 +217,7 @@ var MOV = {
     pos('ConferidoPor', 'conferido_por', nulo);
     pos('Cancelado', 'cancelado', function (v) { return v === true; });
     pos('MotivoCancel', 'motivo_cancel', nulo);
+    pos('Historico', 'historico');
     return r;
   }
 };

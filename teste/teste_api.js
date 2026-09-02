@@ -24,7 +24,7 @@ const tabelas = {
     { id: 'T002', nome: 'Caixa Plástica Grande', ativo: true }
   ],
   usuarios: [
-    { id: 'U001', nome: 'Administrador', perfil: 'ADMIN', pin: '1234', telefone: '', local_padrao: 'L001', ativo: true },
+    { id: 'U001', nome: 'Administrador', perfil: 'ADMIN', pin: '1234', telefone: '', local_padrao: 'L001', ativo: true, usuario: 'admin', email: 'admin@qdelicia.com.br', senha_hash: null },
     { id: 'U002', nome: 'Conferente Galpão', perfil: 'GALPAO', pin: '1111', telefone: '', local_padrao: 'L001', ativo: true },
     { id: 'U003', nome: 'Motorista Exemplo', perfil: 'MOTORISTA', pin: '2222', telefone: '', local_padrao: 'L001', ativo: true },
     { id: 'U004', nome: 'Promotor Exemplo', perfil: 'PROMOTOR', pin: '3333', telefone: '', local_padrao: null, ativo: true }
@@ -127,7 +127,10 @@ async function main() {
   const F = dados.locais.find((l) => l.Tipo === 'FILIAL').ID;
   const C = dados.locais.find((l) => l.Tipo === 'CLIENTE').ID;
   const T = dados.tipos[0].ID;
-  ok(dados.usuarios.length === 4 && !('PIN' in dados.usuarios[0]), 'rota dados não expõe PIN', dados.usuarios[0]);
+  ok(dados.usuarios === undefined, 'rota dados não devolve mais a lista de usuários', Object.keys(dados));
+  const equipe = (await GET({ acao: 'equipe' })).usuarios;
+  ok(equipe.length === 4 && !('PIN' in equipe[0]) && !('SenhaHash' in equipe[0]),
+     'rota equipe traz os 4 sem PIN nem hash', equipe[0]);
   console.log(`  galpão=${G} filial=${F} cliente=${C} tipoCaixa=${T}`);
 
   console.log('\n== lançamentos ==');
@@ -199,9 +202,38 @@ async function main() {
   p = (await GET({ acao: 'painel' })).painel; cli = p.locais.find((l) => l.id === C);
   ok(cli.saldo === 100, 'saldo volta para 100 após cancelar', cli.saldo);
 
-  console.log('\n== login ==');
-  ok((await POST({ acao: 'login', usuarioId: 'U001', pin: '1234' })).ok, 'login com PIN correto');
-  ok((await POST({ acao: 'login', usuarioId: 'U001', pin: '9999' })).ok === false, 'login com PIN errado é recusado');
+  console.log('\n== login do campo: nome digitado + PIN ==');
+  ok((await POST({ acao: 'login', identificador: 'Motorista Exemplo', pin: '2222' })).ok, 'nome completo + PIN');
+  ok((await POST({ acao: 'login', identificador: 'motorista exemplo', pin: '2222' })).ok, 'não diferencia maiúscula');
+  ok((await POST({ acao: 'login', identificador: 'Motorista Exemplo', pin: '9999' })).ok === false, 'PIN errado é recusado');
+  ok((await POST({ acao: 'login', identificador: 'Fulano Que Nao Existe', pin: '2222' })).ok === false, 'usuário inexistente é recusado');
+  const msgs = [
+    (await POST({ acao: 'login', identificador: 'Motorista Exemplo', pin: '9999' })).erro,
+    (await POST({ acao: 'login', identificador: 'Fulano Que Nao Existe', pin: '2222' })).erro
+  ];
+  ok(msgs[0] === msgs[1], 'mesma mensagem para PIN errado e usuário inexistente (não revela quem existe)', msgs);
+
+  console.log('\n== login do escritório: identificador + senha ==');
+  ok((await POST({ acao: 'login', identificador: 'admin', senha: 'qualquer' })).ok === false,
+     'sem senha definida, o login por senha é recusado');
+  ok((await POST({ acao: 'definirSenha', identificador: 'admin', pin: '9999', novaSenha: 'boa-senha-1' })).ok === false,
+     'definir senha com PIN errado é recusado');
+  ok((await POST({ acao: 'definirSenha', identificador: 'admin', pin: '1234', novaSenha: '123' })).ok === false,
+     'senha curta é recusada');
+  ok((await POST({ acao: 'definirSenha', identificador: 'admin', pin: '1234', novaSenha: 'boa-senha-1' })).ok,
+     'primeira senha definida provando o PIN');
+  ok(String(tabelas.usuarios[0].senha_hash || '').startsWith('s1$'), 'senha vai ao banco como hash, não em texto',
+     String(tabelas.usuarios[0].senha_hash || '').slice(0, 12));
+  ok((await POST({ acao: 'login', identificador: 'admin', senha: 'boa-senha-1' })).ok, 'entra com usuário + senha');
+  ok((await POST({ acao: 'login', identificador: 'admin@qdelicia.com.br', senha: 'boa-senha-1' })).ok, 'entra com e-mail + senha');
+  ok((await POST({ acao: 'login', identificador: 'Administrador', senha: 'boa-senha-1' })).ok, 'entra com o nome completo');
+  ok((await POST({ acao: 'login', identificador: 'admin', senha: 'errada' })).ok === false, 'senha errada é recusada');
+  ok((await POST({ acao: 'definirSenha', identificador: 'admin', pin: '1234', novaSenha: 'outra-senha-2' })).ok === false,
+     'com senha já definida, o PIN não serve mais para trocá-la');
+  ok((await POST({ acao: 'definirSenha', identificador: 'admin', senhaAtual: 'boa-senha-1', novaSenha: 'outra-senha-2' })).ok,
+     'troca de senha exige a senha atual');
+  ok((await GET({ acao: 'equipe' })).usuarios.every((u) => !('SenhaHash' in u) && !('PIN' in u)),
+     'equipe nunca devolve hash nem PIN');
 
   console.log('\n== validações ==');
   ok((await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: G, itens: [{ tipoCaixaId: T, qtd: 5 }] })).ok === false, 'origem igual ao destino é recusado');
@@ -253,6 +285,20 @@ async function main() {
   r1 = pr.rotas.find((x) => x.id === R);
   ok(r1.saldo === 0, 'caminhão zerado no fim do dia', r1.saldo);
   ok(pr.locais.every((x) => x.tipo !== 'ROTA'), 'rota não aparece misturada na lista de clientes');
+
+  console.log('\n== correção de lançamento pelo escritório ==');
+  const alvoC = (await GET({ acao: 'movimentos', limit: 200 })).movimentos.find((m) => m.tipo === 'SAIDA' && m.qtd === 100);
+  ok((await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95 })).ok === false, 'correção sem motivo é recusada');
+  const corr = await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95, motivo: 'romaneio dizia 95', usuarioId: 'U001' });
+  ok(corr.ok && corr.alterou.length === 1, 'quantidade corrigida', corr);
+  const movC = tabelas.movimentos.find((m) => m.id === alvoC.id);
+  ok(Number(movC.qtd) === 95, 'valor novo gravado', movC.qtd);
+  ok(movC.historico.length === 1 && movC.historico[0].de === '100' && movC.historico[0].para === '95',
+     'histórico guarda o valor antigo e o novo', movC.historico);
+  ok(movC.historico[0].motivo === 'romaneio dizia 95' && movC.historico[0].por === 'U001',
+     'histórico guarda motivo e autor', movC.historico[0]);
+  ok((await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95, motivo: 'de novo' })).ok === false,
+     'corrigir para o mesmo valor não gera histórico vazio');
 
   console.log('\n== ativo: booleano do Postgres e texto antigo da planilha ==');
   const par = (v) => real.LOCAL.para({ Ativo: v }).ativo;

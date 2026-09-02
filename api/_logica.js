@@ -10,10 +10,11 @@
  *   local     { ID, Tipo, Nome, Responsavel, Telefone, LimiteCaixas, DiasPrazo, Token, Ativo:bool, Obs,
  *               MotoristaId, RotaId }   Tipo: GALPAO | FILIAL | CLIENTE | ROTA
  *   tipoCaixa { ID, Nome, Ativo:bool }
- *   usuario   { ID, Nome, Perfil, PIN, Telefone, LocalPadrao, Ativo:bool }
+ *   usuario   { ID, Nome, Perfil, PIN, Telefone, LocalPadrao, Ativo:bool, Email, Usuario, SenhaHash }
  *   movimento { ID, ClientKey, DataHora:Date, DataRef:Date, Tipo, OrigemID, DestinoID, TipoCaixaID,
  *               Qtd:number, QtdConferida:number|null, Status, Romaneio, UsuarioID, Perfil, Obs,
- *               AssinaturaURL, FotoURL, ConferidoEm, ConferidoPor, Cancelado:bool, MotivoCancel }
+ *               AssinaturaURL, FotoURL, ConferidoEm, ConferidoPor, Cancelado:bool, MotivoCancel,
+ *               Historico:[] }
  */
 'use strict';
 
@@ -87,18 +88,45 @@ function novoToken(rnd) {
 
 /* ============================ login ============================ */
 
-function login(usuarios, usuarioId, pin) {
-  var u = usuarios.filter(function (r) {
-    return String(r.ID) === String(usuarioId) && r.Ativo !== false;
-  })[0];
-  if (!u) return { ok: false, erro: 'Usuário não encontrado ou inativo.' };
-  if (String(u.PIN).trim() !== String(pin == null ? '' : pin).trim()) {
-    return { ok: false, erro: 'PIN incorreto.' };
-  }
-  return {
-    ok: true,
-    usuario: { id: u.ID, nome: u.Nome, perfil: String(u.Perfil).toUpperCase(), localPadrao: u.LocalPadrao }
-  };
+/* Uma frase só para "não existe" e para "senha errada". Mensagens diferentes contam a quem
+   está tentando se aquele e-mail existe na empresa. */
+var ERRO_ACESSO = 'Usuário ou senha incorretos.';
+var ERRO_PIN = 'Nome ou PIN incorretos.';
+
+function normal(v) { return String(v == null ? '' : v).trim().toLowerCase(); }
+
+function sessaoDe(u) {
+  return { id: u.ID, nome: u.Nome, perfil: String(u.Perfil).toUpperCase(), localPadrao: u.LocalPadrao };
+}
+
+/** Acha por e-mail, apelido de login ou nome completo — o usuário digita o que lembrar. */
+function acharPorIdentificador(usuarios, ident) {
+  var alvo = normal(ident);
+  if (!alvo) return null;
+  return usuarios.filter(function (u) {
+    if (u.Ativo === false) return false;
+    return normal(u.Email) === alvo || normal(u.Usuario) === alvo || normal(u.Nome) === alvo;
+  })[0] || null;
+}
+
+/**
+ * Login do escritório. A comparação do hash é injetada porque este arquivo não importa nada:
+ * é o que permite rodar os testes sem `crypto` e sem rede.
+ */
+function loginPorSenha(usuarios, ident, senha, conferir) {
+  var u = acharPorIdentificador(usuarios, ident);
+  if (!u || !u.SenhaHash) return { ok: false, erro: ERRO_ACESSO };
+  if (!conferir(senha, u.SenhaHash)) return { ok: false, erro: ERRO_ACESSO };
+  return { ok: true, usuario: sessaoDe(u) };
+}
+
+/** Login do campo: nome digitado + PIN curto. Sem lista de usuários na tela. */
+function loginPorPin(usuarios, ident, pin) {
+  var u = acharPorIdentificador(usuarios, ident);
+  if (!u) return { ok: false, erro: ERRO_PIN };
+  var informado = String(pin == null ? '' : pin).trim();
+  if (!informado || String(u.PIN || '').trim() !== informado) return { ok: false, erro: ERRO_PIN };
+  return { ok: true, usuario: sessaoDe(u) };
 }
 
 /* ============================ montagem de movimento ============================ */
@@ -207,6 +235,56 @@ function montarConferencia(mov, p) {
     declarada: declarada,
     conferida: qtd
   };
+}
+
+/**
+ * Correção feita pelo escritório. Não sobrescreve em silêncio: devolve o patch e as linhas de
+ * histórico a empilhar, com valor antigo, novo, autor e motivo. É o que mantém de pé a regra
+ * de que nada se apaga.
+ */
+var CORRIGIVEIS = [
+  { campo: 'Qtd', rotulo: 'quantidade', numero: true },
+  { campo: 'QtdConferida', rotulo: 'conferida', numero: true },
+  { campo: 'DataRef', rotulo: 'data', data: true },
+  { campo: 'Romaneio', rotulo: 'romaneio' },
+  { campo: 'Obs', rotulo: 'observação' }
+];
+
+function montarCorrecao(mov, p, agora) {
+  if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
+  if (mov.Cancelado) return { ok: false, erro: 'Movimento cancelado não se corrige — lance um novo.' };
+  var motivo = String(p.motivo || '').trim();
+  if (!motivo) return { ok: false, erro: 'Descreva o motivo da correção.' };
+
+  agora = agora || new Date();
+  var patch = {}, entradas = [];
+
+  CORRIGIVEIS.forEach(function (c) {
+    if (p[c.campo] === undefined || p[c.campo] === null) return;
+    var novo = p[c.campo];
+    var velho = mov[c.campo];
+    if (c.numero) {
+      if (String(novo).trim() === '') return;
+      novo = Number(novo);
+      if (isNaN(novo) || novo < 0) return;
+      if (Number(velho) === novo) return;
+    } else if (c.data) {
+      novo = data(novo);
+      if (soData(novo) === soData(velho)) return;
+    } else {
+      novo = String(novo);
+      if (String(velho || '') === novo) return;
+    }
+    patch[c.campo] = novo;
+    entradas.push({
+      em: iso(agora), por: String(p.usuarioId || ''), campo: c.rotulo, motivo: motivo,
+      de: c.data ? soData(velho) : (velho === null || velho === undefined ? '' : String(velho)),
+      para: c.data ? soData(novo) : String(novo)
+    });
+  });
+
+  if (!entradas.length) return { ok: false, erro: 'Nada mudou.' };
+  return { ok: true, patch: patch, historico: (mov.Historico || []).concat(entradas), entradas: entradas };
 }
 
 /* ============================ saldos ============================ */
@@ -356,7 +434,8 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       qtdConferida: temConf ? m.QtdConferida : '',
       divergencia: (m.Status === 'CONFIRMADO' && temConf) ? Number(m.QtdConferida) - Number(m.Qtd) : '',
       status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID), perfil: m.Perfil,
-      obs: m.Obs, assinatura: m.AssinaturaURL, foto: m.FotoURL
+      obs: m.Obs, assinatura: m.AssinaturaURL, foto: m.FotoURL,
+      historico: m.Historico || []
     };
   });
 }
@@ -564,7 +643,10 @@ module.exports = {
   TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, novoId: novoId, novoToken: novoToken,
-  login: login, montarMovimento: montarMovimento, montarConferencia: montarConferencia,
+  acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
+  loginPorPin: loginPorPin, sessaoDe: sessaoDe,
+  montarMovimento: montarMovimento, montarConferencia: montarConferencia,
+  montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   efetiva: efetiva, saldos: saldos, emConferencia: emConferencia, aging: aging,
   pendentes: pendentes, listaMovimentos: listaMovimentos, painel: painel,
   descricao: descricao, extrato: extrato, extratoToken: extratoToken,
