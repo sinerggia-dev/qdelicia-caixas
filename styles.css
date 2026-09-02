@@ -161,10 +161,30 @@ tr.ruim{background:var(--vermelho-claro)}
 .modal h2{margin-top:0}
 
 /* login */
-.login{max-width:380px;margin:8vh auto;text-align:center}
+/* Cena escura só na entrada; o app depois do login continua claro.
+   `.login` toma a tela inteira e centraliza os próprios filhos — assim o marinho
+   sangra até a borda sem marcação nova, sem JS e sem depender de :has(). */
+.login{
+  max-width:none;margin:0;min-height:100vh;text-align:center;
+  padding:9vh 18px calc(40px + env(safe-area-inset-bottom));
+  background:var(--marinho);color:#fff;color-scheme:dark;
+}
+.login>*{max-width:380px;margin-left:auto;margin-right:auto}
 .login .logo{font-size:44px;margin-bottom:6px}
-.login h1{font-size:21px;margin:0 0 4px}
-.login p{color:var(--txt2);font-size:14px;margin:0 0 18px}
+.login h1{font-size:21px;margin:0 0 4px;color:#fff}
+.login p{color:#9fb5cc;font-size:14px;margin:0 0 18px}
+.login a{color:var(--ambar-btn)}
+.login .card{
+  background:#1b3c5f;border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 10px 30px rgba(0,0,0,.28)
+}
+.login .card label{color:#a9c0d6}
+.login .card input,.login .card select{
+  background:#0e2740;color:#eaf1f8;border-color:rgba(255,255,255,.16)
+}
+.login .card input:focus,.login .card select:focus{
+  outline-color:var(--ambar-btn);border-color:var(--ambar-btn)
+}
 .pin{letter-spacing:.5em;text-align:center;font-size:22px!important;font-weight:700}
 
 @media print{
