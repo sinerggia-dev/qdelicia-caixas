@@ -177,23 +177,23 @@ Trocada em setembro/2026 a partir de um mockup do usuário: **marinho é a marca
 ação**, fundo creme. Antes o verde acumulava os dois papéis — marca e "confirmado" — e agora ele
 guarda só o significado semântico.
 
-Tudo passa por tokens em ; nenhum arquivo tem cor solta. Os nomes dizem o papel:
+Tudo passa por tokens em `styles.css`; nenhum arquivo tem cor solta. Os nomes dizem o papel:
 
 | Token | Papel |
 |---|---|
-|  | marca: cabeçalho, links, aba ativa, botão secundário |
-|  | destaque: sublinhado da aba ativa, chip de fila, bordas |
-|  | fundo do botão principal — dourado vivo, **com texto marinho** |
-|  | texto âmbar sobre fundo claro (etiquetas, avisos) |
-|  | só  / ok |
-|  | divergência, atraso, acima do limite |
+| `--marinho` | marca: cabeçalho, links, aba ativa, botão secundário |
+| `--ambar` | destaque: sublinhado da aba ativa, chip de fila, bordas |
+| `--ambar-btn` | fundo do botão principal — dourado vivo, **com texto marinho** |
+| `--ambar-forte` | texto âmbar sobre fundo claro (etiquetas, avisos) |
+| `--verde` | só `CONFIRMADO` / ok |
+| `--vermelho` | divergência, atraso, acima do limite |
 
 Os três tons de âmbar existem por contraste, não por capricho. Dourado vivo com texto branco dá
 3,2:1 e reprova; com texto marinho dá 5,9:1. Já etiqueta de 11,5px precisa de 4,5:1, o que só o
- alcança sobre . Se for mexer, refaça a conta antes — o app é lido
+`--ambar-forte` alcança sobre `--ambar-claro`. Se for mexer, refaça a conta antes — o app é lido
 no celular, no galpão, sob luz forte.
 
-O  tem paleta própria e **continua na identidade verde**; alinhar é uma tarefa à
+O `manual.html` tem paleta própria e **continua na identidade verde**; alinhar é uma tarefa à
 parte, e exige regerar PDF e Word.
 
 ## Armadilhas já pagas
