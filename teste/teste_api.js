@@ -20,8 +20,8 @@ const tabelas = {
     { id: 'L003', tipo: 'CLIENTE', nome: 'Cliente Exemplo', responsavel: '', telefone: '', limite_caixas: 200, dias_prazo: 7, token: 'b6p8xwmqr6', ativo: true, obs: '' }
   ],
   tipos_caixa: [
-    { id: 'T001', nome: 'Caixa Banana', valor_unit: 18, ativo: true },
-    { id: 'T002', nome: 'Caixa Plástica Grande', valor_unit: 25, ativo: true }
+    { id: 'T001', nome: 'Caixa Banana', ativo: true },
+    { id: 'T002', nome: 'Caixa Plástica Grande', ativo: true }
   ],
   usuarios: [
     { id: 'U001', nome: 'Administrador', perfil: 'ADMIN', pin: '1234', telefone: '', local_padrao: 'L001', ativo: true },

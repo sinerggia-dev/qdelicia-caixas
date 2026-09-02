@@ -127,13 +127,12 @@ var LOCAL = {
 
 var TIPO = {
   de: function (r) {
-    return { ID: r.id, Nome: r.nome, ValorUnit: Number(r.valor_unit) || 0, Ativo: r.ativo !== false };
+    return { ID: r.id, Nome: r.nome, Ativo: r.ativo !== false };
   },
   para: function (o) {
     var r = {};
     if (o.ID !== undefined) r.id = o.ID;
     if (o.Nome !== undefined) r.nome = o.Nome;
-    if (o.ValorUnit !== undefined) r.valor_unit = Number(o.ValorUnit) || 0;
     if (o.Ativo !== undefined) r.ativo = bool(o.Ativo) || o.Ativo === true;
     return r;
   }

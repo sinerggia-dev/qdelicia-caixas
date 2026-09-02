@@ -427,10 +427,10 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   </div>
 
   <h3>Tipos de caixa</h3>
-  <p>Nome e <strong>valor unitário</strong>. É o valor que transforma caixa perdida em reais no painel — sem ele, a perda fica só um número solto.</p>
+  <p>Só o nome e se está ativo. São os tipos que aparecem nas telas de saída, devolução e conferência — mantenha a lista curta, porque ela é escolhida no celular, com pressa.</p>
 
   <h3>Usuários</h3>
-  <p>Nome, perfil, PIN e local padrão. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá valor à divergência.</p>
+  <p>Nome, perfil, PIN e local padrão. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá peso à divergência.</p>
 </section>
 
 <section id="lancar">
@@ -443,7 +443,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
         <tr><td><strong>Saída</strong></td><td>Entrega que não foi lançada no campo</td></tr>
         <tr><td><strong>Transferência</strong></td><td>Caixas indo do galpão para a filial, ou o contrário</td></tr>
         <tr><td><strong>Devolução</strong></td><td>Retorno que chegou sem registro do motorista</td></tr>
-        <tr><td><strong>Baixa de perda</strong></td><td>Caixa aceita como perdida — sai do saldo do cliente e entra no valor de perda do mês</td></tr>
+        <tr><td><strong>Baixa de perda</strong></td><td>Caixa aceita como perdida — sai do saldo do cliente e entra nas perdas do mês</td></tr>
         <tr><td><strong>Ajuste / saldo inicial</strong></td><td>O ponto de partida de cada cliente no dia em que o app entra no ar</td></tr>
       </tbody>
     </table>
@@ -482,12 +482,12 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <h3>Quem vê o quê</h3>
   <div class="tabela">
     <table>
-      <thead><tr><th>Perfil</th><th>Saída</th><th>Devolução</th><th>Conferência</th><th>Saldo</th><th>Painel</th></tr></thead>
+      <thead><tr><th>Perfil</th><th>Saída</th><th>Devolução</th><th>Conferência</th><th>Saldo</th><th>Painel e extratos</th><th>Lançar e cadastrar</th></tr></thead>
       <tbody>
-        <tr><td><code>MOTORISTA</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td></tr>
-        <tr><td><code>PROMOTOR</code></td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td></tr>
-        <tr><td><code>GALPAO</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">—</td></tr>
-        <tr><td><code>ADMIN</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td></tr>
+        <tr><td><code>MOTORISTA</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td><td class="nao">—</td></tr>
+        <tr><td><code>PROMOTOR</code></td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td><td class="nao">—</td></tr>
+        <tr><td><code>GALPAO</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">—</td></tr>
+        <tr><td><code>ADMIN</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td></tr>
       </tbody>
     </table>
   </div>
@@ -500,7 +500,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
         <tr><td><code>SAIDA</code></td><td>Tira da origem e põe no destino</td></tr>
         <tr><td><code>DEVOLUCAO</code></td><td>Tira do cliente e devolve ao galpão — só quando confirmada</td></tr>
         <tr><td><code>TRANSFERENCIA</code></td><td>Move entre galpão e filial</td></tr>
-        <tr><td><code>PERDA</code></td><td>Baixa do saldo do cliente e vira valor em reais</td></tr>
+        <tr><td><code>PERDA</code></td><td>Baixa do saldo do cliente e entra na conta de perdas do mês</td></tr>
         <tr><td><code>AJUSTE</code></td><td>Corrige para mais ou para menos; é o que usa no saldo inicial</td></tr>
       </tbody>
     </table>
@@ -531,7 +531,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
       <thead><tr><th>Tabela</th><th>Conteúdo</th></tr></thead>
       <tbody>
         <tr><td><code>locais</code></td><td>Galpões, filiais e clientes, com limite, prazo e o código do link</td></tr>
-        <tr><td><code>tipos_caixa</code></td><td>Tipos de caixa e valor unitário</td></tr>
+        <tr><td><code>tipos_caixa</code></td><td>Tipos de caixa</td></tr>
         <tr><td><code>usuarios</code></td><td>Nome, perfil, PIN e local padrão</td></tr>
         <tr><td><code>movimentos</code></td><td>O livro-razão. Só acrescenta — nada é apagado</td></tr>
         <tr><td><code>config</code></td><td>Nome da empresa e prazo padrão</td></tr>

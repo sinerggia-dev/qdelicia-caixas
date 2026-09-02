@@ -35,7 +35,7 @@ A diferença entre o que foi contado no cliente e o que chegou fica registrada c
 | Perfil | Onde usa | O que faz |
 |---|---|---|
 | `ADMIN` | admin.html | Tudo: painel, extratos, lançamento manual, perdas, cadastros, cancelamento |
-| `GALPAO` | index.html + admin.html | Lança saída/devolução e **confere** as chegadas |
+| `GALPAO` | index.html + admin.html | Lança saída/devolução e **confere** as chegadas. No painel só consulta — sem Lançar e sem Cadastros |
 | `MOTORISTA` | index.html | Lança saída e coleta na rua, com assinatura do cliente |
 | `PROMOTOR` | index.html | Só conta a devolução dentro do cliente |
 | Cliente | extrato.html?t=TOKEN | Só leitura: vê o próprio saldo e extrato |
@@ -98,7 +98,7 @@ Mudou variável de ambiente? Precisa de **redeploy** para valer.
 
 1. Entre em `admin.html` com **Administrador** / PIN **1234** e **troque esse PIN**.
 2. Aba **Cadastros**: renomeie o galpão, cadastre filiais, clientes (com WhatsApp, limite de
-   caixas e prazo de devolução) e os tipos de caixa com valor unitário.
+   caixas e prazo de devolução) e os tipos de caixa.
 3. Cadastre motoristas e promotores com PIN próprio.
 4. Aba **Lançar** → **Ajuste / saldo inicial**: quantas caixas cada cliente já deve hoje e
    quantas estão no galpão. Sem isso o saldo começa do zero.
@@ -108,7 +108,7 @@ Mudou variável de ambiente? Precisa de **redeploy** para valer.
 | Tabela | Para quê |
 |---|---|
 | `locais` | Galpões, filiais e clientes — todos são "nós" que guardam caixas. `token` é o código do link do cliente. |
-| `tipos_caixa` | Tipos e valor unitário (transforma caixa perdida em R$). |
+| `tipos_caixa` | Tipos de caixa que aparecem nas telas de lançamento. |
 | `usuarios` | Nome, perfil, PIN e local padrão. |
 | `movimentos` | Livro-razão, só acrescenta. Nada é apagado — movimento errado se **cancela**. |
 | `config` | Nome da empresa, prazo padrão. |

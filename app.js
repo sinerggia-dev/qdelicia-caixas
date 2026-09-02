@@ -170,7 +170,6 @@
   /* ---------------- utilitários ---------------- */
 
   function num(n) { return (Number(n) || 0).toLocaleString('pt-BR'); }
-  function moeda(n) { return (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
   function dataBR(iso) {
     if (!iso) return '';
     var d = String(iso).slice(0, 10).split('-');
@@ -311,7 +310,7 @@
     get: get, post: post, enviar: enviar, sincronizar: sincronizar, fila: fila, chave: chave,
     sessao: sessao, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
     cache: cache, carregarDados: carregarDados, semApi: semApi,
-    num: num, moeda: moeda, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
+    num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     toast: toast, abas: abas, barraAging: barraAging, assinatura: assinatura,
     comprimirFoto: comprimirFoto, csv: csv, atualizarBadge: atualizarBadge
   };

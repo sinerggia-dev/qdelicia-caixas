@@ -13,9 +13,9 @@ insert into public.locais (id, tipo, nome, limite_caixas, dias_prazo, token, obs
   ('L003','CLIENTE','Cliente Exemplo',                200,    7, 'b6p8xwmqr6', 'Apague depois de cadastrar os reais')
 on conflict (id) do nothing;
 
-insert into public.tipos_caixa (id, nome, valor_unit) values
-  ('T001','Caixa Banana',          18.00),
-  ('T002','Caixa Plástica Grande', 25.00)
+insert into public.tipos_caixa (id, nome) values
+  ('T001','Caixa Banana'),
+  ('T002','Caixa Plástica Grande')
 on conflict (id) do nothing;
 
 insert into public.usuarios (id, nome, perfil, pin, local_padrao) values

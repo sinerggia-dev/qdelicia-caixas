@@ -35,6 +35,29 @@ Se uma alteração quebrar qualquer uma delas, o app perde a razão de existir.
 3. **O navegador não fala com o banco.** Toda leitura e escrita passa pela função. É isso que
    permite PIN de 4 dígitos e link de cliente sem login.
 
+## Separação de funções no painel
+
+`GALPAO` entra no `admin.html`, mas só consulta: **Lançar** e **Cadastros** ficam escondidos para
+quem não é `ADMIN`, e o botão de cancelar movimento também. O motivo não é hierarquia — é que o
+conferente é justamente quem gera a divergência na chegada. Dar a ele um *Ajuste de saldo* seria
+deixá-lo apagar o próprio erro, e o cadastro de usuários deixaria ele trocar o PIN do admin.
+
+**Isso é só a interface.** A API **não tem autorização nenhuma**: o `login` confere o PIN e devolve
+o usuário, mas as chamadas seguintes não carregam prova de quem é. Um `POST /api` com
+`{"acao":"salvarUsuario"}` funciona de qualquer lugar, sem PIN. Herdado do Apps Script e mantido na
+migração. Enquanto for app de teste, tudo bem; virando operação real, é Supabase Auth com checagem
+de perfil em cada rota.
+
+## Não existe valor em dinheiro
+
+Removido em setembro/2026 a pedido do usuário. Não há preço de caixa, KPI de valor exposto, coluna
+de valor no painel nem no CSV. `tipos_caixa` tem só nome e ativo. Se o banco é antigo, a coluna
+`valor_unit` pode continuar lá sem uso — o `schema.sql` traz o `alter table ... drop column` no
+comentário.
+
+Se um dia pedirem valor de volta, não é só religar a coluna: `painel()` e `extrato()` em
+`_logica.js` precisam voltar a calcular, e a interface a exibir.
+
 ## Arquitetura
 
 ```

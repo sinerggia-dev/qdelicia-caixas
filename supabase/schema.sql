@@ -31,13 +31,14 @@ comment on column public.locais.dias_prazo is 'Prazo de devolução; nulo usa o 
 
 -- ============================================================ tipos_caixa
 create table if not exists public.tipos_caixa (
-  id          text primary key,
-  nome        text          not null,
-  valor_unit  numeric(12,2) not null default 0,
-  ativo       boolean       not null default true
+  id     text    primary key,
+  nome   text    not null,
+  ativo  boolean not null default true
 );
 
-comment on column public.tipos_caixa.valor_unit is 'Transforma caixa perdida em R$ no painel';
+-- Se este banco foi criado antes de setembro/2026, ele ainda tem a coluna de valor unitário.
+-- O app não usa mais valor em lugar nenhum; para limpar de vez:
+--   alter table public.tipos_caixa drop column if exists valor_unit;
 
 -- ============================================================ usuarios
 create table if not exists public.usuarios (

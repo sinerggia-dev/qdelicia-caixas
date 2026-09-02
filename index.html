@@ -263,7 +263,7 @@
   function itensHTML(prefixo){
     return (DADOS.tipos||[]).filter(function(t){ return String(t.Ativo).toUpperCase()!=='NAO'; }).map(function(t){
       return '<div class="item">'+
-        '<div class="nome">'+Q.esc(t.Nome)+(Number(t.ValorUnit)?'<small>'+Q.moeda(t.ValorUnit)+' por caixa</small>':'')+'</div>'+
+        '<div class="nome">'+Q.esc(t.Nome)+'</div>'+
         '<div class="stepper">'+
           '<button type="button" data-passo="-10" data-alvo="'+prefixo+t.ID+'" style="font-size:14px">−10</button>'+
           '<input id="'+prefixo+t.ID+'" type="number" inputmode="numeric" min="0" step="1" value="" placeholder="0" data-tipo="'+t.ID+'">'+
@@ -553,7 +553,6 @@
       var ultimas = r.linhas.slice(-25).reverse();
       document.getElementById('extratoConteudo').innerHTML =
         '<div class="kpis"><div class="kpi '+(r.saldo>0?'aviso':'ok')+'"><div class="v">'+Q.num(r.saldo)+'</div><div class="r">caixas em poder</div></div>'+
-        '<div class="kpi info"><div class="v">'+Q.moeda(r.valor)+'</div><div class="r">valor em risco</div></div>'+
         (r.emConferencia?'<div class="kpi"><div class="v">'+Q.num(r.emConferencia)+'</div><div class="r">em conferência</div></div>':'')+'</div>'+
         Q.barraAging(r.aging)+
         '<div class="tabela-wrap" style="margin-top:12px"><table><thead><tr><th>Data</th><th>Movimento</th><th class="num">Saiu</th><th class="num">Voltou</th><th class="num">Saldo</th></tr></thead><tbody>'+

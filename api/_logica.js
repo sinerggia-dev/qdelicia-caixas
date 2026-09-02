@@ -8,7 +8,7 @@
  *
  * Formato interno das linhas (o adaptador converte de/para snake_case do Postgres):
  *   local     { ID, Tipo, Nome, Responsavel, Telefone, LimiteCaixas, DiasPrazo, Token, Ativo:bool, Obs }
- *   tipoCaixa { ID, Nome, ValorUnit:number, Ativo:bool }
+ *   tipoCaixa { ID, Nome, Ativo:bool }
  *   usuario   { ID, Nome, Perfil, PIN, Telefone, LocalPadrao, Ativo:bool }
  *   movimento { ID, ClientKey, DataHora:Date, DataRef:Date, Tipo, OrigemID, DestinoID, TipoCaixaID,
  *               Qtd:number, QtdConferida:number|null, Status, Romaneio, UsuarioID, Perfil, Obs,
@@ -368,15 +368,12 @@ function painel(dados, hoje) {
   locais.forEach(function (l) { prazos[l.ID] = Number(l.DiasPrazo) || prazoPadrao; });
   var ag = aging(movimentos, prazos, hoje);
   var emConf = emConferencia(movimentos);
-  var valor = {};
-  tipos.forEach(function (t) { valor[t.ID] = Number(t.ValorUnit) || 0; });
 
   var ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  var perdasMes = 0, perdasMesValor = 0, saidasMes = 0, devolucoesMes = 0, divergenciaMes = 0;
+  var perdasMes = 0, saidasMes = 0, devolucoesMes = 0, divergenciaMes = 0;
   ativos(movimentos).forEach(function (m) {
     if (m.DataRef < ini) return;
-    var v = valor[m.TipoCaixaID] || 0;
-    if (m.Tipo === 'PERDA') { perdasMes += Number(m.Qtd); perdasMesValor += Number(m.Qtd) * v; }
+    if (m.Tipo === 'PERDA') perdasMes += Number(m.Qtd);
     if (m.Tipo === 'SAIDA') saidasMes += Number(m.Qtd);
     if (m.Tipo === 'DEVOLUCAO' && m.Status === 'CONFIRMADO') {
       var temConf = m.QtdConferida !== null && m.QtdConferida !== undefined && m.QtdConferida !== '';
@@ -389,13 +386,13 @@ function painel(dados, hoje) {
 
   var lista = locais.filter(function (l) { return l.Tipo !== 'GALPAO'; }).map(function (l) {
     var porTipo = sal[l.ID] || {};
-    var total = 0, vTotal = 0;
-    Object.keys(porTipo).forEach(function (t) { total += porTipo[t]; vTotal += porTipo[t] * (valor[t] || 0); });
+    var total = 0;
+    Object.keys(porTipo).forEach(function (t) { total += porTipo[t]; });
     var a = ag[l.ID] || { d0_7: 0, d8_15: 0, d16_30: 0, d31: 0, maisAntiga: null, vencidas: 0 };
     return {
       id: l.ID, nome: l.Nome, tipo: l.Tipo, responsavel: l.Responsavel, telefone: l.Telefone,
       limite: Number(l.LimiteCaixas) || 0, prazo: prazos[l.ID] || prazoPadrao,
-      saldo: total, valor: vTotal, porTipo: porTipo,
+      saldo: total, porTipo: porTipo,
       emConferencia: emConf[l.ID] || 0,
       aging: a,
       vencidas: Number(a.vencidas) || 0,
@@ -410,17 +407,16 @@ function painel(dados, hoje) {
     return { id: l.ID, nome: l.Nome, saldo: total, porTipo: porTipo };
   });
 
-  var emPoderTerceiros = 0, valorTerceiros = 0;
-  lista.forEach(function (l) { emPoderTerceiros += l.saldo; valorTerceiros += l.valor; });
+  var emPoderTerceiros = 0;
+  lista.forEach(function (l) { emPoderTerceiros += l.saldo; });
 
   return {
     kpis: {
       emPoderTerceiros: emPoderTerceiros,
-      valorTerceiros: valorTerceiros,
       clientesComSaldo: lista.filter(function (l) { return l.saldo > 0; }).length,
       vencidas: lista.reduce(function (s, l) { return s + Math.max(0, l.vencidas); }, 0),
       aguardandoConferencia: pendentes(movimentos, locais, tipos).length,
-      perdasMes: perdasMes, perdasMesValor: perdasMesValor,
+      perdasMes: perdasMes,
       saidasMes: saidasMes, devolucoesMes: devolucoesMes,
       divergenciaMes: divergenciaMes,
       taxaRetorno: saidasMes > 0 ? Math.round((devolucoesMes / saidasMes) * 1000) / 10 : null
@@ -495,10 +491,6 @@ function extrato(dados, localId, de, ate, hoje) {
   var ag = aging(dados.movimentos, {}, hoje)[localId] ||
     { d0_7: 0, d8_15: 0, d16_30: 0, d31: 0, maisAntiga: null, total: 0 };
   var porTipo = saldos(dados.movimentos)[localId] || {};
-  var valores = {};
-  dados.tipos.forEach(function (t) { valores[t.ID] = Number(t.ValorUnit) || 0; });
-  var vTotal = 0;
-  Object.keys(porTipo).forEach(function (t) { vTotal += porTipo[t] * (valores[t] || 0); });
 
   return {
     ok: true,
@@ -507,9 +499,9 @@ function extrato(dados, localId, de, ate, hoje) {
       telefone: local.Telefone, limite: Number(local.LimiteCaixas) || 0,
       prazo: Number(local.DiasPrazo) || Number(dados.config.diasPrazoPadrao) || 7
     },
-    saldoInicial: saldoInicial, saldo: saldo, valor: vTotal,
+    saldoInicial: saldoInicial, saldo: saldo,
     porTipo: Object.keys(porTipo).map(function (t) {
-      return { tipo: nome(mTipos, t), qtd: porTipo[t], valor: porTipo[t] * (valores[t] || 0) };
+      return { tipo: nome(mTipos, t), qtd: porTipo[t] };
     }),
     emConferencia: emConferencia(dados.movimentos)[localId] || 0,
     aging: ag, linhas: linhas
