@@ -169,6 +169,16 @@
 
   /* ---------------- utilitários ---------------- */
 
+  /**
+   * Ativo chega como booleano do Postgres, mas o histórico da planilha usava 'SIM'/'NAO'.
+   * Sem este helper, `String(false) !== 'NAO'` deixava passar tudo como ativo.
+   */
+  function ativo(v) {
+    if (v === false || v === 0) return false;
+    var s = String(v === undefined || v === null ? '' : v).trim().toUpperCase();
+    return !(s === 'NAO' || s === 'NÃO' || s === 'FALSE' || s === 'N' || s === '0');
+  }
+
   function num(n) { return (Number(n) || 0).toLocaleString('pt-BR'); }
   function dataBR(iso) {
     if (!iso) return '';
@@ -310,7 +320,7 @@
     get: get, post: post, enviar: enviar, sincronizar: sincronizar, fila: fila, chave: chave,
     sessao: sessao, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
     cache: cache, carregarDados: carregarDados, semApi: semApi,
-    num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
+    ativo: ativo, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     toast: toast, abas: abas, barraAging: barraAging, assinatura: assinatura,
     comprimirFoto: comprimirFoto, csv: csv, atualizarBadge: atualizarBadge
   };

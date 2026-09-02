@@ -45,9 +45,17 @@
   <!-- ---------- PAINEL ---------- -->
   <section id="pgPainel" class="pagina ativa">
     <div class="kpis" id="kpis"></div>
+    <div class="card" id="cardRotas" style="display:none">
+      <h2>Rotas<span class="sub">No caminhão = carregou e ainda não entregou. Nos clientes = já entregou e ainda não voltou.</span></h2>
+      <div id="tabelaRotas"></div>
+    </div>
+
     <div class="card">
       <h2>Caixas em poder de clientes e filiais<span class="sub">Ordenado por quem tem mais caixas nossas. Vermelho = tem caixa parada há mais de 30 dias.</span></h2>
-      <div class="busca"><input id="buscaPainel" type="text" placeholder="🔍 Buscar cliente ou filial"></div>
+      <div class="grid2">
+        <div class="busca"><input id="buscaPainel" type="text" placeholder="🔍 Buscar cliente ou filial"></div>
+        <div><select id="filtroRota"><option value="">Todas as rotas</option></select></div>
+      </div>
       <div id="tabelaPainel"><div class="vazio">Carregando…</div></div>
       <div class="linha-btn">
         <button class="btn sec" id="btnCsvPainel" style="flex:0;min-width:180px">⬇ Exportar CSV</button>
@@ -137,7 +145,7 @@
   <!-- ---------- CADASTROS ---------- -->
   <section id="pgCadastros" class="pagina">
     <div class="card">
-      <h2>Clientes, filiais e galpões</h2>
+      <h2>Locais e rotas<span class="sub">Galpão, filial, cliente e rota — todos guardam caixa e têm saldo próprio.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoLocal" style="flex:0;min-width:170px">+ Novo cadastro</button>
       </div>
@@ -244,7 +252,7 @@
   function opcoes(lista, vazio){
     return '<option value="">'+(vazio||'Selecione…')+'</option>' + lista.map(function(l){
       return '<option value="'+l.ID+'">'+(l.Tipo!=='CLIENTE'?'['+l.Tipo.charAt(0)+l.Tipo.slice(1).toLowerCase()+'] ':'')+Q.esc(l.Nome)+
-        (String(l.Ativo).toUpperCase()==='NAO'?' (inativo)':'')+'</option>';
+        (Q.ativo(l.Ativo)?'':' (inativo)')+'</option>';
     }).join('');
   }
   function montarSelects(){
@@ -262,10 +270,10 @@
     Q.get({acao:'painel'}).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       PAINEL = r.painel; Q.cache('painel', PAINEL);
-      desenharKpis(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral();
+      desenharRotas(); desenharKpis(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral();
     }).catch(function(e){
       PAINEL = Q.cache('painel');
-      if (PAINEL){ desenharKpis(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral(); Q.toast('Mostrando dados salvos: '+e.message,'erro'); }
+      if (PAINEL){ desenharRotas(); desenharKpis(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral(); Q.toast('Mostrando dados salvos: '+e.message,'erro'); }
       else document.getElementById('tabelaPainel').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
     });
   }
@@ -273,6 +281,7 @@
     var k = PAINEL.kpis;
     document.getElementById('kpis').innerHTML =
       kpi(Q.num(k.emPoderTerceiros),'caixas na rua (clientes+filiais)','aviso')+
+      (PAINEL.rotas && PAINEL.rotas.length ? kpi(Q.num(k.emRota),'caixas no caminhão (em rota)', k.emRota?'aviso':'ok') : '')+
       kpi(Q.num(k.vencidas),'caixas fora do prazo de devolução', k.vencidas?'alerta':'ok')+
       kpi(Q.num(k.aguardandoConferencia),'devoluções a conferir', k.aguardandoConferencia?'aviso':'ok')+
       kpi(Q.num(k.perdasMes),'perdas baixadas no mês', k.perdasMes?'alerta':'ok')+
@@ -284,13 +293,51 @@
 
   function listaFiltrada(){
     var b = (document.getElementById('buscaPainel').value||'').toLowerCase();
-    return (PAINEL.locais||[]).filter(function(l){ return !b || l.nome.toLowerCase().indexOf(b)>=0; });
+    var r = document.getElementById('filtroRota').value;
+    return (PAINEL.locais||[]).filter(function(l){
+      if (r === '__sem' && l.rotaId) return false;
+      if (r && r !== '__sem' && String(l.rotaId||'') !== r) return false;
+      return !b || l.nome.toLowerCase().indexOf(b)>=0;
+    });
+  }
+
+  /* Duas contas separadas de propósito: somar caminhão com cliente esconderia onde a caixa está. */
+  function desenharRotas(){
+    var rotas = PAINEL.rotas||[];
+    document.getElementById('cardRotas').style.display = rotas.length ? 'block' : 'none';
+    var sel = document.getElementById('filtroRota');
+    var atual = sel.value;
+    sel.innerHTML = '<option value="">Todas as rotas</option>'+
+      rotas.map(function(r){ return '<option value="'+Q.esc(r.id)+'">'+Q.esc(r.nome)+'</option>'; }).join('')+
+      '<option value="__sem">— sem rota —</option>';
+    sel.value = atual;
+    if (!rotas.length) return;
+    document.getElementById('tabelaRotas').innerHTML =
+      '<div class="tabela-wrap"><table><thead><tr><th>Rota</th><th>Motorista</th>'+
+      '<th class="num">No caminhão</th><th class="num">Nos clientes</th><th class="num">Clientes</th>'+
+      '<th class="num">Fora do prazo</th><th></th></tr></thead><tbody>'+
+      rotas.map(function(r){
+        return '<tr'+(r.vencidasClientes?' class="ruim"':'')+'><td><b>'+Q.esc(r.nome)+'</b></td>'+
+          '<td>'+(r.motorista?Q.esc(r.motorista):'<span class="tag cinza">sem motorista</span>')+'</td>'+
+          '<td class="num"><b>'+Q.num(r.saldo)+'</b></td>'+
+          '<td class="num">'+Q.num(r.saldoClientes)+'</td>'+
+          '<td class="num">'+Q.num(r.clientes)+'</td>'+
+          '<td class="num">'+(r.vencidasClientes?'<b style="color:var(--vermelho)">'+Q.num(r.vencidasClientes)+'</b>':'0')+'</td>'+
+          '<td><button class="mini acao" data-rota="'+Q.esc(r.id)+'">ver clientes</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+    document.querySelectorAll('[data-rota]').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.getElementById('filtroRota').value = b.dataset.rota;
+        desenharTabelaPainel();
+        document.getElementById('tabelaPainel').scrollIntoView({behavior:'smooth', block:'center'});
+      });
+    });
   }
   function desenharTabelaPainel(){
     var lista = listaFiltrada();
     if (!lista.length){ document.getElementById('tabelaPainel').innerHTML='<div class="vazio">Nada encontrado.</div>'; return; }
     document.getElementById('tabelaPainel').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Cliente / Filial</th><th class="num">Saldo</th>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Cliente / Filial</th><th>Rota</th><th class="num">Saldo</th>'+
       '<th class="num">≤7d</th><th class="num">8–15</th><th class="num">16–30</th><th class="num">+30</th>'+
       '<th class="num">Mais antiga</th><th class="num">A conferir</th><th>Contato</th><th></th></tr></thead><tbody>'+
       lista.map(function(l){
@@ -298,6 +345,7 @@
         return '<tr class="'+cls+'"><td><b>'+Q.esc(l.nome)+'</b>'+
           (l.tipo==='FILIAL'?' <span class="tag cinza">filial</span>':'')+
           (l.acimaLimite?' <span class="tag vermelha">limite '+Q.num(l.limite)+'</span>':'')+'</td>'+
+          '<td>'+(l.rota?Q.esc(l.rota):'<span class="tag cinza">—</span>')+'</td>'+
           '<td class="num"><b>'+Q.num(l.saldo)+'</b></td>'+
           '<td class="num">'+Q.num(l.aging.d0_7)+'</td><td class="num">'+Q.num(l.aging.d8_15)+'</td>'+
           '<td class="num">'+Q.num(l.aging.d16_30)+'</td><td class="num">'+(l.aging.d31?'<b style="color:var(--vermelho)">'+Q.num(l.aging.d31)+'</b>':'0')+'</td>'+
@@ -315,12 +363,13 @@
     });
   }
   document.getElementById('buscaPainel').addEventListener('input', function(){ if (PAINEL) desenharTabelaPainel(); });
+  document.getElementById('filtroRota').addEventListener('change', function(){ if (PAINEL) desenharTabelaPainel(); });
   document.getElementById('btnAtualizarPainel').addEventListener('click', carregarPainel);
   document.getElementById('btnCsvPainel').addEventListener('click', function(){
     if (!PAINEL) return;
     Q.csv('caixas_saldos_'+Q.hoje()+'.csv',
-      ['Cliente/Filial','Tipo','Saldo','Ate 7d','8-15d','16-30d','+30d','Mais antiga (dias)','A conferir','Limite','Responsavel','Telefone'],
-      listaFiltrada().map(function(l){ return [l.nome,l.tipo,l.saldo,l.aging.d0_7,l.aging.d8_15,l.aging.d16_30,l.aging.d31,l.aging.maisAntiga===null?'':l.aging.maisAntiga,l.emConferencia,l.limite||'',l.responsavel||'',l.telefone||'']; }));
+      ['Cliente/Filial','Tipo','Rota','Saldo','Ate 7d','8-15d','16-30d','+30d','Mais antiga (dias)','A conferir','Limite','Responsavel','Telefone'],
+      listaFiltrada().map(function(l){ return [l.nome,l.tipo,l.rota||'',l.saldo,l.aging.d0_7,l.aging.d8_15,l.aging.d16_30,l.aging.d31,l.aging.maisAntiga===null?'':l.aging.maisAntiga,l.emConferencia,l.limite||'',l.responsavel||'',l.telefone||'']; }));
   });
   function desenharAgingGeral(){
     var t = {d0_7:0,d8_15:0,d16_30:0,d31:0,maisAntiga:null};
@@ -521,16 +570,25 @@
   });
 
   /* ---------------- cadastros ---------------- */
+  function nomeDe(lista, id){
+    var x = (lista||[]).filter(function(i){ return String(i.ID)===String(id); })[0];
+    return x ? x.Nome : String(id||'');
+  }
   function desenharCadastros(){
     var locais = DADOS.locais||[];
     document.getElementById('tabelaLocais').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Responsável</th><th>WhatsApp</th>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Rota / motorista</th><th>Responsável</th><th>WhatsApp</th>'+
       '<th class="num">Limite</th><th class="num">Prazo (dias)</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       locais.map(function(l){
-        return '<tr><td><b>'+Q.esc(l.Nome)+'</b></td><td><span class="tag cinza">'+Q.esc(String(l.Tipo).toLowerCase())+'</span></td>'+
+        var ehRota = String(l.Tipo).toUpperCase()==='ROTA';
+        var vinculo = ehRota
+          ? (l.MotoristaId ? Q.esc(nomeDe(DADOS.usuarios, l.MotoristaId)) : '<span class="tag cinza">sem motorista</span>')
+          : (l.RotaId ? Q.esc(nomeDe(DADOS.locais, l.RotaId)) : '<span class="tag cinza">—</span>');
+        return '<tr><td><b>'+Q.esc(l.Nome)+'</b></td><td><span class="tag '+(ehRota?'verde':'cinza')+'">'+(ehRota?'rota':Q.esc(String(l.Tipo).toLowerCase()))+'</span></td>'+
+        '<td>'+vinculo+'</td>'+
         '<td>'+Q.esc(l.Responsavel||'')+'</td><td>'+Q.esc(l.Telefone||'')+'</td>'+
         '<td class="num">'+(l.LimiteCaixas||'—')+'</td><td class="num">'+(l.DiasPrazo||'—')+'</td>'+
-        '<td>'+(String(l.Ativo).toUpperCase()==='NAO'?'<span class="tag vermelha">não</span>':'<span class="tag verde">sim</span>')+'</td>'+
+        '<td>'+(Q.ativo(l.Ativo)?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
         '<td><button class="mini acao" data-editar-local="'+l.ID+'">editar</button></td></tr>';
       }).join('')+'</tbody></table></div>';
     document.querySelectorAll('[data-editar-local]').forEach(function(b){
@@ -541,7 +599,7 @@
       '<div class="tabela-wrap"><table><thead><tr><th>Tipo de caixa</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       (DADOS.tipos||[]).map(function(t){
         return '<tr><td><b>'+Q.esc(t.Nome)+'</b></td>'+
-        '<td>'+(String(t.Ativo).toUpperCase()==='NAO'?'<span class="tag vermelha">não</span>':'<span class="tag verde">sim</span>')+'</td>'+
+        '<td>'+(Q.ativo(t.Ativo)?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
         '<td><button class="mini acao" data-editar-tipo="'+t.ID+'">editar</button></td></tr>';
       }).join('')+'</tbody></table></div>';
     document.querySelectorAll('[data-editar-tipo]').forEach(function(b){
@@ -572,24 +630,54 @@
 
   function formLocal(l){
     l = l || {};
-    modal('<h2>'+(l.ID?'Editar':'Novo')+' cliente / filial / galpão</h2>'+
+    var motoristas = (DADOS.usuarios||[]).filter(function(u){ return String(u.Perfil).toUpperCase()==='MOTORISTA'; });
+    var rotasCad = (DADOS.locais||[]).filter(function(x){ return String(x.Tipo).toUpperCase()==='ROTA' && String(x.ID)!==String(l.ID); });
+    modal('<h2>'+(l.ID?'Editar':'Novo')+' cadastro</h2>'+
       '<label>Tipo</label><select id="fTipo">'+
-        ['CLIENTE','FILIAL','GALPAO'].map(function(t){ return '<option value="'+t+'"'+(String(l.Tipo)===t?' selected':'')+'>'+t.toLowerCase()+'</option>'; }).join('')+'</select>'+
-      '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(l.Nome||'')+'">'+
-      '<label>Responsável / promotor</label><input type="text" id="fResp" value="'+Q.esc(l.Responsavel||'')+'">'+
-      '<label>WhatsApp (com DDD)</label><input type="tel" id="fTel" value="'+Q.esc(l.Telefone||'')+'" placeholder="81 98151-7703">'+
-      '<div class="grid2">'+
-        '<div><label>Limite de caixas</label><input type="number" id="fLimite" value="'+Q.esc(l.LimiteCaixas||'')+'" placeholder="0 = sem limite"></div>'+
-        '<div><label>Prazo de devolução (dias)</label><input type="number" id="fPrazo" value="'+Q.esc(l.DiasPrazo||'')+'" placeholder="7"></div>'+
+        ['CLIENTE','FILIAL','GALPAO','ROTA'].map(function(t){ return '<option value="'+t+'"'+(String(l.Tipo)===t?' selected':'')+'>'+(t==='ROTA'?'rota (caminhão)':t.toLowerCase())+'</option>'; }).join('')+'</select>'+
+      '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(l.Nome||'')+'" placeholder="Ex.: Rota Centro">'+
+      '<div id="soRota">'+
+        '<label>Motorista responsável</label><select id="fMotorista">'+
+          '<option value="">— sem motorista —</option>'+
+          motoristas.map(function(u){ return '<option value="'+Q.esc(u.ID)+'"'+(String(l.MotoristaId||'')===String(u.ID)?' selected':'')+'>'+Q.esc(u.Nome)+'</option>'; }).join('')+
+        '</select>'+
+      '</div>'+
+      '<div id="soPonto">'+
+        '<label>Rota que atende</label><select id="fRota">'+
+          '<option value="">— sem rota —</option>'+
+          rotasCad.map(function(x){ return '<option value="'+Q.esc(x.ID)+'"'+(String(l.RotaId||'')===String(x.ID)?' selected':'')+'>'+Q.esc(x.Nome)+'</option>'; }).join('')+
+        '</select>'+
+        '<label>Responsável / promotor</label><input type="text" id="fResp" value="'+Q.esc(l.Responsavel||'')+'">'+
+        '<label>WhatsApp (com DDD)</label><input type="tel" id="fTel" value="'+Q.esc(l.Telefone||'')+'" placeholder="81 98151-7703">'+
+        '<div class="grid2">'+
+          '<div><label>Limite de caixas</label><input type="number" id="fLimite" value="'+Q.esc(l.LimiteCaixas||'')+'" placeholder="0 = sem limite"></div>'+
+          '<div><label>Prazo de devolução (dias)</label><input type="number" id="fPrazo" value="'+Q.esc(l.DiasPrazo||'')+'" placeholder="7"></div>'+
+        '</div>'+
       '</div>'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(String(l.Ativo).toUpperCase()!=='NAO'?' selected':'')+'>sim</option><option value="NAO"'+(String(l.Ativo).toUpperCase()==='NAO'?' selected':'')+'>não</option></select>'+
       '<label>Observação</label><textarea id="fObs">'+Q.esc(l.Obs||'')+'</textarea>'+
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
+
+    /* Rota e ponto de entrega guardam coisas diferentes: rota tem motorista; ponto tem rota,
+       prazo e limite. Mostrar os dois conjuntos juntos só confunde quem cadastra. */
+    function ajustarCampos(){
+      var ehRota = document.getElementById('fTipo').value === 'ROTA';
+      document.getElementById('soRota').style.display = ehRota ? 'block' : 'none';
+      document.getElementById('soPonto').style.display = ehRota ? 'none' : 'block';
+    }
+    document.getElementById('fTipo').addEventListener('change', ajustarCampos);
+    ajustarCampos();
+
     document.getElementById('fSalvar').addEventListener('click', function(){
+      var ehRota = document.getElementById('fTipo').value === 'ROTA';
       var reg = { ID:l.ID||'', Tipo:document.getElementById('fTipo').value, Nome:document.getElementById('fNome').value.trim(),
-        Responsavel:document.getElementById('fResp').value.trim(), Telefone:document.getElementById('fTel').value.trim(),
-        LimiteCaixas:document.getElementById('fLimite').value, DiasPrazo:document.getElementById('fPrazo').value,
-        Ativo:document.getElementById('fAtivo').value, Obs:document.getElementById('fObs').value };
+        Ativo:document.getElementById('fAtivo').value, Obs:document.getElementById('fObs').value,
+        MotoristaId: ehRota ? document.getElementById('fMotorista').value : '',
+        RotaId: ehRota ? '' : document.getElementById('fRota').value,
+        Responsavel: ehRota ? '' : document.getElementById('fResp').value.trim(),
+        Telefone: ehRota ? '' : document.getElementById('fTel').value.trim(),
+        LimiteCaixas: ehRota ? '' : document.getElementById('fLimite').value,
+        DiasPrazo: ehRota ? '' : document.getElementById('fPrazo').value };
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       salvar('salvarLocal', reg, this);
     });

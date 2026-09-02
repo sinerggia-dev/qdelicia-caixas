@@ -19,9 +19,12 @@ Fonte em [`manual.html`](manual.html) — página estática, sem dependência, p
 ## Como funciona a operação
 
 ```
-GALPÃO ──saída──► CLIENTE ──devolução──► GALPÃO
+GALPÃO ──carrega──► ROTA ──entrega──► CLIENTE ──coleta──► ROTA ──volta──► GALPÃO
    └──transferência──► FILIAL ──saída──► CLIENTE ──devolução──► FILIAL ──► GALPÃO
 ```
+
+A **rota é o caminhão** e guarda caixa como qualquer outro local. É o que impede o que subiu
+no caminhão e não foi entregue de aparecer na conta do cliente.
 
 Cada local (galpão, filial, cliente) tem saldo próprio, então a caixa nunca "some no meio do caminho":
 se saiu do galpão e não chegou ao cliente, o saldo fica com quem estiver com ela.
@@ -71,6 +74,7 @@ Duas peças: o banco no Supabase e o site + API na Vercel. Nenhuma precisa de CL
 1. Crie o projeto em https://supabase.com/dashboard — região **South America (São Paulo)**.
 2. **SQL Editor → New query** → cole [`supabase/schema.sql`](supabase/schema.sql) → **Run**.
 3. Repita com [`supabase/seed.sql`](supabase/seed.sql) para os dados de exemplo.
+   Em banco criado antes de setembro/2026, rode também [`supabase/migracao-rotas.sql`](supabase/migracao-rotas.sql).
 4. **Settings → API**: guarde a **Project URL** e a chave **service_role**.
 
 O RLS fica ligado e sem política em todas as tabelas: a chave pública não acessa nada.
@@ -107,7 +111,7 @@ Mudou variável de ambiente? Precisa de **redeploy** para valer.
 
 | Tabela | Para quê |
 |---|---|
-| `locais` | Galpões, filiais e clientes — todos são "nós" que guardam caixas. `token` é o código do link do cliente. |
+| `locais` | Galpões, filiais, clientes e **rotas** — todos são "nós" que guardam caixas. `token` é o código do link do cliente; `rota_id` liga o cliente à rota; `motorista_id` liga a rota ao motorista. |
 | `tipos_caixa` | Tipos de caixa que aparecem nas telas de lançamento. |
 | `usuarios` | Nome, perfil, PIN e local padrão. |
 | `movimentos` | Livro-razão, só acrescenta. Nada é apagado — movimento errado se **cancela**. |
@@ -137,10 +141,10 @@ node teste/teste_api.js
 ```
 
 Roda o roteador, as regras e os tradutores de verdade, trocando apenas o acesso ao Postgres por
-um banco falso em memória — sem rede e sem chave. São 45 verificações: saldo por cliente,
+um banco falso em memória — sem rede e sem chave. São 63 verificações: saldo por cliente,
 devolução do promotor sem baixar saldo, conferência com divergência, perda, caminho
 galpão→filial→cliente, aging FIFO, extrato, token do cliente, idempotência da fila offline,
-cancelamento, login, validações e cadastros. Rode depois de qualquer alteração em `api/`.
+cancelamento, login, validações, cadastros, o ciclo completo de uma rota e o tratamento de ativo/inativo. Rode depois de qualquer alteração em `api/`.
 
 O backend antigo do Google continua no repositório, com o próprio teste
 (`node teste/teste_backend.js`, 38 verificações), como referência e rota de volta enquanto a

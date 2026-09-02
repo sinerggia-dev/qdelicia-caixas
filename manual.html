@@ -213,6 +213,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <ul>
     <li><a href="#problema">O que o app resolve</a></li>
     <li><a href="#ciclo">O ciclo da caixa</a></li>
+    <li><a href="#rotas">Rotas</a></li>
     <li><a href="#acesso">Como acessar</a></li>
     <li class="grupo">No campo</li>
     <li><a href="#motorista">Motorista</a></li>
@@ -297,6 +298,36 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <span class="rot">A regra que sustenta o app</span>
     <p>Devolução lançada por <strong>motorista</strong> ou <strong>promotor</strong> nasce com estado <span class="chip aguarda">AGUARDANDO</span>. Devolução lançada pelo <strong>galpão</strong> ou pelo <strong>escritório</strong> já nasce <span class="chip ok">CONFIRMADO</span>.</p>
     <p>É isso que desfaz o impasse antigo: quem conta dentro do cliente não dá baixa em si mesmo.</p>
+  </div>
+</section>
+
+<section id="rotas">
+  <h2>Rotas</h2>
+  <p>A rota é o caminhão em circulação — e no app ela <strong>guarda caixa igual a um cliente</strong>. Isso não é detalhe técnico: é o que impede a caixa de sumir entre o galpão e a entrega.</p>
+
+  <div class="formula">galpão →(carrega)→ ROTA →(entrega)→ cliente →(coleta)→ ROTA →(volta)→ galpão</div>
+
+  <p>Sem rota, a saída ia do galpão direto para o cliente. Se o motorista carregava 100 e entregava 80, as outras 20 ficavam registradas no cliente, que nunca as viu. Com rota, essas 20 aparecem onde de fato estão: <strong>no caminhão</strong>.</p>
+
+  <h3>Como cadastrar</h3>
+  <p><strong>Cadastros → + Novo cadastro → Tipo: rota (caminhão)</strong>. Dê o nome pelo qual a equipe já chama (<em>Rota Centro</em>, <em>Rota Litoral</em>) e escolha o <strong>motorista responsável</strong>.</p>
+  <p>Depois, em cada cliente, preencha o campo <strong>Rota que atende</strong>. É esse vínculo que faz o filtro do painel e a lista do celular funcionarem.</p>
+
+  <h3>No painel</h3>
+  <p>Um quadro <strong>Rotas</strong> aparece no topo, com duas contas separadas de propósito:</p>
+  <ul>
+    <li><strong>No caminhão</strong> — carregou e ainda não entregou</li>
+    <li><strong>Nos clientes</strong> — já entregou e ainda não voltou</li>
+  </ul>
+  <p>Somar as duas esconderia justamente o que interessa: onde a caixa está agora. O botão <strong>ver clientes</strong> filtra a lista de baixo pela rota, e o filtro também está no seletor ao lado da busca.</p>
+
+  <h3>No celular</h3>
+  <p>Quem tem rota vinculada vê <strong>Rota de hoje</strong> no topo. Escolhida a rota, <em>Sai de</em> e <em>Recebidas em</em> já vêm com o caminhão, e a lista de clientes fica só com os pontos daquela rota. A escolha fica salva no aparelho — não precisa repetir a cada tela.</p>
+
+  <div class="regra">
+    <span class="rot">O dia de um motorista com rota</span>
+    <p><strong>Saída</strong> do galpão para a rota (carregar) · <strong>Saída</strong> da rota para cada cliente (entregar) · <strong>Devolução</strong> do cliente para a rota (coletar) · <strong>Devolução</strong> da rota para o galpão (encerrar).</p>
+    <p>No fim do dia o caminhão tem que fechar em zero. Se não fechou, sobrou caixa a bordo — e agora dá para ver isso no mesmo dia, não no fim do mês.</p>
   </div>
 </section>
 
@@ -411,12 +442,14 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <h2>Cadastros</h2>
   <p>Três blocos, cada um com o seu botão de <strong>+ Novo</strong>.</p>
 
-  <h3>Clientes, filiais e galpões</h3>
-  <p>Todos ficam na mesma lista, mudando só o <strong>Tipo</strong>. Os campos que pesam no dia a dia:</p>
+  <h3>Locais e rotas</h3>
+  <p>Todos ficam na mesma lista, mudando só o <strong>Tipo</strong>: galpão, filial, cliente e rota. Os campos que pesam no dia a dia:</p>
   <div class="tabela">
     <table>
       <thead><tr><th>Campo</th><th>Para que serve</th></tr></thead>
       <tbody>
+        <tr><td>Rota que atende</td><td>Vincula o cliente a uma rota; alimenta o filtro do painel e a lista do celular</td></tr>
+        <tr><td>Motorista responsável</td><td>Só para tipo rota: de quem é aquele caminhão</td></tr>
         <tr><td>Responsável / promotor</td><td>Nome que aparece no extrato e na conferência</td></tr>
         <tr><td>WhatsApp (com DDD)</td><td>Habilita o botão de envio do extrato</td></tr>
         <tr><td>Limite de caixas</td><td>Dispara a etiqueta <span class="chip alerta">acima do limite</span></td></tr>
@@ -530,7 +563,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <table>
       <thead><tr><th>Tabela</th><th>Conteúdo</th></tr></thead>
       <tbody>
-        <tr><td><code>locais</code></td><td>Galpões, filiais e clientes, com limite, prazo e o código do link</td></tr>
+        <tr><td><code>locais</code></td><td>Galpões, filiais, clientes e rotas — todo mundo que guarda caixa, com limite, prazo e o código do link</td></tr>
         <tr><td><code>tipos_caixa</code></td><td>Tipos de caixa</td></tr>
         <tr><td><code>usuarios</code></td><td>Nome, perfil, PIN e local padrão</td></tr>
         <tr><td><code>movimentos</code></td><td>O livro-razão. Só acrescenta — nada é apagado</td></tr>
@@ -541,7 +574,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 
   <p style="margin-top:18px">Assinaturas e fotos ficam no armazenamento do Supabase, e o link aparece no extrato e na conferência.</p>
 
-  <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode <code>node teste/teste_api.js</code>, que executa as regras contra um banco falso em memória — sem rede e sem chave — e confere 45 pontos, incluindo o caminho da divergência e o cálculo de idade.</p>
+  <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode <code>node teste/teste_api.js</code>, que executa as regras contra um banco falso em memória — sem rede e sem chave — e confere 63 pontos, incluindo o caminho da divergência e o cálculo de idade.</p>
 
   <div class="regra">
     <span class="rot">Plano gratuito</span>

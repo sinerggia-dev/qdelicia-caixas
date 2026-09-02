@@ -43,6 +43,14 @@
 
 <main>
 
+  <!-- Escolher a rota encurta o dia do motorista: origem e destino já vêm certos e
+       a lista de clientes fica só com os pontos da rota dele. -->
+  <div class="card" id="cardRota" style="display:none;margin-bottom:10px">
+    <label for="selRota">Rota de hoje</label>
+    <select id="selRota"><option value="">Todas — sem filtrar por rota</option></select>
+    <div id="rotaResumo" style="font-size:13px;color:var(--txt2);margin-top:6px"></div>
+  </div>
+
   <!-- ---------- SAÍDA ---------- -->
   <section id="pgSaida" class="pagina ativa">
     <div class="card">
@@ -232,7 +240,7 @@
       document.getElementById('devSub').textContent =
         'Você conta as caixas no cliente. O galpão confere na chegada e o saldo baixa nessa hora.';
     }
-    Q.carregarDados().then(function(d){ DADOS = d; montarFormularios(); }).catch(function(e){ Q.toast(e.message,'erro'); });
+    Q.carregarDados().then(function(d){ DADOS = d; montarBarraRota(); montarFormularios(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
     if (Q.podeConferir()) carregarPendentes();
   }
@@ -251,7 +259,7 @@
   /* ---------------- formulários ---------------- */
   function locaisPor(tipos){
     return (DADOS.locais||[]).filter(function(l){
-      return tipos.indexOf(String(l.Tipo).toUpperCase())>=0 && String(l.Ativo).toUpperCase()!=='NAO';
+      return tipos.indexOf(String(l.Tipo).toUpperCase())>=0 && Q.ativo(l.Ativo);
     });
   }
   function opcoes(lista, selecionado){
@@ -261,7 +269,7 @@
     }).join('');
   }
   function itensHTML(prefixo){
-    return (DADOS.tipos||[]).filter(function(t){ return String(t.Ativo).toUpperCase()!=='NAO'; }).map(function(t){
+    return (DADOS.tipos||[]).filter(function(t){ return Q.ativo(t.Ativo); }).map(function(t){
       return '<div class="item">'+
         '<div class="nome">'+Q.esc(t.Nome)+'</div>'+
         '<div class="stepper">'+
@@ -298,14 +306,63 @@
     });
   }
 
+  /* Rota selecionada (id) — vazio = sem filtro. Guardada no celular para não
+     perguntar de novo a cada tela. */
+  var ROTA = localStorage.getItem('qdc_rota') || '';
+
+  function rotasDisponiveis(){
+    var s = Q.sessao();
+    var todas = locaisPor(['ROTA']);
+    // Motorista vê primeiro as rotas dele; se nenhuma for dele, vê todas.
+    var minhas = todas.filter(function(r){ return String(r.MotoristaId||'') === String(s.id); });
+    return (s.perfil === 'MOTORISTA' && minhas.length) ? minhas : todas;
+  }
+
+  function montarBarraRota(){
+    var rotas = rotasDisponiveis();
+    var card = document.getElementById('cardRota');
+    if (!rotas.length){ card.style.display='none'; ROTA=''; return; }
+    card.style.display = 'block';
+    var sel = document.getElementById('selRota');
+    sel.innerHTML = '<option value="">Todas — sem filtrar por rota</option>'+
+      rotas.map(function(r){ return '<option value="'+Q.esc(r.ID)+'">'+Q.esc(r.Nome)+'</option>'; }).join('');
+    if (rotas.filter(function(r){ return String(r.ID)===ROTA; }).length) sel.value = ROTA; else { ROTA=''; sel.value=''; }
+    atualizarResumoRota();
+    sel.onchange = function(){
+      ROTA = sel.value;
+      localStorage.setItem('qdc_rota', ROTA);
+      atualizarResumoRota();
+      montarFormularios();
+    };
+  }
+
+  function atualizarResumoRota(){
+    var el = document.getElementById('rotaResumo');
+    if (!ROTA){ el.textContent = 'Sem filtro: aparecem todos os clientes.'; return; }
+    var n = (DADOS.locais||[]).filter(function(l){ return String(l.RotaId||'')===ROTA; }).length;
+    var r = (DADOS.locais||[]).filter(function(l){ return String(l.ID)===ROTA; })[0];
+    el.textContent = n
+      ? n + (n>1?' clientes nesta rota. Saída e devolução já usam ':' cliente nesta rota. Saída e devolução já usam ')+(r?r.Nome:'a rota')+'.'
+      : 'Nenhum cliente vinculado a esta rota ainda — cadastre a rota no ponto de entrega.';
+  }
+
+  function clientesDaRota(){
+    var pontos = locaisPor(['CLIENTE','FILIAL']);
+    if (!ROTA) return pontos;
+    var meus = pontos.filter(function(l){ return String(l.RotaId||'')===ROTA; });
+    return meus.length ? meus : pontos;
+  }
+
   function montarFormularios(){
     var s = Q.sessao();
     var internos = locaisPor(['GALPAO','FILIAL']);
-    var destinos = locaisPor(['CLIENTE','FILIAL']);
-    document.getElementById('sdOrigem').innerHTML = opcoes(internos, s.localPadrao);
+    var comRota = ROTA ? locaisPor(['GALPAO','FILIAL','ROTA']) : internos;
+    var destinos = clientesDaRota();
+    // Com rota escolhida, o caminhão é a origem natural da entrega e o destino da coleta.
+    document.getElementById('sdOrigem').innerHTML = opcoes(comRota, ROTA || s.localPadrao);
     document.getElementById('sdDestino').innerHTML = opcoes(destinos);
-    document.getElementById('dvOrigem').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL']));
-    document.getElementById('dvDestino').innerHTML = opcoes(internos, s.localPadrao);
+    document.getElementById('dvOrigem').innerHTML = opcoes(destinos);
+    document.getElementById('dvDestino').innerHTML = opcoes(comRota, ROTA || s.localPadrao);
     document.getElementById('sdData').value = Q.hoje();
     document.getElementById('dvData').value = Q.hoje();
     document.getElementById('sdItens').innerHTML = itensHTML('sd_');

@@ -7,7 +7,8 @@
  * O acesso ao Postgres mora em `_supabase.js`; o roteamento, em `index.js`.
  *
  * Formato interno das linhas (o adaptador converte de/para snake_case do Postgres):
- *   local     { ID, Tipo, Nome, Responsavel, Telefone, LimiteCaixas, DiasPrazo, Token, Ativo:bool, Obs }
+ *   local     { ID, Tipo, Nome, Responsavel, Telefone, LimiteCaixas, DiasPrazo, Token, Ativo:bool, Obs,
+ *               MotoristaId, RotaId }   Tipo: GALPAO | FILIAL | CLIENTE | ROTA
  *   tipoCaixa { ID, Nome, Ativo:bool }
  *   usuario   { ID, Nome, Perfil, PIN, Telefone, LocalPadrao, Ativo:bool }
  *   movimento { ID, ClientKey, DataHora:Date, DataRef:Date, Tipo, OrigemID, DestinoID, TipoCaixaID,
@@ -18,6 +19,9 @@
 
 var TIPOS_MOV = ['SAIDA', 'DEVOLUCAO', 'TRANSFERENCIA', 'PERDA', 'AJUSTE'];
 var PERFIS = ['ADMIN', 'GALPAO', 'MOTORISTA', 'PROMOTOR'];
+// A rota é o caminhão em circulação: guarda caixa como qualquer outro local, e é isso que
+// impede o que subiu no caminhão e não foi entregue de sumir na conta do cliente.
+var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA'];
 
 /* ============================ datas ============================ */
 
@@ -384,7 +388,10 @@ function painel(dados, hoje) {
     }
   });
 
-  var lista = locais.filter(function (l) { return l.Tipo !== 'GALPAO'; }).map(function (l) {
+  var nomes = mapaNomes(locais);
+  var lista = locais.filter(function (l) {
+    return l.Tipo === 'CLIENTE' || l.Tipo === 'FILIAL';
+  }).map(function (l) {
     var porTipo = sal[l.ID] || {};
     var total = 0;
     Object.keys(porTipo).forEach(function (t) { total += porTipo[t]; });
@@ -392,6 +399,7 @@ function painel(dados, hoje) {
     return {
       id: l.ID, nome: l.Nome, tipo: l.Tipo, responsavel: l.Responsavel, telefone: l.Telefone,
       limite: Number(l.LimiteCaixas) || 0, prazo: prazos[l.ID] || prazoPadrao,
+      rotaId: l.RotaId || '', rota: l.RotaId ? nome(nomes, l.RotaId) : '',
       saldo: total, porTipo: porTipo,
       emConferencia: emConf[l.ID] || 0,
       aging: a,
@@ -407,12 +415,35 @@ function painel(dados, hoje) {
     return { id: l.ID, nome: l.Nome, saldo: total, porTipo: porTipo };
   });
 
+  // Cada rota traz duas contas separadas: o que está no caminhão dela (saldo) e o que está
+  // com os clientes que ela atende (saldoClientes). Somar os dois esconderia onde a caixa está.
+  var mUsuarios = mapaNomes(dados.usuarios || []);
+  var rotas = locais.filter(function (l) { return l.Tipo === 'ROTA'; }).map(function (l) {
+    var porTipo = sal[l.ID] || {};
+    var total = 0;
+    Object.keys(porTipo).forEach(function (t) { total += porTipo[t]; });
+    var a = ag[l.ID] || { d0_7: 0, d8_15: 0, d16_30: 0, d31: 0, maisAntiga: null, vencidas: 0 };
+    var meus = lista.filter(function (c) { return String(c.rotaId) === String(l.ID); });
+    return {
+      id: l.ID, nome: l.Nome,
+      motoristaId: l.MotoristaId || '',
+      motorista: l.MotoristaId ? nome(mUsuarios, l.MotoristaId) : '',
+      saldo: total, porTipo: porTipo, aging: a,
+      clientes: meus.length,
+      saldoClientes: meus.reduce(function (t2, c) { return t2 + c.saldo; }, 0),
+      vencidasClientes: meus.reduce(function (t2, c) { return t2 + Math.max(0, c.vencidas); }, 0),
+      emConferencia: emConf[l.ID] || 0
+    };
+  }).sort(function (a, b) { return (b.saldo + b.saldoClientes) - (a.saldo + a.saldoClientes); });
+
   var emPoderTerceiros = 0;
   lista.forEach(function (l) { emPoderTerceiros += l.saldo; });
+  var emRota = rotas.reduce(function (t, r) { return t + r.saldo; }, 0);
 
   return {
     kpis: {
       emPoderTerceiros: emPoderTerceiros,
+      emRota: emRota,
       clientesComSaldo: lista.filter(function (l) { return l.saldo > 0; }).length,
       vencidas: lista.reduce(function (s, l) { return s + Math.max(0, l.vencidas); }, 0),
       aguardandoConferencia: pendentes(movimentos, locais, tipos).length,
@@ -421,7 +452,7 @@ function painel(dados, hoje) {
       divergenciaMes: divergenciaMes,
       taxaRetorno: saidasMes > 0 ? Math.round((devolucoesMes / saidasMes) * 1000) / 10 : null
     },
-    locais: lista, galpoes: galpoes, tipos: tipos
+    locais: lista, rotas: rotas, galpoes: galpoes, tipos: tipos
   };
 }
 
@@ -530,7 +561,7 @@ function usuariosPublicos(usuarios) {
 }
 
 module.exports = {
-  TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS,
+  TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, novoId: novoId, novoToken: novoToken,
   login: login, montarMovimento: montarMovimento, montarConferencia: montarConferencia,

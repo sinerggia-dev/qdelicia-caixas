@@ -220,6 +220,50 @@ async function main() {
   const comMov = await POST({ acao: 'excluir', aba: 'Locais', id: C });
   ok(comMov.inativado === true, 'cliente com movimento é inativado, não excluído', comMov);
 
+  console.log('\n== rotas ==');
+  const rota = await POST({ acao: 'salvarLocal', registro: { Tipo: 'ROTA', Nome: 'Rota Centro', MotoristaId: 'U003' } });
+  ok(rota.ok && rota.criado, 'rota cadastrada', rota);
+  const R = rota.id;
+
+  const cli2 = await POST({ acao: 'salvarLocal', registro: { Tipo: 'CLIENTE', Nome: 'Mercado da Rota', RotaId: R, DiasPrazo: 7 } });
+  ok(cli2.ok, 'cliente vinculado à rota', cli2);
+  const C2 = cli2.id;
+
+  // carrega o caminhão: 60 saem do galpão para a rota
+  ok((await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: R, itens: [{ tipoCaixaId: T, qtd: 60 }], dataRef: dia(0), usuarioId: 'U003', perfil: 'MOTORISTA' })).ok, 'carregou 60 no caminhão');
+  let pr = (await GET({ acao: 'painel' })).painel;
+  let r1 = pr.rotas.find((x) => x.id === R);
+  ok(r1 && r1.saldo === 60, 'rota fica com 60 no caminhão', r1 && r1.saldo);
+  ok(pr.kpis.emRota === 60, 'KPI caixas em rota = 60', pr.kpis.emRota);
+
+  // entrega 40 ao cliente: sobram 20 no caminhão
+  ok((await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: R, destinoId: C2, itens: [{ tipoCaixaId: T, qtd: 40 }], dataRef: dia(0), usuarioId: 'U003', perfil: 'MOTORISTA' })).ok, 'entregou 40 ao cliente');
+  pr = (await GET({ acao: 'painel' })).painel;
+  r1 = pr.rotas.find((x) => x.id === R);
+  const c2 = pr.locais.find((x) => x.id === C2);
+  ok(r1.saldo === 20, 'sobraram 20 no caminhão', r1.saldo);
+  ok(c2.saldo === 40, 'cliente da rota ficou com 40', c2.saldo);
+  ok(c2.rota === 'Rota Centro', 'cliente mostra o nome da rota', c2.rota);
+  ok(r1.clientes === 1 && r1.saldoClientes === 40, 'resumo da rota soma os clientes dela', { clientes: r1.clientes, saldoClientes: r1.saldoClientes });
+  ok(r1.motorista === 'Motorista Exemplo', 'rota mostra o motorista', r1.motorista);
+
+  // as 20 que sobraram voltam ao galpão — o caminhão zera
+  ok((await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: R, destinoId: G, itens: [{ tipoCaixaId: T, qtd: 20 }], dataRef: dia(0), usuarioId: 'U002', perfil: 'GALPAO' })).ok, 'devolveu 20 ao galpão');
+  pr = (await GET({ acao: 'painel' })).painel;
+  r1 = pr.rotas.find((x) => x.id === R);
+  ok(r1.saldo === 0, 'caminhão zerado no fim do dia', r1.saldo);
+  ok(pr.locais.every((x) => x.tipo !== 'ROTA'), 'rota não aparece misturada na lista de clientes');
+
+  console.log('\n== ativo: booleano do Postgres e texto antigo da planilha ==');
+  const par = (v) => real.LOCAL.para({ Ativo: v }).ativo;
+  ok(par(true) === true && par('SIM') === true && par('sim') === true, 'true e SIM viram ativo');
+  ok(par(false) === false && par('NAO') === false && par('') === false, 'false, NAO e vazio viram inativo');
+  ok(par(undefined) === undefined, 'Ativo ausente não mexe na coluna (atualização parcial)');
+
+  const inat = await POST({ acao: 'salvarLocal', registro: { Tipo: 'CLIENTE', Nome: 'Cliente Desligado', Ativo: 'NAO' } });
+  const grav = (await GET({ acao: 'dados' })).locais.find((l) => l.ID === inat.id);
+  ok(grav && grav.Ativo === false, 'cliente salvo como NAO volta da API como inativo', grav && grav.Ativo);
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

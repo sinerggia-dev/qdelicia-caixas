@@ -35,6 +35,21 @@ Se uma alteração quebrar qualquer uma delas, o app perde a razão de existir.
 3. **O navegador não fala com o banco.** Toda leitura e escrita passa pela função. É isso que
    permite PIN de 4 dígitos e link de cliente sem login.
 
+## Rota é um tipo de local, não uma tabela nova
+
+`locais.tipo` aceita `GALPAO | FILIAL | CLIENTE | ROTA`. A rota é o caminhão em circulação e
+guarda caixa como qualquer outro nó — por isso saldo, aging, extrato e movimentos funcionam para
+ela sem uma linha de matemática nova. Foi a razão de não criar tabela separada.
+
+Duas colunas sustentam o vínculo: `locais.motorista_id` (rota → usuário `MOTORISTA`) e
+`locais.rota_id` (cliente/filial → rota). A segunda é auto-referência na mesma tabela.
+
+No `painel()` as rotas saem em `rotas`, **fora** de `locais` — quem consome não deve misturar
+caminhão com cliente. Cada rota traz `saldo` (no caminhão) e `saldoClientes` (nos pontos dela)
+separados de propósito: somar os dois esconde onde a caixa está.
+
+Banco antigo precisa de `supabase/migracao-rotas.sql`, que é idempotente.
+
 ## Separação de funções no painel
 
 `GALPAO` entra no `admin.html`, mas só consulta: **Lançar** e **Cadastros** ficam escondidos para
@@ -104,7 +119,7 @@ coloque em arquivo do repositório, e não peça para o usuário mandá-la por c
 node teste/teste_api.js
 ```
 
-45 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
+63 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
 ao Postgres por um banco falso em memória. Sem rede, sem chave, meio segundo. Rode depois de
 qualquer alteração em `api/`.
 
@@ -157,6 +172,12 @@ rode o Chrome com `--screenshot --window-size=1600,600`.
 Editar a saída faz as três versões divergirem em silêncio.
 
 ## Armadilhas já pagas
+
+- **`Ativo` virou booleano na migração e o front não acompanhou.** O código comparava
+  `String(l.Ativo).toUpperCase() !== 'NAO'`, e `String(false)` é `'FALSE'` — então local e tipo
+  inativos continuavam aparecendo nas listas. Corrigido com `Q.ativo()` em `app.js`, que aceita
+  booleano e o texto antigo da planilha. Se aparecer outra comparação de `Ativo` por string,
+  é o mesmo bug.
 
 - **Node local é v14.** Os CLIs da Vercel e do Supabase pedem 18+, então não dá para usá-los aqui.
   Não é problema: os dois funcionam pelo navegador, e a Vercel publica direto do GitHub.

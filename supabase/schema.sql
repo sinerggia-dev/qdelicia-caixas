@@ -10,10 +10,13 @@
 -- Nunca coloque a service_role no código do site — ela vive só na variável de ambiente da Vercel.
 
 -- ============================================================ locais
--- Galpões, filiais e clientes: todos são "nós" que guardam caixas.
+-- Galpões, filiais, clientes e ROTAS: todos são "nós" que guardam caixas.
+-- A rota é o caminhão em circulação. Tratá-la como local é o que faz o saldo fechar:
+-- carregou (galpão -> rota), entregou (rota -> cliente), coletou (cliente -> rota),
+-- voltou (rota -> galpão). O que ficou no caminhão fica na conta do caminhão.
 create table if not exists public.locais (
   id             text primary key,
-  tipo           text        not null check (tipo in ('GALPAO','FILIAL','CLIENTE')),
+  tipo           text        not null check (tipo in ('GALPAO','FILIAL','CLIENTE','ROTA')),
   nome           text        not null,
   responsavel    text        not null default '',
   telefone       text        not null default '',
@@ -22,12 +25,20 @@ create table if not exists public.locais (
   token          text        not null unique,
   ativo          boolean     not null default true,
   obs            text        not null default '',
-  criado_em      timestamptz not null default now()
+  criado_em      timestamptz not null default now(),
+  -- só para tipo ROTA: o motorista que responde por ela
+  motorista_id   text,
+  -- só para CLIENTE/FILIAL: a rota que atende este ponto
+  rota_id        text        references public.locais(id)
 );
 
 comment on column public.locais.token is 'Código do link só-leitura do cliente (extrato.html?t=...)';
 comment on column public.locais.limite_caixas is 'Teto contratado; acima disso o painel marca o cliente';
 comment on column public.locais.dias_prazo is 'Prazo de devolução; nulo usa o padrão de Config';
+comment on column public.locais.motorista_id is 'Rota: usuário de perfil MOTORISTA responsável';
+comment on column public.locais.rota_id is 'Cliente/filial: a que rota pertence, para filtrar painel e app de campo';
+
+create index if not exists locais_rota_idx on public.locais (rota_id);
 
 -- ============================================================ tipos_caixa
 create table if not exists public.tipos_caixa (
@@ -52,6 +63,13 @@ create table if not exists public.usuarios (
 );
 
 comment on column public.usuarios.pin is 'PIN curto de operação, não é senha. A proteção real é a função no servidor.';
+
+-- locais.motorista_id aponta para usuarios, que só existe a partir daqui.
+do $$ begin
+  alter table public.locais
+    add constraint locais_motorista_fk foreign key (motorista_id) references public.usuarios(id);
+exception when duplicate_object then null;
+end $$;
 
 -- ============================================================ movimentos
 -- O livro-razão. Só acrescenta: movimento errado é cancelado, nunca apagado.

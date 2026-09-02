@@ -97,7 +97,11 @@ async function subirArquivo(caminho, dataUrl, mime) {
 
 /* ============================ tradução das linhas ============================ */
 
-function bool(v) { return v === true || v === 'SIM' || v === 'sim' || v === 'true'; }
+function bool(v) {
+  if (v === true || v === 1) return true;
+  var s = String(v === undefined || v === null ? '' : v).trim().toUpperCase();
+  return s === 'SIM' || s === 'TRUE' || s === 'S' || s === '1';
+}
 function nulo(v) { return (v === '' || v === undefined) ? null : v; }
 
 var LOCAL = {
@@ -106,7 +110,8 @@ var LOCAL = {
       ID: r.id, Tipo: String(r.tipo || '').toUpperCase(), Nome: r.nome,
       Responsavel: r.responsavel || '', Telefone: r.telefone || '',
       LimiteCaixas: r.limite_caixas, DiasPrazo: r.dias_prazo,
-      Token: r.token, Ativo: r.ativo !== false, Obs: r.obs || ''
+      Token: r.token, Ativo: r.ativo !== false, Obs: r.obs || '',
+      MotoristaId: r.motorista_id, RotaId: r.rota_id
     };
   },
   para: function (o) {
@@ -119,8 +124,10 @@ var LOCAL = {
     if (o.LimiteCaixas !== undefined) r.limite_caixas = nulo(o.LimiteCaixas);
     if (o.DiasPrazo !== undefined) r.dias_prazo = nulo(o.DiasPrazo);
     if (o.Token !== undefined) r.token = o.Token;
-    if (o.Ativo !== undefined) r.ativo = bool(o.Ativo) || o.Ativo === true;
+    if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
     if (o.Obs !== undefined) r.obs = o.Obs || '';
+    if (o.MotoristaId !== undefined) r.motorista_id = nulo(o.MotoristaId);
+    if (o.RotaId !== undefined) r.rota_id = nulo(o.RotaId);
     return r;
   }
 };
@@ -133,7 +140,7 @@ var TIPO = {
     var r = {};
     if (o.ID !== undefined) r.id = o.ID;
     if (o.Nome !== undefined) r.nome = o.Nome;
-    if (o.Ativo !== undefined) r.ativo = bool(o.Ativo) || o.Ativo === true;
+    if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
     return r;
   }
 };
@@ -153,7 +160,7 @@ var USUARIO = {
     if (o.PIN !== undefined) r.pin = String(o.PIN);
     if (o.Telefone !== undefined) r.telefone = o.Telefone || '';
     if (o.LocalPadrao !== undefined) r.local_padrao = nulo(o.LocalPadrao);
-    if (o.Ativo !== undefined) r.ativo = bool(o.Ativo) || o.Ativo === true;
+    if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
     return r;
   }
 };
