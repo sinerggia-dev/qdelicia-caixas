@@ -1,12 +1,20 @@
 /* Qdelícia Frutas — Controle de Caixas | estilo compartilhado */
 :root{
-  --verde:#157f3c; --verde-esc:#0e5b2a; --verde-claro:#e7f5ec;
-  --amarelo:#f5b301; --amarelo-claro:#fff8e1;
-  --bg:#f4f6f8; --surface:#ffffff; --linha:#e2e7ec;
-  --txt:#16212b; --txt2:#5b6b7a; --txt3:#8a99a8;
-  --vermelho:#c62828; --vermelho-claro:#fdecea;
-  --azul:#1565c0; --azul-claro:#e8f1fb;
-  --laranja:#e07b00;
+  /* Marca: marinho. Ação: âmbar. Verde ficou só com o significado de "confirmado".
+     Os tons sólidos (-forte) são os que recebem texto branco e por isso são mais fechados:
+     o app é usado no celular, no galpão, sob luz forte. */
+  --marinho:#12304f; --marinho-esc:#0b2038; --marinho-claro:#eaeff5;
+  --ambar:#c0821c; --ambar-forte:#96620f; --ambar-claro:#fdf3e0;
+  /* O botao principal usa dourado vivo com texto marinho: fica claro como no desenho
+     e ainda passa em contraste, o que nao aconteceria com texto branco. */
+  --ambar-btn:#d4941f;
+  --verde:#1e7a4d; --verde-esc:#155c3a; --verde-claro:#e6f3ec;
+  --amarelo:#c0821c; --amarelo-claro:#fdf3e0;
+  --bg:#faf8f4; --surface:#ffffff; --linha:#e9e3d8;
+  --txt:#12263f; --txt2:#56677d; --txt3:#8a97a6;
+  --vermelho:#c0392b; --vermelho-claro:#fbeae8;
+  --azul:#2c5f9e; --azul-claro:#eaf1f9;
+  --laranja:#b5761a;
   --raio:12px; --sombra:0 1px 3px rgba(16,33,43,.08),0 8px 24px rgba(16,33,43,.06);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -16,11 +24,11 @@ body{
   background:var(--bg);color:var(--txt);font-size:16px;line-height:1.45;
   padding-bottom:env(safe-area-inset-bottom);
 }
-a{color:var(--verde);text-decoration:none}
+a{color:var(--marinho);text-decoration:none}
 
 /* ---------- topo ---------- */
 header{
-  background:linear-gradient(135deg,var(--verde-esc),var(--verde));color:#fff;
+  background:linear-gradient(135deg,var(--marinho-esc),var(--marinho));color:#fff;
   padding:12px 16px;display:flex;align-items:center;gap:12px;
   position:sticky;top:0;z-index:50;box-shadow:0 2px 10px rgba(0,0,0,.15)
 }
@@ -30,7 +38,7 @@ header .chip{
   background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);
   padding:5px 10px;border-radius:999px;font-size:12px;white-space:nowrap;cursor:pointer
 }
-header .chip.alerta{background:var(--amarelo);color:#3a2a00;border-color:transparent;font-weight:700}
+header .chip.alerta{background:var(--ambar);color:#231704;border-color:transparent;font-weight:700}
 header .chip.off{background:var(--vermelho);border-color:transparent;font-weight:700}
 
 /* ---------- abas ---------- */
@@ -43,7 +51,7 @@ nav.abas button{
   flex:1 0 auto;min-width:92px;background:none;border:none;border-bottom:3px solid transparent;
   padding:12px 14px;font-size:14px;font-weight:600;color:var(--txt2);cursor:pointer;font-family:inherit
 }
-nav.abas button.ativa{color:var(--verde);border-bottom-color:var(--verde);background:var(--verde-claro)}
+nav.abas button.ativa{color:var(--marinho);border-bottom-color:var(--ambar);background:var(--marinho-claro)}
 
 main{padding:14px;max-width:1180px;margin:0 auto}
 .pagina{display:none}
@@ -70,25 +78,25 @@ input,select,textarea,button{font-family:inherit;font-size:16px}
 input[type=text],input[type=number],input[type=date],input[type=password],input[type=tel],select,textarea{
   width:100%;padding:12px;border:1px solid var(--linha);border-radius:10px;background:#fff;color:var(--txt)
 }
-input:focus,select:focus,textarea:focus{outline:2px solid var(--verde);outline-offset:-1px;border-color:var(--verde)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--marinho);outline-offset:-1px;border-color:var(--verde)}
 textarea{min-height:70px;resize:vertical}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0 14px}
 .linha-btn{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 
 button.btn{
-  background:var(--verde);color:#fff;border:none;border-radius:10px;padding:14px 20px;
+  background:var(--ambar-btn);color:var(--txt);border:none;border-radius:10px;padding:14px 20px;
   font-weight:700;cursor:pointer;flex:1;min-width:140px
 }
 button.btn:active{transform:translateY(1px)}
 button.btn:disabled{opacity:.55;cursor:not-allowed}
-button.btn.sec{background:#fff;color:var(--verde);border:1.5px solid var(--verde)}
+button.btn.sec{background:#fff;color:var(--marinho);border:1.5px solid var(--marinho)}
 button.btn.neutro{background:#eef1f4;color:var(--txt);border:1px solid var(--linha)}
 button.btn.perigo{background:var(--vermelho)}
 button.mini{
   background:#fff;border:1px solid var(--linha);border-radius:8px;padding:7px 11px;
   font-size:13px;font-weight:600;color:var(--txt2);cursor:pointer
 }
-button.mini.acao{border-color:var(--verde);color:var(--verde)}
+button.mini.acao{border-color:var(--marinho);color:var(--marinho)}
 button.mini.perigo{border-color:var(--vermelho);color:var(--vermelho)}
 
 /* contador de caixas */
@@ -99,7 +107,7 @@ button.mini.perigo{border-color:var(--vermelho);color:var(--vermelho)}
 .stepper{display:flex;align-items:center;gap:6px}
 .stepper button{
   width:42px;height:42px;border-radius:10px;border:1px solid var(--linha);background:#fff;
-  font-size:22px;font-weight:700;color:var(--verde);cursor:pointer;line-height:1
+  font-size:22px;font-weight:700;color:var(--marinho);cursor:pointer;line-height:1
 }
 .stepper input{width:78px;text-align:center;font-size:19px;font-weight:700;padding:9px 4px}
 
@@ -119,7 +127,7 @@ tr.ruim{background:var(--vermelho-claro)}
 /* ---------- diversos ---------- */
 .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap}
 .tag.verde{background:var(--verde-claro);color:var(--verde-esc)}
-.tag.amarela{background:var(--amarelo-claro);color:#8a6100}
+.tag.amarela{background:var(--ambar-claro);color:var(--ambar-forte)}
 .tag.vermelha{background:var(--vermelho-claro);color:var(--vermelho)}
 .tag.azul{background:var(--azul-claro);color:var(--azul)}
 .tag.cinza{background:#eef1f4;color:var(--txt2)}
@@ -133,7 +141,7 @@ tr.ruim{background:var(--vermelho-claro)}
 .aviso-box.ok{background:var(--verde-claro);color:var(--verde-esc)}
 .aviso-box.erro{background:var(--vermelho-claro);color:var(--vermelho)}
 .aviso-box.info{background:var(--azul-claro);color:var(--azul)}
-.aviso-box.atencao{background:var(--amarelo-claro);color:#8a6100}
+.aviso-box.atencao{background:var(--ambar-claro);color:var(--ambar-forte)}
 
 .vazio{text-align:center;color:var(--txt3);padding:26px 10px;font-size:14px}
 .busca{position:relative;margin-bottom:10px}
