@@ -169,10 +169,12 @@ tr.ruim{background:var(--vermelho-claro)}
   padding:9vh 18px calc(40px + env(safe-area-inset-bottom));
   background:var(--marinho);color:#fff;color-scheme:dark;
 }
+/* As laterais precisam ser `auto` em cada regra: a forma curta `margin:0 0 4px`
+   zera left/right e desalinha o item, mesmo com o auto declarado acima. */
 .login>*{max-width:380px;margin-left:auto;margin-right:auto}
-.login .logo{font-size:44px;margin-bottom:6px}
-.login h1{font-size:21px;margin:0 0 4px;color:#fff}
-.login p{color:#9fb5cc;font-size:14px;margin:0 0 18px}
+.login .logo{font-size:44px;margin:0 auto 6px}
+.login h1{font-size:21px;margin:0 auto 4px;color:#fff}
+.login p{color:#9fb5cc;font-size:14px;margin:0 auto 18px}
 .login a{color:var(--ambar-btn)}
 .login .card{
   background:#1b3c5f;border:1px solid rgba(255,255,255,.10);
