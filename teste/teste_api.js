@@ -29,6 +29,8 @@ const tabelas = {
     { id: 'U003', nome: 'Motorista Exemplo', perfil: 'MOTORISTA', pin: '2222', telefone: '', local_padrao: 'L001', ativo: true },
     { id: 'U004', nome: 'Promotor Exemplo', perfil: 'PROMOTOR', pin: '3333', telefone: '', local_padrao: null, ativo: true }
   ],
+  // O bootstrap ja rodou neste banco falso, e as migracoes antigas estao registradas.
+  migracoes: [],
   locais_padrao: [
     { id: 'P001', nome: 'Escritório Central', ativo: true }
   ],
@@ -74,6 +76,13 @@ const falso = Object.assign({}, real, {
     if (!alvo) throw new Error('linha inexistente: ' + t + '/' + id);
     Object.assign(alvo, patch);
     return [Object.assign({}, alvo)];
+  },
+  rpc: async (nome, args) => {
+    if (nome !== 'aplicar_migracao') throw new Error('rpc desconhecida: ' + nome);
+    if (tabelas.migracoes.some((m) => m.id === args.id_migracao)) return 'ja-aplicada';
+    if (/FALHA_PROPOSITAL/.test(args.sql_migracao)) throw new Error('erro de sintaxe simulado');
+    tabelas.migracoes.push({ id: args.id_migracao, sql: args.sql_migracao });
+    return 'aplicada';
   },
   salvarConfig: async (chave, valor) => {
     const linha = tabelas.config.find((r) => r.chave === chave);
@@ -132,9 +141,24 @@ function ok(cond, msg, extra) {
 /* ---------- cenário ---------- */
 
 async function main() {
-  console.log('\n== ligação ==');
+  console.log('\n== migração automática ==');
   const ping = await GET({ acao: 'ping' });
   ok(ping.ok && ping.motor === 'supabase', 'ping responde com o motor novo', ping);
+
+  // A primeira chamada depois do deploy é quem aplica o que falta.
+  const previstas = require(path.join(__dirname, '..', 'api', '_migracoes.js'));
+  ok(tabelas.migracoes.length === previstas.length,
+    'a primeira chamada aplicou as ' + previstas.length + ' migrações',
+    tabelas.migracoes.map((m) => m.id));
+  ok(tabelas.migracoes.map((m) => m.id).join('|') === previstas.map((m) => m.id).join('|'),
+    'aplicadas na ordem em que estão declaradas');
+
+  const antes = tabelas.migracoes.length;
+  await GET({ acao: 'ping' });
+  await GET({ acao: 'dados' });
+  ok(tabelas.migracoes.length === antes, 'chamadas seguintes não reaplicam nada');
+
+  console.log('\n== ligação ==');
 
   const dados = await GET({ acao: 'dados' });
   const G = dados.locais.find((l) => l.Tipo === 'GALPAO').ID;

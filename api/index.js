@@ -14,6 +14,7 @@
 var L = require('./_logica');
 var db = require('./_supabase');
 var senha = require('./_senha');
+var MIGRACOES = require('./_migracoes');
 
 var TABELA = { Locais: 'locais', TiposCaixa: 'tipos_caixa', Usuarios: 'usuarios', Motoristas: 'motoristas',
                LocaisPadrao: 'locais_padrao' };
@@ -22,6 +23,49 @@ var MAPA = { Locais: db.LOCAL, TiposCaixa: db.TIPO, Usuarios: db.USUARIO, Motori
              LocaisPadrao: db.LOCAL_PADRAO };
 var COLECAO = { Locais: 'locais', TiposCaixa: 'tipos', Usuarios: 'usuarios', Motoristas: 'motoristas',
                 LocaisPadrao: 'locaisPadrao' };
+
+/* ============================ migrações ============================ */
+
+// Uma vez por instância morna basta: o que já foi aplicado não volta a ser.
+var migracoesOk = false;
+
+/**
+ * Aplica o que falta, em ordem. O DDL sai daqui, não do PostgREST, através da função
+ * `aplicar_migracao` que o bootstrap cria — é ela que tem permissão para mexer na
+ * estrutura. O `sql` vem sempre de `_migracoes.js`; nada que chega pela API entra aqui.
+ */
+async function garantirMigracoes() {
+  if (migracoesOk) return null;
+  var jaAplicadas;
+  try {
+    jaAplicadas = await db.selectAll('migracoes');
+  } catch (e) {
+    // Sem a tabela de registro, o bootstrap ainda não rodou. Segue a vida: o app
+    // funciona com o que o banco já tem, e avisa quando faltar coluna de verdade.
+    migracoesOk = true;
+    return null;
+  }
+
+  var feitas = {};
+  (jaAplicadas || []).forEach(function (m) { feitas[m.id] = true; });
+  var pendentes = MIGRACOES.filter(function (m) { return !feitas[m.id]; });
+  if (!pendentes.length) { migracoesOk = true; return null; }
+
+  for (var i = 0; i < pendentes.length; i++) {
+    var m = pendentes[i];
+    try {
+      await db.rpc('aplicar_migracao', { id_migracao: m.id, sql_migracao: m.sql });
+      console.log('[caixas] migração aplicada:', m.id, '—', m.nota);
+    } catch (e) {
+      console.error('[caixas] migração falhou:', m.id, e && e.message);
+      // Para na primeira falha: aplicar as seguintes por cima de um banco meio migrado
+      // é como o estrago vira difícil de desfazer.
+      return 'Falha ao atualizar o banco na migração ' + m.id + '. Veja o log da Vercel.';
+    }
+  }
+  migracoesOk = true;
+  return null;
+}
 
 function corpo(req) {
   var b = req.body;
@@ -358,6 +402,9 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    var falha = await garantirMigracoes();
+    if (falha) { res.status(200).json({ ok: false, erro: falha }); return; }
+
     var r = req.method === 'POST'
       ? await rotaPost(corpo(req))
       : await rotaGet(req.query || {});

@@ -61,6 +61,14 @@ function update(tabela, id, patch) {
   });
 }
 
+function rpc(nome, args) {
+  return req('/rest/v1/rpc/' + nome, {
+    method: 'POST',
+    headers: cabecalhos(),
+    body: JSON.stringify(args || {})
+  });
+}
+
 /** Upsert por chave — o Postgres resolve o conflito, sem precisar ler antes para decidir. */
 function salvarConfig(chave, valor) {
   return req('/rest/v1/config?on_conflict=chave', {
@@ -300,6 +308,7 @@ async function carregarTudo() {
 module.exports = {
   configurado: configurado,
   selectAll: selectAll, insert: insert, update: update, remover: remover, salvarConfig: salvarConfig,
+  rpc: rpc,
   subirArquivo: subirArquivo, carregarTudo: carregarTudo,
   LOCAL: LOCAL, TIPO: TIPO, USUARIO: USUARIO, MOV: MOV, MOTORISTA: MOTORISTA,
   LOCAL_PADRAO: LOCAL_PADRAO

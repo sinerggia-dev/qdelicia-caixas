@@ -74,8 +74,8 @@ Duas peças: o banco no Supabase e o site + API na Vercel. Nenhuma precisa de CL
 1. Crie o projeto em https://supabase.com/dashboard — região **South America (São Paulo)**.
 2. **SQL Editor → New query** → cole [`supabase/schema.sql`](supabase/schema.sql) → **Run**.
 3. Repita com [`supabase/seed.sql`](supabase/seed.sql) para os dados de exemplo.
-   Em banco já existente, rode [`supabase/migracao.sql`](supabase/migracao.sql) — ela junta todas
-   as mudanças posteriores e é segura de rodar mais de uma vez.
+   Depois, rode [`supabase/bootstrap.sql`](supabase/bootstrap.sql) **uma vez**: a partir dele o
+   app aplica sozinho toda migração futura, sem ninguém abrir o SQL Editor de novo.
 4. **Settings → API**: guarde a **Project URL** e a chave **service_role**.
 
 O RLS fica ligado e sem política em todas as tabelas: a chave pública não acessa nada.

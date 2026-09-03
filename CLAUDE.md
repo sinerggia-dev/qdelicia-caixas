@@ -113,6 +113,31 @@ A chave vive só em `SUPABASE_SERVICE_KEY`, nas variáveis de ambiente da Vercel
 nova do Supabase (`sb_secret_...`, chamada `vercel_api`), não a `service_role` legada. **Nunca**
 coloque em arquivo do repositório, e não peça para o usuário mandá-la por chat.
 
+## Migração do banco: automática
+
+Depois do  (rodado uma vez), o app aplica sozinho o que falta.
+Para mudar a estrutura, **acrescente um item no fim de ** e faça push.
+A primeira chamada à API depois do deploy aplica.
+
+Três regras que não são negociáveis, e estão repetidas no cabeçalho do arquivo:
+
+1. **Nunca edite nem remova um item já publicado.** Quem já aplicou não reaplica, e o banco
+   de outra pessoa ficaria diferente do seu sem ninguém perceber.
+2. **Escreva sempre de forma repetível** — , .
+3. **O  nunca é montado com dado que veio do navegador.** Ele sai literal de
+    e vai para a função , que é .
+
+Quem executa o DDL é essa função no Postgres, não o PostgREST — o PostgREST só faz CRUD.
+Ela está trancada para  e : só quem tem a chave secreta chama, e essa
+chave já abre o banco inteiro de qualquer jeito. Por isso este caminho não amplia o estrago
+possível, ao contrário de guardar um token da Management API na Vercel.
+
+Se o bootstrap não tiver rodado, o app **não quebra**: segue com o que o banco já tem, e a
+mensagem de coluna faltando aparece quando alguma tela precisar de verdade.
+
+Falhou uma migração? O app **para na primeira** e devolve o id no erro — aplicar as
+seguintes por cima de um banco meio migrado é como o estrago vira difícil de desfazer.
+
 ## Testar
 
 ```
