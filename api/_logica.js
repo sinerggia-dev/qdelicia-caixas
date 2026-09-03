@@ -11,6 +11,7 @@
  *               MotoristaId, RotaId }   Tipo: GALPAO | FILIAL | CLIENTE | ROTA
  *   tipoCaixa { ID, Nome, Ativo:bool, Kg:number|'' }
  *   usuario   { ID, Nome, Perfil, PIN, Telefone, LocalPadrao, Ativo:bool, Email, Usuario, SenhaHash }
+ *   motorista { ID, Nome, Telefone, CPF, CNH, CNHCategoria, CNHValidade, Placa, Obs, Ativo:bool }
  *   movimento { ID, ClientKey, DataHora:Date, DataRef:Date, Tipo, OrigemID, DestinoID, TipoCaixaID,
  *               Qtd:number, QtdConferida:number|null, Status, Romaneio, UsuarioID, Perfil, Obs,
  *               AssinaturaURL, FotoURL, ConferidoEm, ConferidoPor, Cancelado:bool, MotivoCancel,
@@ -30,21 +31,21 @@ var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA'];
  * na hora da conferência, quando a contagem precisa ser exata.
  */
 /**
- * A lista de motoristas é digitada num campo de texto, um por linha. Aqui ela vira
- * array limpo: sem linha vazia, sem espaço nas pontas, sem nome repetido.
+ * Só o necessário para o celular montar a lista de escolha. CPF, CNH e telefone ficam
+ * de fora: a rota `dados` é pública, e documento de motorista não tem por que trafegar
+ * para quem só abriu o endereço do app.
  */
-function listaMotoristas(config) {
-  var visto = {};
-  return String((config && config.motoristas) || '')
-    .split(/[\n;,]/)
-    .map(function (s) { return s.trim(); })
-    .filter(function (s) {
-      if (!s) return false;
-      var k = s.toLowerCase();
-      if (visto[k]) return false;
-      visto[k] = 1;
-      return true;
-    });
+function motoristasPublicos(motoristas) {
+  return (motoristas || [])
+    .filter(function (m) { return m.Ativo !== false; })
+    .map(function (m) { return { ID: m.ID, Nome: m.Nome }; })
+    .sort(function (a, b) { return String(a.Nome).localeCompare(String(b.Nome), 'pt-BR'); });
+}
+
+/** CNH vencida é impedimento real de rodar — o painel marca, não bloqueia. */
+function cnhVencida(m, hoje) {
+  if (!m || !m.CNHValidade) return false;
+  return data(m.CNHValidade) < (hoje || new Date());
 }
 
 function mapaTipos(tipos) {
@@ -702,7 +703,8 @@ function usuariosPublicos(usuarios) {
 
 module.exports = {
   TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
-  rotuloTipo: rotuloTipo, mapaTipos: mapaTipos, listaMotoristas: listaMotoristas,
+  rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,
+  motoristasPublicos: motoristasPublicos, cnhVencida: cnhVencida,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,

@@ -15,10 +15,10 @@ var L = require('./_logica');
 var db = require('./_supabase');
 var senha = require('./_senha');
 
-var TABELA = { Locais: 'locais', TiposCaixa: 'tipos_caixa', Usuarios: 'usuarios' };
-var PREFIXO = { Locais: 'L', TiposCaixa: 'T', Usuarios: 'U' };
-var MAPA = { Locais: db.LOCAL, TiposCaixa: db.TIPO, Usuarios: db.USUARIO };
-var COLECAO = { Locais: 'locais', TiposCaixa: 'tipos', Usuarios: 'usuarios' };
+var TABELA = { Locais: 'locais', TiposCaixa: 'tipos_caixa', Usuarios: 'usuarios', Motoristas: 'motoristas' };
+var PREFIXO = { Locais: 'L', TiposCaixa: 'T', Usuarios: 'U', Motoristas: 'D' };
+var MAPA = { Locais: db.LOCAL, TiposCaixa: db.TIPO, Usuarios: db.USUARIO, Motoristas: db.MOTORISTA };
+var COLECAO = { Locais: 'locais', TiposCaixa: 'tipos', Usuarios: 'usuarios', Motoristas: 'motoristas' };
 
 function corpo(req) {
   var b = req.body;
@@ -43,9 +43,11 @@ async function rotaGet(p) {
     case 'dados':
       // A lista de usuários saiu daqui de propósito: era carregada na tela de login e expunha
       // o nome de todo mundo para quem só abrisse o endereço. Quem precisa dela pede `equipe`.
-      return { ok: true, locais: d.locais, tipos: d.tipos, config: d.config };
+      return { ok: true, locais: d.locais, tipos: d.tipos, config: d.config,
+               motoristas: L.motoristasPublicos(d.motoristas) };
     case 'equipe':
-      return { ok: true, usuarios: L.usuariosPublicos(d.usuarios) };
+      // Aqui vai o cadastro completo, com documento — é a tela do escritório.
+      return { ok: true, usuarios: L.usuariosPublicos(d.usuarios), motoristas: d.motoristas };
     case 'painel':
       return { ok: true, painel: L.painel(d) };
     case 'pendentes':
@@ -82,6 +84,7 @@ async function rotaPost(p) {
   if (acao === 'corrigir') return await corrigir(p);
   if (acao === 'salvarLocal') return await salvarRegistro('Locais', p);
   if (acao === 'salvarTipo') return await salvarRegistro('TiposCaixa', p);
+  if (acao === 'salvarMotorista') return await salvarRegistro('Motoristas', p);
   if (acao === 'salvarUsuario') return await salvarUsuario(p);
   if (acao === 'salvarConfig') return await salvarConfig(p);
   if (acao === 'excluir') return await excluir(p.aba, p.id);

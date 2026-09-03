@@ -92,22 +92,34 @@ insert into public.locais (id, tipo, nome, token) values
   ('L015','ROTA','Russas',      substr(md5(random()::text||'russas'),      1, 10))
 on conflict (id) do nothing;
 
--- ============================================================ 8. motoristas da operacao
--- Um nome por linha, em config. Motorista aqui e quem leva a carga, nao quem usa o app:
--- por isso nao vira usuario com PIN.
-insert into public.config (chave, valor) values
-  ('motoristas', E'Arilson
-Chico
-Dinho
-Isaque
-Paulino
-Plínio
-Ramos
-Valcy
-Valcy (Jr.)
-Vando
-Welison')
-on conflict (chave) do nothing;
+-- ============================================================ 8. cadastro de motoristas
+-- Quem leva a carga. Tabela propria, sem PIN e sem perfil: motorista e quem dirige, nao
+-- quem usa o app -- a maioria nunca vai fazer login.
+create table if not exists public.motoristas (
+  id             text primary key,
+  nome           text        not null,
+  telefone       text        not null default '',
+  cpf            text        not null default '',
+  cnh            text        not null default '',
+  cnh_categoria  text        not null default '',
+  cnh_validade   date,
+  placa          text        not null default '',
+  obs            text        not null default '',
+  ativo          boolean     not null default true,
+  criado_em      timestamptz not null default now()
+);
+
+alter table public.motoristas enable row level security;
+
+insert into public.motoristas (id, nome) values
+  ('D001','Arilson'), ('D002','Chico'),   ('D003','Dinho'),
+  ('D004','Isaque'),  ('D005','Paulino'), ('D006','Plínio'),
+  ('D007','Ramos'),   ('D008','Valcy'),   ('D009','Valcy (Jr.)'),
+  ('D010','Vando'),   ('D011','Welison')
+on conflict (id) do nothing;
+
+-- A lista antiga vivia em config; agora e tabela.
+delete from public.config where chave = 'motoristas';
 
 -- ============================================================ 9. sobras antigas
 -- O app não trabalha mais com valor em dinheiro.

@@ -29,6 +29,10 @@ const tabelas = {
     { id: 'U003', nome: 'Motorista Exemplo', perfil: 'MOTORISTA', pin: '2222', telefone: '', local_padrao: 'L001', ativo: true },
     { id: 'U004', nome: 'Promotor Exemplo', perfil: 'PROMOTOR', pin: '3333', telefone: '', local_padrao: null, ativo: true }
   ],
+  motoristas: [
+    { id: 'D001', nome: 'Arilson', telefone: '81 9', cpf: '111', cnh: '222',
+      cnh_categoria: 'E', cnh_validade: '2030-01-01', placa: 'ABC1D23', obs: '', ativo: true }
+  ],
   movimentos: [],
   config: [
     { chave: 'empresa', valor: 'Qdelícia Frutas' },
@@ -86,6 +90,7 @@ const falso = Object.assign({}, real, {
       tipos: tabelas.tipos_caixa.map(real.TIPO.de),
       usuarios: tabelas.usuarios.map(real.USUARIO.de),
       movimentos: tabelas.movimentos.map(real.MOV.de),
+      motoristas: tabelas.motoristas.map(real.MOTORISTA.de),
       config: config
     };
   }
@@ -403,21 +408,36 @@ async function main() {
   const aindaLa = (await GET({ acao: 'dados' })).locais.find((l) => l.ID === rUsada.id);
   ok(aindaLa && aindaLa.Ativo === false, 'a rota continua no banco, inativa', aindaLa && aindaLa.Ativo);
 
-  console.log('\n== lista de motoristas ==');
-  const L = require(path.join(__dirname, '..', 'api', '_logica.js'));
-  ok(L.listaMotoristas({ motoristas: ' Arilson \nChico\n\n arilson ;Dinho , Valcy (Jr.) ' })
-      .join('|') === 'Arilson|Chico|Dinho|Valcy (Jr.)',
-    'limpa espaço, linha vazia e nome repetido',
-    L.listaMotoristas({ motoristas: ' Arilson \nChico\n\n arilson ;Dinho , Valcy (Jr.) ' }));
-  ok(L.listaMotoristas({}).length === 0, 'sem lista cadastrada não quebra');
+  console.log('\n== cadastro de motorista ==');
+  const dm = await GET({ acao: 'dados' });
+  ok(dm.motoristas.length === 1 && dm.motoristas[0].Nome === 'Arilson',
+    'rota pública traz os motoristas ativos', dm.motoristas);
+  ok(!('CPF' in dm.motoristas[0]) && !('CNH' in dm.motoristas[0]) && !('Telefone' in dm.motoristas[0]),
+    'rota pública NÃO expõe CPF, CNH nem telefone', Object.keys(dm.motoristas[0]));
 
-  const salvou = await POST({ acao: 'salvarConfig', chave: 'motoristas', valor: 'Ramos\nVando' });
-  ok(salvou.ok, 'escritório salva a lista', salvou);
-  ok((await GET({ acao: 'dados' })).config.motoristas === 'Ramos\nVando',
-    'lista volta na rota dados, de onde o celular lê', (await GET({ acao: 'dados' })).config.motoristas);
+  const eqM = await GET({ acao: 'equipe' });
+  ok(eqM.motoristas[0].CPF === '111' && eqM.motoristas[0].CNH === '222',
+    'rota do escritório traz o cadastro completo', eqM.motoristas[0]);
 
-  const proibido = await POST({ acao: 'salvarConfig', chave: 'qualquerCoisa', valor: 'x' });
-  ok(proibido.ok === false, 'config só aceita chave conhecida', proibido);
+  const novoM = await POST({ acao: 'salvarMotorista', registro: {
+    Nome: ' Valcy (Jr.) ', Telefone: '81 98888', CPF: '999', CNH: '888',
+    CNHCategoria: 'e', CNHValidade: '2020-05-10', Placa: ' qdl2e34 ' } });
+  ok(novoM.ok && novoM.criado, 'motorista cadastrado', novoM);
+  const motGrav = (await GET({ acao: 'equipe' })).motoristas.find((m) => m.ID === novoM.id);
+  ok(motGrav.Nome === 'Valcy (Jr.)', 'nome vem sem espaço sobrando', motGrav.Nome);
+  ok(motGrav.Placa === 'QDL2E34', 'placa em maiúsculas', motGrav.Placa);
+  ok(motGrav.CNHCategoria === 'E', 'categoria em maiúsculas', motGrav.CNHCategoria);
+
+  const Lm = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  ok(Lm.cnhVencida(motGrav) === true, 'CNH de 2020 está vencida', motGrav.CNHValidade);
+  ok(Lm.cnhVencida({ CNHValidade: '2099-01-01' }) === false, 'CNH de 2099 não está vencida');
+  ok(Lm.cnhVencida({}) === false, 'sem validade cadastrada não conta como vencida');
+
+  await POST({ acao: 'salvarMotorista', registro: { ID: novoM.id, Ativo: 'NAO' } });
+  ok(((await GET({ acao: 'dados' })).motoristas || []).every((m) => m.ID !== novoM.id),
+    'motorista inativo sai da lista de escolha do celular');
+  ok((await POST({ acao: 'excluir', aba: 'Motoristas', id: novoM.id })).excluido === true,
+    'motorista pode ser excluído');
 
   console.log('\n== excluir usuário ==');
   const novoU = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Ajudante Temporário', Perfil: 'PROMOTOR', PIN: '4444' } });

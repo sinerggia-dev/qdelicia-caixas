@@ -182,6 +182,30 @@ var USUARIO = {
   }
 };
 
+var MOTORISTA = {
+  de: function (r) {
+    return {
+      ID: r.id, Nome: r.nome, Telefone: r.telefone || '', CPF: r.cpf || '',
+      CNH: r.cnh || '', CNHCategoria: r.cnh_categoria || '', CNHValidade: r.cnh_validade || '',
+      Placa: r.placa || '', Obs: r.obs || '', Ativo: r.ativo !== false
+    };
+  },
+  para: function (o) {
+    var r = {};
+    if (o.ID !== undefined) r.id = o.ID;
+    if (o.Nome !== undefined) r.nome = String(o.Nome).trim();
+    if (o.Telefone !== undefined) r.telefone = o.Telefone || '';
+    if (o.CPF !== undefined) r.cpf = o.CPF || '';
+    if (o.CNH !== undefined) r.cnh = o.CNH || '';
+    if (o.CNHCategoria !== undefined) r.cnh_categoria = String(o.CNHCategoria || '').toUpperCase();
+    if (o.CNHValidade !== undefined) r.cnh_validade = nulo(o.CNHValidade);
+    if (o.Placa !== undefined) r.placa = String(o.Placa || '').trim().toUpperCase();
+    if (o.Obs !== undefined) r.obs = o.Obs || '';
+    if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
+    return r;
+  }
+};
+
 var MOV = {
   de: function (r) {
     return {
@@ -245,7 +269,8 @@ async function carregarTudo() {
     selectAll('tipos_caixa', 'id'),
     selectAll('usuarios', 'id'),
     selectAll('movimentos', 'id'),
-    selectAll('config', 'chave')
+    selectAll('config', 'chave'),
+    selectAll('motoristas', 'nome')
   ]);
   var config = {};
   (partes[4] || []).forEach(function (r) { config[r.chave] = r.valor; });
@@ -254,6 +279,7 @@ async function carregarTudo() {
     tipos: (partes[1] || []).map(TIPO.de),
     usuarios: (partes[2] || []).map(USUARIO.de),
     movimentos: (partes[3] || []).map(MOV.de),
+    motoristas: (partes[5] || []).map(MOTORISTA.de),
     config: config
   };
 }
@@ -262,5 +288,5 @@ module.exports = {
   configurado: configurado,
   selectAll: selectAll, insert: insert, update: update, remover: remover, salvarConfig: salvarConfig,
   subirArquivo: subirArquivo, carregarTudo: carregarTudo,
-  LOCAL: LOCAL, TIPO: TIPO, USUARIO: USUARIO, MOV: MOV
+  LOCAL: LOCAL, TIPO: TIPO, USUARIO: USUARIO, MOV: MOV, MOTORISTA: MOTORISTA
 };

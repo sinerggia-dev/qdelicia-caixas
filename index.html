@@ -370,16 +370,10 @@
     return meus.length ? meus : pontos;
   }
 
+  /* Vem da rota `dados`, que traz só id e nome dos ativos: documento de motorista
+     não trafega para quem só abriu o endereço do app. */
   function motoristas(){
-    var visto = {};
-    return String(((DADOS||{}).config||{}).motoristas || '')
-      .split(/[\n;,]/).map(function(s){ return s.trim(); })
-      .filter(function(s){
-        if (!s) return false;
-        var k = s.toLowerCase();
-        if (visto[k]) return false;
-        visto[k] = 1; return true;
-      });
+    return ((DADOS||{}).motoristas || []).map(function(m){ return m.Nome; });
   }
 
   function nomeDoLocal(id){

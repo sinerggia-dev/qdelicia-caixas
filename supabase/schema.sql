@@ -75,6 +75,29 @@ do $$ begin
 exception when duplicate_object then null;
 end $$;
 
+-- ============================================================ motoristas
+-- Quem leva a carga. Separado de `usuarios` de propósito: motorista é quem dirige, não
+-- quem usa o app — a maioria nunca vai fazer login, e criar conta com PIN para todos
+-- seria inventar credencial que ninguém usa.
+create table if not exists public.motoristas (
+  id             text primary key,
+  nome           text        not null,
+  telefone       text        not null default '',
+  cpf            text        not null default '',
+  cnh            text        not null default '',
+  cnh_categoria  text        not null default '',
+  cnh_validade   date,
+  placa          text        not null default '',
+  obs            text        not null default '',
+  ativo          boolean     not null default true,
+  criado_em      timestamptz not null default now()
+);
+
+comment on column public.motoristas.cnh_validade is 'Vencida = o painel marca em vermelho';
+comment on column public.motoristas.placa is 'Veículo habitual; a saída pode ser em outro';
+
+alter table public.motoristas enable row level security;
+
 -- ============================================================ movimentos
 -- O livro-razão. Só acrescenta: movimento errado é cancelado, nunca apagado.
 create table if not exists public.movimentos (

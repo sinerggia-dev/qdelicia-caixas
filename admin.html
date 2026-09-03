@@ -158,12 +158,11 @@
       <div id="tabelaTipos"></div>
     </div>
     <div class="card">
-      <h2>Motoristas<span class="sub">Quem pode ser escolhido na saída do galpão. Um nome por linha.</span></h2>
-      <textarea id="cfgMotoristas" style="min-height:170px" placeholder="Arilson&#10;Chico&#10;Dinho"></textarea>
-      <div class="linha-btn">
-        <button class="btn" id="btnSalvarMotoristas" style="flex:0;min-width:170px">Salvar motoristas</button>
-        <span id="cfgMotoristasInfo" style="align-self:center;font-size:13px;color:var(--txt2)"></span>
+      <h2>Motoristas<span class="sub">Quem leva a carga. Aparece para escolha na saída do galpão.</span></h2>
+      <div class="linha-btn" style="margin-top:2px">
+        <button class="btn" id="btnNovoMotorista" style="flex:0;min-width:170px">+ Novo motorista</button>
       </div>
+      <div id="tabelaMotoristas"></div>
     </div>
     <div class="card">
       <h2>Usuários<span class="sub">Perfis: ADMIN (tudo), GALPAO (lança e confere), MOTORISTA (lança na rua), PROMOTOR (conta no cliente).</span></h2>
@@ -186,7 +185,7 @@
 (function(){
   'use strict';
   var Q = window.QDC;
-  var DADOS = null, EQUIPE = [], PAINEL = null, EXTRATO = null, MOVS = [];
+  var DADOS = null, EQUIPE = [], MOTORISTAS = [], PAINEL = null, EXTRATO = null, MOVS = [];
 
   /* ---------------- login ---------------- */
   function iniciarLogin(){
@@ -256,7 +255,7 @@
      em silêncio, e o carregarDados seguinte zerava a lista. */
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok) EQUIPE = r.usuarios || [];
+      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; }
       if (DADOS){ desenharCadastros(); montarSelects(); }
     }).catch(function(e){ Q.toast('Não consegui carregar os usuários: '+e.message,'erro'); });
   }
@@ -641,26 +640,83 @@
       .catch(function(e){ Q.toast(e.message,'erro'); });
   }
 
-  /* Motorista aqui é quem leva a carga, não quem usa o app: por isso é uma lista de
-     nomes em Config, e não usuário com PIN. */
-  function desenharMotoristas(){
-    var el = document.getElementById('cfgMotoristas');
-    if (document.activeElement === el) return;          // não atropela quem está digitando
-    var txt = String(((DADOS||{}).config||{}).motoristas || '');
-    el.value = txt.split(/[\n;,]/).map(function(s){ return s.trim(); }).filter(Boolean).join('\n');
-    document.getElementById('cfgMotoristasInfo').textContent =
-      el.value ? el.value.split('\n').length + ' na lista' : 'nenhum cadastrado';
+  /* Motorista é quem leva a carga, não quem usa o app: por isso cadastro próprio,
+     sem PIN e sem perfil. Os documentos só chegam aqui, pela rota do escritório. */
+  function vencida(m){
+    if (!m.CNHValidade) return false;
+    return new Date(String(m.CNHValidade).slice(0,10)+'T23:59:59') < new Date();
   }
-  document.getElementById('btnSalvarMotoristas').addEventListener('click', function(){
-    var b = this, v = document.getElementById('cfgMotoristas').value;
-    b.disabled = true; b.textContent = 'Salvando…';
-    Q.post({acao:'salvarConfig', chave:'motoristas', valor:v}).then(function(r){
-      b.disabled = false; b.textContent = 'Salvar motoristas';
-      if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui salvar.','erro');
-      Q.toast('Lista de motoristas salva.','ok');
-      recarregarCadastros();
-    }).catch(function(e){ b.disabled=false; b.textContent='Salvar motoristas'; Q.toast(e.message,'erro'); });
-  });
+
+  function desenharMotoristas(){
+    var lista = MOTORISTAS;
+    var box = document.getElementById('tabelaMotoristas');
+    if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhum motorista cadastrado.</div>'; return; }
+    box.innerHTML =
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Telefone</th><th>CPF</th>'+
+      '<th>CNH</th><th>Cat.</th><th>Validade</th><th>Placa</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      lista.map(function(m){
+        var on = Q.ativo(m.Ativo), venc = vencida(m);
+        return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(m.Nome)+'</b></td>'+
+          '<td>'+Q.esc(m.Telefone||'')+'</td><td>'+Q.esc(m.CPF||'')+'</td>'+
+          '<td>'+Q.esc(m.CNH||'')+'</td><td>'+Q.esc(m.CNHCategoria||'')+'</td>'+
+          '<td>'+(m.CNHValidade
+              ? (venc?'<span class="tag vermelha">'+Q.dataBR(m.CNHValidade)+'</span>':Q.dataBR(m.CNHValidade))
+              : '—')+'</td>'+
+          '<td>'+(m.Placa?'<span class="tag cinza">'+Q.esc(m.Placa)+'</span>':'—')+'</td>'+
+          '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
+          '<td><button class="mini acao" data-editar-mot="'+m.ID+'">editar</button> '+
+              '<button class="mini perigo" data-excluir-mot="'+m.ID+'">excluir</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+
+    document.querySelectorAll('[data-editar-mot]').forEach(function(b){
+      b.addEventListener('click', function(){
+        formMotorista(lista.filter(function(m){ return String(m.ID)===b.dataset.editarMot; })[0]);
+      });
+    });
+    document.querySelectorAll('[data-excluir-mot]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var m = lista.filter(function(x){ return String(x.ID)===b.dataset.excluirMot; })[0];
+        if (!m || Q.precisaConfirmar(b, 'Excluir '+m.Nome+'?')) return;
+        b.disabled = true;
+        Q.post({acao:'excluir', aba:'Motoristas', id:m.ID}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          Q.toast('Excluído.','ok'); carregarEquipe(); recarregarCadastros();
+        }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
+      });
+    });
+  }
+  document.getElementById('btnNovoMotorista').addEventListener('click', function(){ formMotorista(null); });
+
+  function formMotorista(m){
+    m = m || {};
+    modal('<h2>'+(m.ID?'Editar':'Novo')+' motorista</h2>'+
+      '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(m.Nome||'')+'" autocapitalize="words">'+
+      '<div class="grid2">'+
+        '<div><label>Telefone</label><input type="tel" id="fTel" value="'+Q.esc(m.Telefone||'')+'" placeholder="81 98151-7703"></div>'+
+        '<div><label>CPF</label><input type="text" id="fCpf" inputmode="numeric" value="'+Q.esc(m.CPF||'')+'" placeholder="000.000.000-00"></div>'+
+      '</div>'+
+      '<h3 style="margin-top:20px">Habilitação</h3>'+
+      '<div class="grid2">'+
+        '<div><label>Número da CNH</label><input type="text" id="fCnh" inputmode="numeric" value="'+Q.esc(m.CNH||'')+'"></div>'+
+        '<div><label>Categoria</label><input type="text" id="fCat" maxlength="4" autocapitalize="characters" value="'+Q.esc(m.CNHCategoria||'')+'" placeholder="D, E, AE…"></div>'+
+        '<div><label>Validade</label><input type="date" id="fVal" value="'+Q.esc(String(m.CNHValidade||'').slice(0,10))+'"></div>'+
+        '<div><label>Placa habitual</label><input type="text" id="fPlaca" maxlength="8" autocapitalize="characters" value="'+Q.esc(m.Placa||'')+'" placeholder="ABC1D23"></div>'+
+      '</div>'+
+      '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(m.Ativo)?' selected':'')+'>sim</option>'+
+        '<option value="NAO"'+(Q.ativo(m.Ativo)?'':' selected')+'>não</option></select>'+
+      '<label>Observação</label><textarea id="fObs">'+Q.esc(m.Obs||'')+'</textarea>'+
+      '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
+    document.getElementById('fSalvar').addEventListener('click', function(){
+      var reg = { ID:m.ID||'', Nome:document.getElementById('fNome').value.trim(),
+        Telefone:document.getElementById('fTel').value.trim(), CPF:document.getElementById('fCpf').value.trim(),
+        CNH:document.getElementById('fCnh').value.trim(), CNHCategoria:document.getElementById('fCat').value.trim(),
+        CNHValidade:document.getElementById('fVal').value, Placa:document.getElementById('fPlaca').value.trim(),
+        Ativo:document.getElementById('fAtivo').value, Obs:document.getElementById('fObs').value };
+      if (!reg.Nome) return Q.toast('Informe o nome.','erro');
+      salvar('salvarMotorista', reg, this);
+    });
+  }
 
   function nomeDe(lista, id){
     var x = (lista||[]).filter(function(i){ return String(i.ID)===String(id); })[0];
