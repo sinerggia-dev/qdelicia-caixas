@@ -157,11 +157,18 @@ seguintes por cima de um banco meio migrado é como o estrago vira difícil de d
 
 ```
 node teste/teste_api.js
+node teste/teste_tela.js
 ```
 
-138 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
+148 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
 ao Postgres por um banco falso em memória. Sem rede, sem chave, meio segundo. Rode depois de
 qualquer alteração em `api/`.
+
+O `teste/teste_tela.js` não roda navegador: lê o `index.html` e confere que a função de
+limpar de cada formulário toca em **todo** campo da seção, menos a data. Existe porque o
+botão Limpar quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela: seletor
+escondido guarda valor velho e só reaparece quando a origem muda de galpão para rota.
+Acrescentou campo no formulário? Ou ele entra no limpar, ou este teste falha dizendo o id.
 
 O `teste/teste_backend.js` testa o backend antigo do Apps Script (38 verificações), que continua
 em `apps-script/` como referência e rota de volta. Pode apagar os dois quando a migração estiver

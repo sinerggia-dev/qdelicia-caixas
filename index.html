@@ -424,11 +424,23 @@
       Q.toast(e.message,'erro');
     });
   });
+  /* `manterLocais` é só para depois de gravar: quem lança várias saídas seguidas do mesmo
+     lugar não quer reescolher a origem a cada uma. O botão Limpar passa false e apaga tudo
+     menos a data — inclusive os seletores escondidos, senão um valor velho volta à tona
+     quando a origem muda de galpão para rota. */
   function limparSaida(manterLocais){
     zerarItens('sd_');
     document.getElementById('sdObs').value = '';
-    document.getElementById('sdMotorista').value=''; sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
-    if (!manterLocais){ document.getElementById('sdDestino').value=''; document.getElementById('sdAviso').innerHTML=''; }
+    document.getElementById('sdMotorista').value = '';
+    sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
+    document.getElementById('sdFoto').value = '';
+    if (!manterLocais){
+      document.getElementById('sdOrigem').value = '';
+      document.getElementById('sdRota').value = '';
+      document.getElementById('sdDestino').value = '';
+      document.getElementById('sdAviso').innerHTML = '';
+      ajustarCamposSaida();   // sem origem não há rota nem motorista: some os dois
+    }
   }
   document.getElementById('btnLimparSaida').addEventListener('click', function(){ limparSaida(false); });
 
@@ -479,7 +491,13 @@
     document.getElementById('dvObs').value = '';
     document.getElementById('dvRomaneio').value = '';
     dvAssina.limpar(); dvFotoData=''; document.getElementById('dvFotoOk').textContent='';
-    if (!manter){ document.getElementById('dvOrigem').value=''; document.getElementById('dvAviso').innerHTML=''; mostrarSaldoDoOrigem(); }
+    document.getElementById('dvFoto').value = '';
+    if (!manter){
+      document.getElementById('dvOrigem').value = '';
+      document.getElementById('dvDestino').value = '';
+      document.getElementById('dvAviso').innerHTML = '';
+      mostrarSaldoDoOrigem();
+    }
   }
   document.getElementById('btnLimparDevolucao').addEventListener('click', function(){ limparDevolucao(false); });
 
