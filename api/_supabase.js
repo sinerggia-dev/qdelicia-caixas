@@ -182,6 +182,17 @@ var USUARIO = {
   }
 };
 
+var LOCAL_PADRAO = {
+  de: function (r) { return { ID: r.id, Nome: r.nome, Ativo: r.ativo !== false }; },
+  para: function (o) {
+    var r = {};
+    if (o.ID !== undefined) r.id = o.ID;
+    if (o.Nome !== undefined) r.nome = String(o.Nome).trim();
+    if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
+    return r;
+  }
+};
+
 var MOTORISTA = {
   de: function (r) {
     return {
@@ -270,7 +281,8 @@ async function carregarTudo() {
     selectAll('usuarios', 'id'),
     selectAll('movimentos', 'id'),
     selectAll('config', 'chave'),
-    selectAll('motoristas', 'nome')
+    selectAll('motoristas', 'nome'),
+    selectAll('locais_padrao', 'nome')
   ]);
   var config = {};
   (partes[4] || []).forEach(function (r) { config[r.chave] = r.valor; });
@@ -280,6 +292,7 @@ async function carregarTudo() {
     usuarios: (partes[2] || []).map(USUARIO.de),
     movimentos: (partes[3] || []).map(MOV.de),
     motoristas: (partes[5] || []).map(MOTORISTA.de),
+    locaisPadrao: (partes[6] || []).map(LOCAL_PADRAO.de),
     config: config
   };
 }
@@ -288,5 +301,6 @@ module.exports = {
   configurado: configurado,
   selectAll: selectAll, insert: insert, update: update, remover: remover, salvarConfig: salvarConfig,
   subirArquivo: subirArquivo, carregarTudo: carregarTudo,
-  LOCAL: LOCAL, TIPO: TIPO, USUARIO: USUARIO, MOV: MOV, MOTORISTA: MOTORISTA
+  LOCAL: LOCAL, TIPO: TIPO, USUARIO: USUARIO, MOV: MOV, MOTORISTA: MOTORISTA,
+  LOCAL_PADRAO: LOCAL_PADRAO
 };

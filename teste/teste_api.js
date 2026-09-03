@@ -29,6 +29,9 @@ const tabelas = {
     { id: 'U003', nome: 'Motorista Exemplo', perfil: 'MOTORISTA', pin: '2222', telefone: '', local_padrao: 'L001', ativo: true },
     { id: 'U004', nome: 'Promotor Exemplo', perfil: 'PROMOTOR', pin: '3333', telefone: '', local_padrao: null, ativo: true }
   ],
+  locais_padrao: [
+    { id: 'P001', nome: 'Escritório Central', ativo: true }
+  ],
   motoristas: [
     { id: 'D001', nome: 'Arilson', telefone: '81 9', cpf: '111', cnh: '222',
       cnh_categoria: 'E', cnh_validade: '2030-01-01', placa: 'ABC1D23', obs: '', ativo: true }
@@ -91,6 +94,7 @@ const falso = Object.assign({}, real, {
       usuarios: tabelas.usuarios.map(real.USUARIO.de),
       movimentos: tabelas.movimentos.map(real.MOV.de),
       motoristas: tabelas.motoristas.map(real.MOTORISTA.de),
+      locaisPadrao: tabelas.locais_padrao.map(real.LOCAL_PADRAO.de),
       config: config
     };
   }
@@ -466,6 +470,27 @@ async function main() {
   ok(admin2.ok && (await POST({ acao: 'salvarUsuario', registro: { ID: 'U001', Ativo: 'NAO' } })).ok,
     'com outro admin ativo, o primeiro pode ser desativado');
   await POST({ acao: 'salvarUsuario', registro: { ID: 'U001', Ativo: 'SIM' } });
+
+  console.log('\n== cadastro de local padrão ==');
+  const eqLP = await GET({ acao: 'equipe' });
+  ok(eqLP.locaisPadrao.length === 1 && eqLP.locaisPadrao[0].Nome === 'Escritório Central',
+    'a rota do escritório traz os locais padrão', eqLP.locaisPadrao);
+  ok(((await GET({ acao: 'dados' })).locaisPadrao) === undefined,
+    'não vaza na rota pública: o celular não precisa disso');
+
+  const lp = await POST({ acao: 'salvarLocalPadrao', registro: { Nome: '  Base Recife  ' } });
+  ok(lp.ok && lp.criado, 'local padrão cadastrado', lp);
+  const lpGrav = (await GET({ acao: 'equipe' })).locaisPadrao.find((x) => x.ID === lp.id);
+  ok(lpGrav && lpGrav.Nome === 'Base Recife', 'nome vem sem espaço sobrando', lpGrav && lpGrav.Nome);
+
+  ok((await POST({ acao: 'excluir', aba: 'LocaisPadrao', id: lp.id })).excluido === true,
+    'local padrão sem ninguém dentro é excluído');
+
+  // Em uso, apagar deixaria o usuário apontando para o vazio.
+  await POST({ acao: 'salvarUsuario', registro: { ID: 'U002', LocalPadrao: 'P001' } });
+  const emUso = await POST({ acao: 'excluir', aba: 'LocaisPadrao', id: 'P001' });
+  ok(emUso.ok === false && /em uso por 1 usuário/.test(emUso.erro || ''),
+    'local padrão em uso é recusado, dizendo quantos dependem dele', emUso);
 
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);

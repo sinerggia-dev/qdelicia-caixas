@@ -75,6 +75,18 @@ do $$ begin
 exception when duplicate_object then null;
 end $$;
 
+-- ============================================================ locais padrão
+-- Onde a pessoa trabalha. Separado de `locais` porque são coisas diferentes: `locais`
+-- guardam caixa e têm saldo; aqui é só o posto de trabalho — um escritório nunca vai
+-- segurar caixa, mas é onde alguém fica.
+create table if not exists public.locais_padrao (
+  id     text    primary key,
+  nome   text    not null,
+  ativo  boolean not null default true
+);
+
+alter table public.locais_padrao enable row level security;
+
 -- ============================================================ motoristas
 -- Quem leva a carga. Separado de `usuarios` de propósito: motorista é quem dirige, não
 -- quem usa o app — a maioria nunca vai fazer login, e criar conta com PIN para todos

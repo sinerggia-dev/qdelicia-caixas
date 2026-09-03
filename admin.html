@@ -146,7 +146,7 @@
     <div class="card">
       <h2>Locais e rotas<span class="sub">Galpão, filial, cliente e rota — todos guardam caixa e têm saldo próprio.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
-        <button class="btn" id="btnNovoLocal" style="flex:0;min-width:170px">+ Novo cadastro</button>
+        <button class="btn" id="btnNovoLocal" style="flex:0;min-width:170px">+ Nova rota</button>
       </div>
       <div id="tabelaLocais"></div>
     </div>
@@ -163,6 +163,13 @@
         <button class="btn" id="btnNovoMotorista" style="flex:0;min-width:170px">+ Novo motorista</button>
       </div>
       <div id="tabelaMotoristas"></div>
+    </div>
+    <div class="card">
+      <h2>Locais padrão<span class="sub">Onde a pessoa trabalha. É o que aparece na coluna Local padrão dos usuários.</span></h2>
+      <div class="linha-btn" style="margin-top:2px">
+        <button class="btn" id="btnNovoLocalPadrao" style="flex:0;min-width:170px">+ Novo local padrão</button>
+      </div>
+      <div id="tabelaLocaisPadrao"></div>
     </div>
     <div class="card">
       <h2>Usuários<span class="sub">Perfis: ADMIN (tudo), GALPAO (lança e confere), MOTORISTA (lança na rua), PROMOTOR (conta no cliente).</span></h2>
@@ -185,7 +192,7 @@
 (function(){
   'use strict';
   var Q = window.QDC;
-  var DADOS = null, EQUIPE = [], MOTORISTAS = [], PAINEL = null, EXTRATO = null, MOVS = [];
+  var DADOS = null, EQUIPE = [], MOTORISTAS = [], LOCAIS_PADRAO = [], PAINEL = null, EXTRATO = null, MOVS = [];
 
   /* ---------------- login ---------------- */
   function iniciarLogin(){
@@ -255,7 +262,7 @@
      em silêncio, e o carregarDados seguinte zerava a lista. */
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; }
+      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; }
       if (DADOS){ desenharCadastros(); montarSelects(); }
     }).catch(function(e){ Q.toast('Não consegui carregar os usuários: '+e.message,'erro'); });
   }
@@ -688,6 +695,58 @@
   }
   document.getElementById('btnNovoMotorista').addEventListener('click', function(){ formMotorista(null); });
 
+  /* Local padrão é o posto de trabalho, não um nó que guarda caixa: por isso cadastro
+     próprio, e não mais uma entrada em Locais e rotas. */
+  function desenharLocaisPadrao(){
+    var box = document.getElementById('tabelaLocaisPadrao');
+    if (!LOCAIS_PADRAO.length){ box.innerHTML = '<div class="vazio">Nenhum local padrão cadastrado.</div>'; return; }
+    box.innerHTML =
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th class="num">Pessoas</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      LOCAIS_PADRAO.map(function(l){
+        var on = Q.ativo(l.Ativo);
+        var quantos = EQUIPE.filter(function(u){ return String(u.LocalPadrao)===String(l.ID); }).length;
+        return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(l.Nome)+'</b></td>'+
+          '<td class="num">'+(quantos||'—')+'</td>'+
+          '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
+          '<td><button class="mini acao" data-editar-lp="'+l.ID+'">editar</button> '+
+              '<button class="mini perigo" data-excluir-lp="'+l.ID+'">excluir</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+
+    document.querySelectorAll('[data-editar-lp]').forEach(function(b){
+      b.addEventListener('click', function(){
+        formLocalPadrao(LOCAIS_PADRAO.filter(function(l){ return String(l.ID)===b.dataset.editarLp; })[0]);
+      });
+    });
+    document.querySelectorAll('[data-excluir-lp]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var l = LOCAIS_PADRAO.filter(function(x){ return String(x.ID)===b.dataset.excluirLp; })[0];
+        if (!l || Q.precisaConfirmar(b, 'Excluir '+l.Nome+'?')) return;
+        b.disabled = true;
+        Q.post({acao:'excluir', aba:'LocaisPadrao', id:l.ID}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          Q.toast('Excluído.','ok'); carregarEquipe();
+        }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
+      });
+    });
+  }
+  document.getElementById('btnNovoLocalPadrao').addEventListener('click', function(){ formLocalPadrao(null); });
+
+  function formLocalPadrao(l){
+    l = l || {};
+    modal('<h2>'+(l.ID?'Editar':'Novo')+' local padrão</h2>'+
+      '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(l.Nome||'')+'" placeholder="Ex.: Escritório Central">'+
+      '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(l.Ativo)?' selected':'')+'>sim</option>'+
+        '<option value="NAO"'+(Q.ativo(l.Ativo)?'':' selected')+'>não</option></select>'+
+      '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
+    document.getElementById('fSalvar').addEventListener('click', function(){
+      var reg = { ID:l.ID||'', Nome:document.getElementById('fNome').value.trim(),
+        Ativo:document.getElementById('fAtivo').value };
+      if (!reg.Nome) return Q.toast('Informe o nome.','erro');
+      salvar('salvarLocalPadrao', reg, this);
+    });
+  }
+
   function formMotorista(m){
     m = m || {};
     modal('<h2>'+(m.ID?'Editar':'Novo')+' motorista</h2>'+
@@ -725,18 +784,11 @@
   function desenharCadastros(){
     var locais = DADOS.locais||[];
     document.getElementById('tabelaLocais').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Rota / motorista</th><th>Responsável</th><th>WhatsApp</th>'+
-      '<th class="num">Limite</th><th class="num">Prazo (dias)</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       locais.map(function(l){
         var ehRota = String(l.Tipo).toUpperCase()==='ROTA';
         var ativo = Q.ativo(l.Ativo);
-        var vinculo = ehRota
-          ? (l.MotoristaId ? Q.esc(nomeDe(EQUIPE, l.MotoristaId)) : '<span class="tag cinza">sem motorista</span>')
-          : (l.RotaId ? Q.esc(nomeDe(DADOS.locais, l.RotaId)) : '<span class="tag cinza">—</span>');
         return '<tr'+(ativo?'':' style="opacity:.55"')+'><td><b>'+Q.esc(l.Nome)+'</b></td><td><span class="tag '+(ehRota?'verde':'cinza')+'">'+(ehRota?'rota':Q.esc(String(l.Tipo).toLowerCase()))+'</span></td>'+
-        '<td>'+vinculo+'</td>'+
-        '<td>'+Q.esc(l.Responsavel||'')+'</td><td>'+Q.esc(l.Telefone||'')+'</td>'+
-        '<td class="num">'+(l.LimiteCaixas||'—')+'</td><td class="num">'+(l.DiasPrazo||'—')+'</td>'+
         '<td>'+(ativo?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
         '<td><button class="mini acao" data-editar-local="'+l.ID+'">editar</button> '+
             '<button class="mini'+(ativo?' perigo':'')+'" data-ativar-local="'+l.ID+'" data-para="'+(ativo?'NAO':'SIM')+'">'+
@@ -782,6 +834,7 @@
     });
 
     desenharMotoristas();
+    desenharLocaisPadrao();
     document.getElementById('tabelaTipos').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Tipo de caixa</th><th class="num">Peso (kg)</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       (DADOS.tipos||[]).map(function(t){
@@ -797,7 +850,7 @@
     document.getElementById('tabelaUsuarios').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       EQUIPE.map(function(u){
-        var lp = (DADOS.locais||[]).filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
+        var lp = LOCAIS_PADRAO.filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
         var on = Q.ativo(u.Ativo);
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil.toLowerCase())+'</span></td>'+
         '<td>'+Q.esc(lp?lp.Nome:'')+'</td><td>'+Q.esc(u.Telefone||'')+'</td>'+
@@ -988,7 +1041,11 @@
       '<input type="password" id="fSenha" autocomplete="new-password" placeholder="'+(u.ID?'deixe em branco para manter':'')+'">'+
       '<h3 style="margin-top:20px">Outros</h3>'+
       '<label>Telefone</label><input type="tel" id="fTel" value="'+Q.esc(u.Telefone||'')+'">'+
-      '<label>Local padrão (galpão/filial onde trabalha)</label><select id="fLocal">'+opcoes(locaisPor(['GALPAO','FILIAL']),'—')+'</select>'+
+      '<label>Local padrão (onde trabalha)</label><select id="fLocal">'+
+        '<option value="">—</option>'+
+        LOCAIS_PADRAO.filter(function(x){ return Q.ativo(x.Ativo) || String(x.ID)===String(u.LocalPadrao); })
+          .map(function(x){ return '<option value="'+Q.esc(x.ID)+'">'+Q.esc(x.Nome)+(Q.ativo(x.Ativo)?'':' (inativo)')+'</option>'; }).join('')+
+      '</select>'+
       // O selecionado precisa vir marcado: sem isto, editar um usuário desativado o
       // reativava em silêncio, porque o formulário devolvia sempre "sim".
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(u.Ativo)?' selected':'')+'>sim</option>'+
@@ -1022,7 +1079,7 @@
     }).catch(function(e){ btn.disabled=false; btn.textContent='Salvar'; Q.toast(e.message,'erro'); });
   }
 
-  document.getElementById('btnNovoLocal').addEventListener('click', function(){ formLocal(null); });
+  document.getElementById('btnNovoLocal').addEventListener('click', function(){ formLocal({ Tipo:'ROTA' }); });
   document.getElementById('btnNovoTipo').addEventListener('click', function(){ formTipo(null); });
   document.getElementById('btnNovoUsuario').addEventListener('click', function(){ formUsuario(null); });
 

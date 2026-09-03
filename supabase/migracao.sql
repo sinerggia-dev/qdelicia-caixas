@@ -121,6 +121,32 @@ on conflict (id) do nothing;
 -- A lista antiga vivia em config; agora e tabela.
 delete from public.config where chave = 'motoristas';
 
--- ============================================================ 9. sobras antigas
+-- ============================================================ 9. locais padrao
+-- Onde a pessoa trabalha. Separado de locais porque sao coisas diferentes: locais guardam
+-- caixa e tem saldo; aqui e so o posto de trabalho.
+create table if not exists public.locais_padrao (
+  id     text    primary key,
+  nome   text    not null,
+  ativo  boolean not null default true
+);
+
+alter table public.locais_padrao enable row level security;
+
+-- Aproveita os galpoes e filiais que ja serviam de local padrao, mantendo o id para os
+-- usuarios continuarem apontando para o lugar certo.
+insert into public.locais_padrao (id, nome, ativo)
+  select id, nome, ativo from public.locais where tipo in ('GALPAO','FILIAL')
+on conflict (id) do nothing;
+
+-- A coluna do usuario apontava para locais; agora aponta para locais_padrao.
+alter table public.usuarios drop constraint if exists usuarios_local_padrao_fkey;
+
+do $$ begin
+  alter table public.usuarios
+    add constraint usuarios_local_padrao_fk foreign key (local_padrao) references public.locais_padrao(id);
+exception when duplicate_object then null;
+end $$;
+
+-- ============================================================ 10. sobras antigas
 -- O app não trabalha mais com valor em dinheiro.
 alter table public.tipos_caixa drop column if exists valor_unit;

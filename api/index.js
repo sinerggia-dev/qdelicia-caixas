@@ -15,10 +15,13 @@ var L = require('./_logica');
 var db = require('./_supabase');
 var senha = require('./_senha');
 
-var TABELA = { Locais: 'locais', TiposCaixa: 'tipos_caixa', Usuarios: 'usuarios', Motoristas: 'motoristas' };
-var PREFIXO = { Locais: 'L', TiposCaixa: 'T', Usuarios: 'U', Motoristas: 'D' };
-var MAPA = { Locais: db.LOCAL, TiposCaixa: db.TIPO, Usuarios: db.USUARIO, Motoristas: db.MOTORISTA };
-var COLECAO = { Locais: 'locais', TiposCaixa: 'tipos', Usuarios: 'usuarios', Motoristas: 'motoristas' };
+var TABELA = { Locais: 'locais', TiposCaixa: 'tipos_caixa', Usuarios: 'usuarios', Motoristas: 'motoristas',
+               LocaisPadrao: 'locais_padrao' };
+var PREFIXO = { Locais: 'L', TiposCaixa: 'T', Usuarios: 'U', Motoristas: 'D', LocaisPadrao: 'P' };
+var MAPA = { Locais: db.LOCAL, TiposCaixa: db.TIPO, Usuarios: db.USUARIO, Motoristas: db.MOTORISTA,
+             LocaisPadrao: db.LOCAL_PADRAO };
+var COLECAO = { Locais: 'locais', TiposCaixa: 'tipos', Usuarios: 'usuarios', Motoristas: 'motoristas',
+                LocaisPadrao: 'locaisPadrao' };
 
 function corpo(req) {
   var b = req.body;
@@ -47,7 +50,8 @@ async function rotaGet(p) {
                motoristas: L.motoristasPublicos(d.motoristas) };
     case 'equipe':
       // Aqui vai o cadastro completo, com documento — é a tela do escritório.
-      return { ok: true, usuarios: L.usuariosPublicos(d.usuarios), motoristas: d.motoristas };
+      return { ok: true, usuarios: L.usuariosPublicos(d.usuarios), motoristas: d.motoristas,
+               locaisPadrao: d.locaisPadrao };
     case 'painel':
       return { ok: true, painel: L.painel(d) };
     case 'pendentes':
@@ -85,6 +89,7 @@ async function rotaPost(p) {
   if (acao === 'salvarLocal') return await salvarRegistro('Locais', p);
   if (acao === 'salvarTipo') return await salvarRegistro('TiposCaixa', p);
   if (acao === 'salvarMotorista') return await salvarRegistro('Motoristas', p);
+  if (acao === 'salvarLocalPadrao') return await salvarRegistro('LocaisPadrao', p);
   if (acao === 'salvarUsuario') return await salvarUsuario(p);
   if (acao === 'salvarConfig') return await salvarConfig(p);
   if (acao === 'excluir') return await excluir(p.aba, p.id);
@@ -301,6 +306,19 @@ async function excluir(aba, id) {
   // Usuário aparece em cada movimento que lançou e em cada conferência que fez, e uma
   // rota pode apontar para ele. Apagar quebraria a chave estrangeira e, pior, tiraria o
   // nome de quem contou — que é o que dá peso à divergência.
+  // Local padrão em uso continua: a coluna do usuário guarda o id, e apagar deixaria
+  // a linha apontando para o vazio.
+  if (aba === 'LocaisPadrao') {
+    var usando = d.usuarios.filter(function (u) { return String(u.LocalPadrao) === String(id); });
+    if (usando.length) {
+      return {
+        ok: false,
+        erro: 'Está em uso por ' + usando.length + (usando.length > 1 ? ' usuários' : ' usuário') +
+              '. Troque o local deles antes de excluir.'
+      };
+    }
+  }
+
   if (aba === 'Usuarios') {
     if (ultimoAdmin(d.usuarios, id)) {
       return { ok: false, erro: 'Este é o último administrador ativo. Promova outro antes de excluí-lo.' };

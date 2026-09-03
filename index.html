@@ -407,10 +407,12 @@
     var comRota = ROTA ? locaisPor(['GALPAO','FILIAL','ROTA']) : internos;
     var destinos = clientesDaRota();
     // Com rota escolhida, o caminhão é a origem natural da entrega e o destino da coleta.
-    document.getElementById('sdOrigem').innerHTML = opcoes(comRota, ROTA || s.localPadrao);
+    // O local padrão virou posto de trabalho e não é mais um nó com saldo, então não
+    // serve para adivinhar a origem. Quem define isso agora é a rota escolhida.
+    document.getElementById('sdOrigem').innerHTML = opcoes(comRota, ROTA);
     document.getElementById('sdDestino').innerHTML = opcoes(destinos);
     document.getElementById('dvOrigem').innerHTML = opcoes(destinos);
-    document.getElementById('dvDestino').innerHTML = opcoes(comRota, ROTA || s.localPadrao);
+    document.getElementById('dvDestino').innerHTML = opcoes(comRota, ROTA);
     document.getElementById('sdData').value = Q.hoje();
     document.getElementById('dvData').value = Q.hoje();
     ajustarCamposSaida();
