@@ -70,5 +70,41 @@ console.log('\n== o botão Limpar alcança todo campo do formulário ==');
   ok(/zerarItens\(/.test(texto), t.fn + ' zera as quantidades contadas');
 });
 
+/* ------------------------------------------------------------------ *
+ * Cada formulário do painel só pode ler campo que ele mesmo desenha.
+ *
+ * POR QUE ISTO EXISTE
+ * Um campo novo foi parar no `formLocalPadrao` em vez do `formUsuario`, por engano de
+ * substituição de texto. Resultado duplo e silencioso: a opção do usuário nunca era
+ * enviada, e salvar um local padrão passou a estourar em `null.value`. Nada disso
+ * aparece até alguém clicar em Salvar na tela certa.
+ * ------------------------------------------------------------------ */
+var admin = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+console.log('== formulário só lê campo que ele mesmo cria ==');
+
+// Cada `function formXxx(` até a próxima declaração no mesmo nível de indentação.
+var reForm = /\n  function (form[A-Za-z]+)\(/g;
+var achados = [], m;
+while ((m = reForm.exec(admin))) achados.push({ nome: m[1], i: m.index });
+
+ok(achados.length >= 4, 'achei os formulários do painel', achados.map(function (f) { return f.nome; }));
+
+achados.forEach(function (f, k) {
+  var fim = k + 1 < achados.length ? achados[k + 1].i : admin.length;
+  var trecho = admin.slice(f.i, fim);
+
+  var criados = {}, r;
+  var reId = /id="(f[A-Za-z0-9]+)"/g;
+  while ((r = reId.exec(trecho))) criados[r[1]] = true;
+
+  var lidos = {};
+  var reLe = /getElementById\('(f[A-Za-z0-9]+)'\)/g;
+  while ((r = reLe.exec(trecho))) lidos[r[1]] = true;
+
+  var orfaos = Object.keys(lidos).filter(function (id) { return !criados[id]; });
+  ok(orfaos.length === 0, f.nome + ' não lê campo de outro formulário', orfaos);
+});
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

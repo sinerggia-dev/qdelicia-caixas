@@ -829,8 +829,7 @@
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:l.ID||'', Nome:document.getElementById('fNome').value.trim(),
-        Ativo:document.getElementById('fAtivo').value,
-        AcessoPainel:document.getElementById('fPainel').value };
+        Ativo:document.getElementById('fAtivo').value };
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       salvar('salvarLocalPadrao', reg, this);
     });
@@ -1169,7 +1168,8 @@
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:document.getElementById('fPerfil').value,
         Telefone:document.getElementById('fTel').value.trim(), LocalPadrao:document.getElementById('fLocal').value,
-        Ativo:document.getElementById('fAtivo').value };
+        Ativo:document.getElementById('fAtivo').value,
+        AcessoPainel:document.getElementById('fPainel').value };
       var pin = document.getElementById('fPin').value.trim();
       if (pin) reg.PIN = pin;
       reg.Email = document.getElementById('fEmail').value.trim();
