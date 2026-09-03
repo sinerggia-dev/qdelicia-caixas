@@ -9,7 +9,7 @@
  * Formato interno das linhas (o adaptador converte de/para snake_case do Postgres):
  *   local     { ID, Tipo, Nome, Responsavel, Telefone, LimiteCaixas, DiasPrazo, Token, Ativo:bool, Obs,
  *               MotoristaId, RotaId }   Tipo: GALPAO | FILIAL | CLIENTE | ROTA
- *   tipoCaixa { ID, Nome, Ativo:bool }
+ *   tipoCaixa { ID, Nome, Ativo:bool, Tamanho:'PP'|'P'|'M'|'G'|'GG'|'', Kg:number|'' }
  *   usuario   { ID, Nome, Perfil, PIN, Telefone, LocalPadrao, Ativo:bool, Email, Usuario, SenhaHash }
  *   movimento { ID, ClientKey, DataHora:Date, DataRef:Date, Tipo, OrigemID, DestinoID, TipoCaixaID,
  *               Qtd:number, QtdConferida:number|null, Status, Romaneio, UsuarioID, Perfil, Obs,
@@ -23,6 +23,28 @@ var PERFIS = ['ADMIN', 'GALPAO', 'MOTORISTA', 'PROMOTOR'];
 // A rota é o caminhão em circulação: guarda caixa como qualquer outro local, e é isso que
 // impede o que subiu no caminhão e não foi entregue de sumir na conta do cliente.
 var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA'];
+var TAMANHOS = ['PP', 'P', 'M', 'G', 'GG'];
+
+/**
+ * Nome que a equipe lê nas listas: "Caixa Banana G · 20 kg".
+ * Duas caixas podem ter o mesmo nome e tamanhos diferentes — sem isto, quem conta no
+ * galpão não distingue uma da outra no seletor.
+ */
+function mapaTipos(tipos) {
+  var m = {};
+  (tipos || []).forEach(function (t) { m[String(t.ID)] = rotuloTipo(t); });
+  return m;
+}
+
+function rotuloTipo(t) {
+  if (!t) return '';
+  var s = String(t.Nome || '');
+  if (t.Tamanho) s += ' ' + String(t.Tamanho).toUpperCase();
+  if (t.Kg !== '' && t.Kg !== null && t.Kg !== undefined && Number(t.Kg) > 0) {
+    s += ' · ' + String(Number(t.Kg)).replace('.', ',') + ' kg';
+  }
+  return s;
+}
 
 /* ============================ datas ============================ */
 
@@ -393,7 +415,7 @@ function aging(movimentos, prazos, hoje) {
 /* ============================ listagens ============================ */
 
 function pendentes(movimentos, locais, tipos) {
-  var mLocais = mapaNomes(locais), mTipos = mapaNomes(tipos);
+  var mLocais = mapaNomes(locais), mTipos = mapaTipos(tipos);
   return ativos(movimentos)
     .filter(function (m) { return m.Tipo === 'DEVOLUCAO' && m.Status === 'AGUARDANDO'; })
     .map(function (m) {
@@ -411,7 +433,7 @@ function pendentes(movimentos, locais, tipos) {
 
 function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
   p = p || {};
-  var mLocais = mapaNomes(locais), mTipos = mapaNomes(tipos), mUsers = mapaNomes(usuarios);
+  var mLocais = mapaNomes(locais), mTipos = mapaTipos(tipos), mUsers = mapaNomes(usuarios);
   var de = p.de ? data(p.de) : null;
   var ate = p.ate ? fimDoDia(data(p.ate)) : null;
   var limite = Number(p.limit || 400);
@@ -562,7 +584,7 @@ function extrato(dados, localId, de, ate, hoje) {
   var local = dados.locais.filter(function (l) { return String(l.ID) === localId; })[0];
   if (!local) return { ok: false, erro: 'Local não encontrado.' };
 
-  var mTipos = mapaNomes(dados.tipos), mLocais = mapaNomes(dados.locais), mUsers = mapaNomes(dados.usuarios);
+  var mTipos = mapaTipos(dados.tipos), mLocais = mapaNomes(dados.locais), mUsers = mapaNomes(dados.usuarios);
   var dDe = de ? data(de) : null;
   var dAte = ate ? fimDoDia(data(ate)) : null;
 
@@ -650,7 +672,8 @@ function usuariosPublicos(usuarios) {
 }
 
 module.exports = {
-  TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
+  TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL, TAMANHOS: TAMANHOS,
+  rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,

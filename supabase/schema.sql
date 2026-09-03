@@ -42,10 +42,17 @@ create index if not exists locais_rota_idx on public.locais (rota_id);
 
 -- ============================================================ tipos_caixa
 create table if not exists public.tipos_caixa (
-  id     text    primary key,
-  nome   text    not null,
-  ativo  boolean not null default true
+  id       text          primary key,
+  nome     text          not null,
+  -- Tamanho comercial da caixa. Nulo é aceito: nem todo tipo se classifica assim.
+  tamanho  text          check (tamanho is null or tamanho in ('PP','P','M','G','GG')),
+  -- Quanto a caixa comporta, em quilos. Serve para converter caixa em peso nos relatórios.
+  kg       numeric(10,3),
+  ativo    boolean       not null default true
 );
+
+comment on column public.tipos_caixa.tamanho is 'PP, P, M, G ou GG — classificação comercial';
+comment on column public.tipos_caixa.kg is 'Capacidade da caixa em quilos';
 
 -- Se este banco foi criado antes de setembro/2026, ele ainda tem a coluna de valor unitário.
 -- O app não usa mais valor em lugar nenhum; para limpar de vez:

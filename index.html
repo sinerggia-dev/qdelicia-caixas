@@ -268,8 +268,12 @@
   }
   function itensHTML(prefixo){
     return (DADOS.tipos||[]).filter(function(t){ return Q.ativo(t.Ativo); }).map(function(t){
+      var det = [];
+      if (t.Tamanho) det.push('tamanho '+t.Tamanho);
+      if (t.Kg!=='' && t.Kg!==null && t.Kg!==undefined && Number(t.Kg)>0) det.push(String(t.Kg).replace('.',',')+' kg');
       return '<div class="item">'+
-        '<div class="nome">'+Q.esc(t.Nome)+'</div>'+
+        '<div class="nome">'+Q.esc(t.Nome)+
+          (det.length?'<small>'+Q.esc(det.join(' · '))+'</small>':'')+'</div>'+
         '<div class="stepper">'+
           '<button type="button" data-passo="-10" data-alvo="'+prefixo+t.ID+'" style="font-size:14px">−10</button>'+
           '<input id="'+prefixo+t.ID+'" type="number" inputmode="numeric" min="0" step="1" value="" placeholder="0" data-tipo="'+t.ID+'">'+

@@ -310,6 +310,27 @@ async function main() {
   const grav = (await GET({ acao: 'dados' })).locais.find((l) => l.ID === inat.id);
   ok(grav && grav.Ativo === false, 'cliente salvo como NAO volta da API como inativo', grav && grav.Ativo);
 
+  console.log('\n== tipo de caixa: tamanho e peso ==');
+  const tG = await POST({ acao: 'salvarTipo', registro: { Nome: 'Caixa Banana', Tamanho: 'G', Kg: 20 } });
+  const tPP = await POST({ acao: 'salvarTipo', registro: { Nome: 'Caixa Banana', Tamanho: 'PP', Kg: 6.5 } });
+  ok(tG.ok && tPP.ok, 'dois tipos com o mesmo nome e tamanhos diferentes', { tG, tPP });
+
+  const tipos = (await GET({ acao: 'dados' })).tipos;
+  const g = tipos.find((x) => x.ID === tG.id);
+  ok(g && g.Tamanho === 'G' && Number(g.Kg) === 20, 'tamanho e kg voltam da API', g);
+
+  // O rótulo é o que separa as duas na tela de conferência — sem ele são a mesma linha.
+  ok(real.LOCAL && require('../api/_logica').rotuloTipo(g) === 'Caixa Banana G · 20 kg',
+    'rótulo junta nome, tamanho e peso', require('../api/_logica').rotuloTipo(g));
+
+  await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: C, itens: [{ tipoCaixaId: tG.id, qtd: 7 }], dataRef: dia(0), usuarioId: 'U003', perfil: 'MOTORISTA' });
+  const mv = (await GET({ acao: 'movimentos', limit: 5 })).movimentos.find((m) => m.qtd === 7);
+  ok(mv && mv.tipoCaixa === 'Caixa Banana G · 20 kg', 'movimento mostra o tipo com tamanho e peso', mv && mv.tipoCaixa);
+
+  const semTam = await POST({ acao: 'salvarTipo', registro: { Nome: 'Palete', Tamanho: '', Kg: '' } });
+  const p2 = (await GET({ acao: 'dados' })).tipos.find((x) => x.ID === semTam.id);
+  ok(p2 && p2.Tamanho === '' && p2.Kg === '', 'tamanho e peso são opcionais', p2);
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

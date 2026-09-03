@@ -112,7 +112,7 @@ Mudou variável de ambiente? Precisa de **redeploy** para valer.
 | Tabela | Para quê |
 |---|---|
 | `locais` | Galpões, filiais, clientes e **rotas** — todos são "nós" que guardam caixas. `token` é o código do link do cliente; `rota_id` liga o cliente à rota; `motorista_id` liga a rota ao motorista. |
-| `tipos_caixa` | Tipos de caixa que aparecem nas telas de lançamento. |
+| `tipos_caixa` | Tipos de caixa, com `tamanho` (PP a GG) e `kg`. |
 | `usuarios` | Nome, perfil, PIN e local padrão. |
 | `movimentos` | Livro-razão, só acrescenta. Nada é apagado — movimento errado se **cancela**. |
 | `config` | Nome da empresa, prazo padrão. |
