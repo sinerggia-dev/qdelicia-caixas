@@ -70,8 +70,7 @@
         </div>
         <div id="sdWrapMotorista" style="display:none">
           <label for="sdMotorista">Motorista</label>
-          <input id="sdMotorista" type="text" list="listaMotoristas" autocapitalize="words" placeholder="quem vai levar">
-          <datalist id="listaMotoristas"></datalist>
+          <select id="sdMotorista"></select>
         </div>
       </div>
 
@@ -336,9 +335,15 @@
     document.getElementById('sdWrapDestino').style.display   = doGalpao ? 'none' : 'block';
     if (doGalpao){
       document.getElementById('sdRota').innerHTML = opcoes(locaisPor(['ROTA']));
-      // Sugestão, não trava: um motorista de fora pode cobrir a rota num dia qualquer.
-      document.getElementById('listaMotoristas').innerHTML =
-        motoristas().map(function(m){ return '<option value="'+Q.esc(m)+'">'; }).join('');
+      // Lista fechada, a pedido: nome digitado vira grafia diferente do mesmo motorista, e
+      // aí o extrato mostra "Valcy" e "valci" como duas pessoas. Quem não está aqui é
+      // cadastrado no painel antes de sair com a carga.
+      var sel = document.getElementById('sdMotorista');
+      var escolhido = sel.value;   // trocar de galpão não pode apagar quem já foi escolhido
+      sel.innerHTML = '<option value="">Selecione…</option>' +
+        motoristas().map(function(m){
+          return '<option value="'+Q.esc(m)+'"'+(m===escolhido?' selected':'')+'>'+Q.esc(m)+'</option>';
+        }).join('');
     }
   }
 
@@ -393,7 +398,11 @@
                                           : 'Informe para quem as caixas vão.','erro');
     if (!itens.length) return Q.toast('Informe a quantidade de caixas.','erro');
     if (doGalpao && !document.getElementById('sdMotorista').value.trim()){
-      return Q.toast('Informe o motorista que vai levar a carga.','erro');
+      // Lista fechada tem um beco que o campo aberto não tinha: sem motorista ativo,
+      // ninguém consegue lançar. Então a mensagem diz onde se resolve.
+      return Q.toast(motoristas().length
+        ? 'Escolha o motorista que vai levar a carga.'
+        : 'Nenhum motorista ativo cadastrado. Peça ao escritório para cadastrar em Cadastros → Motoristas.','erro');
     }
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
     if (Q.precisaConfirmarCaixa(this, 'Confirmar saída de ' + total + ' caixa(s)?', 'Registrar')) return;

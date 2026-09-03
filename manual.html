@@ -382,7 +382,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 
   <h3>Registrar uma saída</h3>
   <ol class="passos">
-    <li><div><h4>Preencha o cabeçalho</h4><p>Na ordem da tela: <strong>Data</strong>, <strong>Saída</strong> (galpão, filial ou rota), <strong>Destino</strong>, e o <strong>Motorista</strong> quando for carga do galpão.</p><p>Saindo de um <strong>galpão</strong> a tela muda: o <strong>Destino</strong> passa a listar as <em>rotas</em> em vez dos clientes, e aparece o <strong>Motorista</strong>. É que a carga não vai direto ao cliente — ela sobe no caminhão, e é o caminhão que passa a guardar a caixa até a entrega. Depois, saindo da rota, aí sim você escolhe o cliente.</p></div></li>
+    <li><div><h4>Preencha o cabeçalho</h4><p>Na ordem da tela: <strong>Data</strong>, <strong>Saída</strong> (galpão, filial ou rota), <strong>Destino</strong>, e o <strong>Motorista</strong> quando for carga do galpão.</p><p>Saindo de um <strong>galpão</strong> a tela muda: o <strong>Destino</strong> passa a listar as <em>rotas</em> em vez dos clientes, e aparece o <strong>Motorista</strong>. É que a carga não vai direto ao cliente — ela sobe no caminhão, e é o caminhão que passa a guardar a caixa até a entrega. Depois, saindo da rota, aí sim você escolhe o cliente.</p><p>O <strong>Motorista</strong> é lista fechada, não campo de digitar: nome escrito à mão vira grafia diferente do mesmo motorista, e o extrato passa a mostrar duas pessoas onde há uma. Quem vai levar a carga e não aparece na lista precisa ser cadastrado antes, em <strong>Cadastros → Motoristas</strong>.</p></div></li>
     <li><div><h4>Informe a quantidade</h4><p>Uma linha por tipo de caixa. Os botões <code>−10</code> e <code>+10</code> agilizam volume grande.</p></div></li>
     <li><div><h4>Anexe a foto do romaneio</h4><p>Opcional, mas é o que sustenta a contagem se alguém contestar depois.</p></div></li>
     <li><div><h4>Registrar saída</h4><p>Entra como <span class="chip ok">CONFIRMADO</span> na hora — a contagem da saída é a fonte da verdade.</p></div></li>
@@ -479,6 +479,8 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 
   <h3>Motoristas</h3>
   <p>Quem leva a carga, com telefone, CPF, número e categoria da <strong>CNH</strong>, validade e placa habitual. É essa lista que aparece para escolha na saída do galpão.</p>
+  <p>Cadastrar aqui é <strong>pré-requisito para a saída do galpão</strong>: no celular o motorista se escolhe numa lista fechada, e quem não estiver cadastrado não pode ser lançado.</p>
+
   <p>Quem sai da empresa se <strong>desativa</strong> pelo botão na lista: ele some da escolha de motorista na saída do galpão, mas o nome continua legível no cadastro e nas cargas que já levou. <strong>Excluir</strong> apaga de vez — use só para quem foi cadastrado errado.</p>
 
   <p>Cadastro separado dos <em>usuários</em> de propósito: motorista é quem dirige, não quem usa o app. A maioria nunca vai fazer login, e criar conta com PIN para cada um seria inventar senha que ninguém usa.</p>
