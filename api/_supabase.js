@@ -144,7 +144,7 @@ var TIPO = {
     if (o.ID !== undefined) r.id = o.ID;
     if (o.Nome !== undefined) r.nome = o.Nome;
     if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
-    if (o.Tamanho !== undefined) r.tamanho = nulo(String(o.Tamanho).trim().toUpperCase());
+    if (o.Tamanho !== undefined) r.tamanho = nulo(String(o.Tamanho).trim().toUpperCase().slice(0, 12));
     if (o.Kg !== undefined) r.kg = (o.Kg === '' || o.Kg === null) ? null : Number(o.Kg);
     return r;
   }

@@ -23,6 +23,7 @@ var PERFIS = ['ADMIN', 'GALPAO', 'MOTORISTA', 'PROMOTOR'];
 // A rota é o caminhão em circulação: guarda caixa como qualquer outro local, e é isso que
 // impede o que subiu no caminhão e não foi entregue de sumir na conta do cliente.
 var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA'];
+// Sugestões, não lista fechada: o campo aceita qualquer texto curto.
 var TAMANHOS = ['PP', 'P', 'M', 'G', 'GG'];
 
 /**

@@ -739,10 +739,15 @@
     modal('<h2>'+(t.ID?'Editar':'Novo')+' tipo de caixa</h2>'+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(t.Nome||'')+'" placeholder="Caixa Banana">'+
       '<div class="grid2">'+
-        '<div><label>Tamanho</label><select id="fTamanho">'+
-          '<option value="">— sem tamanho —</option>'+
-          ['PP','P','M','G','GG'].map(function(x){ return '<option value="'+x+'"'+(String(t.Tamanho||'').toUpperCase()===x?' selected':'')+'>'+x+'</option>'; }).join('')+
-        '</select></div>'+
+        // Lista com sugestão, não escolha fechada: a operação inventa tamanho
+        // (XG, 18L, meia-caixa) e ficar preso a cinco opções trava o cadastro.
+        '<div><label>Tamanho</label>'+
+          '<input type="text" id="fTamanho" list="listaTamanhos" maxlength="12" autocapitalize="characters" '+
+            'value="'+Q.esc(t.Tamanho||'')+'" placeholder="PP, P, M, G, GG… ou digite">'+
+          '<datalist id="listaTamanhos">'+
+            ['PP','P','M','G','GG'].map(function(x){ return '<option value="'+x+'">'; }).join('')+
+          '</datalist>'+
+        '</div>'+
         '<div><label>Peso (kg)</label><input type="number" step="0.001" min="0" id="fKg" value="'+Q.esc(t.Kg===0?'0':(t.Kg||''))+'" placeholder="ex.: 20"></div>'+
       '</div>'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(t.Ativo)?' selected':'')+'>sim</option><option value="NAO"'+(Q.ativo(t.Ativo)?'':' selected')+'>não</option></select>'+

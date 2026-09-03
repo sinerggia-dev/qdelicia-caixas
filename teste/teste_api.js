@@ -327,6 +327,15 @@ async function main() {
   const mv = (await GET({ acao: 'movimentos', limit: 5 })).movimentos.find((m) => m.qtd === 7);
   ok(mv && mv.tipoCaixa === 'Caixa Banana G · 20 kg', 'movimento mostra o tipo com tamanho e peso', mv && mv.tipoCaixa);
 
+  // O tamanho é texto livre: PP..GG são sugestão de tela, não lista fechada.
+  const livre = await POST({ acao: 'salvarTipo', registro: { Nome: 'Caixa Especial', Tamanho: ' xg ', Kg: 30 } });
+  const xg = (await GET({ acao: 'dados' })).tipos.find((x) => x.ID === livre.id);
+  ok(xg && xg.Tamanho === 'XG', 'tamanho fora da lista é aceito e vai em maiúsculas', xg && xg.Tamanho);
+
+  const longo = await POST({ acao: 'salvarTipo', registro: { Nome: 'Caixa Longa', Tamanho: 'TAMANHOMUITOCOMPRIDO' } });
+  const cl = (await GET({ acao: 'dados' })).tipos.find((x) => x.ID === longo.id);
+  ok(cl && cl.Tamanho.length <= 12, 'tamanho é cortado em 12 caracteres', cl && cl.Tamanho);
+
   const semTam = await POST({ acao: 'salvarTipo', registro: { Nome: 'Palete', Tamanho: '', Kg: '' } });
   const p2 = (await GET({ acao: 'dados' })).tipos.find((x) => x.ID === semTam.id);
   ok(p2 && p2.Tamanho === '' && p2.Kg === '', 'tamanho e peso são opcionais', p2);
