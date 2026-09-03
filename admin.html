@@ -853,11 +853,16 @@
     });
 
     document.getElementById('tabelaUsuarios').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>E-mail</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       EQUIPE.map(function(u){
         var lp = LOCAIS_PADRAO.filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
         var on = Q.ativo(u.Ativo);
+        /* Quem entra por nome de usuário não tem e-mail; sem mostrar o login, a coluna
+           ficaria vazia para o admin e pareceria que ele não tem como entrar. */
+        var acesso = u.Email ? Q.esc(u.Email)
+                   : (u.Usuario ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—');
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil.toLowerCase())+'</span></td>'+
+        '<td>'+acesso+'</td>'+
         '<td>'+Q.esc(lp?lp.Nome:'')+'</td><td>'+Q.esc(u.Telefone||'')+'</td>'+
         '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
         '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
