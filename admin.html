@@ -223,7 +223,7 @@
     Q.post({acao:'login', identificador:id, senha:document.getElementById('inSenha').value}).then(function(r){
       btn.disabled=false; btn.textContent='Entrar';
       if (!r.ok) return Q.toast(r.erro,'erro');
-      if (r.usuario.perfil!=='ADMIN' && r.usuario.perfil!=='GALPAO') return Q.toast('Este painel é só para ADMIN/GALPAO.','erro');
+      if (!podeEntrar(r.usuario)) return Q.toast('Você não tem acesso ao painel. Fale com o administrador.','erro');
       localStorage.setItem('qdc_ultimo_admin', id);
       carregarEquipe();
       Q.entrar(r.usuario); abrirApp();
@@ -290,9 +290,18 @@
   }
 
   /* ---------------- app ---------------- */
+  /* Quem entra aqui é decidido no cadastro, um por um — antes era consequência do perfil.
+     Sessão gravada antes desta mudança não tem o campo: nesse caso vale a regra antiga, para
+     não derrubar quem estava logado no momento do deploy. Na próxima entrada já vem certo. */
+  function podeEntrar(s){
+    if (!s) return false;
+    if (s.acessoPainel === undefined) return s.perfil==='ADMIN' || s.perfil==='GALPAO';
+    return s.acessoPainel === true;
+  }
+
   function abrirApp(){
     var s = Q.sessao();
-    if (!s || (s.perfil!=='ADMIN' && s.perfil!=='GALPAO')){ iniciarLogin(); return; }
+    if (!podeEntrar(s)){ iniciarLogin(); return; }
     document.getElementById('telaLogin').style.display='none';
     document.getElementById('app').style.display='block';
     document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil.toLowerCase();
@@ -820,7 +829,8 @@
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:l.ID||'', Nome:document.getElementById('fNome').value.trim(),
-        Ativo:document.getElementById('fAtivo').value };
+        Ativo:document.getElementById('fAtivo').value,
+        AcessoPainel:document.getElementById('fPainel').value };
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       salvar('salvarLocalPadrao', reg, this);
     });
@@ -928,7 +938,7 @@
     });
 
     document.getElementById('tabelaUsuarios').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>E-mail</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>E-mail</th><th>Painel</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       EQUIPE.map(function(u){
         var lp = LOCAIS_PADRAO.filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
         var on = Q.ativo(u.Ativo);
@@ -938,6 +948,7 @@
                    : (u.Usuario ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—');
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil.toLowerCase())+'</span></td>'+
         '<td>'+acesso+'</td>'+
+        '<td>'+(u.AcessoPainel?'<span class="tag verde">sim</span>':'<span class="tag cinza">não</span>')+'</td>'+
         '<td>'+Q.esc(lp?lp.Nome:'')+'</td><td>'+Q.esc(u.Telefone||'')+'</td>'+
         '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
         '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
@@ -1120,6 +1131,10 @@
       '<label>PIN (4 a 6 números) <span style="font-weight:400;color:var(--txt3)">— entrada no app de campo</span></label>'+
       '<input type="text" inputmode="numeric" id="fPin" value="" placeholder="'+(u.ID?'deixe em branco para manter':'ex.: 2468')+'">'+
       '<h3 style="margin-top:20px">Acesso ao painel</h3>'+
+      '<label>Pode entrar no painel?</label>'+
+      '<select id="fPainel"><option value="NAO"'+(u.AcessoPainel?'':' selected')+'>não — só o app de campo</option>'+
+        '<option value="SIM"'+(u.AcessoPainel?' selected':'')+'>sim — vê painel, extratos e movimentos</option></select>'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPainelNota"></p>'+
       '<label>E-mail</label><input type="email" id="fEmail" value="'+Q.esc(u.Email||'')+'" placeholder="voce@empresa.com.br">'+
       '<label>Usuário (login curto)</label><input type="text" id="fLogin" value="'+Q.esc(u.Usuario||'')+'" placeholder="ex.: natanael">'+
       '<label>Senha <span style="font-weight:400;color:var(--txt3)">— mínimo 6 caracteres</span></label>'+
@@ -1137,6 +1152,20 @@
         '<option value="NAO"'+(Q.ativo(u.Ativo)?'':' selected')+'>não</option></select>'+
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
     if (u.LocalPadrao) document.getElementById('fLocal').value = u.LocalPadrao;
+
+    /* ADMIN entra sempre: deixar desmarcar seria permitir trancar o último administrador
+       do lado de fora, e a volta seria por SQL no banco. Mesma ideia do "último admin ativo". */
+    function ajustarPainel(){
+      var ehAdmin = document.getElementById('fPerfil').value === 'ADMIN';
+      var sel = document.getElementById('fPainel');
+      sel.disabled = ehAdmin;
+      if (ehAdmin) sel.value = 'SIM';
+      document.getElementById('fPainelNota').textContent = ehAdmin
+        ? 'Administrador entra sempre — não dá para tirar.'
+        : 'Sem acesso, a pessoa continua usando normalmente o app de campo.';
+    }
+    document.getElementById('fPerfil').addEventListener('change', ajustarPainel);
+    ajustarPainel();
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:document.getElementById('fPerfil').value,
         Telefone:document.getElementById('fTel').value.trim(), LocalPadrao:document.getElementById('fLocal').value,
@@ -1173,7 +1202,7 @@
 
   window.addEventListener('dadosAtualizados', function(e){ DADOS = e.detail; montarSelects(); desenharCadastros(); });
 
-  if (Q.sessao() && (Q.sessao().perfil==='ADMIN' || Q.sessao().perfil==='GALPAO')) abrirApp(); else iniciarLogin();
+  if (podeEntrar(Q.sessao())) abrirApp(); else iniciarLogin();
 })();
 </script>
 </body>

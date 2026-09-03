@@ -24,8 +24,8 @@ const tabelas = {
     { id: 'T002', nome: 'Caixa Plástica Grande', ativo: true }
   ],
   usuarios: [
-    { id: 'U001', nome: 'Administrador', perfil: 'ADMIN', pin: '1234', telefone: '', local_padrao: 'L001', ativo: true, usuario: 'admin', email: 'admin@qdelicia.com.br', senha_hash: null },
-    { id: 'U002', nome: 'Conferente Galpão', perfil: 'GALPAO', pin: '1111', telefone: '', local_padrao: 'L001', ativo: true },
+    { id: 'U001', nome: 'Administrador', perfil: 'ADMIN', pin: '1234', telefone: '', local_padrao: 'L001', ativo: true, usuario: 'admin', email: 'admin@qdelicia.com.br', senha_hash: null, acesso_painel: true },
+    { id: 'U002', nome: 'Conferente Galpão', perfil: 'GALPAO', pin: '1111', telefone: '', local_padrao: 'L001', ativo: true, acesso_painel: true },
     { id: 'U003', nome: 'Motorista Exemplo', perfil: 'MOTORISTA', pin: '2222', telefone: '', local_padrao: 'L001', ativo: true },
     { id: 'U004', nome: 'Promotor Exemplo', perfil: 'PROMOTOR', pin: '3333', telefone: '', local_padrao: null, ativo: true }
   ],
@@ -558,6 +558,43 @@ async function main() {
   const sobrouPS = (await GET({ acao: 'equipe' })).pedidosSenha;
   ok(sobrouPS.length === 1 && sobrouPS[0].id !== alvoPS.id,
     'resolvido sai da lista e o outro fica', sobrouPS);
+
+  console.log('== quem entra no painel ==');
+
+  // A chave é por pessoa; o perfil deixou de decidir sozinho.
+  const sGalpao = await POST({ acao: 'login', identificador: 'Conferente Galpão', pin: '1111' });
+  ok(sGalpao.usuario.acessoPainel === true, 'conferente com a chave ligada entra', sGalpao.usuario);
+
+  // U003 foi desativado lá atrás, no teste de exclusão; aqui ele precisa entrar de novo.
+  await POST({ acao: 'salvarUsuario', registro: { ID: 'U003', Ativo: 'SIM' } });
+  const sMot = await POST({ acao: 'login', identificador: 'Motorista Exemplo', pin: '2222' });
+  ok(sMot.usuario.acessoPainel === false, 'motorista sem a chave não entra', sMot.usuario);
+
+  // Compara com o retrato de antes: outros testes já mexeram neste usuário, e fixar um
+  // valor esperado aqui testaria o histórico do arquivo, não a gravação parcial.
+  const antesU2 = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U002');
+  await POST({ acao: 'salvarUsuario', registro: { ID: 'U002', AcessoPainel: 'NAO' } });
+  const sGalpao2 = await POST({ acao: 'login', identificador: 'Conferente Galpão', pin: '1111' });
+  ok(sGalpao2.usuario.acessoPainel === false, 'tirar a chave tira o acesso do conferente');
+  const u2 = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U002');
+  ok(u2.AcessoPainel === false &&
+     JSON.stringify(Object.assign({}, u2,    { AcessoPainel: null })) ===
+     JSON.stringify(Object.assign({}, antesU2, { AcessoPainel: null })),
+    'gravar só a chave não mexe em mais nada do cadastro', [antesU2, u2]);
+
+  await POST({ acao: 'salvarUsuario', registro: { ID: 'U002', AcessoPainel: 'SIM' } });
+  ok((await POST({ acao: 'login', identificador: 'Conferente Galpão', pin: '1111' })).usuario.acessoPainel === true,
+    'devolver a chave devolve o acesso');
+
+  // Senão dá para trancar o último administrador do lado de fora, e a volta seria por SQL.
+  await POST({ acao: 'salvarUsuario', registro: { ID: 'U001', AcessoPainel: 'NAO' } });
+  const adm = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U001');
+  ok(adm.AcessoPainel === true, 'administrador entra sempre, mesmo com a chave desligada', adm.AcessoPainel);
+
+  // Desativado não entra em lugar nenhum, chave ligada ou não.
+  const Lp = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  ok(Lp.podeVerPainel({ Perfil: 'ADMIN', Ativo: false }) === false, 'usuário desativado não entra nem sendo admin');
+  ok(Lp.podeVerPainel({ Perfil: 'PROMOTOR', AcessoPainel: true }) === true, 'promotor com a chave ligada entra');
 
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);

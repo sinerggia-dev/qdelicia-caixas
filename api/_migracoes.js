@@ -144,5 +144,14 @@ module.exports = [
       ");",
       "alter table public.pedidos_senha enable row level security;"
     ].join('\n')
+  },
+  {
+    id: '2026-09-05-acesso-painel',
+    nota: 'acesso ao painel vira chave por usuário, não consequência do perfil',
+    sql: [
+      "alter table public.usuarios add column if not exists acesso_painel boolean not null default false;",
+      // Quem já entrava continua entrando: o perfil era a regra até aqui.
+      "update public.usuarios set acesso_painel = true where upper(perfil) in ('ADMIN','GALPAO');"
+    ].join('\n')
   }
 ];

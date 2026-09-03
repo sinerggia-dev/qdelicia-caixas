@@ -171,7 +171,8 @@ var USUARIO = {
     return {
       ID: r.id, Nome: r.nome, Perfil: String(r.perfil || '').toUpperCase(), PIN: String(r.pin),
       Telefone: r.telefone || '', LocalPadrao: r.local_padrao, Ativo: r.ativo !== false,
-      Email: r.email || '', Usuario: r.usuario || '', SenhaHash: r.senha_hash || ''
+      Email: r.email || '', Usuario: r.usuario || '', SenhaHash: r.senha_hash || '',
+      AcessoPainel: r.acesso_painel === true
     };
   },
   para: function (o) {
@@ -186,6 +187,7 @@ var USUARIO = {
     if (o.Email !== undefined) r.email = nulo(String(o.Email).trim().toLowerCase());
     if (o.Usuario !== undefined) r.usuario = nulo(String(o.Usuario).trim().toLowerCase());
     if (o.SenhaHash !== undefined) r.senha_hash = nulo(o.SenhaHash);
+    if (o.AcessoPainel !== undefined) r.acesso_painel = bool(o.AcessoPainel);
     return r;
   }
 };

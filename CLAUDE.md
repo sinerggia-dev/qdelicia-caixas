@@ -52,16 +52,25 @@ Banco antigo se resolve sozinho: ver a seção de migração automática.
 
 ## Separação de funções no painel
 
-`GALPAO` entra no `admin.html`, mas só consulta: **Lançar** e **Cadastros** ficam escondidos para
-quem não é `ADMIN`, e o botão de cancelar movimento também. O motivo não é hierarquia — é que o
-conferente é justamente quem gera a divergência na chegada. Dar a ele um *Ajuste de saldo* seria
-deixá-lo apagar o próprio erro, e o cadastro de usuários deixaria ele trocar o PIN do admin.
+Quem abre o `admin.html` é decidido por `usuarios.acesso_painel`, **uma chave por pessoa**.
+Até setembro/2026 era consequência do perfil (ADMIN e GALPAO entravam), e não havia como
+separar o conferente que precisa ver os números do que só lança no galpão.
 
-**Isso é só a interface.** A API **não tem autorização nenhuma**: o `login` confere o PIN e devolve
-o usuário, mas as chamadas seguintes não carregam prova de quem é. Um `POST /api` com
-`{"acao":"salvarUsuario"}` funciona de qualquer lugar, sem PIN. Herdado do Apps Script e mantido na
-migração. Enquanto for app de teste, tudo bem; virando operação real, é Supabase Auth com checagem
-de perfil em cada rota.
+`L.podeVerPainel(u)` é a autoridade, e vale mais que a coluna: **ADMIN entra sempre**, mesmo
+com a chave desligada — senão dá para trancar o último administrador do lado de fora, e a
+volta seria por SQL. Desativado não entra em hipótese alguma. A migração nasceu com
+`default false` e ligou a chave para quem já entrava, então ninguém perdeu acesso no deploy.
+
+Dentro do painel, **Lançar** e **Cadastros** continuam escondidos para quem não é `ADMIN`, e o
+botão de cancelar movimento também. O motivo não é hierarquia — é que o conferente é
+justamente quem gera a divergência na chegada. Dar a ele um *Ajuste de saldo* seria deixá-lo
+apagar o próprio erro, e o cadastro de usuários deixaria ele trocar o PIN do admin.
+
+**Isso é só a interface.** A API **não tem autorização nenhuma**: o `login` confere a senha e
+devolve o usuário, mas as chamadas seguintes não carregam prova de quem é. Um `POST /api` com
+`{"acao":"salvarUsuario"}` funciona de qualquer lugar, sem senha — inclusive para ligar a
+própria chave. Herdado do Apps Script e mantido na migração. Enquanto for app de teste, tudo
+bem; virando operação real, é Supabase Auth com checagem de perfil em cada rota.
 
 ## Não existe valor em dinheiro
 
@@ -160,7 +169,7 @@ node teste/teste_api.js
 node teste/teste_tela.js
 ```
 
-148 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
+156 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
 ao Postgres por um banco falso em memória. Sem rede, sem chave, meio segundo. Rode depois de
 qualquer alteração em `api/`.
 

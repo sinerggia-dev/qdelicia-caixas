@@ -144,8 +144,25 @@ var ERRO_PIN = 'Nome ou PIN incorretos.';
 
 function normal(v) { return String(v == null ? '' : v).trim().toLowerCase(); }
 
+/**
+ * Quem entra no painel do escritório.
+ *
+ * Antes era consequência do perfil: ADMIN e GALPAO entravam, e não havia como separar o
+ * conferente que precisa ver os números do que só lança no galpão. Agora é uma chave por
+ * pessoa. ADMIN fica sempre de fora da chave — senão dá para trancar o último
+ * administrador do lado de fora, e a volta seria por SQL no banco.
+ */
+function podeVerPainel(u) {
+  if (!u || u.Ativo === false) return false;
+  if (String(u.Perfil).toUpperCase() === 'ADMIN') return true;
+  return u.AcessoPainel === true;
+}
+
 function sessaoDe(u) {
-  return { id: u.ID, nome: u.Nome, perfil: String(u.Perfil).toUpperCase(), localPadrao: u.LocalPadrao };
+  return {
+    id: u.ID, nome: u.Nome, perfil: String(u.Perfil).toUpperCase(),
+    localPadrao: u.LocalPadrao, acessoPainel: podeVerPainel(u)
+  };
 }
 
 /** Acha por e-mail, apelido de login ou nome completo — o usuário digita o que lembrar. */
@@ -696,7 +713,8 @@ function usuariosPublicos(usuarios) {
       ID: u.ID, Nome: u.Nome, Perfil: String(u.Perfil).toUpperCase(),
       LocalPadrao: u.LocalPadrao, Telefone: u.Telefone || '',
       Email: u.Email || '', Usuario: u.Usuario || '',
-      Ativo: u.Ativo !== false, TemSenha: !!u.SenhaHash
+      Ativo: u.Ativo !== false, TemSenha: !!u.SenhaHash,
+      AcessoPainel: podeVerPainel(u)
     };
   });
 }
@@ -714,5 +732,5 @@ module.exports = {
   efetiva: efetiva, saldos: saldos, emConferencia: emConferencia, aging: aging,
   pendentes: pendentes, listaMovimentos: listaMovimentos, painel: painel,
   descricao: descricao, extrato: extrato, extratoToken: extratoToken,
-  usuariosPublicos: usuariosPublicos
+  usuariosPublicos: usuariosPublicos, podeVerPainel: podeVerPainel
 };
