@@ -540,7 +540,7 @@
     });
     if (!itens.length) return Q.toast('Informe a quantidade.','erro');
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
-    if (tipo==='PERDA' && !confirm('Dar baixa de '+total+' caixa(s) como PERDA? Isso reduz o saldo do cliente e entra no prejuízo do mês.')) return;
+    if (tipo==='PERDA' && Q.precisaConfirmarCaixa(this, 'Dar baixa de '+total+' caixa(s) como PERDA? Isso reduz o saldo do cliente e entra no prejuízo do mês.', 'Dar baixa')) return;
     var btn=this; btn.disabled=true; btn.textContent='Gravando…';
     Q.enviar({
       acao:'movimento', tipo:tipo,
@@ -661,7 +661,7 @@
         var l = locais.filter(function(x){ return String(x.ID)===b.dataset.ativarLocal; })[0];
         if (!l) return;
         var ligando = b.dataset.para === 'SIM';
-        if (!ligando && !confirm('Desativar '+l.Nome+'? Ele some das listas, mas o histórico continua.')) return;
+        if (!ligando && Q.precisaConfirmar(b, 'Desativar '+l.Nome+'?')) return;
         b.disabled = true;
         Q.post({acao:'salvarLocal', registro:{ ID:l.ID, Ativo:b.dataset.para }}).then(function(r){
           b.disabled = false;
@@ -679,7 +679,7 @@
       b.addEventListener('click', function(){
         var l = locais.filter(function(x){ return String(x.ID)===b.dataset.excluirLocal; })[0];
         if (!l) return;
-        if (!confirm('Excluir '+l.Nome+' definitivamente?\n\nSe já tiver movimento, o sistema apenas desativa.')) return;
+        if (Q.precisaConfirmar(b, 'Excluir '+l.Nome+'?')) return;
         b.disabled = true;
         Q.post({acao:'excluir', aba:'Locais', id:l.ID}).then(function(r){
           b.disabled = false;
@@ -722,7 +722,7 @@
         var u = EQUIPE.filter(function(x){ return String(x.ID)===b.dataset.ativar; })[0];
         if (!u) return;
         var ligando = b.dataset.para === 'SIM';
-        if (!ligando && !confirm('Desativar '+u.Nome+'? Ele deixa de entrar no app, mas o histórico continua.')) return;
+        if (!ligando && Q.precisaConfirmar(b, 'Desativar '+u.Nome+'?')) return;
         b.disabled = true;
         Q.post({acao:'salvarUsuario', registro:{ ID:u.ID, Ativo:b.dataset.para }}).then(function(r){
           b.disabled = false;

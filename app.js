@@ -179,6 +179,83 @@
     return !(s === 'NAO' || s === 'NÃO' || s === 'FALSE' || s === 'N' || s === '0');
   }
 
+  /* ---------------- confirmação dentro da página ---------------- */
+
+  /**
+   * O `confirm()` do navegador nasce colado na barra de endereço, com o domínio no título
+   * e longe de onde a pessoa clicou. Estes dois o substituem sem mexer em quem chama:
+   * devolvem `true` enquanto falta confirmar e, no "sim", re-disparam o clique do botão.
+   */
+  function marcado(botao) {
+    if (botao.dataset.confirmado === '1') { delete botao.dataset.confirmado; return true; }
+    return false;
+  }
+  function refazer(botao) { botao.dataset.confirmado = '1'; botao.click(); }
+
+  /** Pergunta na própria linha da lista, onde o dedo estava. */
+  function precisaConfirmar(botao, texto) {
+    if (marcado(botao)) return false;
+    var celula = botao.parentNode;
+    if (celula.querySelector('.confirmando')) return true;
+
+    // Os botões originais só somem enquanto a pergunta existe: recriá-los perderia
+    // os eventos já ligados neles.
+    var antes = Array.prototype.slice.call(celula.children);
+    antes.forEach(function (el) { el.style.display = 'none'; });
+
+    var box = document.createElement('span');
+    box.className = 'confirmando';
+    var msg = document.createElement('span');
+    msg.textContent = texto;
+    var sim = document.createElement('button');
+    sim.className = 'mini perigo'; sim.textContent = 'sim';
+    var nao = document.createElement('button');
+    nao.className = 'mini'; nao.textContent = 'não';
+    box.appendChild(msg); box.appendChild(sim); box.appendChild(nao);
+
+    function fechar() {
+      if (box.parentNode) box.parentNode.removeChild(box);
+      antes.forEach(function (el) { el.style.display = ''; });
+    }
+    nao.addEventListener('click', fechar);
+    sim.addEventListener('click', function () { fechar(); refazer(botao); });
+    celula.appendChild(box);
+    nao.focus();
+    return true;
+  }
+
+  /** Caixa sobre o conteúdo, para formulário — ali não existe "a linha". */
+  function precisaConfirmarCaixa(botao, texto, rotuloSim) {
+    if (marcado(botao)) return false;
+
+    var fundo = document.createElement('div');
+    fundo.className = 'confirma-fundo';
+    var cx = document.createElement('div');
+    cx.className = 'confirma-caixa';
+    var p = document.createElement('p');
+    p.textContent = texto;
+    var linha = document.createElement('div');
+    linha.className = 'linha-btn';
+    var sim = document.createElement('button');
+    sim.className = 'btn'; sim.textContent = rotuloSim || 'Confirmar';
+    var nao = document.createElement('button');
+    nao.className = 'btn neutro'; nao.textContent = 'Cancelar';
+    linha.appendChild(sim); linha.appendChild(nao);
+    cx.appendChild(p); cx.appendChild(linha);
+    fundo.appendChild(cx);
+
+    function fechar() { if (fundo.parentNode) fundo.parentNode.removeChild(fundo); }
+    nao.addEventListener('click', fechar);
+    fundo.addEventListener('click', function (e) { if (e.target === fundo) fechar(); });
+    document.addEventListener('keydown', function esc(e) {
+      if (e.key === 'Escape') { fechar(); document.removeEventListener('keydown', esc); }
+    });
+    sim.addEventListener('click', function () { fechar(); refazer(botao); });
+    document.body.appendChild(fundo);
+    sim.focus();
+    return true;
+  }
+
   function num(n) { return (Number(n) || 0).toLocaleString('pt-BR'); }
   function dataBR(iso) {
     if (!iso) return '';
@@ -320,6 +397,7 @@
     get: get, post: post, enviar: enviar, sincronizar: sincronizar, fila: fila, chave: chave,
     sessao: sessao, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
     cache: cache, carregarDados: carregarDados, semApi: semApi,
+    precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
     ativo: ativo, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     toast: toast, abas: abas, barraAging: barraAging, assinatura: assinatura,
     comprimirFoto: comprimirFoto, csv: csv, atualizarBadge: atualizarBadge

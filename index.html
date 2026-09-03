@@ -256,7 +256,7 @@
   }
 
   document.getElementById('chipSair').addEventListener('click', function(){
-    if (Q.fila().length && !confirm('Existem lançamentos ainda não enviados na fila. Sair mesmo assim?')) return;
+    if (Q.fila().length && Q.precisaConfirmarCaixa(this, 'Existem lançamentos ainda não enviados na fila. Sair mesmo assim?', 'Sair')) return;
     Q.sair();
   });
 
@@ -437,7 +437,7 @@
       if (!document.getElementById('sdRota').value.trim()) return Q.toast('Informe a rota desta carga.','erro');
     }
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
-    if (!confirm('Confirmar saída de ' + total + ' caixa(s)?')) return;
+    if (Q.precisaConfirmarCaixa(this, 'Confirmar saída de ' + total + ' caixa(s)?', 'Registrar')) return;
 
     var destinoTipo = (DADOS.locais.filter(function(l){return String(l.ID)===destino;})[0]||{}).Tipo;
     var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
@@ -491,7 +491,7 @@
     var msg = aguarda
       ? 'Registrar contagem de ' + total + ' caixa(s)? O galpão vai conferir na chegada.'
       : 'Confirmar entrada de ' + total + ' caixa(s)?';
-    if (!confirm(msg)) return;
+    if (Q.precisaConfirmarCaixa(this, msg, 'Registrar')) return;
 
     var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
     Q.enviar({

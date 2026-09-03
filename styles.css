@@ -124,6 +124,18 @@ tbody tr:hover{background:#fafbfc}
 tr.destaque{background:var(--amarelo-claro)}
 tr.ruim{background:var(--vermelho-claro)}
 
+/* ---------- confirmação dentro da página ---------- */
+.confirmando{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--vermelho)}
+.confirma-fundo{
+  position:fixed;inset:0;background:rgba(11,32,56,.55);z-index:80;
+  display:flex;align-items:center;justify-content:center;padding:18px
+}
+.confirma-caixa{
+  background:var(--surface);border-radius:var(--raio);box-shadow:0 18px 50px rgba(0,0,0,.3);
+  padding:20px;max-width:380px;width:100%
+}
+.confirma-caixa p{margin:0;font-size:15.5px;line-height:1.45}
+
 /* ---------- diversos ---------- */
 .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap}
 .tag.verde{background:var(--verde-claro);color:var(--verde-esc)}
