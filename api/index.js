@@ -255,6 +255,17 @@ async function excluir(aba, id) {
       await db.update('locais', id, { ativo: false });
       return { ok: true, inativado: true, aviso: 'Local tem movimentos — foi inativado em vez de excluído.' };
     }
+    // Rota com cliente apontando para ela: apagar quebraria a chave estrangeira e o
+    // usuário veria um erro do banco. Inativar mantém o vínculo legível.
+    var atende = d.locais.filter(function (l) { return String(l.RotaId) === String(id); });
+    if (atende.length) {
+      await db.update('locais', id, { ativo: false });
+      return {
+        ok: true, inativado: true,
+        aviso: 'Rota atende ' + atende.length + (atende.length > 1 ? ' pontos' : ' ponto') +
+               ' — foi inativada em vez de excluída. Troque a rota deles para poder apagar.'
+      };
+    }
   }
   await db.remover(TABELA[aba], id);
   return { ok: true, excluido: true };

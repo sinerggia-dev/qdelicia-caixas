@@ -621,6 +621,12 @@
   });
 
   /* ---------------- cadastros ---------------- */
+  /* Depois de mexer em cadastro, os selects e a lista precisam refletir o novo estado. */
+  function recarregarCadastros(){
+    Q.carregarDados().then(function(d){ DADOS=d; montarSelects(); desenharCadastros(); })
+      .catch(function(e){ Q.toast(e.message,'erro'); });
+  }
+
   function nomeDe(lista, id){
     var x = (lista||[]).filter(function(i){ return String(i.ID)===String(id); })[0];
     return x ? x.Nome : String(id||'');
@@ -632,18 +638,56 @@
       '<th class="num">Limite</th><th class="num">Prazo (dias)</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       locais.map(function(l){
         var ehRota = String(l.Tipo).toUpperCase()==='ROTA';
+        var ativo = Q.ativo(l.Ativo);
         var vinculo = ehRota
           ? (l.MotoristaId ? Q.esc(nomeDe(EQUIPE, l.MotoristaId)) : '<span class="tag cinza">sem motorista</span>')
           : (l.RotaId ? Q.esc(nomeDe(DADOS.locais, l.RotaId)) : '<span class="tag cinza">—</span>');
-        return '<tr><td><b>'+Q.esc(l.Nome)+'</b></td><td><span class="tag '+(ehRota?'verde':'cinza')+'">'+(ehRota?'rota':Q.esc(String(l.Tipo).toLowerCase()))+'</span></td>'+
+        return '<tr'+(ativo?'':' style="opacity:.55"')+'><td><b>'+Q.esc(l.Nome)+'</b></td><td><span class="tag '+(ehRota?'verde':'cinza')+'">'+(ehRota?'rota':Q.esc(String(l.Tipo).toLowerCase()))+'</span></td>'+
         '<td>'+vinculo+'</td>'+
         '<td>'+Q.esc(l.Responsavel||'')+'</td><td>'+Q.esc(l.Telefone||'')+'</td>'+
         '<td class="num">'+(l.LimiteCaixas||'—')+'</td><td class="num">'+(l.DiasPrazo||'—')+'</td>'+
-        '<td>'+(Q.ativo(l.Ativo)?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
-        '<td><button class="mini acao" data-editar-local="'+l.ID+'">editar</button></td></tr>';
+        '<td>'+(ativo?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
+        '<td><button class="mini acao" data-editar-local="'+l.ID+'">editar</button> '+
+            '<button class="mini'+(ativo?' perigo':'')+'" data-ativar-local="'+l.ID+'" data-para="'+(ativo?'NAO':'SIM')+'">'+
+              (ativo?'desativar':'ativar')+'</button> '+
+            '<button class="mini perigo" data-excluir-local="'+l.ID+'">excluir</button></td></tr>';
       }).join('')+'</tbody></table></div>';
     document.querySelectorAll('[data-editar-local]').forEach(function(b){
       b.addEventListener('click', function(){ formLocal(locais.filter(function(l){return String(l.ID)===b.dataset.editarLocal;})[0]); });
+    });
+
+    document.querySelectorAll('[data-ativar-local]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var l = locais.filter(function(x){ return String(x.ID)===b.dataset.ativarLocal; })[0];
+        if (!l) return;
+        var ligando = b.dataset.para === 'SIM';
+        if (!ligando && !confirm('Desativar '+l.Nome+'? Ele some das listas, mas o histórico continua.')) return;
+        b.disabled = true;
+        Q.post({acao:'salvarLocal', registro:{ ID:l.ID, Ativo:b.dataset.para }}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui salvar.','erro');
+          Q.toast(ligando?'Ativado.':'Desativado.','ok');
+          recarregarCadastros();
+        }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
+      });
+    });
+
+    /* Excluir é o caminho para quem foi cadastrado errado e nunca rodou. Quem já tem
+       movimento — ou rota que já atende cliente — o servidor inativa em vez de apagar,
+       e devolve o aviso explicando. */
+    document.querySelectorAll('[data-excluir-local]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var l = locais.filter(function(x){ return String(x.ID)===b.dataset.excluirLocal; })[0];
+        if (!l) return;
+        if (!confirm('Excluir '+l.Nome+' definitivamente?\n\nSe já tiver movimento, o sistema apenas desativa.')) return;
+        b.disabled = true;
+        Q.post({acao:'excluir', aba:'Locais', id:l.ID}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          Q.toast(r.aviso || 'Excluído.', r.inativado ? 'erro' : 'ok');
+          recarregarCadastros();
+        }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
+      });
     });
 
     document.getElementById('tabelaTipos').innerHTML =

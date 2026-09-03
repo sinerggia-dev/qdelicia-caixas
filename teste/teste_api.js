@@ -376,6 +376,28 @@ async function main() {
   ok(on.ok && (await POST({ acao: 'login', identificador: 'Promotor Exemplo', pin: '3333' })).ok,
     'reativar devolve o acesso');
 
+  console.log('\n== ativar, desativar e excluir rota ==');
+  const rNova = await POST({ acao: 'salvarLocal', registro: { Tipo: 'ROTA', Nome: 'Rota Sertão' } });
+  ok(rNova.ok, 'rota criada', rNova);
+
+  ok((await POST({ acao: 'salvarLocal', registro: { ID: rNova.id, Ativo: 'NAO' } })).ok, 'rota desativada');
+  let rr = (await GET({ acao: 'dados' })).locais.find((l) => l.ID === rNova.id);
+  ok(rr && rr.Ativo === false && rr.Nome === 'Rota Sertão', 'desativar não apagou o nome', rr);
+  ok((await POST({ acao: 'salvarLocal', registro: { ID: rNova.id, Ativo: 'SIM' } })).ok, 'rota reativada');
+
+  // Rota sem uso nenhum pode sumir de verdade.
+  ok((await POST({ acao: 'excluir', aba: 'Locais', id: rNova.id })).excluido === true,
+    'rota sem vínculo e sem movimento é excluída');
+
+  // Com cliente apontando para ela, apagar quebraria a chave estrangeira: o servidor inativa.
+  const rUsada = await POST({ acao: 'salvarLocal', registro: { Tipo: 'ROTA', Nome: 'Rota Litoral' } });
+  await POST({ acao: 'salvarLocal', registro: { Tipo: 'CLIENTE', Nome: 'Ponto do Litoral', RotaId: rUsada.id } });
+  const tentou = await POST({ acao: 'excluir', aba: 'Locais', id: rUsada.id });
+  ok(tentou.inativado === true, 'rota com cliente vinculado é inativada, não apagada', tentou);
+  ok(/atende 1 ponto/.test(tentou.aviso || ''), 'o aviso diz quantos pontos dependem dela', tentou.aviso);
+  const aindaLa = (await GET({ acao: 'dados' })).locais.find((l) => l.ID === rUsada.id);
+  ok(aindaLa && aindaLa.Ativo === false, 'a rota continua no banco, inativa', aindaLa && aindaLa.Ativo);
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }
