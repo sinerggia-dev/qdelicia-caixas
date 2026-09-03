@@ -76,6 +76,22 @@ comment on column public.tipos_caixa.kg is 'Capacidade da caixa em quilos';
 alter table public.tipos_caixa drop constraint if exists tipos_caixa_tamanho_check;
 alter table public.tipos_caixa drop column     if exists tamanho;
 
--- ============================================================ 6. sobras antigas
+-- ============================================================ 6. rota na carga
+alter table public.movimentos add column if not exists rota text;
+comment on column public.movimentos.rota is 'Nome da rota em que a carga saiu do galpao';
+
+-- ============================================================ 7. as rotas da operacao
+-- Cadastradas como locais tipo ROTA: cada uma guarda caixa (o caminhao) e tem saldo proprio.
+-- IDs na faixa L010+ para nao colidir com o que ja existe nem com o que o app criar depois.
+insert into public.locais (id, tipo, nome, token) values
+  ('L010','ROTA','Caruaru',     substr(md5(random()::text||'caruaru'),     1, 10)),
+  ('L011','ROTA','João Pessoa', substr(md5(random()::text||'joaopessoa'),  1, 10)),
+  ('L012','ROTA','Maceió',      substr(md5(random()::text||'maceio'),      1, 10)),
+  ('L013','ROTA','Natal',       substr(md5(random()::text||'natal'),       1, 10)),
+  ('L014','ROTA','Recife',      substr(md5(random()::text||'recife'),      1, 10)),
+  ('L015','ROTA','Russas',      substr(md5(random()::text||'russas'),      1, 10))
+on conflict (id) do nothing;
+
+-- ============================================================ 8. sobras antigas
 -- O app não trabalha mais com valor em dinheiro.
 alter table public.tipos_caixa drop column if exists valor_unit;

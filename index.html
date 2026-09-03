@@ -81,6 +81,11 @@
           <label for="sdPlaca">Placa do veículo</label>
           <input id="sdPlaca" type="text" maxlength="8" autocapitalize="characters" placeholder="ABC1D23">
         </div>
+        <div id="sdWrapRota" style="display:none">
+          <label for="sdRota">Rota</label>
+          <input id="sdRota" type="text" list="listaRotas" maxlength="40" placeholder="ex.: Caruaru">
+          <datalist id="listaRotas"></datalist>
+        </div>
       </div>
 
       <h3>Quantas caixas</h3>
@@ -371,6 +376,11 @@
     var mostrar = saiDeGalpao() ? 'block' : 'none';
     document.getElementById('sdWrapMotorista').style.display = mostrar;
     document.getElementById('sdWrapPlaca').style.display = mostrar;
+    document.getElementById('sdWrapRota').style.display = mostrar;
+    // Sugestão, não escolha fechada: se a rota do dia não estiver cadastrada, dá para
+    // escrever assim mesmo — melhor um nome digitado do que a carga sair sem rota.
+    document.getElementById('listaRotas').innerHTML =
+      locaisPor(['ROTA']).map(function(r){ return '<option value="'+Q.esc(r.Nome)+'">'; }).join('');
   }
 
   function montarFormularios(){
@@ -424,6 +434,7 @@
     if (saiDeGalpao()){
       if (!document.getElementById('sdMotorista').value.trim()) return Q.toast('Informe o motorista que vai levar a carga.','erro');
       if (!document.getElementById('sdPlaca').value.trim()) return Q.toast('Informe a placa do veículo.','erro');
+      if (!document.getElementById('sdRota').value.trim()) return Q.toast('Informe a rota desta carga.','erro');
     }
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
     if (!confirm('Confirmar saída de ' + total + ' caixa(s)?')) return;
@@ -440,6 +451,7 @@
       obs: document.getElementById('sdObs').value,
       usuarioId: s.id, perfil: s.perfil,
       motorista: document.getElementById('sdMotorista').value.trim(),
+      rota: document.getElementById('sdRota').value.trim(),
       placa: document.getElementById('sdPlaca').value.trim().toUpperCase(),
       foto: sdFotoData
     }).then(function(r){
@@ -459,7 +471,7 @@
     zerarItens('sd_');
     document.getElementById('sdObs').value = '';
     document.getElementById('sdRomaneio').value = '';
-    document.getElementById('sdMotorista').value=''; document.getElementById('sdPlaca').value=''; sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
+    document.getElementById('sdMotorista').value=''; document.getElementById('sdPlaca').value=''; document.getElementById('sdRota').value=''; sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
     if (!manterLocais){ document.getElementById('sdDestino').value=''; document.getElementById('sdAviso').innerHTML=''; }
   }
   document.getElementById('btnLimparSaida').addEventListener('click', function(){ limparSaida(false); });

@@ -352,6 +352,30 @@ async function main() {
   ok(semCarro.ok && m2 && m2.motorista === '' && m2.placa === '',
     'sem motorista/placa o movimento grava igual (a exigência é da tela)', m2 && [m2.motorista, m2.placa]);
 
+  console.log('\n== rota na carga e usuário ativo/inativo ==');
+  const comRota = await POST({
+    acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: C,
+    itens: [{ tipoCaixaId: T, qtd: 11 }], dataRef: dia(0),
+    usuarioId: 'U003', perfil: 'MOTORISTA',
+    motorista: 'Wesley', placa: 'QDL2E34', rota: '  Caruaru  '
+  });
+  ok(comRota.ok, 'saída com rota gravada', comRota);
+  const mr = (await GET({ acao: 'movimentos', limit: 10 })).movimentos.find((m) => m.qtd === 11);
+  ok(mr && mr.rota === 'Caruaru', 'rota chega sem espaço sobrando', mr && mr.rota);
+
+  // Desativar em vez de excluir: o histórico aponta para o usuário.
+  const off = await POST({ acao: 'salvarUsuario', registro: { ID: 'U004', Ativo: 'NAO' } });
+  ok(off.ok, 'usuário desativado', off);
+  const dep = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U004');
+  ok(dep && dep.Ativo === false, 'equipe mostra o usuário como inativo', dep && dep.Ativo);
+  ok(dep && dep.Nome === 'Promotor Exemplo', 'desativar não apagou os outros campos', dep && dep.Nome);
+  ok((await POST({ acao: 'login', identificador: 'Promotor Exemplo', pin: '3333' })).ok === false,
+    'usuário inativo não entra mais');
+
+  const on = await POST({ acao: 'salvarUsuario', registro: { ID: 'U004', Ativo: 'SIM' } });
+  ok(on.ok && (await POST({ acao: 'login', identificador: 'Promotor Exemplo', pin: '3333' })).ok,
+    'reativar devolve o acesso');
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

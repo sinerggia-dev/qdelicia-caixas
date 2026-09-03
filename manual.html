@@ -370,7 +370,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 
   <h3>Registrar uma saída</h3>
   <ol class="passos">
-    <li><div><h4>Preencha o cabeçalho</h4><p><strong>Sai de</strong> (galpão, filial ou rota), <strong>Vai para</strong> (o cliente), a <strong>Data</strong> e, se houver, o número do <strong>Romaneio / NF</strong>.</p><p>Quando a carga sai de um <strong>galpão</strong>, aparecem também <strong>Motorista</strong> e <strong>Placa do veículo</strong>, e os dois são obrigatórios: é ali que a caixa entra em circulação, e é a última hora em que dá para registrar quem levou.</p></div></li>
+    <li><div><h4>Preencha o cabeçalho</h4><p><strong>Sai de</strong> (galpão, filial ou rota), <strong>Vai para</strong> (o cliente), a <strong>Data</strong> e, se houver, o número do <strong>Romaneio / NF</strong>.</p><p>Quando a carga sai de um <strong>galpão</strong>, aparecem também <strong>Motorista</strong>, <strong>Placa do veículo</strong> e <strong>Rota</strong>, os três obrigatórios: é ali que a caixa entra em circulação, e é a última hora em que dá para registrar quem levou e por onde. A rota tem sugestão das cadastradas, mas aceita qualquer nome digitado — carga sem rota é pior do que rota escrita à mão.</p></div></li>
     <li><div><h4>Informe a quantidade</h4><p>Uma linha por tipo de caixa. Os botões <code>−10</code> e <code>+10</code> agilizam volume grande.</p></div></li>
     <li><div><h4>Anexe a foto do romaneio</h4><p>Opcional, mas é o que sustenta a contagem se alguém contestar depois.</p></div></li>
     <li><div><h4>Registrar saída</h4><p>Entra como <span class="chip ok">CONFIRMADO</span> na hora — a contagem da saída é a fonte da verdade.</p></div></li>
@@ -464,6 +464,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 
   <h3>Usuários</h3>
   <p>Nome, perfil, PIN e local padrão. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá peso à divergência.</p>
+  <p>Quem sai da empresa se <strong>desativa</strong>, pelo botão na lista — não se apaga. O histórico de movimentos aponta para o usuário, e apagar deixaria lançamento órfão. Inativo some das listas e não consegue mais entrar; reativar devolve o acesso.</p>
 </section>
 
 <section id="lancar">

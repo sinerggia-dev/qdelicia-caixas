@@ -573,7 +573,7 @@
         if (!MOVS.length){ box.innerHTML='<div class="vazio">Nenhum movimento no filtro.</div>'; return; }
         box.innerHTML = '<div class="tabela-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Destino</th>'+
           '<th>Caixa</th><th class="num">Qtd</th><th class="num">Conferida</th><th class="num">Div.</th><th>Status</th>'+
-          '<th>Romaneio</th><th>Motorista / placa</th><th>Quem</th><th>Comprovante</th><th></th></tr></thead><tbody>'+
+          '<th>Romaneio</th><th>Rota</th><th>Motorista / placa</th><th>Quem</th><th>Comprovante</th><th></th></tr></thead><tbody>'+
           MOVS.map(function(m){
             return '<tr class="'+(m.divergencia?'ruim':(m.status==='AGUARDANDO'?'destaque':''))+'">'+
               '<td>'+Q.dataBR(m.dataRef)+'</td><td><span class="tag '+tagTipo(m.tipo)+'">'+m.tipo.toLowerCase()+'</span></td>'+
@@ -582,6 +582,7 @@
               '<td class="num">'+(m.divergencia?'<b style="color:var(--vermelho)">'+m.divergencia+'</b>':'')+'</td>'+
               '<td>'+(m.status==='AGUARDANDO'?'<span class="tag amarela">a conferir</span>':'<span class="tag verde">ok</span>')+'</td>'+
               '<td>'+Q.esc(m.romaneio||'')+'</td>'+
+              '<td>'+(m.rota?Q.esc(m.rota):'—')+'</td>'+
               '<td>'+(m.motorista||m.placa ? Q.esc(m.motorista||'')+(m.placa?' <span class="tag cinza">'+Q.esc(m.placa)+'</span>':'') : '—')+'</td>'+
               '<td>'+Q.esc(m.usuario||'')+'</td>'+
               '<td>'+(m.assinatura?'<a href="'+Q.esc(m.assinatura)+'" target="_blank">canhoto</a> ':'')+
@@ -615,8 +616,8 @@
   document.getElementById('btnCsvMov').addEventListener('click', function(){
     if (!MOVS.length) return Q.toast('Filtre os movimentos primeiro.','erro');
     Q.csv('movimentos_'+Q.hoje()+'.csv',
-      ['Data','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Motorista','Placa','Quem','Obs'],
-      MOVS.map(function(m){ return [Q.dataBR(m.dataRef),m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,m.qtdConferida,m.divergencia,m.status,m.romaneio,m.motorista||'',m.placa||'',m.usuario,m.obs]; }));
+      ['Data','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Placa','Quem','Obs'],
+      MOVS.map(function(m){ return [Q.dataBR(m.dataRef),m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',m.placa||'',m.usuario,m.obs]; }));
   });
 
   /* ---------------- cadastros ---------------- */
@@ -658,13 +659,35 @@
     });
 
     document.getElementById('tabelaUsuarios').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Local padrão</th><th>Telefone</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       EQUIPE.map(function(u){
         var lp = (DADOS.locais||[]).filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
-        return '<tr><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil.toLowerCase())+'</span></td>'+
+        var on = Q.ativo(u.Ativo);
+        return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil.toLowerCase())+'</span></td>'+
         '<td>'+Q.esc(lp?lp.Nome:'')+'</td><td>'+Q.esc(u.Telefone||'')+'</td>'+
-        '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button></td></tr>';
+        '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
+        '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
+            '<button class="mini'+(on?' perigo':'')+'" data-ativar="'+u.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
+              (on?'desativar':'ativar')+'</button></td></tr>';
       }).join('')+'</tbody></table></div>';
+
+    /* Desativar em vez de excluir: o histórico de movimentos aponta para o usuário,
+       e apagar deixaria lançamento órfão. Inativo some das listas e não entra mais. */
+    document.querySelectorAll('[data-ativar]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var u = EQUIPE.filter(function(x){ return String(x.ID)===b.dataset.ativar; })[0];
+        if (!u) return;
+        var ligando = b.dataset.para === 'SIM';
+        if (!ligando && !confirm('Desativar '+u.Nome+'? Ele deixa de entrar no app, mas o histórico continua.')) return;
+        b.disabled = true;
+        Q.post({acao:'salvarUsuario', registro:{ ID:u.ID, Ativo:b.dataset.para }}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui salvar.','erro');
+          Q.toast(ligando?'Usuário ativado.':'Usuário desativado.','ok');
+          carregarEquipe();
+        }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
+      });
+    });
     document.querySelectorAll('[data-editar-user]').forEach(function(b){
       b.addEventListener('click', function(){ formUsuario(EQUIPE.filter(function(u){return String(u.ID)===b.dataset.editarUser;})[0]); });
     });

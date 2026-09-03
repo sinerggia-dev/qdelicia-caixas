@@ -96,6 +96,9 @@ create table if not exists public.movimentos (
   -- Carga saindo do galpão: quem leva e em qual veículo.
   motorista       text,
   placa           text,
+  -- Nome da rota em que a carga saiu. Texto: a rota do dia pode não estar cadastrada,
+  -- e é melhor registrar o nome digitado do que deixar a carga sem rota.
+  rota            text,
   assinatura_url  text,
   foto_url        text,
   conferido_em    timestamptz,
