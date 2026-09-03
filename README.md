@@ -74,7 +74,8 @@ Duas peças: o banco no Supabase e o site + API na Vercel. Nenhuma precisa de CL
 1. Crie o projeto em https://supabase.com/dashboard — região **South America (São Paulo)**.
 2. **SQL Editor → New query** → cole [`supabase/schema.sql`](supabase/schema.sql) → **Run**.
 3. Repita com [`supabase/seed.sql`](supabase/seed.sql) para os dados de exemplo.
-   Em banco criado antes de setembro/2026, rode também [`supabase/migracao-rotas.sql`](supabase/migracao-rotas.sql).
+   Em banco já existente, rode [`supabase/migracao.sql`](supabase/migracao.sql) — ela junta todas
+   as mudanças posteriores e é segura de rodar mais de uma vez.
 4. **Settings → API**: guarde a **Project URL** e a chave **service_role**.
 
 O RLS fica ligado e sem política em todas as tabelas: a chave pública não acessa nada.
@@ -112,7 +113,7 @@ Mudou variável de ambiente? Precisa de **redeploy** para valer.
 | Tabela | Para quê |
 |---|---|
 | `locais` | Galpões, filiais, clientes e **rotas** — todos são "nós" que guardam caixas. `token` é o código do link do cliente; `rota_id` liga o cliente à rota; `motorista_id` liga a rota ao motorista. |
-| `tipos_caixa` | Tipos de caixa, com `tamanho` (PP a GG) e `kg`. |
+| `tipos_caixa` | Tipos de caixa, com o peso (`kg`) de cada um. |
 | `usuarios` | Nome, perfil, PIN e local padrão. |
 | `movimentos` | Livro-razão, só acrescenta. Nada é apagado — movimento errado se **cancela**. |
 | `config` | Nome da empresa, prazo padrão. |

@@ -276,7 +276,6 @@
   function itensHTML(prefixo){
     return (DADOS.tipos||[]).filter(function(t){ return Q.ativo(t.Ativo); }).map(function(t){
       var det = [];
-      if (t.Tamanho) det.push('tamanho '+t.Tamanho);
       if (t.Kg!=='' && t.Kg!==null && t.Kg!==undefined && Number(t.Kg)>0) det.push(String(t.Kg).replace('.',',')+' kg');
       return '<div class="item">'+
         '<div class="nome">'+Q.esc(t.Nome)+

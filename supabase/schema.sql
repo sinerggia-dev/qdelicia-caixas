@@ -44,15 +44,11 @@ create index if not exists locais_rota_idx on public.locais (rota_id);
 create table if not exists public.tipos_caixa (
   id       text          primary key,
   nome     text          not null,
-  -- Tamanho comercial. Texto livre de propósito: PP a GG são só sugestões na tela,
-  -- porque a operação inventa tamanho e uma lista fechada travaria o cadastro.
-  tamanho  text          check (tamanho is null or length(tamanho) <= 12),
   -- Quanto a caixa comporta, em quilos. Serve para converter caixa em peso nos relatórios.
   kg       numeric(10,3),
   ativo    boolean       not null default true
 );
 
-comment on column public.tipos_caixa.tamanho is 'Texto livre; PP a GG são sugestões na tela';
 comment on column public.tipos_caixa.kg is 'Capacidade da caixa em quilos';
 
 -- Se este banco foi criado antes de setembro/2026, ele ainda tem a coluna de valor unitário.

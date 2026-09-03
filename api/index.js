@@ -294,8 +294,13 @@ module.exports = async function handler(req, res) {
  */
 function mensagemDeErro(e) {
   var corpo = String((e && e.corpo) || (e && e.message) || '');
-  if (corpo.indexOf('42703') >= 0 || corpo.indexOf('42P01') >= 0) {
-    var col = (corpo.match(/column ["']?([a-z_.]+)["']? does not exist/i) || [])[1];
+  // PGRST204/205 sao do PostgREST (coluna ou tabela fora do cache do schema) e aparecem na
+  // ESCRITA; 42703/42P01 vem do Postgres direto. Tratar so os do Postgres deixava o caso mais
+  // comum -- migracao pendente ao salvar -- caindo na mensagem generica.
+  if (corpo.indexOf('42703') >= 0 || corpo.indexOf('42P01') >= 0 ||
+      corpo.indexOf('PGRST204') >= 0 || corpo.indexOf('PGRST205') >= 0) {
+    var col = (corpo.match(/column ["']?([a-z_.]+)["']? does not exist/i) ||
+               corpo.match(/find the '([^']+)' column/i) || [])[1];
     return 'O banco está desatualizado' + (col ? ' (falta a coluna ' + col + ')' : '') +
       '. Rode as migrações da pasta supabase/ no SQL Editor.';
   }

@@ -646,10 +646,9 @@
     });
 
     document.getElementById('tabelaTipos').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Tipo de caixa</th><th>Tamanho</th><th class="num">Peso (kg)</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Tipo de caixa</th><th class="num">Peso (kg)</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       (DADOS.tipos||[]).map(function(t){
         return '<tr><td><b>'+Q.esc(t.Nome)+'</b></td>'+
-        '<td>'+(t.Tamanho?'<span class="tag azul">'+Q.esc(t.Tamanho)+'</span>':'<span class="tag cinza">—</span>')+'</td>'+
         '<td class="num">'+(t.Kg!==''&&t.Kg!==null&&t.Kg!==undefined?Q.esc(String(t.Kg).replace('.',','))+' kg':'—')+'</td>'+
         '<td>'+(Q.ativo(t.Ativo)?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
         '<td><button class="mini acao" data-editar-tipo="'+t.ID+'">editar</button></td></tr>';
@@ -738,23 +737,11 @@
     t = t || {};
     modal('<h2>'+(t.ID?'Editar':'Novo')+' tipo de caixa</h2>'+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(t.Nome||'')+'" placeholder="Caixa Banana">'+
-      '<div class="grid2">'+
-        // Lista com sugestão, não escolha fechada: a operação inventa tamanho
-        // (XG, 18L, meia-caixa) e ficar preso a cinco opções trava o cadastro.
-        '<div><label>Tamanho</label>'+
-          '<input type="text" id="fTamanho" list="listaTamanhos" maxlength="12" autocapitalize="characters" '+
-            'value="'+Q.esc(t.Tamanho||'')+'" placeholder="PP, P, M, G, GG… ou digite">'+
-          '<datalist id="listaTamanhos">'+
-            ['PP','P','M','G','GG'].map(function(x){ return '<option value="'+x+'">'; }).join('')+
-          '</datalist>'+
-        '</div>'+
-        '<div><label>Peso (kg)</label><input type="number" step="0.001" min="0" id="fKg" value="'+Q.esc(t.Kg===0?'0':(t.Kg||''))+'" placeholder="ex.: 20"></div>'+
-      '</div>'+
+      '<label>Peso (kg)</label><input type="number" step="0.001" min="0" id="fKg" value="'+Q.esc(t.Kg===0?'0':(t.Kg||''))+'" placeholder="ex.: 20">'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(t.Ativo)?' selected':'')+'>sim</option><option value="NAO"'+(Q.ativo(t.Ativo)?'':' selected')+'>não</option></select>'+
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:t.ID||'', Nome:document.getElementById('fNome').value.trim(),
-        Tamanho:document.getElementById('fTamanho').value,
         Kg:document.getElementById('fKg').value,
         Ativo:document.getElementById('fAtivo').value };
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');

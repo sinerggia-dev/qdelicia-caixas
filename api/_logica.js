@@ -9,7 +9,7 @@
  * Formato interno das linhas (o adaptador converte de/para snake_case do Postgres):
  *   local     { ID, Tipo, Nome, Responsavel, Telefone, LimiteCaixas, DiasPrazo, Token, Ativo:bool, Obs,
  *               MotoristaId, RotaId }   Tipo: GALPAO | FILIAL | CLIENTE | ROTA
- *   tipoCaixa { ID, Nome, Ativo:bool, Tamanho:'PP'|'P'|'M'|'G'|'GG'|'', Kg:number|'' }
+ *   tipoCaixa { ID, Nome, Ativo:bool, Kg:number|'' }
  *   usuario   { ID, Nome, Perfil, PIN, Telefone, LocalPadrao, Ativo:bool, Email, Usuario, SenhaHash }
  *   movimento { ID, ClientKey, DataHora:Date, DataRef:Date, Tipo, OrigemID, DestinoID, TipoCaixaID,
  *               Qtd:number, QtdConferida:number|null, Status, Romaneio, UsuarioID, Perfil, Obs,
@@ -23,13 +23,11 @@ var PERFIS = ['ADMIN', 'GALPAO', 'MOTORISTA', 'PROMOTOR'];
 // A rota é o caminhão em circulação: guarda caixa como qualquer outro local, e é isso que
 // impede o que subiu no caminhão e não foi entregue de sumir na conta do cliente.
 var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA'];
-// Sugestões, não lista fechada: o campo aceita qualquer texto curto.
-var TAMANHOS = ['PP', 'P', 'M', 'G', 'GG'];
 
 /**
- * Nome que a equipe lê nas listas: "Caixa Banana G · 20 kg".
- * Duas caixas podem ter o mesmo nome e tamanhos diferentes — sem isto, quem conta no
- * galpão não distingue uma da outra no seletor.
+ * Nome que a equipe lê nas listas: "Caixa Banana · 20 kg".
+ * O peso entra no rótulo porque é o que separa duas caixas de mesmo nome no seletor,
+ * na hora da conferência, quando a contagem precisa ser exata.
  */
 function mapaTipos(tipos) {
   var m = {};
@@ -40,7 +38,6 @@ function mapaTipos(tipos) {
 function rotuloTipo(t) {
   if (!t) return '';
   var s = String(t.Nome || '');
-  if (t.Tamanho) s += ' ' + String(t.Tamanho).toUpperCase();
   if (t.Kg !== '' && t.Kg !== null && t.Kg !== undefined && Number(t.Kg) > 0) {
     s += ' · ' + String(Number(t.Kg)).replace('.', ',') + ' kg';
   }
@@ -676,7 +673,7 @@ function usuariosPublicos(usuarios) {
 }
 
 module.exports = {
-  TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL, TAMANHOS: TAMANHOS,
+  TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
   rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, novoId: novoId, novoToken: novoToken,

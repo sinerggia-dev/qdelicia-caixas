@@ -310,35 +310,26 @@ async function main() {
   const grav = (await GET({ acao: 'dados' })).locais.find((l) => l.ID === inat.id);
   ok(grav && grav.Ativo === false, 'cliente salvo como NAO volta da API como inativo', grav && grav.Ativo);
 
-  console.log('\n== tipo de caixa: tamanho e peso ==');
-  const tG = await POST({ acao: 'salvarTipo', registro: { Nome: 'Caixa Banana', Tamanho: 'G', Kg: 20 } });
-  const tPP = await POST({ acao: 'salvarTipo', registro: { Nome: 'Caixa Banana', Tamanho: 'PP', Kg: 6.5 } });
-  ok(tG.ok && tPP.ok, 'dois tipos com o mesmo nome e tamanhos diferentes', { tG, tPP });
+  console.log('\n== tipo de caixa: peso ==');
+  const tG = await POST({ acao: 'salvarTipo', registro: { Nome: 'Caixa Banana', Kg: 20 } });
+  const tPP = await POST({ acao: 'salvarTipo', registro: { Nome: 'Caixa Banana', Kg: 6.5 } });
+  ok(tG.ok && tPP.ok, 'dois tipos com o mesmo nome e pesos diferentes', { tG, tPP });
 
   const tipos = (await GET({ acao: 'dados' })).tipos;
   const g = tipos.find((x) => x.ID === tG.id);
-  ok(g && g.Tamanho === 'G' && Number(g.Kg) === 20, 'tamanho e kg voltam da API', g);
+  ok(g && Number(g.Kg) === 20, 'kg volta da API', g);
 
   // O rótulo é o que separa as duas na tela de conferência — sem ele são a mesma linha.
-  ok(real.LOCAL && require('../api/_logica').rotuloTipo(g) === 'Caixa Banana G · 20 kg',
-    'rótulo junta nome, tamanho e peso', require('../api/_logica').rotuloTipo(g));
+  ok(real.LOCAL && require('../api/_logica').rotuloTipo(g) === 'Caixa Banana · 20 kg',
+    'rótulo junta nome e peso', require('../api/_logica').rotuloTipo(g));
 
   await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: C, itens: [{ tipoCaixaId: tG.id, qtd: 7 }], dataRef: dia(0), usuarioId: 'U003', perfil: 'MOTORISTA' });
   const mv = (await GET({ acao: 'movimentos', limit: 5 })).movimentos.find((m) => m.qtd === 7);
-  ok(mv && mv.tipoCaixa === 'Caixa Banana G · 20 kg', 'movimento mostra o tipo com tamanho e peso', mv && mv.tipoCaixa);
+  ok(mv && mv.tipoCaixa === 'Caixa Banana · 20 kg', 'movimento mostra o tipo com o peso', mv && mv.tipoCaixa);
 
-  // O tamanho é texto livre: PP..GG são sugestão de tela, não lista fechada.
-  const livre = await POST({ acao: 'salvarTipo', registro: { Nome: 'Caixa Especial', Tamanho: ' xg ', Kg: 30 } });
-  const xg = (await GET({ acao: 'dados' })).tipos.find((x) => x.ID === livre.id);
-  ok(xg && xg.Tamanho === 'XG', 'tamanho fora da lista é aceito e vai em maiúsculas', xg && xg.Tamanho);
-
-  const longo = await POST({ acao: 'salvarTipo', registro: { Nome: 'Caixa Longa', Tamanho: 'TAMANHOMUITOCOMPRIDO' } });
-  const cl = (await GET({ acao: 'dados' })).tipos.find((x) => x.ID === longo.id);
-  ok(cl && cl.Tamanho.length <= 12, 'tamanho é cortado em 12 caracteres', cl && cl.Tamanho);
-
-  const semTam = await POST({ acao: 'salvarTipo', registro: { Nome: 'Palete', Tamanho: '', Kg: '' } });
+  const semTam = await POST({ acao: 'salvarTipo', registro: { Nome: 'Palete', Kg: '' } });
   const p2 = (await GET({ acao: 'dados' })).tipos.find((x) => x.ID === semTam.id);
-  ok(p2 && p2.Tamanho === '' && p2.Kg === '', 'tamanho e peso são opcionais', p2);
+  ok(p2 && p2.Kg === '', 'o peso é opcional', p2);
 
   console.log('\n== motorista e placa na saída do galpão ==');
   const carga = await POST({
