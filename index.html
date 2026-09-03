@@ -59,7 +59,7 @@
           <label for="sdOrigem">Sai de</label>
           <select id="sdOrigem"></select>
         </div>
-        <div>
+        <div id="sdWrapDestino">
           <label for="sdDestino">Vai para</label>
           <select id="sdDestino"></select>
         </div>
@@ -71,20 +71,16 @@
           <label for="sdRomaneio">Romaneio / NF (opcional)</label>
           <input id="sdRomaneio" type="text" inputmode="numeric" placeholder="nº do documento">
         </div>
-        <!-- Só na carga que sai do galpão: é ali que a caixa entra em circulação e
-             precisa ter dono e veículo. Da rota para o cliente, quem leva já se sabe. -->
+        <!-- Saindo do galpão a carga vai para a ROTA, não direto para o cliente: é o
+             caminhão que passa a guardar a caixa até a entrega. Por isso "Vai para" some
+             e a rota ocupa o lugar dele. -->
+        <div id="sdWrapRota" style="display:none">
+          <label for="sdRota">Vai para a rota</label>
+          <select id="sdRota"></select>
+        </div>
         <div id="sdWrapMotorista" style="display:none">
           <label for="sdMotorista">Motorista</label>
           <input id="sdMotorista" type="text" autocapitalize="words" placeholder="quem vai levar">
-        </div>
-        <div id="sdWrapPlaca" style="display:none">
-          <label for="sdPlaca">Placa do veículo</label>
-          <input id="sdPlaca" type="text" maxlength="8" autocapitalize="characters" placeholder="ABC1D23">
-        </div>
-        <div id="sdWrapRota" style="display:none">
-          <label for="sdRota">Rota</label>
-          <input id="sdRota" type="text" list="listaRotas" maxlength="40" placeholder="ex.: Caruaru">
-          <datalist id="listaRotas"></datalist>
         </div>
       </div>
 
@@ -366,6 +362,11 @@
     return meus.length ? meus : pontos;
   }
 
+  function nomeDoLocal(id){
+    var l = (DADOS.locais||[]).filter(function(x){ return String(x.ID)===String(id); })[0];
+    return l ? l.Nome : '';
+  }
+
   function saiDeGalpao(){
     var id = document.getElementById('sdOrigem').value;
     var l = (DADOS.locais||[]).filter(function(x){ return String(x.ID)===String(id); })[0];
@@ -373,14 +374,12 @@
   }
 
   function ajustarCamposSaida(){
-    var mostrar = saiDeGalpao() ? 'block' : 'none';
-    document.getElementById('sdWrapMotorista').style.display = mostrar;
-    document.getElementById('sdWrapPlaca').style.display = mostrar;
-    document.getElementById('sdWrapRota').style.display = mostrar;
-    // Sugestão, não escolha fechada: se a rota do dia não estiver cadastrada, dá para
-    // escrever assim mesmo — melhor um nome digitado do que a carga sair sem rota.
-    document.getElementById('listaRotas').innerHTML =
-      locaisPor(['ROTA']).map(function(r){ return '<option value="'+Q.esc(r.Nome)+'">'; }).join('');
+    var doGalpao = saiDeGalpao();
+    document.getElementById('sdWrapMotorista').style.display = doGalpao ? 'block' : 'none';
+    document.getElementById('sdWrapRota').style.display      = doGalpao ? 'block' : 'none';
+    // Do galpão a carga vai para a rota; da rota, para o cliente. Nunca os dois ao mesmo tempo.
+    document.getElementById('sdWrapDestino').style.display   = doGalpao ? 'none' : 'block';
+    if (doGalpao) document.getElementById('sdRota').innerHTML = opcoes(locaisPor(['ROTA']), ROTA);
   }
 
   function montarFormularios(){
@@ -426,15 +425,16 @@
   document.getElementById('btnSalvarSaida').addEventListener('click', function(){
     var s = Q.sessao();
     var origem = document.getElementById('sdOrigem').value;
-    var destino = document.getElementById('sdDestino').value;
+    var doGalpao = saiDeGalpao();
+    var destino = doGalpao ? document.getElementById('sdRota').value
+                           : document.getElementById('sdDestino').value;
     var itens = coletarItens('sd_');
     if (!origem) return Q.toast('Informe de onde as caixas estão saindo.','erro');
-    if (!destino) return Q.toast('Informe para quem as caixas vão.','erro');
+    if (!destino) return Q.toast(doGalpao ? 'Escolha a rota que vai levar a carga.'
+                                          : 'Informe para quem as caixas vão.','erro');
     if (!itens.length) return Q.toast('Informe a quantidade de caixas.','erro');
-    if (saiDeGalpao()){
-      if (!document.getElementById('sdMotorista').value.trim()) return Q.toast('Informe o motorista que vai levar a carga.','erro');
-      if (!document.getElementById('sdPlaca').value.trim()) return Q.toast('Informe a placa do veículo.','erro');
-      if (!document.getElementById('sdRota').value.trim()) return Q.toast('Informe a rota desta carga.','erro');
+    if (doGalpao && !document.getElementById('sdMotorista').value.trim()){
+      return Q.toast('Informe o motorista que vai levar a carga.','erro');
     }
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
     if (Q.precisaConfirmarCaixa(this, 'Confirmar saída de ' + total + ' caixa(s)?', 'Registrar')) return;
@@ -451,8 +451,7 @@
       obs: document.getElementById('sdObs').value,
       usuarioId: s.id, perfil: s.perfil,
       motorista: document.getElementById('sdMotorista').value.trim(),
-      rota: document.getElementById('sdRota').value.trim(),
-      placa: document.getElementById('sdPlaca').value.trim().toUpperCase(),
+      rota: nomeDoLocal(destino),
       foto: sdFotoData
     }).then(function(r){
       btn.disabled = false; btn.textContent = 'Registrar saída';
@@ -471,7 +470,7 @@
     zerarItens('sd_');
     document.getElementById('sdObs').value = '';
     document.getElementById('sdRomaneio').value = '';
-    document.getElementById('sdMotorista').value=''; document.getElementById('sdPlaca').value=''; document.getElementById('sdRota').value=''; sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
+    document.getElementById('sdMotorista').value=''; sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
     if (!manterLocais){ document.getElementById('sdDestino').value=''; document.getElementById('sdAviso').innerHTML=''; }
   }
   document.getElementById('btnLimparSaida').addEventListener('click', function(){ limparSaida(false); });

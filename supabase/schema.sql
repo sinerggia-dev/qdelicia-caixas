@@ -95,7 +95,6 @@ create table if not exists public.movimentos (
   obs             text        not null default '',
   -- Carga saindo do galpão: quem leva e em qual veículo.
   motorista       text,
-  placa           text,
   -- Nome da rota em que a carga saiu. Texto: a rota do dia pode não estar cadastrada,
   -- e é melhor registrar o nome digitado do que deixar a carga sem rota.
   rota            text,
