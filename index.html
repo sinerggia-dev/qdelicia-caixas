@@ -54,33 +54,35 @@
   <section id="pgSaida" class="pagina ativa">
     <div class="card">
       <h2>Saída de caixas<span class="sub">Caixas saindo do galpão ou da filial. Confirmado na hora — a contagem da saída é a fonte da verdade.</span></h2>
+      <!-- Ordem na tela = ordem em que a pessoa preenche: quando, de onde, para onde,
+           com quem, e o documento por último, que é o único opcional. -->
       <div class="grid2">
-        <div>
-          <label for="sdOrigem">Sai de</label>
-          <select id="sdOrigem"></select>
-        </div>
-        <div id="sdWrapDestino">
-          <label for="sdDestino">Vai para</label>
-          <select id="sdDestino"></select>
-        </div>
         <div>
           <label for="sdData">Data</label>
           <input id="sdData" type="date">
         </div>
         <div>
-          <label for="sdRomaneio">Romaneio / NF (opcional)</label>
-          <input id="sdRomaneio" type="text" inputmode="numeric" placeholder="nº do documento">
+          <label for="sdOrigem">Vai de</label>
+          <select id="sdOrigem"></select>
         </div>
         <!-- Saindo do galpão a carga vai para a ROTA, não direto para o cliente: é o
-             caminhão que passa a guardar a caixa até a entrega. Por isso "Vai para" some
-             e a rota ocupa o lugar dele. -->
+             caminhão que passa a guardar a caixa até a entrega. Os dois campos ocupam a
+             mesma posição porque nunca aparecem juntos. -->
         <div id="sdWrapRota" style="display:none">
           <label for="sdRota">Vai para a rota</label>
           <select id="sdRota"></select>
         </div>
+        <div id="sdWrapDestino">
+          <label for="sdDestino">Vai para</label>
+          <select id="sdDestino"></select>
+        </div>
         <div id="sdWrapMotorista" style="display:none">
           <label for="sdMotorista">Motorista</label>
           <input id="sdMotorista" type="text" autocapitalize="words" placeholder="quem vai levar">
+        </div>
+        <div>
+          <label for="sdRomaneio">Romaneio / NF (opcional)</label>
+          <input id="sdRomaneio" type="text" inputmode="numeric" placeholder="nº do documento">
         </div>
       </div>
 
