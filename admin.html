@@ -178,7 +178,7 @@
 (function(){
   'use strict';
   var Q = window.QDC;
-  var DADOS = null, PAINEL = null, EXTRATO = null, MOVS = [];
+  var DADOS = null, EQUIPE = [], PAINEL = null, EXTRATO = null, MOVS = [];
 
   /* ---------------- login ---------------- */
   function iniciarLogin(){
@@ -242,11 +242,15 @@
     });
   });
 
-  /* A equipe vem numa chamada à parte, só depois de entrar. */
+  /* A equipe vem numa chamada à parte, só depois de entrar — a rota `dados` é pública e
+     não pode devolver a lista de gente. Fica em EQUIPE, e não dentro de DADOS, porque as duas
+     chamadas voltam fora de ordem: gravar em DADOS.usuarios antes de DADOS existir estourava
+     em silêncio, e o carregarDados seguinte zerava a lista. */
   function carregarEquipe(){
-    Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ DADOS.usuarios = r.usuarios; desenharCadastros(); montarSelects(); }
-    }).catch(function(){});
+    return Q.get({acao:'equipe'}).then(function(r){
+      if (r && r.ok) EQUIPE = r.usuarios || [];
+      if (DADOS){ desenharCadastros(); montarSelects(); }
+    }).catch(function(e){ Q.toast('Não consegui carregar os usuários: '+e.message,'erro'); });
   }
 
   /* ---------------- app ---------------- */
@@ -274,7 +278,7 @@
     document.getElementById('mvAte').value = Q.hoje();
     document.getElementById('lcData').value = Q.hoje();
     carregarEquipe();
-    Q.carregarDados().then(function(d){ DADOS=Object.assign(d,{usuarios:(DADOS&&DADOS.usuarios)||[]}); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
+    Q.carregarDados().then(function(d){ DADOS=d; montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
   }
   document.getElementById('chipSair').addEventListener('click', Q.sair);
@@ -626,7 +630,7 @@
       locais.map(function(l){
         var ehRota = String(l.Tipo).toUpperCase()==='ROTA';
         var vinculo = ehRota
-          ? (l.MotoristaId ? Q.esc(nomeDe(DADOS.usuarios, l.MotoristaId)) : '<span class="tag cinza">sem motorista</span>')
+          ? (l.MotoristaId ? Q.esc(nomeDe(EQUIPE, l.MotoristaId)) : '<span class="tag cinza">sem motorista</span>')
           : (l.RotaId ? Q.esc(nomeDe(DADOS.locais, l.RotaId)) : '<span class="tag cinza">—</span>');
         return '<tr><td><b>'+Q.esc(l.Nome)+'</b></td><td><span class="tag '+(ehRota?'verde':'cinza')+'">'+(ehRota?'rota':Q.esc(String(l.Tipo).toLowerCase()))+'</span></td>'+
         '<td>'+vinculo+'</td>'+
@@ -652,14 +656,14 @@
 
     document.getElementById('tabelaUsuarios').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Local padrão</th><th>Telefone</th><th></th></tr></thead><tbody>'+
-      (DADOS.usuarios||[]).map(function(u){
+      EQUIPE.map(function(u){
         var lp = (DADOS.locais||[]).filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
         return '<tr><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil.toLowerCase())+'</span></td>'+
         '<td>'+Q.esc(lp?lp.Nome:'')+'</td><td>'+Q.esc(u.Telefone||'')+'</td>'+
         '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button></td></tr>';
       }).join('')+'</tbody></table></div>';
     document.querySelectorAll('[data-editar-user]').forEach(function(b){
-      b.addEventListener('click', function(){ formUsuario((DADOS.usuarios||[]).filter(function(u){return String(u.ID)===b.dataset.editarUser;})[0]); });
+      b.addEventListener('click', function(){ formUsuario(EQUIPE.filter(function(u){return String(u.ID)===b.dataset.editarUser;})[0]); });
     });
   }
 
@@ -674,7 +678,7 @@
 
   function formLocal(l){
     l = l || {};
-    var motoristas = (DADOS.usuarios||[]).filter(function(u){ return String(u.Perfil).toUpperCase()==='MOTORISTA'; });
+    var motoristas = EQUIPE.filter(function(u){ return String(u.Perfil).toUpperCase()==='MOTORISTA'; });
     var rotasCad = (DADOS.locais||[]).filter(function(x){ return String(x.Tipo).toUpperCase()==='ROTA' && String(x.ID)!==String(l.ID); });
     modal('<h2>'+(l.ID?'Editar':'Novo')+' cadastro</h2>'+
       '<label>Tipo</label><select id="fTipo">'+

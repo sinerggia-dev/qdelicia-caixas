@@ -633,9 +633,19 @@ function extratoToken(dados, token, de, ate, hoje) {
 
 /* ============================ público ============================ */
 
+/**
+ * Lista da equipe para a tela de cadastros. Devolve o que o formulário precisa reexibir —
+ * apagar telefone e e-mail só porque não vieram na resposta seria pior do que não listar.
+ * PIN e hash de senha NUNCA saem daqui, em hipótese alguma.
+ */
 function usuariosPublicos(usuarios) {
-  return usuarios.filter(function (u) { return u.Ativo !== false; }).map(function (u) {
-    return { ID: u.ID, Nome: u.Nome, Perfil: String(u.Perfil).toUpperCase(), LocalPadrao: u.LocalPadrao };
+  return usuarios.map(function (u) {
+    return {
+      ID: u.ID, Nome: u.Nome, Perfil: String(u.Perfil).toUpperCase(),
+      LocalPadrao: u.LocalPadrao, Telefone: u.Telefone || '',
+      Email: u.Email || '', Usuario: u.Usuario || '',
+      Ativo: u.Ativo !== false, TemSenha: !!u.SenhaHash
+    };
   });
 }
 
