@@ -466,7 +466,8 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 
   <h3>Usuários</h3>
   <p>Nome, perfil, PIN e local padrão. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá peso à divergência.</p>
-  <p>Quem sai da empresa se <strong>desativa</strong>, pelo botão na lista — não se apaga. O histórico de movimentos aponta para o usuário, e apagar deixaria lançamento órfão. Inativo some das listas e não consegue mais entrar; reativar devolve o acesso.</p>
+  <p>Quem sai da empresa se <strong>desativa</strong>, pelo botão na lista. Existe também <strong>excluir</strong>, mas ele só apaga de verdade quem nunca lançou nada: quem já tem movimento no histórico é desativado, porque o nome de quem contou é o que dá peso à divergência. Inativo some das listas e não consegue mais entrar; reativar devolve o acesso.</p>
+  <p>O <strong>último administrador ativo</strong> não pode ser desativado nem excluído — nem por ele mesmo. Sem ele ninguém entra no painel, e a volta seria por SQL no banco.</p>
 </section>
 
 <section id="lancar">

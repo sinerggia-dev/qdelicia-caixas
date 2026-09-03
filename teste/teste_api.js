@@ -419,6 +419,34 @@ async function main() {
   const proibido = await POST({ acao: 'salvarConfig', chave: 'qualquerCoisa', valor: 'x' });
   ok(proibido.ok === false, 'config só aceita chave conhecida', proibido);
 
+  console.log('\n== excluir usuário ==');
+  const novoU = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Ajudante Temporário', Perfil: 'PROMOTOR', PIN: '4444' } });
+  ok(novoU.ok, 'usuário criado', novoU);
+  ok((await POST({ acao: 'excluir', aba: 'Usuarios', id: novoU.id })).excluido === true,
+    'usuário que nunca lançou nada é excluído');
+
+  // Quem já lançou fica: o nome dele é o que dá peso à divergência no histórico.
+  const comHist = await POST({ acao: 'excluir', aba: 'Usuarios', id: 'U003' });
+  ok(comHist.inativado === true, 'usuário com lançamento é desativado, não apagado', comHist);
+  const u3 = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U003');
+  ok(u3 && u3.Ativo === false && u3.Nome === 'Motorista Exemplo', 'ele continua no banco, inativo', u3);
+
+  console.log('\n== o último admin não pode sumir ==');
+  const offAdmin = await POST({ acao: 'salvarUsuario', registro: { ID: 'U001', Ativo: 'NAO' } });
+  ok(offAdmin.ok === false && /último administrador/.test(offAdmin.erro || ''),
+    'desativar o último admin é recusado', offAdmin);
+  const del = await POST({ acao: 'excluir', aba: 'Usuarios', id: 'U001' });
+  ok(del.ok === false && /último administrador/.test(del.erro || ''),
+    'excluir o último admin é recusado', del);
+  ok((await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U001').Ativo === true,
+    'e ele continua ativo depois das duas tentativas');
+
+  // Com um segundo admin, o primeiro deixa de ser insubstituível.
+  const admin2 = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Admin Reserva', Perfil: 'ADMIN', PIN: '5555', Usuario: 'reserva' } });
+  ok(admin2.ok && (await POST({ acao: 'salvarUsuario', registro: { ID: 'U001', Ativo: 'NAO' } })).ok,
+    'com outro admin ativo, o primeiro pode ser desativado');
+  await POST({ acao: 'salvarUsuario', registro: { ID: 'U001', Ativo: 'SIM' } });
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

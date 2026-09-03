@@ -748,11 +748,28 @@
         '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
         '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
             '<button class="mini'+(on?' perigo':'')+'" data-ativar="'+u.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
-              (on?'desativar':'ativar')+'</button></td></tr>';
+              (on?'desativar':'ativar')+'</button> '+
+            '<button class="mini perigo" data-excluir-user="'+u.ID+'">excluir</button></td></tr>';
       }).join('')+'</tbody></table></div>';
 
     /* Desativar em vez de excluir: o histórico de movimentos aponta para o usuário,
        e apagar deixaria lançamento órfão. Inativo some das listas e não entra mais. */
+    /* Mesma regra dos locais: só some de verdade quem nunca apareceu em lançamento. */
+    document.querySelectorAll('[data-excluir-user]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var u = EQUIPE.filter(function(x){ return String(x.ID)===b.dataset.excluirUser; })[0];
+        if (!u) return;
+        if (Q.precisaConfirmar(b, 'Excluir '+u.Nome+'?')) return;
+        b.disabled = true;
+        Q.post({acao:'excluir', aba:'Usuarios', id:u.ID}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          Q.toast(r.aviso || 'Excluído.', r.inativado ? 'erro' : 'ok');
+          carregarEquipe();
+        }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
+      });
+    });
+
     document.querySelectorAll('[data-ativar]').forEach(function(b){
       b.addEventListener('click', function(){
         var u = EQUIPE.filter(function(x){ return String(x.ID)===b.dataset.ativar; })[0];

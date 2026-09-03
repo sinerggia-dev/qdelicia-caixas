@@ -198,8 +198,12 @@ async function salvarUsuario(p) {
     catch (e) { return { ok: false, erro: e.message }; }
   }
 
+  var d = await db.carregarTudo();
+  if (dados.ID && dados.Ativo !== undefined && !L.ativo(dados.Ativo) && ultimoAdmin(d.usuarios, dados.ID)) {
+    return { ok: false, erro: 'Este é o último administrador ativo. Promova outro antes de desativá-lo.' };
+  }
+
   if (dados.Email || dados.Usuario) {
-    var d = await db.carregarTudo();
     var conflito = d.usuarios.filter(function (u) {
       if (String(u.ID) === String(dados.ID || '')) return false;
       function igual(a, b) { return a && b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase(); }
@@ -240,6 +244,19 @@ async function salvarRegistro(aba, p) {
   return { ok: true, id: dados.ID, criado: true };
 }
 
+/**
+ * Sem autorização no servidor, o painel só se recupera por SQL se ficar sem admin.
+ * Por isso o último ADMIN ativo não pode ser desativado nem excluído — nem por ele mesmo.
+ */
+function ultimoAdmin(usuarios, id) {
+  var alvo = usuarios.filter(function (u) { return String(u.ID) === String(id); })[0];
+  if (!alvo || String(alvo.Perfil).toUpperCase() !== 'ADMIN' || alvo.Ativo === false) return false;
+  var outros = usuarios.filter(function (u) {
+    return String(u.ID) !== String(id) && String(u.Perfil).toUpperCase() === 'ADMIN' && u.Ativo !== false;
+  });
+  return outros.length === 0;
+}
+
 /** Só chaves conhecidas: `config` alimenta a tela, não é depósito de qualquer coisa. */
 var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas'];
 
@@ -275,6 +292,28 @@ async function excluir(aba, id) {
         ok: true, inativado: true,
         aviso: 'Rota atende ' + atende.length + (atende.length > 1 ? ' pontos' : ' ponto') +
                ' — foi inativada em vez de excluída. Troque a rota deles para poder apagar.'
+      };
+    }
+  }
+  // Usuário aparece em cada movimento que lançou e em cada conferência que fez, e uma
+  // rota pode apontar para ele. Apagar quebraria a chave estrangeira e, pior, tiraria o
+  // nome de quem contou — que é o que dá peso à divergência.
+  if (aba === 'Usuarios') {
+    if (ultimoAdmin(d.usuarios, id)) {
+      return { ok: false, erro: 'Este é o último administrador ativo. Promova outro antes de excluí-lo.' };
+    }
+    var lancou = d.movimentos.some(function (m) {
+      return String(m.UsuarioID) === String(id) || String(m.ConferidoPor) === String(id);
+    });
+    var rotas = d.locais.filter(function (l) { return String(l.MotoristaId) === String(id); });
+    if (lancou || rotas.length) {
+      await db.update('usuarios', id, { ativo: false });
+      return {
+        ok: true, inativado: true,
+        aviso: lancou
+          ? 'Usuário tem lançamentos no histórico — foi desativado em vez de excluído.'
+          : 'Usuário responde por ' + rotas.length + (rotas.length > 1 ? ' rotas' : ' rota') +
+            ' — foi desativado em vez de excluído.'
       };
     }
   }

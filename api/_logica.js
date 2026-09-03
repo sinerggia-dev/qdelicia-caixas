@@ -98,6 +98,16 @@ function mapaNomes(lista) {
 }
 function nome(mapa, id) { return mapa[String(id)] || (id ? String(id) : ''); }
 
+/**
+ * Ativo chega booleano do Postgres, mas o formulário manda 'SIM'/'NAO'. Normaliza os dois.
+ * O navegador tem a sua cópia em app.js — este arquivo não importa nada, de propósito.
+ */
+function ativo(v) {
+  if (v === false || v === 0) return false;
+  var s = String(v === undefined || v === null ? '' : v).trim().toUpperCase();
+  return !(s === 'NAO' || s === 'NÃO' || s === 'FALSE' || s === 'N' || s === '0');
+}
+
 /** Movimentos que valem: cancelado não conta para nada. */
 function ativos(movimentos) {
   return movimentos.filter(function (m) { return !m.Cancelado; });
@@ -694,7 +704,7 @@ module.exports = {
   TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
   rotuloTipo: rotuloTipo, mapaTipos: mapaTipos, listaMotoristas: listaMotoristas,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
-  mapaNomes: mapaNomes, nome: nome, ativos: ativos, novoId: novoId, novoToken: novoToken,
+  mapaNomes: mapaNomes, nome: nome, ativos: ativos, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
   montarMovimento: montarMovimento, montarConferencia: montarConferencia,
