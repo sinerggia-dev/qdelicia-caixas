@@ -270,10 +270,15 @@
       return tipos.indexOf(String(l.Tipo).toUpperCase())>=0 && Q.ativo(l.Ativo);
     });
   }
+  /* O tipo só entra no rótulo quando a lista mistura mais de um: numa lista só de rotas
+     ou só de galpões, o prefixo era ruído em cima do nome que a pessoa procura. */
   function opcoes(lista, selecionado){
+    var tipos = {};
+    lista.forEach(function(l){ tipos[String(l.Tipo).toUpperCase()] = 1; });
+    var mistura = Object.keys(tipos).length > 1;
     return '<option value="">Selecione…</option>' + lista.map(function(l){
-      var rot = (l.Tipo==='CLIENTE'?'':'['+l.Tipo.charAt(0)+l.Tipo.slice(1).toLowerCase()+'] ');
-      return '<option value="'+l.ID+'"'+(String(selecionado)===String(l.ID)?' selected':'')+'>'+rot+Q.esc(l.Nome)+'</option>';
+      var suf = mistura ? ' · ' + String(l.Tipo).toLowerCase() : '';
+      return '<option value="'+l.ID+'"'+(String(selecionado)===String(l.ID)?' selected':'')+'>'+Q.esc(l.Nome)+suf+'</option>';
     }).join('');
   }
   function itensHTML(prefixo){

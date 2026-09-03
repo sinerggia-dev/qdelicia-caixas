@@ -288,9 +288,15 @@
   function locaisPor(tipos){
     return (DADOS.locais||[]).filter(function(l){ return tipos.indexOf(String(l.Tipo).toUpperCase())>=0; });
   }
+  /* O tipo só entra no rótulo quando a lista mistura mais de um. Numa lista só de rotas
+     ou só de galpões o prefixo era ruído em cima do nome que a pessoa procura. */
   function opcoes(lista, vazio){
+    var tipos = {};
+    lista.forEach(function(l){ tipos[String(l.Tipo).toUpperCase()] = 1; });
+    var mistura = Object.keys(tipos).length > 1;
     return '<option value="">'+(vazio||'Selecione…')+'</option>' + lista.map(function(l){
-      return '<option value="'+l.ID+'">'+(l.Tipo!=='CLIENTE'?'['+l.Tipo.charAt(0)+l.Tipo.slice(1).toLowerCase()+'] ':'')+Q.esc(l.Nome)+
+      return '<option value="'+l.ID+'">'+Q.esc(l.Nome)+
+        (mistura ? ' · '+String(l.Tipo).toLowerCase() : '')+
         (Q.ativo(l.Ativo)?'':' (inativo)')+'</option>';
     }).join('');
   }
