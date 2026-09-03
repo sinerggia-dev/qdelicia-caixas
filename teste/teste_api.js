@@ -466,6 +466,19 @@ async function main() {
   await POST({ acao: 'salvarMotorista', registro: { ID: novoM.id, Ativo: 'NAO' } });
   ok(((await GET({ acao: 'dados' })).motoristas || []).every((m) => m.ID !== novoM.id),
     'motorista inativo sai da lista de escolha do celular');
+  // O botão de desativar manda só { ID, Ativo }. Se o patch não fosse parcial, um clique
+  // apagaria CPF, CNH e placa em silêncio — e ninguém veria até precisar do documento.
+  const motDes = (await GET({ acao: 'equipe' })).motoristas.find((m) => m.ID === novoM.id);
+  ok(motDes.Ativo === false && motDes.CPF === '999' && motDes.CNH === '888' &&
+     motDes.Placa === 'QDL2E34' && motDes.Nome === 'Valcy (Jr.)',
+    'desativar pelo botão não apaga o resto do cadastro', motDes);
+
+  await POST({ acao: 'salvarMotorista', registro: { ID: novoM.id, Ativo: 'SIM' } });
+  const motRe = (await GET({ acao: 'equipe' })).motoristas.find((m) => m.ID === novoM.id);
+  ok(motRe.Ativo === true, 'reativar devolve o motorista');
+  ok(((await GET({ acao: 'dados' })).motoristas || []).some((m) => m.ID === novoM.id),
+    'e ele volta para a lista de escolha do celular');
+
   ok((await POST({ acao: 'excluir', aba: 'Motoristas', id: novoM.id })).excluido === true,
     'motorista pode ser excluído');
 

@@ -699,12 +699,32 @@
           '<td>'+(m.Placa?'<span class="tag cinza">'+Q.esc(m.Placa)+'</span>':'—')+'</td>'+
           '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
           '<td><button class="mini acao" data-editar-mot="'+m.ID+'">editar</button> '+
+              '<button class="mini'+(on?' perigo':'')+'" data-ativar-mot="'+m.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
+                (on?'desativar':'ativar')+'</button> '+
               '<button class="mini perigo" data-excluir-mot="'+m.ID+'">excluir</button></td></tr>';
       }).join('')+'</tbody></table></div>';
 
     document.querySelectorAll('[data-editar-mot]').forEach(function(b){
       b.addEventListener('click', function(){
         formMotorista(lista.filter(function(m){ return String(m.ID)===b.dataset.editarMot; })[0]);
+      });
+    });
+    /* Desativar é o caminho normal para quem saiu: some da lista do celular na hora,
+       mas o nome continua legível aqui e nos movimentos que ele já levou. */
+    document.querySelectorAll('[data-ativar-mot]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var m = lista.filter(function(x){ return String(x.ID)===b.dataset.ativarMot; })[0];
+        if (!m) return;
+        var ligando = b.dataset.para === 'SIM';
+        if (!ligando && Q.precisaConfirmar(b, 'Desativar '+m.Nome+'? Ele sai da lista de escolha na saída do galpão.')) return;
+        b.disabled = true;
+        Q.post({acao:'salvarMotorista', registro:{ ID:m.ID, Ativo:b.dataset.para }}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui salvar.','erro');
+          Q.toast(ligando?'Motorista ativado.':'Motorista desativado.','ok');
+          // O celular lê a lista de motoristas pela rota pública, então as duas precisam vir de novo.
+          return Promise.all([carregarEquipe(), recarregarCadastros()]);
+        }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
       });
     });
     document.querySelectorAll('[data-excluir-mot]').forEach(function(b){
