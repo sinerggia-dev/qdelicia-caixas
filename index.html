@@ -42,14 +42,6 @@
 
 <main>
 
-  <!-- Escolher a rota encurta o dia do motorista: origem e destino já vêm certos e
-       a lista de clientes fica só com os pontos da rota dele. -->
-  <div class="card" id="cardRota" style="display:none;margin-bottom:10px">
-    <label for="selRota">Rota de hoje</label>
-    <select id="selRota"><option value="">Todas — sem filtrar por rota</option></select>
-    <div id="rotaResumo" style="font-size:13px;color:var(--txt2);margin-top:6px"></div>
-  </div>
-
   <!-- ---------- SAÍDA ---------- -->
   <section id="pgSaida" class="pagina ativa">
     <div class="card">
@@ -80,10 +72,6 @@
           <label for="sdMotorista">Motorista</label>
           <input id="sdMotorista" type="text" list="listaMotoristas" autocapitalize="words" placeholder="quem vai levar">
           <datalist id="listaMotoristas"></datalist>
-        </div>
-        <div>
-          <label for="sdRomaneio">Romaneio / NF (opcional)</label>
-          <input id="sdRomaneio" type="text" inputmode="numeric" placeholder="nº do documento">
         </div>
       </div>
 
@@ -249,7 +237,7 @@
       document.getElementById('devSub').textContent =
         'Você conta as caixas no cliente. O galpão confere na chegada e o saldo baixa nessa hora.';
     }
-    Q.carregarDados().then(function(d){ DADOS = d; montarBarraRota(); montarFormularios(); }).catch(function(e){ Q.toast(e.message,'erro'); });
+    Q.carregarDados().then(function(d){ DADOS = d; montarFormularios(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
     if (Q.podeConferir()) carregarPendentes();
   }
@@ -323,53 +311,6 @@
     });
   }
 
-  /* Rota selecionada (id) — vazio = sem filtro. Guardada no celular para não
-     perguntar de novo a cada tela. */
-  var ROTA = localStorage.getItem('qdc_rota') || '';
-
-  function rotasDisponiveis(){
-    var s = Q.sessao();
-    var todas = locaisPor(['ROTA']);
-    // Motorista vê primeiro as rotas dele; se nenhuma for dele, vê todas.
-    var minhas = todas.filter(function(r){ return String(r.MotoristaId||'') === String(s.id); });
-    return (s.perfil === 'MOTORISTA' && minhas.length) ? minhas : todas;
-  }
-
-  function montarBarraRota(){
-    var rotas = rotasDisponiveis();
-    var card = document.getElementById('cardRota');
-    if (!rotas.length){ card.style.display='none'; ROTA=''; return; }
-    card.style.display = 'block';
-    var sel = document.getElementById('selRota');
-    sel.innerHTML = '<option value="">Todas — sem filtrar por rota</option>'+
-      rotas.map(function(r){ return '<option value="'+Q.esc(r.ID)+'">'+Q.esc(r.Nome)+'</option>'; }).join('');
-    if (rotas.filter(function(r){ return String(r.ID)===ROTA; }).length) sel.value = ROTA; else { ROTA=''; sel.value=''; }
-    atualizarResumoRota();
-    sel.onchange = function(){
-      ROTA = sel.value;
-      localStorage.setItem('qdc_rota', ROTA);
-      atualizarResumoRota();
-      montarFormularios();
-    };
-  }
-
-  function atualizarResumoRota(){
-    var el = document.getElementById('rotaResumo');
-    if (!ROTA){ el.textContent = 'Sem filtro: aparecem todos os clientes.'; return; }
-    var n = (DADOS.locais||[]).filter(function(l){ return String(l.RotaId||'')===ROTA; }).length;
-    var r = (DADOS.locais||[]).filter(function(l){ return String(l.ID)===ROTA; })[0];
-    el.textContent = n
-      ? n + (n>1?' clientes nesta rota. Saída e devolução já usam ':' cliente nesta rota. Saída e devolução já usam ')+(r?r.Nome:'a rota')+'.'
-      : 'Nenhum cliente vinculado a esta rota ainda — cadastre a rota no ponto de entrega.';
-  }
-
-  function clientesDaRota(){
-    var pontos = locaisPor(['CLIENTE','FILIAL']);
-    if (!ROTA) return pontos;
-    var meus = pontos.filter(function(l){ return String(l.RotaId||'')===ROTA; });
-    return meus.length ? meus : pontos;
-  }
-
   /* Vem da rota `dados`, que traz só id e nome dos ativos: documento de motorista
      não trafega para quem só abriu o endereço do app. */
   function motoristas(){
@@ -394,7 +335,7 @@
     // Do galpão a carga vai para a rota; da rota, para o cliente. Nunca os dois ao mesmo tempo.
     document.getElementById('sdWrapDestino').style.display   = doGalpao ? 'none' : 'block';
     if (doGalpao){
-      document.getElementById('sdRota').innerHTML = opcoes(locaisPor(['ROTA']), ROTA);
+      document.getElementById('sdRota').innerHTML = opcoes(locaisPor(['ROTA']));
       // Sugestão, não trava: um motorista de fora pode cobrir a rota num dia qualquer.
       document.getElementById('listaMotoristas').innerHTML =
         motoristas().map(function(m){ return '<option value="'+Q.esc(m)+'">'; }).join('');
@@ -402,17 +343,14 @@
   }
 
   function montarFormularios(){
-    var s = Q.sessao();
-    var internos = locaisPor(['GALPAO','FILIAL']);
-    var comRota = ROTA ? locaisPor(['GALPAO','FILIAL','ROTA']) : internos;
-    var destinos = clientesDaRota();
-    // Com rota escolhida, o caminhão é a origem natural da entrega e o destino da coleta.
-    // O local padrão virou posto de trabalho e não é mais um nó com saldo, então não
-    // serve para adivinhar a origem. Quem define isso agora é a rota escolhida.
-    document.getElementById('sdOrigem').innerHTML = opcoes(comRota, ROTA);
+    // A rota entra nos seletores porque o caminhão é origem da entrega e destino da
+    // coleta. Sem barra de filtro, quem escolhe é a pessoa, tela a tela.
+    var comRota = locaisPor(['GALPAO','FILIAL','ROTA']);
+    var destinos = locaisPor(['CLIENTE','FILIAL']);
+    document.getElementById('sdOrigem').innerHTML = opcoes(comRota);
     document.getElementById('sdDestino').innerHTML = opcoes(destinos);
     document.getElementById('dvOrigem').innerHTML = opcoes(destinos);
-    document.getElementById('dvDestino').innerHTML = opcoes(comRota, ROTA);
+    document.getElementById('dvDestino').innerHTML = opcoes(comRota);
     document.getElementById('sdData').value = Q.hoje();
     document.getElementById('dvData').value = Q.hoje();
     ajustarCamposSaida();
@@ -468,7 +406,6 @@
       origemId: origem, destinoId: destino,
       itens: itens,
       dataRef: document.getElementById('sdData').value,
-      romaneio: document.getElementById('sdRomaneio').value,
       obs: document.getElementById('sdObs').value,
       usuarioId: s.id, perfil: s.perfil,
       motorista: document.getElementById('sdMotorista').value.trim(),
@@ -490,7 +427,6 @@
   function limparSaida(manterLocais){
     zerarItens('sd_');
     document.getElementById('sdObs').value = '';
-    document.getElementById('sdRomaneio').value = '';
     document.getElementById('sdMotorista').value=''; sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
     if (!manterLocais){ document.getElementById('sdDestino').value=''; document.getElementById('sdAviso').innerHTML=''; }
   }
