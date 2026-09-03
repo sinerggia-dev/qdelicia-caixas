@@ -283,6 +283,23 @@ module.exports = async function handler(req, res) {
   } catch (e) {
     // O detalhe vai para o log da Vercel; para a tela, uma frase que ajuda sem expor o banco.
     console.error('[caixas]', e && e.stack ? e.stack : e);
-    res.status(200).json({ ok: false, erro: 'Falha no servidor ao processar a solicitação.' });
+    res.status(200).json({ ok: false, erro: mensagemDeErro(e) });
   }
 };
+
+/**
+ * Coluna ou tabela que falta quase sempre é migração pendente, não defeito de código.
+ * Dizer isso na tela poupa muito tempo — o log da Vercel não está à mão de quem opera.
+ * Os códigos são do Postgres: 42703 = coluna inexistente, 42P01 = tabela inexistente.
+ */
+function mensagemDeErro(e) {
+  var corpo = String((e && e.corpo) || (e && e.message) || '');
+  if (corpo.indexOf('42703') >= 0 || corpo.indexOf('42P01') >= 0) {
+    var col = (corpo.match(/column ["']?([a-z_.]+)["']? does not exist/i) || [])[1];
+    return 'O banco está desatualizado' + (col ? ' (falta a coluna ' + col + ')' : '') +
+      '. Rode as migrações da pasta supabase/ no SQL Editor.';
+  }
+  if (corpo.indexOf('23505') >= 0) return 'Já existe um registro com esse valor.';
+  if (corpo.indexOf('23503') >= 0) return 'Registro ligado a outro que não existe mais.';
+  return 'Falha no servidor ao processar a solicitação.';
+}
