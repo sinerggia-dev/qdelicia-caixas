@@ -71,6 +71,16 @@
           <label for="sdRomaneio">Romaneio / NF (opcional)</label>
           <input id="sdRomaneio" type="text" inputmode="numeric" placeholder="nº do documento">
         </div>
+        <!-- Só na carga que sai do galpão: é ali que a caixa entra em circulação e
+             precisa ter dono e veículo. Da rota para o cliente, quem leva já se sabe. -->
+        <div id="sdWrapMotorista" style="display:none">
+          <label for="sdMotorista">Motorista</label>
+          <input id="sdMotorista" type="text" autocapitalize="words" placeholder="quem vai levar">
+        </div>
+        <div id="sdWrapPlaca" style="display:none">
+          <label for="sdPlaca">Placa do veículo</label>
+          <input id="sdPlaca" type="text" maxlength="8" autocapitalize="characters" placeholder="ABC1D23">
+        </div>
       </div>
 
       <h3>Quantas caixas</h3>
@@ -79,10 +89,7 @@
       <label for="sdObs">Observação (opcional)</label>
       <textarea id="sdObs" placeholder="Ex.: entregue ao Sr. João, portaria dos fundos"></textarea>
 
-      <h3>Canhoto — assinatura de quem recebeu</h3>
-      <canvas id="sdAssina" class="assinatura"></canvas>
       <div class="linha-btn" style="margin-top:8px">
-        <button class="mini" id="sdLimparAssina" style="flex:0">Limpar assinatura</button>
         <label class="mini" style="flex:0;margin:0;cursor:pointer;display:inline-block;padding:7px 11px">
           📷 Foto do romaneio
           <input id="sdFoto" type="file" accept="image/*" capture="environment" style="display:none">
@@ -183,7 +190,7 @@
 (function(){
   'use strict';
   var Q = window.QDC;
-  var DADOS = null, PAINEL = null, sdAssina = null, dvAssina = null, sdFotoData = '', dvFotoData = '';
+  var DADOS = null, PAINEL = null, dvAssina = null, sdFotoData = '', dvFotoData = '';
 
   /* ---------------- login ---------------- */
   function iniciarLogin(){
@@ -355,6 +362,18 @@
     return meus.length ? meus : pontos;
   }
 
+  function saiDeGalpao(){
+    var id = document.getElementById('sdOrigem').value;
+    var l = (DADOS.locais||[]).filter(function(x){ return String(x.ID)===String(id); })[0];
+    return !!l && String(l.Tipo).toUpperCase()==='GALPAO';
+  }
+
+  function ajustarCamposSaida(){
+    var mostrar = saiDeGalpao() ? 'block' : 'none';
+    document.getElementById('sdWrapMotorista').style.display = mostrar;
+    document.getElementById('sdWrapPlaca').style.display = mostrar;
+  }
+
   function montarFormularios(){
     var s = Q.sessao();
     var internos = locaisPor(['GALPAO','FILIAL']);
@@ -367,16 +386,17 @@
     document.getElementById('dvDestino').innerHTML = opcoes(comRota, ROTA || s.localPadrao);
     document.getElementById('sdData').value = Q.hoje();
     document.getElementById('dvData').value = Q.hoje();
+    ajustarCamposSaida();
     document.getElementById('sdItens').innerHTML = itensHTML('sd_');
     document.getElementById('dvItens').innerHTML = itensHTML('dv_');
     ligarSteppers(document.getElementById('sdItens'));
     ligarSteppers(document.getElementById('dvItens'));
-    if (!sdAssina) sdAssina = Q.assinatura(document.getElementById('sdAssina'));
     if (!dvAssina) dvAssina = Q.assinatura(document.getElementById('dvAssina'));
     document.getElementById('dvOrigem').addEventListener('change', mostrarSaldoDoOrigem);
+    document.getElementById('sdOrigem').addEventListener('change', ajustarCamposSaida);
+    ajustarCamposSaida();
   }
 
-  document.getElementById('sdLimparAssina').addEventListener('click', function(){ sdAssina.limpar(); });
   document.getElementById('dvLimparAssina').addEventListener('click', function(){ dvAssina.limpar(); });
 
   function ligarFoto(inputId, okId, setter){
@@ -402,6 +422,10 @@
     if (!origem) return Q.toast('Informe de onde as caixas estão saindo.','erro');
     if (!destino) return Q.toast('Informe para quem as caixas vão.','erro');
     if (!itens.length) return Q.toast('Informe a quantidade de caixas.','erro');
+    if (saiDeGalpao()){
+      if (!document.getElementById('sdMotorista').value.trim()) return Q.toast('Informe o motorista que vai levar a carga.','erro');
+      if (!document.getElementById('sdPlaca').value.trim()) return Q.toast('Informe a placa do veículo.','erro');
+    }
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
     if (!confirm('Confirmar saída de ' + total + ' caixa(s)?')) return;
 
@@ -416,7 +440,9 @@
       romaneio: document.getElementById('sdRomaneio').value,
       obs: document.getElementById('sdObs').value,
       usuarioId: s.id, perfil: s.perfil,
-      assinatura: sdAssina.dataURL(), foto: sdFotoData
+      motorista: document.getElementById('sdMotorista').value.trim(),
+      placa: document.getElementById('sdPlaca').value.trim().toUpperCase(),
+      foto: sdFotoData
     }).then(function(r){
       btn.disabled = false; btn.textContent = 'Registrar saída';
       document.getElementById('sdAviso').innerHTML = '<div class="aviso-box '+(r.offline?'atencao':'ok')+'">'+
@@ -434,7 +460,7 @@
     zerarItens('sd_');
     document.getElementById('sdObs').value = '';
     document.getElementById('sdRomaneio').value = '';
-    sdAssina.limpar(); sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
+    document.getElementById('sdMotorista').value=''; document.getElementById('sdPlaca').value=''; sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
     if (!manterLocais){ document.getElementById('sdDestino').value=''; document.getElementById('sdAviso').innerHTML=''; }
   }
   document.getElementById('btnLimparSaida').addEventListener('click', function(){ limparSaida(false); });

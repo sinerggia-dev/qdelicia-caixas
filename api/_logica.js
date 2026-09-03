@@ -14,7 +14,7 @@
  *   movimento { ID, ClientKey, DataHora:Date, DataRef:Date, Tipo, OrigemID, DestinoID, TipoCaixaID,
  *               Qtd:number, QtdConferida:number|null, Status, Romaneio, UsuarioID, Perfil, Obs,
  *               AssinaturaURL, FotoURL, ConferidoEm, ConferidoPor, Cancelado:bool, MotivoCancel,
- *               Historico:[] }
+ *               Motorista, Placa, Historico:[] }
  */
 'use strict';
 
@@ -222,6 +222,8 @@ function montarMovimento(p, ctx) {
       UsuarioID: String(p.usuarioId || '') || null,
       Perfil: perfil || null,
       Obs: String(p.obs || ''),
+      Motorista: String(p.motorista || '').trim() || null,
+      Placa: String(p.placa || '').trim().toUpperCase() || null,
       AssinaturaURL: ctx.assinaturaUrl || null,
       FotoURL: ctx.fotoUrl || null,
       ConferidoEm: status === 'CONFIRMADO' ? agora : null,
@@ -456,6 +458,7 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       qtdConferida: temConf ? m.QtdConferida : '',
       divergencia: (m.Status === 'CONFIRMADO' && temConf) ? Number(m.QtdConferida) - Number(m.Qtd) : '',
       status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID), perfil: m.Perfil,
+      motorista: m.Motorista || '', placa: m.Placa || '',
       obs: m.Obs, assinatura: m.AssinaturaURL, foto: m.FotoURL,
       historico: m.Historico || []
     };

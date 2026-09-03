@@ -188,6 +188,7 @@ var MOV = {
       AssinaturaURL: r.assinatura_url, FotoURL: r.foto_url,
       ConferidoEm: r.conferido_em, ConferidoPor: r.conferido_por,
       Cancelado: r.cancelado === true, MotivoCancel: r.motivo_cancel,
+      Motorista: r.motorista || '', Placa: r.placa || '',
       Historico: Array.isArray(r.historico) ? r.historico : []
     };
   },
@@ -216,6 +217,8 @@ var MOV = {
     pos('UsuarioID', 'usuario_id', nulo);
     pos('Perfil', 'perfil', nulo);
     pos('Obs', 'obs');
+    pos('Motorista', 'motorista', nulo);
+    pos('Placa', 'placa', nulo);
     pos('AssinaturaURL', 'assinatura_url', nulo);
     pos('FotoURL', 'foto_url', nulo);
     pos('ConferidoEm', 'conferido_em', function (d) { return d instanceof Date ? d.toISOString() : nulo(d); });

@@ -96,6 +96,9 @@ create table if not exists public.movimentos (
   usuario_id      text        references public.usuarios(id),
   perfil          text,
   obs             text        not null default '',
+  -- Carga saindo do galpão: quem leva e em qual veículo.
+  motorista       text,
+  placa           text,
   assinatura_url  text,
   foto_url        text,
   conferido_em    timestamptz,

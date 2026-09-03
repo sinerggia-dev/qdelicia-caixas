@@ -331,6 +331,27 @@ async function main() {
   const p2 = (await GET({ acao: 'dados' })).tipos.find((x) => x.ID === semTam.id);
   ok(p2 && p2.Tamanho === '' && p2.Kg === '', 'tamanho e peso são opcionais', p2);
 
+  console.log('\n== motorista e placa na saída do galpão ==');
+  const carga = await POST({
+    acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: C,
+    itens: [{ tipoCaixaId: T, qtd: 33 }], dataRef: dia(0),
+    usuarioId: 'U003', perfil: 'MOTORISTA',
+    motorista: '  joão da silva  ', placa: ' abc1d23 '
+  });
+  ok(carga.ok, 'saída com motorista e placa gravada', carga);
+
+  const mm = (await GET({ acao: 'movimentos', limit: 10 })).movimentos.find((m) => m.qtd === 33);
+  ok(mm && mm.motorista === 'joão da silva', 'motorista chega sem espaço sobrando', mm && mm.motorista);
+  ok(mm && mm.placa === 'ABC1D23', 'placa é normalizada em maiúsculas', mm && mm.placa);
+
+  const semCarro = await POST({
+    acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: C,
+    itens: [{ tipoCaixaId: T, qtd: 3 }], dataRef: dia(0), usuarioId: 'U003', perfil: 'MOTORISTA'
+  });
+  const m2 = (await GET({ acao: 'movimentos', limit: 10 })).movimentos.find((m) => m.qtd === 3);
+  ok(semCarro.ok && m2 && m2.motorista === '' && m2.placa === '',
+    'sem motorista/placa o movimento grava igual (a exigência é da tela)', m2 && [m2.motorista, m2.placa]);
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

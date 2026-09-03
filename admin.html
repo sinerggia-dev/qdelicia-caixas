@@ -573,7 +573,7 @@
         if (!MOVS.length){ box.innerHTML='<div class="vazio">Nenhum movimento no filtro.</div>'; return; }
         box.innerHTML = '<div class="tabela-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Destino</th>'+
           '<th>Caixa</th><th class="num">Qtd</th><th class="num">Conferida</th><th class="num">Div.</th><th>Status</th>'+
-          '<th>Romaneio</th><th>Quem</th><th>Comprovante</th><th></th></tr></thead><tbody>'+
+          '<th>Romaneio</th><th>Motorista / placa</th><th>Quem</th><th>Comprovante</th><th></th></tr></thead><tbody>'+
           MOVS.map(function(m){
             return '<tr class="'+(m.divergencia?'ruim':(m.status==='AGUARDANDO'?'destaque':''))+'">'+
               '<td>'+Q.dataBR(m.dataRef)+'</td><td><span class="tag '+tagTipo(m.tipo)+'">'+m.tipo.toLowerCase()+'</span></td>'+
@@ -581,7 +581,9 @@
               '<td class="num">'+Q.num(m.qtd)+'</td><td class="num">'+(m.qtdConferida===''?'—':Q.num(m.qtdConferida))+'</td>'+
               '<td class="num">'+(m.divergencia?'<b style="color:var(--vermelho)">'+m.divergencia+'</b>':'')+'</td>'+
               '<td>'+(m.status==='AGUARDANDO'?'<span class="tag amarela">a conferir</span>':'<span class="tag verde">ok</span>')+'</td>'+
-              '<td>'+Q.esc(m.romaneio||'')+'</td><td>'+Q.esc(m.usuario||'')+'</td>'+
+              '<td>'+Q.esc(m.romaneio||'')+'</td>'+
+              '<td>'+(m.motorista||m.placa ? Q.esc(m.motorista||'')+(m.placa?' <span class="tag cinza">'+Q.esc(m.placa)+'</span>':'') : '—')+'</td>'+
+              '<td>'+Q.esc(m.usuario||'')+'</td>'+
               '<td>'+(m.assinatura?'<a href="'+Q.esc(m.assinatura)+'" target="_blank">canhoto</a> ':'')+
                      (m.foto?'<a href="'+Q.esc(m.foto)+'" target="_blank">foto</a>':'')+'</td>'+
               '<td>'+(Q.ehAdmin()
@@ -613,8 +615,8 @@
   document.getElementById('btnCsvMov').addEventListener('click', function(){
     if (!MOVS.length) return Q.toast('Filtre os movimentos primeiro.','erro');
     Q.csv('movimentos_'+Q.hoje()+'.csv',
-      ['Data','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Quem','Obs'],
-      MOVS.map(function(m){ return [Q.dataBR(m.dataRef),m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,m.qtdConferida,m.divergencia,m.status,m.romaneio,m.usuario,m.obs]; }));
+      ['Data','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Motorista','Placa','Quem','Obs'],
+      MOVS.map(function(m){ return [Q.dataBR(m.dataRef),m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,m.qtdConferida,m.divergencia,m.status,m.romaneio,m.motorista||'',m.placa||'',m.usuario,m.obs]; }));
   });
 
   /* ---------------- cadastros ---------------- */
