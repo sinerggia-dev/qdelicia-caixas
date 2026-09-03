@@ -48,7 +48,7 @@ No `painel()` as rotas saem em `rotas`, **fora** de `locais` — quem consome n�
 caminhão com cliente. Cada rota traz `saldo` (no caminhão) e `saldoClientes` (nos pontos dela)
 separados de propósito: somar os dois esconde onde a caixa está.
 
-Banco antigo precisa de `supabase/migracao-rotas.sql`, que é idempotente.
+Banco antigo se resolve sozinho: ver a seção de migração automática.
 
 ## Separação de funções no painel
 
@@ -115,20 +115,20 @@ coloque em arquivo do repositório, e não peça para o usuário mandá-la por c
 
 ## Migração do banco: automática
 
-Depois do  (rodado uma vez), o app aplica sozinho o que falta.
-Para mudar a estrutura, **acrescente um item no fim de ** e faça push.
+Depois do `supabase/bootstrap.sql` (rodado uma vez), o app aplica sozinho o que falta.
+Para mudar a estrutura, **acrescente um item no fim de `api/_migracoes.js`** e faça push.
 A primeira chamada à API depois do deploy aplica.
 
 Três regras que não são negociáveis, e estão repetidas no cabeçalho do arquivo:
 
 1. **Nunca edite nem remova um item já publicado.** Quem já aplicou não reaplica, e o banco
    de outra pessoa ficaria diferente do seu sem ninguém perceber.
-2. **Escreva sempre de forma repetível** — , .
-3. **O  nunca é montado com dado que veio do navegador.** Ele sai literal de
-    e vai para a função , que é .
+2. **Escreva sempre de forma repetível** — `if not exists`, `on conflict do nothing`.
+3. **O `sql` nunca é montado com dado que veio do navegador.** Ele sai literal de
+   `_migracoes.js` e vai para a função `aplicar_migracao`, que é `security definer`.
 
 Quem executa o DDL é essa função no Postgres, não o PostgREST — o PostgREST só faz CRUD.
-Ela está trancada para  e : só quem tem a chave secreta chama, e essa
+Ela está trancada para `anon` e `authenticated`: só quem tem a chave secreta chama, e essa
 chave já abre o banco inteiro de qualquer jeito. Por isso este caminho não amplia o estrago
 possível, ao contrário de guardar um token da Management API na Vercel.
 
@@ -144,7 +144,7 @@ seguintes por cima de um banco meio migrado é como o estrago vira difícil de d
 node teste/teste_api.js
 ```
 
-63 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
+138 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
 ao Postgres por um banco falso em memória. Sem rede, sem chave, meio segundo. Rode depois de
 qualquer alteração em `api/`.
 
