@@ -143,6 +143,10 @@
 
   <!-- ---------- CADASTROS ---------- -->
   <section id="pgCadastros" class="pagina">
+    <div class="card" id="cardPedidos" style="display:none;border-left:3px solid var(--ambar)">
+      <h2>Pedidos de senha<span class="sub">Quem não conseguiu entrar no painel e pediu ajuda. Redefina em Usuários → editar → Senha.</span></h2>
+      <div id="tabelaPedidos"></div>
+    </div>
     <div class="card">
       <h2>Locais e rotas<span class="sub">Galpão, filial, cliente e rota — todos guardam caixa e têm saldo próprio.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
@@ -192,7 +196,7 @@
 (function(){
   'use strict';
   var Q = window.QDC;
-  var DADOS = null, EQUIPE = [], MOTORISTAS = [], LOCAIS_PADRAO = [], PAINEL = null, EXTRATO = null, MOVS = [];
+  var DADOS = null, EQUIPE = [], MOTORISTAS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PAINEL = null, EXTRATO = null, MOVS = [];
 
   /* ---------------- login ---------------- */
   function iniciarLogin(){
@@ -241,7 +245,25 @@
       '<input type="password" id="psAtual" autocomplete="current-password">'+
       '<label>Nova senha <span style="font-weight:400;color:var(--txt3)">— mínimo 6 caracteres</span></label>'+
       '<input type="password" id="psNova" autocomplete="new-password">'+
-      '<div class="linha-btn"><button class="btn" id="psSalvar">Salvar senha</button></div>');
+      '<div class="linha-btn"><button class="btn" id="psSalvar">Salvar senha</button></div>'+
+      '<hr style="border:0;border-top:1px solid var(--linha);margin:16px 0 12px">'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:0 0 8px">Não tem o PIN nem a senha antiga? '+
+        'Peça ao escritório: o administrador cadastra uma senha nova para você.</p>'+
+      '<div class="linha-btn"><button class="btn sec" id="psPedir">Pedir ajuda ao escritório</button></div>');
+
+    /* Resposta única, exista o identificador ou não. Dizer "esse e-mail não existe"
+       entregaria a lista de quem trabalha aqui a quem estiver testando endereços. */
+    document.getElementById('psPedir').addEventListener('click', function(){
+      var b=this, ident=document.getElementById('psIdent').value.trim();
+      if (!ident) return Q.toast('Escreva seu e-mail ou usuário ali em cima.','erro');
+      b.disabled=true; b.textContent='Enviando…';
+      Q.post({acao:'pedirSenha', identificador:ident}).then(function(r){
+        b.disabled=false; b.textContent='Pedir ajuda ao escritório';
+        if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui enviar.','erro');
+        fecharModal();
+        Q.toast('Pedido enviado. Procure o escritório para receber a senha nova.','ok');
+      }).catch(function(e){ b.disabled=false; b.textContent='Pedir ajuda ao escritório'; Q.toast(e.message,'erro'); });
+    });
     document.getElementById('psSalvar').addEventListener('click', function(){
       var b=this; b.disabled=true; b.textContent='Salvando…';
       Q.post({acao:'definirSenha',
@@ -262,7 +284,7 @@
      em silêncio, e o carregarDados seguinte zerava a lista. */
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; }
+      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; }
       if (DADOS){ desenharCadastros(); montarSelects(); }
     }).catch(function(e){ Q.toast('Não consegui carregar os usuários: '+e.message,'erro'); });
   }
@@ -702,6 +724,38 @@
 
   /* Local padrão é o posto de trabalho, não um nó que guarda caixa: por isso cadastro
      próprio, e não mais uma entrada em Locais e rotas. */
+  /* Não há envio de e-mail neste app, então "link de redefinição" seria promessa falsa.
+     O pedido vira uma linha aqui, e quem resolve é o escritório pelo cadastro. */
+  function desenharPedidos(){
+    var card = document.getElementById('cardPedidos');
+    card.style.display = PEDIDOS_SENHA.length ? 'block' : 'none';
+    if (!PEDIDOS_SENHA.length) return;
+    document.getElementById('tabelaPedidos').innerHTML =
+      '<div class="tabela-wrap"><table><thead><tr><th>Quem pediu</th><th>Quando</th><th>Usuário no sistema</th><th></th></tr></thead><tbody>'+
+      PEDIDOS_SENHA.map(function(p){
+        var alvo = EQUIPE.filter(function(u){
+          var i = String(p.identificador||'').trim().toLowerCase();
+          return String(u.Email||'').toLowerCase()===i || String(u.Usuario||'').toLowerCase()===i || String(u.Nome||'').toLowerCase()===i;
+        })[0];
+        return '<tr><td><b>'+Q.esc(p.identificador)+'</b></td>'+
+          '<td>'+Q.dataBR(p.criado_em)+'</td>'+
+          '<td>'+(alvo ? Q.esc(alvo.Nome)+' <span class="tag azul">'+Q.esc(String(alvo.Perfil).toLowerCase())+'</span>'
+                       : '<span class="tag cinza">não encontrado</span>')+'</td>'+
+          '<td><button class="mini" data-resolver="'+Q.esc(p.id)+'">marcar resolvido</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+
+    document.querySelectorAll('[data-resolver]').forEach(function(b){
+      b.addEventListener('click', function(){
+        b.disabled = true;
+        Q.post({acao:'resolverPedidoSenha', id:b.dataset.resolver}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui salvar.','erro');
+          Q.toast('Pedido resolvido.','ok'); carregarEquipe();
+        }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
+      });
+    });
+  }
+
   function desenharLocaisPadrao(){
     var box = document.getElementById('tabelaLocaisPadrao');
     if (!LOCAIS_PADRAO.length){ box.innerHTML = '<div class="vazio">Nenhum local padrão cadastrado.</div>'; return; }
@@ -840,6 +894,7 @@
 
     desenharMotoristas();
     desenharLocaisPadrao();
+    desenharPedidos();
     document.getElementById('tabelaTipos').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Tipo de caixa</th><th class="num">Peso (kg)</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       (DADOS.tipos||[]).map(function(t){

@@ -95,7 +95,7 @@ async function rotaGet(p) {
     case 'equipe':
       // Aqui vai o cadastro completo, com documento — é a tela do escritório.
       return { ok: true, usuarios: L.usuariosPublicos(d.usuarios), motoristas: d.motoristas,
-               locaisPadrao: d.locaisPadrao };
+               locaisPadrao: d.locaisPadrao, pedidosSenha: d.pedidosSenha };
     case 'painel':
       return { ok: true, painel: L.painel(d) };
     case 'pendentes':
@@ -125,6 +125,8 @@ async function rotaPost(p) {
   }
 
   if (acao === 'definirSenha') return await definirSenha(p);
+  if (acao === 'pedirSenha') return await pedirSenha(p);
+  if (acao === 'resolverPedidoSenha') return await resolverPedidoSenha(p);
 
   if (acao === 'movimento') return await gravarMovimento(p);
   if (acao === 'conferir') return await conferir(p);
@@ -178,6 +180,33 @@ async function gravarMovimento(p) {
     }
   }
   return { ok: true, criados: criados, status: r.status };
+}
+
+/**
+ * Registra que alguém não consegue entrar. A resposta é sempre a mesma, exista o
+ * identificador ou não: dizer "esse e-mail não existe" entrega quem trabalha aqui a
+ * quem estiver testando endereços.
+ */
+async function pedirSenha(p) {
+  var ident = String(p.identificador || '').trim();
+  if (!ident) return { ok: false, erro: 'Informe seu e-mail ou usuário.' };
+
+  var d = await db.carregarTudo();
+  var jaTem = (d.pedidosSenha || []).some(function (x) {
+    return String(x.identificador).toLowerCase() === ident.toLowerCase();
+  });
+  if (!jaTem) {
+    await db.insert('pedidos_senha', [{
+      id: 'S' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      identificador: ident.slice(0, 120)
+    }]);
+  }
+  return { ok: true };
+}
+
+async function resolverPedidoSenha(p) {
+  await db.update('pedidos_senha', String(p.id || ''), { atendido: true });
+  return { ok: true };
 }
 
 /**

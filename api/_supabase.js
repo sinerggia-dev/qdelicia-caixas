@@ -290,7 +290,8 @@ async function carregarTudo() {
     selectAll('movimentos', 'id'),
     selectAll('config', 'chave'),
     selectAll('motoristas', 'nome'),
-    selectAll('locais_padrao', 'nome')
+    selectAll('locais_padrao', 'nome'),
+    selectAll('pedidos_senha', 'criado_em.desc')
   ]);
   var config = {};
   (partes[4] || []).forEach(function (r) { config[r.chave] = r.valor; });
@@ -301,6 +302,7 @@ async function carregarTudo() {
     movimentos: (partes[3] || []).map(MOV.de),
     motoristas: (partes[5] || []).map(MOTORISTA.de),
     locaisPadrao: (partes[6] || []).map(LOCAL_PADRAO.de),
+    pedidosSenha: (partes[7] || []).filter(function (r) { return r.atendido !== true; }),
     config: config
   };
 }

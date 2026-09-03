@@ -113,6 +113,21 @@ A chave vive só em `SUPABASE_SERVICE_KEY`, nas variáveis de ambiente da Vercel
 nova do Supabase (`sb_secret_...`, chamada `vercel_api`), não a `service_role` legada. **Nunca**
 coloque em arquivo do repositório, e não peça para o usuário mandá-la por chat.
 
+## Entrar: PIN no campo, senha no painel
+
+Os dois convivem de propósito, por escolha do usuário. O celular lança de luva várias vezes
+por dia e o PIN protege só lançamento — que fica assinado e pode ser corrigido. O painel vê a
+operação inteira e mexe em cadastro, então pede e-mail/usuário mais senha em hash (scrypt,
+`_senha.js`). Se alguém pedir para unificar, a pergunta já foi feita e a resposta foi manter.
+
+**Não existe envio de e-mail neste app.** Por isso "esqueci a senha" não manda link: quem tem
+PIN ou a senha antiga se resolve sozinho na tela; quem não tem nenhum dos dois grava um pedido
+em `pedidos_senha`, e o admin vê em Cadastros → Pedidos de senha e cadastra a senha nova à mão.
+
+`pedirSenha` responde **sempre** `{ok:true}`, exista o identificador ou não, e ignora repetição
+do mesmo identificador. Diferenciar as respostas transformaria a tela de login pública num
+listório de quem trabalha na empresa. Se mexer ali, mantenha isso.
+
 ## Migração do banco: automática
 
 Depois do `supabase/bootstrap.sql` (rodado uma vez), o app aplica sozinho o que falta.

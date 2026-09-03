@@ -39,6 +39,7 @@ const tabelas = {
       cnh_categoria: 'E', cnh_validade: '2030-01-01', placa: 'ABC1D23', obs: '', ativo: true }
   ],
   movimentos: [],
+  pedidos_senha: [],
   config: [
     { chave: 'empresa', valor: 'Qdelícia Frutas' },
     { chave: 'diasPrazoPadrao', valor: '7' }
@@ -104,6 +105,7 @@ const falso = Object.assign({}, real, {
       movimentos: tabelas.movimentos.map(real.MOV.de),
       motoristas: tabelas.motoristas.map(real.MOTORISTA.de),
       locaisPadrao: tabelas.locais_padrao.map(real.LOCAL_PADRAO.de),
+      pedidosSenha: tabelas.pedidos_senha.filter((r) => r.atendido !== true),
       config: config
     };
   }
@@ -515,6 +517,34 @@ async function main() {
   const emUso = await POST({ acao: 'excluir', aba: 'LocaisPadrao', id: 'P001' });
   ok(emUso.ok === false && /em uso por 1 usuário/.test(emUso.erro || ''),
     'local padrão em uso é recusado, dizendo quantos dependem dele', emUso);
+
+  console.log('\n== pedido de senha ==');
+  const semIdent = await POST({ acao: 'pedirSenha', identificador: '   ' });
+  ok(semIdent.ok === false, 'pedido sem identificador é recusado', semIdent);
+
+  // A resposta é a mesma para quem existe e para quem não existe: é o que impede
+  // usar esta tela para descobrir quem trabalha aqui.
+  const existe = await POST({ acao: 'pedirSenha', identificador: 'admin@qdelicia.com.br' });
+  const naoExiste = await POST({ acao: 'pedirSenha', identificador: 'ninguem@lugar.nenhum' });
+  ok(existe.ok === true && naoExiste.ok === true &&
+     JSON.stringify(existe) === JSON.stringify(naoExiste),
+    'resposta idêntica exista o identificador ou não', [existe, naoExiste]);
+
+  const eqPS = await GET({ acao: 'equipe' });
+  ok(eqPS.pedidosSenha.length === 2, 'os dois pedidos chegam ao escritório', eqPS.pedidosSenha);
+  ok(((await GET({ acao: 'dados' })).pedidosSenha) === undefined,
+    'pedido não vaza na rota pública');
+
+  await POST({ acao: 'pedirSenha', identificador: 'ADMIN@qdelicia.com.br' });
+  ok((await GET({ acao: 'equipe' })).pedidosSenha.length === 2,
+    'pedir de novo não duplica a linha, nem com outra caixa alta');
+
+  const alvoPS = eqPS.pedidosSenha[0];
+  ok((await POST({ acao: 'resolverPedidoSenha', id: alvoPS.id })).ok === true,
+    'escritório marca o pedido como resolvido');
+  const sobrouPS = (await GET({ acao: 'equipe' })).pedidosSenha;
+  ok(sobrouPS.length === 1 && sobrouPS[0].id !== alvoPS.id,
+    'resolvido sai da lista e o outro fica', sobrouPS);
 
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);

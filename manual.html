@@ -339,18 +339,30 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <div class="acesso">
       <span class="quem">Campo — motorista, promotor, conferente</span>
       <a href="https://qdelicia-caixas.vercel.app/">qdelicia-caixas.vercel.app/</a>
-      <span class="como">Escolhe o nome na lista, digita o PIN, entra.</span>
+      <span class="como">Escreve o nome e o PIN de 4 dígitos. Sem lista de nomes na tela.</span>
     </div>
     <div class="acesso">
       <span class="quem">Escritório</span>
       <a href="https://qdelicia-caixas.vercel.app/admin.html">qdelicia-caixas.vercel.app/admin.html</a>
-      <span class="como">Mesmo login, com usuário de perfil ADMIN.</span>
+      <span class="como">E-mail ou usuário, mais senha. Só perfil ADMIN e GALPÃO entram.</span>
     </div>
     <div class="acesso">
       <span class="quem">Cliente</span>
       <a href="https://qdelicia-caixas.vercel.app/extrato.html?t=b6p8xwmqr6">…/extrato.html?t=CÓDIGO</a>
       <span class="como">Abre direto, sem login e sem senha. Cada cliente tem o seu código.</span>
     </div>
+  </div>
+
+  <h3>Por que o campo usa PIN e o escritório usa senha</h3>
+  <p>Não é descuido: são dois usos diferentes. No galpão a pessoa lança de luva, com o celular numa mão e a caixa na outra, várias vezes por dia — digitar uma senha longa a cada vez atrasa a operação, e o que o PIN protege é só lançamento, que fica registrado com nome e hora e pode ser corrigido. Já o painel vê a operação inteira e mexe em cadastro; ali a senha longa se paga.</p>
+
+  <h3>Esqueci a senha do painel</h3>
+  <p>Na tela de entrada, clique em <strong>Primeiro acesso ou esqueci a senha</strong>. Quem ainda nunca definiu senha prova quem é pelo <strong>PIN</strong>; quem já tem senha informa a <strong>senha atual</strong>. Nos dois casos a nova senha vale na hora.</p>
+  <p>Quem não tem nem um nem outro clica em <strong>Pedir ajuda ao escritório</strong>. O pedido aparece no painel, em <strong>Cadastros → Pedidos de senha</strong>, e o administrador cadastra uma senha nova em Usuários. <em>O app não envia e-mail</em> — a senha nova é combinada pessoalmente, e depois disso o administrador marca o pedido como resolvido.</p>
+
+  <div class="regra">
+    <span class="rot">Por que não diz se o e-mail existe</span>
+    <p>O pedido responde a mesma coisa para qualquer texto digitado. Se dissesse “esse e-mail não existe”, qualquer pessoa poderia usar a tela para descobrir quem trabalha aqui.</p>
   </div>
 
   <h3>No celular</h3>
@@ -474,8 +486,11 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p>Nome e <strong>peso em quilos</strong>. O peso é opcional, mas vale a pena: é o que separa duas caixas de mesmo nome na hora da conferência, quando aparecem como <em>Caixa Banana · 20 kg</em>. Mantenha a lista curta — ela é escolhida no celular, com pressa.</p>
 
   <h3>Usuários</h3>
-  <p>Nome, perfil, PIN e local padrão. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá peso à divergência.</p>
+  <p>Nome, e-mail, perfil, PIN e local padrão. O e-mail (ou o usuário) é o que a pessoa digita para entrar no painel; o PIN é o do celular. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá peso à divergência.</p>
   <p>Quem sai da empresa se <strong>desativa</strong>, pelo botão na lista. Existe também <strong>excluir</strong>, mas ele só apaga de verdade quem nunca lançou nada: quem já tem movimento no histórico é desativado, porque o nome de quem contou é o que dá peso à divergência. Inativo some das listas e não consegue mais entrar; reativar devolve o acesso.</p>
+  <h3>Pedidos de senha</h3>
+  <p>Este cartão só aparece quando alguém pediu ajuda para entrar no painel. Cada linha mostra o que a pessoa digitou, quando pediu e a qual usuário aquilo corresponde — ou <em>não encontrado</em>, se não corresponder a ninguém cadastrado. Cadastre a senha nova em <strong>Usuários</strong>, avise a pessoa e depois clique em <strong>marcar resolvido</strong>.</p>
+
   <p>O <strong>último administrador ativo</strong> não pode ser desativado nem excluído — nem por ele mesmo. Sem ele ninguém entra no painel, e a volta seria por SQL no banco.</p>
 </section>
 

@@ -131,5 +131,18 @@ module.exports = [
       "on conflict (id) do nothing;",
       "alter table public.usuarios drop constraint if exists usuarios_local_padrao_fkey;"
     ].join('\n')
+  },
+  {
+    id: '2026-09-05-pedidos-senha',
+    nota: 'quem esqueceu a senha e não tem PIN pede redefinição ao escritório',
+    sql: [
+      "create table if not exists public.pedidos_senha (",
+      "  id text primary key,",
+      "  identificador text not null,",
+      "  criado_em timestamptz not null default now(),",
+      "  atendido boolean not null default false",
+      ");",
+      "alter table public.pedidos_senha enable row level security;"
+    ].join('\n')
   }
 ];
