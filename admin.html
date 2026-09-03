@@ -158,6 +158,14 @@
       <div id="tabelaTipos"></div>
     </div>
     <div class="card">
+      <h2>Motoristas<span class="sub">Quem pode ser escolhido na saída do galpão. Um nome por linha.</span></h2>
+      <textarea id="cfgMotoristas" style="min-height:170px" placeholder="Arilson&#10;Chico&#10;Dinho"></textarea>
+      <div class="linha-btn">
+        <button class="btn" id="btnSalvarMotoristas" style="flex:0;min-width:170px">Salvar motoristas</button>
+        <span id="cfgMotoristasInfo" style="align-self:center;font-size:13px;color:var(--txt2)"></span>
+      </div>
+    </div>
+    <div class="card">
       <h2>Usuários<span class="sub">Perfis: ADMIN (tudo), GALPAO (lança e confere), MOTORISTA (lança na rua), PROMOTOR (conta no cliente).</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoUsuario" style="flex:0;min-width:170px">+ Novo usuário</button>
@@ -633,6 +641,27 @@
       .catch(function(e){ Q.toast(e.message,'erro'); });
   }
 
+  /* Motorista aqui é quem leva a carga, não quem usa o app: por isso é uma lista de
+     nomes em Config, e não usuário com PIN. */
+  function desenharMotoristas(){
+    var el = document.getElementById('cfgMotoristas');
+    if (document.activeElement === el) return;          // não atropela quem está digitando
+    var txt = String(((DADOS||{}).config||{}).motoristas || '');
+    el.value = txt.split(/[\n;,]/).map(function(s){ return s.trim(); }).filter(Boolean).join('\n');
+    document.getElementById('cfgMotoristasInfo').textContent =
+      el.value ? el.value.split('\n').length + ' na lista' : 'nenhum cadastrado';
+  }
+  document.getElementById('btnSalvarMotoristas').addEventListener('click', function(){
+    var b = this, v = document.getElementById('cfgMotoristas').value;
+    b.disabled = true; b.textContent = 'Salvando…';
+    Q.post({acao:'salvarConfig', chave:'motoristas', valor:v}).then(function(r){
+      b.disabled = false; b.textContent = 'Salvar motoristas';
+      if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui salvar.','erro');
+      Q.toast('Lista de motoristas salva.','ok');
+      recarregarCadastros();
+    }).catch(function(e){ b.disabled=false; b.textContent='Salvar motoristas'; Q.toast(e.message,'erro'); });
+  });
+
   function nomeDe(lista, id){
     var x = (lista||[]).filter(function(i){ return String(i.ID)===String(id); })[0];
     return x ? x.Nome : String(id||'');
@@ -696,6 +725,7 @@
       });
     });
 
+    desenharMotoristas();
     document.getElementById('tabelaTipos').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Tipo de caixa</th><th class="num">Peso (kg)</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       (DADOS.tipos||[]).map(function(t){

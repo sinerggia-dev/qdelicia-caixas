@@ -78,7 +78,8 @@
         </div>
         <div id="sdWrapMotorista" style="display:none">
           <label for="sdMotorista">Motorista</label>
-          <input id="sdMotorista" type="text" autocapitalize="words" placeholder="quem vai levar">
+          <input id="sdMotorista" type="text" list="listaMotoristas" autocapitalize="words" placeholder="quem vai levar">
+          <datalist id="listaMotoristas"></datalist>
         </div>
         <div>
           <label for="sdRomaneio">Romaneio / NF (opcional)</label>
@@ -369,6 +370,18 @@
     return meus.length ? meus : pontos;
   }
 
+  function motoristas(){
+    var visto = {};
+    return String(((DADOS||{}).config||{}).motoristas || '')
+      .split(/[\n;,]/).map(function(s){ return s.trim(); })
+      .filter(function(s){
+        if (!s) return false;
+        var k = s.toLowerCase();
+        if (visto[k]) return false;
+        visto[k] = 1; return true;
+      });
+  }
+
   function nomeDoLocal(id){
     var l = (DADOS.locais||[]).filter(function(x){ return String(x.ID)===String(id); })[0];
     return l ? l.Nome : '';
@@ -386,7 +399,12 @@
     document.getElementById('sdWrapRota').style.display      = doGalpao ? 'block' : 'none';
     // Do galpão a carga vai para a rota; da rota, para o cliente. Nunca os dois ao mesmo tempo.
     document.getElementById('sdWrapDestino').style.display   = doGalpao ? 'none' : 'block';
-    if (doGalpao) document.getElementById('sdRota').innerHTML = opcoes(locaisPor(['ROTA']), ROTA);
+    if (doGalpao){
+      document.getElementById('sdRota').innerHTML = opcoes(locaisPor(['ROTA']), ROTA);
+      // Sugestão, não trava: um motorista de fora pode cobrir a rota num dia qualquer.
+      document.getElementById('listaMotoristas').innerHTML =
+        motoristas().map(function(m){ return '<option value="'+Q.esc(m)+'">'; }).join('');
+    }
   }
 
   function montarFormularios(){

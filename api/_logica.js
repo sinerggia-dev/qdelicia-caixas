@@ -29,6 +29,24 @@ var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA'];
  * O peso entra no rótulo porque é o que separa duas caixas de mesmo nome no seletor,
  * na hora da conferência, quando a contagem precisa ser exata.
  */
+/**
+ * A lista de motoristas é digitada num campo de texto, um por linha. Aqui ela vira
+ * array limpo: sem linha vazia, sem espaço nas pontas, sem nome repetido.
+ */
+function listaMotoristas(config) {
+  var visto = {};
+  return String((config && config.motoristas) || '')
+    .split(/[\n;,]/)
+    .map(function (s) { return s.trim(); })
+    .filter(function (s) {
+      if (!s) return false;
+      var k = s.toLowerCase();
+      if (visto[k]) return false;
+      visto[k] = 1;
+      return true;
+    });
+}
+
 function mapaTipos(tipos) {
   var m = {};
   (tipos || []).forEach(function (t) { m[String(t.ID)] = rotuloTipo(t); });
@@ -674,7 +692,7 @@ function usuariosPublicos(usuarios) {
 
 module.exports = {
   TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
-  rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,
+  rotuloTipo: rotuloTipo, mapaTipos: mapaTipos, listaMotoristas: listaMotoristas,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,

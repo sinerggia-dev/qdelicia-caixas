@@ -83,6 +83,7 @@ async function rotaPost(p) {
   if (acao === 'salvarLocal') return await salvarRegistro('Locais', p);
   if (acao === 'salvarTipo') return await salvarRegistro('TiposCaixa', p);
   if (acao === 'salvarUsuario') return await salvarUsuario(p);
+  if (acao === 'salvarConfig') return await salvarConfig(p);
   if (acao === 'excluir') return await excluir(p.aba, p.id);
 
   return { ok: false, erro: 'Ação desconhecida: ' + acao };
@@ -237,6 +238,16 @@ async function salvarRegistro(aba, p) {
   if (dados.Ativo === undefined) dados.Ativo = true;
   await db.insert(TABELA[aba], [MAPA[aba].para(dados)]);
   return { ok: true, id: dados.ID, criado: true };
+}
+
+/** Só chaves conhecidas: `config` alimenta a tela, não é depósito de qualquer coisa. */
+var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas'];
+
+async function salvarConfig(p) {
+  var chave = String(p.chave || '').trim();
+  if (CHAVES_CONFIG.indexOf(chave) < 0) return { ok: false, erro: 'Configuração desconhecida: ' + chave };
+  await db.salvarConfig(chave, p.valor);
+  return { ok: true };
 }
 
 async function excluir(aba, id) {

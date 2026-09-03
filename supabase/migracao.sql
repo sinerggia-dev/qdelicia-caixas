@@ -92,6 +92,23 @@ insert into public.locais (id, tipo, nome, token) values
   ('L015','ROTA','Russas',      substr(md5(random()::text||'russas'),      1, 10))
 on conflict (id) do nothing;
 
--- ============================================================ 8. sobras antigas
+-- ============================================================ 8. motoristas da operacao
+-- Um nome por linha, em config. Motorista aqui e quem leva a carga, nao quem usa o app:
+-- por isso nao vira usuario com PIN.
+insert into public.config (chave, valor) values
+  ('motoristas', E'Arilson
+Chico
+Dinho
+Isaque
+Paulino
+Plínio
+Ramos
+Valcy
+Valcy (Jr.)
+Vando
+Welison')
+on conflict (chave) do nothing;
+
+-- ============================================================ 9. sobras antigas
 -- O app não trabalha mais com valor em dinheiro.
 alter table public.tipos_caixa drop column if exists valor_unit;

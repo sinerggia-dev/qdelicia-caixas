@@ -68,6 +68,11 @@ const falso = Object.assign({}, real, {
     Object.assign(alvo, patch);
     return [Object.assign({}, alvo)];
   },
+  salvarConfig: async (chave, valor) => {
+    const linha = tabelas.config.find((r) => r.chave === chave);
+    if (linha) linha.valor = valor; else tabelas.config.push({ chave, valor });
+    return [{ chave, valor }];
+  },
   remover: async (t, id) => {
     const i = tabelas[t].findIndex((r) => r.id === id);
     if (i >= 0) tabelas[t].splice(i, 1);
@@ -397,6 +402,22 @@ async function main() {
   ok(/atende 1 ponto/.test(tentou.aviso || ''), 'o aviso diz quantos pontos dependem dela', tentou.aviso);
   const aindaLa = (await GET({ acao: 'dados' })).locais.find((l) => l.ID === rUsada.id);
   ok(aindaLa && aindaLa.Ativo === false, 'a rota continua no banco, inativa', aindaLa && aindaLa.Ativo);
+
+  console.log('\n== lista de motoristas ==');
+  const L = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  ok(L.listaMotoristas({ motoristas: ' Arilson \nChico\n\n arilson ;Dinho , Valcy (Jr.) ' })
+      .join('|') === 'Arilson|Chico|Dinho|Valcy (Jr.)',
+    'limpa espaço, linha vazia e nome repetido',
+    L.listaMotoristas({ motoristas: ' Arilson \nChico\n\n arilson ;Dinho , Valcy (Jr.) ' }));
+  ok(L.listaMotoristas({}).length === 0, 'sem lista cadastrada não quebra');
+
+  const salvou = await POST({ acao: 'salvarConfig', chave: 'motoristas', valor: 'Ramos\nVando' });
+  ok(salvou.ok, 'escritório salva a lista', salvou);
+  ok((await GET({ acao: 'dados' })).config.motoristas === 'Ramos\nVando',
+    'lista volta na rota dados, de onde o celular lê', (await GET({ acao: 'dados' })).config.motoristas);
+
+  const proibido = await POST({ acao: 'salvarConfig', chave: 'qualquerCoisa', valor: 'x' });
+  ok(proibido.ok === false, 'config só aceita chave conhecida', proibido);
 
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);

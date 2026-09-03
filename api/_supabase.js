@@ -61,6 +61,15 @@ function update(tabela, id, patch) {
   });
 }
 
+/** Upsert por chave — o Postgres resolve o conflito, sem precisar ler antes para decidir. */
+function salvarConfig(chave, valor) {
+  return req('/rest/v1/config?on_conflict=chave', {
+    method: 'POST',
+    headers: cabecalhos({ Prefer: 'resolution=merge-duplicates,return=representation' }),
+    body: JSON.stringify([{ chave: String(chave), valor: String(valor == null ? '' : valor) }])
+  });
+}
+
 function remover(tabela, id) {
   return req('/rest/v1/' + tabela + '?id=eq.' + encodeURIComponent(id), {
     method: 'DELETE',
@@ -251,7 +260,7 @@ async function carregarTudo() {
 
 module.exports = {
   configurado: configurado,
-  selectAll: selectAll, insert: insert, update: update, remover: remover,
+  selectAll: selectAll, insert: insert, update: update, remover: remover, salvarConfig: salvarConfig,
   subirArquivo: subirArquivo, carregarTudo: carregarTudo,
   LOCAL: LOCAL, TIPO: TIPO, USUARIO: USUARIO, MOV: MOV
 };
