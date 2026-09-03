@@ -642,9 +642,14 @@
 
   /* ---------------- cadastros ---------------- */
   /* Depois de mexer em cadastro, os selects e a lista precisam refletir o novo estado. */
+  /* Busca direto, sem passar pelo cache: logo depois de gravar, a cópia guardada é
+     justamente a versão velha, e redesenhar com ela mostraria o dado que acabou de mudar. */
   function recarregarCadastros(){
-    Q.carregarDados().then(function(d){ DADOS=d; montarSelects(); desenharCadastros(); })
-      .catch(function(e){ Q.toast(e.message,'erro'); });
+    return Q.get({acao:'dados'}).then(function(d){
+      if (!d || d.ok===false) throw new Error((d&&d.erro)||'Falha ao recarregar.');
+      DADOS = d; Q.cache('dados', d);
+      montarSelects(); desenharCadastros();
+    }).catch(function(e){ Q.toast(e.message,'erro'); });
   }
 
   /* Motorista é quem leva a carga, não quem usa o app: por isso cadastro próprio,
@@ -1075,7 +1080,10 @@
     Q.post({acao:acao, registro:registro}).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       Q.toast('Salvo!','ok'); fecharModal();
-      return Q.get({acao:'dados'}).then(function(d){ if (d.ok){ DADOS=d; Q.cache('dados',d); montarSelects(); desenharCadastros(); } });
+      // Duas fontes, as duas precisam vir de novo: locais e tipos estão em DADOS; usuários,
+      // motoristas e locais padrão vêm da rota `equipe`. Atualizar só a primeira deixava a
+      // tela mostrando o valor antigo até alguém recarregar a página.
+      return Promise.all([recarregarCadastros(), carregarEquipe()]);
     }).catch(function(e){ btn.disabled=false; btn.textContent='Salvar'; Q.toast(e.message,'erro'); });
   }
 
