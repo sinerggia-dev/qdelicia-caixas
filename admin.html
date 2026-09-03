@@ -916,7 +916,10 @@
       '<h3 style="margin-top:20px">Outros</h3>'+
       '<label>Telefone</label><input type="tel" id="fTel" value="'+Q.esc(u.Telefone||'')+'">'+
       '<label>Local padrão (galpão/filial onde trabalha)</label><select id="fLocal">'+opcoes(locaisPor(['GALPAO','FILIAL']),'—')+'</select>'+
-      '<label>Ativo</label><select id="fAtivo"><option value="SIM">sim</option><option value="NAO">não</option></select>'+
+      // O selecionado precisa vir marcado: sem isto, editar um usuário desativado o
+      // reativava em silêncio, porque o formulário devolvia sempre "sim".
+      '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(u.Ativo)?' selected':'')+'>sim</option>'+
+        '<option value="NAO"'+(Q.ativo(u.Ativo)?'':' selected')+'>não</option></select>'+
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
     if (u.LocalPadrao) document.getElementById('fLocal').value = u.LocalPadrao;
     document.getElementById('fSalvar').addEventListener('click', function(){
