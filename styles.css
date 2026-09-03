@@ -61,6 +61,25 @@ main{padding:14px;max-width:1180px;margin:0 auto}
 .card{background:var(--surface);border:1px solid var(--linha);border-radius:var(--raio);padding:16px;margin-bottom:14px;box-shadow:var(--sombra)}
 .card h2{margin:0 0 4px;font-size:17px}
 .card h2 .sub{display:block;font-size:13px;font-weight:400;color:var(--txt2);margin-top:2px}
+/* ---------- quadro que abre e fecha ---------- */
+/* Seis cadastros abertos ao mesmo tempo enchem a página: o que a pessoa quer fica a
+   três rolagens de distância. Fechado, o título continua dizendo quantos itens há dentro,
+   senão o quadro vazio parece cadastro vazio. */
+.card.dobra > h2{cursor:pointer;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  margin:0;padding:2px 0;user-select:none}
+.card.dobra > h2:hover{color:var(--marinho)}
+.card.dobra > h2 .sub{flex:1 0 100%;order:3}
+.card.dobra > h2 .seta{margin-left:auto;order:2;font-size:12px;color:var(--txt2);
+  transition:transform .15s ease;line-height:1}
+.card.dobra > h2 .conta{order:1;font-size:12px;font-weight:600;color:var(--txt2);
+  background:#eef1f4;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.card.dobra.fechado > h2 .seta{transform:rotate(-90deg)}
+.card.dobra.fechado{padding-bottom:14px}
+.card.dobra.fechado > h2{margin-bottom:0}
+.card.dobra.fechado > h2 .sub{display:none}
+.card.dobra.fechado > .corpo{display:none}
+.card.dobra > .corpo{margin-top:10px}
+
 .card h3{margin:18px 0 8px;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt2)}
 
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}

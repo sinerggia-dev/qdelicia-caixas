@@ -143,39 +143,39 @@
 
   <!-- ---------- CADASTROS ---------- -->
   <section id="pgCadastros" class="pagina">
-    <div class="card" id="cardPedidos" style="display:none;border-left:3px solid var(--ambar)">
+    <div class="card" id="cardPedidos" style="display:none;border-left:3px solid var(--ambar)" data-cad="pedidos">
       <h2>Pedidos de senha<span class="sub">Quem não conseguiu entrar no painel e pediu ajuda. Redefina em Usuários → editar → Senha.</span></h2>
       <div id="tabelaPedidos"></div>
     </div>
-    <div class="card">
+    <div class="card" data-cad="usuarios">
       <h2>Usuários<span class="sub">Perfis: ADMIN (tudo), GALPAO (lança e confere), MOTORISTA (lança na rua), PROMOTOR (conta no cliente).</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoUsuario" style="flex:0;min-width:170px">+ Novo usuário</button>
       </div>
       <div id="tabelaUsuarios"></div>
     </div>
-    <div class="card">
+    <div class="card" data-cad="locais">
       <h2>Locais e rotas<span class="sub">Galpão, filial, cliente e rota — todos guardam caixa e têm saldo próprio.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoLocal" style="flex:0;min-width:170px">+ Nova rota</button>
       </div>
       <div id="tabelaLocais"></div>
     </div>
-    <div class="card">
+    <div class="card" data-cad="tipos">
       <h2>Tipos de caixa<span class="sub">Os tipos que aparecem nas telas de lançamento e conferência.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoTipo" style="flex:0;min-width:170px">+ Novo tipo</button>
       </div>
       <div id="tabelaTipos"></div>
     </div>
-    <div class="card">
+    <div class="card" data-cad="motoristas">
       <h2>Motoristas<span class="sub">Quem leva a carga. Aparece para escolha na saída do galpão.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoMotorista" style="flex:0;min-width:170px">+ Novo motorista</button>
       </div>
       <div id="tabelaMotoristas"></div>
     </div>
-    <div class="card">
+    <div class="card" data-cad="locaispadrao">
       <h2>Locais padrão<span class="sub">Onde a pessoa trabalha. É o que aparece na coluna Local padrão dos usuários.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoLocalPadrao" style="flex:0;min-width:170px">+ Novo local padrão</button>
@@ -991,6 +991,67 @@
     });
     document.querySelectorAll('[data-editar-user]').forEach(function(b){
       b.addEventListener('click', function(){ formUsuario(EQUIPE.filter(function(u){return String(u.ID)===b.dataset.editarUser;})[0]); });
+    });
+    // Por último: envolve o miolo na primeira vez e reconta a cada redesenho.
+    montarDobras();
+  }
+
+  /* ---------------- quadros que abrem e fecham ---------------- *
+     Seis cadastros abertos ao mesmo tempo enchem a página, e o que a pessoa quer fica a
+     três rolagens de distância. Cada um guarda o próprio estado neste navegador.
+
+     A montagem é feita por código, e não na marcação, porque o miolo de cada quadro é
+     reescrito por innerHTML a cada salvamento: envolver na mão significaria seis lugares
+     para esquecer um. Aqui o `data-dobra` garante que só aconteça uma vez. */
+  var ABERTO_POR_PADRAO = { pedidos: true };
+
+  function chaveDobra(cad){ return 'qdc_cad_' + cad; }
+
+  function montarDobras(){
+    var cards = document.querySelectorAll('#pgCadastros .card[data-cad]');
+    Array.prototype.forEach.call(cards, function(card){
+      if (card.dataset.dobra) return;
+      card.dataset.dobra = '1';
+      card.classList.add('dobra');
+
+      var h2 = card.querySelector('h2');
+      var corpo = document.createElement('div');
+      corpo.className = 'corpo';
+      while (h2.nextSibling) corpo.appendChild(h2.nextSibling);
+      card.appendChild(corpo);
+
+      var conta = document.createElement('span');
+      conta.className = 'conta';
+      var seta = document.createElement('span');
+      seta.className = 'seta'; seta.textContent = '▼';
+      var sub = h2.querySelector('.sub');
+      h2.insertBefore(conta, sub || null);
+      h2.insertBefore(seta, sub || null);
+
+      var guardado = null;
+      try { guardado = localStorage.getItem(chaveDobra(card.dataset.cad)); } catch(e){}
+      var aberto = guardado === null ? !!ABERTO_POR_PADRAO[card.dataset.cad] : guardado === '1';
+      card.classList.toggle('fechado', !aberto);
+
+      h2.addEventListener('click', function(){
+        var fechando = !card.classList.contains('fechado');
+        card.classList.toggle('fechado', fechando);
+        try { localStorage.setItem(chaveDobra(card.dataset.cad), fechando ? '0' : '1'); } catch(e){}
+      });
+    });
+    atualizarContagens();
+  }
+
+  /* Fechado, o título precisa dizer quantos itens há dentro — senão quadro fechado e
+     cadastro vazio ficam iguais na tela. */
+  function atualizarContagens(){
+    var cards = document.querySelectorAll('#pgCadastros .card[data-cad]');
+    Array.prototype.forEach.call(cards, function(card){
+      var alvo = card.querySelector('.conta');
+      if (!alvo) return;
+      var n = card.querySelectorAll('.corpo tbody tr').length;
+      var vazio = card.querySelector('.corpo .vazio');
+      alvo.textContent = n ? String(n) : (vazio ? '0' : '—');
     });
   }
 
