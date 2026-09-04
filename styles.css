@@ -92,7 +92,20 @@ main{padding:14px;max-width:1180px;margin:0 auto}
 
 .card h3{margin:18px 0 8px;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt2)}
 
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+/* Os cartões do painel são 7 ou 8 (o "em rota" só aparece havendo rota). Com
+   auto-fit e mínimo de 150px cabiam 7 na largura do main (1180px), e o oitavo caía
+   sozinho numa linha. Colunas fixas dividem certo: 8 vira 4+4, 7 vira 4+3. */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px}
+#kpis{grid-template-columns:repeat(2,1fr)}
+@media (min-width:640px){ #kpis{grid-template-columns:repeat(3,1fr)} }
+@media (min-width:900px){ #kpis{grid-template-columns:repeat(4,1fr)} }
+/* Rede de segurança: se um dia a contagem mudar e sobrar um cartão sozinho no fim,
+   ele ocupa a linha inteira em vez de ficar encolhido num canto. */
+#kpis > .kpi:last-child:nth-child(2n+1){grid-column:span 2}
+@media (min-width:640px){ #kpis > .kpi:last-child:nth-child(3n+1){grid-column:span 3}
+  #kpis > .kpi:last-child:nth-child(2n+1){grid-column:auto} }
+@media (min-width:900px){ #kpis > .kpi:last-child:nth-child(4n+1){grid-column:span 4}
+  #kpis > .kpi:last-child:nth-child(3n+1){grid-column:auto} }
 .kpi{background:var(--surface);border:1px solid var(--linha);border-radius:var(--raio);padding:12px 14px;box-shadow:var(--sombra)}
 .kpi .v{font-size:26px;font-weight:700;line-height:1.1;letter-spacing:-.5px}
 .kpi .r{font-size:12px;color:var(--txt2);margin-top:3px}
