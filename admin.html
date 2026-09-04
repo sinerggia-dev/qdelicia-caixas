@@ -1285,6 +1285,12 @@
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
     if (u.LocalPadrao) document.getElementById('fLocal').value = u.LocalPadrao;
 
+    /* Usuário novo nasce SEM acesso ao painel, dito aqui em voz alta. Antes isso só
+       funcionava porque `u.AcessoPainel` vinha `undefined` e caía no ramo do "não" — uma
+       inflexão do ternário lá em cima e o padrão viraria "sim" sem ninguém notar. Acesso
+       ao painel é coisa que se concede, nunca que se herda por descuido. */
+    if (!u.ID) document.getElementById('fPainel').value = 'NAO';
+
     /* ADMIN entra sempre: deixar desmarcar seria permitir trancar o último administrador
        do lado de fora, e a volta seria por SQL no banco. Mesma ideia do "último admin ativo". */
     /* Perfil escrito à mão: normalizar aqui, e não só no servidor, porque é esta comparação
