@@ -189,6 +189,25 @@ mensagem de coluna faltando aparece quando alguma tela precisar de verdade.
 Falhou uma migração? O app **para na primeira** e devolve o id no erro — aplicar as
 seguintes por cima de um banco meio migrado é como o estrago vira difícil de desfazer.
 
+## Antes de commitar mudança em `app.js` ou `styles.css`
+
+```
+python scripts/versionar.py
+```
+
+Não há passo de build: as páginas apontam para os dois arquivos direto, e o navegador os
+guarda. Depois de um deploy a pessoa continua vendo a tela antiga sem nenhum sinal — às
+vezes com HTML novo e JS velho, que é pior do que só estar velho: metade do comportamento
+muda e a outra metade não.
+
+O sufixo é o **hash do conteúdo**, não a data. Arquivo que não mudou mantém o mesmo
+endereço e segue vindo do cache; só quem mudou força o download. Rodar duas vezes não faz
+diferença nenhuma.
+
+Isto custou tempo mais de uma vez: mudança publicada e verificada em produção, e o usuário
+ainda vendo o comportamento antigo. Antes de investigar um bug relatado logo depois de um
+deploy, confirme que a página dele carregou o `app.js` novo.
+
 ## Testar
 
 ```
