@@ -214,6 +214,43 @@ tr.ruim{background:var(--vermelho-claro)}
 .modal .box{background:#fff;border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:88vh;overflow:auto}
 .modal h2{margin-top:0}
 
+/* ---------- janela escura: cadastro de usuário ---------- */
+/* Aplicada só no formulário de usuário, por classe na janela. O resto do painel
+   continua claro, então cada cor daqui precisa ser declarada: herdar do tema claro
+   deixaria texto escuro sobre fundo escuro em algum canto. */
+:root{ --escuro:#22262d; --escuro-2:#2b3038; --escuro-3:#191c21;
+        --escuro-linha:#3a4049; --escuro-txt:#e8eaee; --escuro-txt2:#a3abb7; }
+
+.modal.escuro .box{background:var(--escuro);color:var(--escuro-txt)}
+.modal.escuro h2,.modal.escuro h3{color:#fff}
+.modal.escuro h3{border-bottom:1px solid var(--escuro-linha);padding-bottom:6px}
+.modal.escuro label{color:var(--escuro-txt)}
+.modal.escuro label span{color:var(--escuro-txt2)!important}
+.modal.escuro p{color:var(--escuro-txt2)!important}
+
+.modal.escuro input,.modal.escuro select,.modal.escuro textarea{
+  background:var(--escuro-3);color:var(--escuro-txt);border-color:var(--escuro-linha)
+}
+.modal.escuro input::placeholder,.modal.escuro textarea::placeholder{color:#6e7785}
+.modal.escuro input:focus,.modal.escuro select:focus,.modal.escuro textarea:focus{
+  outline-color:var(--ambar-btn);border-color:var(--ambar-btn)
+}
+/* Campo travado precisa PARECER travado também no escuro. */
+.modal.escuro select:disabled{background:#15181c;color:#7c8492;cursor:not-allowed}
+
+.modal.escuro .marcalista{background:var(--escuro-2);border-color:var(--escuro-linha)}
+.modal.escuro .marcalista .marca:hover{background:#343a44}
+.modal.escuro .vazio{background:var(--escuro-2);color:var(--escuro-txt2);border-color:var(--escuro-linha)}
+
+/* As etiquetas são pensadas para fundo claro: no escuro precisam de fundo próprio,
+   senão viram borrão claro com texto quase da mesma cor. */
+.modal.escuro .tag.cinza{background:#3a4049;color:#cdd3db}
+.modal.escuro .tag.azul{background:#24405f;color:#bcd4f2}
+
+.modal.escuro button.btn.neutro{background:#3a4049;color:var(--escuro-txt);border-color:#4a515c}
+.modal.escuro button.mini{background:var(--escuro-2);color:var(--escuro-txt);border-color:var(--escuro-linha)}
+
+
 /* login */
 /* Cena escura só na entrada; o app depois do login continua claro.
    `.login` toma a tela inteira e centraliza os próprios filhos — assim o marinho
