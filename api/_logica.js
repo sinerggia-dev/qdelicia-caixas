@@ -38,8 +38,36 @@ var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA'];
 function motoristasPublicos(motoristas) {
   return (motoristas || [])
     .filter(function (m) { return m.Ativo !== false; })
-    .map(function (m) { return { ID: m.ID, Nome: m.Nome }; })
+    // A rota atendida entra: não é dado pessoal, e é o que deixa o celular filtrar a lista
+    // sem uma segunda chamada. CPF, CNH e telefone continuam de fora.
+    .map(function (m) { return { ID: m.ID, Nome: m.Nome, Rotas: Array.isArray(m.Rotas) ? m.Rotas : [] }; })
     .sort(function (a, b) { return String(a.Nome).localeCompare(String(b.Nome), 'pt-BR'); });
+}
+
+/**
+ * Motoristas que atendem uma rota.
+ *
+ * Sem rota escolhida, todos. Com rota, quem estiver atribuído a ela **mais** quem não
+ * tem rota nenhuma marcada — lista vazia quer dizer "serve qualquer uma", a mesma regra
+ * de `locaisPermitidos`. É o que faz o cadastro antigo continuar funcionando: ninguém
+ * some da tela no dia em que a coluna nasce.
+ *
+ * Se a rota escolhida não tiver ninguém atribuído, devolve todos: melhor oferecer a lista
+ * inteira do que travar a saída porque faltou um cadastro.
+ */
+function motoristasDaRota(motoristas, rotaId) {
+  var todos = motoristas || [];
+  if (!rotaId) return todos;
+  var alvo = String(rotaId);
+  var atribuidos = todos.filter(function (m) {
+    var r = Array.isArray(m.Rotas) ? m.Rotas : [];
+    return r.length && r.map(String).indexOf(alvo) >= 0;
+  });
+  var curinga = todos.filter(function (m) {
+    return !(Array.isArray(m.Rotas) && m.Rotas.length);
+  });
+  if (!atribuidos.length) return todos;
+  return atribuidos.concat(curinga);
 }
 
 /** CNH vencida é impedimento real de rodar — o painel marca, não bloqueia. */
@@ -752,5 +780,5 @@ module.exports = {
   pendentes: pendentes, listaMovimentos: listaMovimentos, painel: painel,
   descricao: descricao, extrato: extrato, extratoToken: extratoToken,
   usuariosPublicos: usuariosPublicos, podeVerPainel: podeVerPainel,
-  locaisPermitidos: locaisPermitidos
+  locaisPermitidos: locaisPermitidos, motoristasDaRota: motoristasDaRota
 };

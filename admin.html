@@ -691,13 +691,24 @@
     return new Date(String(m.CNHValidade).slice(0,10)+'T23:59:59') < new Date();
   }
 
+  /* Sem rota marcada o motorista serve qualquer uma — dizer "todas" é mais honesto do
+     que um traço, que na coluna ao lado quer dizer "não preenchido". */
+  function nomesDasRotas(ids){
+    if (!ids || !ids.length) return '<span class="tag cinza">todas</span>';
+    var nomes = {};
+    (DADOS.locais||[]).forEach(function(l){ nomes[String(l.ID)] = l.Nome; });
+    return ids.map(function(id){
+      return '<span class="tag azul">'+Q.esc(nomes[String(id)] || id)+'</span>';
+    }).join(' ');
+  }
+
   function desenharMotoristas(){
     var lista = MOTORISTAS;
     var box = document.getElementById('tabelaMotoristas');
     if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhum motorista cadastrado.</div>'; return; }
     box.innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Telefone</th><th>CPF</th>'+
-      '<th>CNH</th><th>Cat.</th><th>Validade</th><th>Placa</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<th>CNH</th><th>Cat.</th><th>Validade</th><th>Placa</th><th>Rotas</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       lista.map(function(m){
         var on = Q.ativo(m.Ativo), venc = vencida(m);
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(m.Nome)+'</b></td>'+
@@ -707,6 +718,7 @@
               ? (venc?'<span class="tag vermelha">'+Q.dataBR(m.CNHValidade)+'</span>':Q.dataBR(m.CNHValidade))
               : '—')+'</td>'+
           '<td>'+(m.Placa?'<span class="tag cinza">'+Q.esc(m.Placa)+'</span>':'—')+'</td>'+
+          '<td>'+nomesDasRotas(m.Rotas)+'</td>'+
           '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
           '<td><button class="mini acao" data-editar-mot="'+m.ID+'">editar</button> '+
               '<button class="mini'+(on?' perigo':'')+'" data-ativar-mot="'+m.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
@@ -851,6 +863,11 @@
         '<div><label>Validade</label><input type="date" id="fVal" value="'+Q.esc(String(m.CNHValidade||'').slice(0,10))+'"></div>'+
         '<div><label>Placa habitual</label><input type="text" id="fPlaca" maxlength="8" autocapitalize="characters" value="'+Q.esc(m.Placa||'')+'" placeholder="ABC1D23"></div>'+
       '</div>'+
+      '<h3 style="margin-top:20px">Rotas que atende</h3>'+
+      caixaLocais('fRotas', 'Aparece para escolha quando a saída for para estas rotas',
+                  locaisEscolhiveis(['ROTA'], m.Rotas), m.Rotas)+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+        'Nada marcado = ele aparece em qualquer rota.</p>'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(m.Ativo)?' selected':'')+'>sim</option>'+
         '<option value="NAO"'+(Q.ativo(m.Ativo)?'':' selected')+'>não</option></select>'+
       '<label>Observação</label><textarea id="fObs">'+Q.esc(m.Obs||'')+'</textarea>'+
@@ -860,7 +877,8 @@
         Telefone:document.getElementById('fTel').value.trim(), CPF:document.getElementById('fCpf').value.trim(),
         CNH:document.getElementById('fCnh').value.trim(), CNHCategoria:document.getElementById('fCat').value.trim(),
         CNHValidade:document.getElementById('fVal').value, Placa:document.getElementById('fPlaca').value.trim(),
-        Ativo:document.getElementById('fAtivo').value, Obs:document.getElementById('fObs').value };
+        Ativo:document.getElementById('fAtivo').value, Obs:document.getElementById('fObs').value,
+        Rotas:lerMarcados('fRotas') };
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       salvar('salvarMotorista', reg, this);
     });

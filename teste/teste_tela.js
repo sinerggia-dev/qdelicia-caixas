@@ -97,10 +97,17 @@ achados.forEach(function (f, k) {
   var criados = {}, r;
   var reId = /id="(f[A-Za-z0-9]+)"/g;
   while ((r = reId.exec(trecho))) criados[r[1]] = true;
+  // caixaLocais() desenha o campo em nome do formulário, então conta como criar aqui.
+  var reCaixa = /caixaLocais\('(f[A-Za-z0-9]+)'/g;
+  while ((r = reCaixa.exec(trecho))) criados[r[1]] = true;
 
   var lidos = {};
   var reLe = /getElementById\('(f[A-Za-z0-9]+)'\)/g;
   while ((r = reLe.exec(trecho))) lidos[r[1]] = true;
+  // lerMarcados() lê pelo id sem passar por getElementById: sem isto, um quadro de
+  // marcar no formulário errado escaparia exatamente como o campo que originou o teste.
+  var reMarc = /lerMarcados\('(f[A-Za-z0-9]+)'\)/g;
+  while ((r = reMarc.exec(trecho))) lidos[r[1]] = true;
 
   var orfaos = Object.keys(lidos).filter(function (id) { return !criados[id]; });
   ok(orfaos.length === 0, f.nome + ' não lê campo de outro formulário', orfaos);

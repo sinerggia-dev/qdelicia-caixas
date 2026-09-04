@@ -644,6 +644,40 @@ async function main() {
   ok(solto.Saidas.length === 0 && solto.Destinos.length === 0,
     'desmarcar tudo devolve o acesso a todos os locais');
 
+  console.log('== rota do motorista ==');
+
+  const rotasM = [{ Nome: 'A', Rotas: ['L010'] }, { Nome: 'B', Rotas: ['L010', 'L011'] },
+                  { Nome: 'C', Rotas: [] }, { Nome: 'D', Rotas: ['L012'] }];
+  const nomes = (l) => l.map((m) => m.Nome).join(',');
+
+  ok(nomes(Lm.motoristasDaRota(rotasM, '')) === 'A,B,C,D',
+    'sem rota escolhida aparecem todos');
+  ok(nomes(Lm.motoristasDaRota(rotasM, 'L010')) === 'A,B,C',
+    'a rota traz os atribuídos mais quem serve qualquer uma', nomes(Lm.motoristasDaRota(rotasM, 'L010')));
+  ok(nomes(Lm.motoristasDaRota(rotasM, 'L011')) === 'B,C',
+    'motorista de outra rota fica de fora');
+  // Travar a saída por falta de cadastro seria pior do que oferecer a lista inteira.
+  ok(nomes(Lm.motoristasDaRota(rotasM, 'L099')) === 'A,B,C,D',
+    'rota sem ninguém atribuído devolve todos');
+  ok(Lm.motoristasDaRota([], 'L010').length === 0, 'sem motorista cadastrado não inventa ninguém');
+
+  await POST({ acao: 'salvarMotorista', registro: { ID: 'D001', Rotas: ['L010', 'L011'] } });
+  const motRota = (await GET({ acao: 'equipe' })).motoristas.find((m) => m.ID === 'D001');
+  ok(JSON.stringify(motRota.Rotas) === JSON.stringify(['L010', 'L011']),
+    'as rotas gravam no cadastro do motorista', motRota.Rotas);
+  ok(motRota.CPF === '111', 'gravar só as rotas não apaga o documento', motRota.CPF);
+
+  // O celular filtra sozinho, então precisa das rotas na rota pública — e só delas.
+  const pub = (await GET({ acao: 'dados' })).motoristas.find((m) => m.ID === 'D001');
+  ok(JSON.stringify(pub.Rotas) === JSON.stringify(['L010', 'L011']),
+    'a rota pública leva as rotas do motorista', pub);
+  ok(!('CPF' in pub) && !('CNH' in pub) && !('Telefone' in pub),
+    'e continua sem CPF, CNH nem telefone', Object.keys(pub));
+
+  await POST({ acao: 'salvarMotorista', registro: { ID: 'D001', Rotas: [] } });
+  ok((await GET({ acao: 'equipe' })).motoristas.find((m) => m.ID === 'D001').Rotas.length === 0,
+    'desmarcar tudo devolve o motorista para todas as rotas');
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

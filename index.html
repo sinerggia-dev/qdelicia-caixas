@@ -331,6 +331,23 @@
     return ((DADOS||{}).motoristas || []).map(function(m){ return m.Nome; });
   }
 
+  /* Mesma regra do painel, repetida aqui porque o celular não carrega `_logica.js`:
+     sem rota escolhida, todos; com rota, quem está atribuído a ela mais quem não tem
+     rota nenhuma marcada. Rota sem ninguém atribuído devolve todos — melhor oferecer a
+     lista inteira do que travar a saída porque faltou um cadastro. */
+  function motoristasDaRota(rotaId){
+    var todos = (DADOS||{}).motoristas || [];
+    if (!rotaId) return todos.map(function(m){ return m.Nome; });
+    var alvo = String(rotaId);
+    var atribuidos = todos.filter(function(m){
+      var r = m.Rotas || [];
+      return r.length && r.map(String).indexOf(alvo) >= 0;
+    });
+    if (!atribuidos.length) return todos.map(function(m){ return m.Nome; });
+    var curinga = todos.filter(function(m){ return !(m.Rotas && m.Rotas.length); });
+    return atribuidos.concat(curinga).map(function(m){ return m.Nome; });
+  }
+
   function nomeDoLocal(id){
     var l = (DADOS.locais||[]).filter(function(x){ return String(x.ID)===String(id); })[0];
     return l ? l.Nome : '';
@@ -355,13 +372,23 @@
       // Lista fechada, a pedido: nome digitado vira grafia diferente do mesmo motorista, e
       // aí o extrato mostra "Valcy" e "valci" como duas pessoas. Quem não está aqui é
       // cadastrado no painel antes de sair com a carga.
-      var sel = document.getElementById('sdMotorista');
-      var escolhido = sel.value;   // trocar de galpão não pode apagar quem já foi escolhido
-      sel.innerHTML = '<option value="">Selecione…</option>' +
-        motoristas().map(function(m){
-          return '<option value="'+Q.esc(m)+'"'+(m===escolhido?' selected':'')+'>'+Q.esc(m)+'</option>';
-        }).join('');
+      montarMotoristas();
     }
+  }
+
+  /* Refeito toda vez que a rota muda: é a rota que decide quem aparece. Quem já estava
+     escolhido continua escolhido, desde que ainda atenda a rota nova. */
+  function montarMotoristas(){
+    var sel = document.getElementById('sdMotorista');
+    var escolhido = sel.value;
+    var lista = motoristasDaRota(document.getElementById('sdRota').value);
+    sel.innerHTML = '<option value="">Selecione…</option>' +
+      lista.map(function(m){
+        return '<option value="'+Q.esc(m)+'"'+(m===escolhido?' selected':'')+'>'+Q.esc(m)+'</option>';
+      }).join('');
+    if (lista.indexOf(escolhido) < 0) sel.value = '';
+    // Um motorista só na rota não é escolha: já vem posto.
+    if (lista.length === 1) sel.value = lista[0];
   }
 
   function montarFormularios(){
@@ -390,6 +417,8 @@
     if (!dvAssina) dvAssina = Q.assinatura(document.getElementById('dvAssina'));
     document.getElementById('dvOrigem').addEventListener('change', mostrarSaldoDoOrigem);
     document.getElementById('sdOrigem').addEventListener('change', ajustarCamposSaida);
+    // É a rota que decide quais motoristas aparecem.
+    document.getElementById('sdRota').addEventListener('change', montarMotoristas);
     ajustarCamposSaida();
   }
 

@@ -161,5 +161,10 @@ module.exports = [
       "alter table public.usuarios add column if not exists saidas jsonb not null default '[]'::jsonb;",
       "alter table public.usuarios add column if not exists destinos jsonb not null default '[]'::jsonb;"
     ].join('\n')
+  },
+  {
+    id: '2026-09-06-rotas-do-motorista',
+    nota: 'quais rotas cada motorista atende; vazio = todas',
+    sql: "alter table public.motoristas add column if not exists rotas jsonb not null default '[]'::jsonb;"
   }
 ];

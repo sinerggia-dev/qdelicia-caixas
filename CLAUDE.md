@@ -144,6 +144,16 @@ tudo**. Não é detalhe de implementação: se vazio significasse "nenhum", o de
 trancaria a operação inteira no primeiro dia, porque ninguém tem nada marcado. Quem inverter
 isso quebra o app de todo mundo de uma vez. `L.locaisPermitidos()` guarda a regra num lugar só.
 
+Vale também para `motoristas.rotas`, com o mesmo raciocínio: sem rota marcada,
+o motorista aparece em qualquer uma. E há um degrau a mais em `L.motoristasDaRota()`:
+se a rota escolhida não tiver ninguém atribuído, ela devolve **todos**. Travar a saída do
+galpão porque faltou um cadastro seria pior do que oferecer a lista inteira.
+
+Cuidado com a duplicata: `locais.motorista_id` é outra coisa — aponta para um
+**usuário** de perfil MOTORISTA e alimenta a coluna Motorista do painel de rotas.
+`motoristas.rotas` é o cadastro de quem dirige, sem login. Os dois convivem e não
+se conversam — se um dia forem unificados, decida qual morre antes de escrever código.
+
 A devolução é o caminho de volta, então os papéis se invertem: quem devolve é um **destino**
 e quem recebe é uma **saída**. Está assim no `montarFormularios()` do `index.html`.
 
