@@ -133,7 +133,16 @@ const POST = (p) => chamar('POST', p);
 
 /* ---------- utilidades ---------- */
 
-const dia = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+/* Hora LOCAL, como toda a produção: `data()` lê AAAA-MM-DD como data local e `iso()`
+   formata pelos componentes locais. Este auxiliar usava toISOString(), que é UTC — e a
+   partir das 21h em Brasília devolvia a data de amanhã, fazendo dia(-20) valer 19 dias.
+   O teste de aging quebrava sozinho toda noite, sem nada ter mudado no código. */
+const dia = (n) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  const z = (x) => (x < 10 ? '0' : '') + x;
+  return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+};
 let falhas = 0;
 function ok(cond, msg, extra) {
   console.log((cond ? '  ✓ ' : '  ✗ ') + msg + (cond ? '' : '   <<< ' + JSON.stringify(extra)));
@@ -595,6 +604,45 @@ async function main() {
   const Lp = require(path.join(__dirname, '..', 'api', '_logica.js'));
   ok(Lp.podeVerPainel({ Perfil: 'ADMIN', Ativo: false }) === false, 'usuário desativado não entra nem sendo admin');
   ok(Lp.podeVerPainel({ Perfil: 'PROMOTOR', AcessoPainel: true }) === true, 'promotor com a chave ligada entra');
+
+  console.log('== de onde e para onde cada um lança ==');
+
+  // Lista vazia quer dizer TODOS. Se fosse "nenhum", o deploy trancaria a operação inteira
+  // no primeiro dia, porque ninguém tem nada marcado ainda.
+  const semRestricao = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U003');
+  ok(Array.isArray(semRestricao.Saidas) && semRestricao.Saidas.length === 0,
+    'usuário antigo nasce sem restrição', semRestricao.Saidas);
+  ok(Lm.locaisPermitidos([], [{ ID: 'L001' }, { ID: 'L010' }]).length === 2,
+    'lista vazia libera todos os locais');
+  ok(Lm.locaisPermitidos(['L010'], [{ ID: 'L001' }, { ID: 'L010' }]).length === 1,
+    'lista com um id deixa passar só ele');
+  ok(Lm.locaisPermitidos(['sumiu'], [{ ID: 'L001' }]).length === 0,
+    'id de local apagado não inventa permissão');
+
+  await POST({ acao: 'salvarUsuario', registro: {
+    ID: 'U003', Saidas: ['L001'], Destinos: ['L010', 'L011'] } });
+  const restrito = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U003');
+  ok(JSON.stringify(restrito.Saidas) === JSON.stringify(['L001']) &&
+     JSON.stringify(restrito.Destinos) === JSON.stringify(['L010', 'L011']),
+    'as duas listas gravam e voltam na ordem', [restrito.Saidas, restrito.Destinos]);
+
+  // A sessão é o que o celular guarda: sem isto o filtro da tela não teria por onde saber.
+  const sess = await POST({ acao: 'login', identificador: 'Motorista Exemplo', pin: '2222' });
+  ok(JSON.stringify(sess.usuario.saidas) === JSON.stringify(['L001']) &&
+     JSON.stringify(sess.usuario.destinos) === JSON.stringify(['L010', 'L011']),
+    'o login devolve as listas para o app de campo', sess.usuario);
+
+  // Guardar o cadastro sem tocar nas listas não pode apagá-las.
+  await POST({ acao: 'salvarUsuario', registro: { ID: 'U003', Telefone: '81 90000' } });
+  const intacto = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U003');
+  ok(intacto.Saidas.length === 1 && intacto.Destinos.length === 2,
+    'salvar outro campo não zera as permissões', [intacto.Saidas, intacto.Destinos]);
+
+  // E dá para soltar de novo.
+  await POST({ acao: 'salvarUsuario', registro: { ID: 'U003', Saidas: [], Destinos: [] } });
+  const solto = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U003');
+  ok(solto.Saidas.length === 0 && solto.Destinos.length === 0,
+    'desmarcar tudo devolve o acesso a todos os locais');
 
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);

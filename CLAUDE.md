@@ -137,6 +137,23 @@ em `pedidos_senha`, e o admin vê em Cadastros → Pedidos de senha e cadastra a
 do mesmo identificador. Diferenciar as respostas transformaria a tela de login pública num
 listório de quem trabalha na empresa. Se mexer ali, mantenha isso.
 
+## Quem lança de onde: lista vazia quer dizer TODOS
+
+`usuarios.saidas` e `usuarios.destinos` são arrays de id de `locais`, e **array vazio libera
+tudo**. Não é detalhe de implementação: se vazio significasse "nenhum", o deploy da coluna
+trancaria a operação inteira no primeiro dia, porque ninguém tem nada marcado. Quem inverter
+isso quebra o app de todo mundo de uma vez. `L.locaisPermitidos()` guarda a regra num lugar só.
+
+A devolução é o caminho de volta, então os papéis se invertem: quem devolve é um **destino**
+e quem recebe é uma **saída**. Está assim no `montarFormularios()` do `index.html`.
+
+Duas coisas que valem lembrar:
+
+- **A sessão guardada no celular não se atualiza sozinha.** As listas viajam no `login`, então
+  quem já está logado continua vendo tudo até sair e entrar de novo.
+- **Isto é a tela, não a tranca.** Vale o mesmo aviso da seção de separação de funções: a API
+  não tem autorização, e um POST direto ignora qualquer filtro daqui.
+
 ## Migração do banco: automática
 
 Depois do `supabase/bootstrap.sql` (rodado uma vez), o app aplica sozinho o que falta.
@@ -259,6 +276,13 @@ parte, e exige regerar PDF e Word.
   inativos continuavam aparecendo nas listas. Corrigido com `Q.ativo()` em `app.js`, que aceita
   booleano e o texto antigo da planilha. Se aparecer outra comparação de `Ativo` por string,
   é o mesmo bug.
+
+- **`toISOString()` num projeto que vive em hora local.** A produção inteira usa hora local:
+  `data()` lê `AAAA-MM-DD` como data local e `iso()` formata pelos componentes locais. O
+  auxiliar `dia(n)` do teste usava `toISOString()`, que é UTC — e a partir das 21h em
+  Brasília devolvia a data de amanhã, fazendo `dia(-20)` valer 19 dias. O teste de aging
+  quebrava sozinho toda noite. Se um teste de data falhar sem ninguém ter mexido no
+  código, olhe a hora antes de procurar culpado no produto.
 
 - **Node local é v14.** Os CLIs da Vercel e do Supabase pedem 18+, então não dá para usá-los aqui.
   Não é problema: os dois funcionam pelo navegador, e a Vercel publica direto do GitHub.

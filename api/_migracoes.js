@@ -153,5 +153,13 @@ module.exports = [
       // Quem já entrava continua entrando: o perfil era a regra até aqui.
       "update public.usuarios set acesso_painel = true where upper(perfil) in ('ADMIN','GALPAO');"
     ].join('\n')
+  },
+  {
+    id: '2026-09-06-locais-do-usuario',
+    nota: 'admin escolhe de onde e para onde cada pessoa pode lançar',
+    sql: [
+      "alter table public.usuarios add column if not exists saidas jsonb not null default '[]'::jsonb;",
+      "alter table public.usuarios add column if not exists destinos jsonb not null default '[]'::jsonb;"
+    ].join('\n')
   }
 ];

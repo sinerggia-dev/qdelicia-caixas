@@ -120,6 +120,14 @@ function bool(v) {
   return s === 'SIM' || s === 'TRUE' || s === 'S' || s === '1';
 }
 function nulo(v) { return (v === '' || v === undefined) ? null : v; }
+/* Coluna jsonb pode voltar como texto se alguém gravar à mão pelo SQL Editor, e o
+   navegador pode mandar string também. Normaliza aqui, uma vez, para o resto do
+   código poder confiar que é array de id. */
+function lista(v) {
+  if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = []; } }
+  if (!Array.isArray(v)) return [];
+  return v.map(function (x) { return String(x); }).filter(function (x) { return !!x; });
+}
 
 var LOCAL = {
   de: function (r) {
@@ -172,7 +180,8 @@ var USUARIO = {
       ID: r.id, Nome: r.nome, Perfil: String(r.perfil || '').toUpperCase(), PIN: String(r.pin),
       Telefone: r.telefone || '', LocalPadrao: r.local_padrao, Ativo: r.ativo !== false,
       Email: r.email || '', Usuario: r.usuario || '', SenhaHash: r.senha_hash || '',
-      AcessoPainel: r.acesso_painel === true
+      AcessoPainel: r.acesso_painel === true,
+      Saidas: lista(r.saidas), Destinos: lista(r.destinos)
     };
   },
   para: function (o) {
@@ -188,6 +197,8 @@ var USUARIO = {
     if (o.Usuario !== undefined) r.usuario = nulo(String(o.Usuario).trim().toLowerCase());
     if (o.SenhaHash !== undefined) r.senha_hash = nulo(o.SenhaHash);
     if (o.AcessoPainel !== undefined) r.acesso_painel = bool(o.AcessoPainel);
+    if (o.Saidas !== undefined) r.saidas = lista(o.Saidas);
+    if (o.Destinos !== undefined) r.destinos = lista(o.Destinos);
     return r;
   }
 };

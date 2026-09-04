@@ -258,6 +258,21 @@
       return tipos.indexOf(String(l.Tipo).toUpperCase())>=0 && Q.ativo(l.Ativo);
     });
   }
+
+  /* O escritório decide de onde e para onde cada pessoa lança. Lista vazia no cadastro
+     quer dizer **todos**, e não nenhum: assim quem nunca foi restringido continua vendo
+     tudo, e só muda para quem o admin marcou de propósito.
+
+     Isto é a tela, não a tranca. A API continua sem autorização — está escrito no
+     CLAUDE.md, e vale para este filtro como vale para as abas do painel. */
+  function permitidos(lista, quais){
+    var s = Q.sessao() || {};
+    var ids = s[quais];
+    if (!ids || !ids.length) return lista;
+    var querido = {};
+    ids.forEach(function(id){ querido[String(id)] = true; });
+    return lista.filter(function(l){ return querido[String(l.ID)]; });
+  }
   /* O tipo só entra no rótulo quando a lista mistura mais de um: numa lista só de rotas
      ou só de galpões, o prefixo era ruído em cima do nome que a pessoa procura. */
   function opcoes(lista, selecionado){
@@ -334,7 +349,9 @@
     // Do galpão a carga vai para a rota; da rota, para o cliente. Nunca os dois ao mesmo tempo.
     document.getElementById('sdWrapDestino').style.display   = doGalpao ? 'none' : 'block';
     if (doGalpao){
-      document.getElementById('sdRota').innerHTML = opcoes(locaisPor(['ROTA']));
+      var minhasRotas = permitidos(locaisPor(['ROTA']), 'destinos');
+      document.getElementById('sdRota').innerHTML = opcoes(minhasRotas);
+      if (minhasRotas.length === 1) document.getElementById('sdRota').value = minhasRotas[0].ID;
       // Lista fechada, a pedido: nome digitado vira grafia diferente do mesmo motorista, e
       // aí o extrato mostra "Valcy" e "valci" como duas pessoas. Quem não está aqui é
       // cadastrado no painel antes de sair com a carga.
@@ -352,10 +369,17 @@
     // coleta. Sem barra de filtro, quem escolhe é a pessoa, tela a tela.
     var comRota = locaisPor(['GALPAO','FILIAL','ROTA']);
     var destinos = locaisPor(['CLIENTE','FILIAL']);
-    document.getElementById('sdOrigem').innerHTML = opcoes(comRota);
-    document.getElementById('sdDestino').innerHTML = opcoes(destinos);
-    document.getElementById('dvOrigem').innerHTML = opcoes(destinos);
-    document.getElementById('dvDestino').innerHTML = opcoes(comRota);
+    // Saída e destino são listas separadas no cadastro, e a devolução é o caminho de volta:
+    // quem devolve é um destino, e quem recebe é uma saída.
+    var minhasSaidas  = permitidos(comRota, 'saidas');
+    var meusDestinos  = permitidos(destinos, 'destinos');
+    document.getElementById('sdOrigem').innerHTML = opcoes(minhasSaidas);
+    document.getElementById('sdDestino').innerHTML = opcoes(meusDestinos);
+    document.getElementById('dvOrigem').innerHTML = opcoes(meusDestinos);
+    document.getElementById('dvDestino').innerHTML = opcoes(minhasSaidas);
+    // Um local só não é escolha: já vem posto, e a pessoa economiza um toque por lançamento.
+    if (minhasSaidas.length === 1) document.getElementById('sdOrigem').value = minhasSaidas[0].ID;
+    if (meusDestinos.length === 1) document.getElementById('sdDestino').value = meusDestinos[0].ID;
     document.getElementById('sdData').value = Q.hoje();
     document.getElementById('dvData').value = Q.hoje();
     ajustarCamposSaida();

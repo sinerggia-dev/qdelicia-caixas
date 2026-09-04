@@ -1181,6 +1181,40 @@
     });
   }
 
+  /* Locais que o admin pode marcar. Inativo só aparece se este usuário já estiver preso
+     a ele — senão a marca some da tela e some do cadastro sem ninguém decidir isso. */
+  function locaisEscolhiveis(tipos, jaMarcados){
+    var marcado = {};
+    (jaMarcados||[]).forEach(function(id){ marcado[String(id)] = true; });
+    return (DADOS.locais||[]).filter(function(l){
+      return tipos.indexOf(String(l.Tipo).toUpperCase()) >= 0 &&
+             (Q.ativo(l.Ativo) || marcado[String(l.ID)]);
+    });
+  }
+
+  function caixaLocais(id, rotulo, locais, marcados){
+    var sel = {};
+    (marcados||[]).forEach(function(x){ sel[String(x)] = true; });
+    if (!locais.length){
+      return '<label>'+Q.esc(rotulo)+'</label>'+
+        '<div class="vazio" style="margin-bottom:12px">Nenhum local deste tipo cadastrado ainda.</div>';
+    }
+    return '<label>'+Q.esc(rotulo)+'</label>'+
+      '<div class="marcalista" id="'+id+'">'+
+        locais.map(function(l){
+          return '<label class="marca"><input type="checkbox" value="'+Q.esc(l.ID)+'"'+
+            (sel[String(l.ID)]?' checked':'')+'>'+Q.esc(l.Nome)+
+            ' <span class="tag cinza">'+Q.esc(String(l.Tipo).toLowerCase())+'</span>'+
+            (Q.ativo(l.Ativo)?'':' <span class="tag vermelha">inativo</span>')+'</label>';
+        }).join('')+
+      '</div>';
+  }
+
+  function lerMarcados(id){
+    return Array.prototype.map.call(
+      document.querySelectorAll('#'+id+' input:checked'), function(c){ return c.value; });
+  }
+
   function formUsuario(u){
     // O PIN nunca volta preenchido: campo em branco quer dizer "mantenha o que está lá".
     u = u || {};
@@ -1199,6 +1233,13 @@
       '<label>Usuário (login curto)</label><input type="text" id="fLogin" value="'+Q.esc(u.Usuario||'')+'" placeholder="ex.: natanael">'+
       '<label>Senha <span style="font-weight:400;color:var(--txt3)">— mínimo 6 caracteres</span></label>'+
       '<input type="password" id="fSenha" autocomplete="new-password" placeholder="'+(u.ID?'deixe em branco para manter':'')+'">'+
+      '<h3 style="margin-top:20px">Onde ele pode lançar</h3>'+
+      caixaLocais('fSaidas', 'Saída — de onde as caixas saem',
+                  locaisEscolhiveis(['GALPAO','FILIAL','ROTA'], u.Saidas), u.Saidas)+
+      caixaLocais('fDestinos', 'Destino — para onde as caixas vão',
+                  locaisEscolhiveis(['ROTA','FILIAL','CLIENTE'], u.Destinos), u.Destinos)+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+        'Nada marcado = a pessoa vê todos. Marque para restringir.</p>'+
       '<h3 style="margin-top:20px">Outros</h3>'+
       '<label>Telefone</label><input type="tel" id="fTel" value="'+Q.esc(u.Telefone||'')+'">'+
       '<label>Local padrão (onde trabalha)</label><select id="fLocal">'+
@@ -1230,7 +1271,8 @@
       var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:document.getElementById('fPerfil').value,
         Telefone:document.getElementById('fTel').value.trim(), LocalPadrao:document.getElementById('fLocal').value,
         Ativo:document.getElementById('fAtivo').value,
-        AcessoPainel:document.getElementById('fPainel').value };
+        AcessoPainel:document.getElementById('fPainel').value,
+        Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos') };
       var pin = document.getElementById('fPin').value.trim();
       if (pin) reg.PIN = pin;
       reg.Email = document.getElementById('fEmail').value.trim();

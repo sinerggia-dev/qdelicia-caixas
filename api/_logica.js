@@ -158,10 +158,27 @@ function podeVerPainel(u) {
   return u.AcessoPainel === true;
 }
 
+/**
+ * De onde e para onde esta pessoa pode lançar.
+ *
+ * Lista vazia quer dizer **todos**, e não "nenhum". É o que faz o cadastro antigo continuar
+ * funcionando sem ninguém mexer em nada: só quem for restringido de propósito passa a ver
+ * menos. O contrário trancaria a operação inteira no dia do deploy.
+ */
+function locaisPermitidos(ids, locais) {
+  var lista = Array.isArray(ids) ? ids : [];
+  if (!lista.length) return locais;
+  var querido = {};
+  lista.forEach(function (id) { querido[String(id)] = true; });
+  return locais.filter(function (l) { return querido[String(l.ID)]; });
+}
+
 function sessaoDe(u) {
   return {
     id: u.ID, nome: u.Nome, perfil: String(u.Perfil).toUpperCase(),
-    localPadrao: u.LocalPadrao, acessoPainel: podeVerPainel(u)
+    localPadrao: u.LocalPadrao, acessoPainel: podeVerPainel(u),
+    saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
+    destinos: Array.isArray(u.Destinos) ? u.Destinos : []
   };
 }
 
@@ -714,7 +731,9 @@ function usuariosPublicos(usuarios) {
       LocalPadrao: u.LocalPadrao, Telefone: u.Telefone || '',
       Email: u.Email || '', Usuario: u.Usuario || '',
       Ativo: u.Ativo !== false, TemSenha: !!u.SenhaHash,
-      AcessoPainel: podeVerPainel(u)
+      AcessoPainel: podeVerPainel(u),
+      Saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
+      Destinos: Array.isArray(u.Destinos) ? u.Destinos : []
     };
   });
 }
@@ -732,5 +751,6 @@ module.exports = {
   efetiva: efetiva, saldos: saldos, emConferencia: emConferencia, aging: aging,
   pendentes: pendentes, listaMovimentos: listaMovimentos, painel: painel,
   descricao: descricao, extrato: extrato, extratoToken: extratoToken,
-  usuariosPublicos: usuariosPublicos, podeVerPainel: podeVerPainel
+  usuariosPublicos: usuariosPublicos, podeVerPainel: podeVerPainel,
+  locaisPermitidos: locaisPermitidos
 };

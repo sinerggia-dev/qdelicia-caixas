@@ -61,6 +61,16 @@ main{padding:14px;max-width:1180px;margin:0 auto}
 .card{background:var(--surface);border:1px solid var(--linha);border-radius:var(--raio);padding:16px;margin-bottom:14px;box-shadow:var(--sombra)}
 .card h2{margin:0 0 4px;font-size:17px}
 .card h2 .sub{display:block;font-size:13px;font-weight:400;color:var(--txt2);margin-top:2px}
+/* ---------- lista de marcar ---------- */
+/* Rola dentro de si: a lista de destinos cresce com a carteira de clientes, e sem
+   altura máxima o botão Salvar do formulário fugiria da tela. */
+.marcalista{border:1px solid var(--linha);border-radius:var(--raio);padding:6px 4px;
+  margin-bottom:12px;max-height:210px;overflow-y:auto;background:var(--surface)}
+.marcalista .marca{display:flex;align-items:center;gap:8px;margin:0;padding:6px 10px;
+  font-weight:400;font-size:14px;border-radius:6px;cursor:pointer}
+.marcalista .marca:hover{background:var(--fundo)}
+.marcalista .marca input{width:auto;margin:0;flex:0 0 auto}
+
 /* ---------- quadro que abre e fecha ---------- */
 /* Seis cadastros abertos ao mesmo tempo enchem a página: o que a pessoa quer fica a
    três rolagens de distância. Fechado, o título continua dizendo quantos itens há dentro,
