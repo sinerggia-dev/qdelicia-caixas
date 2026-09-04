@@ -1,22 +1,31 @@
 /* Qdelícia Frutas — Controle de Caixas | estilo compartilhado */
 :root{
-  /* Marca: marinho. Ação: âmbar. Verde ficou só com o significado de "confirmado".
-     Os tons sólidos (-forte) são os que recebem texto branco e por isso são mais fechados:
-     o app é usado no celular, no galpão, sob luz forte. */
-  --marinho:#12304f; --marinho-esc:#0b2038; --marinho-claro:#eaeff5;
-  --ambar:#c0821c; --ambar-forte:#96620f; --ambar-claro:#fdf3e0;
-  /* O botao principal usa dourado vivo com texto marinho: fica claro como no desenho
-     e ainda passa em contraste, o que nao aconteceria com texto branco. */
+  /* Cinza escuro em todas as telas. A marca continua marinho no cabecalho e na
+     tela de entrada; o ambar continua sendo a acao. O que mudou foi o chao. */
+  --marinho:#12304f; --marinho-esc:#0b2038; --marinho-claro:#2a3340;
+  /* Marinho é fundo, nunca texto: sobre o cinza ele desaparece. Onde a marca precisa
+     ser tinta — link, aba ativa, botão secundário — entra este azul claro. */
+  --marca-txt:#8fb8e8;
+  --ambar:#d09a2e; --ambar-forte:#e5b452; --ambar-claro:#3a2c10;
+  /* Botao principal: dourado vivo com texto escuro, que passa em contraste dos dois lados. */
   --ambar-btn:#d4941f;
-  --verde:#1e7a4d; --verde-esc:#155c3a; --verde-claro:#e6f3ec;
-  --amarelo:#c0821c; --amarelo-claro:#fdf3e0;
-  --bg:#faf8f4; --surface:#ffffff; --linha:#e9e3d8;
-  --txt:#12263f; --txt2:#56677d; --txt3:#8a97a6;
-  --vermelho:#c0392b; --vermelho-claro:#fbeae8;
-  --azul:#2c5f9e; --azul-claro:#eaf1f9;
-  --laranja:#b5761a;
-  --raio:12px; --sombra:0 1px 3px rgba(16,33,43,.08),0 8px 24px rgba(16,33,43,.06);
+  --verde:#4fbe85; --verde-esc:#7fd6a5; --verde-claro:#1a3626;
+  --amarelo:#d09a2e; --amarelo-claro:#3a2c10;
+
+  /* As superficies, do fundo para a frente. Cada degrau existe para separar o que
+     esta atras do que esta na frente: cinza chapado vira uma mancha so. */
+  --bg:#1b1e23; --surface:#22262d; --surface-2:#2b3038; --campo:#191c21;
+  --neutro:#3a4049; --linha:#3a4049;
+
+  --txt:#e8eaee; --txt2:#a3abb7; --txt3:#7c8492;
+  --vermelho:#ef8279; --vermelho-claro:#3b1f1c;
+  --azul:#8fb8e8; --azul-claro:#223854;
+  --laranja:#e0a03f;
+  --raio:12px;
+  /* Sombra no escuro precisa ser mais funda: a de 8% sumia contra o cinza. */
+  --sombra:0 1px 3px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.28);
 }
+
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
 body{
@@ -24,7 +33,7 @@ body{
   background:var(--bg);color:var(--txt);font-size:16px;line-height:1.45;
   padding-bottom:env(safe-area-inset-bottom);
 }
-a{color:var(--marinho);text-decoration:none}
+a{color:var(--marca-txt);text-decoration:none}
 
 /* ---------- topo ---------- */
 header{
@@ -51,7 +60,7 @@ nav.abas button{
   flex:1 0 auto;min-width:92px;background:none;border:none;border-bottom:3px solid transparent;
   padding:12px 14px;font-size:14px;font-weight:600;color:var(--txt2);cursor:pointer;font-family:inherit
 }
-nav.abas button.ativa{color:var(--marinho);border-bottom-color:var(--ambar);background:var(--marinho-claro)}
+nav.abas button.ativa{color:#fff;border-bottom-color:var(--ambar);background:var(--marinho-claro)}
 
 main{padding:14px;max-width:1180px;margin:0 auto}
 .pagina{display:none}
@@ -68,7 +77,7 @@ main{padding:14px;max-width:1180px;margin:0 auto}
   margin-bottom:12px;max-height:210px;overflow-y:auto;background:var(--surface)}
 .marcalista .marca{display:flex;align-items:center;gap:8px;margin:0;padding:6px 10px;
   font-weight:400;font-size:14px;border-radius:6px;cursor:pointer}
-.marcalista .marca:hover{background:var(--fundo)}
+.marcalista .marca:hover{background:var(--surface-2)}
 .marcalista .marca input{width:auto;margin:0;flex:0 0 auto}
 
 /* ---------- quadro que abre e fecha ---------- */
@@ -77,12 +86,12 @@ main{padding:14px;max-width:1180px;margin:0 auto}
    senão o quadro vazio parece cadastro vazio. */
 .card.dobra > h2{cursor:pointer;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
   margin:0;padding:2px 0;user-select:none}
-.card.dobra > h2:hover{color:var(--marinho)}
+.card.dobra > h2:hover{color:var(--marca-txt)}
 .card.dobra > h2 .sub{flex:1 0 100%;order:3}
 .card.dobra > h2 .seta{margin-left:auto;order:2;font-size:12px;color:var(--txt2);
   transition:transform .15s ease;line-height:1}
 .card.dobra > h2 .conta{order:1;font-size:12px;font-weight:600;color:var(--txt2);
-  background:#eef1f4;border-radius:999px;padding:2px 9px;white-space:nowrap}
+  background:var(--neutro);border-radius:999px;padding:2px 9px;white-space:nowrap}
 .card.dobra.fechado > h2 .seta{transform:rotate(-90deg)}
 .card.dobra.fechado{padding-bottom:14px}
 .card.dobra.fechado > h2{margin-bottom:0}
@@ -118,7 +127,7 @@ main{padding:14px;max-width:1180px;margin:0 auto}
 label{display:block;font-size:13px;font-weight:600;color:var(--txt2);margin:12px 0 5px}
 input,select,textarea,button{font-family:inherit;font-size:16px}
 input[type=text],input[type=number],input[type=date],input[type=password],input[type=tel],select,textarea{
-  width:100%;padding:12px;border:1px solid var(--linha);border-radius:10px;background:#fff;color:var(--txt)
+  width:100%;padding:12px;border:1px solid var(--linha);border-radius:10px;background:var(--campo);color:var(--txt)
 }
 input:focus,select:focus,textarea:focus{outline:2px solid var(--marinho);outline-offset:-1px;border-color:var(--verde)}
 textarea{min-height:70px;resize:vertical}
@@ -131,38 +140,38 @@ button.btn{
 }
 button.btn:active{transform:translateY(1px)}
 button.btn:disabled{opacity:.55;cursor:not-allowed}
-button.btn.sec{background:#fff;color:var(--marinho);border:1.5px solid var(--marinho)}
-button.btn.neutro{background:#eef1f4;color:var(--txt);border:1px solid var(--linha)}
+button.btn.sec{background:var(--surface);color:var(--marca-txt);border:1.5px solid var(--marca-txt)}
+button.btn.neutro{background:var(--neutro);color:var(--txt);border:1px solid var(--linha)}
 button.btn.perigo{background:var(--vermelho)}
 button.mini{
-  background:#fff;border:1px solid var(--linha);border-radius:8px;padding:7px 11px;
+  background:var(--surface);border:1px solid var(--linha);border-radius:8px;padding:7px 11px;
   font-size:13px;font-weight:600;color:var(--txt2);cursor:pointer
 }
-button.mini.acao{border-color:var(--marinho);color:var(--marinho)}
+button.mini.acao{border-color:var(--marca-txt);color:var(--marca-txt)}
 button.mini.perigo{border-color:var(--vermelho);color:var(--vermelho)}
 
 /* contador de caixas */
 .itens{display:flex;flex-direction:column;gap:10px;margin-top:6px}
-.item{display:flex;align-items:center;gap:10px;border:1px solid var(--linha);border-radius:10px;padding:10px 12px;background:#fcfdfd}
+.item{display:flex;align-items:center;gap:10px;border:1px solid var(--linha);border-radius:10px;padding:10px 12px;background:var(--surface-2)}
 .item .nome{flex:1;font-weight:600;font-size:15px;min-width:0}
 .item .nome small{display:block;font-weight:400;color:var(--txt3);font-size:12px}
 .stepper{display:flex;align-items:center;gap:6px}
 .stepper button{
-  width:42px;height:42px;border-radius:10px;border:1px solid var(--linha);background:#fff;
-  font-size:22px;font-weight:700;color:var(--marinho);cursor:pointer;line-height:1
+  width:42px;height:42px;border-radius:10px;border:1px solid var(--linha);background:var(--surface);
+  font-size:22px;font-weight:700;color:var(--marca-txt);cursor:pointer;line-height:1
 }
 .stepper input{width:78px;text-align:center;font-size:19px;font-weight:700;padding:9px 4px}
 
 /* assinatura */
-.assinatura{border:2px dashed var(--linha);border-radius:10px;background:#fff;touch-action:none;width:100%;height:170px;display:block}
+.assinatura{border:2px dashed var(--linha);border-radius:10px;background:var(--surface);touch-action:none;width:100%;height:170px;display:block}
 
 /* ---------- tabelas ---------- */
 .tabela-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--linha);white-space:nowrap}
-th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--txt2);background:#fafbfc;position:sticky;top:0}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--txt2);background:var(--surface-2);position:sticky;top:0}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-tbody tr:hover{background:#fafbfc}
+tbody tr:hover{background:var(--surface-2)}
 tr.destaque{background:var(--amarelo-claro)}
 tr.ruim{background:var(--vermelho-claro)}
 
@@ -184,9 +193,9 @@ tr.ruim{background:var(--vermelho-claro)}
 .tag.amarela{background:var(--ambar-claro);color:var(--ambar-forte)}
 .tag.vermelha{background:var(--vermelho-claro);color:var(--vermelho)}
 .tag.azul{background:var(--azul-claro);color:var(--azul)}
-.tag.cinza{background:#eef1f4;color:var(--txt2)}
+.tag.cinza{background:var(--neutro);color:var(--txt2)}
 
-.barra{display:flex;height:10px;border-radius:6px;overflow:hidden;background:#eef1f4;margin:6px 0}
+.barra{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--neutro);margin:6px 0}
 .barra span{display:block;height:100%}
 .legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--txt2);margin-top:4px}
 .legenda i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
@@ -211,45 +220,8 @@ tr.ruim{background:var(--vermelho-claro)}
 /* modal */
 .modal{position:fixed;inset:0;background:rgba(16,33,43,.55);z-index:150;display:none;align-items:center;justify-content:center;padding:14px}
 .modal.aberto{display:flex}
-.modal .box{background:#fff;border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:88vh;overflow:auto}
+.modal .box{background:var(--surface);border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:88vh;overflow:auto}
 .modal h2{margin-top:0}
-
-/* ---------- janela escura: cadastro de usuário ---------- */
-/* Aplicada só no formulário de usuário, por classe na janela. O resto do painel
-   continua claro, então cada cor daqui precisa ser declarada: herdar do tema claro
-   deixaria texto escuro sobre fundo escuro em algum canto. */
-:root{ --escuro:#22262d; --escuro-2:#2b3038; --escuro-3:#191c21;
-        --escuro-linha:#3a4049; --escuro-txt:#e8eaee; --escuro-txt2:#a3abb7; }
-
-.modal.escuro .box{background:var(--escuro);color:var(--escuro-txt)}
-.modal.escuro h2,.modal.escuro h3{color:#fff}
-.modal.escuro h3{border-bottom:1px solid var(--escuro-linha);padding-bottom:6px}
-.modal.escuro label{color:var(--escuro-txt)}
-.modal.escuro label span{color:var(--escuro-txt2)!important}
-.modal.escuro p{color:var(--escuro-txt2)!important}
-
-.modal.escuro input,.modal.escuro select,.modal.escuro textarea{
-  background:var(--escuro-3);color:var(--escuro-txt);border-color:var(--escuro-linha)
-}
-.modal.escuro input::placeholder,.modal.escuro textarea::placeholder{color:#6e7785}
-.modal.escuro input:focus,.modal.escuro select:focus,.modal.escuro textarea:focus{
-  outline-color:var(--ambar-btn);border-color:var(--ambar-btn)
-}
-/* Campo travado precisa PARECER travado também no escuro. */
-.modal.escuro select:disabled{background:#15181c;color:#7c8492;cursor:not-allowed}
-
-.modal.escuro .marcalista{background:var(--escuro-2);border-color:var(--escuro-linha)}
-.modal.escuro .marcalista .marca:hover{background:#343a44}
-.modal.escuro .vazio{background:var(--escuro-2);color:var(--escuro-txt2);border-color:var(--escuro-linha)}
-
-/* As etiquetas são pensadas para fundo claro: no escuro precisam de fundo próprio,
-   senão viram borrão claro com texto quase da mesma cor. */
-.modal.escuro .tag.cinza{background:#3a4049;color:#cdd3db}
-.modal.escuro .tag.azul{background:#24405f;color:#bcd4f2}
-
-.modal.escuro button.btn.neutro{background:#3a4049;color:var(--escuro-txt);border-color:#4a515c}
-.modal.escuro button.mini{background:var(--escuro-2);color:var(--escuro-txt);border-color:var(--escuro-linha)}
-
 
 /* login */
 /* Cena escura só na entrada; o app depois do login continua claro.

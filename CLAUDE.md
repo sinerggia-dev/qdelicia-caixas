@@ -305,28 +305,43 @@ Editar a saída faz as três versões divergirem em silêncio.
 
 ## Paleta
 
-Trocada em setembro/2026 a partir de um mockup do usuário: **marinho é a marca**, **âmbar é a
-ação**, fundo creme. Antes o verde acumulava os dois papéis — marca e "confirmado" — e agora ele
-guarda só o significado semântico.
+Cinza escuro em todas as telas, a pedido do usuário (setembro/2026). **Marinho continua
+a marca** — cabeçalho e tela de entrada — e **âmbar continua a ação**. O que mudou foi o
+chão: fundo, cartões, campos e tabelas.
 
-Tudo passa por tokens em `styles.css`; nenhum arquivo tem cor solta. Os nomes dizem o papel:
+Tudo passa por tokens em `styles.css`; nenhum arquivo tem cor solta. Foi isso que permitiu
+trocar o tema inteiro mexendo num bloco só — mas só depois de converter as cores que
+ainda estavam fixas (`#fff`, `#eef1f4`, `#fafbfc`). Se voltar a escrever cor solta, o
+próximo que mexer no tema paga essa conta de novo.
+
+### Os degraus de superfície
 
 | Token | Papel |
 |---|---|
-| `--marinho` | marca: cabeçalho, links, aba ativa, botão secundário |
-| `--ambar` | destaque: sublinhado da aba ativa, chip de fila, bordas |
-| `--ambar-btn` | fundo do botão principal — dourado vivo, **com texto marinho** |
-| `--ambar-forte` | texto âmbar sobre fundo claro (etiquetas, avisos) |
-| `--verde` | só `CONFIRMADO` / ok |
-| `--vermelho` | divergência, atraso, acima do limite |
+| `--bg` | o chão da página |
+| `--surface` | cartão, janela |
+| `--surface-2` | cabeçalho de tabela, linha sob o mouse, item |
+| `--campo` | dentro do que se digita — mais fundo que o cartão, de propósito |
+| `--neutro` | etiqueta, botão neutro, barra |
 
-Os três tons de âmbar existem por contraste, não por capricho. Dourado vivo com texto branco dá
-3,2:1 e reprova; com texto marinho dá 5,9:1. Já etiqueta de 11,5px precisa de 4,5:1, o que só o
-`--ambar-forte` alcança sobre `--ambar-claro`. Se for mexer, refaça a conta antes — o app é lido
-no celular, no galpão, sob luz forte.
+Os quatro degraus existem porque cinza chapado vira uma mancha só: sem eles não se vê
+onde termina o cartão e começa o campo.
 
-O `manual.html` tem paleta própria e **continua na identidade verde**; alinhar é uma tarefa à
-parte, e exige regerar PDF e Word.
+### Marinho é fundo, nunca tinta
+
+A armadilha do tema escuro: `--marinho` aparecia como `color:` na aba ativa, no botão
+secundário, no `editar` e nos links. Sobre cinza escuro isso some. Onde a marca precisa
+ser tinta, use `--marca-txt` (azul claro). Se acrescentar algo com a cor da marca, pergunte
+antes se é fundo ou letra.
+
+### Refaça a conta antes de mexer
+
+O app é lido no celular, no galpão, sob luz forte. Os quinze pares de cor foram medidos e
+passam em WCAG AA — o mais apertado é a etiqueta cinza, em 4,51:1 contra o mínimo de 4,5.
+Trocar qualquer tom exige refazer a medição, não o olhar.
+
+O `manual.html` tem paleta própria e **continua claro, na identidade verde**; alinhar é
+tarefa à parte, e exige regerar PDF e Word.
 
 ## Armadilhas já pagas
 
