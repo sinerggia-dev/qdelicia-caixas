@@ -219,7 +219,7 @@ var MOTORISTA = {
     return {
       ID: r.id, Nome: r.nome, Telefone: r.telefone || '', CPF: r.cpf || '',
       CNH: r.cnh || '', CNHCategoria: r.cnh_categoria || '', CNHValidade: r.cnh_validade || '',
-      Placa: r.placa || '', Obs: r.obs || '', Ativo: r.ativo !== false,
+      Placa: r.placa || '', Obs: r.obs || '', Empresa: r.empresa || '', Ativo: r.ativo !== false,
       Rotas: lista(r.rotas)
     };
   },
@@ -234,6 +234,7 @@ var MOTORISTA = {
     if (o.CNHValidade !== undefined) r.cnh_validade = nulo(o.CNHValidade);
     if (o.Placa !== undefined) r.placa = String(o.Placa || '').trim().toUpperCase();
     if (o.Obs !== undefined) r.obs = o.Obs || '';
+    if (o.Empresa !== undefined) r.empresa = String(o.Empresa || '').trim();
     if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
     if (o.Rotas !== undefined) r.rotas = lista(o.Rotas);
     return r;

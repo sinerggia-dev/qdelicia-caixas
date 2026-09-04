@@ -9,6 +9,7 @@
  *   node teste/teste_api.js
  */
 'use strict';
+const fs = require('fs');
 const path = require('path');
 
 /* ---------- banco falso ---------- */
@@ -677,6 +678,70 @@ async function main() {
   await POST({ acao: 'salvarMotorista', registro: { ID: 'D001', Rotas: [] } });
   ok((await GET({ acao: 'equipe' })).motoristas.find((m) => m.ID === 'D001').Rotas.length === 0,
     'desmarcar tudo devolve o motorista para todas as rotas');
+
+  console.log('== perfis novos ==');
+
+  ok(Lm.PERFIS.join(',') === 'ADMIN,GESTOR,GERENTE,CONFERENTE,MOTORISTA,PROMOTOR',
+    'a lista de perfis é a combinada', Lm.PERFIS);
+
+  ['ADMIN', 'CONFERENTE'].forEach((pf) => ok(Lm.podeConferir(pf), pf + ' confere'));
+  ok(Lm.podeConferir('GALPAO'), 'GALPAO continua conferindo — sessão antiga no celular');
+  ['GESTOR', 'GERENTE', 'MOTORISTA', 'PROMOTOR', '', null].forEach(
+    (pf) => ok(!Lm.podeConferir(pf), JSON.stringify(pf) + ' não confere'));
+
+  // A regra central, agora pela negativa: quem não confere gera contagem que espera.
+  const CL = (await GET({ acao: 'dados' })).locais.find((l) => l.Tipo === 'CLIENTE');
+  const TP = (await GET({ acao: 'dados' })).tipos[0];
+  async function devolveComo(perfil) {
+    const r = await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: CL.ID,
+      destinoId: (await GET({ acao: 'dados' })).locais.find((l) => l.Tipo === 'GALPAO').ID,
+      itens: [{ tipoCaixaId: TP.ID, qtd: 1 }], dataRef: dia(0), usuarioId: 'U001', perfil: perfil });
+    const mov = (await GET({ acao: 'movimentos' })).movimentos.find((m) => m.id === r.criados[0].id);
+    return mov.status;
+  }
+  ok(await devolveComo('GESTOR') === 'AGUARDANDO',
+    'devolução de GESTOR nasce AGUARDANDO');
+  ok(await devolveComo('GERENTE') === 'AGUARDANDO',
+    'devolução de GERENTE nasce AGUARDANDO');
+  ok(await devolveComo('CONFERENTE') === 'CONFIRMADO',
+    'devolução de CONFERENTE já nasce CONFIRMADA');
+  ok(await devolveComo('PROMOTOR') === 'AGUARDANDO',
+    'e o promotor continua como sempre foi');
+
+  console.log('== empresa do motorista ==');
+  await POST({ acao: 'salvarMotorista', registro: { ID: 'D001', Empresa: '  Qdelícia Frutas  ' } });
+  const emp = (await GET({ acao: 'equipe' })).motoristas.find((m) => m.ID === 'D001');
+  ok(emp.Empresa === 'Qdelícia Frutas', 'empresa grava sem espaço sobrando', emp.Empresa);
+  ok(emp.Nome === 'Arilson', 'e não apaga o resto do cadastro');
+  ok(!('Empresa' in (await GET({ acao: 'dados' })).motoristas[0]),
+    'empresa não vaza na rota pública — o celular não precisa');
+
+  console.log('== tradutores: ler e gravar batem ==');
+
+  /* Um campo novo foi parar no tradutor de LOCAIS em vez do de MOTORISTAS, por engano de
+     substituição de texto — a mesma armadilha que já tinha acontecido no painel. O sintoma
+     é mudo: salvar responde ok e o valor simplesmente não vai. A invariante é simples:
+     campo que o `de` sabe ler, o `para` precisa saber gravar. */
+  {
+    const fonte = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
+    const nomes = ['LOCAL', 'TIPO', 'USUARIO', 'MOTORISTA', 'LOCAL_PADRAO'];
+    nomes.forEach((nome) => {
+      const ini = fonte.indexOf('var ' + nome + ' = {');
+      const corte = fonte.indexOf('\n};', ini);
+      const bloco = fonte.slice(ini, corte);
+      const iPara = bloco.indexOf('para: function');
+      const le = new Set(), grava = new Set();
+      let m;
+      const reLe = /([A-Z][A-Za-z]*):\s*r\./g;
+      while ((m = reLe.exec(bloco.slice(0, iPara)))) le.add(m[1]);
+      const rePara = /o\.([A-Z][A-Za-z]*) !== undefined/g;
+      while ((m = rePara.exec(bloco.slice(iPara)))) grava.add(m[1]);
+      // SenhaHash sai do `de` mas nunca volta ao navegador; Token o backend gera sozinho.
+      const ignorar = new Set(['TemSenha']);
+      const faltando = [...le].filter((c) => !grava.has(c) && !ignorar.has(c));
+      ok(faltando.length === 0, nome + ': todo campo lido tem como ser gravado', faltando);
+    });
+  }
 
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);

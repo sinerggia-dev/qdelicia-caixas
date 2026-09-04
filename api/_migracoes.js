@@ -166,5 +166,19 @@ module.exports = [
     id: '2026-09-06-rotas-do-motorista',
     nota: 'quais rotas cada motorista atende; vazio = todas',
     sql: "alter table public.motoristas add column if not exists rotas jsonb not null default '[]'::jsonb;"
+  },
+  {
+    id: '2026-09-06-perfis',
+    nota: 'GALPAO vira CONFERENTE; entram GESTOR e GERENTE',
+    sql: [
+      "alter table public.usuarios drop constraint if exists usuarios_perfil_check;",
+      "update public.usuarios set perfil = 'CONFERENTE' where upper(perfil) = 'GALPAO';",
+      "alter table public.usuarios add constraint usuarios_perfil_check check (upper(perfil) in ('ADMIN','GESTOR','GERENTE','CONFERENTE','MOTORISTA','PROMOTOR'));"
+    ].join('\n')
+  },
+  {
+    id: '2026-09-06-empresa-motorista',
+    nota: 'de qual empresa é o motorista',
+    sql: "alter table public.motoristas add column if not exists empresa text not null default '';"
   }
 ];

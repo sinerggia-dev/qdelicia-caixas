@@ -494,6 +494,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p>Cada quadro desta aba <strong>abre e fecha no clique do título</strong>, e começa fechado — seis cadastros abertos ao mesmo tempo deixam o que você procura a três rolagens de distância. O número ao lado do nome diz quantos itens há dentro, então quadro fechado não se confunde com cadastro vazio. O que você abrir continua aberto na próxima visita, neste mesmo navegador.</p>
 
   <h3>Usuários</h3>
+  <p><strong>Perfis:</strong> ADMIN faz os cadastros e as correções. CONFERENTE confere a devolução na chegada do galpão. GESTOR, GERENTE, MOTORISTA e PROMOTOR contam na rua — a contagem deles nasce <span class="et ag">AGUARDANDO</span> e só vira saldo depois da conferência. Quem entra no painel não depende mais do perfil: é a chave <em>Pode entrar no painel?</em>, usuário por usuário.</p>
   <p><strong>Pode entrar no painel?</strong> decide, pessoa por pessoa, quem abre o endereço do escritório. Antes isso vinha do perfil: todo GALPAO entrava. Agora um conferente pode lançar no celular sem ver os números da operação, e um promotor pode ver os números sem virar administrador. Quem fica sem acesso continua usando o app de campo normalmente. <em>Administrador entra sempre</em> — a opção fica travada para ele, senão daria para trancar o último administrador do lado de fora.</p>
 
   <p>Nome, e-mail, perfil, PIN e local padrão. O e-mail (ou o usuário) é o que a pessoa digita para entrar no painel; o PIN é o do celular. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá peso à divergência.</p>
@@ -556,14 +557,17 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <h2>Tipos e estados</h2>
 
   <h3>Quem vê o quê</h3>
+  <p><strong>chave</strong> = depende do <em>Pode entrar no painel?</em> no cadastro daquela pessoa. ADMIN entra sempre e não lança movimento — quem corrige não deve ser quem conta.</p>
   <div class="tabela">
     <table>
-      <thead><tr><th>Perfil</th><th>Saída</th><th>Devolução</th><th>Conferência</th><th>Saldo</th><th>Painel e extratos</th><th>Lançar e cadastrar</th></tr></thead>
+      <thead><tr><th>Perfil</th><th>Saída</th><th>Devolução</th><th>Conferência</th><th>Saldo</th><th>Painel e extratos</th><th>Cadastros e correções</th></tr></thead>
       <tbody>
-        <tr><td><code>MOTORISTA</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td><td class="nao">—</td></tr>
-        <tr><td><code>PROMOTOR</code></td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td><td class="sim">sim</td><td class="nao">—</td><td class="nao">—</td></tr>
-        <tr><td><code>GALPAO</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">—</td></tr>
-        <tr><td><code>ADMIN</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td></tr>
+        <tr><td><code>MOTORISTA</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
+        <tr><td><code>PROMOTOR</code></td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
+        <tr><td><code>GESTOR</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
+        <tr><td><code>GERENTE</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
+        <tr><td><code>CONFERENTE</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
+        <tr><td><code>ADMIN</code></td><td class="nao">&mdash;</td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sempre</td><td class="sim">sim</td></tr>
       </tbody>
     </table>
   </div>

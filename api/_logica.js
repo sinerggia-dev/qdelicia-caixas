@@ -20,7 +20,15 @@
 'use strict';
 
 var TIPOS_MOV = ['SAIDA', 'DEVOLUCAO', 'TRANSFERENCIA', 'PERDA', 'AJUSTE'];
-var PERFIS = ['ADMIN', 'GALPAO', 'MOTORISTA', 'PROMOTOR'];
+/* GALPAO ficou como apelido antigo de CONFERENTE: a migração troca as linhas do banco,
+   mas uma sessão guardada no celular pode continuar dizendo GALPAO por dias. */
+var PERFIS = ['ADMIN', 'GESTOR', 'GERENTE', 'CONFERENTE', 'MOTORISTA', 'PROMOTOR'];
+var CONFEREM = ['ADMIN', 'CONFERENTE', 'GALPAO'];
+
+/** Quem confere devolução no galpão. */
+function podeConferir(perfil) {
+  return CONFEREM.indexOf(String(perfil || '').toUpperCase()) >= 0;
+}
 // A rota é o caminhão em circulação: guarda caixa como qualquer outro local, e é isso que
 // impede o que subiu no caminhão e não foi entregue de sumir na conta do cliente.
 var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA'];
@@ -280,8 +288,11 @@ function montarMovimento(p, ctx) {
   // A regra central: contagem feita no cliente não baixa saldo sozinha.
   var status = String(p.status || '').toUpperCase();
   if (!status) {
-    status = (tipo === 'DEVOLUCAO' && (perfil === 'PROMOTOR' || perfil === 'MOTORISTA'))
-      ? 'AGUARDANDO' : 'CONFIRMADO';
+    // Invertido de propósito: em vez de listar quem gera AGUARDANDO, pergunta quem pode
+    // conferir. Dá no mesmo para os perfis antigos, e perfil novo entra pelo lado seguro —
+    // esquecer de acrescentar alguém aqui passa a significar "a contagem dele espera
+    // conferência", e não "a contagem dele baixa saldo sozinha".
+    status = (tipo === 'DEVOLUCAO' && !podeConferir(perfil)) ? 'AGUARDANDO' : 'CONFIRMADO';
   }
 
   var agora = ctx.agora || new Date();
@@ -779,6 +790,6 @@ module.exports = {
   efetiva: efetiva, saldos: saldos, emConferencia: emConferencia, aging: aging,
   pendentes: pendentes, listaMovimentos: listaMovimentos, painel: painel,
   descricao: descricao, extrato: extrato, extratoToken: extratoToken,
-  usuariosPublicos: usuariosPublicos, podeVerPainel: podeVerPainel,
+  usuariosPublicos: usuariosPublicos, podeVerPainel: podeVerPainel, podeConferir: podeConferir,
   locaisPermitidos: locaisPermitidos, motoristasDaRota: motoristasDaRota
 };

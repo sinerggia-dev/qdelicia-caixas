@@ -50,6 +50,21 @@ separados de propósito: somar os dois esconde onde a caixa está.
 
 Banco antigo se resolve sozinho: ver a seção de migração automática.
 
+## Perfis e a regra do AGUARDANDO
+
+`ADMIN, GESTOR, GERENTE, CONFERENTE, MOTORISTA, PROMOTOR`. `GALPAO` foi renomeado para
+`CONFERENTE` por migração, mas **continua reconhecido no código**: a sessão guardada no
+celular só troca no próximo login, e até lá o conferente perderia a aba de conferência.
+
+A regra central foi invertida de propósito. Antes: *devolução de PROMOTOR ou MOTORISTA nasce
+AGUARDANDO*. Agora: *devolução de quem não pode conferir nasce AGUARDANDO*. Dá no mesmo para
+os perfis antigos — os testes provam — e faz o perfil novo entrar pelo lado seguro: esquecer
+de acrescentar alguém em `CONFEREM` passa a significar "a contagem dele espera
+conferência", e não "a contagem dele baixa saldo sozinha".
+
+Quem confere está em `L.podeConferir()`, e o front repete a lista em `app.js`.
+São dois lugares porque o celular não carrega `_logica.js`; se mudar um, mude o outro.
+
 ## Separação de funções no painel
 
 Quem abre o `admin.html` é decidido por `usuarios.acesso_painel`, **uma chave por pessoa**.
@@ -299,6 +314,13 @@ O `manual.html` tem paleta própria e **continua na identidade verde**; alinhar 
 parte, e exige regerar PDF e Word.
 
 ## Armadilhas já pagas
+
+- **Substituição de texto casando com o tradutor errado.** Aconteceu duas vezes: um campo
+  do usuário foi parar em `formLocalPadrao`, e `Empresa` foi parar no tradutor de LOCAL
+  em vez do de MOTORISTA. O sintoma é mudo — salvar responde ok e o valor não vai. Dois
+  testes cobrem isso agora: `teste_tela.js` (formulário só lê campo que ele desenha) e
+  `teste_api.js` (campo que o `de` lê, o `para` grava). Ambos verificados reintroduzindo
+  o defeito. Se for editar por script, ancore em texto único do bloco certo.
 
 - **`Ativo` virou booleano na migração e o front não acompanhou.** O código comparava
   `String(l.Ativo).toUpperCase() !== 'NAO'`, e `String(false)` é `'FALSE'` — então local e tipo

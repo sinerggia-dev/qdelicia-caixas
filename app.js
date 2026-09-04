@@ -144,7 +144,12 @@
   function entrar(u) { localStorage.setItem(KEY_SESSAO, JSON.stringify(u)); }
   function sair() { localStorage.removeItem(KEY_SESSAO); location.reload(); }
   function ehAdmin() { var s = sessao(); return !!s && (s.perfil === 'ADMIN'); }
-  function podeConferir() { var s = sessao(); return !!s && (s.perfil === 'ADMIN' || s.perfil === 'GALPAO'); }
+  /* GALPAO continua aqui de propósito: virou CONFERENTE no banco, mas a sessão guardada
+     no celular só troca no próximo login, e até lá o conferente perderia a aba. */
+  function podeConferir() {
+    var s = sessao();
+    return !!s && ['ADMIN', 'CONFERENTE', 'GALPAO'].indexOf(String(s.perfil).toUpperCase()) >= 0;
+  }
 
   /* ---------------- cache local dos cadastros ---------------- */
 
