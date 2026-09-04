@@ -959,7 +959,7 @@
     });
 
     document.getElementById('tabelaUsuarios').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>E-mail</th><th>Painel</th><th>Local padrão</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>E-mail</th><th>Painel</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       EQUIPE.map(function(u){
         var lp = LOCAIS_PADRAO.filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
         var on = Q.ativo(u.Ativo);
@@ -970,7 +970,7 @@
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil.toLowerCase())+'</span></td>'+
         '<td>'+acesso+'</td>'+
         '<td>'+(u.AcessoPainel?'<span class="tag verde">sim</span>':'<span class="tag cinza">não</span>')+'</td>'+
-        '<td>'+Q.esc(lp?lp.Nome:'')+'</td>'+
+        '<td>'+Q.esc(lp?lp.Nome:'')+'</td><td>'+Q.esc(u.Telefone||'')+'</td>'+
         '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
         '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
             '<button class="mini'+(on?' perigo':'')+'" data-ativar="'+u.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
@@ -1263,6 +1263,7 @@
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
         'Nada marcado = a pessoa vê todos. Marque para restringir.</p>'+
       '<h3 style="margin-top:20px">Outros</h3>'+
+      '<label>Telefone</label><input type="tel" id="fTel" value="'+Q.esc(u.Telefone||'')+'" placeholder="81 98151-7703">'+
       '<label>Local padrão (onde trabalha)</label><select id="fLocal">'+
         '<option value="">—</option>'+
         LOCAIS_PADRAO.filter(function(x){ return Q.ativo(x.Ativo) || String(x.ID)===String(u.LocalPadrao); })
@@ -1290,6 +1291,7 @@
     ajustarPainel();
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:document.getElementById('fPerfil').value,
+        Telefone:document.getElementById('fTel').value.trim(),
         LocalPadrao:document.getElementById('fLocal').value,
         Ativo:document.getElementById('fAtivo').value,
         AcessoPainel:document.getElementById('fPainel').value,
