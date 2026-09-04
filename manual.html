@@ -389,6 +389,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   </ol>
 
   <h3>Coletar caixas na rua</h3>
+  <p>A tela de <strong>Devolução</strong> tem a mesma forma da de Saída — mesma ordem de campos e mesmos rótulos — porque quem alterna entre as duas o dia inteiro não deve ter que reaprender a tela. A diferença está no significado: na devolução a <em>Saída</em> é o cliente e o <em>Destino</em> é o galpão.</p>
   <p>Use a aba <strong>Devolução</strong>: em <em>Devolvidas por</em> escolha o cliente, em <em>Recebidas em</em> o destino das caixas. A tela mostra o saldo atual do cliente antes de você digitar, o que já evita erro grosseiro.</p>
   <p class="nota">A sua contagem na rua fica <span class="chip aguarda">AGUARDANDO</span>. Não é desconfiança: é o que faz a diferença encontrada na chegada ter um número de origem e um responsável.</p>
 </section>
@@ -400,9 +401,11 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   </div>
   <p>O promotor trabalha dentro do cliente e tem uma função só: contar as caixas prontas para voltar. O app abre direto na tela de <strong>Devolução</strong> — esse perfil nem enxerga a aba de Saída.</p>
   <ul>
-    <li><strong>Devolvidas por</strong> — o cliente onde você está</li>
-    <li><strong>Recebidas em</strong> — o galpão ou a filial que vai receber</li>
-    <li><strong>Quantidade contada</strong> — o que você contou de fato, por tipo de caixa</li>
+    <li><strong>Data</strong> — o dia da contagem</li>
+    <li><strong>Saída</strong> — o cliente de onde as caixas estão voltando</li>
+    <li><strong>Destino</strong> — o galpão ou a filial que vai receber</li>
+    <li><strong>Motorista</strong> — quem está levando a carga de volta</li>
+    <li><strong>Quantas caixas</strong> — o que você contou de fato, por tipo</li>
     <li><strong>Foto das caixas</strong> — opcional, mas é o que sustenta a sua contagem se der diferença</li>
   </ul>
   <p>Na aba <strong>Saldo</strong> você confere quantas caixas o cliente ainda tem em aberto.</p>
@@ -621,7 +624,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     </table>
   </div>
 
-  <p style="margin-top:18px">Assinaturas e fotos ficam no armazenamento do Supabase, e o link aparece no extrato e na conferência.</p>
+  <p style="margin-top:18px">As fotos ficam no armazenamento do Supabase, e o link aparece no extrato e na conferência. Lançamentos antigos podem ter assinatura anexada — o campo saiu da tela em setembro/2026, mas o que já foi gravado continua lá.</p>
 
   <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode <code>node teste/teste_api.js</code>, que executa as regras contra um banco falso em memória — sem rede e sem chave — e confere 63 pontos, incluindo o caminho da divergência e o cálculo de idade.</p>
 

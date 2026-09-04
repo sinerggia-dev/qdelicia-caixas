@@ -97,40 +97,41 @@
   </section>
 
   <!-- ---------- DEVOLUÇÃO ---------- -->
+  <!-- Mesma forma da saída, a pedido: quem alterna entre as duas abas o dia inteiro não
+       deve ter que reaprender a tela. Mesma ordem, mesmos rótulos, mesmos blocos. -->
   <section id="pgDevolucao" class="pagina">
     <div class="card">
       <h2>Devolução de caixas<span class="sub" id="devSub">Caixas voltando do cliente.</span></h2>
       <div class="grid2">
         <div>
-          <label for="dvOrigem">Devolvidas por</label>
-          <select id="dvOrigem"></select>
-        </div>
-        <div>
-          <label for="dvDestino">Recebidas em</label>
-          <select id="dvDestino"></select>
-        </div>
-        <div>
           <label for="dvData">Data</label>
           <input id="dvData" type="date">
         </div>
         <div>
-          <label for="dvRomaneio">Romaneio (opcional)</label>
-          <input id="dvRomaneio" type="text" inputmode="numeric">
+          <label for="dvOrigem">Saída</label>
+          <select id="dvOrigem"></select>
+        </div>
+        <div>
+          <label for="dvDestino">Destino</label>
+          <select id="dvDestino"></select>
+        </div>
+        <div>
+          <label for="dvMotorista">Motorista</label>
+          <select id="dvMotorista"></select>
         </div>
       </div>
 
+      <!-- Fica entre o cabeçalho e a contagem porque é aqui que ele serve: avisa que a
+           contagem passou do saldo antes de a pessoa somar tudo e mandar. -->
       <div id="dvSaldoAtual"></div>
 
-      <h3>Quantidade contada</h3>
+      <h3>Quantas caixas</h3>
       <div class="itens" id="dvItens"></div>
 
       <label for="dvObs">Observação (opcional)</label>
       <textarea id="dvObs" placeholder="Ex.: 4 caixas quebradas, separadas"></textarea>
 
-      <h3>Assinatura de quem entregou (opcional)</h3>
-      <canvas id="dvAssina" class="assinatura"></canvas>
       <div class="linha-btn" style="margin-top:8px">
-        <button class="mini" id="dvLimparAssina" style="flex:0">Limpar assinatura</button>
         <label class="mini" style="flex:0;margin:0;cursor:pointer;display:inline-block;padding:7px 11px">
           📷 Foto das caixas
           <input id="dvFoto" type="file" accept="image/*" capture="environment" style="display:none">
@@ -181,7 +182,7 @@
 (function(){
   'use strict';
   var Q = window.QDC;
-  var DADOS = null, PAINEL = null, dvAssina = null, sdFotoData = '', dvFotoData = '';
+  var DADOS = null, PAINEL = null, sdFotoData = '', dvFotoData = '';
 
   /* ---------------- login ---------------- */
   function iniciarLogin(){
@@ -414,15 +415,17 @@
     document.getElementById('dvItens').innerHTML = itensHTML('dv_');
     ligarSteppers(document.getElementById('sdItens'));
     ligarSteppers(document.getElementById('dvItens'));
-    if (!dvAssina) dvAssina = Q.assinatura(document.getElementById('dvAssina'));
     document.getElementById('dvOrigem').addEventListener('change', mostrarSaldoDoOrigem);
+    // Quem trouxe a carga de volta. Na devolução a lista não depende de rota: quem
+    // recebe no galpão só precisa dizer quem chegou dirigindo.
+    document.getElementById('dvMotorista').innerHTML = '<option value="">Selecione…</option>' +
+      motoristas().map(function(m){ return '<option value="'+Q.esc(m)+'">'+Q.esc(m)+'</option>'; }).join('');
     document.getElementById('sdOrigem').addEventListener('change', ajustarCamposSaida);
     // É a rota que decide quais motoristas aparecem.
     document.getElementById('sdRota').addEventListener('change', montarMotoristas);
     ajustarCamposSaida();
   }
 
-  document.getElementById('dvLimparAssina').addEventListener('click', function(){ dvAssina.limpar(); });
 
   function ligarFoto(inputId, okId, setter){
     document.getElementById(inputId).addEventListener('change', function(){
@@ -529,10 +532,10 @@
       acao:'movimento', tipo:'DEVOLUCAO',
       origemId: origem, destinoId: destino, itens: itens,
       dataRef: document.getElementById('dvData').value,
-      romaneio: document.getElementById('dvRomaneio').value,
+      motorista: document.getElementById('dvMotorista').value,
       obs: document.getElementById('dvObs').value,
       usuarioId: s.id, perfil: s.perfil,
-      assinatura: dvAssina.dataURL(), foto: dvFotoData
+      foto: dvFotoData
     }).then(function(r){
       btn.disabled = false; btn.textContent = 'Registrar devolução';
       var txt = r.offline
@@ -552,8 +555,8 @@
   function limparDevolucao(manter){
     zerarItens('dv_');
     document.getElementById('dvObs').value = '';
-    document.getElementById('dvRomaneio').value = '';
-    dvAssina.limpar(); dvFotoData=''; document.getElementById('dvFotoOk').textContent='';
+    document.getElementById('dvMotorista').value = '';
+    dvFotoData=''; document.getElementById('dvFotoOk').textContent='';
     document.getElementById('dvFoto').value = '';
     if (!manter){
       document.getElementById('dvOrigem').value = '';
