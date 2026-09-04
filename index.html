@@ -176,7 +176,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=36f4dc56"></script>
+<script src="app.js?v=5f20680b"></script>
 <script>
 (function(){
   'use strict';
@@ -224,10 +224,10 @@
     var s = Q.sessao();
     document.getElementById('telaLogin').style.display = 'none';
     document.getElementById('app').style.display = 'block';
-    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil.toLowerCase();
+    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil;
     if (!Q.podeConferir()) document.getElementById('abaConferencia').style.display = 'none';
     Q.abas('#abas');
-    if (s.perfil === 'PROMOTOR'){
+    if (String(s.perfil).toUpperCase() === 'PROMOTOR'){
       // Promotor só conta devolução no cliente.
       document.querySelectorAll('#abas button').forEach(function(b){
         if (b.dataset.pagina === 'pgSaida') b.style.display = 'none';
@@ -517,7 +517,8 @@
     if (!itens.length) return Q.toast('Informe a quantidade contada.','erro');
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
 
-    var aguarda = (s.perfil === 'PROMOTOR' || s.perfil === 'MOTORISTA');
+    // Espelha a regra do servidor: quem não confere gera contagem que espera.
+    var aguarda = !Q.podeConferir();
     var msg = aguarda
       ? 'Registrar contagem de ' + total + ' caixa(s)? O galpão vai conferir na chegada.'
       : 'Confirmar entrada de ' + total + ' caixa(s)?';
@@ -597,7 +598,7 @@
         return '<div class="card" style="margin:12px 0;box-shadow:none">'+
           '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">'+
             '<div><b>'+Q.esc(m.origem)+'</b><br><span style="font-size:13px;color:var(--txt2)">'+
-              Q.dataBR(m.dataRef)+' · '+Q.esc(m.tipoCaixa)+' · contado por '+Q.esc(m.perfil.toLowerCase())+
+              Q.dataBR(m.dataRef)+' · '+Q.esc(m.tipoCaixa)+' · contado por '+Q.esc(m.perfil)+
               (m.romaneio?' · romaneio '+Q.esc(m.romaneio):'')+'</span></div>'+
             '<div style="text-align:right"><span class="tag amarela">declarado '+Q.num(m.qtd)+'</span></div>'+
           '</div>'+

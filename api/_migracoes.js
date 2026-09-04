@@ -185,5 +185,11 @@ module.exports = [
     id: '2026-09-06-perfil-livre',
     nota: 'perfil deixa de ser lista fechada; a trava passa a ser da aplicação',
     sql: "alter table public.usuarios drop constraint if exists usuarios_perfil_check;"
+  },
+  {
+    id: '2026-09-06-perfil-inicial-maiuscula',
+    nota: 'desfaz o MAIÚSCULO que eu havia imposto sem ninguém pedir',
+    sql: "update public.usuarios set perfil = initcap(lower(perfil)) "
+       + "where perfil is not null and perfil <> initcap(lower(perfil));"
   }
 ];

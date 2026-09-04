@@ -681,7 +681,7 @@ async function main() {
 
   console.log('== perfis novos ==');
 
-  ok(Lm.PERFIS.join(',') === 'ADMIN,GESTOR,GERENTE,CONFERENTE,MOTORISTA,PROMOTOR',
+  ok(Lm.PERFIS.join(',') === 'Admin,Gestor,Gerente,Conferente,Motorista,Promotor',
     'a lista de perfis é a combinada', Lm.PERFIS);
 
   ['ADMIN', 'CONFERENTE'].forEach((pf) => ok(Lm.podeConferir(pf), pf + ' confere'));
@@ -745,8 +745,10 @@ async function main() {
 
   console.log('== perfil escrito à mão ==');
 
-  ok(Lm.normalizarPerfil('  supervisor  de   área ') === 'SUPERVISOR DE ÁREA',
-    'perfil digitado vira maiúscula e sem espaço sobrando', Lm.normalizarPerfil('  supervisor  de   área '));
+  ok(Lm.normalizarPerfil('  supervisor  de   área ') === 'Supervisor de Área',
+    'perfil digitado vira Inicial Maiúscula, com conector em minúscula',
+    Lm.normalizarPerfil('  supervisor  de   área '));
+  ok(Lm.normalizarPerfil('GESTOR') === 'Gestor', 'e MAIÚSCULO digitado também volta ao normal');
   ok(Lm.normalizarPerfil('   ') === '', 'só espaço vira vazio');
   ok(Lm.normalizarPerfil(null) === '', 'nulo não quebra');
 
@@ -754,26 +756,28 @@ async function main() {
     Nome: 'Supervisor Teste', Perfil: '  supervisor de área ', PIN: '4321' } });
   ok(novoPf.ok, 'perfil que não está na lista é aceito', novoPf);
   const gravPf = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === novoPf.id);
-  ok(gravPf.Perfil === 'SUPERVISOR DE ÁREA', 'e chega normalizado ao cadastro', gravPf.Perfil);
+  ok(gravPf.Perfil === 'Supervisor de Área', 'e chega normalizado ao cadastro', gravPf.Perfil);
 
   // O ponto inteiro: cargo inventado não pode virar permissão inventada.
-  ok(!Lm.podeConferir('SUPERVISOR DE ÁREA'), 'perfil novo NÃO confere');
-  ok(!Lm.podeVerPainel({ Perfil: 'SUPERVISOR DE ÁREA', Ativo: true }),
+  ok(!Lm.podeConferir('Supervisor de Área'), 'perfil novo NÃO confere');
+  ok(Lm.podeConferir('conferente') && Lm.podeConferir('Conferente') && Lm.podeConferir('CONFERENTE'),
+    'e a permissão não depende da caixa em que o perfil foi escrito');
+  ok(!Lm.podeVerPainel({ Perfil: 'Supervisor de Área', Ativo: true }),
     'perfil novo NÃO entra no painel sozinho — depende da chave');
-  ok(Lm.podeVerPainel({ Perfil: 'SUPERVISOR DE ÁREA', Ativo: true, AcessoPainel: true }),
+  ok(Lm.podeVerPainel({ Perfil: 'Supervisor de Área', Ativo: true, AcessoPainel: true }),
     'mas entra se o admin ligar a chave');
 
   ok((await POST({ acao: 'salvarUsuario', registro: { ID: novoPf.id, Perfil: '   ' } })).ok === false,
     'perfil vazio é recusado');
   const bicho = await POST({ acao: 'salvarUsuario', registro: { ID: novoPf.id, Perfil: 'ADMIN<script>' } });
   ok(bicho.ok === false, 'perfil com símbolo estranho é recusado', bicho);
-  ok((await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === novoPf.id).Perfil === 'SUPERVISOR DE ÁREA',
+  ok((await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === novoPf.id).Perfil === 'Supervisor de Área',
     'e a recusa não deixou meio gravado');
 
   const sugestoes = (await GET({ acao: 'equipe' })).perfis;
-  ok(sugestoes.slice(0, 6).join(',') === 'ADMIN,GESTOR,GERENTE,CONFERENTE,MOTORISTA,PROMOTOR',
+  ok(sugestoes.slice(0, 6).join(',') === 'Admin,Gestor,Gerente,Conferente,Motorista,Promotor',
     'os perfis de fábrica vêm primeiro, na ordem pensada', sugestoes);
-  ok(sugestoes.indexOf('SUPERVISOR DE ÁREA') >= 5,
+  ok(sugestoes.indexOf('Supervisor de Área') >= 5,
     'e o escrito à mão entra na sugestão para não virar três grafias', sugestoes);
 
   await POST({ acao: 'excluir', aba: 'Usuarios', id: novoPf.id });

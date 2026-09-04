@@ -143,7 +143,9 @@
   function sessao() { try { return JSON.parse(localStorage.getItem(KEY_SESSAO) || 'null'); } catch (e) { return null; } }
   function entrar(u) { localStorage.setItem(KEY_SESSAO, JSON.stringify(u)); }
   function sair() { localStorage.removeItem(KEY_SESSAO); location.reload(); }
-  function ehAdmin() { var s = sessao(); return !!s && (s.perfil === 'ADMIN'); }
+  /* Compara sem caixa: o perfil é escrito por gente, e a grafia gravada é a que a pessoa
+     escolheu — quem decide permissão não pode depender disso. */
+  function ehAdmin() { var s = sessao(); return !!s && String(s.perfil).toUpperCase() === 'ADMIN'; }
   /* GALPAO continua aqui de propósito: virou CONFERENTE no banco, mas a sessão guardada
      no celular só troca no próximo login, e até lá o conferente perderia a aba. */
   function podeConferir() {

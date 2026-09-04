@@ -177,7 +177,7 @@ var TIPO = {
 var USUARIO = {
   de: function (r) {
     return {
-      ID: r.id, Nome: r.nome, Perfil: String(r.perfil || '').toUpperCase(), PIN: String(r.pin),
+      ID: r.id, Nome: r.nome, Perfil: r.perfil || '', PIN: String(r.pin),
       Telefone: r.telefone || '', LocalPadrao: r.local_padrao, Ativo: r.ativo !== false,
       Email: r.email || '', Usuario: r.usuario || '', SenhaHash: r.senha_hash || '',
       AcessoPainel: r.acesso_painel === true,
@@ -188,7 +188,7 @@ var USUARIO = {
     var r = {};
     if (o.ID !== undefined) r.id = o.ID;
     if (o.Nome !== undefined) r.nome = o.Nome;
-    if (o.Perfil !== undefined) r.perfil = String(o.Perfil).toUpperCase();
+    if (o.Perfil !== undefined) r.perfil = String(o.Perfil);   // a grafia é escolha de quem cadastra
     if (o.PIN !== undefined) r.pin = String(o.PIN);
     if (o.Telefone !== undefined) r.telefone = o.Telefone || '';
     if (o.LocalPadrao !== undefined) r.local_padrao = nulo(o.LocalPadrao);

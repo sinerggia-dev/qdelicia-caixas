@@ -22,15 +22,26 @@
 var TIPOS_MOV = ['SAIDA', 'DEVOLUCAO', 'TRANSFERENCIA', 'PERDA', 'AJUSTE'];
 /* GALPAO ficou como apelido antigo de CONFERENTE: a migração troca as linhas do banco,
    mas uma sessão guardada no celular pode continuar dizendo GALPAO por dias. */
-var PERFIS = ['ADMIN', 'GESTOR', 'GERENTE', 'CONFERENTE', 'MOTORISTA', 'PROMOTOR'];
+var PERFIS = ['Admin', 'Gestor', 'Gerente', 'Conferente', 'Motorista', 'Promotor'];
+/* Guardado em MAIÚSCULA porque a comparação é que precisa ser insensível a caixa, não o
+   que se mostra na tela. Quem lê perfil escrito nunca compara direto: usa podeConferir(). */
 var CONFEREM = ['ADMIN', 'CONFERENTE', 'GALPAO'];
 
 /**
  * Perfil escrito à mão vira MAIÚSCULA sem espaço sobrando — "Supervisor " e "supervisor"
  * precisam ser a mesma coisa, senão a lista de sugestões se enche de gráfias do mesmo cargo.
  */
+/* Conectores ficam em minúscula: "Supervisor de Área" se lê como nome de cargo, e
+   "Supervisor De Área" se lê como erro. */
+var MIUDAS = ['de', 'da', 'do', 'das', 'dos', 'e'];
 function normalizarPerfil(v) {
-  return String(v == null ? '' : v).trim().replace(/\s+/g, ' ').toUpperCase().slice(0, 30);
+  var s = String(v == null ? '' : v).trim().replace(/\s+/g, ' ').slice(0, 30);
+  if (!s) return '';
+  return s.split(' ').map(function (p, i) {
+    var b = p.toLowerCase();
+    if (i > 0 && MIUDAS.indexOf(b) >= 0) return b;
+    return b.charAt(0).toUpperCase() + b.slice(1);
+  }).join(' ');
 }
 
 /**
@@ -241,7 +252,7 @@ function locaisPermitidos(ids, locais) {
 
 function sessaoDe(u) {
   return {
-    id: u.ID, nome: u.Nome, perfil: String(u.Perfil).toUpperCase(),
+    id: u.ID, nome: u.Nome, perfil: normalizarPerfil(u.Perfil),
     localPadrao: u.LocalPadrao, acessoPainel: podeVerPainel(u),
     saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
     destinos: Array.isArray(u.Destinos) ? u.Destinos : []
@@ -314,7 +325,7 @@ function montarMovimento(p, ctx) {
     origem = '';
   }
 
-  var perfil = String(p.perfil || '').toUpperCase();
+  var perfil = String(p.perfil || '');   // podeConferir() cuida da caixa
   // A regra central: contagem feita no cliente não baixa saldo sozinha.
   var status = String(p.status || '').toUpperCase();
   if (!status) {
@@ -796,7 +807,7 @@ function extratoToken(dados, token, de, ate, hoje) {
 function usuariosPublicos(usuarios) {
   return usuarios.map(function (u) {
     return {
-      ID: u.ID, Nome: u.Nome, Perfil: String(u.Perfil).toUpperCase(),
+      ID: u.ID, Nome: u.Nome, Perfil: normalizarPerfil(u.Perfil),
       LocalPadrao: u.LocalPadrao, Telefone: u.Telefone || '',
       Email: u.Email || '', Usuario: u.Usuario || '',
       Ativo: u.Ativo !== false, TemSenha: !!u.SenhaHash,

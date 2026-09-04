@@ -148,7 +148,7 @@
       <div id="tabelaPedidos"></div>
     </div>
     <div class="card" data-cad="usuarios">
-      <h2>Usuários<span class="sub">ADMIN faz os cadastros. CONFERENTE confere a devolução no galpão. GESTOR, GERENTE, MOTORISTA e PROMOTOR contam na rua — a contagem deles espera conferência.</span></h2>
+      <h2>Usuários<span class="sub">Admin faz os cadastros. Conferente confere a devolução no galpão. Gestor, Gerente, Motorista e Promotor contam na rua — a contagem deles espera conferência.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoUsuario" style="flex:0;min-width:170px">+ Novo usuário</button>
       </div>
@@ -192,7 +192,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=36f4dc56"></script>
+<script src="app.js?v=5f20680b"></script>
 <script>
 (function(){
   'use strict';
@@ -296,7 +296,7 @@
      não derrubar quem estava logado no momento do deploy. Na próxima entrada já vem certo. */
   function podeEntrar(s){
     if (!s) return false;
-    if (s.acessoPainel === undefined) return s.perfil==='ADMIN' || s.perfil==='GALPAO';
+    if (s.acessoPainel === undefined) return ['ADMIN','GALPAO','CONFERENTE'].indexOf(String(s.perfil).toUpperCase())>=0;
     return s.acessoPainel === true;
   }
 
@@ -305,7 +305,7 @@
     if (!podeEntrar(s)){ iniciarLogin(); return; }
     document.getElementById('telaLogin').style.display='none';
     document.getElementById('app').style.display='block';
-    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil.toLowerCase();
+    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil;
 
     /* O galpão consulta, não altera. Lançar e Cadastros ficam só com o escritório:
        o conferente é quem gera a divergência na chegada, então dar a ele um Ajuste de saldo
@@ -782,7 +782,7 @@
         })[0];
         return '<tr><td><b>'+Q.esc(p.identificador)+'</b></td>'+
           '<td>'+Q.dataBR(p.criado_em)+'</td>'+
-          '<td>'+(alvo ? Q.esc(alvo.Nome)+' <span class="tag azul">'+Q.esc(String(alvo.Perfil).toLowerCase())+'</span>'
+          '<td>'+(alvo ? Q.esc(alvo.Nome)+' <span class="tag azul">'+Q.esc(alvo.Perfil)+'</span>'
                        : '<span class="tag cinza">não encontrado</span>')+'</td>'+
           '<td><button class="mini" data-resolver="'+Q.esc(p.id)+'">marcar resolvido</button></td></tr>';
       }).join('')+'</tbody></table></div>';
@@ -967,7 +967,7 @@
            ficaria vazia para o admin e pareceria que ele não tem como entrar. */
         var acesso = u.Email ? Q.esc(u.Email)
                    : (u.Usuario ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—');
-        return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil.toLowerCase())+'</span></td>'+
+        return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil)+'</span></td>'+
         '<td>'+acesso+'</td>'+
         '<td>'+(u.AcessoPainel?'<span class="tag verde">sim</span>':'<span class="tag cinza">não</span>')+'</td>'+
         '<td>'+Q.esc(lp?lp.Nome:'')+'</td><td>'+Q.esc(u.Telefone||'')+'</td>'+
@@ -1249,7 +1249,7 @@
       '<input type="text" id="fPerfil" list="listaPerfis" autocapitalize="characters" '+
         'value="'+Q.esc(u.Perfil||'')+'" placeholder="escolha ou escreva um novo">'+
       '<datalist id="listaPerfis">'+
-        (PERFIS.length?PERFIS:['ADMIN','GESTOR','GERENTE','CONFERENTE','MOTORISTA','PROMOTOR'])
+        (PERFIS.length?PERFIS:['Admin','Gestor','Gerente','Conferente','Motorista','Promotor'])
           .map(function(p){ return '<option value="'+Q.esc(p)+'">'; }).join('')+
       '</datalist>'+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPerfilNota"></p>'+
@@ -1290,14 +1290,21 @@
     /* Perfil escrito à mão: normalizar aqui, e não só no servidor, porque é esta comparação
        que decide se a chave do painel fica travada. 'admin' em minúscula tem de contar. */
     function perfilDigitado(){
-      return document.getElementById('fPerfil').value.trim().replace(/\s+/g,' ').toUpperCase();
+      var s = document.getElementById('fPerfil').value.trim().replace(/\s+/g,' ').slice(0,30);
+      if (!s) return '';
+      var miudas = ['de','da','do','das','dos','e'];
+      return s.split(' ').map(function(p,i){
+        var b = p.toLowerCase();
+        return (i>0 && miudas.indexOf(b)>=0) ? b : b.charAt(0).toUpperCase()+b.slice(1);
+      }).join(' ');
     }
+    /* Chaveado em MAIÚSCULA porque a grafia gravada é escolha de quem cadastra. */
     var COM_PODER = { ADMIN:'faz os cadastros e as correções, e entra sempre no painel.',
                       CONFERENTE:'confere a devolução na chegada do galpão.' };
 
     function ajustarPainel(){
       var perfil = perfilDigitado();
-      var ehAdmin = perfil === 'ADMIN';
+      var ehAdmin = perfil.toUpperCase() === 'ADMIN';
       var sel = document.getElementById('fPainel');
       sel.disabled = ehAdmin;
       if (ehAdmin) sel.value = 'SIM';
@@ -1309,8 +1316,10 @@
          armadilha de criar "SUPERVISOR" esperando que ele confira devolução. */
       var nota = document.getElementById('fPerfilNota');
       if (!perfil){ nota.textContent = ''; return; }
-      if (COM_PODER[perfil]){ nota.textContent = perfil + ' ' + COM_PODER[perfil]; return; }
-      nota.textContent = PERFIS.indexOf(perfil) >= 0
+      var chave = perfil.toUpperCase();
+      if (COM_PODER[chave]){ nota.textContent = perfil + ' ' + COM_PODER[chave]; return; }
+      var conhecido = PERFIS.some(function(x){ return String(x).toUpperCase() === chave; });
+      nota.textContent = conhecido
         ? 'Conta na rua: a devolução dele espera conferência no galpão.'
         : 'Perfil novo. Nasce sem permissão especial: não cadastra e não confere, e a '+
           'devolução dele espera conferência. O acesso ao painel é a chave acima.';
@@ -1334,7 +1343,7 @@
       if (novaSenha) reg.Senha = novaSenha;   // vai em texto e volta hash — nunca é guardada assim
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       if (!reg.ID && !pin) return Q.toast('Defina um PIN para o novo usuário.','erro');
-      if (reg.Perfil === 'ADMIN' && !reg.Email && !reg.Usuario) {
+      if (String(reg.Perfil).toUpperCase() === 'ADMIN' && !reg.Email && !reg.Usuario) {
         return Q.toast('Admin entra no painel por e-mail ou usuário: preencha um dos dois.','erro');
       }
       salvar('salvarUsuario', reg, this);

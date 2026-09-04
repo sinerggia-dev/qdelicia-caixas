@@ -283,7 +283,9 @@ async function salvarUsuario(p) {
   if (dados.Perfil !== undefined) {
     dados.Perfil = L.normalizarPerfil(dados.Perfil);
     if (!dados.Perfil) return { ok: false, erro: 'Informe o perfil.' };
-    if (!/^[A-ZÀ-Ú0-9 .-]+$/.test(dados.Perfil)) {
+    // Aceita as duas caixas: a grafia é escolha de quem cadastra, e normalizarPerfil()
+    // já padronizou. Barrar minúscula aqui seria ditar estilo, não validar.
+    if (!/^[A-Za-zÀ-ÿ0-9 .-]+$/.test(dados.Perfil)) {
       return { ok: false, erro: 'Perfil aceita só letras, números, espaço, ponto e hífen.' };
     }
   }

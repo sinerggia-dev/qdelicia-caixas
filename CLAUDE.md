@@ -52,9 +52,15 @@ Banco antigo se resolve sozinho: ver a seção de migração automática.
 
 ## Perfis e a regra do AGUARDANDO
 
-`ADMIN, GESTOR, GERENTE, CONFERENTE, MOTORISTA, PROMOTOR`. `GALPAO` foi renomeado para
-`CONFERENTE` por migração, mas **continua reconhecido no código**: a sessão guardada no
+`Admin, Gestor, Gerente, Conferente, Motorista, Promotor`. `Galpao` foi renomeado para
+`Conferente` por migração, mas **continua reconhecido no código**: a sessão guardada no
 celular só troca no próximo login, e até lá o conferente perderia a aba de conferência.
+
+**A grafia gravada é a que a pessoa escolheu** — Inicial Maiúscula, conectores em minúscula
+("Supervisor de Área"). Nenhuma tela reescreve a caixa para exibir. Em compensação, **nenhuma
+comparação de permissão pode ser sensível a caixa**: `podeConferir()`, `podeVerPainel()`,
+`ehAdmin()` e o `ultimoAdmin()` comparam em MAIÚSCULA por dentro. Se acrescentar uma
+comparação nova, normalize antes — senão "conferente" perde a aba que "Conferente" tem.
 
 O perfil é **texto livre**: o escritório escreve o cargo que precisar, e as sugestões do
 formulário são os de fábrica mais os que alguém já usou (`L.perfisConhecidos()`). Um perfil
