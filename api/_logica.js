@@ -89,7 +89,10 @@ function motoristasPublicos(motoristas) {
     .filter(function (m) { return m.Ativo !== false; })
     // A rota atendida entra: não é dado pessoal, e é o que deixa o celular filtrar a lista
     // sem uma segunda chamada. CPF, CNH e telefone continuam de fora.
-    .map(function (m) { return { ID: m.ID, Nome: m.Nome, Rotas: Array.isArray(m.Rotas) ? m.Rotas : [] }; })
+    .map(function (m) {
+      return { ID: m.ID, Nome: m.Nome, Tipo: m.Tipo || '',
+               Rotas: Array.isArray(m.Rotas) ? m.Rotas : [] };
+    })
     .sort(function (a, b) { return String(a.Nome).localeCompare(String(b.Nome), 'pt-BR'); });
 }
 
@@ -104,6 +107,11 @@ function motoristasPublicos(motoristas) {
  * Se a rota escolhida não tiver ninguém atribuído, devolve todos: melhor oferecer a lista
  * inteira do que travar a saída porque faltou um cadastro.
  */
+/** Volante roda qualquer rota; é o que a palavra quer dizer. */
+function ehVolante(m) {
+  return String((m && m.Tipo) || '').trim().toUpperCase() === 'VOLANTE';
+}
+
 function motoristasDaRota(motoristas, rotaId) {
   var todos = motoristas || [];
   if (!rotaId) return todos;
@@ -112,10 +120,13 @@ function motoristasDaRota(motoristas, rotaId) {
     var r = Array.isArray(m.Rotas) ? m.Rotas : [];
     return r.length && r.map(String).indexOf(alvo) >= 0;
   });
+  // Volante entra sempre; e quem não tem rota marcada também, que é a regra antiga —
+  // sem ela, os onze motoristas já cadastrados sumiriam no dia em que a coluna nasceu.
   var curinga = todos.filter(function (m) {
-    return !(Array.isArray(m.Rotas) && m.Rotas.length);
+    return atribuidos.indexOf(m) < 0 &&
+           (ehVolante(m) || !(Array.isArray(m.Rotas) && m.Rotas.length));
   });
-  if (!atribuidos.length) return todos;
+  if (!atribuidos.length && !curinga.length) return todos;
   return atribuidos.concat(curinga);
 }
 
@@ -833,5 +844,6 @@ module.exports = {
   descricao: descricao, extrato: extrato, extratoToken: extratoToken,
   usuariosPublicos: usuariosPublicos, podeVerPainel: podeVerPainel, podeConferir: podeConferir,
   normalizarPerfil: normalizarPerfil, perfisConhecidos: perfisConhecidos,
-  locaisPermitidos: locaisPermitidos, motoristasDaRota: motoristasDaRota
+  locaisPermitidos: locaisPermitidos, motoristasDaRota: motoristasDaRota,
+  ehVolante: ehVolante
 };

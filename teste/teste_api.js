@@ -657,9 +657,13 @@ async function main() {
     'a rota traz os atribuídos mais quem serve qualquer uma', nomes(Lm.motoristasDaRota(rotasM, 'L010')));
   ok(nomes(Lm.motoristasDaRota(rotasM, 'L011')) === 'B,C',
     'motorista de outra rota fica de fora');
-  // Travar a saída por falta de cadastro seria pior do que oferecer a lista inteira.
-  ok(nomes(Lm.motoristasDaRota(rotasM, 'L099')) === 'A,B,C,D',
-    'rota sem ninguém atribuído devolve todos');
+  // Rota sem fixo cai em quem cobre qualquer uma — aqui, o C, que não tem rota marcada.
+  // Antes isto devolvia os quatro; com Fixo/Volante, arrastar o fixo de outra rota deixou
+  // de fazer sentido. O beco continua fechado: sem nenhum curinga, devolve todos.
+  ok(nomes(Lm.motoristasDaRota(rotasM, 'L099')) === 'C',
+    'rota sem fixo cai em quem cobre qualquer uma', nomes(Lm.motoristasDaRota(rotasM, 'L099')));
+  ok(nomes(Lm.motoristasDaRota([{ Nome: 'X', Rotas: ['L010'] }], 'L099')) === 'X',
+    'e sem nenhum curinga devolve todos, para não travar a saída');
   ok(Lm.motoristasDaRota([], 'L010').length === 0, 'sem motorista cadastrado não inventa ninguém');
 
   await POST({ acao: 'salvarMotorista', registro: { ID: 'D001', Rotas: ['L010', 'L011'] } });
@@ -781,6 +785,47 @@ async function main() {
     'e o escrito à mão entra na sugestão para não virar três grafias', sugestoes);
 
   await POST({ acao: 'excluir', aba: 'Usuarios', id: novoPf.id });
+
+  console.log('== motorista fixo ou volante ==');
+
+  const eq = [
+    { Nome: 'Fixo10',  Tipo: 'Fixo',    Rotas: ['L010'] },
+    { Nome: 'Fixo11',  Tipo: 'Fixo',    Rotas: ['L011'] },
+    { Nome: 'Volante', Tipo: 'Volante', Rotas: [] },
+    { Nome: 'VolMarc', Tipo: 'Volante', Rotas: ['L012'] },
+    { Nome: 'Antigo',  Tipo: '',        Rotas: [] }
+  ];
+  const nm = (l) => l.map((m) => m.Nome).join(',');
+
+  ok(Lm.ehVolante({ Tipo: 'Volante' }) && Lm.ehVolante({ Tipo: ' volante ' }),
+    'volante é reconhecido em qualquer caixa e com espaço');
+  ok(!Lm.ehVolante({ Tipo: 'Fixo' }) && !Lm.ehVolante({}) && !Lm.ehVolante(null),
+    'fixo, vazio e nulo não são volante');
+
+  ok(nm(Lm.motoristasDaRota(eq, 'L010')) === 'Fixo10,Volante,VolMarc,Antigo',
+    'a rota traz o fixo dela, os volantes e quem não tem rota', nm(Lm.motoristasDaRota(eq, 'L010')));
+  ok(nm(Lm.motoristasDaRota(eq, 'L011')) === 'Fixo11,Volante,VolMarc,Antigo',
+    'o fixo de outra rota fica de fora, o volante não');
+  // Volante com rota marcada não pode ficar preso a ela: volante roda qualquer uma.
+  ok(nm(Lm.motoristasDaRota(eq, 'L012')) === 'VolMarc,Volante,Antigo',
+    'volante com rota marcada aparece nela e nas outras', nm(Lm.motoristasDaRota(eq, 'L012')));
+  ok(nm(Lm.motoristasDaRota(eq, 'L099')) === 'Volante,VolMarc,Antigo',
+    'rota sem fixo cai nos volantes, sem arrastar os fixos alheios');
+
+  // O beco continua fechado: todos fixos e nenhum serve a rota escolhida.
+  const sofixos = [{ Nome: 'A', Tipo: 'Fixo', Rotas: ['L010'] }, { Nome: 'B', Tipo: 'Fixo', Rotas: ['L011'] }];
+  ok(nm(Lm.motoristasDaRota(sofixos, 'L099')) === 'A,B',
+    'sem ninguém possível devolve todos, para não travar a saída');
+
+  await POST({ acao: 'salvarMotorista', registro: { ID: 'D001', Tipo: 'Volante' } });
+  const tm = (await GET({ acao: 'equipe' })).motoristas.find((m) => m.ID === 'D001');
+  ok(tm.Tipo === 'Volante', 'o tipo grava no cadastro', tm.Tipo);
+  ok(tm.CPF === '999' || tm.Nome === 'Arilson', 'e não apaga o resto');
+
+  const pubT = (await GET({ acao: 'dados' })).motoristas.find((m) => m.ID === 'D001');
+  ok(pubT.Tipo === 'Volante', 'o celular recebe o tipo, que é quem filtra a lista', pubT);
+
+  await POST({ acao: 'salvarMotorista', registro: { ID: 'D001', Tipo: '' } });
 
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);

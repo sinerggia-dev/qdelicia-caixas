@@ -708,7 +708,7 @@
     if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhum motorista cadastrado.</div>'; return; }
     box.innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Telefone</th><th>CPF</th>'+
-      '<th>CNH</th><th>Empresa</th><th>Placa</th><th>Rotas</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<th>CNH</th><th>Empresa</th><th>Tipo</th><th>Placa</th><th>Rotas</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       lista.map(function(m){
         var on = Q.ativo(m.Ativo), venc = vencida(m);
         // A coluna Validade saiu, mas CNH vencida é impedimento real de rodar: a etiqueta
@@ -718,6 +718,9 @@
           '<td>'+Q.esc(m.Telefone||'')+'</td><td>'+Q.esc(m.CPF||'')+'</td>'+
           '<td>'+Q.esc(m.CNH||'')+'</td>'+
           '<td>'+(m.Empresa?Q.esc(m.Empresa):'—')+'</td>'+
+          '<td>'+(m.Tipo
+              ? '<span class="tag '+(String(m.Tipo).toUpperCase()==='VOLANTE'?'amarela':'azul')+'">'+Q.esc(m.Tipo)+'</span>'
+              : '—')+'</td>'+
           '<td>'+(m.Placa?'<span class="tag cinza">'+Q.esc(m.Placa)+'</span>':'—')+'</td>'+
           '<td>'+nomesDasRotas(m.Rotas)+'</td>'+
           '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
@@ -857,6 +860,10 @@
         '<div><label>Telefone</label><input type="tel" id="fTel" value="'+Q.esc(m.Telefone||'')+'" placeholder="81 98151-7703"></div>'+
         '<div><label>CPF</label><input type="text" id="fCpf" inputmode="numeric" value="'+Q.esc(m.CPF||'')+'" placeholder="000.000.000-00"></div>'+
         '<div><label>Empresa</label><input type="text" id="fEmpresa" value="'+Q.esc(m.Empresa||'')+'" placeholder="ex.: Qdelícia Frutas"></div>'+
+        '<div><label>Tipo</label><select id="fTipoMot">'+
+          ['','Fixo','Volante'].map(function(t){
+            return '<option value="'+t+'"'+(String(m.Tipo||'')===t?' selected':'')+'>'+(t||'— não informado —')+'</option>';
+          }).join('')+'</select></div>'+
       '</div>'+
       '<h3 style="margin-top:20px">Habilitação</h3>'+
       '<div class="grid2">'+
@@ -869,7 +876,8 @@
       caixaLocais('fRotas', 'Aparece para escolha quando a saída for para estas rotas',
                   locaisEscolhiveis(['ROTA'], m.Rotas), m.Rotas)+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
-        'Nada marcado = ele aparece em qualquer rota.</p>'+
+        'Nada marcado = ele aparece em qualquer rota. Quem é <b>Volante</b> aparece em todas, '+
+        'mesmo com rotas marcadas.</p>'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(m.Ativo)?' selected':'')+'>sim</option>'+
         '<option value="NAO"'+(Q.ativo(m.Ativo)?'':' selected')+'>não</option></select>'+
       '<label>Observação</label><textarea id="fObs">'+Q.esc(m.Obs||'')+'</textarea>'+
@@ -880,6 +888,7 @@
         CNH:document.getElementById('fCnh').value.trim(), CNHCategoria:document.getElementById('fCat').value.trim(),
         CNHValidade:document.getElementById('fVal').value, Placa:document.getElementById('fPlaca').value.trim(),
         Empresa:document.getElementById('fEmpresa').value.trim(),
+        Tipo:document.getElementById('fTipoMot').value,
         Ativo:document.getElementById('fAtivo').value, Obs:document.getElementById('fObs').value,
         Rotas:lerMarcados('fRotas') };
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');

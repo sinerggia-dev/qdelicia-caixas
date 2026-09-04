@@ -191,5 +191,10 @@ module.exports = [
     nota: 'desfaz o MAIÚSCULO que eu havia imposto sem ninguém pedir',
     sql: "update public.usuarios set perfil = initcap(lower(perfil)) "
        + "where perfil is not null and perfil <> initcap(lower(perfil));"
+  },
+  {
+    id: '2026-09-07-tipo-motorista',
+    nota: 'motorista fixo na rota ou volante',
+    sql: "alter table public.motoristas add column if not exists tipo text not null default '';"
   }
 ];

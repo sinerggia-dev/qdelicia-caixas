@@ -179,6 +179,12 @@ o motorista aparece em qualquer uma. E há um degrau a mais em `L.motoristasDaRo
 se a rota escolhida não tiver ninguém atribuído, ela devolve **todos**. Travar a saída do
 galpão porque faltou um cadastro seria pior do que oferecer a lista inteira.
 
+**Fixo x Volante** (`motoristas.tipo`): volante roda qualquer rota, mesmo com rotas
+marcadas — é o que a palavra quer dizer, e ignorar isso faria o campo mentir. Fixo aparece
+só nas rotas dele. Vazio ("não informado") se comporta como curinga, que é o que mantém os
+motoristas antigos visíveis. Escolher uma rota sem nenhum fixo cai nos curingas; só quando
+não houver curinga nenhum é que a lista volta a trazer todos, para não travar a saída.
+
 Cuidado com a duplicata: `locais.motorista_id` é outra coisa — aponta para um
 **usuário** de perfil MOTORISTA e alimenta a coluna Motorista do painel de rotas.
 `motoristas.rotas` é o cadastro de quem dirige, sem login. Os dois convivem e não
@@ -245,7 +251,7 @@ node teste/teste_api.js
 node teste/teste_tela.js
 ```
 
-209 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
+222 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
 ao Postgres por um banco falso em memória. Sem rede, sem chave, meio segundo. Rode depois de
 qualquer alteração em `api/`.
 

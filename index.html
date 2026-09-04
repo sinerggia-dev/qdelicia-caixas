@@ -344,8 +344,12 @@
       var r = m.Rotas || [];
       return r.length && r.map(String).indexOf(alvo) >= 0;
     });
-    if (!atribuidos.length) return todos.map(function(m){ return m.Nome; });
-    var curinga = todos.filter(function(m){ return !(m.Rotas && m.Rotas.length); });
+    // Volante roda qualquer rota; quem não tem rota marcada também entra, que é a regra antiga.
+    var curinga = todos.filter(function(m){
+      return atribuidos.indexOf(m) < 0 &&
+             (String(m.Tipo||'').toUpperCase() === 'VOLANTE' || !(m.Rotas && m.Rotas.length));
+    });
+    if (!atribuidos.length && !curinga.length) return todos.map(function(m){ return m.Nome; });
     return atribuidos.concat(curinga).map(function(m){ return m.Nome; });
   }
 
