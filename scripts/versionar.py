@@ -29,9 +29,15 @@ ATIVOS = ('app.js', 'styles.css')
 
 
 def versao(nome):
-    """Hash curto do conteudo do arquivo."""
+    """Hash curto do conteudo, com fim de linha normalizado.
+
+    O Git reescreve LF em CRLF no checkout desta maquina. Hashear os bytes crus fazia o
+    mesmo conteudo render dois hashes diferentes, e as paginas mudavam sozinhas a cada
+    checkout - diff sujo sem nada ter mudado de verdade.
+    """
     with io.open(os.path.join(RAIZ, nome), 'rb') as f:
-        return hashlib.sha1(f.read()).hexdigest()[:8]
+        bruto = f.read().replace(b'\r\n', b'\n')
+    return hashlib.sha1(bruto).hexdigest()[:8]
 
 
 def main():
