@@ -158,6 +158,7 @@
       <h2>Locais e rotas<span class="sub">Galpão, filial, cliente e rota — todos guardam caixa e têm saldo próprio.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoLocal" style="flex:0;min-width:170px">+ Nova rota</button>
+        <button class="btn sec" id="btnNovoPonto" style="flex:0;min-width:170px">+ Galpão, filial ou cliente</button>
       </div>
       <div id="tabelaLocais"></div>
     </div>
@@ -1299,7 +1300,12 @@
     }).catch(function(e){ btn.disabled=false; btn.textContent='Salvar'; Q.toast(e.message,'erro'); });
   }
 
+  /* Dois botões porque um só, escrito "Nova rota", escondia o resto: o formulário sempre
+     soube cadastrar galpão, filial e cliente, mas ninguém adivinha isso pelo rótulo. Foi
+     assim que um galpão de verdade foi parar em "Locais padrão", que era o único lugar
+     que parecia aceitar um nome novo. */
   document.getElementById('btnNovoLocal').addEventListener('click', function(){ formLocal({ Tipo:'ROTA' }); });
+  document.getElementById('btnNovoPonto').addEventListener('click', function(){ formLocal({ Tipo:'GALPAO' }); });
   document.getElementById('btnNovoTipo').addEventListener('click', function(){ formTipo(null); });
   document.getElementById('btnNovoUsuario').addEventListener('click', function(){ formUsuario(null); });
 
