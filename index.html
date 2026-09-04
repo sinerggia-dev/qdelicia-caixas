@@ -254,9 +254,9 @@
 
   /* ---------------- formulários ---------------- */
   function locaisPor(tipos){
-    return (DADOS.locais||[]).filter(function(l){
+    return Q.ordenarLocais((DADOS.locais||[]).filter(function(l){
       return tipos.indexOf(String(l.Tipo).toUpperCase())>=0 && Q.ativo(l.Ativo);
-    });
+    }));
   }
 
   /* O escritório decide de onde e para onde cada pessoa lança. Lista vazia no cadastro

@@ -179,6 +179,26 @@
     return !(s === 'NAO' || s === 'NÃO' || s === 'FALSE' || s === 'N' || s === '0');
   }
 
+  /**
+   * Ordem de leitura dos locais: galpão, filial, rota, cliente — e alfabética dentro de
+   * cada grupo. O banco entrega por id, e id é ordem de cadastro: bastou nascer um galpão
+   * novo para ele cair no fim da lista, longe dos outros galpões. Quem lê a tela procura
+   * por tipo, não por quando a linha foi criada.
+   *
+   * Devolve um array novo: ordenar no lugar mexeria no cache compartilhado.
+   */
+  var ORDEM_TIPO = { GALPAO: 0, FILIAL: 1, ROTA: 2, CLIENTE: 3 };
+  function ordenarLocais(lista) {
+    function peso(l) {
+      var t = ORDEM_TIPO[String(l.Tipo).toUpperCase()];
+      return t === undefined ? 9 : t;
+    }
+    return (lista || []).slice().sort(function (a, b) {
+      return peso(a) - peso(b) ||
+             String(a.Nome).localeCompare(String(b.Nome), 'pt-BR');
+    });
+  }
+
   /* ---------------- confirmação dentro da página ---------------- */
 
   /**
@@ -398,7 +418,7 @@
     sessao: sessao, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
     cache: cache, carregarDados: carregarDados, semApi: semApi,
     precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
-    ativo: ativo, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
+    ativo: ativo, ordenarLocais: ordenarLocais, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     toast: toast, abas: abas, barraAging: barraAging, assinatura: assinatura,
     comprimirFoto: comprimirFoto, csv: csv, atualizarBadge: atualizarBadge
   };

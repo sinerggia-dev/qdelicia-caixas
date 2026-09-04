@@ -1205,10 +1205,10 @@
   function locaisEscolhiveis(tipos, jaMarcados){
     var marcado = {};
     (jaMarcados||[]).forEach(function(id){ marcado[String(id)] = true; });
-    return (DADOS.locais||[]).filter(function(l){
+    return Q.ordenarLocais((DADOS.locais||[]).filter(function(l){
       return tipos.indexOf(String(l.Tipo).toUpperCase()) >= 0 &&
              (Q.ativo(l.Ativo) || marcado[String(l.ID)]);
-    });
+    }));
   }
 
   function caixaLocais(id, rotulo, locais, marcados){
