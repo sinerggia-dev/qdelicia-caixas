@@ -743,6 +743,41 @@ async function main() {
     });
   }
 
+  console.log('== perfil escrito à mão ==');
+
+  ok(Lm.normalizarPerfil('  supervisor  de   área ') === 'SUPERVISOR DE ÁREA',
+    'perfil digitado vira maiúscula e sem espaço sobrando', Lm.normalizarPerfil('  supervisor  de   área '));
+  ok(Lm.normalizarPerfil('   ') === '', 'só espaço vira vazio');
+  ok(Lm.normalizarPerfil(null) === '', 'nulo não quebra');
+
+  const novoPf = await POST({ acao: 'salvarUsuario', registro: {
+    Nome: 'Supervisor Teste', Perfil: '  supervisor de área ', PIN: '4321' } });
+  ok(novoPf.ok, 'perfil que não está na lista é aceito', novoPf);
+  const gravPf = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === novoPf.id);
+  ok(gravPf.Perfil === 'SUPERVISOR DE ÁREA', 'e chega normalizado ao cadastro', gravPf.Perfil);
+
+  // O ponto inteiro: cargo inventado não pode virar permissão inventada.
+  ok(!Lm.podeConferir('SUPERVISOR DE ÁREA'), 'perfil novo NÃO confere');
+  ok(!Lm.podeVerPainel({ Perfil: 'SUPERVISOR DE ÁREA', Ativo: true }),
+    'perfil novo NÃO entra no painel sozinho — depende da chave');
+  ok(Lm.podeVerPainel({ Perfil: 'SUPERVISOR DE ÁREA', Ativo: true, AcessoPainel: true }),
+    'mas entra se o admin ligar a chave');
+
+  ok((await POST({ acao: 'salvarUsuario', registro: { ID: novoPf.id, Perfil: '   ' } })).ok === false,
+    'perfil vazio é recusado');
+  const bicho = await POST({ acao: 'salvarUsuario', registro: { ID: novoPf.id, Perfil: 'ADMIN<script>' } });
+  ok(bicho.ok === false, 'perfil com símbolo estranho é recusado', bicho);
+  ok((await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === novoPf.id).Perfil === 'SUPERVISOR DE ÁREA',
+    'e a recusa não deixou meio gravado');
+
+  const sugestoes = (await GET({ acao: 'equipe' })).perfis;
+  ok(sugestoes.slice(0, 6).join(',') === 'ADMIN,GESTOR,GERENTE,CONFERENTE,MOTORISTA,PROMOTOR',
+    'os perfis de fábrica vêm primeiro, na ordem pensada', sugestoes);
+  ok(sugestoes.indexOf('SUPERVISOR DE ÁREA') >= 5,
+    'e o escrito à mão entra na sugestão para não virar três grafias', sugestoes);
+
+  await POST({ acao: 'excluir', aba: 'Usuarios', id: novoPf.id });
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

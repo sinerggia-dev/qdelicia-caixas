@@ -95,7 +95,8 @@ async function rotaGet(p) {
     case 'equipe':
       // Aqui vai o cadastro completo, com documento — é a tela do escritório.
       return { ok: true, usuarios: L.usuariosPublicos(d.usuarios), motoristas: d.motoristas,
-               locaisPadrao: d.locaisPadrao, pedidosSenha: d.pedidosSenha };
+               locaisPadrao: d.locaisPadrao, pedidosSenha: d.pedidosSenha,
+               perfis: L.perfisConhecidos(d.usuarios) };
     case 'painel':
       return { ok: true, painel: L.painel(d) };
     case 'pendentes':
@@ -277,6 +278,14 @@ async function salvarUsuario(p) {
   if (nova) {
     try { dados.SenhaHash = senha.gerar(nova); }
     catch (e) { return { ok: false, erro: e.message }; }
+  }
+
+  if (dados.Perfil !== undefined) {
+    dados.Perfil = L.normalizarPerfil(dados.Perfil);
+    if (!dados.Perfil) return { ok: false, erro: 'Informe o perfil.' };
+    if (!/^[A-ZÀ-Ú0-9 .-]+$/.test(dados.Perfil)) {
+      return { ok: false, erro: 'Perfil aceita só letras, números, espaço, ponto e hífen.' };
+    }
   }
 
   var d = await db.carregarTudo();

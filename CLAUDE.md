@@ -56,6 +56,15 @@ Banco antigo se resolve sozinho: ver a seção de migração automática.
 `CONFERENTE` por migração, mas **continua reconhecido no código**: a sessão guardada no
 celular só troca no próximo login, e até lá o conferente perderia a aba de conferência.
 
+O perfil é **texto livre**: o escritório escreve o cargo que precisar, e as sugestões do
+formulário são os de fábrica mais os que alguém já usou (`L.perfisConhecidos()`). Um perfil
+escrito nasce **sem poder nenhum** — não cadastra, não confere, e a devolução dele espera
+conferência. Permissão por digitação seria permissão por engano de digitação. Só
+`ADMIN` e `CONFERENTE` têm poder próprio; o resto do acesso é a chave por usuário.
+
+A trava do banco foi removida de propósito (o `check` em `usuarios.perfil`): quem valida
+agora é a aplicação, em `salvarUsuario` — vazio e símbolo estranho são recusados ali.
+
 A regra central foi invertida de propósito. Antes: *devolução de PROMOTOR ou MOTORISTA nasce
 AGUARDANDO*. Agora: *devolução de quem não pode conferir nasce AGUARDANDO*. Dá no mesmo para
 os perfis antigos — os testes provam — e faz o perfil novo entrar pelo lado seguro: esquecer
@@ -230,11 +239,11 @@ node teste/teste_api.js
 node teste/teste_tela.js
 ```
 
-156 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
+209 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
 ao Postgres por um banco falso em memória. Sem rede, sem chave, meio segundo. Rode depois de
 qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` não roda navegador: lê o `index.html` e confere que a função de
+O `teste/teste_tela.js` (15 verificações) não roda navegador: lê o `index.html` e confere que a função de
 limpar de cada formulário toca em **todo** campo da seção, menos a data. Existe porque o
 botão Limpar quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela: seletor
 escondido guarda valor velho e só reaparece quando a origem muda de galpão para rota.

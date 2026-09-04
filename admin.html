@@ -197,7 +197,7 @@
 (function(){
   'use strict';
   var Q = window.QDC;
-  var DADOS = null, EQUIPE = [], MOTORISTAS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PAINEL = null, EXTRATO = null, MOVS = [];
+  var DADOS = null, EQUIPE = [], MOTORISTAS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PAINEL = null, EXTRATO = null, MOVS = [];
 
   /* ---------------- login ---------------- */
   function iniciarLogin(){
@@ -285,7 +285,7 @@
      em silêncio, e o carregarDados seguinte zerava a lista. */
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; }
+      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; }
       if (DADOS){ desenharCadastros(); montarSelects(); }
     }).catch(function(e){ Q.toast('Não consegui carregar os usuários: '+e.message,'erro'); });
   }
@@ -1242,8 +1242,17 @@
     u = u || {};
     modal('<h2>'+(u.ID?'Editar':'Novo')+' usuário</h2>'+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(u.Nome||'')+'">'+
-      '<label>Perfil</label><select id="fPerfil">'+
-        ['ADMIN','GESTOR','GERENTE','CONFERENTE','MOTORISTA','PROMOTOR'].map(function(p){ return '<option value="'+p+'"'+(String(u.Perfil)===p?' selected':'')+'>'+p.toLowerCase()+'</option>'; }).join('')+'</select>'+
+      /* Campo escrito, não lista fechada: o escritório cria o cargo que precisar. As
+         sugestões vêm do servidor — os de fábrica mais os que alguém já escreveu — para o mesmo
+         cargo não virar três grafias. */
+      '<label>Perfil</label>'+
+      '<input type="text" id="fPerfil" list="listaPerfis" autocapitalize="characters" '+
+        'value="'+Q.esc(u.Perfil||'')+'" placeholder="escolha ou escreva um novo">'+
+      '<datalist id="listaPerfis">'+
+        (PERFIS.length?PERFIS:['ADMIN','GESTOR','GERENTE','CONFERENTE','MOTORISTA','PROMOTOR'])
+          .map(function(p){ return '<option value="'+Q.esc(p)+'">'; }).join('')+
+      '</datalist>'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPerfilNota"></p>'+
       '<label>PIN (4 a 6 números) <span style="font-weight:400;color:var(--txt3)">— entrada no app de campo</span></label>'+
       '<input type="text" inputmode="numeric" id="fPin" value="" placeholder="'+(u.ID?'deixe em branco para manter':'ex.: 2468')+'">'+
       '<h3 style="margin-top:20px">Acesso ao painel</h3>'+
@@ -1278,19 +1287,40 @@
 
     /* ADMIN entra sempre: deixar desmarcar seria permitir trancar o último administrador
        do lado de fora, e a volta seria por SQL no banco. Mesma ideia do "último admin ativo". */
+    /* Perfil escrito à mão: normalizar aqui, e não só no servidor, porque é esta comparação
+       que decide se a chave do painel fica travada. 'admin' em minúscula tem de contar. */
+    function perfilDigitado(){
+      return document.getElementById('fPerfil').value.trim().replace(/\s+/g,' ').toUpperCase();
+    }
+    var COM_PODER = { ADMIN:'faz os cadastros e as correções, e entra sempre no painel.',
+                      CONFERENTE:'confere a devolução na chegada do galpão.' };
+
     function ajustarPainel(){
-      var ehAdmin = document.getElementById('fPerfil').value === 'ADMIN';
+      var perfil = perfilDigitado();
+      var ehAdmin = perfil === 'ADMIN';
       var sel = document.getElementById('fPainel');
       sel.disabled = ehAdmin;
       if (ehAdmin) sel.value = 'SIM';
       document.getElementById('fPainelNota').textContent = ehAdmin
         ? 'Administrador entra sempre — não dá para tirar.'
         : 'Sem acesso, a pessoa continua usando normalmente o app de campo.';
+
+      /* Um perfil escrito agora nasce sem poder nenhum. Dizer isso na hora evita a
+         armadilha de criar "SUPERVISOR" esperando que ele confira devolução. */
+      var nota = document.getElementById('fPerfilNota');
+      if (!perfil){ nota.textContent = ''; return; }
+      if (COM_PODER[perfil]){ nota.textContent = perfil + ' ' + COM_PODER[perfil]; return; }
+      nota.textContent = PERFIS.indexOf(perfil) >= 0
+        ? 'Conta na rua: a devolução dele espera conferência no galpão.'
+        : 'Perfil novo. Nasce sem permissão especial: não cadastra e não confere, e a '+
+          'devolução dele espera conferência. O acesso ao painel é a chave acima.';
     }
-    document.getElementById('fPerfil').addEventListener('change', ajustarPainel);
+    // `input` e não `change`: em campo de texto o change só dispara ao sair, e a nota
+    // ficaria mentindo enquanto a pessoa digita.
+    document.getElementById('fPerfil').addEventListener('input', ajustarPainel);
     ajustarPainel();
     document.getElementById('fSalvar').addEventListener('click', function(){
-      var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:document.getElementById('fPerfil').value,
+      var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:perfilDigitado(),
         Telefone:document.getElementById('fTel').value.trim(),
         LocalPadrao:document.getElementById('fLocal').value,
         Ativo:document.getElementById('fAtivo').value,

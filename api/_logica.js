@@ -25,6 +25,36 @@ var TIPOS_MOV = ['SAIDA', 'DEVOLUCAO', 'TRANSFERENCIA', 'PERDA', 'AJUSTE'];
 var PERFIS = ['ADMIN', 'GESTOR', 'GERENTE', 'CONFERENTE', 'MOTORISTA', 'PROMOTOR'];
 var CONFEREM = ['ADMIN', 'CONFERENTE', 'GALPAO'];
 
+/**
+ * Perfil escrito à mão vira MAIÚSCULA sem espaço sobrando — "Supervisor " e "supervisor"
+ * precisam ser a mesma coisa, senão a lista de sugestões se enche de gráfias do mesmo cargo.
+ */
+function normalizarPerfil(v) {
+  return String(v == null ? '' : v).trim().replace(/\s+/g, ' ').toUpperCase().slice(0, 30);
+}
+
+/**
+ * O que o formulário oferece: os perfis de fábrica mais os que alguém já escreveu. Um perfil
+ * novo nasce **sem poder nenhum** — não cadastra e não confere, e a devolução dele espera
+ * conferência. É de propósito: permissão por digitação seria permissão por engano de digitação.
+ */
+function perfisConhecidos(usuarios) {
+  var vistos = {};
+  PERFIS.forEach(function (p) { vistos[p] = true; });
+  (usuarios || []).forEach(function (u) {
+    var p = normalizarPerfil(u.Perfil);
+    if (p) vistos[p] = true;
+  });
+  return Object.keys(vistos).sort(function (a, b) {
+    // Os de fábrica primeiro, na ordem em que foram pensados; os escritos depois, em ordem.
+    var ia = PERFIS.indexOf(a), ib = PERFIS.indexOf(b);
+    if (ia >= 0 && ib >= 0) return ia - ib;
+    if (ia >= 0) return -1;
+    if (ib >= 0) return 1;
+    return a.localeCompare(b, 'pt-BR');
+  });
+}
+
 /** Quem confere devolução no galpão. */
 function podeConferir(perfil) {
   return CONFEREM.indexOf(String(perfil || '').toUpperCase()) >= 0;
@@ -791,5 +821,6 @@ module.exports = {
   pendentes: pendentes, listaMovimentos: listaMovimentos, painel: painel,
   descricao: descricao, extrato: extrato, extratoToken: extratoToken,
   usuariosPublicos: usuariosPublicos, podeVerPainel: podeVerPainel, podeConferir: podeConferir,
+  normalizarPerfil: normalizarPerfil, perfisConhecidos: perfisConhecidos,
   locaisPermitidos: locaisPermitidos, motoristasDaRota: motoristasDaRota
 };

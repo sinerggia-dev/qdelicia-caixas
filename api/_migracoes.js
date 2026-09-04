@@ -180,5 +180,10 @@ module.exports = [
     id: '2026-09-06-empresa-motorista',
     nota: 'de qual empresa é o motorista',
     sql: "alter table public.motoristas add column if not exists empresa text not null default '';"
+  },
+  {
+    id: '2026-09-06-perfil-livre',
+    nota: 'perfil deixa de ser lista fechada; a trava passa a ser da aplicação',
+    sql: "alter table public.usuarios drop constraint if exists usuarios_perfil_check;"
   }
 ];
