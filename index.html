@@ -396,6 +396,22 @@
     if (lista.length === 1) sel.value = lista[0];
   }
 
+  /**
+   * Preenche o seletor quando não há o que escolher, ou quando a `dica` aponta para uma
+   * das opções oferecidas.
+   *
+   * A dica é o local padrão do usuário, e ela pode simplesmente não corresponder a nenhum
+   * local com saldo — local padrão é posto de trabalho, cadastro à parte. Quando não
+   * corresponde, o campo fica em branco: melhor pedir a escolha do que adivinhar errado.
+   */
+  function preencherSozinho(id, lista, dica){
+    var sel = document.getElementById(id);
+    if (lista.length === 1){ sel.value = lista[0].ID; return; }
+    if (!dica) return;
+    var achou = lista.filter(function(l){ return String(l.ID) === String(dica); })[0];
+    if (achou) sel.value = achou.ID;
+  }
+
   function montarFormularios(){
     // A rota entra nos seletores porque o caminhão é origem da entrega e destino da
     // coleta. Sem barra de filtro, quem escolhe é a pessoa, tela a tela.
@@ -408,14 +424,20 @@
     // A devolução parte da ROTA: a caixa volta no caminhão, e é o caminhão que a guarda
     // até a chegada. Vale a mesma permissão de destino, porque rota é destino na saída.
     var minhasRotasDv = permitidos(locaisPor(['ROTA']), 'destinos');
+    // Quem RECEBE a devolução é galpão ou filial — rota não recebe rota. Sem essa
+    // separação o seletor listava as seis rotas junto, e "só um galpão" nunca acontecia.
+    var meusGalpoes = permitidos(locaisPor(['GALPAO','FILIAL']), 'saidas');
     document.getElementById('sdOrigem').innerHTML = opcoes(minhasSaidas);
     document.getElementById('sdDestino').innerHTML = opcoes(meusDestinos);
     document.getElementById('dvOrigem').innerHTML = opcoes(minhasRotasDv);
-    document.getElementById('dvDestino').innerHTML = opcoes(minhasSaidas);
+    document.getElementById('dvDestino').innerHTML = opcoes(meusGalpoes);
     // Um local só não é escolha: já vem posto, e a pessoa economiza um toque por lançamento.
-    if (minhasSaidas.length === 1) document.getElementById('sdOrigem').value = minhasSaidas[0].ID;
-    if (meusDestinos.length === 1) document.getElementById('sdDestino').value = meusDestinos[0].ID;
-    if (minhasRotasDv.length === 1) document.getElementById('dvOrigem').value = minhasRotasDv[0].ID;
+    preencherSozinho('sdOrigem', minhasSaidas);
+    preencherSozinho('sdDestino', meusDestinos);
+    preencherSozinho('dvOrigem', minhasRotasDv);
+    // Onde a devolução chega quase nunca muda para a mesma pessoa, então aqui vale também
+    // a pista do local padrão: é o galpão onde ela trabalha.
+    preencherSozinho('dvDestino', meusGalpoes, (Q.sessao()||{}).localPadrao);
     document.getElementById('sdData').value = Q.hoje();
     document.getElementById('dvData').value = Q.hoje();
     ajustarCamposSaida();
