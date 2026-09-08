@@ -101,14 +101,14 @@
        deve ter que reaprender a tela. Mesma ordem, mesmos rótulos, mesmos blocos. -->
   <section id="pgDevolucao" class="pagina">
     <div class="card">
-      <h2>Devolução de caixas<span class="sub" id="devSub">Caixas voltando do cliente.</span></h2>
+      <h2>Devolução de caixas<span class="sub" id="devSub">Caixas voltando na rota para o galpão.</span></h2>
       <div class="grid2">
         <div>
           <label for="dvData">Data</label>
           <input id="dvData" type="date">
         </div>
         <div>
-          <label for="dvOrigem">Saída</label>
+          <label for="dvOrigem">Devolução</label>
           <select id="dvOrigem"></select>
         </div>
         <div>
@@ -235,7 +235,7 @@
       });
       document.querySelector('#abas button[data-pagina="pgDevolucao"]').click();
       document.getElementById('devSub').textContent =
-        'Você conta as caixas no cliente. O galpão confere na chegada e o saldo baixa nessa hora.';
+        'Você conta as caixas que voltam na rota. O galpão confere na chegada e o saldo baixa nessa hora.';
     }
     Q.carregarDados().then(function(d){ DADOS = d; montarFormularios(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
@@ -405,13 +405,17 @@
     // quem devolve é um destino, e quem recebe é uma saída.
     var minhasSaidas  = permitidos(comRota, 'saidas');
     var meusDestinos  = permitidos(destinos, 'destinos');
+    // A devolução parte da ROTA: a caixa volta no caminhão, e é o caminhão que a guarda
+    // até a chegada. Vale a mesma permissão de destino, porque rota é destino na saída.
+    var minhasRotasDv = permitidos(locaisPor(['ROTA']), 'destinos');
     document.getElementById('sdOrigem').innerHTML = opcoes(minhasSaidas);
     document.getElementById('sdDestino').innerHTML = opcoes(meusDestinos);
-    document.getElementById('dvOrigem').innerHTML = opcoes(meusDestinos);
+    document.getElementById('dvOrigem').innerHTML = opcoes(minhasRotasDv);
     document.getElementById('dvDestino').innerHTML = opcoes(minhasSaidas);
     // Um local só não é escolha: já vem posto, e a pessoa economiza um toque por lançamento.
     if (minhasSaidas.length === 1) document.getElementById('sdOrigem').value = minhasSaidas[0].ID;
     if (meusDestinos.length === 1) document.getElementById('sdDestino').value = meusDestinos[0].ID;
+    if (minhasRotasDv.length === 1) document.getElementById('dvOrigem').value = minhasRotasDv[0].ID;
     document.getElementById('sdData').value = Q.hoje();
     document.getElementById('dvData').value = Q.hoje();
     ajustarCamposSaida();
