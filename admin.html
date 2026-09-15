@@ -167,7 +167,7 @@
       <div id="tabelaPedidos"></div>
     </div>
     <div class="card" data-cad="usuarios">
-      <h2>Usuários<span class="sub">Admin faz os cadastros. Conferente confere a devolução no galpão. Gestor, Gerente, Motorista e Promotor contam na rua — a contagem deles espera conferência.</span></h2>
+      <h2>Usuários<span class="sub">Admin faz os cadastros. Conferente confere a devolução no galpão. Gestor, Gerente, Motorista e Promotor contam na rua — a contagem deles espera conferência.<br>No app de lançamento a pessoa entra com o <b>nome</b>; no painel, com o <b>usuário</b> curto ou o e-mail.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoUsuario" style="flex:0;min-width:170px">+ Novo usuário</button>
       </div>
@@ -1036,7 +1036,7 @@
     });
 
     document.getElementById('tabelaUsuarios').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Usuário</th><th>E-mail</th><th>Senha</th><th>Painel</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome<br><span style="font-weight:400;opacity:.7">entra no app</span></th><th>Perfil</th><th>Usuário<br><span style="font-weight:400;opacity:.7">entra no painel</span></th><th>E-mail</th><th>Senha</th><th>Painel</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       EQUIPE.map(function(u){
         var lp = LOCAIS_PADRAO.filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
         var on = Q.ativo(u.Ativo);
