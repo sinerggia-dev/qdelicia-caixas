@@ -167,7 +167,7 @@
       <div id="tabelaPedidos"></div>
     </div>
     <div class="card" data-cad="usuarios">
-      <h2>Usuários<span class="sub">Admin faz os cadastros. Conferente confere a devolução no galpão. Gestor, Gerente, Motorista e Promotor contam na rua — a contagem deles espera conferência.<br>No app de lançamento a pessoa entra com o <b>nome</b>; no painel, com o <b>usuário</b> curto ou o e-mail.</span></h2>
+      <h2>Usuários<span class="sub">Admin faz os cadastros. Conferente confere a devolução no galpão. Gestor, Gerente, Motorista e Promotor contam na rua — a contagem deles espera conferência.<br>A pessoa entra com o <b>usuário</b> — tanto no app de lançamento quanto no painel. O administrador é sempre <b>admin</b>.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoUsuario" style="flex:0;min-width:170px">+ Novo usuário</button>
       </div>
@@ -1036,7 +1036,7 @@
     });
 
     document.getElementById('tabelaUsuarios').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome<br><span style="font-weight:400;opacity:.7">entra no app</span></th><th>Perfil</th><th>Usuário<br><span style="font-weight:400;opacity:.7">entra no painel</span></th><th>E-mail</th><th>Senha</th><th>Painel</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Usuário<br><span style="font-weight:400;opacity:.7">entra no app e no painel</span></th><th>E-mail</th><th>Senha</th><th>Painel</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       EQUIPE.map(function(u){
         var lp = LOCAIS_PADRAO.filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
         var on = Q.ativo(u.Ativo);
@@ -1351,6 +1351,11 @@
           .map(function(p){ return '<option value="'+Q.esc(p)+'">'; }).join('')+
       '</datalist>'+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPerfilNota"></p>'+
+      // O usuário curto deixou de ser coisa só do painel: é com ele que a pessoa entra
+      // no app de lançamento. Por isso sobe para cá, junto da senha do app.
+      '<label>Usuário <span style="font-weight:400;color:var(--txt3)">— é o que a pessoa digita para entrar</span></label>'+
+      '<input type="text" id="fLogin" autocapitalize="none" value="'+Q.esc(u.Usuario||'')+'" placeholder="ex.: nestor">'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">Curto e sem espaço. Vale para o app de lançamento e para o painel.</p>'+
       '<label>Senha do app de campo <span style="font-weight:400;color:var(--txt3)">— 6 números</span></label>'+
       '<input type="text" inputmode="numeric" id="fPin" maxlength="6" value="" placeholder="'+
         (u.ID?'em branco mantém · escreva para redefinir':'ex.: 246813')+'">'+
@@ -1366,7 +1371,6 @@
         '<option value="SIM"'+(u.AcessoPainel?' selected':'')+'>sim — vê painel, extratos e movimentos</option></select>'+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPainelNota"></p>'+
       '<label>E-mail</label><input type="email" id="fEmail" value="'+Q.esc(u.Email||'')+'" placeholder="voce@empresa.com.br">'+
-      '<label>Usuário (login curto)</label><input type="text" id="fLogin" value="'+Q.esc(u.Usuario||'')+'" placeholder="ex.: natanael">'+
       '<label>Senha <span style="font-weight:400;color:var(--txt3)">— mínimo 6 caracteres</span></label>'+
       '<input type="password" id="fSenha" autocomplete="new-password" placeholder="'+
         (u.ID?'em branco mantém · escreva para redefinir':'')+'">'+
@@ -1459,6 +1463,9 @@
       if (novaSenha) reg.Senha = novaSenha;   // vai em texto e volta hash — nunca é guardada assim
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       if (!reg.ID && !pin) return Q.toast('Defina a senha do app de campo para o novo usuário.','erro');
+      // Sem usuário a pessoa não entra em lugar nenhum: nem no app, nem no painel.
+      if (!reg.Usuario) return Q.toast('Informe o usuário: é com ele que a pessoa entra no app.','erro');
+      if (/\s/.test(reg.Usuario)) return Q.toast('O usuário não pode ter espaço.','erro');
       // A API valida de novo: esta checagem e so para a pessoa saber na hora, sem
       // esperar a ida ao servidor.
       if (pin && !/^\d{6}$/.test(pin)) return Q.toast('A senha do app de campo tem 6 números.','erro');

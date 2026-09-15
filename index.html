@@ -20,8 +20,8 @@
   <h1>Controle de Caixas</h1>
   <p>Área do Usuário</p>
   <div class="card" style="text-align:left">
-    <label for="inUsuario">Seu nome</label>
-    <input id="inUsuario" type="text" autocomplete="username" autocapitalize="words" placeholder="como está no cadastro">
+    <label for="inUsuario">Usuário</label>
+    <input id="inUsuario" type="text" autocomplete="username" autocapitalize="none" placeholder="o que o escritório passou">
     <label for="inPin">Senha</label>
     <!-- Sem bolinhas de enfeite: a regra vai escrita embaixo, que e onde ela cabe
          sem competir com o campo. Sem `minlength` de proposito: quem cadastrou
@@ -272,7 +272,7 @@
   document.getElementById('btnEntrar').addEventListener('click', function(){
     var id = document.getElementById('inUsuario').value.trim();
     var pin = document.getElementById('inPin').value;
-    if (!id) return Q.toast('Informe seu nome.','erro');
+    if (!id) return Q.toast('Informe seu usuário.','erro');
     var btn = this; btn.disabled = true; btn.textContent = 'Entrando…';
     Q.post({acao:'login', identificador:id, pin:pin}).then(function(r){
       btn.disabled = false; btn.textContent = 'Entrar';
