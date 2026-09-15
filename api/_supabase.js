@@ -180,6 +180,7 @@ var USUARIO = {
       ID: r.id, Nome: r.nome, Perfil: r.perfil || '', PIN: String(r.pin),
       Telefone: r.telefone || '', LocalPadrao: r.local_padrao, Ativo: r.ativo !== false,
       Email: r.email || '', Usuario: r.usuario || '', SenhaHash: r.senha_hash || '',
+      PinProvisorio: r.pin_provisorio === true, SenhaProvisoria: r.senha_provisoria === true,
       AcessoPainel: r.acesso_painel === true,
       Saidas: lista(r.saidas), Destinos: lista(r.destinos)
     };
@@ -196,6 +197,8 @@ var USUARIO = {
     if (o.Email !== undefined) r.email = nulo(String(o.Email).trim().toLowerCase());
     if (o.Usuario !== undefined) r.usuario = nulo(String(o.Usuario).trim().toLowerCase());
     if (o.SenhaHash !== undefined) r.senha_hash = nulo(o.SenhaHash);
+    if (o.PinProvisorio !== undefined) r.pin_provisorio = bool(o.PinProvisorio);
+    if (o.SenhaProvisoria !== undefined) r.senha_provisoria = bool(o.SenhaProvisoria);
     if (o.AcessoPainel !== undefined) r.acesso_painel = bool(o.AcessoPainel);
     if (o.Saidas !== undefined) r.saidas = lista(o.Saidas);
     if (o.Destinos !== undefined) r.destinos = lista(o.Destinos);

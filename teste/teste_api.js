@@ -300,6 +300,67 @@ async function main() {
   ok(certo.ok === true, 'seis digitos e aceito', certo);
   ok((await POST({ acao: 'login', identificador: 'Seis Digitos', pin: '123456' })).ok,
      'e a pessoa entra com ela');
+
+  console.log('\n== primeiro acesso: senha do admin e trocada por quem usa ==');
+  // 'Seis Digitos' acabou de ser criado pelo admin logo acima.
+  const ent1 = await POST({ acao: 'login', identificador: 'Seis Digitos', pin: '123456' });
+  ok(ent1.trocarSenha === true, 'login com a senha do admin pede a troca', ent1);
+  // Quem ja usava o app antes disto nao e incomodado.
+  const ent0 = await POST({ acao: 'login', identificador: 'Motorista Exemplo', pin: '2222' });
+  ok(!ent0.trocarSenha, 'senha antiga, de antes da regra, nao pede troca', ent0);
+
+  // Trocar provando a atual.
+  ok((await POST({ acao: 'definirPin', identificador: 'Seis Digitos',
+                   pinAtual: '000000', novoPin: '654321' })).ok === false,
+     'trocar o PIN com a senha atual errada e recusado');
+  const igual = await POST({ acao: 'definirPin', identificador: 'Seis Digitos',
+                             pinAtual: '123456', novoPin: '123456' });
+  ok(igual.ok === false && /diferente/.test(igual.erro || ''), 'a senha nova tem de ser diferente', igual);
+  ok((await POST({ acao: 'definirPin', identificador: 'Seis Digitos',
+                   pinAtual: '123456', novoPin: '12345' })).ok === false,
+     'a senha nova tambem precisa ter 6 numeros');
+  ok((await POST({ acao: 'definirPin', identificador: 'Seis Digitos',
+                   pinAtual: '123456', novoPin: '654321' })).ok === true, 'troca aceita');
+
+  const ent2 = await POST({ acao: 'login', identificador: 'Seis Digitos', pin: '654321' });
+  ok(ent2.ok === true && !ent2.trocarSenha, 'depois de trocar, entra direto', ent2);
+  ok((await POST({ acao: 'login', identificador: 'Seis Digitos', pin: '123456' })).ok === false,
+     'a senha do admin nao vale mais');
+
+  // Admin define outra: volta a pedir troca. E o caminho do "esqueci a senha".
+  const idSeis = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.Nome === 'Seis Digitos')[0].ID;
+  await POST({ acao: 'salvarUsuario', registro: { ID: idSeis, Nome: 'Seis Digitos', PIN: '777777' } });
+  const ent3 = await POST({ acao: 'login', identificador: 'Seis Digitos', pin: '777777' });
+  ok(ent3.trocarSenha === true, 'reset pelo admin volta a pedir a troca', ent3);
+
+  // Editar sem tocar na senha nao pode reacender a marca.
+  await POST({ acao: 'definirPin', identificador: 'Seis Digitos', pinAtual: '777777', novoPin: '888888' });
+  await POST({ acao: 'salvarUsuario', registro: { ID: idSeis, Nome: 'Seis Digitos', Telefone: '81 9' } });
+  const ent4 = await POST({ acao: 'login', identificador: 'Seis Digitos', pin: '888888' });
+  ok(!ent4.trocarSenha, 'editar outro campo nao reacende a marca', ent4);
+
+  // O navegador nao pode desligar a marca sozinho.
+  await POST({ acao: 'salvarUsuario', registro: { ID: idSeis, Nome: 'Seis Digitos', PIN: '999999',
+                                                  PinProvisorio: false } });
+  const ent5 = await POST({ acao: 'login', identificador: 'Seis Digitos', pin: '999999' });
+  ok(ent5.trocarSenha === true, 'marca vinda do navegador e ignorada', ent5);
+
+  // O painel precisa enxergar quem ainda nao trocou.
+  const naEquipe = (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.ID === idSeis)[0];
+  ok(naEquipe.PinProvisorio === true, 'a equipe mostra quem esta com senha provisoria', naEquipe);
+  ok(!('PIN' in naEquipe) && !('SenhaHash' in naEquipe), 'e continua sem PIN nem hash', naEquipe);
+
+  // Mesmo ciclo na senha do painel.
+  await POST({ acao: 'salvarUsuario', registro: { ID: idSeis, Nome: 'Seis Digitos',
+                                                  Usuario: 'seisd', Senha: 'provisoria123' } });
+  const pn1 = await POST({ acao: 'login', identificador: 'seisd', senha: 'provisoria123' });
+  ok(pn1.ok === true && pn1.trocarSenha === true, 'painel: senha do admin pede troca', pn1);
+  ok((await POST({ acao: 'definirSenha', identificador: 'seisd',
+                   senhaAtual: 'provisoria123', novaSenha: 'minhasenha456' })).ok === true,
+     'painel: troca aceita');
+  const pn2 = await POST({ acao: 'login', identificador: 'seisd', senha: 'minhasenha456' });
+  ok(pn2.ok === true && !pn2.trocarSenha, 'painel: depois de trocar, entra direto', pn2);
   // Editar sem tocar na senha nao pode exigir a senha de novo.
   const semPin = await POST({ acao: 'salvarUsuario', registro: { ID: certo.id || certo.ID, Nome: 'Seis Digitos', Perfil: 'MOTORISTA' } });
   ok(semPin.ok !== false || !/6 n[uú]meros/.test(semPin.erro || ''),

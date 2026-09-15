@@ -27,6 +27,19 @@
     <div id="erroLogin"></div>
     <p style="font-size:12.5px;margin:12px 0 0"><a href="#" id="linkPrimeiroAcesso">Primeiro acesso ou esqueci a senha</a></p>
   </div>
+
+  <!-- Mesma ideia do app de campo: senha vinda do admin vira uma da pessoa antes
+       de ela entrar. Sem botão de "depois". -->
+  <div class="card" id="cardTroca" hidden style="text-align:left">
+    <div class="aviso-box info">Esta senha foi definida pelo administrador. Escolha uma sua para continuar.</div>
+    <label for="inNova">Senha nova</label>
+    <input id="inNova" type="password" autocomplete="new-password">
+    <p style="font-size:12.5px;color:var(--txt3);margin:6px 0 0">Pelo menos 6 caracteres</p>
+    <label for="inNova2">Repita a senha nova</label>
+    <input id="inNova2" type="password" autocomplete="new-password">
+    <div class="linha-btn"><button class="btn" id="btnTrocarSenha">Salvar e entrar</button></div>
+    <div id="erroTroca"></div>
+  </div>
   <p style="font-size:12.5px;color:var(--txt3)">Campo (motorista/promotor): <a href="index.html">app de lançamento</a>.</p>
 </div>
 
@@ -232,11 +245,60 @@
       if (!r.ok) return Q.toast(r.erro,'erro');
       if (!podeEntrar(r.usuario)) return Q.toast('Você não tem acesso ao painel. Fale com o administrador.','erro');
       localStorage.setItem('qdc_ultimo_admin', id);
+      // Senha definida pelo administrador: troca antes de entrar.
+      if (r.trocarSenha){ abrirTrocaSenha(id, document.getElementById('inSenha').value, r.usuario); return; }
       carregarEquipe();
       Q.entrar(r.usuario); abrirApp();
     }).catch(function(e){ btn.disabled=false; btn.textContent='Entrar'; Q.toast(e.message,'erro'); });
   });
   document.getElementById('inSenha').addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('btnEntrar').click(); });
+
+  /* ---------------- troca no primeiro acesso ---------------- */
+  var trocaPendente = null;   // { id, senhaAtual, usuario } até a troca terminar
+
+  function abrirTrocaSenha(id, senhaAtual, usuario){
+    trocaPendente = { id: id, senhaAtual: senhaAtual, usuario: usuario };
+    document.querySelector('#telaLogin .card').hidden = true;
+    document.getElementById('cardTroca').hidden = false;
+    document.getElementById('inNova').value = '';
+    document.getElementById('inNova2').value = '';
+    document.getElementById('inNova').focus();
+  }
+
+  document.getElementById('btnTrocarSenha').addEventListener('click', function(){
+    if (!trocaPendente) return;
+    var nova = document.getElementById('inNova').value;
+    var rep  = document.getElementById('inNova2').value;
+    var erro = document.getElementById('erroTroca');
+    function falhar(msg, campo){
+      erro.innerHTML = '<div class="aviso-box erro">' + Q.esc(msg) + '</div>';
+      var el = document.getElementById(campo);
+      if (el) el.focus();
+    }
+    // Conferidas aqui só para a pessoa saber na hora; a API valida de novo.
+    if (String(nova).length < 6) return falhar('A senha nova precisa de pelo menos 6 caracteres.', 'inNova');
+    if (nova !== rep) return falhar('As duas senhas não são iguais.', 'inNova2');
+    if (nova === trocaPendente.senhaAtual) return falhar('Escolha uma senha diferente da que o administrador passou.', 'inNova');
+
+    erro.innerHTML = '';
+    var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
+    Q.post({ acao:'definirSenha', identificador: trocaPendente.id,
+             senhaAtual: trocaPendente.senhaAtual, novaSenha: nova }).then(function(r){
+      btn.disabled = false; btn.textContent = 'Salvar e entrar';
+      if (!r.ok) return falhar(r.erro || 'Não consegui trocar a senha.', 'inNova');
+      var u = trocaPendente.usuario;
+      trocaPendente = null;
+      Q.toast('Senha trocada.', 'ok');
+      carregarEquipe();
+      Q.entrar(u); abrirApp();
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = 'Salvar e entrar';
+      falhar(e.message, 'inNova');
+    });
+  });
+  document.getElementById('inNova2').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') document.getElementById('btnTrocarSenha').click();
+  });
   document.getElementById('inUsuario').addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('inSenha').focus(); });
 
   /* Primeiro acesso: quem ainda não tem senha prova quem é pelo PIN antigo; quem já tem,

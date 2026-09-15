@@ -254,6 +254,26 @@ A validacao esta em `salvarUsuario`, no servidor: a API aceita chamada de qualqu
 entao checar so na tela seria enfeite. O painel checa tambem, mas so para a pessoa saber na
 hora, sem esperar a ida ao servidor.
 
+## Primeiro acesso: a senha do admin vira a senha da pessoa
+
+O admin cadastra com uma senha provisoria. No primeiro login a tela troca o cartao de
+entrada pelo de troca, e so depois de escolher uma senha propria a pessoa entra. Perdeu a
+senha? O admin define outra provisoria e o ciclo recomeca — nao ha auto-atendimento.
+
+**Duas marcas, nao uma.** `usuarios.pin_provisorio` (app de campo) e
+`usuarios.senha_provisoria` (painel). Cada pessoa pode ter as duas credenciais e o admin
+pode mexer so numa; uma marca unica obrigaria a trocar as duas, ou ficaria ambigua sobre
+qual. As marcas **nunca vem do navegador**: `salvarUsuario` apaga o que chegar e escreve
+por conta propria.
+
+`definirPin` e o par de `definirSenha`: troca a credencial do campo provando a atual.
+
+A troca e obrigatoria de proposito, sem botao de "depois" — senha provisoria que se pode
+adiar nao e trocada nunca, e a do admin costuma ser a mesma para todo mundo.
+
+Isto organiza o ciclo da senha; **nao e seguranca**. A API continua sem autorizacao, que
+segue sendo o pendente real.
+
 ## Testar
 
 ```
@@ -263,6 +283,7 @@ node teste/teste_login.js
 node teste/teste_motorista.js
 node teste/teste_obrigatorios.js
 node teste/teste_saldo.js
+node teste/teste_primeiro_acesso.js
 ```
 
 222 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
@@ -309,6 +330,11 @@ mudos, e esse alerta e uma das guardas contra saida nao lancada.
 
 O teste tambem fixa a regra de **nao somar** as duas contas da rota: `saldo` e o que esta no
 caminhao, `saldoClientes` e o que esta nos pontos dela. Somar esconde onde a caixa esta.
+
+O `teste/teste_primeiro_acesso.js` (29 verificacoes) le o HTML das duas telas e o codigo do
+servidor. O fluxo visual precisa de navegador e nao roda aqui; o que ele protege e o desvio:
+tirar o `if (r.trocarSenha)` do login faria a senha provisoria valer para sempre sem nada
+quebrar. O comportamento do servidor esta em `teste_api.js`, no bloco "primeiro acesso".
 
 O `teste/teste_backend.js` testa o backend antigo do Apps Script (38 verificações), que continua
 em `apps-script/` como referência e rota de volta. Pode apagar os dois quando a migração estiver

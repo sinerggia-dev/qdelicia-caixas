@@ -126,6 +126,7 @@ async function rotaPost(p) {
   }
 
   if (acao === 'definirSenha') return await definirSenha(p);
+  if (acao === 'definirPin') return await definirPin(p);
   if (acao === 'pedirSenha') return await pedirSenha(p);
   if (acao === 'resolverPedidoSenha') return await resolverPedidoSenha(p);
 
@@ -231,7 +232,31 @@ async function definirSenha(p) {
   try { hash = senha.gerar(p.novaSenha); }
   catch (e) { return { ok: false, erro: e.message }; }
 
-  await db.update('usuarios', u.ID, { senha_hash: hash });
+  // A pessoa escolheu a dela: a marca de provisoria cai.
+  await db.update('usuarios', u.ID, { senha_hash: hash, senha_provisoria: false });
+  return { ok: true };
+}
+
+/**
+ * Troca do PIN do app de campo pela propria pessoa, provando o PIN atual.
+ * E o par de `definirSenha`, que cuida da senha do painel.
+ */
+async function definirPin(p) {
+  var d = await db.carregarTudo();
+  var u = L.acharPorIdentificador(d.usuarios, p.identificador || p.usuarioId);
+  // Mesma mensagem para usuario inexistente e senha errada: dizer qual dos dois
+  // entregaria quem trabalha aqui para quem estivesse adivinhando.
+  var ERRO = 'Nome ou senha incorretos.';
+  if (!u) return { ok: false, erro: ERRO };
+
+  var atual = String(u.PIN || '').trim();
+  if (!atual || atual !== String(p.pinAtual || '').trim()) return { ok: false, erro: ERRO };
+
+  var novo = String(p.novoPin || '').trim();
+  if (!/^\d{6}$/.test(novo)) return { ok: false, erro: 'A senha tem 6 números.' };
+  if (novo === atual) return { ok: false, erro: 'A senha nova tem de ser diferente da atual.' };
+
+  await db.update('usuarios', u.ID, { pin: novo, pin_provisorio: false });
   return { ok: true };
 }
 
@@ -272,6 +297,11 @@ async function salvarUsuario(p) {
   if (typeof dados === 'string') { try { dados = JSON.parse(dados); } catch (e) { dados = null; } }
   if (!dados) return { ok: false, erro: 'Nada para salvar.' };
 
+  // As marcas de provisorio nunca vem do navegador: quem as levanta e este codigo,
+  // quando o proprio admin define a credencial.
+  delete dados.PinProvisorio;
+  delete dados.SenhaProvisoria;
+
   // A senha do app de campo tem 6 numeros exatos. A regra fica aqui porque a API
   // aceita `salvarUsuario` de qualquer origem: validar so na tela seria enfeite.
   // Vale para DEFINIR — nunca para entrar. Quem ja tem senha de 4 digitos continua
@@ -283,6 +313,9 @@ async function salvarUsuario(p) {
       return { ok: false, erro: 'A senha do app de campo tem 6 números.' };
     }
     dados.PIN = pinNovo;
+    // Senha que o admin escolheu e provisoria por definicao: serve para o primeiro
+    // acesso, e a pessoa troca por uma dela ao entrar.
+    dados.PinProvisorio = true;
   }
 
   delete dados.SenhaHash;                       // nunca aceite hash vindo do navegador
@@ -291,6 +324,7 @@ async function salvarUsuario(p) {
   if (nova) {
     try { dados.SenhaHash = senha.gerar(nova); }
     catch (e) { return { ok: false, erro: e.message }; }
+    dados.SenhaProvisoria = true;               // mesma razao do PIN acima
   }
 
   if (dados.Perfil !== undefined) {

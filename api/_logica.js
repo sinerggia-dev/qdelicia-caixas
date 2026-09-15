@@ -288,7 +288,8 @@ function loginPorSenha(usuarios, ident, senha, conferir) {
   var u = acharPorIdentificador(usuarios, ident);
   if (!u || !u.SenhaHash) return { ok: false, erro: ERRO_ACESSO };
   if (!conferir(senha, u.SenhaHash)) return { ok: false, erro: ERRO_ACESSO };
-  return { ok: true, usuario: sessaoDe(u) };
+  // Senha que o admin definiu: a pessoa entra, mas a tela pede a troca antes de seguir.
+  return { ok: true, usuario: sessaoDe(u), trocarSenha: u.SenhaProvisoria === true };
 }
 
 /** Login do campo: nome digitado + PIN curto. Sem lista de usuários na tela. */
@@ -297,7 +298,7 @@ function loginPorPin(usuarios, ident, pin) {
   if (!u) return { ok: false, erro: ERRO_PIN };
   var informado = String(pin == null ? '' : pin).trim();
   if (!informado || String(u.PIN || '').trim() !== informado) return { ok: false, erro: ERRO_PIN };
-  return { ok: true, usuario: sessaoDe(u) };
+  return { ok: true, usuario: sessaoDe(u), trocarSenha: u.PinProvisorio === true };
 }
 
 /* ============================ montagem de movimento ============================ */
@@ -822,6 +823,8 @@ function usuariosPublicos(usuarios) {
       LocalPadrao: u.LocalPadrao, Telefone: u.Telefone || '',
       Email: u.Email || '', Usuario: u.Usuario || '',
       Ativo: u.Ativo !== false, TemSenha: !!u.SenhaHash,
+      // Nao e segredo, e o admin precisa saber quem ainda nao trocou.
+      PinProvisorio: u.PinProvisorio === true, SenhaProvisoria: u.SenhaProvisoria === true,
       AcessoPainel: podeVerPainel(u),
       Saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
       Destinos: Array.isArray(u.Destinos) ? u.Destinos : []

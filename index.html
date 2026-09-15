@@ -32,6 +32,20 @@
     <div class="linha-btn"><button class="btn" id="btnEntrar">Entrar</button></div>
     <div id="erroLogin"></div>
   </div>
+
+  <!-- Primeiro acesso: a senha veio do escritório e precisa virar uma da pessoa.
+       Sem botão de "depois" de propósito — senha provisória que se pode adiar não
+       é trocada nunca, e a do escritório costuma ser a mesma para todo mundo. -->
+  <div class="card" id="cardTroca" hidden style="text-align:left">
+    <div class="aviso-box info">Esta senha foi definida pelo escritório. Escolha uma sua para continuar.</div>
+    <label for="inNova">Senha nova</label>
+    <input id="inNova" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password">
+    <p style="font-size:12.5px;color:var(--txt3);margin:6px 0 0">6 números</p>
+    <label for="inNova2">Repita a senha nova</label>
+    <input id="inNova2" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password">
+    <div class="linha-btn"><button class="btn" id="btnTrocarSenha">Salvar e entrar</button></div>
+    <div id="erroTroca"></div>
+  </div>
   <p style="font-size:12.5px;color:var(--txt3)">Escritório: use o <a href="admin.html">painel administrativo</a>.</p>
 </div>
 
@@ -265,12 +279,63 @@
       if (!r.ok) return contarErroLogin(id, r.erro);
       zerarErrosLogin();
       localStorage.setItem('qdc_ultimo_usuario', id);
+      // Senha que veio do escritório: a pessoa não chega ao app antes de escolher
+      // uma dela. A sessão deste login fica guardada para depois da troca — refazer
+      // o login mandaria a senha nova de volta pela rede sem necessidade.
+      if (r.trocarSenha){ abrirTrocaSenha(id, pin, r.usuario); return; }
       Q.entrar(r.usuario);
       abrirApp();
     }).catch(function(e){ btn.disabled=false; btn.textContent='Entrar'; Q.toast(e.message,'erro'); });
   });
   document.getElementById('inPin').addEventListener('keydown', function(e){
     if (e.key === 'Enter') document.getElementById('btnEntrar').click();
+  });
+
+  /* ---------------- troca no primeiro acesso ---------------- */
+  var trocaPendente = null;   // { id, pinAtual, usuario } até a troca terminar
+
+  function abrirTrocaSenha(id, pinAtual, usuario){
+    trocaPendente = { id: id, pinAtual: pinAtual, usuario: usuario };
+    document.querySelector('#telaLogin .card').hidden = true;
+    document.getElementById('cardTroca').hidden = false;
+    document.getElementById('inNova').value = '';
+    document.getElementById('inNova2').value = '';
+    document.getElementById('inNova').focus();
+  }
+
+  document.getElementById('btnTrocarSenha').addEventListener('click', function(){
+    if (!trocaPendente) return;
+    var nova = document.getElementById('inNova').value.trim();
+    var rep  = document.getElementById('inNova2').value.trim();
+    var erro = document.getElementById('erroTroca');
+    function falhar(msg, campo){
+      erro.innerHTML = '<div class="aviso-box erro">' + Q.esc(msg) + '</div>';
+      var el = document.getElementById(campo);
+      if (el) el.focus();
+    }
+    // Conferidas aqui só para a pessoa saber na hora; a API valida de novo.
+    if (!/^\d{6}$/.test(nova)) return falhar('A senha nova tem 6 números.', 'inNova');
+    if (nova !== rep) return falhar('As duas senhas não são iguais.', 'inNova2');
+    if (nova === trocaPendente.pinAtual) return falhar('Escolha uma senha diferente da que o escritório passou.', 'inNova');
+
+    erro.innerHTML = '';
+    var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
+    Q.post({ acao:'definirPin', identificador: trocaPendente.id,
+             pinAtual: trocaPendente.pinAtual, novoPin: nova }).then(function(r){
+      btn.disabled = false; btn.textContent = 'Salvar e entrar';
+      if (!r.ok) return falhar(r.erro || 'Não consegui trocar a senha.', 'inNova');
+      var u = trocaPendente.usuario;
+      trocaPendente = null;
+      Q.toast('Senha trocada.', 'ok');
+      Q.entrar(u);
+      abrirApp();
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = 'Salvar e entrar';
+      falhar(e.message, 'inNova');
+    });
+  });
+  document.getElementById('inNova2').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') document.getElementById('btnTrocarSenha').click();
   });
 
   /* ---------------- app ---------------- */

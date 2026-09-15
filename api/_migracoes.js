@@ -47,6 +47,14 @@ module.exports = [
     ].join('\n')
   },
   {
+    id: '2026-09-15-senha-provisoria',
+    nota: 'senha dada pelo admin e trocada no primeiro acesso; duas marcas, uma por credencial',
+    sql: [
+      "alter table public.usuarios add column if not exists pin_provisorio boolean not null default false;",
+      "alter table public.usuarios add column if not exists senha_provisoria boolean not null default false;"
+    ].join('\n')
+  },
+  {
     id: '2026-09-03-correcao-movimento',
     nota: 'histórico de correção: o livro-razão continua só acrescentando',
     sql: "alter table public.movimentos add column if not exists historico jsonb not null default '[]'::jsonb;"
