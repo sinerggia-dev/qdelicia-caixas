@@ -17,7 +17,12 @@
     <label for="inUsuario">Seu nome</label>
     <input id="inUsuario" type="text" autocomplete="username" autocapitalize="words" placeholder="como está no cadastro">
     <label for="inPin">Senha</label>
-    <input id="inPin" class="pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off">
+    <!-- Sem bolinhas de enfeite: a senha tem de 4 a 6 numeros, entao qualquer
+         quantidade fixa de pontos mente sobre o tamanho. As quatro que estavam
+         aqui faziam a pessoa achar que eram quatro digitos. A regra vai escrita
+         embaixo, que e onde ela cabe sem competir com o campo. -->
+    <input id="inPin" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
+    <p style="font-size:12.5px;color:var(--txt3);margin:6px 0 0">4 a 6 números</p>
     <div class="linha-btn"><button class="btn" id="btnEntrar">Entrar</button></div>
     <div id="erroLogin"></div>
   </div>
