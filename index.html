@@ -175,8 +175,8 @@
   <!-- ---------- SALDO ---------- -->
   <section id="pgSaldo" class="pagina">
     <div class="card">
-      <h2>Saldo de caixas<span class="sub">Quantas caixas cada cliente/filial está com a gente hoje.</span></h2>
-      <div class="busca"><input id="buscaSaldo" type="text" placeholder="🔍 Buscar cliente ou filial"></div>
+      <h2>Saldo de Caixas por Rota<span class="sub">Quantidades de caixas por rota.</span></h2>
+      <div class="busca"><input id="buscaSaldo" type="text" placeholder="🔍 Buscar rotas"></div>
       <div id="listaSaldos"><div class="vazio">Carregando…</div></div>
     </div>
     <div class="card" id="cardExtrato" style="display:none">
@@ -767,7 +767,14 @@
     if (!el) return;
     var id = document.getElementById('dvOrigem').value;
     if (!id || !PAINEL){ el.innerHTML=''; return; }
-    var l = (PAINEL.locais||[]).filter(function(x){return String(x.id)===String(id);})[0];
+    /* Procura nos dois: `dvOrigem` lista ROTAS, e o painel() devolve rota fora de
+       `locais`. Procurando só em `locais`, isto nunca achava nada — a caixa de saldo
+       e o alerta de "contou mais do que o saldo" ficavam mudos, e esse alerta é uma
+       das guardas contra saída não lançada. */
+    var busca = function(fonte){
+      return (fonte||[]).filter(function(x){return String(x.id)===String(id);})[0];
+    };
+    var l = busca(PAINEL.rotas) || busca(PAINEL.locais);
     if (!l){ el.innerHTML=''; return; }
     var contado = coletarItens('dv_').reduce(function(a,i){return a+i.qtd;},0);
     var html = '<div class="aviso-box info">Saldo atual de <b>'+Q.esc(l.nome)+'</b>: <b>'+Q.num(l.saldo)+' caixa(s)</b>'+
@@ -846,24 +853,35 @@
     });
   }
 
+  /* A lista vem de PAINEL.rotas, e não de PAINEL.locais: o painel() monta `locais`
+     só com CLIENTE e FILIAL, e devolve as rotas à parte. Com `locais` aqui, a tela
+     diria "por Rota" e mostraria cliente.
+
+     As duas contas da rota ficam em colunas separadas, e não somadas: `saldo` é o
+     que está no caminhão, `saldoClientes` é o que está nos pontos que ela atende.
+     Somar esconderia onde a caixa está, que é a pergunta que esta tela responde. */
   function desenharSaldos(){
     var busca = (document.getElementById('buscaSaldo').value||'').toLowerCase();
-    var lista = (PAINEL.locais||[]).filter(function(l){
-      return !busca || l.nome.toLowerCase().indexOf(busca)>=0;
+    var lista = (PAINEL.rotas||[]).filter(function(r){
+      return !busca || r.nome.toLowerCase().indexOf(busca)>=0 ||
+             (r.motorista||'').toLowerCase().indexOf(busca)>=0;
     });
     var box = document.getElementById('listaSaldos');
-    if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhum local encontrado.</div>'; return; }
+    if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhuma rota encontrada.</div>'; return; }
     box.innerHTML = '<div class="tabela-wrap"><table><thead><tr>'+
-      '<th>Cliente / Filial</th><th class="num">Saldo</th><th class="num">+30 dias</th><th class="num">Em conferência</th><th></th>'+
-      '</tr></thead><tbody>'+ lista.map(function(l){
-        var cls = l.aging && l.aging.d31 > 0 ? 'ruim' : (l.acimaLimite ? 'destaque' : '');
+      '<th>Rota</th><th class="num">No caminhão</th><th class="num">Com os clientes</th>'+
+      '<th class="num">+30 dias</th><th class="num">Em conferência</th><th></th>'+
+      '</tr></thead><tbody>'+ lista.map(function(r){
+        var cls = r.aging && r.aging.d31 > 0 ? 'ruim' : '';
         return '<tr class="'+cls+'">'+
-          '<td><b>'+Q.esc(l.nome)+'</b>'+(l.tipo==='FILIAL'?' <span class="tag cinza">filial</span>':'')+
-            (l.acimaLimite?' <span class="tag vermelha">acima do limite</span>':'')+'</td>'+
-          '<td class="num"><b>'+Q.num(l.saldo)+'</b></td>'+
-          '<td class="num">'+(l.aging&&l.aging.d31?'<span class="tag vermelha">'+Q.num(l.aging.d31)+'</span>':'—')+'</td>'+
-          '<td class="num">'+(l.emConferencia?Q.num(l.emConferencia):'—')+'</td>'+
-          '<td><button class="mini acao" data-extrato="'+l.id+'">extrato</button></td>'+
+          '<td><b>'+Q.esc(r.nome)+'</b>'+
+            (r.motorista?' <span class="tag cinza">'+Q.esc(r.motorista)+'</span>':'')+'</td>'+
+          '<td class="num"><b>'+Q.num(r.saldo)+'</b></td>'+
+          '<td class="num">'+(r.saldoClientes?Q.num(r.saldoClientes):'—')+
+            (r.clientes?' <span class="tag cinza">'+r.clientes+'</span>':'')+'</td>'+
+          '<td class="num">'+(r.aging&&r.aging.d31?'<span class="tag vermelha">'+Q.num(r.aging.d31)+'</span>':'—')+'</td>'+
+          '<td class="num">'+(r.emConferencia?Q.num(r.emConferencia):'—')+'</td>'+
+          '<td><button class="mini acao" data-extrato="'+r.id+'">extrato</button></td>'+
         '</tr>';
       }).join('') + '</tbody></table></div>';
     box.querySelectorAll('button[data-extrato]').forEach(function(b){

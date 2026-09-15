@@ -262,6 +262,7 @@ node teste/teste_tela.js
 node teste/teste_login.js
 node teste/teste_motorista.js
 node teste/teste_obrigatorios.js
+node teste/teste_saldo.js
 ```
 
 222 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
@@ -298,6 +299,16 @@ existir campo cobrado sem marca nem marca sem cobranca.
 o cliente aparece Destino. Cobrar o que nao esta na tela travaria o lancamento sem explicacao
 possivel — e o caso que mais importa neste teste. Observacao e foto ficam de fora a pedido do
 usuario, e nas quantidades basta um tipo de caixa preenchido.
+
+O `teste/teste_saldo.js` (22 verificacoes) cuida da aba Saldo e do aviso de saldo da
+devolucao. **`painel()` monta `locais` so com CLIENTE e FILIAL e devolve as rotas a parte,
+em `rotas`** — duas telas liam a fonte errada: a aba Saldo listava `locais` e nunca mostrou
+rota nenhuma, e `mostrarSaldoDoOrigem` procurava ali a origem da devolucao, que e sempre uma
+ROTA. Nunca achava: a caixa de saldo e o alerta de "voce contou mais do que o saldo" ficavam
+mudos, e esse alerta e uma das guardas contra saida nao lancada.
+
+O teste tambem fixa a regra de **nao somar** as duas contas da rota: `saldo` e o que esta no
+caminhao, `saldoClientes` e o que esta nos pontos dela. Somar esconde onde a caixa esta.
 
 O `teste/teste_backend.js` testa o backend antigo do Apps Script (38 verificações), que continua
 em `apps-script/` como referência e rota de volta. Pode apagar os dois quando a migração estiver
