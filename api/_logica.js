@@ -228,7 +228,7 @@ function novoToken(rnd) {
 /* Uma frase só para "não existe" e para "senha errada". Mensagens diferentes contam a quem
    está tentando se aquele e-mail existe na empresa. */
 var ERRO_ACESSO = 'Usuário ou senha incorretos.';
-var ERRO_PIN = 'Nome ou PIN incorretos.';
+var ERRO_PIN = 'Nome ou senha incorretos.';
 
 function normal(v) { return String(v == null ? '' : v).trim().toLowerCase(); }
 

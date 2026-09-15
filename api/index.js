@@ -224,7 +224,7 @@ async function definirSenha(p) {
     ? senha.conferir(p.senhaAtual, u.SenhaHash)
     : (String(u.PIN || '').trim() !== '' && String(u.PIN).trim() === String(p.pin || '').trim());
   if (!autorizado) {
-    return { ok: false, erro: u.SenhaHash ? 'Senha atual incorreta.' : 'PIN incorreto.' };
+    return { ok: false, erro: u.SenhaHash ? 'Senha atual incorreta.' : 'Senha do app de campo incorreta.' };
   }
 
   var hash;
