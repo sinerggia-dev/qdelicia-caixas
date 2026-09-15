@@ -113,5 +113,49 @@ achados.forEach(function (f, k) {
   ok(orfaos.length === 0, f.nome + ' não lê campo de outro formulário', orfaos);
 });
 
+/* ---------------------------------------------------------------------------
+ * Cada seletor tem de ser filtrado pela lista CERTA do cadastro.
+ *
+ * Isto já custou: o destino da devolução estava filtrado por 'saidas'. Quem tivesse a
+ * Saída restrita a uma ROTA ficava com a lista de galpões vazia — nenhuma rota é galpão,
+ * então o filtro não deixava nada passar — e não conseguia registrar devolução nenhuma.
+ * Na tela não grita: o seletor só aparece vazio.
+ * ------------------------------------------------------------------------- */
+console.log('\n== cada seletor usa a lista certa de permissão ==');
+(function () {
+  var trecho = html.slice(html.indexOf('var comRota = locaisPor('),
+                          html.indexOf("document.getElementById('sdOrigem').innerHTML"));
+
+  function listaDe(nomeVar) {
+    var i = trecho.indexOf('var ' + nomeVar + ' ');
+    if (i < 0) i = trecho.indexOf('var ' + nomeVar + '=');
+    if (i < 0) return '(variável não encontrada)';
+    var linha = trecho.slice(i, trecho.indexOf(';', i));
+    // guloso de propósito: o primeiro argumento pode ter vírgulas dentro, como em
+    // locaisPor(['GALPAO','FILIAL']) — com [^,]+ o casamento falhava justo nessa linha
+    var m = linha.match(/permitidos\(.*,\s*'([a-z]+)'\)/);
+    return m ? m[1] : '(sem permitidos)';
+  }
+
+  ok(listaDe('minhasSaidas') === 'saidas',
+    'origem da saída vem da lista de Saída', listaDe('minhasSaidas'));
+  ok(listaDe('meusDestinos') === 'destinos',
+    'destino da saída vem da lista de Destino', listaDe('meusDestinos'));
+  ok(listaDe('minhasRotasDv') === 'destinos',
+    'origem da devolução (a rota) vem da lista de Destino: na ida a rota é destino',
+    listaDe('minhasRotasDv'));
+  ok(listaDe('meusGalpoes') === 'destinos',
+    'destino da DEVOLUÇÃO vem da lista de Destino — e não da de Saída, que deixava '
+    + 'a lista vazia para quem tinha a Saída presa a uma rota', listaDe('meusGalpoes'));
+
+  // E o cadastro precisa oferecer o galpão em Destino, senão o filtro acima não tem o
+  // que filtrar: a pessoa não teria como marcar o galpão que recebe a devolução.
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var i = adm.indexOf("caixaLocais('fDestinos'");
+  var bloco = adm.slice(i, adm.indexOf('u.Destinos)+', i));
+  ok(bloco.indexOf('GALPAO') >= 0,
+    'o cadastro oferece GALPAO na lista de Destino', bloco.slice(0, 120));
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

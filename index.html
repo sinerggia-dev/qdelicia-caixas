@@ -577,7 +577,14 @@
     var minhasRotasDv = permitidos(locaisPor(['ROTA']), 'destinos');
     // Quem RECEBE a devolução é galpão ou filial — rota não recebe rota. Sem essa
     // separação o seletor listava as seis rotas junto, e "só um galpão" nunca acontecia.
-    var meusGalpoes = permitidos(locaisPor(['GALPAO','FILIAL']), 'saidas');
+    //
+    // Filtrado por 'destinos', não por 'saidas'. Estava em 'saidas' pela ideia de que a
+    // devolução é o espelho da saída, mas o efeito era este: quem tivesse a Saída
+    // restrita a uma ROTA ficava com a lista de galpões VAZIA — nenhuma rota é galpão,
+    // então o filtro não deixava nada passar — e não conseguia registrar devolução
+    // nenhuma. O rótulo do cadastro já promete o certo: "Destino — para onde as caixas
+    // vão", e na devolução elas vão para o galpão.
+    var meusGalpoes = permitidos(locaisPor(['GALPAO','FILIAL']), 'destinos');
     document.getElementById('sdOrigem').innerHTML = opcoes(minhasSaidas);
     document.getElementById('sdDestino').innerHTML = opcoes(meusDestinos);
     document.getElementById('dvOrigem').innerHTML = opcoes(minhasRotasDv);
