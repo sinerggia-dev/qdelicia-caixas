@@ -904,22 +904,23 @@
         if (!r.ok) throw new Error(r.erro);
         MOVS = r.movimentos;
         if (!MOVS.length){ box.innerHTML='<div class="vazio">Nenhum movimento no filtro.</div>'; return; }
-        box.innerHTML = '<div class="tabela-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Origem</th><th>Destino</th>'+
-          '<th>Caixa</th><th class="num">Qtd</th><th class="num">Conferida</th><th class="num">Div.</th><th>Status</th>'+
-          '<th>Romaneio</th><th>Rota</th><th>Motorista</th><th>Quem</th><th>Comprovante</th><th></th></tr></thead><tbody>'+
+        box.innerHTML = '<div class="tabela-wrap"><table><thead><tr><th>Data</th><th>Status</th><th>Origem</th><th>Destino</th>'+
+          '<th>Caixa</th><th class="num">Qtd</th>'+
+          '<th>Rota</th><th>Motorista</th><th>Quem</th><th></th></tr></thead><tbody>'+
           MOVS.map(function(m){
+            /* As cores da linha ficam: elas são o que sobrou de Conferida, Divergência e
+               do antigo Status depois que essas colunas saíram. Amarela = devolução ainda
+               esperando conferência, e que por isso não entrou no saldo. Vermelha = o
+               contado na chegada não bateu com o declarado. Sem elas, uma devolução que
+               não mexeu em saldo nenhum ficaria indistinguível de uma normal. */
             return '<tr class="'+(m.divergencia?'ruim':(m.status==='AGUARDANDO'?'destaque':''))+'">'+
-              '<td>'+Q.dataBR(m.dataRef)+'</td><td><span class="tag '+tagTipo(m.tipo)+'">'+m.tipo.toLowerCase()+'</span></td>'+
+              '<td>'+Q.dataBR(m.dataRef)+'</td>'+
+              '<td><span class="tag '+tagCiclo(m.situacao, m.status)+'">'+Q.esc(m.situacao)+'</span></td>'+
               '<td>'+Q.esc(m.origem)+'</td><td>'+Q.esc(m.destino)+'</td><td>'+Q.esc(m.tipoCaixa)+'</td>'+
-              '<td class="num">'+Q.num(m.qtd)+'</td><td class="num">'+(m.qtdConferida===''?'—':Q.num(m.qtdConferida))+'</td>'+
-              '<td class="num">'+(m.divergencia?'<b style="color:var(--vermelho)">'+m.divergencia+'</b>':'')+'</td>'+
-              '<td>'+(m.status==='AGUARDANDO'?'<span class="tag amarela">a conferir</span>':'<span class="tag verde">ok</span>')+'</td>'+
-              '<td>'+Q.esc(m.romaneio||'')+'</td>'+
+              '<td class="num">'+Q.num(m.qtd)+'</td>'+
               '<td>'+(m.rota?Q.esc(m.rota):'—')+'</td>'+
               '<td>'+(m.motorista?Q.esc(m.motorista):'—')+'</td>'+
               '<td>'+Q.esc(m.usuario||'')+'</td>'+
-              '<td>'+(m.assinatura?'<a href="'+Q.esc(m.assinatura)+'" target="_blank">canhoto</a> ':'')+
-                     (m.foto?'<a href="'+Q.esc(m.foto)+'" target="_blank">foto</a>':'')+'</td>'+
               '<td>'+(Q.ehAdmin()
                  ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> '+
                    '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button>'
@@ -943,14 +944,25 @@
         });
       }).catch(function(e){ box.innerHTML='<div class="aviso-box erro">'+Q.esc(e.message)+'</div>'; });
   }
+  /* O rótulo agora diz o que a linha é E em que pé está — Tipo e Status viraram uma
+     coluna só. As cores seguem o mesmo sentido de sempre: azul saiu, verde fechou,
+     amarelo falta parte, vermelho sumiu. */
+  function tagCiclo(s, status){
+    /* Devolução que ainda espera conferência NÃO entrou no saldo: a caixa segue na conta
+       do cliente. A palavra continua "Devolvida", como pedido, mas em amarelo — verde ao
+       lado de uma que já contou faria as duas parecerem a mesma coisa. */
+    if (s === 'Devolvida' && status === 'AGUARDANDO') return 'amarela';
+    return s==='Devolvida'?'verde':(s==='Parcial'?'amarela':(s==='Perda'?'vermelha':
+      (s==='Enviada'?'azul':'cinza')));
+  }
   function tagTipo(t){
     return t==='SAIDA'?'azul':(t==='DEVOLUCAO'?'verde':(t==='PERDA'?'vermelha':(t==='TRANSFERENCIA'?'cinza':'amarela')));
   }
   document.getElementById('btnCsvMov').addEventListener('click', function(){
     if (!MOVS.length) return Q.toast('Filtre os movimentos primeiro.','erro');
     Q.csv('movimentos_'+Q.hoje()+'.csv',
-      ['Data','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Quem','Obs'],
-      MOVS.map(function(m){ return [Q.dataBR(m.dataRef),m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',m.usuario,m.obs]; }));
+      ['Data','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Quem','Obs'],
+      MOVS.map(function(m){ return [Q.dataBR(m.dataRef),m.situacao,m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',m.usuario,m.obs]; }));
   });
 
   /* ---------------- cadastros ---------------- */

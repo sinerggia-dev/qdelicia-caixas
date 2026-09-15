@@ -586,12 +586,84 @@ function pendentes(movimentos, locais, tipos) {
     .sort(function (a, b) { return a.dataRef < b.dataRef ? -1 : 1; });
 }
 
+/**
+ * Estado de cada remessa: ela já voltou?
+ *
+ * Não há vínculo no banco entre uma devolução e a saída que a originou — a devolução diz
+ * de ONDE vem, não a QUAL carga pertence. Então vale a mesma premissa do aging: dentro de
+ * um mesmo local e tipo de caixa, o que volta abate as remessas MAIS ANTIGAS primeiro.
+ * É a leitura natural da operação (a caixa parada há mais tempo é a que não voltou) e já
+ * é a regra com que o painel calcula idade — duas contas com premissas diferentes na
+ * mesma tela dariam respostas que não fecham entre si.
+ *
+ * Devolução ainda não conferida vale 0 em `efetiva`, então não abate nada: enquanto o
+ * galpão não confere, a remessa continua "Enviada". É o mesmo critério do saldo.
+ */
+function cicloDaCarga(movimentos) {
+  var lotes = {};      // local|caixa -> [{id, resta}]
+  var devolvido = {};  // id da saída -> quanto já voltou
+  var total = {};      // id da saída -> tamanho da remessa
+
+  function chave(local, caixa) { return String(local) + '|' + String(caixa); }
+
+  ativos(movimentos).slice().sort(function (a, b) {
+    if (a.DataRef > b.DataRef) return 1;
+    if (a.DataRef < b.DataRef) return -1;
+    return a.DataHora > b.DataHora ? 1 : -1;
+  }).forEach(function (m) {
+    var q = efetiva(m);
+    if (!q) return;
+    if (m.Tipo === 'SAIDA' || m.Tipo === 'TRANSFERENCIA') {
+      if (!m.DestinoID) return;
+      var k = chave(m.DestinoID, m.TipoCaixaID);
+      lotes[k] = lotes[k] || [];
+      lotes[k].push({ id: m.ID, resta: q });
+      total[m.ID] = q;
+      devolvido[m.ID] = 0;
+    } else if (m.Tipo === 'DEVOLUCAO') {
+      if (!m.OrigemID) return;
+      var fila = lotes[chave(m.OrigemID, m.TipoCaixaID)] || [];
+      var sobra = q;
+      for (var i = 0; i < fila.length && sobra > 0; i++) {
+        if (fila[i].resta <= 0) continue;
+        var usa = fila[i].resta < sobra ? fila[i].resta : sobra;
+        fila[i].resta -= usa;
+        sobra -= usa;
+        devolvido[fila[i].id] += usa;
+      }
+      // sobra > 0 quer dizer que voltou mais do que saiu por aqui — saldo antigo, de antes
+      // do sistema. Não há lote para abater e o excedente simplesmente não encontra dono.
+    }
+  });
+
+  var estado = {};
+  Object.keys(total).forEach(function (id) {
+    var t = total[id], d = devolvido[id] || 0;
+    estado[id] = { total: t, devolvido: d, cheio: d >= t, parcial: d > 0 && d < t };
+  });
+  return estado;
+}
+
+/** Uma coluna só no lugar de Tipo + Status: o que a linha é E em que pé está. */
+function rotuloCiclo(m, e) {
+  if (m.Tipo === 'DEVOLUCAO') return 'Devolvida';
+  if (m.Tipo === 'PERDA') return 'Perda';
+  if (m.Tipo === 'AJUSTE') return 'Ajuste';
+  if (e && e.cheio) return 'Devolvida';
+  if (e && e.parcial) return 'Parcial';
+  return m.Tipo === 'TRANSFERENCIA' ? 'Transferida' : 'Enviada';
+}
+
 function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
   p = p || {};
   var mLocais = mapaNomes(locais), mTipos = mapaTipos(tipos), mUsers = mapaNomes(usuarios);
   var de = p.de ? data(p.de) : null;
   var ate = p.ate ? fimDoDia(data(p.ate)) : null;
   var limite = Number(p.limit || 400);
+  // Calculado sobre TODOS os movimentos, antes do filtro e do corte: uma devolução de
+  // fora da janela filtrada ainda abate a remessa dela, e ignorá-la faria uma carga já
+  // devolvida aparecer como "Enviada" só porque o filtro cortou a devolução.
+  var ciclo = cicloDaCarga(movimentos);
 
   return ativos(movimentos).filter(function (m) {
     if (de && m.DataRef < de) return false;
@@ -614,6 +686,8 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       qtdConferida: temConf ? m.QtdConferida : '',
       divergencia: (m.Status === 'CONFIRMADO' && temConf) ? Number(m.QtdConferida) - Number(m.Qtd) : '',
       status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID), perfil: m.Perfil,
+      situacao: rotuloCiclo(m, ciclo[m.ID]),
+      devolvido: ciclo[m.ID] ? ciclo[m.ID].devolvido : null,
       motorista: m.Motorista || '', rota: m.Rota || '',
       obs: m.Obs, assinatura: m.AssinaturaURL, foto: m.FotoURL,
       historico: m.Historico || []
@@ -1050,6 +1124,7 @@ module.exports = {
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,
+  cicloDaCarga: cicloDaCarga, rotuloCiclo: rotuloCiclo,
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
   montarMovimento: montarMovimento, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,

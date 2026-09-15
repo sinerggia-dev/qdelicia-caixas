@@ -1192,6 +1192,86 @@ async function main() {
       'dois motoristas na rota aparecem os dois, em ordem e sem repetir', r1.responsavel);
   }
 
+
+  console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const locais = [{ ID: 'L1', Nome: 'Galpão' }, { ID: 'R1', Nome: 'Caruaru' }];
+    const tipos = [{ ID: 'P', Nome: 'CX P' }, { ID: 'G', Nome: 'CX G' }];
+    const users = [{ ID: 'U1', Nome: 'Nestor' }];
+    const sai = (id, cx, q, dia) => ({
+      ID: id, Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: cx, Qtd: q,
+      UsuarioID: 'U1', DataRef: D(dia), DataHora: D(dia)
+    });
+    const volta = (id, cx, q, dia, st) => ({
+      ID: id, Tipo: 'DEVOLUCAO', Status: st || 'CONFIRMADO', OrigemID: 'R1', DestinoID: 'L1',
+      TipoCaixaID: cx, Qtd: q, UsuarioID: 'U1', DataRef: D(dia), DataHora: D(dia)
+    });
+    const rot = (movs) => {
+      const r = {};
+      F.listaMovimentos(movs, locais, tipos, users, {}).forEach((x) => { r[x.id] = x.situacao; });
+      return r;
+    };
+
+    ok(rot([sai('S1', 'P', 50, '2026-09-01')]).S1 === 'Enviada',
+      'saída sem nenhuma devolução fica Enviada');
+
+    ok(rot([sai('S1', 'P', 50, '2026-09-01'), volta('D1', 'P', 50, '2026-09-05')]).S1 === 'Devolvida',
+      'voltou tudo: Devolvida');
+
+    ok(rot([sai('S1', 'P', 50, '2026-09-01'), volta('D1', 'P', 20, '2026-09-05')]).S1 === 'Parcial',
+      'voltou parte: Parcial');
+
+    // o abatimento é do MAIS ANTIGO primeiro
+    let r = rot([sai('S1', 'P', 50, '2026-09-01'), sai('S2', 'P', 80, '2026-09-03'),
+                 volta('D1', 'P', 50, '2026-09-05')]);
+    ok(r.S1 === 'Devolvida' && r.S2 === 'Enviada',
+      'o que volta abate a remessa mais antiga, não a última', r);
+
+    // tipo de caixa não se mistura: CX G que volta não quita CX P
+    r = rot([sai('S1', 'P', 50, '2026-09-01'), sai('S2', 'G', 50, '2026-09-01'),
+             volta('D1', 'G', 50, '2026-09-05')]);
+    ok(r.S1 === 'Enviada' && r.S2 === 'Devolvida',
+      'CX G que volta não quita a remessa de CX P', r);
+
+    // local não se mistura: devolução de outro lugar não abate esta rota
+    r = rot([sai('S1', 'P', 50, '2026-09-01'),
+             { ID: 'D9', Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'L9', DestinoID: 'L1',
+               TipoCaixaID: 'P', Qtd: 50, UsuarioID: 'U1', DataRef: D('2026-09-05'), DataHora: D('2026-09-05') }]);
+    ok(r.S1 === 'Enviada', 'devolução vinda de outro local não abate esta remessa', r);
+
+    // devolução ainda não conferida NÃO quita: é o mesmo critério do saldo
+    ok(rot([sai('S1', 'P', 50, '2026-09-01'),
+            volta('D1', 'P', 50, '2026-09-05', 'AGUARDANDO')]).S1 === 'Enviada',
+      'devolução esperando conferência não quita a remessa');
+
+    // cancelada não conta
+    const canc = volta('D1', 'P', 50, '2026-09-05');
+    canc.Cancelado = true;
+    ok(rot([sai('S1', 'P', 50, '2026-09-01'), canc]).S1 === 'Enviada',
+      'devolução cancelada não quita a remessa');
+
+    // a quantidade CONFERIDA é que abate, não a declarada
+    const parcialConf = volta('D1', 'P', 50, '2026-09-05');
+    parcialConf.QtdConferida = 30;
+    r = rot([sai('S1', 'P', 50, '2026-09-01'), parcialConf]);
+    ok(r.S1 === 'Parcial', 'vale a quantidade conferida: 30 de 50 é Parcial', r);
+
+    // os outros tipos dizem o que são, já que a coluna Tipo deixou de existir
+    r = rot([{ ID: 'X1', Tipo: 'PERDA', OrigemID: 'R1', TipoCaixaID: 'P', Qtd: 5, UsuarioID: 'U1', DataRef: D('2026-09-02'), DataHora: D('2026-09-02') },
+             { ID: 'X2', Tipo: 'AJUSTE', DestinoID: 'L1', TipoCaixaID: 'P', Qtd: 5, UsuarioID: 'U1', DataRef: D('2026-09-02'), DataHora: D('2026-09-02') },
+             { ID: 'X3', Tipo: 'TRANSFERENCIA', OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: 'P', Qtd: 5, UsuarioID: 'U1', DataRef: D('2026-09-02'), DataHora: D('2026-09-02') }]);
+    ok(r.X1 === 'Perda' && r.X2 === 'Ajuste' && r.X3 === 'Transferida',
+      'perda, ajuste e transferência continuam se identificando na coluna', r);
+
+    // o corte do filtro não pode inventar "Enviada"
+    const movs = [sai('S1', 'P', 50, '2026-08-01'), volta('D1', 'P', 50, '2026-08-20')];
+    const soSetembro = F.listaMovimentos(movs, locais, tipos, users, { de: '2026-08-01', ate: '2026-08-10' });
+    ok(soSetembro.length === 1 && soSetembro[0].situacao === 'Devolvida',
+      'devolução fora da janela filtrada ainda quita a remessa que aparece', soSetembro[0]);
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }
