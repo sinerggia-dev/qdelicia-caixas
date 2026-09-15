@@ -281,7 +281,7 @@ e fica fixo no cartao, porque o toast some em cinco segundos. A contagem e so de
 lancamento de caixa no galpao, que e o que este app existe para nao deixar parar. O teste
 verifica isso tambem.
 
-O `teste/teste_motorista.js` (16 verificacoes) cuida da lista de motoristas na saida. A rota
+O `teste/teste_motorista.js` (23 verificacoes) cuida da lista de motoristas na saida e na devolucao (a mesma funcao, com os seletores de cada tela; na devolucao a rota e o caminhao de onde a carga volta). A rota
 decide a **ordem**, nao quem pode aparecer: "Motorista da rota" em cima, "Outros motoristas"
 embaixo. Filtrar de verdade, como era antes, travava a cobertura — a rota oferecia um nome so,
 e no dia em que outro levasse a carga a saida ia lancada no nome errado. O preenchimento

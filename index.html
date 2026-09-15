@@ -428,7 +428,7 @@
       // Lista fechada, a pedido: nome digitado vira grafia diferente do mesmo motorista, e
       // aí o extrato mostra "Valcy" e "valci" como duas pessoas. Quem não está aqui é
       // cadastrado no painel antes de sair com a carga.
-      montarMotoristas();
+      montarMotoristas('sdMotorista', 'sdRota');
     }
   }
 
@@ -439,10 +439,11 @@
      Ramos, e no dia em que outro levasse aquela carga a pessoa lançava no nome do
      Ramos assim mesmo. O extrato passava a mentir sobre quem saiu com as caixas, que
      é justamente o que este app existe para não deixar acontecer. */
-  function montarMotoristas(){
-    var sel = document.getElementById('sdMotorista');
+  function montarMotoristas(idMotorista, idRota){
+    var sel = document.getElementById(idMotorista || 'sdMotorista');
+    var elRota = document.getElementById(idRota || 'sdRota');
     var escolhido = sel.value;
-    var rota = document.getElementById('sdRota').value;
+    var rota = elRota ? elRota.value : '';
     var rotaAnterior = sel.getAttribute('data-rota');
     var daRota = motoristasDaRota(rota);
     var atribuidos = motoristasDaRota(rota, true);
@@ -524,13 +525,19 @@
     ligarSteppers(document.getElementById('sdItens'));
     ligarSteppers(document.getElementById('dvItens'));
     document.getElementById('dvOrigem').addEventListener('change', mostrarSaldoDoOrigem);
-    // Quem trouxe a carga de volta. Na devolução a lista não depende de rota: quem
-    // recebe no galpão só precisa dizer quem chegou dirigindo.
-    document.getElementById('dvMotorista').innerHTML = '<option value="">Selecione…</option>' +
-      motoristas().map(function(m){ return '<option value="'+Q.esc(m)+'">'+Q.esc(m)+'</option>'; }).join('');
+    // A devolucao parte do caminhao, entao ela TEM rota: o motorista dela vem em cima,
+    // como na saida. Antes era a equipe inteira em ordem alfabetica, e quem quase sempre
+    // e a resposta ficava no meio da lista.
+    document.getElementById('dvOrigem').addEventListener('change', function(){
+      montarMotoristas('dvMotorista', 'dvOrigem');
+    });
+    // Quem trouxe a carga de volta, agrupado pela rota de onde ela vem.
+    montarMotoristas('dvMotorista', 'dvOrigem');
     document.getElementById('sdOrigem').addEventListener('change', ajustarCamposSaida);
     // É a rota que decide quais motoristas aparecem.
-    document.getElementById('sdRota').addEventListener('change', montarMotoristas);
+    document.getElementById('sdRota').addEventListener('change', function(){
+      montarMotoristas('sdMotorista', 'sdRota');
+    });
     ajustarCamposSaida();
   }
 
@@ -671,6 +678,8 @@
       document.getElementById('dvDestino').value = '';
       document.getElementById('dvAviso').innerHTML = '';
       mostrarSaldoDoOrigem();
+      // Sem rota nao ha grupo: a lista volta a ser simples, com a equipe inteira.
+      montarMotoristas('dvMotorista', 'dvOrigem');
     }
   }
   document.getElementById('btnLimparDevolucao').addEventListener('click', function(){ limparDevolucao(false); });

@@ -1,6 +1,6 @@
 /**
  * Qdelícia Frutas — Controle de Caixas
- * Lista de motoristas na saída: rota em cima, cobertura embaixo.
+ * Lista de motoristas na saída E na devolução: rota em cima, cobertura embaixo.
  *
  * POR QUE ISTO EXISTE
  * A lista era filtrada pela rota: Caruaru oferecia só o Ramos. No dia em que
@@ -11,6 +11,10 @@
  * Agora a rota decide a ORDEM, não quem pode aparecer. O que este teste
  * protege: todo motorista continua alcançável, o da rota segue vindo posto, e
  * trocar de rota não deixa para trás o motorista da rota anterior.
+ *
+ * A devolução usa a MESMA função, com os seletores dela — a rota ali é o
+ * caminhão de onde a carga volta. Os casos 8 a 10 provam que as duas telas
+ * seguem a regra por construção e não se atrapalham.
  *
  * Não roda navegador: lê a função do index.html e executa com DOM de mentira.
  */
@@ -56,11 +60,10 @@ function selFalso() {
   };
 }
 var elMotorista = selFalso(), elRota = selFalso();
-global.document = {
-  getElementById: function (id) {
-    return id === 'sdMotorista' ? elMotorista : (id === 'sdRota' ? elRota : null);
-  }
-};
+var elDvMotorista = selFalso(), elDvOrigem = selFalso();
+var POR_ID = { sdMotorista: elMotorista, sdRota: elRota,
+               dvMotorista: elDvMotorista, dvOrigem: elDvOrigem };
+global.document = { getElementById: function (id) { return POR_ID[id] || null; } };
 global.Q = { esc: function (t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); } };
 global.DADOS = DADOS;
 
@@ -68,8 +71,9 @@ var F = eval('(function(){' + corpo('motoristas') + corpo('motoristasDaRota') + 
              'return { montar: montarMotoristas, daRota: motoristasDaRota };})()');
 
 /** Lê o HTML gerado: nomes por grupo, na ordem. */
-function lido() {
-  var h = elMotorista.innerHTML;
+function lido(el) {
+  el = el || elMotorista;
+  var h = el.innerHTML;
   var grupos = [];
   var re = /<optgroup label="([^"]*)">([\s\S]*?)<\/optgroup>/g, m;
   while ((m = re.exec(h))) {
@@ -78,10 +82,13 @@ function lido() {
   }
   var todos = (h.match(/value="([^"]*)"/g) || []).map(function (x) { return x.slice(7, -1); })
     .filter(function (x) { return x !== ''; });
-  return { grupos: grupos, todos: todos, escolhido: elMotorista.value };
+  return { grupos: grupos, todos: todos, escolhido: el.value };
 }
 
-function escolherRota(id) { elRota.value = id; F.montar(); return lido(); }
+function escolherRota(id) { elRota.value = id; F.montar('sdMotorista', 'sdRota'); return lido(); }
+function escolherRotaDv(id) {
+  elDvOrigem.value = id; F.montar('dvMotorista', 'dvOrigem'); return lido(elDvMotorista);
+}
 
 console.log('\n== Motorista: rota em cima, cobertura embaixo ==');
 
@@ -98,14 +105,14 @@ ok(r.grupos[1].nomes.indexOf('Jorge') >= 0 && r.grupos[1].nomes.indexOf('Sebasti
 
 /* ---- 2. dá para escolher a cobertura e ela fica ---- */
 elMotorista.value = 'Jorge';
-F.montar();                                   // redesenho sem trocar de rota
+F.montar('sdMotorista', 'sdRota');            // redesenho sem trocar de rota
 ok(lido().escolhido === 'Jorge', 'cobertura escolhida à mão sobrevive ao redesenho');
 
 /* ---- 3. trocar de rota volta para o motorista da rota nova ---- */
 r = escolherRota('R-PETROLINA');
 ok(r.escolhido === 'Jorge', 'rota nova traz o motorista dela posto');
 elMotorista.value = 'Ramos';                  // cobertura na rota do Jorge
-F.montar();
+F.montar('sdMotorista', 'sdRota');
 ok(lido().escolhido === 'Ramos', 'cobertura vale também aqui');
 r = escolherRota('R-RECIFE');
 ok(r.escolhido === 'Sebastião', 'a cobertura não atravessa a troca de rota');
@@ -113,7 +120,7 @@ ok(r.escolhido === 'Sebastião', 'a cobertura não atravessa a troca de rota');
 /* ---- 4. rota com mais de um não escolhe por ninguém ---- */
 DADOS.motoristas.push({ Nome: 'Neto', Rotas: ['R-RECIFE'] });
 elRota.value = '';                            // força a rota a "mudar" de novo
-F.montar();
+F.montar('sdMotorista', 'sdRota');
 r = escolherRota('R-RECIFE');
 ok(r.escolhido === '', 'dois na mesma rota: pede a escolha');
 DADOS.motoristas.pop();
@@ -133,6 +140,23 @@ elRota.value = '';
 r = escolherRota('R-CARUARU');
 ok(elMotorista.innerHTML.indexOf('<b>B</b>') === -1, 'nome com HTML não é injetado');
 DADOS.motoristas.pop();
+
+/* ---- 8. a devolução segue a mesma regra, pela rota de onde a carga vem ---- */
+var d = escolherRotaDv('R-PETROLINA');
+ok(d.grupos.length === 2, 'devolução também sai em dois grupos');
+ok(d.grupos[0].nomes.indexOf('Jorge') >= 0, 'devolução: motorista da rota em cima');
+ok(d.todos.length === 4, 'devolução: ninguém fica inalcançável');
+ok(d.escolhido === 'Jorge', 'devolução: motorista da rota já vem posto');
+
+/* ---- 9. as duas telas não se atrapalham ---- */
+escolherRota('R-CARUARU');
+ok(lido(elDvMotorista).escolhido === 'Jorge', 'mexer na saída não mexe na devolução');
+ok(lido().escolhido === 'Ramos', 'e a saída fica com o motorista dela');
+
+/* ---- 10. devolução sem rota volta à lista simples ---- */
+d = escolherRotaDv('');
+ok(d.grupos.length === 0, 'devolução sem rota: lista simples');
+ok(d.todos.length === 4, 'devolução sem rota: equipe inteira');
 
 console.log('');
 if (falhas) { console.log('>>> ' + falhas + ' FALHA(S)'); process.exit(1); }
