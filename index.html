@@ -382,14 +382,19 @@
      sem rota escolhida, todos; com rota, quem está atribuído a ela mais quem não tem
      rota nenhuma marcada. Rota sem ninguém atribuído devolve todos — melhor oferecer a
      lista inteira do que travar a saída porque faltou um cadastro. */
-  function motoristasDaRota(rotaId){
+  function motoristasDaRota(rotaId, soAtribuidos){
     var todos = (DADOS||{}).motoristas || [];
-    if (!rotaId) return todos.map(function(m){ return m.Nome; });
+    if (!rotaId) return soAtribuidos ? [] : todos.map(function(m){ return m.Nome; });
     var alvo = String(rotaId);
     var atribuidos = todos.filter(function(m){
       var r = m.Rotas || [];
       return r.length && r.map(String).indexOf(alvo) >= 0;
     });
+    // `soAtribuidos` e para decidir o preenchimento automatico: quem responde por esta
+    // rota no cadastro, sem o volante e sem quem so nao tem rota marcada. Sem isso, um
+    // volante no cadastro fazia toda rota ter "dois motoristas" e o campo nunca vinha
+    // posto — a pessoa tinha de escolher o obvio a cada lancamento.
+    if (soAtribuidos) return atribuidos.map(function(m){ return m.Nome; });
     // Volante roda qualquer rota; quem não tem rota marcada também entra, que é a regra antiga.
     var curinga = todos.filter(function(m){
       return atribuidos.indexOf(m) < 0 &&
@@ -427,19 +432,46 @@
     }
   }
 
-  /* Refeito toda vez que a rota muda: é a rota que decide quem aparece. Quem já estava
-     escolhido continua escolhido, desde que ainda atenda a rota nova. */
+  /* Refeito toda vez que a rota muda. A rota decide a ORDEM, não quem pode aparecer:
+     quem é da rota vem em cima, o resto vem embaixo em "Outros motoristas".
+
+     Filtrar de verdade, como era antes, travava a cobertura — Caruaru oferecia só o
+     Ramos, e no dia em que outro levasse aquela carga a pessoa lançava no nome do
+     Ramos assim mesmo. O extrato passava a mentir sobre quem saiu com as caixas, que
+     é justamente o que este app existe para não deixar acontecer. */
   function montarMotoristas(){
     var sel = document.getElementById('sdMotorista');
     var escolhido = sel.value;
-    var lista = motoristasDaRota(document.getElementById('sdRota').value);
-    sel.innerHTML = '<option value="">Selecione…</option>' +
-      lista.map(function(m){
+    var rota = document.getElementById('sdRota').value;
+    var rotaAnterior = sel.getAttribute('data-rota');
+    var daRota = motoristasDaRota(rota);
+    var atribuidos = motoristasDaRota(rota, true);
+    var outros = motoristas().filter(function(m){ return daRota.indexOf(m) < 0; });
+
+    function itens(lista){
+      return lista.map(function(m){
         return '<option value="'+Q.esc(m)+'"'+(m===escolhido?' selected':'')+'>'+Q.esc(m)+'</option>';
       }).join('');
-    if (lista.indexOf(escolhido) < 0) sel.value = '';
-    // Um motorista só na rota não é escolha: já vem posto.
-    if (lista.length === 1) sel.value = lista[0];
+    }
+    function grupo(rotulo, lista){
+      return lista.length ? '<optgroup label="'+Q.esc(rotulo)+'">'+itens(lista)+'</optgroup>' : '';
+    }
+
+    // Sem ninguém de fora não há o que separar: a lista sai simples, sem rótulo de
+    // grupo para ler à toa.
+    sel.innerHTML = '<option value="">Selecione…</option>' +
+      (outros.length
+        ? grupo('Motorista da rota', daRota) + grupo('Outros motoristas', outros)
+        : itens(daRota));
+
+    if (rota !== rotaAnterior){
+      // Rota nova: volta para o motorista dela. Cobertura é escolha de quem lança,
+      // feita depois — não pode sobreviver a uma troca de rota sem ninguém ver.
+      sel.value = atribuidos.length === 1 ? atribuidos[0] : '';
+    } else if (motoristas().indexOf(escolhido) < 0){
+      sel.value = '';
+    }
+    sel.setAttribute('data-rota', rota);
   }
 
   /**

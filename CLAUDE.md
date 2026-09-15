@@ -250,6 +250,7 @@ deploy, confirme que a página dele carregou o `app.js` novo.
 node teste/teste_api.js
 node teste/teste_tela.js
 node teste/teste_login.js
+node teste/teste_motorista.js
 ```
 
 222 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
@@ -269,6 +270,13 @@ e fica fixo no cartao, porque o toast some em cinco segundos. A contagem e so de
 **nao bloqueia o acesso de proposito**: travar a entrada por senha errada pararia o
 lancamento de caixa no galpao, que e o que este app existe para nao deixar parar. O teste
 verifica isso tambem.
+
+O `teste/teste_motorista.js` (16 verificacoes) cuida da lista de motoristas na saida. A rota
+decide a **ordem**, nao quem pode aparecer: "Motorista da rota" em cima, "Outros motoristas"
+embaixo. Filtrar de verdade, como era antes, travava a cobertura — a rota oferecia um nome so,
+e no dia em que outro levasse a carga a saida ia lancada no nome errado. O preenchimento
+automatico olha so quem esta **atribuido** a rota: contando o volante, que e curinga de todas,
+nenhuma rota teria "um motorista so" e o campo nunca viria posto.
 
 O `teste/teste_backend.js` testa o backend antigo do Apps Script (38 verificações), que continua
 em `apps-script/` como referência e rota de volta. Pode apagar os dois quando a migração estiver
