@@ -620,6 +620,97 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
 
 /* ============================ painel ============================ */
 
+/**
+ * Fluxo do período por quem segura a caixa: quanto saiu para ele, quanto voltou dele e o
+ * buraco entre as duas pontas.
+ *
+ * NÃO é o saldo do razão, e a diferença é o motivo deste painel existir. `saldos()` soma
+ * desde o primeiro lançamento; aqui se olha só a janela pedida. Um cliente pode estar com
+ * 300 caixas de meses atrás (saldo alto) e ter devolvido tudo o que levou neste mês
+ * (fluxo zerado) — e o contrário também. São duas perguntas diferentes: "quanto ele tem
+ * nosso?" e "ele está devolvendo o que leva?". Somar as duas responde nenhuma.
+ *
+ * A leitura é da casa para fora, que é como a operação fala: SAÍDA é o que chegou nele
+ * (ele é o destino do movimento) e RETORNO é o que ele mandou de volta (ele é a origem).
+ */
+var DESVIO_RUIM = 40;   // acima disso a linha fica vermelha: falta mais de 40% do que saiu
+
+function fluxoPorOrigem(dados, desde, meta) {
+  var locais = dados.locais || [];
+  var movimentos = dados.movimentos || [];
+  meta = Number(meta) || 90;
+
+  var nomesUsuarios = mapaNomes(dados.usuarios || []);
+  var nomesLocais = mapaNomes(locais);
+
+  var saiu = {}, voltou = {};
+  ativos(movimentos).forEach(function (m) {
+    if (desde && m.DataRef < desde) return;
+    var q = efetiva(m);          // devolução não confirmada vale 0, e vale a contada
+    if (!q) return;
+    if (m.Tipo === 'SAIDA' || m.Tipo === 'TRANSFERENCIA') {
+      if (m.DestinoID) saiu[m.DestinoID] = (saiu[m.DestinoID] || 0) + q;
+    } else if (m.Tipo === 'DEVOLUCAO') {
+      if (m.OrigemID) voltou[m.OrigemID] = (voltou[m.OrigemID] || 0) + q;
+    }
+  });
+
+  var SUB = { ROTA: 'rota', FILIAL: 'filial', CLIENTE: 'cliente' };
+  var linhas = locais.filter(function (l) {
+    return l.Tipo === 'ROTA' || l.Tipo === 'FILIAL' || l.Tipo === 'CLIENTE';
+  }).map(function (l) {
+    var saida = saiu[l.ID] || 0;
+    var retorno = voltou[l.ID] || 0;
+    var saldo = retorno - saida;
+    // Sem saída não há o que cobrar: uma devolução isolada não vira "retorno de 0%".
+    var desvio = saida > 0 ? Math.round(((saida - retorno) / saida) * 100) : null;
+    var situacao;
+    if (!saida && !retorno) situacao = 'parado';
+    else if (saldo >= 0) situacao = 'ok';
+    else if (desvio !== null && desvio > DESVIO_RUIM) situacao = 'ruim';
+    else situacao = 'atencao';
+    // Na rota quem responde é o motorista; nos outros, o responsável do cadastro.
+    var resp = l.Tipo === 'ROTA'
+      ? (l.MotoristaId ? nome(nomesUsuarios, l.MotoristaId) : '')
+      : String(l.Responsavel || '').trim();
+    return {
+      id: l.ID, nome: l.Nome, tipo: l.Tipo,
+      sub: SUB[l.Tipo] + (l.Tipo === 'CLIENTE' && l.RotaId ? ' · ' + nome(nomesLocais, l.RotaId) : ''),
+      rotaId: l.RotaId || '',
+      responsavel: resp,
+      saida: saida, retorno: retorno, saldo: saldo,
+      desvio: desvio, situacao: situacao
+    };
+  }).sort(function (a, b) {
+    // Quem deve mais primeiro; entre os parados, ordem alfabética, senão a lista dança.
+    return a.saldo - b.saldo || String(a.nome).localeCompare(String(b.nome), 'pt-BR');
+  });
+
+  var comMovimento = linhas.filter(function (l) { return l.situacao !== 'parado'; });
+  var tSaida = 0, tRetorno = 0, deficit = 0, porTipo = { ROTA: 0, FILIAL: 0, CLIENTE: 0 };
+  comMovimento.forEach(function (l) {
+    tSaida += l.saida; tRetorno += l.retorno;
+    if (l.saldo < 0) deficit += -l.saldo;
+    porTipo[l.tipo] = (porTipo[l.tipo] || 0) + 1;
+  });
+
+  return {
+    meta: meta,
+    linhas: linhas,
+    totais: {
+      linhas: comMovimento.length,
+      porTipo: porTipo,
+      saida: tSaida, retorno: tRetorno,
+      saldo: tRetorno - tSaida,
+      deficit: deficit,
+      taxaRetorno: tSaida > 0 ? Math.round((tRetorno / tSaida) * 1000) / 10 : null,
+      foraDaMeta: comMovimento.filter(function (l) {
+        return l.desvio !== null && (100 - l.desvio) < meta;
+      }).length
+    }
+  };
+}
+
 function painel(dados, hoje) {
   hoje = hoje || new Date();
   var locais = dados.locais, tipos = dados.tipos, movimentos = dados.movimentos;
@@ -709,7 +800,11 @@ function painel(dados, hoje) {
       divergenciaMes: divergenciaMes,
       taxaRetorno: saidasMes > 0 ? Math.round((devolucoesMes / saidasMes) * 1000) / 10 : null
     },
-    locais: lista, rotas: rotas, galpoes: galpoes, tipos: tipos
+    locais: lista, rotas: rotas, galpoes: galpoes, tipos: tipos,
+    // Mesma janela dos KPIs (do dia 1 do mês): se o painel mostrasse uma taxa de retorno
+    // do mês e a tabela outra de outro período, as duas na mesma tela, quem lê escolheria
+    // uma ao acaso. A meta sai da config e cai em 90 quando ninguém a definiu.
+    fluxo: fluxoPorOrigem(dados, ini, Number(dados.config.metaRetorno) || 90)
   };
 }
 
@@ -842,6 +937,7 @@ module.exports = {
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
+  fluxoPorOrigem: fluxoPorOrigem,
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
   montarMovimento: montarMovimento, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,

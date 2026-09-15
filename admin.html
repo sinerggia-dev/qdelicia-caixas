@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=0e58c4ff">
+<link rel="stylesheet" href="styles.css?v=7c1c08ff">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -64,6 +64,12 @@
   <!-- ---------- PAINEL ---------- -->
   <section id="pgPainel" class="pagina ativa">
     <div class="kpis" id="kpis"></div>
+    <div class="card" id="cardFluxo">
+      <h2>Saída e retorno por origem<span class="sub">Do dia 1 do mês até hoje. <b>Saída</b> é o que foi para lá; <b>retorno</b>, o que voltou de lá e já foi conferido. Não é o saldo acumulado — é só o mês.</span></h2>
+      <div class="fchips" id="fluxoChips"></div>
+      <div id="tabelaFluxo"><div class="vazio">Carregando…</div></div>
+      <div class="ftiles" id="fluxoTiles"></div>
+    </div>
     <div class="card" id="cardRotas" style="display:none">
       <h2>Rotas<span class="sub">No caminhão = carregou e ainda não entregou. Nos clientes = já entregou e ainda não voltou.</span></h2>
       <div id="tabelaRotas"></div>
@@ -429,13 +435,99 @@
     Q.get({acao:'painel'}).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       PAINEL = r.painel; Q.cache('painel', PAINEL);
-      desenharRotas(); desenharKpis(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral();
+      desenharRotas(); desenharKpis(); desenharFluxo(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral();
     }).catch(function(e){
       PAINEL = Q.cache('painel');
-      if (PAINEL){ desenharRotas(); desenharKpis(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral(); Q.toast('Mostrando dados salvos: '+e.message,'erro'); }
+      if (PAINEL){ desenharRotas(); desenharKpis(); desenharFluxo(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral(); Q.toast('Mostrando dados salvos: '+e.message,'erro'); }
       else document.getElementById('tabelaPainel').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
     });
   }
+  /* ---------------- saída x retorno do mês ---------------- */
+  /* Card separado do "Caixas em poder de clientes" de propósito: aquele responde "quanto
+     ele tem nosso desde sempre", este responde "ele está devolvendo o que leva neste mês".
+     Um cliente pode ter saldo alto e fluxo em dia, e o contrário também. */
+  var FLUXO_FILTRO = 'todas';
+
+  function linhasFluxo(){
+    var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
+    // Quem não teve nem saída nem retorno no mês não entra: com a carteira de clientes
+    // inteira listada em zero, as linhas que importam sumiriam no meio.
+    var vivas = f.linhas.filter(function(l){ return l.situacao !== 'parado'; });
+    if (FLUXO_FILTRO === 'todas') return vivas;
+    if (FLUXO_FILTRO === 'deficit') return vivas.filter(function(l){ return l.saldo < 0; });
+    return vivas.filter(function(l){ return l.tipo === FLUXO_FILTRO; });
+  }
+
+  function desenharFluxo(){
+    var f = PAINEL && PAINEL.fluxo;
+    if (!f){ document.getElementById('cardFluxo').style.display = 'none'; return; }
+    document.getElementById('cardFluxo').style.display = 'block';
+    var t = f.totais;
+
+    var chips = [
+      { v:'todas',   r:'Todas',    n:t.linhas },
+      { v:'ROTA',    r:'Rotas',    n:t.porTipo.ROTA || 0 },
+      { v:'FILIAL',  r:'Filiais',  n:t.porTipo.FILIAL || 0 },
+      { v:'CLIENTE', r:'Clientes', n:t.porTipo.CLIENTE || 0 },
+      { v:'deficit', r:'Déficit',  n:t.deficit, cls:'deficit' }
+    ];
+    document.getElementById('fluxoChips').innerHTML = chips.map(function(c){
+      return '<button type="button" class="fchip '+(c.cls||'')+
+        (FLUXO_FILTRO===c.v?' ativo':'')+'" data-fchip="'+c.v+'">'+
+        c.r+'<span class="n">· '+Q.num(c.n)+'</span></button>';
+    }).join('');
+
+    var lista = linhasFluxo();
+    document.getElementById('tabelaFluxo').innerHTML = !lista.length
+      ? '<div class="vazio">Nenhum movimento no mês para este filtro.</div>'
+      : '<div class="tabela-wrap"><table><thead><tr>'+
+        '<th>Origem / destino</th><th class="num">Saída</th><th class="num">Retorno</th>'+
+        '<th class="num">Saldo</th><th>Responsável</th><th class="num">Desvio</th>'+
+        '</tr></thead><tbody>'+
+        lista.map(function(l){
+          // Sem pintar a linha inteira: quatro de seis vermelhas viram ruído e o olho
+          // perde justamente a pior. O selo do desvio e o saldo negativo já dizem.
+          return '<tr>'+
+            '<td><b>'+Q.esc(l.nome)+'</b><span class="fsub">'+Q.esc(l.sub)+'</span></td>'+
+            '<td class="num">'+Q.num(l.saida)+'</td>'+
+            '<td class="num">'+Q.num(l.retorno)+'</td>'+
+            '<td class="num"><b'+(l.saldo<0?' style="color:var(--vermelho)"':'')+'>'+
+              (l.saldo>0?'+':'')+Q.num(l.saldo)+'</b></td>'+
+            '<td>'+(l.responsavel
+              ? Q.esc(l.responsavel)
+              : '<span class="tag cinza">sem responsável</span>')+'</td>'+
+            '<td class="num">'+selo(l)+'</td></tr>';
+        }).join('')+'</tbody></table></div>';
+
+    document.querySelectorAll('[data-fchip]').forEach(function(b){
+      b.addEventListener('click', function(){
+        FLUXO_FILTRO = b.dataset.fchip;
+        desenharFluxo();
+      });
+    });
+
+    var taxa = t.taxaRetorno;
+    document.getElementById('fluxoTiles').innerHTML =
+      tile(taxa===null?'—':taxa+'%', 'taxa de retorno do mês', 'meta '+f.meta+'%',
+           taxa!==null && taxa < f.meta ? 'alerta' : 'ok')+
+      tile(Q.num(t.deficit), 'caixas que saíram e não voltaram', 'no mês, somando só quem deve',
+           t.deficit ? 'aviso' : 'ok')+
+      tile(Q.num(t.foraDaMeta), 'origens abaixo da meta',
+           'de '+Q.num(t.linhas)+' com movimento no mês', t.foraDaMeta ? 'aviso' : 'ok');
+  }
+
+  /* O selo é o resumo da linha: quanto do que saiu ainda não voltou. */
+  function selo(l){
+    if (l.situacao === 'ok') return '<span class="tag verde">OK</span>';
+    if (l.desvio === null) return '<span class="tag cinza">—</span>';
+    var cor = l.situacao === 'ruim' ? 'vermelha' : 'amarela';
+    return '<span class="tag '+cor+'">+'+l.desvio+'%</span>';
+  }
+  function tile(v,r,d,c){
+    return '<div class="ftile '+(c||'')+'"><div class="r">'+r+'</div>'+
+      '<div class="v">'+v+'</div><div class="d">'+d+'</div></div>';
+  }
+
   function desenharKpis(){
     var k = PAINEL.kpis;
     document.getElementById('kpis').innerHTML =

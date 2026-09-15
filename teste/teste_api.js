@@ -954,6 +954,85 @@ async function main() {
 
   await POST({ acao: 'salvarMotorista', registro: { ID: 'D001', Tipo: '' } });
 
+
+  console.log('\n== fluxo por origem (painel de retornos) ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const DESDE = D('2026-09-01');
+    const cen = {
+      config: {},
+      usuarios: [{ ID: 'U1', Nome: 'Natanias' }],
+      locais: [
+        { ID: 'L001', Nome: 'Galpão', Tipo: 'GALPAO' },
+        { ID: 'R01', Nome: 'João Pessoa', Tipo: 'ROTA', MotoristaId: 'U1' },
+        { ID: 'C01', Nome: 'CEASA', Tipo: 'CLIENTE', Responsavel: 'Antônio', RotaId: 'R01' },
+        { ID: 'C02', Nome: 'Natal', Tipo: 'CLIENTE', Responsavel: '' },
+        { ID: 'C03', Nome: 'Parado', Tipo: 'CLIENTE', Responsavel: 'Zé' }
+      ],
+      movimentos: [
+        // rota: saiu 1000, voltou 400 -> saldo -600, desvio 60% (ruim)
+        { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'R01', Qtd: 1000, DataRef: D('2026-09-02') },
+        { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'R01', DestinoID: 'L001', Qtd: 400, DataRef: D('2026-09-05') },
+        // cliente que devolve mais do que levou -> ok
+        { Tipo: 'SAIDA', OrigemID: 'R01', DestinoID: 'C01', Qtd: 700, DataRef: D('2026-09-03') },
+        { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'C01', DestinoID: 'R01', Qtd: 770, DataRef: D('2026-09-06') },
+        // cliente com devolução AINDA NÃO conferida: não pode virar retorno
+        { Tipo: 'SAIDA', OrigemID: 'R01', DestinoID: 'C02', Qtd: 600, DataRef: D('2026-09-03') },
+        { Tipo: 'DEVOLUCAO', Status: 'AGUARDANDO', OrigemID: 'C02', DestinoID: 'R01', Qtd: 500, DataRef: D('2026-09-07') },
+        // fora da janela e cancelado: nenhum dos dois conta
+        { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'R01', Qtd: 9000, DataRef: D('2026-08-20') },
+        { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'R01', Qtd: 5000, DataRef: D('2026-09-04'), Cancelado: true }
+      ]
+    };
+    const f = F.fluxoPorOrigem(cen, DESDE, 90);
+    const por = {};
+    f.linhas.forEach((l) => { por[l.id] = l; });
+
+    ok(!por.L001, 'galpão fica de fora: ele é a casa, não quem segura a caixa');
+    ok(f.linhas.length === 4, 'entram as rotas, filiais e clientes', f.linhas.length);
+
+    ok(por.R01.saida === 1000 && por.R01.retorno === 400,
+      'saída é o que CHEGOU no local e retorno é o que ELE devolveu', [por.R01.saida, por.R01.retorno]);
+    ok(por.R01.saldo === -600 && por.R01.desvio === 60 && por.R01.situacao === 'ruim',
+      'saldo e desvio do período, e acima de 40% a linha é ruim', por.R01);
+    ok(por.R01.responsavel === 'Natanias', 'na rota quem responde é o motorista', por.R01.responsavel);
+
+    ok(por.C01.saldo === 70 && por.C01.situacao === 'ok' && por.C01.desvio === -10,
+      'devolveu mais do que levou: situação ok', por.C01);
+    ok(por.C01.responsavel === 'Antônio', 'no cliente vale o responsável do cadastro');
+    ok(por.C01.sub.indexOf('João Pessoa') >= 0, 'o cliente mostra a rota que o atende', por.C01.sub);
+
+    ok(por.C02.retorno === 0 && por.C02.saldo === -600,
+      'devolução ainda não conferida NÃO vira retorno', por.C02);
+    ok(por.C02.responsavel === '', 'sem responsável cadastrado devolve vazio, não o id');
+
+    ok(por.C03.situacao === 'parado' && por.C03.desvio === null,
+      'sem saída e sem retorno não vira 0% de retorno', por.C03);
+
+    ok(f.totais.saida === 2300 && f.totais.retorno === 1170,
+      'os totais ignoram cancelado e o que é de antes da janela', f.totais);
+    ok(f.totais.deficit === 1200, 'déficit soma só quem está devendo, sem abater quem sobrou', f.totais.deficit);
+    ok(f.totais.linhas === 3, 'quem não teve movimento não entra na conta de linhas', f.totais.linhas);
+    ok(f.totais.taxaRetorno === 50.9, 'taxa de retorno do conjunto', f.totais.taxaRetorno);
+    ok(f.linhas[0].id === 'R01' || f.linhas[0].id === 'C02',
+      'quem deve mais aparece primeiro', f.linhas.map((l) => l.id));
+
+    // a quantidade CONFERIDA manda: é ela que entra no razão
+    const cen2 = JSON.parse(JSON.stringify(cen));
+    cen2.movimentos = [
+      { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'R01', Qtd: 100, DataRef: D('2026-09-02') },
+      { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'R01', DestinoID: 'L001', Qtd: 90, QtdConferida: 80, DataRef: D('2026-09-05') }
+    ];
+    cen2.locais = cen.locais;
+    const f2 = F.fluxoPorOrigem(cen2, DESDE, 90);
+    const r2 = f2.linhas.filter((l) => l.id === 'R01')[0];
+    ok(r2.retorno === 80, 'vale a quantidade conferida, não a declarada', r2.retorno);
+
+    // meta: conta quem ficou abaixo dela
+    ok(f.totais.foraDaMeta === 2, 'duas das três linhas com movimento ficaram abaixo de 90%', f.totais.foraDaMeta);
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }
