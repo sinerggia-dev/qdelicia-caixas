@@ -249,6 +249,7 @@ deploy, confirme que a página dele carregou o `app.js` novo.
 ```
 node teste/teste_api.js
 node teste/teste_tela.js
+node teste/teste_login.js
 ```
 
 222 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
@@ -260,6 +261,14 @@ limpar de cada formulário toca em **todo** campo da seção, menos a data. Exis
 botão Limpar quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela: seletor
 escondido guarda valor velho e só reaparece quando a origem muda de galpão para rota.
 Acrescentou campo no formulário? Ou ele entra no limpar, ou este teste falha dizendo o id.
+
+O `teste/teste_login.js` (17 verificacoes) cuida do aviso de administrador na tela de
+entrada do galpao: as duas primeiras senhas erradas seguem com a mensagem normal, da
+terceira em diante o aviso passa a ser "Entre em contato com o administrador do sistema."
+e fica fixo no cartao, porque o toast some em cinco segundos. A contagem e so de tela —
+**nao bloqueia o acesso de proposito**: travar a entrada por senha errada pararia o
+lancamento de caixa no galpao, que e o que este app existe para nao deixar parar. O teste
+verifica isso tambem.
 
 O `teste/teste_backend.js` testa o backend antigo do Apps Script (38 verificações), que continua
 em `apps-script/` como referência e rota de volta. Pode apagar os dois quando a migração estiver

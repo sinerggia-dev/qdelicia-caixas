@@ -208,6 +208,41 @@
     });
   }
 
+  /* Senha errada seguida: na terceira, a tela para de repetir "incorretos" e diz
+     o que fazer. Quem chega na terceira nao errou o dedo — esqueceu a senha, ou
+     o nome cadastrado nao e o que ele digita —, e daqui nao havia saida nenhuma.
+
+     E so contagem de tela: nao bloqueia nem grava nada. Travar o acesso por
+     senha errada pararia o lancamento de caixa no galpao, que e exatamente o
+     que este app existe para nao deixar parar.
+
+     Nao conta falha de rede: cair a internet nao e senha errada. */
+  var LOGIN_AVISA_ADMIN = 3;
+  var loginErros = 0, loginErroDe = '';
+  var MSG_ADMIN = 'Entre em contato com o administrador do sistema.';
+
+  function zerarErrosLogin(){
+    loginErros = 0; loginErroDe = '';
+    document.getElementById('erroLogin').innerHTML = '';
+  }
+
+  function contarErroLogin(id, msgServidor){
+    // Outra pessoa no mesmo aparelho comeca do zero: senao ela levaria o aviso
+    // de administrador ja na primeira tentativa dela.
+    if (id.toLowerCase() !== loginErroDe){ loginErros = 0; loginErroDe = id.toLowerCase(); }
+    loginErros++;
+    var caixa = document.getElementById('erroLogin');
+    if (loginErros < LOGIN_AVISA_ADMIN){
+      caixa.innerHTML = '';
+      Q.toast(msgServidor, 'erro');
+      return;
+    }
+    // Fixo no cartao: o toast some em cinco segundos e esta e a frase que a
+    // pessoa precisa ler com calma e levar para o escritorio.
+    caixa.innerHTML = '<div class="aviso-box erro">' + Q.esc(MSG_ADMIN) + '</div>';
+    Q.toast(MSG_ADMIN, 'erro');
+  }
+
   document.getElementById('btnEntrar').addEventListener('click', function(){
     var id = document.getElementById('inUsuario').value.trim();
     var pin = document.getElementById('inPin').value;
@@ -215,7 +250,8 @@
     var btn = this; btn.disabled = true; btn.textContent = 'Entrando…';
     Q.post({acao:'login', identificador:id, pin:pin}).then(function(r){
       btn.disabled = false; btn.textContent = 'Entrar';
-      if (!r.ok) return Q.toast(r.erro,'erro');
+      if (!r.ok) return contarErroLogin(id, r.erro);
+      zerarErrosLogin();
       localStorage.setItem('qdc_ultimo_usuario', id);
       Q.entrar(r.usuario);
       abrirApp();
