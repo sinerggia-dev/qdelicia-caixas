@@ -164,6 +164,17 @@ button.mini{
   font-size:13px;font-weight:600;color:var(--txt2);cursor:pointer
 }
 button.mini.acao{border-color:var(--marca-txt);color:var(--marca-txt)}
+/* Rotulo que abre a camera. Era um <label class="mini"> com estilo inline, e o
+   `flex:0` de la tem base zero: dentro do flex o item encolhia ate o texto
+   quebrar em tres linhas. `flex:0 0 auto` com nowrap mantem o rotulo inteiro.
+   A classe `mini` tambem nao pegava nele — ela e so para <button>. */
+label.btn-foto{
+  flex:0 0 auto;white-space:nowrap;margin:0;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;padding:7px 11px;
+  background:var(--surface);border:1px solid var(--linha);border-radius:8px;
+  font-size:13px;font-weight:600;color:var(--txt2)
+}
+label.btn-foto:hover{border-color:var(--marca-txt);color:var(--marca-txt)}
 button.mini.perigo{border-color:var(--vermelho);color:var(--vermelho)}
 
 /* contador de caixas */
