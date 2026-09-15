@@ -509,13 +509,20 @@
       '. <b>Saída</b> é o que foi para lá; <b>retorno</b>, o que voltou de lá e já foi conferido.';
 
     var lista = linhasFluxo();
-    document.getElementById('tabelaFluxo').innerHTML = !lista.length
-      ? '<div class="vazio">Nenhum movimento no mês para este filtro.</div>'
-      : '<div class="tabela-wrap"><table><thead><tr>'+
+    // O cabeçalho fica SEMPRE de pé, mesmo sem linha nenhuma. Trocar a tabela inteira
+    // pela frase de vazio escondia as colunas, e sem elas a tela não diz o que vai
+    // mostrar quando os lançamentos começarem — parece que o painel não ficou pronto.
+    document.getElementById('tabelaFluxo').innerHTML =
+        '<div class="tabela-wrap"><table><thead><tr>'+
         '<th>Origem / destino</th><th class="num">Saída</th><th class="num">Retorno</th>'+
         '<th class="num">Saldo</th><th>Responsável</th><th class="num">Desvio</th>'+
         '</tr></thead><tbody>'+
-        lista.map(function(l){
+        (!lista.length
+          ? '<tr><td colspan="6"><div class="vazio">'+
+            (temMovimento() ? 'Nenhum movimento no mês para este filtro.'
+                            : 'Ainda não há saída nem devolução lançada neste mês.')+
+            '</div></td></tr>'
+          : lista.map(function(l){
           // Sem pintar a linha inteira: quatro de seis vermelhas viram ruído e o olho
           // perde justamente a pior. O selo e o saldo negativo já dizem.
           return '<tr>'+
@@ -528,7 +535,7 @@
               ? Q.esc(l.responsavel)
               : '<span class="tag cinza">sem responsável</span>')+'</td>'+
             '<td class="num">'+selo(l)+'</td></tr>';
-        }).join('')+'</tbody></table></div>';
+          }).join(''))+'</tbody></table></div>';
 
     document.querySelectorAll('[data-fchip]').forEach(function(b){
       b.addEventListener('click', function(){
@@ -545,6 +552,13 @@
            t.deficit ? 'aviso' : 'ok')+
       tile(Q.num(t.foraDaMeta), 'origens abaixo da meta',
            'de '+Q.num(t.linhas)+' com movimento no mês', t.foraDaMeta ? 'aviso' : 'ok');
+  }
+
+  /* Duas frases diferentes: "o mês está vazio" e "este filtro não achou nada" mandam
+     a pessoa para lugares opostos — lançar movimento ou trocar o filtro. */
+  function temMovimento(){
+    var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
+    return f.linhas.some(function(l){ return l.situacao !== 'parado'; });
   }
 
   function linhasDeficit(){
