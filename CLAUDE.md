@@ -278,8 +278,10 @@ e nao tem senha de painel.
 painel nao e so sujeira: `acharPorIdentificador` casa tambem pelo NOME e `loginPorSenha` nao
 olha acesso ao painel, entao a senha velha continuaria autenticando na API — o painel barra
 na tela, e a tela nao e a fronteira. ADMIN fica de fora: para ele o acesso vem do perfil.
-Cadastro antigo que ainda tenha esse resto aparece na lista como "painel: senha solta";
-abrir e salvar a pessoa limpa.
+Cadastro antigo com esse resto foi limpo pela migracao `2026-09-15-limpa-senha-sem-acesso`,
+entao a celula diz apenas "painel: sem acesso" — nao existe mais o caso de sobrar senha sem
+acesso. Se a pessoa tiver de entrar no painel, o admin liga a chave e define a senha, que e o
+fluxo normal de primeiro acesso.
 
 **Armadilha fechada:** `PIN: String(r.pin)` transformava PIN nulo no texto `"null"`, e como
 `loginPorPin` compara texto com texto, quem digitasse a palavra `null` entrava como essa

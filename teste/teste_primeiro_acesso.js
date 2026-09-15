@@ -87,6 +87,18 @@ ok(/pin_provisorio boolean not null default false/.test(migr) &&
    'migração cria as duas colunas, com padrão falso');
 ok(/add column if not exists pin_provisorio/.test(migr), 'migração é repetível');
 
+/* ---- a limpeza das senhas soltas ---- */
+/* O banco falso dos testes registra a migração mas não executa o SQL, então o efeito
+   desta só aparece no banco de verdade. O que dá para fixar aqui é o alvo: se alguém
+   mexer no filtro, o ADMIN pode perder a senha do painel — e aí ninguém entra. */
+var limpeza = migr.slice(migr.indexOf('2026-09-15-limpa-senha-sem-acesso'));
+limpeza = limpeza.slice(0, limpeza.indexOf('},'));
+ok(/update public\.usuarios set senha_hash = null/.test(limpeza), 'a limpeza apaga o hash do painel');
+ok(/senha_provisoria = false/.test(limpeza), 'e a marca de provisória junto');
+ok(/coalesce\(acesso_painel, false\) = false/.test(limpeza), 'só de quem não entra no painel');
+ok(/<> 'ADMIN'/.test(limpeza), 'e nunca do ADMIN, que entra pelo perfil');
+ok(/senha_hash is not null/.test(limpeza), 'não toca em quem já está sem senha');
+
 console.log('');
 if (falhas) { console.log('>>> ' + falhas + ' FALHA(S)'); process.exit(1); }
 console.log('>>> PRIMEIRO ACESSO OK');

@@ -55,6 +55,16 @@ module.exports = [
     ].join('\n')
   },
   {
+    id: '2026-09-15-limpa-senha-sem-acesso',
+    nota: 'senha de painel guardada para quem nao entra no painel: hash inutil que ainda autenticava na API',
+    sql: [
+      "update public.usuarios set senha_hash = null, senha_provisoria = false",
+      " where coalesce(acesso_painel, false) = false",
+      "   and upper(coalesce(perfil, '')) <> 'ADMIN'",
+      "   and senha_hash is not null;"
+    ].join('\n')
+  },
+  {
     id: '2026-09-03-correcao-movimento',
     nota: 'histórico de correção: o livro-razão continua só acrescentando',
     sql: "alter table public.movimentos add column if not exists historico jsonb not null default '[]'::jsonb;"

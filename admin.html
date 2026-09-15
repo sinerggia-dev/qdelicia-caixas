@@ -1053,14 +1053,11 @@
           return '<span class="tag verde" title="A pessoa já escolheu a senha dela">'+rotulo+': própria</span>';
         }
         /* Quem não entra no painel não tem "estado de senha" para mostrar: o fato ali é
-           que ele não entra. Dizer "provisória" parecia contradizer o "não" da coluna ao
-           lado. Se ainda houver senha guardada de um cadastro antigo, o mesmo selo diz —
-           abrir e salvar a pessoa limpa. */
+           que ele não entra, e ponto. Não existe mais o caso de sobrar senha sem acesso —
+           a migração apagou as antigas e o caminho de gravação apaga as novas. */
         var linhaPainel = u.AcessoPainel
           ? selo(u.TemSenha, u.SenhaProvisoria, 'painel')
-          : (u.TemSenha
-              ? '<span class="tag vermelha" title="Sem acesso ao painel, mas com senha de painel guardada. Abra e salve esta pessoa para limpar.">painel: sem acesso · senha solta</span>'
-              : '<span class="tag cinza" title="Esta pessoa usa só o app de campo">painel: sem acesso</span>');
+          : '<span class="tag cinza" title="Esta pessoa usa só o app de lançamento">painel: sem acesso</span>';
         var senhaCel = '<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+
           selo(u.TemPin, u.PinProvisorio, 'lançamento')+ linhaPainel +'</div>';
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil)+'</span></td>'+
