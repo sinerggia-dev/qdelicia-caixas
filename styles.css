@@ -296,19 +296,7 @@ tr.ruim{background:var(--vermelho-claro)}
 }
 .pin{letter-spacing:.5em;text-align:center;font-size:22px!important;font-weight:700}
 
-/* ---------- painel de saída x retorno ---------- */
-/* Os chips filtram a tabela abaixo e, de quebra, dizem quantas linhas há de cada tipo:
-   sem isso a pessoa clica em "Filiais" para descobrir que não há nenhuma. */
-.fchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
-.fchip{background:var(--neutro);border:1px solid var(--linha);color:var(--txt2);
-  border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer;
-  white-space:nowrap;font-family:inherit}
-.fchip:hover{color:var(--txt)}
-.fchip.ativo{background:var(--marinho-claro);border-color:var(--marca-txt);color:#fff}
-.fchip .n{font-weight:400;opacity:.75;margin-left:3px}
-.fchip.deficit{border-color:var(--ambar);color:var(--ambar-forte)}
-.fchip.deficit.ativo{background:var(--ambar-claro);border-color:var(--ambar);color:var(--ambar-forte)}
-.fsub{display:block;font-size:11.5px;color:var(--txt3);font-weight:400;margin-top:1px}
+/* ---------- indicadores do rodapé da guia Retornos ---------- */
 .ftiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;
   margin-top:16px;padding-top:14px;border-top:1px solid var(--linha)}
 .ftile{border-left:3px solid var(--linha);padding:1px 0 1px 12px}
@@ -318,6 +306,56 @@ tr.ruim{background:var(--vermelho-claro)}
 .ftile.ok{border-left-color:var(--verde)} .ftile.ok .v{color:var(--verde)}
 .ftile.alerta{border-left-color:var(--vermelho)} .ftile.alerta .v{color:var(--vermelho)}
 .ftile.aviso{border-left-color:var(--ambar)} .ftile.aviso .v{color:var(--ambar-forte)}
+
+/* ---------- guia Retornos ---------- */
+/* Trilho escuro à esquerda + conteúdo à direita. O trilho NÃO é uma segunda navegação:
+   a navegação do painel são as abas de cima. Aqui ele é o filtro da tabela, com a conta
+   de cada grupo à mostra — sem isso a pessoa clica em "Filiais" para descobrir que não
+   há nenhuma. Filtro em dois lugares (trilho e chips) seria o mesmo controle duplicado. */
+.ret-wrap{display:grid;grid-template-columns:220px 1fr;border:1px solid var(--linha);
+  border-radius:var(--raio);overflow:hidden;box-shadow:var(--sombra);background:var(--surface)}
+.ret-rail{background:var(--marinho-esc);padding:16px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.ret-marca{font-weight:800;letter-spacing:.05em;font-size:15px;color:#fff;padding:2px 8px 16px;line-height:1.15}
+.ret-marca span{display:block;font-size:9px;font-weight:700;letter-spacing:.16em;color:var(--marca-txt);margin-top:3px}
+/* O flex tem de ficar AQUI, na caixa dos botoes: no trilho ele arruma
+   marca/botoes/resumo, nao os botoes entre si — e no celular eles
+   continuavam empilhados. */
+.ret-nav{display:flex;flex-direction:column;gap:2px}
+.ret-item{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;
+  color:var(--txt2);font-family:inherit;font-size:13px;font-weight:600;text-align:left;
+  padding:9px 10px;border-radius:8px;cursor:pointer}
+.ret-item:hover{background:var(--marinho-claro);color:var(--txt)}
+.ret-item.ativo{background:var(--marinho-claro);color:#fff}
+.ret-item .pt{width:7px;height:7px;border-radius:2px;background:var(--marca-txt);flex:none}
+.ret-item.ativo .pt{background:var(--ambar)}
+.ret-item .n{margin-left:auto;font-size:11px;font-weight:700;background:var(--neutro);
+  color:var(--txt2);border-radius:999px;padding:1px 7px}
+.ret-item.ativo .n{background:var(--ambar);color:#231704}
+.ret-resumo{margin-top:auto;padding:14px 10px 2px;border-top:1px solid var(--marinho-claro)}
+.ret-resumo .r{font-size:10.5px;color:var(--marca-txt);text-transform:uppercase;letter-spacing:.07em}
+.ret-resumo .v{font-size:26px;font-weight:800;color:#fff;line-height:1.1;letter-spacing:-.6px;margin-top:3px}
+.ret-resumo .d{font-size:11.5px;color:var(--txt2);margin-top:2px}
+.ret-main{padding:16px 18px 18px;min-width:0}
+.ret-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.ret-head h2{margin:0;font-size:19px}
+.ret-head .sub{display:block;font-size:12.5px;color:var(--txt2);font-weight:400;margin-top:3px}
+.ret-head .acoes{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+/* O .btn do projeto tem padding de 14px, feito para botao de formulario. No topo
+   da guia ele quebrava "Exportar CSV" em duas linhas. */
+.ret-head .acoes .btn{padding:9px 14px;font-size:13px;min-width:0;white-space:nowrap}
+/* Segunda linha da celula: o tipo do local e a rota que o atende. Sem o block ela
+   cola no nome e sai "Joao Pessoarota". */
+.fsub{display:block;font-size:11.5px;color:var(--txt3);font-weight:400;margin-top:1px}
+/* No celular 220px de trilho comem a tabela: vira uma tira que rola na horizontal. */
+@media (max-width:760px){
+  .ret-wrap{grid-template-columns:1fr}
+  .ret-rail{padding:10px}
+  .ret-nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:2px}
+  .ret-marca,.ret-resumo{display:none}
+  .ret-item{width:auto;flex:none;white-space:nowrap}
+  .ret-main{padding:14px 12px 16px}
+  .ret-head .acoes{margin-left:0;width:100%}
+}
 
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}
