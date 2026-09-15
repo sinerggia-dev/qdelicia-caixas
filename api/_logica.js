@@ -424,10 +424,15 @@ var CORRIGIVEIS = [
   { campo: 'QtdConferida', rotulo: 'conferida', numero: true },
   { campo: 'DataRef', rotulo: 'data', data: true },
   { campo: 'Romaneio', rotulo: 'romaneio' },
-  { campo: 'Obs', rotulo: 'observação' }
+  { campo: 'Obs', rotulo: 'observação' },
+  /* `mapa` faz o histórico guardar o NOME e não o id: uma linha dizendo
+     "quem lançou: de U003 para U007" não serve para ninguém conferir nada. */
+  { campo: 'UsuarioID', rotulo: 'quem lançou', mapa: true }
 ];
 
-function montarCorrecao(mov, p, agora) {
+/* `nomes` é opcional: mapa de id para nome, usado só nos campos marcados com `mapa`.
+   Quem chamava com três argumentos continua funcionando — cai no valor cru. */
+function montarCorrecao(mov, p, agora, nomes) {
   if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
   if (mov.Cancelado) return { ok: false, erro: 'Movimento cancelado não se corrige — lance um novo.' };
   var motivo = String(p.motivo || '').trim();
@@ -453,10 +458,14 @@ function montarCorrecao(mov, p, agora) {
       if (String(velho || '') === novo) return;
     }
     patch[c.campo] = novo;
+    function legivel(v) {
+      if (c.data) return soData(v);
+      if (v === null || v === undefined) return '';
+      return c.mapa && nomes ? nome(nomes, v) : String(v);
+    }
     entradas.push({
       em: iso(agora), por: String(p.usuarioId || ''), campo: c.rotulo, motivo: motivo,
-      de: c.data ? soData(velho) : (velho === null || velho === undefined ? '' : String(velho)),
-      para: c.data ? soData(novo) : String(novo)
+      de: legivel(velho), para: legivel(novo)
     });
   });
 

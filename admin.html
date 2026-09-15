@@ -181,6 +181,7 @@
       </div>
       <div class="linha-btn">
         <button class="btn" id="btnFiltrarMov" style="flex:0;min-width:140px">Filtrar</button>
+        <button class="btn sec" id="btnLimparMov" style="flex:0;min-width:120px">Limpar</button>
         <button class="btn neutro" id="btnCsvMov" style="flex:0;min-width:130px">⬇ CSV</button>
       </div>
       <div id="tabelaMov"><div class="vazio">Use o filtro acima.</div></div>
@@ -430,9 +431,7 @@
       });
     }
     Q.abas('#abas');
-    var d1 = new Date(); d1.setDate(d1.getDate()-30);
-    document.getElementById('mvDe').value = d1.toISOString().slice(0,10);
-    document.getElementById('mvAte').value = Q.hoje();
+    periodoPadraoMov();
     document.getElementById('lcData').value = Q.hoje();
     carregarEquipe();
     Q.carregarDados().then(function(d){ DADOS=d; montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
@@ -459,7 +458,9 @@
   }
   function montarSelects(){
     document.getElementById('exLocal').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL']));
-    document.getElementById('mvLocal').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL','GALPAO']), 'Todos');
+    // Com ROTA de fora não havia como filtrar por Caruaru — e é na rota que os
+    // movimentos acontecem. O filtro casa com origem OU destino, então a rota serve.
+    document.getElementById('mvLocal').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL','GALPAO','ROTA']), 'Todos');
     document.getElementById('lcItens').innerHTML = (DADOS.tipos||[]).map(function(t){
       return '<div class="item"><div class="nome">'+Q.esc(t.Nome)+'</div><div class="stepper">'+
         '<input id="lc_'+t.ID+'" type="number" inputmode="numeric" placeholder="0"></div></div>';
@@ -894,6 +895,27 @@
 
   /* ---------------- movimentos ---------------- */
   document.getElementById('btnFiltrarMov').addEventListener('click', carregarMovimentos);
+
+  /* Os cinco campos recarregam sozinhos ao mudar. Antes só o botão Filtrar disparava a
+     busca: a pessoa trocava o Tipo, a tabela continuava igual, e a conclusão natural era
+     que o filtro não funcionava. O botão fica como recarregar. */
+  ['mvLocal', 'mvTipo', 'mvUsuario', 'mvDe', 'mvAte'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', carregarMovimentos);
+  });
+
+  /* Volta ao mesmo estado da primeira abertura: tudo em "Todos" e os últimos 30 dias. */
+  function periodoPadraoMov(){
+    var d1 = new Date(); d1.setDate(d1.getDate() - 30);
+    document.getElementById('mvDe').value = d1.toISOString().slice(0, 10);
+    document.getElementById('mvAte').value = Q.hoje();
+  }
+  document.getElementById('btnLimparMov').addEventListener('click', function(){
+    document.getElementById('mvLocal').value = '';
+    document.getElementById('mvTipo').value = '';
+    document.getElementById('mvUsuario').value = '';
+    periodoPadraoMov();
+    carregarMovimentos();
+  });
   function carregarMovimentos(){
     var box = document.getElementById('tabelaMov');
     box.innerHTML = '<div class="vazio">Carregando…</div>';
@@ -906,7 +928,7 @@
         if (!MOVS.length){ box.innerHTML='<div class="vazio">Nenhum movimento no filtro.</div>'; return; }
         box.innerHTML = '<div class="tabela-wrap"><table><thead><tr><th>Data</th><th>Status</th><th>Origem</th><th>Destino</th>'+
           '<th>Caixa</th><th class="num">Qtd</th>'+
-          '<th>Rota</th><th>Motorista</th><th>Quem</th><th></th></tr></thead><tbody>'+
+          '<th>Motorista</th><th>Quem</th><th></th></tr></thead><tbody>'+
           MOVS.map(function(m){
             /* As cores da linha ficam: elas são o que sobrou de Conferida, Divergência e
                do antigo Status depois que essas colunas saíram. Amarela = devolução ainda
@@ -918,12 +940,12 @@
               '<td><span class="tag '+tagCiclo(m.situacao, m.status)+'">'+Q.esc(m.situacao)+'</span></td>'+
               '<td>'+Q.esc(m.origem)+'</td><td>'+Q.esc(m.destino)+'</td><td>'+Q.esc(m.tipoCaixa)+'</td>'+
               '<td class="num">'+Q.num(m.qtd)+'</td>'+
-              '<td>'+(m.rota?Q.esc(m.rota):'—')+'</td>'+
               '<td>'+(m.motorista?Q.esc(m.motorista):'—')+'</td>'+
               '<td>'+Q.esc(m.usuario||'')+'</td>'+
               '<td>'+(Q.ehAdmin()
                  ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> '+
-                   '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button>'
+                   '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '+
+                   '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>'
                  : '')+'</td></tr>';
           }).join('')+'</tbody></table></div>';
         box.querySelectorAll('button[data-corrigir]').forEach(function(b){
@@ -939,6 +961,28 @@
             Q.post({acao:'cancelar', id:b.dataset.cancelar, motivo:motivo, usuarioId:Q.sessao().id}).then(function(r){
               if (!r.ok) throw new Error(r.erro);
               Q.toast('Movimento cancelado.','ok'); carregarMovimentos(); carregarPainel();
+            }).catch(function(e){ Q.toast(e.message,'erro'); });
+          });
+        });
+        /* Excluir apaga a linha de vez — o cancelar deixa o registro no lugar com o
+           motivo, e é o que serve na maioria dos casos. Como daqui não há volta, pede
+           o nome do tipo de caixa escrito à mão: clicar por engano não basta. */
+        box.querySelectorAll('button[data-excluir]').forEach(function(b){
+          b.addEventListener('click', function(){
+            var m = (MOVS||[]).filter(function(x){ return String(x.id)===b.dataset.excluir; })[0];
+            if (!m) return;
+            var alvo = String(m.tipoCaixa||'').trim();
+            var dito = prompt('EXCLUIR de vez este lançamento de ' + Q.num(m.qtd) + ' ' + alvo +
+              ' (' + (m.origem||'—') + ' para ' + (m.destino||'—') + ').\n\n' +
+              'Isto não tem volta e não fica no histórico. Para cancelar sem apagar, use o ' +
+              'botão "cancelar".\n\nEscreva ' + alvo + ' para confirmar:');
+            if (dito === null) return;
+            if (String(dito).trim().toUpperCase() !== alvo.toUpperCase()) {
+              return Q.toast('Não confere — nada foi excluído.','erro');
+            }
+            Q.post({acao:'excluirMovimento', id:b.dataset.excluir, usuarioId:Q.sessao().id}).then(function(r){
+              if (!r.ok) throw new Error(r.erro);
+              Q.toast('Lançamento excluído.','ok'); carregarMovimentos(); carregarPainel();
             }).catch(function(e){ Q.toast(e.message,'erro'); });
           });
         });
@@ -1491,6 +1535,14 @@
         '<div><label>Conferida</label><input type="number" id="cConf" value="'+Q.esc(m.qtdConferida===''?'':m.qtdConferida)+'"></div>'+
         '<div><label>Data</label><input type="date" id="cData" value="'+Q.esc(String(m.dataRef||'').slice(0,10))+'"></div>'+
         '<div><label>Romaneio</label><input type="text" id="cRom" value="'+Q.esc(m.romaneio||'')+'"></div>'+
+        '<div><label>Quem fez o envio</label><select id="cUsuario">'+
+          EQUIPE.slice().sort(function(a,b){
+            return String(a.Nome||'').localeCompare(String(b.Nome||''), 'pt-BR');
+          }).map(function(u){
+            return '<option value="'+Q.esc(u.ID)+'"'+(String(u.Nome)===String(m.usuario)?' selected':'')+'>'+
+              Q.esc(u.Nome)+'</option>';
+          }).join('')+
+        '</select></div>'+
       '</div>'+
       '<label>Observação</label><textarea id="cObs">'+Q.esc(m.obs||'')+'</textarea>'+
       '<label>Motivo da correção <span style="font-weight:400;color:var(--txt3)">— obrigatório, fica no histórico</span></label>'+
@@ -1512,7 +1564,8 @@
               QtdConferida:document.getElementById('cConf').value,
               DataRef:document.getElementById('cData').value,
               Romaneio:document.getElementById('cRom').value,
-              Obs:document.getElementById('cObs').value}).then(function(r){
+              Obs:document.getElementById('cObs').value,
+              UsuarioID:document.getElementById('cUsuario').value}).then(function(r){
         b.disabled=false; b.textContent='Gravar correção';
         if (!r.ok) return Q.toast(r.erro,'erro');
         fecharModal();

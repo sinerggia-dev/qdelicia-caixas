@@ -141,6 +141,7 @@ async function rotaPost(p) {
   if (acao === 'salvarUsuario') return await salvarUsuario(p);
   if (acao === 'salvarConfig') return await salvarConfig(p);
   if (acao === 'excluir') return await excluir(p.aba, p.id);
+  if (acao === 'excluirMovimento') return await excluirMovimento(p);
 
   return { ok: false, erro: 'Ação desconhecida: ' + acao };
 }
@@ -263,7 +264,7 @@ async function definirPin(p) {
 async function corrigir(p) {
   var d = await db.carregarTudo();
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
-  var r = L.montarCorrecao(mov, p, new Date());
+  var r = L.montarCorrecao(mov, p, new Date(), L.mapaNomes(d.usuarios || []));
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);
   patch.historico = r.historico;
@@ -278,6 +279,17 @@ async function conferir(p) {
   if (!r.ok) return r;
   await db.update('movimentos', mov.ID, db.MOV.para(r.patch));
   return { ok: true, divergencia: r.divergencia, declarada: r.declarada, conferida: r.conferida };
+}
+
+/* Apaga a linha de vez. Diferente de `cancelar`, que deixa o registro no lugar com o
+   motivo — o cancelado ainda se lê no histórico e no CSV. Aqui não sobra nada, e por
+   isso a tela pede confirmação escrita antes de chamar. */
+async function excluirMovimento(p) {
+  var d = await db.carregarTudo();
+  var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
+  if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
+  await db.remover('movimentos', mov.ID);
+  return { ok: true, excluido: true };
 }
 
 async function cancelar(p) {

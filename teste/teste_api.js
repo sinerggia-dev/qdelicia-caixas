@@ -1272,6 +1272,36 @@ async function main() {
       'devolução fora da janela filtrada ainda quita a remessa que aparece', soSetembro[0]);
   }
 
+
+  console.log('\n== corrigir quem fez o envio ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const nomes = F.mapaNomes([{ ID: 'U1', Nome: 'Nestor Neto' }, { ID: 'U2', Nome: 'Ivanilda' }]);
+    const mov = {
+      ID: 'M1', Tipo: 'SAIDA', Qtd: 50, UsuarioID: 'U1',
+      DataRef: new Date('2026-09-15T00:00:00'), Historico: []
+    };
+
+    let r = F.montarCorrecao(mov, { UsuarioID: 'U2', motivo: 'lançou no lugar do colega', usuarioId: 'U1' },
+      new Date('2026-09-16T10:00:00'), nomes);
+    ok(r.ok && r.patch.UsuarioID === 'U2', 'grava o novo responsável pelo lançamento', r);
+    ok(r.entradas[0].campo === 'quem lançou', 'o histórico nomeia o campo', r.entradas[0]);
+    ok(r.entradas[0].de === 'Nestor Neto' && r.entradas[0].para === 'Ivanilda',
+      'e guarda o NOME, não o id — "de U1 para U2" não serve para conferir nada', r.entradas[0]);
+
+    // sem o mapa de nomes o id ainda passa: quem chamava com três argumentos não quebra
+    r = F.montarCorrecao(mov, { UsuarioID: 'U2', motivo: 'x', usuarioId: 'U1' }, new Date());
+    ok(r.ok && r.entradas[0].de === 'U1', 'sem o mapa cai no valor cru, sem estourar', r.entradas[0]);
+
+    // trocar para o mesmo não é correção
+    r = F.montarCorrecao(mov, { UsuarioID: 'U1', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
+    ok(!r.ok && /Nada mudou/.test(r.erro), 'escolher o mesmo usuário não vira correção', r);
+
+    // e os campos antigos seguem funcionando junto
+    r = F.montarCorrecao(mov, { Qtd: 60, UsuarioID: 'U2', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
+    ok(r.ok && r.entradas.length === 2, 'quantidade e responsável mudam no mesmo envio', r.entradas.length);
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }
