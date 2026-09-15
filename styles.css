@@ -67,7 +67,12 @@ nav.abas button{
 }
 nav.abas button.ativa{color:#fff;border-bottom-color:var(--ambar);background:var(--marinho-claro)}
 
-main{padding:14px;max-width:1180px;margin:0 auto}
+/* 1180px prendia a tabela de Movimentos, que precisa de 1300px com nome de local e
+   romaneio de verdade — ela rolava na horizontal em QUALQUER monitor, e a ultima
+   coluna (corrigir/cancelar) ficava escondida. Medido: 1800 deixa 470px de folga
+   para nome comprido, e ainda segura o formulario longe de virar uma linha unica
+   de 2500px numa tela ultralarga. */
+main{padding:14px;max-width:1800px;margin:0 auto}
 .pagina{display:none}
 .pagina.ativa{display:block}
 

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=715fe950">
+<link rel="stylesheet" href="styles.css?v=42b28113">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -175,6 +175,7 @@
           <option value="">Todos</option><option value="SAIDA">Saída</option><option value="DEVOLUCAO">Devolução</option>
           <option value="TRANSFERENCIA">Transferência</option><option value="PERDA">Perda</option><option value="AJUSTE">Ajuste</option>
         </select></div>
+        <div><label for="mvUsuario">Quem lançou</label><select id="mvUsuario"><option value="">Todos</option></select></div>
         <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
         <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
       </div>
@@ -380,8 +381,24 @@
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
       if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; }
+      montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
     }).catch(function(e){ Q.toast('Não consegui carregar os usuários: '+e.message,'erro'); });
+  }
+
+  /* Seletor em vez de campo escrito: os outros filtros da linha ja sao seletores, e
+     nome digitado errado devolve lista vazia sem dizer por que. */
+  function montarSelectUsuarios(){
+    var sel = document.getElementById('mvUsuario');
+    if (!sel) return;
+    var atual = sel.value;
+    sel.innerHTML = '<option value="">Todos</option>' +
+      EQUIPE.slice().sort(function(a,b){
+        return String(a.Nome||'').localeCompare(String(b.Nome||''), 'pt-BR');
+      }).map(function(u){
+        return '<option value="'+Q.esc(u.ID)+'">'+Q.esc(u.Nome)+'</option>';
+      }).join('');
+    sel.value = atual;
   }
 
   /* ---------------- app ---------------- */
@@ -835,6 +852,7 @@
     var box = document.getElementById('tabelaMov');
     box.innerHTML = '<div class="vazio">Carregando…</div>';
     Q.get({acao:'movimentos', local:document.getElementById('mvLocal').value, tipo:document.getElementById('mvTipo').value,
+           usuario:document.getElementById('mvUsuario').value,
            de:document.getElementById('mvDe').value, ate:document.getElementById('mvAte').value, limit:500})
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);

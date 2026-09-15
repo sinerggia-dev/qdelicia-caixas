@@ -1033,6 +1033,39 @@ async function main() {
     ok(f.totais.foraDaMeta === 2, 'duas das três linhas com movimento ficaram abaixo de 90%', f.totais.foraDaMeta);
   }
 
+
+  console.log('\n== filtro por quem lançou (Movimentos) ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const locais = [{ ID: 'L1', Nome: 'Galpão' }, { ID: 'L2', Nome: 'Caruaru' }];
+    const tipos = [{ ID: 'T1', Nome: 'CX G' }];
+    const users = [{ ID: 'U1', Nome: 'Nestor Neto' }, { ID: 'U2', Nome: 'Ramos' }];
+    const mv = (u, d) => ({
+      ID: 'M' + u + d, Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'L2', TipoCaixaID: 'T1',
+      Qtd: 10, Status: 'CONFIRMADO', UsuarioID: u, DataRef: D(d), DataHora: D(d)
+    });
+    const movs = [mv('U1', '2026-09-10'), mv('U2', '2026-09-11'), mv('U1', '2026-09-12')];
+
+    const todos = F.listaMovimentos(movs, locais, tipos, users, {});
+    ok(todos.length === 3, 'sem filtro vêm todos', todos.length);
+
+    const so1 = F.listaMovimentos(movs, locais, tipos, users, { usuario: 'U1' });
+    ok(so1.length === 2 && so1.every((m) => m.usuario === 'Nestor Neto'),
+      'filtra pelo id de quem lançou', so1.map((m) => m.usuario));
+
+    ok(F.listaMovimentos(movs, locais, tipos, users, { usuario: 'U9' }).length === 0,
+      'usuário sem lançamento devolve lista vazia, não a lista toda');
+
+    // O motivo de o filtro ser no servidor: o corte do limite vem DEPOIS dele.
+    const muitos = [];
+    for (let i = 0; i < 40; i++) muitos.push(mv('U2', '2026-09-20'));
+    muitos.push(mv('U1', '2026-08-01'));   // o mais antigo, cai no fim da ordenação
+    const comLimite = F.listaMovimentos(muitos, locais, tipos, users, { usuario: 'U1', limit: 5 });
+    ok(comLimite.length === 1,
+      'o limite corta DEPOIS do filtro: o lançamento antigo da pessoa não se perde', comLimite.length);
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

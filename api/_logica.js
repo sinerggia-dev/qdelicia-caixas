@@ -598,6 +598,9 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
     if (ate && m.DataRef > ate) return false;
     if (p.local && String(m.OrigemID) !== String(p.local) && String(m.DestinoID) !== String(p.local)) return false;
     if (p.tipo && m.Tipo !== String(p.tipo).toUpperCase()) return false;
+    // Aqui e nao no navegador: o corte de 500 linhas vem DEPOIS deste filtro, entao
+    // filtrar na tela mostraria so os lancamentos da pessoa que couberam nas 500.
+    if (p.usuario && String(m.UsuarioID) !== String(p.usuario)) return false;
     return true;
   }).sort(function (a, b) {
     return a.DataRef > b.DataRef ? -1 : (a.DataHora > b.DataHora ? -1 : 1);
