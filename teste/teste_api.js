@@ -1066,6 +1066,71 @@ async function main() {
       'o limite corta DEPOIS do filtro: o lançamento antigo da pessoa não se perde', comLimite.length);
   }
 
+
+  console.log('\n== fluxo por pessoa (motoristas e usuários) ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const DESDE = D('2026-09-01');
+    const cen = {
+      usuarios: [
+        { ID: 'U1', Nome: 'Nestor Neto', Perfil: 'Conferente' },
+        { ID: 'U2', Nome: 'Ivanilda', Perfil: 'Gestor' }
+      ],
+      movimentos: [
+        // Ramos levou 580 na rota Caruaru e nao trouxe nada: deficit inteiro
+        { Tipo: 'SAIDA', Qtd: 580, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U1', DataRef: D('2026-09-05') },
+        // Wesley levou 300 e trouxe 300: quitado
+        { Tipo: 'SAIDA', Qtd: 300, Motorista: 'Wesley', Rota: 'Maceió', UsuarioID: 'U1', DataRef: D('2026-09-06') },
+        { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', Qtd: 300, Motorista: 'Wesley', Rota: 'Maceió', UsuarioID: 'U2', DataRef: D('2026-09-09') },
+        // devolucao sem conferencia nao conta para ninguem
+        { Tipo: 'DEVOLUCAO', Status: 'AGUARDANDO', Qtd: 500, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U2', DataRef: D('2026-09-10') },
+        // perda nao e fluxo de ida e volta
+        { Tipo: 'PERDA', Qtd: 40, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U1', DataRef: D('2026-09-11') },
+        // fora da janela
+        { Tipo: 'SAIDA', Qtd: 9000, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U1', DataRef: D('2026-08-20') },
+        // cancelado
+        { Tipo: 'SAIDA', Qtd: 7000, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U1', DataRef: D('2026-09-12'), Cancelado: true }
+      ]
+    };
+    const p = F.fluxoPorPessoa(cen, DESDE);
+    const mot = {}; p.motoristas.forEach((x) => { mot[x.nome] = x; });
+    const usu = {}; p.usuarios.forEach((x) => { usu[x.nome] = x; });
+
+    ok(p.motoristas.length === 2, 'um por motorista que aparece nos movimentos', p.motoristas.map((x) => x.nome));
+    ok(mot.Ramos.saida === 580 && mot.Ramos.retorno === 0,
+      'cancelado, fora da janela, perda e devolução não conferida ficam todos de fora', mot.Ramos);
+    ok(mot.Ramos.saldo === -580 && mot.Ramos.desvio === 100 && mot.Ramos.situacao === 'ruim',
+      'levou e não trouxe: desvio de 100%', mot.Ramos);
+    ok(mot.Ramos.responsavel === 'Caruaru',
+      'a quinta coluna do motorista traz as rotas dele, não o nome repetido', mot.Ramos.responsavel);
+    ok(mot.Wesley.saldo === 0 && mot.Wesley.situacao === 'ok', 'quem trouxe tudo fica ok', mot.Wesley);
+    ok(p.motoristas[0].nome === 'Ramos', 'quem deve mais aparece primeiro', p.motoristas.map((x) => x.nome));
+
+    // usuario e quem LANCOU: a devolucao do Wesley foi lancada pela Ivanilda
+    ok(usu['Nestor Neto'].saida === 880 && usu['Nestor Neto'].retorno === 0,
+      'o usuário soma o que ELE lançou de saída', usu['Nestor Neto']);
+    ok(usu.Ivanilda.retorno === 300 && usu.Ivanilda.saida === 0,
+      'e o que ELE lançou de devolução, ainda que a carga seja de outro', usu.Ivanilda);
+    ok(usu['Nestor Neto'].responsavel === 'Conferente' && usu.Ivanilda.responsavel === 'Gestor',
+      'na visão de usuário a quinta coluna é o perfil', [usu['Nestor Neto'].responsavel, usu.Ivanilda.responsavel]);
+    ok(mot.Wesley.sub === '2 lançamentos',
+      'a linha de baixo conta lançamentos, sem repetir a coluna ao lado', mot.Wesley.sub);
+    ok(mot.Ramos.sub === '1 lançamento', 'e no singular quando é um só', mot.Ramos.sub);
+    // A Ivanilda lançou duas devoluções, mas uma ainda espera conferência e vale 0.
+    // A contagem segue os números da linha: conta o que entrou na conta.
+    ok(usu.Ivanilda.sub === '1 lançamento',
+      'lançamento que não entrou na conta também não entra na contagem', usu.Ivanilda.sub);
+
+    // motorista em branco no movimento nao pode virar uma linha "sem nome"
+    const semMot = F.fluxoPorPessoa({
+      usuarios: [{ ID: 'U1', Nome: 'A' }],
+      movimentos: [{ Tipo: 'SAIDA', Qtd: 10, Motorista: '', UsuarioID: 'U1', DataRef: D('2026-09-05') }]
+    }, DESDE);
+    ok(semMot.motoristas.length === 0, 'movimento sem motorista não cria linha vazia', semMot.motoristas);
+    ok(semMot.usuarios.length === 1, 'mas continua contando para quem lançou');
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

@@ -485,7 +485,19 @@
      ter saldo alto e fluxo em dia, e o contrário também. */
   var FLUXO_FILTRO = 'todas';
 
+  /* A quinta coluna troca de sentido junto com a visão: uma coluna "Responsável" com o
+     próprio nome do motorista repetido seria ruído. O primeiro título idem. */
+  var FLUXO_COLUNAS = {
+    MOTORISTA: ['Motorista', 'Rotas'],
+    USUARIO:   ['Quem lançou', 'Perfil']
+  };
+
+  function ehVisaoDeGente(v){ return v === 'MOTORISTA' || v === 'USUARIO'; }
+
   function linhasFluxo(){
+    var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
+    if (FLUXO_FILTRO === 'MOTORISTA') return p.motoristas;
+    if (FLUXO_FILTRO === 'USUARIO') return p.usuarios;
     var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
     // Quem não teve nem saída nem retorno no mês fica fora: com a carteira inteira
     // listada em zero, as linhas que importam sumiriam no meio.
@@ -495,17 +507,37 @@
     return vivas.filter(function(l){ return l.tipo === FLUXO_FILTRO; });
   }
 
+  /* Os indicadores saem do que está NA TELA, não de um total fixo. Mostrar a taxa de
+     retorno de todos os locais embaixo de uma tabela que lista só motoristas faria o
+     rodapé contradizer o que está logo acima dele. */
+  function metaFluxo(){ return (PAINEL && PAINEL.fluxo && PAINEL.fluxo.meta) || 90; }
+  function totaisDe(lista){
+    var t = { linhas: 0, saida: 0, retorno: 0, deficit: 0, foraDaMeta: 0 };
+    var meta = metaFluxo();
+    lista.forEach(function(l){
+      if (l.situacao === 'parado') return;
+      t.linhas++; t.saida += l.saida; t.retorno += l.retorno;
+      if (l.saldo < 0) t.deficit += -l.saldo;
+      if (l.desvio !== null && (100 - l.desvio) < meta) t.foraDaMeta++;
+    });
+    t.taxaRetorno = t.saida > 0 ? Math.round((t.retorno / t.saida) * 1000) / 10 : null;
+    return t;
+  }
+
   function desenharFluxo(){
     var f = PAINEL && PAINEL.fluxo;
     if (!f) return;
-    var t = f.totais;
+    var pes = PAINEL.fluxoPessoas || { motoristas: [], usuarios: [] };
+    var g = f.totais;
 
     var itens = [
-      { v:'todas',   r:'Todas',      n:t.linhas },
-      { v:'ROTA',    r:'Rotas',      n:t.porTipo.ROTA || 0 },
-      { v:'FILIAL',  r:'Filiais',    n:t.porTipo.FILIAL || 0 },
-      { v:'CLIENTE', r:'Clientes',   n:t.porTipo.CLIENTE || 0 },
-      { v:'deficit', r:'Em déficit', n:linhasDeficit() }
+      { v:'todas',     r:'Todas',      n:g.linhas },
+      { v:'ROTA',      r:'Rotas',      n:g.porTipo.ROTA || 0 },
+      { v:'FILIAL',    r:'Filiais',    n:g.porTipo.FILIAL || 0 },
+      { v:'CLIENTE',   r:'Clientes',   n:g.porTipo.CLIENTE || 0 },
+      { v:'deficit',   r:'Em déficit', n:linhasDeficit() },
+      { v:'MOTORISTA', r:'Motoristas', n:pes.motoristas.length },
+      { v:'USUARIO',   r:'Usuários',   n:pes.usuarios.length }
     ];
     document.getElementById('retNav').innerHTML = itens.map(function(c){
       return '<button type="button" class="ret-item'+(FLUXO_FILTRO===c.v?' ativo':'')+
@@ -516,41 +548,40 @@
     var circulacao = (PAINEL.kpis.emPoderTerceiros || 0) + (PAINEL.kpis.emRota || 0);
     document.getElementById('retResumo').innerHTML =
       '<div class="r">Em circulação</div><div class="v">'+Q.num(circulacao)+'</div>'+
-      '<div class="d">'+(t.deficit
-        ? 'déficit de '+Q.num(t.deficit)+' no mês'
+      '<div class="d">'+(g.deficit
+        ? 'déficit de '+Q.num(g.deficit)+' no mês'
         : 'sem déficit no mês')+'</div>';
 
     var nomesTipos = (PAINEL.tipos||[]).map(function(x){ return x.Nome; });
+    var gente = ehVisaoDeGente(FLUXO_FILTRO);
     document.getElementById('retSub').innerHTML = 'Do dia 1 do mês até hoje'+
-      (nomesTipos.length ? ' · '+Q.esc(nomesTipos.join(', ')) : '')+
-      '. <b>Saída</b> é o que foi para lá; <b>retorno</b>, o que voltou de lá e já foi conferido.';
+      (nomesTipos.length ? ' · '+Q.esc(nomesTipos.join(', ')) : '')+'. '+
+      (FLUXO_FILTRO === 'MOTORISTA'
+        ? 'Por <b>quem dirigiu</b>: o que saiu pelas mãos dele e o que voltou.'
+        : FLUXO_FILTRO === 'USUARIO'
+          ? 'Por <b>quem lançou</b>. Serve para achar baixa que ninguém deu — não é dívida da pessoa: se um lança a saída e outro lança a devolução, o déficit fica com o primeiro.'
+          : '<b>Saída</b> é o que foi para lá; <b>retorno</b>, o que voltou de lá e já foi conferido.');
 
+    var cols = FLUXO_COLUNAS[FLUXO_FILTRO] || ['Origem / destino', 'Responsável'];
     var lista = linhasFluxo();
-    // O cabeçalho fica SEMPRE de pé, mesmo sem linha nenhuma. Trocar a tabela inteira
-    // pela frase de vazio escondia as colunas, e sem elas a tela não diz o que vai
-    // mostrar quando os lançamentos começarem — parece que o painel não ficou pronto.
+    // O cabeçalho fica SEMPRE de pé, mesmo sem linha nenhuma: sem as colunas a tela não
+    // diz o que vai mostrar quando os lançamentos começarem.
     document.getElementById('tabelaFluxo').innerHTML =
         '<div class="tabela-wrap"><table><thead><tr>'+
-        '<th>Origem / destino</th><th class="num">Saída</th><th class="num">Retorno</th>'+
-        '<th class="num">Saldo</th><th>Responsável</th><th class="num">Desvio</th>'+
+        '<th>'+cols[0]+'</th><th class="num">Saída</th><th class="num">Retorno</th>'+
+        '<th class="num">Saldo</th><th>'+cols[1]+'</th><th class="num">Desvio</th>'+
         '</tr></thead><tbody>'+
         (!lista.length
-          ? '<tr><td colspan="6"><div class="vazio">'+
-            (temMovimento() ? 'Nenhum movimento no mês para este filtro.'
-                            : 'Ainda não há saída nem devolução lançada neste mês.')+
-            '</div></td></tr>'
+          ? '<tr><td colspan="6"><div class="vazio">'+avisoVazio()+'</div></td></tr>'
           : lista.map(function(l){
-          // Sem pintar a linha inteira: quatro de seis vermelhas viram ruído e o olho
-          // perde justamente a pior. O selo e o saldo negativo já dizem.
-          return '<tr>'+
+            return '<tr>'+
             '<td><b>'+Q.esc(l.nome)+'</b><span class="fsub">'+Q.esc(l.sub)+'</span></td>'+
             '<td class="num">'+Q.num(l.saida)+'</td>'+
             '<td class="num">'+Q.num(l.retorno)+'</td>'+
             '<td class="num"><b'+(l.saldo<0?' style="color:var(--vermelho)"':'')+'>'+
               (l.saldo>0?'+':'')+Q.num(l.saldo)+'</b></td>'+
-            '<td>'+(l.responsavel
-              ? Q.esc(l.responsavel)
-              : '<span class="tag cinza">sem responsável</span>')+'</td>'+
+            '<td>'+(l.responsavel ? Q.esc(l.responsavel)
+              : (gente ? '—' : '<span class="tag cinza">sem responsável</span>'))+'</td>'+
             '<td class="num">'+selo(l)+'</td></tr>';
           }).join(''))+'</tbody></table></div>';
 
@@ -561,21 +592,28 @@
       });
     });
 
-    var taxa = t.taxaRetorno;
+    var t = totaisDe(lista);
+    var rot = FLUXO_FILTRO === 'MOTORISTA' ? 'motoristas'
+            : FLUXO_FILTRO === 'USUARIO' ? 'usuários' : 'origens';
     document.getElementById('fluxoTiles').innerHTML =
-      tile(taxa===null?'—':taxa+'%', 'taxa de retorno do mês', 'meta '+f.meta+'%',
-           taxa!==null && taxa < f.meta ? 'alerta' : 'ok')+
+      tile(t.taxaRetorno===null?'—':t.taxaRetorno+'%', 'taxa de retorno do mês', 'meta '+metaFluxo()+'%',
+           t.taxaRetorno!==null && t.taxaRetorno < metaFluxo() ? 'alerta' : 'ok')+
       tile(Q.num(t.deficit), 'caixas que saíram e não voltaram', 'no mês, somando só quem deve',
            t.deficit ? 'aviso' : 'ok')+
-      tile(Q.num(t.foraDaMeta), 'origens abaixo da meta',
+      tile(Q.num(t.foraDaMeta), rot+' abaixo da meta',
            'de '+Q.num(t.linhas)+' com movimento no mês', t.foraDaMeta ? 'aviso' : 'ok');
   }
 
-  /* Duas frases diferentes: "o mês está vazio" e "este filtro não achou nada" mandam
-     a pessoa para lugares opostos — lançar movimento ou trocar o filtro. */
-  function temMovimento(){
+  /* Três frases diferentes: "o mês está vazio", "ninguém informou motorista" e "este
+     filtro não achou nada" mandam a pessoa para lugares opostos. */
+  function avisoVazio(){
     var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
-    return f.linhas.some(function(l){ return l.situacao !== 'parado'; });
+    var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
+    var houve = f.linhas.some(function(l){ return l.situacao !== 'parado'; }) ||
+                p.motoristas.length || p.usuarios.length;
+    if (!houve) return 'Ainda não há saída nem devolução lançada neste mês.';
+    if (FLUXO_FILTRO === 'MOTORISTA') return 'Nenhum lançamento do mês tem motorista informado.';
+    return 'Nenhum movimento no mês para este filtro.';
   }
 
   function linhasDeficit(){

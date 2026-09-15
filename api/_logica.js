@@ -638,6 +638,82 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
  */
 var DESVIO_RUIM = 40;   // acima disso a linha fica vermelha: falta mais de 40% do que saiu
 
+/**
+ * Mesma aritmética do fluxo, mas agrupada por GENTE em vez de por local.
+ *
+ * Duas visões, e elas respondem coisas diferentes:
+ *  - motorista: o movimento guarda o nome de quem dirigiu, então "saiu 580 pelas mãos
+ *    dele e voltaram 0" é literal — ele levou e ainda não trouxe.
+ *  - usuário: é quem LANÇOU. Aqui o número mede quem registrou a saída e não registrou
+ *    a devolução. Cuidado ao ler como dívida: se o Fulano lança a saída e outra pessoa
+ *    lança a devolução da mesma carga, o déficit fica com o Fulano. Serve para achar
+ *    baixa que ninguém deu, não para cobrar pessoa.
+ */
+function classificaFluxo(saida, retorno, RUIM) {
+  var saldo = retorno - saida;
+  // Sem saída não há o que cobrar: uma devolução isolada não vira "retorno de 0%".
+  var desvio = saida > 0 ? Math.round(((saida - retorno) / saida) * 100) : null;
+  var situacao;
+  if (!saida && !retorno) situacao = 'parado';
+  else if (saldo >= 0) situacao = 'ok';
+  else if (desvio !== null && desvio > RUIM) situacao = 'ruim';
+  else situacao = 'atencao';
+  return { saldo: saldo, desvio: desvio, situacao: situacao };
+}
+
+function fluxoPorPessoa(dados, desde) {
+  var movimentos = dados.movimentos || [];
+  var usuarios = dados.usuarios || [];
+  var nomesUsuarios = mapaNomes(usuarios);
+  var perfis = {};
+  usuarios.forEach(function (u) { perfis[String(u.ID)] = u.Perfil || ''; });
+
+  // chave -> { nome, extra:{}, saida, retorno }
+  var porMot = {}, porUsu = {};
+  function soma(mapa, chave, nome, q, ehSaida, extra) {
+    if (!chave) return;
+    var k = String(chave);
+    if (!mapa[k]) mapa[k] = { id: k, nome: nome, saida: 0, retorno: 0, n: 0, extras: {} };
+    mapa[k].n++;
+    if (ehSaida) mapa[k].saida += q; else mapa[k].retorno += q;
+    if (extra) mapa[k].extras[extra] = 1;
+  }
+
+  ativos(movimentos).forEach(function (m) {
+    if (desde && m.DataRef < desde) return;
+    var q = efetiva(m);
+    if (!q) return;
+    var ehSaida = (m.Tipo === 'SAIDA' || m.Tipo === 'TRANSFERENCIA');
+    if (!ehSaida && m.Tipo !== 'DEVOLUCAO') return;   // perda e ajuste não são fluxo de ida e volta
+    var mot = String(m.Motorista || '').trim();
+    soma(porMot, mot, mot, q, ehSaida, String(m.Rota || '').trim());
+    soma(porUsu, m.UsuarioID, nome(nomesUsuarios, m.UsuarioID), q, ehSaida, '');
+  });
+
+  function lista(mapa, tipo, sub) {
+    return Object.keys(mapa).map(function (k) {
+      var r = mapa[k];
+      var c = classificaFluxo(r.saida, r.retorno, DESVIO_RUIM);
+      var rotas = Object.keys(r.extras).filter(function (x) { return x; }).sort();
+      return {
+        id: r.id, nome: r.nome, tipo: tipo,
+        // A linha de baixo traz a contagem de lançamentos: dizer "Conferente" aqui
+        // repetiria a coluna Perfil, que fica a dois dedos de distância.
+        sub: r.n + (r.n === 1 ? ' lançamento' : ' lançamentos'),
+        // A quinta coluna troca de sentido junto com a visão: nas rotas do motorista e no
+        // perfil do usuário. Uma coluna "Responsável" com o proprio nome repetido seria ruído.
+        responsavel: sub === 'perfil' ? (perfis[r.id] || '') : rotas.join(', '),
+        saida: r.saida, retorno: r.retorno,
+        saldo: c.saldo, desvio: c.desvio, situacao: c.situacao
+      };
+    }).sort(function (a, b) {
+      return a.saldo - b.saldo || String(a.nome).localeCompare(String(b.nome), 'pt-BR');
+    });
+  }
+
+  return { motoristas: lista(porMot, 'MOTORISTA', 'rotas'), usuarios: lista(porUsu, 'USUARIO', 'perfil') };
+}
+
 function fluxoPorOrigem(dados, desde, meta) {
   var locais = dados.locais || [];
   var movimentos = dados.movimentos || [];
@@ -664,14 +740,7 @@ function fluxoPorOrigem(dados, desde, meta) {
   }).map(function (l) {
     var saida = saiu[l.ID] || 0;
     var retorno = voltou[l.ID] || 0;
-    var saldo = retorno - saida;
-    // Sem saída não há o que cobrar: uma devolução isolada não vira "retorno de 0%".
-    var desvio = saida > 0 ? Math.round(((saida - retorno) / saida) * 100) : null;
-    var situacao;
-    if (!saida && !retorno) situacao = 'parado';
-    else if (saldo >= 0) situacao = 'ok';
-    else if (desvio !== null && desvio > DESVIO_RUIM) situacao = 'ruim';
-    else situacao = 'atencao';
+    var c = classificaFluxo(saida, retorno, DESVIO_RUIM);
     // Na rota quem responde é o motorista; nos outros, o responsável do cadastro.
     var resp = l.Tipo === 'ROTA'
       ? (l.MotoristaId ? nome(nomesUsuarios, l.MotoristaId) : '')
@@ -681,8 +750,8 @@ function fluxoPorOrigem(dados, desde, meta) {
       sub: SUB[l.Tipo] + (l.Tipo === 'CLIENTE' && l.RotaId ? ' · ' + nome(nomesLocais, l.RotaId) : ''),
       rotaId: l.RotaId || '',
       responsavel: resp,
-      saida: saida, retorno: retorno, saldo: saldo,
-      desvio: desvio, situacao: situacao
+      saida: saida, retorno: retorno, saldo: c.saldo,
+      desvio: c.desvio, situacao: c.situacao
     };
   }).sort(function (a, b) {
     // Quem deve mais primeiro; entre os parados, ordem alfabética, senão a lista dança.
@@ -807,7 +876,8 @@ function painel(dados, hoje) {
     // Mesma janela dos KPIs (do dia 1 do mês): se o painel mostrasse uma taxa de retorno
     // do mês e a tabela outra de outro período, as duas na mesma tela, quem lê escolheria
     // uma ao acaso. A meta sai da config e cai em 90 quando ninguém a definiu.
-    fluxo: fluxoPorOrigem(dados, ini, Number(dados.config.metaRetorno) || 90)
+    fluxo: fluxoPorOrigem(dados, ini, Number(dados.config.metaRetorno) || 90),
+    fluxoPessoas: fluxoPorPessoa(dados, ini)
   };
 }
 
@@ -940,7 +1010,7 @@ module.exports = {
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
-  fluxoPorOrigem: fluxoPorOrigem,
+  fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
   montarMovimento: montarMovimento, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
