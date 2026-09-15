@@ -41,6 +41,11 @@ header{
   padding:12px 16px;display:flex;align-items:center;gap:12px;
   position:sticky;top:0;z-index:50;box-shadow:0 2px 10px rgba(0,0,0,.15)
 }
+/* A arte ja tem borda branca e fundo transparente: assenta no marinho do cabecalho
+   sem moldura. `flex:none` para ela nao encolher quando o nome do usuario for
+   comprido; width/height no HTML reservam o espaco e evitam o salto do cabecalho
+   enquanto a imagem carrega. */
+header .marca-logo{height:34px;width:auto;flex:none;display:block}
 header .marca{font-weight:700;font-size:17px;line-height:1.15;flex:1;min-width:0}
 header .marca small{display:block;font-weight:400;font-size:12px;opacity:.85}
 header .chip{
