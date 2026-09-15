@@ -236,6 +236,19 @@ tr.ruim{background:var(--vermelho-claro)}
    zera left/right e desalinha o item, mesmo com o auto declarado acima. */
 .login>*{max-width:380px;margin-left:auto;margin-right:auto}
 .login h1{font-size:21px;margin:0 auto 4px;color:#fff}
+/* A arte ja vem com borda branca e fundo transparente: assenta no marinho sem
+   cartao atras. `height:auto` com width/height no HTML reserva o espaco certo e
+   evita o salto do formulario quando a imagem termina de carregar. */
+.logo-entrada{
+  display:block;width:100%;max-width:230px;height:auto;
+  margin:0 auto 14px;
+}
+/* Tela baixa (celular deitado, ou teclado aberto): a logo encolhe antes de o
+   formulario sair da vista. */
+@media (max-height:620px){
+  .logo-entrada{max-width:150px;margin-bottom:8px}
+  .login{padding-top:5vh}
+}
 .login p{color:#9fb5cc;font-size:14px;margin:0 auto 22px}
 .login a{color:var(--ambar-btn)}
 .login .card{
