@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=535a4cff">
+<link rel="stylesheet" href="styles.css?v=2dd6fdcd">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -60,31 +60,33 @@
            com quem, e o documento por último, que é o único opcional. -->
       <div class="grid2">
         <div>
-          <label for="sdData">Data</label>
+          <label for="sdData">Data<span class="obrig">*</span></label>
           <input id="sdData" type="date">
         </div>
         <div>
-          <label for="sdOrigem">Saída</label>
+          <label for="sdOrigem">Saída<span class="obrig">*</span></label>
           <select id="sdOrigem"></select>
         </div>
         <!-- Saindo do galpão a carga vai para a ROTA, não direto para o cliente: é o
              caminhão que passa a guardar a caixa até a entrega. Os dois campos ocupam a
              mesma posição porque nunca aparecem juntos. -->
         <div id="sdWrapRota" style="display:none">
-          <label for="sdRota">Destino</label>
+          <label for="sdRota">Destino<span class="obrig">*</span></label>
           <select id="sdRota"></select>
         </div>
         <div id="sdWrapDestino">
-          <label for="sdDestino">Destino</label>
+          <label for="sdDestino">Destino<span class="obrig">*</span></label>
           <select id="sdDestino"></select>
         </div>
         <div id="sdWrapMotorista" style="display:none">
-          <label for="sdMotorista">Motorista</label>
+          <label for="sdMotorista">Motorista<span class="obrig">*</span></label>
           <select id="sdMotorista"></select>
         </div>
       </div>
 
-      <h3>Quantas caixas</h3>
+      <p class="legenda-obrig">Campos com <span class="obrig">*</span> são obrigatórios.</p>
+
+      <h3>Quantas caixas<span class="obrig">*</span></h3>
       <div class="itens" id="sdItens"></div>
 
       <label for="sdObs">Observação (opcional)</label>
@@ -114,19 +116,19 @@
       <h2>Devolução de caixas<span class="sub" id="devSub">Caixas voltando na rota para o galpão.</span></h2>
       <div class="grid2">
         <div>
-          <label for="dvData">Data</label>
+          <label for="dvData">Data<span class="obrig">*</span></label>
           <input id="dvData" type="date">
         </div>
         <div>
-          <label for="dvOrigem">Devolução</label>
+          <label for="dvOrigem">Devolução<span class="obrig">*</span></label>
           <select id="dvOrigem"></select>
         </div>
         <div>
-          <label for="dvDestino">Destino</label>
+          <label for="dvDestino">Destino<span class="obrig">*</span></label>
           <select id="dvDestino"></select>
         </div>
         <div>
-          <label for="dvMotorista">Motorista</label>
+          <label for="dvMotorista">Motorista<span class="obrig">*</span></label>
           <select id="dvMotorista"></select>
         </div>
       </div>
@@ -135,7 +137,9 @@
            contagem passou do saldo antes de a pessoa somar tudo e mandar. -->
       <div id="dvSaldoAtual"></div>
 
-      <h3>Quantas caixas</h3>
+      <p class="legenda-obrig">Campos com <span class="obrig">*</span> são obrigatórios.</p>
+
+      <h3>Quantas caixas<span class="obrig">*</span></h3>
       <div class="itens" id="dvItens"></div>
 
       <label for="dvObs">Observação (opcional)</label>
@@ -556,6 +560,89 @@
   ligarFoto('sdFoto','sdFotoOk',function(d){ sdFotoData=d; });
   ligarFoto('dvFoto','dvFotoOk',function(d){ dvFotoData=d; });
 
+  /* ---------------- campos obrigatórios ----------------
+     A regra mora numa lista por tela, e a mesma lista serve para marcar o campo com *
+     e para cobrar no envio: assim as duas coisas não podem divergir.
+
+     Observação e foto ficam de fora. Nas quantidades basta um tipo de caixa
+     preenchido — quem leva só CX P não deve ter de digitar zero nos outros três. */
+  var OBRIGATORIOS = {
+    sd: [
+      { id:'sdData',      msg:'Informe a data da saída.' },
+      { id:'sdOrigem',    msg:'Informe de onde as caixas estão saindo.' },
+      { id:'sdRota',      msg:'Escolha a rota que vai levar a carga.' },
+      { id:'sdDestino',   msg:'Informe para quem as caixas vão.' },
+      { id:'sdMotorista', msg:'Escolha o motorista que vai levar a carga.' }
+    ],
+    dv: [
+      { id:'dvData',      msg:'Informe a data da devolução.' },
+      { id:'dvOrigem',    msg:'Informe quem está devolvendo.' },
+      { id:'dvDestino',   msg:'Informe onde as caixas foram recebidas.' },
+      { id:'dvMotorista', msg:'Informe quem trouxe as caixas de volta.' }
+    ]
+  };
+
+  /* Campo escondido não é exigido. Na saída do galpão aparecem Rota e Motorista; da
+     rota para o cliente aparece Destino. Cobrar o que não está na tela travaria o
+     lançamento sem explicação possível. */
+  function campoVisivel(el){
+    for (var n = el; n && n.style; n = n.parentNode){
+      if (n.style.display === 'none') return false;
+    }
+    return true;
+  }
+
+  function limparErros(prefixo){
+    var marcados = document.querySelectorAll('.campo-erro');
+    Array.prototype.forEach.call(marcados, function(el){
+      if (!prefixo || el.id.indexOf(prefixo) === 0) el.classList.remove('campo-erro');
+    });
+  }
+
+  /* Marca, leva a pessoa até o campo e avisa o que falta. A marca sai sozinha quando
+     ela preenche: erro que fica depois de resolvido vira ruído. */
+  function apontarFalta(el, msg){
+    el.classList.add('campo-erro');
+    Q.toast(msg, 'erro');
+    if (el.scrollIntoView) el.scrollIntoView({ block:'center', behavior:'smooth' });
+    if (el.focus) { try { el.focus({ preventScroll:true }); } catch(e){ el.focus(); } }
+    function tirar(){
+      el.classList.remove('campo-erro');
+      el.removeEventListener('change', tirar);
+      el.removeEventListener('input', tirar);
+    }
+    el.addEventListener('change', tirar);
+    el.addEventListener('input', tirar);
+  }
+
+  /**
+   * Confere os campos da tela e a contagem. Devolve true quando pode enviar.
+   * `idItens` é a caixa das quantidades; `itens` é o que `coletarItens` achou.
+   */
+  function podeEnviar(quais, idItens, itens){
+    limparErros(quais === 'sd' ? 'sd' : 'dv');
+    var lista = OBRIGATORIOS[quais];
+    for (var i = 0; i < lista.length; i++){
+      var el = document.getElementById(lista[i].id);
+      if (!el || !campoVisivel(el)) continue;
+      if (String(el.value == null ? '' : el.value).trim()) continue;
+      // Sem motorista ativo cadastrado ninguém consegue lançar: a mensagem diz onde
+      // se resolve, senão a pessoa fica tentando escolher de uma lista vazia.
+      var msg = lista[i].msg;
+      if (lista[i].id.indexOf('Motorista') > 0 && !motoristas().length){
+        msg = 'Nenhum motorista ativo cadastrado. Peça ao escritório para cadastrar em Cadastros → Motoristas.';
+      }
+      apontarFalta(el, msg);
+      return false;
+    }
+    if (!itens.length){
+      apontarFalta(document.getElementById(idItens),
+        'Informe a quantidade de pelo menos um tipo de caixa.');
+      return false;
+    }
+    return true;
+  }
+
   /* ---------------- gravar saída ---------------- */
   document.getElementById('btnSalvarSaida').addEventListener('click', function(){
     var s = Q.sessao();
@@ -564,17 +651,7 @@
     var destino = doGalpao ? document.getElementById('sdRota').value
                            : document.getElementById('sdDestino').value;
     var itens = coletarItens('sd_');
-    if (!origem) return Q.toast('Informe de onde as caixas estão saindo.','erro');
-    if (!destino) return Q.toast(doGalpao ? 'Escolha a rota que vai levar a carga.'
-                                          : 'Informe para quem as caixas vão.','erro');
-    if (!itens.length) return Q.toast('Informe a quantidade de caixas.','erro');
-    if (doGalpao && !document.getElementById('sdMotorista').value.trim()){
-      // Lista fechada tem um beco que o campo aberto não tinha: sem motorista ativo,
-      // ninguém consegue lançar. Então a mensagem diz onde se resolve.
-      return Q.toast(motoristas().length
-        ? 'Escolha o motorista que vai levar a carga.'
-        : 'Nenhum motorista ativo cadastrado. Peça ao escritório para cadastrar em Cadastros → Motoristas.','erro');
-    }
+    if (!podeEnviar('sd', 'sdItens', itens)) return;
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
     if (Q.precisaConfirmarCaixa(this, 'Confirmar saída de ' + total + ' caixa(s)?', 'Registrar')) return;
 
@@ -609,6 +686,7 @@
      menos a data — inclusive os seletores escondidos, senão um valor velho volta à tona
      quando a origem muda de galpão para rota. */
   function limparSaida(manterLocais){
+    limparErros('sd');
     zerarItens('sd_');
     document.getElementById('sdObs').value = '';
     document.getElementById('sdMotorista').value = '';
@@ -630,9 +708,7 @@
     var origem = document.getElementById('dvOrigem').value;
     var destino = document.getElementById('dvDestino').value;
     var itens = coletarItens('dv_');
-    if (!origem) return Q.toast('Informe quem está devolvendo.','erro');
-    if (!destino) return Q.toast('Informe onde as caixas foram recebidas.','erro');
-    if (!itens.length) return Q.toast('Informe a quantidade contada.','erro');
+    if (!podeEnviar('dv', 'dvItens', itens)) return;
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
 
     // Espelha a regra do servidor: quem não confere gera contagem que espera.
@@ -668,6 +744,7 @@
     });
   });
   function limparDevolucao(manter){
+    limparErros('dv');
     zerarItens('dv_');
     document.getElementById('dvObs').value = '';
     document.getElementById('dvMotorista').value = '';

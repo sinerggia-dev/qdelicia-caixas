@@ -261,6 +261,7 @@ node teste/teste_api.js
 node teste/teste_tela.js
 node teste/teste_login.js
 node teste/teste_motorista.js
+node teste/teste_obrigatorios.js
 ```
 
 222 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
@@ -287,6 +288,16 @@ embaixo. Filtrar de verdade, como era antes, travava a cobertura — a rota ofer
 e no dia em que outro levasse a carga a saida ia lancada no nome errado. O preenchimento
 automatico olha so quem esta **atribuido** a rota: contando o volante, que e curinga de todas,
 nenhuma rota teria "um motorista so" e o campo nunca viria posto.
+
+O `teste/teste_obrigatorios.js` (27 verificacoes) cuida dos campos obrigatorios das duas telas
+de lancamento. A regra e uma lista (`OBRIGATORIOS`) e a mesma lista marca o campo com `*` e
+cobra no envio — duas verificacoes comparam o HTML com a lista, nos dois sentidos, para nao
+existir campo cobrado sem marca nem marca sem cobranca.
+
+**Campo escondido nao e exigido.** Na saida do galpao aparecem Rota e Motorista; da rota para
+o cliente aparece Destino. Cobrar o que nao esta na tela travaria o lancamento sem explicacao
+possivel — e o caso que mais importa neste teste. Observacao e foto ficam de fora a pedido do
+usuario, e nas quantidades basta um tipo de caixa preenchido.
 
 O `teste/teste_backend.js` testa o backend antigo do Apps Script (38 verificações), que continua
 em `apps-script/` como referência e rota de volta. Pode apagar os dois quando a migração estiver
