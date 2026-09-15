@@ -1036,14 +1036,14 @@
     });
 
     document.getElementById('tabelaUsuarios').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>E-mail</th><th>Senha</th><th>Painel</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Usuário</th><th>E-mail</th><th>Senha</th><th>Painel</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       EQUIPE.map(function(u){
         var lp = LOCAIS_PADRAO.filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
         var on = Q.ativo(u.Ativo);
-        /* Quem entra por nome de usuário não tem e-mail; sem mostrar o login, a coluna
-           ficaria vazia para o admin e pareceria que ele não tem como entrar. */
-        var acesso = u.Email ? Q.esc(u.Email)
-                   : (u.Usuario ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—');
+        /* O login curto tem coluna própria: é ele que a pessoa digita para entrar, e
+           antes só aparecia para quem não tivesse e-mail. */
+        var login = u.Usuario ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—';
+        var acesso = u.Email ? Q.esc(u.Email) : '—';
         /* As duas credenciais, cada uma com seu estado. Uma etiqueta só não servia:
            "provisória: painel" não dizia nada sobre a senha do app de lançamento, e
            "própria" aparecia até para quem nunca teve aquela credencial. */
@@ -1052,20 +1052,19 @@
           if (provisoria) return '<span class="tag vermelha" title="Ainda não trocou a senha que o administrador passou">'+rotulo+': provisória</span>';
           return '<span class="tag verde" title="A pessoa já escolheu a senha dela">'+rotulo+': própria</span>';
         }
-        /* Três situações, e a terceira não é "provisória":
-           - entra no painel  -> o estado da senha dele;
-           - não entra e não tem senha -> nada, a coluna Painel ao lado já diz "não";
-           - não entra MAS tem senha guardada -> ponta solta de cadastro antigo. Dizer
-             "provisória" ali confundia, porque parecia contradizer o "não" ao lado.
-             Salvar a pessoa uma vez limpa, e o rótulo diz o que é. */
+        /* Quem não entra no painel não tem "estado de senha" para mostrar: o fato ali é
+           que ele não entra. Dizer "provisória" parecia contradizer o "não" da coluna ao
+           lado. Se ainda houver senha guardada de um cadastro antigo, o mesmo selo diz —
+           abrir e salvar a pessoa limpa. */
         var linhaPainel = u.AcessoPainel
           ? selo(u.TemSenha, u.SenhaProvisoria, 'painel')
           : (u.TemSenha
-              ? '<span class="tag vermelha" title="Senha de painel guardada para quem não entra no painel. Abra e salve esta pessoa para limpar.">painel: senha solta</span>'
-              : '');
+              ? '<span class="tag vermelha" title="Sem acesso ao painel, mas com senha de painel guardada. Abra e salve esta pessoa para limpar.">painel: sem acesso · senha solta</span>'
+              : '<span class="tag cinza" title="Esta pessoa usa só o app de campo">painel: sem acesso</span>');
         var senhaCel = '<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+
           selo(u.TemPin, u.PinProvisorio, 'lançamento')+ linhaPainel +'</div>';
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil)+'</span></td>'+
+        '<td>'+login+'</td>'+
         '<td>'+acesso+'</td>'+
         '<td>'+senhaCel+'</td>'+
         '<td>'+(u.AcessoPainel?'<span class="tag verde">sim</span>':'<span class="tag cinza">não</span>')+'</td>'+
