@@ -580,8 +580,7 @@
             '<td class="num">'+Q.num(l.retorno)+'</td>'+
             '<td class="num"><b'+(l.saldo<0?' style="color:var(--vermelho)"':'')+'>'+
               (l.saldo>0?'+':'')+Q.num(l.saldo)+'</b></td>'+
-            '<td>'+(l.responsavel ? Q.esc(l.responsavel)
-              : (gente ? '—' : '<span class="tag cinza">sem responsável</span>'))+'</td>'+
+            '<td>'+respCel(l, gente)+'</td>'+
             '<td class="num">'+selo(l)+'</td></tr>';
           }).join(''))+'</tbody></table></div>';
 
@@ -619,6 +618,15 @@
   function linhasDeficit(){
     var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
     return f.linhas.filter(function(l){ return l.situacao !== 'parado' && l.saldo < 0; }).length;
+  }
+
+  /* Quando a rota não tem motorista no cadastro, o nome vem de quem dirigiu no
+     lançamento. A tarja diz isso: sem ela não dá para saber se falta cadastrar o
+     motorista da rota ou se ele já está lá. Some sozinha quando o cadastro é feito. */
+  function respCel(l, gente){
+    if (!l.responsavel) return gente ? '—' : '<span class="tag cinza">sem responsável</span>';
+    return Q.esc(l.responsavel) +
+      (l.respDoCadastro === false ? ' <span class="tag cinza">do lançamento</span>' : '');
   }
 
   /* O selo é o resumo da linha: quanto do que saiu ainda não voltou. */

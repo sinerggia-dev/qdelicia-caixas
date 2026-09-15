@@ -1131,6 +1131,67 @@ async function main() {
     ok(semMot.usuarios.length === 1, 'mas continua contando para quem lançou');
   }
 
+
+  console.log('\n== responsável e detalhe da linha (Painel de Ativos) ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const DESDE = D('2026-09-01');
+    const cen = {
+      config: {},
+      tipos: [{ ID: 'T1', Nome: 'CX P' }, { ID: 'T2', Nome: 'CX G' }],
+      usuarios: [{ ID: 'U9', Nome: 'Motorista do Cadastro', Perfil: 'Motorista' }],
+      locais: [
+        { ID: 'L1', Nome: 'Galpão', Tipo: 'GALPAO' },
+        // rota SEM motorista no cadastro: o nome tem de vir do lançamento
+        { ID: 'R1', Nome: 'Caruaru', Tipo: 'ROTA' },
+        // rota COM motorista no cadastro: o cadastro manda, mesmo com outro dirigindo
+        { ID: 'R2', Nome: 'Recife', Tipo: 'ROTA', MotoristaId: 'U9' },
+        // cliente sem responsável: NÃO pode herdar o motorista que entregou
+        { ID: 'C1', Nome: 'CEASA', Tipo: 'CLIENTE' }
+      ],
+      movimentos: [
+        { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: 'T1', Qtd: 50,
+          Motorista: 'Ramos', DataRef: D('2026-09-05') },
+        { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: 'T2', Qtd: 530,
+          Motorista: 'Ramos', DataRef: D('2026-09-06') },
+        { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R2', TipoCaixaID: 'T1', Qtd: 100,
+          Motorista: 'Outro Qualquer', DataRef: D('2026-09-06') },
+        { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'C1', TipoCaixaID: 'T1', Qtd: 30,
+          Motorista: 'Ramos', DataRef: D('2026-09-07') }
+      ]
+    };
+    const f = F.fluxoPorOrigem(cen, DESDE, 90);
+    const por = {}; f.linhas.forEach((l) => { por[l.id] = l; });
+
+    ok(por.R1.responsavel === 'Ramos',
+      'rota sem motorista no cadastro pega quem dirigiu no lançamento', por.R1.responsavel);
+    ok(por.R1.respDoCadastro === false,
+      'e a linha avisa que o nome não veio do cadastro', por.R1.respDoCadastro);
+
+    ok(por.R2.responsavel === 'Motorista do Cadastro' && por.R2.respDoCadastro === true,
+      'com motorista no cadastro, o cadastro manda — ele é a designação oficial', por.R2);
+
+    ok(por.C1.responsavel === '',
+      'cliente NÃO herda o motorista: quem entregou não responde pelas caixas do cliente',
+      por.C1.responsavel);
+
+    ok(por.R1.sub === 'rota · 2 lançamentos · CX G, CX P',
+      'a linha de baixo traz lançamentos e os tipos de caixa somados ali', por.R1.sub);
+    ok(por.R1.caixas.join(',') === 'CX G,CX P' && por.R1.lancamentos === 2,
+      'e os mesmos dados vêm soltos, para quem quiser montar outra tela', por.R1);
+
+    // dois motoristas na mesma rota aparecem os dois, e sem repetir
+    const cen2 = JSON.parse(JSON.stringify(cen));
+    cen2.movimentos = cen.movimentos.map((m) => Object.assign({}, m, { DataRef: D('2026-09-05') }));
+    cen2.movimentos[1].Motorista = 'Wesley';
+    cen2.movimentos.push(Object.assign({}, cen.movimentos[0], { Motorista: 'Ramos', DataRef: D('2026-09-08') }));
+    const f2 = F.fluxoPorOrigem(cen2, DESDE, 90);
+    const r1 = f2.linhas.filter((l) => l.id === 'R1')[0];
+    ok(r1.responsavel === 'Ramos, Wesley',
+      'dois motoristas na rota aparecem os dois, em ordem e sem repetir', r1.responsavel);
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

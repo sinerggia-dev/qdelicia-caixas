@@ -721,18 +721,37 @@ function fluxoPorOrigem(dados, desde, meta) {
 
   var nomesUsuarios = mapaNomes(dados.usuarios || []);
   var nomesLocais = mapaNomes(locais);
+  var nomesTipos = mapaTipos(dados.tipos || []);
 
   var saiu = {}, voltou = {};
+  // Quem dirigiu, que caixa foi e quantos lançamentos — colhidos do próprio movimento.
+  // O cadastro da rota costuma vir sem motorista, e o nome só existe aqui.
+  var condutores = {}, caixas = {}, quantos = {};
+  function anota(local, m) {
+    if (!local) return;
+    quantos[local] = (quantos[local] || 0) + 1;
+    var mot = String(m.Motorista || '').trim();
+    if (mot) { condutores[local] = condutores[local] || {}; condutores[local][mot] = 1; }
+    var cx = nome(nomesTipos, m.TipoCaixaID);
+    if (cx) { caixas[local] = caixas[local] || {}; caixas[local][cx] = 1; }
+  }
+
   ativos(movimentos).forEach(function (m) {
     if (desde && m.DataRef < desde) return;
     var q = efetiva(m);          // devolução não confirmada vale 0, e vale a contada
     if (!q) return;
     if (m.Tipo === 'SAIDA' || m.Tipo === 'TRANSFERENCIA') {
-      if (m.DestinoID) saiu[m.DestinoID] = (saiu[m.DestinoID] || 0) + q;
+      if (m.DestinoID) { saiu[m.DestinoID] = (saiu[m.DestinoID] || 0) + q; anota(m.DestinoID, m); }
     } else if (m.Tipo === 'DEVOLUCAO') {
-      if (m.OrigemID) voltou[m.OrigemID] = (voltou[m.OrigemID] || 0) + q;
+      if (m.OrigemID) { voltou[m.OrigemID] = (voltou[m.OrigemID] || 0) + q; anota(m.OrigemID, m); }
     }
   });
+
+  function chavesDe(mapa, id) {
+    return Object.keys(mapa[id] || {}).sort(function (a, b) {
+      return a.localeCompare(b, 'pt-BR');
+    });
+  }
 
   var SUB = { ROTA: 'rota', FILIAL: 'filial', CLIENTE: 'cliente' };
   var linhas = locais.filter(function (l) {
@@ -741,15 +760,35 @@ function fluxoPorOrigem(dados, desde, meta) {
     var saida = saiu[l.ID] || 0;
     var retorno = voltou[l.ID] || 0;
     var c = classificaFluxo(saida, retorno, DESVIO_RUIM);
-    // Na rota quem responde é o motorista; nos outros, o responsável do cadastro.
+    var motMov = chavesDe(condutores, l.ID);
+
+    /* Quem responde, em ordem de confiança:
+       1) o cadastro — é a designação oficial;
+       2) quem dirigiu de fato no período, que vem no movimento.
+       O passo 2 existe porque rota sem motorista no cadastro é o caso comum enquanto o
+       cadastro não está completo: a tela dizia "sem responsável" tendo o nome do
+       motorista em cada lançamento daquela rota. Só vale para ROTA — em cliente e
+       filial quem responde é o dono do local, não quem entregou. */
     var resp = l.Tipo === 'ROTA'
-      ? (l.MotoristaId ? nome(nomesUsuarios, l.MotoristaId) : '')
+      ? (l.MotoristaId ? nome(nomesUsuarios, l.MotoristaId) : motMov.join(', '))
       : String(l.Responsavel || '').trim();
+
+    var cx = chavesDe(caixas, l.ID);
+    var n = quantos[l.ID] || 0;
+    var partes = [SUB[l.Tipo]];
+    if (l.Tipo === 'CLIENTE' && l.RotaId) partes.push(nome(nomesLocais, l.RotaId));
+    if (n) partes.push(n + (n === 1 ? ' lançamento' : ' lançamentos'));
+    if (cx.length) partes.push(cx.join(', '));
+
     return {
       id: l.ID, nome: l.Nome, tipo: l.Tipo,
-      sub: SUB[l.Tipo] + (l.Tipo === 'CLIENTE' && l.RotaId ? ' · ' + nome(nomesLocais, l.RotaId) : ''),
+      sub: partes.join(' · '),
       rotaId: l.RotaId || '',
       responsavel: resp,
+      // Diz de onde veio o nome: sem isso não dá para saber se falta cadastrar o
+      // motorista da rota ou se ele já está lá.
+      respDoCadastro: !!(l.Tipo === 'ROTA' ? l.MotoristaId : String(l.Responsavel || '').trim()),
+      motoristas: motMov, caixas: cx, lancamentos: n,
       saida: saida, retorno: retorno, saldo: c.saldo,
       desvio: c.desvio, situacao: c.situacao
     };
