@@ -1044,14 +1044,22 @@
            ficaria vazia para o admin e pareceria que ele não tem como entrar. */
         var acesso = u.Email ? Q.esc(u.Email)
                    : (u.Usuario ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—');
-        /* Quem ainda está com a senha que o admin passou. Sem isto o admin redefine e
-           fica sem saber se a pessoa já entrou e trocou. O dado já vinha da API. */
-        var prov = [];
-        if (u.PinProvisorio) prov.push('campo');
-        if (u.SenhaProvisoria) prov.push('painel');
-        var senhaCel = prov.length
-          ? '<span class="tag vermelha" title="A pessoa ainda não trocou a senha que o administrador passou">provisória: '+prov.join(' e ')+'</span>'
-          : '<span class="tag verde">própria</span>';
+        /* As duas credenciais, cada uma com seu estado. Uma etiqueta só não servia:
+           "provisória: painel" não dizia nada sobre a senha do app de lançamento, e
+           "própria" aparecia até para quem nunca teve aquela credencial. */
+        function selo(temSenha, provisoria, rotulo){
+          if (!temSenha) return '<span class="tag cinza" title="Esta pessoa não tem esta credencial">'+rotulo+': sem senha</span>';
+          if (provisoria) return '<span class="tag vermelha" title="Ainda não trocou a senha que o administrador passou">'+rotulo+': provisória</span>';
+          return '<span class="tag verde" title="A pessoa já escolheu a senha dela">'+rotulo+': própria</span>';
+        }
+        /* A linha do painel so aparece quando diz alguma coisa: para quem nao entra no
+           painel e nao tem senha de painel, ela seria ruido — a coluna Painel ao lado ja
+           diz "nao". Quem tem senha sem acesso continua aparecendo: e sobra de cadastro,
+           e o admin precisa ver. */
+        var mostraPainel = u.AcessoPainel || u.TemSenha;
+        var senhaCel = '<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+
+          selo(u.TemPin, u.PinProvisorio, 'lançamento')+
+          (mostraPainel ? selo(u.TemSenha, u.SenhaProvisoria, 'painel') : '')+'</div>';
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil)+'</span></td>'+
         '<td>'+acesso+'</td>'+
         '<td>'+senhaCel+'</td>'+

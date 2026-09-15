@@ -268,6 +268,16 @@ por conta propria.
 
 `definirPin` e o par de `definirSenha`: troca a credencial do campo provando a atual.
 
+Na lista de usuarios a coluna **Senha** mostra as duas credenciais em separado — lancamento e
+painel —, cada uma como propria, provisoria ou sem senha. Uma etiqueta so nao servia:
+"provisoria: painel" nao dizia nada sobre a senha do lancamento, e "propria" aparecia ate
+para quem nunca teve aquela credencial. A linha do painel some para quem nao entra no painel
+e nao tem senha de painel.
+
+**Armadilha fechada:** `PIN: String(r.pin)` transformava PIN nulo no texto `"null"`, e como
+`loginPorPin` compara texto com texto, quem digitasse a palavra `null` entrava como essa
+pessoa. Hoje nulo vira string vazia. Ha teste, e ele foi conferido desfazendo a correcao.
+
 A troca e obrigatoria de proposito, sem botao de "depois" — senha provisoria que se pode
 adiar nao e trocada nunca, e a do admin costuma ser a mesma para todo mundo.
 

@@ -177,7 +177,10 @@ var TIPO = {
 var USUARIO = {
   de: function (r) {
     return {
-      ID: r.id, Nome: r.nome, Perfil: r.perfil || '', PIN: String(r.pin),
+      // `String(null)` da o texto "null", e `loginPorPin` compara texto com texto:
+      // quem digitasse a palavra null entraria como quem esta sem PIN no banco.
+      // Vazio nao casa com nada, e o login ja recusa informado vazio.
+      ID: r.id, Nome: r.nome, Perfil: r.perfil || '', PIN: r.pin == null ? '' : String(r.pin),
       Telefone: r.telefone || '', LocalPadrao: r.local_padrao, Ativo: r.ativo !== false,
       Email: r.email || '', Usuario: r.usuario || '', SenhaHash: r.senha_hash || '',
       PinProvisorio: r.pin_provisorio === true, SenhaProvisoria: r.senha_provisoria === true,

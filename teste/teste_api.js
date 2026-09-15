@@ -285,6 +285,22 @@ async function main() {
   ok((await GET({ acao: 'equipe' })).usuarios.every((u) => !('SenhaHash' in u) && !('PIN' in u)),
      'equipe nunca devolve hash nem PIN');
 
+  console.log('');
+  console.log('== PIN nulo nao pode virar a palavra null ==');
+  // String(null) da o texto "null", e loginPorPin compara texto com texto: quem
+  // digitasse a palavra null entraria como quem esta sem PIN no banco.
+  tabelas.usuarios.push({ id: 'U099', nome: 'Sem Pin', perfil: 'PROMOTOR', pin: null,
+                          telefone: '', local_padrao: null, ativo: true });
+  ok((await POST({ acao: 'login', identificador: 'Sem Pin', pin: 'null' })).ok === false,
+     'a palavra null nao entra como quem esta sem PIN');
+  ok((await POST({ acao: 'login', identificador: 'Sem Pin', pin: '' })).ok === false,
+     'PIN vazio tambem nao entra');
+  const uSemPin = (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.ID === 'U099')[0];
+  ok(uSemPin.TemPin === false, 'a equipe diz que esta pessoa nao tem senha de campo', uSemPin);
+  const comPin = (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.Nome === 'Motorista Exemplo')[0];
+  ok(comPin.TemPin === true, 'e diz que esta tem', comPin);
+  ok(!('PIN' in uSemPin) && !('PIN' in comPin), 'sem entregar o PIN em nenhum dos dois');
+
   console.log('\n== senha do app de campo: 6 numeros ==');
   // A regra vale para DEFINIR. Barrar no login trancaria para fora quem cadastrou
   // senha antes dela existir — a equipe inteira, de uma vez, no galpao.

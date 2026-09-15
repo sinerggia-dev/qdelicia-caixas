@@ -823,6 +823,9 @@ function usuariosPublicos(usuarios) {
       LocalPadrao: u.LocalPadrao, Telefone: u.Telefone || '',
       Email: u.Email || '', Usuario: u.Usuario || '',
       Ativo: u.Ativo !== false, TemSenha: !!u.SenhaHash,
+      // Se existe PIN, nao qual e: a coluna Senha do painel precisa distinguir
+      // "ainda nao trocou" de "nao tem essa credencial".
+      TemPin: !!String(u.PIN == null ? '' : u.PIN).trim(),
       // Nao e segredo, e o admin precisa saber quem ainda nao trocou.
       PinProvisorio: u.PinProvisorio === true, SenhaProvisoria: u.SenhaProvisoria === true,
       AcessoPainel: podeVerPainel(u),
