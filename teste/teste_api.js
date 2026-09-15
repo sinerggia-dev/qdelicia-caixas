@@ -301,6 +301,36 @@ async function main() {
   ok(comPin.TemPin === true, 'e diz que esta tem', comPin);
   ok(!('PIN' in uSemPin) && !('PIN' in comPin), 'sem entregar o PIN em nenhum dos dois');
 
+  console.log('');
+  console.log('== tirar o acesso ao painel leva a senha do painel junto ==');
+  // Hash que fica sem ninguem poder usar nao e so sujeira: acharPorIdentificador casa
+  // pelo NOME e loginPorSenha nao olha acesso ao painel, entao a senha velha continuaria
+  // autenticando na API.
+  const novoP = await POST({ acao: 'salvarUsuario', registro: {
+    Nome: 'Com Painel', Perfil: 'CONFERENTE', PIN: '112233',
+    Usuario: 'compainel', Senha: 'senhadopainel1', AcessoPainel: 'SIM' } });
+  ok(novoP.ok === true, 'usuario com acesso ao painel criado', novoP);
+  const idP = (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.Nome === 'Com Painel')[0].ID;
+  ok((await POST({ acao: 'login', identificador: 'compainel', senha: 'senhadopainel1' })).ok === true,
+     'ele entra no painel com a senha dele');
+
+  await POST({ acao: 'salvarUsuario', registro: { ID: idP, Nome: 'Com Painel', AcessoPainel: 'NAO' } });
+  const semAcesso = (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.ID === idP)[0];
+  ok(semAcesso.AcessoPainel === false, 'o acesso saiu', semAcesso);
+  ok(semAcesso.TemSenha === false, 'e a senha do painel saiu junto', semAcesso);
+  ok(semAcesso.SenhaProvisoria === false, 'a marca de provisoria tambem', semAcesso);
+  ok((await POST({ acao: 'login', identificador: 'compainel', senha: 'senhadopainel1' })).ok === false,
+     'a senha velha nao autentica mais na API');
+  ok((await POST({ acao: 'login', identificador: 'Com Painel', pin: '112233' })).ok === true,
+     'e o app de campo continua funcionando para ele');
+
+  // O admin nao pode perder a senha por causa desta chave: para ele o acesso vem do perfil.
+  const idAdmin = 'U001';
+  await POST({ acao: 'salvarUsuario', registro: { ID: idAdmin, Senha: 'senhadoadmin1' } });
+  await POST({ acao: 'salvarUsuario', registro: { ID: idAdmin, AcessoPainel: 'NAO' } });
+  const admPainel = (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.ID === idAdmin)[0];
+  ok(admPainel.TemSenha === true, 'admin nao perde a senha do painel', admPainel);
+
   console.log('\n== senha do app de campo: 6 numeros ==');
   // A regra vale para DEFINIR. Barrar no login trancaria para fora quem cadastrou
   // senha antes dela existir — a equipe inteira, de uma vez, no galpao.

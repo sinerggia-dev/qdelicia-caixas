@@ -1052,14 +1052,19 @@
           if (provisoria) return '<span class="tag vermelha" title="Ainda não trocou a senha que o administrador passou">'+rotulo+': provisória</span>';
           return '<span class="tag verde" title="A pessoa já escolheu a senha dela">'+rotulo+': própria</span>';
         }
-        /* A linha do painel so aparece quando diz alguma coisa: para quem nao entra no
-           painel e nao tem senha de painel, ela seria ruido — a coluna Painel ao lado ja
-           diz "nao". Quem tem senha sem acesso continua aparecendo: e sobra de cadastro,
-           e o admin precisa ver. */
-        var mostraPainel = u.AcessoPainel || u.TemSenha;
+        /* Três situações, e a terceira não é "provisória":
+           - entra no painel  -> o estado da senha dele;
+           - não entra e não tem senha -> nada, a coluna Painel ao lado já diz "não";
+           - não entra MAS tem senha guardada -> ponta solta de cadastro antigo. Dizer
+             "provisória" ali confundia, porque parecia contradizer o "não" ao lado.
+             Salvar a pessoa uma vez limpa, e o rótulo diz o que é. */
+        var linhaPainel = u.AcessoPainel
+          ? selo(u.TemSenha, u.SenhaProvisoria, 'painel')
+          : (u.TemSenha
+              ? '<span class="tag vermelha" title="Senha de painel guardada para quem não entra no painel. Abra e salve esta pessoa para limpar.">painel: senha solta</span>'
+              : '');
         var senhaCel = '<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+
-          selo(u.TemPin, u.PinProvisorio, 'lançamento')+
-          (mostraPainel ? selo(u.TemSenha, u.SenhaProvisoria, 'painel') : '')+'</div>';
+          selo(u.TemPin, u.PinProvisorio, 'lançamento')+ linhaPainel +'</div>';
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil)+'</span></td>'+
         '<td>'+acesso+'</td>'+
         '<td>'+senhaCel+'</td>'+

@@ -274,6 +274,13 @@ painel —, cada uma como propria, provisoria ou sem senha. Uma etiqueta so nao 
 para quem nunca teve aquela credencial. A linha do painel some para quem nao entra no painel
 e nao tem senha de painel.
 
+**Tirar o acesso ao painel apaga a senha do painel.** Hash guardado para quem nao entra no
+painel nao e so sujeira: `acharPorIdentificador` casa tambem pelo NOME e `loginPorSenha` nao
+olha acesso ao painel, entao a senha velha continuaria autenticando na API — o painel barra
+na tela, e a tela nao e a fronteira. ADMIN fica de fora: para ele o acesso vem do perfil.
+Cadastro antigo que ainda tenha esse resto aparece na lista como "painel: senha solta";
+abrir e salvar a pessoa limpa.
+
 **Armadilha fechada:** `PIN: String(r.pin)` transformava PIN nulo no texto `"null"`, e como
 `loginPorPin` compara texto com texto, quem digitasse a palavra `null` entrava como essa
 pessoa. Hoje nulo vira string vazia. Ha teste, e ele foi conferido desfazendo a correcao.

@@ -338,6 +338,25 @@ async function salvarUsuario(p) {
   }
 
   var d = await db.carregarTudo();
+
+  /* Tirar o acesso ao painel leva junto a senha do painel. Hash que fica no banco sem
+     ninguem poder usar nao e so sujeira: `acharPorIdentificador` casa tambem pelo NOME e
+     `loginPorSenha` nao olha acesso ao painel, entao a senha velha continuaria
+     autenticando na API. O painel barra na tela — e a tela nao e a fronteira.
+
+     ADMIN fica de fora: para ele o acesso vem do perfil, nao desta chave. O perfil pode
+     nao ter vindo no pedido, entao vale o que ja esta gravado. */
+  if (dados.AcessoPainel !== undefined && !L.ativo(dados.AcessoPainel)) {
+    var jaGravado = dados.ID
+      ? d.usuarios.filter(function (u) { return String(u.ID) === String(dados.ID); })[0]
+      : null;
+    var perfilFinal = dados.Perfil !== undefined ? dados.Perfil : (jaGravado ? jaGravado.Perfil : '');
+    if (String(perfilFinal).toUpperCase() !== 'ADMIN') {
+      dados.SenhaHash = '';
+      dados.SenhaProvisoria = false;
+    }
+  }
+
   if (dados.ID && dados.Ativo !== undefined && !L.ativo(dados.Ativo) && ultimoAdmin(d.usuarios, dados.ID)) {
     return { ok: false, erro: 'Este é o último administrador ativo. Promova outro antes de desativá-lo.' };
   }
