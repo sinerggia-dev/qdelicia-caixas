@@ -1262,8 +1262,8 @@
           .map(function(p){ return '<option value="'+Q.esc(p)+'">'; }).join('')+
       '</datalist>'+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPerfilNota"></p>'+
-      '<label>Senha do app de campo <span style="font-weight:400;color:var(--txt3)">— 4 a 6 números</span></label>'+
-      '<input type="text" inputmode="numeric" id="fPin" value="" placeholder="'+(u.ID?'deixe em branco para manter':'ex.: 2468')+'">'+
+      '<label>Senha do app de campo <span style="font-weight:400;color:var(--txt3)">— 6 números</span></label>'+
+      '<input type="text" inputmode="numeric" id="fPin" maxlength="6" value="" placeholder="'+(u.ID?'deixe em branco para manter':'ex.: 246813')+'">'+
       '<h3 style="margin-top:20px">Acesso ao painel</h3>'+
       '<label>Pode entrar no painel?</label>'+
       '<select id="fPainel"><option value="NAO"'+(u.AcessoPainel?'':' selected')+'>não — só o app de campo</option>'+
@@ -1358,6 +1358,9 @@
       if (novaSenha) reg.Senha = novaSenha;   // vai em texto e volta hash — nunca é guardada assim
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       if (!reg.ID && !pin) return Q.toast('Defina a senha do app de campo para o novo usuário.','erro');
+      // A API valida de novo: esta checagem e so para a pessoa saber na hora, sem
+      // esperar a ida ao servidor.
+      if (pin && !/^\d{6}$/.test(pin)) return Q.toast('A senha do app de campo tem 6 números.','erro');
       if (String(reg.Perfil).toUpperCase() === 'ADMIN' && !reg.Email && !reg.Usuario) {
         return Q.toast('Admin entra no painel por e-mail ou usuário: preencha um dos dois.','erro');
       }

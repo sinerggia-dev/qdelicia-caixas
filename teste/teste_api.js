@@ -285,6 +285,26 @@ async function main() {
   ok((await GET({ acao: 'equipe' })).usuarios.every((u) => !('SenhaHash' in u) && !('PIN' in u)),
      'equipe nunca devolve hash nem PIN');
 
+  console.log('\n== senha do app de campo: 6 numeros ==');
+  // A regra vale para DEFINIR. Barrar no login trancaria para fora quem cadastrou
+  // senha antes dela existir — a equipe inteira, de uma vez, no galpao.
+  ok((await POST({ acao: 'login', identificador: 'Motorista Exemplo', pin: '2222' })).ok,
+     'senha antiga de 4 digitos continua entrando');
+  const curto = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Curto', Perfil: 'PROMOTOR', PIN: '1234' } });
+  ok(curto.ok === false && /6 n[uú]meros/.test(curto.erro || ''), 'cadastrar com 4 digitos e recusado', curto);
+  const longo = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Longo', Perfil: 'PROMOTOR', PIN: '1234567' } });
+  ok(longo.ok === false, 'cadastrar com 7 digitos e recusado', longo);
+  const letra = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Letra', Perfil: 'PROMOTOR', PIN: '12a456' } });
+  ok(letra.ok === false, 'letra no meio e recusada', letra);
+  const certo = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Seis Digitos', Perfil: 'PROMOTOR', PIN: '123456' } });
+  ok(certo.ok === true, 'seis digitos e aceito', certo);
+  ok((await POST({ acao: 'login', identificador: 'Seis Digitos', pin: '123456' })).ok,
+     'e a pessoa entra com ela');
+  // Editar sem tocar na senha nao pode exigir a senha de novo.
+  const semPin = await POST({ acao: 'salvarUsuario', registro: { ID: certo.id || certo.ID, Nome: 'Seis Digitos', Perfil: 'MOTORISTA' } });
+  ok(semPin.ok !== false || !/6 n[uú]meros/.test(semPin.erro || ''),
+     'editar sem mexer na senha nao esbarra na regra', semPin);
+
   console.log('\n== validações ==');
   ok((await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: G, itens: [{ tipoCaixaId: T, qtd: 5 }] })).ok === false, 'origem igual ao destino é recusado');
   ok((await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: C, itens: [{ tipoCaixaId: T, qtd: 0 }] })).ok === false, 'quantidade zero é recusada');
@@ -493,7 +513,7 @@ async function main() {
     'motorista pode ser excluído');
 
   console.log('\n== excluir usuário ==');
-  const novoU = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Ajudante Temporário', Perfil: 'PROMOTOR', PIN: '4444' } });
+  const novoU = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Ajudante Temporário', Perfil: 'PROMOTOR', PIN: '444444' } });
   ok(novoU.ok, 'usuário criado', novoU);
   ok((await POST({ acao: 'excluir', aba: 'Usuarios', id: novoU.id })).excluido === true,
     'usuário que nunca lançou nada é excluído');
@@ -515,7 +535,7 @@ async function main() {
     'e ele continua ativo depois das duas tentativas');
 
   // Com um segundo admin, o primeiro deixa de ser insubstituível.
-  const admin2 = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Admin Reserva', Perfil: 'ADMIN', PIN: '5555', Usuario: 'reserva' } });
+  const admin2 = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Admin Reserva', Perfil: 'ADMIN', PIN: '555555', Usuario: 'reserva' } });
   ok(admin2.ok && (await POST({ acao: 'salvarUsuario', registro: { ID: 'U001', Ativo: 'NAO' } })).ok,
     'com outro admin ativo, o primeiro pode ser desativado');
   await POST({ acao: 'salvarUsuario', registro: { ID: 'U001', Ativo: 'SIM' } });
@@ -757,7 +777,7 @@ async function main() {
   ok(Lm.normalizarPerfil(null) === '', 'nulo não quebra');
 
   const novoPf = await POST({ acao: 'salvarUsuario', registro: {
-    Nome: 'Supervisor Teste', Perfil: '  supervisor de área ', PIN: '4321' } });
+    Nome: 'Supervisor Teste', Perfil: '  supervisor de área ', PIN: '432109' } });
   ok(novoPf.ok, 'perfil que não está na lista é aceito', novoPf);
   const gravPf = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === novoPf.id);
   ok(gravPf.Perfil === 'Supervisor de Área', 'e chega normalizado ao cadastro', gravPf.Perfil);

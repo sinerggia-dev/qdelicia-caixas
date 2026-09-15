@@ -244,6 +244,16 @@ Isto custou tempo mais de uma vez: mudança publicada e verificada em produção
 ainda vendo o comportamento antigo. Antes de investigar um bug relatado logo depois de um
 deploy, confirme que a página dele carregou o `app.js` novo.
 
+## Senha do app de campo: 6 numeros
+
+A regra vale para **definir** a senha, nunca para entrar. Quem cadastrou senha antes dela
+existir continua entrando com a de 4 digitos — validar no login trancaria a equipe inteira
+para fora, de uma vez, no galpao. Por isso o campo de entrada nao tem `minlength`.
+
+A validacao esta em `salvarUsuario`, no servidor: a API aceita chamada de qualquer origem,
+entao checar so na tela seria enfeite. O painel checa tambem, mas so para a pessoa saber na
+hora, sem esperar a ida ao servidor.
+
 ## Testar
 
 ```

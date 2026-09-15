@@ -272,6 +272,19 @@ async function salvarUsuario(p) {
   if (typeof dados === 'string') { try { dados = JSON.parse(dados); } catch (e) { dados = null; } }
   if (!dados) return { ok: false, erro: 'Nada para salvar.' };
 
+  // A senha do app de campo tem 6 numeros exatos. A regra fica aqui porque a API
+  // aceita `salvarUsuario` de qualquer origem: validar so na tela seria enfeite.
+  // Vale para DEFINIR — nunca para entrar. Quem ja tem senha de 4 digitos continua
+  // entrando com ela; barrar no login trancaria a equipe inteira para fora do
+  // galpao de uma vez.
+  if (dados.PIN !== undefined && String(dados.PIN).trim() !== '') {
+    var pinNovo = String(dados.PIN).trim();
+    if (!/^\d{6}$/.test(pinNovo)) {
+      return { ok: false, erro: 'A senha do app de campo tem 6 números.' };
+    }
+    dados.PIN = pinNovo;
+  }
+
   delete dados.SenhaHash;                       // nunca aceite hash vindo do navegador
   var nova = String(dados.Senha || '').trim();
   delete dados.Senha;
