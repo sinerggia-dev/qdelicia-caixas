@@ -192,20 +192,23 @@ async function main() {
   let cli = p.locais.find((l) => l.id === C);
   ok(cli.saldo === 150, 'saldo do cliente = 150', cli.saldo);
 
-  console.log('\n== devolução contada pelo promotor (não pode baixar saldo ainda) ==');
+  console.log('\n== devolução contada pelo promotor (sem etapa de conferência, conta na hora) ==');
   const dev = await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: C, destinoId: G, itens: [{ tipoCaixaId: T, qtd: 80 }], dataRef: dia(-1), usuarioId: 'U004', perfil: 'PROMOTOR' });
-  ok(dev.status === 'AGUARDANDO', 'devolução do promotor fica AGUARDANDO', dev.status);
+  ok(dev.status === 'CONFIRMADO',
+    'devolução nasce confirmada mesmo vinda de quem antes não podia conferir', dev.status);
   p = (await GET({ acao: 'painel' })).painel; cli = p.locais.find((l) => l.id === C);
-  ok(cli.saldo === 150, 'saldo do cliente continua 150 antes da conferência', cli.saldo);
-  ok(cli.emConferencia === 80, 'mostra 80 em conferência', cli.emConferencia);
-  ok((await GET({ acao: 'pendentes' })).movimentos.length === 1, '1 item na fila de conferência');
+  ok(cli.saldo === 70, 'o saldo do cliente cai na hora: 150 menos as 80 devolvidas', cli.saldo);
+  ok(cli.emConferencia === 0, 'nada fica esperando conferência', cli.emConferencia);
+  ok((await GET({ acao: 'pendentes' })).movimentos.length === 0,
+    'a fila de conferência não existe mais');
 
-  console.log('\n== conferência no galpão: chegaram 75 ==');
+  // A rota `conferir` continua servindo para registrar que chegou quantidade diferente da
+  // declarada. O que mudou é que ela deixou de ser o portão do saldo: agora só ajusta.
+  console.log('\n== divergência lançada depois: chegaram 75 ==');
   const conf = await POST({ acao: 'conferir', id: dev.criados[0].id, qtdConferida: 75, obs: 'faltaram 5', usuarioId: 'U002' });
   ok(conf.ok && conf.divergencia === -5, 'divergência de -5 registrada', conf);
   p = (await GET({ acao: 'painel' })).painel; cli = p.locais.find((l) => l.id === C);
-  ok(cli.saldo === 75, 'saldo do cliente = 75 (150 - 75 conferidas)', cli.saldo);
-  ok(cli.emConferencia === 0, 'nada mais em conferência', cli.emConferencia);
+  ok(cli.saldo === 75, 'saldo passa a valer a quantidade contada: 150 - 75', cli.saldo);
   ok(p.kpis.divergenciaMes === -5, 'KPI divergência do mês = -5', p.kpis.divergenciaMes);
 
   console.log('\n== baixa de perda de 5 caixas ==');
@@ -830,14 +833,13 @@ async function main() {
     const mov = (await GET({ acao: 'movimentos' })).movimentos.find((m) => m.id === r.criados[0].id);
     return mov.status;
   }
-  ok(await devolveComo('GESTOR') === 'AGUARDANDO',
-    'devolução de GESTOR nasce AGUARDANDO');
-  ok(await devolveComo('GERENTE') === 'AGUARDANDO',
-    'devolução de GERENTE nasce AGUARDANDO');
-  ok(await devolveComo('CONFERENTE') === 'CONFIRMADO',
-    'devolução de CONFERENTE já nasce CONFIRMADA');
-  ok(await devolveComo('PROMOTOR') === 'AGUARDANDO',
-    'e o promotor continua como sempre foi');
+  // Sem a etapa de conferência, o perfil deixou de decidir o status: não há mais tela
+  // capaz de confirmar, então nascer AGUARDANDO seria travar a caixa para sempre.
+  ok(await devolveComo('GESTOR') === 'CONFIRMADO', 'devolução de GESTOR nasce confirmada');
+  ok(await devolveComo('GERENTE') === 'CONFIRMADO', 'devolução de GERENTE nasce confirmada');
+  ok(await devolveComo('CONFERENTE') === 'CONFIRMADO', 'de CONFERENTE também');
+  ok(await devolveComo('PROMOTOR') === 'CONFIRMADO',
+    'e do PROMOTOR, que era justamente o que ficava esperando');
 
   console.log('== empresa do motorista ==');
   await POST({ acao: 'salvarMotorista', registro: { ID: 'D001', Empresa: '  Qdelícia Frutas  ' } });
@@ -977,7 +979,7 @@ async function main() {
         // cliente que devolve mais do que levou -> ok
         { Tipo: 'SAIDA', OrigemID: 'R01', DestinoID: 'C01', Qtd: 700, DataRef: D('2026-09-03') },
         { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'C01', DestinoID: 'R01', Qtd: 770, DataRef: D('2026-09-06') },
-        // cliente com devolução AINDA NÃO conferida: não pode virar retorno
+        // linha antiga que ficou em AGUARDANDO: com a etapa extinta, ela passa a contar
         { Tipo: 'SAIDA', OrigemID: 'R01', DestinoID: 'C02', Qtd: 600, DataRef: D('2026-09-03') },
         { Tipo: 'DEVOLUCAO', Status: 'AGUARDANDO', OrigemID: 'C02', DestinoID: 'R01', Qtd: 500, DataRef: D('2026-09-07') },
         // fora da janela e cancelado: nenhum dos dois conta
@@ -1003,18 +1005,18 @@ async function main() {
     ok(por.C01.responsavel === 'Antônio', 'no cliente vale o responsável do cadastro');
     ok(por.C01.sub.indexOf('João Pessoa') >= 0, 'o cliente mostra a rota que o atende', por.C01.sub);
 
-    ok(por.C02.retorno === 0 && por.C02.saldo === -600,
-      'devolução ainda não conferida NÃO vira retorno', por.C02);
+    ok(por.C02.retorno === 500 && por.C02.saldo === -100,
+      'devolução antiga em AGUARDANDO conta: sem a etapa, não há o que esperar', por.C02);
     ok(por.C02.responsavel === '', 'sem responsável cadastrado devolve vazio, não o id');
 
     ok(por.C03.situacao === 'parado' && por.C03.desvio === null,
       'sem saída e sem retorno não vira 0% de retorno', por.C03);
 
-    ok(f.totais.saida === 2300 && f.totais.retorno === 1170,
+    ok(f.totais.saida === 2300 && f.totais.retorno === 1670,
       'os totais ignoram cancelado e o que é de antes da janela', f.totais);
-    ok(f.totais.deficit === 1200, 'déficit soma só quem está devendo, sem abater quem sobrou', f.totais.deficit);
+    ok(f.totais.deficit === 700, 'déficit soma só quem está devendo, sem abater quem sobrou', f.totais.deficit);
     ok(f.totais.linhas === 3, 'quem não teve movimento não entra na conta de linhas', f.totais.linhas);
-    ok(f.totais.taxaRetorno === 50.9, 'taxa de retorno do conjunto', f.totais.taxaRetorno);
+    ok(f.totais.taxaRetorno === 72.6, 'taxa de retorno do conjunto', f.totais.taxaRetorno);
     ok(f.linhas[0].id === 'R01' || f.linhas[0].id === 'C02',
       'quem deve mais aparece primeiro', f.linhas.map((l) => l.id));
 
@@ -1083,7 +1085,7 @@ async function main() {
         // Wesley levou 300 e trouxe 300: quitado
         { Tipo: 'SAIDA', Qtd: 300, Motorista: 'Wesley', Rota: 'Maceió', UsuarioID: 'U1', DataRef: D('2026-09-06') },
         { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', Qtd: 300, Motorista: 'Wesley', Rota: 'Maceió', UsuarioID: 'U2', DataRef: D('2026-09-09') },
-        // devolucao sem conferencia nao conta para ninguem
+        // linha antiga em AGUARDANDO: passa a contar, como no razao
         { Tipo: 'DEVOLUCAO', Status: 'AGUARDANDO', Qtd: 500, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U2', DataRef: D('2026-09-10') },
         // perda nao e fluxo de ida e volta
         { Tipo: 'PERDA', Qtd: 40, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U1', DataRef: D('2026-09-11') },
@@ -1098,10 +1100,10 @@ async function main() {
     const usu = {}; p.usuarios.forEach((x) => { usu[x.nome] = x; });
 
     ok(p.motoristas.length === 2, 'um por motorista que aparece nos movimentos', p.motoristas.map((x) => x.nome));
-    ok(mot.Ramos.saida === 580 && mot.Ramos.retorno === 0,
-      'cancelado, fora da janela, perda e devolução não conferida ficam todos de fora', mot.Ramos);
-    ok(mot.Ramos.saldo === -580 && mot.Ramos.desvio === 100 && mot.Ramos.situacao === 'ruim',
-      'levou e não trouxe: desvio de 100%', mot.Ramos);
+    ok(mot.Ramos.saida === 580 && mot.Ramos.retorno === 500,
+      'cancelado, fora da janela e perda ficam de fora; a devolução antiga conta', mot.Ramos);
+    ok(mot.Ramos.saldo === -80 && mot.Ramos.desvio === 14 && mot.Ramos.situacao === 'atencao',
+      'levou 580 e trouxe 500: 14% de desvio', mot.Ramos);
     ok(mot.Ramos.responsavel === 'Caruaru',
       'a quinta coluna do motorista traz as rotas dele, não o nome repetido', mot.Ramos.responsavel);
     ok(mot.Wesley.saldo === 0 && mot.Wesley.situacao === 'ok', 'quem trouxe tudo fica ok', mot.Wesley);
@@ -1110,17 +1112,14 @@ async function main() {
     // usuario e quem LANCOU: a devolucao do Wesley foi lancada pela Ivanilda
     ok(usu['Nestor Neto'].saida === 880 && usu['Nestor Neto'].retorno === 0,
       'o usuário soma o que ELE lançou de saída', usu['Nestor Neto']);
-    ok(usu.Ivanilda.retorno === 300 && usu.Ivanilda.saida === 0,
+    ok(usu.Ivanilda.retorno === 800 && usu.Ivanilda.saida === 0,
       'e o que ELE lançou de devolução, ainda que a carga seja de outro', usu.Ivanilda);
     ok(usu['Nestor Neto'].responsavel === 'Conferente' && usu.Ivanilda.responsavel === 'Gestor',
       'na visão de usuário a quinta coluna é o perfil', [usu['Nestor Neto'].responsavel, usu.Ivanilda.responsavel]);
     ok(mot.Wesley.sub === '2 lançamentos',
       'a linha de baixo conta lançamentos, sem repetir a coluna ao lado', mot.Wesley.sub);
-    ok(mot.Ramos.sub === '1 lançamento', 'e no singular quando é um só', mot.Ramos.sub);
-    // A Ivanilda lançou duas devoluções, mas uma ainda espera conferência e vale 0.
-    // A contagem segue os números da linha: conta o que entrou na conta.
-    ok(usu.Ivanilda.sub === '1 lançamento',
-      'lançamento que não entrou na conta também não entra na contagem', usu.Ivanilda.sub);
+    ok(usu.Ivanilda.sub === '2 lançamentos',
+      'a contagem segue os números da linha', usu.Ivanilda.sub);
 
     // motorista em branco no movimento nao pode virar uma linha "sem nome"
     const semMot = F.fluxoPorPessoa({
@@ -1241,10 +1240,11 @@ async function main() {
                TipoCaixaID: 'P', Qtd: 50, UsuarioID: 'U1', DataRef: D('2026-09-05'), DataHora: D('2026-09-05') }]);
     ok(r.S1 === 'Enviada', 'devolução vinda de outro local não abate esta remessa', r);
 
-    // devolução ainda não conferida NÃO quita: é o mesmo critério do saldo
+    // linha antiga em AGUARDANDO quita igual: é o mesmo critério do saldo, e o saldo
+    // deixou de esperar conferência quando a etapa saiu
     ok(rot([sai('S1', 'P', 50, '2026-09-01'),
-            volta('D1', 'P', 50, '2026-09-05', 'AGUARDANDO')]).S1 === 'Enviada',
-      'devolução esperando conferência não quita a remessa');
+            volta('D1', 'P', 50, '2026-09-05', 'AGUARDANDO')]).S1 === 'Devolvida',
+      'devolução antiga em AGUARDANDO quita a remessa, como conta no saldo');
 
     // cancelada não conta
     const canc = volta('D1', 'P', 50, '2026-09-05');

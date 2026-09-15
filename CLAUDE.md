@@ -27,9 +27,15 @@ existe na Vercel. Se ainda estiver ligado, desligue em Settings → Pages → So
 
 Se uma alteração quebrar qualquer uma delas, o app perde a razão de existir.
 
-1. **Devolução contada dentro do cliente não baixa saldo.** Lançada por `MOTORISTA` ou `PROMOTOR`,
-   nasce `AGUARDANDO`. Só a conferência no galpão confirma e move o saldo. A diferença entre o
-   declarado e o conferido vira divergência registrada, com nome e hora.
+1. **Toda devolução baixa saldo assim que é lançada.** *(Mudou em 16/09/2026, a pedido do
+   usuário.)* Antes a devolução de quem não podia conferir nascia `AGUARDANDO` e só a
+   conferência no galpão a confirmava. A aba Conferência saiu do app de campo — e era o
+   **único** lugar onde uma devolução era confirmada —, então manter o `AGUARDANDO` travaria
+   a caixa na conta do cliente para sempre. O status deixou de segurar o razão: `efetiva()`,
+   `saldos()` e o extrato não olham mais para ele, e linhas antigas em `AGUARDANDO` passaram
+   a contar. `pendentes()` e `emConferencia()` devolvem vazio de propósito — listar como
+   pendente algo que já entrou na conta seria a tela se contradizendo. A rota `conferir`
+   continua existindo e ainda registra divergência, mas virou ajuste, não portão.
 2. **Nada é apagado.** Movimento errado se cancela (`cancelado = true`), nunca se deleta. Local com
    movimento é inativado, não excluído.
 3. **O navegador não fala com o banco.** Toda leitura e escrita passa pela função. É isso que
@@ -50,11 +56,11 @@ separados de propósito: somar os dois esconde onde a caixa está.
 
 Banco antigo se resolve sozinho: ver a seção de migração automática.
 
-## Perfis e a regra do AGUARDANDO
+## Perfis
 
 `Admin, Gestor, Gerente, Conferente, Motorista, Promotor`. `Galpao` foi renomeado para
 `Conferente` por migração, mas **continua reconhecido no código**: a sessão guardada no
-celular só troca no próximo login, e até lá o conferente perderia a aba de conferência.
+celular só troca no próximo login.
 
 **A grafia gravada é a que a pessoa escolheu** — Inicial Maiúscula, conectores em minúscula
 ("Supervisor de Área"). Nenhuma tela reescreve a caixa para exibir. Em compensação, **nenhuma
@@ -64,20 +70,17 @@ comparação nova, normalize antes — senão "conferente" perde a aba que "Conf
 
 O perfil é **texto livre**: o escritório escreve o cargo que precisar, e as sugestões do
 formulário são os de fábrica mais os que alguém já usou (`L.perfisConhecidos()`). Um perfil
-escrito nasce **sem poder nenhum** — não cadastra, não confere, e a devolução dele espera
-conferência. Permissão por digitação seria permissão por engano de digitação. Só
+escrito nasce **sem poder nenhum** — não cadastra e não administra. Permissão por
+digitação seria permissão por engano de digitação. Só
 `ADMIN` e `CONFERENTE` têm poder próprio; o resto do acesso é a chave por usuário.
 
 A trava do banco foi removida de propósito (o `check` em `usuarios.perfil`): quem valida
 agora é a aplicação, em `salvarUsuario` — vazio e símbolo estranho são recusados ali.
 
-A regra central foi invertida de propósito. Antes: *devolução de PROMOTOR ou MOTORISTA nasce
-AGUARDANDO*. Agora: *devolução de quem não pode conferir nasce AGUARDANDO*. Dá no mesmo para
-os perfis antigos — os testes provam — e faz o perfil novo entrar pelo lado seguro: esquecer
-de acrescentar alguém em `CONFEREM` passa a significar "a contagem dele espera
-conferência", e não "a contagem dele baixa saldo sozinha".
-
-Quem confere está em `L.podeConferir()`, e o front repete a lista em `app.js`.
+`L.podeConferir()` continua existindo e testado, mas **não decide mais nada no fluxo**: com a
+etapa de conferência extinta, o perfil deixou de influir no status da devolução. Foi mantido
+para o dia em que a etapa voltar — e para que a volta seja mudar uma linha, não reconstruir
+a regra.
 São dois lugares porque o celular não carrega `_logica.js`; se mudar um, mude o outro.
 
 ## Separação de funções no painel

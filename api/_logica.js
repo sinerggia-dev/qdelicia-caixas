@@ -345,7 +345,10 @@ function montarMovimento(p, ctx) {
     // conferir. Dá no mesmo para os perfis antigos, e perfil novo entra pelo lado seguro —
     // esquecer de acrescentar alguém aqui passa a significar "a contagem dele espera
     // conferência", e não "a contagem dele baixa saldo sozinha".
-    status = (tipo === 'DEVOLUCAO' && !podeConferir(perfil)) ? 'AGUARDANDO' : 'CONFIRMADO';
+    /* A etapa de conferência saiu da operação: o app de campo não tem mais a aba, e
+       ela era o único lugar onde uma devolução era confirmada. Deixar nascer AGUARDANDO
+       sem ninguém para confirmar travaria a caixa na conta do cliente para sempre. */
+    status = 'CONFIRMADO';
   }
 
   var agora = ctx.agora || new Date();
@@ -477,7 +480,9 @@ function montarCorrecao(mov, p, agora, nomes) {
 
 /** Quantidade que conta no saldo: a conferida manda; devolução aguardando não abate nada. */
 function efetiva(m) {
-  if (m.Tipo === 'DEVOLUCAO' && m.Status !== 'CONFIRMADO') return 0;
+  /* Sem a etapa de conferência, uma devolução vale desde que é lançada. Linhas antigas
+     que ficaram em AGUARDANDO passam a contar também — do contrário ficariam valendo
+     zero eternamente, sem nenhuma tela capaz de confirmá-las. */
   var q = (m.QtdConferida !== null && m.QtdConferida !== undefined && m.QtdConferida !== '')
     ? Number(m.QtdConferida) : Number(m.Qtd);
   return isNaN(q) ? 0 : q;
@@ -496,7 +501,6 @@ function saldos(movimentos) {
     s[local][tipoCx] = (s[local][tipoCx] || 0) + valor;
   }
   ativos(movimentos).forEach(function (m) {
-    if (m.Tipo === 'DEVOLUCAO' && m.Status !== 'CONFIRMADO') return;
     var q = efetiva(m);
     if (m.Tipo === 'AJUSTE') { add(m.DestinoID, m.TipoCaixaID, Number(m.Qtd)); return; }
     if (m.Tipo === 'PERDA') { add(m.OrigemID, m.TipoCaixaID, -q); return; }
@@ -508,12 +512,11 @@ function saldos(movimentos) {
 
 /** Devoluções contadas no cliente que o galpão ainda não validou. */
 function emConferencia(movimentos) {
-  var s = {};
-  ativos(movimentos).forEach(function (m) {
-    if (m.Tipo !== 'DEVOLUCAO' || m.Status === 'CONFIRMADO') return;
-    s[m.OrigemID] = (s[m.OrigemID] || 0) + Number(m.Qtd);
-  });
-  return s;
+  /* Vazio de propósito. A etapa de conferência saiu, e agora toda devolução já conta no
+     saldo. Continuar listando as linhas antigas em AGUARDANDO diria que elas estão
+     paradas esperando algo — enquanto já entraram na conta. Duas telas contando a mesma
+     caixa de formas opostas é pior do que não ter a informação. */
+  return {};
 }
 
 /**
@@ -581,7 +584,10 @@ function aging(movimentos, prazos, hoje) {
 function pendentes(movimentos, locais, tipos) {
   var mLocais = mapaNomes(locais), mTipos = mapaTipos(tipos);
   return ativos(movimentos)
-    .filter(function (m) { return m.Tipo === 'DEVOLUCAO' && m.Status === 'AGUARDANDO'; })
+    /* Nada fica pendente: a etapa de conferência saiu e toda devolução já conta no saldo.
+       O filtro impossível fica no lugar do `return []` para a função continuar devolvendo
+       linhas com a mesma forma, caso a etapa volte um dia. */
+    .filter(function () { return false; })
     .map(function (m) {
       return {
         id: m.ID, dataRef: iso(m.DataRef), qtd: m.Qtd,
@@ -1048,7 +1054,7 @@ function extrato(dados, localId, de, ate, hoje) {
     else if (m.Tipo === 'PERDA') sinal = String(m.OrigemID) === localId ? -1 : 0;
     else sinal = String(m.DestinoID) === localId ? 1 : -1;
     var delta = sinal * (m.Tipo === 'AJUSTE' ? Number(m.Qtd) : q);
-    if (m.Tipo === 'DEVOLUCAO' && m.Status !== 'CONFIRMADO') delta = 0;
+    // (a conferência saiu: devolução lançada já mexe no extrato)
     saldo += delta;
     if (dDe && m.DataRef < dDe) { saldoInicial = saldo; return; }
     if (dAte && m.DataRef > dAte) return;

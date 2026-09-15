@@ -63,7 +63,6 @@
 <nav class="abas" id="abas">
   <button class="ativa" data-pagina="pgSaida">Saída</button>
   <button data-pagina="pgDevolucao">Devolução</button>
-  <button data-pagina="pgConferencia" id="abaConferencia">Conferência</button>
   <button data-pagina="pgSaldo">Saldo</button>
 </nav>
 
@@ -179,16 +178,6 @@
   </section>
 
   <!-- ---------- CONFERÊNCIA ---------- -->
-  <section id="pgConferencia" class="pagina">
-    <div class="card">
-      <h2>Conferência na chegada<span class="sub">Contagens feitas no cliente esperando validação. O saldo do cliente só baixa depois desta conferência.</span></h2>
-      <div class="linha-btn" style="margin-top:4px">
-        <button class="btn sec" id="btnRecarregarPend" style="flex:0;min-width:150px">↻ Atualizar lista</button>
-      </div>
-      <div id="listaPendentes"><div class="vazio">Carregando…</div></div>
-    </div>
-  </section>
-
   <!-- ---------- SALDO ---------- -->
   <section id="pgSaldo" class="pagina">
     <div class="card">
@@ -344,7 +333,6 @@
     document.getElementById('telaLogin').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil;
-    if (!Q.podeConferir()) document.getElementById('abaConferencia').style.display = 'none';
     Q.abas('#abas');
     if (String(s.perfil).toUpperCase() === 'PROMOTOR'){
       // Promotor só conta devolução no cliente.
@@ -353,11 +341,10 @@
       });
       document.querySelector('#abas button[data-pagina="pgDevolucao"]').click();
       document.getElementById('devSub').textContent =
-        'Você conta as caixas que voltam na rota. O galpão confere na chegada e o saldo baixa nessa hora.';
+        'Você conta as caixas que voltam na rota. O saldo baixa assim que você registra.';
     }
     Q.carregarDados().then(function(d){ DADOS = d; montarFormularios(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
-    if (Q.podeConferir()) carregarPendentes();
   }
 
   document.getElementById('chipSair').addEventListener('click', function(){
@@ -366,7 +353,6 @@
   });
 
   window.aoAbrirAba = function(pagina){
-    if (pagina === 'pgConferencia') carregarPendentes();
     if (pagina === 'pgSaldo') carregarPainel();
     if (pagina === 'pgDevolucao') mostrarSaldoDoOrigem();
   };
@@ -786,12 +772,8 @@
     if (!podeEnviar('dv', 'dvItens', itens)) return;
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
 
-    // Espelha a regra do servidor: quem não confere gera contagem que espera.
-    var aguarda = !Q.podeConferir();
-    var msg = aguarda
-      ? 'Registrar contagem de ' + total + ' caixa(s)? O galpão vai conferir na chegada.'
-      : 'Confirmar entrada de ' + total + ' caixa(s)?';
-    if (Q.precisaConfirmarCaixa(this, msg, 'Registrar')) return;
+    // Não há mais etapa de conferência: o lançamento já vale no saldo, venha de quem vier.
+    if (Q.precisaConfirmarCaixa(this, 'Confirmar entrada de ' + total + ' caixa(s)?', 'Registrar')) return;
 
     var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
     Q.enviar({
@@ -806,13 +788,11 @@
       btn.disabled = false; btn.textContent = 'Registrar devolução';
       var txt = r.offline
         ? '⏳ Sem conexão — <b>'+total+' caixa(s)</b> na fila. Envia sozinho quando a internet voltar.'
-        : (aguarda
-            ? '✓ Contagem de <b>'+total+' caixa(s)</b> registrada. Aguardando conferência no galpão.'
-            : '✓ Entrada de <b>'+total+' caixa(s)</b> confirmada. Saldo do cliente já baixou.');
+        : '✓ Entrada de <b>'+total+' caixa(s)</b> confirmada. Saldo do cliente já baixou.';
       document.getElementById('dvAviso').innerHTML = '<div class="aviso-box '+(r.offline?'atencao':'ok')+'">'+txt+'</div>';
       Q.toast(r.offline ? 'Guardado na fila (offline).' : 'Devolução registrada!','ok');
       limparDevolucao(true);
-      if (!r.offline){ carregarPainel(); if (Q.podeConferir()) carregarPendentes(); }
+      if (!r.offline) carregarPainel();
     }).catch(function(e){
       btn.disabled = false; btn.textContent = 'Registrar devolução';
       Q.toast(e.message,'erro');
@@ -853,7 +833,7 @@
     if (!l){ el.innerHTML=''; return; }
     var contado = coletarItens('dv_').reduce(function(a,i){return a+i.qtd;},0);
     var html = '<div class="aviso-box info">Saldo atual de <b>'+Q.esc(l.nome)+'</b>: <b>'+Q.num(l.saldo)+' caixa(s)</b>'+
-      (l.emConferencia ? ' · '+Q.num(l.emConferencia)+' já em conferência' : '')+
+
       (l.aging && l.aging.maisAntiga !== null ? ' · mais antiga há '+l.aging.maisAntiga+' dias' : '')+'</div>';
     if (contado > l.saldo){
       html += '<div class="aviso-box atencao">⚠ Você contou <b>'+Q.num(contado)+'</b>, mas o sistema mostra saldo de <b>'+Q.num(l.saldo)+'</b>. '+
@@ -862,58 +842,6 @@
     el.innerHTML = html;
   }
 
-  /* ---------------- conferência ---------------- */
-  function carregarPendentes(){
-    if (!Q.podeConferir()) return;
-    var box = document.getElementById('listaPendentes');
-    box.innerHTML = '<div class="vazio">Carregando…</div>';
-    Q.get({acao:'pendentes'}).then(function(r){
-      if (!r.ok) throw new Error(r.erro);
-      if (!r.movimentos.length){
-        box.innerHTML = '<div class="vazio">✓ Nada aguardando conferência.</div>';
-        return;
-      }
-      box.innerHTML = r.movimentos.map(function(m){
-        return '<div class="card" style="margin:12px 0;box-shadow:none">'+
-          '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">'+
-            '<div><b>'+Q.esc(m.origem)+'</b><br><span style="font-size:13px;color:var(--txt2)">'+
-              Q.dataBR(m.dataRef)+' · '+Q.esc(m.tipoCaixa)+' · contado por '+Q.esc(m.perfil)+
-              (m.romaneio?' · romaneio '+Q.esc(m.romaneio):'')+'</span></div>'+
-            '<div style="text-align:right"><span class="tag amarela">declarado '+Q.num(m.qtd)+'</span></div>'+
-          '</div>'+
-          (m.obs?'<div style="font-size:13px;color:var(--txt2);margin-top:6px">📝 '+Q.esc(m.obs)+'</div>':'')+
-          (m.assinatura?'<div style="margin-top:6px;font-size:13px"><a href="'+Q.esc(m.assinatura)+'" target="_blank">ver canhoto</a></div>':'')+
-          (m.foto?'<div style="font-size:13px"><a href="'+Q.esc(m.foto)+'" target="_blank">ver foto</a></div>':'')+
-          '<div style="display:flex;gap:8px;align-items:flex-end;margin-top:10px;flex-wrap:wrap">'+
-            '<div style="flex:1;min-width:130px"><label style="margin-top:0">Contei na chegada</label>'+
-              '<input type="number" inputmode="numeric" min="0" id="cf_'+m.id+'" value="'+m.qtd+'"></div>'+
-            '<button class="btn" style="flex:0;min-width:130px" data-conferir="'+m.id+'" data-decl="'+m.qtd+'">Confirmar</button>'+
-          '</div></div>';
-      }).join('');
-      box.querySelectorAll('button[data-conferir]').forEach(function(b){
-        b.addEventListener('click', function(){
-          var id = b.dataset.conferir;
-          var qtd = Number(document.getElementById('cf_'+id).value);
-          var decl = Number(b.dataset.decl);
-          if (isNaN(qtd) || qtd < 0) return Q.toast('Quantidade inválida.','erro');
-          var obs = '';
-          if (qtd !== decl){
-            obs = prompt('Divergência de ' + (qtd-decl) + ' caixa(s) (contado ' + qtd + ' × declarado ' + decl + ').\nMotivo / observação:', '');
-            if (obs === null) return;
-          }
-          b.disabled = true; b.textContent = 'Enviando…';
-          Q.post({acao:'conferir', id:id, qtdConferida:qtd, obs:obs, usuarioId:Q.sessao().id}).then(function(r){
-            if (!r.ok) throw new Error(r.erro);
-            Q.toast(r.divergencia ? 'Conferido com divergência de '+r.divergencia+'.' : 'Conferido, sem divergência.','ok');
-            carregarPendentes(); carregarPainel();
-          }).catch(function(e){ b.disabled=false; b.textContent='Confirmar'; Q.toast(e.message,'erro'); });
-        });
-      });
-    }).catch(function(e){ box.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>'; });
-  }
-  document.getElementById('btnRecarregarPend').addEventListener('click', carregarPendentes);
-
-  /* ---------------- saldos ---------------- */
   function carregarPainel(){
     Q.get({acao:'painel'}).then(function(r){
       if (!r.ok) throw new Error(r.erro);
@@ -945,7 +873,7 @@
     if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhuma rota encontrada.</div>'; return; }
     box.innerHTML = '<div class="tabela-wrap"><table><thead><tr>'+
       '<th>Rota</th><th class="num">No caminhão</th><th class="num">Com os clientes</th>'+
-      '<th class="num">+30 dias</th><th class="num">Em conferência</th><th></th>'+
+      '<th class="num">+30 dias</th><th></th>'+
       '</tr></thead><tbody>'+ lista.map(function(r){
         var cls = r.aging && r.aging.d31 > 0 ? 'ruim' : '';
         return '<tr class="'+cls+'">'+
@@ -955,7 +883,6 @@
           '<td class="num">'+(r.saldoClientes?Q.num(r.saldoClientes):'—')+
             (r.clientes?' <span class="tag cinza">'+r.clientes+'</span>':'')+'</td>'+
           '<td class="num">'+(r.aging&&r.aging.d31?'<span class="tag vermelha">'+Q.num(r.aging.d31)+'</span>':'—')+'</td>'+
-          '<td class="num">'+(r.emConferencia?Q.num(r.emConferencia):'—')+'</td>'+
           '<td><button class="mini acao" data-extrato="'+r.id+'">extrato</button></td>'+
         '</tr>';
       }).join('') + '</tbody></table></div>';
@@ -976,13 +903,13 @@
       var ultimas = r.linhas.slice(-25).reverse();
       document.getElementById('extratoConteudo').innerHTML =
         '<div class="kpis"><div class="kpi '+(r.saldo>0?'aviso':'ok')+'"><div class="v">'+Q.num(r.saldo)+'</div><div class="r">caixas em poder</div></div>'+
-        (r.emConferencia?'<div class="kpi"><div class="v">'+Q.num(r.emConferencia)+'</div><div class="r">em conferência</div></div>':'')+'</div>'+
+        '</div>'+
         Q.barraAging(r.aging)+
         '<div class="tabela-wrap" style="margin-top:12px"><table><thead><tr><th>Data</th><th>Movimento</th><th class="num">Saiu</th><th class="num">Voltou</th><th class="num">Saldo</th></tr></thead><tbody>'+
         (ultimas.length?ultimas.map(function(l){
           return '<tr><td>'+Q.dataBR(l.data)+'</td><td>'+Q.esc(l.descricao)+
             (l.divergencia?' <span class="tag vermelha">div. '+l.divergencia+'</span>':'')+
-            (l.status==='AGUARDANDO'?' <span class="tag amarela">a conferir</span>':'')+'</td>'+
+            '</td>'+
             '<td class="num">'+(l.entrada?Q.num(l.entrada):'')+'</td>'+
             '<td class="num">'+(l.saida?Q.num(l.saida):'')+'</td>'+
             '<td class="num"><b>'+Q.num(l.saldo)+'</b></td></tr>';

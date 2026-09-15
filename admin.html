@@ -655,7 +655,6 @@
       kpi(Q.num(k.emPoderTerceiros),'caixas na rua (clientes+filiais)','aviso')+
       (PAINEL.rotas && PAINEL.rotas.length ? kpi(Q.num(k.emRota),'caixas no caminhão (em rota)', k.emRota?'aviso':'ok') : '')+
       kpi(Q.num(k.vencidas),'caixas fora do prazo de devolução', k.vencidas?'alerta':'ok')+
-      kpi(Q.num(k.aguardandoConferencia),'devoluções a conferir', k.aguardandoConferencia?'aviso':'ok')+
       kpi(Q.num(k.perdasMes),'perdas baixadas no mês', k.perdasMes?'alerta':'ok')+
       kpi(k.taxaRetorno===null?'—':k.taxaRetorno+'%','taxa de retorno do mês', k.taxaRetorno!==null&&k.taxaRetorno<90?'alerta':'ok')+
       kpi(Q.num(k.divergenciaMes),'divergências de contagem no mês', k.divergenciaMes?'alerta':'ok')+
@@ -711,7 +710,7 @@
     document.getElementById('tabelaPainel').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Cliente / Filial</th><th>Rota</th><th class="num">Saldo</th>'+
       '<th class="num">≤7d</th><th class="num">8–15</th><th class="num">16–30</th><th class="num">+30</th>'+
-      '<th class="num">Mais antiga</th><th class="num">A conferir</th><th>Contato</th><th></th></tr></thead><tbody>'+
+      '<th class="num">Mais antiga</th><th>Contato</th><th></th></tr></thead><tbody>'+
       lista.map(function(l){
         var cls = l.aging.d31>0 ? 'ruim' : (l.acimaLimite?'destaque':'');
         return '<tr class="'+cls+'"><td><b>'+Q.esc(l.nome)+'</b>'+
@@ -722,7 +721,6 @@
           '<td class="num">'+Q.num(l.aging.d0_7)+'</td><td class="num">'+Q.num(l.aging.d8_15)+'</td>'+
           '<td class="num">'+Q.num(l.aging.d16_30)+'</td><td class="num">'+(l.aging.d31?'<b style="color:var(--vermelho)">'+Q.num(l.aging.d31)+'</b>':'0')+'</td>'+
           '<td class="num">'+(l.aging.maisAntiga===null?'—':l.aging.maisAntiga+'d')+'</td>'+
-          '<td class="num">'+(l.emConferencia?Q.num(l.emConferencia):'—')+'</td>'+
           '<td>'+Q.esc(l.responsavel||'')+(l.telefone?'<br><span style="font-size:12px;color:var(--txt2)">'+Q.esc(l.telefone)+'</span>':'')+'</td>'+
           '<td><button class="mini acao" data-ex="'+l.id+'">extrato</button></td></tr>';
       }).join('')+'</tbody></table></div>';
@@ -740,8 +738,8 @@
   document.getElementById('btnCsvPainel').addEventListener('click', function(){
     if (!PAINEL) return;
     Q.csv('caixas_saldos_'+Q.hoje()+'.csv',
-      ['Cliente/Filial','Tipo','Rota','Saldo','Ate 7d','8-15d','16-30d','+30d','Mais antiga (dias)','A conferir','Limite','Responsavel','Telefone'],
-      listaFiltrada().map(function(l){ return [l.nome,l.tipo,l.rota||'',l.saldo,l.aging.d0_7,l.aging.d8_15,l.aging.d16_30,l.aging.d31,l.aging.maisAntiga===null?'':l.aging.maisAntiga,l.emConferencia,l.limite||'',l.responsavel||'',l.telefone||'']; }));
+      ['Cliente/Filial','Tipo','Rota','Saldo','Ate 7d','8-15d','16-30d','+30d','Mais antiga (dias)','Limite','Responsavel','Telefone'],
+      listaFiltrada().map(function(l){ return [l.nome,l.tipo,l.rota||'',l.saldo,l.aging.d0_7,l.aging.d8_15,l.aging.d16_30,l.aging.d31,l.aging.maisAntiga===null?'':l.aging.maisAntiga,l.limite||'',l.responsavel||'',l.telefone||'']; }));
   });
   function desenharAgingGeral(){
     var t = {d0_7:0,d8_15:0,d16_30:0,d31:0,maisAntiga:null};
@@ -778,7 +776,6 @@
           '<div class="kpis">'+
             kpi(Q.num(r.saldo),'caixas em poder hoje', r.saldo>0?'aviso':'ok')+
             kpi(Q.num(r.saldoInicial),'saldo no início do período','')+
-            (r.emConferencia?kpi(Q.num(r.emConferencia),'contadas, aguardando conferência','aviso'):'')+
           '</div>'+
           Q.barraAging(r.aging)+
           '<div class="tabela-wrap" style="margin-top:14px"><table><thead><tr>'+
@@ -818,7 +815,6 @@
       '📦 Caixas em seu poder: *' + Q.num(EXTRATO.saldo) + '*\n' +
       (ag.d31 ? '⚠ Sendo *' + Q.num(ag.d31) + '* há mais de 30 dias\n' : '') +
       (ag.maisAntiga !== null ? 'Mais antiga: ' + ag.maisAntiga + ' dias\n' : '') +
-      (EXTRATO.emConferencia ? 'Em conferência no galpão: ' + Q.num(EXTRATO.emConferencia) + '\n' : '') +
       '\nÚltimos movimentos:\n' +
       EXTRATO.linhas.slice(-6).reverse().map(function(x){
         return '• ' + Q.dataBR(x.data) + ' — ' + (x.entrada ? 'saíram ' + x.entrada : 'voltaram ' + x.saida) + ' (saldo ' + x.saldo + ')';
