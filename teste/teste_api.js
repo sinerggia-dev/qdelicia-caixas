@@ -1388,6 +1388,74 @@ async function main() {
       'vale o ctx do servidor, e o perfil do payload não muda a classificação', r1.linhas[0].Teste);
   }
 
+
+  console.log('\n== ordem: o ensaio afunda para o fim de toda lista ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+
+    ok(F.pesoTeste('Cliente Teste') === 1 && F.pesoTeste('CEASA') === 0,
+      'peso 1 para o que tem "teste" no nome, 0 para o resto');
+
+    const locais = [
+      { ID: 'G1', Nome: 'Galpão', Tipo: 'GALPAO' },
+      { ID: 'GT', Nome: 'Galpão Teste', Tipo: 'GALPAO' },
+      { ID: 'C1', Nome: 'CEASA', Tipo: 'CLIENTE', Responsavel: 'A' },
+      { ID: 'CT', Nome: 'Cliente de Teste', Tipo: 'CLIENTE', Responsavel: 'B' },
+      { ID: 'R1', Nome: 'Caruaru', Tipo: 'ROTA' }
+    ];
+    const tipos = [{ ID: 'P', Nome: 'CX P' }];
+    const users = [{ ID: 'U1', Nome: 'Real', Perfil: 'Motorista' },
+                   { ID: 'UT', Nome: 'Ensaio', Perfil: 'Motorista Teste' }];
+
+    // o de teste tem saldo MAIOR de propósito: se a ordem fosse só por saldo, ele
+    // apareceria em primeiro — é o que prova que o peso entra antes
+    const mv = (id, dest, qtd, dia, u) => ({
+      ID: id, Tipo: 'SAIDA', OrigemID: 'G1', DestinoID: dest, TipoCaixaID: 'P', Qtd: qtd,
+      Status: 'CONFIRMADO', UsuarioID: u, Perfil: u === 'UT' ? 'Motorista Teste' : 'Motorista',
+      Teste: u === 'UT', DataRef: D(dia), DataHora: D(dia)
+    });
+    const movs = [
+      mv('M1', 'C1', 10, '2026-09-02', 'U1'),
+      mv('M2', 'CT', 999, '2026-09-10', 'UT'),   // mais recente E maior
+      mv('M3', 'C1', 20, '2026-09-05', 'U1')
+    ];
+
+    // 1) lista de Movimentos: o ensaio vai para o fim mesmo sendo o mais recente
+    const ids = F.listaMovimentos(movs, locais, tipos, users, {}).map((m) => m.id);
+    ok(ids.join(',') === 'M3,M1,M2',
+      'ensaio no fim, e dentro dos reais a data mais nova continua em cima', ids);
+
+    // 2) painel: clientes, rotas e galpões
+    const p = F.painel({ locais, tipos, movimentos: movs, usuarios: users, config: {} },
+      D('2026-09-20'));
+    const nomes = p.locais.map((l) => l.nome);
+    ok(nomes[nomes.length - 1] === 'Cliente de Teste',
+      'no painel o cliente de teste fica por último, apesar do saldo maior', nomes);
+    ok(p.galpoes.map((g) => g.nome).join(',') === 'Galpão,Galpão Teste',
+      'os galpões também, e agora têm ordem — antes vinham por id', p.galpoes.map((g) => g.nome));
+
+    // 3) Painel de Ativos: por origem e por pessoa
+    const f = F.fluxoPorOrigem({ locais, tipos, movimentos: movs, usuarios: users },
+      D('2026-09-01'), 90);
+    const vivos = f.linhas.filter((l) => l.situacao !== 'parado').map((l) => l.nome);
+    ok(vivos[vivos.length - 1] === 'Cliente de Teste',
+      'no Painel de Ativos o de teste fica por último, mesmo devendo mais', vivos);
+
+    const pes = F.fluxoPorPessoa({ movimentos: movs, usuarios: users }, D('2026-09-01'));
+    const us = pes.usuarios.map((u) => u.nome);
+    ok(us[us.length - 1] === 'Ensaio', 'e o usuário de ensaio idem', us);
+
+    // 4) motoristas públicos (a lista que o celular recebe)
+    const mot = F.motoristasPublicos([
+      { ID: 'D2', Nome: 'Zé', Ativo: true },
+      { ID: 'DT', Nome: 'Motorista Teste', Ativo: true },
+      { ID: 'D1', Nome: 'Ana', Ativo: true }
+    ]).map((m) => m.Nome);
+    ok(mot.join(',') === 'Ana,Zé,Motorista Teste',
+      'no celular também: ensaio no fim, alfabética entre os reais', mot);
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

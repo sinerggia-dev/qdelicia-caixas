@@ -269,7 +269,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=9fa45dc1"></script>
+<script src="app.js?v=c0297939"></script>
 <script>
 (function(){
   'use strict';
@@ -409,9 +409,23 @@
      não pode devolver a lista de gente. Fica em EQUIPE, e não dentro de DADOS, porque as duas
      chamadas voltam fora de ordem: gravar em DADOS.usuarios antes de DADOS existir estourava
      em silêncio, e o carregarDados seguinte zerava a lista. */
+  /* Ordena as listas assim que elas chegam, em vez de em cada tabela. São oito telas
+     lendo as mesmas listas — ordenar em cada uma seria oito lugares para lembrar, e o
+     primeiro esquecido já deixaria uma lista fora da regra. */
+  function ordenarTudo(){
+    EQUIPE = Q.ordenarPorNome(EQUIPE);
+    MOTORISTAS = Q.ordenarPorNome(MOTORISTAS);
+    LOCAIS_PADRAO = Q.ordenarPorNome(LOCAIS_PADRAO);
+    if (DADOS){
+      DADOS.locais = Q.ordenarLocais(DADOS.locais);
+      DADOS.tipos = Q.ordenarPorNome(DADOS.tipos);
+    }
+  }
+
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
       if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; }
+      ordenarTudo();
       montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
     }).catch(function(e){ Q.toast('Não consegui carregar os usuários: '+e.message,'erro'); });
@@ -424,9 +438,7 @@
     if (!sel) return;
     var atual = sel.value;
     sel.innerHTML = '<option value="">Todos</option>' +
-      EQUIPE.slice().sort(function(a,b){
-        return String(a.Nome||'').localeCompare(String(b.Nome||''), 'pt-BR');
-      }).map(function(u){
+      Q.ordenarPorNome(EQUIPE).map(function(u){
         return '<option value="'+Q.esc(u.ID)+'">'+Q.esc(u.Nome)+'</option>';
       }).join('');
     sel.value = atual;
@@ -464,7 +476,7 @@
     periodoPadraoMov();
     document.getElementById('lcData').value = Q.hoje();
     carregarEquipe();
-    Q.carregarDados().then(function(d){ DADOS=d; montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
+    Q.carregarDados().then(function(d){ DADOS=d; ordenarTudo(); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
   }
   document.getElementById('chipSair').addEventListener('click', Q.sair);
@@ -1135,7 +1147,7 @@
   function recarregarCadastros(){
     return Q.get({acao:'dados'}).then(function(d){
       if (!d || d.ok===false) throw new Error((d&&d.erro)||'Falha ao recarregar.');
-      DADOS = d; Q.cache('dados', d);
+      DADOS = d; ordenarTudo(); Q.cache('dados', d);
       montarSelects(); desenharCadastros();
     }).catch(function(e){ Q.toast(e.message,'erro'); });
   }
@@ -1655,9 +1667,7 @@
         '<div><label>Data</label><input type="date" id="cData" value="'+Q.esc(String(m.dataRef||'').slice(0,10))+'"></div>'+
         '<div><label>Romaneio</label><input type="text" id="cRom" value="'+Q.esc(m.romaneio||'')+'"></div>'+
         '<div><label>Quem fez o envio</label><select id="cUsuario">'+
-          EQUIPE.slice().sort(function(a,b){
-            return String(a.Nome||'').localeCompare(String(b.Nome||''), 'pt-BR');
-          }).map(function(u){
+          Q.ordenarPorNome(EQUIPE).map(function(u){
             return '<option value="'+Q.esc(u.ID)+'"'+(String(u.Nome)===String(m.usuario)?' selected':'')+'>'+
               Q.esc(u.Nome)+'</option>';
           }).join('')+

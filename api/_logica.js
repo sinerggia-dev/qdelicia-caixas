@@ -93,7 +93,10 @@ function motoristasPublicos(motoristas) {
       return { ID: m.ID, Nome: m.Nome, Tipo: m.Tipo || '',
                Rotas: Array.isArray(m.Rotas) ? m.Rotas : [] };
     })
-    .sort(function (a, b) { return String(a.Nome).localeCompare(String(b.Nome), 'pt-BR'); });
+    .sort(function (a, b) {
+      return pesoTeste(a.Nome) - pesoTeste(b.Nome) ||
+             String(a.Nome).localeCompare(String(b.Nome), 'pt-BR');
+    });
 }
 
 /**
@@ -214,9 +217,18 @@ var naoCancelados = ativos;
    Ele CONTA em tudo, como qualquer outro: saldo, aging, painel, extrato. A separação é um
    filtro de leitura, não uma exclusão. `Teste` do movimento é o que o servidor gravou no
    lançamento; o perfil guardado na linha cobre o que veio antes desta coluna existir. */
-function ehPerfilTeste(perfil) {
-  return /teste/i.test(String(perfil == null ? '' : perfil));
+function temTeste(v) {
+  return /teste/i.test(String(v == null ? '' : v));
 }
+
+/* O mesmo teste com o nome do que ele responde em cada lugar: no perfil, "é de teste?";
+   num nome de local ou de caixa, a mesma pergunta. */
+var ehPerfilTeste = temTeste;
+
+/* Peso de ordenação: 0 para o que é real, 1 para o que é ensaio. Entra como PRIMEIRA
+   chave de toda ordenação, então o ensaio afunda para o fim sem bagunçar a ordem de
+   dentro de cada grupo. */
+function pesoTeste(v) { return temTeste(v) ? 1 : 0; }
 
 function lancamentoDeTeste(m) {
   return m.Teste === true || ehPerfilTeste(m.Perfil);
@@ -741,6 +753,9 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
     if (p.usuario && String(m.UsuarioID) !== String(p.usuario)) return false;
     return true;
   }).sort(function (a, b) {
+    // O ensaio desce para o fim; dentro de cada grupo a data continua mandando.
+    var d = (lancamentoDeTeste(a) ? 1 : 0) - (lancamentoDeTeste(b) ? 1 : 0);
+    if (d) return d;
     return a.DataRef > b.DataRef ? -1 : (a.DataHora > b.DataHora ? -1 : 1);
   }).slice(0, limite).map(function (m) {
     var temConf = m.QtdConferida !== null && m.QtdConferida !== undefined && m.QtdConferida !== '';
@@ -836,8 +851,12 @@ function fluxoPorPessoa(dados, desde) {
       var r = mapa[k];
       var c = classificaFluxo(r.saida, r.retorno, DESVIO_RUIM);
       var rotas = Object.keys(r.extras).filter(function (x) { return x; }).sort();
+      /* De onde vem a marca muda com a visao: no usuario e o PERFIL que tem "teste"
+         (o nome dele pode ser qualquer um), no motorista e o proprio nome, que e o que
+         o movimento guarda. Ordenar so por `nome` deixava o usuario de ensaio em cima. */
+      var ehTeste = sub === 'perfil' ? temTeste(perfis[r.id]) : temTeste(r.nome);
       return {
-        id: r.id, nome: r.nome, tipo: tipo,
+        id: r.id, nome: r.nome, tipo: tipo, teste: ehTeste,
         // A linha de baixo traz a contagem de lançamentos: dizer "Conferente" aqui
         // repetiria a coluna Perfil, que fica a dois dedos de distância.
         sub: r.n + (r.n === 1 ? ' lançamento' : ' lançamentos'),
@@ -848,7 +867,8 @@ function fluxoPorPessoa(dados, desde) {
         saldo: c.saldo, desvio: c.desvio, situacao: c.situacao
       };
     }).sort(function (a, b) {
-      return a.saldo - b.saldo || String(a.nome).localeCompare(String(b.nome), 'pt-BR');
+      return (a.teste ? 1 : 0) - (b.teste ? 1 : 0) ||
+             a.saldo - b.saldo || String(a.nome).localeCompare(String(b.nome), 'pt-BR');
     });
   }
 
@@ -935,7 +955,9 @@ function fluxoPorOrigem(dados, desde, meta) {
     };
   }).sort(function (a, b) {
     // Quem deve mais primeiro; entre os parados, ordem alfabética, senão a lista dança.
-    return a.saldo - b.saldo || String(a.nome).localeCompare(String(b.nome), 'pt-BR');
+    // O ensaio vem antes de tudo isso, para ficar no fim.
+    return pesoTeste(a.nome) - pesoTeste(b.nome) ||
+           a.saldo - b.saldo || String(a.nome).localeCompare(String(b.nome), 'pt-BR');
   });
 
   var comMovimento = linhas.filter(function (l) { return l.situacao !== 'parado'; });
@@ -1006,13 +1028,18 @@ function painel(dados, hoje) {
       vencidas: Number(a.vencidas) || 0,
       acimaLimite: (Number(l.LimiteCaixas) > 0 && total > Number(l.LimiteCaixas))
     };
-  }).sort(function (a, b) { return b.saldo - a.saldo; });
+  }).sort(function (a, b) {
+    return pesoTeste(a.nome) - pesoTeste(b.nome) || b.saldo - a.saldo;
+  });
 
   var galpoes = locais.filter(function (l) { return l.Tipo === 'GALPAO'; }).map(function (l) {
     var porTipo = sal[l.ID] || {};
     var total = 0;
     Object.keys(porTipo).forEach(function (t) { total += porTipo[t]; });
     return { id: l.ID, nome: l.Nome, saldo: total, porTipo: porTipo };
+  }).sort(function (a, b) {
+    return pesoTeste(a.nome) - pesoTeste(b.nome) ||
+           String(a.nome).localeCompare(String(b.nome), 'pt-BR');
   });
 
   // Cada rota traz duas contas separadas: o que está no caminhão dela (saldo) e o que está
@@ -1034,7 +1061,10 @@ function painel(dados, hoje) {
       vencidasClientes: meus.reduce(function (t2, c) { return t2 + Math.max(0, c.vencidas); }, 0),
       emConferencia: emConf[l.ID] || 0
     };
-  }).sort(function (a, b) { return (b.saldo + b.saldoClientes) - (a.saldo + a.saldoClientes); });
+  }).sort(function (a, b) {
+    return pesoTeste(a.nome) - pesoTeste(b.nome) ||
+           (b.saldo + b.saldoClientes) - (a.saldo + a.saldoClientes);
+  });
 
   var emPoderTerceiros = 0;
   lista.forEach(function (l) { emPoderTerceiros += l.saldo; });
@@ -1189,7 +1219,8 @@ module.exports = {
   motoristasPublicos: motoristasPublicos, cnhVencida: cnhVencida,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, naoCancelados: naoCancelados,
-  ehPerfilTeste: ehPerfilTeste, lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste, ativo: ativo, novoId: novoId, novoToken: novoToken,
+  ehPerfilTeste: ehPerfilTeste, temTeste: temTeste, pesoTeste: pesoTeste,
+  lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,
   cicloDaCarga: cicloDaCarga, rotuloCiclo: rotuloCiclo,

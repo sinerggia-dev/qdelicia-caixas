@@ -195,14 +195,29 @@
    * Devolve um array novo: ordenar no lugar mexeria no cache compartilhado.
    */
   var ORDEM_TIPO = { GALPAO: 0, FILIAL: 1, ROTA: 2, CLIENTE: 3, FORNECEDOR: 4 };
+  /* "teste" no nome afunda para o fim, antes de qualquer outro critério. A cópia da
+     regra do servidor vive aqui de propósito: app.js não importa nada, e a alternativa
+     seria uma chamada a mais só para ordenar uma lista. */
+  function temTeste(v) { return /teste/i.test(String(v == null ? '' : v)); }
+  function pesoTeste(v) { return temTeste(v) ? 1 : 0; }
+
   function ordenarLocais(lista) {
     function peso(l) {
       var t = ORDEM_TIPO[String(l.Tipo).toUpperCase()];
       return t === undefined ? 9 : t;
     }
     return (lista || []).slice().sort(function (a, b) {
-      return peso(a) - peso(b) ||
+      return pesoTeste(a.Nome) - pesoTeste(b.Nome) ||
+             peso(a) - peso(b) ||
              String(a.Nome).localeCompare(String(b.Nome), 'pt-BR');
+    });
+  }
+
+  /** Lista qualquer com campo Nome: ensaio no fim, alfabética dentro de cada grupo. */
+  function ordenarPorNome(lista) {
+    return (lista || []).slice().sort(function (a, b) {
+      return pesoTeste(a.Nome) - pesoTeste(b.Nome) ||
+             String(a.Nome || '').localeCompare(String(b.Nome || ''), 'pt-BR');
     });
   }
 
@@ -425,7 +440,8 @@
     sessao: sessao, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
     cache: cache, carregarDados: carregarDados, semApi: semApi,
     precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
-    ativo: ativo, ordenarLocais: ordenarLocais, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
+    ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
+    temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     toast: toast, abas: abas, barraAging: barraAging, assinatura: assinatura,
     comprimirFoto: comprimirFoto, csv: csv, atualizarBadge: atualizarBadge
   };
