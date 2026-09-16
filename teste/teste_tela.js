@@ -314,7 +314,7 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
  * aquele local era de onde a caixa saiu ou para onde ela foi. Agora o titulo diz so o que
  * a linha e, e cada numero carrega "de X" / "para X" embaixo.
  * ------------------------------------------------------------------------- */
-console.log('\n== cada numero diz de onde veio / para onde foi ==');
+console.log('\n== as colunas Origem e Destino ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   var i = adm.indexOf('function desenharFluxo()');
@@ -325,25 +325,25 @@ console.log('\n== cada numero diz de onde veio / para onde foi ==');
   ok(/FLUXO_COLUNAS\[FLUXO_FILTRO\] \|\| \[.Local.\]/.test(corpo),
     'o titulo padrao passou a ser "Local" — prometer "Origem / destino" e mostrar um nome so era o engano');
 
-  // a preposicao tem de inverter no galpao, nas DUAS colunas
-  ok(/comQuem\(l\.saidaCom,\s*l\.tipo === 'GALPAO' \? 'para' : 'de'\)/.test(corpo),
-    'na saida: "para" no galpao, "de" nas demais linhas');
-  ok(/comQuem\(l\.retornoCom,\s*l\.tipo === 'GALPAO' \? 'de' : 'para'\)/.test(corpo),
-    'no retorno: o contrario — senao as duas colunas contariam a mesma direcao');
+  ok(/<th>Origem<\/th><th>Destino<\/th>/.test(corpo),
+    'Origem e Destino sao colunas, lado a lado, antes dos numeros');
+  ok(/lugares\(l\.origens\)/.test(corpo) && /lugares\(l\.destinos\)/.test(corpo),
+    'e cada uma le o seu campo — trocar os dois inverteria a tabela inteira');
 
-  // e a funcao que monta o texto
-  var j = adm.indexOf('function comQuem(');
+  // a funcao que monta a celula
+  var j = adm.indexOf('function lugares(');
   var fonte = adm.slice(j, adm.indexOf('\n  }', j) + 4);
   var Q = { esc: String };
-  var comQuem = new Function('Q', fonte + ' return comQuem;')(Q);
+  var lugares = new Function('Q', fonte + ' return lugares;')(Q);
 
-  ok(comQuem(['Matriz Fazenda'], 'de') === '<span class="fsub">de Matriz Fazenda</span>',
-    'um so: "de Matriz Fazenda"', comQuem(['Matriz Fazenda'], 'de'));
-  ok(comQuem([], 'de') === '' && comQuem(null, 'para') === '',
-    'sem outra ponta nao sobra o rotulo solto');
-  ok(comQuem(['A','B','C','D'], 'para') === '<span class="fsub">para A, B +2</span>',
-    'com muitos, os dois primeiros e um "+N" — a lista inteira roubaria a altura',
-    comQuem(['A','B','C','D'], 'para'));
+  ok(lugares(['Matriz Fazenda']) === 'Matriz Fazenda',
+    'um so aparece limpo, sem preposicao: quem diz a direcao e o titulo da coluna',
+    lugares(['Matriz Fazenda']));
+  ok(lugares([]).indexOf('—') > 0 && lugares(null).indexOf('—') > 0,
+    'vazio vira travessao — celula em branco parece falha de carregamento');
+  ok(lugares(['A','B','C','D']) === 'A, B <span class="fraco">+2</span>',
+    'com muitos, os dois primeiros e um "+N" — a lista inteira esticaria a coluna',
+    lugares(['A','B','C','D']));
 })();
 
 console.log('\n== matriz e galpoes nao se misturam com o resto ==');
@@ -380,25 +380,28 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
 
   // /<th[^>]*>/ tambem casa <thead>, e a conta dava 6 numa tabela de 5 colunas.
   var ths = (corpo.match(/<th[ >]/g) || []).length;
-  ok(ths === 5, 'cinco colunas no cabecalho: nome, inicial, saida, retorno, final', ths);
+  ok(ths === 7,
+    'sete colunas: nome, origem, destino, inicial, saida, retorno, final', ths);
 
   ok(corpo.indexOf('Responsável') < 0 && corpo.indexOf('Desvio') < 0,
     'Responsavel e Desvio sairam do cabecalho');
   ok(corpo.indexOf('Saldo inicial') > 0 && corpo.indexOf('Saldo final') > 0,
     'e os dois titulos novos estao la');
 
-  // o <th> e o <td> do saldo inicial nascem da MESMA condicao
-  var thCond = /\(\s*temInicial\s*\?\s*'<th[^']*Saldo inicial/.test(corpo);
-  var tdCond = /\(\s*temInicial\s*\?\s*'<td[^']*'\+Q\.num\(l\.inicial/.test(corpo);
+  /* As tres colunas de local (origem, destino, saldo inicial) aparecem sob a MESMA
+     condicao no cabecalho e na celula. Se so uma das duas pontas mudasse, a tabela
+     desalinharia e cada numero passaria a ser lido na coluna do vizinho. */
+  var thCond = /\(temLocal \? '<th>Origem<\/th><th>Destino<\/th><th[^']*Saldo inicial/.test(corpo);
+  var tdCond = /\(temLocal\s*\n?\s*\?\s*'<td>'\+lugares\(l\.origens\)/.test(corpo);
   ok(thCond && tdCond,
-    'a coluna Saldo inicial aparece no cabecalho e na celula sob a mesma condicao',
+    'as colunas de local nascem no cabecalho e na celula sob a mesma condicao',
     [thCond, tdCond]);
 
   ok(/colspan="'\+nCols\+'"/.test(corpo),
     'o aviso de tabela vazia usa o numero de colunas, nao um numero fixo');
 
   // a visao de gente nao mostra saldo inicial, entao o seu final e o saldo de fluxo
-  ok(/temInicial\s*\?\s*l\.saldoFinal\s*:\s*l\.saldo/.test(corpo),
+  ok(/temLocal\s*\?\s*l\.saldoFinal\s*:\s*l\.saldo/.test(corpo),
     'sem coluna de inicial, o Saldo final mostra o saldo de fluxo — e nao um campo vazio');
 
   // quem so tem saldo inicial precisa passar pelo filtro de "parado"
@@ -411,10 +414,16 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
   var j = adm.indexOf("Q.csv('retornos'");
   var csv = adm.slice(j, adm.indexOf('}));', j));
   ok(csv.indexOf('Saldo inicial') > 0 && csv.indexOf('Saldo final') > 0 &&
+     csv.indexOf("'Origem'") > 0 && csv.indexOf("'Destino'") > 0 &&
      csv.indexOf('Responsável') < 0 && csv.indexOf('Desvio') < 0,
     'o CSV do painel leva as mesmas colunas que a tabela mostra');
-  ok(csv.indexOf('l.inicial') > 0 && csv.indexOf('l.saldoFinal') > 0,
+  ok(csv.indexOf('l.inicial') > 0 && csv.indexOf('l.saldoFinal') > 0 &&
+     csv.indexOf('l.origens') > 0 && csv.indexOf('l.destinos') > 0,
     'e busca os mesmos campos, nao recalcula a conta por fora');
+  // so o que esta DENTRO dos colchetes: o primeiro argumento e o nome do arquivo, e
+  // contar a partir do zero somava ele como se fosse coluna.
+  var cab = (csv.slice(csv.indexOf('['), csv.indexOf(']')).match(/'/g) || []).length / 2;
+  ok(cab === 8, 'oito colunas no cabecalho do CSV', cab);
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

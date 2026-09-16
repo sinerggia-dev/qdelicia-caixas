@@ -1318,15 +1318,15 @@ async function main() {
   ok(F.fluxoPorOrigem(cen, DESDE, 90).totais.linhas === 1,
     'mas o galpão fica fora dos totais: ele é a outra ponta do mesmo fato');
 
-  /* A outra ponta de cada numero. As duas linhas contam o MESMO fato espelhado: o que
-     para a rota chegou "de Matriz", para a matriz saiu "para Caruaru". Sem isso a coluna
-     mostra um nome so e nao da para saber de que lado ele esta. */
-  ok(por.R1.saidaCom.join(',') === 'Matriz' && por.R1.retornoCom.join(',') === 'Matriz',
-    'na rota: a saída veio de alguém e o retorno foi para alguém', por.R1);
-  ok(por.L1.saidaCom.join(',') === 'Caruaru' && por.L1.retornoCom.join(',') === 'Caruaru',
-    'no galpão os dois lados invertem: saiu PARA a rota, voltou DA rota', por.L1);
-  ok(por.F1.saidaCom.length === 0 && por.F1.retornoCom.length === 0,
-    'sem movimento não há outra ponta — e não um nome inventado', por.F1);
+  /* As colunas ORIGEM e DESTINO. A regra e a MESMA para toda linha: origem e de onde
+     veio o que entrou, destino e para onde foi o que saiu. Quem diz a direcao passou a
+     ser o titulo da coluna, e nao mais uma preposicao que invertia no galpao. */
+  ok(por.R1.origens.join(',') === 'Matriz' && por.R1.destinos.join(',') === 'Matriz',
+    'a rota recebeu da matriz e devolveu para a matriz', por.R1);
+  ok(por.L1.origens.join(',') === 'Caruaru' && por.L1.destinos.join(',') === 'Caruaru',
+    'e a matriz, o espelho: recebeu da rota e despachou para a rota', por.L1);
+  ok(por.F1.origens.length === 0 && por.F1.destinos.length === 0,
+    'sem movimento não há ponta nenhuma — e não um nome inventado', por.F1);
 
   /* O galpao despachando para UM e recebendo de OUTRO. Enquanto ele so negociava com a
      Caruaru, os dois mapas devolviam o mesmo nome e trocar um pelo outro nao quebrava
@@ -1346,12 +1346,19 @@ async function main() {
           TipoCaixaID: 'T1', Qtd: 60, UsuarioID: 'U1', DataRef: D('2026-09-06') }
       ]
     };
-    const g = F.fluxoPorOrigem(so, DESDE, 90).linhas.filter((l) => l.id === 'G')[0];
-    ok(g.saidaCom.join(',') === 'Leva',
-      'a saída do galpão aponta para quem RECEBEU, não para quem devolveu', g.saidaCom);
-    ok(g.retornoCom.join(',') === 'Traz',
-      'e o retorno aponta para quem DEVOLVEU — os dois lados são mapas diferentes',
-      g.retornoCom);
+    const linhasSo = F.fluxoPorOrigem(so, DESDE, 90).linhas;
+    const g = linhasSo.filter((l) => l.id === 'G')[0];
+    ok(g.origens.join(',') === 'Traz',
+      'a ORIGEM da matriz é quem devolveu para ela', g.origens);
+    ok(g.destinos.join(',') === 'Leva',
+      'e o DESTINO é quem recebeu dela — são dois mapas diferentes', g.destinos);
+    // e nas rotas a mesma regra, cada uma com um lado vazio
+    const a = linhasSo.filter((l) => l.id === 'A')[0];
+    const b = linhasSo.filter((l) => l.id === 'B')[0];
+    ok(a.origens.join(',') === 'Matriz' && a.destinos.length === 0,
+      'quem só recebeu tem origem e não tem destino', [a.origens, a.destinos]);
+    ok(b.destinos.join(',') === 'Matriz' && b.origens.length === 0,
+      'e quem só devolveu tem destino e não tem origem', [b.origens, b.destinos]);
   }
 
   // varias contrapartes: a lista sai em ordem de nome, sem repetir
@@ -1362,8 +1369,8 @@ async function main() {
   cen3.movimentos.push({ Tipo: 'SAIDA', OrigemID: 'F1', DestinoID: 'R1', TipoCaixaID: 'T1',
     Qtd: 10, UsuarioID: 'U1', DataRef: D('2026-09-06') });
   const r1b = F.fluxoPorOrigem(cen3, DESDE, 90).linhas.filter((l) => l.id === 'R1')[0];
-  ok(r1b.saidaCom.join(', ') === 'Filial, Matriz',
-    'duas origens aparecem as duas, em ordem de nome', r1b.saidaCom);
+  ok(r1b.origens.join(', ') === 'Filial, Matriz',
+    'duas origens aparecem as duas, em ordem de nome', r1b.origens);
 
   // A linha da filial nao pode ser escondida pelo filtro de "parado", senao o saldo
   // inicial nao aparece em lugar nenhum.

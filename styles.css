@@ -375,6 +375,9 @@ tr.ruim{background:var(--vermelho-claro)}
 .ret-head .acoes .btn{padding:9px 14px;font-size:13px;min-width:0;white-space:nowrap}
 /* Segunda linha da celula: o tipo do local e a rota que o atende. Sem o block ela
    cola no nome e sai "Joao Pessoarota". */
+/* Texto de apoio dentro de uma celula normal: o travessao do vazio e o "+2" da lista de
+   locais. Mesma cor do .fsub, mas sem virar bloco — ele convive na mesma linha. */
+.fraco{color:var(--txt3)}
 .fsub{display:block;font-size:11.5px;color:var(--txt3);font-weight:400;margin-top:1px}
 /* O detalhe por tipo de caixa numa linha so: com cinco tipos ele mede 328px e obrigava as
    colunas SAIDA e RETORNO a 348px cada — a tabela passava a transbordar a 1.200px. Com
