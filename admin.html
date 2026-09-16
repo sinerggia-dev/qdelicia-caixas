@@ -213,8 +213,11 @@
         <button class="btn" id="btnFiltrarMov" style="flex:0;min-width:140px">Filtrar</button>
         <button class="btn sec" id="btnLimparMov" style="flex:0;min-width:120px">Limpar</button>
         <button class="btn neutro" id="btnCsvMov" style="flex:0;min-width:130px">⬇ CSV</button>
+        <!-- `flex:0 0 auto` e nao `flex:0`: o segundo vale flex-basis:0, entao a largura
+             do botao passa a ser so o min-width e o texto transborda a borda. Com `auto`
+             a base e o proprio conteudo, e o recuo de 20px de cada lado cabe junto. -->
         <button class="btn sec" id="btnLimparTudo" type="button"
-                style="flex:0;min-width:210px;white-space:nowrap;border-color:var(--vermelho);color:var(--vermelho)">
+                style="flex:0 0 auto;white-space:nowrap;border-color:var(--vermelho);color:var(--vermelho)">
           Apagar o que está no filtro
         </button>
       </div>
