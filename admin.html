@@ -165,6 +165,15 @@
             <option value="PERDA">Baixa de perda — some do saldo do cliente</option>
           </select>
         </div>
+        <div>
+          <label for="lcTeste">Lançamento</label>
+          <!-- Rótulos curtos: a coluna do formulário tem ~210px e o texto longo era
+               cortado no meio, o que é pior do que não explicar. -->
+          <select id="lcTeste">
+            <option value="">Real</option>
+            <option value="teste">De teste</option>
+          </select>
+        </div>
         <div><label for="lcData">Data do movimento</label><input id="lcData" type="date"></div>
         <div id="wrapOrigem"><label for="lcOrigem">Origem</label><select id="lcOrigem"></select></div>
         <div id="wrapDestino"><label for="lcDestino">Destino</label><select id="lcDestino"></select></div>
@@ -940,11 +949,14 @@
       itens: itens, dataRef: document.getElementById('lcData').value,
       romaneio: document.getElementById('lcRomaneio').value,
       obs: document.getElementById('lcObs').value,
-      usuarioId: s.id, perfil: 'ESCRITORIO', status:'CONFIRMADO'
+      usuarioId: s.id, perfil: 'ESCRITORIO', status:'CONFIRMADO',
+      teste: document.getElementById('lcTeste').value === 'teste'
     }).then(function(r){
       btn.disabled=false; btn.textContent='Gravar lançamento';
       document.getElementById('lcAviso').innerHTML='<div class="aviso-box '+(r.offline?'atencao':'ok')+'">'+
-        (r.offline?'⏳ Sem conexão — guardado na fila.':'✓ Lançamento de <b>'+total+' caixa(s)</b> gravado.')+'</div>';
+        (r.offline?'⏳ Sem conexão — guardado na fila.'
+          :'✓ Lançamento de <b>'+total+' caixa(s)</b> gravado'+
+           (document.getElementById('lcTeste').value === 'teste' ? ' <b>como teste</b>' : '')+'.')+'</div>';
       (DADOS.tipos||[]).forEach(function(t){ var el=document.getElementById('lc_'+t.ID); if (el) el.value=''; });
       document.getElementById('lcObs').value=''; document.getElementById('lcRomaneio').value='';
       if (!r.offline) carregarPainel();

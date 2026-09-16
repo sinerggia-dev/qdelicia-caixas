@@ -1545,6 +1545,26 @@ async function main() {
       'e a matriz de ensaio continua por último: o peso do teste manda mais', nomes);
   }
 
+
+  console.log('\n== escolher teste no lançamento: sobe, nunca desce ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const base = { tipo: 'AJUSTE', destinoId: 'L1', itens: [{ tipoCaixaId: 'P', qtd: 10 }] };
+    const fazer = (p, ctxTeste) => F.montarMovimento(
+      Object.assign({}, base, p),
+      { movimentos: [], agora: D('2026-09-16'), teste: ctxTeste }).linhas[0].Teste;
+
+    ok(fazer({}, false) === false, 'perfil real, sem pedir nada: lançamento real');
+    ok(fazer({ teste: true }, false) === true,
+      'perfil real pedindo teste: vira teste — é o escritório ensaiando');
+    ok(fazer({ teste: 'true' }, false) === true, 'e aceita a string, que é como o form manda');
+    ok(fazer({}, true) === true, 'perfil de ensaio, sem pedir nada: continua teste');
+    ok(fazer({ teste: false }, true) === true,
+      'perfil de ensaio pedindo REAL: continua teste — o cadastro é o piso e não se rebaixa');
+    ok(fazer({ teste: 'false' }, true) === true, 'nem pela string');
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

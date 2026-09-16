@@ -441,10 +441,12 @@ function montarMovimento(p, ctx) {
       ConferidoPor: status === 'CONFIRMADO' ? (String(p.usuarioId || '') || null) : null,
       Cancelado: false,
       MotivoCancel: null,
-      /* Vem de ctx, que o servidor lê do cadastro do usuário — nunca do payload. Se
-         viesse do celular, um pedido adulterado marcaria lançamento real como teste e
-         ele sumiria do saldo sem deixar rastro. */
-      Teste: ctx.teste === true
+      /* O lançamento pode SUBIR para teste, nunca descer. O ctx vem do cadastro (perfil
+         com "teste" no nome) e é o piso: quem é usuário de ensaio não consegue passar um
+         lançamento por real, nem por engano nem por payload adulterado. Por cima disso, o
+         escritório marca um ajuste como ensaio quando quiser — é o caso de quem tem
+         perfil real e está só experimentando. */
+      Teste: ctx.teste === true || p.teste === true || String(p.teste) === 'true'
     };
     linhas.push(linha);
     proximos.push(linha);
