@@ -198,7 +198,7 @@ var USUARIO = {
       PinProvisorio: r.pin_provisorio === true, SenhaProvisoria: r.senha_provisoria === true,
       AcessoPainel: r.acesso_painel === true, Teste: r.teste === true,
       Saidas: lista(r.saidas), Destinos: lista(r.destinos),
-      TiposCaixa: lista(r.tipos_caixa)
+      TiposCaixa: lista(r.tipos_caixa), Motoristas: lista(r.motoristas)
     };
   },
   para: function (o) {
@@ -219,6 +219,7 @@ var USUARIO = {
     if (o.Teste !== undefined) r.teste = bool(o.Teste);
     if (o.Saidas !== undefined) r.saidas = lista(o.Saidas);
     if (o.TiposCaixa !== undefined) r.tipos_caixa = lista(o.TiposCaixa);
+    if (o.Motoristas !== undefined) r.motoristas = lista(o.Motoristas);
     if (o.Destinos !== undefined) r.destinos = lista(o.Destinos);
     return r;
   }

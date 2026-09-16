@@ -427,8 +427,15 @@
 
   /* Vem da rota `dados`, que traz só id e nome dos ativos: documento de motorista
      não trafega para quem só abriu o endereço do app. */
+  /* A peneira fica na FONTE, e as duas funções abaixo bebem dela. Filtrar em cada uma
+     seria dois lugares para lembrar, e o esquecido ofereceria motorista que a pessoa não
+     pode escolher — o lançamento seria aceito e só o cadastro saberia que está errado. */
+  function meusMotoristas(){
+    return permitidos((DADOS||{}).motoristas || [], 'motoristas');
+  }
+
   function motoristas(){
-    return ((DADOS||{}).motoristas || []).map(function(m){ return m.Nome; });
+    return meusMotoristas().map(function(m){ return m.Nome; });
   }
 
   /* Mesma regra do painel, repetida aqui porque o celular não carrega `_logica.js`:
@@ -436,7 +443,7 @@
      rota nenhuma marcada. Rota sem ninguém atribuído devolve todos — melhor oferecer a
      lista inteira do que travar a saída porque faltou um cadastro. */
   function motoristasDaRota(rotaId, soAtribuidos){
-    var todos = (DADOS||{}).motoristas || [];
+    var todos = meusMotoristas();
     if (!rotaId) return soAtribuidos ? [] : todos.map(function(m){ return m.Nome; });
     var alvo = String(rotaId);
     var atribuidos = todos.filter(function(m){

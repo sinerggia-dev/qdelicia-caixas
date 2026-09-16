@@ -315,7 +315,8 @@ function sessaoDe(u) {
     destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
     // Mesma convenção das outras duas: lista vazia quer dizer TODOS. Inverter isso
     // deixaria toda a operação sem tipo de caixa no dia do deploy.
-    tiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : []
+    tiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
+    motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : []
   };
 }
 

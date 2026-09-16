@@ -1475,6 +1475,22 @@ async function main() {
       'com a lista preenchida, só o que foi marcado');
   }
 
+  console.log('\n== permissão por motorista ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const s1 = F.sessaoDe({ ID: 'U1', Nome: 'A', Perfil: 'Gestor', Motoristas: ['D1', 'D3'] });
+    ok(s1.motoristas.join(',') === 'D1,D3', 'a sessão leva os motoristas permitidos', s1.motoristas);
+
+    const s2 = F.sessaoDe({ ID: 'U2', Nome: 'B', Perfil: 'Gestor' });
+    ok(Array.isArray(s2.motoristas) && s2.motoristas.length === 0,
+      'sem nada marcado vem vazio — que quer dizer TODOS, como nas outras três', s2.motoristas);
+
+    const mot = [{ ID: 'D1', Nome: 'Ana' }, { ID: 'D2', Nome: 'Bia' }, { ID: 'D3', Nome: 'Caio' }];
+    ok(F.locaisPermitidos([], mot).length === 3, 'lista vazia devolve todos');
+    ok(F.locaisPermitidos(['D1', 'D3'], mot).map((m) => m.Nome).join(',') === 'Ana,Caio',
+      'e com a lista preenchida, só os marcados');
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

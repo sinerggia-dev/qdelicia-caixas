@@ -1773,6 +1773,15 @@
      possível. */
   /* Inativo continua aparecendo se já estiver marcado: some da lista sem tirar a marca
      do cadastro, e o administrador não entenderia por que a pessoa ainda vê aquele tipo. */
+  /* Mesma regra dos tipos: inativo continua na lista se já estiver marcado. */
+  function motoristasEscolhiveis(jaMarcados){
+    var marcado = {};
+    (jaMarcados||[]).forEach(function(id){ marcado[String(id)] = true; });
+    return Q.ordenarPorNome(MOTORISTAS.filter(function(m){
+      return Q.ativo(m.Ativo) || marcado[String(m.ID)];
+    }));
+  }
+
   function tiposEscolhiveis(jaMarcados){
     var marcado = {};
     (jaMarcados||[]).forEach(function(id){ marcado[String(id)] = true; });
@@ -1869,6 +1878,9 @@
       caixaLocais('fTiposCaixa', 'Tipo de caixa — o que ela pode informar',
                   tiposEscolhiveis(u.TiposCaixa), u.TiposCaixa,
                   'Nenhum tipo de caixa cadastrado ainda.')+
+      caixaLocais('fMotoristas', 'Motorista — quem ela pode escolher na saída',
+                  motoristasEscolhiveis(u.Motoristas), u.Motoristas,
+                  'Nenhum motorista cadastrado ainda.')+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
         'Nada marcado = a pessoa vê todos. Marque para restringir.</p>'+
       '<h3 style="margin-top:20px">Outros</h3>'+
@@ -1941,7 +1953,7 @@
         Ativo:document.getElementById('fAtivo').value,
         AcessoPainel:document.getElementById('fPainel').value,
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
-        TiposCaixa:lerMarcados('fTiposCaixa') };
+        TiposCaixa:lerMarcados('fTiposCaixa'), Motoristas:lerMarcados('fMotoristas') };
       var pin = document.getElementById('fPin').value.trim();
       if (pin) reg.PIN = pin;
       reg.Email = document.getElementById('fEmail').value.trim();

@@ -157,5 +157,27 @@ console.log('\n== cada seletor usa a lista certa de permissão ==');
     'o cadastro oferece GALPAO na lista de Destino', bloco.slice(0, 120));
 })();
 
+/* ---------------------------------------------------------------------------
+ * A lista de motoristas do app de campo passa por UMA peneira só.
+ *
+ * Se `motoristas()` ou `motoristasDaRota()` lerem DADOS.motoristas direto, a permissão
+ * do cadastro deixa de valer naquele caminho — e a tela oferece um motorista que a
+ * pessoa não pode escolher. O lançamento seria aceito, e só o cadastro saberia que
+ * está errado.
+ * ------------------------------------------------------------------------- */
+console.log('\n== motorista: a permissão é aplicada na fonte ==');
+(function () {
+  var fonte = corpo('meusMotoristas');
+  ok(/permitidos\(/.test(fonte) && /'motoristas'/.test(fonte),
+    'meusMotoristas peneira por permissão');
+
+  ['motoristas', 'motoristasDaRota'].forEach(function (nome) {
+    var c = corpo(nome);
+    ok(c.indexOf('meusMotoristas()') >= 0, nome + ' bebe da peneira');
+    ok(!/DADOS\s*\|\|\s*\{\}\)\.motoristas/.test(c),
+      nome + ' não lê DADOS.motoristas direto, o que puliria a permissão');
+  });
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

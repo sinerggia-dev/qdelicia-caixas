@@ -216,6 +216,11 @@ module.exports = [
     sql: "alter table public.motoristas add column if not exists tipo text not null default '';"
   },
   {
+    id: '2026-09-16-motoristas-por-usuario',
+    nota: 'quais motoristas a pessoa pode escolher; vazio segue querendo dizer TODOS',
+    sql: "alter table public.usuarios add column if not exists motoristas jsonb not null default '[]'::jsonb;"
+  },
+  {
     id: '2026-09-16-tipos-por-usuario',
     nota: 'quais tipos de caixa a pessoa pode lançar; vazio segue querendo dizer TODOS',
     sql: "alter table public.usuarios add column if not exists tipos_caixa jsonb not null default '[]'::jsonb;"
