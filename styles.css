@@ -362,6 +362,12 @@ tr.ruim{background:var(--vermelho-claro)}
   .ret-head .acoes{margin-left:0;width:100%}
 }
 
+/* ---------- recorte de lançamentos de teste ---------- */
+.barra-teste{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+.barra-teste label{margin:0;font-size:12.5px}
+.barra-teste .dica{font-size:12px;color:var(--txt3);flex:1 1 260px;min-width:0}
+.sel-teste{width:auto;min-width:180px;padding:7px 10px;font-size:13px}
+
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}
   body{background:#fff}

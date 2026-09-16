@@ -1303,7 +1303,7 @@ async function main() {
   }
 
 
-  console.log('\n== base de teste: o ensaio não encosta no saldo ==');
+  console.log('\n== base de teste: perfil com "teste" no nome ==');
   {
     const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
     const D = (iso) => new Date(iso + 'T00:00:00');
@@ -1312,74 +1312,80 @@ async function main() {
       { ID: 'R1', Nome: 'Caruaru', Tipo: 'ROTA' }
     ];
     const tipos = [{ ID: 'P', Nome: 'CX P' }];
-    const users = [{ ID: 'U1', Nome: 'Real' }, { ID: 'U2', Nome: 'Ensaio', Teste: true }];
+    const users = [{ ID: 'U1', Nome: 'Real', Perfil: 'Motorista' },
+                   { ID: 'U2', Nome: 'Ensaio', Perfil: 'Motorista Teste' }];
+
+    ok(F.ehPerfilTeste('Teste') && F.ehPerfilTeste('Motorista Teste') &&
+       F.ehPerfilTeste('Conferente de teste') && F.ehPerfilTeste('TESTE'),
+      'qualquer perfil com "teste" no nome conta como ensaio, em qualquer caixa');
+    ok(!F.ehPerfilTeste('Motorista') && !F.ehPerfilTeste('Gestor') && !F.ehPerfilTeste(''),
+      'e os demais não');
+
     const mv = (id, teste, tipo, qtd, dia) => ({
       ID: id, Tipo: tipo, OrigemID: tipo === 'SAIDA' ? 'G1' : 'R1',
       DestinoID: tipo === 'SAIDA' ? 'R1' : 'G1', TipoCaixaID: 'P', Qtd: qtd,
       Status: 'CONFIRMADO', UsuarioID: teste ? 'U2' : 'U1', Teste: teste,
+      Perfil: teste ? 'Motorista Teste' : 'Motorista',
       DataRef: D(dia), DataHora: D(dia)
     });
     const movs = [
-      mv('S1', false, 'SAIDA', 100, '2026-09-02'),      // real
-      mv('T1', true,  'SAIDA', 900, '2026-09-03'),      // ensaio
-      // Volta MENOS do que saiu de propósito: com 900 saindo e 900 voltando, o ensaio se
-      // anulava no saldo e o teste passaria mesmo com o vazamento. Descobri isso
-      // reintroduzindo o defeito — as duas primeiras verificações não acusaram.
-      mv('T2', true,  'DEVOLUCAO', 400, '2026-09-04')   // ensaio volta em parte
+      mv('S1', false, 'SAIDA', 100, '2026-09-02'),
+      mv('T1', true,  'SAIDA', 900, '2026-09-03'),
+      mv('T2', true,  'DEVOLUCAO', 400, '2026-09-04')
     ];
 
-    // 1) o saldo ignora o ensaio por completo
+    // 1) o ensaio CONTA, como qualquer outro lançamento
     const sal = F.saldos(movs);
-    ok(sal.R1.P === 100, 'a rota fica com as 100 reais, não com as 1.000', sal.R1);
-    ok(sal.G1.P === -100, 'e o galpão baixa só as 100 reais', sal.G1);
+    ok(sal.R1.P === 600, 'o ensaio entra no saldo: 100 + 900 - 400', sal.R1);
 
-    // 2) o painel idem
-    const p = F.painel({ locais: locais, tipos: tipos, movimentos: movs, usuarios: users,
-                         config: {} }, D('2026-09-20'));
-    ok(p.kpis.saidasMes === 100, 'KPI de saídas do mês ignora o ensaio', p.kpis.saidasMes);
-    ok(p.kpis.devolucoesMes === 0, 'e o de devoluções também', p.kpis.devolucoesMes);
-    const rota = p.rotas.filter((r) => r.id === 'R1')[0];
-    ok(rota.saldo === 100, 'o quadro de rotas também', rota.saldo);
+    const p = F.painel({ locais, tipos, movimentos: movs, usuarios: users, config: {} },
+      D('2026-09-20'));
+    ok(p.kpis.saidasMes === 1000, 'e nos KPIs do painel também', p.kpis.saidasMes);
 
-    // 3) o fluxo do Painel de Ativos idem
-    const f = F.fluxoPorOrigem({ locais: locais, tipos: tipos, movimentos: movs, usuarios: users },
-      D('2026-09-01'), 90);
-    const lr = f.linhas.filter((l) => l.id === 'R1')[0];
-    ok(lr.saida === 100 && lr.retorno === 0,
-      'saída e retorno do painel de ativos ignoram o ensaio', lr);
+    // 2) o recorte separa quando se quer, sem mexer no que foi gravado
+    const so = (modo) => F.saldos(F.recorteTeste({ movimentos: movs }, modo).movimentos);
+    ok(so('reais').R1.P === 100, 'recorte "reais" deixa só a operação', so('reais').R1);
+    ok(so('teste').R1.P === 500, 'recorte "teste" deixa só o ensaio: 900 - 400', so('teste').R1);
+    ok(so('todos').R1.P === 600, '"todos" é o padrão e soma os dois', so('todos').R1);
+    ok(F.recorteTeste({ movimentos: movs }, 'todos').movimentos.length === 3,
+      'o recorte não altera nada no banco — só peneira a leitura');
 
-    // 4) mas a tela de Movimentos consegue ver os dois mundos
+    // 3) o painel aceita o recorte pela mesma porta
+    const pr = F.painel(F.recorteTeste({ locais, tipos, movimentos: movs, usuarios: users,
+      config: {} }, 'reais'), D('2026-09-20'));
+    ok(pr.kpis.saidasMes === 100, 'o painel recortado em "reais" ignora o ensaio', pr.kpis.saidasMes);
+
+    // 4) a lista de Movimentos: padrão passa a ser TODOS
     const idsDe = (q) => F.listaMovimentos(movs, locais, tipos, users, q).map((m) => m.id).sort().join(',');
-    ok(idsDe({}) === 'S1', 'sem escolher nada, a lista mostra só os reais', idsDe({}));
-    ok(idsDe({ teste: 'teste' }) === 'T1,T2', '"de teste" mostra só o ensaio', idsDe({ teste: 'teste' }));
-    ok(idsDe({ teste: 'todos' }) === 'S1,T1,T2', '"todos" mistura os dois', idsDe({ teste: 'todos' }));
+    ok(idsDe({}) === 'S1,T1,T2', 'sem escolher nada, a lista mostra tudo', idsDe({}));
+    ok(idsDe({ teste: 'reais' }) === 'S1', '"reais" tira o ensaio', idsDe({ teste: 'reais' }));
+    ok(idsDe({ teste: 'teste' }) === 'T1,T2', '"de teste" deixa só o ensaio', idsDe({ teste: 'teste' }));
 
     const linhaT = F.listaMovimentos(movs, locais, tipos, users, { teste: 'teste' })[0];
     ok(linhaT.teste === true, 'a linha avisa que é de teste, para a tela poder marcar');
 
-    // 5) o ciclo da carga não mistura os mundos: devolução de ensaio não quita remessa real
-    const soReal = [mv('S1', false, 'SAIDA', 100, '2026-09-02'),
-                    mv('T2', true, 'DEVOLUCAO', 100, '2026-09-04')];
-    const sit = {};
-    F.listaMovimentos(soReal, locais, tipos, users, { teste: 'todos' })
-      .forEach((m) => { sit[m.id] = m.situacao; });
-    ok(sit.S1 === 'Enviada',
-      'devolução de ensaio NÃO quita a remessa real — senão o Status mentiria', sit);
+    // 5) linha antiga, gravada antes da coluna existir: o perfil guardado ainda a classifica
+    const antiga = { ID: 'A1', Tipo: 'SAIDA', OrigemID: 'G1', DestinoID: 'R1', TipoCaixaID: 'P',
+      Qtd: 7, Status: 'CONFIRMADO', UsuarioID: 'U2', Perfil: 'Motorista Teste',
+      DataRef: D('2026-09-05'), DataHora: D('2026-09-05') };
+    ok(F.lancamentoDeTeste(antiga) === true,
+      'sem a coluna Teste, o perfil gravado na linha ainda a classifica', antiga.Perfil);
 
-    // 6) o movimento nasce marcado a partir do ctx, nunca do payload
+    // 6) o ciclo da carga não mistura os mundos
+    const cruzado = [mv('S1', false, 'SAIDA', 100, '2026-09-02'),
+                     mv('T9', true, 'DEVOLUCAO', 100, '2026-09-04')];
+    const sit = {};
+    F.listaMovimentos(cruzado, locais, tipos, users, {}).forEach((m) => { sit[m.id] = m.situacao; });
+    ok(sit.S1 === 'Enviada',
+      'devolução de ensaio não quita remessa real — senão o Status mentiria', sit);
+
+    // 7) a classificação vem do servidor, não do payload
     const r1 = F.montarMovimento(
-      { tipo: 'SAIDA', origemId: 'G1', destinoId: 'R1', usuarioId: 'U2', Teste: false,
+      { tipo: 'SAIDA', origemId: 'G1', destinoId: 'R1', usuarioId: 'U2', perfil: 'Motorista',
         itens: [{ tipoCaixaId: 'P', qtd: 5 }] },
       { movimentos: [], agora: D('2026-09-05'), teste: true });
     ok(r1.ok && r1.linhas[0].Teste === true,
-      'vale o ctx do servidor, e o payload dizendo o contrário é ignorado', r1.linhas[0].Teste);
-
-    const r2 = F.montarMovimento(
-      { tipo: 'SAIDA', origemId: 'G1', destinoId: 'R1', usuarioId: 'U1', Teste: true,
-        itens: [{ tipoCaixaId: 'P', qtd: 5 }] },
-      { movimentos: [], agora: D('2026-09-05') });
-    ok(r2.ok && r2.linhas[0].Teste === false,
-      'e sem ctx o lançamento é real, ainda que o payload peça teste', r2.linhas[0].Teste);
+      'vale o ctx do servidor, e o perfil do payload não muda a classificação', r1.linhas[0].Teste);
   }
 
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');

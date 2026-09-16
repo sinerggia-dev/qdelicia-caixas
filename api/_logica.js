@@ -198,22 +198,42 @@ function ativo(v) {
 }
 
 /** Movimentos que valem: cancelado não conta para nada. */
-/* Duas peneiras, e a diferença entre elas é o ponto inteiro da base de teste.
-
-   `ativos` é por onde passa TUDO que conta — saldo, aging, painel, extrato, fluxo. Ele
-   tira o cancelado e tira o ensaio. Foi feito assim de propósito: um único funil, em vez
-   de lembrar de filtrar teste em cada conta nova. Esquecer de filtrar em um lugar só já
-   bastaria para o ensaio contaminar o saldo real, e ninguém perceberia — o número
-   simplesmente ficaria errado.
-
-   `naoCancelados` é para quem PRECISA enxergar o ensaio: a tela de Movimentos, que
-   mostra os dois mundos, e o cálculo do ciclo da carga. */
-function naoCancelados(movimentos) {
+function ativos(movimentos) {
   return movimentos.filter(function (m) { return !m.Cancelado; });
 }
 
-function ativos(movimentos) {
-  return naoCancelados(movimentos).filter(function (m) { return !m.Teste; });
+/* `naoCancelados` é o mesmo que `ativos`. Ficou como apelido porque o ciclo da carga e a
+   lista de Movimentos o nomeiam, e o nome diz o que eles querem: a peneira do cancelado,
+   sem promessa nenhuma sobre ensaio. */
+var naoCancelados = ativos;
+
+/* Lançamento de teste é o de quem tem "teste" no perfil — decisão do usuário: o perfil é
+   texto livre, então "Teste", "Motorista Teste" e "Conferente de teste" entram todos, sem
+   precisar de uma chave separada no cadastro para manter em dia.
+
+   Ele CONTA em tudo, como qualquer outro: saldo, aging, painel, extrato. A separação é um
+   filtro de leitura, não uma exclusão. `Teste` do movimento é o que o servidor gravou no
+   lançamento; o perfil guardado na linha cobre o que veio antes desta coluna existir. */
+function ehPerfilTeste(perfil) {
+  return /teste/i.test(String(perfil == null ? '' : perfil));
+}
+
+function lancamentoDeTeste(m) {
+  return m.Teste === true || ehPerfilTeste(m.Perfil);
+}
+
+/* Recorte para os painéis: 'todos' (padrão), 'reais' ou 'teste'. Devolve uma cópia rasa
+   com os movimentos peneirados — assim `painel()` e companhia não precisam saber que o
+   recorte existe. */
+function recorteTeste(dados, modo) {
+  var m = String(modo || 'todos');
+  if (m !== 'reais' && m !== 'teste') return dados;
+  var copia = {};
+  Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
+  copia.movimentos = (dados.movimentos || []).filter(function (x) {
+    return m === 'teste' ? lancamentoDeTeste(x) : !lancamentoDeTeste(x);
+  });
+  return copia;
 }
 
 function novoId(prefixo, existentes) {
@@ -640,10 +660,10 @@ function cicloDaCarga(movimentos) {
   /* O ensaio entra na chave: sem isso uma devolução de teste quitaria uma remessa real,
      e a coluna Status passaria a mentir sobre carga que nunca voltou. */
   function chaveDestino(m) {
-    return String(m.DestinoID) + '|' + String(m.TipoCaixaID) + '|' + (m.Teste ? 'T' : 'R');
+    return String(m.DestinoID) + '|' + String(m.TipoCaixaID) + '|' + (lancamentoDeTeste(m) ? 'T' : 'R');
   }
   function chaveOrigem(m) {
-    return String(m.OrigemID) + '|' + String(m.TipoCaixaID) + '|' + (m.Teste ? 'T' : 'R');
+    return String(m.OrigemID) + '|' + String(m.TipoCaixaID) + '|' + (lancamentoDeTeste(m) ? 'T' : 'R');
   }
 
   naoCancelados(movimentos).slice().sort(function (a, b) {
@@ -705,13 +725,13 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
   // devolvida aparecer como "Enviada" só porque o filtro cortou a devolução.
   var ciclo = cicloDaCarga(movimentos);
 
-  /* 'reais' (padrão) esconde o ensaio, 'teste' mostra só ele, 'todos' mistura. O padrão
-     é esconder: quem abre a tela quer ver a operação, não o que foi ensaiado. */
-  var recorte = String(p.teste || 'reais');
+  /* 'todos' é o padrão porque o ensaio agora conta em tudo: esconder por omissão faria a
+     tela mostrar menos do que o saldo soma. 'reais' e 'teste' separam quando se quer. */
+  var recorte = String(p.teste || 'todos');
 
   return naoCancelados(movimentos).filter(function (m) {
-    if (recorte === 'reais' && m.Teste) return false;
-    if (recorte === 'teste' && !m.Teste) return false;
+    if (recorte === 'reais' && lancamentoDeTeste(m)) return false;
+    if (recorte === 'teste' && !lancamentoDeTeste(m)) return false;
     if (de && m.DataRef < de) return false;
     if (ate && m.DataRef > ate) return false;
     if (p.local && String(m.OrigemID) !== String(p.local) && String(m.DestinoID) !== String(p.local)) return false;
@@ -732,7 +752,7 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       qtdConferida: temConf ? m.QtdConferida : '',
       divergencia: (m.Status === 'CONFIRMADO' && temConf) ? Number(m.QtdConferida) - Number(m.Qtd) : '',
       status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID), perfil: m.Perfil,
-      teste: m.Teste === true,
+      teste: lancamentoDeTeste(m),
       situacao: rotuloCiclo(m, ciclo[m.ID]),
       devolvido: ciclo[m.ID] ? ciclo[m.ID].devolvido : null,
       motorista: m.Motorista || '', rota: m.Rota || '',
@@ -1168,7 +1188,8 @@ module.exports = {
   rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,
   motoristasPublicos: motoristasPublicos, cnhVencida: cnhVencida,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
-  mapaNomes: mapaNomes, nome: nome, ativos: ativos, naoCancelados: naoCancelados, ativo: ativo, novoId: novoId, novoToken: novoToken,
+  mapaNomes: mapaNomes, nome: nome, ativos: ativos, naoCancelados: naoCancelados,
+  ehPerfilTeste: ehPerfilTeste, lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,
   cicloDaCarga: cicloDaCarga, rotuloCiclo: rotuloCiclo,

@@ -98,7 +98,7 @@ async function rotaGet(p) {
                locaisPadrao: d.locaisPadrao, pedidosSenha: d.pedidosSenha,
                perfis: L.perfisConhecidos(d.usuarios) };
     case 'painel':
-      return { ok: true, painel: L.painel(d) };
+      return { ok: true, painel: L.painel(L.recorteTeste(d, p.teste)) };
     case 'pendentes':
       return { ok: true, movimentos: L.pendentes(d.movimentos, d.locais, d.tipos) };
     case 'movimentos':
@@ -158,15 +158,15 @@ async function gravarMovimento(p) {
   var assinaturaUrl = p.assinatura ? await db.subirArquivo('canhoto-' + selo + '.png', p.assinatura, 'image/png') : '';
   var fotoUrl = p.foto ? await db.subirArquivo('foto-' + selo + '.jpg', p.foto, 'image/jpeg') : '';
 
-  /* A marca de teste sai do CADASTRO do usuário, aqui no servidor. Se viesse no payload,
-     um pedido adulterado marcaria lançamento real como teste — e ele sumiria do saldo
-     sem deixar rastro, porque `ativos()` ignora teste em todas as contas. */
+  /* Teste é o perfil com "teste" no nome, lido do CADASTRO aqui no servidor e não do
+     payload: o celular manda o perfil junto, e um pedido adulterado classificaria errado.
+     Hoje isso só muda o lado do filtro — o lançamento conta de qualquer jeito. */
   var quem = d.usuarios.filter(function (u) { return String(u.ID) === String(p.usuarioId || ''); })[0];
 
   var r = L.montarMovimento(p, {
     movimentos: d.movimentos,
     agora: agora,
-    teste: !!(quem && quem.Teste),
+    teste: L.ehPerfilTeste(quem && quem.Perfil),
     clientKeysExistentes: existentes,
     assinaturaUrl: assinaturaUrl,
     fotoUrl: fotoUrl
