@@ -187,32 +187,6 @@
       <div id="lcAviso"></div>
     </div>
 
-    <div class="card" style="border-left:3px solid var(--vermelho)">
-      <h2>Apagar lançamentos<span class="sub">Escolha o que sai. Deixar tudo em branco apaga a base inteira. Não tem volta: não existe cópia destes registros.</span></h2>
-      <div class="grid2">
-        <div><label for="exUsuario">Quem lançou</label><select id="exUsuario"><option value="">Todos</option></select></div>
-        <div><label for="exOrigem">Origem</label><select id="exOrigem"></select></div>
-        <div><label for="exDestino">Destino</label><select id="exDestino"></select></div>
-        <div><label for="exTipo">Tipo</label><select id="exTipo">
-          <option value="">Todos</option><option value="SAIDA">Saída</option><option value="DEVOLUCAO">Retorno</option>
-          <option value="TRANSFERENCIA">Transferência</option><option value="PERDA">Perda</option><option value="AJUSTE">Ajuste</option>
-        </select></div>
-        <div><label for="exLanc">Lançamentos</label><select id="exLanc">
-          <option value="todos">Reais e de teste</option>
-          <option value="reais">Só reais</option>
-          <option value="teste">Só de teste</option>
-        </select></div>
-        <div><label for="exDe">De</label><input id="exDe" type="date"></div>
-        <div><label for="exAte">Até</label><input id="exAte" type="date"></div>
-      </div>
-      <div class="linha-btn">
-        <button class="btn sec" id="btnLimparTudo" type="button"
-                style="flex:0;min-width:250px;white-space:nowrap;border-color:var(--vermelho);color:var(--vermelho)">
-          Ver o que será apagado
-        </button>
-      </div>
-      <div id="limparAviso"></div>
-    </div>
   </section>
 
   <!-- ---------- MOVIMENTOS ---------- -->
@@ -221,6 +195,8 @@
       <h2>Movimentos<span class="sub">Tudo que foi lançado, por qualquer usuário. Divergência = contado na chegada menos declarado no cliente.</span></h2>
       <div class="grid2">
         <div><label for="mvLocal">Local</label><select id="mvLocal"></select></div>
+        <div><label for="mvOrigem">Origem</label><select id="mvOrigem"></select></div>
+        <div><label for="mvDestino">Destino</label><select id="mvDestino"></select></div>
         <div><label for="mvTipo">Tipo</label><select id="mvTipo">
           <option value="">Todos</option><option value="SAIDA">Saída</option><option value="DEVOLUCAO">Retorno</option>
           <option value="TRANSFERENCIA">Transferência</option><option value="PERDA">Perda</option><option value="AJUSTE">Ajuste</option>
@@ -238,7 +214,12 @@
         <button class="btn" id="btnFiltrarMov" style="flex:0;min-width:140px">Filtrar</button>
         <button class="btn sec" id="btnLimparMov" style="flex:0;min-width:120px">Limpar</button>
         <button class="btn neutro" id="btnCsvMov" style="flex:0;min-width:130px">⬇ CSV</button>
+        <button class="btn sec" id="btnLimparTudo" type="button"
+                style="flex:0;min-width:210px;white-space:nowrap;border-color:var(--vermelho);color:var(--vermelho)">
+          Apagar o que está no filtro
+        </button>
       </div>
+      <div id="limparAviso"></div>
       <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
     </div>
   </section>
@@ -466,7 +447,7 @@
       }).join('');
     /* Os dois seletores de "quem lancou": o do filtro de Movimentos e o do cartao de
        apagar. Montar num lugar so evita que um ganhe gente que o outro nao tem. */
-    ['mvUsuario', 'exUsuario'].forEach(function(id){
+    ['mvUsuario'].forEach(function(id){
       var sel = document.getElementById(id);
       if (!sel) return;
       var atual = sel.value;
@@ -544,8 +525,8 @@
     document.getElementById('mvLocal').innerHTML = opcoes(todosLocais, 'Todos');
     // Os dois do cartao de apagar. "Todas/Todos" e nao "Selecione...": em branco quer
     // dizer "nao filtra por isto", e "Selecione..." sugeriria que falta escolher.
-    document.getElementById('exOrigem').innerHTML = opcoes(todosLocais, 'Todas');
-    document.getElementById('exDestino').innerHTML = opcoes(todosLocais, 'Todos');
+    document.getElementById('mvOrigem').innerHTML = opcoes(todosLocais, 'Todas');
+    document.getElementById('mvDestino').innerHTML = opcoes(todosLocais, 'Todos');
     document.getElementById('lcItens').innerHTML = (DADOS.tipos||[]).map(function(t){
       return '<div class="item"><div class="nome">'+Q.esc(t.Nome)+'</div><div class="stepper">'+
         '<input id="lc_'+t.ID+'" type="number" inputmode="numeric" placeholder="0"></div></div>';
@@ -1002,6 +983,11 @@
       '<div class="aviso-box erro" style="margin-bottom:0">' +
         '<b>Apagar ' + Q.num(n) + ' lançamento(s)?</b> Vão sair os ' + descreveFiltro(limparFiltro) +
         '. Não há volta — não existe cópia destes registros.' +
+        /* A tabela mostra no máximo 500 linhas, mas o filtro pode casar com muito mais, e
+           é o filtro que manda na hora de apagar. Dizer isso aqui evita a conta errada de
+           "vi 500, então são 500". */
+        (n > 500 ? ' <b>Atenção:</b> a tabela mostra só os 500 mais recentes — o filtro '+
+                   'casa com ' + Q.num(n) + ', e todos eles saem.' : '') +
       '</div>' +
       '<div class="grid2" style="margin-top:10px">' +
         '<div><label for="limparDito">Escreva <b>' + n + '</b> para confirmar</label>' +
@@ -1055,15 +1041,18 @@
   /* O filtro é montado UMA vez e mandado tanto para contar quanto para apagar. Montar
      duas vezes convidaria as duas chamadas a divergirem — e aí a pessoa confirma um
      número e o servidor apaga outro conjunto. */
+  /* Le os MESMOS campos que montam a lista. Assim o que se apaga e exatamente o que
+     esta na tela — nao ha um segundo formulario para divergir do primeiro. */
   function filtroExclusao(){
     return {
-      usuario: document.getElementById('exUsuario').value,
-      origem:  document.getElementById('exOrigem').value,
-      destino: document.getElementById('exDestino').value,
-      tipo:    document.getElementById('exTipo').value,
-      teste:   document.getElementById('exLanc').value,
-      de:      document.getElementById('exDe').value,
-      ate:     document.getElementById('exAte').value
+      local:   document.getElementById('mvLocal').value,
+      origem:  document.getElementById('mvOrigem').value,
+      destino: document.getElementById('mvDestino').value,
+      tipo:    document.getElementById('mvTipo').value,
+      usuario: document.getElementById('mvUsuario').value,
+      teste:   document.getElementById('mvTeste').value,
+      de:      document.getElementById('mvDe').value,
+      ate:     document.getElementById('mvAte').value
     };
   }
 
@@ -1077,6 +1066,7 @@
       return u ? u.Nome : id;
     }
     var p = [];
+    if (f.local)   p.push('que passaram por <b>'+Q.esc(nomeLocal(f.local))+'</b>');
     if (f.usuario) p.push('lançados por <b>'+Q.esc(nomeUser(f.usuario))+'</b>');
     if (f.origem)  p.push('com origem <b>'+Q.esc(nomeLocal(f.origem))+'</b>');
     if (f.destino) p.push('com destino <b>'+Q.esc(nomeLocal(f.destino))+'</b>');
@@ -1110,7 +1100,7 @@
   /* Os cinco campos recarregam sozinhos ao mudar. Antes só o botão Filtrar disparava a
      busca: a pessoa trocava o Tipo, a tabela continuava igual, e a conclusão natural era
      que o filtro não funcionava. O botão fica como recarregar. */
-  ['mvLocal', 'mvTipo', 'mvUsuario', 'mvTeste', 'mvDe', 'mvAte'].forEach(function(id){
+  ['mvLocal', 'mvOrigem', 'mvDestino', 'mvTipo', 'mvUsuario', 'mvTeste', 'mvDe', 'mvAte'].forEach(function(id){
     document.getElementById(id).addEventListener('change', carregarMovimentos);
   });
 
@@ -1122,6 +1112,8 @@
   }
   document.getElementById('btnLimparMov').addEventListener('click', function(){
     document.getElementById('mvLocal').value = '';
+    document.getElementById('mvOrigem').value = '';
+    document.getElementById('mvDestino').value = '';
     document.getElementById('mvTipo').value = '';
     document.getElementById('mvUsuario').value = '';
     document.getElementById('mvTeste').value = 'todos';
@@ -1131,10 +1123,10 @@
   function carregarMovimentos(){
     var box = document.getElementById('tabelaMov');
     box.innerHTML = '<div class="vazio">Carregando…</div>';
-    Q.get({acao:'movimentos', local:document.getElementById('mvLocal').value, tipo:document.getElementById('mvTipo').value,
-           usuario:document.getElementById('mvUsuario').value,
-           teste:document.getElementById('mvTeste').value,
-           de:document.getElementById('mvDe').value, ate:document.getElementById('mvAte').value, limit:500})
+    var f = filtroExclusao();   // o mesmo recorte que a lista, o CSV e o apagar usam
+    Q.get({acao:'movimentos', local:f.local, origem:f.origem, destino:f.destino,
+           tipo:f.tipo, usuario:f.usuario, teste:f.teste,
+           de:f.de, ate:f.ate, limit:500})
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
         MOVS = r.movimentos;
