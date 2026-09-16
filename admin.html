@@ -908,36 +908,75 @@
   });
 
   /* ---------------- movimentos ---------------- */
-  /* Pede o número de lançamentos escrito à mão. Confirmar no "sim" seria fácil demais
-     para algo sem volta, e escrever o número obriga a olhar quantos são. O servidor
-     recusa se esse número não bater com o que está lá na hora: entre abrir a tela e
-     confirmar, alguém no campo pode ter lançado, e esse lançamento novo iria junto sem
-     ninguém ver. */
-  var NL = String.fromCharCode(10);
+  /* Confirmação DENTRO da página, não no prompt do navegador.
+     O prompt tapa a tela justamente enquanto a pessoa precisa ler quantos lançamentos
+     são, e não sobra onde dizer qual era o número certo quando ela erra. Aqui o número
+     fica ao lado do campo o tempo todo. É a mesma razão que já tinha tirado o confirm()
+     do navegador deste projeto. */
+  var limparN = 0;
+  function mostrarConfirmLimpar(n){
+    limparN = n;
+    document.getElementById('limparAviso').innerHTML =
+      '<div class="aviso-box erro" style="margin-bottom:0">' +
+        '<b>Apagar ' + Q.num(n) + ' lançamento(s)?</b> Isto apaga saídas, retornos, perdas e ' +
+        'ajustes. O saldo volta a zero e não há volta — não existe cópia destes registros.' +
+      '</div>' +
+      '<div class="grid2" style="margin-top:10px">' +
+        '<div><label for="limparDito">Escreva <b>' + n + '</b> para confirmar</label>' +
+        '<input type="text" id="limparDito" inputmode="numeric" autocomplete="off" ' +
+        'placeholder="' + n + '"></div>' +
+      '</div>' +
+      '<div class="linha-btn">' +
+        '<button class="btn" id="limparConfirmar" type="button" style="flex:0;min-width:200px;' +
+        'background:var(--vermelho);color:#2a0f0d">Apagar os ' + Q.num(n) + '</button>' +
+        '<button class="btn neutro" id="limparCancelar" type="button" style="flex:0;min-width:130px">Cancelar</button>' +
+      '</div>' +
+      '<div id="limparResultado"></div>';
+
+    document.getElementById('limparDito').focus();
+    document.getElementById('limparCancelar').addEventListener('click', function(){
+      document.getElementById('limparAviso').innerHTML = '';
+    });
+    document.getElementById('limparConfirmar').addEventListener('click', confirmarLimpeza);
+    document.getElementById('limparDito').addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter') confirmarLimpeza();
+    });
+  }
+
+  function confirmarLimpeza(){
+    var res = document.getElementById('limparResultado');
+    var dito = String(document.getElementById('limparDito').value || '').trim();
+    if (dito !== String(limparN)){
+      // Diz qual era o número. "Não confere" sozinho deixa a pessoa tentando adivinhar.
+      res.innerHTML = '<div class="aviso-box erro">Você escreveu "' + Q.esc(dito) +
+        '". O número é <b>' + limparN + '</b>. Nada foi apagado.</div>';
+      return;
+    }
+    var b = document.getElementById('limparConfirmar');
+    b.disabled = true; b.textContent = 'Apagando…';
+    Q.post({acao:'limparMovimentos', esperado:limparN, usuarioId:Q.sessao().id}).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      document.getElementById('limparAviso').innerHTML =
+        '<div class="aviso-box ok">' + Q.num(r.apagados) +
+        ' lançamento(s) apagado(s). O saldo está zerado.</div>';
+      Q.toast('Base zerada.','ok');
+      carregarPainel();
+      if (MOVS.length) carregarMovimentos();
+    }).catch(function(e){
+      b.disabled = false; b.textContent = 'Apagar os ' + Q.num(limparN);
+      res.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
+    });
+  }
+
   document.getElementById('btnLimparTudo').addEventListener('click', function(){
     var aviso = document.getElementById('limparAviso');
-    aviso.innerHTML = '';
+    aviso.innerHTML = '<div class="aviso-box info">Conferindo quantos lançamentos existem…</div>';
+    // Conta na hora do clique: o número tem de ser o de agora, não o de quando a tela abriu.
     Q.get({acao:'movimentos', limit:9999}).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       var n = (r.movimentos||[]).length;
       if (!n){ aviso.innerHTML = '<div class="aviso-box ok">Não há lançamento para apagar.</div>'; return; }
-      var dito = prompt('APAGAR os ' + n + ' lançamentos já enviados.' + NL + NL +
-        'Isto apaga saídas, retornos, perdas e ajustes. O saldo volta a zero e não há ' +
-        'volta — não existe cópia destes registros.' + NL + NL +
-        'Escreva ' + n + ' para confirmar:');
-      if (dito === null) return;
-      if (String(dito).trim() !== String(n)){
-        aviso.innerHTML = '<div class="aviso-box erro">Número não confere — nada foi apagado.</div>';
-        return;
-      }
-      return Q.post({acao:'limparMovimentos', esperado:n, usuarioId:Q.sessao().id}).then(function(r2){
-        if (!r2.ok) throw new Error(r2.erro);
-        aviso.innerHTML = '<div class="aviso-box ok">' + Q.num(r2.apagados) +
-          ' lançamento(s) apagado(s). O saldo está zerado.</div>';
-        Q.toast('Base zerada.','ok');
-        carregarPainel();
-        if (MOVS.length) carregarMovimentos();
-      });
+      mostrarConfirmLimpar(n);
     }).catch(function(e){
       aviso.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
     });
