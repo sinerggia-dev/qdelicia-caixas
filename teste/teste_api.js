@@ -1318,6 +1318,53 @@ async function main() {
   ok(F.fluxoPorOrigem(cen, DESDE, 90).totais.linhas === 1,
     'mas o galpão fica fora dos totais: ele é a outra ponta do mesmo fato');
 
+  /* A outra ponta de cada numero. As duas linhas contam o MESMO fato espelhado: o que
+     para a rota chegou "de Matriz", para a matriz saiu "para Caruaru". Sem isso a coluna
+     mostra um nome so e nao da para saber de que lado ele esta. */
+  ok(por.R1.saidaCom.join(',') === 'Matriz' && por.R1.retornoCom.join(',') === 'Matriz',
+    'na rota: a saída veio de alguém e o retorno foi para alguém', por.R1);
+  ok(por.L1.saidaCom.join(',') === 'Caruaru' && por.L1.retornoCom.join(',') === 'Caruaru',
+    'no galpão os dois lados invertem: saiu PARA a rota, voltou DA rota', por.L1);
+  ok(por.F1.saidaCom.length === 0 && por.F1.retornoCom.length === 0,
+    'sem movimento não há outra ponta — e não um nome inventado', por.F1);
+
+  /* O galpao despachando para UM e recebendo de OUTRO. Enquanto ele so negociava com a
+     Caruaru, os dois mapas devolviam o mesmo nome e trocar um pelo outro nao quebrava
+     nada — o teste passava sem testar. */
+  {
+    const so = {
+      config: {}, tipos: cen.tipos, usuarios: cen.usuarios,
+      locais: [
+        { ID: 'G', Nome: 'Matriz', Tipo: 'GALPAO' },
+        { ID: 'A', Nome: 'Leva', Tipo: 'ROTA' },
+        { ID: 'B', Nome: 'Traz', Tipo: 'ROTA' }
+      ],
+      movimentos: [
+        { Tipo: 'SAIDA', OrigemID: 'G', DestinoID: 'A', TipoCaixaID: 'T1', Qtd: 100,
+          UsuarioID: 'U1', DataRef: D('2026-09-05') },
+        { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'B', DestinoID: 'G',
+          TipoCaixaID: 'T1', Qtd: 60, UsuarioID: 'U1', DataRef: D('2026-09-06') }
+      ]
+    };
+    const g = F.fluxoPorOrigem(so, DESDE, 90).linhas.filter((l) => l.id === 'G')[0];
+    ok(g.saidaCom.join(',') === 'Leva',
+      'a saída do galpão aponta para quem RECEBEU, não para quem devolveu', g.saidaCom);
+    ok(g.retornoCom.join(',') === 'Traz',
+      'e o retorno aponta para quem DEVOLVEU — os dois lados são mapas diferentes',
+      g.retornoCom);
+  }
+
+  // varias contrapartes: a lista sai em ordem de nome, sem repetir
+  const cen3 = JSON.parse(JSON.stringify(cen));
+  cen3.movimentos.forEach((m) => {
+    if (m.DataRef) m.DataRef = new Date(m.DataRef);
+  });
+  cen3.movimentos.push({ Tipo: 'SAIDA', OrigemID: 'F1', DestinoID: 'R1', TipoCaixaID: 'T1',
+    Qtd: 10, UsuarioID: 'U1', DataRef: D('2026-09-06') });
+  const r1b = F.fluxoPorOrigem(cen3, DESDE, 90).linhas.filter((l) => l.id === 'R1')[0];
+  ok(r1b.saidaCom.join(', ') === 'Filial, Matriz',
+    'duas origens aparecem as duas, em ordem de nome', r1b.saidaCom);
+
   // A linha da filial nao pode ser escondida pelo filtro de "parado", senao o saldo
   // inicial nao aparece em lugar nenhum.
   ok(por.F1.situacao === 'parado' && por.F1.inicial > 0,

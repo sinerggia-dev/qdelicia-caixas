@@ -686,7 +686,10 @@
 
     var gente = ehVisaoDeGente(FLUXO_FILTRO);
 
-    var cols = FLUXO_COLUNAS[FLUXO_FILTRO] || ['Origem / destino'];
+    /* Era "Origem / destino", e ai estava o engano: a coluna traz UM nome, e se ele e a
+       origem ou o destino depende de qual numero se esta lendo. Agora o titulo diz so o
+       que a linha e, e cada numero carrega a sua outra ponta embaixo. */
+    var cols = FLUXO_COLUNAS[FLUXO_FILTRO] || ['Local'];
     var lista = linhasFluxo();
     /* Motorista e usuario nao tem estoque inicial: ninguem credita caixa a uma pessoa,
        credita ao local onde ela esta. Uma coluna que so pode valer zero nesta visao seria
@@ -709,8 +712,12 @@
             return '<tr>'+
             '<td><b>'+Q.esc(l.nome)+'</b><span class="fsub">'+Q.esc(l.sub)+'</span></td>'+
             (temInicial ? '<td class="num">'+Q.num(l.inicial||0)+'</td>' : '')+
-            '<td class="num">'+Q.num(l.saida)+detalheCaixas(l.saidaTipos)+'</td>'+
-            '<td class="num">'+Q.num(l.retorno)+detalheCaixas(l.retornoTipos)+'</td>'+
+            '<td class="num">'+Q.num(l.saida)+
+              comQuem(l.saidaCom, l.tipo === 'GALPAO' ? 'para' : 'de')+
+              detalheCaixas(l.saidaTipos)+'</td>'+
+            '<td class="num">'+Q.num(l.retorno)+
+              comQuem(l.retornoCom, l.tipo === 'GALPAO' ? 'de' : 'para')+
+              detalheCaixas(l.retornoTipos)+'</td>'+
             '<td class="num"><b'+(fim<0?' style="color:var(--vermelho)"':'')+'>'+
               (fim>0?'+':'')+Q.num(fim)+'</b></td></tr>';
           }).join(''))+'</tbody></table></div>';
@@ -749,6 +756,20 @@
 
   function linhasDeficit(){
     return linhasVivas().filter(function(l){ return l.saldo < 0; }).length;
+  }
+
+  /* A outra ponta do numero: "de Matriz Fazenda" embaixo da saída diz que as caixas
+     vieram de la para esta linha. No galpão a preposição inverte, porque nele a saída sai
+     dele PARA alguem — e e essa diferenca que o cabecalho sozinho nao conseguia contar.
+
+     Com mais de dois, os dois primeiros e um "+N": a lista inteira roubaria a altura da
+     celula sem responder melhor. */
+  function comQuem(nomes, prep){
+    if (!nomes || !nomes.length) return '';
+    var txt = nomes.length > 2
+      ? nomes.slice(0, 2).map(Q.esc).join(', ')+' +'+(nomes.length - 2)
+      : nomes.map(Q.esc).join(', ');
+    return '<span class="fsub">'+prep+' '+txt+'</span>';
   }
 
   /* O total responde "quanto"; esta linha responde "de que". Sem ela, 1.020 tanto pode

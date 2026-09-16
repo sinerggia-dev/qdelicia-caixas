@@ -307,6 +307,45 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
  * rota. Se as duas caissem na mesma lista, o deficit do mes contaria 180 duas vezes e o
  * numero do rodape passaria a ser 360 sem nada ter mudado na operacao.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * Cada numero diz a sua outra ponta, e a preposicao inverte no galpao.
+ *
+ * O cabecalho dizia "Origem / destino" e a coluna trazia UM nome: nao dava para saber se
+ * aquele local era de onde a caixa saiu ou para onde ela foi. Agora o titulo diz so o que
+ * a linha e, e cada numero carrega "de X" / "para X" embaixo.
+ * ------------------------------------------------------------------------- */
+console.log('\n== cada numero diz de onde veio / para onde foi ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var i = adm.indexOf('function desenharFluxo()');
+  var corpo = adm.slice(i, adm.indexOf("document.querySelectorAll('[data-fchip]')", i));
+
+  // o valor, nao o texto: o comentario ali do lado explica por que o titulo velho saiu,
+  // e procurar a frase solta acusaria o proprio comentario.
+  ok(/FLUXO_COLUNAS\[FLUXO_FILTRO\] \|\| \[.Local.\]/.test(corpo),
+    'o titulo padrao passou a ser "Local" — prometer "Origem / destino" e mostrar um nome so era o engano');
+
+  // a preposicao tem de inverter no galpao, nas DUAS colunas
+  ok(/comQuem\(l\.saidaCom,\s*l\.tipo === 'GALPAO' \? 'para' : 'de'\)/.test(corpo),
+    'na saida: "para" no galpao, "de" nas demais linhas');
+  ok(/comQuem\(l\.retornoCom,\s*l\.tipo === 'GALPAO' \? 'de' : 'para'\)/.test(corpo),
+    'no retorno: o contrario — senao as duas colunas contariam a mesma direcao');
+
+  // e a funcao que monta o texto
+  var j = adm.indexOf('function comQuem(');
+  var fonte = adm.slice(j, adm.indexOf('\n  }', j) + 4);
+  var Q = { esc: String };
+  var comQuem = new Function('Q', fonte + ' return comQuem;')(Q);
+
+  ok(comQuem(['Matriz Fazenda'], 'de') === '<span class="fsub">de Matriz Fazenda</span>',
+    'um so: "de Matriz Fazenda"', comQuem(['Matriz Fazenda'], 'de'));
+  ok(comQuem([], 'de') === '' && comQuem(null, 'para') === '',
+    'sem outra ponta nao sobra o rotulo solto');
+  ok(comQuem(['A','B','C','D'], 'para') === '<span class="fsub">para A, B +2</span>',
+    'com muitos, os dois primeiros e um "+N" — a lista inteira roubaria a altura',
+    comQuem(['A','B','C','D'], 'para'));
+})();
+
 console.log('\n== matriz e galpoes nao se misturam com o resto ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

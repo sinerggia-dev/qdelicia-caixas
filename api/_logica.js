@@ -952,6 +952,15 @@ function fluxoPorOrigem(dados, desde, meta) {
      Aqui SAIDA e tudo que saiu DO galpao e RETORNO e tudo que entrou NELE — que e a
      leitura de `saldos()`, e faz inicial − saida + retorno dar o estoque de verdade. */
   var saiuG = {}, voltouG = {}, saiuGTipo = {}, voltouGTipo = {};
+  /* A outra ponta de cada numero. Sem ela a coluna diz "1.020" ao lado de "João Pessoa" e
+     nao da para saber se saiu de la ou chegou la — que e a pergunta que a tabela existe
+     para responder. Guarda o ID; o nome sai na hora de montar a linha. */
+  var deOnde = {}, paraOnde = {};
+  function comQuem(mapa, local, outro) {
+    if (!local || !outro) return;
+    mapa[local] = mapa[local] || {};
+    mapa[local][outro] = 1;
+  }
   // Mesmos numeros, abertos por tipo de caixa: o total responde "quanto", e o detalhe
   // responde "de que" — sem ele, 1.020 pode ser mil de uma caixa ou vinte de cinco.
   var saiuTipo = {}, voltouTipo = {};
@@ -998,11 +1007,13 @@ function fluxoPorOrigem(dados, desde, meta) {
     if (m.OrigemID) {
       saiuG[m.OrigemID] = (saiuG[m.OrigemID] || 0) + q;
       somaTipo(saiuGTipo, m.OrigemID, caixa, q);
+      comQuem(paraOnde, m.OrigemID, m.DestinoID);   // saiu do galpao PARA ca
       anotaG(m.OrigemID, m);
     }
     if (m.DestinoID) {
       voltouG[m.DestinoID] = (voltouG[m.DestinoID] || 0) + q;
       somaTipo(voltouGTipo, m.DestinoID, caixa, q);
+      comQuem(deOnde, m.DestinoID, m.OrigemID);     // entrou no galpao VINDO de la
       anotaG(m.DestinoID, m);
     }
     var sentido = sentidoDoMovimento(m.Tipo);
@@ -1010,16 +1021,23 @@ function fluxoPorOrigem(dados, desde, meta) {
       if (m.DestinoID) {
         saiu[m.DestinoID] = (saiu[m.DestinoID] || 0) + q;
         somaTipo(saiuTipo, m.DestinoID, caixa, q);
+        comQuem(deOnde, m.DestinoID, m.OrigemID);   // chegou aqui VINDO de la
         anota(m.DestinoID, m);
       }
     } else if (sentido === 'ENTRADA') {
       if (m.OrigemID) {
         voltou[m.OrigemID] = (voltou[m.OrigemID] || 0) + q;
         somaTipo(voltouTipo, m.OrigemID, caixa, q);
+        comQuem(paraOnde, m.OrigemID, m.DestinoID); // devolveu daqui PARA la
         anota(m.OrigemID, m);
       }
     }
   });
+
+  function nomesDe(ids) {
+    return Object.keys(ids || {}).map(function (k) { return nome(nomesLocais, k); })
+      .sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); });
+  }
 
   function chavesDe(mapa, id) {
     return Object.keys(mapa[id] || {}).sort(function (a, b) {
@@ -1069,6 +1087,11 @@ function fluxoPorOrigem(dados, desde, meta) {
       motoristas: motMov, caixas: cx, lancamentos: n,
       saidaTipos: detalharTipos(ehGalpao ? saiuGTipo[l.ID] : saiuTipo[l.ID]),
       retornoTipos: detalharTipos(ehGalpao ? voltouGTipo[l.ID] : voltouTipo[l.ID]),
+      /* A outra ponta. No galpao a SAIDA sai dele e vai PARA alguem; nas demais linhas a
+         SAIDA chega nelas VINDO de alguem. Sao os mesmos dois mapas, lidos ao contrario —
+         e e por isso que a preposicao muda junto na tela. */
+      saidaCom: nomesDe(ehGalpao ? paraOnde[l.ID] : deOnde[l.ID]),
+      retornoCom: nomesDe(ehGalpao ? deOnde[l.ID] : paraOnde[l.ID]),
       saida: saida, retorno: retorno,
       inicial: inicial,
       /* inicial − saida + retorno, que e a conta que a linha mostra da esquerda para a
