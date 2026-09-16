@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=ba6ef541">
+<link rel="stylesheet" href="styles.css?v=e1673795">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -397,21 +397,14 @@
         '<div class="nome">'+Q.esc(t.Nome)+
           (det.length?'<small>'+Q.esc(det.join(' · '))+'</small>':'')+'</div>'+
         '<div class="stepper">'+
-          '<button type="button" data-passo="-10" data-alvo="'+prefixo+t.ID+'" style="font-size:14px">−10</button>'+
           '<input id="'+prefixo+t.ID+'" type="number" inputmode="numeric" min="0" step="1" value="" placeholder="0" data-tipo="'+t.ID+'">'+
-          '<button type="button" data-passo="10" data-alvo="'+prefixo+t.ID+'" style="font-size:14px">+10</button>'+
         '</div></div>';
     }).join('');
   }
+  /* Os botões −10/+10 saíram a pedido: a quantidade agora é só digitada. A função
+     continua existindo por causa da linha abaixo — é ela que atualiza o aviso de saldo
+     enquanto a pessoa digita a devolução. */
   function ligarSteppers(container){
-    container.querySelectorAll('button[data-passo]').forEach(function(b){
-      b.addEventListener('click', function(){
-        var inp = document.getElementById(b.dataset.alvo);
-        var v = Number(inp.value||0) + Number(b.dataset.passo);
-        inp.value = Math.max(0, v) || '';
-        if (container.id === 'dvItens') mostrarSaldoDoOrigem();
-      });
-    });
     if (container.id === 'dvItens'){
       container.querySelectorAll('input').forEach(function(i){ i.addEventListener('input', mostrarSaldoDoOrigem); });
     }
