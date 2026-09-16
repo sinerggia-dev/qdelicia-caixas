@@ -1079,14 +1079,15 @@ async function main() {
         { ID: 'U1', Nome: 'Nestor Neto', Perfil: 'Conferente' },
         { ID: 'U2', Nome: 'Ivanilda', Perfil: 'Gestor' }
       ],
+      tipos: [{ ID: 'T1', Nome: 'CX P' }, { ID: 'T2', Nome: 'CX G' }],
       movimentos: [
         // Ramos levou 580 na rota Caruaru e nao trouxe nada: deficit inteiro
-        { Tipo: 'SAIDA', Qtd: 580, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U1', DataRef: D('2026-09-05') },
+        { Tipo: 'SAIDA', Qtd: 580, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U1', TipoCaixaID: 'T2', DataRef: D('2026-09-05') },
         // Wesley levou 300 e trouxe 300: quitado
-        { Tipo: 'SAIDA', Qtd: 300, Motorista: 'Wesley', Rota: 'Maceió', UsuarioID: 'U1', DataRef: D('2026-09-06') },
-        { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', Qtd: 300, Motorista: 'Wesley', Rota: 'Maceió', UsuarioID: 'U2', DataRef: D('2026-09-09') },
+        { Tipo: 'SAIDA', Qtd: 300, Motorista: 'Wesley', Rota: 'Maceió', UsuarioID: 'U1', TipoCaixaID: 'T1', DataRef: D('2026-09-06') },
+        { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', Qtd: 300, Motorista: 'Wesley', Rota: 'Maceió', UsuarioID: 'U2', TipoCaixaID: 'T1', DataRef: D('2026-09-09') },
         // linha antiga em AGUARDANDO: passa a contar, como no razao
-        { Tipo: 'DEVOLUCAO', Status: 'AGUARDANDO', Qtd: 500, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U2', DataRef: D('2026-09-10') },
+        { Tipo: 'DEVOLUCAO', Status: 'AGUARDANDO', Qtd: 500, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U2', TipoCaixaID: 'T2', DataRef: D('2026-09-10') },
         // perda nao e fluxo de ida e volta
         { Tipo: 'PERDA', Qtd: 40, Motorista: 'Ramos', Rota: 'Caruaru', UsuarioID: 'U1', DataRef: D('2026-09-11') },
         // fora da janela
@@ -1120,6 +1121,19 @@ async function main() {
       'a linha de baixo conta lançamentos, sem repetir a coluna ao lado', mot.Wesley.sub);
     ok(usu.Ivanilda.sub === '2 lançamentos',
       'a contagem segue os números da linha', usu.Ivanilda.sub);
+
+    // As colunas SAIDA e RETORNO abrem por tipo nas quatro visões, não só em Todas.
+    const chave = (l) => (l || []).map((t) => t.caixa + ':' + t.qtd).join(' ');
+    ok(chave(usu['Nestor Neto'].saidaTipos) === 'CX G:580 CX P:300',
+      'o usuário também abre a saída por tipo, e a soma fecha com os 880 da coluna',
+      usu['Nestor Neto'].saidaTipos);
+    ok(chave(usu.Ivanilda.retornoTipos) === 'CX G:500 CX P:300',
+      'e o retorno idem, na mesma ordem de nome — para ler uma coluna contra a outra',
+      usu.Ivanilda.retornoTipos);
+    ok(chave(mot.Ramos.saidaTipos) === 'CX G:580' && chave(mot.Ramos.retornoTipos) === 'CX G:500',
+      'no motorista vale o mesmo: o que ele levou e o que trouxe, por tipo', mot.Ramos);
+    ok(mot.Ramos.saidaTipos.reduce((a, t) => a + t.qtd, 0) === mot.Ramos.saida,
+      'o detalhe nunca contradiz o total: somar os tipos dá a coluna', mot.Ramos);
 
     // motorista em branco no movimento nao pode virar uma linha "sem nome"
     const semMot = F.fluxoPorPessoa({
@@ -1157,7 +1171,12 @@ async function main() {
         { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R2', TipoCaixaID: 'T1', Qtd: 100,
           Motorista: 'Outro Qualquer', DataRef: D('2026-09-06') },
         { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'C1', TipoCaixaID: 'T1', Qtd: 30,
-          Motorista: 'Ramos', DataRef: D('2026-09-07') }
+          Motorista: 'Ramos', DataRef: D('2026-09-07') },
+        // R2 devolve parte, de dois tipos: é o que abre a coluna RETORNO por tipo
+        { Tipo: 'DEVOLUCAO', OrigemID: 'R2', DestinoID: 'L1', TipoCaixaID: 'T2', Qtd: 40,
+          Motorista: 'Ramos', DataRef: D('2026-09-08') },
+        { Tipo: 'DEVOLUCAO', OrigemID: 'R2', DestinoID: 'L1', TipoCaixaID: 'T1', Qtd: 25,
+          Motorista: 'Ramos', DataRef: D('2026-09-08') }
       ]
     };
     const f = F.fluxoPorOrigem(cen, DESDE, 90);
@@ -1175,10 +1194,20 @@ async function main() {
       'cliente NÃO herda o motorista: quem entregou não responde pelas caixas do cliente',
       por.C1.responsavel);
 
-    ok(por.R1.sub === 'rota · 2 lançamentos · CX G, CX P',
-      'a linha de baixo traz lançamentos e os tipos de caixa somados ali', por.R1.sub);
+    ok(por.R1.sub === 'rota · 2 lançamentos',
+      'a linha de baixo traz lançamentos; os tipos foram para as colunas, com a quantidade '
+      + 'de cada um', por.R1.sub);
     ok(por.R1.caixas.join(',') === 'CX G,CX P' && por.R1.lancamentos === 2,
       'e os mesmos dados vêm soltos, para quem quiser montar outra tela', por.R1);
+    // o detalhe por tipo, que e o que a coluna mostra agora
+    ok(por.R1.saidaTipos.map(function(t){ return t.caixa+':'+t.qtd; }).join(' ') === 'CX G:530 CX P:50',
+      'saída aberta por tipo de caixa, em ordem de nome', por.R1.saidaTipos);
+    ok(por.R1.retornoTipos.length === 0,
+      'sem retorno, o detalhe vem vazio — e não com zeros inventados', por.R1.retornoTipos);
+    ok(por.R2.retornoTipos.map((t) => t.caixa + ':' + t.qtd).join(' ') === 'CX G:40 CX P:25',
+      'retorno aberto por tipo de caixa, na mesma ordem da saída', por.R2.retornoTipos);
+    ok(por.R2.retorno === 65 && por.R2.saida === 100,
+      'e a soma dos tipos fecha com o total da coluna — voltou parte, não tudo', por.R2);
 
     // dois motoristas na mesma rota aparecem os dois, e sem repetir
     const cen2 = JSON.parse(JSON.stringify(cen));

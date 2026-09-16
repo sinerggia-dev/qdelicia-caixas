@@ -222,5 +222,34 @@ console.log('\n== a ordem do local nasce no ponto de uso ==');
     'a tabela de locais idem');
 })();
 
+/* ---------------------------------------------------------------------------
+ * SAIDA e RETORNO abrem por tipo de caixa.
+ *
+ * A lista de tipos morava na linha de baixo do nome, sem quantidade nenhuma. Agora mora
+ * debaixo de cada total, com a quantidade — mas so quando ha mais de um tipo: repetir o
+ * mesmo numero embaixo dele nao acrescenta, e o nome sozinho ja e o que faltava saber.
+ *
+ * Aqui a funcao roda de verdade, extraida do admin.html, porque o que se quer garantir e
+ * o texto que cai na celula — nao que a palavra certa exista em algum lugar do arquivo.
+ * ------------------------------------------------------------------------- */
+console.log('\n== saida e retorno abertos por tipo de caixa ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var j = adm.indexOf('function detalheCaixas(');
+  var fonte = adm.slice(j, adm.indexOf('\n  }', j) + 4);
+  var Q = { esc: String, num: function (n) { return String(n); } };
+  var detalheCaixas = new Function('Q', fonte + ' return detalheCaixas;')(Q);
+
+  ok(detalheCaixas([{ caixa: 'CX G', qtd: 530 }, { caixa: 'CX P', qtd: 50 }]) ===
+     '<span class="fsub">CX G 530 · CX P 50</span>',
+    'com varios tipos, cada um vem com a sua quantidade',
+    detalheCaixas([{ caixa: 'CX G', qtd: 530 }, { caixa: 'CX P', qtd: 50 }]));
+  ok(detalheCaixas([{ caixa: 'CX G', qtd: 530 }]) === '<span class="fsub">CX G</span>',
+    'com um tipo so, vem o nome — sem repetir o total que esta logo acima',
+    detalheCaixas([{ caixa: 'CX G', qtd: 530 }]));
+  ok(detalheCaixas([]) === '' && detalheCaixas(null) === '',
+    'sem movimento daquele lado, nao sobra nem rotulo vazio');
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

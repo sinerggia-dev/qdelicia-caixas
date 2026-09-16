@@ -658,8 +658,8 @@
           : lista.map(function(l){
             return '<tr>'+
             '<td><b>'+Q.esc(l.nome)+'</b><span class="fsub">'+Q.esc(l.sub)+'</span></td>'+
-            '<td class="num">'+Q.num(l.saida)+'</td>'+
-            '<td class="num">'+Q.num(l.retorno)+'</td>'+
+            '<td class="num">'+Q.num(l.saida)+detalheCaixas(l.saidaTipos)+'</td>'+
+            '<td class="num">'+Q.num(l.retorno)+detalheCaixas(l.retornoTipos)+'</td>'+
             '<td class="num"><b'+(l.saldo<0?' style="color:var(--vermelho)"':'')+'>'+
               (l.saldo>0?'+':'')+Q.num(l.saldo)+'</b></td>'+
             '<td>'+respCel(l, gente)+'</td>'+
@@ -709,6 +709,17 @@
     if (!l.responsavel) return gente ? '—' : '<span class="tag cinza">sem responsável</span>';
     return Q.esc(l.responsavel) +
       (l.respDoCadastro === false ? ' <span class="tag cinza">do lançamento</span>' : '');
+  }
+
+  /* O total responde "quanto"; esta linha responde "de que". Sem ela, 1.020 tanto pode
+     ser mil de um tipo quanto duzentos de cinco — e a diferença muda o que se cobra.
+     Com um tipo só, repetir o número embaixo dele não acrescenta nada: vai só o nome,
+     que é a parte que ainda faltava. */
+  function detalheCaixas(tipos){
+    if (!tipos || !tipos.length) return '';
+    return '<span class="fsub">'+tipos.map(function(t){
+      return Q.esc(t.caixa)+(tipos.length > 1 ? ' '+Q.num(t.qtd) : '');
+    }).join(' · ')+'</span>';
   }
 
   /* O selo é o resumo da linha: quanto do que saiu ainda não voltou. */

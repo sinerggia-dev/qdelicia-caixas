@@ -66,6 +66,17 @@ function perfisConhecidos(usuarios) {
   });
 }
 
+/* Mapa {tipo: quantidade} vira lista ordenada por nome.
+   Ordenada aqui, e nao na tela, por dois motivos: a tela nao ordena de novo, e as colunas
+   de SAIDA e RETORNO saem sempre na mesma ordem — que e o que deixa comparar uma com a
+   outra de relance. Era codigo igual em dois lugares; duas copias da mesma regra so
+   servem para uma delas mudar sozinha um dia. */
+function detalharTipos(porTipo) {
+  return Object.keys(porTipo || {}).sort(function (a, b) {
+    return a.localeCompare(b, 'pt-BR');
+  }).map(function (k) { return { caixa: k, qtd: porTipo[k] }; });
+}
+
 /** Quem confere devolução no galpão. */
 function podeConferir(perfil) {
   return CONFEREM.indexOf(String(perfil || '').toUpperCase()) >= 0;
@@ -842,12 +853,18 @@ function fluxoPorPessoa(dados, desde) {
 
   // chave -> { nome, extra:{}, saida, retorno }
   var porMot = {}, porUsu = {};
-  function soma(mapa, chave, nome, q, ehSaida, extra) {
+  var nomesTiposP = mapaTipos(dados.tipos || []);
+  function soma(mapa, chave, nome, q, ehSaida, extra, caixa) {
     if (!chave) return;
     var k = String(chave);
-    if (!mapa[k]) mapa[k] = { id: k, nome: nome, saida: 0, retorno: 0, n: 0, extras: {} };
+    if (!mapa[k]) {
+      mapa[k] = { id: k, nome: nome, saida: 0, retorno: 0, n: 0, extras: {},
+                  saidaTipo: {}, retornoTipo: {} };
+    }
     mapa[k].n++;
+    var lado = ehSaida ? 'saidaTipo' : 'retornoTipo';
     if (ehSaida) mapa[k].saida += q; else mapa[k].retorno += q;
+    if (caixa) mapa[k][lado][caixa] = (mapa[k][lado][caixa] || 0) + q;
     if (extra) mapa[k].extras[extra] = 1;
   }
 
@@ -858,8 +875,9 @@ function fluxoPorPessoa(dados, desde) {
     var ehSaida = (m.Tipo === 'SAIDA' || m.Tipo === 'TRANSFERENCIA');
     if (!ehSaida && m.Tipo !== 'DEVOLUCAO') return;   // perda e ajuste não são fluxo de ida e volta
     var mot = String(m.Motorista || '').trim();
-    soma(porMot, mot, mot, q, ehSaida, String(m.Rota || '').trim());
-    soma(porUsu, m.UsuarioID, nome(nomesUsuarios, m.UsuarioID), q, ehSaida, '');
+    var caixa = nome(nomesTiposP, m.TipoCaixaID);
+    soma(porMot, mot, mot, q, ehSaida, String(m.Rota || '').trim(), caixa);
+    soma(porUsu, m.UsuarioID, nome(nomesUsuarios, m.UsuarioID), q, ehSaida, '', caixa);
   });
 
   function lista(mapa, tipo, sub) {
@@ -880,6 +898,7 @@ function fluxoPorPessoa(dados, desde) {
         // perfil do usuário. Uma coluna "Responsável" com o proprio nome repetido seria ruído.
         responsavel: sub === 'perfil' ? (perfis[r.id] || '') : rotas.join(', '),
         saida: r.saida, retorno: r.retorno,
+        saidaTipos: detalharTipos(r.saidaTipo), retornoTipos: detalharTipos(r.retornoTipo),
         saldo: c.saldo, desvio: c.desvio, situacao: c.situacao
       };
     }).sort(function (a, b) {
@@ -901,6 +920,14 @@ function fluxoPorOrigem(dados, desde, meta) {
   var nomesTipos = mapaTipos(dados.tipos || []);
 
   var saiu = {}, voltou = {};
+  // Mesmos numeros, abertos por tipo de caixa: o total responde "quanto", e o detalhe
+  // responde "de que" — sem ele, 1.020 pode ser mil de uma caixa ou vinte de cinco.
+  var saiuTipo = {}, voltouTipo = {};
+  function somaTipo(mapa, local, caixa, q) {
+    if (!local) return;
+    mapa[local] = mapa[local] || {};
+    mapa[local][caixa] = (mapa[local][caixa] || 0) + q;
+  }
   // Quem dirigiu, que caixa foi e quantos lançamentos — colhidos do próprio movimento.
   // O cadastro da rota costuma vir sem motorista, e o nome só existe aqui.
   var condutores = {}, caixas = {}, quantos = {};
@@ -917,10 +944,19 @@ function fluxoPorOrigem(dados, desde, meta) {
     if (desde && m.DataRef < desde) return;
     var q = efetiva(m);          // devolução não confirmada vale 0, e vale a contada
     if (!q) return;
+    var caixa = nome(nomesTipos, m.TipoCaixaID);
     if (m.Tipo === 'SAIDA' || m.Tipo === 'TRANSFERENCIA') {
-      if (m.DestinoID) { saiu[m.DestinoID] = (saiu[m.DestinoID] || 0) + q; anota(m.DestinoID, m); }
+      if (m.DestinoID) {
+        saiu[m.DestinoID] = (saiu[m.DestinoID] || 0) + q;
+        somaTipo(saiuTipo, m.DestinoID, caixa, q);
+        anota(m.DestinoID, m);
+      }
     } else if (m.Tipo === 'DEVOLUCAO') {
-      if (m.OrigemID) { voltou[m.OrigemID] = (voltou[m.OrigemID] || 0) + q; anota(m.OrigemID, m); }
+      if (m.OrigemID) {
+        voltou[m.OrigemID] = (voltou[m.OrigemID] || 0) + q;
+        somaTipo(voltouTipo, m.OrigemID, caixa, q);
+        anota(m.OrigemID, m);
+      }
     }
   });
 
@@ -955,7 +991,8 @@ function fluxoPorOrigem(dados, desde, meta) {
     var partes = [SUB[l.Tipo]];
     if (l.Tipo === 'CLIENTE' && l.RotaId) partes.push(nome(nomesLocais, l.RotaId));
     if (n) partes.push(n + (n === 1 ? ' lançamento' : ' lançamentos'));
-    if (cx.length) partes.push(cx.join(', '));
+    // Os tipos saíram daqui: agora cada um aparece com a SUA quantidade, nas colunas
+    // de Saída e Retorno. Repetir a lista sem número seria dizer menos, duas vezes.
 
     return {
       id: l.ID, nome: l.Nome, tipo: l.Tipo,
@@ -966,6 +1003,7 @@ function fluxoPorOrigem(dados, desde, meta) {
       // motorista da rota ou se ele já está lá.
       respDoCadastro: !!(l.Tipo === 'ROTA' ? l.MotoristaId : String(l.Responsavel || '').trim()),
       motoristas: motMov, caixas: cx, lancamentos: n,
+      saidaTipos: detalharTipos(saiuTipo[l.ID]), retornoTipos: detalharTipos(voltouTipo[l.ID]),
       saida: saida, retorno: retorno, saldo: c.saldo,
       desvio: c.desvio, situacao: c.situacao
     };
