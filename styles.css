@@ -399,6 +399,11 @@ tr.ruim{background:var(--vermelho-claro)}
 /* Enquanto arrasta, o texto da pagina inteira para de selecionar — senao o arrasto vira
    selecao e o cursor pisca entre os dois. */
 body.redimensionando{user-select:none;cursor:col-resize}
+/* O sinal do Saldo final. O numero nao sumiu da tela: ele reaparece como Saldo inicial
+   da linha de baixo, e fica no `title` desta celula. */
+.sinal{font-size:17px;font-weight:700;line-height:1}
+.sinal.ok{color:var(--verde)}
+.sinal.ruim{color:var(--vermelho)}
 /* `input[type=date]` no seletor porque a regra generica dos campos usa o atributo e
    vence por especificidade — sem isso o campo volta a ocupar a linha inteira. */
 input[type=date].dt-inline{margin:0;width:148px;padding:8px 10px;font-size:13px}
