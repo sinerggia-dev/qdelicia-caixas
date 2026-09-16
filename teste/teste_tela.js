@@ -477,8 +477,8 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
   /* Cabecalho e celula trocam de forma sob a MESMA condicao. Se so uma das duas pontas
      mudasse, a tabela ganharia uma coluna sem celula e cada numero passaria a ser lido
      na coluna do vizinho. */
-  var thCond = /temLocal\s*\n?\s*\?\s*'<th>Origem<\/th><th>Destino<\/th><th[^']*Saldo inicial/.test(corpo);
-  var tdCond = /temLocal\s*\n?\s*\?\s*'<td>'\+lugares\(l\.origens, l\.nome\)/.test(corpo);
+  var thCond = /temLocal\s*\n?\s*\?\s*'<th[^']*Saldo inicial<\/th><th>Origem<\/th><th>Destino/.test(corpo);
+  var tdCond = /temLocal\s*\n?\s*\?\s*'<td class="num">'\+Q\.num\(l\.inicial/.test(corpo);
   ok(thCond && tdCond,
     'as colunas de local nascem no cabecalho e na celula sob a mesma condicao',
     [thCond, tdCond]);

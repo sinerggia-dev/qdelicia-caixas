@@ -710,7 +710,7 @@
     document.getElementById('tabelaFluxo').innerHTML =
         '<div class="tabela-wrap"><table><thead><tr>'+
         (temLocal
-          ? '<th>Origem</th><th>Destino</th><th class="num">Saldo inicial</th>'
+          ? '<th class="num">Saldo inicial</th><th>Origem</th><th>Destino</th>'
           : '<th>'+cols[0]+'</th>')+
         '<th class="num">Saída</th><th class="num">Retorno</th>'+
         '<th class="num">Saldo final</th>'+
@@ -721,9 +721,9 @@
             var fim = temLocal ? l.saldoFinal : l.saldo;
             return '<tr>'+
             (temLocal
-              ? '<td>'+lugares(l.origens, l.nome)+sub(l, 'origens')+'</td>'+
-                '<td>'+lugares(l.destinos, l.nome)+sub(l, 'destinos')+'</td>'+
-                '<td class="num">'+Q.num(l.inicial||0)+'</td>'
+              ? '<td class="num">'+Q.num(l.inicial||0)+'</td>'+
+                '<td>'+lugares(l.origens, l.nome)+sub(l, 'origens')+'</td>'+
+                '<td>'+lugares(l.destinos, l.nome)+sub(l, 'destinos')+'</td>'
               : '<td><b>'+Q.esc(l.nome)+'</b>'+
                   '<span class="fsub">'+Q.esc(l.sub)+'</span></td>')+
             '<td class="num">'+Q.num(l.saida)+detalheCaixas(l.saidaTipos)+'</td>'+
@@ -814,14 +814,14 @@
 
   document.getElementById('btnAtualizarRetornos').addEventListener('click', carregarPainel);
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
-    Q.csv('retornos', ['Origem','Destino','Tipo','Saldo inicial','Saída','Retorno','Saldo final'],
+    Q.csv('retornos', ['Saldo inicial','Origem','Destino','Tipo','Saída','Retorno','Saldo final'],
       linhasFluxo().map(function(l){
         /* As mesmas colunas da tela: um CSV com campos que a tabela nao tem — ou sem os
            que ela tem — so serve para duas pessoas compararem numeros diferentes achando
            que sao o mesmo. Aqui a lista de locais vai INTEIRA, sem o "+N": no arquivo nao
            ha coluna estreita para proteger, e quem exporta quer o dado completo. */
-        return [(l.origens||[]).join(' | '), (l.destinos||[]).join(' | '), l.sub,
-                l.inicial||0, l.saida, l.retorno,
+        return [l.inicial||0, (l.origens||[]).join(' | '), (l.destinos||[]).join(' | '),
+                l.sub, l.saida, l.retorno,
                 l.saldoFinal === undefined ? l.saldo : l.saldoFinal];
       }));
   });
