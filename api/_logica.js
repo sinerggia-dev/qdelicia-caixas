@@ -940,6 +940,11 @@ function fluxoPorOrigem(dados, desde, meta) {
   var nomesTipos = mapaTipos(dados.tipos || []);
 
   var saiu = {}, voltou = {};
+  /* Estoque inicial: o que foi creditado ao local por AJUSTE. E a mesma leitura que
+     `saldos()` faz — ajuste entra como credito no destino — so que agrupada por local.
+     Sem isto, quem lancou o estoque inicial nao via o numero em lugar nenhum: ajuste nao
+     e saida nem retorno, entao ele sumia deste painel. */
+  var inicio = {};
   // Mesmos numeros, abertos por tipo de caixa: o total responde "quanto", e o detalhe
   // responde "de que" — sem ele, 1.020 pode ser mil de uma caixa ou vinte de cinco.
   var saiuTipo = {}, voltouTipo = {};
@@ -961,6 +966,16 @@ function fluxoPorOrigem(dados, desde, meta) {
   }
 
   ativos(movimentos).forEach(function (m) {
+    /* O ajuste entra ANTES do recorte de periodo, de proposito. Saldo inicial e posicao,
+       nao movimento: se ele saisse da conta por ter sido lancado mes passado, a coluna
+       zeraria sozinha na virada do mes e o saldo final passaria a mentir. */
+    if (m.Tipo === 'AJUSTE') {
+      if (m.DestinoID) {
+        inicio[m.DestinoID] = (inicio[m.DestinoID] || 0) + efetiva(m);
+        anota(m.DestinoID, m);
+      }
+      return;
+    }
     if (desde && m.DataRef < desde) return;
     var q = efetiva(m);          // devolução não confirmada vale 0, e vale a contada
     if (!q) return;
@@ -993,6 +1008,7 @@ function fluxoPorOrigem(dados, desde, meta) {
   }).map(function (l) {
     var saida = saiu[l.ID] || 0;
     var retorno = voltou[l.ID] || 0;
+    var inicial = inicio[l.ID] || 0;
     var c = classificaFluxo(saida, retorno, DESVIO_RUIM);
     var motMov = chavesDe(condutores, l.ID);
 
@@ -1025,7 +1041,14 @@ function fluxoPorOrigem(dados, desde, meta) {
       respDoCadastro: !!(l.Tipo === 'ROTA' ? l.MotoristaId : String(l.Responsavel || '').trim()),
       motoristas: motMov, caixas: cx, lancamentos: n,
       saidaTipos: detalharTipos(saiuTipo[l.ID]), retornoTipos: detalharTipos(voltouTipo[l.ID]),
-      saida: saida, retorno: retorno, saldo: c.saldo,
+      saida: saida, retorno: retorno,
+      inicial: inicial,
+      /* inicial − saida + retorno, que e a conta que a linha mostra da esquerda para a
+         direita. `saldo` continua sendo so o par saida/retorno: e dele que saem o chip
+         "Em deficit", os indicadores do rodape e a situacao da linha, que perguntam
+         "quanto do que despachei nao voltou" — pergunta que o estoque inicial nao muda. */
+      saldoFinal: inicial - saida + retorno,
+      saldo: c.saldo,
       desvio: c.desvio, situacao: c.situacao
     };
   }).sort(function (a, b) {

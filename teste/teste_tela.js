@@ -241,10 +241,10 @@ console.log('\n== saida e retorno abertos por tipo de caixa ==');
   var detalheCaixas = new Function('Q', fonte + ' return detalheCaixas;')(Q);
 
   ok(detalheCaixas([{ caixa: 'CX G', qtd: 530 }, { caixa: 'CX P', qtd: 50 }]) ===
-     '<span class="fsub">CX G 530 · CX P 50</span>',
+     '<span class="fsub tipos">CX G 530 · CX P 50</span>',
     'com varios tipos, cada um vem com a sua quantidade',
     detalheCaixas([{ caixa: 'CX G', qtd: 530 }, { caixa: 'CX P', qtd: 50 }]));
-  ok(detalheCaixas([{ caixa: 'CX G', qtd: 530 }]) === '<span class="fsub">CX G</span>',
+  ok(detalheCaixas([{ caixa: 'CX G', qtd: 530 }]) === '<span class="fsub tipos">CX G</span>',
     'com um tipo so, vem o nome — sem repetir o total que esta logo acima',
     detalheCaixas([{ caixa: 'CX G', qtd: 530 }]));
   ok(detalheCaixas([]) === '' && detalheCaixas(null) === '',
@@ -290,6 +290,59 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
     return limpar.indexOf("'" + c + "'") < 0;
   });
   ok(faltam.length === 0, 'e todo campo volta ao padrao no botao Limpar', faltam);
+})();
+
+/* ---------------------------------------------------------------------------
+ * Painel de Ativos: cabecalho, celulas e colspan contam a mesma historia.
+ *
+ * A tabela monta duas formas: com Saldo inicial (locais) e sem (motorista/usuario, que
+ * nao tem estoque proprio). Se o <th> aparecer e o <td> nao — ou o contrario — a tabela
+ * desalinha inteira e cada numero passa a ser lido na coluna do vizinho. E o colspan do
+ * aviso de vazio tem de acompanhar, senao a mensagem quebra a largura da tabela.
+ * ------------------------------------------------------------------------- */
+console.log('\n== Painel de Ativos: as colunas fecham ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var i = adm.indexOf('function desenharFluxo()');
+  var corpo = adm.slice(i, adm.indexOf("document.querySelectorAll('[data-fchip]')", i));
+
+  // /<th[^>]*>/ tambem casa <thead>, e a conta dava 6 numa tabela de 5 colunas.
+  var ths = (corpo.match(/<th[ >]/g) || []).length;
+  ok(ths === 5, 'cinco colunas no cabecalho: nome, inicial, saida, retorno, final', ths);
+
+  ok(corpo.indexOf('Responsável') < 0 && corpo.indexOf('Desvio') < 0,
+    'Responsavel e Desvio sairam do cabecalho');
+  ok(corpo.indexOf('Saldo inicial') > 0 && corpo.indexOf('Saldo final') > 0,
+    'e os dois titulos novos estao la');
+
+  // o <th> e o <td> do saldo inicial nascem da MESMA condicao
+  var thCond = /\(\s*temInicial\s*\?\s*'<th[^']*Saldo inicial/.test(corpo);
+  var tdCond = /\(\s*temInicial\s*\?\s*'<td[^']*'\+Q\.num\(l\.inicial/.test(corpo);
+  ok(thCond && tdCond,
+    'a coluna Saldo inicial aparece no cabecalho e na celula sob a mesma condicao',
+    [thCond, tdCond]);
+
+  ok(/colspan="'\+nCols\+'"/.test(corpo),
+    'o aviso de tabela vazia usa o numero de colunas, nao um numero fixo');
+
+  // a visao de gente nao mostra saldo inicial, entao o seu final e o saldo de fluxo
+  ok(/temInicial\s*\?\s*l\.saldoFinal\s*:\s*l\.saldo/.test(corpo),
+    'sem coluna de inicial, o Saldo final mostra o saldo de fluxo — e nao um campo vazio');
+
+  // quem so tem saldo inicial precisa passar pelo filtro de "parado"
+  var lf = adm.slice(adm.indexOf('function linhasFluxo()'),
+                     adm.indexOf('function metaFluxo()'));
+  ok(/situacao !== 'parado' \|\| l\.inicial/.test(lf),
+    'a linha parada COM saldo inicial continua na lista — senao o numero nao aparece');
+
+  // o CSV do painel exporta as colunas da tela
+  var j = adm.indexOf("Q.csv('retornos'");
+  var csv = adm.slice(j, adm.indexOf('}));', j));
+  ok(csv.indexOf('Saldo inicial') > 0 && csv.indexOf('Saldo final') > 0 &&
+     csv.indexOf('Responsável') < 0 && csv.indexOf('Desvio') < 0,
+    'o CSV do painel leva as mesmas colunas que a tabela mostra');
+  ok(csv.indexOf('l.inicial') > 0 && csv.indexOf('l.saldoFinal') > 0,
+    'e busca os mesmos campos, nao recalcula a conta por fora');
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

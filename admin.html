@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=118b49df">
+<link rel="stylesheet" href="styles.css?v=4e5d33b8">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -590,11 +590,11 @@
      ter saldo alto e fluxo em dia, e o contrário também. */
   var FLUXO_FILTRO = 'todas';
 
-  /* A quinta coluna troca de sentido junto com a visão: uma coluna "Responsável" com o
-     próprio nome do motorista repetido seria ruído. O primeiro título idem. */
+  /* O título da primeira coluna troca junto com a visão: "Origem / destino" não descreve
+     uma lista de motoristas. */
   var FLUXO_COLUNAS = {
-    MOTORISTA: ['Motorista', 'Rotas'],
-    USUARIO:   ['Quem lançou', 'Perfil']
+    MOTORISTA: ['Motorista'],
+    USUARIO:   ['Quem lançou']
   };
 
   function ehVisaoDeGente(v){ return v === 'MOTORISTA' || v === 'USUARIO'; }
@@ -603,13 +603,23 @@
     var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
     if (FLUXO_FILTRO === 'MOTORISTA') return p.motoristas;
     if (FLUXO_FILTRO === 'USUARIO') return p.usuarios;
-    var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
-    // Quem não teve nem saída nem retorno no mês fica fora: com a carteira inteira
-    // listada em zero, as linhas que importam sumiriam no meio.
-    var vivas = f.linhas.filter(function(l){ return l.situacao !== 'parado'; });
+    var vivas = linhasVivas();
     if (FLUXO_FILTRO === 'todas') return vivas;
     if (FLUXO_FILTRO === 'deficit') return vivas.filter(function(l){ return l.saldo < 0; });
     return vivas.filter(function(l){ return l.tipo === FLUXO_FILTRO; });
+  }
+
+  /* Quem não teve nem saída nem retorno no mês fica fora: com a carteira inteira listada
+     em zero, as linhas que importam sumiriam no meio. Com uma excecao — quem tem saldo
+     inicial tem caixa nossa parada la, e esconder a linha seria esconder justamente o que
+     a coluna nova existe para mostrar.
+
+     Os numeros dos chips saem DAQUI, e nao dos totais do servidor: la o corte e so
+     `situacao !== 'parado'`, entao o chip dizia "Filiais 0" com uma filial na tabela
+     logo abaixo. Quem conta e quem lista tem de ser a mesma regra. */
+  function linhasVivas(){
+    var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
+    return f.linhas.filter(function(l){ return l.situacao !== 'parado' || l.inicial; });
   }
 
   /* Os indicadores saem do que está NA TELA, não de um total fixo. Mostrar a taxa de
@@ -635,11 +645,13 @@
     var pes = PAINEL.fluxoPessoas || { motoristas: [], usuarios: [] };
     var g = f.totais;
 
+    var vivas = linhasVivas();
+    var conta = function(t){ return vivas.filter(function(l){ return l.tipo === t; }).length; };
     var itens = [
-      { v:'todas',     r:'Todas',      n:g.linhas },
-      { v:'ROTA',      r:'Rotas',      n:g.porTipo.ROTA || 0 },
-      { v:'FILIAL',    r:'Filiais',    n:g.porTipo.FILIAL || 0 },
-      { v:'CLIENTE',   r:'Clientes',   n:g.porTipo.CLIENTE || 0 },
+      { v:'todas',     r:'Todas',      n:vivas.length },
+      { v:'ROTA',      r:'Rotas',      n:conta('ROTA') },
+      { v:'FILIAL',    r:'Filiais',    n:conta('FILIAL') },
+      { v:'CLIENTE',   r:'Clientes',   n:conta('CLIENTE') },
       { v:'deficit',   r:'Em déficit', n:linhasDeficit() },
       { v:'MOTORISTA', r:'Motoristas', n:pes.motoristas.length },
       { v:'USUARIO',   r:'Usuários',   n:pes.usuarios.length }
@@ -657,29 +669,35 @@
         ? 'déficit de '+Q.num(g.deficit)+' no mês'
         : 'sem déficit no mês')+'</div>';
 
-    // `gente` fica: e ele que decide se a celula vazia mostra "—" ou "sem responsavel".
     var gente = ehVisaoDeGente(FLUXO_FILTRO);
 
-    var cols = FLUXO_COLUNAS[FLUXO_FILTRO] || ['Origem / destino', 'Responsável'];
+    var cols = FLUXO_COLUNAS[FLUXO_FILTRO] || ['Origem / destino'];
     var lista = linhasFluxo();
+    /* Motorista e usuario nao tem estoque inicial: ninguem credita caixa a uma pessoa,
+       credita ao local onde ela esta. Uma coluna que so pode valer zero nesta visao seria
+       espaco gasto para nao dizer nada, entao ela nao aparece aqui. */
+    var temInicial = !gente;
+    var nCols = temInicial ? 5 : 4;
     // O cabeçalho fica SEMPRE de pé, mesmo sem linha nenhuma: sem as colunas a tela não
     // diz o que vai mostrar quando os lançamentos começarem.
     document.getElementById('tabelaFluxo').innerHTML =
         '<div class="tabela-wrap"><table><thead><tr>'+
-        '<th>'+cols[0]+'</th><th class="num">Saída</th><th class="num">Retorno</th>'+
-        '<th class="num">Saldo</th><th>'+cols[1]+'</th><th class="num">Desvio</th>'+
+        '<th>'+cols[0]+'</th>'+
+        (temInicial ? '<th class="num">Saldo inicial</th>' : '')+
+        '<th class="num">Saída</th><th class="num">Retorno</th>'+
+        '<th class="num">Saldo final</th>'+
         '</tr></thead><tbody>'+
         (!lista.length
-          ? '<tr><td colspan="6"><div class="vazio">'+avisoVazio()+'</div></td></tr>'
+          ? '<tr><td colspan="'+nCols+'"><div class="vazio">'+avisoVazio()+'</div></td></tr>'
           : lista.map(function(l){
+            var fim = temInicial ? l.saldoFinal : l.saldo;
             return '<tr>'+
             '<td><b>'+Q.esc(l.nome)+'</b><span class="fsub">'+Q.esc(l.sub)+'</span></td>'+
+            (temInicial ? '<td class="num">'+Q.num(l.inicial||0)+'</td>' : '')+
             '<td class="num">'+Q.num(l.saida)+detalheCaixas(l.saidaTipos)+'</td>'+
             '<td class="num">'+Q.num(l.retorno)+detalheCaixas(l.retornoTipos)+'</td>'+
-            '<td class="num"><b'+(l.saldo<0?' style="color:var(--vermelho)"':'')+'>'+
-              (l.saldo>0?'+':'')+Q.num(l.saldo)+'</b></td>'+
-            '<td>'+respCel(l, gente)+'</td>'+
-            '<td class="num">'+selo(l)+'</td></tr>';
+            '<td class="num"><b'+(fim<0?' style="color:var(--vermelho)"':'')+'>'+
+              (fim>0?'+':'')+Q.num(fim)+'</b></td></tr>';
           }).join(''))+'</tbody></table></div>';
 
     document.querySelectorAll('[data-fchip]').forEach(function(b){
@@ -714,17 +732,7 @@
   }
 
   function linhasDeficit(){
-    var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
-    return f.linhas.filter(function(l){ return l.situacao !== 'parado' && l.saldo < 0; }).length;
-  }
-
-  /* Quando a rota não tem motorista no cadastro, o nome vem de quem dirigiu no
-     lançamento. A tarja diz isso: sem ela não dá para saber se falta cadastrar o
-     motorista da rota ou se ele já está lá. Some sozinha quando o cadastro é feito. */
-  function respCel(l, gente){
-    if (!l.responsavel) return gente ? '—' : '<span class="tag cinza">sem responsável</span>';
-    return Q.esc(l.responsavel) +
-      (l.respDoCadastro === false ? ' <span class="tag cinza">do lançamento</span>' : '');
+    return linhasVivas().filter(function(l){ return l.saldo < 0; }).length;
   }
 
   /* O total responde "quanto"; esta linha responde "de que". Sem ela, 1.020 tanto pode
@@ -733,17 +741,11 @@
      que é a parte que ainda faltava. */
   function detalheCaixas(tipos){
     if (!tipos || !tipos.length) return '';
-    return '<span class="fsub">'+tipos.map(function(t){
+    return '<span class="fsub tipos">'+tipos.map(function(t){
       return Q.esc(t.caixa)+(tipos.length > 1 ? ' '+Q.num(t.qtd) : '');
     }).join(' · ')+'</span>';
   }
 
-  /* O selo é o resumo da linha: quanto do que saiu ainda não voltou. */
-  function selo(l){
-    if (l.situacao === 'ok') return '<span class="tag verde">OK</span>';
-    if (l.desvio === null) return '<span class="tag cinza">—</span>';
-    return '<span class="tag '+(l.situacao==='ruim'?'vermelha':'amarela')+'">+'+l.desvio+'%</span>';
-  }
   function tile(v,r,d,c){
     return '<div class="ftile '+(c||'')+'"><div class="r">'+r+'</div>'+
       '<div class="v">'+v+'</div><div class="d">'+d+'</div></div>';
@@ -751,9 +753,12 @@
 
   document.getElementById('btnAtualizarRetornos').addEventListener('click', carregarPainel);
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
-    Q.csv('retornos', ['Origem/destino','Tipo','Saída','Retorno','Saldo','Responsável','Desvio %'],
+    Q.csv('retornos', ['Origem/destino','Tipo','Saldo inicial','Saída','Retorno','Saldo final'],
       linhasFluxo().map(function(l){
-        return [l.nome, l.sub, l.saida, l.retorno, l.saldo, l.responsavel, l.desvio===null?'':l.desvio];
+        // As mesmas colunas da tela: um CSV com campos que a tabela nao tem mais so
+        // serve para duas pessoas compararem numeros diferentes achando que sao o mesmo.
+        return [l.nome, l.sub, l.inicial||0, l.saida, l.retorno,
+                l.saldoFinal === undefined ? l.saldo : l.saldoFinal];
       }));
   });
 

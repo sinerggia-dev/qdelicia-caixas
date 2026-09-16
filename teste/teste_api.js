@@ -1221,7 +1221,81 @@ async function main() {
   }
 
 
-  console.log('\n== filtrar por tipo de caixa e por sentido ==');
+  console.log('\n== saldo inicial (dos ajustes) e saldo final ==');
+{
+  const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  const D = (iso) => new Date(iso + 'T00:00:00');
+  const DESDE = D('2026-09-01');
+  const cen = {
+    config: {},
+    tipos: [{ ID: 'T1', Nome: 'CX P' }, { ID: 'T2', Nome: 'CX G' }],
+    usuarios: [{ ID: 'U1', Nome: 'Admin', Perfil: 'Gestor' }],
+    locais: [
+      { ID: 'L1', Nome: 'Matriz', Tipo: 'GALPAO' },
+      { ID: 'F1', Nome: 'Filial', Tipo: 'FILIAL' },
+      { ID: 'R1', Nome: 'Caruaru', Tipo: 'ROTA' },
+      { ID: 'R2', Nome: 'Recife', Tipo: 'ROTA' }
+    ],
+    movimentos: [
+      // estoque inicial da filial: dois tipos, lancados como AJUSTE
+      { Tipo: 'AJUSTE', DestinoID: 'F1', TipoCaixaID: 'T1', Qtd: 350,
+        UsuarioID: 'U1', DataRef: D('2026-09-02') },
+      { Tipo: 'AJUSTE', DestinoID: 'F1', TipoCaixaID: 'T2', Qtd: 350,
+        UsuarioID: 'U1', DataRef: D('2026-09-02') },
+      // ajuste ANTIGO, fora da janela: saldo inicial e posicao, tem de contar assim mesmo
+      { Tipo: 'AJUSTE', DestinoID: 'R1', TipoCaixaID: 'T1', Qtd: 200,
+        UsuarioID: 'U1', DataRef: D('2026-05-10') },
+      // e a rota recebe e devolve parte
+      { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: 'T1', Qtd: 1020,
+        Motorista: 'Ramos', UsuarioID: 'U1', DataRef: D('2026-09-05') },
+      { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'R1', DestinoID: 'L1',
+        TipoCaixaID: 'T1', Qtd: 840, Motorista: 'Ramos', UsuarioID: 'U1', DataRef: D('2026-09-09') }
+    ]
+  };
+  const f = F.fluxoPorOrigem(cen, DESDE, 90);
+  const por = {}; f.linhas.forEach((l) => { por[l.id] = l; });
+
+  ok(por.F1.inicial === 700,
+    'o ajuste vira saldo inicial do local que recebeu o credito', por.F1.inicial);
+  ok(por.F1.saida === 0 && por.F1.retorno === 0,
+    'e NAO entra em saída nem em retorno: ajuste não é viagem de caixa', por.F1);
+  ok(por.F1.saldoFinal === 700,
+    'sem movimento, o saldo final é o próprio saldo inicial', por.F1.saldoFinal);
+
+  // A conta que a linha mostra da esquerda para a direita.
+  ok(por.R1.inicial === 200 && por.R1.saida === 1020 && por.R1.retorno === 840,
+    'a rota traz as três parcelas', por.R1);
+  ok(por.R1.saldoFinal === 200 - 1020 + 840,
+    'saldo final = inicial − saída + retorno', por.R1.saldoFinal);
+
+  // Esta e a razao de o ajuste entrar antes do recorte de periodo: o de R1 e de maio.
+  ok(por.R1.inicial === 200,
+    'ajuste de meses atrás ainda conta — posição não expira com a virada do mês',
+    por.R1.inicial);
+
+  // O `saldo` velho continua sendo so o par saida/retorno: dele saem o chip "Em deficit",
+  // os indicadores e a situacao. Se o inicial entrasse nele, uma rota devendo 180 sumiria
+  // do deficit so por ter estoque proprio.
+  ok(por.R1.saldo === -180,
+    'o saldo de fluxo não muda: continua dizendo quanto do despachado não voltou', por.R1.saldo);
+  ok(por.R1.situacao === 'atencao' && por.R1.desvio === 18,
+    'e a situação e o desvio seguem o fluxo, não o estoque', por.R1);
+
+  ok(por.R2.inicial === 0 && por.R2.saldoFinal === 0,
+    'quem não tem nada não inventa saldo inicial', por.R2);
+
+  // O galpao nao vira linha: nesta tabela ele e a contraparte, nao o portador.
+  ok(por.L1 === undefined,
+    'o galpão continua fora da tabela — as linhas são quem está COM caixa nossa');
+
+  // A linha da filial nao pode ser escondida pelo filtro de "parado", senao o saldo
+  // inicial nao aparece em lugar nenhum.
+  ok(por.F1.situacao === 'parado' && por.F1.inicial > 0,
+    'a filial fica "parada" no fluxo mas tem saldo inicial: a tela precisa deixá-la passar',
+    por.F1);
+}
+
+console.log('\n== filtrar por tipo de caixa e por sentido ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
   const D = (iso) => new Date(iso + 'T00:00:00');
