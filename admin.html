@@ -229,6 +229,7 @@
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoUsuario" style="flex:0;min-width:170px">+ Novo usuário</button>
       </div>
+      <div class="busca"><input id="buscaUsuarios" type="text" placeholder="🔍 Buscar por nome, perfil ou usuário"></div>
       <div id="tabelaUsuarios"></div>
     </div>
     <div class="card" data-cad="locais">
@@ -1435,44 +1436,30 @@
       b.addEventListener('click', function(){ formTipo((DADOS.tipos||[]).filter(function(t){return String(t.ID)===b.dataset.editarTipo;})[0]); });
     });
 
-    document.getElementById('tabelaUsuarios').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Usuário<br><span style="font-weight:400;opacity:.7">entra no app e no painel</span></th><th>E-mail</th><th>Senha</th><th>Painel</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
-      EQUIPE.map(function(u){
-        var lp = LOCAIS_PADRAO.filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
-        var on = Q.ativo(u.Ativo);
-        /* O login curto tem coluna própria: é ele que a pessoa digita para entrar, e
-           antes só aparecia para quem não tivesse e-mail. */
-        var login = u.Usuario ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—';
-        var acesso = u.Email ? Q.esc(u.Email) : '—';
-        /* As duas credenciais, cada uma com seu estado. Uma etiqueta só não servia:
-           "provisória: painel" não dizia nada sobre a senha do app de lançamento, e
-           "própria" aparecia até para quem nunca teve aquela credencial. */
-        function selo(temSenha, provisoria, rotulo){
-          if (!temSenha) return '<span class="tag cinza" title="Esta pessoa não tem esta credencial">'+rotulo+': sem senha</span>';
-          if (provisoria) return '<span class="tag vermelha" title="Ainda não trocou a senha que o administrador passou">'+rotulo+': provisória</span>';
-          return '<span class="tag verde" title="A pessoa já escolheu a senha dela">'+rotulo+': própria</span>';
-        }
-        /* Quem não entra no painel não tem "estado de senha" para mostrar: o fato ali é
-           que ele não entra, e ponto. Não existe mais o caso de sobrar senha sem acesso —
-           a migração apagou as antigas e o caminho de gravação apaga as novas. */
-        var linhaPainel = u.AcessoPainel
-          ? selo(u.TemSenha, u.SenhaProvisoria, 'painel')
-          : '<span class="tag cinza" title="Esta pessoa usa só o app de lançamento">painel: sem acesso</span>';
-        var senhaCel = '<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+
-          selo(u.TemPin, u.PinProvisorio, 'lançamento')+ linhaPainel +'</div>';
-        return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil)+'</span></td>'+
-        '<td>'+login+'</td>'+
-        '<td>'+acesso+'</td>'+
-        '<td>'+senhaCel+'</td>'+
-        '<td>'+(u.AcessoPainel?'<span class="tag verde">sim</span>':'<span class="tag cinza">não</span>')+'</td>'+
-        '<td>'+Q.esc(lp?lp.Nome:'')+'</td><td>'+Q.esc(u.Telefone||'')+'</td>'+
-        '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
-        '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
-            '<button class="mini'+(on?' perigo':'')+'" data-ativar="'+u.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
-              (on?'desativar':'ativar')+'</button> '+
-            '<button class="mini perigo" data-excluir-user="'+u.ID+'">excluir</button></td></tr>';
-      }).join('')+'</tbody></table></div>';
+    document.getElementById('tabelaUsuarios').innerHTML = montarTabelaUsuarios();
 
+    ligarBotoesUsuarios();
+
+    // Por último: envolve o miolo na primeira vez e reconta a cada redesenho.
+    montarDobras();
+  }
+
+  /* Ordem: quem tem "teste" por último, depois PERFIL de A a Z, e o nome só desempata
+     dentro do mesmo perfil. É a tabela de Usuários que ordena assim; o EQUIPE global
+     continua por nome, porque é ele que alimenta os seletores de "Quem lançou" e de
+     correção, onde procurar gente por perfil não ajuda ninguém. */
+  /* `input` e não `change`: em campo de busca o change só dispara ao sair do campo, e a
+     lista ficaria parada enquanto a pessoa digita. Redesenha só a tabela de usuários —
+     `desenharCadastros()` refaria as cinco e perderia o foco do campo. */
+  document.getElementById('buscaUsuarios').addEventListener('input', function(){
+    document.getElementById('tabelaUsuarios').innerHTML = montarTabelaUsuarios();
+    ligarBotoesUsuarios();
+  });
+
+  /* Os botões da tabela de usuários são religados a cada redesenho — inclusive o da
+     busca, que refaz só esta tabela. Sem isso, digitar na busca deixava editar,
+     ativar e excluir sem efeito, e a tela parecia funcionar. */
+  function ligarBotoesUsuarios(){
     /* Desativar em vez de excluir: o histórico de movimentos aponta para o usuário,
        e apagar deixaria lançamento órfão. Inativo some das listas e não entra mais. */
     /* Mesma regra dos locais: só some de verdade quem nunca apareceu em lançamento. */
@@ -1509,9 +1496,70 @@
     document.querySelectorAll('[data-editar-user]').forEach(function(b){
       b.addEventListener('click', function(){ formUsuario(EQUIPE.filter(function(u){return String(u.ID)===b.dataset.editarUser;})[0]); });
     });
-    // Por último: envolve o miolo na primeira vez e reconta a cada redesenho.
-    montarDobras();
   }
+
+  function usuariosNaTela(){
+    var b = (document.getElementById('buscaUsuarios').value || '')
+      .trim().toLowerCase();
+    return EQUIPE.filter(function(u){
+      if (!b) return true;
+      // Os três campos que a etiqueta promete, e só eles: buscar em e-mail e telefone
+      // sem dizer devolveria resultado que a pessoa não entende de onde veio.
+      return [u.Nome, u.Perfil, u.Usuario].some(function(c){
+        return String(c || '').toLowerCase().indexOf(b) >= 0;
+      });
+    }).sort(function(x, y){
+      var tx = Q.temTeste(x.Perfil) || Q.temTeste(x.Nome) ? 1 : 0;
+      var ty = Q.temTeste(y.Perfil) || Q.temTeste(y.Nome) ? 1 : 0;
+      return tx - ty ||
+        String(x.Perfil || '').localeCompare(String(y.Perfil || ''), 'pt-BR') ||
+        String(x.Nome || '').localeCompare(String(y.Nome || ''), 'pt-BR');
+    });
+  }
+
+  function montarTabelaUsuarios(){
+    var lista = usuariosNaTela();
+    if (!lista.length) return '<div class="vazio">Nenhum usuário encontrado.</div>';
+    // A string TEM de começar na mesma linha do return: com ela na linha de baixo, o
+    // JavaScript insere ponto e vírgula depois do return e a tabela vira código morto.
+    return '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Usuário<br><span style="font-weight:400;opacity:.7">entra no app e no painel</span></th><th>E-mail</th><th>Senha</th><th>Painel</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      lista.map(function(u){
+        var lp = LOCAIS_PADRAO.filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
+        var on = Q.ativo(u.Ativo);
+        /* O login curto tem coluna própria: é ele que a pessoa digita para entrar, e
+           antes só aparecia para quem não tivesse e-mail. */
+        var login = u.Usuario ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—';
+        var acesso = u.Email ? Q.esc(u.Email) : '—';
+        /* As duas credenciais, cada uma com seu estado. Uma etiqueta só não servia:
+           "provisória: painel" não dizia nada sobre a senha do app de lançamento, e
+           "própria" aparecia até para quem nunca teve aquela credencial. */
+        function selo(temSenha, provisoria, rotulo){
+          if (!temSenha) return '<span class="tag cinza" title="Esta pessoa não tem esta credencial">'+rotulo+': sem senha</span>';
+          if (provisoria) return '<span class="tag vermelha" title="Ainda não trocou a senha que o administrador passou">'+rotulo+': provisória</span>';
+          return '<span class="tag verde" title="A pessoa já escolheu a senha dela">'+rotulo+': própria</span>';
+        }
+        /* Quem não entra no painel não tem "estado de senha" para mostrar: o fato ali é
+           que ele não entra, e ponto. Não existe mais o caso de sobrar senha sem acesso —
+           a migração apagou as antigas e o caminho de gravação apaga as novas. */
+        var linhaPainel = u.AcessoPainel
+          ? selo(u.TemSenha, u.SenhaProvisoria, 'painel')
+          : '<span class="tag cinza" title="Esta pessoa usa só o app de lançamento">painel: sem acesso</span>';
+        var senhaCel = '<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+
+          selo(u.TemPin, u.PinProvisorio, 'lançamento')+ linhaPainel +'</div>';
+        return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil)+'</span></td>'+
+        '<td>'+login+'</td>'+
+        '<td>'+acesso+'</td>'+
+        '<td>'+senhaCel+'</td>'+
+        '<td>'+(u.AcessoPainel?'<span class="tag verde">sim</span>':'<span class="tag cinza">não</span>')+'</td>'+
+        '<td>'+Q.esc(lp?lp.Nome:'')+'</td><td>'+Q.esc(u.Telefone||'')+'</td>'+
+        '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
+        '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
+            '<button class="mini'+(on?' perigo':'')+'" data-ativar="'+u.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
+              (on?'desativar':'ativar')+'</button> '+
+            '<button class="mini perigo" data-excluir-user="'+u.ID+'">excluir</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+
 
   /* ---------------- quadros que abrem e fecham ---------------- *
      Seis cadastros abertos ao mesmo tempo enchem a página, e o que a pessoa quer fica a
