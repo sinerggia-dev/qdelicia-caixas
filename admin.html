@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=d374cc44">
+<link rel="stylesheet" href="styles.css?v=118b49df">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -195,10 +195,20 @@
       <div class="grid-filtros">
         <div><label for="mvOrigem">Origem</label><select id="mvOrigem"></select></div>
         <div><label for="mvDestino">Destino</label><select id="mvDestino"></select></div>
+        <!-- "O que saiu" e não "Saída": o campo ao lado já tem uma opção com esse
+             nome e elas não são a mesma coisa. Aqui saída é o grupo — remessa mais
+             transferência —, e perda e ajuste não entram em lado nenhum, porque não são
+             viagem de caixa. -->
+        <div><label for="mvFluxo">Entrada / Saída</label><select id="mvFluxo">
+          <option value="">Todos</option>
+          <option value="SAIDA">O que saiu</option>
+          <option value="ENTRADA">O que voltou</option>
+        </select></div>
         <div><label for="mvTipo">Tipo</label><select id="mvTipo">
           <option value="">Todos</option><option value="SAIDA">Saída</option><option value="DEVOLUCAO">Retorno</option>
           <option value="TRANSFERENCIA">Transferência</option><option value="PERDA">Perda</option><option value="AJUSTE">Ajuste</option>
         </select></div>
+        <div><label for="mvCaixa">Caixa</label><select id="mvCaixa"><option value="">Todas</option></select></div>
         <div><label for="mvUsuario">Quem lançou</label><select id="mvUsuario"><option value="">Todos</option></select></div>
         <div><label for="mvTeste">Lançamentos</label><select id="mvTeste">
           <option value="reais">Só reais</option>
@@ -535,6 +545,12 @@
     // dizer "nao filtra por isto", e "Selecione..." sugeriria que falta escolher.
     document.getElementById('mvOrigem').innerHTML = opcoes(todosLocais, 'Todas');
     document.getElementById('mvDestino').innerHTML = opcoes(todosLocais, 'Todos');
+    /* Em ordem de nome, como a coluna CAIXA da tabela: procurar "CX G" numa lista em
+       ordem de cadastro custa uma varredura toda vez. */
+    document.getElementById('mvCaixa').innerHTML = '<option value="">Todas</option>' +
+      Q.ordenarPorNome(DADOS.tipos||[]).map(function(t){
+        return '<option value="'+t.ID+'">'+Q.esc(t.Nome)+'</option>';
+      }).join('');
     document.getElementById('lcItens').innerHTML = (DADOS.tipos||[]).map(function(t){
       return '<div class="item"><div class="nome">'+Q.esc(t.Nome)+'</div><div class="stepper">'+
         '<input id="lc_'+t.ID+'" type="number" inputmode="numeric" placeholder="0"></div></div>';
@@ -1062,6 +1078,8 @@
       origem:  document.getElementById('mvOrigem').value,
       destino: document.getElementById('mvDestino').value,
       tipo:    document.getElementById('mvTipo').value,
+      fluxo:   document.getElementById('mvFluxo').value,
+      caixa:   document.getElementById('mvCaixa').value,
       usuario: document.getElementById('mvUsuario').value,
       teste:   document.getElementById('mvTeste').value,
       de:      document.getElementById('mvDe').value,
@@ -1074,6 +1092,10 @@
       var l = (DADOS.locais||[]).filter(function(x){ return String(x.ID)===String(id); })[0];
       return l ? l.Nome : id;
     }
+    function nomeCaixa(id){
+      var t = (DADOS.tipos||[]).filter(function(x){ return String(x.ID)===String(id); })[0];
+      return t ? t.Nome : id;
+    }
     function nomeUser(id){
       var u = EQUIPE.filter(function(x){ return String(x.ID)===String(id); })[0];
       return u ? u.Nome : id;
@@ -1083,6 +1105,9 @@
     if (f.origem)  p.push('com origem <b>'+Q.esc(nomeLocal(f.origem))+'</b>');
     if (f.destino) p.push('com destino <b>'+Q.esc(nomeLocal(f.destino))+'</b>');
     if (f.tipo)    p.push('do tipo <b>'+Q.esc(f.tipo.toLowerCase())+'</b>');
+    if (f.fluxo === 'SAIDA')   p.push('<b>só o que saiu</b>');
+    if (f.fluxo === 'ENTRADA') p.push('<b>só o que voltou</b>');
+    if (f.caixa)   p.push('da caixa <b>'+Q.esc(nomeCaixa(f.caixa))+'</b>');
     if (f.teste === 'reais') p.push('<b>só reais</b>');
     if (f.teste === 'teste') p.push('<b>só de teste</b>');
     if (f.de)      p.push('a partir de <b>'+Q.dataBR(f.de)+'</b>');
@@ -1112,7 +1137,8 @@
   /* Os cinco campos recarregam sozinhos ao mudar. Antes só o botão Filtrar disparava a
      busca: a pessoa trocava o Tipo, a tabela continuava igual, e a conclusão natural era
      que o filtro não funcionava. O botão fica como recarregar. */
-  ['mvOrigem', 'mvDestino', 'mvTipo', 'mvUsuario', 'mvTeste', 'mvDe', 'mvAte'].forEach(function(id){
+  ['mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa', 'mvUsuario', 'mvTeste',
+   'mvDe', 'mvAte'].forEach(function(id){
     document.getElementById(id).addEventListener('change', carregarMovimentos);
   });
 
@@ -1125,7 +1151,9 @@
   document.getElementById('btnLimparMov').addEventListener('click', function(){
     document.getElementById('mvOrigem').value = '';
     document.getElementById('mvDestino').value = '';
+    document.getElementById('mvFluxo').value = '';
     document.getElementById('mvTipo').value = '';
+    document.getElementById('mvCaixa').value = '';
     document.getElementById('mvUsuario').value = '';
     document.getElementById('mvTeste').value = 'reais';
     periodoPadraoMov();

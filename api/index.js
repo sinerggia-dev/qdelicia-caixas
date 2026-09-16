@@ -303,9 +303,12 @@ async function limparMovimentos(p) {
      caminho curto para apagar coisa diferente da que a pessoa viu — bastava um critério
      interpretado de outro jeito nos dois lugares. O limite alto porque aqui não se pagina:
      o que casa com o filtro tem de sair inteiro. */
+  /* Todo filtro que a lista entende tem de vir para ca. Um campo esquecido aqui nao da
+     erro: a tela mostra cinco linhas, o servidor acha quinhentas, e a unica defesa que
+     sobra e a conferencia do numero. Ha teste que compara as duas listas. */
   var filtro = {
     local: p.local, origem: p.origem, destino: p.destino,
-    tipo: p.tipo, usuario: p.usuario, teste: p.teste,
+    tipo: p.tipo, fluxo: p.fluxo, caixa: p.caixa, usuario: p.usuario, teste: p.teste,
     de: p.de, ate: p.ate, limit: 100000
   };
   var ids = L.listaMovimentos(d.movimentos, d.locais, d.tipos, d.usuarios, filtro)

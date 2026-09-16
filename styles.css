@@ -170,10 +170,19 @@ textarea{min-height:70px;resize:vertical}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0 14px}
 .linha-btn{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 
-/* A barra de Movimentos tem oito campos. Com o minimo de 210px do .grid2 eles nao cabiam
-   numa linha nem em tela larga, e o "Ate" descia sozinho para a segunda — parecendo outro
-   bloco. 150px cabe os oito em 1.800px e continua legivel. */
-.grid-filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px}
+/* A barra de Movimentos tem NOVE campos, e eles nao cabem numa linha sem custo.
+
+   Ja se tentou espremer: com nove colunas de 132px, "Filial Joao Pessoa" aparecia como
+   "Filial Joao P" e "Filial Maceio" como "Filial Macei". Duas filiais diferentes com o
+   mesmo texto visivel, numa barra que tambem apaga lancamentos — o aperto sai caro.
+
+   E `auto-fit` nao serve aqui: com nove itens ele acerta 8 numa linha e larga o nono
+   sozinho embaixo, que foi exatamente a queixa do "Ate" descendo. Cinco colunas fixas dao
+   5+4, duas fileiras cheias, com uns 250px por campo — nome de local inteiro e legivel. */
+.grid-filtros{display:grid;grid-template-columns:repeat(5,1fr);gap:0 12px}
+/* Tres colunas fecham 3x3 certinho; duas, ja no celular, e onde a lista vira lista. */
+@media (max-width:1150px){ .grid-filtros{grid-template-columns:repeat(3,1fr)} }
+@media (max-width:700px){ .grid-filtros{grid-template-columns:repeat(2,1fr)} }
 /* A fileira de botoes encostava na primeira linha da tabela: a borda do botao virava
    quase a borda do cabecalho, e o "Apagar" parecia estar POR CIMA da tabela. */
 #tabelaMov{margin-top:14px}

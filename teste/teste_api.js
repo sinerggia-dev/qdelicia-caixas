@@ -1221,7 +1221,62 @@ async function main() {
   }
 
 
-  console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
+  console.log('\n== filtrar por tipo de caixa e por sentido ==');
+{
+  const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  const D = (iso) => new Date(iso + 'T00:00:00');
+  const locais = [{ ID: 'L1', Nome: 'Matriz' }, { ID: 'R1', Nome: 'Caruaru' }];
+  const tipos = [{ ID: 'P', Nome: 'CX P' }, { ID: 'G', Nome: 'CX G' }];
+  const users = [{ ID: 'U1', Nome: 'Nestor' }];
+  let seq = 0;
+  const mov = (tipo, cx, q) => ({
+    ID: 'M' + (++seq), Tipo: tipo, OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: cx,
+    Qtd: q, UsuarioID: 'U1', Status: 'CONFIRMADO',
+    DataRef: D('2026-09-0' + seq), DataHora: D('2026-09-0' + seq)
+  });
+  const movs = [
+    mov('SAIDA', 'P', 10),           // M1
+    mov('SAIDA', 'G', 20),           // M2
+    mov('DEVOLUCAO', 'P', 5),        // M3
+    mov('TRANSFERENCIA', 'G', 30),   // M4
+    mov('PERDA', 'P', 2),            // M5
+    mov('AJUSTE', 'G', 7)            // M6
+  ];
+  const ids = (p) => F.listaMovimentos(movs, locais, tipos, users, p)
+    .map((m) => m.id).sort().join(',');
+
+  ok(ids({}) === 'M1,M2,M3,M4,M5,M6', 'sem filtro, vem tudo', ids({}));
+
+  ok(ids({ caixa: 'P' }) === 'M1,M3,M5',
+    'filtrar por tipo de caixa pega o tipo em qualquer tipo de movimento', ids({ caixa: 'P' }));
+
+  // O sentido e o GRUPO: saida traz remessa e transferencia, que o filtro Tipo so pegaria
+  // uma de cada vez.
+  ok(ids({ fluxo: 'SAIDA' }) === 'M1,M2,M4',
+    '"só o que saiu" traz remessa E transferência juntas', ids({ fluxo: 'SAIDA' }));
+  ok(ids({ fluxo: 'ENTRADA' }) === 'M3',
+    '"só o que voltou" traz a devolução', ids({ fluxo: 'ENTRADA' }));
+
+  // Este e o ponto que mais importa: perda e ajuste nao sao viagem de caixa. Se caissem
+  // em "saiu", a tela mostraria como despachado o que na verdade foi baixa de saldo.
+  ok(ids({ fluxo: 'SAIDA' }).indexOf('M5') < 0 && ids({ fluxo: 'ENTRADA' }).indexOf('M5') < 0 &&
+     ids({ fluxo: 'SAIDA' }).indexOf('M6') < 0 && ids({ fluxo: 'ENTRADA' }).indexOf('M6') < 0,
+    'perda e ajuste não entram nem em um lado nem no outro — não são viagem de caixa');
+
+  // Os filtros se somam; nao se substituem.
+  ok(ids({ fluxo: 'SAIDA', caixa: 'G' }) === 'M2,M4',
+    'sentido e caixa juntos apertam o recorte', ids({ fluxo: 'SAIDA', caixa: 'G' }));
+  ok(ids({ fluxo: 'ENTRADA', caixa: 'G' }) === '',
+    'e quando nada casa, casa nada — não a base inteira', ids({ fluxo: 'ENTRADA', caixa: 'G' }));
+
+  // O sentido do filtro tem de ser o MESMO que o painel usa para somar SAIDA e RETORNO.
+  const fx = F.fluxoPorPessoa({ movimentos: movs, usuarios: users, tipos: tipos }, D('2026-09-01'));
+  const u = fx.usuarios[0];
+  ok(u.saida === 60 && u.retorno === 5,
+    'o painel soma pelo mesmo critério: 10+20+30 saiu, 5 voltou, perda e ajuste fora', u);
+}
+
+console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
   {
     const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
     const D = (iso) => new Date(iso + 'T00:00:00');
@@ -1625,7 +1680,45 @@ async function main() {
     ok(ids({ origem: 'R2' }) === '', 'filtro que não casa com nada devolve vazio, e não tudo');
   }
 
-  console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
+  /* ---------------------------------------------------------------------------
+ * O que a tela LISTA e o que o servidor APAGA tem de nascer do mesmo filtro.
+ *
+ * A funcao ja e a mesma (listaMovimentos). O que pode divergir e o objeto passado a ela:
+ * limparMovimentos monta o filtro campo a campo, e um campo esquecido nao da erro — a
+ * tela mostra cinco linhas e o servidor acha quinhentas. Aqui se compara as duas listas.
+ * ------------------------------------------------------------------------- */
+console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
+{
+  const src = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  const ini = src.indexOf('function listaMovimentos(');
+  /* O fim e a PROXIMA declaracao de topo depois dela. Fatiar ate um nome fixo ja deu
+     errado aqui: cicloDaCarga fica ANTES de listaMovimentos, o recorte saiu vazio, e a
+     varredura nao achou campo nenhum — o que passaria como "nada faltando". */
+  const corpo = src.slice(ini, src.indexOf('\nfunction ', ini + 10));
+  if (corpo.length < 500) throw new Error('recorte de listaMovimentos ficou curto demais');
+  // todo `p.<campo>` que a lista consulta, menos os que nao sao recorte
+  const fora = { limit: 1, teste: 1 };
+  const campos = {};
+  (corpo.match(/\bp\.([a-zA-Z]+)/g) || []).forEach((m) => {
+    const k = m.slice(2);
+    if (!fora[k]) campos[k] = 1;
+  });
+
+  const idx = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  const j = idx.indexOf('var filtro = {');
+  const literal = idx.slice(j, idx.indexOf('};', j));
+
+  const faltando = Object.keys(campos).filter((k) => literal.indexOf(k + ':') < 0);
+  ok(faltando.length === 0,
+    'limparMovimentos repassa todo campo de recorte que listaMovimentos entende', faltando);
+  ok(Object.keys(campos).length >= 7,
+    'e a leitura achou os campos mesmo — não uma lista vazia que passaria por engano',
+    Object.keys(campos));
+  ok(literal.indexOf('teste:') >= 0,
+    'inclusive o recorte real/teste, que tem valor padrão e não apareceria na varredura');
+}
+
+console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }
 

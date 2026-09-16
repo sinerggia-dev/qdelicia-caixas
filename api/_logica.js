@@ -66,6 +66,20 @@ function perfisConhecidos(usuarios) {
   });
 }
 
+/* O movimento leva caixa embora ou traz caixa de volta?
+   SAIDA e TRANSFERENCIA levam; DEVOLUCAO traz. PERDA e AJUSTE nao sao nem um nem outro —
+   nao ha viagem, ha correcao de saldo — e por isso devolvem ''. Quem filtra por sentido
+   nao os quer em lado nenhum, e somar uma perda como "saida" inflaria o que se cobra.
+
+   Mora aqui, e nao repetida em cada quem-pergunta, porque a tela de Movimentos e os
+   paineis precisam responder isso do MESMO jeito: se o filtro chamasse de entrada algo
+   que o painel nao conta como retorno, os dois numeros brigariam sem ninguem saber por que. */
+function sentidoDoMovimento(tipo) {
+  if (tipo === 'SAIDA' || tipo === 'TRANSFERENCIA') return 'SAIDA';
+  if (tipo === 'DEVOLUCAO') return 'ENTRADA';
+  return '';
+}
+
 /* Mapa {tipo: quantidade} vira lista ordenada por nome.
    Ordenada aqui, e nao na tela, por dois motivos: a tela nao ordena de novo, e as colunas
    de SAIDA e RETORNO saem sempre na mesma ordem — que e o que deixa comparar uma com a
@@ -775,6 +789,11 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
     if (p.origem && String(m.OrigemID) !== String(p.origem)) return false;
     if (p.destino && String(m.DestinoID) !== String(p.destino)) return false;
     if (p.tipo && m.Tipo !== String(p.tipo).toUpperCase()) return false;
+    // Sentido e Tipo convivem: Tipo escolhe UMA linha do razão, sentido pega o grupo.
+    // "Saída" aqui traz remessa E transferência juntas, que é como o operador pensa —
+    // e deixa de fora perda e ajuste, que não são viagem de caixa nenhuma.
+    if (p.fluxo && sentidoDoMovimento(m.Tipo) !== String(p.fluxo).toUpperCase()) return false;
+    if (p.caixa && String(m.TipoCaixaID) !== String(p.caixa)) return false;
     // Aqui e nao no navegador: o corte de 500 linhas vem DEPOIS deste filtro, entao
     // filtrar na tela mostraria so os lancamentos da pessoa que couberam nas 500.
     if (p.usuario && String(m.UsuarioID) !== String(p.usuario)) return false;
@@ -872,8 +891,9 @@ function fluxoPorPessoa(dados, desde) {
     if (desde && m.DataRef < desde) return;
     var q = efetiva(m);
     if (!q) return;
-    var ehSaida = (m.Tipo === 'SAIDA' || m.Tipo === 'TRANSFERENCIA');
-    if (!ehSaida && m.Tipo !== 'DEVOLUCAO') return;   // perda e ajuste não são fluxo de ida e volta
+    var sentido = sentidoDoMovimento(m.Tipo);
+    if (!sentido) return;                             // perda e ajuste não são fluxo de ida e volta
+    var ehSaida = (sentido === 'SAIDA');
     var mot = String(m.Motorista || '').trim();
     var caixa = nome(nomesTiposP, m.TipoCaixaID);
     soma(porMot, mot, mot, q, ehSaida, String(m.Rota || '').trim(), caixa);
@@ -945,13 +965,14 @@ function fluxoPorOrigem(dados, desde, meta) {
     var q = efetiva(m);          // devolução não confirmada vale 0, e vale a contada
     if (!q) return;
     var caixa = nome(nomesTipos, m.TipoCaixaID);
-    if (m.Tipo === 'SAIDA' || m.Tipo === 'TRANSFERENCIA') {
+    var sentido = sentidoDoMovimento(m.Tipo);
+    if (sentido === 'SAIDA') {
       if (m.DestinoID) {
         saiu[m.DestinoID] = (saiu[m.DestinoID] || 0) + q;
         somaTipo(saiuTipo, m.DestinoID, caixa, q);
         anota(m.DestinoID, m);
       }
-    } else if (m.Tipo === 'DEVOLUCAO') {
+    } else if (sentido === 'ENTRADA') {
       if (m.OrigemID) {
         voltou[m.OrigemID] = (voltou[m.OrigemID] || 0) + q;
         somaTipo(voltouTipo, m.OrigemID, caixa, q);

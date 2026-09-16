@@ -251,5 +251,46 @@ console.log('\n== saida e retorno abertos por tipo de caixa ==');
     'sem movimento daquele lado, nao sobra nem rotulo vazio');
 })();
 
+/* ---------------------------------------------------------------------------
+ * A barra de Movimentos: todo campo desenhado tem de ser lido, recarregar e limpar.
+ *
+ * Um campo que fica na tela mas ninguem le e pior do que um campo que falta: a pessoa
+ * escolhe, a lista nao muda, e a conclusao natural e que o filtro esta quebrado. Pior
+ * ainda no botao de apagar, que le exatamente estes campos — um esquecido ali significa
+ * apagar mais do que se viu.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a barra de Movimentos nao esquece campo ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  var i = adm.indexOf('<div class="grid-filtros">', adm.indexOf('id="pgMovimentos"'));
+  var barra = adm.slice(i, adm.indexOf('<div class="linha-btn">', i));
+  var campos = (barra.match(/id="(mv[A-Za-z]+)"/g) || [])
+    .map(function (m) { return m.slice(4, -1); });
+
+  ok(campos.length >= 9, 'a leitura achou os campos da barra', campos);
+
+  var leitura = adm.slice(adm.indexOf('function filtroExclusao()'),
+                          adm.indexOf('function descreveFiltro('));
+  ok(campos.filter(function (c) { return leitura.indexOf("'" + c + "'") < 0; }).length === 0,
+    'todo campo da barra entra no filtro que lista E apaga',
+    campos.filter(function (c) { return leitura.indexOf("'" + c + "'") < 0; }));
+
+  var j = adm.indexOf("['mvOrigem', 'mvDestino'");
+  var ouvintes = adm.slice(j, adm.indexOf('});', j));
+  ok(campos.filter(function (c) { return ouvintes.indexOf("'" + c + "'") < 0; }).length === 0,
+    'e todo campo recarrega a lista sozinho ao mudar',
+    campos.filter(function (c) { return ouvintes.indexOf("'" + c + "'") < 0; }));
+
+  var k = adm.indexOf("getElementById('btnLimparMov')");
+  var limpar = adm.slice(k, adm.indexOf('});', k));
+  // as duas datas voltam pelo periodoPadraoMov, nao uma a uma
+  var faltam = campos.filter(function (c) {
+    if (c === 'mvDe' || c === 'mvAte') return limpar.indexOf('periodoPadraoMov') < 0;
+    return limpar.indexOf("'" + c + "'") < 0;
+  });
+  ok(faltam.length === 0, 'e todo campo volta ao padrao no botao Limpar', faltam);
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);
