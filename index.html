@@ -62,7 +62,7 @@
 
 <nav class="abas" id="abas">
   <button class="ativa" data-pagina="pgSaida">Saída</button>
-  <button data-pagina="pgDevolucao">Devolução</button>
+  <button data-pagina="pgDevolucao">Retorno</button>
   <button data-pagina="pgSaldo">Saldo</button>
 </nav>
 
@@ -129,14 +129,14 @@
        deve ter que reaprender a tela. Mesma ordem, mesmos rótulos, mesmos blocos. -->
   <section id="pgDevolucao" class="pagina">
     <div class="card">
-      <h2>Devolução de caixas<span class="sub" id="devSub">Caixas voltando na rota para o galpão.</span></h2>
+      <h2>Retorno de caixas<span class="sub" id="devSub">Caixas voltando na rota para o galpão.</span></h2>
       <div class="grid2">
         <div>
           <label for="dvData">Data<span class="obrig">*</span></label>
           <input id="dvData" type="date">
         </div>
         <div>
-          <label for="dvOrigem">Devolução<span class="obrig">*</span></label>
+          <label for="dvOrigem">Retorno<span class="obrig">*</span></label>
           <select id="dvOrigem"></select>
         </div>
         <div>
@@ -170,7 +170,7 @@
       </div>
 
       <div class="linha-btn">
-        <button class="btn" id="btnSalvarDevolucao">Registrar devolução</button>
+        <button class="btn" id="btnSalvarDevolucao">Registrar retorno</button>
         <button class="btn neutro" id="btnLimparDevolucao" style="flex:0;min-width:110px">Limpar</button>
       </div>
       <div id="dvAviso"></div>
@@ -197,7 +197,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=5f20680b"></script>
+<script src="app.js?v=9fa45dc1"></script>
 <script>
 (function(){
   'use strict';
@@ -552,8 +552,10 @@
   function montarFormularios(){
     // A rota entra nos seletores porque o caminhão é origem da entrega e destino da
     // coleta. Sem barra de filtro, quem escolhe é a pessoa, tela a tela.
-    var comRota = locaisPor(['GALPAO','FILIAL','ROTA']);
-    var destinos = locaisPor(['CLIENTE','FILIAL']);
+    // FORNECEDOR entra nas duas pontas da saída: a caixa chega dele e volta para ele.
+    // No retorno ele não entra — aquele caminho é rota para galpão.
+    var comRota = locaisPor(['GALPAO','FILIAL','ROTA','FORNECEDOR']);
+    var destinos = locaisPor(['CLIENTE','FILIAL','FORNECEDOR']);
     // Saída e destino são listas separadas no cadastro, e a devolução é o caminho de volta:
     // quem devolve é um destino, e quem recebe é uma saída.
     var minhasSaidas  = permitidos(comRota, 'saidas');
@@ -636,7 +638,7 @@
       { id:'sdMotorista', msg:'Escolha o motorista que vai levar a carga.' }
     ],
     dv: [
-      { id:'dvData',      msg:'Informe a data da devolução.' },
+      { id:'dvData',      msg:'Informe a data do retorno.' },
       { id:'dvOrigem',    msg:'Informe quem está devolvendo.' },
       { id:'dvDestino',   msg:'Informe onde as caixas foram recebidas.' },
       { id:'dvMotorista', msg:'Informe quem trouxe as caixas de volta.' }
@@ -785,16 +787,16 @@
       usuarioId: s.id, perfil: s.perfil,
       foto: dvFotoData
     }).then(function(r){
-      btn.disabled = false; btn.textContent = 'Registrar devolução';
+      btn.disabled = false; btn.textContent = 'Registrar retorno';
       var txt = r.offline
         ? '⏳ Sem conexão — <b>'+total+' caixa(s)</b> na fila. Envia sozinho quando a internet voltar.'
         : '✓ Entrada de <b>'+total+' caixa(s)</b> confirmada. Saldo do cliente já baixou.';
       document.getElementById('dvAviso').innerHTML = '<div class="aviso-box '+(r.offline?'atencao':'ok')+'">'+txt+'</div>';
-      Q.toast(r.offline ? 'Guardado na fila (offline).' : 'Devolução registrada!','ok');
+      Q.toast(r.offline ? 'Guardado na fila (offline).' : 'Retorno registrado!','ok');
       limparDevolucao(true);
       if (!r.offline) carregarPainel();
     }).catch(function(e){
-      btn.disabled = false; btn.textContent = 'Registrar devolução';
+      btn.disabled = false; btn.textContent = 'Registrar retorno';
       Q.toast(e.message,'erro');
     });
   });

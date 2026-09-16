@@ -214,5 +214,12 @@ module.exports = [
     id: '2026-09-07-tipo-motorista',
     nota: 'motorista fixo na rota ou volante',
     sql: "alter table public.motoristas add column if not exists tipo text not null default '';"
+  },
+  {
+    id: '2026-09-16-local-fornecedor',
+    nota: 'FORNECEDOR vira o quinto tipo de local: de onde a caixa vem e para onde ela volta',
+    sql: "alter table public.locais drop constraint if exists locais_tipo_check;"
+       + "alter table public.locais add constraint locais_tipo_check "
+       + "check (tipo in ('GALPAO','FILIAL','CLIENTE','ROTA','FORNECEDOR'));"
   }
 ];

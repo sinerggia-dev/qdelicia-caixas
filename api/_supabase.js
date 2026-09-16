@@ -78,6 +78,18 @@ function salvarConfig(chave, valor) {
   });
 }
 
+/* Apaga vários de uma vez. O `in.(...)` é obrigatório: um DELETE sem filtro no PostgREST
+   varre a tabela inteira, e é exatamente o engano que não pode acontecer aqui. */
+function removerVarios(tabela, ids) {
+  var lista = (ids || []).filter(function (x) { return x !== null && x !== undefined && x !== ''; });
+  if (!lista.length) return Promise.resolve(null);
+  var alvo = lista.map(function (x) { return '"' + String(x).replace(/"/g, '') + '"'; }).join(',');
+  return req('/rest/v1/' + tabela + '?id=in.(' + encodeURIComponent(alvo) + ')', {
+    method: 'DELETE',
+    headers: cabecalhos()
+  });
+}
+
 function remover(tabela, id) {
   return req('/rest/v1/' + tabela + '?id=eq.' + encodeURIComponent(id), {
     method: 'DELETE',
@@ -333,7 +345,8 @@ async function carregarTudo() {
 
 module.exports = {
   configurado: configurado,
-  selectAll: selectAll, insert: insert, update: update, remover: remover, salvarConfig: salvarConfig,
+  selectAll: selectAll, insert: insert, update: update, remover: remover,
+  removerVarios: removerVarios, salvarConfig: salvarConfig,
   rpc: rpc,
   subirArquivo: subirArquivo, carregarTudo: carregarTudo,
   LOCAL: LOCAL, TIPO: TIPO, USUARIO: USUARIO, MOV: MOV, MOTORISTA: MOTORISTA,

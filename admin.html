@@ -140,7 +140,7 @@
   <!-- ---------- LANÇAR ---------- -->
   <section id="pgLancar" class="pagina">
     <div class="card">
-      <h2>Ajustes do escritório<span class="sub">Saldo inicial e baixa de perda. Saída, devolução e transferência são lançadas no campo — aqui elas se <b>corrigem</b>, na aba Movimentos.</span></h2>
+      <h2>Ajustes do escritório<span class="sub">Saldo inicial e baixa de perda. Saída, retorno e transferência são lançados no campo — aqui elas se <b>corrigem</b>, na aba Movimentos.</span></h2>
       <div class="grid2">
         <div>
           <label for="lcTipo">Tipo de lançamento</label>
@@ -163,6 +163,17 @@
       <div class="linha-btn"><button class="btn" id="btnLancar">Gravar lançamento</button></div>
       <div id="lcAviso"></div>
     </div>
+
+    <div class="card" style="border-left:3px solid var(--vermelho)">
+      <h2>Zerar a base<span class="sub">Apaga <b>todos</b> os lançamentos já enviados — saídas, retornos, perdas e ajustes. Serve para limpar os testes antes de a operação começar de verdade. Não tem volta: não existe cópia destes registros.</span></h2>
+      <div class="linha-btn">
+        <button class="btn sec" id="btnLimparTudo" type="button"
+                style="flex:0;min-width:270px;white-space:nowrap;border-color:var(--vermelho);color:var(--vermelho)">
+          Apagar todos os lançamentos
+        </button>
+      </div>
+      <div id="limparAviso"></div>
+    </div>
   </section>
 
   <!-- ---------- MOVIMENTOS ---------- -->
@@ -172,7 +183,7 @@
       <div class="grid2">
         <div><label for="mvLocal">Local</label><select id="mvLocal"></select></div>
         <div><label for="mvTipo">Tipo</label><select id="mvTipo">
-          <option value="">Todos</option><option value="SAIDA">Saída</option><option value="DEVOLUCAO">Devolução</option>
+          <option value="">Todos</option><option value="SAIDA">Saída</option><option value="DEVOLUCAO">Retorno</option>
           <option value="TRANSFERENCIA">Transferência</option><option value="PERDA">Perda</option><option value="AJUSTE">Ajuste</option>
         </select></div>
         <div><label for="mvUsuario">Quem lançou</label><select id="mvUsuario"><option value="">Todos</option></select></div>
@@ -195,7 +206,7 @@
       <div id="tabelaPedidos"></div>
     </div>
     <div class="card" data-cad="usuarios">
-      <h2>Usuários<span class="sub">Admin faz os cadastros. Conferente confere a devolução no galpão. Gestor, Gerente, Motorista e Promotor contam na rua — a contagem deles espera conferência.<br>A pessoa entra com o <b>usuário</b> — tanto no app de lançamento quanto no painel. O administrador é sempre <b>admin</b>.</span></h2>
+      <h2>Usuários<span class="sub">Admin faz os cadastros. Gestor, Gerente, Conferente, Motorista e Promotor lançam no campo.<br>A pessoa entra com o <b>usuário</b> — tanto no app de lançamento quanto no painel. O administrador é sempre <b>admin</b>.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoUsuario" style="flex:0;min-width:170px">+ Novo usuário</button>
       </div>
@@ -239,7 +250,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=5f20680b"></script>
+<script src="app.js?v=9fa45dc1"></script>
 <script>
 (function(){
   'use strict';
@@ -460,7 +471,7 @@
     document.getElementById('exLocal').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL']));
     // Com ROTA de fora não havia como filtrar por Caruaru — e é na rota que os
     // movimentos acontecem. O filtro casa com origem OU destino, então a rota serve.
-    document.getElementById('mvLocal').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL','GALPAO','ROTA']), 'Todos');
+    document.getElementById('mvLocal').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL','GALPAO','ROTA','FORNECEDOR']), 'Todos');
     document.getElementById('lcItens').innerHTML = (DADOS.tipos||[]).map(function(t){
       return '<div class="item"><div class="nome">'+Q.esc(t.Nome)+'</div><div class="stepper">'+
         '<input id="lc_'+t.ID+'" type="number" inputmode="numeric" placeholder="0"></div></div>';
@@ -560,7 +571,7 @@
       (FLUXO_FILTRO === 'MOTORISTA'
         ? 'Por <b>quem dirigiu</b>: o que saiu pelas mãos dele e o que voltou.'
         : FLUXO_FILTRO === 'USUARIO'
-          ? 'Por <b>quem lançou</b>. Serve para achar baixa que ninguém deu — não é dívida da pessoa: se um lança a saída e outro lança a devolução, o déficit fica com o primeiro.'
+          ? 'Por <b>quem lançou</b>. Serve para achar baixa que ninguém deu — não é dívida da pessoa: se um lança a saída e outro lança o retorno, o déficit fica com o primeiro.'
           : '<b>Saída</b> é o que foi para lá; <b>retorno</b>, o que voltou de lá e já foi conferido.');
 
     var cols = FLUXO_COLUNAS[FLUXO_FILTRO] || ['Origem / destino', 'Responsável'];
@@ -611,7 +622,7 @@
     var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
     var houve = f.linhas.some(function(l){ return l.situacao !== 'parado'; }) ||
                 p.motoristas.length || p.usuarios.length;
-    if (!houve) return 'Ainda não há saída nem devolução lançada neste mês.';
+    if (!houve) return 'Ainda não há saída nem retorno lançado neste mês.';
     if (FLUXO_FILTRO === 'MOTORISTA') return 'Nenhum lançamento do mês tem motorista informado.';
     return 'Nenhum movimento no mês para este filtro.';
   }
@@ -654,7 +665,7 @@
     document.getElementById('kpis').innerHTML =
       kpi(Q.num(k.emPoderTerceiros),'caixas na rua (clientes+filiais)','aviso')+
       (PAINEL.rotas && PAINEL.rotas.length ? kpi(Q.num(k.emRota),'caixas no caminhão (em rota)', k.emRota?'aviso':'ok') : '')+
-      kpi(Q.num(k.vencidas),'caixas fora do prazo de devolução', k.vencidas?'alerta':'ok')+
+      kpi(Q.num(k.vencidas),'caixas fora do prazo de retorno', k.vencidas?'alerta':'ok')+
       kpi(Q.num(k.perdasMes),'perdas baixadas no mês', k.perdasMes?'alerta':'ok')+
       kpi(k.taxaRetorno===null?'—':k.taxaRetorno+'%','taxa de retorno do mês', k.taxaRetorno!==null&&k.taxaRetorno<90?'alerta':'ok')+
       kpi(Q.num(k.divergenciaMes),'divergências de contagem no mês', k.divergenciaMes?'alerta':'ok')+
@@ -845,7 +856,7 @@
     var t = document.getElementById('lcTipo').value;
     var internos = locaisPor(['GALPAO','FILIAL']);
     var externos = locaisPor(['CLIENTE','FILIAL']);
-    var todos = locaisPor(['GALPAO','FILIAL','CLIENTE','ROTA']);   // rota tambem perde e ajusta caixa
+    var todos = locaisPor(['GALPAO','FILIAL','CLIENTE','ROTA','FORNECEDOR']);   // rota tambem perde e ajusta caixa
     var wo = document.getElementById('wrapOrigem'), wd = document.getElementById('wrapDestino');
     wo.style.display='block'; wd.style.display='block';
     if (t==='SAIDA'){ document.getElementById('lcOrigem').innerHTML=opcoes(internos); document.getElementById('lcDestino').innerHTML=opcoes(externos); }
@@ -890,6 +901,41 @@
   });
 
   /* ---------------- movimentos ---------------- */
+  /* Pede o número de lançamentos escrito à mão. Confirmar no "sim" seria fácil demais
+     para algo sem volta, e escrever o número obriga a olhar quantos são. O servidor
+     recusa se esse número não bater com o que está lá na hora: entre abrir a tela e
+     confirmar, alguém no campo pode ter lançado, e esse lançamento novo iria junto sem
+     ninguém ver. */
+  var NL = String.fromCharCode(10);
+  document.getElementById('btnLimparTudo').addEventListener('click', function(){
+    var aviso = document.getElementById('limparAviso');
+    aviso.innerHTML = '';
+    Q.get({acao:'movimentos', limit:9999}).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      var n = (r.movimentos||[]).length;
+      if (!n){ aviso.innerHTML = '<div class="aviso-box ok">Não há lançamento para apagar.</div>'; return; }
+      var dito = prompt('APAGAR os ' + n + ' lançamentos já enviados.' + NL + NL +
+        'Isto apaga saídas, retornos, perdas e ajustes. O saldo volta a zero e não há ' +
+        'volta — não existe cópia destes registros.' + NL + NL +
+        'Escreva ' + n + ' para confirmar:');
+      if (dito === null) return;
+      if (String(dito).trim() !== String(n)){
+        aviso.innerHTML = '<div class="aviso-box erro">Número não confere — nada foi apagado.</div>';
+        return;
+      }
+      return Q.post({acao:'limparMovimentos', esperado:n, usuarioId:Q.sessao().id}).then(function(r2){
+        if (!r2.ok) throw new Error(r2.erro);
+        aviso.innerHTML = '<div class="aviso-box ok">' + Q.num(r2.apagados) +
+          ' lançamento(s) apagado(s). O saldo está zerado.</div>';
+        Q.toast('Base zerada.','ok');
+        carregarPainel();
+        if (MOVS.length) carregarMovimentos();
+      });
+    }).catch(function(e){
+      aviso.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
+    });
+  });
+
   document.getElementById('btnFiltrarMov').addEventListener('click', carregarMovimentos);
 
   /* Os cinco campos recarregam sozinhos ao mudar. Antes só o botão Filtrar disparava a
@@ -926,14 +972,12 @@
           '<th>Caixa</th><th class="num">Qtd</th>'+
           '<th>Motorista</th><th>Quem</th><th></th></tr></thead><tbody>'+
           MOVS.map(function(m){
-            /* As cores da linha ficam: elas são o que sobrou de Conferida, Divergência e
-               do antigo Status depois que essas colunas saíram. Amarela = devolução ainda
-               esperando conferência, e que por isso não entrou no saldo. Vermelha = o
-               contado na chegada não bateu com o declarado. Sem elas, uma devolução que
-               não mexeu em saldo nenhum ficaria indistinguível de uma normal. */
-            return '<tr class="'+(m.divergencia?'ruim':(m.status==='AGUARDANDO'?'destaque':''))+'">'+
+            /* Vermelha continua valendo: o contado na chegada não bateu com o
+               declarado, e a coluna que mostrava isso saiu. O amarelo de AGUARDANDO foi
+               embora com a etapa de conferência — ele dizia "não entrou no saldo". */
+            return '<tr class="'+(m.divergencia?'ruim':'')+'">'+
               '<td>'+Q.dataBR(m.dataRef)+'</td>'+
-              '<td><span class="tag '+tagCiclo(m.situacao, m.status)+'">'+Q.esc(m.situacao)+'</span></td>'+
+              '<td><span class="tag '+tagCiclo(m.situacao)+'">'+Q.esc(m.situacao)+'</span></td>'+
               '<td>'+Q.esc(m.origem)+'</td><td>'+Q.esc(m.destino)+'</td><td>'+Q.esc(m.tipoCaixa)+'</td>'+
               '<td class="num">'+Q.num(m.qtd)+'</td>'+
               '<td>'+(m.motorista?Q.esc(m.motorista):'—')+'</td>'+
@@ -987,11 +1031,10 @@
   /* O rótulo agora diz o que a linha é E em que pé está — Tipo e Status viraram uma
      coluna só. As cores seguem o mesmo sentido de sempre: azul saiu, verde fechou,
      amarelo falta parte, vermelho sumiu. */
-  function tagCiclo(s, status){
-    /* Devolução que ainda espera conferência NÃO entrou no saldo: a caixa segue na conta
-       do cliente. A palavra continua "Devolvida", como pedido, mas em amarelo — verde ao
-       lado de uma que já contou faria as duas parecerem a mesma coisa. */
-    if (s === 'Devolvida' && status === 'AGUARDANDO') return 'amarela';
+  function tagCiclo(s){
+    /* O amarelo para AGUARDANDO saiu junto com a etapa de conferência: ele queria dizer
+       "ainda não entrou no saldo", e agora entra. Manter a cor seria a tela contradizendo
+       o número que ela mesma mostra duas colunas adiante. */
     return s==='Devolvida'?'verde':(s==='Parcial'?'amarela':(s==='Perda'?'vermelha':
       (s==='Enviada'?'azul':'cinza')));
   }
@@ -1452,7 +1495,7 @@
     var rotasCad = (DADOS.locais||[]).filter(function(x){ return String(x.Tipo).toUpperCase()==='ROTA' && String(x.ID)!==String(l.ID); });
     modal('<h2>'+(l.ID?'Editar':'Novo')+' cadastro</h2>'+
       '<label>Tipo</label><select id="fTipo">'+
-        ['CLIENTE','FILIAL','GALPAO','ROTA'].map(function(t){ return '<option value="'+t+'"'+(String(l.Tipo)===t?' selected':'')+'>'+(t==='ROTA'?'rota (caminhão)':t.toLowerCase())+'</option>'; }).join('')+'</select>'+
+        ['CLIENTE','FILIAL','FORNECEDOR','GALPAO','ROTA'].map(function(t){ return '<option value="'+t+'"'+(String(l.Tipo)===t?' selected':'')+'>'+(t==='ROTA'?'rota (caminhão)':t.toLowerCase())+'</option>'; }).join('')+'</select>'+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(l.Nome||'')+'" placeholder="Ex.: Rota Centro">'+
       '<div id="soRota">'+
         '<label>Motorista responsável</label><select id="fMotorista">'+
@@ -1469,7 +1512,7 @@
         '<label>WhatsApp (com DDD)</label><input type="tel" id="fTel" value="'+Q.esc(l.Telefone||'')+'" placeholder="81 98151-7703">'+
         '<div class="grid2">'+
           '<div><label>Limite de caixas</label><input type="number" id="fLimite" value="'+Q.esc(l.LimiteCaixas||'')+'" placeholder="0 = sem limite"></div>'+
-          '<div><label>Prazo de devolução (dias)</label><input type="number" id="fPrazo" value="'+Q.esc(l.DiasPrazo||'')+'" placeholder="7"></div>'+
+          '<div><label>Prazo de retorno (dias)</label><input type="number" id="fPrazo" value="'+Q.esc(l.DiasPrazo||'')+'" placeholder="7"></div>'+
         '</div>'+
       '</div>'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(String(l.Ativo).toUpperCase()!=='NAO'?' selected':'')+'>sim</option><option value="NAO"'+(String(l.Ativo).toUpperCase()==='NAO'?' selected':'')+'>não</option></select>'+
@@ -1651,9 +1694,9 @@
               : 'Senha provisória: a pessoa escolhe a dela no primeiro acesso.')+'</p>'+
       '<h3 style="margin-top:20px">Onde ele pode lançar</h3>'+
       caixaLocais('fSaidas', 'Saída — de onde as caixas saem',
-                  locaisEscolhiveis(['GALPAO','FILIAL','ROTA'], u.Saidas), u.Saidas)+
+                  locaisEscolhiveis(['GALPAO','FILIAL','ROTA','FORNECEDOR'], u.Saidas), u.Saidas)+
       caixaLocais('fDestinos', 'Destino — para onde as caixas vão',
-                  locaisEscolhiveis(['GALPAO','ROTA','FILIAL','CLIENTE'], u.Destinos), u.Destinos)+
+                  locaisEscolhiveis(['GALPAO','ROTA','FILIAL','CLIENTE','FORNECEDOR'], u.Destinos), u.Destinos)+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
         'Nada marcado = a pessoa vê todos. Marque para restringir.</p>'+
       '<h3 style="margin-top:20px">Outros</h3>'+
@@ -1691,7 +1734,7 @@
     }
     /* Chaveado em MAIÚSCULA porque a grafia gravada é escolha de quem cadastra. */
     var COM_PODER = { ADMIN:'faz os cadastros e as correções, e entra sempre no painel.',
-                      CONFERENTE:'confere a devolução na chegada do galpão.' };
+                      CONFERENTE:'confere a contagem na chegada do galpão.' };
 
     function ajustarPainel(){
       var perfil = perfilDigitado();
@@ -1704,16 +1747,16 @@
         : 'Sem acesso, a pessoa continua usando normalmente o app de campo.';
 
       /* Um perfil escrito agora nasce sem poder nenhum. Dizer isso na hora evita a
-         armadilha de criar "SUPERVISOR" esperando que ele confira devolução. */
+         armadilha de criar "SUPERVISOR" esperando que ele administre alguma coisa. */
       var nota = document.getElementById('fPerfilNota');
       if (!perfil){ nota.textContent = ''; return; }
       var chave = perfil.toUpperCase();
       if (COM_PODER[chave]){ nota.textContent = perfil + ' ' + COM_PODER[chave]; return; }
       var conhecido = PERFIS.some(function(x){ return String(x).toUpperCase() === chave; });
       nota.textContent = conhecido
-        ? 'Conta na rua: a devolução dele espera conferência no galpão.'
-        : 'Perfil novo. Nasce sem permissão especial: não cadastra e não confere, e a '+
-          'devolução dele espera conferência. O acesso ao painel é a chave acima.';
+        ? 'Lança saída e retorno no campo. O lançamento vale no saldo na hora.'
+        : 'Perfil novo. Nasce sem permissão especial: não cadastra e não administra. '+
+          'Lança no campo como os demais. O acesso ao painel é a chave acima.';
     }
     // `input` e não `change`: em campo de texto o change só dispara ao sair, e a nota
     // ficaria mentindo enquanto a pessoa digita.

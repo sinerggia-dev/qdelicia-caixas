@@ -187,14 +187,14 @@
   }
 
   /**
-   * Ordem de leitura dos locais: galpão, filial, rota, cliente — e alfabética dentro de
+   * Ordem de leitura dos locais: galpão, filial, rota, cliente, fornecedor — e alfabética dentro de
    * cada grupo. O banco entrega por id, e id é ordem de cadastro: bastou nascer um galpão
    * novo para ele cair no fim da lista, longe dos outros galpões. Quem lê a tela procura
    * por tipo, não por quando a linha foi criada.
    *
    * Devolve um array novo: ordenar no lugar mexeria no cache compartilhado.
    */
-  var ORDEM_TIPO = { GALPAO: 0, FILIAL: 1, ROTA: 2, CLIENTE: 3 };
+  var ORDEM_TIPO = { GALPAO: 0, FILIAL: 1, ROTA: 2, CLIENTE: 3, FORNECEDOR: 4 };
   function ordenarLocais(lista) {
     function peso(l) {
       var t = ORDEM_TIPO[String(l.Tipo).toUpperCase()];

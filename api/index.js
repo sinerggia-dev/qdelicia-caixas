@@ -142,6 +142,7 @@ async function rotaPost(p) {
   if (acao === 'salvarConfig') return await salvarConfig(p);
   if (acao === 'excluir') return await excluir(p.aba, p.id);
   if (acao === 'excluirMovimento') return await excluirMovimento(p);
+  if (acao === 'limparMovimentos') return await limparMovimentos(p);
 
   return { ok: false, erro: 'Ação desconhecida: ' + acao };
 }
@@ -279,6 +280,35 @@ async function conferir(p) {
   if (!r.ok) return r;
   await db.update('movimentos', mov.ID, db.MOV.para(r.patch));
   return { ok: true, divergencia: r.divergencia, declarada: r.declarada, conferida: r.conferida };
+}
+
+/* Apaga TODOS os lançamentos. Existe para zerar a base de testes antes de a operação
+   começar de verdade.
+
+   `esperado` é obrigatório e tem de bater com o que está no banco AGORA. Serve para duas
+   coisas. A primeira é operacional: entre abrir a tela e confirmar, alguém no campo pode
+   ter lançado — sem a conferência, esses lançamentos novos iriam junto sem ninguém ver.
+   A segunda é que esta API não tem autorização nenhuma; exigir o número certo não é
+   segurança, mas tira do caminho o POST às cegas, que é o engano mais provável. */
+async function limparMovimentos(p) {
+  var d = await db.carregarTudo();
+  var ids = d.movimentos.map(function (m) { return m.ID; });
+  if (!ids.length) return { ok: false, erro: 'Não há lançamento para apagar.' };
+
+  var esperado = Number(p.esperado);
+  if (!(esperado > 0) || esperado !== ids.length) {
+    return {
+      ok: false,
+      erro: 'A lista mudou desde que a tela abriu: agora são ' + ids.length +
+            ' lançamentos. Atualize e confirme de novo.'
+    };
+  }
+
+  // Em blocos: uma URL com centenas de ids estoura o limite de tamanho do PostgREST.
+  for (var i = 0; i < ids.length; i += 100) {
+    await db.removerVarios('movimentos', ids.slice(i, i + 100));
+  }
+  return { ok: true, apagados: ids.length };
 }
 
 /* Apaga a linha de vez. Diferente de `cancelar`, que deixa o registro no lugar com o

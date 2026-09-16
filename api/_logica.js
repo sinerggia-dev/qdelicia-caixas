@@ -72,7 +72,7 @@ function podeConferir(perfil) {
 }
 // A rota é o caminhão em circulação: guarda caixa como qualquer outro local, e é isso que
 // impede o que subiu no caminhão e não foi entregue de sumir na conta do cliente.
-var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA'];
+var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA', 'FORNECEDOR'];
 
 /**
  * Nome que a equipe lê nas listas: "Caixa Banana · 20 kg".
