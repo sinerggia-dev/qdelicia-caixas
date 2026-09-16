@@ -482,16 +482,18 @@
     document.getElementById('sdWrapRota').style.display      = doGalpao ? 'block' : 'none';
     // Do galpão a carga vai para a rota; da rota, para o cliente. Nunca os dois ao mesmo tempo.
     document.getElementById('sdWrapDestino').style.display   = doGalpao ? 'none' : 'block';
-    if (doGalpao){
-      /* A própria origem sai da lista: o servidor já recusa origem igual a destino, mas
-         oferecer a opção é convidar ao erro. A rota vem primeiro porque `ordenarLocais`
-         ordena por tipo, e é o caminho do dia a dia. */
-      var origem = document.getElementById('sdOrigem').value;
-      var podeReceber = permitidos(locaisPor(['ROTA','GALPAO','FILIAL','CLIENTE','FORNECEDOR']), 'destinos')
-        .filter(function(l){ return String(l.ID) !== String(origem); });
-      document.getElementById('sdRota').innerHTML = opcoes(podeReceber);
-      if (podeReceber.length === 1) document.getElementById('sdRota').value = podeReceber[0].ID;
-    }
+    /* Quem pode receber é o mesmo conjunto, venha a carga do galpão ou da rota: a
+       diferença entre os dois caminhos era só histórica. Saindo da rota o destino listava
+       apenas CLIENTE, FILIAL e FORNECEDOR — e numa operação sem nenhum local desses tipos
+       cadastrado o campo ficava VAZIO para todo mundo, sem dizer por quê. A própria
+       origem sai da lista: o servidor já recusa origem igual a destino, mas oferecer a
+       opção é convidar ao erro. */
+    var origem = document.getElementById('sdOrigem').value;
+    var podeReceber = permitidos(locaisPor(['ROTA','GALPAO','FILIAL','CLIENTE','FORNECEDOR']), 'destinos')
+      .filter(function(l){ return String(l.ID) !== String(origem); });
+    var alvo = document.getElementById(doGalpao ? 'sdRota' : 'sdDestino');
+    alvo.innerHTML = opcoes(podeReceber);
+    if (podeReceber.length === 1) alvo.value = podeReceber[0].ID;
     /* O motorista fica SEMPRE à vista, a pedido: antes só aparecia na saída do galpão, e
        quem lançava da rota para o cliente não tinha onde dizer quem levou.
 
@@ -573,11 +575,9 @@
     // FORNECEDOR entra nas duas pontas da saída: a caixa chega dele e volta para ele.
     // No retorno ele não entra — aquele caminho é rota para galpão.
     var comRota = locaisPor(['GALPAO','FILIAL','ROTA','FORNECEDOR']);
-    var destinos = locaisPor(['CLIENTE','FILIAL','FORNECEDOR']);
-    // Saída e destino são listas separadas no cadastro, e a devolução é o caminho de volta:
-    // quem devolve é um destino, e quem recebe é uma saída.
     var minhasSaidas  = permitidos(comRota, 'saidas');
-    var meusDestinos  = permitidos(destinos, 'destinos');
+    // O destino da saída não se monta aqui: ele depende da origem escolhida (a própria
+    // origem sai da lista), então quem o monta é `ajustarCamposSaida`, a cada troca.
     // A devolução parte da ROTA: a caixa volta no caminhão, e é o caminhão que a guarda
     // até a chegada. Vale a mesma permissão de destino, porque rota é destino na saída.
     var minhasRotasDv = permitidos(locaisPor(['ROTA']), 'destinos');
@@ -592,12 +592,10 @@
     // vão", e na devolução elas vão para o galpão.
     var meusGalpoes = permitidos(locaisPor(['GALPAO','FILIAL']), 'destinos');
     document.getElementById('sdOrigem').innerHTML = opcoes(minhasSaidas);
-    document.getElementById('sdDestino').innerHTML = opcoes(meusDestinos);
     document.getElementById('dvOrigem').innerHTML = opcoes(minhasRotasDv);
     document.getElementById('dvDestino').innerHTML = opcoes(meusGalpoes);
     // Um local só não é escolha: já vem posto, e a pessoa economiza um toque por lançamento.
     preencherSozinho('sdOrigem', minhasSaidas);
-    preencherSozinho('sdDestino', meusDestinos);
     preencherSozinho('dvOrigem', minhasRotasDv);
     // Onde a devolução chega quase nunca muda para a mesma pessoa, então aqui vale também
     // a pista do local padrão: é o galpão onde ela trabalha.

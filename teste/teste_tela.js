@@ -139,8 +139,14 @@ console.log('\n== cada seletor usa a lista certa de permissão ==');
 
   ok(listaDe('minhasSaidas') === 'saidas',
     'origem da saída vem da lista de Saída', listaDe('minhasSaidas'));
-  ok(listaDe('meusDestinos') === 'destinos',
-    'destino da saída vem da lista de Destino', listaDe('meusDestinos'));
+  /* O destino da saída passou a ser montado em ajustarCamposSaida, porque depende da
+     origem escolhida — então a variável mudou de lugar e de nome. */
+  var ajuste = corpo('ajustarCamposSaida');
+  var mPode = ajuste.match(/podeReceber\s*=\s*permitidos\(.*,\s*'([a-z]+)'\)/);
+  ok(mPode && mPode[1] === 'destinos',
+    'destino da saída vem da lista de Destino', mPode && mPode[1]);
+  ok(/l\.ID\) !== String\(origem\)/.test(ajuste),
+    'e a própria origem sai da lista, para não oferecer origem igual a destino');
   ok(listaDe('minhasRotasDv') === 'destinos',
     'origem da devolução (a rota) vem da lista de Destino: na ida a rota é destino',
     listaDe('minhasRotasDv'));
