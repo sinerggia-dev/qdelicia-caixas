@@ -200,6 +200,10 @@
      seria uma chamada a mais só para ordenar uma lista. */
   function temTeste(v) { return /teste/i.test(String(v == null ? '' : v)); }
   function pesoTeste(v) { return temTeste(v) ? 1 : 0; }
+  /* A matriz abre a lista, a pedido: é de onde a carga sai quase sempre, e ficava em
+     quarto por acaso do alfabeto ("Filial ..." vem antes de "Matriz ..."). O peso do
+     ensaio continua mandando mais: uma "Matriz Teste" segue no fim. */
+  function pesoMatriz(v) { return /matriz/i.test(String(v == null ? '' : v)) ? 0 : 1; }
 
   function ordenarLocais(lista) {
     function peso(l) {
@@ -208,6 +212,7 @@
     }
     return (lista || []).slice().sort(function (a, b) {
       return pesoTeste(a.Nome) - pesoTeste(b.Nome) ||
+             pesoMatriz(a.Nome) - pesoMatriz(b.Nome) ||
              peso(a) - peso(b) ||
              String(a.Nome).localeCompare(String(b.Nome), 'pt-BR');
     });

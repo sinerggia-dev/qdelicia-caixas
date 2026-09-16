@@ -179,5 +179,22 @@ console.log('\n== motorista: a permissão é aplicada na fonte ==');
   });
 })();
 
+/* ---------------------------------------------------------------------------
+ * app.js repete a ordenacao porque o celular nao carrega _logica.js. As duas copias
+ * tem de andar juntas: se uma ganhar um criterio e a outra nao, a mesma lista aparece
+ * em ordens diferentes no painel e no campo, e ninguem sabe qual esta certa.
+ * ------------------------------------------------------------------------- */
+console.log('\n== ordenacao do navegador acompanha a do servidor ==');
+(function () {
+  var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var i = app.indexOf('function ordenarLocais(');
+  var corpoOrdena = app.slice(i, app.indexOf('\n  }', i));
+  ['pesoTeste', 'pesoMatriz'].forEach(function (chave) {
+    ok(corpoOrdena.indexOf(chave) >= 0, 'ordenarLocais usa ' + chave);
+  });
+  ok(corpoOrdena.indexOf('pesoTeste') < corpoOrdena.indexOf('pesoMatriz'),
+    'e nesta ordem: o ensaio manda mais que a matriz, senao "Matriz Teste" abriria a lista');
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

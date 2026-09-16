@@ -1522,6 +1522,29 @@ async function main() {
     });
   }
 
+
+  console.log('\n== a matriz abre as listas ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    ok(F.pesoMatriz('Matriz Fazenda') === 0 && F.pesoMatriz('MATRIZ') === 0,
+      'matriz pesa 0, em qualquer caixa');
+    ok(F.pesoMatriz('Filial Ceasa') === 1 && F.pesoMatriz('') === 1, 'o resto pesa 1');
+
+    const locais = [
+      { ID: 'A', Nome: 'Filial Ceasa', Tipo: 'GALPAO' },
+      { ID: 'B', Nome: 'Matriz Fazenda', Tipo: 'GALPAO' },
+      { ID: 'C', Nome: 'Matriz Teste', Tipo: 'GALPAO' },
+      { ID: 'D', Nome: 'Almoxarifado', Tipo: 'GALPAO' }
+    ];
+    const p = F.painel({ locais, tipos: [], movimentos: [], usuarios: [], config: {} },
+      new Date('2026-09-20T00:00:00'));
+    const nomes = p.galpoes.map((g) => g.nome);
+    ok(nomes[0] === 'Matriz Fazenda',
+      'no quadro de galpões a matriz vem primeiro, mesmo com "Almoxarifado" antes no alfabeto', nomes);
+    ok(nomes[nomes.length - 1] === 'Matriz Teste',
+      'e a matriz de ensaio continua por último: o peso do teste manda mais', nomes);
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

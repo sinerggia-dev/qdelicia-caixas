@@ -230,6 +230,11 @@ var ehPerfilTeste = temTeste;
    dentro de cada grupo. */
 function pesoTeste(v) { return temTeste(v) ? 1 : 0; }
 
+/* A matriz abre as listas ordenadas por nome. Não entra nas ordenadas por saldo — lá a
+   ordem É a resposta (quem deve mais primeiro), e furar a fila com a matriz esconderia
+   justamente o que aquele quadro existe para mostrar. */
+function pesoMatriz(v) { return /matriz/i.test(String(v == null ? '' : v)) ? 0 : 1; }
+
 function lancamentoDeTeste(m) {
   return m.Teste === true || ehPerfilTeste(m.Perfil);
 }
@@ -1043,6 +1048,7 @@ function painel(dados, hoje) {
     return { id: l.ID, nome: l.Nome, saldo: total, porTipo: porTipo };
   }).sort(function (a, b) {
     return pesoTeste(a.nome) - pesoTeste(b.nome) ||
+           pesoMatriz(a.nome) - pesoMatriz(b.nome) ||
            String(a.nome).localeCompare(String(b.nome), 'pt-BR');
   });
 
@@ -1229,7 +1235,7 @@ module.exports = {
   motoristasPublicos: motoristasPublicos, cnhVencida: cnhVencida,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, naoCancelados: naoCancelados,
-  ehPerfilTeste: ehPerfilTeste, temTeste: temTeste, pesoTeste: pesoTeste,
+  ehPerfilTeste: ehPerfilTeste, temTeste: temTeste, pesoTeste: pesoTeste, pesoMatriz: pesoMatriz,
   lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,
