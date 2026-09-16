@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=c9f5452f">
+<link rel="stylesheet" href="styles.css?v=3e4568c0">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -726,7 +726,7 @@
      A lista salva passa por uma peneira contra a de fabrica: coluna que nao existe mais
      e descartada e coluna nova entra no fim. Sem isso, quem tivesse arrastado antes de um
      deploy ficaria sem ver a coluna nova, sem entender por que. */
-  var COLS_PADRAO = ['data','localIni','inicial','origem','destino','quem',
+  var COLS_PADRAO = ['data','inicial','origem','destino','quem',
                      'saida','retorno','final'];
   var COLS_CHAVE = 'qdc_cols_ativos_v1';
 
@@ -767,8 +767,8 @@
   /* Somadas, estas larguras cabem numa area util de ~1.050px, que e o que sobra numa
      tela de 1.400. Mais folgadas, a tabela transbordava e voltava a barra de rolagem
      horizontal. Quem quiser mais espaco numa coluna arrasta a borda. */
-  var LARG_PADRAO = { data:90, inicial:100, localIni:115, origem:135, destino:135,
-                      quem:190, saida:150, retorno:150, final:100 };
+  var LARG_PADRAO = { data:95, inicial:110, origem:150, destino:150,
+                      quem:190, saida:165, retorno:165, final:105 };
   var LARG_MIN = 70;
 
   function larguras(){
@@ -926,14 +926,6 @@
                   } },
       inicial:  { t: 'Saldo inicial', num: true, so: 'local',
                   v: function(l){ return Q.num(l.iniCorrido || 0); } },
-      /* Onde o saldo inicial foi lancado. Ele nasce no ajuste do escritorio, creditado a
-         UM local; nas linhas de caminho nao ha saldo inicial nenhum, e a celula fica
-         vazia de proposito — escrever a origem ali sugeriria que aquele caminho carrega
-         o estoque. */
-      localIni: { t: 'Local do saldo', so: 'local',
-                  v: function(l){
-                    return l.inicial ? Q.esc(l.nome) : '<span class="fraco">—</span>';
-                  } },
       origem:   { t: 'Origem', so: 'local',
                   v: function(l){
                     return lugares(l.origens) +
@@ -941,8 +933,11 @@
                   } },
       destino:  { t: 'Destino', so: 'local',
                   v: function(l){
+                    /* O local de onde esse estoque e ja esta na coluna Origem: aqui
+                       cabe dizer o QUE a linha e. Verde porque e a unica linha que
+                       nao e uma divida — e um ponto de partida. */
                     return l.estoqueInicial
-                      ? '<span class="fraco">estoque inicial</span>'
+                      ? '<span class="marca-estoque">Estoque Inicial</span>'
                       : lugares(l.destinos);
                   } },
       quem:     { t: '', so: 'gente',
@@ -1082,15 +1077,14 @@
     /* O CSV sai na MESMA ordem de colunas da tela, inclusive a que a pessoa arrastou:
        um arquivo com as colunas noutra ordem obriga a conferir duas vezes qual e qual. */
     var cs = ordemColunas().filter(function(id){ return id !== 'quem'; });
-    var TIT = { data:'Data', inicial:'Saldo inicial', localIni:'Local do saldo',
+    var TIT = { data:'Data', inicial:'Saldo inicial',
                 origem:'Origem', destino:'Destino', saida:'Saída', retorno:'Retorno',
                 final:'Saldo final' };
     var VAL = {
       data:     function(l){ return l.data ? Q.dataBR(l.data) : ''; },
       inicial:  function(l){ return l.iniCorrido || 0; },
-      localIni: function(l){ return l.inicial ? l.nome : ''; },
       origem:   function(l){ return (l.origens||[]).join(' | '); },
-      destino:  function(l){ return l.estoqueInicial ? 'estoque inicial'
+      destino:  function(l){ return l.estoqueInicial ? 'Estoque Inicial'
                                                      : (l.destinos||[]).join(' | '); },
       saida:    function(l){ return l.saida; },
       retorno:  function(l){ return l.retorno; },

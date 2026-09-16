@@ -404,6 +404,9 @@ body.redimensionando{user-select:none;cursor:col-resize}
 .sinal{font-size:17px;font-weight:700;line-height:1}
 .sinal.ok{color:var(--verde)}
 .sinal.ruim{color:var(--vermelho)}
+/* A linha de estoque inicial e a unica que nao e uma divida: e o ponto de partida da
+   conta. Verde, como o cartao da taxa de retorno quando esta na meta. */
+.marca-estoque{color:var(--verde);font-weight:600}
 /* `input[type=date]` no seletor porque a regra generica dos campos usa o atributo e
    vence por especificidade — sem isso o campo volta a ocupar a linha inteira. */
 input[type=date].dt-inline{margin:0;width:148px;padding:8px 10px;font-size:13px}

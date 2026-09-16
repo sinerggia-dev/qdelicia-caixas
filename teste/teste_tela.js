@@ -478,11 +478,13 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
     return /t:\s*'/.test(bloco) || id === 'quem';
   }), 'toda coluna tem titulo');
 
-  /* A coluna nova: onde o saldo inicial foi lancado. Ela so se preenche nas linhas que
-     TEM saldo inicial — nas de caminho a celula fica vazia, porque escrever a origem ali
-     sugeriria que aquele caminho carrega o estoque. */
-  ok(defs.indexOf('localIni:') > 0 && /localIni[\s\S]{0,200}l\.inicial \? Q\.esc\(l\.nome\)/.test(defs),
-    'ha coluna com o local do saldo inicial, preenchida so onde ele existe', defs.indexOf('localIni'));
+  /* A linha de estoque inicial se identifica no DESTINO, e nao numa coluna propria: o
+     local dela ja esta na Origem, e uma coluna a mais so para repeti-lo ficava vazia em
+     todas as outras linhas. */
+  ok(defs.indexOf('localIni') < 0,
+    'nao ha coluna separada para o local do saldo — ele ja esta na Origem');
+  ok(/Estoque Inicial/.test(corpo) && /marca-estoque/.test(corpo),
+    'a linha de estoque se identifica no Destino, com marca propria', corpo.indexOf('Estoque'));
 
   // a ordem salva convive com mudancas na lista de fabrica
   var j = adm.indexOf('function ordemColunas()');
@@ -507,12 +509,19 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
      longe de onde faz sentido, e sem explicacao. */
   ok(r.indexOf('data') === 0,
     'coluna nova entra no lugar dela, nao no fim da fila', r);
-  ok(r.indexOf('localIni') === r.indexOf('data') + 1,
+  ok(r.indexOf('inicial') === r.indexOf('data') + 1,
     'e cada uma ao lado de quem a precede de fabrica', r);
-  ok(r.length >= 9, 'e nenhuma se perde no caminho', r);
+  ok(r.length >= 8, 'e nenhuma se perde no caminho', r);
+
+  /* Coluna que saiu do sistema some da ordem salva sem quebrar nada. Foi o caso do
+     'localIni', que existiu por um dia e sai das preferencias de quem ja arrastou. */
+  loja.qdc_cols_ativos_v1 = JSON.stringify(['localIni','data','inicial']);
+  ok(ordemColunas().indexOf('localIni') < 0 && ordemColunas()[0] === 'data',
+    'coluna aposentada some da ordem salva, e as outras seguem na ordem delas',
+    ordemColunas());
 
   // uma so faltando: o caso real depois de um deploy
-  loja.qdc_cols_ativos_v1 = JSON.stringify(['localIni','inicial','origem','destino',
+  loja.qdc_cols_ativos_v1 = JSON.stringify(['inicial','origem','destino',
                                             'quem','saida','retorno','final']);
   ok(ordemColunas()[0] === 'data',
     'so a coluna nova faltando, ela entra na posicao de fabrica dela', ordemColunas());
