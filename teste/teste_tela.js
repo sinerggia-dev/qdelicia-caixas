@@ -327,7 +327,8 @@ console.log('\n== as colunas Origem e Destino ==');
 
   ok(/<th>Origem<\/th><th>Destino<\/th>/.test(corpo),
     'Origem e Destino sao colunas, lado a lado, antes dos numeros');
-  ok(/lugares\(l\.origens\)/.test(corpo) && /lugares\(l\.destinos\)/.test(corpo),
+  ok(/lugares\(l\.origens, l\.nome\)/.test(corpo) &&
+     /lugares\(l\.destinos, l\.nome\)/.test(corpo),
     'e cada uma le o seu campo — trocar os dois inverteria a tabela inteira');
 
   // a funcao que monta a celula
@@ -336,14 +337,35 @@ console.log('\n== as colunas Origem e Destino ==');
   var Q = { esc: String };
   var lugares = new Function('Q', fonte + ' return lugares;')(Q);
 
-  ok(lugares(['Matriz Fazenda']) === 'Matriz Fazenda',
+  ok(lugares(['Matriz Fazenda'], 'Joao Pessoa') === 'Matriz Fazenda',
     'um so aparece limpo, sem preposicao: quem diz a direcao e o titulo da coluna',
-    lugares(['Matriz Fazenda']));
-  ok(lugares([]).indexOf('—') > 0 && lugares(null).indexOf('—') > 0,
+    lugares(['Matriz Fazenda'], 'Joao Pessoa'));
+  /* O nome da propria linha em negrito: sem a coluna do local ao lado, e ele que diz de
+     quem e a linha. */
+  ok(lugares(['Joao Pessoa'], 'Joao Pessoa') === '<b>Joao Pessoa</b>',
+    'o nome da propria linha vem destacado', lugares(['Joao Pessoa'], 'Joao Pessoa'));
+  ok(lugares(['Matriz', 'Joao Pessoa'], 'Joao Pessoa') === 'Matriz, <b>Joao Pessoa</b>',
+    'e so ele, no meio dos outros', lugares(['Matriz', 'Joao Pessoa'], 'Joao Pessoa'));
+  /* A sub-linha "rota · 10 lancamentos" descreve a LINHA. Na celula errada ela leria
+     como se a Matriz Fazenda fosse uma rota. */
+  var k = adm.indexOf('function sub(l, campo)');
+  var sub = new Function('Q', adm.slice(k, adm.indexOf('\n  }', k) + 4) + ' return sub;')(Q);
+  var linha = { nome: 'Joao Pessoa', sub: 'rota · 10 lancamentos',
+                origens: ['Matriz'], destinos: ['Joao Pessoa'] };
+  ok(sub(linha, 'origens') === '' && sub(linha, 'destinos').indexOf('rota') > 0,
+    'a sub-linha mora na celula que tem o nome da propria linha',
+    [sub(linha, 'origens'), sub(linha, 'destinos')]);
+  var galpao = { nome: 'Matriz', sub: 'galpão · 20 lancamentos',
+                 origens: ['Matriz'], destinos: ['Filial'] };
+  ok(sub(galpao, 'origens').indexOf('galpão') > 0 && sub(galpao, 'destinos') === '',
+    'e troca de lado junto com ela: no galpao o nome esta na origem',
+    [sub(galpao, 'origens'), sub(galpao, 'destinos')]);
+
+  ok(lugares([], 'X').indexOf('—') > 0 && lugares(null, 'X').indexOf('—') > 0,
     'vazio vira travessao — celula em branco parece falha de carregamento');
-  ok(lugares(['A','B','C','D']) === 'A, B <span class="fraco">+2</span>',
+  ok(lugares(['A','B','C','D'], 'Z') === 'A, B <span class="fraco">+2</span>',
     'com muitos, os dois primeiros e um "+N" — a lista inteira esticaria a coluna',
-    lugares(['A','B','C','D']));
+    lugares(['A','B','C','D'], 'Z'));
 })();
 
 console.log('\n== matriz e galpoes nao se misturam com o resto ==');
@@ -379,23 +401,32 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
   var corpo = adm.slice(i, adm.indexOf("document.querySelectorAll('[data-fchip]')", i));
 
   // /<th[^>]*>/ tambem casa <thead>, e a conta dava 6 numa tabela de 5 colunas.
+  /* Seis colunas nas visoes de local (origem, destino, inicial, saida, retorno, final) e
+     quatro nas de gente (nome, saida, retorno, final). O <th> do nome e o das tres
+     colunas de local estao nos dois lados do MESMO ternario: um so cabecalho pode
+     aparecer por vez, senao a tabela ganha uma coluna sem celula embaixo. */
   var ths = (corpo.match(/<th[ >]/g) || []).length;
   ok(ths === 7,
-    'sete colunas: nome, origem, destino, inicial, saida, retorno, final', ths);
+    'sete <th> no fonte: quatro fixos mais os dois lados do ternario', ths);
+  ok(/nCols = temLocal \? 6 : 4/.test(corpo),
+    'e a contagem usada no colspan acompanha: 6 com local, 4 sem', corpo.indexOf('nCols'));
 
   ok(corpo.indexOf('Responsável') < 0 && corpo.indexOf('Desvio') < 0,
     'Responsavel e Desvio sairam do cabecalho');
   ok(corpo.indexOf('Saldo inicial') > 0 && corpo.indexOf('Saldo final') > 0,
     'e os dois titulos novos estao la');
 
-  /* As tres colunas de local (origem, destino, saldo inicial) aparecem sob a MESMA
-     condicao no cabecalho e na celula. Se so uma das duas pontas mudasse, a tabela
-     desalinharia e cada numero passaria a ser lido na coluna do vizinho. */
-  var thCond = /\(temLocal \? '<th>Origem<\/th><th>Destino<\/th><th[^']*Saldo inicial/.test(corpo);
-  var tdCond = /\(temLocal\s*\n?\s*\?\s*'<td>'\+lugares\(l\.origens\)/.test(corpo);
+  /* Cabecalho e celula trocam de forma sob a MESMA condicao. Se so uma das duas pontas
+     mudasse, a tabela ganharia uma coluna sem celula e cada numero passaria a ser lido
+     na coluna do vizinho. */
+  var thCond = /temLocal\s*\n?\s*\?\s*'<th>Origem<\/th><th>Destino<\/th><th[^']*Saldo inicial/.test(corpo);
+  var tdCond = /temLocal\s*\n?\s*\?\s*'<td>'\+lugares\(l\.origens, l\.nome\)/.test(corpo);
   ok(thCond && tdCond,
     'as colunas de local nascem no cabecalho e na celula sob a mesma condicao',
     [thCond, tdCond]);
+  // e o outro lado do ternario: a coluna com o nome, so nas visoes de gente
+  ok(/: '<th>'\+cols\[0\]\+'<\/th>'/.test(corpo) && /: '<td><b>'\+Q\.esc\(l\.nome\)/.test(corpo),
+    'nas visoes de gente sobra a coluna do nome, nos dois lugares');
 
   ok(/colspan="'\+nCols\+'"/.test(corpo),
     'o aviso de tabela vazia usa o numero de colunas, nao um numero fixo');
@@ -423,7 +454,7 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
   // so o que esta DENTRO dos colchetes: o primeiro argumento e o nome do arquivo, e
   // contar a partir do zero somava ele como se fosse coluna.
   var cab = (csv.slice(csv.indexOf('['), csv.indexOf(']')).match(/'/g) || []).length / 2;
-  ok(cab === 8, 'oito colunas no cabecalho do CSV', cab);
+  ok(cab === 7, 'sete colunas no cabecalho do CSV', cab);
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

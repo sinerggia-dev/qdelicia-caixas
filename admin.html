@@ -697,13 +697,14 @@
     /* Motorista e usuario nao sao lugares: nao ha "de onde veio" nem estoque inicial de
        uma pessoa. Nessas duas visoes a tabela fica so com nome, saida, retorno e saldo. */
     var temLocal = !gente;
-    var nCols = temLocal ? 7 : 4;
+    var nCols = temLocal ? 6 : 4;
     // O cabeçalho fica SEMPRE de pé, mesmo sem linha nenhuma: sem as colunas a tela não
     // diz o que vai mostrar quando os lançamentos começarem.
     document.getElementById('tabelaFluxo').innerHTML =
         '<div class="tabela-wrap"><table><thead><tr>'+
-        '<th>'+cols[0]+'</th>'+
-        (temLocal ? '<th>Origem</th><th>Destino</th><th class="num">Saldo inicial</th>' : '')+
+        (temLocal
+          ? '<th>Origem</th><th>Destino</th><th class="num">Saldo inicial</th>'
+          : '<th>'+cols[0]+'</th>')+
         '<th class="num">Saída</th><th class="num">Retorno</th>'+
         '<th class="num">Saldo final</th>'+
         '</tr></thead><tbody>'+
@@ -712,12 +713,12 @@
           : lista.map(function(l){
             var fim = temLocal ? l.saldoFinal : l.saldo;
             return '<tr>'+
-            '<td><b>'+Q.esc(l.nome)+'</b><span class="fsub">'+Q.esc(l.sub)+'</span></td>'+
             (temLocal
-              ? '<td>'+lugares(l.origens)+'</td>'+
-                '<td>'+lugares(l.destinos)+'</td>'+
+              ? '<td>'+lugares(l.origens, l.nome)+sub(l, 'origens')+'</td>'+
+                '<td>'+lugares(l.destinos, l.nome)+sub(l, 'destinos')+'</td>'+
                 '<td class="num">'+Q.num(l.inicial||0)+'</td>'
-              : '')+
+              : '<td><b>'+Q.esc(l.nome)+'</b>'+
+                  '<span class="fsub">'+Q.esc(l.sub)+'</span></td>')+
             '<td class="num">'+Q.num(l.saida)+detalheCaixas(l.saidaTipos)+'</td>'+
             '<td class="num">'+Q.num(l.retorno)+detalheCaixas(l.retornoTipos)+'</td>'+
             '<td class="num"><b'+(fim<0?' style="color:var(--vermelho)"':'')+'>'+
@@ -760,17 +761,32 @@
     return linhasVivas().filter(function(l){ return l.saldo < 0; }).length;
   }
 
-  /* As celulas de Origem e Destino. Sem preposicao: quem diz a direcao agora e o titulo
-     da coluna, e repetir "de"/"para" dentro dela seria dizer duas vezes.
+  /* "rota · 10 lançamentos" descreve a LINHA, nao um local qualquer da celula. Sem a
+     coluna do nome ao lado, ela precisa ficar embaixo da celula que traz o nome da
+     propria linha — na outra, leria como se a Matriz Fazenda fosse uma rota. */
+  function sub(l, campo){
+    var lista = l[campo] || [];
+    if (lista.indexOf(l.nome) < 0) return '';
+    return '<span class="fsub">'+Q.esc(l.sub)+'</span>';
+  }
+
+  /* As celulas de Origem e Destino, que juntas desenham o trajeto da linha.
+
+     O nome da PROPRIA linha vem em negrito: sem a coluna do local ao lado, e ele que diz
+     de quem e a linha, e destacar poupa a conferencia de qual dos dois nomes e o dono.
 
      Com mais de dois, os dois primeiros e um "+N": a lista inteira esticaria a coluna e
      empurraria os numeros para fora da tela sem responder melhor. O travessao no vazio e
      proposital — celula em branco parece falha de carregamento. */
-  function lugares(nomes){
+  function lugares(nomes, dono){
     if (!nomes || !nomes.length) return '<span class="fraco">—</span>';
+    var mostra = nomes.length > 2 ? nomes.slice(0, 2) : nomes;
+    var txt = mostra.map(function(n){
+      return n === dono ? '<b>'+Q.esc(n)+'</b>' : Q.esc(n);
+    }).join(', ');
     return nomes.length > 2
-      ? Q.esc(nomes.slice(0, 2).join(', '))+' <span class="fraco">+'+(nomes.length - 2)+'</span>'
-      : Q.esc(nomes.join(', '));
+      ? txt+' <span class="fraco">+'+(nomes.length - 2)+'</span>'
+      : txt;
   }
 
   /* O total responde "quanto"; esta linha responde "de que". Sem ela, 1.020 tanto pode
@@ -791,13 +807,13 @@
 
   document.getElementById('btnAtualizarRetornos').addEventListener('click', carregarPainel);
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
-    Q.csv('retornos', ['Local','Tipo','Origem','Destino','Saldo inicial','Saída','Retorno','Saldo final'],
+    Q.csv('retornos', ['Origem','Destino','Tipo','Saldo inicial','Saída','Retorno','Saldo final'],
       linhasFluxo().map(function(l){
         /* As mesmas colunas da tela: um CSV com campos que a tabela nao tem — ou sem os
            que ela tem — so serve para duas pessoas compararem numeros diferentes achando
            que sao o mesmo. Aqui a lista de locais vai INTEIRA, sem o "+N": no arquivo nao
            ha coluna estreita para proteger, e quem exporta quer o dado completo. */
-        return [l.nome, l.sub, (l.origens||[]).join(' | '), (l.destinos||[]).join(' | '),
+        return [(l.origens||[]).join(' | '), (l.destinos||[]).join(' | '), l.sub,
                 l.inicial||0, l.saida, l.retorno,
                 l.saldoFinal === undefined ? l.saldo : l.saldoFinal];
       }));

@@ -952,17 +952,22 @@ function fluxoPorOrigem(dados, desde, meta) {
      Aqui SAIDA e tudo que saiu DO galpao e RETORNO e tudo que entrou NELE — que e a
      leitura de `saldos()`, e faz inicial − saida + retorno dar o estoque de verdade. */
   var saiuG = {}, voltouG = {}, saiuGTipo = {}, voltouGTipo = {};
-  /* Com quem este local negociou, dos dois lados:
-       deOnde   = de onde veio o que ENTROU nele   -> coluna ORIGEM
-       paraOnde = para onde foi o que SAIU dele    -> coluna DESTINO
-     Vale igual para rota, filial, cliente e galpao — e por isso e calculado uma vez so,
-     no laco generico abaixo, e nao dentro de cada ramo de tipo de movimento. Guarda o ID;
-     o nome sai na hora de montar a linha. */
+  /* As colunas ORIGEM e DESTINO, agora sem a coluna do nome do local ao lado delas.
+     A regra e a mais simples que existe: para cada linha, as origens e os destinos dos
+     movimentos de que ELA participou. O nome dela propria cai sozinho no lado certo —
+     numa rota que so recebeu, ela e o destino; num galpao que so despachou, ela e a
+     origem — e por isso a coluna LOCAL virou repeticao e saiu.
+
+     Sem ramo por tipo de linha: e a mesma leitura para rota, filial, cliente e galpao. */
   var deOnde = {}, paraOnde = {};
   function comQuem(mapa, local, outro) {
     if (!local || !outro) return;
     mapa[local] = mapa[local] || {};
     mapa[local][outro] = 1;
+  }
+  function pontas(m) {
+    comQuem(paraOnde, m.OrigemID, m.DestinoID);   // para onde foi o que saiu daqui
+    comQuem(deOnde, m.DestinoID, m.OrigemID);     // de onde veio o que entrou aqui
   }
   // Mesmos numeros, abertos por tipo de caixa: o total responde "quanto", e o detalhe
   // responde "de que" — sem ele, 1.020 pode ser mil de uma caixa ou vinte de cinco.
@@ -1004,19 +1009,18 @@ function fluxoPorOrigem(dados, desde, meta) {
     var q = efetiva(m);          // devolução não confirmada vale 0, e vale a contada
     if (!q) return;
     var caixa = nome(nomesTipos, m.TipoCaixaID);
+    pontas(m);
     /* Vale para qualquer tipo de movimento, porque para o estoque do galpao tanto faz o
        rotulo: o que importa e de que lado do lancamento ele esta. Perda so tem origem,
        entao conta como saida — a caixa deixou o estoque do mesmo jeito. */
     if (m.OrigemID) {
       saiuG[m.OrigemID] = (saiuG[m.OrigemID] || 0) + q;
       somaTipo(saiuGTipo, m.OrigemID, caixa, q);
-      comQuem(paraOnde, m.OrigemID, m.DestinoID);   // saiu daqui PARA la
       anotaG(m.OrigemID, m);
     }
     if (m.DestinoID) {
       voltouG[m.DestinoID] = (voltouG[m.DestinoID] || 0) + q;
       somaTipo(voltouGTipo, m.DestinoID, caixa, q);
-      comQuem(deOnde, m.DestinoID, m.OrigemID);     // entrou aqui VINDO de la
       anotaG(m.DestinoID, m);
     }
     var sentido = sentidoDoMovimento(m.Tipo);
@@ -1055,6 +1059,31 @@ function fluxoPorOrigem(dados, desde, meta) {
     var saida = (ehGalpao ? saiuG[l.ID] : saiu[l.ID]) || 0;
     var retorno = (ehGalpao ? voltouG[l.ID] : voltou[l.ID]) || 0;
     var inicial = inicio[l.ID] || 0;
+    /* ORIGEM e DESTINO desenham o trajeto da SAIDA desta linha — de onde a caixa saiu e
+       onde ela foi parar. O nome da propria linha cai sozinho no lado certo: numa rota,
+       que recebe, ela e o destino; num galpao, que despacha, ela e a origem. E por isso
+       que a coluna com o nome do local virou repeticao e saiu.
+
+       Tentou-se antes juntar os dois sentidos nas mesmas colunas, e o resultado era uma
+       linha de mao dupla mostrando "Joao Pessoa, Matriz" nas DUAS — que nao diz nada. O
+       trajeto do retorno e o caminho de volta deste mesmo; quando so ha retorno, e ele
+       que desenha as colunas. */
+    var entrouDe = nomesDe(deOnde[l.ID]);   // de onde veio o que entrou nela
+    var saiuPara = nomesDe(paraOnde[l.ID]); // para onde foi o que saiu dela
+    /* Esta linha e a ORIGEM do trajeto ou o DESTINO dele?
+       No galpao a saida parte DELE, entao ele e a origem sempre que houve saida.
+       Nas demais linhas e o contrario: a saida CHEGA nelas, entao elas sao o destino —
+       e so viram origem quando o unico movimento foi o retorno que elas mandaram. */
+    var ori, des;
+    if (saida || retorno) {
+      var ehOrigem = ehGalpao ? !!saida : !saida;
+      if (ehOrigem) { ori = [l.Nome]; des = saiuPara; }
+      else { ori = entrouDe; des = [l.Nome]; }
+    }
+    /* Uma linha que so tem saldo inicial nao participou de trajeto nenhum, e sem a coluna
+       do nome ao lado ficaria anonima. O estoque esta NELA: ela e o destino dele. */
+    if (!ori && !des && inicial) des = [l.Nome];
+    ori = ori || []; des = des || [];
     var c = classificaFluxo(saida, retorno, DESVIO_RUIM);
     var motMov = chavesDe(condutores, l.ID);
 
@@ -1092,8 +1121,8 @@ function fluxoPorOrigem(dados, desde, meta) {
          onde veio o que entrou e DESTINO e sempre para onde foi o que saiu, valha a linha
          para uma rota ou para a matriz. E o cabecalho que passa a responder a pergunta
          que faltava — antes a coluna trazia um nome e nao dizia de que lado ele estava. */
-      origens: nomesDe(deOnde[l.ID]),
-      destinos: nomesDe(paraOnde[l.ID]),
+      origens: ori,
+      destinos: des,
       saida: saida, retorno: retorno,
       inicial: inicial,
       /* inicial − saida + retorno, que e a conta que a linha mostra da esquerda para a

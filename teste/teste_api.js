@@ -1318,15 +1318,16 @@ async function main() {
   ok(F.fluxoPorOrigem(cen, DESDE, 90).totais.linhas === 1,
     'mas o galpão fica fora dos totais: ele é a outra ponta do mesmo fato');
 
-  /* As colunas ORIGEM e DESTINO. A regra e a MESMA para toda linha: origem e de onde
-     veio o que entrou, destino e para onde foi o que saiu. Quem diz a direcao passou a
-     ser o titulo da coluna, e nao mais uma preposicao que invertia no galpao. */
-  ok(por.R1.origens.join(',') === 'Matriz' && por.R1.destinos.join(',') === 'Matriz',
-    'a rota recebeu da matriz e devolveu para a matriz', por.R1);
-  ok(por.L1.origens.join(',') === 'Caruaru' && por.L1.destinos.join(',') === 'Caruaru',
-    'e a matriz, o espelho: recebeu da rota e despachou para a rota', por.L1);
-  ok(por.F1.origens.length === 0 && por.F1.destinos.length === 0,
-    'sem movimento não há ponta nenhuma — e não um nome inventado', por.F1);
+  /* ORIGEM e DESTINO desenham o TRAJETO da saída, e o nome da própria linha cai no
+     lado certo sozinho — que é o que dispensou a coluna com o nome do local.
+     Na rota, que recebe, ela é o destino; no galpão, que despacha, ela é a origem. */
+  ok(por.R1.origens.join(',') === 'Matriz' && por.R1.destinos.join(',') === 'Caruaru',
+    'a rota é o DESTINO do trajeto: saiu da matriz e chegou nela', por.R1);
+  ok(por.L1.origens.join(',') === 'Matriz' && por.L1.destinos.join(',') === 'Caruaru',
+    'e a matriz é a ORIGEM do mesmo trajeto — as duas linhas o descrevem igual', por.L1);
+  ok(por.F1.origens.length === 0 && por.F1.destinos.join(',') === 'Filial',
+    'quem só tem saldo inicial não veio de lugar nenhum, mas o estoque está NELA — '
+    + 'sem isso a linha ficaria anônima, agora que não há coluna com o nome', por.F1);
 
   /* O galpao despachando para UM e recebendo de OUTRO. Enquanto ele so negociava com a
      Caruaru, os dois mapas devolviam o mesmo nome e trocar um pelo outro nao quebrava
@@ -1348,17 +1349,18 @@ async function main() {
     };
     const linhasSo = F.fluxoPorOrigem(so, DESDE, 90).linhas;
     const g = linhasSo.filter((l) => l.id === 'G')[0];
-    ok(g.origens.join(',') === 'Traz',
-      'a ORIGEM da matriz é quem devolveu para ela', g.origens);
-    ok(g.destinos.join(',') === 'Leva',
-      'e o DESTINO é quem recebeu dela — são dois mapas diferentes', g.destinos);
-    // e nas rotas a mesma regra, cada uma com um lado vazio
+    ok(g.origens.join(',') === 'Matriz' && g.destinos.join(',') === 'Leva',
+      'o galpão despachou: ele é a origem, e o destino é quem recebeu', g);
+
     const a = linhasSo.filter((l) => l.id === 'A')[0];
     const b = linhasSo.filter((l) => l.id === 'B')[0];
-    ok(a.origens.join(',') === 'Matriz' && a.destinos.length === 0,
-      'quem só recebeu tem origem e não tem destino', [a.origens, a.destinos]);
-    ok(b.destinos.join(',') === 'Matriz' && b.origens.length === 0,
-      'e quem só devolveu tem destino e não tem origem', [b.origens, b.destinos]);
+    ok(a.origens.join(',') === 'Matriz' && a.destinos.join(',') === 'Leva',
+      'quem só recebeu é o destino, e a origem é de onde veio', [a.origens, a.destinos]);
+    /* O outro sentido: esta rota só devolveu. Aí o trajeto é o do retorno, e ela passa a
+       ser a origem. Sem este caso a tabela mostraria as duas colunas vazias para quem só
+       devolve — e, sem a coluna do nome, a linha não diria de quem é. */
+    ok(b.origens.join(',') === 'Traz' && b.destinos.join(',') === 'Matriz',
+      'e quem só devolveu vira a origem do caminho de volta', [b.origens, b.destinos]);
   }
 
   // varias contrapartes: a lista sai em ordem de nome, sem repetir
@@ -1371,6 +1373,8 @@ async function main() {
   const r1b = F.fluxoPorOrigem(cen3, DESDE, 90).linhas.filter((l) => l.id === 'R1')[0];
   ok(r1b.origens.join(', ') === 'Filial, Matriz',
     'duas origens aparecem as duas, em ordem de nome', r1b.origens);
+  ok(r1b.destinos.join(',') === 'Caruaru',
+    'e o destino continua sendo a própria linha, uma vez só', r1b.destinos);
 
   // A linha da filial nao pode ser escondida pelo filtro de "parado", senao o saldo
   // inicial nao aparece em lugar nenhum.
