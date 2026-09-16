@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=86470dba">
+<link rel="stylesheet" href="styles.css?v=448ce838">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -118,6 +118,10 @@
           <div class="acoes">
             <!-- O periodo vale para esta tabela e para os indicadores dela. Em branco, o
                  mes corrente — a mesma janela de sempre. -->
+            <label for="rtOrigem" class="rot-inline">Origem</label>
+            <select id="rtOrigem" class="sel-inline"><option value="">Todas</option></select>
+            <label for="rtDestino" class="rot-inline">Destino</label>
+            <select id="rtDestino" class="sel-inline"><option value="">Todos</option></select>
             <label for="rtDe" class="rot-inline">De</label>
             <input id="rtDe" type="date" class="dt-inline">
             <label for="rtAte" class="rot-inline">Até</label>
@@ -587,6 +591,7 @@
     Q.get(pedido).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       PAINEL = r.painel; Q.cache('painel', PAINEL);
+      montarFiltrosFluxo();
       desenharRotas(); desenharKpis(); desenharFluxo(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral();
     }).catch(function(e){
       PAINEL = Q.cache('painel');
@@ -648,9 +653,49 @@
     });
   }
 
+  /* Os filtros de origem e destino ficam AQUI, na fonte, e nao em cada tela que le a
+     lista. Os chips, os indicadores do rodape e o CSV bebem todos desta funcao — filtrar
+     so na tabela faria o chip dizer "Rotas 3" com uma linha listada embaixo. */
   function todasAsLinhas(){
     var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
-    return f.linhas.filter(function(l){ return l.situacao !== 'parado' || l.inicial; });
+    var o = valor('rtOrigem'), d = valor('rtDestino');
+    return f.linhas.filter(function(l){
+      if (l.situacao === 'parado' && !l.inicial) return false;
+      if (o && (l.origens || []).indexOf(o) < 0) return false;
+      if (d && (l.destinos || []).indexOf(d) < 0) return false;
+      return true;
+    });
+  }
+
+  function valor(id){
+    var e = document.getElementById(id);
+    return e ? e.value : '';
+  }
+
+  /* As opcoes saem dos nomes que ESTAO nas linhas, e nao do cadastro inteiro: uma lista
+     com trinta locais dos quais dois tem movimento obriga a procurar. Monta-se a partir
+     do fluxo cru, sem os proprios filtros aplicados — senao escolher uma origem apagaria
+     as outras opcoes e nao haveria como voltar. */
+  function montarFiltrosFluxo(){
+    var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
+    function nomes(campo){
+      var vistos = {};
+      f.linhas.forEach(function(l){
+        (l[campo] || []).forEach(function(n){ if (n) vistos[n] = 1; });
+      });
+      return Object.keys(vistos).sort(function(a, b){ return a.localeCompare(b, 'pt-BR'); });
+    }
+    [['rtOrigem', 'origens', 'Todas'], ['rtDestino', 'destinos', 'Todos']].forEach(function(c){
+      var sel = document.getElementById(c[0]);
+      if (!sel) return;
+      var antes = sel.value;
+      var lista = nomes(c[1]);
+      sel.innerHTML = '<option value="">'+c[2]+'</option>'+lista.map(function(n){
+        return '<option value="'+Q.esc(n)+'">'+Q.esc(n)+'</option>';
+      }).join('');
+      // mantem a escolha se ela ainda existe; se sumiu, volta para "Todas"
+      if (lista.indexOf(antes) >= 0) sel.value = antes;
+    });
   }
 
   /* Os indicadores saem do que está NA TELA, não de um total fixo. Mostrar a taxa de
@@ -697,6 +742,66 @@
   /* Arrastar um <th> para cima de outro troca as duas de lugar na ordem COMPLETA — nao na
      lista visivel. As visoes de gente escondem as colunas de local; mexer so no visivel
      embaralharia a ordem das escondidas sem ninguem ver. */
+  /* A largura de cada coluna, arrastada pela borda direita do cabecalho e lembrada junto
+     com a ordem. Guardada por navegador pelo mesmo motivo: e preferencia de quem olha.
+
+     A tabela usa `table-layout:fixed` para que a largura pedida seja obedecida. Em layout
+     automatico o navegador trata `width` como sugestao e reparte o espaco pelo conteudo —
+     arrastar a borda nao mudava quase nada, e a coluna voltava sozinha ao soltar. */
+  var LARG_CHAVE = 'qdc_larg_ativos_v1';
+  var LARG_PADRAO = { inicial:110, localIni:140, origem:160, destino:160, quem:190,
+                      saida:230, retorno:230, final:110 };
+  var LARG_MIN = 70;
+
+  function larguras(){
+    var salvo = {};
+    try { salvo = JSON.parse(localStorage.getItem(LARG_CHAVE) || '{}') || {}; }
+    catch (e) { salvo = {}; }
+    var r = {};
+    Object.keys(LARG_PADRAO).forEach(function(id){
+      var v = Number(salvo[id]);
+      r[id] = (v >= LARG_MIN) ? v : LARG_PADRAO[id];
+    });
+    return r;
+  }
+
+  function guardarLargura(id, px){
+    var salvo = {};
+    try { salvo = JSON.parse(localStorage.getItem(LARG_CHAVE) || '{}') || {}; }
+    catch (e) { salvo = {}; }
+    salvo[id] = Math.max(LARG_MIN, Math.round(px));
+    try { localStorage.setItem(LARG_CHAVE, JSON.stringify(salvo)); } catch (e) {}
+  }
+
+  /* Arrastar a alcinha nao redesenha a tabela a cada pixel: mexe so no `width` do <th>,
+     que com layout fixo ja arrasta a coluna inteira. Redesenhar no mousemove perderia o
+     arrasto — o <th> de baixo do cursor seria outro elemento a cada quadro. */
+  function ligarLarguraColunas(){
+    document.querySelectorAll('#tabelaFluxo th[data-col] .puxador').forEach(function(p){
+      p.addEventListener('mousedown', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        var th = p.parentNode;
+        var x0 = e.clientX, w0 = th.getBoundingClientRect().width;
+        document.body.classList.add('redimensionando');
+        function move(ev){
+          var w = Math.max(LARG_MIN, w0 + (ev.clientX - x0));
+          th.style.width = w + 'px';
+        }
+        function solta(){
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', solta);
+          document.body.classList.remove('redimensionando');
+          guardarLargura(th.dataset.col, th.getBoundingClientRect().width);
+        }
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', solta);
+      });
+      // a alcinha nao arrasta a coluna de lugar: sao dois gestos na mesma borda
+      p.addEventListener('dragstart', function(e){ e.preventDefault(); e.stopPropagation(); });
+    });
+  }
+
   function ligarArrastarColunas(){
     var ths = document.querySelectorAll('#tabelaFluxo th[data-col]');
     var arrastado = null;
@@ -810,6 +915,7 @@
     };
     DEFS.quem.t = cols[0];
 
+    var LARG = larguras();
     var cs = ordemColunas().map(function(id){ return { id: id, d: DEFS[id] }; })
       .filter(function(c){
         if (!c.d) return false;
@@ -819,11 +925,13 @@
     // O cabeçalho fica SEMPRE de pé, mesmo sem linha nenhuma: sem as colunas a tela não
     // diz o que vai mostrar quando os lançamentos começarem.
     document.getElementById('tabelaFluxo').innerHTML =
-        '<div class="tabela-wrap"><table><thead><tr>'+
+        '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
         cs.map(function(c){
           return '<th draggable="true" data-col="'+c.id+'"'+
-            (c.d.num ? ' class="num"' : '')+' title="arraste para mudar de lugar">'+
-            Q.esc(c.d.t)+'</th>';
+            (c.d.num ? ' class="num"' : '')+
+            ' style="width:'+(LARG[c.id] || 120)+'px"'+
+            ' title="arraste o titulo para mudar de lugar; a borda, para mudar a largura">'+
+            Q.esc(c.d.t)+'<span class="puxador"></span></th>';
         }).join('')+
         '</tr></thead><tbody>'+
         (!lista.length
@@ -834,6 +942,7 @@
             }).join('')+'</tr>';
           }).join(''))+'</tbody></table></div>';
     ligarArrastarColunas();
+    ligarLarguraColunas();
 
     document.querySelectorAll('[data-fchip]').forEach(function(b){
       b.addEventListener('click', function(){
@@ -904,6 +1013,11 @@
      escolhe um periodo e nao ve a tabela mudar conclui que o filtro nao funciona. */
   ['rtDe', 'rtAte'].forEach(function(id){
     document.getElementById(id).addEventListener('change', carregarPainel);
+  });
+  /* Origem e destino nao vao ao servidor: a peneira e local, sobre o fluxo que ja veio.
+     Ir ao servidor so para esconder linhas seria uma ida de rede por clique. */
+  ['rtOrigem', 'rtDestino'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', desenharFluxo);
   });
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
     /* O CSV sai na MESMA ordem de colunas da tela, inclusive a que a pessoa arrastou:

@@ -384,9 +384,23 @@ tr.ruim{background:var(--vermelho-claro)}
 #tabelaFluxo th[data-col]{cursor:grab;user-select:none}
 #tabelaFluxo th.arrastando{opacity:.45;cursor:grabbing}
 #tabelaFluxo th.alvo{box-shadow:inset 3px 0 0 var(--azul,#4f8ef7)}
+/* Layout fixo para que a largura pedida seja obedecida. Em layout automatico o navegador
+   trata `width` como sugestao e reparte pelo conteudo: arrastar a borda quase nao mudava
+   nada e a coluna voltava sozinha ao soltar. */
+#tabelaFluxo table.fixa{table-layout:fixed}
+#tabelaFluxo th[data-col]{position:relative;overflow:hidden;text-overflow:ellipsis}
+/* A alcinha e uma faixa de 8px na borda direita. Nao tem cor propria: o cursor ja avisa,
+   e uma linha visivel em cada coluna suja um cabecalho de sete. */
+#tabelaFluxo th .puxador{position:absolute;top:0;right:0;width:8px;height:100%;
+  cursor:col-resize}
+#tabelaFluxo th .puxador:hover{background:var(--azul,#4f8ef7);opacity:.5}
+/* Enquanto arrasta, o texto da pagina inteira para de selecionar — senao o arrasto vira
+   selecao e o cursor pisca entre os dois. */
+body.redimensionando{user-select:none;cursor:col-resize}
 /* `input[type=date]` no seletor porque a regra generica dos campos usa o atributo e
    vence por especificidade — sem isso o campo volta a ocupar a linha inteira. */
 input[type=date].dt-inline{margin:0;width:148px;padding:8px 10px;font-size:13px}
+select.sel-inline{margin:0;width:150px;padding:8px 10px;font-size:13px}
 /* Segunda linha da celula: o tipo do local e a rota que o atende. Sem o block ela
    cola no nome e sai "Joao Pessoarota". */
 /* Texto de apoio dentro de uma celula normal: o travessao do vazio e o "+2" da lista de

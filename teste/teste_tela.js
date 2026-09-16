@@ -621,5 +621,76 @@ console.log('\n== a correcao oferece tudo que o servidor aceita ==');
   ok(ids.length >= 10, 'o envio le os campos todos, nao dois ou tres', ids);
 })();
 
+/* ---------------------------------------------------------------------------
+ * Painel de Ativos: filtros de origem/destino e largura das colunas.
+ * ------------------------------------------------------------------------- */
+console.log('\n== filtros de origem e destino, e largura das colunas ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoDe(nome){
+    var i = adm.indexOf('function ' + nome + '(');
+    return i < 0 ? '' : adm.slice(i, adm.indexOf('\n  }', i));
+  }
+
+  /* A peneira fica na FONTE. Os chips, os indicadores e o CSV bebem de todasAsLinhas;
+     filtrar so na tabela faria o chip dizer "Rotas 3" com uma linha listada embaixo. */
+  var t = corpoDe('todasAsLinhas');
+  ok(t.indexOf("valor('rtOrigem')") > 0 && t.indexOf("valor('rtDestino')") > 0,
+    'os filtros de origem e destino moram na fonte de onde tudo bebe', t.trim());
+  ok(/origens \|\| \[\]\)\.indexOf\(o\) < 0/.test(t) &&
+     /destinos \|\| \[\]\)\.indexOf\(d\) < 0/.test(t),
+    'e cada um compara com o seu campo — trocados, o filtro mentiria em silencio');
+
+  /* As opcoes saem do fluxo CRU. Monta-las a partir da lista ja filtrada faria escolher
+     uma origem apagar as outras opcoes, sem caminho de volta. */
+  var mf = corpoDe('montarFiltrosFluxo');
+  ok(mf.indexOf('PAINEL.fluxo') > 0 && mf.indexOf('todasAsLinhas') < 0,
+    'as opcoes saem do fluxo cru, nao da lista ja filtrada', mf.trim());
+  ok(mf.indexOf('lista.indexOf(antes) >= 0') > 0,
+    'e a escolha sobrevive ao recarregar, quando ainda existe');
+
+  // ---- largura ----
+  var j = adm.indexOf('function larguras()');
+  var fonte = adm.slice(adm.indexOf('var LARG_CHAVE'), adm.indexOf('\n  }', j) + 4);
+  var loja = {};
+  var localStorage = {
+    getItem: function (k) { return loja[k] === undefined ? null : loja[k]; },
+    setItem: function (k, v) { loja[k] = String(v); }
+  };
+  var larguras = new Function('localStorage', fonte + ' return larguras;')(localStorage);
+
+  var d = larguras();
+  ok(d.saida > 0 && d.inicial > 0, 'sem nada salvo, vem a largura de fabrica', d);
+
+  loja.qdc_larg_ativos_v1 = JSON.stringify({ saida: 300 });
+  ok(larguras().saida === 300, 'a largura salva manda', larguras().saida);
+  ok(larguras().inicial === d.inicial,
+    'e as outras seguem a de fabrica — salvar uma nao zera as demais', larguras());
+
+  /* Largura minima: sem ela, um arrasto ate a esquerda some com a coluna e nao ha como
+     pega-la de volta, porque a alcinha vai junto. */
+  loja.qdc_larg_ativos_v1 = JSON.stringify({ saida: 2 });
+  ok(larguras().saida >= 70, 'largura absurda cai no minimo, nao some com a coluna',
+    larguras().saida);
+
+  loja.qdc_larg_ativos_v1 = '{lixo';
+  ok(larguras().saida === d.saida, 'lixo no armazenamento cai na largura de fabrica');
+
+  /* Layout fixo: em layout automatico o navegador trata `width` como sugestao, e a
+     coluna volta sozinha ao soltar. */
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  ok(/#tabelaFluxo table\.fixa\{table-layout:fixed\}/.test(css),
+    'a tabela usa layout fixo, senao a largura pedida nao e obedecida');
+  ok(adm.indexOf('<table class="fixa">') > 0,
+    'e a tabela do painel pede essa classe');
+  ok(/style="width:'\+\(LARG\[c\.id\]/.test(adm),
+    'cada <th> sai com a largura guardada');
+
+  // o gesto da alcinha nao pode arrastar a coluna de lugar
+  var ll = corpoDe('ligarLarguraColunas');
+  ok(ll.indexOf("'dragstart'") > 0 && ll.indexOf('preventDefault') > 0,
+    'a alcinha cancela o arrasto de posicao: sao dois gestos na mesma borda', ll.trim());
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);
