@@ -298,8 +298,20 @@ async function conferir(p) {
    segurança, mas tira do caminho o POST às cegas, que é o engano mais provável. */
 async function limparMovimentos(p) {
   var d = await db.carregarTudo();
-  var ids = d.movimentos.map(function (m) { return m.ID; });
-  if (!ids.length) return { ok: false, erro: 'Não há lançamento para apagar.' };
+
+  /* Os ids saem da MESMA função que monta a lista da tela. Reescrever o filtro aqui era o
+     caminho curto para apagar coisa diferente da que a pessoa viu — bastava um critério
+     interpretado de outro jeito nos dois lugares. O limite alto porque aqui não se pagina:
+     o que casa com o filtro tem de sair inteiro. */
+  var filtro = {
+    local: p.local, origem: p.origem, destino: p.destino,
+    tipo: p.tipo, usuario: p.usuario, teste: p.teste,
+    de: p.de, ate: p.ate, limit: 100000
+  };
+  var ids = L.listaMovimentos(d.movimentos, d.locais, d.tipos, d.usuarios, filtro)
+    .map(function (m) { return m.id; });
+
+  if (!ids.length) return { ok: false, erro: 'Nenhum lançamento casa com este filtro.' };
 
   var esperado = Number(p.esperado);
   if (!(esperado > 0) || esperado !== ids.length) {

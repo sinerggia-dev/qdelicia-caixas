@@ -188,11 +188,27 @@
     </div>
 
     <div class="card" style="border-left:3px solid var(--vermelho)">
-      <h2>Zerar a base<span class="sub">Apaga <b>todos</b> os lançamentos já enviados — saídas, retornos, perdas e ajustes. Serve para limpar os testes antes de a operação começar de verdade. Não tem volta: não existe cópia destes registros.</span></h2>
+      <h2>Apagar lançamentos<span class="sub">Escolha o que sai. Deixar tudo em branco apaga a base inteira. Não tem volta: não existe cópia destes registros.</span></h2>
+      <div class="grid2">
+        <div><label for="exUsuario">Quem lançou</label><select id="exUsuario"><option value="">Todos</option></select></div>
+        <div><label for="exOrigem">Origem</label><select id="exOrigem"></select></div>
+        <div><label for="exDestino">Destino</label><select id="exDestino"></select></div>
+        <div><label for="exTipo">Tipo</label><select id="exTipo">
+          <option value="">Todos</option><option value="SAIDA">Saída</option><option value="DEVOLUCAO">Retorno</option>
+          <option value="TRANSFERENCIA">Transferência</option><option value="PERDA">Perda</option><option value="AJUSTE">Ajuste</option>
+        </select></div>
+        <div><label for="exLanc">Lançamentos</label><select id="exLanc">
+          <option value="todos">Reais e de teste</option>
+          <option value="reais">Só reais</option>
+          <option value="teste">Só de teste</option>
+        </select></div>
+        <div><label for="exDe">De</label><input id="exDe" type="date"></div>
+        <div><label for="exAte">Até</label><input id="exAte" type="date"></div>
+      </div>
       <div class="linha-btn">
         <button class="btn sec" id="btnLimparTudo" type="button"
-                style="flex:0;min-width:270px;white-space:nowrap;border-color:var(--vermelho);color:var(--vermelho)">
-          Apagar todos os lançamentos
+                style="flex:0;min-width:250px;white-space:nowrap;border-color:var(--vermelho);color:var(--vermelho)">
+          Ver o que será apagado
         </button>
       </div>
       <div id="limparAviso"></div>
@@ -444,14 +460,19 @@
   /* Seletor em vez de campo escrito: os outros filtros da linha ja sao seletores, e
      nome digitado errado devolve lista vazia sem dizer por que. */
   function montarSelectUsuarios(){
-    var sel = document.getElementById('mvUsuario');
-    if (!sel) return;
-    var atual = sel.value;
-    sel.innerHTML = '<option value="">Todos</option>' +
+    var html = '<option value="">Todos</option>' +
       Q.ordenarPorNome(EQUIPE).map(function(u){
         return '<option value="'+Q.esc(u.ID)+'">'+Q.esc(u.Nome)+'</option>';
       }).join('');
-    sel.value = atual;
+    /* Os dois seletores de "quem lancou": o do filtro de Movimentos e o do cartao de
+       apagar. Montar num lugar so evita que um ganhe gente que o outro nao tem. */
+    ['mvUsuario', 'exUsuario'].forEach(function(id){
+      var sel = document.getElementById(id);
+      if (!sel) return;
+      var atual = sel.value;
+      sel.innerHTML = html;
+      sel.value = atual;
+    });
   }
 
   /* ---------------- app ---------------- */
@@ -519,7 +540,12 @@
     document.getElementById('exLocal').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL']));
     // Com ROTA de fora não havia como filtrar por Caruaru — e é na rota que os
     // movimentos acontecem. O filtro casa com origem OU destino, então a rota serve.
-    document.getElementById('mvLocal').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL','GALPAO','ROTA','FORNECEDOR']), 'Todos');
+    var todosLocais = locaisPor(['CLIENTE','FILIAL','GALPAO','ROTA','FORNECEDOR']);
+    document.getElementById('mvLocal').innerHTML = opcoes(todosLocais, 'Todos');
+    // Os dois do cartao de apagar. "Todas/Todos" e nao "Selecione...": em branco quer
+    // dizer "nao filtra por isto", e "Selecione..." sugeriria que falta escolher.
+    document.getElementById('exOrigem').innerHTML = opcoes(todosLocais, 'Todas');
+    document.getElementById('exDestino').innerHTML = opcoes(todosLocais, 'Todos');
     document.getElementById('lcItens').innerHTML = (DADOS.tipos||[]).map(function(t){
       return '<div class="item"><div class="nome">'+Q.esc(t.Nome)+'</div><div class="stepper">'+
         '<input id="lc_'+t.ID+'" type="number" inputmode="numeric" placeholder="0"></div></div>';
@@ -969,13 +995,13 @@
      são, e não sobra onde dizer qual era o número certo quando ela erra. Aqui o número
      fica ao lado do campo o tempo todo. É a mesma razão que já tinha tirado o confirm()
      do navegador deste projeto. */
-  var limparN = 0;
-  function mostrarConfirmLimpar(n){
-    limparN = n;
+  var limparN = 0, limparFiltro = null;
+  function mostrarConfirmLimpar(n, f){
+    limparN = n; limparFiltro = f || {};
     document.getElementById('limparAviso').innerHTML =
       '<div class="aviso-box erro" style="margin-bottom:0">' +
-        '<b>Apagar ' + Q.num(n) + ' lançamento(s)?</b> Isto apaga saídas, retornos, perdas e ' +
-        'ajustes. O saldo volta a zero e não há volta — não existe cópia destes registros.' +
+        '<b>Apagar ' + Q.num(n) + ' lançamento(s)?</b> Vão sair os ' + descreveFiltro(limparFiltro) +
+        '. Não há volta — não existe cópia destes registros.' +
       '</div>' +
       '<div class="grid2" style="margin-top:10px">' +
         '<div><label for="limparDito">Escreva <b>' + n + '</b> para confirmar</label>' +
@@ -1010,7 +1036,9 @@
     }
     var b = document.getElementById('limparConfirmar');
     b.disabled = true; b.textContent = 'Apagando…';
-    Q.post({acao:'limparMovimentos', esperado:limparN, usuarioId:Q.sessao().id}).then(function(r){
+    var envio = { acao:'limparMovimentos', esperado:limparN, usuarioId:Q.sessao().id };
+    Object.keys(limparFiltro||{}).forEach(function(k){ if (limparFiltro[k]) envio[k] = limparFiltro[k]; });
+    Q.post(envio).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       document.getElementById('limparAviso').innerHTML =
         '<div class="aviso-box ok">' + Q.num(r.apagados) +
@@ -1024,15 +1052,54 @@
     });
   }
 
+  /* O filtro é montado UMA vez e mandado tanto para contar quanto para apagar. Montar
+     duas vezes convidaria as duas chamadas a divergirem — e aí a pessoa confirma um
+     número e o servidor apaga outro conjunto. */
+  function filtroExclusao(){
+    return {
+      usuario: document.getElementById('exUsuario').value,
+      origem:  document.getElementById('exOrigem').value,
+      destino: document.getElementById('exDestino').value,
+      tipo:    document.getElementById('exTipo').value,
+      teste:   document.getElementById('exLanc').value,
+      de:      document.getElementById('exDe').value,
+      ate:     document.getElementById('exAte').value
+    };
+  }
+
+  function descreveFiltro(f){
+    function nomeLocal(id){
+      var l = (DADOS.locais||[]).filter(function(x){ return String(x.ID)===String(id); })[0];
+      return l ? l.Nome : id;
+    }
+    function nomeUser(id){
+      var u = EQUIPE.filter(function(x){ return String(x.ID)===String(id); })[0];
+      return u ? u.Nome : id;
+    }
+    var p = [];
+    if (f.usuario) p.push('lançados por <b>'+Q.esc(nomeUser(f.usuario))+'</b>');
+    if (f.origem)  p.push('com origem <b>'+Q.esc(nomeLocal(f.origem))+'</b>');
+    if (f.destino) p.push('com destino <b>'+Q.esc(nomeLocal(f.destino))+'</b>');
+    if (f.tipo)    p.push('do tipo <b>'+Q.esc(f.tipo.toLowerCase())+'</b>');
+    if (f.teste === 'reais') p.push('<b>só reais</b>');
+    if (f.teste === 'teste') p.push('<b>só de teste</b>');
+    if (f.de)      p.push('a partir de <b>'+Q.dataBR(f.de)+'</b>');
+    if (f.ate)     p.push('até <b>'+Q.dataBR(f.ate)+'</b>');
+    return p.length ? p.join(', ') : '<b>a base inteira</b> — nenhum filtro escolhido';
+  }
+
   document.getElementById('btnLimparTudo').addEventListener('click', function(){
     var aviso = document.getElementById('limparAviso');
-    aviso.innerHTML = '<div class="aviso-box info">Conferindo quantos lançamentos existem…</div>';
-    // Conta na hora do clique: o número tem de ser o de agora, não o de quando a tela abriu.
-    Q.get({acao:'movimentos', limit:9999}).then(function(r){
+    aviso.innerHTML = '<div class="aviso-box info">Conferindo quantos lançamentos casam…</div>';
+    var f = filtroExclusao();
+    // Conta na hora do clique, com o MESMO filtro que vai apagar.
+    var pedido = { acao:'movimentos', limit:100000 };
+    Object.keys(f).forEach(function(k){ if (f[k]) pedido[k] = f[k]; });
+    Q.get(pedido).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       var n = (r.movimentos||[]).length;
-      if (!n){ aviso.innerHTML = '<div class="aviso-box ok">Não há lançamento para apagar.</div>'; return; }
-      mostrarConfirmLimpar(n);
+      if (!n){ aviso.innerHTML = '<div class="aviso-box ok">Nenhum lançamento casa com este filtro.</div>'; return; }
+      mostrarConfirmLimpar(n, f);
     }).catch(function(e){
       aviso.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
     });

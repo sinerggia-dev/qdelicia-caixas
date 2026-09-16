@@ -1565,6 +1565,37 @@ async function main() {
     ok(fazer({ teste: 'false' }, true) === true, 'nem pela string');
   }
 
+
+  console.log('\n== filtro de exclusão: origem e destino separados ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const locais = [{ ID: 'G1', Nome: 'Matriz' }, { ID: 'R1', Nome: 'Caruaru' }, { ID: 'R2', Nome: 'Natal' }];
+    const tipos = [{ ID: 'P', Nome: 'CX P' }];
+    const users = [{ ID: 'U1', Nome: 'Ana' }, { ID: 'U2', Nome: 'Bia' }];
+    const mv = (id, o, d, u, dia) => ({
+      ID: id, Tipo: 'SAIDA', OrigemID: o, DestinoID: d, TipoCaixaID: 'P', Qtd: 1,
+      Status: 'CONFIRMADO', UsuarioID: u, Perfil: 'Gestor', DataRef: D(dia), DataHora: D(dia)
+    });
+    const movs = [
+      mv('M1', 'G1', 'R1', 'U1', '2026-09-01'),
+      mv('M2', 'G1', 'R2', 'U2', '2026-09-05'),
+      mv('M3', 'R1', 'G1', 'U1', '2026-09-10')
+    ];
+    const ids = (f) => F.listaMovimentos(movs, locais, tipos, users, f).map((m) => m.id).sort().join(',');
+
+    ok(ids({}) === 'M1,M2,M3', 'sem filtro, tudo');
+    ok(ids({ origem: 'G1' }) === 'M1,M2',
+      'origem prende só quem SAIU de lá — M3 chegou em G1 e não entra', ids({ origem: 'G1' }));
+    ok(ids({ destino: 'G1' }) === 'M3', 'destino prende só quem CHEGOU lá', ids({ destino: 'G1' }));
+    ok(ids({ local: 'G1' }) === 'M1,M2,M3',
+      'e `local` continua casando nas duas pontas, que é outra pergunta', ids({ local: 'G1' }));
+    ok(ids({ usuario: 'U2' }) === 'M2', 'por quem lançou');
+    ok(ids({ origem: 'G1', usuario: 'U1' }) === 'M1', 'os critérios se somam, não se substituem');
+    ok(ids({ de: '2026-09-05' }) === 'M2,M3', 'por período');
+    ok(ids({ origem: 'R2' }) === '', 'filtro que não casa com nada devolve vazio, e não tudo');
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

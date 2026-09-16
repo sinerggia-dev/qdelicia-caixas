@@ -758,6 +758,11 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
     if (de && m.DataRef < de) return false;
     if (ate && m.DataRef > ate) return false;
     if (p.local && String(m.OrigemID) !== String(p.local) && String(m.DestinoID) !== String(p.local)) return false;
+    // `local` casa nas duas pontas; `origem` e `destino` prendem cada uma na sua. Os dois
+    // existem porque "tudo que passou por Caruaru" e "tudo que SAIU de Caruaru" são
+    // perguntas diferentes, e a segunda é a que importa na hora de apagar.
+    if (p.origem && String(m.OrigemID) !== String(p.origem)) return false;
+    if (p.destino && String(m.DestinoID) !== String(p.destino)) return false;
     if (p.tipo && m.Tipo !== String(p.tipo).toUpperCase()) return false;
     // Aqui e nao no navegador: o corte de 500 linhas vem DEPOIS deste filtro, entao
     // filtrar na tela mostraria so os lancamentos da pessoa que couberam nas 500.
