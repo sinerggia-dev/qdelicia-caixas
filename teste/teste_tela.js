@@ -147,8 +147,15 @@ console.log('\n== cada seletor usa a lista certa de permissão ==');
     'destino da saída vem da lista de Destino', mPode && mPode[1]);
   ok(/l\.ID\) !== String\(origem\)/.test(ajuste),
     'e a própria origem sai da lista, para não oferecer origem igual a destino');
-  ok(listaDe('minhasOrigensDv') === 'destinos',
-    'quem devolve vem da lista de Destino: na ida esse local é o destino',
+  /* Cada lista do cadastro governa o campo de MESMO NOME, nos dois formularios. E a
+     leitura literal dos rotulos: "Saida — de onde as caixas saem" e "Destino — para onde
+     as caixas vao". No retorno, quem devolve e de onde a caixa sai.
+
+     Ja esteve cruzado, por uma inferencia esperta demais ("na ida a rota e destino, logo
+     vale a permissao de destino"): as duas pontas do retorno liam a MESMA lista, e nao
+     havia marcacao capaz de separa-las. */
+  ok(listaDe('minhasOrigensDv') === 'saidas',
+    'quem devolve vem da lista de Saída: no retorno é de lá que a caixa sai',
     listaDe('minhasOrigensDv'));
 
   /* Os tipos do retorno moram numa constante, e as DUAS pontas bebem dela.
@@ -174,10 +181,19 @@ console.log('\n== cada seletor usa a lista certa de permissão ==');
      depende da origem escolhida: com galpao nas duas pontas, a Matriz podia devolver para
      a Matriz. */
   var ajDv = corpo('ajustarDestinoRetorno');
-  var mDv = ajDv.match(/podem\s*=\s*permitidos\(.*,\s*'([a-z]+)'\)/);
+  var mDv = ajDv.match(/todos\s*=\s*permitidos\(.*,\s*'([a-z]+)'\)/);
   ok(mDv && mDv[1] === 'destinos',
-    'destino da devolução vem da lista de Destino — e não da de Saída, que deixava a '
-    + 'lista vazia para quem tinha a Saída presa a uma rota', mDv && mDv[1]);
+    'e para onde ela volta vem da lista de Destino — as duas pontas leem listas '
+    + 'DIFERENTES, senão nenhuma marcação consegue separá-las', mDv && mDv[1]);
+  ok(listaDe('minhasOrigensDv') !== mDv[1],
+    'e são mesmo listas diferentes: é isso que permite "recebo de todas, devolvo só para '
+    + 'a Matriz"', [listaDe('minhasOrigensDv'), mDv[1]]);
+
+  /* Com um unico local marcado em Destino, tirar a origem esvaziava o campo e o
+     lancamento ficava impossivel, sem nada na tela dizendo por que. */
+  ok(/if \(!podem\.length\) podem = todos;/.test(ajDv),
+    'e o campo nunca fica vazio: sem alternativa, a própria origem volta para a lista',
+    ajDv.trim());
   ok(/l\.ID\) !== String\(origem\)/.test(ajDv),
     'e a própria origem sai da lista: sem isso a Matriz devolvia para a Matriz');
 

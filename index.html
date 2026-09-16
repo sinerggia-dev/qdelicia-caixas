@@ -531,13 +531,15 @@
     var origem = document.getElementById('dvOrigem').value;
     var alvo = document.getElementById('dvDestino');
     var antes = alvo.value;
-    /* Filtrado por 'destinos', não por 'saidas'. Estava em 'saidas' pela ideia de que a
-       devolução é o espelho da saída, mas o efeito era este: quem tivesse a Saída restrita
-       a uma ROTA ficava com a lista de galpões VAZIA — nenhuma rota é galpão, então o
-       filtro não deixava nada passar — e não conseguia registrar devolução nenhuma. O
-       rótulo do cadastro já promete o certo: "Destino — para onde as caixas vão". */
-    var podem = permitidos(locaisPor(TIPOS_RETORNO), 'destinos')
-      .filter(function(l){ return String(l.ID) !== String(origem); });
+    /* Filtrado por 'destinos', pela mesma leitura literal do rotulo: "Destino — para onde
+       as caixas vao". No retorno, elas vao para a casa. */
+    var todos = permitidos(locaisPor(TIPOS_RETORNO), 'destinos');
+    /* A propria origem sai da lista — mas so se sobrar alguem. Com um unico local marcado
+       em Destino, tirar a origem esvaziava o campo e o lancamento ficava impossivel, sem
+       nada na tela dizendo por que. Oferecer origem igual a destino e um erro que o
+       servidor recusa; deixar o campo vazio e um beco sem saida. */
+    var podem = todos.filter(function(l){ return String(l.ID) !== String(origem); });
+    if (!podem.length) podem = todos;
     alvo.innerHTML = opcoes(podem);
     var aindaVale = podem.filter(function(l){ return String(l.ID) === String(antes); })[0];
     if (aindaVale) { alvo.value = antes; return; }
@@ -651,10 +653,18 @@
     var minhasSaidas  = permitidos(comRota, 'saidas');
     // O destino da saída não se monta aqui: ele depende da origem escolhida (a própria
     // origem sai da lista), então quem o monta é `ajustarCamposSaida`, a cada troca.
-    /* Quem devolve nao e so a rota: filial e galpao tambem seguram caixa. A lista so com
-       ROTA deixava de fora justamente as filiais, que nesta operacao estao cadastradas
-       como GALPAO. Quem tem caixa pode devolver — os tipos estao em TIPOS_RETORNO. */
-    var minhasOrigensDv = permitidos(locaisPor(TIPOS_RETORNO), 'destinos');
+    /* Quem devolve nao e so a rota: filial e galpao tambem seguram caixa. Os tipos estao
+       em TIPOS_RETORNO.
+
+       Filtrado por 'saidas', que e a leitura LITERAL do rotulo do cadastro: "Saida — de
+       onde as caixas saem". No retorno, quem devolve e de onde a caixa sai.
+
+       Ja esteve em 'destinos', por uma inferencia esperta demais: "na ida a rota e
+       destino, logo a permissao de destino e que vale". O efeito era que as duas pontas do
+       retorno liam a MESMA lista, e nao havia marcacao capaz de separa-las — quem quisesse
+       "recebo de todas as filiais e devolvo so para a Matriz" nao conseguia montar isso.
+       Agora cada lista governa o campo de mesmo nome, nos dois formularios. */
+    var minhasOrigensDv = permitidos(locaisPor(TIPOS_RETORNO), 'saidas');
     document.getElementById('sdOrigem').innerHTML = opcoes(minhasSaidas);
     document.getElementById('dvOrigem').innerHTML = opcoes(minhasOrigensDv);
     // Um local só não é escolha: já vem posto, e a pessoa economiza um toque por lançamento.
