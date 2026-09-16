@@ -1302,6 +1302,86 @@ async function main() {
     ok(r.ok && r.entradas.length === 2, 'quantidade e responsável mudam no mesmo envio', r.entradas.length);
   }
 
+
+  console.log('\n== base de teste: o ensaio não encosta no saldo ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const locais = [
+      { ID: 'G1', Nome: 'Galpão', Tipo: 'GALPAO' },
+      { ID: 'R1', Nome: 'Caruaru', Tipo: 'ROTA' }
+    ];
+    const tipos = [{ ID: 'P', Nome: 'CX P' }];
+    const users = [{ ID: 'U1', Nome: 'Real' }, { ID: 'U2', Nome: 'Ensaio', Teste: true }];
+    const mv = (id, teste, tipo, qtd, dia) => ({
+      ID: id, Tipo: tipo, OrigemID: tipo === 'SAIDA' ? 'G1' : 'R1',
+      DestinoID: tipo === 'SAIDA' ? 'R1' : 'G1', TipoCaixaID: 'P', Qtd: qtd,
+      Status: 'CONFIRMADO', UsuarioID: teste ? 'U2' : 'U1', Teste: teste,
+      DataRef: D(dia), DataHora: D(dia)
+    });
+    const movs = [
+      mv('S1', false, 'SAIDA', 100, '2026-09-02'),      // real
+      mv('T1', true,  'SAIDA', 900, '2026-09-03'),      // ensaio
+      // Volta MENOS do que saiu de propósito: com 900 saindo e 900 voltando, o ensaio se
+      // anulava no saldo e o teste passaria mesmo com o vazamento. Descobri isso
+      // reintroduzindo o defeito — as duas primeiras verificações não acusaram.
+      mv('T2', true,  'DEVOLUCAO', 400, '2026-09-04')   // ensaio volta em parte
+    ];
+
+    // 1) o saldo ignora o ensaio por completo
+    const sal = F.saldos(movs);
+    ok(sal.R1.P === 100, 'a rota fica com as 100 reais, não com as 1.000', sal.R1);
+    ok(sal.G1.P === -100, 'e o galpão baixa só as 100 reais', sal.G1);
+
+    // 2) o painel idem
+    const p = F.painel({ locais: locais, tipos: tipos, movimentos: movs, usuarios: users,
+                         config: {} }, D('2026-09-20'));
+    ok(p.kpis.saidasMes === 100, 'KPI de saídas do mês ignora o ensaio', p.kpis.saidasMes);
+    ok(p.kpis.devolucoesMes === 0, 'e o de devoluções também', p.kpis.devolucoesMes);
+    const rota = p.rotas.filter((r) => r.id === 'R1')[0];
+    ok(rota.saldo === 100, 'o quadro de rotas também', rota.saldo);
+
+    // 3) o fluxo do Painel de Ativos idem
+    const f = F.fluxoPorOrigem({ locais: locais, tipos: tipos, movimentos: movs, usuarios: users },
+      D('2026-09-01'), 90);
+    const lr = f.linhas.filter((l) => l.id === 'R1')[0];
+    ok(lr.saida === 100 && lr.retorno === 0,
+      'saída e retorno do painel de ativos ignoram o ensaio', lr);
+
+    // 4) mas a tela de Movimentos consegue ver os dois mundos
+    const idsDe = (q) => F.listaMovimentos(movs, locais, tipos, users, q).map((m) => m.id).sort().join(',');
+    ok(idsDe({}) === 'S1', 'sem escolher nada, a lista mostra só os reais', idsDe({}));
+    ok(idsDe({ teste: 'teste' }) === 'T1,T2', '"de teste" mostra só o ensaio', idsDe({ teste: 'teste' }));
+    ok(idsDe({ teste: 'todos' }) === 'S1,T1,T2', '"todos" mistura os dois', idsDe({ teste: 'todos' }));
+
+    const linhaT = F.listaMovimentos(movs, locais, tipos, users, { teste: 'teste' })[0];
+    ok(linhaT.teste === true, 'a linha avisa que é de teste, para a tela poder marcar');
+
+    // 5) o ciclo da carga não mistura os mundos: devolução de ensaio não quita remessa real
+    const soReal = [mv('S1', false, 'SAIDA', 100, '2026-09-02'),
+                    mv('T2', true, 'DEVOLUCAO', 100, '2026-09-04')];
+    const sit = {};
+    F.listaMovimentos(soReal, locais, tipos, users, { teste: 'todos' })
+      .forEach((m) => { sit[m.id] = m.situacao; });
+    ok(sit.S1 === 'Enviada',
+      'devolução de ensaio NÃO quita a remessa real — senão o Status mentiria', sit);
+
+    // 6) o movimento nasce marcado a partir do ctx, nunca do payload
+    const r1 = F.montarMovimento(
+      { tipo: 'SAIDA', origemId: 'G1', destinoId: 'R1', usuarioId: 'U2', Teste: false,
+        itens: [{ tipoCaixaId: 'P', qtd: 5 }] },
+      { movimentos: [], agora: D('2026-09-05'), teste: true });
+    ok(r1.ok && r1.linhas[0].Teste === true,
+      'vale o ctx do servidor, e o payload dizendo o contrário é ignorado', r1.linhas[0].Teste);
+
+    const r2 = F.montarMovimento(
+      { tipo: 'SAIDA', origemId: 'G1', destinoId: 'R1', usuarioId: 'U1', Teste: true,
+        itens: [{ tipoCaixaId: 'P', qtd: 5 }] },
+      { movimentos: [], agora: D('2026-09-05') });
+    ok(r2.ok && r2.linhas[0].Teste === false,
+      'e sem ctx o lançamento é real, ainda que o payload peça teste', r2.linhas[0].Teste);
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

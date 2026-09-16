@@ -158,9 +158,15 @@ async function gravarMovimento(p) {
   var assinaturaUrl = p.assinatura ? await db.subirArquivo('canhoto-' + selo + '.png', p.assinatura, 'image/png') : '';
   var fotoUrl = p.foto ? await db.subirArquivo('foto-' + selo + '.jpg', p.foto, 'image/jpeg') : '';
 
+  /* A marca de teste sai do CADASTRO do usuário, aqui no servidor. Se viesse no payload,
+     um pedido adulterado marcaria lançamento real como teste — e ele sumiria do saldo
+     sem deixar rastro, porque `ativos()` ignora teste em todas as contas. */
+  var quem = d.usuarios.filter(function (u) { return String(u.ID) === String(p.usuarioId || ''); })[0];
+
   var r = L.montarMovimento(p, {
     movimentos: d.movimentos,
     agora: agora,
+    teste: !!(quem && quem.Teste),
     clientKeysExistentes: existentes,
     assinaturaUrl: assinaturaUrl,
     fotoUrl: fotoUrl

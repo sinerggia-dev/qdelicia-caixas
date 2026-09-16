@@ -196,7 +196,7 @@ var USUARIO = {
       Telefone: r.telefone || '', LocalPadrao: r.local_padrao, Ativo: r.ativo !== false,
       Email: r.email || '', Usuario: r.usuario || '', SenhaHash: r.senha_hash || '',
       PinProvisorio: r.pin_provisorio === true, SenhaProvisoria: r.senha_provisoria === true,
-      AcessoPainel: r.acesso_painel === true,
+      AcessoPainel: r.acesso_painel === true, Teste: r.teste === true,
       Saidas: lista(r.saidas), Destinos: lista(r.destinos)
     };
   },
@@ -215,6 +215,7 @@ var USUARIO = {
     if (o.PinProvisorio !== undefined) r.pin_provisorio = bool(o.PinProvisorio);
     if (o.SenhaProvisoria !== undefined) r.senha_provisoria = bool(o.SenhaProvisoria);
     if (o.AcessoPainel !== undefined) r.acesso_painel = bool(o.AcessoPainel);
+    if (o.Teste !== undefined) r.teste = bool(o.Teste);
     if (o.Saidas !== undefined) r.saidas = lista(o.Saidas);
     if (o.Destinos !== undefined) r.destinos = lista(o.Destinos);
     return r;
@@ -275,7 +276,7 @@ var MOV = {
       AssinaturaURL: r.assinatura_url, FotoURL: r.foto_url,
       ConferidoEm: r.conferido_em, ConferidoPor: r.conferido_por,
       Cancelado: r.cancelado === true, MotivoCancel: r.motivo_cancel,
-      Motorista: r.motorista || '', Rota: r.rota || '',
+      Motorista: r.motorista || '', Rota: r.rota || '', Teste: r.teste === true,
       Historico: Array.isArray(r.historico) ? r.historico : []
     };
   },
@@ -305,6 +306,7 @@ var MOV = {
     pos('Perfil', 'perfil', nulo);
     pos('Obs', 'obs');
     pos('Motorista', 'motorista', nulo);
+    pos('Teste', 'teste', bool);
     pos('Rota', 'rota', nulo);
     pos('AssinaturaURL', 'assinatura_url', nulo);
     pos('FotoURL', 'foto_url', nulo);

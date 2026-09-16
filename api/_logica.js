@@ -198,8 +198,22 @@ function ativo(v) {
 }
 
 /** Movimentos que valem: cancelado não conta para nada. */
-function ativos(movimentos) {
+/* Duas peneiras, e a diferença entre elas é o ponto inteiro da base de teste.
+
+   `ativos` é por onde passa TUDO que conta — saldo, aging, painel, extrato, fluxo. Ele
+   tira o cancelado e tira o ensaio. Foi feito assim de propósito: um único funil, em vez
+   de lembrar de filtrar teste em cada conta nova. Esquecer de filtrar em um lugar só já
+   bastaria para o ensaio contaminar o saldo real, e ninguém perceberia — o número
+   simplesmente ficaria errado.
+
+   `naoCancelados` é para quem PRECISA enxergar o ensaio: a tela de Movimentos, que
+   mostra os dois mundos, e o cálculo do ciclo da carga. */
+function naoCancelados(movimentos) {
   return movimentos.filter(function (m) { return !m.Cancelado; });
+}
+
+function ativos(movimentos) {
+  return naoCancelados(movimentos).filter(function (m) { return !m.Teste; });
 }
 
 function novoId(prefixo, existentes) {
@@ -385,7 +399,11 @@ function montarMovimento(p, ctx) {
       ConferidoEm: status === 'CONFIRMADO' ? agora : null,
       ConferidoPor: status === 'CONFIRMADO' ? (String(p.usuarioId || '') || null) : null,
       Cancelado: false,
-      MotivoCancel: null
+      MotivoCancel: null,
+      /* Vem de ctx, que o servidor lê do cadastro do usuário — nunca do payload. Se
+         viesse do celular, um pedido adulterado marcaria lançamento real como teste e
+         ele sumiria do saldo sem deixar rastro. */
+      Teste: ctx.teste === true
     };
     linhas.push(linha);
     proximos.push(linha);
@@ -619,9 +637,16 @@ function cicloDaCarga(movimentos) {
   var devolvido = {};  // id da saída -> quanto já voltou
   var total = {};      // id da saída -> tamanho da remessa
 
-  function chave(local, caixa) { return String(local) + '|' + String(caixa); }
+  /* O ensaio entra na chave: sem isso uma devolução de teste quitaria uma remessa real,
+     e a coluna Status passaria a mentir sobre carga que nunca voltou. */
+  function chaveDestino(m) {
+    return String(m.DestinoID) + '|' + String(m.TipoCaixaID) + '|' + (m.Teste ? 'T' : 'R');
+  }
+  function chaveOrigem(m) {
+    return String(m.OrigemID) + '|' + String(m.TipoCaixaID) + '|' + (m.Teste ? 'T' : 'R');
+  }
 
-  ativos(movimentos).slice().sort(function (a, b) {
+  naoCancelados(movimentos).slice().sort(function (a, b) {
     if (a.DataRef > b.DataRef) return 1;
     if (a.DataRef < b.DataRef) return -1;
     return a.DataHora > b.DataHora ? 1 : -1;
@@ -630,14 +655,14 @@ function cicloDaCarga(movimentos) {
     if (!q) return;
     if (m.Tipo === 'SAIDA' || m.Tipo === 'TRANSFERENCIA') {
       if (!m.DestinoID) return;
-      var k = chave(m.DestinoID, m.TipoCaixaID);
+      var k = chaveDestino(m);
       lotes[k] = lotes[k] || [];
       lotes[k].push({ id: m.ID, resta: q });
       total[m.ID] = q;
       devolvido[m.ID] = 0;
     } else if (m.Tipo === 'DEVOLUCAO') {
       if (!m.OrigemID) return;
-      var fila = lotes[chave(m.OrigemID, m.TipoCaixaID)] || [];
+      var fila = lotes[chaveOrigem(m)] || [];
       var sobra = q;
       for (var i = 0; i < fila.length && sobra > 0; i++) {
         if (fila[i].resta <= 0) continue;
@@ -680,7 +705,13 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
   // devolvida aparecer como "Enviada" só porque o filtro cortou a devolução.
   var ciclo = cicloDaCarga(movimentos);
 
-  return ativos(movimentos).filter(function (m) {
+  /* 'reais' (padrão) esconde o ensaio, 'teste' mostra só ele, 'todos' mistura. O padrão
+     é esconder: quem abre a tela quer ver a operação, não o que foi ensaiado. */
+  var recorte = String(p.teste || 'reais');
+
+  return naoCancelados(movimentos).filter(function (m) {
+    if (recorte === 'reais' && m.Teste) return false;
+    if (recorte === 'teste' && !m.Teste) return false;
     if (de && m.DataRef < de) return false;
     if (ate && m.DataRef > ate) return false;
     if (p.local && String(m.OrigemID) !== String(p.local) && String(m.DestinoID) !== String(p.local)) return false;
@@ -701,6 +732,7 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       qtdConferida: temConf ? m.QtdConferida : '',
       divergencia: (m.Status === 'CONFIRMADO' && temConf) ? Number(m.QtdConferida) - Number(m.Qtd) : '',
       status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID), perfil: m.Perfil,
+      teste: m.Teste === true,
       situacao: rotuloCiclo(m, ciclo[m.ID]),
       devolvido: ciclo[m.ID] ? ciclo[m.ID].devolvido : null,
       motorista: m.Motorista || '', rota: m.Rota || '',
@@ -1136,7 +1168,7 @@ module.exports = {
   rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,
   motoristasPublicos: motoristasPublicos, cnhVencida: cnhVencida,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
-  mapaNomes: mapaNomes, nome: nome, ativos: ativos, ativo: ativo, novoId: novoId, novoToken: novoToken,
+  mapaNomes: mapaNomes, nome: nome, ativos: ativos, naoCancelados: naoCancelados, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,
   cicloDaCarga: cicloDaCarga, rotuloCiclo: rotuloCiclo,

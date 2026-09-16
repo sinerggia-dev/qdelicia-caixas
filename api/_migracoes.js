@@ -216,6 +216,12 @@ module.exports = [
     sql: "alter table public.motoristas add column if not exists tipo text not null default '';"
   },
   {
+    id: '2026-09-16-base-de-teste',
+    nota: 'usuário de teste e lançamento de teste: ensaio não encosta no saldo real',
+    sql: "alter table public.usuarios add column if not exists teste boolean not null default false;"
+       + "alter table public.movimentos add column if not exists teste boolean not null default false;"
+  },
+  {
     id: '2026-09-16-local-fornecedor',
     nota: 'FORNECEDOR vira o quinto tipo de local: de onde a caixa vem e para onde ela volta',
     sql: "alter table public.locais drop constraint if exists locais_tipo_check;"

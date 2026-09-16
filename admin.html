@@ -187,6 +187,11 @@
           <option value="TRANSFERENCIA">Transferência</option><option value="PERDA">Perda</option><option value="AJUSTE">Ajuste</option>
         </select></div>
         <div><label for="mvUsuario">Quem lançou</label><select id="mvUsuario"><option value="">Todos</option></select></div>
+        <div><label for="mvTeste">Lançamentos</label><select id="mvTeste">
+          <option value="reais">Reais</option>
+          <option value="teste">De teste</option>
+          <option value="todos">Reais e de teste</option>
+        </select></div>
         <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
         <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
       </div>
@@ -987,7 +992,7 @@
   /* Os cinco campos recarregam sozinhos ao mudar. Antes só o botão Filtrar disparava a
      busca: a pessoa trocava o Tipo, a tabela continuava igual, e a conclusão natural era
      que o filtro não funcionava. O botão fica como recarregar. */
-  ['mvLocal', 'mvTipo', 'mvUsuario', 'mvDe', 'mvAte'].forEach(function(id){
+  ['mvLocal', 'mvTipo', 'mvUsuario', 'mvTeste', 'mvDe', 'mvAte'].forEach(function(id){
     document.getElementById(id).addEventListener('change', carregarMovimentos);
   });
 
@@ -1001,6 +1006,7 @@
     document.getElementById('mvLocal').value = '';
     document.getElementById('mvTipo').value = '';
     document.getElementById('mvUsuario').value = '';
+    document.getElementById('mvTeste').value = 'reais';
     periodoPadraoMov();
     carregarMovimentos();
   });
@@ -1009,6 +1015,7 @@
     box.innerHTML = '<div class="vazio">Carregando…</div>';
     Q.get({acao:'movimentos', local:document.getElementById('mvLocal').value, tipo:document.getElementById('mvTipo').value,
            usuario:document.getElementById('mvUsuario').value,
+           teste:document.getElementById('mvTeste').value,
            de:document.getElementById('mvDe').value, ate:document.getElementById('mvAte').value, limit:500})
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
@@ -1022,7 +1029,8 @@
                declarado, e a coluna que mostrava isso saiu. O amarelo de AGUARDANDO foi
                embora com a etapa de conferência — ele dizia "não entrou no saldo". */
             return '<tr class="'+(m.divergencia?'ruim':'')+'">'+
-              '<td>'+Q.dataBR(m.dataRef)+'</td>'+
+              '<td>'+Q.dataBR(m.dataRef)+
+                (m.teste?' <span class="tag amarela">teste</span>':'')+'</td>'+
               '<td><span class="tag '+tagCiclo(m.situacao)+'">'+Q.esc(m.situacao)+'</span></td>'+
               '<td>'+Q.esc(m.origem)+'</td><td>'+Q.esc(m.destino)+'</td><td>'+Q.esc(m.tipoCaixa)+'</td>'+
               '<td class="num">'+Q.num(m.qtd)+'</td>'+
@@ -1090,8 +1098,8 @@
   document.getElementById('btnCsvMov').addEventListener('click', function(){
     if (!MOVS.length) return Q.toast('Filtre os movimentos primeiro.','erro');
     Q.csv('movimentos_'+Q.hoje()+'.csv',
-      ['Data','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Quem','Obs'],
-      MOVS.map(function(m){ return [Q.dataBR(m.dataRef),m.situacao,m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',m.usuario,m.obs]; }));
+      ['Data','Teste','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Quem','Obs'],
+      MOVS.map(function(m){ return [Q.dataBR(m.dataRef),m.teste?'SIM':'',m.situacao,m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',m.usuario,m.obs]; }));
   });
 
   /* ---------------- cadastros ---------------- */
@@ -1738,6 +1746,18 @@
         (u.ID ? 'Para redefinir, escreva uma senha nova aqui. Ela é provisória: a pessoa vai '+
                 'escolher a dela ao entrar.'
               : 'Senha provisória: a pessoa escolhe a dela no primeiro acesso.')+'</p>'+
+      '<label>É usuário de teste?</label>'+
+      '<select id="fTeste"><option value="NAO"'+(u.Teste?'':' selected')+'>não — lança de verdade</option>'+
+        '<option value="SIM"'+(u.Teste?' selected':'')+'>sim — tudo que ele lançar fica fora do saldo</option></select>'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">O que um usuário de teste '+
+        'lança não entra em saldo, extrato, painel nem relatório. Fica guardado e visível só na aba '+
+        'Movimentos, escolhendo "de teste" no filtro. Serve para ensaiar a operação com a base já no ar.</p>'+
+      '<label>É usuário de teste?</label>'+
+      '<select id="fTeste"><option value="NAO"'+(u.Teste?'':' selected')+'>não — lança de verdade</option>'+
+        '<option value="SIM"'+(u.Teste?' selected':'')+'>sim — tudo que ele lançar fica fora do saldo</option></select>'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">O que um usuário de teste '+
+        'lança não entra em saldo, extrato, painel nem relatório. Fica guardado e visível só na aba '+
+        'Movimentos, escolhendo "de teste" no filtro. Serve para ensaiar a operação com a base já no ar.</p>'+
       '<h3 style="margin-top:20px">Onde ele pode lançar</h3>'+
       caixaLocais('fSaidas', 'Saída — de onde as caixas saem',
                   locaisEscolhiveis(['GALPAO','FILIAL','ROTA','FORNECEDOR'], u.Saidas), u.Saidas)+
@@ -1820,6 +1840,8 @@
       reg.Email = document.getElementById('fEmail').value.trim();
       reg.Usuario = document.getElementById('fLogin').value.trim();
       var novaSenha = document.getElementById('fSenha').value;
+      reg.Teste = document.getElementById('fTeste').value === 'SIM';
+      reg.Teste = document.getElementById('fTeste').value === 'SIM';
       if (novaSenha) reg.Senha = novaSenha;   // vai em texto e volta hash — nunca é guardada assim
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       if (!reg.ID && !pin) return Q.toast('Defina a senha do app de campo para o novo usuário.','erro');
