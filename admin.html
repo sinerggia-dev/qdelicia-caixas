@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=201c6a44">
+<link rel="stylesheet" href="styles.css?v=84bcc769">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -726,7 +726,8 @@
      A lista salva passa por uma peneira contra a de fabrica: coluna que nao existe mais
      e descartada e coluna nova entra no fim. Sem isso, quem tivesse arrastado antes de um
      deploy ficaria sem ver a coluna nova, sem entender por que. */
-  var COLS_PADRAO = ['inicial','localIni','origem','destino','quem','saida','retorno','final'];
+  var COLS_PADRAO = ['data','localIni','inicial','origem','destino','quem',
+                     'saida','retorno','final'];
   var COLS_CHAVE = 'qdc_cols_ativos_v1';
 
   function ordemColunas(){
@@ -734,7 +735,18 @@
     try { salva = JSON.parse(localStorage.getItem(COLS_CHAVE) || '[]') || []; }
     catch (e) { salva = []; }
     var vale = salva.filter(function(id){ return COLS_PADRAO.indexOf(id) >= 0; });
-    COLS_PADRAO.forEach(function(id){ if (vale.indexOf(id) < 0) vale.push(id); });
+    /* Coluna que a ordem salva nao cita entra ao lado do vizinho de fabrica dela, e nao
+       no fim. Jogada no fim, uma coluna nova aparecia depois do Saldo final para quem ja
+       tinha arrastado — longe de onde ela faz sentido, e sem explicacao. */
+    COLS_PADRAO.forEach(function(id, i){
+      if (vale.indexOf(id) >= 0) return;
+      var pos = 0;
+      for (var k = i - 1; k >= 0; k--) {
+        var p = vale.indexOf(COLS_PADRAO[k]);
+        if (p >= 0) { pos = p + 1; break; }
+      }
+      vale.splice(pos, 0, id);
+    });
     return vale;
   }
 
@@ -752,8 +764,11 @@
      automatico o navegador trata `width` como sugestao e reparte o espaco pelo conteudo —
      arrastar a borda nao mudava quase nada, e a coluna voltava sozinha ao soltar. */
   var LARG_CHAVE = 'qdc_larg_ativos_v1';
-  var LARG_PADRAO = { inicial:110, localIni:140, origem:160, destino:160, quem:190,
-                      saida:230, retorno:230, final:110 };
+  /* Somadas, estas larguras cabem numa area util de ~1.050px, que e o que sobra numa
+     tela de 1.400. Mais folgadas, a tabela transbordava e voltava a barra de rolagem
+     horizontal. Quem quiser mais espaco numa coluna arrasta a borda. */
+  var LARG_PADRAO = { data:90, inicial:100, localIni:115, origem:135, destino:135,
+                      quem:190, saida:150, retorno:150, final:100 };
   var LARG_MIN = 70;
 
   function larguras(){
@@ -779,6 +794,30 @@
   /* Arrastar a alcinha nao redesenha a tabela a cada pixel: mexe so no `width` do <th>,
      que com layout fixo ja arrasta a coluna inteira. Redesenhar no mousemove perderia o
      arrasto — o <th> de baixo do cursor seria outro elemento a cada quadro. */
+  /* O saldo corre de uma linha para a proxima: o saldo final de uma e o inicial da
+     seguinte, mais o estoque inicial que tenha sido lancado naquele dia.
+
+       1.250 (inicial) − 350 (saida) + 595 (retorno) = 1.495
+       1.495            − 1.690      + 1.250         = 1.055
+
+     Calculado AQUI e nao no servidor porque depende da ordem e do filtro da tela: mudar
+     a origem filtrada muda quais linhas entram na conta, e um numero vindo pronto do
+     servidor passaria a contradizer a lista que esta na frente da pessoa.
+
+     Devolve copias: as linhas vem do painel em cache, e escrever nelas faria o segundo
+     desenho partir dos valores ja corridos do primeiro. */
+  function comSaldoCorrido(lista){
+    var acumulado = 0;
+    return lista.map(function(l){
+      var copia = {};
+      for (var k in l) { if (Object.prototype.hasOwnProperty.call(l, k)) copia[k] = l[k]; }
+      copia.iniCorrido = acumulado + (l.inicial || 0);
+      copia.fimCorrido = copia.iniCorrido - (l.saida || 0) + (l.retorno || 0);
+      acumulado = copia.fimCorrido;
+      return copia;
+    });
+  }
+
   function ligarLarguraColunas(){
     document.querySelectorAll('#tabelaFluxo th[data-col] .puxador').forEach(function(p){
       p.addEventListener('mousedown', function(e){
@@ -878,9 +917,15 @@
 
        E e isso que deixa arrastar para reordenar: a ordem e so a ordem desta lista. */
     var lista = linhasFluxo();
+    // Nas visoes de gente nao ha estoque nem saldo corrido: cada pessoa responde por si.
+    if (!gente) lista = comSaldoCorrido(lista);
     var DEFS = {
+      data:     { t: 'Data', so: 'local',
+                  v: function(l){
+                    return l.data ? Q.dataBR(l.data) : '<span class="fraco">—</span>';
+                  } },
       inicial:  { t: 'Saldo inicial', num: true, so: 'local',
-                  v: function(l){ return Q.num(l.inicial || 0); } },
+                  v: function(l){ return Q.num(l.iniCorrido || 0); } },
       /* Onde o saldo inicial foi lancado. Ele nasce no ajuste do escritorio, creditado a
          UM local; nas linhas de caminho nao ha saldo inicial nenhum, e a celula fica
          vazia de proposito — escrever a origem ali sugeriria que aquele caminho carrega
@@ -911,7 +956,7 @@
                   v: function(l){ return Q.num(l.retorno) + detalheCaixas(l.retornoTipos); } },
       final:    { t: 'Saldo final', num: true,
                   v: function(l){
-                    var fim = gente ? l.saldo : l.saldoFinal;
+                    var fim = gente ? l.saldo : l.fimCorrido;
                     return '<b' + (fim < 0 ? ' style="color:var(--vermelho)"' : '') + '>' +
                       (fim > 0 ? '+' : '') + Q.num(fim) + '</b>';
                   } }
@@ -1026,20 +1071,22 @@
     /* O CSV sai na MESMA ordem de colunas da tela, inclusive a que a pessoa arrastou:
        um arquivo com as colunas noutra ordem obriga a conferir duas vezes qual e qual. */
     var cs = ordemColunas().filter(function(id){ return id !== 'quem'; });
-    var TIT = { inicial:'Saldo inicial', localIni:'Local do saldo', origem:'Origem',
-                destino:'Destino', saida:'Saída', retorno:'Retorno', final:'Saldo final' };
+    var TIT = { data:'Data', inicial:'Saldo inicial', localIni:'Local do saldo',
+                origem:'Origem', destino:'Destino', saida:'Saída', retorno:'Retorno',
+                final:'Saldo final' };
     var VAL = {
-      inicial:  function(l){ return l.inicial || 0; },
+      data:     function(l){ return l.data ? Q.dataBR(l.data) : ''; },
+      inicial:  function(l){ return l.iniCorrido || 0; },
       localIni: function(l){ return l.inicial ? l.nome : ''; },
       origem:   function(l){ return (l.origens||[]).join(' | '); },
       destino:  function(l){ return l.estoqueInicial ? 'estoque inicial'
                                                      : (l.destinos||[]).join(' | '); },
       saida:    function(l){ return l.saida; },
       retorno:  function(l){ return l.retorno; },
-      final:    function(l){ return l.saldoFinal === undefined ? l.saldo : l.saldoFinal; }
+      final:    function(l){ return l.fimCorrido === undefined ? l.saldo : l.fimCorrido; }
     };
     Q.csv('retornos', cs.map(function(id){ return TIT[id]; }).concat(['Lançamentos']),
-      linhasFluxo().map(function(l){
+      comSaldoCorrido(linhasFluxo()).map(function(l){
         /* As mesmas colunas da tela: um CSV com campos que a tabela nao tem — ou sem os
            que ela tem — so serve para duas pessoas compararem numeros diferentes achando
            que sao o mesmo. Aqui a lista de locais vai INTEIRA, sem o "+N": no arquivo nao

@@ -413,7 +413,10 @@ select.sel-inline{margin:0;width:150px;padding:8px 10px;font-size:13px}
    colunas SAIDA e RETORNO a 348px cada — a tabela passava a transbordar a 1.200px. Com
    largura maxima ele quebra em duas linhas e devolve a coluna ao tamanho do numero.
    `margin-left:auto` mantem o bloco encostado a direita, alinhado com o total. */
-.fsub.tipos{white-space:normal;max-width:190px;margin-left:auto}
+/* `max-width:100%` e nao um valor fixo: a coluna agora e redimensionavel, e um limite
+   em pixels ora sobrava, ora estourava a celula. O detalhe quebra na largura que a
+   coluna tiver. */
+.fsub.tipos{white-space:normal;max-width:100%;margin-left:auto}
 /* No celular 220px de trilho comem a tabela: vira uma tira que rola na horizontal. */
 @media (max-width:760px){
   .ret-wrap{grid-template-columns:1fr}

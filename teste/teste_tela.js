@@ -499,11 +499,23 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
 
   loja.qdc_cols_ativos_v1 = JSON.stringify(['final', 'saida']);
   var r = ordemColunas();
-  ok(r[0] === 'final' && r[1] === 'saida',
-    'a ordem salva manda no que ela cita', r);
-  ok(r.length === ordemColunas.length || r.indexOf('origem') > 0,
-    'e as colunas que ela nao cita entram no fim — coluna nova nao some para quem '
-    + 'arrastou antes do deploy', r);
+  ok(r.indexOf('final') < r.indexOf('saida'),
+    'a ordem salva manda: o que ela cita mantem a ordem relativa dela', r);
+
+  /* A coluna que falta entra ao lado do vizinho de fabrica dela, e nao no fim. Jogada no
+     fim, uma coluna nova aparecia depois do Saldo final para quem ja tinha arrastado —
+     longe de onde faz sentido, e sem explicacao. */
+  ok(r.indexOf('data') === 0,
+    'coluna nova entra no lugar dela, nao no fim da fila', r);
+  ok(r.indexOf('localIni') === r.indexOf('data') + 1,
+    'e cada uma ao lado de quem a precede de fabrica', r);
+  ok(r.length >= 9, 'e nenhuma se perde no caminho', r);
+
+  // uma so faltando: o caso real depois de um deploy
+  loja.qdc_cols_ativos_v1 = JSON.stringify(['localIni','inicial','origem','destino',
+                                            'quem','saida','retorno','final']);
+  ok(ordemColunas()[0] === 'data',
+    'so a coluna nova faltando, ela entra na posicao de fabrica dela', ordemColunas());
 
   loja.qdc_cols_ativos_v1 = JSON.stringify(['coluna_que_nao_existe', 'final']);
   ok(ordemColunas().indexOf('coluna_que_nao_existe') < 0,
@@ -690,6 +702,70 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
   var ll = corpoDe('ligarLarguraColunas');
   ok(ll.indexOf("'dragstart'") > 0 && ll.indexOf('preventDefault') > 0,
     'a alcinha cancela o arrasto de posicao: sao dois gestos na mesma borda', ll.trim());
+})();
+
+/* ---------------------------------------------------------------------------
+ * O saldo corre de uma linha para a proxima.
+ *
+ * O saldo final de uma linha e o inicial da seguinte, mais o estoque inicial lancado
+ * naquele dia. E o que transforma a tabela num extrato em vez de tres contas soltas.
+ * ------------------------------------------------------------------------- */
+console.log('\n== o saldo corre linha a linha ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var i = adm.indexOf('function comSaldoCorrido(');
+  var fonte = adm.slice(i, adm.indexOf('\n  }', i) + 4);
+  var comSaldoCorrido = new Function(fonte + ' return comSaldoCorrido;')();
+
+  // o exemplo, com os numeros que estao no ar
+  var r = comSaldoCorrido([
+    { inicial: 1250, saida: 0,    retorno: 0    },   // estoque inicial, 15/09
+    { inicial: 0,    saida: 350,  retorno: 595  },   // Matriz -> Filial Maceio
+    { inicial: 0,    saida: 1690, retorno: 1250 }    // Matriz -> Joao Pessoa
+  ]);
+  ok(r[0].iniCorrido === 1250 && r[0].fimCorrido === 1250,
+    'a linha do estoque abre com ele', [r[0].iniCorrido, r[0].fimCorrido]);
+  ok(r[1].iniCorrido === 1250 && r[1].fimCorrido === 1495,
+    '1.250 − 350 + 595 = 1.495: o final de uma e o inicial da seguinte',
+    [r[1].iniCorrido, r[1].fimCorrido]);
+  ok(r[2].iniCorrido === 1495 && r[2].fimCorrido === 1055,
+    'e segue: 1.495 − 1.690 + 1.250 = 1.055', [r[2].iniCorrido, r[2].fimCorrido]);
+
+  /* Um estoque inicial lancado mais tarde SOMA no ponto em que aparece — e o "+ o saldo
+     inicial do proximo dia se existir". */
+  var r2 = comSaldoCorrido([
+    { inicial: 100, saida: 0,  retorno: 0 },
+    { inicial: 0,   saida: 40, retorno: 0 },
+    { inicial: 500, saida: 0,  retorno: 0 },
+    { inicial: 0,   saida: 10, retorno: 0 }
+  ]);
+  ok(r2[2].iniCorrido === 560 && r2[2].fimCorrido === 560,
+    'o estoque lancado depois entra na conta no dia dele: 60 + 500',
+    [r2[2].iniCorrido, r2[2].fimCorrido]);
+  ok(r2[3].fimCorrido === 550, 'e a conta segue dali', r2[3].fimCorrido);
+
+  /* Devolve COPIAS: as linhas vem do painel em cache, e escrever nelas faria o segundo
+     desenho da tela partir dos valores ja corridos do primeiro. */
+  var orig = [{ inicial: 10, saida: 0, retorno: 0 }];
+  comSaldoCorrido(orig);
+  comSaldoCorrido(orig);
+  ok(orig[0].iniCorrido === undefined,
+    'as linhas originais nao sao tocadas — senao o segundo desenho somaria em cima do primeiro',
+    orig[0]);
+
+  // a tabela e o CSV leem os campos corridos, nao os do servidor
+  var corpo = adm.slice(adm.indexOf('function desenharFluxo()'),
+                        adm.indexOf("document.querySelectorAll('[data-fchip]')"));
+  ok(/Q\.num\(l\.iniCorrido \|\| 0\)/.test(corpo),
+    'a coluna Saldo inicial mostra o corrido, nao o ajuste solto da linha');
+  ok(/gente \? l\.saldo : l\.fimCorrido/.test(corpo),
+    'e o Saldo final idem — nas visoes de gente segue valendo o saldo da pessoa');
+  ok(adm.indexOf('comSaldoCorrido(linhasFluxo())') > 0,
+    'o CSV passa pela mesma conta: numero diferente no arquivo e o pior dos casos');
+
+  // a coluna de data existe e vem formatada
+  ok(/data:\s*\{ t: 'Data'/.test(corpo) && /Q\.dataBR\(l\.data\)/.test(corpo),
+    'ha coluna de Data, em formato brasileiro');
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
