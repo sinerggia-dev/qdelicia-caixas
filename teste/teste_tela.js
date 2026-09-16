@@ -147,12 +147,36 @@ console.log('\n== cada seletor usa a lista certa de permissão ==');
     'destino da saída vem da lista de Destino', mPode && mPode[1]);
   ok(/l\.ID\) !== String\(origem\)/.test(ajuste),
     'e a própria origem sai da lista, para não oferecer origem igual a destino');
-  ok(listaDe('minhasRotasDv') === 'destinos',
-    'origem da devolução (a rota) vem da lista de Destino: na ida a rota é destino',
-    listaDe('minhasRotasDv'));
-  ok(listaDe('meusGalpoes') === 'destinos',
-    'destino da DEVOLUÇÃO vem da lista de Destino — e não da de Saída, que deixava '
-    + 'a lista vazia para quem tinha a Saída presa a uma rota', listaDe('meusGalpoes'));
+  ok(listaDe('minhasOrigensDv') === 'destinos',
+    'quem devolve vem da lista de Destino: na ida esse local é o destino',
+    listaDe('minhasOrigensDv'));
+
+  /* Quem devolve nao e so a rota. A lista so com ROTA deixava de fora as filiais — que
+     nesta operacao estao cadastradas como GALPAO — e elas simplesmente nao apareciam no
+     seletor de retorno. */
+  var linhaOrig = trecho.slice(trecho.indexOf('var minhasOrigensDv'),
+                               trecho.indexOf(';', trecho.indexOf('var minhasOrigensDv')));
+  ['GALPAO', 'FILIAL', 'ROTA'].forEach(function (t) {
+    ok(linhaOrig.indexOf("'" + t + "'") > 0,
+      'quem devolve inclui ' + t + ' — quem tem caixa pode devolver', linhaOrig);
+  });
+
+  /* O destino do retorno saiu de montarFormularios e virou funcao propria, porque agora
+     depende da origem escolhida: com galpao nas duas pontas, a Matriz podia devolver para
+     a Matriz. */
+  var ajDv = corpo('ajustarDestinoRetorno');
+  var mDv = ajDv.match(/podem\s*=\s*permitidos\(.*,\s*'([a-z]+)'\)/);
+  ok(mDv && mDv[1] === 'destinos',
+    'destino da devolução vem da lista de Destino — e não da de Saída, que deixava a '
+    + 'lista vazia para quem tinha a Saída presa a uma rota', mDv && mDv[1]);
+  ok(/l\.ID\) !== String\(origem\)/.test(ajDv),
+    'e a própria origem sai da lista: sem isso a Matriz devolvia para a Matriz');
+
+  /* A ordem importa: montar o destino ANTES de escolher a origem deixaria a origem
+     escolhida ainda na lista. */
+  var mf = corpo('montarFormularios');
+  ok(mf.indexOf("preencherSozinho('dvOrigem'") < mf.indexOf('ajustarDestinoRetorno()'),
+    'a origem se escolhe antes de montar o destino, senão ela continua na lista dele');
 
   // E o cadastro precisa oferecer o galpão em Destino, senão o filtro acima não tem o
   // que filtrar: a pessoa não teria como marcar o galpão que recebe a devolução.

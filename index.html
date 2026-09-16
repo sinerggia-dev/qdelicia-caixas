@@ -509,6 +509,38 @@
     return !!l && String(l.Tipo).toUpperCase()==='GALPAO';
   }
 
+  /* Agora que um galpao pode aparecer nas DUAS pontas do retorno, a propria origem tem
+     de sair da lista de destino: sem isso a Matriz podia devolver para a Matriz. O
+     servidor ja recusa origem igual a destino, mas oferecer a opcao e convidar ao erro.
+
+     Mantem a escolha de quem ja tinha escolhido: remontar o seletor a cada troca da
+     origem apagaria o destino que a pessoa acabou de marcar. */
+  function ajustarDestinoRetorno(){
+    var origem = document.getElementById('dvOrigem').value;
+    var alvo = document.getElementById('dvDestino');
+    var antes = alvo.value;
+    /* Quem RECEBE a devolução é galpão ou filial — rota não recebe rota. Sem essa
+       separação o seletor listava as rotas junto, e "só um galpão" nunca acontecia.
+
+       Filtrado por 'destinos', não por 'saidas'. Estava em 'saidas' pela ideia de que a
+       devolução é o espelho da saída, mas o efeito era este: quem tivesse a Saída restrita
+       a uma ROTA ficava com a lista de galpões VAZIA — nenhuma rota é galpão, então o
+       filtro não deixava nada passar — e não conseguia registrar devolução nenhuma. O
+       rótulo do cadastro já promete o certo: "Destino — para onde as caixas vão". */
+    var podem = permitidos(locaisPor(['GALPAO','FILIAL']), 'destinos')
+      .filter(function(l){ return String(l.ID) !== String(origem); });
+    alvo.innerHTML = opcoes(podem);
+    var aindaVale = podem.filter(function(l){ return String(l.ID) === String(antes); })[0];
+    if (aindaVale) { alvo.value = antes; return; }
+    if (podem.length === 1) { alvo.value = podem[0].ID; return; }
+    /* Onde a devolução chega quase nunca muda para a mesma pessoa, então vale a pista do
+       local padrão: é o galpão onde ela trabalha. A pista so serve se ainda estiver na
+       lista — se for ela propria a origem, nao esta, e o campo fica em branco de proposito. */
+    var padrao = (Q.sessao()||{}).localPadrao;
+    var temPadrao = podem.filter(function(l){ return String(l.ID) === String(padrao); })[0];
+    if (temPadrao) alvo.value = padrao;
+  }
+
   function ajustarCamposSaida(){
     var doGalpao = saiDeGalpao();
     document.getElementById('sdWrapRota').style.display      = doGalpao ? 'block' : 'none';
@@ -610,28 +642,22 @@
     var minhasSaidas  = permitidos(comRota, 'saidas');
     // O destino da saída não se monta aqui: ele depende da origem escolhida (a própria
     // origem sai da lista), então quem o monta é `ajustarCamposSaida`, a cada troca.
-    // A devolução parte da ROTA: a caixa volta no caminhão, e é o caminhão que a guarda
-    // até a chegada. Vale a mesma permissão de destino, porque rota é destino na saída.
-    var minhasRotasDv = permitidos(locaisPor(['ROTA']), 'destinos');
-    // Quem RECEBE a devolução é galpão ou filial — rota não recebe rota. Sem essa
-    // separação o seletor listava as seis rotas junto, e "só um galpão" nunca acontecia.
-    //
-    // Filtrado por 'destinos', não por 'saidas'. Estava em 'saidas' pela ideia de que a
-    // devolução é o espelho da saída, mas o efeito era este: quem tivesse a Saída
-    // restrita a uma ROTA ficava com a lista de galpões VAZIA — nenhuma rota é galpão,
-    // então o filtro não deixava nada passar — e não conseguia registrar devolução
-    // nenhuma. O rótulo do cadastro já promete o certo: "Destino — para onde as caixas
-    // vão", e na devolução elas vão para o galpão.
-    var meusGalpoes = permitidos(locaisPor(['GALPAO','FILIAL']), 'destinos');
+    /* Quem devolve nao e so a rota. Filial e galpao tambem seguram caixa e tambem
+       devolvem — e a lista so com ROTA deixava de fora justamente as filiais, que na
+       operacao de hoje estao cadastradas como GALPAO. Quem tem caixa pode devolver.
+
+       CLIENTE e FORNECEDOR ficam de fora aqui de proposito: a coleta no cliente e
+       lancada como saida da rota, e o caminho do fornecedor e o da saida. */
+    var minhasOrigensDv = permitidos(locaisPor(['GALPAO','FILIAL','ROTA']), 'destinos');
     document.getElementById('sdOrigem').innerHTML = opcoes(minhasSaidas);
-    document.getElementById('dvOrigem').innerHTML = opcoes(minhasRotasDv);
-    document.getElementById('dvDestino').innerHTML = opcoes(meusGalpoes);
+    document.getElementById('dvOrigem').innerHTML = opcoes(minhasOrigensDv);
     // Um local só não é escolha: já vem posto, e a pessoa economiza um toque por lançamento.
     preencherSozinho('sdOrigem', minhasSaidas);
-    preencherSozinho('dvOrigem', minhasRotasDv);
-    // Onde a devolução chega quase nunca muda para a mesma pessoa, então aqui vale também
-    // a pista do local padrão: é o galpão onde ela trabalha.
-    preencherSozinho('dvDestino', meusGalpoes, (Q.sessao()||{}).localPadrao);
+    preencherSozinho('dvOrigem', minhasOrigensDv);
+    /* O destino do retorno se monta DEPOIS da origem, e nao antes: e dela que ele tira o
+       proprio local. Montado antes, a origem escolhida no passo seguinte continuaria na
+       lista de destino, e a Matriz podia devolver para a Matriz. */
+    ajustarDestinoRetorno();
     document.getElementById('sdData').value = Q.hoje();
     document.getElementById('dvData').value = Q.hoje();
     ajustarCamposSaida();
@@ -644,6 +670,7 @@
     // como na saida. Antes era a equipe inteira em ordem alfabetica, e quem quase sempre
     // e a resposta ficava no meio da lista.
     document.getElementById('dvOrigem').addEventListener('change', function(){
+      ajustarDestinoRetorno();
       montarMotoristas('dvMotorista', 'dvOrigem');
     });
     // Quem trouxe a carga de volta, agrupado pela rota de onde ela vem.
