@@ -991,8 +991,14 @@ async function main() {
     const por = {};
     f.linhas.forEach((l) => { por[l.id] = l; });
 
-    ok(!por.L001, 'galpão fica de fora: ele é a casa, não quem segura a caixa');
-    ok(f.linhas.length === 4, 'entram as rotas, filiais e clientes', f.linhas.length);
+    /* O galpao agora e linha, mas medido pelo lado dele: saiu 1.000 (ele foi a origem)
+       e voltaram 400 (ele foi o destino). Pelas contas das outras linhas ele apareceria
+       com 0 e 0, porque ninguem despacha PARA o galpao. */
+    ok(por.L001.saida === 1000 && por.L001.retorno === 400,
+      'no galpão, saída é o que saiu DELE e retorno é o que entrou NELE', por.L001);
+    ok(por.L001.saldoFinal === -600,
+      'e a mesma conta vale: 0 inicial − 1.000 + 400', por.L001.saldoFinal);
+    ok(f.linhas.length === 5, 'entram rotas, filiais, clientes e galpões', f.linhas.length);
 
     ok(por.R01.saida === 1000 && por.R01.retorno === 400,
       'saída é o que CHEGOU no local e retorno é o que ELE devolveu', [por.R01.saida, por.R01.retorno]);
@@ -1017,8 +1023,14 @@ async function main() {
     ok(f.totais.deficit === 700, 'déficit soma só quem está devendo, sem abater quem sobrou', f.totais.deficit);
     ok(f.totais.linhas === 3, 'quem não teve movimento não entra na conta de linhas', f.totais.linhas);
     ok(f.totais.taxaRetorno === 72.6, 'taxa de retorno do conjunto', f.totais.taxaRetorno);
-    ok(f.linhas[0].id === 'R01' || f.linhas[0].id === 'C02',
-      'quem deve mais aparece primeiro', f.linhas.map((l) => l.id));
+    /* A ordem que importa e a das linhas que a tela lista juntas; o galpao tem chip
+       proprio, entao ele nao disputa posicao com as outras. */
+    const semGalpao = f.linhas.filter((l) => l.tipo !== 'GALPAO');
+    ok(semGalpao[0].id === 'R01' || semGalpao[0].id === 'C02',
+      'quem deve mais aparece primeiro', semGalpao.map((l) => l.id));
+    ok(f.totais.deficit === 700,
+      'e o galpão NÃO entra no déficit: a mesma remessa vista das duas pontas dobraria '
+      + 'o número', f.totais.deficit);
 
     // a quantidade CONFERIDA manda: é ela que entra no razão
     const cen2 = JSON.parse(JSON.stringify(cen));
@@ -1245,6 +1257,9 @@ async function main() {
       // ajuste ANTIGO, fora da janela: saldo inicial e posicao, tem de contar assim mesmo
       { Tipo: 'AJUSTE', DestinoID: 'R1', TipoCaixaID: 'T1', Qtd: 200,
         UsuarioID: 'U1', DataRef: D('2026-05-10') },
+      // estoque inicial da matriz, que e o caso da base real
+      { Tipo: 'AJUSTE', DestinoID: 'L1', TipoCaixaID: 'T1', Qtd: 1500,
+        UsuarioID: 'U1', DataRef: D('2026-09-02') },
       // e a rota recebe e devolve parte
       { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: 'T1', Qtd: 1020,
         Motorista: 'Ramos', UsuarioID: 'U1', DataRef: D('2026-09-05') },
@@ -1284,9 +1299,24 @@ async function main() {
   ok(por.R2.inicial === 0 && por.R2.saldoFinal === 0,
     'quem não tem nada não inventa saldo inicial', por.R2);
 
-  // O galpao nao vira linha: nesta tabela ele e a contraparte, nao o portador.
-  ok(por.L1 === undefined,
-    'o galpão continua fora da tabela — as linhas são quem está COM caixa nossa');
+  /* A matriz: 1.500 de estoque inicial, despachou 1.020, recebeu 840 de volta.
+     1.500 − 1.020 + 840 = 1.320, que e exatamente o que `saldos()` diz que ela tem. */
+  ok(por.L1.inicial === 1500 && por.L1.saida === 1020 && por.L1.retorno === 840,
+    'a matriz traz o estoque inicial e o que saiu e voltou por ela', por.L1);
+  ok(por.L1.saldoFinal === 1320,
+    'e o saldo final dela é o estoque de verdade', por.L1.saldoFinal);
+
+  // A prova de que a conta do galpao nao e uma segunda contabilidade: ela bate com o
+  // razao que o resto do sistema usa.
+  const sal = F.saldos(cen.movimentos);
+  let estoqueL1 = 0;
+  Object.keys(sal.L1 || {}).forEach((t) => { estoqueL1 += sal.L1[t]; });
+  ok(estoqueL1 === por.L1.saldoFinal,
+    'o saldo final do galpão bate com saldos(), que é o razão do sistema',
+    [estoqueL1, por.L1.saldoFinal]);
+
+  ok(F.fluxoPorOrigem(cen, DESDE, 90).totais.linhas === 1,
+    'mas o galpão fica fora dos totais: ele é a outra ponta do mesmo fato');
 
   // A linha da filial nao pode ser escondida pelo filtro de "parado", senao o saldo
   // inicial nao aparece em lugar nenhum.

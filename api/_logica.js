@@ -945,6 +945,13 @@ function fluxoPorOrigem(dados, desde, meta) {
      Sem isto, quem lancou o estoque inicial nao via o numero em lugar nenhum: ajuste nao
      e saida nem retorno, entao ele sumia deste painel. */
   var inicio = {};
+  /* O galpao precisa de outra medicao. Nas demais linhas, SAIDA e o que foi despachado
+     PARA ela e RETORNO e o que voltou DELA — a linha e a contraparte. O galpao e a outra
+     ponta: nada e despachado para ele, entao pelas mesmas contas ele apareceria com
+     1.500 | 0 | 0 e o estoque dele nunca se mexeria.
+     Aqui SAIDA e tudo que saiu DO galpao e RETORNO e tudo que entrou NELE — que e a
+     leitura de `saldos()`, e faz inicial − saida + retorno dar o estoque de verdade. */
+  var saiuG = {}, voltouG = {}, saiuGTipo = {}, voltouGTipo = {};
   // Mesmos numeros, abertos por tipo de caixa: o total responde "quanto", e o detalhe
   // responde "de que" — sem ele, 1.020 pode ser mil de uma caixa ou vinte de cinco.
   var saiuTipo = {}, voltouTipo = {};
@@ -955,7 +962,11 @@ function fluxoPorOrigem(dados, desde, meta) {
   }
   // Quem dirigiu, que caixa foi e quantos lançamentos — colhidos do próprio movimento.
   // O cadastro da rota costuma vir sem motorista, e o nome só existe aqui.
-  var condutores = {}, caixas = {}, quantos = {};
+  var condutores = {}, caixas = {}, quantos = {}, quantosG = {};
+  function anotaG(local, m) {
+    if (!local) return;
+    quantosG[local] = (quantosG[local] || 0) + 1;
+  }
   function anota(local, m) {
     if (!local) return;
     quantos[local] = (quantos[local] || 0) + 1;
@@ -973,6 +984,7 @@ function fluxoPorOrigem(dados, desde, meta) {
       if (m.DestinoID) {
         inicio[m.DestinoID] = (inicio[m.DestinoID] || 0) + efetiva(m);
         anota(m.DestinoID, m);
+        anotaG(m.DestinoID, m);
       }
       return;
     }
@@ -980,6 +992,19 @@ function fluxoPorOrigem(dados, desde, meta) {
     var q = efetiva(m);          // devolução não confirmada vale 0, e vale a contada
     if (!q) return;
     var caixa = nome(nomesTipos, m.TipoCaixaID);
+    /* Vale para qualquer tipo de movimento, porque para o estoque do galpao tanto faz o
+       rotulo: o que importa e de que lado do lancamento ele esta. Perda so tem origem,
+       entao conta como saida — a caixa deixou o estoque do mesmo jeito. */
+    if (m.OrigemID) {
+      saiuG[m.OrigemID] = (saiuG[m.OrigemID] || 0) + q;
+      somaTipo(saiuGTipo, m.OrigemID, caixa, q);
+      anotaG(m.OrigemID, m);
+    }
+    if (m.DestinoID) {
+      voltouG[m.DestinoID] = (voltouG[m.DestinoID] || 0) + q;
+      somaTipo(voltouGTipo, m.DestinoID, caixa, q);
+      anotaG(m.DestinoID, m);
+    }
     var sentido = sentidoDoMovimento(m.Tipo);
     if (sentido === 'SAIDA') {
       if (m.DestinoID) {
@@ -1002,12 +1027,14 @@ function fluxoPorOrigem(dados, desde, meta) {
     });
   }
 
-  var SUB = { ROTA: 'rota', FILIAL: 'filial', CLIENTE: 'cliente' };
+  var SUB = { ROTA: 'rota', FILIAL: 'filial', CLIENTE: 'cliente', GALPAO: 'galpão' };
   var linhas = locais.filter(function (l) {
-    return l.Tipo === 'ROTA' || l.Tipo === 'FILIAL' || l.Tipo === 'CLIENTE';
+    return l.Tipo === 'ROTA' || l.Tipo === 'FILIAL' || l.Tipo === 'CLIENTE' ||
+           l.Tipo === 'GALPAO';
   }).map(function (l) {
-    var saida = saiu[l.ID] || 0;
-    var retorno = voltou[l.ID] || 0;
+    var ehGalpao = (l.Tipo === 'GALPAO');
+    var saida = (ehGalpao ? saiuG[l.ID] : saiu[l.ID]) || 0;
+    var retorno = (ehGalpao ? voltouG[l.ID] : voltou[l.ID]) || 0;
     var inicial = inicio[l.ID] || 0;
     var c = classificaFluxo(saida, retorno, DESVIO_RUIM);
     var motMov = chavesDe(condutores, l.ID);
@@ -1024,7 +1051,7 @@ function fluxoPorOrigem(dados, desde, meta) {
       : String(l.Responsavel || '').trim();
 
     var cx = chavesDe(caixas, l.ID);
-    var n = quantos[l.ID] || 0;
+    var n = (ehGalpao ? quantosG[l.ID] : quantos[l.ID]) || 0;
     var partes = [SUB[l.Tipo]];
     if (l.Tipo === 'CLIENTE' && l.RotaId) partes.push(nome(nomesLocais, l.RotaId));
     if (n) partes.push(n + (n === 1 ? ' lançamento' : ' lançamentos'));
@@ -1040,7 +1067,8 @@ function fluxoPorOrigem(dados, desde, meta) {
       // motorista da rota ou se ele já está lá.
       respDoCadastro: !!(l.Tipo === 'ROTA' ? l.MotoristaId : String(l.Responsavel || '').trim()),
       motoristas: motMov, caixas: cx, lancamentos: n,
-      saidaTipos: detalharTipos(saiuTipo[l.ID]), retornoTipos: detalharTipos(voltouTipo[l.ID]),
+      saidaTipos: detalharTipos(ehGalpao ? saiuGTipo[l.ID] : saiuTipo[l.ID]),
+      retornoTipos: detalharTipos(ehGalpao ? voltouGTipo[l.ID] : voltouTipo[l.ID]),
       saida: saida, retorno: retorno,
       inicial: inicial,
       /* inicial − saida + retorno, que e a conta que a linha mostra da esquerda para a
@@ -1058,7 +1086,13 @@ function fluxoPorOrigem(dados, desde, meta) {
            a.saldo - b.saldo || String(a.nome).localeCompare(String(b.nome), 'pt-BR');
   });
 
-  var comMovimento = linhas.filter(function (l) { return l.situacao !== 'parado'; });
+  /* O galpao fica fora dos totais de proposito. A mesma remessa aparece duas vezes na
+     tabela — como saida da matriz e como saida para a rota — e somar as duas dobraria o
+     deficit do mes: 180 viraria 360. O galpao e a outra ponta do mesmo fato, nao um fato
+     a mais. Por isso ele tambem tem chip proprio e nao entra em "Todas". */
+  var comMovimento = linhas.filter(function (l) {
+    return l.situacao !== 'parado' && l.tipo !== 'GALPAO';
+  });
   var tSaida = 0, tRetorno = 0, deficit = 0, porTipo = { ROTA: 0, FILIAL: 0, CLIENTE: 0 };
   comMovimento.forEach(function (l) {
     tSaida += l.saida; tRetorno += l.retorno;

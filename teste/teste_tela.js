@@ -300,6 +300,39 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
  * desalinha inteira e cada numero passa a ser lido na coluna do vizinho. E o colspan do
  * aviso de vazio tem de acompanhar, senao a mensagem quebra a largura da tabela.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * Matriz e galpoes ficam num chip proprio.
+ *
+ * A mesma remessa aparece duas vezes na tabela: como saida da matriz e como saida para a
+ * rota. Se as duas caissem na mesma lista, o deficit do mes contaria 180 duas vezes e o
+ * numero do rodape passaria a ser 360 sem nada ter mudado na operacao.
+ * ------------------------------------------------------------------------- */
+console.log('\n== matriz e galpoes nao se misturam com o resto ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoDe(nome){
+    var i = adm.indexOf('function ' + nome + '(');
+    return i < 0 ? '' : adm.slice(i, adm.indexOf('\n  }', i));
+  }
+
+  ok(/tipo !== 'GALPAO'/.test(corpoDe('linhasVivas')),
+    'a lista comum exclui o galpao');
+  ok(/tipo === 'GALPAO'/.test(corpoDe('linhasGalpoes')),
+    'e a do chip proprio pega so ele');
+
+  // o deficit conta a partir da lista comum, nunca de todasAsLinhas
+  var def = corpoDe('linhasDeficit');
+  ok(def.indexOf('linhasVivas') >= 0 && def.indexOf('todasAsLinhas') < 0,
+    'o chip "Em deficit" conta na lista sem galpao — senao 180 vira 360', def.trim());
+
+  // e a tabela do chip GALPAO existe de fato
+  var lf = corpoDe('linhasFluxo');
+  ok(/FLUXO_FILTRO === 'GALPAO'/.test(lf) && lf.indexOf('linhasGalpoes') >= 0,
+    'o chip de galpao tem a sua propria lista na tabela', lf.trim());
+
+  ok(adm.indexOf("{ v:'GALPAO'") > 0, 'o chip aparece na barra lateral');
+})();
+
 console.log('\n== Painel de Ativos: as colunas fecham ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

@@ -594,7 +594,8 @@
      uma lista de motoristas. */
   var FLUXO_COLUNAS = {
     MOTORISTA: ['Motorista'],
-    USUARIO:   ['Quem lançou']
+    USUARIO:   ['Quem lançou'],
+    GALPAO:    ['Galpão']
   };
 
   function ehVisaoDeGente(v){ return v === 'MOTORISTA' || v === 'USUARIO'; }
@@ -603,6 +604,7 @@
     var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
     if (FLUXO_FILTRO === 'MOTORISTA') return p.motoristas;
     if (FLUXO_FILTRO === 'USUARIO') return p.usuarios;
+    if (FLUXO_FILTRO === 'GALPAO') return linhasGalpoes();
     var vivas = linhasVivas();
     if (FLUXO_FILTRO === 'todas') return vivas;
     if (FLUXO_FILTRO === 'deficit') return vivas.filter(function(l){ return l.saldo < 0; });
@@ -618,6 +620,18 @@
      `situacao !== 'parado'`, entao o chip dizia "Filiais 0" com uma filial na tabela
      logo abaixo. Quem conta e quem lista tem de ser a mesma regra. */
   function linhasVivas(){
+    return todasAsLinhas().filter(function(l){ return l.tipo !== 'GALPAO'; });
+  }
+
+  /* Matriz e galpoes tem chip proprio e NAO entram em "Todas" nem no deficit. A mesma
+     remessa aparece duas vezes na tabela — como saida da matriz e como saida para a rota
+     — e junta-las somaria o deficit do mes duas vezes: 180 viraria 360. Sao as duas
+     pontas de um fato so. */
+  function linhasGalpoes(){
+    return todasAsLinhas().filter(function(l){ return l.tipo === 'GALPAO'; });
+  }
+
+  function todasAsLinhas(){
     var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
     return f.linhas.filter(function(l){ return l.situacao !== 'parado' || l.inicial; });
   }
@@ -652,6 +666,7 @@
       { v:'ROTA',      r:'Rotas',      n:conta('ROTA') },
       { v:'FILIAL',    r:'Filiais',    n:conta('FILIAL') },
       { v:'CLIENTE',   r:'Clientes',   n:conta('CLIENTE') },
+      { v:'GALPAO',    r:'Matriz e galpões', n:linhasGalpoes().length },
       { v:'deficit',   r:'Em déficit', n:linhasDeficit() },
       { v:'MOTORISTA', r:'Motoristas', n:pes.motoristas.length },
       { v:'USUARIO',   r:'Usuários',   n:pes.usuarios.length }
@@ -709,7 +724,8 @@
 
     var t = totaisDe(lista);
     var rot = FLUXO_FILTRO === 'MOTORISTA' ? 'motoristas'
-            : FLUXO_FILTRO === 'USUARIO' ? 'usuários' : 'origens';
+            : FLUXO_FILTRO === 'USUARIO' ? 'usuários'
+            : FLUXO_FILTRO === 'GALPAO' ? 'galpões' : 'origens';
     document.getElementById('fluxoTiles').innerHTML =
       tile(t.taxaRetorno===null?'—':t.taxaRetorno+'%', 'taxa de retorno do mês', 'meta '+metaFluxo()+'%',
            t.taxaRetorno!==null && t.taxaRetorno < metaFluxo() ? 'alerta' : 'ok')+
