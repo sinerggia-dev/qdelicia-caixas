@@ -83,9 +83,11 @@
           <label for="sdOrigem">Saída<span class="obrig">*</span></label>
           <select id="sdOrigem"></select>
         </div>
-        <!-- Saindo do galpão a carga vai para a ROTA, não direto para o cliente: é o
-             caminhão que passa a guardar a caixa até a entrega. Os dois campos ocupam a
-             mesma posição porque nunca aparecem juntos. -->
+        <!-- Saindo do galpão, o destino é qualquer local que a pessoa possa receber:
+             a rota (o caso comum, o caminhão levando a carga), outro galpão ou filial
+             (transferência entre casas nossas) e o fornecedor (vasilhame voltando).
+             Antes só listava ROTA, e transferência entre galpões não tinha por onde ser
+             lançada. Os dois campos ocupam a mesma posição porque nunca aparecem juntos. -->
         <div id="sdWrapRota" style="display:none">
           <label for="sdRota">Destino<span class="obrig">*</span></label>
           <select id="sdRota"></select>
@@ -481,9 +483,14 @@
     // Do galpão a carga vai para a rota; da rota, para o cliente. Nunca os dois ao mesmo tempo.
     document.getElementById('sdWrapDestino').style.display   = doGalpao ? 'none' : 'block';
     if (doGalpao){
-      var minhasRotas = permitidos(locaisPor(['ROTA']), 'destinos');
-      document.getElementById('sdRota').innerHTML = opcoes(minhasRotas);
-      if (minhasRotas.length === 1) document.getElementById('sdRota').value = minhasRotas[0].ID;
+      /* A própria origem sai da lista: o servidor já recusa origem igual a destino, mas
+         oferecer a opção é convidar ao erro. A rota vem primeiro porque `ordenarLocais`
+         ordena por tipo, e é o caminho do dia a dia. */
+      var origem = document.getElementById('sdOrigem').value;
+      var podeReceber = permitidos(locaisPor(['ROTA','GALPAO','FILIAL','CLIENTE','FORNECEDOR']), 'destinos')
+        .filter(function(l){ return String(l.ID) !== String(origem); });
+      document.getElementById('sdRota').innerHTML = opcoes(podeReceber);
+      if (podeReceber.length === 1) document.getElementById('sdRota').value = podeReceber[0].ID;
     }
     /* O motorista fica SEMPRE à vista, a pedido: antes só aparecia na saída do galpão, e
        quem lançava da rota para o cliente não tinha onde dizer quem levou.
