@@ -592,10 +592,11 @@
 
   /* O título da primeira coluna troca junto com a visão: "Origem / destino" não descreve
      uma lista de motoristas. */
+  /* So as visoes de gente usam isto: nas de local o nome vive dentro de Origem/Destino,
+     e nao ha coluna com titulo para trocar. */
   var FLUXO_COLUNAS = {
     MOTORISTA: ['Motorista'],
-    USUARIO:   ['Quem lançou'],
-    GALPAO:    ['Galpão']
+    USUARIO:   ['Quem lançou']
   };
 
   function ehVisaoDeGente(v){ return v === 'MOTORISTA' || v === 'USUARIO'; }
@@ -604,7 +605,10 @@
     var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
     if (FLUXO_FILTRO === 'MOTORISTA') return p.motoristas;
     if (FLUXO_FILTRO === 'USUARIO') return p.usuarios;
-    if (FLUXO_FILTRO === 'GALPAO') return linhasGalpoes();
+    /* Filial e galpao dividem o mesmo chip, a pedido: na operacao os dois sao a casa —
+       o lugar de onde a caixa sai e para onde ela volta —, e separa-los em duas abas
+       obrigava a procurar a Filial Maceio em duas listas para saber onde ela estava. */
+    if (FLUXO_FILTRO === 'FILIAL') return linhasFiliais();
     var vivas = linhasVivas();
     if (FLUXO_FILTRO === 'todas') return vivas;
     if (FLUXO_FILTRO === 'deficit') return vivas.filter(function(l){ return l.saldo < 0; });
@@ -623,12 +627,16 @@
     return todasAsLinhas().filter(function(l){ return l.tipo !== 'GALPAO'; });
   }
 
-  /* Matriz e galpoes tem chip proprio e NAO entram em "Todas" nem no deficit. A mesma
-     remessa aparece duas vezes na tabela — como saida da matriz e como saida para a rota
+  /* Filial e galpao: as duas casas, num chip so.
+
+     Eles NAO entram em "Todas" nem no deficit. A mesma remessa aparece duas vezes na
+     tabela — como saida da matriz e como saida para a rota
      — e junta-las somaria o deficit do mes duas vezes: 180 viraria 360. Sao as duas
      pontas de um fato so. */
-  function linhasGalpoes(){
-    return todasAsLinhas().filter(function(l){ return l.tipo === 'GALPAO'; });
+  function linhasFiliais(){
+    return todasAsLinhas().filter(function(l){
+      return l.tipo === 'GALPAO' || l.tipo === 'FILIAL';
+    });
   }
 
   function todasAsLinhas(){
@@ -664,9 +672,8 @@
     var itens = [
       { v:'todas',     r:'Todas',      n:vivas.length },
       { v:'ROTA',      r:'Rotas',      n:conta('ROTA') },
-      { v:'FILIAL',    r:'Filiais',    n:conta('FILIAL') },
+      { v:'FILIAL',    r:'Filiais',    n:linhasFiliais().length },
       { v:'CLIENTE',   r:'Clientes',   n:conta('CLIENTE') },
-      { v:'GALPAO',    r:'Matriz e galpões', n:linhasGalpoes().length },
       { v:'deficit',   r:'Em déficit', n:linhasDeficit() },
       { v:'MOTORISTA', r:'Motoristas', n:pes.motoristas.length },
       { v:'USUARIO',   r:'Usuários',   n:pes.usuarios.length }
@@ -735,7 +742,7 @@
     var t = totaisDe(lista);
     var rot = FLUXO_FILTRO === 'MOTORISTA' ? 'motoristas'
             : FLUXO_FILTRO === 'USUARIO' ? 'usuários'
-            : FLUXO_FILTRO === 'GALPAO' ? 'galpões' : 'origens';
+            : FLUXO_FILTRO === 'FILIAL' ? 'filiais' : 'origens';
     document.getElementById('fluxoTiles').innerHTML =
       tile(t.taxaRetorno===null?'—':t.taxaRetorno+'%', 'taxa de retorno do mês', 'meta '+metaFluxo()+'%',
            t.taxaRetorno!==null && t.taxaRetorno < metaFluxo() ? 'alerta' : 'ok')+

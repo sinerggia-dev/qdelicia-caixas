@@ -392,7 +392,7 @@ console.log('\n== as colunas Origem e Destino ==');
     lugares(['A','B','C','D'], 'Z'));
 })();
 
-console.log('\n== matriz e galpoes nao se misturam com o resto ==');
+console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   function corpoDe(nome){
@@ -402,20 +402,29 @@ console.log('\n== matriz e galpoes nao se misturam com o resto ==');
 
   ok(/tipo !== 'GALPAO'/.test(corpoDe('linhasVivas')),
     'a lista comum exclui o galpao');
-  ok(/tipo === 'GALPAO'/.test(corpoDe('linhasGalpoes')),
-    'e a do chip proprio pega so ele');
+  /* Os dois tipos no MESMO chip: na operacao filial e galpao sao a casa, e separa-los
+     obrigava a procurar a Filial Maceio em duas listas. */
+  var lfi = corpoDe('linhasFiliais');
+  ok(/tipo === 'GALPAO'/.test(lfi) && /tipo === 'FILIAL'/.test(lfi),
+    'o chip Filiais junta filial e galpao', lfi.trim());
 
   // o deficit conta a partir da lista comum, nunca de todasAsLinhas
   var def = corpoDe('linhasDeficit');
   ok(def.indexOf('linhasVivas') >= 0 && def.indexOf('todasAsLinhas') < 0,
     'o chip "Em deficit" conta na lista sem galpao — senao 180 vira 360', def.trim());
 
-  // e a tabela do chip GALPAO existe de fato
   var lf = corpoDe('linhasFluxo');
-  ok(/FLUXO_FILTRO === 'GALPAO'/.test(lf) && lf.indexOf('linhasGalpoes') >= 0,
-    'o chip de galpao tem a sua propria lista na tabela', lf.trim());
+  ok(/FLUXO_FILTRO === 'FILIAL'/.test(lf) && lf.indexOf('linhasFiliais') >= 0,
+    'e o chip Filiais tem a sua propria lista na tabela', lf.trim());
+  ok(lf.indexOf("'GALPAO'") < 0,
+    'nao sobrou chip de galpao a parte — um lugar so decide onde a casa aparece', lf.trim());
 
-  ok(adm.indexOf("{ v:'GALPAO'") > 0, 'o chip aparece na barra lateral');
+  /* O numero do chip sai da MESMA lista que a tabela mostra. Contar por `tipo ===
+     'FILIAL'` como os outros diria "Filiais 0" com duas filiais listadas abaixo. */
+  var i = adm.indexOf("{ v:'FILIAL'");
+  ok(adm.slice(i, i + 120).indexOf('linhasFiliais().length') > 0,
+    'e o numero do chip sai dessa lista, nao de uma contagem por tipo',
+    adm.slice(i, i + 90));
 })();
 
 console.log('\n== Painel de Ativos: as colunas fecham ==');
