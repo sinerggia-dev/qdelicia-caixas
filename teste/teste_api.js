@@ -1491,6 +1491,37 @@ async function main() {
       'e com a lista preenchida, só os marcados');
   }
 
+  console.log('\n== simetria: o que o formulário grava tem de voltar ==');
+  {
+    /* Isto já custou: TiposCaixa e Motoristas eram gravados certinho no banco, mas
+       `usuariosPublicos` — que é lista branca — não os devolvia. O formulário abria com
+       as caixas desmarcadas e a gravação seguinte escrevia vazio por cima. Nenhum erro
+       aparecia em lugar nenhum; a marcação só não grudava.
+
+       O teste lê o payload que o admin.html monta e exige que cada campo volte. */
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const html = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+    const i = html.indexOf("var reg = { ID:u.ID||''");
+    const payload = html.slice(i, html.indexOf('};', i));
+    const enviados = (payload.match(/([A-Z][A-Za-z]*)\s*:\s*lerMarcados/g) || [])
+      .map((t) => t.split(':')[0].trim());
+
+    ok(enviados.length >= 4,
+      'o formulário envia as quatro listas de permissão', enviados);
+
+    const volta = F.usuariosPublicos([{
+      ID: 'U1', Nome: 'A', Perfil: 'Gestor',
+      Saidas: ['a'], Destinos: ['b'], TiposCaixa: ['c'], Motoristas: ['d']
+    }])[0];
+
+    enviados.forEach((campo) => {
+      ok(Array.isArray(volta[campo]) && volta[campo].length === 1,
+        campo + ' volta do servidor — sem isso a marcação não gruda e some na gravação seguinte',
+        volta[campo]);
+    });
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }
