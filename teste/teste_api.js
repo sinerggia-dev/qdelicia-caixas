@@ -1383,6 +1383,56 @@ async function main() {
     por.F1);
 }
 
+console.log('\n== galpao que RECEBE remessa: nada voltou ==');
+{
+  const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  const D = (iso) => new Date(iso + 'T00:00:00');
+  const DESDE = D('2026-09-01');
+
+  /* Este cenario existe porque o de cima nao distinguia as duas regras: la o galpao so
+     despachava remessa e so recebia devolucao, entao "pelo lado" e "pelo tipo" davam o
+     mesmo numero e o erro passava. Aqui a Matriz despacha PARA outro galpao. */
+  const cen = {
+    config: {},
+    tipos: [{ ID: 'T1', Nome: 'CX P' }],
+    usuarios: [{ ID: 'U1', Nome: 'A' }],
+    locais: [
+      { ID: 'G', Nome: 'Matriz', Tipo: 'GALPAO' },
+      { ID: 'F', Nome: 'Filial Maceió', Tipo: 'GALPAO' },
+      { ID: 'R', Nome: 'Caruaru', Tipo: 'ROTA' }
+    ],
+    movimentos: [
+      { Tipo: 'SAIDA', OrigemID: 'G', DestinoID: 'F', TipoCaixaID: 'T1', Qtd: 350,
+        UsuarioID: 'U1', DataRef: D('2026-09-05') },
+      { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'R', DestinoID: 'G',
+        TipoCaixaID: 'T1', Qtd: 120, UsuarioID: 'U1', DataRef: D('2026-09-08') }
+    ]
+  };
+  const por = {};
+  F.fluxoPorOrigem(cen, DESDE, 90).linhas.forEach((l) => { por[l.id] = l; });
+
+  /* O erro que isto pega: a remessa que CHEGA num galpao caía na coluna RETORNO, como se
+     algo tivesse voltado — sendo que a caixa acabara de sair da Matriz. */
+  ok(por.F.saida === 350 && por.F.retorno === 0,
+    'remessa recebida por um galpão é SAÍDA — nada voltou, a caixa acabou de sair', por.F);
+  ok(por.F.saidaTipos.length === 1 && por.F.retornoTipos.length === 0,
+    'e o detalhe por tipo acompanha o mesmo lado', por.F);
+  ok(por.F.origens.join(',') === 'Matriz' && por.F.destinos.join(',') === 'Filial Maceió',
+    'o trajeto é Matriz → Filial: quem recebeu a remessa é o destino, não a origem', por.F);
+
+  // a matriz: despachou 350, recebeu 120 de volta
+  ok(por.G.saida === 350 && por.G.retorno === 120,
+    'na matriz, a mesma remessa é saída e a devolução que chega é retorno', por.G);
+  ok(por.G.origens.join(',') === 'Matriz' && por.G.destinos.join(',') === 'Filial Maceió',
+    'e ela é a origem do trajeto, porque despachou', por.G);
+
+  // a rota que devolveu
+  ok(por.R.saida === 0 && por.R.retorno === 120,
+    'quem só devolveu tem retorno e nenhuma saída', por.R);
+  ok(por.R.origens.join(',') === 'Caruaru' && por.R.destinos.join(',') === 'Matriz',
+    'sem remessa, o trajeto é o da devolução', por.R);
+}
+
 console.log('\n== quem lanca saida, quem lanca retorno ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
