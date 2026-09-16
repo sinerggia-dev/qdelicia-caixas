@@ -1038,8 +1038,48 @@ async function main() {
     ok(f.totais.foraDaMeta === 2,
       'dois dos três caminhos ficaram abaixo de 90%', f.totais.foraDaMeta);
 
-    ok(f.linhas[0].id === 'L001>R01', 'quem deve mais aparece primeiro',
-      f.linhas.map((l) => l.id + ':' + l.saldo));
+    /* A lista se le como extrato: o estoque inicial abre e os caminhos vem na ordem em
+       que foram lancados. Neste cenario o caminho mais antigo por acaso e tambem o que
+       mais deve — por isso o cenario logo abaixo, que separa as duas coisas. */
+    ok(f.linhas[0].id === 'L001>R01', 'o caminho mais antigo vem primeiro',
+      f.linhas.map((l) => l.id + ':' + l.data));
+
+    /* Cenario que DISTINGUE data de saldo: aqui o caminho mais recente e o que mais deve.
+       Ordenando por saldo, ele viria primeiro; por data, vem por ultimo. */
+    const cenOrd = {
+      config: {}, usuarios: cen.usuarios, locais: cen.locais,
+      movimentos: [
+        { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'R01', Qtd: 10,
+          DataRef: D('2026-09-02') },
+        { Tipo: 'AJUSTE', DestinoID: 'L001', Qtd: 900, DataRef: D('2026-09-20') },
+        { Tipo: 'SAIDA', OrigemID: 'R01', DestinoID: 'C01', Qtd: 900,
+          DataRef: D('2026-09-18') }
+      ]
+    };
+    const ord = F.fluxoPorOrigem(cenOrd, DESDE, 90).linhas;
+    ok(ord[0].estoqueInicial === true,
+      'o estoque inicial abre a lista, mesmo lancado depois de tudo',
+      ord.map((l) => l.id + ':' + l.data));
+    ok(ord[1].id === 'L001>R01' && ord[2].id === 'R01>C01',
+      'e os caminhos vem por data, nao por quanto devem — o de 900 e o mais recente',
+      ord.map((l) => l.id + ':' + l.data + ':' + l.saldo));
+
+    /* O ensaio continua no fim, acima de qualquer data: foi pedido explicitamente que
+       tudo com "teste" no nome fique embaixo. */
+    const cenT = {
+      config: {}, usuarios: cen.usuarios,
+      locais: cen.locais.concat([{ ID: 'RT', Nome: 'Rota Teste', Tipo: 'ROTA' }]),
+      movimentos: [
+        { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'RT', Qtd: 5,
+          DataRef: D('2026-09-01') },
+        { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'R01', Qtd: 5,
+          DataRef: D('2026-09-28') }
+      ]
+    };
+    const ordT = F.fluxoPorOrigem(cenT, DESDE, 90).linhas;
+    ok(ordT[ordT.length - 1].id === 'L001>RT',
+      'o ensaio fica por último mesmo sendo o mais antigo',
+      ordT.map((l) => l.id + ':' + l.data));
 
     // a quantidade CONFERIDA manda: é ela que entra no razão
     const cen2 = {

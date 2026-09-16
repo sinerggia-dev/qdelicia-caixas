@@ -1010,12 +1010,12 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
     var k = String(de) + '>' + String(para);
     if (!tr[k]) {
       tr[k] = { de: String(de), para: String(para), saida: 0, retorno: 0, n: 0,
-                saidaTipo: {}, retornoTipo: {} };
+                saidaTipo: {}, retornoTipo: {}, desde: null };
     }
     return tr[k];
   }
 
-  var inicio = {}, quantosIni = {};
+  var inicio = {}, quantosIni = {}, desdeIni = {};
 
   ativos(movimentos).forEach(function (m) {
     /* O ajuste entra ANTES do recorte de periodo, de proposito. Saldo inicial e posicao,
@@ -1028,6 +1028,9 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
       if (m.DestinoID) {
         inicio[m.DestinoID] = (inicio[m.DestinoID] || 0) + efetiva(m);
         quantosIni[m.DestinoID] = (quantosIni[m.DestinoID] || 0) + 1;
+        if (!desdeIni[m.DestinoID] || m.DataRef < desdeIni[m.DestinoID]) {
+          desdeIni[m.DestinoID] = m.DataRef;
+        }
       }
       return;
     }
@@ -1047,6 +1050,8 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
     var lado = (sentido === 'ENTRADA') ? 'retorno' : 'saida';
     t[lado] += q;
     t.n++;
+    // a data do primeiro lancamento do caminho: e por ela que a lista se ordena
+    if (!t.desde || m.DataRef < t.desde) t.desde = m.DataRef;
     var mapa = (sentido === 'ENTRADA') ? t.retornoTipo : t.saidaTipo;
     if (caixa) mapa[caixa] = (mapa[caixa] || 0) + q;
   });
@@ -1069,6 +1074,7 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
       saidaTipos: detalharTipos(t.saidaTipo),
       retornoTipos: detalharTipos(t.retornoTipo),
       inicial: 0,
+      data: t.desde ? iso(t.desde) : '',
       saida: t.saida, retorno: t.retorno,
       saldoFinal: t.retorno - t.saida,
       saldo: c.saldo, desvio: c.desvio, situacao: c.situacao
@@ -1089,17 +1095,24 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
       lancamentos: n,
       saidaTipos: [], retornoTipos: [],
       inicial: inicio[id],
+      data: desdeIni[id] ? iso(desdeIni[id]) : '',
       saida: 0, retorno: 0,
       saldoFinal: inicio[id],
       saldo: 0, desvio: null, situacao: 'parado'
     });
   });
 
+  /* A lista se le como um extrato: o estoque inicial abre, e os caminhos vem depois na
+     ordem em que foram lancados. Antes a ordem era por saldo — quem deve mais primeiro —,
+     e o estoque inicial caia no meio, entre dois caminhos, como se fosse mais um.
+
+     O ensaio continua vindo antes de tudo na comparacao, para acabar no fim da lista.
+     Data igual cai no nome, senao a lista dança a cada carregamento. */
   linhas.sort(function (a, b) {
-    // Quem deve mais primeiro; entre os parados, ordem alfabética, senão a lista dança.
-    // O ensaio vem antes de tudo isso, para ficar no fim.
     return pesoTeste(a.nome) - pesoTeste(b.nome) ||
-           a.saldo - b.saldo || String(a.nome).localeCompare(String(b.nome), 'pt-BR');
+           (b.estoqueInicial ? 1 : 0) - (a.estoqueInicial ? 1 : 0) ||
+           String(a.data).localeCompare(String(b.data)) ||
+           String(a.nome).localeCompare(String(b.nome), 'pt-BR');
   });
 
   /* Agora os totais somam TUDO que teve movimento. No modelo por local eles precisavam
