@@ -957,7 +957,7 @@ async function main() {
   await POST({ acao: 'salvarMotorista', registro: { ID: 'D001', Tipo: '' } });
 
 
-  console.log('\n== fluxo por origem (painel de retornos) ==');
+  console.log('\n== painel de ativos: uma linha por trajeto ==');
   {
     const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
     const D = (iso) => new Date(iso + 'T00:00:00');
@@ -973,10 +973,10 @@ async function main() {
         { ID: 'C03', Nome: 'Parado', Tipo: 'CLIENTE', Responsavel: 'Zé' }
       ],
       movimentos: [
-        // rota: saiu 1000, voltou 400 -> saldo -600, desvio 60% (ruim)
+        // galpão -> rota: saiu 1000, voltou 400 -> saldo -600, desvio 60% (ruim)
         { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'R01', Qtd: 1000, DataRef: D('2026-09-02') },
         { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'R01', DestinoID: 'L001', Qtd: 400, DataRef: D('2026-09-05') },
-        // cliente que devolve mais do que levou -> ok
+        // rota -> cliente que devolve mais do que levou -> ok
         { Tipo: 'SAIDA', OrigemID: 'R01', DestinoID: 'C01', Qtd: 700, DataRef: D('2026-09-03') },
         { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'C01', DestinoID: 'R01', Qtd: 770, DataRef: D('2026-09-06') },
         // linha antiga que ficou em AGUARDANDO: com a etapa extinta, ela passa a contar
@@ -991,63 +991,95 @@ async function main() {
     const por = {};
     f.linhas.forEach((l) => { por[l.id] = l; });
 
-    /* O galpao agora e linha, mas medido pelo lado dele: saiu 1.000 (ele foi a origem)
-       e voltaram 400 (ele foi o destino). Pelas contas das outras linhas ele apareceria
-       com 0 e 0, porque ninguem despacha PARA o galpao. */
-    ok(por.L001.saida === 1000 && por.L001.retorno === 400,
-      'no galpão, saída é o que saiu DELE e retorno é o que entrou NELE', por.L001);
-    ok(por.L001.saldoFinal === -600,
-      'e a mesma conta vale: 0 inicial − 1.000 + 400', por.L001.saldoFinal);
-    ok(f.linhas.length === 5, 'entram rotas, filiais, clientes e galpões', f.linhas.length);
+    /* Cada caminho e uma linha, com id "quem despachou > quem recebeu". Somar os destinos
+       de uma origem numa celula so — "Filial Maceio, Joao Pessoa" — apagava a conta de
+       cada um: nenhuma das duas dava para conferir. */
+    ok(f.linhas.length === 3, 'tres caminhos percorridos, tres linhas',
+      f.linhas.map((l) => l.id));
+    ok(!!por['L001>R01'] && !!por['R01>C01'] && !!por['R01>C02'],
+      'a mesma origem com dois destinos vira DUAS linhas', Object.keys(por));
 
-    ok(por.R01.saida === 1000 && por.R01.retorno === 400,
-      'saída é o que CHEGOU no local e retorno é o que ELE devolveu', [por.R01.saida, por.R01.retorno]);
-    ok(por.R01.saldo === -600 && por.R01.desvio === 60 && por.R01.situacao === 'ruim',
-      'saldo e desvio do período, e acima de 40% a linha é ruim', por.R01);
-    ok(por.R01.responsavel === 'Natanias', 'na rota quem responde é o motorista', por.R01.responsavel);
+    /* A ida e a volta do mesmo caminho caem na mesma linha: a devolucao R01->L001 fecha a
+       remessa L001->R01. Sem isso o retorno abriria uma linha propria, no sentido
+       contrario, e ninguem cruzaria as duas. */
+    const jp = por['L001>R01'];
+    ok(jp.saida === 1000 && jp.retorno === 400,
+      'a devolução fecha a remessa do mesmo caminho, na mesma linha', jp);
+    ok(jp.origens.join(',') === 'Galpão' && jp.destinos.join(',') === 'João Pessoa',
+      'e as duas pontas aparecem, uma em cada coluna', [jp.origens, jp.destinos]);
+    ok(jp.saldo === -600 && jp.desvio === 60 && jp.situacao === 'ruim',
+      'saldo e desvio do período, e acima de 40% a linha é ruim', jp);
+    ok(jp.tipo === 'ROTA',
+      'o tipo da linha é o de quem RECEBEU: é ele que está com a caixa', jp.tipo);
+    ok(jp.saldoFinal === -600 && jp.inicial === 0,
+      'sem estoque inicial, o saldo final é o do próprio caminho', jp);
 
-    ok(por.C01.saldo === 70 && por.C01.situacao === 'ok' && por.C01.desvio === -10,
-      'devolveu mais do que levou: situação ok', por.C01);
-    ok(por.C01.responsavel === 'Antônio', 'no cliente vale o responsável do cadastro');
-    ok(por.C01.sub.indexOf('João Pessoa') >= 0, 'o cliente mostra a rota que o atende', por.C01.sub);
+    ok(por['R01>C01'].saldo === 70 && por['R01>C01'].situacao === 'ok' &&
+       por['R01>C01'].desvio === -10,
+      'devolveu mais do que levou: situação ok', por['R01>C01']);
+    ok(por['R01>C02'].retorno === 500 && por['R01>C02'].saldo === -100,
+      'devolução antiga em AGUARDANDO conta: sem a etapa, não há o que esperar',
+      por['R01>C02']);
 
-    ok(por.C02.retorno === 500 && por.C02.saldo === -100,
-      'devolução antiga em AGUARDANDO conta: sem a etapa, não há o que esperar', por.C02);
-    ok(por.C02.responsavel === '', 'sem responsável cadastrado devolve vazio, não o id');
+    /* Local sem movimento nenhum nao vira linha: nao houve caminho percorrido. No modelo
+       por local ele aparecia zerado e enchia a lista. */
+    ok(!Object.keys(por).some((k) => k.indexOf('C03') >= 0),
+      'quem não teve movimento não vira linha: não houve caminho', Object.keys(por));
 
-    ok(por.C03.situacao === 'parado' && por.C03.desvio === null,
-      'sem saída e sem retorno não vira 0% de retorno', por.C03);
-
+    /* Os totais somam TUDO agora. No modelo por local a mesma remessa entrava duas vezes
+       — na linha do galpao e na da rota — e eles precisavam excluir o galpao. Os numeros
+       abaixo sao os mesmos de antes, o que mostra que o recorte mudou sem mexer na conta. */
     ok(f.totais.saida === 2300 && f.totais.retorno === 1670,
       'os totais ignoram cancelado e o que é de antes da janela', f.totais);
-    ok(f.totais.deficit === 700, 'déficit soma só quem está devendo, sem abater quem sobrou', f.totais.deficit);
-    ok(f.totais.linhas === 3, 'quem não teve movimento não entra na conta de linhas', f.totais.linhas);
-    ok(f.totais.taxaRetorno === 72.6, 'taxa de retorno do conjunto', f.totais.taxaRetorno);
-    /* A ordem que importa e a das linhas que a tela lista juntas; o galpao tem chip
-       proprio, entao ele nao disputa posicao com as outras. */
-    const semGalpao = f.linhas.filter((l) => l.tipo !== 'GALPAO');
-    ok(semGalpao[0].id === 'R01' || semGalpao[0].id === 'C02',
-      'quem deve mais aparece primeiro', semGalpao.map((l) => l.id));
     ok(f.totais.deficit === 700,
-      'e o galpão NÃO entra no déficit: a mesma remessa vista das duas pontas dobraria '
-      + 'o número', f.totais.deficit);
+      'déficit soma só quem está devendo, sem abater quem sobrou', f.totais.deficit);
+    ok(f.totais.linhas === 3, 'e cada caminho entra uma vez só', f.totais.linhas);
+    ok(f.totais.taxaRetorno === 72.6, 'taxa de retorno do conjunto', f.totais.taxaRetorno);
+    ok(f.totais.foraDaMeta === 2,
+      'dois dos três caminhos ficaram abaixo de 90%', f.totais.foraDaMeta);
+
+    ok(f.linhas[0].id === 'L001>R01', 'quem deve mais aparece primeiro',
+      f.linhas.map((l) => l.id + ':' + l.saldo));
 
     // a quantidade CONFERIDA manda: é ela que entra no razão
-    const cen2 = JSON.parse(JSON.stringify(cen));
-    cen2.movimentos = [
-      { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'R01', Qtd: 100, DataRef: D('2026-09-02') },
-      { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'R01', DestinoID: 'L001', Qtd: 90, QtdConferida: 80, DataRef: D('2026-09-05') }
-    ];
-    cen2.locais = cen.locais;
-    const f2 = F.fluxoPorOrigem(cen2, DESDE, 90);
-    const r2 = f2.linhas.filter((l) => l.id === 'R01')[0];
+    const cen2 = {
+      config: {}, usuarios: cen.usuarios, locais: cen.locais,
+      movimentos: [
+        { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'R01', Qtd: 100, DataRef: D('2026-09-02') },
+        { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'R01', DestinoID: 'L001',
+          Qtd: 90, QtdConferida: 80, DataRef: D('2026-09-05') }
+      ]
+    };
+    const r2 = F.fluxoPorOrigem(cen2, DESDE, 90).linhas.filter((l) => l.id === 'L001>R01')[0];
     ok(r2.retorno === 80, 'vale a quantidade conferida, não a declarada', r2.retorno);
 
-    // meta: conta quem ficou abaixo dela
-    ok(f.totais.foraDaMeta === 2, 'duas das três linhas com movimento ficaram abaixo de 90%', f.totais.foraDaMeta);
+    /* A linha de estoque inicial nao tem trajeto: o saldo inicial e do LOCAL, e espalha-lo
+       pelos caminhos dele contaria o mesmo estoque uma vez por caminho. */
+    const cen3 = {
+      config: {}, usuarios: cen.usuarios, locais: cen.locais,
+      movimentos: [
+        { Tipo: 'AJUSTE', DestinoID: 'L001', Qtd: 1250, DataRef: D('2026-05-10') },
+        { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'R01', Qtd: 300, DataRef: D('2026-09-02') },
+        { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'C01', Qtd: 200, DataRef: D('2026-09-02') }
+      ]
+    };
+    const f3 = F.fluxoPorOrigem(cen3, DESDE, 90);
+    const ini = f3.linhas.filter((l) => l.estoqueInicial)[0];
+    ok(!!ini && ini.inicial === 1250 && ini.saida === 0 && ini.retorno === 0,
+      'o estoque inicial ganha linha própria, sem trajeto', ini);
+    ok(ini.origens.join(',') === 'Galpão' && ini.destinos.length === 0,
+      'com o local na origem e o destino vazio — a tela escreve "estoque inicial" ali',
+      [ini.origens, ini.destinos]);
+    ok(f3.linhas.filter((l) => !l.estoqueInicial).every((l) => l.inicial === 0),
+      'e os caminhos dele NÃO repetem o 1.250: seria o mesmo estoque contado duas vezes',
+      f3.linhas.map((l) => l.id + ':' + l.inicial));
+    /* Ajuste de meses atras conta assim mesmo: saldo inicial e posicao, nao movimento.
+       Se expirasse com a janela, a coluna zeraria sozinha na virada do mes. */
+    ok(ini.inicial === 1250,
+      'ajuste de maio ainda conta em setembro — posição não expira com a virada do mês');
+    ok(f3.totais.linhas === 2,
+      'e a linha de estoque inicial fica fora da conta de caminhos', f3.totais.linhas);
   }
-
-
   console.log('\n== filtro por quem lançou (Movimentos) ==');
   {
     const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
@@ -1157,7 +1189,7 @@ async function main() {
   }
 
 
-  console.log('\n== responsável e detalhe da linha (Painel de Ativos) ==');
+  console.log('\n== detalhe por tipo de caixa, em cada trajeto ==');
   {
     const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
     const D = (iso) => new Date(iso + 'T00:00:00');
@@ -1168,11 +1200,8 @@ async function main() {
       usuarios: [{ ID: 'U9', Nome: 'Motorista do Cadastro', Perfil: 'Motorista' }],
       locais: [
         { ID: 'L1', Nome: 'Galpão', Tipo: 'GALPAO' },
-        // rota SEM motorista no cadastro: o nome tem de vir do lançamento
         { ID: 'R1', Nome: 'Caruaru', Tipo: 'ROTA' },
-        // rota COM motorista no cadastro: o cadastro manda, mesmo com outro dirigindo
         { ID: 'R2', Nome: 'Recife', Tipo: 'ROTA', MotoristaId: 'U9' },
-        // cliente sem responsável: NÃO pode herdar o motorista que entregou
         { ID: 'C1', Nome: 'CEASA', Tipo: 'CLIENTE' }
       ],
       movimentos: [
@@ -1194,204 +1223,109 @@ async function main() {
     const f = F.fluxoPorOrigem(cen, DESDE, 90);
     const por = {}; f.linhas.forEach((l) => { por[l.id] = l; });
 
-    ok(por.R1.responsavel === 'Ramos',
-      'rota sem motorista no cadastro pega quem dirigiu no lançamento', por.R1.responsavel);
-    ok(por.R1.respDoCadastro === false,
-      'e a linha avisa que o nome não veio do cadastro', por.R1.respDoCadastro);
+    /* Tres destinos a partir do mesmo galpao: tres linhas. Era isto que uma celula com
+       "Caruaru, Recife, CEASA" apagava — cada caminho tem numero e cobranca proprios. */
+    ok(f.linhas.length === 3, 'um galpão com três destinos vira três linhas',
+      f.linhas.map((l) => l.id));
 
-    ok(por.R2.responsavel === 'Motorista do Cadastro' && por.R2.respDoCadastro === true,
-      'com motorista no cadastro, o cadastro manda — ele é a designação oficial', por.R2);
+    ok(por['L1>R1'].sub === '2 lançamentos',
+      'a linha de baixo conta lançamentos; os tipos foram para as colunas, com a '
+      + 'quantidade de cada um', por['L1>R1'].sub);
+    ok(por['L1>R1'].saidaTipos.map((t) => t.caixa + ':' + t.qtd).join(' ') === 'CX G:530 CX P:50',
+      'saída aberta por tipo de caixa, em ordem de nome', por['L1>R1'].saidaTipos);
+    ok(por['L1>R1'].retornoTipos.length === 0,
+      'sem retorno, o detalhe vem vazio — e não com zeros inventados',
+      por['L1>R1'].retornoTipos);
 
-    ok(por.C1.responsavel === '',
-      'cliente NÃO herda o motorista: quem entregou não responde pelas caixas do cliente',
-      por.C1.responsavel);
+    ok(por['L1>R2'].retornoTipos.map((t) => t.caixa + ':' + t.qtd).join(' ') === 'CX G:40 CX P:25',
+      'retorno aberto por tipo de caixa, na mesma ordem da saída', por['L1>R2'].retornoTipos);
+    ok(por['L1>R2'].retorno === 65 && por['L1>R2'].saida === 100,
+      'e a soma dos tipos fecha com o total da coluna — voltou parte, não tudo',
+      por['L1>R2']);
 
-    ok(por.R1.sub === 'rota · 2 lançamentos',
-      'a linha de baixo traz lançamentos; os tipos foram para as colunas, com a quantidade '
-      + 'de cada um', por.R1.sub);
-    ok(por.R1.caixas.join(',') === 'CX G,CX P' && por.R1.lancamentos === 2,
-      'e os mesmos dados vêm soltos, para quem quiser montar outra tela', por.R1);
-    // o detalhe por tipo, que e o que a coluna mostra agora
-    ok(por.R1.saidaTipos.map(function(t){ return t.caixa+':'+t.qtd; }).join(' ') === 'CX G:530 CX P:50',
-      'saída aberta por tipo de caixa, em ordem de nome', por.R1.saidaTipos);
-    ok(por.R1.retornoTipos.length === 0,
-      'sem retorno, o detalhe vem vazio — e não com zeros inventados', por.R1.retornoTipos);
-    ok(por.R2.retornoTipos.map((t) => t.caixa + ':' + t.qtd).join(' ') === 'CX G:40 CX P:25',
-      'retorno aberto por tipo de caixa, na mesma ordem da saída', por.R2.retornoTipos);
-    ok(por.R2.retorno === 65 && por.R2.saida === 100,
-      'e a soma dos tipos fecha com o total da coluna — voltou parte, não tudo', por.R2);
-
-    // dois motoristas na mesma rota aparecem os dois, e sem repetir
-    const cen2 = JSON.parse(JSON.stringify(cen));
-    cen2.movimentos = cen.movimentos.map((m) => Object.assign({}, m, { DataRef: D('2026-09-05') }));
-    cen2.movimentos[1].Motorista = 'Wesley';
-    cen2.movimentos.push(Object.assign({}, cen.movimentos[0], { Motorista: 'Ramos', DataRef: D('2026-09-08') }));
-    const f2 = F.fluxoPorOrigem(cen2, DESDE, 90);
-    const r1 = f2.linhas.filter((l) => l.id === 'R1')[0];
-    ok(r1.responsavel === 'Ramos, Wesley',
-      'dois motoristas na rota aparecem os dois, em ordem e sem repetir', r1.responsavel);
+    /* O detalhe fica no trajeto a que pertence: as 530 CX G foram para Caruaru, e nao
+       podem vazar para a linha de Recife. No modelo por local os dois destinos caiam na
+       mesma linha do galpao e os tipos vinham somados. */
+    ok(por['L1>R2'].saidaTipos.map((t) => t.caixa).join(',') === 'CX P',
+      'o detalhe de um caminho não vaza para o outro', por['L1>R2'].saidaTipos);
+    ok(por['L1>C1'].saida === 30 && por['L1>C1'].tipo === 'CLIENTE',
+      'e o cliente tem a sua própria linha, com o tipo dele', por['L1>C1']);
   }
-
-
-  console.log('\n== saldo inicial (dos ajustes) e saldo final ==');
-{
-  const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
-  const D = (iso) => new Date(iso + 'T00:00:00');
-  const DESDE = D('2026-09-01');
-  const cen = {
-    config: {},
-    tipos: [{ ID: 'T1', Nome: 'CX P' }, { ID: 'T2', Nome: 'CX G' }],
-    usuarios: [{ ID: 'U1', Nome: 'Admin', Perfil: 'Gestor' }],
-    locais: [
-      { ID: 'L1', Nome: 'Matriz', Tipo: 'GALPAO' },
-      { ID: 'F1', Nome: 'Filial', Tipo: 'FILIAL' },
-      { ID: 'R1', Nome: 'Caruaru', Tipo: 'ROTA' },
-      { ID: 'R2', Nome: 'Recife', Tipo: 'ROTA' }
-    ],
-    movimentos: [
-      // estoque inicial da filial: dois tipos, lancados como AJUSTE
-      { Tipo: 'AJUSTE', DestinoID: 'F1', TipoCaixaID: 'T1', Qtd: 350,
-        UsuarioID: 'U1', DataRef: D('2026-09-02') },
-      { Tipo: 'AJUSTE', DestinoID: 'F1', TipoCaixaID: 'T2', Qtd: 350,
-        UsuarioID: 'U1', DataRef: D('2026-09-02') },
-      // ajuste ANTIGO, fora da janela: saldo inicial e posicao, tem de contar assim mesmo
-      { Tipo: 'AJUSTE', DestinoID: 'R1', TipoCaixaID: 'T1', Qtd: 200,
-        UsuarioID: 'U1', DataRef: D('2026-05-10') },
-      // estoque inicial da matriz, que e o caso da base real
-      { Tipo: 'AJUSTE', DestinoID: 'L1', TipoCaixaID: 'T1', Qtd: 1500,
-        UsuarioID: 'U1', DataRef: D('2026-09-02') },
-      // e a rota recebe e devolve parte
-      { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: 'T1', Qtd: 1020,
-        Motorista: 'Ramos', UsuarioID: 'U1', DataRef: D('2026-09-05') },
-      { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'R1', DestinoID: 'L1',
-        TipoCaixaID: 'T1', Qtd: 840, Motorista: 'Ramos', UsuarioID: 'U1', DataRef: D('2026-09-09') }
-    ]
-  };
-  const f = F.fluxoPorOrigem(cen, DESDE, 90);
-  const por = {}; f.linhas.forEach((l) => { por[l.id] = l; });
-
-  ok(por.F1.inicial === 700,
-    'o ajuste vira saldo inicial do local que recebeu o credito', por.F1.inicial);
-  ok(por.F1.saida === 0 && por.F1.retorno === 0,
-    'e NAO entra em saída nem em retorno: ajuste não é viagem de caixa', por.F1);
-  ok(por.F1.saldoFinal === 700,
-    'sem movimento, o saldo final é o próprio saldo inicial', por.F1.saldoFinal);
-
-  // A conta que a linha mostra da esquerda para a direita.
-  ok(por.R1.inicial === 200 && por.R1.saida === 1020 && por.R1.retorno === 840,
-    'a rota traz as três parcelas', por.R1);
-  ok(por.R1.saldoFinal === 200 - 1020 + 840,
-    'saldo final = inicial − saída + retorno', por.R1.saldoFinal);
-
-  // Esta e a razao de o ajuste entrar antes do recorte de periodo: o de R1 e de maio.
-  ok(por.R1.inicial === 200,
-    'ajuste de meses atrás ainda conta — posição não expira com a virada do mês',
-    por.R1.inicial);
-
-  // O `saldo` velho continua sendo so o par saida/retorno: dele saem o chip "Em deficit",
-  // os indicadores e a situacao. Se o inicial entrasse nele, uma rota devendo 180 sumiria
-  // do deficit so por ter estoque proprio.
-  ok(por.R1.saldo === -180,
-    'o saldo de fluxo não muda: continua dizendo quanto do despachado não voltou', por.R1.saldo);
-  ok(por.R1.situacao === 'atencao' && por.R1.desvio === 18,
-    'e a situação e o desvio seguem o fluxo, não o estoque', por.R1);
-
-  ok(por.R2.inicial === 0 && por.R2.saldoFinal === 0,
-    'quem não tem nada não inventa saldo inicial', por.R2);
-
-  /* A matriz: 1.500 de estoque inicial, despachou 1.020, recebeu 840 de volta.
-     1.500 − 1.020 + 840 = 1.320, que e exatamente o que `saldos()` diz que ela tem. */
-  ok(por.L1.inicial === 1500 && por.L1.saida === 1020 && por.L1.retorno === 840,
-    'a matriz traz o estoque inicial e o que saiu e voltou por ela', por.L1);
-  ok(por.L1.saldoFinal === 1320,
-    'e o saldo final dela é o estoque de verdade', por.L1.saldoFinal);
-
-  // A prova de que a conta do galpao nao e uma segunda contabilidade: ela bate com o
-  // razao que o resto do sistema usa.
-  const sal = F.saldos(cen.movimentos);
-  let estoqueL1 = 0;
-  Object.keys(sal.L1 || {}).forEach((t) => { estoqueL1 += sal.L1[t]; });
-  ok(estoqueL1 === por.L1.saldoFinal,
-    'o saldo final do galpão bate com saldos(), que é o razão do sistema',
-    [estoqueL1, por.L1.saldoFinal]);
-
-  ok(F.fluxoPorOrigem(cen, DESDE, 90).totais.linhas === 1,
-    'mas o galpão fica fora dos totais: ele é a outra ponta do mesmo fato');
-
-  /* ORIGEM e DESTINO desenham o TRAJETO da saída, e o nome da própria linha cai no
-     lado certo sozinho — que é o que dispensou a coluna com o nome do local.
-     Na rota, que recebe, ela é o destino; no galpão, que despacha, ela é a origem. */
-  ok(por.R1.origens.join(',') === 'Matriz' && por.R1.destinos.join(',') === 'Caruaru',
-    'a rota é o DESTINO do trajeto: saiu da matriz e chegou nela', por.R1);
-  ok(por.L1.origens.join(',') === 'Matriz' && por.L1.destinos.join(',') === 'Caruaru',
-    'e a matriz é a ORIGEM do mesmo trajeto — as duas linhas o descrevem igual', por.L1);
-  ok(por.F1.origens.length === 0 && por.F1.destinos.join(',') === 'Filial',
-    'quem só tem saldo inicial não veio de lugar nenhum, mas o estoque está NELA — '
-    + 'sem isso a linha ficaria anônima, agora que não há coluna com o nome', por.F1);
-
-  /* O galpao despachando para UM e recebendo de OUTRO. Enquanto ele so negociava com a
-     Caruaru, os dois mapas devolviam o mesmo nome e trocar um pelo outro nao quebrava
-     nada — o teste passava sem testar. */
+  console.log('\n== estoque inicial: linha propria, fora dos caminhos ==');
   {
-    const so = {
-      config: {}, tipos: cen.tipos, usuarios: cen.usuarios,
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const DESDE = D('2026-09-01');
+    const cen = {
+      config: {},
+      tipos: [{ ID: 'T1', Nome: 'CX P' }],
+      usuarios: [{ ID: 'U1', Nome: 'Admin', Perfil: 'Gestor' }],
       locais: [
-        { ID: 'G', Nome: 'Matriz', Tipo: 'GALPAO' },
-        { ID: 'A', Nome: 'Leva', Tipo: 'ROTA' },
-        { ID: 'B', Nome: 'Traz', Tipo: 'ROTA' }
+        { ID: 'L1', Nome: 'Matriz', Tipo: 'GALPAO' },
+        { ID: 'F1', Nome: 'Filial', Tipo: 'FILIAL' },
+        { ID: 'R1', Nome: 'Caruaru', Tipo: 'ROTA' }
       ],
       movimentos: [
-        { Tipo: 'SAIDA', OrigemID: 'G', DestinoID: 'A', TipoCaixaID: 'T1', Qtd: 100,
+        // estoque inicial da filial, que nao se move o mes inteiro
+        { Tipo: 'AJUSTE', DestinoID: 'F1', TipoCaixaID: 'T1', Qtd: 700,
+          UsuarioID: 'U1', DataRef: D('2026-09-02') },
+        // e o da matriz, lancado em MAIO: posicao nao expira com a virada do mes
+        { Tipo: 'AJUSTE', DestinoID: 'L1', TipoCaixaID: 'T1', Qtd: 1500,
+          UsuarioID: 'U1', DataRef: D('2026-05-10') },
+        { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: 'T1', Qtd: 1020,
           UsuarioID: 'U1', DataRef: D('2026-09-05') },
-        { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'B', DestinoID: 'G',
-          TipoCaixaID: 'T1', Qtd: 60, UsuarioID: 'U1', DataRef: D('2026-09-06') }
+        { Tipo: 'DEVOLUCAO', Status: 'CONFIRMADO', OrigemID: 'R1', DestinoID: 'L1',
+          TipoCaixaID: 'T1', Qtd: 840, UsuarioID: 'U1', DataRef: D('2026-09-09') }
       ]
     };
-    const linhasSo = F.fluxoPorOrigem(so, DESDE, 90).linhas;
-    const g = linhasSo.filter((l) => l.id === 'G')[0];
-    ok(g.origens.join(',') === 'Matriz' && g.destinos.join(',') === 'Leva',
-      'o galpão despachou: ele é a origem, e o destino é quem recebeu', g);
+    const f = F.fluxoPorOrigem(cen, DESDE, 90);
+    const por = {}; f.linhas.forEach((l) => { por[l.id] = l; });
 
-    const a = linhasSo.filter((l) => l.id === 'A')[0];
-    const b = linhasSo.filter((l) => l.id === 'B')[0];
-    ok(a.origens.join(',') === 'Matriz' && a.destinos.join(',') === 'Leva',
-      'quem só recebeu é o destino, e a origem é de onde veio', [a.origens, a.destinos]);
-    /* O outro sentido: esta rota só devolveu. Aí o trajeto é o do retorno, e ela passa a
-       ser a origem. Sem este caso a tabela mostraria as duas colunas vazias para quem só
-       devolve — e, sem a coluna do nome, a linha não diria de quem é. */
-    ok(b.origens.join(',') === 'Traz' && b.destinos.join(',') === 'Matriz',
-      'e quem só devolveu vira a origem do caminho de volta', [b.origens, b.destinos]);
+    ok(por['ini:F1'].inicial === 700 && por['ini:F1'].saida === 0 &&
+       por['ini:F1'].retorno === 0,
+      'o ajuste vira estoque inicial e NÃO entra em saída nem em retorno: não é viagem',
+      por['ini:F1']);
+    ok(por['ini:F1'].saldoFinal === 700,
+      'sem caminho nenhum, o saldo final é o próprio estoque inicial',
+      por['ini:F1'].saldoFinal);
+    ok(por['ini:L1'].inicial === 1500,
+      'ajuste de maio ainda conta em setembro — posição não expira com a virada do mês',
+      por['ini:L1'].inicial);
+
+    /* A matriz tem estoque inicial E um caminho. Sao duas linhas: o 1.500 e do LOCAL, e
+       repeti-lo no caminho contaria o mesmo estoque duas vezes. */
+    ok(!!por['ini:L1'] && !!por['L1>R1'],
+      'quem tem estoque E caminho aparece nas duas linhas', Object.keys(por));
+    ok(por['L1>R1'].inicial === 0,
+      'e o caminho não herda o estoque inicial da origem', por['L1>R1']);
+    ok(por['L1>R1'].saida === 1020 && por['L1>R1'].retorno === 840 &&
+       por['L1>R1'].saldoFinal === -180,
+      'o caminho responde só por si: saíram 1.020, voltaram 840, faltam 180',
+      por['L1>R1']);
+
+    /* O `saldo` e so o par saida/retorno: dele saem o chip "Em deficit", os indicadores e
+       a situacao. A linha de estoque nao e fluxo, entao o saldo dela e zero e ela nao
+       aparece no deficit — senao um estoque parado viraria divida. */
+    ok(por['ini:L1'].saldo === 0 && por['ini:L1'].situacao === 'parado' &&
+       por['ini:L1'].desvio === null,
+      'a linha de estoque não é fluxo: saldo zero, sem desvio, fora do déficit',
+      por['ini:L1']);
+    ok(por['L1>R1'].saldo === -180 && por['L1>R1'].situacao === 'atencao' &&
+       por['L1>R1'].desvio === 18,
+      'e a situação e o desvio seguem o caminho', por['L1>R1']);
+
+    ok(f.totais.linhas === 1 && f.totais.deficit === 180,
+      'os totais contam só os caminhos: uma linha, 180 de déficit', f.totais);
   }
-
-  // varias contrapartes: a lista sai em ordem de nome, sem repetir
-  const cen3 = JSON.parse(JSON.stringify(cen));
-  cen3.movimentos.forEach((m) => {
-    if (m.DataRef) m.DataRef = new Date(m.DataRef);
-  });
-  cen3.movimentos.push({ Tipo: 'SAIDA', OrigemID: 'F1', DestinoID: 'R1', TipoCaixaID: 'T1',
-    Qtd: 10, UsuarioID: 'U1', DataRef: D('2026-09-06') });
-  const r1b = F.fluxoPorOrigem(cen3, DESDE, 90).linhas.filter((l) => l.id === 'R1')[0];
-  ok(r1b.origens.join(', ') === 'Filial, Matriz',
-    'duas origens aparecem as duas, em ordem de nome', r1b.origens);
-  ok(r1b.destinos.join(',') === 'Caruaru',
-    'e o destino continua sendo a própria linha, uma vez só', r1b.destinos);
-
-  // A linha da filial nao pode ser escondida pelo filtro de "parado", senao o saldo
-  // inicial nao aparece em lugar nenhum.
-  ok(por.F1.situacao === 'parado' && por.F1.inicial > 0,
-    'a filial fica "parada" no fluxo mas tem saldo inicial: a tela precisa deixá-la passar',
-    por.F1);
-}
-
 console.log('\n== galpao que RECEBE remessa: nada voltou ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
   const D = (iso) => new Date(iso + 'T00:00:00');
   const DESDE = D('2026-09-01');
 
-  /* Este cenario existe porque o de cima nao distinguia as duas regras: la o galpao so
-     despachava remessa e so recebia devolucao, entao "pelo lado" e "pelo tipo" davam o
-     mesmo numero e o erro passava. Aqui a Matriz despacha PARA outro galpao. */
+  /* Uma remessa despachada PARA outro galpao ja apareceu na coluna RETORNO, porque a
+     regra de entao era "o que entra num galpao e retorno". Nada tinha voltado: a caixa
+     acabara de sair da Matriz. O rotulo segue o TIPO do lancamento, nao o lado. */
   const cen = {
     config: {},
     tipos: [{ ID: 'T1', Nome: 'CX P' }],
@@ -1411,28 +1345,24 @@ console.log('\n== galpao que RECEBE remessa: nada voltou ==');
   const por = {};
   F.fluxoPorOrigem(cen, DESDE, 90).linhas.forEach((l) => { por[l.id] = l; });
 
-  /* O erro que isto pega: a remessa que CHEGA num galpao caía na coluna RETORNO, como se
-     algo tivesse voltado — sendo que a caixa acabara de sair da Matriz. */
-  ok(por.F.saida === 350 && por.F.retorno === 0,
-    'remessa recebida por um galpão é SAÍDA — nada voltou, a caixa acabou de sair', por.F);
-  ok(por.F.saidaTipos.length === 1 && por.F.retornoTipos.length === 0,
-    'e o detalhe por tipo acompanha o mesmo lado', por.F);
-  ok(por.F.origens.join(',') === 'Matriz' && por.F.destinos.join(',') === 'Filial Maceió',
-    'o trajeto é Matriz → Filial: quem recebeu a remessa é o destino, não a origem', por.F);
+  ok(por['G>F'].saida === 350 && por['G>F'].retorno === 0,
+    'remessa recebida por um galpão é SAÍDA — nada voltou, a caixa acabou de sair',
+    por['G>F']);
+  ok(por['G>F'].saidaTipos.length === 1 && por['G>F'].retornoTipos.length === 0,
+    'e o detalhe por tipo acompanha o mesmo lado', por['G>F']);
+  ok(por['G>F'].origens.join(',') === 'Matriz' &&
+     por['G>F'].destinos.join(',') === 'Filial Maceió',
+    'o caminho é Matriz → Filial: quem recebeu a remessa é o destino', por['G>F']);
 
-  // a matriz: despachou 350, recebeu 120 de volta
-  ok(por.G.saida === 350 && por.G.retorno === 120,
-    'na matriz, a mesma remessa é saída e a devolução que chega é retorno', por.G);
-  ok(por.G.origens.join(',') === 'Matriz' && por.G.destinos.join(',') === 'Filial Maceió',
-    'e ela é a origem do trajeto, porque despachou', por.G);
-
-  // a rota que devolveu
-  ok(por.R.saida === 0 && por.R.retorno === 120,
-    'quem só devolveu tem retorno e nenhuma saída', por.R);
-  ok(por.R.origens.join(',') === 'Caruaru' && por.R.destinos.join(',') === 'Matriz',
-    'sem remessa, o trajeto é o da devolução', por.R);
+  /* A devolucao da rota abre o caminho no sentido da IDA que ela desfaz: Matriz → Caruaru
+     com saida zero. Sem isso o retorno viraria uma linha "Caruaru → Matriz" que ninguem
+     cruzaria com a remessa correspondente quando ela aparecesse. */
+  ok(por['G>R'].saida === 0 && por['G>R'].retorno === 120,
+    'devolução sem remessa no período abre o caminho no sentido da ida', por['G>R']);
+  ok(por['G>R'].origens.join(',') === 'Matriz' &&
+     por['G>R'].destinos.join(',') === 'Caruaru',
+    'e no sentido certo: a rota é o destino, ainda que só tenha devolvido', por['G>R']);
 }
-
 console.log('\n== quem lanca saida, quem lanca retorno ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));

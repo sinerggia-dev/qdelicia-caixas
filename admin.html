@@ -623,16 +623,15 @@
      Os numeros dos chips saem DAQUI, e nao dos totais do servidor: la o corte e so
      `situacao !== 'parado'`, entao o chip dizia "Filiais 0" com uma filial na tabela
      logo abaixo. Quem conta e quem lista tem de ser a mesma regra. */
+  /* Com uma linha por trajeto acabou a contagem dobrada, entao "Todas" e todas mesmo.
+     No modelo por local a mesma remessa aparecia duas vezes — na linha da Matriz e na da
+     rota — e o galpao precisava ficar de fora daqui e do deficit. */
   function linhasVivas(){
-    return todasAsLinhas().filter(function(l){ return l.tipo !== 'GALPAO'; });
+    return todasAsLinhas();
   }
 
-  /* Filial e galpao: as duas casas, num chip so.
-
-     Eles NAO entram em "Todas" nem no deficit. A mesma remessa aparece duas vezes na
-     tabela — como saida da matriz e como saida para a rota
-     — e junta-las somaria o deficit do mes duas vezes: 180 viraria 360. Sao as duas
-     pontas de um fato so. */
+  /* Filial e galpao: as duas casas, num chip so. O tipo da linha e o de quem RECEBEU a
+     carga — e ele que esta com a caixa, e e por ele que os chips separam a lista. */
   function linhasFiliais(){
     return todasAsLinhas().filter(function(l){
       return l.tipo === 'GALPAO' || l.tipo === 'FILIAL';
@@ -722,8 +721,11 @@
             return '<tr>'+
             (temLocal
               ? '<td class="num">'+Q.num(l.inicial||0)+'</td>'+
-                '<td>'+lugares(l.origens, l.nome)+sub(l, 'origens')+'</td>'+
-                '<td>'+lugares(l.destinos, l.nome)+sub(l, 'destinos')+'</td>'
+                '<td>'+lugares(l.origens)+
+                  '<span class="fsub">'+Q.esc(l.sub)+'</span></td>'+
+                '<td>'+(l.estoqueInicial
+                        ? '<span class="fraco">estoque inicial</span>'
+                        : lugares(l.destinos))+'</td>'
               : '<td><b>'+Q.esc(l.nome)+'</b>'+
                   '<span class="fsub">'+Q.esc(l.sub)+'</span></td>')+
             '<td class="num">'+Q.num(l.saida)+detalheCaixas(l.saidaTipos)+'</td>'+
@@ -768,32 +770,16 @@
     return linhasVivas().filter(function(l){ return l.saldo < 0; }).length;
   }
 
-  /* "rota · 10 lançamentos" descreve a LINHA, nao um local qualquer da celula. Sem a
-     coluna do nome ao lado, ela precisa ficar embaixo da celula que traz o nome da
-     propria linha — na outra, leria como se a Matriz Fazenda fosse uma rota. */
-  function sub(l, campo){
-    var lista = l[campo] || [];
-    if (lista.indexOf(l.nome) < 0) return '';
-    return '<span class="fsub">'+Q.esc(l.sub)+'</span>';
-  }
+  /* As celulas de Origem e Destino. Cada linha e UM trajeto, entao cada celula traz um
+     nome so — nao ha mais o que destacar nem o que abreviar. A lista continua aceitando
+     varios nomes porque as visoes de gente ainda passam por aqui.
 
-  /* As celulas de Origem e Destino, que juntas desenham o trajeto da linha.
-
-     O nome da PROPRIA linha vem em negrito: sem a coluna do local ao lado, e ele que diz
-     de quem e a linha, e destacar poupa a conferencia de qual dos dois nomes e o dono.
-
-     Com mais de dois, os dois primeiros e um "+N": a lista inteira esticaria a coluna e
-     empurraria os numeros para fora da tela sem responder melhor. O travessao no vazio e
-     proposital — celula em branco parece falha de carregamento. */
-  function lugares(nomes, dono){
+     O travessao no vazio e proposital: celula em branco parece falha de carregamento. */
+  function lugares(nomes){
     if (!nomes || !nomes.length) return '<span class="fraco">—</span>';
-    var mostra = nomes.length > 2 ? nomes.slice(0, 2) : nomes;
-    var txt = mostra.map(function(n){
-      return n === dono ? '<b>'+Q.esc(n)+'</b>' : Q.esc(n);
-    }).join(', ');
     return nomes.length > 2
-      ? txt+' <span class="fraco">+'+(nomes.length - 2)+'</span>'
-      : txt;
+      ? Q.esc(nomes.slice(0, 2).join(', '))+' <span class="fraco">+'+(nomes.length - 2)+'</span>'
+      : Q.esc(nomes.join(', '));
   }
 
   /* O total responde "quanto"; esta linha responde "de que". Sem ela, 1.020 tanto pode

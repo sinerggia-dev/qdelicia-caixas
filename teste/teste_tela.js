@@ -376,9 +376,12 @@ console.log('\n== as colunas Origem e Destino ==');
 
   ok(/<th>Origem<\/th><th>Destino<\/th>/.test(corpo),
     'Origem e Destino sao colunas, lado a lado, antes dos numeros');
-  ok(/lugares\(l\.origens, l\.nome\)/.test(corpo) &&
-     /lugares\(l\.destinos, l\.nome\)/.test(corpo),
+  ok(/lugares\(l\.origens\)/.test(corpo) && /lugares\(l\.destinos\)/.test(corpo),
     'e cada uma le o seu campo — trocar os dois inverteria a tabela inteira');
+  /* A linha de estoque inicial nao tem destino: nao houve caminho. Deixar o travessao ali
+     nao diria o que aquele numero e. */
+  ok(/l\.estoqueInicial\s*$/m.test(corpo) || corpo.indexOf('l.estoqueInicial') > 0,
+    'a linha de estoque inicial escreve "estoque inicial" no lugar do destino', corpo.indexOf('estoqueInicial'));
 
   // a funcao que monta a celula
   var j = adm.indexOf('function lugares(');
@@ -386,35 +389,20 @@ console.log('\n== as colunas Origem e Destino ==');
   var Q = { esc: String };
   var lugares = new Function('Q', fonte + ' return lugares;')(Q);
 
-  ok(lugares(['Matriz Fazenda'], 'Joao Pessoa') === 'Matriz Fazenda',
+  ok(lugares(['Matriz Fazenda']) === 'Matriz Fazenda',
     'um so aparece limpo, sem preposicao: quem diz a direcao e o titulo da coluna',
-    lugares(['Matriz Fazenda'], 'Joao Pessoa'));
-  /* O nome da propria linha em negrito: sem a coluna do local ao lado, e ele que diz de
-     quem e a linha. */
-  ok(lugares(['Joao Pessoa'], 'Joao Pessoa') === '<b>Joao Pessoa</b>',
-    'o nome da propria linha vem destacado', lugares(['Joao Pessoa'], 'Joao Pessoa'));
-  ok(lugares(['Matriz', 'Joao Pessoa'], 'Joao Pessoa') === 'Matriz, <b>Joao Pessoa</b>',
-    'e so ele, no meio dos outros', lugares(['Matriz', 'Joao Pessoa'], 'Joao Pessoa'));
-  /* A sub-linha "rota · 10 lancamentos" descreve a LINHA. Na celula errada ela leria
-     como se a Matriz Fazenda fosse uma rota. */
-  var k = adm.indexOf('function sub(l, campo)');
-  var sub = new Function('Q', adm.slice(k, adm.indexOf('\n  }', k) + 4) + ' return sub;')(Q);
-  var linha = { nome: 'Joao Pessoa', sub: 'rota · 10 lancamentos',
-                origens: ['Matriz'], destinos: ['Joao Pessoa'] };
-  ok(sub(linha, 'origens') === '' && sub(linha, 'destinos').indexOf('rota') > 0,
-    'a sub-linha mora na celula que tem o nome da propria linha',
-    [sub(linha, 'origens'), sub(linha, 'destinos')]);
-  var galpao = { nome: 'Matriz', sub: 'galpão · 20 lancamentos',
-                 origens: ['Matriz'], destinos: ['Filial'] };
-  ok(sub(galpao, 'origens').indexOf('galpão') > 0 && sub(galpao, 'destinos') === '',
-    'e troca de lado junto com ela: no galpao o nome esta na origem',
-    [sub(galpao, 'origens'), sub(galpao, 'destinos')]);
-
-  ok(lugares([], 'X').indexOf('—') > 0 && lugares(null, 'X').indexOf('—') > 0,
+    lugares(['Matriz Fazenda']));
+  /* Nao ha mais nome em negrito: cada linha e UM trajeto, e cada celula traz um nome so.
+     O destaque existia porque a linha era de um local e era preciso dizer qual dos dois
+     nomes era o dono. */
+  ok(lugares(['Matriz', 'Joao Pessoa']) === 'Matriz, Joao Pessoa',
+    'sem dono a destacar: a celula so escreve o que recebeu',
+    lugares(['Matriz', 'Joao Pessoa']));
+  ok(lugares([]).indexOf('—') > 0 && lugares(null).indexOf('—') > 0,
     'vazio vira travessao — celula em branco parece falha de carregamento');
-  ok(lugares(['A','B','C','D'], 'Z') === 'A, B <span class="fraco">+2</span>',
+  ok(lugares(['A','B','C','D']) === 'A, B <span class="fraco">+2</span>',
     'com muitos, os dois primeiros e um "+N" — a lista inteira esticaria a coluna',
-    lugares(['A','B','C','D'], 'Z'));
+    lugares(['A','B','C','D']));
 })();
 
 console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
@@ -425,8 +413,11 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
     return i < 0 ? '' : adm.slice(i, adm.indexOf('\n  }', i));
   }
 
-  ok(/tipo !== 'GALPAO'/.test(corpoDe('linhasVivas')),
-    'a lista comum exclui o galpao');
+  /* Com uma linha por trajeto acabou a contagem dobrada: "Todas" e todas mesmo. No
+     modelo por local a mesma remessa aparecia duas vezes e o galpao ficava de fora. */
+  ok(corpoDe('linhasVivas').indexOf("tipo !== 'GALPAO'") < 0,
+    'a lista de "Todas" nao exclui mais o galpao: nao ha mais contagem dobrada',
+    corpoDe('linhasVivas').trim());
   /* Os dois tipos no MESMO chip: na operacao filial e galpao sao a casa, e separa-los
      obrigava a procurar a Filial Maceio em duas listas. */
   var lfi = corpoDe('linhasFiliais');
@@ -435,8 +426,8 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
 
   // o deficit conta a partir da lista comum, nunca de todasAsLinhas
   var def = corpoDe('linhasDeficit');
-  ok(def.indexOf('linhasVivas') >= 0 && def.indexOf('todasAsLinhas') < 0,
-    'o chip "Em deficit" conta na lista sem galpao — senao 180 vira 360', def.trim());
+  ok(def.indexOf('saldo < 0') >= 0,
+    'o chip "Em deficit" conta quem tem saldo negativo', def.trim());
 
   var lf = corpoDe('linhasFluxo');
   ok(/FLUXO_FILTRO === 'FILIAL'/.test(lf) && lf.indexOf('linhasFiliais') >= 0,

@@ -972,72 +972,49 @@ function fluxoPorPessoa(dados, desde) {
   return { motoristas: lista(porMot, 'MOTORISTA', 'rotas'), usuarios: lista(porUsu, 'USUARIO', 'perfil') };
 }
 
+/**
+ * Painel de Ativos: uma linha por TRAJETO.
+ *
+ * Antes cada linha era um LOCAL, e a Matriz aparecia com "Filial Maceió, João Pessoa"
+ * juntos numa célula só. Mas "saiu da Matriz para João Pessoa" e "saiu da Matriz para a
+ * Filial Maceió" são duas informações, com números próprios e cobranças próprias —
+ * somadas numa linha, nenhuma das duas dá para conferir.
+ *
+ * O trajeto e a ida COM a volta dela: a remessa A→B e a devolucao B→A sao o mesmo caminho
+ * visto nos dois sentidos, entao caem na mesma linha. E o que faz "saiu 1.690, voltou
+ * 1.250, faltam 440" ser uma frase so.
+ *
+ * Efeito colateral bem-vindo: acabou a contagem dobrada. No modelo por local a mesma
+ * remessa aparecia duas vezes — na linha da Matriz e na da rota — e por isso o galpao
+ * precisava ficar fora dos totais. Um trajeto aparece uma vez, e os totais somam tudo.
+ *
+ * Quem tem estoque inicial (lancamento de AJUSTE) ganha uma linha propria, sem trajeto:
+ * o saldo inicial e do LOCAL, nao de um caminho, e repeti-lo em cada trajeto dele
+ * contaria o mesmo estoque varias vezes.
+ */
 function fluxoPorOrigem(dados, desde, meta) {
-  var locais = dados.locais || [];
   var movimentos = dados.movimentos || [];
+  var locais = dados.locais || [];
   meta = Number(meta) || 90;
 
-  var nomesUsuarios = mapaNomes(dados.usuarios || []);
   var nomesLocais = mapaNomes(locais);
   var nomesTipos = mapaTipos(dados.tipos || []);
+  var porId = {};
+  locais.forEach(function (l) { porId[String(l.ID)] = l; });
 
-  var saiu = {}, voltou = {};
-  /* Estoque inicial: o que foi creditado ao local por AJUSTE. E a mesma leitura que
-     `saldos()` faz — ajuste entra como credito no destino — so que agrupada por local.
-     Sem isto, quem lancou o estoque inicial nao via o numero em lugar nenhum: ajuste nao
-     e saida nem retorno, entao ele sumia deste painel. */
-  var inicio = {};
-  /* O galpao precisa de outra medicao. Nas demais linhas, SAIDA e o que foi despachado
-     PARA ela e RETORNO e o que voltou DELA — a linha e a contraparte. O galpao e a outra
-     ponta: nada e despachado para ele, entao pelas mesmas contas ele apareceria com
-     1.500 | 0 | 0 e o estoque dele nunca se mexeria.
-     Aqui SAIDA e tudo que saiu DO galpao e RETORNO e tudo que entrou NELE — que e a
-     leitura de `saldos()`, e faz inicial − saida + retorno dar o estoque de verdade. */
-  var saiuG = {}, voltouG = {}, saiuGTipo = {}, voltouGTipo = {};
-  /* As colunas ORIGEM e DESTINO, agora sem a coluna do nome do local ao lado delas.
-     A regra e a mais simples que existe: para cada linha, as origens e os destinos dos
-     movimentos de que ELA participou. O nome dela propria cai sozinho no lado certo —
-     numa rota que so recebeu, ela e o destino; num galpao que so despachou, ela e a
-     origem — e por isso a coluna LOCAL virou repeticao e saiu.
+  /* chave do trajeto: sempre "quem despachou > quem recebeu". A devolucao entra pela
+     chave invertida, que e a mesma viagem de volta. */
+  var tr = {};
+  function trajeto(de, para) {
+    var k = String(de) + '>' + String(para);
+    if (!tr[k]) {
+      tr[k] = { de: String(de), para: String(para), saida: 0, retorno: 0, n: 0,
+                saidaTipo: {}, retornoTipo: {} };
+    }
+    return tr[k];
+  }
 
-     Sem ramo por tipo de linha: e a mesma leitura para rota, filial, cliente e galpao. */
-  var remDe = {}, remPara = {}, devDe = {}, devPara = {};
-  function comQuem(mapa, local, outro) {
-    if (!local || !outro) return;
-    mapa[local] = mapa[local] || {};
-    mapa[local][outro] = 1;
-  }
-  /* Quatro mapas, e nao dois: a coluna ORIGEM/DESTINO desenha o trajeto da REMESSA
-     quando houve uma, e o do retorno so quando nao houve. Com dois mapas so, um galpao
-     que apenas RECEBEU remessa saia como origem de si mesmo e com o destino vazio. */
-  function pontas(m) {
-    var ehRemessa = sentidoDoMovimento(m.Tipo) === 'SAIDA';
-    comQuem(ehRemessa ? remPara : devPara, m.OrigemID, m.DestinoID);
-    comQuem(ehRemessa ? remDe : devDe, m.DestinoID, m.OrigemID);
-  }
-  // Mesmos numeros, abertos por tipo de caixa: o total responde "quanto", e o detalhe
-  // responde "de que" — sem ele, 1.020 pode ser mil de uma caixa ou vinte de cinco.
-  var saiuTipo = {}, voltouTipo = {};
-  function somaTipo(mapa, local, caixa, q) {
-    if (!local) return;
-    mapa[local] = mapa[local] || {};
-    mapa[local][caixa] = (mapa[local][caixa] || 0) + q;
-  }
-  // Quem dirigiu, que caixa foi e quantos lançamentos — colhidos do próprio movimento.
-  // O cadastro da rota costuma vir sem motorista, e o nome só existe aqui.
-  var condutores = {}, caixas = {}, quantos = {}, quantosG = {};
-  function anotaG(local, m) {
-    if (!local) return;
-    quantosG[local] = (quantosG[local] || 0) + 1;
-  }
-  function anota(local, m) {
-    if (!local) return;
-    quantos[local] = (quantos[local] || 0) + 1;
-    var mot = String(m.Motorista || '').trim();
-    if (mot) { condutores[local] = condutores[local] || {}; condutores[local][mot] = 1; }
-    var cx = nome(nomesTipos, m.TipoCaixaID);
-    if (cx) { caixas[local] = caixas[local] || {}; caixas[local][cx] = 1; }
-  }
+  var inicio = {}, quantosIni = {};
 
   ativos(movimentos).forEach(function (m) {
     /* O ajuste entra ANTES do recorte de periodo, de proposito. Saldo inicial e posicao,
@@ -1046,162 +1023,84 @@ function fluxoPorOrigem(dados, desde, meta) {
     if (m.Tipo === 'AJUSTE') {
       if (m.DestinoID) {
         inicio[m.DestinoID] = (inicio[m.DestinoID] || 0) + efetiva(m);
-        anota(m.DestinoID, m);
-        anotaG(m.DestinoID, m);
+        quantosIni[m.DestinoID] = (quantosIni[m.DestinoID] || 0) + 1;
       }
       return;
     }
     if (desde && m.DataRef < desde) return;
     var q = efetiva(m);          // devolução não confirmada vale 0, e vale a contada
     if (!q) return;
+    if (!m.OrigemID || !m.DestinoID) return;   // perda nao e viagem: nao tem as duas pontas
+
     var caixa = nome(nomesTipos, m.TipoCaixaID);
-    pontas(m);
     var sentido = sentidoDoMovimento(m.Tipo);
-
-    /* O galpao conta as DUAS pontas: tanto faz de que lado dele o lancamento esteja, e a
-       operacao dele em qualquer caso.
-
-       Mas o ROTULO segue o TIPO do lancamento, e nao o lado. Isto ja saiu errado: a regra
-       era "o que entra no galpao e retorno", e uma remessa despachada PARA a Filial Maceio
-       aparecia na coluna RETORNO — sendo que nada tinha voltado, a caixa acabava de sair
-       da Matriz. Remessa e remessa nas duas pontas; so devolucao e retorno.
-
-       Perda nao tem sentido e cai em saida, que e o certo: a caixa deixou o estoque. */
-    var contaG = (sentido === 'ENTRADA') ? voltouG : saiuG;
-    var contaGTipo = (sentido === 'ENTRADA') ? voltouGTipo : saiuGTipo;
-    if (m.OrigemID) {
-      contaG[m.OrigemID] = (contaG[m.OrigemID] || 0) + q;
-      somaTipo(contaGTipo, m.OrigemID, caixa, q);
-      anotaG(m.OrigemID, m);
-    }
-    if (m.DestinoID) {
-      contaG[m.DestinoID] = (contaG[m.DestinoID] || 0) + q;
-      somaTipo(contaGTipo, m.DestinoID, caixa, q);
-      anotaG(m.DestinoID, m);
-    }
-
-    if (sentido === 'SAIDA') {
-      if (m.DestinoID) {
-        saiu[m.DestinoID] = (saiu[m.DestinoID] || 0) + q;
-        somaTipo(saiuTipo, m.DestinoID, caixa, q);
-        anota(m.DestinoID, m);
-      }
-    } else if (sentido === 'ENTRADA') {
-      if (m.OrigemID) {
-        voltou[m.OrigemID] = (voltou[m.OrigemID] || 0) + q;
-        somaTipo(voltouTipo, m.OrigemID, caixa, q);
-        anota(m.OrigemID, m);
-      }
-    }
+    /* A remessa define a direcao do trajeto; a devolucao fecha o mesmo caminho, por isso
+       entra na chave invertida. Uma devolucao sem remessa nenhuma abre um trajeto no
+       sentido da ida que ela esta desfazendo. */
+    var t = (sentido === 'ENTRADA') ? trajeto(m.DestinoID, m.OrigemID)
+                                    : trajeto(m.OrigemID, m.DestinoID);
+    var lado = (sentido === 'ENTRADA') ? 'retorno' : 'saida';
+    t[lado] += q;
+    t.n++;
+    var mapa = (sentido === 'ENTRADA') ? t.retornoTipo : t.saidaTipo;
+    if (caixa) mapa[caixa] = (mapa[caixa] || 0) + q;
   });
 
-  function nomesDe(ids) {
-    return Object.keys(ids || {}).map(function (k) { return nome(nomesLocais, k); })
-      .sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); });
-  }
+  function tipoDe(id) { return (porId[String(id)] || {}).Tipo || ''; }
 
-  function chavesDe(mapa, id) {
-    return Object.keys(mapa[id] || {}).sort(function (a, b) {
-      return a.localeCompare(b, 'pt-BR');
+  var linhas = [];
+
+  Object.keys(tr).forEach(function (k) {
+    var t = tr[k];
+    var c = classificaFluxo(t.saida, t.retorno, DESVIO_RUIM);
+    /* O tipo da linha e o de quem RECEBEU: e ele que esta com a caixa, e e por ele que os
+       chips Rotas / Filiais / Clientes separam a lista. */
+    linhas.push({
+      id: k, nome: nome(nomesLocais, t.para), tipo: tipoDe(t.para),
+      sub: t.n + (t.n === 1 ? ' lançamento' : ' lançamentos'),
+      origens: [nome(nomesLocais, t.de)],
+      destinos: [nome(nomesLocais, t.para)],
+      lancamentos: t.n,
+      saidaTipos: detalharTipos(t.saidaTipo),
+      retornoTipos: detalharTipos(t.retornoTipo),
+      inicial: 0,
+      saida: t.saida, retorno: t.retorno,
+      saldoFinal: t.retorno - t.saida,
+      saldo: c.saldo, desvio: c.desvio, situacao: c.situacao
     });
-  }
+  });
 
-  var SUB = { ROTA: 'rota', FILIAL: 'filial', CLIENTE: 'cliente', GALPAO: 'galpão' };
-  var linhas = locais.filter(function (l) {
-    return l.Tipo === 'ROTA' || l.Tipo === 'FILIAL' || l.Tipo === 'CLIENTE' ||
-           l.Tipo === 'GALPAO';
-  }).map(function (l) {
-    var ehGalpao = (l.Tipo === 'GALPAO');
-    var saida = (ehGalpao ? saiuG[l.ID] : saiu[l.ID]) || 0;
-    var retorno = (ehGalpao ? voltouG[l.ID] : voltou[l.ID]) || 0;
-    var inicial = inicio[l.ID] || 0;
-    /* ORIGEM e DESTINO desenham o trajeto, e o nome da propria linha cai sozinho no lado
-       certo — e por isso a coluna com o nome do local virou repeticao e saiu.
+  /* As linhas de estoque inicial. Sem trajeto: o saldo inicial e do local, e espalha-lo
+     pelos caminhos dele contaria o mesmo estoque uma vez por caminho. */
+  Object.keys(inicio).forEach(function (id) {
+    if (!inicio[id]) return;
+    var n = quantosIni[id] || 0;
+    linhas.push({
+      id: 'ini:' + id, nome: nome(nomesLocais, id), tipo: tipoDe(id),
+      sub: n + (n === 1 ? ' lançamento' : ' lançamentos'),
+      origens: [nome(nomesLocais, id)],
+      destinos: [],
+      estoqueInicial: true,
+      lancamentos: n,
+      saidaTipos: [], retornoTipos: [],
+      inicial: inicio[id],
+      saida: 0, retorno: 0,
+      saldoFinal: inicio[id],
+      saldo: 0, desvio: null, situacao: 'parado'
+    });
+  });
 
-       A escolha nao e por TIPO de linha, e sim pelo que de fato aconteceu com ela. A
-       remessa manda, porque e o evento que gera a divida; o retorno e o caminho de volta
-       dela, e so desenha as colunas quando nao houve remessa nenhuma.
-
-       Decidir por tipo de linha ja saiu errado duas vezes: juntando os dois sentidos, uma
-       linha de mao dupla mostrava "Joao Pessoa, Matriz" nas DUAS colunas; e tratando todo
-       galpao como despachante, um que apenas RECEBEU remessa saia como origem de si mesmo
-       e com o destino vazio. */
-    var ori, des;
-    var recebeu = nomesDe(remDe[l.ID]);      // de quem esta linha recebeu remessa
-    var despachou = nomesDe(remPara[l.ID]);  // para quem esta linha despachou remessa
-    var devolveuPara = nomesDe(devPara[l.ID]);
-    var recebeuDevDe = nomesDe(devDe[l.ID]);
-    if (recebeu.length) { ori = recebeu; des = [l.Nome]; }
-    else if (despachou.length) { ori = [l.Nome]; des = despachou; }
-    else if (devolveuPara.length) { ori = [l.Nome]; des = devolveuPara; }
-    else if (recebeuDevDe.length) { ori = recebeuDevDe; des = [l.Nome]; }
-    /* Uma linha que so tem saldo inicial nao participou de trajeto nenhum, e sem a coluna
-       do nome ao lado ficaria anonima. O estoque esta NELA: ela e o destino dele. */
-    if (!ori && !des && inicial) des = [l.Nome];
-    ori = ori || []; des = des || [];
-    var c = classificaFluxo(saida, retorno, DESVIO_RUIM);
-    var motMov = chavesDe(condutores, l.ID);
-
-    /* Quem responde, em ordem de confiança:
-       1) o cadastro — é a designação oficial;
-       2) quem dirigiu de fato no período, que vem no movimento.
-       O passo 2 existe porque rota sem motorista no cadastro é o caso comum enquanto o
-       cadastro não está completo: a tela dizia "sem responsável" tendo o nome do
-       motorista em cada lançamento daquela rota. Só vale para ROTA — em cliente e
-       filial quem responde é o dono do local, não quem entregou. */
-    var resp = l.Tipo === 'ROTA'
-      ? (l.MotoristaId ? nome(nomesUsuarios, l.MotoristaId) : motMov.join(', '))
-      : String(l.Responsavel || '').trim();
-
-    var cx = chavesDe(caixas, l.ID);
-    var n = (ehGalpao ? quantosG[l.ID] : quantos[l.ID]) || 0;
-    var partes = [SUB[l.Tipo]];
-    if (l.Tipo === 'CLIENTE' && l.RotaId) partes.push(nome(nomesLocais, l.RotaId));
-    if (n) partes.push(n + (n === 1 ? ' lançamento' : ' lançamentos'));
-    // Os tipos saíram daqui: agora cada um aparece com a SUA quantidade, nas colunas
-    // de Saída e Retorno. Repetir a lista sem número seria dizer menos, duas vezes.
-
-    return {
-      id: l.ID, nome: l.Nome, tipo: l.Tipo,
-      sub: partes.join(' · '),
-      rotaId: l.RotaId || '',
-      responsavel: resp,
-      // Diz de onde veio o nome: sem isso não dá para saber se falta cadastrar o
-      // motorista da rota ou se ele já está lá.
-      respDoCadastro: !!(l.Tipo === 'ROTA' ? l.MotoristaId : String(l.Responsavel || '').trim()),
-      motoristas: motMov, caixas: cx, lancamentos: n,
-      saidaTipos: detalharTipos(ehGalpao ? saiuGTipo[l.ID] : saiuTipo[l.ID]),
-      retornoTipos: detalharTipos(ehGalpao ? voltouGTipo[l.ID] : voltouTipo[l.ID]),
-      /* As colunas ORIGEM e DESTINO. Sem inverter por tipo de linha: ORIGEM e sempre de
-         onde veio o que entrou e DESTINO e sempre para onde foi o que saiu, valha a linha
-         para uma rota ou para a matriz. E o cabecalho que passa a responder a pergunta
-         que faltava — antes a coluna trazia um nome e nao dizia de que lado ele estava. */
-      origens: ori,
-      destinos: des,
-      saida: saida, retorno: retorno,
-      inicial: inicial,
-      /* inicial − saida + retorno, que e a conta que a linha mostra da esquerda para a
-         direita. `saldo` continua sendo so o par saida/retorno: e dele que saem o chip
-         "Em deficit", os indicadores do rodape e a situacao da linha, que perguntam
-         "quanto do que despachei nao voltou" — pergunta que o estoque inicial nao muda. */
-      saldoFinal: inicial - saida + retorno,
-      saldo: c.saldo,
-      desvio: c.desvio, situacao: c.situacao
-    };
-  }).sort(function (a, b) {
+  linhas.sort(function (a, b) {
     // Quem deve mais primeiro; entre os parados, ordem alfabética, senão a lista dança.
     // O ensaio vem antes de tudo isso, para ficar no fim.
     return pesoTeste(a.nome) - pesoTeste(b.nome) ||
            a.saldo - b.saldo || String(a.nome).localeCompare(String(b.nome), 'pt-BR');
   });
 
-  /* O galpao fica fora dos totais de proposito. A mesma remessa aparece duas vezes na
-     tabela — como saida da matriz e como saida para a rota — e somar as duas dobraria o
-     deficit do mes: 180 viraria 360. O galpao e a outra ponta do mesmo fato, nao um fato
-     a mais. Por isso ele tambem tem chip proprio e nao entra em "Todas". */
-  var comMovimento = linhas.filter(function (l) {
-    return l.situacao !== 'parado' && l.tipo !== 'GALPAO';
-  });
+  /* Agora os totais somam TUDO que teve movimento. No modelo por local eles precisavam
+     excluir o galpao, porque a mesma remessa entrava duas vezes; com um trajeto por
+     linha isso acabou. */
+  var comMovimento = linhas.filter(function (l) { return l.situacao !== 'parado'; });
   var tSaida = 0, tRetorno = 0, deficit = 0, porTipo = { ROTA: 0, FILIAL: 0, CLIENTE: 0 };
   comMovimento.forEach(function (l) {
     tSaida += l.saida; tRetorno += l.retorno;
@@ -1225,7 +1124,6 @@ function fluxoPorOrigem(dados, desde, meta) {
     }
   };
 }
-
 function painel(dados, hoje) {
   hoje = hoje || new Date();
   var locais = dados.locais, tipos = dados.tipos, movimentos = dados.movimentos;
