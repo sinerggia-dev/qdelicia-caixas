@@ -94,7 +94,7 @@
           <label for="sdDestino">Destino<span class="obrig">*</span></label>
           <select id="sdDestino"></select>
         </div>
-        <div id="sdWrapMotorista" style="display:none">
+        <div id="sdWrapMotorista">
           <label for="sdMotorista">Motorista<span class="obrig">*</span></label>
           <select id="sdMotorista"></select>
         </div>
@@ -477,7 +477,6 @@
 
   function ajustarCamposSaida(){
     var doGalpao = saiDeGalpao();
-    document.getElementById('sdWrapMotorista').style.display = doGalpao ? 'block' : 'none';
     document.getElementById('sdWrapRota').style.display      = doGalpao ? 'block' : 'none';
     // Do galpão a carga vai para a rota; da rota, para o cliente. Nunca os dois ao mesmo tempo.
     document.getElementById('sdWrapDestino').style.display   = doGalpao ? 'none' : 'block';
@@ -485,11 +484,15 @@
       var minhasRotas = permitidos(locaisPor(['ROTA']), 'destinos');
       document.getElementById('sdRota').innerHTML = opcoes(minhasRotas);
       if (minhasRotas.length === 1) document.getElementById('sdRota').value = minhasRotas[0].ID;
-      // Lista fechada, a pedido: nome digitado vira grafia diferente do mesmo motorista, e
-      // aí o extrato mostra "Valcy" e "valci" como duas pessoas. Quem não está aqui é
-      // cadastrado no painel antes de sair com a carga.
-      montarMotoristas('sdMotorista', 'sdRota');
     }
+    /* O motorista fica SEMPRE à vista, a pedido: antes só aparecia na saída do galpão, e
+       quem lançava da rota para o cliente não tinha onde dizer quem levou.
+
+       Qual campo manda na ORDEM da lista muda com o caminho: saindo do galpão é a rota
+       de destino; saindo da própria rota, é ela mesma que está na origem. Lista fechada
+       nos dois casos — nome digitado vira grafia diferente do mesmo motorista, e o
+       extrato passa a mostrar "Valcy" e "valci" como duas pessoas. */
+    montarMotoristas('sdMotorista', doGalpao ? 'sdRota' : 'sdOrigem');
   }
 
   /* Refeito toda vez que a rota muda. A rota decide a ORDEM, não quem pode aparecer:
@@ -532,6 +535,12 @@
     } else if (motoristas().indexOf(escolhido) < 0){
       sel.value = '';
     }
+    /* Com um motorista só disponível não há escolha a fazer: já vem posto, e a pessoa
+       economiza um toque por lançamento. É o mesmo que já se faz com o local quando só
+       há um. Vale tanto para quem tem um motorista só amarrado no cadastro quanto para
+       a operação que só tem um cadastrado. */
+    var disponiveis = daRota.concat(outros);
+    if (!sel.value && disponiveis.length === 1) sel.value = disponiveis[0];
     sel.setAttribute('data-rota', rota);
   }
 
