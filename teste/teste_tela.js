@@ -151,15 +151,24 @@ console.log('\n== cada seletor usa a lista certa de permissão ==');
     'quem devolve vem da lista de Destino: na ida esse local é o destino',
     listaDe('minhasOrigensDv'));
 
-  /* Quem devolve nao e so a rota. A lista so com ROTA deixava de fora as filiais — que
-     nesta operacao estao cadastradas como GALPAO — e elas simplesmente nao apareciam no
-     seletor de retorno. */
-  var linhaOrig = trecho.slice(trecho.indexOf('var minhasOrigensDv'),
-                               trecho.indexOf(';', trecho.indexOf('var minhasOrigensDv')));
+  /* Os tipos do retorno moram numa constante, e as DUAS pontas bebem dela.
+     Isto ja custou duas vezes: primeiro a origem listava so ROTA e as filiais sumiam;
+     depois, corrigida a origem, o destino continuou preso a galpao e filial, e quem tinha
+     rota marcada no cadastro nao a via. Duas listas para a mesma pergunta divergem. */
+  var i = html.indexOf('var TIPOS_RETORNO');
+  var constante = html.slice(i, html.indexOf(';', i));
   ['GALPAO', 'FILIAL', 'ROTA'].forEach(function (t) {
-    ok(linhaOrig.indexOf("'" + t + "'") > 0,
-      'quem devolve inclui ' + t + ' — quem tem caixa pode devolver', linhaOrig);
+    ok(constante.indexOf("'" + t + "'") > 0,
+      'o retorno inclui ' + t + ' — quem tem caixa pode devolver, e recebe de volta',
+      constante);
   });
+  ok(constante.indexOf("'CLIENTE'") < 0 && constante.indexOf("'FORNECEDOR'") < 0,
+    'e nao inclui cliente nem fornecedor: aquele caminho e o da saida', constante);
+
+  ok(trecho.indexOf('locaisPor(TIPOS_RETORNO)') > 0,
+    'a origem do retorno bebe da constante');
+  ok(corpo('ajustarDestinoRetorno').indexOf('locaisPor(TIPOS_RETORNO)') > 0,
+    'e o destino bebe da MESMA — foi separa-las que deixou o destino mais estreito');
 
   /* O destino do retorno saiu de montarFormularios e virou funcao propria, porque agora
      depende da origem escolhida: com galpao nas duas pontas, a Matriz podia devolver para
