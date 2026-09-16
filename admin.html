@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=b04f849e">
+<link rel="stylesheet" href="styles.css?v=d374cc44">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -66,8 +66,9 @@
   <section id="pgPainel" class="pagina">
     <div class="barra-teste">
       <label for="verTestePainel">Mostrar</label>
+      <!-- Um ou outro, nunca os dois: misturar ensaio com operacao numa soma so
+           produz um numero que nao responde nem uma pergunta nem a outra. -->
       <select id="verTestePainel" class="sel-teste" data-verteste>
-        <option value="todos">Reais e de teste</option>
         <option value="reais">Só reais</option>
         <option value="teste">Só de teste</option>
       </select>
@@ -117,7 +118,6 @@
           </div>
           <div class="acoes">
             <select id="verTesteRetornos" class="sel-teste" data-verteste style="max-width:190px">
-              <option value="todos">Reais e de teste</option>
               <option value="reais">Só reais</option>
               <option value="teste">Só de teste</option>
             </select>
@@ -193,7 +193,7 @@
   <section id="pgMovimentos" class="pagina">
     <div class="card">
       <h2>Movimentos<span class="sub">Tudo que foi lançado, por qualquer usuário. Divergência = contado na chegada menos declarado no cliente.</span></h2>
-      <div class="grid2">
+      <div class="grid-filtros">
         <div><label for="mvLocal">Local</label><select id="mvLocal"></select></div>
         <div><label for="mvOrigem">Origem</label><select id="mvOrigem"></select></div>
         <div><label for="mvDestino">Destino</label><select id="mvDestino"></select></div>
@@ -203,7 +203,6 @@
         </select></div>
         <div><label for="mvUsuario">Quem lançou</label><select id="mvUsuario"><option value="">Todos</option></select></div>
         <div><label for="mvTeste">Lançamentos</label><select id="mvTeste">
-          <option value="todos">Reais e de teste</option>
           <option value="reais">Só reais</option>
           <option value="teste">Só de teste</option>
         </select></div>
@@ -538,7 +537,9 @@
   /* Um estado só para os dois seletores. Duas telas lendo o mesmo payload com recortes
      diferentes dariam números que não fecham entre si — e a pessoa não teria como saber
      qual dos dois estava olhando. */
-  var VER_TESTE = 'todos';
+  /* Comeca em "reais": quem abre o painel quer ver a operacao. O ensaio esta a um
+     clique, e nunca somado por cima do real. */
+  var VER_TESTE = 'reais';
   document.querySelectorAll('[data-verteste]').forEach(function(sel){
     sel.addEventListener('change', function(){
       VER_TESTE = sel.value;
@@ -1116,7 +1117,7 @@
     document.getElementById('mvDestino').value = '';
     document.getElementById('mvTipo').value = '';
     document.getElementById('mvUsuario').value = '';
-    document.getElementById('mvTeste').value = 'todos';
+    document.getElementById('mvTeste').value = 'reais';
     periodoPadraoMov();
     carregarMovimentos();
   });

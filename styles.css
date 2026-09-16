@@ -170,6 +170,14 @@ textarea{min-height:70px;resize:vertical}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0 14px}
 .linha-btn{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 
+/* A barra de Movimentos tem oito campos. Com o minimo de 210px do .grid2 eles nao cabiam
+   numa linha nem em tela larga, e o "Ate" descia sozinho para a segunda — parecendo outro
+   bloco. 150px cabe os oito em 1.800px e continua legivel. */
+.grid-filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 12px}
+/* A fileira de botoes encostava na primeira linha da tabela: a borda do botao virava
+   quase a borda do cabecalho, e o "Apagar" parecia estar POR CIMA da tabela. */
+#tabelaMov{margin-top:14px}
+
 button.btn{
   background:var(--ambar-btn);color:var(--txt);border:none;border-radius:10px;padding:14px 20px;
   font-weight:700;cursor:pointer;flex:1;min-width:140px
