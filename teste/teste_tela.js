@@ -202,5 +202,25 @@ console.log('\n== ordenacao do navegador acompanha a do servidor ==');
     'e nesta ordem: o ensaio manda mais que a matriz, senao "Matriz Teste" abriria a lista');
 })();
 
+/* ---------------------------------------------------------------------------
+ * A ordem das listas de local tem de nascer no PONTO DE USO.
+ *
+ * Isto ja custou: a ordenacao morava em quem guardava DADOS, e dois caminhos trocavam
+ * DADOS sem reordenar — entre eles o evento `dadosAtualizados`. Por eles a lista chegava
+ * na ordem crua do banco, que e ordem de cadastro, com as filiais no fim.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a ordem do local nasce no ponto de uso ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoAdm(nome) {
+    var i = adm.indexOf('function ' + nome + '(');
+    return adm.slice(i, adm.indexOf('\n  }', i));
+  }
+  ok(corpoAdm('locaisPor').indexOf('ordenarLocais') >= 0,
+    'locaisPor ordena, entao nenhum seletor depende de quem guardou DADOS');
+  ok(corpoAdm('desenharCadastros').indexOf('ordenarLocais') >= 0,
+    'a tabela de locais idem');
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

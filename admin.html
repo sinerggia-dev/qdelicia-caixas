@@ -503,8 +503,15 @@
   };
 
   /* ---------------- selects e itens ---------------- */
+  /* Ordena AQUI, no ponto de uso, e nao em quem guarda DADOS. Havia dois caminhos que
+     trocavam DADOS sem reordenar — entre eles o evento `dadosAtualizados` — e por eles a
+     lista chegava na ordem crua do banco (ordem de cadastro), com as filiais no fim.
+     Depender de cada atribuicao lembrar de ordenar era o desenho errado: bastava uma
+     esquecer, e foi o que aconteceu. */
   function locaisPor(tipos){
-    return (DADOS.locais||[]).filter(function(l){ return tipos.indexOf(String(l.Tipo).toUpperCase())>=0; });
+    return Q.ordenarLocais((DADOS.locais||[]).filter(function(l){
+      return tipos.indexOf(String(l.Tipo).toUpperCase())>=0;
+    }));
   }
   /* O tipo só entra no rótulo quando a lista mistura mais de um. Numa lista só de rotas
      ou só de galpões o prefixo era ruído em cima do nome que a pessoa procura. */
@@ -1442,7 +1449,7 @@
     return x ? x.Nome : String(id||'');
   }
   function desenharCadastros(){
-    var locais = DADOS.locais||[];
+    var locais = Q.ordenarLocais(DADOS.locais||[]);
     document.getElementById('tabelaLocais').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       locais.map(function(l){
@@ -2067,7 +2074,9 @@
   document.getElementById('btnNovoTipo').addEventListener('click', function(){ formTipo(null); });
   document.getElementById('btnNovoUsuario').addEventListener('click', function(){ formUsuario(null); });
 
-  window.addEventListener('dadosAtualizados', function(e){ DADOS = e.detail; montarSelects(); desenharCadastros(); });
+  window.addEventListener('dadosAtualizados', function(e){
+    DADOS = e.detail; ordenarTudo(); montarSelects(); desenharCadastros();
+  });
 
   if (podeEntrar(Q.sessao())) abrirApp(); else iniciarLogin();
 })();
