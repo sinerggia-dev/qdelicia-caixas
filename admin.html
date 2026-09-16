@@ -194,7 +194,6 @@
     <div class="card">
       <h2>Movimentos<span class="sub">Tudo que foi lançado, por qualquer usuário. Divergência = contado na chegada menos declarado no cliente.</span></h2>
       <div class="grid-filtros">
-        <div><label for="mvLocal">Local</label><select id="mvLocal"></select></div>
         <div><label for="mvOrigem">Origem</label><select id="mvOrigem"></select></div>
         <div><label for="mvDestino">Destino</label><select id="mvDestino"></select></div>
         <div><label for="mvTipo">Tipo</label><select id="mvTipo">
@@ -523,8 +522,9 @@
     document.getElementById('exLocal').innerHTML = opcoes(locaisPor(['CLIENTE','FILIAL']));
     // Com ROTA de fora não havia como filtrar por Caruaru — e é na rota que os
     // movimentos acontecem. O filtro casa com origem OU destino, então a rota serve.
+    /* Ja vem na ordem de `ordenarLocais`: matriz, depois as filiais, depois as rotas.
+       Filtrar preserva a ordem de DADOS.locais, que `ordenarTudo` ja arrumou. */
     var todosLocais = locaisPor(['CLIENTE','FILIAL','GALPAO','ROTA','FORNECEDOR']);
-    document.getElementById('mvLocal').innerHTML = opcoes(todosLocais, 'Todos');
     // Os dois do cartao de apagar. "Todas/Todos" e nao "Selecione...": em branco quer
     // dizer "nao filtra por isto", e "Selecione..." sugeriria que falta escolher.
     document.getElementById('mvOrigem').innerHTML = opcoes(todosLocais, 'Todas');
@@ -1049,7 +1049,6 @@
      esta na tela — nao ha um segundo formulario para divergir do primeiro. */
   function filtroExclusao(){
     return {
-      local:   document.getElementById('mvLocal').value,
       origem:  document.getElementById('mvOrigem').value,
       destino: document.getElementById('mvDestino').value,
       tipo:    document.getElementById('mvTipo').value,
@@ -1070,7 +1069,6 @@
       return u ? u.Nome : id;
     }
     var p = [];
-    if (f.local)   p.push('que passaram por <b>'+Q.esc(nomeLocal(f.local))+'</b>');
     if (f.usuario) p.push('lançados por <b>'+Q.esc(nomeUser(f.usuario))+'</b>');
     if (f.origem)  p.push('com origem <b>'+Q.esc(nomeLocal(f.origem))+'</b>');
     if (f.destino) p.push('com destino <b>'+Q.esc(nomeLocal(f.destino))+'</b>');
@@ -1104,7 +1102,7 @@
   /* Os cinco campos recarregam sozinhos ao mudar. Antes só o botão Filtrar disparava a
      busca: a pessoa trocava o Tipo, a tabela continuava igual, e a conclusão natural era
      que o filtro não funcionava. O botão fica como recarregar. */
-  ['mvLocal', 'mvOrigem', 'mvDestino', 'mvTipo', 'mvUsuario', 'mvTeste', 'mvDe', 'mvAte'].forEach(function(id){
+  ['mvOrigem', 'mvDestino', 'mvTipo', 'mvUsuario', 'mvTeste', 'mvDe', 'mvAte'].forEach(function(id){
     document.getElementById(id).addEventListener('change', carregarMovimentos);
   });
 
@@ -1115,7 +1113,6 @@
     document.getElementById('mvAte').value = Q.hoje();
   }
   document.getElementById('btnLimparMov').addEventListener('click', function(){
-    document.getElementById('mvLocal').value = '';
     document.getElementById('mvOrigem').value = '';
     document.getElementById('mvDestino').value = '';
     document.getElementById('mvTipo').value = '';
@@ -1128,7 +1125,7 @@
     var box = document.getElementById('tabelaMov');
     box.innerHTML = '<div class="vazio">Carregando…</div>';
     var f = filtroExclusao();   // o mesmo recorte que a lista, o CSV e o apagar usam
-    Q.get({acao:'movimentos', local:f.local, origem:f.origem, destino:f.destino,
+    Q.get({acao:'movimentos', origem:f.origem, destino:f.destino,
            tipo:f.tipo, usuario:f.usuario, teste:f.teste,
            de:f.de, ate:f.ate, limit:500})
       .then(function(r){
