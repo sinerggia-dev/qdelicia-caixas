@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=e1673795">
+<link rel="stylesheet" href="styles.css?v=b04f849e">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -1625,6 +1625,9 @@
       '<div class="linha-btn"><button class="btn neutro" id="btnFecharModal">Fechar</button></div>';
     document.getElementById('modal').classList.add('aberto');
     document.getElementById('btnFecharModal').addEventListener('click', fecharModal);
+    // Todo formulário passa por aqui, então o "marcar todos" se liga sozinho em qualquer
+    // lista de marcar — a de usuário e a de rotas do motorista.
+    ligarMarcaTudo();
   }
   function fecharModal(){ document.getElementById('modal').classList.remove('aberto'); }
   document.getElementById('modal').addEventListener('click', function(e){ if (e.target === this) fecharModal(); });
@@ -1764,22 +1767,50 @@
     }));
   }
 
-  function caixaLocais(id, rotulo, locais, marcados){
+  /* Serve para local e para tipo de caixa: a diferença é só a etiqueta cinza, que o
+     tipo de caixa não tem. O botão alterna entre marcar e desmarcar tudo — com listas de
+     dezenas de clientes, marcar um a um para depois tirar dois era o caminho mais longo
+     possível. */
+  /* Inativo continua aparecendo se já estiver marcado: some da lista sem tirar a marca
+     do cadastro, e o administrador não entenderia por que a pessoa ainda vê aquele tipo. */
+  function tiposEscolhiveis(jaMarcados){
+    var marcado = {};
+    (jaMarcados||[]).forEach(function(id){ marcado[String(id)] = true; });
+    return Q.ordenarPorNome((DADOS.tipos||[]).filter(function(t){
+      return Q.ativo(t.Ativo) || marcado[String(t.ID)];
+    }));
+  }
+
+  function caixaLocais(id, rotulo, itens, marcados, vazio){
     var sel = {};
     (marcados||[]).forEach(function(x){ sel[String(x)] = true; });
-    if (!locais.length){
+    if (!itens.length){
       return '<label>'+Q.esc(rotulo)+'</label>'+
-        '<div class="vazio" style="margin-bottom:12px">Nenhum local deste tipo cadastrado ainda.</div>';
+        '<div class="vazio" style="margin-bottom:12px">'+Q.esc(vazio||'Nenhum local deste tipo cadastrado ainda.')+'</div>';
     }
-    return '<label>'+Q.esc(rotulo)+'</label>'+
+    return '<div class="marca-topo"><label>'+Q.esc(rotulo)+'</label>'+
+        '<button type="button" class="mini acao" data-marcatudo="'+id+'">marcar todos</button></div>'+
       '<div class="marcalista" id="'+id+'">'+
-        locais.map(function(l){
+        itens.map(function(l){
           return '<label class="marca"><input type="checkbox" value="'+Q.esc(l.ID)+'"'+
             (sel[String(l.ID)]?' checked':'')+'>'+Q.esc(l.Nome)+
-            ' <span class="tag cinza">'+Q.esc(String(l.Tipo).toLowerCase())+'</span>'+
+            (l.Tipo?' <span class="tag cinza">'+Q.esc(String(l.Tipo).toLowerCase())+'</span>':'')+
             (Q.ativo(l.Ativo)?'':' <span class="tag vermelha">inativo</span>')+'</label>';
         }).join('')+
       '</div>';
+  }
+
+  /* Um ouvinte só, no modal, em vez de um por botão: os blocos são remontados a cada
+     abertura do formulário, e ligar botão a botão significaria religar toda vez. */
+  function ligarMarcaTudo(){
+    document.querySelectorAll('[data-marcatudo]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var caixas = document.querySelectorAll('#'+b.dataset.marcatudo+' input[type=checkbox]');
+        var faltaAlgum = Array.prototype.some.call(caixas, function(c){ return !c.checked; });
+        Array.prototype.forEach.call(caixas, function(c){ c.checked = faltaAlgum; });
+        b.textContent = faltaAlgum ? 'desmarcar todos' : 'marcar todos';
+      });
+    });
   }
 
   function lerMarcados(id){
@@ -1835,6 +1866,9 @@
                   locaisEscolhiveis(['GALPAO','FILIAL','ROTA','FORNECEDOR'], u.Saidas), u.Saidas)+
       caixaLocais('fDestinos', 'Destino — para onde as caixas vão',
                   locaisEscolhiveis(['GALPAO','ROTA','FILIAL','CLIENTE','FORNECEDOR'], u.Destinos), u.Destinos)+
+      caixaLocais('fTiposCaixa', 'Tipo de caixa — o que ela pode informar',
+                  tiposEscolhiveis(u.TiposCaixa), u.TiposCaixa,
+                  'Nenhum tipo de caixa cadastrado ainda.')+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
         'Nada marcado = a pessoa vê todos. Marque para restringir.</p>'+
       '<h3 style="margin-top:20px">Outros</h3>'+
@@ -1906,7 +1940,8 @@
         LocalPadrao:document.getElementById('fLocal').value,
         Ativo:document.getElementById('fAtivo').value,
         AcessoPainel:document.getElementById('fPainel').value,
-        Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos') };
+        Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
+        TiposCaixa:lerMarcados('fTiposCaixa') };
       var pin = document.getElementById('fPin').value.trim();
       if (pin) reg.PIN = pin;
       reg.Email = document.getElementById('fEmail').value.trim();

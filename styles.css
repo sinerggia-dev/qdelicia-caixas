@@ -83,6 +83,10 @@ main{padding:14px;max-width:1800px;margin:0 auto}
 /* ---------- lista de marcar ---------- */
 /* Rola dentro de si: a lista de destinos cresce com a carteira de clientes, e sem
    altura máxima o botão Salvar do formulário fugiria da tela. */
+/* A etiqueta e o "marcar todos" na mesma linha, com o botão colado na direita. */
+.marca-topo{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.marca-topo label{margin-bottom:5px}
+
 .marcalista{border:1px solid var(--linha);border-radius:var(--raio);padding:6px 4px;
   margin-bottom:12px;max-height:210px;overflow-y:auto;background:var(--surface)}
 .marcalista .marca{display:flex;align-items:center;gap:8px;margin:0;padding:6px 10px;

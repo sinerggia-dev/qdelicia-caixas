@@ -1456,6 +1456,25 @@ async function main() {
       'no celular também: ensaio no fim, alfabética entre os reais', mot);
   }
 
+
+  console.log('\n== permissão por tipo de caixa ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const s1 = F.sessaoDe({ ID: 'U1', Nome: 'A', Perfil: 'Motorista', TiposCaixa: ['P', 'G'] });
+    ok(s1.tiposCaixa.join(',') === 'P,G', 'a sessão leva os tipos permitidos', s1.tiposCaixa);
+
+    const s2 = F.sessaoDe({ ID: 'U2', Nome: 'B', Perfil: 'Motorista' });
+    ok(Array.isArray(s2.tiposCaixa) && s2.tiposCaixa.length === 0,
+      'sem nada marcado vem lista vazia — que quer dizer TODOS, como nas outras duas',
+      s2.tiposCaixa);
+
+    const tipos = [{ ID: 'P' }, { ID: 'G' }, { ID: 'GG' }];
+    ok(F.locaisPermitidos([], tipos).length === 3,
+      'e a peneira devolve todos quando a lista está vazia');
+    ok(F.locaisPermitidos(['G'], tipos).map((t) => t.ID).join(',') === 'G',
+      'com a lista preenchida, só o que foi marcado');
+  }
+
   console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

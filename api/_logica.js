@@ -312,7 +312,10 @@ function sessaoDe(u) {
     id: u.ID, nome: u.Nome, perfil: normalizarPerfil(u.Perfil),
     localPadrao: u.LocalPadrao, acessoPainel: podeVerPainel(u),
     saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
-    destinos: Array.isArray(u.Destinos) ? u.Destinos : []
+    destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
+    // Mesma convenção das outras duas: lista vazia quer dizer TODOS. Inverter isso
+    // deixaria toda a operação sem tipo de caixa no dia do deploy.
+    tiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : []
   };
 }
 
