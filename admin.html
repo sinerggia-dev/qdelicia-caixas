@@ -114,7 +114,6 @@
         <div class="ret-head">
           <div>
             <h2>Controle de Caixas</h2>
-            <span class="sub" id="retSub">Do dia 1 do mês até hoje.</span>
           </div>
           <div class="acoes">
             <select id="verTesteRetornos" class="sel-teste" data-verteste style="max-width:190px">
@@ -642,15 +641,8 @@
         ? 'déficit de '+Q.num(g.deficit)+' no mês'
         : 'sem déficit no mês')+'</div>';
 
-    var nomesTipos = (PAINEL.tipos||[]).map(function(x){ return x.Nome; });
+    // `gente` fica: e ele que decide se a celula vazia mostra "—" ou "sem responsavel".
     var gente = ehVisaoDeGente(FLUXO_FILTRO);
-    document.getElementById('retSub').innerHTML = 'Do dia 1 do mês até hoje'+
-      (nomesTipos.length ? ' · '+Q.esc(nomesTipos.join(', ')) : '')+'. '+
-      (FLUXO_FILTRO === 'MOTORISTA'
-        ? 'Por <b>quem dirigiu</b>: o que saiu pelas mãos dele e o que voltou.'
-        : FLUXO_FILTRO === 'USUARIO'
-          ? 'Por <b>quem lançou</b>. Serve para achar baixa que ninguém deu — não é dívida da pessoa: se um lança a saída e outro lança o retorno, o déficit fica com o primeiro.'
-          : '<b>Saída</b> é o que foi para lá; <b>retorno</b>, o que voltou de lá e já foi conferido.');
 
     var cols = FLUXO_COLUNAS[FLUXO_FILTRO] || ['Origem / destino', 'Responsável'];
     var lista = linhasFluxo();
