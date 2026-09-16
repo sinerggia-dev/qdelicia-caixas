@@ -195,7 +195,7 @@
         <button class="btn sec" id="btnLimparMov" style="flex:0;min-width:120px">Limpar</button>
         <button class="btn neutro" id="btnCsvMov" style="flex:0;min-width:130px">⬇ CSV</button>
       </div>
-      <div id="tabelaMov"><div class="vazio">Use o filtro acima.</div></div>
+      <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
     </div>
   </section>
 
@@ -449,7 +449,14 @@
     carregarPainel();
   }
   document.getElementById('chipSair').addEventListener('click', Q.sair);
-  window.aoAbrirAba = function(p){ if (p==='pgPainel' || p==='pgRetornos') carregarPainel(); };
+  /* Movimentos entrou aqui: a aba abria com "Use o filtro acima." e ficava assim até
+     alguém apertar Filtrar. Quem entrava para ver os lançamentos concluía que não havia
+     nenhum — os filtros já vêm preenchidos com os últimos 30 dias, então não havia o que
+     esperar da pessoa. */
+  window.aoAbrirAba = function(p){
+    if (p==='pgPainel' || p==='pgRetornos') carregarPainel();
+    if (p==='pgMovimentos') carregarMovimentos();
+  };
 
   /* ---------------- selects e itens ---------------- */
   function locaisPor(tipos){
