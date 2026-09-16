@@ -101,7 +101,8 @@ async function rotaGet(p) {
                // faria duas listas sobre a mesma regra, e elas divergem no primeiro nome novo.
                operacoes: L.OPERACOES };
     case 'painel':
-      return { ok: true, painel: L.painel(L.recorteTeste(d, p.teste)) };
+      return { ok: true, painel: L.painel(L.recorteTeste(d, p.teste), null,
+                                          { de: p.de, ate: p.ate }) };
     case 'pendentes':
       return { ok: true, movimentos: L.pendentes(d.movimentos, d.locais, d.tipos) };
     case 'movimentos':

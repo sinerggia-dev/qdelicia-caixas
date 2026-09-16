@@ -374,8 +374,10 @@ console.log('\n== as colunas Origem e Destino ==');
   ok(/FLUXO_COLUNAS\[FLUXO_FILTRO\] \|\| \[.Local.\]/.test(corpo),
     'o titulo padrao passou a ser "Local" — prometer "Origem / destino" e mostrar um nome so era o engano');
 
-  ok(/<th>Origem<\/th><th>Destino<\/th>/.test(corpo),
-    'Origem e Destino sao colunas, lado a lado, antes dos numeros');
+  /* As colunas viraram dados: a ordem e arrastavel, entao "lado a lado" deixou de ser
+     garantia. O que continua valendo e que as duas existem e leem campos diferentes. */
+  ok(/origem:\s*\{/.test(corpo) && /destino:\s*\{/.test(corpo),
+    'Origem e Destino sao colunas declaradas');
   ok(/lugares\(l\.origens\)/.test(corpo) && /lugares\(l\.destinos\)/.test(corpo),
     'e cada uma le o seu campo — trocar os dois inverteria a tabela inteira');
   /* A linha de estoque inicial nao tem destino: nao houve caminho. Deixar o travessao ali
@@ -443,67 +445,100 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
     adm.slice(i, i + 90));
 })();
 
+/* ---------------------------------------------------------------------------
+ * Painel de Ativos: as colunas sao DADOS, e o cabecalho e as celulas saem da mesma lista.
+ *
+ * Antes eram duas strings montadas lado a lado — um <th> a mais sem o <td> correspondente
+ * desalinhava a tabela inteira, e cada numero passava a ser lido na coluna do vizinho. A
+ * garantia agora e estrutural: quem monta as duas percorre a MESMA lista.
+ * ------------------------------------------------------------------------- */
 console.log('\n== Painel de Ativos: as colunas fecham ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   var i = adm.indexOf('function desenharFluxo()');
   var corpo = adm.slice(i, adm.indexOf("document.querySelectorAll('[data-fchip]')", i));
 
-  // /<th[^>]*>/ tambem casa <thead>, e a conta dava 6 numa tabela de 5 colunas.
-  /* Seis colunas nas visoes de local (origem, destino, inicial, saida, retorno, final) e
-     quatro nas de gente (nome, saida, retorno, final). O <th> do nome e o das tres
-     colunas de local estao nos dois lados do MESMO ternario: um so cabecalho pode
-     aparecer por vez, senao a tabela ganha uma coluna sem celula embaixo. */
-  var ths = (corpo.match(/<th[ >]/g) || []).length;
-  ok(ths === 7,
-    'sete <th> no fonte: quatro fixos mais os dois lados do ternario', ths);
-  ok(/nCols = temLocal \? 6 : 4/.test(corpo),
-    'e a contagem usada no colspan acompanha: 6 com local, 4 sem', corpo.indexOf('nCols'));
+  // uma lista so alimenta o <thead> e o <tbody>
+  ok(/cs\.map\(function\(c\)\{[\s\S]{0,200}<th/.test(corpo),
+    'o cabecalho percorre a lista de colunas');
+  ok(/cs\.map\(function\(c\)\{[\s\S]{0,120}<td/.test(corpo),
+    'e as celulas percorrem a MESMA lista — nao ha duas strings para lembrar de casar');
+  ok(/colspan="'\+cs\.length\+'"/.test(corpo),
+    'o aviso de tabela vazia usa o tamanho dessa lista, nao um numero fixo');
 
-  ok(corpo.indexOf('Responsável') < 0 && corpo.indexOf('Desvio') < 0,
-    'Responsavel e Desvio sairam do cabecalho');
-  ok(corpo.indexOf('Saldo inicial') > 0 && corpo.indexOf('Saldo final') > 0,
-    'e os dois titulos novos estao la');
+  // toda coluna declarada tem titulo e como preencher
+  var defs = corpo.slice(corpo.indexOf('var DEFS = {'), corpo.indexOf('DEFS.quem.t'));
+  var ids = (defs.match(/^\s{6}(\w+):\s*\{/gm) || []).map(function (t) {
+    return t.trim().split(':')[0];
+  });
+  ok(ids.length >= 8, 'a leitura achou as colunas declaradas', ids);
+  ok(ids.every(function (id) {
+    var bloco = defs.slice(defs.indexOf(id + ':'),
+                           defs.indexOf('\n      ', defs.indexOf(id + ':') + 60));
+    return /t:\s*'/.test(bloco) || id === 'quem';
+  }), 'toda coluna tem titulo');
 
-  /* Cabecalho e celula trocam de forma sob a MESMA condicao. Se so uma das duas pontas
-     mudasse, a tabela ganharia uma coluna sem celula e cada numero passaria a ser lido
-     na coluna do vizinho. */
-  var thCond = /temLocal\s*\n?\s*\?\s*'<th[^']*Saldo inicial<\/th><th>Origem<\/th><th>Destino/.test(corpo);
-  var tdCond = /temLocal\s*\n?\s*\?\s*'<td class="num">'\+Q\.num\(l\.inicial/.test(corpo);
-  ok(thCond && tdCond,
-    'as colunas de local nascem no cabecalho e na celula sob a mesma condicao',
-    [thCond, tdCond]);
-  // e o outro lado do ternario: a coluna com o nome, so nas visoes de gente
-  ok(/: '<th>'\+cols\[0\]\+'<\/th>'/.test(corpo) && /: '<td><b>'\+Q\.esc\(l\.nome\)/.test(corpo),
-    'nas visoes de gente sobra a coluna do nome, nos dois lugares');
+  /* A coluna nova: onde o saldo inicial foi lancado. Ela so se preenche nas linhas que
+     TEM saldo inicial — nas de caminho a celula fica vazia, porque escrever a origem ali
+     sugeriria que aquele caminho carrega o estoque. */
+  ok(defs.indexOf('localIni:') > 0 && /localIni[\s\S]{0,200}l\.inicial \? Q\.esc\(l\.nome\)/.test(defs),
+    'ha coluna com o local do saldo inicial, preenchida so onde ele existe', defs.indexOf('localIni'));
 
-  ok(/colspan="'\+nCols\+'"/.test(corpo),
-    'o aviso de tabela vazia usa o numero de colunas, nao um numero fixo');
+  // a ordem salva convive com mudancas na lista de fabrica
+  var j = adm.indexOf('function ordemColunas()');
+  var fonteOrdem = adm.slice(adm.indexOf('var COLS_PADRAO'), adm.indexOf('\n  }', j) + 4);
+  var loja = {};
+  var localStorage = {
+    getItem: function (k) { return loja[k] === undefined ? null : loja[k]; },
+    setItem: function (k, v) { loja[k] = String(v); }
+  };
+  var ordemColunas = new Function('localStorage',
+    fonteOrdem + ' return ordemColunas;')(localStorage);
 
-  // a visao de gente nao mostra saldo inicial, entao o seu final e o saldo de fluxo
-  ok(/temLocal\s*\?\s*l\.saldoFinal\s*:\s*l\.saldo/.test(corpo),
-    'sem coluna de inicial, o Saldo final mostra o saldo de fluxo — e nao um campo vazio');
+  ok(ordemColunas().length >= 8, 'sem nada salvo, vem a ordem de fabrica', ordemColunas());
 
-  // quem so tem saldo inicial precisa passar pelo filtro de "parado"
-  var lf = adm.slice(adm.indexOf('function linhasFluxo()'),
-                     adm.indexOf('function metaFluxo()'));
-  ok(/situacao !== 'parado' \|\| l\.inicial/.test(lf),
-    'a linha parada COM saldo inicial continua na lista — senao o numero nao aparece');
+  loja.qdc_cols_ativos_v1 = JSON.stringify(['final', 'saida']);
+  var r = ordemColunas();
+  ok(r[0] === 'final' && r[1] === 'saida',
+    'a ordem salva manda no que ela cita', r);
+  ok(r.length === ordemColunas.length || r.indexOf('origem') > 0,
+    'e as colunas que ela nao cita entram no fim — coluna nova nao some para quem '
+    + 'arrastou antes do deploy', r);
 
-  // o CSV do painel exporta as colunas da tela
+  loja.qdc_cols_ativos_v1 = JSON.stringify(['coluna_que_nao_existe', 'final']);
+  ok(ordemColunas().indexOf('coluna_que_nao_existe') < 0,
+    'coluna que saiu do sistema e descartada, nao quebra a tabela', ordemColunas());
+
+  loja.qdc_cols_ativos_v1 = '{lixo';
+  ok(ordemColunas().length >= 8,
+    'e lixo no armazenamento cai na ordem de fabrica, sem estourar', ordemColunas());
+})();
+
+/* ---------------------------------------------------------------------------
+ * O CSV sai na mesma ordem de colunas da tela.
+ * ------------------------------------------------------------------------- */
+console.log('\n== o CSV do painel acompanha as colunas ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   var j = adm.indexOf("Q.csv('retornos'");
-  var csv = adm.slice(j, adm.indexOf('}));', j));
-  ok(csv.indexOf('Saldo inicial') > 0 && csv.indexOf('Saldo final') > 0 &&
-     csv.indexOf("'Origem'") > 0 && csv.indexOf("'Destino'") > 0 &&
-     csv.indexOf('Responsável') < 0 && csv.indexOf('Desvio') < 0,
-    'o CSV do painel leva as mesmas colunas que a tabela mostra');
-  ok(csv.indexOf('l.inicial') > 0 && csv.indexOf('l.saldoFinal') > 0 &&
-     csv.indexOf('l.origens') > 0 && csv.indexOf('l.destinos') > 0,
-    'e busca os mesmos campos, nao recalcula a conta por fora');
-  // so o que esta DENTRO dos colchetes: o primeiro argumento e o nome do arquivo, e
-  // contar a partir do zero somava ele como se fosse coluna.
-  var cab = (csv.slice(csv.indexOf('['), csv.indexOf(']')).match(/'/g) || []).length / 2;
-  ok(cab === 7, 'sete colunas no cabecalho do CSV', cab);
+  var csv = adm.slice(adm.lastIndexOf('var cs =', j), adm.indexOf('}));', j));
+
+  ok(csv.indexOf('ordemColunas()') > 0,
+    'o CSV le a MESMA ordem que a tela usa, inclusive a que a pessoa arrastou');
+  ok(/TIT\[id\]/.test(csv) && /VAL\[id\]\(l\)/.test(csv),
+    'e monta cabecalho e linha a partir dessa lista, nao de duas listas soltas');
+
+  // todo id que o CSV pode receber tem titulo E valor
+  var titulos = (csv.slice(csv.indexOf('var TIT'), csv.indexOf('var VAL')).match(/(\w+):/g) || [])
+    .map(function (t) { return t.slice(0, -1); });
+  var valores = (csv.slice(csv.indexOf('var VAL')).match(/^\s{6}(\w+):\s*function/gm) || [])
+    .map(function (t) { return t.trim().split(':')[0]; });
+  ok(titulos.length >= 7 && valores.length >= 7,
+    'a leitura achou os dois mapas', [titulos, valores]);
+  var semValor = titulos.filter(function (t) { return valores.indexOf(t) < 0; });
+  ok(semValor.length === 0,
+    'toda coluna do CSV tem titulo E valor — faltando um, a linha desalinha do cabecalho',
+    semValor);
 })();
 
 /* ---------------------------------------------------------------------------

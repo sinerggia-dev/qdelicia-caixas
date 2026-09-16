@@ -905,7 +905,7 @@ function classificaFluxo(saida, retorno, RUIM) {
   return { saldo: saldo, desvio: desvio, situacao: situacao };
 }
 
-function fluxoPorPessoa(dados, desde) {
+function fluxoPorPessoa(dados, desde, ate) {
   var movimentos = dados.movimentos || [];
   var usuarios = dados.usuarios || [];
   var nomesUsuarios = mapaNomes(usuarios);
@@ -931,6 +931,7 @@ function fluxoPorPessoa(dados, desde) {
 
   ativos(movimentos).forEach(function (m) {
     if (desde && m.DataRef < desde) return;
+    if (ate && m.DataRef > ate) return;
     var q = efetiva(m);
     if (!q) return;
     var sentido = sentidoDoMovimento(m.Tipo);
@@ -992,7 +993,7 @@ function fluxoPorPessoa(dados, desde) {
  * o saldo inicial e do LOCAL, nao de um caminho, e repeti-lo em cada trajeto dele
  * contaria o mesmo estoque varias vezes.
  */
-function fluxoPorOrigem(dados, desde, meta) {
+function fluxoPorOrigem(dados, desde, meta, ate) {
   var movimentos = dados.movimentos || [];
   var locais = dados.locais || [];
   meta = Number(meta) || 90;
@@ -1021,6 +1022,9 @@ function fluxoPorOrigem(dados, desde, meta) {
        nao movimento: se ele saisse da conta por ter sido lancado mes passado, a coluna
        zeraria sozinha na virada do mes e o saldo final passaria a mentir. */
     if (m.Tipo === 'AJUSTE') {
+      /* O ajuste ignora o INICIO da janela, mas respeita o FIM: saldo inicial e posicao,
+         e a posicao numa data nao pode incluir um ajuste lancado depois dela. */
+      if (ate && m.DataRef > ate) return;
       if (m.DestinoID) {
         inicio[m.DestinoID] = (inicio[m.DestinoID] || 0) + efetiva(m);
         quantosIni[m.DestinoID] = (quantosIni[m.DestinoID] || 0) + 1;
@@ -1028,6 +1032,7 @@ function fluxoPorOrigem(dados, desde, meta) {
       return;
     }
     if (desde && m.DataRef < desde) return;
+    if (ate && m.DataRef > ate) return;
     var q = efetiva(m);          // devolução não confirmada vale 0, e vale a contada
     if (!q) return;
     if (!m.OrigemID || !m.DestinoID) return;   // perda nao e viagem: nao tem as duas pontas
@@ -1124,8 +1129,9 @@ function fluxoPorOrigem(dados, desde, meta) {
     }
   };
 }
-function painel(dados, hoje) {
+function painel(dados, hoje, p) {
   hoje = hoje || new Date();
+  p = p || {};
   var locais = dados.locais, tipos = dados.tipos, movimentos = dados.movimentos;
   var sal = saldos(movimentos);
   var prazoPadrao = Number(dados.config.diasPrazoPadrao) || 7;
@@ -1134,7 +1140,12 @@ function painel(dados, hoje) {
   var ag = aging(movimentos, prazos, hoje);
   var emConf = emConferencia(movimentos);
 
+  /* Os KPIs do topo seguem sempre o mes corrente — sao os numeros do mural. O periodo
+     escolhido na tela vale para o Painel de Ativos, que e onde se responde "quanto saiu e
+     voltou neste intervalo". Misturar os dois faria o mural mudar de sentido sem aviso. */
   var ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  var fluxoIni = p.de ? data(p.de) : ini;
+  var fluxoFim = p.ate ? fimDoDia(data(p.ate)) : null;
   var perdasMes = 0, saidasMes = 0, devolucoesMes = 0, divergenciaMes = 0;
   ativos(movimentos).forEach(function (m) {
     if (m.DataRef < ini) return;
@@ -1226,8 +1237,9 @@ function painel(dados, hoje) {
     // Mesma janela dos KPIs (do dia 1 do mês): se o painel mostrasse uma taxa de retorno
     // do mês e a tabela outra de outro período, as duas na mesma tela, quem lê escolheria
     // uma ao acaso. A meta sai da config e cai em 90 quando ninguém a definiu.
-    fluxo: fluxoPorOrigem(dados, ini, Number(dados.config.metaRetorno) || 90),
-    fluxoPessoas: fluxoPorPessoa(dados, ini)
+    periodo: { de: soData(fluxoIni), ate: fluxoFim ? soData(fluxoFim) : '' },
+    fluxo: fluxoPorOrigem(dados, fluxoIni, Number(dados.config.metaRetorno) || 90, fluxoFim),
+    fluxoPessoas: fluxoPorPessoa(dados, fluxoIni, fluxoFim)
   };
 }
 

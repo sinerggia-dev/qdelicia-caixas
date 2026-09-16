@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=14459de2">
+<link rel="stylesheet" href="styles.css?v=86470dba">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -116,6 +116,12 @@
             <h2>Controle de Caixas</h2>
           </div>
           <div class="acoes">
+            <!-- O periodo vale para esta tabela e para os indicadores dela. Em branco, o
+                 mes corrente — a mesma janela de sempre. -->
+            <label for="rtDe" class="rot-inline">De</label>
+            <input id="rtDe" type="date" class="dt-inline">
+            <label for="rtAte" class="rot-inline">Até</label>
+            <input id="rtAte" type="date" class="dt-inline">
             <select id="verTesteRetornos" class="sel-teste" data-verteste style="max-width:190px">
               <option value="reais">Só reais</option>
               <option value="teste">Só de teste</option>
@@ -574,7 +580,11 @@
   });
 
   function carregarPainel(){
-    Q.get({acao:'painel', teste:VER_TESTE}).then(function(r){
+    var pedido = { acao:'painel', teste:VER_TESTE };
+    var de = document.getElementById('rtDe'), ate = document.getElementById('rtAte');
+    if (de && de.value) pedido.de = de.value;
+    if (ate && ate.value) pedido.ate = ate.value;
+    Q.get(pedido).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       PAINEL = r.painel; Q.cache('painel', PAINEL);
       desenharRotas(); desenharKpis(); desenharFluxo(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral();
@@ -660,6 +670,63 @@
     return t;
   }
 
+  /* A ordem das colunas do Painel de Ativos, arrastavel e lembrada por navegador.
+
+     Guardada em localStorage e nao no cadastro: e preferencia de quem olha, nao regra da
+     operacao — duas pessoas podem querer ordens diferentes na mesma conta.
+
+     A lista salva passa por uma peneira contra a de fabrica: coluna que nao existe mais
+     e descartada e coluna nova entra no fim. Sem isso, quem tivesse arrastado antes de um
+     deploy ficaria sem ver a coluna nova, sem entender por que. */
+  var COLS_PADRAO = ['inicial','localIni','origem','destino','quem','saida','retorno','final'];
+  var COLS_CHAVE = 'qdc_cols_ativos_v1';
+
+  function ordemColunas(){
+    var salva = [];
+    try { salva = JSON.parse(localStorage.getItem(COLS_CHAVE) || '[]') || []; }
+    catch (e) { salva = []; }
+    var vale = salva.filter(function(id){ return COLS_PADRAO.indexOf(id) >= 0; });
+    COLS_PADRAO.forEach(function(id){ if (vale.indexOf(id) < 0) vale.push(id); });
+    return vale;
+  }
+
+  function guardarOrdem(ordem){
+    try { localStorage.setItem(COLS_CHAVE, JSON.stringify(ordem)); } catch (e) {}
+  }
+
+  /* Arrastar um <th> para cima de outro troca as duas de lugar na ordem COMPLETA — nao na
+     lista visivel. As visoes de gente escondem as colunas de local; mexer so no visivel
+     embaralharia a ordem das escondidas sem ninguem ver. */
+  function ligarArrastarColunas(){
+    var ths = document.querySelectorAll('#tabelaFluxo th[data-col]');
+    var arrastado = null;
+    Array.prototype.forEach.call(ths, function(th){
+      th.addEventListener('dragstart', function(e){
+        arrastado = th.dataset.col;
+        th.classList.add('arrastando');
+        try { e.dataTransfer.setData('text/plain', arrastado); } catch (err) {}
+      });
+      th.addEventListener('dragend', function(){ th.classList.remove('arrastando'); });
+      th.addEventListener('dragover', function(e){
+        e.preventDefault();
+        if (th.dataset.col !== arrastado) th.classList.add('alvo');
+      });
+      th.addEventListener('dragleave', function(){ th.classList.remove('alvo'); });
+      th.addEventListener('drop', function(e){
+        e.preventDefault();
+        th.classList.remove('alvo');
+        var solto = th.dataset.col;
+        if (!arrastado || solto === arrastado) return;
+        var ordem = ordemColunas();
+        var de = ordem.indexOf(arrastado);
+        ordem.splice(de, 1);
+        ordem.splice(ordem.indexOf(solto), 0, arrastado);
+        guardarOrdem(ordem);
+        desenharFluxo();
+      });
+    });
+  }
+
   function desenharFluxo(){
     var f = PAINEL && PAINEL.fluxo;
     if (!f) return;
@@ -696,43 +763,77 @@
        origem ou o destino depende de qual numero se esta lendo. Agora o titulo diz so o
        que a linha e, e cada numero carrega a sua outra ponta embaixo. */
     var cols = FLUXO_COLUNAS[FLUXO_FILTRO] || ['Local'];
+    /* As colunas viraram DADOS. Antes o cabecalho e as celulas eram duas strings soltas,
+       montadas lado a lado, e era preciso lembrar de mexer nas duas juntas — um <th> a
+       mais sem o <td> correspondente desalinhava a tabela inteira. Aqui cada coluna se
+       descreve uma vez: titulo, se e numerica e como preencher a celula.
+
+       E e isso que deixa arrastar para reordenar: a ordem e so a ordem desta lista. */
     var lista = linhasFluxo();
-    /* Motorista e usuario nao tem estoque inicial: ninguem credita caixa a uma pessoa,
-       credita ao local onde ela esta. Uma coluna que so pode valer zero nesta visao seria
-       espaco gasto para nao dizer nada, entao ela nao aparece aqui. */
-    /* Motorista e usuario nao sao lugares: nao ha "de onde veio" nem estoque inicial de
-       uma pessoa. Nessas duas visoes a tabela fica so com nome, saida, retorno e saldo. */
-    var temLocal = !gente;
-    var nCols = temLocal ? 6 : 4;
+    var DEFS = {
+      inicial:  { t: 'Saldo inicial', num: true, so: 'local',
+                  v: function(l){ return Q.num(l.inicial || 0); } },
+      /* Onde o saldo inicial foi lancado. Ele nasce no ajuste do escritorio, creditado a
+         UM local; nas linhas de caminho nao ha saldo inicial nenhum, e a celula fica
+         vazia de proposito — escrever a origem ali sugeriria que aquele caminho carrega
+         o estoque. */
+      localIni: { t: 'Local do saldo', so: 'local',
+                  v: function(l){
+                    return l.inicial ? Q.esc(l.nome) : '<span class="fraco">—</span>';
+                  } },
+      origem:   { t: 'Origem', so: 'local',
+                  v: function(l){
+                    return lugares(l.origens) +
+                      '<span class="fsub">' + Q.esc(l.sub) + '</span>';
+                  } },
+      destino:  { t: 'Destino', so: 'local',
+                  v: function(l){
+                    return l.estoqueInicial
+                      ? '<span class="fraco">estoque inicial</span>'
+                      : lugares(l.destinos);
+                  } },
+      quem:     { t: '', so: 'gente',
+                  v: function(l){
+                    return '<b>' + Q.esc(l.nome) + '</b>' +
+                      '<span class="fsub">' + Q.esc(l.sub) + '</span>';
+                  } },
+      saida:    { t: 'Saída', num: true,
+                  v: function(l){ return Q.num(l.saida) + detalheCaixas(l.saidaTipos); } },
+      retorno:  { t: 'Retorno', num: true,
+                  v: function(l){ return Q.num(l.retorno) + detalheCaixas(l.retornoTipos); } },
+      final:    { t: 'Saldo final', num: true,
+                  v: function(l){
+                    var fim = gente ? l.saldo : l.saldoFinal;
+                    return '<b' + (fim < 0 ? ' style="color:var(--vermelho)"' : '') + '>' +
+                      (fim > 0 ? '+' : '') + Q.num(fim) + '</b>';
+                  } }
+    };
+    DEFS.quem.t = cols[0];
+
+    var cs = ordemColunas().map(function(id){ return { id: id, d: DEFS[id] }; })
+      .filter(function(c){
+        if (!c.d) return false;
+        return c.d.so === (gente ? 'gente' : 'local') || !c.d.so;
+      });
+
     // O cabeçalho fica SEMPRE de pé, mesmo sem linha nenhuma: sem as colunas a tela não
     // diz o que vai mostrar quando os lançamentos começarem.
     document.getElementById('tabelaFluxo').innerHTML =
         '<div class="tabela-wrap"><table><thead><tr>'+
-        (temLocal
-          ? '<th class="num">Saldo inicial</th><th>Origem</th><th>Destino</th>'
-          : '<th>'+cols[0]+'</th>')+
-        '<th class="num">Saída</th><th class="num">Retorno</th>'+
-        '<th class="num">Saldo final</th>'+
+        cs.map(function(c){
+          return '<th draggable="true" data-col="'+c.id+'"'+
+            (c.d.num ? ' class="num"' : '')+' title="arraste para mudar de lugar">'+
+            Q.esc(c.d.t)+'</th>';
+        }).join('')+
         '</tr></thead><tbody>'+
         (!lista.length
-          ? '<tr><td colspan="'+nCols+'"><div class="vazio">'+avisoVazio()+'</div></td></tr>'
+          ? '<tr><td colspan="'+cs.length+'"><div class="vazio">'+avisoVazio()+'</div></td></tr>'
           : lista.map(function(l){
-            var fim = temLocal ? l.saldoFinal : l.saldo;
-            return '<tr>'+
-            (temLocal
-              ? '<td class="num">'+Q.num(l.inicial||0)+'</td>'+
-                '<td>'+lugares(l.origens)+
-                  '<span class="fsub">'+Q.esc(l.sub)+'</span></td>'+
-                '<td>'+(l.estoqueInicial
-                        ? '<span class="fraco">estoque inicial</span>'
-                        : lugares(l.destinos))+'</td>'
-              : '<td><b>'+Q.esc(l.nome)+'</b>'+
-                  '<span class="fsub">'+Q.esc(l.sub)+'</span></td>')+
-            '<td class="num">'+Q.num(l.saida)+detalheCaixas(l.saidaTipos)+'</td>'+
-            '<td class="num">'+Q.num(l.retorno)+detalheCaixas(l.retornoTipos)+'</td>'+
-            '<td class="num"><b'+(fim<0?' style="color:var(--vermelho)"':'')+'>'+
-              (fim>0?'+':'')+Q.num(fim)+'</b></td></tr>';
+            return '<tr>'+cs.map(function(c){
+              return '<td'+(c.d.num ? ' class="num"' : '')+'>'+c.d.v(l)+'</td>';
+            }).join('')+'</tr>';
           }).join(''))+'</tbody></table></div>';
+    ligarArrastarColunas();
 
     document.querySelectorAll('[data-fchip]').forEach(function(b){
       b.addEventListener('click', function(){
@@ -799,16 +900,34 @@
   }
 
   document.getElementById('btnAtualizarRetornos').addEventListener('click', carregarPainel);
+  /* Recarrega sozinho ao trocar a data. O botao Atualizar continua existindo, mas quem
+     escolhe um periodo e nao ve a tabela mudar conclui que o filtro nao funciona. */
+  ['rtDe', 'rtAte'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', carregarPainel);
+  });
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
-    Q.csv('retornos', ['Saldo inicial','Origem','Destino','Tipo','Saída','Retorno','Saldo final'],
+    /* O CSV sai na MESMA ordem de colunas da tela, inclusive a que a pessoa arrastou:
+       um arquivo com as colunas noutra ordem obriga a conferir duas vezes qual e qual. */
+    var cs = ordemColunas().filter(function(id){ return id !== 'quem'; });
+    var TIT = { inicial:'Saldo inicial', localIni:'Local do saldo', origem:'Origem',
+                destino:'Destino', saida:'Saída', retorno:'Retorno', final:'Saldo final' };
+    var VAL = {
+      inicial:  function(l){ return l.inicial || 0; },
+      localIni: function(l){ return l.inicial ? l.nome : ''; },
+      origem:   function(l){ return (l.origens||[]).join(' | '); },
+      destino:  function(l){ return l.estoqueInicial ? 'estoque inicial'
+                                                     : (l.destinos||[]).join(' | '); },
+      saida:    function(l){ return l.saida; },
+      retorno:  function(l){ return l.retorno; },
+      final:    function(l){ return l.saldoFinal === undefined ? l.saldo : l.saldoFinal; }
+    };
+    Q.csv('retornos', cs.map(function(id){ return TIT[id]; }).concat(['Lançamentos']),
       linhasFluxo().map(function(l){
         /* As mesmas colunas da tela: um CSV com campos que a tabela nao tem — ou sem os
            que ela tem — so serve para duas pessoas compararem numeros diferentes achando
            que sao o mesmo. Aqui a lista de locais vai INTEIRA, sem o "+N": no arquivo nao
            ha coluna estreita para proteger, e quem exporta quer o dado completo. */
-        return [l.inicial||0, (l.origens||[]).join(' | '), (l.destinos||[]).join(' | '),
-                l.sub, l.saida, l.retorno,
-                l.saldoFinal === undefined ? l.saldo : l.saldoFinal];
+        return cs.map(function(id){ return VAL[id](l); }).concat([l.sub]);
       }));
   });
 

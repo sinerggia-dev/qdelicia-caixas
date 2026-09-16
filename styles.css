@@ -373,6 +373,20 @@ tr.ruim{background:var(--vermelho-claro)}
 /* O .btn do projeto tem padding de 14px, feito para botao de formulario. No topo
    da guia ele quebrava "Exportar CSV" em duas linhas. */
 .ret-head .acoes .btn{padding:9px 14px;font-size:13px;min-width:0;white-space:nowrap}
+/* Os dois campos de periodo, na mesma fileira dos botoes. O rotulo fica ao lado, e nao
+   em cima: em cima ele empurraria os botoes para uma segunda linha. */
+.ret-head .acoes{align-items:center}
+/* O `display` aqui porque `label` e block por padrao no projeto: sem ele o rotulo
+   empurra o campo para a linha de baixo. */
+.rot-inline{display:inline-block;font-size:12.5px;color:var(--txt2);margin:0;align-self:center}
+/* Cabecalho arrastavel do Painel de Ativos. O `grab` e o unico aviso de que da para
+   arrastar — sem ele ninguem descobre. A barra no alvo diz ONDE a coluna vai cair. */
+#tabelaFluxo th[data-col]{cursor:grab;user-select:none}
+#tabelaFluxo th.arrastando{opacity:.45;cursor:grabbing}
+#tabelaFluxo th.alvo{box-shadow:inset 3px 0 0 var(--azul,#4f8ef7)}
+/* `input[type=date]` no seletor porque a regra generica dos campos usa o atributo e
+   vence por especificidade — sem isso o campo volta a ocupar a linha inteira. */
+input[type=date].dt-inline{margin:0;width:148px;padding:8px 10px;font-size:13px}
 /* Segunda linha da celula: o tipo do local e a rota que o atende. Sem o block ela
    cola no nome e sai "Joao Pessoarota". */
 /* Texto de apoio dentro de uma celula normal: o travessao do vazio e o "+2" da lista de
