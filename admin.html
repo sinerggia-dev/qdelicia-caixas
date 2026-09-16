@@ -441,7 +441,7 @@
 
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; }
+      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; OPERACOES_APP = r.operacoes || []; }
       ordenarTudo();
       montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
@@ -1962,6 +1962,10 @@
     }));
   }
 
+  /* As operacoes que o app oferece, servidas pela API em `equipe`. Nao escritas aqui: a
+     gravacao recusa pela MESMA lista, e uma copia na tela sairia do lugar sozinha. */
+  var OPERACOES_APP = [];
+
   function caixaLocais(id, rotulo, itens, marcados, vazio){
     var sel = {};
     (marcados||[]).forEach(function(x){ sel[String(x)] = true; });
@@ -2042,6 +2046,15 @@
         (u.ID ? 'Para redefinir, escreva uma senha nova aqui. Ela é provisória: a pessoa vai '+
                 'escolher a dela ao entrar.'
               : 'Senha provisória: a pessoa escolhe a dela no primeiro acesso.')+'</p>'+
+      '<h3 style="margin-top:20px">O que ele pode lançar</h3>'+
+      /* Vem antes das listas de local de proposito: decidir SE a pessoa faz saida vem
+         antes de decidir DE ONDE ela faz. A lista sai do servidor, a mesma que a gravacao
+         usa para recusar — duas copias divergiriam no primeiro nome novo. */
+      caixaLocais('fOperacoes', 'Operação — o que aparece no app dela',
+                  OPERACOES_APP, u.Operacoes, 'Nenhuma operação disponível.')+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+        'Nada marcado = as duas. Marque só uma para quem faz só ela — a outra aba '+
+        'some do app.</p>'+
       '<h3 style="margin-top:20px">Onde ele pode lançar</h3>'+
       caixaLocais('fSaidas', 'Saída — de onde as caixas saem',
                   locaisEscolhiveis(['GALPAO','FILIAL','ROTA','FORNECEDOR'], u.Saidas), u.Saidas)+
@@ -2125,7 +2138,8 @@
         Ativo:document.getElementById('fAtivo').value,
         AcessoPainel:document.getElementById('fPainel').value,
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
-        TiposCaixa:lerMarcados('fTiposCaixa'), Motoristas:lerMarcados('fMotoristas') };
+        TiposCaixa:lerMarcados('fTiposCaixa'), Motoristas:lerMarcados('fMotoristas'),
+        Operacoes:lerMarcados('fOperacoes') };
       var pin = document.getElementById('fPin').value.trim();
       if (pin) reg.PIN = pin;
       reg.Email = document.getElementById('fEmail').value.trim();

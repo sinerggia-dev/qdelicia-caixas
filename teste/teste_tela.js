@@ -457,5 +457,45 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
   ok(cab === 7, 'sete colunas no cabecalho do CSV', cab);
 })();
 
+/* ---------------------------------------------------------------------------
+ * As abas do app obedecem ao cadastro.
+ *
+ * A aba que a pessoa nao pode usar tem de SUMIR, e a primeira que sobrou tem de virar a
+ * ativa — senao o app abre numa pagina escondida e mostra tela em branco. E a lista vazia
+ * precisa continuar querendo dizer TODAS: invertida, ninguem lanca nada no dia do deploy.
+ * ------------------------------------------------------------------------- */
+console.log('\n== o app so mostra a aba que a pessoa pode usar ==');
+(function () {
+  var i = html.indexOf('function operacoesDe(s)');
+  var fonte = html.slice(i, html.indexOf('\n  function ajustarAbas', i));
+  var operacoesDe = new Function(fonte + ' return operacoesDe;')();
+
+  ok(operacoesDe({ perfil: 'Gestor' }).length === 0,
+    'sem restricao a lista vem vazia — e vazia quer dizer as duas');
+  ok(operacoesDe({ perfil: 'Conferente', operacoes: ['RETORNO'] }).join(',') === 'RETORNO',
+    'o cadastro manda', operacoesDe({ perfil: 'Conferente', operacoes: ['RETORNO'] }));
+  /* O promotor entra pela mesma porta, em vez de um `if` a parte escondendo a aba: eram
+     duas regras sobre a mesma coisa, e bastava habilitar Saida no cadastro de um promotor
+     para a aba continuar sumindo sem explicacao. */
+  ok(operacoesDe({ perfil: 'PROMOTOR' }).join(',') === 'RETORNO',
+    'o promotor sem cadastro cai em retorno pela MESMA peneira, nao por um if a parte');
+  ok(operacoesDe({ perfil: 'PROMOTOR', operacoes: ['SAIDA'] }).join(',') === 'SAIDA',
+    'e o cadastro vence o padrao do perfil — senao a aba sumiria sem explicacao');
+
+  // as abas carregam a operacao a que respondem
+  ok(/data-pagina="pgSaida" data-operacao="SAIDA"/.test(html) &&
+     /data-pagina="pgDevolucao" data-operacao="RETORNO"/.test(html),
+    'cada aba de lancamento diz de que operacao ela e');
+  ok(!/data-pagina="pgSaldo"[^>]*data-operacao/.test(html),
+    'e a de saldo nao: e consulta, fica para todo mundo');
+
+  var aj = html.slice(html.indexOf('function ajustarAbas(s)'),
+                      html.indexOf("document.getElementById('chipSair')"));
+  ok(aj.indexOf("style.display = liberada ? '' : 'none'") > 0,
+    'a aba proibida some, nao fica so desabilitada');
+  ok(aj.indexOf('primeira.click()') > 0,
+    'e a primeira que sobrou vira a ativa — senao o app abre numa pagina escondida');
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

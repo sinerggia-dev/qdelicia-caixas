@@ -1383,6 +1383,55 @@ async function main() {
     por.F1);
 }
 
+console.log('\n== quem lanca saida, quem lanca retorno ==');
+{
+  const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+
+  // De que operacao e cada tipo de lancamento
+  ok(F.operacaoDoTipo('SAIDA') === 'SAIDA' && F.operacaoDoTipo('TRANSFERENCIA') === 'SAIDA',
+    'remessa e transferência são as duas a operação de saída',
+    [F.operacaoDoTipo('SAIDA'), F.operacaoDoTipo('TRANSFERENCIA')]);
+  ok(F.operacaoDoTipo('DEVOLUCAO') === 'RETORNO',
+    'devolução é a operação de retorno', F.operacaoDoTipo('DEVOLUCAO'));
+  /* Ajuste e perda nascem no escritório, não no celular. Se caíssem sob esta lista, um
+     administrador com "só retorno" marcado ficaria trancado fora do próprio ajuste. */
+  ok(F.operacaoDoTipo('AJUSTE') === '' && F.operacaoDoTipo('PERDA') === '',
+    'ajuste e perda não são operação de campo — ficam fora desta permissão',
+    [F.operacaoDoTipo('AJUSTE'), F.operacaoDoTipo('PERDA')]);
+
+  // A convenção: vazia = todas
+  const semLista = { Nome: 'A' };
+  ok(F.podeOperacao(semLista, 'SAIDA') && F.podeOperacao(semLista, 'RETORNO'),
+    'lista vazia quer dizer AS DUAS — invertê-la trancaria a operação inteira no deploy');
+  ok(F.podeOperacao({ Operacoes: [] }, 'SAIDA'),
+    'e lista vazia de verdade também, não só o campo ausente');
+
+  const soRetorno = { Nome: 'Conferente', Operacoes: ['RETORNO'] };
+  ok(!F.podeOperacao(soRetorno, 'SAIDA') && F.podeOperacao(soRetorno, 'RETORNO'),
+    'quem só faz retorno é recusado na saída e aceito no retorno');
+
+  const soSaida = { Nome: 'Expedição', Operacoes: ['SAIDA'] };
+  ok(F.podeOperacao(soSaida, 'SAIDA') && !F.podeOperacao(soSaida, 'RETORNO'),
+    'e o contrário vale igual — a permissão não tem lado preferido');
+
+  // o ajuste passa por qualquer um: operacao '' nao e governada por esta lista
+  ok(F.podeOperacao(soRetorno, '') === true,
+    'o que não é operação de campo passa por qualquer permissão');
+
+  // A sessao leva a lista para o celular
+  const ses = F.sessaoDe({ ID: 'U1', Nome: 'A', Perfil: 'Conferente', Operacoes: ['RETORNO'] });
+  ok(ses.operacoes.join(',') === 'RETORNO',
+    'a sessão leva a lista para o app — é dela que as abas se guiam', ses.operacoes);
+  ok(F.sessaoDe({ ID: 'U2', Nome: 'B', Perfil: 'Gestor' }).operacoes.length === 0,
+    'e quem não tem restrição leva a lista vazia, que quer dizer as duas');
+
+  /* A lista de operações mora num lugar só: o formulário do cadastro, as abas e a recusa
+     na gravação leem a MESMA. Duas cópias divergiriam no primeiro nome novo. */
+  ok(F.OPERACOES.length === 2 &&
+     F.OPERACOES.map((o) => o.ID).join(',') === 'SAIDA,RETORNO',
+    'a lista servida ao formulário é a mesma que a regra usa', F.OPERACOES);
+}
+
 console.log('\n== filtrar por tipo de caixa e por sentido ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
@@ -1753,12 +1802,13 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     const enviados = (payload.match(/([A-Z][A-Za-z]*)\s*:\s*lerMarcados/g) || [])
       .map((t) => t.split(':')[0].trim());
 
-    ok(enviados.length >= 4,
-      'o formulário envia as quatro listas de permissão', enviados);
+    ok(enviados.length >= 5,
+      'o formulário envia as cinco listas de permissão', enviados);
 
     const volta = F.usuariosPublicos([{
       ID: 'U1', Nome: 'A', Perfil: 'Gestor',
-      Saidas: ['a'], Destinos: ['b'], TiposCaixa: ['c'], Motoristas: ['d']
+      Saidas: ['a'], Destinos: ['b'], TiposCaixa: ['c'], Motoristas: ['d'],
+      Operacoes: ['SAIDA']
     }])[0];
 
     enviados.forEach((campo) => {

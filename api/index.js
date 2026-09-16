@@ -96,7 +96,10 @@ async function rotaGet(p) {
       // Aqui vai o cadastro completo, com documento — é a tela do escritório.
       return { ok: true, usuarios: L.usuariosPublicos(d.usuarios), motoristas: d.motoristas,
                locaisPadrao: d.locaisPadrao, pedidosSenha: d.pedidosSenha,
-               perfis: L.perfisConhecidos(d.usuarios) };
+               perfis: L.perfisConhecidos(d.usuarios),
+               // A MESMA lista que a gravacao usa para recusar. Escrever as opcoes na tela
+               // faria duas listas sobre a mesma regra, e elas divergem no primeiro nome novo.
+               operacoes: L.OPERACOES };
     case 'painel':
       return { ok: true, painel: L.painel(L.recorteTeste(d, p.teste)) };
     case 'pendentes':
@@ -162,6 +165,15 @@ async function gravarMovimento(p) {
      payload: o celular manda o perfil junto, e um pedido adulterado classificaria errado.
      Hoje isso só muda o lado do filtro — o lançamento conta de qualquer jeito. */
   var quem = d.usuarios.filter(function (u) { return String(u.ID) === String(p.usuarioId || ''); })[0];
+
+  /* A permissao e recusada AQUI, e nao so escondendo a aba no celular. Esconder o botao
+     e conveniencia; quem manda um POST direto passa por cima dela. E o cadastro que
+     decide, lido do servidor — o payload nao opina sobre o que quem o mandou pode fazer. */
+  var op = L.operacaoDoTipo(p.tipo);
+  if (quem && !L.podeOperacao(quem, op)) {
+    return { ok: false, erro: 'Este usuário não está habilitado a lançar ' +
+      (op === 'RETORNO' ? 'retorno' : 'saída') + '.' };
+  }
 
   var r = L.montarMovimento(p, {
     movimentos: d.movimentos,

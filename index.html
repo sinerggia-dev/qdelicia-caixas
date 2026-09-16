@@ -60,9 +60,12 @@
   <div class="chip" id="chipSair">Sair</div>
 </header>
 
+<!-- A aba que a pessoa nao pode usar nao nasce escondida no HTML: quem decide e o
+     cadastro, e `ajustarAbas()` remove a que sobra assim que a sessao chega. Saldo fica
+     sempre — e consulta, nao lancamento. -->
 <nav class="abas" id="abas">
-  <button class="ativa" data-pagina="pgSaida">Saída</button>
-  <button data-pagina="pgDevolucao">Retorno</button>
+  <button class="ativa" data-pagina="pgSaida" data-operacao="SAIDA">Saída</button>
+  <button data-pagina="pgDevolucao" data-operacao="RETORNO">Retorno</button>
   <button data-pagina="pgSaldo">Saldo</button>
 </nav>
 
@@ -336,17 +339,46 @@
     document.getElementById('app').style.display = 'block';
     document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil;
     Q.abas('#abas');
+    ajustarAbas(s);
     if (String(s.perfil).toUpperCase() === 'PROMOTOR'){
-      // Promotor só conta devolução no cliente.
-      document.querySelectorAll('#abas button').forEach(function(b){
-        if (b.dataset.pagina === 'pgSaida') b.style.display = 'none';
-      });
-      document.querySelector('#abas button[data-pagina="pgDevolucao"]').click();
       document.getElementById('devSub').textContent =
         'Você conta as caixas que voltam na rota. O saldo baixa assim que você registra.';
     }
     Q.carregarDados().then(function(d){ DADOS = d; montarFormularios(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
+  }
+
+  /* Quais operações esta pessoa lança. Lista vazia quer dizer AS DUAS — a mesma
+     convenção das outras permissões, e a única segura: invertê-la deixaria a operação
+     inteira sem poder lançar nada no dia em que a coluna nasce vazia no banco.
+
+     O PROMOTOR entra pela mesma porta em vez de ter o `if` dele à parte. Eram duas regras
+     escondendo a mesma aba, e duas regras sobre a mesma coisa acabam discordando: bastava
+     habilitar Saída no cadastro de um promotor para a aba continuar sumindo sem
+     explicação. Aqui o perfil apenas fixa a lista quando o cadastro não disse nada. */
+  function operacoesDe(s){
+    var lista = (s && s.operacoes) || [];
+    if (lista.length) return lista.map(String);
+    if (String(s && s.perfil).toUpperCase() === 'PROMOTOR') return ['RETORNO'];
+    return [];   // vazia = todas
+  }
+
+  /* A aba some, não fica apenas desabilitada: o formulário inteiro dela some junto, e
+     deixar o botão visível só convidaria ao clique que não leva a lugar nenhum.
+     A primeira aba que sobrou vira a ativa — senão a pessoa abriria o app numa página
+     escondida e veria a tela em branco. */
+  function ajustarAbas(s){
+    var pode = operacoesDe(s);
+    var botoes = document.querySelectorAll('#abas button');
+    Array.prototype.forEach.call(botoes, function(b){
+      var op = b.dataset.operacao;
+      // Saldo não tem operação: é consulta, e fica para todo mundo.
+      var liberada = !op || !pode.length || pode.indexOf(op) >= 0;
+      b.style.display = liberada ? '' : 'none';
+      if (!liberada) b.classList.remove('ativa');
+    });
+    var primeira = document.querySelector('#abas button:not([style*="none"])');
+    if (primeira) primeira.click();
   }
 
   document.getElementById('chipSair').addEventListener('click', function(){

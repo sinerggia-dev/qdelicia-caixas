@@ -237,5 +237,10 @@ module.exports = [
     sql: "alter table public.locais drop constraint if exists locais_tipo_check;"
        + "alter table public.locais add constraint locais_tipo_check "
        + "check (tipo in ('GALPAO','FILIAL','CLIENTE','ROTA','FORNECEDOR'));"
+  },
+  {
+    id: '2026-09-16-operacoes-por-usuario',
+    nota: 'quais operações a pessoa lança no campo; vazia segue querendo dizer TODAS',
+    sql: "alter table public.usuarios add column if not exists operacoes jsonb not null default '[]'::jsonb;"
   }
 ];

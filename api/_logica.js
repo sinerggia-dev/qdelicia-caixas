@@ -91,6 +91,34 @@ function detalharTipos(porTipo) {
   }).map(function (k) { return { caixa: k, qtd: porTipo[k] }; });
 }
 
+/* As operacoes que o app de campo oferece. Uma lista so, no servidor, porque tres
+   lugares precisam concordar sobre elas: o formulario do cadastro, as abas do celular e
+   a recusa na gravacao. Duas copias disso divergiriam no primeiro nome novo. */
+var OPERACOES = [
+  { ID: 'SAIDA', Nome: 'Saída', Tipos: ['SAIDA', 'TRANSFERENCIA'] },
+  { ID: 'RETORNO', Nome: 'Retorno', Tipos: ['DEVOLUCAO'] }
+];
+
+/* De que operacao este lancamento e. AJUSTE e PERDA devolvem '' de proposito: nascem no
+   escritorio, na aba Ajustes, e nao no celular — governa-las por esta lista trancaria o
+   administrador fora do proprio ajuste. */
+function operacaoDoTipo(tipo) {
+  var achou = '';
+  OPERACOES.forEach(function (o) {
+    if (o.Tipos.indexOf(String(tipo || '').toUpperCase()) >= 0) achou = o.ID;
+  });
+  return achou;
+}
+
+/* Vazia quer dizer TODAS — a mesma convencao das outras quatro listas. Inverter isso
+   deixaria a operacao inteira sem poder lancar nada no dia do deploy. */
+function podeOperacao(u, op) {
+  if (!op) return true;
+  var lista = u && Array.isArray(u.Operacoes) ? u.Operacoes : [];
+  if (!lista.length) return true;
+  return lista.map(String).indexOf(String(op)) >= 0;
+}
+
 /** Quem confere devolução no galpão. */
 function podeConferir(perfil) {
   return CONFEREM.indexOf(String(perfil || '').toUpperCase()) >= 0;
@@ -346,7 +374,9 @@ function sessaoDe(u) {
     // Mesma convenção das outras duas: lista vazia quer dizer TODOS. Inverter isso
     // deixaria toda a operação sem tipo de caixa no dia do deploy.
     tiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
-    motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : []
+    motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
+    // Idem: vazia = todas. E o celular esconde a aba que nao esta aqui.
+    operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : []
   };
 }
 
@@ -1394,14 +1424,15 @@ function usuariosPublicos(usuarios) {
       // Nao e segredo, e o admin precisa saber quem ainda nao trocou.
       PinProvisorio: u.PinProvisorio === true, SenhaProvisoria: u.SenhaProvisoria === true,
       AcessoPainel: podeVerPainel(u),
-      /* As QUATRO listas de permissão voltam para o painel. Esquecer uma aqui não dá
+      /* As CINCO listas de permissão voltam para o painel. Esquecer uma aqui não dá
          erro nenhum: o formulário abre com ela desmarcada e a gravação seguinte escreve
          vazio por cima do que estava salvo. Foi o que aconteceu com TiposCaixa e
          Motoristas — por isso o teste de simetria logo abaixo desta função. */
       Saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
       Destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
       TiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
-      Motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : []
+      Motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
+      Operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : []
     };
   });
 }
@@ -1426,5 +1457,6 @@ module.exports = {
   usuariosPublicos: usuariosPublicos, podeVerPainel: podeVerPainel, podeConferir: podeConferir,
   normalizarPerfil: normalizarPerfil, perfisConhecidos: perfisConhecidos,
   locaisPermitidos: locaisPermitidos, motoristasDaRota: motoristasDaRota,
-  ehVolante: ehVolante
+  ehVolante: ehVolante,
+  OPERACOES: OPERACOES, operacaoDoTipo: operacaoDoTipo, podeOperacao: podeOperacao
 };
