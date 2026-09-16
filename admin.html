@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=448ce838">
+<link rel="stylesheet" href="styles.css?v=201c6a44">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -134,8 +134,11 @@
             <button class="btn neutro" id="btnAtualizarRetornos" type="button" style="flex:0;min-width:130px">↻ Atualizar</button>
           </div>
         </div>
-        <div id="tabelaFluxo"><div class="vazio">Carregando…</div></div>
+        <!-- Os totais vem ANTES da tabela: sao a leitura do conjunto, e quem abre a
+             tela quer o resumo antes do detalhe. Embaixo, com a tabela crescendo, eles
+             saiam da primeira dobra e so apareciam para quem rolasse ate o fim. -->
         <div class="ftiles" id="fluxoTiles"></div>
+        <div id="tabelaFluxo"><div class="vazio">Carregando…</div></div>
       </div>
     </div>
   </section>
