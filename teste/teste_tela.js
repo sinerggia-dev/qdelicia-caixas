@@ -497,5 +497,45 @@ console.log('\n== o app so mostra a aba que a pessoa pode usar ==');
     'e a primeira que sobrou vira a ativa — senao o app abre numa pagina escondida');
 })();
 
+/* ---------------------------------------------------------------------------
+ * A correcao: o que o servidor aceita, o formulario oferece — e envia.
+ *
+ * Sao tres listas que precisam concordar: CORRIGIVEIS no servidor, os campos desenhados
+ * no modal e as chaves do payload. Um campo que existe no servidor e falta no formulario
+ * simplesmente nunca se corrige; um desenhado e nao enviado e pior — a pessoa muda o
+ * seletor, grava, e nada acontece, sem erro nenhum na tela.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a correcao oferece tudo que o servidor aceita ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var src = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+
+  var ini = src.indexOf('var CORRIGIVEIS = [');
+  var lista = src.slice(ini, src.indexOf('];', ini));
+  var campos = (lista.match(/campo: '([A-Za-z]+)'/g) || [])
+    .map(function (t) { return t.split("'")[1]; });
+  ok(campos.length >= 10, 'a leitura achou os campos corrigiveis', campos);
+
+  // o payload que o botao Gravar correcao monta
+  var j = adm.indexOf("Q.post({acao:'corrigir'");
+  var payload = adm.slice(j, adm.indexOf('}).then(', j));
+
+  var faltam = campos.filter(function (c) { return payload.indexOf(c + ':') < 0; });
+  ok(faltam.length === 0,
+    'todo campo corrigivel do servidor viaja no payload do formulario', faltam);
+
+  /* E cada um le um campo que existe no modal. Um getElementById para um id que nao foi
+     desenhado estoura na hora de gravar — e a correcao inteira se perde. */
+  var k = adm.indexOf("modal('<h2>Corrigir lançamento</h2>'");
+  var modal = adm.slice(k, adm.indexOf("document.getElementById('cSalvar')", k));
+  var ids = (payload.match(/getElementById\('(c[A-Za-z]+)'\)/g) || [])
+    .map(function (t) { return t.split("'")[1]; });
+  var semCampo = ids.filter(function (id) { return modal.indexOf('id="' + id + '"') < 0; });
+  ok(semCampo.length === 0,
+    'e cada id lido no envio foi desenhado no modal — senao a gravacao estoura', semCampo);
+
+  ok(ids.length >= 10, 'o envio le os campos todos, nao dois ou tres', ids);
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

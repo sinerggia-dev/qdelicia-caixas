@@ -538,19 +538,30 @@ function montarConferencia(mov, p) {
  * histórico a empilhar, com valor antigo, novo, autor e motivo. É o que mantém de pé a regra
  * de que nada se apaga.
  */
+/* Tudo que uma correção alcança. A lista manda em três coisas de uma vez: os campos que
+   o servidor aceita, o rótulo que vai para o histórico e como o valor vira texto legível.
+   Acrescentar aqui é o bastante para o campo passar a ser corrigível.
+
+   `mapa` diz de QUAL mapa de nomes o campo se serve — o histórico guarda o NOME e não o
+   id, porque uma linha dizendo "origem: de L001 para L016" não serve para ninguém
+   conferir nada. */
 var CORRIGIVEIS = [
   { campo: 'Qtd', rotulo: 'quantidade', numero: true },
   { campo: 'QtdConferida', rotulo: 'conferida', numero: true },
   { campo: 'DataRef', rotulo: 'data', data: true },
+  { campo: 'OrigemID', rotulo: 'origem', mapa: 'locais' },
+  { campo: 'DestinoID', rotulo: 'destino', mapa: 'locais' },
+  { campo: 'TipoCaixaID', rotulo: 'tipo de caixa', mapa: 'tipos' },
+  // O motorista é gravado pelo nome, não por id: não há o que mapear.
+  { campo: 'Motorista', rotulo: 'motorista' },
   { campo: 'Romaneio', rotulo: 'romaneio' },
   { campo: 'Obs', rotulo: 'observação' },
-  /* `mapa` faz o histórico guardar o NOME e não o id: uma linha dizendo
-     "quem lançou: de U003 para U007" não serve para ninguém conferir nada. */
-  { campo: 'UsuarioID', rotulo: 'quem lançou', mapa: true }
+  { campo: 'UsuarioID', rotulo: 'quem lançou', mapa: 'usuarios' }
 ];
 
-/* `nomes` é opcional: mapa de id para nome, usado só nos campos marcados com `mapa`.
-   Quem chamava com três argumentos continua funcionando — cai no valor cru. */
+/* `nomes` é opcional: { locais, tipos, usuarios }, cada um um mapa de id para nome, usado
+   só nos campos marcados com `mapa`. Quem chamar sem ele continua funcionando — o
+   histórico cai no valor cru, que é feio mas não quebra nada. */
 function montarCorrecao(mov, p, agora, nomes) {
   if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
   if (mov.Cancelado) return { ok: false, erro: 'Movimento cancelado não se corrige — lance um novo.' };
@@ -580,7 +591,7 @@ function montarCorrecao(mov, p, agora, nomes) {
     function legivel(v) {
       if (c.data) return soData(v);
       if (v === null || v === undefined) return '';
-      return c.mapa && nomes ? nome(nomes, v) : String(v);
+      return c.mapa && nomes && nomes[c.mapa] ? nome(nomes[c.mapa], v) : String(v);
     }
     entradas.push({
       em: iso(agora), por: String(p.usuarioId || ''), campo: c.rotulo, motivo: motivo,
@@ -839,7 +850,8 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       id: m.ID, dataRef: iso(m.DataRef), dataHora: iso(m.DataHora), tipo: m.Tipo,
       origem: nome(mLocais, m.OrigemID), destino: nome(mLocais, m.DestinoID),
       origemId: m.OrigemID, destinoId: m.DestinoID,
-      tipoCaixa: nome(mTipos, m.TipoCaixaID), qtd: m.Qtd,
+      // o nome para a tabela; o id para o seletor da correção abrir no valor certo
+      tipoCaixa: nome(mTipos, m.TipoCaixaID), tipoCaixaId: m.TipoCaixaID, qtd: m.Qtd,
       qtdConferida: temConf ? m.QtdConferida : '',
       divergencia: (m.Status === 'CONFIRMADO' && temConf) ? Number(m.QtdConferida) - Number(m.Qtd) : '',
       status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID), perfil: m.Perfil,

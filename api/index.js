@@ -283,7 +283,13 @@ async function definirPin(p) {
 async function corrigir(p) {
   var d = await db.carregarTudo();
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
-  var r = L.montarCorrecao(mov, p, new Date(), L.mapaNomes(d.usuarios || []));
+  /* Um mapa por tipo de campo: a origem se lê na lista de locais, a caixa na de tipos.
+     Com um mapa só, "origem: de L001 para L016" ia para o histórico como id cru. */
+  var r = L.montarCorrecao(mov, p, new Date(), {
+    usuarios: L.mapaNomes(d.usuarios || []),
+    locais: L.mapaNomes(d.locais || []),
+    tipos: L.mapaTipos(d.tipos || [])
+  });
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);
   patch.historico = r.historico;

@@ -1568,12 +1568,20 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
   }
 
 
-  console.log('\n== corrigir quem fez o envio ==');
+  console.log('\n== corrigir o lançamento ==');
   {
     const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
-    const nomes = F.mapaNomes([{ ID: 'U1', Nome: 'Nestor Neto' }, { ID: 'U2', Nome: 'Ivanilda' }]);
+    /* Um mapa por tipo de campo: origem e destino saem da lista de locais, a caixa da de
+       tipos. Com um mapa só, o histórico guardaria "origem: de L1 para L2". */
+    const nomes = {
+      usuarios: F.mapaNomes([{ ID: 'U1', Nome: 'Nestor Neto' }, { ID: 'U2', Nome: 'Ivanilda' }]),
+      locais: F.mapaNomes([{ ID: 'L1', Nome: 'Matriz' }, { ID: 'L2', Nome: 'Filial Maceió' },
+                           { ID: 'R1', Nome: 'Caruaru' }]),
+      tipos: F.mapaTipos([{ ID: 'T1', Nome: 'CX P' }, { ID: 'T2', Nome: 'CX G' }])
+    };
     const mov = {
       ID: 'M1', Tipo: 'SAIDA', Qtd: 50, UsuarioID: 'U1',
+      OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: 'T1', Motorista: 'Ramos',
       DataRef: new Date('2026-09-15T00:00:00'), Historico: []
     };
 
@@ -1595,6 +1603,46 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     // e os campos antigos seguem funcionando junto
     r = F.montarCorrecao(mov, { Qtd: 60, UsuarioID: 'U2', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
     ok(r.ok && r.entradas.length === 2, 'quantidade e responsável mudam no mesmo envio', r.entradas.length);
+
+    /* Os quatro campos que faltavam. Origem, destino e caixa mexem no razão — é
+       justamente para isso que se corrige: o lançamento saiu no local errado. */
+    r = F.montarCorrecao(mov, { OrigemID: 'L2', motivo: 'saiu da filial, não da matriz',
+                                usuarioId: 'U1' }, new Date(), nomes);
+    ok(r.ok && r.patch.OrigemID === 'L2', 'a origem se corrige', r.patch);
+    ok(r.entradas[0].campo === 'origem' &&
+       r.entradas[0].de === 'Matriz' && r.entradas[0].para === 'Filial Maceió',
+      'e o histórico guarda os NOMES — "de L1 para L2" não serve para conferir nada',
+      r.entradas[0]);
+
+    r = F.montarCorrecao(mov, { DestinoID: 'L2', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
+    ok(r.ok && r.patch.DestinoID === 'L2' && r.entradas[0].de === 'Caruaru',
+      'o destino idem, e pelo mesmo mapa de locais', r.entradas[0]);
+
+    r = F.montarCorrecao(mov, { TipoCaixaID: 'T2', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
+    ok(r.ok && r.patch.TipoCaixaID === 'T2' &&
+       r.entradas[0].de === 'CX P' && r.entradas[0].para === 'CX G',
+      'a caixa se corrige e usa o mapa DELA, não o de locais', r.entradas[0]);
+
+    // o motorista é gravado pelo nome: não há id para mapear
+    r = F.montarCorrecao(mov, { Motorista: 'Wesley', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
+    ok(r.ok && r.patch.Motorista === 'Wesley' && r.entradas[0].de === 'Ramos',
+      'o motorista se corrige direto pelo nome', r.entradas[0]);
+
+    // trocar por igual continua não sendo correção, campo novo ou velho
+    r = F.montarCorrecao(mov, { OrigemID: 'L1', TipoCaixaID: 'T1', Motorista: 'Ramos',
+                                motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
+    ok(!r.ok && /Nada mudou/.test(r.erro),
+      'repetir os mesmos valores não vira correção nos campos novos também', r);
+
+    // os sete de uma vez
+    r = F.montarCorrecao(mov, {
+      DataRef: '2026-09-20', OrigemID: 'L2', DestinoID: 'L1', TipoCaixaID: 'T2',
+      Qtd: 70, Motorista: 'Wesley', UsuarioID: 'U2', motivo: 'refazendo o lançamento',
+      usuarioId: 'U1'
+    }, new Date(), nomes);
+    ok(r.ok && r.entradas.length === 7,
+      'os sete campos pedidos mudam no mesmo envio, cada um com sua linha no histórico',
+      r.entradas.map((e) => e.campo));
   }
 
 
@@ -1899,6 +1947,32 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
  * limparMovimentos monta o filtro campo a campo, e um campo esquecido nao da erro — a
  * tela mostra cinco linhas e o servidor acha quinhentas. Aqui se compara as duas listas.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * Quem chama a correcao entrega todo mapa de nome que ela usa.
+ *
+ * `montarCorrecao` cai no valor cru quando o mapa nao veio — de proposito, para nao
+ * estourar. O preco e que esquecer um mapa nao da erro nenhum: a correcao grava certo e o
+ * historico guarda "origem: de L001 para L016", que e justamente a linha que ninguem
+ * consegue conferir depois. Aqui se compara a lista com o que o endpoint entrega.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a correcao recebe um mapa de nomes para cada campo ==');
+{
+  const src = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  const ini = src.indexOf('var CORRIGIVEIS = [');
+  const lista = src.slice(ini, src.indexOf('];', ini));
+  const mapas = {};
+  (lista.match(/mapa: '([a-z]+)'/g) || []).forEach((t) => { mapas[t.split("'")[1]] = 1; });
+  const precisa = Object.keys(mapas);
+  ok(precisa.length >= 3, 'a leitura achou os mapas que os campos pedem', precisa);
+
+  const idx = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  const j = idx.indexOf('L.montarCorrecao(');
+  const chamada = idx.slice(j, idx.indexOf('});', j));
+  const faltam = precisa.filter((m) => chamada.indexOf(m + ':') < 0);
+  ok(faltam.length === 0,
+    'o endpoint entrega um mapa para cada um — senão o histórico guarda o id cru', faltam);
+}
+
 console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
 {
   const src = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');

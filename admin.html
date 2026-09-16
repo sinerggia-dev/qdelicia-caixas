@@ -1880,6 +1880,31 @@
    */
   function formCorrigir(m){
     var s = Q.sessao();
+    /* "—" na frente, e nao "Selecione...": um lancamento pode legitimamente nao ter
+       origem (o ajuste) ou motorista, e "Selecione..." sugeriria que falta preencher.
+       Escolher o vazio apaga o campo, que e o conserto de quem lancou no lugar errado. */
+    function seletorLocal(atual){
+      return '<option value="">—</option>'+
+        Q.ordenarLocais((DADOS.locais||[])).map(function(l){
+          return '<option value="'+Q.esc(l.ID)+'"'+
+            (String(l.ID)===String(atual)?' selected':'')+'>'+Q.esc(l.Nome)+
+            ' · '+Q.esc(String(l.Tipo||'').toLowerCase())+'</option>';
+        }).join('');
+    }
+
+    /* O movimento guarda o NOME do motorista, nao o id. Se o nome gravado nao estiver
+       mais no cadastro — motorista desligado, nome digitado a mao —, ele entra na lista
+       assim mesmo: sem isso o seletor abriria em outro nome e a primeira gravacao trocaria
+       o motorista do lancamento sem ninguem pedir. */
+    function seletorMotorista(atual){
+      var nomes = Q.ordenarPorNome(MOTORISTAS||[]).map(function(x){ return x.Nome; });
+      if (atual && nomes.indexOf(atual) < 0) nomes.unshift(atual);
+      return '<option value="">—</option>'+nomes.map(function(n){
+        return '<option value="'+Q.esc(n)+'"'+(String(n)===String(atual||'')?' selected':'')+'>'+
+          Q.esc(n)+'</option>';
+      }).join('');
+    }
+
     modal('<h2>Corrigir lançamento</h2>'+
       '<p style="color:var(--txt2);font-size:13.5px;margin:0 0 10px">'+
         Q.esc(m.tipo)+' · '+Q.dataBR(m.dataRef)+' · '+Q.esc(m.origem||'—')+' → '+Q.esc(m.destino||'—')+
@@ -1888,6 +1913,22 @@
         '<div><label>Quantidade</label><input type="number" id="cQtd" value="'+Q.esc(m.qtd)+'"></div>'+
         '<div><label>Conferida</label><input type="number" id="cConf" value="'+Q.esc(m.qtdConferida===''?'':m.qtdConferida)+'"></div>'+
         '<div><label>Data</label><input type="date" id="cData" value="'+Q.esc(String(m.dataRef||'').slice(0,10))+'"></div>'+
+        /* Todos os locais, sem peneirar por tipo: aqui e o escritorio consertando um
+           lancamento que saiu errado, e a lista curta seria justamente a que nao teria o
+           local certo. As permissoes do campo valem para quem LANCA, nao para quem
+           corrige. */
+        '<div><label>Origem</label><select id="cOrigem">'+
+          seletorLocal(m.origemId)+'</select></div>'+
+        '<div><label>Destino</label><select id="cDestino">'+
+          seletorLocal(m.destinoId)+'</select></div>'+
+        '<div><label>Caixa</label><select id="cCaixa">'+
+          Q.ordenarPorNome(DADOS.tipos||[]).map(function(t){
+            return '<option value="'+Q.esc(t.ID)+'"'+
+              (String(t.ID)===String(m.tipoCaixaId)?' selected':'')+'>'+Q.esc(t.Nome)+'</option>';
+          }).join('')+
+        '</select></div>'+
+        '<div><label>Motorista</label><select id="cMotorista">'+
+          seletorMotorista(m.motorista)+'</select></div>'+
         '<div><label>Romaneio</label><input type="text" id="cRom" value="'+Q.esc(m.romaneio||'')+'"></div>'+
         '<div><label>Quem fez o envio</label><select id="cUsuario">'+
           Q.ordenarPorNome(EQUIPE).map(function(u){
@@ -1915,6 +1956,10 @@
               Qtd:document.getElementById('cQtd').value,
               QtdConferida:document.getElementById('cConf').value,
               DataRef:document.getElementById('cData').value,
+              OrigemID:document.getElementById('cOrigem').value,
+              DestinoID:document.getElementById('cDestino').value,
+              TipoCaixaID:document.getElementById('cCaixa').value,
+              Motorista:document.getElementById('cMotorista').value,
               Romaneio:document.getElementById('cRom').value,
               Obs:document.getElementById('cObs').value,
               UsuarioID:document.getElementById('cUsuario').value}).then(function(r){
