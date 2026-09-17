@@ -779,7 +779,7 @@ console.log('\n== o saldo corrido vem do servidor ==');
 })();
 
 /* ---------------------------------------------------------------------------
- * "Lançado no dia": o estoque que entrou NAQUELE dia, ao lado do acumulado.
+ * "Estoque": o que entrou NAQUELE dia, ao lado do acumulado do Saldo inicial.
  *
  * O Saldo inicial e o acumulado — tudo que ja entrou menos tudo que ja saiu. Sozinho ele
  * nao deixa ver o lancamento: a linha de 17/09 abria em 1.620 e nada na tela dizia que
@@ -789,7 +789,7 @@ console.log('\n== o saldo corrido vem do servidor ==');
  * titulo+valor no CSV. Uma coluna sem largura nao cai num padrao — com `table-layout:
  * fixed` ela recebe `width:undefinedpx` e some.
  * ------------------------------------------------------------------------- */
-console.log('\n== a coluna "Lançado no dia" ==');
+console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   var i = adm.indexOf('function desenharFluxo()');
@@ -812,10 +812,26 @@ console.log('\n== a coluna "Lançado no dia" ==');
   var celula = new Function('Q', 'l', f);
 
   var lancou = celula(Q, { estoqueInicial: true, inicial: 810, iniCorrido: 1620 });
-  ok(lancou.indexOf('810') > 0 && lancou.indexOf('1620') < 0,
+  ok(lancou.indexOf('810') >= 0 && lancou.indexOf('1620') < 0,
     'o dia que teve lançamento mostra 810, o do dia — nunca o acumulado 1.620', lancou);
-  ok(/val-ok/.test(lancou) && lancou.indexOf('+810') > 0,
-    'em verde e com sinal de mais: é entrada de caixa', lancou);
+
+  /* Texto comum: nem cor nem negrito. O destaque e do Saldo inicial, ao lado — duas
+     colunas de numero com o mesmo peso competem entre si e nenhuma conduz a leitura. */
+  ok(!/val-ok|val-ruim|<b[ >]/.test(lancou),
+    'em texto comum, sem cor e sem negrito — quem se destaca é o Saldo inicial', lancou);
+
+  /* E o Saldo inicial e o oposto: verde e negrito. Sao a mesma decisao, entao ficam no
+     mesmo teste — separadas, uma podia perder o contraste sem a outra notar. */
+  var vi = defs.indexOf('v: function(l){', defs.indexOf('inicial:'));
+  var va = defs.indexOf('{', vi), vb = va + 1, vn = 1;
+  while (vn > 0 && vb < defs.length) {
+    if (defs[vb] === '{') vn++; else if (defs[vb] === '}') vn--;
+    vb++;
+  }
+  var celIni = new Function('Q', 'l', defs.slice(va + 1, vb - 1));
+  var abre = celIni(Q, { iniCorrido: 1620, inicial: 810 });
+  ok(abre.indexOf('1620') > 0 && /val-ok/.test(abre) && /class="val /.test(abre),
+    'o Saldo inicial sai em verde e negrito: é o número que abre a linha', abre);
 
   /* O zero FICA. Ja se tentou travessao noutra coluna de valor e o usuario pediu os
      numeros de volta — buraco no meio da coluna se le como dado faltando. Cinza basta
@@ -830,6 +846,7 @@ console.log('\n== a coluna "Lançado no dia" ==');
   var padrao = adm.slice(adm.indexOf('var COLS_PADRAO'), adm.indexOf(';', adm.indexOf('var COLS_PADRAO')));
   var cols = (padrao.match(/'(\w+)'/g) || []).map(function (t) { return t.slice(1, -1); });
   ok(cols.indexOf('lancado') > 0, 'a coluna esta na lista de fabrica', cols);
+  ok(defs.indexOf("t: 'Estoque'") > 0, 'e o titulo dela na tela é "Estoque"');
 
   var semDef = cols.filter(function (id) { return defs.indexOf('\n      ' + id + ':') < 0; });
   ok(semDef.length === 0, 'toda coluna de fábrica tem definição — sem ela o <td> sai vazio',

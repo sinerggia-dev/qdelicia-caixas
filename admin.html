@@ -836,7 +836,7 @@
   /* Somadas, estas larguras cabem numa area util de ~1.050px, que e o que sobra numa
      tela de 1.400. Mais folgadas, a tabela transbordava e voltava a barra de rolagem
      horizontal. Quem quiser mais espaco numa coluna arrasta a borda. */
-  var LARG_PADRAO = { data:95, inicial:105, lancado:110, origem:145, destino:145,
+  var LARG_PADRAO = { data:95, inicial:105, lancado:95, origem:150, destino:150,
                       quem:190, saida:160, retorno:160, final:105 };
   var LARG_MIN = 70;
 
@@ -973,20 +973,25 @@
                   v: function(l){
                     return l.data ? Q.dataBR(l.data) : '<span class="fraco">—</span>';
                   } },
+      /* Verde e negrito: e o numero que abre a linha e o que a pessoa procura primeiro.
+         Ao lado, a coluna Estoque fica em texto comum — duas colunas de numero com o
+         mesmo peso competem entre si, e nenhuma das duas conduz a leitura. */
       inicial:  { t: 'Saldo inicial', num: true, so: 'local',
-                  v: function(l){ return Q.num(l.iniCorrido || 0); } },
+                  v: function(l){
+                    return '<span class="val val-ok">' + Q.num(l.iniCorrido || 0) +
+                      '</span>';
+                  } },
       /* Duas perguntas diferentes, lado a lado. "Saldo inicial" e o ACUMULADO — tudo que
-         ja entrou menos tudo que ja saiu ate aqui. Esta, o que foi lancado NAQUELE dia.
+         ja entrou menos tudo que ja saiu ate aqui. "Estoque" e o que foi lancado NAQUELE
+         dia, e e ele que explica cada salto do acumulado de uma linha para a outra.
 
-         Sozinho, o acumulado nao deixa ver o lancamento: a linha de 17/09 abria em 2.060
-         e nada na tela dizia que 810 daquilo tinham acabado de ser lancados. Dia sem
-         lancamento nenhum mostra o zero em cinza — o numero fica, honesto, mas nao
-         disputa a atencao com os dias que de fato tiveram entrada. */
-      lancado:  { t: 'Lançado no dia', num: true, so: 'local',
+         Texto comum, sem cor nem negrito: o destaque e do Saldo inicial, ao lado. Dia sem
+         lancamento nenhum mostra o zero em cinza — o numero fica, honesto, mas nao disputa
+         a atencao com os dias que de fato tiveram entrada. */
+      lancado:  { t: 'Estoque', num: true, so: 'local',
                   v: function(l){
                     var q = l.inicial || 0;
-                    return q ? '<b class="val val-ok">+' + Q.num(q) + '</b>'
-                             : '<span class="fraco">0</span>';
+                    return q ? Q.num(q) : '<span class="fraco">0</span>';
                   } },
       origem:   { t: 'Origem', so: 'local',
                   v: function(l){
@@ -1150,7 +1155,7 @@
     /* O CSV sai na MESMA ordem de colunas da tela, inclusive a que a pessoa arrastou:
        um arquivo com as colunas noutra ordem obriga a conferir duas vezes qual e qual. */
     var cs = ordemColunas().filter(function(id){ return id !== 'quem'; });
-    var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Lançado no dia',
+    var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Estoque',
                 origem:'Origem', destino:'Destino', saida:'Saída', retorno:'Retorno',
                 final:'Saldo final' };
     var VAL = {
