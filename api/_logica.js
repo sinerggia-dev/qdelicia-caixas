@@ -1136,16 +1136,21 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
     });
   });
 
-  /* A lista se le como um extrato: o estoque inicial abre, e os caminhos vem depois na
-     ordem em que foram lancados. Antes a ordem era por saldo — quem deve mais primeiro —,
-     e o estoque inicial caia no meio, entre dois caminhos, como se fosse mais um.
+  /* A lista se le como um extrato, e num extrato quem manda e a DATA. Dentro do mesmo
+     dia o estoque lancado abre, e os caminhos daquele dia vem depois — e essa a leitura
+     de "o que eu tinha quando o dia comecou, e o que fiz com isso".
+
+     O estoque vinha antes da data na comparacao, e ai TODOS os estoques subiam para o
+     topo da tabela: um lancamento de saldo inicial feito no dia 17 aparecia grudado no do
+     dia 15, acima das movimentacoes do dia 16, como se tivesse sido lancado antes delas.
+     A ordem tambem e a ordem em que o saldo corre, entao o acumulado saia errado junto.
 
      O ensaio continua vindo antes de tudo na comparacao, para acabar no fim da lista.
-     Data igual cai no nome, senao a lista dança a cada carregamento. */
+     Data e tipo iguais caem no nome, senao a lista dança a cada carregamento. */
   linhas.sort(function (a, b) {
     return pesoTeste(a.nome) - pesoTeste(b.nome) ||
-           (b.estoqueInicial ? 1 : 0) - (a.estoqueInicial ? 1 : 0) ||
            String(a.data).localeCompare(String(b.data)) ||
+           (b.estoqueInicial ? 1 : 0) - (a.estoqueInicial ? 1 : 0) ||
            String(a.nome).localeCompare(String(b.nome), 'pt-BR');
   });
 

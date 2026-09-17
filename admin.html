@@ -795,7 +795,7 @@
      A lista salva passa por uma peneira contra a de fabrica: coluna que nao existe mais
      e descartada e coluna nova entra no fim. Sem isso, quem tivesse arrastado antes de um
      deploy ficaria sem ver a coluna nova, sem entender por que. */
-  var COLS_PADRAO = ['data','inicial','origem','destino','quem',
+  var COLS_PADRAO = ['data','inicial','lancado','origem','destino','quem',
                      'saida','retorno','final'];
   var COLS_CHAVE = 'qdc_cols_ativos_v1';
 
@@ -836,8 +836,8 @@
   /* Somadas, estas larguras cabem numa area util de ~1.050px, que e o que sobra numa
      tela de 1.400. Mais folgadas, a tabela transbordava e voltava a barra de rolagem
      horizontal. Quem quiser mais espaco numa coluna arrasta a borda. */
-  var LARG_PADRAO = { data:95, inicial:110, origem:150, destino:150,
-                      quem:190, saida:165, retorno:165, final:105 };
+  var LARG_PADRAO = { data:95, inicial:105, lancado:110, origem:145, destino:145,
+                      quem:190, saida:160, retorno:160, final:105 };
   var LARG_MIN = 70;
 
   function larguras(){
@@ -975,6 +975,19 @@
                   } },
       inicial:  { t: 'Saldo inicial', num: true, so: 'local',
                   v: function(l){ return Q.num(l.iniCorrido || 0); } },
+      /* Duas perguntas diferentes, lado a lado. "Saldo inicial" e o ACUMULADO — tudo que
+         ja entrou menos tudo que ja saiu ate aqui. Esta, o que foi lancado NAQUELE dia.
+
+         Sozinho, o acumulado nao deixa ver o lancamento: a linha de 17/09 abria em 2.060
+         e nada na tela dizia que 810 daquilo tinham acabado de ser lancados. Dia sem
+         lancamento nenhum mostra o zero em cinza — o numero fica, honesto, mas nao
+         disputa a atencao com os dias que de fato tiveram entrada. */
+      lancado:  { t: 'Lançado no dia', num: true, so: 'local',
+                  v: function(l){
+                    var q = l.inicial || 0;
+                    return q ? '<b class="val val-ok">+' + Q.num(q) + '</b>'
+                             : '<span class="fraco">0</span>';
+                  } },
       origem:   { t: 'Origem', so: 'local',
                   v: function(l){
                     return lugares(l.origens) +
@@ -1134,12 +1147,13 @@
     /* O CSV sai na MESMA ordem de colunas da tela, inclusive a que a pessoa arrastou:
        um arquivo com as colunas noutra ordem obriga a conferir duas vezes qual e qual. */
     var cs = ordemColunas().filter(function(id){ return id !== 'quem'; });
-    var TIT = { data:'Data', inicial:'Saldo inicial',
+    var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Lançado no dia',
                 origem:'Origem', destino:'Destino', saida:'Saída', retorno:'Retorno',
                 final:'Saldo final' };
     var VAL = {
       data:     function(l){ return l.data ? Q.dataBR(l.data) : ''; },
       inicial:  function(l){ return l.iniCorrido || 0; },
+      lancado:  function(l){ return l.inicial || 0; },
       origem:   function(l){ return (l.origens||[]).join(' | '); },
       destino:  function(l){ return l.estoqueInicial ? 'Estoque Inicial'
                                                      : (l.destinos||[]).join(' | '); },

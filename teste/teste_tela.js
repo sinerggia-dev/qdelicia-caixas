@@ -779,6 +779,79 @@ console.log('\n== o saldo corrido vem do servidor ==');
 })();
 
 /* ---------------------------------------------------------------------------
+ * "Lançado no dia": o estoque que entrou NAQUELE dia, ao lado do acumulado.
+ *
+ * O Saldo inicial e o acumulado — tudo que ja entrou menos tudo que ja saiu. Sozinho ele
+ * nao deixa ver o lancamento: a linha de 17/09 abria em 1.620 e nada na tela dizia que
+ * 810 daquilo tinham acabado de ser lancados.
+ *
+ * E a simetria das colunas: toda coluna de fabrica precisa de DEFS, de largura e do par
+ * titulo+valor no CSV. Uma coluna sem largura nao cai num padrao — com `table-layout:
+ * fixed` ela recebe `width:undefinedpx` e some.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a coluna "Lançado no dia" ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var i = adm.indexOf('function desenharFluxo()');
+  var corpo = adm.slice(i, adm.indexOf("document.querySelectorAll('[data-fchip]')", i));
+  var defs = corpo.slice(corpo.indexOf('var DEFS = {'), corpo.indexOf('DEFS.quem.t'));
+
+  /* --- o que a celula mostra --------------------------------------------- */
+  /* O corpo da funcao se acha contando chaves. Recortar por `lastIndexOf('}')` pegava o
+     fim do MAPA inteiro, e a funcao saia com as colunas seguintes dentro. */
+  var v = defs.indexOf('v: function(l){', defs.indexOf('lancado:'));
+  var a = defs.indexOf('{', v), b = a + 1, abertas = 1;
+  while (abertas > 0 && b < defs.length) {
+    if (defs[b] === '{') abertas++; else if (defs[b] === '}') abertas--;
+    b++;
+  }
+  var f = defs.slice(a + 1, b - 1);
+  ok(v > 0 && /l\.inicial/.test(f) && f.indexOf('lancado:') < 0,
+    'o recorte pegou só o corpo da célula — sem isto o teste abaixo exercita outra coisa');
+  var Q = { num: function (n) { return String(n); } };
+  var celula = new Function('Q', 'l', f);
+
+  var lancou = celula(Q, { estoqueInicial: true, inicial: 810, iniCorrido: 1620 });
+  ok(lancou.indexOf('810') > 0 && lancou.indexOf('1620') < 0,
+    'o dia que teve lançamento mostra 810, o do dia — nunca o acumulado 1.620', lancou);
+  ok(/val-ok/.test(lancou) && lancou.indexOf('+810') > 0,
+    'em verde e com sinal de mais: é entrada de caixa', lancou);
+
+  /* O zero FICA. Ja se tentou travessao noutra coluna de valor e o usuario pediu os
+     numeros de volta — buraco no meio da coluna se le como dado faltando. Cinza basta
+     para o olho ir aos dias que tiveram entrada. */
+  var semLancamento = celula(Q, { inicial: 0, iniCorrido: 1620, saida: 810 });
+  ok(semLancamento.indexOf('0') > 0 && /fraco/.test(semLancamento) &&
+     !/val-ok/.test(semLancamento),
+    'dia sem lançamento mostra o zero, em cinza — o número fica, sem disputar atenção',
+    semLancamento);
+
+  /* --- simetria: nenhuma coluna pela metade ------------------------------- */
+  var padrao = adm.slice(adm.indexOf('var COLS_PADRAO'), adm.indexOf(';', adm.indexOf('var COLS_PADRAO')));
+  var cols = (padrao.match(/'(\w+)'/g) || []).map(function (t) { return t.slice(1, -1); });
+  ok(cols.indexOf('lancado') > 0, 'a coluna esta na lista de fabrica', cols);
+
+  var semDef = cols.filter(function (id) { return defs.indexOf('\n      ' + id + ':') < 0; });
+  ok(semDef.length === 0, 'toda coluna de fábrica tem definição — sem ela o <td> sai vazio',
+    semDef);
+
+  var larg = adm.slice(adm.indexOf('var LARG_PADRAO'), adm.indexOf('};', adm.indexOf('var LARG_PADRAO')));
+  var semLarg = cols.filter(function (id) { return larg.indexOf(id + ':') < 0; });
+  ok(semLarg.length === 0,
+    'e toda coluna tem largura — `larguras()` só conhece as chaves de LARG_PADRAO, e ' +
+    'com table-layout:fixed a que faltar recebe width:undefinedpx e some', semLarg);
+
+  var j = adm.indexOf("Q.csv('retornos'");
+  var csv = adm.slice(adm.lastIndexOf('var cs =', j), adm.indexOf('}));', j));
+  var semCsv = cols.filter(function (id) {
+    return id !== 'quem' && (csv.indexOf(id + ':') < 0 ||
+                             csv.slice(csv.indexOf('var VAL')).indexOf(id + ':') < 0);
+  });
+  ok(semCsv.length === 0,
+    'e vai ao CSV com titulo e valor: exportar e conferir na tela têm de bater', semCsv);
+})();
+
+/* ---------------------------------------------------------------------------
  * Limpar filtros: uma acao devolve a tela ao estado de quem acabou de abrir.
  *
  * Sao quatro filtros em tres cantos diferentes — origem e destino em cima, o periodo ao

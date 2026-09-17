@@ -1062,7 +1062,13 @@ async function main() {
       f.linhas.map((l) => l.id));
 
     /* Cenario que DISTINGUE data de saldo: aqui o caminho mais recente e o que mais deve.
-       Ordenando por saldo, ele viria primeiro; por data, vem por ultimo. */
+       Ordenando por saldo, ele viria primeiro; por data, vem por ultimo. E o estoque foi
+       lancado DEPOIS de tudo, entao ele fecha a lista — nao abre.
+
+       Abria, ate 17/09/2026: o estoque vinha antes da data na comparacao, e todos os
+       estoques subiam para o topo. Um saldo inicial lancado no dia 20 aparecia grudado no
+       do dia 2, acima das movimentacoes do meio, como se tivesse sido lancado antes
+       delas. Num extrato quem manda e a data. */
     const cenOrd = {
       config: {}, usuarios: cen.usuarios, locais: cen.locais,
       movimentos: [
@@ -1074,12 +1080,52 @@ async function main() {
       ]
     };
     const ord = F.fluxoPorOrigem(cenOrd, DESDE, 90).linhas;
-    ok(ord[0].estoqueInicial === true,
-      'o estoque inicial abre a lista, mesmo lancado depois de tudo',
+    ok(ord.map((l) => String(l.data).slice(0, 10)).join(' ') ===
+       '2026-09-02 2026-09-18 2026-09-20',
+      'a lista sai por data — o estoque lançado por último fica por último',
       ord.map((l) => l.id + ':' + l.data));
-    ok(ord[1].id.indexOf('L001>R01') === 0 && ord[2].id.indexOf('R01>C01') === 0,
+    ok(ord[2].estoqueInicial === true,
+      'e é ele mesmo quem está lá no fim, no dia em que foi lançado',
+      ord.map((l) => l.id + ':' + l.data));
+    ok(ord[0].id.indexOf('L001>R01') === 0 && ord[1].id.indexOf('R01>C01') === 0,
       'e os caminhos vem por data, nao por quanto devem — o de 900 e o mais recente',
       ord.map((l) => l.id + ':' + l.saldo));
+
+    /* Dentro do MESMO dia o estoque abre: "o que eu tinha quando o dia comecou, e o que
+       fiz com isso". Este cenario e o da tela do usuario em 17/09/2026, numero a numero —
+       inclusive o saldo corrido, que corre na ordem da lista e por isso saia errado junto
+       com ela. */
+    const cenDia = {
+      config: {}, usuarios: cen.usuarios, locais: cen.locais,
+      movimentos: [
+        { Tipo: 'AJUSTE', DestinoID: 'L001', Qtd: 1250, DataRef: D('2026-09-15') },
+        { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'C01', Qtd: 1690,
+          DataRef: D('2026-09-16') },
+        { Tipo: 'DEVOLUCAO', OrigemID: 'C01', DestinoID: 'L001', Qtd: 1250,
+          DataRef: D('2026-09-16') },
+        { Tipo: 'AJUSTE', DestinoID: 'L001', Qtd: 810, DataRef: D('2026-09-17') },
+        { Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'C01', Qtd: 810,
+          DataRef: D('2026-09-17') }
+      ]
+    };
+    const dia = F.fluxoPorOrigem(cenDia, DESDE, 90).linhas;
+    ok(dia.map((l) => String(l.data).slice(5, 10) + (l.estoqueInicial ? '/est' : '/mov'))
+         .join(' ') === '09-15/est 09-16/mov 09-17/est 09-17/mov',
+      'dentro do mesmo dia o estoque abre e a movimentação vem depois',
+      dia.map((l) => l.data + (l.estoqueInicial ? ' estoque' : ' caminho')));
+
+    /* A coluna nova da tela: o que foi lancado NAQUELE dia, separado do acumulado. Sem
+       ela, a linha de 17/09 abria em 1.620 e nada dizia que 810 daquilo acabavam de
+       entrar. */
+    ok(dia.map((l) => l.inicial).join(' ') === '1250 0 810 0',
+      'cada linha carrega o estoque lançado no dia dela, e não o acumulado',
+      dia.map((l) => l.data + ':' + l.inicial));
+
+    /* O saldo corre na ordem da lista, entao a ordem errada levava o acumulado junto:
+       com os dois estoques no topo, o dia 16 abria em 2.060 em vez de 1.250. */
+    ok(dia.map((l) => l.iniCorrido).join(' ') === '1250 1250 1620 1620',
+      'e o saldo corrido segue a mesma ordem: 1.250, 1.250, 1.620, 1.620',
+      dia.map((l) => l.data + ':' + l.iniCorrido));
 
     /* O ensaio continua no fim, acima de qualquer data: foi pedido explicitamente que
        tudo com "teste" no nome fique embaixo. */
