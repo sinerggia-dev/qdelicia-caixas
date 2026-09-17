@@ -331,6 +331,29 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
     'e todo campo recarrega a lista sozinho ao mudar',
     campos.filter(function (c) { return ouvintes.indexOf("'" + c + "'") < 0; }));
 
+  /* E todo campo tem de VIAJAR no pedido. Faltava este teste, e por isso `mvFluxo` e
+     `mvCaixa` passaram a existir sem efeito nenhum: o servidor sabia filtrar, a tela so
+     nao pedia. Escolher uma caixa nao mudava nada na tabela.
+
+     Pior que inofensivo: o "Apagar o que esta no filtro" mandava os dois campos, entao a
+     tela e o apagar recortavam conjuntos diferentes — o que sobrava contra isso era a
+     conferencia do numero esperado. */
+  var p = adm.indexOf("Q.get({acao:'movimentos'");
+  var pedido = adm.slice(p, adm.indexOf('})', p));
+  var campoDoPedido = { mvOrigem: 'origem', mvDestino: 'destino', mvFluxo: 'fluxo',
+                        mvTipo: 'tipo', mvCaixa: 'caixa', mvStatus: 'situacao',
+                        mvUsuario: 'usuario', mvTeste: 'teste', mvDe: 'de', mvAte: 'ate' };
+  var semMapa = campos.filter(function(c){ return !campoDoPedido[c]; });
+  ok(semMapa.length === 0,
+    'todo campo da barra tem um nome conhecido no pedido — campo novo entra aqui também',
+    semMapa);
+  var naoViaja = campos.filter(function(c){
+    return pedido.indexOf(campoDoPedido[c] + ':f.') < 0;
+  });
+  ok(naoViaja.length === 0,
+    'e todo campo da barra viaja no pedido: filtro que não chega ao servidor não filtra',
+    naoViaja);
+
   var k = adm.indexOf("getElementById('btnLimparMov')");
   var limpar = adm.slice(k, adm.indexOf('});', k));
   // as duas datas voltam pelo periodoPadraoMov, nao uma a uma

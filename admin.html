@@ -228,6 +228,9 @@
           <option value="TRANSFERENCIA">Transferência</option><option value="PERDA">Perda</option><option value="AJUSTE">Ajuste</option>
         </select></div>
         <div><label for="mvCaixa">Caixa</label><select id="mvCaixa"><option value="">Todas</option></select></div>
+        <!-- As opcoes vem da `equipe`, da mesma lista que o servidor usa para rotular.
+             Escritas aqui, seriam duas listas sobre a mesma regra. -->
+        <div><label for="mvStatus">Status</label><select id="mvStatus"><option value="">Todos</option></select></div>
         <div><label for="mvUsuario">Quem lançou</label><select id="mvUsuario"><option value="">Todos</option></select></div>
         <div><label for="mvTeste">Lançamentos</label><select id="mvTeste">
           <option value="reais">Só reais</option>
@@ -310,7 +313,19 @@
 (function(){
   'use strict';
   var Q = window.QDC;
-  var DADOS = null, EQUIPE = [], MOTORISTAS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PAINEL = null, EXTRATO = null, MOVS = [];
+  var DADOS = null, EQUIPE = [], MOTORISTAS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PAINEL = null, EXTRATO = null, MOVS = [], SITUACOES = [];
+
+  /* Fica fora de montarSelects porque a lista chega pela `equipe`, que e outra ida de
+     rede: montada junto com as demais, ela ainda estaria vazia. */
+  function montarStatusMov(){
+    var sel = document.getElementById('mvStatus');
+    if (!sel) return;
+    var antes = sel.value;
+    sel.innerHTML = '<option value="">Todos</option>' + SITUACOES.map(function(s){
+      return '<option value="'+Q.esc(s)+'">'+Q.esc(s)+'</option>';
+    }).join('');
+    if (SITUACOES.indexOf(antes) >= 0) sel.value = antes;
+  }
 
   /* ---------------- login ---------------- */
   function iniciarLogin(){
@@ -460,7 +475,7 @@
 
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; }
+      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
       ordenarTudo();
       montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
@@ -1526,6 +1541,7 @@
       tipo:    document.getElementById('mvTipo').value,
       fluxo:   document.getElementById('mvFluxo').value,
       caixa:   document.getElementById('mvCaixa').value,
+      situacao: document.getElementById('mvStatus').value,
       usuario: document.getElementById('mvUsuario').value,
       teste:   document.getElementById('mvTeste').value,
       de:      document.getElementById('mvDe').value,
@@ -1554,6 +1570,7 @@
     if (f.fluxo === 'SAIDA')   p.push('<b>só o que saiu</b>');
     if (f.fluxo === 'ENTRADA') p.push('<b>só o que voltou</b>');
     if (f.caixa)   p.push('da caixa <b>'+Q.esc(nomeCaixa(f.caixa))+'</b>');
+    if (f.situacao) p.push('com status <b>'+Q.esc(f.situacao)+'</b>');
     if (f.teste === 'reais') p.push('<b>só reais</b>');
     if (f.teste === 'teste') p.push('<b>só de teste</b>');
     if (f.de)      p.push('a partir de <b>'+Q.dataBR(f.de)+'</b>');
@@ -1583,8 +1600,8 @@
   /* Os cinco campos recarregam sozinhos ao mudar. Antes só o botão Filtrar disparava a
      busca: a pessoa trocava o Tipo, a tabela continuava igual, e a conclusão natural era
      que o filtro não funcionava. O botão fica como recarregar. */
-  ['mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa', 'mvUsuario', 'mvTeste',
-   'mvDe', 'mvAte'].forEach(function(id){
+  ['mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa', 'mvStatus', 'mvUsuario',
+   'mvTeste', 'mvDe', 'mvAte'].forEach(function(id){
     document.getElementById(id).addEventListener('change', carregarMovimentos);
   });
 
@@ -1600,6 +1617,7 @@
     document.getElementById('mvFluxo').value = '';
     document.getElementById('mvTipo').value = '';
     document.getElementById('mvCaixa').value = '';
+    document.getElementById('mvStatus').value = '';
     document.getElementById('mvUsuario').value = '';
     document.getElementById('mvTeste').value = 'reais';
     periodoPadraoMov();
@@ -1609,9 +1627,13 @@
     var box = document.getElementById('tabelaMov');
     box.innerHTML = '<div class="vazio">Carregando…</div>';
     var f = filtroExclusao();   // o mesmo recorte que a lista, o CSV e o apagar usam
+    /* Todo campo do filtro vai no pedido. `fluxo` e `caixa` ficaram de fora um tempo:
+       o servidor sabia filtrar, a tela so nao pedia — escolher uma caixa nao mudava nada
+       na tabela, e o filtro parecia quebrado. Pior, o "Apagar o que esta no filtro"
+       mandava os dois, entao a tela e o apagar recortavam coisas diferentes. */
     Q.get({acao:'movimentos', origem:f.origem, destino:f.destino,
-           tipo:f.tipo, usuario:f.usuario, teste:f.teste,
-           de:f.de, ate:f.ate, limit:500})
+           tipo:f.tipo, fluxo:f.fluxo, caixa:f.caixa, usuario:f.usuario, teste:f.teste,
+           situacao:f.situacao, de:f.de, ate:f.ate, limit:500})
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
         MOVS = r.movimentos;

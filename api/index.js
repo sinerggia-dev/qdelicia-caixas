@@ -99,7 +99,7 @@ async function rotaGet(p) {
                perfis: L.perfisConhecidos(d.usuarios),
                // A MESMA lista que a gravacao usa para recusar. Escrever as opcoes na tela
                // faria duas listas sobre a mesma regra, e elas divergem no primeiro nome novo.
-               operacoes: L.OPERACOES, abas: L.ABAS };
+               operacoes: L.OPERACOES, abas: L.ABAS, situacoes: L.SITUACOES };
     case 'painel':
       return { ok: true, painel: L.painel(L.recorteTeste(d, p.teste), null,
                                           { de: p.de, ate: p.ate }) };
@@ -328,7 +328,7 @@ async function limparMovimentos(p) {
   var filtro = {
     local: p.local, origem: p.origem, destino: p.destino,
     tipo: p.tipo, fluxo: p.fluxo, caixa: p.caixa, usuario: p.usuario, teste: p.teste,
-    de: p.de, ate: p.ate, limit: 100000
+    situacao: p.situacao, de: p.de, ate: p.ate, limit: 100000
   };
   var ids = L.listaMovimentos(d.movimentos, d.locais, d.tipos, d.usuarios, filtro)
     .map(function (m) { return m.id; });

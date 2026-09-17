@@ -2115,6 +2115,90 @@ console.log('\n== a correcao recebe um mapa de nomes para cada campo ==');
     'o endpoint entrega um mapa para cada um — senão o histórico guarda o id cru', faltam);
 }
 
+/* ---------------------------------------------------------------------------
+ * A lista de status que a tela oferece e a MESMA que o servidor escreve.
+ *
+ * `SITUACOES` alimenta o filtro de Status; `rotuloCiclo` decide o rotulo de cada linha.
+ * Duas listas sobre a mesma regra divergem no primeiro rotulo novo — e ai o filtro
+ * oferece algo que nao existe, ou esconde algo que existe. A varredura abaixo cobre TODA
+ * combinacao de tipo e ciclo, que e um espaco pequeno o bastante para ser exaustivo.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a lista de status e a mesma dos dois lados ==');
+{
+  /* O `F` la de cima esta preso ao bloco dele; aqui a regra vem do modulo. */
+  const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  const TIPOS = ['SAIDA', 'DEVOLUCAO', 'TRANSFERENCIA', 'PERDA', 'AJUSTE'];
+  const CICLOS = [undefined, {}, { cheio: true }, { parcial: true },
+                  { cheio: true, parcial: true }];
+  const produzidos = {};
+  TIPOS.forEach((t) => CICLOS.forEach((c) => { produzidos[F.rotuloCiclo({ Tipo: t }, c)] = 1; }));
+
+  const sobrando = Object.keys(produzidos).filter((r) => F.SITUACOES.indexOf(r) < 0);
+  ok(sobrando.length === 0,
+    'todo rótulo que o servidor escreve está na lista que a tela oferece — senão a linha ' +
+    'aparece com um status que nenhum filtro alcança', sobrando);
+
+  const inalcancaveis = F.SITUACOES.filter((r) => !produzidos[r]);
+  ok(inalcancaveis.length === 0,
+    'e toda opção do filtro é alcançável — opção que nunca acha nada só engana',
+    inalcancaveis);
+
+  ok(F.SITUACOES.length >= 6, 'a varredura achou os rótulos mesmo, não uma lista vazia',
+    F.SITUACOES);
+}
+
+/* ---------------------------------------------------------------------------
+ * O filtro de status roda no SERVIDOR, antes do corte de 500 linhas.
+ *
+ * O status nao esta no movimento — sai do ciclo da carga. Filtra-lo na tela mostraria so
+ * os "Parcial" que por acaso couberam nas 500 primeiras linhas, e a pessoa concluiria que
+ * so existem esses.
+ * ------------------------------------------------------------------------- */
+console.log('\n== o filtro de status recorta a lista ==');
+{
+  const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  const D = (iso) => new Date(iso + 'T00:00:00');
+  const locais = [{ ID: 'L1', Nome: 'Galpão', Tipo: 'GALPAO' },
+                  { ID: 'C1', Nome: 'Cliente', Tipo: 'CLIENTE' }];
+  const tipos = [{ ID: 'T1', Nome: 'CX' }];
+  const movs = [
+    { ID: 'M1', Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'C1', TipoCaixaID: 'T1',
+      Qtd: 100, DataRef: D('2026-09-10'), DataHora: D('2026-09-10') },
+    { ID: 'M2', Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'C1', TipoCaixaID: 'T1',
+      Qtd: 50, DataRef: D('2026-09-11'), DataHora: D('2026-09-11') },
+    { ID: 'M3', Tipo: 'DEVOLUCAO', OrigemID: 'C1', DestinoID: 'L1', TipoCaixaID: 'T1',
+      Qtd: 100, DataRef: D('2026-09-12'), DataHora: D('2026-09-12') },
+    { ID: 'M4', Tipo: 'AJUSTE', DestinoID: 'L1', TipoCaixaID: 'T1',
+      Qtd: 30, DataRef: D('2026-09-13'), DataHora: D('2026-09-13') }
+  ];
+  const todos = F.listaMovimentos(movs, locais, tipos, [], {});
+  const porStatus = {};
+  todos.forEach((m) => { porStatus[m.situacao] = (porStatus[m.situacao] || 0) + 1; });
+  /* O cenario precisa ter status DIFERENTES, senao filtrar por um devolveria a lista
+     inteira e o teste passaria sem testar. */
+  ok(Object.keys(porStatus).length >= 3,
+    'o cenário tem status diferentes — com um só, filtrar não distinguiria nada',
+    porStatus);
+
+  const dev = F.listaMovimentos(movs, locais, tipos, [], { situacao: 'Devolvida' });
+  ok(dev.length > 0 && dev.every((m) => m.situacao === 'Devolvida'),
+    'filtrando por Devolvida sobram só as devolvidas', dev.map((m) => m.id + ':' + m.situacao));
+  ok(dev.length < todos.length, 'e sobram MENOS do que sem filtro', [dev.length, todos.length]);
+
+  const aj = F.listaMovimentos(movs, locais, tipos, [], { situacao: 'Ajuste' });
+  ok(aj.length === 1 && aj[0].id === 'M4', 'e por Ajuste sobra o ajuste', aj.map((m) => m.id));
+
+  ok(F.listaMovimentos(movs, locais, tipos, [], { situacao: 'Perda' }).length === 0,
+    'status sem nenhuma linha devolve vazio, e não a lista inteira');
+
+  /* O corte de 500 vem DEPOIS do filtro: com limite 1, filtrar por Ajuste ainda tem de
+     achar o ajuste, mesmo ele sendo a ultima linha da ordenacao. */
+  const comLimite = F.listaMovimentos(movs, locais, tipos, [], { situacao: 'Ajuste', limit: 1 });
+  ok(comLimite.length === 1 && comLimite[0].id === 'M4',
+    'o filtro roda ANTES do corte — filtrado na tela, o status sumiria com a paginação',
+    comLimite.map((m) => m.id));
+}
+
 console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
 {
   const src = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');

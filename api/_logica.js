@@ -820,6 +820,15 @@ function cicloDaCarga(movimentos) {
 }
 
 /** Uma coluna só no lugar de Tipo + Status: o que a linha é E em que pé está. */
+/* Os rotulos de status sao um conjunto fechado, e esta e a lista que a tela oferece
+   para filtrar. Escrever as opcoes no HTML faria duas listas sobre a mesma regra: elas
+   divergem no primeiro rotulo novo, e o filtro passa a oferecer algo que nao existe — ou
+   a esconder algo que existe. Ha teste comparando esta lista com o que `rotuloCiclo`
+   e capaz de devolver, nos dois sentidos.
+
+   A ordem e a do ciclo da caixa, e nao alfabetica: saiu, voltou em parte, voltou. */
+var SITUACOES = ['Enviada', 'Transferida', 'Parcial', 'Devolvida', 'Perda', 'Ajuste'];
+
 function rotuloCiclo(m, e) {
   if (m.Tipo === 'DEVOLUCAO') return 'Devolvida';
   if (m.Tipo === 'PERDA') return 'Perda';
@@ -861,6 +870,10 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
     // e deixa de fora perda e ajuste, que não são viagem de caixa nenhuma.
     if (p.fluxo && sentidoDoMovimento(m.Tipo) !== String(p.fluxo).toUpperCase()) return false;
     if (p.caixa && String(m.TipoCaixaID) !== String(p.caixa)) return false;
+    /* O status nao esta no movimento: e calculado do ciclo da carga, entao filtra-lo na
+       tela nao daria — pela mesma razao do usuario, o corte de 500 linhas vem DEPOIS
+       daqui, e a tela veria so os "Parcial" que couberam nas 500. */
+    if (p.situacao && rotuloCiclo(m, ciclo[m.ID]) !== String(p.situacao)) return false;
     // Aqui e nao no navegador: o corte de 500 linhas vem DEPOIS deste filtro, entao
     // filtrar na tela mostraria so os lancamentos da pessoa que couberam nas 500.
     if (p.usuario && String(m.UsuarioID) !== String(p.usuario)) return false;
@@ -1484,5 +1497,6 @@ module.exports = {
   locaisPermitidos: locaisPermitidos, motoristasDaRota: motoristasDaRota,
   ehVolante: ehVolante,
   OPERACOES: OPERACOES, operacaoDoTipo: operacaoDoTipo, podeOperacao: podeOperacao,
-  ABAS: ABAS, podeAba: podeAba
+  ABAS: ABAS, podeAba: podeAba,
+  SITUACOES: SITUACOES, rotuloCiclo: rotuloCiclo
 };
