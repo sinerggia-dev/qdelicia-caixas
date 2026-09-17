@@ -1120,6 +1120,29 @@ console.log('\n== as abas do painel viram lista ==');
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
   var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 
+  /* --- onde o menu mora --------------------------------------------------- */
+  var cab = adm.indexOf('<header>');
+  var fimCab = adm.indexOf('</header>', cab);
+  var menu = adm.indexOf('<div class="menu-abas"');
+  ok(cab > 0 && menu > cab && menu < fimCab,
+    'o menu mora no cabeçalho, e não numa faixa própria — a faixa custava uma linha ' +
+    'inteira da tela para carregar um botão só', [cab, menu, fimCab]);
+  ok(menu < adm.indexOf('id="chipRede"'),
+    'e fica à esquerda do "Online", onde a pessoa já olha para saber da sessão');
+
+  /* O gatilho fala a lingua dos chips ao lado. Os tokens de superficie (--linha, --txt)
+     sao para o chao cinza da pagina e somem no marinho do cabecalho. */
+  ok(/\.aba-atual\{[^}]*background:rgba\(255,255,255,\.18\)/.test(css) &&
+     /header \.chip\{[\s\S]{0,80}background:rgba\(255,255,255,\.18\)/.test(css),
+    'e usa o mesmo fundo dos chips — os tokens de superfície somem no marinho');
+
+  /* A lista alinha pela DIREITA: o gatilho esta na ponta direita do cabecalho, e pela
+     esquerda os 230px dela sairiam pela borda da tela. */
+  ok(/\.menu-abas nav\.abas\{[^}]*right:0;left:auto/.test(css),
+    'a lista alinha pela direita: pela esquerda, sairia pela borda da tela');
+  ok(/\.menu-abas\{position:relative/.test(css),
+    'e o invólucro é a âncora dela');
+
   /* --- o gatilho fica FORA do <nav> --------------------------------------- */
   var ini = adm.indexOf('<nav class="abas" id="abas"');
   var fim = adm.indexOf('</nav>', ini);
