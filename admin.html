@@ -702,12 +702,16 @@
       if (l.situacao === 'parado' && !l.inicial) return false;
       if (o && (l.origens || []).indexOf(o) < 0) return false;
       /* A linha de estoque inicial nao tem destino — ela nao e um caminho, e o ponto de
-         partida da conta. Pelo filtro de destino ela caia fora, e ai o Saldo inicial da
-         primeira linha abria em ZERO: filtrar por Joao Pessoa apagava as 1.250 caixas
-         disponiveis na Matriz e o saldo final passava a mentir.
+         partida da conta. Por isso ela atravessa o filtro de destino em vez de cair fora:
+         filtrar por Joao Pessoa apagava as 1.250 caixas disponiveis na Matriz, o Saldo
+         inicial da primeira linha abria em ZERO e o saldo final passava a mentir.
 
-         Pelo filtro de ORIGEM ela continua passando, porque origem ela tem: olhar a conta
-         da Filial Maceio nao deve trazer o estoque da Matriz junto. */
+         Pelo filtro de ORIGEM ela continua sendo peneirada, porque origem ela tem: olhar
+         a conta da Filial Maceio nao deve trazer o estoque da Matriz junto.
+
+         E ha o caso de quem quer ver SO os lancamentos de estoque — nao cabia no filtro
+         de destino porque estoque nao e um lugar, entao entra como opcao propria. */
+      if (d === DESTINO_ESTOQUE) return !!l.estoqueInicial;
       if (d && !l.estoqueInicial && (l.destinos || []).indexOf(d) < 0) return false;
       return true;
     });
@@ -744,6 +748,12 @@
     if (tinhaData) carregarPainel(); else desenharFluxo();
   }
 
+  /* "Estoque Inicial" nao e um local, entao nao pode valer pelo nome: um dia alguem
+     cadastra uma filial com esse nome e o filtro passa a mostrar a coisa errada. Vale por
+     um valor que nenhum cadastro produz — os dois pontos na frente nao sao digitaveis num
+     nome de local, e a comparacao e feita antes de qualquer busca por nome. */
+  var DESTINO_ESTOQUE = '::estoque';
+
   /* As opcoes saem dos nomes que ESTAO nas linhas, e nao do cadastro inteiro: uma lista
      com trinta locais dos quais dois tem movimento obriga a procurar. Monta-se a partir
      do fluxo cru, sem os proprios filtros aplicados — senao escolher uma origem apagaria
@@ -757,16 +767,24 @@
       });
       return Object.keys(vistos).sort(function(a, b){ return a.localeCompare(b, 'pt-BR'); });
     }
-    [['rtOrigem', 'origens', 'Todas'], ['rtDestino', 'destinos', 'Todos']].forEach(function(c){
+    /* A opcao de estoque so aparece quando ha estoque no periodo, pela mesma razao que as
+       outras: oferecer um filtro que nao acha nada e mandar procurar o que nao existe. */
+    var temEstoque = f.linhas.some(function(l){ return l.estoqueInicial; });
+    [['rtOrigem', 'origens', 'Todas', []],
+     ['rtDestino', 'destinos', 'Todos',
+      temEstoque ? [{ v: DESTINO_ESTOQUE, r: 'Estoque Inicial' }] : []]
+    ].forEach(function(c){
       var sel = document.getElementById(c[0]);
       if (!sel) return;
       var antes = sel.value;
-      var lista = nomes(c[1]);
-      sel.innerHTML = '<option value="">'+c[2]+'</option>'+lista.map(function(n){
-        return '<option value="'+Q.esc(n)+'">'+Q.esc(n)+'</option>';
+      /* As opcoes proprias vem no topo, logo abaixo do "Todos": intercalada entre nomes
+         de local em ordem alfabetica, "Estoque Inicial" pareceria mais um local. */
+      var opcoes = c[3].concat(nomes(c[1]).map(function(n){ return { v: n, r: n }; }));
+      sel.innerHTML = '<option value="">'+c[2]+'</option>'+opcoes.map(function(o){
+        return '<option value="'+Q.esc(o.v)+'">'+Q.esc(o.r)+'</option>';
       }).join('');
       // mantem a escolha se ela ainda existe; se sumiu, volta para "Todas"
-      if (lista.indexOf(antes) >= 0) sel.value = antes;
+      if (opcoes.some(function(o){ return o.v === antes; })) sel.value = antes;
     });
   }
 

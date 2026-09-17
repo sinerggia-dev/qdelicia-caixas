@@ -679,27 +679,89 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
   fonte = fonte.slice(fonte.indexOf('function(l){') + 'function(l){'.length,
                       fonte.lastIndexOf('});'));
   fonte = fonte.slice(0, fonte.lastIndexOf('}'));
-  var passa = new Function('l', 'o', 'd', fonte);
+  /* O valor reservado vem do CODIGO, e nao escrito de novo aqui: repetido, o teste
+     continuaria verde depois de alguem trocar o token no admin.html. */
+  var ESTQ = (adm.match(/var DESTINO_ESTOQUE = '([^']+)'/) || [])[1];
+  ok(!!ESTQ && /^[^A-Za-zÀ-ÿ0-9]/.test(ESTQ),
+    'o valor reservado do filtro não começa como um nome de local começaria', ESTQ);
+
+  var passa = new Function('l', 'o', 'd', 'DESTINO_ESTOQUE', fonte);
   var estoque = { estoqueInicial: true, inicial: 1250, situacao: 'parado',
                   origens: ['Matriz Fazenda'], destinos: [] };
   var caminho = { inicial: 0, situacao: 'atencao',
                   origens: ['Matriz Fazenda'], destinos: ['João Pessoa'] };
 
-  ok(passa(estoque, '', 'João Pessoa') === true,
+  ok(passa(estoque, '', 'João Pessoa', ESTQ) === true,
     'filtrando por destino, o estoque da Matriz continua na lista');
-  ok(passa(caminho, '', 'João Pessoa') === true, 'e o caminho filtrado tambem');
-  ok(passa(estoque, 'Filial Maceió', '') === false,
+  ok(passa(caminho, '', 'João Pessoa', ESTQ) === true, 'e o caminho filtrado tambem');
+  ok(passa(estoque, 'Filial Maceió', '', ESTQ) === false,
     'mas filtrando por OUTRA origem ele sai: a conta e de outra unidade');
-  ok(passa(estoque, 'Matriz Fazenda', '') === true,
+  ok(passa(estoque, 'Matriz Fazenda', '', ESTQ) === true,
     'e pela origem dele, fica');
+
+  /* A opcao propria: ver SO os lancamentos de estoque. Ela nao cabia no filtro de destino
+     pelo nome, porque estoque nao e um lugar — a linha nem destino tem. */
+  ok(passa(estoque, '', ESTQ, ESTQ) === true,
+    'escolhendo "Estoque Inicial" no destino, as linhas de estoque ficam');
+  ok(passa(caminho, '', ESTQ, ESTQ) === false,
+    'e os caminhos saem — é o único caso em que o estoque não é a exceção, mas a regra');
+  ok(passa(estoque, 'Matriz Fazenda', ESTQ, ESTQ) === true &&
+     passa(estoque, 'Filial Maceió', ESTQ, ESTQ) === false,
+    'e a origem continua somando com ele: os dois filtros valem juntos');
+
+  /* Este caso parece artificial e e o unico que separa a regra da sorte.
+     Hoje o token funcionaria SEM a linha que o trata: a linha de estoque passa pela
+     isencao do filtro de destino, e nenhum caminho tem destino chamado "::estoque". Ou
+     seja, apagar a linha nao muda nada — e um teste que nao usasse um caminho com esse
+     destino ficaria verde com a regra removida.
+
+     Um caminho cujo destino se chame exatamente como o token separa as duas coisas: com
+     a linha, ele sai (nao e estoque); sem ela, entraria por coincidencia de nome. E o que
+     mantem o token RESERVADO em vez de so improvavel. */
+  var homonimo = { inicial: 0, situacao: 'atencao',
+                   origens: ['Matriz Fazenda'], destinos: [ESTQ] };
+  ok(passa(homonimo, '', ESTQ, ESTQ) === false,
+    'um caminho cujo destino fosse o próprio token ainda assim sai: o valor é reservado, '
+    + 'e não um nome que se compara com os outros', passa(homonimo, '', ESTQ, ESTQ));
 
   /* As opcoes saem do fluxo CRU. Monta-las a partir da lista ja filtrada faria escolher
      uma origem apagar as outras opcoes, sem caminho de volta. */
   var mf = corpoDe('montarFiltrosFluxo');
   ok(mf.indexOf('PAINEL.fluxo') > 0 && mf.indexOf('todasAsLinhas') < 0,
     'as opcoes saem do fluxo cru, nao da lista ja filtrada', mf.trim());
-  ok(mf.indexOf('lista.indexOf(antes) >= 0') > 0,
-    'e a escolha sobrevive ao recarregar, quando ainda existe');
+  ok(/opcoes\.some\(function\(o\)\{ return o\.v === antes; \}\)/.test(mf),
+    'e a escolha sobrevive ao recarregar, quando ainda existe — inclusive a de estoque');
+
+  /* A opcao so aparece quando ha estoque no periodo: oferecer um filtro que nao acha nada
+     e mandar a pessoa procurar o que nao existe. */
+  var monta = new Function('PAINEL', 'document', 'Q', 'DESTINO_ESTOQUE',
+    /* corpoDe corta no fecha-chaves da funcao, entao ele volta aqui. */
+    mf + '} return montarFiltrosFluxo;');
+  function selects(){
+    var els = { rtOrigem: { value: '', innerHTML: '' },
+                rtDestino: { value: '', innerHTML: '' } };
+    return { els: els, doc: { getElementById: function(id){ return els[id] || null; } } };
+  }
+  var Qesc = { esc: function(v){ return String(v); } };
+
+  var comEstoque = selects();
+  monta({ fluxo: { linhas: [estoque, caminho] } }, comEstoque.doc, Qesc, ESTQ)();
+  ok(comEstoque.els.rtDestino.innerHTML.indexOf('>Estoque Inicial<') > 0 &&
+     comEstoque.els.rtDestino.innerHTML.indexOf('value="' + ESTQ + '"') > 0,
+    'havendo estoque no período, a opção entra no filtro de destino',
+    comEstoque.els.rtDestino.innerHTML);
+  ok(comEstoque.els.rtDestino.innerHTML.indexOf('Estoque Inicial') <
+     comEstoque.els.rtDestino.innerHTML.indexOf('João Pessoa'),
+    'e vem no topo: no meio dos nomes em ordem alfabética ela pareceria mais um local');
+  ok(comEstoque.els.rtOrigem.innerHTML.indexOf('Estoque Inicial') < 0,
+    'no filtro de ORIGEM ela não entra: a origem do estoque é o local, e ele já está lá',
+    comEstoque.els.rtOrigem.innerHTML);
+
+  var semEstoque = selects();
+  monta({ fluxo: { linhas: [caminho] } }, semEstoque.doc, Qesc, ESTQ)();
+  ok(semEstoque.els.rtDestino.innerHTML.indexOf('Estoque Inicial') < 0,
+    'sem estoque no período, a opção não aparece — filtro que não acha nada só engana',
+    semEstoque.els.rtDestino.innerHTML);
 
   // ---- largura ----
   var j = adm.indexOf('function larguras()');
