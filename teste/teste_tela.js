@@ -779,6 +779,112 @@ console.log('\n== o saldo corrido vem do servidor ==');
 })();
 
 /* ---------------------------------------------------------------------------
+ * Limpar filtros: uma acao devolve a tela ao estado de quem acabou de abrir.
+ *
+ * Sao quatro filtros em tres cantos diferentes — origem e destino em cima, o periodo ao
+ * lado, o grupo na coluna da esquerda. Desfaze-los um a um e onde se esquece de um e se
+ * conclui que a tabela esta errada.
+ * ------------------------------------------------------------------------- */
+console.log('\n== limpar filtros do Controle de Caixas ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* O recorte fecha contando chaves, e nao procurando uma linha escrita a mao. Procurar
+     por texto parecia mais simples ate a hora em que a linha mudou: o indexOf voltou -1,
+     o recorte pegou outro pedaco do arquivo, e a bancada inteira passou a exercitar codigo
+     que nao era o desta funcao — tudo verde, sem testar nada. A conferencia logo abaixo e
+     a guarda: se o recorte errar de novo, ele cai aqui, e nao em silencio. */
+  var i = adm.indexOf('  function valor(id){');
+  var j = adm.indexOf('function limparFiltrosFluxo(){', i);
+  var k = adm.indexOf('{', j), abertas = 0;
+  do {
+    if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
+    k++;
+  } while (abertas > 0 && k < adm.length);
+  var fonte = adm.slice(i, k);
+
+  ok(i > 0 && j > i && /function algumFiltroFluxo/.test(fonte) &&
+     /function limparFiltrosFluxo/.test(fonte) && /FILTROS_FLUXO =/.test(fonte),
+    'o recorte pegou as tres pecas — sem isto a bancada abaixo exercitaria outro codigo');
+
+  /* Monta a bancada com o codigo REAL: campos de formulario de mentira, e as duas saidas
+     (recarregar / so redesenhar) anotadas em vez de executadas. */
+  function bancada(campos, grupo) {
+    var chamou = { carregou: 0, desenhou: 0 };
+    var botao = { disabled: false };
+    var doc = { getElementById: function (id) {
+      return id === 'btnLimparRetornos' ? botao : (campos[id] || null);
+    } };
+    var faz = new Function('document', 'FLUXO_FILTRO', 'chamou',
+      fonte +
+      '\n return { ativo: algumFiltroFluxo, limpar: limparFiltrosFluxo,' +
+      '\n          grupo: function(){ return FLUXO_FILTRO; } };' +
+      '\n function carregarPainel(){ chamou.carregou++; }' +
+      '\n function desenharFluxo(){ chamou.desenhou++; }');
+    var api = faz(doc, grupo, chamou);
+    api.chamou = chamou;
+    api.botao = botao;
+    return api;
+  }
+
+  function campos(o, d, de, ate) {
+    return { rtOrigem: { value: o || '' }, rtDestino: { value: d || '' },
+             rtDe: { value: de || '' }, rtAte: { value: ate || '' } };
+  }
+
+  /* --- quando o botao acende --------------------------------------------- */
+  ok(bancada(campos(), 'todas').ativo() === false,
+    'tela recem-aberta: nada a limpar, o botao fica apagado');
+  ok(bancada(campos('Matriz Fazenda'), 'todas').ativo() === true,
+    'uma origem escolhida ja acende o botao');
+  ok(bancada(campos('', 'João Pessoa'), 'todas').ativo() === true, 'um destino tambem');
+  ok(bancada(campos('', '', '2026-09-17'), 'todas').ativo() === true, 'so a data De tambem');
+  ok(bancada(campos('', '', '', '2026-09-17'), 'todas').ativo() === true, 'so a data Ate tambem');
+  /* O grupo da coluna da esquerda e filtro como os outros: "Em deficit" esconde linhas.
+     Ficou de fora uma vez e o botao aparecia apagado com a tabela visivelmente peneirada. */
+  ok(bancada(campos(), 'deficit').ativo() === true,
+    'e o grupo da esquerda conta: "Em déficit" esconde linhas como qualquer filtro');
+
+  /* --- o que limpar faz --------------------------------------------------- */
+  var a = bancada(campos('Matriz Fazenda', 'João Pessoa', '2026-09-17', '2026-09-17'), 'deficit');
+  a.limpar();
+  ok(a.ativo() === false, 'depois de limpar nao sobra filtro nenhum');
+  ok(a.grupo() === 'todas', 'o grupo da esquerda volta para "Todas"');
+
+  /* --- ir ao servidor so quando precisa ----------------------------------- */
+  var comData = bancada(campos('', '', '2026-09-17', ''), 'todas');
+  comData.limpar();
+  ok(comData.chamou.carregou === 1 && comData.chamou.desenhou === 0,
+    'o periodo e o unico que vai ao servidor: limpar data recarrega', comData.chamou);
+
+  var semData = bancada(campos('Matriz Fazenda'), 'deficit');
+  semData.limpar();
+  ok(semData.chamou.carregou === 0 && semData.chamou.desenhou === 1,
+    'sem data, so redesenha: ida de rede para reexibir o que ja veio e desperdicio',
+    semData.chamou);
+
+  /* --- o "Só de teste" fica fora ------------------------------------------ */
+  ok(fonte.indexOf('verTeste') < 0 && fonte.indexOf('VER_TESTE') < 0,
+    'limpar NAO mexe em "Só reais / Só de teste": ele escolhe qual operação se lê, ' +
+    'não estreita nada — e zerar junto sumiria com o ensaio da tela de quem o olhava');
+
+  /* --- um ponto so acende e apaga ----------------------------------------- */
+  var toggles = adm.split("bl.disabled = !algumFiltroFluxo()").length - 1;
+  ok(toggles === 1,
+    'so um lugar liga e desliga o botao — espalhar isso deixa o botao aceso depois de limpo',
+    toggles);
+  var dF = adm.indexOf('function desenharFluxo()');
+  var corpoF = adm.slice(dF, adm.indexOf("\n  /* Três frases diferentes", dF));
+  ok(corpoF.indexOf('bl.disabled = !algumFiltroFluxo()') > 0,
+    'e esse lugar e o desenho do fluxo, por onde TUDO que mexe em filtro passa');
+
+  var html = adm.slice(adm.indexOf('id="btnLimparRetornos"') - 200,
+                       adm.indexOf('id="btnLimparRetornos"') + 200);
+  ok(/disabled/.test(html),
+    'o botao nasce desligado no HTML: antes do primeiro desenho não há o que limpar');
+})();
+
+/* ---------------------------------------------------------------------------
  * O Saldo final e o do PROPRIO lancamento: retorno − saida.
  *
  * Ja foi o acumulado. O dia 17/09 abria com 810 de saldo, mandou 810 embora e nao recebeu

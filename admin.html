@@ -130,6 +130,12 @@
               <option value="reais">Só reais</option>
               <option value="teste">Só de teste</option>
             </select>
+            <!-- Nasce desligado e so acende quando ha o que limpar: assim ele tambem
+                 responde "tem algum filtro ligado?", que e a pergunta de quem estranha
+                 a tabela curta e nao lembra do que escolheu tres cliques atras. -->
+            <button class="btn neutro" id="btnLimparRetornos" type="button" disabled
+                    title="Volta origem, destino, período e a lista da esquerda ao estado inicial"
+                    style="flex:0;min-width:150px">✕ Limpar filtros</button>
             <button class="btn sec" id="btnCsvRetornos" type="button" style="flex:0;min-width:150px">⬇ Exportar CSV</button>
             <button class="btn neutro" id="btnAtualizarRetornos" type="button" style="flex:0;min-width:130px">↻ Atualizar</button>
           </div>
@@ -712,6 +718,32 @@
     return e ? e.value : '';
   }
 
+  /* Limpar e uma so acao porque os filtros sao quatro e ficam em cantos diferentes da
+     tela: origem e destino em cima, o periodo ao lado, e o grupo na coluna da esquerda.
+     Desfaze-los um a um e onde se esquece de um e se conclui que a tabela esta errada.
+
+     O "So reais / So de teste" fica FORA. Ele nao estreita nada — escolhe qual das duas
+     operacoes se esta lendo, e nao existe estado "os dois". Zerar junto faria o ensaio
+     sumir da tela de quem estava justamente olhando o ensaio. */
+  var FILTROS_FLUXO = ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte'];
+
+  function algumFiltroFluxo(){
+    return FLUXO_FILTRO !== 'todas' || FILTROS_FLUXO.some(function(id){ return !!valor(id); });
+  }
+
+  function limparFiltrosFluxo(){
+    /* O periodo e o unico que vai ao servidor; os outros peneiram o que ja veio. Se ele
+       ja estava vazio nao ha o que recarregar — seria uma ida de rede para redesenhar a
+       mesma lista. */
+    var tinhaData = !!(valor('rtDe') || valor('rtAte'));
+    FILTROS_FLUXO.forEach(function(id){
+      var e = document.getElementById(id);
+      if (e) e.value = '';
+    });
+    FLUXO_FILTRO = 'todas';
+    if (tinhaData) carregarPainel(); else desenharFluxo();
+  }
+
   /* As opcoes saem dos nomes que ESTAO nas linhas, e nao do cadastro inteiro: uma lista
      com trinta locais dos quais dois tem movimento obriga a procurar. Monta-se a partir
      do fluxo cru, sem os proprios filtros aplicados — senao escolher uma origem apagaria
@@ -1022,6 +1054,13 @@
       });
     });
 
+    /* Aqui, e nao em cada ouvinte: TUDO que mexe em filtro termina redesenhando o
+       fluxo — os chips, os dois selects e a volta do servidor com data nova. Um ponto
+       so evita o botao aceso depois de limpo, que e o erro que esse tipo de estado
+       espalhado sempre produz. */
+    var bl = document.getElementById('btnLimparRetornos');
+    if (bl) bl.disabled = !algumFiltroFluxo();
+
     var t = totaisDe(lista);
     var rot = FLUXO_FILTRO === 'MOTORISTA' ? 'motoristas'
             : FLUXO_FILTRO === 'USUARIO' ? 'usuários'
@@ -1090,6 +1129,7 @@
   ['rtOrigem', 'rtDestino'].forEach(function(id){
     document.getElementById(id).addEventListener('change', desenharFluxo);
   });
+  document.getElementById('btnLimparRetornos').addEventListener('click', limparFiltrosFluxo);
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
     /* O CSV sai na MESMA ordem de colunas da tela, inclusive a que a pessoa arrastou:
        um arquivo com as colunas noutra ordem obriga a conferir duas vezes qual e qual. */
