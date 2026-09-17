@@ -662,6 +662,37 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
      /destinos \|\| \[\]\)\.indexOf\(d\) < 0/.test(t),
     'e cada um compara com o seu campo — trocados, o filtro mentiria em silencio');
 
+  /* A linha de estoque inicial nao tem destino: ela nao e um caminho, e o ponto de
+     partida da conta. Sujeita ao filtro de destino ela caia fora, e o Saldo inicial da
+     primeira linha abria em ZERO — filtrar por uma rota apagava as caixas disponiveis na
+     Matriz e o saldo final passava a mentir.
+
+     Pelo filtro de ORIGEM ela continua passando: olhar a conta de uma unidade nao deve
+     trazer o estoque de outra junto. */
+  ok(/if \(d && !l\.estoqueInicial/.test(t),
+    'o filtro de destino nao derruba o estoque inicial: ele nao tem destino', t.trim());
+  ok(/if \(o && \(l\.origens/.test(t) && t.indexOf('o && !l.estoqueInicial') < 0,
+    'mas o de origem continua valendo para ele — origem ele tem', t.trim());
+
+  /* A regra roda de verdade, para nao ficar so na leitura do texto. */
+  var fonte = t.slice(t.indexOf('return f.linhas.filter'));
+  fonte = fonte.slice(fonte.indexOf('function(l){') + 'function(l){'.length,
+                      fonte.lastIndexOf('});'));
+  fonte = fonte.slice(0, fonte.lastIndexOf('}'));
+  var passa = new Function('l', 'o', 'd', fonte);
+  var estoque = { estoqueInicial: true, inicial: 1250, situacao: 'parado',
+                  origens: ['Matriz Fazenda'], destinos: [] };
+  var caminho = { inicial: 0, situacao: 'atencao',
+                  origens: ['Matriz Fazenda'], destinos: ['João Pessoa'] };
+
+  ok(passa(estoque, '', 'João Pessoa') === true,
+    'filtrando por destino, o estoque da Matriz continua na lista');
+  ok(passa(caminho, '', 'João Pessoa') === true, 'e o caminho filtrado tambem');
+  ok(passa(estoque, 'Filial Maceió', '') === false,
+    'mas filtrando por OUTRA origem ele sai: a conta e de outra unidade');
+  ok(passa(estoque, 'Matriz Fazenda', '') === true,
+    'e pela origem dele, fica');
+
   /* As opcoes saem do fluxo CRU. Monta-las a partir da lista ja filtrada faria escolher
      uma origem apagar as outras opcoes, sem caminho de volta. */
   var mf = corpoDe('montarFiltrosFluxo');

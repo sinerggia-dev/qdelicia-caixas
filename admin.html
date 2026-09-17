@@ -665,7 +665,14 @@
     return f.linhas.filter(function(l){
       if (l.situacao === 'parado' && !l.inicial) return false;
       if (o && (l.origens || []).indexOf(o) < 0) return false;
-      if (d && (l.destinos || []).indexOf(d) < 0) return false;
+      /* A linha de estoque inicial nao tem destino — ela nao e um caminho, e o ponto de
+         partida da conta. Pelo filtro de destino ela caia fora, e ai o Saldo inicial da
+         primeira linha abria em ZERO: filtrar por Joao Pessoa apagava as 1.250 caixas
+         disponiveis na Matriz e o saldo final passava a mentir.
+
+         Pelo filtro de ORIGEM ela continua passando, porque origem ela tem: olhar a conta
+         da Filial Maceio nao deve trazer o estoque da Matriz junto. */
+      if (d && !l.estoqueInicial && (l.destinos || []).indexOf(d) < 0) return false;
       return true;
     });
   }
