@@ -973,13 +973,19 @@
                   v: function(l){
                     return l.data ? Q.dataBR(l.data) : '<span class="fraco">—</span>';
                   } },
-      /* Verde e negrito: e o numero que abre a linha e o que a pessoa procura primeiro.
-         Ao lado, a coluna Estoque fica em texto comum — duas colunas de numero com o
-         mesmo peso competem entre si, e nenhuma das duas conduz a leitura. */
+      /* Negrito em toda linha: e o numero que abre a linha e o que a pessoa procura
+         primeiro. Ao lado, a coluna Estoque fica em texto comum — duas colunas de numero
+         com o mesmo peso competem entre si, e nenhuma das duas conduz a leitura.
+
+         O VERDE, porem, so na linha de Estoque Inicial. Verde em toda a coluna nao
+         distinguia nada: cor que aparece em todas as linhas deixa de ser sinal e vira
+         fundo. Reservada a linha de estoque, ela marca onde a conta comeca — e e a mesma
+         cor com que "Estoque Inicial" ja aparece na coluna Destino, entao as duas pontas
+         da linha se procuram sozinhas. */
       inicial:  { t: 'Saldo inicial', num: true, so: 'local',
                   v: function(l){
-                    return '<span class="val val-ok">' + Q.num(l.iniCorrido || 0) +
-                      '</span>';
+                    return '<span class="val' + (l.estoqueInicial ? ' val-ok' : '') +
+                      '">' + Q.num(l.iniCorrido || 0) + '</span>';
                   } },
       /* Duas perguntas diferentes, lado a lado. "Saldo inicial" e o ACUMULADO — tudo que
          ja entrou menos tudo que ja saiu ate aqui. "Estoque" e o que foi lancado NAQUELE

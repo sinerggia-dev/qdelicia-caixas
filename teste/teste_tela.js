@@ -820,7 +820,7 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
   ok(!/val-ok|val-ruim|<b[ >]/.test(lancou),
     'em texto comum, sem cor e sem negrito — quem se destaca é o Saldo inicial', lancou);
 
-  /* E o Saldo inicial e o oposto: verde e negrito. Sao a mesma decisao, entao ficam no
+  /* E o Saldo inicial e o oposto: negrito sempre. Sao a mesma decisao, entao ficam no
      mesmo teste — separadas, uma podia perder o contraste sem a outra notar. */
   var vi = defs.indexOf('v: function(l){', defs.indexOf('inicial:'));
   var va = defs.indexOf('{', vi), vb = va + 1, vn = 1;
@@ -829,9 +829,18 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
     vb++;
   }
   var celIni = new Function('Q', 'l', defs.slice(va + 1, vb - 1));
-  var abre = celIni(Q, { iniCorrido: 1620, inicial: 810 });
-  ok(abre.indexOf('1620') > 0 && /val-ok/.test(abre) && /class="val /.test(abre),
-    'o Saldo inicial sai em verde e negrito: é o número que abre a linha', abre);
+
+  /* O verde e so da linha de Estoque Inicial. Chegou a ser a coluna inteira, e ai nao
+     distinguia nada: cor que aparece em todas as linhas deixa de ser sinal e vira fundo. */
+  var estoque = celIni(Q, { iniCorrido: 1620, inicial: 810, estoqueInicial: true });
+  ok(estoque.indexOf('1620') > 0 && /class="val val-ok"/.test(estoque),
+    'na linha de Estoque Inicial o Saldo inicial sai em verde e negrito', estoque);
+
+  var caminho = celIni(Q, { iniCorrido: 1620, inicial: 0, saida: 810 });
+  ok(caminho.indexOf('1620') > 0 && /class="val"/.test(caminho) &&
+     !/val-ok|val-ruim/.test(caminho),
+    'nas demais linhas, negrito na cor normal — o verde marca onde a conta começa',
+    caminho);
 
   /* O zero FICA. Ja se tentou travessao noutra coluna de valor e o usuario pediu os
      numeros de volta — buraco no meio da coluna se le como dado faltando. Cinza basta
