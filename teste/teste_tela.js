@@ -963,6 +963,95 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
 })();
 
 /* ---------------------------------------------------------------------------
+ * A fileira de cartoes: quatro respondem ao filtro, um nao — e ele diz isso.
+ *
+ * "Em circulacao" morava sozinho no rodape do trilho da esquerda. Subiu para a fileira,
+ * junto dos outros: numero que se le com os demais nao deve morar noutro canto da tela.
+ *
+ * Mas ele e de outra natureza. Sai do razao — quanto cada um tem nosso AGORA —, e nao do
+ * fluxo do periodo. Filtrar por uma origem nao o estreita, e sem aviso ele pareceria
+ * quebrado. Por isso o rodape dele diz "fora do filtro", e este teste cobra esse aviso.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a fileira de cartoes do Controle de Caixas ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* O cartao saiu do trilho — inclusive o codigo que o preenchia. Um `getElementById`
+     sobrando estoura em `.innerHTML` de null e derruba o desenho inteiro do painel. */
+  ok(adm.indexOf('retResumo') < 0 && adm.indexOf('ret-resumo') < 0,
+    'nao sobrou nada do cartao no trilho: elemento orfao derruba o desenho todo');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  ok(css.indexOf('.ret-resumo') < 0, 'e nem o estilo dele ficou para tras');
+
+  var i = adm.indexOf("document.getElementById('fluxoTiles').innerHTML");
+  var fileira = adm.slice(i, adm.indexOf(';', adm.indexOf('foraDaMeta ?', i)));
+  var quantos = fileira.split('tile(').length - 1;
+  ok(quantos === 5, 'a fileira tem cinco cartões', quantos);
+
+  /* Os quatro que respondem ao filtro leem `t`, que e `totaisDe(lista)` — a lista JA
+     peneirada. Lidos de `f.totais`, que e o periodo inteiro, o cartao ficaria parado
+     enquanto a tabela embaixo muda. */
+  var j = adm.indexOf('var t = totaisDe(lista);');
+  ok(j > 0 && j < i, 'os totais saem da lista já filtrada, e não do período inteiro');
+  ok(/tile\('<span class="par"><b>'\+Q\.num\(t\.saida\)/.test(fileira) &&
+     /Q\.num\(t\.retorno\)/.test(fileira),
+    'o cartão de movimentação lê saída e retorno desses totais — por isso acompanha o filtro',
+    fileira.slice(0, 200));
+  ok(/Q\.num\(t\.saida \+ t\.retorno\)/.test(fileira),
+    'e o rodapé dele soma os dois: é o total de caixas que giraram');
+
+  /* Os dois numeros com rotulo proprio. Sem rotulo, "2.500 / 2.060" nao diz qual e qual,
+     e trocar saida por retorno inverte a leitura inteira sem nada parecer errado. */
+  ok(fileira.indexOf('<i>saída</i>') > 0 && fileira.indexOf('<i>retorno</i>') > 0,
+    'cada um dos dois números carrega o próprio rótulo', fileira.slice(0, 200));
+  ok(/\.ftile \.v \.par\{/.test(css) && /\.ftile \.v \.par i\{/.test(css),
+    'e o estilo dos dois existe — sem ele os rótulos sairiam do tamanho do número');
+
+  /* O que NAO responde ao filtro precisa dizer. */
+  ok(/tile\(Q\.num\(circulacao\), 'em circulação', 'no total, fora do filtro'\)/.test(fileira),
+    'o cartão de circulação avisa que está fora do filtro — sem isso pareceria travado',
+    fileira);
+  ok(/var circulacao = \(PAINEL\.kpis\./.test(adm),
+    'e ele vem dos KPIs do razão, não do fluxo do período');
+
+  /* A conta em si, rodando: duas listas diferentes tem de dar numeros diferentes. Sem
+     isto, o teste acima so leria texto — e `t.saida` poderia estar somando a lista errada. */
+  var k = adm.indexOf('function totaisDe(lista)');
+  var totaisDe = new Function('metaFluxo',
+    adm.slice(k, adm.indexOf('\n  }', k)) + '\n  } return totaisDe;')(function(){ return 90; });
+
+  var linhas = [
+    { situacao: 'atencao', saida: 1690, retorno: 1250, saldo: -440, desvio: 26 },
+    { situacao: 'atencao', saida: 810, retorno: 0, saldo: -810, desvio: 100 },
+    { situacao: 'parado', saida: 0, retorno: 0, saldo: 0, desvio: null }
+  ];
+  var tudo = totaisDe(linhas);
+  ok(tudo.saida === 2500 && tudo.retorno === 1250,
+    'sem filtro, o cartão soma as duas linhas com movimento', tudo);
+  ok(tudo.saida + tudo.retorno === 3750, 'e o rodapé soma as duas pontas', tudo);
+
+  var so1 = totaisDe([linhas[0]]);
+  ok(so1.saida === 1690 && so1.retorno === 1250 && so1.saida < tudo.saida,
+    'filtrada uma linha, o cartão encolhe junto — é o que "responde ao filtro" quer dizer',
+    so1);
+
+  /* A linha parada nao entra na conta. Conferir isso pela saida e pelo retorno nao testa
+     nada: linha parada TEM saida e retorno zero por definicao — foi assim que ela virou
+     parada. Somar ou nao somar zero da no mesmo, e a guarda podia ser removida com o
+     teste verde.
+
+     O que a guarda protege de verdade e a CONTAGEM: o estoque inicial e uma linha parada,
+     e contada ela entraria no "de N com movimento no mês" do cartao ao lado, que passaria
+     a prometer movimento onde nao houve. */
+  ok(totaisDe([linhas[2]]).linhas === 0,
+    'a linha parada não entra na contagem: o estoque inicial não é movimentação',
+    totaisDe([linhas[2]]));
+  ok(tudo.linhas === 2,
+    'e as duas com movimento contam — não uma lista vazia que passaria por engano',
+    tudo.linhas);
+})();
+
+/* ---------------------------------------------------------------------------
  * Limpar filtros: uma acao devolve a tela ao estado de quem acabou de abrir.
  *
  * Sao quatro filtros em tres cantos diferentes — origem e destino em cima, o periodo ao

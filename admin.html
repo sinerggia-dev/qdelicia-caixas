@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=5a4c779a">
+<link rel="stylesheet" href="styles.css?v=7632689d">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -108,7 +108,6 @@
       <aside class="ret-rail">
         <div class="ret-marca">QDELÍCIA<span>FRUTAS</span></div>
         <div class="ret-nav" id="retNav"></div>
-        <div class="ret-resumo" id="retResumo"></div>
       </aside>
       <div class="ret-main">
         <div class="ret-head">
@@ -956,7 +955,6 @@
     var f = PAINEL && PAINEL.fluxo;
     if (!f) return;
     var pes = PAINEL.fluxoPessoas || { motoristas: [], usuarios: [] };
-    var g = f.totais;
 
     var vivas = linhasVivas();
     var conta = function(t){ return vivas.filter(function(l){ return l.tipo === t; }).length; };
@@ -977,13 +975,6 @@
         '" data-fchip="'+c.v+'"><span class="pt"></span>'+c.r+
         '<span class="n">'+Q.num(c.n)+'</span></button>';
     }).join('');
-
-    var circulacao = (PAINEL.kpis.emPoderTerceiros || 0) + (PAINEL.kpis.emRota || 0);
-    document.getElementById('retResumo').innerHTML =
-      '<div class="r">Em circulação</div><div class="v">'+Q.num(circulacao)+'</div>'+
-      '<div class="d">'+(g.deficit
-        ? 'déficit de '+Q.num(g.deficit)+' no mês'
-        : 'sem déficit no mês')+'</div>';
 
     var gente = ehVisaoDeGente(FLUXO_FILTRO);
 
@@ -1125,11 +1116,23 @@
     var rot = FLUXO_FILTRO === 'MOTORISTA' ? 'motoristas'
             : FLUXO_FILTRO === 'USUARIO' ? 'usuários'
             : FLUXO_FILTRO === 'FILIAL' ? 'unidades' : 'origens';
+    /* A movimentacao vem PRIMEIRO porque e dela que sai o resto: a taxa de retorno e
+       o retorno dividido pela saida, e ler a razao antes dos dois numeros que a formam
+       obriga a voltar. Os dois juntos num cartao so, e nao em dois, porque a pergunta e
+       "quanto girou" — separados, some a comparacao entre eles, que e o assunto. */
+    var circulacao = (PAINEL.kpis.emPoderTerceiros || 0) + (PAINEL.kpis.emRota || 0);
     document.getElementById('fluxoTiles').innerHTML =
+      tile('<span class="par"><b>'+Q.num(t.saida)+'</b><i>saída</i></span>'+
+           '<span class="par"><b>'+Q.num(t.retorno)+'</b><i>retorno</i></span>',
+           'movimentação no período', Q.num(t.saida + t.retorno)+' caixas ao todo')+
       tile(t.taxaRetorno===null?'—':t.taxaRetorno+'%', 'taxa de retorno do mês', 'meta '+metaFluxo()+'%',
            t.taxaRetorno!==null && t.taxaRetorno < metaFluxo() ? 'alerta' : 'ok')+
       tile(Q.num(t.deficit), 'caixas que saíram e não voltaram', 'no mês, somando só quem deve',
            t.deficit ? 'aviso' : 'ok')+
+      /* O unico que NAO responde aos filtros, e o rodape diz isso. Ele sai do razao —
+         quanto cada um tem nosso agora —, e nao do fluxo do periodo; filtrar por uma
+         origem nao o estreitaria, apenas o deixaria parecendo errado sem explicacao. */
+      tile(Q.num(circulacao), 'em circulação', 'no total, fora do filtro')+
       tile(Q.num(t.foraDaMeta), rot+' abaixo da meta',
            'de '+Q.num(t.linhas)+' com movimento no mês', t.foraDaMeta ? 'aviso' : 'ok');
   }
