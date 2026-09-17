@@ -763,11 +763,11 @@ console.log('\n== o saldo corrido vem do servidor ==');
   var corpo = adm.slice(i, adm.indexOf("document.querySelectorAll('[data-fchip]')", i));
   ok(/Q\.num\(l\.iniCorrido \|\| 0\)/.test(corpo),
     'a coluna Saldo inicial mostra o corrido que veio pronto');
-  /* O Saldo final NAO e o corrido — e o do proprio lancamento. Ver o bloco abaixo.
-     Olhando so a linha de codigo: o comentario logo acima dela cita `fimCorrido` para
-     contar o que mudou, e procurar a palavra no bloco inteiro acharia o comentario. */
-  ok(/var fim = l\.estoqueInicial \? \(l\.inicial \|\| 0\) : l\.saldo;/.test(corpo),
-    'e o Saldo final nao usa o corrido: ele responde pelo proprio dia');
+  /* O Saldo final le o MESMO corrido, um passo adiante: inicial − saida + retorno. E o
+     que faz a cadeia fechar — o final de uma linha e o inicial da de baixo, mais o que
+     tiver sido lancado naquele dia. A formula esta testada no bloco proprio dela. */
+  ok(/var fim = gente \? l\.saldo : l\.fimCorrido;/.test(corpo),
+    'e o Saldo final vem do mesmo corrido — nas visoes de gente, do saldo da pessoa');
 
   var j = adm.indexOf("Q.csv('retornos'");
   var csv = adm.slice(adm.lastIndexOf('var cs =', j), adm.indexOf('}));', j));
@@ -958,18 +958,18 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
 })();
 
 /* ---------------------------------------------------------------------------
- * O Saldo final e o do PROPRIO lancamento: retorno − saida.
+ * Saldo final = SALDO INICIAL − saida + retorno.
  *
- * Ja foi o acumulado. O dia 17/09 abria com 810 de saldo, mandou 810 embora e nao recebeu
- * nada de volta — e a coluna dizia ZERO, porque 810 − 810 = 0. Zero se le como "quitado",
- * quando na verdade havia 810 caixas na rua sem previsao de voltar. Agora diz −810.
+ * A formula e do usuario, escrita duas vezes com os numeros dele: "1.250 − 1.690 + 1.250"
+ * da 810. Retorno menos saida daria −440, que e outra pergunta.
  *
- * O preco disso, aceito de olhos abertos: a cadeia se rompe. O Saldo final de uma linha
- * deixa de ser o Saldo inicial da de baixo — 16/09 fecha em −440 e a linha seguinte abre
- * em 810. As duas colunas respondem perguntas diferentes: "quanto ha" e "quanto falta
- * voltar". So o Saldo INICIAL continua correndo.
+ * E ja foi retorno − saida, por um dia em que o final dava zero sem nada ter voltado —
+ * 810 de saldo, 810 de saida, e zero se le como "quitado". O que faltava ali nao era
+ * mudar a formula: era a coluna "Lancado no dia", que mostra de onde vem cada salto do
+ * Saldo inicial. Com ela a cadeia fecha linha a linha. Quem responde "quanto falta
+ * voltar" e o cartao de deficit, no alto da tela.
  * ------------------------------------------------------------------------- */
-console.log('\n== o Saldo final e o do proprio lancamento ==');
+console.log('\n== o Saldo final segue a formula do saldo ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   var i = adm.indexOf("      final:    { t: 'Saldo final'");
@@ -977,38 +977,51 @@ console.log('\n== o Saldo final e o do proprio lancamento ==');
   var corpo = bloco.slice(bloco.indexOf('v: function(l){'));
   corpo = corpo.slice(corpo.indexOf('{') + 1, corpo.lastIndexOf('}'));
   corpo = corpo.slice(0, corpo.lastIndexOf('}'));
+  ok(/l\.fimCorrido/.test(corpo) && corpo.indexOf('estoqueInicial') < 0,
+    'o recorte pegou a celula certa, e ela nao tem mais excecao para o estoque');
   var Q = { num: function (n) { return String(n); } };
   var celula = new Function('Q', 'gente', 'l', corpo);
 
-  /* O caso que motivou a mudanca, com os numeros reais do dia 17/09. O corrido e ZERO e o
-     do dia e −810: se a coluna voltar a ler o corrido, este teste cai. */
-  var dia17 = { iniCorrido: 810, saida: 810, retorno: 0, saldo: -810, fimCorrido: 0 };
-  ok(celula(Q, false, dia17).indexOf('-810') > 0,
-    '17/09: saiu 810 e nada voltou — o Saldo final e -810, nao o acumulado 0',
-    celula(Q, false, dia17));
+  /* Os quatro dias da tela do usuario, com a conta que ele escreveu ao lado. O campo
+     `saldo` (retorno − saida) vai junto e DIFERENTE em cada um: se a celula voltar a
+     le-lo, todos estes caem. */
+  [{ d: '15/09 estoque', l: { iniCorrido: 1250, fimCorrido: 1250, saida: 0, retorno: 0,
+                              saldo: 0, inicial: 1250, estoqueInicial: true }, e: '+1250' },
+   { d: '16/09', l: { iniCorrido: 1250, fimCorrido: 810, saida: 1690, retorno: 1250,
+                      saldo: -440 }, e: '+810' },
+   { d: '17/09 estoque', l: { iniCorrido: 1620, fimCorrido: 1620, saida: 0, retorno: 0,
+                              saldo: 0, inicial: 810, estoqueInicial: true }, e: '+1620' },
+   { d: '17/09', l: { iniCorrido: 1620, fimCorrido: 810, saida: 810, retorno: 0,
+                      saldo: -810 }, e: '+810' }
+  ].forEach(function (c) {
+    var saiu = celula(Q, false, c.l);
+    ok(saiu.indexOf(c.e) > 0,
+      c.d + ': ' + c.l.iniCorrido + ' − ' + c.l.saida + ' + ' + c.l.retorno + ' = ' + c.e,
+      saiu);
+  });
 
-  var sobra = celula(Q, false, { saldo: 245, fimCorrido: -1 });
-  ok(/val-ok/.test(sobra) && sobra.indexOf('+245') > 0,
-    'voltou mais do que saiu: o numero, em verde, com o sinal de mais', sobra);
+  /* A linha de estoque nao precisa de excecao: sem saida nem retorno, a formula ja
+     devolve o proprio saldo dela. A excecao existiu enquanto a formula era outra. */
+  var est = celula(Q, false, { iniCorrido: 1620, fimCorrido: 1620, saida: 0, retorno: 0,
+                               saldo: 0, inicial: 810, estoqueInicial: true });
+  ok(est.indexOf('1620') > 0 && est.indexOf('810') < 0,
+    'a linha de estoque mostra o saldo dela, e não o que foi lançado — isso é a coluna ' +
+    'ao lado', est);
 
-  var falta = celula(Q, false, { saldo: -440, fimCorrido: 810 });
-  ok(/val-ruim/.test(falta) && falta.indexOf('-440') > 0,
-    'falta voltar: o numero, em vermelho', falta);
-
-  var zero = celula(Q, false, { saldo: 0, fimCorrido: 99 });
+  /* --- as cores ----------------------------------------------------------- */
+  ok(/val-ok/.test(celula(Q, false, { fimCorrido: 245 })),
+    'saldo positivo em verde, com o sinal de mais',
+    celula(Q, false, { fimCorrido: 245 }));
+  ok(/val-ruim/.test(celula(Q, false, { fimCorrido: -440 })),
+    'saldo negativo em vermelho', celula(Q, false, { fimCorrido: -440 }));
+  var zero = celula(Q, false, { fimCorrido: 0 });
   ok(zero.indexOf('0') > 0 && !/val-ok|val-ruim/.test(zero),
-    'saiu e voltou tudo: zero de fato, e aparece sem cor', zero);
+    'zero nao e nem sobra nem falta: aparece sem cor', zero);
 
-  /* A linha de estoque inicial nao tem fluxo nenhum, entao pela regra geral daria zero — e
-     zero num estoque de 1.250 nao e verdade. Ela mostra o proprio estoque. */
-  var est = celula(Q, false, { estoqueInicial: true, inicial: 1250, saldo: 0 });
-  ok(est.indexOf('1250') > 0 && /val-ok/.test(est),
-    'a linha de estoque inicial mostra o estoque, nao o zero da regra geral', est);
-
-  /* Nas visoes de gente a coluna ja era o saldo da pessoa — agora e a mesma conta. */
-  ok(/val-ruim/.test(celula(Q, true, { saldo: -80 })),
-    'na visao de gente vale o saldo da pessoa, pela mesma regra',
-    celula(Q, true, { saldo: -80 }));
+  /* Nas visoes de gente nao ha conta corrida — cada pessoa responde pelo saldo dela. */
+  ok(/val-ruim/.test(celula(Q, true, { saldo: -80, fimCorrido: 999 })),
+    'na visao de gente o valor segue o saldo da pessoa, nao o corrido',
+    celula(Q, true, { saldo: -80, fimCorrido: 999 }));
 
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
   ok(/\.val\.val-ok\{color:var\(--verde\)\}/.test(css) &&
@@ -1020,9 +1033,9 @@ console.log('\n== o Saldo final e o do proprio lancamento ==');
   var linhaCsv = adm.slice(j, adm.indexOf('\n', j));
   var csvFinal = new Function('l', 'return (' +
     linhaCsv.slice(linhaCsv.indexOf('return ') + 7, linhaCsv.lastIndexOf('; }')) + ');');
-  ok(csvFinal(dia17) === -810 && csvFinal({ estoqueInicial: true, inicial: 1250, saldo: 0 }) === 1250,
-    'o CSV leva os mesmos numeros: -810 no dia 17 e 1250 na linha de estoque',
-    [csvFinal(dia17), csvFinal({ estoqueInicial: true, inicial: 1250, saldo: 0 })]);
+  ok(csvFinal({ fimCorrido: 810, saldo: -440 }) === 810,
+    'o CSV leva o mesmo numero da tela: 810, e nao os -440 de retorno menos saida',
+    csvFinal({ fimCorrido: 810, saldo: -440 }));
 })();
 
 /* ---------------------------------------------------------------------------

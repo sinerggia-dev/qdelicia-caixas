@@ -1011,19 +1011,22 @@
                   v: function(l){ return Q.num(l.saida) + detalheCaixas(l.saidaTipos); } },
       retorno:  { t: 'Retorno', num: true,
                   v: function(l){ return Q.num(l.retorno) + detalheCaixas(l.retornoTipos); } },
-      /* O Saldo final e o do PROPRIO lancamento: retorno − saida. Ele responde "o que
-         este dia deixou em aberto", e nao "quanto sobrou no estoque".
+      /* Saldo final = SALDO INICIAL − saida + retorno. A formula e do usuario, escrita
+         duas vezes: "1.250 − 1.690 + 1.250" da 810, e nao os −440 de retorno menos saida.
 
-         Ja foi o acumulado (`fimCorrido`), encadeando com o Saldo inicial da linha
-         seguinte. O 17/09 entao dava zero — 810 de saldo, 810 de saida, nada de volta —
-         e zero se le como "quitado", quando na verdade nada tinha voltado. A cadeia se
-         perdeu, mas o numero passou a dizer o que importa cobrar.
+         Chegou a ser retorno − saida, por um dia em que o final dava zero sem nada ter
+         voltado — 810 de saldo, 810 de saida, e zero se le como "quitado". O que faltava
+         ali nao era mudar a formula: era a coluna "Lancado no dia", que agora mostra de
+         onde vem cada salto do saldo inicial. Com ela, a cadeia volta a fechar linha a
+         linha e o numero continua dizendo quanto ha.
 
-         A linha de estoque inicial nao tem fluxo, entao mostra o proprio estoque: pela
-         regra geral ela daria zero, e zero num estoque de 1.250 nao e verdade. */
+         Quem responde "quanto falta voltar" e o cartao de deficit, no alto da tela.
+
+         Sem excecao para a linha de estoque: sem saida nem retorno, a formula ja devolve
+         o proprio saldo dela. */
       final:    { t: 'Saldo final', num: true,
                   v: function(l){
-                    var fim = l.estoqueInicial ? (l.inicial || 0) : l.saldo;
+                    var fim = gente ? l.saldo : l.fimCorrido;
                     var cor = fim > 0 ? ' val-ok' : (fim < 0 ? ' val-ruim' : '');
                     return '<b class="val' + cor + '">' +
                       (fim > 0 ? '+' : '') + Q.num(fim) + '</b>';
@@ -1159,7 +1162,7 @@
                                                      : (l.destinos||[]).join(' | '); },
       saida:    function(l){ return l.saida; },
       retorno:  function(l){ return l.retorno; },
-      final:    function(l){ return l.estoqueInicial ? (l.inicial || 0) : l.saldo; }
+      final:    function(l){ return l.fimCorrido; }
     };
     Q.csv('retornos', cs.map(function(id){ return TIT[id]; }).concat(['Lançamentos']),
       linhasFluxo().map(function(l){
