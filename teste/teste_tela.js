@@ -975,91 +975,82 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
 console.log('\n== a fileira de cartoes do Controle de Caixas ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 
-  /* O cartao saiu do trilho — inclusive o codigo que o preenchia. Um `getElementById`
-     sobrando estoura em `.innerHTML` de null e derruba o desenho inteiro do painel. */
+  /* O cartao "Em circulação" morava sozinho no rodape do trilho da esquerda. Subiu para a
+     fileira e depois saiu dela, mas o codigo que o preenchia nao pode ficar para tras: um
+     `getElementById` orfao estoura em `.innerHTML` de null e derruba o desenho inteiro. */
   ok(adm.indexOf('retResumo') < 0 && adm.indexOf('ret-resumo') < 0,
     'nao sobrou nada do cartao no trilho: elemento orfao derruba o desenho todo');
-  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
   ok(css.indexOf('.ret-resumo') < 0, 'e nem o estilo dele ficou para tras');
 
+  /* O recorte da fileira fecha no ponto-e-virgula que encerra a atribuicao, achado a
+     partir do INICIO dela. Ja foi ancorado no texto do ultimo cartao: o cartao saiu, o
+     indexOf voltou -1, o recorte ficou vazio — e um recorte vazio nao casa com nada, o
+     que passaria como "nenhum problema". A conferencia abaixo e a guarda. */
   var i = adm.indexOf("document.getElementById('fluxoTiles').innerHTML");
-  var fileira = adm.slice(i, adm.indexOf(';', adm.indexOf('foraDaMeta ?', i)));
+  var fileira = adm.slice(i, adm.indexOf(";\n", i));
+  ok(i > 0 && fileira.length > 200 && fileira.indexOf('tile(') > 0,
+    'o recorte pegou a fileira inteira — vazio, todo teste abaixo passaria sem testar',
+    fileira.length);
+
   var quantos = fileira.split('tile(').length - 1;
-  ok(quantos === 7, 'a fileira tem sete cartões', quantos);
+  ok(quantos === 5, 'a fileira tem cinco cartões', quantos);
 
   /* A ORDEM e pedida, entao e conferida. Um cartao novo enfiado no meio nao quebra nada
      no codigo — so a leitura de quem abre a tela todo dia no mesmo lugar. */
   var rotulos = (fileira.match(/'([A-ZÀ-Ý][^']*)'/g) || [])
-    .map(function(t){ return t.slice(1, -1); })
-    .filter(function(t){ return /^[A-ZÀ-Ý]/.test(t) && t.indexOf('<') < 0; });
+    .map(function (t) { return t.slice(1, -1); })
+    .filter(function (t) { return t.indexOf('<') < 0; });
   ok(rotulos.join(' | ') ===
-     'Taxa de Retorno do Mês | Caixas que Saíram e Não Voltaram | Total de Saída | ' +
-     'Total de Retorno | Total no Estoque | Em Circulação',
-    'os cartões saem na ordem pedida, e o de estoque antes do de circulação', rotulos);
+     'Taxa de Retorno do Mês | Caixas que Saíram e Não Voltaram | Total no Estoque | ' +
+     'Total de Saída | Total de Retorno',
+    'os cartões saem na ordem pedida, com o estoque antes da saída', rotulos);
 
-  /* Inicial maiuscula em todo rotulo, conectores em minuscula — a mesma grafia que o
-     resto do app usa nos perfis ("Supervisor de Área"). */
-  ok(rotulos.every(function(r){ return /^[A-ZÀ-Ý]/.test(r); }),
-    'todo rótulo começa em maiúscula', rotulos);
-  ok(/rot\+' Abaixo da Meta'/.test(fileira),
-    'e o do último cartão também, embora o começo dele varie com o grupo escolhido');
-  var i2 = adm.indexOf("var rot = FLUXO_FILTRO === 'MOTORISTA'");
-  var varia = adm.slice(i2, adm.indexOf(';', i2));
-  ok(/'Motoristas'/.test(varia) && /'Usuários'/.test(varia) &&
-     /'Unidades'/.test(varia) && /'Origens'/.test(varia),
-    'os quatro valores que esse começo assume vêm em maiúscula', varia);
+  /* Sairam a pedido: "Em Circulação" dizia o inverso do estoque, e "Origens Abaixo da
+     Meta" repetia em contagem o que a taxa de retorno ja diz em porcentagem. */
+  ok(fileira.indexOf('Circulação') < 0 && fileira.indexOf('Abaixo da Meta') < 0,
+    'e os dois que foram removidos não voltaram', rotulos);
+  ok(adm.indexOf('var circulacao =') < 0 && adm.indexOf("FLUXO_FILTRO === 'MOTORISTA' ? 'Motoristas'") < 0,
+    'nem o cálculo que só eles usavam — código sem dono é o que ninguém ousa apagar depois');
 
-  /* Os quatro que respondem ao filtro leem `t`, que e `totaisDe(lista)` — a lista JA
-     peneirada. Lidos de `f.totais`, que e o periodo inteiro, o cartao ficaria parado
-     enquanto a tabela embaixo muda. */
+  ok(rotulos.every(function (r) { return /^[A-ZÀ-Ý]/.test(r); }),
+    'todo rótulo começa em maiúscula, com os conectores em minúscula', rotulos);
+
+  /* --- o que segue o filtro, e o que nao segue ---------------------------- */
   var j = adm.indexOf('var t = totaisDe(lista);');
   ok(j > 0 && j < i, 'os totais saem da lista já filtrada, e não do período inteiro');
-  /* Um cartao para cada. Chegaram a dividir um cartao so, com os dois numeros lado a
-     lado: virava um cartao de dois andares no meio de uma fileira de numeros unicos, e
-     precisava de rotulo interno para dizer qual era qual. Separados, o rotulo de cima do
-     cartao ja diz — e e o mesmo formato dos outros quatro. */
   ok(/tile\(Q\.num\(t\.saida\), 'Total de Saída'/.test(fileira),
-    'a saída tem cartão próprio, e lê os totais filtrados', fileira.slice(0, 200));
+    'a saída lê esses totais, por isso acompanha o filtro', fileira);
   ok(/tile\(Q\.num\(t\.retorno\), 'Total de Retorno'/.test(fileira),
-    'e o retorno também — por isso os dois acompanham o filtro', fileira.slice(0, 260));
+    'e o retorno também', fileira);
   ok(/Q\.num\(t\.saida \+ t\.retorno\)/.test(fileira),
-    'e a soma dos dois não se perdeu: ela é o rodapé do cartão de retorno');
-  ok(fileira.indexOf('<i>saída</i>') < 0 && fileira.indexOf('class="par"') < 0,
-    'nao sobrou o cartao de dois andares');
-  ok(css.indexOf('.ftile .v .par') < 0,
-    'e nem o estilo dele — CSS sem dono e o que ninguém ousa apagar depois');
+    'a soma dos dois é o rodapé do cartão de retorno');
 
-  /* O que NAO responde ao filtro precisa dizer. */
-  /* Os dois de posicao: estoque e circulacao. Cada um diz de onde vem e que esta fora do
-     filtro — sem isso pareceriam travados quando a tabela embaixo muda. */
-  ok(/tile\(Q\.num\(estoque\), 'Total no Estoque', '[^']*fora do filtro'\)/.test(fileira),
-    'o cartão de estoque avisa que está fora do filtro', fileira);
-  ok(/tile\(Q\.num\(circulacao\), 'Em Circulação', '[^']*fora do filtro'\)/.test(fileira),
-    'e o de circulação também', fileira);
-  ok(/var circulacao = \(PAINEL\.kpis\./.test(adm),
-    'circulação vem dos KPIs do razão, não do fluxo do período');
+  /* O estoque e o unico que NAO segue o filtro: sai do razao, e nao do fluxo do periodo.
+     Sem o aviso no rodape, ele pareceria travado quando a tabela embaixo muda. */
+  ok(/tile\(Q\.num\(estoque\), 'Total no Estoque', '[^']*fora do filtro', 'ok'\)/.test(fileira),
+    'o estoque avisa que está fora do filtro, e sai em verde', fileira);
+  ok(/\.ftile\.ok \.v\{color:var\(--verde\)\}/.test(css),
+    'e "ok" é verde de verdade no CSS — o rótulo sozinho não pinta nada');
 
-  /* O estoque soma os GALPOES — as nossas casas. Somar `locais` traria os clientes
-     junto, e o cartao diria que temos em casa o que esta na rua. */
-  var k2 = adm.indexOf('var estoque = ');
-  var linhaEst = adm.slice(k2, adm.indexOf('\n', k2));
+  /* Ele soma os GALPOES. Somar `locais` traria os clientes junto, e o cartao diria que
+     temos em casa o que esta na rua. */
+  var k = adm.indexOf('var estoque = ');
+  var linhaEst = adm.slice(k, adm.indexOf('\n', k));
   ok(/PAINEL\.galpoes/.test(linhaEst) && linhaEst.indexOf('PAINEL.locais') < 0,
-    'e o estoque soma os galpões e unidades, não os clientes', linhaEst);
-  var soma = new Function('PAINEL',
-    linhaEst.trim() + ' return estoque;');
+    'e soma os galpões e unidades, não os clientes', linhaEst);
+  var soma = new Function('PAINEL', linhaEst.trim() + ' return estoque;');
   ok(soma({ galpoes: [{ saldo: 1620 }, { saldo: 0 }, { saldo: 12 }] }) === 1632,
-    'a soma roda: três unidades viram um número só', soma({ galpoes: [{ saldo: 1620 },
-      { saldo: 0 }, { saldo: 12 }] }));
+    'a soma roda: três unidades viram um número só');
   ok(soma({}) === 0 && soma({ galpoes: [{}] }) === 0,
     'e sem galpão nenhum dá zero, não NaN — painel meio carregado não escreve "NaN" na tela',
     [soma({}), soma({ galpoes: [{}] })]);
 
-  /* A conta em si, rodando: duas listas diferentes tem de dar numeros diferentes. Sem
-     isto, o teste acima so leria texto — e `t.saida` poderia estar somando a lista errada. */
-  var k = adm.indexOf('function totaisDe(lista)');
+  /* --- a conta dos totais, rodando --------------------------------------- */
+  var m = adm.indexOf('function totaisDe(lista)');
   var totaisDe = new Function('metaFluxo',
-    adm.slice(k, adm.indexOf('\n  }', k)) + '\n  } return totaisDe;')(function(){ return 90; });
+    adm.slice(m, adm.indexOf('\n  }', m)) + '\n  } return totaisDe;')(function () { return 90; });
 
   var linhas = [
     { situacao: 'atencao', saida: 1690, retorno: 1250, saldo: -440, desvio: 26 },
@@ -1068,25 +1059,18 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   ];
   var tudo = totaisDe(linhas);
   ok(tudo.saida === 2500 && tudo.retorno === 1250,
-    'sem filtro, o cartão soma as duas linhas com movimento', tudo);
-  ok(tudo.saida + tudo.retorno === 3750, 'e o rodapé soma as duas pontas', tudo);
+    'sem filtro, os cartões somam as duas linhas com movimento', tudo);
 
   var so1 = totaisDe([linhas[0]]);
-  ok(so1.saida === 1690 && so1.retorno === 1250 && so1.saida < tudo.saida,
-    'filtrada uma linha, o cartão encolhe junto — é o que "responde ao filtro" quer dizer',
+  ok(so1.saida === 1690 && so1.saida < tudo.saida,
+    'filtrada uma linha, eles encolhem junto — é o que "responde ao filtro" quer dizer',
     so1);
 
   /* A linha parada nao entra na conta. Conferir isso pela saida e pelo retorno nao testa
      nada: linha parada TEM saida e retorno zero por definicao — foi assim que ela virou
-     parada. Somar ou nao somar zero da no mesmo, e a guarda podia ser removida com o
-     teste verde.
-
-     O que a guarda protege de verdade e a CONTAGEM: o estoque inicial e uma linha parada,
-     e contada ela entraria no "de N com movimento no mês" do cartao ao lado, que passaria
-     a prometer movimento onde nao houve. */
+     parada. O que a guarda protege e a CONTAGEM. */
   ok(totaisDe([linhas[2]]).linhas === 0,
-    'a linha parada não entra na contagem: o estoque inicial não é movimentação',
-    totaisDe([linhas[2]]));
+    'a linha parada não entra na contagem: o estoque inicial não é movimentação');
   ok(tudo.linhas === 2,
     'e as duas com movimento contam — não uma lista vazia que passaria por engano',
     tudo.linhas);
