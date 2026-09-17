@@ -579,11 +579,29 @@
      diferentes acabam discordando — foi o que aconteceu com o PROMOTOR no app de campo. */
   function abasPermitidas(s){
     var marcadas = (s && s.abas) || [];
-    return (ABAS_PAINEL.length ? ABAS_PAINEL : []).filter(function(a){
-      if (a.soAdmin && !Q.ehAdmin()) return false;
-      if (!marcadas.length) return true;
+    /* Primeiro o que esta pessoa PODE ver, independente do que esta marcado. */
+    var base = (ABAS_PAINEL.length ? ABAS_PAINEL : []).filter(function(a){
+      return !(a.soAdmin && !Q.ehAdmin());
+    });
+    function ids(l){ return l.map(function(a){ return a.ID; }); }
+    if (!marcadas.length) return ids(base);
+
+    var escolhidas = base.filter(function(a){
       return marcadas.map(String).indexOf(String(a.ID)) >= 0;
-    }).map(function(a){ return a.ID; });
+    });
+    /* Se a marca nao alcanca NENHUMA aba que esta pessoa possa ver, ela entraria num
+       painel vazio: sem aba, sem pagina aberta, sem pista do que houve. Acontece de dois
+       jeitos, os dois reais:
+
+         - marcaram so Ajustes e Cadastros para quem nao e admin (o cadastro agora trava
+           as duas, mas o que ja esta gravado continua no banco);
+         - a marca guarda o id de uma aba que foi renomeada ou saiu do app.
+
+       Nesse caso a marca e ignorada e vale a regra do vazio: todas as permitidas. E a
+       mesma escolha que a convencao "lista vazia = TODAS" ja faz um nivel acima, e pelo
+       mesmo motivo — errar para o lado de MOSTRAR se corrige no cadastro, errar para o
+       lado de trancar so se resolve com o admin por perto. */
+    return ids(escolhidas.length ? escolhidas : base);
   }
 
   /* A aba some, e a pagina dela deixa de ser a ativa. A primeira que sobrou vira a

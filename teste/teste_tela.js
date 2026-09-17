@@ -1290,6 +1290,61 @@ console.log('\n== as abas do painel viram lista ==');
  * no cadastro e a aba ausente na tela, sem nada explicando a diferenca. Aconteceu de
  * verdade com um Gerente que tinha as cinco marcadas e via quatro.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * A peneira de abas nunca deixa o painel vazio.
+ *
+ * Marca que nao alcanca nenhuma aba visivel deixaria a pessoa num painel sem aba, sem
+ * pagina aberta e sem pista do que houve. Acontece de dois jeitos, os dois reais: marca
+ * gravada so em Ajustes/Cadastros para quem nao e admin, e id de uma aba que foi
+ * renomeada ou saiu do app.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a peneira de abas nunca devolve vazio ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var i = adm.indexOf('function abasPermitidas(s)');
+  var fonte = adm.slice(i, adm.indexOf('\n  }', i)) + '\n  }';
+  var ABAS = [{ ID: 'pgRetornos', Nome: 'Painel de Ativos' },
+              { ID: 'pgPainel', Nome: 'Painel' },
+              { ID: 'pgLancar', Nome: 'Ajustes', soAdmin: true },
+              { ID: 'pgCadastros', Nome: 'Cadastros', soAdmin: true }];
+
+  function pode(ehAdmin, marcadas) {
+    var fn = new Function('ABAS_PAINEL', 'Q', fonte + ' return abasPermitidas;')(
+      ABAS, { ehAdmin: function () { return ehAdmin; } });
+    return fn({ abas: marcadas }).join(',');
+  }
+
+  ok(pode(false, []) === 'pgRetornos,pgPainel',
+    'sem marca, valem todas as permitidas — e as de admin ficam fora', pode(false, []));
+  ok(pode(true, []) === 'pgRetornos,pgPainel,pgLancar,pgCadastros',
+    'para o admin, todas', pode(true, []));
+  ok(pode(false, ['pgPainel']) === 'pgPainel',
+    'com marca que alcança, vale a marca', pode(false, ['pgPainel']));
+
+  /* Os tres casos de tela vazia. */
+  ok(pode(false, ['pgLancar']) === 'pgRetornos,pgPainel',
+    'marcado só Ajustes, a marca é ignorada em vez de deixar a tela vazia',
+    pode(false, ['pgLancar']));
+  ok(pode(false, ['pgLancar', 'pgCadastros']) === 'pgRetornos,pgPainel',
+    'idem com as duas de admin', pode(false, ['pgLancar', 'pgCadastros']));
+  ok(pode(false, ['pgAntiga']) === 'pgRetornos,pgPainel',
+    'e id de aba que não existe mais — depois de renomear ou remover uma aba, a marca ' +
+    'guardada no banco continua apontando para o nome velho', pode(false, ['pgAntiga']));
+
+  /* A escolha e deliberada, e o comentario diz por que: errar para o lado de MOSTRAR se
+     corrige no cadastro; errar para o lado de trancar so se resolve com o admin por
+     perto. E a mesma escolha da convencao "lista vazia = TODAS", um nivel acima. */
+  ok(/errar para o lado de MOSTRAR/.test(fonte),
+    'e o código registra por que erra para o lado de mostrar');
+
+  /* Uma peneira so, e nao duas. As duas regras — soAdmin e a lista marcada — moram
+     juntas de proposito: separadas, acabam discordando sobre a mesma aba. */
+  ok((adm.match(/function abasPermitidas/g) || []).length === 1 &&
+     /a\.soAdmin && !Q\.ehAdmin\(\)/.test(fonte) &&
+     /marcadas\.map\(String\)\.indexOf/.test(fonte),
+    'as duas regras moram na mesma peneira');
+})();
+
 console.log('\n== as abas de admin travam no cadastro ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
