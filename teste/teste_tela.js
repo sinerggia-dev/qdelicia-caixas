@@ -868,5 +868,66 @@ console.log('\n== o Saldo final mostra o numero, colorido ==');
     r[1].iniCorrido);
 })();
 
+/* ---------------------------------------------------------------------------
+ * As abas do painel obedecem ao cadastro — e o admin continua mandando no que e dele.
+ *
+ * Sao DUAS regras sobre a mesma aba: "Ajustes e Cadastros so para o admin" e a lista
+ * marcada no cadastro. Escritas em lugares diferentes elas acabam discordando — foi o que
+ * aconteceu com o PROMOTOR no app de campo, onde um `if` a parte escondia a aba que o
+ * cadastro mandava mostrar. Aqui as duas moram numa peneira so.
+ * ------------------------------------------------------------------------- */
+console.log('\n== as abas do painel obedecem ao cadastro ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var i = adm.indexOf('function abasPermitidas(s)');
+  var fonte = adm.slice(i, adm.indexOf('\n  }', i) + 4);
+
+  var ABAS = [
+    { ID: 'pgRetornos', Nome: 'Painel de Ativos' },
+    { ID: 'pgPainel', Nome: 'Painel' },
+    { ID: 'pgExtrato', Nome: 'Extratos' },
+    { ID: 'pgLancar', Nome: 'Ajustes', soAdmin: true },
+    { ID: 'pgMovimentos', Nome: 'Movimentos' },
+    { ID: 'pgCadastros', Nome: 'Cadastros', soAdmin: true }
+  ];
+  function monta(ehAdmin) {
+    var Q = { ehAdmin: function () { return ehAdmin; } };
+    return new Function('Q', 'ABAS_PAINEL', fonte + ' return abasPermitidas;')(Q, ABAS);
+  }
+
+  var admin = monta(true), gente = monta(false);
+
+  ok(admin({}).length === 6,
+    'admin sem restricao ve as seis', admin({}));
+  ok(gente({}).join(',') === 'pgRetornos,pgPainel,pgExtrato,pgMovimentos',
+    'quem nao e admin nunca ve Ajustes nem Cadastros, marcados ou nao', gente({}));
+
+  ok(gente({ abas: ['pgRetornos'] }).join(',') === 'pgRetornos',
+    'a lista do cadastro manda no que sobra', gente({ abas: ['pgRetornos'] }));
+  /* Marcar Cadastros para quem nao e admin nao abre a porta: a regra do admin vem
+     primeiro, e e ela que nao se negocia pelo cadastro. */
+  ok(gente({ abas: ['pgCadastros', 'pgExtrato'] }).join(',') === 'pgExtrato',
+    'marcar Cadastros para quem nao e admin nao abre a porta',
+    gente({ abas: ['pgCadastros', 'pgExtrato'] }));
+  ok(admin({ abas: ['pgCadastros'] }).join(',') === 'pgCadastros',
+    'mas o admin pode restringir a si mesmo pela lista');
+
+  // a peneira da tela: a aba some e a primeira que sobrou vira a aberta
+  var j = adm.indexOf('function ajustarAbasPainel(s)');
+  var aj = adm.slice(j, adm.indexOf('\n  }', j) + 4);
+  ok(aj.indexOf("style.display = ok ? '' : 'none'") > 0,
+    'a aba proibida some, nao fica so desabilitada');
+  ok(aj.indexOf("sec.classList.remove('ativa')") > 0,
+    'e a pagina dela deixa de ser a ativa — senao ficaria aberta sem o botao');
+  ok(aj.indexOf('primeira.click()') > 0,
+    'a primeira que sobrou vira a aberta, senao o painel abre em tela branca');
+  ok(/if \(!ABAS_PAINEL\.length\) return;/.test(aj),
+    'e sem a lista ainda carregada ela nao esconde nada: a lista chega com a `equipe`');
+
+  // o formulario envia o campo, e ele existe no modal
+  ok(adm.indexOf("Abas:lerMarcados('fAbas')") > 0, 'o formulario envia as abas marcadas');
+  ok(adm.indexOf("caixaLocais('fAbas'") > 0, 'e desenha a lista para marcar');
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

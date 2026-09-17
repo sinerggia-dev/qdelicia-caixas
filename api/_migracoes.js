@@ -242,5 +242,10 @@ module.exports = [
     id: '2026-09-16-operacoes-por-usuario',
     nota: 'quais operações a pessoa lança no campo; vazia segue querendo dizer TODAS',
     sql: "alter table public.usuarios add column if not exists operacoes jsonb not null default '[]'::jsonb;"
+  },
+  {
+    id: '2026-09-17-abas-por-usuario',
+    nota: 'quais abas do painel a pessoa vê; vazia segue querendo dizer TODAS',
+    sql: "alter table public.usuarios add column if not exists abas jsonb not null default '[]'::jsonb;"
   }
 ];

@@ -1403,6 +1403,38 @@ console.log('\n== galpao que RECEBE remessa: nada voltou ==');
      por['G>R'].destinos.join(',') === 'Caruaru',
     'e no sentido certo: a rota é o destino, ainda que só tenha devolvido', por['G>R']);
 }
+console.log('\n== quais abas do painel a pessoa ve ==');
+{
+  const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+
+  ok(F.ABAS.length === 6 && F.ABAS[0].ID === 'pgRetornos',
+    'a lista de abas mora no servidor, uma so para o formulario e para a tela',
+    F.ABAS.map((a) => a.ID));
+  /* Ajustes e Cadastros vem marcados como so-admin na propria lista. Deixar isso escrito
+     so na tela faria a regra viver em dois lugares. */
+  ok(F.ABAS.filter((a) => a.soAdmin).map((a) => a.ID).join(',') === 'pgLancar,pgCadastros',
+    'Ajustes e Cadastros vem marcados como só do Admin na lista',
+    F.ABAS.filter((a) => a.soAdmin).map((a) => a.ID));
+
+  const semLista = { Nome: 'A' };
+  ok(F.podeAba(semLista, 'pgMovimentos') && F.podeAba(semLista, 'pgExtrato'),
+    'lista vazia quer dizer TODAS — invertida, ninguém veria aba nenhuma no deploy');
+  ok(F.podeAba({ Abas: [] }, 'pgPainel'),
+    'e lista vazia de verdade também, não só o campo ausente');
+
+  const so = { Nome: 'Conferente', Abas: ['pgRetornos', 'pgExtrato'] };
+  ok(F.podeAba(so, 'pgRetornos') && F.podeAba(so, 'pgExtrato'),
+    'quem tem lista vê o que está nela');
+  ok(!F.podeAba(so, 'pgMovimentos') && !F.podeAba(so, 'pgPainel'),
+    'e não vê o que ficou de fora');
+
+  const ses = F.sessaoDe({ ID: 'U1', Nome: 'A', Perfil: 'Gestor', Abas: ['pgRetornos'] });
+  ok(ses.abas.join(',') === 'pgRetornos',
+    'a sessão leva a lista para a tela — é dela que a peneira se guia', ses.abas);
+  ok(F.sessaoDe({ ID: 'U2', Nome: 'B', Perfil: 'Gestor' }).abas.length === 0,
+    'e quem não tem restrição leva a lista vazia, que quer dizer todas');
+}
+
 console.log('\n== quem lanca saida, quem lanca retorno ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
@@ -1870,13 +1902,13 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     const enviados = (payload.match(/([A-Z][A-Za-z]*)\s*:\s*lerMarcados/g) || [])
       .map((t) => t.split(':')[0].trim());
 
-    ok(enviados.length >= 5,
-      'o formulário envia as cinco listas de permissão', enviados);
+    ok(enviados.length >= 6,
+      'o formulário envia as seis listas de permissão', enviados);
 
     const volta = F.usuariosPublicos([{
       ID: 'U1', Nome: 'A', Perfil: 'Gestor',
       Saidas: ['a'], Destinos: ['b'], TiposCaixa: ['c'], Motoristas: ['d'],
-      Operacoes: ['SAIDA']
+      Operacoes: ['SAIDA'], Abas: ['pgPainel']
     }])[0];
 
     enviados.forEach((campo) => {

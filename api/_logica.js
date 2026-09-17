@@ -99,6 +99,30 @@ var OPERACOES = [
   { ID: 'RETORNO', Nome: 'Retorno', Tipos: ['DEVOLUCAO'] }
 ];
 
+/* As abas do painel do escritorio. Como em OPERACOES, a lista mora num lugar so: o
+   formulario do cadastro e a tela que esconde as abas precisam concordar sobre ela, e
+   duas copias divergiriam no primeiro nome novo.
+
+   Ajustes e Cadastros so aparecem para o admin, independente desta lista — quem confere a
+   chegada e quem gera a divergencia, e dar a ele o ajuste de saldo seria deixa-lo apagar
+   o proprio erro. */
+var ABAS = [
+  { ID: 'pgRetornos',   Nome: 'Painel de Ativos' },
+  { ID: 'pgPainel',     Nome: 'Painel' },
+  { ID: 'pgExtrato',    Nome: 'Extratos' },
+  { ID: 'pgLancar',     Nome: 'Ajustes', soAdmin: true },
+  { ID: 'pgMovimentos', Nome: 'Movimentos' },
+  { ID: 'pgCadastros',  Nome: 'Cadastros', soAdmin: true }
+];
+
+/* Vazia quer dizer TODAS — a mesma convencao das outras listas de permissao. Invertida,
+   ninguem veria aba nenhuma no dia em que a coluna nasce vazia no banco. */
+function podeAba(u, id) {
+  var lista = u && Array.isArray(u.Abas) ? u.Abas : [];
+  if (!lista.length) return true;
+  return lista.map(String).indexOf(String(id)) >= 0;
+}
+
 /* De que operacao este lancamento e. AJUSTE e PERDA devolvem '' de proposito: nascem no
    escritorio, na aba Ajustes, e nao no celular — governa-las por esta lista trancaria o
    administrador fora do proprio ajuste. */
@@ -376,7 +400,9 @@ function sessaoDe(u) {
     tiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
     motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
     // Idem: vazia = todas. E o celular esconde a aba que nao esta aqui.
-    operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : []
+    operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : [],
+    // As abas do painel do escritorio, mesma convencao.
+    abas: Array.isArray(u.Abas) ? u.Abas : []
   };
 }
 
@@ -1372,7 +1398,7 @@ function usuariosPublicos(usuarios) {
       // Nao e segredo, e o admin precisa saber quem ainda nao trocou.
       PinProvisorio: u.PinProvisorio === true, SenhaProvisoria: u.SenhaProvisoria === true,
       AcessoPainel: podeVerPainel(u),
-      /* As CINCO listas de permissão voltam para o painel. Esquecer uma aqui não dá
+      /* As SEIS listas de permissão voltam para o painel. Esquecer uma aqui não dá
          erro nenhum: o formulário abre com ela desmarcada e a gravação seguinte escreve
          vazio por cima do que estava salvo. Foi o que aconteceu com TiposCaixa e
          Motoristas — por isso o teste de simetria logo abaixo desta função. */
@@ -1380,7 +1406,8 @@ function usuariosPublicos(usuarios) {
       Destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
       TiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
       Motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
-      Operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : []
+      Operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : [],
+      Abas: Array.isArray(u.Abas) ? u.Abas : []
     };
   });
 }
@@ -1406,5 +1433,6 @@ module.exports = {
   normalizarPerfil: normalizarPerfil, perfisConhecidos: perfisConhecidos,
   locaisPermitidos: locaisPermitidos, motoristasDaRota: motoristasDaRota,
   ehVolante: ehVolante,
-  OPERACOES: OPERACOES, operacaoDoTipo: operacaoDoTipo, podeOperacao: podeOperacao
+  OPERACOES: OPERACOES, operacaoDoTipo: operacaoDoTipo, podeOperacao: podeOperacao,
+  ABAS: ABAS, podeAba: podeAba
 };

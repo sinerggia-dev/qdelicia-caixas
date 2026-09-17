@@ -99,7 +99,7 @@ async function rotaGet(p) {
                perfis: L.perfisConhecidos(d.usuarios),
                // A MESMA lista que a gravacao usa para recusar. Escrever as opcoes na tela
                // faria duas listas sobre a mesma regra, e elas divergem no primeiro nome novo.
-               operacoes: L.OPERACOES };
+               operacoes: L.OPERACOES, abas: L.ABAS };
     case 'painel':
       return { ok: true, painel: L.painel(L.recorteTeste(d, p.teste), null,
                                           { de: p.de, ate: p.ate }) };

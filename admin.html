@@ -454,7 +454,7 @@
 
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; OPERACOES_APP = r.operacoes || []; }
+      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; }
       ordenarTudo();
       montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
@@ -496,24 +496,54 @@
     document.getElementById('app').style.display='block';
     document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil;
 
-    /* O galpão consulta, não altera. Lançar e Cadastros ficam só com o escritório:
-       o conferente é quem gera a divergência na chegada, então dar a ele um Ajuste de saldo
-       (ou o cadastro de usuários) seria deixá-lo apagar o próprio erro. */
-    if (!Q.ehAdmin()) {
-      ['pgLancar', 'pgCadastros'].forEach(function (pg) {
-        var b = document.querySelector('#abas button[data-pagina="' + pg + '"]');
-        if (b) b.style.display = 'none';
-        var sec = document.getElementById(pg);
-        if (sec) sec.classList.remove('ativa');
-      });
-    }
     Q.abas('#abas');
+    ajustarAbasPainel(s);
     periodoPadraoMov();
     document.getElementById('lcData').value = Q.hoje();
-    carregarEquipe();
+    // A lista de abas so chega com a `equipe`; ate la a peneira nao tem o que peneirar.
+    carregarEquipe().then(function(){ ajustarAbasPainel(s); });
     Q.carregarDados().then(function(d){ DADOS=d; ordenarTudo(); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
   }
+  /* Quais abas do painel esta pessoa ve. Duas regras, e UMA peneira:
+
+       1. Ajustes e Cadastros so para o admin. O conferente e quem gera a divergencia na
+          chegada, entao dar a ele o ajuste de saldo (ou o cadastro de usuarios) seria
+          deixa-lo apagar o proprio erro. Isto nao se negocia pelo cadastro.
+       2. Dentro do que sobra, vale a lista marcada no cadastro. Vazia quer dizer TODAS —
+          a mesma convencao das outras permissoes, e a unica segura: invertida, ninguem
+          veria aba nenhuma no dia em que a coluna nasce vazia no banco.
+
+     Juntas numa funcao so de proposito. Duas regras escondendo a mesma aba em lugares
+     diferentes acabam discordando — foi o que aconteceu com o PROMOTOR no app de campo. */
+  function abasPermitidas(s){
+    var marcadas = (s && s.abas) || [];
+    return (ABAS_PAINEL.length ? ABAS_PAINEL : []).filter(function(a){
+      if (a.soAdmin && !Q.ehAdmin()) return false;
+      if (!marcadas.length) return true;
+      return marcadas.map(String).indexOf(String(a.ID)) >= 0;
+    }).map(function(a){ return a.ID; });
+  }
+
+  /* A aba some, e a pagina dela deixa de ser a ativa. A primeira que sobrou vira a
+     aberta — senao o painel abriria numa pagina escondida e mostraria tela em branco. */
+  function ajustarAbasPainel(s){
+    if (!ABAS_PAINEL.length) return;   // a lista so chega com a `equipe`; roda de novo depois
+    var pode = abasPermitidas(s);
+    var botoes = document.querySelectorAll('#abas button[data-pagina]');
+    Array.prototype.forEach.call(botoes, function(b){
+      var ok = pode.indexOf(b.dataset.pagina) >= 0;
+      b.style.display = ok ? '' : 'none';
+      if (!ok) {
+        b.classList.remove('ativa');
+        var sec = document.getElementById(b.dataset.pagina);
+        if (sec) sec.classList.remove('ativa');
+      }
+    });
+    var primeira = document.querySelector('#abas button[data-pagina]:not([style*="none"])');
+    if (primeira && !document.querySelector('#abas button.ativa')) primeira.click();
+  }
+
   document.getElementById('chipSair').addEventListener('click', Q.sair);
   /* Movimentos entrou aqui: a aba abria com "Use o filtro acima." e ficava assim até
      alguém apertar Filtrar. Quem entrava para ver os lançamentos concluía que não havia
@@ -2300,6 +2330,8 @@
   /* As operacoes que o app oferece, servidas pela API em `equipe`. Nao escritas aqui: a
      gravacao recusa pela MESMA lista, e uma copia na tela sairia do lugar sozinha. */
   var OPERACOES_APP = [];
+  /* As abas do painel, servidas pela API em `equipe`. Idem: uma lista so, no servidor. */
+  var ABAS_PAINEL = [];
 
   function caixaLocais(id, rotulo, itens, marcados, vazio){
     var sel = {};
@@ -2381,6 +2413,14 @@
         (u.ID ? 'Para redefinir, escreva uma senha nova aqui. Ela é provisória: a pessoa vai '+
                 'escolher a dela ao entrar.'
               : 'Senha provisória: a pessoa escolhe a dela no primeiro acesso.')+'</p>'+
+      '<h3 style="margin-top:20px">O que ele vê no painel</h3>'+
+      /* Antes do "o que pode lancar": decidir se a pessoa ENTRA numa tela vem antes de
+         decidir o que ela faz la dentro. */
+      caixaLocais('fAbas', 'Abas do painel — o que aparece para ela',
+                  ABAS_PAINEL, u.Abas, 'Nenhuma aba disponível.')+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+        'Nada marcado = todas. Ajustes e Cadastros só aparecem para o Admin, marcados '+
+        'ou não.</p>'+
       '<h3 style="margin-top:20px">O que ele pode lançar</h3>'+
       /* Vem antes das listas de local de proposito: decidir SE a pessoa faz saida vem
          antes de decidir DE ONDE ela faz. A lista sai do servidor, a mesma que a gravacao
@@ -2474,7 +2514,7 @@
         AcessoPainel:document.getElementById('fPainel').value,
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
         TiposCaixa:lerMarcados('fTiposCaixa'), Motoristas:lerMarcados('fMotoristas'),
-        Operacoes:lerMarcados('fOperacoes') };
+        Operacoes:lerMarcados('fOperacoes'), Abas:lerMarcados('fAbas') };
       var pin = document.getElementById('fPin').value.trim();
       if (pin) reg.PIN = pin;
       reg.Email = document.getElementById('fEmail').value.trim();
