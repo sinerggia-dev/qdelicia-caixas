@@ -506,8 +506,42 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
      todas as outras linhas. */
   ok(defs.indexOf('localIni') < 0,
     'nao ha coluna separada para o local do saldo — ele ja esta na Origem');
-  ok(/Estoque Inicial/.test(corpo) && /marca-estoque/.test(corpo),
-    'a linha de estoque se identifica no Destino, com marca propria', corpo.indexOf('Estoque'));
+  /* A coluna Destino ja trouxe a marca "Estoque Inicial" escrita, a pedido, e saiu a
+     pedido tambem. A linha de estoque NAO TEM destino, e a celula passa a dizer isso com
+     o mesmo travessao das outras celulas vazias do painel.
+
+     O que a linha e continua legivel em dois lugares, e o teste cobra os dois: a coluna
+     Estoque traz o valor lancado, e o Saldo inicial sai em verde so nessas linhas. Sem
+     nenhum dos dois, elas viravam quatro linhas iguais com numeros diferentes. */
+  var defsD = corpo.slice(corpo.indexOf('var DEFS = {'), corpo.indexOf('DEFS.quem.t'));
+  var blocoD = defsD.slice(defsD.indexOf('\n      destino:'), defsD.indexOf('\n      quem:'));
+  ok(blocoD.indexOf('Estoque Inicial') < 0 && blocoD.indexOf('marca-estoque') < 0,
+    'a coluna Destino não escreve mais "Estoque Inicial"', blocoD);
+  ok(/l\.estoqueInicial\s*\?\s*'<span class="fraco">—<\/span>'/.test(blocoD),
+    'e diz que a linha não tem destino, com o mesmo travessão das outras células vazias',
+    blocoD);
+  var cssD = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  ok(cssD.indexOf('.marca-estoque') < 0,
+    'nem o estilo dela ficou para trás — CSS sem dono é o que ninguém ousa apagar depois');
+
+  ok(/lancado:  \{ t: 'Estoque'/.test(defsD) &&
+     /l\.estoqueInicial \? ' val-ok' : ''/.test(defsD),
+    'o que a linha É continua legível: a coluna Estoque traz o valor, e o Saldo inicial ' +
+    'sai em verde só nessas linhas');
+
+  /* A chave de classificacao acompanhou: vazia, `compararValores` manda essas linhas para
+     o fim — que e onde ficam as linhas sem o dado pelo qual se ordena. */
+  ok(/k: function\(l\)\{ return \(l\.destinos \|\| \[\]\)\.join\(', '\); \}/.test(blocoD),
+    'e a chave de classificação acompanha: sem destino, a linha vai para o fim', blocoD);
+
+  /* E o CSV, pela regra de sempre: exportar e conferir na tela tem de bater. Deixado
+     para tras, o arquivo escreveria "Estoque Inicial" numa coluna que a tela mostra
+     vazia — e quem comparasse os dois acharia que faltou dado num dos lados. */
+  var jc = adm.indexOf("Q.csv('retornos'");
+  var csvD = adm.slice(adm.lastIndexOf('var VAL =', jc), adm.indexOf('};', adm.lastIndexOf('var VAL =', jc)));
+  var linhaD = csvD.slice(csvD.indexOf('destino:'), csvD.indexOf('\n', csvD.indexOf('destino:')));
+  ok(linhaD.indexOf('Estoque Inicial') < 0 && linhaD.indexOf('estoqueInicial') < 0,
+    'o CSV acompanha a tela: sem destino nos dois, ou com o rótulo nos dois', linhaD);
 
   // a ordem salva convive com mudancas na lista de fabrica
   var j = adm.indexOf('function ordemColunas()');

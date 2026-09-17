@@ -497,7 +497,6 @@ body.redimensionando{user-select:none;cursor:col-resize}
 
 /* A linha de estoque inicial e a unica que nao e uma divida: e o ponto de partida da
    conta. Verde, como o cartao da taxa de retorno quando esta na meta. */
-.marca-estoque{color:var(--verde);font-weight:600}
 /* Segunda linha da celula: o tipo do local e a rota que o atende. Sem o block ela
    cola no nome e sai "Joao Pessoarota". */
 /* Texto de apoio dentro de uma celula normal: o travessao do vazio e o "+2" da lista de

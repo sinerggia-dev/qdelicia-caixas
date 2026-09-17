@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=781de488">
+<link rel="stylesheet" href="styles.css?v=78631cfd">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -1218,11 +1218,10 @@
          primeiro. Ao lado, a coluna Estoque fica em texto comum — duas colunas de numero
          com o mesmo peso competem entre si, e nenhuma das duas conduz a leitura.
 
-         O VERDE, porem, so na linha de Estoque Inicial. Verde em toda a coluna nao
+         O VERDE, porem, so na linha de estoque inicial. Verde em toda a coluna nao
          distinguia nada: cor que aparece em todas as linhas deixa de ser sinal e vira
-         fundo. Reservada a linha de estoque, ela marca onde a conta comeca — e e a mesma
-         cor com que "Estoque Inicial" ja aparece na coluna Destino, entao as duas pontas
-         da linha se procuram sozinhas. */
+         fundo. Reservado a essas linhas, ele marca onde a conta comeca — e, desde que a
+         marca escrita saiu da coluna Destino, e ele que diz qual linha e qual. */
       inicial:  { t: 'Saldo inicial', num: true, so: 'local',
                   k: function(l){ return l.iniCorrido || 0; },
                   v: function(l){
@@ -1248,18 +1247,21 @@
                     return lugares(l.origens) +
                       '<span class="fsub">' + Q.esc(l.sub) + '</span>';
                   } },
-      /* A linha de estoque nao tem destino, e classificar por texto vazio a jogaria para
-         o fim. Ela entra pelo rotulo que a tela mostra — o que se ve e o que se ordena. */
+      /* A linha de estoque NAO TEM destino, e a coluna passa a dizer isso: travessao,
+         como qualquer celula vazia do painel.
+
+         Ela ja trouxe a marca "Estoque Inicial" escrita aqui, a pedido, e saiu a pedido
+         tambem. O que a linha e continua legivel sem ela, em dois lugares: a coluna
+         Estoque traz o valor lancado, e o Saldo inicial sai em verde so nessas linhas.
+
+         A chave de classificacao acompanha — vazio, e `compararValores` manda vazio para
+         o fim. Ordenar por Destino junta as linhas de estoque no fim, que e onde ficam
+         as linhas sem esse dado. */
       destino:  { t: 'Destino', so: 'local',
-                  k: function(l){
-                    return l.estoqueInicial ? 'Estoque Inicial' : (l.destinos || []).join(', ');
-                  },
+                  k: function(l){ return (l.destinos || []).join(', '); },
                   v: function(l){
-                    /* O local de onde esse estoque e ja esta na coluna Origem: aqui
-                       cabe dizer o QUE a linha e. Verde porque e a unica linha que
-                       nao e uma divida — e um ponto de partida. */
                     return l.estoqueInicial
-                      ? '<span class="marca-estoque">Estoque Inicial</span>'
+                      ? '<span class="fraco">—</span>'
                       : lugares(l.destinos);
                   } },
       quem:     { t: '', so: 'gente', k: function(l){ return l.nome || ''; },
@@ -1478,8 +1480,7 @@
       inicial:  function(l){ return l.iniCorrido || 0; },
       lancado:  function(l){ return l.inicial || 0; },
       origem:   function(l){ return (l.origens||[]).join(' | '); },
-      destino:  function(l){ return l.estoqueInicial ? 'Estoque Inicial'
-                                                     : (l.destinos||[]).join(' | '); },
+      destino:  function(l){ return (l.destinos||[]).join(' | '); },
       saida:    function(l){ return l.saida; },
       retorno:  function(l){ return l.retorno; },
       final:    function(l){ return l.fimCorrido; }

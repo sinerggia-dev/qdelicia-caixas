@@ -466,9 +466,9 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
       <tbody>
         <tr><td>Data</td><td>O dia do lançamento. A tabela é ordenada por ela, e dentro do mesmo dia o estoque abre e os caminhos vêm depois</td></tr>
         <tr><td>Origem</td><td>Quem despachou, e embaixo quantos lançamentos a linha junta</td></tr>
-        <tr><td>Estoque</td><td>O que foi lançado como saldo inicial <em>naquele dia</em>. Zero em cinza nos dias sem lançamento</td></tr>
+        <tr><td>Estoque</td><td>O que foi lançado como saldo inicial <em>naquele dia</em>. Zero em cinza nos dias sem lançamento. É por ele, e pelo verde do Saldo inicial, que se reconhece uma linha de estoque</td></tr>
         <tr><td>Saldo inicial</td><td>O acumulado até ali — tudo que já entrou menos tudo que já saiu</td></tr>
-        <tr><td>Destino</td><td>Quem recebeu. Nas linhas de saldo inicial, a marca verde <em>Estoque Inicial</em></td></tr>
+        <tr><td>Destino</td><td>Quem recebeu. Nas linhas de saldo inicial fica vazio, porque elas não são um caminho</td></tr>
         <tr><td>Saída</td><td>Quanto saiu, com a quebra por tipo de caixa embaixo</td></tr>
         <tr><td>Retorno</td><td>Quanto voltou, idem</td></tr>
         <tr><td>Saldo final</td><td>Verde quando sobra, vermelho quando falta</td></tr>
