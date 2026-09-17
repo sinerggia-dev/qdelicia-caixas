@@ -81,7 +81,7 @@
     </div>
 
     <div class="card">
-      <h2>Caixas em poder de clientes e filiais<span class="sub">Ordenado por quem tem mais caixas nossas. Vermelho = tem caixa parada há mais de 30 dias.</span></h2>
+      <h2>Caixas em poder de clientes e unidades<span class="sub">Ordenado por quem tem mais caixas nossas. Vermelho = tem caixa parada há mais de 30 dias.</span></h2>
       <div class="grid2">
         <div class="busca"><input id="buscaPainel" type="text" placeholder="🔍 Buscar cliente ou filial"></div>
         <div><select id="filtroRota"><option value="">Todas as rotas</option></select></div>
@@ -885,7 +885,10 @@
     var itens = [
       { v:'todas',     r:'Todas',      n:vivas.length },
       { v:'ROTA',      r:'Rotas',      n:conta('ROTA') },
-      { v:'FILIAL',    r:'Filiais',    n:linhasFiliais().length },
+      /* "Unidades" e nao "Filiais": o chip junta filial e galpao, e a Matriz esta nele.
+         Chama-la de filial era estranho para quem le. O TIPO do local no cadastro segue
+         sendo FILIAL/GALPAO — isso e o vocabulario dos dados, e nao muda com o rotulo. */
+      { v:'FILIAL',    r:'Unidades',   n:linhasFiliais().length },
       { v:'CLIENTE',   r:'Clientes',   n:conta('CLIENTE') },
       { v:'deficit',   r:'Em déficit', n:linhasDeficit() },
       { v:'MOTORISTA', r:'Motoristas', n:pes.motoristas.length },
@@ -954,12 +957,12 @@
          nao aparecia em lugar nenhum, porque nao ha linha de baixo para carrega-lo no
          Saldo inicial.
 
-         A linha de estoque inicial continua sem nada: sem saida e sem retorno, o final
-         dela e o proprio inicial, e repetir o numero ao lado dele ocuparia a coluna
-         dizendo a mesma coisa duas vezes. */
+         A linha de estoque inicial tambem mostra o dela. Chegou a ficar com travessao,
+         pela ideia de que repetir o Saldo inicial ao lado nao acrescentava; na pratica a
+         coluna com um buraco no meio parecia falta de dado, e a coluna so fecha de cima a
+         baixo quando toda linha tem o seu numero. */
       final:    { t: 'Saldo final', num: true,
                   v: function(l){
-                    if (l.estoqueInicial) return '<span class="fraco">—</span>';
                     var fim = gente ? l.saldo : l.fimCorrido;
                     var cor = fim > 0 ? ' val-ok' : (fim < 0 ? ' val-ruim' : '');
                     return '<b class="val' + cor + '">' +
@@ -1007,7 +1010,7 @@
     var t = totaisDe(lista);
     var rot = FLUXO_FILTRO === 'MOTORISTA' ? 'motoristas'
             : FLUXO_FILTRO === 'USUARIO' ? 'usuários'
-            : FLUXO_FILTRO === 'FILIAL' ? 'filiais' : 'origens';
+            : FLUXO_FILTRO === 'FILIAL' ? 'unidades' : 'origens';
     document.getElementById('fluxoTiles').innerHTML =
       tile(t.taxaRetorno===null?'—':t.taxaRetorno+'%', 'taxa de retorno do mês', 'meta '+metaFluxo()+'%',
            t.taxaRetorno!==null && t.taxaRetorno < metaFluxo() ? 'alerta' : 'ok')+
@@ -1102,7 +1105,7 @@
   function desenharKpis(){
     var k = PAINEL.kpis;
     document.getElementById('kpis').innerHTML =
-      kpi(Q.num(k.emPoderTerceiros),'caixas na rua (clientes+filiais)','aviso')+
+      kpi(Q.num(k.emPoderTerceiros),'caixas na rua (clientes+unidades)','aviso')+
       (PAINEL.rotas && PAINEL.rotas.length ? kpi(Q.num(k.emRota),'caixas no caminhão (em rota)', k.emRota?'aviso':'ok') : '')+
       kpi(Q.num(k.vencidas),'caixas fora do prazo de retorno', k.vencidas?'alerta':'ok')+
       kpi(Q.num(k.perdasMes),'perdas baixadas no mês', k.perdasMes?'alerta':'ok')+

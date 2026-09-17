@@ -807,9 +807,12 @@ console.log('\n== o Saldo final mostra o numero, colorido ==');
   ok(zero.indexOf('0') > 0 && !/val-ok|val-ruim/.test(zero),
     'zero nao e nem sobra nem falta: aparece sem cor', zero);
 
+  /* A linha de estoque inicial tambem mostra o dela. Chegou a ficar com travessao, pela
+     ideia de que repetir o Saldo inicial ao lado nao acrescentava; na pratica a coluna
+     com um buraco no meio parecia falta de dado. */
   var est = celula(Q, false, { estoqueInicial: true, fimCorrido: 1250 });
-  ok(est.indexOf('1250') < 0,
-    'a linha de estoque inicial continua sem repetir o proprio numero', est);
+  ok(est.indexOf('1250') > 0 && /val-ok/.test(est),
+    'a linha de estoque inicial tambem mostra o saldo final dela', est);
 
   /* Nas visoes de gente nao ha conta corrida: cada pessoa responde pelo saldo dela. */
   ok(/val-ruim/.test(celula(Q, true, { saldo: -80, fimCorrido: 999 })),
