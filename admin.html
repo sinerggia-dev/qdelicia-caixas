@@ -1113,27 +1113,35 @@
     if (bl) bl.disabled = !algumFiltroFluxo();
 
     var t = totaisDe(lista);
-    var rot = FLUXO_FILTRO === 'MOTORISTA' ? 'motoristas'
-            : FLUXO_FILTRO === 'USUARIO' ? 'usuários'
-            : FLUXO_FILTRO === 'FILIAL' ? 'unidades' : 'origens';
-    /* Saida e retorno vem PRIMEIRO porque e deles que sai o resto: a taxa de retorno e
-       um dividido pelo outro, e ler a razao antes dos dois numeros que a formam obriga a
-       voltar. Um cartao para cada, do mesmo tamanho dos demais — juntos num so, eles
-       viravam um cartao de dois andares no meio de uma fileira de numeros unicos. */
+    /* Inicial maiuscula como nos demais rotulos — este e o unico que varia com o grupo
+       escolhido, entao a caixa alta tem de vir escrita aqui e nao no rotulo fixo. */
+    var rot = FLUXO_FILTRO === 'MOTORISTA' ? 'Motoristas'
+            : FLUXO_FILTRO === 'USUARIO' ? 'Usuários'
+            : FLUXO_FILTRO === 'FILIAL' ? 'Unidades' : 'Origens';
+    /* A ordem e a do escritorio: primeiro o indicador que se cobra (a taxa), depois o
+       numero que dói (o que nao voltou), e so entao as duas pontas que formam os dois.
+       No fim, as duas posicoes de estoque, lado a lado porque uma e o complemento da
+       outra — o que esta em casa e o que esta na rua somam tudo que existe. */
     var circulacao = (PAINEL.kpis.emPoderTerceiros || 0) + (PAINEL.kpis.emRota || 0);
+    var estoque = (PAINEL.galpoes || []).reduce(function(soma, g){ return soma + (g.saldo||0); }, 0);
     document.getElementById('fluxoTiles').innerHTML =
-      tile(Q.num(t.saida), 'total de saída', 'no período filtrado')+
-      tile(Q.num(t.retorno), 'total de retorno',
-           Q.num(t.saida + t.retorno)+' caixas movimentadas')+
-      tile(t.taxaRetorno===null?'—':t.taxaRetorno+'%', 'taxa de retorno do mês', 'meta '+metaFluxo()+'%',
+      tile(t.taxaRetorno===null?'—':t.taxaRetorno+'%', 'Taxa de Retorno do Mês', 'meta '+metaFluxo()+'%',
            t.taxaRetorno!==null && t.taxaRetorno < metaFluxo() ? 'alerta' : 'ok')+
-      tile(Q.num(t.deficit), 'caixas que saíram e não voltaram', 'no mês, somando só quem deve',
+      tile(Q.num(t.deficit), 'Caixas que Saíram e Não Voltaram', 'no mês, somando só quem deve',
            t.deficit ? 'aviso' : 'ok')+
-      /* O unico que NAO responde aos filtros, e o rodape diz isso. Ele sai do razao —
-         quanto cada um tem nosso agora —, e nao do fluxo do periodo; filtrar por uma
-         origem nao o estreitaria, apenas o deixaria parecendo errado sem explicacao. */
-      tile(Q.num(circulacao), 'em circulação', 'no total, fora do filtro')+
-      tile(Q.num(t.foraDaMeta), rot+' abaixo da meta',
+      tile(Q.num(t.saida), 'Total de Saída', 'no período filtrado')+
+      tile(Q.num(t.retorno), 'Total de Retorno',
+           Q.num(t.saida + t.retorno)+' caixas movimentadas')+
+      /* Os dois ultimos NAO respondem aos filtros, e o rodape de cada um diz isso. Eles
+         saem do razao — onde a caixa esta AGORA —, e nao do fluxo do periodo; filtrar por
+         uma origem nao os estreitaria, apenas os deixaria parecendo travados.
+
+         Estoque e o que esta nas nossas casas (galpoes e unidades); circulacao e o que
+         esta com terceiros mais o que esta nos caminhoes. Somados, dao todas as caixas
+         que existem — e e por isso que ficam juntos, um conferindo o outro. */
+      tile(Q.num(estoque), 'Total no Estoque', 'nos galpões e unidades, fora do filtro')+
+      tile(Q.num(circulacao), 'Em Circulação', 'com terceiros e em rota, fora do filtro')+
+      tile(Q.num(t.foraDaMeta), rot+' Abaixo da Meta',
            'de '+Q.num(t.linhas)+' com movimento no mês', t.foraDaMeta ? 'aviso' : 'ok');
   }
 

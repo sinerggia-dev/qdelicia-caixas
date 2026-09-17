@@ -486,22 +486,24 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <p>Já foi calculado sobre a lista filtrada, e aí escondendo o dia 16 a linha do dia 17 abria como se nada tivesse acontecido no meio.</p>
   </div>
 
-  <h3>Os seis cartões</h3>
-  <p>Ficam acima da tabela e, com uma exceção, <strong>acompanham os filtros</strong>.</p>
+  <h3>Os sete cartões</h3>
+  <p>Ficam acima da tabela, nesta ordem, e <strong>acompanham os filtros</strong> — menos os dois de posição.</p>
   <div class="tabela">
     <table>
       <thead><tr><th>Cartão</th><th>O que conta</th><th>Segue o filtro</th></tr></thead>
       <tbody>
-        <tr><td>Total de saída</td><td>Caixas que saíram no recorte</td><td class="sim">sim</td></tr>
-        <tr><td>Total de retorno</td><td>Caixas que voltaram; no rodapé, a soma das duas pontas</td><td class="sim">sim</td></tr>
-        <tr><td>Taxa de retorno do mês</td><td>Retorno dividido por saída, contra a meta</td><td class="sim">sim</td></tr>
-        <tr><td>Caixas que saíram e não voltaram</td><td>O déficit, somando só quem deve</td><td class="sim">sim</td></tr>
-        <tr><td>Em circulação</td><td>Tudo que está fora do galpão agora</td><td class="nao">não</td></tr>
-        <tr><td>Origens abaixo da meta</td><td>Quantos caminhos não bateram a meta</td><td class="sim">sim</td></tr>
+        <tr><td>Taxa de Retorno do Mês</td><td>Retorno dividido por saída, contra a meta</td><td class="sim">sim</td></tr>
+        <tr><td>Caixas que Saíram e Não Voltaram</td><td>O déficit, somando só quem deve</td><td class="sim">sim</td></tr>
+        <tr><td>Total de Saída</td><td>Caixas que saíram no recorte</td><td class="sim">sim</td></tr>
+        <tr><td>Total de Retorno</td><td>Caixas que voltaram; no rodapé, a soma das duas pontas</td><td class="sim">sim</td></tr>
+        <tr><td>Total no Estoque</td><td>O que está nas nossas casas: galpões e unidades</td><td class="nao">não</td></tr>
+        <tr><td>Em Circulação</td><td>O que está com terceiros mais o que está nos caminhões</td><td class="nao">não</td></tr>
+        <tr><td>Origens Abaixo da Meta</td><td>Quantos caminhos não bateram a meta</td><td class="sim">sim</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="nota">O de <strong>circulação</strong> sai do razão — quanto cada um tem nosso <em>agora</em> —, e não do fluxo do período. Filtrar por uma origem não o estreitaria, só o deixaria parecendo travado; por isso o rodapé dele diz <em>no total, fora do filtro</em>.</p>
+  <p><strong>Estoque</strong> e <strong>circulação</strong> ficam lado a lado porque um é o complemento do outro: somados, dão todas as caixas que existem. Um confere o outro.</p>
+  <p class="nota">Os dois saem do razão — onde a caixa está <em>agora</em> —, e não do fluxo do período. Filtrar por uma origem não os estreitaria, só os deixaria parecendo travados; por isso o rodapé de cada um diz <em>fora do filtro</em>.</p>
 
   <h3>Os filtros</h3>
   <ul>

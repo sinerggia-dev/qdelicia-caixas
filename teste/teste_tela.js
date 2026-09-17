@@ -986,7 +986,29 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   var i = adm.indexOf("document.getElementById('fluxoTiles').innerHTML");
   var fileira = adm.slice(i, adm.indexOf(';', adm.indexOf('foraDaMeta ?', i)));
   var quantos = fileira.split('tile(').length - 1;
-  ok(quantos === 6, 'a fileira tem seis cartões', quantos);
+  ok(quantos === 7, 'a fileira tem sete cartões', quantos);
+
+  /* A ORDEM e pedida, entao e conferida. Um cartao novo enfiado no meio nao quebra nada
+     no codigo — so a leitura de quem abre a tela todo dia no mesmo lugar. */
+  var rotulos = (fileira.match(/'([A-ZÀ-Ý][^']*)'/g) || [])
+    .map(function(t){ return t.slice(1, -1); })
+    .filter(function(t){ return /^[A-ZÀ-Ý]/.test(t) && t.indexOf('<') < 0; });
+  ok(rotulos.join(' | ') ===
+     'Taxa de Retorno do Mês | Caixas que Saíram e Não Voltaram | Total de Saída | ' +
+     'Total de Retorno | Total no Estoque | Em Circulação',
+    'os cartões saem na ordem pedida, e o de estoque antes do de circulação', rotulos);
+
+  /* Inicial maiuscula em todo rotulo, conectores em minuscula — a mesma grafia que o
+     resto do app usa nos perfis ("Supervisor de Área"). */
+  ok(rotulos.every(function(r){ return /^[A-ZÀ-Ý]/.test(r); }),
+    'todo rótulo começa em maiúscula', rotulos);
+  ok(/rot\+' Abaixo da Meta'/.test(fileira),
+    'e o do último cartão também, embora o começo dele varie com o grupo escolhido');
+  var i2 = adm.indexOf("var rot = FLUXO_FILTRO === 'MOTORISTA'");
+  var varia = adm.slice(i2, adm.indexOf(';', i2));
+  ok(/'Motoristas'/.test(varia) && /'Usuários'/.test(varia) &&
+     /'Unidades'/.test(varia) && /'Origens'/.test(varia),
+    'os quatro valores que esse começo assume vêm em maiúscula', varia);
 
   /* Os quatro que respondem ao filtro leem `t`, que e `totaisDe(lista)` — a lista JA
      peneirada. Lidos de `f.totais`, que e o periodo inteiro, o cartao ficaria parado
@@ -997,9 +1019,9 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      lado: virava um cartao de dois andares no meio de uma fileira de numeros unicos, e
      precisava de rotulo interno para dizer qual era qual. Separados, o rotulo de cima do
      cartao ja diz — e e o mesmo formato dos outros quatro. */
-  ok(/tile\(Q\.num\(t\.saida\), 'total de saída'/.test(fileira),
+  ok(/tile\(Q\.num\(t\.saida\), 'Total de Saída'/.test(fileira),
     'a saída tem cartão próprio, e lê os totais filtrados', fileira.slice(0, 200));
-  ok(/tile\(Q\.num\(t\.retorno\), 'total de retorno'/.test(fileira),
+  ok(/tile\(Q\.num\(t\.retorno\), 'Total de Retorno'/.test(fileira),
     'e o retorno também — por isso os dois acompanham o filtro', fileira.slice(0, 260));
   ok(/Q\.num\(t\.saida \+ t\.retorno\)/.test(fileira),
     'e a soma dos dois não se perdeu: ela é o rodapé do cartão de retorno');
@@ -1009,11 +1031,29 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'e nem o estilo dele — CSS sem dono e o que ninguém ousa apagar depois');
 
   /* O que NAO responde ao filtro precisa dizer. */
-  ok(/tile\(Q\.num\(circulacao\), 'em circulação', 'no total, fora do filtro'\)/.test(fileira),
-    'o cartão de circulação avisa que está fora do filtro — sem isso pareceria travado',
-    fileira);
+  /* Os dois de posicao: estoque e circulacao. Cada um diz de onde vem e que esta fora do
+     filtro — sem isso pareceriam travados quando a tabela embaixo muda. */
+  ok(/tile\(Q\.num\(estoque\), 'Total no Estoque', '[^']*fora do filtro'\)/.test(fileira),
+    'o cartão de estoque avisa que está fora do filtro', fileira);
+  ok(/tile\(Q\.num\(circulacao\), 'Em Circulação', '[^']*fora do filtro'\)/.test(fileira),
+    'e o de circulação também', fileira);
   ok(/var circulacao = \(PAINEL\.kpis\./.test(adm),
-    'e ele vem dos KPIs do razão, não do fluxo do período');
+    'circulação vem dos KPIs do razão, não do fluxo do período');
+
+  /* O estoque soma os GALPOES — as nossas casas. Somar `locais` traria os clientes
+     junto, e o cartao diria que temos em casa o que esta na rua. */
+  var k2 = adm.indexOf('var estoque = ');
+  var linhaEst = adm.slice(k2, adm.indexOf('\n', k2));
+  ok(/PAINEL\.galpoes/.test(linhaEst) && linhaEst.indexOf('PAINEL.locais') < 0,
+    'e o estoque soma os galpões e unidades, não os clientes', linhaEst);
+  var soma = new Function('PAINEL',
+    linhaEst.trim() + ' return estoque;');
+  ok(soma({ galpoes: [{ saldo: 1620 }, { saldo: 0 }, { saldo: 12 }] }) === 1632,
+    'a soma roda: três unidades viram um número só', soma({ galpoes: [{ saldo: 1620 },
+      { saldo: 0 }, { saldo: 12 }] }));
+  ok(soma({}) === 0 && soma({ galpoes: [{}] }) === 0,
+    'e sem galpão nenhum dá zero, não NaN — painel meio carregado não escreve "NaN" na tela',
+    [soma({}), soma({ galpoes: [{}] })]);
 
   /* A conta em si, rodando: duas listas diferentes tem de dar numeros diferentes. Sem
      isto, o teste acima so leria texto — e `t.saida` poderia estar somando a lista errada. */
