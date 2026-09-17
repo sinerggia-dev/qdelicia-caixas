@@ -970,6 +970,137 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
  * CONTAGEM dos filtros ligados e troca de cor — deixa de ser um controle neutro e passa a
  * ser um aviso.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * Recolher o trilho — sem esconder qual grupo esta escolhido.
+ *
+ * O grupo peneira a tabela. Recolhido o trilho, ele sai da tela junto, e a pessoa fica
+ * olhando quatro usuarios onde ha dezenas de linhas sem saber por que. Por isso o botao
+ * passa a carregar o NOME do grupo, e so fica mudo em "Todas" — o estado em que nada esta
+ * escondido.
+ * ------------------------------------------------------------------------- */
+console.log('\n== recolher o trilho ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* O gatilho fica FORA do trilho. Dentro, sumiria junto e nao haveria como trazer a
+     coluna de volta — o mesmo erro que o painel de filtros evita. */
+  var bt = adm.indexOf('id="btnTrilho"');
+  var ini = adm.indexOf('<aside class="ret-rail"');
+  var fim = adm.indexOf('</aside>', ini);
+  ok(bt > 0 && !(bt > ini && bt < fim),
+    'o gatilho fica fora do trilho — dentro, sumiria junto e não haveria como voltar',
+    [bt, ini, fim]);
+  ok(/aria-controls="retRail"/.test(adm) && /id="retRail"/.test(adm),
+    'e diz qual região ele controla, para quem navega por leitor de tela');
+
+  /* Recolhido, o trilho sai da grade inteiro — nao vira faixa de icones. */
+  ok(/\.ret-wrap\.sem-trilho\{grid-template-columns:1fr\}/.test(css),
+    'recolhido, a tabela ocupa a largura toda');
+  ok(/\.ret-wrap\.sem-trilho \.ret-rail\{display:none\}/.test(css),
+    'e a coluna some de fato');
+
+  /* --- os nomes dos grupos vem de um lugar so ----------------------------- */
+  var i = adm.indexOf('var NOMES_GRUPO = {');
+  var mapa = adm.slice(i, adm.indexOf('};', i));
+  ok(i > 0 && (mapa.match(/'/g) || []).length >= 14,
+    'existe uma lista única de nomes de grupo', mapa.length);
+  var j = adm.indexOf('var itens = [');
+  var lista = adm.slice(j, adm.indexOf('];', j) + 60);
+  ok(/NOMES_GRUPO\[c\.v\]/.test(lista) && lista.indexOf("r:'") < 0,
+    'e a lista do trilho lê dela, em vez de repetir os nomes — repetidos, o trilho diria ' +
+    '"Unidades" e o botão, "Filiais"', lista);
+  ['todas', 'ROTA', 'FILIAL', 'CLIENTE', 'deficit', 'MOTORISTA', 'USUARIO']
+    .forEach(function (v) {
+      ok(mapa.indexOf(v + ':') > 0, 'o grupo ' + v + ' tem nome na lista');
+    });
+
+  /* --- o comportamento, rodando ------------------------------------------- */
+  var a = adm.indexOf('var TRILHO_CHAVE');
+  var b = adm.indexOf('function ajustarTrilho()');
+  var k = adm.indexOf('{', b), abertas = 0;
+  do {
+    if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
+    k++;
+  } while (abertas > 0 && k < adm.length);
+  var fonte = adm.slice(a, k);
+  ok(a > 0 && /function ajustarTrilho/.test(fonte) && /function trilhoRecolhido/.test(fonte),
+    'o recorte pegou as peças — sem isto a bancada abaixo exercita outro código');
+
+  function bancada(grupo, recolhido) {
+    var els = {
+      retWrap: { className: 'ret-wrap' },
+      btnTrilho: { className: '', textContent: '', title: '', attrs: {},
+                   setAttribute: function (x, v) { this.attrs[x] = v; } }
+    };
+    var loja = { qdc_trilho_v1: recolhido ? '1' : '0' };
+    var ls = { getItem: function (c) { return loja[c] === undefined ? null : loja[c]; },
+               setItem: function (c, v) { loja[c] = String(v); } };
+    var doc = { getElementById: function (id) { return els[id] || null; } };
+    var NOMES = new Function('return ' + adm.slice(adm.indexOf('{', adm.indexOf('var NOMES_GRUPO')),
+                             adm.indexOf('};', adm.indexOf('var NOMES_GRUPO')) + 1) + ';')();
+    var api = new Function('document', 'localStorage', 'FLUXO_FILTRO', 'NOMES_GRUPO',
+      fonte + '\n return ajustarTrilho;')(doc, ls, grupo, NOMES);
+    api();
+    return els;
+  }
+
+  var aberto = bancada('todas', false);
+  ok(aberto.retWrap.className === 'ret-wrap' &&
+     aberto.btnTrilho.attrs['aria-expanded'] === 'true',
+    'aberto: a coluna aparece, e o leitor de tela sabe', aberto.retWrap.className);
+
+  var recolhido = bancada('todas', true);
+  ok(/sem-trilho/.test(recolhido.retWrap.className) &&
+     recolhido.btnTrilho.attrs['aria-expanded'] === 'false',
+    'recolhido: a coluna some', recolhido.retWrap.className);
+  ok(recolhido.btnTrilho.textContent === '☰' &&
+     !/alerta/.test(recolhido.btnTrilho.className),
+    'em "Todas" o botão fica mudo: não há nada escondido para avisar',
+    recolhido.btnTrilho.textContent);
+
+  /* O caso que importa: recolhido COM grupo escolhido. */
+  var comGrupo = bancada('USUARIO', true);
+  ok(comGrupo.btnTrilho.textContent === '☰ Usuários',
+    'recolhido com grupo escolhido, o botão diz QUAL grupo peneira a tabela',
+    comGrupo.btnTrilho.textContent);
+  ok(/alerta/.test(comGrupo.btnTrilho.className),
+    'e troca de cor: deixa de ser controle e vira aviso', comGrupo.btnTrilho.className);
+  ok(/Usuários/.test(comGrupo.btnTrilho.title),
+    'o título repete o que isso significa para a tabela', comGrupo.btnTrilho.title);
+
+  /* Aberto com grupo escolhido nao avisa: o grupo esta aceso na coluna, a vista. */
+  var abertoComGrupo = bancada('USUARIO', false);
+  ok(!/alerta/.test(abertoComGrupo.btnTrilho.className) &&
+     abertoComGrupo.btnTrilho.textContent === '⟨',
+    'aberto, não há aviso — o grupo está aceso na coluna, à vista',
+    abertoComGrupo.btnTrilho.textContent + ' | ' + abertoComGrupo.btnTrilho.className);
+
+  /* Um nome de grupo diferente para provar que o rotulo vem do MAPA, e nao de um texto
+     fixo: se viesse fixo, "Em déficit" apareceria como "USUARIO" ou como o mesmo de cima. */
+  ok(bancada('deficit', true).btnTrilho.textContent === '☰ Em déficit',
+    'e o nome sai do mapa, não de um texto fixo',
+    bancada('deficit', true).btnTrilho.textContent);
+
+  /* O rotulo tem de ACOMPANHAR o grupo. Recolhido em "Usuários", um clique em Limpar
+     devolve a tabela para "Todas" — e sem esta chamada o botao continuaria dizendo
+     "Usuários" sobre uma tabela que ja mostra tudo. Rotulo velho mente pior que rotulo
+     nenhum, porque parece informacao. */
+  var dF = adm.indexOf('function desenharFluxo()');
+  var corpoF = adm.slice(dF, adm.indexOf('\n  /* Três frases diferentes', dF));
+  ok(corpoF.indexOf('ajustarTrilho()') > 0,
+    'o desenho do fluxo reajusta o rótulo — por ele passa tudo que muda o grupo');
+
+  /* Preferencia de quem olha — ao contrario do painel de filtros, esta se guarda: uma
+     tela larga com poucos grupos quer o espaco na tabela, e toda visita. */
+  ok(/qdc_trilho_v1/.test(adm), 'o estado recolhido fica guardado no navegador');
+  var fo = adm.slice(adm.indexOf('function trilhoRecolhido()'));
+  fo = fo.slice(0, fo.indexOf('\n  }'));
+  ok(/try \{/.test(fo) && /catch/.test(fo),
+    'com try/catch: janela anônima e cookies bloqueados fazem o acesso estourar, e uma ' +
+    'preferência de layout não pode derrubar o painel');
+})();
+
 console.log('\n== os filtros num painel suspenso ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

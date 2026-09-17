@@ -347,6 +347,17 @@ tr.ruim{background:var(--vermelho-claro)}
 .ret-wrap{display:grid;grid-template-columns:220px 1fr;border:1px solid var(--linha);
   border-radius:var(--raio);overflow:hidden;box-shadow:var(--sombra);background:var(--surface)}
 .ret-rail{background:var(--marinho-esc);padding:16px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+/* Recolhido, o trilho sai da grade inteiro — e nao vira uma faixa estreita de icones.
+   Numa coluna de 40px os sete grupos virariam siglas, e sigla se erra na leitura. */
+.ret-wrap.sem-trilho{grid-template-columns:1fr}
+.ret-wrap.sem-trilho .ret-rail{display:none}
+/* O gatilho e pequeno e mora no cabecalho da tabela, ao lado do titulo. */
+.ret-recolher{background:none;border:1px solid var(--linha);color:var(--txt2);
+  font-family:inherit;font-size:12.5px;font-weight:600;line-height:1;cursor:pointer;
+  padding:7px 9px;border-radius:8px;margin-top:1px;white-space:nowrap}
+.ret-recolher:hover{background:var(--surface-2);color:var(--txt)}
+/* Com grupo escolhido e o trilho fora da tela, ele deixa de ser controle e vira aviso. */
+.ret-recolher.alerta{color:var(--ambar-forte);border-color:var(--ambar)}
 .ret-marca{font-weight:800;letter-spacing:.05em;font-size:15px;color:#fff;padding:2px 8px 16px;line-height:1.15}
 .ret-marca span{display:block;font-size:9px;font-weight:700;letter-spacing:.16em;color:var(--marca-txt);margin-top:3px}
 /* O flex tem de ficar AQUI, na caixa dos botoes: no trilho ele arruma

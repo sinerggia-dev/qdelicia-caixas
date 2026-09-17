@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=bda6fdb7">
+<link rel="stylesheet" href="styles.css?v=2736aebc">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -104,8 +104,8 @@
 
   <!-- ---------- RETORNOS ---------- -->
   <section id="pgRetornos" class="pagina ativa">
-    <div class="ret-wrap">
-      <aside class="ret-rail">
+    <div class="ret-wrap" id="retWrap">
+      <aside class="ret-rail" id="retRail">
         <div class="ret-marca">QDELÍCIA<span>FRUTAS</span></div>
         <div class="ret-nav" id="retNav"></div>
         <!-- Os botoes ficam no trilho, abaixo dos grupos e colados no rodape dele. Os
@@ -151,6 +151,10 @@
       </aside>
       <div class="ret-main">
         <div class="ret-head">
+          <!-- Fica FORA do trilho, no cabecalho da tabela: dentro, sumiria junto com ele
+               e nao haveria como trazer a coluna de volta. -->
+          <button class="ret-recolher" id="btnTrilho" type="button"
+                  aria-expanded="true" aria-controls="retRail"></button>
           <div>
             <h2>Controle de Caixas</h2>
           </div>
@@ -674,6 +678,16 @@
      ter saldo alto e fluxo em dia, e o contrário também. */
   var FLUXO_FILTRO = 'todas';
 
+  /* Os nomes dos grupos ficam AQUI, e nao escritos na lista do trilho: recolhido, o botao
+     precisa dizer qual grupo esta escolhido, e duas listas sobre a mesma coisa divergem no
+     primeiro nome novo — o trilho diria "Unidades" e o botao, "Filiais". */
+  var NOMES_GRUPO = { todas: 'Todas', ROTA: 'Rotas',
+    /* "Unidades" e nao "Filiais": o grupo junta filial e galpao, e a Matriz esta nele.
+       O TIPO do local no cadastro segue sendo FILIAL/GALPAO — isso e o vocabulario dos
+       dados, e nao muda com o rotulo. */
+    FILIAL: 'Unidades', CLIENTE: 'Clientes', deficit: 'Em déficit',
+    MOTORISTA: 'Motoristas', USUARIO: 'Usuários' };
+
   /* O título da primeira coluna troca junto com a visão: "Origem / destino" não descreve
      uma lista de motoristas. */
   /* So as visoes de gente usam isto: nas de local o nome vive dentro de Origem/Destino,
@@ -794,6 +808,35 @@
       ? n + (n === 1 ? ' filtro está ligado' : ' filtros estão ligados') +
         ': a tabela ao lado está recortada'
       : (FILTROS_ABERTO ? 'Fechar os filtros' : 'Abrir os filtros');
+  }
+
+  /* Recolher o trilho E preferencia de quem olha, como a ordem das colunas: uma tela
+     larga com poucos grupos quer o espaco na tabela. Por isso fica guardado, ao contrario
+     do painel de filtros, que e estado passageiro. */
+  var TRILHO_CHAVE = 'qdc_trilho_v1';
+
+  function trilhoRecolhido(){
+    try { return localStorage.getItem(TRILHO_CHAVE) === '1'; } catch (e) { return false; }
+  }
+
+  /* Recolhido, o trilho leva junto o GRUPO escolhido — e ele peneira a tabela. Sem dizer
+     qual e, a tela mostraria quatro usuarios onde ha dezenas de linhas e ninguem saberia
+     por que. Entao o botao passa a carregar o nome do grupo, e so fica mudo em "Todas",
+     que e o estado em que nada esta escondido. */
+  function ajustarTrilho(){
+    var wrap = document.getElementById('retWrap');
+    var btn = document.getElementById('btnTrilho');
+    if (!wrap || !btn) return;
+    var r = trilhoRecolhido();
+    wrap.className = 'ret-wrap' + (r ? ' sem-trilho' : '');
+    btn.setAttribute('aria-expanded', r ? 'false' : 'true');
+    var grupo = NOMES_GRUPO[FLUXO_FILTRO] || '';
+    var filtrando = r && FLUXO_FILTRO !== 'todas';
+    btn.className = 'ret-recolher' + (filtrando ? ' alerta' : '');
+    btn.textContent = r ? (filtrando ? '☰ ' + grupo : '☰') : '⟨';
+    btn.title = filtrando
+      ? 'A coluna está recolhida e a tabela mostra só: ' + grupo
+      : (r ? 'Mostrar a coluna de grupos e ações' : 'Recolher a coluna');
   }
 
   function abrirFiltros(sim){
@@ -1022,18 +1065,16 @@
 
     var vivas = linhasVivas();
     var conta = function(t){ return vivas.filter(function(l){ return l.tipo === t; }).length; };
+    /* Os rotulos saem de NOMES_GRUPO — a mesma lista que o botao de recolher le. */
     var itens = [
-      { v:'todas',     r:'Todas',      n:vivas.length },
-      { v:'ROTA',      r:'Rotas',      n:conta('ROTA') },
-      /* "Unidades" e nao "Filiais": o chip junta filial e galpao, e a Matriz esta nele.
-         Chama-la de filial era estranho para quem le. O TIPO do local no cadastro segue
-         sendo FILIAL/GALPAO — isso e o vocabulario dos dados, e nao muda com o rotulo. */
-      { v:'FILIAL',    r:'Unidades',   n:linhasFiliais().length },
-      { v:'CLIENTE',   r:'Clientes',   n:conta('CLIENTE') },
-      { v:'deficit',   r:'Em déficit', n:linhasDeficit() },
-      { v:'MOTORISTA', r:'Motoristas', n:pes.motoristas.length },
-      { v:'USUARIO',   r:'Usuários',   n:pes.usuarios.length }
-    ];
+      { v:'todas',     n:vivas.length },
+      { v:'ROTA',      n:conta('ROTA') },
+      { v:'FILIAL',    n:linhasFiliais().length },
+      { v:'CLIENTE',   n:conta('CLIENTE') },
+      { v:'deficit',   n:linhasDeficit() },
+      { v:'MOTORISTA', n:pes.motoristas.length },
+      { v:'USUARIO',   n:pes.usuarios.length }
+    ].map(function(c){ c.r = NOMES_GRUPO[c.v]; return c; });
     document.getElementById('retNav').innerHTML = itens.map(function(c){
       return '<button type="button" class="ret-item'+(FLUXO_FILTRO===c.v?' ativo':'')+
         '" data-fchip="'+c.v+'"><span class="pt"></span>'+c.r+
@@ -1172,8 +1213,10 @@
     /* Aqui, e nao em cada ouvinte: TUDO que mexe em filtro termina redesenhando o
        fluxo — os chips, os dois selects e a volta do servidor com data nova. Um ponto
        so evita o botao aceso depois de limpo, que e o erro que esse tipo de estado
-       espalhado sempre produz. A contagem do botao de recolher segue a mesma carona. */
+       espalhado sempre produz. A contagem do botao de recolher segue a mesma carona, e
+       o rotulo do trilho tambem: recolhido, ele mostra o grupo escolhido. */
     ajustarBarraFiltros();
+    ajustarTrilho();
 
     var t = totaisDe(lista);
     /* Cinco cartoes, na ordem de quem lê: primeiro o indicador que se cobra (a taxa),
@@ -1270,9 +1313,14 @@
   document.addEventListener('keydown', function(e){
     if (e.key === 'Escape' && FILTROS_ABERTO) abrirFiltros(false);
   });
-  /* Antes do primeiro desenho tambem: a barra tem de nascer no estado guardado, e nao
-     aberta por um instante ate os dados chegarem. */
+  document.getElementById('btnTrilho').addEventListener('click', function(){
+    try { localStorage.setItem(TRILHO_CHAVE, trilhoRecolhido() ? '0' : '1'); } catch (e) {}
+    ajustarTrilho();
+  });
+  /* Antes do primeiro desenho tambem: a barra e o trilho tem de nascer no estado
+     guardado, e nao abertos por um instante ate os dados chegarem. */
   ajustarBarraFiltros();
+  ajustarTrilho();
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
     /* O CSV sai na MESMA ordem de colunas da tela, inclusive a que a pessoa arrastou:
        um arquivo com as colunas noutra ordem obriga a conferir duas vezes qual e qual. */
