@@ -991,35 +991,41 @@ async function main() {
     const por = {};
     f.linhas.forEach((l) => { por[l.id] = l; });
 
-    /* Cada caminho e uma linha, com id "quem despachou > quem recebeu". Somar os destinos
-       de uma origem numa celula so — "Filial Maceio, Joao Pessoa" — apagava a conta de
-       cada um: nenhuma das duas dava para conferir. */
-    ok(f.linhas.length === 3, 'tres caminhos percorridos, tres linhas',
+    /* Cada caminho E CADA DIA e uma linha, com id "despachou > recebeu | data".
+       Somar os destinos de uma origem numa celula so — "Filial Maceio, Joao Pessoa" —
+       apagava a conta de cada um; e somar os dias numa linha so apagava o lancamento
+       novo, que desaparecia dentro do total de um dia anterior. */
+    const dias = (caminho) => f.linhas.filter((l) => l.id.indexOf(caminho + '|') === 0);
+    ok(f.linhas.length === 6, 'tres caminhos em dois dias cada: seis linhas',
       f.linhas.map((l) => l.id));
-    ok(!!por['L001>R01'] && !!por['R01>C01'] && !!por['R01>C02'],
-      'a mesma origem com dois destinos vira DUAS linhas', Object.keys(por));
+    ok(dias('L001>R01').length === 2 && dias('R01>C01').length === 2,
+      'o mesmo caminho em dois dias vira DUAS linhas', f.linhas.map((l) => l.id));
+    ok(dias('R01>C01').length === 2 && dias('R01>C02').length === 2,
+      'e a mesma origem com dois destinos continua separada', Object.keys(por));
+
+    /* A remessa e a devolucao do mesmo caminho em DIAS diferentes caem em linhas
+       diferentes — cada dia responde por si. */
+    const ida = por['L001>R01|2026-09-02'], volta = por['L001>R01|2026-09-05'];
+    ok(ida.saida === 1000 && ida.retorno === 0,
+      'o dia da remessa traz so a remessa', ida);
+    ok(volta.saida === 0 && volta.retorno === 400,
+      'e o dia da devolucao traz so ela', volta);
 
     /* A ida e a volta do mesmo caminho caem na mesma linha: a devolucao R01->L001 fecha a
        remessa L001->R01. Sem isso o retorno abriria uma linha propria, no sentido
        contrario, e ninguem cruzaria as duas. */
-    const jp = por['L001>R01'];
-    ok(jp.saida === 1000 && jp.retorno === 400,
-      'a devolução fecha a remessa do mesmo caminho, na mesma linha', jp);
-    ok(jp.origens.join(',') === 'Galpão' && jp.destinos.join(',') === 'João Pessoa',
-      'e as duas pontas aparecem, uma em cada coluna', [jp.origens, jp.destinos]);
-    ok(jp.saldo === -600 && jp.desvio === 60 && jp.situacao === 'ruim',
-      'saldo e desvio do período, e acima de 40% a linha é ruim', jp);
-    ok(jp.tipo === 'ROTA',
-      'o tipo da linha é o de quem RECEBEU: é ele que está com a caixa', jp.tipo);
-    ok(jp.saldoFinal === -600 && jp.inicial === 0,
-      'sem estoque inicial, o saldo final é o do próprio caminho', jp);
+    ok(ida.origens.join(',') === 'Galpão' && ida.destinos.join(',') === 'João Pessoa',
+      'as duas pontas aparecem, uma em cada coluna', [ida.origens, ida.destinos]);
+    ok(ida.tipo === 'ROTA',
+      'o tipo da linha é o de quem RECEBEU: é ele que está com a caixa', ida.tipo);
+    ok(ida.saldoFinal === -1000 && ida.inicial === 0,
+      'sem estoque inicial, o saldo final é o do próprio dia', ida);
 
-    ok(por['R01>C01'].saldo === 70 && por['R01>C01'].situacao === 'ok' &&
-       por['R01>C01'].desvio === -10,
-      'devolveu mais do que levou: situação ok', por['R01>C01']);
-    ok(por['R01>C02'].retorno === 500 && por['R01>C02'].saldo === -100,
+    ok(por['R01>C01|2026-09-06'].retorno === 770,
+      'a devolução do cliente cai no dia dela', por['R01>C01|2026-09-06']);
+    ok(por['R01>C02|2026-09-07'].retorno === 500,
       'devolução antiga em AGUARDANDO conta: sem a etapa, não há o que esperar',
-      por['R01>C02']);
+      por['R01>C02|2026-09-07']);
 
     /* Local sem movimento nenhum nao vira linha: nao houve caminho percorrido. No modelo
        por local ele aparecia zerado e enchia a lista. */
@@ -1033,16 +1039,27 @@ async function main() {
       'os totais ignoram cancelado e o que é de antes da janela', f.totais);
     ok(f.totais.deficit === 700,
       'déficit soma só quem está devendo, sem abater quem sobrou', f.totais.deficit);
-    ok(f.totais.linhas === 3, 'e cada caminho entra uma vez só', f.totais.linhas);
+    ok(f.totais.linhas === 6, 'e cada dia de cada caminho entra uma vez só',
+      f.totais.linhas);
+
+    /* O deficit soma por CAMINHO, e nao por linha. Aqui a remessa de 1.000 e a devolucao
+       de 400 estao em DIAS diferentes: linha a linha o deficit daria 1.000 + 600 + 100,
+       contando como perdido o que ja voltou. */
+    ok(f.totais.deficit === 700,
+      'o déficit soma por caminho: o dia da devolução abate o dia da remessa',
+      f.totais.deficit);
     ok(f.totais.taxaRetorno === 72.6, 'taxa de retorno do conjunto', f.totais.taxaRetorno);
-    ok(f.totais.foraDaMeta === 2,
-      'dois dos três caminhos ficaram abaixo de 90%', f.totais.foraDaMeta);
+    /* Agora cada DIA e uma linha, e o dia da remessa isolada fica com 100% de desvio.
+       Sao tres linhas abaixo da meta: os dois dias de remessa pura e o dia em que o
+       cliente devolveu menos do que levou. */
+    ok(f.totais.foraDaMeta === 3,
+      'tres dos seis dias ficaram abaixo de 90%', f.totais.foraDaMeta);
 
     /* A lista se le como extrato: o estoque inicial abre e os caminhos vem na ordem em
        que foram lancados. Neste cenario o caminho mais antigo por acaso e tambem o que
        mais deve — por isso o cenario logo abaixo, que separa as duas coisas. */
-    ok(f.linhas[0].id === 'L001>R01', 'o caminho mais antigo vem primeiro',
-      f.linhas.map((l) => l.id + ':' + l.data));
+    ok(f.linhas[0].id === 'L001>R01|2026-09-02', 'o dia mais antigo vem primeiro',
+      f.linhas.map((l) => l.id));
 
     /* Cenario que DISTINGUE data de saldo: aqui o caminho mais recente e o que mais deve.
        Ordenando por saldo, ele viria primeiro; por data, vem por ultimo. */
@@ -1060,9 +1077,9 @@ async function main() {
     ok(ord[0].estoqueInicial === true,
       'o estoque inicial abre a lista, mesmo lancado depois de tudo',
       ord.map((l) => l.id + ':' + l.data));
-    ok(ord[1].id === 'L001>R01' && ord[2].id === 'R01>C01',
+    ok(ord[1].id.indexOf('L001>R01') === 0 && ord[2].id.indexOf('R01>C01') === 0,
       'e os caminhos vem por data, nao por quanto devem — o de 900 e o mais recente',
-      ord.map((l) => l.id + ':' + l.data + ':' + l.saldo));
+      ord.map((l) => l.id + ':' + l.saldo));
 
     /* O ensaio continua no fim, acima de qualquer data: foi pedido explicitamente que
        tudo com "teste" no nome fique embaixo. */
@@ -1077,9 +1094,9 @@ async function main() {
       ]
     };
     const ordT = F.fluxoPorOrigem(cenT, DESDE, 90).linhas;
-    ok(ordT[ordT.length - 1].id === 'L001>RT',
+    ok(ordT[ordT.length - 1].id.indexOf('L001>RT') === 0,
       'o ensaio fica por último mesmo sendo o mais antigo',
-      ordT.map((l) => l.id + ':' + l.data));
+      ordT.map((l) => l.id));
 
     // a quantidade CONFERIDA manda: é ela que entra no razão
     const cen2 = {
@@ -1090,7 +1107,8 @@ async function main() {
           Qtd: 90, QtdConferida: 80, DataRef: D('2026-09-05') }
       ]
     };
-    const r2 = F.fluxoPorOrigem(cen2, DESDE, 90).linhas.filter((l) => l.id === 'L001>R01')[0];
+    const r2 = F.fluxoPorOrigem(cen2, DESDE, 90).linhas
+      .filter((l) => l.retorno > 0)[0];
     ok(r2.retorno === 80, 'vale a quantidade conferida, não a declarada', r2.retorno);
 
     /* A linha de estoque inicial nao tem trajeto: o saldo inicial e do LOCAL, e espalha-lo
@@ -1248,16 +1266,18 @@ async function main() {
         { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: 'T1', Qtd: 50,
           Motorista: 'Ramos', DataRef: D('2026-09-05') },
         { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: 'T2', Qtd: 530,
-          Motorista: 'Ramos', DataRef: D('2026-09-06') },
+          Motorista: 'Ramos', DataRef: D('2026-09-05') },
         { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'R2', TipoCaixaID: 'T1', Qtd: 100,
           Motorista: 'Outro Qualquer', DataRef: D('2026-09-06') },
         { Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'C1', TipoCaixaID: 'T1', Qtd: 30,
           Motorista: 'Ramos', DataRef: D('2026-09-07') },
-        // R2 devolve parte, de dois tipos: é o que abre a coluna RETORNO por tipo
+        /* R2 devolve parte NO MESMO DIA da remessa: e o que abre a coluna RETORNO por
+           tipo na mesma linha. Em dia diferente seriam duas linhas — e isso ja esta
+           coberto no bloco do painel. */
         { Tipo: 'DEVOLUCAO', OrigemID: 'R2', DestinoID: 'L1', TipoCaixaID: 'T2', Qtd: 40,
-          Motorista: 'Ramos', DataRef: D('2026-09-08') },
+          Motorista: 'Ramos', DataRef: D('2026-09-06') },
         { Tipo: 'DEVOLUCAO', OrigemID: 'R2', DestinoID: 'L1', TipoCaixaID: 'T1', Qtd: 25,
-          Motorista: 'Ramos', DataRef: D('2026-09-08') }
+          Motorista: 'Ramos', DataRef: D('2026-09-06') }
       ]
     };
     const f = F.fluxoPorOrigem(cen, DESDE, 90);
@@ -1265,31 +1285,36 @@ async function main() {
 
     /* Tres destinos a partir do mesmo galpao: tres linhas. Era isto que uma celula com
        "Caruaru, Recife, CEASA" apagava — cada caminho tem numero e cobranca proprios. */
-    ok(f.linhas.length === 3, 'um galpão com três destinos vira três linhas',
+    /* Tres destinos e cinco lancamentos em quatro dias: cinco linhas. Cada dia responde
+       por si — foi assim que as remessas de um dia novo pararam de sumir dentro do total
+       de um dia anterior. */
+    ok(f.linhas.length === 3, 'tres destinos, tres linhas — cada um no seu dia',
       f.linhas.map((l) => l.id));
 
-    ok(por['L1>R1'].sub === '2 lançamentos',
-      'a linha de baixo conta lançamentos; os tipos foram para as colunas, com a '
-      + 'quantidade de cada um', por['L1>R1'].sub);
-    ok(por['L1>R1'].saidaTipos.map((t) => t.caixa + ':' + t.qtd).join(' ') === 'CX G:530 CX P:50',
-      'saída aberta por tipo de caixa, em ordem de nome', por['L1>R1'].saidaTipos);
-    ok(por['L1>R1'].retornoTipos.length === 0,
-      'sem retorno, o detalhe vem vazio — e não com zeros inventados',
-      por['L1>R1'].retornoTipos);
+    const r1 = por['L1>R1|2026-09-05'];
+    const r2 = por['L1>R2|2026-09-06'];
+    const c1 = por['L1>C1|2026-09-07'];
 
-    ok(por['L1>R2'].retornoTipos.map((t) => t.caixa + ':' + t.qtd).join(' ') === 'CX G:40 CX P:25',
-      'retorno aberto por tipo de caixa, na mesma ordem da saída', por['L1>R2'].retornoTipos);
-    ok(por['L1>R2'].retorno === 65 && por['L1>R2'].saida === 100,
-      'e a soma dos tipos fecha com o total da coluna — voltou parte, não tudo',
-      por['L1>R2']);
+    ok(r1.sub === '2 lançamentos',
+      'a linha de baixo conta lançamentos; os tipos foram para as colunas, com a '
+      + 'quantidade de cada um', r1.sub);
+    ok(r1.saidaTipos.map((t) => t.caixa + ':' + t.qtd).join(' ') === 'CX G:530 CX P:50',
+      'saída aberta por tipo de caixa, em ordem de nome', r1.saidaTipos);
+    ok(r1.retornoTipos.length === 0,
+      'sem retorno, o detalhe vem vazio — e não com zeros inventados', r1.retornoTipos);
+
+    ok(r2.retornoTipos.map((t) => t.caixa + ':' + t.qtd).join(' ') === 'CX G:40 CX P:25',
+      'retorno aberto por tipo de caixa, na mesma ordem da saída', r2.retornoTipos);
+    ok(r2.retorno === 65 && r2.saida === 100,
+      'e a soma dos tipos fecha com o total da coluna — voltou parte, não tudo', r2);
 
     /* O detalhe fica no trajeto a que pertence: as 530 CX G foram para Caruaru, e nao
        podem vazar para a linha de Recife. No modelo por local os dois destinos caiam na
        mesma linha do galpao e os tipos vinham somados. */
-    ok(por['L1>R2'].saidaTipos.map((t) => t.caixa).join(',') === 'CX P',
-      'o detalhe de um caminho não vaza para o outro', por['L1>R2'].saidaTipos);
-    ok(por['L1>C1'].saida === 30 && por['L1>C1'].tipo === 'CLIENTE',
-      'e o cliente tem a sua própria linha, com o tipo dele', por['L1>C1']);
+    ok(r2.saidaTipos.map((t) => t.caixa).join(',') === 'CX P',
+      'o detalhe de um caminho não vaza para o outro', r2.saidaTipos);
+    ok(c1.saida === 30 && c1.tipo === 'CLIENTE',
+      'e o cliente tem a sua própria linha, com o tipo dele', c1);
   }
   console.log('\n== estoque inicial: linha propria, fora dos caminhos ==');
   {
@@ -1321,41 +1346,47 @@ async function main() {
     const f = F.fluxoPorOrigem(cen, DESDE, 90);
     const por = {}; f.linhas.forEach((l) => { por[l.id] = l; });
 
-    ok(por['ini:F1'].inicial === 700 && por['ini:F1'].saida === 0 &&
-       por['ini:F1'].retorno === 0,
+    ok(por['ini:F1|2026-09-02'].inicial === 700 && por['ini:F1|2026-09-02'].saida === 0 &&
+       por['ini:F1|2026-09-02'].retorno === 0,
       'o ajuste vira estoque inicial e NÃO entra em saída nem em retorno: não é viagem',
-      por['ini:F1']);
-    ok(por['ini:F1'].saldoFinal === 700,
+      por['ini:F1|2026-09-02']);
+    ok(por['ini:F1|2026-09-02'].saldoFinal === 700,
       'sem caminho nenhum, o saldo final é o próprio estoque inicial',
-      por['ini:F1'].saldoFinal);
-    ok(por['ini:L1'].inicial === 1500,
+      por['ini:F1|2026-09-02'].saldoFinal);
+    ok(por['ini:L1|2026-05-10'].inicial === 1500,
       'ajuste de maio ainda conta em setembro — posição não expira com a virada do mês',
-      por['ini:L1'].inicial);
+      por['ini:L1|2026-05-10'].inicial);
 
     /* A matriz tem estoque inicial E um caminho. Sao duas linhas: o 1.500 e do LOCAL, e
        repeti-lo no caminho contaria o mesmo estoque duas vezes. */
-    ok(!!por['ini:L1'] && !!por['L1>R1'],
+    ok(!!por['ini:L1|2026-05-10'] && !!por['L1>R1|2026-09-05'],
       'quem tem estoque E caminho aparece nas duas linhas', Object.keys(por));
-    ok(por['L1>R1'].inicial === 0,
-      'e o caminho não herda o estoque inicial da origem', por['L1>R1']);
-    ok(por['L1>R1'].saida === 1020 && por['L1>R1'].retorno === 840 &&
-       por['L1>R1'].saldoFinal === -180,
-      'o caminho responde só por si: saíram 1.020, voltaram 840, faltam 180',
-      por['L1>R1']);
+    ok(por['L1>R1|2026-09-05'].inicial === 0,
+      'e o caminho não herda o estoque inicial da origem', por['L1>R1|2026-09-05']);
+    /* A remessa e de 05/09 e a devolucao de 09/09: sao DOIS dias, logo duas linhas.
+       Cada dia responde por si. */
+    ok(por['L1>R1|2026-09-05'].saida === 1020 && por['L1>R1|2026-09-05'].retorno === 0,
+      'o dia da remessa traz só a remessa', por['L1>R1|2026-09-05']);
+    ok(por['L1>R1|2026-09-09'].retorno === 840 && por['L1>R1|2026-09-09'].saida === 0,
+      'e o dia da devolução traz só ela', por['L1>R1|2026-09-09']);
 
     /* O `saldo` e so o par saida/retorno: dele saem o chip "Em deficit", os indicadores e
        a situacao. A linha de estoque nao e fluxo, entao o saldo dela e zero e ela nao
        aparece no deficit — senao um estoque parado viraria divida. */
-    ok(por['ini:L1'].saldo === 0 && por['ini:L1'].situacao === 'parado' &&
-       por['ini:L1'].desvio === null,
+    ok(por['ini:L1|2026-05-10'].saldo === 0 && por['ini:L1|2026-05-10'].situacao === 'parado' &&
+       por['ini:L1|2026-05-10'].desvio === null,
       'a linha de estoque não é fluxo: saldo zero, sem desvio, fora do déficit',
-      por['ini:L1']);
-    ok(por['L1>R1'].saldo === -180 && por['L1>R1'].situacao === 'atencao' &&
-       por['L1>R1'].desvio === 18,
-      'e a situação e o desvio seguem o caminho', por['L1>R1']);
+      por['ini:L1|2026-05-10']);
+    ok(por['L1>R1|2026-09-05'].situacao === 'ruim' &&
+       por['L1>R1|2026-09-05'].desvio === 100,
+      'o dia da remessa isolada fica em 100% de desvio: nada dela voltou NAQUELE dia',
+      por['L1>R1|2026-09-05']);
 
-    ok(f.totais.linhas === 1 && f.totais.deficit === 180,
-      'os totais contam só os caminhos: uma linha, 180 de déficit', f.totais);
+    /* O deficit soma por CAMINHO e nao por linha: os dois dias do mesmo caminho se
+       abatem, e sobra 180. Linha a linha daria 1.020, contando como perdido o que voltou
+       quatro dias depois. */
+    ok(f.totais.linhas === 2 && f.totais.deficit === 180,
+      'dois dias de caminho, e o déficit soma por caminho: 180', f.totais);
   }
 console.log('\n== galpao que RECEBE remessa: nada voltou ==');
 {
@@ -1385,23 +1416,23 @@ console.log('\n== galpao que RECEBE remessa: nada voltou ==');
   const por = {};
   F.fluxoPorOrigem(cen, DESDE, 90).linhas.forEach((l) => { por[l.id] = l; });
 
-  ok(por['G>F'].saida === 350 && por['G>F'].retorno === 0,
+  ok(por['G>F|2026-09-05'].saida === 350 && por['G>F|2026-09-05'].retorno === 0,
     'remessa recebida por um galpão é SAÍDA — nada voltou, a caixa acabou de sair',
-    por['G>F']);
-  ok(por['G>F'].saidaTipos.length === 1 && por['G>F'].retornoTipos.length === 0,
-    'e o detalhe por tipo acompanha o mesmo lado', por['G>F']);
-  ok(por['G>F'].origens.join(',') === 'Matriz' &&
-     por['G>F'].destinos.join(',') === 'Filial Maceió',
-    'o caminho é Matriz → Filial: quem recebeu a remessa é o destino', por['G>F']);
+    por['G>F|2026-09-05']);
+  ok(por['G>F|2026-09-05'].saidaTipos.length === 1 && por['G>F|2026-09-05'].retornoTipos.length === 0,
+    'e o detalhe por tipo acompanha o mesmo lado', por['G>F|2026-09-05']);
+  ok(por['G>F|2026-09-05'].origens.join(',') === 'Matriz' &&
+     por['G>F|2026-09-05'].destinos.join(',') === 'Filial Maceió',
+    'o caminho é Matriz → Filial: quem recebeu a remessa é o destino', por['G>F|2026-09-05']);
 
   /* A devolucao da rota abre o caminho no sentido da IDA que ela desfaz: Matriz → Caruaru
      com saida zero. Sem isso o retorno viraria uma linha "Caruaru → Matriz" que ninguem
      cruzaria com a remessa correspondente quando ela aparecesse. */
-  ok(por['G>R'].saida === 0 && por['G>R'].retorno === 120,
-    'devolução sem remessa no período abre o caminho no sentido da ida', por['G>R']);
-  ok(por['G>R'].origens.join(',') === 'Matriz' &&
-     por['G>R'].destinos.join(',') === 'Caruaru',
-    'e no sentido certo: a rota é o destino, ainda que só tenha devolvido', por['G>R']);
+  ok(por['G>R|2026-09-08'].saida === 0 && por['G>R|2026-09-08'].retorno === 120,
+    'devolução sem remessa no período abre o caminho no sentido da ida', por['G>R|2026-09-08']);
+  ok(por['G>R|2026-09-08'].origens.join(',') === 'Matriz' &&
+     por['G>R|2026-09-08'].destinos.join(',') === 'Caruaru',
+    'e no sentido certo: a rota é o destino, ainda que só tenha devolvido', por['G>R|2026-09-08']);
 }
 console.log('\n== quais abas do painel a pessoa ve ==');
 {

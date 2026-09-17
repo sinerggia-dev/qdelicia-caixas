@@ -1031,17 +1031,23 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
 
   /* chave do trajeto: sempre "quem despachou > quem recebeu". A devolucao entra pela
      chave invertida, que e a mesma viagem de volta. */
+  /* A chave leva o DIA junto. Sem ele, uma remessa nova para o mesmo destino somava na
+     linha do dia anterior e desaparecia como lancamento: a tabela mostrava 2.500 numa
+     linha datada de 16/09, sem dizer que 810 daquilo eram do dia 17.
+
+     Cada dia e uma linha, entao a tabela se le como extrato de verdade — que e o que a
+     coluna de saldo corrido ja prometia. */
   var tr = {};
-  function trajeto(de, para) {
-    var k = String(de) + '>' + String(para);
+  function trajeto(de, para, dia) {
+    var k = String(de) + '>' + String(para) + '|' + dia;
     if (!tr[k]) {
-      tr[k] = { de: String(de), para: String(para), saida: 0, retorno: 0, n: 0,
+      tr[k] = { de: String(de), para: String(para), dia: dia, saida: 0, retorno: 0, n: 0,
                 saidaTipo: {}, retornoTipo: {}, desde: null };
     }
     return tr[k];
   }
 
-  var inicio = {}, quantosIni = {}, desdeIni = {};
+  var inicio = {};
 
   ativos(movimentos).forEach(function (m) {
     /* O ajuste entra ANTES do recorte de periodo, de proposito. Saldo inicial e posicao,
@@ -1052,11 +1058,12 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
          e a posicao numa data nao pode incluir um ajuste lancado depois dela. */
       if (ate && m.DataRef > ate) return;
       if (m.DestinoID) {
-        inicio[m.DestinoID] = (inicio[m.DestinoID] || 0) + efetiva(m);
-        quantosIni[m.DestinoID] = (quantosIni[m.DestinoID] || 0) + 1;
-        if (!desdeIni[m.DestinoID] || m.DataRef < desdeIni[m.DestinoID]) {
-          desdeIni[m.DestinoID] = m.DataRef;
-        }
+        // tambem por dia: dois ajustes em datas diferentes sao dois lancamentos
+        var kIni = String(m.DestinoID) + '|' + soData(m.DataRef);
+        if (!inicio[kIni]) inicio[kIni] = { local: String(m.DestinoID), qtd: 0, n: 0,
+                                            dia: m.DataRef };
+        inicio[kIni].qtd += efetiva(m);
+        inicio[kIni].n++;
       }
       return;
     }
@@ -1071,8 +1078,9 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
     /* A remessa define a direcao do trajeto; a devolucao fecha o mesmo caminho, por isso
        entra na chave invertida. Uma devolucao sem remessa nenhuma abre um trajeto no
        sentido da ida que ela esta desfazendo. */
-    var t = (sentido === 'ENTRADA') ? trajeto(m.DestinoID, m.OrigemID)
-                                    : trajeto(m.OrigemID, m.DestinoID);
+    var dia = soData(m.DataRef);
+    var t = (sentido === 'ENTRADA') ? trajeto(m.DestinoID, m.OrigemID, dia)
+                                    : trajeto(m.OrigemID, m.DestinoID, dia);
     var lado = (sentido === 'ENTRADA') ? 'retorno' : 'saida';
     t[lado] += q;
     t.n++;
@@ -1109,21 +1117,21 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
 
   /* As linhas de estoque inicial. Sem trajeto: o saldo inicial e do local, e espalha-lo
      pelos caminhos dele contaria o mesmo estoque uma vez por caminho. */
-  Object.keys(inicio).forEach(function (id) {
-    if (!inicio[id]) return;
-    var n = quantosIni[id] || 0;
+  Object.keys(inicio).forEach(function (k) {
+    var e = inicio[k];
+    if (!e.qtd) return;
     linhas.push({
-      id: 'ini:' + id, nome: nome(nomesLocais, id), tipo: tipoDe(id),
-      sub: n + (n === 1 ? ' lançamento' : ' lançamentos'),
-      origens: [nome(nomesLocais, id)],
+      id: 'ini:' + k, nome: nome(nomesLocais, e.local), tipo: tipoDe(e.local),
+      sub: e.n + (e.n === 1 ? ' lançamento' : ' lançamentos'),
+      origens: [nome(nomesLocais, e.local)],
       destinos: [],
       estoqueInicial: true,
-      lancamentos: n,
+      lancamentos: e.n,
       saidaTipos: [], retornoTipos: [],
-      inicial: inicio[id],
-      data: desdeIni[id] ? iso(desdeIni[id]) : '',
+      inicial: e.qtd,
+      data: iso(e.dia),
       saida: 0, retorno: 0,
-      saldoFinal: inicio[id],
+      saldoFinal: e.qtd,
       saldo: 0, desvio: null, situacao: 'parado'
     });
   });
@@ -1145,11 +1153,24 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
      excluir o galpao, porque a mesma remessa entrava duas vezes; com um trajeto por
      linha isso acabou. */
   var comMovimento = linhas.filter(function (l) { return l.situacao !== 'parado'; });
-  var tSaida = 0, tRetorno = 0, deficit = 0, porTipo = { ROTA: 0, FILIAL: 0, CLIENTE: 0 };
+  var tSaida = 0, tRetorno = 0, porTipo = { ROTA: 0, FILIAL: 0, CLIENTE: 0 };
   comMovimento.forEach(function (l) {
     tSaida += l.saida; tRetorno += l.retorno;
-    if (l.saldo < 0) deficit += -l.saldo;
     porTipo[l.tipo] = (porTipo[l.tipo] || 0) + 1;
+  });
+
+  /* O deficit soma por CAMINHO, e nao por linha, agora que cada dia e uma linha. Uma
+     remessa no dia 16 e a devolucao dela no dia 18 sao duas linhas: somando os negativos
+     linha a linha, o dia da remessa entraria inteiro no deficit e o dia da devolucao nao
+     abateria nada — "caixas que sairam e nao voltaram" contaria o que ja voltou. */
+  var porCaminho = {};
+  comMovimento.forEach(function (l) {
+    var k = l.id.split('|')[0];
+    porCaminho[k] = (porCaminho[k] || 0) + l.saldo;
+  });
+  var deficit = 0;
+  Object.keys(porCaminho).forEach(function (k) {
+    if (porCaminho[k] < 0) deficit += -porCaminho[k];
   });
 
   return {
