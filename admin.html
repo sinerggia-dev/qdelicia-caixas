@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=5ddf5b2a">
+<link rel="stylesheet" href="styles.css?v=939bdf5b">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -117,18 +117,26 @@
           <div class="acoes">
             <!-- O periodo vale para esta tabela e para os indicadores dela. Em branco, o
                  mes corrente — a mesma janela de sempre. -->
-            <label for="rtOrigem" class="rot-inline">Origem</label>
-            <select id="rtOrigem" class="sel-inline"><option value="">Todas</option></select>
-            <label for="rtDestino" class="rot-inline">Destino</label>
-            <select id="rtDestino" class="sel-inline"><option value="">Todos</option></select>
-            <label for="rtDe" class="rot-inline">De</label>
-            <input id="rtDe" type="date" class="dt-inline">
-            <label for="rtAte" class="rot-inline">Até</label>
-            <input id="rtAte" type="date" class="dt-inline">
-            <select id="verTesteRetornos" class="sel-teste" data-verteste style="max-width:190px">
-              <option value="reais">Só reais</option>
-              <option value="teste">Só de teste</option>
-            </select>
+            <!-- O botao fica FORA do grupo que ele recolhe, senao some junto com ele. -->
+            <button class="btn neutro" id="btnVerFiltros" type="button"
+                    style="flex:0;min-width:130px"></button>
+            <!-- `display:contents` no grupo: os campos continuam participando do flex do
+                 pai, como se o <div> nao existisse, e um `hidden` no grupo recolhe todos
+                 de uma vez. Sem isso, envolve-los quebraria o alinhamento da fileira. -->
+            <div class="grupo-filtros" id="filtrosRet">
+              <label for="rtOrigem" class="rot-inline">Origem</label>
+              <select id="rtOrigem" class="sel-inline"><option value="">Todas</option></select>
+              <label for="rtDestino" class="rot-inline">Destino</label>
+              <select id="rtDestino" class="sel-inline"><option value="">Todos</option></select>
+              <label for="rtDe" class="rot-inline">De</label>
+              <input id="rtDe" type="date" class="dt-inline">
+              <label for="rtAte" class="rot-inline">Até</label>
+              <input id="rtAte" type="date" class="dt-inline">
+              <select id="verTesteRetornos" class="sel-teste" data-verteste style="max-width:190px">
+                <option value="reais">Só reais</option>
+                <option value="teste">Só de teste</option>
+              </select>
+            </div>
             <!-- Nasce desligado e so acende quando ha o que limpar: assim ele tambem
                  responde "tem algum filtro ligado?", que e a pergunta de quem estranha
                  a tabela curta e nao lembra do que escolheu tres cliques atras. -->
@@ -745,8 +753,44 @@
      sumir da tela de quem estava justamente olhando o ensaio. */
   var FILTROS_FLUXO = ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte'];
 
-  function algumFiltroFluxo(){
-    return FLUXO_FILTRO !== 'todas' || FILTROS_FLUXO.some(function(id){ return !!valor(id); });
+  /* Conta, e nao so responde sim ou nao: o botao de recolher precisa DIZER quantos
+     filtros ficaram escondidos, e duas contagens sobre a mesma regra divergiriam. */
+  function quantosFiltrosFluxo(){
+    var n = FILTROS_FLUXO.filter(function(id){ return !!valor(id); }).length;
+    return n + (FLUXO_FILTRO !== 'todas' ? 1 : 0);
+  }
+
+  function algumFiltroFluxo(){ return quantosFiltrosFluxo() > 0; }
+
+  /* Recolher a barra e preferencia de quem olha, como a ordem das colunas: fica no
+     navegador, e nao no cadastro. */
+  var FILTROS_CHAVE = 'qdc_filtros_ativos_v1';
+
+  function filtrosOcultos(){
+    try { return localStorage.getItem(FILTROS_CHAVE) === '1'; } catch (e) { return false; }
+  }
+
+  /* Esconder filtro LIGADO e o risco todo desta funcao: a tabela mostra um recorte e o
+     motivo fica invisivel, e quem chega depois conclui que faltam lancamentos. Por isso o
+     botao recolhido carrega a contagem e troca de cor — ele deixa de ser um controle
+     neutro e passa a ser um aviso. */
+  function ajustarBarraFiltros(){
+    var grupo = document.getElementById('filtrosRet');
+    var btn = document.getElementById('btnVerFiltros');
+    var limpar = document.getElementById('btnLimparRetornos');
+    var n = quantosFiltrosFluxo();
+    if (limpar) limpar.disabled = !n;
+    if (!grupo || !btn) return;
+    var oculto = filtrosOcultos();
+    grupo.hidden = oculto;
+    btn.className = 'btn ' + (oculto && n ? '' : 'neutro');
+    btn.textContent = oculto
+      ? (n ? '▸ Filtros (' + n + ')' : '▸ Filtros')
+      : '▾ Ocultar filtros';
+    btn.title = oculto && n
+      ? n + (n === 1 ? ' filtro está ligado' : ' filtros estão ligados') +
+        ' e escondido: a tabela abaixo está recortada'
+      : (oculto ? 'Mostrar a barra de filtros' : 'Recolher a barra de filtros');
   }
 
   function limparFiltrosFluxo(){
@@ -1108,9 +1152,8 @@
     /* Aqui, e nao em cada ouvinte: TUDO que mexe em filtro termina redesenhando o
        fluxo — os chips, os dois selects e a volta do servidor com data nova. Um ponto
        so evita o botao aceso depois de limpo, que e o erro que esse tipo de estado
-       espalhado sempre produz. */
-    var bl = document.getElementById('btnLimparRetornos');
-    if (bl) bl.disabled = !algumFiltroFluxo();
+       espalhado sempre produz. A contagem do botao de recolher segue a mesma carona. */
+    ajustarBarraFiltros();
 
     var t = totaisDe(lista);
     /* Cinco cartoes, na ordem de quem lê: primeiro o indicador que se cobra (a taxa),
@@ -1192,6 +1235,13 @@
     document.getElementById(id).addEventListener('change', desenharFluxo);
   });
   document.getElementById('btnLimparRetornos').addEventListener('click', limparFiltrosFluxo);
+  document.getElementById('btnVerFiltros').addEventListener('click', function(){
+    try { localStorage.setItem(FILTROS_CHAVE, filtrosOcultos() ? '0' : '1'); } catch (e) {}
+    ajustarBarraFiltros();
+  });
+  /* Antes do primeiro desenho tambem: a barra tem de nascer no estado guardado, e nao
+     aberta por um instante ate os dados chegarem. */
+  ajustarBarraFiltros();
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
     /* O CSV sai na MESMA ordem de colunas da tela, inclusive a que a pessoa arrastou:
        um arquivo com as colunas noutra ordem obriga a conferir duas vezes qual e qual. */

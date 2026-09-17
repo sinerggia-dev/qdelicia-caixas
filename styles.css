@@ -380,6 +380,11 @@ tr.ruim{background:var(--vermelho-claro)}
 /* O `display` aqui porque `label` e block por padrao no projeto: sem ele o rotulo
    empurra o campo para a linha de baixo. */
 .rot-inline{display:inline-block;font-size:12.5px;color:var(--txt2);margin:0;align-self:center}
+/* O grupo recolhivel de filtros nao e uma caixa: com `display:contents` os campos dele
+   participam do flex da fileira como se o <div> nao existisse. `[hidden]` precisa vir
+   depois e com mais peso, senao o `contents` ganha e o grupo nunca some. */
+.grupo-filtros{display:contents}
+.grupo-filtros[hidden]{display:none}
 /* Cabecalho arrastavel do Painel de Ativos. O `grab` e o unico aviso de que da para
    arrastar — sem ele ninguem descobre. A barra no alvo diz ONDE a coluna vai cair. */
 #tabelaFluxo th[data-col]{cursor:grab;user-select:none}

@@ -963,6 +963,129 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
 })();
 
 /* ---------------------------------------------------------------------------
+ * Recolher a barra de filtros — sem esconder que ha filtro ligado.
+ *
+ * O risco todo desta funcao e esse: a tabela mostra um recorte e o motivo fica invisivel,
+ * e quem chega depois conclui que faltam lancamentos. Por isso o botao recolhido carrega a
+ * CONTAGEM dos filtros ligados e troca de cor — deixa de ser um controle neutro e passa a
+ * ser um aviso.
+ * ------------------------------------------------------------------------- */
+console.log('\n== recolher a barra de filtros ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* --- o grupo recolhivel -------------------------------------------------- */
+  ok(/<div class="grupo-filtros" id="filtrosRet">/.test(adm),
+    'os campos de filtro vivem num grupo próprio, que é o que se recolhe');
+  var g = adm.indexOf('id="filtrosRet"');
+  var grupo = adm.slice(g, adm.indexOf('</div>', g));
+  ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'verTesteRetornos'].forEach(function (id) {
+    ok(grupo.indexOf('id="' + id + '"') > 0, 'o campo ' + id + ' entra no grupo');
+  });
+
+  /* O botao fica FORA do grupo. Dentro, ele sumiria junto e nao haveria como voltar. */
+  var bt = adm.indexOf('id="btnVerFiltros"');
+  ok(bt > 0 && bt < g,
+    'e o botão fica fora dele — dentro, sumiria junto e não haveria como voltar');
+
+  /* `display:contents` para os campos seguirem no flex da fileira, e o `[hidden]` com
+     mais peso, senao o `contents` ganha e o grupo nunca some. */
+  ok(/\.grupo-filtros\{display:contents\}/.test(css),
+    'o grupo não vira uma caixa: os campos seguem no flex da fileira');
+  var iC = css.indexOf('.grupo-filtros{'), iH = css.indexOf('.grupo-filtros[hidden]{');
+  ok(iH > iC && /\.grupo-filtros\[hidden\]\{display:none\}/.test(css),
+    'e a regra de esconder vem depois e com mais peso — senão o grupo nunca sumiria',
+    [iC, iH]);
+
+  /* --- a contagem, rodando ------------------------------------------------- */
+  var i = adm.indexOf('function quantosFiltrosFluxo()');
+  var j = adm.indexOf('function ajustarBarraFiltros()');
+  var k = adm.indexOf('{', j), abertas = 0;
+  do {
+    if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
+    k++;
+  } while (abertas > 0 && k < adm.length);
+  var fonte = adm.slice(i, k);
+  ok(i > 0 && /function ajustarBarraFiltros/.test(fonte) &&
+     /function filtrosOcultos/.test(fonte),
+    'o recorte pegou as três peças — sem isto a bancada abaixo exercita outro código');
+
+  function bancada(campos, grupoAtivo, oculto) {
+    var els = {
+      filtrosRet: { hidden: false },
+      btnVerFiltros: { className: '', textContent: '', title: '' },
+      btnLimparRetornos: { disabled: false }
+    };
+    Object.keys(campos).forEach(function (id) { els[id] = { value: campos[id] }; });
+    var loja = { qdc_filtros_ativos_v1: oculto ? '1' : '0' };
+    var ls = {
+      getItem: function (c) { return loja[c] === undefined ? null : loja[c]; },
+      setItem: function (c, v) { loja[c] = String(v); }
+    };
+    var doc = { getElementById: function (id) { return els[id] || null; } };
+    var api = new Function('document', 'localStorage', 'FLUXO_FILTRO', 'FILTROS_FLUXO',
+      'valor', fonte +
+      '\n return { ajustar: ajustarBarraFiltros, quantos: quantosFiltrosFluxo };')(
+      doc, ls, grupoAtivo, ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte'],
+      function (id) { return campos[id] || ''; });
+    api.ajustar();
+    api.els = els;
+    return api;
+  }
+
+  var VAZIO = { rtOrigem: '', rtDestino: '', rtDe: '', rtAte: '' };
+  var DOIS = { rtOrigem: 'Matriz Fazenda', rtDestino: '', rtDe: '2026-09-17', rtAte: '' };
+
+  var aberta = bancada(VAZIO, 'todas', false);
+  ok(aberta.els.filtrosRet.hidden === false &&
+     aberta.els.btnVerFiltros.textContent.indexOf('Ocultar') > 0,
+    'barra aberta: o grupo aparece e o botão oferece recolher',
+    aberta.els.btnVerFiltros.textContent);
+
+  var limpa = bancada(VAZIO, 'todas', true);
+  ok(limpa.els.filtrosRet.hidden === true,
+    'recolhida, o grupo some');
+  ok(limpa.els.btnVerFiltros.textContent.indexOf('(') < 0 &&
+     /neutro/.test(limpa.els.btnVerFiltros.className),
+    'e sem filtro ligado ela é só um controle neutro, sem contagem',
+    limpa.els.btnVerFiltros.textContent + ' | ' + limpa.els.btnVerFiltros.className);
+
+  /* O caso que importa: recolhida COM filtro ligado. */
+  var suja = bancada(DOIS, 'todas', true);
+  ok(suja.quantos() === 2, 'dois campos preenchidos contam dois', suja.quantos());
+  ok(suja.els.btnVerFiltros.textContent.indexOf('(2)') > 0,
+    'recolhida com filtro ligado, o botão diz QUANTOS ficaram escondidos',
+    suja.els.btnVerFiltros.textContent);
+  ok(!/neutro/.test(suja.els.btnVerFiltros.className),
+    'e troca de cor: deixa de ser controle neutro e passa a ser aviso',
+    suja.els.btnVerFiltros.className);
+  ok(/recortada/.test(suja.els.btnVerFiltros.title),
+    'o título diz o que isso significa para a tabela abaixo',
+    suja.els.btnVerFiltros.title);
+
+  /* O grupo da coluna da esquerda conta como filtro aqui também — ele esconde linhas. */
+  var so_grupo = bancada(VAZIO, 'deficit', true);
+  ok(so_grupo.quantos() === 1 && so_grupo.els.btnVerFiltros.textContent.indexOf('(1)') > 0,
+    'e o grupo "Em déficit" da esquerda conta junto, porque também esconde linhas',
+    so_grupo.els.btnVerFiltros.textContent);
+
+  /* A mesma função cuida do Limpar: duas contagens sobre a mesma regra divergiriam. */
+  ok(limpa.els.btnLimparRetornos.disabled === true &&
+     suja.els.btnLimparRetornos.disabled === false,
+    'e a mesma função acende o Limpar — uma contagem só para os dois botões');
+
+  /* Preferencia de quem olha, como a ordem das colunas: fica no navegador. E um
+     armazenamento indisponivel nao pode derrubar a tela. */
+  ok(/qdc_filtros_ativos_v1/.test(adm), 'o estado recolhido fica guardado no navegador');
+  var fo = adm.slice(adm.indexOf('function filtrosOcultos()'));
+  fo = fo.slice(0, fo.indexOf('\n  }'));
+  ok(/try \{/.test(fo) && /catch/.test(fo),
+    'com try/catch: janela anônima e cookies bloqueados fazem o acesso estourar, e uma ' +
+    'preferência de layout não pode derrubar o painel');
+})();
+
+/* ---------------------------------------------------------------------------
  * A fileira de cartoes: quatro respondem ao filtro, um nao — e ele diz isso.
  *
  * "Em circulacao" morava sozinho no rodape do trilho da esquerda. Subiu para a fileira,
@@ -1166,15 +1289,19 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
     'limpar NAO mexe em "Só reais / Só de teste": ele escolhe qual operação se lê, ' +
     'não estreita nada — e zerar junto sumiria com o ensaio da tela de quem o olhava');
 
-  /* --- um ponto so acende e apaga ----------------------------------------- */
-  var toggles = adm.split("bl.disabled = !algumFiltroFluxo()").length - 1;
-  ok(toggles === 1,
-    'so um lugar liga e desliga o botao — espalhar isso deixa o botao aceso depois de limpo',
+  /* --- um ponto so mexe no estado da barra --------------------------------- */
+  var toggles = adm.split('ajustarBarraFiltros()').length - 1;
+  ok(toggles === 4,
+    'a barra tem UMA funcao de estado, chamada do desenho, do botao e da abertura',
     toggles);
   var dF = adm.indexOf('function desenharFluxo()');
   var corpoF = adm.slice(dF, adm.indexOf("\n  /* Três frases diferentes", dF));
-  ok(corpoF.indexOf('bl.disabled = !algumFiltroFluxo()') > 0,
-    'e esse lugar e o desenho do fluxo, por onde TUDO que mexe em filtro passa');
+  ok(corpoF.indexOf('ajustarBarraFiltros()') > 0,
+    'o desenho do fluxo a chama — e e por ele que TUDO que mexe em filtro passa');
+  ok(adm.split('.disabled = !').length - 1 === 1 &&
+     /if \(limpar\) limpar\.disabled = !n;/.test(adm),
+    'e so um lugar liga e desliga o Limpar — espalhar isso deixa o botao aceso depois ' +
+    'de limpo');
 
   var html = adm.slice(adm.indexOf('id="btnLimparRetornos"') - 200,
                        adm.indexOf('id="btnLimparRetornos"') + 200);
