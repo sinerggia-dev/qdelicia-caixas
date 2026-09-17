@@ -1122,19 +1122,28 @@ async function main() {
       ]
     };
     const f3 = F.fluxoPorOrigem(cen3, DESDE, 90);
-    const ini = f3.linhas.filter((l) => l.estoqueInicial)[0];
-    ok(!!ini && ini.inicial === 1250 && ini.saida === 0 && ini.retorno === 0,
-      'o estoque inicial ganha linha própria, sem trajeto', ini);
-    ok(ini.origens.join(',') === 'Galpão' && ini.destinos.length === 0,
-      'com o local na origem e o destino vazio — a tela escreve "estoque inicial" ali',
-      [ini.origens, ini.destinos]);
-    ok(f3.linhas.filter((l) => !l.estoqueInicial).every((l) => l.inicial === 0),
-      'e os caminhos dele NÃO repetem o 1.250: seria o mesmo estoque contado duas vezes',
+    /* O ajuste e de MAIO e a janela comeca em setembro: a linha dele nao aparece, porque
+       esta fora do periodo. Mas o valor nao se perde — ele ja esta no saldo corrido da
+       primeira linha visivel. E isso que faz o numero da tela continuar verdadeiro com
+       qualquer filtro. */
+    ok(f3.linhas.filter((l) => l.estoqueInicial).length === 0,
+      'o estoque lançado fora do período não vira linha — está fora do recorte',
+      f3.linhas.map((l) => l.id));
+    ok(f3.linhas[0].iniCorrido === 1250,
+      'mas o saldo dele abre a primeira linha visível: o corrido vem do histórico inteiro',
+      f3.linhas.map((l) => l.id + ':' + l.iniCorrido));
+    ok(f3.linhas.every((l) => l.inicial === 0),
+      'e nenhum caminho repete o 1.250: seria o mesmo estoque contado duas vezes',
       f3.linhas.map((l) => l.id + ':' + l.inicial));
-    /* Ajuste de meses atras conta assim mesmo: saldo inicial e posicao, nao movimento.
-       Se expirasse com a janela, a coluna zeraria sozinha na virada do mes. */
-    ok(ini.inicial === 1250,
-      'ajuste de maio ainda conta em setembro — posição não expira com a virada do mês');
+
+    /* O mesmo cenario com a janela abrindo ANTES do ajuste: aí a linha dele aparece. */
+    const f3b = F.fluxoPorOrigem(cen3, D('2026-01-01'), 90);
+    const ini = f3b.linhas.filter((l) => l.estoqueInicial)[0];
+    ok(!!ini && ini.inicial === 1250 && ini.saida === 0 && ini.retorno === 0,
+      'com o período alcançando maio, o estoque ganha linha própria', ini);
+    ok(ini.origens.join(',') === 'Galpão' && ini.destinos.length === 0,
+      'com o local na origem e o destino vazio — a tela escreve "Estoque Inicial" ali',
+      [ini.origens, ini.destinos]);
     ok(f3.totais.linhas === 2,
       'e a linha de estoque inicial fica fora da conta de caminhos', f3.totais.linhas);
   }
@@ -1353,14 +1362,18 @@ async function main() {
     ok(por['ini:F1|2026-09-02'].saldoFinal === 700,
       'sem caminho nenhum, o saldo final é o próprio estoque inicial',
       por['ini:F1|2026-09-02'].saldoFinal);
-    ok(por['ini:L1|2026-05-10'].inicial === 1500,
-      'ajuste de maio ainda conta em setembro — posição não expira com a virada do mês',
-      por['ini:L1|2026-05-10'].inicial);
+    /* O ajuste da matriz e de MAIO, fora da janela: a linha dele nao aparece. O valor
+       nao se perde — ele abre o saldo corrido da primeira linha visivel, que soma os
+       1.500 de maio com os 700 do ajuste do dia 02. */
+    ok(!por['ini:L1|2026-05-10'],
+      'o ajuste de maio não vira linha em setembro: está fora do recorte',
+      Object.keys(por));
+    ok(f.linhas[0].iniCorrido === 2200,
+      'mas ele abre o saldo da primeira linha visível: 1.500 de maio + 700 do dia 02',
+      f.linhas.map((l) => l.id + ':' + l.iniCorrido));
 
-    /* A matriz tem estoque inicial E um caminho. Sao duas linhas: o 1.500 e do LOCAL, e
-       repeti-lo no caminho contaria o mesmo estoque duas vezes. */
-    ok(!!por['ini:L1|2026-05-10'] && !!por['L1>R1|2026-09-05'],
-      'quem tem estoque E caminho aparece nas duas linhas', Object.keys(por));
+    ok(!!por['L1>R1|2026-09-05'],
+      'e o caminho da matriz continua listado', Object.keys(por));
     ok(por['L1>R1|2026-09-05'].inicial === 0,
       'e o caminho não herda o estoque inicial da origem', por['L1>R1|2026-09-05']);
     /* A remessa e de 05/09 e a devolucao de 09/09: sao DOIS dias, logo duas linhas.
@@ -1373,10 +1386,10 @@ async function main() {
     /* O `saldo` e so o par saida/retorno: dele saem o chip "Em deficit", os indicadores e
        a situacao. A linha de estoque nao e fluxo, entao o saldo dela e zero e ela nao
        aparece no deficit — senao um estoque parado viraria divida. */
-    ok(por['ini:L1|2026-05-10'].saldo === 0 && por['ini:L1|2026-05-10'].situacao === 'parado' &&
-       por['ini:L1|2026-05-10'].desvio === null,
+    ok(por['ini:F1|2026-09-02'].saldo === 0 && por['ini:F1|2026-09-02'].situacao === 'parado' &&
+       por['ini:F1|2026-09-02'].desvio === null,
       'a linha de estoque não é fluxo: saldo zero, sem desvio, fora do déficit',
-      por['ini:L1|2026-05-10']);
+      por['ini:F1|2026-09-02']);
     ok(por['L1>R1|2026-09-05'].situacao === 'ruim' &&
        por['L1>R1|2026-09-05'].desvio === 100,
       'o dia da remessa isolada fica em 100% de desvio: nada dela voltou NAQUELE dia',

@@ -1054,9 +1054,6 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
        nao movimento: se ele saisse da conta por ter sido lancado mes passado, a coluna
        zeraria sozinha na virada do mes e o saldo final passaria a mentir. */
     if (m.Tipo === 'AJUSTE') {
-      /* O ajuste ignora o INICIO da janela, mas respeita o FIM: saldo inicial e posicao,
-         e a posicao numa data nao pode incluir um ajuste lancado depois dela. */
-      if (ate && m.DataRef > ate) return;
       if (m.DestinoID) {
         // tambem por dia: dois ajustes em datas diferentes sao dois lancamentos
         var kIni = String(m.DestinoID) + '|' + soData(m.DataRef);
@@ -1067,8 +1064,11 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
       }
       return;
     }
-    if (desde && m.DataRef < desde) return;
-    if (ate && m.DataRef > ate) return;
+    /* Sem recorte de periodo AQUI, de proposito. O saldo corrido de uma linha e o
+       acumulado de tudo que veio antes dela — inclusive do que o filtro esconde. Cortando
+       antes de somar, filtrar 17/09 fazia a linha abrir no saldo de 15/09 e ignorar as
+       movimentacoes do dia 16: o numero da tela contradizia a operacao.
+       O recorte acontece depois, na hora de escolher o que se MOSTRA. */
     var q = efetiva(m);          // devolução não confirmada vale 0, e vale a contada
     if (!q) return;
     if (!m.OrigemID || !m.DestinoID) return;   // perda nao e viagem: nao tem as duas pontas
@@ -1149,9 +1149,33 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
            String(a.nome).localeCompare(String(b.nome), 'pt-BR');
   });
 
-  /* Agora os totais somam TUDO que teve movimento. No modelo por local eles precisavam
-     excluir o galpao, porque a mesma remessa entrava duas vezes; com um trajeto por
-     linha isso acabou. */
+  /* O saldo corre sobre TODAS as linhas, na ordem, antes de qualquer recorte: o saldo
+     final de uma e o inicial da seguinte, mais o estoque lancado naquele dia.
+
+       1.250 (inicial) − 1.690 (saida) + 1.250 (retorno) = 810
+        810            −   810         +     0           =   0
+
+     Feito aqui e nao na tela porque a tela so tem as linhas do periodo pedido, e o
+     acumulado de uma linha depende do que veio ANTES dela — inclusive de fora da
+     janela. */
+  var acumulado = 0;
+  linhas.forEach(function (l) {
+    l.iniCorrido = acumulado + (l.inicial || 0);
+    l.fimCorrido = l.iniCorrido - l.saida + l.retorno;
+    acumulado = l.fimCorrido;
+  });
+
+  /* So agora o recorte de periodo. As linhas de fora saem da tela levando consigo apenas
+     a propria visibilidade: o que elas somaram ja esta no saldo das que ficaram. */
+  if (desde || ate) {
+    linhas = linhas.filter(function (l) {
+      var d = data(l.data);
+      if (desde && d < desde) return false;
+      if (ate && d > ate) return false;
+      return true;
+    });
+  }
+
   var comMovimento = linhas.filter(function (l) { return l.situacao !== 'parado'; });
   var tSaida = 0, tRetorno = 0, porTipo = { ROTA: 0, FILIAL: 0, CLIENTE: 0 };
   comMovimento.forEach(function (l) {

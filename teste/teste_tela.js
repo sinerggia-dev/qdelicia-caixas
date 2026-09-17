@@ -745,77 +745,52 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
 })();
 
 /* ---------------------------------------------------------------------------
- * O saldo corre de uma linha para a proxima.
+ * O saldo corrido vem PRONTO do servidor — a tela nao refaz a conta.
  *
- * O saldo final de uma linha e o inicial da seguinte, mais o estoque inicial lancado
- * naquele dia. E o que transforma a tabela num extrato em vez de tres contas soltas.
+ * Ela ja fez, e estava errado: recalculado sobre a lista FILTRADA, o saldo de uma linha
+ * passava a ignorar tudo que o filtro escondia. Filtrando 17/09, a linha abria no saldo
+ * de 15/09 e as movimentacoes do dia 16 sumiam da conta. O acumulado de uma linha depende
+ * do que veio antes dela, inclusive de fora da janela — e so o servidor tem isso.
  * ------------------------------------------------------------------------- */
-console.log('\n== o saldo corre linha a linha ==');
+console.log('\n== o saldo corrido vem do servidor ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
-  var i = adm.indexOf('function comSaldoCorrido(');
-  var fonte = adm.slice(i, adm.indexOf('\n  }', i) + 4);
-  var comSaldoCorrido = new Function(fonte + ' return comSaldoCorrido;')();
 
-  // o exemplo, com os numeros que estao no ar
-  var r = comSaldoCorrido([
-    { inicial: 1250, saida: 0,    retorno: 0    },   // estoque inicial, 15/09
-    { inicial: 0,    saida: 350,  retorno: 595  },   // Matriz -> Filial Maceio
-    { inicial: 0,    saida: 1690, retorno: 1250 }    // Matriz -> Joao Pessoa
-  ]);
-  ok(r[0].iniCorrido === 1250 && r[0].fimCorrido === 1250,
-    'a linha do estoque abre com ele', [r[0].iniCorrido, r[0].fimCorrido]);
-  ok(r[1].iniCorrido === 1250 && r[1].fimCorrido === 1495,
-    '1.250 − 350 + 595 = 1.495: o final de uma e o inicial da seguinte',
-    [r[1].iniCorrido, r[1].fimCorrido]);
-  ok(r[2].iniCorrido === 1495 && r[2].fimCorrido === 1055,
-    'e segue: 1.495 − 1.690 + 1.250 = 1.055', [r[2].iniCorrido, r[2].fimCorrido]);
+  ok(adm.indexOf('comSaldoCorrido') < 0,
+    'a tela nao tem mais funcao de saldo corrido: quem corre a conta e o servidor');
 
-  /* Um estoque inicial lancado mais tarde SOMA no ponto em que aparece — e o "+ o saldo
-     inicial do proximo dia se existir". */
-  var r2 = comSaldoCorrido([
-    { inicial: 100, saida: 0,  retorno: 0 },
-    { inicial: 0,   saida: 40, retorno: 0 },
-    { inicial: 500, saida: 0,  retorno: 0 },
-    { inicial: 0,   saida: 10, retorno: 0 }
-  ]);
-  ok(r2[2].iniCorrido === 560 && r2[2].fimCorrido === 560,
-    'o estoque lancado depois entra na conta no dia dele: 60 + 500',
-    [r2[2].iniCorrido, r2[2].fimCorrido]);
-  ok(r2[3].fimCorrido === 550, 'e a conta segue dali', r2[3].fimCorrido);
-
-  /* Devolve COPIAS: as linhas vem do painel em cache, e escrever nelas faria o segundo
-     desenho da tela partir dos valores ja corridos do primeiro. */
-  var orig = [{ inicial: 10, saida: 0, retorno: 0 }];
-  comSaldoCorrido(orig);
-  comSaldoCorrido(orig);
-  ok(orig[0].iniCorrido === undefined,
-    'as linhas originais nao sao tocadas — senao o segundo desenho somaria em cima do primeiro',
-    orig[0]);
-
-  // a tabela e o CSV leem os campos corridos, nao os do servidor
-  var corpo = adm.slice(adm.indexOf('function desenharFluxo()'),
-                        adm.indexOf("document.querySelectorAll('[data-fchip]')"));
+  var i = adm.indexOf('function desenharFluxo()');
+  var corpo = adm.slice(i, adm.indexOf("document.querySelectorAll('[data-fchip]')", i));
   ok(/Q\.num\(l\.iniCorrido \|\| 0\)/.test(corpo),
-    'a coluna Saldo inicial mostra o corrido, nao o ajuste solto da linha');
-  ok(/gente \? l\.saldo : l\.fimCorrido/.test(corpo),
-    'e o Saldo final idem — nas visoes de gente segue valendo o saldo da pessoa');
-  ok(adm.indexOf('comSaldoCorrido(linhasFluxo())') > 0,
-    'o CSV passa pela mesma conta: numero diferente no arquivo e o pior dos casos');
+    'a coluna Saldo inicial mostra o corrido que veio pronto');
+  /* O Saldo final NAO e o corrido — e o do proprio lancamento. Ver o bloco abaixo.
+     Olhando so a linha de codigo: o comentario logo acima dela cita `fimCorrido` para
+     contar o que mudou, e procurar a palavra no bloco inteiro acharia o comentario. */
+  ok(/var fim = l\.estoqueInicial \? \(l\.inicial \|\| 0\) : l\.saldo;/.test(corpo),
+    'e o Saldo final nao usa o corrido: ele responde pelo proprio dia');
 
-  // a coluna de data existe e vem formatada
-  ok(/data:\s*\{ t: 'Data'/.test(corpo) && /Q\.dataBR\(l\.data\)/.test(corpo),
-    'ha coluna de Data, em formato brasileiro');
+  var j = adm.indexOf("Q.csv('retornos'");
+  var csv = adm.slice(adm.lastIndexOf('var cs =', j), adm.indexOf('}));', j));
+  ok(csv.indexOf('iniCorrido') > 0,
+    'o CSV usa os mesmos campos: numero diferente no arquivo e o pior dos casos');
+
+  /* A conta em si esta testada no teste_api, sobre o historico inteiro — inclusive o
+     caso que originou isto: filtrar um dia e a linha continuar abrindo no saldo certo. */
 })();
 
 /* ---------------------------------------------------------------------------
- * O Saldo final: o numero na cor do que ele diz.
+ * O Saldo final e o do PROPRIO lancamento: retorno − saida.
  *
- * Chegou a ser so um sinal de visto, sem o valor. O problema: o numero da ULTIMA linha
- * nao aparecia em lugar nenhum, porque nao ha linha de baixo para carrega-lo no Saldo
- * inicial. Voltou o numero, agora colorido.
+ * Ja foi o acumulado. O dia 17/09 abria com 810 de saldo, mandou 810 embora e nao recebeu
+ * nada de volta — e a coluna dizia ZERO, porque 810 − 810 = 0. Zero se le como "quitado",
+ * quando na verdade havia 810 caixas na rua sem previsao de voltar. Agora diz −810.
+ *
+ * O preco disso, aceito de olhos abertos: a cadeia se rompe. O Saldo final de uma linha
+ * deixa de ser o Saldo inicial da de baixo — 16/09 fecha em −440 e a linha seguinte abre
+ * em 810. As duas colunas respondem perguntas diferentes: "quanto ha" e "quanto falta
+ * voltar". So o Saldo INICIAL continua correndo.
  * ------------------------------------------------------------------------- */
-console.log('\n== o Saldo final mostra o numero, colorido ==');
+console.log('\n== o Saldo final e o do proprio lancamento ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   var i = adm.indexOf("      final:    { t: 'Saldo final'");
@@ -826,46 +801,49 @@ console.log('\n== o Saldo final mostra o numero, colorido ==');
   var Q = { num: function (n) { return String(n); } };
   var celula = new Function('Q', 'gente', 'l', corpo);
 
-  var sobra = celula(Q, false, { fimCorrido: 1495 });
-  ok(/val-ok/.test(sobra) && sobra.indexOf('+1495') > 0,
-    'saldo positivo: o numero, em verde, com o sinal de mais', sobra);
+  /* O caso que motivou a mudanca, com os numeros reais do dia 17/09. O corrido e ZERO e o
+     do dia e −810: se a coluna voltar a ler o corrido, este teste cai. */
+  var dia17 = { iniCorrido: 810, saida: 810, retorno: 0, saldo: -810, fimCorrido: 0 };
+  ok(celula(Q, false, dia17).indexOf('-810') > 0,
+    '17/09: saiu 810 e nada voltou — o Saldo final e -810, nao o acumulado 0',
+    celula(Q, false, dia17));
 
-  var falta = celula(Q, false, { fimCorrido: -440 });
+  var sobra = celula(Q, false, { saldo: 245, fimCorrido: -1 });
+  ok(/val-ok/.test(sobra) && sobra.indexOf('+245') > 0,
+    'voltou mais do que saiu: o numero, em verde, com o sinal de mais', sobra);
+
+  var falta = celula(Q, false, { saldo: -440, fimCorrido: 810 });
   ok(/val-ruim/.test(falta) && falta.indexOf('-440') > 0,
-    'saldo negativo: o numero, em vermelho', falta);
+    'falta voltar: o numero, em vermelho', falta);
 
-  var zero = celula(Q, false, { fimCorrido: 0 });
+  var zero = celula(Q, false, { saldo: 0, fimCorrido: 99 });
   ok(zero.indexOf('0') > 0 && !/val-ok|val-ruim/.test(zero),
-    'zero nao e nem sobra nem falta: aparece sem cor', zero);
+    'saiu e voltou tudo: zero de fato, e aparece sem cor', zero);
 
-  /* A linha de estoque inicial tambem mostra o dela. Chegou a ficar com travessao, pela
-     ideia de que repetir o Saldo inicial ao lado nao acrescentava; na pratica a coluna
-     com um buraco no meio parecia falta de dado. */
-  var est = celula(Q, false, { estoqueInicial: true, fimCorrido: 1250 });
+  /* A linha de estoque inicial nao tem fluxo nenhum, entao pela regra geral daria zero — e
+     zero num estoque de 1.250 nao e verdade. Ela mostra o proprio estoque. */
+  var est = celula(Q, false, { estoqueInicial: true, inicial: 1250, saldo: 0 });
   ok(est.indexOf('1250') > 0 && /val-ok/.test(est),
-    'a linha de estoque inicial tambem mostra o saldo final dela', est);
+    'a linha de estoque inicial mostra o estoque, nao o zero da regra geral', est);
 
-  /* Nas visoes de gente nao ha conta corrida: cada pessoa responde pelo saldo dela. */
-  ok(/val-ruim/.test(celula(Q, true, { saldo: -80, fimCorrido: 999 })),
-    'na visao de gente o valor segue o saldo da pessoa, nao o corrido',
-    celula(Q, true, { saldo: -80, fimCorrido: 999 }));
+  /* Nas visoes de gente a coluna ja era o saldo da pessoa — agora e a mesma conta. */
+  ok(/val-ruim/.test(celula(Q, true, { saldo: -80 })),
+    'na visao de gente vale o saldo da pessoa, pela mesma regra',
+    celula(Q, true, { saldo: -80 }));
 
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
   ok(/\.val\.val-ok\{color:var\(--verde\)\}/.test(css) &&
      /\.val\.val-ruim\{color:var\(--vermelho\)\}/.test(css),
     'as duas cores sao as mesmas do resto do painel');
 
-  // o carregamento nao pode ter parado de correr a conta por causa disto
-  var j = adm.indexOf('function comSaldoCorrido(');
-  var fonte = adm.slice(j, adm.indexOf('\n  }', j) + 4);
-  var comSaldoCorrido = new Function(fonte + ' return comSaldoCorrido;')();
-  var r = comSaldoCorrido([
-    { inicial: 1250, saida: 0, retorno: 0, estoqueInicial: true },
-    { inicial: 0, saida: 350, retorno: 595 }
-  ]);
-  ok(r[1].iniCorrido === 1250,
-    'e a linha de estoque continua LEVANDO o saldo adiante, ainda que nao o mostre',
-    r[1].iniCorrido);
+  /* O CSV carrega o mesmo numero da tela: exportar e conferir nao podem divergir. */
+  var j = adm.indexOf("      final:    function(l){");
+  var linhaCsv = adm.slice(j, adm.indexOf('\n', j));
+  var csvFinal = new Function('l', 'return (' +
+    linhaCsv.slice(linhaCsv.indexOf('return ') + 7, linhaCsv.lastIndexOf('; }')) + ');');
+  ok(csvFinal(dia17) === -810 && csvFinal({ estoqueInicial: true, inicial: 1250, saldo: 0 }) === 1250,
+    'o CSV leva os mesmos numeros: -810 no dia 17 e 1250 na linha de estoque',
+    [csvFinal(dia17), csvFinal({ estoqueInicial: true, inicial: 1250, saldo: 0 })]);
 })();
 
 /* ---------------------------------------------------------------------------

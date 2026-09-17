@@ -831,30 +831,6 @@
   /* Arrastar a alcinha nao redesenha a tabela a cada pixel: mexe so no `width` do <th>,
      que com layout fixo ja arrasta a coluna inteira. Redesenhar no mousemove perderia o
      arrasto — o <th> de baixo do cursor seria outro elemento a cada quadro. */
-  /* O saldo corre de uma linha para a proxima: o saldo final de uma e o inicial da
-     seguinte, mais o estoque inicial que tenha sido lancado naquele dia.
-
-       1.250 (inicial) − 350 (saida) + 595 (retorno) = 1.495
-       1.495            − 1.690      + 1.250         = 1.055
-
-     Calculado AQUI e nao no servidor porque depende da ordem e do filtro da tela: mudar
-     a origem filtrada muda quais linhas entram na conta, e um numero vindo pronto do
-     servidor passaria a contradizer a lista que esta na frente da pessoa.
-
-     Devolve copias: as linhas vem do painel em cache, e escrever nelas faria o segundo
-     desenho partir dos valores ja corridos do primeiro. */
-  function comSaldoCorrido(lista){
-    var acumulado = 0;
-    return lista.map(function(l){
-      var copia = {};
-      for (var k in l) { if (Object.prototype.hasOwnProperty.call(l, k)) copia[k] = l[k]; }
-      copia.iniCorrido = acumulado + (l.inicial || 0);
-      copia.fimCorrido = copia.iniCorrido - (l.saida || 0) + (l.retorno || 0);
-      acumulado = copia.fimCorrido;
-      return copia;
-    });
-  }
-
   function ligarLarguraColunas(){
     document.querySelectorAll('#tabelaFluxo th[data-col] .puxador').forEach(function(p){
       p.addEventListener('mousedown', function(e){
@@ -956,9 +932,10 @@
        descreve uma vez: titulo, se e numerica e como preencher a celula.
 
        E e isso que deixa arrastar para reordenar: a ordem e so a ordem desta lista. */
+    /* O saldo corrido vem PRONTO do servidor, e nao se recalcula aqui. Ele ja foi feito
+       la sobre o historico inteiro: refaze-lo sobre a lista filtrada era o que fazia a
+       linha de 17/09 abrir no saldo de 15/09 quando o filtro escondia o dia 16. */
     var lista = linhasFluxo();
-    // Nas visoes de gente nao ha estoque nem saldo corrido: cada pessoa responde por si.
-    if (!gente) lista = comSaldoCorrido(lista);
     var DEFS = {
       data:     { t: 'Data', so: 'local',
                   v: function(l){
@@ -989,18 +966,19 @@
                   v: function(l){ return Q.num(l.saida) + detalheCaixas(l.saidaTipos); } },
       retorno:  { t: 'Retorno', num: true,
                   v: function(l){ return Q.num(l.retorno) + detalheCaixas(l.retornoTipos); } },
-      /* O numero, na cor do que ele diz: verde quando sobra, vermelho quando falta.
-         Chegou a ser so um sinal de visto, sem o valor — mas ai o numero da ULTIMA linha
-         nao aparecia em lugar nenhum, porque nao ha linha de baixo para carrega-lo no
-         Saldo inicial.
+      /* O Saldo final e o do PROPRIO lancamento: retorno − saida. Ele responde "o que
+         este dia deixou em aberto", e nao "quanto sobrou no estoque".
 
-         A linha de estoque inicial tambem mostra o dela. Chegou a ficar com travessao,
-         pela ideia de que repetir o Saldo inicial ao lado nao acrescentava; na pratica a
-         coluna com um buraco no meio parecia falta de dado, e a coluna so fecha de cima a
-         baixo quando toda linha tem o seu numero. */
+         Ja foi o acumulado (`fimCorrido`), encadeando com o Saldo inicial da linha
+         seguinte. O 17/09 entao dava zero — 810 de saldo, 810 de saida, nada de volta —
+         e zero se le como "quitado", quando na verdade nada tinha voltado. A cadeia se
+         perdeu, mas o numero passou a dizer o que importa cobrar.
+
+         A linha de estoque inicial nao tem fluxo, entao mostra o proprio estoque: pela
+         regra geral ela daria zero, e zero num estoque de 1.250 nao e verdade. */
       final:    { t: 'Saldo final', num: true,
                   v: function(l){
-                    var fim = gente ? l.saldo : l.fimCorrido;
+                    var fim = l.estoqueInicial ? (l.inicial || 0) : l.saldo;
                     var cor = fim > 0 ? ' val-ok' : (fim < 0 ? ' val-ruim' : '');
                     return '<b class="val' + cor + '">' +
                       (fim > 0 ? '+' : '') + Q.num(fim) + '</b>';
@@ -1127,10 +1105,10 @@
                                                      : (l.destinos||[]).join(' | '); },
       saida:    function(l){ return l.saida; },
       retorno:  function(l){ return l.retorno; },
-      final:    function(l){ return l.fimCorrido === undefined ? l.saldo : l.fimCorrido; }
+      final:    function(l){ return l.estoqueInicial ? (l.inicial || 0) : l.saldo; }
     };
     Q.csv('retornos', cs.map(function(id){ return TIT[id]; }).concat(['Lançamentos']),
-      comSaldoCorrido(linhasFluxo()).map(function(l){
+      linhasFluxo().map(function(l){
         /* As mesmas colunas da tela: um CSV com campos que a tabela nao tem — ou sem os
            que ela tem — so serve para duas pessoas compararem numeros diferentes achando
            que sao o mesmo. Aqui a lista de locais vai INTEIRA, sem o "+N": no arquivo nao
