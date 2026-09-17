@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=78631cfd">
+<link rel="stylesheet" href="styles.css?v=d4399c27">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -156,6 +156,13 @@
           <!-- Nasce desligado e so acende quando ha o que limpar: assim ele tambem
                responde "tem algum filtro ligado?", que e a pergunta de quem estranha a
                tabela curta e nao lembra do que escolheu tres cliques atras. -->
+          <!-- Mesmo desenho do painel de filtros, e no mesmo lugar: as duas perguntas sao
+               vizinhas — "que linhas eu quero ver" e "que colunas eu quero ver". -->
+          <div class="ret-menu">
+            <button class="ret-acao" id="btnColunas" type="button"
+                    aria-expanded="false" aria-controls="colunasRet"></button>
+            <div class="ret-pop" id="colunasRet" hidden></div>
+          </div>
           <button class="ret-acao" id="btnLimparRetornos" type="button" disabled
                   title="Volta origem, destino, período e a lista da esquerda ao estado inicial">✕ Limpar filtros</button>
           <div class="ret-risco"></div>
@@ -931,14 +938,21 @@
     FILTROS_ABERTO = !!sim;
     ajustarBarraFiltros();
     if (!FILTROS_ABERTO) return;
-    /* A direcao e decidida DEPOIS de abrir, medindo. Ele sobe por padrao, porque o
-       gatilho fica no rodape do trilho — mas o trilho tem a altura da tabela, e com
-       poucas linhas ele encolhe, o gatilho sobe junto e o painel nasceria acima do topo
-       da tela, sem rolagem que o alcance. Nesse caso desce.
+    posicionarPop(document.getElementById('filtrosRet'));
+  }
 
-       Medir e a unica forma: a altura do trilho depende do numero de linhas, do periodo
-       filtrado e do tamanho da janela — nenhum dos tres se sabe ao escrever o CSS. */
-    var pop = document.getElementById('filtrosRet');
+  /* A direcao e decidida DEPOIS de abrir, medindo. O painel sobe por padrao, porque os
+     gatilhos ficam no rodape do trilho — mas o trilho tem a altura da tabela, e com
+     poucas linhas ele encolhe, o gatilho sobe junto e o painel nasceria acima do topo da
+     tela, sem rolagem que o alcance. Nesse caso desce.
+
+     Medir e a unica forma: a altura do trilho depende do numero de linhas, do periodo
+     filtrado e do tamanho da janela — nenhum dos tres se sabe ao escrever o CSS.
+
+     Uma funcao para os dois paineis: dois lugares decidindo a mesma coisa acabam
+     discordando, e o segundo painel nasceria fora da tela no dia em que o primeiro fosse
+     corrigido. */
+  function posicionarPop(pop){
     if (!pop) return;
     pop.classList.remove('para-baixo');
     if (pop.getBoundingClientRect().top < 8) pop.classList.add('para-baixo');
@@ -1079,6 +1093,40 @@
     return r;
   }
 
+  /* Quais colunas NAO aparecem. Guardado, como a ordem e a largura: e preferencia de
+     quem olha, e vale toda visita. Guarda-se o que esta ESCONDIDO, e nao o que esta
+     visivel — assim uma coluna nova nasce aparecendo para todo mundo, inclusive para quem
+     ja tinha mexido aqui. Ao contrario, ela nasceria invisivel e ninguem saberia que
+     existe. */
+  var COLS_OCULTAS_CHAVE = 'qdc_cols_ocultas_v1';
+
+  function colunasOcultas(){
+    try {
+      var l = JSON.parse(localStorage.getItem(COLS_OCULTAS_CHAVE) || '[]');
+      return Array.isArray(l) ? l : [];
+    } catch (e) { return []; }
+  }
+
+  function guardarOcultas(lista){
+    try { localStorage.setItem(COLS_OCULTAS_CHAVE, JSON.stringify(lista)); } catch (e) {}
+  }
+
+  /* Esconder coluna e esconder informacao, e o gatilho diz quantas — a mesma regra do
+     painel de filtros e do trilho. Sem a contagem, a tabela apareceria sem a coluna de
+     Retorno e quem chegasse depois procuraria o numero num lugar que nao existe mais. */
+  function ajustarBotaoColunas(){
+    var btn = document.getElementById('btnColunas');
+    var pop = document.getElementById('colunasRet');
+    if (!btn || !pop) return;
+    var n = colunasOcultas().length;
+    btn.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
+    btn.className = 'ret-acao' + (pop.hidden && n ? ' alerta' : '');
+    btn.textContent = (pop.hidden ? '▸ ' : '▾ ') + 'Colunas' + (n ? ' (' + n + ')' : '');
+    btn.title = pop.hidden && n
+      ? n + (n === 1 ? ' coluna está escondida' : ' colunas estão escondidas')
+      : (pop.hidden ? 'Escolher as colunas da tabela' : 'Fechar');
+  }
+
   function guardarLargura(id, px){
     var salvo = {};
     try { salvo = JSON.parse(localStorage.getItem(LARG_CHAVE) || '{}') || {}; }
@@ -1096,6 +1144,54 @@
      - a ALCINHA barra o clique nela, senao terminar de redimensionar classificaria junto;
      - ARRASTAR a coluna nao dispara `click` no navegador, entao nao ha o que separar ali;
      - e o clique so vale em coluna que tem chave — as outras nem parecem clicaveis. */
+  /* As caixas de marcar sao montadas AQUI, e nao no HTML, porque os titulos vem de
+     `DEFS` — que e local ao desenho — e porque a lista muda com a visao: escolher
+     "Motoristas" na coluna da esquerda troca as colunas de lugar e de nome. Escritas no
+     HTML, elas ofereceriam colunas que aquela visao nao tem.
+
+     `cabem` sao as colunas que fazem sentido na visao atual, ja na ordem da tabela: a
+     lista aqui e a tabela se leem na mesma ordem, senao procurar a coluna vira um
+     exercicio de traducao. */
+  function montarPainelColunas(cabem){
+    var pop = document.getElementById('colunasRet');
+    if (!pop) return;
+    var ocultas = colunasOcultas();
+    pop.innerHTML = cabem.map(function(c){
+      var visivel = ocultas.indexOf(c.id) < 0;
+      /* O titulo da coluna de gente e vazio no cabecalho — ali o nome da pessoa ja diz o
+         que e. Aqui, sem rotulo, a caixa de marcar nao diria nada. */
+      var nome = c.d.t || 'Quem';
+      return '<label class="chk-col"><input type="checkbox" data-col="'+c.id+'"'+
+        (visivel ? ' checked' : '')+'> '+Q.esc(nome)+'</label>';
+    }).join('') +
+      '<button type="button" class="ret-acao" id="btnTodasColunas"'+
+      (ocultas.length ? '' : ' disabled')+' style="margin-top:6px">↺ Mostrar todas</button>';
+
+    pop.querySelectorAll('input[data-col]').forEach(function(ch){
+      ch.addEventListener('change', function(){
+        var lista = colunasOcultas().filter(function(id){ return id !== ch.dataset.col; });
+        if (!ch.checked) lista.push(ch.dataset.col);
+        guardarOcultas(lista);
+        desenharFluxo();
+        /* Redesenhar recria o painel, e com ele este ouvinte. O painel fica ABERTO de
+           proposito: quem esconde uma coluna costuma esconder duas, e fechar a cada
+           clique obrigaria a reabrir. */
+        var p = document.getElementById('colunasRet');
+        if (p) p.hidden = false;
+        ajustarBotaoColunas();
+      });
+    });
+    var todas = document.getElementById('btnTodasColunas');
+    if (todas) todas.addEventListener('click', function(){
+      guardarOcultas([]);
+      desenharFluxo();
+      var p = document.getElementById('colunasRet');
+      if (p) p.hidden = false;
+      ajustarBotaoColunas();
+    });
+    ajustarBotaoColunas();
+  }
+
   function ligarClassificacao(){
     document.querySelectorAll('#tabelaFluxo th.ordenavel').forEach(function(th){
       th.addEventListener('click', function(e){
@@ -1315,11 +1411,21 @@
     }
 
     var LARG = larguras();
-    var cs = ordemColunas().map(function(id){ return { id: id, d: DEFS[id] }; })
+    /* Duas peneiras, e elas nao sao a mesma coisa. `so` diz quais colunas FAZEM SENTIDO
+       nesta visao — numa visao de gente nao ha origem nem destino. As ocultas sao escolha
+       de quem olha. Guardar as duas juntas faria uma coluna escondida numa visao sumir
+       da outra tambem, sem ninguem ter pedido. */
+    var cabem = ordemColunas().map(function(id){ return { id: id, d: DEFS[id] }; })
       .filter(function(c){
         if (!c.d) return false;
         return c.d.so === (gente ? 'gente' : 'local') || !c.d.so;
       });
+    var ocultas = colunasOcultas();
+    var cs = cabem.filter(function(c){ return ocultas.indexOf(c.id) < 0; });
+    /* Se a pessoa escondeu tudo que cabia nesta visao, a tabela viraria uma caixa vazia
+       sem dizer por que. Nesse caso a peneira nao se aplica — e o painel de colunas, ao
+       lado, mostra a contagem e permite desfazer. */
+    if (!cs.length) cs = cabem;
 
     // O cabeçalho fica SEMPRE de pé, mesmo sem linha nenhuma: sem as colunas a tela não
     // diz o que vai mostrar quando os lançamentos começarem.
@@ -1349,6 +1455,7 @@
     ligarArrastarColunas();
     ligarLarguraColunas();
     ligarClassificacao();
+    montarPainelColunas(cabem);
 
     document.querySelectorAll('[data-fchip]').forEach(function(b){
       b.addEventListener('click', function(){
@@ -1449,16 +1556,32 @@
     e.stopPropagation();   // senao o clique chega no documento e fecha o que acabou de abrir
     abrirFiltros(!FILTROS_ABERTO);
   });
+  document.getElementById('btnColunas').addEventListener('click', function(e){
+    e.stopPropagation();
+    var pop = document.getElementById('colunasRet');
+    /* Um painel de cada vez: abertos os dois, o de baixo cobriria o de cima — eles nascem
+       no mesmo canto do trilho. */
+    if (pop.hidden) abrirFiltros(false);
+    pop.hidden = !pop.hidden;
+    if (!pop.hidden) posicionarPop(pop);
+    ajustarBotaoColunas();
+  });
   /* Duas saidas alem do proprio botao: clicar fora e a tecla Esc. Um painel que so fecha
      no mesmo botao que o abriu obriga a mirar de volta num alvo pequeno, e quem clica na
      tabela atras espera que ele saia da frente. */
   document.addEventListener('click', function(e){
-    if (!FILTROS_ABERTO) return;
-    var pop = document.getElementById('filtrosRet');
-    if (pop && !pop.contains(e.target)) abrirFiltros(false);
+    if (FILTROS_ABERTO) {
+      var pf = document.getElementById('filtrosRet');
+      if (pf && !pf.contains(e.target)) abrirFiltros(false);
+    }
+    var pc = document.getElementById('colunasRet');
+    if (pc && !pc.hidden && !pc.contains(e.target)) { pc.hidden = true; ajustarBotaoColunas(); }
   });
   document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && FILTROS_ABERTO) abrirFiltros(false);
+    if (e.key !== 'Escape') return;
+    if (FILTROS_ABERTO) abrirFiltros(false);
+    var pc = document.getElementById('colunasRet');
+    if (pc && !pc.hidden) { pc.hidden = true; ajustarBotaoColunas(); }
   });
   document.getElementById('btnTrilho').addEventListener('click', function(){
     try { localStorage.setItem(TRILHO_CHAVE, trilhoRecolhido() ? '0' : '1'); } catch (e) {}
@@ -1469,9 +1592,14 @@
   ajustarBarraFiltros();
   ajustarTrilho();
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
-    /* O CSV sai na MESMA ordem de colunas da tela, inclusive a que a pessoa arrastou:
-       um arquivo com as colunas noutra ordem obriga a conferir duas vezes qual e qual. */
-    var cs = ordemColunas().filter(function(id){ return id !== 'quem'; });
+    /* O CSV sai com as MESMAS colunas da tela, na mesma ordem — inclusive a que a
+       pessoa arrastou e sem as que ela escondeu. Um arquivo com as colunas noutra ordem
+       obriga a conferir duas vezes qual e qual; com colunas a mais, obriga a explicar de
+       onde saiu uma que ninguem ve na tela. */
+    var ocultasCsv = colunasOcultas();
+    var cs = ordemColunas().filter(function(id){
+      return id !== 'quem' && ocultasCsv.indexOf(id) < 0;
+    });
     var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Estoque',
                 origem:'Origem', destino:'Destino', saida:'Saída', retorno:'Retorno',
                 final:'Saldo final' };

@@ -1276,6 +1276,118 @@ console.log('\n== as abas do painel viram lista ==');
     'e a peneira de permissão reajusta o rótulo: ela pode abrir outra página');
 })();
 
+/* ---------------------------------------------------------------------------
+ * Escolher as colunas da tabela.
+ *
+ * Esconder coluna e esconder informacao — o mesmo risco do painel de filtros e do trilho.
+ * O gatilho carrega a contagem das escondidas, e o "Mostrar todas" desfaz de uma vez.
+ * ------------------------------------------------------------------------- */
+console.log('\n== escolher as colunas ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* --- onde mora ---------------------------------------------------------- */
+  var ra = adm.indexOf('<div class="ret-acoes">');
+  var trilho = adm.slice(ra, adm.indexOf('</aside>', ra));
+  ok(trilho.indexOf('id="btnColunas"') > 0 && trilho.indexOf('id="colunasRet"') > 0,
+    'o painel de colunas fica no trilho, ao lado do de filtros — as duas perguntas são ' +
+    'vizinhas: que linhas eu quero ver, e que colunas');
+  var g = adm.indexOf('id="colunasRet"');
+  var bt = adm.indexOf('id="btnColunas"');
+  ok(bt > 0 && bt < g,
+    'o gatilho fica fora do painel — dentro, sumiria junto e não haveria como reabrir');
+
+  /* --- guarda o que esta ESCONDIDO, e nao o que esta visivel --------------- */
+  var i = adm.indexOf('var COLS_OCULTAS_CHAVE');
+  var j = adm.indexOf('function guardarLargura(id, px)');
+  var fonte = adm.slice(i, j);
+  ok(/function colunasOcultas/.test(fonte) && /function ajustarBotaoColunas/.test(fonte),
+    'o recorte pegou as peças — sem isto a bancada abaixo exercita outro código');
+  ok(/COLS_OCULTAS_CHAVE = 'qdc_cols_ocultas/.test(adm),
+    'guarda-se a lista de ESCONDIDAS — assim uma coluna nova nasce aparecendo para quem ' +
+    'já mexeu aqui; ao contrário, nasceria invisível e ninguém saberia que existe');
+  var fo = adm.slice(adm.indexOf('function colunasOcultas()'));
+  fo = fo.slice(0, fo.indexOf('\n  }'));
+  ok(/try \{/.test(fo) && /catch/.test(fo) && /Array\.isArray/.test(fo),
+    'com try/catch e conferindo que é lista: janela anônima estoura, e lixo no ' +
+    'armazenamento viraria um `.indexOf` de undefined no meio do desenho', fo);
+
+  /* --- a peneira, rodando -------------------------------------------------- */
+  var d = adm.indexOf('function desenharFluxo()');
+  var corpo = adm.slice(d, adm.indexOf("document.querySelectorAll('[data-fchip]')", d));
+  var trecho = corpo.slice(corpo.indexOf('var cabem = ordemColunas()'),
+                           corpo.indexOf('// O cabeçalho fica SEMPRE'));
+  var peneira = new Function('ordemColunas', 'DEFS', 'gente', 'colunasOcultas',
+    trecho + '\n return cs.map(function(c){ return c.id; });');
+  var DEFS = { data: { so: 'local' }, origem: { so: 'local' }, quem: { so: 'gente' },
+               saida: {}, retorno: {} };
+  var ordem = function () { return ['data', 'origem', 'quem', 'saida', 'retorno']; };
+
+  ok(peneira(ordem, DEFS, false, function () { return []; }).join(',') ===
+     'data,origem,saida,retorno',
+    'sem nada escondido, a visão de local traz as colunas dela — e não a de gente');
+  ok(peneira(ordem, DEFS, true, function () { return []; }).join(',') === 'quem,saida,retorno',
+    'e a visão de gente traz as dela');
+  ok(peneira(ordem, DEFS, false, function () { return ['origem', 'saida']; }).join(',') ===
+     'data,retorno',
+    'escondidas saem da tabela', peneira(ordem, DEFS, false, function () { return ['origem', 'saida']; }));
+
+  /* As duas peneiras nao sao a mesma coisa: `so` diz o que FAZ SENTIDO na visao, e a
+     outra e escolha de quem olha. Esconder na visao de local nao pode sumir da de gente. */
+  ok(peneira(ordem, DEFS, true, function () { return ['origem']; }).join(',') ===
+     'quem,saida,retorno',
+    'esconder uma coluna que nem existe na outra visão não mexe nela');
+
+  /* Escondido tudo, a tabela viraria uma caixa vazia sem dizer por que. */
+  ok(peneira(ordem, DEFS, false, function () { return ['data','origem','saida','retorno']; })
+       .join(',') === 'data,origem,saida,retorno',
+    'escondendo TUDO, a peneira não se aplica: tabela vazia não diz por que está vazia');
+
+  /* --- o gatilho conta o que escondeu -------------------------------------- */
+  function bancada(ocultas, fechado) {
+    var btn = { className: '', textContent: '', title: '', attrs: {},
+                setAttribute: function (a, v) { this.attrs[a] = v; } };
+    var pop = { hidden: fechado };
+    var loja = { qdc_cols_ocultas_v1: JSON.stringify(ocultas) };
+    var ls = { getItem: function (c) { return loja[c] === undefined ? null : loja[c]; },
+               setItem: function (c, v) { loja[c] = String(v); } };
+    var doc = { getElementById: function (id) {
+      return id === 'btnColunas' ? btn : (id === 'colunasRet' ? pop : null); } };
+    new Function('document', 'localStorage', fonte + '\n ajustarBotaoColunas();')(doc, ls);
+    return btn;
+  }
+
+  var nada = bancada([], true);
+  ok(nada.textContent === '▸ Colunas' && !/alerta/.test(nada.className),
+    'sem nada escondido, o gatilho é só um controle', nada.textContent);
+  var duas = bancada(['saida', 'retorno'], true);
+  ok(duas.textContent === '▸ Colunas (2)' && /alerta/.test(duas.className),
+    'com colunas escondidas, ele diz QUANTAS e troca de cor — senão a tabela apareceria ' +
+    'sem a coluna de Retorno e quem chegasse depois procuraria o número num lugar que ' +
+    'não existe mais', duas.textContent + ' | ' + duas.className);
+  var aberto = bancada(['saida'], false);
+  ok(aberto.textContent === '▾ Colunas (1)' && !/alerta/.test(aberto.className) &&
+     aberto.attrs['aria-expanded'] === 'true',
+    'aberto, a contagem fica mas o aviso sai — as caixas de marcar estão à vista',
+    aberto.textContent + ' | ' + aberto.className);
+
+  /* --- o painel e o CSV --------------------------------------------------- */
+  ok(/id="btnTodasColunas"/.test(adm) && /guardarOcultas\(\[\]\)/.test(adm),
+    'há um "Mostrar todas" que desfaz de uma vez');
+  ok(/todas\.disabled|\(ocultas\.length \? '' : ' disabled'\)/.test(adm),
+    'e ele nasce desligado quando não há nada escondido');
+  var jc = adm.indexOf("Q.csv('retornos'");
+  var csv = adm.slice(adm.lastIndexOf('var cs =', jc) - 400, jc);
+  ok(/ocultasCsv\.indexOf\(id\) < 0/.test(csv),
+    'o CSV sai com as MESMAS colunas da tela: com colunas a mais, obriga a explicar de ' +
+    'onde saiu uma que ninguém vê', csv.slice(-300));
+
+  ok(/\.chk-col\{/.test(css) && /\.chk-col input\{/.test(css),
+    'as caixas de marcar têm classe própria — `.fchk` é do bloco de filtros do app de ' +
+    'campo, com borda e recuo de cartão');
+})();
+
 console.log('\n== recolher o trilho ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -1452,6 +1564,13 @@ console.log('\n== os filtros num painel suspenso ==');
   ok(/pop\.classList\.remove\('para-baixo'\)/.test(adm) &&
      /if \(pop\.getBoundingClientRect\(\)\.top < 8\) pop\.classList\.add\('para-baixo'\)/.test(adm),
     'a direção é medida ao abrir: não cabendo acima, o painel desce');
+  /* Uma funcao para os DOIS paineis. Dois lugares decidindo a mesma coisa acabam
+     discordando, e o segundo nasceria fora da tela no dia em que o primeiro fosse
+     corrigido. */
+  ok((adm.match(/function posicionarPop\(pop\)/g) || []).length === 1 &&
+     (adm.match(/posicionarPop\(/g) || []).length >= 3,
+    'e é uma função só, chamada pelos dois painéis',
+    (adm.match(/posicionarPop\(/g) || []).length);
   ok(/\.ret-pop\.para-baixo\{bottom:auto;top:calc\(100% \+ 6px\)\}/.test(css),
     'e existe a regra que o faz descer — sem ela a medição não mudaria nada');
   ok(/\.ret-pop\{[^}]*max-height:calc\(100vh - 24px\)/.test(css) &&
@@ -1460,8 +1579,8 @@ console.log('\n== os filtros num painel suspenso ==');
     'isto os últimos campos ficariam fora de alcance');
 
   /* --- os botoes sutis ---------------------------------------------------- */
-  ok(trilho.indexOf('class="btn') < 0 && (trilho.match(/class="ret-acao"/g) || []).length === 4,
-    'os quatro botões usam o estilo do trilho, e não o .btn de formulário', trilho);
+  ok(trilho.indexOf('class="btn') < 0 && (trilho.match(/class="ret-acao"/g) || []).length === 5,
+    'os cinco botões usam o estilo do trilho, e não o .btn de formulário', trilho);
   ok(/\.ret-acao\{[^}]*background:none/.test(css) && /\.ret-acao\{[^}]*border:0/.test(css),
     'texto sem caixa: quatro retângulos cheios pesavam mais que a tabela');
   ok(/\.ret-acao:hover:not\(:disabled\)\{background:/.test(css),
@@ -1504,7 +1623,13 @@ console.log('\n== os filtros num painel suspenso ==');
     };
     els.filtrosRet.classList._d = els.filtrosRet.classes;
     var doc = { getElementById: function (id) { return els[id] || null; } };
+    /* `posicionarPop` mora fora do recorte: ela e compartilhada com o painel de colunas,
+       e so mede onde o painel nasceu. Aqui ela vira um coto — a bancada nao tem layout, e
+       a decisao de subir ou descer tem teste proprio logo abaixo. */
     var api = new Function('document', 'FLUXO_FILTRO', 'FILTROS_FLUXO', 'valor',
+      'function posicionarPop(p){ if (!p) return;' +
+      ' p.classList.remove("para-baixo");' +
+      ' if (p.getBoundingClientRect().top < 8) p.classList.add("para-baixo"); }' +
       fonte + '\n return { abrir: abrirFiltros, ajustar: ajustarBarraFiltros,' +
       '\n          quantos: quantosFiltrosFluxo };')(
       doc, grupoAtivo, ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte'],
@@ -1583,10 +1708,16 @@ console.log('\n== os filtros num painel suspenso ==');
   ok(og > 0 && /e\.stopPropagation\(\)/.test(ouvinte),
     'o clique no gatilho não vaza para o documento — vazando, fecharia o que acabou de abrir',
     ouvinte);
-  ok(/if \(pop && !pop\.contains\(e\.target\)\) abrirFiltros\(false\)/.test(adm),
-    'clicar fora fecha: quem clica na tabela atrás espera que o painel saia da frente');
-  ok(/e\.key === 'Escape' && FILTROS_ABERTO/.test(adm),
-    'e o Esc também — painel que só fecha no mesmo botão obriga a mirar de volta');
+  /* Um ouvinte so cuida dos DOIS paineis — o de filtros e o de colunas. Dois ouvintes
+     sobre a mesma tecla acabam discordando, e o segundo painel ficaria preso aberto. */
+  ok(/if \(pf && !pf\.contains\(e\.target\)\) abrirFiltros\(false\)/.test(adm) &&
+     /if \(pc && !pc\.hidden && !pc\.contains\(e\.target\)\)/.test(adm),
+    'clicar fora fecha os dois painéis: quem clica na tabela atrás espera que saiam da frente');
+  var esc = adm.slice(adm.indexOf("if (e.key !== 'Escape') return;"));
+  esc = esc.slice(0, esc.indexOf('\n  });'));
+  ok(/abrirFiltros\(false\)/.test(esc) && /pc\.hidden = true/.test(esc),
+    'e o Esc também, nos dois — painel que só fecha no mesmo botão obriga a mirar de volta',
+    esc);
 
   /* O painel nasce fechado a cada visita. Guardar "aberto" trataria um estado passageiro
      como preferencia, e reabrir sozinho taparia a tabela de quem so queria consultar. */
