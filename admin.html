@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=ff473168">
+<link rel="stylesheet" href="styles.css?v=bda6fdb7">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -115,46 +115,44 @@
              O botao de recolher fica FORA do grupo que ele recolhe, senao sumiria junto
              com os campos e nao haveria como voltar. -->
         <div class="ret-acoes">
-          <button class="btn neutro" id="btnVerFiltros" type="button"></button>
+          <!-- O gatilho e o painel andam juntos: o painel se posiciona em relacao a
+               ESTE bloco, e nao ao trilho, senao escorregaria ao mudar a lista de grupos.
+
+               O periodo vale para a tabela e para os indicadores dela. Em branco, o mes
+               corrente — a mesma janela de sempre. -->
+          <div class="ret-menu">
+            <button class="ret-acao" id="btnVerFiltros" type="button"
+                    aria-expanded="false" aria-controls="filtrosRet"></button>
+            <div class="ret-pop" id="filtrosRet" hidden>
+              <label for="rtOrigem">Origem</label>
+              <select id="rtOrigem"><option value="">Todas</option></select>
+              <label for="rtDestino">Destino</label>
+              <select id="rtDestino"><option value="">Todos</option></select>
+              <label for="rtDe">De</label>
+              <input id="rtDe" type="date">
+              <label for="rtAte">Até</label>
+              <input id="rtAte" type="date">
+              <label for="verTesteRetornos">Lançamentos</label>
+              <select id="verTesteRetornos" data-verteste>
+                <option value="reais">Só reais</option>
+                <option value="teste">Só de teste</option>
+              </select>
+            </div>
+          </div>
           <!-- Nasce desligado e so acende quando ha o que limpar: assim ele tambem
                responde "tem algum filtro ligado?", que e a pergunta de quem estranha a
                tabela curta e nao lembra do que escolheu tres cliques atras. -->
-          <button class="btn neutro" id="btnLimparRetornos" type="button" disabled
+          <button class="ret-acao" id="btnLimparRetornos" type="button" disabled
                   title="Volta origem, destino, período e a lista da esquerda ao estado inicial">✕ Limpar filtros</button>
           <div class="ret-risco"></div>
-          <button class="btn sec" id="btnCsvRetornos" type="button">⬇ Exportar CSV</button>
-          <button class="btn neutro" id="btnAtualizarRetornos" type="button">↻ Atualizar</button>
+          <button class="ret-acao" id="btnCsvRetornos" type="button">⬇ Exportar CSV</button>
+          <button class="ret-acao" id="btnAtualizarRetornos" type="button">↻ Atualizar</button>
         </div>
       </aside>
       <div class="ret-main">
         <div class="ret-head">
           <div>
             <h2>Controle de Caixas</h2>
-          </div>
-          <div class="acoes">
-            <!-- So os CAMPOS moram aqui. Os botoes desceram para o trilho da esquerda, que
-                 tinha espaco sobrando desde que o cartao de circulacao saiu dele — e a
-                 fileira de cima, com campos e botoes juntos, ja quebrava em duas linhas.
-
-                 O periodo vale para esta tabela e para os indicadores dela. Em branco, o
-                 mes corrente — a mesma janela de sempre. -->
-            <!-- `display:contents` no grupo: os campos continuam participando do flex do
-                 pai, como se o <div> nao existisse, e um `hidden` no grupo recolhe todos
-                 de uma vez. Sem isso, envolve-los quebraria o alinhamento da fileira. -->
-            <div class="grupo-filtros" id="filtrosRet">
-              <label for="rtOrigem" class="rot-inline">Origem</label>
-              <select id="rtOrigem" class="sel-inline"><option value="">Todas</option></select>
-              <label for="rtDestino" class="rot-inline">Destino</label>
-              <select id="rtDestino" class="sel-inline"><option value="">Todos</option></select>
-              <label for="rtDe" class="rot-inline">De</label>
-              <input id="rtDe" type="date" class="dt-inline">
-              <label for="rtAte" class="rot-inline">Até</label>
-              <input id="rtAte" type="date" class="dt-inline">
-              <select id="verTesteRetornos" class="sel-teste" data-verteste style="max-width:190px">
-                <option value="reais">Só reais</option>
-                <option value="teste">Só de teste</option>
-              </select>
-            </div>
           </div>
         </div>
         <!-- Os totais vem ANTES da tabela: sao a leitura do conjunto, e quem abre a
@@ -772,35 +770,47 @@
 
   function algumFiltroFluxo(){ return quantosFiltrosFluxo() > 0; }
 
-  /* Recolher a barra e preferencia de quem olha, como a ordem das colunas: fica no
-     navegador, e nao no cadastro. */
-  var FILTROS_CHAVE = 'qdc_filtros_ativos_v1';
+  /* O painel de filtros e suspenso, e nasce FECHADO a cada visita — diferente da ordem
+     das colunas, que se guarda. Painel aberto nao e preferencia: e um estado passageiro,
+     e reabri-lo sozinho taparia a tabela de quem so queria consultar. */
+  var FILTROS_ABERTO = false;
 
-  function filtrosOcultos(){
-    try { return localStorage.getItem(FILTROS_CHAVE) === '1'; } catch (e) { return false; }
-  }
-
-  /* Esconder filtro LIGADO e o risco todo desta funcao: a tabela mostra um recorte e o
-     motivo fica invisivel, e quem chega depois conclui que faltam lancamentos. Por isso o
-     botao recolhido carrega a contagem e troca de cor — ele deixa de ser um controle
-     neutro e passa a ser um aviso. */
+  /* Fechado, o painel esconde os filtros o tempo todo — e esse e o risco da ideia: a
+     tabela mostra um recorte e o motivo fica invisivel, e quem chega depois conclui que
+     faltam lancamentos. Por isso o gatilho carrega a CONTAGEM dos filtros ligados e troca
+     de cor: deixa de ser um controle e vira aviso. */
   function ajustarBarraFiltros(){
-    var grupo = document.getElementById('filtrosRet');
+    var pop = document.getElementById('filtrosRet');
     var btn = document.getElementById('btnVerFiltros');
     var limpar = document.getElementById('btnLimparRetornos');
     var n = quantosFiltrosFluxo();
     if (limpar) limpar.disabled = !n;
-    if (!grupo || !btn) return;
-    var oculto = filtrosOcultos();
-    grupo.hidden = oculto;
-    btn.className = 'btn ' + (oculto && n ? '' : 'neutro');
-    btn.textContent = oculto
-      ? (n ? '▸ Filtros (' + n + ')' : '▸ Filtros')
-      : '▾ Ocultar filtros';
-    btn.title = oculto && n
+    if (!pop || !btn) return;
+    pop.hidden = !FILTROS_ABERTO;
+    btn.setAttribute('aria-expanded', FILTROS_ABERTO ? 'true' : 'false');
+    btn.className = 'ret-acao' + (!FILTROS_ABERTO && n ? ' alerta' : '');
+    btn.textContent = (FILTROS_ABERTO ? '▾ ' : '▸ ') + 'Filtros' + (n ? ' (' + n + ')' : '');
+    btn.title = !FILTROS_ABERTO && n
       ? n + (n === 1 ? ' filtro está ligado' : ' filtros estão ligados') +
-        ' e escondido: a tabela abaixo está recortada'
-      : (oculto ? 'Mostrar a barra de filtros' : 'Recolher a barra de filtros');
+        ': a tabela ao lado está recortada'
+      : (FILTROS_ABERTO ? 'Fechar os filtros' : 'Abrir os filtros');
+  }
+
+  function abrirFiltros(sim){
+    FILTROS_ABERTO = !!sim;
+    ajustarBarraFiltros();
+    if (!FILTROS_ABERTO) return;
+    /* A direcao e decidida DEPOIS de abrir, medindo. Ele sobe por padrao, porque o
+       gatilho fica no rodape do trilho — mas o trilho tem a altura da tabela, e com
+       poucas linhas ele encolhe, o gatilho sobe junto e o painel nasceria acima do topo
+       da tela, sem rolagem que o alcance. Nesse caso desce.
+
+       Medir e a unica forma: a altura do trilho depende do numero de linhas, do periodo
+       filtrado e do tamanho da janela — nenhum dos tres se sabe ao escrever o CSS. */
+    var pop = document.getElementById('filtrosRet');
+    if (!pop) return;
+    pop.classList.remove('para-baixo');
+    if (pop.getBoundingClientRect().top < 8) pop.classList.add('para-baixo');
   }
 
   function limparFiltrosFluxo(){
@@ -1245,9 +1255,20 @@
     document.getElementById(id).addEventListener('change', desenharFluxo);
   });
   document.getElementById('btnLimparRetornos').addEventListener('click', limparFiltrosFluxo);
-  document.getElementById('btnVerFiltros').addEventListener('click', function(){
-    try { localStorage.setItem(FILTROS_CHAVE, filtrosOcultos() ? '0' : '1'); } catch (e) {}
-    ajustarBarraFiltros();
+  document.getElementById('btnVerFiltros').addEventListener('click', function(e){
+    e.stopPropagation();   // senao o clique chega no documento e fecha o que acabou de abrir
+    abrirFiltros(!FILTROS_ABERTO);
+  });
+  /* Duas saidas alem do proprio botao: clicar fora e a tecla Esc. Um painel que so fecha
+     no mesmo botao que o abriu obriga a mirar de volta num alvo pequeno, e quem clica na
+     tabela atras espera que ele saia da frente. */
+  document.addEventListener('click', function(e){
+    if (!FILTROS_ABERTO) return;
+    var pop = document.getElementById('filtrosRet');
+    if (pop && !pop.contains(e.target)) abrirFiltros(false);
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && FILTROS_ABERTO) abrirFiltros(false);
   });
   /* Antes do primeiro desenho tambem: a barra tem de nascer no estado guardado, e nao
      aberta por um instante ate os dados chegarem. */

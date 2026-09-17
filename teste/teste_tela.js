@@ -970,22 +970,12 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
  * CONTAGEM dos filtros ligados e troca de cor — deixa de ser um controle neutro e passa a
  * ser um aviso.
  * ------------------------------------------------------------------------- */
-console.log('\n== recolher a barra de filtros ==');
+console.log('\n== os filtros num painel suspenso ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 
-  /* --- o grupo recolhivel -------------------------------------------------- */
-  ok(/<div class="grupo-filtros" id="filtrosRet">/.test(adm),
-    'os campos de filtro vivem num grupo próprio, que é o que se recolhe');
-  var g = adm.indexOf('id="filtrosRet"');
-  var grupo = adm.slice(g, adm.indexOf('</div>', g));
-  ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'verTesteRetornos'].forEach(function (id) {
-    ok(grupo.indexOf('id="' + id + '"') > 0, 'o campo ' + id + ' entra no grupo');
-  });
-
-  /* Os quatro botoes moram no TRILHO, e nao na fileira de cima. A fileira ficou so com
-     os campos; juntos, ela quebrava em duas linhas e o trilho tinha espaco sobrando. */
+  /* --- onde cada coisa mora ----------------------------------------------- */
   var ra = adm.indexOf('<div class="ret-acoes">');
   var trilho = adm.slice(ra, adm.indexOf('</aside>', ra));
   ok(ra > 0, 'existe um bloco de ações no trilho');
@@ -993,125 +983,186 @@ console.log('\n== recolher a barra de filtros ==');
     .forEach(function (id) {
       ok(trilho.indexOf('id="' + id + '"') > 0, 'o botão ' + id + ' mora no trilho');
     });
-  /* Duas propriedades que a leitura do texto nao ve acontecer, mas cuja falta e visivel
-     na tela: sem `margin-top:auto` o bloco cola nos grupos e o buraco do trilho reaparece
-     embaixo dele; sem `width:100%` os quatro botoes ficam de larguras diferentes e viram
-     uma escada numa coluna de 220px. Medi as duas no navegador; aqui fica a guarda contra
-     apagarem a regra. */
-  ok(/\.ret-acoes\{[^}]*margin-top:auto/.test(css),
-    'o bloco de ações cola no rodapé do trilho — a folga fica ENTRE os grupos e ele');
-  ok(/\.ret-acoes \.btn\{[^}]*width:100%/.test(css),
-    'e os quatro botões ocupam a largura toda — numa coluna estreita, larguras ' +
-    'diferentes viram uma escada');
 
-  var acoes = adm.indexOf('<div class="acoes">');
-  var fileira = adm.slice(acoes, adm.indexOf('</div>\n        </div>', acoes));
-  ok(fileira.indexOf('<button') < 0,
-    'e a fileira de cima ficou só com os campos — botão nenhum sobrou lá', fileira);
+  /* Os cinco filtros sairam do cabecalho e foram para dentro do painel. */
+  var g = adm.indexOf('<div class="ret-pop" id="filtrosRet"');
+  var pop = adm.slice(g, adm.indexOf('</div>', g));
+  ok(g > ra, 'o painel suspenso fica dentro do bloco do trilho');
+  ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'verTesteRetornos'].forEach(function (id) {
+    ok(pop.indexOf('id="' + id + '"') > 0, 'o filtro ' + id + ' mora no painel');
+  });
+  ok(adm.indexOf('class="acoes"') < 0 && adm.indexOf('grupo-filtros') < 0,
+    'e a fileira de filtros do cabeçalho não existe mais');
+  ok(css.indexOf('.grupo-filtros') < 0 && css.indexOf('.rot-inline') < 0 &&
+     css.indexOf('.dt-inline') < 0 && css.indexOf('.sel-inline') < 0,
+    'nem o CSS que só ela usava — regra sem dono é o que ninguém ousa apagar depois');
 
-  /* O botao de recolher fica fora do GRUPO que ele recolhe. Dentro, sumiria junto e nao
-     haveria como voltar. Estar noutro canto da tela ja garante isso, mas a conferencia
-     olha o intervalo do grupo, e nao a ordem no arquivo: ordem e coincidencia. */
+  /* O gatilho fica FORA do painel que ele abre: dentro, sumiria junto e nao haveria como
+     reabrir. A conferencia olha o INTERVALO do painel, e nao a ordem no arquivo. */
   var bt = adm.indexOf('id="btnVerFiltros"');
-  var fimGrupo = adm.indexOf('</div>', g);
-  ok(bt > 0 && !(bt > g && bt < fimGrupo),
-    'e o botão de recolher fica fora do grupo — dentro, sumiria junto e não haveria como voltar',
-    [bt, g, fimGrupo]);
+  ok(bt > 0 && !(bt > g && bt < adm.indexOf('</div>', g)),
+    'o gatilho fica fora do painel — dentro, sumiria junto e não haveria como reabrir');
+  ok(/<div class="ret-menu">/.test(adm) && adm.indexOf('<div class="ret-menu">') < bt,
+    'e os dois moram no mesmo invólucro, que é contra quem o painel se posiciona');
 
-  /* `display:contents` para os campos seguirem no flex da fileira, e o `[hidden]` com
-     mais peso, senao o `contents` ganha e o grupo nunca some. */
-  ok(/\.grupo-filtros\{display:contents\}/.test(css),
-    'o grupo não vira uma caixa: os campos seguem no flex da fileira');
-  var iC = css.indexOf('.grupo-filtros{'), iH = css.indexOf('.grupo-filtros[hidden]{');
-  ok(iH > iC && /\.grupo-filtros\[hidden\]\{display:none\}/.test(css),
-    'e a regra de esconder vem depois e com mais peso — senão o grupo nunca sumiria',
-    [iC, iH]);
+  /* --- o posicionamento --------------------------------------------------- */
+  ok(/\.ret-menu\{position:relative\}/.test(css),
+    'o invólucro é a âncora — contra o trilho, o painel escorregaria quando a lista de ' +
+    'grupos mudasse de tamanho');
+  ok(/\.ret-pop\{[^}]*position:absolute/.test(css) &&
+     /\.ret-pop\{[^}]*bottom:calc\(100% \+ 6px\)/.test(css),
+    'e ele SOBE: o gatilho fica no rodapé do trilho, e descendo nasceria fora da tela');
+  var mob = css.slice(css.indexOf('@media'));
+  ok(/\.ret-pop\{bottom:auto;top:calc\(100% \+ 6px\)/.test(mob),
+    'no celular desce, porque lá o trilho é uma faixa no topo');
+  ok(/\.ret-pop\[hidden\]\{display:none\}/.test(css), 'e fechado ele some de fato');
 
-  /* --- a contagem, rodando ------------------------------------------------- */
+  /* Subir e o padrao, mas o trilho tem a ALTURA DA TABELA: com poucas linhas ele encolhe,
+     o gatilho sobe junto, e o painel nasceria acima do topo da tela — sem rolagem que o
+     alcance. A direcao e entao decidida medindo, na hora de abrir. */
+  ok(/pop\.classList\.remove\('para-baixo'\)/.test(adm) &&
+     /if \(pop\.getBoundingClientRect\(\)\.top < 8\) pop\.classList\.add\('para-baixo'\)/.test(adm),
+    'a direção é medida ao abrir: não cabendo acima, o painel desce');
+  ok(/\.ret-pop\.para-baixo\{bottom:auto;top:calc\(100% \+ 6px\)\}/.test(css),
+    'e existe a regra que o faz descer — sem ela a medição não mudaria nada');
+  ok(/\.ret-pop\{[^}]*max-height:calc\(100vh - 24px\)/.test(css) &&
+     /\.ret-pop\{[^}]*overflow-y:auto/.test(css),
+    'e ele tem rolagem própria: numa janela baixa não cabe em direção nenhuma, e sem ' +
+    'isto os últimos campos ficariam fora de alcance');
+
+  /* --- os botoes sutis ---------------------------------------------------- */
+  ok(trilho.indexOf('class="btn') < 0 && (trilho.match(/class="ret-acao"/g) || []).length === 4,
+    'os quatro botões usam o estilo do trilho, e não o .btn de formulário', trilho);
+  ok(/\.ret-acao\{[^}]*background:none/.test(css) && /\.ret-acao\{[^}]*border:0/.test(css),
+    'texto sem caixa: quatro retângulos cheios pesavam mais que a tabela');
+  ok(/\.ret-acao:hover:not\(:disabled\)\{background:/.test(css),
+    'o fundo só aparece sob o ponteiro, como nos grupos logo acima');
+  ok(/\.ret-acao:disabled\{opacity/.test(css),
+    'e desligado ele apaga — sem isso o Limpar parece clicável quando não há o que limpar');
+  ok(/\.ret-acoes\{[^}]*margin-top:auto/.test(css),
+    'o bloco cola no rodapé do trilho — a folga fica ENTRE os grupos e ele');
+  ok(/\.ret-acao\{[^}]*width:100%/.test(css),
+    'e ocupam a largura toda: numa coluna estreita, larguras diferentes viram uma escada');
+
+  /* --- o comportamento, rodando ------------------------------------------- */
+  /* Comeca na CONTAGEM, e nao no `var FILTROS_ABERTO`: ela vem antes no arquivo, e o
+     ajuste depende dela. Recortando so a partir do estado, a bancada montava uma funcao
+     que chamava algo que nao existia — e o teste morria em vez de testar. */
   var i = adm.indexOf('function quantosFiltrosFluxo()');
-  var j = adm.indexOf('function ajustarBarraFiltros()');
+  var j = adm.indexOf('function abrirFiltros(sim)');
   var k = adm.indexOf('{', j), abertas = 0;
   do {
     if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
     k++;
   } while (abertas > 0 && k < adm.length);
   var fonte = adm.slice(i, k);
-  ok(i > 0 && /function ajustarBarraFiltros/.test(fonte) &&
-     /function filtrosOcultos/.test(fonte),
-    'o recorte pegou as três peças — sem isto a bancada abaixo exercita outro código');
+  ok(i > 0 && /function ajustarBarraFiltros/.test(fonte) && /function abrirFiltros/.test(fonte),
+    'o recorte pegou as peças — sem isto a bancada abaixo exercita outro código');
 
-  function bancada(campos, grupoAtivo, oculto) {
+  function bancada(campos, grupoAtivo, aberto) {
     var els = {
-      filtrosRet: { hidden: false },
-      btnVerFiltros: { className: '', textContent: '', title: '' },
+      /* O painel de mentira precisa do que `abrirFiltros` toca nele: a lista de classes
+         e a medida. `top: 400` diz "cabe acima", que e o caso comum; o outro caso e
+         exercitado logo abaixo. */
+      filtrosRet: { hidden: true, classes: {},
+                    classList: { remove: function (c) { delete this._d[c]; },
+                                 add: function (c) { this._d[c] = 1; },
+                                 contains: function (c) { return !!this._d[c]; } },
+                    getBoundingClientRect: function () { return { top: 400 }; } },
+      btnVerFiltros: { className: '', textContent: '', title: '', attrs: {},
+                       setAttribute: function (a, v) { this.attrs[a] = v; } },
       btnLimparRetornos: { disabled: false }
     };
-    Object.keys(campos).forEach(function (id) { els[id] = { value: campos[id] }; });
-    var loja = { qdc_filtros_ativos_v1: oculto ? '1' : '0' };
-    var ls = {
-      getItem: function (c) { return loja[c] === undefined ? null : loja[c]; },
-      setItem: function (c, v) { loja[c] = String(v); }
-    };
+    els.filtrosRet.classList._d = els.filtrosRet.classes;
     var doc = { getElementById: function (id) { return els[id] || null; } };
-    var api = new Function('document', 'localStorage', 'FLUXO_FILTRO', 'FILTROS_FLUXO',
-      'valor', fonte +
-      '\n return { ajustar: ajustarBarraFiltros, quantos: quantosFiltrosFluxo };')(
-      doc, ls, grupoAtivo, ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte'],
+    var api = new Function('document', 'FLUXO_FILTRO', 'FILTROS_FLUXO', 'valor',
+      fonte + '\n return { abrir: abrirFiltros, ajustar: ajustarBarraFiltros,' +
+      '\n          quantos: quantosFiltrosFluxo };')(
+      doc, grupoAtivo, ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte'],
       function (id) { return campos[id] || ''; });
-    api.ajustar();
+    api.abrir(aberto);
     api.els = els;
     return api;
   }
 
-  var VAZIO = { rtOrigem: '', rtDestino: '', rtDe: '', rtAte: '' };
-  var DOIS = { rtOrigem: 'Matriz Fazenda', rtDestino: '', rtDe: '2026-09-17', rtAte: '' };
+  var VAZIO = {};
+  var DOIS = { rtOrigem: 'Matriz Fazenda', rtDe: '2026-09-17' };
 
-  var aberta = bancada(VAZIO, 'todas', false);
-  ok(aberta.els.filtrosRet.hidden === false &&
-     aberta.els.btnVerFiltros.textContent.indexOf('Ocultar') > 0,
-    'barra aberta: o grupo aparece e o botão oferece recolher',
-    aberta.els.btnVerFiltros.textContent);
+  var fechado = bancada(VAZIO, 'todas', false);
+  ok(fechado.els.filtrosRet.hidden === true &&
+     fechado.els.btnVerFiltros.attrs['aria-expanded'] === 'false',
+    'fechado: o painel some, e o leitor de tela sabe disso');
+  ok(fechado.els.btnVerFiltros.textContent === '▸ Filtros' &&
+     fechado.els.btnVerFiltros.className === 'ret-acao',
+    'sem filtro ligado ele é só um controle, sem contagem e sem cor',
+    fechado.els.btnVerFiltros.textContent + ' | ' + fechado.els.btnVerFiltros.className);
 
-  var limpa = bancada(VAZIO, 'todas', true);
-  ok(limpa.els.filtrosRet.hidden === true,
-    'recolhida, o grupo some');
-  ok(limpa.els.btnVerFiltros.textContent.indexOf('(') < 0 &&
-     /neutro/.test(limpa.els.btnVerFiltros.className),
-    'e sem filtro ligado ela é só um controle neutro, sem contagem',
-    limpa.els.btnVerFiltros.textContent + ' | ' + limpa.els.btnVerFiltros.className);
+  var aberto = bancada(VAZIO, 'todas', true);
+  ok(aberto.els.filtrosRet.hidden === false &&
+     aberto.els.btnVerFiltros.attrs['aria-expanded'] === 'true' &&
+     aberto.els.btnVerFiltros.textContent.indexOf('▾') === 0,
+    'aberto: o painel aparece e a seta vira para baixo',
+    aberto.els.btnVerFiltros.textContent);
 
-  /* O caso que importa: recolhida COM filtro ligado. */
-  var suja = bancada(DOIS, 'todas', true);
+  /* O caso que importa: fechado COM filtro ligado. O painel esconde os filtros o tempo
+     todo, entao sem este aviso a tabela ficaria recortada sem explicacao na tela. */
+  var suja = bancada(DOIS, 'todas', false);
   ok(suja.quantos() === 2, 'dois campos preenchidos contam dois', suja.quantos());
-  ok(suja.els.btnVerFiltros.textContent.indexOf('(2)') > 0,
-    'recolhida com filtro ligado, o botão diz QUANTOS ficaram escondidos',
+  ok(suja.els.btnVerFiltros.textContent === '▸ Filtros (2)',
+    'fechado com filtro ligado, o gatilho diz QUANTOS estão escondidos',
     suja.els.btnVerFiltros.textContent);
-  ok(!/neutro/.test(suja.els.btnVerFiltros.className),
-    'e troca de cor: deixa de ser controle neutro e passa a ser aviso',
-    suja.els.btnVerFiltros.className);
+  ok(/alerta/.test(suja.els.btnVerFiltros.className),
+    'e troca de cor: deixa de ser controle e vira aviso', suja.els.btnVerFiltros.className);
   ok(/recortada/.test(suja.els.btnVerFiltros.title),
-    'o título diz o que isso significa para a tabela abaixo',
-    suja.els.btnVerFiltros.title);
+    'o título diz o que isso significa para a tabela', suja.els.btnVerFiltros.title);
 
-  /* O grupo da coluna da esquerda conta como filtro aqui também — ele esconde linhas. */
-  var so_grupo = bancada(VAZIO, 'deficit', true);
+  /* Aberto, a contagem fica, mas o alerta sai: os filtros estao a vista. */
+  var sujaAberta = bancada(DOIS, 'todas', true);
+  ok(sujaAberta.els.btnVerFiltros.textContent.indexOf('(2)') > 0 &&
+     !/alerta/.test(sujaAberta.els.btnVerFiltros.className),
+    'aberto, a contagem fica mas o alerta sai — não há mais nada escondido',
+    sujaAberta.els.btnVerFiltros.textContent + ' | ' + sujaAberta.els.btnVerFiltros.className);
+
+  /* A direcao, rodando. `top` e o que a medida devolveria: 400 cabe acima, -50 nao. */
+  function comTopo(topo) {
+    var b = bancada(VAZIO, 'todas', false);
+    b.els.filtrosRet.getBoundingClientRect = function () { return { top: topo }; };
+    b.abrir(true);
+    return b.els.filtrosRet.classList.contains('para-baixo');
+  }
+  ok(comTopo(400) === false, 'cabendo acima, o painel sobe — que e o padrao');
+  ok(comTopo(-50) === true,
+    'e nascendo acima do topo da tela, ele desce: la em cima nao ha rolagem que o alcance');
+
+  /* O grupo da coluna da esquerda conta como filtro aqui tambem: ele esconde linhas. */
+  var so_grupo = bancada(VAZIO, 'deficit', false);
   ok(so_grupo.quantos() === 1 && so_grupo.els.btnVerFiltros.textContent.indexOf('(1)') > 0,
     'e o grupo "Em déficit" da esquerda conta junto, porque também esconde linhas',
     so_grupo.els.btnVerFiltros.textContent);
 
-  /* A mesma função cuida do Limpar: duas contagens sobre a mesma regra divergiriam. */
-  ok(limpa.els.btnLimparRetornos.disabled === true &&
+  /* A mesma funcao cuida do Limpar: duas contagens sobre a mesma regra divergiriam. */
+  ok(fechado.els.btnLimparRetornos.disabled === true &&
      suja.els.btnLimparRetornos.disabled === false,
     'e a mesma função acende o Limpar — uma contagem só para os dois botões');
 
-  /* Preferencia de quem olha, como a ordem das colunas: fica no navegador. E um
-     armazenamento indisponivel nao pode derrubar a tela. */
-  ok(/qdc_filtros_ativos_v1/.test(adm), 'o estado recolhido fica guardado no navegador');
-  var fo = adm.slice(adm.indexOf('function filtrosOcultos()'));
-  fo = fo.slice(0, fo.indexOf('\n  }'));
-  ok(/try \{/.test(fo) && /catch/.test(fo),
-    'com try/catch: janela anônima e cookies bloqueados fazem o acesso estourar, e uma ' +
-    'preferência de layout não pode derrubar o painel');
+  /* --- as tres saidas do painel ------------------------------------------- */
+  /* Dentro do ouvinte DO GATILHO, e nao em qualquer lugar do arquivo: `stopPropagation`
+     aparece noutros pontos do painel, e procurar no arquivo inteiro deixava o teste verde
+     com a chamada apagada justamente daqui. */
+  var og = adm.indexOf("getElementById('btnVerFiltros').addEventListener");
+  var ouvinte = adm.slice(og, adm.indexOf('\n  });', og));
+  ok(og > 0 && /e\.stopPropagation\(\)/.test(ouvinte),
+    'o clique no gatilho não vaza para o documento — vazando, fecharia o que acabou de abrir',
+    ouvinte);
+  ok(/if \(pop && !pop\.contains\(e\.target\)\) abrirFiltros\(false\)/.test(adm),
+    'clicar fora fecha: quem clica na tabela atrás espera que o painel saia da frente');
+  ok(/e\.key === 'Escape' && FILTROS_ABERTO/.test(adm),
+    'e o Esc também — painel que só fecha no mesmo botão obriga a mirar de volta');
+
+  /* O painel nasce fechado a cada visita. Guardar "aberto" trataria um estado passageiro
+     como preferencia, e reabrir sozinho taparia a tabela de quem so queria consultar. */
+  ok(/var FILTROS_ABERTO = false;/.test(adm) && adm.indexOf('qdc_filtros_ativos') < 0,
+    'e ele nasce fechado a cada visita, sem guardar o estado');
 })();
 
 /* ---------------------------------------------------------------------------

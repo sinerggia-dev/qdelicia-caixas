@@ -370,30 +370,45 @@ tr.ruim{background:var(--vermelho-claro)}
 .ret-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .ret-head h2{margin:0;font-size:19px}
 .ret-head .sub{display:block;font-size:12.5px;color:var(--txt2);font-weight:400;margin-top:3px}
-.ret-head .acoes{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
-/* Os dois campos de periodo, na mesma fileira dos botoes. O rotulo fica ao lado, e nao
-   em cima: em cima ele empurraria os botoes para uma segunda linha. */
-.ret-head .acoes{align-items:center}
-/* O `display` aqui porque `label` e block por padrao no projeto: sem ele o rotulo
-   empurra o campo para a linha de baixo. */
-.rot-inline{display:inline-block;font-size:12.5px;color:var(--txt2);margin:0;align-self:center}
 /* Os botoes do trilho. `margin-top:auto` empurra o bloco para o rodape — o espaco que
    sobra fica ENTRE os grupos e os botoes, e nao abaixo deles, que era o buraco visivel
    desde que o cartao de circulacao saiu dali.
 
-   Largura cheia porque a coluna e estreita: botoes de larguras diferentes numa coluna de
-   200px viram uma escada. O `.btn` do projeto tem padding de formulario, folgado demais
-   para caber quatro aqui. */
-.ret-acoes{margin-top:auto;padding-top:14px;display:flex;flex-direction:column;gap:7px}
-.ret-acoes .btn{width:100%;min-width:0;padding:9px 10px;font-size:12.5px;white-space:nowrap}
+   Eles falam a MESMA lingua dos grupos logo acima: texto alinhado a esquerda, sem caixa,
+   e o fundo so aparece sob o ponteiro. Com o `.btn` de formulario, quatro retangulos
+   cheios empilhados pesavam mais que a tabela, que e o assunto da tela — e um trilho de
+   navegacao com botoes de formulario dentro parece duas telas coladas. */
+.ret-acoes{margin-top:auto;padding-top:10px;display:flex;flex-direction:column;gap:1px}
+.ret-acao{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;
+  color:var(--txt2);font-family:inherit;font-size:12.5px;font-weight:600;text-align:left;
+  padding:7px 10px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.ret-acao:hover:not(:disabled){background:var(--marinho-claro);color:var(--txt)}
+.ret-acao:disabled{opacity:.42;cursor:default}
+/* O unico que sai do tom: com filtro ligado e o painel fechado, o gatilho deixa de ser
+   controle e vira aviso. */
+.ret-acao.alerta{color:var(--ambar-forte)}
 /* Separa "mudar o que vejo" de "fazer algo com isto". */
-.ret-risco{height:1px;background:var(--marinho-claro);margin:5px 0}
+.ret-risco{height:1px;background:var(--marinho-claro);margin:6px 10px}
 
-/* O grupo recolhivel de filtros nao e uma caixa: com `display:contents` os campos dele
-   participam do flex da fileira como se o <div> nao existisse. `[hidden]` precisa vir
-   depois e com mais peso, senao o `contents` ganha e o grupo nunca some. */
-.grupo-filtros{display:contents}
-.grupo-filtros[hidden]{display:none}
+/* O painel suspenso dos filtros. Sobe (`bottom:100%`) porque o gatilho fica no RODAPE do
+   trilho: descendo, ele nasceria fora da tela e a pessoa teria de rolar para escolher.
+   Posicionado contra `.ret-menu`, e nao contra o trilho, para nao escorregar quando a
+   lista de grupos muda de tamanho. */
+.ret-menu{position:relative}
+.ret-pop{position:absolute;left:0;bottom:calc(100% + 6px);z-index:40;width:250px;
+  background:var(--surface);border:1px solid var(--linha);border-radius:12px;padding:12px;
+  box-shadow:0 12px 34px rgba(0,0,0,.45);display:grid;gap:3px;
+  /* Ultima garantia: numa janela baixa ele nao cabe nem para cima nem para baixo, e sem
+     isto os ultimos campos ficariam fora de alcance. Com rolagem propria, sempre da. */
+  max-height:calc(100vh - 24px);overflow-y:auto}
+/* Quando nao cabe acima. Quem decide e o `abrirFiltros`, medindo — a altura do trilho
+   depende da tabela, e isso o CSS nao tem como saber. */
+.ret-pop.para-baixo{bottom:auto;top:calc(100% + 6px)}
+.ret-pop[hidden]{display:none}
+.ret-pop label{display:block;font-size:12px;color:var(--txt2);margin:8px 0 0;font-weight:600}
+.ret-pop>label:first-child{margin-top:0}
+.ret-pop select,.ret-pop input{width:100%;max-width:none}
+
 /* Cabecalho arrastavel do Painel de Ativos. O `grab` e o unico aviso de que da para
    arrastar — sem ele ninguem descobre. A barra no alvo diz ONDE a coluna vai cair. */
 #tabelaFluxo th[data-col]{cursor:grab;user-select:none}
@@ -437,10 +452,6 @@ body.redimensionando{user-select:none;cursor:col-resize}
 /* A linha de estoque inicial e a unica que nao e uma divida: e o ponto de partida da
    conta. Verde, como o cartao da taxa de retorno quando esta na meta. */
 .marca-estoque{color:var(--verde);font-weight:600}
-/* `input[type=date]` no seletor porque a regra generica dos campos usa o atributo e
-   vence por especificidade — sem isso o campo volta a ocupar a linha inteira. */
-input[type=date].dt-inline{margin:0;width:148px;padding:8px 10px;font-size:13px}
-select.sel-inline{margin:0;width:150px;padding:8px 10px;font-size:13px}
 /* Segunda linha da celula: o tipo do local e a rota que o atende. Sem o block ela
    cola no nome e sai "Joao Pessoarota". */
 /* Texto de apoio dentro de uma celula normal: o travessao do vazio e o "+2" da lista de
@@ -463,12 +474,14 @@ select.sel-inline{margin:0;width:150px;padding:8px 10px;font-size:13px}
   .ret-marca{display:none}
   /* No celular o trilho e uma faixa no topo, entao os botoes deitam junto com os grupos
      em vez de empilhar — empilhados, empurrariam a tabela para fora da primeira dobra. */
-  .ret-acoes{margin-top:8px;padding-top:8px;flex-direction:row;flex-wrap:wrap}
-  .ret-acoes .btn{width:auto;flex:1 1 auto}
+  .ret-acoes{margin-top:8px;padding-top:8px;flex-direction:row;flex-wrap:wrap;gap:4px}
+  .ret-acao{width:auto;flex:1 1 auto;justify-content:center}
   .ret-risco{display:none}
+  /* No celular o trilho e uma faixa no TOPO, entao o painel desce em vez de subir — para
+     cima ele sairia pela borda de cima da tela. */
+  .ret-pop{bottom:auto;top:calc(100% + 6px);width:min(250px,80vw)}
   .ret-item{width:auto;flex:none;white-space:nowrap}
   .ret-main{padding:14px 12px 16px}
-  .ret-head .acoes{margin-left:0;width:100%}
 }
 
 /* ---------- recorte de lançamentos de teste ---------- */
