@@ -1578,6 +1578,25 @@ console.log('\n== os filtros num painel suspenso ==');
     'e ele tem rolagem própria: numa janela baixa não cabe em direção nenhuma, e sem ' +
     'isto os últimos campos ficariam fora de alcance');
 
+  /* O CARTAO nao pode recortar. Posicao certa e visibilidade sao coisas diferentes: com
+     `overflow:hidden` no `.ret-wrap` o painel nascia no lugar certo e era CORTADO na
+     borda do cartao — medido, 283px fora e 1 de 5 campos visiveis. Aparecia com a tabela
+     curta, que e quando o trilho encolhe e o painel desce.
+
+     O `overflow` estava la para o fundo escuro do trilho respeitar o canto arredondado.
+     O canto continua, so que vindo do proprio trilho — ele e a unica coisa que encosta
+     na borda. */
+  var wrap = css.slice(css.indexOf('.ret-wrap{'), css.indexOf('}', css.indexOf('.ret-wrap{')));
+  ok(wrap.indexOf('overflow') < 0,
+    'o cartão não recorta: com overflow escondido, o painel nasce no lugar e é cortado ' +
+    'na borda dele', wrap);
+  var rail = css.slice(css.indexOf('.ret-rail{'), css.indexOf('}', css.indexOf('.ret-rail{')));
+  ok(/border-radius:var\(--raio\) 0 0 var\(--raio\)/.test(rail),
+    'e o canto arredondado passa a vir do trilho, que é quem encosta na borda', rail);
+  var mob = css.slice(css.indexOf('@media'));
+  ok(/\.ret-rail\{padding:10px;border-radius:var\(--raio\) var\(--raio\) 0 0\}/.test(mob),
+    'no celular o trilho é faixa no topo, então os cantos passam para cima');
+
   /* --- os botoes sutis ---------------------------------------------------- */
   ok(trilho.indexOf('class="btn') < 0 && (trilho.match(/class="ret-acao"/g) || []).length === 5,
     'os cinco botões usam o estilo do trilho, e não o .btn de formulário', trilho);

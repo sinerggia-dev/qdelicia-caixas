@@ -373,9 +373,18 @@ tr.ruim{background:var(--vermelho-claro)}
    a navegação do painel são as abas de cima. Aqui ele é o filtro da tabela, com a conta
    de cada grupo à mostra — sem isso a pessoa clica em "Filiais" para descobrir que não
    há nenhuma. Filtro em dois lugares (trilho e chips) seria o mesmo controle duplicado. */
+/* SEM `overflow:hidden`. Ele estava aqui para o fundo escuro do trilho respeitar o canto
+   arredondado do cartao — e cortava os paineis suspensos do trilho junto, porque eles
+   escapam da caixa de proposito. Com a tabela curta o estrago aparecia inteiro: o painel
+   de filtros nascia para baixo e era cortado na borda do cartao, mostrando so os dois
+   primeiros campos.
+
+   O canto continua arredondado, so que pelo proprio trilho: ele e a unica coisa que
+   encostava na borda. */
 .ret-wrap{display:grid;grid-template-columns:220px 1fr;border:1px solid var(--linha);
-  border-radius:var(--raio);overflow:hidden;box-shadow:var(--sombra);background:var(--surface)}
-.ret-rail{background:var(--marinho-esc);padding:16px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+  border-radius:var(--raio);box-shadow:var(--sombra);background:var(--surface)}
+.ret-rail{background:var(--marinho-esc);padding:16px 12px;display:flex;flex-direction:column;gap:2px;min-width:0;
+  border-radius:var(--raio) 0 0 var(--raio)}
 /* Recolhido, o trilho sai da grade inteiro — e nao vira uma faixa estreita de icones.
    Numa coluna de 40px os sete grupos virariam siglas, e sigla se erra na leitura. */
 .ret-wrap.sem-trilho{grid-template-columns:1fr}
@@ -522,7 +531,8 @@ body.redimensionando{user-select:none;cursor:col-resize}
 /* No celular 220px de trilho comem a tabela: vira uma tira que rola na horizontal. */
 @media (max-width:760px){
   .ret-wrap{grid-template-columns:1fr}
-  .ret-rail{padding:10px}
+  /* Faixa no topo: os cantos arredondados passam para cima. */
+  .ret-rail{padding:10px;border-radius:var(--raio) var(--raio) 0 0}
   .ret-nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:2px}
   .ret-marca{display:none}
   /* No celular o trilho e uma faixa no topo, entao os botoes deitam junto com os grupos
