@@ -986,26 +986,27 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   var i = adm.indexOf("document.getElementById('fluxoTiles').innerHTML");
   var fileira = adm.slice(i, adm.indexOf(';', adm.indexOf('foraDaMeta ?', i)));
   var quantos = fileira.split('tile(').length - 1;
-  ok(quantos === 5, 'a fileira tem cinco cartões', quantos);
+  ok(quantos === 6, 'a fileira tem seis cartões', quantos);
 
   /* Os quatro que respondem ao filtro leem `t`, que e `totaisDe(lista)` — a lista JA
      peneirada. Lidos de `f.totais`, que e o periodo inteiro, o cartao ficaria parado
      enquanto a tabela embaixo muda. */
   var j = adm.indexOf('var t = totaisDe(lista);');
   ok(j > 0 && j < i, 'os totais saem da lista já filtrada, e não do período inteiro');
-  ok(/tile\('<span class="par"><b>'\+Q\.num\(t\.saida\)/.test(fileira) &&
-     /Q\.num\(t\.retorno\)/.test(fileira),
-    'o cartão de movimentação lê saída e retorno desses totais — por isso acompanha o filtro',
-    fileira.slice(0, 200));
+  /* Um cartao para cada. Chegaram a dividir um cartao so, com os dois numeros lado a
+     lado: virava um cartao de dois andares no meio de uma fileira de numeros unicos, e
+     precisava de rotulo interno para dizer qual era qual. Separados, o rotulo de cima do
+     cartao ja diz — e e o mesmo formato dos outros quatro. */
+  ok(/tile\(Q\.num\(t\.saida\), 'total de saída'/.test(fileira),
+    'a saída tem cartão próprio, e lê os totais filtrados', fileira.slice(0, 200));
+  ok(/tile\(Q\.num\(t\.retorno\), 'total de retorno'/.test(fileira),
+    'e o retorno também — por isso os dois acompanham o filtro', fileira.slice(0, 260));
   ok(/Q\.num\(t\.saida \+ t\.retorno\)/.test(fileira),
-    'e o rodapé dele soma os dois: é o total de caixas que giraram');
-
-  /* Os dois numeros com rotulo proprio. Sem rotulo, "2.500 / 2.060" nao diz qual e qual,
-     e trocar saida por retorno inverte a leitura inteira sem nada parecer errado. */
-  ok(fileira.indexOf('<i>saída</i>') > 0 && fileira.indexOf('<i>retorno</i>') > 0,
-    'cada um dos dois números carrega o próprio rótulo', fileira.slice(0, 200));
-  ok(/\.ftile \.v \.par\{/.test(css) && /\.ftile \.v \.par i\{/.test(css),
-    'e o estilo dos dois existe — sem ele os rótulos sairiam do tamanho do número');
+    'e a soma dos dois não se perdeu: ela é o rodapé do cartão de retorno');
+  ok(fileira.indexOf('<i>saída</i>') < 0 && fileira.indexOf('class="par"') < 0,
+    'nao sobrou o cartao de dois andares');
+  ok(css.indexOf('.ftile .v .par') < 0,
+    'e nem o estilo dele — CSS sem dono e o que ninguém ousa apagar depois');
 
   /* O que NAO responde ao filtro precisa dizer. */
   ok(/tile\(Q\.num\(circulacao\), 'em circulação', 'no total, fora do filtro'\)/.test(fileira),

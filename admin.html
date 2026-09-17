@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=7632689d">
+<link rel="stylesheet" href="styles.css?v=5ddf5b2a">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -1116,15 +1116,15 @@
     var rot = FLUXO_FILTRO === 'MOTORISTA' ? 'motoristas'
             : FLUXO_FILTRO === 'USUARIO' ? 'usuários'
             : FLUXO_FILTRO === 'FILIAL' ? 'unidades' : 'origens';
-    /* A movimentacao vem PRIMEIRO porque e dela que sai o resto: a taxa de retorno e
-       o retorno dividido pela saida, e ler a razao antes dos dois numeros que a formam
-       obriga a voltar. Os dois juntos num cartao so, e nao em dois, porque a pergunta e
-       "quanto girou" — separados, some a comparacao entre eles, que e o assunto. */
+    /* Saida e retorno vem PRIMEIRO porque e deles que sai o resto: a taxa de retorno e
+       um dividido pelo outro, e ler a razao antes dos dois numeros que a formam obriga a
+       voltar. Um cartao para cada, do mesmo tamanho dos demais — juntos num so, eles
+       viravam um cartao de dois andares no meio de uma fileira de numeros unicos. */
     var circulacao = (PAINEL.kpis.emPoderTerceiros || 0) + (PAINEL.kpis.emRota || 0);
     document.getElementById('fluxoTiles').innerHTML =
-      tile('<span class="par"><b>'+Q.num(t.saida)+'</b><i>saída</i></span>'+
-           '<span class="par"><b>'+Q.num(t.retorno)+'</b><i>retorno</i></span>',
-           'movimentação no período', Q.num(t.saida + t.retorno)+' caixas ao todo')+
+      tile(Q.num(t.saida), 'total de saída', 'no período filtrado')+
+      tile(Q.num(t.retorno), 'total de retorno',
+           Q.num(t.saida + t.retorno)+' caixas movimentadas')+
       tile(t.taxaRetorno===null?'—':t.taxaRetorno+'%', 'taxa de retorno do mês', 'meta '+metaFluxo()+'%',
            t.taxaRetorno!==null && t.taxaRetorno < metaFluxo() ? 'alerta' : 'ok')+
       tile(Q.num(t.deficit), 'caixas que saíram e não voltaram', 'no mês, somando só quem deve',
