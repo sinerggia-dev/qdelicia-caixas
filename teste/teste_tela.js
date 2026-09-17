@@ -986,6 +986,133 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
  * dentro do <nav> viraria uma aba sem pagina, e um CSS solto em `.abas` levaria a barra do
  * celular junto.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * Classificar a tabela pelo titulo da coluna.
+ *
+ * O <th> ja arrastava de lugar e ja tinha alcinha de largura. Sao tres gestos na mesma
+ * peca, e o teste cuida de que um nao dispare o outro.
+ *
+ * Classificar NAO recalcula nada: o saldo corrido de cada linha veio pronto do servidor,
+ * preso a linha. O que se perde e a leitura de extrato — fora da ordem por data, o Saldo
+ * final de uma linha deixa de ser o Saldo inicial da de baixo.
+ * ------------------------------------------------------------------------- */
+console.log('\n== classificar pelo titulo da coluna ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* --- toda coluna se descreve num lugar so ------------------------------- */
+  var i = adm.indexOf('function desenharFluxo()');
+  var corpo = adm.slice(i, adm.indexOf("document.querySelectorAll('[data-fchip]')", i));
+  var defs = corpo.slice(corpo.indexOf('var DEFS = {'), corpo.indexOf('DEFS.quem.t'));
+  var ids = (defs.match(/^\s{6}(\w+):\s*\{/gm) || []).map(function (t) {
+    return t.trim().split(':')[0];
+  });
+  ok(ids.length === 9, 'a leitura achou as nove colunas', ids);
+  var semChave = ids.filter(function (id) {
+    var bloco = defs.slice(defs.indexOf('\n      ' + id + ':'));
+    bloco = bloco.slice(0, bloco.indexOf('v: function(l){'));
+    return bloco.indexOf('k: function(l){') < 0;
+  });
+  ok(semChave.length === 0,
+    'toda coluna diz por onde se classifica, junto da célula — em lista à parte, as duas ' +
+    'divergiriam na primeira coluna nova', semChave);
+
+  /* --- a comparacao, rodando --------------------------------------------- */
+  var c = adm.indexOf('function compararValores(x, y)');
+  var k = adm.indexOf('{', c), abertas = 0;
+  do {
+    if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
+    k++;
+  } while (abertas > 0 && k < adm.length);
+  var cmp = new Function('return ' + adm.slice(c, k) + '; compararValores;')();
+  cmp = new Function(adm.slice(c, k) + '\n return compararValores;')();
+
+  /* Numero como NUMERO. Comparado como texto, "1620" vem antes de "810" — e esse e o erro
+     que ninguem confere, porque a coluna "parece ordenada". */
+  ok(cmp(810, 1620) < 0 && cmp(1620, 810) > 0,
+    'número se compara como número: como texto, 1.620 viria antes de 810',
+    [cmp(810, 1620), cmp(1620, 810)]);
+  ok(cmp(-80, 810) < 0, 'e negativo vem antes de positivo', cmp(-80, 810));
+  ok(cmp('João Pessoa', 'Matriz Fazenda') < 0 && cmp('Ária', 'Azul') < 0,
+    'texto se compara em português — senão "Ária" cairia depois de "Azul"',
+    [cmp('João Pessoa', 'Matriz Fazenda'), cmp('Ária', 'Azul')]);
+
+  /* Vazio para o fim nos DOIS sentidos: linha sem dado nao e a menor nem a maior, e no
+     meio ela atrapalha a leitura das que tem. */
+  ok(cmp('', 'x') > 0 && cmp('x', '') < 0 && cmp('', '') === 0,
+    'vazio vai para o fim, e dois vazios empatam', [cmp('', 'x'), cmp('x', ''), cmp('', '')]);
+  ok(cmp(null, 5) > 0 && cmp(undefined, 5) > 0, 'nulo e indefinido idem');
+
+  /* --- os tres cliques ---------------------------------------------------- */
+  var f = adm.indexOf('function classificarPor(col)');
+  var k2 = adm.indexOf('{', f), a2 = 0;
+  do {
+    if (adm[k2] === '{') a2++; else if (adm[k2] === '}') a2--;
+    k2++;
+  } while (a2 > 0 && k2 < adm.length);
+  var passos = [];
+  var classificar = new Function('ORDEM_FLUXO', 'desenharFluxo',
+    'var estado = ORDEM_FLUXO;' +
+    adm.slice(f, k2).replace(/ORDEM_FLUXO/g, 'estado') +
+    '\n return function(c){ classificarPor(c); return estado; };');
+  /* Uma FOTO a cada clique. Guardando a referencia do estado, os tres itens da lista
+     apontariam para o mesmo objeto e mostrariam o valor final tres vezes — o teste
+     passaria a comparar o ultimo passo com ele mesmo. */
+  function ciclo() {
+    var estado = { col: '', desc: false };
+    var fn = classificar(estado, function () { passos.push(1); });
+    return [1, 2, 3].map(function () {
+      var e = fn('saida');
+      return e.col + (e.col ? (e.desc ? ':desc' : ':asc') : '');
+    });
+  }
+  ok(ciclo().join(' → ') === 'saida:asc → saida:desc → ',
+    'três cliques na mesma coluna: crescente, decrescente, e de volta ao padrão — sem ' +
+    'essa volta não haveria como recuperar a ordem de extrato sem recarregar', ciclo());
+
+  var estado2 = { col: 'saida', desc: true };
+  var fn2 = classificar(estado2, function () {});
+  ok(fn2('retorno').col === 'retorno' && fn2('retorno').desc === true,
+    'e trocar de coluna começa de novo no crescente');
+  ok(passos.length >= 3, 'e todo clique redesenha a tabela', passos.length);
+
+  /* --- os tres gestos no mesmo <th> --------------------------------------- */
+  ok(/c\.d\.k \? 'ordenavel ' : ''/.test(corpo),
+    'só a coluna com chave ganha a classe de clicável — as outras não prometem o que ' +
+    'não fazem', corpo.slice(corpo.indexOf('<th draggable'), corpo.indexOf('<th draggable') + 300));
+  var lc = adm.indexOf('function ligarClassificacao()');
+  var ouv = adm.slice(lc, adm.indexOf('\n  }', lc));
+  ok(/th\.ordenavel/.test(ouv),
+    'e o ouvinte só é ligado nelas');
+  ok(/if \(e\.target\.classList\.contains\('puxador'\)\) return;/.test(ouv),
+    'a alcinha de largura não classifica: soltar a borda dispara um clique no <th>');
+  ok(/p\.addEventListener\('click', function\(e\)\{ e\.stopPropagation\(\); \}\);/.test(adm),
+    'e o clique nela nem chega ao título');
+
+  ok(/table\.fixa th\.ordenavel\{cursor:pointer;user-select:none\}/.test(css),
+    'o cursor de mão marca o que é clicável, e a seleção de texto sai do caminho');
+  ok(/table\.fixa th\.ordenado\{color:var\(--ambar-forte\)\}/.test(css),
+    'e a coluna pela qual se classificou muda de cor');
+
+  /* --- a ordem sai sobre uma COPIA ---------------------------------------- */
+  ok(/lista = lista\.slice\(\)\.sort\(/.test(corpo),
+    'ordena sobre uma cópia: a lista vem de dentro do PAINEL, e ordenar no lugar mudaria ' +
+    'a ordem para quem a lê depois — inclusive o CSV, que tem a ordem própria dele');
+  /* Os cartoes ficam DEPOIS do fim de `corpo`, entao a busca e no arquivo inteiro —
+     recortado, `iTot` daria -1 e a comparacao passaria por acidente. */
+  var iOrd = adm.indexOf('lista = lista.slice().sort(');
+  var iTot = adm.indexOf('var t = totaisDe(lista);');
+  ok(iOrd > 0 && iTot > iOrd,
+    'e os totais são somados depois, sem se importar com a ordem — somar não depende dela',
+    [iOrd, iTot]);
+
+  /* Nao se guarda: e um recorte para responder uma pergunta, nao um jeito de trabalhar. */
+  ok(/var ORDEM_FLUXO = \{ col: '', desc: false \};/.test(adm) &&
+     adm.indexOf('qdc_ordem') < 0,
+    'a classificação não fica guardada: a tela volta na ordem de extrato');
+})();
+
 console.log('\n== as abas do painel viram lista ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -1451,9 +1578,9 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     .map(function (t) { return t.slice(1, -1); })
     .filter(function (t) { return t.indexOf('<') < 0; });
   ok(rotulos.join(' | ') ===
-     'Taxa de Retorno do Mês | Caixas que Saíram e Não Voltaram | Total no Estoque | ' +
-     'Total de Saída | Total de Retorno',
-    'os cartões saem na ordem pedida, com o estoque antes da saída', rotulos);
+     'Total no Estoque | Total de Saída | Total de Retorno | ' +
+     'Caixas que Saíram e Não Voltaram | Taxa de Retorno do Mês',
+    'os cartões saem na ordem pedida: o estoque abre, a taxa fecha', rotulos);
 
   /* Sairam a pedido: "Em Circulação" dizia o inverso do estoque, e "Origens Abaixo da
      Meta" repetia em contagem o que a taxa de retorno ja diz em porcentagem. */

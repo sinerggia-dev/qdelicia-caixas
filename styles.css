@@ -446,6 +446,12 @@ tr.ruim{background:var(--vermelho-claro)}
 .ret-pop>label:first-child{margin-top:0}
 .ret-pop select,.ret-pop input{width:100%;max-width:none}
 
+/* Classificar pelo titulo. So a coluna que tem por onde classificar convida ao clique —
+   as outras ficam com o cursor de sempre, e nao prometem o que nao fazem. */
+table.fixa th.ordenavel{cursor:pointer;user-select:none}
+table.fixa th.ordenavel:hover{color:var(--txt)}
+table.fixa th.ordenado{color:var(--ambar-forte)}
+
 /* Cabecalho arrastavel do Painel de Ativos. O `grab` e o unico aviso de que da para
    arrastar — sem ele ninguem descobre. A barra no alvo diz ONDE a coluna vai cair. */
 #tabelaFluxo th[data-col]{cursor:grab;user-select:none}

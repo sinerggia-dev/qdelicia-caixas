@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=61198e4d">
+<link rel="stylesheet" href="styles.css?v=cbfa626f">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -728,6 +728,41 @@
      ter saldo alto e fluxo em dia, e o contrário também. */
   var FLUXO_FILTRO = 'todas';
 
+  /* Classificar troca a ordem das linhas NA TELA, e nao recalcula nada: o saldo corrido
+     de cada linha ja veio pronto do servidor, preso a linha. O que se perde e a leitura
+     de extrato — fora da ordem por data, o Saldo final de uma linha deixa de ser o Saldo
+     inicial da de baixo. Por isso a ordem de fabrica e a do servidor, e a seta no titulo
+     diz quando se saiu dela.
+
+     Nao fica guardado: e um recorte para responder uma pergunta ("quem devolveu menos?"),
+     e nao um jeito de trabalhar. Guardado, a tela voltaria dias depois fora da ordem de
+     extrato sem ninguem lembrar por que. */
+  var ORDEM_FLUXO = { col: '', desc: false };
+
+  function classificarPor(col){
+    if (ORDEM_FLUXO.col === col) {
+      /* Terceiro clique volta ao padrao. Sem essa volta, nao haveria como recuperar a
+         ordem de extrato sem recarregar a pagina. */
+      if (ORDEM_FLUXO.desc) ORDEM_FLUXO = { col: '', desc: false };
+      else ORDEM_FLUXO.desc = true;
+    } else {
+      ORDEM_FLUXO = { col: col, desc: false };
+    }
+    desenharFluxo();
+  }
+
+  /* Compara numero como numero e texto como texto. Numero comparado como texto poe "1.620"
+     antes de "810", que e o tipo de erro que ninguem confere porque a coluna "parece
+     ordenada". Vazio vai sempre para o fim, nos dois sentidos: linha sem dado nao e a
+     menor nem a maior, e no meio ela atrapalha a leitura das que tem. */
+  function compararValores(x, y){
+    var vx = (x === null || x === undefined || x === '');
+    var vy = (y === null || y === undefined || y === '');
+    if (vx || vy) return vx && vy ? 0 : (vx ? 1 : -1);
+    if (typeof x === 'number' && typeof y === 'number') return x - y;
+    return String(x).localeCompare(String(y), 'pt-BR');
+  }
+
   /* Os nomes dos grupos ficam AQUI, e nao escritos na lista do trilho: recolhido, o botao
      precisa dizer qual grupo esta escolhido, e duas listas sobre a mesma coisa divergem no
      primeiro nome novo — o trilho diria "Unidades" e o botao, "Filiais". */
@@ -1052,6 +1087,21 @@
   /* Arrastar a alcinha nao redesenha a tabela a cada pixel: mexe so no `width` do <th>,
      que com layout fixo ja arrasta a coluna inteira. Redesenhar no mousemove perderia o
      arrasto — o <th> de baixo do cursor seria outro elemento a cada quadro. */
+  /* Um clique no titulo classifica. O <th> tambem arrasta e tem alcinha de largura, e
+     os tres gestos convivem na mesma peca:
+
+     - a ALCINHA barra o clique nela, senao terminar de redimensionar classificaria junto;
+     - ARRASTAR a coluna nao dispara `click` no navegador, entao nao ha o que separar ali;
+     - e o clique so vale em coluna que tem chave — as outras nem parecem clicaveis. */
+  function ligarClassificacao(){
+    document.querySelectorAll('#tabelaFluxo th.ordenavel').forEach(function(th){
+      th.addEventListener('click', function(e){
+        if (e.target.classList.contains('puxador')) return;
+        classificarPor(th.dataset.col);
+      });
+    });
+  }
+
   function ligarLarguraColunas(){
     document.querySelectorAll('#tabelaFluxo th[data-col] .puxador').forEach(function(p){
       p.addEventListener('mousedown', function(e){
@@ -1075,6 +1125,8 @@
       });
       // a alcinha nao arrasta a coluna de lugar: sao dois gestos na mesma borda
       p.addEventListener('dragstart', function(e){ e.preventDefault(); e.stopPropagation(); });
+      // nem classifica: soltar a borda dispara um `click` no <th> logo depois
+      p.addEventListener('click', function(e){ e.stopPropagation(); });
     });
   }
 
@@ -1148,7 +1200,14 @@
        linha de 17/09 abrir no saldo de 15/09 quando o filtro escondia o dia 16. */
     var lista = linhasFluxo();
     var DEFS = {
-      data:     { t: 'Data', so: 'local',
+      /* `k` e por onde a coluna se classifica. Fica JUNTO da celula, e nao numa lista
+         a parte, pela mesma razao que o titulo: coluna que se descreve num lugar so nao
+         tem como divergir de si mesma. Coluna sem `k` nao classifica, e o cabecalho dela
+         nem convida ao clique.
+
+         A data vai como TEXTO ISO de proposito: "2026-09-15" se ordena sozinho, e virar
+         Date aqui so criaria um segundo jeito de ler data neste arquivo. */
+      data:     { t: 'Data', so: 'local', k: function(l){ return l.data || ''; },
                   v: function(l){
                     return l.data ? Q.dataBR(l.data) : '<span class="fraco">—</span>';
                   } },
@@ -1162,6 +1221,7 @@
          cor com que "Estoque Inicial" ja aparece na coluna Destino, entao as duas pontas
          da linha se procuram sozinhas. */
       inicial:  { t: 'Saldo inicial', num: true, so: 'local',
+                  k: function(l){ return l.iniCorrido || 0; },
                   v: function(l){
                     return '<span class="val' + (l.estoqueInicial ? ' val-ok' : '') +
                       '">' + Q.num(l.iniCorrido || 0) + '</span>';
@@ -1174,16 +1234,23 @@
          lancamento nenhum mostra o zero em cinza — o numero fica, honesto, mas nao disputa
          a atencao com os dias que de fato tiveram entrada. */
       lancado:  { t: 'Estoque', num: true, so: 'local',
+                  k: function(l){ return l.inicial || 0; },
                   v: function(l){
                     var q = l.inicial || 0;
                     return q ? Q.num(q) : '<span class="fraco">0</span>';
                   } },
       origem:   { t: 'Origem', so: 'local',
+                  k: function(l){ return (l.origens || []).join(', '); },
                   v: function(l){
                     return lugares(l.origens) +
                       '<span class="fsub">' + Q.esc(l.sub) + '</span>';
                   } },
+      /* A linha de estoque nao tem destino, e classificar por texto vazio a jogaria para
+         o fim. Ela entra pelo rotulo que a tela mostra — o que se ve e o que se ordena. */
       destino:  { t: 'Destino', so: 'local',
+                  k: function(l){
+                    return l.estoqueInicial ? 'Estoque Inicial' : (l.destinos || []).join(', ');
+                  },
                   v: function(l){
                     /* O local de onde esse estoque e ja esta na coluna Origem: aqui
                        cabe dizer o QUE a linha e. Verde porque e a unica linha que
@@ -1192,14 +1259,14 @@
                       ? '<span class="marca-estoque">Estoque Inicial</span>'
                       : lugares(l.destinos);
                   } },
-      quem:     { t: '', so: 'gente',
+      quem:     { t: '', so: 'gente', k: function(l){ return l.nome || ''; },
                   v: function(l){
                     return '<b>' + Q.esc(l.nome) + '</b>' +
                       '<span class="fsub">' + Q.esc(l.sub) + '</span>';
                   } },
-      saida:    { t: 'Saída', num: true,
+      saida:    { t: 'Saída', num: true, k: function(l){ return l.saida || 0; },
                   v: function(l){ return Q.num(l.saida) + detalheCaixas(l.saidaTipos); } },
-      retorno:  { t: 'Retorno', num: true,
+      retorno:  { t: 'Retorno', num: true, k: function(l){ return l.retorno || 0; },
                   v: function(l){ return Q.num(l.retorno) + detalheCaixas(l.retornoTipos); } },
       /* Saldo final = SALDO INICIAL − saida + retorno. A formula e do usuario, escrita
          duas vezes: "1.250 − 1.690 + 1.250" da 810, e nao os −440 de retorno menos saida.
@@ -1214,7 +1281,11 @@
 
          Sem excecao para a linha de estoque: sem saida nem retorno, a formula ja devolve
          o proprio saldo dela. */
+      /* A chave repete a conta da celula em vez de ler um campo pronto: sao a mesma
+         resposta, e a celula e quem manda. Lendo `fimCorrido` direto, a coluna ordenaria
+         por um numero nas visoes de gente e mostraria outro. */
       final:    { t: 'Saldo final', num: true,
+                  k: function(l){ return gente ? l.saldo : l.fimCorrido; },
                   v: function(l){
                     var fim = gente ? l.saldo : l.fimCorrido;
                     var cor = fim > 0 ? ' val-ok' : (fim < 0 ? ' val-ruim' : '');
@@ -1223,6 +1294,20 @@
                   } }
     };
     DEFS.quem.t = cols[0];
+
+    /* A ordenacao entra AQUI, depois de `lista` e de `DEFS`, e sobre uma COPIA: a lista
+       vem de dentro de PAINEL, e ordenar no lugar mudaria a ordem para todo mundo que a
+       le depois — inclusive o CSV, que tem a ordem propria dele.
+
+       Os totais dos cartoes ficam de fora de proposito: somar nao depende da ordem, e
+       recalcula-los aqui so criaria um segundo caminho para o mesmo numero. */
+    if (ORDEM_FLUXO.col && DEFS[ORDEM_FLUXO.col] && DEFS[ORDEM_FLUXO.col].k) {
+      var chave = DEFS[ORDEM_FLUXO.col].k;
+      lista = lista.slice().sort(function(a, b){
+        var r = compararValores(chave(a), chave(b));
+        return ORDEM_FLUXO.desc ? -r : r;
+      });
+    }
 
     var LARG = larguras();
     var cs = ordemColunas().map(function(id){ return { id: id, d: DEFS[id] }; })
@@ -1236,11 +1321,17 @@
     document.getElementById('tabelaFluxo').innerHTML =
         '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
         cs.map(function(c){
+          var ord = ORDEM_FLUXO.col === c.id;
+          var seta = ord ? (ORDEM_FLUXO.desc ? ' ▾' : ' ▴') : '';
           return '<th draggable="true" data-col="'+c.id+'"'+
-            (c.d.num ? ' class="num"' : '')+
+            ' class="'+(c.d.num ? 'num ' : '')+(c.d.k ? 'ordenavel ' : '')+
+              (ord ? 'ordenado' : '')+'"'+
+            (c.d.k ? ' aria-sort="'+(ord ? (ORDEM_FLUXO.desc ? 'descending' : 'ascending')
+                                         : 'none')+'"' : '')+
             ' style="width:'+(LARG[c.id] || 120)+'px"'+
-            ' title="arraste o titulo para mudar de lugar; a borda, para mudar a largura">'+
-            Q.esc(c.d.t)+'<span class="puxador"></span></th>';
+            ' title="'+(c.d.k ? 'clique para classificar; ' : '')+
+              'arraste o titulo para mudar de lugar; a borda, para mudar a largura">'+
+            Q.esc(c.d.t)+seta+'<span class="puxador"></span></th>';
         }).join('')+
         '</tr></thead><tbody>'+
         (!lista.length
@@ -1252,6 +1343,7 @@
           }).join(''))+'</tbody></table></div>';
     ligarArrastarColunas();
     ligarLarguraColunas();
+    ligarClassificacao();
 
     document.querySelectorAll('[data-fchip]').forEach(function(b){
       b.addEventListener('click', function(){
@@ -1279,17 +1371,17 @@
        atencao como qualquer outro. */
     var estoque = (PAINEL.galpoes || []).reduce(function(soma, g){ return soma + (g.saldo||0); }, 0);
     document.getElementById('fluxoTiles').innerHTML =
-      tile(t.taxaRetorno===null?'—':t.taxaRetorno+'%', 'Taxa de Retorno do Mês', 'meta '+metaFluxo()+'%',
-           t.taxaRetorno!==null && t.taxaRetorno < metaFluxo() ? 'alerta' : 'ok')+
-      tile(Q.num(t.deficit), 'Caixas que Saíram e Não Voltaram', 'no mês, somando só quem deve',
-           t.deficit ? 'aviso' : 'ok')+
       /* Verde, e o unico que NAO responde aos filtros: ele sai do razao — o que esta nas
          nossas casas AGORA —, e nao do fluxo do periodo. Filtrar por uma origem nao o
          estreitaria, so o deixaria parecendo travado, e por isso o rodape avisa. */
       tile(Q.num(estoque), 'Total no Estoque', 'nos galpões e unidades, fora do filtro', 'ok')+
       tile(Q.num(t.saida), 'Total de Saída', 'no período filtrado')+
       tile(Q.num(t.retorno), 'Total de Retorno',
-           Q.num(t.saida + t.retorno)+' caixas movimentadas');
+           Q.num(t.saida + t.retorno)+' caixas movimentadas')+
+      tile(Q.num(t.deficit), 'Caixas que Saíram e Não Voltaram', 'no mês, somando só quem deve',
+           t.deficit ? 'aviso' : 'ok')+
+      tile(t.taxaRetorno===null?'—':t.taxaRetorno+'%', 'Taxa de Retorno do Mês', 'meta '+metaFluxo()+'%',
+           t.taxaRetorno!==null && t.taxaRetorno < metaFluxo() ? 'alerta' : 'ok');
   }
 
   /* Três frases diferentes: "o mês está vazio", "ninguém informou motorista" e "este

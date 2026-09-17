@@ -492,11 +492,11 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <table>
       <thead><tr><th>Cartão</th><th>O que conta</th><th>Segue o filtro</th></tr></thead>
       <tbody>
-        <tr><td>Taxa de Retorno do Mês</td><td>Retorno dividido por saída, contra a meta</td><td class="sim">sim</td></tr>
-        <tr><td>Caixas que Saíram e Não Voltaram</td><td>O déficit, somando só quem deve</td><td class="sim">sim</td></tr>
         <tr><td>Total no Estoque</td><td>O que está nas nossas casas: galpões e unidades. Em verde</td><td class="nao">não</td></tr>
         <tr><td>Total de Saída</td><td>Caixas que saíram no recorte</td><td class="sim">sim</td></tr>
         <tr><td>Total de Retorno</td><td>Caixas que voltaram; no rodapé, a soma das duas pontas</td><td class="sim">sim</td></tr>
+        <tr><td>Caixas que Saíram e Não Voltaram</td><td>O déficit, somando só quem deve</td><td class="sim">sim</td></tr>
+        <tr><td>Taxa de Retorno do Mês</td><td>Retorno dividido por saída, contra a meta</td><td class="sim">sim</td></tr>
       </tbody>
     </table>
   </div>
@@ -525,7 +525,20 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <p>Por isso o botão passa a <strong>carregar o nome do grupo</strong> — <em>☰ Usuários</em> — e troca de cor. Em <em>Todas</em> ele fica mudo: aí não há nada escondido para avisar.</p>
   </div>
 
-  <p class="nota">As colunas <strong>arrastam e redimensionam</strong>: puxe o cabeçalho para trocar de lugar, puxe a borda direita dele para mudar a largura. Fica guardado neste navegador, porque é preferência de quem olha e não regra da operação. O <strong>⬇ Exportar CSV</strong> sai na mesma ordem da tela.</p>
+  <h3>Classificar, arrastar, redimensionar</h3>
+  <p>O título da coluna faz três coisas, e nenhuma atrapalha a outra:</p>
+  <ul>
+    <li><strong>Clique</strong> — classifica por ela. Um clique é crescente, dois é decrescente, três volta à ordem de origem</li>
+    <li><strong>Arraste o título</strong> — troca a coluna de lugar</li>
+    <li><strong>Arraste a borda direita</strong> — muda a largura</li>
+  </ul>
+  <p>A ordem e a largura ficam guardadas neste navegador, porque são preferência de quem olha. A <strong>classificação não</strong>: ela é um recorte para responder uma pergunta — <em>quem devolveu menos?</em> —, e não um jeito de trabalhar. Guardada, a tela voltaria dias depois fora da ordem de extrato sem ninguém lembrar por quê.</p>
+  <div class="regra">
+    <span class="rot">Classificado, o saldo deixa de encadear</span>
+    <p>Classificar só troca a ordem das linhas na tela: cada número continua o da sua linha. O que se perde é a leitura de extrato — fora da ordem por data, o <strong>Saldo final</strong> de uma linha deixa de ser o <strong>Saldo inicial</strong> da de baixo.</p>
+    <p>A seta no título diz quando você saiu da ordem de origem, e o terceiro clique devolve.</p>
+  </div>
+  <p class="nota">O <strong>⬇ Exportar CSV</strong> sai na mesma ordem de colunas da tela, e sempre na ordem de extrato das linhas.</p>
 </section>
 
 <section id="painel">
