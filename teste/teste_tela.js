@@ -778,17 +778,15 @@ console.log('\n== o saldo corre linha a linha ==');
 })();
 
 /* ---------------------------------------------------------------------------
- * O Saldo final virou um sinal.
+ * O Saldo final: o numero na cor do que ele diz.
  *
- * Verde quando sobra, vermelho quando falta. O numero nao se perde: ele reaparece como
- * Saldo inicial da linha de baixo — e isso que a conta corrida faz — e fica no `title`.
- * A linha de estoque inicial nao mostra sinal: sem saida e sem retorno, o final dela e o
- * proprio inicial, e repetir o numero ao lado dele diria a mesma coisa duas vezes.
+ * Chegou a ser so um sinal de visto, sem o valor. O problema: o numero da ULTIMA linha
+ * nao aparecia em lugar nenhum, porque nao ha linha de baixo para carrega-lo no Saldo
+ * inicial. Voltou o numero, agora colorido.
  * ------------------------------------------------------------------------- */
-console.log('\n== o Saldo final vira sinal ==');
+console.log('\n== o Saldo final mostra o numero, colorido ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
-  // a funcao da coluna, recortada e executada com um Q de mentira
   var i = adm.indexOf("      final:    { t: 'Saldo final'");
   var bloco = adm.slice(i, adm.indexOf('\n    };', i));
   var corpo = bloco.slice(bloco.indexOf('v: function(l){'));
@@ -798,26 +796,30 @@ console.log('\n== o Saldo final vira sinal ==');
   var celula = new Function('Q', 'gente', 'l', corpo);
 
   var sobra = celula(Q, false, { fimCorrido: 1495 });
-  ok(/class="sinal ok"/.test(sobra) && sobra.indexOf('✓') > 0,
-    'saldo positivo vira sinal verde', sobra);
-  ok(sobra.indexOf('title="+1495"') > 0,
-    'e o numero fica no title, para quem quiser conferir sem abrir o CSV', sobra);
+  ok(/val-ok/.test(sobra) && sobra.indexOf('+1495') > 0,
+    'saldo positivo: o numero, em verde, com o sinal de mais', sobra);
 
   var falta = celula(Q, false, { fimCorrido: -440 });
-  ok(/class="sinal ruim"/.test(falta),
-    'saldo negativo vira sinal vermelho', falta);
-  ok(falta.indexOf('title="-440"') > 0, 'com o numero no title tambem', falta);
+  ok(/val-ruim/.test(falta) && falta.indexOf('-440') > 0,
+    'saldo negativo: o numero, em vermelho', falta);
 
-  ok(celula(Q, false, { fimCorrido: 0 }).indexOf('fraco') > 0,
-    'zero nao e nem sobra nem falta: travessao', celula(Q, false, { fimCorrido: 0 }));
+  var zero = celula(Q, false, { fimCorrido: 0 });
+  ok(zero.indexOf('0') > 0 && !/val-ok|val-ruim/.test(zero),
+    'zero nao e nem sobra nem falta: aparece sem cor', zero);
 
   var est = celula(Q, false, { estoqueInicial: true, fimCorrido: 1250 });
-  ok(est.indexOf('sinal') < 0 && est.indexOf('1250') < 0,
-    'a linha de estoque inicial nao repete o proprio numero nem mostra sinal', est);
+  ok(est.indexOf('1250') < 0,
+    'a linha de estoque inicial continua sem repetir o proprio numero', est);
 
   /* Nas visoes de gente nao ha conta corrida: cada pessoa responde pelo saldo dela. */
-  ok(/class="sinal ruim"/.test(celula(Q, true, { saldo: -80, fimCorrido: 999 })),
-    'na visao de gente o sinal segue o saldo da pessoa, nao o corrido');
+  ok(/val-ruim/.test(celula(Q, true, { saldo: -80, fimCorrido: 999 })),
+    'na visao de gente o valor segue o saldo da pessoa, nao o corrido',
+    celula(Q, true, { saldo: -80, fimCorrido: 999 }));
+
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  ok(/\.val\.val-ok\{color:var\(--verde\)\}/.test(css) &&
+     /\.val\.val-ruim\{color:var\(--vermelho\)\}/.test(css),
+    'as duas cores sao as mesmas do resto do painel');
 
   // o carregamento nao pode ter parado de correr a conta por causa disto
   var j = adm.indexOf('function comSaldoCorrido(');

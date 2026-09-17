@@ -399,11 +399,11 @@ tr.ruim{background:var(--vermelho-claro)}
 /* Enquanto arrasta, o texto da pagina inteira para de selecionar — senao o arrasto vira
    selecao e o cursor pisca entre os dois. */
 body.redimensionando{user-select:none;cursor:col-resize}
-/* O sinal do Saldo final. O numero nao sumiu da tela: ele reaparece como Saldo inicial
-   da linha de baixo, e fica no `title` desta celula. */
-.sinal{font-size:17px;font-weight:700;line-height:1}
-.sinal.ok{color:var(--verde)}
-.sinal.ruim{color:var(--vermelho)}
+/* O Saldo final: o numero na cor do que ele diz. Verde e vermelho sao os mesmos do
+   resto do painel — os cartoes do topo e o selo de situacao ja usam esses dois. */
+.val{font-weight:700}
+.val.val-ok{color:var(--verde)}
+.val.val-ruim{color:var(--vermelho)}
 /* A linha de estoque inicial e a unica que nao e uma divida: e o ponto de partida da
    conta. Verde, como o cartao da taxa de retorno quando esta na meta. */
 .marca-estoque{color:var(--verde);font-weight:600}
