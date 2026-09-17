@@ -404,6 +404,23 @@ body.redimensionando{user-select:none;cursor:col-resize}
 .val{font-weight:700}
 .val.val-ok{color:var(--verde)}
 .val.val-ruim{color:var(--vermelho)}
+
+/* Os filtros de multipla escolha da aba Lancamentos. <details> e nao <select multiple>:
+   no celular o select multiplo exige segurar uma tecla que nao existe e mostra tres
+   linhas. Aqui a pessoa toca, abre e marca — e o resumo diz quantos estao marcados. */
+.filtros-lanc{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:14px 0 0}
+.fchk{border:1px solid var(--linha);border-radius:10px;background:var(--fundo-2,transparent)}
+.fchk>summary{cursor:pointer;padding:10px 12px;font-size:13.5px;font-weight:600;
+  color:var(--txt2);list-style:none}
+.fchk>summary::-webkit-details-marker{display:none}
+.fchk>summary::after{content:"▾";float:right;color:var(--txt3)}
+.fchk[open]>summary::after{content:"▴"}
+.fchk>summary .qt{color:var(--marca-txt,var(--verde));font-weight:700}
+.fchk .opcoes{max-height:210px;overflow:auto;padding:0 6px 8px}
+.fchk .marca{display:flex;align-items:center;gap:8px;padding:7px 6px;font-size:14px;
+  border-top:1px solid var(--linha)}
+.fchk .marca input{width:18px;height:18px;margin:0;flex:0 0 auto}
+
 /* A linha de estoque inicial e a unica que nao e uma divida: e o ponto de partida da
    conta. Verde, como o cartao da taxa de retorno quando esta na meta. */
 .marca-estoque{color:var(--verde);font-weight:600}

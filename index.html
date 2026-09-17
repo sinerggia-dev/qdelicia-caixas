@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=b3c30df5">
+<link rel="stylesheet" href="styles.css?v=5a4c779a">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -66,7 +66,7 @@
 <nav class="abas" id="abas">
   <button class="ativa" data-pagina="pgSaida" data-operacao="SAIDA">Saída</button>
   <button data-pagina="pgDevolucao" data-operacao="RETORNO">Retorno</button>
-  <button data-pagina="pgSaldo">Saldo</button>
+  <button data-pagina="pgSaldo">Lançamentos</button>
 </nav>
 
 <main>
@@ -186,13 +186,34 @@
   <!-- ---------- SALDO ---------- -->
   <section id="pgSaldo" class="pagina">
     <div class="card">
-      <h2>Saldo de Caixas por Rota<span class="sub">Quantidades de caixas por rota.</span></h2>
-      <div class="busca"><input id="buscaSaldo" type="text" placeholder="🔍 Buscar rotas"></div>
-      <div id="listaSaldos"><div class="vazio">Carregando…</div></div>
-    </div>
-    <div class="card" id="cardExtrato" style="display:none">
-      <h2 id="extratoTitulo">Extrato</h2>
-      <div id="extratoConteudo"></div>
+      <h2>Lançamentos<span class="sub">Tudo que passou no período, saídas e retornos.</span></h2>
+
+      <!-- Os totais vem ANTES da lista: quem abre a tela quer o resumo antes do detalhe. -->
+      <div class="ftiles" id="lcTiles"></div>
+
+      <div class="grid2">
+        <div><label for="lcDe">De</label><input id="lcDe" type="date"></div>
+        <div><label for="lcAte">Até</label><input id="lcAte" type="date"></div>
+      </div>
+
+      <!-- Multipla escolha em <details> e nao em <select multiple>: no celular o select
+           multiplo exige segurar a tecla, que nao existe, e mostra so tres linhas. Aqui a
+           pessoa toca, abre e marca — e o resumo diz quantos estao marcados sem abrir. -->
+      <div class="filtros-lanc">
+        <details class="fchk" id="lcFSentido"><summary>Entrada / Saída<span class="qt"></span></summary>
+          <div class="opcoes"></div></details>
+        <details class="fchk" id="lcFMotorista"><summary>Motorista<span class="qt"></span></summary>
+          <div class="opcoes"></div></details>
+        <details class="fchk" id="lcFOrigem"><summary>Origem<span class="qt"></span></summary>
+          <div class="opcoes"></div></details>
+        <details class="fchk" id="lcFDestino"><summary>Destino<span class="qt"></span></summary>
+          <div class="opcoes"></div></details>
+      </div>
+      <div class="linha-btn">
+        <button class="btn sec" id="btnLimparLanc" type="button" style="flex:0 0 auto;min-width:150px;white-space:nowrap">Limpar filtros</button>
+      </div>
+
+      <div id="listaLanc"><div class="vazio">Carregando…</div></div>
     </div>
   </section>
 
@@ -387,7 +408,7 @@
   });
 
   window.aoAbrirAba = function(pagina){
-    if (pagina === 'pgSaldo') carregarPainel();
+    if (pagina === 'pgSaldo') carregarLanc();
     if (pagina === 'pgDevolucao') mostrarSaldoDoOrigem();
   };
 
@@ -674,6 +695,7 @@
        proprio local. Montado antes, a origem escolhida no passo seguinte continuaria na
        lista de destino, e a Matriz podia devolver para a Matriz. */
     ajustarDestinoRetorno();
+    periodoPadraoLanc();
     document.getElementById('sdData').value = Q.hoje();
     document.getElementById('dvData').value = Q.hoje();
     ajustarCamposSaida();
@@ -935,17 +957,171 @@
     el.innerHTML = html;
   }
 
+  /* ---------------- lançamentos ----------------
+     A aba mostra o que passou no periodo, saidas e retornos juntos, com os totais em
+     cima. Substituiu o "Saldo por Rota", que respondia uma pergunta so e nao deixava
+     conferir lancamento nenhum.
+
+     Os quatro filtros sao de multipla escolha porque a pergunta de campo quase nunca e
+     de um valor so: "o que o Chico e o Ramos levaram para Caruaru e Recife" e uma
+     pergunta, nao quatro. */
+  var LANC = [];
+
+  /* Nada marcado quer dizer TODOS — a mesma convencao das permissoes. A alternativa seria
+     abrir a tela sem nenhuma linha, com quatro filtros vazios e nenhuma pista do porque. */
+  function marcados(id){
+    var r = [];
+    document.querySelectorAll('#'+id+' input:checked').forEach(function(c){ r.push(c.value); });
+    return r;
+  }
+
+  function passaFiltro(m){
+    var sent = marcados('lcFSentido');
+    var mot = marcados('lcFMotorista');
+    var ori = marcados('lcFOrigem');
+    var des = marcados('lcFDestino');
+    var ehRetorno = m.tipo === 'DEVOLUCAO';
+    if (sent.length && sent.indexOf(ehRetorno ? 'RETORNO' : 'SAIDA') < 0) return false;
+    if (mot.length && mot.indexOf(m.motorista || '') < 0) return false;
+    if (ori.length && ori.indexOf(m.origem || '') < 0) return false;
+    if (des.length && des.indexOf(m.destino || '') < 0) return false;
+    return true;
+  }
+
+  /* As opcoes saem dos lancamentos que VIERAM, e nao do cadastro inteiro: uma lista com
+     trinta locais dos quais dois tem movimento obriga a procurar. Montadas sobre o periodo
+     cru, sem os proprios filtros aplicados — senao marcar uma origem apagaria as outras
+     opcoes e nao haveria como voltar. */
+  function montarFiltrosLanc(){
+    function valores(pega){
+      var vis = {};
+      LANC.forEach(function(m){ var v = pega(m); if (v) vis[v] = 1; });
+      return Object.keys(vis).sort(function(a,b){ return a.localeCompare(b,'pt-BR'); });
+    }
+    var grupos = [
+      ['lcFSentido', [['SAIDA','Saída'],['RETORNO','Retorno']]],
+      ['lcFMotorista', valores(function(m){ return m.motorista; }).map(function(v){ return [v,v]; })],
+      ['lcFOrigem', valores(function(m){ return m.origem; }).map(function(v){ return [v,v]; })],
+      ['lcFDestino', valores(function(m){ return m.destino; }).map(function(v){ return [v,v]; })]
+    ];
+    grupos.forEach(function(g){
+      var box = document.querySelector('#'+g[0]+' .opcoes');
+      if (!box) return;
+      var antes = marcados(g[0]);
+      box.innerHTML = g[1].length
+        ? g[1].map(function(o){
+            return '<label class="marca"><input type="checkbox" value="'+Q.esc(o[0])+'"'+
+              (antes.indexOf(o[0]) >= 0 ? ' checked' : '')+'>'+Q.esc(o[1])+'</label>';
+          }).join('')
+        : '<div class="vazio" style="padding:8px">Nada no período.</div>';
+      box.querySelectorAll('input').forEach(function(c){
+        c.addEventListener('change', desenharLanc);
+      });
+    });
+  }
+
+  function desenharLanc(){
+    var lista = LANC.filter(passaFiltro);
+
+    // o resumo do que esta na tela, e nao do periodo inteiro: o rodape tem de concordar
+    // com a lista que esta logo abaixo dele
+    var saiu = 0, voltou = 0;
+    lista.forEach(function(m){
+      if (m.tipo === 'DEVOLUCAO') voltou += Number(m.qtd) || 0;
+      else saiu += Number(m.qtd) || 0;
+    });
+    document.getElementById('lcTiles').innerHTML =
+      tileLanc(Q.num(saiu), 'caixas que saíram', lista.length + ' lançamento(s) no filtro', 'aviso')+
+      tileLanc(Q.num(voltou), 'caixas que voltaram', 'retornos do período', 'ok')+
+      tileLanc(Q.num(saiu + voltou), 'total de caixas', 'saídas mais retornos', '');
+
+    // o contador de cada filtro: quantos estao marcados, sem precisar abrir
+    ['lcFSentido','lcFMotorista','lcFOrigem','lcFDestino'].forEach(function(id){
+      var n = marcados(id).length;
+      var q = document.querySelector('#'+id+' .qt');
+      if (q) q.textContent = n ? ' ('+n+')' : '';
+    });
+
+    var box = document.getElementById('listaLanc');
+    if (!lista.length){
+      box.innerHTML = '<div class="vazio">Nenhum lançamento com esses filtros.</div>';
+      return;
+    }
+    box.innerHTML = '<div class="tabela-wrap"><table><thead><tr>'+
+      '<th>Data</th><th>Origem</th><th>Destino</th><th>Caixa</th>'+
+      '<th class="num">Saída</th><th class="num">Retorno</th><th>Motorista</th>'+
+      '</tr></thead><tbody>'+
+      lista.map(function(m){
+        var ehRetorno = m.tipo === 'DEVOLUCAO';
+        return '<tr>'+
+          '<td>'+Q.dataBR(m.dataRef)+'</td>'+
+          '<td>'+Q.esc(m.origem || '—')+'</td>'+
+          '<td>'+Q.esc(m.destino || '—')+'</td>'+
+          '<td>'+Q.esc(m.tipoCaixa || '—')+'</td>'+
+          '<td class="num">'+(ehRetorno ? '<span class="fraco">—</span>' : '<b>'+Q.num(m.qtd)+'</b>')+'</td>'+
+          '<td class="num">'+(ehRetorno ? '<b>'+Q.num(m.qtd)+'</b>' : '<span class="fraco">—</span>')+'</td>'+
+          '<td>'+Q.esc(m.motorista || '—')+'</td>'+
+        '</tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+
+  function tileLanc(v, r, d, c){
+    return '<div class="ftile '+(c||'')+'"><div class="r">'+r+'</div>'+
+      '<div class="v">'+v+'</div><div class="d">'+d+'</div></div>';
+  }
+
+  function carregarLanc(){
+    var de = document.getElementById('lcDe').value;
+    var ate = document.getElementById('lcAte').value;
+    document.getElementById('listaLanc').innerHTML = '<div class="vazio">Carregando…</div>';
+    /* `teste: todos` de proposito: quem lanca no ensaio precisa ver o proprio lancamento,
+       e quem lanca de verdade nao tem lancamento de ensaio para atrapalhar. */
+    Q.get({ acao:'movimentos', de:de, ate:ate, teste:'todos', limit:2000 }).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      /* Ajuste e perda ficam de fora: nao sao viagem de caixa, e sim correcao de saldo
+         feita no escritorio. Contados como saida — que e onde caem por nao serem
+         devolucao — eles inflavam o cartao: 1.250 de ajuste apareciam como caixas que
+         sairam. E a mesma regra que o Painel de Ativos usa. */
+      LANC = (r.movimentos || []).filter(function(m){
+        return m.tipo === 'SAIDA' || m.tipo === 'TRANSFERENCIA' || m.tipo === 'DEVOLUCAO';
+      });
+      montarFiltrosLanc();
+      desenharLanc();
+    }).catch(function(e){
+      document.getElementById('listaLanc').innerHTML =
+        '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
+    });
+  }
+
+  ['lcDe','lcAte'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', carregarLanc);
+  });
+  document.getElementById('btnLimparLanc').addEventListener('click', function(){
+    document.querySelectorAll('.filtros-lanc input:checked').forEach(function(c){
+      c.checked = false;
+    });
+    desenharLanc();
+  });
+
+  /* Volta ao mesmo estado da primeira abertura: os ultimos 30 dias. */
+  function periodoPadraoLanc(){
+    var d1 = new Date(); d1.setDate(d1.getDate() - 30);
+    document.getElementById('lcDe').value = d1.toISOString().slice(0, 10);
+    document.getElementById('lcAte').value = Q.hoje();
+  }
+
+  /* O painel continua sendo carregado, mas agora so alimenta o aviso de saldo que
+     aparece embaixo da origem no formulario de retorno. A aba passou a buscar os
+     lancamentos direto. */
   function carregarPainel(){
     Q.get({acao:'painel'}).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       PAINEL = r.painel;
       Q.cache('painel', PAINEL);
-      desenharSaldos();
       mostrarSaldoDoOrigem();
-    }).catch(function(e){
+    }).catch(function(){
       PAINEL = Q.cache('painel');
-      if (PAINEL) desenharSaldos();
-      else document.getElementById('listaSaldos').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
+      if (PAINEL) mostrarSaldoDoOrigem();
     });
   }
 
@@ -956,62 +1132,7 @@
      As duas contas da rota ficam em colunas separadas, e não somadas: `saldo` é o
      que está no caminhão, `saldoClientes` é o que está nos pontos que ela atende.
      Somar esconderia onde a caixa está, que é a pergunta que esta tela responde. */
-  function desenharSaldos(){
-    var busca = (document.getElementById('buscaSaldo').value||'').toLowerCase();
-    var lista = (PAINEL.rotas||[]).filter(function(r){
-      return !busca || r.nome.toLowerCase().indexOf(busca)>=0 ||
-             (r.motorista||'').toLowerCase().indexOf(busca)>=0;
-    });
-    var box = document.getElementById('listaSaldos');
-    if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhuma rota encontrada.</div>'; return; }
-    box.innerHTML = '<div class="tabela-wrap"><table><thead><tr>'+
-      '<th>Rota</th><th class="num">No caminhão</th><th class="num">Com os clientes</th>'+
-      '<th class="num">+30 dias</th><th></th>'+
-      '</tr></thead><tbody>'+ lista.map(function(r){
-        var cls = r.aging && r.aging.d31 > 0 ? 'ruim' : '';
-        return '<tr class="'+cls+'">'+
-          '<td><b>'+Q.esc(r.nome)+'</b>'+
-            (r.motorista?' <span class="tag cinza">'+Q.esc(r.motorista)+'</span>':'')+'</td>'+
-          '<td class="num"><b>'+Q.num(r.saldo)+'</b></td>'+
-          '<td class="num">'+(r.saldoClientes?Q.num(r.saldoClientes):'—')+
-            (r.clientes?' <span class="tag cinza">'+r.clientes+'</span>':'')+'</td>'+
-          '<td class="num">'+(r.aging&&r.aging.d31?'<span class="tag vermelha">'+Q.num(r.aging.d31)+'</span>':'—')+'</td>'+
-          '<td><button class="mini acao" data-extrato="'+r.id+'">extrato</button></td>'+
-        '</tr>';
-      }).join('') + '</tbody></table></div>';
-    box.querySelectorAll('button[data-extrato]').forEach(function(b){
-      b.addEventListener('click', function(){ abrirExtrato(b.dataset.extrato); });
-    });
-  }
-  document.getElementById('buscaSaldo').addEventListener('input', function(){ if (PAINEL) desenharSaldos(); });
 
-  function abrirExtrato(id){
-    var card = document.getElementById('cardExtrato');
-    card.style.display = 'block';
-    document.getElementById('extratoConteudo').innerHTML = '<div class="vazio">Carregando…</div>';
-    card.scrollIntoView({behavior:'smooth'});
-    Q.get({acao:'extrato', local:id}).then(function(r){
-      if (!r.ok) throw new Error(r.erro);
-      document.getElementById('extratoTitulo').textContent = 'Extrato · ' + r.local.nome;
-      var ultimas = r.linhas.slice(-25).reverse();
-      document.getElementById('extratoConteudo').innerHTML =
-        '<div class="kpis"><div class="kpi '+(r.saldo>0?'aviso':'ok')+'"><div class="v">'+Q.num(r.saldo)+'</div><div class="r">caixas em poder</div></div>'+
-        '</div>'+
-        Q.barraAging(r.aging)+
-        '<div class="tabela-wrap" style="margin-top:12px"><table><thead><tr><th>Data</th><th>Movimento</th><th class="num">Saiu</th><th class="num">Voltou</th><th class="num">Saldo</th></tr></thead><tbody>'+
-        (ultimas.length?ultimas.map(function(l){
-          return '<tr><td>'+Q.dataBR(l.data)+'</td><td>'+Q.esc(l.descricao)+
-            (l.divergencia?' <span class="tag vermelha">div. '+l.divergencia+'</span>':'')+
-            '</td>'+
-            '<td class="num">'+(l.entrada?Q.num(l.entrada):'')+'</td>'+
-            '<td class="num">'+(l.saida?Q.num(l.saida):'')+'</td>'+
-            '<td class="num"><b>'+Q.num(l.saldo)+'</b></td></tr>';
-        }).join(''):'<tr><td colspan="5" class="vazio">Sem movimentos.</td></tr>')+
-        '</tbody></table></div>';
-    }).catch(function(e){
-      document.getElementById('extratoConteudo').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
-    });
-  }
 
   window.addEventListener('dadosAtualizados', function(e){ DADOS = e.detail; });
 

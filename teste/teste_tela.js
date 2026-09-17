@@ -929,5 +929,89 @@ console.log('\n== as abas do painel obedecem ao cadastro ==');
   ok(adm.indexOf("caixaLocais('fAbas'") > 0, 'e desenha a lista para marcar');
 })();
 
+/* ---------------------------------------------------------------------------
+ * A aba Lancamentos do app de campo.
+ *
+ * Substituiu o "Saldo por Rota", que respondia uma pergunta so e nao deixava conferir
+ * lancamento nenhum. Os quatro filtros sao de MULTIPLA escolha porque a pergunta de campo
+ * quase nunca e de um valor so: "o que o Chico e o Ramos levaram para Caruaru e Recife" e
+ * uma pergunta, nao quatro.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a aba Lancamentos filtra e soma ==');
+(function () {
+  function corpo(nome) {
+    var i = html.indexOf('function ' + nome + '(');
+    return i < 0 ? '' : html.slice(i, html.indexOf('\n  }', i) + 4);
+  }
+
+  /* Ajuste e perda ficam de fora da lista: nao sao viagem de caixa, e sim correcao de
+     saldo feita no escritorio. Contados como saida — que e onde caem por nao serem
+     devolucao — eles inflavam o cartao. */
+  var cl = corpo('carregarLanc');
+  ok(/tipo === 'SAIDA' \|\| m\.tipo === 'TRANSFERENCIA' \|\| m\.tipo === 'DEVOLUCAO'/.test(cl),
+    'ajuste e perda ficam fora da lista: nao sao viagem de caixa', cl.trim());
+
+  // a peneira roda de verdade
+  var pf = corpo('passaFiltro');
+  var marcadosFonte = corpo('marcados');
+  var marcados = {};
+  function passa(m, sel) {
+    marcados = sel;
+    var f = new Function('marcados', 'm', pf.slice(pf.indexOf('{') + 1, pf.lastIndexOf('}')));
+    return f(function (id) { return marcados[id] || []; }, m);
+  }
+  var saida = { tipo: 'SAIDA', motorista: 'Chico', origem: 'Matriz', destino: 'Caruaru' };
+  var volta = { tipo: 'DEVOLUCAO', motorista: 'Ramos', origem: 'Recife', destino: 'Matriz' };
+
+  ok(passa(saida, {}) && passa(volta, {}),
+    'nada marcado quer dizer TODOS — senao a tela abriria vazia sem dizer por que');
+  ok(passa(saida, { lcFSentido: ['SAIDA'] }) && !passa(volta, { lcFSentido: ['SAIDA'] }),
+    'o sentido separa saida de retorno');
+  ok(passa(volta, { lcFSentido: ['RETORNO'] }), 'e a devolucao e o retorno');
+
+  /* O ponto da multipla escolha: dois valores no mesmo filtro passam os dois. */
+  ok(passa(saida, { lcFMotorista: ['Chico', 'Ramos'] }) &&
+     passa(volta, { lcFMotorista: ['Chico', 'Ramos'] }),
+    'dois motoristas marcados passam os dois — e para isso que o filtro e multiplo');
+  ok(!passa(saida, { lcFMotorista: ['Ramos'] }),
+    'e quem nao esta marcado sai');
+
+  // filtros diferentes se SOMAM
+  ok(!passa(saida, { lcFMotorista: ['Chico'], lcFDestino: ['Recife'] }),
+    'filtros diferentes se somam: motorista certo e destino errado nao passa');
+
+  /* As opcoes saem dos lancamentos que VIERAM, e nao do cadastro inteiro: uma lista com
+     trinta locais dos quais dois tem movimento obriga a procurar. */
+  var mf = corpo('montarFiltrosLanc');
+  ok(mf.indexOf('LANC.forEach') > 0 && mf.indexOf('DADOS.locais') < 0,
+    'as opcoes saem dos lancamentos do periodo, nao do cadastro inteiro', mf.trim());
+  ok(mf.indexOf('antes.indexOf(o[0]) >= 0') > 0,
+    'e a marcacao sobrevive ao remontar a lista');
+
+  // os cartoes somam o que esta na TELA, nao o periodo inteiro
+  var dl = corpo('desenharLanc');
+  ok(dl.indexOf('LANC.filter(passaFiltro)') > 0 && dl.indexOf('lista.forEach') > 0,
+    'os cartoes somam a lista JA filtrada — o resumo tem de concordar com a tabela',
+    dl.indexOf('lista.forEach'));
+  ok(/saiu \+ voltou/.test(dl),
+    'e o total geral e saidas mais retornos');
+
+  // a tabela traz as colunas pedidas
+  ['Data', 'Origem', 'Destino', 'Caixa', 'Saída', 'Retorno', 'Motorista'].forEach(function (c) {
+    ok(dl.indexOf('>' + c + '<') > 0, 'a tabela tem a coluna ' + c, c);
+  });
+
+  ok(html.indexOf('id="lcFSentido"') > 0 && html.indexOf('id="lcFMotorista"') > 0 &&
+     html.indexOf('id="lcFOrigem"') > 0 && html.indexOf('id="lcFDestino"') > 0,
+    'os quatro filtros existem na tela');
+  ok(html.indexOf('id="lcDe"') > 0 && html.indexOf('id="lcAte"') > 0,
+    'e o periodo tambem');
+
+  /* A aba recarrega ao ser aberta: com o app aberto o dia inteiro, uma lista congelada na
+     hora do login nao mostraria o que a pessoa acabou de lancar. */
+  ok(/pgSaldo'\) carregarLanc\(\)/.test(html),
+    'abrir a aba recarrega os lancamentos');
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);
