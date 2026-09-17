@@ -984,10 +984,39 @@ console.log('\n== recolher a barra de filtros ==');
     ok(grupo.indexOf('id="' + id + '"') > 0, 'o campo ' + id + ' entra no grupo');
   });
 
-  /* O botao fica FORA do grupo. Dentro, ele sumiria junto e nao haveria como voltar. */
+  /* Os quatro botoes moram no TRILHO, e nao na fileira de cima. A fileira ficou so com
+     os campos; juntos, ela quebrava em duas linhas e o trilho tinha espaco sobrando. */
+  var ra = adm.indexOf('<div class="ret-acoes">');
+  var trilho = adm.slice(ra, adm.indexOf('</aside>', ra));
+  ok(ra > 0, 'existe um bloco de ações no trilho');
+  ['btnVerFiltros', 'btnLimparRetornos', 'btnCsvRetornos', 'btnAtualizarRetornos']
+    .forEach(function (id) {
+      ok(trilho.indexOf('id="' + id + '"') > 0, 'o botão ' + id + ' mora no trilho');
+    });
+  /* Duas propriedades que a leitura do texto nao ve acontecer, mas cuja falta e visivel
+     na tela: sem `margin-top:auto` o bloco cola nos grupos e o buraco do trilho reaparece
+     embaixo dele; sem `width:100%` os quatro botoes ficam de larguras diferentes e viram
+     uma escada numa coluna de 220px. Medi as duas no navegador; aqui fica a guarda contra
+     apagarem a regra. */
+  ok(/\.ret-acoes\{[^}]*margin-top:auto/.test(css),
+    'o bloco de ações cola no rodapé do trilho — a folga fica ENTRE os grupos e ele');
+  ok(/\.ret-acoes \.btn\{[^}]*width:100%/.test(css),
+    'e os quatro botões ocupam a largura toda — numa coluna estreita, larguras ' +
+    'diferentes viram uma escada');
+
+  var acoes = adm.indexOf('<div class="acoes">');
+  var fileira = adm.slice(acoes, adm.indexOf('</div>\n        </div>', acoes));
+  ok(fileira.indexOf('<button') < 0,
+    'e a fileira de cima ficou só com os campos — botão nenhum sobrou lá', fileira);
+
+  /* O botao de recolher fica fora do GRUPO que ele recolhe. Dentro, sumiria junto e nao
+     haveria como voltar. Estar noutro canto da tela ja garante isso, mas a conferencia
+     olha o intervalo do grupo, e nao a ordem no arquivo: ordem e coincidencia. */
   var bt = adm.indexOf('id="btnVerFiltros"');
-  ok(bt > 0 && bt < g,
-    'e o botão fica fora dele — dentro, sumiria junto e não haveria como voltar');
+  var fimGrupo = adm.indexOf('</div>', g);
+  ok(bt > 0 && !(bt > g && bt < fimGrupo),
+    'e o botão de recolher fica fora do grupo — dentro, sumiria junto e não haveria como voltar',
+    [bt, g, fimGrupo]);
 
   /* `display:contents` para os campos seguirem no flex da fileira, e o `[hidden]` com
      mais peso, senao o `contents` ganha e o grupo nunca some. */

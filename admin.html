@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=939bdf5b">
+<link rel="stylesheet" href="styles.css?v=ff473168">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -108,6 +108,23 @@
       <aside class="ret-rail">
         <div class="ret-marca">QDELÍCIA<span>FRUTAS</span></div>
         <div class="ret-nav" id="retNav"></div>
+        <!-- Os botoes ficam no trilho, abaixo dos grupos e colados no rodape dele. Os
+             dois primeiros mexem no recorte, os dois ultimos levam a tela embora — a
+             linha entre eles separa "mudar o que vejo" de "fazer algo com isto".
+
+             O botao de recolher fica FORA do grupo que ele recolhe, senao sumiria junto
+             com os campos e nao haveria como voltar. -->
+        <div class="ret-acoes">
+          <button class="btn neutro" id="btnVerFiltros" type="button"></button>
+          <!-- Nasce desligado e so acende quando ha o que limpar: assim ele tambem
+               responde "tem algum filtro ligado?", que e a pergunta de quem estranha a
+               tabela curta e nao lembra do que escolheu tres cliques atras. -->
+          <button class="btn neutro" id="btnLimparRetornos" type="button" disabled
+                  title="Volta origem, destino, período e a lista da esquerda ao estado inicial">✕ Limpar filtros</button>
+          <div class="ret-risco"></div>
+          <button class="btn sec" id="btnCsvRetornos" type="button">⬇ Exportar CSV</button>
+          <button class="btn neutro" id="btnAtualizarRetornos" type="button">↻ Atualizar</button>
+        </div>
       </aside>
       <div class="ret-main">
         <div class="ret-head">
@@ -115,11 +132,12 @@
             <h2>Controle de Caixas</h2>
           </div>
           <div class="acoes">
-            <!-- O periodo vale para esta tabela e para os indicadores dela. Em branco, o
+            <!-- So os CAMPOS moram aqui. Os botoes desceram para o trilho da esquerda, que
+                 tinha espaco sobrando desde que o cartao de circulacao saiu dele — e a
+                 fileira de cima, com campos e botoes juntos, ja quebrava em duas linhas.
+
+                 O periodo vale para esta tabela e para os indicadores dela. Em branco, o
                  mes corrente — a mesma janela de sempre. -->
-            <!-- O botao fica FORA do grupo que ele recolhe, senao some junto com ele. -->
-            <button class="btn neutro" id="btnVerFiltros" type="button"
-                    style="flex:0;min-width:130px"></button>
             <!-- `display:contents` no grupo: os campos continuam participando do flex do
                  pai, como se o <div> nao existisse, e um `hidden` no grupo recolhe todos
                  de uma vez. Sem isso, envolve-los quebraria o alinhamento da fileira. -->
@@ -137,14 +155,6 @@
                 <option value="teste">Só de teste</option>
               </select>
             </div>
-            <!-- Nasce desligado e so acende quando ha o que limpar: assim ele tambem
-                 responde "tem algum filtro ligado?", que e a pergunta de quem estranha
-                 a tabela curta e nao lembra do que escolheu tres cliques atras. -->
-            <button class="btn neutro" id="btnLimparRetornos" type="button" disabled
-                    title="Volta origem, destino, período e a lista da esquerda ao estado inicial"
-                    style="flex:0;min-width:150px">✕ Limpar filtros</button>
-            <button class="btn sec" id="btnCsvRetornos" type="button" style="flex:0;min-width:150px">⬇ Exportar CSV</button>
-            <button class="btn neutro" id="btnAtualizarRetornos" type="button" style="flex:0;min-width:130px">↻ Atualizar</button>
           </div>
         </div>
         <!-- Os totais vem ANTES da tabela: sao a leitura do conjunto, e quem abre a
