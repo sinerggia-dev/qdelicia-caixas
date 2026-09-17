@@ -29,19 +29,35 @@ no caminhão e não foi entregue de aparecer na conta do cliente.
 Cada local (galpão, filial, cliente) tem saldo próprio, então a caixa nunca "some no meio do caminho":
 se saiu do galpão e não chegou ao cliente, o saldo fica com quem estiver com ela.
 
-**A regra que resolve a dor principal:** a devolução contada no cliente (por promotor ou motorista)
-entra como **AGUARDANDO**. O saldo do cliente só baixa quando o galpão confere na chegada.
-A diferença entre o que foi contado no cliente e o que chegou fica registrada como **divergência**.
+**A regra que resolve a dor principal:** todo retorno **baixa o saldo assim que é lançado**,
+não importa quem lançou. Até setembro/2026 a devolução contada na rua nascia `AGUARDANDO` e
+esperava conferência no galpão; a aba de Conferência saiu do app de campo — e era o único lugar
+onde um retorno era confirmado —, então manter o estado de espera prenderia a caixa na conta do
+cliente para sempre. A divergência entre o contado e o que chegou continua registrada; o que ela
+deixou de ser é portão.
 
-## Perfis
+## Perfis e permissões
 
-| Perfil | Onde usa | O que faz |
+O perfil quase não decide nada. Só `ADMIN` tem poder próprio — cadastros e correções; o resto é
+**chave por usuário**, no cadastro de cada pessoa:
+
+| Chave | O que controla | Vazio quer dizer |
 |---|---|---|
-| `ADMIN` | admin.html | Tudo: painel, extratos, lançamento manual, perdas, cadastros, cancelamento |
-| `GALPAO` | index.html + admin.html | Lança saída/devolução e **confere** as chegadas. No painel só consulta — sem Lançar e sem Cadastros |
-| `MOTORISTA` | index.html | Lança saída e coleta na rua, com assinatura do cliente |
-| `PROMOTOR` | index.html | Só conta a devolução dentro do cliente |
-| Cliente | extrato.html?t=TOKEN | Só leitura: vê o próprio saldo e extrato |
+| `saidas` / `destinos` | De onde e para onde aquela pessoa pode lançar | todos |
+| `operacoes` | Se ela lança Saída, Retorno ou os dois — recusado **no servidor**, não só escondido | todas |
+| `acesso_painel` | Se abre o `admin.html` | (booleano; ADMIN entra sempre) |
+| `abas` | Quais das seis abas do painel ela enxerga | todas as permitidas |
+
+Perfis de fábrica: `Admin`, `Gestor`, `Gerente`, `Conferente`, `Motorista`, `Promotor` — e o campo
+é **texto livre**, para o escritório escrever o cargo que precisar. Perfil escrito nasce sem poder
+nenhum: permissão por digitação seria permissão por engano de digitação. A única exceção que ainda
+mora no perfil é `PROMOTOR`, que não vê a aba de Saída.
+
+| Onde | Abas |
+|---|---|
+| `index.html` (campo) | Saída · Retorno · Lançamentos |
+| `admin.html` (escritório) | Painel de Ativos · Painel · Extratos · Ajustes · Movimentos · Cadastros |
+| `extrato.html?t=TOKEN` | Só leitura: o cliente vê o próprio saldo e extrato |
 
 ## Arquitetura
 
@@ -101,12 +117,14 @@ Mudou variável de ambiente? Precisa de **redeploy** para valer.
 
 ### 3. Primeiros passos no sistema
 
-1. Entre em `admin.html` com **Administrador** / PIN **1234** e **troque esse PIN**.
+1. Entre em `admin.html` como **Administrador** e **troque os PINs e a senha de exemplo** —
+   o endereço é público.
 2. Aba **Cadastros**: renomeie o galpão, cadastre filiais, clientes (com WhatsApp, limite de
    caixas e prazo de devolução) e os tipos de caixa.
 3. Cadastre motoristas e promotores com PIN próprio.
-4. Aba **Lançar** → **Ajuste / saldo inicial**: quantas caixas cada cliente já deve hoje e
-   quantas estão no galpão. Sem isso o saldo começa do zero.
+4. Aba **Ajustes** → **Ajuste / saldo inicial**: quantas caixas cada cliente já deve hoje e
+   quantas estão no galpão. Sem isso o saldo começa do zero. É esse lançamento que alimenta a
+   coluna **Estoque** do Painel de Ativos, e ele pode ser refeito a qualquer momento.
 
 ## Estrutura de dados (tabelas)
 
@@ -114,12 +132,17 @@ Mudou variável de ambiente? Precisa de **redeploy** para valer.
 |---|---|
 | `locais` | Galpões, filiais, clientes e **rotas** — todos são "nós" que guardam caixas. `token` é o código do link do cliente; `rota_id` liga o cliente à rota; `motorista_id` liga a rota ao motorista. |
 | `tipos_caixa` | Tipos de caixa, com o peso (`kg`) de cada um. |
-| `usuarios` | Nome, perfil, PIN e local padrão. |
+| `usuarios` | Nome, perfil, senha, PIN, local padrão e as chaves de permissão. |
+| `motoristas` | Quem dirige, com CNH e as rotas que atende. Não faz login. |
+| `locais_padrao` | Postos de trabalho. Não guardam caixa. |
 | `movimentos` | Livro-razão, só acrescenta. Nada é apagado — movimento errado se **cancela**. |
 | `config` | Nome da empresa, prazo padrão. |
 
 Tipos de movimento: `SAIDA`, `DEVOLUCAO`, `TRANSFERENCIA`, `PERDA`, `AJUSTE`.
-Status: `CONFIRMADO` ou `AGUARDANDO` (contado no cliente, falta conferir no galpão).
+
+O **status** da coluna de Movimentos é o ponto do ciclo, não o de valer no saldo: `Enviada`,
+`Transferida`, `Parcial`, `Devolvida`, `Perda`, `Ajuste`. `AGUARDANDO` não existe mais, e as
+linhas antigas que ficaram nele passaram a contar.
 
 ## Detalhes técnicos
 
@@ -127,9 +150,13 @@ Status: `CONFIRMADO` ou `AGUARDANDO` (contado no cliente, falta conferir no galp
   (`localStorage`) e sobe sozinho quando a internet volta. O chip no topo mostra o tamanho da fila.
 - **Sem duplicidade**: cada lançamento carrega um `client_key`, e a coluna tem `UNIQUE`.
   Quem recusa a repetição é o banco, não o código — reenvio da fila nunca lança duas vezes.
-- **Canhoto e foto**: assinatura desenhada na tela e foto do romaneio vão para o bucket
-  `canhotos` no Supabase Storage; o link aparece no extrato e na conferência. A foto é reduzida
-  no celular antes de subir — o corpo da requisição na Vercel tem limite de 4,5 MB.
+- **Foto**: a foto do romaneio vai para o bucket `canhotos` no Supabase Storage e o link aparece
+  no extrato. É reduzida no celular antes de subir — o corpo da requisição na Vercel tem limite de
+  4,5 MB. Lançamentos antigos podem ter assinatura anexada; o campo saiu da tela em setembro/2026.
+- **Sem valor em dinheiro**: não há preço de caixa em lugar nenhum. Retirado em setembro/2026.
+- **Lançamento de teste**: quem tem `teste` no perfil produz lançamento de teste. Ele conta no
+  saldo como qualquer outro — as telas só separam a leitura, com um seletor *Só reais / Só de
+  teste*, e nunca misturam os dois.
 - **Aging FIFO**: as caixas mais antigas são consideradas as que ainda não voltaram — é o que
   gera as faixas 0-7 / 8-15 / 16-30 / +30 dias e o alerta de prazo vencido.
 - **Comunicação**: `fetch` comum, mesma origem. Sem JSONP e sem CORS, que só existiam por
@@ -138,14 +165,21 @@ Status: `CONFIRMADO` ou `AGUARDANDO` (contado no cliente, falta conferir no galp
 ## Teste da matemática do saldo
 
 ```
-node teste/teste_api.js
+node teste/teste_api.js    # 455 verificações das regras
+node teste/teste_tela.js   # 214 verificações das telas
 ```
 
-Roda o roteador, as regras e os tradutores de verdade, trocando apenas o acesso ao Postgres por
-um banco falso em memória — sem rede e sem chave. São 63 verificações: saldo por cliente,
-devolução do promotor sem baixar saldo, conferência com divergência, perda, caminho
-galpão→filial→cliente, aging FIFO, extrato, token do cliente, idempotência da fila offline,
-cancelamento, login, validações, cadastros, o ciclo completo de uma rota e o tratamento de ativo/inativo. Rode depois de qualquer alteração em `api/`.
+A primeira roda o roteador, as regras e os tradutores de verdade, trocando apenas o acesso ao
+Postgres por um banco falso em memória — sem rede e sem chave: saldo por cliente, divergência,
+perda, caminho galpão→rota→cliente, aging FIFO, extrato, token do cliente, idempotência da fila
+offline, cancelamento, login, primeiro acesso, permissões e o fluxo do Painel de Ativos.
+
+A segunda lê o HTML e o JavaScript das páginas e confere que cada filtro, coluna e botão está
+ligado **dos dois lados**: um campo que aparece na barra mas não viaja no pedido, ou uma coluna
+com cabeçalho e sem célula, falha ali em vez de falhar na tela de quem usa.
+
+Rode as duas depois de qualquer alteração. Mexeu em `app.js` ou `styles.css`? Rode também
+`python scripts/versionar.py` antes de commitar — sem isso o navegador serve o arquivo do cache.
 
 O backend antigo do Google continua no repositório, com o próprio teste
 (`node teste/teste_backend.js`, 38 verificações), como referência e rota de volta enquanto a

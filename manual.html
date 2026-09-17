@@ -202,7 +202,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <div class="capa-i">
     <p class="eyebrow">Qdelícia Frutas</p>
     <h1>Manual do Controle de Caixas</h1>
-    <p class="lede">Como registrar saída, devolução e conferência de caixas retornáveis — e por que o saldo do cliente só baixa quando o galpão confere.</p>
+    <p class="lede">Como registrar saída e retorno de caixas retornáveis, e como ler o saldo de cada cliente, rota e unidade — do lançamento no celular ao Painel de Ativos.</p>
   </div>
 </header>
 
@@ -219,10 +219,13 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <li><a href="#motorista">Motorista</a></li>
     <li><a href="#promotor">Promotor</a></li>
     <li><a href="#galpao">Galpão</a></li>
+    <li><a href="#lancamentos">Lançamentos</a></li>
     <li class="grupo">Escritório</li>
+    <li><a href="#ativos">Painel de Ativos</a></li>
     <li><a href="#painel">Painel e extratos</a></li>
+    <li><a href="#movimentos">Movimentos</a></li>
     <li><a href="#cadastros">Cadastros</a></li>
-    <li><a href="#lancar">Lançamento manual</a></li>
+    <li><a href="#lancar">Ajustes</a></li>
     <li class="grupo">Referência</li>
     <li><a href="#cliente">Link do cliente</a></li>
     <li><a href="#offline">Trabalho offline</a></li>
@@ -237,7 +240,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <h2>O que o app resolve</h2>
   <p>Contar caixa saindo do galpão é fácil. O problema é o retorno: parte não volta, ninguém sabe de quem é a falta, e a perda só aparece no fechamento do mês como prejuízo sem dono.</p>
   <p>O app trata caixa como <strong>empréstimo</strong>, não como despesa. Cada cliente, filial e galpão tem saldo próprio, recalculado a cada movimento:</p>
-  <div class="formula">saldo do cliente = saídas − devoluções conferidas − perdas baixadas</div>
+  <div class="formula">saldo do cliente = saídas − retornos − perdas baixadas</div>
   <p>Como todo lugar tem saldo, a caixa nunca some no meio do caminho: ela fica na conta de quem estiver com ela.</p>
 </section>
 
@@ -245,7 +248,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <h2>O ciclo da caixa</h2>
 
   <figure>
-    <svg class="dg" viewBox="0 0 800 300" role="img" aria-label="A contagem feita dentro do cliente não altera o saldo dele. O saldo só baixa quando o galpão confere na chegada, e a diferença entre as duas contagens fica registrada como divergência.">
+    <svg class="dg" viewBox="0 0 800 300" role="img" aria-label="A saída põe 100 caixas na conta do cliente. Quando o retorno de 60 é lançado, o saldo baixa na hora, para 40. A chegada ao galpão não mexe mais no saldo: uma contagem diferente ali vira divergência registrada.">
       <defs>
         <marker id="seta" viewBox="0 0 10 8" refX="9" refY="4" markerWidth="9" markerHeight="7" orient="auto">
           <polygon points="0,0 10,4 0,8" fill="currentColor"></polygon>
@@ -260,15 +263,15 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
       <text class="tit" x="34" y="84" fill="currentColor">Saída</text>
       <text class="txt" x="34" y="105" fill="currentColor" opacity=".72">Motorista registra 100 caixas</text>
 
-      <rect class="s-amb" x="286" y="34" width="228" height="86" rx="10" fill="none" stroke-width="1.5" stroke-dasharray="5 4"></rect>
-      <text class="rot f-amb" x="306" y="60">ETAPA 2 · NO CLIENTE</text>
-      <text class="tit" x="306" y="84" fill="currentColor">Contagem</text>
-      <text class="txt" x="306" y="105" fill="currentColor" opacity=".72">Promotor conta 60 para devolver</text>
+      <rect class="s-ver" x="286" y="34" width="228" height="86" rx="10" fill="none" stroke-width="1.5"></rect>
+      <text class="rot f-ver" x="306" y="60">ETAPA 2 · NO CLIENTE</text>
+      <text class="tit" x="306" y="84" fill="currentColor">Retorno</text>
+      <text class="txt" x="306" y="105" fill="currentColor" opacity=".72">Promotor conta 60 para voltar</text>
 
       <rect x="558" y="34" width="228" height="86" rx="10" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45"></rect>
       <text class="rot" x="578" y="60" fill="currentColor" opacity=".6">ETAPA 3 · GALPÃO</text>
-      <text class="tit" x="578" y="84" fill="currentColor">Conferência</text>
-      <text class="txt" x="578" y="105" fill="currentColor" opacity=".72">Chegaram 55 de verdade</text>
+      <text class="tit" x="578" y="84" fill="currentColor">Chegada</text>
+      <text class="txt" x="578" y="105" fill="currentColor" opacity=".72">As 60 entram no estoque</text>
 
       <line x1="244" y1="77" x2="278" y2="77" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta)"></line>
       <line x1="516" y1="77" x2="550" y2="77" stroke="currentColor" stroke-width="1.5" marker-end="url(#seta)"></line>
@@ -279,25 +282,26 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
       <text class="val" x="34" y="218" fill="currentColor">100</text>
       <text class="txt" x="96" y="218" fill="currentColor" opacity=".7">caixas com ele</text>
 
-      <rect class="s-amb" x="286" y="184" width="228" height="54" rx="9" fill="none" stroke-width="1.2"></rect>
-      <text class="val f-amb" x="306" y="218">100</text>
-      <text class="txt f-amb" x="368" y="218">não muda — aguardando</text>
+      <rect class="s-ver" x="286" y="184" width="228" height="54" rx="9" fill="none" stroke-width="1.5"></rect>
+      <text class="val f-ver" x="306" y="218">40</text>
+      <text class="txt f-ver" x="368" y="218">baixou ao ser lançado</text>
 
-      <rect class="s-ver" x="558" y="184" width="228" height="54" rx="9" fill="none" stroke-width="1.5"></rect>
-      <text class="val f-ver" x="578" y="218">45</text>
-      <text class="txt f-ver" x="622" y="218">baixou os 55 conferidos</text>
+      <rect x="558" y="184" width="228" height="54" rx="9" fill="none" stroke="currentColor" stroke-width="1" opacity=".28"></rect>
+      <text class="val" x="578" y="218">40</text>
+      <text class="txt" x="622" y="218" fill="currentColor" opacity=".7">a chegada não mexe mais</text>
 
       <line class="s-verm" x1="620" y1="240" x2="620" y2="262" stroke-width="1.4" marker-end="url(#setaVerm)"></line>
-      <text class="txt f-verm" x="636" y="268">divergência de −5</text>
-      <text class="txt f-verm" x="636" y="284">registrada com nome e hora</text>
+      <text class="txt f-verm" x="636" y="268">contou 55 na chegada?</text>
+      <text class="txt f-verm" x="636" y="284">vira divergência de −5, registrada</text>
     </svg>
-    <figcaption>A contagem feita dentro do cliente não mexe no saldo dele. Só a conferência na chegada baixa — e a diferença entre as duas contagens vira registro, não discussão.</figcaption>
+    <figcaption>O retorno baixa o saldo do cliente no instante em que é lançado, esteja quem estiver lançando. A chegada ao galpão não é mais um portão: contagem diferente ali vira divergência registrada, com nome e hora.</figcaption>
   </figure>
 
   <div class="regra">
     <span class="rot">A regra que sustenta o app</span>
-    <p>Devolução lançada por <strong>motorista</strong> ou <strong>promotor</strong> nasce com estado <span class="chip aguarda">AGUARDANDO</span>. Devolução lançada pelo <strong>galpão</strong> ou pelo <strong>escritório</strong> já nasce <span class="chip ok">CONFIRMADO</span>.</p>
-    <p>É isso que desfaz o impasse antigo: quem conta dentro do cliente não dá baixa em si mesmo.</p>
+    <p><strong>Todo retorno baixa o saldo assim que é lançado</strong>, não importa quem lançou.</p>
+    <p>Até setembro/2026 não era assim: o retorno contado na rua nascia <span class="chip aguarda">AGUARDANDO</span> e só a conferência no galpão o confirmava. A etapa de conferência saiu do app de campo — e era o <em>único</em> lugar onde um retorno era confirmado. Mantido o estado de espera, a caixa ficaria presa na conta do cliente para sempre.</p>
+    <p>A divergência não se perdeu: contagem diferente na chegada continua sendo registrada, com nome e hora. O que ela deixou de ser é <em>portão</em> — virou ajuste.</p>
   </div>
 </section>
 
@@ -322,11 +326,11 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p>Somar as duas esconderia justamente o que interessa: onde a caixa está agora. O botão <strong>ver clientes</strong> filtra a lista de baixo pela rota, e o filtro também está no seletor ao lado da busca.</p>
 
   <h3>No celular</h3>
-  <p>As rotas aparecem nos seletores de <em>Saída</em> e <em>Recebidas em</em>, ao lado dos galpões e filiais — o caminhão é origem da entrega e destino da coleta. A escolha é feita em cada tela.</p>
+  <p>As rotas aparecem nos seletores de <em>Saída</em> e de <em>Destino</em>, ao lado dos galpões e unidades — o caminhão é destino da entrega e origem da coleta. A escolha é feita em cada tela.</p>
 
   <div class="regra">
     <span class="rot">O dia de um motorista com rota</span>
-    <p><strong>Saída</strong> do galpão para a rota (carregar) · <strong>Saída</strong> da rota para cada cliente (entregar) · <strong>Devolução</strong> do cliente para a rota (coletar) · <strong>Devolução</strong> da rota para o galpão (encerrar).</p>
+    <p><strong>Saída</strong> do galpão para a rota (carregar) · <strong>Saída</strong> da rota para cada cliente (entregar) · <strong>Retorno</strong> do cliente para a rota (coletar) · <strong>Retorno</strong> da rota para o galpão (encerrar).</p>
     <p>No fim do dia o caminhão tem que fechar em zero. Se não fechou, sobrou caixa a bordo — e agora dá para ver isso no mesmo dia, não no fim do mês.</p>
   </div>
 </section>
@@ -370,14 +374,15 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 
   <div class="regra perigo">
     <span class="rot">Antes de distribuir</span>
-    <p>Troque o PIN do administrador. O sistema nasce com <code>1234</code> e o endereço é público.</p>
+    <p>Troque os <strong>PINs de exemplo</strong> e a senha do administrador antes de dar o endereço a alguém. O app nasce com PINs curtos de demonstração e o endereço é público — qualquer pessoa que os descubra lança em nome de outra.</p>
+    <p>Vale lembrar o limite: a permissão por usuário decide o que a <em>tela</em> oferece e o servidor recusa lançamento fora dela, mas as demais rotas da API ainda não pedem prova de quem está chamando. Enquanto for app de teste, tudo bem; virando operação real, é preciso autenticação de verdade.</p>
   </div>
 </section>
 
 <section id="motorista" class="perfil">
   <div class="perfil-cab">
     <h2>Motorista</h2>
-    <span class="onde">Saída · Devolução · Saldo</span>
+    <span class="onde">Saída · Retorno · Lançamentos</span>
   </div>
 
   <h3>Registrar uma saída</h3>
@@ -389,47 +394,131 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   </ol>
 
   <h3>Coletar caixas na rua</h3>
-  <p>A tela de <strong>Devolução</strong> tem a mesma forma da de Saída — mesma ordem de campos e mesmos rótulos — porque quem alterna entre as duas o dia inteiro não deve ter que reaprender a tela. A diferença está no significado: a <em>Devolução</em> parte da rota — a caixa volta no caminhão, e é o caminhão que a guarda até chegar — e o <em>Destino</em> é o galpão que recebe.</p>
-  <p>Use a aba <strong>Devolução</strong>: em <em>Devolvidas por</em> escolha o cliente, em <em>Recebidas em</em> o destino das caixas. A tela mostra o saldo atual do cliente antes de você digitar, o que já evita erro grosseiro.</p>
-  <p class="nota">A sua contagem na rua fica <span class="chip aguarda">AGUARDANDO</span>. Não é desconfiança: é o que faz a diferença encontrada na chegada ter um número de origem e um responsável.</p>
+  <p>A tela de <strong>Retorno</strong> tem a mesma forma da de Saída — mesma ordem de campos e mesmos rótulos — porque quem alterna entre as duas o dia inteiro não deve ter que reaprender a tela. A diferença está no significado: o <em>Retorno</em> parte da rota, da unidade ou do cliente que está devolvendo — a caixa volta no caminhão, e é o caminhão que a guarda até chegar — e o <em>Destino</em> é o galpão que recebe.</p>
+  <p>A tela mostra o saldo atual da origem antes de você digitar, o que já evita erro grosseiro.</p>
+  <p class="nota">A sua contagem <strong>vale na hora</strong>: o saldo baixa no lançamento, sem esperar conferência. Conte com cuidado — e, se der diferença na chegada, o escritório corrige pela aba Movimentos, deixando o rastro de quem mudou o quê.</p>
 </section>
 
 <section id="promotor" class="perfil">
   <div class="perfil-cab">
     <h2>Promotor</h2>
-    <span class="onde">Devolução · Saldo</span>
+    <span class="onde">Retorno · Lançamentos</span>
   </div>
-  <p>O promotor trabalha dentro do cliente e tem uma função só: contar as caixas prontas para voltar. O app abre direto na tela de <strong>Devolução</strong> — esse perfil nem enxerga a aba de Saída.</p>
+  <p>O promotor trabalha dentro do cliente e tem uma função só: contar as caixas prontas para voltar. O app abre direto na tela de <strong>Retorno</strong> — esse perfil nem enxerga a aba de Saída.</p>
   <ul>
     <li><strong>Data</strong> — o dia da contagem</li>
-    <li><strong>Devolução</strong> — a rota em que as caixas estão voltando</li>
+    <li><strong>Retorno</strong> — a rota em que as caixas estão voltando</li>
     <li><strong>Destino</strong> — o galpão ou a filial que vai receber. Se você só opera um galpão, ou se o seu <em>local padrão</em> for um deles, o campo já vem preenchido</li>
     <li><strong>Motorista</strong> — quem está levando a carga de volta</li>
     <li><strong>Quantas caixas</strong> — o que você contou de fato, por tipo</li>
     <li><strong>Foto das caixas</strong> — opcional, mas é o que sustenta a sua contagem se der diferença</li>
   </ul>
-  <p>Na aba <strong>Saldo</strong> você confere quantas caixas o cliente ainda tem em aberto.</p>
+  <p>Na aba <strong>Lançamentos</strong> você confere tudo o que foi lançado no período — o seu e o dos outros.</p>
 </section>
 
 <section id="galpao" class="perfil">
   <div class="perfil-cab">
     <h2>Galpão</h2>
-    <span class="onde">Saída · Devolução · Conferência · Saldo</span>
+    <span class="onde">Saída · Retorno · Lançamentos</span>
   </div>
-  <p>O conferente é o único perfil de campo que enxerga a aba <strong>Conferência</strong> — e é ali que o saldo se move de verdade.</p>
+  <p>No galpão as duas pontas se encontram: é de lá que a carga sai e é lá que ela volta. O conferente usa as mesmas duas telas de todo mundo — <strong>Saída</strong> e <strong>Retorno</strong> —, e a diferença está em quando ele as usa.</p>
 
   <ol class="passos">
-    <li><div><h4>Abra a lista de pendentes</h4><p>Cada linha traz a data, o tipo de caixa, quem contou e uma etiqueta <span class="chip aguarda">declarado 60</span> com o número que veio do cliente.</p></div></li>
-    <li><div><h4>Conte o que chegou</h4><p>Preencha <strong>Contei na chegada</strong> com o número real do caminhão — não repita o declarado.</p></div></li>
-    <li><div><h4>Confirmar</h4><p>O saldo do cliente baixa pelo número que você contou. Havendo diferença, ela é gravada como divergência, com o seu nome e o horário.</p></div></li>
+    <li><div><h4>Carga saindo</h4><p>Aba <strong>Saída</strong>, do galpão para a rota. A carga sobe no caminhão, e é o caminhão que passa a guardar a caixa até a entrega.</p></div></li>
+    <li><div><h4>Caminhão voltando</h4><p>Aba <strong>Retorno</strong>: origem é a rota (ou a unidade de onde as caixas vêm), destino é o galpão. Conte o que <em>chegou de verdade</em> no caminhão.</p></div></li>
+    <li><div><h4>Pronto</h4><p>O saldo baixa no lançamento. Não há segunda etapa esperando ninguém.</p></div></li>
   </ol>
 
-  <p class="nota">Digitar o declarado só para “fechar” apaga exatamente a informação que o app existe para capturar. Se chegou diferente, registre diferente.</p>
+  <div class="regra">
+    <span class="rot">A aba Conferência não existe mais</span>
+    <p>Ela saiu em setembro/2026, junto com o estado <span class="chip aguarda">AGUARDANDO</span>. Quem procurar por ela no celular não vai achar — o retorno agora vale no ato.</p>
+    <p>Divergência entre o que o cliente declarou e o que chegou é resolvida pelo escritório, em <strong>Movimentos → corrigir</strong>, que guarda o valor antigo, o novo, quem mudou e quando.</p>
+  </div>
+</section>
+
+<section id="lancamentos">
+  <h2>Lançamentos</h2>
+  <p>A terceira aba do app de campo, visível para todo mundo. Ela mostra <strong>o que foi lançado</strong> no período — saídas e retornos, os seus e os dos outros —, uma linha por lançamento.</p>
+  <p>No lugar de um saldo por local, que é a leitura do escritório, aqui está o extrato do dia: <strong>Data</strong>, <strong>Origem</strong>, <strong>Destino</strong>, <strong>Saída</strong>, <strong>Retorno</strong>, <strong>Motorista</strong> e as quantidades por tipo de caixa.</p>
+
+  <h3>Os três cartões</h3>
+  <ul>
+    <li><strong>Saída</strong> — quantas caixas saíram no que está sendo mostrado</li>
+    <li><strong>Retorno</strong> — quantas voltaram</li>
+    <li><strong>Total geral</strong> — a soma das duas pontas</li>
+  </ul>
+  <p>Os três seguem os filtros. Filtrou por um motorista, os cartões passam a falar só dele.</p>
+
+  <h3>Os filtros</h3>
+  <p><strong>Motorista</strong>, <strong>Origem</strong>, <strong>Destino</strong> e <strong>Entrada / Saída</strong> são de <em>múltipla escolha</em>: marque dois motoristas e os dois aparecem. Mais o período, com data de início e fim.</p>
+  <p class="nota">Nada marcado quer dizer <strong>todos</strong>, e não <em>nenhum</em> — senão a tela abriria vazia sem dizer por quê. As opções saem dos lançamentos do período, não do cadastro inteiro: uma lista com trinta locais dos quais dois se moveram obriga a procurar.</p>
+  <p>Ajuste e perda ficam de fora desta lista: não são viagem de caixa. Eles aparecem no painel do escritório.</p>
+</section>
+
+<section id="ativos">
+  <h2>Painel de Ativos</h2>
+  <p>A primeira aba do escritório, chamada <strong>Controle de Caixas</strong> na tela. É o extrato da operação: <strong>uma linha por dia, por caminho</strong> — de onde saiu, para onde foi, quanto saiu, quanto voltou e quanto sobrou.</p>
+
+  <h3>As colunas</h3>
+  <div class="tabela">
+    <table>
+      <thead><tr><th>Coluna</th><th>O que diz</th></tr></thead>
+      <tbody>
+        <tr><td>Data</td><td>O dia do lançamento. A tabela é ordenada por ela, e dentro do mesmo dia o estoque abre e os caminhos vêm depois</td></tr>
+        <tr><td>Origem</td><td>Quem despachou, e embaixo quantos lançamentos a linha junta</td></tr>
+        <tr><td>Estoque</td><td>O que foi lançado como saldo inicial <em>naquele dia</em>. Zero em cinza nos dias sem lançamento</td></tr>
+        <tr><td>Saldo inicial</td><td>O acumulado até ali — tudo que já entrou menos tudo que já saiu</td></tr>
+        <tr><td>Destino</td><td>Quem recebeu. Nas linhas de saldo inicial, a marca verde <em>Estoque Inicial</em></td></tr>
+        <tr><td>Saída</td><td>Quanto saiu, com a quebra por tipo de caixa embaixo</td></tr>
+        <tr><td>Retorno</td><td>Quanto voltou, idem</td></tr>
+        <tr><td>Saldo final</td><td>Verde quando sobra, vermelho quando falta</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="formula">Saldo final = Saldo inicial − Saída + Retorno</div>
+
+  <p>A cadeia fecha linha a linha: o <strong>Saldo final</strong> de uma linha é o <strong>Saldo inicial</strong> da de baixo, mais o que tiver sido lançado de <strong>Estoque</strong> naquele dia. Quando o saldo dá um salto, é a coluna Estoque que explica o salto.</p>
+
+  <div class="regra">
+    <span class="rot">O Saldo inicial não obedece ao filtro</span>
+    <p>E é de propósito. Ele é calculado sobre o <strong>histórico inteiro</strong>, antes de qualquer recorte: filtrando só o dia 17, a linha continua abrindo no saldo real daquele dia, e não no saldo do primeiro dia visível.</p>
+    <p>Já foi calculado sobre a lista filtrada, e aí escondendo o dia 16 a linha do dia 17 abria como se nada tivesse acontecido no meio.</p>
+  </div>
+
+  <h3>Os seis cartões</h3>
+  <p>Ficam acima da tabela e, com uma exceção, <strong>acompanham os filtros</strong>.</p>
+  <div class="tabela">
+    <table>
+      <thead><tr><th>Cartão</th><th>O que conta</th><th>Segue o filtro</th></tr></thead>
+      <tbody>
+        <tr><td>Total de saída</td><td>Caixas que saíram no recorte</td><td class="sim">sim</td></tr>
+        <tr><td>Total de retorno</td><td>Caixas que voltaram; no rodapé, a soma das duas pontas</td><td class="sim">sim</td></tr>
+        <tr><td>Taxa de retorno do mês</td><td>Retorno dividido por saída, contra a meta</td><td class="sim">sim</td></tr>
+        <tr><td>Caixas que saíram e não voltaram</td><td>O déficit, somando só quem deve</td><td class="sim">sim</td></tr>
+        <tr><td>Em circulação</td><td>Tudo que está fora do galpão agora</td><td class="nao">não</td></tr>
+        <tr><td>Origens abaixo da meta</td><td>Quantos caminhos não bateram a meta</td><td class="sim">sim</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="nota">O de <strong>circulação</strong> sai do razão — quanto cada um tem nosso <em>agora</em> —, e não do fluxo do período. Filtrar por uma origem não o estreitaria, só o deixaria parecendo travado; por isso o rodapé dele diz <em>no total, fora do filtro</em>.</p>
+
+  <h3>Os filtros</h3>
+  <ul>
+    <li><strong>Origem</strong> e <strong>Destino</strong> — as opções saem dos locais que <em>estão</em> nas linhas, não do cadastro inteiro</li>
+    <li><strong>Destino → Estoque Inicial</strong> — mostra só os lançamentos de saldo inicial. Só aparece quando há algum no período</li>
+    <li><strong>De</strong> e <strong>Até</strong> — o período; em branco, o mês corrente</li>
+    <li><strong>Só reais / Só de teste</strong> — separa a operação do ensaio</li>
+    <li><strong>✕ Limpar filtros</strong> — devolve tudo ao estado inicial, inclusive o grupo da coluna da esquerda. Fica apagado quando não há nada a limpar</li>
+  </ul>
+  <p>A coluna da esquerda agrupa: <strong>Todas</strong>, <strong>Rotas</strong>, <strong>Unidades</strong>, <strong>Clientes</strong>, <strong>Em déficit</strong>, <strong>Motoristas</strong> e <strong>Usuários</strong>. Os dois últimos trocam a leitura de lugar para pessoa: quanto cada motorista, ou cada usuário, tem em aberto.</p>
+
+  <p class="nota">As colunas <strong>arrastam e redimensionam</strong>: puxe o cabeçalho para trocar de lugar, puxe a borda direita dele para mudar a largura. Fica guardado neste navegador, porque é preferência de quem olha e não regra da operação. O <strong>⬇ Exportar CSV</strong> sai na mesma ordem da tela.</p>
 </section>
 
 <section id="painel">
   <h2>Painel e extratos</h2>
-  <p>O escritório entra em <code>admin.html</code> e encontra cinco abas: <strong>Painel</strong>, <strong>Extratos</strong>, <strong>Lançar</strong>, <strong>Movimentos</strong> e <strong>Cadastros</strong>.</p>
+  <p>O escritório entra em <code>admin.html</code> e encontra seis abas: <strong>Painel de Ativos</strong>, <strong>Painel</strong>, <strong>Extratos</strong>, <strong>Ajustes</strong>, <strong>Movimentos</strong> e <strong>Cadastros</strong>. Quais delas cada pessoa enxerga é decidido no cadastro dela — <em>Ajustes</em> e <em>Cadastros</em> só o administrador vê.</p>
 
   <h3>Painel</h3>
   <p>Abre com <em>Caixas em poder de clientes e filiais</em>, a <em>Idade das caixas na rua</em> e o <em>Estoque nos galpões</em>. As etiquetas fazem a triagem:</p>
@@ -453,6 +542,42 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p>Serve para separar <em>pendência</em> de <em>perda</em>. Caixa de três dias é operação normal; caixa de quarenta dias não volta mais, e é onde a cobrança deve começar.</p>
 </section>
 
+<section id="movimentos">
+  <h2>Movimentos</h2>
+  <p>Tudo o que foi lançado, por qualquer pessoa, numa lista só. É a aba de <strong>auditoria e conserto</strong>: onde se acha o lançamento errado e onde ele se corrige.</p>
+
+  <h3>Os filtros</h3>
+  <div class="tabela">
+    <table>
+      <thead><tr><th>Filtro</th><th>O que recorta</th></tr></thead>
+      <tbody>
+        <tr><td>Origem · Destino</td><td>Cada ponta presa na sua — "o que SAIU de Caruaru" é outra pergunta que "o que passou por Caruaru"</td></tr>
+        <tr><td>Entrada / Saída</td><td>O grupo: <em>o que saiu</em> junta saída e transferência; <em>o que voltou</em> é o retorno. Perda e ajuste não entram em lado nenhum, porque não são viagem de caixa</td></tr>
+        <tr><td>Tipo</td><td>Uma linha do razão: saída, retorno, transferência, perda ou ajuste</td></tr>
+        <tr><td>Caixa</td><td>Um tipo de caixa</td></tr>
+        <tr><td>Status</td><td>Enviada, Transferida, Parcial, Devolvida, Perda ou Ajuste — o ciclo em que a carga está</td></tr>
+        <tr><td>Quem lançou</td><td>A pessoa</td></tr>
+        <tr><td>Lançamentos</td><td>Só reais ou só de teste</td></tr>
+        <tr><td>De · Até</td><td>O período; abre nos últimos 30 dias</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Cada um recarrega a lista sozinho ao mudar. O <strong>⬇ CSV</strong> leva o recorte para a planilha.</p>
+
+  <h3>Corrigir, cancelar, excluir</h3>
+  <ul>
+    <li><strong>corrigir</strong> — muda data, origem, destino, tipo de caixa, quantidade e mais. Guarda o valor antigo, o novo, quem mudou e quando</li>
+    <li><strong>cancelar</strong> — a linha continua no histórico, marcada como cancelada, e deixa de contar no saldo</li>
+    <li><strong>excluir</strong> — apaga de vez. Use só para o que nunca deveria ter existido</li>
+  </ul>
+
+  <div class="regra perigo">
+    <span class="rot">Apagar o que está no filtro</span>
+    <p>Apaga <strong>tudo</strong> o que casa com os filtros de cima, de uma vez. Antes de executar, a tela escreve o recorte por extenso e pede o número de lançamentos que serão apagados — se o número não bater com o que o servidor encontrou, nada acontece.</p>
+    <p>Quem monta o recorte é a mesma função que monta a lista da tela. Não há um segundo formulário para divergir do primeiro.</p>
+  </div>
+</section>
+
 <section id="cadastros">
   <h2>Cadastros</h2>
   <p>Três blocos, cada um com o seu botão de <strong>+ Novo</strong>.</p>
@@ -465,7 +590,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
       <tbody>
         <tr><td>Rota que atende</td><td>Vincula o cliente a uma rota; alimenta o filtro do painel e a lista do celular</td></tr>
         <tr><td>Motorista responsável</td><td>Só para tipo rota: de quem é aquele caminhão</td></tr>
-        <tr><td>Responsável / promotor</td><td>Nome que aparece no extrato e na conferência</td></tr>
+        <tr><td>Responsável / promotor</td><td>Nome que aparece no extrato</td></tr>
         <tr><td>WhatsApp (com DDD)</td><td>Habilita o botão de envio do extrato</td></tr>
         <tr><td>Limite de caixas</td><td>Dispara a etiqueta <span class="chip alerta">acima do limite</span></td></tr>
         <tr><td>Prazo de devolução (dias)</td><td>Define quando a caixa passa a contar como atrasada</td></tr>
@@ -494,20 +619,28 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p class="nota">A validade da CNH aparece em vermelho quando está vencida. O app não bloqueia a saída por isso — só mostra, para o escritório resolver.</p>
 
   <h3>Tipos de caixa</h3>
-  <p>Nome e <strong>peso em quilos</strong>. O peso é opcional, mas vale a pena: é o que separa duas caixas de mesmo nome na hora da conferência, quando aparecem como <em>Caixa Banana · 20 kg</em>. Mantenha a lista curta — ela é escolhida no celular, com pressa.</p>
+  <p>Nome e <strong>peso em quilos</strong>. O peso é opcional, mas vale a pena: é o que separa duas caixas de mesmo nome na hora de lançar, quando aparecem como <em>Caixa Banana · 20 kg</em>. Mantenha a lista curta — ela é escolhida no celular, com pressa.</p>
+  <p class="nota">Não há <strong>valor em dinheiro</strong> em lugar nenhum do app: nem preço de caixa, nem coluna de valor no painel ou no CSV. Foi retirado em setembro/2026. Caixa perdida se conta em caixas.</p>
 
   <p>Cada quadro desta aba <strong>abre e fecha no clique do título</strong>, e começa fechado — seis cadastros abertos ao mesmo tempo deixam o que você procura a três rolagens de distância. O número ao lado do nome diz quantos itens há dentro, então quadro fechado não se confunde com cadastro vazio. O que você abrir continua aberto na próxima visita, neste mesmo navegador.</p>
 
   <h3>Usuários</h3>
-  <p>O campo <strong>Perfil</strong> aceita escrever: se o cargo que você precisa não está na lista, digite. Um perfil novo nasce <strong>sem permissão especial</strong> — não cadastra, não confere, e a devolução dele espera conferência. É de propósito: permissão por digitação seria permissão por engano de digitação. Para dar acesso ao painel, use a chave <em>Pode entrar no painel?</em>.</p>
+  <p>O campo <strong>Perfil</strong> aceita escrever: se o cargo que você precisa não está na lista, digite. Um perfil novo nasce <strong>sem poder nenhum</strong> — não cadastra e não administra. É de propósito: permissão por digitação seria permissão por engano de digitação. O que a pessoa pode fazer vem das chaves logo abaixo, não do que está escrito no cargo.</p>
 
-  <p><strong>Perfis:</strong> Admin faz os cadastros e as correções. Conferente confere a devolução na chegada do galpão. Gestor, Gerente, Motorista e Promotor contam na rua — a contagem deles nasce <span class="et ag">AGUARDANDO</span> e só vira saldo depois da conferência. Quem entra no painel não depende mais do perfil: é a chave <em>Pode entrar no painel?</em>, usuário por usuário.</p>
+  <p><strong>Perfis de fábrica:</strong> Admin, Gestor, Gerente, Conferente, Motorista e Promotor. Só o <strong>Admin</strong> tem poder próprio — cadastros e correções. Os outros valem como cargo escrito no crachá: <em>o que cada um pode fazer vem das chaves do cadastro</em>, uma a uma, e não do nome do perfil.</p>
   <p><strong>Pode entrar no painel?</strong> decide, pessoa por pessoa, quem abre o endereço do escritório. Antes isso vinha do perfil: todo GALPAO entrava. Agora um conferente pode lançar no celular sem ver os números da operação, e um promotor pode ver os números sem virar administrador. Quem fica sem acesso continua usando o app de campo normalmente. <em>Administrador entra sempre</em> — a opção fica travada para ele, senão daria para trancar o último administrador do lado de fora.</p>
 
   <p>Nome, e-mail, perfil, PIN e local padrão. O e-mail (ou o usuário) é o que a pessoa digita para entrar no painel; o PIN é o do celular. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá peso à divergência.</p>
   <h4 style="margin:16px 0 6px;font-size:14px">Onde cada um pode lançar</h4>
   <p>No cadastro do usuário, dois quadros de marcar decidem quais locais aparecem no celular daquela pessoa: <strong>Saída</strong> (de onde as caixas saem) e <strong>Destino</strong> (para onde vão). <strong>Nada marcado quer dizer todos</strong> — marque só para restringir. Quem tiver um único local liberado já encontra o campo preenchido, sem precisar escolher.</p>
-  <p>Na devolução os papéis se invertem, porque é o caminho de volta: quem devolve vem da lista de <em>Destino</em>, e quem recebe vem da de <em>Saída</em>.</p>
+  <p>No retorno os papéis se invertem, porque é o caminho de volta: quem devolve vem da lista de <em>Destino</em>, e quem recebe vem da de <em>Saída</em>.</p>
+
+  <h4 style="margin:16px 0 6px;font-size:14px">O que cada um pode lançar</h4>
+  <p><strong>Operações</strong> decide se a pessoa lança <em>Saída</em>, <em>Retorno</em> ou os dois. A aba que ela não pode usar some do celular — e, mais importante, o servidor <strong>recusa</strong> o lançamento mesmo que o pedido chegue por fora do app.</p>
+
+  <h4 style="margin:16px 0 6px;font-size:14px">O que cada um pode ver no painel</h4>
+  <p><strong>Abas do painel</strong> marca, uma a uma, quais das seis abas do escritório aquela pessoa enxerga. Um gerente pode ver o Painel de Ativos e os Extratos sem ver Movimentos; um conferente pode entrar só para consultar. <em>Ajustes</em> e <em>Cadastros</em> ficam fora da lista: são do administrador.</p>
+  <p class="nota">Nos três quadros — Saída, Destino, Operações e Abas — <strong>nada marcado quer dizer todos</strong>. Marque só para restringir. Se fosse o contrário, o dia em que a coluna entrou no ar teria trancado a operação inteira, porque ninguém tinha nada marcado.</p>
   <div class="regra"><span class="rot">Depois de mudar</span><p>A pessoa precisa <strong>sair e entrar de novo</strong> no app de campo. As permissões viajam no login, então quem está com o app aberto continua vendo a lista antiga.</p></div>
 
   <p>Quem sai da empresa se <strong>desativa</strong>, pelo botão na lista. Existe também <strong>excluir</strong>, mas ele só apaga de verdade quem nunca lançou nada: quem já tem movimento no histórico é desativado, porque o nome de quem contou é o que dá peso à divergência. Inativo some das listas e não consegue mais entrar; reativar devolve o acesso.</p>
@@ -518,8 +651,8 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 </section>
 
 <section id="lancar">
-  <h2>Lançamento manual</h2>
-  <p>A aba <strong>Lançar</strong> existe para o que não passou pelo celular — o histórico anterior ao app, o acerto de erro antigo, a baixa de perda negociada.</p>
+  <h2>Ajustes</h2>
+  <p>A aba <strong>Ajustes</strong> existe para o que não passou pelo celular — o histórico anterior ao app, o acerto de erro antigo, a baixa de perda negociada, o saldo inicial de cada local. Só o administrador a enxerga.</p>
   <div class="tabela">
     <table>
       <thead><tr><th>Tipo</th><th>Quando usar</th></tr></thead>
@@ -528,7 +661,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
         <tr><td><strong>Transferência</strong></td><td>Caixas indo do galpão para a filial, ou o contrário</td></tr>
         <tr><td><strong>Devolução</strong></td><td>Retorno que chegou sem registro do motorista</td></tr>
         <tr><td><strong>Baixa de perda</strong></td><td>Caixa aceita como perdida — sai do saldo do cliente e entra nas perdas do mês</td></tr>
-        <tr><td><strong>Ajuste / saldo inicial</strong></td><td>O ponto de partida de cada cliente no dia em que o app entra no ar</td></tr>
+        <tr><td><strong>Ajuste / saldo inicial</strong></td><td>O ponto de partida de um local. É o que alimenta a coluna <strong>Estoque</strong> do Painel de Ativos, e pode ser lançado a qualquer momento, não só no primeiro dia</td></tr>
       </tbody>
     </table>
   </div>
@@ -564,20 +697,21 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <h2>Tipos e estados</h2>
 
   <h3>Quem vê o quê</h3>
-  <p><strong>chave</strong> = depende do <em>Pode entrar no painel?</em> no cadastro daquela pessoa. Admin entra sempre e não lança movimento — quem corrige não deve ser quem conta.</p>
+  <p>O perfil quase não decide nada. <strong>chave</strong> = vem de um campo do cadastro daquela pessoa, e não do cargo dela.</p>
   <div class="tabela">
     <table>
-      <thead><tr><th>Perfil</th><th>Saída</th><th>Devolução</th><th>Conferência</th><th>Saldo</th><th>Painel e extratos</th><th>Cadastros e correções</th></tr></thead>
+      <thead><tr><th>Perfil</th><th>Saída</th><th>Retorno</th><th>Lançamentos</th><th>Entra no painel</th><th>Abas do painel</th><th>Cadastros e correções</th></tr></thead>
       <tbody>
-        <tr><td><code>Motorista</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
-        <tr><td><code>Promotor</code></td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
-        <tr><td><code>Gestor</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
-        <tr><td><code>Gerente</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
-        <tr><td><code>Conferente</code></td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
-        <tr><td><code>Admin</code></td><td class="nao">&mdash;</td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">sempre</td><td class="sim">sim</td></tr>
+        <tr><td><code>Motorista</code></td><td class="sim">chave</td><td class="sim">chave</td><td class="sim">sim</td><td class="sim">chave</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
+        <tr><td><code>Promotor</code></td><td class="nao">&mdash;</td><td class="sim">sim</td><td class="sim">sim</td><td class="sim">chave</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
+        <tr><td><code>Gestor</code></td><td class="sim">chave</td><td class="sim">chave</td><td class="sim">sim</td><td class="sim">chave</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
+        <tr><td><code>Gerente</code></td><td class="sim">chave</td><td class="sim">chave</td><td class="sim">sim</td><td class="sim">chave</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
+        <tr><td><code>Conferente</code></td><td class="sim">chave</td><td class="sim">chave</td><td class="sim">sim</td><td class="sim">chave</td><td class="sim">chave</td><td class="nao">&mdash;</td></tr>
+        <tr><td><code>Admin</code></td><td class="sim">chave</td><td class="sim">chave</td><td class="sim">sim</td><td class="sim">sempre</td><td class="sim">todas</td><td class="sim">sim</td></tr>
       </tbody>
     </table>
   </div>
+  <p class="nota">O <strong>Promotor</strong> é a única exceção que ainda mora no perfil: ele não vê a aba de Saída, porque trabalha dentro do cliente. O <strong>Admin</strong> entra no painel sempre, mesmo com a chave desligada — senão daria para trancar o último administrador do lado de fora, e a volta seria por SQL.</p>
 
   <h3>Tipos de movimento</h3>
   <div class="tabela">
@@ -585,7 +719,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
       <thead><tr><th>Tipo</th><th>Efeito no saldo</th></tr></thead>
       <tbody>
         <tr><td><code>SAIDA</code></td><td>Tira da origem e põe no destino</td></tr>
-        <tr><td><code>DEVOLUCAO</code></td><td>Tira do cliente e devolve ao galpão — só quando confirmada</td></tr>
+        <tr><td><code>DEVOLUCAO</code></td><td>Tira do cliente e devolve ao galpão, no instante em que é lançada</td></tr>
         <tr><td><code>TRANSFERENCIA</code></td><td>Move entre galpão e filial</td></tr>
         <tr><td><code>PERDA</code></td><td>Baixa do saldo do cliente e entra na conta de perdas do mês</td></tr>
         <tr><td><code>AJUSTE</code></td><td>Corrige para mais ou para menos; é o que usa no saldo inicial</td></tr>
@@ -593,16 +727,25 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     </table>
   </div>
 
-  <h3>Estados</h3>
+  <h3>Status da carga</h3>
+  <p>É a coluna <strong>Status</strong> da aba Movimentos, e o filtro de mesmo nome. Ela não diz se o lançamento valeu — <em>todos valem na hora</em> —, e sim em que ponto do ciclo aquela carga está.</p>
   <div class="tabela">
     <table>
-      <thead><tr><th>Estado</th><th>O que significa</th></tr></thead>
+      <thead><tr><th>Status</th><th>O que significa</th></tr></thead>
       <tbody>
-        <tr><td><span class="chip ok">CONFIRMADO</span></td><td>Já valeu no saldo</td></tr>
-        <tr><td><span class="chip aguarda">AGUARDANDO</span></td><td>Contado no cliente, esperando o galpão conferir. Ainda não mexeu no saldo.</td></tr>
+        <tr><td><span class="chip aguarda">Enviada</span></td><td>Saiu e nada voltou ainda</td></tr>
+        <tr><td><span class="chip aguarda">Transferida</span></td><td>Movida entre unidades</td></tr>
+        <tr><td><span class="chip aguarda">Parcial</span></td><td>Parte da carga voltou</td></tr>
+        <tr><td><span class="chip ok">Devolvida</span></td><td>Voltou por inteiro</td></tr>
+        <tr><td><span class="chip alerta">Perda</span></td><td>Baixa de caixa aceita como perdida</td></tr>
+        <tr><td><span class="chip ok">Ajuste</span></td><td>Saldo inicial ou correção de posição</td></tr>
       </tbody>
     </table>
   </div>
+  <p class="nota">O estado <span class="chip aguarda">AGUARDANDO</span> não existe mais. Lançamentos antigos que ficaram nele passaram a contar no saldo — do contrário ficariam valendo zero para sempre, já que a tela que os confirmava saiu do app.</p>
+
+  <h3>Lançamento de teste</h3>
+  <p>Quem tem a palavra <strong>teste</strong> no perfil produz lançamento de teste. Ele <strong>conta no saldo como qualquer outro</strong> — o que muda é só a leitura: todas as telas têm um seletor <em>Só reais / Só de teste</em>, e nunca os dois misturados. Somar ensaio com operação daria um número que não responde nem a uma pergunta nem a outra.</p>
 </section>
 
 <section id="tecnico">
@@ -619,16 +762,21 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
       <tbody>
         <tr><td><code>locais</code></td><td>Galpões, filiais, clientes e rotas — todo mundo que guarda caixa, com limite, prazo e o código do link</td></tr>
         <tr><td><code>tipos_caixa</code></td><td>Tipos de caixa e o peso de cada um</td></tr>
-        <tr><td><code>usuarios</code></td><td>Nome, perfil, PIN e local padrão</td></tr>
+        <tr><td><code>usuarios</code></td><td>Nome, perfil, senha, PIN, local padrão e as chaves de permissão</td></tr>
+        <tr><td><code>motoristas</code></td><td>Quem dirige, com CNH e as rotas que atende. Não faz login</td></tr>
+        <tr><td><code>locais_padrao</code></td><td>Postos de trabalho. Não guardam caixa</td></tr>
         <tr><td><code>movimentos</code></td><td>O livro-razão. Só acrescenta — nada é apagado</td></tr>
         <tr><td><code>config</code></td><td>Nome da empresa e prazo padrão</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p style="margin-top:18px">As fotos ficam no armazenamento do Supabase, e o link aparece no extrato e na conferência. Lançamentos antigos podem ter assinatura anexada — o campo saiu da tela em setembro/2026, mas o que já foi gravado continua lá.</p>
+  <p style="margin-top:18px">As fotos ficam no armazenamento do Supabase, e o link aparece no extrato. Lançamentos antigos podem ter assinatura anexada — o campo saiu da tela em setembro/2026, mas o que já foi gravado continua lá.</p>
 
-  <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode <code>node teste/teste_api.js</code>, que executa as regras contra um banco falso em memória — sem rede e sem chave — e confere 63 pontos, incluindo o caminho da divergência e o cálculo de idade.</p>
+  <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode as duas suítes principais:</p>
+  <div class="formula">node teste/teste_api.js   → 455 verificações das regras<br>node teste/teste_tela.js  → 214 verificações das telas</div>
+  <p>A primeira executa as regras de produção contra um banco falso em memória — sem rede e sem chave. A segunda lê o HTML e o JavaScript das páginas e confere que cada filtro, coluna e botão está ligado dos dois lados: um campo que aparece na barra mas não viaja no pedido, ou uma coluna com cabeçalho e sem célula, falha ali em vez de falhar na tela de quem usa.</p>
+  <p class="nota">Mexeu em <code>app.js</code> ou <code>styles.css</code>? Rode <code>python scripts/versionar.py</code> antes de commitar. Não há passo de compilação, e sem isso o navegador continua servindo o arquivo antigo do cache — às vezes com HTML novo e JavaScript velho, que é pior do que só estar velho.</p>
 
   <div class="regra">
     <span class="rot">Plano gratuito</span>

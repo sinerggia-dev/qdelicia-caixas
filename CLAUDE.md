@@ -308,15 +308,30 @@ node teste/teste_saldo.js
 node teste/teste_primeiro_acesso.js
 ```
 
-222 verificações. Roda o roteador, as regras e os tradutores **de produção**, trocando só o acesso
-ao Postgres por um banco falso em memória. Sem rede, sem chave, meio segundo. Rode depois de
-qualquer alteração em `api/`.
+O `teste_api.js` tem **455 verificações**. Roda o roteador, as regras e os tradutores **de
+produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
+meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (15 verificações) não roda navegador: lê o `index.html` e confere que a função de
-limpar de cada formulário toca em **todo** campo da seção, menos a data. Existe porque o
-botão Limpar quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela: seletor
-escondido guarda valor velho e só reaparece quando a origem muda de galpão para rota.
-Acrescentou campo no formulário? Ou ele entra no limpar, ou este teste falha dizendo o id.
+O `teste/teste_tela.js` (**214 verificações**) não roda navegador: lê o HTML e o JavaScript das
+páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
+quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
+das simetrias:
+
+- o limpar de cada formulário toca em **todo** campo da seção, menos a data;
+- o cabeçalho e as células do Painel de Ativos saem da **mesma** lista de colunas, e toda coluna
+  de fábrica tem definição, largura e o par título+valor no CSV;
+- todo campo da barra de Movimentos entra no filtro, **viaja no pedido**, recarrega a lista e
+  volta ao padrão no Limpar.
+
+O terceiro item é o que faltava quando `mvFluxo` e `mvCaixa` passaram a existir sem efeito: o
+servidor sabia filtrar, a tela só não pedia. Havia teste entre a barra e o filtro, e entre o
+filtro e o apagar — nenhum entre o filtro e o **pedido**.
+
+**Dois testes estão quebrados** e não são regressão deste trabalho: `teste_motorista.js` e
+`teste_saldo.js` estouram com `meusMotoristas is not defined`. Eles recortam funções do
+`index.html` procurando texto, e o recorte deixou de pegar um auxiliar. A correção é a mesma
+aplicada nos testes novos: fechar o recorte contando chaves e conferir o próprio recorte antes de
+usá-lo, para ele cair alto em vez de passar verde testando outro código.
 
 O `teste/teste_login.js` (17 verificacoes) cuida do aviso de administrador na tela de
 entrada do galpao: as duas primeiras senhas erradas seguem com a mensagem normal, da
@@ -495,6 +510,16 @@ tarefa à parte, e exige regerar PDF e Word.
 Migrado do Google Sheets para Vercel + Supabase em 20/08/2026. Funcionando e verificado de ponta a
 ponta por fora (`ping`, `dados`, `painel`, `login`, extrato por token, e o 401 do banco).
 
-**Pendente:** o PIN do admin ainda é `1234` num site público; ninguém rodou o ciclo completo pela
-interface; não há cadastro real nem saldo inicial lançado. O banco só tem os dados de exemplo do
-`seed.sql`.
+O ciclo já roda pela interface com dados de ensaio: saldo inicial por ajuste, saída do galpão
+para a rota, entrega, retorno, e o Painel de Ativos lendo tudo isso como extrato.
+
+**Pendente:**
+
+- Os **PINs de exemplo** continuam publicados num site público.
+- A **API não tem autorização**. `gravarMovimento` recusa por `podeOperacao`, e a permissão de
+  abas esconde o que a pessoa não deve ver — mas as demais rotas aceitam qualquer chamada. A
+  correção real é Supabase Auth com checagem por rota.
+- Três usuários (**Wellington Silva, Nestor Neto, Melkezedeque Soares**) têm lista de *Saída* com
+  um único local, então só conseguem lançar retorno vindo daquele local. É cadastro, não código —
+  falta o escritório decidir.
+- `teste_motorista.js` e `teste_saldo.js` quebrados (ver a seção de testes).
