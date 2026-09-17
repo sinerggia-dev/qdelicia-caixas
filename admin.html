@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=2736aebc">
+<link rel="stylesheet" href="styles.css?v=61198e4d">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -51,14 +51,25 @@
   <div class="chip" id="chipSair">Sair</div>
 </header>
 
-<nav class="abas" id="abas">
-  <button class="ativa" data-pagina="pgRetornos">Painel de Ativos</button>
-  <button data-pagina="pgPainel">Painel</button>
-  <button data-pagina="pgExtrato">Extratos</button>
-  <button data-pagina="pgLancar">Ajustes</button>
-  <button data-pagina="pgMovimentos">Movimentos</button>
-  <button data-pagina="pgCadastros">Cadastros</button>
-</nav>
+<!-- O gatilho fica FORA do <nav>, e nao dentro. `Q.abas('#abas')` liga o trocador de
+     pagina em TODO botao de dentro: la dentro, o gatilho viraria uma aba sem pagina, e
+     clicar nele apagaria a ativa e deixaria a tela em branco.
+
+     O <nav> em si nao muda — mesmos botoes, mesmos `data-pagina`. So a aparencia dele
+     vira lista, e so no painel: o app de campo usa a MESMA funcao e a mesma classe
+     `.abas`, e continua com a barra horizontal, que la tem tres abas e cabe. -->
+<div class="menu-abas" id="menuAbas">
+  <button class="aba-atual" id="btnAbas" type="button"
+          aria-expanded="false" aria-controls="abas"></button>
+  <nav class="abas" id="abas" hidden>
+    <button class="ativa" data-pagina="pgRetornos">Painel de Ativos</button>
+    <button data-pagina="pgPainel">Painel</button>
+    <button data-pagina="pgExtrato">Extratos</button>
+    <button data-pagina="pgLancar">Ajustes</button>
+    <button data-pagina="pgMovimentos">Movimentos</button>
+    <button data-pagina="pgCadastros">Cadastros</button>
+  </nav>
+</div>
 
 <main>
 
@@ -582,6 +593,9 @@
     });
     var primeira = document.querySelector('#abas button[data-pagina]:not([style*="none"])');
     if (primeira && !document.querySelector('#abas button.ativa')) primeira.click();
+    /* A peneira pode ter tirado a pagina que estava aberta e aberto outra. O rotulo do
+       gatilho tem de acompanhar, senao ele anuncia uma pagina que nao esta mais na tela. */
+    ajustarMenuAbas();
   }
 
   document.getElementById('chipSair').addEventListener('click', Q.sair);
@@ -589,10 +603,46 @@
      alguém apertar Filtrar. Quem entrava para ver os lançamentos concluía que não havia
      nenhum — os filtros já vêm preenchidos com os últimos 30 dias, então não havia o que
      esperar da pessoa. */
+  /* A lista mostra onde se esta, e nao so para onde se pode ir: o gatilho leva o nome
+     da pagina aberta. Sem ele, a unica pista de onde a pessoa esta sumiria junto com a
+     barra de abas — e num painel de seis paginas isso se perde rapido. */
+  function ajustarMenuAbas(){
+    var btn = document.getElementById('btnAbas');
+    var nav = document.getElementById('abas');
+    if (!btn || !nav) return;
+    var ativa = nav.querySelector('button.ativa');
+    btn.setAttribute('aria-expanded', nav.hidden ? 'false' : 'true');
+    btn.textContent = (nav.hidden ? '☰ ' : '✕ ') + (ativa ? ativa.textContent : 'Menu');
+  }
+
+  function abrirMenuAbas(sim){
+    var nav = document.getElementById('abas');
+    if (nav) nav.hidden = !sim;
+    ajustarMenuAbas();
+  }
+
+  document.getElementById('btnAbas').addEventListener('click', function(e){
+    e.stopPropagation();   // senao o clique chega no documento e fecha o que acabou de abrir
+    abrirMenuAbas(document.getElementById('abas').hidden);
+  });
+  /* Duas saidas alem do gatilho, como no painel de filtros: clicar fora e o Esc. */
+  document.addEventListener('click', function(e){
+    var nav = document.getElementById('abas');
+    if (nav && !nav.hidden && !nav.contains(e.target)) abrirMenuAbas(false);
+  });
+  document.addEventListener('keydown', function(e){
+    var nav = document.getElementById('abas');
+    if (e.key === 'Escape' && nav && !nav.hidden) abrirMenuAbas(false);
+  });
+
   window.aoAbrirAba = function(p){
+    /* Escolher uma pagina fecha a lista. Deixa-la aberta taparia justamente a pagina que
+       a pessoa acabou de pedir. */
+    abrirMenuAbas(false);
     if (p==='pgPainel' || p==='pgRetornos') carregarPainel();
     if (p==='pgMovimentos') carregarMovimentos();
   };
+  ajustarMenuAbas();
 
   /* ---------------- selects e itens ---------------- */
   /* Ordena AQUI, no ponto de uso, e nao em quem guarda DADOS. Havia dois caminhos que

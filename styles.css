@@ -67,6 +67,32 @@ nav.abas button{
 }
 nav.abas button.ativa{color:#fff;border-bottom-color:var(--ambar);background:var(--marinho-claro)}
 
+/* ---------- as abas como lista suspensa ----------
+   So dentro de `.menu-abas`, que existe apenas no painel. O app de campo usa a mesma
+   classe `.abas` e segue com a barra horizontal — la sao tres abas, e elas cabem.
+
+   Seis abas numa barra ocupam a largura inteira da tela para dizer onde se esta, e o
+   painel ja e apertado. Na lista, o gatilho diz a pagina aberta em 150px. */
+.menu-abas{position:sticky;top:58px;z-index:45;background:var(--surface);
+  border-bottom:1px solid var(--linha);padding:7px 14px}
+.aba-atual{background:none;border:1px solid var(--linha);color:var(--txt);
+  font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;
+  padding:8px 13px;border-radius:9px;white-space:nowrap}
+.aba-atual:hover{background:var(--surface-2)}
+/* A lista sai do fluxo: empurrando o conteudo para baixo, a pagina saltaria a cada
+   abertura, e o que se quer ler mudaria de lugar debaixo do ponteiro. */
+.menu-abas nav.abas{position:absolute;top:calc(100% - 1px);left:14px;z-index:46;
+  display:flex;flex-direction:column;gap:1px;width:230px;overflow:visible;
+  background:var(--surface);border:1px solid var(--linha);border-radius:12px;
+  padding:6px;box-shadow:0 12px 34px rgba(0,0,0,.45)}
+.menu-abas nav.abas[hidden]{display:none}
+.menu-abas nav.abas button{flex:none;min-width:0;text-align:left;border-bottom:0;
+  border-radius:8px;padding:9px 11px;font-size:13.5px}
+.menu-abas nav.abas button:hover{background:var(--surface-2);color:var(--txt)}
+/* Sem a borda de baixo da barra: numa lista vertical ela viraria um risco solto no meio.
+   O que marca a pagina aberta e o fundo, que ja marcava. */
+.menu-abas nav.abas button.ativa{border-bottom-color:transparent}
+
 /* 1180px prendia a tabela de Movimentos, que precisa de 1300px com nome de local e
    romaneio de verdade — ela rolava na horizontal em QUALQUER monitor, e a ultima
    coluna (corrigir/cancelar) ficava escondida. Medido: 1800 deixa 470px de folga

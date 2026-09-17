@@ -978,6 +978,120 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
  * passa a carregar o NOME do grupo, e so fica mudo em "Todas" — o estado em que nada esta
  * escondido.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * As abas do painel viram lista suspensa — sem mexer no app de campo.
+ *
+ * `Q.abas('#abas')` liga o trocador de pagina em TODO botao dentro de `#abas`, e a mesma
+ * funcao e a mesma classe servem as duas telas. Duas armadilhas saem dai: um gatilho posto
+ * dentro do <nav> viraria uma aba sem pagina, e um CSS solto em `.abas` levaria a barra do
+ * celular junto.
+ * ------------------------------------------------------------------------- */
+console.log('\n== as abas do painel viram lista ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  /* --- o gatilho fica FORA do <nav> --------------------------------------- */
+  var ini = adm.indexOf('<nav class="abas" id="abas"');
+  var fim = adm.indexOf('</nav>', ini);
+  var bt = adm.indexOf('id="btnAbas"');
+  ok(bt > 0 && !(bt > ini && bt < fim),
+    'o gatilho fica fora do <nav>: dentro, viraria uma aba sem página', [bt, ini, fim]);
+
+  /* E o motivo esta no app.js, nao no admin: e la que o ouvinte e ligado em tudo. */
+  ok(/function abas\(seletor\)[\s\S]{0,120}querySelectorAll\(seletor \+ ' button'\)/.test(app),
+    'porque o trocador de página se liga a TODO botão de dentro do seletor');
+
+  /* Os botoes e os data-pagina nao mudaram: quem troca a pagina continua sendo o mesmo. */
+  var nav = adm.slice(ini, fim);
+  ['pgRetornos', 'pgPainel', 'pgExtrato', 'pgLancar', 'pgMovimentos', 'pgCadastros']
+    .forEach(function (p) {
+      ok(nav.indexOf('data-pagina="' + p + '"') > 0, 'a aba ' + p + ' segue no <nav>');
+    });
+  ok((nav.match(/<button/g) || []).length === 6,
+    'e sao seis botoes, nenhum a mais', (nav.match(/<button/g) || []).length);
+
+  /* --- o app de campo nao pode ter mudado --------------------------------- */
+  ok(idx.indexOf('menu-abas') < 0 && idx.indexOf('btnAbas') < 0,
+    'o app de campo não ganhou lista suspensa: lá são três abas e a barra cabe');
+  ok(/nav\.abas\{[^}]*display:flex/.test(css),
+    'e a barra horizontal continua sendo o padrão de `nav.abas`');
+  /* O CSS da lista mora TODO sob `.menu-abas`. Solto em `.abas`, ele empilharia as abas
+     do celular numa coluna e tiraria a barra do topo de quem lanca de luva. */
+  var regras = (css.match(/^[^\n{]*\bnav\.abas\b[^\n{]*\{/gm) || []);
+  var soltas = regras.filter(function (r) { return r.indexOf('.menu-abas') < 0; });
+  /* A lista EXATA, e nao a contagem: contando, uma regra nova solta poderia entrar no
+     lugar de outra removida e o numero continuaria batendo. */
+  ok(soltas.join(' ') ===
+     'nav.abas{ nav.abas::-webkit-scrollbar{ nav.abas button{ nav.abas button.ativa{ ' +
+     '  header,nav.abas,.linha-btn,button{',
+    'as regras soltas de `nav.abas` são só as da barra compartilhada e a de impressão — ' +
+    'qualquer regra nova tem de vir escopada em `.menu-abas`, senão empilha as abas do ' +
+    'celular numa coluna', soltas);
+  ok(/\.menu-abas nav\.abas\{[^}]*position:absolute/.test(css),
+    'a lista sai do fluxo: empurrando o conteúdo, a página saltaria a cada abertura');
+  ok(/\.menu-abas nav\.abas\[hidden\]\{display:none\}/.test(css),
+    'e fechada ela some de fato — `display:flex` venceria o `hidden` sozinho');
+
+  /* --- o rotulo do gatilho ------------------------------------------------ */
+  var a = adm.indexOf('function ajustarMenuAbas()');
+  var k = adm.indexOf('{', a), abertas = 0;
+  do {
+    if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
+    k++;
+  } while (abertas > 0 && k < adm.length);
+  var fonte = adm.slice(a, k);
+  ok(a > 0 && /ativa/.test(fonte), 'o recorte pegou a função do rótulo');
+
+  function bancada(nomeAtiva, fechado) {
+    var btn = { textContent: '', attrs: {},
+                setAttribute: function (x, v) { this.attrs[x] = v; } };
+    var navEl = { hidden: fechado,
+                  querySelector: function () {
+                    return nomeAtiva ? { textContent: nomeAtiva } : null; } };
+    var doc = { getElementById: function (id) {
+      return id === 'btnAbas' ? btn : (id === 'abas' ? navEl : null); } };
+    new Function('document', fonte + '\n ajustarMenuAbas();')(doc);
+    return btn;
+  }
+
+  var fechada = bancada('Movimentos', true);
+  ok(fechada.textContent === '☰ Movimentos' && fechada.attrs['aria-expanded'] === 'false',
+    'fechada, o gatilho diz QUAL página está aberta — sem isso a única pista de onde se ' +
+    'está sumiria junto com a barra', fechada.textContent);
+
+  var aberta = bancada('Movimentos', false);
+  ok(aberta.textContent === '✕ Movimentos' && aberta.attrs['aria-expanded'] === 'true',
+    'aberta, o mesmo botão fecha', aberta.textContent);
+
+  ok(bancada('Cadastros', true).textContent === '☰ Cadastros',
+    'e o nome sai da aba ativa, não de um texto fixo',
+    bancada('Cadastros', true).textContent);
+
+  /* --- as saidas ---------------------------------------------------------- */
+  var og = adm.indexOf("getElementById('btnAbas').addEventListener");
+  var ouvinte = adm.slice(og, adm.indexOf('\n  });', og));
+  ok(og > 0 && /e\.stopPropagation\(\)/.test(ouvinte),
+    'o clique no gatilho não vaza para o documento — vazando, fecharia o que abriu');
+  ok(/if \(nav && !nav\.hidden && !nav\.contains\(e\.target\)\) abrirMenuAbas\(false\)/.test(adm),
+    'clicar fora fecha');
+  ok(/e\.key === 'Escape' && nav && !nav\.hidden/.test(adm), 'e o Esc também');
+
+  /* Escolher uma pagina fecha a lista: aberta, ela taparia justamente a pagina pedida. */
+  var ao = adm.indexOf('window.aoAbrirAba = function(p)');
+  var corpo = adm.slice(ao, adm.indexOf('\n  };', ao));
+  ok(corpo.indexOf('abrirMenuAbas(false)') > 0,
+    'escolher uma página fecha a lista — aberta, taparia a página pedida', corpo);
+
+  /* A peneira de permissao pode trocar a pagina aberta; o rotulo tem de acompanhar. */
+  var ap = adm.indexOf('function ajustarAbasPainel(s)');
+  var corpoP = adm.slice(ap, adm.indexOf('\n  }', adm.indexOf('primeira.click()', ap)));
+  ok(corpoP.indexOf('ajustarMenuAbas()') > 0,
+    'e a peneira de permissão reajusta o rótulo: ela pode abrir outra página');
+})();
+
 console.log('\n== recolher o trilho ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
