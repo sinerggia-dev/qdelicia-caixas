@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=f3bb5205">
+<link rel="stylesheet" href="styles.css?v=c77ed923">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -2824,7 +2824,11 @@
   /* As abas do painel, servidas pela API em `equipe`. Idem: uma lista so, no servidor. */
   var ABAS_PAINEL = [];
 
-  function caixaLocais(id, rotulo, itens, marcados, vazio){
+  /* `trava(l)` devolve o motivo pelo qual aquele item nao pode ser marcado, ou nada.
+     O item continua na lista, com a marca que tiver: some-lo esconderia que ele existe, e
+     desmarca-lo apagaria uma escolha que volta a valer se o perfil mudar. Ele so para de
+     aceitar clique, e diz por que. */
+  function caixaLocais(id, rotulo, itens, marcados, vazio, trava){
     var sel = {};
     (marcados||[]).forEach(function(x){ sel[String(x)] = true; });
     if (!itens.length){
@@ -2835,8 +2839,11 @@
         '<button type="button" class="mini acao" data-marcatudo="'+id+'">marcar todos</button></div>'+
       '<div class="marcalista" id="'+id+'">'+
         itens.map(function(l){
-          return '<label class="marca"><input type="checkbox" value="'+Q.esc(l.ID)+'"'+
-            (sel[String(l.ID)]?' checked':'')+'>'+Q.esc(l.Nome)+
+          var motivo = trava ? trava(l) : '';
+          return '<label class="marca'+(motivo?' travada':'')+'">'+
+            '<input type="checkbox" value="'+Q.esc(l.ID)+'"'+
+            (sel[String(l.ID)]?' checked':'')+(motivo?' data-trava="1"':'')+'>'+Q.esc(l.Nome)+
+            (motivo?' <span class="tag cinza">'+Q.esc(motivo)+'</span>':'')+
             (l.Tipo?' <span class="tag cinza">'+Q.esc(String(l.Tipo).toLowerCase())+'</span>':'')+
             (Q.ativo(l.Ativo)?'':' <span class="tag vermelha">inativo</span>')+'</label>';
         }).join('')+
@@ -2848,7 +2855,10 @@
   function ligarMarcaTudo(){
     document.querySelectorAll('[data-marcatudo]').forEach(function(b){
       b.addEventListener('click', function(){
-        var caixas = document.querySelectorAll('#'+b.dataset.marcatudo+' input[type=checkbox]');
+        /* `:not(:disabled)`: "marcar todos" nao pode reintroduzir justamente a marca que
+           a caixa travada recusa — seria o formulario se contradizendo em dois cliques. */
+        var caixas = document.querySelectorAll(
+          '#'+b.dataset.marcatudo+' input[type=checkbox]:not(:disabled)');
         var faltaAlgum = Array.prototype.some.call(caixas, function(c){ return !c.checked; });
         Array.prototype.forEach.call(caixas, function(c){ c.checked = faltaAlgum; });
         b.textContent = faltaAlgum ? 'desmarcar todos' : 'marcar todos';
@@ -2907,11 +2917,14 @@
       '<h3 style="margin-top:20px">O que ele vê no painel</h3>'+
       /* Antes do "o que pode lancar": decidir se a pessoa ENTRA numa tela vem antes de
          decidir o que ela faz la dentro. */
+      /* Ajustes e Cadastros so existem para o Admin. Ate aqui a caixa deixava marca-las
+         para qualquer um, e a regra as descartava na hora de desenhar a tela — uma
+         permissao que o formulario prometia e o painel nao cumpria. Agora elas travam, e
+         dizem por que. A trava acompanha o campo Perfil, que esta logo acima. */
       caixaLocais('fAbas', 'Abas do painel — o que aparece para ela',
-                  ABAS_PAINEL, u.Abas, 'Nenhuma aba disponível.')+
-      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
-        'Nada marcado = todas. Ajustes e Cadastros só aparecem para o Admin, marcados '+
-        'ou não.</p>'+
+                  ABAS_PAINEL, u.Abas, 'Nenhuma aba disponível.',
+                  function(a){ return a.soAdmin ? 'só admin' : ''; })+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fAbasNota"></p>'+
       '<h3 style="margin-top:20px">O que ele pode lançar</h3>'+
       /* Vem antes das listas de local de proposito: decidir SE a pessoa faz saida vem
          antes de decidir DE ONDE ela faz. A lista sai do servidor, a mesma que a gravacao
@@ -2980,6 +2993,20 @@
       document.getElementById('fPainelNota').textContent = ehAdmin
         ? 'Administrador entra sempre — não dá para tirar.'
         : 'Sem acesso, a pessoa continua usando normalmente o app de campo.';
+
+      /* As abas de admin travam para quem nao e admin. Reavaliado a cada tecla do campo
+         Perfil: escrever "Admin" ali destrava na hora, e apagar trava de volta. */
+      var travadas = 0;
+      document.querySelectorAll('#fAbas input[data-trava]').forEach(function(ch){
+        ch.disabled = !ehAdmin;
+        ch.parentNode.classList.toggle('travada', !ehAdmin);
+        if (!ehAdmin) travadas++;
+      });
+      var notaAbas = document.getElementById('fAbasNota');
+      if (notaAbas) notaAbas.textContent = 'Nada marcado = todas.' + (travadas
+        ? ' Ajustes e Cadastros são do administrador: ficam travados aqui porque marcá-los'
+          + ' não faria efeito nenhum na tela dela.'
+        : '');
 
       /* Um perfil escrito agora nasce sem poder nenhum. Dizer isso na hora evita a
          armadilha de criar "SUPERVISOR" esperando que ele administre alguma coisa. */

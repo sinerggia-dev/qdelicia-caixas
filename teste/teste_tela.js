@@ -1282,6 +1282,109 @@ console.log('\n== as abas do painel viram lista ==');
  * Esconder coluna e esconder informacao — o mesmo risco do painel de filtros e do trilho.
  * O gatilho carrega a contagem das escondidas, e o "Mostrar todas" desfaz de uma vez.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * O cadastro nao oferece a aba que a regra nunca honra.
+ *
+ * "Ajustes" e "Cadastros" sao `soAdmin`, e `abasPermitidas` as descarta para quem nao e
+ * Admin. O formulario deixava marca-las assim mesmo — e a pessoa via a permissao ligada
+ * no cadastro e a aba ausente na tela, sem nada explicando a diferenca. Aconteceu de
+ * verdade com um Gerente que tinha as cinco marcadas e via quatro.
+ * ------------------------------------------------------------------------- */
+console.log('\n== as abas de admin travam no cadastro ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* --- a caixa sabe travar item ------------------------------------------- */
+  var i = adm.indexOf('function caixaLocais(');
+  var fonte = adm.slice(i, adm.indexOf('\n  }', i)) + '\n  }';
+  ok(/function caixaLocais\(id, rotulo, itens, marcados, vazio, trava\)/.test(fonte),
+    'a caixa de marcar aceita uma trava por item');
+
+  /* E a CHAMADA das abas passa uma. A bancada abaixo monta a sua propria trava, entao
+     sozinha ela nao veria o dia em que o argumento sumisse da chamada real — e ai a caixa
+     saberia travar sem nunca travar nada. */
+  var chamada = adm.slice(adm.indexOf("caixaLocais('fAbas'"));
+  chamada = chamada.slice(0, chamada.indexOf(')+'));
+  ok(/a\.soAdmin \? 'só admin' : ''/.test(chamada),
+    'e a chamada das abas passa a trava do `soAdmin` — sem ela, a caixa saberia travar ' +
+    'e nunca travaria nada', chamada);
+
+  var Q = { esc: function (v) { return String(v); }, ativo: function () { return true; } };
+  var caixa = new Function('Q', fonte + ' return caixaLocais;')(Q);
+  var ABAS = [{ ID: 'pgRetornos', Nome: 'Painel de Ativos' },
+              { ID: 'pgLancar', Nome: 'Ajustes', soAdmin: true },
+              { ID: 'pgCadastros', Nome: 'Cadastros', soAdmin: true }];
+  var html = caixa('fAbas', 'Abas', ABAS, ['pgRetornos', 'pgLancar'], 'vazio',
+                   function (a) { return a.soAdmin ? 'só admin' : ''; });
+
+  ok((html.match(/data-trava="1"/g) || []).length === 2,
+    'as duas de admin saem marcadas para travar, e só elas',
+    (html.match(/data-trava="1"/g) || []).length);
+  ok((html.match(/só admin/g) || []).length === 2,
+    'e cada uma diz por que — a etiqueta fica ao lado do nome');
+
+  /* A marca guardada CONTINUA la. Desmarcar apagaria uma escolha que volta a valer se o
+     perfil mudar; sumir com a linha esconderia que a opcao existe, e e justamente ela que
+     a pessoa procura quando estranha o que o painel do outro mostra. */
+  var lancar = html.slice(html.indexOf('value="pgLancar"'));
+  lancar = lancar.slice(0, lancar.indexOf('</label>'));
+  ok(lancar.indexOf('checked') >= 0,
+    'a marca já gravada continua visível: some-la apagaria uma escolha que volta a valer ' +
+    'se o perfil mudar', lancar);
+  var retornos = html.slice(html.indexOf('value="pgRetornos"'));
+  retornos = retornos.slice(0, retornos.indexOf('</label>'));
+  ok(retornos.indexOf('data-trava') < 0,
+    'e a aba comum não trava', retornos);
+
+  /* --- a trava acompanha o campo Perfil ----------------------------------- */
+  var a = adm.indexOf('function ajustarPainel()');
+  var k = adm.indexOf('{', a), abertas = 0;
+  do {
+    if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
+    k++;
+  } while (abertas > 0 && k < adm.length);
+  var corpoAjuste = adm.slice(a, k);
+  ok(/#fAbas input\[data-trava\]/.test(corpoAjuste) && /ch\.disabled = !ehAdmin/.test(corpoAjuste),
+    'a trava é reavaliada junto com o Perfil: escrever "Admin" destrava na hora, e apagar ' +
+    'trava de volta', corpoAjuste.slice(-400));
+  ok(/addEventListener\('input', ajustarPainel\)/.test(adm),
+    "e é `input`, não `change`: em campo de texto o `change` só dispara ao sair");
+
+  /* Rodando: o mesmo corpo, com um DOM de mentira, nos dois perfis. */
+  function bancada(perfil) {
+    var chs = [{ disabled: false, parentNode: { classList: { toggle: function () {} } } },
+               { disabled: false, parentNode: { classList: { toggle: function () {} } } }];
+    var nota = { textContent: '' };
+    var els = { fPainel: { disabled: false, value: '' }, fPainelNota: { textContent: '' },
+                fPerfilNota: { textContent: '' }, fAbasNota: nota };
+    var doc = {
+      getElementById: function (id) { return els[id] || null; },
+      querySelectorAll: function (sel) { return sel.indexOf('data-trava') > 0 ? chs : []; }
+    };
+    new Function('document', 'perfilDigitado', 'PERFIS', 'COM_PODER',
+      corpoAjuste + '\n ajustarPainel();')(
+      doc, function () { return perfil; }, ['Gerente'], { ADMIN: 'x' });
+    return { travadas: chs.filter(function (c) { return c.disabled; }).length, nota: nota.textContent };
+  }
+
+  var ger = bancada('Gerente');
+  ok(ger.travadas === 2 && /travados/.test(ger.nota),
+    'para um Gerente as duas travam, e a nota explica', ger);
+  var adm2 = bancada('Admin');
+  ok(adm2.travadas === 0 && !/travados/.test(adm2.nota),
+    'e para um Admin nenhuma trava — a nota some junto', adm2);
+
+  /* --- "marcar todos" nao pode desfazer a trava --------------------------- */
+  ok(/input\[type=checkbox\]:not\(:disabled\)/.test(adm),
+    '"marcar todos" pula as travadas: reintroduzir a marca que a caixa recusa seria o ' +
+    'formulário se contradizendo em dois cliques');
+
+  ok(/\.marca\.travada\{opacity/.test(css),
+    'e a linha travada fica apagada — apagada, e não sumida: sumir esconderia que a ' +
+    'opção existe');
+})();
+
 console.log('\n== escolher as colunas ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -1957,10 +2060,16 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
   var corpoF = adm.slice(dF, adm.indexOf("\n  /* Três frases diferentes", dF));
   ok(corpoF.indexOf('ajustarBarraFiltros()') > 0,
     'o desenho do fluxo a chama — e e por ele que TUDO que mexe em filtro passa');
-  ok(adm.split('.disabled = !').length - 1 === 1 &&
-     /if \(limpar\) limpar\.disabled = !n;/.test(adm),
+  /* Um lugar so liga e desliga o LIMPAR. A busca e dentro da funcao de estado da barra,
+     e nao no arquivo inteiro: `disabled` aparece noutros pontos do painel — nas abas de
+     admin travadas no cadastro, por exemplo — e contar tudo tornaria o teste refem de
+     codigo que nao tem nada a ver com esta regra. */
+  var ab = adm.indexOf('function ajustarBarraFiltros()');
+  var corpoBarra = adm.slice(ab, adm.indexOf('\n  }', ab));
+  ok((corpoBarra.match(/\.disabled = /g) || []).length === 1 &&
+     /if \(limpar\) limpar\.disabled = !n;/.test(corpoBarra),
     'e so um lugar liga e desliga o Limpar — espalhar isso deixa o botao aceso depois ' +
-    'de limpo');
+    'de limpo', corpoBarra);
 
   var html = adm.slice(adm.indexOf('id="btnLimparRetornos"') - 200,
                        adm.indexOf('id="btnLimparRetornos"') + 200);

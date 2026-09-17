@@ -670,7 +670,13 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p><strong>Operações</strong> decide se a pessoa lança <em>Saída</em>, <em>Retorno</em> ou os dois. A aba que ela não pode usar some do celular — e, mais importante, o servidor <strong>recusa</strong> o lançamento mesmo que o pedido chegue por fora do app.</p>
 
   <h4 style="margin:16px 0 6px;font-size:14px">O que cada um pode ver no painel</h4>
-  <p><strong>Abas do painel</strong> marca, uma a uma, quais das seis abas do escritório aquela pessoa enxerga. Um gerente pode ver o Painel de Ativos e os Extratos sem ver Movimentos; um conferente pode entrar só para consultar. <em>Ajustes</em> e <em>Cadastros</em> ficam fora da lista: são do administrador.</p>
+  <p><strong>Abas do painel</strong> marca, uma a uma, quais das seis abas do escritório aquela pessoa enxerga. Um gerente pode ver o Painel de Ativos e os Extratos sem ver Movimentos; um conferente pode entrar só para consultar.</p>
+  <p><em>Ajustes</em> e <em>Cadastros</em> são do administrador. Elas aparecem na lista, mas <strong>travadas</strong>, com a etiqueta <em>só admin</em> ao lado — marcá-las para outro perfil não faria efeito nenhum na tela dela. Escrever <code>Admin</code> no campo Perfil destrava as duas na hora.</p>
+  <div class="regra">
+    <span class="rot">Se uma aba não aparece para a pessoa</span>
+    <p>Confira nesta ordem: a chave <em>Pode entrar no painel?</em> está ligada; a aba está marcada aqui; e ela não é <em>Ajustes</em> nem <em>Cadastros</em>, que só o Admin vê.</p>
+    <p>Depois disso, <strong>a pessoa precisa sair e entrar de novo</strong>. As permissões viajam no login, e quem está com a sessão aberta continua com a lista antiga.</p>
+  </div>
   <p class="nota">Nos três quadros — Saída, Destino, Operações e Abas — <strong>nada marcado quer dizer todos</strong>. Marque só para restringir. Se fosse o contrário, o dia em que a coluna entrou no ar teria trancado a operação inteira, porque ninguém tinha nada marcado.</p>
   <div class="regra"><span class="rot">Depois de mudar</span><p>A pessoa precisa <strong>sair e entrar de novo</strong> no app de campo. As permissões viajam no login, então quem está com o app aberto continua vendo a lista antiga.</p></div>
 
