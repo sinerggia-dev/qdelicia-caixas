@@ -199,6 +199,11 @@ Três coisas que já custaram caro e não devem voltar:
   diverge no primeiro renome — e a aba passaria a oferecer um nome que a tabela não usa;
 - **esconder não tira a linha da lista da aba**, só a apaga. Sumindo, não haveria como trazer a
   coluna de volta, e é justamente ela que se procura;
+- **esconder é um botão que diz "✕ esconder"**, não uma caixa de marcar. A primeira versão usava
+  caixa, e o usuário abriu a aba e não achou a função: marcada, a caixa não diz o que acontece ao
+  desmarcar, e a palavra que a pessoa procura não aparecia em canto nenhum da tela. Nenhum teste
+  quebrou, porque todos olhavam para o `data-colver` e nenhum para o que se **lê**. Agora há
+  afirmações sobre o texto visível, e a página nomeia as três ações por extenso;
 - **mover mexe na ordem completa**, não só no que está visível. Mexer no visível embaralha a
   ordem das escondidas sem ninguém ver, e elas voltam noutro lugar ao reaparecer.
 
@@ -360,7 +365,7 @@ O `teste_api.js` tem **455 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**443 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**481 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

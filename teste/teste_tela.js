@@ -1687,6 +1687,9 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
     ok(adm.indexOf(x) < 0, 'não sobrou nada do painel antigo: ' + x);
   });
   ok(css.indexOf('#colunasLista') < 0, 'nem o estilo dele');
+  ok(css.indexOf('.chk-col') < 0,
+    'nem o da caixa de marcar que esconder deixou de usar — estilo órfão é a pista falsa ' +
+    'que faz o próximo leitor procurar um elemento que não existe');
 
   var g = adm.indexOf('<div class="ret-pop" id="filtrosRet"');
   var pop = (function () {
@@ -1789,6 +1792,37 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
   ok(/col-linha apagada/.test(h2) && (h2.match(/col-linha apagada/g) || []).length === 1,
     'e fica apagada, só ela', (h2.match(/col-linha apagada/g) || []).length);
   ok(/1 escondida/.test(h2), 'e a ficha do módulo diz quantas estão fora', h2.slice(0, 300));
+
+  /* --- ESCONDER precisa estar escrito ------------------------------------- */
+  /* Esta era uma caixa de marcar sem rotulo. Marcada, ela nao diz o que acontece ao
+     desmarcar, e a palavra que a pessoa procura nao aparecia em canto nenhum da tela: o
+     usuario abriu a aba e nao achou como esconder coluna. Nada disso quebrava um teste,
+     porque todos olhavam para o `data-colver` e nenhum para o que se LE.
+
+     Entao a afirmacao agora e sobre o texto visivel. */
+  var visivel = h.replace(/<[^>]+>/g, ' ');
+  ok(/esconder/i.test(visivel),
+    'a ação de esconder está ESCRITA na linha, e não só implícita numa caixa de marcar',
+    visivel.slice(0, 300));
+  ok(!/type="checkbox"/.test(h),
+    'e não é mais uma caixa de marcar: marcada, ela não diz o que o clique vai fazer');
+  ok(/data-acao="esconder"/.test(h),
+    'o botão carrega a ação que vai executar');
+
+  /* Escondida, a linha oferece o caminho de VOLTA, com outro nome. Oferecer "esconder"
+     numa coluna ja escondida nao diria nada a ninguem. */
+  var visivel2 = h2.replace(/<[^>]+>/g, ' ');
+  ok(/mostrar/i.test(visivel2) && /data-acao="mostrar"/.test(h2),
+    'e a coluna escondida oferece "mostrar" — o caminho de volta, com o nome dele',
+    visivel2.slice(0, 300));
+  ok((h2.match(/data-acao="mostrar"/g) || []).length === 1,
+    'só ela, e não a lista inteira', (h2.match(/data-acao="mostrar"/g) || []).length);
+
+  /* E a tela diz as tres acoes por extenso. As setas e o numero se explicam pela forma
+     para quem passa o ponteiro — num celular nao ha ponteiro que passe. */
+  ok(/largura em pixels/.test(visivel) && /mudam a ordem/.test(visivel),
+    'a tela diz o que cada controle faz, em palavras — no celular não há ponteiro que ' +
+    'passe por cima para descobrir', visivel.slice(0, 400));
   ok(!/escondida/.test(h), 'sem nenhuma escondida, a ficha fica muda');
 
   /* Os modulos que ainda nao entram sao ditos na tela, em vez de simplesmente faltarem. */

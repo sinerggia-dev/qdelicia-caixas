@@ -486,9 +486,11 @@ tr.ruim{background:var(--vermelho-claro)}
 /* Coluna escondida fica APAGADA, e nao some da lista: some, nao haveria como traze-la
    de volta — e e justamente ela que se procura. */
 .col-linha.apagada{opacity:.5}
-.col-linha .chk-col{flex:1;margin:0}
+.col-nome{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .col-acoes{display:flex;align-items:center;gap:5px;flex:none}
-.col-acoes .mini{min-width:28px;text-align:center}
+/* `flex:none` e `nowrap`: dentro de um flex os botoes encolhem, e o de esconder — o
+   unico com texto — quebrava em duas linhas e esticava a altura da lista inteira. */
+.col-acoes .mini{min-width:28px;text-align:center;flex:none;white-space:nowrap}
 .col-larg{width:72px;margin:0;padding:5px 7px;font-size:13px;text-align:right}
 /* A pilha de dois selos da coluna Senha. Era estilo escrito no proprio elemento, e com
    a coluna virando dado o HTML dela passou a ser montado num lugar so. */
@@ -497,6 +499,7 @@ tr.ruim{background:var(--vermelho-claro)}
    coluna: e explicacao, e por isso nao pesa como o nome. */
 .sub-col{font-weight:400;opacity:.7;text-transform:none;letter-spacing:0}
 .nota-colunas{font-size:12.5px;color:var(--txt2);margin:14px 0 0;max-width:70ch}
+.nota-topo{margin:0 0 14px}
 
 /* O titulo de secao, usado pela aba Colunas. O risco que separava filtros de colunas
    dentro do mesmo painel saiu junto com elas. */
@@ -509,12 +512,6 @@ tr.ruim{background:var(--vermelho-claro)}
 .marca.travada{opacity:.5}
 .marca.travada input{cursor:not-allowed}
 
-/* As caixas de marcar das colunas. Classe propria, e nao `.fchk`: aquela e do bloco de
-   filtros do app de campo, com borda e recuo de cartao — aqui sao itens de uma lista. */
-.chk-col{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;
-  font-size:13px;color:var(--txt2);cursor:pointer;margin:0}
-.chk-col:hover{background:var(--surface-2);color:var(--txt)}
-.chk-col input{width:auto;margin:0;flex:none;accent-color:var(--ambar)}
 .ret-pop .ret-acao{color:var(--marca-txt);justify-content:center;font-size:12.5px}
 .ret-pop .ret-acao:hover:not(:disabled){background:var(--surface-2)}
 

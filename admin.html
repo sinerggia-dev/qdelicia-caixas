@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=4562058b">
+<link rel="stylesheet" href="styles.css?v=f91d63b6">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -1178,7 +1178,14 @@
   function desenharColunas(){
     var box = document.getElementById('listaColunas');
     if (!box) return;
-    box.innerHTML = tabelasGerenciaveis().map(function(g){
+    /* Uma linha dizendo as tres acoes, antes das fichas. Sem ela, as setas e o numero
+       se explicam pela forma, mas so quem passa o ponteiro descobre o que fazem — e num
+       celular nao ha ponteiro que passe. */
+    box.innerHTML = '<p class="nota-colunas nota-topo">Em cada coluna: '+
+      '<b>↑ ↓</b> mudam a ordem, o número é a <b>largura em pixels</b>, e '+
+      '<b>✕ esconder</b> tira a coluna da tabela. Escondida, ela continua nesta lista '+
+      'para poder voltar.</p>'+
+      tabelasGerenciaveis().map(function(g){
       var t = g.t;
       var ordem = ordemColunas(t);
       var ocultas = colunasOcultas(t);
@@ -1198,9 +1205,11 @@
                tela ofereceria "Saldo inicial" para uma coluna que a tabela ja chama de
                outra coisa. */
             var nome = (t.titulos || {})[id] || id;
+            /* Esconder e um BOTAO com o nome da acao, e nao uma caixa de marcar.
+               Marcada, a caixa nao diz o que acontece ao desmarcar — e a palavra que a
+               pessoa procura ("esconder") nao aparecia em canto nenhum da tela. */
             return '<div class="col-linha'+(visivel?'':' apagada')+'">'+
-              '<label class="chk-col"><input type="checkbox" data-colver="'+id+'"'+
-                (visivel?' checked':'')+'> '+Q.esc(nome)+'</label>'+
+              '<span class="col-nome">'+Q.esc(nome)+'</span>'+
               '<div class="col-acoes">'+
                 '<button type="button" class="mini" data-colsobe="'+id+'"'+
                   (i===0?' disabled':'')+' title="mover para cima">↑</button>'+
@@ -1209,6 +1218,12 @@
                 '<input type="number" class="col-larg" data-collarg="'+id+'"'+
                   ' value="'+(larg[id]||120)+'" min="'+LARG_MIN+'" step="10"'+
                   ' title="largura em pixels"><span class="fraco">px</span>'+
+                '<button type="button" class="mini'+(visivel?'':' acao')+'"'+
+                  ' data-colver="'+id+'" data-acao="'+(visivel?'esconder':'mostrar')+'"'+
+                  ' title="'+(visivel
+                    ? 'tirar esta coluna da tabela'
+                    : 'trazer esta coluna de volta')+'">'+
+                  (visivel?'✕ esconder':'↩ mostrar')+'</button>'+
               '</div></div>';
           }).join('')+
         '</div></div>';
@@ -1226,10 +1241,13 @@
       if (!g) return;
       var t = g.t;
 
-      ficha.querySelectorAll('input[data-colver]').forEach(function(ch){
-        ch.addEventListener('change', function(){
-          var l = colunasOcultas(t).filter(function(id){ return id !== ch.dataset.colver; });
-          if (!ch.checked) l.push(ch.dataset.colver);
+      ficha.querySelectorAll('button[data-colver]').forEach(function(b){
+        b.addEventListener('click', function(){
+          var id = b.dataset.colver;
+          var l = colunasOcultas(t).filter(function(x){ return x !== id; });
+          /* O proprio botao diz o que vai fazer, e e dele que a acao sai. Ler o estado da
+             lista de novo aqui seria uma segunda fonte para a mesma pergunta. */
+          if (b.dataset.acao === 'esconder') l.push(id);
           guardarOcultas(t, l);
           t.redesenha(); desenharColunas();
         });

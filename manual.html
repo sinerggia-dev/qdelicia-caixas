@@ -618,10 +618,11 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <h3>Uma ficha por módulo</h3>
   <p>Cada módulo com tabela ajustável tem a sua ficha, e dentro dela uma linha por coluna. Em cada linha, as três coisas que se pode fazer:</p>
   <ul>
-    <li><strong>A caixa de marcar</strong> — desmarque para esconder a coluna</li>
     <li><strong>↑ e ↓</strong> — movem a coluna de lugar. A primeira não sobe, a última não desce, e os botões ficam apagados quando não há para onde ir</li>
     <li><strong>O número em px</strong> — a largura da coluna. Vale a partir de 70px</li>
+    <li><strong>✕ esconder</strong> — tira a coluna da tabela. Escondida, a linha fica apagada e o botão vira <strong>↩ mostrar</strong></li>
   </ul>
+  <p class="nota">As três estão escritas por extenso no alto da página. A primeira versão usava uma caixa de marcar para esconder, e ninguém achava: marcada, ela não diz o que acontece ao desmarcar, e a palavra <em>esconder</em> não aparecia em lugar nenhum da tela.</p>
   <p>Hoje são três: <strong>Painel de Ativos</strong>, <strong>Movimentos</strong> e <strong>Cadastros · Usuários</strong>. O Painel, os Extratos e as demais listas de Cadastros ainda não aparecem, e a própria tela diz isso no rodapé — módulo que falta sem explicação parece coisa quebrada.</p>
   <p class="nota">A de <strong>Usuários</strong> é a mais larga do app: nove colunas de dado. Quem não usa e-mail nem telefone esconde as duas e ganha a tela de volta — e é aí que esta aba paga por si.</p>
 
@@ -850,7 +851,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p style="margin-top:18px">As fotos ficam no armazenamento do Supabase, e o link aparece no extrato. Lançamentos antigos podem ter assinatura anexada — o campo saiu da tela em setembro/2026, mas o que já foi gravado continua lá.</p>
 
   <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode as duas suítes principais:</p>
-  <div class="formula">node teste/teste_api.js   → 455 verificações das regras<br>node teste/teste_tela.js  → 443 verificações das telas</div>
+  <div class="formula">node teste/teste_api.js   → 455 verificações das regras<br>node teste/teste_tela.js  → 481 verificações das telas</div>
   <p>A primeira executa as regras de produção contra um banco falso em memória — sem rede e sem chave. A segunda lê o HTML e o JavaScript das páginas e confere que cada filtro, coluna e botão está ligado dos dois lados: um campo que aparece na barra mas não viaja no pedido, ou uma coluna com cabeçalho e sem célula, falha ali em vez de falhar na tela de quem usa.</p>
   <p class="nota">Mexeu em <code>app.js</code> ou <code>styles.css</code>? Rode <code>python scripts/versionar.py</code> antes de commitar. Não há passo de compilação, e sem isso o navegador continua servindo o arquivo antigo do cache — às vezes com HTML novo e JavaScript velho, que é pior do que só estar velho.</p>
 
