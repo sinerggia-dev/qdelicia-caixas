@@ -470,6 +470,11 @@ tr.ruim{background:var(--vermelho-claro)}
 .ret-pop>*,.ret-pop .pop-duplo>*{min-width:0}
 /* As duas datas dividem a fileira. */
 .ret-pop .pop-duplo{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+/* O risco e o titulo que separam os filtros das colunas dentro do mesmo painel. */
+.ret-pop .pop-risco{height:1px;background:var(--linha);margin:12px 0 10px}
+.ret-pop .pop-titulo{font-size:11.5px;font-weight:700;color:var(--txt3);
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+
 /* Item de lista que nao aceita clique — e o motivo esta escrito ao lado dele. Apagado,
    e nao sumido: sumir esconderia que a opcao existe, e e justamente ela que a pessoa
    procura quando estranha o que o painel do outro mostra. */

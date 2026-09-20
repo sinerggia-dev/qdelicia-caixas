@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=25d986ec">
+<link rel="stylesheet" href="styles.css?v=db773206">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -153,18 +153,21 @@
                 <option value="reais">Só reais</option>
                 <option value="teste">Só de teste</option>
               </select>
+              <!-- As colunas moram AQUI, no mesmo painel. Eram um segundo gatilho no
+                   trilho, ao lado deste, e os dois abriam a mesma caixa no mesmo canto —
+                   dois botoes para uma pergunta so, que e "o que eu quero ver".
+
+                   A lista e montada pelo desenho do fluxo, e nao escrita no HTML: os
+                   titulos das colunas vem de `DEFS`, e quais existem muda com a visao
+                   escolhida na coluna da esquerda. -->
+              <div class="pop-risco"></div>
+              <div class="pop-titulo">Colunas da tabela</div>
+              <div id="colunasLista"></div>
             </div>
           </div>
           <!-- Nasce desligado e so acende quando ha o que limpar: assim ele tambem
                responde "tem algum filtro ligado?", que e a pergunta de quem estranha a
                tabela curta e nao lembra do que escolheu tres cliques atras. -->
-          <!-- Mesmo desenho do painel de filtros, e no mesmo lugar: as duas perguntas sao
-               vizinhas — "que linhas eu quero ver" e "que colunas eu quero ver". -->
-          <div class="ret-menu">
-            <button class="ret-acao" id="btnColunas" type="button"
-                    aria-expanded="false" aria-controls="colunasRet"></button>
-            <div class="ret-pop" id="colunasRet" hidden></div>
-          </div>
           <button class="ret-acao" id="btnLimparRetornos" type="button" disabled
                   title="Volta origem, destino, período e a lista da esquerda ao estado inicial">✕ Limpar filtros</button>
           <div class="ret-risco"></div>
@@ -917,12 +920,24 @@
     if (!pop || !btn) return;
     pop.hidden = !FILTROS_ABERTO;
     btn.setAttribute('aria-expanded', FILTROS_ABERTO ? 'true' : 'false');
-    btn.className = 'ret-acao' + (!FILTROS_ABERTO && n ? ' alerta' : '');
+
+    /* A CONTAGEM e so de filtros, porque o botao se chama Filtros: somar as colunas
+       escondidas faria o numero querer dizer duas coisas, e ninguem saberia qual.
+
+       A COR responde pelos dois, porque a pergunta que ela faz e uma so — "tem coisa
+       escondida aqui dentro?" — e a resposta e sim nos dois casos. O titulo separa. */
+    var cols = colunasOcultas().length;
+    var esconde = !FILTROS_ABERTO && (n || cols);
+    btn.className = 'ret-acao' + (esconde ? ' alerta' : '');
     btn.textContent = (FILTROS_ABERTO ? '▾ ' : '▸ ') + 'Filtros' + (n ? ' (' + n + ')' : '');
-    btn.title = !FILTROS_ABERTO && n
-      ? n + (n === 1 ? ' filtro está ligado' : ' filtros estão ligados') +
-        ': a tabela ao lado está recortada'
-      : (FILTROS_ABERTO ? 'Fechar os filtros' : 'Abrir os filtros');
+
+    var diz = [];
+    if (n) diz.push(n + (n === 1 ? ' filtro está ligado' : ' filtros estão ligados'));
+    if (cols) diz.push(cols + (cols === 1 ? ' coluna está escondida'
+                                          : ' colunas estão escondidas'));
+    btn.title = esconde
+      ? diz.join(' e ') + ': a tabela ao lado está recortada'
+      : (FILTROS_ABERTO ? 'Fechar' : 'Filtros e colunas da tabela');
   }
 
   /* Recolher o trilho E preferencia de quem olha, como a ordem das colunas: uma tela
@@ -1131,22 +1146,6 @@
     try { localStorage.setItem(COLS_OCULTAS_CHAVE, JSON.stringify(lista)); } catch (e) {}
   }
 
-  /* Esconder coluna e esconder informacao, e o gatilho diz quantas — a mesma regra do
-     painel de filtros e do trilho. Sem a contagem, a tabela apareceria sem a coluna de
-     Retorno e quem chegasse depois procuraria o numero num lugar que nao existe mais. */
-  function ajustarBotaoColunas(){
-    var btn = document.getElementById('btnColunas');
-    var pop = document.getElementById('colunasRet');
-    if (!btn || !pop) return;
-    var n = colunasOcultas().length;
-    btn.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
-    btn.className = 'ret-acao' + (pop.hidden && n ? ' alerta' : '');
-    btn.textContent = (pop.hidden ? '▸ ' : '▾ ') + 'Colunas' + (n ? ' (' + n + ')' : '');
-    btn.title = pop.hidden && n
-      ? n + (n === 1 ? ' coluna está escondida' : ' colunas estão escondidas')
-      : (pop.hidden ? 'Escolher as colunas da tabela' : 'Fechar');
-  }
-
   function guardarLargura(id, px){
     var salvo = {};
     try { salvo = JSON.parse(localStorage.getItem(LARG_CHAVE) || '{}') || {}; }
@@ -1173,7 +1172,7 @@
      lista aqui e a tabela se leem na mesma ordem, senao procurar a coluna vira um
      exercicio de traducao. */
   function montarPainelColunas(cabem){
-    var pop = document.getElementById('colunasRet');
+    var pop = document.getElementById('colunasLista');
     if (!pop) return;
     var ocultas = colunasOcultas();
     pop.innerHTML = cabem.map(function(c){
@@ -1201,24 +1200,18 @@
         var lista = colunasOcultas().filter(function(id){ return id !== ch.dataset.col; });
         if (!ch.checked) lista.push(ch.dataset.col);
         guardarOcultas(lista);
-        desenharFluxo();
-        /* Redesenhar recria o painel, e com ele este ouvinte. O painel fica ABERTO de
+        /* Redesenhar recria esta lista, e com ela este ouvinte. O painel fica ABERTO de
            proposito: quem esconde uma coluna costuma esconder duas, e fechar a cada
-           clique obrigaria a reabrir. */
-        var p = document.getElementById('colunasRet');
-        if (p) p.hidden = false;
-        ajustarBotaoColunas();
+           clique obrigaria a reabrir. Como ele agora e o painel de filtros, quem o mantem
+           aberto e o `FILTROS_ABERTO`, que o desenho nao mexe. */
+        desenharFluxo();
       });
     });
     var todas = document.getElementById('btnTodasColunas');
     if (todas) todas.addEventListener('click', function(){
       guardarOcultas([]);
       desenharFluxo();
-      var p = document.getElementById('colunasRet');
-      if (p) p.hidden = false;
-      ajustarBotaoColunas();
     });
-    ajustarBotaoColunas();
   }
 
   function ligarClassificacao(){
@@ -1585,32 +1578,16 @@
     e.stopPropagation();   // senao o clique chega no documento e fecha o que acabou de abrir
     abrirFiltros(!FILTROS_ABERTO);
   });
-  document.getElementById('btnColunas').addEventListener('click', function(e){
-    e.stopPropagation();
-    var pop = document.getElementById('colunasRet');
-    /* Um painel de cada vez: abertos os dois, o de baixo cobriria o de cima — eles nascem
-       no mesmo canto do trilho. */
-    if (pop.hidden) abrirFiltros(false);
-    pop.hidden = !pop.hidden;
-    if (!pop.hidden) posicionarPop(pop);
-    ajustarBotaoColunas();
-  });
   /* Duas saidas alem do proprio botao: clicar fora e a tecla Esc. Um painel que so fecha
      no mesmo botao que o abriu obriga a mirar de volta num alvo pequeno, e quem clica na
      tabela atras espera que ele saia da frente. */
   document.addEventListener('click', function(e){
-    if (FILTROS_ABERTO) {
-      var pf = document.getElementById('filtrosRet');
-      if (pf && !pf.contains(e.target)) abrirFiltros(false);
-    }
-    var pc = document.getElementById('colunasRet');
-    if (pc && !pc.hidden && !pc.contains(e.target)) { pc.hidden = true; ajustarBotaoColunas(); }
+    if (!FILTROS_ABERTO) return;
+    var pf = document.getElementById('filtrosRet');
+    if (pf && !pf.contains(e.target)) abrirFiltros(false);
   });
   document.addEventListener('keydown', function(e){
-    if (e.key !== 'Escape') return;
-    if (FILTROS_ABERTO) abrirFiltros(false);
-    var pc = document.getElementById('colunasRet');
-    if (pc && !pc.hidden) { pc.hidden = true; ajustarBotaoColunas(); }
+    if (e.key === 'Escape' && FILTROS_ABERTO) abrirFiltros(false);
   });
   document.getElementById('btnTrilho').addEventListener('click', function(){
     try { localStorage.setItem(TRILHO_CHAVE, trilhoRecolhido() ? '0' : '1'); } catch (e) {}
