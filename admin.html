@@ -1184,8 +1184,17 @@
       return '<label class="chk-col"><input type="checkbox" data-col="'+c.id+'"'+
         (visivel ? ' checked' : '')+'> '+Q.esc(nome)+'</label>';
     }).join('') +
-      '<button type="button" class="ret-acao" id="btnTodasColunas"'+
-      (ocultas.length ? '' : ' disabled')+' style="margin-top:6px">↺ Mostrar todas</button>';
+      /* So NASCE quando ha o que desfazer — antes ele aparecia desligado. Botao desligado
+         ocupa a mesma linha e pede a mesma leitura de um que funciona: quem abre o painel
+         com tudo a vista para de ler no "Mostrar", entende que ha algo escondido e volta
+         para conferir a lista. Ausente, ele nao faz pergunta nenhuma.
+
+         A contagem no gatilho continua sendo o aviso de que ha coluna fora; este botao e
+         so o caminho de volta, e caminho de volta sem nada para desfazer nao e caminho. */
+      (ocultas.length
+        ? '<button type="button" class="ret-acao" id="btnTodasColunas"'+
+          ' style="margin-top:6px">↺ Mostrar todas</button>'
+        : '');
 
     pop.querySelectorAll('input[data-col]').forEach(function(ch){
       ch.addEventListener('change', function(){

@@ -1533,8 +1533,49 @@ console.log('\n== escolher as colunas ==');
   /* --- o painel e o CSV --------------------------------------------------- */
   ok(/id="btnTodasColunas"/.test(adm) && /guardarOcultas\(\[\]\)/.test(adm),
     'há um "Mostrar todas" que desfaz de uma vez');
-  ok(/todas\.disabled|\(ocultas\.length \? '' : ' disabled'\)/.test(adm),
-    'e ele nasce desligado quando não há nada escondido');
+
+  /* Ele SO NASCE quando ha o que desfazer. Antes aparecia desligado, e botao desligado
+     ocupa a mesma linha e pede a mesma leitura de um que funciona: quem abre o painel com
+     tudo a vista para de ler no "Mostrar", entende que ha algo escondido e volta para
+     conferir a lista. O painel e montado de novo a cada mudanca, entao da para conferir
+     rodando: com nada escondido o botao nao esta no HTML; com algo escondido, esta. */
+  /* Fecha contando chaves: a funcao tem ouvintes aninhados, e o primeiro `\n  }` cai
+     dentro de um deles — o recorte saia pela metade e a bancada nem compilava. */
+  var mp = adm.indexOf('function montarPainelColunas(cabem)');
+  var mk = adm.indexOf('{', mp), mn = 0;
+  do {
+    if (adm[mk] === '{') mn++; else if (adm[mk] === '}') mn--;
+    mk++;
+  } while (mn > 0 && mk < adm.length);
+  var corpoMontar = adm.slice(mp, mk);
+  ok(/pop\.innerHTML =/.test(corpoMontar) && /btnTodasColunas/.test(corpoMontar),
+    'o recorte pegou a função que monta o painel');
+  /* `ajustarBotaoColunas`, `desenharFluxo` e `guardarOcultas` ficam fora do recorte: uma
+     mexe no gatilho, as outras redesenham e gravam, e nenhuma decide o que este teste
+     pergunta. Aqui elas viram cotos — o gatilho tem teste proprio logo acima. */
+  var monta = new Function('Q', 'colunasOcultas', 'document', 'ajustarBotaoColunas',
+    'desenharFluxo', 'guardarOcultas',
+    corpoMontar + '\n return montarPainelColunas;');
+
+  function html(ocultas) {
+    var pop = { innerHTML: '', querySelectorAll: function(){ return []; } };
+    var fn = monta({ esc: function (v) { return String(v); } },
+      function () { return ocultas; },
+      { getElementById: function (id) {
+          return id === 'colunasRet' ? pop : null; } },
+      function () {}, function () {}, function () {});
+    fn([{ id: 'data', d: { t: 'Data' } }, { id: 'saida', d: { t: 'Saída' } }]);
+    return pop.innerHTML;
+  }
+
+  ok(html([]).indexOf('btnTodasColunas') < 0,
+    'com nada escondido ele nem nasce — desligado, pediria a mesma leitura de um botão ' +
+    'que funciona', html([]));
+  ok(html(['saida']).indexOf('btnTodasColunas') > 0,
+    'e com coluna escondida ele aparece: é o caminho de volta', html(['saida']));
+  ok(html([]).indexOf('data-col="data"') > 0 && html([]).indexOf('data-col="saida"') > 0,
+    'e as caixas de marcar saem nos dois casos — o teste acima não passou por um painel ' +
+    'vazio', html([]));
   var jc = adm.indexOf("Q.csv('retornos'");
   var csv = adm.slice(adm.lastIndexOf('var cs =', jc) - 400, jc);
   ok(/ocultasCsv\.indexOf\(id\) < 0/.test(csv),
