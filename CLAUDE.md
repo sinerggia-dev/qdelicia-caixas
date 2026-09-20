@@ -172,7 +172,8 @@ listório de quem trabalha na empresa. Se mexer ali, mantenha isso.
 
 ## As colunas de uma tabela são dado, não HTML
 
-Cada tabela ajustável tem **um descritor** em `admin.html` — `TAB_ATIVOS`, `TAB_MOV`:
+Cada tabela ajustável tem **um descritor** em `admin.html` — `TAB_ATIVOS`, `TAB_MOV`,
+`TAB_USUARIOS`:
 
 ```js
 { padrao: [...ids na ordem de fábrica],
@@ -201,9 +202,21 @@ Três coisas que já custaram caro e não devem voltar:
 - **mover mexe na ordem completa**, não só no que está visível. Mexer no visível embaralha a
   ordem das escondidas sem ninguém ver, e elas voltam noutro lugar ao reaparecer.
 
-A coluna dos botões de ação de Movimentos fica **fora** do sistema: não é dado, é o caminho para
-corrigir. Escondível, alguém a esconde sem querer e perde o único jeito de consertar um
-lançamento.
+A coluna dos botões de ação de Movimentos e de Usuários fica **fora** do sistema: não é dado, é o
+caminho para corrigir. Escondível, alguém a esconde sem querer e perde o único jeito de consertar
+um lançamento.
+
+Duas coisas que **só apareceram medindo no Chrome**, e que nenhum teste de código pegava:
+
+- **o estilo do cabeçalho segue a classe `fixa`, nunca um id.** Estava escrito para
+  `#tabelaFluxo`, e quando Movimentos entrou na maquinaria ganhou o arrasto no JavaScript e não
+  ganhou onde clicar: a alcinha media **0x16px** e a tabela ficava em `table-layout:auto`. Tudo
+  ligado, nada funcionando, e o código parecia certo;
+- **toda tabela termina numa coluna de folga**, sem largura (`<th class="folga">` no Painel de
+  Ativos; a coluna dos botões em Movimentos e Usuários). Em `table-layout:fixed` com a tabela a
+  100%, o que sobra é repartido entre as colunas: pedir 95px devolvia **435px** sempre que as
+  colunas não enchiam a janela, e esconder uma só esticava as outras. O `colspan` da linha de
+  "nada aqui" conta essa folga (`cs.length + 1`).
 
 ## Quem lança de onde: lista vazia quer dizer TODOS
 

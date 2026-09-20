@@ -622,7 +622,8 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <li><strong>↑ e ↓</strong> — movem a coluna de lugar. A primeira não sobe, a última não desce, e os botões ficam apagados quando não há para onde ir</li>
     <li><strong>O número em px</strong> — a largura da coluna. Vale a partir de 70px</li>
   </ul>
-  <p>Hoje são dois: <strong>Painel de Ativos</strong> e <strong>Movimentos</strong>. Painel, Extratos e Cadastros ainda não aparecem, e a própria tela diz isso no rodapé — módulo que falta sem explicação parece coisa quebrada.</p>
+  <p>Hoje são três: <strong>Painel de Ativos</strong>, <strong>Movimentos</strong> e <strong>Cadastros · Usuários</strong>. O Painel, os Extratos e as demais listas de Cadastros ainda não aparecem, e a própria tela diz isso no rodapé — módulo que falta sem explicação parece coisa quebrada.</p>
+  <p class="nota">A de <strong>Usuários</strong> é a mais larga do app: nove colunas de dado. Quem não usa e-mail nem telefone esconde as duas e ganha a tela de volta — e é aí que esta aba paga por si.</p>
 
   <div class="regra">
     <span class="rot">Escondida, a coluna continua na lista</span>
@@ -633,6 +634,11 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <h3>É o mesmo ajuste da tabela</h3>
   <p>Esta tela grava no mesmo lugar que o arrasto no cabeçalho: mover aqui é mover lá. Assim que se muda algo, a tabela do módulo se redesenha — não é preciso trocar de aba para ver.</p>
   <p>O <strong>restaurar padrão</strong> de cada ficha apaga as três preferências de uma vez — ordem, largura e escondidas. Apagar só uma deixaria a tabela num meio-termo que ninguém escolheu.</p>
+  <div class="regra">
+    <span class="rot">A largura em pixels é a largura em pixels</span>
+    <p>Toda tabela ajustável termina numa <strong>coluna de folga</strong>, sem título e sem largura — em Movimentos e Usuários ela é a coluna dos botões. É ela que recebe o espaço que sobra.</p>
+    <p>Sem essa folga o navegador reparte a sobra entre as colunas: pedir 95px devolvia 435px sempre que a tabela não enchesse a janela, e esconder uma coluna só esticava as outras em vez de devolver a tela.</p>
+  </div>
   <p class="nota">Tudo isso fica guardado <strong>neste navegador</strong>, e não na conta. É preferência de quem olha, como o zoom da tela — não muda dado, não muda saldo, e não viaja para o computador do colega.</p>
   <p class="nota">A largura grava quando o campo perde o foco, não a cada tecla: digitando <kbd>1</kbd> antes de <kbd>2</kbd> e <kbd>0</kbd>, a coluna encolheria ao mínimo no meio da digitação.</p>
 
@@ -643,6 +649,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 <section id="cadastros">
   <h2>Cadastros</h2>
   <p>Três blocos, cada um com o seu botão de <strong>+ Novo</strong>.</p>
+  <p class="nota">A tabela de <strong>Usuários</strong> é ajustável: arraste o título para trocar a coluna de lugar, a borda direita para mudar a largura, e use a aba <a href="#colunas"><strong>Colunas</strong></a> para esconder o que não interessa. É a mais larga do app — nove colunas de dado —, então é onde mais rende. Os botões de editar, desativar e excluir ficam fora do ajuste.</p>
 
   <h3>Locais e rotas</h3>
   <p>Todos ficam na mesma lista, mudando só o <strong>Tipo</strong>: galpão, filial, cliente e rota. Os campos que pesam no dia a dia:</p>

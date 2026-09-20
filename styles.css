@@ -490,6 +490,12 @@ tr.ruim{background:var(--vermelho-claro)}
 .col-acoes{display:flex;align-items:center;gap:5px;flex:none}
 .col-acoes .mini{min-width:28px;text-align:center}
 .col-larg{width:72px;margin:0;padding:5px 7px;font-size:13px;text-align:right}
+/* A pilha de dois selos da coluna Senha. Era estilo escrito no proprio elemento, e com
+   a coluna virando dado o HTML dela passou a ser montado num lugar so. */
+.pilha-selos{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+/* A segunda linha do titulo — hoje so "entra no app e no painel". Nao e o nome da
+   coluna: e explicacao, e por isso nao pesa como o nome. */
+.sub-col{font-weight:400;opacity:.7;text-transform:none;letter-spacing:0}
 .nota-colunas{font-size:12.5px;color:var(--txt2);margin:14px 0 0;max-width:70ch}
 
 /* O titulo de secao, usado pela aba Colunas. O risco que separava filtros de colunas
@@ -518,21 +524,33 @@ table.fixa th.ordenavel{cursor:pointer;user-select:none}
 table.fixa th.ordenavel:hover{color:var(--txt)}
 table.fixa th.ordenado{color:var(--ambar-forte)}
 
-/* Cabecalho arrastavel do Painel de Ativos. O `grab` e o unico aviso de que da para
-   arrastar — sem ele ninguem descobre. A barra no alvo diz ONDE a coluna vai cair. */
-#tabelaFluxo th[data-col]{cursor:grab;user-select:none}
-#tabelaFluxo th.arrastando{opacity:.45;cursor:grabbing}
-#tabelaFluxo th.alvo{box-shadow:inset 3px 0 0 var(--azul,#4f8ef7)}
+/* Cabecalho ajustavel. Isto segue a CLASSE `fixa`, e nao um id: e ela que a tabela veste
+   ao entrar na maquinaria de colunas, e escrever o estilo para um id so significa que a
+   proxima tabela ganha o arrasto no JavaScript e nao ganha onde clicar.
+
+   Foi o que aconteceu com Movimentos: medida no Chrome, a alcinha dela tinha 0x16px e a
+   tabela ficava em `table-layout:auto`. Tudo ligado, nada funcionando. */
+table.fixa th[data-col]{cursor:grab;user-select:none}
+table.fixa th.arrastando{opacity:.45;cursor:grabbing}
+table.fixa th.alvo{box-shadow:inset 3px 0 0 var(--azul,#4f8ef7)}
 /* Layout fixo para que a largura pedida seja obedecida. Em layout automatico o navegador
    trata `width` como sugestao e reparte pelo conteudo: arrastar a borda quase nao mudava
    nada e a coluna voltava sozinha ao soltar. */
-#tabelaFluxo table.fixa{table-layout:fixed}
-#tabelaFluxo th[data-col]{position:relative;overflow:hidden;text-overflow:ellipsis}
+table.fixa{table-layout:fixed}
+/* Sem `position:relative` aqui de proposito: `th` ja e `sticky`, que tambem serve de
+   referencia para a alcinha absoluta — e trocar por `relative` custaria o cabecalho
+   grudado no topo, que e o que segura a leitura de uma lista longa. */
+table.fixa th[data-col]{overflow:hidden;text-overflow:ellipsis}
+/* A coluna de folga: sem titulo, sem largura e sem alcinha. Ela existe para a sobra ter
+   onde ficar — sem ela, `table-layout:fixed` reparte o que sobra entre as colunas e o px
+   pedido na aba Colunas nao e o px que aparece. Nao tem nada dentro, entao nao pode
+   convidar a nada. */
+table.fixa th.folga,table.fixa td.folga{cursor:default;width:auto}
 /* A alcinha e uma faixa de 8px na borda direita. Nao tem cor propria: o cursor ja avisa,
    e uma linha visivel em cada coluna suja um cabecalho de sete. */
-#tabelaFluxo th .puxador{position:absolute;top:0;right:0;width:8px;height:100%;
+table.fixa th .puxador{position:absolute;top:0;right:0;width:8px;height:100%;
   cursor:col-resize}
-#tabelaFluxo th .puxador:hover{background:var(--azul,#4f8ef7);opacity:.5}
+table.fixa th .puxador:hover{background:var(--azul,#4f8ef7);opacity:.5}
 /* Enquanto arrasta, o texto da pagina inteira para de selecionar — senao o arrasto vira
    selecao e o cursor pisca entre os dois. */
 body.redimensionando{user-select:none;cursor:col-resize}

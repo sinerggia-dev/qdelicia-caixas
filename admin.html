@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=9b9b1860">
+<link rel="stylesheet" href="styles.css?v=4562058b">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -1130,16 +1130,37 @@
     redesenha: function(){ desenharMovimentos(); }
   };
 
+  /* A tabela de Usuarios, no Cadastros. E a mais larga do app — nove colunas de dado —
+     e por isso a que mais precisa: quem nao usa e-mail nem telefone escondia as duas e
+     ganhava a tela de volta, e ate aqui nao tinha como.
+
+     `sub` e a segunda linha do titulo, que so esta coluna tem. Ela nao entra em
+     `titulos` de proposito: a aba Colunas precisa do NOME da coluna, e "Usuário entra no
+     app e no painel" nao e nome, e explicacao de cabecalho. */
+  var TAB_USUARIOS = {
+    padrao: ['nome','perfil','usuario','email','senha','painel','local','telefone','ativo'],
+    larg: { nome:190, perfil:120, usuario:150, email:230, senha:190,
+            painel:80, local:150, telefone:130, ativo:80 },
+    titulos: { nome:'Nome', perfil:'Perfil', usuario:'Usuário', email:'E-mail',
+               senha:'Senha', painel:'Painel', local:'Local padrão',
+               telefone:'Telefone', ativo:'Ativo' },
+    kOrdem: 'qdc_cols_users_v1',
+    kLarg: 'qdc_larg_users_v1',
+    kOcultas: 'qdc_cols_ocultas_users_v1',
+    alvo: '#tabelaUsuarios',
+    redesenha: function(){ desenharUsuarios(); }
+  };
+
   /* As tabelas que a aba Colunas sabe gerenciar. Uma linha por modulo: registrar a
      proxima e acrescentar um item aqui, e nao escrever outra tela.
 
      Modulo que nao aparece nesta lista e modulo cuja tabela ainda tem cabecalho escrito a
-     mao — Painel, Extratos e Cadastros, hoje. A aba diz isso na tela, em vez de fingir
-     que nao existem. */
+     mao. A aba diz quais sao, na tela, em vez de fingir que nao existem. */
   function tabelasGerenciaveis(){
     return [
-      { modulo: 'Painel de Ativos', t: TAB_ATIVOS },
-      { modulo: 'Movimentos',       t: TAB_MOV }
+      { modulo: 'Painel de Ativos',     t: TAB_ATIVOS },
+      { modulo: 'Movimentos',           t: TAB_MOV },
+      { modulo: 'Cadastros · Usuários', t: TAB_USUARIOS }
     ];
   }
 
@@ -1192,9 +1213,10 @@
           }).join('')+
         '</div></div>';
     }).join('') +
-      '<p class="nota-colunas">Painel, Extratos e Cadastros ainda não aparecem aqui: as '+
+      '<p class="nota-colunas">O Painel, os Extratos e as demais listas de Cadastros '+
+      '(locais, locais padrão, tipos de caixa, motoristas) ainda não aparecem aqui: as '+
       'tabelas deles têm cabeçalho fixo, e só entram nesta tela depois de passarem a '+
-      'descrever as colunas como as duas acima.</p>';
+      'descrever as colunas como as de cima.</p>';
 
     /* Um ouvinte por ficha, e nao por botao: a lista e remontada a cada mudanca, e ligar
        botao a botao significaria religar tudo toda vez. */
@@ -1599,13 +1621,22 @@
               'arraste o titulo para mudar de lugar; a borda, para mudar a largura">'+
             Q.esc(c.d.t)+seta+'<span class="puxador"></span></th>';
         }).join('')+
+        /* A coluna de FOLGA, sem titulo e sem largura. Em `table-layout:fixed` com a
+           tabela a 100%, o que sobra e repartido entre as colunas: medido no Chrome,
+           pedir 95px devolvia 435px sempre que as colunas nao enchiam a janela — e
+           esconder uma so esticava as outras, em vez de devolver a tela.
+
+           Com ela, a sobra tem onde ficar: o px pedido e o px que aparece, e esconder
+           estreita de verdade. Movimentos e Usuarios ja tinham isso por acaso, porque a
+           coluna de botoes deles nao tem largura. */
+        '<th class="folga"></th>'+
         '</tr></thead><tbody>'+
         (!lista.length
-          ? '<tr><td colspan="'+cs.length+'"><div class="vazio">'+avisoVazio()+'</div></td></tr>'
+          ? '<tr><td colspan="'+(cs.length+1)+'"><div class="vazio">'+avisoVazio()+'</div></td></tr>'
           : lista.map(function(l){
             return '<tr>'+cs.map(function(c){
               return '<td'+(c.d.num ? ' class="num"' : '')+'>'+c.d.v(l)+'</td>';
-            }).join('')+'</tr>';
+            }).join('')+'<td class="folga"></td></tr>';
           }).join(''))+'</tbody></table></div>';
     ligarArrastarColunas(TAB_ATIVOS);
     ligarLarguraColunas(TAB_ATIVOS);
@@ -2609,9 +2640,9 @@
       b.addEventListener('click', function(){ formTipo((DADOS.tipos||[]).filter(function(t){return String(t.ID)===b.dataset.editarTipo;})[0]); });
     });
 
-    document.getElementById('tabelaUsuarios').innerHTML = montarTabelaUsuarios();
-
-    ligarBotoesUsuarios();
+    /* `desenharUsuarios` ja religa os botoes: a tabela e o que depende deles nascem
+       juntos, e separar era o que deixava a busca com botoes mortos. */
+    desenharUsuarios();
 
     // Por último: envolve o miolo na primeira vez e reconta a cada redesenho.
     montarDobras();
@@ -2624,10 +2655,7 @@
   /* `input` e não `change`: em campo de busca o change só dispara ao sair do campo, e a
      lista ficaria parada enquanto a pessoa digita. Redesenha só a tabela de usuários —
      `desenharCadastros()` refaria as cinco e perderia o foco do campo. */
-  document.getElementById('buscaUsuarios').addEventListener('input', function(){
-    document.getElementById('tabelaUsuarios').innerHTML = montarTabelaUsuarios();
-    ligarBotoesUsuarios();
-  });
+  document.getElementById('buscaUsuarios').addEventListener('input', desenharUsuarios);
 
   /* Os botões da tabela de usuários são religados a cada redesenho — inclusive o da
      busca, que refaz só esta tabela. Sem isso, digitar na busca deixava editar,
@@ -2690,47 +2718,102 @@
     });
   }
 
-  function montarTabelaUsuarios(){
+  /* As duas credenciais, cada uma com seu estado. Uma etiqueta so nao servia:
+     "provisoria: painel" nao dizia nada sobre a senha do app de lancamento, e "propria"
+     aparecia ate para quem nunca teve aquela credencial. */
+  function seloSenha(temSenha, provisoria, rotulo){
+    if (!temSenha) return '<span class="tag cinza" title="Esta pessoa não tem esta credencial">'+rotulo+': sem senha</span>';
+    if (provisoria) return '<span class="tag vermelha" title="Ainda não trocou a senha que o administrador passou">'+rotulo+': provisória</span>';
+    return '<span class="tag verde" title="A pessoa já escolheu a senha dela">'+rotulo+': própria</span>';
+  }
+
+  function desenharUsuarios(){
+    var box = document.getElementById('tabelaUsuarios');
+    if (!box) return;
     var lista = usuariosNaTela();
-    if (!lista.length) return '<div class="vazio">Nenhum usuário encontrado.</div>';
-    // A string TEM de começar na mesma linha do return: com ela na linha de baixo, o
-    // JavaScript insere ponto e vírgula depois do return e a tabela vira código morto.
-    return '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Perfil</th><th>Usuário<br><span style="font-weight:400;opacity:.7">entra no app e no painel</span></th><th>E-mail</th><th>Senha</th><th>Painel</th><th>Local padrão</th><th>Telefone</th><th>Ativo</th><th></th></tr></thead><tbody>'+
-      lista.map(function(u){
-        var lp = LOCAIS_PADRAO.filter(function(l){return String(l.ID)===String(u.LocalPadrao);})[0];
-        var on = Q.ativo(u.Ativo);
-        /* O login curto tem coluna própria: é ele que a pessoa digita para entrar, e
-           antes só aparecia para quem não tivesse e-mail. */
-        var login = u.Usuario ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—';
-        var acesso = u.Email ? Q.esc(u.Email) : '—';
-        /* As duas credenciais, cada uma com seu estado. Uma etiqueta só não servia:
-           "provisória: painel" não dizia nada sobre a senha do app de lançamento, e
-           "própria" aparecia até para quem nunca teve aquela credencial. */
-        function selo(temSenha, provisoria, rotulo){
-          if (!temSenha) return '<span class="tag cinza" title="Esta pessoa não tem esta credencial">'+rotulo+': sem senha</span>';
-          if (provisoria) return '<span class="tag vermelha" title="Ainda não trocou a senha que o administrador passou">'+rotulo+': provisória</span>';
-          return '<span class="tag verde" title="A pessoa já escolheu a senha dela">'+rotulo+': própria</span>';
-        }
-        /* Quem não entra no painel não tem "estado de senha" para mostrar: o fato ali é
-           que ele não entra, e ponto. Não existe mais o caso de sobrar senha sem acesso —
-           a migração apagou as antigas e o caminho de gravação apaga as novas. */
+    if (!lista.length){
+      box.innerHTML = '<div class="vazio">Nenhum usuário encontrado.</div>';
+      return;
+    }
+
+    /* As colunas sao DADOS, como no Painel de Ativos e em Movimentos: titulo, como
+       preencher a celula, e so. E isso que deixa arrastar para reordenar, puxar a borda
+       para alargar e esconder pela aba Colunas — a ordem e so a ordem desta lista. */
+    var TIT = TAB_USUARIOS.titulos;
+    var DEFS = {
+      nome:     { t: TIT['nome'],
+                  v: function(u){ return '<b>'+Q.esc(u.Nome)+'</b>'; } },
+      perfil:   { t: TIT['perfil'],
+                  v: function(u){ return '<span class="tag azul">'+Q.esc(u.Perfil)+'</span>'; } },
+      /* O login curto tem coluna propria: e ele que a pessoa digita para entrar, e antes
+         so aparecia para quem nao tivesse e-mail. */
+      usuario:  { t: TIT['usuario'], sub: 'entra no app e no painel',
+                  v: function(u){ return u.Usuario
+                    ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—'; } },
+      email:    { t: TIT['email'],
+                  v: function(u){ return u.Email ? Q.esc(u.Email) : '—'; } },
+      senha:    { t: TIT['senha'],
+                  v: function(u){
+        /* Quem nao entra no painel nao tem "estado de senha" para mostrar: o fato ali e
+           que ele nao entra, e ponto. Nao existe mais o caso de sobrar senha sem acesso —
+           a migracao apagou as antigas e o caminho de gravacao apaga as novas. */
         var linhaPainel = u.AcessoPainel
-          ? selo(u.TemSenha, u.SenhaProvisoria, 'painel')
+          ? seloSenha(u.TemSenha, u.SenhaProvisoria, 'painel')
           : '<span class="tag cinza" title="Esta pessoa usa só o app de lançamento">painel: sem acesso</span>';
-        var senhaCel = '<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">'+
-          selo(u.TemPin, u.PinProvisorio, 'lançamento')+ linhaPainel +'</div>';
-        return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(u.Nome)+'</b></td><td><span class="tag azul">'+Q.esc(u.Perfil)+'</span></td>'+
-        '<td>'+login+'</td>'+
-        '<td>'+acesso+'</td>'+
-        '<td>'+senhaCel+'</td>'+
-        '<td>'+(u.AcessoPainel?'<span class="tag verde">sim</span>':'<span class="tag cinza">não</span>')+'</td>'+
-        '<td>'+Q.esc(lp?lp.Nome:'')+'</td><td>'+Q.esc(u.Telefone||'')+'</td>'+
-        '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
-        '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
-            '<button class="mini'+(on?' perigo':'')+'" data-ativar="'+u.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
-              (on?'desativar':'ativar')+'</button> '+
-            '<button class="mini perigo" data-excluir-user="'+u.ID+'">excluir</button></td></tr>';
+        return '<div class="pilha-selos">'+
+          seloSenha(u.TemPin, u.PinProvisorio, 'lançamento')+linhaPainel+'</div>';
+      } },
+      painel:   { t: TIT['painel'],
+                  v: function(u){ return u.AcessoPainel
+                    ? '<span class="tag verde">sim</span>'
+                    : '<span class="tag cinza">não</span>'; } },
+      local:    { t: TIT['local'],
+                  v: function(u){
+        var lp = LOCAIS_PADRAO.filter(function(l){
+          return String(l.ID) === String(u.LocalPadrao); })[0];
+        return Q.esc(lp ? lp.Nome : '');
+      } },
+      telefone: { t: TIT['telefone'],
+                  v: function(u){ return Q.esc(u.Telefone || ''); } },
+      ativo:    { t: TIT['ativo'],
+                  v: function(u){ return Q.ativo(u.Ativo)
+                    ? '<span class="tag verde">sim</span>'
+                    : '<span class="tag vermelha">não</span>'; } }
+    };
+
+    var LARG = larguras(TAB_USUARIOS);
+    var cabem = ordemColunas(TAB_USUARIOS).map(function(id){ return { id: id, d: DEFS[id] }; })
+      .filter(function(c){ return !!c.d; });
+    var ocultas = colunasOcultas(TAB_USUARIOS);
+    var cs = cabem.filter(function(c){ return ocultas.indexOf(c.id) < 0; });
+    if (!cs.length) cs = cabem;   // tabela vazia nao diz por que esta vazia
+
+    /* A coluna de acoes fica FORA do sistema, presa no fim — a mesma regra de Movimentos.
+       Ela nao e dado: e o caminho para editar, desativar e excluir. Escondivel, alguem a
+       esconderia sem querer e perderia o unico jeito de mexer num cadastro. */
+    box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
+      cs.map(function(c){
+        return '<th draggable="true" data-col="'+c.id+'"'+
+          ' style="width:'+(LARG[c.id] || 120)+'px"'+
+          ' title="arraste o titulo para mudar de lugar; a borda, para mudar a largura">'+
+          Q.esc(c.d.t)+
+          (c.d.sub ? '<br><span class="sub-col">'+Q.esc(c.d.sub)+'</span>' : '')+
+          '<span class="puxador"></span></th>';
+      }).join('')+
+      '<th></th></tr></thead><tbody>'+
+      lista.map(function(u){
+        var on = Q.ativo(u.Ativo);
+        return '<tr'+(on?'':' style="opacity:.55"')+'>'+
+          cs.map(function(c){ return '<td>'+c.d.v(u)+'</td>'; }).join('')+
+          '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
+              '<button class="mini'+(on?' perigo':'')+'" data-ativar="'+u.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
+                (on?'desativar':'ativar')+'</button> '+
+              '<button class="mini perigo" data-excluir-user="'+u.ID+'">excluir</button></td></tr>';
       }).join('')+'</tbody></table></div>';
+
+    ligarArrastarColunas(TAB_USUARIOS);
+    ligarLarguraColunas(TAB_USUARIOS);
+    ligarBotoesUsuarios();
   }
 
 

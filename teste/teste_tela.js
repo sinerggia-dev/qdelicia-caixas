@@ -486,8 +486,11 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
     'o cabecalho percorre a lista de colunas');
   ok(/cs\.map\(function\(c\)\{[\s\S]{0,120}<td/.test(corpo),
     'e as celulas percorrem a MESMA lista — nao ha duas strings para lembrar de casar');
-  ok(/colspan="'\+cs\.length\+'"/.test(corpo),
-    'o aviso de tabela vazia usa o tamanho dessa lista, nao um numero fixo');
+  /* `cs.length + 1` e nao um numero escrito: o +1 e a coluna de folga, que existe para a
+     largura pedida ser obedecida. Numero fixo, o aviso apareceria torto no dia em que uma
+     coluna fosse escondida. */
+  ok(/colspan="'\+\(cs\.length\+1\)\+'"/.test(corpo),
+    'o aviso de tabela vazia usa o tamanho dessa lista mais a folga, nao um numero fixo');
 
   // toda coluna declarada tem titulo e como preencher
   var defs = corpo.slice(corpo.indexOf('var DEFS = {'), corpo.indexOf('DEFS.quem.t'));
@@ -867,12 +870,45 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
   /* Layout fixo: em layout automatico o navegador trata `width` como sugestao, e a
      coluna volta sozinha ao soltar. */
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
-  ok(/#tabelaFluxo table\.fixa\{table-layout:fixed\}/.test(css),
+  /* O estilo do cabecalho ajustavel tem de seguir a CLASSE `fixa`, e nao um id. Preso a
+     um id, a proxima tabela ganha o arrasto no JavaScript e nao ganha onde clicar — foi
+     o que aconteceu com Movimentos, que ficou meses com a alcinha de 0px de largura e
+     `table-layout:auto`, tudo ligado e nada funcionando. Nenhuma afirmacao olhava para o
+     estilo, so para o codigo, e por isso passou. */
+  ok(/(^|\n)table\.fixa\{table-layout:fixed\}/.test(css),
     'a tabela usa layout fixo, senao a largura pedida nao e obedecida');
+  [['th[data-col]', /table\.fixa th\[data-col\]\{cursor:grab/],
+   ['.puxador',     /table\.fixa th \.puxador\{position:absolute/],
+   ['th.alvo',      /table\.fixa th\.alvo\{/]].forEach(function (par) {
+    ok(par[1].test(css),
+      'e o estilo de ' + par[0] + ' segue a classe `fixa`, valendo para toda tabela que ' +
+      'entra na maquinaria — preso a um id, a tabela seguinte arrasta no código e não na tela');
+  });
+  ok(!/#tabelaFluxo th|#tabelaFluxo table/.test(css),
+    'e nenhuma regra do cabeçalho ficou presa ao id do Painel de Ativos',
+    (css.match(/#tabelaFluxo[^{]*\{/g) || []));
   ok(adm.indexOf('<table class="fixa">') > 0,
     'e a tabela do painel pede essa classe');
   ok(/style="width:'\+\(LARG\[c\.id\]/.test(adm),
     'cada <th> sai com a largura guardada');
+
+  /* A COLUNA DE FOLGA. Medido no Chrome: em `table-layout:fixed` com a tabela a 100%, o
+     que sobra e repartido entre as colunas — pedir 95px devolvia 435px sempre que as
+     colunas nao enchiam a janela, e esconder uma so esticava as outras em vez de devolver
+     a tela. Com uma coluna sem largura no fim, a sobra tem onde ficar.
+
+     Toda tabela da maquinaria precisa de uma. Em Movimentos e Usuarios ela e a coluna dos
+     botoes, que ja nao tem largura; no Painel de Ativos foi preciso criar. */
+  [['tabelaFluxo', /<th class="folga"><\/th>'\+/],
+   ['tabelaMov',   /'<th><\/th><\/tr><\/thead><tbody>'\+/],
+   ['tabelaUsuarios', /'<th><\/th><\/tr><\/thead><tbody>'\+/]].forEach(function (par) {
+    ok(par[1].test(adm),
+      par[0] + ': o cabeçalho termina numa coluna SEM largura, onde a sobra fica — sem ' +
+      'ela o px pedido na aba Colunas não é o px que aparece, e esconder estica as outras');
+  });
+  ok(/colspan="'\+\(cs\.length\+1\)\+'"/.test(adm),
+    'e a linha de "nada aqui" conta a folga no `colspan` — a menos, ela deixaria de ' +
+    'ocupar a largura toda e o aviso apareceria torto');
 
   // o gesto da alcinha nao pode arrastar a coluna de lugar
   var ll = corpoDe('ligarLarguraColunas');
@@ -1566,6 +1602,76 @@ console.log('\n== as colunas da tabela de Movimentos ==');
 
 })();
 
+console.log('\n== a tabela de Usuários entrou na maquinaria de colunas ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  var d = adm.indexOf('function desenharUsuarios(){');
+  var dk = adm.indexOf('{', d), dn = 0;
+  do {
+    if (adm[dk] === '{') dn++; else if (adm[dk] === '}') dn--;
+    dk++;
+  } while (dn > 0 && dk < adm.length);
+  var fonte = adm.slice(d, dk);
+  ok(d > 0 && fonte.length > 2000 && fonte.indexOf('</tbody></table>') > 0,
+    'o recorte pegou a função inteira', fonte.length);
+
+  /* O cabecalho escrito a mao nao pode sobrar em lugar nenhum: sobrando, seriam duas
+     listas de colunas para a mesma tabela, e a escondida continuaria aparecendo. */
+  ok(adm.indexOf('montarTabelaUsuarios') < 0,
+    'a montagem antiga, com o cabeçalho escrito à mão, não ficou para trás');
+  ok(fonte.indexOf('<th>Nome</th>') < 0 && fonte.indexOf('<th>Perfil</th>') < 0,
+    'e o cabeçalho sai da lista de colunas, não de HTML escrito à mão');
+
+  /* Cabecalho e celula saem da MESMA lista. Duas listas divergem na primeira coluna nova:
+     uma ganha titulo sem celula, ou celula sem titulo, e a tabela desalinha inteira. */
+  ok((fonte.match(/cs\.map\(function\(c\)/g) || []).length === 2,
+    'cabeçalho e células iteram a mesma lista `cs` — duas listas desalinhariam a tabela ' +
+    'inteira na primeira coluna nova', (fonte.match(/cs\.map\(/g) || []).length);
+
+  ok(/<table class="fixa">/.test(fonte),
+    'a tabela pede a classe `fixa` — sem ela a largura pedida vira sugestão');
+  ok(/ligarArrastarColunas\(TAB_USUARIOS\)/.test(fonte) &&
+     /ligarLarguraColunas\(TAB_USUARIOS\)/.test(fonte),
+    'e liga arrastar e redimensionar, com o descritor dela');
+  ok(/data-col="'\+c\.id\+'"/.test(fonte) && /<span class="puxador">/.test(fonte),
+    'cada título sai com o `data-col` e a alcinha — é por eles que as duas se agarram');
+
+  /* A coluna de acoes fica FORA. Escondivel, alguem a esconde sem querer e perde o unico
+     jeito de editar, desativar ou excluir um cadastro. */
+  var i0 = fonte.indexOf('padrao:');
+  var ids = ['nome', 'perfil', 'usuario', 'email', 'senha', 'painel', 'local',
+             'telefone', 'ativo'];
+  var descr = adm.slice(adm.indexOf('var TAB_USUARIOS = {'),
+                        adm.indexOf('\n  };', adm.indexOf('var TAB_USUARIOS = {')));
+  ids.forEach(function (id) {
+    ok(descr.indexOf("'" + id + "'") > 0 || descr.indexOf(id + ':') > 0,
+      'a coluna ' + id + ' está no descritor');
+  });
+  ok(descr.indexOf('editar') < 0 && descr.indexOf('acoes') < 0,
+    'e a coluna dos botões fica FORA do sistema: escondível, alguém a esconderia sem ' +
+    'querer e perderia o único jeito de mexer num cadastro');
+  ok(/data-editar-user/.test(fonte) && /data-excluir-user/.test(fonte) &&
+     /data-ativar/.test(fonte),
+    'os três botões continuam na linha');
+
+  /* A busca e o redesenho tem de passar pelo MESMO caminho. Foi a separacao entre montar
+     a tabela e religar os botoes que ja deixou a busca com editar/excluir mortos. */
+  ok(/ligarBotoesUsuarios\(\);/.test(fonte),
+    'desenhar a tabela religa os botões dela — separados, digitar na busca deixava ' +
+    'editar, ativar e excluir sem efeito, e a tela parecia funcionar');
+  ok(/getElementById\('buscaUsuarios'\)\.addEventListener\('input', desenharUsuarios\)/
+      .test(adm),
+    'e a busca chama esse mesmo caminho, em vez de montar a tabela por fora');
+
+  /* O subtitulo do cabecalho NAO entra em `titulos`: a aba Colunas precisa do nome da
+     coluna, e "entra no app e no painel" e explicacao, nao nome. */
+  ok(/sub: 'entra no app e no painel'/.test(fonte),
+    'o subtítulo do cabeçalho mora na definição da célula');
+  ok(descr.indexOf('entra no app') < 0 && /usuario:'Usuário'/.test(descr.replace(/\s+/g, '')),
+    'e não no `titulos`, que é de onde a aba Colunas tira o NOME da coluna', descr);
+})();
+
 console.log('\n== a aba Colunas: gerenciar por módulo ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -1608,15 +1714,16 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
   /* --- o registro dos modulos -------------------------------------------- */
   var tg = adm.indexOf('function tabelasGerenciaveis()');
   var reg = adm.slice(tg, adm.indexOf('\n  }', tg));
-  ok(/modulo: 'Painel de Ativos', t: TAB_ATIVOS/.test(reg) &&
-     /modulo: 'Movimentos',\s+t: TAB_MOV/.test(reg),
+  ok(/modulo: 'Painel de Ativos',\s+t: TAB_ATIVOS/.test(reg) &&
+     /modulo: 'Movimentos',\s+t: TAB_MOV/.test(reg) &&
+     /modulo: 'Cadastros · Usuários',\s+t: TAB_USUARIOS/.test(reg),
     'os módulos com tabela de colunas-dado estão registrados — registrar o próximo é ' +
     'acrescentar um item aqui, e não escrever outra tela', reg);
 
   /* --- toda coluna de fabrica tem NOME ------------------------------------ */
   /* A aba precisa dos nomes sem desenhar a tabela. Faltando um, a linha apareceria com o
      id cru ("lancado") e ninguem saberia que coluna e. */
-  [['TAB_ATIVOS'], ['TAB_MOV']].forEach(function (par) {
+  [['TAB_ATIVOS'], ['TAB_MOV'], ['TAB_USUARIOS']].forEach(function (par) {
     var i = adm.indexOf('var ' + par[0] + ' = {');
     var desc = adm.slice(i, adm.indexOf('\n  };', i));
     var ip = desc.indexOf('padrao: [');
@@ -1685,7 +1792,7 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
   ok(!/escondida/.test(h), 'sem nenhuma escondida, a ficha fica muda');
 
   /* Os modulos que ainda nao entram sao ditos na tela, em vez de simplesmente faltarem. */
-  ok(/Painel, Extratos e Cadastros ainda não aparecem/.test(fonte),
+  ok(/ainda não aparecem aqui/.test(fonte) && /locais, locais padrão/.test(fonte),
     'e a tela diz quais módulos ainda não entram, em vez de fingir que não existem');
 
   /* --- mover mexe na ordem COMPLETA --------------------------------------- */
