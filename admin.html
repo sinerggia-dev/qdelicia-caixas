@@ -926,7 +926,7 @@
 
        A COR responde pelos dois, porque a pergunta que ela faz e uma so — "tem coisa
        escondida aqui dentro?" — e a resposta e sim nos dois casos. O titulo separa. */
-    var cols = colunasOcultas().length;
+    var cols = colunasOcultas(TAB_ATIVOS).length;
     var esconde = !FILTROS_ABERTO && (n || cols);
     btn.className = 'ret-acao' + (esconde ? ' alerta' : '');
     btn.textContent = (FILTROS_ABERTO ? '▾ ' : '▸ ') + 'Filtros' + (n ? ' (' + n + ')' : '');
@@ -1071,23 +1071,45 @@
      A lista salva passa por uma peneira contra a de fabrica: coluna que nao existe mais
      e descartada e coluna nova entra no fim. Sem isso, quem tivesse arrastado antes de um
      deploy ficaria sem ver a coluna nova, sem entender por que. */
-  var COLS_PADRAO = ['data','inicial','lancado','origem','destino','quem',
-                     'saida','retorno','final'];
-  var COLS_CHAVE = 'qdc_cols_ativos_v1';
+  /* Mover, esconder e redimensionar coluna sao a MESMA maquinaria para qualquer tabela
+     do painel — o que muda de uma para outra sao tres coisas: a lista de fabrica, as
+     larguras de fabrica e onde se guarda a preferencia de quem olha.
 
-  function ordemColunas(){
+     Escrita uma vez e recebida como parametro, e nao copiada por tabela: duas copias de
+     arrastar-e-soltar divergem no primeiro conserto que so uma recebe, e o sintoma e
+     mudo — a tabela que ficou para tras apenas para de obedecer, sem erro nenhum.
+
+     As chaves da tabela de ativos sao as que ja estao nos navegadores. Derivar a de
+     ocultas do nome ('..._ativos_v1') mudaria a chave e zeraria a escolha de quem ja
+     tinha escondido alguma coluna — por isso cada uma vem escrita. */
+  var TAB_ATIVOS = {
+    padrao: ['data','inicial','lancado','origem','destino','quem',
+             'saida','retorno','final'],
+    /* Somadas, estas larguras cabem numa area util de ~1.050px, que e o que sobra numa
+       tela de 1.400. Mais folgadas, a tabela transbordava e voltava a barra de rolagem
+       horizontal. Quem quiser mais espaco numa coluna arrasta a borda. */
+    larg: { data:95, inicial:105, lancado:95, origem:150, destino:150,
+            quem:190, saida:160, retorno:160, final:105 },
+    kOrdem: 'qdc_cols_ativos_v1',
+    kLarg: 'qdc_larg_ativos_v1',
+    kOcultas: 'qdc_cols_ocultas_v1',
+    alvo: '#tabelaFluxo',
+    redesenha: function(){ desenharFluxo(); }
+  };
+
+  function ordemColunas(t){
     var salva = [];
-    try { salva = JSON.parse(localStorage.getItem(COLS_CHAVE) || '[]') || []; }
+    try { salva = JSON.parse(localStorage.getItem(t.kOrdem) || '[]') || []; }
     catch (e) { salva = []; }
-    var vale = salva.filter(function(id){ return COLS_PADRAO.indexOf(id) >= 0; });
+    var vale = salva.filter(function(id){ return t.padrao.indexOf(id) >= 0; });
     /* Coluna que a ordem salva nao cita entra ao lado do vizinho de fabrica dela, e nao
        no fim. Jogada no fim, uma coluna nova aparecia depois do Saldo final para quem ja
        tinha arrastado — longe de onde ela faz sentido, e sem explicacao. */
-    COLS_PADRAO.forEach(function(id, i){
+    t.padrao.forEach(function(id, i){
       if (vale.indexOf(id) >= 0) return;
       var pos = 0;
       for (var k = i - 1; k >= 0; k--) {
-        var p = vale.indexOf(COLS_PADRAO[k]);
+        var p = vale.indexOf(t.padrao[k]);
         if (p >= 0) { pos = p + 1; break; }
       }
       vale.splice(pos, 0, id);
@@ -1095,8 +1117,8 @@
     return vale;
   }
 
-  function guardarOrdem(ordem){
-    try { localStorage.setItem(COLS_CHAVE, JSON.stringify(ordem)); } catch (e) {}
+  function guardarOrdem(t, ordem){
+    try { localStorage.setItem(t.kOrdem, JSON.stringify(ordem)); } catch (e) {}
   }
 
   /* Arrastar um <th> para cima de outro troca as duas de lugar na ordem COMPLETA — nao na
@@ -1108,22 +1130,16 @@
      A tabela usa `table-layout:fixed` para que a largura pedida seja obedecida. Em layout
      automatico o navegador trata `width` como sugestao e reparte o espaco pelo conteudo —
      arrastar a borda nao mudava quase nada, e a coluna voltava sozinha ao soltar. */
-  var LARG_CHAVE = 'qdc_larg_ativos_v1';
-  /* Somadas, estas larguras cabem numa area util de ~1.050px, que e o que sobra numa
-     tela de 1.400. Mais folgadas, a tabela transbordava e voltava a barra de rolagem
-     horizontal. Quem quiser mais espaco numa coluna arrasta a borda. */
-  var LARG_PADRAO = { data:95, inicial:105, lancado:95, origem:150, destino:150,
-                      quem:190, saida:160, retorno:160, final:105 };
   var LARG_MIN = 70;
 
-  function larguras(){
+  function larguras(t){
     var salvo = {};
-    try { salvo = JSON.parse(localStorage.getItem(LARG_CHAVE) || '{}') || {}; }
+    try { salvo = JSON.parse(localStorage.getItem(t.kLarg) || '{}') || {}; }
     catch (e) { salvo = {}; }
     var r = {};
-    Object.keys(LARG_PADRAO).forEach(function(id){
+    Object.keys(t.larg).forEach(function(id){
       var v = Number(salvo[id]);
-      r[id] = (v >= LARG_MIN) ? v : LARG_PADRAO[id];
+      r[id] = (v >= LARG_MIN) ? v : t.larg[id];
     });
     return r;
   }
@@ -1133,25 +1149,23 @@
      visivel — assim uma coluna nova nasce aparecendo para todo mundo, inclusive para quem
      ja tinha mexido aqui. Ao contrario, ela nasceria invisivel e ninguem saberia que
      existe. */
-  var COLS_OCULTAS_CHAVE = 'qdc_cols_ocultas_v1';
-
-  function colunasOcultas(){
+  function colunasOcultas(t){
     try {
-      var l = JSON.parse(localStorage.getItem(COLS_OCULTAS_CHAVE) || '[]');
+      var l = JSON.parse(localStorage.getItem(t.kOcultas) || '[]');
       return Array.isArray(l) ? l : [];
     } catch (e) { return []; }
   }
 
-  function guardarOcultas(lista){
-    try { localStorage.setItem(COLS_OCULTAS_CHAVE, JSON.stringify(lista)); } catch (e) {}
+  function guardarOcultas(t, lista){
+    try { localStorage.setItem(t.kOcultas, JSON.stringify(lista)); } catch (e) {}
   }
 
-  function guardarLargura(id, px){
+  function guardarLargura(t, id, px){
     var salvo = {};
-    try { salvo = JSON.parse(localStorage.getItem(LARG_CHAVE) || '{}') || {}; }
+    try { salvo = JSON.parse(localStorage.getItem(t.kLarg) || '{}') || {}; }
     catch (e) { salvo = {}; }
     salvo[id] = Math.max(LARG_MIN, Math.round(px));
-    try { localStorage.setItem(LARG_CHAVE, JSON.stringify(salvo)); } catch (e) {}
+    try { localStorage.setItem(t.kLarg, JSON.stringify(salvo)); } catch (e) {}
   }
 
   /* Arrastar a alcinha nao redesenha a tabela a cada pixel: mexe so no `width` do <th>,
@@ -1171,10 +1185,13 @@
      `cabem` sao as colunas que fazem sentido na visao atual, ja na ordem da tabela: a
      lista aqui e a tabela se leem na mesma ordem, senao procurar a coluna vira um
      exercicio de traducao. */
-  function montarPainelColunas(cabem){
-    var pop = document.getElementById('colunasLista');
+  /* `t` e a tabela de quem sao estas colunas. O painel e um so na tela hoje, mas a
+     funcao nao tem por que saber disso: recebendo a tabela, ela serve a proxima sem
+     nenhuma copia. */
+  function montarPainelColunas(t, alvo, cabem){
+    var pop = document.getElementById(alvo);
     if (!pop) return;
-    var ocultas = colunasOcultas();
+    var ocultas = colunasOcultas(t);
     pop.innerHTML = cabem.map(function(c){
       var visivel = ocultas.indexOf(c.id) < 0;
       /* O titulo da coluna de gente e vazio no cabecalho — ali o nome da pessoa ja diz o
@@ -1191,26 +1208,26 @@
          A contagem no gatilho continua sendo o aviso de que ha coluna fora; este botao e
          so o caminho de volta, e caminho de volta sem nada para desfazer nao e caminho. */
       (ocultas.length
-        ? '<button type="button" class="ret-acao" id="btnTodasColunas"'+
+        ? '<button type="button" class="ret-acao" id="'+alvo+'Todas"'+
           ' style="margin-top:6px">↺ Mostrar todas</button>'
         : '');
 
     pop.querySelectorAll('input[data-col]').forEach(function(ch){
       ch.addEventListener('change', function(){
-        var lista = colunasOcultas().filter(function(id){ return id !== ch.dataset.col; });
+        var lista = colunasOcultas(t).filter(function(id){ return id !== ch.dataset.col; });
         if (!ch.checked) lista.push(ch.dataset.col);
-        guardarOcultas(lista);
+        guardarOcultas(t, lista);
         /* Redesenhar recria esta lista, e com ela este ouvinte. O painel fica ABERTO de
            proposito: quem esconde uma coluna costuma esconder duas, e fechar a cada
            clique obrigaria a reabrir. Como ele agora e o painel de filtros, quem o mantem
            aberto e o `FILTROS_ABERTO`, que o desenho nao mexe. */
-        desenharFluxo();
+        t.redesenha();
       });
     });
-    var todas = document.getElementById('btnTodasColunas');
+    var todas = document.getElementById(alvo + 'Todas');
     if (todas) todas.addEventListener('click', function(){
-      guardarOcultas([]);
-      desenharFluxo();
+      guardarOcultas(t, []);
+      t.redesenha();
     });
   }
 
@@ -1223,8 +1240,8 @@
     });
   }
 
-  function ligarLarguraColunas(){
-    document.querySelectorAll('#tabelaFluxo th[data-col] .puxador').forEach(function(p){
+  function ligarLarguraColunas(t){
+    document.querySelectorAll(t.alvo + ' th[data-col] .puxador').forEach(function(p){
       p.addEventListener('mousedown', function(e){
         e.preventDefault();
         e.stopPropagation();
@@ -1239,7 +1256,7 @@
           document.removeEventListener('mousemove', move);
           document.removeEventListener('mouseup', solta);
           document.body.classList.remove('redimensionando');
-          guardarLargura(th.dataset.col, th.getBoundingClientRect().width);
+          guardarLargura(t, th.dataset.col, th.getBoundingClientRect().width);
         }
         document.addEventListener('mousemove', move);
         document.addEventListener('mouseup', solta);
@@ -1251,8 +1268,8 @@
     });
   }
 
-  function ligarArrastarColunas(){
-    var ths = document.querySelectorAll('#tabelaFluxo th[data-col]');
+  function ligarArrastarColunas(t){
+    var ths = document.querySelectorAll(t.alvo + ' th[data-col]');
     var arrastado = null;
     Array.prototype.forEach.call(ths, function(th){
       th.addEventListener('dragstart', function(e){
@@ -1271,12 +1288,12 @@
         th.classList.remove('alvo');
         var solto = th.dataset.col;
         if (!arrastado || solto === arrastado) return;
-        var ordem = ordemColunas();
+        var ordem = ordemColunas(t);
         var de = ordem.indexOf(arrastado);
         ordem.splice(de, 1);
         ordem.splice(ordem.indexOf(solto), 0, arrastado);
-        guardarOrdem(ordem);
-        desenharFluxo();
+        guardarOrdem(t, ordem);
+        t.redesenha();
       });
     });
   }
@@ -1432,17 +1449,17 @@
       });
     }
 
-    var LARG = larguras();
+    var LARG = larguras(TAB_ATIVOS);
     /* Duas peneiras, e elas nao sao a mesma coisa. `so` diz quais colunas FAZEM SENTIDO
        nesta visao — numa visao de gente nao ha origem nem destino. As ocultas sao escolha
        de quem olha. Guardar as duas juntas faria uma coluna escondida numa visao sumir
        da outra tambem, sem ninguem ter pedido. */
-    var cabem = ordemColunas().map(function(id){ return { id: id, d: DEFS[id] }; })
+    var cabem = ordemColunas(TAB_ATIVOS).map(function(id){ return { id: id, d: DEFS[id] }; })
       .filter(function(c){
         if (!c.d) return false;
         return c.d.so === (gente ? 'gente' : 'local') || !c.d.so;
       });
-    var ocultas = colunasOcultas();
+    var ocultas = colunasOcultas(TAB_ATIVOS);
     var cs = cabem.filter(function(c){ return ocultas.indexOf(c.id) < 0; });
     /* Se a pessoa escondeu tudo que cabia nesta visao, a tabela viraria uma caixa vazia
        sem dizer por que. Nesse caso a peneira nao se aplica — e o painel de colunas, ao
@@ -1474,10 +1491,10 @@
               return '<td'+(c.d.num ? ' class="num"' : '')+'>'+c.d.v(l)+'</td>';
             }).join('')+'</tr>';
           }).join(''))+'</tbody></table></div>';
-    ligarArrastarColunas();
-    ligarLarguraColunas();
+    ligarArrastarColunas(TAB_ATIVOS);
+    ligarLarguraColunas(TAB_ATIVOS);
     ligarClassificacao();
-    montarPainelColunas(cabem);
+    montarPainelColunas(TAB_ATIVOS, 'colunasLista', cabem);
 
     document.querySelectorAll('[data-fchip]').forEach(function(b){
       b.addEventListener('click', function(){
@@ -1602,8 +1619,8 @@
        pessoa arrastou e sem as que ela escondeu. Um arquivo com as colunas noutra ordem
        obriga a conferir duas vezes qual e qual; com colunas a mais, obriga a explicar de
        onde saiu uma que ninguem ve na tela. */
-    var ocultasCsv = colunasOcultas();
-    var cs = ordemColunas().filter(function(id){
+    var ocultasCsv = colunasOcultas(TAB_ATIVOS);
+    var cs = ordemColunas(TAB_ATIVOS).filter(function(id){
       return id !== 'quem' && ocultasCsv.indexOf(id) < 0;
     });
     var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Estoque',

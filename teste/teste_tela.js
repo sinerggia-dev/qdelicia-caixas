@@ -543,16 +543,25 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
   ok(linhaD.indexOf('Estoque Inicial') < 0 && linhaD.indexOf('estoqueInicial') < 0,
     'o CSV acompanha a tela: sem destino nos dois, ou com o rótulo nos dois', linhaD);
 
-  // a ordem salva convive com mudancas na lista de fabrica
-  var j = adm.indexOf('function ordemColunas()');
-  var fonteOrdem = adm.slice(adm.indexOf('var COLS_PADRAO'), adm.indexOf('\n  }', j) + 4);
+  /* A ordem salva convive com mudancas na lista de fabrica.
+
+     A funcao passou a receber a TABELA de quem sao as colunas: mover, esconder e
+     redimensionar sao a mesma maquinaria para qualquer tabela do painel, e copia-la por
+     tabela divergiria no primeiro conserto que so uma recebesse. A bancada monta a
+     descricao da tabela de ativos e exercita a funcao com ela. */
+  var j = adm.indexOf('function ordemColunas(t)');
+  var fonteOrdem = adm.slice(adm.indexOf('var TAB_ATIVOS'), adm.indexOf('\n  }', j) + 4);
+  ok(j > 0 && /function ordemColunas\(t\)/.test(fonteOrdem) && /kOrdem:/.test(fonteOrdem),
+    'a ordem das colunas é da TABELA que se pede, e não de uma só');
   var loja = {};
   var localStorage = {
     getItem: function (k) { return loja[k] === undefined ? null : loja[k]; },
     setItem: function (k, v) { loja[k] = String(v); }
   };
-  var ordemColunas = new Function('localStorage',
-    fonteOrdem + ' return ordemColunas;')(localStorage);
+  var mont = new Function('localStorage', 'desenharFluxo',
+    fonteOrdem + ' return { fn: ordemColunas, t: TAB_ATIVOS };')(localStorage, function(){});
+  var TAB = mont.t;
+  var ordemColunas = function () { return mont.fn(TAB); };
 
   ok(ordemColunas().length >= 8, 'sem nada salvo, vem a ordem de fabrica', ordemColunas());
 
@@ -601,7 +610,7 @@ console.log('\n== o CSV do painel acompanha as colunas ==');
   var j = adm.indexOf("Q.csv('retornos'");
   var csv = adm.slice(adm.lastIndexOf('var cs =', j), adm.indexOf('}));', j));
 
-  ok(csv.indexOf('ordemColunas()') > 0,
+  ok(csv.indexOf('ordemColunas(TAB_ATIVOS)') > 0,
     'o CSV le a MESMA ordem que a tela usa, inclusive a que a pessoa arrastou');
   ok(/TIT\[id\]/.test(csv) && /VAL\[id\]\(l\)/.test(csv),
     'e monta cabecalho e linha a partir dessa lista, nao de duas listas soltas');
@@ -821,14 +830,19 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
     semEstoque.els.rtDestino.innerHTML);
 
   // ---- largura ----
-  var j = adm.indexOf('function larguras()');
-  var fonte = adm.slice(adm.indexOf('var LARG_CHAVE'), adm.indexOf('\n  }', j) + 4);
+  var j = adm.indexOf('function larguras(t)');
+  /* Idem: a largura e da tabela que se pede. O recorte comeca em `TAB_ATIVOS` porque e
+     dele que saem as larguras de fabrica. */
+  var fonte = adm.slice(adm.indexOf('var TAB_ATIVOS'), adm.indexOf('\n  }', j) + 4);
   var loja = {};
   var localStorage = {
     getItem: function (k) { return loja[k] === undefined ? null : loja[k]; },
     setItem: function (k, v) { loja[k] = String(v); }
   };
-  var larguras = new Function('localStorage', fonte + ' return larguras;')(localStorage);
+  var mm = new Function('localStorage', 'desenharFluxo',
+    fonte + ' return { fn: larguras, t: TAB_ATIVOS };')(localStorage, function(){});
+  var TABL = mm.t;
+  var larguras = function () { return mm.fn(TABL); };
 
   var d = larguras();
   ok(d.saida > 0 && d.inicial > 0, 'sem nada salvo, vem a largura de fabrica', d);
@@ -971,7 +985,10 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
     semLancamento);
 
   /* --- simetria: nenhuma coluna pela metade ------------------------------- */
-  var padrao = adm.slice(adm.indexOf('var COLS_PADRAO'), adm.indexOf(';', adm.indexOf('var COLS_PADRAO')));
+  /* A lista de fabrica mora dentro do descritor da tabela desde que a maquinaria passou
+     a servir mais de uma. O recorte vai do `padrao:` ate o fecha-colchetes dele. */
+  var ip = adm.indexOf('padrao: [', adm.indexOf('var TAB_ATIVOS'));
+  var padrao = adm.slice(ip, adm.indexOf(']', ip));
   var cols = (padrao.match(/'(\w+)'/g) || []).map(function (t) { return t.slice(1, -1); });
   ok(cols.indexOf('lancado') > 0, 'a coluna esta na lista de fabrica', cols);
   ok(defs.indexOf("t: 'Estoque'") > 0, 'e o titulo dela na tela é "Estoque"');
@@ -980,11 +997,13 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
   ok(semDef.length === 0, 'toda coluna de fábrica tem definição — sem ela o <td> sai vazio',
     semDef);
 
-  var larg = adm.slice(adm.indexOf('var LARG_PADRAO'), adm.indexOf('};', adm.indexOf('var LARG_PADRAO')));
+  /* As larguras de fabrica moram dentro do descritor da tabela. */
+  var il = adm.indexOf('larg: {', adm.indexOf('var TAB_ATIVOS'));
+  var larg = adm.slice(il, adm.indexOf('}', il));
   var semLarg = cols.filter(function (id) { return larg.indexOf(id + ':') < 0; });
   ok(semLarg.length === 0,
-    'e toda coluna tem largura — `larguras()` só conhece as chaves de LARG_PADRAO, e ' +
-    'com table-layout:fixed a que faltar recebe width:undefinedpx e some', semLarg);
+    'e toda coluna tem largura — `larguras()` só conhece as chaves declaradas na tabela, ' +
+    'e com table-layout:fixed a que faltar recebe width:undefinedpx e some', semLarg);
 
   var j = adm.indexOf("Q.csv('retornos'");
   var csv = adm.slice(adm.lastIndexOf('var cs =', j), adm.indexOf('}));', j));
@@ -1479,8 +1498,9 @@ console.log('\n== escolher as colunas, dentro do painel de filtros ==');
     k++;
   } while (abertas > 0 && k < adm.length);
   var fonte = adm.slice(adm.indexOf('function quantosFiltrosFluxo()'), k);
-  ok(/function ajustarBarraFiltros/.test(fonte) && /colunasOcultas\(\)\.length/.test(fonte),
-    'o recorte pegou as peças, e o gatilho olha as colunas escondidas também');
+  ok(/function ajustarBarraFiltros/.test(fonte) &&
+     /colunasOcultas\(TAB_ATIVOS\)\.length/.test(fonte),
+    'o recorte pegou as peças, e o gatilho olha as colunas escondidas da tabela de ativos');
 
   function bancada(campos, grupo, aberto, ocultas) {
     var els = {
@@ -1495,13 +1515,13 @@ console.log('\n== escolher as colunas, dentro do painel de filtros ==');
     };
     els.filtrosRet.classList._d = els.filtrosRet.classes;
     var api = new Function('document', 'FLUXO_FILTRO', 'FILTROS_FLUXO', 'valor',
-      'colunasOcultas',
+      'colunasOcultas', 'TAB_ATIVOS',
       'function posicionarPop(p){ if (!p) return; p.classList.remove("para-baixo"); }' +
       fonte + '\n return { abrir: abrirFiltros, ajustar: ajustarBarraFiltros };')(
       { getElementById: function (id) { return els[id] || null; } },
       grupo, ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte'],
       function (id) { return campos[id] || ''; },
-      function () { return ocultas; });
+      function () { return ocultas; }, {});
     api.abrir(aberto);
     return els.btnVerFiltros;
   }
@@ -1538,10 +1558,10 @@ console.log('\n== escolher as colunas, dentro do painel de filtros ==');
     'aberto, o aviso sai: está tudo à vista');
 
   /* --- guarda o que esta ESCONDIDO, e nao o que esta visivel --------------- */
-  ok(/COLS_OCULTAS_CHAVE = 'qdc_cols_ocultas/.test(adm),
+  ok(/kOcultas: 'qdc_cols_ocultas_v1'/.test(adm),
     'guarda-se a lista de ESCONDIDAS — assim uma coluna nova nasce aparecendo para quem ' +
     'já mexeu aqui; ao contrário, nasceria invisível e ninguém saberia que existe');
-  var fo = adm.slice(adm.indexOf('function colunasOcultas()'));
+  var fo = adm.slice(adm.indexOf('function colunasOcultas(t)'));
   fo = fo.slice(0, fo.indexOf('\n  }'));
   ok(/try \{/.test(fo) && /catch/.test(fo) && /Array\.isArray/.test(fo),
     'com try/catch e conferindo que é lista: janela anônima estoura, e lixo no ' +
@@ -1550,55 +1570,64 @@ console.log('\n== escolher as colunas, dentro do painel de filtros ==');
   /* --- a peneira, rodando -------------------------------------------------- */
   var d = adm.indexOf('function desenharFluxo()');
   var corpo = adm.slice(d, adm.indexOf("document.querySelectorAll('[data-fchip]')", d));
-  var trecho = corpo.slice(corpo.indexOf('var cabem = ordemColunas()'),
+  var trecho = corpo.slice(corpo.indexOf('var cabem = ordemColunas(TAB_ATIVOS)'),
                            corpo.indexOf('// O cabeçalho fica SEMPRE'));
   var peneira = new Function('ordemColunas', 'DEFS', 'gente', 'colunasOcultas',
+    'TAB_ATIVOS',
     trecho + '\n return cs.map(function(c){ return c.id; });');
   var DEFS = { data: { so: 'local' }, origem: { so: 'local' }, quem: { so: 'gente' },
                saida: {}, retorno: {} };
   var ordem = function () { return ['data', 'origem', 'quem', 'saida', 'retorno']; };
 
-  ok(peneira(ordem, DEFS, false, function () { return []; }).join(',') ===
+  ok(peneira(ordem, DEFS, false, function () { return []; }, {}).join(',') ===
      'data,origem,saida,retorno',
     'sem nada escondido, a visão de local traz as colunas dela — e não a de gente');
-  ok(peneira(ordem, DEFS, false, function () { return ['origem', 'saida']; }).join(',') ===
+  ok(peneira(ordem, DEFS, false, function () { return ['origem', 'saida']; }, {}).join(',') ===
      'data,retorno', 'escondidas saem da tabela');
-  ok(peneira(ordem, DEFS, true, function () { return ['origem']; }).join(',') ===
+  ok(peneira(ordem, DEFS, true, function () { return ['origem']; }, {}).join(',') ===
      'quem,saida,retorno',
     'esconder uma coluna que nem existe na outra visão não mexe nela');
-  ok(peneira(ordem, DEFS, false, function () { return ['data','origem','saida','retorno']; })
+  ok(peneira(ordem, DEFS, false, function () { return ['data','origem','saida','retorno']; }, {})
        .join(',') === 'data,origem,saida,retorno',
     'escondendo TUDO, a peneira não se aplica: tabela vazia não diz por que está vazia');
 
   /* --- o "Mostrar todas" --------------------------------------------------- */
-  var mp = adm.indexOf('function montarPainelColunas(cabem)');
+  var mp = adm.indexOf('function montarPainelColunas(t, alvo, cabem)');
   var mk = adm.indexOf('{', mp), mn = 0;
   do {
     if (adm[mk] === '{') mn++; else if (adm[mk] === '}') mn--;
     mk++;
   } while (mn > 0 && mk < adm.length);
   var corpoMontar = adm.slice(mp, mk);
-  ok(/colunasLista/.test(corpoMontar) && /btnTodasColunas/.test(corpoMontar),
-    'o recorte pegou a função, e ela escreve na lista de dentro do painel');
+  /* A funcao deixou de escrever `colunasLista` e `btnTodasColunas` no corpo: os dois
+     viraram parametro (`alvo`), que e o que a torna a mesma para qualquer tabela. */
+  ok(/getElementById\(alvo\)/.test(corpoMontar) && /alvo \+ 'Todas'/.test(corpoMontar),
+    'o recorte pegou a função, e ela escreve no lugar que recebeu', corpoMontar.slice(0, 200));
 
-  var monta = new Function('Q', 'colunasOcultas', 'document', 'desenharFluxo',
-    'guardarOcultas', corpoMontar + '\n return montarPainelColunas;');
+  /* A funcao passou a receber a TABELA e o id do lugar onde escreve: e a mesma para
+     qualquer tabela do painel, e o que muda e de quem sao as colunas e onde elas vao. */
+  var monta = new Function('Q', 'colunasOcultas', 'document', 'guardarOcultas',
+    corpoMontar + '\n return montarPainelColunas;');
   function html(ocultas) {
     var lista = { innerHTML: '', querySelectorAll: function () { return []; } };
     monta({ esc: function (v) { return String(v); } },
       function () { return ocultas; },
       { getElementById: function (id) { return id === 'colunasLista' ? lista : null; } },
-      function () {}, function () {})(
+      function () {})(
+      { redesenha: function () {} }, 'colunasLista',
       [{ id: 'data', d: { t: 'Data' } }, { id: 'saida', d: { t: 'Saída' } }]);
     return lista.innerHTML;
   }
   ok(html([]).indexOf('data-col="data"') > 0 && html([]).indexOf('data-col="saida"') > 0,
     'a lista sai com uma caixa por coluna');
-  ok(html([]).indexOf('btnTodasColunas') < 0,
+  ok(html([]).indexOf('colunasListaTodas') < 0,
     'sem nada escondido o "Mostrar todas" nem nasce — desligado, pediria a mesma leitura ' +
     'de um botão que funciona', html([]));
-  ok(html(['saida']).indexOf('btnTodasColunas') > 0,
-    'e com coluna escondida ele aparece: é o caminho de volta');
+  /* O id do botao agora sai do `alvo`, entao a bancada procura pelo id que ELA passou —
+     'colunasListaTodas'. Procurar o nome antigo era procurar algo que nao existe mais, e
+     o teste passaria a falhar mesmo com o botao no lugar. */
+  ok(html(['saida']).indexOf('colunasListaTodas') > 0,
+    'e com coluna escondida ele aparece: é o caminho de volta', html(['saida']));
 
   /* --- o CSV acompanha ----------------------------------------------------- */
   var jc = adm.indexOf("Q.csv('retornos'");
@@ -1910,14 +1939,14 @@ console.log('\n== os filtros num painel suspenso ==');
     /* `colunasOcultas` entra como coto: o gatilho passou a olhar as colunas escondidas
        para decidir a COR, e a lista delas nao e assunto deste bloco — tem teste proprio. */
     var api = new Function('document', 'FLUXO_FILTRO', 'FILTROS_FLUXO', 'valor',
-      'colunasOcultas',
+      'colunasOcultas', 'TAB_ATIVOS',
       'function posicionarPop(p){ if (!p) return;' +
       ' p.classList.remove("para-baixo");' +
       ' if (p.getBoundingClientRect().top < 8) p.classList.add("para-baixo"); }' +
       fonte + '\n return { abrir: abrirFiltros, ajustar: ajustarBarraFiltros,' +
       '\n          quantos: quantosFiltrosFluxo };')(
       doc, grupoAtivo, ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte'],
-      function (id) { return campos[id] || ''; }, function () { return []; });
+      function (id) { return campos[id] || ''; }, function () { return []; }, {});
     api.abrir(aberto);
     api.els = els;
     return api;
