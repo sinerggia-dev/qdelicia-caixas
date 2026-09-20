@@ -1617,6 +1617,33 @@ console.log('\n== escolher as colunas, dentro do painel de filtros ==');
     'nem a função que só ele usava');
   ok(pop.indexOf('pop-risco') > 0 && pop.indexOf('Colunas da tabela') > 0,
     'um risco e um título separam as duas coisas dentro do painel', pop.slice(-300));
+
+  /* --- o painel nao pode abrir rolado ------------------------------------- */
+  /* Aconteceu: com as oito colunas dentro, o painel passou de 312 para 659px e deixou de
+     caber acima do gatilho. Ele abria ROLADO, e o que ficava a vista era o FIM do
+     conteudo — a lista de colunas. Os filtros ficavam fora da tela, acima, e a tela
+     parecia travada. Duas guardas, porque uma so nao bastava:
+
+       1. a lista de colunas rola por conta propria, entao o painel volta a caber;
+       2. abrir leva a rolagem para o topo, onde estao os filtros — senao ele reabriria
+          onde foi fechado. */
+  ok(/#colunasLista\{max-height:\d+px;overflow-y:auto\}/.test(css),
+    'a lista de colunas rola por conta própria, em vez de esticar o painel', css.length);
+  var ab = adm.indexOf('function abrirFiltros(sim)');
+  var ak = adm.indexOf('{', ab), an = 0;
+  do {
+    if (adm[ak] === '{') an++; else if (adm[ak] === '}') an--;
+    ak++;
+  } while (an > 0 && ak < adm.length);
+  var corpoAbrir = adm.slice(ab, ak);
+  ok(/scrollTop = 0/.test(corpoAbrir),
+    'e abrir leva a rolagem ao topo: reabrindo no meio, a tela mostra as colunas e os ' +
+    'filtros ficam fora de vista', corpoAbrir);
+
+  /* A ordem no HTML importa: os filtros vem ANTES das colunas. Invertida, levar a rolagem
+     ao topo mostraria justamente a secao que nao e o assunto do painel. */
+  ok(pop.indexOf('id="rtOrigem"') < pop.indexOf('id="colunasLista"'),
+    'e os filtros vêm antes das colunas no painel');
   ok(/\.ret-pop \.pop-risco\{/.test(css) && /\.ret-pop \.pop-titulo\{/.test(css),
     'e os dois têm estilo');
 
