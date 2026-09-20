@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=c77ed923">
+<link rel="stylesheet" href="styles.css?v=25d986ec">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -142,10 +142,12 @@
               <select id="rtOrigem"><option value="">Todas</option></select>
               <label for="rtDestino">Destino</label>
               <select id="rtDestino"><option value="">Todos</option></select>
-              <label for="rtDe">De</label>
-              <input id="rtDe" type="date">
-              <label for="rtAte">Até</label>
-              <input id="rtAte" type="date">
+              <!-- As duas datas dividem uma fileira: sozinhas, cada uma custava uma
+                   linha inteira do painel para um campo que nao usa metade da largura. -->
+              <div class="pop-duplo">
+                <div><label for="rtDe">De</label><input id="rtDe" type="date"></div>
+                <div><label for="rtAte">Até</label><input id="rtAte" type="date"></div>
+              </div>
               <label for="verTesteRetornos">Lançamentos</label>
               <select id="verTesteRetornos" data-verteste>
                 <option value="reais">Só reais</option>

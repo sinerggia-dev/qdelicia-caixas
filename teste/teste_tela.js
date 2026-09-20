@@ -1684,9 +1684,24 @@ console.log('\n== os filtros num painel suspenso ==');
     });
 
   /* Os cinco filtros sairam do cabecalho e foram para dentro do painel. */
+  /* O recorte fecha CONTANDO as marcas, e nao parando no primeiro `</div>`: as duas
+     datas passaram a dividir uma fileira dentro de um <div>, e o recorte por primeira
+     ocorrencia parou ali — cortando fora os dois ultimos filtros. Verde ele nao ficou,
+     mas ficaria se o corte tivesse caido depois do ultimo campo em vez de antes. */
   var g = adm.indexOf('<div class="ret-pop" id="filtrosRet"');
-  var pop = adm.slice(g, adm.indexOf('</div>', g));
+  var pop = (function () {
+    var i = g, n = 0;
+    while (i < adm.length) {
+      if (adm.slice(i, i + 4) === '<div') n++;
+      else if (adm.slice(i, i + 6) === '</div>') { n--; if (!n) return adm.slice(g, i + 6); }
+      i++;
+    }
+    return '';
+  })();
   ok(g > ra, 'o painel suspenso fica dentro do bloco do trilho');
+  ok(pop.length > 200 && /<\/div>$/.test(pop),
+    'e o recorte dele pegou a caixa inteira — cortado no meio, os filtros de baixo ' +
+    'sumiriam da conferencia abaixo sem nada acusar', pop.length);
   ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'verTesteRetornos'].forEach(function (id) {
     ok(pop.indexOf('id="' + id + '"') > 0, 'o filtro ' + id + ' mora no painel');
   });
@@ -1731,6 +1746,27 @@ console.log('\n== os filtros num painel suspenso ==');
     (adm.match(/posicionarPop\(/g) || []).length);
   ok(/\.ret-pop\.para-baixo\{bottom:auto;top:calc\(100% \+ 6px\)\}/.test(css),
     'e existe a regra que o faz descer — sem ela a medição não mudaria nada');
+  /* O painel encolheu de 417 para 268px. Duas coisas o inflavam, e as duas tem guarda:
+
+     1. Os campos usavam a medida de FORMULARIO do projeto — 12px de recuo e fonte 16 —,
+        feita para o dedo de quem lanca de luva no galpao. Metade da altura era espaco em
+        volta.
+     2. As duas datas ocupavam uma fileira cada, para um campo que nao usa metade da
+        largura. */
+  ok(/\.ret-pop select,\.ret-pop input\{[^}]*font-size:13px/.test(css),
+    'os campos do painel têm medida de painel, e não de formulário de celular');
+  ok(/\.ret-pop \.pop-duplo\{display:grid;grid-template-columns:1fr 1fr/.test(css) &&
+     /<div class="pop-duplo">/.test(adm),
+    'e as duas datas dividem uma fileira');
+
+  /* Item de grade nasce com `min-width:auto` — o minimo INTRINSECO do conteudo. O campo
+     de data tem um: ele nao encolhe abaixo de "dd/mm/aaaa" mais o icone. Sem soltar isso,
+     o par empurrava a coluna para 274px dentro de um painel de 240, e como a coluna e uma
+     so, TODOS os campos iam junto e vazavam pela borda. Medido antes e depois. */
+  ok(/\.ret-pop>\*,\.ret-pop \.pop-duplo>\*\{min-width:0\}/.test(css),
+    'e os itens de grade podem encolher: sem isso o campo de data alarga a coluna toda e ' +
+    'os campos vazam pela borda do painel');
+
   ok(/\.ret-pop\{[^}]*max-height:calc\(100vh - 24px\)/.test(css) &&
      /\.ret-pop\{[^}]*overflow-y:auto/.test(css),
     'e ele tem rolagem própria: numa janela baixa não cabe em direção nenhuma, e sem ' +
