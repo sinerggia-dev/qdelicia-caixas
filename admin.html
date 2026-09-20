@@ -287,6 +287,18 @@
       <div class="linha-btn">
         <button class="btn" id="btnFiltrarMov" style="flex:0;min-width:140px">Filtrar</button>
         <button class="btn sec" id="btnLimparMov" style="flex:0;min-width:120px">Limpar</button>
+        <!-- O gatilho e o painel andam juntos: o painel se posiciona em relacao a ESTE
+             bloco, e nao a barra inteira, senao escorregaria quando um filtro mudasse de
+             largura. -->
+        <div class="ret-menu" style="flex:0 0 auto">
+          <button class="btn neutro" id="btnColunasMov" type="button"
+                  aria-expanded="false" aria-controls="colunasMovPop"
+                  style="min-width:130px"></button>
+          <div class="ret-pop" id="colunasMovPop" hidden>
+            <div class="pop-titulo">Colunas da tabela</div>
+            <div id="colunasMovLista"></div>
+          </div>
+        </div>
         <button class="btn neutro" id="btnCsvMov" style="flex:0;min-width:130px">⬇ CSV</button>
         <!-- `flex:0 0 auto` e nao `flex:0`: o segundo vale flex-basis:0, entao a largura
              do botao passa a ser so o min-width e o texto transborda a borda. Com `auto`
@@ -987,10 +999,22 @@
      Uma funcao para os dois paineis: dois lugares decidindo a mesma coisa acabam
      discordando, e o segundo painel nasceria fora da tela no dia em que o primeiro fosse
      corrigido. */
-  function posicionarPop(pop){
+  function posicionarPop(pop, preferBaixo){
     if (!pop) return;
-    pop.classList.remove('para-baixo');
-    if (pop.getBoundingClientRect().top < 8) pop.classList.add('para-baixo');
+    /* O lado PREFERIDO depende de onde o gatilho mora. No rodape do trilho o painel sobe,
+       porque para baixo so ha a borda da tela. Numa barra de ferramentas acima da tabela
+       ele desce, senao taparia os filtros que a pessoa acabou de usar. */
+    pop.classList.toggle('para-baixo', !!preferBaixo);
+    var r = pop.getBoundingClientRect();
+    var cabe = preferBaixo ? (r.bottom <= window.innerHeight - 8) : (r.top >= 8);
+    if (cabe) return;
+    /* Nao coube do lado preferido: tenta o outro. Nao cabendo tambem, volta ao preferido —
+       la pelo menos a rolagem da pagina alcanca, e o `max-height` do painel garante o
+       resto. */
+    pop.classList.toggle('para-baixo', !preferBaixo);
+    var r2 = pop.getBoundingClientRect();
+    var cabe2 = preferBaixo ? (r2.top >= 8) : (r2.bottom <= window.innerHeight - 8);
+    if (!cabe2) pop.classList.toggle('para-baixo', !!preferBaixo);
   }
 
   function limparFiltrosFluxo(){
@@ -1095,6 +1119,17 @@
     kOcultas: 'qdc_cols_ocultas_v1',
     alvo: '#tabelaFluxo',
     redesenha: function(){ desenharFluxo(); }
+  };
+
+  var TAB_MOV = {
+    padrao: ['data','status','origem','destino','caixa','qtd','motorista','quem'],
+    larg: { data:110, status:110, origem:150, destino:150,
+            caixa:120, qtd:80, motorista:130, quem:120 },
+    kOrdem: 'qdc_cols_mov_v1',
+    kLarg: 'qdc_larg_mov_v1',
+    kOcultas: 'qdc_cols_ocultas_mov_v1',
+    alvo: '#tabelaMov',
+    redesenha: function(){ desenharMovimentos(); }
   };
 
   function ordemColunas(t){
@@ -2023,6 +2058,40 @@
     });
   });
 
+  /* Esconder coluna e esconder informacao — a mesma regra do Painel de Ativos. O gatilho
+     carrega a contagem das escondidas e troca de cor; sem isso, a tabela apareceria sem a
+     coluna Quem e ninguem saberia que ela existe. */
+  function ajustarColunasMov(){
+    var btn = document.getElementById('btnColunasMov');
+    var pop = document.getElementById('colunasMovPop');
+    if (!btn || !pop) return;
+    var n = colunasOcultas(TAB_MOV).length;
+    btn.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
+    btn.className = 'btn ' + (pop.hidden && n ? '' : 'neutro');
+    btn.textContent = (pop.hidden ? '▸ ' : '▾ ') + 'Colunas' + (n ? ' (' + n + ')' : '');
+    btn.title = pop.hidden && n
+      ? n + (n === 1 ? ' coluna está escondida' : ' colunas estão escondidas')
+      : (pop.hidden ? 'Escolher as colunas da tabela' : 'Fechar');
+  }
+
+  document.getElementById('btnColunasMov').addEventListener('click', function(e){
+    e.stopPropagation();   // senao o clique chega no documento e fecha o que acabou de abrir
+    var pop = document.getElementById('colunasMovPop');
+    pop.hidden = !pop.hidden;
+    if (!pop.hidden) posicionarPop(pop, true);   // a barra fica ACIMA da tabela
+    ajustarColunasMov();
+  });
+  /* Duas saidas alem do gatilho, como nos demais paineis: clicar fora e o Esc. */
+  document.addEventListener('click', function(e){
+    var pop = document.getElementById('colunasMovPop');
+    if (pop && !pop.hidden && !pop.contains(e.target)) { pop.hidden = true; ajustarColunasMov(); }
+  });
+  document.addEventListener('keydown', function(e){
+    var pop = document.getElementById('colunasMovPop');
+    if (e.key === 'Escape' && pop && !pop.hidden) { pop.hidden = true; ajustarColunasMov(); }
+  });
+  ajustarColunasMov();
+
   document.getElementById('btnFiltrarMov').addEventListener('click', carregarMovimentos);
 
   /* Os cinco campos recarregam sozinhos ao mudar. Antes só o botão Filtrar disparava a
@@ -2065,34 +2134,90 @@
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
         MOVS = r.movimentos;
-        if (!MOVS.length){ box.innerHTML='<div class="vazio">Nenhum movimento no filtro.</div>'; return; }
-        box.innerHTML = '<div class="tabela-wrap"><table><thead><tr><th>Data</th><th>Status</th><th>Origem</th><th>Destino</th>'+
-          '<th>Caixa</th><th class="num">Qtd</th>'+
-          '<th>Motorista</th><th>Quem</th><th></th></tr></thead><tbody>'+
-          MOVS.map(function(m){
-            /* Vermelha continua valendo: o contado na chegada não bateu com o
-               declarado, e a coluna que mostrava isso saiu. O amarelo de AGUARDANDO foi
-               embora com a etapa de conferência — ele dizia "não entrou no saldo". */
-            return '<tr class="'+(m.divergencia?'ruim':'')+'">'+
-              '<td>'+Q.dataBR(m.dataRef)+
-                (m.teste?' <span class="tag amarela">teste</span>':'')+'</td>'+
-              '<td><span class="tag '+tagCiclo(m.situacao)+'">'+Q.esc(m.situacao)+'</span></td>'+
-              '<td>'+Q.esc(m.origem)+'</td><td>'+Q.esc(m.destino)+'</td><td>'+Q.esc(m.tipoCaixa)+'</td>'+
-              '<td class="num">'+Q.num(m.qtd)+'</td>'+
-              '<td>'+(m.motorista?Q.esc(m.motorista):'—')+'</td>'+
-              '<td>'+Q.esc(m.usuario||'')+'</td>'+
-              '<td>'+(Q.ehAdmin()
-                 ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> '+
-                   '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '+
-                   '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>'
-                 : '')+'</td></tr>';
-          }).join('')+'</tbody></table></div>';
-        box.querySelectorAll('button[data-corrigir]').forEach(function(b){
-          b.addEventListener('click', function(){
-            var m = (r.movimentos||[]).filter(function(x){ return String(x.id)===b.dataset.corrigir; })[0];
-            if (m) formCorrigir(m);
-          });
-        });
+        desenharMovimentos();
+      }).catch(function(e){ box.innerHTML='<div class="aviso-box erro">'+Q.esc(e.message)+'</div>'; });
+  }
+
+  /* O DESENHO separado da BUSCA. Arrastar uma coluna de lugar, esconder outra ou mudar a
+     largura sao coisas de tela: redesenhar por causa delas nao pode custar uma ida de
+     rede — e, pior, os 500 lancamentos voltariam noutra ordem se alguem tivesse lancado
+     no meio, e a linha sob o cursor mudaria de dono. */
+  function desenharMovimentos(){
+    var box = document.getElementById('tabelaMov');
+    if (!box) return;
+    if (!MOVS || !MOVS.length){
+      box.innerHTML = '<div class="vazio">Nenhum movimento no filtro.</div>';
+      montarPainelColunas(TAB_MOV, 'colunasMovLista', []);
+      ajustarColunasMov();
+      return;
+    }
+
+    /* As colunas viraram DADOS, como no Painel de Ativos: titulo, se e numerica e como
+       preencher a celula, cada uma descrita uma vez. E isso que deixa arrastar para
+       reordenar e esconder pelo painel — a ordem e so a ordem desta lista. */
+    var DEFS = {
+      data:      { t: 'Data',
+                   v: function(m){ return Q.dataBR(m.dataRef) +
+                     (m.teste ? ' <span class="tag amarela">teste</span>' : ''); } },
+      status:    { t: 'Status',
+                   v: function(m){ return '<span class="tag '+tagCiclo(m.situacao)+'">'+
+                     Q.esc(m.situacao)+'</span>'; } },
+      origem:    { t: 'Origem',    v: function(m){ return Q.esc(m.origem); } },
+      destino:   { t: 'Destino',   v: function(m){ return Q.esc(m.destino); } },
+      caixa:     { t: 'Caixa',     v: function(m){ return Q.esc(m.tipoCaixa); } },
+      qtd:       { t: 'Qtd', num: true, v: function(m){ return Q.num(m.qtd); } },
+      motorista: { t: 'Motorista',
+                   v: function(m){ return m.motorista ? Q.esc(m.motorista)
+                                                      : '<span class="fraco">—</span>'; } },
+      quem:      { t: 'Quem',      v: function(m){ return Q.esc(m.usuario||''); } }
+    };
+
+    var LARG = larguras(TAB_MOV);
+    var cabem = ordemColunas(TAB_MOV).map(function(id){ return { id: id, d: DEFS[id] }; })
+      .filter(function(c){ return !!c.d; });
+    var ocultas = colunasOcultas(TAB_MOV);
+    var cs = cabem.filter(function(c){ return ocultas.indexOf(c.id) < 0; });
+    if (!cs.length) cs = cabem;   // tabela vazia nao diz por que esta vazia
+
+    /* A coluna de acoes fica FORA do sistema de colunas, presa no fim. Ela nao e dado —
+       e o caminho para corrigir, cancelar e excluir. Escondivel, alguem a esconderia sem
+       querer e perderia o unico jeito de consertar um lancamento; arrastavel, ela cairia
+       no meio da leitura. */
+    box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
+      cs.map(function(c){
+        return '<th draggable="true" data-col="'+c.id+'"'+
+          (c.d.num ? ' class="num"' : '')+
+          ' style="width:'+(LARG[c.id] || 120)+'px"'+
+          ' title="arraste o titulo para mudar de lugar; a borda, para mudar a largura">'+
+          Q.esc(c.d.t)+'<span class="puxador"></span></th>';
+      }).join('')+
+      '<th></th></tr></thead><tbody>'+
+      MOVS.map(function(m){
+        /* Vermelha continua valendo: o contado na chegada não bateu com o declarado, e a
+           coluna que mostrava isso saiu. O amarelo de AGUARDANDO foi embora com a etapa
+           de conferência — ele dizia "não entrou no saldo". */
+        return '<tr class="'+(m.divergencia?'ruim':'')+'">'+
+          cs.map(function(c){
+            return '<td'+(c.d.num ? ' class="num"' : '')+'>'+c.d.v(m)+'</td>';
+          }).join('')+
+          '<td>'+(Q.ehAdmin()
+             ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> '+
+               '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '+
+               '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>'
+             : '')+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
+
+    ligarArrastarColunas(TAB_MOV);
+    ligarLarguraColunas(TAB_MOV);
+    montarPainelColunas(TAB_MOV, 'colunasMovLista', cabem);
+    ajustarColunasMov();   // a contagem do gatilho segue as escondidas
+
+    box.querySelectorAll('button[data-corrigir]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var m = (MOVS||[]).filter(function(x){ return String(x.id)===b.dataset.corrigir; })[0];
+        if (m) formCorrigir(m);
+      });
+    });
         box.querySelectorAll('button[data-cancelar]').forEach(function(b){
           b.addEventListener('click', function(){
             var motivo = prompt('Cancelar este movimento (ele deixa de contar no saldo).\nMotivo:');
@@ -2125,7 +2250,6 @@
             }).catch(function(e){ Q.toast(e.message,'erro'); });
           });
         });
-      }).catch(function(e){ box.innerHTML='<div class="aviso-box erro">'+Q.esc(e.message)+'</div>'; });
   }
   /* O rótulo agora diz o que a linha é E em que pé está — Tipo e Status viraram uma
      coluna só. As cores seguem o mesmo sentido de sempre: azul saiu, verde fechou,

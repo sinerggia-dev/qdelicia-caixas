@@ -1459,6 +1459,138 @@ console.log('\n== as abas de admin travam no cadastro ==');
     'opção existe');
 })();
 
+/* ---------------------------------------------------------------------------
+ * A tabela de Movimentos ganha mover, esconder e redimensionar coluna.
+ *
+ * A MESMA maquinaria do Painel de Ativos, recebendo outra tabela — nao uma copia. Duas
+ * copias de arrastar-e-soltar divergem no primeiro conserto que so uma recebe, e o
+ * sintoma e mudo: a tabela que ficou para tras apenas para de obedecer.
+ * ------------------------------------------------------------------------- */
+console.log('\n== as colunas da tabela de Movimentos ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* --- a tabela se descreve num lugar so ---------------------------------- */
+  var i = adm.indexOf('var TAB_MOV = {');
+  var desc = adm.slice(i, adm.indexOf('};', i));
+  ok(i > 0, 'a tabela de Movimentos tem um descritor');
+  ['padrao', 'larg', 'kOrdem', 'kLarg', 'kOcultas', 'alvo', 'redesenha'].forEach(function (k) {
+    ok(desc.indexOf(k + ':') > 0, 'o descritor traz ' + k, desc.slice(0, 120));
+  });
+
+  /* As chaves de armazenamento sao OUTRAS. Repetindo as da tabela de ativos, esconder uma
+     coluna aqui sumiria com outra la — e as duas listas de colunas nem se parecem. */
+  var da = adm.slice(adm.indexOf('var TAB_ATIVOS = {'), adm.indexOf('};', adm.indexOf('var TAB_ATIVOS = {')));
+  ['kOrdem', 'kLarg', 'kOcultas'].forEach(function (k) {
+    var a = (da.match(new RegExp(k + ": '([^']+)'")) || [])[1];
+    var m = (desc.match(new RegExp(k + ": '([^']+)'")) || [])[1];
+    ok(a && m && a !== m, 'a chave ' + k + ' é própria de cada tabela', [a, m]);
+  });
+
+  /* --- toda coluna de fabrica existe, tem largura e celula ----------------- */
+  var ip = desc.indexOf('padrao: [');
+  var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
+    .map(function (t) { return t.slice(1, -1); });
+  ok(cols.length === 8, 'são oito colunas de fábrica', cols);
+
+  var il = desc.indexOf('larg: {');
+  var larg = desc.slice(il, desc.indexOf('}', il));
+  var semLarg = cols.filter(function (c) { return larg.indexOf(c + ':') < 0; });
+  ok(semLarg.length === 0,
+    'toda coluna tem largura — `larguras()` só conhece as chaves declaradas, e com ' +
+    'table-layout:fixed a que faltar recebe width:undefinedpx e some', semLarg);
+
+  var d = adm.indexOf('function desenharMovimentos()');
+  var corpo = adm.slice(d, adm.indexOf('\n    box.querySelectorAll', d));
+  var defs = corpo.slice(corpo.indexOf('var DEFS = {'), corpo.indexOf('var LARG = larguras'));
+  var semDef = cols.filter(function (c) { return defs.indexOf('\n      ' + c + ':') < 0; });
+  ok(semDef.length === 0, 'e toda coluna tem célula — sem ela o <td> sai vazio', semDef);
+
+  /* --- cabecalho e celulas saem da MESMA lista ---------------------------- */
+  ok(/cs\.map\(function\(c\)\{[\s\S]{0,260}<th/.test(corpo),
+    'o cabeçalho percorre a lista de colunas');
+  ok(/cs\.map\(function\(c\)\{[\s\S]{0,120}<td/.test(corpo),
+    'e as células percorrem a MESMA lista — não há duas strings para lembrar de casar');
+  ok(/<table class="fixa">/.test(corpo),
+    'a tabela é de layout fixo: em layout automático a largura pedida vira sugestão, e ' +
+    'arrastar a borda não muda quase nada');
+
+  /* --- a coluna de acoes fica FORA do sistema ----------------------------- */
+  ok(corpo.indexOf("'<th></th></tr></thead>") > 0,
+    'a coluna de ações é um <th> à parte, sem data-col', corpo.slice(corpo.indexOf('<th></th>') - 120, corpo.indexOf('<th></th>') + 40));
+  ok(cols.indexOf('acoes') < 0,
+    'e não está na lista de fábrica: escondível, alguém a esconderia sem querer e ' +
+    'perderia o único jeito de corrigir um lançamento; arrastável, cairia no meio da leitura');
+  ok(/data-corrigir=/.test(corpo) && /data-cancelar=/.test(corpo) && /data-excluir=/.test(corpo),
+    'e os três botões continuam nela');
+
+  /* --- a maquinaria e a mesma, com a outra tabela -------------------------- */
+  ['ligarArrastarColunas(TAB_MOV)', 'ligarLarguraColunas(TAB_MOV)',
+   'larguras(TAB_MOV)', 'ordemColunas(TAB_MOV)', 'colunasOcultas(TAB_MOV)',
+   "montarPainelColunas(TAB_MOV, 'colunasMovLista'"].forEach(function (c) {
+    ok(adm.indexOf(c) > 0, 'usa a mesma função: ' + c);
+  });
+
+  /* --- desenhar e buscar sao coisas diferentes ---------------------------- */
+  /* Arrastar uma coluna nao pode custar uma ida de rede — e, pior, os 500 lancamentos
+     voltariam noutra ordem se alguem tivesse lancado no meio, e a linha sob o cursor
+     mudaria de dono. */
+  ok(adm.indexOf('function desenharMovimentos()') > 0 &&
+     /redesenha: function\(\)\{ desenharMovimentos\(\); \}/.test(desc),
+    'redesenhar não refaz a busca: o desenho é função própria, e é ela que o arrasto chama');
+  var cm = adm.indexOf('function carregarMovimentos()');
+  var busca = adm.slice(cm, adm.indexOf('\n  }', cm));
+  ok(/MOVS = r\.movimentos;\s*\n\s*desenharMovimentos\(\);/.test(busca),
+    'a busca guarda o resultado e manda desenhar', busca.slice(-200));
+
+  /* --- o gatilho conta o que escondeu ------------------------------------- */
+  var a = adm.indexOf('function ajustarColunasMov()');
+  var k = adm.indexOf('{', a), abertas = 0;
+  do {
+    if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
+    k++;
+  } while (abertas > 0 && k < adm.length);
+  var fonte = adm.slice(a, k);
+
+  function gatilho(ocultas, fechado) {
+    var btn = { className: '', textContent: '', title: '', attrs: {},
+                setAttribute: function (x, v) { this.attrs[x] = v; } };
+    var pop = { hidden: fechado };
+    new Function('document', 'colunasOcultas', 'TAB_MOV',
+      fonte + '\n ajustarColunasMov();')(
+      { getElementById: function (id) {
+          return id === 'btnColunasMov' ? btn : (id === 'colunasMovPop' ? pop : null); } },
+      function () { return ocultas; }, {});
+    return btn;
+  }
+
+  var nada = gatilho([], true);
+  ok(nada.textContent === '▸ Colunas' && /neutro/.test(nada.className),
+    'sem nada escondido, o gatilho é só um controle', nada.textContent);
+  var duas = gatilho(['quem', 'motorista'], true);
+  ok(duas.textContent === '▸ Colunas (2)' && !/neutro/.test(duas.className),
+    'com colunas escondidas ele diz QUANTAS e troca de cor — senão a tabela apareceria ' +
+    'sem a coluna Quem e ninguém saberia que ela existe',
+    duas.textContent + ' | ' + duas.className);
+  ok(/coluna está escondida/.test(gatilho(['quem'], true).title),
+    'e o título diz o que isso significa', gatilho(['quem'], true).title);
+  ok(gatilho(['quem'], false).textContent === '▾ Colunas (1)' &&
+     /neutro/.test(gatilho(['quem'], false).className),
+    'aberto, a contagem fica mas o aviso sai — as caixas estão à vista');
+
+  /* --- as tres saidas do painel ------------------------------------------- */
+  var og = adm.indexOf("getElementById('btnColunasMov').addEventListener");
+  var ouv = adm.slice(og, adm.indexOf('\n  });', og));
+  ok(og > 0 && /e\.stopPropagation\(\)/.test(ouv),
+    'o clique no gatilho não vaza para o documento — vazando, fecharia o que abriu');
+  ok(/posicionarPop\(pop, true\)/.test(ouv),
+    'e o painel prefere DESCER: a barra fica acima da tabela, e subindo ele taparia os ' +
+    'filtros que a pessoa acabou de usar', ouv);
+  ok(adm.indexOf("if (pop && !pop.hidden && !pop.contains(e.target)) { pop.hidden = true; ajustarColunasMov(); }") > 0,
+    'clicar fora fecha');
+  ok(/e\.key === 'Escape' && pop && !pop\.hidden/.test(adm), 'e o Esc também');
+})();
+
 console.log('\n== escolher as colunas, dentro do painel de filtros ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -1829,17 +1961,60 @@ console.log('\n== os filtros num painel suspenso ==');
   /* Subir e o padrao, mas o trilho tem a ALTURA DA TABELA: com poucas linhas ele encolhe,
      o gatilho sobe junto, e o painel nasceria acima do topo da tela — sem rolagem que o
      alcance. A direcao e entao decidida medindo, na hora de abrir. */
-  ok(/pop\.classList\.remove\('para-baixo'\)/.test(adm) &&
-     /if \(pop\.getBoundingClientRect\(\)\.top < 8\) pop\.classList\.add\('para-baixo'\)/.test(adm),
-    'a direção é medida ao abrir: não cabendo acima, o painel desce');
+  /* A direcao tem um LADO PREFERIDO, que depende de onde o gatilho mora: no rodape do
+     trilho o painel sobe, porque para baixo so ha a borda da tela; numa barra acima da
+     tabela ele desce, senao taparia os filtros que a pessoa acabou de usar. Nao cabendo
+     do lado preferido, cai no outro — e nao cabendo em nenhum, volta ao preferido, onde
+     a rolagem da pagina alcanca.
+
+     Exercitado rodando, com as duas preferencias e as duas medidas. */
+  var ip = adm.indexOf('function posicionarPop(pop, preferBaixo)');
+  var pk = adm.indexOf('{', ip), pn = 0;
+  do {
+    if (adm[pk] === '{') pn++; else if (adm[pk] === '}') pn--;
+    pk++;
+  } while (pn > 0 && pk < adm.length);
+  var fontePos = adm.slice(ip, pk);
+  ok(ip > 0 && /preferBaixo/.test(fontePos), 'o recorte pegou a função da direção');
+
+  function direcao(preferBaixo, topo, base, janela) {
+    var cls = {};
+    var pop = {
+      classList: {
+        toggle: function (c, v) { if (v) cls[c] = 1; else delete cls[c]; },
+        contains: function (c) { return !!cls[c]; }
+      },
+      getBoundingClientRect: function () {
+        /* Para baixo a caixa comeca no gatilho; para cima ela termina nele. A bancada
+           devolve a medida que corresponde ao lado em que ela esta no momento. */
+        return cls['para-baixo'] ? { top: base - 300, bottom: base }
+                                 : { top: topo, bottom: topo + 300 };
+      }
+    };
+    new Function('pop', 'preferBaixo', 'window',
+      fontePos + '\n posicionarPop(pop, preferBaixo);')(pop, preferBaixo, { innerHeight: janela });
+    return cls['para-baixo'] ? 'desce' : 'sobe';
+  }
+
+  ok(direcao(false, 400, 500, 900) === 'sobe',
+    'preferindo subir e cabendo acima, sobe');
+  ok(direcao(false, -50, 500, 900) === 'desce',
+    'preferindo subir e NÃO cabendo acima, desce');
+  ok(direcao(true, 400, 700, 900) === 'desce',
+    'preferindo descer e cabendo abaixo, desce — a barra fica acima da tabela');
+  ok(direcao(true, 400, 1200, 900) === 'sobe',
+    'preferindo descer e não cabendo abaixo, sobe');
+  ok(direcao(true, -50, 1200, 900) === 'desce',
+    'não cabendo em nenhum dos dois, volta ao preferido: lá a rolagem da página alcança');
   /* Uma funcao para os DOIS paineis. Dois lugares decidindo a mesma coisa acabam
      discordando, e o segundo nasceria fora da tela no dia em que o primeiro fosse
      corrigido. */
   /* Ela ficou com um chamador so quando o painel de colunas passou a morar dentro deste.
      Continua separada porque e a unica coisa que decide a direcao — medir em dois lugares
      era como o segundo painel nasceria fora da tela. */
-  ok((adm.match(/function posicionarPop\(pop\)/g) || []).length === 1,
-    'e a decisão de subir ou descer mora numa função só',
+  ok((adm.match(/function posicionarPop\(/g) || []).length === 1 &&
+     (adm.match(/posicionarPop\(/g) || []).length >= 3,
+    'e a decisão de subir ou descer mora numa função só, usada pelos painéis',
     (adm.match(/posicionarPop\(/g) || []).length);
   ok(/\.ret-pop\.para-baixo\{bottom:auto;top:calc\(100% \+ 6px\)\}/.test(css),
     'e existe a regra que o faz descer — sem ela a medição não mudaria nada');
