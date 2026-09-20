@@ -1497,7 +1497,7 @@ console.log('\n== quais abas do painel a pessoa ve ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
 
-  ok(F.ABAS.length === 6 && F.ABAS[0].ID === 'pgRetornos',
+  ok(F.ABAS.length === 7 && F.ABAS[0].ID === 'pgRetornos',
     'a lista de abas mora no servidor, uma so para o formulario e para a tela',
     F.ABAS.map((a) => a.ID));
   /* Ajustes e Cadastros vem marcados como so-admin na propria lista. Deixar isso escrito

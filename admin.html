@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=b9ba296d">
+<link rel="stylesheet" href="styles.css?v=9b9b1860">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -67,6 +67,7 @@
       <button data-pagina="pgExtrato">Extratos</button>
       <button data-pagina="pgLancar">Ajustes</button>
       <button data-pagina="pgMovimentos">Movimentos</button>
+    <button data-pagina="pgColunas">Colunas</button>
       <button data-pagina="pgCadastros">Cadastros</button>
     </nav>
   </div>
@@ -153,16 +154,6 @@
                 <option value="reais">Só reais</option>
                 <option value="teste">Só de teste</option>
               </select>
-              <!-- As colunas moram AQUI, no mesmo painel. Eram um segundo gatilho no
-                   trilho, ao lado deste, e os dois abriam a mesma caixa no mesmo canto —
-                   dois botoes para uma pergunta so, que e "o que eu quero ver".
-
-                   A lista e montada pelo desenho do fluxo, e nao escrita no HTML: os
-                   titulos das colunas vem de `DEFS`, e quais existem muda com a visao
-                   escolhida na coluna da esquerda. -->
-              <div class="pop-risco"></div>
-              <div class="pop-titulo">Colunas da tabela</div>
-              <div id="colunasLista"></div>
             </div>
           </div>
           <!-- Nasce desligado e so acende quando ha o que limpar: assim ele tambem
@@ -287,18 +278,6 @@
       <div class="linha-btn">
         <button class="btn" id="btnFiltrarMov" style="flex:0;min-width:140px">Filtrar</button>
         <button class="btn sec" id="btnLimparMov" style="flex:0;min-width:120px">Limpar</button>
-        <!-- O gatilho e o painel andam juntos: o painel se posiciona em relacao a ESTE
-             bloco, e nao a barra inteira, senao escorregaria quando um filtro mudasse de
-             largura. -->
-        <div class="ret-menu" style="flex:0 0 auto">
-          <button class="btn neutro" id="btnColunasMov" type="button"
-                  aria-expanded="false" aria-controls="colunasMovPop"
-                  style="min-width:130px"></button>
-          <div class="ret-pop" id="colunasMovPop" hidden>
-            <div class="pop-titulo">Colunas da tabela</div>
-            <div id="colunasMovLista"></div>
-          </div>
-        </div>
         <button class="btn neutro" id="btnCsvMov" style="flex:0;min-width:130px">⬇ CSV</button>
         <!-- `flex:0 0 auto` e nao `flex:0`: o segundo vale flex-basis:0, entao a largura
              do botao passa a ser so o min-width e o texto transborda a borda. Com `auto`
@@ -310,6 +289,14 @@
       </div>
       <div id="limparAviso"></div>
       <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
+    </div>
+  </section>
+
+  <!-- ---------- COLUNAS ---------- -->
+  <section id="pgColunas" class="pagina">
+    <div class="card">
+      <h2>Colunas das tabelas<span class="sub">O que aparece, em que ordem e com que largura — em cada módulo. Vale só neste navegador.</span></h2>
+      <div id="listaColunas"><div class="vazio">Carregando…</div></div>
     </div>
   </section>
 
@@ -686,6 +673,7 @@
     abrirMenuAbas(false);
     if (p==='pgPainel' || p==='pgRetornos') carregarPainel();
     if (p==='pgMovimentos') carregarMovimentos();
+    if (p==='pgColunas') desenharColunas();
   };
   ajustarMenuAbas();
 
@@ -933,23 +921,16 @@
     pop.hidden = !FILTROS_ABERTO;
     btn.setAttribute('aria-expanded', FILTROS_ABERTO ? 'true' : 'false');
 
-    /* A CONTAGEM e so de filtros, porque o botao se chama Filtros: somar as colunas
-       escondidas faria o numero querer dizer duas coisas, e ninguem saberia qual.
-
-       A COR responde pelos dois, porque a pergunta que ela faz e uma so — "tem coisa
-       escondida aqui dentro?" — e a resposta e sim nos dois casos. O titulo separa. */
-    var cols = colunasOcultas(TAB_ATIVOS).length;
-    var esconde = !FILTROS_ABERTO && (n || cols);
+    /* O painel voltou a ser so de filtros: as colunas ganharam aba propria, onde se
+       gerencia as de todos os modulos de uma vez. Entao a contagem e a cor voltam a
+       responder por uma coisa so. */
+    var esconde = !FILTROS_ABERTO && n;
     btn.className = 'ret-acao' + (esconde ? ' alerta' : '');
     btn.textContent = (FILTROS_ABERTO ? '▾ ' : '▸ ') + 'Filtros' + (n ? ' (' + n + ')' : '');
-
-    var diz = [];
-    if (n) diz.push(n + (n === 1 ? ' filtro está ligado' : ' filtros estão ligados'));
-    if (cols) diz.push(cols + (cols === 1 ? ' coluna está escondida'
-                                          : ' colunas estão escondidas'));
     btn.title = esconde
-      ? diz.join(' e ') + ': a tabela ao lado está recortada'
-      : (FILTROS_ABERTO ? 'Fechar' : 'Filtros e colunas da tabela');
+      ? n + (n === 1 ? ' filtro está ligado' : ' filtros estão ligados') +
+        ': a tabela ao lado está recortada'
+      : (FILTROS_ABERTO ? 'Fechar os filtros' : 'Abrir os filtros');
   }
 
   /* Recolher o trilho E preferencia de quem olha, como a ordem das colunas: uma tela
@@ -1119,6 +1100,16 @@
        horizontal. Quem quiser mais espaco numa coluna arrasta a borda. */
     larg: { data:95, inicial:105, lancado:95, origem:150, destino:150,
             quem:190, saida:160, retorno:160, final:105 },
+    /* O titulo de cada coluna mora AQUI, e a celula la embaixo o le daqui. A tela de
+       Colunas precisa dos nomes sem desenhar a tabela, e escreve-los duas vezes seria
+       duas listas sobre a mesma coisa — elas divergem no primeiro renome, e a tela de
+       gerenciar passa a oferecer uma coluna com outro nome.
+
+       `quem` fica vazio de proposito: o titulo dele muda com o grupo escolhido (Motoristas
+       ou Usuários), e quem o escreve e o desenho. */
+    titulos: { data:'Data', inicial:'Saldo inicial', lancado:'Estoque', origem:'Origem',
+               destino:'Destino', quem:'Quem', saida:'Saída', retorno:'Retorno',
+               final:'Saldo final' },
     kOrdem: 'qdc_cols_ativos_v1',
     kLarg: 'qdc_larg_ativos_v1',
     kOcultas: 'qdc_cols_ocultas_v1',
@@ -1130,12 +1121,141 @@
     padrao: ['data','status','origem','destino','caixa','qtd','motorista','quem'],
     larg: { data:110, status:110, origem:150, destino:150,
             caixa:120, qtd:80, motorista:130, quem:120 },
+    titulos: { data:'Data', status:'Status', origem:'Origem', destino:'Destino',
+               caixa:'Caixa', qtd:'Qtd', motorista:'Motorista', quem:'Quem' },
     kOrdem: 'qdc_cols_mov_v1',
     kLarg: 'qdc_larg_mov_v1',
     kOcultas: 'qdc_cols_ocultas_mov_v1',
     alvo: '#tabelaMov',
     redesenha: function(){ desenharMovimentos(); }
   };
+
+  /* As tabelas que a aba Colunas sabe gerenciar. Uma linha por modulo: registrar a
+     proxima e acrescentar um item aqui, e nao escrever outra tela.
+
+     Modulo que nao aparece nesta lista e modulo cuja tabela ainda tem cabecalho escrito a
+     mao — Painel, Extratos e Cadastros, hoje. A aba diz isso na tela, em vez de fingir
+     que nao existem. */
+  function tabelasGerenciaveis(){
+    return [
+      { modulo: 'Painel de Ativos', t: TAB_ATIVOS },
+      { modulo: 'Movimentos',       t: TAB_MOV }
+    ];
+  }
+
+  /* A tela da aba Colunas. Uma ficha por modulo, e em cada uma as tres coisas que se
+     pode fazer com uma coluna:
+
+       - ESCONDER, pela caixa de marcar;
+       - MOVER, pelas setas — aqui nao ha o que arrastar, e seta funciona no celular,
+         onde arrastar cabecalho de tabela nao funciona;
+       - EXPANDIR, pelo numero em pixels.
+
+     As tres mexem no MESMO armazenamento que a tabela le, entao o que se faz aqui a
+     tabela obedece, e o que se arrasta la aparece aqui. Duas telas sobre o mesmo ajuste
+     que nao dividissem o armazenamento seriam duas verdades sobre a mesma coluna. */
+  function desenharColunas(){
+    var box = document.getElementById('listaColunas');
+    if (!box) return;
+    box.innerHTML = tabelasGerenciaveis().map(function(g){
+      var t = g.t;
+      var ordem = ordemColunas(t);
+      var ocultas = colunasOcultas(t);
+      var larg = larguras(t);
+      return '<div class="mod-colunas" data-tab="'+Q.esc(g.modulo)+'">'+
+        '<div class="mod-cab"><b>'+Q.esc(g.modulo)+'</b>'+
+          (ocultas.length
+            ? '<span class="tag amarela">'+ocultas.length+
+              (ocultas.length===1?' escondida':' escondidas')+'</span>'
+            : '')+
+          '<button type="button" class="mini acao" data-colreset="'+Q.esc(g.modulo)+'">'+
+            'restaurar padrão</button></div>'+
+        '<div class="mod-lista">'+
+          ordem.map(function(id, i){
+            var visivel = ocultas.indexOf(id) < 0;
+            /* O nome sai do descritor, e nao de um texto escrito aqui: repetido, esta
+               tela ofereceria "Saldo inicial" para uma coluna que a tabela ja chama de
+               outra coisa. */
+            var nome = (t.titulos || {})[id] || id;
+            return '<div class="col-linha'+(visivel?'':' apagada')+'">'+
+              '<label class="chk-col"><input type="checkbox" data-colver="'+id+'"'+
+                (visivel?' checked':'')+'> '+Q.esc(nome)+'</label>'+
+              '<div class="col-acoes">'+
+                '<button type="button" class="mini" data-colsobe="'+id+'"'+
+                  (i===0?' disabled':'')+' title="mover para cima">↑</button>'+
+                '<button type="button" class="mini" data-coldesce="'+id+'"'+
+                  (i===ordem.length-1?' disabled':'')+' title="mover para baixo">↓</button>'+
+                '<input type="number" class="col-larg" data-collarg="'+id+'"'+
+                  ' value="'+(larg[id]||120)+'" min="'+LARG_MIN+'" step="10"'+
+                  ' title="largura em pixels"><span class="fraco">px</span>'+
+              '</div></div>';
+          }).join('')+
+        '</div></div>';
+    }).join('') +
+      '<p class="nota-colunas">Painel, Extratos e Cadastros ainda não aparecem aqui: as '+
+      'tabelas deles têm cabeçalho fixo, e só entram nesta tela depois de passarem a '+
+      'descrever as colunas como as duas acima.</p>';
+
+    /* Um ouvinte por ficha, e nao por botao: a lista e remontada a cada mudanca, e ligar
+       botao a botao significaria religar tudo toda vez. */
+    box.querySelectorAll('.mod-colunas').forEach(function(ficha){
+      var g = tabelasGerenciaveis().filter(function(x){
+        return x.modulo === ficha.dataset.tab; })[0];
+      if (!g) return;
+      var t = g.t;
+
+      ficha.querySelectorAll('input[data-colver]').forEach(function(ch){
+        ch.addEventListener('change', function(){
+          var l = colunasOcultas(t).filter(function(id){ return id !== ch.dataset.colver; });
+          if (!ch.checked) l.push(ch.dataset.colver);
+          guardarOcultas(t, l);
+          t.redesenha(); desenharColunas();
+        });
+      });
+
+      /* Mover troca a coluna com a vizinha na ordem COMPLETA — a mesma que o arrasto no
+         cabecalho usa. Mexer so no que esta visivel embaralharia a ordem das escondidas
+         sem ninguem ver, e elas voltariam noutro lugar ao reaparecer. */
+      function mover(id, passo){
+        var ordem = ordemColunas(t);
+        var i = ordem.indexOf(id);
+        var j = i + passo;
+        if (i < 0 || j < 0 || j >= ordem.length) return;
+        ordem.splice(j, 0, ordem.splice(i, 1)[0]);
+        guardarOrdem(t, ordem);
+        t.redesenha(); desenharColunas();
+      }
+      ficha.querySelectorAll('button[data-colsobe]').forEach(function(b){
+        b.addEventListener('click', function(){ mover(b.dataset.colsobe, -1); });
+      });
+      ficha.querySelectorAll('button[data-coldesce]').forEach(function(b){
+        b.addEventListener('click', function(){ mover(b.dataset.coldesce, 1); });
+      });
+
+      /* `change`, e nao `input`: digitando "1" antes de "120", o `input` gravaria 1 e a
+         coluna encolheria ao minimo no meio da digitacao. */
+      ficha.querySelectorAll('input[data-collarg]').forEach(function(c){
+        c.addEventListener('change', function(){
+          guardarLargura(t, c.dataset.collarg, Number(c.value) || 0);
+          c.value = larguras(t)[c.dataset.collarg];   // mostra o que de fato ficou
+          t.redesenha();
+        });
+      });
+
+      ficha.querySelectorAll('button[data-colreset]').forEach(function(b){
+        b.addEventListener('click', function(){
+          /* Apaga as tres preferencias de uma vez. Restaurar so uma delas deixaria a
+             tabela num meio-termo que ninguem escolheu. */
+          try {
+            localStorage.removeItem(t.kOrdem);
+            localStorage.removeItem(t.kLarg);
+            localStorage.removeItem(t.kOcultas);
+          } catch (e) {}
+          t.redesenha(); desenharColunas();
+        });
+      });
+    });
+  }
 
   function ordemColunas(t){
     var salva = [];
@@ -1225,52 +1345,6 @@
      `cabem` sao as colunas que fazem sentido na visao atual, ja na ordem da tabela: a
      lista aqui e a tabela se leem na mesma ordem, senao procurar a coluna vira um
      exercicio de traducao. */
-  /* `t` e a tabela de quem sao estas colunas. O painel e um so na tela hoje, mas a
-     funcao nao tem por que saber disso: recebendo a tabela, ela serve a proxima sem
-     nenhuma copia. */
-  function montarPainelColunas(t, alvo, cabem){
-    var pop = document.getElementById(alvo);
-    if (!pop) return;
-    var ocultas = colunasOcultas(t);
-    pop.innerHTML = cabem.map(function(c){
-      var visivel = ocultas.indexOf(c.id) < 0;
-      /* O titulo da coluna de gente e vazio no cabecalho — ali o nome da pessoa ja diz o
-         que e. Aqui, sem rotulo, a caixa de marcar nao diria nada. */
-      var nome = c.d.t || 'Quem';
-      return '<label class="chk-col"><input type="checkbox" data-col="'+c.id+'"'+
-        (visivel ? ' checked' : '')+'> '+Q.esc(nome)+'</label>';
-    }).join('') +
-      /* So NASCE quando ha o que desfazer — antes ele aparecia desligado. Botao desligado
-         ocupa a mesma linha e pede a mesma leitura de um que funciona: quem abre o painel
-         com tudo a vista para de ler no "Mostrar", entende que ha algo escondido e volta
-         para conferir a lista. Ausente, ele nao faz pergunta nenhuma.
-
-         A contagem no gatilho continua sendo o aviso de que ha coluna fora; este botao e
-         so o caminho de volta, e caminho de volta sem nada para desfazer nao e caminho. */
-      (ocultas.length
-        ? '<button type="button" class="ret-acao" id="'+alvo+'Todas"'+
-          ' style="margin-top:6px">↺ Mostrar todas</button>'
-        : '');
-
-    pop.querySelectorAll('input[data-col]').forEach(function(ch){
-      ch.addEventListener('change', function(){
-        var lista = colunasOcultas(t).filter(function(id){ return id !== ch.dataset.col; });
-        if (!ch.checked) lista.push(ch.dataset.col);
-        guardarOcultas(t, lista);
-        /* Redesenhar recria esta lista, e com ela este ouvinte. O painel fica ABERTO de
-           proposito: quem esconde uma coluna costuma esconder duas, e fechar a cada
-           clique obrigaria a reabrir. Como ele agora e o painel de filtros, quem o mantem
-           aberto e o `FILTROS_ABERTO`, que o desenho nao mexe. */
-        t.redesenha();
-      });
-    });
-    var todas = document.getElementById(alvo + 'Todas');
-    if (todas) todas.addEventListener('click', function(){
-      guardarOcultas(t, []);
-      t.redesenha();
-    });
-  }
-
   function ligarClassificacao(){
     document.querySelectorAll('#tabelaFluxo th.ordenavel').forEach(function(th){
       th.addEventListener('click', function(e){
@@ -1377,6 +1451,8 @@
        la sobre o historico inteiro: refaze-lo sobre a lista filtrada era o que fazia a
        linha de 17/09 abrir no saldo de 15/09 quando o filtro escondia o dia 16. */
     var lista = linhasFluxo();
+    /* Os titulos vem do descritor da tabela — ver `titulos` la em cima. */
+    var TIT = TAB_ATIVOS.titulos;
     var DEFS = {
       /* `k` e por onde a coluna se classifica. Fica JUNTO da celula, e nao numa lista
          a parte, pela mesma razao que o titulo: coluna que se descreve num lugar so nao
@@ -1385,7 +1461,7 @@
 
          A data vai como TEXTO ISO de proposito: "2026-09-15" se ordena sozinho, e virar
          Date aqui so criaria um segundo jeito de ler data neste arquivo. */
-      data:     { t: 'Data', so: 'local', k: function(l){ return l.data || ''; },
+      data:     { t: TIT['data'], so: 'local', k: function(l){ return l.data || ''; },
                   v: function(l){
                     return l.data ? Q.dataBR(l.data) : '<span class="fraco">—</span>';
                   } },
@@ -1397,7 +1473,7 @@
          distinguia nada: cor que aparece em todas as linhas deixa de ser sinal e vira
          fundo. Reservado a essas linhas, ele marca onde a conta comeca — e, desde que a
          marca escrita saiu da coluna Destino, e ele que diz qual linha e qual. */
-      inicial:  { t: 'Saldo inicial', num: true, so: 'local',
+      inicial:  { t: TIT['inicial'], num: true, so: 'local',
                   k: function(l){ return l.iniCorrido || 0; },
                   v: function(l){
                     return '<span class="val' + (l.estoqueInicial ? ' val-ok' : '') +
@@ -1410,13 +1486,13 @@
          Texto comum, sem cor nem negrito: o destaque e do Saldo inicial, ao lado. Dia sem
          lancamento nenhum mostra o zero em cinza — o numero fica, honesto, mas nao disputa
          a atencao com os dias que de fato tiveram entrada. */
-      lancado:  { t: 'Estoque', num: true, so: 'local',
+      lancado:  { t: TIT['lancado'], num: true, so: 'local',
                   k: function(l){ return l.inicial || 0; },
                   v: function(l){
                     var q = l.inicial || 0;
                     return q ? Q.num(q) : '<span class="fraco">0</span>';
                   } },
-      origem:   { t: 'Origem', so: 'local',
+      origem:   { t: TIT['origem'], so: 'local',
                   k: function(l){ return (l.origens || []).join(', '); },
                   v: function(l){
                     return lugares(l.origens) +
@@ -1432,7 +1508,7 @@
          A chave de classificacao acompanha — vazio, e `compararValores` manda vazio para
          o fim. Ordenar por Destino junta as linhas de estoque no fim, que e onde ficam
          as linhas sem esse dado. */
-      destino:  { t: 'Destino', so: 'local',
+      destino:  { t: TIT['destino'], so: 'local',
                   k: function(l){ return (l.destinos || []).join(', '); },
                   v: function(l){
                     return l.estoqueInicial
@@ -1444,9 +1520,9 @@
                     return '<b>' + Q.esc(l.nome) + '</b>' +
                       '<span class="fsub">' + Q.esc(l.sub) + '</span>';
                   } },
-      saida:    { t: 'Saída', num: true, k: function(l){ return l.saida || 0; },
+      saida:    { t: TIT['saida'], num: true, k: function(l){ return l.saida || 0; },
                   v: function(l){ return Q.num(l.saida) + detalheCaixas(l.saidaTipos); } },
-      retorno:  { t: 'Retorno', num: true, k: function(l){ return l.retorno || 0; },
+      retorno:  { t: TIT['retorno'], num: true, k: function(l){ return l.retorno || 0; },
                   v: function(l){ return Q.num(l.retorno) + detalheCaixas(l.retornoTipos); } },
       /* Saldo final = SALDO INICIAL − saida + retorno. A formula e do usuario, escrita
          duas vezes: "1.250 − 1.690 + 1.250" da 810, e nao os −440 de retorno menos saida.
@@ -1464,7 +1540,7 @@
       /* A chave repete a conta da celula em vez de ler um campo pronto: sao a mesma
          resposta, e a celula e quem manda. Lendo `fimCorrido` direto, a coluna ordenaria
          por um numero nas visoes de gente e mostraria outro. */
-      final:    { t: 'Saldo final', num: true,
+      final:    { t: TIT['final'], num: true,
                   k: function(l){ return gente ? l.saldo : l.fimCorrido; },
                   v: function(l){
                     var fim = gente ? l.saldo : l.fimCorrido;
@@ -1534,7 +1610,6 @@
     ligarArrastarColunas(TAB_ATIVOS);
     ligarLarguraColunas(TAB_ATIVOS);
     ligarClassificacao();
-    montarPainelColunas(TAB_ATIVOS, 'colunasLista', cabem);
 
     document.querySelectorAll('[data-fchip]').forEach(function(b){
       b.addEventListener('click', function(){
@@ -2063,40 +2138,6 @@
     });
   });
 
-  /* Esconder coluna e esconder informacao — a mesma regra do Painel de Ativos. O gatilho
-     carrega a contagem das escondidas e troca de cor; sem isso, a tabela apareceria sem a
-     coluna Quem e ninguem saberia que ela existe. */
-  function ajustarColunasMov(){
-    var btn = document.getElementById('btnColunasMov');
-    var pop = document.getElementById('colunasMovPop');
-    if (!btn || !pop) return;
-    var n = colunasOcultas(TAB_MOV).length;
-    btn.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
-    btn.className = 'btn ' + (pop.hidden && n ? '' : 'neutro');
-    btn.textContent = (pop.hidden ? '▸ ' : '▾ ') + 'Colunas' + (n ? ' (' + n + ')' : '');
-    btn.title = pop.hidden && n
-      ? n + (n === 1 ? ' coluna está escondida' : ' colunas estão escondidas')
-      : (pop.hidden ? 'Escolher as colunas da tabela' : 'Fechar');
-  }
-
-  document.getElementById('btnColunasMov').addEventListener('click', function(e){
-    e.stopPropagation();   // senao o clique chega no documento e fecha o que acabou de abrir
-    var pop = document.getElementById('colunasMovPop');
-    pop.hidden = !pop.hidden;
-    if (!pop.hidden) posicionarPop(pop, true);   // a barra fica ACIMA da tabela
-    ajustarColunasMov();
-  });
-  /* Duas saidas alem do gatilho, como nos demais paineis: clicar fora e o Esc. */
-  document.addEventListener('click', function(e){
-    var pop = document.getElementById('colunasMovPop');
-    if (pop && !pop.hidden && !pop.contains(e.target)) { pop.hidden = true; ajustarColunasMov(); }
-  });
-  document.addEventListener('keydown', function(e){
-    var pop = document.getElementById('colunasMovPop');
-    if (e.key === 'Escape' && pop && !pop.hidden) { pop.hidden = true; ajustarColunasMov(); }
-  });
-  ajustarColunasMov();
-
   document.getElementById('btnFiltrarMov').addEventListener('click', carregarMovimentos);
 
   /* Os cinco campos recarregam sozinhos ao mudar. Antes só o botão Filtrar disparava a
@@ -2152,29 +2193,28 @@
     if (!box) return;
     if (!MOVS || !MOVS.length){
       box.innerHTML = '<div class="vazio">Nenhum movimento no filtro.</div>';
-      montarPainelColunas(TAB_MOV, 'colunasMovLista', []);
-      ajustarColunasMov();
       return;
     }
 
     /* As colunas viraram DADOS, como no Painel de Ativos: titulo, se e numerica e como
        preencher a celula, cada uma descrita uma vez. E isso que deixa arrastar para
        reordenar e esconder pelo painel — a ordem e so a ordem desta lista. */
+    var TIT = TAB_MOV.titulos;
     var DEFS = {
-      data:      { t: 'Data',
+      data:      { t: TIT['data'],
                    v: function(m){ return Q.dataBR(m.dataRef) +
                      (m.teste ? ' <span class="tag amarela">teste</span>' : ''); } },
-      status:    { t: 'Status',
+      status:    { t: TIT['status'],
                    v: function(m){ return '<span class="tag '+tagCiclo(m.situacao)+'">'+
                      Q.esc(m.situacao)+'</span>'; } },
-      origem:    { t: 'Origem',    v: function(m){ return Q.esc(m.origem); } },
-      destino:   { t: 'Destino',   v: function(m){ return Q.esc(m.destino); } },
-      caixa:     { t: 'Caixa',     v: function(m){ return Q.esc(m.tipoCaixa); } },
-      qtd:       { t: 'Qtd', num: true, v: function(m){ return Q.num(m.qtd); } },
-      motorista: { t: 'Motorista',
+      origem:    { t: TIT['origem'],   v: function(m){ return Q.esc(m.origem); } },
+      destino:   { t: TIT['destino'],  v: function(m){ return Q.esc(m.destino); } },
+      caixa:     { t: TIT['caixa'],    v: function(m){ return Q.esc(m.tipoCaixa); } },
+      qtd:       { t: TIT['qtd'], num: true, v: function(m){ return Q.num(m.qtd); } },
+      motorista: { t: TIT['motorista'],
                    v: function(m){ return m.motorista ? Q.esc(m.motorista)
                                                       : '<span class="fraco">—</span>'; } },
-      quem:      { t: 'Quem',      v: function(m){ return Q.esc(m.usuario||''); } }
+      quem:      { t: TIT['quem'],     v: function(m){ return Q.esc(m.usuario||''); } }
     };
 
     var LARG = larguras(TAB_MOV);
@@ -2214,8 +2254,6 @@
 
     ligarArrastarColunas(TAB_MOV);
     ligarLarguraColunas(TAB_MOV);
-    montarPainelColunas(TAB_MOV, 'colunasMovLista', cabem);
-    ajustarColunasMov();   // a contagem do gatilho segue as escondidas
 
     box.querySelectorAll('button[data-corrigir]').forEach(function(b){
       b.addEventListener('click', function(){

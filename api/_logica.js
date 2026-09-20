@@ -112,6 +112,9 @@ var ABAS = [
   { ID: 'pgExtrato',    Nome: 'Extratos' },
   { ID: 'pgLancar',     Nome: 'Ajustes', soAdmin: true },
   { ID: 'pgMovimentos', Nome: 'Movimentos' },
+  /* Preferencia de quem olha, e nao dado da operacao: escolher colunas nao muda saldo
+     nenhum. Por isso nao e `soAdmin` — quem ve uma tabela pode arrumar a propria. */
+  { ID: 'pgColunas',    Nome: 'Colunas' },
   { ID: 'pgCadastros',  Nome: 'Cadastros', soAdmin: true }
 ];
 

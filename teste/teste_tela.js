@@ -495,11 +495,14 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
     return t.trim().split(':')[0];
   });
   ok(ids.length >= 8, 'a leitura achou as colunas declaradas', ids);
+  /* O titulo mora no DESCRITOR da tabela, e a celula o le de la: a aba Colunas precisa
+     dos nomes sem desenhar a tabela, e escreve-los duas vezes seria duas listas sobre a
+     mesma coisa — elas divergem no primeiro renome. */
   ok(ids.every(function (id) {
     var bloco = defs.slice(defs.indexOf(id + ':'),
                            defs.indexOf('\n      ', defs.indexOf(id + ':') + 60));
-    return /t:\s*'/.test(bloco) || id === 'quem';
-  }), 'toda coluna tem titulo');
+    return /t:\s*TIT\[/.test(bloco) || id === 'quem';
+  }), 'toda coluna tem titulo, e ele vem do descritor da tabela');
 
   /* A linha de estoque inicial se identifica no DESTINO, e nao numa coluna propria: o
      local dela ja esta na Origem, e uma coluna a mais so para repeti-lo ficava vazia em
@@ -524,7 +527,7 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
   ok(cssD.indexOf('.marca-estoque') < 0,
     'nem o estilo dela ficou para trás — CSS sem dono é o que ninguém ousa apagar depois');
 
-  ok(/lancado:  \{ t: 'Estoque'/.test(defsD) &&
+  ok(/lancado:  \{ t: TIT\['lancado'\]/.test(defsD) &&
      /l\.estoqueInicial \? ' val-ok' : ''/.test(defsD),
     'o que a linha É continua legível: a coluna Estoque traz o valor, e o Saldo inicial ' +
     'sai em verde só nessas linhas');
@@ -991,7 +994,9 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
   var padrao = adm.slice(ip, adm.indexOf(']', ip));
   var cols = (padrao.match(/'(\w+)'/g) || []).map(function (t) { return t.slice(1, -1); });
   ok(cols.indexOf('lancado') > 0, 'a coluna esta na lista de fabrica', cols);
-  ok(defs.indexOf("t: 'Estoque'") > 0, 'e o titulo dela na tela é "Estoque"');
+  var titAtivos = adm.slice(adm.indexOf('titulos: {', adm.indexOf('var TAB_ATIVOS')),
+                            adm.indexOf('}', adm.indexOf('titulos: {', adm.indexOf('var TAB_ATIVOS'))));
+  ok(/lancado:'Estoque'/.test(titAtivos), 'e o titulo dela é "Estoque"', titAtivos);
 
   var semDef = cols.filter(function (id) { return defs.indexOf('\n      ' + id + ':') < 0; });
   ok(semDef.length === 0, 'toda coluna de fábrica tem definição — sem ela o <td> sai vazio',
@@ -1213,8 +1218,18 @@ console.log('\n== as abas do painel viram lista ==');
     .forEach(function (p) {
       ok(nav.indexOf('data-pagina="' + p + '"') > 0, 'a aba ' + p + ' segue no <nav>');
     });
-  ok((nav.match(/<button/g) || []).length === 6,
-    'e sao seis botoes, nenhum a mais', (nav.match(/<button/g) || []).length);
+  /* A aba precisa existir nos DOIS lados: no menu da tela e na lista que o servidor
+     manda. So no menu, ela aparece para todo mundo e nao da para tirar de ninguem; so no
+     servidor, ela nao aparece para ninguem. */
+  var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  ok(/\{ ID: 'pgColunas',\s+Nome: 'Colunas' \}/.test(log),
+    'e a aba Colunas existe também na lista do servidor, que é o que alimenta a permissão');
+  ok(!/pgColunas[^}]*soAdmin/.test(log),
+    'e não é só do admin: escolher colunas é preferência de quem olha, não muda saldo nenhum');
+  ok(nav.indexOf('data-pagina="pgColunas"') > 0,
+    'e a aba Colunas entrou no menu');
+  ok((nav.match(/<button/g) || []).length === 7,
+    'sao sete botoes, nenhum a mais', (nav.match(/<button/g) || []).length);
 
   /* --- o app de campo nao pode ter mudado --------------------------------- */
   ok(idx.indexOf('menu-abas') < 0 && idx.indexOf('btnAbas') < 0,
@@ -1527,7 +1542,7 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   /* --- a maquinaria e a mesma, com a outra tabela -------------------------- */
   ['ligarArrastarColunas(TAB_MOV)', 'ligarLarguraColunas(TAB_MOV)',
    'larguras(TAB_MOV)', 'ordemColunas(TAB_MOV)', 'colunasOcultas(TAB_MOV)',
-   "montarPainelColunas(TAB_MOV, 'colunasMovLista'"].forEach(function (c) {
+   ].forEach(function (c) {
     ok(adm.indexOf(c) > 0, 'usa a mesma função: ' + c);
   });
 
@@ -1543,62 +1558,30 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   ok(/MOVS = r\.movimentos;\s*\n\s*desenharMovimentos\(\);/.test(busca),
     'a busca guarda o resultado e manda desenhar', busca.slice(-200));
 
-  /* --- o gatilho conta o que escondeu ------------------------------------- */
-  var a = adm.indexOf('function ajustarColunasMov()');
-  var k = adm.indexOf('{', a), abertas = 0;
-  do {
-    if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
-    k++;
-  } while (abertas > 0 && k < adm.length);
-  var fonte = adm.slice(a, k);
+  /* O painel proprio desta barra foi embora: esconder, mover e expandir mudaram para a
+     aba Colunas, onde se gerencia todos os modulos de uma vez. A tabela continua
+     obedecendo, porque le o mesmo armazenamento — e isso esta testado no bloco da aba. */
+  ok(adm.indexOf('btnColunasMov') < 0 && adm.indexOf('colunasMovPop') < 0,
+    'e a barra não tem mais painel próprio de colunas: elas mudaram para a aba Colunas');
 
-  function gatilho(ocultas, fechado) {
-    var btn = { className: '', textContent: '', title: '', attrs: {},
-                setAttribute: function (x, v) { this.attrs[x] = v; } };
-    var pop = { hidden: fechado };
-    new Function('document', 'colunasOcultas', 'TAB_MOV',
-      fonte + '\n ajustarColunasMov();')(
-      { getElementById: function (id) {
-          return id === 'btnColunasMov' ? btn : (id === 'colunasMovPop' ? pop : null); } },
-      function () { return ocultas; }, {});
-    return btn;
-  }
-
-  var nada = gatilho([], true);
-  ok(nada.textContent === '▸ Colunas' && /neutro/.test(nada.className),
-    'sem nada escondido, o gatilho é só um controle', nada.textContent);
-  var duas = gatilho(['quem', 'motorista'], true);
-  ok(duas.textContent === '▸ Colunas (2)' && !/neutro/.test(duas.className),
-    'com colunas escondidas ele diz QUANTAS e troca de cor — senão a tabela apareceria ' +
-    'sem a coluna Quem e ninguém saberia que ela existe',
-    duas.textContent + ' | ' + duas.className);
-  ok(/coluna está escondida/.test(gatilho(['quem'], true).title),
-    'e o título diz o que isso significa', gatilho(['quem'], true).title);
-  ok(gatilho(['quem'], false).textContent === '▾ Colunas (1)' &&
-     /neutro/.test(gatilho(['quem'], false).className),
-    'aberto, a contagem fica mas o aviso sai — as caixas estão à vista');
-
-  /* --- as tres saidas do painel ------------------------------------------- */
-  var og = adm.indexOf("getElementById('btnColunasMov').addEventListener");
-  var ouv = adm.slice(og, adm.indexOf('\n  });', og));
-  ok(og > 0 && /e\.stopPropagation\(\)/.test(ouv),
-    'o clique no gatilho não vaza para o documento — vazando, fecharia o que abriu');
-  ok(/posicionarPop\(pop, true\)/.test(ouv),
-    'e o painel prefere DESCER: a barra fica acima da tabela, e subindo ele taparia os ' +
-    'filtros que a pessoa acabou de usar', ouv);
-  ok(adm.indexOf("if (pop && !pop.hidden && !pop.contains(e.target)) { pop.hidden = true; ajustarColunasMov(); }") > 0,
-    'clicar fora fecha');
-  ok(/e\.key === 'Escape' && pop && !pop\.hidden/.test(adm), 'e o Esc também');
 })();
 
-console.log('\n== escolher as colunas, dentro do painel de filtros ==');
+console.log('\n== a aba Colunas: gerenciar por módulo ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 
-  /* --- um painel so ------------------------------------------------------- */
-  /* Eram dois gatilhos no trilho, um ao lado do outro, abrindo caixas iguais no mesmo
-     canto — dois botoes para uma pergunta so, que e "o que eu quero ver". */
+  /* --- saiu de dentro dos filtros ---------------------------------------- */
+  /* As colunas moraram no painel de filtros e na barra de Movimentos. Sairam das duas: o
+     ajuste e o mesmo para todos os modulos, e espalhado por tela ele vira uma copia por
+     tela. Nada do caminho antigo pode ficar para tras — elemento e ouvinte orfaos ficam
+     procurando o que nao existe a cada clique da pagina. */
+  ['colunasLista', 'colunasMovLista', 'colunasMovPop', 'btnColunasMov',
+   'montarPainelColunas', 'ajustarColunasMov'].forEach(function (x) {
+    ok(adm.indexOf(x) < 0, 'não sobrou nada do painel antigo: ' + x);
+  });
+  ok(css.indexOf('#colunasLista') < 0, 'nem o estilo dele');
+
   var g = adm.indexOf('<div class="ret-pop" id="filtrosRet"');
   var pop = (function () {
     var i = g, n = 0;
@@ -1609,195 +1592,168 @@ console.log('\n== escolher as colunas, dentro do painel de filtros ==');
     }
     return '';
   })();
-  ok(pop.indexOf('id="colunasLista"') > 0,
-    'a lista de colunas mora DENTRO do painel de filtros', pop.length);
-  ok(adm.indexOf('id="btnColunas"') < 0 && adm.indexOf('colunasRet') < 0,
-    'e o segundo gatilho não ficou para trás — botão órfão é o que ninguém ousa apagar');
-  ok(adm.indexOf('ajustarBotaoColunas') < 0,
-    'nem a função que só ele usava');
-  ok(pop.indexOf('pop-risco') > 0 && pop.indexOf('Colunas da tabela') > 0,
-    'um risco e um título separam as duas coisas dentro do painel', pop.slice(-300));
+  ok(pop.length > 200 && pop.indexOf('Colunas da tabela') < 0,
+    'o painel de filtros voltou a ser só de filtros', pop.length);
 
-  /* --- o painel nao pode abrir rolado ------------------------------------- */
-  /* Aconteceu: com as oito colunas dentro, o painel passou de 312 para 659px e deixou de
-     caber acima do gatilho. Ele abria ROLADO, e o que ficava a vista era o FIM do
-     conteudo — a lista de colunas. Os filtros ficavam fora da tela, acima, e a tela
-     parecia travada. Duas guardas, porque uma so nao bastava:
+  /* E a contagem do gatilho volta a responder por uma coisa so. */
+  var ab = adm.indexOf('function ajustarBarraFiltros()');
+  var corpoBarra = adm.slice(ab, adm.indexOf('\n  }', ab));
+  ok(corpoBarra.indexOf('colunasOcultas') < 0,
+    'e o gatilho dele conta filtros, e só', corpoBarra);
 
-       1. a lista de colunas rola por conta propria, entao o painel volta a caber;
-       2. abrir leva a rolagem para o topo, onde estao os filtros — senao ele reabriria
-          onde foi fechado. */
-  ok(/#colunasLista\{max-height:\d+px;overflow-y:auto\}/.test(css),
-    'a lista de colunas rola por conta própria, em vez de esticar o painel', css.length);
-  var ab = adm.indexOf('function abrirFiltros(sim)');
-  var ak = adm.indexOf('{', ab), an = 0;
+  /* --- a aba existe dos dois lados --------------------------------------- */
+  ok(adm.indexOf('id="pgColunas"') > 0 && adm.indexOf('id="listaColunas"') > 0,
+    'a página Colunas existe');
+
+  /* --- o registro dos modulos -------------------------------------------- */
+  var tg = adm.indexOf('function tabelasGerenciaveis()');
+  var reg = adm.slice(tg, adm.indexOf('\n  }', tg));
+  ok(/modulo: 'Painel de Ativos', t: TAB_ATIVOS/.test(reg) &&
+     /modulo: 'Movimentos',\s+t: TAB_MOV/.test(reg),
+    'os módulos com tabela de colunas-dado estão registrados — registrar o próximo é ' +
+    'acrescentar um item aqui, e não escrever outra tela', reg);
+
+  /* --- toda coluna de fabrica tem NOME ------------------------------------ */
+  /* A aba precisa dos nomes sem desenhar a tabela. Faltando um, a linha apareceria com o
+     id cru ("lancado") e ninguem saberia que coluna e. */
+  [['TAB_ATIVOS'], ['TAB_MOV']].forEach(function (par) {
+    var i = adm.indexOf('var ' + par[0] + ' = {');
+    var desc = adm.slice(i, adm.indexOf('\n  };', i));
+    var ip = desc.indexOf('padrao: [');
+    var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
+      .map(function (t) { return t.slice(1, -1); });
+    var it = desc.indexOf('titulos: {');
+    var tit = desc.slice(it, desc.indexOf('}', it));
+    var sem = cols.filter(function (c) { return tit.indexOf(c + ':') < 0; });
+    ok(cols.length > 0 && sem.length === 0,
+      par[0] + ': toda coluna de fábrica tem nome — sem ele a aba mostraria o id cru', sem);
+  });
+
+  /* --- a tela, rodando ---------------------------------------------------- */
+  var d = adm.indexOf('function desenharColunas()');
+  var dk = adm.indexOf('{', d), dn = 0;
   do {
-    if (adm[ak] === '{') an++; else if (adm[ak] === '}') an--;
-    ak++;
-  } while (an > 0 && ak < adm.length);
-  var corpoAbrir = adm.slice(ab, ak);
-  ok(/scrollTop = 0/.test(corpoAbrir),
-    'e abrir leva a rolagem ao topo: reabrindo no meio, a tela mostra as colunas e os ' +
-    'filtros ficam fora de vista', corpoAbrir);
+    if (adm[dk] === '{') dn++; else if (adm[dk] === '}') dn--;
+    dk++;
+  } while (dn > 0 && dk < adm.length);
+  var fonte = adm.slice(d, dk);
+  ok(d > 0 && /data-colver=/.test(fonte) && /data-colsobe=/.test(fonte) &&
+     /data-collarg=/.test(fonte),
+    'o recorte pegou a tela, e ela traz as três funções: esconder, mover e expandir');
 
-  /* A ordem no HTML importa: os filtros vem ANTES das colunas. Invertida, levar a rolagem
-     ao topo mostraria justamente a secao que nao e o assunto do painel. */
-  ok(pop.indexOf('id="rtOrigem"') < pop.indexOf('id="colunasLista"'),
-    'e os filtros vêm antes das colunas no painel');
-  ok(/\.ret-pop \.pop-risco\{/.test(css) && /\.ret-pop \.pop-titulo\{/.test(css),
-    'e os dois têm estilo');
-
-  /* --- o aviso do gatilho responde pelos dois ------------------------------ */
-  /* O recorte vai da CONTAGEM ate o fim do `abrirFiltros`, que vem depois do ajuste: a
-     bancada devolve os dois, e parar no ajuste deixava o outro de fora. */
-  var a = adm.indexOf('function abrirFiltros(sim)');
-  var k = adm.indexOf('{', a), abertas = 0;
-  do {
-    if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
-    k++;
-  } while (abertas > 0 && k < adm.length);
-  var fonte = adm.slice(adm.indexOf('function quantosFiltrosFluxo()'), k);
-  ok(/function ajustarBarraFiltros/.test(fonte) &&
-     /colunasOcultas\(TAB_ATIVOS\)\.length/.test(fonte),
-    'o recorte pegou as peças, e o gatilho olha as colunas escondidas da tabela de ativos');
-
-  function bancada(campos, grupo, aberto, ocultas) {
-    var els = {
-      filtrosRet: { hidden: true, classes: {},
-                    classList: { remove: function (c) { delete this._d[c]; },
-                                 add: function (c) { this._d[c] = 1; },
-                                 contains: function (c) { return !!this._d[c]; } },
-                    getBoundingClientRect: function () { return { top: 400 }; } },
-      btnVerFiltros: { className: '', textContent: '', title: '', attrs: {},
-                       setAttribute: function (x, v) { this.attrs[x] = v; } },
-      btnLimparRetornos: { disabled: false }
-    };
-    els.filtrosRet.classList._d = els.filtrosRet.classes;
-    var api = new Function('document', 'FLUXO_FILTRO', 'FILTROS_FLUXO', 'valor',
-      'colunasOcultas', 'TAB_ATIVOS',
-      'function posicionarPop(p){ if (!p) return; p.classList.remove("para-baixo"); }' +
-      fonte + '\n return { abrir: abrirFiltros, ajustar: ajustarBarraFiltros };')(
-      { getElementById: function (id) { return els[id] || null; } },
-      grupo, ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte'],
-      function (id) { return campos[id] || ''; },
-      function () { return ocultas; }, {});
-    api.abrir(aberto);
-    return els.btnVerFiltros;
+  function tela(ordem, ocultas, larg) {
+    var box = { innerHTML: '', querySelectorAll: function () { return []; } };
+    new Function('document', 'Q', 'tabelasGerenciaveis', 'ordemColunas', 'colunasOcultas',
+      'larguras', 'LARG_MIN',
+      fonte + '\n desenharColunas();')(
+      { getElementById: function (id) { return id === 'listaColunas' ? box : null; } },
+      { esc: function (v) { return String(v); } },
+      function () {
+        return [{ modulo: 'Painel de Ativos',
+                  t: { titulos: { data: 'Data', saida: 'Saída', quem: 'Quem' } } }];
+      },
+      function () { return ordem; }, function () { return ocultas; },
+      function () { return larg; }, 70);
+    return box.innerHTML;
   }
 
-  var limpo = bancada({}, 'todas', false, []);
-  ok(limpo.textContent === '▸ Filtros' && !/alerta/.test(limpo.className),
-    'nada ligado e nada escondido: o gatilho é só um controle',
-    limpo.textContent + ' | ' + limpo.className);
+  var h = tela(['data', 'saida', 'quem'], [], { data: 95, saida: 160, quem: 190 });
+  ok((h.match(/data-colver=/g) || []).length === 3, 'uma linha por coluna', h.length);
+  ok(h.indexOf('>Data<') > 0 || h.indexOf('> Data<') > 0 || h.indexOf('Data</label>') > 0,
+    'com o NOME da coluna, e não o id', h.slice(0, 400));
+  ok(/value="95"/.test(h) && /value="190"/.test(h),
+    'e a largura de cada uma, em pixels', h);
+  ok(/min="70"/.test(h),
+    'com o mínimo do projeto — sem ele daria para encolher a coluna até sumir');
 
-  /* A CONTAGEM e so de filtros, porque o botao se chama Filtros. Somar as colunas faria o
-     numero querer dizer duas coisas, e ninguem saberia qual. */
-  var doisFiltros = bancada({ rtOrigem: 'Matriz', rtDe: '2026-09-17' }, 'todas', false, []);
-  ok(doisFiltros.textContent === '▸ Filtros (2)',
-    'a contagem é só de filtros — somar as colunas faria o número dizer duas coisas',
-    doisFiltros.textContent);
-  var comColunas = bancada({ rtOrigem: 'Matriz', rtDe: '2026-09-17' }, 'todas', false,
-                           ['saida', 'retorno']);
-  ok(comColunas.textContent === '▸ Filtros (2)',
-    'e não muda com duas colunas escondidas', comColunas.textContent);
+  /* A primeira nao sobe e a ultima nao desce: botao que nao faz nada pede a mesma
+     leitura de um que faz. */
+  var linhas = h.split('col-linha').slice(1);
+  ok(/data-colsobe="data"[^>]*disabled/.test(linhas[0]),
+    'a primeira coluna não sobe', linhas[0].slice(0, 200));
+  ok(/data-coldesce="quem"[^>]*disabled/.test(linhas[2]),
+    'e a última não desce', linhas[2].slice(0, 200));
 
-  /* A COR responde pelos DOIS, porque a pergunta que ela faz e uma so: "tem coisa
-     escondida aqui dentro?". */
-  var soColuna = bancada({}, 'todas', false, ['saida']);
-  ok(/alerta/.test(soColuna.className),
-    'mas a cor avisa mesmo sem filtro nenhum, só com coluna escondida — senão a coluna ' +
-    'de Retorno sumiria sem nada na tela dizendo por quê', soColuna.className);
-  ok(/coluna está escondida/.test(soColuna.title) && soColuna.title.indexOf('filtro') < 0,
-    'e o título diz qual das duas coisas é', soColuna.title);
-  ok(/filtro está ligado e 1 coluna está escondida/.test(
-       bancada({ rtOrigem: 'Matriz' }, 'todas', false, ['saida']).title),
-    'com as duas, ele diz as duas',
-    bancada({ rtOrigem: 'Matriz' }, 'todas', false, ['saida']).title);
-  ok(!/alerta/.test(bancada({}, 'todas', true, ['saida']).className),
-    'aberto, o aviso sai: está tudo à vista');
+  /* Coluna escondida fica APAGADA, e nao some da lista: some, nao haveria como traze-la
+     de volta — e e justamente ela que se procura. */
+  var h2 = tela(['data', 'saida', 'quem'], ['saida'], { data: 95, saida: 160, quem: 190 });
+  ok((h2.match(/data-colver=/g) || []).length === 3,
+    'escondida, a coluna continua na lista — sumindo, não haveria como trazê-la de volta');
+  ok(/col-linha apagada/.test(h2) && (h2.match(/col-linha apagada/g) || []).length === 1,
+    'e fica apagada, só ela', (h2.match(/col-linha apagada/g) || []).length);
+  ok(/1 escondida/.test(h2), 'e a ficha do módulo diz quantas estão fora', h2.slice(0, 300));
+  ok(!/escondida/.test(h), 'sem nenhuma escondida, a ficha fica muda');
 
-  /* --- guarda o que esta ESCONDIDO, e nao o que esta visivel --------------- */
-  ok(/kOcultas: 'qdc_cols_ocultas_v1'/.test(adm),
-    'guarda-se a lista de ESCONDIDAS — assim uma coluna nova nasce aparecendo para quem ' +
-    'já mexeu aqui; ao contrário, nasceria invisível e ninguém saberia que existe');
-  var fo = adm.slice(adm.indexOf('function colunasOcultas(t)'));
-  fo = fo.slice(0, fo.indexOf('\n  }'));
-  ok(/try \{/.test(fo) && /catch/.test(fo) && /Array\.isArray/.test(fo),
-    'com try/catch e conferindo que é lista: janela anônima estoura, e lixo no ' +
-    'armazenamento viraria um `.indexOf` de undefined no meio do desenho', fo);
+  /* Os modulos que ainda nao entram sao ditos na tela, em vez de simplesmente faltarem. */
+  ok(/Painel, Extratos e Cadastros ainda não aparecem/.test(fonte),
+    'e a tela diz quais módulos ainda não entram, em vez de fingir que não existem');
 
-  /* --- a peneira, rodando -------------------------------------------------- */
-  var d = adm.indexOf('function desenharFluxo()');
-  var corpo = adm.slice(d, adm.indexOf("document.querySelectorAll('[data-fchip]')", d));
-  var trecho = corpo.slice(corpo.indexOf('var cabem = ordemColunas(TAB_ATIVOS)'),
-                           corpo.indexOf('// O cabeçalho fica SEMPRE'));
-  var peneira = new Function('ordemColunas', 'DEFS', 'gente', 'colunasOcultas',
-    'TAB_ATIVOS',
-    trecho + '\n return cs.map(function(c){ return c.id; });');
-  var DEFS = { data: { so: 'local' }, origem: { so: 'local' }, quem: { so: 'gente' },
-               saida: {}, retorno: {} };
-  var ordem = function () { return ['data', 'origem', 'quem', 'saida', 'retorno']; };
-
-  ok(peneira(ordem, DEFS, false, function () { return []; }, {}).join(',') ===
-     'data,origem,saida,retorno',
-    'sem nada escondido, a visão de local traz as colunas dela — e não a de gente');
-  ok(peneira(ordem, DEFS, false, function () { return ['origem', 'saida']; }, {}).join(',') ===
-     'data,retorno', 'escondidas saem da tabela');
-  ok(peneira(ordem, DEFS, true, function () { return ['origem']; }, {}).join(',') ===
-     'quem,saida,retorno',
-    'esconder uma coluna que nem existe na outra visão não mexe nela');
-  ok(peneira(ordem, DEFS, false, function () { return ['data','origem','saida','retorno']; }, {})
-       .join(',') === 'data,origem,saida,retorno',
-    'escondendo TUDO, a peneira não se aplica: tabela vazia não diz por que está vazia');
-
-  /* --- o "Mostrar todas" --------------------------------------------------- */
-  var mp = adm.indexOf('function montarPainelColunas(t, alvo, cabem)');
-  var mk = adm.indexOf('{', mp), mn = 0;
+  /* --- mover mexe na ordem COMPLETA --------------------------------------- */
+  /* O recorte e da funcao `mover`, e nao da tela inteira: a mesma linha aparece tambem no
+     desenho da lista, entao varrer tudo acharia o texto certo ainda que `mover` lesse
+     outra lista. Foi assim que a primeira versao desta afirmacao passou sabotada. */
+  var mv = fonte.indexOf('function mover(id, passo){');
+  var mk = fonte.indexOf('{', mv), mn = 0;
   do {
-    if (adm[mk] === '{') mn++; else if (adm[mk] === '}') mn--;
+    if (fonte[mk] === '{') mn++; else if (fonte[mk] === '}') mn--;
     mk++;
-  } while (mn > 0 && mk < adm.length);
-  var corpoMontar = adm.slice(mp, mk);
-  /* A funcao deixou de escrever `colunasLista` e `btnTodasColunas` no corpo: os dois
-     viraram parametro (`alvo`), que e o que a torna a mesma para qualquer tabela. */
-  ok(/getElementById\(alvo\)/.test(corpoMontar) && /alvo \+ 'Todas'/.test(corpoMontar),
-    'o recorte pegou a função, e ela escreve no lugar que recebeu', corpoMontar.slice(0, 200));
+  } while (mn > 0 && mk < fonte.length);
+  var corpoMover = fonte.slice(mv, mk);
+  ok(mv > 0 && corpoMover.length > 120 && corpoMover.indexOf('guardarOrdem(t, ordem)') > 0,
+    'o recorte pegou a função `mover` inteira', corpoMover.length);
+  ok(/= ordemColunas\(t\)/.test(corpoMover) && !/colunasVisiveis/.test(corpoMover),
+    'e ela troca a coluna com a vizinha na ordem COMPLETA — mexendo só no visível, a ' +
+    'ordem das escondidas se embaralharia sem ninguém ver, e elas voltariam noutro lugar',
+    corpoMover);
 
-  /* A funcao passou a receber a TABELA e o id do lugar onde escreve: e a mesma para
-     qualquer tabela do painel, e o que muda e de quem sao as colunas e onde elas vao. */
-  var monta = new Function('Q', 'colunasOcultas', 'document', 'guardarOcultas',
-    corpoMontar + '\n return montarPainelColunas;');
-  function html(ocultas) {
-    var lista = { innerHTML: '', querySelectorAll: function () { return []; } };
-    monta({ esc: function (v) { return String(v); } },
-      function () { return ocultas; },
-      { getElementById: function (id) { return id === 'colunasLista' ? lista : null; } },
-      function () {})(
-      { redesenha: function () {} }, 'colunasLista',
-      [{ id: 'data', d: { t: 'Data' } }, { id: 'saida', d: { t: 'Saída' } }]);
-    return lista.innerHTML;
-  }
-  ok(html([]).indexOf('data-col="data"') > 0 && html([]).indexOf('data-col="saida"') > 0,
-    'a lista sai com uma caixa por coluna');
-  ok(html([]).indexOf('colunasListaTodas') < 0,
-    'sem nada escondido o "Mostrar todas" nem nasce — desligado, pediria a mesma leitura ' +
-    'de um botão que funciona', html([]));
-  /* O id do botao agora sai do `alvo`, entao a bancada procura pelo id que ELA passou —
-     'colunasListaTodas'. Procurar o nome antigo era procurar algo que nao existe mais, e
-     o teste passaria a falhar mesmo com o botao no lugar. */
-  ok(html(['saida']).indexOf('colunasListaTodas') > 0,
-    'e com coluna escondida ele aparece: é o caminho de volta', html(['saida']));
+  /* --- o mesmo armazenamento da tabela ------------------------------------ */
+  /* Se esta tela guardasse noutro lugar, seriam duas verdades sobre a mesma coluna: o que
+     se arrasta no cabecalho nao apareceria aqui, e vice-versa. */
+  ['guardarOcultas(t,', 'guardarOrdem(t,', 'guardarLargura(t,'].forEach(function (f) {
+    ok(fonte.indexOf(f) > 0, 'grava pelo mesmo caminho da tabela: ' + f);
+  });
+  /* TODO gravar redesenha. Pedir uma ocorrencia so nao distingue nada numa tela que
+     grava em quatro lugares — esconder, mover, largura e restaurar: tres redesenhando e
+     um nao passa igual, e o quarto e justamente o que deixa a tabela mentindo ate alguem
+     trocar de aba. Entao a conta e por gravacao. */
+  var gravacoes = fonte.match(/guardar(Ocultas|Ordem|Largura)\(t,|removeItem\(t\.kOrdem\)/g) || [];
+  var semRedesenho = [];
+  gravacoes.forEach(function (g) {
+    var i = fonte.indexOf(g);
+    while (i >= 0) {
+      /* Da gravacao ate o fim do tratador dela. */
+      var fim = fonte.indexOf('});', i);
+      if (fonte.slice(i, fim < 0 ? fonte.length : fim).indexOf('t.redesenha()') < 0) {
+        semRedesenho.push(g + ' @' + i);
+      }
+      i = fonte.indexOf(g, i + 1);
+    }
+  });
+  ok(gravacoes.length >= 4 && semRedesenho.length === 0,
+    'e TODA gravação manda a tabela se redesenhar — a que não mandasse deixaria a tabela ' +
+    'mostrando o ajuste antigo até alguém trocar de aba',
+    semRedesenho.length ? semRedesenho : gravacoes.length);
 
-  /* --- o CSV acompanha ----------------------------------------------------- */
-  var jc = adm.indexOf("Q.csv('retornos'");
-  var csv = adm.slice(adm.lastIndexOf('var cs =', jc) - 400, jc);
-  ok(/ocultasCsv\.indexOf\(id\) < 0/.test(csv),
-    'o CSV sai com as MESMAS colunas da tela: com colunas a mais, obriga a explicar de ' +
-    'onde saiu uma que ninguém vê');
+  /* `change`, e nao `input`: digitando "1" antes de "120", o `input` gravaria 1 e a
+     coluna encolheria ao minimo no meio da digitacao. */
+  ok(/addEventListener\('change', function\(\)\{\s*\n\s*guardarLargura/.test(fonte),
+    'a largura grava no `change`, não a cada tecla — digitando "1" antes de "120", a ' +
+    'coluna encolheria ao mínimo no meio da digitação');
 
-  ok(/\.chk-col\{/.test(css) && /\.chk-col input\{/.test(css),
-    'as caixas de marcar têm classe própria — `.fchk` é do bloco de filtros do app de ' +
-    'campo, com borda e recuo de cartão');
+  /* --- restaurar apaga as TRES -------------------------------------------- */
+  ok(/removeItem\(t\.kOrdem\)/.test(fonte) && /removeItem\(t\.kLarg\)/.test(fonte) &&
+     /removeItem\(t\.kOcultas\)/.test(fonte),
+    'restaurar apaga as três preferências de uma vez — uma só deixaria a tabela num ' +
+    'meio-termo que ninguém escolheu');
+
+  /* --- a aba desenha ao abrir --------------------------------------------- */
+  var ao = adm.indexOf('window.aoAbrirAba = function(p)');
+  var corpoAo = adm.slice(ao, adm.indexOf('\n  };', ao));
+  ok(/pgColunas'\) desenharColunas\(\)/.test(corpoAo),
+    'e a aba desenha ao abrir', corpoAo);
+
+  ok(/\.col-linha\.apagada\{opacity/.test(css) && /\.mod-colunas\{/.test(css),
+    'a tela tem estilo próprio');
 })();
 
 console.log('\n== recolher o trilho ==');
@@ -2039,9 +1995,11 @@ console.log('\n== os filtros num painel suspenso ==');
   /* Ela ficou com um chamador so quando o painel de colunas passou a morar dentro deste.
      Continua separada porque e a unica coisa que decide a direcao — medir em dois lugares
      era como o segundo painel nasceria fora da tela. */
-  ok((adm.match(/function posicionarPop\(/g) || []).length === 1 &&
-     (adm.match(/posicionarPop\(/g) || []).length >= 3,
-    'e a decisão de subir ou descer mora numa função só, usada pelos painéis',
+  /* Voltou a um chamador so quando o painel de colunas virou aba. Continua separada
+     porque e a unica coisa que decide a direcao: medir em dois lugares e como o segundo
+     painel nasceria fora da tela no dia em que o primeiro fosse corrigido. */
+  ok((adm.match(/function posicionarPop\(/g) || []).length === 1,
+    'e a decisão de subir ou descer mora numa função só',
     (adm.match(/posicionarPop\(/g) || []).length);
   ok(/\.ret-pop\.para-baixo\{bottom:auto;top:calc\(100% \+ 6px\)\}/.test(css),
     'e existe a regra que o faz descer — sem ela a medição não mudaria nada');
@@ -2486,7 +2444,7 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
 console.log('\n== o Saldo final segue a formula do saldo ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
-  var i = adm.indexOf("      final:    { t: 'Saldo final'");
+  var i = adm.indexOf("      final:    { t: TIT['final']");
   var bloco = adm.slice(i, adm.indexOf('\n    };', i));
   var corpo = bloco.slice(bloco.indexOf('v: function(l){'));
   corpo = corpo.slice(corpo.indexOf('{') + 1, corpo.lastIndexOf('}'));

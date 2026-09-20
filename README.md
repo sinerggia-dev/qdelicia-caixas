@@ -166,7 +166,7 @@ linhas antigas que ficaram nele passaram a contar.
 
 ```
 node teste/teste_api.js    # 455 verificações das regras
-node teste/teste_tela.js   # 214 verificações das telas
+node teste/teste_tela.js   # 443 verificações das telas
 ```
 
 A primeira roda o roteador, as regras e os tradutores de verdade, trocando apenas o acesso ao

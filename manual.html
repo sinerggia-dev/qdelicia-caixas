@@ -224,6 +224,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <li><a href="#ativos">Painel de Ativos</a></li>
     <li><a href="#painel">Painel e extratos</a></li>
     <li><a href="#movimentos">Movimentos</a></li>
+    <li><a href="#colunas">Colunas</a></li>
     <li><a href="#cadastros">Cadastros</a></li>
     <li><a href="#lancar">Ajustes</a></li>
     <li class="grupo">Referência</li>
@@ -525,11 +526,6 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <p>Por isso o botão passa a <strong>carregar o nome do grupo</strong> — <em>☰ Usuários</em> — e troca de cor. Em <em>Todas</em> ele fica mudo: aí não há nada escondido para avisar.</p>
   </div>
 
-  <h3>Escolher as colunas</h3>
-  <p>Ficam no mesmo painel dos filtros, embaixo, sob o título <strong>Colunas da tabela</strong> — uma caixa de marcar em cada. Desmarcar tira a coluna da tela — e do CSV, que sai sempre com as mesmas colunas. O <strong>↺ Mostrar todas</strong> desfaz de uma vez — e só aparece quando há alguma coluna escondida.</p>
-  <p class="nota">Fica guardado neste navegador, como a ordem e a largura. Esconder coluna é esconder informação, então o botão <strong>Filtros</strong> fica em âmbar quando há alguma fora — e o texto dele, ao passar o ponteiro, diz quantas. Sem isso, a tabela apareceria sem o Retorno e quem chegasse depois procuraria o número num lugar que não existe mais.</p>
-  <p class="nota">A <em>contagem</em> no botão continua sendo só de filtros, porque é isso que ele se chama: somar as colunas faria o número querer dizer duas coisas, e ninguém saberia qual. É a cor que responde pelas duas.</p>
-
   <h3>Classificar, arrastar, redimensionar</h3>
   <p>O título da coluna faz três coisas, e nenhuma atrapalha a outra:</p>
   <ul>
@@ -537,6 +533,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <li><strong>Arraste o título</strong> — troca a coluna de lugar</li>
     <li><strong>Arraste a borda direita</strong> — muda a largura</li>
   </ul>
+  <p>Para <strong>esconder</strong> uma coluna, e para fazer as mesmas três coisas sem precisar acertar o arrasto, use a aba <a href="#colunas"><strong>Colunas</strong></a>. É o mesmo ajuste visto de outro lugar: o que se arrasta aqui aparece lá, e o que se marca lá esta tabela obedece.</p>
   <p>A ordem e a largura ficam guardadas neste navegador, porque são preferência de quem olha. A <strong>classificação não</strong>: ela é um recorte para responder uma pergunta — <em>quem devolveu menos?</em> —, e não um jeito de trabalhar. Guardada, a tela voltaria dias depois fora da ordem de extrato sem ninguém lembrar por quê.</p>
   <div class="regra">
     <span class="rot">Classificado, o saldo deixa de encadear</span>
@@ -597,13 +594,8 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p>Cada um recarrega a lista sozinho ao mudar. O <strong>⬇ CSV</strong> leva o recorte para a planilha.</p>
 
   <h3>As colunas da tabela</h3>
-  <p>As mesmas três da tabela do Painel de Ativos, no botão <strong>Colunas</strong> da barra:</p>
-  <ul>
-    <li><strong>Arraste o título</strong> — troca a coluna de lugar</li>
-    <li><strong>Arraste a borda direita</strong> — muda a largura</li>
-    <li><strong>Colunas</strong> — desmarque para esconder; o botão conta quantas estão fora e troca de cor</li>
-  </ul>
-  <p class="nota">A coluna dos botões de ação fica de fora das três: ela não é dado, é o caminho para corrigir. Escondível, alguém a esconderia sem querer e perderia o único jeito de consertar um lançamento; arrastável, cairia no meio da leitura.</p>
+  <p>Arraste o título para trocar a coluna de lugar, e a borda direita para mudar a largura — como no Painel de Ativos. Para esconder, e para fazer as duas sem arrastar, use a aba <a href="#colunas"><strong>Colunas</strong></a>.</p>
+  <p class="nota">A coluna dos botões de ação fica de fora: ela não é dado, é o caminho para corrigir. Escondível, alguém a esconderia sem querer e perderia o único jeito de consertar um lançamento; arrastável, cairia no meio da leitura.</p>
 
   <h3>Corrigir, cancelar, excluir</h3>
   <ul>
@@ -617,6 +609,35 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <p>Apaga <strong>tudo</strong> o que casa com os filtros de cima, de uma vez. Antes de executar, a tela escreve o recorte por extenso e pede o número de lançamentos que serão apagados — se o número não bater com o que o servidor encontrou, nada acontece.</p>
     <p>Quem monta o recorte é a mesma função que monta a lista da tela. Não há um segundo formulário para divergir do primeiro.</p>
   </div>
+</section>
+
+<section id="colunas">
+  <h2>Colunas</h2>
+  <p>Uma tela só para o desenho das tabelas. Antes, esconder e mover coluna morava dentro do painel de filtros do Painel de Ativos, e num segundo botão na barra de Movimentos — dois lugares diferentes para o mesmo ajuste, e nenhum deles onde se procura.</p>
+
+  <h3>Uma ficha por módulo</h3>
+  <p>Cada módulo com tabela ajustável tem a sua ficha, e dentro dela uma linha por coluna. Em cada linha, as três coisas que se pode fazer:</p>
+  <ul>
+    <li><strong>A caixa de marcar</strong> — desmarque para esconder a coluna</li>
+    <li><strong>↑ e ↓</strong> — movem a coluna de lugar. A primeira não sobe, a última não desce, e os botões ficam apagados quando não há para onde ir</li>
+    <li><strong>O número em px</strong> — a largura da coluna. Vale a partir de 70px</li>
+  </ul>
+  <p>Hoje são dois: <strong>Painel de Ativos</strong> e <strong>Movimentos</strong>. Painel, Extratos e Cadastros ainda não aparecem, e a própria tela diz isso no rodapé — módulo que falta sem explicação parece coisa quebrada.</p>
+
+  <div class="regra">
+    <span class="rot">Escondida, a coluna continua na lista</span>
+    <p>Ela fica <strong>apagada</strong>, e não some. Sumindo, não haveria como trazê-la de volta — e é justamente ela que se procura quando se vem a esta tela.</p>
+    <p>A ficha do módulo mostra em âmbar <em>quantas</em> estão fora. Nenhuma escondida, nenhum aviso.</p>
+  </div>
+
+  <h3>É o mesmo ajuste da tabela</h3>
+  <p>Esta tela grava no mesmo lugar que o arrasto no cabeçalho: mover aqui é mover lá. Assim que se muda algo, a tabela do módulo se redesenha — não é preciso trocar de aba para ver.</p>
+  <p>O <strong>restaurar padrão</strong> de cada ficha apaga as três preferências de uma vez — ordem, largura e escondidas. Apagar só uma deixaria a tabela num meio-termo que ninguém escolheu.</p>
+  <p class="nota">Tudo isso fica guardado <strong>neste navegador</strong>, e não na conta. É preferência de quem olha, como o zoom da tela — não muda dado, não muda saldo, e não viaja para o computador do colega.</p>
+  <p class="nota">A largura grava quando o campo perde o foco, não a cada tecla: digitando <kbd>1</kbd> antes de <kbd>2</kbd> e <kbd>0</kbd>, a coluna encolheria ao mínimo no meio da digitação.</p>
+
+  <h3>Quem vê esta aba</h3>
+  <p>Qualquer pessoa que tenha o painel — ela não é exclusiva do administrador. Escolher coluna não muda dado nenhum; é a mesma natureza de recolher a coluna da esquerda. Como as outras, pode ser tirada de alguém pela lista de abas do cadastro.</p>
 </section>
 
 <section id="cadastros">
@@ -822,7 +843,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p style="margin-top:18px">As fotos ficam no armazenamento do Supabase, e o link aparece no extrato. Lançamentos antigos podem ter assinatura anexada — o campo saiu da tela em setembro/2026, mas o que já foi gravado continua lá.</p>
 
   <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode as duas suítes principais:</p>
-  <div class="formula">node teste/teste_api.js   → 455 verificações das regras<br>node teste/teste_tela.js  → 214 verificações das telas</div>
+  <div class="formula">node teste/teste_api.js   → 455 verificações das regras<br>node teste/teste_tela.js  → 443 verificações das telas</div>
   <p>A primeira executa as regras de produção contra um banco falso em memória — sem rede e sem chave. A segunda lê o HTML e o JavaScript das páginas e confere que cada filtro, coluna e botão está ligado dos dois lados: um campo que aparece na barra mas não viaja no pedido, ou uma coluna com cabeçalho e sem célula, falha ali em vez de falhar na tela de quem usa.</p>
   <p class="nota">Mexeu em <code>app.js</code> ou <code>styles.css</code>? Rode <code>python scripts/versionar.py</code> antes de commitar. Não há passo de compilação, e sem isso o navegador continua servindo o arquivo antigo do cache — às vezes com HTML novo e JavaScript velho, que é pior do que só estar velho.</p>
 

@@ -170,6 +170,41 @@ em `pedidos_senha`, e o admin vê em Cadastros → Pedidos de senha e cadastra a
 do mesmo identificador. Diferenciar as respostas transformaria a tela de login pública num
 listório de quem trabalha na empresa. Se mexer ali, mantenha isso.
 
+## As colunas de uma tabela são dado, não HTML
+
+Cada tabela ajustável tem **um descritor** em `admin.html` — `TAB_ATIVOS`, `TAB_MOV`:
+
+```js
+{ padrao: [...ids na ordem de fábrica],
+  larg:    { id: px },
+  titulos: { id: 'Nome na tela' },
+  kOrdem, kLarg, kOcultas,      // as três chaves de localStorage
+  alvo, redesenha }             // o seletor da tabela e como pedir o redesenho
+```
+
+A máquina compartilhada — `ordemColunas(t)`, `colunasOcultas(t)`, `larguras(t)`,
+`ligarArrastarColunas(t)`, `ligarLarguraColunas(t)` e as três `guardar*` — recebe o descritor,
+não conhece tabela nenhuma pelo nome. O cabeçalho, as células e o CSV iteram a **mesma** lista.
+
+A aba **Colunas** (`pgColunas`, `desenharColunas()`) é uma tela sobre esses descritores: uma
+ficha por módulo, montada a partir de `tabelasGerenciaveis()`. **Registrar o próximo módulo é
+acrescentar um item ali** — não escrever outra tela. E a tela avisa quais ainda não entram
+(Painel, Extratos, Cadastros, cujas tabelas têm cabeçalho escrito à mão): módulo que falta sem
+explicação parece coisa quebrada.
+
+Três coisas que já custaram caro e não devem voltar:
+
+- **o título mora no descritor** (`titulos`), e a célula o lê de lá. Escrito nos dois lugares,
+  diverge no primeiro renome — e a aba passaria a oferecer um nome que a tabela não usa;
+- **esconder não tira a linha da lista da aba**, só a apaga. Sumindo, não haveria como trazer a
+  coluna de volta, e é justamente ela que se procura;
+- **mover mexe na ordem completa**, não só no que está visível. Mexer no visível embaralha a
+  ordem das escondidas sem ninguém ver, e elas voltam noutro lugar ao reaparecer.
+
+A coluna dos botões de ação de Movimentos fica **fora** do sistema: não é dado, é o caminho para
+corrigir. Escondível, alguém a esconde sem querer e perde o único jeito de consertar um
+lançamento.
+
 ## Quem lança de onde: lista vazia quer dizer TODOS
 
 `usuarios.saidas` e `usuarios.destinos` são arrays de id de `locais`, e **array vazio libera
@@ -312,7 +347,7 @@ O `teste_api.js` tem **455 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**214 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**443 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
@@ -321,7 +356,9 @@ das simetrias:
 - o cabeçalho e as células do Painel de Ativos saem da **mesma** lista de colunas, e toda coluna
   de fábrica tem definição, largura e o par título+valor no CSV;
 - todo campo da barra de Movimentos entra no filtro, **viaja no pedido**, recarrega a lista e
-  volta ao padrão no Limpar.
+  volta ao padrão no Limpar;
+- a aba **Colunas** e as tabelas leem o mesmo armazenamento, e toda coluna de fábrica tem nome
+  no descritor — sem ele a aba mostraria o id cru.
 
 O terceiro item é o que faltava quando `mvFluxo` e `mvCaixa` passaram a existir sem efeito: o
 servidor sabia filtrar, a tela só não pedia. Havia teste entre a barra e o filtro, e entre o
