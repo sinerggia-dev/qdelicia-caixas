@@ -251,10 +251,44 @@ e quem recebe é uma **saída**. Está assim no `montarFormularios()` do `index.
 
 Duas coisas que valem lembrar:
 
-- **A sessão guardada no celular não se atualiza sozinha.** As listas viajam no `login`, então
-  quem já está logado continua vendo tudo até sair e entrar de novo.
+- **No app de campo, a sessão guardada no celular não se atualiza sozinha.** As listas viajam no
+  `login`, então quem já está logado continua vendo o que tinha até sair e entrar de novo. **No
+  painel isso foi resolvido** — veja a seção abaixo. O `index.html` ainda não.
+- **Ao mudar a permissão de alguém, a tela dele não muda na hora.** Ele vê a mudança na próxima
+  vez que abrir o painel, não no mesmo segundo. Não há empurrão do servidor.
 - **Isto é a tela, não a tranca.** Vale o mesmo aviso da seção de separação de funções: a API
   não tem autorização, e um POST direto ignora qualquer filtro daqui.
+
+## A permissão mudada chega a quem já está logado
+
+`Q.sessao()` é uma **foto tirada no login**. Enquanto ela for a única fonte, mudar as abas (ou
+os locais, ou os tipos de caixa) de alguém no cadastro não chega em quem já está dentro: a pessoa
+segue com o que tinha no dia em que entrou, e a única saída é sair e entrar de novo — coisa que
+ninguém faz e que a tela nunca pediu. Foi assim que um gerente ficou com uma aba só depois de o
+administrador marcar quatro.
+
+A `equipe` já traz o registro atualizado de **todo mundo**, inclusive de quem está olhando. Então
+`renovarSessao()` troca a foto pelo registro a cada abertura do painel, e também depois de salvar
+um usuário (o admin pode restringir a si mesmo). `abasPermitidas()` roda sobre a sessão renovada,
+nunca sobre a guardada.
+
+Três coisas que não podem mudar aqui, porque cada uma tranca alguém para fora:
+
+- **`podeVerPainelRegistro()` é cópia fiel do `podeVerPainel()` do servidor**, e não a coluna
+  crua: o ADMIN entra sempre, mesmo com `AcessoPainel` em `false`, e quem está inativo não entra.
+  Lendo a coluna direto, o primeiro admin com ela desligada perderia o próprio painel.
+- **`EQUIPE_CHEGOU`, e não `EQUIPE.length`.** Lista vazia pode querer dizer "ainda não carregou"
+  ou "a resposta falhou"; só depois de uma resposta boa é que não estar nela quer dizer que a
+  pessoa saiu do cadastro. Confundir os dois manda todo mundo para o login no primeiro soluço
+  de rede.
+- **`sessaoDoRegistro()` tem os mesmos campos de `sessaoDe()`** em `api/_logica.js`. São duas
+  cópias da mesma sessão, e um campo que exista de um lado e não do outro some no meio do
+  caminho, calado. Há teste comparando as duas listas de campos.
+
+Quem perdeu o acesso, foi desativado ou teve o cadastro apagado é mandado embora com um aviso que
+diz o motivo, e a saída é adiada 2,5s para dar tempo de ler.
+
+**Isto é a tela, não a tranca.** A API continua sem autorização: um POST direto ignora tudo isto.
 
 ## Migração do banco: automática
 
@@ -365,7 +399,7 @@ O `teste_api.js` tem **455 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**481 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**497 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
@@ -381,6 +415,20 @@ das simetrias:
 O terceiro item é o que faltava quando `mvFluxo` e `mvCaixa` passaram a existir sem efeito: o
 servidor sabia filtrar, a tela só não pedia. Havia teste entre a barra e o filtro, e entre o
 filtro e o apagar — nenhum entre o filtro e o **pedido**.
+
+**`teste_backend.js` falha depois das 21h** (fuso de Brasília): o `dia(n)` dele monta a data com
+`toISOString()`, que é UTC, enquanto o aging conta em dia local. Passadas as 21h a data UTC já
+virou, e "caixa mais antiga tem 20 dias" recebe 19. É do conjunto antigo do Apps Script, que pode
+ser apagado quando a migração estiver validada — mas não confunda isso com regressão.
+
+**A cópia de trabalho precisa ficar em LF.** Há `.gitattributes` com `* text=auto eol=lf`, porque
+o Git desta máquina está com `core.autocrlf=true` e reescrevia tudo em CRLF a cada checkout ou
+`stash pop`. A conferência recorta o código por texto, e muitos recortes fecham numa quebra de
+linha: em CRLF o `indexOf` não acha nada, o recorte vai até o fim do arquivo e o teste passa a
+medir o arquivo inteiro **sem avisar** — um recorte grande demais tem tamanho e tem o texto
+procurado, então as guardas de tamanho não veem nada. As duas suítes também normalizam o `
+` na
+leitura, num embrulho do `readFileSync`, para não depender só do `.gitattributes`.
 
 **Dois testes estão quebrados** e não são regressão deste trabalho: `teste_motorista.js` e
 `teste_saldo.js` estouram com `meusMotoristas is not defined`. Eles recortam funções do

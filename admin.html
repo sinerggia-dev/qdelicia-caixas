@@ -519,7 +519,7 @@
 
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
+      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
       ordenarTudo();
       montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
@@ -565,11 +565,84 @@
     ajustarAbasPainel(s);
     periodoPadraoMov();
     document.getElementById('lcData').value = Q.hoje();
-    // A lista de abas so chega com a `equipe`; ate la a peneira nao tem o que peneirar.
-    carregarEquipe().then(function(){ ajustarAbasPainel(s); });
+    /* A lista de abas so chega com a `equipe` — e com ela chega tambem o registro
+       atualizado de quem esta olhando. Por isso a peneira roda sobre a sessao RENOVADA, e
+       nao sobre a foto do login: e essa troca que faz a permissao mudada no cadastro
+       valer sem precisar sair e entrar. */
+    carregarEquipe().then(function(){
+      var atual = renovarSessao() || s;
+      document.getElementById('cabUsuario').textContent = atual.nome + ' · ' + atual.perfil;
+      ajustarAbasPainel(atual);
+    });
     Q.carregarDados().then(function(d){ DADOS=d; ordenarTudo(); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
   }
+  /* A sessao guardada e uma FOTO do login. Enquanto ela for a unica fonte, mudar a
+     permissao de alguem no cadastro nao chega a quem ja esta logado: a pessoa segue com o
+     que tinha no dia em que entrou, e a unica saida e sair e entrar de novo — coisa que
+     ninguem faz e que a tela nunca pediu.
+
+     A `equipe` traz o registro atualizado de todo mundo, inclusive de quem esta olhando.
+     Entao a foto e trocada pelo registro a cada abertura do painel.
+
+     Os campos sao os mesmos de `sessaoDe()` no servidor, e a convencao tambem: lista
+     vazia quer dizer TODOS. Sao duas copias da mesma forma — uma no servidor, uma aqui —
+     e ha teste comparando as duas, porque divergindo em silencio esta aqui e que daria o
+     estrago. */
+  function sessaoDoRegistro(u){
+    function lista(v){ return Array.isArray(v) ? v : []; }
+    return {
+      id: u.ID, nome: u.Nome, perfil: u.Perfil,
+      localPadrao: u.LocalPadrao, acessoPainel: podeVerPainelRegistro(u),
+      saidas: lista(u.Saidas), destinos: lista(u.Destinos),
+      tiposCaixa: lista(u.TiposCaixa), motoristas: lista(u.Motoristas),
+      operacoes: lista(u.Operacoes), abas: lista(u.Abas)
+    };
+  }
+
+  /* A MESMA regra do `podeVerPainel()` do servidor, e nao a coluna crua. As duas coisas
+     que a coluna sozinha erraria, e as duas sao reais:
+
+       - o ADMIN entra sempre, mesmo com a coluna em `false`. Lendo so a coluna, o
+         primeiro admin com a coluna desligada seria expulso do proprio painel;
+       - quem esta inativo nao entra, ainda que a coluna diga que sim.
+
+     E a regra que decide quem fica dentro. Uma versao aproximada dela aqui seria pior do
+     que nenhuma. */
+  function podeVerPainelRegistro(u){
+    if (!u || u.Ativo === false) return false;
+    if (String(u.Perfil).toUpperCase() === 'ADMIN') return true;
+    return u.AcessoPainel === true;
+  }
+
+  /* Devolve a sessao valendo AGORA. Se o registro sumiu ou perdeu o painel, a pessoa sai
+     — continuar dentro com uma foto antiga e pior do que ser mandada embora, porque
+     ninguem saberia que ela ainda esta ali. */
+  function renovarSessao(){
+    var s = Q.sessao();
+    /* `EQUIPE_CHEGOU`, e nao `EQUIPE.length`. As duas coisas parecem a mesma e nao sao:
+       lista vazia pode querer dizer "ainda nao carregou" ou "a resposta falhou", e
+       tratar isso como "voce nao esta mais no cadastro" poria todo mundo para fora no
+       primeiro soluco de rede. So depois de uma resposta boa e que a ausencia quer
+       dizer alguma coisa. */
+    if (!s || !EQUIPE_CHEGOU) return s;
+    var u = EQUIPE.filter(function(x){ return String(x.ID) === String(s.id); })[0];
+    if (!u){
+      /* Usuario apagado. Nao ha o que renovar, e ficar aberto so adia a descoberta. */
+      Q.toast('Seu cadastro não existe mais. Entre de novo.','erro');
+      setTimeout(Q.sair, 2500);
+      return s;
+    }
+    var nova = sessaoDoRegistro(u);
+    if (!podeEntrar(nova)){
+      Q.toast('Seu acesso ao painel foi retirado. Entre de novo.','erro');
+      setTimeout(Q.sair, 2500);
+      return s;
+    }
+    Q.entrar(nova);
+    return nova;
+  }
+
   /* Quais abas do painel esta pessoa ve. Duas regras, e UMA peneira:
 
        1. Ajustes e Cadastros so para o admin. O conferente e quem gera a divergencia na
@@ -2440,7 +2513,11 @@
           if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui salvar.','erro');
           Q.toast(ligando?'Motorista ativado.':'Motorista desativado.','ok');
           // O celular lê a lista de motoristas pela rota pública, então as duas precisam vir de novo.
-          return Promise.all([carregarEquipe(), recarregarCadastros()]);
+          /* Salvar um usuario pode ter mudado as permissoes de quem esta salvando —
+             o admin pode restringir a si mesmo. A peneira roda de novo com o que acabou
+             de ser gravado, em vez de esperar a proxima visita. */
+          return Promise.all([carregarEquipe(), recarregarCadastros()])
+            .then(function(r){ ajustarAbasPainel(renovarSessao() || Q.sessao()); return r; });
         }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
       });
     });
@@ -3114,6 +3191,9 @@
   var OPERACOES_APP = [];
   /* As abas do painel, servidas pela API em `equipe`. Idem: uma lista so, no servidor. */
   var ABAS_PAINEL = [];
+  /* Se a lista de gente ja chegou UMA vez. Ver "EQUIPE vazia" nao basta para concluir que
+     alguem saiu do cadastro — ver a resposta chegar, sim. */
+  var EQUIPE_CHEGOU = false;
 
   /* `trava(l)` devolve o motivo pelo qual aquele item nao pode ser marcado, ou nada.
      O item continua na lista, com a marca que tiver: some-lo esconderia que ele existe, e

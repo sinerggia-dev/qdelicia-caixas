@@ -9,8 +9,18 @@
  *   node teste/teste_api.js
  */
 'use strict';
-const fs = require('fs');
+const fsReal = require('fs');
 const path = require('path');
+
+/* Mesma razao do `teste_tela.js`: o recorte por texto fecha numa quebra de linha, e uma
+   copia de trabalho em CRLF faz o recorte ir ate o fim do arquivo em silencio. */
+const fs = {
+  readFileSync: function (p, enc) {
+    const d = fsReal.readFileSync(p, enc);
+    return typeof d === 'string' ? d.replace(new RegExp(String.fromCharCode(13), 'g'), '') : d;
+  },
+  existsSync: function (p) { return fsReal.existsSync(p); }
+};
 
 /* ---------- banco falso ---------- */
 

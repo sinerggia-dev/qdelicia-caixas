@@ -709,16 +709,20 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p><strong>Operações</strong> decide se a pessoa lança <em>Saída</em>, <em>Retorno</em> ou os dois. A aba que ela não pode usar some do celular — e, mais importante, o servidor <strong>recusa</strong> o lançamento mesmo que o pedido chegue por fora do app.</p>
 
   <h4 style="margin:16px 0 6px;font-size:14px">O que cada um pode ver no painel</h4>
-  <p><strong>Abas do painel</strong> marca, uma a uma, quais das seis abas do escritório aquela pessoa enxerga. Um gerente pode ver o Painel de Ativos e os Extratos sem ver Movimentos; um conferente pode entrar só para consultar.</p>
+  <p><strong>Abas do painel</strong> marca, uma a uma, quais das sete abas do escritório aquela pessoa enxerga. Um gerente pode ver o Painel de Ativos e os Extratos sem ver Movimentos; um conferente pode entrar só para consultar.</p>
   <p><em>Ajustes</em> e <em>Cadastros</em> são do administrador. Elas aparecem na lista, mas <strong>travadas</strong>, com a etiqueta <em>só admin</em> ao lado — marcá-las para outro perfil não faria efeito nenhum na tela dela. Escrever <code>Admin</code> no campo Perfil destrava as duas na hora.</p>
   <div class="regra">
     <span class="rot">Se uma aba não aparece para a pessoa</span>
     <p>Confira nesta ordem: a chave <em>Pode entrar no painel?</em> está ligada; a aba está marcada aqui; e ela não é <em>Ajustes</em> nem <em>Cadastros</em>, que só o Admin vê.</p>
-    <p>Depois disso, <strong>a pessoa precisa sair e entrar de novo</strong>. As permissões viajam no login, e quem está com a sessão aberta continua com a lista antiga.</p>
+    <p>No <strong>painel</strong>, a mudança vale na <strong>próxima vez que a pessoa abrir a página</strong> — não é preciso sair e entrar. O painel relê o cadastro dela a cada abertura. O que não acontece é a tela dela mudar no mesmo segundo: se ela está com o painel aberto agora, precisa recarregar.</p>
     <p>Se a marca não alcançar nenhuma aba que aquela pessoa possa ver — só <em>Ajustes</em> marcado para um gerente, por exemplo —, ela é <strong>ignorada</strong> e valem todas as permitidas. O painel nunca abre vazio: errar para o lado de mostrar se corrige aqui no cadastro; errar para o lado de trancar só se resolve com o administrador por perto.</p>
   </div>
   <p class="nota">Nos três quadros — Saída, Destino, Operações e Abas — <strong>nada marcado quer dizer todos</strong>. Marque só para restringir. Se fosse o contrário, o dia em que a coluna entrou no ar teria trancado a operação inteira, porque ninguém tinha nada marcado.</p>
-  <div class="regra"><span class="rot">Depois de mudar</span><p>A pessoa precisa <strong>sair e entrar de novo</strong> no app de campo. As permissões viajam no login, então quem está com o app aberto continua vendo a lista antiga.</p></div>
+  <div class="regra">
+    <span class="rot">Depois de mudar</span>
+    <p>No <strong>app de campo</strong> a pessoa precisa <strong>sair e entrar de novo</strong>: ali as permissões viajam no login, e quem está com o app aberto continua vendo a lista antiga.</p>
+    <p>No <strong>painel</strong> não: ele relê o cadastro a cada abertura, então basta recarregar a página. E quem tiver perdido o acesso, ou for desativado, é avisado e mandado para a tela de entrada.</p>
+  </div>
 
   <p>Quem sai da empresa se <strong>desativa</strong>, pelo botão na lista. Existe também <strong>excluir</strong>, mas ele só apaga de verdade quem nunca lançou nada: quem já tem movimento no histórico é desativado, porque o nome de quem contou é o que dá peso à divergência. Inativo some das listas e não consegue mais entrar; reativar devolve o acesso.</p>
   <h3>Pedidos de senha</h3>
@@ -851,7 +855,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p style="margin-top:18px">As fotos ficam no armazenamento do Supabase, e o link aparece no extrato. Lançamentos antigos podem ter assinatura anexada — o campo saiu da tela em setembro/2026, mas o que já foi gravado continua lá.</p>
 
   <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode as duas suítes principais:</p>
-  <div class="formula">node teste/teste_api.js   → 455 verificações das regras<br>node teste/teste_tela.js  → 481 verificações das telas</div>
+  <div class="formula">node teste/teste_api.js   → 455 verificações das regras<br>node teste/teste_tela.js  → 497 verificações das telas</div>
   <p>A primeira executa as regras de produção contra um banco falso em memória — sem rede e sem chave. A segunda lê o HTML e o JavaScript das páginas e confere que cada filtro, coluna e botão está ligado dos dois lados: um campo que aparece na barra mas não viaja no pedido, ou uma coluna com cabeçalho e sem célula, falha ali em vez de falhar na tela de quem usa.</p>
   <p class="nota">Mexeu em <code>app.js</code> ou <code>styles.css</code>? Rode <code>python scripts/versionar.py</code> antes de commitar. Não há passo de compilação, e sem isso o navegador continua servindo o arquivo antigo do cache — às vezes com HTML novo e JavaScript velho, que é pior do que só estar velho.</p>
 

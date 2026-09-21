@@ -1,0 +1,16 @@
+# O Git desta máquina está com `core.autocrlf=true`, e sem este arquivo ele reescreve a
+# cópia de trabalho em CRLF a cada checkout, stash pop ou clone no Windows.
+#
+# Isso não é cosmético. A conferência das telas recorta o código por texto — muitos
+# recortes fecham em `';\n'` ou `'\n  }'`, e com CRLF o `indexOf` não acha nada: o recorte
+# vai até o fim do arquivo e o teste passa a medir o arquivo inteiro. Foi assim que duas
+# afirmações sobre os cartões do painel começaram a falhar depois de um `git stash pop`,
+# sem ninguém ter tocado no código delas.
+#
+# `eol=lf` mantém a cópia de trabalho igual ao que está gravado, em qualquer sistema.
+* text=auto eol=lf
+
+# Binários não passam por conversão nenhuma.
+*.png  binary
+*.pdf  binary
+*.docx binary

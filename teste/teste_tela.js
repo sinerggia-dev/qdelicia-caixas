@@ -15,8 +15,31 @@
  */
 'use strict';
 
-var fs = require('fs');
+var fsReal = require('fs');
 var path = require('path');
+
+/* TODA leitura passa por aqui, e toda leitura vem sem retorno de carro.
+
+   Esta conferencia recorta o codigo por TEXTO, e muitos recortes fecham numa quebra de
+   linha — `";" + 
+` ou `
+` mais dois espacos e a chave. Numa copia de trabalho em CRLF o
+   `indexOf` nao acha nada, o recorte vai ate o fim do arquivo, e o teste passa a medir o
+   ARQUIVO INTEIRO em vez do trecho. Sem avisar: um recorte grande demais tem tamanho e
+   tem o texto procurado, entao as guardas de tamanho nao veem nada de errado.
+
+   Foi o que aconteceu depois de um `git stash pop` com `core.autocrlf=true`: duas
+   afirmacoes sobre os cartoes do painel comecaram a falhar sem ninguem ter tocado no
+   codigo delas.
+
+   O `.gitattributes` resolve para quem faz checkout depois dele. Isto resolve sempre. */
+var fs = {
+  readFileSync: function (p, enc) {
+    var d = fsReal.readFileSync(p, enc);
+    return typeof d === 'string' ? d.replace(new RegExp(String.fromCharCode(13), 'g'), '') : d;
+  },
+  existsSync: function (p) { return fsReal.existsSync(p); }
+};
 
 var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 var falhas = 0;
@@ -1670,6 +1693,135 @@ console.log('\n== a tabela de Usuários entrou na maquinaria de colunas ==');
     'o subtítulo do cabeçalho mora na definição da célula');
   ok(descr.indexOf('entra no app') < 0 && /usuario:'Usuário'/.test(descr.replace(/\s+/g, '')),
     'e não no `titulos`, que é de onde a aba Colunas tira o NOME da coluna', descr);
+})();
+
+console.log('\n== a permissão mudada chega a quem já está logado ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var L = require(path.join(__dirname, '..', 'api', '_logica.js'));
+
+  function recorta(assinatura) {
+    var i = adm.indexOf(assinatura);
+    if (i < 0) return '';
+    var k = adm.indexOf('{', i), n = 0;
+    do { if (adm[k] === '{') n++; else if (adm[k] === '}') n--; k++; } while (n > 0);
+    return adm.slice(i, k);
+  }
+
+  var fontes = ['function podeEntrar(s)', 'function podeVerPainelRegistro(u)',
+                'function sessaoDoRegistro(u)', 'function renovarSessao()',
+                'function abasPermitidas(s)'].map(recorta);
+  ok(fontes.every(function (f) { return f.length > 60; }),
+    'o recorte pegou as cinco funções', fontes.map(function (f) { return f.length; }));
+
+  /* Roda as cinco funcoes de verdade, com o mundo delas de mentira: a sessao guardada, o
+     relogio (a saida e ADIADA, para a pessoa ler o aviso antes de a pagina recarregar) e
+     os avisos. Medir sem adiantar o relogio mede o aviso, e nao a saida. */
+  function roda(equipe, chegou, guardada, admin) {
+    var estado = { sessao: guardada, saiu: false, aviso: '' };
+    var relogio = [];
+    var api = new Function('EQUIPE', 'EQUIPE_CHEGOU', 'ABAS_PAINEL', 'Q', 'setTimeout',
+      'return (function(){' + fontes.join('\n') +
+      '\n return { renovar: renovarSessao, abas: abasPermitidas }; })();')(
+      equipe, chegou, L.ABAS,
+      { sessao: function () { return estado.sessao; },
+        entrar: function (u) { estado.sessao = u; },
+        sair: function () { estado.saiu = true; },
+        toast: function (m) { estado.aviso = m; },
+        ehAdmin: function () { return !!admin; } },
+      function (fn) { relogio.push(fn); });
+    var nova = api.renovar();
+    relogio.forEach(function (fn) { fn(); });
+    return { nova: nova, abas: api.abas(nova), estado: estado };
+  }
+
+  var NESTOR = {
+    ID: 'U005', Nome: 'Nestor Neto', Perfil: 'Gerente', AcessoPainel: true, Ativo: true,
+    Abas: ['pgRetornos', 'pgPainel', 'pgExtrato', 'pgLancar', 'pgMovimentos']
+  };
+  /* A sessao VELHA: de quando ele so tinha o Painel de Ativos marcado. E este o caso
+     real — o administrador marcou mais abas, e na tela dele nao mudou nada. */
+  var velha = { id: 'U005', nome: 'Nestor Neto', perfil: 'Gerente', acessoPainel: true,
+                abas: ['pgRetornos'] };
+
+  var r = roda([NESTOR], true, velha, false);
+  ok(r.abas.join(',') === 'pgRetornos,pgPainel,pgExtrato,pgMovimentos',
+    'a marca nova do cadastro vale sem a pessoa sair e entrar — a sessão guardada é uma ' +
+    'foto do login, e sozinha ela congela a permissão do dia em que a pessoa entrou',
+    r.abas);
+  ok(r.abas.indexOf('pgLancar') < 0,
+    'e a marca de Ajustes continua sem efeito para quem não é admin, mesmo vindo do banco');
+  ok(r.estado.sessao.abas.length === 5,
+    'a sessão guardada foi REESCRITA com o registro — senão o próximo carregamento ' +
+    'voltaria à foto velha', r.estado.sessao.abas);
+
+  /* --- e a forma nao pode divergir da do servidor ------------------------- */
+  /* Sao duas copias da mesma sessao: uma em `sessaoDe()`, no servidor, e outra aqui. Um
+     campo que exista de um lado e nao do outro some no meio do caminho, e some calado. */
+  var daTela = Object.keys(roda([NESTOR], true, velha, false).nova).sort();
+  var doServidor = Object.keys(L.sessaoDe({ ID: 1, Nome: 'x', Perfil: 'y' })).sort();
+  ok(daTela.join(' ') === doServidor.join(' '),
+    'a sessão montada na tela tem os MESMOS campos da montada no servidor — divergindo, ' +
+    'um campo sumiria no meio do caminho e ninguém veria',
+    { tela: daTela, servidor: doServidor });
+
+  /* --- ninguem e expulso por engano --------------------------------------- */
+  /* Lista vazia pode ser "ainda nao carregou" ou "a resposta falhou". Tratar isso como
+     "voce saiu do cadastro" poria todo mundo para fora no primeiro soluco de rede. */
+  var semLista = roda([], false, velha, false);
+  ok(!semLista.estado.saiu,
+    'a lista que ainda não chegou não expulsa ninguém — no primeiro soluço de rede, ' +
+    'a tela inteira iria para o login');
+  ok(semLista.estado.sessao.abas.join(',') === 'pgRetornos',
+    'e a sessão fica como estava, em vez de virar uma sessão vazia');
+
+  /* --- mas quem perdeu o acesso sai de fato ------------------------------- */
+  [['foi desativado', Object.assign({}, NESTOR, { Ativo: false })],
+   ['perdeu o acesso ao painel', Object.assign({}, NESTOR, { AcessoPainel: false })]
+  ].forEach(function (par) {
+    var x = roda([par[1]], true, velha, false);
+    ok(x.estado.saiu && /acesso/i.test(x.estado.aviso),
+      'quem ' + par[0] + ' enquanto estava logado é mandado embora, e sabe por quê',
+      x.estado.aviso);
+  });
+  var apagado = roda([], true, velha, false);
+  ok(apagado.estado.saiu && /não existe mais/.test(apagado.estado.aviso),
+    'e quem teve o cadastro apagado também — com a lista JÁ carregada, não estar nela ' +
+    'quer dizer alguma coisa', apagado.estado.aviso);
+
+  /* --- o ADMIN nao se tranca para fora ------------------------------------ */
+  /* `podeVerPainel()` é a autoridade, e vale mais que a coluna. Lendo a coluna crua, o
+     primeiro admin com ela desligada perderia o próprio painel. */
+  var adminSemColuna = { ID: 'U001', Nome: 'Administrador', Perfil: 'Admin',
+                         AcessoPainel: false, Ativo: true, Abas: [] };
+  var a = roda([adminSemColuna], true,
+    { id: 'U001', perfil: 'Admin', acessoPainel: true, abas: [] }, true);
+  ok(!a.estado.saiu && a.nova.acessoPainel === true,
+    'o ADMIN entra mesmo com a coluna AcessoPainel em false — é a mesma regra do ' +
+    '`podeVerPainel()` do servidor, e não a coluna crua');
+  ok(a.abas.length === L.ABAS.length,
+    'e continua vendo todas as abas', a.abas);
+
+  /* --- a tela chama isso onde importa ------------------------------------- */
+  ok(/carregarEquipe\(\)\.then\(function\(\)\{\s*\n\s*var atual = renovarSessao\(\)/
+      .test(adm),
+    'abrir o painel renova a sessão antes de peneirar as abas — peneirando a foto do ' +
+    'login, a permissão mudada não chegaria nunca');
+  ok(/ajustarAbasPainel\(renovarSessao\(\)/.test(adm),
+    'e salvar um usuário também: o admin pode restringir a si mesmo');
+  /* A marca tem de ser posta DENTRO do `r.ok`, e nao ao lado dele. Posta fora, uma
+     resposta ruim marcaria "a lista chegou" com a lista vazia — e a renovacao seguinte
+     concluiria que todo mundo saiu do cadastro. Procurar o texto solto nao distingue os
+     dois casos: foi assim que a primeira versao desta afirmacao passou sabotada. */
+  var ce = adm.indexOf('function carregarEquipe()');
+  var corpoEq = adm.slice(ce, adm.indexOf('\n  }', ce));
+  ok(corpoEq.length > 200 && corpoEq.indexOf('acao:\'equipe\'') > 0,
+    'o recorte pegou o carregamento da equipe', corpoEq.length);
+  ok(/if \(r && r\.ok\)\{\s*EQUIPE_CHEGOU = true;/.test(corpoEq) &&
+     (corpoEq.match(/EQUIPE_CHEGOU/g) || []).length === 1,
+    'e a marca de "a lista chegou" é posta DENTRO da resposta boa, e só ali — fora dela, ' +
+    'uma resposta ruim faria a renovação concluir que todo mundo saiu do cadastro',
+    corpoEq);
 })();
 
 console.log('\n== a aba Colunas: gerenciar por módulo ==');
