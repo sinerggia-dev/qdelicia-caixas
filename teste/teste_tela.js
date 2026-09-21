@@ -1695,6 +1695,120 @@ console.log('\n== a tabela de Usuários entrou na maquinaria de colunas ==');
     'e não no `titulos`, que é de onde a aba Colunas tira o NOME da coluna', descr);
 })();
 
+console.log('\n== a porta para o painel, no app de campo ==');
+(function () {
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* O LINK existia so na tela de entrada, e sumia no instante em que a pessoa entrava.
+     Quem tinha o painel liberado nao tinha por onde chegar nele: era preciso sair, ou
+     saber o endereco de cor. As abas do painel estavam certas o tempo todo — a pessoa e
+     que nunca chegava la. */
+  var iH = idx.indexOf('<header>');
+  var cab = idx.slice(iH, idx.indexOf('</header>', iH));
+  ok(iH > 0 && cab.indexOf('chipSair') > 0, 'o recorte pegou o cabeçalho', cab.length);
+  ok(/id="chipPainel"/.test(cab),
+    'quem já entrou tem por onde chegar ao painel — sem isto, o link só existe na tela ' +
+    'de entrada e some assim que a pessoa entra');
+  ok(/<a class="chip" id="chipPainel" href="admin\.html"/.test(cab),
+    'e é um link de verdade, com href: abre em aba nova pelo clique do meio, como todo link');
+  ok(/id="chipPainel"[^>]*\shidden/.test(cab),
+    'nasce escondida — quem decide é o cadastro, não o HTML');
+
+  /* QUEM a ve. Porta que leva a uma recusa e pior do que porta nenhuma. */
+  var ia = idx.indexOf('function aplicarSessao(s)');
+  var ik = idx.indexOf('{', ia), inn = 0;
+  do {
+    if (idx[ik] === '{') inn++; else if (idx[ik] === '}') inn--;
+    ik++;
+  } while (inn > 0 && ik < idx.length);
+  var fonte = idx.slice(ia, ik);
+  ok(ia > 0 && fonte.indexOf('chipPainel') > 0 && fonte.indexOf('ajustarAbas') > 0,
+    'o recorte pegou a função que aplica a sessão na tela', fonte.length);
+
+  /* Roda a funcao de verdade, com um `document` de mentira: o que interessa e a DECISAO,
+     e ela tem de sair do arquivo, nao de uma copia da regra escrita aqui. */
+  function porta(s) {
+    var alvo = {};
+    return new Function('s', 'document', 'ajustarAbas',
+      fonte + '\n aplicarSessao(s); return !document.getElementById("chipPainel").hidden;')(
+      s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); } },
+      function () {});
+  }
+
+  [['o ADMIN vê, mesmo com a chave desligada — `podeVerPainel()` é a autoridade, e vale ' +
+    'mais que a coluna', { nome: 'a', perfil: 'Admin', acessoPainel: false }, true],
+   ['quem tem a chave ligada vê', { nome: 'b', perfil: 'Gerente', acessoPainel: true }, true],
+   ['quem não tem, não vê — porta que leva a uma recusa é pior que porta nenhuma',
+    { nome: 'c', perfil: 'Gerente', acessoPainel: false }, false],
+   ['o motorista não vê', { nome: 'd', perfil: 'Motorista', acessoPainel: false }, false],
+   /* Sessao de antes de a chave existir: vale a regra antiga por perfil, para nao tirar
+      a porta de quem ja a tinha no dia do deploy. */
+   ['o conferente de sessão antiga continua vendo', { nome: 'e', perfil: 'Conferente' }, true],
+   ['e o motorista de sessão antiga continua sem ver', { nome: 'f', perfil: 'Motorista' },
+    false]
+  ].forEach(function (c) {
+    ok(porta(c[1]) === c[2], c[0], { perfil: c[1].perfil, viu: porta(c[1]) });
+  });
+
+  /* Tudo o que a sessao manda na tela passa por UMA funcao. Espalhado entre a abertura e
+     a renovacao, a renovacao esquece alguma coisa — e esquece calada. */
+  ok((idx.match(/aplicarSessao\(/g) || []).length >= 3,
+    'abertura e renovação aplicam a sessão pelo mesmo caminho',
+    (idx.match(/aplicarSessao\(/g) || []).length);
+  ok(!/document\.getElementById\('chipPainel'\)/.test(idx.replace(fonte, '')),
+    'e só ela mexe na porta — um segundo lugar decidindo o mesmo acaba discordando');
+
+  /* --- a releitura da permissao ------------------------------------------- */
+  var ir = idx.indexOf('function renovarSessao()');
+  var rk = idx.indexOf('{', ir), rn = 0;
+  do {
+    if (idx[rk] === '{') rn++; else if (idx[rk] === '}') rn--;
+    rk++;
+  } while (rn > 0 && rk < idx.length);
+  var rec = idx.slice(ir, rk);
+  ok(ir > 0 && rec.indexOf('meuAcesso') > 0, 'o recorte pegou a releitura', rec.length);
+  ok(/Q\.get\(\{acao:'meuAcesso', id:s\.id\}\)/.test(rec),
+    'o app de campo relê a própria permissão — sem isto, liberar o painel para quem está ' +
+    'com o app aberto não muda nada na tela dele até ele sair e entrar');
+  ok(/Q\.entrar\(r\.usuario\)/.test(rec) && /aplicarSessao\(r\.usuario\)/.test(rec),
+    'e o que voltou é gravado E aplicado — gravar sem aplicar só valeria na próxima visita');
+  /* Nao basta o `catch` existir: o que importa e ele nao FAZER nada. Um `catch` que
+     encerra a sessao poe a pessoa para fora sempre que a rede falha — e no campo a rede
+     falha o tempo todo. Procurar so a palavra `catch` nao distingue os dois. */
+  var iC = rec.indexOf('.catch(');
+  var corpoCatch = rec.slice(iC, rec.indexOf('}', rec.indexOf('{', iC)) + 1);
+  ok(iC > 0 && !/Q\.sair|Q\.entrar|aplicarSessao/.test(corpoCatch),
+    'sem rede não mexe em nada: fica o que já estava, que é o que valia até agora — um ' +
+    '`catch` que encerra a sessão poria a pessoa para fora a cada falha de rede, e no ' +
+    'campo a rede falha o tempo todo', corpoCatch);
+  ok(/if \(!r \|\| r\.ok === false\) return;/.test(rec),
+    'e resposta ruim também não');
+  ok(/if \(!r\.usuario\)\{/.test(rec) && /Q\.sair/.test(rec),
+    'mas cadastro apagado ou desativado encerra a sessão, com aviso — ficar dentro só ' +
+    'adiaria a descoberta para o próximo lançamento recusado');
+
+  /* Ela roda DEPOIS de a tela estar montada: e um retoque, nao uma tranca. Rodando antes,
+     uma rede lenta seguraria a tela inteira. */
+  var ab = idx.indexOf('function abrirApp()');
+  var corpoAb = idx.slice(ab, idx.indexOf('\n  }', ab));
+  /* Ela e a ULTIMA coisa de `abrirApp`, depois do que monta a tela e do que busca os
+     dados. Comparar so com `aplicarSessao` nao dizia nada: ele e a primeira linha, e
+     qualquer ordem passava. O que interessa e que nada dependa dela para aparecer. */
+  var passos = ['aplicarSessao(', 'Q.carregarDados(', 'carregarPainel()', 'renovarSessao()']
+    .map(function (p) { return { p: p, i: corpoAb.indexOf(p) }; });
+  ok(passos.every(function (x) { return x.i > 0; }),
+    'os quatro passos da abertura estão lá', passos);
+  ok(passos[3].i === Math.max.apply(null, passos.map(function (x) { return x.i; })),
+    'e a releitura é a ÚLTIMA — ela é um retoque, não uma tranca: na frente, uma rede ' +
+    'lenta seguraria a tela inteira de quem só quer lançar',
+    passos.map(function (x) { return x.p; }));
+
+  ok(/a\.chip\{/.test(css) && /a\.chip\[hidden\]\{display:none\}/.test(css),
+    'e o estilo do link existe, inclusive o `hidden` — sem essa regra o `display` do ' +
+    'chip venceria o `hidden` e a porta apareceria para todo mundo');
+})();
+
 console.log('\n== a permissão mudada chega a quem já está logado ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

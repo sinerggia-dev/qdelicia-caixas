@@ -100,6 +100,11 @@ async function rotaGet(p) {
                // A MESMA lista que a gravacao usa para recusar. Escrever as opcoes na tela
                // faria duas listas sobre a mesma regra, e elas divergem no primeiro nome novo.
                operacoes: L.OPERACOES, abas: L.ABAS, situacoes: L.SITUACOES };
+    case 'meuAcesso':
+      // A sessao de UMA pessoa, relida do cadastro. E o que faz a permissao mudada valer
+      // sem ela sair e entrar. Devolve estritamente menos que a `equipe`: nada de e-mail,
+      // telefone, documento ou senha.
+      return { ok: true, usuario: L.meuAcesso(d.usuarios, p.id) };
     case 'painel':
       return { ok: true, painel: L.painel(L.recorteTeste(d, p.teste), null,
                                           { de: p.de, ate: p.ate }) };

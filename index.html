@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=f91d63b6">
+<link rel="stylesheet" href="styles.css?v=f20f4a3c">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -56,6 +56,14 @@
        download nenhum. O cabecalho e um so, vale para Saida, Devolucao e Saldo. -->
   <img src="logo.png" alt="Qdelícia Frutas" class="marca-logo" width="50" height="34">
   <div class="marca">Controle de Caixas<small id="cabUsuario">—</small></div>
+  <!-- A porta para o painel. Nasce escondida: quem decide e o cadastro, e `abrirApp()`
+       a mostra para quem tem acesso. Aparecendo para todo mundo, ela levaria o motorista
+       a uma tela que o recusa — porta que nao abre e pior do que porta nenhuma.
+
+       Antes disto o link existia so na tela de ENTRADA, e sumia no instante em que a
+       pessoa entrava: quem tinha o painel liberado nao tinha por onde chegar nele. -->
+  <a class="chip" id="chipPainel" href="admin.html" hidden
+     title="Abrir o painel do escritório">▦ Painel</a>
   <div class="chip" id="chipRede">● Online</div>
   <div class="chip" id="chipSair">Sair</div>
 </header>
@@ -353,20 +361,63 @@
     if (e.key === 'Enter') document.getElementById('btnTrocarSenha').click();
   });
 
+  /* Tudo o que a sessao MANDA na tela, num lugar so: o nome no cabecalho, a porta para o
+     painel e as abas. Duas chamadas passam por aqui — a abertura e a renovacao —, e
+     espalhar isso pelas duas faria a renovacao esquecer alguma. */
+  function aplicarSessao(s){
+    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil;
+
+    /* A porta para o painel, para quem tem o painel.
+
+       A mesma regra do servidor: o ADMIN entra sempre, e quem nao e admin depende da
+       chave do cadastro. `acessoPainel` ausente e sessao de antes de a chave existir —
+       vale a regra antiga por perfil, para nao tirar a porta de quem ja a tinha. */
+    var podePainel = String(s.perfil).toUpperCase() === 'ADMIN' ||
+      (s.acessoPainel === undefined
+        ? ['GALPAO','CONFERENTE'].indexOf(String(s.perfil).toUpperCase()) >= 0
+        : s.acessoPainel === true);
+    document.getElementById('chipPainel').hidden = !podePainel;
+
+    ajustarAbas(s);
+  }
+
   /* ---------------- app ---------------- */
   function abrirApp(){
     var s = Q.sessao();
     document.getElementById('telaLogin').style.display = 'none';
     document.getElementById('app').style.display = 'block';
-    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil;
     Q.abas('#abas');
-    ajustarAbas(s);
+    aplicarSessao(s);
     if (String(s.perfil).toUpperCase() === 'PROMOTOR'){
       document.getElementById('devSub').textContent =
         'Você conta as caixas que voltam na rota. O saldo baixa assim que você registra.';
     }
     Q.carregarDados().then(function(d){ DADOS = d; montarFormularios(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
+    renovarSessao();
+  }
+
+  /* A sessao guardada e uma FOTO do login: mudar a permissao de alguem no cadastro nao
+     mexia nela, e a pessoa seguia com o que tinha no dia em que entrou. O painel ja relia
+     o cadastro a cada abertura; aqui faltava.
+
+     Roda DEPOIS de a tela estar montada, e nao antes: e um retoque, nao uma tranca. Se a
+     rede falhar, fica o que ja estava — e o que ja estava e o que valia ate agora. */
+  function renovarSessao(){
+    var s = Q.sessao();
+    if (!s || !s.id) return;
+    Q.get({acao:'meuAcesso', id:s.id}).then(function(r){
+      if (!r || r.ok === false) return;
+      if (!r.usuario){
+        /* Cadastro apagado ou desativado. Nao ha o que renovar, e ficar dentro so adia a
+           descoberta — o proximo lancamento seria recusado sem explicacao. */
+        Q.toast('Seu acesso foi encerrado. Fale com o escritório.','erro');
+        setTimeout(Q.sair, 2500);
+        return;
+      }
+      Q.entrar(r.usuario);
+      aplicarSessao(r.usuario);
+    }).catch(function(){ /* sem rede, fica o que ja estava */ });
   }
 
   /* Quais operações esta pessoa lança. Lista vazia quer dizer AS DUAS — a mesma

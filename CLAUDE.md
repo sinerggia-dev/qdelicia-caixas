@@ -251,9 +251,9 @@ e quem recebe é uma **saída**. Está assim no `montarFormularios()` do `index.
 
 Duas coisas que valem lembrar:
 
-- **No app de campo, a sessão guardada no celular não se atualiza sozinha.** As listas viajam no
-  `login`, então quem já está logado continua vendo o que tinha até sair e entrar de novo. **No
-  painel isso foi resolvido** — veja a seção abaixo. O `index.html` ainda não.
+- **As duas telas releem a própria permissão** — o painel pela `equipe`, o app de campo pela rota
+  `meuAcesso`. A sessão guardada continua sendo uma foto do login; o que mudou é que ela deixou
+  de ser a única fonte. Veja a seção abaixo.
 - **Ao mudar a permissão de alguém, a tela dele não muda na hora.** Ele vê a mudança na próxima
   vez que abrir o painel, não no mesmo segundo. Não há empurrão do servidor.
 - **Isto é a tela, não a tranca.** Vale o mesmo aviso da seção de separação de funções: a API
@@ -271,6 +271,25 @@ A `equipe` já traz o registro atualizado de **todo mundo**, inclusive de quem e
 `renovarSessao()` troca a foto pelo registro a cada abertura do painel, e também depois de salvar
 um usuário (o admin pode restringir a si mesmo). `abasPermitidas()` roda sobre a sessão renovada,
 nunca sobre a guardada.
+
+O **app de campo** faz o mesmo pela rota `meuAcesso`, que devolve `sessaoDe(u)` de um id e nada
+mais — sem e-mail, telefone, documento ou senha, estritamente menos do que a `equipe` já devolve
+publicamente. Lá a releitura é a **última** coisa de `abrirApp()`: é um retoque, não uma tranca, e
+na frente uma rede lenta seguraria a tela de quem só quer lançar. Sem rede, fica o que já estava.
+
+### A porta para o painel
+
+O link para o painel existia **só na tela de entrada** do `index.html`, e sumia no instante em que
+a pessoa entrava. Quem tinha o painel liberado não tinha por onde chegar nele: era preciso sair,
+ou saber o endereço de cor. As abas do painel estavam certas o tempo todo — a pessoa é que nunca
+chegava lá. Hoje há um chip `#chipPainel` no cabeçalho, mostrado por `aplicarSessao()` com a mesma
+regra do `podeVerPainel()`. Ele **nasce `hidden`**: porta que leva a uma recusa é pior que porta
+nenhuma. E `a.chip[hidden]{display:none}` é obrigatório — sem essa regra o `display` do chip vence
+o atributo `hidden` e a porta aparece para todo mundo.
+
+`aplicarSessao()` é o único lugar que mexe no que a sessão manda na tela (nome, porta, abas). Os
+dois caminhos — abertura e releitura — passam por ela; espalhado entre os dois, o segundo esquece
+alguma coisa, e esquece calado.
 
 Três coisas que não podem mudar aqui, porque cada uma tranca alguém para fora:
 
@@ -395,11 +414,11 @@ node teste/teste_saldo.js
 node teste/teste_primeiro_acesso.js
 ```
 
-O `teste_api.js` tem **455 verificações**. Roda o roteador, as regras e os tradutores **de
+O `teste_api.js` tem **462 verificações**. Roda o roteador, as regras e os tradutores **de
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**497 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**519 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

@@ -165,8 +165,8 @@ linhas antigas que ficaram nele passaram a contar.
 ## Teste da matemática do saldo
 
 ```
-node teste/teste_api.js    # 455 verificações das regras
-node teste/teste_tela.js   # 497 verificações das telas
+node teste/teste_api.js    # 462 verificações das regras
+node teste/teste_tela.js   # 519 verificações das telas
 ```
 
 A primeira roda o roteador, as regras e os tradutores de verdade, trocando apenas o acesso ao

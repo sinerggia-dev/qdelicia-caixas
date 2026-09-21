@@ -1503,6 +1503,50 @@ console.log('\n== galpao que RECEBE remessa: nada voltou ==');
      por['G>R|2026-09-08'].destinos.join(',') === 'Caruaru',
     'e no sentido certo: a rota é o destino, ainda que só tenha devolvido', por['G>R|2026-09-08']);
 }
+console.log('\n== reler a propria permissao ==');
+{
+  const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  const us = [
+    { ID: 'U005', Nome: 'Nestor', Perfil: 'Gerente', AcessoPainel: true, Ativo: true,
+      Email: 'nestor@x.com', Telefone: '81999998888', CPF: '12345678900',
+      CNH: '987654321', Senha: 'segredo', Pin: '1234', SenhaHash: 'hash',
+      Abas: ['pgRetornos', 'pgPainel'] },
+    { ID: 'U009', Nome: 'Fora', Perfil: 'Motorista', AcessoPainel: false, Ativo: false }
+  ];
+
+  const r = F.meuAcesso(us, 'U005');
+  ok(r && r.id === 'U005' && r.acessoPainel === true &&
+     r.abas.join(',') === 'pgRetornos,pgPainel',
+    'a permissão relida vem do cadastro, não da foto do login', r);
+
+  /* Quem nao existe e quem esta inativo querem dizer a MESMA coisa para quem chama: nao
+     ha mais sessao. Dois retornos diferentes fariam duas checagens na tela, e a segunda
+     seria esquecida. */
+  ok(F.meuAcesso(us, 'U009') === null, 'quem está inativo não tem mais sessão');
+  ok(F.meuAcesso(us, 'U999') === null, 'nem quem não existe');
+  ok(F.meuAcesso(us, '') === null && F.meuAcesso(us, null) === null,
+    'e id vazio não devolve a sessão de ninguém — devolvendo a primeira da lista, ' +
+    'qualquer um entraria como outra pessoa');
+
+  /* A rota e publica, como todo o resto da API hoje. Entao o que ela devolve importa: */
+  const bruto = JSON.stringify(r);
+  const pessoais = ['nestor@x.com', '81999998888', '12345678900', '987654321',
+                    'segredo', '1234', 'hash'];
+  ok(pessoais.every((v) => bruto.indexOf(v) < 0),
+    'e ela não leva e-mail, telefone, documento nem senha — é estritamente menos do que ' +
+    'a `equipe` já devolve', pessoais.filter((v) => bruto.indexOf(v) >= 0));
+
+  /* A MESMA forma do login. Se divergir, a sessão renovada perde um campo e a tela passa
+     a decidir com menos informação do que tinha — calada. */
+  ok(Object.keys(r).sort().join(' ') ===
+     Object.keys(F.sessaoDe(us[0])).sort().join(' '),
+    'a sessão relida tem os mesmos campos da do login', Object.keys(r).sort());
+
+  const rota = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  ok(/case 'meuAcesso':/.test(rota) && /L\.meuAcesso\(d\.usuarios, p\.id\)/.test(rota),
+    'e a rota existe, passando o id pedido — sem ela a regra não chega à tela');
+}
+
 console.log('\n== quais abas do painel a pessoa ve ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));

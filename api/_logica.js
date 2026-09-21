@@ -410,6 +410,25 @@ function sessaoDe(u) {
 }
 
 /** Acha por e-mail, apelido de login ou nome completo — o usuário digita o que lembrar. */
+/**
+ * A sessão de uma pessoa, relida do cadastro. É o que deixa a permissão mudada valer sem
+ * a pessoa sair e entrar: a sessão guardada no aparelho é uma foto do login, e sozinha
+ * ela congela o que valia naquele dia.
+ *
+ * Devolve `null` para quem não existe ou está inativo — as duas coisas querem dizer
+ * "não tem mais sessão", e quem chama trata igual.
+ *
+ * Só a sessão: nada de e-mail, telefone, documento ou senha. É estritamente menos do que
+ * a `equipe` já devolve.
+ */
+function meuAcesso(usuarios, id) {
+  var alvo = String(id == null ? '' : id);
+  if (!alvo) return null;
+  var u = (usuarios || []).filter(function (x) { return String(x.ID) === alvo; })[0];
+  if (!u || u.Ativo === false) return null;
+  return sessaoDe(u);
+}
+
 function acharPorIdentificador(usuarios, ident) {
   var alvo = normal(ident);
   if (!alvo) return null;
@@ -1487,6 +1506,7 @@ module.exports = {
   ehPerfilTeste: ehPerfilTeste, temTeste: temTeste, pesoTeste: pesoTeste, pesoMatriz: pesoMatriz,
   lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
+  meuAcesso: meuAcesso,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,
   cicloDaCarga: cicloDaCarga, rotuloCiclo: rotuloCiclo,
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
