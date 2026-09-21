@@ -288,6 +288,25 @@ No formulário, as duas não travam mais — ganham a etiqueta **"dá poder"** e
 marcada, uma nota dizendo o que aquilo permite. **A etiqueta avisa, não impede**: impedir era o
 que o pedido tirou, e conceder Cadastros não pode ser um clique igual aos outros.
 
+## Os cartões: duas famílias, um tamanho
+
+`.kpi` (com caixa e sombra, aba Painel) e `.ftile` (com filete à esquerda, Painel de Ativos e
+Lançamentos) são duas famílias de cartão em telas diferentes. **O número e o rótulo têm de ter o
+mesmo tamanho nas duas**: a pessoa troca de aba e compara, e um número de 26px ao lado de um de
+20px faz a mesma informação parecer de importância diferente. Há teste comparando as duas.
+
+Foram reduzidos a pedido: `.kpi` de 75px para 57px de altura, `.ftile` de 68px para 56px, e a
+fileira de 83px para 67px. Medido no Chrome com os rótulos reais, que são longos — *"Caixas que
+Saíram e Não Voltaram"* tem 32 caracteres, e a checagem é se ele ainda cabe numa linha, porque
+quebrando em duas o cartão volta a crescer e o ajuste teria piorado o que queria melhorar.
+
+**O rótulo não encolheu na mesma proporção do número.** Ele já estava no limite do legível, e é
+ele que diz o que o número é — um cartão proporcional seria um cartão ilegível. O resto da altura
+saiu da **entrelinha**: em 1.5 (o padrão) cada linha de 11.5px gastava 17px.
+
+A largura mínima da coluna estreitou junto (`minmax`). Com o cartão mais baixo e a largura de
+antes, sobraria faixa vazia entre eles e a fileira pareceria mais **vazia**, não menor.
+
 ## A lista de tipos da regra de campo é uma armadilha
 
 `input[type=text],input[type=number],…` em `styles.css`: o tipo que **não está nessa lista** nasce
@@ -626,7 +645,7 @@ O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**654 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**658 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

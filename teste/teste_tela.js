@@ -2124,6 +2124,44 @@ console.log('\n== a porta para o painel, no app de campo ==');
     'chip venceria o `hidden` e a porta apareceria para todo mundo');
 })();
 
+console.log('\n== os dois tipos de cartao andam juntos ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* Sao DUAS familias de cartao — `.kpi`, com caixa e sombra, na aba Painel; e `.ftile`,
+     com filete a esquerda, no Painel de Ativos e nos Lancamentos. Elas aparecem em telas
+     diferentes, mas a pessoa troca de aba e compara: um numero de 26px ao lado de um de
+     20px faz a mesma informacao parecer de importancia diferente.
+
+     Entao a afirmacao nao e sobre um tamanho especifico — e sobre os dois serem IGUAIS.
+     Quem mexer num vai ter de mexer no outro, que e o que se quer. */
+  function tamanho(sel) {
+    var i = css.indexOf(sel + '{');
+    var m = /font-size:([\d.]+)px/.exec(css.slice(i, i + 160));
+    return m ? Number(m[1]) : null;
+  }
+  var kv = tamanho('.kpi .v'), fv = tamanho('.ftile .v');
+  ok(kv !== null && fv !== null && kv === fv,
+    'o número dos dois tipos de cartão tem o mesmo tamanho — lado a lado, tamanhos ' +
+    'diferentes fazem a mesma informação parecer de importância diferente',
+    { kpi: kv, ftile: fv });
+
+  var kr = tamanho('.kpi .r'), fr = tamanho('.ftile .r');
+  ok(kr === fr, 'e o rótulo também', { kpi: kr, ftile: fr });
+
+  /* O rotulo NAO encolheu junto com o numero: ele ja estava no limite do legivel, e e ele
+     que diz o que o numero e. Um cartao proporcional seria um cartao ilegivel. */
+  ok(kr >= 11 && kv >= 18 && kv > kr,
+    'o rótulo continua legível e menor que o número — encolher os dois na mesma ' +
+    'proporção daria um cartão proporcional e ilegível', { numero: kv, rotulo: kr });
+
+  /* A entrelinha do rotulo e onde sobrava altura depois de a letra ja ter encolhido. */
+  ok(/\.ftile \.r\{[^}]*line-height:1\.3/.test(css) &&
+     /\.kpi \.r\{[^}]*line-height:1\.3/.test(css),
+    'e a entrelinha do rótulo é curta — no padrão 1.5, cada linha de 11.5px gastava ' +
+    '17px, e era aí que estava o resto da altura');
+})();
+
 console.log('\n== todo tipo de campo de texto tem estilo ==');
 (function () {
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
