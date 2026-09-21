@@ -1809,6 +1809,78 @@ console.log('\n== a porta para o painel, no app de campo ==');
     'chip venceria o `hidden` e a porta apareceria para todo mundo');
 })();
 
+console.log('\n== a porta de volta, do painel para os lancamentos ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var L = require(path.join(__dirname, '..', 'api', '_logica.js'));
+
+  /* Sem ela, quem chegava ao painel ficava preso: para voltar a lancar era preciso Sair e
+     entrar de novo. A ida ganhou porta antes da volta, e uma porta so e um corredor. */
+  var iH = adm.indexOf('<div id="app"');
+  var cab = adm.slice(adm.indexOf('<header>', iH), adm.indexOf('</header>', iH));
+  ok(cab.indexOf('chipSair') > 0 && cab.indexOf('btnAbas') > 0,
+    'o recorte pegou o cabeçalho do painel', cab.length);
+  ok(/<a class="chip" id="chipCampo" href="index\.html"/.test(cab),
+    'do painel dá para voltar aos lançamentos — sem isto, quem chega ao painel fica ' +
+    'preso nele e a única saída é o botão Sair');
+  ok(/id="chipCampo"[^>]*\shidden/.test(cab),
+    'e nasce escondida, como a porta de ida');
+
+  /* As duas portas sao simetricas: cada uma aparece so para quem passa do outro lado. */
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  ok(/href="admin\.html"/.test(idx) && /href="index\.html"/.test(adm),
+    'as duas telas apontam uma para a outra — uma porta só é um corredor');
+
+  var ia = adm.indexOf('function aplicarSessao(s)');
+  var ik = adm.indexOf('{', ia), inn = 0;
+  do {
+    if (adm[ik] === '{') inn++; else if (adm[ik] === '}') inn--;
+    ik++;
+  } while (inn > 0 && ik < adm.length);
+  var fonte = adm.slice(ia, ik);
+  ok(ia > 0 && fonte.indexOf('chipCampo') > 0,
+    'o recorte pegou a função que aplica a sessão no painel', fonte.length);
+
+  function volta(s) {
+    var alvo = {};
+    return new Function('s', 'document',
+      fonte + '\n aplicarSessao(s); return !document.getElementById("chipCampo").hidden;')(
+      s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); } });
+  }
+
+  /* Quem nao tem senha de lancamento nao passa do login do app de campo: `loginPorPin`
+     recusa quem nao tem PIN. Mandar essa pessoa para la e mandar para uma recusa. */
+  ok(volta({ nome: 'a', perfil: 'Gerente', temPin: true }) === true,
+    'quem tem senha de lançamento vê a volta');
+  ok(volta({ nome: 'b', perfil: 'Gestor', temPin: false }) === false,
+    'quem não tem, não vê — sem PIN o `loginPorPin` recusa, e a porta levaria a uma recusa');
+  /* Sessao de antes deste campo existir: a porta APARECE. Esconder o caminho de volta de
+     quem o tinha e pior do que oferece-lo a quem talvez nao passe — e a releitura corrige
+     no mesmo carregamento. */
+  ok(volta({ nome: 'c', perfil: 'Gerente' }) === true,
+    'e sessão antiga, sem o campo, continua vendo: esconder o caminho de volta de quem o ' +
+    'tinha é pior do que oferecê-lo a quem talvez não passe');
+
+  /* O `temPin` precisa EXISTIR na sessao, dos dois lados, senao a decisao acima nunca tem
+     o que ler e a porta fica sempre visivel por acidente. */
+  var comPin = L.sessaoDe({ ID: 1, Nome: 'x', Perfil: 'y', PIN: '123456' });
+  ok(comPin.temPin === true &&
+     L.sessaoDe({ ID: 1, Nome: 'x', Perfil: 'y' }).temPin === false,
+    'a sessão do servidor diz se há senha de lançamento', comPin.temPin);
+  ok(JSON.stringify(comPin).indexOf('123456') < 0,
+    'e leva o SIM ou NÃO, nunca o PIN');
+  var sr = adm.indexOf('function sessaoDoRegistro(u)');
+  ok(/temPin: u\.TemPin === true/.test(adm.slice(sr, adm.indexOf('\n  }', sr))),
+    'e a cópia da tela lê o mesmo, do que a `equipe` manda');
+
+  /* Um lugar so mexe no cabecalho, nos dois caminhos — o mesmo desenho do app de campo. */
+  ok((adm.match(/aplicarSessao\(/g) || []).length >= 3,
+    'abertura e renovação aplicam a sessão pelo mesmo caminho',
+    (adm.match(/aplicarSessao\(/g) || []).length);
+  ok(!/document\.getElementById\('chipCampo'\)/.test(adm.replace(fonte, '')),
+    'e só ela mexe na porta de volta');
+})();
+
 console.log('\n== a permissão mudada chega a quem já está logado ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

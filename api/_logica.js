@@ -405,7 +405,13 @@ function sessaoDe(u) {
     // Idem: vazia = todas. E o celular esconde a aba que nao esta aqui.
     operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : [],
     // As abas do painel do escritorio, mesma convencao.
-    abas: Array.isArray(u.Abas) ? u.Abas : []
+    abas: Array.isArray(u.Abas) ? u.Abas : [],
+    /* Se esta pessoa consegue entrar no app de lancamento. Sem PIN o `loginPorPin` recusa,
+       entao o painel usa isto para decidir se mostra a porta de volta — porta que leva a
+       uma recusa e pior do que porta nenhuma.
+
+       Vai o SIM ou NAO, nunca o PIN. */
+    temPin: !!String(u.PIN == null ? '' : u.PIN).trim()
   };
 }
 

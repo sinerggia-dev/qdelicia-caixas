@@ -277,19 +277,38 @@ mais — sem e-mail, telefone, documento ou senha, estritamente menos do que a `
 publicamente. Lá a releitura é a **última** coisa de `abrirApp()`: é um retoque, não uma tranca, e
 na frente uma rede lenta seguraria a tela de quem só quer lançar. Sem rede, fica o que já estava.
 
-### A porta para o painel
+### As duas portas entre o app de campo e o painel
 
-O link para o painel existia **só na tela de entrada** do `index.html`, e sumia no instante em que
-a pessoa entrava. Quem tinha o painel liberado não tinha por onde chegar nele: era preciso sair,
-ou saber o endereço de cor. As abas do painel estavam certas o tempo todo — a pessoa é que nunca
-chegava lá. Hoje há um chip `#chipPainel` no cabeçalho, mostrado por `aplicarSessao()` com a mesma
-regra do `podeVerPainel()`. Ele **nasce `hidden`**: porta que leva a uma recusa é pior que porta
-nenhuma. E `a.chip[hidden]{display:none}` é obrigatório — sem essa regra o `display` do chip vence
-o atributo `hidden` e a porta aparece para todo mundo.
+As telas são dois arquivos, e por um bom tempo não havia caminho de uma para a outra depois do
+login. O link para o painel existia **só na tela de entrada** do `index.html` e sumia no instante
+em que a pessoa entrava; e do painel não havia volta nenhuma. Quem tinha o painel liberado não
+chegava nele, e quem chegava ficava preso: em ambos os casos a única saída era **Sair**. As
+permissões estavam certas o tempo todo — o caminho é que não existia.
 
-`aplicarSessao()` é o único lugar que mexe no que a sessão manda na tela (nome, porta, abas). Os
-dois caminhos — abertura e releitura — passam por ela; espalhado entre os dois, o segundo esquece
-alguma coisa, e esquece calado.
+Hoje são duas portas simétricas, ambas no cabeçalho, ambas `<a href>` de verdade (abrem em aba
+nova pelo clique do meio) e ambas **nascem `hidden`**:
+
+| chip | onde | vai para | aparece quando |
+|---|---|---|---|
+| `#chipPainel` — ▦ Painel | app de campo | `admin.html` | a mesma regra do `podeVerPainel()`: ADMIN sempre, os demais pela chave do cadastro |
+| `#chipCampo` — ↩ Lançamentos | painel | `index.html` | `temPin` — sem PIN o `loginPorPin` recusa |
+
+**Porta que leva a uma recusa é pior que porta nenhuma.** É por isso que cada uma checa o lado de
+lá antes de aparecer, e é por isso que a sessão passou a carregar `temPin` (o SIM ou NÃO, nunca o
+PIN). Quando o campo está **ausente** — sessão de antes dele existir — a porta **aparece**:
+esconder um caminho de quem já o tinha é pior do que oferecê-lo a quem talvez não passe, e a
+releitura corrige no mesmo carregamento.
+
+`a.chip[hidden]{display:none}` é obrigatório: sem essa regra o `display` do chip vence o atributo
+`hidden` e a porta aparece para todo mundo.
+
+`aplicarSessao()`, nas duas telas, é o único lugar que mexe no que a sessão manda no cabeçalho
+(nome, porta, abas). Os dois caminhos — abertura e releitura — passam por ela; espalhado entre os
+dois, o segundo esquece alguma coisa, e esquece calado.
+
+No celular o cabeçalho do painel passa de 57px para 124px por causa desse chip a mais: ele quebra
+em duas linhas. Medido, nada se sobrepõe e não há rolagem horizontal — o painel é ferramenta de
+escritório, e o caminho de volta vale a linha.
 
 Três coisas que não podem mudar aqui, porque cada uma tranca alguém para fora:
 
@@ -418,7 +437,7 @@ O `teste_api.js` tem **462 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**519 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**532 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

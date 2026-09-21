@@ -71,6 +71,14 @@
       <button data-pagina="pgCadastros">Cadastros</button>
     </nav>
   </div>
+  <!-- A porta de volta. Sem ela, quem chega ao painel fica preso nele: para voltar a
+       lancar era preciso Sair e entrar de novo.
+
+       Nasce escondida, como a porta de ida no app de campo: quem nao tem senha de
+       lancamento nao passa do login de la, e mandar essa pessoa para uma recusa e pior
+       do que nao oferecer o caminho. -->
+  <a class="chip" id="chipCampo" href="index.html" hidden
+     title="Voltar para o app de lançamento">↩ Lançamentos</a>
   <div class="chip" id="chipRede">● Online</div>
   <div class="chip" id="chipSair">Sair</div>
 </header>
@@ -554,13 +562,27 @@
     return s.acessoPainel === true;
   }
 
+  /* Tudo o que a sessao manda no cabecalho, num lugar so — o mesmo desenho do app de
+     campo. Dois caminhos passam por aqui, a abertura e a renovacao, e espalhar isso pelos
+     dois faria a renovacao esquecer alguma coisa, calada. */
+  function aplicarSessao(s){
+    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil;
+
+    /* A porta de volta para o app de lancamento, para quem consegue entrar la.
+
+       `temPin` ausente e sessao de antes deste campo existir. Nesse caso a porta APARECE:
+       esconder o caminho de volta de quem o tinha e pior do que oferece-lo a quem talvez
+       nao passe — e a renovacao corrige isso segundos depois, no mesmo carregamento. */
+    var podeCampo = s.temPin === undefined || s.temPin === true;
+    document.getElementById('chipCampo').hidden = !podeCampo;
+  }
+
   function abrirApp(){
     var s = Q.sessao();
     if (!podeEntrar(s)){ iniciarLogin(); return; }
     document.getElementById('telaLogin').style.display='none';
     document.getElementById('app').style.display='block';
-    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil;
-
+    aplicarSessao(s);
     Q.abas('#abas');
     ajustarAbasPainel(s);
     periodoPadraoMov();
@@ -571,7 +593,7 @@
        valer sem precisar sair e entrar. */
     carregarEquipe().then(function(){
       var atual = renovarSessao() || s;
-      document.getElementById('cabUsuario').textContent = atual.nome + ' · ' + atual.perfil;
+      aplicarSessao(atual);
       ajustarAbasPainel(atual);
     });
     Q.carregarDados().then(function(d){ DADOS=d; ordenarTudo(); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
@@ -596,7 +618,9 @@
       localPadrao: u.LocalPadrao, acessoPainel: podeVerPainelRegistro(u),
       saidas: lista(u.Saidas), destinos: lista(u.Destinos),
       tiposCaixa: lista(u.TiposCaixa), motoristas: lista(u.Motoristas),
-      operacoes: lista(u.Operacoes), abas: lista(u.Abas)
+      operacoes: lista(u.Operacoes), abas: lista(u.Abas),
+      /* `TemPin` e o que a `equipe` manda: o SIM ou NAO, nunca o PIN. */
+      temPin: u.TemPin === true
     };
   }
 

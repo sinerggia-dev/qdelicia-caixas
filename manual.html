@@ -716,6 +716,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <p>Confira nesta ordem: a chave <em>Pode entrar no painel?</em> está ligada; a aba está marcada aqui; e ela não é <em>Ajustes</em> nem <em>Cadastros</em>, que só o Admin vê.</p>
     <p>A mudança vale na <strong>próxima vez que a pessoa abrir a página</strong> — não é preciso sair e entrar. O que não acontece é a tela dela mudar no mesmo segundo: se ela está com o painel aberto agora, precisa recarregar.</p>
     <p><strong>E confira por onde ela chega ao painel.</strong> Quem entra pelo app de campo tem um botão <strong>▦ Painel</strong> no alto da tela — ele só aparece para quem tem a chave <em>Pode entrar no painel?</em> ligada. Sem essa chave, as abas marcadas aqui não adiantam: a pessoa nunca chega ao painel para vê-las.</p>
+    <p>No painel, o caminho de volta é o <strong>↩ Lançamentos</strong>, no mesmo lugar. Ele só aparece para quem tem <strong>senha de lançamento</strong> — sem ela o app de campo não deixa entrar, e o botão levaria a uma recusa.</p>
     <p>Se a marca não alcançar nenhuma aba que aquela pessoa possa ver — só <em>Ajustes</em> marcado para um gerente, por exemplo —, ela é <strong>ignorada</strong> e valem todas as permitidas. O painel nunca abre vazio: errar para o lado de mostrar se corrige aqui no cadastro; errar para o lado de trancar só se resolve com o administrador por perto.</p>
   </div>
   <p class="nota">Nos três quadros — Saída, Destino, Operações e Abas — <strong>nada marcado quer dizer todos</strong>. Marque só para restringir. Se fosse o contrário, o dia em que a coluna entrou no ar teria trancado a operação inteira, porque ninguém tinha nada marcado.</p>
@@ -856,7 +857,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p style="margin-top:18px">As fotos ficam no armazenamento do Supabase, e o link aparece no extrato. Lançamentos antigos podem ter assinatura anexada — o campo saiu da tela em setembro/2026, mas o que já foi gravado continua lá.</p>
 
   <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode as duas suítes principais:</p>
-  <div class="formula">node teste/teste_api.js   → 462 verificações das regras<br>node teste/teste_tela.js  → 519 verificações das telas</div>
+  <div class="formula">node teste/teste_api.js   → 462 verificações das regras<br>node teste/teste_tela.js  → 532 verificações das telas</div>
   <p>A primeira executa as regras de produção contra um banco falso em memória — sem rede e sem chave. A segunda lê o HTML e o JavaScript das páginas e confere que cada filtro, coluna e botão está ligado dos dois lados: um campo que aparece na barra mas não viaja no pedido, ou uma coluna com cabeçalho e sem célula, falha ali em vez de falhar na tela de quem usa.</p>
   <p class="nota">Mexeu em <code>app.js</code> ou <code>styles.css</code>? Rode <code>python scripts/versionar.py</code> antes de commitar. Não há passo de compilação, e sem isso o navegador continua servindo o arquivo antigo do cache — às vezes com HTML novo e JavaScript velho, que é pior do que só estar velho.</p>
 
