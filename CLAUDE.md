@@ -360,6 +360,18 @@ Há uma afirmação sobre a posição, não só sobre a existência da trava.
 abre sem nada dentro parece quebrada, e a pessoa volta nela toda vez achando que não carregou. Se
 era ela que estava aberta, outra assume.
 
+A aba tem **busca** (`lcBusca`). Os cinco filtros respondem *quais*; a busca responde *cadê
+aquele* — com trinta linhas e cinco listas, achar UM lançamento custa quatro cliques, e digitando
+custa um. Ela procura em origem, destino, caixa, motorista e quem lançou, **e o campo diz isso**:
+buscar no que a etiqueta não promete devolve resultado que ninguém entende de onde veio. Ignora
+acento e caixa, e cada palavra precisa aparecer em **algum** campo da mesma linha — *"isaque joao"*
+acha a carga do Isaque para João Pessoa, que é como a pergunta se faz; um "ou" traria quase tudo.
+
+Ela entra na **mesma peneira** dos filtros, e não por fora: por fora esconderia linhas e deixaria
+os cartões de cima somando as escondidas. O "Limpar filtros" apaga a busca junto, e quando ela
+não acha nada a tela diz que foi ela — *"Nenhum lançamento"* sozinho faz a pessoa procurar no
+período, quando o que sobrou de fora foi o que ela digitou.
+
 Os filtros da aba são **listas suspensas**: abertas no lugar, elas empurravam a tabela para
 baixo — a fileira inteira crescia para caber a mais alta, e os outros quatro filtros viravam
 caixas vazias de 350px. Suspensa, a lista passa por cima e a tabela não se mexe. Uma de cada vez
@@ -596,7 +608,7 @@ O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**630 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**650 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

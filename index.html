@@ -204,6 +204,15 @@
         <div><label for="lcAte">Até</label><input id="lcAte" type="date"></div>
       </div>
 
+      <!-- A busca responde uma pergunta que os filtros nao respondem: "cade aquele".
+           Com trinta linhas e cinco listas, achar UM lancamento custa quatro cliques;
+           digitando, custa um.
+
+           O `placeholder` diz onde ela procura. Buscar em campo que a etiqueta nao
+           promete devolve resultado que a pessoa nao entende de onde veio. -->
+      <div class="busca"><input id="lcBusca" type="search"
+        placeholder="🔍 Buscar por origem, destino, caixa, motorista ou quem lançou"></div>
+
       <!-- Multipla escolha em <details> e nao em <select multiple>: no celular o select
            multiplo exige segurar a tecla, que nao existe, e mostra so tres linhas. Aqui a
            pessoa toca, abre e marca — e o resumo diz quantos estao marcados sem abrir. -->
@@ -1047,6 +1056,24 @@
     return r;
   }
 
+  /* Os CINCO campos que o `placeholder` promete, e so eles. Acentos e caixa nao contam:
+     quem procura "joao" tem de achar "João Pessoa", senao a busca so serve para quem
+     lembra a grafia exata. */
+  function semAcento(v){
+    return String(v == null ? '' : v).toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function passaBusca(m){
+    var q = semAcento((document.getElementById('lcBusca') || {}).value || '').trim();
+    if (!q) return true;
+    /* Cada palavra tem de aparecer em ALGUM campo — nao todas no mesmo. "isaque joao"
+       acha a carga do Isaque para Joao Pessoa, que e como a pergunta se faz. */
+    var alvo = [m.origem, m.destino, m.tipoCaixa, m.motorista, m.usuario]
+      .map(semAcento).join(' ');
+    return q.split(/\s+/).every(function(p){ return alvo.indexOf(p) >= 0; });
+  }
+
   function passaFiltro(m){
     var sent = marcados('lcFSentido');
     var mot = marcados('lcFMotorista');
@@ -1059,6 +1086,9 @@
     if (ori.length && ori.indexOf(m.origem || '') < 0) return false;
     if (des.length && des.indexOf(m.destino || '') < 0) return false;
     if (usu.length && usu.indexOf(m.usuario || '') < 0) return false;
+    /* A busca entra AQUI, na mesma peneira, e nao por fora: por fora ela esconderia
+       linhas e deixaria os cartoes de cima somando as escondidas. */
+    if (!passaBusca(m)) return false;
     return true;
   }
 
@@ -1119,7 +1149,12 @@
 
     var box = document.getElementById('listaLanc');
     if (!lista.length){
-      box.innerHTML = '<div class="vazio">Nenhum lançamento com esses filtros.</div>';
+      /* Diz QUAL recorte nao achou nada. "Nenhum lancamento" sozinho faz a pessoa
+         procurar no periodo, quando o que sobrou de fora foi a busca. */
+      var q = (document.getElementById('lcBusca').value || '').trim();
+      box.innerHTML = '<div class="vazio">'+
+        (q ? 'Nenhum lançamento com “'+Q.esc(q)+'” nos filtros de agora.'
+           : 'Nenhum lançamento com esses filtros.')+'</div>';
       return;
     }
     box.innerHTML = '<div class="tabela-wrap"><table><thead><tr>'+
@@ -1199,6 +1234,10 @@
 
      `toggle` dispara DEPOIS de o estado mudar, entao aqui a que acabou de abrir ja esta
      com `open` — e por isso a comparacao e `!== este`, e nao um controle proprio. */
+  /* `input` e nao `change`: em campo de texto o `change` so dispara ao sair, e a lista
+     ficaria parada enquanto a pessoa digita. */
+  document.getElementById('lcBusca').addEventListener('input', desenharLanc);
+
   document.querySelectorAll('.filtros-lanc .fchk').forEach(function(d){
     d.addEventListener('toggle', function(){
       if (!d.open) return;
@@ -1217,6 +1256,9 @@
   });
 
   document.getElementById('btnLimparLanc').addEventListener('click', function(){
+    /* A busca vai junto: ela recorta como os outros, e deixa-la para tras faria o botao
+       dizer que limpou com a tabela ainda recortada. */
+    document.getElementById('lcBusca').value = '';
     document.querySelectorAll('.filtros-lanc input:checked').forEach(function(c){
       c.checked = false;
     });

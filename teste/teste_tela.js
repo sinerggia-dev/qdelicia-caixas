@@ -2124,6 +2124,96 @@ console.log('\n== a porta para o painel, no app de campo ==');
     'chip venceria o `hidden` e a porta apareceria para todo mundo');
 })();
 
+console.log('\n== a busca da aba Lancamentos ==');
+(function () {
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  function corpo(nome) {
+    var i = html.indexOf('function ' + nome + '(');
+    return i < 0 ? '' : html.slice(i, html.indexOf('\n  }', i) + 4);
+  }
+
+  /* Os cinco filtros respondem "quais"; a busca responde "cadê aquele". Com trinta
+     linhas e cinco listas suspensas, achar UM lançamento custa quatro cliques. */
+  ok(html.indexOf('id="lcBusca"') > 0, 'a aba tem campo de busca');
+
+  /* O que ela procura tem de estar ESCRITO. Buscar em campo que a etiqueta não promete
+     devolve resultado que a pessoa não entende de onde veio — é a mesma regra da busca
+     de usuários do painel. */
+  var iB = html.indexOf('id="lcBusca"');
+  var campo = html.slice(html.lastIndexOf('<input', iB), html.indexOf('>', iB) + 1);
+  ['origem', 'destino', 'caixa', 'motorista', 'quem lançou'].forEach(function (c) {
+    ok(campo.indexOf(c) > 0,
+      'e o campo diz que procura em ' + c + ' — buscar no que a etiqueta não promete ' +
+      'devolve resultado que ninguém entende de onde veio', campo);
+  });
+
+  var fonteBusca = corpo('semAcento') + '\n' + corpo('passaBusca');
+  ok(fonteBusca.length > 300 && fonteBusca.indexOf('m.usuario') > 0,
+    'o recorte pegou a busca', fonteBusca.length);
+
+  /* Rodando. O que interessa não é existir um campo: é o que ela ACHA. */
+  var LINHAS = [
+    { origem: 'Matriz São Vicente', destino: 'João Pessoa', tipoCaixa: 'CX P',
+      motorista: 'Isaque', usuario: 'Nestor Neto' },
+    { origem: 'Matriz São Vicente', destino: 'Caruaru', tipoCaixa: 'CX G',
+      motorista: 'Ramos', usuario: 'Nestor Neto' },
+    { origem: 'João Pessoa', destino: 'Matriz São Vicente', tipoCaixa: 'CX P',
+      motorista: 'Isaque', usuario: 'Melkezedeque Soares' }
+  ];
+  function acha(q) {
+    var fn = new Function('document', fonteBusca + '\n return passaBusca;')(
+      { getElementById: function () { return { value: q }; } });
+    return LINHAS.filter(fn).length;
+  }
+
+  ok(acha('') === 3, 'busca vazia não recorta nada', acha(''));
+  /* Acento e caixa nao contam: quem procura "joao" tem de achar "João Pessoa", senao a
+     busca so serve para quem lembra a grafia exata. */
+  ok(acha('joao') === 2 && acha('JOÃO') === 2,
+    'acento e caixa não contam — senão a busca só serve para quem lembra a grafia exata',
+    [acha('joao'), acha('JOÃO')]);
+  ok(acha('isaque') === 2, 'acha pelo motorista', acha('isaque'));
+  ok(acha('cx g') === 1, 'e pelo tipo de caixa', acha('cx g'));
+  ok(acha('melke') === 1, 'e por quem lançou, que é a coluna nova', acha('melke'));
+
+  /* Cada palavra em ALGUM campo, e nao todas no mesmo: "isaque joao" e como a pergunta
+     se faz — o motorista numa coluna, o destino noutra. */
+  ok(acha('isaque joao') === 2,
+    'duas palavras casam em campos DIFERENTES — "isaque joao" é como a pergunta se faz, ' +
+    'com o motorista numa coluna e o destino noutra', acha('isaque joao'));
+  ok(acha('isaque caruaru') === 0,
+    'e as duas precisam casar na MESMA linha — senão a busca viraria um "ou" e traria ' +
+    'quase tudo', acha('isaque caruaru'));
+  ok(acha('   joao   ') === 2, 'espaço em volta não atrapalha', acha('   joao   '));
+  ok(acha('zzz') === 0, 'e o que não existe não vem');
+
+  /* --- ela entra na MESMA peneira dos filtros ----------------------------- */
+  /* Por fora, ela esconderia linhas e deixaria os cartoes de cima somando as escondidas
+     — o resumo tem de concordar com a tabela logo abaixo dele. */
+  var pf = corpo('passaFiltro');
+  ok(/if \(!passaBusca\(m\)\) return false;/.test(pf),
+    'a busca entra na mesma peneira dos filtros — por fora, os cartões de cima somariam ' +
+    'linhas que a tabela não mostra', pf);
+
+  /* --- o Limpar leva a busca junto --------------------------------------- */
+  var iL = html.indexOf("getElementById('btnLimparLanc')");
+  var limpar = html.slice(iL, html.indexOf('});', iL));
+  ok(/getElementById\('lcBusca'\)\.value = ''/.test(limpar),
+    'e o "Limpar filtros" apaga a busca junto — deixá-la para trás faria o botão dizer ' +
+    'que limpou com a tabela ainda recortada', limpar);
+
+  /* --- digitar redesenha ------------------------------------------------- */
+  ok(/getElementById\('lcBusca'\)\.addEventListener\('input', desenharLanc\)/.test(html),
+    'digitar redesenha na hora: com `change` a lista ficaria parada enquanto a pessoa ' +
+    'digita');
+
+  /* --- o vazio diz QUAL recorte não achou nada --------------------------- */
+  var dl = corpo('desenharLanc');
+  ok(/Nenhum lançamento com/.test(dl) && dl.indexOf('nos filtros de agora') > 0,
+    'e quando a busca não acha, a tela diz isso — "Nenhum lançamento" sozinho faz a ' +
+    'pessoa procurar no período, quando o que sobrou de fora foi o que ela digitou', dl);
+})();
+
 console.log('\n== o recorte vale no app de campo tambem ==');
 (function () {
   var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -3605,10 +3695,15 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
   var pf = corpo('passaFiltro');
   var marcadosFonte = corpo('marcados');
   var marcados = {};
+  /* `passaFiltro` passou a chamar `passaBusca`. A bancada entrega uma busca VAZIA — o
+     que este bloco mede sao os filtros, e a busca tem bloco proprio. Entregar a de
+     verdade faria estas afirmacoes falharem por um motivo que nao e delas. */
   function passa(m, sel) {
     marcados = sel;
-    var f = new Function('marcados', 'm', pf.slice(pf.indexOf('{') + 1, pf.lastIndexOf('}')));
-    return f(function (id) { return marcados[id] || []; }, m);
+    var f = new Function('marcados', 'passaBusca', 'm',
+      pf.slice(pf.indexOf('{') + 1, pf.lastIndexOf('}')));
+    return f(function (id) { return marcados[id] || []; },
+             function () { return true; }, m);
   }
   var saida = { tipo: 'SAIDA', motorista: 'Chico', origem: 'Matriz', destino: 'Caruaru',
                 usuario: 'Nestor Neto' };
