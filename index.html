@@ -1121,13 +1121,29 @@
       '<div class="v">'+v+'</div><div class="d">'+d+'</div></div>';
   }
 
+  /* O id de quem esta olhando, quando o painel dela e restrito — e string vazia quando
+     nao e. A MESMA funcao existe no `admin.html`, com o mesmo nome e a mesma regra: as
+     duas telas leem a mesma sessao, e a permissao e uma so.
+
+     ISTO E A TELA, NAO A TRANCA: a API nao tem autorizacao, e um GET direto sem o `so`
+     devolve tudo. Serve para a pessoa nao ver o que nao lhe diz respeito. */
+  function recorteProprios(){
+    var s = Q.sessao();
+    return (s && s.soProprios === true && s.id) ? String(s.id) : '';
+  }
+
   function carregarLanc(){
     var de = document.getElementById('lcDe').value;
     var ate = document.getElementById('lcAte').value;
     document.getElementById('listaLanc').innerHTML = '<div class="vazio">Carregando…</div>';
     /* `teste: todos` de proposito: quem lanca no ensaio precisa ver o proprio lancamento,
        e quem lanca de verdade nao tem lancamento de ensaio para atrapalhar. */
-    Q.get({ acao:'movimentos', de:de, ate:ate, teste:'todos', limit:2000 }).then(function(r){
+    /* O recorte viaja no PEDIDO, e nao e feito depois que a lista chega: o corte de
+       linhas do servidor vem antes, entao filtrar aqui mostraria so os lancamentos dela
+       que coubessem nas primeiras 2.000 — e os cartoes de cima somariam o que a tabela
+       nao mostra. */
+    Q.get({ acao:'movimentos', de:de, ate:ate, teste:'todos', limit:2000,
+            so:recorteProprios() }).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       /* Ajuste e perda ficam de fora: nao sao viagem de caixa, e sim correcao de saldo
          feita no escritorio. Contados como saida — que e onde caem por nao serem
@@ -1163,7 +1179,16 @@
 
   /* O painel continua sendo carregado, mas agora so alimenta o aviso de saldo que
      aparece embaixo da origem no formulario de retorno. A aba passou a buscar os
-     lancamentos direto. */
+     lancamentos direto.
+
+     ESTE FICA FORA DO RECORTE, de proposito, mesmo para quem so ve os proprios
+     lancamentos. O que ele alimenta nao e uma lista de lancamentos: e quantas caixas
+     estao NAQUELE lugar agora — e e desse numero que sai o alerta "voce contou mais do
+     que o saldo", uma das guardas contra saida nao lancada.
+
+     Recortado, o saldo viria menor do que a realidade e o alerta dispararia em toda
+     devolucao legitima de quem tem o painel restrito. A pessoa aprenderia a ignora-lo, e
+     ai ele nao guarda mais nada. */
   function carregarPainel(){
     Q.get({acao:'painel'}).then(function(r){
       if (!r.ok) throw new Error(r.erro);

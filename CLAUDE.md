@@ -278,6 +278,19 @@ O recorte é feito **na porta**, por `recorteProprios(dados, usuarioId)`, do mes
 `recorteTeste`: estreita `dados.movimentos` uma vez e tudo o que vem depois obedece sozinho — o
 Painel de Ativos, os saldos, os extratos e a lista de Movimentos.
 
+**Vale nas DUAS telas.** A primeira versão aplicou o recorte só no painel, e a aba Lançamentos do
+app de campo continuou mostrando os de todo mundo. Restrição aplicada num lugar e não no outro não
+restringe nada: fecha a porta da frente, deixa a de trás aberta, e ainda faz quem administra
+acreditar que fechou as duas. Há uma `recorteProprios()` em cada tela, com a mesma regra, e um
+teste comparando as duas.
+
+**Uma exceção, de propósito:** o `carregarPainel()` do `index.html` **não** é recortado, nem para
+quem é restrito. Ele não alimenta lista de lançamento nenhuma — alimenta o aviso de saldo embaixo
+da origem no formulário de retorno, e é desse número que sai o alerta *"você contou mais do que o
+saldo"*, uma das guardas contra saída não lançada. Recortado, o saldo viria menor que a realidade
+e o alerta dispararia em toda devolução legítima, até a pessoa aprender a ignorá-lo — e aí ele não
+guarda mais nada. A exceção está escrita no código, para o próximo leitor não a "consertar".
+
 **Filtrar só a lista de Movimentos seria pior do que não filtrar.** As linhas sumiriam e os mesmos
 números continuariam somados nos cartões logo acima: a pessoa veria o total do galpão inteiro
 sobre uma tabela de três linhas, sem entender nem uma coisa nem outra. E o corte de linhas do
@@ -509,7 +522,7 @@ O `teste_api.js` tem **472 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**564 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**569 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

@@ -1952,6 +1952,56 @@ console.log('\n== a porta para o painel, no app de campo ==');
     'chip venceria o `hidden` e a porta apareceria para todo mundo');
 })();
 
+console.log('\n== o recorte vale no app de campo tambem ==');
+(function () {
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* A permissao "ve apenas os lancamentos dela" valia so no painel. No app de campo a aba
+     Lancamentos mostrava os de todo mundo. Restricao aplicada num lugar e nao no outro
+     nao restringe nada: fecha a porta da frente, deixa a de tras aberta, e ainda faz quem
+     administra acreditar que fechou as duas. */
+  var ir = idx.indexOf('function recorteProprios()');
+  var rec = idx.slice(ir, idx.indexOf('\n  }', ir));
+  ok(ir > 0 && /s\.soProprios === true/.test(rec),
+    'o app de campo sabe quando a pessoa é restrita', rec);
+
+  /* A MESMA regra dos dois lados. Escrita diferente em cada tela, elas divergem no
+     primeiro ajuste e uma passa a mostrar o que a outra esconde. */
+  var ia = adm.indexOf('function recorteProprios()');
+  var recAdm = adm.slice(ia, adm.indexOf('\n  }', ia));
+  ok(rec.replace(/\s+/g, ' ').indexOf(
+       's.soProprios === true && s.id) ? String(s.id)') > 0 &&
+     recAdm.replace(/\s+/g, ' ').indexOf(
+       's.soProprios === true && s.id) ? String(s.id)') > 0,
+    'e a regra é a MESMA das duas telas — escrita diferente em cada uma, elas divergem ' +
+    'no primeiro ajuste e uma passa a mostrar o que a outra esconde');
+
+  /* O recorte viaja no PEDIDO. Filtrando a lista depois que ela chega, o corte de 2.000
+     linhas do servidor vem antes: ela veria so os dela que couberam, e os cartoes de cima
+     somariam o que a tabela nao mostra. */
+  var iL = idx.indexOf("Q.get({ acao:'movimentos'");
+  var pedido = idx.slice(iL, iL + 260);
+  ok(iL > 0 && /so:recorteProprios\(\)/.test(pedido),
+    'a aba Lançamentos pede o recorte ao servidor — filtrando depois que a lista chega, ' +
+    'o corte de 2.000 linhas vem antes e ela veria só os dela que couberam', pedido);
+
+  /* --- e a EXCECAO, que fica de fora de proposito ------------------------- */
+  /* O aviso de saldo do formulario de retorno nao e lista de lancamentos: e quantas
+     caixas estao naquele lugar agora, e dele sai o alerta "voce contou mais do que o
+     saldo". Recortado, o saldo viria menor que a realidade e o alerta dispararia em toda
+     devolucao legitima — a pessoa aprenderia a ignora-lo, e ai ele nao guarda mais nada. */
+  var ip = idx.indexOf('function carregarPainel()');
+  var painel = idx.slice(ip, idx.indexOf('\n  }', ip));
+  ok(ip > 0 && painel.indexOf("acao:'painel'") > 0 && !/so:/.test(painel),
+    'o saldo do formulário de retorno fica FORA do recorte — é dele que sai o alerta ' +
+    '"você contou mais do que o saldo", e recortado ele dispararia em toda devolução ' +
+    'legítima até a pessoa aprender a ignorá-lo', painel);
+  ok(/ESTE FICA FORA DO RECORTE, de proposito/.test(idx),
+    'e a exceção está escrita no código, não só subentendida — sem isso o próximo ' +
+    'leitor a "conserta"');
+})();
+
 console.log('\n== painel restrito: a tela pede e anuncia o recorte ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
