@@ -580,15 +580,33 @@ a.chip:hover{background:var(--surface-2);color:var(--txt)}
 /* Os filtros de multipla escolha da aba Lancamentos. <details> e nao <select multiple>:
    no celular o select multiplo exige segurar uma tecla que nao existe e mostra tres
    linhas. Aqui a pessoa toca, abre e marca — e o resumo diz quantos estao marcados. */
+/* A fileira de filtros. `overflow` fica VISIVEL de proposito: as listas abrem por cima,
+   e um `overflow:hidden` aqui as cortaria pela metade — foi assim que o painel de filtros
+   do escritorio escondeu quatro dos cinco campos, com a posicao certinha. */
 .filtros-lanc{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:14px 0 0}
-.fchk{border:1px solid var(--linha);border-radius:10px;background:var(--fundo-2,transparent)}
+/* `relative` e o que faz a lista suspensa se medir por ESTE filtro, e nao pela pagina. */
+.fchk{border:1px solid var(--linha);border-radius:10px;background:var(--fundo-2,transparent);
+  position:relative}
 .fchk>summary{cursor:pointer;padding:10px 12px;font-size:13.5px;font-weight:600;
   color:var(--txt2);list-style:none}
 .fchk>summary::-webkit-details-marker{display:none}
 .fchk>summary::after{content:"▾";float:right;color:var(--txt3)}
 .fchk[open]>summary::after{content:"▴"}
 .fchk>summary .qt{color:var(--marca-txt,var(--verde));font-weight:700}
-.fchk .opcoes{max-height:210px;overflow:auto;padding:0 6px 8px}
+/* A lista SUSPENSA. Aberta no lugar, ela empurrava a tabela para baixo: a fileira
+   inteira crescia para caber a mais alta, e os outros quatro filtros viravam caixas
+   vazias de 350px. Por cima, a tabela nao se mexe.
+
+   `z-index` acima da tabela, e fundo solido: translucido, as duas se leem juntas. */
+.fchk .opcoes{position:absolute;top:calc(100% + 4px);left:-1px;right:-1px;z-index:30;
+  max-height:260px;overflow:auto;padding:0 6px 8px;
+  background:var(--surface);border:1px solid var(--linha);border-radius:10px;
+  box-shadow:var(--sombra,0 8px 24px rgba(0,0,0,.35))}
+/* Fechada, a lista nao ocupa nada — nem o `padding`. */
+.fchk:not([open]) .opcoes{display:none}
+/* A ultima da fileira abre para a ESQUERDA: colada na borda direita da tela, ela sairia
+   fora e a pessoa rolaria a pagina de lado para ver as opcoes. */
+.filtros-lanc .fchk:last-child .opcoes{left:auto;right:-1px;min-width:100%}
 .fchk .marca{display:flex;align-items:center;gap:8px;padding:7px 6px;font-size:14px;
   border-top:1px solid var(--linha)}
 .fchk .marca input{width:18px;height:18px;margin:0;flex:0 0 auto}

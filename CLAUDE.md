@@ -360,7 +360,16 @@ Há uma afirmação sobre a posição, não só sobre a existência da trava.
 abre sem nada dentro parece quebrada, e a pessoa volta nela toda vez achando que não carregou. Se
 era ela que estava aberta, outra assume.
 
-A aba mostra **quem lançou**, em coluna e em filtro. Ela passou a listar os lançamentos de mais
+Os filtros da aba são **listas suspensas**: abertas no lugar, elas empurravam a tabela para
+baixo — a fileira inteira crescia para caber a mais alta, e os outros quatro filtros viravam
+caixas vazias de 350px. Suspensa, a lista passa por cima e a tabela não se mexe. Uma de cada vez
+(vizinhas na mesma fileira, duas abertas se cobrem), fecha ao clicar fora, e a última abre para a
+esquerda para não sair pela borda da tela. **`.filtros-lanc` não pode ganhar `overflow:hidden`** —
+seria a terceira vez que uma lista flutuante some atrás de um recorte de ancestral neste projeto.
+
+A aba mostra **quem lançou**, em coluna e em filtro, e esse é o **primeiro** filtro da fileira:
+com a permissão "de quem ela vê" citando várias pessoas, *de quem é isto* passa a ser a primeira
+pergunta de quem olha a lista, e não a última. Ela passou a listar os lançamentos de mais
 de uma pessoa — é o que a permissão "de quem ela vê" faz de propósito —, e sem isso as linhas de
 duas pessoas ficam misturadas sem nenhum jeito de saber de quem é cada uma. O filtro entra na
 **mesma** maquinaria dos outros quatro: mesma função de opções, mesma convenção "nada marcado =
@@ -587,7 +596,7 @@ O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**617 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**630 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

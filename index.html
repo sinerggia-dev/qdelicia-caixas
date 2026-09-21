@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=9ddd347e">
+<link rel="stylesheet" href="styles.css?v=7145d276">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -208,6 +208,11 @@
            multiplo exige segurar a tecla, que nao existe, e mostra so tres linhas. Aqui a
            pessoa toca, abre e marca — e o resumo diz quantos estao marcados sem abrir. -->
       <div class="filtros-lanc">
+        <!-- Quem lancou vem PRIMEIRO: com a permissao "de quem ela ve" citando varias
+             pessoas, "de quem e isto" passa a ser a primeira pergunta de quem olha a
+             lista, e nao a ultima. -->
+        <details class="fchk" id="lcFUsuario"><summary>Usuário<span class="qt"></span></summary>
+          <div class="opcoes"></div></details>
         <details class="fchk" id="lcFSentido"><summary>Entrada / Saída<span class="qt"></span></summary>
           <div class="opcoes"></div></details>
         <details class="fchk" id="lcFMotorista"><summary>Motorista<span class="qt"></span></summary>
@@ -215,11 +220,6 @@
         <details class="fchk" id="lcFOrigem"><summary>Origem<span class="qt"></span></summary>
           <div class="opcoes"></div></details>
         <details class="fchk" id="lcFDestino"><summary>Destino<span class="qt"></span></summary>
-          <div class="opcoes"></div></details>
-        <!-- Quem lancou. A aba mostra os lancamentos de mais de uma pessoa quando a
-             permissao "de quem ela ve" cita varias — e ai as linhas de duas pessoas
-             ficam misturadas sem nenhum jeito de separar. -->
-        <details class="fchk" id="lcFUsuario"><summary>Usuário<span class="qt"></span></summary>
           <div class="opcoes"></div></details>
       </div>
       <div class="linha-btn">
@@ -1073,11 +1073,11 @@
       return Object.keys(vis).sort(function(a,b){ return a.localeCompare(b,'pt-BR'); });
     }
     var grupos = [
+      ['lcFUsuario', valores(function(m){ return m.usuario; }).map(function(v){ return [v,v]; })],
       ['lcFSentido', [['SAIDA','Saída'],['RETORNO','Retorno']]],
       ['lcFMotorista', valores(function(m){ return m.motorista; }).map(function(v){ return [v,v]; })],
       ['lcFOrigem', valores(function(m){ return m.origem; }).map(function(v){ return [v,v]; })],
-      ['lcFDestino', valores(function(m){ return m.destino; }).map(function(v){ return [v,v]; })],
-      ['lcFUsuario', valores(function(m){ return m.usuario; }).map(function(v){ return [v,v]; })]
+      ['lcFDestino', valores(function(m){ return m.destino; }).map(function(v){ return [v,v]; })]
     ];
     grupos.forEach(function(g){
       var box = document.querySelector('#'+g[0]+' .opcoes');
@@ -1111,7 +1111,7 @@
       tileLanc(Q.num(saiu + voltou), 'total de caixas', 'saídas mais retornos', '');
 
     // o contador de cada filtro: quantos estao marcados, sem precisar abrir
-    ['lcFSentido','lcFMotorista','lcFOrigem','lcFDestino','lcFUsuario'].forEach(function(id){
+    ['lcFUsuario','lcFSentido','lcFMotorista','lcFOrigem','lcFDestino'].forEach(function(id){
       var n = marcados(id).length;
       var q = document.querySelector('#'+id+' .qt');
       if (q) q.textContent = n ? ' ('+n+')' : '';
@@ -1194,6 +1194,28 @@
   ['lcDe','lcAte'].forEach(function(id){
     document.getElementById(id).addEventListener('change', carregarLanc);
   });
+  /* Uma lista aberta de cada vez: elas sao vizinhas na mesma fileira e, suspensas,
+     duas abertas se cobrem. Abrir uma fecha as outras.
+
+     `toggle` dispara DEPOIS de o estado mudar, entao aqui a que acabou de abrir ja esta
+     com `open` — e por isso a comparacao e `!== este`, e nao um controle proprio. */
+  document.querySelectorAll('.filtros-lanc .fchk').forEach(function(d){
+    d.addEventListener('toggle', function(){
+      if (!d.open) return;
+      document.querySelectorAll('.filtros-lanc .fchk[open]').forEach(function(o){
+        if (o !== d) o.open = false;
+      });
+    });
+  });
+  /* Clicar fora fecha, como em todo menu suspenso. Sem isto a lista fica aberta por cima
+     da tabela e a pessoa tem de voltar no titulo para fecha-la. */
+  document.addEventListener('click', function(e){
+    if (e.target.closest && e.target.closest('.filtros-lanc')) return;
+    document.querySelectorAll('.filtros-lanc .fchk[open]').forEach(function(o){
+      o.open = false;
+    });
+  });
+
   document.getElementById('btnLimparLanc').addEventListener('click', function(){
     document.querySelectorAll('.filtros-lanc input:checked').forEach(function(c){
       c.checked = false;

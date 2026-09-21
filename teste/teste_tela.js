@@ -3700,10 +3700,17 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
      DENTRO de `.filtros-lanc`, e nao ao lado dele. */
   /* A lista antiga e PREFIXO da nova, entao procurar "a antiga sumiu" nunca vale. O que
      distingue e o FECHAMENTO: `'lcFDestino']` contra `'lcFDestino','lcFUsuario']`. */
-  ok(html.indexOf("'lcFDestino'].forEach") < 0 &&
-     html.indexOf("'lcFDestino','lcFUsuario'].forEach") > 0,
-    'e o contador de marcados conta o quinto também — esquecido, o filtro ficaria ligado ' +
-    'sem nada dizer quantos');
+  /* O contador varre os CINCO. A ordem mudou quando o Usuario foi para o primeiro, entao
+     a afirmacao olha o conjunto, e nao a sequencia — assim ela sobrevive a proxima
+     reordenacao sem deixar de cobrar o que importa. */
+  var iCont = html.indexOf('].forEach(function(id){' + String.fromCharCode(10) + '      var n = marcados(id).length;');
+  var listaCont = html.slice(html.lastIndexOf('[', iCont), iCont + 1);
+  ['lcFUsuario', 'lcFSentido', 'lcFMotorista', 'lcFOrigem', 'lcFDestino']
+    .forEach(function (id) {
+      ok(listaCont.indexOf("'" + id + "'") > 0,
+        'o contador de marcados conta o ' + id + ' — esquecido, o filtro ficaria ligado ' +
+        'sem nada dizer quantos', listaCont);
+    });
   var iL = html.indexOf('btnLimparLanc');
   var limpar = html.slice(html.indexOf("getElementById('btnLimparLanc')"),
                           html.indexOf("getElementById('btnLimparLanc')") + 400);
@@ -3727,6 +3734,58 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
     'e o filtro novo mora DENTRO do container — fora dele, o Limpar não o veria, porque ' +
     'ele varre o container e não os filtros um a um',
     { box: iBox, fim: fimBox, usuario: iUsu });
+
+  /* --- o Usuario vem PRIMEIRO -------------------------------------------- */
+  /* Com a permissao "de quem ela ve" citando varias pessoas, "de quem e isto" passa a ser
+     a primeira pergunta de quem olha a lista, e nao a ultima. */
+  var ordem = ['lcFUsuario', 'lcFSentido', 'lcFMotorista', 'lcFOrigem', 'lcFDestino']
+    .map(function (id) { return html.indexOf('id="' + id + '"'); });
+  ok(ordem.every(function (p, i) { return p > 0 && (i === 0 || p > ordem[i - 1]); }),
+    'o filtro de quem lançou vem PRIMEIRO na fileira — é a primeira pergunta de quem ' +
+    'olha uma lista com mais de uma pessoa', ordem);
+  var mfOrdem = mf.indexOf("['lcFUsuario'");
+  ok(mfOrdem > 0 && mfOrdem < mf.indexOf("['lcFSentido'"),
+    'e a montagem das opções segue a mesma ordem — duas ordens diferentes para a mesma ' +
+    'fileira é uma delas esperando para ficar errada');
+
+  /* --- a lista é SUSPENSA, e não empurra a tabela ------------------------- */
+  /* Este bloco nasceu sem o `css`: ele lia so o HTML, e a lista suspensa e decisao de
+     ESTILO — o comportamento inteiro mora no `styles.css`. */
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  /* Aberta no lugar, ela empurrava a tabela para baixo: a fileira inteira crescia para
+     caber a mais alta, e os outros quatro filtros viravam caixas vazias de 350px. */
+  ok(/\.fchk \.opcoes\{position:absolute/.test(css),
+    'a lista de opções é SUSPENSA — aberta no lugar, ela empurra a tabela para baixo e ' +
+    'estica os outros filtros junto');
+  ok(/\.fchk\{[^}]*position:relative/.test(css),
+    'e o filtro é a referência dela — sem isso ela se mediria pela página e nasceria ' +
+    'longe do próprio título');
+  ok(/\.fchk:not\(\[open\]\) \.opcoes\{display:none\}/.test(css),
+    'fechada, ela não ocupa nada — nem o `padding`, que sozinho já desenharia uma faixa');
+  ok(/z-index:\s*\d+/.test(css.slice(css.indexOf('.fchk .opcoes{'),
+                                     css.indexOf('.fchk .opcoes{') + 400)) &&
+     /background:var\(--surface\)/.test(css.slice(css.indexOf('.fchk .opcoes{'),
+                                                  css.indexOf('.fchk .opcoes{') + 400)),
+    'e ela passa por cima com fundo sólido — translúcida, ela e a tabela se leriam juntas');
+  /* A ultima da fileira abre para a esquerda: colada na borda direita da tela, ela sairia
+     fora e a pessoa rolaria a pagina de lado. */
+  ok(/\.filtros-lanc \.fchk:last-child \.opcoes\{left:auto/.test(css),
+    'e a última da fileira abre para a esquerda — colada na borda, ela sairia da tela');
+
+  /* --- uma de cada vez, e fecha ao clicar fora ---------------------------- */
+  /* Suspensas, duas abertas se cobrem: sao vizinhas na mesma fileira. */
+  /* O CORPO do `toggle`, e nao a existencia dele. A primeira versao desta afirmacao
+     procurava as duas pecas em qualquer lugar do arquivo — e o `.fchk[open]` do fechar-ao-
+     clicar-fora bastava para ela passar com o corpo do toggle esvaziado. */
+  var iT = html.indexOf("addEventListener('toggle', function(){");
+  var corpoToggle = html.slice(iT, html.indexOf(String.fromCharCode(10) + '    });', iT));
+  ok(iT > 0 && /if \(!d\.open\) return;/.test(corpoToggle) &&
+     /if \(o !== d\) o\.open = false;/.test(corpoToggle),
+    'abrir uma FECHA as outras — suspensas, duas abertas se cobrem, porque são vizinhas ' +
+    'na mesma fileira', corpoToggle);
+  ok(/if \(e\.target\.closest && e\.target\.closest\('\.filtros-lanc'\)\) return;/.test(html),
+    'e clicar fora fecha, como em todo menu suspenso — sem isso a lista fica por cima da ' +
+    'tabela e a pessoa tem de voltar no título para fechá-la');
   ok(html.indexOf('id="lcDe"') > 0 && html.indexOf('id="lcAte"') > 0,
     'e o periodo tambem');
 
