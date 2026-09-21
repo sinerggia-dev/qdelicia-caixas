@@ -72,10 +72,14 @@ var PERMISSOES = [
     usa: [['admin.html', 'podeEntrar'], ['index.html', 'acessoPainel']] },
   { nome: 'Abas', chave: 'Abas', campo: 'fAbas', sessao: 'abas',
     usa: [['admin.html', 'abasPermitidas']] },
-  /* Painel restrito. Vive no MESMO seletor do AcessoPainel — três valores, uma pergunta —
-     então o campo do formulário é o mesmo. */
-  { nome: 'SoProprios', chave: 'SoProprios', campo: 'fPainel', sessao: 'soProprios',
-    usa: [['admin.html', 'recorteProprios'], ['api/_logica.js', 'recorteProprios']] },
+  /* Ver lançamentos: o interruptor e a lista de quem. Duas colunas, duas perguntas
+     encadeadas — a segunda só faz sentido depois da primeira. */
+  { nome: 'VerLancamentos', chave: 'VerLancamentos', campo: 'fVerLanc',
+    sessao: 'verLancamentos',
+    usa: [['admin.html', 'verLancamentos'], ['index.html', 'verLancamentos']] },
+  { nome: 'UsuariosVistos', chave: 'UsuariosVistos', campo: 'fUsuariosVistos',
+    sessao: 'usuariosVistos',
+    usa: [['admin.html', 'recorteProprios'], ['api/_logica.js', 'usuariosVistosDe']] },
   { nome: 'Operacoes', chave: 'Operacoes', campo: 'fOperacoes', sessao: 'operacoes',
     usa: [['index.html', 'operacoes']] },
   { nome: 'Saidas', chave: 'Saidas', campo: 'fSaidas', sessao: 'saidas',

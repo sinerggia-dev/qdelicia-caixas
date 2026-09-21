@@ -1544,11 +1544,19 @@ console.log('\n== as abas de admin travam no cadastro ==');
       fAbas: lista('fAbas'), fOperacoes: lista('fOperacoes'), fSaidas: lista('fSaidas'),
       fDestinos: lista('fDestinos'), fTiposCaixa: lista('fTiposCaixa'),
       fMotoristas: lista('fMotoristas'),
+      fVerLanc: { value: o.verLanc === false ? 'NAO' : 'SIM', disabled: false },
+      fVerLancNota: { textContent: '' }, fVistosNota: { textContent: '' },
+      fUsuariosVistos: lista('fUsuariosVistos'),
+      fUsuariosVistosAviso: (avisos.fUsuariosVistos = { textContent: '', hidden: true }),
       fAbasAviso: avisos.fAbas, fOperacoesAviso: avisos.fOperacoes,
       fSaidasAviso: avisos.fSaidas, fDestinosAviso: avisos.fDestinos,
       fTiposCaixaAviso: avisos.fTiposCaixa, fMotoristasAviso: avisos.fMotoristas
     };
     var botoes = [{ disabled: false }];
+    /* Um botao POR QUADRO, e nao um so para todos: com um unico objeto, destravar o
+       "marcar todos" de um quadro destravava o do outro, e a bancada dizia que a trava
+       das abas tinha sido desfeita quando na tela ela nao e. */
+    var botaoDe = {};
     var doc = {
       getElementById: function (id) { return els[id] || null; },
       querySelectorAll: function (sel) {
@@ -1556,7 +1564,12 @@ console.log('\n== as abas de admin travam no cadastro ==');
         if (sel.indexOf('data-marcatudo') >= 0) return botoes;
         return [];
       },
-      querySelector: function () { return botoes[0]; }
+      querySelector: function (sel) {
+        var m = /data-marcatudo="(\w+)"/.exec(sel || '');
+        var chave = m ? m[1] : 'qualquer';
+        if (chave === 'fAbas') return botoes[0];
+        return botaoDe[chave] || (botaoDe[chave] = { disabled: false });
+      }
     };
     new Function('document', 'perfilDigitado', 'PERFIS', 'COM_PODER', 'TEM_SENHA_PAINEL',
       corpoAvisar + '\n' + corpoAjuste + '\n ajustarPainel();')(
@@ -1571,7 +1584,12 @@ console.log('\n== as abas de admin travam no cadastro ==');
       saidasBloqueadas: !!classe.fSaidas,
       marcarTudo: botoes[0].disabled,
       avisoAbas: avisos.fAbas.hidden ? '' : avisos.fAbas.textContent,
-      avisoSaidas: avisos.fSaidas.hidden ? '' : avisos.fSaidas.textContent
+      avisoSaidas: avisos.fSaidas.hidden ? '' : avisos.fSaidas.textContent,
+      vistosBloqueados: !!classe.fUsuariosVistos,
+      avisoVistos: avisos.fUsuariosVistos && !avisos.fUsuariosVistos.hidden
+        ? avisos.fUsuariosVistos.textContent : '',
+      notaVer: els.fVerLancNota.textContent,
+      notaVistos: els.fVistosNota.textContent
     };
   }
 
@@ -1626,7 +1644,8 @@ console.log('\n== as abas de admin travam no cadastro ==');
   /* --- os gatilhos -------------------------------------------------------- */
   /* Faltando um, a tela mente justamente no instante em que a pessoa mexe naquele campo.
      Foi o `fPainel` que faltou: ele mudava e as abas seguiam marcáveis e mudas. */
-  [['fPerfil', 'input'], ['fPainel', 'change'], ['fAtivo', 'change'], ['fSenha', 'input']]
+  [['fPerfil', 'input'], ['fPainel', 'change'], ['fAtivo', 'change'], ['fSenha', 'input'],
+   ['fVerLanc', 'change']]
     .forEach(function (par) {
       var re = new RegExp("getElementById\\('" + par[0] + "'\\)\\.addEventListener\\('" +
                           par[1] + "', ajustarPainel\\)");
@@ -1634,6 +1653,29 @@ console.log('\n== as abas de admin travam no cadastro ==');
         'o campo ' + par[0] + ' reavalia as pré-condições (`' + par[1] + '`) — sem isso a ' +
         'tela mente no instante em que a pessoa mexe nele');
     });
+
+  /* --- ver lancamentos: o interruptor manda na lista --------------------- */
+  var comLanc = bancada({ perfil: 'Conferente', temSenha: true });
+  ok(!comLanc.vistosBloqueados && /Nada marcado = todos/.test(comLanc.notaVistos),
+    'com "Vê os lançamentos?" em SIM, a lista de quem fica livre', comLanc);
+  var semLanc = bancada({ perfil: 'Conferente', temSenha: true, verLanc: false });
+  ok(semLanc.vistosBloqueados,
+    'e em NÃO ela trava — não há de quem ver, e deixar marcar ali seria oferecer uma ' +
+    'escolha sem efeito', semLanc);
+  ok(/Vê os lançamentos\?" está em NÃO/.test(semLanc.avisoVistos || ''),
+    'e o motivo aparece dentro do quadro', semLanc.avisoVistos);
+  ok(/some do app dela/.test(semLanc.notaVer),
+    'e o interruptor diz o que acontece na tela dela', semLanc.notaVer);
+
+  /* A ORDEM dentro de `ajustarPainel` importa, e foi ela que falhou na primeira versao:
+     o laco que destrava os quadros quando a pessoa esta ativa roda DEPOIS, e desfazia a
+     trava desta lista. Medido na epoca: 3 de 3 continuavam clicaveis com o interruptor
+     em NAO. Entao a afirmacao e sobre a posicao. */
+  var iLaco = corpoAjuste.indexOf("var quadros = ['fAbas'");
+  var iTrava = corpoAjuste.indexOf("caixaVistos.classList.toggle('bloqueada'");
+  ok(iLaco > 0 && iTrava > 0 && iTrava > iLaco,
+    'a trava da lista vem DEPOIS do laço que destrava os quadros — antes dele, o laço a ' +
+    'desfaz e o interruptor não trava nada', { laco: iLaco, trava: iTrava });
 
   ok(/\.marcalista\.bloqueada\{opacity/.test(css),
     'e o quadro bloqueado fica apagado — apagado, e não sumido: sumir esconderia que a ' +
@@ -1873,9 +1915,13 @@ console.log('\n== a porta para o painel, no app de campo ==');
      e ela tem de sair do arquivo, nao de uma copia da regra escrita aqui. */
   function porta(s) {
     var alvo = {};
+    /* `querySelector` devolve null de proposito: e por ele que a aba Lancamentos some, e
+       este recorte e sobre a PORTA do painel. Null e o caso real de quem abre o app sem
+       a aba na tela, entao o codigo tem de aguentar sem estourar. */
     return new Function('s', 'document', 'ajustarAbas',
       fonte + '\n aplicarSessao(s); return !document.getElementById("chipPainel").hidden;')(
-      s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); } },
+      s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); },
+           querySelector: function () { return null; } },
       function () {});
   }
 
@@ -1963,19 +2009,23 @@ console.log('\n== o recorte vale no app de campo tambem ==');
      administra acreditar que fechou as duas. */
   var ir = idx.indexOf('function recorteProprios()');
   var rec = idx.slice(ir, idx.indexOf('\n  }', ir));
-  ok(ir > 0 && /s\.soProprios === true/.test(rec),
-    'o app de campo sabe quando a pessoa é restrita', rec);
+  ok(ir > 0 && /s\.usuariosVistos/.test(rec) && /s\.verLancamentos === false/.test(rec),
+    'o app de campo sabe quem a pessoa pode ver, e se pode ver alguém', rec);
 
   /* A MESMA regra dos dois lados. Escrita diferente em cada tela, elas divergem no
      primeiro ajuste e uma passa a mostrar o que a outra esconde. */
   var ia = adm.indexOf('function recorteProprios()');
   var recAdm = adm.slice(ia, adm.indexOf('\n  }', ia));
-  ok(rec.replace(/\s+/g, ' ').indexOf(
-       's.soProprios === true && s.id) ? String(s.id)') > 0 &&
-     recAdm.replace(/\s+/g, ' ').indexOf(
-       's.soProprios === true && s.id) ? String(s.id)') > 0,
-    'e a regra é a MESMA das duas telas — escrita diferente em cada uma, elas divergem ' +
-    'no primeiro ajuste e uma passa a mostrar o que a outra esconde');
+  /* As duas telas tem de decidir IGUAL. Comparar o texto inteiro seria fragil demais
+     (os comentarios diferem de proposito), entao compara o miolo: as mesmas tres linhas
+     de decisao, na mesma ordem. */
+  function miolo(t) {
+    return t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').trim();
+  }
+  ok(miolo(rec) === miolo(recAdm),
+    'e a regra é a MESMA das duas telas, linha por linha — escrita diferente em cada ' +
+    'uma, elas divergem no primeiro ajuste e uma passa a mostrar o que a outra esconde',
+    { campo: miolo(rec), painel: miolo(recAdm) });
 
   /* O recorte viaja no PEDIDO. Filtrando a lista depois que ela chega, o corte de 2.000
      linhas do servidor vem antes: ela veria so os dela que couberam, e os cartoes de cima
@@ -2000,6 +2050,24 @@ console.log('\n== o recorte vale no app de campo tambem ==');
   ok(/ESTE FICA FORA DO RECORTE, de proposito/.test(idx),
     'e a exceção está escrita no código, não só subentendida — sem isso o próximo ' +
     'leitor a "conserta"');
+
+  /* --- a aba SOME para quem nao ve lancamento ----------------------------- */
+  /* Some, e nao fica vazia: uma aba que abre sem nada dentro parece quebrada, e a pessoa
+     volta nela toda vez achando que nao carregou. */
+  var ia2 = idx.indexOf('function aplicarSessao(s)');
+  var ik2 = idx.indexOf('{', ia2), in2 = 0;
+  do {
+    if (idx[ik2] === '{') in2++; else if (idx[ik2] === '}') in2--;
+    ik2++;
+  } while (in2 > 0 && ik2 < idx.length);
+  var apl = idx.slice(ia2, ik2);
+  ok(/data-pagina="pgSaldo"/.test(apl) &&
+     /abaLanc\.style\.display = ve \? '' : 'none'/.test(apl),
+    'a aba Lançamentos some para quem não vê lançamento — some, e não fica vazia: uma ' +
+    'aba que abre sem nada dentro parece quebrada', apl.slice(-500));
+  ok(/abaLanc\.classList\.contains\('ativa'\)/.test(apl) && /primeira\.click\(\)/.test(apl),
+    'e se era ela que estava aberta, outra assume — senão o app fica numa página ' +
+    'escondida, mostrando tela em branco');
 })();
 
 console.log('\n== painel restrito: a tela pede e anuncia o recorte ==');
@@ -2010,34 +2078,39 @@ console.log('\n== painel restrito: a tela pede e anuncia o recorte ==');
   /* --- UM controle para UMA pergunta -------------------------------------- */
   /* Tres valores na mesma chave, e nao um interruptor novo ao lado dela: dois controles
      permitiriam "ve apenas os proprios" com o painel desligado, que nao quer dizer nada. */
+  /* O interruptor "ve apenas os proprios" virou INTERRUPTOR + LISTA: a lista diz isso
+     (marcar so ela) e diz tambem o que o interruptor nao dizia — "ve os dela e os do
+     fulano". A chave do painel voltou a responder so pelo painel. */
   var iS = adm.indexOf("'<select id=\"fPainel\">'+");
   var sel = adm.slice(iS, adm.indexOf("'</select>'+", iS));
-  ok(iS > 0 && (sel.match(/<option value=/g) || []).length === 3,
-    'a chave do painel tem TRÊS valores, e não um interruptor novo ao lado — dois ' +
-    'controles para uma pergunta só permitiriam "vê só os próprios" com o painel ' +
-    'desligado', (sel.match(/value="(\w+)"/g) || []));
-  ok(/value="PROPRIOS"/.test(sel) && /apenas os lançamentos dela/.test(sel),
-    'e o terceiro diz o que faz, com as palavras de quem pediu', sel);
+  ok(iS > 0 && (sel.match(/<option value=/g) || []).length === 2 &&
+     !/value="PROPRIOS"/.test(sel),
+    'a chave do painel responde só pelo painel — quem vê o quê em lançamentos mudou ' +
+    'para o quadro próprio', (sel.match(/value="(\w+)"/g) || []));
 
-  /* A traducao de tres valores para duas colunas mora num lugar so. */
-  var env = adm.slice(adm.indexOf('AcessoPainel:('), adm.indexOf('Saidas:lerMarcados'));
-  ok(/AcessoPainel:\(document\.getElementById\('fPainel'\)\.value === 'NAO' \? 'NAO' : 'SIM'\)/.test(env) &&
-     /SoProprios:\(document\.getElementById\('fPainel'\)\.value === 'PROPRIOS' \? 'SIM' : 'NAO'\)/.test(env),
-    'o salvar traduz os três valores nas duas colunas, num lugar só — espalhada, ' +
-    '"PROPRIOS" viraria acesso desligado em algum caminho esquecido', env);
+  ok(/id="fVerLanc"/.test(adm) && /caixaLocais\('fUsuariosVistos'/.test(adm),
+    'e há um quadro de Lançamentos, com o interruptor e a lista de quem');
+  ok(/De quem ela vê os lançamentos/.test(adm),
+    'e a lista diz, no rótulo, de quem se trata');
+  ok(/data-marcatudo="'\+id\+'"/.test(adm),
+    'a lista ganha "marcar todos" pela mesma caixa compartilhada dos outros quadros — ' +
+    'escrever outro botão aqui seria um segundo lugar para consertar');
 
-  /* "PROPRIOS" e painel LIGADO: as abas valem igual, muda o que aparece dentro delas. */
-  var ajuste = adm.slice(adm.indexOf('function ajustarPainel()'));
-  ajuste = ajuste.slice(0, ajuste.indexOf('\n    }'));
-  ok(/sel\.value !== 'NAO'/.test(ajuste),
-    'com "apenas os próprios" as abas continuam valendo — o que muda é o que aparece ' +
-    'DENTRO delas, não quais existem');
+  var env = adm.slice(adm.indexOf('VerLancamentos:'), adm.indexOf('Saidas:lerMarcados'));
+  ok(/VerLancamentos:document\.getElementById\('fVerLanc'\)\.value/.test(env) &&
+     /UsuariosVistos:lerMarcados\('fUsuariosVistos'\)/.test(env),
+    'o salvar manda os dois', env);
 
   /* --- a tela PEDE o recorte ---------------------------------------------- */
   var r = adm.indexOf('function recorteProprios()');
   var rec = adm.slice(r, adm.indexOf('\n  }', r));
-  ok(r > 0 && /s\.soProprios === true/.test(rec),
+  ok(r > 0 && /s\.usuariosVistos/.test(rec),
     'o recorte sai da sessão, numa função só', rec);
+  /* "Nao ve lancamento nenhum" tem de pedir um recorte que nao casa com ninguem. Nao
+     pedir nada seria pedir TODOS, pela convencao do vazio — o contrario do pedido. */
+  ok(/s\.verLancamentos === false\) return '__ninguem__'/.test(rec),
+    'quem não vê lançamentos pede um recorte que não casa com ninguém — não pedir nada ' +
+    'pediria TODOS, pela convenção do vazio, que é o contrário do que o admin marcou');
   /* Cada rota e conferida DENTRO do proprio pedido. A primeira versao desta afirmacao
      procurava o texto em qualquer lugar do arquivo com um `||`, e por isso continuava
      passando quando o recorte era tirado de um dos tres — ela achava o dos outros. */
@@ -2069,9 +2142,12 @@ console.log('\n== painel restrito: a tela pede e anuncia o recorte ==');
   /* Perdido na renovacao, a pessoa passaria a ver tudo no primeiro recarregamento —
      calada. Foi o teste de campos iguais que pegou isso enquanto se escrevia. */
   var sr = adm.indexOf('function sessaoDoRegistro(u)');
-  ok(/soProprios: u\.SoProprios === true/.test(adm.slice(sr, adm.indexOf('\n  }', sr))),
+  var corpoSr = adm.slice(sr, adm.indexOf('\n  }', sr));
+  ok(/soProprios: u\.SoProprios === true/.test(corpoSr) &&
+     /verLancamentos: u\.VerLancamentos !== false/.test(corpoSr) &&
+     /usuariosVistos: /.test(corpoSr),
     'a sessão renovada mantém o recorte — perdido aqui, a pessoa passaria a ver tudo no ' +
-    'primeiro recarregamento');
+    'primeiro recarregamento', corpoSr);
 })();
 
 console.log('\n== a porta de volta, do painel para os lancamentos ==');

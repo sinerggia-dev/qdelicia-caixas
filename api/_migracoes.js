@@ -252,5 +252,15 @@ module.exports = [
     id: '2026-09-20-painel-so-proprios',
     nota: 'painel restrito: entra no painel, mas só enxerga os lançamentos que ela mesma fez',
     sql: "alter table public.usuarios add column if not exists so_proprios boolean not null default false;"
+  },
+  {
+    id: '2026-09-20-ver-lancamentos',
+    nota: 'se a pessoa vê lançamentos, e de quais usuários; lista vazia segue querendo dizer TODOS',
+    sql: "alter table public.usuarios add column if not exists ver_lancamentos boolean not null default true;"
+       + "alter table public.usuarios add column if not exists usuarios_vistos jsonb not null default '[]'::jsonb;"
+       // Quem estava em "só os próprios" passa a ver só a si mesmo pela lista nova — a
+       // mesma coisa, dita do jeito novo. Sem isto a escolha antiga sumiria calada.
+       + "update public.usuarios set usuarios_vistos = jsonb_build_array(id) "
+       + "where so_proprios = true and usuarios_vistos = '[]'::jsonb;"
   }
 ];

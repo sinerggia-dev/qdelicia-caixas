@@ -379,6 +379,22 @@
     document.getElementById('chipPainel').hidden = !podePainel;
 
     ajustarAbas(s);
+
+    /* A aba Lancamentos some para quem nao ve lancamento. Some, e nao fica vazia: uma
+       aba que abre sem nada dentro parece quebrada, e a pessoa volta nela toda vez
+       achando que nao carregou. */
+    var abaLanc = document.querySelector('#abas button[data-pagina="pgSaldo"]');
+    if (abaLanc){
+      var ve = s.verLancamentos !== false;
+      abaLanc.style.display = ve ? '' : 'none';
+      if (!ve && abaLanc.classList.contains('ativa')){
+        abaLanc.classList.remove('ativa');
+        var sec = document.getElementById('pgSaldo');
+        if (sec) sec.classList.remove('ativa');
+        var primeira = document.querySelector('#abas button[data-pagina]:not([style*="none"])');
+        if (primeira) primeira.click();
+      }
+    }
   }
 
   /* ---------------- app ---------------- */
@@ -1129,7 +1145,12 @@
      devolve tudo. Serve para a pessoa nao ver o que nao lhe diz respeito. */
   function recorteProprios(){
     var s = Q.sessao();
-    return (s && s.soProprios === true && s.id) ? String(s.id) : '';
+    if (!s) return '';
+    /* Nao ve lancamento nenhum: um recorte que nao casa com ninguem. Nao pedir nada seria
+       pedir TODOS, pela convencao do vazio. */
+    if (s.verLancamentos === false) return '__ninguem__';
+    var vistos = s.usuariosVistos || [];
+    return vistos.length ? vistos.map(String).join(',') : '';
   }
 
   function carregarLanc(){

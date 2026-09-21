@@ -347,15 +347,39 @@ function recorteTeste(dados, modo) {
  * `usuarioId` vazio devolve os dados inteiros. É a convenção do projeto, e a única segura:
  * o contrário deixaria todo mundo com o painel vazio no dia em que a coluna nasceu.
  */
-function recorteProprios(dados, usuarioId) {
-  var alvo = String(usuarioId == null ? '' : usuarioId);
-  if (!alvo) return dados;
+function recorteProprios(dados, quem) {
+  /* `quem` e uma LISTA de ids — ou uma string com eles separados por virgula, que e como
+     a tela manda. Antes era um id so, de quando a unica opcao era "so os proprios". */
+  var ids = (Array.isArray(quem) ? quem : String(quem == null ? '' : quem).split(','))
+    .map(function (x) { return String(x).trim(); })
+    .filter(function (x) { return x !== ''; });
+  if (!ids.length) return dados;
+  var querido = {};
+  ids.forEach(function (id) { querido[id] = true; });
   var copia = {};
   Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
   copia.movimentos = (dados.movimentos || []).filter(function (m) {
-    return String(m.UsuarioID) === alvo;
+    return querido[String(m.UsuarioID)];
   });
   return copia;
+}
+
+/**
+ * De quem esta pessoa vê os lançamentos — a lista pronta para o recorte.
+ *
+ * Três respostas, e a ordem importa:
+ *   - não vê lançamento nenhum  → devolve o id dela mesma antecedido de nada que exista,
+ *     e quem chama trata pelo `verLancamentos`;
+ *   - lista vazia               → **todos**, a convenção do projeto;
+ *   - lista com ids            → só esses. Marcar só ela mesma é o antigo "só os próprios".
+ */
+function usuariosVistosDe(u) {
+  var lista = Array.isArray(u && u.UsuariosVistos) ? u.UsuariosVistos : [];
+  /* A compatibilidade com o `so_proprios` antigo mora AQUI, num lugar só: quem tinha a
+     marca velha e ainda não tem lista vê a si mesmo. A migração já converte no banco;
+     isto cobre o intervalo entre o deploy e a migração rodar. */
+  if (!lista.length && u && u.SoProprios === true && u.ID) return [String(u.ID)];
+  return lista.map(String);
 }
 
 function novoId(prefixo, existentes) {
@@ -431,8 +455,12 @@ function sessaoDe(u) {
     operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : [],
     // As abas do painel do escritorio, mesma convencao.
     abas: Array.isArray(u.Abas) ? u.Abas : [],
-    /* Painel restrito: entra no painel, mas so enxerga o que ela mesma lancou. */
+    /* Painel restrito: entra no painel, mas so enxerga o que ela mesma lancou. Mantido
+       para nao quebrar sessao ja guardada; quem manda agora e `usuariosVistos`. */
     soProprios: u.SoProprios === true,
+    /* Se ve lancamentos, e de quem. Lista vazia = TODOS. */
+    verLancamentos: u.VerLancamentos !== false,
+    usuariosVistos: usuariosVistosDe(u),
     /* Se esta pessoa consegue entrar no app de lancamento. Sem PIN o `loginPorPin` recusa,
        entao o painel usa isto para decidir se mostra a porta de volta — porta que leva a
        uma recusa e pior do que porta nenhuma.
@@ -1520,6 +1548,8 @@ function usuariosPublicos(usuarios) {
          "ve os lancamentos de todos" e a gravacao seguinte apagaria a restricao — e a
          renovacao da sessao a tiraria de quem ja a tinha, calada. */
       SoProprios: u.SoProprios === true,
+      VerLancamentos: u.VerLancamentos !== false,
+      UsuariosVistos: usuariosVistosDe(u),
       /* As SEIS listas de permissão voltam para o painel. Esquecer uma aqui não dá
          erro nenhum: o formulário abre com ela desmarcada e a gravação seguinte escreve
          vazio por cima do que estava salvo. Foi o que aconteceu com TiposCaixa e
@@ -1542,7 +1572,7 @@ module.exports = {
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, naoCancelados: naoCancelados,
   ehPerfilTeste: ehPerfilTeste, temTeste: temTeste, pesoTeste: pesoTeste, pesoMatriz: pesoMatriz,
   lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste,
-  recorteProprios: recorteProprios, ativo: ativo, novoId: novoId, novoToken: novoToken,
+  recorteProprios: recorteProprios, usuariosVistosDe: usuariosVistosDe, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   meuAcesso: meuAcesso,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,

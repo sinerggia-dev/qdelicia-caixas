@@ -259,59 +259,53 @@ Duas coisas que valem lembrar:
 - **Isto é a tela, não a tranca.** Vale o mesmo aviso da seção de separação de funções: a API
   não tem autorização, e um POST direto ignora qualquer filtro daqui.
 
-## Painel restrito: a pessoa vê só o que ela lançou
+## Ver lançamentos: se vê, e de quem
 
-A chave **Pode entrar no painel?** tem **três** valores, e não dois mais um interruptor ao lado:
+Duas colunas, e duas perguntas encadeadas — a segunda só faz sentido depois da primeira:
 
-| valor | `AcessoPainel` | `SoProprios` |
+| coluna | o que é | padrão |
 |---|---|---|
-| não — só o app de campo | false | false |
-| sim — vê os lançamentos de todos | true | false |
-| sim — vê apenas os lançamentos dela | true | **true** |
+| `ver_lancamentos` | vê lançamentos, sim ou não | **true** |
+| `usuarios_vistos` | de quais usuários | `[]` = **todos** |
 
-Três valores numa chave só porque a pergunta é uma só: *o que ela vê no painel?* Dois controles
-permitiriam a combinação sem sentido "vê apenas os próprios" com o painel desligado. A tradução
-dos três valores para as duas colunas mora **num lugar só**, no salvar do formulário: espalhada,
-"PROPRIOS" viraria acesso desligado em algum caminho esquecido e a pessoa perderia o painel.
+Os dois padrões estão nessa direção pelo mesmo motivo: o contrário tiraria o lançamento de
+todo mundo no dia do deploy. É a convenção "lista vazia = TODOS", que já vale nas outras seis
+listas, e `VerLancamentos !== false` — e **não** `=== true` — porque o registro antigo não tem a
+coluna, e `=== true` deixaria todos eles sem lançamentos.
 
-O recorte é feito **na porta**, por `recorteProprios(dados, usuarioId)`, do mesmo jeito que
-`recorteTeste`: estreita `dados.movimentos` uma vez e tudo o que vem depois obedece sozinho — o
-Painel de Ativos, os saldos, os extratos e a lista de Movimentos.
+Isto **substituiu** o interruptor `so_proprios`, que durou um dia: a lista diz aquilo (marcar só
+ela mesma) e diz também o que o interruptor não dizia — *"ela vê os dela e os do fulano"*. A
+migração converte quem estava na marca antiga, e `usuariosVistosDe()` entende as duas enquanto a
+migração não roda. Nunca houve ninguém marcado em produção, então a troca não mexeu em ninguém.
 
-**Vale nas DUAS telas.** A primeira versão aplicou o recorte só no painel, e a aba Lançamentos do
-app de campo continuou mostrando os de todo mundo. Restrição aplicada num lugar e não no outro não
-restringe nada: fecha a porta da frente, deixa a de trás aberta, e ainda faz quem administra
-acreditar que fechou as duas. Há uma `recorteProprios()` em cada tela, com a mesma regra, e um
-teste comparando as duas.
+O recorte é o mesmo `recorteProprios(dados, quem)`, agora com **uma lista** (ou texto separado
+por vírgula, que é como a tela manda). Ele estreita `dados.movimentos` **na porta**, como
+`recorteTeste`, e tudo o que vem depois obedece sozinho — Painel de Ativos, saldos, extratos,
+Movimentos e a aba Lançamentos do app de campo.
 
-**Uma exceção, de propósito:** o `carregarPainel()` do `index.html` **não** é recortado, nem para
-quem é restrito. Ele não alimenta lista de lançamento nenhuma — alimenta o aviso de saldo embaixo
-da origem no formulário de retorno, e é desse número que sai o alerta *"você contou mais do que o
-saldo"*, uma das guardas contra saída não lançada. Recortado, o saldo viria menor que a realidade
-e o alerta dispararia em toda devolução legítima, até a pessoa aprender a ignorá-lo — e aí ele não
-guarda mais nada. A exceção está escrita no código, para o próximo leitor não a "consertar".
+**"Não vê lançamento nenhum" pede `'__ninguem__'`, e não vazio.** Não pedir nada pediria TODOS,
+pela convenção do vazio — o contrário exato do que o admin marcou. Essa linha existe nas duas
+telas, idêntica, e há teste comparando as duas palavra por palavra.
 
-**Filtrar só a lista de Movimentos seria pior do que não filtrar.** As linhas sumiriam e os mesmos
-números continuariam somados nos cartões logo acima: a pessoa veria o total do galpão inteiro
-sobre uma tabela de três linhas, sem entender nem uma coisa nem outra. E o corte de linhas do
-servidor vem **depois** do filtro, então filtrar no navegador mostraria só os lançamentos dela
-que coubessem nas primeiras N linhas.
+**A ordem dentro de `ajustarPainel()` importa.** O laço que destrava os quadros quando a pessoa
+está ativa roda no meio da função; travar a lista de "de quem" **antes** dele não adianta nada —
+o laço desfaz. Medido na primeira versão: com o interruptor em NÃO, 3 de 3 continuavam clicáveis.
+Há uma afirmação sobre a posição, não só sobre a existência da trava.
 
-`usuarioId` vazio devolve os dados inteiros — a convenção do projeto, e a única segura: o
-contrário deixaria todo mundo com o painel vazio no dia em que a coluna nasceu. A coluna nasce
-`default false` pela mesma razão.
+**A aba Lançamentos some** do app de campo para quem não vê — some, e não fica vazia: uma aba que
+abre sem nada dentro parece quebrada, e a pessoa volta nela toda vez achando que não carregou. Se
+era ela que estava aberta, outra assume.
 
-**Não há aviso na tela de quem está restrito.** Houve uma faixa âmbar anunciando o recorte, e ela
-foi **retirada a pedido do usuário** — decisão dele, registrada aqui para não voltar por engano.
-A consequência é conhecida: quem tem o painel restrito e ainda não lançou nada vê zeros e uma
-tabela vazia, sem nada na tela dizendo por quê. Quem administra precisa saber que ligou o modo.
+**Uma exceção, de propósito:** o `carregarPainel()` do `index.html` não é recortado. Ele alimenta
+o aviso de saldo embaixo da origem no formulário de retorno, e é desse número que sai o alerta
+*"você contou mais do que o saldo"*, uma das guardas contra saída não lançada. Recortado, o saldo
+viria menor que a realidade e o alerta acusaria erro em toda devolução legítima, até a pessoa
+aprender a ignorá-lo. A exceção está escrita no código e testada.
 
-Se um dia fizer sentido reabrir o assunto, a versão mais discreta seria uma etiqueta ao lado do
-título da página, e não uma faixa na largura toda.
+**Não há aviso na tela de quem está restrito** — houve uma faixa âmbar e ela foi retirada a pedido
+do usuário. A consequência é conhecida: quem está restrito e ainda não lançou nada vê zeros.
 
-**Isto é a tela, não a tranca.** A API não tem autorização: um GET direto sem o `so` devolve tudo,
-como já devolve hoje para qualquer um. O recorte serve para a pessoa não ver o que não lhe diz
-respeito, não para guardar segredo de quem procura.
+**Isto é a tela, não a tranca.** A API não tem autorização: um GET direto sem o `so` devolve tudo.
 
 ## As três pré-condições do cadastro
 
@@ -518,11 +512,11 @@ node teste/teste_saldo.js
 node teste/teste_primeiro_acesso.js
 ```
 
-O `teste_api.js` tem **472 verificações**. Roda o roteador, as regras e os tradutores **de
+O `teste_api.js` tem **484 verificações**. Roda o roteador, as regras e os tradutores **de
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**569 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**579 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
@@ -599,7 +593,7 @@ servidor. O fluxo visual precisa de navegador e nao roda aqui; o que ele protege
 tirar o `if (r.trocarSenha)` do login faria a senha provisoria valer para sempre sem nada
 quebrar. O comportamento do servidor esta em `teste_api.js`, no bloco "primeiro acesso".
 
-O `teste/teste_permissoes.js` (**80 verificações**) é a varredura ponta a ponta do que o
+O `teste/teste_permissoes.js` (**86 verificações**) é a varredura ponta a ponta do que o
 administrador liga e desliga. Para cada permissão percorre a corrente inteira — **formulário →
 envia → servidor grava → sessão carrega → alguma tela usa** — e um elo faltando é um interruptor
 que não acende nada. Confere também a convenção "lista vazia = todos", as três pré-condições

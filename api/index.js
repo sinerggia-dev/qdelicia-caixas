@@ -113,10 +113,12 @@ async function rotaGet(p) {
     case 'pendentes':
       return { ok: true, movimentos: L.pendentes(d.movimentos, d.locais, d.tipos) };
     case 'movimentos':
-      /* Aqui o recorte entra pelo filtro que ja existia: `usuario`. Um caminho so para
-         "os lancamentos de fulano", venha ele do filtro da tela ou da permissao. */
-      return { ok: true, movimentos: L.listaMovimentos(d.movimentos, d.locais, d.tipos,
-                 d.usuarios, p.so ? Object.assign({}, p, { usuario: p.so }) : p) };
+      /* O MESMO recorte das outras rotas, e nao o filtro `usuario` — que agora seria
+         apertado demais: a permissao pode citar varios usuarios, e `usuario` prende num
+         so. O filtro continua existindo para a escolha manual da tela. */
+      var mov = L.recorteProprios(d, p.so);
+      return { ok: true, movimentos: L.listaMovimentos(mov.movimentos, d.locais, d.tipos,
+                 d.usuarios, p) };
     case 'extrato':
       return L.extrato(L.recorteProprios(d, p.so), p.local, p.de, p.ate);
     case 'extratoToken':

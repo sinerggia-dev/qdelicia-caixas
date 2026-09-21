@@ -1558,6 +1558,25 @@ console.log('\n== painel restrito: so os proprios lancamentos ==');
 
   ok(F.recorteProprios(dados, 'U008').movimentos.map((m) => m.ID).join(',') === 'M1,M3',
     'o recorte deixa só o que a pessoa lançou');
+  /* A permissao pode citar VARIOS usuarios: "ela ve os dela e os do fulano". A lista
+     chega como texto separado por virgula, que e como a tela manda. */
+  ok(F.recorteProprios(dados, 'U008,U005').movimentos.length === 3 &&
+     F.recorteProprios(dados, ['U005']).movimentos.map((m) => m.ID).join(',') === 'M2',
+    'e aceita VÁRIOS usuários, como lista ou como texto separado por vírgula — é assim ' +
+    'que "ela vê os dela e os do fulano" se diz');
+  ok(F.recorteProprios(dados, '__ninguem__').movimentos.length === 0,
+    'e um recorte que não casa com ninguém devolve nada — é assim que "não vê ' +
+    'lançamento nenhum" se diz, porque pedir vazio pediria TODOS');
+
+  /* De quem ela ve, resolvido num lugar so. */
+  ok(F.usuariosVistosDe({ ID: 'U1' }).length === 0,
+    'sem lista, vê de todos — a convenção do projeto');
+  ok(F.usuariosVistosDe({ ID: 'U1', UsuariosVistos: ['U2', 'U3'] }).join(',') === 'U2,U3',
+    'com lista, vê dos marcados');
+  /* A marca velha `so_proprios` continua entendida ate a migracao rodar. */
+  ok(F.usuariosVistosDe({ ID: 'U1', SoProprios: true }).join(',') === 'U1',
+    'e quem tinha a marca antiga de "só os próprios" vê a si mesmo, até a migração ' +
+    'converter — senão a escolha dele sumiria calada entre o deploy e a migração');
   /* Vazio devolve tudo — a convenção do projeto, e a única segura: o contrário deixaria
      todo mundo com o painel vazio no dia em que a coluna nasceu. */
   ok(F.recorteProprios(dados, '').movimentos.length === 3 &&
@@ -1577,9 +1596,9 @@ console.log('\n== painel restrito: so os proprios lancamentos ==');
     'o Painel e os saldos obedecem ao recorte');
   ok(/case 'extrato':[\s\S]{0,200}recorteProprios/.test(rota),
     'os extratos também');
-  ok(/case 'movimentos':[\s\S]{0,400}usuario: p\.so/.test(rota),
-    'e a lista de Movimentos entra pelo filtro `usuario`, que já existia — um caminho só ' +
-    'para "os lançamentos de fulano"');
+  ok(/case 'movimentos':[\s\S]{0,400}recorteProprios\(d, p\.so\)/.test(rota),
+    'e a lista de Movimentos usa o MESMO recorte das outras rotas — o filtro `usuario` ' +
+    'prenderia num usuário só, e a permissão pode citar vários');
 
   /* O corte de linhas do servidor vem DEPOIS do filtro, então filtrar na tela mostraria
      só os lançamentos da pessoa que couberam nas primeiras N linhas. */
@@ -1600,6 +1619,26 @@ console.log('\n== painel restrito: so os proprios lancamentos ==');
   const migra = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
   ok(/so_proprios boolean not null default false/.test(migra),
     'e a coluna nasce em `false`: o padrão é ver tudo, como era antes da coluna existir');
+
+  /* O PADRAO de "ve lancamentos" e SIM, dos dois lados — no banco e na leitura da sessao.
+     Qualquer um dos dois invertido tira o lancamento de todo mundo no dia do deploy, que
+     e o mesmo desastre que a convencao "lista vazia = todos" existe para evitar. */
+  ok(/ver_lancamentos boolean not null default true/.test(migra),
+    'a coluna "vê lançamentos" nasce LIGADA — desligada, o deploy tiraria a aba de todo ' +
+    'mundo de uma vez');
+  ok(F.sessaoDe({ ID: 'U1', Nome: 'x', Perfil: 'y' }).verLancamentos === true,
+    'e sem o campo a sessão diz que vê — é `!== false`, e não `=== true`: o registro ' +
+    'antigo não tem a coluna, e `=== true` deixaria todos eles sem lançamentos');
+  ok(F.sessaoDe({ ID: 'U1', Nome: 'x', Perfil: 'y', VerLancamentos: false })
+       .verLancamentos === false,
+    'e com o campo em não, diz que não vê');
+
+  /* A migracao converte quem estava na marca antiga. Sem isso a escolha sumiria calada:
+     a coluna velha continuaria la e ninguem mais a leria. */
+  ok(/update public\.usuarios set usuarios_vistos = jsonb_build_array\(id\)/.test(migra) &&
+     /where so_proprios = true/.test(migra),
+    'e a migração converte quem estava em "só os próprios" para a lista nova — sem isso ' +
+    'a escolha dele sumiria calada, com a coluna velha parada no banco');
 }
 
 console.log('\n== quais abas do painel a pessoa ve ==');

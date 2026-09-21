@@ -609,7 +609,12 @@
      nao ver o que nao lhe diz respeito, e nao para guardar segredo de quem procura. */
   function recorteProprios(){
     var s = Q.sessao();
-    return (s && s.soProprios === true && s.id) ? String(s.id) : '';
+    if (!s) return '';
+    /* Nao ve lancamento nenhum: pede um recorte que nao casa com ninguem, em vez de nao
+       pedir nada. Nao pedir seria pedir TODOS, pela convencao do vazio. */
+    if (s.verLancamentos === false) return '__ninguem__';
+    var vistos = s.usuariosVistos || [];
+    return vistos.length ? vistos.map(String).join(',') : '';
   }
 
   /* A sessao guardada e uma FOTO do login. Enquanto ela for a unica fonte, mudar a
@@ -636,7 +641,9 @@
       temPin: u.TemPin === true,
       /* Painel restrito. Faltando aqui, a sessao renovada PERDERIA o recorte e a pessoa
          passaria a ver tudo no primeiro recarregamento — calada. */
-      soProprios: u.SoProprios === true
+      soProprios: u.SoProprios === true,
+      verLancamentos: u.VerLancamentos !== false,
+      usuariosVistos: lista(u.UsuariosVistos)
     };
   }
 
@@ -3326,14 +3333,13 @@
               : 'Senha provisória: a pessoa escolhe a dela no primeiro acesso.')+'</p>'+
       '<h3 style="margin-top:20px">Acesso ao painel</h3>'+
       '<label>Pode entrar no painel?</label>'+
-      /* TRES valores na MESMA chave, e nao um interruptor novo ao lado dela. A pergunta
-         e uma so — "o que ela ve no painel?" — e dois controles para uma pergunta so
-         permitiriam a combinacao sem sentido: "ve apenas os proprios" com o painel
-         desligado, que nao quer dizer nada. */
+      /* Dois valores: entra no painel, ou nao. O "ve apenas os lancamentos dela", que
+         morou aqui por um dia, virou o quadro "Lancamentos" mais abaixo — uma lista de
+         usuarios diz isso (marcar so ela) e diz tambem o que o interruptor nao dizia:
+         "ve os dela e os de fulano". */
       '<select id="fPainel">'+
         '<option value="NAO"'+(u.AcessoPainel?'':' selected')+'>não — só o app de campo</option>'+
         '<option value="SIM"'+(u.AcessoPainel && !u.SoProprios?' selected':'')+'>sim — vê os lançamentos de todos</option>'+
-        '<option value="PROPRIOS"'+(u.AcessoPainel && u.SoProprios?' selected':'')+'>sim — vê apenas os lançamentos dela</option>'+
       '</select>'+
 '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPainelNota"></p>'+
       '<label>E-mail</label><input type="email" id="fEmail" value="'+Q.esc(u.Email||'')+'" placeholder="voce@empresa.com.br">'+
@@ -3359,6 +3365,23 @@
       /* Vem antes das listas de local de proposito: decidir SE a pessoa faz saida vem
          antes de decidir DE ONDE ela faz. A lista sai do servidor, a mesma que a gravacao
          usa para recusar — duas copias divergiriam no primeiro nome novo. */
+      /* LANCAMENTOS: se ve, e de quem. Duas perguntas encadeadas, e a segunda so faz
+         sentido depois da primeira — por isso a lista trava quando o interruptor esta em
+         NAO, com a mesma regra dos outros quadros.
+
+         Marcar NINGUEM quer dizer TODOS, a convencao do projeto. Marcar so ela mesma e o
+         que antes se chamava "ve apenas os lancamentos dela". */
+      '<h3 style="margin:18px 0 10px;font-size:15px">Lançamentos</h3>'+
+      '<label for="fVerLanc">Vê os lançamentos?</label>'+
+      '<select id="fVerLanc">'+
+        '<option value="SIM"'+(u.VerLancamentos===false?'':' selected')+'>sim</option>'+
+        '<option value="NAO"'+(u.VerLancamentos===false?' selected':'')+'>não — a aba Lançamentos some para ela</option>'+
+      '</select>'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fVerLancNota"></p>'+
+      caixaLocais('fUsuariosVistos', 'De quem ela vê os lançamentos',
+                  EQUIPE.filter(function(x){ return Q.ativo(x.Ativo); }),
+                  u.UsuariosVistos, 'Nenhum usuário cadastrado ainda.')+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fVistosNota"></p>'+
       caixaLocais('fOperacoes', 'Operação — o que aparece no app dela',
                   OPERACOES_APP, u.Operacoes, 'Nenhuma operação disponível.')+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
@@ -3452,10 +3475,13 @@
       /* "PROPRIOS" tambem e painel ligado: as abas valem para ela igual. O que muda e o
          que aparece DENTRO delas, e nao quais existem. */
       var temPainel = ativo && (ehAdmin || sel.value !== 'NAO');
-      var soProprios = !ehAdmin && sel.value === 'PROPRIOS';
+      /* Ver lancamentos: o interruptor manda na lista logo abaixo dele. */
+      var verLanc = document.getElementById('fVerLanc');
+      var veLanc = ativo && verLanc.value === 'SIM';
+      verLanc.disabled = !ativo;
 
-      /* INATIVO: nada vale. Trava os quadros todos, em vez de deixar a pessoa marcar. */
-      var quadros = ['fAbas','fOperacoes','fSaidas','fDestinos','fTiposCaixa','fMotoristas'];
+      var quadros = ['fAbas','fOperacoes','fSaidas','fDestinos','fTiposCaixa',
+                     'fMotoristas','fUsuariosVistos'];
       quadros.forEach(function(q){
         var box = document.getElementById(q);
         if (!box) return;
@@ -3488,20 +3514,13 @@
         ? 'Só depois de reativar a pessoa.'
         : (ehAdmin
             ? 'Administrador entra sempre — não dá para tirar.'
-            : (soProprios
-                ? (temSenha
-                    ? 'Painel restrito: ela vê o Painel de Ativos, os saldos, os extratos '
-                      + 'e os movimentos — mas só com os lançamentos que ela mesma fez. '
-                      + 'Os números acompanham o recorte.'
-                    : 'Painel restrito, mas ela ainda NÃO tem senha do painel — defina '
-                      + 'uma no campo Senha, acima.')
             : (sel.value === 'SIM'
                 ? (temSenha
                     ? 'Ela entra no painel com o e-mail ou o usuário, e a senha do painel.'
                     : 'Ela ainda NÃO tem senha do painel — defina uma no campo Senha, '
                       + 'acima. Sem ela o acesso fica ligado e o login recusa: o painel '
                       + 'entra por senha, e o PIN de seis números é do app de campo.')
-                : 'Sem acesso, a pessoa continua usando normalmente o app de campo.')));
+                : 'Sem acesso, a pessoa continua usando normalmente o app de campo.'));
 
       /* As abas de admin travam para quem nao e admin. Reavaliado a cada tecla do campo
          Perfil: escrever "Admin" ali destrava na hora, e apagar trava de volta. */
@@ -3528,6 +3547,34 @@
       if (ativo) avisar('fAbas', temPainel ? '' :
         'Travado porque "Pode entrar no painel?" está em NÃO, logo acima. Sem essa chave '
         + 'ela não chega ao painel, e marcar aba aqui não muda nada na tela dela.');
+
+
+      /* A lista de "de quem ela ve" trava quando o interruptor esta em NAO.
+
+         ISTO PRECISA VIR DEPOIS do laco acima. Ele reabilita as caixas de todo quadro
+         quando a pessoa esta ativa, e travar antes dele nao adianta nada: foi assim que,
+         na primeira versao, desligar o interruptor deixava a lista marcavel do mesmo
+         jeito — medido, 3 de 3 continuavam clicaveis. */
+      var caixaVistos = document.getElementById('fUsuariosVistos');
+      if (caixaVistos && ativo){
+        caixaVistos.classList.toggle('bloqueada', !veLanc);
+        caixaVistos.querySelectorAll('input[type=checkbox]').forEach(function(ch){
+          ch.disabled = !veLanc;
+        });
+        var btnVistos = document.querySelector('[data-marcatudo="fUsuariosVistos"]');
+        if (btnVistos) btnVistos.disabled = !veLanc;
+        avisar('fUsuariosVistos', veLanc ? '' :
+          'Travado porque "Vê os lançamentos?" está em NÃO, logo acima.');
+      }
+      var notaVer = document.getElementById('fVerLancNota');
+      if (notaVer) notaVer.textContent = !ativo
+        ? 'Só depois de reativar a pessoa.'
+        : (veLanc
+            ? 'A aba Lançamentos aparece no app dela, e os movimentos no painel.'
+            : 'A aba Lançamentos some do app dela, e o painel não lista movimento nenhum.');
+      var notaVistos = document.getElementById('fVistosNota');
+      if (notaVistos) notaVistos.textContent = !veLanc ? ''
+        : 'Nada marcado = todos. Marque só ela mesma para ela ver apenas o que lançou.';
 
       var notaAbas = document.getElementById('fAbasNota');
       if (notaAbas) notaAbas.textContent = !ativo
@@ -3561,6 +3608,7 @@
     document.getElementById('fPainel').addEventListener('change', ajustarPainel);
     document.getElementById('fAtivo').addEventListener('change', ajustarPainel);
     document.getElementById('fSenha').addEventListener('input', ajustarPainel);
+    document.getElementById('fVerLanc').addEventListener('change', ajustarPainel);
     ajustarPainel();
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:perfilDigitado(),
@@ -3571,7 +3619,8 @@
            AQUI, num lugar so: espalhada, "PROPRIOS" viraria acesso desligado em algum
            caminho esquecido, e a pessoa perderia o painel sem ninguem entender. */
         AcessoPainel:(document.getElementById('fPainel').value === 'NAO' ? 'NAO' : 'SIM'),
-        SoProprios:(document.getElementById('fPainel').value === 'PROPRIOS' ? 'SIM' : 'NAO'),
+        VerLancamentos:document.getElementById('fVerLanc').value,
+        UsuariosVistos:lerMarcados('fUsuariosVistos'),
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
         TiposCaixa:lerMarcados('fTiposCaixa'), Motoristas:lerMarcados('fMotoristas'),
         Operacoes:lerMarcados('fOperacoes'), Abas:lerMarcados('fAbas') };
