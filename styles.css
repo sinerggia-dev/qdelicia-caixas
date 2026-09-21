@@ -185,9 +185,20 @@ label{display:block;font-size:13px;font-weight:600;color:var(--txt2);margin:12px
 /* A lista de caixas nao tem borda propria: o contorno e por fora. */
 .itens.campo-erro{box-shadow:none;outline:2px solid var(--vermelho);outline-offset:5px;border-radius:8px}
 input,select,textarea,button{font-family:inherit;font-size:16px}
-input[type=text],input[type=number],input[type=date],input[type=password],input[type=tel],select,textarea{
+/* A LISTA DE TIPOS e uma armadilha: o que nao esta nela nasce com o visual de fabrica do
+   navegador — fundo branco, largura de ~200px — no meio de uma tela escura. Foi o que
+   aconteceu com o primeiro `type=search` do projeto.
+
+   Por isso `search` entrou aqui, e nao ganhou regra propria: campo de texto e campo de
+   texto, e duas regras para a mesma coisa divergem no primeiro ajuste. */
+input[type=text],input[type=number],input[type=date],input[type=password],input[type=tel],input[type=search],input[type=email],select,textarea{
   width:100%;padding:12px;border:1px solid var(--linha);border-radius:10px;background:var(--campo);color:var(--txt)
 }
+/* O "x" de limpar do `type=search` nasce preto no Chrome e some no campo escuro. */
+input[type=search]::-webkit-search-cancel-button{
+  filter:invert(1);opacity:.6;cursor:pointer
+}
+input[type=search]::-webkit-search-cancel-button:hover{opacity:1}
 /* O ícone do seletor de data nasce preto no Chrome — some num campo escuro, e a pessoa
    fica sem saber que dá para clicar. `invert` o vira branco sem depender de imagem. */
 input[type=date]::-webkit-calendar-picker-indicator{

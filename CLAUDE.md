@@ -288,6 +288,24 @@ No formulário, as duas não travam mais — ganham a etiqueta **"dá poder"** e
 marcada, uma nota dizendo o que aquilo permite. **A etiqueta avisa, não impede**: impedir era o
 que o pedido tirou, e conceder Cadastros não pode ser um clique igual aos outros.
 
+## A lista de tipos da regra de campo é uma armadilha
+
+`input[type=text],input[type=number],…` em `styles.css`: o tipo que **não está nessa lista** nasce
+com o visual de fábrica do navegador — **fundo branco e ~190px de largura** — no meio de uma tela
+escura. Não dá erro, não quebra nada, e só aparece quando alguém olha.
+
+Pegou duas vezes: o `type=search` da busca nova, e o `type=email` do cadastro de usuários, que
+ficou branco por semanas sem ninguém ligar o defeito à causa.
+
+Há um teste que compara **todo `type=` que as três telas usam** com a lista da regra, ignorando os
+que não são campo de texto (`button`, `checkbox`, `file`…, que têm visual próprio e que a regra
+estragaria — um `checkbox` com `width:100%` vira uma faixa). O próximo tipo novo cai ali no mesmo
+dia em que for escrito. O teste também imprime os tipos da regra que ninguém usa, sem falhar por
+isso.
+
+O `::-webkit-search-cancel-button` do `search` precisa de `filter:invert(1)` pela mesma razão do
+ícone do seletor de data: nasce preto e some no campo escuro.
+
 ## Ver lançamentos: se vê, e de quem
 
 Duas colunas, e duas perguntas encadeadas — a segunda só faz sentido depois da primeira:
@@ -608,7 +626,7 @@ O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**650 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**654 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

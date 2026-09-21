@@ -2124,6 +2124,63 @@ console.log('\n== a porta para o painel, no app de campo ==');
     'chip venceria o `hidden` e a porta apareceria para todo mundo');
 })();
 
+console.log('\n== todo tipo de campo de texto tem estilo ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* A LISTA DE TIPOS da regra de campo e uma armadilha: o que nao esta nela nasce com o
+     visual de fabrica do navegador — fundo BRANCO e ~190px de largura — no meio de uma
+     tela escura. Nao da erro, nao quebra nada, e so aparece quando alguem olha.
+
+     Aconteceu duas vezes: o `type=search` da busca nova, e o `type=email` do cadastro de
+     usuarios, que ficou branco por semanas sem ninguem ligar o defeito a causa.
+
+     Entao a afirmacao nao e sobre os tipos que existem hoje: e sobre TODO tipo que as
+     telas usam. O proximo `type=` novo cai aqui no mesmo dia em que for escrito. */
+  var iR = css.indexOf('input[type=text]');
+  var regra = css.slice(iR, css.indexOf('{', iR));
+  ok(iR > 0 && regra.indexOf('input[type=text]') === 0,
+    'o recorte pegou a lista de tipos da regra', regra);
+
+  /* Os tipos que NAO sao campo de texto: eles tem visual proprio, e entrar nesta regra os
+     estragaria — um `checkbox` com `width:100%` vira uma faixa. */
+  var FORA = ['button', 'submit', 'checkbox', 'radio', 'file', 'hidden', 'range', 'color'];
+
+  var usados = {};
+  ['index.html', 'admin.html', 'extrato.html'].forEach(function (arq) {
+    var texto = fs.readFileSync(path.join(__dirname, '..', arq), 'utf8');
+    (texto.match(/type="([a-z]+)"/g) || []).forEach(function (m) {
+      var t = m.slice(6, -1);
+      if (FORA.indexOf(t) < 0) usados[t] = (usados[t] || 0) + 1;
+    });
+  });
+
+  var faltando = Object.keys(usados).filter(function (t) {
+    return regra.indexOf('input[type=' + t + ']') < 0;
+  });
+  ok(Object.keys(usados).length >= 5 && faltando.length === 0,
+    'todo tipo de campo de texto que as telas usam está na regra — fora dela, o campo ' +
+    'nasce branco e estreito no meio da tela escura, sem erro nenhum em lugar nenhum',
+    { usados: Object.keys(usados).sort(), faltando: faltando });
+
+  /* E o contrario tambem: tipo na regra que ninguem usa e enfeite que o proximo leitor
+     vai tentar entender. Nao falha o teste — so aparece na saida, para nao virar dogma. */
+  var naRegra = (regra.match(/input\[type=(\w+)\]/g) || [])
+    .map(function (m) { return m.slice(11, -1); });
+  var sobrando = naRegra.filter(function (t) { return !usados[t]; });
+  ok(true, 'tipos na regra que nenhuma tela usa hoje: ' +
+    (sobrando.length ? sobrando.join(', ') : 'nenhum'));
+
+  /* O "x" de limpar do `search` nasce preto no Chrome e some no campo escuro — a mesma
+     historia do icone do seletor de data, que ja tem a regra dele logo acima. */
+  /* A REGRA que clareia, e nao o seletor solto: ele aparece duas vezes (a regra e o
+     `:hover`), entao procurar o seletor acha o `:hover` mesmo com a regra desligada. */
+  ok(/input\[type=search\]::-webkit-search-cancel-button\{\s*filter:invert\(1\)/
+      .test(css),
+    'e o "x" de limpar da busca é clareado — preto, ele some no campo escuro, como o ' +
+    'ícone do calendário já sumia antes de ganhar a regra dele');
+})();
+
 console.log('\n== a busca da aba Lancamentos ==');
 (function () {
   var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
