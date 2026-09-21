@@ -1496,32 +1496,130 @@ console.log('\n== as abas de admin travam no cadastro ==');
   ok(/#fAbas input\[data-trava\]/.test(corpoAjuste) && /ch\.disabled = !ehAdmin/.test(corpoAjuste),
     'a trava é reavaliada junto com o Perfil: escrever "Admin" destrava na hora, e apagar ' +
     'trava de volta', corpoAjuste.slice(-400));
-  ok(/addEventListener\('input', ajustarPainel\)/.test(adm),
-    "e é `input`, não `change`: em campo de texto o `change` só dispara ao sair");
 
-  /* Rodando: o mesmo corpo, com um DOM de mentira, nos dois perfis. */
-  function bancada(perfil) {
-    var chs = [{ disabled: false, parentNode: { classList: { toggle: function () {} } } },
-               { disabled: false, parentNode: { classList: { toggle: function () {} } } }];
-    var nota = { textContent: '' };
-    var els = { fPainel: { disabled: false, value: '' }, fPainelNota: { textContent: '' },
-                fPerfilNota: { textContent: '' }, fAbasNota: nota };
+  /* --- as TRES pre-condicoes do formulario -------------------------------- */
+  /* A varredura das permissoes mostrou que nenhuma corrente esta quebrada entre o
+     formulario e a tela: tudo o que se marca, o servidor grava, a sessao carrega e alguma
+     tela usa. O erro estava no formulario, que aceitava tres combinacoes INERTES:
+
+       - abas marcadas com "Pode entrar no painel?" em NAO;
+       - qualquer permissao para quem esta inativo;
+       - acesso ao painel ligado para quem nao tem SENHA de painel.
+
+     Marca que nao faz nada e pior do que marca ausente: ela diz que fez, e quem marcou
+     vai embora achando que resolveu. Foi o que aconteceu com cinco abas marcadas para
+     alguem que nao entrava no painel.
+
+     A bancada roda o corpo de `ajustarPainel` de verdade, com um DOM de mentira. */
+  function bancada(o) {
+    o = o || {};
+    var abas = [{ disabled: false, dataset: { trava: '1' },
+                  parentNode: { classList: { toggle: function () {} } } },
+                { disabled: false, dataset: {},
+                  parentNode: { classList: { toggle: function () {} } } }];
+    var classe = {};
+    function lista(id) {
+      return { classList: { toggle: function (c, v) { classe[id] = !!v; } },
+               querySelectorAll: function () { return id === 'fAbas' ? abas : []; } };
+    }
+    var els = {
+      fPainel: { disabled: false, value: o.painel === false ? 'NAO' : 'SIM' },
+      fAtivo: { value: o.ativo === false ? 'NAO' : 'SIM' },
+      fSenha: { value: o.senhaDigitada || '' },
+      fPainelNota: { textContent: '' }, fAbasNota: { textContent: '' },
+      fAtivoNota: { textContent: '' }, fPerfilNota: { textContent: '' },
+      fAbas: lista('fAbas'), fOperacoes: lista('fOperacoes'), fSaidas: lista('fSaidas'),
+      fDestinos: lista('fDestinos'), fTiposCaixa: lista('fTiposCaixa'),
+      fMotoristas: lista('fMotoristas')
+    };
+    var botoes = [{ disabled: false }];
     var doc = {
       getElementById: function (id) { return els[id] || null; },
-      querySelectorAll: function (sel) { return sel.indexOf('data-trava') > 0 ? chs : []; }
+      querySelectorAll: function (sel) {
+        if (sel.indexOf('data-trava') > 0) return abas;
+        if (sel.indexOf('data-marcatudo') >= 0) return botoes;
+        return [];
+      },
+      querySelector: function () { return botoes[0]; }
     };
-    new Function('document', 'perfilDigitado', 'PERFIS', 'COM_PODER',
+    new Function('document', 'perfilDigitado', 'PERFIS', 'COM_PODER', 'TEM_SENHA_PAINEL',
       corpoAjuste + '\n ajustarPainel();')(
-      doc, function () { return perfil; }, ['Gerente'], { ADMIN: 'x' });
-    return { travadas: chs.filter(function (c) { return c.disabled; }).length, nota: nota.textContent };
+      doc, function () { return o.perfil || 'Gerente'; }, ['Gerente'], { ADMIN: 'x' },
+      o.temSenha === true);
+    return {
+      travadas: abas.filter(function (c) { return c.disabled; }).length,
+      notaAbas: els.fAbasNota.textContent,
+      notaPainel: els.fPainelNota.textContent,
+      notaAtivo: els.fAtivoNota.textContent,
+      abasBloqueadas: !!classe.fAbas,
+      saidasBloqueadas: !!classe.fSaidas,
+      marcarTudo: botoes[0].disabled
+    };
   }
 
-  var ger = bancada('Gerente');
-  ok(ger.travadas === 2 && /travados/.test(ger.nota),
-    'para um Gerente as duas travam, e a nota explica', ger);
-  var adm2 = bancada('Admin');
-  ok(adm2.travadas === 0 && !/travados/.test(adm2.nota),
+  /* --- a trava de admin, que ja existia ----------------------------------- */
+  var ger = bancada({ perfil: 'Gerente', temSenha: true });
+  ok(ger.travadas === 1 && /travados/.test(ger.notaAbas),
+    'para um Gerente a aba de admin trava, e a nota explica', ger);
+  var adm2 = bancada({ perfil: 'Admin', temSenha: true });
+  ok(adm2.travadas === 0 && !/travados/.test(adm2.notaAbas),
     'e para um Admin nenhuma trava — a nota some junto', adm2);
+
+  /* --- 1. abas sem o painel: O CASO QUE ACONTECEU ------------------------- */
+  var semPainel = bancada({ perfil: 'Conferente', painel: false, temSenha: true });
+  ok(semPainel.abasBloqueadas && semPainel.travadas === 2,
+    'com "Pode entrar no painel?" em NÃO, as abas ficam TRAVADAS — foi assim que cinco ' +
+    'abas acabaram marcadas para quem não chega ao painel, e nada na tela dizia por quê',
+    semPainel);
+  ok(/Ligue "Pode entrar no painel\?"/.test(semPainel.notaAbas) &&
+     /não faz efeito/.test(semPainel.notaAbas),
+    'e a nota diz QUAL chave ligar, não só que está bloqueado', semPainel.notaAbas);
+  ok(semPainel.marcarTudo === true,
+    'e o "marcar todos" das abas também desliga — senão ele reintroduziria em um clique ' +
+    'tudo o que a trava acabou de recusar');
+
+  var comPainel = bancada({ perfil: 'Conferente', painel: true, temSenha: true });
+  ok(!comPainel.abasBloqueadas && /Nada marcado = todas/.test(comPainel.notaAbas),
+    'e ligando a chave, as abas voltam a valer na hora', comPainel);
+
+  /* --- 2. inativo: NENHUMA permissao vale --------------------------------- */
+  var inativo = bancada({ perfil: 'Conferente', ativo: false, temSenha: true });
+  ok(inativo.saidasBloqueadas && inativo.abasBloqueadas,
+    'quem está INATIVO tem todos os quadros travados: ela não entra em lugar nenhum, ' +
+    'então nenhuma permissão vale', inativo);
+  ok(/Inativo/.test(inativo.notaAtivo) && /nenhuma permissão/.test(inativo.notaAtivo),
+    'e a nota diz isso onde a pessoa está olhando', inativo.notaAtivo);
+
+  /* --- 3. acesso ligado sem senha de painel ------------------------------- */
+  /* O painel entra por SENHA; o PIN de seis numeros e do app de campo. Liberar o acesso
+     sem senha e ligar uma chave para uma porta que continua recusando. */
+  var semSenha = bancada({ perfil: 'Conferente', painel: true, temSenha: false });
+  ok(/NÃO tem senha do painel/.test(semSenha.notaPainel),
+    'ligar o acesso para quem não tem senha de painel avisa na hora — sem isso a chave ' +
+    'fica ligada e o login recusa, e ninguém entende por quê', semSenha.notaPainel);
+  ok(/PIN de seis números é do app de campo/.test(semSenha.notaPainel),
+    'e diz por que o PIN do app não serve — é a confusão natural entre as duas senhas');
+  var digitou = bancada({ perfil: 'Conferente', painel: true, temSenha: false,
+                          senhaDigitada: 'nova123' });
+  ok(!/NÃO tem senha/.test(digitou.notaPainel),
+    'e o aviso some assim que uma senha é digitada, sem precisar salvar para descobrir',
+    digitou.notaPainel);
+
+  /* --- os gatilhos -------------------------------------------------------- */
+  /* Faltando um, a tela mente justamente no instante em que a pessoa mexe naquele campo.
+     Foi o `fPainel` que faltou: ele mudava e as abas seguiam marcáveis e mudas. */
+  [['fPerfil', 'input'], ['fPainel', 'change'], ['fAtivo', 'change'], ['fSenha', 'input']]
+    .forEach(function (par) {
+      var re = new RegExp("getElementById\\('" + par[0] + "'\\)\\.addEventListener\\('" +
+                          par[1] + "', ajustarPainel\\)");
+      ok(re.test(adm),
+        'o campo ' + par[0] + ' reavalia as pré-condições (`' + par[1] + '`) — sem isso a ' +
+        'tela mente no instante em que a pessoa mexe nele');
+    });
+
+  ok(/\.marcalista\.bloqueada\{opacity/.test(css),
+    'e o quadro bloqueado fica apagado — apagado, e não sumido: sumir esconderia que a ' +
+    'permissão existe, e é justamente ela que a pessoa procura');
 
   /* --- "marcar todos" nao pode desfazer a trava --------------------------- */
   ok(/input\[type=checkbox\]:not\(:disabled\)/.test(adm),

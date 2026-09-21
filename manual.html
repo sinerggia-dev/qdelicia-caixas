@@ -713,7 +713,13 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p><em>Ajustes</em> e <em>Cadastros</em> são do administrador. Elas aparecem na lista, mas <strong>travadas</strong>, com a etiqueta <em>só admin</em> ao lado — marcá-las para outro perfil não faria efeito nenhum na tela dela. Escrever <code>Admin</code> no campo Perfil destrava as duas na hora.</p>
   <div class="regra">
     <span class="rot">Se uma aba não aparece para a pessoa</span>
-    <p>Confira nesta ordem: a chave <em>Pode entrar no painel?</em> está ligada; a aba está marcada aqui; e ela não é <em>Ajustes</em> nem <em>Cadastros</em>, que só o Admin vê.</p>
+    <p>O formulário não deixa mais você marcar o que não vai funcionar: quando uma <strong>pré-condição</strong> está desligada, o quadro fica apagado e uma nota diz qual chave ligar. São três:</p>
+    <ul>
+      <li><strong>Ativo</strong> em não — a pessoa não entra em lugar nenhum, e <em>nenhuma</em> permissão vale</li>
+      <li><strong>Pode entrar no painel?</strong> em não — as abas não valem, porque ela não chega ao painel</li>
+      <li><strong>Sem senha do painel</strong> — o acesso fica ligado e o login recusa mesmo assim. São duas senhas diferentes: o painel entra por <em>senha</em>, e o PIN de seis números é do app de campo</li>
+    </ul>
+    <p>Confira nesta ordem: a chave <em>Pode entrar no painel?</em> está ligada; a pessoa tem senha do painel; a aba está marcada aqui; e ela não é <em>Ajustes</em> nem <em>Cadastros</em>, que só o Admin vê.</p>
     <p>A mudança vale na <strong>próxima vez que a pessoa abrir a página</strong> — não é preciso sair e entrar. O que não acontece é a tela dela mudar no mesmo segundo: se ela está com o painel aberto agora, precisa recarregar.</p>
     <p><strong>E confira por onde ela chega ao painel.</strong> Quem entra pelo app de campo tem um botão <strong>▦ Painel</strong> no alto da tela — ele só aparece para quem tem a chave <em>Pode entrar no painel?</em> ligada. Sem essa chave, as abas marcadas aqui não adiantam: a pessoa nunca chega ao painel para vê-las.</p>
     <p>No painel, o caminho de volta é o <strong>↩ Lançamentos</strong>, no mesmo lugar. Ele só aparece para quem tem <strong>senha de lançamento</strong> — sem ela o app de campo não deixa entrar, e o botão levaria a uma recusa.</p>
@@ -857,7 +863,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p style="margin-top:18px">As fotos ficam no armazenamento do Supabase, e o link aparece no extrato. Lançamentos antigos podem ter assinatura anexada — o campo saiu da tela em setembro/2026, mas o que já foi gravado continua lá.</p>
 
   <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode as duas suítes principais:</p>
-  <div class="formula">node teste/teste_api.js   → 462 verificações das regras<br>node teste/teste_tela.js  → 532 verificações das telas</div>
+  <div class="formula">node teste/teste_api.js   → 462 verificações das regras<br>node teste/teste_tela.js  → 545 verificações das telas<br>node teste/teste_permissoes.js → 74 verificações das permissões</div>
   <p>A primeira executa as regras de produção contra um banco falso em memória — sem rede e sem chave. A segunda lê o HTML e o JavaScript das páginas e confere que cada filtro, coluna e botão está ligado dos dois lados: um campo que aparece na barra mas não viaja no pedido, ou uma coluna com cabeçalho e sem célula, falha ali em vez de falhar na tela de quem usa.</p>
   <p class="nota">Mexeu em <code>app.js</code> ou <code>styles.css</code>? Rode <code>python scripts/versionar.py</code> antes de commitar. Não há passo de compilação, e sem isso o navegador continua servindo o arquivo antigo do cache — às vezes com HTML novo e JavaScript velho, que é pior do que só estar velho.</p>
 

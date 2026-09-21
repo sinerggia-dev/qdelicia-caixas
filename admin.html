@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=f20f4a3c">
+<link rel="stylesheet" href="styles.css?v=ba657665">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -3351,6 +3351,7 @@
       '</select>'+
       // O selecionado precisa vir marcado: sem isto, editar um usuário desativado o
       // reativava em silêncio, porque o formulário devolvia sempre "sim".
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fAtivoNota"></p>'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(u.Ativo)?' selected':'')+'>sim</option>'+
         '<option value="NAO"'+(Q.ativo(u.Ativo)?'':' selected')+'>não</option></select>'+
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
@@ -3379,29 +3380,100 @@
     var COM_PODER = { ADMIN:'faz os cadastros e as correções, e entra sempre no painel.',
                       CONFERENTE:'confere a contagem na chegada do galpão.' };
 
+    /* O formulario nao pode aceitar marca que nao faz efeito: ela diz que fez, e quem
+       marcou vai embora achando que resolveu. Foram cinco abas marcadas para alguem com
+       "Pode entrar no painel?" em NAO — na tela dele nao mudou nada, e nada na tela do
+       cadastro dizia por que.
+
+       Tres pre-condicoes, e cada uma desliga o que depende dela:
+
+         ATIVO       — desligado, NENHUMA permissao vale: a pessoa nao entra em lugar
+                       nenhum. Entao todos os quadros de permissao ficam travados;
+         PAINEL      — desligado, as abas nao valem, porque ela nao chega ao painel;
+         SENHA       — sem senha de painel, o acesso ligado ainda nao a deixa entrar: o
+                       painel entra por SENHA, e o PIN de seis numeros e do app de campo.
+
+       Cada uma e dita onde a pessoa esta olhando, e nao num aviso geral no fim. */
+    /* Se esta pessoa JA tem senha de painel. Vem do cadastro, e nao do campo — o campo
+       so tem o que for digitado agora. */
+    var TEM_SENHA_PAINEL = u.TemSenha === true;
+
     function ajustarPainel(){
       var perfil = perfilDigitado();
       var ehAdmin = perfil.toUpperCase() === 'ADMIN';
       var sel = document.getElementById('fPainel');
-      sel.disabled = ehAdmin;
+      var ativo = document.getElementById('fAtivo').value === 'SIM';
+      sel.disabled = ehAdmin || !ativo;
       if (ehAdmin) sel.value = 'SIM';
-      document.getElementById('fPainelNota').textContent = ehAdmin
-        ? 'Administrador entra sempre — não dá para tirar.'
-        : 'Sem acesso, a pessoa continua usando normalmente o app de campo.';
+      var temPainel = ativo && (ehAdmin || sel.value === 'SIM');
+
+      /* INATIVO: nada vale. Trava os quadros todos, em vez de deixar a pessoa marcar. */
+      var quadros = ['fAbas','fOperacoes','fSaidas','fDestinos','fTiposCaixa','fMotoristas'];
+      quadros.forEach(function(q){
+        var box = document.getElementById(q);
+        if (!box) return;
+        box.classList.toggle('bloqueada', !ativo);
+        box.querySelectorAll('input[type=checkbox]').forEach(function(ch){
+          if (!ativo) ch.disabled = true;
+          else if (!ch.dataset.trava) ch.disabled = false;
+        });
+      });
+      document.querySelectorAll('[data-marcatudo]').forEach(function(b){
+        b.disabled = !ativo;
+      });
+      var notaAtivo = document.getElementById('fAtivoNota');
+      if (notaAtivo) notaAtivo.textContent = ativo ? ''
+        : 'Inativo: a pessoa não entra em lugar nenhum, e nenhuma permissão abaixo vale. '
+          + 'Ligue aqui antes de marcar.';
+
+      /* SENHA do painel. Liberar o acesso sem senha e liberar uma porta que nao abre: o
+         painel entra por SENHA, e o PIN de seis numeros e do app de campo. */
+      var temSenha = TEM_SENHA_PAINEL ||
+        !!document.getElementById('fSenha').value;
+      document.getElementById('fPainelNota').textContent = !ativo
+        ? 'Só depois de reativar a pessoa.'
+        : (ehAdmin
+            ? 'Administrador entra sempre — não dá para tirar.'
+            : (sel.value === 'SIM'
+                ? (temSenha
+                    ? 'Ela entra no painel com o e-mail ou o usuário, e a senha do painel.'
+                    : 'Ela ainda NÃO tem senha do painel — defina uma no campo Senha, '
+                      + 'acima. Sem ela o acesso fica ligado e o login recusa: o painel '
+                      + 'entra por senha, e o PIN de seis números é do app de campo.')
+                : 'Sem acesso, a pessoa continua usando normalmente o app de campo.'));
 
       /* As abas de admin travam para quem nao e admin. Reavaliado a cada tecla do campo
          Perfil: escrever "Admin" ali destrava na hora, e apagar trava de volta. */
       var travadas = 0;
       document.querySelectorAll('#fAbas input[data-trava]').forEach(function(ch){
-        ch.disabled = !ehAdmin;
+        ch.disabled = !ehAdmin || !ativo;
         ch.parentNode.classList.toggle('travada', !ehAdmin);
         if (!ehAdmin) travadas++;
       });
+
+      /* PAINEL desligado: as abas inteiras ficam travadas. Marcar aba para quem nao
+         entra no painel e o erro que trouxe tudo isto. */
+      var caixaAbas = document.getElementById('fAbas');
+      if (caixaAbas && ativo){
+        caixaAbas.classList.toggle('bloqueada', !temPainel);
+        caixaAbas.querySelectorAll('input[type=checkbox]').forEach(function(ch){
+          if (!temPainel) ch.disabled = true;
+          else if (!ch.dataset.trava) ch.disabled = false;
+        });
+        var btnTudo = document.querySelector('[data-marcatudo="fAbas"]');
+        if (btnTudo) btnTudo.disabled = !temPainel;
+      }
+
       var notaAbas = document.getElementById('fAbasNota');
-      if (notaAbas) notaAbas.textContent = 'Nada marcado = todas.' + (travadas
-        ? ' Ajustes e Cadastros são do administrador: ficam travados aqui porque marcá-los'
-          + ' não faria efeito nenhum na tela dela.'
-        : '');
+      if (notaAbas) notaAbas.textContent = !ativo
+        ? 'A pessoa está inativa: nenhuma aba vale.'
+        : (!temPainel
+            ? 'Ligue "Pode entrar no painel?" acima. Sem isso ela não chega ao painel, '
+              + 'e marcar aba aqui não faz efeito nenhum na tela dela.'
+            : 'Nada marcado = todas.' + (travadas
+                ? ' Ajustes e Cadastros são do administrador: ficam travados aqui porque'
+                  + ' marcá-los não faria efeito nenhum na tela dela.'
+                : ''));
 
       /* Um perfil escrito agora nasce sem poder nenhum. Dizer isso na hora evita a
          armadilha de criar "SUPERVISOR" esperando que ele administre alguma coisa. */
@@ -3417,7 +3489,13 @@
     }
     // `input` e não `change`: em campo de texto o change só dispara ao sair, e a nota
     // ficaria mentindo enquanto a pessoa digita.
+    /* Os quatro campos de que as pre-condicoes dependem. Faltando um, a tela passa a
+       mentir justamente no instante em que a pessoa mexe nele — e foi um desses que
+       faltou: o `fPainel` mudava e as abas continuavam marcaveis e mudas. */
     document.getElementById('fPerfil').addEventListener('input', ajustarPainel);
+    document.getElementById('fPainel').addEventListener('change', ajustarPainel);
+    document.getElementById('fAtivo').addEventListener('change', ajustarPainel);
+    document.getElementById('fSenha').addEventListener('input', ajustarPainel);
     ajustarPainel();
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:perfilDigitado(),

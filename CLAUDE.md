@@ -259,6 +259,37 @@ Duas coisas que valem lembrar:
 - **Isto é a tela, não a tranca.** Vale o mesmo aviso da seção de separação de funções: a API
   não tem autorização, e um POST direto ignora qualquer filtro daqui.
 
+## As três pré-condições do cadastro
+
+Um administrador marcou cinco abas do painel para um conferente e nada mudou na tela dele. A
+marca estava gravada certinha no banco: o que faltava era a chave **Pode entrar no painel?**,
+desligada dois campos acima. O formulário aceitou as cinco marcas e não disse nada.
+
+A varredura que veio depois (`teste/teste_permissoes.js`) mostrou que **nenhuma corrente estava
+quebrada**: tudo o que o formulário manda, o servidor grava; tudo o que grava, a sessão carrega;
+tudo o que a sessão carrega, alguma tela usa. O erro não era de encanamento. Era o formulário
+aceitando combinações **inertes**.
+
+São três, e cada uma desliga o que depende dela, em `ajustarPainel()`:
+
+| pré-condição | o que fica sem efeito | o que a tela diz |
+|---|---|---|
+| **Ativo** desligado | **tudo** — a pessoa não entra em lugar nenhum | todos os quadros travados, nota no campo Ativo |
+| **Pode entrar no painel?** em NÃO | as **Abas** — ela não chega ao painel | quadro travado, nota apontando a chave |
+| **sem senha de painel** | o acesso ligado ainda recusa no login | nota no campo, explicando que o PIN de 6 números é do app de campo |
+
+A terceira é a mais traiçoeira: são **duas senhas diferentes**. O painel entra por senha; o PIN
+de seis números é do app de campo. Liberar o acesso sem definir a senha do painel é ligar uma
+chave para uma porta que continua recusando, e a confusão entre as duas é natural.
+
+`ajustarPainel()` é reavaliada por **quatro** campos — `fPerfil` (`input`), `fPainel` (`change`),
+`fAtivo` (`change`) e `fSenha` (`input`). Faltando um, a tela mente justamente no instante em que
+a pessoa mexe nele. Foi o `fPainel` que faltava: ele mudava e as abas seguiam marcáveis e mudas.
+
+**Marca que não faz nada é pior do que marca ausente: ela diz que fez.** É a mesma razão pela qual
+as abas de admin travam para quem não é admin, e pela qual o quadro bloqueado fica **apagado e não
+sumido** — sumir esconderia que a permissão existe, e é justamente ela que a pessoa procura.
+
 ## A permissão mudada chega a quem já está logado
 
 `Q.sessao()` é uma **foto tirada no login**. Enquanto ela for a única fonte, mudar as abas (ou
@@ -437,7 +468,7 @@ O `teste_api.js` tem **462 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**532 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**545 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
@@ -513,6 +544,17 @@ O `teste/teste_primeiro_acesso.js` (29 verificacoes) le o HTML das duas telas e 
 servidor. O fluxo visual precisa de navegador e nao roda aqui; o que ele protege e o desvio:
 tirar o `if (r.trocarSenha)` do login faria a senha provisoria valer para sempre sem nada
 quebrar. O comportamento do servidor esta em `teste_api.js`, no bloco "primeiro acesso".
+
+O `teste/teste_permissoes.js` (**74 verificações**) é a varredura ponta a ponta do que o
+administrador liga e desliga. Para cada permissão percorre a corrente inteira — **formulário →
+envia → servidor grava → sessão carrega → alguma tela usa** — e um elo faltando é um interruptor
+que não acende nada. Confere também a convenção "lista vazia = todos", as três pré-condições
+acima e se a permissão gravada **chega** a quem já está logado.
+
+A última verificação do primeiro bloco é a que segura o arquivo no tempo: ela compara a lista de
+permissões da varredura com o que o formulário de fato envia. Uma permissão nova que entre no
+salvar e não na lista escaparia da varredura inteira, calada — e é exatamente assim que a
+próxima passaria despercebida.
 
 O `teste/teste_backend.js` testa o backend antigo do Apps Script (38 verificações), que continua
 em `apps-script/` como referência e rota de volta. Pode apagar os dois quando a migração estiver
