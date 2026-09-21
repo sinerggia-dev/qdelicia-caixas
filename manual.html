@@ -710,6 +710,12 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 
   <h4 style="margin:16px 0 6px;font-size:14px">O que cada um pode ver no painel</h4>
   <p><strong>Abas do painel</strong> marca, uma a uma, quais das sete abas do escritório aquela pessoa enxerga. Um gerente pode ver o Painel de Ativos e os Extratos sem ver Movimentos; um conferente pode entrar só para consultar.</p>
+  <div class="regra">
+    <span class="rot">Painel restrito: só os lançamentos dela</span>
+    <p>A chave <strong>Pode entrar no painel?</strong> tem três valores. O terceiro — <em>sim — vê apenas os lançamentos dela</em> — deixa a pessoa entrar no painel normalmente, com as abas que você marcar, mas <strong>tudo</strong> ali mostra só o que ela mesma lançou.</p>
+    <p>O recorte vale para o Painel de Ativos, os saldos, os extratos e os movimentos. Os <strong>totais dos cartões acompanham</strong> — senão ela veria o número do galpão inteiro em cima de uma tabela de três linhas.</p>
+    <p>Quem está nesse modo vê uma <strong>faixa âmbar no alto</strong> dizendo que o painel está recortado. Sem ela, os números seriam lidos como os da operação e pareceria que o galpão parou.</p>
+  </div>
   <p><em>Ajustes</em> e <em>Cadastros</em> são do administrador. Elas aparecem na lista, mas <strong>travadas</strong>, com a etiqueta <em>só admin</em> ao lado — marcá-las para outro perfil não faria efeito nenhum na tela dela. Escrever <code>Admin</code> no campo Perfil destrava as duas na hora.</p>
   <div class="regra">
     <span class="rot">Se uma aba não aparece para a pessoa</span>
@@ -863,7 +869,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p style="margin-top:18px">As fotos ficam no armazenamento do Supabase, e o link aparece no extrato. Lançamentos antigos podem ter assinatura anexada — o campo saiu da tela em setembro/2026, mas o que já foi gravado continua lá.</p>
 
   <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode as duas suítes principais:</p>
-  <div class="formula">node teste/teste_api.js   → 462 verificações das regras<br>node teste/teste_tela.js  → 545 verificações das telas<br>node teste/teste_permissoes.js → 74 verificações das permissões</div>
+  <div class="formula">node teste/teste_api.js   → 472 verificações das regras<br>node teste/teste_tela.js  → 565 verificações das telas<br>node teste/teste_permissoes.js → 80 verificações das permissões</div>
   <p>A primeira executa as regras de produção contra um banco falso em memória — sem rede e sem chave. A segunda lê o HTML e o JavaScript das páginas e confere que cada filtro, coluna e botão está ligado dos dois lados: um campo que aparece na barra mas não viaja no pedido, ou uma coluna com cabeçalho e sem célula, falha ali em vez de falhar na tela de quem usa.</p>
   <p class="nota">Mexeu em <code>app.js</code> ou <code>styles.css</code>? Rode <code>python scripts/versionar.py</code> antes de commitar. Não há passo de compilação, e sem isso o navegador continua servindo o arquivo antigo do cache — às vezes com HTML novo e JavaScript velho, que é pior do que só estar velho.</p>
 

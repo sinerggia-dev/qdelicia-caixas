@@ -513,10 +513,24 @@ tr.ruim{background:var(--vermelho-claro)}
 .marca.travada input{cursor:not-allowed}
 /* Quadro inteiro sem efeito, porque a pre-condicao dele esta desligada — a chave do
    painel, ou o Ativo. Apagado e sem clique: marcar aqui nao mudaria nada na tela da
-   pessoa, e uma marca que nao faz nada e pior do que marca nenhuma, porque diz que fez.
-   A nota ao lado diz QUAL chave ligar. */
+   pessoa, e uma marca que nao faz nada e pior do que marca nenhuma, porque diz que fez. */
 .marcalista.bloqueada{opacity:.45}
 .marcalista.bloqueada .marca{cursor:not-allowed}
+/* E o motivo, ACIMA da lista. Embaixo dela nao serve: a lista rola, e a frase que explica
+   a trava cai fora da tela — quem abre o cadastro ve um bloco morto e nenhuma razao. Em
+   ambar porque e um aviso, e nao um erro: nada esta quebrado, falta ligar uma chave. */
+.aviso-trava{background:var(--ambar-fraco,rgba(240,180,60,.12));
+  border:1px solid var(--ambar,#f0b43c);border-radius:var(--raio);
+  padding:8px 11px;margin-bottom:8px;font-size:12.5px;line-height:1.45;
+  color:var(--ambar-forte,#f0b43c)}
+.aviso-trava[hidden]{display:none}
+/* O aviso do painel restrito. Mesma familia do aviso de trava, e pela mesma razao: a
+   tela mostra menos do que existe, e quem le precisa saber disso ANTES de ler o numero. */
+.aviso-recorte{background:var(--ambar-fraco,rgba(240,180,60,.12));
+  border:1px solid var(--ambar,#f0b43c);border-radius:var(--raio);
+  padding:10px 14px;margin:0 0 14px;font-size:13px;line-height:1.5;
+  color:var(--ambar-forte,#f0b43c)}
+.aviso-recorte[hidden]{display:none}
 
 .ret-pop .ret-acao{color:var(--marca-txt);justify-content:center;font-size:12.5px}
 .ret-pop .ret-acao:hover:not(:disabled){background:var(--surface-2)}

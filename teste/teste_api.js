@@ -1547,6 +1547,61 @@ console.log('\n== reler a propria permissao ==');
     'e a rota existe, passando o id pedido — sem ela a regra não chega à tela');
 }
 
+console.log('\n== painel restrito: so os proprios lancamentos ==');
+{
+  const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  const dados = {
+    movimentos: [{ ID: 'M1', UsuarioID: 'U008' }, { ID: 'M2', UsuarioID: 'U005' },
+                 { ID: 'M3', UsuarioID: 'U008' }],
+    locais: [{ ID: 'L1' }], tipos: [{ ID: 'T1' }]
+  };
+
+  ok(F.recorteProprios(dados, 'U008').movimentos.map((m) => m.ID).join(',') === 'M1,M3',
+    'o recorte deixa só o que a pessoa lançou');
+  /* Vazio devolve tudo — a convenção do projeto, e a única segura: o contrário deixaria
+     todo mundo com o painel vazio no dia em que a coluna nasceu. */
+  ok(F.recorteProprios(dados, '').movimentos.length === 3 &&
+     F.recorteProprios(dados, null).movimentos.length === 3,
+    'e sem recorte devolve tudo — invertido, o deploy esvaziaria o painel de todo mundo');
+  ok(F.recorteProprios(dados, 'U008').locais.length === 1,
+    'os locais e os tipos seguem inteiros: o recorte é dos LANÇAMENTOS, não do cadastro');
+  ok(dados.movimentos.length === 3,
+    'e o original não é alterado — o recorte copia, senão a próxima chamada da mesma ' +
+    'requisição já veria os dados mutilados');
+
+  /* O recorte tem de valer para TUDO que sai dos lançamentos. Filtrar só a lista de
+     Movimentos esconderia as linhas e deixaria os mesmos números somados nos cartões
+     logo acima — a pessoa veria o total do galpão inteiro sobre uma tabela de 3 linhas. */
+  const rota = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  ok(/case 'painel':[\s\S]{0,400}recorteProprios/.test(rota),
+    'o Painel e os saldos obedecem ao recorte');
+  ok(/case 'extrato':[\s\S]{0,200}recorteProprios/.test(rota),
+    'os extratos também');
+  ok(/case 'movimentos':[\s\S]{0,400}usuario: p\.so/.test(rota),
+    'e a lista de Movimentos entra pelo filtro `usuario`, que já existia — um caminho só ' +
+    'para "os lançamentos de fulano"');
+
+  /* O corte de linhas do servidor vem DEPOIS do filtro, então filtrar na tela mostraria
+     só os lançamentos da pessoa que couberam nas primeiras N linhas. */
+  const muitos = { movimentos: [], locais: [], tipos: [] };
+  for (let i = 0; i < 20; i++) {
+    muitos.movimentos.push({ ID: 'X' + i, UsuarioID: i % 2 ? 'U005' : 'U008',
+      Tipo: 'SAIDA', DataRef: new Date(), OrigemID: 'L1', DestinoID: 'L2', Qtd: 1 });
+  }
+  const dela = F.listaMovimentos(muitos.movimentos, [], [], [], { usuario: 'U008', limit: 5 });
+  ok(dela.length === 5 && dela.every((m) => m.usuario !== 'U005'),
+    'o filtro por usuário acontece ANTES do corte de linhas — depois, ela veria só os ' +
+    'poucos dela que sobrassem no corte', dela.length);
+
+  ok(F.sessaoDe({ ID: 1, Nome: 'x', Perfil: 'y', SoProprios: true }).soProprios === true &&
+     F.sessaoDe({ ID: 1, Nome: 'x', Perfil: 'y' }).soProprios === false,
+    'a sessão leva o recorte para a tela — sem isso ela não saberia pedir');
+
+  const migra = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
+  ok(/so_proprios boolean not null default false/.test(migra),
+    'e a coluna nasce em `false`: o padrão é ver tudo, como era antes da coluna existir');
+}
+
 console.log('\n== quais abas do painel a pessoa ve ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));

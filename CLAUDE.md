@@ -259,6 +259,43 @@ Duas coisas que valem lembrar:
 - **Isto é a tela, não a tranca.** Vale o mesmo aviso da seção de separação de funções: a API
   não tem autorização, e um POST direto ignora qualquer filtro daqui.
 
+## Painel restrito: a pessoa vê só o que ela lançou
+
+A chave **Pode entrar no painel?** tem **três** valores, e não dois mais um interruptor ao lado:
+
+| valor | `AcessoPainel` | `SoProprios` |
+|---|---|---|
+| não — só o app de campo | false | false |
+| sim — vê os lançamentos de todos | true | false |
+| sim — vê apenas os lançamentos dela | true | **true** |
+
+Três valores numa chave só porque a pergunta é uma só: *o que ela vê no painel?* Dois controles
+permitiriam a combinação sem sentido "vê apenas os próprios" com o painel desligado. A tradução
+dos três valores para as duas colunas mora **num lugar só**, no salvar do formulário: espalhada,
+"PROPRIOS" viraria acesso desligado em algum caminho esquecido e a pessoa perderia o painel.
+
+O recorte é feito **na porta**, por `recorteProprios(dados, usuarioId)`, do mesmo jeito que
+`recorteTeste`: estreita `dados.movimentos` uma vez e tudo o que vem depois obedece sozinho — o
+Painel de Ativos, os saldos, os extratos e a lista de Movimentos.
+
+**Filtrar só a lista de Movimentos seria pior do que não filtrar.** As linhas sumiriam e os mesmos
+números continuariam somados nos cartões logo acima: a pessoa veria o total do galpão inteiro
+sobre uma tabela de três linhas, sem entender nem uma coisa nem outra. E o corte de linhas do
+servidor vem **depois** do filtro, então filtrar no navegador mostraria só os lançamentos dela
+que coubessem nas primeiras N linhas.
+
+`usuarioId` vazio devolve os dados inteiros — a convenção do projeto, e a única segura: o
+contrário deixaria todo mundo com o painel vazio no dia em que a coluna nasceu. A coluna nasce
+`default false` pela mesma razão.
+
+**O painel restrito se anuncia**, numa faixa âmbar acima de todas as páginas, e o texto diz que
+os *números* também estão recortados. É a mesma regra de tudo que esconde neste app: sem o aviso,
+a pessoa lê o total como se fosse o da operação e conclui que o galpão parou.
+
+**Isto é a tela, não a tranca.** A API não tem autorização: um GET direto sem o `so` devolve tudo,
+como já devolve hoje para qualquer um. O recorte serve para a pessoa não ver o que não lhe diz
+respeito, não para guardar segredo de quem procura.
+
 ## As três pré-condições do cadastro
 
 Um administrador marcou cinco abas do painel para um conferente e nada mudou na tela dele. A
@@ -464,11 +501,11 @@ node teste/teste_saldo.js
 node teste/teste_primeiro_acesso.js
 ```
 
-O `teste_api.js` tem **462 verificações**. Roda o roteador, as regras e os tradutores **de
+O `teste_api.js` tem **472 verificações**. Roda o roteador, as regras e os tradutores **de
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**545 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**565 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
@@ -545,7 +582,7 @@ servidor. O fluxo visual precisa de navegador e nao roda aqui; o que ele protege
 tirar o `if (r.trocarSenha)` do login faria a senha provisoria valer para sempre sem nada
 quebrar. O comportamento do servidor esta em `teste_api.js`, no bloco "primeiro acesso".
 
-O `teste/teste_permissoes.js` (**74 verificações**) é a varredura ponta a ponta do que o
+O `teste/teste_permissoes.js` (**80 verificações**) é a varredura ponta a ponta do que o
 administrador liga e desliga. Para cada permissão percorre a corrente inteira — **formulário →
 envia → servidor grava → sessão carrega → alguma tela usa** — e um elo faltando é um interruptor
 que não acende nada. Confere também a convenção "lista vazia = todos", as três pré-condições

@@ -333,6 +333,31 @@ function recorteTeste(dados, modo) {
   return copia;
 }
 
+/**
+ * O recorte de quem só vê o que lançou.
+ *
+ * Estreita `dados.movimentos` **na porta**, do mesmo jeito que `recorteTeste`, e por isso
+ * tudo o que vem depois obedece sozinho: o Painel de Ativos, os saldos, os extratos e a
+ * lista de Movimentos saem todos daqui.
+ *
+ * Filtrar só a lista de Movimentos seria pior do que não filtrar: as linhas sumiriam e os
+ * mesmos números continuariam somados nos cartões logo acima — a pessoa veria o total do
+ * galpão inteiro e uma tabela de três linhas, sem entender nem uma coisa nem outra.
+ *
+ * `usuarioId` vazio devolve os dados inteiros. É a convenção do projeto, e a única segura:
+ * o contrário deixaria todo mundo com o painel vazio no dia em que a coluna nasceu.
+ */
+function recorteProprios(dados, usuarioId) {
+  var alvo = String(usuarioId == null ? '' : usuarioId);
+  if (!alvo) return dados;
+  var copia = {};
+  Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
+  copia.movimentos = (dados.movimentos || []).filter(function (m) {
+    return String(m.UsuarioID) === alvo;
+  });
+  return copia;
+}
+
 function novoId(prefixo, existentes) {
   var largura = prefixo === 'M' ? 6 : 3;
   var max = 0;
@@ -406,6 +431,8 @@ function sessaoDe(u) {
     operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : [],
     // As abas do painel do escritorio, mesma convencao.
     abas: Array.isArray(u.Abas) ? u.Abas : [],
+    /* Painel restrito: entra no painel, mas so enxerga o que ela mesma lancou. */
+    soProprios: u.SoProprios === true,
     /* Se esta pessoa consegue entrar no app de lancamento. Sem PIN o `loginPorPin` recusa,
        entao o painel usa isto para decidir se mostra a porta de volta — porta que leva a
        uma recusa e pior do que porta nenhuma.
@@ -1510,7 +1537,8 @@ module.exports = {
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, naoCancelados: naoCancelados,
   ehPerfilTeste: ehPerfilTeste, temTeste: temTeste, pesoTeste: pesoTeste, pesoMatriz: pesoMatriz,
-  lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste, ativo: ativo, novoId: novoId, novoToken: novoToken,
+  lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste,
+  recorteProprios: recorteProprios, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   meuAcesso: meuAcesso,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,

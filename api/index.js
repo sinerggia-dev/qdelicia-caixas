@@ -106,14 +106,19 @@ async function rotaGet(p) {
       // telefone, documento ou senha.
       return { ok: true, usuario: L.meuAcesso(d.usuarios, p.id) };
     case 'painel':
-      return { ok: true, painel: L.painel(L.recorteTeste(d, p.teste), null,
-                                          { de: p.de, ate: p.ate }) };
+      /* Os dois recortes se somam, e nesta ordem nao importa: um estreita por ensaio, o
+         outro por quem lancou. `so` vazio devolve tudo. */
+      return { ok: true, painel: L.painel(L.recorteProprios(L.recorteTeste(d, p.teste), p.so),
+                                          null, { de: p.de, ate: p.ate }) };
     case 'pendentes':
       return { ok: true, movimentos: L.pendentes(d.movimentos, d.locais, d.tipos) };
     case 'movimentos':
-      return { ok: true, movimentos: L.listaMovimentos(d.movimentos, d.locais, d.tipos, d.usuarios, p) };
+      /* Aqui o recorte entra pelo filtro que ja existia: `usuario`. Um caminho so para
+         "os lancamentos de fulano", venha ele do filtro da tela ou da permissao. */
+      return { ok: true, movimentos: L.listaMovimentos(d.movimentos, d.locais, d.tipos,
+                 d.usuarios, p.so ? Object.assign({}, p, { usuario: p.so }) : p) };
     case 'extrato':
-      return L.extrato(d, p.local, p.de, p.ate);
+      return L.extrato(L.recorteProprios(d, p.so), p.local, p.de, p.ate);
     case 'extratoToken':
       return L.extratoToken(d, p.t, p.de, p.ate);
     default:

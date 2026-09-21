@@ -1493,6 +1493,15 @@ console.log('\n== as abas de admin travam no cadastro ==');
     k++;
   } while (abertas > 0 && k < adm.length);
   var corpoAjuste = adm.slice(a, k);
+  var av = adm.indexOf('function avisar(id, texto)');
+  var avk = adm.indexOf('{', av), avn = 0;
+  do {
+    if (adm[avk] === '{') avn++; else if (adm[avk] === '}') avn--;
+    avk++;
+  } while (avn > 0 && avk < adm.length);
+  var corpoAvisar = adm.slice(av, avk);
+  ok(av > 0 && corpoAvisar.indexOf("'Aviso'") > 0,
+    'o recorte pegou o escritor de avisos', corpoAvisar.length);
   ok(/#fAbas input\[data-trava\]/.test(corpoAjuste) && /ch\.disabled = !ehAdmin/.test(corpoAjuste),
     'a trava é reavaliada junto com o Perfil: escrever "Admin" destrava na hora, e apagar ' +
     'trava de volta', corpoAjuste.slice(-400));
@@ -1518,10 +1527,14 @@ console.log('\n== as abas de admin travam no cadastro ==');
                 { disabled: false, dataset: {},
                   parentNode: { classList: { toggle: function () {} } } }];
     var classe = {};
+    var avisos = {};
     function lista(id) {
       return { classList: { toggle: function (c, v) { classe[id] = !!v; } },
                querySelectorAll: function () { return id === 'fAbas' ? abas : []; } };
     }
+    /* O elemento de aviso de cada quadro, com o mesmo nome que a tela usa. */
+    ['fAbas', 'fOperacoes', 'fSaidas', 'fDestinos', 'fTiposCaixa', 'fMotoristas']
+      .forEach(function (q) { avisos[q] = { textContent: '', hidden: true }; });
     var els = {
       fPainel: { disabled: false, value: o.painel === false ? 'NAO' : 'SIM' },
       fAtivo: { value: o.ativo === false ? 'NAO' : 'SIM' },
@@ -1530,7 +1543,10 @@ console.log('\n== as abas de admin travam no cadastro ==');
       fAtivoNota: { textContent: '' }, fPerfilNota: { textContent: '' },
       fAbas: lista('fAbas'), fOperacoes: lista('fOperacoes'), fSaidas: lista('fSaidas'),
       fDestinos: lista('fDestinos'), fTiposCaixa: lista('fTiposCaixa'),
-      fMotoristas: lista('fMotoristas')
+      fMotoristas: lista('fMotoristas'),
+      fAbasAviso: avisos.fAbas, fOperacoesAviso: avisos.fOperacoes,
+      fSaidasAviso: avisos.fSaidas, fDestinosAviso: avisos.fDestinos,
+      fTiposCaixaAviso: avisos.fTiposCaixa, fMotoristasAviso: avisos.fMotoristas
     };
     var botoes = [{ disabled: false }];
     var doc = {
@@ -1543,7 +1559,7 @@ console.log('\n== as abas de admin travam no cadastro ==');
       querySelector: function () { return botoes[0]; }
     };
     new Function('document', 'perfilDigitado', 'PERFIS', 'COM_PODER', 'TEM_SENHA_PAINEL',
-      corpoAjuste + '\n ajustarPainel();')(
+      corpoAvisar + '\n' + corpoAjuste + '\n ajustarPainel();')(
       doc, function () { return o.perfil || 'Gerente'; }, ['Gerente'], { ADMIN: 'x' },
       o.temSenha === true);
     return {
@@ -1553,7 +1569,9 @@ console.log('\n== as abas de admin travam no cadastro ==');
       notaAtivo: els.fAtivoNota.textContent,
       abasBloqueadas: !!classe.fAbas,
       saidasBloqueadas: !!classe.fSaidas,
-      marcarTudo: botoes[0].disabled
+      marcarTudo: botoes[0].disabled,
+      avisoAbas: avisos.fAbas.hidden ? '' : avisos.fAbas.textContent,
+      avisoSaidas: avisos.fSaidas.hidden ? '' : avisos.fSaidas.textContent
     };
   }
 
@@ -1620,6 +1638,33 @@ console.log('\n== as abas de admin travam no cadastro ==');
   ok(/\.marcalista\.bloqueada\{opacity/.test(css),
     'e o quadro bloqueado fica apagado — apagado, e não sumido: sumir esconderia que a ' +
     'permissão existe, e é justamente ela que a pessoa procura');
+
+  /* --- o motivo tem de estar ACIMA da lista ------------------------------- */
+  /* A trava funcionava e mesmo assim o cadastro parecia quebrado: o motivo estava numa
+     nota DEPOIS da lista, e a lista rola em 210px. Medido, a nota caía 226px abaixo do
+     topo — ou seja, fora da caixa. Quem abria o cadastro via um quadro morto e nenhuma
+     razão, e a leitura natural foi "inativou tudo".
+
+     A ordem no HTML é o que decide isso, então é a ordem que a afirmação olha. */
+  var caixaFonte = adm.slice(adm.indexOf('function caixaLocais('),
+                             adm.indexOf('function ligarMarcaTudo('));
+  var posAviso = caixaFonte.indexOf("'Aviso\" hidden>");
+  var posLista = caixaFonte.indexOf('<div class="marcalista"');
+  ok(posAviso > 0 && posLista > 0 && posAviso < posLista,
+    'o aviso da trava vem ANTES da lista — depois dela ele cai fora da caixa que rola, ' +
+    'e um motivo invisível não explica nada', { aviso: posAviso, lista: posLista });
+  ok(/\.aviso-trava\{/.test(css) && /\.aviso-trava\[hidden\]\{display:none\}/.test(css),
+    'e tem estilo próprio, inclusive o `hidden` — sem essa regra a faixa vazia ocuparia ' +
+    'espaço em todo quadro destravado');
+
+  /* E o texto dele diz QUAL chave ligar, e nao so "bloqueado". */
+  ok(/Pode entrar no painel\?" está em NÃO/.test(semPainel.avisoAbas),
+    'o aviso dentro do quadro nomeia a chave que falta', semPainel.avisoAbas);
+  ok(comPainel.avisoAbas === '',
+    'e some quando a chave é ligada, em vez de ficar uma faixa vazia');
+  ok(/INATIVA/.test(inativo.avisoSaidas) && /INATIVA/.test(inativo.avisoAbas),
+    'com a pessoa inativa, TODOS os quadros dizem o motivo — não só o das abas, porque ' +
+    'é em cada quadro que a pessoa está olhando quando estranha', inativo.avisoSaidas);
 
   /* --- "marcar todos" nao pode desfazer a trava --------------------------- */
   ok(/input\[type=checkbox\]:not\(:disabled\)/.test(adm),
@@ -1905,6 +1950,86 @@ console.log('\n== a porta para o painel, no app de campo ==');
   ok(/a\.chip\{/.test(css) && /a\.chip\[hidden\]\{display:none\}/.test(css),
     'e o estilo do link existe, inclusive o `hidden` — sem essa regra o `display` do ' +
     'chip venceria o `hidden` e a porta apareceria para todo mundo');
+})();
+
+console.log('\n== painel restrito: a tela pede e anuncia o recorte ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* --- UM controle para UMA pergunta -------------------------------------- */
+  /* Tres valores na mesma chave, e nao um interruptor novo ao lado dela: dois controles
+     permitiriam "ve apenas os proprios" com o painel desligado, que nao quer dizer nada. */
+  var iS = adm.indexOf("'<select id=\"fPainel\">'+");
+  var sel = adm.slice(iS, adm.indexOf("'</select>'+", iS));
+  ok(iS > 0 && (sel.match(/<option value=/g) || []).length === 3,
+    'a chave do painel tem TRÊS valores, e não um interruptor novo ao lado — dois ' +
+    'controles para uma pergunta só permitiriam "vê só os próprios" com o painel ' +
+    'desligado', (sel.match(/value="(\w+)"/g) || []));
+  ok(/value="PROPRIOS"/.test(sel) && /apenas os lançamentos dela/.test(sel),
+    'e o terceiro diz o que faz, com as palavras de quem pediu', sel);
+
+  /* A traducao de tres valores para duas colunas mora num lugar so. */
+  var env = adm.slice(adm.indexOf('AcessoPainel:('), adm.indexOf('Saidas:lerMarcados'));
+  ok(/AcessoPainel:\(document\.getElementById\('fPainel'\)\.value === 'NAO' \? 'NAO' : 'SIM'\)/.test(env) &&
+     /SoProprios:\(document\.getElementById\('fPainel'\)\.value === 'PROPRIOS' \? 'SIM' : 'NAO'\)/.test(env),
+    'o salvar traduz os três valores nas duas colunas, num lugar só — espalhada, ' +
+    '"PROPRIOS" viraria acesso desligado em algum caminho esquecido', env);
+
+  /* "PROPRIOS" e painel LIGADO: as abas valem igual, muda o que aparece dentro delas. */
+  var ajuste = adm.slice(adm.indexOf('function ajustarPainel()'));
+  ajuste = ajuste.slice(0, ajuste.indexOf('\n    }'));
+  ok(/sel\.value !== 'NAO'/.test(ajuste),
+    'com "apenas os próprios" as abas continuam valendo — o que muda é o que aparece ' +
+    'DENTRO delas, não quais existem');
+
+  /* --- a tela PEDE o recorte ---------------------------------------------- */
+  var r = adm.indexOf('function recorteProprios()');
+  var rec = adm.slice(r, adm.indexOf('\n  }', r));
+  ok(r > 0 && /s\.soProprios === true/.test(rec),
+    'o recorte sai da sessão, numa função só', rec);
+  /* Cada rota e conferida DENTRO do proprio pedido. A primeira versao desta afirmacao
+     procurava o texto em qualquer lugar do arquivo com um `||`, e por isso continuava
+     passando quando o recorte era tirado de um dos tres — ela achava o dos outros. */
+  [['painel', "{ acao:'painel'"],
+   ['movimentos', "{ acao:'movimentos'"],
+   ['extrato', "acao:'extrato'"]].forEach(function (par) {
+    var i = adm.indexOf(par[1]);
+    var trecho = adm.slice(i, i + 420);
+    ok(i > 0 && /(pedido\.so = meuRecorte|so:recorteProprios\(\))/.test(trecho),
+      'o pedido de ' + par[0] + ' leva o recorte — sem ele essa tela mostra a todos o ' +
+      'que as outras escondem', trecho.slice(0, 180));
+  });
+  ok((adm.match(/recorteProprios\(\)/g) || []).length >= 4,
+    'as três telas pedem pelo mesmo caminho — espalhado, o quarto pedido nasce sem o ' +
+    'recorte e mostra a todos o que os outros escondem',
+    (adm.match(/recorteProprios\(\)/g) || []).length);
+
+  /* --- e ANUNCIA ---------------------------------------------------------- */
+  /* Painel recortado tem de dizer que esta recortado, como tudo que esconde neste app.
+     Sem o aviso a pessoa le os numeros como se fossem os da operacao e conclui que o
+     galpao parou. */
+  var a = adm.indexOf('function anunciarRecorte()');
+  var anun = adm.slice(a, adm.indexOf('\n  }', a));
+  ok(a > 0 && /faixa\.hidden = !restrito/.test(anun),
+    'o painel restrito se anuncia', anun);
+  ok(/apenas os lançamentos feitos por você/.test(anun) &&
+     /Os totais, os saldos e os extratos acompanham/.test(anun),
+    'e o aviso diz que os NÚMEROS também estão recortados — sem isso ela leria o total ' +
+    'como se fosse o da operação e concluiria que o galpão parou', anun);
+  ok(/id="avisoRecorte"/.test(adm) && adm.indexOf('id="avisoRecorte"') < adm.indexOf('id="pgRetornos"'),
+    'e a faixa fica ACIMA das páginas: é a primeira coisa a ler, porque muda o sentido ' +
+    'de tudo o que vem abaixo');
+  ok(/\.aviso-recorte\[hidden\]\{display:none\}/.test(css),
+    'e some para quem não é restrito');
+
+  /* --- a sessao renovada nao pode PERDER o recorte ------------------------ */
+  /* Perdido na renovacao, a pessoa passaria a ver tudo no primeiro recarregamento —
+     calada. Foi o teste de campos iguais que pegou isso enquanto se escrevia. */
+  var sr = adm.indexOf('function sessaoDoRegistro(u)');
+  ok(/soProprios: u\.SoProprios === true/.test(adm.slice(sr, adm.indexOf('\n  }', sr))),
+    'a sessão renovada mantém o recorte — perdido aqui, a pessoa passaria a ver tudo no ' +
+    'primeiro recarregamento');
 })();
 
 console.log('\n== a porta de volta, do painel para os lancamentos ==');

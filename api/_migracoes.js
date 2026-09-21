@@ -247,5 +247,10 @@ module.exports = [
     id: '2026-09-17-abas-por-usuario',
     nota: 'quais abas do painel a pessoa vê; vazia segue querendo dizer TODAS',
     sql: "alter table public.usuarios add column if not exists abas jsonb not null default '[]'::jsonb;"
+  },
+  {
+    id: '2026-09-20-painel-so-proprios',
+    nota: 'painel restrito: entra no painel, mas só enxerga os lançamentos que ela mesma fez',
+    sql: "alter table public.usuarios add column if not exists so_proprios boolean not null default false;"
   }
 ];

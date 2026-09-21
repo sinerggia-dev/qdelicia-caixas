@@ -196,7 +196,8 @@ var USUARIO = {
       Telefone: r.telefone || '', LocalPadrao: r.local_padrao, Ativo: r.ativo !== false,
       Email: r.email || '', Usuario: r.usuario || '', SenhaHash: r.senha_hash || '',
       PinProvisorio: r.pin_provisorio === true, SenhaProvisoria: r.senha_provisoria === true,
-      AcessoPainel: r.acesso_painel === true, Teste: r.teste === true,
+      AcessoPainel: r.acesso_painel === true, SoProprios: r.so_proprios === true,
+      Teste: r.teste === true,
       Saidas: lista(r.saidas), Destinos: lista(r.destinos),
       TiposCaixa: lista(r.tipos_caixa), Motoristas: lista(r.motoristas),
       Operacoes: lista(r.operacoes), Abas: lista(r.abas)
@@ -217,6 +218,7 @@ var USUARIO = {
     if (o.PinProvisorio !== undefined) r.pin_provisorio = bool(o.PinProvisorio);
     if (o.SenhaProvisoria !== undefined) r.senha_provisoria = bool(o.SenhaProvisoria);
     if (o.AcessoPainel !== undefined) r.acesso_painel = bool(o.AcessoPainel);
+    if (o.SoProprios !== undefined) r.so_proprios = bool(o.SoProprios);
     if (o.Teste !== undefined) r.teste = bool(o.Teste);
     if (o.Saidas !== undefined) r.saidas = lista(o.Saidas);
     if (o.TiposCaixa !== undefined) r.tipos_caixa = lista(o.TiposCaixa);

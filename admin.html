@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=ba657665">
+<link rel="stylesheet" href="styles.css?v=114eadde">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -84,6 +84,9 @@
 </header>
 
 <main>
+<!-- O aviso do painel restrito. Fica ACIMA de tudo, antes da primeira pagina: e a
+     primeira coisa a ler, porque muda o sentido de todos os numeros abaixo dele. -->
+<div class="aviso-recorte" id="avisoRecorte" hidden></div>
 
   <!-- ---------- PAINEL ---------- -->
   <section id="pgPainel" class="pagina">
@@ -577,6 +580,21 @@
     document.getElementById('chipCampo').hidden = !podeCampo;
   }
 
+  /* Painel recortado tem de DIZER que esta recortado, como todo o resto que esconde:
+     os filtros contam quantos estao ligados, a coluna escondida aparece apagada, e aqui
+     o painel inteiro mostra menos do que existe. Sem o aviso, a pessoa le os numeros como
+     se fossem os da operacao e conclui que o galpao parou. */
+  function anunciarRecorte(){
+    var faixa = document.getElementById('avisoRecorte');
+    if (!faixa) return;
+    var s = Q.sessao();
+    var restrito = !!(s && s.soProprios === true);
+    faixa.hidden = !restrito;
+    if (restrito) faixa.textContent =
+      'Painel restrito: tudo aqui mostra apenas os lançamentos feitos por você. ' +
+      'Os totais, os saldos e os extratos acompanham esse recorte.';
+  }
+
   function abrirApp(){
     var s = Q.sessao();
     if (!podeEntrar(s)){ iniciarLogin(); return; }
@@ -585,6 +603,7 @@
     aplicarSessao(s);
     Q.abas('#abas');
     ajustarAbasPainel(s);
+    anunciarRecorte();
     periodoPadraoMov();
     document.getElementById('lcData').value = Q.hoje();
     /* A lista de abas so chega com a `equipe` — e com ela chega tambem o registro
@@ -595,10 +614,24 @@
       var atual = renovarSessao() || s;
       aplicarSessao(atual);
       ajustarAbasPainel(atual);
+      anunciarRecorte();
     });
     Q.carregarDados().then(function(d){ DADOS=d; ordenarTudo(); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
   }
+  /* O id de quem esta olhando, quando o painel dela e restrito — e string vazia quando
+     nao e. Uma funcao so, e nao `s.soProprios ? s.id : ''` espalhado por quatro pedidos:
+     espalhado, o quinto pedido nasce sem o recorte e mostra a todos o que os outros
+     quatro escondem.
+
+     ISTO E A TELA, NAO A TRANCA. A API nao tem autorizacao: um GET direto sem o `so`
+     devolve tudo, como ja devolve hoje para qualquer um. O recorte serve para a pessoa
+     nao ver o que nao lhe diz respeito, e nao para guardar segredo de quem procura. */
+  function recorteProprios(){
+    var s = Q.sessao();
+    return (s && s.soProprios === true && s.id) ? String(s.id) : '';
+  }
+
   /* A sessao guardada e uma FOTO do login. Enquanto ela for a unica fonte, mudar a
      permissao de alguem no cadastro nao chega a quem ja esta logado: a pessoa segue com o
      que tinha no dia em que entrou, e a unica saida e sair e entrar de novo — coisa que
@@ -620,7 +653,10 @@
       tiposCaixa: lista(u.TiposCaixa), motoristas: lista(u.Motoristas),
       operacoes: lista(u.Operacoes), abas: lista(u.Abas),
       /* `TemPin` e o que a `equipe` manda: o SIM ou NAO, nunca o PIN. */
-      temPin: u.TemPin === true
+      temPin: u.TemPin === true,
+      /* Painel restrito. Faltando aqui, a sessao renovada PERDERIA o recorte e a pessoa
+         passaria a ver tudo no primeiro recarregamento — calada. */
+      soProprios: u.SoProprios === true
     };
   }
 
@@ -838,6 +874,11 @@
 
   function carregarPainel(){
     var pedido = { acao:'painel', teste:VER_TESTE };
+    /* Painel restrito: o recorte viaja no pedido, e nao e feito aqui. Filtrar na tela
+       mostraria os cartoes somando o galpao inteiro em cima de uma tabela de tres linhas
+       — e o corte de linhas do servidor vem antes, entao nem a tabela estaria certa. */
+    var meuRecorte = recorteProprios();
+    if (meuRecorte) pedido.so = meuRecorte;
     var de = document.getElementById('rtDe'), ate = document.getElementById('rtAte');
     if (de && de.value) pedido.de = de.value;
     if (ate && ate.value) pedido.ate = ate.value;
@@ -2024,7 +2065,8 @@
     var id = document.getElementById('exLocal').value;
     if (!id) return Q.toast('Escolha o cliente.','erro');
     document.getElementById('extratoBox').innerHTML = '<div class="vazio">Carregando…</div>';
-    Q.get({acao:'extrato', local:id, de:document.getElementById('exDe').value, ate:document.getElementById('exAte').value})
+    Q.get({acao:'extrato', local:id, de:document.getElementById('exDe').value,
+           ate:document.getElementById('exAte').value, so:recorteProprios()})
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
         EXTRATO = r;
@@ -2273,6 +2315,8 @@
     var f = filtroExclusao();
     // Conta na hora do clique, com o MESMO filtro que vai apagar.
     var pedido = { acao:'movimentos', limit:100000 };
+    var meuRecorte = recorteProprios();
+    if (meuRecorte) pedido.so = meuRecorte;
     Object.keys(f).forEach(function(k){ if (f[k]) pedido[k] = f[k]; });
     Q.get(pedido).then(function(r){
       if (!r.ok) throw new Error(r.erro);
@@ -3230,8 +3274,12 @@
       return '<label>'+Q.esc(rotulo)+'</label>'+
         '<div class="vazio" style="margin-bottom:12px">'+Q.esc(vazio||'Nenhum local deste tipo cadastrado ainda.')+'</div>';
     }
+    /* O aviso mora ENTRE o titulo e a lista, e nao depois dela. A lista rola: posto
+       embaixo, o motivo da trava cai fora da tela e a pessoa ve um quadro morto sem
+       razao nenhuma. Aviso que explica uma trava tem de estar acima do que ele trava. */
     return '<div class="marca-topo"><label>'+Q.esc(rotulo)+'</label>'+
         '<button type="button" class="mini acao" data-marcatudo="'+id+'">marcar todos</button></div>'+
+      '<div class="aviso-trava" id="'+id+'Aviso" hidden></div>'+
       '<div class="marcalista" id="'+id+'">'+
         itens.map(function(l){
           var motivo = trava ? trava(l) : '';
@@ -3298,9 +3346,16 @@
               : 'Senha provisória: a pessoa escolhe a dela no primeiro acesso.')+'</p>'+
       '<h3 style="margin-top:20px">Acesso ao painel</h3>'+
       '<label>Pode entrar no painel?</label>'+
-      '<select id="fPainel"><option value="NAO"'+(u.AcessoPainel?'':' selected')+'>não — só o app de campo</option>'+
-        '<option value="SIM"'+(u.AcessoPainel?' selected':'')+'>sim — vê painel, extratos e movimentos</option></select>'+
-      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPainelNota"></p>'+
+      /* TRES valores na MESMA chave, e nao um interruptor novo ao lado dela. A pergunta
+         e uma so — "o que ela ve no painel?" — e dois controles para uma pergunta so
+         permitiriam a combinacao sem sentido: "ve apenas os proprios" com o painel
+         desligado, que nao quer dizer nada. */
+      '<select id="fPainel">'+
+        '<option value="NAO"'+(u.AcessoPainel?'':' selected')+'>não — só o app de campo</option>'+
+        '<option value="SIM"'+(u.AcessoPainel && !u.SoProprios?' selected':'')+'>sim — vê os lançamentos de todos</option>'+
+        '<option value="PROPRIOS"'+(u.AcessoPainel && u.SoProprios?' selected':'')+'>sim — vê apenas os lançamentos dela</option>'+
+      '</select>'+
+'<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPainelNota"></p>'+
       '<label>E-mail</label><input type="email" id="fEmail" value="'+Q.esc(u.Email||'')+'" placeholder="voce@empresa.com.br">'+
       '<label>Senha <span style="font-weight:400;color:var(--txt3)">— mínimo 6 caracteres</span></label>'+
       '<input type="password" id="fSenha" autocomplete="new-password" placeholder="'+
@@ -3398,6 +3453,15 @@
        so tem o que for digitado agora. */
     var TEM_SENHA_PAINEL = u.TemSenha === true;
 
+    /* Escreve (ou apaga) o aviso de um quadro. Texto vazio esconde o bloco, em vez de
+       deixar uma faixa vazia ocupando espaco. */
+    function avisar(id, texto){
+      var el = document.getElementById(id + 'Aviso');
+      if (!el) return;
+      el.textContent = texto;
+      el.hidden = !texto;
+    }
+
     function ajustarPainel(){
       var perfil = perfilDigitado();
       var ehAdmin = perfil.toUpperCase() === 'ADMIN';
@@ -3405,7 +3469,10 @@
       var ativo = document.getElementById('fAtivo').value === 'SIM';
       sel.disabled = ehAdmin || !ativo;
       if (ehAdmin) sel.value = 'SIM';
-      var temPainel = ativo && (ehAdmin || sel.value === 'SIM');
+      /* "PROPRIOS" tambem e painel ligado: as abas valem para ela igual. O que muda e o
+         que aparece DENTRO delas, e nao quais existem. */
+      var temPainel = ativo && (ehAdmin || sel.value !== 'NAO');
+      var soProprios = !ehAdmin && sel.value === 'PROPRIOS';
 
       /* INATIVO: nada vale. Trava os quadros todos, em vez de deixar a pessoa marcar. */
       var quadros = ['fAbas','fOperacoes','fSaidas','fDestinos','fTiposCaixa','fMotoristas'];
@@ -3426,6 +3493,13 @@
         : 'Inativo: a pessoa não entra em lugar nenhum, e nenhuma permissão abaixo vale. '
           + 'Ligue aqui antes de marcar.';
 
+      /* O motivo aparece DENTRO de cada quadro travado, acima da lista. Um aviso so, no
+         fim do formulario, nao alcanca quem esta olhando para o quadro. */
+      quadros.forEach(function(q){
+        avisar(q, ativo ? '' : 'Travado porque a pessoa está INATIVA. Ligue "Ativo", '
+          + 'no fim do formulário — sem isso ela não entra em lugar nenhum.');
+      });
+
       /* SENHA do painel. Liberar o acesso sem senha e liberar uma porta que nao abre: o
          painel entra por SENHA, e o PIN de seis numeros e do app de campo. */
       var temSenha = TEM_SENHA_PAINEL ||
@@ -3434,13 +3508,20 @@
         ? 'Só depois de reativar a pessoa.'
         : (ehAdmin
             ? 'Administrador entra sempre — não dá para tirar.'
+            : (soProprios
+                ? (temSenha
+                    ? 'Painel restrito: ela vê o Painel de Ativos, os saldos, os extratos '
+                      + 'e os movimentos — mas só com os lançamentos que ela mesma fez. '
+                      + 'Os números acompanham o recorte.'
+                    : 'Painel restrito, mas ela ainda NÃO tem senha do painel — defina '
+                      + 'uma no campo Senha, acima.')
             : (sel.value === 'SIM'
                 ? (temSenha
                     ? 'Ela entra no painel com o e-mail ou o usuário, e a senha do painel.'
                     : 'Ela ainda NÃO tem senha do painel — defina uma no campo Senha, '
                       + 'acima. Sem ela o acesso fica ligado e o login recusa: o painel '
                       + 'entra por senha, e o PIN de seis números é do app de campo.')
-                : 'Sem acesso, a pessoa continua usando normalmente o app de campo.'));
+                : 'Sem acesso, a pessoa continua usando normalmente o app de campo.')));
 
       /* As abas de admin travam para quem nao e admin. Reavaliado a cada tecla do campo
          Perfil: escrever "Admin" ali destrava na hora, e apagar trava de volta. */
@@ -3463,6 +3544,10 @@
         var btnTudo = document.querySelector('[data-marcatudo="fAbas"]');
         if (btnTudo) btnTudo.disabled = !temPainel;
       }
+
+      if (ativo) avisar('fAbas', temPainel ? '' :
+        'Travado porque "Pode entrar no painel?" está em NÃO, logo acima. Sem essa chave '
+        + 'ela não chega ao painel, e marcar aba aqui não muda nada na tela dela.');
 
       var notaAbas = document.getElementById('fAbasNota');
       if (notaAbas) notaAbas.textContent = !ativo
@@ -3502,7 +3587,11 @@
         Telefone:document.getElementById('fTel').value.trim(),
         LocalPadrao:document.getElementById('fLocal').value,
         Ativo:document.getElementById('fAtivo').value,
-        AcessoPainel:document.getElementById('fPainel').value,
+        /* O seletor tem tres valores e a gravacao tem duas colunas. A traducao mora
+           AQUI, num lugar so: espalhada, "PROPRIOS" viraria acesso desligado em algum
+           caminho esquecido, e a pessoa perderia o painel sem ninguem entender. */
+        AcessoPainel:(document.getElementById('fPainel').value === 'NAO' ? 'NAO' : 'SIM'),
+        SoProprios:(document.getElementById('fPainel').value === 'PROPRIOS' ? 'SIM' : 'NAO'),
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
         TiposCaixa:lerMarcados('fTiposCaixa'), Motoristas:lerMarcados('fMotoristas'),
         Operacoes:lerMarcados('fOperacoes'), Abas:lerMarcados('fAbas') };
