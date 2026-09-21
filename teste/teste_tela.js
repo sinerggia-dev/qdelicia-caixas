@@ -1376,12 +1376,16 @@ console.log('\n== as abas do painel viram lista ==');
  * O gatilho carrega a contagem das escondidas, e o "Mostrar todas" desfaz de uma vez.
  * ------------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------------
- * O cadastro nao oferece a aba que a regra nunca honra.
+ * TODA aba pode ser concedida — quem decide e o administrador.
  *
- * "Ajustes" e "Cadastros" sao `soAdmin`, e `abasPermitidas` as descarta para quem nao e
- * Admin. O formulario deixava marca-las assim mesmo — e a pessoa via a permissao ligada
- * no cadastro e a aba ausente na tela, sem nada explicando a diferenca. Aconteceu de
- * verdade com um Gerente que tinha as cinco marcadas e via quatro.
+ * "Ajustes" e "Cadastros" eram travadas para quem nao e Admin, e o pedido tirou a trava.
+ * O que ficou no lugar dela e o PADRAO: as duas sao `sensivel`, e sensivel nao entra no
+ * "nada marcado = todas". So entram por marca explicita.
+ *
+ * O motivo e o tamanho do estrago: Cadastros deixa criar e editar usuarios — inclusive
+ * tornar-se administrador —, e Ajustes lanca correcao de saldo. No padrao, o proximo
+ * usuario criado com acesso ao painel e sem marca nenhuma ganharia as duas de brinde.
+ * Concedida a dedo e escolha; concedida por omissao e acidente.
  * ------------------------------------------------------------------------- */
 /* ---------------------------------------------------------------------------
  * A peneira de abas nunca deixa o painel vazio.
@@ -1398,8 +1402,8 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
   var fonte = adm.slice(i, adm.indexOf('\n  }', i)) + '\n  }';
   var ABAS = [{ ID: 'pgRetornos', Nome: 'Painel de Ativos' },
               { ID: 'pgPainel', Nome: 'Painel' },
-              { ID: 'pgLancar', Nome: 'Ajustes', soAdmin: true },
-              { ID: 'pgCadastros', Nome: 'Cadastros', soAdmin: true }];
+              { ID: 'pgLancar', Nome: 'Ajustes', sensivel: true },
+              { ID: 'pgCadastros', Nome: 'Cadastros', sensivel: true }];
 
   function pode(ehAdmin, marcadas) {
     var fn = new Function('ABAS_PAINEL', 'Q', fonte + ' return abasPermitidas;')(
@@ -1408,34 +1412,50 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
   }
 
   ok(pode(false, []) === 'pgRetornos,pgPainel',
-    'sem marca, valem todas as permitidas — e as de admin ficam fora', pode(false, []));
+    'sem marca, valem todas — MENOS as que dão poder, que só entram por marca explícita',
+    pode(false, []));
   ok(pode(true, []) === 'pgRetornos,pgPainel,pgLancar,pgCadastros',
-    'para o admin, todas', pode(true, []));
+    'para o admin, todas — trancá-lo fora do próprio cadastro não teria como ser desfeito',
+    pode(true, []));
   ok(pode(false, ['pgPainel']) === 'pgPainel',
     'com marca que alcança, vale a marca', pode(false, ['pgPainel']));
 
-  /* Os tres casos de tela vazia. */
-  ok(pode(false, ['pgLancar']) === 'pgRetornos,pgPainel',
-    'marcado só Ajustes, a marca é ignorada em vez de deixar a tela vazia',
-    pode(false, ['pgLancar']));
-  ok(pode(false, ['pgLancar', 'pgCadastros']) === 'pgRetornos,pgPainel',
-    'idem com as duas de admin', pode(false, ['pgLancar', 'pgCadastros']));
+  /* O PEDIDO: o administrador concede qualquer aba a qualquer pessoa. */
+  ok(pode(false, ['pgCadastros']) === 'pgCadastros',
+    'e quem NÃO é admin recebe Cadastros se o administrador marcar — a trava por perfil ' +
+    'saiu, quem decide é quem cadastra', pode(false, ['pgCadastros']));
+  ok(pode(false, ['pgPainel', 'pgLancar']) === 'pgPainel,pgLancar',
+    'e recebe Ajustes do mesmo jeito, junto com as comuns',
+    pode(false, ['pgPainel', 'pgLancar']));
+
+  /* Marca quebrada cai no padrao — e o padrao NAO inclui as sensiveis. Uma marca velha
+     apontando para aba que sumiu nao pode virar a porta de entrada do cadastro. */
   ok(pode(false, ['pgAntiga']) === 'pgRetornos,pgPainel',
-    'e id de aba que não existe mais — depois de renomear ou remover uma aba, a marca ' +
-    'guardada no banco continua apontando para o nome velho', pode(false, ['pgAntiga']));
+    'id de aba que não existe mais cai no padrão — depois de renomear ou remover uma ' +
+    'aba, a marca guardada no banco continua apontando para o nome velho',
+    pode(false, ['pgAntiga']));
+  ok(pode(false, ['pgAntiga']).indexOf('pgCadastros') < 0,
+    'e esse padrão NÃO traz as que dão poder: uma marca quebrada não pode virar a porta ' +
+    'de entrada para o cadastro de usuários', pode(false, ['pgAntiga']));
 
   /* A escolha e deliberada, e o comentario diz por que: errar para o lado de MOSTRAR se
      corrige no cadastro; errar para o lado de trancar so se resolve com o admin por
      perto. E a mesma escolha da convencao "lista vazia = TODAS", um nivel acima. */
-  ok(/errar para o lado de MOSTRAR/.test(fonte),
-    'e o código registra por que erra para o lado de mostrar');
+  /* Sem o `\s+` a afirmacao depende de ONDE o comentario quebra de linha, e passa a
+     falhar quando alguem so reescreve o paragrafo. Foi o que aconteceu. */
+  ok(/lado de MOSTRAR\s+se corrige no cadastro/.test(fonte),
+    'e o código registra por que erra para o lado de mostrar', fonte.slice(-500));
 
-  /* Uma peneira so, e nao duas. As duas regras — soAdmin e a lista marcada — moram
-     juntas de proposito: separadas, acabam discordando sobre a mesma aba. */
+  /* Uma peneira so, e nao duas. As duas regras — o padrao das sensiveis e a lista
+     marcada — moram juntas de proposito: separadas, acabam discordando sobre a mesma
+     aba. E nenhuma delas olha para o PERFIL: essa era a trava, e ela saiu. */
   ok((adm.match(/function abasPermitidas/g) || []).length === 1 &&
-     /a\.soAdmin && !Q\.ehAdmin\(\)/.test(fonte) &&
+     /!a\.sensivel/.test(fonte) &&
      /marcadas\.map\(String\)\.indexOf/.test(fonte),
     'as duas regras moram na mesma peneira');
+  ok(!/a\.soAdmin/.test(fonte),
+    'e a trava por perfil não existe mais na peneira — era ela que impedia o ' +
+    'administrador de conceder Cadastros a quem quisesse', fonte);
 })();
 
 console.log('\n== as abas de admin travam no cadastro ==');
@@ -1454,23 +1474,23 @@ console.log('\n== as abas de admin travam no cadastro ==');
      saberia travar sem nunca travar nada. */
   var chamada = adm.slice(adm.indexOf("caixaLocais('fAbas'"));
   chamada = chamada.slice(0, chamada.indexOf(')+'));
-  ok(/a\.soAdmin \? 'só admin' : ''/.test(chamada),
-    'e a chamada das abas passa a trava do `soAdmin` — sem ela, a caixa saberia travar ' +
-    'e nunca travaria nada', chamada);
+  ok(/a\.sensivel \? 'dá poder' : ''/.test(chamada),
+    'e a chamada das abas marca as que dão poder — a etiqueta AVISA, e não trava: ' +
+    'travar era o que o pedido tirou', chamada);
 
   var Q = { esc: function (v) { return String(v); }, ativo: function () { return true; } };
   var caixa = new Function('Q', fonte + ' return caixaLocais;')(Q);
   var ABAS = [{ ID: 'pgRetornos', Nome: 'Painel de Ativos' },
-              { ID: 'pgLancar', Nome: 'Ajustes', soAdmin: true },
-              { ID: 'pgCadastros', Nome: 'Cadastros', soAdmin: true }];
+              { ID: 'pgLancar', Nome: 'Ajustes', sensivel: true },
+              { ID: 'pgCadastros', Nome: 'Cadastros', sensivel: true }];
   var html = caixa('fAbas', 'Abas', ABAS, ['pgRetornos', 'pgLancar'], 'vazio',
-                   function (a) { return a.soAdmin ? 'só admin' : ''; });
+                   function (a) { return a.sensivel ? 'dá poder' : ''; });
 
   ok((html.match(/data-trava="1"/g) || []).length === 2,
-    'as duas de admin saem marcadas para travar, e só elas',
+    'as duas que dão poder saem marcadas, e só elas',
     (html.match(/data-trava="1"/g) || []).length);
-  ok((html.match(/só admin/g) || []).length === 2,
-    'e cada uma diz por que — a etiqueta fica ao lado do nome');
+  ok((html.match(/dá poder/g) || []).length === 2,
+    'e cada uma diz por que — a etiqueta fica ao lado do nome, avisando sem travar');
 
   /* A marca guardada CONTINUA la. Desmarcar apagaria uma escolha que volta a valer se o
      perfil mudar; sumir com a linha esconderia que a opcao existe, e e justamente ela que
@@ -1502,9 +1522,13 @@ console.log('\n== as abas de admin travam no cadastro ==');
   var corpoAvisar = adm.slice(av, avk);
   ok(av > 0 && corpoAvisar.indexOf("'Aviso'") > 0,
     'o recorte pegou o escritor de avisos', corpoAvisar.length);
-  ok(/#fAbas input\[data-trava\]/.test(corpoAjuste) && /ch\.disabled = !ehAdmin/.test(corpoAjuste),
-    'a trava é reavaliada junto com o Perfil: escrever "Admin" destrava na hora, e apagar ' +
-    'trava de volta', corpoAjuste.slice(-400));
+  /* A trava por PERFIL saiu a pedido: o administrador concede qualquer aba a qualquer
+     pessoa. O que sobrou e o desabilitar por INATIVA, que vale para todas. */
+  ok(/#fAbas input\[data-trava\]/.test(corpoAjuste) &&
+     /ch\.disabled = !ativo/.test(corpoAjuste) &&
+     !/ch\.disabled = !ehAdmin/.test(corpoAjuste),
+    'as abas que dão poder não travam mais por perfil — quem decide é o administrador, ' +
+    'e o que resta é o desabilitar de quem está inativa', corpoAjuste.slice(-400));
 
   /* --- as TRES pre-condicoes do formulario -------------------------------- */
   /* A varredura das permissoes mostrou que nenhuma corrente esta quebrada entre o
@@ -1522,9 +1546,9 @@ console.log('\n== as abas de admin travam no cadastro ==');
      A bancada roda o corpo de `ajustarPainel` de verdade, com um DOM de mentira. */
   function bancada(o) {
     o = o || {};
-    var abas = [{ disabled: false, dataset: { trava: '1' },
+    var abas = [{ disabled: false, checked: o.marcouPoder === true, dataset: { trava: '1' },
                   parentNode: { classList: { toggle: function () {} } } },
-                { disabled: false, dataset: {},
+                { disabled: false, checked: false, dataset: {},
                   parentNode: { classList: { toggle: function () {} } } }];
     var classe = {};
     var avisos = {};
@@ -1594,12 +1618,25 @@ console.log('\n== as abas de admin travam no cadastro ==');
   }
 
   /* --- a trava de admin, que ja existia ----------------------------------- */
+  /* Nem para um Gerente nem para um Admin: ninguem trava mais por perfil. A nota diz o
+     que muda — que as que dao poder ficam fora do padrao. */
   var ger = bancada({ perfil: 'Gerente', temSenha: true });
-  ok(ger.travadas === 1 && /travados/.test(ger.notaAbas),
-    'para um Gerente a aba de admin trava, e a nota explica', ger);
+  ok(ger.travadas === 0 && /menos as que dão poder/.test(ger.notaAbas),
+    'para um Gerente nenhuma aba trava, e a nota diz que as que dão poder só entram por ' +
+    'marca', ger);
   var adm2 = bancada({ perfil: 'Admin', temSenha: true });
-  ok(adm2.travadas === 0 && !/travados/.test(adm2.notaAbas),
-    'e para um Admin nenhuma trava — a nota some junto', adm2);
+  ok(adm2.travadas === 0,
+    'e para um Admin também não', adm2);
+
+  /* Marcar uma aba que da poder AVISA o que aquilo da. A trava saiu; o aviso e o que
+     ficou no lugar dela, e sem ele conceder Cadastros e um clique igual aos outros. */
+  var comPoder = bancada({ perfil: 'Gerente', temSenha: true, marcouPoder: true });
+  ok(/ATENÇÃO/.test(comPoder.notaAbas) && /criar e editar usuários/.test(comPoder.notaAbas),
+    'marcar uma aba que dá poder avisa o que ela permite — sem isso conceder Cadastros ' +
+    'é um clique igual aos outros, e ele deixa a pessoa se tornar administradora',
+    comPoder.notaAbas);
+  ok(!/ATENÇÃO/.test(ger.notaAbas),
+    'e o aviso só aparece quando alguma está marcada — sempre aceso, vira paisagem');
 
   /* --- 1. abas sem o painel: O CASO QUE ACONTECEU ------------------------- */
   var semPainel = bancada({ perfil: 'Conferente', painel: false, temSenha: true });
@@ -2272,12 +2309,15 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
                 abas: ['pgRetornos'] };
 
   var r = roda([NESTOR], true, velha, false);
-  ok(r.abas.join(',') === 'pgRetornos,pgPainel,pgExtrato,pgMovimentos',
+  ok(r.abas.join(',') === 'pgRetornos,pgPainel,pgExtrato,pgLancar,pgMovimentos',
     'a marca nova do cadastro vale sem a pessoa sair e entrar — a sessão guardada é uma ' +
     'foto do login, e sozinha ela congela a permissão do dia em que a pessoa entrou',
     r.abas);
-  ok(r.abas.indexOf('pgLancar') < 0,
-    'e a marca de Ajustes continua sem efeito para quem não é admin, mesmo vindo do banco');
+  /* Ajustes esta na marca dele, e agora VALE: a trava por perfil saiu, e quem decide e
+     quem cadastra. Antes esta mesma linha afirmava o contrario. */
+  ok(r.abas.indexOf('pgLancar') >= 0,
+    'e a marca de Ajustes vale, porque o administrador a colocou lá — a trava por perfil ' +
+    'saiu a pedido, e o que ficou no lugar dela foi o padrão fechado');
   ok(r.estado.sessao.abas.length === 5,
     'a sessão guardada foi REESCRITA com o registro — senão o próximo carregamento ' +
     'voltaria à foto velha', r.estado.sessao.abas);
@@ -3348,9 +3388,9 @@ console.log('\n== as abas do painel obedecem ao cadastro ==');
     { ID: 'pgRetornos', Nome: 'Painel de Ativos' },
     { ID: 'pgPainel', Nome: 'Painel' },
     { ID: 'pgExtrato', Nome: 'Extratos' },
-    { ID: 'pgLancar', Nome: 'Ajustes', soAdmin: true },
+    { ID: 'pgLancar', Nome: 'Ajustes', sensivel: true },
     { ID: 'pgMovimentos', Nome: 'Movimentos' },
-    { ID: 'pgCadastros', Nome: 'Cadastros', soAdmin: true }
+    { ID: 'pgCadastros', Nome: 'Cadastros', sensivel: true }
   ];
   function monta(ehAdmin) {
     var Q = { ehAdmin: function () { return ehAdmin; } };
@@ -3362,14 +3402,16 @@ console.log('\n== as abas do painel obedecem ao cadastro ==');
   ok(admin({}).length === 6,
     'admin sem restricao ve as seis', admin({}));
   ok(gente({}).join(',') === 'pgRetornos,pgPainel,pgExtrato,pgMovimentos',
-    'quem nao e admin nunca ve Ajustes nem Cadastros, marcados ou nao', gente({}));
+    'sem marca, quem nao e admin nao ve Ajustes nem Cadastros — elas so entram por ' +
+    'marca EXPLICITA, porque uma dá o cadastro de usuários e a outra mexe no saldo',
+    gente({}));
 
   ok(gente({ abas: ['pgRetornos'] }).join(',') === 'pgRetornos',
     'a lista do cadastro manda no que sobra', gente({ abas: ['pgRetornos'] }));
-  /* Marcar Cadastros para quem nao e admin nao abre a porta: a regra do admin vem
-     primeiro, e e ela que nao se negocia pelo cadastro. */
-  ok(gente({ abas: ['pgCadastros', 'pgExtrato'] }).join(',') === 'pgExtrato',
-    'marcar Cadastros para quem nao e admin nao abre a porta',
+  /* O PEDIDO: marcar Cadastros para quem nao e admin ABRE a porta. A trava por perfil
+     saiu; quem decide e quem cadastra. */
+  ok(gente({ abas: ['pgCadastros', 'pgExtrato'] }).join(',') === 'pgExtrato,pgCadastros',
+    'marcar Cadastros para quem nao e admin ABRE a porta — quem decide e o administrador',
     gente({ abas: ['pgCadastros', 'pgExtrato'] }));
   ok(admin({ abas: ['pgCadastros'] }).join(',') === 'pgCadastros',
     'mas o admin pode restringir a si mesmo pela lista');

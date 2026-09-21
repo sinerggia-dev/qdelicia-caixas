@@ -189,12 +189,18 @@ ok(/PIN de seis números é do app de campo/.test(ajuste),
 console.log('\n== a peneira de abas erra para o lado de mostrar ==');
 var peneira = recorta(adm, 'function abasPermitidas(s)');
 ok(peneira.length > 300, 'o recorte pegou a peneira', peneira.length);
-ok(/return ids\(escolhidas\.length \? escolhidas : base\)/.test(peneira),
-  'marca que não alcança nenhuma aba é IGNORADA, e valem todas as permitidas — errar ' +
-  'para o lado de mostrar se corrige no cadastro; errar para o lado de trancar só se ' +
-  'resolve com o administrador por perto');
-ok(/if \(!marcadas\.length\) return ids\(base\)/.test(peneira),
-  'e lista vazia vale todas, como no resto do projeto');
+ok(/if \(escolhidas\.length\) return ids\(escolhidas\);/.test(peneira) &&
+   /return ids\(Q\.ehAdmin\(\) \? base : base\.filter/.test(peneira),
+  'marca que não alcança nenhuma aba é IGNORADA e vale o padrão — errar para o lado de ' +
+  'mostrar se corrige no cadastro; errar para o lado de trancar só se resolve com o ' +
+  'administrador por perto');
+ok(/if \(!marcadas\.length\)\{/.test(peneira) && /!a\.sensivel/.test(peneira),
+  'e lista vazia vale todas MENOS as que dão poder — essas só entram por marca ' +
+  'explícita, porque uma dá o cadastro de usuários e a outra mexe no saldo');
+/* O PEDIDO: nada e travado por perfil. Quem decide e o administrador, aba por aba. */
+ok(!/a\.soAdmin/.test(peneira),
+  'e nada é travado por perfil: o administrador concede qualquer aba a qualquer pessoa',
+  peneira);
 
 /* ==================================================================== a permissão chega
  * De nada adianta gravar certo se a tela da pessoa continua com a foto do login.

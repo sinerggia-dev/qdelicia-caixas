@@ -1648,11 +1648,18 @@ console.log('\n== quais abas do painel a pessoa ve ==');
   ok(F.ABAS.length === 7 && F.ABAS[0].ID === 'pgRetornos',
     'a lista de abas mora no servidor, uma so para o formulario e para a tela',
     F.ABAS.map((a) => a.ID));
-  /* Ajustes e Cadastros vem marcados como so-admin na propria lista. Deixar isso escrito
-     so na tela faria a regra viver em dois lugares. */
-  ok(F.ABAS.filter((a) => a.soAdmin).map((a) => a.ID).join(',') === 'pgLancar,pgCadastros',
-    'Ajustes e Cadastros vem marcados como só do Admin na lista',
-    F.ABAS.filter((a) => a.soAdmin).map((a) => a.ID));
+  /* Ajustes e Cadastros vem marcadas como SENSIVEIS na propria lista. Deixar isso
+     escrito so na tela faria a regra viver em dois lugares.
+
+     `sensivel` nao quer dizer "so admin" — o administrador concede as duas a quem
+     quiser. Quer dizer "so por marca EXPLICITA": elas ficam fora do "nada marcado =
+     todas", porque uma da o cadastro de usuarios e a outra mexe no saldo. */
+  ok(F.ABAS.filter((a) => a.sensivel).map((a) => a.ID).join(',') === 'pgLancar,pgCadastros',
+    'Ajustes e Cadastros vêm marcadas como sensíveis na lista — só entram por marca ' +
+    'explícita, nunca pelo padrão',
+    F.ABAS.filter((a) => a.sensivel).map((a) => a.ID));
+  ok(!F.ABAS.some((a) => a.soAdmin),
+    'e nenhuma é mais "só do Admin": a trava por perfil saiu a pedido de quem usa');
 
   const semLista = { Nome: 'A' };
   ok(F.podeAba(semLista, 'pgMovimentos') && F.podeAba(semLista, 'pgExtrato'),

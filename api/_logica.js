@@ -110,12 +110,20 @@ var ABAS = [
   { ID: 'pgRetornos',   Nome: 'Painel de Ativos' },
   { ID: 'pgPainel',     Nome: 'Painel' },
   { ID: 'pgExtrato',    Nome: 'Extratos' },
-  { ID: 'pgLancar',     Nome: 'Ajustes', soAdmin: true },
+  /* `sensivel` nao quer mais dizer "so admin" — o administrador pode conceder estas
+     duas a quem quiser. Quer dizer "so por marca EXPLICITA": elas ficam fora do "nada
+     marcado = todas".
+
+     Sao as duas que mexem em quem pode o que (Cadastros) e no saldo (Ajustes). No
+     padrao, o proximo usuario criado com acesso ao painel e sem nenhuma marca ganharia o
+     cadastro de usuarios de brinde — e dali se tornaria administrador sozinho.
+     Concedida a dedo e escolha; concedida por omissao e acidente. */
+  { ID: 'pgLancar',     Nome: 'Ajustes', sensivel: true },
   { ID: 'pgMovimentos', Nome: 'Movimentos' },
   /* Preferencia de quem olha, e nao dado da operacao: escolher colunas nao muda saldo
-     nenhum. Por isso nao e `soAdmin` — quem ve uma tabela pode arrumar a propria. */
+     nenhum. Por isso nao e `sensivel` — quem ve uma tabela pode arrumar a propria. */
   { ID: 'pgColunas',    Nome: 'Colunas' },
-  { ID: 'pgCadastros',  Nome: 'Cadastros', soAdmin: true }
+  { ID: 'pgCadastros',  Nome: 'Cadastros', sensivel: true }
 ];
 
 /* Vazia quer dizer TODAS — a mesma convencao das outras listas de permissao. Invertida,

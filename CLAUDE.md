@@ -259,6 +259,35 @@ Duas coisas que valem lembrar:
 - **Isto é a tela, não a tranca.** Vale o mesmo aviso da seção de separação de funções: a API
   não tem autorização, e um POST direto ignora qualquer filtro daqui.
 
+## Toda aba pode ser concedida — o padrão é que trava, não o perfil
+
+Ajustes e Cadastros eram travadas para quem não é Admin. **A trava saiu a pedido do usuário:**
+o administrador concede qualquer aba a qualquer pessoa.
+
+O que ficou no lugar dela é o **padrão**. As duas são `sensivel: true` em `ABAS`, e `sensivel`
+não quer mais dizer "só admin" — quer dizer **"só por marca explícita"**: elas ficam fora do
+"nada marcado = todas".
+
+| quem | sem marca | com marca |
+|---|---|---|
+| não-admin | todas **menos** Ajustes e Cadastros | exatamente as marcadas, **inclusive** as sensíveis |
+| admin | todas | exatamente as marcadas |
+
+O motivo do padrão fechado é o tamanho do estrago: **Cadastros deixa criar e editar usuários,
+inclusive tornar-se administrador**, e Ajustes lança correção de saldo. No padrão, o próximo
+usuário criado com acesso ao painel e sem marca nenhuma ganharia as duas de brinde. Concedida a
+dedo é escolha; concedida por omissão é acidente.
+
+Pela mesma razão, **marca quebrada cai no padrão fechado**: um id de aba que foi renomeada não
+pode virar a porta de entrada do cadastro de usuários.
+
+O admin sem marca vê tudo porque trancá-lo fora do próprio cadastro não teria como ser desfeito
+por ninguém.
+
+No formulário, as duas não travam mais — ganham a etiqueta **"dá poder"** e, quando alguma está
+marcada, uma nota dizendo o que aquilo permite. **A etiqueta avisa, não impede**: impedir era o
+que o pedido tirou, e conceder Cadastros não pode ser um clique igual aos outros.
+
 ## Ver lançamentos: se vê, e de quem
 
 Duas colunas, e duas perguntas encadeadas — a segunda só faz sentido depois da primeira:
@@ -512,11 +541,11 @@ node teste/teste_saldo.js
 node teste/teste_primeiro_acesso.js
 ```
 
-O `teste_api.js` tem **484 verificações**. Roda o roteador, as regras e os tradutores **de
+O `teste_api.js` tem **485 verificações**. Roda o roteador, as regras e os tradutores **de
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**579 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**583 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
@@ -593,7 +622,7 @@ servidor. O fluxo visual precisa de navegador e nao roda aqui; o que ele protege
 tirar o `if (r.trocarSenha)` do login faria a senha provisoria valer para sempre sem nada
 quebrar. O comportamento do servidor esta em `teste_api.js`, no bloco "primeiro acesso".
 
-O `teste/teste_permissoes.js` (**86 verificações**) é a varredura ponta a ponta do que o
+O `teste/teste_permissoes.js` (**87 verificações**) é a varredura ponta a ponta do que o
 administrador liga e desliga. Para cada permissão percorre a corrente inteira — **formulário →
 envia → servidor grava → sessão carrega → alguma tela usa** — e um elo faltando é um interruptor
 que não acende nada. Confere também a convenção "lista vazia = todos", as três pré-condições
