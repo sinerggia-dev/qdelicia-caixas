@@ -1616,6 +1616,22 @@ console.log('\n== painel restrito: so os proprios lancamentos ==');
      F.sessaoDe({ ID: 1, Nome: 'x', Perfil: 'y' }).soProprios === false,
     'a sessão leva o recorte para a tela — sem isso ela não saberia pedir');
 
+  /* O usuario NOVO ainda nao tem id quando o formulario e salvo, entao "apenas os
+     lancamentos dele mesmo" nao tem como citar um id na tela. O formulario manda o
+     marcador `__EU__`, e quem o troca pelo id e o SERVIDOR — o unico ponto que conhece o
+     id final nos dois casos: o que ja existe e o que acabou de nascer. */
+  const rotas = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  /* A CONDICAO, e nao a palavra: `__EU__` aparece tambem no comentario que explica o
+     marcador, entao procura-la solta acha o comentario de um `if (false)`. */
+  ok(/dados\.UsuariosVistos\.indexOf\('__EU__'\) >= 0/.test(rotas) &&
+     /L\.novoId\('U', d\.usuarios\)/.test(rotas),
+    'o marcador "ela mesma" vira id no servidor, que é quem conhece o id do usuário ' +
+    'recém-criado — trocado na tela, o novo ficaria com uma lista citando um id que ' +
+    'ninguém atribuiu ainda');
+  ok(/dados\.ID = dados\.ID \|\| meuId/.test(rotas),
+    'e o id escolhido é o MESMO que o registro vai levar — dois ids diferentes deixariam ' +
+    'a pessoa vendo os lançamentos de ninguém');
+
   const migra = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
   ok(/so_proprios boolean not null default false/.test(migra),
     'e a coluna nasce em `false`: o padrão é ver tudo, como era antes da coluna existir');

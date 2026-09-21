@@ -302,6 +302,30 @@ todo mundo no dia do deploy. É a convenção "lista vazia = TODOS", que já val
 listas, e `VerLancamentos !== false` — e **não** `=== true` — porque o registro antigo não tem a
 coluna, e `=== true` deixaria todos eles sem lançamentos.
 
+### O seletor do painel é um atalho para a lista
+
+A pedido, o seletor **Pode entrar no painel?** voltou a oferecer *"sim — vê apenas os lançamentos
+dele mesmo"*. Ele **não** é um segundo lugar de verdade: escreve na mesma `usuarios_vistos` e lê
+dela. As duas direções são mantidas em dia, então não há como discordarem:
+
+| lista | seletor mostra |
+|---|---|
+| vazia | sim — vê os lançamentos de todos |
+| só ela | sim — vê apenas os lançamentos dele mesmo |
+| outras pessoas | sim — vê de pessoas escolhidas abaixo |
+
+A quarta opção **só aparece quando a lista diz isso**: sempre visível, ela ofereceria um estado
+que a lista não está, e escolhê-la não faria nada. E o ouvinte do seletor **mexe na lista e só
+então reavalia** — na outra ordem, o ajuste leria a lista velha e o rótulo voltaria sozinho.
+
+`resumoDaLista()` e `aplicarResumo()` são as duas direções, cada uma numa função: a mesma conta
+espalhada nos dois ouvintes discorda no primeiro caso que alguém esquecer.
+
+**O usuário novo ainda não tem id** quando o formulário salva, então "apenas ele mesmo" manda o
+marcador `__EU__`, e **o servidor** o troca pelo id — é o único ponto que conhece o id final nos
+dois casos, o que já existe e o que acaba de nascer. E o id escolhido é o mesmo que o registro
+leva; dois ids diferentes deixariam a pessoa vendo os lançamentos de ninguém.
+
 Isto **substituiu** o interruptor `so_proprios`, que durou um dia: a lista diz aquilo (marcar só
 ela mesma) e diz também o que o interruptor não dizia — *"ela vê os dela e os do fulano"*. A
 migração converte quem estava na marca antiga, e `usuariosVistosDe()` entende as duas enquanto a
@@ -541,11 +565,11 @@ node teste/teste_saldo.js
 node teste/teste_primeiro_acesso.js
 ```
 
-O `teste_api.js` tem **485 verificações**. Roda o roteador, as regras e os tradutores **de
+O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tradutores **de
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**583 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**593 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

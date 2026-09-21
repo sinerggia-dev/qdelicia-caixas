@@ -165,8 +165,8 @@ linhas antigas que ficaram nele passaram a contar.
 ## Teste da matemática do saldo
 
 ```
-node teste/teste_api.js    # 485 verificações das regras
-node teste/teste_tela.js   # 583 verificações das telas
+node teste/teste_api.js    # 487 verificações das regras
+node teste/teste_tela.js   # 593 verificações das telas
 node teste/teste_permissoes.js   # 87 verificações das permissões, ponta a ponta
 ```
 

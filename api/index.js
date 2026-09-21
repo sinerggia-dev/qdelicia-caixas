@@ -433,6 +433,20 @@ async function salvarUsuario(p) {
 
   var d = await db.carregarTudo();
 
+  /* `__EU__` quer dizer "ela mesma" na lista de quem ela ve os lancamentos. O formulario
+     manda esse marcador porque o usuario NOVO ainda nao tem id na hora de salvar.
+
+     Trocado AQUI, e nao na tela: e o unico ponto que conhece o id final nos dois casos —
+     o que ja existe e o que acabou de nascer. Na tela, o usuario novo ficaria com uma
+     lista citando um id que ninguem atribuiu ainda. */
+  if (Array.isArray(dados.UsuariosVistos) && dados.UsuariosVistos.indexOf('__EU__') >= 0) {
+    var meuId = dados.ID || L.novoId('U', d.usuarios);
+    dados.ID = dados.ID || meuId;
+    dados.UsuariosVistos = dados.UsuariosVistos.map(function (x) {
+      return x === '__EU__' ? String(meuId) : x;
+    });
+  }
+
   /* Tirar o acesso ao painel leva junto a senha do painel. Hash que fica no banco sem
      ninguem poder usar nao e so sujeira: `acharPorIdentificador` casa tambem pelo NOME e
      `loginPorSenha` nao olha acesso ao painel, entao a senha velha continuaria

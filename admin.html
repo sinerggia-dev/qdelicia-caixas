@@ -3340,13 +3340,18 @@
               : 'Senha provisória: a pessoa escolhe a dela no primeiro acesso.')+'</p>'+
       '<h3 style="margin-top:20px">Acesso ao painel</h3>'+
       '<label>Pode entrar no painel?</label>'+
-      /* Dois valores: entra no painel, ou nao. O "ve apenas os lancamentos dela", que
-         morou aqui por um dia, virou o quadro "Lancamentos" mais abaixo — uma lista de
-         usuarios diz isso (marcar so ela) e diz tambem o que o interruptor nao dizia:
-         "ve os dela e os de fulano". */
+      /* O seletor e um ATALHO para os casos comuns, e o quadro "Lançamentos" mais
+         abaixo e o caso fino. Os dois escrevem na MESMA lista `UsuariosVistos`, e um
+         segue o outro nas duas direcoes — assim nao ha como eles discordarem.
+
+         A quarta opcao so aparece quando a lista tem gente que nao e so ela: sem ela, um
+         seletor de tres valores teria de mentir sobre os tres nomes que o administrador
+         acabou de marcar. */
       '<select id="fPainel">'+
         '<option value="NAO"'+(u.AcessoPainel?'':' selected')+'>não — só o app de campo</option>'+
-        '<option value="SIM"'+(u.AcessoPainel && !u.SoProprios?' selected':'')+'>sim — vê os lançamentos de todos</option>'+
+        '<option value="TODOS">sim — vê os lançamentos de todos</option>'+
+        '<option value="EU">sim — vê apenas os lançamentos dele mesmo</option>'+
+        '<option value="ESCOLHIDOS">sim — vê de pessoas escolhidas abaixo</option>'+
       '</select>'+
 '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPainelNota"></p>'+
       '<label>E-mail</label><input type="email" id="fEmail" value="'+Q.esc(u.Email||'')+'" placeholder="voce@empresa.com.br">'+
@@ -3474,16 +3479,46 @@
       el.hidden = !texto;
     }
 
+    /* Le a lista marcada e diz qual opcao do seletor corresponde a ela. UMA funcao, e
+       nao a mesma conta espalhada nos dois ouvintes: espalhada, as duas discordam no
+       primeiro caso que alguem esquecer. */
+    function resumoDaLista(){
+      var marcados = lerMarcados('fUsuariosVistos');
+      if (!marcados.length) return 'TODOS';
+      var meu = String(u.ID || '__EU__');
+      if (marcados.length === 1 && String(marcados[0]) === meu) return 'EU';
+      return 'ESCOLHIDOS';
+    }
+
+    /* E o contrario: escolher no seletor MEXE na lista. "Escolhidos" nao mexe — e o caso
+       em que a lista e quem manda. */
+    function aplicarResumo(valor){
+      var caixa = document.getElementById('fUsuariosVistos');
+      if (!caixa) return;
+      var meu = String(u.ID || '__EU__');
+      caixa.querySelectorAll('input[type=checkbox]').forEach(function(ch){
+        if (valor === 'TODOS') ch.checked = false;
+        else if (valor === 'EU') ch.checked = String(ch.value) === meu;
+      });
+    }
+
     function ajustarPainel(){
       var perfil = perfilDigitado();
       var ehAdmin = perfil.toUpperCase() === 'ADMIN';
       var sel = document.getElementById('fPainel');
       var ativo = document.getElementById('fAtivo').value === 'SIM';
       sel.disabled = ehAdmin || !ativo;
-      if (ehAdmin) sel.value = 'SIM';
+      /* O seletor mostra o que a LISTA diz — ela e a verdade. Sem isto ele ficaria
+         parado em "todos" enquanto a lista embaixo dele diz outra coisa. */
+      if (sel.value !== 'NAO') sel.value = resumoDaLista();
+      if (ehAdmin && sel.value === 'NAO') sel.value = 'TODOS';
       /* "PROPRIOS" tambem e painel ligado: as abas valem para ela igual. O que muda e o
          que aparece DENTRO delas, e nao quais existem. */
       var temPainel = ativo && (ehAdmin || sel.value !== 'NAO');
+      /* "De pessoas escolhidas" so faz sentido quando a lista diz isso. Nos outros casos
+         a opcao some, em vez de ficar oferecendo um estado que ela nao esta. */
+      var opEscolhidos = sel.querySelector('option[value="ESCOLHIDOS"]');
+      if (opEscolhidos) opEscolhidos.hidden = resumoDaLista() !== 'ESCOLHIDOS';
       /* Ver lancamentos: o interruptor manda na lista logo abaixo dele. */
       var verLanc = document.getElementById('fVerLanc');
       var veLanc = ativo && verLanc.value === 'SIM';
@@ -3523,7 +3558,7 @@
         ? 'Só depois de reativar a pessoa.'
         : (ehAdmin
             ? 'Administrador entra sempre — não dá para tirar.'
-            : (sel.value === 'SIM'
+            : (sel.value !== 'NAO'
                 ? (temSenha
                     ? 'Ela entra no painel com o e-mail ou o usuário, e a senha do painel.'
                     : 'Ela ainda NÃO tem senha do painel — defina uma no campo Senha, '
@@ -3619,7 +3654,16 @@
        mentir justamente no instante em que a pessoa mexe nele — e foi um desses que
        faltou: o `fPainel` mudava e as abas continuavam marcaveis e mudas. */
     document.getElementById('fPerfil').addEventListener('input', ajustarPainel);
-    document.getElementById('fPainel').addEventListener('change', ajustarPainel);
+    document.getElementById('fPainel').addEventListener('change', function(){
+      /* Escolher no seletor MEXE na lista, e ai o ajuste roda por cima do resultado. Se
+         so mexesse na lista, o seletor voltaria sozinho para o resumo antigo. */
+      aplicarResumo(this.value);
+      ajustarPainel();
+    });
+    /* E mexer na lista reavalia o seletor. Sem este ouvinte, marcar um terceiro nome
+       deixava o seletor dizendo "apenas ele mesmo" sobre uma lista de tres. */
+    var caixaVistosEl = document.getElementById('fUsuariosVistos');
+    if (caixaVistosEl) caixaVistosEl.addEventListener('change', ajustarPainel);
     document.getElementById('fAtivo').addEventListener('change', ajustarPainel);
     document.getElementById('fSenha').addEventListener('input', ajustarPainel);
     document.getElementById('fVerLanc').addEventListener('change', ajustarPainel);

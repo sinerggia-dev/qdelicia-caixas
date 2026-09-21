@@ -1520,6 +1520,16 @@ console.log('\n== as abas de admin travam no cadastro ==');
     avk++;
   } while (avn > 0 && avk < adm.length);
   var corpoAvisar = adm.slice(av, avk);
+  function recorta2(assinatura) {
+    var i = adm.indexOf(assinatura);
+    var k = adm.indexOf('{', i), n = 0;
+    do { if (adm[k] === '{') n++; else if (adm[k] === '}') n--; k++; } while (n > 0);
+    return adm.slice(i, k);
+  }
+  var corpoResumo = recorta2('function resumoDaLista()');
+  var corpoAplicar = recorta2('function aplicarResumo(valor)');
+  ok(corpoResumo.length > 120 && corpoAplicar.length > 120,
+    'o recorte pegou o resumo e o aplicador', [corpoResumo.length, corpoAplicar.length]);
   ok(av > 0 && corpoAvisar.indexOf("'Aviso'") > 0,
     'o recorte pegou o escritor de avisos', corpoAvisar.length);
   /* A trava por PERFIL saiu a pedido: o administrador concede qualquer aba a qualquer
@@ -1546,6 +1556,13 @@ console.log('\n== as abas de admin travam no cadastro ==');
      A bancada roda o corpo de `ajustarPainel` de verdade, com um DOM de mentira. */
   function bancada(o) {
     o = o || {};
+    /* Quem esta marcado na lista de "de quem ela ve os lancamentos". */
+    var vistos = (o.vistos || []).map(String);
+    var caixasVistos = ['U008', 'U005', 'U001'].map(function (id) {
+      return { value: id, checked: vistos.indexOf(id) >= 0, disabled: false,
+               dataset: {}, parentNode: { classList: { toggle: function () {} } } };
+    });
+    var opEscolhidos = { hidden: false };
     var abas = [{ disabled: false, checked: o.marcouPoder === true, dataset: { trava: '1' },
                   parentNode: { classList: { toggle: function () {} } } },
                 { disabled: false, checked: false, dataset: {},
@@ -1554,13 +1571,18 @@ console.log('\n== as abas de admin travam no cadastro ==');
     var avisos = {};
     function lista(id) {
       return { classList: { toggle: function (c, v) { classe[id] = !!v; } },
-               querySelectorAll: function () { return id === 'fAbas' ? abas : []; } };
+               querySelectorAll: function () {
+                 if (id === 'fAbas') return abas;
+                 if (id === 'fUsuariosVistos') return caixasVistos;
+                 return [];
+               } };
     }
     /* O elemento de aviso de cada quadro, com o mesmo nome que a tela usa. */
     ['fAbas', 'fOperacoes', 'fSaidas', 'fDestinos', 'fTiposCaixa', 'fMotoristas']
       .forEach(function (q) { avisos[q] = { textContent: '', hidden: true }; });
     var els = {
-      fPainel: { disabled: false, value: o.painel === false ? 'NAO' : 'SIM' },
+      fPainel: { disabled: false, value: o.painel === false ? 'NAO' : (o.painel || 'TODOS'),
+                 querySelector: function () { return opEscolhidos; } },
       fAtivo: { value: o.ativo === false ? 'NAO' : 'SIM' },
       fSenha: { value: o.senhaDigitada || '' },
       fPainelNota: { textContent: '' }, fAbasNota: { textContent: '' },
@@ -1569,6 +1591,8 @@ console.log('\n== as abas de admin travam no cadastro ==');
       fDestinos: lista('fDestinos'), fTiposCaixa: lista('fTiposCaixa'),
       fMotoristas: lista('fMotoristas'),
       fVerLanc: { value: o.verLanc === false ? 'NAO' : 'SIM', disabled: false },
+      /* A lista de "de quem", com tres pessoas: ela mesma (U008) e duas outras. E o
+         minimo para distinguir os tres resumos — todos, so ela, escolhidos. */
       fVerLancNota: { textContent: '' }, fVistosNota: { textContent: '' },
       fUsuariosVistos: lista('fUsuariosVistos'),
       fUsuariosVistosAviso: (avisos.fUsuariosVistos = { textContent: '', hidden: true }),
@@ -1596,9 +1620,17 @@ console.log('\n== as abas de admin travam no cadastro ==');
       }
     };
     new Function('document', 'perfilDigitado', 'PERFIS', 'COM_PODER', 'TEM_SENHA_PAINEL',
-      corpoAvisar + '\n' + corpoAjuste + '\n ajustarPainel();')(
+      'u', 'lerMarcados',
+      corpoAvisar + '\n' + corpoResumo + '\n' + corpoAplicar + '\n' + corpoAjuste +
+      '\n ajustarPainel();' +
+      '\n if (arguments[7]) aplicarResumo(arguments[7]);')(
       doc, function () { return o.perfil || 'Gerente'; }, ['Gerente'], { ADMIN: 'x' },
-      o.temSenha === true);
+      o.temSenha === true, { ID: 'U008' },
+      function () {
+        return caixasVistos.filter(function (c) { return c.checked; })
+          .map(function (c) { return c.value; });
+      },
+      o.escolher);
     return {
       travadas: abas.filter(function (c) { return c.disabled; }).length,
       notaAbas: els.fAbasNota.textContent,
@@ -1613,7 +1645,11 @@ console.log('\n== as abas de admin travam no cadastro ==');
       avisoVistos: avisos.fUsuariosVistos && !avisos.fUsuariosVistos.hidden
         ? avisos.fUsuariosVistos.textContent : '',
       notaVer: els.fVerLancNota.textContent,
-      notaVistos: els.fVistosNota.textContent
+      notaVistos: els.fVistosNota.textContent,
+      seletor: els.fPainel.value,
+      escolhidosVisivel: !opEscolhidos.hidden,
+      marcadosDepois: caixasVistos.filter(function (c) { return c.checked; })
+        .map(function (c) { return c.value; }).join(',')
     };
   }
 
@@ -1637,6 +1673,46 @@ console.log('\n== as abas de admin travam no cadastro ==');
     comPoder.notaAbas);
   ok(!/ATENÇÃO/.test(ger.notaAbas),
     'e o aviso só aparece quando alguma está marcada — sempre aceso, vira paisagem');
+
+  /* --- o atalho do seletor, e a lista --------------------------------------- */
+  /* O seletor voltou a oferecer "apenas os lancamentos dele mesmo", a pedido. Ele e um
+     ATALHO: escreve na MESMA lista de quem, e le dela. As duas direcoes sao mantidas em
+     dia, entao as duas nao podem discordar — que e o risco de ter dois controles para a
+     mesma coisa. */
+  var selTodos = bancada({ perfil: 'Gerente', temSenha: true, vistos: [] });
+  ok(selTodos.seletor === 'TODOS',
+    'lista vazia: o seletor diz "vê os lançamentos de todos"', selTodos.seletor);
+  var selEu = bancada({ perfil: 'Gerente', temSenha: true, vistos: ['U008'] });
+  ok(selEu.seletor === 'EU',
+    'lista só com ela: o seletor diz "apenas os dele mesmo" — é o atalho que o usuário ' +
+    'pediu de volta', selEu.seletor);
+  var selVarios = bancada({ perfil: 'Gerente', temSenha: true, vistos: ['U008', 'U005'] });
+  ok(selVarios.seletor === 'ESCOLHIDOS',
+    'lista com mais gente: o seletor diz "de pessoas escolhidas" — sem esse quarto ' +
+    'estado ele teria de mentir sobre a lista', selVarios.seletor);
+
+  /* A quarta opcao so existe quando e o caso. Sempre visivel, ela ofereceria um estado
+     que a lista nao esta, e escolhe-la nao faria nada. */
+  ok(selVarios.escolhidosVisivel && !selEu.escolhidosVisivel && !selTodos.escolhidosVisivel,
+    'e essa quarta opção só aparece quando a lista realmente diz isso',
+    { varios: selVarios.escolhidosVisivel, eu: selEu.escolhidosVisivel });
+
+  /* E a direcao contraria: escolher no seletor MEXE na lista. */
+  var mexeuTodos = bancada({ perfil: 'Gerente', temSenha: true, vistos: ['U008', 'U005'],
+                             escolher: 'TODOS' });
+  ok(mexeuTodos.marcadosDepois === '',
+    'escolher "todos" LIMPA a lista — deixá-la cheia faria o rótulo dizer uma coisa e a ' +
+    'lista outra', mexeuTodos.marcadosDepois);
+  var mexeuEu = bancada({ perfil: 'Gerente', temSenha: true, vistos: ['U005', 'U001'],
+                          escolher: 'EU' });
+  ok(mexeuEu.marcadosDepois === 'U008',
+    'e escolher "apenas ele mesmo" marca só ela, e desmarca o resto',
+    mexeuEu.marcadosDepois);
+  var mexeuEscolhidos = bancada({ perfil: 'Gerente', temSenha: true, vistos: ['U005'],
+                                  escolher: 'ESCOLHIDOS' });
+  ok(mexeuEscolhidos.marcadosDepois === 'U005',
+    'e "de pessoas escolhidas" não mexe: aí quem manda é a lista',
+    mexeuEscolhidos.marcadosDepois);
 
   /* --- 1. abas sem o painel: O CASO QUE ACONTECEU ------------------------- */
   var semPainel = bancada({ perfil: 'Conferente', painel: false, temSenha: true });
@@ -1681,8 +1757,7 @@ console.log('\n== as abas de admin travam no cadastro ==');
   /* --- os gatilhos -------------------------------------------------------- */
   /* Faltando um, a tela mente justamente no instante em que a pessoa mexe naquele campo.
      Foi o `fPainel` que faltou: ele mudava e as abas seguiam marcáveis e mudas. */
-  [['fPerfil', 'input'], ['fPainel', 'change'], ['fAtivo', 'change'], ['fSenha', 'input'],
-   ['fVerLanc', 'change']]
+  [['fPerfil', 'input'], ['fAtivo', 'change'], ['fSenha', 'input'], ['fVerLanc', 'change']]
     .forEach(function (par) {
       var re = new RegExp("getElementById\\('" + par[0] + "'\\)\\.addEventListener\\('" +
                           par[1] + "', ajustarPainel\\)");
@@ -1690,6 +1765,20 @@ console.log('\n== as abas de admin travam no cadastro ==');
         'o campo ' + par[0] + ' reavalia as pré-condições (`' + par[1] + '`) — sem isso a ' +
         'tela mente no instante em que a pessoa mexe nele');
     });
+  /* O `fPainel` tem corpo proprio porque ele MEXE na lista antes de reavaliar: e o atalho
+     escrevendo no que o quadro de baixo mostra. */
+  ok(/getElementById\('fPainel'\)\.addEventListener\('change', function\(\)\{/.test(adm) &&
+     /aplicarResumo\(this\.value\);[\s\S]{0,120}ajustarPainel\(\);/.test(adm),
+    'e o seletor do painel mexe na lista e SÓ ENTÃO reavalia — na outra ordem, o ajuste ' +
+    'leria a lista velha e o rótulo voltaria sozinho ao estado anterior');
+  /* A GUARDA junto: `if (false) caixaVistosEl.addEventListener(...)` deixa o texto do
+     ouvinte intacto e nao liga nada. Procurar so o `addEventListener` nao distingue os
+     dois — foi assim que esta afirmacao passou sabotada. */
+  ok(/if \(caixaVistosEl\) caixaVistosEl\.addEventListener\('change', ajustarPainel\)/
+      .test(adm),
+    'e mexer na lista reavalia o seletor, com a guarda que de fato liga o ouvinte — ' +
+    'sem isso, marcar um terceiro nome deixava o rótulo dizendo "apenas ele mesmo" ' +
+    'sobre uma lista de três');
 
   /* --- ver lancamentos: o interruptor manda na lista --------------------- */
   var comLanc = bancada({ perfil: 'Conferente', temSenha: true });
@@ -2120,10 +2209,14 @@ console.log('\n== painel restrito: a tela pede e anuncia o recorte ==');
      fulano". A chave do painel voltou a responder so pelo painel. */
   var iS = adm.indexOf("'<select id=\"fPainel\">'+");
   var sel = adm.slice(iS, adm.indexOf("'</select>'+", iS));
-  ok(iS > 0 && (sel.match(/<option value=/g) || []).length === 2 &&
-     !/value="PROPRIOS"/.test(sel),
-    'a chave do painel responde só pelo painel — quem vê o quê em lançamentos mudou ' +
-    'para o quadro próprio', (sel.match(/value="(\w+)"/g) || []));
+  /* Quatro valores: nao, todos, so ele, e o "escolhidos" que so aparece quando a lista
+     diz isso. Os tres primeiros sao atalhos; o quarto e o espelho da lista. */
+  ok(iS > 0 && (sel.match(/<option value=/g) || []).length === 4 &&
+     /value="EU"/.test(sel) && /value="ESCOLHIDOS"/.test(sel),
+    'a chave do painel oferece o atalho "apenas os lançamentos dele mesmo", e um quarto ' +
+    'estado para quando a lista diz outra coisa', (sel.match(/value="(\w+)"/g) || []));
+  ok(/dele mesmo/.test(sel),
+    'e o rótulo diz de quem se trata, com as palavras de quem pediu', sel);
 
   ok(/id="fVerLanc"/.test(adm) && /caixaLocais\('fUsuariosVistos'/.test(adm),
     'e há um quadro de Lançamentos, com o interruptor e a lista de quem');
