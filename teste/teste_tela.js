@@ -3610,8 +3610,10 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
     var f = new Function('marcados', 'm', pf.slice(pf.indexOf('{') + 1, pf.lastIndexOf('}')));
     return f(function (id) { return marcados[id] || []; }, m);
   }
-  var saida = { tipo: 'SAIDA', motorista: 'Chico', origem: 'Matriz', destino: 'Caruaru' };
-  var volta = { tipo: 'DEVOLUCAO', motorista: 'Ramos', origem: 'Recife', destino: 'Matriz' };
+  var saida = { tipo: 'SAIDA', motorista: 'Chico', origem: 'Matriz', destino: 'Caruaru',
+                usuario: 'Nestor Neto' };
+  var volta = { tipo: 'DEVOLUCAO', motorista: 'Ramos', origem: 'Recife', destino: 'Matriz',
+                usuario: 'Melkezedeque Soares' };
 
   ok(passa(saida, {}) && passa(volta, {}),
     'nada marcado quer dizer TODOS — senao a tela abriria vazia sem dizer por que');
@@ -3626,9 +3628,24 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
   ok(!passa(saida, { lcFMotorista: ['Ramos'] }),
     'e quem nao esta marcado sai');
 
+  /* QUEM LANCOU. A aba mostra os lancamentos de mais de uma pessoa quando a permissao
+     "de quem ela ve" cita varias — e ai as linhas de duas ficam misturadas sem nenhum
+     jeito de separar. O filtro entra na MESMA peneira dos outros quatro. */
+  ok(passa(saida, { lcFUsuario: ['Nestor Neto'] }) &&
+     !passa(volta, { lcFUsuario: ['Nestor Neto'] }),
+    'o filtro de quem lançou separa as pessoas — sem ele, as linhas de duas ficam ' +
+    'misturadas e não há como saber de quem é cada uma');
+  ok(passa(saida, { lcFUsuario: ['Nestor Neto', 'Melkezedeque Soares'] }) &&
+     passa(volta, { lcFUsuario: ['Nestor Neto', 'Melkezedeque Soares'] }),
+    'e é múltipla escolha, como os outros quatro');
+  ok(passa(saida, {}) && passa(volta, {}),
+    'e nada marcado continua querendo dizer TODOS');
+
   // filtros diferentes se SOMAM
   ok(!passa(saida, { lcFMotorista: ['Chico'], lcFDestino: ['Recife'] }),
     'filtros diferentes se somam: motorista certo e destino errado nao passa');
+  ok(!passa(saida, { lcFUsuario: ['Nestor Neto'], lcFDestino: ['Recife'] }),
+    'inclusive o de quem lançou: pessoa certa e destino errado não passa');
 
   /* As opcoes saem dos lancamentos que VIERAM, e nao do cadastro inteiro: uma lista com
      trinta locais dos quais dois tem movimento obriga a procurar. */
@@ -3637,6 +3654,17 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
     'as opcoes saem dos lancamentos do periodo, nao do cadastro inteiro', mf.trim());
   ok(mf.indexOf('antes.indexOf(o[0]) >= 0') > 0,
     'e a marcacao sobrevive ao remontar a lista');
+  /* Cada um dos quatro que sai do dado tem de PUXAR as opcoes do campo dele. Registrado
+     na lista e sem puxar nada, o filtro aparece na tela vazio para sempre — e "Nada no
+     periodo" nao distingue "ninguem lancou" de "esqueci de ligar este". */
+  [['lcFMotorista', 'm.motorista'], ['lcFOrigem', 'm.origem'],
+   ['lcFDestino', 'm.destino'], ['lcFUsuario', 'm.usuario']].forEach(function (par) {
+    var trecho = "['" + par[0] + "', valores(function(m){ return " + par[1] + ";";
+    ok(mf.indexOf(trecho) > 0,
+      'o filtro ' + par[0] + ' puxa as opções do campo dele — registrado sem puxar, ele ' +
+      'aparece vazio para sempre, e "Nada no período" não distingue isso de ninguém ' +
+      'ter lançado', trecho);
+  });
 
   // os cartoes somam o que esta na TELA, nao o periodo inteiro
   var dl = corpo('desenharLanc');
@@ -3647,13 +3675,58 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
     'e o total geral e saidas mais retornos');
 
   // a tabela traz as colunas pedidas
-  ['Data', 'Origem', 'Destino', 'Caixa', 'Saída', 'Retorno', 'Motorista'].forEach(function (c) {
+  ['Data', 'Origem', 'Destino', 'Caixa', 'Saída', 'Retorno', 'Motorista',
+   'Quem lançou'].forEach(function (c) {
     ok(dl.indexOf('>' + c + '<') > 0, 'a tabela tem a coluna ' + c, c);
   });
+  /* Cabecalho e celula andam juntos: um <th> sem <td> desalinha a tabela inteira a
+     partir dali, e o erro so aparece na coluna seguinte. */
+  /* `<th[ >]` e nao `<th`: `<thead>` comeca com `<th` e entrava na conta, fazendo a
+     afirmacao acusar 9 cabecalhos para 8 celulas. */
+  var nTh = (dl.match(/<th[ >]/g) || []).length;
+  var nTd = (dl.match(/<td[ >]/g) || []).length;
+  ok(nTh === nTd && nTh === 8,
+    'e cada cabeçalho tem a célula dele — um <th> sem <td> desalinha a tabela inteira a ' +
+    'partir dali, e o erro só aparece na coluna seguinte', [nTh, nTd]);
+  ok(/Q\.esc\(m\.usuario \|\| '—'\)/.test(dl),
+    'e a célula de quem lançou sai do campo que o servidor manda');
 
   ok(html.indexOf('id="lcFSentido"') > 0 && html.indexOf('id="lcFMotorista"') > 0 &&
-     html.indexOf('id="lcFOrigem"') > 0 && html.indexOf('id="lcFDestino"') > 0,
-    'os quatro filtros existem na tela');
+     html.indexOf('id="lcFOrigem"') > 0 && html.indexOf('id="lcFDestino"') > 0 &&
+     html.indexOf('id="lcFUsuario"') > 0,
+    'os cinco filtros existem na tela');
+  /* O contador de marcados e o "Limpar filtros" tem de alcancar o quinto. O limpar
+     alcanca porque varre o container inteiro — e e por isso que o filtro novo mora
+     DENTRO de `.filtros-lanc`, e nao ao lado dele. */
+  /* A lista antiga e PREFIXO da nova, entao procurar "a antiga sumiu" nunca vale. O que
+     distingue e o FECHAMENTO: `'lcFDestino']` contra `'lcFDestino','lcFUsuario']`. */
+  ok(html.indexOf("'lcFDestino'].forEach") < 0 &&
+     html.indexOf("'lcFDestino','lcFUsuario'].forEach") > 0,
+    'e o contador de marcados conta o quinto também — esquecido, o filtro ficaria ligado ' +
+    'sem nada dizer quantos');
+  var iL = html.indexOf('btnLimparLanc');
+  var limpar = html.slice(html.indexOf("getElementById('btnLimparLanc')"),
+                          html.indexOf("getElementById('btnLimparLanc')") + 400);
+  ok(iL > 0 && /\.filtros-lanc input:checked/.test(limpar),
+    'e o Limpar varre o container inteiro, então alcança qualquer filtro novo — um por ' +
+    'um, o quinto seria esquecido', limpar.slice(0, 200));
+  /* DENTRO do container, medido pelos limites dele — contando as <div> que abrem e
+     fecham, e nao chutando uma distancia em caracteres. */
+  var iBox = html.indexOf('<div class="filtros-lanc">');
+  var fimBox = (function () {
+    var i = iBox, n = 0;
+    while (i < html.length) {
+      if (html.slice(i, i + 4) === '<div') n++;
+      else if (html.slice(i, i + 6) === '</div>') { n--; if (!n) return i; }
+      i++;
+    }
+    return -1;
+  })();
+  var iUsu = html.indexOf('id="lcFUsuario"');
+  ok(iBox > 0 && fimBox > iBox && iUsu > iBox && iUsu < fimBox,
+    'e o filtro novo mora DENTRO do container — fora dele, o Limpar não o veria, porque ' +
+    'ele varre o container e não os filtros um a um',
+    { box: iBox, fim: fimBox, usuario: iUsu });
   ok(html.indexOf('id="lcDe"') > 0 && html.indexOf('id="lcAte"') > 0,
     'e o periodo tambem');
 

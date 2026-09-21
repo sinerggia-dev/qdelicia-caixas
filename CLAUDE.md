@@ -360,6 +360,13 @@ Há uma afirmação sobre a posição, não só sobre a existência da trava.
 abre sem nada dentro parece quebrada, e a pessoa volta nela toda vez achando que não carregou. Se
 era ela que estava aberta, outra assume.
 
+A aba mostra **quem lançou**, em coluna e em filtro. Ela passou a listar os lançamentos de mais
+de uma pessoa — é o que a permissão "de quem ela vê" faz de propósito —, e sem isso as linhas de
+duas pessoas ficam misturadas sem nenhum jeito de saber de quem é cada uma. O filtro entra na
+**mesma** maquinaria dos outros quatro: mesma função de opções, mesma convenção "nada marcado =
+todos", mesmo contador. O "Limpar filtros" alcança porque varre o container inteiro — e é por isso
+que o filtro novo mora **dentro** de `.filtros-lanc`, e não ao lado dele.
+
 **Uma exceção, de propósito:** o `carregarPainel()` do `index.html` não é recortado. Ele alimenta
 o aviso de saldo embaixo da origem no formulário de retorno, e é desse número que sai o alerta
 *"você contou mais do que o saldo"*, uma das guardas contra saída não lançada. Recortado, o saldo
@@ -580,7 +587,7 @@ O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**603 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**617 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

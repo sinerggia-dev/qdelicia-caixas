@@ -216,6 +216,11 @@
           <div class="opcoes"></div></details>
         <details class="fchk" id="lcFDestino"><summary>Destino<span class="qt"></span></summary>
           <div class="opcoes"></div></details>
+        <!-- Quem lancou. A aba mostra os lancamentos de mais de uma pessoa quando a
+             permissao "de quem ela ve" cita varias — e ai as linhas de duas pessoas
+             ficam misturadas sem nenhum jeito de separar. -->
+        <details class="fchk" id="lcFUsuario"><summary>Usuário<span class="qt"></span></summary>
+          <div class="opcoes"></div></details>
       </div>
       <div class="linha-btn">
         <button class="btn sec" id="btnLimparLanc" type="button" style="flex:0 0 auto;min-width:150px;white-space:nowrap">Limpar filtros</button>
@@ -1047,11 +1052,13 @@
     var mot = marcados('lcFMotorista');
     var ori = marcados('lcFOrigem');
     var des = marcados('lcFDestino');
+    var usu = marcados('lcFUsuario');
     var ehRetorno = m.tipo === 'DEVOLUCAO';
     if (sent.length && sent.indexOf(ehRetorno ? 'RETORNO' : 'SAIDA') < 0) return false;
     if (mot.length && mot.indexOf(m.motorista || '') < 0) return false;
     if (ori.length && ori.indexOf(m.origem || '') < 0) return false;
     if (des.length && des.indexOf(m.destino || '') < 0) return false;
+    if (usu.length && usu.indexOf(m.usuario || '') < 0) return false;
     return true;
   }
 
@@ -1069,7 +1076,8 @@
       ['lcFSentido', [['SAIDA','Saída'],['RETORNO','Retorno']]],
       ['lcFMotorista', valores(function(m){ return m.motorista; }).map(function(v){ return [v,v]; })],
       ['lcFOrigem', valores(function(m){ return m.origem; }).map(function(v){ return [v,v]; })],
-      ['lcFDestino', valores(function(m){ return m.destino; }).map(function(v){ return [v,v]; })]
+      ['lcFDestino', valores(function(m){ return m.destino; }).map(function(v){ return [v,v]; })],
+      ['lcFUsuario', valores(function(m){ return m.usuario; }).map(function(v){ return [v,v]; })]
     ];
     grupos.forEach(function(g){
       var box = document.querySelector('#'+g[0]+' .opcoes');
@@ -1103,7 +1111,7 @@
       tileLanc(Q.num(saiu + voltou), 'total de caixas', 'saídas mais retornos', '');
 
     // o contador de cada filtro: quantos estao marcados, sem precisar abrir
-    ['lcFSentido','lcFMotorista','lcFOrigem','lcFDestino'].forEach(function(id){
+    ['lcFSentido','lcFMotorista','lcFOrigem','lcFDestino','lcFUsuario'].forEach(function(id){
       var n = marcados(id).length;
       var q = document.querySelector('#'+id+' .qt');
       if (q) q.textContent = n ? ' ('+n+')' : '';
@@ -1117,6 +1125,7 @@
     box.innerHTML = '<div class="tabela-wrap"><table><thead><tr>'+
       '<th>Data</th><th>Origem</th><th>Destino</th><th>Caixa</th>'+
       '<th class="num">Saída</th><th class="num">Retorno</th><th>Motorista</th>'+
+      '<th>Quem lançou</th>'+
       '</tr></thead><tbody>'+
       lista.map(function(m){
         var ehRetorno = m.tipo === 'DEVOLUCAO';
@@ -1128,6 +1137,7 @@
           '<td class="num">'+(ehRetorno ? '<span class="fraco">—</span>' : '<b>'+Q.num(m.qtd)+'</b>')+'</td>'+
           '<td class="num">'+(ehRetorno ? '<b>'+Q.num(m.qtd)+'</b>' : '<span class="fraco">—</span>')+'</td>'+
           '<td>'+Q.esc(m.motorista || '—')+'</td>'+
+          '<td>'+Q.esc(m.usuario || '—')+'</td>'+
         '</tr>';
       }).join('')+'</tbody></table></div>';
   }
