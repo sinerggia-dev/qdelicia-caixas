@@ -524,13 +524,7 @@ tr.ruim{background:var(--vermelho-claro)}
   padding:8px 11px;margin-bottom:8px;font-size:12.5px;line-height:1.45;
   color:var(--ambar-forte,#f0b43c)}
 .aviso-trava[hidden]{display:none}
-/* O aviso do painel restrito. Mesma familia do aviso de trava, e pela mesma razao: a
-   tela mostra menos do que existe, e quem le precisa saber disso ANTES de ler o numero. */
-.aviso-recorte{background:var(--ambar-fraco,rgba(240,180,60,.12));
-  border:1px solid var(--ambar,#f0b43c);border-radius:var(--raio);
-  padding:10px 14px;margin:0 0 14px;font-size:13px;line-height:1.5;
-  color:var(--ambar-forte,#f0b43c)}
-.aviso-recorte[hidden]{display:none}
+
 
 .ret-pop .ret-acao{color:var(--marca-txt);justify-content:center;font-size:12.5px}
 .ret-pop .ret-acao:hover:not(:disabled){background:var(--surface-2)}

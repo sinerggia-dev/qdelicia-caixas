@@ -166,7 +166,7 @@ linhas antigas que ficaram nele passaram a contar.
 
 ```
 node teste/teste_api.js    # 472 verificações das regras
-node teste/teste_tela.js   # 565 verificações das telas
+node teste/teste_tela.js   # 564 verificações das telas
 node teste/teste_permissoes.js   # 80 verificações das permissões, ponta a ponta
 ```
 

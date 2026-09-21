@@ -2005,23 +2005,15 @@ console.log('\n== painel restrito: a tela pede e anuncia o recorte ==');
     'recorte e mostra a todos o que os outros escondem',
     (adm.match(/recorteProprios\(\)/g) || []).length);
 
-  /* --- e ANUNCIA ---------------------------------------------------------- */
-  /* Painel recortado tem de dizer que esta recortado, como tudo que esconde neste app.
-     Sem o aviso a pessoa le os numeros como se fossem os da operacao e conclui que o
-     galpao parou. */
-  var a = adm.indexOf('function anunciarRecorte()');
-  var anun = adm.slice(a, adm.indexOf('\n  }', a));
-  ok(a > 0 && /faixa\.hidden = !restrito/.test(anun),
-    'o painel restrito se anuncia', anun);
-  ok(/apenas os lançamentos feitos por você/.test(anun) &&
-     /Os totais, os saldos e os extratos acompanham/.test(anun),
-    'e o aviso diz que os NÚMEROS também estão recortados — sem isso ela leria o total ' +
-    'como se fosse o da operação e concluiria que o galpão parou', anun);
-  ok(/id="avisoRecorte"/.test(adm) && adm.indexOf('id="avisoRecorte"') < adm.indexOf('id="pgRetornos"'),
-    'e a faixa fica ACIMA das páginas: é a primeira coisa a ler, porque muda o sentido ' +
-    'de tudo o que vem abaixo');
-  ok(/\.aviso-recorte\[hidden\]\{display:none\}/.test(css),
-    'e some para quem não é restrito');
+  /* --- a faixa de aviso saiu, a pedido ------------------------------------ */
+  /* Ela existia e foi retirada por escolha de quem usa. O que fica testado aqui e a
+     RETIRADA COMPLETA: elemento, funcao e estilo. Meio removido deixa um `getElementById`
+     procurando o que nao existe a cada abertura, e uma regra de CSS orfa que faz o
+     proximo leitor procurar um elemento que ninguem desenha mais. */
+  ['avisoRecorte', 'anunciarRecorte'].forEach(function (x) {
+    ok(adm.indexOf(x) < 0, 'não sobrou nada da faixa de aviso: ' + x);
+  });
+  ok(css.indexOf('.aviso-recorte') < 0, 'nem o estilo dela');
 
   /* --- a sessao renovada nao pode PERDER o recorte ------------------------ */
   /* Perdido na renovacao, a pessoa passaria a ver tudo no primeiro recarregamento —

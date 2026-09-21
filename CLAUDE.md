@@ -288,9 +288,13 @@ que coubessem nas primeiras N linhas.
 contrário deixaria todo mundo com o painel vazio no dia em que a coluna nasceu. A coluna nasce
 `default false` pela mesma razão.
 
-**O painel restrito se anuncia**, numa faixa âmbar acima de todas as páginas, e o texto diz que
-os *números* também estão recortados. É a mesma regra de tudo que esconde neste app: sem o aviso,
-a pessoa lê o total como se fosse o da operação e conclui que o galpão parou.
+**Não há aviso na tela de quem está restrito.** Houve uma faixa âmbar anunciando o recorte, e ela
+foi **retirada a pedido do usuário** — decisão dele, registrada aqui para não voltar por engano.
+A consequência é conhecida: quem tem o painel restrito e ainda não lançou nada vê zeros e uma
+tabela vazia, sem nada na tela dizendo por quê. Quem administra precisa saber que ligou o modo.
+
+Se um dia fizer sentido reabrir o assunto, a versão mais discreta seria uma etiqueta ao lado do
+título da página, e não uma faixa na largura toda.
 
 **Isto é a tela, não a tranca.** A API não tem autorização: um GET direto sem o `so` devolve tudo,
 como já devolve hoje para qualquer um. O recorte serve para a pessoa não ver o que não lhe diz
@@ -505,7 +509,7 @@ O `teste_api.js` tem **472 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**565 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**564 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
