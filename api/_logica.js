@@ -1516,6 +1516,10 @@ function usuariosPublicos(usuarios) {
       // Nao e segredo, e o admin precisa saber quem ainda nao trocou.
       PinProvisorio: u.PinProvisorio === true, SenhaProvisoria: u.SenhaProvisoria === true,
       AcessoPainel: podeVerPainel(u),
+      /* O painel restrito volta junto. Esquecido aqui, o formulario abriria sempre em
+         "ve os lancamentos de todos" e a gravacao seguinte apagaria a restricao — e a
+         renovacao da sessao a tiraria de quem ja a tinha, calada. */
+      SoProprios: u.SoProprios === true,
       /* As SEIS listas de permissão voltam para o painel. Esquecer uma aqui não dá
          erro nenhum: o formulário abre com ela desmarcada e a gravação seguinte escreve
          vazio por cima do que estava salvo. Foi o que aconteceu com TiposCaixa e

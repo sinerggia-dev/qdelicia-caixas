@@ -2104,11 +2104,29 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     ok(enviados.length >= 6,
       'o formulário envia as seis listas de permissão', enviados);
 
+    /* E as que NAO sao lista. A primeira versao deste teste olhava so o `lerMarcados`, e
+       por isso uma permissao booleana passou por fora: `SoProprios` foi gravada, viajou
+       na sessao, e mesmo assim nao voltava na `equipe`. Agora ele varre TODO campo do
+       payload — o que o formulario manda, a leitura tem de devolver. */
+    const todos = (payload.match(/([A-Z][A-Za-z]*)\s*:/g) || [])
+      .map((t) => t.replace(':', '').trim())
+      .filter((c) => ['ID', 'PIN', 'Senha'].indexOf(c) < 0);
+    const publico = Object.keys(F.usuariosPublicos([{ ID: 'U1', Nome: 'A' }])[0]);
+    /* `Senha` e `PIN` ficam de fora de proposito: eles VAO e nunca voltam. */
+    const sumiram = todos.filter((c) => publico.indexOf(c) < 0);
+    ok(todos.length >= 10 && sumiram.length === 0,
+      'todo campo que o formulário grava volta na leitura — inclusive os que não são ' +
+      'lista. Faltando um, o formulário abre com ele no padrão e a gravação seguinte ' +
+      'apaga o que estava salvo, sem erro nenhum em lugar nenhum', sumiram);
+
     const volta = F.usuariosPublicos([{
       ID: 'U1', Nome: 'A', Perfil: 'Gestor',
       Saidas: ['a'], Destinos: ['b'], TiposCaixa: ['c'], Motoristas: ['d'],
-      Operacoes: ['SAIDA'], Abas: ['pgPainel']
+      Operacoes: ['SAIDA'], Abas: ['pgPainel'], SoProprios: true
     }])[0];
+
+    ok(volta.SoProprios === true,
+      'e o painel restrito volta com o valor gravado, não com o padrão', volta.SoProprios);
 
     enviados.forEach((campo) => {
       ok(Array.isArray(volta[campo]) && volta[campo].length === 1,
