@@ -314,6 +314,17 @@ dela. As duas direções são mantidas em dia, então não há como discordarem:
 | só ela | sim — vê apenas os lançamentos dele mesmo |
 | outras pessoas | sim — vê de pessoas escolhidas abaixo |
 
+**O `selected` inicial vem do REGISTRO, e toda opção sabe vir marcada.** Sem isso nenhuma
+`<option>` levava `selected` para quem tinha painel, o navegador caía na primeira — "não" — e o
+formulário de quem TEM painel abria dizendo que não tem. Salvar dali gravava `AcessoPainel: NAO`
+e tirava o acesso de alguém que ninguém mandou tirar. **A gravação estava certa o tempo todo; quem
+mentia era a abertura.**
+
+Esse defeito passou por 593 afirmações, porque todas olhavam o que o formulário **faz** depois de
+aberto — o ajuste, os gatilhos, o salvar — e nenhuma olhava o que ele **mostra** no instante em
+que nasce. Há um bloco só para isso agora, e ele mede `selected` no HTML gerado para cada registro
+real, não o que o código acha que escolheu.
+
 A quarta opção **só aparece quando a lista diz isso**: sempre visível, ela ofereceria um estado
 que a lista não está, e escolhê-la não faria nada. E o ouvinte do seletor **mexe na lista e só
 então reavalia** — na outra ordem, o ajuste leria a lista velha e o rótulo voltaria sozinho.
@@ -569,7 +580,7 @@ O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**593 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**603 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

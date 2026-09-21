@@ -882,7 +882,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p style="margin-top:18px">As fotos ficam no armazenamento do Supabase, e o link aparece no extrato. Lançamentos antigos podem ter assinatura anexada — o campo saiu da tela em setembro/2026, mas o que já foi gravado continua lá.</p>
 
   <p>Alterou o código? Um <code>git push</code> na branch <code>main</code> e a Vercel publica sozinha, em menos de um minuto. Antes disso rode as duas suítes principais:</p>
-  <div class="formula">node teste/teste_api.js   → 487 verificações das regras<br>node teste/teste_tela.js  → 593 verificações das telas<br>node teste/teste_permissoes.js → 87 verificações das permissões</div>
+  <div class="formula">node teste/teste_api.js   → 487 verificações das regras<br>node teste/teste_tela.js  → 603 verificações das telas<br>node teste/teste_permissoes.js → 87 verificações das permissões</div>
   <p>A primeira executa as regras de produção contra um banco falso em memória — sem rede e sem chave. A segunda lê o HTML e o JavaScript das páginas e confere que cada filtro, coluna e botão está ligado dos dois lados: um campo que aparece na barra mas não viaja no pedido, ou uma coluna com cabeçalho e sem célula, falha ali em vez de falhar na tela de quem usa.</p>
   <p class="nota">Mexeu em <code>app.js</code> ou <code>styles.css</code>? Rode <code>python scripts/versionar.py</code> antes de commitar. Não há passo de compilação, e sem isso o navegador continua servindo o arquivo antigo do cache — às vezes com HTML novo e JavaScript velho, que é pior do que só estar velho.</p>
 

@@ -3348,10 +3348,10 @@
          seletor de tres valores teria de mentir sobre os tres nomes que o administrador
          acabou de marcar. */
       '<select id="fPainel">'+
-        '<option value="NAO"'+(u.AcessoPainel?'':' selected')+'>não — só o app de campo</option>'+
-        '<option value="TODOS">sim — vê os lançamentos de todos</option>'+
-        '<option value="EU">sim — vê apenas os lançamentos dele mesmo</option>'+
-        '<option value="ESCOLHIDOS">sim — vê de pessoas escolhidas abaixo</option>'+
+        '<option value="NAO"'+(inicial==='NAO'?' selected':'')+'>não — só o app de campo</option>'+
+        '<option value="TODOS"'+(inicial==='TODOS'?' selected':'')+'>sim — vê os lançamentos de todos</option>'+
+        '<option value="EU"'+(inicial==='EU'?' selected':'')+'>sim — vê apenas os lançamentos dele mesmo</option>'+
+        '<option value="ESCOLHIDOS"'+(inicial==='ESCOLHIDOS'?' selected':'')+'>sim — vê de pessoas escolhidas abaixo</option>'+
       '</select>'+
 '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPainelNota"></p>'+
       '<label>E-mail</label><input type="email" id="fEmail" value="'+Q.esc(u.Email||'')+'" placeholder="voce@empresa.com.br">'+
@@ -3469,6 +3469,20 @@
     /* Se esta pessoa JA tem senha de painel. Vem do cadastro, e nao do campo — o campo
        so tem o que for digitado agora. */
     var TEM_SENHA_PAINEL = u.TemSenha === true;
+
+    /* QUAL opcao do seletor ja vem escolhida, calculada do REGISTRO.
+    
+       Sem isto nenhuma `<option>` levava `selected` quando a pessoa tinha painel, e o
+       navegador escolhia a primeira — "nao". O formulario de quem TEM painel abria
+       dizendo que ele nao tem, e salvar dali tirava o acesso dele sem ninguem pedir. A
+       gravacao estava certa o tempo todo; quem mentia era a abertura. */
+    var inicial = (function(){
+      if (!u.AcessoPainel) return 'NAO';
+      var vistos = (u.UsuariosVistos || []).map(String);
+      if (!vistos.length) return 'TODOS';
+      if (vistos.length === 1 && vistos[0] === String(u.ID)) return 'EU';
+      return 'ESCOLHIDOS';
+    })();
 
     /* Escreve (ou apaga) o aviso de um quadro. Texto vazio esconde o bloco, em vez de
        deixar uma faixa vazia ocupando espaco. */

@@ -2196,6 +2196,59 @@ console.log('\n== o recorte vale no app de campo tambem ==');
     'escondida, mostrando tela em branco');
 })();
 
+console.log('\n== o formulario ABRE dizendo a verdade ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* O calculo da escolha inicial e o <select>, os dois recortados do arquivo. */
+  var iI = adm.indexOf('var inicial = (function(){');
+  var calculo = adm.slice(iI, adm.indexOf('})();', iI) + 5);
+  var iS = adm.indexOf("'<select id=\"fPainel\">'+");
+  var selecao = adm.slice(iS, adm.indexOf("'</select>'+", iS) + 11);
+  ok(iI > 0 && iS > 0 && calculo.length > 150 && selecao.length > 300,
+    'o recorte pegou o cálculo e o seletor', [calculo.length, selecao.length]);
+
+  /* TODA opcao tem de saber vir marcada. Faltando `selected` em qualquer uma, o
+     navegador cai na primeira — que e "nao". */
+  ok((selecao.match(/inicial===/g) || []).length === 4,
+    'as QUATRO opções sabem vir marcadas — faltando numa, o navegador cai na primeira, ' +
+    'que é "não", e o formulário de quem tem painel abre dizendo que não tem',
+    (selecao.match(/inicial===/g) || []).length);
+
+  /* E o que o navegador de fato escolhe, para cada registro real. Nao e o que o codigo
+     acha que escolheu: e `sel.value` depois de o HTML virar DOM. */
+  function abre(u) {
+    return new Function('u',
+      calculo + '\n var html = ' + selecao + ';' +
+      '\n var m = /<option value="(\\w+)"[^>]*selected/.exec(html);' +
+      '\n return m ? m[1] : "NAO";')(u);
+  }
+
+  [['sem painel, abre em não', { ID: 'U008', AcessoPainel: false, UsuariosVistos: [] }, 'NAO'],
+   ['com painel e lista vazia, abre em "todos"',
+    { ID: 'U001', AcessoPainel: true, UsuariosVistos: [] }, 'TODOS'],
+   ['com painel e só ela na lista, abre em "apenas ele mesmo" — o caso do Nestor',
+    { ID: 'U005', AcessoPainel: true, UsuariosVistos: ['U005'] }, 'EU'],
+   ['com painel e outras pessoas, abre em "escolhidos"',
+    { ID: 'U009', AcessoPainel: true, UsuariosVistos: ['U005', 'U001'] }, 'ESCOLHIDOS'],
+   ['usuário novo, sem ID, abre em não',
+    { AcessoPainel: false, UsuariosVistos: [] }, 'NAO']
+  ].forEach(function (c) {
+    ok(abre(c[1]) === c[2], c[0], { esperado: c[2], veio: abre(c[1]) });
+  });
+
+  /* A armadilha em uma frase: quem TEM painel nunca pode abrir em "NAO". Salvar dali
+     grava `AcessoPainel: NAO` e tira o acesso de alguem que ninguem mandou tirar. */
+  [{ ID: 'U001', AcessoPainel: true, UsuariosVistos: [] },
+   { ID: 'U005', AcessoPainel: true, UsuariosVistos: ['U005'] },
+   { ID: 'U009', AcessoPainel: true, UsuariosVistos: ['U005', 'U001'] }
+  ].forEach(function (u) {
+    ok(abre(u) !== 'NAO',
+      'quem TEM painel nunca abre em "não" — salvar dali grava AcessoPainel:NAO e tira ' +
+      'o acesso de alguém que ninguém mandou tirar', u);
+  });
+})();
+
 console.log('\n== painel restrito: a tela pede e anuncia o recorte ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
