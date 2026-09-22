@@ -60,9 +60,13 @@ mora no perfil é `PROMOTOR`, que não vê a aba de Saída.
 | `extrato.html?t=TOKEN` | Só leitura: o cliente vê o próprio saldo e extrato |
 
 A **entrada é uma só** para os dois primeiros: a mesma tela, com um campo de segredo que
-aceita o PIN de 6 números ou a senha do painel. Quem decide o destino é a credencial usada —
-senha + acesso ao painel abre o `admin.html`, o resto abre o `index.html` —, não o endereço
-digitado. Abrir o `admin.html` direto mostra essa mesma tela.
+aceita o PIN de 6 números ou a senha do painel. Quem decide o destino é o **papel**, e não o
+endereço digitado: só o perfil `ADMIN`, entrando por senha, abre o `admin.html`; **todo o resto
+cai no `index.html`, na aba Saída**, que é onde se lança. Abrir o `admin.html` direto mostra
+essa mesma tela de entrada.
+
+Ter a chave `acesso_painel` dá a **porta** — o botão `▦ Painel` no alto da tela —, não o ponto
+de partida.
 
 ## Arquitetura
 

@@ -501,9 +501,22 @@
     return s.acessoPainel === true;
   }
 
-  /** Para onde esta sessao deve ir. */
+  /** Para onde esta sessao deve ir depois de autenticar.
+   *
+   * QUEM NÃO É ADMIN CAI NA OPERAÇÃO, sempre — a Saída, que é onde se lança. Antes
+   * bastava ter a chave do painel para o login já abrir lá, e gerente, conferente e
+   * promotor entravam num painel de números quando o que eles vêm fazer é registrar
+   * caixa saindo e voltando. Cinco das treze pessoas cadastradas estavam nesse caso.
+   *
+   * Isto muda o DESTINO, não a permissão: quem tem o painel liberado continua com a
+   * porta `▦ Painel` no alto da tela, e chega lá em um clique. O que deixa de
+   * acontecer é ele ser o ponto de partida de quem não administra.
+   *
+   * O painel continua exigindo a SENHA, e não o PIN — ver `podePainel()`. */
   function destinoDa(s) {
-    return (s && s.via === 'senha' && podePainel(s)) ? 'admin.html' : 'index.html';
+    if (!s || s.via !== 'senha') return 'index.html';
+    if (String(s.perfil).toUpperCase() !== 'ADMIN') return 'index.html';
+    return podePainel(s) ? 'admin.html' : 'index.html';
   }
 
   /**

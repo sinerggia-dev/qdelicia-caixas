@@ -2595,13 +2595,51 @@ console.log('\n== a porta unica: a mesma tela nos dois apps ==');
         p[0] + ': e não tem login próprio nenhum');
     });
 
-  /* O DESTINO sai do PAPEL, e o painel exige a SENHA. */
+  /* O DESTINO, RODADO DE VERDADE. Comparar o texto da função dizia só que ela está
+     escrita de um certo jeito; o que importa é onde cada pessoa CAI.
+
+     QUEM NÃO É ADMIN CAI NA OPERAÇÃO. Bastava ter a chave do painel para o login já
+     abrir lá, e gerente, conferente e promotor entravam num painel de números quando
+     o que vêm fazer é registrar caixa saindo e voltando. */
   var iD = js.indexOf('function destinoDa(s)');
   var dest = js.slice(iD, js.indexOf('\n  }', iD));
-  ok(iD > 0 && /s\.via === 'senha' && podePainel\(s\)/.test(dest),
-    'o destino sai do papel — e o painel só com quem entrou por SENHA. Ele PERGUNTA ao ' +
-    '`podePainel` em vez de reler a chave: seriam três lugares decidindo sobre a mesma ' +
-    'porta, e a terceira cópia divergiria como as duas primeiras divergiram', dest);
+  ok(iD > 0, 'o destino sai de uma função só');
+  var destinoDa = new Function('s', 'podePainel',
+    dest.replace(/^function destinoDa\(s\)\s*\{/, '') + '\n');
+  function cai(perfil, acesso, via) {
+    var s = { perfil: perfil, acessoPainel: acesso, temPin: true };
+    if (via) s.via = via;
+    return destinoDa(s, REGRA_PAINEL);
+  }
+  var matriz = [
+    ['ADMIN', true, 'senha', 'admin.html'],
+    ['ADMIN', true, 'pin', 'index.html'],
+    /* Sem `via`: é o que a rota LEGADA devolve, para as telas em cache que ainda
+       mandam `senha` ou `pin` soltos. Nesse caso o login não manda ninguém para o
+       painel — não dá para saber por qual credencial a pessoa entrou, e chutar a
+       favor rebaixaria a tranca do escritório à do galpão. Quem tem o painel chega
+       nele pela porta, que aí sim deixa a sessão antiga passar. */
+    ['ADMIN', true, undefined, 'index.html'],
+    /* Os cinco casos reais: gente com o painel liberado que NÃO administra. */
+    ['GERENTE', true, 'senha', 'index.html'],
+    ['CONFERENTE', true, 'senha', 'index.html'],
+    ['PROMOTOR', true, 'senha', 'index.html'],
+    ['GERENTE', false, 'senha', 'index.html'],
+    ['MOTORISTA', false, 'pin', 'index.html']
+  ];
+  var erradas = matriz.filter(function (c) { return cai(c[0], c[1], c[2]) !== c[3]; })
+    .map(function (c) {
+      return c[0] + (c[1] ? ' com chave' : ' sem chave') + ' por ' + c[2] +
+        ' → ' + cai(c[0], c[1], c[2]) + ' (devia ser ' + c[3] + ')';
+    });
+  ok(erradas.length === 0,
+    'só o ADMIN cai no painel ao entrar; todo o resto cai na OPERAÇÃO, que é onde se ' +
+    'lança. Ter a chave do painel dá a PORTA, não o ponto de partida', erradas);
+
+  ok(/podePainel\(s\)/.test(dest),
+    'e o destino PERGUNTA ao `podePainel` em vez de reler a chave: seriam três lugares ' +
+    'decidindo sobre a mesma porta, e a terceira cópia divergiria como as duas ' +
+    'primeiras divergiram', dest);
 
   /* O DESVIO acontece: a pessoa e MANDADA para o destino. Sem esta linha, `destinoDa`
      vira um calculo que ninguem usa, e cada pagina abre o proprio app — que e o que a

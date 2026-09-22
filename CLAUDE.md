@@ -178,9 +178,23 @@ loginUnico(usuarios, ident, segredo, conferir)   // _logica.js
   → devolve `via: 'senha' | 'pin'`
 
 destinoDa(s)   // app.js
-  → via === 'senha' && acessoPainel === true  →  admin.html
-  → tudo mais                                  →  index.html
+  → via === 'senha' && perfil ADMIN && podePainel(s)  →  admin.html
+  → tudo mais                                          →  index.html (aba Saída)
 ```
+
+**QUEM NÃO É ADMIN CAI NA OPERAÇÃO**, sempre. Antes bastava ter a chave do painel para o
+login já abrir lá, e gerente, conferente e promotor entravam num painel de números quando o
+que vêm fazer é registrar caixa saindo e voltando. Medido no cadastro real: **5 das 13
+pessoas** estavam nesse caso; hoje é 1 no painel e 12 na operação.
+
+Isto muda o **destino**, não a permissão: quem tem o painel liberado continua com a porta
+`▦ Painel` no alto da tela e chega lá em um clique. O que deixou de acontecer é ele ser o
+ponto de partida de quem não administra.
+
+**Sessão sem `via` também cai na operação.** É o que a rota legada devolve para as telas em
+cache que ainda mandam `senha` ou `pin` soltos: não dá para saber por qual credencial a
+pessoa entrou, e chutar a favor rebaixaria a tranca do escritório à do galpão. A porta, essa
+sim, deixa a sessão antiga passar — ver `podePainel()`.
 
 **A ordem não é arbitrária.** Na ordem inversa, alguém cuja senha do painel fosse por acaso
 seis dígitos entraria sempre como PIN e perderia o painel — sem erro nenhum na tela, e sem
