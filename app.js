@@ -515,17 +515,10 @@
       toast(MSG_ADMIN, 'erro');
     }
 
-    /* ---- mostrar/esconder o segredo --------------------------------------- */
-    var ver = $('btnVerSegredo'), campo = $('inSegredo');
-    if (ver && campo) {
-      ver.addEventListener('click', function () {
-        var mostrando = campo.type === 'text';
-        campo.type = mostrando ? 'password' : 'text';
-        ver.setAttribute('aria-pressed', String(!mostrando));
-        ver.setAttribute('aria-label', mostrando ? 'Mostrar senha' : 'Ocultar senha');
-        campo.focus();
-      });
-    }
+    /* O app nao tem mais botao de mostrar o segredo: o campo ficava com dois olhos,
+       o nosso e o que o Edge desenha sozinho em `input type=password`. O `campo`
+       continua aqui porque o Enter e o foco da abertura dependem dele. */
+    var campo = $('inSegredo');
 
     /* ---- entrar ------------------------------------------------------------ */
     var trocaPendente = null;   // { id, atual, usuario, via } ate a troca terminar

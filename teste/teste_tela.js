@@ -2545,6 +2545,19 @@ console.log('\n== a porta unica: a mesma tela nos dois apps ==');
   ok(/6 números, ou a sua senha do painel/.test(eCampo),
     'e a dica diz que os dois servem — sem ela, quem tem senha longa não tenta');
 
+  /* UM olho, nao dois. O campo tinha o botao do app E o `::-ms-reveal`, que o Edge
+     desenha sozinho em todo `input type=password` — dois controles iguais, lado a
+     lado, com a mesma funcao. Medido: o do app ficava centrado em x=550 e o do Edge
+     em x=510. O do app saiu. Reintroduzi-lo traz a dupla de volta, e num navegador
+     que quem escreveu talvez nao use. */
+  ok(eCampo.indexOf('btnVerSegredo') < 0 && eCampo.indexOf('ver-segredo') < 0,
+    'e o campo do segredo NÃO tem olho próprio — o Edge já desenha o dele em todo ' +
+    '`input type=password`, e os dois juntos pareciam defeito');
+  var folha = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  ok(!/padding-right:\s*58px/.test(folha),
+    'e o campo não reserva mais o vão de 58px que era do botão — sobraria um buraco ' +
+    'à direita do que se digita');
+
   /* Nenhuma das duas manda para a outra: o destino e decidido depois de autenticar. */
   ok(eCampo.indexOf('painel administrativo') < 0 && eCampo.indexOf('app de lançamento') < 0,
     'e nenhuma delas manda a pessoa para a outra — o destino é decidido depois de ' +

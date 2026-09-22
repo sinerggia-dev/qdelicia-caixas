@@ -203,6 +203,18 @@ painel para quem entrou por PIN — deixá-la ali devolveria pelo atalho o que a
 de recusar. **Sessão de antes da porta única não tem `via`, e essa passa**: derrubar quem já
 estava logado no dia do deploy é pior, e o próximo login corrige.
 
+**O campo do segredo não tem olho de "mostrar a senha", e isso é de propósito.** Ele teve, e o
+resultado foi um campo com **dois**: o botão do app e o `::-ms-reveal`, que o Edge desenha
+sozinho em todo `input type=password` e que o Chrome não desenha. Lado a lado, dois controles
+com a mesma função parecem defeito. Medido no navegador: o do app ficava centrado em x=550 e o
+do Edge em x=510, dentro do vão de 58px que o `padding-right` reservava. O do app saiu, o vão
+saiu com ele, e o `teste_tela` cobra as duas ausências.
+
+Consequência a saber antes de mexer: **no celular não sobra nenhum**, porque Chrome, Firefox,
+Safari e Android nunca desenharam o deles. Se um dia o galpão pedir para ver o que digitou, o
+caminho é trazer o botão do app de volta **e** matar o do Edge com
+`input[type="password"]::-ms-reveal{display:none}` — nunca só o primeiro, ou a dupla volta.
+
 **A rota ainda aceita `senha` e `pin` soltos**, além do `segredo` novo. Há tela em cache e fila
 offline mandando os campos antigos, e recusá-los tirava gente do ar no dia do deploy.
 

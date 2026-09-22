@@ -547,14 +547,7 @@ tr.ruim{background:var(--vermelho-claro)}
 
 /* O campo do segredo: monoespacado e espacado, porque na maior parte das vezes o
    que se digita ali sao seis numeros e conta-los tem de ser facil. */
-.pin{font-family:var(--fonte-mono);font-size:20px;letter-spacing:.5em;padding-right:58px!important}
-.campo-caixa{position:relative}
-.ver-segredo{
-  position:absolute;right:6px;top:50%;transform:translateY(-50%);
-  width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
-  border:0;border-radius:10px;background:transparent;color:var(--txt3);cursor:pointer
-}
-.ver-segredo:hover{background:var(--surface);color:var(--txt)}
+.pin{font-family:var(--fonte-mono);font-size:20px;letter-spacing:.5em}
 
 /* O botao de entrar e o VERDE do logo, com tinta escura. Ver `--sobre-verde`. */
 .btn-entrar{

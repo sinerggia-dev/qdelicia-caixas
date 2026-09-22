@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=bc34fe45">
+<link rel="stylesheet" href="styles.css?v=1e25676b">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -58,18 +58,12 @@
            ainda tem a dele, e travar aqui deixaria essa pessoa do lado de fora sem
            entender por que. -->
       <span class="dica" id="dicaSegredo">6 números, ou a sua senha do painel</span>
-      <div class="campo-caixa">
-        <input id="inSegredo" class="pin" type="password" autocomplete="current-password"
-               aria-describedby="dicaSegredo" enterkeyhint="go">
-        <button type="button" class="ver-segredo" id="btnVerSegredo"
-                aria-label="Mostrar senha" aria-pressed="false">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M1.5 12S5 5.5 12 5.5 22.5 12 22.5 12 19 18.5 12 18.5 1.5 12 1.5 12z"></path>
-            <circle cx="12" cy="12" r="3.2"></circle>
-          </svg>
-        </button>
-      </div>
+      <!-- SEM olho de mostrar a senha. O campo tinha DOIS: este, do app, e o que o
+           Edge desenha sozinho em todo `input type=password`. Dois controles com a
+           mesma funcao, um do lado do outro, parecem defeito — e sao. O do app saiu;
+           o do navegador fica, onde o navegador o oferecer. -->
+      <input id="inSegredo" class="pin" type="password" autocomplete="current-password"
+             aria-describedby="dicaSegredo" enterkeyhint="go">
     </div>
 
     <button type="button" class="btn-entrar" id="btnEntrar">Entrar</button>
@@ -436,7 +430,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=e6d8fd1b"></script>
+<script src="app.js?v=9c67a238"></script>
 <script>
 (function(){
   'use strict';
