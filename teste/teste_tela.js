@@ -2124,6 +2124,73 @@ console.log('\n== a porta para o painel, no app de campo ==');
     'chip venceria o `hidden` e a porta apareceria para todo mundo');
 })();
 
+console.log('\n== o formulario de usuario abre mostrando o que esta gravado ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* O corpo de `formUsuario`, e dentro dele o PEDACO QUE MONTA O HTML: da chamada
+     `modal(` ate o `);` que a fecha. Tudo o que esse pedaco interpola ja precisa valer
+     quando ele roda. */
+  var iFn = adm.indexOf('function formUsuario(u){');
+  var corpo = adm.slice(iFn, adm.indexOf('\n  function salvar(', iFn));
+  var iAbre = corpo.indexOf("modal('<h2>'+(u.ID?'Editar':'Novo')+' usuário</h2>'");
+  var iFecha = corpo.indexOf("id=\"fSalvar\">Salvar</button></div>');");
+  ok(iFn > 0 && iAbre > 0 && iFecha > iAbre,
+    'dá para achar o trecho que monta o formulário de usuário', [iFn, iAbre, iFecha]);
+  var html = corpo.slice(iAbre, iFecha);
+  var depois = corpo.slice(iFecha);
+
+  /* `inicial` diz qual das quatro opcoes de "Pode entrar no painel?" nasce escolhida.
+     Calculado DEPOIS do HTML que o le, `var` e icado: o nome existe, vale `undefined`,
+     nenhuma das quatro comparacoes bate, nenhuma opcao nasce `selected` — e o navegador
+     escolhe a primeira, que e "nao".
+
+     Medido no navegador, com a resposta real do servidor: Nestor Neto tinha
+     `AcessoPainel:true` gravado e o formulario abria em "nao — so o app de campo", com
+     as abas travadas e um aviso dizendo que a culpa era de uma chave que ELE tinha
+     ligada. Salvar qualquer outra coisa dali tirava o acesso dele. Nao dava erro
+     nenhum; so mentia — e por isso a configuracao "nunca ficava salva". */
+  ok(corpo.indexOf('var inicial = (function(){') > 0 &&
+     corpo.indexOf('var inicial = (function(){') < iAbre,
+    'o `inicial` é calculado ANTES do HTML que o lê — calculado depois ele vale ' +
+    '`undefined`, nenhuma opção nasce `selected`, e o navegador escolhe a primeira, ' +
+    'que é "não"',
+    { inicial: corpo.indexOf('var inicial = (function(){'), html: iAbre });
+
+  /* As quatro opcoes, e cada uma sabe quando e a escolhida. Faltando o `selected` numa
+     delas, o formulario de quem esta naquele estado abre dizendo outra coisa. */
+  ['NAO', 'TODOS', 'EU', 'ESCOLHIDOS'].forEach(function (v) {
+    ok(html.indexOf("'<option value=\"" + v + "\"'+(inicial==='" + v + "'?' selected':'')") > 0,
+      'a opção ' + v + ' nasce escolhida quando é ela que está gravada');
+  });
+
+  /* A REGRA, e nao so este caso: NENHUM nome que o HTML interpola pode ser declarado
+     depois dele. Tirando os literais entre aspas, o que sobra do trecho sao as
+     expressoes JavaScript — e nenhuma delas pode apontar para um `var` de baixo.
+
+     Sem esta verificacao, a proxima conta escrita no lugar errado volta a mentir do
+     mesmo jeito, e de novo sem erro nenhum para denunciar. */
+  /* Comentarios PRIMEIRO: a prosa deles tem palavras que sao nomes validos
+     ('ativo', 'quadros', 'caixa'), e deixadas ali elas viram acusacao falsa. */
+  var expressoes = html.replace(/\/\*[\s\S]*?\*\//g, ' ')
+                       .replace(/\/\/[^\n]*/g, ' ')
+                       .replace(/'[^']*'/g, ' ')
+                       /* E o que vem depois de um ponto é propriedade, não variável:
+                          `Q.ativo(...)` não fala do `var ativo` de baixo. */
+                       .replace(/\.\s*[A-Za-z_$][\w$]*/g, ' ');
+  var declaradosDepois = {};
+  (depois.match(/\bvar\s+([A-Za-z_$][\w$]*)/g) || []).forEach(function (m) {
+    declaradosDepois[m.replace(/\bvar\s+/, '')] = true;
+  });
+  var tarde = [];
+  (expressoes.match(/[A-Za-z_$][\w$]*/g) || []).forEach(function (n) {
+    if (declaradosDepois[n] && tarde.indexOf(n) < 0) tarde.push(n);
+  });
+  ok(tarde.length === 0,
+    'e nenhum nome que o formulário interpola é declarado depois dele — `var` é içado, ' +
+    'e o nome vale `undefined` sem dar erro: o campo abre errado calado', tarde);
+})();
+
 console.log('\n== o cabecalho no celular ==');
 (function () {
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');

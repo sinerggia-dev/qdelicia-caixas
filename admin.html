@@ -3316,6 +3316,29 @@
   function formUsuario(u){
     // O PIN nunca volta preenchido: campo em branco quer dizer "mantenha o que está lá".
     u = u || {};
+
+    /* QUAL opcao do seletor "Pode entrar no painel?" ja vem escolhida, calculada do
+       REGISTRO.
+
+       Sem isto nenhuma `<option>` levava `selected` quando a pessoa tinha painel, e o
+       navegador escolhia a primeira — "nao". O formulario de quem TEM painel abria
+       dizendo que ele nao tem, e salvar dali tirava o acesso dele sem ninguem pedir. A
+       gravacao estava certa o tempo todo; quem mentia era a abertura.
+
+       ISTO PRECISA VIR ANTES DO `modal(`, e nao la embaixo junto das outras contas.
+       `var` e icado: declarado depois, o nome existe durante o HTML mas vale `undefined`,
+       nenhuma das quatro comparacoes bate, nenhuma opcao nasce `selected` — e o navegador
+       escolhe a primeira, que e "nao". Nao da erro nenhum; so mente. Foi exatamente o que
+       aconteceu: a correcao foi escrita e colocada no lugar errado, e o defeito continuou
+       igual. */
+    var inicial = (function(){
+      if (!u.AcessoPainel) return 'NAO';
+      var vistos = (u.UsuariosVistos || []).map(String);
+      if (!vistos.length) return 'TODOS';
+      if (vistos.length === 1 && vistos[0] === String(u.ID)) return 'EU';
+      return 'ESCOLHIDOS';
+    })();
+
     modal('<h2>'+(u.ID?'Editar':'Novo')+' usuário</h2>'+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(u.Nome||'')+'">'+
       /* Campo escrito, não lista fechada: o escritório cria o cargo que precisar. As
@@ -3474,20 +3497,6 @@
     /* Se esta pessoa JA tem senha de painel. Vem do cadastro, e nao do campo — o campo
        so tem o que for digitado agora. */
     var TEM_SENHA_PAINEL = u.TemSenha === true;
-
-    /* QUAL opcao do seletor ja vem escolhida, calculada do REGISTRO.
-    
-       Sem isto nenhuma `<option>` levava `selected` quando a pessoa tinha painel, e o
-       navegador escolhia a primeira — "nao". O formulario de quem TEM painel abria
-       dizendo que ele nao tem, e salvar dali tirava o acesso dele sem ninguem pedir. A
-       gravacao estava certa o tempo todo; quem mentia era a abertura. */
-    var inicial = (function(){
-      if (!u.AcessoPainel) return 'NAO';
-      var vistos = (u.UsuariosVistos || []).map(String);
-      if (!vistos.length) return 'TODOS';
-      if (vistos.length === 1 && vistos[0] === String(u.ID)) return 'EU';
-      return 'ESCOLHIDOS';
-    })();
 
     /* Escreve (ou apaga) o aviso de um quadro. Texto vazio esconde o bloco, em vez de
        deixar uma faixa vazia ocupando espaco. */

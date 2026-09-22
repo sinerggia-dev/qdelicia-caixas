@@ -359,8 +359,24 @@ mentia era a abertura.**
 
 Esse defeito passou por 593 afirmações, porque todas olhavam o que o formulário **faz** depois de
 aberto — o ajuste, os gatilhos, o salvar — e nenhuma olhava o que ele **mostra** no instante em
-que nasce. Há um bloco só para isso agora, e ele mede `selected` no HTML gerado para cada registro
-real, não o que o código acha que escolheu.
+que nasce.
+
+**E a correção foi escrita no lugar errado, então o defeito continuou igual por semanas.** O
+`var inicial` ficou umas cinquenta linhas ABAIXO do `modal(` que o interpola. `var` é içado: o
+nome existe durante o HTML e vale `undefined`, nenhuma das quatro comparações bate, nenhuma
+`<option>` nasce `selected` — e o navegador escolhe a primeira, que é "não". Não dá erro nenhum.
+Medido no navegador com a resposta real do servidor: Nestor Neto tinha `AcessoPainel:true`
+gravado, o formulário abria em "não — só o app de campo", as abas apareciam travadas e um aviso
+dizia que a culpa era de uma chave que ele tinha ligada. Era isso que o usuário via como
+"a configuração nunca fica salva".
+
+**`inicial` é calculado antes do `modal(`, e isso não é estilo.** O bloco de teste agora afirma a
+ordem, e mais: que **nenhum** nome interpolado pelo formulário seja declarado depois dele. A regra
+vale mais que o caso — a próxima conta escrita no lugar errado mentiria do mesmo jeito, e de novo
+sem nada para denunciar.
+
+Uma lição sobre o teste, e não sobre o código: a afirmação antiga procurava `var inicial` no
+arquivo, e ele estava lá. Procurar se uma linha **existe** não diz se ela **roda a tempo**.
 
 A quarta opção **só aparece quando a lista diz isso**: sempre visível, ela ofereceria um estado
 que a lista não está, e escolhê-la não faria nada. E o ouvinte do seletor **mexe na lista e só
@@ -672,7 +688,7 @@ O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**669 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**676 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
