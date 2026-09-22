@@ -82,6 +82,11 @@ var PERMISSOES = [
     usa: [['admin.html', 'recorteProprios'], ['api/_logica.js', 'usuariosVistosDe']] },
   { nome: 'Operacoes', chave: 'Operacoes', campo: 'fOperacoes', sessao: 'operacoes',
     usa: [['index.html', 'operacoes']] },
+  /* Em quais locais a pessoa mexe no saldo pela aba Ajustes. Nao entra em `Operacoes`
+     de proposito: AJUSTE e PERDA nascem no escritorio, e governa-las por la trancaria o
+     administrador fora do proprio ajuste. */
+  { nome: 'Ajustes', chave: 'Ajustes', campo: 'fAjustes', sessao: 'ajustes',
+    usa: [['admin.html', 'soOsQueAjusto'], ['api/_logica.js', 'podeAjustarEm']] },
   { nome: 'Saidas', chave: 'Saidas', campo: 'fSaidas', sessao: 'saidas',
     usa: [['index.html', 'saidas']] },
   { nome: 'Destinos', chave: 'Destinos', campo: 'fDestinos', sessao: 'destinos',

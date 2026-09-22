@@ -2184,7 +2184,7 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     const volta = F.usuariosPublicos([{
       ID: 'U1', Nome: 'A', Perfil: 'Gestor',
       Saidas: ['a'], Destinos: ['b'], TiposCaixa: ['c'], Motoristas: ['d'],
-      Operacoes: ['SAIDA'], Abas: ['pgPainel'], SoProprios: true
+      Operacoes: ['SAIDA'], Abas: ['pgPainel'], Ajustes: ['L1'], SoProprios: true
     }])[0];
 
     ok(volta.SoProprios === true,
@@ -2197,6 +2197,94 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     });
   }
 
+
+  console.log('\n== em quais locais a pessoa ajusta o saldo ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+
+    /* A aba Ajustes era tudo-ou-nada: quem a tivesse mexia no saldo de qualquer galpao,
+       filial, cliente ou rota. Ter a aba passa a ser a PORTA; esta lista e o quarto. */
+
+    /* Qual local cada tipo mexe. AJUSTE credita o DESTINO; PERDA debita a ORIGEM. Trocar
+       os dois aqui faria a peneira cobrar o campo errado — e ela passaria a deixar
+       ajustar exatamente onde deveria barrar, sem erro nenhum. */
+    ok(F.localDoAjuste('AJUSTE', { destinoId: 'L1', origemId: 'L9' }) === 'L1',
+      'o AJUSTE mexe no saldo do destino — é o local que ganha as caixas');
+    ok(F.localDoAjuste('PERDA', { origemId: 'L9', destinoId: '' }) === 'L9',
+      'e a PERDA, no da origem — é quem as perdeu');
+    ['SAIDA', 'DEVOLUCAO', 'TRANSFERENCIA'].forEach((t) => {
+      ok(F.localDoAjuste(t, { origemId: 'L9', destinoId: 'L1' }) === '',
+        'o ' + t + ' não é governado por esta lista — nasce no campo, e quem manda nele ' +
+        'são `Saidas` e `Destinos`');
+    });
+
+    /* VAZIA QUER DIZER TODOS, a convencao do projeto. Invertida, o deploy trancaria a
+       operacao inteira fora do ajuste, inclusive o administrador. */
+    ok(F.podeAjustarEm({ Ajustes: [] }, 'L1') === true,
+      'lista vazia quer dizer TODOS — invertida, o dia do deploy tranca a operação ' +
+      'inteira fora do próprio ajuste');
+    ok(F.podeAjustarEm({}, 'L1') === true,
+      'e cadastro sem a coluna também — é o registro de antes desta permissão existir');
+    ok(F.podeAjustarEm({ Ajustes: ['L1', 'L2'] }, 'L1') === true,
+      'quem está na lista ajusta');
+    ok(F.podeAjustarEm({ Ajustes: ['L2'] }, 'L1') === false,
+      'e quem não está, NÃO — era isto que não existia: a aba dava o saldo inteiro');
+    ok(F.podeAjustarEm({ Ajustes: [1, 2] }, '1') === true,
+      'e o número gravado casa com o texto do formulário — `1` e "1" são o mesmo local, ' +
+      'e comparar sem normalizar barraria quem tem permissão');
+
+    /* Sem local nao ha o que cobrar: `montarMovimento` ja recusa por falta de campo, e
+       recusar aqui antes trocaria a mensagem util por uma sobre permissao. */
+    ok(F.podeAjustarEm({ Ajustes: ['L2'] }, '') === true,
+      'sem local informado esta peneira não opina — quem recusa é a validação do campo, ' +
+      'com a mensagem que ajuda a corrigir');
+
+    /* A TRANCA esta no roteador, e nao so no seletor da tela. */
+    const rot = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+    const iLan = rot.indexOf('var localAj = L.localDoAjuste(');
+    const iMontar = rot.indexOf('var r = L.montarMovimento(');
+    ok(iLan > 0 && iMontar > 0 && iLan < iMontar,
+      'e o servidor recusa ANTES de montar o movimento — filtrar o seletor é ' +
+      'conveniência, e um POST direto passa por cima dele', { recusa: iLan, monta: iMontar });
+    /* `if (` colado na condicao, e nao a condicao solta: um `if (false && ...)` na frente
+       dela deixa o texto inteiro no arquivo e a recusa morta. Procurar so a condicao
+       encontrava as duas coisas. */
+    ok(/if \(quem && localAj && !L\.podeAjustarEm\(quem, localAj\)\) \{/.test(rot),
+      'e quem decide é o CADASTRO lido no servidor, não o que veio no pedido — e a ' +
+      'condição é o `if` inteiro: um `false &&` na frente deixaria o texto no arquivo e a ' +
+      'recusa morta');
+
+    /* A coluna nasce no FIM das migracoes, e so uma vez. O id e comparado INTEIRO: um
+       `indexOf` do pedaco aceitava qualquer id que apenas comecasse com ele. */
+    const mig = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
+    const ids = (mig.match(/id: '[^']+'/g) || []).map((x) => x.slice(5, -1));
+    ok(ids[ids.length - 1] === '2026-09-22-ajustes-por-local',
+      'e a coluna entra na ÚLTIMA migração, com o id exato — a lista é append-only, e ' +
+      'mexer no meio dela reescreve história que já rodou em produção',
+      ids[ids.length - 1]);
+    ok(ids.length === new Set(ids).size,
+      'e nenhum id de migração se repete — repetido, a segunda nunca roda e a coluna ' +
+      'dela não existe no banco', ids.length - new Set(ids).size);
+
+    /* ---- o tradutor do banco, nos DOIS sentidos ----------------------------
+       Nada cobria o `_supabase.js`: a coluna podia deixar de ser lida ou de ser gravada
+       e todo o resto continuava verde, porque os testes rodam sobre um banco falso que
+       nao passa por ele. E o ponto exato em que uma permissao vira "nao fica salva". */
+    const sup = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
+    const iU = sup.indexOf('USUARIO');
+    const trad = sup.slice(iU > 0 ? iU : 0);
+    [['Saidas', 'saidas'], ['Destinos', 'destinos'], ['TiposCaixa', 'tipos_caixa'],
+     ['Motoristas', 'motoristas'], ['Operacoes', 'operacoes'], ['Abas', 'abas'],
+     ['Ajustes', 'ajustes'], ['UsuariosVistos', 'usuarios_vistos']
+    ].forEach(([campo, coluna]) => {
+      ok(new RegExp(campo + ':\\s*(lista\\(r\\.' + coluna + '\\)|Array\\.isArray\\(r\\.' + coluna + '\\))')
+        .test(trad),
+        campo + ': o tradutor LÊ a coluna `' + coluna + '` do banco — sem isto a marcação ' +
+        'volta vazia e a gravação seguinte apaga o que estava salvo');
+      ok(new RegExp('o\\.' + campo + ' !== undefined\\) r\\.' + coluna + ' =').test(trad),
+        campo + ': e GRAVA nela — sem isto a marcação some no caminho de volta, sem erro');
+    });
+  }
 
   console.log('\n== a matriz abre as listas ==');
   {

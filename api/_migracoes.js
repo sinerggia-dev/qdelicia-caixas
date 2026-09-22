@@ -262,5 +262,13 @@ module.exports = [
        // mesma coisa, dita do jeito novo. Sem isto a escolha antiga sumiria calada.
        + "update public.usuarios set usuarios_vistos = jsonb_build_array(id) "
        + "where so_proprios = true and usuarios_vistos = '[]'::jsonb;"
+  },
+  {
+    id: '2026-09-22-ajustes-por-local',
+    nota: 'em quais locais a pessoa lança ajuste e perda; vazia segue querendo dizer TODOS',
+    // Sem `update` nenhum de propósito: todo mundo nasce com a lista vazia, que quer dizer
+    // TODOS, e é exatamente o que já valia antes desta coluna. Quem quiser restringir
+    // marca; quem não mexer não perde nada no dia do deploy.
+    sql: "alter table public.usuarios add column if not exists ajustes jsonb not null default '[]'::jsonb;"
   }
 ];

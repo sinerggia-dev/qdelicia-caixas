@@ -360,6 +360,9 @@
         <div id="wrapDestino"><label for="lcDestino">Destino</label><select id="lcDestino"></select></div>
         <div><label for="lcRomaneio">Romaneio / NF</label><input id="lcRomaneio" type="text"></div>
       </div>
+      <!-- A peneira de locais diz que peneirou. Ver uma lista curta sem explicacao parece
+           cadastro faltando, e manda a pessoa procurar em Cadastros um local que esta la. -->
+      <div class="aviso-trava" id="lcRestrito" hidden></div>
       <h3>Quantidade de caixas</h3>
       <div class="itens" id="lcItens"></div>
       <label for="lcObs">Observação / motivo</label>
@@ -699,6 +702,16 @@
        nao passe — e a renovacao corrige isso segundos depois, no mesmo carregamento. */
     var podeCampo = s.temPin === undefined || s.temPin === true;
     document.getElementById('chipCampo').hidden = !podeCampo;
+
+    /* O seletor de Ajuste segue a lista de locais DESTA sessao, e por isso e remontado
+       aqui: a renovacao chega depois do primeiro desenho, e sem isto a permissao mudada
+       no cadastro so valeria no proximo recarregamento — a pessoa continuaria vendo os
+       locais antigos e levaria a recusa do servidor sem entender.
+
+       `if (DADOS)` porque a abertura passa por aqui ANTES de os cadastros chegarem, e o
+       seletor nao tem o que listar ainda; quando eles chegam, `montarSelects()` chama
+       esta mesma funcao. */
+    if (DADOS) ajustarLancamento();
   }
 
   function abrirApp(){
@@ -768,6 +781,7 @@
       temPin: u.TemPin === true,
       /* Painel restrito. Faltando aqui, a sessao renovada PERDERIA o recorte e a pessoa
          passaria a ver tudo no primeiro recarregamento — calada. */
+      ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
       soProprios: u.SoProprios === true,
       verLancamentos: u.VerLancamentos !== false,
       usuariosVistos: lista(u.UsuariosVistos)
@@ -2230,6 +2244,27 @@
   });
 
   /* ---------------- lançamento manual ---------------- */
+  /* Em quais locais QUEM ESTA OLHANDO pode ajustar. Vem da sessao, que o servidor manda —
+     e a mesma lista que a gravacao usa para recusar. Lida do cadastro por fora, seriam
+     duas copias da mesma regra, e elas divergem no primeiro ajuste.
+
+     Vazia quer dizer TODOS, a convencao do projeto. */
+  function locaisQueAjusto(){
+    var ses = Q.sessao() || {};
+    return Array.isArray(ses.ajustes) ? ses.ajustes.map(String) : [];
+  }
+
+  /* Peneira a lista de locais do seletor de Ajuste/Perda.
+
+     Filtrar AQUI e conveniencia — a tranca esta no servidor, que recusa o POST. Mas
+     oferecer um local que a gravacao vai negar e pior do que nao oferecer: a pessoa
+     preenche o formulario inteiro, conta as caixas e leva um nao no fim. */
+  function soOsQueAjusto(lista){
+    var meus = locaisQueAjusto();
+    if (!meus.length) return lista;
+    return lista.filter(function(l){ return meus.indexOf(String(l.ID)) >= 0; });
+  }
+
   function ajustarLancamento(){
     var t = document.getElementById('lcTipo').value;
     var internos = locaisPor(['GALPAO','FILIAL']);
@@ -2239,9 +2274,31 @@
     wo.style.display='block'; wd.style.display='block';
     if (t==='SAIDA'){ document.getElementById('lcOrigem').innerHTML=opcoes(internos); document.getElementById('lcDestino').innerHTML=opcoes(externos); }
     else if (t==='TRANSFERENCIA'){ document.getElementById('lcOrigem').innerHTML=opcoes(internos); document.getElementById('lcDestino').innerHTML=opcoes(internos); }
-    else if (t==='DEVOLUCAO'){ document.getElementById('lcOrigem').innerHTML=opcoes(externos); document.getElementById('lcDestino').innerHTML=opcoes(internos); }
-    else if (t==='PERDA'){ document.getElementById('lcOrigem').innerHTML=opcoes(todos); wd.style.display='none'; }
-    else if (t==='AJUSTE'){ document.getElementById('lcDestino').innerHTML=opcoes(todos); wo.style.display='none'; }
+    /* PERDA mexe no saldo da ORIGEM, AJUSTE no do DESTINO: e esse o local que a lista
+       governa, e por isso a peneira entra so nestes dois campos. */
+    else if (t==='PERDA'){ document.getElementById('lcOrigem').innerHTML=opcoes(soOsQueAjusto(todos)); wd.style.display='none'; }
+    else if (t==='AJUSTE'){ document.getElementById('lcDestino').innerHTML=opcoes(soOsQueAjusto(todos)); wo.style.display='none'; }
+    avisarAjusteRestrito(t);
+  }
+
+  /* A peneira ANUNCIA que peneirou. Uma lista curta sem explicacao parece cadastro
+     faltando, e a pessoa vai procurar o local em Cadastros — onde ele esta, e continua
+     sem aparecer aqui. Marca que esconde informacao sem dizer que escondeu e pior do que
+     marca nenhuma. */
+  function avisarAjusteRestrito(tipo){
+    var el = document.getElementById('lcRestrito');
+    if (!el) return;
+    var meus = locaisQueAjusto();
+    var vale = (tipo === 'AJUSTE' || tipo === 'PERDA') && meus.length > 0;
+    el.hidden = !vale;
+    if (!vale) return;
+    var nomes = (DADOS && DADOS.locais ? DADOS.locais : [])
+      .filter(function(l){ return meus.indexOf(String(l.ID)) >= 0; })
+      .map(function(l){ return l.Nome; });
+    el.textContent = 'Você ajusta apenas ' +
+      (nomes.length ? nomes.join(', ') : 'os locais liberados no seu cadastro') +
+      '. Os outros locais não aparecem na lista acima — quem libera é o administrador, ' +
+      'em Cadastros → Usuários.';
   }
   document.getElementById('lcTipo').addEventListener('change', ajustarLancamento);
   document.getElementById('btnLancar').addEventListener('click', function(){
@@ -3525,6 +3582,18 @@
         'Nada marcado = as duas. Marque só uma para quem faz só ela — a outra aba '+
         'some do app.</p>'+
       '<h3 style="margin-top:20px">Onde ele pode lançar</h3>'+
+      /* AJUSTE e PERDA nao entram na lista de Operacoes — elas nascem no escritorio, e
+         governa-las por ali trancaria o administrador fora do proprio ajuste. O que as
+         governa e ESTA lista: ter a aba Ajustes e a porta, e ela e o quarto.
+
+         Antes disto a aba era tudo-ou-nada: quem a tivesse mexia no saldo de qualquer
+         galpao, filial, cliente ou rota. */
+      caixaLocais('fAjustes', 'Ajustes e perdas — em quais locais ela mexe no saldo',
+                  Q.ordenarLocais((DADOS && DADOS.locais) || []), u.Ajustes,
+                  'Nenhum local cadastrado ainda.')+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+        'Nada marcado = todos. É na aba <b>Ajustes</b> que se lança saldo inicial e baixa '+
+        'de perda — marque só os locais cujo saldo esta pessoa pode corrigir.</p>'+
       caixaLocais('fSaidas', 'Saída — de onde as caixas saem',
                   locaisEscolhiveis(['GALPAO','FILIAL','ROTA','FORNECEDOR'], u.Saidas), u.Saidas)+
       caixaLocais('fDestinos', 'Destino — para onde as caixas vão',
@@ -3647,7 +3716,7 @@
       var veLanc = ativo && verLanc.value === 'SIM';
       verLanc.disabled = !ativo;
 
-      var quadros = ['fAbas','fOperacoes','fSaidas','fDestinos','fTiposCaixa',
+      var quadros = ['fAbas','fOperacoes','fAjustes','fSaidas','fDestinos','fTiposCaixa',
                      'fMotoristas','fUsuariosVistos'];
       quadros.forEach(function(q){
         var box = document.getElementById(q);
@@ -3804,7 +3873,8 @@
         UsuariosVistos:lerMarcados('fUsuariosVistos'),
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
         TiposCaixa:lerMarcados('fTiposCaixa'), Motoristas:lerMarcados('fMotoristas'),
-        Operacoes:lerMarcados('fOperacoes'), Abas:lerMarcados('fAbas') };
+        Operacoes:lerMarcados('fOperacoes'), Abas:lerMarcados('fAbas'),
+        Ajustes:lerMarcados('fAjustes') };
       var pin = document.getElementById('fPin').value.trim();
       if (pin) reg.PIN = pin;
       reg.Email = document.getElementById('fEmail').value.trim();

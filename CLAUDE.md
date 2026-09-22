@@ -259,6 +259,46 @@ Duas coisas que valem lembrar:
 - **Isto é a tela, não a tranca.** Vale o mesmo aviso da seção de separação de funções: a API
   não tem autorização, e um POST direto ignora qualquer filtro daqui.
 
+## Ajuste e perda: a aba é a porta, a lista de locais é o quarto
+
+A aba **Ajustes** era tudo-ou-nada: quem a tivesse mexia no saldo de **qualquer** galpão, filial,
+cliente ou rota. Agora há uma lista por pessoa (`Ajustes`, coluna `ajustes`), com a convenção do
+projeto: **vazia quer dizer TODOS**. Invertida, o dia do deploy trancaria a operação inteira fora
+do próprio ajuste, inclusive o administrador.
+
+**AJUSTE e PERDA não passam pela lista `Operacoes`**, e isso é de propósito: `operacaoDoTipo()`
+devolve `''` para as duas, porque elas nascem no escritório e governá-las por ali trancaria o
+administrador fora do próprio ajuste. Quem manda nelas é esta lista de locais.
+
+**Qual local cada tipo mexe mora em `localDoAjuste()`, num lugar só.** AJUSTE credita o
+**destino**; PERDA debita a **origem**. Espalhada entre a tela e o roteador, a tela filtraria um
+campo e a gravação cobraria outro, e a restrição passaria a valer só na metade que alguém
+lembrasse.
+
+**A peneira entra nos dois campos da tela.** Filtrar só o do ajuste deixaria a perda como porta
+dos fundos: a mesma pessoa, barrada no ajuste, dando baixa no mesmo local pela outra opção do
+seletor.
+
+**A tranca é o roteador, não o seletor.** `api/index.js` recusa antes de montar o movimento, lendo
+o cadastro do servidor — filtrar o seletor é conveniência, e um POST direto passa por cima dele.
+
+**E a peneira anuncia que peneirou** (`#lcRestrito`). Lista curta e muda parece cadastro faltando,
+e manda a pessoa procurar em Cadastros um local que está lá e continua não aparecendo. O aviso diz
+**quais** são os locais e **onde** se resolve; aparece só para quem tem lista, porque para quem
+pode tudo seria ruído.
+
+**A sessão renovada remonta o seletor** (`aplicarSessao` → `if (DADOS) ajustarLancamento()`). Ela
+chega depois do primeiro desenho: sem isso, a permissão mudada no cadastro só valeria no próximo
+recarregamento, e até lá a pessoa veria os locais antigos e levaria a recusa do servidor sem
+entender por quê.
+
+### O tradutor do banco não era testado
+
+Nada cobria o `api/_supabase.js`: uma coluna podia deixar de ser lida **ou** de ser gravada e todo
+o resto continuava verde, porque as suítes rodam sobre um banco falso que não passa por ele. É o
+ponto exato em que uma permissão vira "não fica salva". Agora há uma varredura que, para cada uma
+das oito listas, exige o `lista(r.<coluna>)` na leitura e o `r.<coluna> =` na gravação.
+
 ## Toda aba pode ser concedida — o padrão é que trava, não o perfil
 
 Ajustes e Cadastros eram travadas para quem não é Admin. **A trava saiu a pedido do usuário:**
@@ -709,11 +749,11 @@ node teste/teste_saldo.js
 node teste/teste_primeiro_acesso.js
 ```
 
-O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tradutores **de
+O `teste_api.js` tem **519 verificações**. Roda o roteador, as regras e os tradutores **de
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**684 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**701 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
@@ -790,7 +830,7 @@ servidor. O fluxo visual precisa de navegador e nao roda aqui; o que ele protege
 tirar o `if (r.trocarSenha)` do login faria a senha provisoria valer para sempre sem nada
 quebrar. O comportamento do servidor esta em `teste_api.js`, no bloco "primeiro acesso".
 
-O `teste/teste_permissoes.js` (**87 verificações**) é a varredura ponta a ponta do que o
+O `teste/teste_permissoes.js` (**93 verificações**) é a varredura ponta a ponta do que o
 administrador liga e desliga. Para cada permissão percorre a corrente inteira — **formulário →
 envia → servidor grava → sessão carrega → alguma tela usa** — e um elo faltando é um interruptor
 que não acende nada. Confere também a convenção "lista vazia = todos", as três pré-condições

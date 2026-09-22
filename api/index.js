@@ -188,6 +188,21 @@ async function gravarMovimento(p) {
       (op === 'RETORNO' ? 'retorno' : 'saída') + '.' };
   }
 
+  /* AJUSTE e PERDA nao passam pela lista de operacoes — nascem no escritorio, e governa-las
+     por ela trancaria o administrador fora do proprio ajuste. Quem manda nelas e a lista de
+     LOCAIS: ter a aba Ajustes abre a porta, e esta lista diz em que saldo a pessoa mexe.
+
+     Recusado AQUI, e nao so filtrando o seletor da tela: filtrar e conveniencia, e um POST
+     direto passa por cima dela. */
+  var localAj = L.localDoAjuste(p.tipo, p);
+  if (quem && localAj && !L.podeAjustarEm(quem, localAj)) {
+    var nomeLocal = (d.locais || []).filter(function (l) {
+      return String(l.ID) === String(localAj);
+    })[0];
+    return { ok: false, erro: 'Este usuário não está habilitado a lançar ajuste em ' +
+      ((nomeLocal && nomeLocal.Nome) || 'neste local') + '.' };
+  }
+
   var r = L.montarMovimento(p, {
     movimentos: d.movimentos,
     agora: agora,

@@ -2197,6 +2197,77 @@ console.log('\n== o formulario de usuario abre mostrando o que esta gravado ==')
     'e o nome vale `undefined` sem dar erro: o campo abre errado calado', tarde);
 })();
 
+console.log('\n== o seletor de Ajuste obedece a lista de locais ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* A peneira entra nos DOIS campos, e nao so no do ajuste: PERDA mexe no saldo da
+     ORIGEM. Peneirar so o destino deixaria a perda como porta dos fundos — a mesma
+     pessoa, barrada no ajuste, dando baixa no mesmo local pela outra opcao do seletor. */
+  ok(/t==='AJUSTE'\)\{[^\n]*lcDestino[^\n]*opcoes\(soOsQueAjusto\(todos\)\)/.test(adm),
+    'o seletor do AJUSTE só oferece os locais liberados');
+  ok(/t==='PERDA'\)\{[^\n]*lcOrigem[^\n]*opcoes\(soOsQueAjusto\(todos\)\)/.test(adm),
+    'e o da PERDA também — peneirar só o ajuste deixaria a perda como porta dos fundos, ' +
+    'baixando o saldo do mesmo local pela outra opção do seletor');
+
+  /* Os outros tipos NAO sao peneirados: eles nascem no campo e ja tem as listas deles. */
+  ['SAIDA', 'TRANSFERENCIA', 'DEVOLUCAO'].forEach(function (t) {
+    var i = adm.indexOf("t==='" + t + "'");
+    var linha = adm.slice(i, adm.indexOf('\n', i));
+    ok(i > 0 && linha.indexOf('soOsQueAjusto') < 0,
+      'e o ' + t + ' não é peneirado por ela — quem manda nele são `Saidas` e `Destinos`');
+  });
+
+  /* A lista sai da SESSAO, que o servidor manda — a mesma que a gravacao usa para
+     recusar. Lida do cadastro por fora, seriam duas copias da mesma regra. */
+  var iF = adm.indexOf('function locaisQueAjusto()');
+  var corpo = adm.slice(iF, adm.indexOf('\n  }', iF));
+  ok(iF > 0 && /Q\.sessao\(\)/.test(corpo) && /ses\.ajustes/.test(corpo),
+    'e a lista vem da sessão, que é a mesma que o servidor usa para recusar', corpo);
+  ok(/if \(!meus\.length\) return lista;/.test(adm),
+    'vazia quer dizer TODOS também na tela — invertido aqui, quem pode tudo veria um ' +
+    'seletor vazio');
+
+  /* A PENEIRA ANUNCIA QUE PENEIROU. Uma lista curta e muda parece cadastro faltando, e
+     manda a pessoa procurar em Cadastros um local que esta la e continua nao aparecendo.
+     Marca que esconde sem dizer que escondeu e pior do que marca nenhuma. */
+  ok(adm.indexOf('id="lcRestrito"') > 0,
+    'a tela tem onde dizer que a lista foi peneirada');
+  var iA = adm.indexOf('function avisarAjusteRestrito(tipo)');
+  var aviso = adm.slice(iA, adm.indexOf('\n  }', iA));
+  ok(iA > 0 && /el\.hidden = !vale/.test(aviso),
+    'e o aviso só aparece para quem está restrito — para quem pode tudo ele seria ruído');
+  ok(/meus\.length > 0/.test(aviso),
+    'e "restrito" é ter lista, não ter a aba: lista vazia é quem pode tudo', aviso);
+  ok(/nomes\.join/.test(aviso),
+    'e o aviso DIZ QUAIS são os locais — "você está restrito" sem dizer a quê deixa a ' +
+    'pessoa sem saber se falta cadastro ou falta permissão');
+  ok(/Cadastros/.test(aviso),
+    'e diz onde se resolve — aviso que descreve o problema e cala é metade do recado');
+  ok(/avisarAjusteRestrito\(t\)/.test(adm),
+    'e ele é reescrito a cada troca de tipo, junto com o seletor que ele explica');
+
+  /* A sessao RENOVADA remonta o seletor. Ela chega depois do primeiro desenho: sem isto,
+     a permissao mudada no cadastro so valeria no proximo recarregamento, e ate la a
+     pessoa veria os locais antigos e levaria a recusa do servidor sem entender. */
+  var iAp = adm.indexOf('function aplicarSessao(s)');
+  var corpoAp = adm.slice(iAp, adm.indexOf('\n  }', iAp));
+  ok(iAp > 0 && /ajustarLancamento\(\)/.test(corpoAp),
+    'e a sessão renovada remonta o seletor — sem isto a permissão mudada no cadastro só ' +
+    'valeria no próximo recarregamento', corpoAp);
+  ok(/if \(DADOS\) ajustarLancamento\(\)/.test(corpoAp),
+    'e só depois de os cadastros chegarem — a abertura passa por ali antes deles, e o ' +
+    'seletor não teria o que listar');
+
+  /* O quadro do cadastro. Sem ele, a coluna existe e ninguem tem como preenche-la. */
+  ok(/caixaLocais\('fAjustes'/.test(adm),
+    'o cadastro tem o quadro para escolher os locais');
+  ok(/Nada marcado = todos/.test(adm.slice(adm.indexOf("caixaLocais('fAjustes'"),
+      adm.indexOf("caixaLocais('fAjustes'") + 700)),
+    'e diz em voz alta que nada marcado quer dizer TODOS — é a convenção do projeto, e ' +
+    'quem marca precisa saber que deixar vazio não tranca ninguém');
+})();
+
 console.log('\n== o contraste de cada par que a tela usa ==');
 (function () {
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
@@ -2748,12 +2819,14 @@ console.log('\n== a porta de volta, do painel para os lancamentos ==');
 
   function volta(s) {
     var alvo = {};
-    /* `Q` de mentira: `aplicarSessao` escreve quem esta logado pelo `Q.quemEsta()`, e sem
-       ele a funcao estoura antes de chegar na decisao que se quer medir. */
-    return new Function('s', 'document', 'Q',
+    /* `Q`, `DADOS` e `ajustarLancamento` de mentira: `aplicarSessao` escreve quem esta
+       logado e remonta o seletor de Ajuste, e sem eles a funcao estoura antes de chegar
+       na decisao que se quer medir. `DADOS` vai NULO de proposito — e o estado real da
+       abertura, antes de os cadastros chegarem, e e por ele que o `if (DADOS)` existe. */
+    return new Function('s', 'document', 'Q', 'DADOS', 'ajustarLancamento',
       fonte + '\n aplicarSessao(s); return !document.getElementById("chipCampo").hidden;')(
       s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); } },
-      { quemEsta: function () {} });
+      { quemEsta: function () {} }, null, function () {});
   }
 
   /* Quem nao tem senha de lancamento nao passa do login do app de campo: `loginPorPin`

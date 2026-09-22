@@ -154,6 +154,40 @@ function podeOperacao(u, op) {
   return lista.map(String).indexOf(String(op)) >= 0;
 }
 
+/**
+ * Em QUAL local este lançamento mexe no saldo.
+ *
+ * AJUSTE mexe no destino — é o local que ganha (ou perde) as caixas. PERDA mexe na
+ * origem — é quem as perdeu. Os outros tipos devolvem '' porque não são lançados na aba
+ * Ajustes: eles nascem no campo e já são governados por `Saidas`/`Destinos`.
+ *
+ * A pergunta "qual local" mora AQUI, e não espalhada entre a tela e o roteador: espalhada,
+ * a tela filtraria por um campo e a gravação cobraria outro, e a restrição passaria a
+ * valer só na metade que alguém lembrasse.
+ */
+function localDoAjuste(tipo, p) {
+  var t = String(tipo || '').toUpperCase();
+  if (t === 'AJUSTE') return String((p && p.destinoId) || '');
+  if (t === 'PERDA') return String((p && p.origemId) || '');
+  return '';
+}
+
+/**
+ * Se esta pessoa pode ajustar o saldo DESTE local.
+ *
+ * Vazia quer dizer TODOS — a mesma convenção das outras listas. Invertida, a operação
+ * inteira ficaria sem poder ajustar nada no dia do deploy, inclusive o administrador.
+ *
+ * A aba Ajustes era tudo-ou-nada: quem a tinha mexia no saldo de qualquer galpão, filial,
+ * cliente ou rota. Ter a aba passa a ser a porta; esta lista é o quarto.
+ */
+function podeAjustarEm(u, localId) {
+  if (!localId) return true;
+  var lista = u && Array.isArray(u.Ajustes) ? u.Ajustes : [];
+  if (!lista.length) return true;
+  return lista.map(String).indexOf(String(localId)) >= 0;
+}
+
 /** Quem confere devolução no galpão. */
 function podeConferir(perfil) {
   return CONFEREM.indexOf(String(perfil || '').toUpperCase()) >= 0;
@@ -461,6 +495,10 @@ function sessaoDe(u) {
     motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
     // Idem: vazia = todas. E o celular esconde a aba que nao esta aqui.
     operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : [],
+    /* Em quais locais ela ajusta. Esquecido aqui, a tela do painel ofereceria todos
+       os locais e a gravacao recusaria — a pessoa preenche o formulario inteiro para
+       levar um nao no fim. */
+    ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
     // As abas do painel do escritorio, mesma convencao.
     abas: Array.isArray(u.Abas) ? u.Abas : [],
     /* Painel restrito: entra no painel, mas so enxerga o que ela mesma lancou. Mantido
@@ -1567,12 +1605,14 @@ function usuariosPublicos(usuarios) {
       TiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
       Motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
       Operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : [],
+      Ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
       Abas: Array.isArray(u.Abas) ? u.Abas : []
     };
   });
 }
 
 module.exports = {
+  localDoAjuste: localDoAjuste, podeAjustarEm: podeAjustarEm,
   TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
   rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,
   motoristasPublicos: motoristasPublicos, cnhVencida: cnhVencida,
