@@ -427,10 +427,21 @@ seletor.
 **A tranca é o roteador, não o seletor.** `api/index.js` recusa antes de montar o movimento, lendo
 o cadastro do servidor — filtrar o seletor é conveniência, e um POST direto passa por cima dele.
 
-**E a peneira anuncia que peneirou** (`#lcRestrito`). Lista curta e muda parece cadastro faltando,
-e manda a pessoa procurar em Cadastros um local que está lá e continua não aparecendo. O aviso diz
-**quais** são os locais e **onde** se resolve; aparece só para quem tem lista, porque para quem
-pode tudo seria ruído.
+**E a peneira anuncia que peneirou** (`#lcRestrito`) — **mas só se peneirou**. Lista curta e muda
+parece cadastro faltando, e manda a pessoa procurar em Cadastros um local que está lá e continua
+não aparecendo. O aviso diz **quais** são os locais e **onde** se resolve.
+
+A condição é ter algo **escondido**, e não ter uma lista. Bastava ter lista, e desde que a
+convenção virou *marcar é conceder* todo mundo tem: a migração `2026-09-22-marcar-o-que-ja-valia`
+encheu as vazias com tudo. Medido no cadastro real em setembro/2026 — **as 13 pessoas tinham os 11
+locais, e as 13 liam "os outros locais não aparecem" quando não havia outros.** O aviso não estava
+sobrando: estava mentindo, para todo mundo, o tempo todo.
+
+Hoje ele compara o que a aba **oferece** com o que sobrou depois da peneira. Zero escondidos, nada
+a anunciar — e com o cadastro de hoje ele não aparece para ninguém. Duas guardas, e as duas têm
+teste: recebe a **mesma lista** que o seletor oferece (outra lista compararia com outra coisa), e
+vale **só em Ajuste e Perda**, que são os dois campos onde a peneira entra — em Saída o seletor
+não é peneirado, e anunciar um recorte ali é a mesma mentira ao contrário.
 
 **A sessão renovada remonta o seletor** (`aplicarSessao` → `if (DADOS) ajustarLancamento()`). Ela
 chega depois do primeiro desenho: sem isso, a permissão mudada no cadastro só valeria no próximo

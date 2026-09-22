@@ -2500,19 +2500,35 @@ console.log('\n== o seletor de Ajuste obedece a lista de locais ==');
      Marca que esconde sem dizer que escondeu e pior do que marca nenhuma. */
   ok(adm.indexOf('id="lcRestrito"') > 0,
     'a tela tem onde dizer que a lista foi peneirada');
-  var iA = adm.indexOf('function avisarAjusteRestrito(tipo)');
+  var iA = adm.indexOf('function avisarAjusteRestrito(tipo, oferecidos)');
   var aviso = adm.slice(iA, adm.indexOf('\n  }', iA));
   ok(iA > 0 && /el\.hidden = !vale/.test(aviso),
     'e o aviso só aparece para quem está restrito — para quem pode tudo ele seria ruído');
-  ok(/meus\.length > 0/.test(aviso),
-    'e "restrito" é ter lista, não ter a aba: lista vazia é quem pode tudo', aviso);
+
+  /* "RESTRITO" É TER ALGO ESCONDIDO, e não ter uma lista.
+     Antes bastava a pessoa TER lista, e desde que a convenção virou "marcar é
+     conceder" todo mundo tem: a migração encheu as vazias com tudo. Medido no cadastro
+     real: as 13 pessoas tinham os 11 locais, e as 13 liam "os outros locais não
+     aparecem" quando não havia outros. O aviso não estava sobrando — estava mentindo. */
+  ok(/var escondidos = lista\.length - liberados\.length;/.test(aviso),
+    'e "restrito" é ter algo ESCONDIDO, não ter uma lista — com marcar-é-conceder todo ' +
+    'mundo tem lista, e o aviso passou a anunciar um recorte que não existia', aviso);
+  ok(/escondidos > 0/.test(aviso),
+    'nada escondido, nada a anunciar');
+  /* E só em Ajuste e Perda: a peneira entra nesses dois campos e em mais nenhum.
+     Sem a guarda do tipo, o aviso apareceria em Saída e Transferência, onde o seletor
+     NÃO foi peneirado — a mesma mentira, na direção contrária. */
+  ok(/\(tipo === 'AJUSTE' \|\| tipo === 'PERDA'\) && escondidos > 0/.test(aviso),
+    'e só nos dois tipos em que a peneira entra — em Saída o seletor não é peneirado, ' +
+    'e anunciar um recorte ali é a mesma mentira ao contrário', aviso);
   ok(/nomes\.join/.test(aviso),
     'e o aviso DIZ QUAIS são os locais — "você está restrito" sem dizer a quê deixa a ' +
     'pessoa sem saber se falta cadastro ou falta permissão');
   ok(/Cadastros/.test(aviso),
     'e diz onde se resolve — aviso que descreve o problema e cala é metade do recado');
-  ok(/avisarAjusteRestrito\(t\)/.test(adm),
-    'e ele é reescrito a cada troca de tipo, junto com o seletor que ele explica');
+  ok(/avisarAjusteRestrito\(t, todos\)/.test(adm),
+    'e ele é reescrito a cada troca de tipo, junto com o seletor que ele explica — e ' +
+    'recebe a MESMA lista que o seletor oferece, senão compararia com outra coisa');
 
   /* A sessao RENOVADA remonta o seletor. Ela chega depois do primeiro desenho: sem isto,
      a permissao mudada no cadastro so valeria no proximo recarregamento, e ate la a

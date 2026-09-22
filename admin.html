@@ -2331,23 +2331,34 @@
        governa, e por isso a peneira entra so nestes dois campos. */
     else if (t==='PERDA'){ document.getElementById('lcOrigem').innerHTML=opcoes(soOsQueAjusto(todos)); wd.style.display='none'; }
     else if (t==='AJUSTE'){ document.getElementById('lcDestino').innerHTML=opcoes(soOsQueAjusto(todos)); wo.style.display='none'; }
-    avisarAjusteRestrito(t);
+    avisarAjusteRestrito(t, todos);
   }
 
-  /* A peneira ANUNCIA que peneirou. Uma lista curta sem explicacao parece cadastro
-     faltando, e a pessoa vai procurar o local em Cadastros — onde ele esta, e continua
-     sem aparecer aqui. Marca que esconde informacao sem dizer que escondeu e pior do que
-     marca nenhuma. */
-  function avisarAjusteRestrito(tipo){
+  /* A peneira ANUNCIA que peneirou — MAS SO SE PENEIROU.
+
+     A regra continua a mesma: marca que esconde informacao sem dizer que escondeu e
+     pior do que marca nenhuma. Uma lista curta sem explicacao parece cadastro faltando,
+     e a pessoa vai procurar o local em Cadastros — onde ele esta, e continua sem
+     aparecer aqui.
+
+     O que mudou e a condicao. Antes bastava a pessoa TER uma lista para o aviso
+     aparecer, e desde que a convencao virou "marcar e conceder" todo mundo tem: a
+     migracao encheu as listas vazias com tudo. Resultado medido no cadastro de hoje —
+     as 13 pessoas tinham os 11 locais, e as 13 liam "os outros locais nao aparecem"
+     quando NAO HAVIA outros. O aviso nao estava so sobrando: estava mentindo.
+
+     Agora ele compara o que a aba OFERECE com o que sobrou depois da peneira. Zero
+     escondidos, nada a anunciar. */
+  function avisarAjusteRestrito(tipo, oferecidos){
     var el = document.getElementById('lcRestrito');
     if (!el) return;
-    var meus = locaisQueAjusto();
-    var vale = (tipo === 'AJUSTE' || tipo === 'PERDA') && meus.length > 0;
+    var lista = oferecidos || [];
+    var liberados = soOsQueAjusto(lista);
+    var escondidos = lista.length - liberados.length;
+    var vale = (tipo === 'AJUSTE' || tipo === 'PERDA') && escondidos > 0;
     el.hidden = !vale;
     if (!vale) return;
-    var nomes = (DADOS && DADOS.locais ? DADOS.locais : [])
-      .filter(function(l){ return meus.indexOf(String(l.ID)) >= 0; })
-      .map(function(l){ return l.Nome; });
+    var nomes = liberados.map(function(l){ return l.Nome; });
     el.textContent = 'Você ajusta apenas ' +
       (nomes.length ? nomes.join(', ') : 'os locais liberados no seu cadastro') +
       '. Os outros locais não aparecem na lista acima — quem libera é o administrador, ' +
