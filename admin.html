@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=82d21a92">
+<link rel="stylesheet" href="styles.css?v=0e6684f4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -54,15 +54,6 @@
 <!-- A barra de app so aparece abaixo de 1024px: no desktop a navegacao ja esta fixa na
      lateral, e uma barra em cima dela seria uma faixa repetindo o que ja se ve. -->
 <header class="topo">
-  <button type="button" class="btn-icone" id="btnMenu"
-          aria-label="Abrir navegação" aria-expanded="false" aria-controls="lateral">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="2" stroke-linecap="round" aria-hidden="true">
-      <line x1="3" y1="7" x2="21" y2="7"></line>
-      <line x1="3" y1="12" x2="21" y2="12"></line>
-      <line x1="3" y1="17" x2="21" y2="17"></line>
-    </svg>
-  </button>
   <div class="topo__marca">
     <span class="selo" aria-hidden="true">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -86,6 +77,15 @@
     <div class="chip" id="avisoRede" hidden></div>
     <span class="avatar" id="avatarTopo" title="—">—<span class="ponto" id="pontoRede"></span></span>
   </div>
+  <button type="button" class="btn-icone" id="btnMenu"
+          aria-label="Abrir navegação" aria-expanded="false" aria-controls="lateral">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <line x1="3" y1="7" x2="21" y2="7"></line>
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="17" x2="21" y2="17"></line>
+    </svg>
+  </button>
 </header>
 
 <div class="shell__corpo">

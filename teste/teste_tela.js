@@ -2314,6 +2314,17 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
     var topo = t.slice(i, t.indexOf('</header>', i));
     ok(i > 0 && topo.indexOf('id="avatarTopo"') > 0,
       arq + ': a barra de app diz quem está logado — na gaveta fechada, é a única pista');
+
+    /* O GATILHO DA GAVETA FICA A DIREITA, e e o ultimo da barra: e o canto que o polegar
+       alcanca com o celular na mao, e o app e usado de pe, no galpao, de luva. A ordem e
+       marca -> conta -> gatilho. */
+    ok(topo.indexOf('id="btnMenu"') > topo.indexOf('class="topo__conta"') &&
+       topo.indexOf('class="topo__conta"') > topo.indexOf('class="topo__marca"'),
+      arq + ': o gatilho da gaveta é o ÚLTIMO da barra — é o canto que o polegar alcança ' +
+      'com o celular na mão, e a marca abre a linha',
+      { marca: topo.indexOf('class="topo__marca"'),
+        conta: topo.indexOf('class="topo__conta"'),
+        menu: topo.indexOf('id="btnMenu"') });
     ok(topo.indexOf('id="pontoRede"') > 0,
       arq + ': e tem o ponto de estado da rede');
     ok(topo.indexOf('id="avisoRede"') > 0,
@@ -2399,6 +2410,9 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
      vista justamente o aviso e a propria identificacao. */
   ok(/\.topo__marca\{[^}]*flex:0 1 auto/.test(css),
     'a marca encolhe quando o aviso cresce');
+  ok(/\.topo\{[^}]*padding:0 4px 0 12px/.test(css),
+    'e o respiro acompanha: mais à esquerda, onde a marca abre a barra, e menos à ' +
+    'direita, onde o gatilho já tem os seus 44px de alvo');
   ok(/\.topo__conta\{[^}]*flex:0 0 auto/.test(css),
     'e o canto direito não — medido a 390px, sem isto o avatar era empurrado para fora ' +
     'da barra justamente no estado em que ele mais importa');

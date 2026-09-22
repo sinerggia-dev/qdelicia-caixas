@@ -83,9 +83,12 @@ a{color:var(--marca-txt);text-decoration:none}
 .shell__corpo{flex:1 1 auto;display:flex;min-height:0}
 
 /* ---------- barra de app (so abaixo de 1024px) ---------- */
+/* O respiro e maior a ESQUERDA e menor a direita: quem abre a barra agora e a marca, e
+   texto encostado na borda fica apertado; o gatilho, que fechou a direita, ja tem os seus
+   44px de alvo e nao precisa de margem. */
 .topo{
   position:sticky;top:0;z-index:40;height:var(--topo-alt);
-  display:flex;align-items:center;gap:8px;padding:0 10px 0 4px;
+  display:flex;align-items:center;gap:8px;padding:0 4px 0 12px;
   background:var(--campo);border-bottom:1px solid var(--linha)
 }
 /* A marca ENCOLHE, e o canto direito nao. Medido a 390px com "⚠ Offline · 2 na fila":
@@ -95,6 +98,8 @@ a{color:var(--marca-txt);text-decoration:none}
 .topo__marca{display:flex;align-items:center;gap:9px;min-width:0;flex:0 1 auto;overflow:hidden}
 /* O canto direito da barra de app. `margin-left:auto` empurra o grupo inteiro — antes
    cada peca se empurrava sozinha, e elas disputavam a largura com o nome da marca. */
+/* `margin-left:auto` AQUI, e nao no gatilho: assim a conta e o gatilho vao juntos
+   para a direita, colados, em vez de a conta ficar no meio da barra. */
 .topo__conta{display:flex;align-items:center;gap:8px;margin-left:auto;flex:0 0 auto}
 .topo__conta .chip{font-size:11px;padding:4px 9px}
 
