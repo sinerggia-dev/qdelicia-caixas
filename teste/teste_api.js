@@ -24,6 +24,17 @@ const fs = {
 
 /* ---------- banco falso ---------- */
 
+/* O que "tudo liberado" quer dizer neste banco falso. Escrito uma vez: repetido em cada
+   usuario, o primeiro id novo entraria em tres deles e ficaria faltando no quarto. */
+const TUDO = {
+  locais: ['L001', 'L002', 'L003'],
+  tipos: ['T001', 'T002'],
+  motoristas: ['D001'],
+  usuarios: ['U001', 'U002', 'U003', 'U004'],
+  operacoes: ['SAIDA', 'RETORNO'],
+  abas: ['pgRetornos', 'pgPainel', 'pgExtrato', 'pgMovimentos', 'pgColunas']
+};
+
 const tabelas = {
   locais: [
     { id: 'L001', tipo: 'GALPAO', nome: 'Galpão de Distribuição', responsavel: '', telefone: '', limite_caixas: null, dias_prazo: null, token: 'a69uisz7uv', ativo: true, obs: '' },
@@ -34,11 +45,27 @@ const tabelas = {
     { id: 'T001', nome: 'Caixa Banana', ativo: true },
     { id: 'T002', nome: 'Caixa Plástica Grande', ativo: true }
   ],
+  /* Os cadastros como ficam DEPOIS da migracao `2026-09-22-marcar-o-que-ja-valia`: com
+     a convencao "nada marcado = nada liberado", um banco de verdade nao tem mais listas
+     vazias por descuido — o que estava vazio foi preenchido com o que a pessoa ja via.
+
+     Escrever o seed com as listas vazias seria testar contra um banco que nao existe
+     mais, e ele passaria a recusar todo lancamento por falta de permissao. */
   usuarios: [
-    { id: 'U001', nome: 'Administrador', perfil: 'ADMIN', pin: '1234', telefone: '', local_padrao: 'L001', ativo: true, usuario: 'admin', email: 'admin@qdelicia.com.br', senha_hash: null, acesso_painel: true },
-    { id: 'U002', nome: 'Conferente Galpão', perfil: 'GALPAO', pin: '1111', telefone: '', local_padrao: 'L001', ativo: true, acesso_painel: true },
-    { id: 'U003', nome: 'Motorista Exemplo', perfil: 'MOTORISTA', pin: '2222', telefone: '', local_padrao: 'L001', ativo: true },
-    { id: 'U004', nome: 'Promotor Exemplo', perfil: 'PROMOTOR', pin: '3333', telefone: '', local_padrao: null, ativo: true }
+    { id: 'U001', nome: 'Administrador', perfil: 'ADMIN', pin: '1234', telefone: '', local_padrao: 'L001', ativo: true, usuario: 'admin', email: 'admin@qdelicia.com.br', senha_hash: null, acesso_painel: true,
+      operacoes: TUDO.operacoes, saidas: TUDO.locais, destinos: TUDO.locais, ajustes: TUDO.locais,
+      tipos_caixa: TUDO.tipos, motoristas: TUDO.motoristas, usuarios_vistos: TUDO.usuarios },
+    { id: 'U002', nome: 'Conferente Galpão', perfil: 'GALPAO', pin: '1111', telefone: '', local_padrao: 'L001', ativo: true, acesso_painel: true,
+      abas: TUDO.abas, operacoes: TUDO.operacoes, saidas: TUDO.locais, destinos: TUDO.locais, ajustes: TUDO.locais,
+      tipos_caixa: TUDO.tipos, motoristas: TUDO.motoristas, usuarios_vistos: TUDO.usuarios },
+    { id: 'U003', nome: 'Motorista Exemplo', perfil: 'MOTORISTA', pin: '2222', telefone: '', local_padrao: 'L001', ativo: true,
+      abas: TUDO.abas, operacoes: TUDO.operacoes, saidas: TUDO.locais, destinos: TUDO.locais, ajustes: TUDO.locais,
+      tipos_caixa: TUDO.tipos, motoristas: TUDO.motoristas, usuarios_vistos: TUDO.usuarios },
+    /* O promotor com so RETORNO — era o atalho por perfil que o app de campo tinha, e
+       que a migracao gravou como lista explicita quando a convencao virou. */
+    { id: 'U004', nome: 'Promotor Exemplo', perfil: 'PROMOTOR', pin: '3333', telefone: '', local_padrao: null, ativo: true,
+      abas: TUDO.abas, operacoes: ['RETORNO'], saidas: TUDO.locais, destinos: TUDO.locais, ajustes: TUDO.locais,
+      tipos_caixa: TUDO.tipos, motoristas: TUDO.motoristas, usuarios_vistos: TUDO.usuarios }
   ],
   // O bootstrap ja rodou neste banco falso, e as migracoes antigas estao registradas.
   migracoes: [],
@@ -748,13 +775,18 @@ async function main() {
 
   console.log('== de onde e para onde cada um lança ==');
 
-  // Lista vazia quer dizer TODOS. Se fosse "nenhum", o deploy trancaria a operação inteira
-  // no primeiro dia, porque ninguém tem nada marcado ainda.
-  const semRestricao = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U003');
-  ok(Array.isArray(semRestricao.Saidas) && semRestricao.Saidas.length === 0,
-    'usuário antigo nasce sem restrição', semRestricao.Saidas);
-  ok(Lm.locaisPermitidos([], [{ ID: 'L001' }, { ID: 'L010' }]).length === 2,
-    'lista vazia libera todos os locais');
+  /* NADA MARCADO = NADA LIBERADO. A lista vazia deixou de ser atalho para "todos": ela
+     quer dizer o que parece dizer, e marcar e conceder.
+
+     O deploy nao trancou ninguem porque a migracao `2026-09-22-marcar-o-que-ja-valia`
+     gravou, em cada cadastro vazio, exatamente o que a pessoa ja enxergava. Vazio de
+     verdade so aparece em quem nascer depois — e esse nasce sem poder nada. */
+  const comTudo = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U003');
+  ok(Array.isArray(comTudo.Saidas) && comTudo.Saidas.length === 3,
+    'o cadastro traz a lista EXPLÍCITA do que a pessoa pode — depois da virada não há ' +
+    'mais lista vazia por descuido', comTudo.Saidas);
+  ok(Lm.locaisPermitidos([], [{ ID: 'L001' }, { ID: 'L010' }]).length === 0,
+    'e lista vazia não libera local nenhum — marcar é conceder');
   ok(Lm.locaisPermitidos(['L010'], [{ ID: 'L001' }, { ID: 'L010' }]).length === 1,
     'lista com um id deixa passar só ele');
   ok(Lm.locaisPermitidos(['sumiu'], [{ ID: 'L001' }]).length === 0,
@@ -1678,9 +1710,11 @@ console.log('\n== quais abas do painel a pessoa ve ==');
     'e nenhuma é mais "só do Admin": a trava por perfil saiu a pedido de quem usa');
 
   const semLista = { Nome: 'A' };
-  ok(F.podeAba(semLista, 'pgMovimentos') && F.podeAba(semLista, 'pgExtrato'),
-    'lista vazia quer dizer TODAS — invertida, ninguém veria aba nenhuma no deploy');
-  ok(F.podeAba({ Abas: [] }, 'pgPainel'),
+  ok(!F.podeAba(semLista, 'pgMovimentos') && !F.podeAba(semLista, 'pgExtrato'),
+    'sem lista, nenhuma aba — marcar é conceder. O ADMIN é a exceção, e ela mora na ' +
+    'tela (`abasPermitidas`), não aqui: trancá-lo fora do próprio cadastro não teria ' +
+    'como ser desfeito por ninguém');
+  ok(!F.podeAba({ Abas: [] }, 'pgPainel'),
     'e lista vazia de verdade também, não só o campo ausente');
 
   const so = { Nome: 'Conferente', Abas: ['pgRetornos', 'pgExtrato'] };
@@ -1712,11 +1746,11 @@ console.log('\n== quem lanca saida, quem lanca retorno ==');
     'ajuste e perda não são operação de campo — ficam fora desta permissão',
     [F.operacaoDoTipo('AJUSTE'), F.operacaoDoTipo('PERDA')]);
 
-  // A convenção: vazia = todas
+  // A convenção: vazia = nenhuma
   const semLista = { Nome: 'A' };
-  ok(F.podeOperacao(semLista, 'SAIDA') && F.podeOperacao(semLista, 'RETORNO'),
-    'lista vazia quer dizer AS DUAS — invertê-la trancaria a operação inteira no deploy');
-  ok(F.podeOperacao({ Operacoes: [] }, 'SAIDA'),
+  ok(!F.podeOperacao(semLista, 'SAIDA') && !F.podeOperacao(semLista, 'RETORNO'),
+    'sem lista, nenhuma operação: a pessoa não lança no app até ser marcada');
+  ok(!F.podeOperacao({ Operacoes: [] }, 'SAIDA'),
     'e lista vazia de verdade também, não só o campo ausente');
 
   const soRetorno = { Nome: 'Conferente', Operacoes: ['RETORNO'] };
@@ -2125,7 +2159,7 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
       s2.tiposCaixa);
 
     const tipos = [{ ID: 'P' }, { ID: 'G' }, { ID: 'GG' }];
-    ok(F.locaisPermitidos([], tipos).length === 3,
+    ok(F.locaisPermitidos([], tipos).length === 0,
       'e a peneira devolve todos quando a lista está vazia');
     ok(F.locaisPermitidos(['G'], tipos).map((t) => t.ID).join(',') === 'G',
       'com a lista preenchida, só o que foi marcado');
@@ -2142,7 +2176,8 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
       'sem nada marcado vem vazio — que quer dizer TODOS, como nas outras três', s2.motoristas);
 
     const mot = [{ ID: 'D1', Nome: 'Ana' }, { ID: 'D2', Nome: 'Bia' }, { ID: 'D3', Nome: 'Caio' }];
-    ok(F.locaisPermitidos([], mot).length === 3, 'lista vazia devolve todos');
+    ok(F.locaisPermitidos([], mot).length === 0,
+      'e lista vazia não devolve motorista nenhum');
     ok(F.locaisPermitidos(['D1', 'D3'], mot).map((m) => m.Nome).join(',') === 'Ana,Caio',
       'e com a lista preenchida, só os marcados');
   }
@@ -2220,11 +2255,10 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
 
     /* VAZIA QUER DIZER TODOS, a convencao do projeto. Invertida, o deploy trancaria a
        operacao inteira fora do ajuste, inclusive o administrador. */
-    ok(F.podeAjustarEm({ Ajustes: [] }, 'L1') === true,
-      'lista vazia quer dizer TODOS — invertida, o dia do deploy tranca a operação ' +
-      'inteira fora do próprio ajuste');
-    ok(F.podeAjustarEm({}, 'L1') === true,
-      'e cadastro sem a coluna também — é o registro de antes desta permissão existir');
+    ok(F.podeAjustarEm({ Ajustes: [] }, 'L1') === false,
+      'sem lista, nenhum local — marcar é conceder');
+    ok(F.podeAjustarEm({}, 'L1') === false,
+      'e cadastro sem a coluna também: a ausência não vale mais como "pode tudo"');
     ok(F.podeAjustarEm({ Ajustes: ['L1', 'L2'] }, 'L1') === true,
       'quem está na lista ajusta');
     ok(F.podeAjustarEm({ Ajustes: ['L2'] }, 'L1') === false,
@@ -2258,10 +2292,14 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
        `indexOf` do pedaco aceitava qualquer id que apenas comecasse com ele. */
     const mig = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
     const ids = (mig.match(/id: '[^']+'/g) || []).map((x) => x.slice(5, -1));
-    ok(ids[ids.length - 1] === '2026-09-22-ajustes-por-local',
-      'e a coluna entra na ÚLTIMA migração, com o id exato — a lista é append-only, e ' +
-      'mexer no meio dela reescreve história que já rodou em produção',
-      ids[ids.length - 1]);
+    /* A lista e append-only: a coluna nasce na migracao dela, e as novas entram DEPOIS.
+       Mexer no meio reescreve historia que ja rodou em producao. */
+    ok(ids.indexOf('2026-09-22-ajustes-por-local') >= 0,
+      'e a coluna nasce numa migração própria, com o id exato', ids);
+    ok(ids.indexOf('2026-09-22-ajustes-por-local') <
+       ids.indexOf('2026-09-22-marcar-o-que-ja-valia'),
+      'e vem ANTES da que preenche as listas — preencher `ajustes` numa coluna que ' +
+      'ainda não existe é erro de SQL, e a migração para no meio', ids);
     ok(ids.length === new Set(ids).size,
       'e nenhum id de migração se repete — repetido, a segunda nunca roda e a coluna ' +
       'dela não existe no banco', ids.length - new Set(ids).size);

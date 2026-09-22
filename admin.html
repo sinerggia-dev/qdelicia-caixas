@@ -779,11 +779,15 @@
   function recorteProprios(){
     var s = Q.sessao();
     if (!s) return '';
-    /* Nao ve lancamento nenhum: pede um recorte que nao casa com ninguem, em vez de nao
-       pedir nada. Nao pedir seria pedir TODOS, pela convencao do vazio. */
+    /* Nao pedir recorte nenhum e pedir TODOS: e assim que a rota le um `so` vazio. Entao
+       os dois casos em que a pessoa nao ve ninguem pedem o sentinela, e nao o vazio —
+       nao ver lancamento, e nao ter ninguem marcado.
+
+       Com a convencao nova, lista vazia quer dizer NINGUEM. Mandar '' aqui entregaria a
+       operacao inteira para quem nao tem nenhuma marca. */
     if (s.verLancamentos === false) return '__ninguem__';
     var vistos = s.usuariosVistos || [];
-    return vistos.length ? vistos.map(String).join(',') : '';
+    return vistos.length ? vistos.map(String).join(',') : '__ninguem__';
   }
 
   /* A sessao guardada e uma FOTO do login. Enquanto ela for a unica fonte, mudar a
@@ -880,29 +884,33 @@
       return true;
     });
     function ids(l){ return l.map(function(a){ return a.ID; }); }
-    /* Sem marca nenhuma valem TODAS — menos as sensiveis, que so entram por marca. Para o
-       admin valem todas mesmo: ele e a origem da concessao, e tranca-lo fora do proprio
-       cadastro nao teria como ser desfeito por ninguem. */
-    if (!marcadas.length){
-      return ids(Q.ehAdmin() ? base : base.filter(function(a){ return !a.sensivel; }));
-    }
+    /* Nada marcado = NADA. Marcar e conceder.
+
+       A UNICA excecao e o ADMIN com a lista VAZIA: ele e a origem da concessao, e um
+       admin que nasce sem marca nenhuma perderia o painel inteiro — inclusive a tela
+       onde se conserta isso, e a volta seria por SQL no banco.
+
+       So com a lista VAZIA, repare: admin que MARCA recebe o que marcou, como todo
+       mundo. Ele pode se restringir de proposito, e continua podendo. Fosse a excecao
+       antes da marca, a marcacao dele nao faria nada e o formulario mentiria para quem
+       mais precisa confiar nele. */
+    if (!marcadas.length) return Q.ehAdmin() ? ids(base) : [];
 
     var escolhidas = base.filter(function(a){
       return marcadas.map(String).indexOf(String(a.ID)) >= 0;
     });
-    /* Se a marca nao alcanca NENHUMA aba que existe, a pessoa entraria num painel
-       vazio: sem aba, sem pagina aberta, sem pista do que houve. Acontece quando a marca
-       guarda o id de uma aba renomeada ou que saiu do app.
+    /* Se a marca nao alcanca NENHUMA aba que existe — porque guarda o id de uma aba
+       renomeada ou que saiu do app — o resultado e o mesmo de nao ter marcado: nada.
 
-       Nesse caso a marca e ignorada e vale a regra do vazio. E a mesma escolha que a
-       convencao "lista vazia = TODAS" ja faz um nivel acima, e pelo mesmo motivo — errar
-       para o lado de MOSTRAR se corrige no cadastro, errar para o lado de trancar so se
-       resolve com o admin por perto.
+       Antes, esse caso caia no padrao e a pessoa via tudo menos as sensiveis. Era
+       coerente com a convencao de entao ("errar para o lado de mostrar"), e deixou de
+       ser: com marcar-e-conceder, uma marca que nao alcanca nada nao concede nada.
+       Trocar marca quebrada por acesso amplo e exatamente o contrario do que o
+       administrador pediu ao marcar.
 
-       E "a regra do vazio" aqui e a mesma de cima, com as sensiveis de fora: uma marca
-       quebrada nao pode virar a porta de entrada para o cadastro de usuarios. */
-    if (escolhidas.length) return ids(escolhidas);
-    return ids(Q.ehAdmin() ? base : base.filter(function(a){ return !a.sensivel; }));
+       Quem diz o que houve e `ajustarAbasPainel()`, que escreve na lateral em vez de
+       deixa-la muda. */
+    return ids(escolhidas);
   }
 
   /* A aba some, e a pagina dela deixa de ser a ativa. A primeira que sobrou vira a
@@ -2297,7 +2305,7 @@
      e a mesma lista que a gravacao usa para recusar. Lida do cadastro por fora, seriam
      duas copias da mesma regra, e elas divergem no primeiro ajuste.
 
-     Vazia quer dizer TODOS, a convencao do projeto. */
+     Vazia quer dizer NENHUM, a convencao do projeto: marcar e conceder. */
   function locaisQueAjusto(){
     var ses = Q.sessao() || {};
     return Array.isArray(ses.ajustes) ? ses.ajustes.map(String) : [];
@@ -2871,6 +2879,7 @@
   function formLocalPadrao(l){
     l = l || {};
     modal('<h2>'+(l.ID?'Editar':'Novo')+' local padrão</h2>'+
+      avisoItemNovo(l.ID, 'este local', 'Usuários')+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(l.Nome||'')+'" placeholder="Ex.: Escritório Central">'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(l.Ativo)?' selected':'')+'>sim</option>'+
         '<option value="NAO"'+(Q.ativo(l.Ativo)?'':' selected')+'>não</option></select>'+
@@ -2886,6 +2895,7 @@
   function formMotorista(m){
     m = m || {};
     modal('<h2>'+(m.ID?'Editar':'Novo')+' motorista</h2>'+
+      avisoItemNovo(m.ID, 'este motorista', 'Usuários')+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(m.Nome||'')+'" autocapitalize="words">'+
       '<div class="grid2">'+
         '<div><label>Telefone</label><input type="tel" id="fTel" value="'+Q.esc(m.Telefone||'')+'" placeholder="81 98151-7703"></div>'+
@@ -2907,7 +2917,8 @@
       caixaLocais('fRotas', 'Aparece para escolha quando a saída for para estas rotas',
                   locaisEscolhiveis(['ROTA'], m.Rotas), m.Rotas)+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
-        'Nada marcado = ele aparece em qualquer rota. Quem é <b>Volante</b> aparece em todas, '+
+        'Nada marcado = <b>nenhuma rota</b>: ele não aparece para escolha. Quem é '+
+        '<b>Volante</b> aparece em todas, '+
         'mesmo com rotas marcadas.</p>'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(m.Ativo)?' selected':'')+'>sim</option>'+
         '<option value="NAO"'+(Q.ativo(m.Ativo)?'':' selected')+'>não</option></select>'+
@@ -3246,11 +3257,26 @@
   function fecharModal(){ document.getElementById('modal').classList.remove('aberto'); }
   document.getElementById('modal').addEventListener('click', function(e){ if (e.target === this) fecharModal(); });
 
+  /* O PRECO da convencao "marcar e conceder", dito na hora de criar.
+
+     Com a lista explicita, item novo nasce NEGADO: ninguem pode usa-lo ate ser marcado,
+     pessoa por pessoa. E o comportamento certo para uma permissao — mas descoberto dias
+     depois, por um motorista que nao acha o cliente novo na lista, ele parece bug.
+
+     So no CADASTRO NOVO: editar um item que ja existe nao muda permissao de ninguem. */
+  function avisoItemNovo(jaExiste, oQue, onde){
+    if (jaExiste) return '';
+    return '<div class="aviso-trava">Depois de salvar, '+oQue+' <b>não aparece para '+
+      'ninguém</b> até ser marcado no cadastro de cada pessoa, em <b>Cadastros → '+
+      onde+'</b>. É assim para tudo que é permissão: marcar é conceder.</div>';
+  }
+
   function formLocal(l){
     l = l || {};
     var motoristas = EQUIPE.filter(function(u){ return String(u.Perfil).toUpperCase()==='MOTORISTA'; });
     var rotasCad = (DADOS.locais||[]).filter(function(x){ return String(x.Tipo).toUpperCase()==='ROTA' && String(x.ID)!==String(l.ID); });
     modal('<h2>'+(l.ID?'Editar':'Novo')+' cadastro</h2>'+
+      avisoItemNovo(l.ID, 'este local', 'Usuários')+
       '<label>Tipo</label><select id="fTipo">'+
         ['CLIENTE','FILIAL','FORNECEDOR','GALPAO','ROTA'].map(function(t){ return '<option value="'+t+'"'+(String(l.Tipo)===t?' selected':'')+'>'+(t==='ROTA'?'rota (caminhão)':t.toLowerCase())+'</option>'; }).join('')+'</select>'+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(l.Nome||'')+'" placeholder="Ex.: Rota Centro">'+
@@ -3303,6 +3329,7 @@
   function formTipo(t){
     t = t || {};
     modal('<h2>'+(t.ID?'Editar':'Novo')+' tipo de caixa</h2>'+
+      avisoItemNovo(t.ID, 'este tipo de caixa', 'Usuários')+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(t.Nome||'')+'" placeholder="Caixa Banana">'+
       '<label>Peso (kg)</label><input type="number" step="0.001" min="0" id="fKg" value="'+Q.esc(t.Kg===0?'0':(t.Kg||''))+'" placeholder="ex.: 20">'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(Q.ativo(t.Ativo)?' selected':'')+'>sim</option><option value="NAO"'+(Q.ativo(t.Ativo)?'':' selected')+'>não</option></select>'+
@@ -3530,12 +3557,19 @@
     var inicial = (function(){
       if (!u.AcessoPainel) return 'NAO';
       var vistos = (u.UsuariosVistos || []).map(String);
-      if (!vistos.length) return 'TODOS';
+      /* Lista vazia NAO e mais "todos" — e ninguem. E "ninguem" nao tem opcao propria no
+         seletor: quem nao ve ninguem esta em "nao ve os lancamentos", que e o
+         interruptor logo abaixo. Entao a lista vazia cai em ESCOLHIDOS, que e a verdade:
+         a lista e quem manda, e ela esta vazia. */
+      if (!vistos.length) return 'ESCOLHIDOS';
       if (vistos.length === 1 && vistos[0] === String(u.ID)) return 'EU';
+      var ativos = EQUIPE.filter(function(x){ return Q.ativo(x.Ativo); });
+      if (ativos.length && vistos.length === ativos.length) return 'TODOS';
       return 'ESCOLHIDOS';
     })();
 
     modal('<h2>'+(u.ID?'Editar':'Novo')+' usuário</h2>'+
+      avisoItemNovo(u.ID, 'esta pessoa', 'Usuários → cada colega que precisa vê-la')+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(u.Nome||'')+'">'+
       /* Campo escrito, não lista fechada: o escritório cria o cargo que precisar. As
          sugestões vêm do servidor — os de fábrica mais os que alguém já escreveu — para o mesmo
@@ -3608,8 +3642,8 @@
          de "pode lancar" elas liam como permissao de lancar — e o quadro logo acima, das
          abas do painel, e exatamente do mesmo tipo: o que ela ve la dentro.
 
-         Marcar NINGUEM quer dizer TODOS, a convencao do projeto. Marcar so ela mesma e o
-         que antes se chamava "ve apenas os lancamentos dela". */
+         Nada marcado quer dizer NINGUEM, a convencao do projeto — marcar e conceder.
+         Marcar so ela mesma e o que antes se chamava "ve apenas os lancamentos dela". */
       '<h3 style="margin:18px 0 10px;font-size:15px">Lançamentos</h3>'+
       '<label for="fVerLanc">Vê os lançamentos?</label>'+
       '<select id="fVerLanc">'+
@@ -3628,7 +3662,8 @@
       caixaLocais('fOperacoes', 'Operação — o que aparece no app dela',
                   OPERACOES_APP, u.Operacoes, 'Nenhuma operação disponível.')+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
-        'Nada marcado = as duas. Marque só uma para quem faz só ela — a outra aba '+
+        'Nada marcado = <b>nenhuma</b>: ela não lança no app. Marque as que ela faz — a '+
+        'aba que sobrar '+
         'some do app.</p>'+
       '<h3 style="margin-top:20px">Onde ele pode lançar</h3>'+
       /* AJUSTE e PERDA nao entram na lista de Operacoes — elas nascem no escritorio, e
@@ -3641,7 +3676,8 @@
                   Q.ordenarLocais((DADOS && DADOS.locais) || []), u.Ajustes,
                   'Nenhum local cadastrado ainda.')+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
-        'Nada marcado = todos. É na aba <b>Ajustes</b> que se lança saldo inicial e baixa '+
+        'Nada marcado = <b>nenhum</b>: marcar é conceder. É na aba <b>Ajustes</b> que se '+
+        'lança saldo inicial e baixa '+
         'de perda — marque só os locais cujo saldo esta pessoa pode corrigir.</p>'+
       caixaLocais('fSaidas', 'Saída — de onde as caixas saem',
                   locaisEscolhiveis(['GALPAO','FILIAL','ROTA','FORNECEDOR'], u.Saidas), u.Saidas)+
@@ -3654,7 +3690,7 @@
                   motoristasEscolhiveis(u.Motoristas), u.Motoristas,
                   'Nenhum motorista cadastrado ainda.')+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
-        'Nada marcado = a pessoa vê todos. Marque para restringir.</p>'+
+        'Nada marcado = <b>nenhum</b>: marcar é conceder.</p>'+
       '<h3 style="margin-top:20px">Outros</h3>'+
       '<label>Telefone</label><input type="tel" id="fTel" value="'+Q.esc(u.Telefone||'')+'" placeholder="81 98151-7703">'+
       '<label>Local padrão (onde trabalha)</label><select id="fLocal">'+
@@ -3725,7 +3761,11 @@
        primeiro caso que alguem esquecer. */
     function resumoDaLista(){
       var marcados = lerMarcados('fUsuariosVistos');
-      if (!marcados.length) return 'TODOS';
+      var caixa = document.getElementById('fUsuariosVistos');
+      var quantos = caixa ? caixa.querySelectorAll('input[type=checkbox]').length : 0;
+      /* "TODOS" passou a ser a lista CHEIA, e nao a vazia: com a convencao nova, vazia
+         quer dizer ninguem. O seletor tem de dizer o que a lista de fato faz. */
+      if (quantos && marcados.length === quantos) return 'TODOS';
       var meu = String(u.ID || '__EU__');
       if (marcados.length === 1 && String(marcados[0]) === meu) return 'EU';
       return 'ESCOLHIDOS';
@@ -3738,7 +3778,12 @@
       if (!caixa) return;
       var meu = String(u.ID || '__EU__');
       caixa.querySelectorAll('input[type=checkbox]').forEach(function(ch){
-        if (valor === 'TODOS') ch.checked = false;
+        /* "TODOS" MARCA todo mundo. Antes ele desmarcava, porque vazio queria dizer
+           todos; agora vazio quer dizer ninguem, e desmarcar seria o oposto do rotulo.
+
+           O preco disto esta dito no CLAUDE.md: a lista fica com os nomes de HOJE, e
+           usuario criado amanha nao entra nela sozinho. */
+        if (valor === 'TODOS') ch.checked = true;
         else if (valor === 'EU') ch.checked = String(ch.value) === meu;
       });
     }
@@ -3862,7 +3907,8 @@
             : 'A aba Lançamentos some do app dela, e o painel não lista movimento nenhum.');
       var notaVistos = document.getElementById('fVistosNota');
       if (notaVistos) notaVistos.textContent = !veLanc ? ''
-        : 'Nada marcado = todos. Marque só ela mesma para ela ver apenas o que lançou.';
+        : 'Nada marcado = <b>ninguém</b>. Marque só ela mesma para ela ver apenas o '
+          + 'que lançou, ou marque todos para ela ver a operação inteira.';
 
       var notaAbas = document.getElementById('fAbasNota');
       if (notaAbas) notaAbas.textContent = !ativo
@@ -3870,7 +3916,7 @@
         : (!temPainel
             ? 'Ligue "Pode entrar no painel?" acima. Sem isso ela não chega ao painel, '
               + 'e marcar aba aqui não faz efeito nenhum na tela dela.'
-            : 'Nada marcado = todas, menos as que dão poder: Ajustes e Cadastros só '
+            : 'Nada marcado = <b>nenhuma</b>: marcar é conceder. Ajustes e Cadastros '
               + 'entram se você marcar.'
               + (sensiveisMarcadas
                   ? ' ATENÇÃO: Cadastros deixa ela criar e editar usuários, inclusive '

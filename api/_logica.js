@@ -126,12 +126,51 @@ var ABAS = [
   { ID: 'pgCadastros',  Nome: 'Cadastros', sensivel: true }
 ];
 
-/* Vazia quer dizer TODAS — a mesma convencao das outras listas de permissao. Invertida,
-   ninguem veria aba nenhuma no dia em que a coluna nasce vazia no banco. */
+/* ==================================================================================
+ * A CONVENÇÃO DAS LISTAS DE PERMISSÃO, num lugar só.
+ *
+ * **Nada marcado = nada liberado.** Marcar é conceder.
+ *
+ * Era o contrário: lista vazia queria dizer TODOS. A razão era boa — errar para o lado
+ * de mostrar se corrige no cadastro, errar para o lado de trancar só se resolve com o
+ * admin por perto — mas ela surpreendia justamente quem cadastra. O administrador
+ * desmarcava tudo, esperava que a pessoa não visse nada, e ela continuava vendo cinco
+ * páginas. Um formulário cuja marcação não faz o que aparenta é pior do que um
+ * formulário rígido.
+ *
+ * O PREÇO, dito em voz alta: item novo nasce NEGADO. Um galpão, um motorista, um tipo de
+ * caixa ou um usuário criado amanhã não aparece para ninguém até ser marcado, pessoa por
+ * pessoa. É assim que funciona toda lista de permissão explícita, e é exatamente o que a
+ * convenção antiga existia para evitar. Os formulários de cadastro avisam isso na hora
+ * de criar, para não ser descoberto em silêncio.
+ *
+ * A migração `2026-09-22-marcar-o-que-ja-valia` gravou em cada usuário o que ele já
+ * enxergava, então ninguém perdeu nada na virada.
+ *
+ * Virar a chave de volta é mudar esta constante — e é de propósito que ela seja UMA.
+ * Espalhada por oito funções, metade delas discordaria na primeira mudança.
+ * ================================================================================== */
+var VAZIA_LIBERA = false;
+
+/** Se `id` está liberado por `lista`. */
+function podeItem(lista, id) {
+  var l = Array.isArray(lista) ? lista : [];
+  if (!l.length) return VAZIA_LIBERA;
+  return l.map(String).indexOf(String(id)) >= 0;
+}
+
+/** Os itens de `itens` que `lista` libera. Cada item precisa ter `ID`. */
+function peneirarPor(lista, itens) {
+  var l = Array.isArray(lista) ? lista : [];
+  var todos = Array.isArray(itens) ? itens : [];
+  if (!l.length) return VAZIA_LIBERA ? todos : [];
+  var querido = {};
+  l.forEach(function (x) { querido[String(x)] = true; });
+  return todos.filter(function (i) { return querido[String(i.ID)]; });
+}
+
 function podeAba(u, id) {
-  var lista = u && Array.isArray(u.Abas) ? u.Abas : [];
-  if (!lista.length) return true;
-  return lista.map(String).indexOf(String(id)) >= 0;
+  return podeItem(u && u.Abas, id);
 }
 
 /* De que operacao este lancamento e. AJUSTE e PERDA devolvem '' de proposito: nascem no
@@ -145,13 +184,11 @@ function operacaoDoTipo(tipo) {
   return achou;
 }
 
-/* Vazia quer dizer TODAS — a mesma convencao das outras quatro listas. Inverter isso
-   deixaria a operacao inteira sem poder lancar nada no dia do deploy. */
+/* AJUSTE e PERDA devolvem `op` vazio em `operacaoDoTipo()`, e por isso passam direto:
+   elas nascem no escritorio e quem manda nelas e a lista de locais. */
 function podeOperacao(u, op) {
   if (!op) return true;
-  var lista = u && Array.isArray(u.Operacoes) ? u.Operacoes : [];
-  if (!lista.length) return true;
-  return lista.map(String).indexOf(String(op)) >= 0;
+  return podeItem(u && u.Operacoes, op);
 }
 
 /**
@@ -175,17 +212,16 @@ function localDoAjuste(tipo, p) {
 /**
  * Se esta pessoa pode ajustar o saldo DESTE local.
  *
- * Vazia quer dizer TODOS — a mesma convenção das outras listas. Invertida, a operação
- * inteira ficaria sem poder ajustar nada no dia do deploy, inclusive o administrador.
+ * Vazia quer dizer NENHUM — a convenção do projeto, marcar é conceder.
  *
  * A aba Ajustes era tudo-ou-nada: quem a tinha mexia no saldo de qualquer galpão, filial,
  * cliente ou rota. Ter a aba passa a ser a porta; esta lista é o quarto.
  */
 function podeAjustarEm(u, localId) {
+  /* Sem local nao ha o que cobrar: quem recusa e a validacao do campo, com a mensagem
+     que ajuda a corrigir. */
   if (!localId) return true;
-  var lista = u && Array.isArray(u.Ajustes) ? u.Ajustes : [];
-  if (!lista.length) return true;
-  return lista.map(String).indexOf(String(localId)) >= 0;
+  return podeItem(u && u.Ajustes, localId);
 }
 
 /** Quem confere devolução no galpão. */
@@ -225,9 +261,15 @@ function motoristasPublicos(motoristas) {
  * Motoristas que atendem uma rota.
  *
  * Sem rota escolhida, todos. Com rota, quem estiver atribuído a ela **mais** quem não
- * tem rota nenhuma marcada — lista vazia quer dizer "serve qualquer uma", a mesma regra
- * de `locaisPermitidos`. É o que faz o cadastro antigo continuar funcionando: ninguém
- * some da tela no dia em que a coluna nasce.
+ * tem rota nenhuma marcada — aqui lista vazia quer dizer "serve qualquer uma".
+ *
+ * ESTA LISTA NÃO SEGUIU A VIRADA de "nada marcado = nada liberado", e é de propósito.
+ * Ela não é permissão de pessoa: mora no cadastro do MOTORISTA e responde "que rotas ele
+ * atende", que é uma regra de casamento, não de acesso. Invertê-la faria um motorista sem
+ * rota marcada sumir de todas as saídas — e a válvula logo abaixo (rota sem ninguém
+ * atribuído devolve todos) passaria a brigar com ela em vez de socorrer.
+ *
+ * Se um dia ela virar também, o `VAZIA_LIBERA` não a alcança: ela tem regra própria, aqui.
  *
  * Se a rota escolhida não tiver ninguém atribuído, devolve todos: melhor oferecer a lista
  * inteira do que travar a saída porque faltou um cadastro.
@@ -469,18 +511,10 @@ function podeVerPainel(u) {
 }
 
 /**
- * De onde e para onde esta pessoa pode lançar.
- *
- * Lista vazia quer dizer **todos**, e não "nenhum". É o que faz o cadastro antigo continuar
- * funcionando sem ninguém mexer em nada: só quem for restringido de propósito passa a ver
- * menos. O contrário trancaria a operação inteira no dia do deploy.
+ * De onde e para onde esta pessoa pode lançar. Segue a convenção de `peneirarPor`.
  */
 function locaisPermitidos(ids, locais) {
-  var lista = Array.isArray(ids) ? ids : [];
-  if (!lista.length) return locais;
-  var querido = {};
-  lista.forEach(function (id) { querido[String(id)] = true; });
-  return locais.filter(function (l) { return querido[String(l.ID)]; });
+  return peneirarPor(ids, locais);
 }
 
 function sessaoDe(u) {
@@ -489,8 +523,7 @@ function sessaoDe(u) {
     localPadrao: u.LocalPadrao, acessoPainel: podeVerPainel(u),
     saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
     destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
-    // Mesma convenção das outras duas: lista vazia quer dizer TODOS. Inverter isso
-    // deixaria toda a operação sem tipo de caixa no dia do deploy.
+    // Mesma convenção das outras: lista vazia quer dizer NENHUM — marcar é conceder.
     tiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
     motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
     // Idem: vazia = todas. E o celular esconde a aba que nao esta aqui.
@@ -1612,6 +1645,7 @@ function usuariosPublicos(usuarios) {
 }
 
 module.exports = {
+  VAZIA_LIBERA: VAZIA_LIBERA, podeItem: podeItem, peneirarPor: peneirarPor,
   localDoAjuste: localDoAjuste, podeAjustarEm: podeAjustarEm,
   TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
   rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,

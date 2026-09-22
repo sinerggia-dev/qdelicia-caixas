@@ -572,19 +572,16 @@
     }).catch(function(){ /* sem rede, fica o que ja estava */ });
   }
 
-  /* Quais operações esta pessoa lança. Lista vazia quer dizer AS DUAS — a mesma
-     convenção das outras permissões, e a única segura: invertê-la deixaria a operação
-     inteira sem poder lançar nada no dia em que a coluna nasce vazia no banco.
-
-     O PROMOTOR entra pela mesma porta em vez de ter o `if` dele à parte. Eram duas regras
-     escondendo a mesma aba, e duas regras sobre a mesma coisa acabam discordando: bastava
-     habilitar Saída no cadastro de um promotor para a aba continuar sumindo sem
-     explicação. Aqui o perfil apenas fixa a lista quando o cadastro não disse nada. */
+  /* Quais operações esta pessoa lança. Lista vazia quer dizer NENHUMA — a convenção do
+     projeto: marcar é conceder. */
   function operacoesDe(s){
-    var lista = (s && s.operacoes) || [];
-    if (lista.length) return lista.map(String);
-    if (String(s && s.perfil).toUpperCase() === 'PROMOTOR') return ['RETORNO'];
-    return [];   // vazia = todas
+    /* Nada marcado = NADA. Marcar e conceder — a convencao do projeto.
+
+       O atalho por PERFIL saiu junto: "promotor sem marca ganha RETORNO" era um padrao
+       escondido, e padrao escondido e exatamente a surpresa que a convencao nova veio
+       tirar. A migracao gravou ['RETORNO'] nos promotores que dependiam dele, entao
+       ninguem perdeu a aba na virada. */
+    return ((s && s.operacoes) || []).map(String);
   }
 
   /* A aba some, não fica apenas desabilitada: o formulário inteiro dela some junto, e
@@ -597,7 +594,7 @@
     Array.prototype.forEach.call(botoes, function(b){
       var op = b.dataset.operacao;
       // Saldo não tem operação: é consulta, e fica para todo mundo.
-      var liberada = !op || !pode.length || pode.indexOf(op) >= 0;
+      var liberada = !op || pode.indexOf(op) >= 0;
       b.style.display = liberada ? '' : 'none';
       if (!liberada) b.classList.remove('ativa');
     });
@@ -631,7 +628,10 @@
   function permitidos(lista, quais){
     var s = Q.sessao() || {};
     var ids = s[quais];
-    if (!ids || !ids.length) return lista;
+    /* Nada marcado = NADA. Mesma regra do `peneirarPor()` do servidor, e e de proposito
+       que as duas sejam iguais palavra por palavra: a tela oferece o que a gravacao
+       aceita, e divergindo elas a pessoa preenche o formulario para levar um nao. */
+    if (!ids || !ids.length) return [];
     var querido = {};
     ids.forEach(function(id){ querido[String(id)] = true; });
     return lista.filter(function(l){ return querido[String(l.ID)]; });
@@ -1170,8 +1170,11 @@
      pergunta, nao quatro. */
   var LANC = [];
 
-  /* Nada marcado quer dizer TODOS — a mesma convencao das permissoes. A alternativa seria
-     abrir a tela sem nenhuma linha, com quatro filtros vazios e nenhuma pista do porque. */
+  /* FILTRO, e nao permissao: aqui nada marcado quer dizer TODOS, e continua querendo.
+     Sao coisas diferentes com a mesma cara. Permissao responde "o que esta pessoa pode",
+     e marcar e conceder; filtro responde "o que ela quer ver AGORA", e nada marcado e
+     "nao estou filtrando por isto". Invertido aqui, a aba abriria sem nenhuma linha,
+     com quatro filtros vazios e nenhuma pista do porque. */
   function marcados(id){
     var r = [];
     document.querySelectorAll('#'+id+' input:checked').forEach(function(c){ r.push(c.value); });
@@ -1317,7 +1320,7 @@
        pedir TODOS, pela convencao do vazio. */
     if (s.verLancamentos === false) return '__ninguem__';
     var vistos = s.usuariosVistos || [];
-    return vistos.length ? vistos.map(String).join(',') : '';
+    return vistos.length ? vistos.map(String).join(',') : '__ninguem__';
   }
 
   function carregarLanc(){

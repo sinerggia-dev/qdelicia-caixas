@@ -662,7 +662,7 @@ console.log('\n== o CSV do painel acompanha as colunas ==');
  *
  * A aba que a pessoa nao pode usar tem de SUMIR, e a primeira que sobrou tem de virar a
  * ativa — senao o app abre numa pagina escondida e mostra tela em branco. E a lista vazia
- * precisa continuar querendo dizer TODAS: invertida, ninguem lanca nada no dia do deploy.
+ * quer dizer NENHUMA: marcar e conceder.
  * ------------------------------------------------------------------------- */
 console.log('\n== o app so mostra a aba que a pessoa pode usar ==');
 (function () {
@@ -671,16 +671,33 @@ console.log('\n== o app so mostra a aba que a pessoa pode usar ==');
   var operacoesDe = new Function(fonte + ' return operacoesDe;')();
 
   ok(operacoesDe({ perfil: 'Gestor' }).length === 0,
-    'sem restricao a lista vem vazia — e vazia quer dizer as duas');
+    'sem marca a lista vem vazia — e vazia quer dizer NENHUMA: marcar é conceder');
   ok(operacoesDe({ perfil: 'Conferente', operacoes: ['RETORNO'] }).join(',') === 'RETORNO',
     'o cadastro manda', operacoesDe({ perfil: 'Conferente', operacoes: ['RETORNO'] }));
-  /* O promotor entra pela mesma porta, em vez de um `if` a parte escondendo a aba: eram
-     duas regras sobre a mesma coisa, e bastava habilitar Saida no cadastro de um promotor
-     para a aba continuar sumindo sem explicacao. */
-  ok(operacoesDe({ perfil: 'PROMOTOR' }).join(',') === 'RETORNO',
-    'o promotor sem cadastro cai em retorno pela MESMA peneira, nao por um if a parte');
+  /* O ATALHO POR PERFIL SAIU. "Promotor sem marca ganha RETORNO" era um padrao
+     escondido, e padrao escondido e exatamente a surpresa que a convencao nova veio
+     tirar: o administrador nao marcava nada e a pessoa lancava assim mesmo.
+
+     A migracao `2026-09-22-marcar-o-que-ja-valia` gravou ['RETORNO'] nos promotores que
+     dependiam dele, entao ninguem perdeu a aba na virada. */
+  ok(operacoesDe({ perfil: 'PROMOTOR' }).length === 0,
+    'o promotor sem marca também não lança nada — o atalho por perfil saiu junto com a ' +
+    'convenção antiga, e a migração gravou RETORNO em quem dependia dele');
   ok(operacoesDe({ perfil: 'PROMOTOR', operacoes: ['SAIDA'] }).join(',') === 'SAIDA',
-    'e o cadastro vence o padrao do perfil — senao a aba sumiria sem explicacao');
+    'e o cadastro manda, como manda para todo mundo');
+
+  /* E a ABA obedece a peneira. O `!pode.length ||` que havia aqui era a convencao antiga
+     escrita de novo, um nivel abaixo: a lista podia dizer "nenhuma" e a aba aparecia
+     assim mesmo. */
+  var fonteAbas = html.slice(html.indexOf('function ajustarAbas(s)'),
+                             html.indexOf('\n  }', html.indexOf('function ajustarAbas(s)')));
+  ok(/var liberada = !op \|\| pode\.indexOf\(op\) >= 0;/.test(fonteAbas),
+    'e a aba obedece à peneira sem atalho — um `!pode.length ||` aqui é a convenção ' +
+    'antiga escrita de novo um nível abaixo, e a aba apareceria para quem não tem marca',
+    fonteAbas);
+  ok(!/PROMOTOR/.test(fonte),
+    'e o perfil não aparece mais na peneira: quem decide é o cadastro, e uma regra por ' +
+    'perfil escondida ao lado dela acabaria discordando', fonte);
 
   // as abas carregam a operacao a que respondem
   ok(/data-pagina="pgSaida" data-operacao="SAIDA"/.test(html) &&
@@ -1387,9 +1404,8 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
     return fn({ abas: marcadas }).join(',');
   }
 
-  ok(pode(false, []) === 'pgRetornos,pgPainel',
-    'sem marca, valem todas — MENOS as que dão poder, que só entram por marca explícita',
-    pode(false, []));
+  ok(pode(false, []) === '',
+    'sem marca, nenhuma aba — marcar é conceder', pode(false, []));
   ok(pode(true, []) === 'pgRetornos,pgPainel,pgLancar,pgCadastros',
     'para o admin, todas — trancá-lo fora do próprio cadastro não teria como ser desfeito',
     pode(true, []));
@@ -1404,31 +1420,34 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
     'e recebe Ajustes do mesmo jeito, junto com as comuns',
     pode(false, ['pgPainel', 'pgLancar']));
 
-  /* Marca quebrada cai no padrao — e o padrao NAO inclui as sensiveis. Uma marca velha
-     apontando para aba que sumiu nao pode virar a porta de entrada do cadastro. */
-  ok(pode(false, ['pgAntiga']) === 'pgRetornos,pgPainel',
-    'id de aba que não existe mais cai no padrão — depois de renomear ou remover uma ' +
-    'aba, a marca guardada no banco continua apontando para o nome velho',
+  /* MARCA QUEBRADA NAO CONCEDE NADA. Antes ela caia no padrao e a pessoa via tudo menos
+     as sensiveis — coerente com a convencao de entao, e o oposto desta: uma marca que
+     nao alcanca nada e uma marca que nao concede nada.
+
+     Acontece quando a marca guarda o id de uma aba renomeada ou que saiu do app. Quem
+     diz o que houve e a lateral, em `ajustarAbasPainel()`. */
+  ok(pode(false, ['pgAntiga']) === '',
+    'id de aba que não existe mais não concede nada — trocar marca quebrada por acesso ' +
+    'amplo é o contrário do que o administrador pediu ao marcar',
     pode(false, ['pgAntiga']));
   ok(pode(false, ['pgAntiga']).indexOf('pgCadastros') < 0,
-    'e esse padrão NÃO traz as que dão poder: uma marca quebrada não pode virar a porta ' +
-    'de entrada para o cadastro de usuários', pode(false, ['pgAntiga']));
+    'e muito menos as que dão poder: uma marca quebrada não pode virar a porta de ' +
+    'entrada para o cadastro de usuários', pode(false, ['pgAntiga']));
 
-  /* A escolha e deliberada, e o comentario diz por que: errar para o lado de MOSTRAR se
-     corrige no cadastro; errar para o lado de trancar so se resolve com o admin por
-     perto. E a mesma escolha da convencao "lista vazia = TODAS", um nivel acima. */
-  /* Sem o `\s+` a afirmacao depende de ONDE o comentario quebra de linha, e passa a
-     falhar quando alguem so reescreve o paragrafo. Foi o que aconteceu. */
-  ok(/lado de MOSTRAR\s+se corrige no cadastro/.test(fonte),
-    'e o código registra por que erra para o lado de mostrar', fonte.slice(-500));
+  /* A escolha e deliberada, e o comentario diz por que. Sem o `\s+` a afirmacao depende
+     de ONDE o comentario quebra de linha, e passa a falhar quando alguem so reescreve o
+     paragrafo. Foi o que aconteceu uma vez. */
+  ok(/marca que nao alcanca nada nao concede nada/.test(fonte.replace(/\s+/g, ' ')),
+    'e o código registra a escolha: marca quebrada não concede', fonte.slice(-600));
 
   /* Uma peneira so, e nao duas. As duas regras — o padrao das sensiveis e a lista
      marcada — moram juntas de proposito: separadas, acabam discordando sobre a mesma
      aba. E nenhuma delas olha para o PERFIL: essa era a trava, e ela saiu. */
   ok((adm.match(/function abasPermitidas/g) || []).length === 1 &&
-     /!a\.sensivel/.test(fonte) &&
+     /Q\.ehAdmin\(\)/.test(fonte) &&
      /marcadas\.map\(String\)\.indexOf/.test(fonte),
-    'as duas regras moram na mesma peneira');
+    'a peneira é uma só — a marca e a exceção do admin moram juntas. Separadas, acabam ' +
+    'discordando sobre a mesma aba');
   ok(!/a\.soAdmin/.test(fonte),
     'e a trava por perfil não existe mais na peneira — era ela que impedia o ' +
     'administrador de conceder Cadastros a quem quisesse', fonte);
@@ -1633,7 +1652,7 @@ console.log('\n== as abas de admin travam no cadastro ==');
   /* Nem para um Gerente nem para um Admin: ninguem trava mais por perfil. A nota diz o
      que muda — que as que dao poder ficam fora do padrao. */
   var ger = bancada({ perfil: 'Gerente', temSenha: true });
-  ok(ger.travadas === 0 && /menos as que dão poder/.test(ger.notaAbas),
+  ok(ger.travadas === 0 && /marcar é conceder/.test(ger.notaAbas),
     'para um Gerente nenhuma aba trava, e a nota diz que as que dão poder só entram por ' +
     'marca', ger);
   var adm2 = bancada({ perfil: 'Admin', temSenha: true });
@@ -1655,9 +1674,17 @@ console.log('\n== as abas de admin travam no cadastro ==');
      ATALHO: escreve na MESMA lista de quem, e le dela. As duas direcoes sao mantidas em
      dia, entao as duas nao podem discordar — que e o risco de ter dois controles para a
      mesma coisa. */
-  var selTodos = bancada({ perfil: 'Gerente', temSenha: true, vistos: [] });
+  /* "TODOS" passou a ser a lista CHEIA, e nao a vazia. Com marcar-e-conceder, vazia
+     quer dizer NINGUEM — e o seletor tem de dizer o que a lista de fato faz, senao ele
+     e o proximo lugar a mentir sobre a marcacao. */
+  var selVazio = bancada({ perfil: 'Gerente', temSenha: true, vistos: [] });
+  ok(selVazio.seletor === 'ESCOLHIDOS',
+    'lista vazia não é mais "todos": ela é a lista, e está vazia', selVazio.seletor);
+  var selTodos = bancada({ perfil: 'Gerente', temSenha: true,
+                           vistos: ['U001', 'U005', 'U008'] });
   ok(selTodos.seletor === 'TODOS',
-    'lista vazia: o seletor diz "vê os lançamentos de todos"', selTodos.seletor);
+    'e "vê os lançamentos de todos" é a lista CHEIA — com todo mundo marcado',
+    selTodos.seletor);
   var selEu = bancada({ perfil: 'Gerente', temSenha: true, vistos: ['U008'] });
   ok(selEu.seletor === 'EU',
     'lista só com ela: o seletor diz "apenas os dele mesmo" — é o atalho que o usuário ' +
@@ -1671,14 +1698,16 @@ console.log('\n== as abas de admin travam no cadastro ==');
      que a lista nao esta, e escolhe-la nao faria nada. */
   ok(selVarios.escolhidosVisivel && !selEu.escolhidosVisivel && !selTodos.escolhidosVisivel,
     'e essa quarta opção só aparece quando a lista realmente diz isso',
-    { varios: selVarios.escolhidosVisivel, eu: selEu.escolhidosVisivel });
+    { varios: selVarios.escolhidosVisivel, eu: selEu.escolhidosVisivel,
+      todos: selTodos.escolhidosVisivel });
 
   /* E a direcao contraria: escolher no seletor MEXE na lista. */
-  var mexeuTodos = bancada({ perfil: 'Gerente', temSenha: true, vistos: ['U008', 'U005'],
+  var mexeuTodos = bancada({ perfil: 'Gerente', temSenha: true, vistos: ['U008'],
                              escolher: 'TODOS' });
-  ok(mexeuTodos.marcadosDepois === '',
-    'escolher "todos" LIMPA a lista — deixá-la cheia faria o rótulo dizer uma coisa e a ' +
-    'lista outra', mexeuTodos.marcadosDepois);
+  ok(mexeuTodos.marcadosDepois.split(',').filter(Boolean).length >= 3,
+    'escolher "todos" MARCA todo mundo — antes ele limpava, porque vazio queria dizer ' +
+    'todos; agora vazio quer dizer ninguém, e limpar seria o oposto do rótulo',
+    mexeuTodos.marcadosDepois);
   var mexeuEu = bancada({ perfil: 'Gerente', temSenha: true, vistos: ['U005', 'U001'],
                           escolher: 'EU' });
   ok(mexeuEu.marcadosDepois === 'U008',
@@ -1704,7 +1733,7 @@ console.log('\n== as abas de admin travam no cadastro ==');
     'tudo o que a trava acabou de recusar');
 
   var comPainel = bancada({ perfil: 'Conferente', painel: true, temSenha: true });
-  ok(!comPainel.abasBloqueadas && /Nada marcado = todas/.test(comPainel.notaAbas),
+  ok(!comPainel.abasBloqueadas && /marcar é conceder/.test(comPainel.notaAbas),
     'e ligando a chave, as abas voltam a valer na hora', comPainel);
 
   /* --- 2. inativo: NENHUMA permissao vale --------------------------------- */
@@ -1758,7 +1787,7 @@ console.log('\n== as abas de admin travam no cadastro ==');
 
   /* --- ver lancamentos: o interruptor manda na lista --------------------- */
   var comLanc = bancada({ perfil: 'Conferente', temSenha: true });
-  ok(!comLanc.vistosBloqueados && /Nada marcado = todos/.test(comLanc.notaVistos),
+  ok(!comLanc.vistosBloqueados && /Nada marcado = <b>ninguém<\/b>/.test(comLanc.notaVistos),
     'com "Vê os lançamentos?" em SIM, a lista de quem fica livre', comLanc);
   var semLanc = bancada({ perfil: 'Conferente', temSenha: true, verLanc: false });
   ok(semLanc.vistosBloqueados,
@@ -2375,6 +2404,31 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
     'da barra justamente no estado em que ele mais importa');
 })();
 
+console.log('\n== o cadastro novo avisa que o item nasce negado ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* O PRECO da convencao, dito na hora de criar. Com a lista explicita, item novo nasce
+     NEGADO: ninguem pode usa-lo ate ser marcado, pessoa por pessoa. Descoberto dias
+     depois — por um motorista que nao acha o cliente novo na lista — parece bug. */
+  var iF = adm.indexOf('function avisoItemNovo(jaExiste, oQue, onde)');
+  var fn = adm.slice(iF, adm.indexOf('\n  }', iF));
+  ok(iF > 0, 'existe um aviso para o cadastro novo', iF);
+  ok(/if \(jaExiste\) return '';/.test(fn),
+    'e ele aparece SÓ no cadastro novo — editar item que já existe não muda permissão ' +
+    'de ninguém, e o aviso ali seria ruído', fn);
+  ok(/não aparece para \*?<b>?ninguém/.test(fn) || /não aparece para/.test(fn),
+    'e diz o que acontece: o item não aparece para ninguém', fn);
+  ok(/Cadastros/.test(fn),
+    'e onde se resolve — aviso que descreve o problema e cala é metade do recado');
+
+  /* Nos CINCO formularios que criam coisa que alguem precisa enxergar. */
+  var chamadas = (adm.match(/avisoItemNovo\(/g) || []).length;
+  ok(chamadas >= 6,
+    'e está nos cinco formulários de cadastro — faltando num, aquele item vira a ' +
+    'surpresa que todos os outros avisos existem para evitar', chamadas);
+})();
+
 console.log('\n== o seletor de Ajuste obedece a lista de locais ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -2440,10 +2494,10 @@ console.log('\n== o seletor de Ajuste obedece a lista de locais ==');
   /* O quadro do cadastro. Sem ele, a coluna existe e ninguem tem como preenche-la. */
   ok(/caixaLocais\('fAjustes'/.test(adm),
     'o cadastro tem o quadro para escolher os locais');
-  ok(/Nada marcado = todos/.test(adm.slice(adm.indexOf("caixaLocais('fAjustes'"),
-      adm.indexOf("caixaLocais('fAjustes'") + 700)),
-    'e diz em voz alta que nada marcado quer dizer TODOS — é a convenção do projeto, e ' +
-    'quem marca precisa saber que deixar vazio não tranca ninguém');
+  ok(/Nada marcado = <b>nenhum<\/b>/.test(adm.slice(adm.indexOf("caixaLocais('fAjustes'"),
+      adm.indexOf("caixaLocais('fAjustes'") + 800)),
+    'e diz em voz alta que nada marcado quer dizer NENHUM — é a convenção do projeto, e ' +
+    'quem marca precisa saber que deixar vazio não libera nada');
 })();
 
 console.log('\n== o contraste de cada par que a tela usa ==');
@@ -2846,16 +2900,26 @@ console.log('\n== o formulario ABRE dizendo a verdade ==');
 
   /* E o que o navegador de fato escolhe, para cada registro real. Nao e o que o codigo
      acha que escolheu: e `sel.value` depois de o HTML virar DOM. */
+  /* `EQUIPE` e `Q` de mentira: o cálculo compara o tamanho da lista com o número de
+     gente ATIVA para saber se "todos" está marcado, e sem eles ele estoura antes de
+     chegar na escolha que se quer medir. Três pessoas, todas ativas. */
+  var EQUIPE_FALSA = [{ ID: 'U001', Ativo: true }, { ID: 'U005', Ativo: true },
+                      { ID: 'U008', Ativo: true }];
   function abre(u) {
-    return new Function('u',
+    return new Function('u', 'EQUIPE', 'Q',
       calculo + '\n var html = ' + selecao + ';' +
       '\n var m = /<option value="(\\w+)"[^>]*selected/.exec(html);' +
-      '\n return m ? m[1] : "NAO";')(u);
+      '\n return m ? m[1] : "NAO";')(
+      u, EQUIPE_FALSA, { ativo: function (v) { return v !== false; } });
   }
 
   [['sem painel, abre em não', { ID: 'U008', AcessoPainel: false, UsuariosVistos: [] }, 'NAO'],
-   ['com painel e lista vazia, abre em "todos"',
-    { ID: 'U001', AcessoPainel: true, UsuariosVistos: [] }, 'TODOS'],
+   /* Lista vazia NAO e mais "todos" — e ninguem, e "ninguem" nao tem opcao propria no
+      seletor: quem nao ve ninguem esta em "nao ve os lancamentos", o interruptor logo
+      abaixo. Entao a lista vazia cai em ESCOLHIDOS, que e a verdade: a lista manda, e
+      ela esta vazia. */
+   ['com painel e lista vazia, abre em "escolhidos" — a lista manda, e ela está vazia',
+    { ID: 'U001', AcessoPainel: true, UsuariosVistos: [] }, 'ESCOLHIDOS'],
    ['com painel e só ela na lista, abre em "apenas ele mesmo" — o caso do Nestor',
     { ID: 'U005', AcessoPainel: true, UsuariosVistos: ['U005'] }, 'EU'],
    ['com painel e outras pessoas, abre em "escolhidos"',
@@ -4183,8 +4247,8 @@ console.log('\n== as abas do painel obedecem ao cadastro ==');
 
   ok(admin({}).length === 6,
     'admin sem restricao ve as seis', admin({}));
-  ok(gente({}).join(',') === 'pgRetornos,pgPainel,pgExtrato,pgMovimentos',
-    'sem marca, quem nao e admin nao ve Ajustes nem Cadastros — elas so entram por ' +
+  ok(gente({}).length === 0,
+    'sem marca, quem nao e admin nao ve NADA — nem Ajustes nem Cadastros, e nem as ' +
     'marca EXPLICITA, porque uma dá o cadastro de usuários e a outra mexe no saldo',
     gente({}));
 

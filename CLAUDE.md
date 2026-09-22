@@ -223,41 +223,81 @@ Duas coisas que **só apareceram medindo no Chrome**, e que nenhum teste de cód
   colunas não enchiam a janela, e esconder uma só esticava as outras. O `colspan` da linha de
   "nada aqui" conta essa folga (`cs.length + 1`).
 
-## Quem lança de onde: lista vazia quer dizer TODOS
+## Nada marcado = nada liberado. Marcar é conceder.
 
-`usuarios.saidas` e `usuarios.destinos` são arrays de id de `locais`, e **array vazio libera
-tudo**. Não é detalhe de implementação: se vazio significasse "nenhum", o deploy da coluna
-trancaria a operação inteira no primeiro dia, porque ninguém tem nada marcado. Quem inverter
-isso quebra o app de todo mundo de uma vez. `L.locaisPermitidos()` guarda a regra num lugar só.
+**A convenção do projeto, e ela virou em setembro/2026.** Antes, lista vazia queria dizer
+**todos**. A razão era boa — errar para o lado de mostrar se corrige no cadastro, errar para o
+lado de trancar só se resolve com o admin por perto — mas ela surpreendia justamente quem
+cadastra: o administrador desmarcava todas as abas de uma pessoa, esperava que ela não visse
+nada, e ela continuava vendo cinco páginas. **Formulário cuja marcação não faz o que aparenta é
+pior do que formulário rígido.**
 
-Vale também para `motoristas.rotas`, com o mesmo raciocínio: sem rota marcada,
-o motorista aparece em qualquer uma. E há um degrau a mais em `L.motoristasDaRota()`:
-se a rota escolhida não tiver ninguém atribuído, ela devolve **todos**. Travar a saída do
-galpão porque faltou um cadastro seria pior do que oferecer a lista inteira.
+São oito listas: `Abas`, `Operacoes`, `Saidas`, `Destinos`, `TiposCaixa`, `Motoristas`,
+`Ajustes` e `UsuariosVistos`.
 
-**Fixo x Volante** (`motoristas.tipo`): volante roda qualquer rota, mesmo com rotas
-marcadas — é o que a palavra quer dizer, e ignorar isso faria o campo mentir. Fixo aparece
-só nas rotas dele. Vazio ("não informado") se comporta como curinga, que é o que mantém os
-motoristas antigos visíveis. Escolher uma rota sem nenhum fixo cai nos curingas; só quando
-não houver curinga nenhum é que a lista volta a trazer todos, para não travar a saída.
+### A regra mora numa constante só
 
-Cuidado com a duplicata: `locais.motorista_id` é outra coisa — aponta para um
-**usuário** de perfil MOTORISTA e alimenta a coluna Motorista do painel de rotas.
-`motoristas.rotas` é o cadastro de quem dirige, sem login. Os dois convivem e não
-se conversam — se um dia forem unificados, decida qual morre antes de escrever código.
+```js
+var VAZIA_LIBERA = false;          // api/_logica.js
+function podeItem(lista, id)       // "este id está liberado?"
+function peneirarPor(lista, itens) // "quais destes itens a lista libera?"
+```
 
-A devolução é o caminho de volta, então os papéis se invertem: quem devolve é um **destino**
-e quem recebe é uma **saída**. Está assim no `montarFormularios()` do `index.html`.
+Virar a chave de volta é mudar `VAZIA_LIBERA`. É de propósito que seja **uma**: espalhada por
+oito funções, metade delas discordaria na primeira mudança — e a que discordasse mentiria calada.
 
-Duas coisas que valem lembrar:
+O app de campo não carrega `_logica.js` e tem a sua cópia da regra em `permitidos()`. Um teste
+compara as duas.
 
-- **As duas telas releem a própria permissão** — o painel pela `equipe`, o app de campo pela rota
-  `meuAcesso`. A sessão guardada continua sendo uma foto do login; o que mudou é que ela deixou
-  de ser a única fonte. Veja a seção abaixo.
-- **Ao mudar a permissão de alguém, a tela dele não muda na hora.** Ele vê a mudança na próxima
-  vez que abrir o painel, não no mesmo segundo. Não há empurrão do servidor.
-- **Isto é a tela, não a tranca.** Vale o mesmo aviso da seção de separação de funções: a API
-  não tem autorização, e um POST direto ignora qualquer filtro daqui.
+### O preço, dito em voz alta
+
+**Item novo nasce NEGADO.** Um galpão, um motorista, um tipo de caixa ou um usuário criado amanhã
+não aparece para ninguém até ser marcado, pessoa por pessoa. É assim que funciona toda lista de
+permissão explícita, e é exatamente o que a convenção antiga existia para evitar.
+
+Os cinco formulários de cadastro **avisam isso na hora de criar** (`avisoItemNovo()`), só no
+cadastro novo — editar item que já existe não muda permissão de ninguém. Sem o aviso, o preço é
+descoberto dias depois, por um motorista que não acha o cliente novo na lista, e aí parece bug.
+
+### A virada não tirou nada de ninguém
+
+A migração `2026-09-22-marcar-o-que-ja-valia` gravou, em cada cadastro com lista **vazia**,
+exatamente o que a pessoa já enxergava. Nove dos dez cadastros estavam vazios; sem ela, o deploy
+teria tirado o painel e o app de praticamente toda a operação no mesmo instante.
+
+Ela só mexe em quem está vazio: quem já tinha marcação escolheu aquilo, e sobrescrever seria
+desfazer uma decisão do administrador.
+
+### As duas exceções, e por que cada uma existe
+
+- **O ADMIN sem marca nenhuma entra em tudo.** Ele é a origem da concessão, e um admin nascido
+  sem marca perderia até a tela onde isso se conserta — a volta seria por SQL no banco. Só com a
+  lista **vazia**: admin que marca recebe o que marcou, como todo mundo. A regra e a exceção
+  estão na **mesma linha** de `abasPermitidas()`; separadas, a exceção acaba vindo antes da marca
+  e o admin perde a capacidade de se restringir. Aconteceu enquanto isto era escrito, e o teste
+  pegou.
+- **Sem local informado, `podeAjustarEm()` não opina.** Quem recusa é a validação do campo, com a
+  mensagem que ajuda a corrigir.
+
+### O que mudou junto
+
+- **Marca quebrada não concede nada.** Um id de aba renomeada caía no padrão e a pessoa via tudo
+  menos as sensíveis. Era coerente com a convenção de então e é o oposto desta.
+- **O atalho por perfil do promotor saiu.** "Promotor sem marca ganha RETORNO" era um padrão
+  escondido, e padrão escondido é a surpresa que a virada veio tirar. A migração gravou
+  `['RETORNO']` em quem dependia dele.
+- **"Vê os lançamentos de todos" passou a ser a lista CHEIA**, e não a vazia — o seletor tem de
+  dizer o que a lista de fato faz. E a lista vazia abre em "escolhidos", que é a verdade: a lista
+  manda, e está vazia. Quem não vê ninguém está em *não vê os lançamentos*, o interruptor ao lado.
+- **`recorteProprios()` manda `__ninguem__` quando a lista está vazia.** Mandar `''` seria não
+  pedir recorte, e não pedir é pedir todos — entregaria a operação inteira a quem não tem marca.
+
+### Filtro NÃO é permissão
+
+Na aba Lançamentos, nada marcado num filtro continua querendo dizer **todos**, e tem de
+continuar. São coisas diferentes com a mesma cara: permissão responde *o que esta pessoa pode*, e
+marcar é conceder; filtro responde *o que ela quer ver agora*, e nada marcado é "não estou
+filtrando por isto". Invertido ali, a aba abriria sem nenhuma linha e sem pista do porquê.
 
 ## Ajuste e perda: a aba é a porta, a lista de locais é o quarto
 
@@ -805,11 +845,11 @@ node teste/teste_saldo.js
 node teste/teste_primeiro_acesso.js
 ```
 
-O `teste_api.js` tem **519 verificações**. Roda o roteador, as regras e os tradutores **de
+O `teste_api.js` tem **520 verificações**. Roda o roteador, as regras e os tradutores **de
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**735 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**743 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
@@ -886,7 +926,7 @@ servidor. O fluxo visual precisa de navegador e nao roda aqui; o que ele protege
 tirar o `if (r.trocarSenha)` do login faria a senha provisoria valer para sempre sem nada
 quebrar. O comportamento do servidor esta em `teste_api.js`, no bloco "primeiro acesso".
 
-O `teste/teste_permissoes.js` (**93 verificações**) é a varredura ponta a ponta do que o
+O `teste/teste_permissoes.js` (**109 verificações**) é a varredura ponta a ponta do que o
 administrador liga e desliga. Para cada permissão percorre a corrente inteira — **formulário →
 envia → servidor grava → sessão carrega → alguma tela usa** — e um elo faltando é um interruptor
 que não acende nada. Confere também a convenção "lista vazia = todos", as três pré-condições

@@ -139,19 +139,117 @@ ok(marcados.length >= 6 && faltando.length === 0,
   'e toda lista de permissão que o formulário envia está registrada nesta varredura — ' +
   'uma nova que escapasse daqui não seria conferida por ninguém', faltando);
 
-/* ==================================================================== vazio = todos
- * A convenção do projeto, e a única segura: invertida em qualquer lugar, o deploy tranca
- * a operação inteira, porque ninguém tem nada marcado.
+/* ============================================================= nada marcado = nada
+ * A convenção do projeto. Era o contrário — vazio queria dizer TODOS —, e ela virou
+ * porque surpreendia justamente quem cadastra: o administrador desmarcava tudo e a
+ * pessoa continuava vendo cinco páginas.
+ *
+ * O preço está dito no CLAUDE.md: item novo nasce negado. A migração
+ * `2026-09-22-marcar-o-que-ja-valia` gravou em cada cadastro o que ele já via, então a
+ * virada não tirou nada de ninguém.
  */
-console.log('\n== lista vazia quer dizer TODOS, em todo lugar ==');
-ok(L.locaisPermitidos([], [{ ID: 'L1' }, { ID: 'L2' }]).length === 2,
-  'locais: sem marca, valem todos');
+console.log('\n== nada marcado quer dizer NADA, em todo lugar ==');
+ok(L.VAZIA_LIBERA === false,
+  'a convenção mora numa constante só — espalhada por oito funções, metade delas ' +
+  'discordaria na primeira mudança', L.VAZIA_LIBERA);
+ok(L.locaisPermitidos([], [{ ID: 'L1' }, { ID: 'L2' }]).length === 0,
+  'locais: sem marca, nenhum');
 ok(L.locaisPermitidos(['L1'], [{ ID: 'L1' }, { ID: 'L2' }]).length === 1,
   'e com marca, vale a marca');
-ok(L.podeAba({ Abas: [] }, 'pgPainel') === true && L.podeAba({}, 'pgPainel') === true,
-  'abas: sem marca, valem todas — e campo ausente é o mesmo que lista vazia');
+ok(L.podeAba({ Abas: [] }, 'pgPainel') === false && L.podeAba({}, 'pgPainel') === false,
+  'abas: sem marca, nenhuma — e campo ausente é o mesmo que lista vazia');
 ok(L.podeAba({ Abas: ['pgExtrato'] }, 'pgPainel') === false,
   'e com marca, o que ficou de fora não passa');
+ok(L.podeItem(['a'], 'a') === true && L.podeItem(['b'], 'a') === false,
+  'e as oito listas passam pela MESMA função — cada uma com a sua cópia, elas ' +
+  'divergiriam no primeiro ajuste');
+
+/* ============================================ a migracao que fez a virada ser segura
+ * Ela e o que impediu o deploy de tirar o painel e o app de quase toda a operacao. Se
+ * ela sumir, ou passar a escrever onde nao devia, o estrago e imediato e silencioso.
+ */
+console.log('\n== a migracao que gravou o que ja valia ==');
+var MIGS = require(path.join(__dirname, '..', 'api', '_migracoes.js'));
+var virada = MIGS.filter(function (m) { return m.id === '2026-09-22-marcar-o-que-ja-valia'; })[0];
+ok(!!virada,
+  'a migração existe — sem ela, virar a convenção tira o painel e o app de todo mundo ' +
+  'que estava com a lista vazia, que eram nove dos dez cadastros');
+
+var updates = (virada ? virada.sql : '').split(';').filter(function (t) {
+  return t.trim().indexOf('update') === 0;
+});
+ok(updates.length >= 8,
+  'e ela preenche as oito listas — faltando uma, quem dependia dela perde o acesso ' +
+  'naquela dimensão, e só naquela', updates.length);
+
+/* SO QUEM ESTA VAZIO. Quem ja tinha marcacao escolheu aquilo, e sobrescrever seria
+   desfazer uma decisao do administrador — calada, e sem como saber o que havia antes. */
+var semFiltro = updates.filter(function (u) { return u.indexOf("= '[]'::jsonb") < 0; });
+ok(semFiltro.length === 0,
+  'e TODO update só toca em quem está com a lista vazia — sem esse filtro ela ' +
+  'sobrescreveria quem já tinha marcação, desfazendo decisão do administrador', semFiltro);
+
+/* O ADMIN fica de fora das ABAS: ele entra em todas por excecao no codigo, e gravar a
+   lista dele congelaria o conjunto de hoje — aba nova amanha nao apareceria para quem
+   concede as abas. */
+var upAbas = updates.filter(function (u) { return u.indexOf('set abas') > 0; })[0] || '';
+ok(/<> 'ADMIN'/.test(upAbas),
+  'e as abas NÃO são gravadas no admin — gravadas, congelariam o conjunto de hoje, e uma ' +
+  'aba nova amanhã não apareceria justamente para quem concede as abas', upAbas);
+
+/* O promotor: o atalho por perfil que saiu do app vira lista explicita. */
+ok(/PROMOTOR/.test(virada ? virada.sql : ''),
+  'e o promotor recebe RETORNO — era o atalho por perfil do app de campo, que saiu ' +
+  'junto com a convenção antiga');
+
+/* ====================================================== o que NAO seguiu a virada
+ * Duas coisas ficaram em "vazio = todos", e as duas de proposito. Escritas aqui para
+ * serem DECISAO, e nao esquecimento: sem isto, o proximo que ler o CLAUDE.md conclui que
+ * faltou inverter e inverte — e quebra as duas.
+ */
+console.log('\n== o que nao seguiu a virada, e por que ==');
+
+/* 1. AS ROTAS DO MOTORISTA. Nao e permissao de pessoa: mora no cadastro do MOTORISTA e
+      responde "que rotas ele atende", que e regra de casamento, nao de acesso. */
+var semRota = [{ ID: 'D1', Nome: 'Arilson', Rotas: [] }];
+ok(L.motoristasDaRota(semRota, 'R01').length === 1,
+  'motorista sem rota marcada continua aparecendo em qualquer rota — esta lista NÃO é ' +
+  'permissão de pessoa, é regra de casamento no cadastro do motorista');
+ok(L.motoristasDaRota([{ ID: 'D1', Rotas: ['R02'] }, { ID: 'D2', Rotas: ['R01'] }],
+                      'R01').map(function (m) { return m.ID; }).join(',') === 'D2',
+  'e com rota marcada, vale a marca');
+/* O `r.length &&` e o que mantem esta lista de fora da virada: sem ele, o motorista sem
+   rota deixa de casar com qualquer rota e some de todas as saidas. */
+ok(/r\.length && r\.map\(String\)\.indexOf\(alvo\) >= 0/.test(
+     fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8')),
+  'e é o `r.length &&` que a mantém fora da virada — sem ele o motorista sem rota some ' +
+  'de todas as saídas, e a válvula de socorro passa a brigar com a regra em vez de ajudar');
+var logica = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+ok(/ESTA LISTA NÃO SEGUIU A VIRADA/.test(logica),
+  'e o código registra que ela ficou de fora de propósito — sem isso o próximo a ler a ' +
+  'convenção conclui que faltou inverter, e inverte');
+ok(/o `VAZIA_LIBERA` não a alcança/.test(logica),
+  'e avisa que a constante não a governa: ela tem regra própria');
+
+/* 2. OS FILTROS. Permissao responde "o que esta pessoa pode", e marcar e conceder; filtro
+      responde "o que ela quer ver agora", e nada marcado e "nao estou filtrando". */
+var campo = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+ok(/FILTRO, e nao permissao: aqui nada marcado quer dizer TODOS/.test(campo),
+  'os filtros da aba Lançamentos continuam em "nada marcado = todos" — invertidos, a ' +
+  'aba abriria sem nenhuma linha e sem pista do porquê');
+
+/* ====================================================== as duas copias da regra
+ * O app de campo nao carrega `_logica.js`: ele tem a propria copia da peneira. As duas
+ * precisam dizer a mesma coisa, senao a tela oferece o que a gravacao recusa.
+ */
+console.log('\n== as duas copias da peneira dizem a mesma coisa ==');
+var iP = campo.indexOf('function permitidos(lista, quais)');
+var copia = campo.slice(iP, campo.indexOf('\n  }', iP));
+ok(iP > 0 && /if \(!ids \|\| !ids\.length\) return \[\];/.test(copia),
+  'a cópia do app de campo também trata lista vazia como NENHUM', copia);
+ok(L.peneirarPor([], [{ ID: 'a' }]).length === 0,
+  'e o original do servidor diz o mesmo — divergindo, a pessoa preenche o formulário ' +
+  'inteiro para levar um não na gravação');
 
 /* ==================================================================== pré-condições
  * O que o formulário NÃO pode deixar passar calado.
@@ -194,14 +292,21 @@ ok(/PIN de seis números é do app de campo/.test(ajuste),
 console.log('\n== a peneira de abas erra para o lado de mostrar ==');
 var peneira = recorta(adm, 'function abasPermitidas(s)');
 ok(peneira.length > 300, 'o recorte pegou a peneira', peneira.length);
-ok(/if \(escolhidas\.length\) return ids\(escolhidas\);/.test(peneira) &&
-   /return ids\(Q\.ehAdmin\(\) \? base : base\.filter/.test(peneira),
-  'marca que não alcança nenhuma aba é IGNORADA e vale o padrão — errar para o lado de ' +
-  'mostrar se corrige no cadastro; errar para o lado de trancar só se resolve com o ' +
-  'administrador por perto');
-ok(/if \(!marcadas\.length\)\{/.test(peneira) && /!a\.sensivel/.test(peneira),
-  'e lista vazia vale todas MENOS as que dão poder — essas só entram por marca ' +
-  'explícita, porque uma dá o cadastro de usuários e a outra mexe no saldo');
+ok(/return ids\(escolhidas\);/.test(peneira) && !/!a\.sensivel/.test(peneira),
+  'marca que não alcança nenhuma aba não concede nada — antes ela caía no padrão e a ' +
+  'pessoa via tudo menos as sensíveis, que é o contrário do que o administrador pediu ' +
+  'ao marcar');
+/* A regra e a excecao na MESMA linha, de proposito: separadas, a excecao acaba vindo
+   antes da marca e o admin perde a capacidade de se restringir — foi o que aconteceu
+   enquanto isto era escrito, e o teste pegou. */
+ok(/if \(!marcadas\.length\) return Q\.ehAdmin\(\) \? ids\(base\) : \[\];/.test(peneira),
+  'lista vazia não vale nenhuma — e a ÚNICA exceção é o admin SEM MARCA, que entra em ' +
+  'tudo: ele é a origem da concessão, e um admin nascido sem marca perderia até a tela ' +
+  'onde isso se conserta', peneira);
+/* Admin que MARCA recebe o que marcou, como todo mundo. */
+ok(!/if \(Q\.ehAdmin\(\)\) return ids\(base\);/.test(peneira),
+  'e a exceção NÃO vem antes da marca — vindo antes, a marcação do admin não faria ' +
+  'nada e o formulário mentiria para quem mais precisa confiar nele');
 /* O PEDIDO: nada e travado por perfil. Quem decide e o administrador, aba por aba. */
 ok(!/a\.soAdmin/.test(peneira),
   'e nada é travado por perfil: o administrador concede qualquer aba a qualquer pessoa',

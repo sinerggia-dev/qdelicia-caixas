@@ -704,14 +704,22 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 
   <p>Nome, e-mail, perfil, PIN e local padrão. O e-mail (ou o usuário) é o que a pessoa digita para entrar no painel; o PIN é o do celular. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá peso à divergência.</p>
   <h4 style="margin:16px 0 6px;font-size:14px">Onde cada um pode lançar</h4>
-  <p>No cadastro do usuário, dois quadros de marcar decidem quais locais aparecem no celular daquela pessoa: <strong>Saída</strong> (de onde as caixas saem) e <strong>Destino</strong> (para onde vão). <strong>Nada marcado quer dizer todos</strong> — marque só para restringir. Quem tiver um único local liberado já encontra o campo preenchido, sem precisar escolher.</p>
+  <p>No cadastro do usuário, dois quadros de marcar decidem quais locais aparecem no celular daquela pessoa: <strong>Saída</strong> (de onde as caixas saem) e <strong>Destino</strong> (para onde vão). <strong>Nada marcado quer dizer nenhum</strong> — marcar é conceder. Quem tiver um único local liberado já encontra o campo preenchido, sem precisar escolher.</p>
   <p>No retorno os papéis se invertem, porque é o caminho de volta: quem devolve vem da lista de <em>Destino</em>, e quem recebe vem da de <em>Saída</em>.</p>
 
   <h4 style="margin:16px 0 6px;font-size:14px">O que cada um pode lançar</h4>
   <p><strong>Operações</strong> decide se a pessoa lança <em>Saída</em>, <em>Retorno</em> ou os dois. A aba que ela não pode usar some do celular — e, mais importante, o servidor <strong>recusa</strong> o lançamento mesmo que o pedido chegue por fora do app.</p>
 
+  <div class="regra">
+    <span class="rot">Marcar é conceder</span>
+    <p>Em <strong>todos</strong> os quadros de marcar do cadastro de usuário, <strong>nada marcado quer dizer nada liberado</strong>. Se você desmarcar tudo em <em>Abas do painel</em>, a pessoa não vê página nenhuma; se desmarcar tudo em <em>Operações</em>, ela não lança no app.</p>
+    <p>Até setembro/2026 era o contrário: deixar vazio queria dizer <em>todos</em>. Mudou porque surpreendia — o administrador desmarcava tudo e a pessoa continuava enxergando o sistema inteiro.</p>
+    <p><strong>O que isso cobra de você:</strong> um galpão, motorista, tipo de caixa ou usuário <em>novo</em> não aparece para ninguém até ser marcado no cadastro de cada pessoa. A tela avisa isso na hora de criar.</p>
+    <p class="nota">Duas exceções. O <strong>administrador</strong> sem nada marcado continua vendo tudo — senão não haveria como desfazer. E os <strong>filtros</strong> da aba Lançamentos não são permissão: ali, nada marcado segue querendo dizer <em>todos</em>.</p>
+  </div>
+
   <h4 style="margin:16px 0 6px;font-size:14px">Em quais locais ela ajusta o saldo</h4>
-  <p><strong>Ajustes e perdas</strong> marca os locais cujo saldo aquela pessoa pode corrigir pela aba <em>Ajustes</em> — saldo inicial e baixa de perda. <strong>Nada marcado = todos.</strong></p>
+  <p><strong>Ajustes e perdas</strong> marca os locais cujo saldo aquela pessoa pode corrigir pela aba <em>Ajustes</em> — saldo inicial e baixa de perda. <strong>Nada marcado = nenhum.</strong></p>
   <p>Antes, ter a aba <em>Ajustes</em> dava o saldo inteiro: qualquer galpão, filial, cliente ou rota. Agora a aba é a porta e esta lista é o quarto. Um conferente de filial pode corrigir o saldo da filial dele sem poder mexer no da matriz.</p>
   <p>Na aba <em>Ajustes</em>, o seletor de local passa a mostrar só os liberados, e um aviso diz quais são e que é o administrador quem libera — lista curta e sem explicação parece cadastro faltando.</p>
   <div class="regra">
@@ -726,7 +734,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p>Duas perguntas, uma embaixo da outra:</p>
   <ul>
     <li><strong>Vê os lançamentos?</strong> — em <em>não</em>, a aba <em>Lançamentos</em> some do app dela e o painel não lista movimento nenhum</li>
-    <li><strong>De quem ela vê os lançamentos</strong> — a lista de usuários, com <em>marcar todos</em>. <strong>Nada marcado = todos.</strong> Marque só ela mesma para ela ver apenas o que lançou</li>
+    <li><strong>De quem ela vê os lançamentos</strong> — a lista de usuários, com <em>marcar todos</em>. <strong>Nada marcado = ninguém.</strong> Marque só ela mesma para ela ver apenas o que lançou, ou marque todos para ela ver a operação inteira</li>
   </ul>
   <p>O seletor <strong>Pode entrar no painel?</strong>, mais acima, é um atalho para os casos comuns — <em>todos</em> e <em>apenas os lançamentos dele mesmo</em>. Ele e a lista são a <strong>mesma coisa</strong>: escolher no seletor marca a lista, e mexer na lista muda o que o seletor mostra. Quando você marca pessoas específicas, ele passa a dizer <em>vê de pessoas escolhidas abaixo</em>.</p>
   <p>A segunda trava enquanto a primeira estiver em <em>não</em> — não há de quem ver, e marcar ali não faria efeito.</p>
@@ -759,7 +767,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <p>No painel, o caminho de volta é o <strong>↩ Lançamentos</strong>, no mesmo lugar. Ele só aparece para quem tem <strong>senha de lançamento</strong> — sem ela o app de campo não deixa entrar, e o botão levaria a uma recusa.</p>
     <p>Se a marca não alcançar nenhuma aba que aquela pessoa possa ver — só <em>Ajustes</em> marcado para um gerente, por exemplo —, ela é <strong>ignorada</strong> e valem todas as permitidas. O painel nunca abre vazio: errar para o lado de mostrar se corrige aqui no cadastro; errar para o lado de trancar só se resolve com o administrador por perto.</p>
   </div>
-  <p class="nota">Nos três quadros — Saída, Destino, Operações e Abas — <strong>nada marcado quer dizer todos</strong>. Marque só para restringir. Se fosse o contrário, o dia em que a coluna entrou no ar teria trancado a operação inteira, porque ninguém tinha nada marcado.</p>
+  <p class="nota">Em todos esses quadros — Saída, Destino, Operações, Abas, Ajustes, Tipos de caixa, Motoristas e De quem vê — <strong>nada marcado quer dizer nada liberado</strong>. Marcar é conceder.</p>
   <div class="regra">
     <span class="rot">Depois de mudar</span>
     <p>As duas telas releem o cadastro da pessoa a cada abertura, então <strong>basta ela recarregar a página</strong> — não precisa sair e entrar. O que não acontece é a tela dela mudar no mesmo segundo: se estiver com o app aberto agora, precisa recarregar.</p>

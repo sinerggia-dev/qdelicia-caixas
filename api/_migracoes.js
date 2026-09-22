@@ -270,5 +270,63 @@ module.exports = [
     // TODOS, e é exatamente o que já valia antes desta coluna. Quem quiser restringir
     // marca; quem não mexer não perde nada no dia do deploy.
     sql: "alter table public.usuarios add column if not exists ajustes jsonb not null default '[]'::jsonb;"
+  },
+  {
+    id: '2026-09-22-marcar-o-que-ja-valia',
+    nota: 'a convenção virou (nada marcado = nada liberado); grava em cada um o que ele já via',
+    /* A CONVENÇÃO das listas de permissão passou a ser "nada marcado = nada liberado".
+       Até aqui, lista vazia queria dizer TODOS — e nove dos dez cadastros estavam com
+       tudo vazio. Virar a chave sem mais nada tiraria o painel, o app e o lançamento de
+       praticamente toda a operação no mesmo instante.
+
+       Então esta migração escreve, em cada pessoa, EXATAMENTE o que ela já enxergava.
+       Depois dela ninguém perde nada, e daí em diante desmarcar passa a tirar.
+
+       Só mexe em quem está com a lista VAZIA (`= '[]'::jsonb`): quem já tinha marcação
+       escolheu aquilo, e sobrescrever seria desfazer uma decisão do administrador.
+
+       O ADMIN fica de fora das abas de propósito: ele entra em todas por exceção no
+       código, e gravar a lista dele aqui congelaria o conjunto de hoje — uma aba nova
+       amanhã não apareceria para quem concede as abas. */
+    sql:
+      // Abas: todas menos as que dão poder, que é o que a regra do vazio dava a quem não
+      // é admin. Escrito à mão, e não lido de uma tabela, porque o catálogo de abas mora
+      // no código (`ABAS`, em `_logica.js`) e não no banco.
+      "update public.usuarios set abas = " +
+      "'[\"pgRetornos\",\"pgPainel\",\"pgExtrato\",\"pgMovimentos\",\"pgColunas\"]'::jsonb " +
+      "where abas = '[]'::jsonb and upper(coalesce(perfil,'')) <> 'ADMIN';" +
+
+      // Operações: as duas, ou só RETORNO para o promotor — que era o atalho por perfil
+      // que existia no app de campo e saiu junto com a convenção antiga.
+      "update public.usuarios set operacoes = '[\"RETORNO\"]'::jsonb " +
+      "where operacoes = '[]'::jsonb and upper(coalesce(perfil,'')) like '%PROMOTOR%';" +
+      "update public.usuarios set operacoes = '[\"SAIDA\",\"RETORNO\"]'::jsonb " +
+      "where operacoes = '[]'::jsonb;" +
+
+      // Locais, tipos de caixa e motoristas: tudo o que existe hoje. As listas de saída e
+      // destino recebem TODOS os locais porque o filtro por tipo acontece antes delas, na
+      // tela — restringir aqui mudaria o que a pessoa vê.
+      "update public.usuarios set saidas = coalesce(" +
+      "(select jsonb_agg(l.id order by l.id) from public.locais l), '[]'::jsonb) " +
+      "where saidas = '[]'::jsonb;" +
+      "update public.usuarios set destinos = coalesce(" +
+      "(select jsonb_agg(l.id order by l.id) from public.locais l), '[]'::jsonb) " +
+      "where destinos = '[]'::jsonb;" +
+      "update public.usuarios set ajustes = coalesce(" +
+      "(select jsonb_agg(l.id order by l.id) from public.locais l), '[]'::jsonb) " +
+      "where ajustes = '[]'::jsonb;" +
+      "update public.usuarios set tipos_caixa = coalesce(" +
+      "(select jsonb_agg(t.id order by t.id) from public.tipos_caixa t), '[]'::jsonb) " +
+      "where tipos_caixa = '[]'::jsonb;" +
+      "update public.usuarios set motoristas = coalesce(" +
+      "(select jsonb_agg(m.id order by m.id) from public.motoristas m), '[]'::jsonb) " +
+      "where motoristas = '[]'::jsonb;" +
+
+      // De quem vê os lançamentos: todo mundo, que era o que a lista vazia dava. Só para
+      // quem VÊ lançamento — para os outros a lista não muda nada, e enchê-la esconderia
+      // que eles estão desligados pelo interruptor.
+      "update public.usuarios set usuarios_vistos = coalesce(" +
+      "(select jsonb_agg(x.id order by x.id) from public.usuarios x), '[]'::jsonb) " +
+      "where usuarios_vistos = '[]'::jsonb and ver_lancamentos = true;"
   }
 ];
