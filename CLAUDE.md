@@ -378,6 +378,17 @@ sem nada para denunciar.
 Uma lição sobre o teste, e não sobre o código: a afirmação antiga procurava `var inicial` no
 arquivo, e ele estava lá. Procurar se uma linha **existe** não diz se ela **roda a tempo**.
 
+### As perguntas ficam na seção que corresponde ao que elas fazem
+
+"Vê os lançamentos?" e "De quem ela vê os lançamentos" moraram um tempo embaixo de **O que ele
+pode lançar**, onde liam como permissão de *lançar*. As duas dizem o que **aparece** para a pessoa
+— exatamente como o quadro das abas do painel, logo acima. Agora as três estão juntas em **O que
+ele vê no painel**, e *O que ele pode lançar* começa no que ela de fato faz: a operação.
+
+Isso alinha a tela ao manual, que já descrevia "Lançamentos: se vê, e de quem" dentro de *o que
+cada um pode ver no painel*. Um teste afirma a ordem das seções: título → abas → lançamentos →
+*pode lançar* → operação, e a pergunta antes da lista que ela comanda.
+
 A quarta opção **só aparece quando a lista diz isso**: sempre visível, ela ofereceria um estado
 que a lista não está, e escolhê-la não faria nada. E o ouvinte do seletor **mexe na lista e só
 então reavalia** — na outra ordem, o ajuste leria a lista velha e o rótulo voltaria sozinho.
@@ -688,7 +699,7 @@ O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**676 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**678 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

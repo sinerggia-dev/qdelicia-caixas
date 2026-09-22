@@ -3403,13 +3403,14 @@
                      falta para quem marca decidir. Travar era o que o pedido tirou. */
                   function(a){ return a.sensivel ? 'dá poder' : ''; })+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fAbasNota"></p>'+
-      '<h3 style="margin-top:20px">O que ele pode lançar</h3>'+
-      /* Vem antes das listas de local de proposito: decidir SE a pessoa faz saida vem
-         antes de decidir DE ONDE ela faz. A lista sai do servidor, a mesma que a gravacao
-         usa para recusar — duas copias divergiriam no primeiro nome novo. */
       /* LANCAMENTOS: se ve, e de quem. Duas perguntas encadeadas, e a segunda so faz
          sentido depois da primeira — por isso a lista trava quando o interruptor esta em
          NAO, com a mesma regra dos outros quadros.
+
+         Mora AQUI, em "o que ele ve", e nao em "o que ele pode lancar": as duas perguntas
+         sao sobre o que aparece para a pessoa, e nao sobre o que ela pode fazer. Embaixo
+         de "pode lancar" elas liam como permissao de lancar — e o quadro logo acima, das
+         abas do painel, e exatamente do mesmo tipo: o que ela ve la dentro.
 
          Marcar NINGUEM quer dizer TODOS, a convencao do projeto. Marcar so ela mesma e o
          que antes se chamava "ve apenas os lancamentos dela". */
@@ -3424,6 +3425,10 @@
                   EQUIPE.filter(function(x){ return Q.ativo(x.Ativo); }),
                   u.UsuariosVistos, 'Nenhum usuário cadastrado ainda.')+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fVistosNota"></p>'+
+      '<h3 style="margin-top:20px">O que ele pode lançar</h3>'+
+      /* Vem antes das listas de local de proposito: decidir SE a pessoa faz saida vem
+         antes de decidir DE ONDE ela faz. A lista sai do servidor, a mesma que a gravacao
+         usa para recusar — duas copias divergiriam no primeiro nome novo. */
       caixaLocais('fOperacoes', 'Operação — o que aparece no app dela',
                   OPERACOES_APP, u.Operacoes, 'Nenhuma operação disponível.')+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+

@@ -2164,6 +2164,32 @@ console.log('\n== o formulario de usuario abre mostrando o que esta gravado ==')
       'a opção ' + v + ' nasce escolhida quando é ela que está gravada');
   });
 
+  /* Cada pergunta na secao que corresponde ao que ela faz.
+
+     "Ve os lancamentos?" e "De quem ela ve os lancamentos" estavam embaixo de "O que ele
+     pode lancar", onde liam como permissao de LANCAR. As duas dizem o que APARECE para a
+     pessoa — igualzinho ao quadro das abas do painel, que fica logo acima. Agora as tres
+     estao juntas em "O que ele ve no painel", e "O que ele pode lancar" comeca no que ela
+     de fato faz: a operacao. */
+  function onde(t) { return html.indexOf(t); }
+  var oVe = onde('>O que ele vê no painel</h3>');
+  var oAbas = onde("caixaLocais('fAbas'");
+  var oLanc = onde('>Lançamentos</h3>');
+  var oVistos = onde("caixaLocais('fUsuariosVistos'");
+  var oPode = onde('>O que ele pode lançar</h3>');
+  var oOper = onde("caixaLocais('fOperacoes'");
+  ok(oVe > 0 && oAbas > oVe && oLanc > oAbas && oVistos > oLanc && oPode > oVistos &&
+     oOper > oPode,
+    'as perguntas sobre o que a pessoa VÊ ficam juntas em "O que ele vê no painel" — ' +
+    'abas, depois lançamentos —, e "O que ele pode lançar" só começa na operação',
+    { ve: oVe, abas: oAbas, lancamentos: oLanc, vistos: oVistos, podeLancar: oPode,
+      operacoes: oOper });
+
+  /* O seletor e a lista sao encadeados: a lista so faz sentido depois da pergunta. */
+  ok(onde("id=\"fVerLanc\"") > 0 && onde("id=\"fVerLanc\"") < oVistos,
+    'e "Vê os lançamentos?" vem antes da lista de quem ela vê — a lista só faz sentido ' +
+    'depois da pergunta que a liga');
+
   /* A REGRA, e nao so este caso: NENHUM nome que o HTML interpola pode ser declarado
      depois dele. Tirando os literais entre aspas, o que sobra do trecho sao as
      expressoes JavaScript — e nenhuma delas pode apontar para um `var` de baixo.
