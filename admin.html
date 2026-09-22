@@ -576,7 +576,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=9c67a238"></script>
+<script src="app.js?v=72f1c64a"></script>
 <script>
 (function(){
   'use strict';
@@ -597,8 +597,29 @@
 
   /* ---------------- entrada ----------------
      A MESMA tela do app de campo, e ela mora no `app.js`. Ver `portaUnica()`. */
-  function iniciarLogin(){
-    Q.portaUnica('painel', function(){ carregarEquipe(); abrirApp(); });
+  function iniciarLogin(aviso){
+    Q.portaUnica('painel', function(){ carregarEquipe(); abrirApp(); }, aviso);
+  }
+
+  /* POR QUE ESTA PESSOA NAO ENTROU. A recusa era MUDA: quem tinha o painel liberado
+     clicava na porta, via a tela de entrada aparecer e nao tinha como saber o que
+     houve. Parecia defeito do sistema, e mandava procurar o problema no cadastro —
+     que estava certo o tempo todo.
+
+     Cada `return false` do `podeEntrar()` tem a sua frase aqui, e sao as MESMAS tres
+     condicoes, na mesma ordem: se um dia nascer uma quarta razao la, ela precisa
+     nascer aqui junto, ou volta o silencio.
+
+     Sem sessao nenhuma NAO ganha frase: e a visita normal de quem abriu o endereco,
+     e "sua sessao acabou" para quem nunca entrou seria mentira. */
+  function motivoDaRecusa(s){
+    if (!s) return '';
+    if (s.via === 'pin')
+      return 'O painel entra com a sua SENHA. Você entrou com os 6 números, que são a ' +
+             'credencial do app de lançamento. Entre aqui com a senha do painel.';
+    if (!podeEntrar(s))
+      return 'Seu usuário não tem acesso ao painel. Fale com o administrador.';
+    return '';
   }
 
   /* A equipe vem numa chamada à parte, só depois de entrar — a rota `dados` é pública e
@@ -660,20 +681,15 @@
   /* Quem entra aqui é decidido no cadastro, um por um — antes era consequência do perfil.
      Sessão gravada antes desta mudança não tem o campo: nesse caso vale a regra antiga, para
      não derrubar quem estava logado no momento do deploy. Na próxima entrada já vem certo. */
-  function podeEntrar(s){
-    if (!s) return false;
-    /* O PAINEL ENTRA POR SENHA. Quem autenticou com o PIN de seis numeros nao passa
-       daqui, tenha o acesso que tiver: o que o PIN protege e o lancamento, que fica
-       registrado com nome e hora e pode ser corrigido; o painel ve a operacao inteira
-       e mexe em cadastro. Sem esta linha, a porta unica teria rebaixado a tranca do
-       escritorio a do galpao — e sem ninguem pedir.
+  /* A MESMA pergunta que o app de campo faz para decidir se mostra a porta, feita à
+     MESMA função — `Q.podePainel()`, no `app.js`. Ver o comentário de lá.
 
-       `via` ausente e sessao de antes da porta unica: essa passa, porque derrubar
-       quem ja estava logado no dia do deploy e pior, e o proximo login corrige. */
-    if (s.via === 'pin') return false;
-    if (s.acessoPainel === undefined) return ['ADMIN','GALPAO','CONFERENTE'].indexOf(String(s.perfil).toUpperCase())>=0;
-    return s.acessoPainel === true;
-  }
+     Era escrita aqui e lá, e as duas cópias divergiam: com a chave `acessoPainel` em
+     `false`, o app de campo deixava o ADMIN passar e este aqui o recusava. A porta
+     aparecia e caía na tela de entrada. O nome local fica porque é ele que os
+     chamadores usam, e porque aqui a pergunta tem outro sentido: lá é "mostro a
+     porta?", aqui é "deixo entrar?". */
+  function podeEntrar(s){ return Q.podePainel(s); }
 
   /* Tudo o que a sessao manda no cabecalho, num lugar so — o mesmo desenho do app de
      campo. Dois caminhos passam por aqui, a abertura e a renovacao, e espalhar isso pelos
@@ -702,7 +718,7 @@
 
   function abrirApp(){
     var s = Q.sessao();
-    if (!podeEntrar(s)){ iniciarLogin(); return; }
+    if (!podeEntrar(s)){ iniciarLogin(motivoDaRecusa(s)); return; }
     document.getElementById('telaLogin').style.display='none';
     /* `flex`, e nao `block`: o `.shell` e uma coluna flex, e `block` desmontava o
        esqueleto — a barra lateral perdia a altura e o rodape dela subia para o meio. */
@@ -3972,7 +3988,7 @@
     DADOS = e.detail; ordenarTudo(); montarSelects(); desenharCadastros();
   });
 
-  if (podeEntrar(Q.sessao())) abrirApp(); else iniciarLogin();
+  if (podeEntrar(Q.sessao())) abrirApp(); else iniciarLogin(motivoDaRecusa(Q.sessao()));
 })();
 </script>
 </body>

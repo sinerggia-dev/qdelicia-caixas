@@ -430,7 +430,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=9c67a238"></script>
+<script src="app.js?v=72f1c64a"></script>
 <script>
 (function(){
   'use strict';
@@ -449,23 +449,15 @@
   function aplicarSessao(s){
     Q.quemEsta(s.nome, s.perfil);
 
-    /* A porta para o painel, para quem tem o painel.
+    /* A porta para o painel, para quem tem o painel — e A MESMA PERGUNTA que o
+       `admin.html` faz na chegada, feita à mesma função.
 
-       A mesma regra do servidor: o ADMIN entra sempre, e quem nao e admin depende da
-       chave do cadastro. `acessoPainel` ausente e sessao de antes de a chave existir —
-       vale a regra antiga por perfil, para nao tirar a porta de quem ja a tinha. */
-    var podePainel = String(s.perfil).toUpperCase() === 'ADMIN' ||
-      (s.acessoPainel === undefined
-        ? ['GALPAO','CONFERENTE'].indexOf(String(s.perfil).toUpperCase()) >= 0
-        : s.acessoPainel === true);
-    /* E QUEM ENTROU COM PIN NAO VE A PORTA. O painel entra por SENHA — e o que o
-       PIN protege e o lancamento, nao a operacao inteira. Deixar a porta aqui seria
-       devolver pelo atalho o que a porta unica recusou na entrada.
-
-       `via` ausente e sessao de antes da porta unica: nesse caso a porta APARECE,
-       porque tirar o caminho de quem ja o tinha e pior, e o proximo login corrige. */
-    if (s.via === 'pin') podePainel = false;
-    document.getElementById('chipPainel').hidden = !podePainel;
+       Esta conta já morou aqui, escrita à mão, e divergia da guarda do painel num
+       ponto: com a chave `acessoPainel` em `false`, aqui o ADMIN passava e lá era
+       recusado. A porta aparecia e levava à tela de entrada, calada. Porta que não
+       abre é pior que porta nenhuma — e duas cópias de uma regra divergem sempre,
+       inclusive por cache, porque o `app.js` se renova pelo hash e o HTML não. */
+    document.getElementById('chipPainel').hidden = !Q.podePainel(s);
 
     ajustarAbas(s);
 

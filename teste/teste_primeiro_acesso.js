@@ -42,7 +42,7 @@ console.log('\n== Primeiro acesso: troca obrigatória ==');
    bloco lia as duas paginas e cobrava as mesmas coisas em cada uma — o que era o
    jeito certo enquanto eram duas telas, e virou o jeito errado quando passaram a
    ser a mesma. Agora se le o codigo compartilhado, uma vez. */
-var porta = app.slice(app.indexOf('function portaUnica(aqui, abrir)'),
+var porta = app.slice(app.indexOf('function portaUnica(aqui, abrir, aviso)'),
                       app.indexOf('/* ---------------- gaveta de navegacao ----------------'));
 ok(porta.length > 2000, 'o recorte pegou a porta única', porta.length);
 

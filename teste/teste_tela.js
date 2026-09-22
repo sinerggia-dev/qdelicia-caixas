@@ -44,6 +44,23 @@ var fs = {
 var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 var falhas = 0;
 
+/* A REGRA DO PAINEL, de verdade, recortada do `app.js`.
+   Ela decide duas coisas em telas diferentes — se o app de campo MOSTRA a porta e se
+   o painel DEIXA ENTRAR —, e por isso mora num lugar só. Vários blocos deste arquivo
+   rodam código que a chama pelo `Q`, e todos usam esta, e não uma imitação: imitar a
+   regra faria o teste medir a cópia escrita aqui em vez da que vai para o galpão. */
+var REGRA_PAINEL = (function () {
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var i = js.indexOf('function podePainel(s)');
+  if (i < 0) throw new Error('não achei o `podePainel` no app.js');
+  var d = 0;
+  for (var k = js.indexOf('{', i); k < js.length; k++) {
+    if (js[k] === '{') d++;
+    else if (js[k] === '}') { d--; if (!d) break; }
+  }
+  return eval('(' + js.slice(i, k + 1).replace('function podePainel', 'function') + ')');
+})();
+
 function ok(cond, titulo, extra) {
   if (cond) { console.log('  ✓ ' + titulo); return; }
   falhas++;
@@ -2052,12 +2069,16 @@ console.log('\n== a porta para o painel, no app de campo ==');
        este recorte e sobre a PORTA do painel. Null e o caso real de quem abre o app sem
        a aba na tela, entao o codigo tem de aguentar sem estourar. */
     /* `Q` de mentira tambem: `aplicarSessao` escreve quem esta logado pelo `Q.quemEsta()`,
-       e sem ele a funcao estoura antes de chegar na decisao que se quer medir. */
+       e sem ele a funcao estoura antes de chegar na decisao que se quer medir.
+
+       Mas o `Q.podePainel` NAO e de mentira: e a funcao de verdade, recortada do
+       `app.js`. Imita-la aqui mediria a minha copia da regra, e nao a regra — que e
+       exatamente o defeito que este bloco existe para pegar. */
     return new Function('s', 'document', 'ajustarAbas', 'Q',
       fonte + '\n aplicarSessao(s); return !document.getElementById("chipPainel").hidden;')(
       s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); },
            querySelector: function () { return null; } },
-      function () {}, { quemEsta: function () {} });
+      function () {}, { quemEsta: function () {}, podePainel: REGRA_PAINEL });
   }
 
   [['o ADMIN vê, mesmo com a chave desligada — `podeVerPainel()` é a autoridade, e vale ' +
@@ -2565,7 +2586,7 @@ console.log('\n== a porta unica: a mesma tela nos dois apps ==');
 
   /* O CODIGO TAMBEM E UM SO, e mora no `app.js`: duas copias de uma tela de login
      divergem, e o dia em que uma pedir outra coisa a pessoa descobre levando recusa. */
-  ok(/function portaUnica\(aqui, abrir\)/.test(js),
+  ok(/function portaUnica\(aqui, abrir, aviso\)/.test(js),
     'o código da entrada mora no `app.js`, uma vez só');
   [['index.html', idx, "Q.portaUnica('campo'"], ['admin.html', adm, "Q.portaUnica('painel'"]]
     .forEach(function (p) {
@@ -2577,8 +2598,10 @@ console.log('\n== a porta unica: a mesma tela nos dois apps ==');
   /* O DESTINO sai do PAPEL, e o painel exige a SENHA. */
   var iD = js.indexOf('function destinoDa(s)');
   var dest = js.slice(iD, js.indexOf('\n  }', iD));
-  ok(iD > 0 && /s\.via === 'senha' && s\.acessoPainel === true/.test(dest),
-    'o destino sai do papel — e o painel só com quem entrou por SENHA', dest);
+  ok(iD > 0 && /s\.via === 'senha' && podePainel\(s\)/.test(dest),
+    'o destino sai do papel — e o painel só com quem entrou por SENHA. Ele PERGUNTA ao ' +
+    '`podePainel` em vez de reler a chave: seriam três lugares decidindo sobre a mesma ' +
+    'porta, e a terceira cópia divergiria como as duas primeiras divergiram', dest);
 
   /* O DESVIO acontece: a pessoa e MANDADA para o destino. Sem esta linha, `destinoDa`
      vira um calculo que ninguem usa, e cada pagina abre o proprio app — que e o que a
@@ -2593,21 +2616,21 @@ console.log('\n== a porta unica: a mesma tela nos dois apps ==');
     'e o `via` entra na sessão neste ponto — é o único lugar do sistema que sabe por ' +
     'qual credencial a pessoa autenticou', seg);
 
-  /* E A MESMA REGRA COBRADA DE NOVO NO PAINEL: o destino é conveniência, e quem digitar
-     o endereço de admin.html direto passa por cima dele. */
-  var iP = adm.indexOf('function podeEntrar(s)');
-  var pod = adm.slice(iP, adm.indexOf('\n  }', iP));
-  ok(iP > 0 && /if \(s\.via === 'pin'\) return false;/.test(pod),
-    'e o painel recusa a sessão de PIN por conta própria — mandar para o outro app é ' +
-    'conveniência, e quem digita o endereço passa por cima dela', pod);
+  /* A REGRA DO PIN MORA NO `podePainel`, e as duas telas a consultam. Ela estava
+     escrita nas duas, e as duas cópias divergiam noutro ponto — o do ADMIN com a chave
+     desligada —, fazendo a porta aparecer no app de campo e cair no login. */
+  var iR = js.indexOf('function podePainel(s)');
+  var reg = js.slice(iR, js.indexOf('\n  }', iR));
+  ok(iR > 0 && /if \(s\.via === 'pin'\) return false;/.test(reg),
+    'a sessão de PIN é recusada no painel — mandar para o outro app é conveniência, e ' +
+    'quem digita o endereço passa por cima dela', reg);
 
-  /* E a PORTA do painel some no app de campo para quem entrou com PIN: deixá-la ali
-     devolveria pelo atalho o que a entrada acabou de recusar. */
-  var iA = idx.indexOf('function aplicarSessao(s)');
-  var apl = idx.slice(iA, idx.indexOf('\n  }', iA));
-  ok(iA > 0 && /if \(s\.via === 'pin'\) podePainel = false;/.test(apl),
-    'e a porta do painel some no app de campo para quem entrou com PIN — deixá-la ali ' +
-    'devolveria pelo atalho o que a entrada recusou', apl);
+  /* E CADA TELA PERGUNTA, em vez de recalcular: é recalculando que as cópias nascem. */
+  ok(/function podeEntrar\(s\)\{ return Q\.podePainel\(s\); \}/.test(adm),
+    'e o painel pergunta a ela, sem recalcular nada');
+  ok(/getElementById\('chipPainel'\)\.hidden = !Q\.podePainel\(s\);/.test(idx),
+    'e o app de campo esconde a porta pela MESMA resposta — assim a porta que aparece ' +
+    'é exatamente a porta que abre');
 
   /* `via` SOBREVIVE A RENOVACAO. Ela e propriedade da SESSAO, nao do cadastro: o
      servidor so a sabe no login, e `meuAcesso` devolve o registro sem ela. Como a
@@ -2621,7 +2644,7 @@ console.log('\n== a porta unica: a mesma tela nos dois apps ==');
 
   /* Sessao de ANTES da porta unica nao tem `via`: essa passa, porque derrubar quem ja
      estava logado no dia do deploy e pior, e o proximo login corrige. */
-  ok(/s\.via === 'pin'/.test(pod) && !/s\.via !== 'senha'/.test(pod),
+  ok(/s\.via === 'pin'/.test(reg) && !/s\.via !== 'senha'/.test(reg),
     'e a sessão antiga, sem `via`, continua entrando — derrubar quem já estava logado ' +
     'no dia do deploy é pior, e o próximo login corrige');
 })();
@@ -3250,7 +3273,10 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
   var fontes = ['function podeEntrar(s)', 'function podeVerPainelRegistro(u)',
                 'function sessaoDoRegistro(u)', 'function renovarSessao()',
                 'function abasPermitidas(s)'].map(recorta);
-  ok(fontes.every(function (f) { return f.length > 60; }),
+  /* O `podeEntrar` encolheu: hoje ele so repassa a pergunta para `Q.podePainel()`, no
+     `app.js`, onde a regra mora uma vez so. Por isso o piso dele e menor que o das
+     outras quatro — e o teste diz isso em vez de esconder o numero. */
+  ok(fontes[0].length > 20 && fontes.slice(1).every(function (f) { return f.length > 60; }),
     'o recorte pegou as cinco funções', fontes.map(function (f) { return f.length; }));
 
   /* Roda as cinco funcoes de verdade, com o mundo delas de mentira: a sessao guardada, o
@@ -3267,6 +3293,9 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
         entrar: function (u) { estado.sessao = u; },
         sair: function () { estado.saiu = true; },
         toast: function (m) { estado.aviso = m; },
+        /* A regra do painel de VERDADE, e nao uma imitacao: e ela que o `podeEntrar`
+           daqui consulta, e imita-la mediria a copia escrita no teste. */
+        podePainel: REGRA_PAINEL,
         ehAdmin: function () { return !!admin; } },
       function (fn) { relogio.push(fn); });
     var nova = api.renovar();
@@ -4628,6 +4657,106 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
      hora do login nao mostraria o que a pessoa acabou de lancar. */
   ok(/pgSaldo'\) carregarLanc\(\)/.test(html),
     'abrir a aba recarrega os lancamentos');
+})();
+
+console.log('\n== a porta do painel: as duas telas nunca discordam ==');
+(function () {
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  function corpo(txt, assinatura) {
+    var i = txt.indexOf(assinatura);
+    if (i < 0) return '';
+    var d = 0;
+    for (var k = txt.indexOf('{', i); k < txt.length; k++) {
+      if (txt[k] === '{') d++;
+      else if (txt[k] === '}') { d--; if (!d) return txt.slice(i, k + 1); }
+    }
+    return '';
+  }
+
+  /* A REGRA E UMA SO, e mora no `app.js`. Ela existia duas vezes — a conta que mostra
+     a porta no app de campo e a guarda do painel — e divergiam: com `acessoPainel` em
+     `false`, o campo deixava o ADMIN passar e o painel o recusava. A porta aparecia e
+     caía na tela de entrada, calada.
+
+     Morar no `app.js` também as protege do CACHE: o `app.js` carrega com o hash do
+     conteúdo no endereço, o HTML não. Com a regra dentro de cada página, um
+     `index.html` velho no celular decide por uma regra e o `admin.html` novo por
+     outra — e a pessoa fica no meio. */
+  ok(corpo(js, 'function podePainel(s)').length > 0,
+    'a regra do painel existe uma vez, no `app.js`');
+  ok(/podePainel: podePainel/.test(js), 'e as telas alcançam ela pelo `Q`');
+
+  var Q = { quemEsta: function () {}, podePainel: REGRA_PAINEL };
+
+  /* As duas telas, rodadas de verdade. */
+  var pod = corpo(adm, 'function podeEntrar(s)');
+  var podeEntrar = new Function('s', 'Q',
+    pod.replace(/^function podeEntrar\(s\)\s*\{/, '').replace(/\}$/, ''));
+
+  var apl = corpo(idx, 'function aplicarSessao(s)');
+  var marca = "document.getElementById('chipPainel').hidden =";
+  var ate = apl.indexOf(marca);
+  ok(ate > 0, 'e o app de campo decide a porta numa linha só');
+  var portaAparece = new Function('s', 'Q',
+    apl.slice(apl.indexOf('{') + 1, ate) +
+    '\n return !(' + apl.slice(ate + marca.length, apl.indexOf(';', ate)) + ');');
+
+  var casos = [
+    { n: 'Gerente, chave ligada', perfil: 'GERENTE', acesso: true },
+    { n: 'Admin, chave ligada', perfil: 'ADMIN', acesso: true },
+    { n: 'Conferente, chave ligada', perfil: 'CONFERENTE', acesso: true },
+    { n: 'Gerente, chave desligada', perfil: 'GERENTE', acesso: false },
+    /* O caso que estava quebrado de verdade. */
+    { n: 'ADMIN com a chave DESLIGADA', perfil: 'ADMIN', acesso: false },
+    { n: 'ADMIN, sessão velha', perfil: 'ADMIN' },
+    { n: 'GALPAO, sessão velha', perfil: 'GALPAO' },
+    { n: 'CONFERENTE, sessão velha', perfil: 'CONFERENTE' },
+    { n: 'GERENTE, sessão velha', perfil: 'GERENTE' }
+  ];
+  var discordam = [];
+  casos.forEach(function (c) {
+    ['pin', 'senha', undefined].forEach(function (via) {
+      var s = { id: 'U1', nome: c.n, perfil: c.perfil, temPin: true };
+      if ('acesso' in c) s.acessoPainel = c.acesso;
+      if (via !== undefined) s.via = via;
+      var abre = !!portaAparece(s, Q), entra = !!podeEntrar(s, Q);
+      if (abre !== entra) {
+        discordam.push(c.n + ' / via=' + (via || 'sem') +
+          (abre ? ' → vê a porta e cai no login' : ' → entraria, mas não vê a porta'));
+      }
+    });
+  });
+  ok(discordam.length === 0,
+    'nas ' + (casos.length * 3) + ' combinações de perfil × chave × credencial, a tela ' +
+    'que MOSTRA a porta e a que DEIXA ENTRAR dão a mesma resposta — discordando, a ' +
+    'porta leva a uma recusa, e porta que não abre é pior que porta nenhuma', discordam);
+
+  /* E nenhuma das duas recalcula a regra por conta própria: recalcular é como as
+     cópias nasceram da primeira vez. */
+  [['index.html', idx], ['admin.html', adm]].forEach(function (p) {
+    ok(!/\['?ADMIN'?,\s*'?GALPAO'?/.test(p[1]),
+      p[0] + ': não tem uma lista de perfis própria decidindo o painel');
+  });
+
+  /* A RECUSA SE EXPLICA. Ela era muda: quem tinha o painel liberado clicava na porta,
+     via a tela de entrada e não tinha como saber o que houve — parecia defeito, e
+     mandava procurar o problema no cadastro, que estava certo. */
+  ok(/function motivoDaRecusa\(s\)/.test(adm),
+    'o painel sabe dizer POR QUE recusou');
+  ok(/iniciarLogin\(motivoDaRecusa\(/.test(adm) &&
+     (adm.match(/iniciarLogin\(motivoDaRecusa\(/g) || []).length === 2,
+    'e os DOIS caminhos de recusa passam o motivo — um só deles calado deixa metade ' +
+    'dos casos sem explicação',
+    (adm.match(/iniciarLogin\(motivoDaRecusa\(/g) || []).length);
+  ok(/function portaUnica\(aqui, abrir, aviso\)/.test(js) && /if \(aviso\) mostrarErro\(aviso\)/.test(js),
+    'e a tela de entrada mostra esse motivo no cartão, que não some como o toast');
+  var mot = corpo(adm, 'function motivoDaRecusa(s)');
+  ok(/if \(!s\) return '';/.test(mot),
+    'sem sessão nenhuma não ganha frase — é a visita normal de quem abriu o endereço, ' +
+    'e "sua sessão acabou" para quem nunca entrou seria mentira');
 })();
 
 console.log('\n== o contador de caixas cabe na tela, sem encolher o alvo do dedo ==');

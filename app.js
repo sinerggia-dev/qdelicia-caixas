@@ -470,16 +470,54 @@
    * teria rebaixado a tranca do escritorio a do galpao sem ninguem pedir.
    */
 
+  /* ESTA SESSAO ENTRA NO PAINEL? UMA funcao, e ela mora aqui.
+     A regra existia DUAS vezes — a conta que mostra a porta no app de campo e a
+     guarda do painel — e as duas cópias divergiam num ponto: com a chave
+     `acessoPainel` em `false`, o app de campo deixava o ADMIN passar ("admin entra
+     sempre") e o painel o recusava ("`acessoPainel === true`"). Resultado: a porta
+     aparecia e levava à tela de entrada. Porta que não abre é pior que porta nenhuma.
+
+     Morar no `app.js` também faz elas não poderem divergir POR CACHE: o `app.js`
+     carrega com o hash do conteúdo no endereço, e o HTML não. Com a regra dentro de
+     cada página, um `index.html` velho no celular decide por uma regra e o
+     `admin.html` novo por outra — e a pessoa fica no meio.
+
+     A ordem é a do servidor (`podeVerPainel`): o ADMIN entra sempre, senão o
+     primeiro admin com a chave desligada ficaria trancado fora do próprio painel —
+     inclusive da tela onde isso se conserta. */
+  function podePainel(s) {
+    if (!s) return false;
+    /* O PAINEL ENTRA POR SENHA. O que o PIN protege é o lançamento, que fica
+       registrado com nome e hora e pode ser corrigido. `via` ausente é sessão de
+       antes da porta única, e essa passa: derrubar quem já estava logado no dia do
+       deploy é pior, e o próximo login corrige. */
+    if (s.via === 'pin') return false;
+    if (String(s.perfil).toUpperCase() === 'ADMIN') return true;
+    /* `acessoPainel` ausente é sessão de antes de a chave existir: vale a regra
+       antiga, por perfil, para não tirar a porta de quem já a tinha. */
+    if (s.acessoPainel === undefined) {
+      return ['GALPAO', 'CONFERENTE'].indexOf(String(s.perfil).toUpperCase()) >= 0;
+    }
+    return s.acessoPainel === true;
+  }
+
   /** Para onde esta sessao deve ir. */
   function destinoDa(s) {
-    return (s && s.via === 'senha' && s.acessoPainel === true) ? 'admin.html' : 'index.html';
+    return (s && s.via === 'senha' && podePainel(s)) ? 'admin.html' : 'index.html';
   }
 
   /**
    * @param aqui   'campo' | 'painel' — qual app está servindo esta tela
    * @param abrir  função que abre o app desta página, já com a sessão gravada
+   * @param aviso  por que a pessoa está vendo esta tela, quando ela FOI MANDADA
+   *               para cá. Opcional, e vazio na visita normal.
+   *
+   * O `aviso` existe porque a recusa era MUDA: quem tinha o painel liberado clicava
+   * na porta, via a tela de entrada aparecer e não tinha como saber o que houve —
+   * parecia defeito, e o cadastro estava certo o tempo todo. Tela que recusa sem
+   * dizer o motivo manda a pessoa procurar o problema no lugar errado.
    */
-  function portaUnica(aqui, abrir) {
+  function portaUnica(aqui, abrir, aviso) {
     var pagina = aqui === 'painel' ? 'admin.html' : 'index.html';
     var $ = function (id) { return document.getElementById(id); };
 
@@ -660,6 +698,10 @@
       mostrarErro('Configure o endereço da API em config.js antes de usar.');
       return;
     }
+    /* Por que a pessoa foi mandada para cá. Vem DEPOIS da guarda da API acima: se a
+       configuração está faltando, esse é o problema maior e é ele que tem de aparecer. */
+    if (aviso) mostrarErro(aviso);
+
     // A lista de usuarios nao aparece aqui: ela mostrava o nome de toda a equipe a
     // quem so abrisse o endereco. O aparelho guarda o ultimo nome, entao na pratica
     // ninguem redigita.
@@ -840,7 +882,7 @@
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
     temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
-    portaUnica: portaUnica, destinoDa: destinoDa,
+    portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
     quemEsta: quemEsta, iniciais: iniciais,
     barraAging: barraAging, assinatura: assinatura,
     comprimirFoto: comprimirFoto, csv: csv, atualizarBadge: atualizarBadge

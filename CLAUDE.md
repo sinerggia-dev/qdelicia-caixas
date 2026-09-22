@@ -196,12 +196,47 @@ registro, o `entrar()` preserva o `via` que já estava lá — sem isso ele sumi
 do login e a sessão de PIN passava a abrir o painel. Isto foi **medido no navegador**, não
 deduzido.
 
-**A mesma regra é cobrada três vezes, de propósito.** Mandar para o outro app é conveniência,
-e quem digita `admin.html` na barra passa por cima dela: por isso o `podeEntrar` do painel
-recusa a sessão de PIN por conta própria, e o `aplicarSessao` do campo esconde a porta do
-painel para quem entrou por PIN — deixá-la ali devolveria pelo atalho o que a entrada acabou
-de recusar. **Sessão de antes da porta única não tem `via`, e essa passa**: derrubar quem já
-estava logado no dia do deploy é pior, e o próximo login corrige.
+**A mesma regra é cobrada três vezes, de propósito** — mas é UMA regra, `Q.podePainel(s)`, no
+`app.js`. Mandar para o outro app é conveniência, e quem digita `admin.html` na barra passa
+por cima dela: por isso o `podeEntrar` do painel pergunta a ela na chegada, o `aplicarSessao`
+do campo esconde a porta pela mesma resposta, e o `destinoDa` a consulta no login. **Sessão de
+antes da porta única não tem `via`, e essa passa**: derrubar quem já estava logado no dia do
+deploy é pior, e o próximo login corrige.
+
+### A regra do painel mora no `app.js`, e não em cada página
+
+Ela era escrita **duas vezes** — a conta que mostra a porta no `index.html` e a guarda do
+`admin.html` — e as duas cópias divergiam num ponto: com `acessoPainel` em `false`, o app de
+campo deixava o ADMIN passar ("admin entra sempre") e o painel o recusava (`acessoPainel ===
+true`). A porta aparecia na gaveta e levava à tela de entrada. **Porta que não abre é pior que
+porta nenhuma** — e esta abria numa recusa muda.
+
+Duas razões para o `app.js`, e a segunda é a menos óbvia:
+
+1. Duas cópias de uma regra divergem. Divergiram.
+2. **O `app.js` se renova pelo hash do conteúdo no endereço; o HTML não.** Com a regra dentro
+   de cada página, um `index.html` velho no celular decide por uma regra e o `admin.html`
+   recém-baixado por outra — e a pessoa fica no meio, sem nada no que ela vê explicando.
+
+O `teste_tela` roda as **27 combinações** de perfil × chave × credencial pelas duas funções de
+verdade e exige que a resposta seja a mesma nas duas. Não é um teste de texto: ele executa o
+código das duas telas.
+
+### Recusar em silêncio é meio defeito
+
+O painel mandava para a tela de entrada sem dizer por quê. Quem tinha o painel liberado clicava
+na porta, via o login aparecer e concluía que o **sistema** estava quebrado — e ia procurar o
+problema no cadastro, que estava certo o tempo todo.
+
+`motivoDaRecusa(s)` dá uma frase a cada `return false` do `podePainel`, e `Q.portaUnica()`
+recebe esse aviso e o pendura no cartão do topo, que não some como o toast. **Os dois caminhos
+de recusa passam o motivo** — um só deles calado deixaria metade dos casos sem explicação, e o
+teste conta os dois.
+
+**Sem sessão nenhuma não ganha frase.** É a visita normal de quem abriu o endereço, e "sua
+sessão acabou" para quem nunca entrou seria mentira. Efeito colateral útil: se alguém ainda
+cair no login sem explicação, a causa está nesse ramo — a sessão não chegou —, e isso é
+informação, não mistério.
 
 **O campo do segredo não tem olho de "mostrar a senha", e isso é de propósito.** Ele teve, e o
 resultado foi um campo com **dois**: o botão do app e o `::-ms-reveal`, que o Edge desenha
