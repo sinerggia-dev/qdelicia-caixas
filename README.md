@@ -59,6 +59,11 @@ mora no perfil é `PROMOTOR`, que não vê a aba de Saída.
 | `admin.html` (escritório) | Painel de Ativos · Painel · Extratos · Ajustes · Movimentos · Cadastros |
 | `extrato.html?t=TOKEN` | Só leitura: o cliente vê o próprio saldo e extrato |
 
+A **entrada é uma só** para os dois primeiros: a mesma tela, com um campo de segredo que
+aceita o PIN de 6 números ou a senha do painel. Quem decide o destino é a credencial usada —
+senha + acesso ao painel abre o `admin.html`, o resto abre o `index.html` —, não o endereço
+digitado. Abrir o `admin.html` direto mostra essa mesma tela.
+
 ## Arquitetura
 
 ```
@@ -117,8 +122,8 @@ Mudou variável de ambiente? Precisa de **redeploy** para valer.
 
 ### 3. Primeiros passos no sistema
 
-1. Entre em `admin.html` como **Administrador** e **troque os PINs e a senha de exemplo** —
-   o endereço é público.
+1. Entre como **Administrador**, pela senha do painel, e **troque os PINs e a senha de
+   exemplo** — o endereço é público.
 2. Aba **Cadastros**: renomeie o galpão, cadastre filiais, clientes (com WhatsApp, limite de
    caixas e prazo de devolução) e os tipos de caixa.
 3. Cadastre motoristas e promotores com PIN próprio.

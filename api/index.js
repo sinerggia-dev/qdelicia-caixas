@@ -136,9 +136,13 @@ async function rotaPost(p) {
 
   if (acao === 'login') {
     var d0 = await db.carregarTudo();
-    // Escritório entra com identificador + senha; campo, com nome + PIN curto.
-    if (p.senha) return L.loginPorSenha(d0.usuarios, p.identificador || p.usuarioId, p.senha, senha.conferir);
-    return L.loginPorPin(d0.usuarios, p.identificador || p.nome || p.usuarioId, p.pin);
+    /* UMA PORTA SO: a tela manda `segredo`, e o servidor descobre se é senha ou PIN.
+       Os campos antigos (`senha`, `pin`) continuam aceitos — há telas em cache e
+       fila offline que ainda os mandam, e recusá-las tirava gente do ar no deploy. */
+    var quem = p.identificador || p.nome || p.usuarioId;
+    if (p.segredo !== undefined) return L.loginUnico(d0.usuarios, quem, p.segredo, senha.conferir);
+    if (p.senha) return L.loginPorSenha(d0.usuarios, quem, p.senha, senha.conferir);
+    return L.loginPorPin(d0.usuarios, quem, p.pin);
   }
 
   if (acao === 'definirSenha') return await definirSenha(p);

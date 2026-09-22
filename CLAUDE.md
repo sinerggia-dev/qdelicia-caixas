@@ -155,12 +155,56 @@ A chave vive só em `SUPABASE_SERVICE_KEY`, nas variáveis de ambiente da Vercel
 nova do Supabase (`sb_secret_...`, chamada `vercel_api`), não a `service_role` legada. **Nunca**
 coloque em arquivo do repositório, e não peça para o usuário mandá-la por chat.
 
-## Entrar: PIN no campo, senha no painel
+## Entrar: duas credenciais, uma porta só
 
-Os dois convivem de propósito, por escolha do usuário. O celular lança de luva várias vezes
-por dia e o PIN protege só lançamento — que fica assinado e pode ser corrigido. O painel vê a
-operação inteira e mexe em cadastro, então pede e-mail/usuário mais senha em hash (scrypt,
-`_senha.js`). Se alguém pedir para unificar, a pergunta já foi feita e a resposta foi manter.
+**As credenciais continuam duas**, de propósito, por escolha do usuário. O celular lança de
+luva várias vezes por dia e o PIN protege só lançamento — que fica assinado e pode ser
+corrigido. O painel vê a operação inteira e mexe em cadastro, então pede e-mail/usuário mais
+senha em hash (scrypt, `_senha.js`). Se alguém pedir para fundir **as credenciais**, a
+pergunta já foi feita e a resposta foi manter.
+
+**A TELA, porém, é uma só** — `Q.portaUnica(aqui, abrir)` no `app.js`, e o `index.html` e o
+`admin.html` carregam o mesmo bloco de entrada, palavra por palavra (o `teste_tela` compara os
+dois trechos e exige que sejam idênticos). Eram duas telas quase iguais, "Área do Usuário" e
+"Área Admin", cada uma com um link para a outra no rodapé. Quem errava a porta levava
+"usuário ou senha incorretos" — uma mensagem que falava do erro errado: a credencial estava
+certa, o endereço é que não era. E não havia como a pessoa saber qual das duas era a dela.
+
+Como a porta é uma só, quem decide o destino é a **sessão**, não o link clicado:
+
+```
+loginUnico(usuarios, ident, segredo, conferir)   // _logica.js
+  → tenta a SENHA primeiro, depois o PIN
+  → devolve `via: 'senha' | 'pin'`
+
+destinoDa(s)   // app.js
+  → via === 'senha' && acessoPainel === true  →  admin.html
+  → tudo mais                                  →  index.html
+```
+
+**A ordem não é arbitrária.** Na ordem inversa, alguém cuja senha do painel fosse por acaso
+seis dígitos entraria sempre como PIN e perderia o painel — sem erro nenhum na tela, e sem
+maneira de entender por quê.
+
+**Uma recusa só para os dois fracassos.** Segredo errado e identificador inexistente devolvem
+a mesma frase, e a recusa não diz por qual credencial falhou: mensagens diferentes contariam a
+quem estivesse testando se aquele identificador existe, e com que credencial.
+
+**O `via` é propriedade da SESSÃO, não do cadastro.** O servidor só o sabe no instante do
+login; `meuAcesso` devolve o registro sem ele. Como a renovação chama `entrar()` com esse
+registro, o `entrar()` preserva o `via` que já estava lá — sem isso ele sumia segundos depois
+do login e a sessão de PIN passava a abrir o painel. Isto foi **medido no navegador**, não
+deduzido.
+
+**A mesma regra é cobrada três vezes, de propósito.** Mandar para o outro app é conveniência,
+e quem digita `admin.html` na barra passa por cima dela: por isso o `podeEntrar` do painel
+recusa a sessão de PIN por conta própria, e o `aplicarSessao` do campo esconde a porta do
+painel para quem entrou por PIN — deixá-la ali devolveria pelo atalho o que a entrada acabou
+de recusar. **Sessão de antes da porta única não tem `via`, e essa passa**: derrubar quem já
+estava logado no dia do deploy é pior, e o próximo login corrige.
+
+**A rota ainda aceita `senha` e `pin` soltos**, além do `segredo` novo. Há tela em cache e fila
+offline mandando os campos antigos, e recusá-los tirava gente do ar no dia do deploy.
 
 **Não existe envio de e-mail neste app.** Por isso "esqueci a senha" não manda link: quem tem
 PIN ou a senha antiga se resolve sozinho na tela; quem não tem nenhum dos dois grava um pedido
@@ -633,7 +677,7 @@ nova pelo clique do meio) e ambas **nascem `hidden`**:
 
 | chip | onde | vai para | aparece quando |
 |---|---|---|---|
-| `#chipPainel` — ▦ Painel | app de campo | `admin.html` | a mesma regra do `podeVerPainel()`: ADMIN sempre, os demais pela chave do cadastro |
+| `#chipPainel` — ▦ Painel | app de campo | `admin.html` | a mesma regra do `podeVerPainel()`: ADMIN sempre, os demais pela chave do cadastro — **e nunca para quem entrou por PIN** |
 | `#chipCampo` — ↩ Lançamentos | painel | `index.html` | `temPin` — sem PIN o `loginPorPin` recusa |
 
 **Porta que leva a uma recusa é pior que porta nenhuma.** É por isso que cada uma checa o lado de
@@ -642,8 +686,11 @@ PIN). Quando o campo está **ausente** — sessão de antes dele existir — a p
 esconder um caminho de quem já o tinha é pior do que oferecê-lo a quem talvez não passe, e a
 releitura corrige no mesmo carregamento.
 
-`a.chip[hidden]{display:none}` é obrigatório: sem essa regra o `display` do chip vence o atributo
-`hidden` e a porta aparece para todo mundo.
+O `[hidden]{display:none!important}` do fim do `styles.css` é obrigatório: sem ele o `display`
+do chip vence o atributo `hidden` e a porta aparece para todo mundo. Era uma regra por
+elemento — `a.chip[hidden]`, e mais duas — e o bug voltou **quatro vezes**, sempre num
+elemento novo que ninguém lembrou de incluir. Hoje é **uma regra só, para todo mundo**: é o
+tipo de coisa que não se resolve lembrando.
 
 `aplicarSessao()`, nas duas telas, é o único lugar que mexe no que a sessão manda no cabeçalho
 (nome, porta, abas). Os dois caminhos — abertura e releitura — passam por ela; espalhado entre os
@@ -852,11 +899,11 @@ node teste/teste_saldo.js
 node teste/teste_primeiro_acesso.js
 ```
 
-O `teste_api.js` tem **520 verificações**. Roda o roteador, as regras e os tradutores **de
+O `teste_api.js` tem **531 verificações**. Roda o roteador, as regras e os tradutores **de
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**746 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**762 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
@@ -893,13 +940,21 @@ leitura, num embrulho do `readFileSync`, para não depender só do `.gitattribut
 aplicada nos testes novos: fechar o recorte contando chaves e conferir o próprio recorte antes de
 usá-lo, para ele cair alto em vez de passar verde testando outro código.
 
-O `teste/teste_login.js` (17 verificacoes) cuida do aviso de administrador na tela de
-entrada do galpao: as duas primeiras senhas erradas seguem com a mensagem normal, da
-terceira em diante o aviso passa a ser "Entre em contato com o administrador do sistema."
-e fica fixo no cartao, porque o toast some em cinco segundos. A contagem e so de tela —
-**nao bloqueia o acesso de proposito**: travar a entrada por senha errada pararia o
-lancamento de caixa no galpao, que e o que este app existe para nao deixar parar. O teste
-verifica isso tambem.
+O `teste/teste_login.js` (20 verificacoes) cuida do aviso de administrador na tela de
+entrada: as duas primeiras tentativas erradas seguem com a mensagem normal, da terceira em
+diante o aviso passa a ser "Entre em contato com o administrador do sistema." e fica fixo no
+cartao, porque o toast some em cinco segundos. A contagem e so de tela — **nao bloqueia o
+acesso de proposito**: travar a entrada por segredo errado pararia o lancamento de caixa no
+galpao, que e o que este app existe para nao deixar parar. O teste verifica isso tambem.
+
+A contagem **mudou de casa** com a porta unica: vivia dentro do `index.html`, com uma copia
+no `admin.html`, e hoje mora no `app.js`, dentro do `portaUnica`. O teste acompanhou — ele
+recorta de `function mostrarErro(texto)` ate o fim de `contarErro` e roda o trecho com DOM de
+mentira. Repare que ele **nao imita o `mostrarErro`**: usa o de verdade, porque e ele que
+decide se o cartao aparece e por onde o texto entra. Escrever a frase certa num cartao
+`hidden` e a mesma coisa que nao escrever nada, e e por isso que duas verificacoes olham o
+`hidden` e nao so o texto. O cartao recebe `textContent`, nunca `innerHTML`: assim a mensagem
+que veio do servidor vira texto, e nao marcacao.
 
 O `teste/teste_motorista.js` (23 verificacoes) cuida da lista de motoristas na saida e na devolucao (a mesma funcao, com os seletores de cada tela; na devolucao a rota e o caminhao de onde a carga volta). A rota
 decide a **ordem**, nao quem pode aparecer: "Motorista da rota" em cima, "Outros motoristas"
@@ -928,7 +983,7 @@ mudos, e esse alerta e uma das guardas contra saida nao lancada.
 O teste tambem fixa a regra de **nao somar** as duas contas da rota: `saldo` e o que esta no
 caminhao, `saldoClientes` e o que esta nos pontos dela. Somar esconde onde a caixa esta.
 
-O `teste/teste_primeiro_acesso.js` (29 verificacoes) le o HTML das duas telas e o codigo do
+O `teste/teste_primeiro_acesso.js` (30 verificacoes) le o HTML das duas telas e o codigo do
 servidor. O fluxo visual precisa de navegador e nao roda aqui; o que ele protege e o desvio:
 tirar o `if (r.trocarSenha)` do login faria a senha provisoria valer para sempre sem nada
 quebrar. O comportamento do servidor esta em `teste_api.js`, no bloco "primeiro acesso".

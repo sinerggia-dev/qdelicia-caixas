@@ -32,9 +32,24 @@
   --neutro:#2c405c; --linha:#25374f;
 
   --txt:#e8eef5; --txt2:#c3d3e6; --txt3:#9cb1c9;
+  /* So da tela de entrada: o cinza do `placeholder`, a borda sob o mouse e a tinta
+     do aviso de erro. Ficam em token pela mesma razao que todas as outras — cor
+     solta e a que escapa da medicao de contraste e chega ao galpao sem passar. */
+  --txt-fraco:#7d97b6; --linha-viva:#3e6a96; --vermelho-txt:#ffd9d9;
   --vermelho:#f0a5a5; --vermelho-claro:#3a2430;
   --azul:#8ab8f5; --azul-claro:#21344d;
   --laranja:#e8a33d;
+  /* AS CORES DA MARCA, tiradas do proprio logo. Elas vivem aqui e nao na tela de
+     entrada para nao virarem cor solta: e o mesmo rosa e o mesmo verde em qualquer
+     lugar que a marca apareca.
+
+     O VERDE e fundo de botao com tinta ESCURA: branco sobre ele da 3,1:1 e reprova;
+     a tinta escura da 5,3:1 e mantem a cor exata do logo. Esse par e a razao de
+     `--sobre-verde` existir — sem ele alguem poe branco por habito e o botao fica
+     ilegivel no galpao. */
+  --marca-rosa:#bd3393; --marca-verde:#00a853;
+  --verde-hover:#00b85c;      /* o hover CLAREIA: escurecer roubava contraste */
+  --sobre-verde:#0a1f38;      /* a tinta que vai SOBRE o verde */
   --raio:14px; --raio-sm:10px;
   /* Sombra no escuro precisa ser mais funda: a de 8% sumia contra o fundo. */
   --sombra:0 1px 3px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.28);
@@ -472,49 +487,95 @@ tr.ruim{background:var(--vermelho-claro)}
 .modal .box{background:var(--surface);border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:88vh;overflow:auto}
 .modal h2{margin-top:0}
 
-/* login */
-/* Cena escura só na entrada; o app depois do login continua claro.
-   `.login` toma a tela inteira e centraliza os próprios filhos — assim o marinho
-   sangra até a borda sem marcação nova, sem JS e sem depender de :has(). */
+/* ===================== TELA DE ENTRADA =====================
+   UMA PORTA SO. Antes eram duas telas quase iguais — "Area do Usuario" e "Area
+   Admin" — e cada uma mandava a pessoa para a outra por um link no rodape. Quem
+   errava a porta levava um "usuario ou senha incorretos" que nao dizia nada sobre
+   o erro de verdade, que era ter aberto o endereco errado.
+
+   Agora o destino e decidido pelo PAPEL, no servidor, depois da autenticacao —
+   nunca pelo link que a pessoa clicou.
+
+   Cores tiradas do proprio logo: rosa, verde e o marinho que ja era o fundo. */
 .login{
-  max-width:none;margin:0;min-height:100vh;text-align:center;
-  padding:12vh 18px calc(40px + env(safe-area-inset-bottom));
+  min-height:100dvh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:22px;
+  max-width:none;margin:0;text-align:center;
+  padding:32px 20px calc(24px + env(safe-area-inset-bottom));
   background:var(--marinho);color:#fff;color-scheme:dark;
 }
-/* As laterais precisam ser `auto` em cada regra: a forma curta `margin:0 0 4px`
-   zera left/right e desalinha o item, mesmo com o auto declarado acima. */
-.login>*{max-width:380px;margin-left:auto;margin-right:auto}
-.login h1{font-size:21px;margin:0 auto 4px;color:#fff}
+.login__topo{text-align:center;max-width:360px}
 /* A arte ja vem com borda branca e fundo transparente: assenta no marinho sem
    cartao atras. `height:auto` com width/height no HTML reserva o espaco certo e
    evita o salto do formulario quando a imagem termina de carregar. */
-.logo-entrada{
-  display:block;width:100%;max-width:230px;height:auto;
-  margin:0 auto 14px;
-}
+.logo-entrada{display:block;width:100%;max-width:232px;height:auto;margin:0 auto 18px}
+.login__titulo{margin:0;font-size:23px;font-weight:700;letter-spacing:-.3px;color:#fff}
+
 /* Tela baixa (celular deitado, ou teclado aberto): a logo encolhe antes de o
    formulario sair da vista. */
 @media (max-height:620px){
   .logo-entrada{max-width:150px;margin-bottom:8px}
-  .login{padding-top:5vh}
+  .login{justify-content:flex-start;padding-top:5vh}
 }
-.login p{color:var(--txt3);font-size:14px;margin:0 auto 22px}
-/* O link da entrada era `--ambar-btn`, que virou o AZUL da marca quando a paleta
-   mudou: azul escuro sobre o card azul da entrada, ilegivel. Link e tinta, e tinta da
-   marca e `--marca-txt` — a mesma armadilha de "marinho e fundo, nunca tinta". */
-.login a{color:var(--marca-txt)}
+
+/* A faixa da marca: um filete, nao um degrade decorativo. */
+.marca-faixa{display:flex;height:4px;width:100%;max-width:380px;border-radius:999px;overflow:hidden}
+.marca-faixa span{flex:1 1 auto}
+.marca-faixa span:first-child{background:var(--marca-rosa)}
+.marca-faixa span:last-child{background:var(--marca-verde)}
+
 .login .card{
-  background:var(--marinho);border:1px solid rgba(255,255,255,.10);
-  box-shadow:0 10px 30px rgba(0,0,0,.28)
+  width:100%;max-width:380px;margin:0;padding:22px 20px 24px;text-align:left;
+  background:var(--surface-2);border:1px solid var(--linha);
+  border-radius:var(--raio);box-shadow:0 10px 30px rgba(0,0,0,.28)
 }
-.login .card label{color:var(--txt2)}
-.login .card input,.login .card select{
-  background:var(--campo);color:var(--txt);border-color:rgba(255,255,255,.16)
+.login a{color:var(--marca-txt)}
+.login .campo + .campo{margin-top:18px}
+.login .rot{display:block;margin-bottom:7px;font-size:14px;font-weight:600;color:#fff}
+/* A REGRA DO CAMPO VEM ANTES DO CAMPO, e nao depois: lida depois, ela chega quando
+   a pessoa ja digitou errado. */
+.login .dica{display:block;margin:-3px 0 7px;font-size:12px;color:var(--txt3)}
+.login .card input{
+  width:100%;min-height:56px;padding:0 16px;
+  font:inherit;font-size:16px;      /* 16px evita o zoom automatico do iOS */
+  color:var(--txt);background:var(--campo);
+  border:1px solid var(--neutro);border-radius:var(--raio-sm)
 }
-.login .card input:focus,.login .card select:focus{
-  outline-color:var(--ambar-btn);border-color:var(--ambar-btn)
+.login .card input::placeholder{color:var(--txt-fraco)}
+.login .card input:hover{border-color:var(--linha-viva)}
+.login .card input:focus{outline:none;box-shadow:var(--foco)}
+
+/* O campo do segredo: monoespacado e espacado, porque na maior parte das vezes o
+   que se digita ali sao seis numeros e conta-los tem de ser facil. */
+.pin{font-family:var(--fonte-mono);font-size:20px;letter-spacing:.5em;padding-right:58px!important}
+.campo-caixa{position:relative}
+.ver-segredo{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+  border:0;border-radius:10px;background:transparent;color:var(--txt3);cursor:pointer
 }
-.pin{letter-spacing:.5em;text-align:center;font-size:22px!important;font-weight:700}
+.ver-segredo:hover{background:var(--surface);color:var(--txt)}
+
+/* O botao de entrar e o VERDE do logo, com tinta escura. Ver `--sobre-verde`. */
+.btn-entrar{
+  width:100%;min-height:56px;margin-top:22px;
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  font:inherit;font-size:16px;font-weight:600;
+  color:var(--sobre-verde);background:var(--marca-verde);
+  border:0;border-radius:var(--raio-sm);cursor:pointer
+}
+.btn-entrar:hover{background:var(--verde-hover)}
+.btn-entrar:active{transform:translateY(1px)}
+@media (prefers-reduced-motion:reduce){ .btn-entrar:active{transform:none} }
+
+/* O erro fica no TOPO do cartao e e anunciado por leitor de tela. Embaixo do
+   botao ele nascia fora da vista com o teclado aberto. */
+.login .erro-entrada{
+  display:flex;align-items:flex-start;gap:9px;margin-bottom:16px;padding:12px 14px;
+  font-size:14px;color:var(--vermelho-txt);background:rgba(240,165,165,.13);
+  border:1px solid rgba(240,165,165,.4);border-radius:var(--raio-sm)
+}
+.login .erro-entrada svg{flex:0 0 auto;margin-top:1px}
 
 /* ---------- indicadores do rodapé da guia Retornos ---------- */
 /* A borda mudou de lado junto com os cartoes: em cima da tabela, o filete tem de

@@ -2324,6 +2324,62 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     });
   }
 
+  console.log('\n== a porta unica: uma tela, duas credenciais ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const conferir = (s, h) => s === 'senhalonga' && h === 'HASH';
+    const gente = [{ ID: 'U1', Nome: 'Nestor', Usuario: 'nestor', Email: 'n@x.com',
+                     Ativo: true, PIN: '123456', SenhaHash: 'HASH', Perfil: 'Gerente',
+                     AcessoPainel: true }];
+
+    /* A ORDEM IMPORTA: senha primeiro, PIN depois. Ao contrário, alguém cuja senha
+       longa fosse por acaso seis dígitos entraria sempre como PIN e perderia o
+       painel — sem erro nenhum, e sem entender por quê. */
+    const s1 = F.loginUnico(gente, 'nestor', 'senhalonga', conferir);
+    ok(s1.ok && s1.via === 'senha', 'a senha longa entra, e o login diz que foi por senha', s1.via);
+    const s2 = F.loginUnico(gente, 'nestor', '123456', conferir);
+    ok(s2.ok && s2.via === 'pin', 'o PIN de seis números entra, e o login diz que foi por PIN', s2.via);
+    const iSenha = F.loginUnico.toString().indexOf('loginPorSenha');
+    const iPin = F.loginUnico.toString().indexOf('loginPorPin');
+    ok(iSenha > 0 && iPin > 0 && iSenha < iPin,
+      'e a SENHA é tentada primeiro — na outra ordem, uma senha longa de seis dígitos ' +
+      'entraria como PIN e perderia o painel', { senha: iSenha, pin: iPin });
+
+    /* O mesmo identificador serve para os dois: e-mail, usuário ou nome. */
+    ok(F.loginUnico(gente, 'n@x.com', 'senhalonga', conferir).ok,
+      'e o identificador pode ser o e-mail — é a mesma porta para todo mundo');
+
+    /* UMA MENSAGEM SO para os dois fracassos. Dizer qual das duas falhou contaria a
+       quem estivesse testando se aquele identificador existe, e com que credencial. */
+    const err1 = F.loginUnico(gente, 'nestor', 'errado', conferir);
+    const err2 = F.loginUnico(gente, 'naoexiste', 'senhalonga', conferir);
+    ok(!err1.ok && !err2.ok && err1.erro === err2.erro,
+      'segredo errado e usuário inexistente dão a MESMA recusa — mensagens diferentes ' +
+      'contam a quem está testando se aquele identificador existe',
+      { segredoErrado: err1.erro, naoExiste: err2.erro });
+    ok(!err1.via && !err2.via,
+      'e a recusa não diz por qual credencial ela falhou');
+
+    ok(!F.loginUnico(gente, '', '123456', conferir).ok, 'sem identificador não entra');
+    ok(!F.loginUnico(gente, 'nestor', '', conferir).ok, 'e sem segredo também não');
+    /* A guarda do vazio nao e enfeite: sem ela o segredo vazio cai no `loginPorPin`,
+       que tem OUTRA mensagem de recusa — e a diferenca de texto e justamente o que
+       conta a quem esta testando qual credencial aquele usuario tem. */
+    const fonte = F.loginUnico.toString();
+    ok(/!String\(ident == null \? '' : ident\)\.trim\(\) \|\| !texto/.test(fonte),
+      'e recusa o vazio ANTES de olhar a lista — caindo no PIN, a recusa mudaria de ' +
+      'texto, e a diferença conta qual credencial aquele usuário tem', fonte.slice(0, 300));
+
+    /* A ROTA continua aceitando os campos antigos: ha telas em cache e fila offline
+       que ainda mandam `senha` ou `pin`, e recusa-las tirava gente do ar no deploy. */
+    const rot = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+    ok(/if \(p\.segredo !== undefined\) return L\.loginUnico/.test(rot),
+      'a rota usa a porta única quando a tela manda `segredo`');
+    ok(/if \(p\.senha\) return L\.loginPorSenha/.test(rot) && /return L\.loginPorPin/.test(rot),
+      'e ainda aceita os campos antigos — há tela em cache mandando `senha` ou `pin`, ' +
+      'e recusá-la tirava gente do ar no dia do deploy');
+  }
+
   console.log('\n== a matriz abre as listas ==');
   {
     const F = require(path.join(__dirname, '..', 'api', '_logica.js'));

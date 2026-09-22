@@ -2514,6 +2514,105 @@ console.log('\n== o seletor de Ajuste obedece a lista de locais ==');
     'quem marca precisa saber que deixar vazio não libera nada');
 })();
 
+console.log('\n== a porta unica: a mesma tela nos dois apps ==');
+(function () {
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  /* AS DUAS TELAS SAO A MESMA, palavra por palavra. Eram duas quase iguais — "Area do
+     Usuario" e "Area Admin" —, cada uma mandando para a outra por um link no rodape;
+     quem errava a porta levava "usuario ou senha incorretos", uma mensagem que nao
+     falava do erro de verdade, que era o endereco. */
+  function entrada(t) {
+    var i = t.indexOf('<div id="telaLogin" class="login">');
+    return i < 0 ? '' : t.slice(i, t.indexOf('  </div>\n</div>', i) + 15);
+  }
+  var eCampo = entrada(idx), ePainel = entrada(adm);
+  ok(eCampo.length > 3000 && eCampo === ePainel,
+    'a tela de entrada é a MESMA nos dois apps, palavra por palavra — divergindo, uma ' +
+    'delas passa a pedir outra coisa e a pessoa descobre isso levando uma recusa',
+    { campo: eCampo.length, painel: ePainel.length });
+
+  /* UM campo de segredo, e nao dois. Dois campos obrigariam a pessoa a saber que o
+     PIN e a senha sao coisas diferentes — que e justamente o que ela nao precisa
+     saber. */
+  ok((eCampo.match(/id="inSegredo"/g) || []).length === 1,
+    'e tem UM campo de segredo — dois obrigariam a pessoa a saber que PIN e senha são ' +
+    'coisas diferentes, que é o que ela não precisa saber');
+  ok(eCampo.indexOf('id="inPin"') < 0 && eCampo.indexOf('id="inSenha"') < 0,
+    'e os dois campos antigos sumiram');
+  ok(/6 números, ou a sua senha do painel/.test(eCampo),
+    'e a dica diz que os dois servem — sem ela, quem tem senha longa não tenta');
+
+  /* Nenhuma das duas manda para a outra: o destino e decidido depois de autenticar. */
+  ok(eCampo.indexOf('painel administrativo') < 0 && eCampo.indexOf('app de lançamento') < 0,
+    'e nenhuma delas manda a pessoa para a outra — o destino é decidido depois de ' +
+    'autenticar, e não pelo link que ela clicou');
+
+  /* O CODIGO TAMBEM E UM SO, e mora no `app.js`: duas copias de uma tela de login
+     divergem, e o dia em que uma pedir outra coisa a pessoa descobre levando recusa. */
+  ok(/function portaUnica\(aqui, abrir\)/.test(js),
+    'o código da entrada mora no `app.js`, uma vez só');
+  [['index.html', idx, "Q.portaUnica('campo'"], ['admin.html', adm, "Q.portaUnica('painel'"]]
+    .forEach(function (p) {
+      ok(p[1].indexOf(p[2]) > 0, p[0] + ': chama a porta única');
+      ok(p[1].indexOf("acao:'login'") < 0 && p[1].indexOf("acao: 'login'") < 0,
+        p[0] + ': e não tem login próprio nenhum');
+    });
+
+  /* O DESTINO sai do PAPEL, e o painel exige a SENHA. */
+  var iD = js.indexOf('function destinoDa(s)');
+  var dest = js.slice(iD, js.indexOf('\n  }', iD));
+  ok(iD > 0 && /s\.via === 'senha' && s\.acessoPainel === true/.test(dest),
+    'o destino sai do papel — e o painel só com quem entrou por SENHA', dest);
+
+  /* O DESVIO acontece: a pessoa e MANDADA para o destino. Sem esta linha, `destinoDa`
+     vira um calculo que ninguem usa, e cada pagina abre o proprio app — que e o que a
+     porta unica veio desfazer. */
+  var iS = js.indexOf('function seguir(usuario, via)');
+  var seg = js.slice(iS, js.indexOf('\n    }', iS));
+  ok(iS > 0 && /if \(destino !== pagina\) \{ location\.href = destino; return; \}/.test(seg),
+    'e quem não está no destino É MANDADO para lá — sem isto `destinoDa` vira um ' +
+    'cálculo que ninguém usa, e cada página abre o próprio app', seg);
+  /* E o `via` entra na sessao AQUI: e o unico lugar que sabe por onde a pessoa entrou. */
+  ok(/sessao\.via = via;/.test(seg),
+    'e o `via` entra na sessão neste ponto — é o único lugar do sistema que sabe por ' +
+    'qual credencial a pessoa autenticou', seg);
+
+  /* E A MESMA REGRA COBRADA DE NOVO NO PAINEL: o destino é conveniência, e quem digitar
+     o endereço de admin.html direto passa por cima dele. */
+  var iP = adm.indexOf('function podeEntrar(s)');
+  var pod = adm.slice(iP, adm.indexOf('\n  }', iP));
+  ok(iP > 0 && /if \(s\.via === 'pin'\) return false;/.test(pod),
+    'e o painel recusa a sessão de PIN por conta própria — mandar para o outro app é ' +
+    'conveniência, e quem digita o endereço passa por cima dela', pod);
+
+  /* E a PORTA do painel some no app de campo para quem entrou com PIN: deixá-la ali
+     devolveria pelo atalho o que a entrada acabou de recusar. */
+  var iA = idx.indexOf('function aplicarSessao(s)');
+  var apl = idx.slice(iA, idx.indexOf('\n  }', iA));
+  ok(iA > 0 && /if \(s\.via === 'pin'\) podePainel = false;/.test(apl),
+    'e a porta do painel some no app de campo para quem entrou com PIN — deixá-la ali ' +
+    'devolveria pelo atalho o que a entrada recusou', apl);
+
+  /* `via` SOBREVIVE A RENOVACAO. Ela e propriedade da SESSAO, nao do cadastro: o
+     servidor so a sabe no login, e `meuAcesso` devolve o registro sem ela. Como a
+     renovacao chama `entrar()` com esse registro, sem isto o `via` sumia segundos
+     depois — e o login por PIN passava a abrir o painel. Medido no navegador. */
+  var iE = js.indexOf('function entrar(u)');
+  var ent = js.slice(iE, js.indexOf('\n  }', iE));
+  ok(iE > 0 && /if \(novo\.via === undefined\)/.test(ent) && /antes\.via/.test(ent),
+    '`via` sobrevive à renovação da sessão — ela é propriedade da SESSÃO, não do ' +
+    'cadastro, e sem isto o login por PIN passava a abrir o painel segundos depois', ent);
+
+  /* Sessao de ANTES da porta unica nao tem `via`: essa passa, porque derrubar quem ja
+     estava logado no dia do deploy e pior, e o proximo login corrige. */
+  ok(/s\.via === 'pin'/.test(pod) && !/s\.via !== 'senha'/.test(pod),
+    'e a sessão antiga, sem `via`, continua entrando — derrubar quem já estava logado ' +
+    'no dia do deploy é pior, e o próximo login corrige');
+})();
+
 console.log('\n== o contraste de cada par que a tela usa ==');
 (function () {
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
@@ -2574,6 +2673,10 @@ console.log('\n== o contraste de cada par que a tela usa ==');
     ['--ambar-forte', '--ambar-claro', 'o chip da fila por enviar'],
     ['--laranja', '--surface', 'o número em atenção'],
     ['--azul', '--azul-claro', 'a etiqueta azul'],
+    ['--txt-fraco', '--campo', 'o texto de exemplo dentro do campo, na entrada'],
+    ['--vermelho-txt', '--surface-2', 'o aviso de erro da entrada'],
+    ['--sobre-verde', '--marca-verde', 'o BOTAO ENTRAR: tinta escura sobre o verde do logo'],
+    ['--sobre-verde', '--verde-hover', 'o botão Entrar sob o mouse'],
     ['--txt3', '--bg', 'o texto de apoio da tela de entrada'],
     ['--txt2', '--marinho', 'o rótulo no card da entrada'],
     ['--txt', '--campo', 'o que se digita na entrada'],

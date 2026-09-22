@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=0e6684f4">
+<link rel="stylesheet" href="styles.css?v=bc34fe45">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -18,37 +18,114 @@
 <body>
 
 <div id="telaLogin" class="login">
-  <!-- Mesma logo e mesma classe do app de campo. O "Qdelícia Frutas" escrito sai,
-       que a logo já diz; fica só o "Escritório", que é o que distingue esta tela
-       da outra. -->
-  <img src="logo.png" alt="Qdelícia Frutas" class="logo-entrada" width="720" height="494">
-  <h1>Painel de Caixas</h1>
-  <p>Área Admin</p>
-  <div class="card" style="text-align:left">
-    <label for="inUsuario">E-mail ou usuário</label>
-    <input id="inUsuario" type="text" autocomplete="username" placeholder="voce@empresa.com.br">
-    <label for="inSenha">Senha</label>
-    <input id="inSenha" type="password" autocomplete="current-password" placeholder="sua senha">
-    <div class="linha-btn"><button class="btn" id="btnEntrar">Entrar</button></div>
-    <div id="erroLogin"></div>
-    <p style="font-size:12.5px;margin:12px 0 0"><a href="#" id="linkPrimeiroAcesso">Primeiro acesso ou esqueci a senha</a></p>
+  <div class="login__topo">
+    <!-- A logo diz "Qdelicia Frutas" melhor do que o texto dizia, e nao empurra o
+         formulario para baixo. No celular do galpao o que importa e o campo
+         aparecer sem rolagem. -->
+    <img src="logo.png" alt="Qdelícia Frutas" class="logo-entrada" width="720" height="494">
+    <h1 class="login__titulo">Controle de Caixas</h1>
   </div>
 
-  <!-- Mesma ideia do app de campo: senha vinda do admin vira uma da pessoa antes
-       de ela entrar. Sem botão de "depois". -->
-  <div class="card" id="cardTroca" hidden style="text-align:left">
-    <div class="aviso-box info">Esta senha foi definida pelo administrador. Escolha uma sua para continuar.</div>
-    <label for="inNova">Senha nova</label>
-    <input id="inNova" type="password" autocomplete="new-password">
-    <p style="font-size:12.5px;color:var(--txt3);margin:6px 0 0">Pelo menos 6 caracteres</p>
-    <label for="inNova2">Repita a senha nova</label>
-    <input id="inNova2" type="password" autocomplete="new-password">
-    <div class="linha-btn"><button class="btn" id="btnTrocarSenha">Salvar e entrar</button></div>
+  <div class="marca-faixa" aria-hidden="true"><span></span><span></span></div>
+
+  <div class="card" id="cardEntrar">
+    <!-- O erro fica no TOPO e e anunciado por leitor de tela. Embaixo do botao ele
+         nascia fora da vista com o teclado aberto. -->
+    <div class="erro-entrada" id="erroLogin" role="alert" aria-live="polite" hidden>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle><line x1="12" y1="8" x2="12" y2="13"></line>
+        <line x1="12" y1="16.5" x2="12" y2="16.5"></line>
+      </svg>
+      <span id="erroLoginTexto"></span>
+    </div>
+
+    <div class="campo">
+      <label class="rot" for="inUsuario">Usuário</label>
+      <input id="inUsuario" type="text" autocomplete="username" autocapitalize="none"
+             autocorrect="off" spellcheck="false" enterkeyhint="next"
+             placeholder="o que o escritório passou">
+    </div>
+
+    <div class="campo">
+      <label class="rot" for="inSegredo">Senha</label>
+      <!-- UM campo so para as duas credenciais. Quem lanca no galpao digita os seis
+           numeros; quem vai ao painel digita a senha longa. O servidor descobre qual
+           e qual — a pessoa nao precisa saber que sao duas coisas.
+
+           Sem `minlength` de proposito: quem cadastrou senha antes da regra dos seis
+           ainda tem a dele, e travar aqui deixaria essa pessoa do lado de fora sem
+           entender por que. -->
+      <span class="dica" id="dicaSegredo">6 números, ou a sua senha do painel</span>
+      <div class="campo-caixa">
+        <input id="inSegredo" class="pin" type="password" autocomplete="current-password"
+               aria-describedby="dicaSegredo" enterkeyhint="go">
+        <button type="button" class="ver-segredo" id="btnVerSegredo"
+                aria-label="Mostrar senha" aria-pressed="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M1.5 12S5 5.5 12 5.5 22.5 12 22.5 12 19 18.5 12 18.5 1.5 12 1.5 12z"></path>
+            <circle cx="12" cy="12" r="3.2"></circle>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <button type="button" class="btn-entrar" id="btnEntrar">Entrar</button>
+    <p style="font-size:12.5px;margin:14px 0 0"><a href="#" id="linkPrimeiroAcesso">Primeiro acesso ou esqueci a senha</a></p>
+  </div>
+
+  <!-- Primeiro acesso: o segredo veio do escritorio e precisa virar um da pessoa.
+       Sem botao de "depois" de proposito — segredo provisorio que se pode adiar nao
+       e trocado nunca, e o do escritorio costuma ser o mesmo para todo mundo. -->
+  <div class="card" id="cardTroca" hidden>
+    <div class="aviso-box info">Esta senha foi definida pelo escritório. Escolha uma sua para continuar.</div>
+    <div class="campo">
+      <label class="rot" for="inNova">Senha nova</label>
+      <span class="dica">6 números para o app de campo; pelo menos 6 caracteres para o painel</span>
+      <input id="inNova" type="password" autocomplete="new-password">
+    </div>
+    <div class="campo">
+      <label class="rot" for="inNova2">Repita a senha nova</label>
+      <input id="inNova2" type="password" autocomplete="new-password">
+    </div>
+    <button type="button" class="btn-entrar" id="btnTrocarSenha">Salvar e entrar</button>
     <div id="erroTroca"></div>
   </div>
-  <p style="font-size:12.5px;color:var(--txt3)">Campo (motorista/promotor): <a href="index.html">app de lançamento</a>.</p>
-</div>
 
+  <!-- Primeiro acesso / esqueci: abre NA PROPRIA TELA, e nao num modal. O modal so
+       existia no painel, e no celular um bloco que desce e melhor do que uma janela
+       por cima do teclado. -->
+  <div class="card" id="cardPrimeiro" hidden>
+    <h2 style="margin:0 0 4px;font-size:17px">Definir senha</h2>
+    <div class="campo">
+      <label class="rot" for="psIdent">Usuário</label>
+      <input id="psIdent" type="text" autocomplete="username" autocapitalize="none">
+    </div>
+    <div class="campo">
+      <label class="rot" for="psPin">Senha do app de campo</label>
+      <span class="dica">só no primeiro acesso</span>
+      <input id="psPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
+    </div>
+    <div class="campo">
+      <label class="rot" for="psAtual">Senha atual</label>
+      <span class="dica">se você já tem uma</span>
+      <input id="psAtual" type="password" autocomplete="current-password">
+    </div>
+    <div class="campo">
+      <label class="rot" for="psNova">Senha nova</label>
+      <span class="dica">pelo menos 6 caracteres</span>
+      <input id="psNova" type="password" autocomplete="new-password">
+    </div>
+    <button type="button" class="btn-entrar" id="psSalvar">Salvar senha</button>
+    <hr style="border:0;border-top:1px solid var(--linha);margin:18px 0 12px">
+    <p style="font-size:12.5px;color:var(--txt2);margin:0 0 10px">Não tem a senha do app
+      de campo nem a senha antiga? Peça ao escritório: o administrador cadastra uma nova
+      para você.</p>
+    <button type="button" class="btn-entrar" id="psPedir"
+            style="background:var(--surface);color:var(--marca-txt);border:1px solid var(--marca-txt)">Pedir ajuda ao escritório</button>
+  </div>
+</div>
 <div id="app" class="shell" style="display:none">
 
 <!-- A barra de app so aparece abaixo de 1024px: no desktop a navegacao ja esta fixa na
@@ -505,7 +582,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=eccd125a"></script>
+<script src="app.js?v=e6d8fd1b"></script>
 <script>
 (function(){
   'use strict';
@@ -524,134 +601,11 @@
     if (SITUACOES.indexOf(antes) >= 0) sel.value = antes;
   }
 
-  /* ---------------- login ---------------- */
+  /* ---------------- entrada ----------------
+     A MESMA tela do app de campo, e ela mora no `app.js`. Ver `portaUnica()`. */
   function iniciarLogin(){
-    if (Q.semApi()){
-      document.getElementById('erroLogin').innerHTML =
-        '<div class="aviso-box erro">Configure a URL do Apps Script em <b>config.js</b>.</div>';
-      return;
-    }
-    // Não carregamos mais a lista de usuários aqui: ela expunha o nome de toda a equipe
-    // para quem apenas abrisse o endereço. Agora o identificador é digitado.
-    var ultimo = localStorage.getItem('qdc_ultimo_admin');
-    if (ultimo) document.getElementById('inUsuario').value = ultimo;
-    document.getElementById('inUsuario').focus();
-    Q.carregarDados().then(function(d){
-      DADOS = d;
-    }).catch(function(e){
-      document.getElementById('erroLogin').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
-    });
+    Q.portaUnica('painel', function(){ carregarEquipe(); abrirApp(); });
   }
-  document.getElementById('btnEntrar').addEventListener('click', function(){
-    var id = document.getElementById('inUsuario').value.trim();
-    if (!id) return Q.toast('Informe o e-mail ou usuário.','erro');
-    var btn = this; btn.disabled = true; btn.textContent='Entrando…';
-    Q.post({acao:'login', identificador:id, senha:document.getElementById('inSenha').value}).then(function(r){
-      btn.disabled=false; btn.textContent='Entrar';
-      if (!r.ok) return Q.toast(r.erro,'erro');
-      if (!podeEntrar(r.usuario)) return Q.toast('Você não tem acesso ao painel. Fale com o administrador.','erro');
-      localStorage.setItem('qdc_ultimo_admin', id);
-      // Senha definida pelo administrador: troca antes de entrar.
-      if (r.trocarSenha){ abrirTrocaSenha(id, document.getElementById('inSenha').value, r.usuario); return; }
-      carregarEquipe();
-      Q.entrar(r.usuario); abrirApp();
-    }).catch(function(e){ btn.disabled=false; btn.textContent='Entrar'; Q.toast(e.message,'erro'); });
-  });
-  document.getElementById('inSenha').addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('btnEntrar').click(); });
-
-  /* ---------------- troca no primeiro acesso ---------------- */
-  var trocaPendente = null;   // { id, senhaAtual, usuario } até a troca terminar
-
-  function abrirTrocaSenha(id, senhaAtual, usuario){
-    trocaPendente = { id: id, senhaAtual: senhaAtual, usuario: usuario };
-    document.querySelector('#telaLogin .card').hidden = true;
-    document.getElementById('cardTroca').hidden = false;
-    document.getElementById('inNova').value = '';
-    document.getElementById('inNova2').value = '';
-    document.getElementById('inNova').focus();
-  }
-
-  document.getElementById('btnTrocarSenha').addEventListener('click', function(){
-    if (!trocaPendente) return;
-    var nova = document.getElementById('inNova').value;
-    var rep  = document.getElementById('inNova2').value;
-    var erro = document.getElementById('erroTroca');
-    function falhar(msg, campo){
-      erro.innerHTML = '<div class="aviso-box erro">' + Q.esc(msg) + '</div>';
-      var el = document.getElementById(campo);
-      if (el) el.focus();
-    }
-    // Conferidas aqui só para a pessoa saber na hora; a API valida de novo.
-    if (String(nova).length < 6) return falhar('A senha nova precisa de pelo menos 6 caracteres.', 'inNova');
-    if (nova !== rep) return falhar('As duas senhas não são iguais.', 'inNova2');
-    if (nova === trocaPendente.senhaAtual) return falhar('Escolha uma senha diferente da que o administrador passou.', 'inNova');
-
-    erro.innerHTML = '';
-    var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
-    Q.post({ acao:'definirSenha', identificador: trocaPendente.id,
-             senhaAtual: trocaPendente.senhaAtual, novaSenha: nova }).then(function(r){
-      btn.disabled = false; btn.textContent = 'Salvar e entrar';
-      if (!r.ok) return falhar(r.erro || 'Não consegui trocar a senha.', 'inNova');
-      var u = trocaPendente.usuario;
-      trocaPendente = null;
-      Q.toast('Senha trocada.', 'ok');
-      carregarEquipe();
-      Q.entrar(u); abrirApp();
-    }).catch(function(e){
-      btn.disabled = false; btn.textContent = 'Salvar e entrar';
-      falhar(e.message, 'inNova');
-    });
-  });
-  document.getElementById('inNova2').addEventListener('keydown', function(e){
-    if (e.key === 'Enter') document.getElementById('btnTrocarSenha').click();
-  });
-  document.getElementById('inUsuario').addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('inSenha').focus(); });
-
-  /* Primeiro acesso: quem ainda não tem senha prova quem é pelo PIN antigo; quem já tem,
-     precisa da senha atual. É o que impede alguém de definir a senha do administrador. */
-  document.getElementById('linkPrimeiroAcesso').addEventListener('click', function(e){
-    e.preventDefault();
-    var ident = document.getElementById('inUsuario').value.trim();
-    modal('<h2>Definir senha</h2>'+
-      '<label>E-mail ou usuário</label><input type="text" id="psIdent" value="'+Q.esc(ident)+'">'+
-      '<label>Senha do app de campo <span style="font-weight:400;color:var(--txt3)">— só no primeiro acesso</span></label>'+
-      '<input type="password" id="psPin" inputmode="numeric" maxlength="6" autocomplete="off">'+
-      '<label>Senha atual <span style="font-weight:400;color:var(--txt3)">— se você já tem uma</span></label>'+
-      '<input type="password" id="psAtual" autocomplete="current-password">'+
-      '<label>Nova senha <span style="font-weight:400;color:var(--txt3)">— mínimo 6 caracteres</span></label>'+
-      '<input type="password" id="psNova" autocomplete="new-password">'+
-      '<div class="linha-btn"><button class="btn" id="psSalvar">Salvar senha</button></div>'+
-      '<hr style="border:0;border-top:1px solid var(--linha);margin:16px 0 12px">'+
-      '<p style="font-size:12.5px;color:var(--txt2);margin:0 0 8px">Não tem a senha do app de campo nem a senha antiga? '+
-        'Peça ao escritório: o administrador cadastra uma senha nova para você.</p>'+
-      '<div class="linha-btn"><button class="btn sec" id="psPedir">Pedir ajuda ao escritório</button></div>');
-
-    /* Resposta única, exista o identificador ou não. Dizer "esse e-mail não existe"
-       entregaria a lista de quem trabalha aqui a quem estiver testando endereços. */
-    document.getElementById('psPedir').addEventListener('click', function(){
-      var b=this, ident=document.getElementById('psIdent').value.trim();
-      if (!ident) return Q.toast('Escreva seu e-mail ou usuário ali em cima.','erro');
-      b.disabled=true; b.textContent='Enviando…';
-      Q.post({acao:'pedirSenha', identificador:ident}).then(function(r){
-        b.disabled=false; b.textContent='Pedir ajuda ao escritório';
-        if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui enviar.','erro');
-        fecharModal();
-        Q.toast('Pedido enviado. Procure o escritório para receber a senha nova.','ok');
-      }).catch(function(e){ b.disabled=false; b.textContent='Pedir ajuda ao escritório'; Q.toast(e.message,'erro'); });
-    });
-    document.getElementById('psSalvar').addEventListener('click', function(){
-      var b=this; b.disabled=true; b.textContent='Salvando…';
-      Q.post({acao:'definirSenha',
-              identificador:document.getElementById('psIdent').value.trim(),
-              pin:document.getElementById('psPin').value,
-              senhaAtual:document.getElementById('psAtual').value,
-              novaSenha:document.getElementById('psNova').value}).then(function(r){
-        b.disabled=false; b.textContent='Salvar senha';
-        if (!r.ok) return Q.toast(r.erro,'erro');
-        fecharModal(); Q.toast('Senha definida. Entre com ela agora.','ok');
-      }).catch(function(e){ b.disabled=false; b.textContent='Salvar senha'; Q.toast(e.message,'erro'); });
-    });
-  });
 
   /* A equipe vem numa chamada à parte, só depois de entrar — a rota `dados` é pública e
      não pode devolver a lista de gente. Fica em EQUIPE, e não dentro de DADOS, porque as duas
@@ -714,6 +668,15 @@
      não derrubar quem estava logado no momento do deploy. Na próxima entrada já vem certo. */
   function podeEntrar(s){
     if (!s) return false;
+    /* O PAINEL ENTRA POR SENHA. Quem autenticou com o PIN de seis numeros nao passa
+       daqui, tenha o acesso que tiver: o que o PIN protege e o lancamento, que fica
+       registrado com nome e hora e pode ser corrigido; o painel ve a operacao inteira
+       e mexe em cadastro. Sem esta linha, a porta unica teria rebaixado a tranca do
+       escritorio a do galpao — e sem ninguem pedir.
+
+       `via` ausente e sessao de antes da porta unica: essa passa, porque derrubar
+       quem ja estava logado no dia do deploy e pior, e o proximo login corrige. */
+    if (s.via === 'pin') return false;
     if (s.acessoPainel === undefined) return ['ADMIN','GALPAO','CONFERENTE'].indexOf(String(s.perfil).toUpperCase())>=0;
     return s.acessoPainel === true;
   }

@@ -599,6 +599,37 @@ function loginPorPin(usuarios, ident, pin) {
   return { ok: true, usuario: sessaoDe(u), trocarSenha: u.PinProvisorio === true };
 }
 
+/**
+ * UMA PORTA SO. A pessoa digita usuário e segredo; aqui se descobre qual é qual.
+ *
+ * Antes eram duas telas com dois pedidos diferentes, e quem abria o endereço errado
+ * levava "usuário ou senha incorretos" — uma mensagem que não falava do erro de
+ * verdade, que era a porta.
+ *
+ * A ordem importa: tenta a SENHA primeiro, depois o PIN. Ao contrário, alguém cuja
+ * senha longa fosse por acaso seis dígitos entraria sempre como PIN, e perderia o
+ * painel sem entender por quê.
+ *
+ * O `via` volta junto, e não é enfeite: **o painel continua exigindo a senha**. O que
+ * o PIN protege é o lançamento, que fica registrado com nome e hora e pode ser
+ * corrigido; o painel vê a operação inteira e mexe em cadastro. Se o PIN abrisse o
+ * painel, a porta única teria rebaixado a tranca do escritório à do galpão — e sem
+ * ninguém pedir. Quem decide PARA ONDE ir é o papel; a credencial decide até onde.
+ */
+function loginUnico(usuarios, ident, segredo, conferir) {
+  var texto = String(segredo == null ? '' : segredo);
+  if (!String(ident == null ? '' : ident).trim() || !texto) {
+    return { ok: false, erro: ERRO_ACESSO };
+  }
+  var porSenha = loginPorSenha(usuarios, ident, texto, conferir);
+  if (porSenha.ok) { porSenha.via = 'senha'; return porSenha; }
+  var porPin = loginPorPin(usuarios, ident, texto);
+  if (porPin.ok) { porPin.via = 'pin'; return porPin; }
+  /* Uma mensagem só para os dois fracassos: dizer qual das duas falhou contaria a
+     quem estiver testando se aquele identificador existe, e com que credencial. */
+  return { ok: false, erro: ERRO_ACESSO };
+}
+
 /* ============================ montagem de movimento ============================ */
 
 /**
@@ -1645,6 +1676,7 @@ function usuariosPublicos(usuarios) {
 }
 
 module.exports = {
+  loginUnico: loginUnico,
   VAZIA_LIBERA: VAZIA_LIBERA, podeItem: podeItem, peneirarPor: peneirarPor,
   localDoAjuste: localDoAjuste, podeAjustarEm: podeAjustarEm,
   TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,

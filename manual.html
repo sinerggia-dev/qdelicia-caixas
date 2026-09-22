@@ -338,18 +338,13 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
 
 <section id="acesso">
   <h2>Como acessar</h2>
-  <p>Não há instalação nem loja de aplicativo. São três endereços, um para cada tipo de gente.</p>
+  <p>Não há instalação nem loja de aplicativo. Para quem trabalha na empresa é <strong>um endereço só</strong>. O cliente tem o dele.</p>
 
   <div class="acessos">
     <div class="acesso">
-      <span class="quem">Campo — motorista, promotor, conferente</span>
+      <span class="quem">Quem trabalha na empresa — do motorista ao escritório</span>
       <a href="https://qdelicia-caixas.vercel.app/">qdelicia-caixas.vercel.app/</a>
-      <span class="como">Escreve o nome e o PIN de 4 dígitos. Sem lista de nomes na tela.</span>
-    </div>
-    <div class="acesso">
-      <span class="quem">Escritório</span>
-      <a href="https://qdelicia-caixas.vercel.app/admin.html">qdelicia-caixas.vercel.app/admin.html</a>
-      <span class="como">E-mail ou usuário, mais senha. Só perfil ADMIN e GALPÃO entram.</span>
+      <span class="como">Usuário (ou e-mail, ou o nome) e o segredo: os 6 números, ou a senha do painel. A mesma tela para todo mundo.</span>
     </div>
     <div class="acesso">
       <span class="quem">Cliente</span>
@@ -358,8 +353,24 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     </div>
   </div>
 
+  <p>O endereço antigo do escritório — <code>/admin.html</code> — continua funcionando e mostra <em>essa mesma tela</em>. Quem já o tem salvo nos favoritos não precisa mudar nada.</p>
+
+  <h3>A tela é uma só, e ela é que decide para onde você vai</h3>
+  <p>Antes eram duas telas de entrada quase iguais, cada uma com um link para a outra no rodapé. Quem abria a errada digitava a credencial certa e lia <em>“usuário ou senha incorretos”</em> — uma mensagem que falava do erro errado: a senha estava certa, o endereço é que não era. E não havia como adivinhar qual das duas portas era a sua.</p>
+  <p>Hoje você digita <strong>uma vez</strong> e o sistema abre a tela que é sua:</p>
+  <ul>
+    <li>entrou com os <strong>6 números</strong> → abre o app de lançamento;</li>
+    <li>entrou com a <strong>senha do painel</strong>, e você tem acesso ao painel → abre o painel;</li>
+    <li>entrou com a senha mas <em>não</em> tem acesso ao painel → abre o app de lançamento.</li>
+  </ul>
+  <div class="regra">
+    <span class="rot">O painel só abre com a senha</span>
+    <p>Quem tem as duas credenciais e entra pelos 6 números fica no app de lançamento — e o botão <strong>▦ Painel</strong> nem aparece. Não é falha: o PIN é curto de propósito, para lançar de luva; o painel vê a operação inteira e mexe em cadastro. Para ir ao painel, saia e entre com a senha.</p>
+  </div>
+
   <h3>Por que o campo usa PIN e o escritório usa senha</h3>
-  <p>Não é descuido: são dois usos diferentes. No galpão a pessoa lança de luva, com o celular numa mão e a caixa na outra, várias vezes por dia — digitar uma senha longa a cada vez atrasa a operação, e o que o PIN protege é só lançamento, que fica registrado com nome e hora e pode ser corrigido. Já o painel vê a operação inteira e mexe em cadastro; ali a senha longa se paga.</p>
+  <p>A <em>tela</em> passou a ser uma só, mas as <strong>credenciais continuam duas</strong>, e não é descuido: são dois usos diferentes. No galpão a pessoa lança de luva, com o celular numa mão e a caixa na outra, várias vezes por dia — digitar uma senha longa a cada vez atrasa a operação, e o que o PIN protege é só lançamento, que fica registrado com nome e hora e pode ser corrigido. Já o painel vê a operação inteira e mexe em cadastro; ali a senha longa se paga.</p>
+  <p>Na prática você não precisa saber disso: digite o que você tem, no mesmo campo.</p>
 
   <h3>Esqueci a senha do painel</h3>
   <p>Na tela de entrada, clique em <strong>Primeiro acesso ou esqueci a senha</strong>. Quem ainda nunca definiu senha prova quem é pelo <strong>PIN</strong>; quem já tem senha informa a <strong>senha atual</strong>. Nos dois casos a nova senha vale na hora.</p>
@@ -702,7 +713,7 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
   <p><strong>Perfis de fábrica:</strong> Admin, Gestor, Gerente, Conferente, Motorista e Promotor. Só o <strong>Admin</strong> tem poder próprio — cadastros e correções. Os outros valem como cargo escrito no crachá: <em>o que cada um pode fazer vem das chaves do cadastro</em>, uma a uma, e não do nome do perfil.</p>
   <p><strong>Pode entrar no painel?</strong> decide, pessoa por pessoa, quem abre o endereço do escritório. Antes isso vinha do perfil: todo GALPAO entrava. Agora um conferente pode lançar no celular sem ver os números da operação, e um promotor pode ver os números sem virar administrador. Quem fica sem acesso continua usando o app de campo normalmente. <em>Administrador entra sempre</em> — a opção fica travada para ele, senão daria para trancar o último administrador do lado de fora.</p>
 
-  <p>Nome, e-mail, perfil, PIN e local padrão. O e-mail (ou o usuário) é o que a pessoa digita para entrar no painel; o PIN é o do celular. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá peso à divergência.</p>
+  <p>Nome, e-mail, perfil, PIN e local padrão. O usuário — ou o e-mail, ou o próprio nome — é o que a pessoa digita na tela de entrada, e serve para as duas credenciais: é o <em>segredo</em> que muda, não o identificador. Um PIN por pessoa, nunca um PIN de função compartilhado entre vários: é o nome de quem contou que dá peso à divergência.</p>
   <h4 style="margin:16px 0 6px;font-size:14px">Onde cada um pode lançar</h4>
   <p>No cadastro do usuário, dois quadros de marcar decidem quais locais aparecem no celular daquela pessoa: <strong>Saída</strong> (de onde as caixas saem) e <strong>Destino</strong> (para onde vão). <strong>Nada marcado quer dizer nenhum</strong> — marcar é conceder. Quem tiver um único local liberado já encontra o campo preenchido, sem precisar escolher.</p>
   <p>No retorno os papéis se invertem, porque é o caminho de volta: quem devolve vem da lista de <em>Destino</em>, e quem recebe vem da de <em>Saída</em>.</p>
@@ -764,8 +775,9 @@ footer{border-top:1px solid var(--rule);padding-top:20px;font-size:14.5px;color:
     <p>Confira nesta ordem: a chave <em>Pode entrar no painel?</em> está ligada; a pessoa tem senha do painel; a aba está marcada aqui; e ela não é <em>Ajustes</em> nem <em>Cadastros</em>, que só o Admin vê.</p>
     <p>A mudança vale na <strong>próxima vez que a pessoa abrir a página</strong> — não é preciso sair e entrar. O que não acontece é a tela dela mudar no mesmo segundo: se ela está com o painel aberto agora, precisa recarregar.</p>
     <p><strong>E confira por onde ela chega ao painel.</strong> Quem entra pelo app de campo tem um botão <strong>▦ Painel</strong> no alto da tela — ele só aparece para quem tem a chave <em>Pode entrar no painel?</em> ligada. Sem essa chave, as abas marcadas aqui não adiantam: a pessoa nunca chega ao painel para vê-las.</p>
+    <p><strong>Uma causa a mais, fácil de confundir com falta de permissão:</strong> se ela entrou com os <em>6 números</em>, o botão ▦ Painel não aparece mesmo com tudo liberado. O painel só abre para quem entra com a <em>senha</em>. Peça que ela saia e entre de novo com a senha do painel.</p>
     <p>No painel, o caminho de volta é o <strong>↩ Lançamentos</strong>, no mesmo lugar. Ele só aparece para quem tem <strong>senha de lançamento</strong> — sem ela o app de campo não deixa entrar, e o botão levaria a uma recusa.</p>
-    <p>Se a marca não alcançar nenhuma aba que aquela pessoa possa ver — só <em>Ajustes</em> marcado para um gerente, por exemplo —, ela é <strong>ignorada</strong> e valem todas as permitidas. O painel nunca abre vazio: errar para o lado de mostrar se corrige aqui no cadastro; errar para o lado de trancar só se resolve com o administrador por perto.</p>
+    <p>Se a marca não alcançar nenhuma aba que exista — porque guarda uma aba renomeada, ou que saiu do app —, o resultado é o mesmo de não ter marcado nada: <strong>nada</strong>. Antes esse caso liberava tudo; deixou de liberar quando a regra virou <em>marcar é conceder</em>, porque trocar uma marca quebrada por acesso amplo é o contrário do que o administrador pediu ao marcar. O painel não fica mudo: em vez de abrir vazio, ele escreve na lateral que não há nenhuma página liberada e manda falar com o administrador.</p>
   </div>
   <p class="nota">Em todos esses quadros — Saída, Destino, Operações, Abas, Ajustes, Tipos de caixa, Motoristas e De quem vê — <strong>nada marcado quer dizer nada liberado</strong>. Marcar é conceder.</p>
   <div class="regra">

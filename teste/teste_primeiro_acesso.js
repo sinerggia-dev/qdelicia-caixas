@@ -16,7 +16,7 @@
  * funcionando, só que a troca nunca é pedida. O comportamento do servidor está
  * em teste_api.js, no bloco "primeiro acesso".
  *
- * Não roda navegador: lê o HTML das duas telas.
+ * Não roda navegador: lê o `app.js`, onde a porta única mora, e as duas páginas.
  */
 'use strict';
 
@@ -26,6 +26,8 @@ var path = require('path');
 var raiz = path.join(__dirname, '..');
 var campo = fs.readFileSync(path.join(raiz, 'index.html'), 'utf8');
 var painel = fs.readFileSync(path.join(raiz, 'admin.html'), 'utf8');
+/* A tela de entrada e UMA so, e mora aqui: as duas paginas a chamam. */
+var app = fs.readFileSync(path.join(raiz, 'app.js'), 'utf8');
 var falhas = 0;
 
 function ok(cond, titulo, extra) {
@@ -36,39 +38,53 @@ function ok(cond, titulo, extra) {
 
 console.log('\n== Primeiro acesso: troca obrigatória ==');
 
-[
-  { onde: 'campo ', fonte: campo, acao: 'definirPin', atual: 'pinAtual' },
-  { onde: 'painel', fonte: painel, acao: 'definirSenha', atual: 'senhaAtual' }
-].forEach(function (t) {
-  var f = t.fonte, onde = t.onde + ': ';
+/* A TELA DE ENTRADA VIROU UMA SO, e ela mora no `app.js` (`portaUnica`). Antes este
+   bloco lia as duas paginas e cobrava as mesmas coisas em cada uma — o que era o
+   jeito certo enquanto eram duas telas, e virou o jeito errado quando passaram a
+   ser a mesma. Agora se le o codigo compartilhado, uma vez. */
+var porta = app.slice(app.indexOf('function portaUnica(aqui, abrir)'),
+                      app.indexOf('/* ---------------- gaveta de navegacao ----------------'));
+ok(porta.length > 2000, 'o recorte pegou a porta única', porta.length);
 
-  // O desvio. É esta linha que impede a senha provisória de valer para sempre.
-  ok(f.indexOf('if (r.trocarSenha)') >= 0, onde + 'o login desvia quando a senha é provisória');
-  ok(f.indexOf('abrirTrocaSenha(') >= 0, onde + 'e abre a tela de troca');
+// O desvio. É esta linha que impede o segredo provisório de valer para sempre.
+ok(porta.indexOf('if (r.trocarSenha)') >= 0, 'o login desvia quando o segredo é provisório');
+ok(porta.indexOf('abrirTroca(') >= 0, 'e abre a tela de troca');
 
-  // O desvio precisa vir ANTES de entrar, senão a pessoa já estaria dentro.
-  var iDesvio = f.indexOf('if (r.trocarSenha)');
-  var iEntrar = f.indexOf('Q.entrar(r.usuario)');
-  ok(iDesvio >= 0 && iEntrar >= 0 && iDesvio < iEntrar, onde + 'o desvio vem antes de entrar');
+// O desvio precisa vir ANTES de seguir, senão a pessoa já estaria dentro.
+var iDesvio = porta.indexOf('if (r.trocarSenha)');
+var iSegue = porta.indexOf('seguir(r.usuario, r.via)');
+ok(iDesvio >= 0 && iSegue >= 0 && iDesvio < iSegue, 'o desvio vem antes de entrar');
 
-  ok(f.indexOf('id="cardTroca"') >= 0, onde + 'tem o cartão de troca');
-  ok(f.indexOf('id="inNova"') >= 0 && f.indexOf('id="inNova2"') >= 0,
-     onde + 'pede a senha nova duas vezes');
-  ok(f.indexOf("acao:'" + t.acao + "'") >= 0, onde + 'chama ' + t.acao);
-  ok(f.indexOf(t.atual + ': trocaPendente.') >= 0, onde + 'prova a senha atual ao trocar');
-  ok(f.indexOf('não são iguais') >= 0, onde + 'confere a repetição');
-  ok(f.indexOf('diferente da que o') >= 0, onde + 'exige senha diferente da provisória');
-  ok(f.indexOf("querySelector('#telaLogin .card').hidden = true") >= 0,
-     onde + 'esconde o cartão de entrada ao abrir a troca');
+// AS DUAS ACOES, escolhidas pela CREDENCIAL e nao pela pagina: quem entrou com PIN
+// troca um PIN; quem entrou com senha troca uma senha. Fosse pela pagina, a mesma
+// pessoa veria regras diferentes conforme o endereco que abriu.
+ok(porta.indexOf("acao: 'definirPin'") >= 0, 'quem entrou com PIN chama definirPin');
+ok(porta.indexOf("acao: 'definirSenha'") >= 0, 'quem entrou com senha chama definirSenha');
+ok(/var ehPin = trocaPendente\.via === 'pin';/.test(porta),
+   'e quem escolhe é o `via` do login, não a página — pela página, a mesma pessoa ' +
+   'veria regras diferentes conforme o endereço que abriu');
+ok(/ehPin && !\/\^\\d\{6\}\$\/\.test\(nova\)/.test(porta),
+   'o PIN novo tem de ter seis números');
+ok(/!ehPin && nova\.length < 6/.test(porta),
+   'e a senha nova, pelo menos seis caracteres');
 
-  // Sem escapatória: senha provisória que se pode adiar não é trocada nunca,
-  // e a do admin costuma ser a mesma para todo mundo.
-  var i = f.indexOf('id="cardTroca"');
-  var trecho = f.slice(i, i + 1400);
-  ok(!/>\s*(depois|pular|agora n)/i.test(trecho), onde + 'não oferece adiar a troca');
+ok(porta.indexOf('trocaPendente.atual') >= 0, 'prova o segredo atual ao trocar');
+ok(porta.indexOf('não são iguais') >= 0, 'confere a repetição');
+ok(porta.indexOf('diferente da que o') >= 0, 'exige segredo diferente do provisório');
+ok(porta.indexOf("$('cardEntrar').hidden = true") >= 0,
+   'esconde o cartão de entrada ao abrir a troca');
+// A sessão que entra é a do login, não uma refeita depois da troca.
+ok(porta.indexOf('trocaPendente.usuario') >= 0, 'reaproveita a sessão do login');
 
-  // A sessão que entra é a do login, não uma refeita depois da troca.
-  ok(f.indexOf('trocaPendente.usuario') >= 0, onde + 'reaproveita a sessão do login');
+/* Sem escapatoria: segredo provisorio que se pode adiar nao e trocado nunca, e o do
+   escritorio costuma ser o mesmo para todo mundo. */
+[['index.html', campo], ['admin.html', painel]].forEach(function (par) {
+  var i = par[1].indexOf('id="cardTroca"');
+  var trecho = par[1].slice(i, i + 1400);
+  ok(i > 0, par[0] + ': tem o cartão de troca');
+  ok(!/>\s*(depois|pular|agora n)/i.test(trecho), par[0] + ': não oferece adiar a troca');
+  ok(par[1].indexOf('id="inNova"') >= 0 && par[1].indexOf('id="inNova2"') >= 0,
+     par[0] + ': pede o segredo novo duas vezes');
 });
 
 /* ---- a marca nunca pode vir do navegador ---- */

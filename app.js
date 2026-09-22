@@ -165,7 +165,25 @@
   /* ---------------- sessão ---------------- */
 
   function sessao() { try { return JSON.parse(localStorage.getItem(KEY_SESSAO) || 'null'); } catch (e) { return null; } }
-  function entrar(u) { localStorage.setItem(KEY_SESSAO, JSON.stringify(u)); }
+  /**
+   * Grava a sessão.
+   *
+   * `via` — se a pessoa autenticou com PIN ou com senha — SOBREVIVE aqui, e isso não é
+   * detalhe: ela é propriedade da SESSÃO, não do cadastro. O servidor só a sabe no
+   * login; `meuAcesso` devolve o registro atualizado e não tem como saber por onde a
+   * pessoa entrou. Como a renovação chama `entrar()` com esse registro, sem esta linha
+   * o `via` sumia segundos depois de entrar — e um login por PIN passava a abrir o
+   * painel, que é exatamente o que a porta única não pode fazer. Medido no navegador.
+   */
+  function entrar(u) {
+    var novo = {};
+    Object.keys(u || {}).forEach(function (k) { novo[k] = u[k]; });
+    if (novo.via === undefined) {
+      var antes = sessao();
+      if (antes && antes.via !== undefined) novo.via = antes.via;
+    }
+    localStorage.setItem(KEY_SESSAO, JSON.stringify(novo));
+  }
   function sair() { localStorage.removeItem(KEY_SESSAO); location.reload(); }
   /* Compara sem caixa: o perfil é escrito por gente, e a grafia gravada é a que a pessoa
      escolheu — quem decide permissão não pode depender disso. */
@@ -435,6 +453,228 @@
     }
   }
 
+
+  /* ==================== A PORTA UNICA ====================
+   * Uma tela de entrada so, servida pelos dois apps. Ela mora AQUI e nao em cada
+   * pagina porque duas copias de uma tela de login divergem — e o dia em que uma
+   * delas pedir outra coisa, a pessoa descobre isso levando uma recusa.
+   *
+   * Antes eram duas telas quase iguais, "Area do Usuario" e "Area Admin", cada uma
+   * mandando para a outra por um link no rodape. Quem errava a porta levava
+   * "usuario ou senha incorretos" — uma mensagem que nao falava do erro de verdade.
+   *
+   * O DESTINO e decidido pelo PAPEL, depois da autenticacao, nunca pelo endereco que
+   * a pessoa abriu. Mas o PAINEL continua exigindo a SENHA: o que o PIN protege e o
+   * lancamento, que fica registrado com nome e hora e pode ser corrigido; o painel ve
+   * a operacao inteira e mexe em cadastro. Se o PIN abrisse o painel, a porta unica
+   * teria rebaixado a tranca do escritorio a do galpao sem ninguem pedir.
+   */
+
+  /** Para onde esta sessao deve ir. */
+  function destinoDa(s) {
+    return (s && s.via === 'senha' && s.acessoPainel === true) ? 'admin.html' : 'index.html';
+  }
+
+  /**
+   * @param aqui   'campo' | 'painel' — qual app está servindo esta tela
+   * @param abrir  função que abre o app desta página, já com a sessão gravada
+   */
+  function portaUnica(aqui, abrir) {
+    var pagina = aqui === 'painel' ? 'admin.html' : 'index.html';
+    var $ = function (id) { return document.getElementById(id); };
+
+    /* ---- o erro, num lugar so ---------------------------------------------
+       O cartao do topo e para o que a pessoa precisa LER COM CALMA; o toast, para
+       o que ela ja sabe. Misturar os dois faz a frase importante sumir em cinco
+       segundos. */
+    function mostrarErro(texto) {
+      var caixa = $('erroLogin');
+      if (!caixa) return;
+      caixa.hidden = !texto;
+      var alvo = $('erroLoginTexto');
+      if (alvo) alvo.textContent = texto || '';
+    }
+
+    /* Segredo errado seguido: na terceira, a tela para de repetir "incorretos" e diz
+       o que fazer. Quem chega na terceira nao errou o dedo — esqueceu, ou o nome
+       cadastrado nao e o que ele digita —, e daqui nao havia saida nenhuma.
+
+       E so contagem de TELA: nao bloqueia nem grava nada. Travar o acesso por segredo
+       errado pararia o lancamento no galpao, que e o que este app existe para nao
+       deixar parar. E nao conta falha de rede: cair a internet nao e segredo errado. */
+    var AVISA_ADMIN = 3, erros = 0, erroDe = '';
+    var MSG_ADMIN = 'Entre em contato com o administrador do sistema.';
+
+    function contarErro(id, msgServidor) {
+      // Outra pessoa no mesmo aparelho comeca do zero: senao ela levaria o aviso do
+      // administrador ja na primeira tentativa dela.
+      if (id.toLowerCase() !== erroDe) { erros = 0; erroDe = id.toLowerCase(); }
+      erros++;
+      if (erros < AVISA_ADMIN) { mostrarErro(''); toast(msgServidor, 'erro'); return; }
+      mostrarErro(MSG_ADMIN);
+      toast(MSG_ADMIN, 'erro');
+    }
+
+    /* ---- mostrar/esconder o segredo --------------------------------------- */
+    var ver = $('btnVerSegredo'), campo = $('inSegredo');
+    if (ver && campo) {
+      ver.addEventListener('click', function () {
+        var mostrando = campo.type === 'text';
+        campo.type = mostrando ? 'password' : 'text';
+        ver.setAttribute('aria-pressed', String(!mostrando));
+        ver.setAttribute('aria-label', mostrando ? 'Mostrar senha' : 'Ocultar senha');
+        campo.focus();
+      });
+    }
+
+    /* ---- entrar ------------------------------------------------------------ */
+    var trocaPendente = null;   // { id, atual, usuario, via } ate a troca terminar
+
+    function seguir(usuario, via) {
+      var sessao = {};
+      Object.keys(usuario || {}).forEach(function (k) { sessao[k] = usuario[k]; });
+      sessao.via = via;
+      entrar(sessao);
+      var destino = destinoDa(sessao);
+      /* Se esta pagina nao e o destino, a pessoa vai para la. A sessao ja esta
+         gravada, entao a outra pagina abre direto — sem pedir nada de novo. */
+      if (destino !== pagina) { location.href = destino; return; }
+      abrir(sessao);
+    }
+
+    $('btnEntrar').addEventListener('click', function () {
+      var id = $('inUsuario').value.trim();
+      var segredo = campo ? campo.value : '';
+      if (!id) return toast('Informe seu usuário.', 'erro');
+      var btn = this;
+      btn.disabled = true; btn.textContent = 'Entrando…';
+      post({ acao: 'login', identificador: id, segredo: segredo }).then(function (r) {
+        btn.disabled = false; btn.textContent = 'Entrar';
+        if (!r.ok) return contarErro(id, r.erro);
+        erros = 0; erroDe = ''; mostrarErro('');
+        localStorage.setItem('qdc_ultimo_usuario', id);
+        /* Segredo que veio do escritorio: a pessoa nao chega ao app antes de
+           escolher um dela. A sessao deste login fica guardada para depois da
+           troca — refazer o login mandaria o segredo novo de volta pela rede. */
+        if (r.trocarSenha) { abrirTroca(id, segredo, r.usuario, r.via); return; }
+        seguir(r.usuario, r.via);
+      }).catch(function (e) {
+        btn.disabled = false; btn.textContent = 'Entrar';
+        toast(e.message, 'erro');
+      });
+    });
+    if (campo) campo.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') $('btnEntrar').click();
+    });
+
+    /* ---- trocar o segredo provisorio -------------------------------------- */
+    function abrirTroca(id, atual, usuario, via) {
+      trocaPendente = { id: id, atual: atual, usuario: usuario, via: via };
+      $('cardEntrar').hidden = true;
+      $('cardTroca').hidden = false;
+      $('inNova').value = ''; $('inNova2').value = '';
+      $('inNova').focus();
+    }
+
+    $('btnTrocarSenha').addEventListener('click', function () {
+      if (!trocaPendente) return;
+      var nova = $('inNova').value.trim();
+      var rep = $('inNova2').value.trim();
+      var erro = $('erroTroca');
+      function falhar(msg, cid) {
+        erro.innerHTML = '<div class="aviso-box erro">' + esc(msg) + '</div>';
+        var el = $(cid); if (el) el.focus();
+      }
+      /* A REGRA SEGUE A CREDENCIAL, e nao a pagina: quem entrou com PIN troca um PIN
+         de seis numeros; quem entrou com senha troca uma senha. Fosse pela pagina, a
+         mesma pessoa veria regras diferentes conforme o endereco que abriu. */
+      var ehPin = trocaPendente.via === 'pin';
+      if (ehPin && !/^\d{6}$/.test(nova)) return falhar('A senha do app de campo tem 6 números.', 'inNova');
+      if (!ehPin && nova.length < 6) return falhar('A senha do painel tem pelo menos 6 caracteres.', 'inNova');
+      if (nova !== rep) return falhar('As duas senhas não são iguais.', 'inNova2');
+      if (nova === trocaPendente.atual) return falhar('Escolha uma senha diferente da que o escritório passou.', 'inNova');
+
+      erro.innerHTML = '';
+      var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
+      var pedido = ehPin
+        ? { acao: 'definirPin', identificador: trocaPendente.id,
+            pinAtual: trocaPendente.atual, novoPin: nova }
+        : { acao: 'definirSenha', identificador: trocaPendente.id,
+            senhaAtual: trocaPendente.atual, novaSenha: nova };
+      post(pedido).then(function (r) {
+        btn.disabled = false; btn.textContent = 'Salvar e entrar';
+        if (!r.ok) return falhar(r.erro || 'Não consegui trocar a senha.', 'inNova');
+        var u = trocaPendente.usuario, via = trocaPendente.via;
+        trocaPendente = null;
+        toast('Senha trocada.', 'ok');
+        seguir(u, via);
+      }).catch(function (e) {
+        btn.disabled = false; btn.textContent = 'Salvar e entrar';
+        falhar(e.message, 'inNova');
+      });
+    });
+    $('inNova2').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') $('btnTrocarSenha').click();
+    });
+
+    /* ---- primeiro acesso / esqueci ----------------------------------------
+       Abre NA PROPRIA TELA, e nao num modal: o modal so existia no painel, e no
+       celular um bloco que desce e melhor do que uma janela por cima do teclado. */
+    $('linkPrimeiroAcesso').addEventListener('click', function (e) {
+      e.preventDefault();
+      var aberto = !$('cardPrimeiro').hidden;
+      $('cardPrimeiro').hidden = aberto;
+      if (!aberto) {
+        $('psIdent').value = $('inUsuario').value.trim();
+        $('psIdent').focus();
+      }
+    });
+
+    $('psSalvar').addEventListener('click', function () {
+      var b = this; b.disabled = true; b.textContent = 'Salvando…';
+      post({ acao: 'definirSenha',
+             identificador: $('psIdent').value.trim(),
+             pin: $('psPin').value,
+             senhaAtual: $('psAtual').value,
+             novaSenha: $('psNova').value }).then(function (r) {
+        b.disabled = false; b.textContent = 'Salvar senha';
+        if (!r.ok) return toast(r.erro, 'erro');
+        $('cardPrimeiro').hidden = true;
+        toast('Senha definida. Entre com ela agora.', 'ok');
+      }).catch(function (e) {
+        b.disabled = false; b.textContent = 'Salvar senha'; toast(e.message, 'erro');
+      });
+    });
+
+    /* Resposta unica, exista o identificador ou nao: dizer "esse e-mail nao existe"
+       entregaria a lista de quem trabalha aqui a quem estiver testando enderecos. */
+    $('psPedir').addEventListener('click', function () {
+      var b = this, ident = $('psIdent').value.trim();
+      if (!ident) return toast('Escreva seu usuário ali em cima.', 'erro');
+      b.disabled = true; b.textContent = 'Enviando…';
+      post({ acao: 'pedirSenha', identificador: ident }).then(function (r) {
+        b.disabled = false; b.textContent = 'Pedir ajuda ao escritório';
+        if (!r || r.ok === false) return toast((r && r.erro) || 'Não consegui enviar.', 'erro');
+        $('cardPrimeiro').hidden = true;
+        toast('Pedido enviado. Procure o escritório para receber a senha nova.', 'ok');
+      }).catch(function (e) {
+        b.disabled = false; b.textContent = 'Pedir ajuda ao escritório'; toast(e.message, 'erro');
+      });
+    });
+
+    /* ---- abertura ---------------------------------------------------------- */
+    if (semApi()) {
+      mostrarErro('Configure o endereço da API em config.js antes de usar.');
+      return;
+    }
+    // A lista de usuarios nao aparece aqui: ela mostrava o nome de toda a equipe a
+    // quem so abrisse o endereco. O aparelho guarda o ultimo nome, entao na pratica
+    // ninguem redigita.
+    var ultimo = localStorage.getItem('qdc_ultimo_usuario');
+    if (ultimo) $('inUsuario').value = ultimo;
+    (ultimo ? campo : $('inUsuario')).focus();
+  }
+
   /* ---------------- gaveta de navegacao ----------------
      Abaixo de 1024px a barra lateral vira gaveta; acima disso ela e fixa e isto aqui
      fica inerte. Mora no `app.js`, e nao em cada tela: sao duas telas com a mesma
@@ -607,6 +847,7 @@
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
     temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
+    portaUnica: portaUnica, destinoDa: destinoDa,
     quemEsta: quemEsta, iniciais: iniciais,
     barraAging: barraAging, assinatura: assinatura,
     comprimirFoto: comprimirFoto, csv: csv, atualizarBadge: atualizarBadge
