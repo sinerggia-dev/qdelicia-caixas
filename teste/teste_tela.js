@@ -2197,6 +2197,75 @@ console.log('\n== o formulario de usuario abre mostrando o que esta gravado ==')
     'e o nome vale `undefined` sem dar erro: o campo abre errado calado', tarde);
 })();
 
+console.log('\n== o painel nasce fechado, e so abre o que a pessoa pode ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* O DEFEITO: ao entrar, as sete abas apareciam por segundos e so depois a peneira
+     rodava — ela precisa do catalogo de abas, que chega pela rede. Nesse intervalo a
+     pessoa via Ajustes e Cadastros e podia CLICAR: as paginas existem no HTML e a API
+     nao tem autorizacao nenhuma.
+
+     Errar para o lado de MOSTRAR se corrige no cadastro; errar aqui entrega a tela. */
+  var iNav = adm.indexOf('<nav class="abas" id="abas"');
+  var nav = adm.slice(iNav, adm.indexOf('</nav>', iNav));
+  var botoes = nav.match(/<button[^>]*data-pagina="[^"]+"/g) || [];
+  var visiveis = botoes.filter(function (b) { return b.indexOf('display:none') < 0; });
+  ok(botoes.length >= 7 && visiveis.length === 0,
+    'nenhuma aba do painel nasce visível — enquanto a peneira não roda, quem tem menos ' +
+    'permissão veria (e poderia clicar) as abas dos outros',
+    { abas: botoes.length, visiveis: visiveis });
+
+  /* `style="display:none"`, e nao o atributo `hidden`: ha seletores em producao que
+     procuram `:not([style*="none"])` para achar a primeira aba liberada, e trocar o
+     mecanismo aqui os deixaria achando abas escondidas. */
+  ok(adm.indexOf(':not([style*="none"])') > 0,
+    'e o mecanismo é o mesmo que a peneira já usa — `hidden` deixaria os seletores de ' +
+    '"primeira aba liberada" achando aba escondida');
+
+  /* Nenhuma PAGINA nasce aberta, pelo mesmo motivo: o conteudo aparecia junto com as
+     abas, e o Painel de Ativos ficava a vista para quem nao tem a aba dele. */
+  var paginas = adm.match(/<section id="pg[A-Za-z]+" class="pagina[^"]*"/g) || [];
+  var abertas = paginas.filter(function (p) { return p.indexOf('ativa') >= 0; });
+  ok(paginas.length >= 6 && abertas.length === 0,
+    'e nenhuma página nasce aberta — o conteúdo aparecia junto com as abas, e quem abre ' +
+    'a primeira é a peneira, depois de saber o que a pessoa pode ver', abertas);
+
+  /* Navegacao em branco parece tela quebrada, e a pessoa recarrega. Ela diz o que esta
+     acontecendo enquanto nao sabe. */
+  ok(adm.indexOf('id="abasCarregando"') > 0,
+    'o lugar das abas diz que está carregando — em branco, parece tela quebrada');
+  var iF = adm.indexOf('function ajustarAbasPainel(s)');
+  var fn = adm.slice(iF, adm.indexOf('\n  }', iF));
+  ok(iF > 0 && /carregando\.hidden = true/.test(fn),
+    'e o aviso sai quando a peneira roda — deixado ali, diria que ainda está carregando ' +
+    'sobre uma navegação pronta');
+
+  /* Ninguem pode acabar num painel mudo. */
+  ok(/if \(!primeira && carregando\)/.test(fn),
+    'e quem não tem página nenhuma liberada recebe a frase, em vez de um painel vazio ' +
+    'sem explicação', fn);
+
+  /* SE A REDE FALHAR a peneira nunca roda, e as abas ficam escondidas para sempre. O
+     `toast` some em segundos; quem chegar depois dele so ve o vazio. */
+  var iC = adm.indexOf('function carregarEquipe()');
+  var ce = adm.slice(iC, adm.indexOf('\n  }', iC));
+  /* A CONDICAO, e nao o texto: um `if (false)` na frente dela deixa a frase inteira no
+     arquivo e o aviso morto. Procurar a mensagem encontrava as duas coisas. */
+  ok(iC > 0 &&
+     /if \(carregando && !document\.querySelector\('#abas button\.ativa'\)\) \{/.test(ce) &&
+     /Não consegui carregar suas permissões/.test(ce),
+    'e se a `equipe` falhar a lateral explica, em vez de ficar vazia para sempre — o ' +
+    '`toast` some em segundos e quem chegar depois dele só vê o branco', ce);
+
+  /* O `return` que causava tudo continua la, e agora ele e o COMPORTAMENTO CERTO: sem
+     catalogo, nao mostra nada. Antes ele era inofensivo so porque as abas nasciam
+     visiveis. */
+  ok(/if \(!ABAS_PAINEL\.length\) return;/.test(fn),
+    'sem o catálogo a peneira não mostra nada — o mesmo `return` de antes, que só era ' +
+    'inofensivo porque as abas nasciam visíveis');
+})();
+
 console.log('\n== quem esta logado e a rede, na barra de app ==');
 (function () {
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');

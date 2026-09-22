@@ -299,6 +299,34 @@ o resto continuava verde, porque as suítes rodam sobre um banco falso que não 
 ponto exato em que uma permissão vira "não fica salva". Agora há uma varredura que, para cada uma
 das oito listas, exige o `lista(r.<coluna>)` na leitura e o `r.<coluna> =` na gravação.
 
+## O painel nasce fechado: nenhuma aba, nenhuma página
+
+Ao entrar, as sete abas apareciam por alguns segundos e só depois a peneira rodava —
+`ajustarAbasPainel()` precisa do **catálogo** de abas, que diz quais existem e quais são
+sensíveis, e ele só chega com a `equipe`. Nesse intervalo a pessoa via *Ajustes* e
+*Cadastros*, e **podia clicar**: as seções existem no HTML e a API não tem autorização
+nenhuma. Medido: 7 abas à vista e o Painel de Ativos aberto, por toda a ida e volta da rede.
+
+Agora **as abas nascem com `style="display:none"` e nenhuma página nasce `ativa`**. Quem
+revela é a peneira, depois de saber. Sem catálogo ela não mostra nada — o mesmo `return`
+de antes, que só era inofensivo porque as abas nasciam visíveis.
+
+`style="display:none"` e **não** o atributo `hidden`: há seletores em produção que
+procuram `:not([style*="none"])` para achar a primeira aba liberada, e trocar o mecanismo
+aqui os deixaria achando aba escondida.
+
+Três coisas que a lateral vazia exige dizer, porque navegação em branco parece tela
+quebrada e a pessoa recarrega:
+
+- **enquanto carrega** — "Carregando suas permissões…", que sai quando a peneira roda;
+- **se a `equipe` falhar** — a peneira nunca roda e as abas ficariam escondidas para
+  sempre. O `toast` some em segundos; quem chegar depois dele só veria o branco;
+- **se ninguém liberou nada** — `abasPermitidas()` já evita, mas se escapar, a pessoa
+  merece a frase em vez do vazio.
+
+O app de campo **não tinha esse problema**: `ajustarAbas()` decide só com a sessão, sem
+catálogo, e roda antes de qualquer resposta chegar.
+
 ## Toda aba pode ser concedida — o padrão é que trava, não o perfil
 
 Ajustes e Cadastros eram travadas para quem não é Admin. **A trava saiu a pedido do usuário:**
@@ -781,7 +809,7 @@ O `teste_api.js` tem **519 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**727 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**735 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

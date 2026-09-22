@@ -131,6 +131,11 @@ a{color:var(--marca-txt);text-decoration:none}
 .lateral__topo{display:flex;align-items:center;gap:10px;padding:0 6px 18px}
 .lateral__folga{flex:1 1 auto}
 
+/* O aviso que ocupa o lugar das abas enquanto a peneira nao rodou. Discreto de
+   proposito: e um estado de passagem, nao uma mensagem para ler. */
+.abas-carregando{
+  margin:0 0 4px;padding:10px 12px;font-size:13px;line-height:1.35;color:var(--txt3)
+}
 nav.abas{display:flex;flex-direction:column;gap:3px}
 nav.abas button,.nav-link{
   display:flex;align-items:center;gap:11px;width:100%;
