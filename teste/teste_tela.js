@@ -1797,7 +1797,7 @@ console.log('\n== as abas de admin travam no cadastro ==');
   ok(posAviso > 0 && posLista > 0 && posAviso < posLista,
     'o aviso da trava vem ANTES da lista — depois dela ele cai fora da caixa que rola, ' +
     'e um motivo invisível não explica nada', { aviso: posAviso, lista: posLista });
-  ok(/\.aviso-trava\{/.test(css) && /\.aviso-trava\[hidden\]\{display:none\}/.test(css),
+  ok(/\.aviso-trava\{/.test(css) && /\[hidden\]\{display:none!important\}/.test(css),
     'e tem estilo próprio, inclusive o `hidden` — sem essa regra a faixa vazia ocuparia ' +
     'espaço em todo quadro destravado');
 
@@ -2099,7 +2099,7 @@ console.log('\n== a porta para o painel, no app de campo ==');
     'lenta seguraria a tela inteira de quem só quer lançar',
     passos.map(function (x) { return x.p; }));
 
-  ok(/a\.chip\{/.test(css) && /a\.chip\[hidden\]\{display:none\}/.test(css),
+  ok(/a\.chip\{/.test(css) && /\[hidden\]\{display:none!important\}/.test(css),
     'e o estilo do link existe, inclusive o `hidden` — sem essa regra o `display` do ' +
     'chip venceria o `hidden` e a porta apareceria para todo mundo');
 })();
@@ -2195,6 +2195,115 @@ console.log('\n== o formulario de usuario abre mostrando o que esta gravado ==')
   ok(tarde.length === 0,
     'e nenhum nome que o formulário interpola é declarado depois dele — `var` é içado, ' +
     'e o nome vale `undefined` sem dar erro: o campo abre errado calado', tarde);
+})();
+
+console.log('\n== quem esta logado e a rede, na barra de app ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var telas = {
+    'index.html': fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'),
+    'admin.html': fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8')
+  };
+
+  /* Ao levar os chips para dentro da gaveta, quem esta logado e o estado da rede sumiram
+     do celular: com a gaveta fechada nao havia como saber nenhum dos dois. E "3 na fila"
+     e justamente o aviso que nao pode esperar um toque — quem esta no galpao precisa
+     saber que o lancamento nao saiu. */
+  Object.keys(telas).forEach(function (arq) {
+    var t = telas[arq];
+    var i = t.indexOf('<header class="topo">');
+    var topo = t.slice(i, t.indexOf('</header>', i));
+    ok(i > 0 && topo.indexOf('id="avatarTopo"') > 0,
+      arq + ': a barra de app diz quem está logado — na gaveta fechada, é a única pista');
+    ok(topo.indexOf('id="pontoRede"') > 0,
+      arq + ': e tem o ponto de estado da rede');
+    ok(topo.indexOf('id="avisoRede"') > 0,
+      arq + ': e onde escrever o aviso quando houver o que avisar');
+    /* O ponto mora DENTRO do circulo. A forma inteira, e nao "um vem depois do outro":
+       fechar o circulo antes do ponto deixa os dois na ordem certa e o ponto solto na
+       barra, sem dono e sem a borda que o descola do fundo. */
+    ok(/<span class="avatar" id="avatarTopo"[^>]*>[^<]*<span class="ponto" id="pontoRede"><\/span><\/span>/
+      .test(topo),
+      arq + ': e o ponto mora dentro do círculo — fechado antes dele, vira uma bolinha ' +
+      'solta na barra, sem dono');
+
+    /* E o grupo inteiro nao pode nascer escondido: um `hidden` nele apaga as tres coisas
+       de uma vez, e o HTML continua tendo todos os ids que os testes procuram. */
+    ok(!/<div class="topo__conta"[^>]*\shidden/.test(topo),
+      arq + ': e o canto direito não nasce escondido — um `hidden` nele apaga as três ' +
+      'peças de uma vez, e os ids continuam todos no arquivo');
+  });
+
+  /* UMA CONTA SO para os tres lugares. Tres contas sobre o estado da rede discordam no
+     primeiro ajuste, e a que discordar mente calada: alguem veria ponto verde com
+     lancamento preso na fila. */
+  var iB = js.indexOf('function atualizarBadge()');
+  var badge = js.slice(iB, js.indexOf('\n  }', iB));
+  ok(iB > 0 && /var estado, texto;/.test(badge),
+    'o estado da rede é calculado UMA vez', badge);
+  ['chipRede', 'pontoRede', 'avisoRede'].forEach(function (id) {
+    ok(badge.indexOf("getElementById('" + id + "')") > 0,
+      'e escrito em `#' + id + '` — três contas sobre a mesma coisa discordam no ' +
+      'primeiro ajuste, e a que discordar mente calada');
+  });
+  /* Nenhum dos tres pode ter conta PROPRIA: a conta e a de cima, e mais nada. */
+  ok((badge.match(/navigator\.onLine/g) || []).length === 1,
+    'e `navigator.onLine` é lido uma vez só ali dentro — relido por peça, duas delas ' +
+    'podem discordar no mesmo instante',
+    (badge.match(/navigator\.onLine/g) || []).length);
+
+  /* O AVISO SO APARECE QUANDO HA O QUE AVISAR. Um chip dizendo "Online" o tempo todo
+     vira ruido, e ruido constante e o que faz ninguem reparar no dia em que ele muda. */
+  ok(/aviso\.hidden = !estado/.test(badge),
+    'o aviso da barra some quando está tudo bem — um "Online" permanente vira ruído, e ' +
+    'ruído constante é o que faz ninguém reparar no dia em que ele muda');
+
+  /* E `hidden` PRECISA ganhar do `display`. Esta e a quarta vez que o projeto tropeca
+     nisso: `.chip{display:inline-flex}` vencia o atributo, e o aviso ficava na tela. */
+  ok(/\[hidden\]\{display:none!important\}/.test(css),
+    'e `hidden` vence o `display` para qualquer elemento — sem esta regra o ' +
+    '`display:inline-flex` do chip ganha do atributo, e o aviso fica na tela o tempo todo');
+  var porElemento = (css.match(/^[^\n@]*\[hidden\]\{/gm) || [])
+    .filter(function (r) { return r.trim().indexOf('[hidden]{') !== 0; });
+  ok(porElemento.length === 0,
+    'e é UMA regra, não uma por elemento descoberto — eram três (`.ret-pop`, ' +
+    '`.aviso-trava` e a porta do painel), cada uma escrita depois de a peça aparecer ' +
+    'onde não devia', porElemento);
+
+  /* A cor do ponto sai do MESMO estado, e nao de uma segunda leitura. */
+  ok(/ponto\.className = estado \? 'ponto ' \+ estado : 'ponto'/.test(badge),
+    'a cor do ponto sai do mesmo estado do texto — verde é "está tudo bem", e nada mais');
+  ok(/\.avatar \.ponto\{[^}]*background:var\(--verde\)/.test(css) &&
+     /\.avatar \.ponto\.alerta\{background:var\(--ambar\)\}/.test(css) &&
+     /\.avatar \.ponto\.off\{background:var\(--vermelho\)\}/.test(css),
+    'e as três cores existem: verde, âmbar para a fila, vermelho para sem rede');
+
+  /* Quem ve o aviso no celular e quem esta com lancamento preso — e era o unico que nao
+     tinha onde tocar para tentar de novo. */
+  ok(/\['chipRede', 'avisoRede'\]\.forEach/.test(js),
+    'os dois mandam a fila ao toque — quem vê o aviso no celular é justamente quem está ' +
+    'com lançamento preso');
+
+  /* Escrever as iniciais NAO pode apagar o ponto, que mora dentro do mesmo elemento. */
+  var iQ = js.indexOf('function quemEsta(nome, perfil)');
+  var quem = js.slice(iQ, js.indexOf('\n  }', iQ));
+  ok(iQ > 0 && quem.indexOf('avatarTopo') > 0,
+    'as iniciais entram nos dois círculos');
+  ok(!/avatarTopo'\);\s*if \(t\) t\.textContent/.test(js) && /nodeValue|createTextNode/.test(quem),
+    'e o de cima é escrito sem apagar o ponto — `textContent` levaria o ponto junto, e a ' +
+    'rede ficaria sem indicador nenhum depois do primeiro login', quem);
+  ok(/t\.title = /.test(quem),
+    'e o círculo leva o nome inteiro — duas letras identificam pouco quando há dois Josés');
+
+  /* A MARCA ENCOLHE, o canto direito NAO. Medido a 390px com "Offline · 2 na fila": sem
+     isto o avatar era empurrado para fora da barra, e quem estava sem rede perdia de
+     vista justamente o aviso e a propria identificacao. */
+  ok(/\.topo__marca\{[^}]*flex:0 1 auto/.test(css),
+    'a marca encolhe quando o aviso cresce');
+  ok(/\.topo__conta\{[^}]*flex:0 0 auto/.test(css),
+    'e o canto direito não — medido a 390px, sem isto o avatar era empurrado para fora ' +
+    'da barra justamente no estado em que ele mais importa');
 })();
 
 console.log('\n== o seletor de Ajuste obedece a lista de locais ==');
@@ -3402,7 +3511,8 @@ console.log('\n== os filtros num painel suspenso ==');
   var mob = css.slice(css.indexOf('@media'));
   ok(/\.ret-pop\{bottom:auto;top:calc\(100% \+ 6px\)/.test(mob),
     'no celular desce, porque lá o trilho é uma faixa no topo');
-  ok(/\.ret-pop\[hidden\]\{display:none\}/.test(css), 'e fechado ele some de fato');
+  ok(/\[hidden\]\{display:none!important\}/.test(css), 'e fechado ele some de fato — pela regra geral `[hidden]`, que substituiu as três ' +
+    'específicas que existiam');
 
   /* Subir e o padrao, mas o trilho tem a ALTURA DA TABELA: com poucas linhas ele encolhe,
      o gatilho sobe junto, e o painel nasceria acima do topo da tela — sem rolagem que o

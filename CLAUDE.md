@@ -611,6 +611,34 @@ cada troca. No computador a lateral já responde isso; **no celular a gaveta est
 a única pista**. O texto sai do próprio botão (`data-titulo`, ou o rótulo): uma lista de títulos à
 parte discordaria da navegação no primeiro rename.
 
+#### O canto direito da barra de app
+
+Levar os chips para dentro da gaveta **sumiu com duas coisas no celular**: quem está logado e o
+estado da rede. Com a gaveta fechada não havia como saber nenhum dos dois — e "3 na fila" é
+justamente o aviso que não pode esperar um toque, porque diz que o lançamento não saiu.
+
+A barra de app leva agora o círculo com as iniciais (`#avatarTopo`, com o nome inteiro no `title`)
+e um ponto de estado dentro dele (`#pontoRede`). **O aviso (`#avisoRede`) só aparece quando há o
+que avisar**: um chip dizendo "Online" o tempo todo vira ruído, e ruído constante é o que faz
+ninguém reparar no dia em que ele muda. Verde é "está tudo bem", e nada mais.
+
+**`atualizarBadge()` calcula o estado UMA vez e escreve nos três lugares.** Três contas sobre a
+mesma coisa discordam no primeiro ajuste, e a que discordar mente calada — alguém veria ponto
+verde com lançamento preso na fila. O chip e o aviso **ambos** mandam a fila ao toque: quem vê o
+aviso no celular é justamente quem está com lançamento preso, e era o único que não tinha onde
+tocar para tentar de novo.
+
+**A marca encolhe, o canto direito não.** Medido a 390px com "⚠ Offline · 2 na fila": sem
+`flex:0 1 auto` na marca, o avatar era empurrado para fora da barra justamente no estado em que
+ele mais importa.
+
+#### `[hidden]` vence o `display`, uma regra para tudo
+
+Este projeto tropeçou nisto **quatro vezes** — `.ret-pop`, `.aviso-trava`, a porta do painel e
+agora o chip da barra de app —, e as três primeiras ganharam cada uma a sua regra, escrita depois
+de a peça aparecer onde não devia. As três saíram; no lugar delas há `[hidden]{display:none!important}`,
+que vale para qualquer elemento. Um teste recusa regra `[hidden]` por elemento.
+
 #### `.lateral`, e nunca `.barra`
 
 `.barra` **já existia** neste projeto — é a barra de aging, `height:10px`, declarada mais abaixo no
@@ -753,7 +781,7 @@ O `teste_api.js` tem **519 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**701 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**727 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

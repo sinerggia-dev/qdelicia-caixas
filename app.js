@@ -118,19 +118,43 @@
     });
   }
 
+/**
+   * O estado da rede, escrito nos TRES lugares que o mostram.
+   *
+   * Uma conta so: o chip da lateral, o ponto no circulo da barra de app e o aviso ao
+   * lado dele. Tres contas sobre a mesma coisa discordam no primeiro ajuste, e a que
+   * discordar mente em silencio — alguem veria ponto verde com lancamento preso na fila.
+   *
+   * O AVISO da barra de app so aparece quando ha o que avisar. Um chip dizendo "Online"
+   * o tempo todo vira ruido, e ruido constante e o que faz ninguem reparar no dia em que
+   * ele muda. O ponto verde ja diz que esta tudo bem.
+   */
   function atualizarBadge() {
-    var el = document.getElementById('chipRede');
-    if (!el) return;
     var n = fila().length;
+    var estado, texto;
     if (!navigator.onLine) {
-      el.className = 'chip off';
-      el.textContent = n ? '⚠ Offline · ' + n + ' na fila' : '⚠ Offline';
+      estado = 'off';
+      texto = n ? '⚠ Offline · ' + n + ' na fila' : '⚠ Offline';
     } else if (n) {
-      el.className = 'chip alerta';
-      el.textContent = '↻ ' + n + ' para enviar';
+      estado = 'alerta';
+      texto = '↻ ' + n + ' para enviar';
     } else {
-      el.className = 'chip';
-      el.textContent = '● Online';
+      estado = '';
+      texto = '● Online';
+    }
+
+    var el = document.getElementById('chipRede');
+    if (el) {
+      el.className = estado ? 'chip ' + estado : 'chip';
+      el.textContent = texto;
+    }
+    var ponto = document.getElementById('pontoRede');
+    if (ponto) ponto.className = estado ? 'ponto ' + estado : 'ponto';
+    var aviso = document.getElementById('avisoRede');
+    if (aviso) {
+      aviso.hidden = !estado;
+      aviso.className = estado ? 'chip ' + estado : 'chip';
+      aviso.textContent = texto;
     }
   }
 
@@ -394,8 +418,21 @@
     if (n) n.textContent = nome || '—';
     var p = document.getElementById('cabPerfil');
     if (p) p.textContent = perfil || '';
+    /* Os dois circulos: o da lateral e o da barra de app. O da barra e a UNICA pista de
+       quem esta logado no celular com a gaveta fechada, e por isso ele leva o nome
+       inteiro no `title` — duas letras identificam pouco quando ha dois Josés.
+
+       `insertBefore` em vez de `textContent` no de cima: o ponto de estado mora dentro
+       dele, e escrever o texto por cima apagaria o ponto junto. */
     var a = document.getElementById('avatarUsuario');
     if (a) a.textContent = iniciais(nome);
+    var t = document.getElementById('avatarTopo');
+    if (t) {
+      t.firstChild && t.firstChild.nodeType === 3
+        ? (t.firstChild.nodeValue = iniciais(nome))
+        : t.insertBefore(document.createTextNode(iniciais(nome)), t.firstChild);
+      t.title = (nome || '—') + (perfil ? ' · ' + perfil : '');
+    }
   }
 
   /* ---------------- gaveta de navegacao ----------------
@@ -550,9 +587,15 @@
   document.addEventListener('DOMContentLoaded', function () {
     atualizarBadge();
     sincronizar().then(function (n) { if (n) toast(n + ' lançamento(s) pendente(s) enviado(s).', 'ok'); });
-    var chip = document.getElementById('chipRede');
-    if (chip) chip.addEventListener('click', function () {
-      sincronizar().then(function (n) { toast(n ? n + ' enviado(s).' : (fila().length ? 'Ainda na fila — sem conexão.' : 'Nada pendente.'), n ? 'ok' : ''); });
+    /* Os DOIS mandam a fila agora: o chip da lateral e o aviso da barra de app. Quem ve
+       o aviso no celular e quem esta com lancamento preso, e era o unico que nao tinha
+       onde tocar para tentar de novo. */
+    ['chipRede', 'avisoRede'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('click', function () {
+        sincronizar().then(function (n) { toast(n ? n + ' enviado(s).' : (fila().length ? 'Ainda na fila — sem conexão.' : 'Nada pendente.'), n ? 'ok' : ''); });
+      });
     });
   });
 

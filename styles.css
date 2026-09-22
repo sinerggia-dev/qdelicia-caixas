@@ -88,7 +88,15 @@ a{color:var(--marca-txt);text-decoration:none}
   display:flex;align-items:center;gap:8px;padding:0 10px 0 4px;
   background:var(--campo);border-bottom:1px solid var(--linha)
 }
-.topo__marca{display:flex;align-items:center;gap:9px;min-width:0}
+/* A marca ENCOLHE, e o canto direito nao. Medido a 390px com "⚠ Offline · 2 na fila":
+   sem isto o avatar era empurrado para fora da barra, e quem estava sem rede perdia de
+   vista justamente o aviso e a propria identificacao. O nome da marca e decoracao; o
+   titulo da pagina, logo abaixo, e quem diz onde se esta. */
+.topo__marca{display:flex;align-items:center;gap:9px;min-width:0;flex:0 1 auto;overflow:hidden}
+/* O canto direito da barra de app. `margin-left:auto` empurra o grupo inteiro — antes
+   cada peca se empurrava sozinha, e elas disputavam a largura com o nome da marca. */
+.topo__conta{display:flex;align-items:center;gap:8px;margin-left:auto;flex:0 0 auto}
+.topo__conta .chip{font-size:11px;padding:4px 9px}
 
 /* Botao so de icone. 44px porque e o alvo minimo de dedo — o app e usado de luva. */
 .btn-icone{
@@ -147,6 +155,18 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   display:inline-flex;align-items:center;justify-content:center;
   background:var(--brand-soft);color:var(--marca-txt);font-size:12px;font-weight:600
 }
+/* O ponto de estado, colado no circulo. A cor sai de `atualizarBadge()`, a MESMA
+   funcao que escreve o chip da lateral — duas contas sobre o estado da rede discordariam
+   no primeiro ajuste, e uma delas mentiria em silencio.
+
+   Ele nao substitui o texto: ponto verde diz "esta tudo bem", e nada mais. Quando ha o
+   que dizer — offline, fila por enviar — quem fala e o chip ao lado, com o numero. */
+.avatar .ponto{
+  position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:50%;
+  background:var(--verde);border:2px solid var(--campo)
+}
+.avatar .ponto.alerta{background:var(--ambar)}
+.avatar .ponto.off{background:var(--vermelho)}
 .conta__id{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
 .conta__nome{font-size:13px;font-weight:600;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .conta__meta{font-size:11px;color:var(--txt3);line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -591,7 +611,6 @@ tr.ruim{background:var(--vermelho-claro)}
 /* Quando nao cabe acima. Quem decide e o `abrirFiltros`, medindo — a altura do trilho
    depende da tabela, e isso o CSS nao tem como saber. */
 .ret-pop.para-baixo{bottom:auto;top:calc(100% + 6px)}
-.ret-pop[hidden]{display:none}
 .ret-pop label{display:block;font-size:11.5px;color:var(--txt2);margin:9px 0 3px;font-weight:600}
 .ret-pop>label:first-child,.ret-pop .pop-duplo label{margin-top:0}
 /* Os campos do projeto tem medida de formulario de celular — 12px de recuo e fonte 16 —,
@@ -661,7 +680,6 @@ tr.ruim{background:var(--vermelho-claro)}
   border:1px solid var(--ambar,#f0b43c);border-radius:var(--raio);
   padding:8px 11px;margin-bottom:8px;font-size:12.5px;line-height:1.45;
   color:var(--ambar-forte,#f0b43c)}
-.aviso-trava[hidden]{display:none}
 
 
 .ret-pop .ret-acao{color:var(--marca-txt);justify-content:center;font-size:12.5px}
@@ -707,7 +725,16 @@ body.redimensionando{user-select:none;cursor:col-resize}
    aba nova com o clique do meio e aparece no menu de contexto, como todo link. O `chip`
    ja da a forma; aqui so o que um link precisa. */
 a.chip{text-decoration:none;display:inline-flex;align-items:center}
-a.chip[hidden]{display:none}
+/* `display` VENCE o atributo `hidden`, e este projeto ja tropecou nisto tres vezes —
+   `.ret-pop`, `.aviso-trava` e a porta do painel, cada uma com a sua regra depois de
+   aparecer onde nao devia. Esta aqui e a quarta e ultima: vale para QUALQUER elemento,
+   e nao so para os que ja foram descobertos um a um.
+
+   Foi o chip "Online" da barra de app que cobrou de novo: o codigo punha `hidden`, o
+   `.chip{display:inline-flex}` vencia, e o aviso que so deveria aparecer com a rede
+   caida ficava na tela o tempo todo — virando o ruido constante que ele existe para
+   nao ser. */
+[hidden]{display:none!important}
 a.chip:hover{background:var(--surface-2);color:var(--txt)}
 /* O Saldo final: o numero na cor do que ele diz. Verde e vermelho sao os mesmos do
    resto do painel — os cartoes do topo e o selo de situacao ja usam esses dois. */
