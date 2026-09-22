@@ -28,8 +28,14 @@
      esta atras do que esta na frente: azul chapado vira uma mancha so.
      `--campo` e mais ESCURO que o cartao de proposito: campo que se preenche afunda,
      em vez de saltar. */
-  --bg:#0d1520; --surface:#16233a; --surface-2:#1b2a41; --campo:#101c2b;
-  --neutro:#2c405c; --linha:#25374f;
+  /* DOIS AZUIS, um mais claro e um mais escuro, a pedido. O chao da pagina e o
+     azul-marinho da marca — o MESMO `--marinho` da tela de entrada, para a cor nao
+     mudar no instante em que a pessoa entra. O cartao sobe um degrau (mais claro), e
+     a lateral, a barra e os campos descem um (mais escuro): o que se preenche afunda,
+     o que se le salta. A relacao entre eles e a de antes; o que mudou foi a familia,
+     de um azul quase preto para o marinho. */
+  --bg:#16304f; --surface:#1b3a5e; --surface-2:#24486f; --campo:#102741;
+  --neutro:#33587f; --linha:#2a4b71;
 
   --txt:#e8eef5; --txt2:#c3d3e6; --txt3:#9cb1c9;
   /* So da tela de entrada: o cinza do `placeholder`, a borda sob o mouse e a tinta
@@ -53,6 +59,7 @@
      `--sobre-verde` existir — sem ele alguem poe branco por habito e o botao fica
      ilegivel no galpao. */
   --marca-roxo:#8b44e0; --marca-verde:#00a853;
+  --roxo-txt:#c9a6f0;         /* o roxo como TINTA: as iniciais no circulo */
   --verde-hover:#00b85c;      /* o hover CLAREIA: escurecer roubava contraste */
   --sobre-verde:#0a1f38;      /* a tinta que vai SOBRE o verde */
   --raio:14px; --raio-sm:10px;
@@ -160,14 +167,19 @@ a{color:var(--marca-txt);text-decoration:none}
   width:var(--lateral-larg);flex:0 0 auto;display:flex;flex-direction:column;
   overflow:hidden;background:var(--campo);border-right:1px solid var(--linha)
 }
-.lateral__topo{display:flex;align-items:center;gap:10px;flex:0 0 auto;padding:14px 10px 14px 14px}
+/* O risco sob a marca separa QUEM É do PARA ONDE SE VAI. Sem ele o logo lia como o
+   primeiro item da lista, e a lista parecia começar uma linha acima do que começa. */
+.lateral__topo{
+  display:flex;align-items:center;gap:10px;flex:0 0 auto;
+  padding:14px 10px 14px 14px;border-bottom:1px solid var(--linha)
+}
 
 /* A LISTA ROLA SOZINHA, e o rodapé nunca sai da tela. Antes um `.lateral__folga`
    empurrava o rodapé para baixo: com a navegação cheia, a rede e o botão de sair
    desciam para fora da lateral, e quem queria sair tinha de rolar para achá-los. */
 .lateral__rolagem{
   flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
-  padding:0 12px 12px;scrollbar-width:thin
+  padding:10px 12px 12px;scrollbar-width:thin
 }
 /* O rodapé: preso embaixo, sempre à vista. */
 .lateral__pe{
@@ -191,6 +203,18 @@ a{color:var(--marca-txt);text-decoration:none}
   margin:0 0 4px;padding:10px 12px;font-size:13px;line-height:1.35;color:var(--txt3)
 }
 nav.abas{display:flex;flex-direction:column;gap:3px}
+
+/* O TÍTULO DO MÓDULO. Sete itens seguidos viram uma lista sem forma: a pessoa lê os
+   sete toda vez porque nada diz onde procurar. Separados por Operação / Dados /
+   Sistema, ela lê um grupo e ignora os outros.
+
+   Some junto com os itens dele — ver `Q.gruposDaNavegacao()`. Um cabeçalho anunciando
+   uma seção vazia é a forma mais crua de mentir sobre o que a pessoa pode fazer. */
+.nav-grupo{
+  padding:14px 12px 6px;font-size:10px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--txt3);white-space:nowrap
+}
+.nav-grupo:first-child{padding-top:2px}
 nav.abas button,.nav-link{
   display:flex;align-items:center;gap:11px;width:100%;
   min-height:44px;padding:10px 12px;border:0;border-radius:var(--raio-sm);
@@ -213,7 +237,7 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .avatar{
   position:relative;flex:0 0 auto;width:32px;height:32px;border-radius:50%;
   display:inline-flex;align-items:center;justify-content:center;
-  background:var(--brand-soft);color:var(--marca-txt);font-size:12px;font-weight:600
+  background:var(--brand-soft);color:var(--roxo-txt);font-size:12px;font-weight:600
 }
 /* O ponto de estado, colado no circulo. A cor sai de `atualizarBadge()`, a MESMA
    funcao que escreve o chip da lateral — duas contas sobre o estado da rede discordariam
@@ -243,6 +267,14 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .chip.alerta{background:var(--ambar-claro);border-color:var(--ambar);color:var(--ambar-forte);font-weight:700}
 .chip.off{background:var(--vermelho-claro);border-color:var(--vermelho);color:var(--vermelho);font-weight:700}
 .lateral .chip{width:100%;justify-content:center;margin-bottom:10px}
+
+/* ONLINE É VERDE. Estando tudo bem, a cor já diz — e diz antes de a pessoa ler. O
+   âmbar e o vermelho continuam vindo das classes `alerta` e `off`, que o
+   `atualizarBadge()` escreve; por isso o `:not()` em vez de confiar na ordem das
+   regras: as três têm a mesma especificidade, e quem chegasse por último venceria. */
+.lateral__pe .chip:not(.alerta):not(.off){
+  background:var(--verde-claro);border-color:var(--verde);color:var(--verde);font-weight:600
+}
 
 /* ---------- cabecalho da pagina ---------- */
 .main{flex:1 1 auto;min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column}
@@ -327,6 +359,17 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) :is(
     .marca-nome,.nav-rotulo,.conta__id,.abas-carregando
   ){opacity:0;width:0;padding:0;margin:0;overflow:hidden;pointer-events:none;white-space:nowrap}
+
+  /* Os títulos de módulo viram um RISCO FINO: mantêm o agrupamento sem deixar buracos
+     de altura irregular entre os ícones. Sumindo de vez, os sete ícones voltariam a
+     ser uma fila só. */
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .nav-grupo{
+    width:auto;height:1px;margin:9px 14px;padding:0;
+    background:var(--linha);font-size:0;overflow:hidden
+  }
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .nav-grupo:first-child{
+    display:none
+  }
 
   /* O botão SAI do trilho, em vez de encolher: com `width:0` o ícone continuava
      vazando pela borda. E ele não faz falta — recolhida, a lateral inteira é o

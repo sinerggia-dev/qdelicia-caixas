@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=9c53b421">
+<link rel="stylesheet" href="styles.css?v=1535b251">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -184,7 +184,8 @@
          Continuam sendo `<button data-pagina>` dentro de `#abas`: e o contrato que
          `Q.abas()` e as permissoes leem. So a aparencia virou lista vertical. -->
     <nav class="abas" id="abas" aria-label="Páginas do app">
-      <button class="ativa" data-pagina="pgSaida" data-operacao="SAIDA" data-acima="Operação">
+      <div class="nav-grupo" data-grupo="Operação">Operação</div>
+      <button data-grupo="Operação" class="ativa" data-pagina="pgSaida" data-operacao="SAIDA" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M20 17H9a4 4 0 0 1-4-4V10"></path>
@@ -193,7 +194,7 @@
         </svg>
         <span class="nav-rotulo">Saída</span>
       </button>
-      <button data-pagina="pgDevolucao" data-operacao="RETORNO" data-acima="Operação">
+      <button data-grupo="Operação" data-pagina="pgDevolucao" data-operacao="RETORNO" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M4 7h11a4 4 0 0 1 4 4v3"></path>
@@ -202,7 +203,8 @@
         </svg>
         <span class="nav-rotulo">Retorno</span>
       </button>
-      <button data-pagina="pgSaldo" data-acima="Consulta">
+      <div class="nav-grupo" data-grupo="Consulta">Consulta</div>
+      <button data-grupo="Consulta" data-pagina="pgSaldo" data-acima="Consulta">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="8" y1="6" x2="21" y2="6"></line>
@@ -447,7 +449,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=8d34dc6b"></script>
+<script src="app.js?v=c9180ebd"></script>
 <script>
 (function(){
   'use strict';
@@ -563,6 +565,9 @@
       b.style.display = liberada ? '' : 'none';
       if (!liberada) b.classList.remove('ativa');
     });
+    /* O titulo do modulo some com os itens dele: cabecalho sobre secao vazia mente
+       sobre o que a pessoa pode fazer. Mora no `app.js`, e serve as duas telas. */
+    Q.gruposDaNavegacao('#abas');
     var primeira = document.querySelector('#abas button:not([style*="none"])');
     if (primeira) primeira.click();
   }

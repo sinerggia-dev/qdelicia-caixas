@@ -723,6 +723,33 @@
     (ultimo ? campo : $('inUsuario')).focus();
   }
 
+  /**
+   * O TÍTULO DO MÓDULO SOME COM OS ITENS DELE.
+   *
+   * A navegação é separada em Operação / Dados / Sistema, e as duas telas escondem
+   * itens conforme a permissão de quem entrou. Sem isto, quem não pode ver nenhuma
+   * página de um módulo ainda lia o cabeçalho dele — um título anunciando uma seção
+   * vazia, que é a forma mais crua de mentir sobre o que a pessoa pode fazer.
+   *
+   * Mora AQUI e não em cada tela porque as duas peneiram do mesmo jeito, e duas
+   * cópias divergem no primeiro conserto que só uma recebe.
+   *
+   * Lê o `display` computado, e não o atributo: o `admin.html` esconde com
+   * `style.display='none'` e o `index.html` também — mas um terceiro caminho
+   * (`hidden`, uma classe) passaria despercebido por uma checagem de atributo.
+   */
+  function gruposDaNavegacao(seletor) {
+    var nav = document.querySelector(seletor || '#abas');
+    if (!nav) return;
+    var vivos = {};
+    nav.querySelectorAll('button[data-grupo]').forEach(function (b) {
+      if (getComputedStyle(b).display !== 'none') vivos[b.dataset.grupo] = true;
+    });
+    nav.querySelectorAll('.nav-grupo').forEach(function (t) {
+      t.style.display = vivos[t.dataset.grupo] ? '' : 'none';
+    });
+  }
+
   /* ---------------- gaveta de navegacao ----------------
      Abaixo de 1024px a barra lateral vira gaveta; acima disso ela e fixa e isto aqui
      fica inerte. Mora no `app.js`, e nao em cada tela: sao duas telas com a mesma
@@ -985,6 +1012,7 @@
     temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
+    gruposDaNavegacao: gruposDaNavegacao,
     quemEsta: quemEsta, iniciais: iniciais,
     barraAging: barraAging, assinatura: assinatura,
     comprimirFoto: comprimirFoto, csv: csv, atualizarBadge: atualizarBadge

@@ -2735,7 +2735,7 @@ console.log('\n== o contraste de cada par que a tela usa ==');
     ['--txt3', '--campo', 'o nome da marca na lateral'],
     ['--marca-txt', '--surface', 'o link no cartão'],
     ['--marca-txt', '--bg', 'o link no chão'],
-    ['--marca-txt', '--brand-soft', 'as iniciais no círculo'],
+    ['--roxo-txt', '--brand-soft', 'as iniciais no círculo, em roxo'],
     ['branco', '--ambar-btn', 'o BOTÃO PRINCIPAL'],
     ['branco', '--brand-hover', 'o botão principal sob o mouse'],
     ['branco', '--brand', 'a página aberta na navegação'],
@@ -4748,6 +4748,133 @@ console.log('\n== nenhum id se repete dentro da mesma tela ==');
       nome + ': nenhum id se repete — repetido, o `getElementById` entrega o primeiro ' +
       'e o outro fica sem dono, sem erro nenhum', repetidos);
   });
+})();
+
+console.log('\n== a navegação separada por módulo ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  /* O RISCO SOB A MARCA. Sem ele o logo lia como o primeiro item da lista, e a lista
+     parecia começar uma linha acima do que começa. */
+  ok(/\.lateral__topo\{[^}]*border-bottom:1px solid var\(--linha\)/.test(css),
+    'a marca é separada da navegação por um risco');
+
+  /* CADA ITEM TEM MÓDULO, e cada módulo tem título. */
+  ['index.html', 'admin.html'].forEach(function (nome) {
+    var txt = fs.readFileSync(path.join(__dirname, '..', nome), 'utf8');
+    var nav = txt.slice(txt.indexOf('<nav class="abas"'), txt.indexOf('</nav>'));
+    var botoes = (nav.match(/<button[^>]*data-pagina=/g) || []);
+    var comGrupo = (nav.match(/<button[^>]*data-grupo=/g) || []);
+    ok(botoes.length > 0 && botoes.length === comGrupo.length,
+      nome + ': todo item da navegação declara o módulo dele',
+      { itens: botoes.length, comGrupo: comGrupo.length });
+
+    var titulos = (nav.match(/class="nav-grupo" data-grupo="([^"]+)"/g) || [])
+      .map(function (m) { return /data-grupo="([^"]+)"/.exec(m)[1]; });
+    var usados = {};
+    (nav.match(/<button[^>]*data-grupo="([^"]+)"/g) || []).forEach(function (m) {
+      usados[/data-grupo="([^"]+)"/.exec(m)[1]] = true;
+    });
+    var semTitulo = Object.keys(usados).filter(function (g) { return titulos.indexOf(g) < 0; });
+    ok(semTitulo.length === 0,
+      nome + ': e todo módulo usado tem título na lista', semTitulo);
+  });
+
+  /* O TÍTULO SOME COM OS ITENS DELE — rodado de verdade, com DOM de mentira. Um
+     cabeçalho anunciando uma seção vazia é a forma mais crua de mentir sobre o que a
+     pessoa pode fazer, e é o que acontecia sem isto. */
+  var iG = js.indexOf('function gruposDaNavegacao(seletor)');
+  ok(iG > 0, 'a regra do título mora no `app.js`, uma vez só para as duas telas');
+  var corpoG = (function () {
+    var d = 0;
+    for (var k = js.indexOf('{', iG); k < js.length; k++) {
+      if (js[k] === '{') d++;
+      else if (js[k] === '}') { d--; if (!d) return js.slice(iG, k + 1); }
+    }
+    return '';
+  })();
+
+  function falsoNav(itens) {
+    // itens: [[grupo, visivel], ...]; titulos: um por grupo distinto
+    var grupos = [], vistos = {};
+    itens.forEach(function (i) { if (!vistos[i[0]]) { vistos[i[0]] = true; grupos.push(i[0]); } });
+    var titulos = grupos.map(function (g) {
+      return { dataset: { grupo: g }, style: {}, _titulo: true };
+    });
+    var botoes = itens.map(function (i) {
+      return { dataset: { grupo: i[0] }, _vis: i[1] };
+    });
+    return {
+      querySelectorAll: function (sel) {
+        var l = sel.indexOf('button') >= 0 ? botoes : titulos;
+        l.forEach = Array.prototype.forEach;
+        return l;
+      },
+      _titulos: titulos
+    };
+  }
+
+  var alvo = null;
+  var fn = new Function('document', 'getComputedStyle',
+    corpoG + '\n return gruposDaNavegacao;')(
+    { querySelector: function () { return alvo; } },
+    function (b) { return { display: b._vis ? '' : 'none' }; });
+
+  alvo = falsoNav([['Operação', true], ['Dados', false], ['Sistema', false]]);
+  fn('#abas');
+  var mostrados = alvo._titulos.filter(function (t) { return t.style.display !== 'none'; })
+    .map(function (t) { return t.dataset.grupo; });
+  ok(mostrados.length === 1 && mostrados[0] === 'Operação',
+    'o título do módulo some quando NENHUM item dele sobrou — cabeçalho sobre seção ' +
+    'vazia mente sobre o que a pessoa pode fazer', mostrados);
+
+  alvo = falsoNav([['Operação', false], ['Dados', true]]);
+  fn('#abas');
+  var volta = alvo._titulos.filter(function (t) { return t.style.display !== 'none'; })
+    .map(function (t) { return t.dataset.grupo; });
+  ok(volta.length === 1 && volta[0] === 'Dados',
+    'e fica quando sobrou pelo menos um', volta);
+
+  /* E AS DUAS TELAS CHAMAM. A regra pode estar perfeita e nunca ser invocada: foi o
+     que aconteceu quando se tirou a chamada — o `gruposDaNavegacao` continuava certo,
+     os testes dele continuavam verdes, e os títulos voltavam a anunciar seções vazias.
+     Tem de ser DEPOIS de esconder os itens, senão ela peneira o estado anterior. */
+  ['index.html', 'admin.html'].forEach(function (nome) {
+    var txt = fs.readFileSync(path.join(__dirname, '..', nome), 'utf8');
+    var iC = txt.indexOf("Q.gruposDaNavegacao('#abas')");
+    var iF = txt.search(/b\.style\.display = (liberada|ok) \?/);
+    ok(iC > 0, nome + ': a tela chama a peneira dos títulos');
+    ok(iC > iF && iF > 0,
+      nome + ': e a chama DEPOIS de esconder os itens — antes, ela peneiraria o ' +
+      'estado anterior e o título sobreviveria por um ciclo', { chamada: iC, filtro: iF });
+  });
+
+  /* ONLINE É VERDE, e o âmbar/vermelho continuam vencendo. O `:not()` está lá porque
+     as três regras têm a mesma especificidade: sem ele quem chegasse por último venceria,
+     e o chip ficaria verde com lançamento preso na fila. */
+  ok(/\.lateral__pe \.chip:not\(\.alerta\):not\(\.off\)\{[^}]*color:var\(--verde\)/.test(css),
+    'o estado da rede nasce VERDE quando está tudo bem — a cor diz antes de a pessoa ler');
+  ok(/:not\(\.alerta\):not\(\.off\)/.test(css),
+    'e o âmbar e o vermelho continuam vencendo, por especificidade e não por ordem');
+
+  /* AS INICIAIS EM ROXO, com o ponto verde ao lado. */
+  ok(/\.avatar\{[^}]*color:var\(--roxo-txt\)/.test(css),
+    'as iniciais do círculo são roxas, na cor da marca');
+  ok(/\.avatar \.ponto\{[^}]*background:var\(--verde\)/.test(css),
+    'e o ponto de estado ao lado delas é verde');
+
+  /* DOIS AZUIS: um mais claro e um mais escuro. */
+  function bri(hex) {
+    var m = new RegExp('\\' + hex + ':\\s*(#[0-9a-fA-F]{6})').exec(css);
+    if (!m) return null;
+    var h = m[1];
+    return parseInt(h.slice(1, 3), 16) + parseInt(h.slice(3, 5), 16) + parseInt(h.slice(5, 7), 16);
+  }
+  ok(bri('--campo') < bri('--bg') && bri('--bg') < bri('--surface'),
+    'são dois azuis em volta do chão: o cartão SOBE um degrau e o campo DESCE um — o ' +
+    'que se preenche afunda, o que se lê salta',
+    { campo: bri('--campo'), chao: bri('--bg'), cartao: bri('--surface') });
 })();
 
 console.log('\n== a lateral recolhe num trilho, e o conteúdo é empurrado ==');

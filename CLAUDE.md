@@ -824,6 +824,55 @@ descia numa tabela longa deixava de ver onde estava e como sair) e o rodapé da 
 - **Sem `max-width`.** Eram 1800px, e num monitor comum nunca chegavam a valer: só
   apareciam em tela ultralarga, e ali como duas faixas vazias dos lados da tabela.
 
+### A navegação separada por módulo
+
+Sete itens seguidos viram uma lista sem forma: a pessoa lê os sete toda vez porque nada diz
+onde procurar. Hoje são três módulos — **Operação** (Painel de Ativos, Painel, Movimentos),
+**Dados** (Extratos, Cadastros, Colunas) e **Sistema** (Ajustes) — e o app de campo tem os
+dois dele, Operação e Consulta. Agrupar exigiu **reordenar**: irmãos juntos. A primeira aba
+continua sendo o Painel de Ativos, que é onde a pessoa cai.
+
+Cada botão declara o seu `data-grupo`, e cada módulo tem um `<div class="nav-grupo">` com o
+mesmo valor. **O título some com os itens dele** — `Q.gruposDaNavegacao()`, no `app.js`, uma
+vez só para as duas telas. Um cabeçalho anunciando uma seção vazia é a forma mais crua de
+mentir sobre o que a pessoa pode fazer, e era o que acontecia sem isso.
+
+Duas armadilhas que o teste cobre, e a segunda escapou na primeira tentativa:
+
+- a peneira lê o **`display` computado**, não o atributo: as duas telas escondem com
+  `style.display`, mas um terceiro caminho (`hidden`, uma classe) passaria batido;
+- **as duas telas têm de CHAMAR** a peneira, e depois de esconder os itens. A regra pode
+  estar perfeita e nunca ser invocada — tirando a chamada, os testes dela continuavam verdes
+  e os títulos voltavam a anunciar seções vazias.
+
+No trilho os títulos viram um **risco fino**: mantêm o agrupamento sem deixar buracos de
+altura irregular entre os ícones. Sumindo de vez, os sete voltariam a ser uma fila só.
+
+### Dois azuis, e os detalhes da lateral
+
+**O chão da página é o azul-marinho da marca** — o mesmo `--marinho` da tela de entrada, para
+a cor não mudar no instante em que a pessoa entra. Em volta dele, dois degraus:
+
+| | token | papel |
+|---|---|---|
+| mais claro | `--surface` | o cartão SOBE — o que se lê salta |
+| o chão | `--bg` | a página |
+| mais escuro | `--campo` | lateral, barra e campos DESCEM — o que se preenche afunda |
+
+A relação entre os três é a de antes; o que mudou foi a família, de um azul quase preto para o
+marinho. Medido depois da troca: **os 32 pares passam em WCAG AA**.
+
+Mais três detalhes da lateral, todos do modelo:
+
+- **um risco sob a marca.** Sem ele o logo lia como o primeiro item da lista, e a lista
+  parecia começar uma linha acima do que começa.
+- **o estado da rede nasce VERDE.** Estando tudo bem, a cor diz antes de a pessoa ler. O
+  âmbar e o vermelho continuam vindo das classes que o `atualizarBadge()` escreve — e a regra
+  verde é `:not(.alerta):not(.off)`, e não confia na ordem: as três têm a mesma
+  especificidade, e quem chegasse por último venceria. Um chip verde com lançamento preso na
+  fila seria a pior mentira que esta tela sabe contar.
+- **as iniciais em roxo** (`--roxo-txt`), com o ponto de estado verde ao lado.
+
 ### A navegação: barra lateral no computador, gaveta no celular
 
 As duas telas usam o mesmo **app shell** — barra de app (só no estreito), navegação, cabeçalho de

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=9c53b421">
+<link rel="stylesheet" href="styles.css?v=1535b251">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -197,54 +197,57 @@
          vazio: navegacao em branco parece tela quebrada, e a pessoa recarrega. -->
     <p class="abas-carregando" id="abasCarregando">Carregando suas permissões…</p>
     <nav class="abas" id="abas" aria-label="Páginas do painel">
-      <button style="display:none" data-pagina="pgRetornos" data-acima="Operação">
+      <div class="nav-grupo" data-grupo="Operação">Operação</div>
+      <button data-grupo="Operação" style="display:none" data-pagina="pgRetornos" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M3 11h18"></path><path d="M8 7V4h8v3"></path>
         </svg>
         <span class="nav-rotulo">Painel de Ativos</span>
       </button>
-      <button style="display:none" data-pagina="pgPainel" data-acima="Operação">
+      <button data-grupo="Operação" style="display:none" data-pagina="pgPainel" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
         </svg>
         <span class="nav-rotulo">Painel</span>
       </button>
-      <button style="display:none" data-pagina="pgExtrato" data-acima="Consulta">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line>
-        </svg>
-        <span class="nav-rotulo">Extratos</span>
-      </button>
-      <button style="display:none" data-pagina="pgLancar" data-acima="Correção">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>
-        </svg>
-        <span class="nav-rotulo">Ajustes</span>
-      </button>
-      <button style="display:none" data-pagina="pgMovimentos" data-acima="Consulta">
+      <button data-grupo="Operação" style="display:none" data-pagina="pgMovimentos" data-acima="Consulta">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>
         </svg>
         <span class="nav-rotulo">Movimentos</span>
       </button>
-      <button style="display:none" data-pagina="pgColunas" data-acima="Ajustes da tela">
+      <div class="nav-grupo" data-grupo="Dados">Dados</div>
+      <button data-grupo="Dados" style="display:none" data-pagina="pgExtrato" data-acima="Consulta">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line>
+        </svg>
+        <span class="nav-rotulo">Extratos</span>
+      </button>
+      <button data-grupo="Dados" style="display:none" data-pagina="pgCadastros" data-acima="Ajustes da tela">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        <span class="nav-rotulo">Cadastros</span>
+      </button>
+      <button data-grupo="Dados" style="display:none" data-pagina="pgColunas" data-acima="Ajustes da tela">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line>
         </svg>
         <span class="nav-rotulo">Colunas</span>
       </button>
-      <button style="display:none" data-pagina="pgCadastros" data-acima="Ajustes da tela">
+      <div class="nav-grupo" data-grupo="Sistema">Sistema</div>
+      <button data-grupo="Sistema" style="display:none" data-pagina="pgLancar" data-acima="Correção">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>
         </svg>
-        <span class="nav-rotulo">Cadastros</span>
+        <span class="nav-rotulo">Ajustes</span>
       </button>
     </nav>
 
@@ -593,7 +596,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=8d34dc6b"></script>
+<script src="app.js?v=c9180ebd"></script>
 <script>
 (function(){
   'use strict';
@@ -924,6 +927,9 @@
         if (sec) sec.classList.remove('ativa');
       }
     });
+    /* Idem: o titulo do modulo acompanha os itens. Aqui isso pesa mais — sao tres
+       modulos, e quem nao e admin perde Sistema inteiro. */
+    Q.gruposDaNavegacao('#abas');
     var primeira = document.querySelector('#abas button[data-pagina]:not([style*="none"])');
     if (primeira && !document.querySelector('#abas button.ativa')) primeira.click();
 
