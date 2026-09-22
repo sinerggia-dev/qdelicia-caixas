@@ -152,8 +152,24 @@ a{color:var(--marca-txt);text-decoration:none}
   border-radius:9px;background:var(--brand-soft);color:var(--marca-txt);overflow:hidden
 }
 .selo img{width:100%;height:100%;object-fit:contain}
+
+/* A MARCA NÃO É UM ÍCONE QUADRADO. O desenho é meia vez mais largo do que alto: dentro
+   do quadrado de 32px ele caberia em 32×22 e o nome viraria um borrão de dois tons.
+   Solto, com a ALTURA presa e a largura livre, ele ocupa os 50px que o desenho pede.
+
+   34px é o teto, e quem o impõe é o trilho recolhido: 68px menos 8px de folga de cada
+   lado deixam 52px, e a esta altura o desenho pede 50. Um pixel a mais de altura e ele
+   passa a vazar por cima do trilho — a conta está no teste, não neste comentário.
+
+   Sem fundo: o desenho já traz o próprio adesivo branco, e o quadrado roxo atrás dele
+   virava uma moldura em volta de um recorte que já tem borda. */
+.selo--marca{width:auto;height:34px;border-radius:0;background:none;overflow:visible}
+.selo--marca img{width:auto;height:100%}
+/* Sem caixa alta e sem espaçamento: a marca desenhada ficou ao lado, e CAIXA ALTA pede
+   121px de linha onde havia 104. Medido com a lateral aberta em 236px — cortado, o nome
+   do app virava "PAINEL DE CAIX…", e é o nome que diz em qual dos dois apps se está. */
 .marca-nome{
-  font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  font-size:12.5px;font-weight:600;
   color:var(--txt3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
 
@@ -791,8 +807,10 @@ tr.ruim{background:var(--vermelho-claro)}
 .ret-recolher:hover{background:var(--surface-2);color:var(--txt)}
 /* Com grupo escolhido e o trilho fora da tela, ele deixa de ser controle e vira aviso. */
 .ret-recolher.alerta{color:var(--ambar-forte);border-color:var(--ambar)}
-.ret-marca{font-weight:800;letter-spacing:.05em;font-size:15px;color:#fff;padding:2px 8px 16px;line-height:1.15}
-.ret-marca span{display:block;font-size:9px;font-weight:700;letter-spacing:.16em;color:var(--marca-txt);margin-top:3px}
+/* A marca do trilho de retornos. `height:auto` com width/height no HTML reserva a
+   altura certa antes de a imagem chegar — sem isso a lista de grupos dá um salto
+   quando ela termina de carregar, e o clique cai no grupo errado. */
+.ret-marca{display:block;width:100%;max-width:104px;height:auto;padding:2px 8px 16px}
 /* O flex tem de ficar AQUI, na caixa dos botoes: no trilho ele arruma
    marca/botoes/resumo, nao os botoes entre si — e no celular eles
    continuavam empilhados. */

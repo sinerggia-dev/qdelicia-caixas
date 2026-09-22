@@ -4900,6 +4900,99 @@ console.log('\n== a navegação separada por módulo ==');
     { campo: bri('--campo'), chao: bri('--bg'), cartao: bri('--surface') });
 })();
 
+console.log('\n== a marca: um desenho só, e do tamanho que ele pede ==');
+(function () {
+  var raiz = path.join(__dirname, '..');
+  var css = fs.readFileSync(path.join(raiz, 'styles.css'), 'utf8');
+
+  /* UM ARQUIVO SÓ. Havia dois com o mesmo desenho, `icone.png` e `logo.png`: trocar a
+     marca pedia lembrar dos dois, e o que se esquece de trocar é justamente o que fica
+     errado por meses — aqui, o ícone da aba do navegador. */
+  ok(!fs.existsSync(path.join(raiz, 'icone.png')),
+    'a marca mora num arquivo só — nenhuma segunda cópia do mesmo desenho');
+
+  /* O TAMANHO DECLARADO É O TAMANHO REAL. O `width`/`height` no HTML reserva o espaço
+     antes de a imagem chegar; errado, reserva a caixa errada e a tela salta quando o
+     download termina — com o dedo já a caminho do botão. */
+  var png = fs.readFileSync(path.join(raiz, 'logo.png'));
+  ok(png.slice(1, 4).toString() === 'PNG', 'o arquivo da marca é um PNG');
+  var larg = png.readUInt32BE(16), alt = png.readUInt32BE(20);
+
+  var usos = 0, errados = [];
+  ['index.html', 'admin.html', 'extrato.html'].forEach(function (nome) {
+    var txt = fs.readFileSync(path.join(raiz, nome), 'utf8');
+    (txt.match(/<img[^>]*src="logo\.png"[^>]*>/g) || []).forEach(function (tag) {
+      usos++;
+      var w = /width="(\d+)"/.exec(tag), h = /height="(\d+)"/.exec(tag);
+      if (!w || !h || +w[1] !== larg || +h[1] !== alt) errados.push(nome + ' ' + tag.slice(0, 64));
+    });
+    /* Fora dos comentários: o comentário CONTA que o arquivo saiu, e não pode ser
+       confundido com alguém ainda apontando para ele. */
+    ok(txt.replace(/<!--[\s\S]*?-->/g, '').indexOf('icone.png') < 0,
+      nome + ': nada aponta para o arquivo de marca que saiu');
+  });
+  ok(usos >= 7, 'os lugares da marca carregam o desenho', { usos: usos });
+  ok(errados.length === 0,
+    'e cada um declara o tamanho REAL do arquivo (' + larg + '×' + alt + ') — declarado ' +
+    'errado, o espaço reservado é o errado e a tela salta quando a imagem chega', errados);
+
+  /* O MESMO DESENHO EM TODA PARTE. O painel era a única tela que anunciava outra coisa
+     no alto da lateral: quem entrava via o logo no login e, um segundo depois, um cubo
+     genérico no mesmo canto. */
+  ['index.html', 'admin.html'].forEach(function (nome) {
+    var txt = fs.readFileSync(path.join(raiz, nome), 'utf8');
+    function trecho(de, ate) {
+      var i = txt.indexOf(de);
+      return i < 0 ? '' : txt.slice(i, txt.indexOf(ate, i));
+    }
+    var barra = trecho('<div class="topo__marca">', '</div>');
+    var topo = trecho('<div class="lateral__topo">', '<span class="marca-nome"');
+    ok(/src="logo\.png"/.test(barra) && !/<svg/.test(barra),
+      nome + ': a barra de app mostra o desenho da marca, e não um ícone no lugar dele');
+    ok(/src="logo\.png"/.test(topo) && !/<svg/.test(topo),
+      nome + ': e o alto da lateral também — era aqui que o painel mostrava um cubo');
+    ok(/class="logo-entrada"[^>]*src="logo\.png"|src="logo\.png"[^>]*class="logo-entrada"/
+      .test(txt), nome + ': e a tela de entrada, que é onde a marca aparece maior');
+  });
+
+  ok(/<img class="ret-marca"[^>]*src="logo\.png"/
+    .test(fs.readFileSync(path.join(raiz, 'admin.html'), 'utf8')),
+    'a marca do trilho de retornos é o desenho, e não a marca digitada — o texto era ' +
+    'uma segunda versão do logo, que envelheceria sozinha');
+
+  /* A MARCA NÃO É UM ÍCONE QUADRADO, e não cabe na caixa de um. */
+  var hSelo = /\.selo--marca\{[^}]*height:(\d+)px/.exec(css);
+  ok(!!hSelo, 'a marca larga tem altura própria, fora do quadrado de 32px do ícone');
+  ok(/\.selo--marca\{[^}]*width:auto/.test(css),
+    'e a largura é LIVRE — presa nos 32px do ícone, o desenho encolhe para 32×22 e o ' +
+    'nome vira um borrão de dois tons');
+  /* E O NOME AO LADO DELA NÃO CABE EM CAIXA ALTA. Medido com a lateral em 236px: com a
+     marca desenhada ao lado, o nome tem 104px de linha, e em caixa alta com espaçamento
+     ele pede 121 — vira "PAINEL DE CAIX…", e é esse nome que diz em qual dos dois apps
+     a pessoa está. */
+  ok(!/\.marca-nome\{[^}]*text-transform:uppercase/.test(css),
+    'o nome do app ao lado da marca não é em caixa alta — ali ele não caberia inteiro');
+
+  ok(/\.ret-marca\{[^}]*height:auto/.test(css),
+    'no trilho de retornos a altura sai da proporção do arquivo, e o espaço dela fica ' +
+    'reservado — sem isso a lista de grupos salta quando a imagem chega');
+
+  /* E CABE NO TRILHO RECOLHIDO. Com a altura presa, a largura que o desenho pede sai da
+     proporção do arquivo: chegando um desenho mais largo, é aqui que se descobre, e não
+     no galpão com a marca por cima do botão de recolher. */
+  var trilho = /--trilho-larg:(\d+)px/.exec(css);
+  var folga = /\.lateral__topo,\.lateral__rolagem,\.lateral__pe\s*\)\{padding-left:(\d+)px/
+    .exec(css);
+  ok(!!trilho && !!folga, 'o trilho declara a largura e a folga dele');
+  if (hSelo && trilho && folga) {
+    var pede = Math.round(larg * (+hSelo[1]) / alt);
+    var cabe = (+trilho[1]) - 2 * (+folga[1]);
+    ok(pede <= cabe,
+      'e o desenho cabe no trilho recolhido: pede ' + pede + 'px, e há ' + cabe + 'px',
+      { pede: pede, cabe: cabe });
+  }
+})();
+
 console.log('\n== a lateral recolhe num trilho, e o conteúdo é empurrado ==');
 (function () {
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');

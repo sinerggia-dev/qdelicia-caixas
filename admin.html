@@ -5,15 +5,18 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=9c4800d3">
+<link rel="stylesheet" href="styles.css?v=7b322d66">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
      galpao, as vezes sem rede, e o `system-ui` do `--fonte` segura a tela sozinho se ela
      nao chegar. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="icon" href="icone.png" type="image/png">
-<link rel="apple-touch-icon" href="icone.png">
+<!-- Um arquivo so para a marca. Havia dois, `icone.png` e `logo.png`, com o mesmo
+     desenho em versoes diferentes: trocar a logo exigia lembrar dos dois, e o que se
+     esquece de trocar e justamente o que fica errado por meses. -->
+<link rel="icon" href="logo.png" type="image/png">
+<link rel="apple-touch-icon" href="logo.png">
 </head>
 <body>
 
@@ -22,7 +25,7 @@
     <!-- A logo diz "Qdelicia Frutas" melhor do que o texto dizia, e nao empurra o
          formulario para baixo. No celular do galpao o que importa e o campo
          aparecer sem rolagem. -->
-    <img src="logo.png" alt="Qdelícia Frutas" class="logo-entrada" width="720" height="494">
+    <img src="logo.png" alt="Qdelícia Frutas" class="logo-entrada" width="243" height="165">
     <h1 class="login__titulo">Controle de Caixas</h1>
   </div>
 
@@ -126,14 +129,9 @@
      lateral, e uma barra em cima dela seria uma faixa repetindo o que ja se ve. -->
 <header class="topo">
   <div class="topo__marca">
-    <span class="selo" aria-hidden="true">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-        <line x1="12" y1="22.08" x2="12" y2="12"></line>
-      </svg>
-    </span>
+    <!-- Mesmo arquivo da tela de entrada: ja veio no cache, entao aqui nao custa
+         download nenhum. -->
+    <span class="selo selo--marca"><img src="logo.png" alt="" width="243" height="165"></span>
     <span class="marca-nome">Painel de Caixas</span>
   </div>
 
@@ -168,14 +166,10 @@
        destinos atras de um clique. Na lateral elas cabem em pe. -->
   <aside class="lateral" id="lateral">
     <div class="lateral__topo">
-      <span class="selo" aria-hidden="true">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-          <line x1="12" y1="22.08" x2="12" y2="12"></line>
-        </svg>
-      </span>
+      <!-- A MARCA, e nao um cubo generico. O painel era a unica tela do sistema que
+           anunciava outra coisa no alto da lateral: quem entra ve o logo no login, e
+           logo depois via um icone de caixa no mesmo lugar. -->
+      <span class="selo selo--marca"><img src="logo.png" alt="" width="243" height="165"></span>
       <span class="marca-nome">Painel de Caixas</span>
       <!-- A decisao de recolher. O mouse apenas ESPIA; num tablet nao ha hover, e
            sem este botao o trilho ficaria fechado para sempre. -->
@@ -357,7 +351,10 @@
   <section id="pgRetornos" class="pagina">
     <div class="ret-wrap" id="retWrap">
       <aside class="ret-rail" id="retRail">
-        <div class="ret-marca">QDELÍCIA<span>FRUTAS</span></div>
+        <!-- A marca DESENHADA, e nao a marca digitada. O texto era uma segunda versao do
+             logo, que envelheceria sozinha: mudado o desenho, este canto continuaria com
+             a letra antiga. -->
+        <img class="ret-marca" src="logo.png" alt="Qdelícia Frutas" width="243" height="165">
         <div class="ret-nav" id="retNav"></div>
         <!-- Os botoes ficam no trilho, abaixo dos grupos e colados no rodape dele. Os
              dois primeiros mexem no recorte, os dois ultimos levam a tela embora — a
