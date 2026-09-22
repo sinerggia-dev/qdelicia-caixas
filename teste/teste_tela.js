@@ -4630,5 +4630,54 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
     'abrir a aba recarrega os lancamentos');
 })();
 
+console.log('\n== o contador de caixas cabe na tela, sem encolher o alvo do dedo ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  function regra(sel) {
+    var i = css.indexOf(sel + '{');
+    return i < 0 ? '' : css.slice(i + sel.length + 1, css.indexOf('}', i));
+  }
+  function px(decl, prop) {
+    var m = new RegExp('(?:^|;)\\s*' + prop + ':\\s*(-?[\\d.]+)px').exec(decl);
+    return m ? parseFloat(m[1]) : null;
+  }
+  /* O vertical do `padding: A B` é o A. */
+  function padY(decl) {
+    var m = /(?:^|;)\s*padding:\s*([\d.]+)px/.exec(decl);
+    return m ? parseFloat(m[1]) : null;
+  }
+
+  var campo = regra('.stepper input');
+  var botao = regra('button.btn');
+  var item = regra('.item');
+  var itens = regra('.itens');
+
+  /* O PISO DE TOQUE MORA NO CSS, e não sai por acaso da conta do `padding` com o
+     tamanho da letra. Medido no Chrome a 412px: o campo dá 44px de altura e o botão
+     46px. Quem encolher a letra amanhã esbarra no `min-height` em vez de entregar um
+     alvo de 38px para um dedo de luva. */
+  ok(px(campo, 'min-height') >= 44,
+    'o campo de quantidade tem piso de 44px declarado — sem ele a altura viria por ' +
+    'acaso da conta do `padding` com a letra, e a próxima mexida na letra encolhe o ' +
+    'alvo sem ninguém perceber', px(campo, 'min-height'));
+  ok(px(botao, 'min-height') >= 44,
+    'e o botão principal também — o app é usado de luva, e alvo pequeno custa lançamento',
+    px(botao, 'min-height'));
+
+  /* E O RESPIRO EM VOLTA ENCOLHEU, que era o pedido: as cinco linhas de tipo de caixa
+     ocupavam 390px num celular de 412 e passaram a ocupar 322 — 68px, que é o que
+     faltava para a última linha e o botão caberem juntos. Medido, não estimado. */
+  ok(padY(item) !== null && padY(item) <= 8,
+    'a linha de tipo de caixa tem respiro curto — era 10px, e as cinco linhas comiam ' +
+    '390px dos 412 do celular', padY(item));
+  ok(px(itens, 'gap') !== null && px(itens, 'gap') <= 8,
+    'e o vão entre elas também', px(itens, 'gap'));
+  ok(padY(botao) !== null && padY(botao) <= 12,
+    'e o botão encolheu o respiro, não a altura útil', padY(botao));
+  ok(px(campo, 'width') !== null && px(campo, 'width') <= 96,
+    'e o campo de quantidade estreitou, para sobrar linha ao nome do tipo — ' +
+    '"CX DIVERSAS" não cabia', px(campo, 'width'));
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

@@ -387,10 +387,13 @@ textarea{min-height:70px;resize:vertical}
 
 /* O botao principal e o AZUL da marca agora, e nao mais o ambar. Texto branco, e nao
    `--txt`: sobre o azul o branco chapado e o que passa em contraste com folga.
-   O respiro de 14px fica — o app e usado de luva, e alvo pequeno custa lancamento. */
+
+   O respiro era de 14px e virou 12px, a pedido: os botoes ficavam grandes demais no
+   celular. O que NAO pode cair e a altura total — 46px, acima dos 44px de alvo de
+   toque. O app e usado de luva, e alvo pequeno custa lancamento. */
 button.btn{
-  background:var(--ambar-btn);color:#fff;border:none;border-radius:var(--raio-sm);padding:14px 20px;
-  font-weight:700;cursor:pointer;flex:1;min-width:140px
+  background:var(--ambar-btn);color:#fff;border:none;border-radius:var(--raio-sm);padding:12px 18px;
+  font-weight:700;cursor:pointer;flex:1;min-width:140px;min-height:44px
 }
 button.btn:hover{background:var(--brand-hover)}
 button.btn:active{transform:translateY(1px)}
@@ -416,15 +419,23 @@ label.btn-foto{
 label.btn-foto:hover{border-color:var(--marca-txt);color:var(--marca-txt)}
 button.mini.perigo{border-color:var(--vermelho);color:var(--vermelho)}
 
-/* contador de caixas */
-.itens{display:flex;flex-direction:column;gap:10px;margin-top:6px}
-.item{display:flex;align-items:center;gap:10px;border:1px solid var(--linha);border-radius:10px;padding:10px 12px;background:var(--surface-2)}
-.item .nome{flex:1;font-weight:600;font-size:15px;min-width:0}
+/* contador de caixas
+
+   COMPACTO, MAS NÃO MENOR QUE 44px. As cinco linhas de tipo de caixa ocupavam 390px
+   de tela num celular de 412 — quase tudo o que cabe —, e quem lança precisa ver a
+   última linha e o botão ao mesmo tempo. Encolheu o respiro em volta, não o alvo: o
+   campo continua com 44px de altura, que é o mínimo de toque. Abaixo disso o dedo de
+   luva erra, e alvo pequeno custa lançamento. Se for mexer aqui, meça; não olhe. */
+.itens{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.item{display:flex;align-items:center;gap:8px;border:1px solid var(--linha);border-radius:10px;padding:6px 10px;background:var(--surface-2)}
+.item .nome{flex:1;font-weight:600;font-size:14px;min-width:0}
 .item .nome small{display:block;font-weight:400;color:var(--txt3);font-size:12px}
 /* Era um stepper com -10/+10; virou só o campo, a pedido. O nome da classe ficou
    porque o painel usa a mesma, e trocá-lo mexeria em duas telas sem ganho nenhum. */
 .stepper{display:flex;align-items:center;gap:6px}
-.stepper input{width:120px;text-align:center;font-size:19px;font-weight:700;padding:11px 8px}
+/* O `min-height` é o piso de toque, e está aqui em vez de sair por acaso da conta do
+   `padding` com o tamanho da letra. Quem encolher a letra amanhã esbarra nele. */
+.stepper input{width:88px;min-height:44px;text-align:center;font-size:17px;font-weight:700;padding:10px 6px}
 
 /* assinatura */
 .assinatura{border:2px dashed var(--linha);border-radius:10px;background:var(--surface);touch-action:none;width:100%;height:170px;display:block}

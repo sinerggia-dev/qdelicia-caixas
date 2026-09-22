@@ -751,6 +751,29 @@ o gatilho já tem os seus 44px de alvo. O `margin-left:auto` continua no grupo d
 gatilho: assim os dois vão juntos para a direita, colados, em vez de a conta ficar parada no meio
 da barra. **A gaveta continua entrando pela esquerda** — se um dia incomodar, é uma linha.
 
+### 44px é piso, não sugestão — e mora no CSS
+
+O contador de caixas da Saída ocupava a tela inteira do celular: cinco linhas de tipo a 70px
+cada, com passo de 80, davam **390px dos 412** de largura de um celular comum — a última linha
+e o botão de registrar nunca apareciam juntos. Encolheu o **respiro**, não o alvo:
+
+| | antes | depois |
+|---|---|---|
+| linha `.item` | 70px (passo 80) | 58px (passo 66) |
+| campo de quantidade | 48 × 120 | 44 × 88 |
+| bloco das 5 linhas | 390px | **322px** |
+| `button.btn` | 50px | 46px |
+
+**O piso de toque está declarado**, com `min-height:44px` no `.stepper input` e no
+`button.btn`, em vez de sair por acaso da soma do `padding` com o tamanho da letra. A diferença
+não é de estilo: medido no Chrome, baixar a letra do campo para 11px dá **44px com o piso e
+36px sem ele**. Sem a declaração, a próxima pessoa que mexer na tipografia encolhe o alvo do
+dedo sem perceber, e o app é usado **de luva, de pé, no galpão** — alvo pequeno custa
+lançamento, e lançamento perdido é caixa perdida.
+
+Se for mexer aqui, **meça**: `teste_tela` cobra o piso e o respiro, e o
+`sabota_compacto.py` mede no navegador se o piso de fato segura.
+
 A barra de app leva o círculo com as iniciais (`#avatarTopo`, com o nome inteiro no `title`)
 e um ponto de estado dentro dele (`#pontoRede`). **O aviso (`#avisoRede`) só aparece quando há o
 que avisar**: um chip dizendo "Online" o tempo todo vira ruído, e ruído constante é o que faz
