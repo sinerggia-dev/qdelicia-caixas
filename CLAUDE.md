@@ -685,7 +685,14 @@ Levar os chips para dentro da gaveta **sumiu com duas coisas no celular**: quem 
 estado da rede. Com a gaveta fechada não havia como saber nenhum dos dois — e "3 na fila" é
 justamente o aviso que não pode esperar um toque, porque diz que o lançamento não saiu.
 
-A barra de app leva agora o círculo com as iniciais (`#avatarTopo`, com o nome inteiro no `title`)
+**O gatilho da gaveta fica à DIREITA, e é o último elemento da barra** — é o canto que o polegar
+alcança com o celular na mão, e o app é usado de pé, no galpão, de luva. A ordem é marca → conta →
+gatilho, e o respiro acompanha: 12px à esquerda, onde a marca abre a linha, e 4px à direita, onde
+o gatilho já tem os seus 44px de alvo. O `margin-left:auto` continua no grupo da conta, e não no
+gatilho: assim os dois vão juntos para a direita, colados, em vez de a conta ficar parada no meio
+da barra. **A gaveta continua entrando pela esquerda** — se um dia incomodar, é uma linha.
+
+A barra de app leva o círculo com as iniciais (`#avatarTopo`, com o nome inteiro no `title`)
 e um ponto de estado dentro dele (`#pontoRede`). **O aviso (`#avisoRede`) só aparece quando há o
 que avisar**: um chip dizendo "Online" o tempo todo vira ruído, e ruído constante é o que faz
 ninguém reparar no dia em que ele muda. Verde é "está tudo bem", e nada mais.
