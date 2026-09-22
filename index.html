@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=c47eff2d">
+<link rel="stylesheet" href="styles.css?v=bb2a88d0">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -56,16 +56,21 @@
        download nenhum. O cabecalho e um so, vale para Saida, Devolucao e Saldo. -->
   <img src="logo.png" alt="Qdelícia Frutas" class="marca-logo" width="50" height="34">
   <div class="marca">Controle de Caixas<small id="cabUsuario">—</small></div>
-  <!-- A porta para o painel. Nasce escondida: quem decide e o cadastro, e `abrirApp()`
-       a mostra para quem tem acesso. Aparecendo para todo mundo, ela levaria o motorista
-       a uma tela que o recusa — porta que nao abre e pior do que porta nenhuma.
+  <!-- Os chips num contentor proprio: e ele que desce para a segunda linha no celular.
+       Soltos no `header`, nao haveria o que descer — quebrar um a um deixaria o primeiro
+       ao lado do titulo e os outros embaixo. -->
+  <div class="chips">
+    <!-- A porta para o painel. Nasce escondida: quem decide e o cadastro, e `abrirApp()`
+         a mostra para quem tem acesso. Aparecendo para todo mundo, ela levaria o motorista
+         a uma tela que o recusa — porta que nao abre e pior do que porta nenhuma.
 
-       Antes disto o link existia so na tela de ENTRADA, e sumia no instante em que a
-       pessoa entrava: quem tinha o painel liberado nao tinha por onde chegar nele. -->
-  <a class="chip" id="chipPainel" href="admin.html" hidden
-     title="Abrir o painel do escritório">▦ Painel</a>
-  <div class="chip" id="chipRede">● Online</div>
-  <div class="chip" id="chipSair">Sair</div>
+         Antes disto o link existia so na tela de ENTRADA, e sumia no instante em que a
+         pessoa entrava: quem tinha o painel liberado nao tinha por onde chegar nele. -->
+    <a class="chip" id="chipPainel" href="admin.html" hidden
+       title="Abrir o painel do escritório">▦ Painel</a>
+    <div class="chip" id="chipRede">● Online</div>
+    <div class="chip" id="chipSair">Sair</div>
+  </div>
 </header>
 
 <!-- A aba que a pessoa nao pode usar nao nasce escondida no HTML: quem decide e o

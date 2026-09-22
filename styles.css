@@ -48,6 +48,10 @@ header{
 header .marca-logo{height:34px;width:auto;flex:none;display:block}
 header .marca{font-weight:700;font-size:17px;line-height:1.15;flex:1;min-width:0}
 header .marca small{display:block;font-weight:400;font-size:12px;opacity:.85}
+/* Os controles do cabecalho num grupo so. `margin-left:auto` empurra o grupo inteiro
+   para a direita — antes cada chip se empurrava sozinho, e no celular eles disputavam a
+   largura com o titulo em vez de descerem juntos. */
+header .chips{display:flex;align-items:center;gap:12px;margin-left:auto;min-width:0}
 header .chip{
   background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);
   padding:5px 10px;border-radius:999px;font-size:12px;white-space:nowrap;cursor:pointer
@@ -649,6 +653,33 @@ a.chip:hover{background:var(--surface-2);color:var(--txt)}
    coluna tiver. */
 .fsub.tipos{white-space:normal;max-width:100%;margin-left:auto}
 /* No celular 220px de trilho comem a tabela: vira uma tira que rola na horizontal. */
+/* NO CELULAR OS CONTROLES DESCEM. Medido antes, com a largura forcada por CSS: a 320px o
+   titulo ficava com 8px no app de campo e ZERO no painel — o nome da pessoa sumia por
+   inteiro, e o "Sair" era cortado. O nome e o que diz quem esta logado; espremido a zero,
+   o cabecalho deixa de responder a unica pergunta que ele existe para responder.
+
+   O corte e 560px, e nao os 760px do resto: acima disso os dois cabiam lado a lado, e
+   descer o grupo cedo demais custaria uma linha de tela sem precisar. */
+@media (max-width:560px){
+  header{flex-wrap:wrap;row-gap:8px;padding-bottom:10px}
+  /* O titulo fica com a logo na primeira linha, e volta a poder crescer. */
+  header .marca{flex:1 1 auto}
+  /* `flex-basis:100%` e o que joga o grupo para a linha de baixo. Alinhado a esquerda,
+     debaixo do titulo, e nao espremido no canto. */
+  header .chips{flex:1 0 100%;margin-left:0;justify-content:flex-start;flex-wrap:wrap;
+    gap:8px}
+  /* A lista de paginas desce junto e ocupa o que precisar — ela e o controle mais usado
+     do painel, e no canto ela ficava com o rotulo cortado. */
+  header .menu-abas{flex:0 1 auto;min-width:0;margin-left:0}
+  header .aba-atual{max-width:100%}
+  /* A lista de paginas passa a abrir para a DIREITA. Ancorada em `right:0`, ela crescia
+     para a esquerda a partir da borda direita do gatilho — e o gatilho, que no desktop
+     fica no canto direito da tela, no celular fica no canto ESQUERDO da segunda linha.
+     Medido: a lista saia 130px pela borda esquerda, sem ninguem corta-la, e as paginas
+     ficavam fora do alcance. */
+  header .menu-abas nav.abas{left:0;right:auto;width:min(230px,calc(100vw - 24px))}
+}
+
 @media (max-width:760px){
   .ret-wrap{grid-template-columns:1fr}
   /* Faixa no topo: os cantos arredondados passam para cima. */

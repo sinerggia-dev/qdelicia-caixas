@@ -2124,6 +2124,77 @@ console.log('\n== a porta para o painel, no app de campo ==');
     'chip venceria o `hidden` e a porta apareceria para todo mundo');
 })();
 
+console.log('\n== o cabecalho no celular ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* Os controles do cabecalho precisam de um GRUPO. Soltos como filhos do `header`, nao
+     ha o que mandar para a segunda linha: quebrar um a um deixaria o primeiro ao lado do
+     titulo e os outros embaixo.
+
+     Medido antes, em iframes de largura fixa: a 320px o titulo ficava com 8px no app de
+     campo e ZERO no painel — o nome da pessoa sumia por inteiro, e o "Sair" era cortado.
+     Depois: 219px e 231px, com tudo dentro da tela. */
+  ['index.html', 'admin.html'].forEach(function (arq) {
+    var txt = arq === 'index.html' ? idx : adm;
+    var i = txt.indexOf('<div id="app"');
+    var cab = txt.slice(txt.indexOf('<header>', i), txt.indexOf('</header>', i));
+    ok(/<div class="chips">/.test(cab),
+      arq + ': os controles do cabeçalho moram num grupo — soltos, não há o que mandar ' +
+      'para a segunda linha no celular');
+    /* TODO chip tem de estar dentro do grupo. Um de fora fica ao lado do titulo e
+       desfaz justamente o que o grupo veio resolver. */
+    var iG = cab.indexOf('<div class="chips">');
+    var fora = (cab.slice(0, iG).match(/class="chip"/g) || []).length;
+    ok(fora === 0,
+      arq + ': e TODO chip está dentro dele — um de fora fica ao lado do título e desfaz ' +
+      'o que o grupo veio resolver', fora);
+  });
+
+  /* A lista de paginas do painel desce junto: ela e um controle como os outros, e deixada
+     em cima roubaria do titulo a largura que o conserto veio devolver. */
+  var iA = adm.indexOf('<div id="app"');
+  var cabAdm = adm.slice(adm.indexOf('<header>', iA), adm.indexOf('</header>', iA));
+  var iChips = cabAdm.indexOf('<div class="chips">');
+  ok(iChips > 0 && cabAdm.indexOf('class="menu-abas"') > iChips,
+    'e a lista de páginas desce junto — deixada em cima, ela roubaria do título a ' +
+    'largura que o conserto veio devolver');
+
+  /* A regra do celular. `flex-basis:100%` no grupo e o que joga ele para a linha de
+     baixo; sem isso ele so encolhe e continua ao lado. */
+  var iM = css.indexOf('@media (max-width:560px)');
+  var regra = css.slice(iM, css.indexOf('\n}', iM));
+  ok(iM > 0 && /header\{flex-wrap:wrap/.test(regra),
+    'o cabeçalho quebra em duas linhas no celular', regra);
+  ok(/header \.chips\{flex:1 0 100%/.test(regra),
+    'e é o `flex-basis:100%` que joga o grupo para a linha de baixo — sem ele o grupo ' +
+    'só encolhe e continua ao lado do título');
+  /* No `.chips`, e nao em qualquer regra da media query: o `.menu-abas` tambem zera a
+     margem ali, e procurar `margin-left:0` solto acha o dele com o do grupo desligado. */
+  var iCh = regra.indexOf('header .chips{');
+  var regraChips = regra.slice(iCh, regra.indexOf('}', iCh));
+  ok(iCh > 0 && /margin-left:0/.test(regraChips),
+    'e o grupo deixa de ser empurrado para a direita: embaixo do título, alinhado à ' +
+    'esquerda, e não espremido no canto', regraChips);
+
+  /* A lista de paginas abre para a DIREITA no celular. Ancorada em `right:0` — que e o
+     certo no desktop, onde o gatilho fica no canto direito — ela crescia para a esquerda
+     a partir de um gatilho que no celular esta no canto ESQUERDO. Medido: saia 130px
+     pela borda esquerda, sem ninguem corta-la. */
+  ok(/header \.menu-abas nav\.abas\{left:0;right:auto/.test(regra),
+    'a lista de páginas abre para a direita no celular — ancorada à direita, ela crescia ' +
+    'para fora da tela a partir de um gatilho que ali está na outra ponta');
+  ok(/width:min\(230px,calc\(100vw - 24px\)\)/.test(regra),
+    'e nunca fica mais larga que a tela');
+
+  /* O corte e 560px, e nao os 760px do resto do arquivo: acima disso os dois cabiam lado
+     a lado, e descer o grupo cedo demais custaria uma linha de tela sem precisar. */
+  ok(/O corte e 560px/.test(css),
+    'e o código registra por que o corte é 560px, e não os 760px do resto');
+})();
+
 console.log('\n== os dois tipos de cartao andam juntos ==');
 (function () {
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');

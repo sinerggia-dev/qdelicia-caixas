@@ -514,9 +514,36 @@ releitura corrige no mesmo carregamento.
 (nome, porta, abas). Os dois caminhos — abertura e releitura — passam por ela; espalhado entre os
 dois, o segundo esquece alguma coisa, e esquece calado.
 
-No celular o cabeçalho do painel passa de 57px para 124px por causa desse chip a mais: ele quebra
-em duas linhas. Medido, nada se sobrepõe e não há rolagem horizontal — o painel é ferramenta de
-escritório, e o caminho de volta vale a linha.
+### No celular os botões descem, e não ficam ao lado do título
+
+Os chips moram num `<div class="chips">`, nas duas telas, e no painel a lista de páginas
+(`.menu-abas`) mora dentro dele também. **Esse grupo existe só para ter o que descer.** Soltos
+como filhos do `header`, não havia o que mandar para a segunda linha: quebrá-los um a um deixaria
+o primeiro ao lado do título e os outros embaixo.
+
+Abaixo de **560px** o `header` quebra em duas linhas e o grupo leva `flex:1 0 100%` — é o
+`flex-basis:100%` que o joga para baixo; sem ele o grupo só encolhe e continua ao lado. Leva
+também `margin-left:0`, para desfazer o `margin-left:auto` que no desktop o empurra para a
+direita: embaixo do título, ele alinha à esquerda.
+
+O corte é 560px, e não os 760px do resto do arquivo: acima disso os dois cabiam lado a lado, e
+descer o grupo cedo demais custaria uma linha de tela sem precisar.
+
+A lista de páginas abre para a **direita** no celular (`left:0;right:auto`) e nunca passa de
+`min(230px,calc(100vw - 24px))`. Ancorada à direita — que é o certo no desktop, onde o gatilho fica
+no canto direito — ela crescia para fora da tela a partir de um gatilho que ali está na outra
+ponta: media 130px fora da borda esquerda, sem ninguém cortá-la.
+
+Medido em iframes de largura fixa, com todos os chips visíveis (o caso apertado é o de quem tem
+todos). **Antes**, a 320px, o título ficava com 8px no app de campo e **zero** no painel — o nome
+da pessoa sumia por inteiro e o "Sair" era cortado. **Depois**: 219px e 231px, nada cortado, sem
+rolagem lateral; a 600px o cabeçalho continua igual ao que era.
+
+Sobre **medir** isto: o Chrome deste ambiente trava o viewport em 504px, peça-se 360 ou 520, nos
+dois modos headless — tudo o que foi medido "a 390px" antes disso estava na verdade a 504px. E um
+contentor de largura fixa não serve, porque `@media` mede o **viewport**, não o contentor: a regra
+do celular simplesmente não entrava. Iframe tem viewport próprio; é nele que a media query passa a
+valer.
 
 Três coisas que não podem mudar aqui, porque cada uma tranca alguém para fora:
 
@@ -645,7 +672,7 @@ O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**658 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**669 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:

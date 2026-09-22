@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#12304f">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=c47eff2d">
+<link rel="stylesheet" href="styles.css?v=bb2a88d0">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -47,40 +47,45 @@
 <header>
   <div style="font-size:22px">📦</div>
   <div class="marca">Painel de Caixas<small id="cabUsuario">—</small></div>
-  <!-- A lista de paginas mora AQUI, no cabecalho, e nao numa faixa propria embaixo dele:
-       a faixa custava uma linha inteira da tela para carregar um botao so. Ao lado do
-       "Online" ela fica onde a pessoa ja olha quando quer saber em que pe esta a sessao.
+  <!-- Os chips num contentor proprio: e ele que desce para a segunda linha no celular.
+       A lista de paginas desce junto, porque ela e um controle como os outros — deixada
+       em cima, ela roubaria do titulo a largura que o conserto veio devolver. -->
+  <div class="chips">
+    <!-- A lista de paginas mora AQUI, no cabecalho, e nao numa faixa propria embaixo dele:
+         a faixa custava uma linha inteira da tela para carregar um botao so. Ao lado do
+         "Online" ela fica onde a pessoa ja olha quando quer saber em que pe esta a sessao.
 
-       O gatilho fica FORA do <nav>, e nao dentro. `Q.abas('#abas')` liga o trocador de
-       pagina em TODO botao de dentro: la dentro, o gatilho viraria uma aba sem pagina, e
-       clicar nele apagaria a ativa e deixaria a tela em branco.
+         O gatilho fica FORA do <nav>, e nao dentro. `Q.abas('#abas')` liga o trocador de
+         pagina em TODO botao de dentro: la dentro, o gatilho viraria uma aba sem pagina, e
+         clicar nele apagaria a ativa e deixaria a tela em branco.
 
-       O <nav> em si nao muda — mesmos botoes, mesmos `data-pagina`. So a aparencia dele
-       vira lista, e so no painel: o app de campo usa a MESMA funcao e a mesma classe
-       `.abas`, e continua com a barra horizontal, que la tem tres abas e cabe. -->
-  <div class="menu-abas" id="menuAbas">
-    <button class="aba-atual" id="btnAbas" type="button"
-            aria-expanded="false" aria-controls="abas"></button>
-    <nav class="abas" id="abas" hidden>
-      <button class="ativa" data-pagina="pgRetornos">Painel de Ativos</button>
-      <button data-pagina="pgPainel">Painel</button>
-      <button data-pagina="pgExtrato">Extratos</button>
-      <button data-pagina="pgLancar">Ajustes</button>
-      <button data-pagina="pgMovimentos">Movimentos</button>
-    <button data-pagina="pgColunas">Colunas</button>
-      <button data-pagina="pgCadastros">Cadastros</button>
-    </nav>
+         O <nav> em si nao muda — mesmos botoes, mesmos `data-pagina`. So a aparencia dele
+         vira lista, e so no painel: o app de campo usa a MESMA funcao e a mesma classe
+         `.abas`, e continua com a barra horizontal, que la tem tres abas e cabe. -->
+    <div class="menu-abas" id="menuAbas">
+      <button class="aba-atual" id="btnAbas" type="button"
+              aria-expanded="false" aria-controls="abas"></button>
+      <nav class="abas" id="abas" hidden>
+        <button class="ativa" data-pagina="pgRetornos">Painel de Ativos</button>
+        <button data-pagina="pgPainel">Painel</button>
+        <button data-pagina="pgExtrato">Extratos</button>
+        <button data-pagina="pgLancar">Ajustes</button>
+        <button data-pagina="pgMovimentos">Movimentos</button>
+      <button data-pagina="pgColunas">Colunas</button>
+        <button data-pagina="pgCadastros">Cadastros</button>
+      </nav>
+    </div>
+    <!-- A porta de volta. Sem ela, quem chega ao painel fica preso nele: para voltar a
+         lancar era preciso Sair e entrar de novo.
+
+         Nasce escondida, como a porta de ida no app de campo: quem nao tem senha de
+         lancamento nao passa do login de la, e mandar essa pessoa para uma recusa e pior
+         do que nao oferecer o caminho. -->
+    <a class="chip" id="chipCampo" href="index.html" hidden
+       title="Voltar para o app de lançamento">↩ Lançamentos</a>
+    <div class="chip" id="chipRede">● Online</div>
+    <div class="chip" id="chipSair">Sair</div>
   </div>
-  <!-- A porta de volta. Sem ela, quem chega ao painel fica preso nele: para voltar a
-       lancar era preciso Sair e entrar de novo.
-
-       Nasce escondida, como a porta de ida no app de campo: quem nao tem senha de
-       lancamento nao passa do login de la, e mandar essa pessoa para uma recusa e pior
-       do que nao oferecer o caminho. -->
-  <a class="chip" id="chipCampo" href="index.html" hidden
-     title="Voltar para o app de lançamento">↩ Lançamentos</a>
-  <div class="chip" id="chipRede">● Online</div>
-  <div class="chip" id="chipSair">Sair</div>
 </header>
 
 <main>
