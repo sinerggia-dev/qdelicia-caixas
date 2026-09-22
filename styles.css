@@ -210,9 +210,12 @@ nav.abas{display:flex;flex-direction:column;gap:3px}
 
    Some junto com os itens dele — ver `Q.gruposDaNavegacao()`. Um cabeçalho anunciando
    uma seção vazia é a forma mais crua de mentir sobre o que a pessoa pode fazer. */
+/* VERDE, a pedido — o verde do logo, pelo token. Escrito solto aqui, ele escaparia da
+   medição de contraste e chegaria ao galpão sem passar por ela. Medido: 8,13:1 sobre a
+   lateral, bem acima dos 4,5:1 que este tamanho de letra exige. */
 .nav-grupo{
   padding:14px 12px 6px;font-size:10px;font-weight:700;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--txt3);white-space:nowrap
+  text-transform:uppercase;color:var(--verde);white-space:nowrap
 }
 .nav-grupo:first-child{padding-top:2px}
 nav.abas button,.nav-link{

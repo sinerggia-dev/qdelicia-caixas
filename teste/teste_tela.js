@@ -2749,6 +2749,7 @@ console.log('\n== o contraste de cada par que a tela usa ==');
     ['--txt3', '--surface', 'a etiqueta apagada no cartão'],
     ['--txt3', '--bg', 'a etiqueta apagada no chão'],
     ['--txt3', '--campo', 'o nome da marca na lateral'],
+    ['--verde', '--campo', 'o título do módulo na lateral'],
     ['--marca-txt', '--surface', 'o link no cartão'],
     ['--marca-txt', '--bg', 'o link no chão'],
     ['--roxo-txt', '--brand-soft', 'as iniciais no círculo, em roxo'],
@@ -4796,6 +4797,12 @@ console.log('\n== a navegação separada por módulo ==');
     ok(semTitulo.length === 0,
       nome + ': e todo módulo usado tem título na lista', semTitulo);
   });
+
+  /* O título do módulo é VERDE, e pelo token — cor solta ali escaparia da medição de
+     contraste logo abaixo e chegaria ao galpão sem passar por ela. */
+  ok(/\.nav-grupo\{[^}]*color:var\(--verde\)/.test(css),
+    'o título do módulo é verde, e sai do token — escrito solto, ele escaparia da ' +
+    'medição de contraste');
 
   /* O TÍTULO SOME COM OS ITENS DELE — rodado de verdade, com DOM de mentira. Um
      cabeçalho anunciando uma seção vazia é a forma mais crua de mentir sobre o que a
