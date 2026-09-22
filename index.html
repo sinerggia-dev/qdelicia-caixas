@@ -3,9 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#12304f">
+<meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=bb2a88d0">
+<link rel="stylesheet" href="styles.css?v=fd72d894">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
+     galpao, as vezes sem rede, e o `system-ui` do `--fonte` segura a tela sozinho se ela
+     nao chegar. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -50,39 +56,130 @@
 </div>
 
 <!-- ===================== APP ===================== -->
-<div id="app" style="display:none">
-<header>
-  <!-- Mesmo arquivo da tela de entrada: ja veio no cache, entao aqui nao custa
-       download nenhum. O cabecalho e um so, vale para Saida, Devolucao e Saldo. -->
-  <img src="logo.png" alt="Qdelícia Frutas" class="marca-logo" width="50" height="34">
-  <div class="marca">Controle de Caixas<small id="cabUsuario">—</small></div>
-  <!-- Os chips num contentor proprio: e ele que desce para a segunda linha no celular.
-       Soltos no `header`, nao haveria o que descer — quebrar um a um deixaria o primeiro
-       ao lado do titulo e os outros embaixo. -->
-  <div class="chips">
-    <!-- A porta para o painel. Nasce escondida: quem decide e o cadastro, e `abrirApp()`
-         a mostra para quem tem acesso. Aparecendo para todo mundo, ela levaria o motorista
-         a uma tela que o recusa — porta que nao abre e pior do que porta nenhuma.
+<div id="app" class="shell" style="display:none">
 
-         Antes disto o link existia so na tela de ENTRADA, e sumia no instante em que a
-         pessoa entrava: quem tinha o painel liberado nao tinha por onde chegar nele. -->
-    <a class="chip" id="chipPainel" href="admin.html" hidden
-       title="Abrir o painel do escritório">▦ Painel</a>
-    <div class="chip" id="chipRede">● Online</div>
-    <div class="chip" id="chipSair">Sair</div>
+<!-- A barra de app so aparece abaixo de 1024px: no desktop a navegacao ja esta fixa na
+     lateral, e uma barra em cima dela seria uma faixa repetindo o que ja se ve. -->
+<header class="topo">
+  <button type="button" class="btn-icone" id="btnMenu"
+          aria-label="Abrir navegação" aria-expanded="false" aria-controls="lateral">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <line x1="3" y1="7" x2="21" y2="7"></line>
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="17" x2="21" y2="17"></line>
+    </svg>
+  </button>
+  <div class="topo__marca">
+    <!-- Mesmo arquivo da tela de entrada: ja veio no cache, entao aqui nao custa
+         download nenhum. -->
+    <span class="selo"><img src="logo.png" alt="" width="32" height="32"></span>
+    <span class="marca-nome">Controle de Caixas</span>
   </div>
 </header>
 
-<!-- A aba que a pessoa nao pode usar nao nasce escondida no HTML: quem decide e o
-     cadastro, e `ajustarAbas()` remove a que sobra assim que a sessao chega. Saldo fica
-     sempre — e consulta, nao lancamento. -->
-<nav class="abas" id="abas">
-  <button class="ativa" data-pagina="pgSaida" data-operacao="SAIDA">Saída</button>
-  <button data-pagina="pgDevolucao" data-operacao="RETORNO">Retorno</button>
-  <button data-pagina="pgSaldo">Lançamentos</button>
-</nav>
+<div class="shell__corpo">
 
-<main>
+  <!-- Gaveta no celular, barra fixa no desktop: e o mesmo elemento, e so o CSS decide. -->
+  <aside class="lateral" id="lateral">
+    <div class="lateral__topo">
+      <span class="selo"><img src="logo.png" alt="" width="32" height="32"></span>
+      <span class="marca-nome">Controle de Caixas</span>
+    </div>
+
+    <!-- A aba que a pessoa nao pode usar nao nasce escondida no HTML: quem decide e o
+         cadastro, e `ajustarAbas()` remove a que sobra assim que a sessao chega. Saldo
+         fica sempre — e consulta, nao lancamento.
+
+         Continuam sendo `<button data-pagina>` dentro de `#abas`: e o contrato que
+         `Q.abas()` e as permissoes leem. So a aparencia virou lista vertical. -->
+    <nav class="abas" id="abas" aria-label="Páginas do app">
+      <button class="ativa" data-pagina="pgSaida" data-operacao="SAIDA" data-acima="Operação">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 17H9a4 4 0 0 1-4-4V10"></path>
+          <polyline points="16 21 20 17 16 13"></polyline>
+          <path d="M4 3h11"></path>
+        </svg>
+        Saída
+      </button>
+      <button data-pagina="pgDevolucao" data-operacao="RETORNO" data-acima="Operação">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 7h11a4 4 0 0 1 4 4v3"></path>
+          <polyline points="8 3 4 7 8 11"></polyline>
+          <path d="M20 21H9"></path>
+        </svg>
+        Retorno
+      </button>
+      <button data-pagina="pgSaldo" data-acima="Consulta">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="8" y1="6" x2="21" y2="6"></line>
+          <line x1="8" y1="12" x2="21" y2="12"></line>
+          <line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line>
+          <line x1="3" y1="12" x2="3.01" y2="12"></line>
+          <line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+        Lançamentos
+      </button>
+    </nav>
+
+    <!-- A porta para o painel. Nasce escondida: quem decide e o cadastro, e `abrirApp()`
+         a mostra para quem tem acesso. Aparecendo para todo mundo, ela levaria o
+         motorista a uma tela que o recusa — porta que nao abre e pior do que porta
+         nenhuma.
+
+         Fica FORA do <nav>: `Q.abas()` liga o trocador de pagina em todo botao de
+         dentro, e la ela viraria uma aba sem pagina. Alem disso ela nao e uma pagina
+         desta tela — e a saida para outra. -->
+    <a class="nav-link nav-saida" id="chipPainel" href="admin.html" hidden
+       title="Abrir o painel do escritório">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+        <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+        <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+        <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+      </svg>
+      Painel
+    </a>
+
+    <div class="lateral__folga"></div>
+
+    <!-- O estado da rede fica junto de quem esta logado: as duas coisas respondem a
+         mesma pergunta — "em que pe esta a minha sessao". -->
+    <div class="chip" id="chipRede">● Online</div>
+    <div class="conta">
+      <span class="avatar" id="avatarUsuario" aria-hidden="true">—</span>
+      <span class="conta__id">
+        <span class="conta__nome" id="cabUsuario">—</span>
+        <span class="conta__meta" id="cabPerfil"></span>
+      </span>
+      <button type="button" class="btn-icone perigo" id="chipSair" aria-label="Sair da conta">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- O titulo diz ONDE se esta. No desktop o item aceso da lateral ja diz; no celular
+         a gaveta esta fechada, e sem ele a tela nao tem pista nenhuma. `Q.abas()` escreve
+         os dois a cada troca de pagina. -->
+    <div class="cab-pagina">
+      <div class="cab-pagina__id">
+        <div class="cab-pagina__acima" id="acimaPagina">Operação</div>
+        <h1 class="cab-pagina__titulo" id="tituloPagina">Saída</h1>
+      </div>
+    </div>
+
+    <div class="corpo-pagina">
 
   <!-- ---------- SAÍDA ---------- -->
   <section id="pgSaida" class="pagina ativa">
@@ -244,13 +341,18 @@
     </div>
   </section>
 
-</main>
+    </div>
+  </main>
+
+</div>
+
+<div class="veu" id="veu" hidden></div>
 </div>
 
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=1bc14782"></script>
+<script src="app.js?v=550cfafd"></script>
 <script>
 (function(){
   'use strict';
@@ -384,7 +486,7 @@
      painel e as abas. Duas chamadas passam por aqui — a abertura e a renovacao —, e
      espalhar isso pelas duas faria a renovacao esquecer alguma. */
   function aplicarSessao(s){
-    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil;
+    Q.quemEsta(s.nome, s.perfil);
 
     /* A porta para o painel, para quem tem o painel.
 
@@ -420,8 +522,11 @@
   function abrirApp(){
     var s = Q.sessao();
     document.getElementById('telaLogin').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
+    /* `flex`, e nao `block`: o `.shell` e uma coluna flex, e `block` desmontava o
+       esqueleto — a barra lateral perdia a altura e o rodape dela subia para o meio. */
+    document.getElementById('app').style.display = 'flex';
     Q.abas('#abas');
+    Q.gaveta();
     aplicarSessao(s);
     if (String(s.perfil).toUpperCase() === 'PROMOTOR'){
       document.getElementById('devSub').textContent =

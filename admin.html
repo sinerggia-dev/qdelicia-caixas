@@ -3,9 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#12304f">
+<meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=bb2a88d0">
+<link rel="stylesheet" href="styles.css?v=fd72d894">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
+     galpao, as vezes sem rede, e o `system-ui` do `--fonte` segura a tela sozinho se ela
+     nao chegar. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <link rel="icon" href="icone.png" type="image/png">
 <link rel="apple-touch-icon" href="icone.png">
 </head>
@@ -43,52 +49,160 @@
   <p style="font-size:12.5px;color:var(--txt3)">Campo (motorista/promotor): <a href="index.html">app de lançamento</a>.</p>
 </div>
 
-<div id="app" style="display:none">
-<header>
-  <div style="font-size:22px">📦</div>
-  <div class="marca">Painel de Caixas<small id="cabUsuario">—</small></div>
-  <!-- Os chips num contentor proprio: e ele que desce para a segunda linha no celular.
-       A lista de paginas desce junto, porque ela e um controle como os outros — deixada
-       em cima, ela roubaria do titulo a largura que o conserto veio devolver. -->
-  <div class="chips">
-    <!-- A lista de paginas mora AQUI, no cabecalho, e nao numa faixa propria embaixo dele:
-         a faixa custava uma linha inteira da tela para carregar um botao so. Ao lado do
-         "Online" ela fica onde a pessoa ja olha quando quer saber em que pe esta a sessao.
+<div id="app" class="shell" style="display:none">
 
-         O gatilho fica FORA do <nav>, e nao dentro. `Q.abas('#abas')` liga o trocador de
-         pagina em TODO botao de dentro: la dentro, o gatilho viraria uma aba sem pagina, e
-         clicar nele apagaria a ativa e deixaria a tela em branco.
+<!-- A barra de app so aparece abaixo de 1024px: no desktop a navegacao ja esta fixa na
+     lateral, e uma barra em cima dela seria uma faixa repetindo o que ja se ve. -->
+<header class="topo">
+  <button type="button" class="btn-icone" id="btnMenu"
+          aria-label="Abrir navegação" aria-expanded="false" aria-controls="lateral">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <line x1="3" y1="7" x2="21" y2="7"></line>
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="17" x2="21" y2="17"></line>
+    </svg>
+  </button>
+  <div class="topo__marca">
+    <span class="selo" aria-hidden="true">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+      </svg>
+    </span>
+    <span class="marca-nome">Painel de Caixas</span>
+  </div>
+</header>
 
-         O <nav> em si nao muda — mesmos botoes, mesmos `data-pagina`. So a aparencia dele
-         vira lista, e so no painel: o app de campo usa a MESMA funcao e a mesma classe
-         `.abas`, e continua com a barra horizontal, que la tem tres abas e cabe. -->
-    <div class="menu-abas" id="menuAbas">
-      <button class="aba-atual" id="btnAbas" type="button"
-              aria-expanded="false" aria-controls="abas"></button>
-      <nav class="abas" id="abas" hidden>
-        <button class="ativa" data-pagina="pgRetornos">Painel de Ativos</button>
-        <button data-pagina="pgPainel">Painel</button>
-        <button data-pagina="pgExtrato">Extratos</button>
-        <button data-pagina="pgLancar">Ajustes</button>
-        <button data-pagina="pgMovimentos">Movimentos</button>
-      <button data-pagina="pgColunas">Colunas</button>
-        <button data-pagina="pgCadastros">Cadastros</button>
-      </nav>
+<div class="shell__corpo">
+
+  <!-- Gaveta no celular, barra fixa no desktop: e o mesmo elemento, e so o CSS decide.
+
+       As SETE paginas ficam a vista no desktop. Antes elas moravam num menu suspenso no
+       cabecalho, porque numa barra horizontal nao cabiam — um botao escondendo sete
+       destinos atras de um clique. Na lateral elas cabem em pe. -->
+  <aside class="lateral" id="lateral">
+    <div class="lateral__topo">
+      <span class="selo" aria-hidden="true">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+      </span>
+      <span class="marca-nome">Painel de Caixas</span>
     </div>
+
+    <!-- Mesmos botoes, mesmos `data-pagina`: e o contrato que `Q.abas()` e
+         `ajustarAbasPainel()` leem para esconder o que a pessoa nao pode ver. -->
+    <nav class="abas" id="abas" aria-label="Páginas do painel">
+      <button class="ativa" data-pagina="pgRetornos" data-acima="Operação">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M3 11h18"></path><path d="M8 7V4h8v3"></path>
+        </svg>
+        Painel de Ativos
+      </button>
+      <button data-pagina="pgPainel" data-acima="Operação">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+        </svg>
+        Painel
+      </button>
+      <button data-pagina="pgExtrato" data-acima="Consulta">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line>
+        </svg>
+        Extratos
+      </button>
+      <button data-pagina="pgLancar" data-acima="Correção">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>
+        </svg>
+        Ajustes
+      </button>
+      <button data-pagina="pgMovimentos" data-acima="Consulta">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+        Movimentos
+      </button>
+      <button data-pagina="pgColunas" data-acima="Ajustes da tela">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line>
+        </svg>
+        Colunas
+      </button>
+      <button data-pagina="pgCadastros" data-acima="Ajustes da tela">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        Cadastros
+      </button>
+    </nav>
+
     <!-- A porta de volta. Sem ela, quem chega ao painel fica preso nele: para voltar a
          lancar era preciso Sair e entrar de novo.
 
          Nasce escondida, como a porta de ida no app de campo: quem nao tem senha de
          lancamento nao passa do login de la, e mandar essa pessoa para uma recusa e pior
-         do que nao oferecer o caminho. -->
-    <a class="chip" id="chipCampo" href="index.html" hidden
-       title="Voltar para o app de lançamento">↩ Lançamentos</a>
-    <div class="chip" id="chipRede">● Online</div>
-    <div class="chip" id="chipSair">Sair</div>
-  </div>
-</header>
+         do que nao oferecer o caminho.
 
-<main>
+         Fica FORA do <nav>: `Q.abas()` liga o trocador de pagina em todo botao de
+         dentro, e la ela viraria uma aba sem pagina. -->
+    <a class="nav-link nav-saida" id="chipCampo" href="index.html" hidden
+       title="Voltar para o app de lançamento">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="9 14 4 9 9 4"></polyline>
+        <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
+      </svg>
+      Lançamentos
+    </a>
+
+    <div class="lateral__folga"></div>
+
+    <!-- O estado da rede fica junto de quem esta logado: as duas coisas respondem a
+         mesma pergunta — "em que pe esta a minha sessao". -->
+    <div class="chip" id="chipRede">● Online</div>
+    <div class="conta">
+      <span class="avatar" id="avatarUsuario" aria-hidden="true">—</span>
+      <span class="conta__id">
+        <span class="conta__nome" id="cabUsuario">—</span>
+        <span class="conta__meta" id="cabPerfil"></span>
+      </span>
+      <button type="button" class="btn-icone perigo" id="chipSair" aria-label="Sair da conta">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- O titulo diz ONDE se esta. No desktop o item aceso da lateral ja diz; no celular
+         a gaveta esta fechada, e sem ele a tela nao tem pista nenhuma — num painel de
+         sete paginas isso se perde rapido. `Q.abas()` escreve os dois a cada troca. -->
+    <div class="cab-pagina">
+      <div class="cab-pagina__id">
+        <div class="cab-pagina__acima" id="acimaPagina">Operação</div>
+        <h1 class="cab-pagina__titulo" id="tituloPagina">Painel de Ativos</h1>
+      </div>
+    </div>
+
+    <div class="corpo-pagina">
 
   <!-- ---------- PAINEL ---------- -->
   <section id="pgPainel" class="pagina">
@@ -358,14 +472,19 @@
     </div>
   </section>
 
-</main>
+    </div>
+  </main>
+
+</div>
+
+<div class="veu" id="veu" hidden></div>
 </div>
 
 <div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=1bc14782"></script>
+<script src="app.js?v=550cfafd"></script>
 <script>
 (function(){
   'use strict';
@@ -571,7 +690,7 @@
      campo. Dois caminhos passam por aqui, a abertura e a renovacao, e espalhar isso pelos
      dois faria a renovacao esquecer alguma coisa, calada. */
   function aplicarSessao(s){
-    document.getElementById('cabUsuario').textContent = s.nome + ' · ' + s.perfil;
+    Q.quemEsta(s.nome, s.perfil);
 
     /* A porta de volta para o app de lancamento, para quem consegue entrar la.
 
@@ -586,9 +705,12 @@
     var s = Q.sessao();
     if (!podeEntrar(s)){ iniciarLogin(); return; }
     document.getElementById('telaLogin').style.display='none';
-    document.getElementById('app').style.display='block';
+    /* `flex`, e nao `block`: o `.shell` e uma coluna flex, e `block` desmontava o
+       esqueleto — a barra lateral perdia a altura e o rodape dela subia para o meio. */
+    document.getElementById('app').style.display='flex';
     aplicarSessao(s);
     Q.abas('#abas');
+    Q.gaveta();
     ajustarAbasPainel(s);
     periodoPadraoMov();
     document.getElementById('lcData').value = Q.hoje();
@@ -757,9 +879,6 @@
     });
     var primeira = document.querySelector('#abas button[data-pagina]:not([style*="none"])');
     if (primeira && !document.querySelector('#abas button.ativa')) primeira.click();
-    /* A peneira pode ter tirado a pagina que estava aberta e aberto outra. O rotulo do
-       gatilho tem de acompanhar, senao ele anuncia uma pagina que nao esta mais na tela. */
-    ajustarMenuAbas();
   }
 
   document.getElementById('chipSair').addEventListener('click', Q.sair);
@@ -767,47 +886,18 @@
      alguém apertar Filtrar. Quem entrava para ver os lançamentos concluía que não havia
      nenhum — os filtros já vêm preenchidos com os últimos 30 dias, então não havia o que
      esperar da pessoa. */
-  /* A lista mostra onde se esta, e nao so para onde se pode ir: o gatilho leva o nome
-     da pagina aberta. Sem ele, a unica pista de onde a pessoa esta sumiria junto com a
-     barra de abas — e num painel de seis paginas isso se perde rapido. */
-  function ajustarMenuAbas(){
-    var btn = document.getElementById('btnAbas');
-    var nav = document.getElementById('abas');
-    if (!btn || !nav) return;
-    var ativa = nav.querySelector('button.ativa');
-    btn.setAttribute('aria-expanded', nav.hidden ? 'false' : 'true');
-    btn.textContent = (nav.hidden ? '☰ ' : '✕ ') + (ativa ? ativa.textContent : 'Menu');
-  }
+  /* O menu suspenso de paginas saiu daqui. Ele existia porque sete abas nao cabiam
+     numa barra horizontal — na barra lateral elas cabem em pe, e no celular quem faz o
+     papel dele e a gaveta, que mora no `app.js` e serve as duas telas.
 
-  function abrirMenuAbas(sim){
-    var nav = document.getElementById('abas');
-    if (nav) nav.hidden = !sim;
-    ajustarMenuAbas();
-  }
-
-  document.getElementById('btnAbas').addEventListener('click', function(e){
-    e.stopPropagation();   // senao o clique chega no documento e fecha o que acabou de abrir
-    abrirMenuAbas(document.getElementById('abas').hidden);
-  });
-  /* Duas saidas alem do gatilho, como no painel de filtros: clicar fora e o Esc. */
-  document.addEventListener('click', function(e){
-    var nav = document.getElementById('abas');
-    if (nav && !nav.hidden && !nav.contains(e.target)) abrirMenuAbas(false);
-  });
-  document.addEventListener('keydown', function(e){
-    var nav = document.getElementById('abas');
-    if (e.key === 'Escape' && nav && !nav.hidden) abrirMenuAbas(false);
-  });
-
+     Quem diz ONDE se esta agora e o titulo do cabecalho da pagina, que `Q.abas()`
+     escreve a cada troca. Fechar a navegacao ao escolher uma pagina tambem mora la:
+     era a mesma regra nas duas telas, e duas copias divergem no primeiro ajuste. */
   window.aoAbrirAba = function(p){
-    /* Escolher uma pagina fecha a lista. Deixa-la aberta taparia justamente a pagina que
-       a pessoa acabou de pedir. */
-    abrirMenuAbas(false);
     if (p==='pgPainel' || p==='pgRetornos') carregarPainel();
     if (p==='pgMovimentos') carregarMovimentos();
     if (p==='pgColunas') desenharColunas();
   };
-  ajustarMenuAbas();
 
   /* ---------------- selects e itens ---------------- */
   /* Ordena AQUI, no ponto de uso, e nao em quem guarda DADOS. Havia dois caminhos que

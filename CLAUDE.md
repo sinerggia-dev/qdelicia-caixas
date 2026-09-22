@@ -541,36 +541,50 @@ releitura corrige no mesmo carregamento.
 (nome, porta, abas). Os dois caminhos — abertura e releitura — passam por ela; espalhado entre os
 dois, o segundo esquece alguma coisa, e esquece calado.
 
-### No celular os botões descem, e não ficam ao lado do título
+### A navegação: barra lateral no computador, gaveta no celular
 
-Os chips moram num `<div class="chips">`, nas duas telas, e no painel a lista de páginas
-(`.menu-abas`) mora dentro dele também. **Esse grupo existe só para ter o que descer.** Soltos
-como filhos do `header`, não havia o que mandar para a segunda linha: quebrá-los um a um deixaria
-o primeiro ao lado do título e os outros embaixo.
+As duas telas usam o mesmo **app shell** — barra de app (só no estreito), navegação, cabeçalho de
+página, conteúdo. **Um corte: 1024px.** Acima, a lateral é fixa e a barra de app some. Abaixo, a
+lateral vira gaveta e a barra de app aparece com o `☰`.
 
-Abaixo de **560px** o `header` quebra em duas linhas e o grupo leva `flex:1 0 100%` — é o
-`flex-basis:100%` que o joga para baixo; sem ele o grupo só encolhe e continua ao lado. Leva
-também `margin-left:0`, para desfazer o `margin-left:auto` que no desktop o empurra para a
-direita: embaixo do título, ele alinha à esquerda.
+Antes disso o painel tinha as sete páginas num **menu suspenso no cabeçalho**, porque numa barra
+horizontal elas não cabiam: um botão escondendo sete destinos atrás de um clique. Em pé, na
+lateral, elas cabem — e no computador, que é onde o painel é usado, ficam à vista o tempo todo.
 
-O corte é 560px, e não os 760px do resto do arquivo: acima disso os dois cabiam lado a lado, e
-descer o grupo cedo demais custaria uma linha de tela sem precisar.
+**O contrato de dados não mudou.** As páginas continuam sendo `<button data-pagina>` dentro de
+`#abas`, com `.ativa` na aberta. É o que `Q.abas()` liga e o que `ajustarAbasPainel()` esconde;
+trocar por `<a href>` levaria junto a peneira de permissão, calada. Um teste afirma que **toda**
+página é um `<button>` — contar "pelo menos três" deixava trocar uma sem ninguém notar, e a
+primeira é justamente a que carrega o `.ativa`.
 
-A lista de páginas abre para a **direita** no celular (`left:0;right:auto`) e nunca passa de
-`min(230px,calc(100vw - 24px))`. Ancorada à direita — que é o certo no desktop, onde o gatilho fica
-no canto direito — ela crescia para fora da tela a partir de um gatilho que ali está na outra
-ponta: media 130px fora da borda esquerda, sem ninguém cortá-la.
+**As portas para a outra tela ficam FORA do `<nav>`** (`#chipPainel` no campo, `#chipCampo` no
+painel). `Q.abas()` liga o trocador de página em todo botão de dentro: ali, a porta viraria uma aba
+sem página, e clicar nela apagaria a ativa deixando a tela em branco.
 
-Medido em iframes de largura fixa, com todos os chips visíveis (o caso apertado é o de quem tem
-todos). **Antes**, a 320px, o título ficava com 8px no app de campo e **zero** no painel — o nome
-da pessoa sumia por inteiro e o "Sair" era cortado. **Depois**: 219px e 231px, nada cortado, sem
-rolagem lateral; a 600px o cabeçalho continua igual ao que era.
+**A gaveta mora no `app.js`** (`Q.gaveta()`), uma vez só para as duas telas. Ela fecha com `Esc`,
+com clique no véu e ao escolher uma página; o foco não escapa dela enquanto está aberta; e ao
+passar para o computador o estado é limpo — a classe `gaveta-aberta` esquecida no `body` deixaria a
+página travada sem rolagem.
 
-Sobre **medir** isto: o Chrome deste ambiente trava o viewport em 504px, peça-se 360 ou 520, nos
-dois modos headless — tudo o que foi medido "a 390px" antes disso estava na verdade a 504px. E um
-contentor de largura fixa não serve, porque `@media` mede o **viewport**, não o contentor: a regra
-do celular simplesmente não entrava. Iframe tem viewport próprio; é nele que a media query passa a
-valer.
+**O título do cabeçalho de página** (`#tituloPagina`) diz onde se está, e `Q.abas()` o escreve a
+cada troca. No computador a lateral já responde isso; **no celular a gaveta está fechada, e ele é
+a única pista**. O texto sai do próprio botão (`data-titulo`, ou o rótulo): uma lista de títulos à
+parte discordaria da navegação no primeiro rename.
+
+#### `.lateral`, e nunca `.barra`
+
+`.barra` **já existia** neste projeto — é a barra de aging, `height:10px`, declarada mais abaixo no
+arquivo. Ela vencia por vir depois, e a lateral inteira era espremida a dez pixels: a navegação, o
+indicador de rede e o rodapé continuavam lá, medindo certo, e transbordavam para fora de uma caixa
+de 10px. Nome de classe novo em CSS antigo tem de ser **procurado** antes, e não só pensado.
+
+#### Medir o desktop aqui exige iframe
+
+O Chrome deste ambiente trava o viewport de layout em **504px**, peça-se 360 ou 1280, nos dois
+modos headless — e `--screenshot` obedece a largura pedida, então a foto sai pintada a 1280 com o
+layout de 504 e parece um bug que não existe. `@media` mede o **viewport**, não o contentor, então
+um `<div>` de largura fixa também não serve. **Iframe tem viewport próprio**; é nele que a media
+query passa a valer, e é assim que as medições desta seção foram feitas.
 
 Três coisas que não podem mudar aqui, porque cada uma tranca alguém para fora:
 
@@ -699,7 +713,7 @@ O `teste_api.js` tem **487 verificações**. Roda o roteador, as regras e os tra
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
 meio segundo. Rode depois de qualquer alteração em `api/`.
 
-O `teste/teste_tela.js` (**678 verificações**) não roda navegador: lê o HTML e o JavaScript das
+O `teste/teste_tela.js` (**684 verificações**) não roda navegador: lê o HTML e o JavaScript das
 páginas e confere que cada coisa está ligada **dos dois lados**. Nasceu de um botão Limpar que
 quebrou em silêncio quando `sdRota` e `sdMotorista` entraram na tela, e desde então virou o lugar
 das simetrias:
@@ -837,14 +851,21 @@ Editar a saída faz as três versões divergirem em silêncio.
 
 ## Paleta
 
-Cinza escuro em todas as telas, a pedido do usuário (setembro/2026). **Marinho continua
-a marca** — cabeçalho e tela de entrada — e **âmbar continua a ação**. O que mudou foi o
-chão: fundo, cartões, campos e tabelas.
+**Azul-marinho em todas as telas** (setembro/2026, a pedido do usuário, a partir de um modelo de
+app shell que ele trouxe). O chão deixou de ser cinza.
 
-Tudo passa por tokens em `styles.css`; nenhum arquivo tem cor solta. Foi isso que permitiu
-trocar o tema inteiro mexendo num bloco só — mas só depois de converter as cores que
-ainda estavam fixas (`#fff`, `#eef1f4`, `#fafbfc`). Se voltar a escrever cor solta, o
-próximo que mexer no tema paga essa conta de novo.
+**A ação passou a ser o azul da marca, e não mais o âmbar.** Texto antigo que diga "âmbar continua
+a ação" está falando do tema anterior. O âmbar ficou sendo o **aviso**, que é o papel que ele
+exerce melhor.
+
+Tudo passa por tokens em `styles.css`; **nenhum arquivo tem cor solta** — e isso agora é cobrado
+por um teste, não só escrito aqui. Foi o que permitiu trocar o tema inteiro mexendo num bloco só.
+
+**Os nomes dos tokens não mudaram, de propósito.** São umas setecentas linhas de regra lendo
+`--surface`, `--linha`, `--txt2`: trocar os valores carrega a tela inteira junto. Por isso
+`--ambar-btn` continua se chamando assim e já não é âmbar — renomear espalharia a troca por dez
+arquivos para não ganhar nada. **O preço disso é um nome que mente**, e ele já cobrou duas vezes
+(veja abaixo).
 
 ### Os degraus de superfície
 
@@ -853,27 +874,46 @@ próximo que mexer no tema paga essa conta de novo.
 | `--bg` | o chão da página |
 | `--surface` | cartão, janela |
 | `--surface-2` | cabeçalho de tabela, linha sob o mouse, item |
-| `--campo` | dentro do que se digita — mais fundo que o cartão, de propósito |
+| `--campo` | dentro do que se digita, e a lateral — mais fundo que o cartão, de propósito |
 | `--neutro` | etiqueta, botão neutro, barra |
 
-Os quatro degraus existem porque cinza chapado vira uma mancha só: sem eles não se vê
-onde termina o cartão e começa o campo.
+Os degraus existem porque azul chapado vira uma mancha só: sem eles não se vê onde termina o
+cartão e começa o campo.
 
-### Marinho é fundo, nunca tinta
+### Fundo nunca é tinta
 
-A armadilha do tema escuro: `--marinho` aparecia como `color:` na aba ativa, no botão
-secundário, no `editar` e nos links. Sobre cinza escuro isso some. Onde a marca precisa
-ser tinta, use `--marca-txt` (azul claro). Se acrescentar algo com a cor da marca, pergunte
-antes se é fundo ou letra.
+A armadilha do tema escuro, agora com nome e teste. `--marinho`, `--brand`, `--ambar-btn`,
+`--surface`, `--campo` e os outros **existem para ser fundo**; escritos como `color:` somem sobre a
+própria família. Onde a marca precisa ser letra, é `--marca-txt`.
 
-### Refaça a conta antes de mexer
+Um teste recusa `color:var(...)` para qualquer token de fundo. Ele nasceu porque a troca de paleta
+quebrou **dois** lugares que ninguém teria visto:
 
-O app é lido no celular, no galpão, sob luz forte. Os quinze pares de cor foram medidos e
-passam em WCAG AA — o mais apertado é a etiqueta cinza, em 4,51:1 contra o mínimo de 4,5.
-Trocar qualquer tom exige refazer a medição, não o olhar.
+- **o link da tela de entrada** usava `--ambar-btn` — virou azul escuro sobre o card azul;
+- **a estrelinha de campo obrigatório** (`.obrig`) usava `--ambar-btn` — virou a cor da **ação**,
+  no lugar do aviso. O comentário ao lado dela já dizia "âmbar"; era o token que tinha deixado de
+  ser.
 
-O `manual.html` tem paleta própria e **continua claro, na identidade verde**; alinhar é
-tarefa à parte, e exige regerar PDF e Word.
+A medição de contraste sozinha **não pega isso**: ela compara pares de token, e não sabe qual
+token cada regra escolheu.
+
+### Refaça a conta antes de mexer — e agora ela é cobrada
+
+O app é lido no celular, no galpão, sob luz forte. **Os 28 pares de cor que a tela usa de verdade
+passam em WCAG AA**, e o mais apertado é o **botão principal, em 6,00:1** (era 4,51 no tema
+anterior — a folga aumentou).
+
+Isso deixou de ser uma promessa no texto: `teste_tela.js` lê os tokens do **próprio `styles.css`**
+e calcula. Uma tabela de cores escrita no teste discordaria do arquivo no primeiro ajuste e
+passaria verde justamente quando devia falhar.
+
+### Tipografia
+
+IBM Plex Sans (e Mono para números), do Google Fonts, com `system-ui` atrás no `--fonte`. O
+fallback não é enfeite: o app roda no galpão, às vezes sem rede, e a fonte pode não chegar.
+
+O `manual.html` tem paleta própria e **continua claro, na identidade verde**; alinhar é tarefa à
+parte, e exige regerar PDF e Word.
 
 ## Armadilhas já pagas
 

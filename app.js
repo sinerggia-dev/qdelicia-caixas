@@ -330,6 +330,24 @@
     el._t = setTimeout(function () { el.style.display = 'none'; }, tipo === 'erro' ? 5200 : 3200);
   }
 
+  /**
+   * O cabecalho da pagina diz ONDE se esta.
+   *
+   * Na barra lateral o item aceso ja diz isso — mas so no desktop. No celular a barra e
+   * uma gaveta fechada, e sem este titulo a tela nao tem nenhuma pista de que pagina
+   * esta aberta. Por isso ele nao e enfeite: e a unica resposta no estreito.
+   *
+   * O texto sai do proprio botao (`data-titulo`, ou o rotulo dele). Uma fonte so — uma
+   * lista a parte de titulo por pagina discordaria da navegacao no primeiro rename.
+   */
+  function tituloDaPagina(botao) {
+    var t = document.getElementById('tituloPagina');
+    if (!t || !botao) return;
+    t.textContent = botao.dataset.titulo || botao.textContent.trim();
+    var acima = document.getElementById('acimaPagina');
+    if (acima && botao.dataset.acima) acima.textContent = botao.dataset.acima;
+  }
+
   function abas(seletor) {
     document.querySelectorAll(seletor + ' button').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -338,10 +356,108 @@
         document.querySelectorAll('.pagina').forEach(function (p) { p.classList.remove('ativa'); });
         var alvo = document.getElementById(b.dataset.pagina);
         if (alvo) alvo.classList.add('ativa');
+        tituloDaPagina(b);
+        /* Trocar de pagina fecha a gaveta: no celular ela cobre a tela, e deixa-la aberta
+           sobre a pagina recem-aberta esconderia justamente o que a pessoa foi buscar.
+           `false` porque o foco NAO volta para o gatilho — ele volta para o conteudo. */
+        fecharGaveta(false);
         window.scrollTo(0, 0);
         if (b.dataset.pagina && typeof window.aoAbrirAba === 'function') window.aoAbrirAba(b.dataset.pagina);
       });
     });
+    var ativa = document.querySelector(seletor + ' button.ativa');
+    if (ativa) tituloDaPagina(ativa);
+  }
+
+  /**
+   * As iniciais para o circulo de quem esta logado.
+   *
+   * Duas letras: a primeira do primeiro nome e a primeira do ULTIMO. "Melkezedeque
+   * Soares" vira MS, e nao ME — num galpao com dois Joses, o sobrenome e o que separa.
+   */
+  function iniciais(nome) {
+    var p = String(nome || '').trim().split(/\s+/).filter(Boolean);
+    if (!p.length) return '—';
+    if (p.length === 1) return p[0].slice(0, 2).toUpperCase();
+    return (p[0][0] + p[p.length - 1][0]).toUpperCase();
+  }
+
+  /**
+   * Escreve no rodape da barra lateral quem esta logado.
+   *
+   * Nome e perfil em LINHAS separadas, e nao "Nome · Perfil" numa so: na barra de 236px
+   * a linha unica era cortada no meio do nome, e o que sobrava era justamente a parte
+   * que nao identifica ninguem.
+   */
+  function quemEsta(nome, perfil) {
+    var n = document.getElementById('cabUsuario');
+    if (n) n.textContent = nome || '—';
+    var p = document.getElementById('cabPerfil');
+    if (p) p.textContent = perfil || '';
+    var a = document.getElementById('avatarUsuario');
+    if (a) a.textContent = iniciais(nome);
+  }
+
+  /* ---------------- gaveta de navegacao ----------------
+     Abaixo de 1024px a barra lateral vira gaveta; acima disso ela e fixa e isto aqui
+     fica inerte. Mora no `app.js`, e nao em cada tela: sao duas telas com a mesma
+     gaveta, e duas copias divergem no primeiro ajuste. */
+  var mqLargo = window.matchMedia('(min-width: 1024px)');
+
+  function gavetaAberta() { return document.body.classList.contains('gaveta-aberta'); }
+
+  var focoAntes = null;
+
+  function abrirGaveta() {
+    if (mqLargo.matches || gavetaAberta()) return;
+    var barra = document.getElementById('lateral');
+    var btn = document.getElementById('btnMenu');
+    var veu = document.getElementById('veu');
+    if (!barra) return;
+    focoAntes = document.activeElement;
+    document.body.classList.add('gaveta-aberta');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    if (veu) veu.hidden = false;
+    /* O foco entra na gaveta. Sem isto o teclado continua no conteudo ATRAS dela, e quem
+       navega sem mouse abre um painel em que nao consegue entrar. */
+    var primeiro = barra.querySelector('button:not([style*="none"]), a');
+    if (primeiro) primeiro.focus();
+  }
+
+  function fecharGaveta(devolveFoco) {
+    if (!gavetaAberta()) return;
+    var btn = document.getElementById('btnMenu');
+    var veu = document.getElementById('veu');
+    document.body.classList.remove('gaveta-aberta');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (veu) veu.hidden = true;
+    if (devolveFoco !== false && focoAntes && focoAntes.focus) focoAntes.focus();
+  }
+
+  function gaveta() {
+    var btn = document.getElementById('btnMenu');
+    var barra = document.getElementById('lateral');
+    var veu = document.getElementById('veu');
+    if (!btn || !barra) return;
+    btn.addEventListener('click', function () {
+      if (gavetaAberta()) fecharGaveta(); else abrirGaveta();
+    });
+    if (veu) veu.addEventListener('click', function () { fecharGaveta(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && gavetaAberta()) fecharGaveta();
+    });
+    /* O foco nao escapa da gaveta enquanto ela esta aberta. */
+    document.addEventListener('focusin', function (e) {
+      if (gavetaAberta() && !barra.contains(e.target) && e.target !== btn) {
+        var primeiro = barra.querySelector('button:not([style*="none"]), a');
+        if (primeiro) primeiro.focus();
+      }
+    });
+    /* Ao passar para o desktop a gaveta some, e o estado tem de sumir junto: a classe
+       esquecida no `body` deixaria a pagina travada sem rolagem. */
+    function noCorte() { if (mqLargo.matches) fecharGaveta(false); }
+    if (mqLargo.addEventListener) mqLargo.addEventListener('change', noCorte);
+    else if (mqLargo.addListener) mqLargo.addListener(noCorte);
   }
 
   /** Bloco de aging pronto para exibir (barra + legenda). */
@@ -447,7 +563,9 @@
     precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
     temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
-    toast: toast, abas: abas, barraAging: barraAging, assinatura: assinatura,
+    toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
+    quemEsta: quemEsta, iniciais: iniciais,
+    barraAging: barraAging, assinatura: assinatura,
     comprimirFoto: comprimirFoto, csv: csv, atualizarBadge: atualizarBadge
   };
 })();

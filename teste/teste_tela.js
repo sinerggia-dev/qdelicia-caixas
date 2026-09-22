@@ -1230,171 +1230,147 @@ console.log('\n== classificar pelo titulo da coluna ==');
     'a classificação não fica guardada: a tela volta na ordem de extrato');
 })();
 
-console.log('\n== as abas do painel viram lista ==');
+console.log('\n== o app shell: navegacao na lateral, gaveta no celular ==');
 (function () {
-  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
-  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
-  var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var telas = {
+    'index.html': fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'),
+    'admin.html': fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8')
+  };
 
-  /* --- onde o menu mora --------------------------------------------------- */
-  var cab = adm.indexOf('<header>');
-  var fimCab = adm.indexOf('</header>', cab);
-  var menu = adm.indexOf('<div class="menu-abas"');
-  ok(cab > 0 && menu > cab && menu < fimCab,
-    'o menu mora no cabeçalho, e não numa faixa própria — a faixa custava uma linha ' +
-    'inteira da tela para carregar um botão só', [cab, menu, fimCab]);
-  ok(menu < adm.indexOf('id="chipRede"'),
-    'e fica à esquerda do "Online", onde a pessoa já olha para saber da sessão');
-
-  /* O gatilho fala a lingua dos chips ao lado. Os tokens de superficie (--linha, --txt)
-     sao para o chao cinza da pagina e somem no marinho do cabecalho. */
-  ok(/\.aba-atual\{[^}]*background:rgba\(255,255,255,\.18\)/.test(css) &&
-     /header \.chip\{[\s\S]{0,80}background:rgba\(255,255,255,\.18\)/.test(css),
-    'e usa o mesmo fundo dos chips — os tokens de superfície somem no marinho');
-
-  /* A lista alinha pela DIREITA: o gatilho esta na ponta direita do cabecalho, e pela
-     esquerda os 230px dela sairiam pela borda da tela. */
-  ok(/\.menu-abas nav\.abas\{[^}]*right:0;left:auto/.test(css),
-    'a lista alinha pela direita: pela esquerda, sairia pela borda da tela');
-  ok(/\.menu-abas\{position:relative/.test(css),
-    'e o invólucro é a âncora dela');
-
-  /* --- o gatilho fica FORA do <nav> --------------------------------------- */
-  var ini = adm.indexOf('<nav class="abas" id="abas"');
-  var fim = adm.indexOf('</nav>', ini);
-  var bt = adm.indexOf('id="btnAbas"');
-  ok(bt > 0 && !(bt > ini && bt < fim),
-    'o gatilho fica fora do <nav>: dentro, viraria uma aba sem página', [bt, ini, fim]);
-
-  /* E o motivo esta no app.js, nao no admin: e la que o ouvinte e ligado em tudo. */
-  ok(/function abas\(seletor\)[\s\S]{0,120}querySelectorAll\(seletor \+ ' button'\)/.test(app),
-    'porque o trocador de página se liga a TODO botão de dentro do seletor');
-
-  /* Os botoes e os data-pagina nao mudaram: quem troca a pagina continua sendo o mesmo. */
-  var nav = adm.slice(ini, fim);
-  ['pgRetornos', 'pgPainel', 'pgExtrato', 'pgLancar', 'pgMovimentos', 'pgCadastros']
-    .forEach(function (p) {
-      ok(nav.indexOf('data-pagina="' + p + '"') > 0, 'a aba ' + p + ' segue no <nav>');
+  /* O esqueleto, igual nas duas telas. Uma so com shell e outra sem seria duas
+     linguagens no mesmo produto: quem passa do app para o painel reaprende a navegar. */
+  Object.keys(telas).forEach(function (arq) {
+    var t = telas[arq];
+    [['<div id="app" class="shell"', 'o invólucro do app shell'],
+     ['<header class="topo">', 'a barra de app do celular'],
+     ['<aside class="lateral" id="lateral">', 'a navegação lateral'],
+     ['<div class="veu" id="veu"', 'o véu que escurece a página com a gaveta aberta'],
+     ['<div class="cab-pagina">', 'o cabeçalho de página'],
+     ['id="tituloPagina"', 'o título que diz onde se está'],
+     ['<div class="corpo-pagina">', 'o corpo da página']
+    ].forEach(function (par) {
+      ok(t.indexOf(par[0]) > 0, arq + ': tem ' + par[1]);
     });
-  /* A aba precisa existir nos DOIS lados: no menu da tela e na lista que o servidor
-     manda. So no menu, ela aparece para todo mundo e nao da para tirar de ninguem; so no
-     servidor, ela nao aparece para ninguem. */
-  var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
-  ok(/\{ ID: 'pgColunas',\s+Nome: 'Colunas' \}/.test(log),
-    'e a aba Colunas existe também na lista do servidor, que é o que alimenta a permissão');
-  ok(!/pgColunas[^}]*soAdmin/.test(log),
-    'e não é só do admin: escolher colunas é preferência de quem olha, não muda saldo nenhum');
-  ok(nav.indexOf('data-pagina="pgColunas"') > 0,
-    'e a aba Colunas entrou no menu');
-  ok((nav.match(/<button/g) || []).length === 7,
-    'sao sete botoes, nenhum a mais', (nav.match(/<button/g) || []).length);
+  });
 
-  /* --- o app de campo nao pode ter mudado --------------------------------- */
-  ok(idx.indexOf('menu-abas') < 0 && idx.indexOf('btnAbas') < 0,
-    'o app de campo não ganhou lista suspensa: lá são três abas e a barra cabe');
-  ok(/nav\.abas\{[^}]*display:flex/.test(css),
-    'e a barra horizontal continua sendo o padrão de `nav.abas`');
-  /* O CSS da lista mora TODO sob `.menu-abas`. Solto em `.abas`, ele empilharia as abas
-     do celular numa coluna e tiraria a barra do topo de quem lanca de luva. */
-  var regras = (css.match(/^[^\n{]*\bnav\.abas\b[^\n{]*\{/gm) || []);
-  var soltas = regras.filter(function (r) { return r.indexOf('.menu-abas') < 0; });
-  /* A lista EXATA, e nao a contagem: contando, uma regra nova solta poderia entrar no
-     lugar de outra removida e o numero continuaria batendo. */
-  ok(soltas.join(' ') ===
-     'nav.abas{ nav.abas::-webkit-scrollbar{ nav.abas button{ nav.abas button.ativa{ ' +
-     '  header,nav.abas,.linha-btn,button{',
-    'as regras soltas de `nav.abas` são só as da barra compartilhada e a de impressão — ' +
-    'qualquer regra nova tem de vir escopada em `.menu-abas`, senão empilha as abas do ' +
-    'celular numa coluna', soltas);
-  ok(/\.menu-abas nav\.abas\{[^}]*position:absolute/.test(css),
-    'a lista sai do fluxo: empurrando o conteúdo, a página saltaria a cada abertura');
-  ok(/\.menu-abas nav\.abas\[hidden\]\{display:none\}/.test(css),
-    'e fechada ela some de fato — `display:flex` venceria o `hidden` sozinho');
+  /* `.lateral`, e NAO `.barra`. `.barra` ja existia — e a barra de aging, `height:10px`,
+     declarada mais abaixo no arquivo. Ela vencia por vir depois, e a lateral inteira era
+     espremida a dez pixels: a navegacao, a rede e o rodape continuavam la, medindo
+     certo, e transbordavam para fora de uma caixa de 10px. */
+  ok(/\.lateral\{\s*width:var\(--lateral-larg\)/.test(css),
+    'a lateral tem classe própria, e não `.barra` — `.barra` já é a barra de aging, com ' +
+    '`height:10px`, e ela vencia por vir depois no arquivo');
+  ok(/\.barra\{display:flex;height:10px/.test(css),
+    'e a `.barra` de aging continua existindo, intacta — é ela que dá o nome ao conflito');
+  Object.keys(telas).forEach(function (arq) {
+    ok(telas[arq].indexOf('class="barra"') < 0,
+      arq + ': e nenhum pedaço do shell usa `class="barra"`');
+  });
 
-  /* --- o rotulo do gatilho ------------------------------------------------ */
-  var a = adm.indexOf('function ajustarMenuAbas()');
-  var k = adm.indexOf('{', a), abertas = 0;
-  do {
-    if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
-    k++;
-  } while (abertas > 0 && k < adm.length);
-  var fonte = adm.slice(a, k);
-  ok(a > 0 && /ativa/.test(fonte), 'o recorte pegou a função do rótulo');
+  /* O contrato de dados NAO mudou: as paginas continuam sendo `<button data-pagina>`
+     dentro de `#abas`, com `.ativa` na aberta. E o que `Q.abas()` liga e o que
+     `ajustarAbasPainel()` esconde — trocar isso por `<a href>` levaria junto a peneira
+     de permissao, calada. */
+  Object.keys(telas).forEach(function (arq) {
+    var t = telas[arq];
+    var i = t.indexOf('<nav class="abas" id="abas"');
+    var nav = t.slice(i, t.indexOf('</nav>', i));
+    var botoes = (nav.match(/<button[^>]*data-pagina="/g) || []).length;
+    var todas = (nav.match(/data-pagina="/g) || []).length;
+    ok(i > 0 && botoes >= 3 && botoes === todas,
+      arq + ': TODA página é um `<button data-pagina>` dentro de `#abas` — é o contrato ' +
+      'que `Q.abas()` liga e que a peneira de permissão esconde. Uma só virar `<a>` já ' +
+      'sai da peneira, calada', { botoes: botoes, comDataPagina: todas });
+    /* Toda pagina da navegacao tem secao. Um `data-pagina` sem `<section>` abre a tela
+       em branco, e o teste nao precisa de navegador para ver isso. */
+    var faltando = [];
+    (nav.match(/data-pagina="([a-zA-Z]+)"/g) || []).forEach(function (m) {
+      var id = m.slice(13, -1);
+      if (t.indexOf('id="' + id + '"') < 0) faltando.push(id);
+    });
+    ok(faltando.length === 0,
+      arq + ': e cada página da navegação tem a sua seção — sem ela a aba abre em branco',
+      faltando);
+  });
 
-  function bancada(nomeAtiva, fechado) {
-    var btn = { textContent: '', attrs: {},
-                setAttribute: function (x, v) { this.attrs[x] = v; } };
-    var navEl = { hidden: fechado,
-                  querySelector: function () {
-                    return nomeAtiva ? { textContent: nomeAtiva } : null; } };
-    var doc = { getElementById: function (id) {
-      return id === 'btnAbas' ? btn : (id === 'abas' ? navEl : null); } };
-    new Function('document', fonte + '\n ajustarMenuAbas();')(doc);
-    return btn;
-  }
+  /* As portas para a OUTRA tela ficam FORA do <nav>. `Q.abas()` liga o trocador de
+     pagina em todo botao de dentro: la dentro, a porta viraria uma aba sem pagina, e
+     clicar nela apagaria a ativa e deixaria a tela em branco. */
+  [['index.html', 'chipPainel'], ['admin.html', 'chipCampo']].forEach(function (par) {
+    var t = telas[par[0]];
+    var fimNav = t.indexOf('</nav>', t.indexOf('<nav class="abas"'));
+    ok(fimNav > 0 && t.indexOf('id="' + par[1] + '"') > fimNav,
+      par[0] + ': a porta para a outra tela fica FORA do <nav> — dentro dela viraria uma ' +
+      'aba sem página, e clicar apagaria a ativa deixando a tela em branco');
+  });
 
-  var fechada = bancada('Movimentos', true);
-  ok(fechada.textContent === '☰ Movimentos' && fechada.attrs['aria-expanded'] === 'false',
-    'fechada, o gatilho diz QUAL página está aberta — sem isso a única pista de onde se ' +
-    'está sumiria junto com a barra', fechada.textContent);
+  /* O que o `app.js` escreve continua tendo onde morar. Estes tres ids sao escritos por
+     `atualizarBadge()`, `Q.sair` e `Q.quemEsta()`: some um, e a funcao falha calada. */
+  Object.keys(telas).forEach(function (arq) {
+    ['chipRede', 'chipSair', 'cabUsuario'].forEach(function (id) {
+      ok(telas[arq].indexOf('id="' + id + '"') > 0,
+        arq + ': `#' + id + '` sobreviveu à mudança — o `app.js` escreve nele');
+    });
+  });
 
-  var aberta = bancada('Movimentos', false);
-  ok(aberta.textContent === '✕ Movimentos' && aberta.attrs['aria-expanded'] === 'true',
-    'aberta, o mesmo botão fecha', aberta.textContent);
+  /* UM corte, 1024px, e as duas pontas dele. Sem a de cima, a barra de app do celular
+     aparece no desktop em cima de uma lateral que ja esta la. */
+  ok(/@media \(min-width:1024px\)\{[^}]*\.topo\{display:none\}/.test(css.replace(/\s+/g, ' ')
+      .replace(/@media \(min-width:1024px\)\{/g, '@media (min-width:1024px){')) ||
+     /@media \(min-width:1024px\)\{\s*\.topo\{display:none\}/.test(css),
+    'no desktop a barra de app some — a navegação já está fixa na lateral, e uma barra ' +
+    'em cima dela repetiria o que se vê');
+  var iEstreito = css.indexOf('@media (max-width:1023.98px){');
+  var estreito = css.slice(iEstreito, css.indexOf('\n}', iEstreito));
+  ok(iEstreito > 0 && /\.lateral\{[^}]*position:fixed/.test(estreito),
+    'e no estreito a lateral vira gaveta — em fluxo, ela comeria a largura da tela');
+  ok(/transform:translateX\(-100%\)/.test(estreito),
+    'e nasce fora da tela: sem isto a gaveta fica aberta o tempo todo');
+  ok(/body\.gaveta-aberta\{overflow:hidden\}/.test(estreito),
+    'e com ela aberta a página atrás não rola — rolar o que está coberto move o que a ' +
+    'pessoa não está vendo');
 
-  ok(bancada('Cadastros', true).textContent === '☰ Cadastros',
-    'e o nome sai da aba ativa, não de um texto fixo',
-    bancada('Cadastros', true).textContent);
+  /* A gaveta mora no `app.js`, e nao em cada tela: e a mesma gaveta nas duas, e duas
+     copias divergem no primeiro ajuste. */
+  ok(/function gaveta\(\)/.test(js) && /gaveta: gaveta/.test(js),
+    'a gaveta mora no `app.js`, uma vez só para as duas telas');
+  Object.keys(telas).forEach(function (arq) {
+    ok(/Q\.gaveta\(\)/.test(telas[arq]), arq + ': e a tela liga a gaveta');
+  });
 
-  /* --- as saidas ---------------------------------------------------------- */
-  var og = adm.indexOf("getElementById('btnAbas').addEventListener");
-  var ouvinte = adm.slice(og, adm.indexOf('\n  });', og));
-  ok(og > 0 && /e\.stopPropagation\(\)/.test(ouvinte),
-    'o clique no gatilho não vaza para o documento — vazando, fecharia o que abriu');
-  ok(/if \(nav && !nav\.hidden && !nav\.contains\(e\.target\)\) abrirMenuAbas\(false\)/.test(adm),
-    'clicar fora fecha');
-  ok(/e\.key === 'Escape' && nav && !nav\.hidden/.test(adm), 'e o Esc também');
+  /* Tres coisas que a gaveta precisa fazer, e cada uma tranca alguem para fora se
+     faltar. */
+  ok(/e\.key === 'Escape' && gavetaAberta\(\)\) fecharGaveta\(\)/.test(js),
+    'o Esc fecha a gaveta — e a busca é pela linha DA GAVETA: `Escape` aparece duas ' +
+    'vezes no arquivo, e a outra fecha o modal');
+  ok(/veu\.addEventListener\('click'/.test(js),
+    'e clicar fora fecha também — véu que escurece sem fechar é uma tela travada');
+  ok(/focusin/.test(js),
+    'e o foco não escapa dela: sem isto quem navega por teclado abre um painel em que ' +
+    'não consegue entrar');
+  ok(/if \(mqLargo\.matches\) fecharGaveta\(false\)/.test(js),
+    'e ao passar para o desktop o estado é limpo — a classe esquecida no `body` deixaria ' +
+    'a página travada sem rolagem');
 
-  /* Escolher uma pagina fecha a lista: aberta, ela taparia justamente a pagina pedida. */
-  var ao = adm.indexOf('window.aoAbrirAba = function(p)');
-  var corpo = adm.slice(ao, adm.indexOf('\n  };', ao));
-  ok(corpo.indexOf('abrirMenuAbas(false)') > 0,
-    'escolher uma página fecha a lista — aberta, taparia a página pedida', corpo);
+  /* Trocar de pagina fecha a gaveta: no celular ela cobre a tela, e deixa-la aberta
+     esconderia justamente a pagina que a pessoa acabou de pedir. */
+  var iAbas = js.indexOf('function abas(seletor)');
+  var corpoAbas = js.slice(iAbas, js.indexOf('\n  }', js.indexOf('});', iAbas)));
+  ok(iAbas > 0 && /fecharGaveta\(false\)/.test(corpoAbas),
+    'escolher uma página fecha a gaveta — aberta, ela taparia a página recém-pedida');
 
-  /* A peneira de permissao pode trocar a pagina aberta; o rotulo tem de acompanhar. */
-  var ap = adm.indexOf('function ajustarAbasPainel(s)');
-  var corpoP = adm.slice(ap, adm.indexOf('\n  }', adm.indexOf('primeira.click()', ap)));
-  ok(corpoP.indexOf('ajustarMenuAbas()') > 0,
-    'e a peneira de permissão reajusta o rótulo: ela pode abrir outra página');
+  /* O titulo da pagina. No desktop a lateral ja diz onde se esta; no CELULAR a gaveta
+     esta fechada, e sem o titulo a tela nao tem pista nenhuma. */
+  ok(/function tituloDaPagina\(botao\)/.test(js) && /tituloDaPagina\(b\)/.test(corpoAbas),
+    'e o título da página acompanha a troca — no celular a gaveta está fechada, e sem ' +
+    'ele nada na tela diz que página está aberta');
+  ok(/botao\.dataset\.titulo \|\| botao\.textContent/.test(js),
+    'e o texto sai do próprio botão — uma lista de títulos à parte discordaria da ' +
+    'navegação no primeiro rename');
 })();
 
-/* ---------------------------------------------------------------------------
- * Escolher as colunas da tabela.
- *
- * Esconder coluna e esconder informacao — o mesmo risco do painel de filtros e do trilho.
- * O gatilho carrega a contagem das escondidas, e o "Mostrar todas" desfaz de uma vez.
- * ------------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------------
- * TODA aba pode ser concedida — quem decide e o administrador.
- *
- * "Ajustes" e "Cadastros" eram travadas para quem nao e Admin, e o pedido tirou a trava.
- * O que ficou no lugar dela e o PADRAO: as duas sao `sensivel`, e sensivel nao entra no
- * "nada marcado = todas". So entram por marca explicita.
- *
- * O motivo e o tamanho do estrago: Cadastros deixa criar e editar usuarios — inclusive
- * tornar-se administrador —, e Ajustes lanca correcao de saldo. No padrao, o proximo
- * usuario criado com acesso ao painel e sem marca nenhuma ganharia as duas de brinde.
- * Concedida a dedo e escolha; concedida por omissao e acidente.
- * ------------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------------
- * A peneira de abas nunca deixa o painel vazio.
- *
- * Marca que nao alcanca nenhuma aba visivel deixaria a pessoa num painel sem aba, sem
- * pagina aberta e sem pista do que houve. Acontece de dois jeitos, os dois reais: marca
- * gravada so em Ajustes/Cadastros para quem nao e admin, e id de uma aba que foi
- * renomeada ou saiu do app.
- * ------------------------------------------------------------------------- */
 console.log('\n== a peneira de abas nunca devolve vazio ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -2015,13 +1991,15 @@ console.log('\n== a porta para o painel, no app de campo ==');
      Quem tinha o painel liberado nao tinha por onde chegar nele: era preciso sair, ou
      saber o endereco de cor. As abas do painel estavam certas o tempo todo — a pessoa e
      que nunca chegava la. */
-  var iH = idx.indexOf('<header>');
-  var cab = idx.slice(iH, idx.indexOf('</header>', iH));
-  ok(iH > 0 && cab.indexOf('chipSair') > 0, 'o recorte pegou o cabeçalho', cab.length);
+  /* A porta mora na NAVEGACAO LATERAL agora, e nao mais num chip do cabecalho — o
+     cabecalho deixou de existir. O recorte segue a lateral. */
+  var iH = idx.indexOf('<aside class="lateral"');
+  var cab = idx.slice(iH, idx.indexOf('</aside>', iH));
+  ok(iH > 0 && cab.indexOf('chipSair') > 0, 'o recorte pegou a navegação lateral', cab.length);
   ok(/id="chipPainel"/.test(cab),
     'quem já entrou tem por onde chegar ao painel — sem isto, o link só existe na tela ' +
     'de entrada e some assim que a pessoa entra');
-  ok(/<a class="chip" id="chipPainel" href="admin\.html"/.test(cab),
+  ok(/<a class="nav-link nav-saida" id="chipPainel" href="admin\.html"/.test(cab),
     'e é um link de verdade, com href: abre em aba nova pelo clique do meio, como todo link');
   ok(/id="chipPainel"[^>]*\shidden/.test(cab),
     'nasce escondida — quem decide é o cadastro, não o HTML');
@@ -2044,11 +2022,13 @@ console.log('\n== a porta para o painel, no app de campo ==');
     /* `querySelector` devolve null de proposito: e por ele que a aba Lancamentos some, e
        este recorte e sobre a PORTA do painel. Null e o caso real de quem abre o app sem
        a aba na tela, entao o codigo tem de aguentar sem estourar. */
-    return new Function('s', 'document', 'ajustarAbas',
+    /* `Q` de mentira tambem: `aplicarSessao` escreve quem esta logado pelo `Q.quemEsta()`,
+       e sem ele a funcao estoura antes de chegar na decisao que se quer medir. */
+    return new Function('s', 'document', 'ajustarAbas', 'Q',
       fonte + '\n aplicarSessao(s); return !document.getElementById("chipPainel").hidden;')(
       s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); },
            querySelector: function () { return null; } },
-      function () {});
+      function () {}, { quemEsta: function () {} });
   }
 
   [['o ADMIN vê, mesmo com a chave desligada — `podeVerPainel()` é a autoridade, e vale ' +
@@ -2217,75 +2197,126 @@ console.log('\n== o formulario de usuario abre mostrando o que esta gravado ==')
     'e o nome vale `undefined` sem dar erro: o campo abre errado calado', tarde);
 })();
 
-console.log('\n== o cabecalho no celular ==');
+console.log('\n== o contraste de cada par que a tela usa ==');
 (function () {
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
-  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
 
-  /* Os controles do cabecalho precisam de um GRUPO. Soltos como filhos do `header`, nao
-     ha o que mandar para a segunda linha: quebrar um a um deixaria o primeiro ao lado do
-     titulo e os outros embaixo.
+  /* "Refaca a conta antes de mexer" estava escrito no CLAUDE.md e nao era cobrado por
+     nada. Quando a paleta trocou inteira, a unica coisa entre um tom ilegivel e o galpao
+     era alguem lembrar de medir. Agora e isto aqui.
 
-     Medido antes, em iframes de largura fixa: a 320px o titulo ficava com 8px no app de
-     campo e ZERO no painel — o nome da pessoa sumia por inteiro, e o "Sair" era cortado.
-     Depois: 219px e 231px, com tudo dentro da tela. */
-  ['index.html', 'admin.html'].forEach(function (arq) {
-    var txt = arq === 'index.html' ? idx : adm;
-    var i = txt.indexOf('<div id="app"');
-    var cab = txt.slice(txt.indexOf('<header>', i), txt.indexOf('</header>', i));
-    ok(/<div class="chips">/.test(cab),
-      arq + ': os controles do cabeçalho moram num grupo — soltos, não há o que mandar ' +
-      'para a segunda linha no celular');
-    /* TODO chip tem de estar dentro do grupo. Um de fora fica ao lado do titulo e
-       desfaz justamente o que o grupo veio resolver. */
-    var iG = cab.indexOf('<div class="chips">');
-    var fora = (cab.slice(0, iG).match(/class="chip"/g) || []).length;
-    ok(fora === 0,
-      arq + ': e TODO chip está dentro dele — um de fora fica ao lado do título e desfaz ' +
-      'o que o grupo veio resolver', fora);
+     Os tokens saem do PROPRIO arquivo: uma tabela de cores escrita no teste discordaria
+     do `styles.css` no primeiro ajuste, e a medicao passaria a falar de um tema que nao
+     existe mais — passando verde justamente quando deveria falhar. */
+  var raiz = css.slice(css.indexOf(':root{'), css.indexOf('\n}', css.indexOf(':root{')));
+  var TOK = { branco: '#ffffff' };
+  (raiz.match(/--[a-z0-9-]+:\s*#[0-9a-fA-F]{6}/g) || []).forEach(function (m) {
+    var p = m.split(':');
+    TOK[p[0].trim()] = p[1].trim();
   });
 
-  /* A lista de paginas do painel desce junto: ela e um controle como os outros, e deixada
-     em cima roubaria do titulo a largura que o conserto veio devolver. */
-  var iA = adm.indexOf('<div id="app"');
-  var cabAdm = adm.slice(adm.indexOf('<header>', iA), adm.indexOf('</header>', iA));
-  var iChips = cabAdm.indexOf('<div class="chips">');
-  ok(iChips > 0 && cabAdm.indexOf('class="menu-abas"') > iChips,
-    'e a lista de páginas desce junto — deixada em cima, ela roubaria do título a ' +
-    'largura que o conserto veio devolver');
+  function lum(h) {
+    function c(v) {
+      v = v / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }
+    return 0.2126 * c(parseInt(h.slice(1, 3), 16)) +
+           0.7152 * c(parseInt(h.slice(3, 5), 16)) +
+           0.0722 * c(parseInt(h.slice(5, 7), 16));
+  }
+  function razao(a, b) {
+    if (!TOK[a] || !TOK[b]) return null;
+    var x = lum(TOK[a]), y = lum(TOK[b]);
+    if (x < y) { var t = x; x = y; y = t; }
+    return (x + 0.05) / (y + 0.05);
+  }
 
-  /* A regra do celular. `flex-basis:100%` no grupo e o que joga ele para a linha de
-     baixo; sem isso ele so encolhe e continua ao lado. */
-  var iM = css.indexOf('@media (max-width:560px)');
-  var regra = css.slice(iM, css.indexOf('\n}', iM));
-  ok(iM > 0 && /header\{flex-wrap:wrap/.test(regra),
-    'o cabeçalho quebra em duas linhas no celular', regra);
-  ok(/header \.chips\{flex:1 0 100%/.test(regra),
-    'e é o `flex-basis:100%` que joga o grupo para a linha de baixo — sem ele o grupo ' +
-    'só encolhe e continua ao lado do título');
-  /* No `.chips`, e nao em qualquer regra da media query: o `.menu-abas` tambem zera a
-     margem ali, e procurar `margin-left:0` solto acha o dele com o do grupo desligado. */
-  var iCh = regra.indexOf('header .chips{');
-  var regraChips = regra.slice(iCh, regra.indexOf('}', iCh));
-  ok(iCh > 0 && /margin-left:0/.test(regraChips),
-    'e o grupo deixa de ser empurrado para a direita: embaixo do título, alinhado à ' +
-    'esquerda, e não espremido no canto', regraChips);
+  /* Cada par e um lugar de VERDADE da tela, e nao uma combinacao teorica. O app e lido
+     no celular, no galpao, sob luz forte: o minimo e o AA de 4,5:1. */
+  var PARES = [
+    ['--txt', '--bg', 'o texto no chão da página'],
+    ['--txt', '--surface', 'o texto no cartão'],
+    ['--txt', '--campo', 'o que se digita'],
+    ['--txt2', '--surface', 'o rótulo e o subtítulo no cartão'],
+    ['--txt2', '--surface-2', 'o cabeçalho de tabela'],
+    ['--txt2', '--campo', 'o item da navegação lateral'],
+    ['--txt3', '--surface', 'a etiqueta apagada no cartão'],
+    ['--txt3', '--bg', 'a etiqueta apagada no chão'],
+    ['--txt3', '--campo', 'o nome da marca na lateral'],
+    ['--marca-txt', '--surface', 'o link no cartão'],
+    ['--marca-txt', '--bg', 'o link no chão'],
+    ['--marca-txt', '--brand-soft', 'as iniciais no círculo'],
+    ['branco', '--ambar-btn', 'o BOTÃO PRINCIPAL'],
+    ['branco', '--brand-hover', 'o botão principal sob o mouse'],
+    ['branco', '--brand', 'a página aberta na navegação'],
+    ['--verde', '--surface', 'o número bom'],
+    ['--verde', '--verde-claro', 'a etiqueta verde'],
+    ['--vermelho', '--surface', 'o número ruim'],
+    ['--vermelho', '--vermelho-claro', 'a etiqueta vermelha e a rede fora'],
+    ['--ambar', '--surface', 'o aviso no cartão'],
+    ['--ambar-forte', '--ambar-claro', 'o chip da fila por enviar'],
+    ['--laranja', '--surface', 'o número em atenção'],
+    ['--azul', '--azul-claro', 'a etiqueta azul'],
+    ['--txt3', '--bg', 'o texto de apoio da tela de entrada'],
+    ['--txt2', '--marinho', 'o rótulo no card da entrada'],
+    ['--txt', '--campo', 'o que se digita na entrada'],
+    ['--marca-txt', '--marinho', 'o link da tela de entrada'],
+    ['branco', '--marinho', 'o aviso flutuante']
+  ];
 
-  /* A lista de paginas abre para a DIREITA no celular. Ancorada em `right:0` — que e o
-     certo no desktop, onde o gatilho fica no canto direito — ela crescia para a esquerda
-     a partir de um gatilho que no celular esta no canto ESQUERDO. Medido: saia 130px
-     pela borda esquerda, sem ninguem corta-la. */
-  ok(/header \.menu-abas nav\.abas\{left:0;right:auto/.test(regra),
-    'a lista de páginas abre para a direita no celular — ancorada à direita, ela crescia ' +
-    'para fora da tela a partir de um gatilho que ali está na outra ponta');
-  ok(/width:min\(230px,calc\(100vw - 24px\)\)/.test(regra),
-    'e nunca fica mais larga que a tela');
+  var fracos = [];
+  PARES.forEach(function (p) {
+    var r = razao(p[0], p[1]);
+    if (r === null || r < 4.5) {
+      fracos.push(p[2] + ': ' + (r === null ? 'TOKEN AUSENTE' : r.toFixed(2) + ':1') +
+        ' (' + p[0] + ' sobre ' + p[1] + ')');
+    }
+  });
+  ok(fracos.length === 0,
+    'os ' + PARES.length + ' pares de cor da tela passam em WCAG AA (4,5:1) — o app é ' +
+    'lido no celular, no galpão, sob luz forte, e tom escolhido a olho não se defende lá',
+    fracos);
 
-  /* O corte e 560px, e nao os 760px do resto do arquivo: acima disso os dois cabiam lado
-     a lado, e descer o grupo cedo demais custaria uma linha de tela sem precisar. */
-  ok(/O corte e 560px/.test(css),
-    'e o código registra por que o corte é 560px, e não os 760px do resto');
+  /* O par mais apertado, dito em voz alta: e o numero que a proxima troca de tema tem de
+     bater. Sem ele, "passa em AA" esconde se a folga e de dois pontos ou de um centesimo. */
+  var pior = null;
+  PARES.forEach(function (p) {
+    var r = razao(p[0], p[1]);
+    if (r !== null && (pior === null || r < pior.r)) pior = { r: r, nome: p[2] };
+  });
+  ok(pior && pior.r >= 4.5,
+    'e o mais apertado deles tem folga declarada: ' +
+    (pior ? pior.nome + ', em ' + pior.r.toFixed(2) + ':1' : '—'));
+
+  /* Nenhuma cor solta. Foi assim que a troca de tema inteira coube num bloco: se voltar a
+     escrever `#fff` numa regra, o proximo que mexer no tema paga a conta de novo — e esta
+     medicao aqui deixa de ver a cor que a tela de fato usa. */
+  var corpo = css.slice(css.indexOf('\n}', css.indexOf(':root{')));
+  var soltas = (corpo.match(/(?:color|background)(?:-color)?:\s*#[0-9a-fA-F]{3,8}/g) || [])
+    .filter(function (m) { return !/#fff\b|#ffffff/i.test(m); });
+  /* FUNDO NUNCA E TINTA. A medicao acima compara PARES de token; ela nao sabe qual
+     token cada regra escolheu. Foi por ai que passou o link da tela de entrada: ele
+     usava `--ambar-btn`, que era ambar e virou o AZUL da marca — azul escuro sobre o
+     card azul da entrada, e nenhum par da lista falava desse uso.
+
+     Entao a regra e por TOKEN, e nao por par: estes existem para ser fundo, e escrever
+     qualquer um deles como `color:` e o mesmo erro, onde quer que seja. Onde a marca
+     precisa ser tinta, e `--marca-txt`. */
+  var soFundo = ['--bg', '--surface', '--surface-2', '--campo', '--marinho',
+                 '--marinho-esc', '--marinho-claro', '--brand', '--brand-hover',
+                 '--brand-soft', '--ambar-btn'];
+  var comoTinta = soFundo.filter(function (t) {
+    return new RegExp('[^-]color:\\s*var\\(' + t + '\\)').test(css);
+  });
+  ok(comoTinta.length === 0,
+    'e nenhum token de FUNDO é usado como tinta — sobre a própria família ele some, e ' +
+    'onde a marca precisa ser letra o token é `--marca-txt`', comoTinta);
+
+  ok(soltas.length === 0,
+    'e NENHUMA cor é escrita solta fora dos tokens — cor solta é a que escapa desta ' +
+    'medição e chega ao galpão sem passar por ela. Eram sete (a tela de entrada e o ' +
+    'aviso flutuante), e uma delas era um link azul-escuro sobre o card azul da entrada',
+    soltas);
 })();
 
 console.log('\n== os dois tipos de cartao andam juntos ==');
@@ -2689,11 +2720,12 @@ console.log('\n== a porta de volta, do painel para os lancamentos ==');
 
   /* Sem ela, quem chegava ao painel ficava preso: para voltar a lancar era preciso Sair e
      entrar de novo. A ida ganhou porta antes da volta, e uma porta so e um corredor. */
+  /* A porta mora na NAVEGACAO LATERAL agora: o cabecalho com chips deixou de existir. */
   var iH = adm.indexOf('<div id="app"');
-  var cab = adm.slice(adm.indexOf('<header>', iH), adm.indexOf('</header>', iH));
-  ok(cab.indexOf('chipSair') > 0 && cab.indexOf('btnAbas') > 0,
-    'o recorte pegou o cabeçalho do painel', cab.length);
-  ok(/<a class="chip" id="chipCampo" href="index\.html"/.test(cab),
+  var cab = adm.slice(adm.indexOf('<aside class="lateral"', iH), adm.indexOf('</aside>', iH));
+  ok(cab.indexOf('chipSair') > 0 && cab.indexOf('id="abas"') > 0,
+    'o recorte pegou a navegação lateral do painel', cab.length);
+  ok(/<a class="nav-link nav-saida" id="chipCampo" href="index\.html"/.test(cab),
     'do painel dá para voltar aos lançamentos — sem isto, quem chega ao painel fica ' +
     'preso nele e a única saída é o botão Sair');
   ok(/id="chipCampo"[^>]*\shidden/.test(cab),
@@ -2716,9 +2748,12 @@ console.log('\n== a porta de volta, do painel para os lancamentos ==');
 
   function volta(s) {
     var alvo = {};
-    return new Function('s', 'document',
+    /* `Q` de mentira: `aplicarSessao` escreve quem esta logado pelo `Q.quemEsta()`, e sem
+       ele a funcao estoura antes de chegar na decisao que se quer medir. */
+    return new Function('s', 'document', 'Q',
       fonte + '\n aplicarSessao(s); return !document.getElementById("chipCampo").hidden;')(
-      s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); } });
+      s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); } },
+      { quemEsta: function () {} });
   }
 
   /* Quem nao tem senha de lancamento nao passa do login do app de campo: `loginPorPin`

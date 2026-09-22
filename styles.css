@@ -1,111 +1,222 @@
 /* Qdelícia Frutas — Controle de Caixas | estilo compartilhado */
 :root{
-  /* Cinza escuro em todas as telas. A marca continua marinho no cabecalho e na
-     tela de entrada; o ambar continua sendo a acao. O que mudou foi o chao. */
-  --marinho:#12304f; --marinho-esc:#0b2038; --marinho-claro:#2a3340;
-  /* Marinho é fundo, nunca texto: sobre o cinza ele desaparece. Onde a marca precisa
-     ser tinta — link, aba ativa, botão secundário — entra este azul claro. */
-  --marca-txt:#8fb8e8;
-  --ambar:#d09a2e; --ambar-forte:#e5b452; --ambar-claro:#3a2c10;
-  /* Botao principal: dourado vivo com texto escuro, que passa em contraste dos dois lados. */
-  --ambar-btn:#d4941f;
-  --verde:#4fbe85; --verde-esc:#7fd6a5; --verde-claro:#1a3626;
-  --amarelo:#d09a2e; --amarelo-claro:#3a2c10;
+  /* Azul-marinho em todas as telas — o chao deixou de ser cinza. A ACAO agora e o azul
+     da marca, e nao mais o ambar: o ambar ficou sendo o AVISO, que e o papel que ele
+     exerce melhor. Quem procurar "ambar continua a acao" em texto antigo, e isto aqui
+     que mudou.
+
+     Os nomes dos tokens sao os mesmos de antes de proposito: sao umas setecentas linhas
+     de regra lendo `--surface`, `--linha`, `--txt2`. Trocar os VALORES aqui carrega a
+     tela inteira junto; trocar os nomes seria reescrever tudo para nao ganhar nada. */
+
+  /* A marca. `--marca-txt` existe porque marinho e fundo, nunca tinta: sobre o proprio
+     azul ele desaparece. Onde a marca precisa ser texto — link, botao secundario — entra
+     o azul claro. */
+  --marinho:#16304f; --marinho-esc:#0d1f38; --marinho-claro:#27507f;
+  --marca-txt:#8ab8f5;
+  /* A acao. `--ambar-btn` continua se chamando assim e ja nao e ambar: e o nome que as
+     regras do botao principal usam, e renomear so por causa da cor espalharia a troca
+     por dez arquivos. */
+  --brand:#1f62b8; --brand-hover:#1a539d; --brand-soft:#21344d;
+  --ambar-btn:#1f62b8;
+  /* O aviso. */
+  --ambar:#e8a33d; --ambar-forte:#f0b75a; --ambar-claro:#33270f;
+  --verde:#35d6a0; --verde-esc:#6fe6bd; --verde-claro:#10322a;
+  --amarelo:#e8a33d; --amarelo-claro:#33270f;
 
   /* As superficies, do fundo para a frente. Cada degrau existe para separar o que
-     esta atras do que esta na frente: cinza chapado vira uma mancha so. */
-  --bg:#1b1e23; --surface:#22262d; --surface-2:#2b3038; --campo:#191c21;
-  --neutro:#3a4049; --linha:#3a4049;
+     esta atras do que esta na frente: azul chapado vira uma mancha so.
+     `--campo` e mais ESCURO que o cartao de proposito: campo que se preenche afunda,
+     em vez de saltar. */
+  --bg:#0d1520; --surface:#16233a; --surface-2:#1b2a41; --campo:#101c2b;
+  --neutro:#2c405c; --linha:#25374f;
 
-  --txt:#e8eaee; --txt2:#a3abb7; --txt3:#7c8492;
-  --vermelho:#ef8279; --vermelho-claro:#3b1f1c;
-  --azul:#8fb8e8; --azul-claro:#223854;
-  --laranja:#e0a03f;
-  --raio:12px;
-  /* Sombra no escuro precisa ser mais funda: a de 8% sumia contra o cinza. */
+  --txt:#e8eef5; --txt2:#c3d3e6; --txt3:#9cb1c9;
+  --vermelho:#f0a5a5; --vermelho-claro:#3a2430;
+  --azul:#8ab8f5; --azul-claro:#21344d;
+  --laranja:#e8a33d;
+  --raio:14px; --raio-sm:10px;
+  /* Sombra no escuro precisa ser mais funda: a de 8% sumia contra o fundo. */
   --sombra:0 1px 3px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.28);
+
+  /* A tipografia do modelo. O `system-ui` atras nao e enfeite: o app roda no galpao,
+     as vezes sem rede, e a fonte do Google pode simplesmente nao chegar. */
+  --fonte:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --fonte-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Consolas,monospace;
+
+  /* O esqueleto do app shell. */
+  --lateral-larg:236px; --topo-alt:52px;
+  --foco:0 0 0 2px var(--bg),0 0 0 4px #5b9ef0;
 }
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
 body{
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+  font-family:var(--fonte);
   background:var(--bg);color:var(--txt);font-size:16px;line-height:1.45;
   padding-bottom:env(safe-area-inset-bottom);
+  -webkit-font-smoothing:antialiased;
 }
 a{color:var(--marca-txt);text-decoration:none}
 
-/* ---------- topo ---------- */
-header{
-  background:linear-gradient(135deg,var(--marinho-esc),var(--marinho));color:#fff;
-  padding:12px 16px;display:flex;align-items:center;gap:12px;
-  position:sticky;top:0;z-index:50;box-shadow:0 2px 10px rgba(0,0,0,.15)
+/* O anel de foco do teclado, uma vez so para a tela inteira. Duas sombras: a de dentro
+   afasta o anel do elemento, a de fora e o anel — assim ele aparece mesmo encostado
+   noutra coisa da mesma cor. */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{
+  outline:none;box-shadow:var(--foco);border-radius:8px
 }
-/* A arte ja tem borda branca e fundo transparente: assenta no marinho do cabecalho
-   sem moldura. `flex:none` para ela nao encolher quando o nome do usuario for
-   comprido; width/height no HTML reservam o espaco e evitam o salto do cabecalho
-   enquanto a imagem carrega. */
-header .marca-logo{height:34px;width:auto;flex:none;display:block}
-header .marca{font-weight:700;font-size:17px;line-height:1.15;flex:1;min-width:0}
-header .marca small{display:block;font-weight:400;font-size:12px;opacity:.85}
-/* Os controles do cabecalho num grupo so. `margin-left:auto` empurra o grupo inteiro
-   para a direita — antes cada chip se empurrava sozinho, e no celular eles disputavam a
-   largura com o titulo em vez de descerem juntos. */
-header .chips{display:flex;align-items:center;gap:12px;margin-left:auto;min-width:0}
-header .chip{
-  background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);
-  padding:5px 10px;border-radius:999px;font-size:12px;white-space:nowrap;cursor:pointer
-}
-header .chip.alerta{background:var(--ambar);color:#231704;border-color:transparent;font-weight:700}
-header .chip.off{background:var(--vermelho);border-color:transparent;font-weight:700}
 
-/* ---------- abas ---------- */
-nav.abas{
-  display:flex;gap:2px;background:var(--surface);border-bottom:1px solid var(--linha);
-  overflow-x:auto;position:sticky;top:58px;z-index:40;scrollbar-width:none
-}
-nav.abas::-webkit-scrollbar{display:none}
-nav.abas button{
-  flex:1 0 auto;min-width:92px;background:none;border:none;border-bottom:3px solid transparent;
-  padding:12px 14px;font-size:14px;font-weight:600;color:var(--txt2);cursor:pointer;font-family:inherit
-}
-nav.abas button.ativa{color:#fff;border-bottom-color:var(--ambar);background:var(--marinho-claro)}
+/* ================= APP SHELL =================
+   Barra de app (so no estreito) + navegacao (gaveta no estreito, barra lateral fixa no
+   desktop) + cabecalho de pagina + conteudo. UM corte: 1024px.
 
-/* ---------- as abas como lista suspensa ----------
-   So dentro de `.menu-abas`, que existe apenas no painel. O app de campo usa a mesma
-   classe `.abas` e segue com a barra horizontal — la sao tres abas, e elas cabem.
+   Por que trocamos a barra de abas por isto: no painel sao SETE paginas. Numa barra
+   horizontal elas nao cabiam, e por isso viraram um menu suspenso no cabecalho — um
+   botao que escondia sete destinos atras de um clique. Na lateral os sete ficam a vista
+   o tempo todo no desktop, que e onde o painel e usado, e a gaveta cuida do celular.
 
-   Seis abas numa barra ocupam a largura inteira da tela para dizer onde se esta, e o
-   painel ja e apertado. Na lista, o gatilho diz a pagina aberta em 150px — e ele mora no
-   cabecalho, entao nao custa nem essa linha. */
-.menu-abas{position:relative;margin-left:auto}
-/* No marinho do cabecalho, o gatilho fala a lingua dos chips ao lado: os tokens de
-   superficie (--linha, --txt) sao para o chao cinza da pagina e somem aqui. */
-.aba-atual{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);
-  color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;
-  padding:5px 11px;border-radius:999px;white-space:nowrap;line-height:1.35}
-.aba-atual:hover{background:rgba(255,255,255,.28)}
-/* A lista sai do fluxo: empurrando o conteudo para baixo, a pagina saltaria a cada
-   abertura. E alinha pela DIREITA, porque o gatilho agora fica na ponta direita do
-   cabecalho — pela esquerda, os 230px dela sairiam pela borda da tela. */
-.menu-abas nav.abas{position:absolute;top:calc(100% + 7px);right:0;left:auto;z-index:46;
-  display:flex;flex-direction:column;gap:1px;width:230px;overflow:visible;
-  background:var(--surface);border:1px solid var(--linha);border-radius:12px;
-  padding:6px;box-shadow:0 12px 34px rgba(0,0,0,.45)}
-.menu-abas nav.abas[hidden]{display:none}
-.menu-abas nav.abas button{flex:none;min-width:0;text-align:left;border-bottom:0;
-  border-radius:8px;padding:9px 11px;font-size:13.5px}
-.menu-abas nav.abas button:hover{background:var(--surface-2);color:var(--txt)}
-/* Sem a borda de baixo da barra: numa lista vertical ela viraria um risco solto no meio.
-   O que marca a pagina aberta e o fundo, que ja marcava. */
-.menu-abas nav.abas button.ativa{border-bottom-color:transparent}
+   As paginas continuam sendo `<button data-pagina>` dentro de `#abas`, com a classe
+   `.ativa` na aberta: e o contrato que `Q.abas()` e as permissoes ja leem. O que mudou
+   foi a aparencia, nao o esqueleto de dados. */
+
+.shell{min-height:100dvh;display:flex;flex-direction:column}
+.shell__corpo{flex:1 1 auto;display:flex;min-height:0}
+
+/* ---------- barra de app (so abaixo de 1024px) ---------- */
+.topo{
+  position:sticky;top:0;z-index:40;height:var(--topo-alt);
+  display:flex;align-items:center;gap:8px;padding:0 10px 0 4px;
+  background:var(--campo);border-bottom:1px solid var(--linha)
+}
+.topo__marca{display:flex;align-items:center;gap:9px;min-width:0}
+
+/* Botao so de icone. 44px porque e o alvo minimo de dedo — o app e usado de luva. */
+.btn-icone{
+  width:44px;height:44px;flex:0 0 auto;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:0;border-radius:var(--raio-sm);background:transparent;color:var(--txt2);cursor:pointer
+}
+.btn-icone:hover{background:var(--surface-2);color:var(--txt)}
+.btn-icone.perigo:hover{background:var(--vermelho-claro);color:var(--vermelho)}
+
+.selo{
+  width:32px;height:32px;flex:0 0 auto;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:9px;background:var(--brand-soft);color:var(--marca-txt);overflow:hidden
+}
+.selo img{width:100%;height:100%;object-fit:contain}
+.marca-nome{
+  font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--txt3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+
+/* ---------- navegacao ----------
+   `.lateral`, e nao `.barra`: `.barra` JA existe neste projeto — e a barra de aging,
+   com `height:10px`, declarada mais abaixo no arquivo. Ela vencia por vir depois, e a
+   lateral inteira era espremida a dez pixels de altura: nav, rede e rodape continuavam
+   la, medindo certo, e transbordavam para fora de uma caixa de 10px. Um nome de classe
+   novo num CSS antigo tem de ser procurado antes, e nao so pensado. */
+.lateral{
+  width:var(--lateral-larg);flex:0 0 auto;display:flex;flex-direction:column;
+  padding:16px 12px;background:var(--campo);border-right:1px solid var(--linha)
+}
+.lateral__topo{display:flex;align-items:center;gap:10px;padding:0 6px 18px}
+.lateral__folga{flex:1 1 auto}
+
+nav.abas{display:flex;flex-direction:column;gap:3px}
+nav.abas button,.nav-link{
+  display:flex;align-items:center;gap:11px;width:100%;
+  min-height:44px;padding:10px 12px;border:0;border-radius:var(--raio-sm);
+  background:transparent;color:var(--txt2);text-decoration:none;text-align:left;
+  font-family:inherit;font-size:14px;font-weight:500;cursor:pointer
+}
+nav.abas button:hover,.nav-link:hover{background:var(--surface-2);color:var(--txt)}
+nav.abas button svg,.nav-link svg{flex:0 0 auto}
+/* A pagina aberta. `.ativa` e o nome que `Q.abas()` ja poe — nao inventamos outro. */
+nav.abas button.ativa,nav.abas button.ativa:hover{
+  background:var(--brand);color:#fff;font-weight:600
+}
+/* Portas para a OUTRA tela (painel <-> campo). Ficam separadas das paginas por um
+   risco: nao sao abas desta tela, sao saidas dela. */
+.nav-saida{margin-top:8px;padding-top:8px;border-top:1px solid var(--linha)}
+
+/* ---------- quem esta logado ---------- */
+.conta{display:flex;align-items:center;gap:10px;padding-top:12px;border-top:1px solid var(--linha)}
+.avatar{
+  position:relative;flex:0 0 auto;width:32px;height:32px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--brand-soft);color:var(--marca-txt);font-size:12px;font-weight:600
+}
+.conta__id{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+.conta__nome{font-size:13px;font-weight:600;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conta__meta{font-size:11px;color:var(--txt3);line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* O estado da rede. Continua sendo `#chipRede`, com as mesmas classes que o `app.js`
+   escreve (`off`, `alerta`) — so mudou onde ele mora e como ele se parece. */
+.chip{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--surface-2);border:1px solid var(--linha);color:var(--txt2);
+  padding:5px 10px;border-radius:999px;font-size:11.5px;font-weight:500;
+  white-space:nowrap;cursor:pointer
+}
+.chip:hover{border-color:var(--neutro);color:var(--txt)}
+.chip.alerta{background:var(--ambar-claro);border-color:var(--ambar);color:var(--ambar-forte);font-weight:700}
+.chip.off{background:var(--vermelho-claro);border-color:var(--vermelho);color:var(--vermelho);font-weight:700}
+.lateral .chip{width:100%;justify-content:center;margin-bottom:10px}
+
+/* ---------- cabecalho da pagina ---------- */
+.main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+.cab-pagina{
+  position:sticky;top:0;z-index:30;
+  display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;
+  padding:18px 20px 14px;background:var(--bg);border-bottom:1px solid var(--linha)
+}
+.cab-pagina__id{min-width:0;flex:1 1 260px}
+.cab-pagina__acima{font-size:12px;color:var(--txt3);margin-bottom:5px}
+.cab-pagina__titulo{margin:0;font-size:24px;font-weight:700;letter-spacing:-.4px;line-height:1.12}
+.cab-pagina__acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* ---------- veu da gaveta (so abaixo de 1024px) ---------- */
+.veu{
+  position:fixed;inset:0;z-index:50;background:rgba(3,8,15,.62);
+  opacity:0;visibility:hidden;transition:opacity .18s ease,visibility .18s ease
+}
+
+@media (max-width:1023.98px){
+  .lateral{
+    position:fixed;inset:0 auto 0 0;z-index:60;width:min(84vw,300px);
+    transform:translateX(-100%);transition:transform .22s ease;
+    border-right:1px solid var(--neutro);box-shadow:0 0 40px rgba(0,0,0,.5);
+    overflow-y:auto
+  }
+  .lateral__topo{display:none}             /* a marca ja esta na barra de app */
+  body.gaveta-aberta{overflow:hidden}
+  body.gaveta-aberta .lateral{transform:translateX(0)}
+  body.gaveta-aberta .veu{opacity:1;visibility:visible}
+  .cab-pagina{padding:16px 16px 12px}
+  .cab-pagina__titulo{font-size:21px}
+}
+
+@media (min-width:1024px){
+  .topo{display:none}
+  .veu{display:none}
+  .cab-pagina{padding:20px 28px 16px}
+  .cab-pagina__titulo{font-size:27px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .lateral,.veu{transition:none}
+}
 
 /* 1180px prendia a tabela de Movimentos, que precisa de 1300px com nome de local e
    romaneio de verdade — ela rolava na horizontal em QUALQUER monitor, e a ultima
    coluna (corrigir/cancelar) ficava escondida. Medido: 1800 deixa 470px de folga
    para nome comprido, e ainda segura o formulario longe de virar uma linha unica
    de 2500px numa tela ultralarga. */
-main{padding:14px;max-width:1800px;margin:0 auto}
+/* O respiro e a largura maxima passaram do `main` para o CORPO da pagina: no app shell
+   o `main` e a coluna (cabecalho fixo + conteudo que rola), e nao o conteudo. */
+.corpo-pagina{flex:1 1 auto;padding:16px 20px 28px;max-width:1800px;width:100%;margin:0 auto}
+@media (max-width:1023.98px){ .corpo-pagina{padding:14px 16px 24px} }
 .pagina{display:none}
 .pagina.ativa{display:block}
 
@@ -175,17 +286,12 @@ main{padding:14px;max-width:1800px;margin:0 auto}
 
 /* ---------- formulários ---------- */
 label{display:block;font-size:13px;font-weight:600;color:var(--txt2);margin:12px 0 5px}
-/* Marca de campo obrigatorio. Ambar, nao vermelho: vermelho neste app quer dizer
-   erro, e um campo ainda vazio nao e erro nenhum ate a pessoa tentar enviar. */
-.obrig{color:var(--ambar-btn);font-weight:700;margin-left:2px}
-.legenda-obrig{font-size:12px;color:var(--txt3);margin:2px 0 0}
-/* Campo que faltou no envio. Sai sozinho quando a pessoa preenche. */
-.campo-erro{border-color:var(--vermelho)!important;box-shadow:0 0 0 2px var(--vermelho-claro)}
-/* A lista de caixas nao tem borda propria: o contorno e por fora. */
-.itens.campo-erro{box-shadow:none;outline:2px solid var(--vermelho);outline-offset:5px;border-radius:8px}
-/* Marca de campo obrigatorio. Ambar, nao vermelho: vermelho neste app quer dizer
-   erro, e um campo ainda vazio nao e erro nenhum ate a pessoa tentar enviar. */
-.obrig{color:var(--ambar-btn);font-weight:700;margin-left:2px}
+/* Marca de campo obrigatorio. `--ambar`, e nao `--ambar-btn`: o segundo virou o AZUL da
+   marca quando a paleta mudou, e a estrelinha do obrigatorio ficou azul — a cor da acao,
+   no lugar do aviso. O comentario aqui ja dizia "ambar"; era o token que tinha deixado
+   de ser. Ambar e nao vermelho porque vermelho neste app quer dizer ERRO, e um campo
+   ainda vazio nao e erro nenhum ate a pessoa tentar enviar. */
+.obrig{color:var(--ambar);font-weight:700;margin-left:2px}
 .legenda-obrig{font-size:12px;color:var(--txt3);margin:2px 0 0}
 /* Campo que faltou no envio. Sai sozinho quando a pessoa preenche. */
 .campo-erro{border-color:var(--vermelho)!important;box-shadow:0 0 0 2px var(--vermelho-claro)}
@@ -234,10 +340,14 @@ textarea{min-height:70px;resize:vertical}
    quase a borda do cabecalho, e o "Apagar" parecia estar POR CIMA da tabela. */
 #tabelaMov{margin-top:14px}
 
+/* O botao principal e o AZUL da marca agora, e nao mais o ambar. Texto branco, e nao
+   `--txt`: sobre o azul o branco chapado e o que passa em contraste com folga.
+   O respiro de 14px fica — o app e usado de luva, e alvo pequeno custa lancamento. */
 button.btn{
-  background:var(--ambar-btn);color:var(--txt);border:none;border-radius:10px;padding:14px 20px;
+  background:var(--ambar-btn);color:#fff;border:none;border-radius:var(--raio-sm);padding:14px 20px;
   font-weight:700;cursor:pointer;flex:1;min-width:140px
 }
+button.btn:hover{background:var(--brand-hover)}
 button.btn:active{transform:translateY(1px)}
 button.btn:disabled{opacity:.55;cursor:not-allowed}
 button.btn.sec{background:var(--surface);color:var(--marca-txt);border:1.5px solid var(--marca-txt)}
@@ -321,7 +431,7 @@ tr.ruim{background:var(--vermelho-claro)}
 /* toast */
 #toast{
   position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:200;
-  background:#16212b;color:#fff;padding:13px 18px;border-radius:10px;font-size:14.5px;font-weight:600;
+  background:var(--marinho);color:#fff;padding:13px 18px;border-radius:10px;font-size:14.5px;font-weight:600;
   box-shadow:0 8px 30px rgba(0,0,0,.3);max-width:92vw;text-align:center;display:none
 }
 #toast.erro{background:var(--vermelho)} #toast.ok{background:var(--verde)}
@@ -358,15 +468,18 @@ tr.ruim{background:var(--vermelho-claro)}
   .logo-entrada{max-width:150px;margin-bottom:8px}
   .login{padding-top:5vh}
 }
-.login p{color:#9fb5cc;font-size:14px;margin:0 auto 22px}
-.login a{color:var(--ambar-btn)}
+.login p{color:var(--txt3);font-size:14px;margin:0 auto 22px}
+/* O link da entrada era `--ambar-btn`, que virou o AZUL da marca quando a paleta
+   mudou: azul escuro sobre o card azul da entrada, ilegivel. Link e tinta, e tinta da
+   marca e `--marca-txt` — a mesma armadilha de "marinho e fundo, nunca tinta". */
+.login a{color:var(--marca-txt)}
 .login .card{
-  background:#1b3c5f;border:1px solid rgba(255,255,255,.10);
+  background:var(--marinho);border:1px solid rgba(255,255,255,.10);
   box-shadow:0 10px 30px rgba(0,0,0,.28)
 }
-.login .card label{color:#a9c0d6}
+.login .card label{color:var(--txt2)}
 .login .card input,.login .card select{
-  background:#0e2740;color:#eaf1f8;border-color:rgba(255,255,255,.16)
+  background:var(--campo);color:var(--txt);border-color:rgba(255,255,255,.16)
 }
 .login .card input:focus,.login .card select:focus{
   outline-color:var(--ambar-btn);border-color:var(--ambar-btn)
@@ -436,7 +549,7 @@ tr.ruim{background:var(--vermelho-claro)}
 .ret-item.ativo .pt{background:var(--ambar)}
 .ret-item .n{margin-left:auto;font-size:11px;font-weight:700;background:var(--neutro);
   color:var(--txt2);border-radius:999px;padding:1px 7px}
-.ret-item.ativo .n{background:var(--ambar);color:#231704}
+.ret-item.ativo .n{background:var(--ambar);color:var(--ambar-claro)}
 /* O "em circulação" ficava aqui embaixo, sozinho num canto do trilho. Subiu para a
    fileira de cartoes: numero que se le junto com os outros nao deve morar noutro lugar
    da tela, e no rodape do trilho ele competia com a lista de grupos por atencao. */
@@ -653,32 +766,9 @@ a.chip:hover{background:var(--surface-2);color:var(--txt)}
    coluna tiver. */
 .fsub.tipos{white-space:normal;max-width:100%;margin-left:auto}
 /* No celular 220px de trilho comem a tabela: vira uma tira que rola na horizontal. */
-/* NO CELULAR OS CONTROLES DESCEM. Medido antes, com a largura forcada por CSS: a 320px o
-   titulo ficava com 8px no app de campo e ZERO no painel — o nome da pessoa sumia por
-   inteiro, e o "Sair" era cortado. O nome e o que diz quem esta logado; espremido a zero,
-   o cabecalho deixa de responder a unica pergunta que ele existe para responder.
-
-   O corte e 560px, e nao os 760px do resto: acima disso os dois cabiam lado a lado, e
-   descer o grupo cedo demais custaria uma linha de tela sem precisar. */
-@media (max-width:560px){
-  header{flex-wrap:wrap;row-gap:8px;padding-bottom:10px}
-  /* O titulo fica com a logo na primeira linha, e volta a poder crescer. */
-  header .marca{flex:1 1 auto}
-  /* `flex-basis:100%` e o que joga o grupo para a linha de baixo. Alinhado a esquerda,
-     debaixo do titulo, e nao espremido no canto. */
-  header .chips{flex:1 0 100%;margin-left:0;justify-content:flex-start;flex-wrap:wrap;
-    gap:8px}
-  /* A lista de paginas desce junto e ocupa o que precisar — ela e o controle mais usado
-     do painel, e no canto ela ficava com o rotulo cortado. */
-  header .menu-abas{flex:0 1 auto;min-width:0;margin-left:0}
-  header .aba-atual{max-width:100%}
-  /* A lista de paginas passa a abrir para a DIREITA. Ancorada em `right:0`, ela crescia
-     para a esquerda a partir da borda direita do gatilho — e o gatilho, que no desktop
-     fica no canto direito da tela, no celular fica no canto ESQUERDO da segunda linha.
-     Medido: a lista saia 130px pela borda esquerda, sem ninguem corta-la, e as paginas
-     ficavam fora do alcance. */
-  header .menu-abas nav.abas{left:0;right:auto;width:min(230px,calc(100vw - 24px))}
-}
+/* O remendo do cabecalho no celular (os chips descendo para a segunda linha) saiu daqui:
+   nao ha mais cabecalho com chips disputando largura com o titulo. Quem faz esse papel
+   agora e a gaveta, e o corte dela e 1024px, junto com o resto do app shell. */
 
 @media (max-width:760px){
   .ret-wrap{grid-template-columns:1fr}
