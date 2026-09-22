@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=25168d41">
+<link rel="stylesheet" href="styles.css?v=9c53b421">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -122,7 +122,7 @@
   </div>
 </div>
 <!-- ===================== APP ===================== -->
-<div id="app" class="shell" style="display:none">
+<div id="app" class="shell" data-nav="expandida" style="display:none">
 
 <!-- A barra de app so aparece abaixo de 1024px: no desktop a navegacao ja esta fixa na
      lateral, e uma barra em cima dela seria uma faixa repetindo o que ja se ve. -->
@@ -163,7 +163,19 @@
     <div class="lateral__topo">
       <span class="selo"><img src="logo.png" alt="" width="32" height="32"></span>
       <span class="marca-nome">Controle de Caixas</span>
+      <!-- A decisao de recolher. O mouse apenas ESPIA; num tablet nao ha hover, e
+           sem este botao o trilho ficaria fechado para sempre. -->
+      <button type="button" class="lateral-btn" id="btnLateral"
+              aria-label="Recolher o menu" aria-pressed="false">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="14 6 8 12 14 18"></polyline>
+          <line x1="19" y1="6" x2="19" y2="18"></line>
+        </svg>
+      </button>
     </div>
+
+    <div class="lateral__rolagem">
 
     <!-- A aba que a pessoa nao pode usar nao nasce escondida no HTML: quem decide e o
          cadastro, e `ajustarAbas()` remove a que sobra assim que a sessao chega. Saldo
@@ -179,7 +191,7 @@
           <polyline points="16 21 20 17 16 13"></polyline>
           <path d="M4 3h11"></path>
         </svg>
-        Saída
+        <span class="nav-rotulo">Saída</span>
       </button>
       <button data-pagina="pgDevolucao" data-operacao="RETORNO" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -188,7 +200,7 @@
           <polyline points="8 3 4 7 8 11"></polyline>
           <path d="M20 21H9"></path>
         </svg>
-        Retorno
+        <span class="nav-rotulo">Retorno</span>
       </button>
       <button data-pagina="pgSaldo" data-acima="Consulta">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -200,7 +212,7 @@
           <line x1="3" y1="12" x2="3.01" y2="12"></line>
           <line x1="3" y1="18" x2="3.01" y2="18"></line>
         </svg>
-        Lançamentos
+        <span class="nav-rotulo">Lançamentos</span>
       </button>
     </nav>
 
@@ -221,10 +233,14 @@
         <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
         <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
       </svg>
-      Painel
+      <span class="nav-rotulo">Painel</span>
     </a>
 
-    <div class="lateral__folga"></div>
+    </div>
+
+    <!-- O RODAPE FICA PRESO EMBAIXO. Antes era um `.lateral__folga` empurrando: a
+         lista crescia e levava a rede e o botao de sair para fora da tela. -->
+    <div class="lateral__pe">
 
     <!-- O estado da rede fica junto de quem esta logado: as duas coisas respondem a
          mesma pergunta — "em que pe esta a minha sessao". -->
@@ -243,6 +259,7 @@
           <line x1="21" y1="12" x2="9" y2="12"></line>
         </svg>
       </button>
+    </div>
     </div>
   </aside>
 
@@ -430,7 +447,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=72f1c64a"></script>
+<script src="app.js?v=73449fe6"></script>
 <script>
 (function(){
   'use strict';

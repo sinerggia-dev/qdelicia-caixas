@@ -17,8 +17,8 @@
   /* A acao. `--ambar-btn` continua se chamando assim e ja nao e ambar: e o nome que as
      regras do botao principal usam, e renomear so por causa da cor espalharia a troca
      por dez arquivos. */
-  --brand:#1f62b8; --brand-hover:#1a539d; --brand-soft:#21344d;
-  --ambar-btn:#1f62b8;
+  --brand:#8b44e0; --brand-hover:#763abe; --brand-soft:#21344d;
+  --ambar-btn:#8b44e0;
   /* O aviso. */
   --ambar:#e8a33d; --ambar-forte:#f0b75a; --ambar-claro:#33270f;
   --verde:#35d6a0; --verde-esc:#6fe6bd; --verde-claro:#10322a;
@@ -39,15 +39,20 @@
   --vermelho:#f0a5a5; --vermelho-claro:#3a2430;
   --azul:#8ab8f5; --azul-claro:#21344d;
   --laranja:#e8a33d;
-  /* AS CORES DA MARCA, tiradas do proprio logo. Elas vivem aqui e nao na tela de
-     entrada para nao virarem cor solta: e o mesmo rosa e o mesmo verde em qualquer
-     lugar que a marca apareca.
+  /* AS CORES DA MARCA. Elas vivem aqui e nao na tela de entrada para nao virarem cor
+     solta: e o mesmo roxo e o mesmo verde em qualquer lugar que a marca apareca.
+
+     O ROXO era o rosa do logo (#bd3393), trocado a pedido. Ele e o acento do sistema
+     inteiro: e `--brand`, o item aberto do menu e o grupo escolhido no Painel de
+     Ativos; e `--ambar-btn`, o botao principal. Os tres eram a MESMA cor antes (um
+     azul), e trocar so um deixava o botao azul virando roxo no hover — os dois
+     dividem o `--brand-hover`.
 
      O VERDE e fundo de botao com tinta ESCURA: branco sobre ele da 3,1:1 e reprova;
      a tinta escura da 5,3:1 e mantem a cor exata do logo. Esse par e a razao de
      `--sobre-verde` existir — sem ele alguem poe branco por habito e o botao fica
      ilegivel no galpao. */
-  --marca-rosa:#bd3393; --marca-verde:#00a853;
+  --marca-roxo:#8b44e0; --marca-verde:#00a853;
   --verde-hover:#00b85c;      /* o hover CLAREIA: escurecer roubava contraste */
   --sobre-verde:#0a1f38;      /* a tinta que vai SOBRE o verde */
   --raio:14px; --raio-sm:10px;
@@ -60,7 +65,7 @@
   --fonte-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Consolas,monospace;
 
   /* O esqueleto do app shell. */
-  --lateral-larg:236px; --topo-alt:52px;
+  --lateral-larg:236px; --trilho-larg:68px; --topo-alt:52px;
   --foco:0 0 0 2px var(--bg),0 0 0 4px #5b9ef0;
 }
 
@@ -94,7 +99,14 @@ a{color:var(--marca-txt);text-decoration:none}
    `.ativa` na aberta: e o contrato que `Q.abas()` e as permissoes ja leem. O que mudou
    foi a aparencia, nao o esqueleto de dados. */
 
-.shell{min-height:100dvh;display:flex;flex-direction:column}
+/* A JANELA INTEIRA É O APP: só o miolo rola. Era `min-height` com a página inteira
+   rolando, e o preço aparecia em duas coisas ao mesmo tempo — a navegação subia junto
+   com o conteúdo (quem descia numa tabela longa perdia de vista onde estava e como
+   sair), e o rodapé da lateral, com a rede e o "Sair", ia embora com ela.
+
+   `100dvh`, e não `100vh`: no celular a barra do navegador entra e sai, e o `vh` fixo
+   deixa uma faixa do app debaixo dela — inclusive o botão de registrar. */
+.shell{height:100dvh;overflow:hidden;display:flex;flex-direction:column}
 .shell__corpo{flex:1 1 auto;display:flex;min-height:0}
 
 /* ---------- barra de app (so abaixo de 1024px) ---------- */
@@ -146,10 +158,32 @@ a{color:var(--marca-txt);text-decoration:none}
    novo num CSS antigo tem de ser procurado antes, e nao so pensado. */
 .lateral{
   width:var(--lateral-larg);flex:0 0 auto;display:flex;flex-direction:column;
-  padding:16px 12px;background:var(--campo);border-right:1px solid var(--linha)
+  overflow:hidden;background:var(--campo);border-right:1px solid var(--linha)
 }
-.lateral__topo{display:flex;align-items:center;gap:10px;padding:0 6px 18px}
-.lateral__folga{flex:1 1 auto}
+.lateral__topo{display:flex;align-items:center;gap:10px;flex:0 0 auto;padding:14px 10px 14px 14px}
+
+/* A LISTA ROLA SOZINHA, e o rodapé nunca sai da tela. Antes um `.lateral__folga`
+   empurrava o rodapé para baixo: com a navegação cheia, a rede e o botão de sair
+   desciam para fora da lateral, e quem queria sair tinha de rolar para achá-los. */
+.lateral__rolagem{
+  flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding:0 12px 12px;scrollbar-width:thin
+}
+/* O rodapé: preso embaixo, sempre à vista. */
+.lateral__pe{
+  flex:0 0 auto;padding:10px 12px 14px;border-top:1px solid var(--linha);background:var(--campo)
+}
+
+/* O botão que recolhe a lateral. É a DECISÃO de quem olha — o mouse apenas espia, e
+   em tela de toque não existe hover nenhum: sem este botão o trilho seria uma porta
+   que só abre para quem tem mouse. */
+.lateral-btn{
+  width:34px;height:34px;flex:0 0 auto;margin-left:auto;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:0;border-radius:9px;background:transparent;color:var(--txt3);cursor:pointer
+}
+.lateral-btn:hover{background:var(--surface-2);color:var(--txt)}
+.lateral-btn svg{transition:transform .18s ease}
 
 /* O aviso que ocupa o lugar das abas enquanto a peneira nao rodou. Discreto de
    proposito: e um estado de passagem, nao uma mensagem para ler. */
@@ -174,7 +208,8 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .nav-saida{margin-top:8px;padding-top:8px;border-top:1px solid var(--linha)}
 
 /* ---------- quem esta logado ---------- */
-.conta{display:flex;align-items:center;gap:10px;padding-top:12px;border-top:1px solid var(--linha)}
+/* O risco que separa o rodapé subiu para o `.lateral__pe`: ele é que é o rodapé. */
+.conta{display:flex;align-items:center;gap:10px}
 .avatar{
   position:relative;flex:0 0 auto;width:32px;height:32px;border-radius:50%;
   display:inline-flex;align-items:center;justify-content:center;
@@ -210,9 +245,12 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .lateral .chip{width:100%;justify-content:center;margin-bottom:10px}
 
 /* ---------- cabecalho da pagina ---------- */
-.main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+.main{flex:1 1 auto;min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+/* Sem `position:sticky`: quem rola agora é o `.corpo-pagina`, e o cabeçalho é irmão
+   dele, não passageiro. Grudar o que já está parado só acrescenta uma camada de
+   empilhamento para os painéis suspensos dos filtros brigarem. */
 .cab-pagina{
-  position:sticky;top:0;z-index:30;
+  flex:0 0 auto;z-index:30;
   display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;
   padding:18px 20px 14px;background:var(--bg);border-bottom:1px solid var(--linha)
 }
@@ -247,10 +285,79 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   .veu{display:none}
   .cab-pagina{padding:20px 28px 16px}
   .cab-pagina__titulo{font-size:27px}
+  .corpo-pagina{padding:18px 28px 32px}
+
+  /* ---------- a lateral fixa, e o trilho ----------
+     `position:fixed` = a lateral NÃO rola com a página, nunca. Ela já não rolava
+     desde que o miolo passou a ser o único a rolar; fixá-la é o que permite
+     encolhê-la sem que a coluna do conteúdo dance junto. */
+  .lateral{
+    position:fixed;top:0;left:0;bottom:0;z-index:45;
+    width:var(--lateral-larg);transition:width .18s ease
+  }
+  /* O espaço do conteúdo acompanha QUALQUER abertura da lateral — clique ou espiada.
+     Assim o menu EMPURRA em vez de cobrir: aberto por cima, ele esconderia a primeira
+     coluna da tabela justamente enquanto a pessoa procura para onde ir.
+
+     `.lateral ~ .main`, e NÃO `.main` solto: o `extrato.html` do cliente também usa
+     `.main`, e não tem lateral nenhuma. Solto, ele ganhava 236px de vazio à esquerda
+     de uma página que não tem menu. Medido: `main 236..1262` numa janela de 1262. */
+  .lateral ~ .main{margin-left:var(--lateral-larg);transition:margin-left .18s ease}
+
+  .shell[data-nav="trilho"] .lateral{width:var(--trilho-larg);cursor:pointer}
+  .shell[data-nav="trilho"] .lateral ~ .main{margin-left:var(--trilho-larg)}
+
+  /* DOIS CAMINHOS, e eles não brigam:
+       · CLIQUE  = decisão. Troca o modo e fica (botão do topo, ou área vazia).
+       · ESPIADA = mouse parado sobre a lateral por 140ms. Temporária: sai o mouse,
+         volta ao trilho.
+     A espiada é uma classe posta pelo JS, e não `:hover` puro, por duas razões: o
+     atraso de 140ms (sem ele a lateral pisca a cada vez que o cursor atravessa a tela
+     a caminho de outra coisa) e a trava de reabertura — fechando no clique com o
+     cursor ainda em cima, `:hover` reabriria na hora e pareceria que o clique falhou. */
+  .shell[data-nav="trilho"] .lateral.espiando{width:var(--lateral-larg)}
+  .shell[data-nav="trilho"] .lateral.espiando ~ .main,
+  .shell[data-nav="trilho"] .lateral:focus-within ~ .main{margin-left:var(--lateral-larg)}
+  /* Teclado: entrar na lateral com Tab abre também — senão quem navega sem mouse
+     encara uma coluna de ícones sem rótulo e sem jeito de revelá-los. */
+  .shell[data-nav="trilho"] .lateral:focus-within{width:var(--lateral-larg)}
+
+  /* ---------- recolhida: some tudo que é texto ----------
+     `--recolhida` é só um apelido para o seletor comprido, repetido abaixo. */
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) :is(
+    .marca-nome,.nav-rotulo,.conta__id,.abas-carregando
+  ){opacity:0;width:0;padding:0;margin:0;overflow:hidden;pointer-events:none;white-space:nowrap}
+
+  /* O botão SAI do trilho, em vez de encolher: com `width:0` o ícone continuava
+     vazando pela borda. E ele não faz falta — recolhida, a lateral inteira é o
+     botão: um clique em qualquer área vazia dela abre de volta. */
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .lateral-btn{display:none}
+
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) :is(
+    .lateral__topo,nav.abas button,.nav-link,.conta,.chip
+  ){justify-content:center;gap:0}
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) :is(
+    .lateral__topo,.lateral__rolagem,.lateral__pe
+  ){padding-left:8px;padding-right:8px}
+
+  /* O chip da rede vira só o pontinho: o texto não cabe em 68px. O estado continua
+     sendo dito pela COR do chip e pelo ponto no avatar logo abaixo — é o mesmo
+     `atualizarBadge()` que pinta os dois, então eles não podem discordar. */
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .chip{
+    font-size:0;padding:7px 0
+  }
+
+  /* A conta EMPILHA em vez de perder uma das duas peças. O modelo escondia o botão
+     de sair no trilho; aqui ele fica: sair é a única saída da tela, e escondê-la
+     atrás de "primeiro reabra o menu" é caro demais pelo espaço que se ganha. */
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta{
+    flex-direction:column;gap:6px
+  }
+  .shell[data-nav="trilho"] .lateral-btn svg{transform:rotate(180deg)}
 }
 
 @media (prefers-reduced-motion:reduce){
-  .lateral,.veu{transition:none}
+  .lateral,.veu,.main,.lateral-btn svg{transition:none}
 }
 
 /* 1180px prendia a tabela de Movimentos, que precisa de 1300px com nome de local e
@@ -258,9 +365,18 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    coluna (corrigir/cancelar) ficava escondida. Medido: 1800 deixa 470px de folga
    para nome comprido, e ainda segura o formulario longe de virar uma linha unica
    de 2500px numa tela ultralarga. */
-/* O respiro e a largura maxima passaram do `main` para o CORPO da pagina: no app shell
-   o `main` e a coluna (cabecalho fixo + conteudo que rola), e nao o conteudo. */
-.corpo-pagina{flex:1 1 auto;padding:16px 20px 28px;max-width:1800px;width:100%;margin:0 auto}
+/* O respiro passou do `main` para o CORPO da pagina: no app shell o `main` e a coluna
+   (cabecalho + conteudo), e nao o conteudo.
+
+   E É AQUI QUE A PÁGINA ROLA. Só este bloco: a lateral fica, o cabeçalho fica, e o
+   que se move é o conteúdo. Por isso o `min-height:0` — sem ele um filho alto estica
+   o flex e a barra de rolagem volta para a janela inteira, desfazendo tudo.
+
+   SEM `max-width` e SEM `margin:auto`. Eram 1800px, e num monitor comum eles nunca
+   chegavam a valer: só apareciam em tela ultralarga, e ali como duas faixas vazias
+   dos dois lados da tabela. A tabela de Movimentos é o caso que pediu largura, e é
+   ela que perde com a trava. */
+.corpo-pagina{flex:1 1 auto;min-height:0;overflow-y:auto;padding:16px 20px 28px;width:100%}
 @media (max-width:1023.98px){ .corpo-pagina{padding:14px 16px 24px} }
 .pagina{display:none}
 .pagina.ativa{display:block}
@@ -331,7 +447,7 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 
 /* ---------- formulários ---------- */
 label{display:block;font-size:13px;font-weight:600;color:var(--txt2);margin:12px 0 5px}
-/* Marca de campo obrigatorio. `--ambar`, e nao `--ambar-btn`: o segundo virou o AZUL da
+/* Marca de campo obrigatorio. `--ambar`, e nao `--ambar-btn`: o segundo virou o ROXO da
    marca quando a paleta mudou, e a estrelinha do obrigatorio ficou azul — a cor da acao,
    no lugar do aviso. O comentario aqui ja dizia "ambar"; era o token que tinha deixado
    de ser. Ambar e nao vermelho porque vermelho neste app quer dizer ERRO, e um campo
@@ -385,7 +501,7 @@ textarea{min-height:70px;resize:vertical}
    quase a borda do cabecalho, e o "Apagar" parecia estar POR CIMA da tabela. */
 #tabelaMov{margin-top:14px}
 
-/* O botao principal e o AZUL da marca agora, e nao mais o ambar. Texto branco, e nao
+/* O botao principal e o ROXO da marca agora (foi ambar, depois azul). Texto branco, e nao
    `--txt`: sobre o azul o branco chapado e o que passa em contraste com folga.
 
    O respiro era de 14px e virou 12px, a pedido: os botoes ficavam grandes demais no
@@ -507,7 +623,7 @@ tr.ruim{background:var(--vermelho-claro)}
    Agora o destino e decidido pelo PAPEL, no servidor, depois da autenticacao —
    nunca pelo link que a pessoa clicou.
 
-   Cores tiradas do proprio logo: rosa, verde e o marinho que ja era o fundo. */
+   Cores da marca: o roxo, o verde do logo e o marinho que ja era o fundo. */
 .login{
   min-height:100dvh;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:22px;
@@ -532,7 +648,7 @@ tr.ruim{background:var(--vermelho-claro)}
 /* A faixa da marca: um filete, nao um degrade decorativo. */
 .marca-faixa{display:flex;height:4px;width:100%;max-width:380px;border-radius:999px;overflow:hidden}
 .marca-faixa span{flex:1 1 auto}
-.marca-faixa span:first-child{background:var(--marca-rosa)}
+.marca-faixa span:first-child{background:var(--marca-roxo)}
 .marca-faixa span:last-child{background:var(--marca-verde)}
 
 .login .card{
@@ -639,7 +755,7 @@ tr.ruim{background:var(--vermelho-claro)}
   color:var(--txt2);font-family:inherit;font-size:13px;font-weight:600;text-align:left;
   padding:9px 10px;border-radius:8px;cursor:pointer}
 .ret-item:hover{background:var(--marinho-claro);color:var(--txt)}
-.ret-item.ativo{background:var(--marinho-claro);color:#fff}
+.ret-item.ativo{background:var(--brand);color:#fff}
 .ret-item .pt{width:7px;height:7px;border-radius:2px;background:var(--marca-txt);flex:none}
 .ret-item.ativo .pt{background:var(--ambar)}
 .ret-item .n{margin-left:auto;font-size:11px;font-weight:700;background:var(--neutro);

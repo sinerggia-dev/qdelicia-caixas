@@ -2752,7 +2752,7 @@ console.log('\n== o contraste de cada par que a tela usa ==');
     .filter(function (m) { return !/#fff\b|#ffffff/i.test(m); });
   /* FUNDO NUNCA E TINTA. A medicao acima compara PARES de token; ela nao sabe qual
      token cada regra escolheu. Foi por ai que passou o link da tela de entrada: ele
-     usava `--ambar-btn`, que era ambar e virou o AZUL da marca — azul escuro sobre o
+     usava `--ambar-btn`, que era ambar, virou azul e hoje e o ROXO da marca — tinta escura sobre o
      card azul da entrada, e nenhum par da lista falava desse uso.
 
      Entao a regra e por TOKEN, e nao por par: estes existem para ser fundo, e escrever
@@ -2767,6 +2767,23 @@ console.log('\n== o contraste de cada par que a tela usa ==');
   ok(comoTinta.length === 0,
     'e nenhum token de FUNDO é usado como tinta — sobre a própria família ele some, e ' +
     'onde a marca precisa ser letra o token é `--marca-txt`', comoTinta);
+
+  /* O ACENTO É UM SÓ. `--brand` (item aberto do menu, grupo escolhido no Painel de
+     Ativos) e `--ambar-btn` (botão principal) têm de valer o mesmo, porque dividem o
+     `--brand-hover`: trocando só um, o botão passa a mudar de cor sob o mouse — sai
+     azul e volta roxo. Foi exatamente o que quase aconteceu ao trocar o rosa. */
+  function tok(nome) {
+    var m = new RegExp('\\' + nome + ':\\s*(#[0-9a-fA-F]{6})').exec(css);
+    return m ? m[1].toLowerCase() : null;
+  }
+  ok(tok('--brand') && tok('--brand') === tok('--ambar-btn'),
+    'o acento é UM só: `--brand` e `--ambar-btn` valem o mesmo — separados, o botão ' +
+    'muda de cor sob o mouse, porque os dois dividem o `--brand-hover`',
+    { brand: tok('--brand'), botao: tok('--ambar-btn') });
+  ok(tok('--marca-roxo') === tok('--brand'),
+    'e a cor da marca na tela de entrada é a MESMA — duas, e a faixa do logo discorda ' +
+    'do menu logo depois de entrar',
+    { marca: tok('--marca-roxo'), brand: tok('--brand') });
 
   ok(soltas.length === 0,
     'e NENHUMA cor é escrita solta fora dos tokens — cor solta é a que escapa desta ' +
@@ -4657,6 +4674,112 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
      hora do login nao mostraria o que a pessoa acabou de lancar. */
   ok(/pgSaldo'\) carregarLanc\(\)/.test(html),
     'abrir a aba recarrega os lancamentos');
+})();
+
+console.log('\n== nenhum id se repete dentro da mesma tela ==');
+(function () {
+  /* UM ID REPETIDO NÃO DÁ ERRO EM LUGAR NENHUM — ele só entrega o elemento errado.
+     Aconteceu: a lateral recolhível ganhou um `#btnTrilho`, e esse nome já era do
+     botão que recolhe a coluna do Painel de Ativos. `getElementById` devolve o
+     PRIMEIRO do documento, então o script daquele painel passou a mandar no botão
+     da lateral: reescreveu a classe dele (`btn.className = 'ret-recolher'`) e trocou
+     o conteúdo por um `⟨`. O CSS do trilho parou de casar — a classe tinha sumido —,
+     o botão do Painel de Ativos ficou sem dono, e nada disso apareceu como erro.
+
+     É a mesma lição da classe `.barra`, que colidiu com a barra de envelhecimento:
+     nome novo em projeto antigo tem de ser PROCURADO, não só pensado. Esta
+     verificação é a busca, feita por máquina. */
+  ['index.html', 'admin.html', 'extrato.html'].forEach(function (nome) {
+    var txt = fs.readFileSync(path.join(__dirname, '..', nome), 'utf8');
+    /* SÓ A MARCAÇÃO ESTÁTICA. Dentro do `<script>` os ids se repetem de propósito:
+       cada `form*()` monta o seu modal com `id="fNome"`, e só um modal existe no DOM
+       por vez — `fNome`, `fAtivo`, `fSalvar`, `fTel` e `fObs` aparecem cinco vezes
+       cada um no texto e nunca duas ao mesmo tempo na tela. Contar o arquivo em vez
+       da página acusaria cinco defeitos que não existem.
+
+       O que isto NÃO alcança: um id estático que colida com outro criado por script.
+       É um buraco mais estreito, e para fechá-lo é preciso navegador. */
+    var estatico = txt.replace(/<script[\s\S]*?<\/script>/g, '');
+    var vistos = {}, repetidos = [];
+    var re = /\sid="([^"]+)"/g, m;
+    while ((m = re.exec(estatico))) {
+      if (vistos[m[1]]) { if (repetidos.indexOf(m[1]) < 0) repetidos.push(m[1]); }
+      else vistos[m[1]] = true;
+    }
+    ok(repetidos.length === 0,
+      nome + ': nenhum id se repete — repetido, o `getElementById` entrega o primeiro ' +
+      'e o outro fica sem dono, sem erro nenhum', repetidos);
+  });
+})();
+
+console.log('\n== a lateral recolhe num trilho, e o conteúdo é empurrado ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  /* O MENU EMPURRA, NUNCA COBRE. Aberto por cima, ele esconderia a primeira coluna
+     da tabela justamente enquanto a pessoa procura para onde ir. */
+  ok(/\.lateral ~ \.main\{margin-left:var\(--lateral-larg\)/.test(css),
+    'o conteúdo abre espaço para a lateral — ela empurra, não cobre');
+  ok(/\.shell\[data-nav="trilho"\] \.lateral ~ \.main\{margin-left:var\(--trilho-larg\)\}/.test(css),
+    'e acompanha quando ela vira trilho');
+  ok(/\.lateral\.espiando ~ \.main,[\s\S]{0,120}margin-left:var\(--lateral-larg\)/.test(css),
+    'a espiada do mouse também empurra — abrindo por cima, a espiada viraria um ' +
+    'painel tapando a tabela');
+
+  /* `.lateral ~ .main`, e não `.main` solto: o extrato do cliente também usa `.main`
+     e não tem lateral. Solto, ele ganhava 236px de vazio à esquerda — medido. */
+  ok(!/^\s*\.main\{margin-left/m.test(css),
+    'e a margem é do `.main` QUE TEM LATERAL — solta, ela caía no extrato do cliente, ' +
+    'que usa `.main` e não tem menu nenhum');
+
+  /* A ESPIADA É JS, e não `:hover` puro: sem os 140ms a lateral pisca a cada vez que
+     o cursor atravessa a tela, e fechar no clique com o cursor em cima reabriria na
+     hora — pareceria que o clique não funcionou. */
+  /* O atraso tem de estar NA ESPIADA. Procurar `140` solto casava com qualquer outro
+     140 do arquivo, e a sabotagem que tirava o `setTimeout` passava verde. */
+  ok(/pointerenter/.test(js) && /espiar\(true\);\s*\},\s*140\)/.test(js),
+    'a espiada tem atraso de 140ms — sem ele a lateral pisca quando o cursor só passa');
+  ok(/espiadaLiberada = false/.test(js),
+    'e fechar no clique trava a espiada até o cursor sair — senão o `:hover` reabriria ' +
+    'na hora e o clique pareceria quebrado');
+  ok(/pointerType && e\.pointerType !== 'mouse'/.test(js),
+    'o dedo não espia: num toque não há "passar por cima", e a lateral abriria sozinha');
+
+  /* O BOTÃO É A DECISÃO. Em tela de toque não existe hover: sem ele o trilho seria
+     uma porta que só abre para quem tem mouse. */
+  ok(/id="btnLateral"/.test(fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8')) &&
+     /id="btnLateral"/.test(fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8')),
+    'as duas telas têm o botão que recolhe — em tela de toque não há hover, e sem ele ' +
+    'o trilho só abriria para quem tem mouse');
+  ok(/localStorage\.setItem\(CHAVE_TRILHO/.test(js),
+    'e a escolha fica guardada: recolher é preferência de quem olha, como a ordem das colunas');
+
+  /* O RODAPÉ NÃO SAI DA TELA. Era um `.lateral__folga` empurrando: com a navegação
+     cheia, a rede e o "Sair" desciam para fora da lateral. */
+  ok(/\.lateral__rolagem\{[^}]*overflow-y:auto/.test(css),
+    'a lista de páginas rola sozinha');
+  ok(/\.lateral__pe\{[^}]*flex:0 0 auto/.test(css),
+    'e o rodapé fica preso embaixo — com a lista crescendo, a rede e o botão de sair ' +
+    'saíam da tela e era preciso rolar para achá-los');
+  /* A REGRA, e não a menção: o comentário logo acima conta por que a folga saiu, e
+     procurar o nome solto acusaria o próprio comentário. */
+  ok(!/\.lateral__folga\s*\{/.test(css),
+    'e a folga que empurrava sumiu junto');
+
+  /* SÓ O MIOLO ROLA. Com a página inteira rolando, a navegação subia junto e o rodapé
+     ia embora com ela. */
+  ok(/\.shell\{height:100dvh;overflow:hidden/.test(css),
+    'a janela inteira é o app: só o miolo rola');
+  ok(/100dvh/.test(css) && !/\.shell\{height:100vh/.test(css),
+    'e em `dvh`, não `vh` — no celular a barra do navegador entra e sai, e o `vh` fixo ' +
+    'deixa o botão de registrar debaixo dela');
+  ok(/\.corpo-pagina\{[^}]*overflow-y:auto/.test(css) && /\.corpo-pagina\{[^}]*min-height:0/.test(css),
+    'quem rola é o corpo da página — e com `min-height:0`, senão um filho alto estica o ' +
+    'flex e a barra de rolagem volta para a janela inteira');
+  ok(!/\.corpo-pagina\{[^}]*max-width/.test(css),
+    'e o conteúdo usa a largura toda: os 1800px só apareciam em tela ultralarga, e ali ' +
+    'como duas faixas vazias dos lados da tabela');
 })();
 
 console.log('\n== a porta do painel: as duas telas nunca discordam ==');

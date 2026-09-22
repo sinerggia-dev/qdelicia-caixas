@@ -767,9 +767,98 @@
     });
     /* Ao passar para o desktop a gaveta some, e o estado tem de sumir junto: a classe
        esquecida no `body` deixaria a pagina travada sem rolagem. */
-    function noCorte() { if (mqLargo.matches) fecharGaveta(false); }
+    function noCorte() {
+      if (mqLargo.matches) fecharGaveta(false);
+      /* A espiada é coisa de mouse: descendo para a gaveta ela não faz sentido, e
+         deixada acesa a lateral abriria sozinha ao voltar para o desktop. */
+      barra.classList.remove('espiando');
+    }
     if (mqLargo.addEventListener) mqLargo.addEventListener('change', noCorte);
     else if (mqLargo.addListener) mqLargo.addListener(noCorte);
+
+    trilho(barra);
+  }
+
+  /* ---------------- o trilho: a lateral recolhida ----------------
+     Acima de 1024px a lateral pode virar um trilho de ícones. São DOIS caminhos, e
+     eles convivem:
+
+       · CLIQUE  — no botão do topo, ou em qualquer área vazia da lateral. É decisão:
+                   troca o modo e FICA, inclusive depois de recarregar.
+       · ESPIADA — o mouse parado sobre o trilho por 140ms. É temporária: sai o
+                   cursor, volta ao trilho.
+
+     Por que a espiada não é `:hover` puro no CSS: (1) sem o atraso a lateral pisca a
+     cada vez que o cursor atravessa a tela a caminho de outra coisa; (2) ao fechar
+     pelo clique com o cursor ainda em cima, o `:hover` reabriria na mesma hora e
+     pareceria que o clique não funcionou. */
+  var CHAVE_TRILHO = 'qdc_lateral_v1';
+
+  function trilho(barra) {
+    var shell = document.getElementById('app');
+    var btn = document.getElementById('btnLateral');
+    if (!shell || !barra) return;
+
+    var tEspiada = null;
+    var espiadaLiberada = true;   // trava enquanto o cursor não sair
+
+    function aplicar(modo) {
+      shell.dataset.nav = modo;
+      var recolhida = modo === 'trilho';
+      if (btn) {
+        btn.setAttribute('aria-pressed', String(recolhida));
+        btn.setAttribute('aria-label', recolhida ? 'Abrir o menu' : 'Recolher o menu');
+      }
+    }
+
+    function alternar() {
+      var novo = shell.dataset.nav === 'trilho' ? 'expandida' : 'trilho';
+      aplicar(novo);
+      try { localStorage.setItem(CHAVE_TRILHO, novo); } catch (e) {}
+      barra.classList.remove('espiando');
+      clearTimeout(tEspiada);
+      // Fechou com o cursor em cima: a espiada fica travada até ele sair.
+      if (novo === 'trilho') espiadaLiberada = false;
+    }
+
+    if (btn) btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      alternar();
+    });
+
+    function espiar(ligar) {
+      if (!mqLargo.matches) return;
+      if (ligar && (!espiadaLiberada || shell.dataset.nav !== 'trilho')) return;
+      barra.classList.toggle('espiando', ligar);
+    }
+
+    barra.addEventListener('pointerenter', function (e) {
+      if (e.pointerType && e.pointerType !== 'mouse') return;   // o dedo não espia
+      clearTimeout(tEspiada);
+      tEspiada = setTimeout(function () { espiar(true); }, 140);
+    });
+    barra.addEventListener('pointerleave', function () {
+      clearTimeout(tEspiada);
+      espiadaLiberada = true;
+      espiar(false);
+    });
+
+    /* Clicar em área VAZIA da lateral também alterna. Botão, link e campo continuam
+       fazendo o trabalho deles: o clique só alterna quando não caiu em nada clicável —
+       senão escolher uma página fecharia o menu junto. */
+    barra.addEventListener('click', function (e) {
+      if (!mqLargo.matches) return;          // no celular quem manda é a gaveta
+      if (e.target.closest('button, a, input, select, textarea, label')) return;
+      alternar();
+    });
+
+    /* Recolher é PREFERÊNCIA de quem olha, como a ordem das colunas: uma tela por
+       pessoa, no aparelho dela. Guardado aqui e não no cadastro porque não é
+       permissão — e porque no galpão o mesmo usuário abre em telas de tamanhos
+       diferentes, e cada uma quer a sua. */
+    var guardado = null;
+    try { guardado = localStorage.getItem(CHAVE_TRILHO); } catch (e) {}
+    aplicar(guardado === 'trilho' ? 'trilho' : 'expandida');
   }
 
   /** Bloco de aging pronto para exibir (barra + legenda). */

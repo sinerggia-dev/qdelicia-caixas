@@ -743,6 +743,73 @@ tipo de coisa que não se resolve lembrando.
 (nome, porta, abas). Os dois caminhos — abertura e releitura — passam por ela; espalhado entre os
 dois, o segundo esquece alguma coisa, e esquece calado.
 
+### A lateral recolhe num trilho, e o conteúdo é empurrado
+
+Acima de 1024px a lateral é **fixa** (`position:fixed`) e pode virar um **trilho de
+68px** só com ícones. O estado mora no `data-nav` do `#app` (`expandida` | `trilho`) e
+é guardado em `localStorage` — recolher é preferência de quem olha, como a ordem das
+colunas, e não permissão.
+
+**São dois caminhos, e eles convivem:**
+
+| | o que é | como termina |
+|---|---|---|
+| **clique** no `#btnLateral`, ou em área vazia da lateral | decisão | fica, inclusive depois de recarregar |
+| **espiada** — mouse parado sobre o trilho por 140ms | temporária | sai o cursor, volta ao trilho |
+
+A espiada é uma **classe posta pelo JS**, e não `:hover` puro, por duas razões
+medidas: sem o atraso de 140ms a lateral pisca toda vez que o cursor atravessa a tela
+a caminho de outra coisa; e fechando no clique com o cursor ainda em cima, o `:hover`
+reabriria na mesma hora — pareceria que o clique não funcionou. Por isso existe o
+`espiadaLiberada`, que trava a espiada até o cursor sair. **O dedo não espia**: num
+toque não há "passar por cima", e a lateral abriria sozinha.
+
+**O menu EMPURRA, nunca cobre** — inclusive na espiada. Aberto por cima, ele
+esconderia a primeira coluna da tabela justamente enquanto a pessoa procura para onde
+ir. O preço é a página remontar a cada abertura, e vale.
+
+**`.lateral ~ .main`, e não `.main` solto.** O `extrato.html` do cliente também usa
+`.main` e não tem lateral nenhuma: com a margem solta ele ganhava **236px de vazio à
+esquerda** de uma página sem menu. Medido — `main 236..1262` numa janela de 1262.
+
+**O botão existe porque em tela de toque não há hover.** Sem ele o trilho seria uma
+porta que só abre para quem tem mouse. Recolhida, a lateral inteira também é botão:
+um clique em qualquer área vazia dela abre de volta.
+
+#### `#btnTrilho` já existia — e a colisão não deu erro nenhum
+
+A lateral nasceu com um `#btnTrilho`, e esse id **já era** do botão que recolhe a
+coluna do Painel de Ativos. `getElementById` devolve o **primeiro do documento**,
+então o script daquele painel passou a mandar no botão da lateral: fez
+`btn.className = 'ret-recolher'` e `btn.textContent = '⟨'` — apagou a classe, apagou o
+SVG. O CSS do trilho parou de casar porque a classe tinha sumido, o botão do Painel de
+Ativos ficou sem dono, e **nada disso apareceu como erro**: só como um `⟨` estranho na
+foto.
+
+É a mesma lição da classe `.barra`, que colidiu com a barra de envelhecimento: **nome
+novo em projeto antigo tem de ser procurado, não só pensado.** Agora quem procura é o
+`teste_tela`, que varre os ids repetidos das três páginas. Ele lê só a marcação
+**estática**: dentro do `<script>` os ids se repetem de propósito — cada `form*()`
+monta o seu modal com `id="fNome"`, e só um modal existe por vez. Contar o arquivo em
+vez da página acusaria cinco defeitos que não existem.
+
+### Só o miolo rola
+
+`.shell{height:100dvh;overflow:hidden}`, e quem rola é o `.corpo-pagina`. Com a página
+inteira rolando, duas coisas se perdiam ao mesmo tempo: a navegação subia junto (quem
+descia numa tabela longa deixava de ver onde estava e como sair) e o rodapé da lateral
+— rede e "Sair" — ia embora com ela.
+
+- **`dvh`, não `vh`.** No celular a barra do navegador entra e sai; com `vh` fixo uma
+  faixa do app fica debaixo dela, e nessa faixa está o botão de registrar.
+- **`min-height:0` no `.corpo-pagina`.** Sem ele um filho alto estica o flex e a barra
+  de rolagem volta para a janela inteira, desfazendo tudo.
+- **A lista da lateral rola sozinha** (`.lateral__rolagem`) e o rodapé fica preso
+  (`.lateral__pe`). Era um `.lateral__folga` empurrando, e com a navegação cheia o
+  rodapé saía da tela.
+- **Sem `max-width`.** Eram 1800px, e num monitor comum nunca chegavam a valer: só
+  apareciam em tela ultralarga, e ali como duas faixas vazias dos lados da tabela.
+
 ### A navegação: barra lateral no computador, gaveta no celular
 
 As duas telas usam o mesmo **app shell** — barra de app (só no estreito), navegação, cabeçalho de
@@ -1122,9 +1189,20 @@ Editar a saída faz as três versões divergirem em silêncio.
 **Azul-marinho em todas as telas** (setembro/2026, a pedido do usuário, a partir de um modelo de
 app shell que ele trouxe). O chão deixou de ser cinza.
 
-**A ação passou a ser o azul da marca, e não mais o âmbar.** Texto antigo que diga "âmbar continua
-a ação" está falando do tema anterior. O âmbar ficou sendo o **aviso**, que é o papel que ele
-exerce melhor.
+**A ação passou a ser o âmbar → azul → ROXO `#8b44e0`** (setembro/2026, a pedido). Texto antigo
+que diga "âmbar continua a ação", ou que chame o acento de azul, está falando de um tema
+anterior. O âmbar ficou sendo o **aviso**, que é o papel que ele exerce melhor.
+
+**O roxo é UM acento só, em três lugares:** `--brand` (o item aberto do menu e o grupo escolhido
+no Painel de Ativos) e `--ambar-btn` (o botão principal). Eles já eram a mesma cor, e dividem o
+`--brand-hover` — trocar só um deixava o botão azul virando roxo sob o mouse. O `--marca-rosa`
+do logo virou `--marca-roxo` e é o mesmo valor: a faixa da tela de entrada acompanha.
+
+Medido depois da troca: **os 32 pares passam em WCAG AA**, e o mais apertado continua sendo o
+botão principal, agora em **5,25:1** — um fio melhor que os 5,17:1 do rosa que saiu.
+
+O que NÃO virou roxo, porque não foi pedido: `--marca-txt` (a tinta dos links, ainda azul-claro)
+e `--brand-soft` (o fundo do círculo com as iniciais). São tinta e superfície, não o acento.
 
 Tudo passa por tokens em `styles.css`; **nenhum arquivo tem cor solta** — e isso agora é cobrado
 por um teste, não só escrito aqui. Foi o que permitiu trocar o tema inteiro mexendo num bloco só.
