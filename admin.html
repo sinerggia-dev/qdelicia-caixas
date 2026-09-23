@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=f243fd6d">
+<link rel="stylesheet" href="styles.css?v=bbf15c9e">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -588,6 +588,19 @@
       <button class="btn-icone" type="button" data-fechar-folha aria-label="Fechar">✕</button>
     </div>
     <div class="folha__corpo" id="folhaAcoesCorpo"></div>
+  </section>
+
+  <section class="folha" id="folhaUser" role="dialog" aria-modal="true"
+           aria-labelledby="folhaUserT" hidden>
+    <div class="folha__puxador" aria-hidden="true"></div>
+    <div class="folha__cab">
+      <div style="flex:1 1 auto;min-width:0">
+        <h2 class="folha__t" id="folhaUserT">Usuário</h2>
+        <p class="folha__ctx" id="folhaUserCtx"></p>
+      </div>
+      <button class="btn-icone" type="button" data-fechar-folha aria-label="Fechar">✕</button>
+    </div>
+    <div class="folha__corpo" id="folhaUserCorpo"></div>
   </section>
 
   <!-- ---------- COLUNAS ---------- -->
@@ -3833,6 +3846,52 @@
   /* Os botões da tabela de usuários são religados a cada redesenho — inclusive o da
      busca, que refaz só esta tabela. Sem isso, digitar na busca deixava editar,
      ativar e excluir sem efeito, e a tela parecia funcionar. */
+  /* A FOLHA DE AÇÕES DO USUÁRIO. Os botões dela carregam os MESMOS atributos da tabela,
+     e quem os liga é o `ligarBotoesUsuarios()` de sempre — chamado aqui depois de a
+     folha existir. Nenhuma das três ações foi reescrita para o celular. */
+  function ligarAcoesUser(box){
+    box.querySelectorAll('button[data-acoes-user]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var u = (EQUIPE||[]).filter(function(x){
+          return String(x.ID) === b.dataset.acoesUser; })[0];
+        if (!u) return;
+        var on = Q.ativo(u.Ativo);
+        var lp = LOCAIS_PADRAO.filter(function(l){
+          return String(l.ID) === String(u.LocalPadrao); })[0];
+        var t = document.getElementById('folhaUserT');
+        var ctx = document.getElementById('folhaUserCtx');
+        var corpo = document.getElementById('folhaUserCorpo');
+        if (!t || !ctx || !corpo) return;
+        t.textContent = u.Nome || 'Usuário';
+        ctx.textContent = (u.Usuario ? '@'+u.Usuario+' · ' : '')+
+          (u.Perfil||'')+(lp ? ' · '+lp.Nome : '');
+        corpo.innerHTML =
+          '<button class="opcao" type="button" data-editar-user="'+Q.esc(u.ID)+'">'+
+            '<span>Editar cadastro<small>nome, perfil, e-mail, senha, local padrão</small>'+
+            '</span></button>'+
+          '<button class="opcao" type="button" data-ativar="'+Q.esc(u.ID)+'" '+
+            'data-para="'+(on ? 'NAO' : 'SIM')+'">'+
+            '<span>'+(on ? 'Desativar' : 'Reativar')+' usuário<small>'+
+            (on ? 'perde o acesso, e o histórico fica' : 'devolve o acesso')+
+            '</small></span></button>'+
+          /* SEM `disabled`. O servidor é quem sabe se a pessoa já lançou — e ele já faz a
+             coisa certa: inativa em vez de apagar, e diz que foi isso. Desabilitar aqui
+             exigiria um dado que a tela não tem, e adivinhar seria pior do que esperar
+             a resposta. */
+          '<button class="opcao perigo" type="button" data-excluir-user="'+Q.esc(u.ID)+'">'+
+            '<span>Excluir<small>quem já lançou é INATIVADO em vez de apagado — o '+
+            'lançamento não pode ficar órfão</small></span></button>';
+        ligarBotoesUsuarios();
+        /* A folha fecha ao escolher: a ação abre um formulário ou uma confirmação, e a
+           folha por cima deles esconde justamente o que se vai confirmar. */
+        corpo.querySelectorAll('button').forEach(function(x){
+          x.addEventListener('click', fecharFolhas);
+        });
+        abrirFolha('folhaUser');
+      });
+    });
+  }
+
   function ligarBotoesUsuarios(){
     /* Desativar em vez de excluir: o histórico de movimentos aponta para o usuário,
        e apagar deixaria lançamento órfão. Inativo some das listas e não entra mais. */
@@ -3895,9 +3954,118 @@
      "provisoria: painel" nao dizia nada sobre a senha do app de lancamento, e "propria"
      aparecia ate para quem nunca teve aquela credencial. */
   function seloSenha(temSenha, provisoria, rotulo){
+    /* SEM SENHA COM ACESSO AO PAINEL não é o mesmo que sem senha de lançamento.
+       No lançamento, "sem senha" quer dizer que a pessoa não usa o app — é um fato
+       neutro. No painel, ela TEM a porta liberada e não tem como abri-la: a entrada
+       exige senha, e quem não escolheu uma nunca entra. Isso não é um buraco de
+       segurança — é uma permissão que não se exerce, e o sintoma é a pessoa ligar
+       dizendo que não consegue acessar. Âmbar, porque pede providência. */
+    if (!temSenha && rotulo === 'painel') {
+      return '<span class="tag amarela" title="Tem o painel liberado, mas não escolheu '+
+        'senha — e a entrada do painel exige senha. Não consegue entrar.">'+
+        'painel: falta a senha</span>';
+    }
     if (!temSenha) return '<span class="tag cinza" title="Esta pessoa não tem esta credencial">'+rotulo+': sem senha</span>';
     if (provisoria) return '<span class="tag vermelha" title="Ainda não trocou a senha que o administrador passou">'+rotulo+': provisória</span>';
     return '<span class="tag verde" title="A pessoa já escolheu a senha dela">'+rotulo+': própria</span>';
+  }
+
+  /* ---------- Usuários em cartão, no celular ----------
+   *
+   * A tabela tem nove colunas e três botões por linha. No telefone, o que se procura
+   * nesta tela é quase sempre a mesma coisa: com que nome a pessoa entra, e em que pé
+   * está o acesso dela. O cartão põe isso em cima e embaixo, e recolhe editar/desativar/
+   * excluir num botão.
+   *
+   * Os botões da folha carregam os MESMOS `data-editar-user`, `data-ativar` e
+   * `data-excluir-user` da tabela, e quem os liga é o mesmo `ligarBotoesUsuarios()`.
+   * Nenhuma ação foi reescrita para o celular — reescrita, a confirmação de excluir
+   * passaria a existir em dois lugares.
+   */
+  var ORDEM_USER_AZ = true;
+
+  function iniciaisDe(nome){
+    var p = String(nome || '?').trim().split(/\s+/);
+    return ((p[0][0] || '?') + (p[1] ? p[1][0] : '')).toUpperCase();
+  }
+
+  function cartaoUser(u){
+    var on = Q.ativo(u.Ativo);
+    var lp = LOCAIS_PADRAO.filter(function(l){
+      return String(l.ID) === String(u.LocalPadrao); })[0];
+    /* O ESTADO DE ACESSO sai dos MESMOS selos da tabela. Escrito de novo aqui, o dia em
+       que "provisória" virasse outra coisa a tabela e o cartão discordariam sobre a
+       mesma pessoa. */
+    var selos = seloSenha(u.TemPin, u.PinProvisorio, 'lançamento')+
+      (u.AcessoPainel
+        ? seloSenha(u.TemSenha, u.SenhaProvisoria, 'painel')
+        : '<span class="tag cinza" title="Esta pessoa usa só o app de lançamento">'+
+          'painel: sem acesso</span>');
+
+    return '<article class="u'+(on ? '' : ' u--inativo')+'">'+
+      '<div class="u__topo">'+
+        '<span class="u__ini" aria-hidden="true">'+Q.esc(iniciaisDe(u.Nome))+'</span>'+
+        '<span class="u__id"><span class="u__nome">'+Q.esc(u.Nome)+'</span></span>'+
+        '<span class="tag azul">'+Q.esc(u.Perfil||'')+'</span>'+
+      '</div>'+
+      '<div class="u__dados">'+
+        /* COM QUE NOME A PESSOA ENTRA vem primeiro: é o dado que se vem buscar aqui,
+           mais do que o e-mail. */
+        '<div class="u__d u__d--user">Entra como <b>'+
+          (u.Usuario ? Q.esc(u.Usuario) : '—')+'</b></div>'+
+        '<div class="u__d'+(u.Email ? '' : ' u__d--vazio')+'">'+
+          Q.esc(u.Email || 'sem e-mail')+'</div>'+
+        (u.Telefone ? '<div class="u__d">'+Q.esc(u.Telefone)+'</div>' : '')+
+      '</div>'+
+      '<div class="u__acesso">'+
+        '<div class="u__acesso-t">Acesso</div>'+
+        '<div class="pilha-selos">'+selos+'</div>'+
+      '</div>'+
+      '<div class="u__pe">'+
+        '<span class="u__local">'+Q.esc(lp ? lp.Nome : '—')+'</span>'+
+        '<button class="acoes-btn" type="button" data-acoes-user="'+Q.esc(u.ID)+'">Ações</button>'+
+      '</div></article>';
+  }
+
+  function barraOrdemUser(lista){
+    return '<div class="secao">'+
+      '<span>'+lista.length+' de '+(EQUIPE||[]).length+
+        ((EQUIPE||[]).length === 1 ? ' usuário' : ' usuários')+'</span>'+
+      '<button class="ordenar" id="btnOrdemUser" type="button" data-ordem="'+
+        (ORDEM_USER_AZ ? 'desc' : 'asc')+'" aria-label="Ordem alfabética: '+
+        (ORDEM_USER_AZ ? 'A a Z' : 'Z a A')+'. Tocar para inverter.">'+
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+        'stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+        '<line x1="12" y1="4" x2="12" y2="20"></line>'+
+        '<polyline points="6 14 12 20 18 14"></polyline></svg>'+
+        '<span>'+(ORDEM_USER_AZ ? 'A → Z' : 'Z → A')+'</span>'+
+      '</button></div>';
+  }
+
+  /* O AVISO DE ACESSO FRÁGIL. Ele conta o que a tabela mostra linha a linha e ninguém
+     soma: quantas pessoas entram no painel SEM senha, e quantas ainda estão com a
+     provisória que o administrador passou. Uma provisória sem prazo é porta aberta
+     permanente, e espalhada por nove linhas ela não parece um problema — somada, parece.
+
+     Aparece só quando há o que contar: um aviso permanente vira paisagem. */
+  function avisoAcessoUser(){
+    var lista = EQUIPE || [];
+    var semSenha = lista.filter(function(u){ return u.AcessoPainel && !u.TemSenha; }).length;
+    var provis = lista.filter(function(u){
+      return (u.PinProvisorio && u.TemPin) || (u.SenhaProvisoria && u.TemSenha); }).length;
+    if (!semSenha && !provis) return '';
+    var partes = [];
+    /* O QUE CADA NÚMERO QUER DIZER, e não um susto genérico. Quem tem o painel liberado
+       e não tem senha NÃO consegue entrar — a entrada exige senha. É uma permissão que
+       não se exerce, e o sintoma é a pessoa ligar reclamando. Já a provisória é o
+       contrário: ela FUNCIONA, e continua funcionando enquanto ninguém trocar. */
+    if (semSenha) partes.push('<b>'+semSenha+'</b> com o painel liberado e <b>sem senha '+
+      'para entrar</b> — elas não conseguem acessar');
+    if (provis) partes.push('<b>'+provis+'</b> ainda usando a <b>senha provisória</b> que '+
+      'o escritório passou');
+    return '<div class="aviso-box '+(provis ? 'erro' : 'aviso')+'" style="margin-bottom:10px">'+
+      partes.join('; ')+'.'+
+      (provis ? ' Provisória sem prazo é porta aberta permanente.' : '')+'</div>';
   }
 
   function desenharUsuarios(){
@@ -3906,6 +4074,22 @@
     var lista = usuariosNaTela();
     if (!lista.length){
       box.innerHTML = '<div class="vazio">Nenhum usuário encontrado.</div>';
+      return;
+    }
+
+    if (emCartoesPainel()) {
+      var ordenada = lista.slice().sort(function(a, b){
+        var c = String(a.Nome||'').localeCompare(String(b.Nome||''), 'pt-BR');
+        return ORDEM_USER_AZ ? c : -c;
+      });
+      box.innerHTML = avisoAcessoUser()+barraOrdemUser(ordenada)+
+        '<div class="users">'+ordenada.map(cartaoUser).join('')+'</div>';
+      ligarAcoesUser(box);
+      var bo = document.getElementById('btnOrdemUser');
+      if (bo) bo.addEventListener('click', function(){
+        ORDEM_USER_AZ = !ORDEM_USER_AZ;
+        desenharUsuarios();
+      });
       return;
     }
 

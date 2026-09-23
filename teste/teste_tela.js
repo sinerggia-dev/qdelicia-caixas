@@ -135,18 +135,20 @@ achados.forEach(function (f, k) {
   var trecho = admin.slice(f.i, fim);
 
   var criados = {}, r;
-  var reId = /id="(f[A-Za-z0-9]+)"/g;
+  var reId = /id="(f[A-Z][A-Za-z0-9]*)"/g;
   while ((r = reId.exec(trecho))) criados[r[1]] = true;
   // caixaLocais() desenha o campo em nome do formulário, então conta como criar aqui.
-  var reCaixa = /caixaLocais\('(f[A-Za-z0-9]+)'/g;
+  var reCaixa = /caixaLocais\('(f[A-Z][A-Za-z0-9]*)'/g;
   while ((r = reCaixa.exec(trecho))) criados[r[1]] = true;
 
   var lidos = {};
-  var reLe = /getElementById\('(f[A-Za-z0-9]+)'\)/g;
+  /* `f` mais MAIUSCULA, que e a convencao dos campos (`fNome`, `fEmpresa`). Com
+     `f[A-Za-z0-9]+` a conferencia pegava `folhaUserT`, que nao e campo de formulario. */
+  var reLe = /getElementById\('(f[A-Z][A-Za-z0-9]*)'\)/g;
   while ((r = reLe.exec(trecho))) lidos[r[1]] = true;
   // lerMarcados() lê pelo id sem passar por getElementById: sem isto, um quadro de
   // marcar no formulário errado escaparia exatamente como o campo que originou o teste.
-  var reMarc = /lerMarcados\('(f[A-Za-z0-9]+)'\)/g;
+  var reMarc = /lerMarcados\('(f[A-Z][A-Za-z0-9]*)'\)/g;
   while ((r = reMarc.exec(trecho))) lidos[r[1]] = true;
 
   var orfaos = Object.keys(lidos).filter(function (id) { return !criados[id]; });
@@ -5312,6 +5314,99 @@ console.log('\n== Movimentos no celular: cartão, folha de ações e filtros =='
      /\[data-fechar-folha\]/.test(adm) &&
      /e\.key === 'Escape'\) fecharFolhas\(\)/.test(adm),
     'a folha fecha pelo X, pelo véu e pelo Esc');
+})();
+
+console.log('\n== Usuários no celular: cartão, acesso à vista e folha de ações ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  ok(/if \(emCartoesPainel\(\)\) \{[\s\S]{0,400}ordenada\.map\(cartaoUser\)/.test(adm),
+    'no celular a lista de usuários vira cartão, no mesmo corte das outras telas');
+
+  var iCU = adm.indexOf('function cartaoUser(u)');
+  var cartao = adm.slice(iCU, adm.indexOf('\n  function barraOrdemUser', iCU));
+  ok(iCU > 0 && cartao.length > 700, 'o cartão de usuário tem corpo', cartao.length);
+
+  /* COM QUE NOME A PESSOA ENTRA é o dado que se vem buscar nesta tela — mais do que o
+     e-mail, que na tabela vinha antes dele. */
+  ok(cartao.indexOf('Entra como') < cartao.indexOf('u.Email'),
+    'o login vem antes do e-mail no cartão: é o dado que se vem buscar aqui');
+  ok(/u__d--user b\{font-family:var\(--fonte-mono\)/.test(css),
+    'e sai em mono, para não se confundir com o nome da pessoa');
+
+  /* O ESTADO DE ACESSO sai dos MESMOS selos da tabela. Escrito de novo, o dia em que
+     "provisória" virasse outra coisa as duas telas discordariam sobre a mesma pessoa. */
+  ok(/seloSenha\(u\.TemPin, u\.PinProvisorio, 'lançamento'\)/.test(cartao) &&
+     /seloSenha\(u\.TemSenha, u\.SenhaProvisoria, 'painel'\)/.test(cartao),
+    'os selos de acesso saem da MESMA função da tabela');
+  ok((adm.match(/function seloSenha\(/g) || []).length === 1,
+    'que existe uma vez só');
+
+  /* "PAINEL: SEM SENHA" NÃO É NEUTRO. No lançamento, sem senha quer dizer que a pessoa
+     não usa o app. No painel, ela TEM a porta liberada e não tem como abri-la: a entrada
+     exige senha. Não é buraco de segurança — é permissão que não se exerce, e o sintoma
+     é a pessoa ligar dizendo que não entra. */
+  ok(/if \(!temSenha && rotulo === 'painel'\)/.test(adm) &&
+     /painel: falta a senha/.test(adm),
+    'o painel sem senha se anuncia como falta, e não como um fato neutro em cinza');
+  ok(/'<span class="tag amarela" title="Tem o painel liberado/.test(adm),
+    'em âmbar: pede providência, e não é o vermelho de quem está exposto');
+
+  /* O AVISO SOMA o que a tabela mostra linha a linha e ninguém junta. */
+  /* NA PINTURA, e não só no arquivo: a função podia existir inteira e ninguém chamá-la —
+     o aviso sumia da tela e o teste continuava verde. */
+  ok(/box\.innerHTML = avisoAcessoUser\(\)\+barraOrdemUser\(/.test(adm),
+    'o topo da lista conta quantas pessoas estão com o acesso frágil');
+  ok(/function avisoAcessoUser\(\)/.test(adm), 'e a conta existe uma vez só');
+  ok(/if \(!semSenha && !provis\) return '';/.test(adm),
+    'e some quando não há o que contar — aviso permanente vira paisagem');
+  ok(/sem senha '\+\s*\n?\s*'para entrar<\/b> — elas não conseguem acessar/.test(adm),
+    'o aviso diz o que o número QUER DIZER: quem tem o painel liberado sem senha não ' +
+    'consegue entrar, e não "está exposto"');
+  ok(/Provisória sem prazo é porta aberta permanente\./.test(adm),
+    'e separa disso a provisória, que FUNCIONA enquanto ninguém trocar');
+
+  /* AS TRÊS AÇÕES não foram reescritas: os botões da folha carregam os MESMOS atributos
+     da tabela, e quem os liga é o mesmo `ligarBotoesUsuarios()`. */
+  var iLA = adm.indexOf('function ligarAcoesUser(box)');
+  var folha = adm.slice(iLA, adm.indexOf('\n  function ligarBotoesUsuarios', iLA));
+  ok(iLA > 0 && folha.length > 700, 'a folha do usuário tem corpo', folha.length);
+  ['data-editar-user', 'data-ativar', 'data-excluir-user'].forEach(function (a) {
+    ok(folha.indexOf(a) > 0, 'a folha usa o MESMO ' + a + ' da tabela');
+  });
+  ok(/ligarBotoesUsuarios\(\);/.test(folha),
+    'e é o mesmo `ligarBotoesUsuarios` que as liga — nenhuma ação foi reescrita para o ' +
+    'celular');
+  ok((adm.match(/acao:'excluir', aba:'Usuarios'/g) || []).length === 1,
+    'a chamada que exclui usuário existe uma vez só');
+
+  /* O CONTEXTO antes das opções, como na folha de Movimentos. E o que ele DIZ, não só
+     onde está: a linha podia continuar lá, escrevendo vazio, e a folha ofereceria
+     "Excluir" sem dizer de quem — dois toques a partir de uma lista de treze nomes. */
+  ok(folha.indexOf('ctx.textContent') < folha.indexOf('corpo.innerHTML'),
+    'a folha diz QUEM está sendo mexido antes de oferecer o que fazer');
+  ok(/ctx\.textContent = \(u\.Usuario \? '@'\+u\.Usuario/.test(folha) &&
+     /\(u\.Perfil\|\|''\)\+\(lp \? ' · '\+lp\.Nome : ''\)/.test(folha),
+    'e diz quem: o login, o perfil e o local — os três que distinguem dois homônimos');
+  ok(/t\.textContent = u\.Nome \|\| 'Usuário';/.test(folha),
+    'com o nome no título da folha');
+  /* E fecha ao escolher: a ação abre um formulário ou uma confirmação, e a folha por
+     cima deles esconde justamente o que se vai confirmar. */
+  ok(/corpo\.querySelectorAll\('button'\)\.forEach\(function\(x\)\{\s*\n?\s*x\.addEventListener\('click', fecharFolhas\);/
+    .test(folha),
+    'e sai da frente quando a ação começa');
+
+  /* SEM `disabled` NO EXCLUIR. O servidor é quem sabe se a pessoa já lançou, e ele já faz
+     a coisa certa: inativa em vez de apagar. Desabilitar aqui exigiria um dado que a tela
+     não tem, e adivinhar seria pior do que esperar a resposta. */
+  /* No BOTÃO, e não no arquivo: o comentário logo acima explica por que não há
+     `disabled`, e citá-lo fazia a afirmação encontrar a própria explicação. */
+  ok(!/<button class="opcao perigo"[^']*disabled/.test(folha),
+    'o excluir não é desabilitado por palpite — quem sabe se a pessoa já lançou é o ' +
+    'servidor, e ele responde inativando');
+  ok(/quem já lançou é INATIVADO em vez de apagado/.test(folha),
+    'e a folha diz isso antes, em vez de deixar a descoberta para depois do toque');
 })();
 
 console.log('\n== nome de classe só tem UM dono ==');

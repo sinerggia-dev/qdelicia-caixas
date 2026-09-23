@@ -923,6 +923,35 @@ tr.ruim{background:var(--vermelho-claro)}
   color:var(--txt3);font-size:14px;cursor:pointer}
 .pill button:hover{background:var(--surface-2);color:var(--txt)}
 
+/* ---------- USUÁRIOS EM CARTÃO, no celular ----------
+ * A tabela tem nove colunas e três botões por linha. No telefone se procura quase sempre
+ * a mesma coisa aqui: com que nome a pessoa entra, e em que pé está o acesso dela — por
+ * isso as duas ficam nas pontas do cartão, e o resto no meio. */
+.users{display:grid;gap:10px}
+.u{background:var(--surface);border:1px solid var(--linha);border-radius:var(--raio);padding:13px}
+/* Inativo fica apagado, e não escondido: ele continua existindo e continua sendo
+   reativável — sumido, a pessoa o procuraria num cadastro que já tem. */
+.u--inativo{opacity:.58}
+.u__topo{display:flex;align-items:center;gap:10px}
+.u__ini{width:38px;height:38px;flex:0 0 auto;border-radius:10px;display:inline-flex;
+  align-items:center;justify-content:center;background:var(--brand-soft);
+  color:var(--roxo-txt);font-size:13px;font-weight:700}
+.u__id{flex:1 1 auto;min-width:0}
+.u__nome{font-size:15px;font-weight:700;line-height:1.25}
+.u__dados{display:grid;gap:5px;margin-top:11px;padding-top:10px;border-top:1px solid var(--linha)}
+.u__d{font-size:12.5px;color:var(--txt2);min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.u__d--vazio{color:var(--txt3);font-style:italic}
+/* O login em mono e claro: é o dado que se vem buscar nesta tela. */
+.u__d--user b{font-family:var(--fonte-mono);font-size:13.5px;font-weight:600;color:var(--txt)}
+.u__acesso{margin-top:11px;padding-top:10px;border-top:1px solid var(--linha)}
+.u__acesso-t{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--txt2);margin-bottom:7px}
+.u__pe{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:11px;padding-top:10px;border-top:1px solid var(--linha)}
+.u__local{font-size:12px;color:var(--txt2);min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+
 /* ---------- MOVIMENTOS EM CARTÃO, no celular ----------
  * A tabela tem onze colunas e três botões por linha: no telefone são dezenas de alvos
  * de toque numa tela que só se lê arrastando de lado — e o do meio é "cancelar",
