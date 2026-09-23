@@ -2534,13 +2534,29 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
   ok(/display:grid;grid-template-columns:minmax\(0,1fr\) auto auto;/.test(barra),
     'a barra é uma grade — a primeira coluna come a sobra, e a conta e o gatilho ficam ' +
     'colados à direita sem `margin-left:auto`');
-  var iA = css.indexOf('.ola{'), fatiaOla = css.slice(iA, iA + 260);
+  /* AS LINHAS DECLARADAS, e não implícitas. `grid-row:1/-1` na marca não fazia NADA
+     enquanto elas eram implícitas: o `-1` conta as linhas do grid EXPLÍCITO, que estava
+     vazio, então `1/-1` virava `1/1`. Medido antes e depois: a marca ficou nos mesmos
+     28px de altura até esta linha entrar — a regra existia e não valia. */
+  ok(/grid-template-rows:auto auto;/.test(barra),
+    'e as duas linhas são declaradas — sem isso o `1/-1` da marca não conta linha ' +
+    'nenhuma, e a regra que a centraliza fica escrita sem efeito');
+  /* O bloco `.ola{...}` inteiro, e não uma janela de N caracteres: as regras dele
+     também vêm depois de comentário, e a janela quebrava por comentário novo. */
+  var iA = css.indexOf('.ola{'), fatiaOla = css.slice(iA, css.indexOf('}', iA) + 1);
   ok(iA > 0 && /grid-column:1\/-1;grid-row:2;justify-self:end/.test(fatiaOla),
     'e a saudação ocupa a linha de baixo inteira, encostada à direita — debaixo da foto, ' +
     'e não no meio da barra', fatiaOla.slice(0, 90));
   ok(/max-width:100%;min-width:0;/.test(fatiaOla) && /text-overflow:ellipsis\}/.test(fatiaOla),
     'e quando o nome é longo demais quem corta é ELA — medido a 360px com um nome de ' +
-    '58 letras: a saudação perdeu 32px no fim e a marca ficou inteira');
+    '58 letras: a saudação perdeu 80px no fim e a marca ficou inteira');
+  /* O RECUO À ESQUERDA guarda o lugar do logo. A marca atravessa as duas linhas, e sem
+     isto uma saudação longa crescia por baixo dela: medido a 360px, a saudação chegava
+     a x=12, o mesmo x do logo. Os textos ficam em alturas diferentes e não se tocam,
+     mas o corte passa a acontecer ANTES de encostar — e "quase colidiu" é o estado de
+     onde saem os defeitos que aparecem com um nome a mais. */
+  ok(/padding-left:48px;/.test(fatiaOla),
+    'e ela nunca cresce por baixo do logo: corta antes de chegar nele');
   ok(!/\.ola\{flex:0 0 auto/.test(css) && !/@media \(max-width:379px\)\{ \.ola\{display:none\} \}/.test(css),
     'e sem o remendo de escondê-la em tela estreita: em linha própria, ela não disputa ' +
     'largura com ninguém');
@@ -2569,10 +2585,10 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
      40px ficava a dois pixels de encostar nas bordas. */
   ok(/flex:0 0 auto;/.test(barra) && /min-height:var\(--topo-alt\)/.test(barra),
     'e a barra guarda a altura que declara, em vez de ceder ao que vem embaixo');
-  ok(/--topo-alt:76px/.test(css),
+  ok(/--topo-alt:75px/.test(css),
     'com altura declarada para as DUAS linhas — medido, é exatamente o que a barra ' +
     'ocupa cheia, e é o que reserva o lugar enquanto a sessão não carregou e a ' +
-    'saudação está `hidden`: sem isso a barra nasceria com 57px e pularia para 76');
+    'saudação está `hidden`: sem isso a barra nasceria com 56px e pularia para 75');
   ok(/\.foto-campo__r\{[^}]*width:84px;height:84px/.test(css),
     'e o retrato do formulário é grande: é o único lugar em que se CONFERE a foto antes ' +
     'de gravá-la — pequeno demais, a conferência não se faz e o erro só aparece depois, ' +
@@ -2595,13 +2611,22 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
   /* A MARCA ENCOLHE, o canto direito NAO. Medido a 390px com "Offline · 2 na fila": sem
      isto o avatar era empurrado para fora da barra, e quem estava sem rede perdia de
      vista justamente o aviso e a propria identificacao. */
-  ok(/\.topo__marca\{grid-column:1;grid-row:1;[\s\S]{0,120}min-width:0;overflow:hidden\}/.test(css),
+  ok(/\.topo__marca\{[\s\S]{0,140}min-width:0;overflow:hidden\}/.test(css),
     'a marca vive na coluna elástica, e com `min-width:0` ela de fato encolhe — sem ' +
     'isso um item de grade recusa ficar menor que o próprio conteúdo e empurra o resto ' +
     'para fora');
-  ok(/padding:6px 4px 7px 12px/.test(barra),
-    'e o respiro acompanha: mais à esquerda, onde a marca abre a barra, e menos à ' +
-    'direita, onde o gatilho já tem os seus 44px de alvo');
+  /* E ATRAVESSA AS DUAS LINHAS. À direita há uma PILHA — rosto em cima, saudação
+     embaixo —, e o rosto ficar acima do meio da barra está certo: ele é o topo de uma
+     coluna de dois. À esquerda não há nada embaixo, e a marca presa na linha de cima
+     ficava 10px acima do meio ótico da barra, lendo-se como solta. Medido: meio da
+     barra em 37,5; a marca em 28 antes, 37 depois. */
+  ok(/\.topo__marca\{grid-column:1;grid-row:1\/-1;/.test(css),
+    'e atravessa as DUAS linhas, para cair no meio ótico da barra e fazer peso contra ' +
+    'a pilha da direita — presa na linha de cima ela flutuava 10px alto');
+  ok(/padding:6px 4px 6px 12px/.test(barra),
+    'e o respiro de cima é IGUAL ao de baixo — com 6 e 7 a marca centrada caía fora do ' +
+    'meio; à esquerda ele é maior, que é onde a marca abre a barra, e à direita menor, ' +
+    'onde o gatilho já tem os seus 44px de alvo');
   ok(/\.topo__conta\{grid-column:2;grid-row:1/.test(css) &&
      /\.topo > \.btn-icone\{grid-column:3;grid-row:1\}/.test(css),
     'e a conta e o gatilho ficam na linha de CIMA, ao lado da marca — soltos na grade ' +
