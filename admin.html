@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=278266ff">
+<link rel="stylesheet" href="styles.css?v=030882f1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -132,15 +132,15 @@
     <!-- Mesmo arquivo da tela de entrada: ja veio no cache, entao aqui nao custa
          download nenhum. -->
     <span class="selo selo--marca"><img src="logo.png" alt="" width="243" height="165"></span>
-    <!-- QUEM ESTÁ, e não o nome do app. No celular a lateral está fechada, e este canto
-         é a única pista de quem entrou — "Painel de Caixas" é constante e já está no
-         logo ao lado, enquanto o nome de quem está logado é o que muda e o que importa
-         quando o aparelho é compartilhado no galpão.
-
-         O nome do app fica no `title`, para quem passar o mouse, e volta a ser escrito
-         acima de 1024px, onde há largura para os dois. -->
-    <span class="marca-nome" id="marcaNome" title="Painel de Caixas">Painel de Caixas</span>
+    <!-- OS DOIS, e não um no lugar do outro. Antes a saudação SUBSTITUÍA o nome do app,
+         com o argumento de que "Painel de Caixas" é constante e o nome de quem entrou é
+         o que muda. Verdade — mas não era preciso escolher: o nome do app é a única
+         peça ELÁSTICA da barra, então quando falta espaço é ele que corta, e a saudação
+         fica inteira. Os dois cabem em 390px, e num aparelho mais estreito a saudação
+         sai e sobra a foto, que também diz quem está logado. -->
+    <span class="marca-nome" id="marcaNome">Painel de Caixas</span>
   </div>
+  <span class="ola" id="olaUsuario" hidden>Olá, <b id="olaNome">—</b></span>
 
   <!-- O canto direito da barra de app. Ele existe porque o celular NAO tem a lateral a
        vista: sem isto, quem esta logado e o estado da rede so apareciam abrindo a gaveta,
@@ -793,7 +793,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=da5250e0"></script>
+<script src="app.js?v=b3f2d2f2"></script>
 <script>
 (function(){
   'use strict';

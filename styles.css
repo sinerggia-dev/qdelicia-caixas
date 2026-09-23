@@ -72,7 +72,7 @@
   --fonte-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Consolas,monospace;
 
   /* O esqueleto do app shell. */
-  --lateral-larg:236px; --trilho-larg:68px; --topo-alt:58px;
+  --lateral-larg:236px; --trilho-larg:68px; --topo-alt:64px;
   --foco:0 0 0 2px var(--bg),0 0 0 4px #5b9ef0;
 }
 
@@ -126,10 +126,27 @@ a{color:var(--marca-txt);text-decoration:none}
      círculo de 40px ficava a dois pixels de encostar nas bordas. Altura de barra fixa
      não é sugestão: é o que reserva o lugar do que está dentro dela. */
   flex:0 0 auto;
-  position:sticky;top:0;z-index:40;height:var(--topo-alt);
+  /* O MESMO TRATAMENTO DA FAIXA DO DIA — degradê verde, barra de acento e sombra —, um
+     tom mais escuro de propósito: ela é a MOLDURA do app, e as faixas de dia são
+     conteúdo. Com o mesmo peso, a hierarquia sumiria e as duas brigariam pelo olho. */
+  position:sticky;top:0;z-index:40;min-height:var(--topo-alt);
   display:flex;align-items:center;gap:8px;padding:0 4px 0 12px;
-  background:var(--campo);border-bottom:1px solid var(--linha)
+  background:linear-gradient(90deg,var(--verde-claro),rgba(53,214,160,.04) 58%,
+    rgba(53,214,160,0) 100%),var(--campo);
+  border-bottom:1px solid var(--linha);box-shadow:0 8px 20px rgba(4,14,28,.4)
 }
+/* A barra de acento na borda esquerda, como a da faixa do dia. */
+.topo::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:var(--verde)}
+
+/* ---------- "Olá, Fulano" ----------
+ * Ao LADO do nome do app, e não no lugar dele. `flex:0 0 auto` porque ela não encolhe:
+ * quem corta é a marca, que é o texto menos importante da barra. */
+.ola{flex:0 0 auto;font-size:13px;color:var(--txt3);white-space:nowrap;line-height:1.2}
+.ola b{color:var(--txt);font-weight:700}
+/* Num aparelho estreito a saudação sai e a FOTO fica: ela também diz quem está logado,
+   e ocupa o espaço de um ícone em vez de o de uma frase. */
+@media (max-width:379px){ .ola{display:none} }
 /* A marca ENCOLHE, e o canto direito nao. Medido a 390px com "⚠ Offline · 2 na fila":
    sem isto o avatar era empurrado para fora da barra, e quem estava sem rede perdia de
    vista justamente o aviso e a propria identificacao. O nome da marca e decoracao; o
@@ -145,7 +162,12 @@ a{color:var(--marca-txt);text-decoration:none}
    aparece no celular, e a 32px o rosto virava uma mancha. 40px é o que cabe numa barra
    de 52px sem encostar nas bordas — e o `--topo-alt` subiu para 58 junto, porque com o
    círculo maior a barra ficava apertada. */
-.topo__conta .avatar{width:40px;height:40px;font-size:13px}
+/* 42px e com ANEL. O anel separa o rosto do fundo da barra — sem ele, uma foto escura
+   encostada num cabeçalho escuro some, e o que resta é um borrão. Ele é desenhado com
+   duas sombras em vez de `border`: assim não entra na conta do tamanho, e o círculo
+   continua tendo 42px de alvo em vez de 42 menos a borda. */
+.topo__conta .avatar{width:42px;height:42px;font-size:13px;
+  box-shadow:0 0 0 2px var(--campo),0 0 0 3.5px rgba(53,214,160,.45)}
 
 /* Botao so de icone. 44px porque e o alvo minimo de dedo — o app e usado de luva. */
 .btn-icone{

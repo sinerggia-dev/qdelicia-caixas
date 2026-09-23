@@ -2479,36 +2479,55 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
    * Ela só existe abaixo de 1024px, onde a lateral está fechada e este canto é a única
    * pista de quem entrou. O nome do app é constante e já está no logo ao lado; quem
    * está logado é o que muda — e o aparelho roda de mão em mão no galpão. */
-  ok(/mn\.textContent = 'Olá, ' \+ String\(nome\)\.trim\(\)\.split\(\/\\s\+\/\)\[0\];/.test(js),
+  /* OS DOIS, e não um no lugar do outro. A saudação já substituiu o nome do app, com o
+     argumento de que ele é constante e ela é o que muda. Verdade — e não era preciso
+     escolher: o nome do app é a única peça ELÁSTICA da barra, então quando falta espaço
+     é ele que corta e a saudação fica inteira. */
+  ok(/olaN\.textContent = nome \? String\(nome\)\.trim\(\)\.split\(\/\\s\+\/\)\[0\] : '—';/.test(js),
     'a barra de app cumprimenta pelo PRIMEIRO nome — "Olá, Melkezedeque Soares" não ' +
     'cabe em 390px e sai cortado no meio do sobrenome, que é a parte que não ' +
     'cumprimenta ninguém');
-  /* A ORDEM, e não só a existência da linha: ela pode continuar ali e rodar DEPOIS da
-     escrita — e então o que ela guarda é "Olá, Fulano". Na segunda troca de usuário o
-     `title` viraria "Olá, Fulano · Sicrano". */
-  ok(/if \(!mn\.dataset\.app\) mn\.dataset\.app = mn\.textContent\.trim\(\);\s*\n\s*mn\.textContent = 'Olá, '/
-    .test(js),
-    'e o nome do app é guardado ANTES de ser escrito por cima: lido depois, na segunda ' +
-    'troca de usuário ele viraria "Olá, Fulano · Fulano"');
-  ok(/mn\.title = mn\.dataset\.app \+ ' · ' \+ nome;/.test(js) && !/'Painel de Caixas'/.test(js),
-    'o nome do app sai do próprio elemento, e não escrito no código compartilhado — os ' +
-    'dois apps têm nomes diferentes, e um fixo poria o do painel dentro do de campo');
-  ok(/id="marcaNome"/.test(telas['admin.html']) && /id="marcaNome"/.test(telas['index.html']),
+  ok(/ola\.hidden = !nome;/.test(js),
+    'e some enquanto não há nome: "Olá, —" durante o carregamento é pior que a barra ' +
+    'sem a saudação');
+  ok(!/mn\.dataset\.app/.test(js) && !/'Painel de Caixas'/.test(js),
+    'o nome do app não é mais reescrito: com elemento próprio para a saudação, não há ' +
+    'o que guardar nem o que repor');
+  ok(/id="olaUsuario"/.test(telas['admin.html']) && /id="olaUsuario"/.test(telas['index.html']),
     'e os dois apps têm o elemento — é a mesma função que escreve nos dois');
-  ok((telas['index.html'].match(/id="marcaNome"/g) || []).length === 1,
+  ok((telas['index.html'].match(/id="olaUsuario"/g) || []).length === 1 &&
+     (telas['index.html'].match(/id="marcaNome"/g) || []).length === 1,
     'uma vez só em cada: o app de campo tem DOIS `.marca-nome` — o da barra e o da ' +
     'lateral —, e o id nos dois faria a saudação cair no título da gaveta');
-  /* MAIOR NA BARRA: é o único lugar em que um rosto aparece no celular, e a 32px ele
-     virava uma mancha. */
-  ok(/\.topo__conta \.avatar\{width:40px;height:40px/.test(css),
-    'o círculo da barra de app é maior que o da lateral');
+  /* A MARCA É QUEM CORTA. `flex:0 1 auto` com `overflow:hidden` nela, e `flex:0 0 auto`
+     na saudação: invertido, quem sairia pela borda seria o nome de quem está logado. */
+  ok(/\.topo__marca\{[^}]*flex:0 1 auto;overflow:hidden\}/.test(css) &&
+     /\.ola\{flex:0 0 auto/.test(css),
+    'e quando falta espaço quem corta é a marca, não a saudação');
+  ok(/@media \(max-width:379px\)\{ \.ola\{display:none\} \}/.test(css),
+    'num aparelho estreito a saudação sai e a FOTO fica — ela também diz quem está ' +
+    'logado, e ocupa o espaço de um ícone em vez de o de uma frase');
+  /* MAIOR NA BARRA E COM ANEL: é o único lugar em que um rosto aparece no celular, e a
+     32px ele virava uma mancha. O anel o separa do fundo escuro da barra. */
+  ok(/\.topo__conta \.avatar\{width:42px;height:42px[\s\S]{0,120}box-shadow:0 0 0 2px var\(--campo\)/
+    .test(css),
+    'o círculo da barra de app é maior que o da lateral, e tem anel');
+  /* O anel é SOMBRA, e não borda: borda entra na conta do tamanho, e o alvo cairia de
+     42px para 42 menos a borda dos dois lados. */
+  ok(!/\.topo__conta \.avatar\{[^}]*border:/.test(css),
+    'e o anel é sombra, não borda — borda comeria o alvo de toque por dentro');
+  /* A BARRA GANHA O MESMO TRATAMENTO DA FAIXA DO DIA, um tom mais escura: ela é a
+     moldura do app, e as faixas de dia são conteúdo. */
+  ok(/\.topo\{[\s\S]{0,900}background:linear-gradient\(90deg,var\(--verde-claro\)/.test(css) &&
+     /\.topo::before\{content:"";position:absolute;left:0/.test(css),
+    'a barra tem o degradê e a barra de acento da faixa do dia');
   /* A BARRA NÃO ENCOLHE. Ela é item de um flex em coluna, e sem `flex:0 0 auto` cedia
      espaço para o miolo: medido, os 58px declarados viravam 45 na tela, e o círculo de
      40px ficava a dois pixels de encostar nas bordas. */
-  ok(/\.topo\{[\s\S]{0,400}flex:0 0 auto;[\s\S]{0,80}height:var\(--topo-alt\)/.test(css),
+  ok(/\.topo\{[\s\S]{0,600}flex:0 0 auto;[\s\S]{0,400}min-height:var\(--topo-alt\)/.test(css),
     'e a barra guarda a altura que declara, em vez de ceder ao que vem embaixo');
-  ok(/--topo-alt:58px/.test(css),
-    'com altura suficiente para o círculo maior não encostar nas bordas');
+  ok(/--topo-alt:64px/.test(css),
+    'com altura suficiente para o círculo de 42px e o anel dele não encostarem nas bordas');
   ok(/\.foto-campo__r\{[^}]*width:84px;height:84px/.test(css),
     'e o retrato do formulário é grande: é o único lugar em que se CONFERE a foto antes ' +
     'de gravá-la — pequeno demais, a conferência não se faz e o erro só aparece depois, ' +

@@ -531,16 +531,22 @@
 
        SÓ O PRIMEIRO NOME: "Olá, Melkezedeque Soares" não cabe em 390px e sai cortado no
        meio do sobrenome, que é a parte que não cumprimenta ninguém. */
-    var mn = document.getElementById('marcaNome');
-    if (mn && nome) {
-      /* O nome do app é guardado na PRIMEIRA passada, antes de ser escrito por cima:
-         lido depois, na segunda troca de usuário ele já seria "Olá, Fulano · Fulano".
-         E é lido do próprio elemento, não escrito aqui: os dois apps têm nomes
-         diferentes — "Painel de Caixas" e "Controle de Caixas" —, e um nome fixo no
-         código compartilhado poria o do painel dentro do app de campo. */
-      if (!mn.dataset.app) mn.dataset.app = mn.textContent.trim();
-      mn.textContent = 'Olá, ' + String(nome).trim().split(/\s+/)[0];
-      mn.title = mn.dataset.app + ' · ' + nome;
+    /* A SAUDAÇÃO TEM ELEMENTO PRÓPRIO, ao lado do nome do app — e não no lugar dele.
+       Escrita por cima, ela obrigava a escolher entre as duas; separadas, o nome do app
+       é a única peça elástica da barra e corta primeiro, porque é o texto menos
+       importante ali: a pessoa já sabe em que sistema está.
+
+       SÓ O PRIMEIRO NOME: "Olá, Melkezedeque Soares" não cabe em 390px e sai cortado no
+       meio do sobrenome, que é a parte que não cumprimenta ninguém. O nome inteiro vai
+       no `title`. */
+    var ola = document.getElementById('olaUsuario');
+    var olaN = document.getElementById('olaNome');
+    if (ola && olaN) {
+      olaN.textContent = nome ? String(nome).trim().split(/\s+/)[0] : '—';
+      ola.title = (nome || '') + (perfil ? ' · ' + perfil : '');
+      /* Some enquanto não há nome: "Olá, —" na barra durante o carregamento é pior do
+         que a barra sem a saudação. */
+      ola.hidden = !nome;
     }
 
     pintarCirculo(document.getElementById('avatarUsuario'), nome, foto);
