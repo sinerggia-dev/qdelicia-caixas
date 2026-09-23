@@ -2501,20 +2501,48 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
      (telas['index.html'].match(/id="marcaNome"/g) || []).length === 1,
     'uma vez só em cada: o app de campo tem DOIS `.marca-nome` — o da barra e o da ' +
     'lateral —, e o id nos dois faria a saudação cair no título da gaveta');
-  /* A SAUDAÇÃO SAIU DA BARRA e foi para a linha da sobrancelha, que já existia e estava
-     vazia à direita: o cabeçalho não cresceu um pixel e o NOME INTEIRO cabe — era o
-     nome longo cortando em 10px que derrubava as versões anteriores.
+  /* A SAUDAÇÃO VOLTOU PARA A BARRA, mas numa SEGUNDA LINHA dela. Na sobrancelha
+     ("Operação") custava zero de altura — e era esse o argumento —, mas ali encostava
+     no título da página e lia-se como parte DELE, não da conta. E rolava junto com o
+     miolo: sumia da tela.
 
-     A contrapartida é assumida: esta linha ROLA e some. Para uma saudação está certo,
-     porque se lê uma vez. Para "em qual unidade estou logado" NÃO serviria. */
-  ok(/<div class="cab-pagina__linha">[\s\S]{0,900}id="olaUsuario"/.test(telas['admin.html']) &&
-     /<div class="cab-pagina__linha">[\s\S]{0,900}id="olaUsuario"/.test(telas['index.html']),
-    'a saudação mora na linha da sobrancelha, e não na barra do app');
-  ok(/\.ola\{margin-left:auto;min-width:0/.test(css) &&
-     /text-overflow:ellipsis\}/.test(css.slice(css.indexOf('.ola{'), css.indexOf('.ola{') + 220)),
-    'encostada à direita, e cortando ali se precisar — e não no meio da barra do app');
+     Debaixo da foto ela divide fundo, sombra e barra de acento com o rosto, e as duas
+     leem como uma coisa só. O preço são ~20px de altura, medidos: a barra foi de 54
+     para 76px. */
+  /* O BLOCO `.topo{...}` inteiro, fatiado: as regras dele vêm depois de um comentário
+     longo, e janelas `[\s\S]{0,N}` quebravam a cada linha de comentário nova — o teste
+     ficava vermelho por uma mudança que não era a que ele cobra. */
+  var iTopo = css.indexOf('.topo{');
+  var barra = css.slice(iTopo, css.indexOf('\n}', iTopo));
+  ok(iTopo > 0, 'a barra de app tem bloco próprio', iTopo);
+
+  var iOla = telas['admin.html'].indexOf('id="olaUsuario"');
+  var iCab = telas['admin.html'].indexOf('</header>');
+  ok(iOla > 0 && iCab > 0 && iOla < iCab,
+    'a saudação mora DENTRO da barra do app — junto da foto, e não na sobrancelha da ' +
+    'página, que rola e some', iOla + '/' + iCab);
+  var iOlaC = telas['index.html'].indexOf('id="olaUsuario"');
+  var iCabC = telas['index.html'].indexOf('</header>');
+  ok(iOlaC > 0 && iCabC > 0 && iOlaC < iCabC,
+    'e nos dois apps — é a mesma função que escreve, e um só dos dois seria pior que ' +
+    'nenhum', iOlaC + '/' + iCabC);
+  ok(!/cab-pagina__linha/.test(telas['admin.html']) && !/cab-pagina__linha/.test(telas['index.html']),
+    'e a sobrancelha voltou a ser só a sobrancelha: linha que sobrou de arranjo antigo ' +
+    'vira estilo morto que ninguém sabe remover');
+  /* DUAS LINHAS, e não uma fila. A saudação já dividiu a linha de cima com a marca, e
+     as duas se cortavam. Em linha própria nenhuma cede largura. */
+  ok(/display:grid;grid-template-columns:minmax\(0,1fr\) auto auto;/.test(barra),
+    'a barra é uma grade — a primeira coluna come a sobra, e a conta e o gatilho ficam ' +
+    'colados à direita sem `margin-left:auto`');
+  var iA = css.indexOf('.ola{'), fatiaOla = css.slice(iA, iA + 260);
+  ok(iA > 0 && /grid-column:1\/-1;grid-row:2;justify-self:end/.test(fatiaOla),
+    'e a saudação ocupa a linha de baixo inteira, encostada à direita — debaixo da foto, ' +
+    'e não no meio da barra', fatiaOla.slice(0, 90));
+  ok(/max-width:100%;min-width:0;/.test(fatiaOla) && /text-overflow:ellipsis\}/.test(fatiaOla),
+    'e quando o nome é longo demais quem corta é ELA — medido a 360px com um nome de ' +
+    '58 letras: a saudação perdeu 32px no fim e a marca ficou inteira');
   ok(!/\.ola\{flex:0 0 auto/.test(css) && !/@media \(max-width:379px\)\{ \.ola\{display:none\} \}/.test(css),
-    'e sem o remendo de escondê-la em tela estreita: fora da barra, ela não disputa ' +
+    'e sem o remendo de escondê-la em tela estreita: em linha própria, ela não disputa ' +
     'largura com ninguém');
   /* MAIOR E MAIS CLARA, a pedido: ela estava em 12,5px com `--txt3`, a tinta mais
      apagada da paleta — feita para legenda, não para o nome do sistema. Num galpão sob
@@ -2533,16 +2561,18 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
     'e o anel é sombra, não borda — borda comeria o alvo de toque por dentro');
   /* A BARRA GANHA O MESMO TRATAMENTO DA FAIXA DO DIA, um tom mais escura: ela é a
      moldura do app, e as faixas de dia são conteúdo. */
-  ok(/\.topo\{[\s\S]{0,900}background:linear-gradient\(90deg,var\(--verde-claro\)/.test(css) &&
+  ok(/background:linear-gradient\(90deg,var\(--verde-claro\)/.test(barra) &&
      /\.topo::before\{content:"";position:absolute;left:0/.test(css),
     'a barra tem o degradê e a barra de acento da faixa do dia');
   /* A BARRA NÃO ENCOLHE. Ela é item de um flex em coluna, e sem `flex:0 0 auto` cedia
      espaço para o miolo: medido, os 58px declarados viravam 45 na tela, e o círculo de
      40px ficava a dois pixels de encostar nas bordas. */
-  ok(/\.topo\{[\s\S]{0,600}flex:0 0 auto;[\s\S]{0,400}min-height:var\(--topo-alt\)/.test(css),
+  ok(/flex:0 0 auto;/.test(barra) && /min-height:var\(--topo-alt\)/.test(barra),
     'e a barra guarda a altura que declara, em vez de ceder ao que vem embaixo');
-  ok(/--topo-alt:54px/.test(css),
-    'com altura suficiente para o círculo e o anel dele não encostarem nas bordas');
+  ok(/--topo-alt:76px/.test(css),
+    'com altura declarada para as DUAS linhas — medido, é exatamente o que a barra ' +
+    'ocupa cheia, e é o que reserva o lugar enquanto a sessão não carregou e a ' +
+    'saudação está `hidden`: sem isso a barra nasceria com 57px e pularia para 76');
   ok(/\.foto-campo__r\{[^}]*width:84px;height:84px/.test(css),
     'e o retrato do formulário é grande: é o único lugar em que se CONFERE a foto antes ' +
     'de gravá-la — pequeno demais, a conferência não se faz e o erro só aparece depois, ' +
@@ -2565,14 +2595,17 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
   /* A MARCA ENCOLHE, o canto direito NAO. Medido a 390px com "Offline · 2 na fila": sem
      isto o avatar era empurrado para fora da barra, e quem estava sem rede perdia de
      vista justamente o aviso e a propria identificacao. */
-  ok(/\.topo__marca\{[^}]*flex:0 1 auto/.test(css),
-    'a marca encolhe quando o aviso cresce');
-  ok(/\.topo\{[^}]*padding:0 4px 0 12px/.test(css),
+  ok(/\.topo__marca\{grid-column:1;grid-row:1;[\s\S]{0,120}min-width:0;overflow:hidden\}/.test(css),
+    'a marca vive na coluna elástica, e com `min-width:0` ela de fato encolhe — sem ' +
+    'isso um item de grade recusa ficar menor que o próprio conteúdo e empurra o resto ' +
+    'para fora');
+  ok(/padding:6px 4px 7px 12px/.test(barra),
     'e o respiro acompanha: mais à esquerda, onde a marca abre a barra, e menos à ' +
     'direita, onde o gatilho já tem os seus 44px de alvo');
-  ok(/\.topo__conta\{[^}]*flex:0 0 auto/.test(css),
-    'e o canto direito não — medido a 390px, sem isto o avatar era empurrado para fora ' +
-    'da barra justamente no estado em que ele mais importa');
+  ok(/\.topo__conta\{grid-column:2;grid-row:1/.test(css) &&
+     /\.topo > \.btn-icone\{grid-column:3;grid-row:1\}/.test(css),
+    'e a conta e o gatilho ficam na linha de CIMA, ao lado da marca — soltos na grade ' +
+    'eles cairiam para a linha da saudação');
 })();
 
 console.log('\n== o cadastro novo avisa que o item nasce negado ==');

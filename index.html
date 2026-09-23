@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=a7e29d4f">
+<link rel="stylesheet" href="styles.css?v=48426254">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -159,6 +159,17 @@
       <line x1="3" y1="17" x2="21" y2="17"></line>
     </svg>
   </button>
+  <!-- A SAUDACAO, na segunda linha da MESMA barra.
+
+       Ela ja morou em tres lugares. Escrevendo por cima do nome do app: sumia com a
+       marca. Ao lado da marca: as duas brigavam pela mesma linha estreita. Na linha
+       da sobrancelha ("Operacao"): custava zero de altura, mas encostava no titulo da
+       pagina e parecia pertencer a ELE, nao a conta.
+
+       Aqui ela fica debaixo da foto e junto dela — mesmo fundo, mesma sombra, mesma
+       barra de acento. Custa ~20px de altura, e esses 20px sao o que faz a foto e o
+       nome lerem como uma coisa so. -->
+  <span class="ola" id="olaUsuario" hidden>Olá, <b id="olaNome">—</b></span>
 </header>
 
 <div class="shell__corpo">
@@ -276,18 +287,7 @@
          os dois a cada troca de pagina. -->
     <div class="cab-pagina">
       <div class="cab-pagina__id">
-        <div class="cab-pagina__linha">
-          <span class="cab-pagina__acima" id="acimaPagina">Operação</span>
-          <!-- A SAUDAÇÃO VEM PARA CÁ. Esta linha já existia e estava vazia do lado
-               direito: o cabeçalho não cresce um pixel, e aqui cabe o NOME INTEIRO —
-               na barra do app ele disputava largura com a marca e cortava.
-
-               A contrapartida é assumida: esta linha ROLA e some. Para uma saudação
-               está certo (lê-se uma vez, no começo). Para "em qual unidade estou
-               logado" NÃO serviria — esse dado precisa de lugar fixo, e ainda não
-               tem nenhum no app. -->
-          <span class="ola" id="olaUsuario" hidden>Olá, <b id="olaNome">—</b></span>
-        </div>
+        <div class="cab-pagina__acima" id="acimaPagina">Operação</div>
         <h1 class="cab-pagina__titulo" id="tituloPagina">Saída</h1>
       </div>
     </div>
