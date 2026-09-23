@@ -4284,10 +4284,75 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   ok(/<details class="tipos"><summary>Ver por tipo de caixa<\/summary>/.test(cartao),
     'e o detalhe por tipo de caixa fica atrás de um toque — aberto sempre, cada dia ' +
     'ocuparia uma tela inteira');
-  ok(/parado \? '' :/.test(cartao),
-    'dia sem movimento não oferece o detalhe: não há o que abrir');
+  /* A CONDIÇÃO É TER TIPO, e não "houve movimento". Quando a abertura deixou de ser um
+     dia parado, com `!parado` ela passou a oferecer um "ver por tipo de caixa" que abria
+     em nada — um convite para uma gaveta vazia. Pego na foto. */
+  ok(/var temDetalhe = \(l\.saidaTipos && l\.saidaTipos\.length\) \|\|\s*\n?\s*\(l\.retornoTipos && l\.retornoTipos\.length\);/
+    .test(cartao) && /\(!temDetalhe \? '' :/.test(cartao),
+    'o detalhe só é oferecido quando há tipo de caixa atrás dele — não quando "houve ' +
+    'movimento"');
   ok(/gente \? '' :[\s\S]{0,120}Saldo inicial/.test(cartao),
     'a visão de gente não tem saldo inicial — ali a linha é uma pessoa, e não um dia');
+
+  /* --- a linha de ABERTURA é um terceiro estado ---------------------------
+     Ela tem saída e retorno zerados e caía em "Sem movimento". Mas não é um dia parado:
+     é o lançamento que abre a conta, e dizer que nada aconteceu nele é o contrário do
+     que aconteceu. */
+  ok(/var abertura = l\.estoqueInicial === true;/.test(cartao),
+    'a linha de estoque lançado é reconhecida pelo que o servidor manda');
+  ok(/var parado = !abertura && !l\.saida && !l\.retorno;/.test(cartao),
+    'e não cai mais em "sem movimento" — são três estados, não dois');
+  ok(/abertura \? 'azul">Saldo lançado'/.test(cartao) &&
+     /parado \? 'cinza">Sem movimento'/.test(cartao) &&
+     /'verde">Movimento'/.test(cartao),
+    'os três se anunciam com palavras e cores diferentes: saldo lançado, sem movimento, ' +
+    'movimento');
+  ok(/Saldo lançado<\/span><b>\+'\+\s*\n?\s*Q\.num\(l\.inicial\|\|0\)/.test(cartao),
+    'e a linha de abertura mostra O QUE FOI LANÇADO — o extrato escondia justamente o ' +
+    'único número daquele dia');
+
+  /* A CONTA FECHA NA TELA. Rodado de verdade: `iniCorrido` já vem com o lançamento
+     somado, e escrito cru a linha dizia 1.620 mais 810 dando 1.620. */
+  (function () {
+    var fonte = ['function lugares(', 'function cartaoFluxo(']
+      .map(function (a) {
+        var i = adm.indexOf('  ' + a);
+        return adm.slice(i, adm.indexOf('\n  }', i) + 4);
+      }).join('\n');
+    var desenhar = new Function('Q', fonte + '\n return cartaoFluxo;')({
+      num: function (n) { return String(Number(n) || 0); },
+      esc: function (s) { return String(s == null ? '' : s); },
+      dataBR: function (d) { return String(d || ''); }
+    });
+    /* A linha real do dia 17: tinha 810 em caixa, lançou 810, ficou com 1.620. */
+    var html = desenhar({ estoqueInicial: true, iniCorrido: 1620, inicial: 810,
+                          saida: 0, retorno: 0, fimCorrido: 1620, origens: ['Matriz'],
+                          destinos: [], sub: '5 lançamentos', data: '2026-09-17',
+                          saidaTipos: [], retornoTipos: [] }, false);
+    var nums = (html.match(/<b[^>]*>([+\-−]?\d+)<\/b>/g) || [])
+      .map(function (t) { return Number(String(t).replace(/[^\d]/g, '')); });
+    ok(nums.length === 3 && nums[0] === 810 && nums[1] === 810 && nums[2] === 1620,
+      'a abertura fecha na tela: 810 em caixa, mais 810 lançados, dá 1.620 — com o ' +
+      '`iniCorrido` cru seriam 1.620 mais 810 dando 1.620', nums);
+    ok(html.indexOf('Saldo lançado') > 0 && html.indexOf('>Saída<') < 0 &&
+       html.indexOf('>Retorno<') < 0,
+      'e ela não gasta duas linhas dizendo que nada saiu nem voltou');
+    ok(html.indexOf('Ver por tipo de caixa') < 0,
+      'nem oferece um detalhe que abriria em nada — ela não tem tipo de caixa atrás');
+
+    /* A linha de MOVIMENTO continua como era: os quatro degraus da conta. */
+    var mov = desenhar({ iniCorrido: 1250, inicial: 0, saida: 1690, retorno: 1250,
+                         fimCorrido: 810, origens: ['Matriz'], destinos: ['João Pessoa'],
+                         sub: '15 lançamentos', data: '2026-09-16',
+                         saidaTipos: [{ caixa: 'CX P', qtd: 250 }], retornoTipos: [] }, false);
+    var numsMov = (mov.match(/<b[^>]*>([+\-−]?\d+)<\/b>/g) || [])
+      .map(function (t) { return Number(String(t).replace(/[^\d]/g, '')); });
+    ok(numsMov.length === 4 && numsMov[0] === 1250 && numsMov[1] === 1690 &&
+       numsMov[2] === 1250 && numsMov[3] === 810,
+      'e o dia de movimento fecha também: 1.250 menos 1.690 mais 1.250 dá 810', numsMov);
+    ok(mov.indexOf('Saldo lançado') < 0,
+      'sem inventar um "saldo lançado" onde não houve lançamento de estoque');
+  })();
 
   /* --- o rótulo em branco, e a cor num risco ------------------------------
      Antes a cor tingia o RÓTULO: "Saída" em cinza de apoio ao lado de um número verde.
@@ -4305,11 +4370,19 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       ok(new RegExp('\\.ext__l\\.ext--' + p[0] + ' b\\{color:var\\(' + p[1] + '\\)\\}').test(css),
         'e o número dessa linha também', p[0]);
     });
-  ok(/class="ext__l ext--inicial"/.test(cartao) &&
-     /class="ext__l ext--saida"/.test(cartao) &&
+  /* CADA UMA das linhas declara qual é. Procurar `ext--inicial` no cartão inteiro não
+     serve desde que a abertura ganhou a linha "Saldo lançado", que usa a MESMA classe:
+     arrancada de uma, a outra respondia por ela e a afirmação passava. */
+  ok((cartao.match(/class="ext__l ext--inicial"/g) || []).length === 2,
+    'as DUAS linhas de saldo declaram a classe — uma respondendo pela outra deixaria ' +
+    'o risco nascer cinza sem ninguém ver',
+    (cartao.match(/class="ext__l ext--inicial"/g) || []).length);
+  ok(/ext--inicial"><span>Saldo inicial<\/span>/.test(cartao) &&
+     /ext--inicial"><span>Saldo lançado<\/span>/.test(cartao),
+    'e são justamente o saldo inicial e o saldo lançado');
+  ok(/class="ext__l ext--saida"/.test(cartao) &&
      /class="ext__l ext--retorno"/.test(cartao),
-    'as três linhas declaram qual são — sem a classe, o risco nasce cinza e a ' +
-    'identidade some');
+    'a saída e o retorno também — sem a classe, o risco nasce cinza e a identidade some');
 
   /* O TEXTO PEQUENO SUBIU DE CINZA. Ele passava em AA no cinza de apoio (5,26:1), então
      isto não é conserto de reprovação: onze pixels de cinza médio, num cartão cujo
@@ -4320,6 +4393,59 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'e o rótulo também, com peso 500 para sustentar a letra pequena');
   ok(/\.tipos__l dt\{[^}]*color:var\(--txt2\)\}/.test(css),
     'o nome da caixa no quadradinho também — em cinza ele some antes do número que explica');
+
+  /* --- a ordem da data, no celular ----------------------------------------
+     No computador quem ordena é o clique no cabeçalho da coluna. Sem cabeçalho, o
+     extrato não tinha como ser invertido — e "o que aconteceu por último" é justamente a
+     pergunta de quem abre o painel no telefone. */
+  var iBO = adm.indexOf('function barraOrdem(lista)');
+  var barra = adm.slice(iBO, adm.indexOf('\n  function fluxoEmCartoes', iBO));
+  ok(iBO > 0 && barra.length > 400, 'o cabeçalho do extrato tem um corpo', barra.length);
+  ok(/barraOrdem\(lista\)\+'<div class="extrato">/.test(adm),
+    'e ele abre a lista de cartões');
+  /* O TÍTULO NÃO SE REPETE. O modelo trazia "Controle de Caixas" nesta barra porque era
+     uma página solta; no app ele já está no alto do cartão, com o botão de voltar ao
+     lado. Repetido, aparecia duas vezes na mesma tela a dois dedos de distância. */
+  /* `<h2>` e não o texto: o comentário logo acima da função EXPLICA por que o título
+     saiu, e citá-lo fazia a afirmação encontrar a própria explicação. */
+  ok(barra.indexOf('<h2>') < 0,
+    'e não repete o título que o cartão já tem duas linhas acima');
+
+  /* O BOTÃO DIZ O ESTADO, E NÃO A AÇÃO. "Mais antigas" quer dizer que a lista ESTÁ
+     assim. Anunciando o que vai virar, a pessoa fica sem saber como ela está agora — e
+     só descobre invertendo, que é o contrário de um rótulo. */
+  ok(/desc \? 'Mais recentes' : 'Mais antigas'/.test(barra),
+    'o botão diz o ESTADO da lista, e não o que o toque vai fazer');
+  ok(/aria-label="Ordem por data: '\+\s*\n?\s*\(desc \? 'mais recentes' : 'mais antigas'\)/.test(barra),
+    'e quem ouve a tela recebe a mesma informação, mais o que o toque faz');
+  ok(/data-ordem="'\+\s*\n?\s*\(desc \? 'desc' : 'asc'\)/.test(barra),
+    'o estado também vai para o atributo, que é o que vira a seta no CSS');
+  ok(/\.ordenar\[data-ordem="asc"\] svg\{transform:rotate\(180deg\)\}/.test(css),
+    'e a seta aponta para o lado em que a lista está');
+
+  /* UM ESTADO SÓ para as duas telas. Dois controles de ordem sobre a mesma lista
+     discordariam no instante em que alguém girasse o aparelho. */
+  var iLO = adm.indexOf('function ligarOrdemExtrato()');
+  var ligar = adm.slice(iLO, adm.indexOf('\n  }', iLO));
+  ok(/ORDEM_FLUXO = \{ col: 'data', desc: ordemDoExtrato\(\) !== 'desc' \};/.test(ligar),
+    'o botão escreve no MESMO `ORDEM_FLUXO` do clique no cabeçalho');
+  ok(ligar.indexOf('classificarPor') < 0,
+    'e não passa por `classificarPor`: lá o terceiro clique volta ao padrão, e um botão ' +
+    'de duas palavras com três estados deixa a pessoa sem saber onde está');
+  ok(/function ordemDoExtrato\(\)[\s\S]{0,220}ORDEM_FLUXO\.col === 'data' && ORDEM_FLUXO\.desc/
+    .test(adm),
+    'e quem responde "em que ordem está" lê esse mesmo estado, e não uma cópia');
+
+  /* O DESEMPATE INVERTE JUNTO. A ordenação do JavaScript é estável: em `-r`, as linhas
+     de chave igual ficam como estavam. Num mesmo dia isso deixava o bloco do dia na
+     ordem antiga enquanto os dias viravam — a lista vira pela metade, e quem olha
+     conclui que ela não ordenou direito. */
+  ok(/compararValores\(chave\(a\), chave\(b\)\) \|\| \(posicao\.get\(a\) - posicao\.get\(b\)\)/
+    .test(adm),
+    'o desempate entra como segundo critério, dentro da mesma comparação — e por isso ' +
+    'inverte junto com o primeiro');
+  ok(/return ORDEM_FLUXO\.desc \? -r : r;/.test(adm),
+    'e a inversão é do resultado inteiro, empate incluído');
 
   /* A COLISÃO DE CLASSE que a foto pegou: `.dia` já era o separador de dia dos cartões
      de Lançamentos, e é `display:flex`. O cartão do extrato herdava o flex e saía

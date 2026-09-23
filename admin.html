@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=7a0555e6">
+<link rel="stylesheet" href="styles.css?v=40009d6c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1711,6 +1711,19 @@
      `cabem` sao as colunas que fazem sentido na visao atual, ja na ordem da tabela: a
      lista aqui e a tabela se leem na mesma ordem, senao procurar a coluna vira um
      exercicio de traducao. */
+  /* O botão do celular escreve no MESMO `ORDEM_FLUXO` que o clique no cabeçalho — e não
+     passa por `classificarPor`, de propósito: lá o terceiro clique volta ao padrão, e um
+     botão de duas palavras com três estados deixaria a pessoa sem saber onde está. Aqui
+     são dois estados e só. */
+  function ligarOrdemExtrato(){
+    var b = document.getElementById('btnOrdemExtrato');
+    if (!b) return;
+    b.addEventListener('click', function(){
+      ORDEM_FLUXO = { col: 'data', desc: ordemDoExtrato() !== 'desc' };
+      desenharFluxo();
+    });
+  }
+
   function ligarClassificacao(){
     document.querySelectorAll('#tabelaFluxo th.ordenavel').forEach(function(th){
       th.addEventListener('click', function(e){
@@ -1925,8 +1938,16 @@
        recalcula-los aqui so criaria um segundo caminho para o mesmo numero. */
     if (ORDEM_FLUXO.col && DEFS[ORDEM_FLUXO.col] && DEFS[ORDEM_FLUXO.col].k) {
       var chave = DEFS[ORDEM_FLUXO.col].k;
+      /* O DESEMPATE INVERTE JUNTO. A ordenação do JavaScript é estável: em `-r`, as
+         linhas de chave igual ficam na ordem em que estavam. Num mesmo dia, isso deixava
+         o bloco do dia na ordem antiga enquanto os dias viravam — a lista "vira pela
+         metade", e quem olha conclui que ela não ordenou direito.
+
+         O índice de origem entra como segundo critério, e inverte com o primeiro. */
+      var posicao = new Map();
+      lista.forEach(function(l, i){ posicao.set(l, i); });
       lista = lista.slice().sort(function(a, b){
-        var r = compararValores(chave(a), chave(b));
+        var r = compararValores(chave(a), chave(b)) || (posicao.get(a) - posicao.get(b));
         return ORDEM_FLUXO.desc ? -r : r;
       });
     }
@@ -2001,6 +2022,7 @@
     ligarArrastarColunas(TAB_ATIVOS);
     ligarLarguraColunas(TAB_ATIVOS);
     ligarClassificacao();
+    ligarOrdemExtrato();
 
     document.querySelectorAll('[data-fchip]').forEach(function(b){
       b.addEventListener('click', function(){
@@ -2115,7 +2137,13 @@
      nove colunas. */
   function cartaoFluxo(l, gente){
     var fim = gente ? l.saldo : l.fimCorrido;
-    var parado = !l.saida && !l.retorno;
+    /* TRÊS ESTADOS, e não dois. A linha de ESTOQUE LANÇADO tinha saída e retorno zerados
+       e caía em "Sem movimento" — mas ela não é um dia parado: é o lançamento que abre a
+       conta, e dizer que nada aconteceu nele é o contrário do que aconteceu. */
+    var abertura = l.estoqueInicial === true;
+    var parado = !abertura && !l.saida && !l.retorno;
+    var temDetalhe = (l.saidaTipos && l.saidaTipos.length) ||
+                     (l.retornoTipos && l.retornoTipos.length);
     var seta = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" '+
       'stroke="currentColor" stroke-width="2" stroke-linecap="round" '+
       'stroke-linejoin="round" aria-label="para"><line x1="4" y1="12" x2="19" y2="12">'+
@@ -2141,34 +2169,85 @@
     return '<article class="ext-dia">'+
       '<div class="ext-dia__topo">'+
         '<span class="ext-dia__data">'+(l.data ? Q.dataBR(l.data) : '—')+'</span>'+
-        '<span class="tag '+(parado ? 'cinza">Sem movimento' : 'verde">Movimento')+'</span>'+
+        '<span class="tag '+(abertura ? 'azul">Saldo lançado'
+                                      : (parado ? 'cinza">Sem movimento'
+                                                : 'verde">Movimento'))+'</span>'+
         '<span class="ext-dia__n">'+Q.esc(l.sub||'')+'</span>'+
       '</div>'+
       titulo+
       '<div class="ext">'+
         (gente ? '' :
           '<div class="ext__l ext--inicial"><span>Saldo inicial</span><b>'+
-          Q.num(l.iniCorrido||0)+'</b></div>')+
-        '<div class="ext__l ext--saida"><span>Saída</span><b>'+
-          (l.saida ? '−'+Q.num(l.saida) : '0')+'</b></div>'+
-        '<div class="ext__l ext--retorno"><span>Retorno</span><b>'+
-          (l.retorno ? '+'+Q.num(l.retorno) : '0')+'</b></div>'+
+          /* NA ABERTURA, o saldo de ANTES do lançamento. `iniCorrido` já vem com o que
+             foi lançado somado — escrito cru aqui, a conta não fechava: 1.620 mais 810
+             dando 1.620. A subtração devolve o que havia antes, e as três linhas passam
+             a somar na tela como somam no razão. */
+          Q.num(abertura ? (l.iniCorrido||0) - (l.inicial||0) : (l.iniCorrido||0))+
+          '</b></div>')+
+        /* O QUE FOI LANÇADO, que o extrato escondia. Na linha de abertura, saída e
+           retorno são sempre zero: mostrá-los era ocupar duas linhas para dizer que
+           nada saiu nem voltou, e calar o único número do dia — 810 caixas lançadas. */
+        (abertura
+          ? '<div class="ext__l ext--inicial"><span>Saldo lançado</span><b>+'+
+            Q.num(l.inicial||0)+'</b></div>'
+          : '<div class="ext__l ext--saida"><span>Saída</span><b>'+
+              (l.saida ? '−'+Q.num(l.saida) : '0')+'</b></div>'+
+            '<div class="ext__l ext--retorno"><span>Retorno</span><b>'+
+              (l.retorno ? '+'+Q.num(l.retorno) : '0')+'</b></div>')+
         '<div class="ext__f"><span>Saldo final</span>'+
           '<b class="'+(fim < 0 ? 'val-ruim' : (fim > 0 ? 'val-ok' : ''))+'">'+
           (fim > 0 ? '+' : '')+Q.num(fim)+'</b></div>'+
       '</div>'+
       /* O DETALHE POR TIPO fica atrás de um toque. Aberto sempre, cada dia ocupava uma
          tela inteira e a lista deixava de ser lista; escondido de vez, some a
-         informação que explica o total. */
-      (parado ? '' :
+         informação que explica o total.
+
+         A condição é TER TIPO, e não "houve movimento": a linha de abertura deixou de
+         ser um dia parado, e com `!parado` ela passou a oferecer um "ver por tipo de
+         caixa" que abria em nada. Um convite para uma gaveta vazia. */
+      (!temDetalhe ? '' :
         '<details class="tipos"><summary>Ver por tipo de caixa</summary>'+
         porTipo('Saída', l.saidaTipos, l.saida)+
         porTipo('Retorno', l.retornoTipos, l.retorno)+'</details>')+
     '</article>';
   }
 
+  /* A ORDEM DA DATA, no celular. No computador quem ordena é o clique no cabeçalho da
+     coluna; sem cabeçalho, o extrato não tinha como ser invertido — e "o que aconteceu
+     por último" é justamente a pergunta de quem abre o painel no telefone.
+
+     O BOTÃO DIZ O ESTADO, E NÃO A AÇÃO. "Mais antigas" quer dizer que a lista ESTÁ
+     assim. Anunciando o que vai virar, a pessoa fica sem saber como ela está agora — e
+     descobre invertendo, que é o contrário de um rótulo.
+
+     Ele mexe no MESMO `ORDEM_FLUXO` do clique no cabeçalho: dois estados de ordem para
+     a mesma lista discordariam no instante em que alguém girasse o aparelho. */
+  function ordemDoExtrato(){
+    /* `col` vazio é a ordem natural do extrato, que é a crescente. Os dois casos dizem
+       a mesma coisa, e a pergunta é só "está descendo?". */
+    return ORDEM_FLUXO.col === 'data' && ORDEM_FLUXO.desc ? 'desc' : 'asc';
+  }
+
+  function barraOrdem(lista){
+    var desc = ordemDoExtrato() === 'desc';
+    /* SEM TÍTULO. O modelo trazia "Controle de Caixas" aqui porque era uma página solta;
+       no app esse título já está no alto do cartão, com o botão de voltar ao lado.
+       Repetido, ele aparecia duas vezes na mesma tela a dois dedos de distância. */
+    return '<div class="secao">'+
+      '<span>'+lista.length+(lista.length === 1 ? ' registro' : ' registros')+'</span>'+
+      '<button class="ordenar" id="btnOrdemExtrato" type="button" data-ordem="'+
+        (desc ? 'desc' : 'asc')+'" aria-label="Ordem por data: '+
+        (desc ? 'mais recentes' : 'mais antigas')+' primeiro. Tocar para inverter.">'+
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+        'stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+        '<line x1="12" y1="4" x2="12" y2="20"></line>'+
+        '<polyline points="6 14 12 20 18 14"></polyline></svg>'+
+        '<span>'+(desc ? 'Mais recentes' : 'Mais antigas')+'</span>'+
+      '</button></div>';
+  }
+
   function fluxoEmCartoes(lista, gente){
-    return '<div class="extrato">'+lista.map(function(l){
+    return barraOrdem(lista)+'<div class="extrato">'+lista.map(function(l){
       return cartaoFluxo(l, gente);
     }).join('')+'</div>';
   }
