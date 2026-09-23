@@ -5212,6 +5212,184 @@ console.log('\n== a navegação separada por módulo ==');
     { campo: bri('--campo'), chao: bri('--bg'), cartao: bri('--surface') });
 })();
 
+console.log('\n== Movimentos no celular: cartão, folha de ações e filtros ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  /* A TABELA TEM ONZE COLUNAS E TRÊS BOTÕES POR LINHA. No telefone são dezenas de alvos
+     de toque numa tela que só se lê arrastando de lado — e o do meio é "cancelar",
+     vizinho de "excluir". */
+  ok(/if \(emCartoesPainel\(\)\) \{[\s\S]{0,200}barraOrdemMov\(MOVS\)\+cartoesMov\(MOVS\)/
+    .test(adm),
+    'no celular a lista de Movimentos vira cartão, no MESMO corte de 1024px das outras ' +
+    'telas');
+  /* Dentro do RECORTE de `cartoesMov`, e não no arquivo inteiro: `barraOrdemMov` também
+     chama `Q.agruparLancamentos`, e respondia pela chamada que monta os cartões —
+     arrancada dali, a afirmação continuava passando. */
+  var iCM = adm.indexOf('function cartoesMov(lista)');
+  var cartoes = adm.slice(iCM, adm.indexOf('\n  function cartaoMov', iCM));
+  ok(/function cartaoMov\(g\)/.test(adm) && /Q\.agruparLancamentos\(lista\)/.test(cartoes),
+    'e o cartão é a REMESSA, agrupada pelo lote que o servidor manda', cartoes.slice(0, 90));
+
+  /* AS TRÊS AÇÕES NUMA FUNÇÃO CADA. Elas eram escritas dentro da ligação dos botões da
+     tabela; copiadas para a folha, a confirmação escrita do excluir sairia de dois
+     lugares, e o dia em que uma mudasse a outra ficaria como estava. */
+  ['acaoCorrigir', 'acaoCancelar', 'acaoExcluir'].forEach(function (f) {
+    ok(new RegExp('function ' + f + '\\(m\\)').test(adm),
+      'a ação ' + f + ' tem função própria, fora da ligação dos botões');
+  });
+  var iFolha = adm.indexOf('function abrirAcoesDoLote(lote)');
+  var folha = adm.slice(iFolha, adm.indexOf('\n  /* ---------- as folhas', iFolha));
+  ok(iFolha > 0 && folha.length > 700, 'a folha de ações tem corpo', folha.length);
+  ['acaoCorrigir', 'acaoCancelar', 'acaoExcluir'].forEach(function (f) {
+    ok(folha.indexOf(f) > 0, 'e a folha do celular chama a MESMA ' + f);
+  });
+  ok(/EXCLUIR este lançamento de/.test(adm) &&
+     (adm.match(/EXCLUIR este lançamento de/g) || []).length === 1,
+    'a confirmação escrita do excluir existe UMA vez — duas, e uma delas envelhece');
+
+  /* O CONTEXTO ANTES DAS OPÇÕES. No celular o cartão sai da vista quando a folha sobe:
+     sem dizer em qual movimento se está mexendo, a pessoa confirma de memória. */
+  ok(folha.indexOf('ctx.textContent') < folha.indexOf('corpo.innerHTML'),
+    'a folha diz QUAL movimento antes de oferecer o que fazer com ele');
+  ok(/g\.situacao\+' · '\+Q\.dataBR\(g\.dataRef\)/.test(folha),
+    'e o contexto traz situação, data, rota e quantidade', folha.slice(0, 80));
+
+  /* OS FILTROS SÃO O MESMO NÓ nas duas larguras. Duas cópias seriam dois ids iguais, e
+     `getElementById` leria sempre o primeiro: a tela filtraria pelo que a outra tem. */
+  ['mvOrigem', 'mvDestino', 'mvTipo', 'mvCaixa', 'mvStatus', 'mvUsuario', 'mvDe', 'mvAte']
+    .forEach(function (id) {
+      ok((adm.match(new RegExp('id="' + id + '"', 'g')) || []).length === 1,
+        'o filtro ' + id + ' existe UMA vez no documento');
+    });
+  ok(/\.filtros-caixa\{position:fixed/.test(css) && /\.filtros-caixa\.aberta\{display:flex\}/.test(css),
+    'a caixa de filtros vira folha no celular, e continua bloco comum no computador');
+  ok(/@media \(max-width:1023px\)\{[\s\S]{0,900}\.filtros-caixa\{position:fixed/.test(css),
+    'e isso vale só abaixo de 1024px');
+
+  /* ESCONDER SEM DIZER é o defeito que este projeto mais persegue: com a folha fechada,
+     a lista recortada passaria por lista inteira. */
+  ok(/function pintarFiltrosMov\(\)/.test(adm) && /id="mvAplicados"/.test(adm),
+    'o que está recortando a lista aparece em pílulas, com o X para tirar cada uma');
+  /* E as pílulas saem da LISTA de filtros aplicados. Existir a função e a caixa não
+     garante que ela desenhe alguma coisa: com `[].map(...)` a caixa fica vazia e a
+     afirmação de cima continuava passando. */
+  ok(/cx\.innerHTML = l\.map\(function\(f\)\{/.test(adm),
+    'e elas saem da lista do que está aplicado, não de uma lista vazia');
+  ok(/data-tirar="'\+f\.id\+'"/.test(adm) && /el\.value = b\.dataset\.tirar === 'mvTeste'/.test(adm),
+    'cada pílula sabe qual campo ela limpa — e o recorte de ensaio volta para "só ' +
+    'reais", que é o estado que aquele seletor tem');
+  ok(/chip\.style\.display = l\.length \? '' : 'none'/.test(adm),
+    'e o número no botão só aparece quando há filtro — um "0" pendurado promete que há ' +
+    'o que ver');
+  /* O PERÍODO PADRÃO NÃO É FILTRO. Sempre preenchido, ele faria o botão dizer "2" desde
+     o primeiro segundo, com duas pílulas que ninguém escolheu. */
+  ok(/if \(id === 'mvDe' && el\.value === padrao\.de\) return;/.test(adm) &&
+     /if \(id === 'mvAte' && el\.value === padrao\.ate\) return;/.test(adm),
+    'o período padrão não conta como filtro aplicado');
+  ok(/function periodoPadraoValores\(\)/.test(adm) &&
+     (adm.match(/d1\.setDate\(d1\.getDate\(\) - 30\)/g) || []).length === 1,
+    'e a conta do padrão mora num lugar só — em dois, mudar de 30 para 15 dias faria a ' +
+    'barra acusar um recorte que ninguém escolheu');
+  ok(/pintarFiltrosMov\(\);/.test(adm) &&
+     adm.indexOf('pintarFiltrosMov();') > adm.indexOf('desenharMovimentos();'),
+    'a pintura das pílulas sai do MESMO lugar que recarrega a lista — espalhada, a ' +
+    'pílula sobra depois de o filtro sair');
+
+  /* A CHAVE DO LOTE é uma só. Escrita duas vezes, a linha sem lote era agrupada por id e
+     procurada por lote: o botão de ações não abria nada, e sem erro no console. */
+  ok(/function chaveDoLote\(m\)/.test(js),
+    'a chave que junta as linhas de uma remessa mora no `app.js`');
+  ok(/var chave = chaveDoLote\(m\);/.test(js),
+    'o agrupamento usa ela');
+  ok(/Q\.chaveDoLote\(x\) === String\(lote\)/.test(adm),
+    'e a folha de ações acha as linhas do cartão pela MESMA chave');
+
+  /* TRÊS SAÍDAS da folha: o X, o véu e o Esc. Só o X, e quem abre o teclado fica preso. */
+  ok(/veu\.addEventListener\('click', fecharFolhas\)/.test(adm) &&
+     /\[data-fechar-folha\]/.test(adm) &&
+     /e\.key === 'Escape'\) fecharFolhas\(\)/.test(adm),
+    'a folha fecha pelo X, pelo véu e pelo Esc');
+})();
+
+console.log('\n== nome de classe só tem UM dono ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* QUATRO VEZES NUMA SESSÃO o mesmo defeito: uma peça nova nasceu com o nome de uma que
+     já existia, herdou o desenho dela e saiu torta na tela.
+       `.dia`  — era o separador de dia dos Lançamentos, e é `display:flex`. O cartão do
+                 extrato herdou o flex e saiu deitado, com a rota ao lado do saldo.
+       `.item` — era a linha de cadastro, com fundo e borda próprios. A linha de caixa do
+                 cartão de Movimentos virou uma caixinha cheia.
+       `.itens` — a caixa em volta dela, pelo mesmo motivo. Esta foi pega por ESTA
+                 conferência, antes de chegar à tela.
+     Nenhum dava erro. Os três apareceram na FOTO, e um deles depois de publicado.
+
+     Esta conferência lista as classes das peças novas e cobra que cada uma tenha UM
+     bloco de regra. Não pega toda colisão do arquivo — pega a destas famílias, que é
+     onde elas vêm acontecendo, e cresce quando a próxima peça entrar na lista. */
+  var DONO_UNICO = [
+    'ext-dia', 'ext-dia__topo', 'ext-dia__data', 'ext-dia__n',
+    'extrato', 'ordenar', 'movs', 'mov', 'mov__topo', 'mov__quando', 'mov__quem',
+    'mov__pe', 'mov__total', 'mov-item', 'mov-itens', 'acoes-btn',
+    'folha', 'folha__cab', 'folha__corpo', 'folha__t', 'folha__ctx', 'veu-folha',
+    'opcao', 'pill', 'aplicados', 'filtros-caixa', 'so-celular'
+  ];
+  /* As ANTIGAS entram na mesma conta. Elas têm um dono legítimo cada — e é justamente
+     por cima delas que as peças novas caíram. Renomear a nova de volta para `.item`
+     passava despercebido enquanto a lista só olhava os nomes novos. */
+  DONO_UNICO = DONO_UNICO.concat(['item', 'itens', 'dia', 'secao']);
+
+  /* UMA REGRA DENTRO DE `@media` É OVERRIDE, NÃO SEGUNDO DONO. `.so-celular` é
+     `display:none` na base e `display:flex` no celular de propósito — contá-la como
+     colisão faria a conferência acusar justamente o padrão que se quer usar.
+
+     O que ela procura é DOIS DONOS NO MESMO NÍVEL: duas regras base para o mesmo nome,
+     que foi o defeito das quatro vezes. */
+  function semMedia(texto) {
+    var fora = '', i = 0;
+    while (i < texto.length) {
+      var m = texto.indexOf('@media', i);
+      if (m < 0) { fora += texto.slice(i); break; }
+      fora += texto.slice(i, m);
+      var k = texto.indexOf('{', m), d = 0;
+      for (; k < texto.length; k++) {
+        if (texto[k] === '{') d++;
+        else if (texto[k] === '}') { d--; if (!d) break; }
+      }
+      i = k + 1;
+    }
+    return fora;
+  }
+  var cssBase = semMedia(css);
+
+  function donos(c, onde) {
+    /* O seletor no INÍCIO de uma regra, e não em qualquer lugar: `.mov__topo` cita
+       `.mov` e não é uma segunda definição dele. `\n\s*` porque dentro de um `@media`
+       a regra vem indentada. */
+    var re = new RegExp('(^|\\n)\\s*\\.' + c.replace(/[-_]/g, '[-_]') + '(\\{|,|\\s*\\{)', 'g');
+    return ((onde || css).match(re) || []).length;
+  }
+  var repetidas = DONO_UNICO.filter(function (c) { return donos(c, cssBase) > 1; });
+  ok(repetidas.length === 0,
+    'nenhuma classe destas telas tem dois donos no CSS — com o mesmo nome, a peça ' +
+    'herda o desenho da outra e sai torta, sem erro nenhum', repetidas);
+
+  /* E TODAS EXISTEM. Sem isto, apagar uma classe — ou renomeá-la de volta para a que já
+     tinha dono — passava como "não tem repetida", que é verdade e não é o que importa. */
+  var sumidas = DONO_UNICO.filter(function (c) { return donos(c) === 0; });
+  ok(sumidas.length === 0,
+    'e todas continuam existindo — a conferência de repetição sozinha aprova uma ' +
+    'classe que simplesmente sumiu', sumidas);
+  ok(!/class="item"/.test(fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8')
+       .slice(adm.indexOf('function cartaoMov(g)'), adm.indexOf('function barraOrdemMov'))),
+    'e o cartão de Movimentos não usa mais o `.item` que é de outra peça');
+})();
+
 console.log('\n== os lançamentos em cartão, no celular ==');
 (function () {
   var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
@@ -5221,7 +5399,14 @@ console.log('\n== os lançamentos em cartão, no celular ==');
   /* A REGRA DE VERDADE, recortada do `app.js`. */
   var i = js.indexOf('  function agruparLancamentos(lista) {');
   ok(i > 0, 'a regra que junta as linhas de uma remessa mora no `app.js`');
-  var agrupar = new Function(js.slice(i, js.indexOf('\n  }', i) + 4) +
+  /* `chaveDoLote` vem junto: ela é a chave do agrupamento, e a tela a usa DE NOVO para
+     achar as linhas de um cartão. Fora do recorte, o teste rodaria uma versão da regra
+     que não existe. */
+  var iChave = js.indexOf('  function chaveDoLote(m) {');
+  ok(iChave > 0, 'e a chave dela também, num lugar só');
+  var agrupar = new Function(
+    js.slice(iChave, js.indexOf('\n  }', iChave) + 4) +
+    js.slice(i, js.indexOf('\n  }', i) + 4) +
     '\n return agruparLancamentos;')();
 
   function mv(id, lote, cx, qtd, extra) {

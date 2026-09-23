@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=40009d6c">
+<link rel="stylesheet" href="styles.css?v=f243fd6d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -483,6 +483,27 @@
   <section id="pgMovimentos" class="pagina">
     <div class="card">
       <h2>Movimentos<span class="sub">Tudo que foi lançado, por qualquer usuário. Divergência = contado na chegada menos declarado no cliente.</span></h2>
+      <!-- NO CELULAR, TUDO ISTO VIRA UMA FOLHA. Dez seletores abertos ocupam a tela
+           inteira antes da primeira linha da lista: quem abre a tela para ver o que foi
+           lançado precisa rolar dez campos para chegar lá. No computador a caixa
+           continua sendo um bloco comum, onde os filtros ficam à vista.
+
+           O MESMO nó nas duas larguras, e não duas cópias: dois conjuntos dos mesmos
+           campos seriam dois ids repetidos, e `getElementById` passaria a ler sempre o
+           primeiro — a tela filtraria pelo que a outra cópia tem. -->
+      <button class="btn sec so-celular" id="btnAbrirFiltrosMov" type="button"
+              style="flex:0 0 auto;min-width:150px">
+        Filtros <span id="mvFiltrosQtd" class="tag" style="display:none"></span>
+      </button>
+      <div id="mvAplicados" class="aplicados so-celular" hidden></div>
+
+      <div class="filtros-caixa" id="caixaFiltrosMov">
+        <div class="folha__puxador so-celular" aria-hidden="true"></div>
+        <div class="folha__cab so-celular">
+          <h3 class="folha__t">Filtros</h3>
+          <button class="btn-icone" type="button" data-fechar-folha aria-label="Fechar">✕</button>
+        </div>
+        <div class="filtros-caixa__corpo">
       <div class="grid-filtros">
         <div><label for="mvOrigem">Origem</label><select id="mvOrigem"></select></div>
         <div><label for="mvDestino">Destino</label><select id="mvDestino"></select></div>
@@ -530,6 +551,8 @@
           ↺ Lixeira <span id="lixeiraQtd" class="tag" style="display:none"></span>
         </button>
       </div>
+        </div>
+      </div>
       <div id="limparAviso"></div>
 
       <!-- A LIXEIRA, fechada por padrão: é para onde se vai quando algo deu errado, e não
@@ -545,6 +568,26 @@
       </div>
       <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
     </div>
+  </section>
+
+  <!-- AS FOLHAS DO CELULAR. Ficam FORA do cartão de propósito: dentro, elas herdariam o
+       recorte e a rolagem dele, e uma folha que sobe até 92% da tela não cabe dentro de
+       uma caixa que rola. -->
+  <div class="veu-folha" id="veuFolha" hidden></div>
+
+  <section class="folha" id="folhaAcoes" role="dialog" aria-modal="true"
+           aria-labelledby="folhaAcoesT" hidden>
+    <div class="folha__puxador" aria-hidden="true"></div>
+    <div class="folha__cab">
+      <div style="flex:1 1 auto;min-width:0">
+        <h2 class="folha__t" id="folhaAcoesT">Movimento</h2>
+        <!-- O QUE está sendo mexido. No celular o cartão sai da vista quando a folha
+             sobe, e sem isto a pessoa confirma de memória. -->
+        <p class="folha__ctx" id="folhaAcoesCtx"></p>
+      </div>
+      <button class="btn-icone" type="button" data-fechar-folha aria-label="Fechar">✕</button>
+    </div>
+    <div class="folha__corpo" id="folhaAcoesCorpo"></div>
   </section>
 
   <!-- ---------- COLUNAS ---------- -->
@@ -612,7 +655,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=66cd4e27"></script>
+<script src="app.js?v=722802ef"></script>
 <script>
 (function(){
   'use strict';
@@ -2837,10 +2880,19 @@
   });
 
   /* Volta ao mesmo estado da primeira abertura: tudo em "Todos" e os últimos 30 dias. */
-  function periodoPadraoMov(){
+  /* Os dois valores do período padrão, num lugar só: quem os ESCREVE nos campos e quem
+     pergunta "isto ainda é o padrão?" precisam da mesma conta. Em dois lugares, o dia em
+     que o padrão mudasse de 30 para 15 dias a barra de filtros passaria a acusar um
+     recorte que ninguém escolheu. */
+  function periodoPadraoValores(){
     var d1 = new Date(); d1.setDate(d1.getDate() - 30);
-    document.getElementById('mvDe').value = d1.toISOString().slice(0, 10);
-    document.getElementById('mvAte').value = Q.hoje();
+    return { de: d1.toISOString().slice(0, 10), ate: Q.hoje() };
+  }
+
+  function periodoPadraoMov(){
+    var p = periodoPadraoValores();
+    document.getElementById('mvDe').value = p.de;
+    document.getElementById('mvAte').value = p.ate;
   }
   document.getElementById('btnLimparMov').addEventListener('click', function(){
     document.getElementById('mvOrigem').value = '';
@@ -2869,6 +2921,9 @@
         if (!r.ok) throw new Error(r.erro);
         MOVS = r.movimentos;
         desenharMovimentos();
+        /* AQUI, e não em cada ouvinte: tudo que mexe em filtro termina recarregando, e
+           espalhar a pintura faria a pílula sobrar depois de o filtro sair. */
+        pintarFiltrosMov();
       }).catch(function(e){ box.innerHTML='<div class="aviso-box erro">'+Q.esc(e.message)+'</div>'; });
   }
 
@@ -2890,6 +2945,91 @@
     box.style.display = abrindo ? '' : 'none';
     if (abrindo) carregarLixeira();
   });
+
+  /* ---------- os filtros de Movimentos no celular ----------
+   *
+   * A folha esconde os filtros, e esconder sem dizer é o defeito que este projeto mais
+   * persegue: a lista recortada passaria por lista inteira. Por isso o número no botão e
+   * as pílulas do que está recortando, com o X para tirar cada uma.
+   *
+   * Os rótulos saem dos MESMOS `<label>` da tela, lidos do DOM: escritos aqui de novo,
+   * o dia em que um filtro fosse renomeado a pílula continuaria com o nome antigo.
+   */
+  var CAMPOS_MOV = ['mvOrigem','mvDestino','mvFluxo','mvTipo','mvCaixa','mvStatus',
+                    'mvUsuario','mvDe','mvAte'];
+
+  function rotuloDoCampo(id){
+    var lab = document.querySelector('label[for="'+id+'"]');
+    return lab ? lab.textContent.trim() : id;
+  }
+
+  function textoDoCampo(el){
+    if (el.tagName === 'SELECT') {
+      var o = el.options[el.selectedIndex];
+      return o ? o.textContent.trim() : el.value;
+    }
+    return el.type === 'date' ? Q.dataBR(el.value) : el.value;
+  }
+
+  function filtrosAplicadosMov(){
+    var l = [];
+    /* O PERÍODO PADRÃO NÃO É UM FILTRO. Ele está sempre preenchido — a tela abre nos
+       últimos 30 dias —, e contá-lo faria o botão dizer "Filtros 2" desde o primeiro
+       segundo, com duas pílulas que ninguém escolheu. Contado só quando alguém o mudou,
+       o número volta a querer dizer "isto aqui está escondendo alguma coisa". */
+    var padrao = periodoPadraoValores();
+    CAMPOS_MOV.forEach(function(id){
+      var el = document.getElementById(id);
+      if (!el || !el.value) return;
+      if (id === 'mvDe' && el.value === padrao.de) return;
+      if (id === 'mvAte' && el.value === padrao.ate) return;
+      l.push({ id: id, t: rotuloDoCampo(id)+': '+textoDoCampo(el) });
+    });
+    /* `mvTeste` nunca fica vazio — ele é uma escolha entre dois recortes, não um filtro
+       que se liga. Entra na conta assim mesmo: ver só o ensaio esconde a operação real,
+       e é justamente o recorte que engana quem esquece dele ligado. */
+    var t = document.getElementById('mvTeste');
+    if (t && t.value === 'teste') l.push({ id: 'mvTeste', t: 'Só lançamentos de teste' });
+    return l;
+  }
+
+  function pintarFiltrosMov(){
+    var l = filtrosAplicadosMov();
+    var chip = document.getElementById('mvFiltrosQtd');
+    if (chip){
+      chip.style.display = l.length ? '' : 'none';
+      chip.textContent = l.length;
+    }
+    var cx = document.getElementById('mvAplicados');
+    if (!cx) return;
+    cx.hidden = !l.length;
+    cx.innerHTML = l.map(function(f){
+      return '<span class="pill">'+Q.esc(f.t)+
+        '<button type="button" data-tirar="'+f.id+'" aria-label="Tirar '+Q.esc(f.t)+'">✕</button></span>';
+    }).join('');
+    cx.querySelectorAll('button[data-tirar]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var el = document.getElementById(b.dataset.tirar);
+        if (!el) return;
+        /* O recorte de ensaio volta para "só reais", e não para vazio: vazio ali não é
+           um estado que o seletor tenha. */
+        el.value = b.dataset.tirar === 'mvTeste' ? 'reais' : '';
+        carregarMovimentos();
+      });
+    });
+  }
+
+  (function(){
+    var b = document.getElementById('btnAbrirFiltrosMov');
+    var caixa = document.getElementById('caixaFiltrosMov');
+    if (!b || !caixa) return;
+    b.addEventListener('click', function(){
+      fecharFolhas();
+      caixa.classList.add('aberta');
+      var veu = document.getElementById('veuFolha');
+      if (veu) veu.hidden = false;
+    });
+  })();
 
   /* Só recarrega se ela estiver ABERTA. Fechada, ela busca ao abrir — e buscar aqui
      seria uma ida de rede para desenhar o que ninguém está vendo. */
@@ -2982,6 +3122,22 @@
     if (!box) return;
     if (!MOVS || !MOVS.length){
       box.innerHTML = '<div class="vazio">Nenhum movimento no filtro.</div>';
+      return;
+    }
+
+    /* NO CELULAR, UM CARTÃO POR MOVIMENTO. A tabela tem onze colunas e três botões por
+       linha: no telefone são trinta e três alvos de toque numa tela que só se lê
+       arrastando de lado. O cartão junta a remessa, mostra as quantidades por tipo de
+       caixa dentro dela, e recolhe corrigir/cancelar/excluir num botão "Ações" — que
+       abre uma folha dizendo em qual movimento se está mexendo.
+
+       O agrupamento é pelo `lote`, que o servidor calcula do envio. Juntar por
+       data+hora+origem+destino seria adivinhação: dois lançamentos do mesmo minuto na
+       mesma rota, feitos por pessoas diferentes, virariam um. */
+    if (emCartoesPainel()) {
+      box.innerHTML = barraOrdemMov(MOVS)+cartoesMov(MOVS)+'<div id="correcaoBox"></div>';
+      ligarAcoesMov(box);
+      ligarOrdemMov();
       return;
     }
 
@@ -3085,51 +3241,247 @@
     ligarArrastarColunas(TAB_MOV);
     ligarLarguraColunas(TAB_MOV);
 
+    ligarAcoesMov(box);
+  }
+
+  /* AS TRÊS AÇÕES, cada uma numa função. Elas eram escritas dentro da ligação dos botões
+     da tabela — e a tabela deixou de existir no celular, onde as mesmas três passaram a
+     morar numa folha. Copiadas para lá, a confirmação escrita do excluir sairia de dois
+     lugares, e o dia em que uma mudasse a outra continuaria como estava. */
+  function acaoCorrigir(m){
+    if (m) formCorrigir(m);
+  }
+
+  function acaoCancelar(m){
+    if (!m) return;
+    var motivo = prompt('Cancelar este movimento (ele deixa de contar no saldo).\nMotivo:');
+    if (motivo === null) return;
+    Q.post({acao:'cancelar', id:m.id, motivo:motivo, usuarioId:Q.sessao().id}).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      Q.toast('Movimento cancelado.','ok'); carregarMovimentos(); carregarPainel();
+    }).catch(function(e){ Q.toast(e.message,'erro'); });
+  }
+
+  /* Excluir tira o lançamento da lista e de tudo que soma — mas ele vai para a lixeira,
+     e de lá volta inteiro. O cancelar continua sendo outra coisa: deixa o registro à
+     vista, com o motivo, dizendo que existiu e não vale.
+
+     A confirmação escrita ficou. O texto dela mudou porque mentia: dizia "não tem
+     volta", e tem. Mas o lançamento sai do saldo de alguém no instante do clique, e isso
+     continua merecendo mais do que um clique. */
+  function acaoExcluir(m){
+    if (!m) return;
+    var alvo = String(m.tipoCaixa||'').trim();
+    var dito = prompt('EXCLUIR este lançamento de ' + Q.num(m.qtd) + ' ' + alvo +
+      ' (' + (m.origem||'—') + ' para ' + (m.destino||'—') + ').\n\n' +
+      'Ele sai da lista, do saldo, do painel e do extrato, e fica na LIXEIRA — de ' +
+      'onde dá para restaurar. Para deixá-lo à vista, sem valer, use o botão ' +
+      '"cancelar".\n\nEscreva ' + alvo + ' para confirmar:');
+    if (dito === null) return;
+    if (String(dito).trim().toUpperCase() !== alvo.toUpperCase()) {
+      return Q.toast('Não confere — nada foi excluído.','erro');
+    }
+    Q.post({acao:'excluirMovimento', id:m.id, usuarioId:Q.sessao().id}).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      Q.toast('Lançamento excluído — está na lixeira.','ok');
+      carregarMovimentos(); carregarPainel(); atualizarLixeiraSeAberta();
+    }).catch(function(e){ Q.toast(e.message,'erro'); });
+  }
+
+  function movPorId(id){
+    return (MOVS||[]).filter(function(x){ return String(x.id) === String(id); })[0];
+  }
+
+  /* ---------- Movimentos em cartão, no celular ----------
+   *
+   * O mesmo agrupamento da lista de Lançamentos: `Q.agruparLancamentos`, pelo lote do
+   * envio. Uma regra só para as duas telas — juntar de dois jeitos daria dois números
+   * de "movimentos" para a mesma base.
+   */
+  var ORDEM_MOV_DESC = true;
+
+  function cartoesMov(lista){
+    var grupos = Q.agruparLancamentos(lista).slice();
+    /* A lista já chega do servidor em ordem decrescente de data. Invertida, os grupos
+       viram ao contrário inteiros — inclusive os itens dentro de cada um, que é o que
+       impede a lista de "virar pela metade". */
+    if (!ORDEM_MOV_DESC) grupos.reverse();
+    return '<div class="movs">'+grupos.map(cartaoMov).join('')+'</div>';
+  }
+
+  function cartaoMov(g){
+    var ehRetorno = g.tipo === 'DEVOLUCAO';
+    var alt = g.alterado || {};
+    var seta = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" '+
+      'stroke="currentColor" stroke-width="2" stroke-linecap="round" '+
+      'stroke-linejoin="round" aria-label="para"><line x1="4" y1="12" x2="19" y2="12">'+
+      '</line><polyline points="14 7 19 12 14 17"></polyline></svg>';
+
+    return '<article class="mov" data-lote="'+Q.esc(g.lote)+'">'+
+      '<div class="mov__topo">'+
+        '<span class="tag '+tagCiclo(g.situacao)+'">'+Q.esc(g.situacao)+'</span>'+
+        (g.teste ? '<span class="tag amarela">teste</span>' : '')+
+        (alt.vezes ? '<span class="tag amarela" title="'+
+           Q.esc((alt.campo||'alteração')+' por '+(alt.por||'—')+
+                 (alt.em ? ' em '+Q.dataHoraBR(alt.em) : '')+
+                 (alt.motivo ? ' — '+alt.motivo : ''))+'">corrigido</span>' : '')+
+        '<span class="mov__quando">'+Q.dataBR(g.dataRef)+' · '+
+          Q.esc(Q.horaBR(g.dataHora) || '—')+'</span>'+
+      '</div>'+
+      '<h3 class="mov__rota">'+Q.esc(g.origem||'—')+' '+seta+' '+Q.esc(g.destino||'—')+'</h3>'+
+      '<p class="mov__quem">Motorista <b>'+Q.esc(g.motorista||'—')+'</b><br>'+
+        'Lançado por <b>'+Q.esc(g.usuario||'—')+'</b>'+
+        (alt.vezes ? ' · alterado por <b>'+Q.esc(alt.por||'—')+'</b>' : '')+'</p>'+
+      '<div class="mov-itens">'+g.itens.map(function(i){
+        return '<div class="mov-item"><span>'+Q.esc(i.tipoCaixa||'—')+'</span>'+
+               '<b class="'+(ehRetorno ? 'val-ok' : 'val-saida')+'">'+Q.num(i.qtd)+'</b></div>';
+      }).join('')+'</div>'+
+      '<div class="mov__pe">'+
+        '<span class="mov__total">Total <b>'+Q.num(g.total)+'</b></span>'+
+        (Q.ehAdmin() || Q.podeCorrigir(Q.sessao(), g)
+          ? '<button class="acoes-btn" type="button" data-acoes="'+Q.esc(g.lote)+'">'+
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+            'stroke-width="2.6" stroke-linecap="round" aria-hidden="true">'+
+            '<circle cx="5" cy="12" r=".7"></circle><circle cx="12" cy="12" r=".7"></circle>'+
+            '<circle cx="19" cy="12" r=".7"></circle></svg>Ações</button>'
+          : '')+
+      '</div></article>';
+  }
+
+  /* O BOTÃO DIZ O ESTADO, como no extrato do painel: "Mais recentes" quer dizer que a
+     lista ESTÁ assim. Anunciando o que vai virar, a pessoa fica sem saber como ela está
+     agora, e só descobre invertendo. */
+  function barraOrdemMov(lista){
+    var n = Q.agruparLancamentos(lista).length;
+    return '<div class="secao">'+
+      '<span>'+n+(n === 1 ? ' movimento' : ' movimentos')+' · '+
+        lista.length+(lista.length === 1 ? ' linha' : ' linhas')+'</span>'+
+      '<button class="ordenar" id="btnOrdemMov" type="button" data-ordem="'+
+        (ORDEM_MOV_DESC ? 'desc' : 'asc')+'" aria-label="Ordem por data: '+
+        (ORDEM_MOV_DESC ? 'mais recentes' : 'mais antigos')+' primeiro. Tocar para inverter.">'+
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+        'stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+        '<line x1="12" y1="4" x2="12" y2="20"></line>'+
+        '<polyline points="6 14 12 20 18 14"></polyline></svg>'+
+        '<span>'+(ORDEM_MOV_DESC ? 'Mais recentes' : 'Mais antigos')+'</span>'+
+      '</button></div>';
+  }
+
+  function ligarOrdemMov(){
+    var b = document.getElementById('btnOrdemMov');
+    if (b) b.addEventListener('click', function(){
+      ORDEM_MOV_DESC = !ORDEM_MOV_DESC;
+      desenharMovimentos();
+    });
+  }
+
+  function ligarAcoesMov(box){
     box.querySelectorAll('button[data-corrigir]').forEach(function(b){
+      b.addEventListener('click', function(){ acaoCorrigir(movPorId(b.dataset.corrigir)); });
+    });
+    box.querySelectorAll('button[data-cancelar]').forEach(function(b){
+      b.addEventListener('click', function(){ acaoCancelar(movPorId(b.dataset.cancelar)); });
+    });
+    box.querySelectorAll('button[data-excluir]').forEach(function(b){
+      b.addEventListener('click', function(){ acaoExcluir(movPorId(b.dataset.excluir)); });
+    });
+    /* No celular as três viram UM botão por cartão. Três alvos de toque por linha, em
+       vinte linhas, são sessenta alvos numa tela onde o dedo cobre dois — e o do meio é
+       "cancelar", vizinho de "excluir". */
+    box.querySelectorAll('button[data-acoes]').forEach(function(b){
+      b.addEventListener('click', function(){ abrirAcoesDoLote(b.dataset.acoes); });
+    });
+  }
+
+  /* ---------- a folha de ações de um movimento ----------
+   *
+   * Ela mostra O QUE está sendo mexido antes de oferecer as três opções: no celular o
+   * cartão sai da vista quando a folha sobe, e sem o contexto a pessoa confirma de
+   * memória — que é o engano que a confirmação escrita do excluir não pega.
+   */
+  function abrirAcoesDoLote(lote){
+    /* `Q.chaveDoLote`, e não `x.lote`: é a MESMA expressão com que o agrupamento montou
+       o cartão. Procurando só pelo `lote`, a linha que não tem um — agrupada pelo id —
+       não era encontrada, e o botão de ações não abria nada, sem erro no console. */
+    var linhas = (MOVS||[]).filter(function(x){
+      return Q.chaveDoLote(x) === String(lote);
+    });
+    if (!linhas.length) return;
+    var g = Q.agruparLancamentos(linhas)[0];
+    var corpo = document.getElementById('folhaAcoesCorpo');
+    var ctx = document.getElementById('folhaAcoesCtx');
+    if (!corpo || !ctx) return;
+
+    ctx.textContent = g.situacao+' · '+Q.dataBR(g.dataRef)+' '+(Q.horaBR(g.dataHora)||'')+
+      ' · '+(g.origem||'—')+' → '+(g.destino||'—')+' · '+Q.num(g.total)+' caixas';
+
+    /* O primeiro item responde pelo lote nas ações de UMA linha. Cancelar e excluir
+       trabalham sobre um lançamento, e o cartão é a remessa: o que a folha oferece é
+       consertar a remessa (que o formulário já sabe fazer inteira) ou mexer na linha. */
+    corpo.innerHTML =
+      (Q.podeCorrigir(Q.sessao(), g)
+        ? '<button class="opcao" type="button" data-acao="corrigir">'+
+          '<span>Corrigir quantidades<small>grava a correção com o seu nome e o '+
+          'motivo</small></span></button>' : '')+
+      (Q.ehAdmin()
+        ? '<button class="opcao" type="button" data-acao="cancelar">'+
+          '<span>Cancelar movimento<small>some dos saldos, continua no histórico</small>'+
+          '</span></button>'+
+          '<button class="opcao perigo" type="button" data-acao="excluir">'+
+          '<span>Excluir<small>vai para a lixeira, dá para restaurar</small></span>'+
+          '</button>' : '');
+
+    corpo.querySelectorAll('button[data-acao]').forEach(function(b){
       b.addEventListener('click', function(){
-        var m = (MOVS||[]).filter(function(x){ return String(x.id)===b.dataset.corrigir; })[0];
-        if (m) formCorrigir(m);
+        fecharFolhas();
+        var acao = b.dataset.acao;
+        /* Corrigir vale para a remessa inteira; cancelar e excluir, para a linha. A
+           folha diz isso em cada rótulo, e não é o código que decide calado. */
+        if (acao === 'corrigir') return acaoCorrigir(g.itens.length === 1
+          ? movPorId(g.itens[0].id) : movPorId(g.id));
+        var alvo = movPorId(g.itens[0].id);
+        if (acao === 'cancelar') return acaoCancelar(alvo);
+        if (acao === 'excluir') return acaoExcluir(alvo);
       });
     });
-        box.querySelectorAll('button[data-cancelar]').forEach(function(b){
-          b.addEventListener('click', function(){
-            var motivo = prompt('Cancelar este movimento (ele deixa de contar no saldo).\nMotivo:');
-            if (motivo === null) return;
-            Q.post({acao:'cancelar', id:b.dataset.cancelar, motivo:motivo, usuarioId:Q.sessao().id}).then(function(r){
-              if (!r.ok) throw new Error(r.erro);
-              Q.toast('Movimento cancelado.','ok'); carregarMovimentos(); carregarPainel();
-            }).catch(function(e){ Q.toast(e.message,'erro'); });
-          });
-        });
-        /* Excluir tira o lançamento da lista e de tudo que soma — mas ele vai para a
-           lixeira, e de lá volta inteiro. O cancelar continua sendo outra coisa: deixa o
-           registro à vista, com o motivo, dizendo que existiu e não vale.
-
-           A confirmação escrita ficou. O texto dela mudou porque mentia: dizia "não tem
-           volta", e tem. Mas o lançamento sai do saldo de alguém no instante do clique, e
-           isso continua merecendo mais do que um clique. */
-        box.querySelectorAll('button[data-excluir]').forEach(function(b){
-          b.addEventListener('click', function(){
-            var m = (MOVS||[]).filter(function(x){ return String(x.id)===b.dataset.excluir; })[0];
-            if (!m) return;
-            var alvo = String(m.tipoCaixa||'').trim();
-            var dito = prompt('EXCLUIR este lançamento de ' + Q.num(m.qtd) + ' ' + alvo +
-              ' (' + (m.origem||'—') + ' para ' + (m.destino||'—') + ').\n\n' +
-              'Ele sai da lista, do saldo, do painel e do extrato, e fica na LIXEIRA — de ' +
-              'onde dá para restaurar. Para deixá-lo à vista, sem valer, use o botão ' +
-              '"cancelar".\n\nEscreva ' + alvo + ' para confirmar:');
-            if (dito === null) return;
-            if (String(dito).trim().toUpperCase() !== alvo.toUpperCase()) {
-              return Q.toast('Não confere — nada foi excluído.','erro');
-            }
-            Q.post({acao:'excluirMovimento', id:b.dataset.excluir, usuarioId:Q.sessao().id}).then(function(r){
-              if (!r.ok) throw new Error(r.erro);
-              Q.toast('Lançamento excluído — está na lixeira.','ok');
-              carregarMovimentos(); carregarPainel(); atualizarLixeiraSeAberta();
-            }).catch(function(e){ Q.toast(e.message,'erro'); });
-          });
-        });
+    abrirFolha('folhaAcoes');
   }
+
+  /* ---------- as folhas que sobem de baixo ----------
+     Uma de cada vez, e o véu fecha todas: duas abertas empilhadas deixam a de baixo
+     sem saída, e no celular não há canto para clicar fora. */
+  function abrirFolha(id){
+    var f = document.getElementById(id);
+    var veu = document.getElementById('veuFolha');
+    if (!f || !veu) return;
+    fecharFolhas();
+    f.hidden = false; veu.hidden = false;
+  }
+
+  function fecharFolhas(){
+    document.querySelectorAll('.folha').forEach(function(f){ f.hidden = true; });
+    /* A caixa de filtros é folha só no celular: no computador ela é um bloco comum, e
+       tirar a classe não faz nada — por isso não há um caminho separado para cada
+       largura. */
+    document.querySelectorAll('.filtros-caixa.aberta').forEach(function(f){
+      f.classList.remove('aberta');
+    });
+    var veu = document.getElementById('veuFolha');
+    if (veu) veu.hidden = true;
+  }
+
+  /* Três saídas: o X, o véu e a tecla Esc. Uma folha que só fecha pelo X é uma folha em
+     que alguém fica preso quando o X sai da vista com o teclado aberto. */
+  (function(){
+    var veu = document.getElementById('veuFolha');
+    if (veu) veu.addEventListener('click', fecharFolhas);
+    document.addEventListener('click', function(e){
+      if (e.target.closest('[data-fechar-folha]')) fecharFolhas();
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') fecharFolhas();
+    });
+  })();
   /* O rótulo agora diz o que a linha é E em que pé está — Tipo e Status viraram uma
      coluna só. As cores seguem o mesmo sentido de sempre: azul saiu, verde fechou,
      amarelo falta parte, vermelho sumiu. */

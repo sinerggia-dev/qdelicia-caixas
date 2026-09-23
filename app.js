@@ -593,10 +593,21 @@
    * A ORDEM DE CHEGADA É MANTIDA: quem ordena é quem monta a lista, e reordenar aqui
    * faria a tela discordar do servidor sem nenhum motivo visível.
    */
+  /** A chave que junta as linhas de uma remessa — e que a tela usa para achá-las de volta.
+   *
+   * Mora aqui porque é usada DUAS vezes: para agrupar, e para, a partir do cartão,
+   * encontrar as linhas que ele representa. Escrita nos dois lugares, a linha sem `lote`
+   * era agrupada por `id:M1` e procurada por `lote`, não achava nada, e o botão de ações
+   * do cartão não abria — sem erro nenhum no console.
+   */
+  function chaveDoLote(m) {
+    return (m && m.lote) || ('id:' + (m && m.id));
+  }
+
   function agruparLancamentos(lista) {
     var grupos = [], porChave = {};
     (lista || []).forEach(function (m) {
-      var chave = m.lote || ('id:' + m.id);
+      var chave = chaveDoLote(m);
       var g = porChave[chave];
       if (g && g.caixas[String(m.tipoCaixaId)]) {
         /* Já tem esta caixa: fecha o grupo para novas entradas e começa outro. A chave
@@ -1147,7 +1158,7 @@
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,
-    agruparLancamentos: agruparLancamentos,
+    agruparLancamentos: agruparLancamentos, chaveDoLote: chaveDoLote,
     gruposDaNavegacao: gruposDaNavegacao,
     quemEsta: quemEsta, iniciais: iniciais,
     barraAging: barraAging, assinatura: assinatura,
