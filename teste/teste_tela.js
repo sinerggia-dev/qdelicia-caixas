@@ -4289,6 +4289,38 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   ok(/gente \? '' :[\s\S]{0,120}Saldo inicial/.test(cartao),
     'a visão de gente não tem saldo inicial — ali a linha é uma pessoa, e não um dia');
 
+  /* --- o rótulo em branco, e a cor num risco ------------------------------
+     Antes a cor tingia o RÓTULO: "Saída" em cinza de apoio ao lado de um número verde.
+     Quem carrega a identidade passou a ser um risco de 4px, e o texto ficou com a
+     legibilidade máxima — 9,91:1 contra os 5,26 do cinza. */
+  ok(/\.ext__l span\{[^}]*color:var\(--txt\)/.test(css),
+    'o rótulo do extrato é branco cheio, e não o cinza de apoio');
+  ok(/\.ext__l span::before\{[^}]*background:var\(--marca/.test(css),
+    'e a cor virou um risco antes dele — a identidade fica, sem custar leitura');
+  [['inicial', '--txt'], ['saida', '--verde'], ['retorno', '--marca-txt']]
+    .forEach(function (p) {
+      ok(new RegExp('\\.ext__l\\.ext--' + p[0] + '\\{--marca:var\\(' + p[1] + '\\)\\}').test(css),
+        'o risco de ' + p[0] + ' sai do token ' + p[1] + ' — o MESMO dos indicadores ' +
+        'logo acima, e não uma segunda paleta para a mesma ideia', p[0]);
+      ok(new RegExp('\\.ext__l\\.ext--' + p[0] + ' b\\{color:var\\(' + p[1] + '\\)\\}').test(css),
+        'e o número dessa linha também', p[0]);
+    });
+  ok(/class="ext__l ext--inicial"/.test(cartao) &&
+     /class="ext__l ext--saida"/.test(cartao) &&
+     /class="ext__l ext--retorno"/.test(cartao),
+    'as três linhas declaram qual são — sem a classe, o risco nasce cinza e a ' +
+    'identidade some');
+
+  /* O TEXTO PEQUENO SUBIU DE CINZA. Ele passava em AA no cinza de apoio (5,26:1), então
+     isto não é conserto de reprovação: onze pixels de cinza médio, num cartão cujo
+     número tem vinte, é a linha que a pessoa pula. */
+  ok(/\.ftile \.d\{[^}]*color:var\(--txt2\)/.test(css),
+    'o rodapé do indicador está no claro, e não no cinza de apoio');
+  ok(/\.ftile \.r\{[^}]*font-weight:500[^}]*color:var\(--txt2\)/.test(css),
+    'e o rótulo também, com peso 500 para sustentar a letra pequena');
+  ok(/\.tipos__l dt\{[^}]*color:var\(--txt2\)\}/.test(css),
+    'o nome da caixa no quadradinho também — em cinza ele some antes do número que explica');
+
   /* A COLISÃO DE CLASSE que a foto pegou: `.dia` já era o separador de dia dos cartões
      de Lançamentos, e é `display:flex`. O cartão do extrato herdava o flex e saía
      deitado, com a rota ao lado do saldo. */
