@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=172364e9">
+<link rel="stylesheet" href="styles.css?v=2cf39879">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1226,7 +1226,11 @@
     var btn = document.getElementById('btnVerFiltros');
     var limpar = document.getElementById('btnLimparRetornos');
     var n = quantosFiltrosFluxo();
-    if (limpar) limpar.disabled = !n;
+    /* SÓ EXISTE QUANDO HÁ O QUE LIMPAR. Antes ele ficava aceso e desligado o tempo todo,
+       e um botão permanentemente apagado é ruído: ninguém aprende com ele, e quem tenta
+       clicar conclui que a tela travou. Aparecendo só quando há filtro, ele vira também
+       o AVISO de que a tabela está recortada. */
+    if (limpar) limpar.hidden = !n;
     if (!pop || !btn) return;
     pop.hidden = !FILTROS_ABERTO;
     btn.setAttribute('aria-expanded', FILTROS_ABERTO ? 'true' : 'false');
@@ -2011,14 +2015,43 @@
       /* Verde, e o unico que NAO responde aos filtros: ele sai do razao — o que esta nas
          nossas casas AGORA —, e nao do fluxo do periodo. Filtrar por uma origem nao o
          estreitaria, so o deixaria parecendo travado, e por isso o rodape avisa. */
-      tile(Q.num(estoque), 'Total no Estoque', 'nos galpões e unidades, fora do filtro', 'ok')+
-      tile(Q.num(t.saida), 'Total de Saída', 'no período filtrado')+
-      tile(Q.num(t.retorno), 'Total de Retorno',
-           Q.num(t.saida + t.retorno)+' caixas movimentadas')+
-      tile(Q.num(t.deficit), 'Caixas que Saíram e Não Voltaram', 'no mês, somando só quem deve',
-           t.deficit ? 'aviso' : 'ok')+
-      tile(t.taxaRetorno===null?'—':t.taxaRetorno+'%', 'Taxa de Retorno do Mês', 'meta '+metaFluxo()+'%',
-           t.taxaRetorno!==null && t.taxaRetorno < metaFluxo() ? 'alerta' : 'ok');
+      tileCor(Q.num(estoque), 'Total no Estoque',
+        estoque < 0 ? 'abaixo do zero' : 'nos galpões e unidades, fora do filtro',
+        COR_TILE.estoque,
+        '<div class="desenho desenho--zero"><span class="risco"></span><span class="rot">0</span>'+
+        '<span class="cai"></span><span class="cai"></span><span class="cai"></span></div>')+
+
+      tileCor(Q.num(t.saida), 'Total de Saída', 'no período filtrado', COR_TILE.saida,
+        '<div class="desenho desenho--pista">'+caminhao(4)+'</div>')+
+
+      /* O caminhão do retorno vem com a carga PROPORCIONAL ao que voltou: quatro
+         quadrados, quantos couberem na fração. É o mesmo número do rodapé, desenhado. */
+      tileCor(Q.num(t.retorno), 'Total de Retorno',
+        Q.num(t.saida + t.retorno)+' caixas movimentadas', COR_TILE.retorno,
+        '<div class="desenho desenho--pista desenho--volta">'+
+        caminhao(t.saida ? Math.max(0, Math.min(4, Math.round(t.retorno / t.saida * 4))) : 0)+
+        '</div>')+
+
+      tileCor(Q.num(t.deficit), 'Caixas que Saíram e Não Voltaram',
+        'no mês, somando só quem deve', COR_TILE.fora,
+        '<div class="desenho desenho--fora"><span class="via"></span><span class="casa"></span>'+
+        '<span class="tenta"></span><span class="la"><i></i><i></i><i></i></span></div>')+
+
+      /* A BARRA DE META responde o que a porcentagem sozinha não responde: perto ou
+         longe do combinado. Sem taxa não há barra — uma barra vazia diria "zero por
+         cento", e zero por cento é outra coisa que "ainda não saiu nada". */
+      tileCor(t.taxaRetorno===null ? '—' : t.taxaRetorno+'%', 'Taxa de Retorno do Mês',
+        'meta '+metaFluxo()+'%'+
+        (t.taxaRetorno===null ? '' :
+         ' · '+(t.taxaRetorno >= metaFluxo()
+                ? 'na meta'
+                : 'faltam '+(metaFluxo() - t.taxaRetorno)+' pontos')),
+        COR_TILE.taxa,
+        t.taxaRetorno===null ? '' :
+        '<div class="meta"><i style="width:'+Math.min(100, t.taxaRetorno)+'%"></i>'+
+        '<span class="alvo" style="left:'+Math.min(100, metaFluxo())+'%"></span></div>');
+
+    vigiarTiles();
   }
 
   /* Três frases diferentes: "o mês está vazio", "ninguém informou motorista" e "este
@@ -2063,6 +2096,57 @@
   function tile(v,r,d,c){
     return '<div class="ftile '+(c||'')+'"><div class="r">'+r+'</div>'+
       '<div class="v">'+v+'</div><div class="d">'+d+'</div></div>';
+  }
+
+  /* ---------- os cinco cartões do Painel de Ativos ----------
+   *
+   * `tile()` acima pinta por SEVERIDADE e continua servindo ao resto do app. Estes cinco
+   * não são isso: "Total de Saída" não é bom nem mau, é o que saiu. Cada um tem cor
+   * própria, e ela é identidade — o mesmo tom no risco, no número e no desenho.
+   *
+   * A cor sai de um TOKEN, e não escrita solta: solta, ela escaparia da conferência de
+   * contraste do projeto e chegaria ao galpão sem passar por ela. */
+  var COR_TILE = {
+    estoque: 'var(--txt)', saida: 'var(--verde)', retorno: 'var(--marca-txt)',
+    fora: 'var(--ambar-forte)', taxa: 'var(--roxo-txt)'
+  };
+
+  function tileCor(v, r, d, cor, desenho){
+    return '<div class="ftile" style="--cor:'+cor+'"><div class="r">'+r+'</div>'+
+      '<div class="v">'+v+'</div><div class="d">'+d+'</div>'+(desenho||'')+'</div>';
+  }
+
+  /* O caminhão, com a carga à vista: quanto mais cheio, mais do que saiu já voltou. Os
+     quadrados vazios são a diferença — é o mesmo número do cartão, desenhado. */
+  function caminhao(cheios){
+    var cx = '';
+    for (var i = 0; i < 4; i++){
+      cx += '<rect x="'+(4+i*7)+'" y="6" width="6" height="8" rx="1" fill="'+
+        (i < cheios ? 'currentColor' : 'none')+'" stroke="currentColor" stroke-opacity="'+
+        (i < cheios ? '1' : '.35')+'" stroke-width=".9"/>';
+    }
+    return '<svg class="caminhao" viewBox="0 0 58 24" fill="none" aria-hidden="true" '+
+      'style="color:var(--cor)">'+
+      '<rect x="1.5" y="2.5" width="32" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/>'+cx+
+      '<path d="M33.5 7.5h8l5 5v4h-13z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>'+
+      '<circle cx="11" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
+      '<circle cx="26" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
+      '<circle cx="42" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
+      '<path d="M1.5 16.5h32M33.5 16.5h13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+  }
+
+  /* A faixa toda para de animar quando sai da tela. Ligado uma vez, e não a cada
+     desenho: um observador por redesenho empilharia dezenas deles no mesmo elemento. */
+  var OLHO_TILES = null;
+  function vigiarTiles(){
+    var faixa = document.getElementById('fluxoTiles');
+    if (!faixa) return;
+    if (!('IntersectionObserver' in window)) { faixa.classList.add('rodando'); return; }
+    if (OLHO_TILES) return;
+    OLHO_TILES = new IntersectionObserver(function(e){
+      faixa.classList.toggle('rodando', e[0].isIntersecting);
+    }, { rootMargin: '80px' });
+    OLHO_TILES.observe(faixa);
   }
 
   document.getElementById('btnAtualizarRetornos').addEventListener('click', carregarPainel);

@@ -4114,10 +4114,13 @@ console.log('\n== os filtros num painel suspenso ==');
     'e o grupo "Em déficit" da esquerda conta junto, porque também esconde linhas',
     so_grupo.els.btnVerFiltros.textContent);
 
-  /* A mesma funcao cuida do Limpar: duas contagens sobre a mesma regra divergiriam. */
-  ok(fechado.els.btnLimparRetornos.disabled === true &&
-     suja.els.btnLimparRetornos.disabled === false,
-    'e a mesma função acende o Limpar — uma contagem só para os dois botões');
+  /* A mesma funcao cuida do Limpar: duas contagens sobre a mesma regra divergiriam.
+     Ele passou de DESLIGADO a AUSENTE quando não há filtro: um botão permanentemente
+     apagado é ruído, e quem tenta clicar conclui que a tela travou. Aparecendo só quando
+     há o que limpar, ele vira também o aviso de que a tabela está recortada. */
+  ok(fechado.els.btnLimparRetornos.hidden === true &&
+     suja.els.btnLimparRetornos.hidden === false,
+    'e a mesma função mostra o Limpar — uma contagem só para os dois botões');
 
   /* --- as tres saidas do painel ------------------------------------------- */
   /* Dentro do ouvinte DO GATILHO, e nao em qualquer lugar do arquivo: `stopPropagation`
@@ -4174,11 +4177,11 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      que passaria como "nenhum problema". A conferencia abaixo e a guarda. */
   var i = adm.indexOf("document.getElementById('fluxoTiles').innerHTML");
   var fileira = adm.slice(i, adm.indexOf(";\n", i));
-  ok(i > 0 && fileira.length > 200 && fileira.indexOf('tile(') > 0,
+  ok(i > 0 && fileira.length > 200 && fileira.indexOf('tileCor(') > 0,
     'o recorte pegou a fileira inteira — vazio, todo teste abaixo passaria sem testar',
     fileira.length);
 
-  var quantos = fileira.split('tile(').length - 1;
+  var quantos = fileira.split('tileCor(').length - 1;
   ok(quantos === 5, 'a fileira tem cinco cartões', quantos);
 
   /* A ORDEM e pedida, entao e conferida. Um cartao novo enfiado no meio nao quebra nada
@@ -4201,20 +4204,87 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   ok(rotulos.every(function (r) { return /^[A-ZÀ-Ý]/.test(r); }),
     'todo rótulo começa em maiúscula, com os conectores em minúscula', rotulos);
 
+  /* --- uma cor por indicador ----------------------------------------------
+     Pintados por SEVERIDADE, quatro dos cinco ficavam verdes e a faixa virava uma
+     mancha. Agora cada um tem cor própria, e ela é identidade: o mesmo tom no risco da
+     esquerda, no número e no desenho. */
+  var iCor = adm.indexOf('var COR_TILE = {');
+  var mapaCor = adm.slice(iCor, adm.indexOf('};', iCor));
+  ok(iCor > 0, 'as cinco cores moram num mapa só, e não espalhadas pela montagem');
+  ['estoque', 'saida', 'retorno', 'fora', 'taxa'].forEach(function (k) {
+    ok(new RegExp(k + ":\\s*'var\\(--[a-z-]+\\)'").test(mapaCor),
+      'a cor de ' + k + ' sai de um TOKEN — escrita solta, escaparia da medição de ' +
+      'contraste e chegaria ao galpão sem passar por ela', mapaCor);
+  });
+  var usadas = (mapaCor.match(/var\(--[a-z-]+\)/g) || []);
+  ok(usadas.length === 5 && new Set(usadas).size === 5,
+    'e as cinco são DIFERENTES entre si — repetida, a cor deixa de identificar o cartão',
+    usadas);
+  ['COR_TILE.estoque', 'COR_TILE.saida', 'COR_TILE.retorno', 'COR_TILE.fora',
+   'COR_TILE.taxa'].forEach(function (c) {
+    ok(fileira.indexOf(c) > 0, 'o cartão usa ' + c, fileira.slice(0, 80));
+  });
+
+  /* --- os desenhos dizem o que o número diz ------------------------------- */
+  ok(/desenho--zero/.test(fileira),
+    'o estoque mostra caixa cruzando a linha do zero: é o SINAL, e não a quantidade — ' +
+    'não há referência para dizer se −80 é pouco, e barra proporcional a nada seria mentira');
+  ok(/desenho desenho--pista">'\+caminhao\(4\)/.test(fileira),
+    'a saída é um caminhão cheio indo');
+  ok(/desenho--volta[\s\S]{0,120}caminhao\(t\.saida \? Math\.max\(0, Math\.min\(4, Math\.round\(t\.retorno \/ t\.saida \* 4\)\)\) : 0\)/
+    .test(fileira),
+    'e o retorno volta com a carga PROPORCIONAL ao que voltou — cheio sempre, ele ' +
+    'desmentiria o número ao lado');
+  ok(/desenho--fora/.test(fileira),
+    'o que não voltou são caixas paradas no destino, e uma que tenta voltar e some');
+  ok(fileira.indexOf('desenho') > 0 &&
+     fileira.slice(fileira.indexOf('Taxa de Retorno')).indexOf('desenho') < 0,
+    'a taxa NÃO tem desenho — ela já tem a barra de meta, que é uma leitura melhor do ' +
+    'que qualquer movimento');
+
+  /* --- a barra de meta ----------------------------------------------------- */
+  ok(/class="meta"><i style="width:'\+Math\.min\(100, t\.taxaRetorno\)\+'%"/.test(fileira),
+    'a barra enche até a taxa, presa em 100% — acima disso ela vazaria do trilho');
+  ok(/class="alvo" style="left:'\+Math\.min\(100, metaFluxo\(\)\)\+'%"/.test(fileira),
+    'e o risco marca a meta, da MESMA função que escreve "meta 90%" no rodapé');
+  ok(/t\.taxaRetorno===null \? '' :\s*\n\s*'<div class="meta">/.test(fileira),
+    'sem taxa não há barra — uma barra vazia diria "zero por cento", e zero por cento é ' +
+    'outra coisa que "ainda não saiu nada"');
+
+  /* --- a animação para quando sai da tela ---------------------------------- */
+  ok(/vigiarTiles\(\);/.test(adm) && /IntersectionObserver/.test(adm),
+    'a faixa para de animar fora da tela — animação escondida gasta bateria do celular ' +
+    'do galpão sem ninguém ver');
+  ok(/if \(OLHO_TILES\) return;/.test(adm),
+    'e o observador é ligado UMA vez: um por redesenho empilharia dezenas no mesmo elemento');
+  ok(/\.ftiles:not\(\.rodando\) \.desenho \*\{animation-play-state:paused\}/.test(css),
+    'quem pausa é o CSS, pela classe que o observador liga');
+  ok(/@media \(prefers-reduced-motion:reduce\)[\s\S]{0,600}\.desenho \*,\.desenho::after\{animation:none!important\}/
+    .test(css),
+    'e quem pediu menos movimento recebe o desenho parado, não o desenho apagado — ' +
+    'apagá-lo tiraria a informação junto');
+
   /* --- o que segue o filtro, e o que nao segue ---------------------------- */
   var j = adm.indexOf('var t = totaisDe(lista);');
   ok(j > 0 && j < i, 'os totais saem da lista já filtrada, e não do período inteiro');
-  ok(/tile\(Q\.num\(t\.saida\), 'Total de Saída'/.test(fileira),
+  ok(/tileCor\(Q\.num\(t\.saida\), 'Total de Saída'/.test(fileira),
     'a saída lê esses totais, por isso acompanha o filtro', fileira);
-  ok(/tile\(Q\.num\(t\.retorno\), 'Total de Retorno'/.test(fileira),
+  ok(/tileCor\(Q\.num\(t\.retorno\), 'Total de Retorno'/.test(fileira),
     'e o retorno também', fileira);
   ok(/Q\.num\(t\.saida \+ t\.retorno\)/.test(fileira),
     'a soma dos dois é o rodapé do cartão de retorno');
 
   /* O estoque e o unico que NAO segue o filtro: sai do razao, e nao do fluxo do periodo.
-     Sem o aviso no rodape, ele pareceria travado quando a tabela embaixo muda. */
-  ok(/tile\(Q\.num\(estoque\), 'Total no Estoque', '[^']*fora do filtro', 'ok'\)/.test(fileira),
-    'o estoque avisa que está fora do filtro, e sai em verde', fileira);
+     Sem o aviso no rodape, ele pareceria travado quando a tabela embaixo muda.
+
+     Ele DEIXOU DE SAIR EM VERDE. Verde ali era o mesmo verde de "tudo certo", para um
+     número que pode estar negativo — e com quatro dos cinco cartões verdes a faixa virava
+     uma mancha só. Agora tem cor própria, e o rodapé diz quando está abaixo do zero. */
+  ok(/tileCor\(Q\.num\(estoque\), 'Total no Estoque',\s*\n\s*estoque < 0 \? 'abaixo do zero' : '[^']*fora do filtro'/
+    .test(fileira),
+    'o estoque avisa que está fora do filtro, e diz quando passou do zero', fileira);
+  ok(/COR_TILE\.estoque/.test(fileira) && !/'Total no Estoque'[^)]*'ok'/.test(fileira),
+    'e não usa mais a cor de severidade — verde ali é a cor de "tudo certo"');
   ok(/\.ftile\.ok \.v\{color:var\(--verde\)\}/.test(css),
     'e "ok" é verde de verdade no CSS — o rótulo sozinho não pinta nada');
 
@@ -4365,9 +4435,9 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
      codigo que nao tem nada a ver com esta regra. */
   var ab = adm.indexOf('function ajustarBarraFiltros()');
   var corpoBarra = adm.slice(ab, adm.indexOf('\n  }', ab));
-  ok((corpoBarra.match(/\.disabled = /g) || []).length === 1 &&
-     /if \(limpar\) limpar\.disabled = !n;/.test(corpoBarra),
-    'e so um lugar liga e desliga o Limpar — espalhar isso deixa o botao aceso depois ' +
+  ok((corpoBarra.match(/limpar\.hidden = /g) || []).length === 1 &&
+     /if \(limpar\) limpar\.hidden = !n;/.test(corpoBarra),
+    'e so um lugar mostra e esconde o Limpar — espalhar isso deixa o botao aceso depois ' +
     'de limpo', corpoBarra);
 
   var html = adm.slice(adm.indexOf('id="btnLimparRetornos"') - 200,

@@ -779,6 +779,113 @@ tr.ruim{background:var(--vermelho-claro)}
 .ftile.alerta{border-left-color:var(--vermelho)} .ftile.alerta .v{color:var(--vermelho)}
 .ftile.aviso{border-left-color:var(--ambar)} .ftile.aviso .v{color:var(--ambar-forte)}
 
+/* ============ UMA COR POR INDICADOR, no Painel de Ativos ============
+ *
+ * As três classes acima pintam por SEVERIDADE — verde bom, âmbar atenção, vermelho ruim.
+ * Servem para um número que pode estar certo ou errado. Os cinco cartões do Painel de
+ * Ativos não são isso: "Total de Saída" não é bom nem mau, é o que saiu. Pintados por
+ * severidade, quatro deles ficavam verdes e a faixa virava uma mancha só — e "Total no
+ * Estoque" usava o MESMO verde de "tudo certo" para um número que pode estar negativo.
+ *
+ * Aqui cada cartão tem cor PRÓPRIA, e ela é identidade: a mesma cor no risco da
+ * esquerda, no número e no desenho. Quem olha de longe reconhece o cartão pela cor antes
+ * de ler o rótulo.
+ *
+ * MEDIDO, com os tokens que já existem (nenhuma cor nova, então a conferência de
+ * contraste do projeto continua cobrindo todas):
+ *   estoque       --txt          9,91:1
+ *   saída         --verde        6,22:1
+ *   retorno       --marca-txt    5,66:1
+ *   não voltaram  --ambar-forte  6,41:1
+ *   taxa          --roxo-txt     5,62:1
+ *
+ * O modelo pedia 55° de distância de matiz entre vizinhas. Saída e retorno ficam em 54°
+ * — um grau abaixo, e aceito: o verde tem 75% de saturação contra 44% do azul, e essa
+ * diferença separa os dois mais do que o grau que falta. O par estoque/saída aparece em
+ * 52° na conta crua, e ali a conta não quer dizer nada: `--txt` tem 5% de saturação, é
+ * branco, e matiz de branco não confunde com cor nenhuma. */
+.ftile[style*="--cor"]{border-left-color:var(--cor)}
+.ftile[style*="--cor"] .v{color:var(--cor)}
+
+/* ---------- os desenhos ----------
+ * Cada um mostra o que o número DIZ, e não uma decoração: caminhão indo e voltando para
+ * saída e retorno, caixa cruzando o zero para o estoque, caixa que tenta voltar e some
+ * para o que não voltou. A taxa não tem desenho — ela já tem a barra de meta, que é uma
+ * leitura melhor do que qualquer movimento.
+ *
+ * `.rodando` é ligado por `IntersectionObserver`: fora da tela, tudo para. Animação que
+ * roda escondida gasta bateria do celular do galpão sem ninguém ver. */
+.desenho{position:relative;height:26px;margin-top:5px;overflow:hidden;border-radius:6px}
+.ftiles:not(.rodando) .desenho *{animation-play-state:paused}
+.ftiles:not(.rodando) .desenho::after{animation-play-state:paused}
+
+.desenho--pista::after{content:"";position:absolute;left:0;right:0;bottom:6px;height:2px;
+  background:repeating-linear-gradient(90deg,var(--linha) 0 12px,transparent 12px 24px);
+  background-size:24px 2px;animation:asfalto 3.2s linear infinite}
+.desenho--volta::after{animation-direction:reverse}
+@keyframes asfalto{from{background-position:0 0}to{background-position:-24px 0}}
+.caminhao{position:absolute;bottom:1px;width:54px;height:22px}
+.desenho--pista .caminhao{left:-58px;animation:indo 13s linear infinite}
+.desenho--volta .caminhao{left:100%;animation:voltando 13s linear infinite;transform:scaleX(-1)}
+@keyframes indo{from{left:-58px}to{left:100%}}
+@keyframes voltando{from{left:100%}to{left:-58px}}
+
+/* O estoque mostra o SINAL, não a quantidade: não há referência para dizer se −80 é
+   pouco ou muito, e uma barra proporcional a nada seria desonesta. O que se vê é caixa
+   saindo e passando abaixo da linha do zero. */
+.desenho--zero .risco{position:absolute;left:0;right:0;top:11px;height:2px;
+  background:repeating-linear-gradient(90deg,var(--linha) 0 11px,transparent 11px 22px)}
+.desenho--zero .rot{position:absolute;right:2px;top:0;font-family:var(--fonte-mono);
+  font-size:9px;color:var(--txt3)}
+.cai{position:absolute;top:0;width:11px;height:9px;border:1.2px solid var(--cor);
+  border-radius:2px;opacity:0;animation:cair 6s ease-in infinite}
+.cai:nth-of-type(2){left:8px}
+.cai:nth-of-type(3){left:30px;animation-delay:2s}
+.cai:nth-of-type(4){left:52px;animation-delay:4s}
+@keyframes cair{
+  0%{transform:translateY(0);opacity:0}
+  14%{opacity:1}
+  58%{transform:translateY(14px);opacity:1}
+  100%{transform:translateY(22px);opacity:0}
+}
+
+/* Caixas paradas no destino, e uma que tenta voltar e some no meio do caminho. É
+   literalmente o que o número diz. */
+.desenho--fora .via{position:absolute;left:0;right:0;bottom:7px;height:2px;
+  background:repeating-linear-gradient(90deg,var(--linha) 0 10px,transparent 10px 20px)}
+.desenho--fora .casa{position:absolute;left:2px;bottom:4px;width:15px;height:13px;
+  border:1.3px solid var(--neutro);border-radius:2px}
+.desenho--fora .la{position:absolute;right:3px;bottom:5px;display:flex;gap:3px}
+.desenho--fora .la i{width:9px;height:11px;border:1.2px solid var(--cor);border-radius:2px}
+.tenta{position:absolute;right:42px;bottom:5px;width:9px;height:11px;
+  border:1.2px solid var(--cor);border-radius:2px;opacity:0;
+  animation:tentaVoltar 7.5s ease-in-out infinite}
+@keyframes tentaVoltar{
+  0%{transform:translateX(0);opacity:0}
+  16%{opacity:1}
+  56%{transform:translateX(-34px);opacity:.9}
+  82%{transform:translateX(-48px);opacity:0}
+  100%{transform:translateX(-48px);opacity:0}
+}
+
+/* A BARRA DE META da taxa de retorno. Ela responde o que a porcentagem sozinha não
+   responde: perto ou longe do que foi combinado. O risco marca a meta. */
+.meta{position:relative;height:5px;margin-top:7px;border-radius:999px;
+  background:var(--campo);overflow:hidden}
+.meta i{display:block;height:100%;width:var(--pct,0%);border-radius:999px;background:var(--cor)}
+.meta .alvo{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--txt2);opacity:.6}
+
+/* QUEM PEDIU MENOS MOVIMENTO recebe menos. O desenho fica, parado no fim do percurso:
+   apagá-lo tiraria também a informação que ele carrega. */
+@media (prefers-reduced-motion:reduce){
+  .desenho *,.desenho::after{animation:none!important}
+  .desenho--pista .caminhao{left:auto;right:6px}
+  .desenho--volta .caminhao{left:6px}
+  .cai{opacity:1;transform:translateY(14px)}
+  .cai:nth-of-type(3),.cai:nth-of-type(4){display:none}
+  .tenta{opacity:.9;transform:translateX(-34px)}
+}
+
 /* ---------- guia Retornos ---------- */
 /* Trilho escuro à esquerda + conteúdo à direita. O trilho NÃO é uma segunda navegação:
    a navegação do painel são as abas de cima. Aqui ele é o filtro da tabela, com a conta
