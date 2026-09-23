@@ -41,6 +41,23 @@ var fs = {
   existsSync: function (p) { return fsReal.existsSync(p); }
 };
 
+/* SEM OS COMENTÁRIOS, para as afirmações que cobram uma CHAMADA.
+ *
+ * Esta conferência lê o código por texto, e texto não distingue código de comentário.
+ * Pego numa sabotagem: `Q.relogioETempo()` foi comentada com `//` e a afirmação de que
+ * "os dois apps chamam" continuou verde — a chamada estava lá, morta, e o regex a
+ * encontrou. É a mesma família do defeito que já escapou três vezes aqui, o de a
+ * afirmação casar com o comentário que eu mesmo escrevi explicando a regra.
+ *
+ * O `[^:]` antes do `//` é para não decepar `https://` dentro de uma string. É um corte
+ * grosseiro e sabe-se disso: serve para cobrar que uma linha EXISTA viva, não para
+ * analisar o arquivo. */
+function semComentarios(txt) {
+  return String(txt)
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
 var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 var falhas = 0;
 
@@ -5646,25 +5663,56 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
   var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  /* ---- EM TODOS OS MÓDULOS, e não só no painel ---------------------------
+   * A faixa nasceu dentro do `admin.html`, e por isso existia nas sete páginas do
+   * escritório e em NENHUMA do app de campo — quem está no pátio, que é justamente
+   * quem precisa saber se vai chover, era quem não via. */
+  ok(/function relogioETempo\(\)/.test(js) && /relogioETempo: relogioETempo,/.test(js),
+    'o relógio e o tempo moram no `app.js`, e os dois apps alcançam pelo `Q`');
+  /* SEM OS COMENTÁRIOS: pego numa sabotagem — a chamada foi comentada com `//` e esta
+     afirmação continuou verde, porque o texto dela ainda estava no arquivo. */
+  ok(/Q\.relogioETempo\(\);/.test(semComentarios(adm)) &&
+     /Q\.relogioETempo\(\);/.test(semComentarios(idx)),
+    'e OS DOIS o chamam — o do escritório e o do galpão');
+  ok(!/class="tempo"/.test(adm) && !/class="tempo"/.test(idx),
+    'e nenhum dos dois traz a marcação escrita à mão: duas cópias da mesma estrutura ' +
+    'em arquivos diferentes divergem, e a do app menos olhado é a que apodrece');
+  /* NO `.cab-pagina`, e não dentro de uma página. O cabeçalho é um só para o app
+     inteiro e fica FORA do `.corpo-pagina`, que é quem troca de conteúdo — por isso a
+     faixa aparece em todos os módulos sem ser remontada a cada troca de aba. */
+  ok(/var cab = document\.querySelector\('\.cab-pagina'\);/.test(js),
+    'ela se monta no cabeçalho da página, que fica FORA do corpo que troca — dentro de ' +
+    'uma `.pagina` ela existiria só naquele módulo');
+  ok(/if \(!cab \|\| cab\.querySelector\('\.tempo'\)\) return null;/.test(js),
+    'e chamar duas vezes não empilha duas faixas — medido: a segunda chamada devolve ' +
+    '`null` e o documento continua com uma');
+  /* AS REFERÊNCIAS SAEM DA PRÓPRIA CAIXA. O app de campo já teve dois elementos com o
+     mesmo id — `marcaNome`, na barra e na gaveta — e a busca global entregou o errado. */
+  ok(!/document\.getElementById\('tempo/.test(js) &&
+     /caixa\.querySelector\('\.tempo__t'\)/.test(js),
+    'e as peças saem de dentro da faixa, não de uma busca global por id');
 
   /* ---- o relógio é o do GALPÃO ------------------------------------------- */
   ok(/var FUSO_OPERACAO = 'America\/Recife';/.test(js) &&
      (js.match(/var FUSO_OPERACAO =/g) || []).length === 1,
     'o fuso da operação mora num lugar só — dois números iguais em arquivos diferentes ' +
     'divergem no dia em que um deles mudar');
-  ok(/fuso: Q\.FUSO_OPERACAO/.test(adm),
-    'e o relógio do cabeçalho lê esse mesmo fuso, não um escrito à mão ao lado');
+  ok(/nome: 'Recife', lat: -8\.0632, lon: -34\.8926, fuso: FUSO_OPERACAO/.test(js) &&
+     (js.match(/var UNIDADE =/g) || []).length === 1,
+    'e a unidade também: um lugar só para trocar de cidade, valendo para os dois apps');
   /* AS DUAS, e contadas: a data ficou no fuso certo e a HORA voltou para o relógio da
      máquina, e a afirmação continuava verde achando a outra. */
-  ok((adm.match(/timeZone:UNIDADE\.fuso/g) || []).length === 2,
+  ok((js.match(/timeZone: UNIDADE\.fuso/g) || []).length === 2,
     'a data E a hora saem no fuso da unidade: quem confere de outro estado precisa ler ' +
     'a hora do galpão, senão "lançado às 17h" muda de significado');
   /* REAGENDA em vez de `setInterval`: intervalo acumula atraso e o relógio pula
      segundos num painel que fica aberto o dia inteiro. */
-  ok(/tique = setTimeout\(function\(\)\{ bater\(\); agendar\(\); \}, 1000 - \(Date\.now\(\) % 1000\)\);/
-    .test(adm),
+  ok(/tique = setTimeout\(function \(\) \{ bater\(\); agendar\(\); \}, 1000 - \(Date\.now\(\) % 1000\)\);/
+    .test(js),
     'o relógio se reagenda a cada volta, acertando pelo relógio do sistema');
-  ok(/if \(document\.hidden\) clearTimeout\(tique\);/.test(adm),
+  ok(/if \(document\.hidden\) clearTimeout\(tique\);/.test(js),
     'e para com a aba escondida — painel de galpão fica aberto o dia inteiro');
   /* NA REGRA DO RELÓGIO: a tabela numérica já usava `tabular-nums` noutra linha, e era
      ela que respondia por esta afirmação. */
@@ -5674,14 +5722,14 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
   /* SEM VALOR DE MENTIRA. O modelo trazia uma temperatura fixa no código para
      demonstrar sem internet; num painel publicado isso é um número inventado que
      ninguém desconfia. */
-  ok(!/TEMPO_FIXO/.test(adm),
+  ok(!/TEMPO_FIXO/.test(js),
     'não há temperatura fixa no código — número inventado no lugar do que não carregou ' +
     'é pior que o campo vazio');
   ok(/\.tempo--sem \.tempo__g\{color:var\(--txt3\)\}/.test(css) &&
-     /classList\.add\('tempo--sem'\)/.test(adm),
+     /elT\.classList\.add\('tempo--sem'\);/.test(js),
     'sem resposta, o grau fica apagado em "--°" e a hora continua: relógio que depende ' +
     'de internet é pior que relógio nenhum');
-  ok(/corta\.abort\(\); \}, 8000\)/.test(adm),
+  ok(/corta\.abort\(\); \}, 8000\)/.test(js),
     'a consulta corta em 8s — uma rede que aceita a conexão e não responde deixaria a ' +
     'promessa pendurada e a próxima empilharia em cima');
   /* NO CELULAR ELE NÃO SOME: vira uma faixa de uma linha. O cartão de duas colunas

@@ -508,7 +508,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=ab5eda3d"></script>
+<script src="app.js?v=312416ae"></script>
 <script>
 (function(){
   'use strict';
@@ -1984,6 +1984,12 @@
 
 
   window.addEventListener('dadosAtualizados', function(e){ DADOS = e.detail; });
+
+  /* A FAIXA DE HORA E TEMPO, a mesma do painel. Ela morava dentro do `admin.html`, e
+     o galpão — que é quem trabalha no pátio e precisa saber se vai chover — era
+     justamente quem não a via. Monta-se sozinha no `.cab-pagina`, que fica fora do
+     `.corpo-pagina`: aparece nas cinco páginas do app de campo, e não numa só. */
+  Q.relogioETempo();
 
   /* ---------------- arranque ---------------- */
   if (Q.sessao()) abrirApp(); else iniciarLogin();

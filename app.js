@@ -410,6 +410,186 @@
       .formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; });
     return p.year && p.month && p.day ? p.year + '-' + p.month + '-' + p.day : hoje();
   }
+  /* ================= RELÓGIO E TEMPO DA UNIDADE =================
+   *
+   * AQUI, E NÃO NO PAINEL. Nasceu dentro do `admin.html`, e por isso só existia nas sete
+   * páginas do escritório: quem estava no galpão, com o app de campo, não via hora nem
+   * tempo nenhum — e é justamente quem está no pátio que precisa saber se vai chover.
+   *
+   * A HORA É A DA OPERAÇÃO. Quem confere de outro estado — ou de casa, com o relógio do
+   * computador em outro fuso — precisa ler a hora do galpão: é ela que decide se um
+   * lançamento é "de hoje", e é por ela que a janela de dez minutos da correção conta.
+   * O mesmo fuso que o servidor usa em `FUSO_OPERACAO_H`.
+   *
+   * O TEMPO NÃO É ENFEITE: caixa de papelão em pátio molhado é perda, e chuva na rota é
+   * atraso de retorno. Fica ao lado da hora porque as duas respondem "como está lá
+   * agora". Vem da Open-Meteo, que não pede chave nem cadastro, e o que sai daqui é a
+   * coordenada do galpão — nada de pessoa nenhuma.
+   *
+   * SEM VALOR DE MENTIRA. Se a consulta não voltar, o grau fica apagado em "--°" e a
+   * hora continua: um número inventado no lugar do que não carregou é pior que o campo
+   * vazio, porque ninguém desconfia dele. */
+  var UNIDADE = {
+    /* Trocar aqui se a operação passar a ser de outra unidade. Um lugar só, e agora
+       vale para os DOIS apps. O fuso vem do `FUSO_OPERACAO` acima: é o MESMO que decide
+       o dia da operação nos atalhos de período e na janela de correção — dois relógios
+       diferentes na mesma tela discordariam sobre que dia é hoje. */
+    nome: 'Recife', lat: -8.0632, lon: -34.8926, fuso: FUSO_OPERACAO
+  };
+
+  /* A MARCAÇÃO SAI DAQUI TAMBÉM, e não de cada HTML. Ela é pura estrutura, sem uma
+     palavra que mude de página, e nasce `hidden` — sem o JS ela não aparece de qualquer
+     jeito, então copiá-la nos dois arquivos só criaria duas cópias para divergirem. */
+  var TEMPO_HTML =
+    '<div class="tempo__t" id="tempoT">' +
+      '<span class="tempo__ico" id="tempoIco" aria-hidden="true"></span>' +
+      '<span class="tempo__c">' +
+        '<span class="tempo__g" id="tempoGrau">--°</span>' +
+        '<span class="tempo__loc">' +
+          '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+               'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            '<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"></path>' +
+            '<circle cx="12" cy="10" r="2.6"></circle></svg>' +
+          '<span id="tempoLocal"></span>' +
+        '</span>' +
+      '</span>' +
+    '</div>' +
+    '<span class="tempo__div" aria-hidden="true"></span>' +
+    '<div class="tempo__d">' +
+      '<span class="tempo__data" id="tempoData"></span>' +
+      '<time class="tempo__hora" id="tempoHora"></time>' +
+    '</div>';
+
+  function relogioETempo() {
+    /* NO CABEÇALHO DA PÁGINA, que é um só para o app inteiro e fica FORA do
+       `.corpo-pagina` que troca de conteúdo. Por isso a faixa aparece em todos os
+       módulos sem precisar ser montada de novo a cada troca de aba. */
+    var cab = document.querySelector('.cab-pagina');
+    if (!cab || cab.querySelector('.tempo')) return null;
+
+    var caixa = document.createElement('div');
+    caixa.className = 'tempo';
+    caixa.id = 'tempo';
+    caixa.hidden = true;
+    caixa.innerHTML = TEMPO_HTML;
+    cab.appendChild(caixa);
+
+    /* As referências saem da PRÓPRIA caixa, e não de `document.getElementById`: o app
+       de campo já teve dois elementos com o mesmo id (`marcaNome`, na barra e na
+       gaveta), e a busca global entregou o errado. */
+    var elT = caixa.querySelector('.tempo__t');
+    var elIco = caixa.querySelector('.tempo__ico');
+    var elGrau = caixa.querySelector('.tempo__g');
+    var elData = caixa.querySelector('.tempo__data');
+    var elHora = caixa.querySelector('.tempo__hora');
+    caixa.querySelector('#tempoLocal').textContent = UNIDADE.nome;
+    caixa.hidden = false;
+
+    function bater() {
+      var agora = new Date();
+      elData.textContent = agora.toLocaleDateString('pt-BR',
+        { weekday: 'short', day: 'numeric', month: 'short', timeZone: UNIDADE.fuso });
+      elHora.textContent = agora.toLocaleTimeString('pt-BR',
+        { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: UNIDADE.fuso });
+      elHora.dateTime = agora.toISOString();
+    }
+    bater();
+
+    /* REAGENDA a cada volta, em vez de `setInterval` fixo: intervalo acumula atraso e o
+       relógio passa a pular segundos. E PARA com a aba escondida, acertando quando ela
+       volta — painel de galpão fica aberto o dia inteiro. */
+    var tique;
+    function agendar() {
+      clearTimeout(tique);
+      tique = setTimeout(function () { bater(); agendar(); }, 1000 - (Date.now() % 1000));
+    }
+    agendar();
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) clearTimeout(tique);
+      else { bater(); agendar(); }
+    });
+
+    /* ---- os desenhos ---- */
+    var C = { sol: '#e8a33d', nuvem: '#c3d3e6', chuva: '#8ab8f5', neve: '#e8eef5' };
+    function svg(miolo) {
+      return '<svg width="28" height="28" viewBox="0 0 32 32" fill="none" ' +
+        'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + miolo + '</svg>';
+    }
+    var raios = '';
+    for (var i = 0; i < 8; i++) {
+      var a = i * Math.PI / 4;
+      raios += '<line x1="' + (11 + Math.cos(a) * 7.2).toFixed(1) +
+               '" y1="' + (12 + Math.sin(a) * 7.2).toFixed(1) +
+               '" x2="' + (11 + Math.cos(a) * 9.4).toFixed(1) +
+               '" y2="' + (12 + Math.sin(a) * 9.4).toFixed(1) +
+               '" stroke="' + C.sol + '"/>';
+    }
+    var SOL = '<circle cx="11" cy="12" r="5" stroke="' + C.sol + '" fill="' + C.sol +
+      '" fill-opacity=".22"/>' + raios;
+    var LUA = '<path d="M20 17.5A8 8 0 0 1 11.5 9a7 7 0 1 0 8.5 8.5z" stroke="' + C.nuvem +
+      '" fill="' + C.nuvem + '" fill-opacity=".18"/>';
+    var NUVEM = '<path d="M10.5 25h12a5 5 0 0 0 .4-10 7 7 0 0 0-13.2 2A4.2 4.2 0 0 0 10.5 25z" ' +
+      'stroke="' + C.nuvem + '" fill="' + C.nuvem + '" fill-opacity=".14"/>';
+    var GOTAS = '<path d="M12 27l-1.4 3M17 27l-1.4 3M22 27l-1.4 3" stroke="' + C.chuva + '"/>';
+    var RAIO = '<path d="M17 25l-3.5 5h3l-2 4.5" stroke="' + C.sol + '"/>';
+    var FLOCO = '<path d="M12 28.5h1M16.5 28.5h1M21 28.5h1" stroke="' + C.neve + '"/>';
+    var NEVOA = '<path d="M7 14h18M5 19h22M8 24h16" stroke="' + C.nuvem + '"/>';
+
+    /* Os códigos da OMM. A palavra importa tanto quanto o desenho: ela vai no `title`, e
+       é ela que o leitor de tela lê. */
+    function desenho(cod, dia) {
+      if (cod === 0) return [dia ? SOL : LUA, dia ? 'céu limpo' : 'noite limpa'];
+      if (cod === 1 || cod === 2) return [(dia ? SOL : LUA) + NUVEM, 'sol entre nuvens'];
+      if (cod === 3) return [NUVEM, 'nublado'];
+      if (cod === 45 || cod === 48) return [NEVOA, 'neblina'];
+      if (cod >= 95) return [NUVEM + RAIO, 'tempestade'];
+      if ((cod >= 71 && cod <= 77) || cod === 85 || cod === 86) return [NUVEM + FLOCO, 'neve'];
+      if ((cod >= 51 && cod <= 67) || (cod >= 80 && cod <= 82)) return [NUVEM + GOTAS, 'chuva'];
+      return [NUVEM, 'nublado'];
+    }
+
+    function pintar(grau, cod, dia) {
+      var d = desenho(cod, dia);
+      elIco.innerHTML = svg(d[0]);
+      elGrau.textContent = grau + '°';
+      elT.classList.remove('tempo--sem');
+      caixa.title = d[1] + ' em ' + UNIDADE.nome + ' · ' + grau + '°C';
+    }
+
+    /* Nasce apagado e com "--°": o campo existe e ainda não carregou, que é diferente
+       de não existir. */
+    elIco.innerHTML = svg(NUVEM);
+    elT.classList.add('tempo--sem');
+    caixa.title = 'Consultando o tempo em ' + UNIDADE.nome + '…';
+
+    function buscar() {
+      if (!window.fetch) return;
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + UNIDADE.lat +
+        '&longitude=' + UNIDADE.lon + '&current=temperature_2m,weather_code,is_day' +
+        '&timezone=' + encodeURIComponent(UNIDADE.fuso);
+      /* CORTA EM 8 SEGUNDOS. Sem isso, uma rede de galpão que aceita a conexão e não
+         responde deixa a promessa pendurada para sempre, e a próxima consulta empilha
+         em cima dela. */
+      var corta = window.AbortController ? new AbortController() : null;
+      if (corta) setTimeout(function () { corta.abort(); }, 8000);
+      fetch(url, corta ? { signal: corta.signal } : undefined)
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (d) {
+          var c = (d && d.current) || {};
+          if (c.temperature_2m == null || c.weather_code == null) return;
+          pintar(Math.round(c.temperature_2m), +c.weather_code,
+                 c.is_day == null ? true : !!c.is_day);
+        })
+        .catch(function () {
+          caixa.title = 'Não consegui consultar o tempo agora. ' +
+            'O local e a hora não dependem da internet.';
+        });
+    }
+    buscar();
+    setInterval(buscar, 15 * 60 * 1000);
+    return caixa;
+  }
+
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function esc(s) {
     return String(s === undefined || s === null ? '' : s)
@@ -1304,6 +1484,7 @@
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
     temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     hojeOperacao: hojeOperacao, FUSO_OPERACAO: FUSO_OPERACAO,
+    UNIDADE: UNIDADE, relogioETempo: relogioETempo,
     horaBR: horaBR, dataDoCarimboBR: dataDoCarimboBR, dataHoraBR: dataHoraBR,
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
