@@ -364,9 +364,25 @@ function ativo(v) {
   return !(s === 'NAO' || s === 'NÃO' || s === 'FALSE' || s === 'N' || s === '0');
 }
 
-/** Movimentos que valem: cancelado não conta para nada. */
+/** Movimentos que valem: cancelado não conta para nada, e o que está na lixeira também não.
+ *
+ * ESTA É A ÚNICA PENEIRA. Saldo, painel, extrato, ciclo da carga e a lista de Movimentos
+ * passam todos por aqui — foi por isso que a exclusão pôde virar marca em vez de apagão
+ * sem precisar lembrar de filtrar em seis lugares. Esquecido um deles, o lançamento
+ * "excluído" continuaria pesando no saldo de alguém, e ninguém teria como ver por quê.
+ *
+ * O que NÃO passa por aqui é de propósito: a conferência de chave do celular, para uma
+ * fila offline não ressuscitar o que o escritório acabou de excluir, e as travas de
+ * "local tem movimento", porque a linha continua existindo no banco e a chave estrangeira
+ * continua apontando para ela.
+ */
 function ativos(movimentos) {
-  return movimentos.filter(function (m) { return !m.Cancelado; });
+  return movimentos.filter(function (m) { return !m.Cancelado && !m.ExcluidoEm; });
+}
+
+/** O avesso: o que está na lixeira, e só. */
+function naLixeira(movimentos) {
+  return movimentos.filter(function (m) { return !!m.ExcluidoEm; });
 }
 
 /* `naoCancelados` é o mesmo que `ativos`. Ficou como apelido porque o ciclo da carga e a
@@ -401,6 +417,31 @@ function pesoMatriz(v) { return /matriz/i.test(String(v == null ? '' : v)) ? 0 :
 
 function lancamentoDeTeste(m) {
   return m.Teste === true || ehPerfilTeste(m.Perfil);
+}
+
+/**
+ * O LOTE: de qual REMESSA esta linha faz parte.
+ *
+ * Um toque em Enviar vira VÁRIAS linhas — uma por tipo de caixa. Na tela de campo isso
+ * aparecia como cinco lançamentos, repetindo data, rota e motorista cinco vezes para uma
+ * carga só. A chave daqui é o que permite juntá-las de novo sem adivinhar.
+ *
+ * Ela sai do `ClientKey`, que é a identidade do envio e não uma semelhança: o
+ * `montarMovimento` grava `base + '-' + índice`, com o MESMO `base` para todos os itens
+ * do mesmo envio. Tirando o último pedaço, sobra o envio.
+ *
+ * Linha SEM chave — as que vieram do Apps Script, antes de a fila offline existir — cai
+ * no carimbo de gravação mais a viagem. Também é exato para um envio só, porque as linhas
+ * dele nascem do mesmo `agora`; o que ele não separa são dois envios idênticos gravados
+ * no mesmo instante, e para isso quem olha é quem agrupa: tipo de caixa repetido dentro
+ * de um lote quer dizer que não era um lote só.
+ */
+function loteDo(m) {
+  var ck = String((m && m.ClientKey) || '');
+  var corte = ck.lastIndexOf('-');
+  if (ck && corte > 0) return 'k:' + ck.slice(0, corte);
+  return 'x:' + [iso(m.DataHora), m.Tipo, m.OrigemID, m.DestinoID,
+                 m.UsuarioID, m.Motorista].join('|');
 }
 
 /* Recorte para os painéis: 'todos' (padrão), 'reais' ou 'teste'. Devolve uma cópia rasa
@@ -732,6 +773,7 @@ function montarMovimento(p, ctx) {
 /** Conferência na chegada. Devolve o patch a aplicar e a divergência apurada. */
 function montarConferencia(mov, p) {
   if (!mov) return { ok: false, erro: 'Movimento não encontrado: ' + String(p.id || '') };
+  if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira — restaure antes de conferir.' };
   var qtd = Number(p.qtdConferida);
   if (isNaN(qtd) || qtd < 0) return { ok: false, erro: 'Quantidade conferida inválida.' };
   var declarada = Number(mov.Qtd);
@@ -783,6 +825,7 @@ var CORRIGIVEIS = [
    histórico cai no valor cru, que é feio mas não quebra nada. */
 function montarCorrecao(mov, p, agora, nomes) {
   if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
+  if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira — restaure antes de corrigir.' };
   if (mov.Cancelado) return { ok: false, erro: 'Movimento cancelado não se corrige — lance um novo.' };
   var motivo = String(p.motivo || '').trim();
   if (!motivo) return { ok: false, erro: 'Descreva o motivo da correção.' };
@@ -820,6 +863,70 @@ function montarCorrecao(mov, p, agora, nomes) {
 
   if (!entradas.length) return { ok: false, erro: 'Nada mudou.' };
   return { ok: true, patch: patch, historico: (mov.Historico || []).concat(entradas), entradas: entradas };
+}
+
+/* ------------------------- lixeira: mandar e trazer de volta -------------------------
+ *
+ * As três escrevem no MESMO `historico` da correção, com a mesma forma. É isso que deixa
+ * a coluna "Alterado por" ser uma só: ela lê a última entrada, sem precisar saber se o
+ * que aconteceu foi uma troca de quantidade, um cancelamento ou uma exclusão.
+ *
+ * O motivo é opcional aqui, e obrigatório na correção, de propósito: a correção muda um
+ * número que vai virar saldo, e sem o porquê ninguém reconstrói a conta depois. Exigir
+ * texto para mandar à lixeira só faria escreverem "." com pressa. */
+
+function entradaHistorico(agora, usuarioId, campo, motivo, de, para) {
+  return {
+    em: iso(agora || new Date()), por: String(usuarioId || ''), campo: campo,
+    motivo: String(motivo || ''), de: de, para: para
+  };
+}
+
+function montarExclusao(mov, p, agora) {
+  if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
+  if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento já está na lixeira.' };
+  agora = agora || new Date();
+  var entrada = entradaHistorico(agora, p && p.usuarioId, 'Exclusão',
+    (p && p.motivo) || '', 'valendo', 'na lixeira');
+  return {
+    ok: true,
+    patch: { ExcluidoEm: agora, ExcluidoPor: String((p && p.usuarioId) || '') },
+    historico: (mov.Historico || []).concat([entrada])
+  };
+}
+
+function montarRestauracao(mov, p, agora) {
+  if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
+  if (!mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento não está na lixeira.' };
+  agora = agora || new Date();
+  var entrada = entradaHistorico(agora, p && p.usuarioId, 'Restauração',
+    (p && p.motivo) || '', 'na lixeira', 'valendo');
+  /* `null` explícito, e não campo ausente: é o que apaga a marca no banco. Devolvido
+     como `undefined`, o patch sairia sem a coluna e a linha ficaria na lixeira depois
+     de a tela dizer "restaurado". */
+  return {
+    ok: true,
+    patch: { ExcluidoEm: null, ExcluidoPor: null },
+    historico: (mov.Historico || []).concat([entrada])
+  };
+}
+
+function montarCancelamento(mov, p, agora) {
+  if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
+  if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira — restaure antes.' };
+  if (mov.Cancelado) return { ok: false, erro: 'Este lançamento já está cancelado.' };
+  agora = agora || new Date();
+  var motivo = String((p && p.motivo) || '');
+  var entrada = entradaHistorico(agora, p && p.usuarioId, 'Cancelamento', motivo,
+    'valendo', 'cancelado');
+  return {
+    ok: true,
+    patch: {
+      Cancelado: true,
+      MotivoCancel: motivo + ' (' + ((p && p.usuarioId) || '') + ')'
+    },
+    historico: (mov.Historico || []).concat([entrada])
+  };
 }
 
 /* ============================ saldos ============================ */
@@ -1080,19 +1187,74 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
     var temConf = m.QtdConferida !== null && m.QtdConferida !== undefined && m.QtdConferida !== '';
     return {
       id: m.ID, dataRef: iso(m.DataRef), dataHora: iso(m.DataHora), tipo: m.Tipo,
+      /* De qual remessa esta linha é. A tela de celular junta as linhas por aqui em vez
+         de repetir data, rota e motorista uma vez por tipo de caixa. */
+      lote: loteDo(m),
       origem: nome(mLocais, m.OrigemID), destino: nome(mLocais, m.DestinoID),
       origemId: m.OrigemID, destinoId: m.DestinoID,
       // o nome para a tabela; o id para o seletor da correção abrir no valor certo
       tipoCaixa: nome(mTipos, m.TipoCaixaID), tipoCaixaId: m.TipoCaixaID, qtd: m.Qtd,
       qtdConferida: temConf ? m.QtdConferida : '',
       divergencia: (m.Status === 'CONFIRMADO' && temConf) ? Number(m.QtdConferida) - Number(m.Qtd) : '',
-      status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID), perfil: m.Perfil,
+      /* O ID de quem lançou vai junto com o NOME. O nome é para ler; o id é para a tela
+         decidir se esta pessoa pode corrigir este lançamento. Por nome, dois homônimos
+         no cadastro entregariam a um o lançamento do outro. */
+      status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID),
+      usuarioId: m.UsuarioID, perfil: m.Perfil,
       teste: lancamentoDeTeste(m),
       situacao: rotuloCiclo(m, ciclo[m.ID]),
       devolvido: ciclo[m.ID] ? ciclo[m.ID].devolvido : null,
       motorista: m.Motorista || '', rota: m.Rota || '',
       obs: m.Obs, assinatura: m.AssinaturaURL, foto: m.FotoURL,
-      historico: m.Historico || []
+      historico: m.Historico || [],
+      /* Quem mexeu por último, já com NOME. O id resolvido aqui e não na tela porque a
+         tabela de usuários mora no servidor: a tela mostraria "u014" e o CSV também. */
+      alterado: ultimaAlteracao(m, mUsers)
+    };
+  });
+}
+
+/**
+ * Quem mexeu no lançamento por último, e quando.
+ *
+ * Lê o MESMO `historico` que a correção escreve — cancelar, excluir e restaurar também
+ * escrevem lá, com a mesma forma. Uma segunda lista só para "quem alterou" teria de ser
+ * lembrada em cada ação nova, e a primeira esquecida deixaria a coluna mentindo por
+ * omissão: em branco, como se ninguém tivesse tocado.
+ */
+function ultimaAlteracao(m, mUsers) {
+  var h = (m && m.Historico) || [];
+  if (!h.length) return { por: '', em: '', campo: '', motivo: '', vezes: 0 };
+  var u = h[h.length - 1] || {};
+  return {
+    por: mUsers ? nome(mUsers, u.por) : String(u.por || ''),
+    em: u.em || '', campo: u.campo || '', motivo: u.motivo || '', vezes: h.length
+  };
+}
+
+/**
+ * A LIXEIRA: o que foi excluído e ainda dá para trazer de volta.
+ *
+ * Sai da mesma tabela e da mesma peneira, pelo avesso — `naLixeira` é o complemento
+ * exato de `ativos`. Duas consultas independentes poderiam discordar, e a discordância
+ * aqui tem nome: um lançamento que não aparece em lugar nenhum, nem valendo nem na
+ * lixeira, e que ninguém consegue nem usar nem restaurar.
+ */
+function listaLixeira(movimentos, locais, tipos, usuarios, p) {
+  p = p || {};
+  var mLocais = mapaNomes(locais), mTipos = mapaTipos(tipos), mUsers = mapaNomes(usuarios);
+  var limite = Number(p.limit || 300);
+  return naLixeira(movimentos).slice().sort(function (a, b) {
+    // O mais recente primeiro: numa lixeira, procura-se o que acabou de sumir.
+    return String(b.ExcluidoEm || '') > String(a.ExcluidoEm || '') ? 1 : -1;
+  }).slice(0, limite).map(function (m) {
+    return {
+      id: m.ID, dataRef: iso(m.DataRef), dataHora: iso(m.DataHora), tipo: m.Tipo,
+      origem: nome(mLocais, m.OrigemID), destino: nome(mLocais, m.DestinoID),
+      tipoCaixa: nome(mTipos, m.TipoCaixaID), qtd: m.Qtd,
+      usuario: nome(mUsers, m.UsuarioID), motorista: m.Motorista || '',
+      teste: lancamentoDeTeste(m), obs: m.Obs || '',
+      excluidoEm: iso(m.ExcluidoEm), excluidoPor: nome(mUsers, m.ExcluidoPor)
     };
   });
 }
@@ -1684,6 +1846,10 @@ module.exports = {
   motoristasPublicos: motoristasPublicos, cnhVencida: cnhVencida,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, naoCancelados: naoCancelados,
+  naLixeira: naLixeira, listaLixeira: listaLixeira, ultimaAlteracao: ultimaAlteracao,
+  loteDo: loteDo,
+  montarExclusao: montarExclusao, montarRestauracao: montarRestauracao,
+  montarCancelamento: montarCancelamento,
   ehPerfilTeste: ehPerfilTeste, temTeste: temTeste, pesoTeste: pesoTeste, pesoMatriz: pesoMatriz,
   lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste,
   recorteProprios: recorteProprios, usuariosVistosDe: usuariosVistosDe, ativo: ativo, novoId: novoId, novoToken: novoToken,

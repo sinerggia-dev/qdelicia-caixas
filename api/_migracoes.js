@@ -328,5 +328,28 @@ module.exports = [
       "update public.usuarios set usuarios_vistos = coalesce(" +
       "(select jsonb_agg(x.id order by x.id) from public.usuarios x), '[]'::jsonb) " +
       "where usuarios_vistos = '[]'::jsonb and ver_lancamentos = true;"
+  },
+  {
+    id: '2026-09-22-lixeira-de-lancamentos',
+    nota: 'excluir passa a marcar a linha em vez de apagá-la, e por isso tem volta',
+    /* EXCLUIR APAGAVA DE VEZ. A tela avisava ("isto não tem volta") e pedia o nome da
+       caixa escrito à mão, mas quem escreve o nome certo por engano continua sem ter
+       para onde correr — e o "Apagar o que está no filtro" leva centenas de uma vez.
+
+       Duas colunas, e o registro passa a sair de vista sem sair do banco. QUEM apagou
+       fica junto de QUANDO, porque numa lixeira a primeira pergunta é essa.
+
+       `excluido_em` nulo é o normal: a coluna nasce vazia em tudo que já existe, então
+       nada desaparece por causa desta migração. O índice é para a lixeira, que pergunta
+       exatamente pelo que não é nulo. */
+    sql: [
+      "alter table public.movimentos add column if not exists excluido_em timestamptz;",
+      "alter table public.movimentos add column if not exists excluido_por text;",
+      "create index if not exists movimentos_excluido_idx " +
+      "on public.movimentos (excluido_em) where excluido_em is not null;",
+      "comment on column public.movimentos.excluido_em is " +
+      "'Quando o lançamento foi mandado para a lixeira. Nulo = está valendo. " +
+      "Preenchido, ele não conta em saldo, painel, extrato nem lista.';"
+    ].join('\n')
   }
 ];

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=7b322d66">
+<link rel="stylesheet" href="styles.css?v=172364e9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -452,7 +452,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=c9180ebd"></script>
+<script src="app.js?v=62178f66"></script>
 <script>
 (function(){
   'use strict';
@@ -1255,14 +1255,39 @@
            : 'Nenhum lançamento com esses filtros.')+'</div>';
       return;
     }
-    box.innerHTML = '<div class="tabela-wrap"><table><thead><tr>'+
+    var s = Q.sessao();
+    /* DUAS FORMAS DA MESMA LISTA. No celular, um cartão por REMESSA: a tabela tem nove
+       colunas e só se lê arrastando de lado, e cada remessa ocupa uma linha por tipo de
+       caixa — cinco linhas repetindo data, rota e motorista para uma carga só. Da
+       largura do menu fixo para cima (1024px), onde a tabela cabe inteira, ela fica: é
+       onde se compara uma linha com a outra, que é o que o escritório faz.
+
+       Uma de cada vez, e não as duas escondendo uma pela CSS: com 2.000 lançamentos,
+       montar as duas seria o dobro de trabalho para mostrar metade. */
+    box.innerHTML = (emCartoes() ? cartoesLanc(lista, s) : tabelaLanc(lista, s))+
+      /* O conserto abre FORA da tabela e FORA dos cartões: dentro da tabela ele herdava
+         a rolagem lateral dela e não cabia no celular. */
+      '<div id="correcaoBox"></div>';
+    ligarCorrigir(box);
+  }
+
+  /* O CORTE é o mesmo do resto do app: 1024px é onde o menu lateral vira gaveta. Uma
+     segunda medida só para esta lista faria a tela trocar de forma num lugar onde nada
+     mais muda. */
+  function emCartoes(){
+    return window.matchMedia('(max-width:1023px)').matches;
+  }
+
+  function tabelaLanc(lista, s){
+    return '<div class="tabela-wrap"><table><thead><tr>'+
       '<th>Data</th><th>Origem</th><th>Destino</th><th>Caixa</th>'+
       '<th class="num">Saída</th><th class="num">Retorno</th><th>Motorista</th>'+
-      '<th>Quem lançou</th>'+
+      '<th>Quem lançou</th><th></th>'+
       '</tr></thead><tbody>'+
       lista.map(function(m){
         var ehRetorno = m.tipo === 'DEVOLUCAO';
-        return '<tr>'+
+        var alt = m.alterado || {};
+        return '<tr data-linha="'+Q.esc(m.id)+'">'+
           '<td>'+Q.dataBR(m.dataRef)+'</td>'+
           '<td>'+Q.esc(m.origem || '—')+'</td>'+
           '<td>'+Q.esc(m.destino || '—')+'</td>'+
@@ -1270,10 +1295,300 @@
           '<td class="num">'+(ehRetorno ? '<span class="fraco">—</span>' : '<b>'+Q.num(m.qtd)+'</b>')+'</td>'+
           '<td class="num">'+(ehRetorno ? '<b>'+Q.num(m.qtd)+'</b>' : '<span class="fraco">—</span>')+'</td>'+
           '<td>'+Q.esc(m.motorista || '—')+'</td>'+
-          '<td>'+Q.esc(m.usuario || '—')+'</td>'+
+          /* A MARCA DE CORRIGIDO fica junto de quem lançou, que é a coluna que a
+             correção mais desmente: o número da linha pode não ser mais o que essa
+             pessoa digitou. Sem ela, um valor corrigido e um valor original são a
+             mesma célula — e é a mesma informação que o painel mostra em "Alterado
+             por", só que aqui cabe em uma etiqueta. */
+          '<td>'+Q.esc(m.usuario || '—')+
+            (alt.vezes ? ' <span class="tag amarela" title="'+
+               Q.esc((alt.campo||'alteração')+' por '+(alt.por||'—')+
+                     (alt.em ? ' em '+Q.dataHoraBR(alt.em) : '')+
+                     (alt.motivo ? ' — '+alt.motivo : ''))+
+               '">corrigido</span>' : '')+'</td>'+
+          '<td>'+(Q.podeCorrigir(s, m)
+            ? '<button class="mini acao" data-corrigir="'+Q.esc(m.id)+'">corrigir</button>'
+            : '')+'</td>'+
         '</tr>';
       }).join('')+'</tbody></table></div>';
   }
+
+  /* UM CARTÃO POR REMESSA. O que ele resolve é a repetição: na tabela, uma carga com
+     cinco tipos de caixa ocupa cinco linhas com a mesma data, a mesma rota e o mesmo
+     motorista, e no celular isso só se lê arrastando de lado.
+
+     Os dias vêm separados porque a lista já chega em ordem de data: sem o risco, os
+     cartões de terça e de quarta viram uma fileira só. */
+  function cartoesLanc(lista, s){
+    var grupos = Q.agruparLancamentos(lista);
+    var dias = [], porDia = {};
+    grupos.forEach(function(g){
+      if (!porDia[g.dataRef]){ porDia[g.dataRef] = []; dias.push(g.dataRef); }
+      porDia[g.dataRef].push(g);
+    });
+    return dias.map(function(d){
+      var doDia = porDia[d];
+      var caixas = doDia.reduce(function(t, g){ return t + g.total; }, 0);
+      return '<section class="dia-bloco">'+
+        '<div class="dia"><span class="dia__d">'+Q.dataBR(d)+'</span>'+
+        '<span class="dia__r">'+doDia.length+' lançamento'+(doDia.length > 1 ? 's' : '')+
+        ' · <b>'+Q.num(caixas)+'</b> caixas</span></div>'+
+        '<ul class="cartoes">'+doDia.map(function(g){ return cartaoLanc(g, s); }).join('')+
+        '</ul></section>';
+    }).join('');
+  }
+
+  function cartaoLanc(g, s){
+    var ehRetorno = g.tipo === 'DEVOLUCAO';
+    var alt = g.alterado || {};
+    /* A SETA diz o sentido sem palavra nenhuma, e é o que a etiqueta ao lado nomeia.
+       `aria-label` porque quem ouve a tela precisa da palavra. */
+    var seta = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" '+
+      'stroke="currentColor" stroke-width="2" stroke-linecap="round" '+
+      'stroke-linejoin="round" aria-label="para"><line x1="4" y1="12" x2="19" y2="12">'+
+      '</line><polyline points="14 7 19 12 14 17"></polyline></svg>';
+
+    /* O NOME DA CAIXA PERDE O "CX", que se repete em todas e não distingue nenhuma —
+       num quadradinho de 72px ele come metade do espaço do que importa. */
+    var itens = g.itens.map(function(i){
+      return '<div class="q'+(i.qtd ? '' : ' q--zero')+'">'+
+        '<dt>'+Q.esc(String(i.tipoCaixa||'—').replace(/^CX\s+/i, ''))+'</dt>'+
+        '<dd>'+(i.qtd ? Q.num(i.qtd) : '—')+'</dd></div>';
+    }).join('');
+
+    return '<li><article class="lanc" data-lote="'+Q.esc(g.lote)+'">'+
+      '<div class="lanc__topo">'+
+        '<span class="tag '+(ehRetorno ? 'verde' : 'azul')+'">'+
+          (ehRetorno ? 'Retorno' : 'Saída')+'</span>'+
+        (g.teste ? '<span class="tag amarela">teste</span>' : '')+
+        (alt.vezes ? '<span class="tag amarela" title="'+
+           Q.esc((alt.campo||'alteração')+' por '+(alt.por||'—')+
+                 (alt.em ? ' em '+Q.dataHoraBR(alt.em) : '')+
+                 (alt.motivo ? ' — '+alt.motivo : ''))+'">corrigido</span>' : '')+
+        '<span class="lanc__hora">'+Q.esc(Q.horaBR(g.dataHora) || '')+'</span>'+
+      '</div>'+
+      '<h3 class="lanc__rota">'+Q.esc(g.origem||'—')+' '+seta+' '+Q.esc(g.destino||'—')+'</h3>'+
+      '<p class="lanc__quem">Motorista: '+Q.esc(g.motorista||'—')+'</p>'+
+      '<dl class="qtds">'+itens+'</dl>'+
+      '<div class="lanc__total">Total de caixas <b>'+Q.num(g.total)+'</b></div>'+
+      '<div class="lanc__pe">'+
+        '<span class="autor">Lançado por <b>'+Q.esc(g.usuario||'—')+'</b></span>'+
+        (Q.podeCorrigir(s, g)
+          ? '<button class="mini acao" data-corrigir="'+Q.esc(g.lote)+'">corrigir</button>'
+          : '')+
+      '</div></article></li>';
+  }
+
+  /* O MESMO botão nas duas formas: na tabela ele carrega o id da linha, no cartão o lote
+     da remessa. Quem resolve qual é qual é esta função, e não duas cópias do conserto. */
+  function ligarCorrigir(box){
+    box.querySelectorAll('button[data-corrigir]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var chave = b.dataset.corrigir;
+        var linhas = LANC.filter(function(x){ return String(x.id) === chave; });
+        if (!linhas.length) {
+          linhas = LANC.filter(function(x){ return String(x.lote) === chave; });
+        }
+        if (linhas.length) formCorrigirCampo(Q.agruparLancamentos(linhas)[0], b);
+      });
+    });
+  }
+
+  /* O CONSERTO ABRE NA PRÓPRIA TELA, logo abaixo da tabela — e não num modal. É a mesma
+     decisão do primeiro acesso: o modal só existe no painel, e no celular uma janela por
+     cima do teclado tapa justamente o campo que se está digitando.
+
+     ABAIXO DA TABELA, e não dentro dela. Dentro, numa linha, o formulário herdava a
+     rolagem horizontal do `.tabela-wrap` e nascia com a largura das nove colunas: em
+     430px, que é o celular do galpão, metade dos campos ficava fora da tela — inclusive
+     o motivo, que é obrigatório. Fora da tabela ele tem a largura do cartão, e a linha
+     que está sendo corrigida fica marcada para não se perder qual é.
+
+     Os campos são MENOS do que o painel oferece, e de propósito:
+
+       - "quem fez o envio" fica de fora. Trocar o autor de um lançamento é ato de
+         escritório, não conserto de quem digitou errado — e o app de campo nem recebe a
+         lista de usuários, que sai da rota `equipe` de propósito, para não expor o nome
+         de todo mundo a quem só abre o endereço.
+       - "conferida" fica de fora: é campo da etapa de conferência, que saiu.
+
+     O que se grava é a MESMA rota `corrigir` do painel, com o mesmo motivo obrigatório
+     e o mesmo histórico. É isso que faz a correção feita aqui aparecer lá. */
+  function formCorrigirCampo(m, botao){
+    var caixa = document.getElementById('correcaoBox');
+    if (!caixa) return;
+    var jaAberta = caixa.dataset.alvo === String(m.lote);
+    /* Clicar de novo fecha. Sem isto, cada clique empilharia um formulário novo com os
+       MESMOS ids, e `getElementById` passaria a ler o do primeiro — gravando os valores
+       da linha errada. */
+    fecharCorrecoes();
+    if (jaAberta) return;
+    caixa.dataset.alvo = String(m.lote);
+    var tr = botao.closest('tr');
+    if (tr) tr.classList.add('em-correcao');
+    var art = botao.closest('article');
+    if (art) art.classList.add('em-correcao');
+    /* A remessa com UM tipo de caixa só é a única em que "Caixa" tem resposta. Com cinco
+       tipos no mesmo cartão, um seletor de caixa não diz de qual das cinco se fala — e o
+       conserto certo ali é a quantidade de cada uma, que está logo acima. */
+    var umaCaixa = m.itens.length === 1;
+
+    function opcoesLocal(atual){
+      return '<option value="">—</option>'+
+        Q.ordenarLocais((DADOS.locais||[])).map(function(l){
+          return '<option value="'+Q.esc(l.ID)+'"'+
+            (String(l.ID)===String(atual)?' selected':'')+'>'+Q.esc(l.Nome)+'</option>';
+        }).join('');
+    }
+    /* O lançamento guarda o NOME do motorista, não o id. Um nome que saiu do cadastro
+       entra na lista assim mesmo: sem isso o seletor abriria em outro nome, e gravar
+       trocaria o motorista sem ninguém pedir. */
+    function opcoesMotorista(atual){
+      var nomes = Q.ordenarPorNome(DADOS.motoristas||[]).map(function(x){ return x.Nome; });
+      if (atual && nomes.indexOf(atual) < 0) nomes.unshift(atual);
+      return '<option value="">—</option>'+nomes.map(function(n){
+        return '<option value="'+Q.esc(n)+'"'+(String(n)===String(atual||'')?' selected':'')+
+          '>'+Q.esc(n)+'</option>';
+      }).join('');
+    }
+
+    caixa.innerHTML = '<div class="correcao">'+
+      '<h3 style="margin:0 0 2px;font-size:15px">Corrigir lançamento</h3>'+
+      /* QUAL lançamento. Fora da tabela, o formulário perde a vizinhança que dizia isso
+         sozinha — e sem esta linha a pessoa corrige de memória. */
+      '<p class="sub" style="margin:0 0 6px">'+
+        Q.dataBR(m.dataRef)+' · '+Q.esc(m.origem||'—')+' → '+Q.esc(m.destino||'—')+
+        ' · '+Q.num(m.total)+' caixas</p>'+
+      /* UMA QUANTIDADE POR TIPO DE CAIXA. O cartão representa a remessa inteira, então o
+         conserto dele também: quem contou errado contou uma caixa errada, não a carga. */
+      '<div class="qtds-edit">'+
+        m.itens.map(function(i){
+          return '<div><label for="crQ'+Q.esc(i.id)+'">'+Q.esc(i.tipoCaixa||'—')+'</label>'+
+            '<input type="number" inputmode="numeric" id="crQ'+Q.esc(i.id)+'" '+
+            'data-item="'+Q.esc(i.id)+'" value="'+Q.esc(i.qtd)+'"></div>';
+        }).join('')+
+      '</div>'+
+      '<div class="grid2">'+
+        '<div><label for="crData">Data</label>'+
+          '<input type="date" id="crData" value="'+Q.esc(String(m.dataRef||'').slice(0,10))+'"></div>'+
+        '<div><label for="crOrigem">Origem</label>'+
+          '<select id="crOrigem">'+opcoesLocal(m.origemId)+'</select></div>'+
+        '<div><label for="crDestino">Destino</label>'+
+          '<select id="crDestino">'+opcoesLocal(m.destinoId)+'</select></div>'+
+        (umaCaixa
+          ? '<div><label for="crCaixa">Caixa</label><select id="crCaixa">'+
+              Q.ordenarPorNome(DADOS.tipos||[]).map(function(t){
+                return '<option value="'+Q.esc(t.ID)+'"'+
+                  (String(t.ID)===String(m.itens[0].tipoCaixaId)?' selected':'')+'>'+
+                  Q.esc(t.Nome)+'</option>';
+              }).join('')+'</select></div>'
+          : '')+
+        '<div><label for="crMotorista">Motorista</label>'+
+          '<select id="crMotorista">'+opcoesMotorista(m.motorista)+'</select></div>'+
+      '</div>'+
+      '<label for="crObs">Observação</label><textarea id="crObs">'+Q.esc(m.obs||'')+'</textarea>'+
+      '<label for="crMotivo">Motivo da correção'+
+        '<span class="obrig">*</span>'+
+        '<span style="font-weight:400;color:var(--txt3)"> — fica no histórico, e aparece '+
+        'no painel</span></label>'+
+      '<input type="text" id="crMotivo" placeholder="ex.: o romaneio dizia 95">'+
+      '<div class="linha-btn">'+
+        '<button class="btn" id="crSalvar" type="button" style="flex:0 0 auto;min-width:170px">Gravar correção</button>'+
+        '<button class="btn neutro" id="crFechar" type="button" style="flex:0 0 auto;min-width:110px">Cancelar</button>'+
+      '</div></div>';
+    document.getElementById('crMotivo').focus();
+
+    document.getElementById('crFechar').addEventListener('click', fecharCorrecoes);
+    document.getElementById('crSalvar').addEventListener('click', function(){
+      var b = this;
+      /* O motivo é barrado AQUI antes de viajar, e o servidor barra de novo. Aqui é
+         para a pessoa saber na hora, com o texto ainda digitado; lá é porque a API
+         aceita pedido de qualquer lugar. */
+      var motivo = document.getElementById('crMotivo').value.trim();
+      if (!motivo) return Q.toast('Escreva o motivo da correção.','erro');
+
+      var comum = {
+        DataRef: document.getElementById('crData').value,
+        OrigemID: document.getElementById('crOrigem').value,
+        DestinoID: document.getElementById('crDestino').value,
+        Motorista: document.getElementById('crMotorista').value,
+        Obs: document.getElementById('crObs').value
+      };
+      var caixaNova = umaCaixa ? document.getElementById('crCaixa').value : null;
+
+      /* SÓ AS LINHAS QUE MUDARAM. O servidor recusa uma correção em que nada mudou — e
+         com razão: ela encheria o histórico de entradas vazias. Mandar as cinco linhas
+         de uma remessa para consertar uma faria quatro recusas e um erro na tela de quem
+         acertou. */
+      var mudouComum =
+        comum.DataRef !== String(m.dataRef||'').slice(0,10) ||
+        comum.OrigemID !== String(m.origemId||'') ||
+        comum.DestinoID !== String(m.destinoId||'') ||
+        comum.Motorista !== String(m.motorista||'') ||
+        comum.Obs !== String(m.obs||'');
+
+      var envios = m.itens.filter(function(i){
+        var campo = document.getElementById('crQ'+i.id);
+        var qtdNova = campo ? String(campo.value) : String(i.qtd);
+        var mudouCaixa = umaCaixa && caixaNova !== String(i.tipoCaixaId||'');
+        return mudouComum || mudouCaixa || qtdNova !== String(i.qtd);
+      }).map(function(i){
+        var pedido = { acao:'corrigir', id:i.id, usuarioId:(Q.sessao()||{}).id,
+                       motivo:motivo, Qtd:document.getElementById('crQ'+i.id).value };
+        Object.keys(comum).forEach(function(k){ pedido[k] = comum[k]; });
+        if (umaCaixa) pedido.TipoCaixaID = caixaNova;
+        return pedido;
+      });
+
+      if (!envios.length) return Q.toast('Nada mudou neste lançamento.','erro');
+
+      b.disabled = true; b.textContent = 'Gravando…';
+      /* UMA DE CADA VEZ, em fila. Disparadas juntas, cinco correções do mesmo lote
+         chegariam ao servidor ao mesmo tempo e cada uma leria o histórico ANTES das
+         outras — a última a gravar apagaria as quatro entradas anteriores. */
+      var feitas = 0, erro = null;
+      envios.reduce(function(fila, pedido){
+        return fila.then(function(){
+          if (erro) return null;
+          return Q.post(pedido).then(function(r){
+            if (!r.ok) { erro = r.erro; return; }
+            feitas++;
+          });
+        });
+      }, Promise.resolve()).then(function(){
+        b.disabled = false; b.textContent = 'Gravar correção';
+        if (erro) {
+          /* Diz o que JÁ foi gravado. "Falhou" sozinho faria a pessoa corrigir de novo
+             o que já estava certo. */
+          return Q.toast(feitas ? feitas+' corrigido(s), e então: '+erro : erro, 'erro');
+        }
+        fecharCorrecoes();
+        Q.toast(feitas > 1 ? feitas+' itens corrigidos.' : 'Lançamento corrigido.','ok');
+        /* Recarrega do servidor, e não mexe na cópia da tela: a correção muda o saldo, e
+           os cartões de cima somam esta lista. Remendada aqui, a tela mostraria o número
+           novo na linha e o antigo no cartão. */
+        carregarLanc();
+      }).catch(function(e){
+        b.disabled = false; b.textContent = 'Gravar correção'; Q.toast(e.message,'erro');
+      });
+    });
+  }
+
+  function fecharCorrecoes(){
+    var caixa = document.getElementById('correcaoBox');
+    if (caixa){ caixa.innerHTML = ''; delete caixa.dataset.alvo; }
+    document.querySelectorAll('.em-correcao').forEach(function(x){
+      x.classList.remove('em-correcao');
+    });
+  }
+
+  /* A TELA TROCA DE FORMA COM A LARGURA. Girar o celular, ou abrir o app numa janela
+     estreita e alargá-la, tem de trocar a tabela pelos cartões — desenhado uma vez na
+     abertura, o app ficaria com a forma da largura de quando abriu. Redesenha da cópia
+     que já está na memória: nenhuma ida de rede por girar o aparelho. */
+  window.matchMedia('(max-width:1023px)').addEventListener('change', function(){
+    if (LANC && LANC.length) desenharLanc();
+  });
 
   function tileLanc(v, r, d, c){
     return '<div class="ftile '+(c||'')+'"><div class="r">'+r+'</div>'+

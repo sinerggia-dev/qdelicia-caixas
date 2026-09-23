@@ -1898,7 +1898,17 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var ip = desc.indexOf('padrao: [');
   var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
     .map(function (t) { return t.slice(1, -1); });
-  ok(cols.length === 8, 'são oito colunas de fábrica', cols);
+  ok(cols.length === 11, 'são onze colunas de fábrica', cols);
+
+  /* AS TRÊS DO CARIMBO. Contar onze não diz QUAIS são onze: trocar `hora` por outra
+     coluna qualquer manteria a conta de pé. Elas respondem perguntas que a tabela não
+     respondia — quando isto entrou no sistema, e quem mexeu depois. */
+  [['hora', 'a hora em que o lançamento foi gravado'],
+   ['criado', 'o dia em que foi gravado, que nem sempre é o dia da carga'],
+   ['alterado', 'quem mexeu por último — sem ela, um número corrigido e um número ' +
+                'original são a mesma célula']].forEach(function (c) {
+    ok(cols.indexOf(c[0]) >= 0, 'a tabela de Movimentos traz ' + c[1], cols);
+  });
 
   var il = desc.indexOf('larg: {');
   var larg = desc.slice(il, desc.indexOf('}', il));
@@ -4610,21 +4620,31 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
   ok(/saiu \+ voltou/.test(dl),
     'e o total geral e saidas mais retornos');
 
+  /* A TABELA MUDOU DE CASA. Ela saiu de dentro de `desenharLanc` para `tabelaLanc`,
+     porque no celular a lista virou cartões e o desenho passou a ser dois. As
+     afirmações abaixo seguem a tabela para onde ela foi — deixadas em `dl`, todas
+     passariam a falhar sem que nada tivesse quebrado. */
+  var tl = corpo('tabelaLanc');
+
   // a tabela traz as colunas pedidas
   ['Data', 'Origem', 'Destino', 'Caixa', 'Saída', 'Retorno', 'Motorista',
    'Quem lançou'].forEach(function (c) {
-    ok(dl.indexOf('>' + c + '<') > 0, 'a tabela tem a coluna ' + c, c);
+    ok(tl.indexOf('>' + c + '<') > 0, 'a tabela tem a coluna ' + c, c);
   });
   /* Cabecalho e celula andam juntos: um <th> sem <td> desalinha a tabela inteira a
      partir dali, e o erro so aparece na coluna seguinte. */
   /* `<th[ >]` e nao `<th`: `<thead>` comeca com `<th` e entrava na conta, fazendo a
      afirmacao acusar 9 cabecalhos para 8 celulas. */
-  var nTh = (dl.match(/<th[ >]/g) || []).length;
-  var nTd = (dl.match(/<td[ >]/g) || []).length;
-  ok(nTh === nTd && nTh === 8,
+  /* NOVE: as oito de dado mais a das AÇÕES, que é o `<th></th>` vazio no fim e o `<td>`
+     do botão de corrigir. Ela não tem título de propósito — a coluna não é um dado, é o
+     caminho para consertar a linha, e um título ali seria lido como mais uma informação
+     sobre o lançamento. */
+  var nTh = (tl.match(/<th[ >]/g) || []).length;
+  var nTd = (tl.match(/<td[ >]/g) || []).length;
+  ok(nTh === nTd && nTh === 9,
     'e cada cabeçalho tem a célula dele — um <th> sem <td> desalinha a tabela inteira a ' +
     'partir dali, e o erro só aparece na coluna seguinte', [nTh, nTd]);
-  ok(/Q\.esc\(m\.usuario \|\| '—'\)/.test(dl),
+  ok(/Q\.esc\(m\.usuario \|\| '—'\)/.test(tl),
     'e a célula de quem lançou sai do campo que o servidor manda');
 
   ok(html.indexOf('id="lcFSentido"') > 0 && html.indexOf('id="lcFMotorista"') > 0 &&
@@ -4898,6 +4918,372 @@ console.log('\n== a navegação separada por módulo ==');
     'são dois azuis em volta do chão: o cartão SOBE um degrau e o campo DESCE um — o ' +
     'que se preenche afunda, o que se lê salta',
     { campo: bri('--campo'), chao: bri('--bg'), cartao: bri('--surface') });
+})();
+
+console.log('\n== os lançamentos em cartão, no celular ==');
+(function () {
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var camp = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* A REGRA DE VERDADE, recortada do `app.js`. */
+  var i = js.indexOf('  function agruparLancamentos(lista) {');
+  ok(i > 0, 'a regra que junta as linhas de uma remessa mora no `app.js`');
+  var agrupar = new Function(js.slice(i, js.indexOf('\n  }', i) + 4) +
+    '\n return agruparLancamentos;')();
+
+  function mv(id, lote, cx, qtd, extra) {
+    var m = { id: id, lote: lote, tipo: 'SAIDA', dataRef: '2026-09-17',
+              dataHora: '2026-09-17T11:42:00', origem: 'Matriz', destino: 'João Pessoa',
+              origemId: 'L1', destinoId: 'L2', motorista: 'Isaque', usuario: 'Nestor',
+              usuarioId: 'U1', teste: false, situacao: 'Enviada', obs: '', romaneio: '',
+              tipoCaixa: cx, tipoCaixaId: cx, qtd: qtd,
+              /* A FORMA QUE O SERVIDOR MANDA para quem nunca foi mexido: o objeto
+                 EXISTE, com `vezes: 0`. Fingir `null` aqui fazia a afirmação de baixo
+                 passar por outro motivo — o `alterado &&` bastava, e ninguém estava
+                 medindo o `vezes`. */
+              alterado: { por: '', em: '', campo: '', motivo: '', vezes: 0 } };
+    Object.keys(extra || {}).forEach(function (k) { m[k] = extra[k]; });
+    return m;
+  }
+
+  /* CINCO LINHAS, UMA REMESSA. É o caso da foto: uma carga com cinco tipos de caixa
+     ocupava cinco linhas repetindo data, rota e motorista. */
+  var um = agrupar([mv('M1', 'k:A', 'P', 300), mv('M2', 'k:A', 'G', 300),
+                    mv('M3', 'k:A', 'GG', 300), mv('M4', 'k:A', 'IFCO', 300),
+                    mv('M5', 'k:A', 'DIVERSAS', 500)]);
+  ok(um.length === 1, 'cinco linhas do mesmo envio viram UM cartão', um.length);
+  ok(um[0].itens.length === 5, 'com as cinco caixas dentro dele', um[0].itens.length);
+  ok(um[0].total === 1700, 'e o total é a soma delas', um[0].total);
+  ok(um[0].origem === 'Matriz' && um[0].motorista === 'Isaque' && um[0].usuarioId === 'U1',
+    'o cartão herda a viagem e o dono — é por ele que se decide quem pode corrigir');
+
+  var dois = agrupar([mv('M1', 'k:A', 'P', 300), mv('M9', 'k:B', 'P', 10)]);
+  ok(dois.length === 2, 'e dois envios continuam dois cartões', dois.length);
+
+  /* O TIPO DE CAIXA REPETIDO NÃO SOMA. Duas linhas de CX P no mesmo lote são dois
+     envios que caíram na mesma chave — acontece com as linhas antigas, sem `ClientKey`,
+     gravadas no mesmo segundo. Somadas, virariam uma quantidade que ninguém lançou. */
+  var rep = agrupar([mv('M1', 'x:A', 'P', 300), mv('M2', 'x:A', 'P', 40)]);
+  ok(rep.length === 2,
+    'caixa repetida no mesmo lote abre outro cartão — somada, viraria uma quantidade ' +
+    'que ninguém lançou', rep.map(function (g) { return g.total; }));
+  ok(rep[0].total === 300 && rep[1].total === 40,
+    'e cada um fica com o número que foi lançado mesmo',
+    [rep[0].total, rep[1].total]);
+
+  /* A terceira linha da MESMA caixa não pode voltar para o primeiro grupo. */
+  var tres = agrupar([mv('M1', 'x:A', 'P', 1), mv('M2', 'x:A', 'P', 2), mv('M3', 'x:A', 'P', 4)]);
+  ok(tres.length === 3 && tres[2].total === 4,
+    'e a terceira repetição não volta para o primeiro cartão',
+    tres.map(function (g) { return g.total; }));
+
+  ok(agrupar([]).length === 0 && agrupar(null).length === 0,
+    'lista vazia, ou nenhuma, não estoura');
+
+  /* A ORDEM É A DE CHEGADA. Quem ordena é a lista; reordenar aqui faria a tela
+     discordar do servidor sem nenhum motivo visível. */
+  var ordem = agrupar([mv('M1', 'k:B', 'P', 1), mv('M2', 'k:A', 'P', 2)]);
+  ok(ordem[0].lote === 'k:B' && ordem[1].lote === 'k:A',
+    'a ordem de chegada é mantida — quem ordena é a lista',
+    ordem.map(function (g) { return g.lote; }));
+
+  /* A CORREÇÃO MAIS RECENTE representa o cartão: corrigir um tipo de caixa corrige o
+     lançamento aos olhos de quem olha, e o cartão é o lançamento. */
+  var comAlt = agrupar([
+    mv('M1', 'k:A', 'P', 1, { alterado: { por: 'Ana', em: '2026-09-17T10:00:00', vezes: 1 } }),
+    mv('M2', 'k:A', 'G', 1, { alterado: { por: 'Bia', em: '2026-09-18T10:00:00', vezes: 1 } })
+  ]);
+  ok(comAlt[0].alterado && comAlt[0].alterado.por === 'Bia',
+    'o cartão mostra a correção mais RECENTE do lote', comAlt[0].alterado);
+  ok(agrupar([mv('M1', 'k:A', 'P', 1)])[0].alterado === null,
+    'e cartão sem correção nenhuma não inventa uma');
+
+  /* ---- a tela troca de forma, e uma de cada vez ---- */
+  ok(/function emCartoes\(\)/.test(camp) &&
+     /max-width:1023px/.test(camp),
+    'a tela troca de forma em 1024px — o mesmo corte em que o menu lateral vira gaveta');
+  ok(/emCartoes\(\) \? cartoesLanc\(lista, s\) : tabelaLanc\(lista, s\)/.test(camp),
+    'e monta UMA das duas, não as duas com uma escondida — com 2.000 lançamentos, o ' +
+    'dobro do trabalho para mostrar metade');
+  ok(/matchMedia\('\(max-width:1023px\)'\)\.addEventListener\('change'/.test(camp),
+    'girar o celular redesenha — desenhado só na abertura, o app ficaria com a forma ' +
+    'da largura de quando abriu');
+  ok(/if \(LANC && LANC\.length\) desenharLanc\(\);/.test(camp),
+    'e redesenha da cópia em memória: girar o aparelho não custa uma ida de rede');
+
+  /* ---- o cartão mostra o que a tabela mostrava ---- */
+  var ic = camp.indexOf('function cartaoLanc(g, s)');
+  var cartao = camp.slice(ic, camp.indexOf('\n  function ligarCorrigir', ic));
+  ok(cartao.length > 600, 'o recorte do cartão pegou o corpo dele', cartao.length);
+  [['g.origem', 'a origem'], ['g.destino', 'o destino'], ['g.motorista', 'o motorista'],
+   ['g.usuario', 'quem lançou'], ['g.total', 'o total de caixas'],
+   ['Q.horaBR(g.dataHora)', 'a hora']].forEach(function (p) {
+    ok(cartao.indexOf(p[0]) > 0, 'o cartão traz ' + p[1], p[0]);
+  });
+  ok(/i\.tipoCaixa/.test(cartao) && /i\.qtd/.test(cartao),
+    'e uma quantidade por tipo de caixa — é disso que a tabela fazia cinco linhas');
+  ok(/g\.teste \?/.test(cartao), 'a etiqueta de ensaio não some no celular');
+  ok(/alt\.vezes \?/.test(cartao), 'nem a marca de corrigido');
+  ok(/Q\.podeCorrigir\(s, g\)/.test(cartao),
+    'e o botão de corrigir sai da MESMA regra da tabela');
+  ok(/data-corrigir="'\+Q\.esc\(g\.lote\)/.test(cartao),
+    'o botão do cartão leva o LOTE, porque o cartão é a remessa inteira');
+
+  ok(/\.cartoes\{/.test(css) && /\.lanc\{/.test(css) && /\.qtds\{/.test(css),
+    'o desenho do cartão está no CSS compartilhado, e não solto na tela');
+})();
+
+console.log('\n== quem corrige o quê: uma regra, duas telas ==');
+(function () {
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var camp = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var lg = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* A REGRA DE VERDADE, recortada do `app.js`. */
+  var i = js.indexOf('  function podeCorrigir(s, m) {');
+  ok(i > 0, 'a regra mora no `app.js`, uma vez só para as duas telas');
+  var corpoR = js.slice(i, js.indexOf('\n  }', i) + 4);
+  var podeCorrigir = new Function(corpoR + '\n return podeCorrigir;')();
+
+  var adminS = { id: 'U001', perfil: 'ADMIN', via: 'senha' };
+  var galpao = { id: 'U002', perfil: 'GALPAO', via: 'pin' };
+  var meu = { id: 'M1', usuarioId: 'U002' };
+  var dela = { id: 'M2', usuarioId: 'U003' };
+
+  ok(podeCorrigir(adminS, dela) === true,
+    'o ADMIN corrige qualquer lançamento — é o escritório consertando o que chegou errado');
+  ok(podeCorrigir(galpao, meu) === true,
+    'e cada um corrige o que LANÇOU, na tela em que está');
+  ok(podeCorrigir(galpao, dela) === false,
+    'mas não o lançamento de outra pessoa — a lista de Lançamentos pode mostrar a equipe ' +
+    'inteira, e ver não é poder mudar');
+  ok(podeCorrigir(null, meu) === false && podeCorrigir(galpao, null) === false,
+    'sem sessão, ou sem lançamento, ninguém corrige nada');
+  ok(podeCorrigir(galpao, { id: 'M3' }) === false,
+    'lançamento sem dono declarado não é de ninguém — e não abre para todos');
+  /* O CASO QUE A GUARDA `!!m.usuarioId` DE FATO COBRE, e que a linha acima não distingue:
+     sessão SEM id. Sem a guarda, a comparação vira `undefined === undefined` e dá certo —
+     e uma sessão quebrada passaria a corrigir todo lançamento sem dono. */
+  ok(podeCorrigir({ perfil: 'GALPAO' }, { id: 'M3' }) === false,
+    'e sessão sem id não casa com lançamento sem dono — sem a guarda, `undefined` ' +
+    'bateria com `undefined` e os dois vazios abririam a porta');
+  ok(podeCorrigir({ id: 'U002', perfil: 'admin' }, dela) === true,
+    'o perfil é lido sem diferenciar maiúscula, como no resto do app');
+
+  /* O ID, E NÃO O NOME. Dois homônimos no cadastro e a comparação por nome entregaria a
+     um o lançamento do outro — e o app de campo lista pelo nome, então o engano seria
+     invisível na tela. */
+  ok(/m\.usuarioId/.test(corpoR) && !/m\.usuario\b(?!Id)/.test(corpoR),
+    'a comparação é pelo ID de quem lançou, não pelo nome', corpoR.slice(-160));
+  ok(/usuarioId: m\.UsuarioID/.test(lg),
+    'e o servidor manda esse id na lista — sem ele a regra nunca diria sim a ninguém ' +
+    'que não seja admin');
+
+  /* AS DUAS TELAS CHAMAM A MESMA REGRA. Uma delas escrevendo a sua cópia é o defeito que
+     já aconteceu neste projeto, com a porta do painel: aparecia numa tela e era recusada
+     na outra. */
+  ok(/Q\.podeCorrigir\(Q\.sessao\(\), m\)/.test(adm),
+    'o painel pergunta à regra quem pode corrigir');
+  ok(/Q\.podeCorrigir\(s, m\)/.test(camp),
+    'e o app de campo pergunta à MESMA regra');
+
+  /* O CONSERTO DO CAMPO CHAMA A ROTA DO PAINEL. Uma segunda rota faria a correção do
+     campo não escrever o mesmo histórico — e o painel não teria como mostrá-la. */
+  ok(camp.indexOf("acao:'corrigir'") > 0,
+    'o app de campo grava pela mesma rota `corrigir` do painel — é isso que faz a ' +
+    'correção feita no galpão aparecer em Movimentos');
+  ok(/data-corrigir=/.test(camp), 'há um botão de corrigir por linha');
+  ok(/function formCorrigirCampo\(m, botao\)/.test(camp),
+    'e um formulário que abre na própria tela');
+
+  /* A TELA QUE DEIXA CORRIGIR MOSTRA QUE FOI CORRIGIDO. Sem a marca, o número da linha
+     pode não ser mais o que aquela pessoa digitou, e a coluna "quem lançou" ao lado dele
+     vira uma afirmação errada — é a mesma informação que o painel dá em "Alterado por". */
+  ok(/alt\.vezes \?[\s\S]{0,400}>corrigido<\/span>/.test(camp),
+    'a linha já corrigida se anuncia, e a marca sai do histórico — não de um palpite');
+
+  var iF = camp.indexOf('function formCorrigirCampo(m, botao)');
+  var forma = camp.slice(iF, camp.indexOf('\n  function fecharCorrecoes', iF));
+  ok(forma.length > 800, 'o recorte do formulário pegou o corpo dele', forma.length);
+
+  /* O QUE O CAMPO NÃO CORRIGE, e de propósito. Trocar o autor de um lançamento é ato de
+     escritório; e o app de campo nem recebe a lista de usuários, que sai da rota
+     `equipe` para não expor o nome de todo mundo a quem só abre o endereço. */
+  ok(forma.indexOf('crUsuario') < 0 && forma.indexOf('Quem fez o envio') < 0,
+    'o app de campo não troca o AUTOR do lançamento — isso é ato de escritório, e a ' +
+    'lista de usuários nem chega a esta tela');
+  ok(forma.indexOf('UsuarioID:') < 0,
+    'e não manda `UsuarioID` no pedido: mandado vazio, ele apagaria o dono da linha');
+
+  /* MOTIVO OBRIGATÓRIO, dos dois lados. Sem ele o histórico ganha uma linha que ninguém
+     consegue explicar depois — que é justamente para o que o histórico serve. */
+  ok(/if \(!motivo\) return Q\.toast/.test(forma),
+    'a tela recusa a correção sem motivo');
+  ok(/carregarLanc\(\);/.test(forma),
+    'e recarrega do servidor depois de gravar — remendada na tela, a linha mostraria o ' +
+    'número novo e os cartões de cima continuariam somando o antigo');
+
+  /* FECHAR ANTES DE ABRIR. Dois formulários abertos têm os MESMOS ids, e o
+     `getElementById` passaria a ler o do primeiro — gravando os valores da linha errada. */
+  ok(/fecharCorrecoes\(\);\s*\n\s*if \(jaAberta\) return;/.test(forma),
+    'abrir um conserto fecha o outro — dois abertos repetem os ids, e gravar leria os ' +
+    'campos da linha errada');
+
+  /* FORA DA TABELA. Dentro dela o formulário herda a rolagem horizontal do
+     `.tabela-wrap` e nasce com a largura de todas as colunas: medido em 430px, metade
+     dos campos ficava fora da tela, inclusive o motivo, que é obrigatório. */
+  ok(forma.indexOf('correcaoBox') > 0 && forma.indexOf('<td colspan') < 0,
+    'o conserto abre FORA da tabela — dentro dela ele herda a rolagem lateral e não ' +
+    'cabe no celular');
+  ok(/id="correcaoBox"/.test(camp), 'e a lista reserva o lugar dele');
+  ok(/em-correcao/.test(camp) && /tr\.em-correcao/.test(css),
+    'a linha que está sendo corrigida fica marcada — fora da tabela, o formulário perde ' +
+    'a vizinhança que dizia qual lançamento é');
+  ok(/Q\.dataBR\(m\.dataRef\)\+' · '/.test(forma),
+    'e o próprio formulário diz qual lançamento está consertando');
+
+  /* ---- o conserto da REMESSA INTEIRA ----------------------------------------
+     O cartão é o lançamento todo, então o conserto dele também: uma quantidade por
+     tipo de caixa, e uma correção por linha que mudou. */
+  ok(/m\.itens\.map\(function\(i\)\{[\s\S]{0,300}id="crQ'\+Q\.esc\(i\.id\)/.test(forma),
+    'o conserto tem uma quantidade por tipo de caixa — o cartão é a remessa inteira, ' +
+    'e quem contou errado contou uma caixa, não a carga');
+
+  /* SÓ AS LINHAS QUE MUDARAM. O servidor recusa uma correção em que nada mudou — e com
+     razão, ela encheria o histórico de entradas vazias. Mandar as cinco para consertar
+     uma daria quatro recusas e um erro na cara de quem acertou. */
+  ok(/var mudouComum =/.test(forma) && /m\.itens\.filter\(function\(i\)\{/.test(forma),
+    'e manda só as linhas que mudaram — o servidor recusa correção sem mudança, e as ' +
+    'outras quatro voltariam como erro');
+  ok(/if \(!envios\.length\) return Q\.toast\('Nada mudou/.test(forma),
+    'nada mudou é dito na tela, e não vira uma volta ao servidor para ouvir isso dele');
+
+  /* EM FILA, uma de cada vez. Disparadas juntas, cinco correções do mesmo lote leem o
+     histórico ANTES umas das outras, e a última a gravar apaga as quatro entradas
+     anteriores — some o registro de quem mexeu, que é justamente o que se quer guardar. */
+  ok(/\.reduce\(function\(fila, pedido\)\{[\s\S]{0,200}fila\.then\(/.test(forma),
+    'as correções vão em FILA, uma de cada vez — juntas, a última a gravar apagaria o ' +
+    'histórico que as outras escreveram');
+  ok(/feitas \? feitas\+' corrigido\(s\), e então: '\+erro : erro/.test(forma),
+    'e se uma falhar no meio, a tela diz quantas JÁ foram — "falhou" sozinho faria ' +
+    'corrigir de novo o que já estava certo');
+
+  /* O TIPO da caixa só se troca quando a remessa tem um tipo só: com cinco no mesmo
+     cartão, um seletor de "Caixa" não diz de qual das cinco se fala. */
+  ok(/var umaCaixa = m\.itens\.length === 1;/.test(forma) &&
+     /umaCaixa\s*\n?\s*\? '<div><label for="crCaixa">/.test(forma),
+    'trocar o TIPO da caixa só aparece quando a remessa tem um tipo só');
+})();
+
+console.log('\n== a hora do lançamento: o carimbo vem do servidor, que roda em UTC ==');
+(function () {
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  /* As funções de verdade, recortadas do `app.js`. Reescritas aqui, elas passariam a ser
+     uma segunda versão da regra, e seria a segunda que este teste aprovaria. */
+  function fn(nome) {
+    var i = js.indexOf('  function ' + nome + '(');
+    if (i < 0) throw new Error('não achei: ' + nome);
+    var fim = js.indexOf('\n  }', i);
+    if (fim < 0) throw new Error('não fechei: ' + nome);
+    return js.slice(i, fim + 4);
+  }
+  var fonte = ['pad', 'comoUTC', 'horaBR', 'dataDoCarimboBR', 'dataHoraBR']
+    .map(fn).join('\n');
+  var F = new Function(fonte +
+    '\n return { horaBR: horaBR, dataDoCarimboBR: dataDoCarimboBR, dataHoraBR: dataHoraBR };')();
+
+  /* AS ASSERÇÕES NÃO CITAM NENHUMA HORA. O fuso da máquina que roda o teste entraria na
+     conta, e o teste passaria no Recife e falharia em Lisboa — ou, pior, passaria nos
+     dois por acaso. O que se compara é o comportamento: o carimbo sem marca de fuso tem
+     de ser lido do MESMO jeito que o carimbo marcado como UTC. */
+  var cru = '2026-09-17T23:30:00';
+  ok(F.horaBR(cru) === F.horaBR(cru + 'Z'),
+    'carimbo sem fuso é lido como UTC — o servidor roda em UTC, e lido como hora local ' +
+    'um lançamento das 20:30 do galpão apareceria às 23:30',
+    [F.horaBR(cru), F.horaBR(cru + 'Z')]);
+  ok(F.dataDoCarimboBR(cru) === F.dataDoCarimboBR(cru + 'Z'),
+    'e a DATA junto — às 23:30 em UTC a diferença de fuso muda o dia, não só a hora',
+    [F.dataDoCarimboBR(cru), F.dataDoCarimboBR(cru + 'Z')]);
+
+  ok(F.horaBR(cru + '-03:00') !== F.horaBR(cru + 'Z'),
+    'e um carimbo que JÁ traz fuso passa intocado — marcado de novo, o fuso certo seria ' +
+    'trocado por outro',
+    [F.horaBR(cru + '-03:00'), F.horaBR(cru + 'Z')]);
+
+  /* Vazio e lixo devolvem vazio. Uma célula em branco numa tabela de conferência se
+     entende; "Invalid Date" no meio de trezentas linhas, não. */
+  ['', null, undefined, 'não é data'].forEach(function (v) {
+    ok(F.horaBR(v) === '' && F.dataDoCarimboBR(v) === '' && F.dataHoraBR(v) === '',
+      'carimbo ausente ou inválido vira célula vazia, e não "Invalid Date": ' +
+      JSON.stringify(v), [F.horaBR(v), F.dataDoCarimboBR(v)]);
+  });
+
+  ok(/^\d{2}:\d{2}$/.test(F.horaBR(cru)), 'a hora sai em HH:MM', F.horaBR(cru));
+  ok(/^\d{2}\/\d{2}\/\d{4}$/.test(F.dataDoCarimboBR(cru)),
+    'e a data em dd/mm/aaaa', F.dataDoCarimboBR(cru));
+  ok(F.dataHoraBR(cru) === F.dataDoCarimboBR(cru) + ' ' + F.horaBR(cru),
+    'e as duas juntas são exatamente as duas — não uma terceira formatação',
+    F.dataHoraBR(cru));
+})();
+
+console.log('\n== a lixeira: o que foi excluído tem por onde voltar ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  var lg = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+
+  /* A PENEIRA É UMA SÓ. É o que permitiu a exclusão virar marca sem ter de lembrar de
+     filtrar em saldo, painel, extrato, ciclo e lista — cinco lugares, e o esquecido
+     deixaria o lançamento "excluído" pesando num saldo que ninguém sabe explicar. */
+  ok(/function ativos\(movimentos\)\s*\{[^}]*!m\.Cancelado && !m\.ExcluidoEm/.test(lg),
+    'o que está na lixeira sai da MESMA peneira que já tirava o cancelado');
+  ok(/function naLixeira\(movimentos\)/.test(lg),
+    'e há o avesso dela, para a lixeira listar o que sobrou');
+
+  /* O caminho de volta existe DOS DOIS LADOS: sem a rota, o botão não tem o que chamar;
+     sem o botão, a rota é um recurso que ninguém encontra. */
+  ok(/acao === 'restaurarMovimento'/.test(idx), 'a API tem a rota que restaura');
+  ok(/case 'lixeira':/.test(idx), 'e a rota que lista o que está na lixeira');
+  ok(/id="btnLixeira"/.test(adm), 'a tela tem o botão da lixeira');
+  ok(/data-restaurar=/.test(adm), 'e um botão de restaurar por linha');
+  ok(adm.indexOf("acao:'restaurarMovimento'") > 0,
+    'que chama a rota de restaurar — botão sem chamada é enfeite');
+
+  /* EXCLUIR NÃO APAGA MAIS. A linha do `db.remover` era o que tornava o aviso verdadeiro;
+     enquanto ela existir, restaurar promete o que não pode cumprir. */
+  var iEx = idx.indexOf('async function excluirMovimento');
+  var corpoEx = idx.slice(iEx, idx.indexOf('\n}', iEx));
+  ok(iEx > 0 && corpoEx.indexOf("db.remover(") < 0,
+    'excluir não apaga a linha — marcada e apagada são a mesma palavra na tela, e só ' +
+    'uma delas tem volta');
+  ok(/montarExclusao/.test(corpoEx), 'ele marca, pela regra que também escreve o histórico');
+
+  var iLim = idx.indexOf('async function limparMovimentos');
+  var corpoLim = idx.slice(iLim, idx.indexOf('\n}', iLim));
+  ok(iLim > 0 && corpoLim.indexOf('removerVarios') < 0,
+    'e o "apagar o que está no filtro" também não apaga — é ele que leva centenas de ' +
+    'uma vez, e o que mais precisava de volta');
+  ok(/atualizarVarios/.test(corpoLim),
+    'ele marca em bloco: linha a linha seriam centenas de idas ao banco numa função ' +
+    'com tempo contado, e metade do trabalho ficaria feita quando o tempo acabasse');
+
+  /* O AVISO DIZIA "NÃO TEM VOLTA". Dizia a verdade quando apagava; agora mentiria ao
+     contrário, e assustar sem motivo custa o uso do botão certo. */
+  var iBot = adm.indexOf("data-excluir]").valueOf();
+  var trechoAviso = adm.slice(adm.indexOf('EXCLUIR este lançamento') - 200,
+                              adm.indexOf('para confirmar:') + 40);
+  ok(iBot > 0 && trechoAviso.indexOf('não tem volta') < 0 &&
+     trechoAviso.indexOf('Isto não tem volta') < 0,
+    'a confirmação não diz mais "não tem volta" — e tem');
+  ok(/LIXEIRA/.test(trechoAviso),
+    'ela diz para onde o lançamento vai, que é a pergunta seguinte de quem hesita');
+  ok(trechoAviso.indexOf('Escreva') > 0,
+    'e a confirmação escrita ficou: o lançamento sai do saldo de alguém no instante do ' +
+    'clique, e isso continua valendo mais do que um clique');
 })();
 
 console.log('\n== a marca: um desenho só, e do tamanho que ele pede ==');

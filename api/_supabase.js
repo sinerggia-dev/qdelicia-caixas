@@ -78,6 +78,23 @@ function salvarConfig(chave, valor) {
   });
 }
 
+/* O MESMO patch em vários de uma vez, pelo mesmo `in.(...)` do `removerVarios` — e pela
+   mesma razão: um PATCH sem filtro no PostgREST reescreve a tabela inteira.
+
+   Existe para o "Apagar o que está no filtro", que leva centenas de linhas. Linha a
+   linha seriam centenas de idas ao banco numa função que tem tempo contado, e a metade
+   do trabalho ficaria feita quando o tempo acabasse. */
+function atualizarVarios(tabela, ids, patch) {
+  var lista = (ids || []).filter(function (x) { return x !== null && x !== undefined && x !== ''; });
+  if (!lista.length) return Promise.resolve(null);
+  var alvo = lista.map(function (x) { return '"' + String(x).replace(/"/g, '') + '"'; }).join(',');
+  return req('/rest/v1/' + tabela + '?id=in.(' + encodeURIComponent(alvo) + ')', {
+    method: 'PATCH',
+    headers: cabecalhos({ Prefer: 'return=minimal' }),
+    body: JSON.stringify(patch)
+  });
+}
+
 /* Apaga vários de uma vez. O `in.(...)` é obrigatório: um DELETE sem filtro no PostgREST
    varre a tabela inteira, e é exatamente o engano que não pode acontecer aqui. */
 function removerVarios(tabela, ids) {
@@ -291,6 +308,11 @@ var MOV = {
       ConferidoEm: r.conferido_em, ConferidoPor: r.conferido_por,
       Cancelado: r.cancelado === true, MotivoCancel: r.motivo_cancel,
       Motorista: r.motorista || '', Rota: r.rota || '', Teste: r.teste === true,
+      /* Date, e não o texto cru: `iso()` só sabe formatar Date, e devolve string vazia
+         para qualquer outra coisa — sem estourar. A coluna "Excluído em" da lixeira
+         nascia em branco por causa disto, com tudo o mais funcionando. */
+      ExcluidoEm: r.excluido_em ? new Date(r.excluido_em) : null,
+      ExcluidoPor: r.excluido_por || '',
       Historico: Array.isArray(r.historico) ? r.historico : []
     };
   },
@@ -328,6 +350,13 @@ var MOV = {
     pos('ConferidoPor', 'conferido_por', nulo);
     pos('Cancelado', 'cancelado', function (v) { return v === true; });
     pos('MotivoCancel', 'motivo_cancel', nulo);
+    /* `nulo` e não `undefined`: restaurar PRECISA escrever null na coluna, e um campo que
+       some do patch deixaria a linha na lixeira sem ninguém ver. */
+    pos('ExcluidoEm', 'excluido_em', function (d) {
+      if (d === null || d === '') return null;
+      return d instanceof Date ? d.toISOString() : d;
+    });
+    pos('ExcluidoPor', 'excluido_por', function (v) { return (v === null || v === '') ? null : v; });
     pos('Historico', 'historico');
     return r;
   }
@@ -362,7 +391,7 @@ async function carregarTudo() {
 module.exports = {
   configurado: configurado,
   selectAll: selectAll, insert: insert, update: update, remover: remover,
-  removerVarios: removerVarios, salvarConfig: salvarConfig,
+  removerVarios: removerVarios, atualizarVarios: atualizarVarios, salvarConfig: salvarConfig,
   rpc: rpc,
   subirArquivo: subirArquivo, carregarTudo: carregarTudo,
   LOCAL: LOCAL, TIPO: TIPO, USUARIO: USUARIO, MOV: MOV, MOTORISTA: MOTORISTA,

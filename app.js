@@ -351,6 +351,39 @@
     var d = String(iso).slice(0, 10).split('-');
     return d.length === 3 ? d[2] + '/' + d[1] + '/' + d[0] : String(iso);
   }
+  /* O CARIMBO de quando o lançamento foi gravado, na hora de quem está olhando.
+   *
+   * `dataBR` não serve aqui, e a diferença não é detalhe: ela recorta os dez primeiros
+   * caracteres do texto, o que está certo para a data de referência — que é uma data
+   * seca, sem hora nenhuma — e errado para o carimbo, que tem hora e fuso.
+   *
+   * O SERVIDOR RODA EM UTC, e o carimbo chega dele SEM MARCA DE FUSO: "2026-09-17T23:30:00"
+   * é 23:30 em Londres, ou seja 20:30 no galpão. Entregue cru ao `new Date`, o navegador
+   * lê esse texto como hora LOCAL e mostra 23:30 — três horas adiante, e na véspera
+   * virando o dia. Marcar o texto como UTC antes de converter é o que põe a coluna Hora
+   * na hora em que a pessoa de fato lançou.
+   *
+   * Carimbo que JÁ traz fuso (termina em Z, ou +03:00) passa intocado: marcá-lo de novo
+   * seria trocar o fuso certo por outro.
+   */
+  function comoUTC(carimbo) {
+    var t = String(carimbo || '');
+    return /(Z|[+-]\d{2}:?\d{2})$/.test(t) ? t : t + 'Z';
+  }
+  function horaBR(carimbo) {
+    var d = carimbo ? new Date(comoUTC(carimbo)) : null;
+    if (!d || isNaN(d.getTime())) return '';
+    return pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function dataDoCarimboBR(carimbo) {
+    var d = carimbo ? new Date(comoUTC(carimbo)) : null;
+    if (!d || isNaN(d.getTime())) return '';
+    return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear();
+  }
+  function dataHoraBR(carimbo) {
+    var dt = dataDoCarimboBR(carimbo);
+    return dt ? dt + ' ' + horaBR(carimbo) : '';
+  }
   function hoje() {
     var d = new Date();
     return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
@@ -499,6 +532,94 @@
       return ['GALPAO', 'CONFERENTE'].indexOf(String(s.perfil).toUpperCase()) >= 0;
     }
     return s.acessoPainel === true;
+  }
+
+  /** Quem pode corrigir QUAL lançamento.
+   *
+   * Mora aqui, e não em cada tela, porque agora são DUAS: o painel do escritório e a
+   * lista de Lançamentos do app de campo. Escrita duas vezes, a regra diverge — foi
+   * exatamente o que aconteceu com a porta do painel, que aparecia numa tela e era
+   * recusada na outra.
+   *
+   * ADMIN corrige qualquer um: é o escritório consertando o que chegou errado, e era
+   * a única regra que existia até aqui.
+   *
+   * OS DEMAIS corrigem só o que LANÇARAM. Quem errou conserta, na tela em que está —
+   * e ninguém mexe no número de outra pessoa. A lista de Lançamentos mostra o que a
+   * permissão `usuariosVistos` deixa ver, que pode ser a equipe inteira: sem esta
+   * linha, ver o lançamento do colega passaria a ser poder mudá-lo.
+   *
+   * POR ID, e não por nome: dois "João" no cadastro e a comparação por nome entrega a
+   * um o lançamento do outro.
+   *
+   * O PIN PASSA, ao contrário do painel. A credencial curta já cria lançamento — que é
+   * poder igual ou maior sobre o mesmo saldo —, então exigi-la aqui não guardaria nada
+   * e tiraria o conserto justamente de quem está com o celular na mão.
+   *
+   * ISTO É A TELA, NÃO A TRANCA: a API não tem autorização, e um POST direto corrige
+   * qualquer lançamento. Serve para ninguém mexer no que não é seu sem querer.
+   */
+  function podeCorrigir(s, m) {
+    if (!s || !m) return false;
+    if (String(s.perfil).toUpperCase() === 'ADMIN') return true;
+    return !!m.usuarioId && String(m.usuarioId) === String(s.id);
+  }
+
+  /**
+   * JUNTA AS LINHAS DE UMA REMESSA SÓ.
+   *
+   * Um toque em Enviar com cinco tipos de caixa grava cinco linhas. A lista mostrava as
+   * cinco, repetindo data, origem, destino e motorista em cada uma — cinco linhas para
+   * uma carga, e no celular isso vira uma tabela que só se lê arrastando de lado.
+   *
+   * A chave é o `lote`, que o servidor calcula do `ClientKey` do envio. Aqui não se
+   * adivinha nada: linhas com o mesmo lote vieram do mesmo toque.
+   *
+   * O TIPO DE CAIXA REPETIDO ABRE OUTRO GRUPO. Duas linhas de CX P no mesmo lote não são
+   * um envio só — são dois envios que caíram na mesma chave (acontece com as linhas
+   * antigas, sem `ClientKey`, gravadas no mesmo segundo). Somadas, virariam uma
+   * quantidade que ninguém lançou; separadas, no máximo aparecem dois cartões onde a
+   * pessoa esperava um.
+   *
+   * A ORDEM DE CHEGADA É MANTIDA: quem ordena é quem monta a lista, e reordenar aqui
+   * faria a tela discordar do servidor sem nenhum motivo visível.
+   */
+  function agruparLancamentos(lista) {
+    var grupos = [], porChave = {};
+    (lista || []).forEach(function (m) {
+      var chave = m.lote || ('id:' + m.id);
+      var g = porChave[chave];
+      if (g && g.caixas[String(m.tipoCaixaId)]) {
+        /* Já tem esta caixa: fecha o grupo para novas entradas e começa outro. A chave
+           velha some do índice para o próximo item desta caixa não voltar para ele. */
+        g = null;
+      }
+      if (!g) {
+        g = {
+          lote: chave, id: m.id, tipo: m.tipo, dataRef: m.dataRef, dataHora: m.dataHora,
+          origem: m.origem, destino: m.destino, origemId: m.origemId,
+          destinoId: m.destinoId, motorista: m.motorista, usuario: m.usuario,
+          usuarioId: m.usuarioId, teste: m.teste, situacao: m.situacao,
+          obs: m.obs, romaneio: m.romaneio,
+          itens: [], total: 0, alterado: null, caixas: {}
+        };
+        porChave[chave] = g;
+        grupos.push(g);
+      }
+      g.caixas[String(m.tipoCaixaId)] = true;
+      g.itens.push({
+        id: m.id, tipoCaixa: m.tipoCaixa, tipoCaixaId: m.tipoCaixaId,
+        qtd: Number(m.qtd) || 0, alterado: m.alterado || null
+      });
+      g.total += Number(m.qtd) || 0;
+      /* A correção mais RECENTE do lote representa o cartão: corrigir um tipo de caixa
+         corrige o lançamento aos olhos de quem olha, e o cartão é o lançamento. */
+      var a = m.alterado;
+      if (a && a.vezes && (!g.alterado || String(a.em) > String(g.alterado.em))) {
+        g.alterado = a;
+      }
+    });
+    return grupos;
   }
 
   /** Para onde esta sessao deve ir depois de autenticar.
@@ -1010,8 +1131,10 @@
     precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
     temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
+    horaBR: horaBR, dataDoCarimboBR: dataDoCarimboBR, dataHoraBR: dataHoraBR,
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
+    podeCorrigir: podeCorrigir, agruparLancamentos: agruparLancamentos,
     gruposDaNavegacao: gruposDaNavegacao,
     quemEsta: quemEsta, iniciais: iniciais,
     barraAging: barraAging, assinatura: assinatura,

@@ -178,9 +178,24 @@ var naLista = [].concat(
 var comEstrela = (html.match(/<label for="([a-zA-Z]+)">[^<]*<span class="obrig">/g) || [])
   .map(function (x) { return x.match(/for="([a-zA-Z]+)"/)[1]; });
 var faltaEstrela = naLista.filter(function (id) { return comEstrela.indexOf(id) < 0; });
-var estrelaSobrando = comEstrela.filter(function (id) { return naLista.indexOf(id) < 0; });
+/* `crMotivo` é obrigatório por OUTRA guarda: ele não é campo de lançamento, é o motivo
+   da correção, e quem o exige é o botão de gravar mais a regra do servidor. Entra aqui
+   nomeado, e não por um filtro esperto — e as duas guardas dele são conferidas logo
+   abaixo. Sem isso, a estrela seria uma promessa que ninguém cumpre. */
+var FORA_DO_ENVIO = ['crMotivo'];
+var estrelaSobrando = comEstrela.filter(function (id) {
+  return naLista.indexOf(id) < 0 && FORA_DO_ENVIO.indexOf(id) < 0;
+});
 ok(faltaEstrela.length === 0, 'todo campo obrigatório tem * na tela', faltaEstrela);
 ok(estrelaSobrando.length === 0, 'todo * na tela está na lista', estrelaSobrando);
+
+/* ---- 11. o motivo da correção é exigido dos DOIS lados ---- */
+ok(/crMotivo'\)\.value\.trim\(\);\s*\n\s*if \(!motivo\) return Q\.toast/.test(html),
+   'a tela recusa a correção sem motivo, com o texto ainda digitado');
+var logica = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+ok(/if \(!motivo\) return \{ ok: false, erro: 'Descreva o motivo da correção\.' \}/.test(logica),
+   'e o servidor recusa de novo — a API aceita pedido de qualquer lugar, e a tela ' +
+   'sozinha seria enfeite');
 ok(/Quantas caixas<span class="obrig">/.test(html), 'as quantidades também são marcadas');
 ok(!/for="(sdObs|dvObs)">[^<]*<span class="obrig">/.test(html), 'observação não recebeu *');
 

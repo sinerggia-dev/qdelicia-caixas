@@ -119,6 +119,14 @@ async function rotaGet(p) {
       var mov = L.recorteProprios(d, p.so);
       return { ok: true, movimentos: L.listaMovimentos(mov.movimentos, d.locais, d.tipos,
                  d.usuarios, p) };
+    /* A lixeira entende o MESMO `so` que `movimentos`, e pela mesma razão: ela é o
+       avesso daquela lista, e uma peneira que valesse só de um lado transformaria a
+       tela que restaura num jeito de ver o que a tela que lista esconde. A tela manda
+       aqui o mesmo `so` que manda no "Apagar o que está no filtro": quem não pôde apagar
+       um lançamento não o encontra aqui para restaurar. */
+    case 'lixeira':
+      return { ok: true, movimentos: L.listaLixeira(L.recorteProprios(d, p.so).movimentos,
+                 d.locais, d.tipos, d.usuarios, p) };
     case 'extrato':
       return L.extrato(L.recorteProprios(d, p.so), p.local, p.de, p.ate);
     case 'extratoToken':
@@ -162,6 +170,7 @@ async function rotaPost(p) {
   if (acao === 'salvarConfig') return await salvarConfig(p);
   if (acao === 'excluir') return await excluir(p.aba, p.id);
   if (acao === 'excluirMovimento') return await excluirMovimento(p);
+  if (acao === 'restaurarMovimento') return await restaurarMovimento(p);
   if (acao === 'limparMovimentos') return await limparMovimentos(p);
 
   return { ok: false, erro: 'Ação desconhecida: ' + acao };
@@ -375,32 +384,61 @@ async function limparMovimentos(p) {
     };
   }
 
-  // Em blocos: uma URL com centenas de ids estoura o limite de tamanho do PostgREST.
+  /* VAI PARA A LIXEIRA, e não some. Este botão leva centenas de lançamentos de uma vez, e
+     era o que menos podia ser definitivo: errar o filtro aqui custava um dia inteiro de
+     galpão, sem nada a fazer depois.
+
+     Em bloco e com a MESMA marca para todos — não a entrada de histórico que a exclusão
+     de uma linha escreve. Ela é por linha, e escrevê-la aqui seria ou centenas de idas ao
+     banco numa função com tempo contado, ou o mesmo histórico copiado por cima de todos,
+     apagando o que cada lançamento já tinha. Quem apagou e quando ficam nas duas colunas
+     da lixeira, que é onde essa pergunta é feita. */
+  var marca = db.MOV.para({ ExcluidoEm: new Date(), ExcluidoPor: String(p.usuarioId || '') });
   for (var i = 0; i < ids.length; i += 100) {
-    await db.removerVarios('movimentos', ids.slice(i, i + 100));
+    await db.atualizarVarios('movimentos', ids.slice(i, i + 100), marca);
   }
   return { ok: true, apagados: ids.length };
 }
 
-/* Apaga a linha de vez. Diferente de `cancelar`, que deixa o registro no lugar com o
-   motivo — o cancelado ainda se lê no histórico e no CSV. Aqui não sobra nada, e por
-   isso a tela pede confirmação escrita antes de chamar. */
+/* MANDA PARA A LIXEIRA. Antes esta função apagava a linha, e o aviso da tela dizia a
+   verdade: não tinha volta. Tinha volta nenhuma também para quem escrevia o nome certo
+   da caixa por engano, que é justamente o engano que a confirmação escrita não pega.
+
+   Diferente de `cancelar`, que deixa o lançamento à vista com o motivo: o cancelado
+   continua na lista e no CSV, dizendo que existiu e não vale. O excluído sai de vista —
+   mas sai do banco nunca, e por isso `restaurarMovimento` consegue trazê-lo de volta. */
 async function excluirMovimento(p) {
   var d = await db.carregarTudo();
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
-  if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
-  await db.remover('movimentos', mov.ID);
+  var r = L.montarExclusao(mov, p, new Date());
+  if (!r.ok) return r;
+  var patch = db.MOV.para(r.patch);
+  patch.historico = r.historico;
+  await db.update('movimentos', mov.ID, patch);
   return { ok: true, excluido: true };
+}
+
+/* TRAZ DE VOLTA. O lançamento volta exatamente como estava: nada do que ele tinha foi
+   perdido, porque nada foi apagado — só a marca da lixeira some. */
+async function restaurarMovimento(p) {
+  var d = await db.carregarTudo();
+  var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
+  var r = L.montarRestauracao(mov, p, new Date());
+  if (!r.ok) return r;
+  var patch = db.MOV.para(r.patch);
+  patch.historico = r.historico;
+  await db.update('movimentos', mov.ID, patch);
+  return { ok: true, restaurado: true };
 }
 
 async function cancelar(p) {
   var d = await db.carregarTudo();
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
-  if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
-  await db.update('movimentos', mov.ID, {
-    cancelado: true,
-    motivo_cancel: String(p.motivo || '') + ' (' + (p.usuarioId || '') + ')'
-  });
+  var r = L.montarCancelamento(mov, p, new Date());
+  if (!r.ok) return r;
+  var patch = db.MOV.para(r.patch);
+  patch.historico = r.historico;
+  await db.update('movimentos', mov.ID, patch);
   return { ok: true };
 }
 

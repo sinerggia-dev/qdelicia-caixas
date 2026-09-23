@@ -1031,6 +1031,86 @@ a.chip:hover{background:var(--surface-2);color:var(--txt)}
   border-top:1px solid var(--linha)}
 .fchk .marca input{width:18px;height:18px;margin:0;flex:0 0 auto}
 
+/* O CONSERTO ABERTO NA PRÓPRIA LISTA, logo ABAIXO da tabela — e não dentro dela.
+   Dentro, numa linha, ele herdava a rolagem horizontal do `.tabela-wrap` e nascia com a
+   largura de todas as colunas: em 430px metade dos campos ficava fora da tela, e a
+   pessoa tinha de arrastar a tabela de lado para achar o motivo, que é obrigatório.
+
+   A faixa roxa à esquerda o prende visualmente à lista; quem diz QUAL lançamento é a
+   linha de resumo dentro dele, mais o destaque na linha da tabela. */
+.correcao{
+  margin-top:12px;padding:14px 14px 16px;
+  border-left:3px solid var(--brand);border-radius:0 var(--raio) var(--raio) 0;
+  background:var(--campo)
+}
+.correcao label{display:block;margin:10px 0 4px}
+.correcao .linha-btn{margin-top:12px}
+/* A linha que está sendo corrigida. Com o formulário fora da tabela, sem isto a pessoa
+   perde de vista em qual lançamento mexe — e a tabela rola. */
+tr.em-correcao > td{background:var(--marinho-claro)}
+article.lanc.em-correcao{border-color:var(--brand)}
+
+/* Uma quantidade por tipo de caixa, no conserto da remessa inteira. Em duas colunas no
+   celular: em uma só, cinco tipos empurram o motivo — que é obrigatório — para baixo da
+   dobra, e quem não rola acha que o botão está quebrado. */
+.qtds-edit{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.qtds-edit label{display:block;margin:10px 0 4px}
+
+/* ---------- OS LANÇAMENTOS EM CARTÃO (só no celular) ----------
+   A tabela tem nove colunas: no celular ela só se lê arrastando de lado, e cada remessa
+   ocupa uma linha POR TIPO DE CAIXA — cinco linhas repetindo data, rota e motorista para
+   uma carga só. O cartão junta a remessa e põe as quantidades dentro dela.
+
+   Quem troca uma pela outra é o `desenharLanc`, em 1024px, e não estas regras: as duas
+   montadas ao mesmo tempo seriam o dobro do trabalho para mostrar metade. */
+.dia{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  margin:18px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--linha)}
+.dia-bloco:first-child .dia{margin-top:4px}
+.dia__d{font-size:14px;font-weight:700}
+.dia__r{font-size:12px;color:var(--txt3)}
+.dia__r b{font-family:var(--fonte-mono);color:var(--txt2);font-weight:600}
+
+.cartoes{list-style:none;margin:0;padding:0;display:grid;gap:12px;grid-template-columns:1fr}
+
+.lanc{height:100%;display:flex;flex-direction:column;
+  background:var(--surface);border:1px solid var(--linha);border-radius:var(--raio);padding:14px}
+.lanc__topo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+/* A hora vai para a ponta: é o dado que se procura de relance, e no meio das etiquetas
+   ela vira mais uma etiqueta. */
+.lanc__hora{margin-left:auto;font-family:var(--fonte-mono);font-size:12px;color:var(--txt3)}
+/* `text-transform:none` desfaz a caixa alta que `.card h3` impõe. Ali ela marca um
+   subtítulo de seção, curto e sempre o mesmo; aqui o h3 é o NOME DE DOIS LUGARES, e
+   "MATRIZ SÃO VICENTE → JOÃO PESSOA" em caixa alta é mais difícil de ler do que em caixa
+   mista — e é a linha que a pessoa usa para achar a carga certa. */
+/* `h3.lanc__rota`, e não só a classe: `.card h3` vale (0,1,1) e a classe sozinha vale
+   (0,1,0) — perdia, e a rota saía em caixa alta apesar da regra. */
+h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:0;font-size:15px;font-weight:600;line-height:1.35;
+  text-transform:none;letter-spacing:normal;color:var(--txt)}
+.lanc__rota svg{flex:0 0 auto;color:var(--txt3)}
+.lanc__quem{margin:4px 0 0;font-size:12px;color:var(--txt3)}
+
+/* As quantidades por tipo de caixa. `auto-fit` com piso de 72px cabe quatro numa tela de
+   430px e recua para duas quando o nome da caixa é longo — em vez de espremer todas. */
+.qtds{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:7px;margin:12px 0 0}
+.q{background:var(--campo);border:1px solid var(--linha);border-radius:9px;padding:7px 8px;text-align:center}
+.q dt{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt3)}
+.q dd{margin:3px 0 0;font-family:var(--fonte-mono);font-size:17px;font-weight:600}
+/* Zero é uma resposta, e não um buraco: fica cinza e vira travessão, como no resto do
+   app, para não se confundir com um número que conta. */
+.q--zero dd{color:var(--txt3);font-weight:400}
+
+/* `margin-top:auto` gruda o total no fim: com cartões de alturas diferentes lado a lado,
+   os totais ficam na mesma linha e dá para comparar sem procurar. */
+.lanc__total{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  margin-top:auto;padding-top:11px;border-top:1px solid var(--linha);
+  font-size:12px;color:var(--txt3)}
+.lanc__total b{font-family:var(--fonte-mono);font-size:17px;color:var(--txt)}
+.lanc__pe{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--linha)}
+.lanc__pe .autor{font-size:12px;color:var(--txt3);line-height:1.45;min-width:0}
+.lanc__pe .autor b{color:var(--txt2);font-weight:600}
+
 /* A linha de estoque inicial e a unica que nao e uma divida: e o ponto de partida da
    conta. Verde, como o cartao da taxa de retorno quando esta na meta. */
 /* Segunda linha da celula: o tipo do local e a rota que o atende. Sem o block ela

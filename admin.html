@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=7b322d66">
+<link rel="stylesheet" href="styles.css?v=172364e9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -522,8 +522,27 @@
                 style="flex:0 0 auto;white-space:nowrap;border-color:var(--vermelho);color:var(--vermelho)">
           Apagar o que está no filtro
         </button>
+        <!-- O botão de VOLTA, ao lado do de ida. Ele fica aqui de propósito: quem acabou
+             de apagar o que não devia procura o conserto no mesmo lugar onde errou, e
+             não numa aba que teria de descobrir que existe. -->
+        <button class="btn sec" id="btnLixeira" type="button"
+                style="flex:0 0 auto;white-space:nowrap">
+          ↺ Lixeira <span id="lixeiraQtd" class="tag" style="display:none"></span>
+        </button>
       </div>
       <div id="limparAviso"></div>
+
+      <!-- A LIXEIRA, fechada por padrão: é para onde se vai quando algo deu errado, e não
+           parte da leitura de todo dia. -->
+      <div id="lixeiraBox" style="display:none;margin-top:14px;
+           border-top:1px solid var(--linha);padding-top:12px">
+        <h3 style="margin:0 0 2px;font-size:15px">Lançamentos excluídos</h3>
+        <div class="sub" style="margin-bottom:10px">
+          Excluir não apaga: o lançamento sai da lista, do saldo, do painel e do extrato, e
+          fica aqui até alguém trazê-lo de volta. Restaurado, ele volta exatamente como era.
+        </div>
+        <div id="tabelaLixeira"><div class="vazio">Carregando…</div></div>
+      </div>
       <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
     </div>
   </section>
@@ -593,7 +612,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=c9180ebd"></script>
+<script src="app.js?v=62178f66"></script>
 <script>
 (function(){
   'use strict';
@@ -1408,12 +1427,24 @@
     redesenha: function(){ desenharFluxo(); }
   };
 
+  /* `criado` e `hora` andam juntos e ficam ao lado da data de propósito: eles respondem
+     "quando isto entrou no sistema", que é outra pergunta que a coluna Data — a data de
+     REFERÊNCIA, a do romaneio — não responde. Lançar hoje uma carga de ontem é rotina,
+     e até aqui não havia onde ver que foi isso que aconteceu.
+
+     `alterado` fecha a linha: quem mexeu por último. Sem ela, uma quantidade corrigida e
+     uma quantidade original são a mesma célula na tela. */
   var TAB_MOV = {
-    padrao: ['data','status','origem','destino','caixa','qtd','motorista','quem'],
-    larg: { data:110, status:110, origem:150, destino:150,
-            caixa:120, qtd:80, motorista:130, quem:120 },
-    titulos: { data:'Data', status:'Status', origem:'Origem', destino:'Destino',
-               caixa:'Caixa', qtd:'Qtd', motorista:'Motorista', quem:'Quem' },
+    padrao: ['data','hora','criado','status','origem','destino','caixa','qtd',
+             'motorista','quem','alterado'],
+    /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
+       coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
+       com a data mais larga do formato e a etiqueta junto. */
+    larg: { data:150, hora:70, criado:110, status:110, origem:150, destino:150,
+            caixa:120, qtd:80, motorista:130, quem:120, alterado:140 },
+    titulos: { data:'Data', hora:'Hora', criado:'Criado em', status:'Status',
+               origem:'Origem', destino:'Destino', caixa:'Caixa', qtd:'Qtd',
+               motorista:'Motorista', quem:'Quem', alterado:'Alterado por' },
     kOrdem: 'qdc_cols_mov_v1',
     kLarg: 'qdc_larg_mov_v1',
     kOcultas: 'qdc_cols_ocultas_mov_v1',
@@ -2411,7 +2442,8 @@
     document.getElementById('limparAviso').innerHTML =
       '<div class="aviso-box erro" style="margin-bottom:0">' +
         '<b>Apagar ' + Q.num(n) + ' lançamento(s)?</b> Vão sair os ' + descreveFiltro(limparFiltro) +
-        '. Não há volta — não existe cópia destes registros.' +
+        '. Eles deixam de contar no saldo, no painel e no extrato na mesma hora, e vão ' +
+        'para a <b>lixeira</b> — de onde dá para restaurar um a um.' +
         /* A tabela mostra no máximo 500 linhas, mas o filtro pode casar com muito mais, e
            é o filtro que manda na hora de apagar. Dizer isso aqui evita a conta errada de
            "vi 500, então são 500". */
@@ -2457,10 +2489,12 @@
       if (!r.ok) throw new Error(r.erro);
       document.getElementById('limparAviso').innerHTML =
         '<div class="aviso-box ok">' + Q.num(r.apagados) +
-        ' lançamento(s) apagado(s). O saldo está zerado.</div>';
-      Q.toast('Base zerada.','ok');
+        ' lançamento(s) foram para a lixeira. O saldo está zerado — e, se foi engano, ' +
+        'eles estão no botão <b>↺ Lixeira</b>, aqui em cima.</div>';
+      Q.toast('Lançamentos na lixeira.','ok');
       carregarPainel();
       if (MOVS.length) carregarMovimentos();
+      atualizarLixeiraSeAberta();
     }).catch(function(e){
       b.disabled = false; b.textContent = 'Apagar os ' + Q.num(limparN);
       res.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
@@ -2581,6 +2615,107 @@
       }).catch(function(e){ box.innerHTML='<div class="aviso-box erro">'+Q.esc(e.message)+'</div>'; });
   }
 
+  /* ---------------------------------- A LIXEIRA ----------------------------------
+   *
+   * O avesso da lista de cima: o que foi excluído e ainda dá para trazer de volta. Ela
+   * abre fechada e só busca quando abre — a pergunta "o que eu apaguei?" não se faz
+   * todo dia, e uma ida de rede a cada abertura da aba Movimentos seria cobrada de
+   * todos para servir a poucos.
+   *
+   * `so` vai igual ao do "Apagar o que está no filtro". As duas coisas são a mesma
+   * operação vista dos dois lados: quem não pôde apagar um lançamento não pode
+   * encontrá-lo aqui para restaurar. */
+  var LIXO = [];
+
+  document.getElementById('btnLixeira').addEventListener('click', function(){
+    var box = document.getElementById('lixeiraBox');
+    var abrindo = box.style.display === 'none';
+    box.style.display = abrindo ? '' : 'none';
+    if (abrindo) carregarLixeira();
+  });
+
+  /* Só recarrega se ela estiver ABERTA. Fechada, ela busca ao abrir — e buscar aqui
+     seria uma ida de rede para desenhar o que ninguém está vendo. */
+  function atualizarLixeiraSeAberta(){
+    var box = document.getElementById('lixeiraBox');
+    if (box && box.style.display !== 'none') carregarLixeira();
+  }
+
+  function carregarLixeira(){
+    var box = document.getElementById('tabelaLixeira');
+    box.innerHTML = '<div class="vazio">Carregando…</div>';
+    var pedido = { acao:'lixeira', limit:300 };
+    var meuRecorte = recorteProprios();
+    if (meuRecorte) pedido.so = meuRecorte;
+    Q.get(pedido).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      LIXO = r.movimentos || [];
+      desenharLixeira();
+    }).catch(function(e){
+      box.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
+    });
+  }
+
+  function desenharLixeira(){
+    var box = document.getElementById('tabelaLixeira');
+    var chip = document.getElementById('lixeiraQtd');
+    if (!box) return;
+    /* O contador só aparece quando há algo. Em zero ele seria um "0" pendurado num
+       botão, e um número no botão promete que há o que ver. */
+    if (chip){
+      chip.style.display = LIXO.length ? '' : 'none';
+      chip.textContent = LIXO.length;
+    }
+    if (!LIXO.length){
+      box.innerHTML = '<div class="vazio">A lixeira está vazia — nenhum lançamento excluído.</div>';
+      return;
+    }
+    box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
+      /* 150 pela mesma razão da tabela de cima: a etiqueta "teste" divide a célula com
+         a data, e em 110px ela cobria a hora da coluna seguinte. */
+      '<th style="width:150px">Data</th><th style="width:70px">Hora</th>'+
+      '<th style="width:140px">Origem</th><th style="width:140px">Destino</th>'+
+      '<th style="width:110px">Caixa</th><th class="num" style="width:70px">Qtd</th>'+
+      '<th style="width:110px">Quem lançou</th>'+
+      '<th style="width:150px">Excluído em</th><th style="width:120px">Excluído por</th>'+
+      '<th></th></tr></thead><tbody>'+
+      LIXO.map(function(m){
+        return '<tr>'+
+          '<td>'+Q.dataBR(m.dataRef)+
+            (m.teste ? ' <span class="tag amarela">teste</span>' : '')+'</td>'+
+          '<td>'+Q.esc(Q.horaBR(m.dataHora) || '—')+'</td>'+
+          '<td>'+Q.esc(m.origem)+'</td>'+
+          '<td>'+Q.esc(m.destino)+'</td>'+
+          '<td>'+Q.esc(m.tipoCaixa)+'</td>'+
+          '<td class="num">'+Q.num(m.qtd)+'</td>'+
+          '<td>'+Q.esc(m.usuario||'')+'</td>'+
+          '<td>'+Q.esc(Q.dataHoraBR(m.excluidoEm) || '—')+'</td>'+
+          '<td>'+Q.esc(m.excluidoPor || '—')+'</td>'+
+          '<td>'+(Q.ehAdmin()
+            ? '<button class="mini acao" data-restaurar="'+Q.esc(m.id)+'">restaurar</button>'
+            : '')+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
+
+    box.querySelectorAll('button[data-restaurar]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var m = LIXO.filter(function(x){ return String(x.id)===b.dataset.restaurar; })[0];
+        if (!m) return;
+        /* Restaurar devolve o lançamento ao saldo, então a confirmação diz o número: é
+           ele que vai voltar a contar, e é por ele que alguém percebe que restaurou o
+           lançamento errado ANTES de clicar. */
+        if (!confirm('Trazer de volta o lançamento de ' + Q.num(m.qtd) + ' ' +
+              (m.tipoCaixa||'caixa') + ' (' + (m.origem||'—') + ' para ' + (m.destino||'—') +
+              ', de ' + Q.dataBR(m.dataRef) + ')?\n\n' +
+              'Ele volta a valer na lista, no saldo, no painel e no extrato.')) return;
+        Q.post({acao:'restaurarMovimento', id:m.id, usuarioId:Q.sessao().id}).then(function(r){
+          if (!r.ok) throw new Error(r.erro);
+          Q.toast('Lançamento restaurado.','ok');
+          carregarLixeira(); carregarMovimentos(); carregarPainel();
+        }).catch(function(e){ Q.toast(e.message,'erro'); });
+      });
+    });
+  }
+
   /* O DESENHO separado da BUSCA. Arrastar uma coluna de lugar, esconder outra ou mudar a
      largura sao coisas de tela: redesenhar por causa delas nao pode custar uma ida de
      rede — e, pior, os 500 lancamentos voltariam noutra ordem se alguem tivesse lancado
@@ -2604,6 +2739,39 @@
       status:    { t: TIT['status'],
                    v: function(m){ return '<span class="tag '+tagCiclo(m.situacao)+'">'+
                      Q.esc(m.situacao)+'</span>'; } },
+      /* O carimbo de quando entrou no sistema. `Q.horaBR` e não um recorte do texto: o
+         carimbo vem em UTC, e recortado um lançamento das 22h aparece no dia seguinte. */
+      hora:      { t: TIT['hora'],
+                   v: function(m){
+                     var h = Q.horaBR(m.dataHora);
+                     return h ? '<span title="lançado em '+Q.esc(Q.dataHoraBR(m.dataHora))+'">'+
+                                Q.esc(h)+'</span>'
+                              : '<span class="fraco">—</span>'; } },
+      /* O dia em que foi LANÇADO, que não é sempre o dia da carga. Quando os dois
+         diferem, esta coluna é a única que conta que a carga foi lançada depois. */
+      criado:    { t: TIT['criado'],
+                   v: function(m){
+                     var dt = Q.dataDoCarimboBR(m.dataHora);
+                     if (!dt) return '<span class="fraco">—</span>';
+                     var diferente = dt !== Q.dataBR(m.dataRef);
+                     return diferente
+                       ? '<span title="a carga é de '+Q.esc(Q.dataBR(m.dataRef))+
+                         ' e foi lançada em '+Q.esc(dt)+'" class="tag amarela">'+Q.esc(dt)+'</span>'
+                       : Q.esc(dt); } },
+      /* Quem mexeu por último. Vazio é uma resposta: ninguém mexeu desde que foi
+         lançado. Por isso o travessão fraco, e não a célula em branco — em branco não se
+         distingue de uma coluna que não soube responder. */
+      alterado:  { t: TIT['alterado'],
+                   v: function(m){
+                     var a = m.alterado || {};
+                     if (!a.por && !a.vezes) return '<span class="fraco">—</span>';
+                     var quando = Q.dataHoraBR(a.em);
+                     var detalhe = (a.campo ? a.campo : 'alteração') +
+                       (quando ? ' em ' + quando : '') +
+                       (a.motivo ? ' — ' + a.motivo : '') +
+                       (a.vezes > 1 ? ' (' + a.vezes + ' alterações ao todo)' : '');
+                     return '<span title="'+Q.esc(detalhe)+'">'+
+                            Q.esc(a.por || '—')+'</span>'; } },
       origem:    { t: TIT['origem'],   v: function(m){ return Q.esc(m.origem); } },
       destino:   { t: TIT['destino'],  v: function(m){ return Q.esc(m.destino); } },
       caixa:     { t: TIT['caixa'],    v: function(m){ return Q.esc(m.tipoCaixa); } },
@@ -2642,9 +2810,17 @@
           cs.map(function(c){
             return '<td'+(c.d.num ? ' class="num"' : '')+'>'+c.d.v(m)+'</td>';
           }).join('')+
-          '<td>'+(Q.ehAdmin()
-             ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> '+
-               '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '+
+          /* Corrigir sai de `Q.podeCorrigir`, a MESMA regra que o app de campo usa: as
+             duas telas oferecem o conserto, e uma regra escrita nos dois lugares diverge.
+             Para o admin não muda nada — ele corrige qualquer um, como sempre.
+
+             Cancelar e excluir continuam presos ao admin: tirar um lançamento do saldo
+             ou mandá-lo para a lixeira é decisão de escritório, não conserto de quem
+             digitou errado. */
+          '<td>'+(Q.podeCorrigir(Q.sessao(), m)
+             ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> ' : '')+
+            (Q.ehAdmin()
+             ? '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '+
                '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>'
              : '')+'</td></tr>';
       }).join('')+'</tbody></table></div>';
@@ -2668,25 +2844,31 @@
             }).catch(function(e){ Q.toast(e.message,'erro'); });
           });
         });
-        /* Excluir apaga a linha de vez — o cancelar deixa o registro no lugar com o
-           motivo, e é o que serve na maioria dos casos. Como daqui não há volta, pede
-           o nome do tipo de caixa escrito à mão: clicar por engano não basta. */
+        /* Excluir tira o lançamento da lista e de tudo que soma — mas ele vai para a
+           lixeira, e de lá volta inteiro. O cancelar continua sendo outra coisa: deixa o
+           registro à vista, com o motivo, dizendo que existiu e não vale.
+
+           A confirmação escrita ficou. O texto dela mudou porque mentia: dizia "não tem
+           volta", e tem. Mas o lançamento sai do saldo de alguém no instante do clique, e
+           isso continua merecendo mais do que um clique. */
         box.querySelectorAll('button[data-excluir]').forEach(function(b){
           b.addEventListener('click', function(){
             var m = (MOVS||[]).filter(function(x){ return String(x.id)===b.dataset.excluir; })[0];
             if (!m) return;
             var alvo = String(m.tipoCaixa||'').trim();
-            var dito = prompt('EXCLUIR de vez este lançamento de ' + Q.num(m.qtd) + ' ' + alvo +
+            var dito = prompt('EXCLUIR este lançamento de ' + Q.num(m.qtd) + ' ' + alvo +
               ' (' + (m.origem||'—') + ' para ' + (m.destino||'—') + ').\n\n' +
-              'Isto não tem volta e não fica no histórico. Para cancelar sem apagar, use o ' +
-              'botão "cancelar".\n\nEscreva ' + alvo + ' para confirmar:');
+              'Ele sai da lista, do saldo, do painel e do extrato, e fica na LIXEIRA — de ' +
+              'onde dá para restaurar. Para deixá-lo à vista, sem valer, use o botão ' +
+              '"cancelar".\n\nEscreva ' + alvo + ' para confirmar:');
             if (dito === null) return;
             if (String(dito).trim().toUpperCase() !== alvo.toUpperCase()) {
               return Q.toast('Não confere — nada foi excluído.','erro');
             }
             Q.post({acao:'excluirMovimento', id:b.dataset.excluir, usuarioId:Q.sessao().id}).then(function(r){
               if (!r.ok) throw new Error(r.erro);
-              Q.toast('Lançamento excluído.','ok'); carregarMovimentos(); carregarPainel();
+              Q.toast('Lançamento excluído — está na lixeira.','ok');
+              carregarMovimentos(); carregarPainel(); atualizarLixeiraSeAberta();
             }).catch(function(e){ Q.toast(e.message,'erro'); });
           });
         });
@@ -2707,8 +2889,17 @@
   document.getElementById('btnCsvMov').addEventListener('click', function(){
     if (!MOVS.length) return Q.toast('Filtre os movimentos primeiro.','erro');
     Q.csv('movimentos_'+Q.hoje()+'.csv',
-      ['Data','Teste','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Quem','Obs'],
-      MOVS.map(function(m){ return [Q.dataBR(m.dataRef),m.teste?'SIM':'',m.situacao,m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',m.usuario,m.obs]; }));
+      /* As colunas novas entram AQUI também. O CSV é a tabela levada para fora: uma
+         coluna que existe na tela e falta no arquivo faz a conferência de escritório
+         chegar a um número que a tela não explica. */
+      ['Data','Hora','Criado em','Teste','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Quem','Alterado por','Alterado em','Obs'],
+      MOVS.map(function(m){
+        var a = m.alterado || {};
+        return [Q.dataBR(m.dataRef),Q.horaBR(m.dataHora),Q.dataDoCarimboBR(m.dataHora),
+                m.teste?'SIM':'',m.situacao,m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,
+                m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',
+                m.usuario,a.por||'',a.em?Q.dataHoraBR(a.em):'',m.obs];
+      }));
   });
 
   /* ---------------- cadastros ---------------- */

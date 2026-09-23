@@ -133,6 +133,23 @@ const falso = Object.assign({}, real, {
     if (i >= 0) tabelas[t].splice(i, 1);
     return null;
   },
+  /* O mesmo patch em várias linhas — o que o "Apagar o que está no filtro" usa desde que
+     apagar virou mandar para a lixeira. Sem isto no banco falso, aquele caminho não podia
+     ser testado de ponta a ponta: era justamente o que leva centenas de linhas de uma vez. */
+  atualizarVarios: async (t, ids, patch) => {
+    (ids || []).forEach((id) => {
+      const alvo = tabelas[t].find((r) => r.id === id);
+      if (alvo) Object.assign(alvo, patch);
+    });
+    return null;
+  },
+  removerVarios: async (t, ids) => {
+    (ids || []).forEach((id) => {
+      const i = tabelas[t].findIndex((r) => r.id === id);
+      if (i >= 0) tabelas[t].splice(i, 1);
+    });
+    return null;
+  },
   carregarTudo: async () => {
     const config = {};
     tabelas.config.forEach((r) => { config[r.chave] = r.valor; });
@@ -291,6 +308,131 @@ async function main() {
   ok((await POST({ acao: 'cancelar', id: alvo.id, motivo: 'lançado em dobro', usuarioId: 'U001' })).ok, 'movimento cancelado');
   p = (await GET({ acao: 'painel' })).painel; cli = p.locais.find((l) => l.id === C);
   ok(cli.saldo === 100, 'saldo volta para 100 após cancelar', cli.saldo);
+
+  /* ---------------------------------------------------------------------------
+   * A LIXEIRA.
+   *
+   * Excluir apagava a linha. O que se testa aqui não é que o botão funciona — é que a
+   * exclusão tira o lançamento das QUATRO vistas que somam, e não só da lista. Filtrado
+   * só na lista, o lançamento sairia da tela e continuaria pesando no saldo do cliente,
+   * e ninguém teria por onde descobrir de onde veio a diferença.
+   *
+   * A prova de que restaurar devolve tudo é uma FOTO das vistas antes e depois. Comparar
+   * campo a campo deixaria de fora justamente o campo que alguém esquecesse de restaurar.
+   * ------------------------------------------------------------------------- */
+  console.log('\n== a lixeira: excluir tira de tudo, e restaurar devolve ==');
+  {
+    /* O histórico MUDA de propósito — ele grava quem excluiu e quem restaurou. Comparar
+       as fotas com ele dentro acusaria diferença justamente onde a diferença é correta. */
+    const semRastro = (l) => l.map((m) => {
+      const c = Object.assign({}, m);
+      delete c.alterado; delete c.historico;
+      return c;
+    });
+    const foto = async () => JSON.stringify({
+      painel: (await GET({ acao: 'painel' })).painel,
+      extrato: await GET({ acao: 'extrato', local: C }),
+      lista: semRastro((await GET({ acao: 'movimentos', limit: 200 })).movimentos)
+    });
+
+    const antes = await foto();
+    const listaAntes = (await GET({ acao: 'movimentos', limit: 200 })).movimentos;
+    const alvoLix = listaAntes.find((m) => m.tipo === 'SAIDA' && !m.teste);
+    ok(!!alvoLix, 'há uma saída real para mandar à lixeira');
+
+    ok((await GET({ acao: 'lixeira' })).movimentos.length === 0,
+      'a lixeira começa vazia');
+
+    const rEx = await POST({ acao: 'excluirMovimento', id: alvoLix.id, usuarioId: 'U001' });
+    ok(rEx.ok, 'o lançamento vai para a lixeira', rEx.erro);
+
+    const depois = (await GET({ acao: 'movimentos', limit: 200 })).movimentos;
+    ok(!depois.some((m) => m.id === alvoLix.id), 'ele some da lista');
+
+    const pLix = (await GET({ acao: 'painel' })).painel;
+    ok(JSON.stringify(pLix) !== JSON.stringify(JSON.parse(antes).painel),
+      'e some do PAINEL — a peneira é uma só, e não um filtro escrito na lista');
+    const exLix = await GET({ acao: 'extrato', local: C });
+    ok(JSON.stringify(exLix) !== JSON.stringify(JSON.parse(antes).extrato),
+      'e do EXTRATO, que é o documento que vai para o cliente');
+
+    const lix = (await GET({ acao: 'lixeira' })).movimentos;
+    ok(lix.length === 1 && lix[0].id === alvoLix.id, 'e aparece na lixeira', lix.length);
+    ok(lix[0].excluidoPor === 'Administrador',
+      'com o NOME de quem excluiu, e não o id', lix[0].excluidoPor);
+    ok(!!lix[0].excluidoEm, 'e com a hora em que foi excluído', lix[0].excluidoEm);
+
+    /* Na lixeira ele não se mexe. Corrigir um lançamento invisível mudaria um número que
+       ninguém vê, e a correção sumiria junto com ele. */
+    ok((await POST({ acao: 'excluirMovimento', id: alvoLix.id, usuarioId: 'U001' })).ok === false,
+      'excluir de novo é recusado — ele já está lá');
+    ok((await POST({ acao: 'corrigir', id: alvoLix.id, motivo: 'x', Qtd: 7, usuarioId: 'U001' })).ok === false,
+      'corrigir um lançamento da lixeira é recusado');
+    ok((await POST({ acao: 'cancelar', id: alvoLix.id, motivo: 'x', usuarioId: 'U001' })).ok === false,
+      'cancelar um lançamento da lixeira é recusado');
+
+    const rVolta = await POST({ acao: 'restaurarMovimento', id: alvoLix.id, usuarioId: 'U001' });
+    ok(rVolta.ok, 'restaurar traz de volta', rVolta.erro);
+    ok((await GET({ acao: 'lixeira' })).movimentos.length === 0, 'e a lixeira esvazia');
+    ok((await foto()) === antes,
+      'e a lista, o painel e o extrato voltam EXATAMENTE ao que eram — nada se perdeu ' +
+      'no caminho, porque nada tinha sido apagado');
+
+    ok((await POST({ acao: 'restaurarMovimento', id: alvoLix.id, usuarioId: 'U001' })).ok === false,
+      'restaurar o que não está na lixeira é recusado');
+
+    /* QUEM MEXEU fica gravado — e é o que a coluna "Alterado por" mostra. */
+    const volta = (await GET({ acao: 'movimentos', limit: 200 })).movimentos
+      .find((m) => m.id === alvoLix.id);
+    ok(volta.alterado && volta.alterado.por === 'Administrador',
+      'o lançamento restaurado diz quem mexeu por último', volta.alterado);
+    ok(volta.alterado.campo === 'Restauração',
+      'e o que foi feito — exclusão e restauração escrevem no mesmo histórico da correção',
+      volta.alterado.campo);
+    ok(volta.alterado.vezes === 2,
+      'com as duas passagens registradas, ida e volta', volta.alterado.vezes);
+
+    /* O CARIMBO DE CRIAÇÃO, que a tabela passou a mostrar em duas colunas. */
+    ok(!!volta.dataHora && !!volta.dataRef,
+      'a lista entrega a data de referência E o carimbo de quando foi gravado',
+      [volta.dataRef, volta.dataHora]);
+  }
+
+  console.log('\n== apagar o que está no filtro também vai para a lixeira ==');
+  {
+    /* Este é o botão que leva centenas de uma vez, e era o que menos podia ser
+       definitivo: errar o filtro custava um dia inteiro de galpão. */
+    const todos = (await GET({ acao: 'movimentos', limit: 100000, teste: 'todos' })).movimentos;
+    const r = await POST({ acao: 'limparMovimentos', esperado: todos.length,
+                           teste: 'todos', usuarioId: 'U001' });
+    ok(r.ok && r.apagados === todos.length, 'o filtro inteiro vai de uma vez', r);
+    ok((await GET({ acao: 'movimentos', limit: 200, teste: 'todos' })).movimentos.length === 0,
+      'a lista fica vazia');
+    const naLixeira = (await GET({ acao: 'lixeira', limit: 1000 })).movimentos;
+    ok(naLixeira.length === todos.length,
+      'e TODOS eles estão na lixeira — nenhum foi apagado de verdade',
+      [naLixeira.length, todos.length]);
+    ok(naLixeira.every((m) => m.excluidoPor === 'Administrador'),
+      'cada um sabe quem o mandou para lá');
+
+    /* Um de volta, para provar que o caminho em bloco não quebrou o caminho de uma linha. */
+    ok((await POST({ acao: 'restaurarMovimento', id: naLixeira[0].id, usuarioId: 'U001' })).ok,
+      'e dá para trazer um de volta, um a um');
+    ok((await GET({ acao: 'movimentos', limit: 200, teste: 'todos' })).movimentos.length === 1,
+      'que volta a valer na lista');
+
+    /* E TODOS de volta, porque o cenário continua depois daqui. Não é arrumação de
+       teste: é a prova de que uma base zerada por engano se recompõe inteira, que é o
+       caso para o qual a lixeira existe. */
+    for (const m of naLixeira.slice(1)) {
+      await POST({ acao: 'restaurarMovimento', id: m.id, usuarioId: 'U001' });
+    }
+    const refeita = (await GET({ acao: 'movimentos', limit: 1000, teste: 'todos' })).movimentos;
+    ok(refeita.length === todos.length,
+      'e a base inteira volta ao tamanho de antes do engano', [refeita.length, todos.length]);
+    ok((await GET({ acao: 'lixeira', limit: 1000 })).movimentos.length === 0,
+      'com a lixeira vazia no fim');
+  }
 
   console.log('\n== login do campo: nome digitado + PIN ==');
   ok((await POST({ acao: 'login', identificador: 'Motorista Exemplo', pin: '2222' })).ok, 'nome completo + PIN');
@@ -510,12 +652,123 @@ async function main() {
   ok(corr.ok && corr.alterou.length === 1, 'quantidade corrigida', corr);
   const movC = tabelas.movimentos.find((m) => m.id === alvoC.id);
   ok(Number(movC.qtd) === 95, 'valor novo gravado', movC.qtd);
-  ok(movC.historico.length === 1 && movC.historico[0].de === '100' && movC.historico[0].para === '95',
+  /* A ÚLTIMA entrada, e não a primeira. O histórico deixou de ser só das correções:
+     excluir, restaurar e cancelar escrevem nele também, com a mesma forma — é isso que
+     deixa a coluna "Alterado por" ser uma leitura só. Preso no índice zero, este teste
+     passava a conferir o que aconteceu ANTES da correção que ele acabou de fazer. */
+  const ultC = movC.historico[movC.historico.length - 1];
+  ok(ultC.de === '100' && ultC.para === '95',
      'histórico guarda o valor antigo e o novo', movC.historico);
-  ok(movC.historico[0].motivo === 'romaneio dizia 95' && movC.historico[0].por === 'U001',
-     'histórico guarda motivo e autor', movC.historico[0]);
+  ok(ultC.motivo === 'romaneio dizia 95' && ultC.por === 'U001',
+     'histórico guarda motivo e autor', ultC);
   ok((await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95, motivo: 'de novo' })).ok === false,
      'corrigir para o mesmo valor não gera histórico vazio');
+
+  /* ---------------------------------------------------------------------------
+   * A CORREÇÃO FEITA NO GALPÃO APARECE NO PAINEL.
+   *
+   * O app de campo ganhou o botão de corrigir na lista de Lançamentos. Ele grava pela
+   * MESMA rota do painel — e é isso que se confere aqui: quem corrigiu, o que mudou e
+   * por quê chegam à lista de Movimentos sem nenhum caminho paralelo.
+   * ------------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------------------
+   * O LOTE: de qual REMESSA cada linha é.
+   *
+   * Um toque em Enviar com cinco tipos de caixa grava cinco linhas. A tela de celular
+   * junta as cinco num cartão só — e a chave que permite isso tem de ser EXATA. Errada
+   * para mais, ela soma cargas diferentes num cartão; errada para menos, o cartão volta
+   * a ser cinco.
+   * ------------------------------------------------------------------------- */
+  console.log('\n== o lote: as linhas de um envio só se reconhecem ==');
+  {
+    /* Uma remessa com DOIS tipos de caixa, que é o caso que o cartão existe para juntar.
+       O cenário até aqui só tinha envios de um item, e a afirmação sobre juntar linhas
+       passava por vacuidade — não havia o que juntar. */
+    const rMulti = await POST({ acao: 'movimento', tipo: 'SAIDA', usuarioId: 'U001',
+      origemId: G, destinoId: C, motorista: 'Motorista Exemplo', dataRef: '2026-09-18',
+      itens: [{ tipoCaixaId: 'T001', qtd: 7 }, { tipoCaixaId: 'T002', qtd: 9 }] });
+    ok(rMulti.ok, 'uma remessa com dois tipos de caixa é lançada', rMulti.erro);
+
+    const lista = (await GET({ acao: 'movimentos', limit: 200 })).movimentos;
+    ok(lista.every((m) => !!m.lote), 'toda linha da lista diz de que remessa é');
+
+    /* O envio com VÁRIOS itens do cenário: o mesmo lote nas linhas dele. */
+    const porLote = {};
+    lista.forEach((m) => { (porLote[m.lote] = porLote[m.lote] || []).push(m); });
+    const juntos = Object.keys(porLote).filter((k) => porLote[k].length > 1);
+    ok(juntos.length > 0, 'e há remessa com mais de uma linha para juntar',
+      Object.keys(porLote).length);
+
+    /* Dentro de um lote, as linhas são do MESMO envio: mesma viagem, mesmo carimbo. */
+    const falhas = juntos.filter((k) => {
+      const g = porLote[k];
+      return g.some((m) => m.dataHora !== g[0].dataHora || m.tipo !== g[0].tipo ||
+                           m.origem !== g[0].origem || m.destino !== g[0].destino);
+    });
+    ok(falhas.length === 0,
+      'e as linhas de um lote são mesmo do mesmo envio — mesma viagem e mesmo carimbo',
+      falhas);
+
+    /* E o tipo de caixa não se repete dentro do lote: repetido, não era um envio só. */
+    const repetidos = juntos.filter((k) => {
+      const vistos = {};
+      return porLote[k].some((m) => {
+        if (vistos[m.tipoCaixa]) return true;
+        vistos[m.tipoCaixa] = 1;
+        return false;
+      });
+    });
+    ok(repetidos.length === 0,
+      'e nenhum tipo de caixa aparece duas vezes no mesmo lote', repetidos);
+
+    /* A REGRA CRUA, sem depender do cenário. */
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = new Date('2026-09-17T11:42:00Z');
+    const mv = (ck, cx) => ({ ClientKey: ck, DataHora: D, Tipo: 'SAIDA', OrigemID: 'L1',
+                              DestinoID: 'L2', UsuarioID: 'U1', Motorista: 'Isaque',
+                              TipoCaixaID: cx });
+    ok(F.loteDo(mv('K900-M1-0', 'T1')) === F.loteDo(mv('K900-M1-4', 'T2')),
+      'dois itens do mesmo envio têm o mesmo lote — o índice do item sai da conta');
+    ok(F.loteDo(mv('K900-M1-0', 'T1')) !== F.loteDo(mv('K901-M9-0', 'T1')),
+      'e dois envios diferentes, não');
+    /* Linha sem chave é a que veio do Apps Script, antes de a fila offline existir. */
+    const sem1 = mv('', 'T1'), sem2 = mv('', 'T2');
+    ok(F.loteDo(sem1) === F.loteDo(sem2),
+      'linha sem chave cai no carimbo mais a viagem — que é igual para o envio todo');
+    const outra = mv('', 'T1'); outra.DestinoID = 'L9';
+    ok(F.loteDo(sem1) !== F.loteDo(outra),
+      'e uma viagem diferente, no mesmo instante, continua sendo outro lote');
+  }
+
+  console.log('\n== a correção feita no campo aparece no painel de Movimentos ==');
+  {
+    const antesL = (await GET({ acao: 'movimentos', limit: 200 })).movimentos;
+    ok(antesL.every((m) => 'usuarioId' in m),
+      'a lista manda o ID de quem lançou, e não só o nome — é por ele que a tela ' +
+      'decide quem pode corrigir, e dois homônimos por nome trocariam de lançamento');
+
+    const alvoF = antesL.find((m) => m.tipo === 'DEVOLUCAO' && Number(m.qtd) > 1);
+    ok(!!alvoF, 'há um retorno para o campo corrigir');
+
+    /* `usuarioId` do CONFERENTE, que é quem estaria com o celular na mão — não o admin. */
+    const rF = await POST({ acao: 'corrigir', id: alvoF.id, usuarioId: 'U002',
+                            motivo: 'contei de novo na doca',
+                            Qtd: Number(alvoF.qtd) - 1 });
+    ok(rF.ok, 'o campo grava a correção pela rota do painel', rF.erro);
+
+    const depoisF = (await GET({ acao: 'movimentos', limit: 200 }))
+      .movimentos.find((m) => m.id === alvoF.id);
+    ok(Number(depoisF.qtd) === Number(alvoF.qtd) - 1, 'o número novo vale', depoisF.qtd);
+    ok(depoisF.alterado.por === 'Conferente Galpão',
+      'e o painel mostra QUEM corrigiu, com o nome — não o id', depoisF.alterado);
+    ok(depoisF.alterado.campo === 'quantidade' &&
+       depoisF.alterado.motivo === 'contei de novo na doca',
+      'com o campo que mudou e o motivo escrito no galpão', depoisF.alterado);
+
+    /* E volta ao que era, porque o cenário continua depois daqui. */
+    await POST({ acao: 'corrigir', id: alvoF.id, usuarioId: 'U001',
+                 motivo: 'desfazendo o ensaio', Qtd: Number(alvoF.qtd) });
+  }
 
   console.log('\n== ativo: booleano do Postgres e texto antigo da planilha ==');
   const par = (v) => real.LOCAL.para({ Ativo: v }).ativo;
