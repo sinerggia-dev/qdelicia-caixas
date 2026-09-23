@@ -1974,7 +1974,7 @@ console.log('\n== a tabela de Usuários entrou na maquinaria de colunas ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
 
-  var d = adm.indexOf('function desenharUsuarios(){');
+  var d = adm.indexOf('function desenharUsuarios(digitando){');
   var dk = adm.indexOf('{', d), dn = 0;
   do {
     if (adm[dk] === '{') dn++; else if (adm[dk] === '}') dn--;
@@ -2028,8 +2028,13 @@ console.log('\n== a tabela de Usuários entrou na maquinaria de colunas ==');
   ok(/ligarBotoesUsuarios\(\);/.test(fonte),
     'desenhar a tabela religa os botões dela — separados, digitar na busca deixava ' +
     'editar, ativar e excluir sem efeito, e a tela parecia funcionar');
-  ok(/getElementById\('buscaUsuarios'\)\.addEventListener\('input', desenharUsuarios\)/
-      .test(adm),
+  /* A busca chama um INVÓLUCRO, e não `desenharUsuarios` direto — o `input` passa o
+     evento como primeiro argumento, e um evento é sempre verdadeiro: ligada direto, ela
+     desligaria a entrada dos cartões em todo redesenho, inclusive nos que não vêm de
+     digitação. O invólucro existe por causa disso, e chama o mesmo caminho. */
+  ok(/getElementById\('buscaUsuarios'\)\.addEventListener\('input', desenharUsuariosDigitando\)/
+      .test(adm) &&
+     /function desenharUsuariosDigitando\(\)\{ desenharUsuarios\(true\); \}/.test(adm),
     'e a busca chama esse mesmo caminho, em vez de montar a tabela por fora');
 
   /* O subtitulo do cabecalho NAO entra em `titulos`: a aba Colunas precisa do nome da
@@ -5493,7 +5498,103 @@ console.log('\n== Usuários no celular: cartão, acesso à vista e folha de aç�
   ok(/if \(emCartoesPainel\(\)\) \{[\s\S]{0,400}ordenada\.map\(cartaoUser\)/.test(adm),
     'no celular a lista de usuários vira cartão, no mesmo corte das outras telas');
 
-  var iCU = adm.indexOf('function cartaoUser(u)');
+  /* --- a busca e o "Novo" na mesma linha ------------------------------------ */
+  ok(/<div class="acoes-topo">[\s\S]{0,400}id="buscaUsuarios"[\s\S]{0,300}id="btnNovoUsuario"/
+    .test(adm),
+    'a busca e o "Novo" dividem uma linha — numa barra própria, o botão comia uma faixa ' +
+    'inteira do celular para uma ação de uma vez por mês');
+  ok(/\+ Novo<span class="so-largo"> usuário<\/span>/.test(adm) &&
+     /\.so-largo\{display:none\}/.test(css) &&
+     /@media \(min-width:1024px\)\{\s*\n\s*\.so-largo\{display:inline\}/.test(css),
+    'e a palavra "usuário" só aparece no computador: ao lado de um "+", num cartão ' +
+    'chamado Usuários, ela rouba a largura da busca sem acrescentar nada');
+  /* A `.busca` nasce com 10px de margem embaixo, e num flex centrado essa margem entra
+     na conta: o campo ficava cinco pixels acima do botão, desalinhado sem motivo. */
+  ok(/\.acoes-topo \.busca\{flex:1 1 auto;min-width:0;margin-bottom:0\}/.test(css),
+    'a margem de baixo da busca é zerada na linha — senão os dois saem desalinhados');
+  /* A EXPLICAÇÃO DO TOPO também é só do computador: no celular são quatro linhas antes
+     da lista, e o que ela ensina cada cartão já diz em "Entra como <b>". */
+  /* `.so-largo` SOZINHA NÃO ESCONDE O PARÁGRAFO: `.card h2 .sub` tem duas classes e um
+     elemento, e vence por especificidade — com a regra escrita e o teste verde, ele
+     continuava à vista no celular. Foi a sonda que pegou, medindo o `display` em vez
+     da regra; a afirmação agora exige o seletor que empata. */
+  ok(/<span class="sub so-largo">Admin faz os cadastros/.test(adm) &&
+     /\.card h2 \.sub\.so-largo\{display:none\}/.test(css) &&
+     /@media \(min-width:1024px\)\{\s*\n\s*\.so-largo\{display:inline\}\s*\n\s*\.card h2 \.sub\.so-largo\{display:block\}/
+       .test(css),
+    'o parágrafo de explicação fica no computador, e volta a ser bloco lá');
+
+  /* --- o trilho de perfis --------------------------------------------------- */
+  ok(/function desenharChipsPerfil\(\)/.test(adm) &&
+     /\(EQUIPE \|\| \[\]\)\.forEach\(function\(u\)\{\s*\n?\s*var p = String\(u\.Perfil \|\| '—'\);/
+       .test(adm),
+    'os chips de perfil saem dos DADOS: hoje há seis perfis em uso, e uma lista escrita ' +
+    'à mão esqueceria os que o escritório criar amanhã');
+  ok(/chipPerfil\(p, p, conta\[p\]\)/.test(adm),
+    'e cada um leva a contagem — sem ela, "Conferente" não diz se há um ou nove');
+  ok(/return \(Q\.temTeste\(a\) \? 1 : 0\) - \(Q\.temTeste\(b\) \? 1 : 0\) \|\|/.test(adm),
+    'os de teste vêm por último, na MESMA ordem da lista — dois critérios fariam o ' +
+    'chip e a lista discordarem sobre quem vem antes');
+  /* O FILTRO É DA PENEIRA, e não do desenho: no desenho, ele existiria só numa largura
+     e continuaria peneirando quando a outra aparecesse — a lista curta passaria a
+     parecer a lista inteira. */
+  ok(/if \(PERFIL_FILTRO && String\(u\.Perfil \|\| ''\) !== PERFIL_FILTRO\) return false;/
+    .test(adm),
+    'quem peneira por perfil é o `usuariosNaTela`, que serve à tabela e aos cartões');
+  ok(/desenharChipsPerfil\(\);\s*\n\s*var lista = usuariosNaTela\(\);/.test(adm),
+    'e os chips são desenhados ANTES do corte de lista vazia: filtrando um perfil sem ' +
+    'ninguém, eles são o único caminho de volta');
+  ok(/\.trilho \.chip\{flex:0 0 auto;min-height:38px/.test(css),
+    'no trilho o chip vira alvo de dedo — o `.chip` dos Retornos tem 11,5px e serve ' +
+    'para ler, não para tocar');
+  ok(/\.trilho\{[\s\S]{0,200}mask-image:linear-gradient/.test(css),
+    'e o trilho esmaece na borda em vez de mostrar barra de rolagem: seis perfis não ' +
+    'cabem em 390px');
+
+  /* --- o que a busca promete ------------------------------------------------ */
+  ok(/return \[u\.Nome, u\.Usuario, u\.Email\]\.some/.test(adm) &&
+     /placeholder="🔍 Buscar nome, usuário ou e-mail"/.test(adm),
+    'a busca procura exatamente o que a etiqueta promete — e a etiqueta cabe no campo, ' +
+    'que em 334px cortava "e-mail" no meio');
+  ok(!/\[u\.Nome, u\.Perfil, u\.Usuario/.test(adm),
+    'o perfil saiu da busca por texto: quem filtra por ele é o trilho, à vista e contado');
+
+  /* --- a aba do quadro reconta ---------------------------------------------- */
+  ok(/card\.querySelectorAll\('\.corpo tbody tr'\)\.length \|\|\s*\n?\s*card\.querySelectorAll\('\.corpo \.users > \.u'\)\.length/
+    .test(adm),
+    'a aba do quadro conta linhas de tabela OU cartões — contando só `tbody tr`, ela ' +
+    'dizia "—" para treze pessoas no celular');
+  ok((adm.match(/atualizarContagens\(\);/g) || []).length === 3,
+    'e reconta nos três caminhos: ao montar as dobras, e ao redesenhar a lista em ' +
+    'cada largura — senão filtrar por perfil deixava a aba com o número de antes');
+
+  /* --- a entrada dos cartões ------------------------------------------------ */
+  ok(/var atraso = Math\.min\(\(i \|\| 0\) \* 55, 440\);/.test(adm),
+    'os cartões entram escalonados, com teto: sem ele o décimo terceiro entraria depois ' +
+    'de setecentos milissegundos, e a lista demoraria a assentar onde ela é mais longa');
+  ok(/\.users \.u\{animation:entra-u [^}]*animation-delay:var\(--d,0ms\)\}/.test(css),
+    'e o atraso que o cartão carrega é o que a regra lê');
+  ok(/\.users\[data-sem-entrada\] \.u\{animation:none\}/.test(css) &&
+     /\(digitando === true \? ' data-sem-entrada' : ''\)/.test(adm),
+    'enquanto se digita a entrada é desligada — a lista se refaz a cada tecla, e quatro ' +
+    'décimos por letra viram tremedeira debaixo do dedo');
+
+  /* --- o que pede providência respira, e só ele ----------------------------- */
+  ok(/\.u__acesso \.pilha-selos \.tag\.amarela,\s*\n?\.u__acesso \.pilha-selos \.tag\.vermelha\{animation:respira-selo/
+    .test(css),
+    'no cartão, só o selo que pede providência pulsa — nos cinco, seria a tela inteira ' +
+    'pulsando e não apontaria nada');
+  ok(/\.u__acesso \.pilha-selos \.tag::before\{content:"";width:6px/.test(css),
+    'e os selos ganham a bolinha que os liga ao estado, em vez de duas etiquetas soltas');
+  /* QUEM PEDIU MENOS MOVIMENTO RECEBE NENHUM: a tela diz a mesma coisa parada, e para
+     quem tem enxaqueca ou vertigem o enfeite custa caro. */
+  ok(/@media \(prefers-reduced-motion:reduce\)\{[\s\S]{0,400}\.users \.u,\.folha,\.veu-folha,[\s\S]{0,200}animation:none!important/
+    .test(css),
+    'com "menos movimento" ligado, a entrada, a folha e o selo param de animar');
+  ok(/\.folha:not\(\[hidden\]\)\{animation:sobe-folha/.test(css),
+    'a folha sobe de baixo: aparecendo de uma vez, ela não diz de onde veio');
+
+  var iCU = adm.indexOf('function cartaoUser(u, i)');
   var cartao = adm.slice(iCU, adm.indexOf('\n  function barraOrdemUser', iCU));
   ok(iCU > 0 && cartao.length > 700, 'o cartão de usuário tem corpo', cartao.length);
 
@@ -5522,19 +5623,27 @@ console.log('\n== Usuários no celular: cartão, acesso à vista e folha de aç�
   ok(/'<span class="tag amarela" title="Tem o painel liberado/.test(adm),
     'em âmbar: pede providência, e não é o vermelho de quem está exposto');
 
-  /* O AVISO SOMA o que a tabela mostra linha a linha e ninguém junta. */
-  /* NA PINTURA, e não só no arquivo: a função podia existir inteira e ninguém chamá-la —
-     o aviso sumia da tela e o teste continuava verde. */
-  ok(/box\.innerHTML = avisoAcessoUser\(\)\+barraOrdemUser\(/.test(adm),
-    'o topo da lista conta quantas pessoas estão com o acesso frágil');
-  ok(/function avisoAcessoUser\(\)/.test(adm), 'e a conta existe uma vez só');
-  ok(/if \(!semSenha && !provis\) return '';/.test(adm),
+  /* A CONTA DO ACESSO FRÁGIL SOBREVIVEU À TARJA. A tarja vermelha do topo saiu a
+     pedido, mas a SOMA não podia sair com ela: é o único lugar que junta o que os selos
+     dizem cartão a cartão. Ela foi para a barra de contagem, em texto curto. */
+  ok(/contagemAcessoUser\(\)\+'<\/span>'/.test(adm),
+    'a barra de contagem diz quantas pessoas estão com o acesso frágil');
+  ok((adm.match(/function contagemAcessoUser\(\)/g) || []).length === 1,
+    'e a conta existe uma vez só');
+  ok(!/aviso-box[^']*">'\+\s*\n?\s*partes\.join/.test(adm) &&
+     !/function avisoAcessoUser\(\)/.test(adm),
+    'a tarja vermelha do topo saiu — o que ela dizia continua, sem interromper a lista');
+  ok(/if \(!partes\.length\) return '';/.test(adm),
     'e some quando não há o que contar — aviso permanente vira paisagem');
-  ok(/sem senha '\+\s*\n?\s*'para entrar<\/b> — elas não conseguem acessar/.test(adm),
-    'o aviso diz o que o número QUER DIZER: quem tem o painel liberado sem senha não ' +
+  ok(/a entrada do painel exige senha, então elas não conseguem acessar\./.test(adm),
+    'a conta diz o que o número QUER DIZER: quem tem o painel liberado sem senha não ' +
     'consegue entrar, e não "está exposto"');
   ok(/Provisória sem prazo é porta aberta permanente\./.test(adm),
     'e separa disso a provisória, que FUNCIONA enquanto ninguém trocar');
+  /* Em âmbar, e não em vermelho: pede providência, não anuncia exposição. */
+  ok(/\.secao__alerta\{color:var\(--ambar-forte\)\}/.test(css),
+    'a conta sai em âmbar na barra — vermelho ali seria um susto por uma permissão ' +
+    'que simplesmente não se exerce');
 
   /* AS TRÊS AÇÕES não foram reescritas: os botões da folha carregam os MESMOS atributos
      da tabela, e quem os liga é o mesmo `ligarBotoesUsuarios()`. */
@@ -5603,6 +5712,7 @@ console.log('\n== nome de classe só tem UM dono ==');
     'folha', 'folha__cab', 'folha__corpo', 'folha__t', 'folha__ctx', 'veu-folha',
     'opcao', 'pill', 'aplicados', 'filtros-caixa', 'so-celular',
     'users', 'u', 'u__topo', 'u__ini', 'u__nome', 'u__dados', 'u__acesso', 'u__pe',
+    'acoes-topo', 'trilho', 'chip__n', 'so-largo', 'secao__alerta',
     /* As do Painel da Operação. `rt` e `cli` são curtas de propósito — e é exatamente
        nome curto que já colidiu quatro vezes aqui. */
     'rotas', 'rt', 'rt__topo', 'rt__nome', 'rt-n', 'rt-n__i', 'rt__pe', 'rt__nada', 'rt--linha',

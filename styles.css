@@ -420,6 +420,12 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 
 @media (prefers-reduced-motion:reduce){
   .lateral,.veu,.main,.lateral-btn svg{transition:none}
+  /* QUEM PEDIU MENOS MOVIMENTO RECEBE NENHUM. A entrada dos cartões, o selo que
+     respira e a folha que sobe são todos enfeite: a tela diz a mesma coisa parada, e
+     para quem tem enxaqueca ou vertigem esse enfeite custa caro. */
+  .users .u,.folha,.veu-folha,
+  .u__acesso .pilha-selos .tag.amarela,
+  .u__acesso .pilha-selos .tag.vermelha{animation:none!important}
 }
 
 /* 1180px prendia a tabela de Movimentos, que precisa de 1300px com nome de local e
@@ -647,6 +653,9 @@ tr.ruim{background:var(--vermelho-claro)}
 .tag.vermelha{background:var(--vermelho-claro);color:var(--vermelho)}
 .tag.azul{background:var(--azul-claro);color:var(--azul)}
 .tag.cinza{background:var(--neutro);color:var(--txt2)}
+/* O roxo da marca como etiqueta — hoje só o perfil Admin. Ele não é severidade: é
+   identidade, e usa o MESMO par de tokens das iniciais no círculo. */
+.tag.roxa{background:var(--brand-soft);color:var(--roxo-txt)}
 
 .barra{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--neutro);margin:6px 0}
 .barra span{display:block;height:100%}
@@ -994,6 +1003,46 @@ tr.ruim{background:var(--vermelho-claro)}
 .chip-tipo--neg b{color:var(--vermelho)}
 .galp__vazio{font-size:12.5px;color:var(--txt3);font-style:italic}
 
+/* ---------- A BUSCA E O "NOVO" NA MESMA LINHA ----------
+ * Numa barra própria, o botão comia uma faixa inteira do celular para uma ação que se
+ * usa uma vez por mês — e empurrava a lista para baixo da dobra. */
+.acoes-topo{display:flex;align-items:center;gap:8px;margin-top:2px}
+/* `margin-bottom:0`: a `.busca` nasce com 10px embaixo para separar da tabela, e num
+   flex com `align-items:center` essa margem entra na conta — o campo ficava cinco
+   pixels acima do botão, desalinhado sem motivo aparente. */
+.acoes-topo .busca{flex:1 1 auto;min-width:0;margin-bottom:0}
+.acoes-topo .btn{flex:0 0 auto;min-width:0;padding:0 15px;white-space:nowrap}
+/* A palavra "usuário" só no computador: ao lado de um "+", num cartão chamado
+   Usuários, ela não acrescenta nada e rouba a largura da busca. */
+.so-largo{display:none}
+/* `.card h2 .sub` tem DOIS nomes de classe e um elemento: ela vence `.so-largo` sozinha,
+   e o parágrafo continuava aparecendo no celular. A regra que o esconde precisa empatar
+   em especificidade — e a que o traz de volta também. E `block`, não `inline`: como
+   `inline` o parágrafo vira uma linha corrida colada no título. */
+.card h2 .sub.so-largo{display:none}
+@media (min-width:1024px){
+  .so-largo{display:inline}
+  .card h2 .sub.so-largo{display:block}
+}
+
+/* ---------- O TRILHO DE PERFIS ----------
+ * Seis perfis não cabem em 390px: o trilho rola de lado e esmaece na borda, em vez de
+ * quebrar em três linhas ou mostrar uma barra de rolagem que não se arrasta com o dedo.
+ * É o mesmo recurso do trilho de chips dos Retornos. */
+.trilho{display:flex;gap:6px;overflow-x:auto;margin:10px 0 0;padding-bottom:2px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  -webkit-mask-image:linear-gradient(90deg,#000 92%,transparent 100%);
+          mask-image:linear-gradient(90deg,#000 92%,transparent 100%)}
+.trilho::-webkit-scrollbar{display:none}
+/* Alvo de dedo: o `.chip` da tela de Retornos tem 11,5px e serve para ler, não para
+   tocar. Aqui ele vira botão de filtro. */
+.trilho .chip{flex:0 0 auto;min-height:38px;padding:0 13px;font-size:13px}
+.trilho .chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);
+  color:#fff;font-weight:600}
+.chip__n{min-width:20px;height:19px;padding:0 5px;display:inline-flex;align-items:center;
+  justify-content:center;border-radius:999px;background:rgba(255,255,255,.14);
+  font-family:var(--fonte-mono);font-size:11px;font-weight:600}
+
 /* ---------- USUÁRIOS EM CARTÃO, no celular ----------
  * A tabela tem nove colunas e três botões por linha. No telefone se procura quase sempre
  * a mesma coisa aqui: com que nome a pessoa entra, e em que pé está o acesso dela — por
@@ -1015,6 +1064,20 @@ tr.ruim{background:var(--vermelho-claro)}
 .u__d--vazio{color:var(--txt3);font-style:italic}
 /* O login em mono e claro: é o dado que se vem buscar nesta tela. */
 .u__d--user b{font-family:var(--fonte-mono);font-size:13.5px;font-weight:600;color:var(--txt)}
+/* Os ícones do cartão: o olho acha o dado pela forma antes de ler o rótulo. */
+.u__d{display:flex;align-items:center;gap:9px}
+.u__d svg{flex:0 0 auto;color:var(--txt3)}
+.u__d > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.u__local svg{vertical-align:-2px;color:var(--txt3)}
+
+/* A ENTRADA DOS CARTÕES, escalonada pelo `--d` que o cartão traz. Ela existe para a
+   lista parecer que chega, e não que pisca — e some quando a pessoa está digitando
+   (`data-sem-entrada`), porque a lista se refaz a cada tecla e quatro décimos por letra
+   viram tremedeira debaixo do dedo. */
+@keyframes entra-u{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.users .u{animation:entra-u .42s cubic-bezier(.2,.75,.3,1) both;animation-delay:var(--d,0ms)}
+.users[data-sem-entrada] .u{animation:none}
+
 .u__acesso{margin-top:11px;padding-top:10px;border-top:1px solid var(--linha)}
 .u__acesso-t{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
   color:var(--txt2);margin-bottom:7px}
@@ -1069,6 +1132,13 @@ h3.mov__rota svg{flex:0 0 auto;color:var(--txt3)}
   box-shadow:0 -18px 44px rgba(4,14,28,.5)}
 /* Acima de 1024px as folhas não existem: lá a tabela tem os botões na própria linha. */
 @media (min-width:1024px){.folha,.veu-folha{display:none!important}}
+/* A FOLHA SOBE. Aparecendo de uma vez, ela não diz de onde veio — e a pessoa perde o
+   instante em que a tela trocou de assunto. O véu surge junto, mais rápido, para o
+   fundo já estar escuro quando a folha chega. */
+@keyframes sobe-folha{from{transform:translateY(100%)}to{transform:none}}
+@keyframes surge-veu{from{opacity:0}to{opacity:1}}
+.folha:not([hidden]){animation:sobe-folha .34s cubic-bezier(.22,.82,.28,1) both}
+.veu-folha:not([hidden]){animation:surge-veu .3s ease both}
 .folha__puxador{width:40px;height:4px;margin:9px auto 2px;border-radius:999px;background:var(--neutro)}
 .folha__cab{display:flex;align-items:flex-start;gap:10px;padding:6px 10px 12px;
   border-bottom:1px solid var(--linha)}
@@ -1095,6 +1165,10 @@ h3.mov__rota svg{flex:0 0 auto;color:var(--txt3)}
 .secao h2{margin:0;font-size:15px;font-weight:700;text-transform:none;letter-spacing:normal;
   color:var(--txt)}
 .secao > span{font-size:12px;color:var(--txt2)}
+/* A conta do acesso frágil, ao lado da contagem. Em âmbar porque pede providência e não
+   é exposição — e em texto curto porque ela não pode custar a leitura da lista. */
+.secao__alerta{color:var(--ambar-forte)}
+.secao__alerta b{font-weight:700;cursor:help;border-bottom:1px dotted var(--ambar)}
 
 /* O BOTÃO DE ORDEM diz o ESTADO, e não a ação: "Mais antigas" quer dizer que a lista
    está assim. A seta acompanha — para baixo é o que está descendo. */
@@ -1331,6 +1405,20 @@ details.tipos[open] summary::before{content:"▾"}
 /* A pilha de dois selos da coluna Senha. Era estilo escrito no proprio elemento, e com
    a coluna virando dado o HTML dela passou a ser montado num lugar so. */
 .pilha-selos{display:flex;flex-direction:column;gap:3px;align-items:flex-start}
+/* NO CARTÃO os selos ganham a bolinha e ficam lado a lado: na coluna da tabela eles
+   empilham porque a célula é estreita; no cartão há linha inteira, e empilhados
+   pareciam duas etiquetas soltas em vez de dois estados da mesma pessoa. */
+.u__acesso .pilha-selos{flex-direction:row;flex-wrap:wrap;gap:6px}
+.u__acesso .pilha-selos .tag{display:inline-flex;align-items:center;gap:6px}
+.u__acesso .pilha-selos .tag::before{content:"";width:6px;height:6px;border-radius:50%;
+  background:currentColor;flex:0 0 auto}
+/* O QUE PEDE PROVIDÊNCIA RESPIRA — e só ele. A animação entrou no lugar da tarja
+   vermelha do topo, que saiu a pedido; posta nos cinco selos, ela seria a tela inteira
+   pulsando e não apontaria nada. */
+@keyframes respira-selo{0%,100%{box-shadow:0 0 0 0 rgba(240,165,165,0)}
+                        50%{box-shadow:0 0 0 5px rgba(240,165,165,.13)}}
+.u__acesso .pilha-selos .tag.amarela,
+.u__acesso .pilha-selos .tag.vermelha{animation:respira-selo 3.6s ease-in-out infinite}
 /* A segunda linha do titulo — hoje so "entra no app e no painel". Nao e o nome da
    coluna: e explicacao, e por isso nao pesa como o nome. */
 .sub-col{font-weight:400;opacity:.7;text-transform:none;letter-spacing:0}

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=ecfb3e6d">
+<link rel="stylesheet" href="styles.css?v=cd911491">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -625,11 +625,28 @@
       <div id="tabelaPedidos"></div>
     </div>
     <div class="card" data-cad="usuarios">
-      <h2>Usuários<span class="sub">Admin faz os cadastros. Gestor, Gerente, Conferente, Motorista e Promotor lançam no campo.<br>A pessoa entra com o <b>usuário</b> — tanto no app de lançamento quanto no painel. O administrador é sempre <b>admin</b>.</span></h2>
-      <div class="linha-btn" style="margin-top:2px">
-        <button class="btn" id="btnNovoUsuario" style="flex:0;min-width:170px">+ Novo usuário</button>
+      <!-- A EXPLICAÇÃO SÓ NO COMPUTADOR. No celular ela são quatro linhas antes da
+           lista, e o que ela ensina — "a pessoa entra com o usuário" — cada cartão já
+           diz melhor, escrito no lugar onde a resposta é usada: "Entra como admin". -->
+      <h2>Usuários<span class="sub so-largo">Admin faz os cadastros. Gestor, Gerente, Conferente, Motorista e Promotor lançam no campo.<br>A pessoa entra com o <b>usuário</b> — tanto no app de lançamento quanto no painel. O administrador é sempre <b>admin</b>.</span></h2>
+      <!-- A BUSCA E O "NOVO" NA MESMA LINHA. Numa barra própria, o botão comia uma
+           faixa inteira da tela do celular para uma ação que se usa uma vez por mês,
+           e empurrava a lista — que é o motivo de a pessoa ter aberto a tela — para
+           baixo da dobra. A palavra "usuário" some no celular: ao lado de um "+",
+           num cartão chamado Usuários, ela não acrescenta nada. -->
+      <div class="acoes-topo">
+        <!-- A ETIQUETA CABE NO CAMPO. "por nome, usuário, perfil ou e-mail" era cortada
+             no meio da palavra em 334px, e uma promessa cortada não é promessa. O perfil
+             saiu do texto E da peneira: quem filtra por perfil agora é o trilho de chips
+             logo abaixo, à vista e com a contagem. -->
+        <div class="busca"><input id="buscaUsuarios" type="text"
+          placeholder="🔍 Buscar nome, usuário ou e-mail"></div>
+        <button class="btn" id="btnNovoUsuario">+ Novo<span class="so-largo"> usuário</span></button>
       </div>
-      <div class="busca"><input id="buscaUsuarios" type="text" placeholder="🔍 Buscar por nome, perfil ou usuário"></div>
+      <!-- O TRILHO DE PERFIS vale nas duas larguras: filtro que só existe numa delas
+           continua peneirando quando a outra aparece, e a lista curta passa a parecer
+           a lista inteira. -->
+      <div class="trilho" id="chipsPerfil" role="group" aria-label="Filtrar por perfil"></div>
       <div id="tabelaUsuarios"></div>
     </div>
     <div class="card" data-cad="locais">
@@ -4087,7 +4104,7 @@
   /* `input` e não `change`: em campo de busca o change só dispara ao sair do campo, e a
      lista ficaria parada enquanto a pessoa digita. Redesenha só a tabela de usuários —
      `desenharCadastros()` refaria as cinco e perderia o foco do campo. */
-  document.getElementById('buscaUsuarios').addEventListener('input', desenharUsuarios);
+  document.getElementById('buscaUsuarios').addEventListener('input', desenharUsuariosDigitando);
 
   /* Os botões da tabela de usuários são religados a cada redesenho — inclusive o da
      busca, que refaz só esta tabela. Sem isso, digitar na busca deixava editar,
@@ -4177,14 +4194,23 @@
     });
   }
 
+  /* A PENEIRA É UMA SÓ, e serve à tabela e aos cartões. Dois filtros — um por largura —
+     fariam a lista mudar de conteúdo ao girar o aparelho, sem que nada na tela dissesse
+     por quê. */
+  var PERFIL_FILTRO = '';
+
   function usuariosNaTela(){
     var b = (document.getElementById('buscaUsuarios').value || '')
       .trim().toLowerCase();
     return EQUIPE.filter(function(u){
+      if (PERFIL_FILTRO && String(u.Perfil || '') !== PERFIL_FILTRO) return false;
       if (!b) return true;
-      // Os três campos que a etiqueta promete, e só eles: buscar em e-mail e telefone
-      // sem dizer devolveria resultado que a pessoa não entende de onde veio.
-      return [u.Nome, u.Perfil, u.Usuario].some(function(c){
+      /* Os campos que a etiqueta promete, e só eles: buscar em telefone sem dizer
+         devolveria resultado que a pessoa não entende de onde veio. O e-mail entrou
+         junto com a promessa — antes ele era o único dado à vista no cartão que a
+         busca ignorava. O perfil saiu: quem filtra por ele é o trilho de chips, que
+         mostra os que existem e quantos há em cada um. */
+      return [u.Nome, u.Usuario, u.Email].some(function(c){
         return String(c || '').toLowerCase().indexOf(b) >= 0;
       });
     }).sort(function(x, y){
@@ -4235,7 +4261,78 @@
     return ((p[0][0] || '?') + (p[1] ? p[1][0] : '')).toUpperCase();
   }
 
-  function cartaoUser(u){
+  /* OS CHIPS DE PERFIL saem dos DADOS, e não de uma lista escrita à mão: hoje existem
+     seis perfis em uso — três deles variações de teste — e uma lista fixa esqueceria os
+     que o escritório criar amanhã, ou ofereceria um chip que não filtra nada.
+
+     Cada chip leva a contagem. Sem ela, "Conferente" não diz se há um ou nove, e a
+     pessoa toca para descobrir. */
+  function desenharChipsPerfil(){
+    var box = document.getElementById('chipsPerfil');
+    if (!box) return;
+    var conta = {};
+    (EQUIPE || []).forEach(function(u){
+      var p = String(u.Perfil || '—');
+      conta[p] = (conta[p] || 0) + 1;
+    });
+    /* Os de teste por último, na MESMA ordem da lista: dois critérios de ordem para a
+       mesma coisa fariam o chip e a lista discordarem sobre quem vem antes. */
+    var perfis = Object.keys(conta).sort(function(a, b){
+      return (Q.temTeste(a) ? 1 : 0) - (Q.temTeste(b) ? 1 : 0) ||
+             a.localeCompare(b, 'pt-BR');
+    });
+    box.innerHTML = chipPerfil('', 'Todos', (EQUIPE || []).length)+
+      perfis.map(function(p){ return chipPerfil(p, p, conta[p]); }).join('');
+    box.querySelectorAll('[data-perfil]').forEach(function(c){
+      c.addEventListener('click', function(){
+        PERFIL_FILTRO = c.dataset.perfil;
+        desenharUsuarios();
+      });
+    });
+  }
+
+  function chipPerfil(valor, rotulo, n){
+    return '<button class="chip" type="button" data-perfil="'+Q.esc(valor)+'" '+
+      'aria-pressed="'+(PERFIL_FILTRO === valor ? 'true' : 'false')+'">'+
+      Q.esc(rotulo)+' <span class="chip__n">'+n+'</span></button>';
+  }
+
+  /* A COR DO PERFIL é identidade, não severidade: "Admin" não é pior nem melhor que
+     "Conferente". O único que se destaca é o de teste — porque o lançamento dele entra
+     no saldo como qualquer outro, e saber de quem ele é muda o que se lê nos painéis. */
+  function tagPerfil(perfil){
+    var p = String(perfil || '');
+    var cor = Q.temTeste(p) ? 'amarela'
+            : /^admin/i.test(p) ? 'roxa'
+            : /gerente|gestor/i.test(p) ? 'azul'
+            : /conferente/i.test(p) ? 'verde' : 'cinza';
+    return '<span class="tag '+cor+'">'+Q.esc(p)+'</span>';
+  }
+
+  /* Os ícones do cartão. Eles existem para que o olho ache o dado sem ler o rótulo:
+     numa lista de treze cartões, "sem e-mail" e um telefone se distinguem pela forma
+     antes de se distinguirem pelo texto. */
+  var ICO_U = {
+    user: svgU('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>'+
+               '<circle cx="12" cy="7" r="4"></circle>'),
+    mail: svgU('<rect x="3" y="5" width="18" height="14" rx="2"></rect>'+
+               '<polyline points="3 7 12 13 21 7"></polyline>'),
+    tel:  svgU('<path d="M6 3h3l2 5-2.5 1.5a12 12 0 0 0 5 5L15 12l5 2v3a2 2 0 0 1-2.2 2'+
+               'A17 17 0 0 1 4 5.2 2 2 0 0 1 6 3z"></path>'),
+    local: svgU('<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"></path>'+
+                '<circle cx="12" cy="10" r="2.6"></circle>')
+  };
+  function svgU(miolo){
+    return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" '+
+      'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '+
+      'stroke-linejoin="round" aria-hidden="true">'+miolo+'</svg>';
+  }
+
+  /* `i` vem do `.map`: é a posição do cartão, e ela vira o atraso da entrada. O teto de
+     440ms existe porque com treze pessoas o último cartão entraria depois de setecentos
+     milissegundos — a lista demoraria a assentar justamente onde ela é mais longa. */
+  function cartaoUser(u, i){
+    var atraso = Math.min((i || 0) * 55, 440);
     var on = Q.ativo(u.Ativo);
     var lp = LOCAIS_PADRAO.filter(function(l){
       return String(l.ID) === String(u.LocalPadrao); })[0];
@@ -4248,27 +4345,28 @@
         : '<span class="tag cinza" title="Esta pessoa usa só o app de lançamento">'+
           'painel: sem acesso</span>');
 
-    return '<article class="u'+(on ? '' : ' u--inativo')+'">'+
+    return '<article class="u'+(on ? '' : ' u--inativo')+'" style="--d:'+atraso+'ms">'+
       '<div class="u__topo">'+
         '<span class="u__ini" aria-hidden="true">'+Q.esc(iniciaisDe(u.Nome))+'</span>'+
         '<span class="u__id"><span class="u__nome">'+Q.esc(u.Nome)+'</span></span>'+
-        '<span class="tag azul">'+Q.esc(u.Perfil||'')+'</span>'+
+        tagPerfil(u.Perfil)+
       '</div>'+
       '<div class="u__dados">'+
         /* COM QUE NOME A PESSOA ENTRA vem primeiro: é o dado que se vem buscar aqui,
            mais do que o e-mail. */
-        '<div class="u__d u__d--user">Entra como <b>'+
-          (u.Usuario ? Q.esc(u.Usuario) : '—')+'</b></div>'+
-        '<div class="u__d'+(u.Email ? '' : ' u__d--vazio')+'">'+
-          Q.esc(u.Email || 'sem e-mail')+'</div>'+
-        (u.Telefone ? '<div class="u__d">'+Q.esc(u.Telefone)+'</div>' : '')+
+        '<div class="u__d u__d--user">'+ICO_U.user+'<span>Entra como <b>'+
+          (u.Usuario ? Q.esc(u.Usuario) : '—')+'</b></span></div>'+
+        '<div class="u__d'+(u.Email ? '' : ' u__d--vazio')+'">'+ICO_U.mail+
+          '<span>'+Q.esc(u.Email || 'sem e-mail')+'</span></div>'+
+        (u.Telefone ? '<div class="u__d">'+ICO_U.tel+
+          '<span>'+Q.esc(u.Telefone)+'</span></div>' : '')+
       '</div>'+
       '<div class="u__acesso">'+
         '<div class="u__acesso-t">Acesso</div>'+
         '<div class="pilha-selos">'+selos+'</div>'+
       '</div>'+
       '<div class="u__pe">'+
-        '<span class="u__local">'+Q.esc(lp ? lp.Nome : '—')+'</span>'+
+        '<span class="u__local">'+ICO_U.local+' '+Q.esc(lp ? lp.Nome : '—')+'</span>'+
         '<button class="acoes-btn" type="button" data-acoes-user="'+Q.esc(u.ID)+'">Ações</button>'+
       '</div></article>';
   }
@@ -4276,7 +4374,8 @@
   function barraOrdemUser(lista){
     return '<div class="secao">'+
       '<span>'+lista.length+' de '+(EQUIPE||[]).length+
-        ((EQUIPE||[]).length === 1 ? ' usuário' : ' usuários')+'</span>'+
+        ((EQUIPE||[]).length === 1 ? ' usuário' : ' usuários')+
+        contagemAcessoUser()+'</span>'+
       '<button class="ordenar" id="btnOrdemUser" type="button" data-ordem="'+
         (ORDEM_USER_AZ ? 'desc' : 'asc')+'" aria-label="Ordem alfabética: '+
         (ORDEM_USER_AZ ? 'A a Z' : 'Z a A')+'. Tocar para inverter.">'+
@@ -4288,35 +4387,49 @@
       '</button></div>';
   }
 
-  /* O AVISO DE ACESSO FRÁGIL. Ele conta o que a tabela mostra linha a linha e ninguém
-     soma: quantas pessoas entram no painel SEM senha, e quantas ainda estão com a
-     provisória que o administrador passou. Uma provisória sem prazo é porta aberta
-     permanente, e espalhada por nove linhas ela não parece um problema — somada, parece.
+  /* A CONTA DO ACESSO FRÁGIL, ao lado da contagem — e não mais numa tarja vermelha no
+     topo, que saiu a pedido.
 
-     Aparece só quando há o que contar: um aviso permanente vira paisagem. */
-  function avisoAcessoUser(){
+     O que ela conta é o que os selos mostram cartão a cartão e ninguém soma: quantas
+     pessoas têm o painel liberado SEM senha para entrar, e quantas ainda estão com a
+     provisória que o escritório passou. Espalhado por treze cartões isso não parece um
+     problema; somado, parece — e é por isso que a soma não podia sair junto com a tarja.
+
+     Em texto curto, na barra, ela não interrompe a leitura da lista: quem quer o
+     detalhe abre o cartão, onde o selo está. */
+  function contagemAcessoUser(){
     var lista = EQUIPE || [];
     var semSenha = lista.filter(function(u){ return u.AcessoPainel && !u.TemSenha; }).length;
     var provis = lista.filter(function(u){
       return (u.PinProvisorio && u.TemPin) || (u.SenhaProvisoria && u.TemSenha); }).length;
-    if (!semSenha && !provis) return '';
     var partes = [];
     /* O QUE CADA NÚMERO QUER DIZER, e não um susto genérico. Quem tem o painel liberado
        e não tem senha NÃO consegue entrar — a entrada exige senha. É uma permissão que
        não se exerce, e o sintoma é a pessoa ligar reclamando. Já a provisória é o
        contrário: ela FUNCIONA, e continua funcionando enquanto ninguém trocar. */
-    if (semSenha) partes.push('<b>'+semSenha+'</b> com o painel liberado e <b>sem senha '+
-      'para entrar</b> — elas não conseguem acessar');
-    if (provis) partes.push('<b>'+provis+'</b> ainda usando a <b>senha provisória</b> que '+
-      'o escritório passou');
-    return '<div class="aviso-box '+(provis ? 'erro' : 'aviso')+'" style="margin-bottom:10px">'+
-      partes.join('; ')+'.'+
-      (provis ? ' Provisória sem prazo é porta aberta permanente.' : '')+'</div>';
+    if (semSenha) partes.push('<b title="Têm o painel liberado e não escolheram senha — '+
+      'a entrada do painel exige senha, então elas não conseguem acessar.">'+
+      semSenha+' sem senha de painel</b>');
+    if (provis) partes.push('<b title="Ainda usam a senha provisória que o escritório '+
+      'passou. Provisória sem prazo é porta aberta permanente.">'+
+      provis+' na provisória</b>');
+    /* Cala quando não há o que contar: um aviso permanente vira paisagem. */
+    if (!partes.length) return '';
+    return '<span class="secao__alerta"> · '+partes.join(' · ')+'</span>';
   }
 
-  function desenharUsuarios(){
+  /* SEM ESCALONAR ENQUANTO SE DIGITA. A lista se refaz a cada tecla, e uma entrada de
+     quatro décimos por letra vira tremedeira debaixo do dedo. Quem chama assim é só o
+     campo de busca; o resto entra escalonado. */
+  function desenharUsuariosDigitando(){ desenharUsuarios(true); }
+
+  function desenharUsuarios(digitando){
     var box = document.getElementById('tabelaUsuarios');
     if (!box) return;
+    /* OS CHIPS PRIMEIRO, e fora do `if` da lista vazia: filtrando por um perfil sem
+       ninguém, eles são o único caminho de volta — desenhados depois, a tela ficaria
+       com "nenhum usuário" e nenhuma saída. */
+    desenharChipsPerfil();
     var lista = usuariosNaTela();
     if (!lista.length){
       box.innerHTML = '<div class="vazio">Nenhum usuário encontrado.</div>';
@@ -4328,14 +4441,19 @@
         var c = String(a.Nome||'').localeCompare(String(b.Nome||''), 'pt-BR');
         return ORDEM_USER_AZ ? c : -c;
       });
-      box.innerHTML = avisoAcessoUser()+barraOrdemUser(ordenada)+
-        '<div class="users">'+ordenada.map(cartaoUser).join('')+'</div>';
+      box.innerHTML = barraOrdemUser(ordenada)+
+        '<div class="users"'+(digitando === true ? ' data-sem-entrada' : '')+'>'+
+        ordenada.map(cartaoUser).join('')+'</div>';
       ligarAcoesUser(box);
       var bo = document.getElementById('btnOrdemUser');
       if (bo) bo.addEventListener('click', function(){
         ORDEM_USER_AZ = !ORDEM_USER_AZ;
         desenharUsuarios();
       });
+      /* A ABA DO QUADRO RECONTA. Filtrar por perfil ou buscar muda quantos cartões há
+         dentro, e sem isto a aba continuava com o número de antes — fechado, o quadro
+         mentiria sobre o que tem. */
+      atualizarContagens();
       return;
     }
 
@@ -4417,6 +4535,7 @@
     ligarArrastarColunas(TAB_USUARIOS);
     ligarLarguraColunas(TAB_USUARIOS);
     ligarBotoesUsuarios();
+    atualizarContagens();
   }
 
 
@@ -4497,7 +4616,11 @@
       if (card.dataset.conta === 'propria') return;
       var alvo = card.querySelector('.conta');
       if (!alvo) return;
-      var n = card.querySelectorAll('.corpo tbody tr').length;
+      /* LINHAS DE TABELA **OU** CARTÕES. No celular a lista de Usuários não é tabela, e
+         contando só `tbody tr` a aba dizia "—" para treze pessoas — que é exatamente o
+         que ela existe para não fazer: quadro fechado e cadastro vazio ficarem iguais. */
+      var n = card.querySelectorAll('.corpo tbody tr').length ||
+              card.querySelectorAll('.corpo .users > .u').length;
       var vazio = card.querySelector('.corpo .vazio');
       alvo.textContent = n ? String(n) : (vazio ? '0' : '—');
     });
