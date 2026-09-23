@@ -5230,8 +5230,18 @@ console.log('\n== quem corrige o quê: uma regra, duas telas ==');
   /* A TELA QUE DEIXA CORRIGIR MOSTRA QUE FOI CORRIGIDO. Sem a marca, o número da linha
      pode não ser mais o que aquela pessoa digitou, e a coluna "quem lançou" ao lado dele
      vira uma afirmação errada — é a mesma informação que o painel dá em "Alterado por". */
-  ok(/alt\.vezes \?[\s\S]{0,400}>corrigido<\/span>/.test(camp),
-    'a linha já corrigida se anuncia, e a marca sai do histórico — não de um palpite');
+  /* NAS DUAS FORMAS, e conferido em cada uma. Procurando no arquivo inteiro, a marca do
+     CARTÃO respondia pela da TABELA: arrancada da tabela, a afirmação continuava
+     passando porque a do cartão existia. */
+  var tabLanc = corpo('tabelaLanc');
+  var cartLanc = corpo('cartaoLanc');
+  [['tabelaLanc', tabLanc], ['cartaoLanc', cartLanc]].forEach(function (p) {
+    ok(/alt\.vezes \?[\s\S]{0,400}>corrigido<\/span>/.test(p[1]),
+      p[0] + ': a linha já corrigida se anuncia, e a marca sai do histórico — não de ' +
+      'um palpite', p[1].slice(0, 60));
+    ok(/data-corrigir="'\+Q\.esc\(/.test(p[1]),
+      p[0] + ': e todo lançamento tem o botão de corrigir', p[1].slice(0, 60));
+  });
 
   var iF = camp.indexOf('function formCorrigirCampo(m, botao)');
   var forma = camp.slice(iF, camp.indexOf('\n  function fecharCorrecoes', iF));

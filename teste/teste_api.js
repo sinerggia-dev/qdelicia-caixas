@@ -366,10 +366,17 @@ async function main() {
        ninguém vê, e a correção sumiria junto com ele. */
     ok((await POST({ acao: 'excluirMovimento', id: alvoLix.id, usuarioId: 'U001' })).ok === false,
       'excluir de novo é recusado — ele já está lá');
-    ok((await POST({ acao: 'corrigir', id: alvoLix.id, motivo: 'x', Qtd: 7, usuarioId: 'U001' })).ok === false,
-      'corrigir um lançamento da lixeira é recusado');
-    ok((await POST({ acao: 'cancelar', id: alvoLix.id, motivo: 'x', usuarioId: 'U001' })).ok === false,
-      'cancelar um lançamento da lixeira é recusado');
+    /* COM A SENHA, de propósito. Sem ela a recusa viria do prazo de conserto livre —
+       este lançamento é de outro dia —, e a afirmação passaria com a trava da lixeira
+       arrancada. Com a senha, a ÚNICA coisa que pode recusar é estar na lixeira. */
+    var rCorrLix = await POST({ acao: 'corrigir', id: alvoLix.id, motivo: 'x', Qtd: 7,
+                                usuarioId: 'U001', senha: '123456' });
+    ok(rCorrLix.ok === false && /lixeira/i.test(rCorrLix.erro || ''),
+      'corrigir um lançamento da lixeira é recusado, e a recusa diz que é a lixeira',
+      rCorrLix);
+    var rCancLix = await POST({ acao: 'cancelar', id: alvoLix.id, motivo: 'x', usuarioId: 'U001' });
+    ok(rCancLix.ok === false && /lixeira/i.test(rCancLix.erro || ''),
+      'cancelar um lançamento da lixeira é recusado, e pelo motivo certo', rCancLix);
 
     const rVolta = await POST({ acao: 'restaurarMovimento', id: alvoLix.id, usuarioId: 'U001' });
     ok(rVolta.ok, 'restaurar traz de volta', rVolta.erro);
