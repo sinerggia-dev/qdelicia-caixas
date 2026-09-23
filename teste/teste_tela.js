@@ -820,8 +820,31 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
      pela busca: sem eles o corpo extraído estoura em `b is not defined`, e é assim que
      este teste avisa que a peneira mudou em vez de continuar medindo a de ontem. */
   var passa = new Function('l', 'o', 'd', 'DESTINO_ESTOQUE', 'b', 'alvoBusca',
-    fonte).bind(null);
-  var semBusca = function (l, o, d, e) { return passa(l, o, d, e, '', function () { return ''; }); };
+    'FLUXO_TIPO', fonte).bind(null);
+  var semBusca = function (l, o, d, e) {
+    return passa(l, o, d, e, '', function () { return ''; }, 'todos');
+  };
+
+  /* O RECORTE DE MOVIMENTO, exercitado rodando. A linha de estoque inicial não é saída
+     nem retorno — é o ponto de partida da conta —, e mantê-la em "só saída" faria a
+     lista misturar o que saiu com o que já estava lá. */
+  var comSaida = { inicial: 0, saida: 300, retorno: 0, situacao: 'atencao',
+                   origens: ['Matriz Fazenda'], destinos: ['João Pessoa'] };
+  var soVolta  = { inicial: 0, saida: 0, retorno: 120, situacao: 'atencao',
+                   origens: ['Matriz Fazenda'], destinos: ['João Pessoa'] };
+  var abertura = { estoqueInicial: true, inicial: 1250, saida: 0, retorno: 0,
+                   situacao: 'parado', origens: ['Matriz Fazenda'], destinos: [] };
+  function mov(l, tipo) {
+    return passa(l, '', '', ESTQ, '', function () { return ''; }, tipo);
+  }
+  ok(mov(comSaida, 'saida') === true && mov(soVolta, 'saida') === false,
+    '"só saída" fica com os dias em que saiu alguma coisa');
+  ok(mov(soVolta, 'retorno') === true && mov(comSaida, 'retorno') === false,
+    'e "só retorno", com os dias em que voltou');
+  ok(mov(abertura, 'saida') === false && mov(abertura, 'retorno') === false &&
+     mov(abertura, 'todos') === true,
+    'a linha de estoque inicial cai fora dos dois: ela não é saída nem retorno, é o ' +
+    'ponto de partida da conta');
   var estoque = { estoqueInicial: true, inicial: 1250, situacao: 'parado',
                   origens: ['Matriz Fazenda'], destinos: [] };
   var caminho = { inicial: 0, situacao: 'atencao',
@@ -3895,8 +3918,18 @@ console.log('\n== os filtros num painel suspenso ==');
      /\.ret-pop\{[^}]*bottom:calc\(100% \+ 6px\)/.test(css),
     'e ele SOBE: o gatilho fica no rodapé do trilho, e descendo nasceria fora da tela');
   var mob = css.slice(css.indexOf('@media'));
-  ok(/\.ret-pop\{bottom:auto;top:calc\(100% \+ 6px\)/.test(mob),
-    'no celular desce, porque lá o trilho é uma faixa no topo');
+  /* NO CELULAR ELE NÃO DESCE: VIRA A FOLHA QUE SOBE, a mesma de Movimentos e das
+     ações. Como gaveta suspensa de 250px ele espremia sete campos num espaço mais
+     estreito que o dedo, pendurada num trilho que ali é uma faixa no topo — e o
+     calendário nativo abria por cima dela. */
+  ok(/\.ret-pop\{position:fixed;left:0;right:0;bottom:0;top:auto/.test(mob),
+    'no celular o painel de filtros vira a folha que sobe, e não uma gaveta de 250px');
+  ok(/\.ret-pop\{[^}]*max-height:92dvh!important\}/.test(mob),
+    'e o `max-height` que a medição do computador escreve no elemento é anulado — ' +
+    'senão a folha nasceria com a altura calculada para o outro arranjo');
+  ok(/<div class="folha__puxador so-celular"[\s\S]{0,400}id="filtrosRet"/.test(adm) ||
+     /id="filtrosRet"[\s\S]{0,400}<div class="folha__puxador so-celular"/.test(adm),
+    'com o mesmo puxador e o mesmo cabeçalho das outras folhas');
   ok(/\[hidden\]\{display:none!important\}/.test(css), 'e fechado ele some de fato — pela regra geral `[hidden]`, que substituiu as três ' +
     'específicas que existiam');
 
@@ -4036,8 +4069,16 @@ console.log('\n== os filtros num painel suspenso ==');
     'no celular o trilho é faixa no topo, então os cantos passam para cima');
 
   /* --- os botoes sutis ---------------------------------------------------- */
-  ok(trilho.indexOf('class="btn') < 0 && (trilho.match(/class="ret-acao"/g) || []).length === 4,
-    'os quatro botões usam o estilo do trilho, e não o .btn de formulário', trilho);
+  /* FORA DO PAINEL DE FILTROS: dentro dele há o rodapé da folha do celular, que é um
+     botão de folha e usa o `.btn` como todas as outras. O que esta afirmação cobra são
+     os botões DO TRILHO. */
+  var iPop = trilho.indexOf('<div class="ret-pop"');
+  var iDepois = trilho.indexOf('<button class="ret-acao" id="btnLimparRetornos"');
+  var soTrilho = (iPop < 0 || iDepois < 0) ? trilho
+    : trilho.slice(0, iPop) + trilho.slice(iDepois);
+  ok(soTrilho.indexOf('class="btn') < 0 &&
+     (soTrilho.match(/class="ret-acao"/g) || []).length === 4,
+    'os quatro botões usam o estilo do trilho, e não o .btn de formulário', soTrilho);
   ok(/\.ret-acao\{[^}]*background:none/.test(css) && /\.ret-acao\{[^}]*border:0/.test(css),
     'texto sem caixa: quatro retângulos cheios pesavam mais que a tabela');
   ok(/\.ret-acao:hover:not\(:disabled\)\{background:/.test(css),
@@ -4085,15 +4126,19 @@ console.log('\n== os filtros num painel suspenso ==');
        a decisao de subir ou descer tem teste proprio logo abaixo. */
     /* `colunasOcultas` entra como coto: o gatilho passou a olhar as colunas escondidas
        para decidir a COR, e a lista delas nao e assunto deste bloco — tem teste proprio. */
+    /* `emCartoesPainel` entra como coto devolvendo `false`: esta bancada exercita o
+       painel do COMPUTADOR, onde ele é gaveta medida. No celular ele é folha, e quem
+       responde por isso é o teste do corte de 1024 logo acima. */
     var api = new Function('document', 'FLUXO_FILTRO', 'FILTROS_FLUXO', 'valor',
-      'colunasOcultas', 'TAB_ATIVOS',
+      'colunasOcultas', 'TAB_ATIVOS', 'emCartoesPainel', 'FLUXO_TIPO',
       'function posicionarPop(p){ if (!p) return;' +
       ' p.classList.remove("para-baixo");' +
       ' if (p.getBoundingClientRect().top < 8) p.classList.add("para-baixo"); }' +
       fonte + '\n return { abrir: abrirFiltros, ajustar: ajustarBarraFiltros,' +
       '\n          quantos: quantosFiltrosFluxo };')(
-      doc, grupoAtivo, ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte'],
-      function (id) { return campos[id] || ''; }, function () { return []; }, {});
+      doc, grupoAtivo, ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'rtBusca'],
+      function (id) { return campos[id] || ''; }, function () { return []; }, {},
+      function () { return false; }, campos.__mov || 'todos');
     api.abrir(aberto);
     api.els = els;
     return api;
@@ -4634,17 +4679,21 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
     var doc = { getElementById: function (id) {
       return id === 'btnLimparRetornos' ? botao : (campos[id] || null);
     } };
-    var faz = new Function('document', 'FLUXO_FILTRO', 'chamou',
+    var faz = new Function('document', 'FLUXO_FILTRO', 'chamou', 'FLUXO_TIPO',
       fonte +
       '\n return { ativo: algumFiltroFluxo, limpar: limparFiltrosFluxo,' +
-      '\n          grupo: function(){ return FLUXO_FILTRO; } };' +
+      '\n          grupo: function(){ return FLUXO_FILTRO; },' +
+      '\n          movimento: function(){ return FLUXO_TIPO; } };' +
       '\n function carregarPainel(){ chamou.carregou++; }' +
       '\n function desenharFluxo(){ chamou.desenhou++; }' +
       /* O atalho de período aceso é enfeite que ACOMPANHA o campo de data: limpo o
          campo e deixado o botão marcado, o painel mostraria "7 dias" ligado sobre um
          período vazio. Aqui ele é anotado para a afirmação abaixo poder cobrá-lo. */
-      '\n function marcarAtalhoFluxo(q){ chamou.atalho = q; }');
-    var api = faz(doc, grupo, chamou);
+      '\n function marcarAtalhoFluxo(q){ chamou.atalho = q; }' +
+      /* O recorte de MOVIMENTO volta junto: deixado como estava, limpar devolvia a
+         lista inteira com "Saída" ainda apertado na folha. */
+      '\n function marcarMovimentoFluxo(q){ FLUXO_TIPO = q; chamou.mov = q; }');
+    var api = faz(doc, grupo, chamou, campos.__mov || 'todos');
     api.chamou = chamou;
     api.botao = botao;
     return api;
@@ -5413,8 +5462,14 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
   ok(/corta\.abort\(\); \}, 8000\)/.test(adm),
     'a consulta corta em 8s — uma rede que aceita a conexão e não responde deixaria a ' +
     'promessa pendurada e a próxima empilharia em cima');
-  ok(/@media \(max-width:860px\)\{ \.tempo\{display:none\} \}/.test(css),
-    'e o bloco some no celular, onde o cabeçalho já disputa espaço com o menu');
+  /* NO CELULAR ELE NÃO SOME: vira uma faixa de uma linha. O cartão de duas colunas
+     rouba a altura de um cartão de extrato inteiro em 390px — mas esconder a informação
+     para economizar espaço é outra coisa que arranjá-la em menos espaço. */
+  ok(/@media \(max-width:860px\)\{[\s\S]{0,40}\.tempo\{width:100%/.test(css) &&
+     !/\.tempo\{display:none\}/.test(css),
+    'no celular o relógio vira uma faixa de uma linha, em vez de sumir');
+  ok(/@media \(max-width:380px\)\{ \.tempo__data\{display:none\} \}/.test(css),
+    'e num aparelho bem estreito sai a DATA e fica a hora — é a hora que se consulta');
 
   /* ---- a busca peneira na FONTE ------------------------------------------ */
   ok(/if \(b && alvoBusca\(l\)\.indexOf\(b\) < 0\) return false;/.test(adm),
@@ -5480,8 +5535,10 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
     '"Limpar filtros" não nasce desabilitado — ele passou a aparecer só quando há ' +
     'filtro, e o atributo ficou para trás: o botão surgia exatamente quando havia o ' +
     'que limpar, e não limpava nada');
-  ok(/marcarAtalhoFluxo\(''\);\s*\n\s*if \(tinhaData\)/.test(adm),
-    'e limpar apaga também o atalho aceso — senão o painel mostrava "7 dias" ligado ' +
+  ok(/marcarAtalhoFluxo\(''\);\s*\n\s*marcarMovimentoFluxo\('todos'\);\s*\n\s*if \(tinhaData\)/
+    .test(adm),
+    'e limpar apaga também o atalho aceso e o recorte de movimento — senão o painel ' +
+    'mostrava "7 dias" ou "Saída" ligado ' +
     'sobre um período vazio');
 
   /* ---- o painel de filtros cabe ------------------------------------------- */
@@ -5505,6 +5562,60 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
   ok(/\.sr\{position:absolute;width:1px;height:1px/.test(css),
     'o texto só para quem ouve a tela tem regra — sem ela, a primeira frase escrita ' +
     'assim apareceu solta no meio do painel de filtros');
+
+  /* ---- no celular o painel de filtros é FOLHA ----------------------------- */
+  ok(/if \(veu && emCartoesPainel\(\)\) veu\.hidden = !FILTROS_ABERTO;/.test(adm),
+    'a folha sobe com véu: sem o fundo escurecido ela flutua sobre uma tabela que ' +
+    'continua parecendo clicável, e o toque fora cai na tabela');
+  ok(/if \(!emCartoesPainel\(\)\) posicionarPop\(alvoTopo\);/.test(adm),
+    'e a medição é só do computador — no celular quem posiciona é a folha de estilo, e ' +
+    'medir ali escreveria a altura de uma gaveta que não existe mais');
+  ok(/if \(FILTROS_ABERTO\) abrirFiltros\(false\);/.test(adm),
+    'o X, o véu e o Esc alcançam esta folha como as outras — fora do `fecharFolhas`, ' +
+    'ela seria a única que o Esc não fecha');
+  /* UM CORTE SÓ PARA A PÁGINA. Em 760 o trilho virava faixa e em 1024 a tabela virava
+     cartão: entre as duas medidas a tela mostrava os cartões do celular ao lado de um
+     trilho de 220px, que é o aperto que os dois arranjos existem para evitar. */
+  ok(/@media \(max-width:1023px\)\{\s*\n\s*\.ret-wrap\{grid-template-columns:1fr\}/.test(css) &&
+     !/@media \(max-width:760px\)/.test(css),
+    'o trilho e a tabela trocam de forma na MESMA largura, e não em duas');
+
+  /* ---- cada recorte tem o seu "✕" ----------------------------------------- */
+  ok(/function pilula\(chave, texto\)\{[\s\S]{0,300}data-tirar-f="'\+chave/.test(adm),
+    'cada recorte é uma pílula com o próprio ✕: a mesma linha que ANUNCIA o filtro é a ' +
+    'que o desfaz');
+  ok(/alvo\.querySelectorAll\('button\[data-tirar-f\]'\)\.forEach/.test(adm) &&
+     /tirarFiltroFluxo\(b\.dataset\.tirarF\)/.test(adm),
+    'e o ✕ está ligado — pílula que não tira nada é pior que pílula nenhuma');
+  /* O PERÍODO É O ÚNICO QUE VAI AO SERVIDOR. Tirado com um redesenho local, a tabela
+     continuaria com as linhas que o servidor recortou, e o número não voltaria. */
+  ok(/if \(chave === 'periodo'\) \{[\s\S]{0,320}return carregarPainel\(\);/.test(adm),
+    'tirar o período recarrega do servidor; os outros peneiram o que já veio');
+  ok(/if \(chave === 'rtBusca'\) \{[\s\S]{0,160}classList\.remove\('tem'\)/.test(adm),
+    'e tirar a busca apaga junto o ✕ do campo — aceso sobre um campo vazio, ele oferece ' +
+    'limpar o que já está limpo');
+
+  /* ---- o recorte de Movimento --------------------------------------------- */
+  ok(/\(FLUXO_TIPO !== 'todos' \? 1 : 0\)/.test(adm),
+    'o movimento entra na contagem de filtros ligados — fora dela, a lista ficaria ' +
+    'curta com o botão dizendo que não há filtro');
+  ok(/function marcarMovimentoFluxo\(qual\)\{\s*\n\s*FLUXO_TIPO = qual;/.test(adm) &&
+     /marcarMovimentoFluxo\(b\.dataset\.mov\);/.test(adm) &&
+     !/\n\s*FLUXO_TIPO = b\.dataset\.mov;/.test(adm),
+    'o estado e o botão aceso mudam juntos, num lugar só — em separado, a tela mostraria ' +
+    '"Saída" apertado com a lista inteira embaixo');
+  ok(/pilula\('movimento', 'só '\+\(FLUXO_TIPO === 'saida' \? 'saídas' : 'retornos'\)\)/.test(adm),
+    'e ele aparece nas pílulas, com o seu ✕');
+  /* COM "SÓ RETORNOS" A TAXA PERDE O SENTIDO: sobram só os dias em que houve retorno, e
+     a conta passa a dividir um retorno inteiro por uma saída recortada. */
+  ok(/if \(FLUXO_TIPO === 'retorno'\) \{[\s\S]{0,300}resumo__aviso/.test(adm) &&
+     /a taxa de retorno perde o sentido/.test(adm),
+    'a tela avisa que com "só retornos" o Total de Saída deixa de ser o do período');
+  ok(/\.resumo__aviso\{flex:1 0 100%;color:var\(--ambar-forte\)/.test(css),
+    'e o aviso ocupa a linha inteira, em âmbar: em linha com as pílulas ele viraria ' +
+    'mais uma etiqueta, e o que ele diz é que um dos NÚMEROS acima parou de responder');
+  ok(/@media \(max-width:1023px\)\{ \.seg button\{min-height:42px/.test(css),
+    'no celular os três botões são alvo de dedo, como o resto da folha');
 
   /* ---- a fumaça ----------------------------------------------------------- */
   ok(/class="fumaca"/.test(adm) && /\.fumaca\{fill:var\(--txt3\)/.test(css),

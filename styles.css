@@ -333,9 +333,28 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 /* `tabular-nums`: sem isso o relógio muda de largura a cada segundo e o bloco "respira". */
 .tempo__hora{font-family:var(--fonte-mono);font-size:18px;font-weight:700;
   font-variant-numeric:tabular-nums;white-space:nowrap}
-/* Num telefone o cabeçalho tem o título e o botão do menu; o relógio empurraria os dois
-   para duas linhas, e a hora do galpão não é o que se vem buscar no celular. */
-@media (max-width:860px){ .tempo{display:none} }
+/* ---------- no celular, a mesma informação numa FAIXA ----------
+ * O cartão de duas colunas rouba a altura de um cartão de extrato inteiro em 390px. A
+ * informação não some por isso: vira uma linha só — tempo à esquerda, hora à direita.
+ * Ela some do cartão e não da tela, que é a diferença entre economizar espaço e
+ * esconder dado. */
+@media (max-width:860px){
+  .tempo{width:100%;order:3;gap:8px;padding:7px 0 0;margin-top:2px;
+    border:0;border-top:1px solid var(--linha);border-radius:0;background:transparent}
+  .tempo__t{gap:6px;min-width:0}
+  .tempo__ico{width:20px;height:20px}
+  .tempo__ico svg{width:20px;height:20px}
+  /* Na faixa o grau e o local ficam lado a lado, separados por um ponto: empilhados,
+     eles pediriam duas linhas para dizer duas palavras. */
+  .tempo__c{flex-direction:row;align-items:baseline;gap:7px;min-width:0}
+  .tempo__g{font-size:14px}
+  .tempo__loc{font-size:12px;overflow:hidden;text-overflow:ellipsis}
+  .tempo__div{display:none}
+  .tempo__d{margin-left:auto;flex-direction:row;align-items:baseline;gap:7px}
+  .tempo__hora{font-size:14px}
+}
+/* Mais estreito que isso, a data sai e a HORA fica: é ela que se consulta. */
+@media (max-width:380px){ .tempo__data{display:none} }
 
 /* ---------- veu da gaveta (so abaixo de 1024px) ---------- */
 .veu{
@@ -1457,10 +1476,33 @@ details.tipos[open] summary::before{content:"▾"}
  * GRUDADA no topo: os cinco indicadores mudam com o filtro, o filtro está na coluna da
  * esquerda atrás de um botão, e quem rola a tabela perde os dois de vista. Ela desce
  * junto dizendo, em português, o que está recortado. */
-.resumo{position:sticky;top:0;z-index:5;margin:0;padding:9px 16px;
+.resumo{position:sticky;top:0;z-index:5;margin:0;padding:8px 16px;
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
   font-size:12px;color:var(--txt2);line-height:1.5;
   background:var(--campo);border-bottom:1px solid var(--linha)}
 .resumo b{color:var(--txt);font-weight:600}
+.resumo__n{margin-right:2px}
+/* Cada recorte é uma pílula com o próprio "✕": a mesma linha que ANUNCIA o filtro é a
+   que o desfaz. Sem isso, tirar um só custa abrir a folha e achar o campo — e "Limpar
+   filtros" levaria os outros junto. */
+.resumo .pill{font-size:12px;min-height:28px;padding:0 3px 0 10px}
+.resumo .pill button{width:22px;height:22px;font-size:11px}
+/* O aviso ocupa a linha inteira: em linha com as pílulas ele viraria mais uma etiqueta,
+   e o que ele diz é que um dos NÚMEROS acima deixou de responder à pergunta. */
+.resumo__aviso{flex:1 0 100%;color:var(--ambar-forte);font-weight:600}
+
+/* ---------- três botões que se apertam ----------
+ * Para três opções curtas. Num seletor, cada troca custa abrir, rolar e escolher — e
+ * aqui se alterna entre elas para comparar. */
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;padding:3px;
+  border:1px solid var(--linha);border-radius:9px;background:var(--campo)}
+.seg button{min-height:30px;border:0;border-radius:7px;background:transparent;
+  color:var(--txt2);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+  white-space:nowrap}
+.seg button:hover{background:var(--surface-2);color:var(--txt)}
+.seg button[aria-pressed="true"]{background:var(--brand);color:#fff}
+/* No celular eles são alvo de dedo, como o resto da folha. */
+@media (max-width:1023px){ .seg button{min-height:42px;font-size:14px} }
 /* `min-width:0` em tudo que e item de grade. Item de grade nasce com `min-width:auto`, que
    e o minimo INTRINSECO do conteudo — e o campo de data tem um: ele nao encolhe abaixo de
    "dd/mm/aaaa" mais o icone do calendario. Sem isto o par de datas empurrava a coluna para
@@ -1733,7 +1775,11 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
    nao ha mais cabecalho com chips disputando largura com o titulo. Quem faz esse papel
    agora e a gaveta, e o corte dela e 1024px, junto com o resto do app shell. */
 
-@media (max-width:760px){
+/* UM CORTE SÓ PARA A PÁGINA INTEIRA. Este bloco vivia em 760px enquanto a tabela já
+   virava cartão em 1024: entre as duas medidas a tela mostrava os cartões do celular ao
+   lado de um trilho de 220px, que é justamente o aperto que os dois arranjos existem
+   para evitar. Agora é o mesmo 1024 do resto do app. */
+@media (max-width:1023px){
   .ret-wrap{grid-template-columns:1fr}
   /* Faixa no topo: os cantos arredondados passam para cima. */
   .ret-rail{padding:10px;border-radius:var(--raio) var(--raio) 0 0}
@@ -1744,9 +1790,19 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   .ret-acoes{margin-top:8px;padding-top:8px;flex-direction:row;flex-wrap:wrap;gap:4px}
   .ret-acao{width:auto;flex:1 1 auto;justify-content:center}
   .ret-risco{display:none}
-  /* No celular o trilho e uma faixa no TOPO, entao o painel desce em vez de subir — para
-     cima ele sairia pela borda de cima da tela. */
-  .ret-pop{bottom:auto;top:calc(100% + 6px);width:min(250px,80vw)}
+  /* O PAINEL DE FILTROS VIRA A FOLHA QUE SOBE, a mesma de Movimentos e das ações.
+     Como suspenso de 250px ele espremia sete campos numa gaveta mais estreita que o
+     dedo, pendurada num trilho que é uma faixa no topo — e o calendário nativo abria
+     por cima dela. Aqui ele ocupa a largura da tela, ao alcance do polegar. */
+  .ret-pop{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;z-index:61;
+    max-height:92dvh;border-radius:18px 18px 0 0;padding:0 12px 12px;
+    border:0;border-top:1px solid var(--neutro);
+    box-shadow:0 -18px 44px rgba(4,14,28,.5);
+    /* Anula o `max-height` que a medição do computador escreve no elemento: aqui quem
+       manda é a folha, e o valor de lá deixaria a gaveta com a altura do outro layout. */
+    max-height:92dvh!important}
+  .ret-pop .folha__cab{margin:0 -12px;padding-left:14px;padding-right:6px}
+  .ret-pop .folha__pe{margin:10px -12px -12px;padding:12px}
   .ret-item{width:auto;flex:none;white-space:nowrap}
   .ret-main{padding:14px 12px 16px}
 }

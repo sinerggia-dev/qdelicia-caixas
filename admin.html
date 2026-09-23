@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=9154210d">
+<link rel="stylesheet" href="styles.css?v=33799103">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -411,6 +411,16 @@
             <button class="ret-acao" id="btnVerFiltros" type="button"
                     aria-expanded="false" aria-controls="filtrosRet"></button>
             <div class="ret-pop" id="filtrosRet" hidden>
+              <!-- No celular ela é a folha que sobe, com o mesmo puxador e o mesmo
+                   cabeçalho das outras. É o MESMO nó do computador: dois conjuntos dos
+                   mesmos campos seriam dois ids repetidos, e `getElementById` leria
+                   sempre o primeiro — a tela filtraria pelo que a outra cópia tem. -->
+              <div class="folha__puxador so-celular" aria-hidden="true"></div>
+              <div class="folha__cab so-celular">
+                <h3 class="folha__t">Filtros</h3>
+                <button class="btn-icone" type="button" data-fechar-folha
+                        aria-label="Fechar os filtros">✕</button>
+              </div>
               <!-- A BUSCA VEM PRIMEIRO: é o controle mais usado, e é o único que acha
                    uma linha por um dado que não tem seletor — o tipo de caixa, um
                    número, um pedaço do nome. -->
@@ -423,6 +433,16 @@
               </div>
               <span class="sr" id="rtBuscaDica">Procura na data, na origem, no destino,
                 no tipo de caixa e nos valores da linha.</span>
+              <!-- MOVIMENTO: quase toda linha tem saída E retorno, e às vezes se quer
+                   ver só os dias em que houve uma das duas coisas. Três botões e não um
+                   seletor: são três opções curtas, e num seletor cada troca custa abrir,
+                   rolar e escolher. -->
+              <label id="rtTipoR">Movimento</label>
+              <div class="seg" id="rtTipo" role="group" aria-labelledby="rtTipoR">
+                <button type="button" data-mov="todos" aria-pressed="true">Tudo</button>
+                <button type="button" data-mov="saida" aria-pressed="false">Saída</button>
+                <button type="button" data-mov="retorno" aria-pressed="false">Retorno</button>
+              </div>
               <label for="rtOrigem">Origem</label>
               <select id="rtOrigem"><option value="">Todas</option></select>
               <label for="rtDestino">Destino</label>
@@ -449,6 +469,15 @@
                 <option value="reais">Só reais</option>
                 <option value="teste">Só de teste</option>
               </select>
+              <!-- SÓ NO CELULAR. No computador o painel fecha clicando fora, e a folha
+                   cobre a tela inteira: sem um rodapé, o dedo não tem para onde ir.
+                   "Fechar" e não "Aplicar": os campos já valem na hora em que se mexe
+                   neles, e um botão que parece confirmar o que já aconteceu ensina a
+                   desconfiar do que está na tela. -->
+              <div class="folha__pe so-celular">
+                <button class="btn neutro" type="button" data-fechar-folha
+                        style="flex:1 1 auto">Fechar</button>
+              </div>
             </div>
           </div>
           <!-- Só existe quando ha o que limpar: assim ele tambem responde "tem algum
@@ -1368,6 +1397,11 @@
          diriam "Rotas 3" com uma linha listada embaixo, e os cinco indicadores
          continuariam somando o que a busca tirou da vista. */
       if (b && alvoBusca(l).indexOf(b) < 0) return false;
+      /* MOVIMENTO. A linha de estoque inicial não é saída nem retorno — ela é o ponto
+         de partida da conta —, então cai fora dos dois recortes: mantê-la em "só saída"
+         faria a lista misturar o que saiu com o que já estava lá. */
+      if (FLUXO_TIPO === 'saida' && !l.saida) return false;
+      if (FLUXO_TIPO === 'retorno' && !l.retorno) return false;
       if (o && (l.origens || []).indexOf(o) < 0) return false;
       /* A linha de estoque inicial nao tem destino — ela nao e um caminho, e o ponto de
          partida da conta. Por isso ela atravessa o filtro de destino em vez de cair fora:
@@ -1403,7 +1437,7 @@
      filtros ficaram escondidos, e duas contagens sobre a mesma regra divergiriam. */
   function quantosFiltrosFluxo(){
     var n = FILTROS_FLUXO.filter(function(id){ return !!valor(id); }).length;
-    return n + (FLUXO_FILTRO !== 'todas' ? 1 : 0);
+    return n + (FLUXO_FILTRO !== 'todas' ? 1 : 0) + (FLUXO_TIPO !== 'todos' ? 1 : 0);
   }
 
   function algumFiltroFluxo(){ return quantosFiltrosFluxo() > 0; }
@@ -1475,13 +1509,22 @@
   function abrirFiltros(sim){
     FILTROS_ABERTO = !!sim;
     ajustarBarraFiltros();
+    /* NO CELULAR ELE É FOLHA, e folha pede véu: sem o fundo escurecido ela fica
+       flutuando sobre uma tabela que continua parecendo clicável, e o toque fora — que
+       é como se fecha uma folha — cai na tabela. O véu também é a terceira saída, junto
+       com o X e o Esc. */
+    var veu = document.getElementById('veuFolha');
+    if (veu && emCartoesPainel()) veu.hidden = !FILTROS_ABERTO;
     if (!FILTROS_ABERTO) return;
     /* Abre sempre no TOPO. O painel guarda a rolagem de quando foi fechado, e reabrir no
        meio mostra a secao de colunas com os filtros fora da tela — foi assim que ele
        pareceu travado. O topo e onde estao os filtros, que sao o assunto do painel. */
     var alvoTopo = document.getElementById('filtrosRet');
     if (alvoTopo) alvoTopo.scrollTop = 0;
-    posicionarPop(document.getElementById('filtrosRet'));
+    /* A MEDIÇÃO É SÓ DO COMPUTADOR. No celular quem posiciona é a folha, presa em
+       baixo pela folha de estilo — medir ali escreveria um `max-height` calculado para
+       uma gaveta que não existe mais, e a folha nasceria com a altura errada. */
+    if (!emCartoesPainel()) posicionarPop(alvoTopo);
   }
 
   /* A direcao e decidida DEPOIS de abrir, medindo. O painel sobe por padrao, porque os
@@ -1590,19 +1633,34 @@
     var base = (((PAINEL && PAINEL.fluxo) || {}).linhas || []).filter(function(l){
       return !(l.situacao === 'parado' && !l.inicial);
     });
+    /* CADA RECORTE É UMA PÍLULA COM O SEU PRÓPRIO "✕". Uma barra separada de pílulas
+       diria a mesma coisa duas vezes, em dois lugares que podem divergir; aqui a mesma
+       linha que ANUNCIA o recorte é a que o desfaz. Sem isso, tirar um filtro no
+       celular custa abrir a folha, achar o campo e esvaziá-lo — e "Limpar filtros"
+       apagaria os outros quatro junto. */
     var partes = [];
+    function pilula(chave, texto){
+      partes.push('<span class="pill">'+Q.esc(texto)+
+        '<button type="button" data-tirar-f="'+chave+'" aria-label="Tirar '+
+        Q.esc(texto)+'">✕</button></span>');
+    }
     var de = valor('rtDe'), ate = valor('rtAte');
-    if (de && ate) partes.push(de === ate ? 'dia '+Q.dataBR(de)
-                                          : 'de '+Q.dataBR(de)+' a '+Q.dataBR(ate));
-    else if (de) partes.push('a partir de '+Q.dataBR(de));
-    else if (ate) partes.push('até '+Q.dataBR(ate));
-    if (FLUXO_FILTRO !== 'todas') partes.push('só '+(NOMES_GRUPO[FLUXO_FILTRO]||'').toLowerCase());
-    if (valor('rtOrigem')) partes.push('origem '+valor('rtOrigem'));
+    if (de && ate) pilula('periodo', de === ate ? 'dia '+Q.dataBR(de)
+                                                : 'de '+Q.dataBR(de)+' a '+Q.dataBR(ate));
+    else if (de) pilula('periodo', 'a partir de '+Q.dataBR(de));
+    else if (ate) pilula('periodo', 'até '+Q.dataBR(ate));
+    if (FLUXO_FILTRO !== 'todas') {
+      pilula('grupo', 'só '+(NOMES_GRUPO[FLUXO_FILTRO]||'').toLowerCase());
+    }
+    if (FLUXO_TIPO !== 'todos') {
+      pilula('movimento', 'só '+(FLUXO_TIPO === 'saida' ? 'saídas' : 'retornos'));
+    }
+    if (valor('rtOrigem')) pilula('rtOrigem', 'origem '+valor('rtOrigem'));
     if (valor('rtDestino')) {
-      partes.push('destino '+(valor('rtDestino') === DESTINO_ESTOQUE
+      pilula('rtDestino', 'destino '+(valor('rtDestino') === DESTINO_ESTOQUE
         ? 'nenhum (só estoque)' : valor('rtDestino')));
     }
-    if (valor('rtBusca').trim()) partes.push('busca “'+valor('rtBusca').trim()+'”');
+    if (valor('rtBusca').trim()) pilula('rtBusca', 'busca “'+valor('rtBusca').trim()+'”');
 
     if (!partes.length) { alvo.hidden = true; alvo.innerHTML = ''; return; }
     alvo.hidden = false;
@@ -1610,11 +1668,48 @@
        recortado: comparar a lista com ela mesma enche a linha de um número que não
        distingue nada. A comparação só aparece quando há o que comparar — quando algum
        filtro desta tela escondeu linhas que estão na memória. */
-    alvo.innerHTML = (lista.length === base.length
+    alvo.innerHTML = '<span class="resumo__n">'+(lista.length === base.length
         ? '<b>'+lista.length+'</b>'+(lista.length === 1 ? ' linha' : ' linhas')
         : 'Contando <b>'+lista.length+'</b> de '+base.length+
-          (base.length === 1 ? ' linha' : ' linhas'))+
-      ' · '+Q.esc(partes.join(' · '))+'.';
+          (base.length === 1 ? ' linha' : ' linhas'))+'</span>'+partes.join('');
+
+    /* COM "SÓ RETORNO", O TOTAL DE SAÍDA DEIXA DE SER O DO PERÍODO — sobram só os dias
+       em que houve retorno, e a taxa passa a dividir um retorno inteiro por uma saída
+       recortada. O número continua certo para as linhas que estão na tela e errado como
+       resposta à pergunta "quanto voltou do que saiu". Calar isso seria deixar a tela
+       mostrar 120% sem explicar. */
+    if (FLUXO_TIPO === 'retorno') {
+      alvo.innerHTML += '<span class="resumo__aviso">Com “só retornos”, o Total de '+
+        'Saída não é mais o do período — e a taxa de retorno perde o sentido.</span>';
+    }
+
+    alvo.querySelectorAll('button[data-tirar-f]').forEach(function(b){
+      b.addEventListener('click', function(){ tirarFiltroFluxo(b.dataset.tirarF); });
+    });
+  }
+
+  /* TIRAR UM FILTRO SÓ. Cada chave sabe o que limpar e como recarregar: o período é o
+     único que vai ao servidor, e os outros peneiram o que já veio — pedir a rede para
+     esconder linhas seria uma ida por clique. */
+  function tirarFiltroFluxo(chave){
+    if (chave === 'periodo') {
+      ['rtDe', 'rtAte'].forEach(function(id){
+        var e = document.getElementById(id); if (e) e.value = '';
+      });
+      var erro = document.getElementById('rtErroData');
+      if (erro) erro.hidden = true;
+      marcarAtalhoFluxo('');
+      return carregarPainel();
+    }
+    if (chave === 'grupo') { FLUXO_FILTRO = 'todas'; return desenharFluxo(); }
+    if (chave === 'movimento') { marcarMovimentoFluxo('todos'); return desenharFluxo(); }
+    var campo = document.getElementById(chave);
+    if (campo) campo.value = '';
+    if (chave === 'rtBusca') {
+      var cx = document.getElementById('rtBuscaCx');
+      if (cx) cx.classList.remove('tem');
+    }
+    desenharFluxo();
   }
 
   function limparFiltrosFluxo(){
@@ -1634,6 +1729,7 @@
     var erro = document.getElementById('rtErroData');
     if (erro) erro.hidden = true;
     marcarAtalhoFluxo('');
+    marcarMovimentoFluxo('todos');
     if (tinhaData) carregarPainel(); else desenharFluxo();
   }
 
@@ -2675,6 +2771,28 @@
    * SÃO LIGA-DESLIGA. Tocar no que já está aceso limpa o período e devolve a tabela
    * inteira. Sem isso o único caminho de volta seria "Limpar filtros", que apagaria
    * origem, destino e busca junto — perder o recorte inteiro para desfazer uma coisa. */
+  /* O ESTADO E OS BOTÕES NUM LUGAR SÓ. Trocados em separado, o aceso e o que peneira
+     divergiriam — e a tela mostraria "Saída" apertado com a lista inteira embaixo. */
+  function marcarMovimentoFluxo(qual){
+    FLUXO_TIPO = qual;
+    var cx = document.getElementById('rtTipo');
+    if (!cx) return;
+    Array.prototype.forEach.call(cx.children, function(b){
+      b.setAttribute('aria-pressed', String(b.dataset.mov === qual));
+    });
+  }
+
+  (function ligarMovimentoFluxo(){
+    var cx = document.getElementById('rtTipo');
+    if (!cx) return;
+    cx.addEventListener('click', function(e){
+      var b = e.target.closest('button[data-mov]');
+      if (!b) return;
+      marcarMovimentoFluxo(b.dataset.mov);
+      desenharFluxo();
+    });
+  })();
+
   function marcarAtalhoFluxo(qual){
     var cx = document.getElementById('rtAtalhos');
     if (!cx) return;
@@ -4080,6 +4198,10 @@
     document.querySelectorAll('.filtros-caixa.aberta').forEach(function(f){
       f.classList.remove('aberta');
     });
+    /* O painel de filtros do Painel de Ativos entra na conta: no celular ele é uma
+       folha como as outras, e o X, o véu e o Esc têm de alcançá-lo. Fora daqui, ele
+       seria a única folha que o Esc não fecha. */
+    if (FILTROS_ABERTO) abrirFiltros(false);
     var veu = document.getElementById('veuFolha');
     if (veu) veu.hidden = true;
   }
@@ -4535,6 +4657,12 @@
   /* A PENEIRA É UMA SÓ, e serve à tabela e aos cartões. Dois filtros — um por largura —
      fariam a lista mudar de conteúdo ao girar o aparelho, sem que nada na tela dissesse
      por quê. */
+  /* O recorte de MOVIMENTO vive numa variável, e não num campo: são três botões que se
+     apertam, e um `select` escondido só para guardar o valor seria um segundo estado
+     para a mesma coisa. Por isso ele entra na contagem de filtros à parte, como o
+     grupo da coluna da esquerda. */
+  var FLUXO_TIPO = 'todos';
+
   var PERFIL_FILTRO = '';
 
   function usuariosNaTela(){
