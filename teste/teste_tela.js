@@ -5042,45 +5042,103 @@ console.log('\n== quem corrige o quê: uma regra, duas telas ==');
   var lg = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 
-  /* A REGRA DE VERDADE, recortada do `app.js`. */
-  var i = js.indexOf('  function podeCorrigir(s, m) {');
-  ok(i > 0, 'a regra mora no `app.js`, uma vez só para as duas telas');
-  var corpoR = js.slice(i, js.indexOf('\n  }', i) + 4);
-  var podeCorrigir = new Function(corpoR + '\n return podeCorrigir;')();
+  /* AS REGRAS DE VERDADE, recortadas do `app.js`. */
+  function fn(nome, assinatura) {
+    var k = js.indexOf('  function ' + assinatura);
+    if (k < 0) throw new Error('não achei: ' + nome);
+    return js.slice(k, js.indexOf('\n  }', k) + 4);
+  }
+  var corpoPode = fn('podeCorrigir', 'podeCorrigir(s, m) {');
+  var corpoLivre = fn('correcaoLivre', 'correcaoLivre(s, m, agora) {');
+  var corpoUTC = fn('comoUTC', 'comoUTC(carimbo) {');
+  var podeCorrigir = new Function(corpoPode + '\n return podeCorrigir;')();
+  var correcaoLivre = new Function(corpoUTC + corpoLivre + '\n return correcaoLivre;')();
 
-  var adminS = { id: 'U001', perfil: 'ADMIN', via: 'senha' };
   var galpao = { id: 'U002', perfil: 'GALPAO', via: 'pin' };
-  var meu = { id: 'M1', usuarioId: 'U002' };
-  var dela = { id: 'M2', usuarioId: 'U003' };
+  var adminS = { id: 'U001', perfil: 'ADMIN', via: 'senha' };
+  /* O relógio das afirmações é fixo, e os prazos são relativos a ele: com `new Date()`
+     solto, a afirmação "ainda dentro do prazo" viraria falsa dez minutos depois de
+     alguém rodar o teste devagar. */
+  var AGORA = new Date('2026-09-17T14:00:00Z');
+  function em(min) { return new Date(AGORA.getTime() + min * 60000).toISOString(); }
 
-  ok(podeCorrigir(adminS, dela) === true,
-    'o ADMIN corrige qualquer lançamento — é o escritório consertando o que chegou errado');
-  ok(podeCorrigir(galpao, meu) === true,
-    'e cada um corrige o que LANÇOU, na tela em que está');
-  ok(podeCorrigir(galpao, dela) === false,
-    'mas não o lançamento de outra pessoa — a lista de Lançamentos pode mostrar a equipe ' +
-    'inteira, e ver não é poder mudar');
-  ok(podeCorrigir(null, meu) === false && podeCorrigir(galpao, null) === false,
-    'sem sessão, ou sem lançamento, ninguém corrige nada');
-  ok(podeCorrigir(galpao, { id: 'M3' }) === false,
-    'lançamento sem dono declarado não é de ninguém — e não abre para todos');
-  /* O CASO QUE A GUARDA `!!m.usuarioId` DE FATO COBRE, e que a linha acima não distingue:
-     sessão SEM id. Sem a guarda, a comparação vira `undefined === undefined` e dá certo —
-     e uma sessão quebrada passaria a corrigir todo lançamento sem dono. */
-  ok(podeCorrigir({ perfil: 'GALPAO' }, { id: 'M3' }) === false,
-    'e sessão sem id não casa com lançamento sem dono — sem a guarda, `undefined` ' +
-    'bateria com `undefined` e os dois vazios abririam a porta');
-  ok(podeCorrigir({ id: 'U002', perfil: 'admin' }, dela) === true,
-    'o perfil é lido sem diferenciar maiúscula, como no resto do app');
+  /* TODO LANÇAMENTO TEM O BOTÃO. Antes ele só nascia para o autor e para o admin, e
+     quem precisava consertar o lançamento de um colega que já foi embora não tinha nem
+     por onde começar — a tela não dizia "peça a senha", simplesmente não mostrava nada. */
+  ok(podeCorrigir(galpao, { id: 'M2', usuarioId: 'U003' }) === true &&
+     podeCorrigir(galpao, { id: 'M1', usuarioId: 'U002' }) === true,
+    'todo lançamento tem o botão de corrigir — o que muda é o que ele PEDE');
+  ok(podeCorrigir(null, { id: 'M1' }) === false && podeCorrigir(galpao, null) === false,
+    'sem sessão não há quem assine a correção, e o histórico ficaria sem autor');
 
-  /* O ID, E NÃO O NOME. Dois homônimos no cadastro e a comparação por nome entregaria a
-     um o lançamento do outro — e o app de campo lista pelo nome, então o engano seria
-     invisível na tela. */
-  ok(/m\.usuarioId/.test(corpoR) && !/m\.usuario\b(?!Id)/.test(corpoR),
-    'a comparação é pelo ID de quem lançou, não pelo nome', corpoR.slice(-160));
+  /* E O QUE ELE PEDE sai de `correcaoLivre`: próprio autor, dentro do prazo, no mesmo
+     dia. Fora disso, a senha do escritório. */
+  var meuNoPrazo = { id: 'M1', usuarioId: 'U002', livreAte: em(6) };
+  var meuVencido = { id: 'M1', usuarioId: 'U002', livreAte: em(-1) };
+  var dela = { id: 'M2', usuarioId: 'U003', livreAte: em(6) };
+  var deOutroDia = { id: 'M3', usuarioId: 'U002', livreAte: '' };
+
+  ok(correcaoLivre(galpao, meuNoPrazo, AGORA) === true,
+    'o próprio autor conserta de graça enquanto o prazo corre');
+  ok(correcaoLivre(galpao, meuVencido, AGORA) === false,
+    'passado o prazo, pede senha — o número já foi visto, já entrou num saldo');
+  ok(correcaoLivre(galpao, dela, AGORA) === false,
+    'o lançamento de outra pessoa pede senha, mesmo dentro do prazo dela');
+  ok(correcaoLivre(galpao, deOutroDia, AGORA) === false,
+    'e o de outro dia também — `livreAte` vazio é o servidor dizendo que o dia fechou');
+  ok(correcaoLivre(adminS, dela, AGORA) === false,
+    'nem o ADMIN escapa: a senha é a chave de todo conserto fora de prazo');
+  ok(correcaoLivre(null, meuNoPrazo, AGORA) === false &&
+     correcaoLivre(galpao, null, AGORA) === false,
+    'sem sessão, ou sem lançamento, não há conserto livre');
+  ok(correcaoLivre({ perfil: 'GALPAO' }, { id: 'M3', livreAte: em(6) }, AGORA) === false,
+    'sessão sem id não casa com lançamento sem dono — `undefined` batendo com ' +
+    '`undefined` abriria o prazo de todo lançamento órfão');
+  ok(correcaoLivre(galpao, { id: 'M1', usuarioId: 'U002', livreAte: 'não é data' }, AGORA) === false,
+    'e prazo ilegível fecha, não abre');
+
+  /* O PRAZO NÃO ESTÁ ESCRITO NA TELA. Os dez minutos no navegador seriam dois números
+     sobre a mesma regra, e no dia em que discordassem a tela ofereceria o conserto livre
+     para o servidor recusar em seguida. */
+  ok(!/10\s*\*\s*60000|600000|JANELA/.test(corpoLivre),
+    'a tela não recalcula os dez minutos — ela compara com o prazo que o servidor mandou',
+    corpoLivre.slice(-200));
+  ok(/livreAte: livreAte\(m, agoraLista\)/.test(lg),
+    'e o servidor manda esse prazo pronto em cada lançamento');
+  ok(/JANELA_CORRECAO_MIN = 10/.test(lg),
+    'o número dos dez minutos mora num lugar só, no servidor');
+
+  /* O ID, E NÃO O NOME. Dois homônimos no cadastro e a comparação por nome daria a um o
+     prazo do outro — e o app de campo lista pelo nome, então o engano seria invisível. */
+  ok(/m\.usuarioId/.test(corpoLivre) && !/m\.usuario\b(?!Id)/.test(corpoLivre),
+    'a comparação é pelo ID de quem lançou, não pelo nome', corpoLivre.slice(-160));
   ok(/usuarioId: m\.UsuarioID/.test(lg),
-    'e o servidor manda esse id na lista — sem ele a regra nunca diria sim a ninguém ' +
-    'que não seja admin');
+    'e o servidor manda esse id na lista — sem ele nenhum conserto seria livre');
+
+  /* O CARIMBO PASSA PELO MESMO `comoUTC` da coluna Hora: o prazo vem do servidor sem
+     marca de fuso, e lido como hora local ele valeria três horas a mais. */
+  ok(/comoUTC\(m\.livreAte\)/.test(corpoLivre),
+    'o prazo é lido como UTC, como todo carimbo que vem do servidor');
+
+  /* ---- o campo de senha, nas duas telas --------------------------------------
+     Sem ele a correção trancada volta recusada e a tela não diz o que fazer. */
+  var iForma = camp.indexOf('function formCorrigirCampo(m, botao)');
+  var formaSenha = camp.slice(iForma, camp.indexOf('\n  function porqueTrancado', iForma));
+  ok(/var livre = Q\.correcaoLivre\(Q\.sessao\(\), m\)/.test(formaSenha),
+    'o app de campo decide livre ou trancado na ABERTURA — a pessoa precisa saber que ' +
+    'vai pedir senha antes de preencher sete campos');
+  ok(/\(livre \? '' :[\s\S]{0,400}id="crSenha"/.test(formaSenha),
+    'e o campo de senha aparece quando o conserto está trancado');
+  ok(/porqueTrancado\(m\)/.test(formaSenha) && /function porqueTrancado\(m\)\{/.test(camp),
+    'com o MOTIVO ao lado — "não deu certo" sem dizer por quê faz tentar de novo');
+  ok(/if \(senha\) pedido\.senha = senha;/.test(camp),
+    'a senha vai em TODAS as linhas da remessa: o servidor confere uma por uma, e a ' +
+    'segunda voltaria recusada com a primeira já gravada');
+
+  ok(/Q\.correcaoLivre\(s, m\) \? '' :[\s\S]{0,400}id="cSenha"/.test(adm),
+    'o painel tem o mesmo campo, pela mesma regra — é a mesma rota que confere os dois');
+  ok(/Q\.post\(\{acao:'corrigir', id:m\.id, usuarioId:s\.id, senha:senhaDita,/.test(adm),
+    'e o painel manda a senha junto — sem ela, toda correção de escritório volta recusada');
 
   /* AS DUAS TELAS CHAMAM A MESMA REGRA. Uma delas escrevendo a sua cópia é o defeito que
      já aconteceu neste projeto, com a porta do painel: aparecia numa tela e era recusada

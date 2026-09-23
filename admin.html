@@ -612,7 +612,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=62178f66"></script>
+<script src="app.js?v=66cd4e27"></script>
 <script>
 (function(){
   'use strict';
@@ -3604,6 +3604,15 @@
       '<label>Observação</label><textarea id="cObs">'+Q.esc(m.obs||'')+'</textarea>'+
       '<label>Motivo da correção <span style="font-weight:400;color:var(--txt3)">— obrigatório, fica no histórico</span></label>'+
       '<input type="text" id="cMotivo" placeholder="ex.: romaneio de papel dizia 95">'+
+      /* A SENHA, pela mesma regra do app de campo — e a mesma rota confere as duas. O
+         escritório quase sempre corrige lançamento de outro dia ou de outra pessoa, que
+         é justo o caso trancado: aqui o campo aparece quase sempre, e é assim mesmo.
+         Sem ele, a correção voltaria recusada e a tela não diria o que fazer. */
+      (Q.correcaoLivre(s, m) ? '' :
+        '<div class="aviso-trava" style="margin-top:12px">Este lançamento está fora dos '+
+        '10 minutos de conserto livre do próprio autor. Informe a senha.</div>'+
+        '<label for="cSenha">Senha do escritório</label>'+
+        '<input type="password" id="cSenha" inputmode="numeric" autocomplete="off">')+
       (m.historico && m.historico.length
         ? '<h3>Correções anteriores</h3><div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Campo</th><th>De</th><th>Para</th><th>Motivo</th></tr></thead><tbody>'+
           m.historico.map(function(h){
@@ -3614,8 +3623,12 @@
       '<div class="linha-btn"><button class="btn" id="cSalvar">Gravar correção</button></div>');
 
     document.getElementById('cSalvar').addEventListener('click', function(){
-      var b=this; b.disabled=true; b.textContent='Gravando…';
-      Q.post({acao:'corrigir', id:m.id, usuarioId:s.id,
+      var b=this;
+      var campoSenha = document.getElementById('cSenha');
+      var senhaDita = campoSenha ? campoSenha.value : '';
+      if (campoSenha && !senhaDita) return Q.toast('Informe a senha do escritório.','erro');
+      b.disabled=true; b.textContent='Gravando…';
+      Q.post({acao:'corrigir', id:m.id, usuarioId:s.id, senha:senhaDita,
               motivo:document.getElementById('cMotivo').value.trim(),
               Qtd:document.getElementById('cQtd').value,
               QtdConferida:document.getElementById('cConf').value,

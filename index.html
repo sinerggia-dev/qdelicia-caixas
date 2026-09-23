@@ -452,7 +452,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=62178f66"></script>
+<script src="app.js?v=66cd4e27"></script>
 <script>
 (function(){
   'use strict';
@@ -1432,6 +1432,9 @@
        tipos no mesmo cartão, um seletor de caixa não diz de qual das cinco se fala — e o
        conserto certo ali é a quantidade de cada uma, que está logo acima. */
     var umaCaixa = m.itens.length === 1;
+    /* Livre ou trancado, decidido na ABERTURA e não na hora de gravar: a pessoa precisa
+       saber que vai pedir senha ANTES de preencher sete campos. */
+    var livre = Q.correcaoLivre(Q.sessao(), m);
 
     function opcoesLocal(atual){
       return '<option value="">—</option>'+
@@ -1492,6 +1495,14 @@
         '<span style="font-weight:400;color:var(--txt3)"> — fica no histórico, e aparece '+
         'no painel</span></label>'+
       '<input type="text" id="crMotivo" placeholder="ex.: o romaneio dizia 95">'+
+      /* A SENHA, quando o conserto livre já passou. O campo aparece com o MOTIVO ao
+         lado: "não deu certo" sem dizer por quê faria a pessoa tentar de novo achando
+         que errou de botão. */
+      (livre ? '' :
+        '<div class="aviso-trava" style="margin-top:12px">'+Q.esc(porqueTrancado(m))+'</div>'+
+        '<label for="crSenha">Senha do escritório<span class="obrig">*</span></label>'+
+        '<input type="password" id="crSenha" inputmode="numeric" autocomplete="off" '+
+        'placeholder="peça a quem cuida dos lançamentos">')+
       '<div class="linha-btn">'+
         '<button class="btn" id="crSalvar" type="button" style="flex:0 0 auto;min-width:170px">Gravar correção</button>'+
         '<button class="btn neutro" id="crFechar" type="button" style="flex:0 0 auto;min-width:110px">Cancelar</button>'+
@@ -1506,6 +1517,12 @@
          aceita pedido de qualquer lugar. */
       var motivo = document.getElementById('crMotivo').value.trim();
       if (!motivo) return Q.toast('Escreva o motivo da correção.','erro');
+
+      /* A senha é barrada vazia AQUI, e conferida no servidor. Aqui é para a pessoa não
+         perder o que digitou numa ida de rede que já se sabe que volta recusada. */
+      var campoSenha = document.getElementById('crSenha');
+      var senha = campoSenha ? campoSenha.value : '';
+      if (!livre && !senha) return Q.toast('Informe a senha do escritório.','erro');
 
       var comum = {
         DataRef: document.getElementById('crData').value,
@@ -1535,6 +1552,10 @@
       }).map(function(i){
         var pedido = { acao:'corrigir', id:i.id, usuarioId:(Q.sessao()||{}).id,
                        motivo:motivo, Qtd:document.getElementById('crQ'+i.id).value };
+        /* A senha vai em TODAS as linhas da remessa, e não só na primeira: o servidor
+           confere lançamento por lançamento, e a segunda voltaria recusada com a
+           primeira já gravada. */
+        if (senha) pedido.senha = senha;
         Object.keys(comum).forEach(function(k){ pedido[k] = comum[k]; });
         if (umaCaixa) pedido.TipoCaixaID = caixaNova;
         return pedido;
@@ -1572,6 +1593,23 @@
         b.disabled = false; b.textContent = 'Gravar correção'; Q.toast(e.message,'erro');
       });
     });
+  }
+
+  /* POR QUE este conserto pede senha. São três motivos diferentes, e dizer o certo é o
+     que evita a pessoa tentar de novo achando que errou alguma coisa. A ordem é a do
+     que ela mais provavelmente fez: mexer no lançamento do colega, ou demorar. */
+  function porqueTrancado(m){
+    var s = Q.sessao() || {};
+    if (!m.usuarioId || String(m.usuarioId) !== String(s.id)) {
+      return 'Este lançamento é de ' + (m.usuario || 'outra pessoa') + '. Corrigir o ' +
+             'lançamento de outra pessoa pede a senha do escritório.';
+    }
+    if (!m.livreAte) {
+      return 'Este lançamento não é de hoje. Passado o dia, corrigir pede a senha do ' +
+             'escritório.';
+    }
+    return 'Passaram os 10 minutos em que você conserta o próprio lançamento sem pedir ' +
+           'nada a ninguém. Daqui em diante, pede a senha do escritório.';
   }
 
   function fecharCorrecoes(){

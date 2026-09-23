@@ -90,7 +90,7 @@ async function rotaGet(p) {
     case 'dados':
       // A lista de usuários saiu daqui de propósito: era carregada na tela de login e expunha
       // o nome de todo mundo para quem só abrisse o endereço. Quem precisa dela pede `equipe`.
-      return { ok: true, locais: d.locais, tipos: d.tipos, config: d.config,
+      return { ok: true, locais: d.locais, tipos: d.tipos, config: configPublica(d.config),
                motoristas: L.motoristasPublicos(d.motoristas) };
     case 'equipe':
       // Aqui vai o cadastro completo, com documento — é a tela do escritório.
@@ -326,11 +326,18 @@ async function corrigir(p) {
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
   /* Um mapa por tipo de campo: a origem se lê na lista de locais, a caixa na de tipos.
      Com um mapa só, "origem: de L001 para L016" ia para o histórico como id cru. */
-  var r = L.montarCorrecao(mov, p, new Date(), {
+  /* A SENHA só é conferida quando faz falta — o `scrypt` custa uns 50ms, e cobrá-los de
+     quem está dentro dos dez minutos seria pagar pelo caso que não acontece. */
+  var agora = new Date();
+  var livre = L.correcaoLivre(mov, p.usuarioId, agora);
+  var mandou = p.senha !== undefined && p.senha !== null && String(p.senha) !== '';
+  var senhaOk = livre || (mandou && conferirSenhaCorrecao(p.senha, d.config));
+
+  var r = L.montarCorrecao(mov, p, agora, {
     usuarios: L.mapaNomes(d.usuarios || []),
     locais: L.mapaNomes(d.locais || []),
     tipos: L.mapaTipos(d.tipos || [])
-  });
+  }, { senhaOk: senhaOk, senhaErrada: mandou && !senhaOk });
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);
   patch.historico = r.historico;
@@ -581,12 +588,50 @@ function ultimoAdmin(usuarios, id) {
 }
 
 /** Só chaves conhecidas: `config` alimenta a tela, não é depósito de qualquer coisa. */
-var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas'];
+var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas', 'senhaCorrecao'];
+
+/* A SENHA DO CONSERTO FORA DE PRAZO. Enquanto ninguém cadastrar outra, vale esta — é a
+   que foi combinada, e está aqui em vez de no banco para o sistema funcionar num banco
+   recém-criado. Trocada pela tela, vai para `config` em HASH, e daí em diante é a
+   cadastrada que vale. */
+var SENHA_CORRECAO_PADRAO = '123456';
+
+/* `digitada`, e não `senha`: o módulo de hash se chama `senha` neste arquivo, e um
+   parâmetro com esse nome o encobre — `senha.temHash` passa a procurar o método num
+   texto. Foi assim que este código estourou na primeira vez. */
+function conferirSenhaCorrecao(digitada, config) {
+  var guardado = (config || {}).senhaCorrecao;
+  /* O hash é conferido em tempo constante pelo `_senha.js`. A senha de fábrica não tem
+     hash para comparar, então vai no `===` mesmo: ela é pública neste arquivo, e não há
+     o que um ataque de tempo descubra sobre ela. */
+  if (senha.temHash(guardado)) return senha.conferir(digitada, guardado);
+  return String(digitada == null ? '' : digitada) === SENHA_CORRECAO_PADRAO;
+}
+
+/* NADA QUE PAREÇA SEGREDO SAI NA ROTA `dados`, que é pública e sem autorização nenhuma.
+   A peneira é pelo NOME e não por uma lista: chave de segredo criada amanhã sai por
+   omissão, em vez de vazar até alguém lembrar de acrescentá-la aqui. */
+function configPublica(config) {
+  var fora = {};
+  Object.keys(config || {}).forEach(function (k) {
+    if (/senha|token|chave|secret/i.test(k)) return;
+    fora[k] = config[k];
+  });
+  return fora;
+}
 
 async function salvarConfig(p) {
   var chave = String(p.chave || '').trim();
   if (CHAVES_CONFIG.indexOf(chave) < 0) return { ok: false, erro: 'Configuração desconhecida: ' + chave };
-  await db.salvarConfig(chave, p.valor);
+  var valor = p.valor;
+  /* Senha vai ao banco em HASH, como a de qualquer pessoa. Em texto, quem abre a tabela
+     `config` lê a senha que destranca a correção de qualquer lançamento. */
+  if (/senha/i.test(chave)) {
+    var nova = String(valor == null ? '' : valor);
+    if (nova.length < 6) return { ok: false, erro: 'A senha precisa de pelo menos 6 caracteres.' };
+    valor = senha.gerar(nova);
+  }
+  await db.salvarConfig(chave, valor);
   return { ok: true };
 }
 

@@ -823,7 +823,58 @@ var CORRIGIVEIS = [
 /* `nomes` é opcional: { locais, tipos, usuarios }, cada um um mapa de id para nome, usado
    só nos campos marcados com `mapa`. Quem chamar sem ele continua funcionando — o
    histórico cai no valor cru, que é feio mas não quebra nada. */
-function montarCorrecao(mov, p, agora, nomes) {
+/* ------------------------- a janela do conserto livre -------------------------
+ *
+ * Corrigir sem pedir nada a ninguém vale por DEZ MINUTOS, para o PRÓPRIO autor, no
+ * MESMO DIA. Passou disso, é outra pessoa, ou virou o dia: pede a senha do escritório.
+ *
+ * Os dez minutos são o tempo de quem digitou errado perceber e arrumar — passado isso, o
+ * número já foi visto por alguém, já entrou num saldo, já pode ter virado conferência. O
+ * "mesmo dia" existe para o lançamento das 23h55: dentro dos dez minutos, mas já é
+ * amanhã, e amanhã o dia de ontem está fechado.
+ *
+ * O DIA É O DO GALPÃO, não o do servidor. A Vercel roda em UTC, e às 21h de Brasília lá
+ * já é o dia seguinte: sem o deslocamento, todo lançamento do fim da tarde nasceria "de
+ * outro dia" e pediria senha. Offset fixo porque a operação é no Nordeste, que não tem
+ * horário de verão desde 2019 — muda isto quando a operação mudar de fuso, não antes.
+ */
+var JANELA_CORRECAO_MIN = 10;
+var FUSO_OPERACAO_H = -3;
+
+function diaDaOperacao(d) {
+  if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+  var local = new Date(d.getTime() + FUSO_OPERACAO_H * 3600000);
+  return local.toISOString().slice(0, 10);
+}
+
+/**
+ * Até quando este lançamento se corrige sem senha — ou '' quando já não se corrige.
+ *
+ * Quem calcula é o SERVIDOR, e a tela só compara com o relógio. Os dez minutos escritos
+ * também no navegador seriam dois números sobre a mesma regra, e o dia em que eles
+ * discordassem a tela ofereceria o conserto livre e o servidor pediria senha.
+ */
+function livreAte(m, agora) {
+  if (!m || !(m.DataHora instanceof Date)) return '';
+  agora = agora || new Date();
+  /* Outro dia: nem começa. O prazo de um lançamento de ontem já não existe, e devolver
+     um horário que já passou diria a mesma coisa de um jeito mais frágil. */
+  if (diaDaOperacao(m.DataHora) !== diaDaOperacao(agora)) return '';
+  return iso(new Date(m.DataHora.getTime() + JANELA_CORRECAO_MIN * 60000));
+}
+
+/** O conserto sai de graça? Próprio autor, dentro dos dez minutos, no mesmo dia. */
+function correcaoLivre(m, usuarioId, agora) {
+  if (!m) return false;
+  var quem = String(usuarioId || '');
+  if (!quem || String(m.UsuarioID || '') !== quem) return false;
+  var ate = livreAte(m, agora);
+  if (!ate) return false;
+  return (agora || new Date()).getTime() <
+         new Date(m.DataHora.getTime() + JANELA_CORRECAO_MIN * 60000).getTime();
+}
+
+function montarCorrecao(mov, p, agora, nomes, guarda) {
   if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
   if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira — restaure antes de corrigir.' };
   if (mov.Cancelado) return { ok: false, erro: 'Movimento cancelado não se corrige — lance um novo.' };
@@ -831,6 +882,23 @@ function montarCorrecao(mov, p, agora, nomes) {
   if (!motivo) return { ok: false, erro: 'Descreva o motivo da correção.' };
 
   agora = agora || new Date();
+
+  /* A SENHA, quando a janela livre já passou. Recusado AQUI, e não só escondendo o
+     botão: esconder é conveniência, e um POST direto passa por cima dela.
+
+     `senhaOk !== true` e não `=== false`: quem chamar sem a guarda cai no lado que pede
+     senha. Um caminho novo esquecido passa a recusar correções antigas, que se percebe
+     no mesmo dia — o contrário abriria a porta calado. */
+  guarda = guarda || {};
+  if (!correcaoLivre(mov, p.usuarioId, agora) && guarda.senhaOk !== true) {
+    return {
+      ok: false, precisaSenha: true,
+      erro: guarda.senhaErrada
+        ? 'Senha incorreta.'
+        : 'Passaram os ' + JANELA_CORRECAO_MIN + ' minutos de conserto livre — ou o lançamento é ' +
+          'de outra pessoa, ou de outro dia. Informe a senha do escritório.'
+    };
+  }
   var patch = {}, entradas = [];
 
   CORRIGIVEIS.forEach(function (c) {
@@ -1144,6 +1212,10 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
   var de = p.de ? data(p.de) : null;
   var ate = p.ate ? fimDoDia(data(p.ate)) : null;
   var limite = Number(p.limit || 400);
+  /* UM relógio para a lista inteira. Lido dentro do `map`, o prazo do último item seria
+     medido milissegundos depois do primeiro — irrelevante para o galpão, e suficiente
+     para um teste de janela oscilar sem motivo. */
+  var agoraLista = p.agora instanceof Date ? p.agora : new Date();
   // Calculado sobre TODOS os movimentos, antes do filtro e do corte: uma devolução de
   // fora da janela filtrada ainda abate a remessa dela, e ignorá-la faria uma carga já
   // devolvida aparecer como "Enviada" só porque o filtro cortou a devolução.
@@ -1190,6 +1262,11 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       /* De qual remessa esta linha é. A tela de celular junta as linhas por aqui em vez
          de repetir data, rota e motorista uma vez por tipo de caixa. */
       lote: loteDo(m),
+      /* Até quando o autor conserta sem senha. Vazio já quer dizer "só com senha", e o
+         cálculo dos dez minutos fica NUM lugar: escrito também no navegador, o dia em
+         que os dois discordassem a tela ofereceria o conserto livre e o servidor
+         pediria senha. */
+      livreAte: livreAte(m, agoraLista),
       origem: nome(mLocais, m.OrigemID), destino: nome(mLocais, m.DestinoID),
       origemId: m.OrigemID, destinoId: m.DestinoID,
       // o nome para a tabela; o id para o seletor da correção abrir no valor certo
@@ -1860,6 +1937,8 @@ module.exports = {
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
   montarMovimento: montarMovimento, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
+  JANELA_CORRECAO_MIN: JANELA_CORRECAO_MIN, diaDaOperacao: diaDaOperacao,
+  livreAte: livreAte, correcaoLivre: correcaoLivre,
   efetiva: efetiva, saldos: saldos, emConferencia: emConferencia, aging: aging,
   pendentes: pendentes, listaMovimentos: listaMovimentos, painel: painel,
   descricao: descricao, extrato: extrato, extratoToken: extratoToken,

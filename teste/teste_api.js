@@ -648,7 +648,8 @@ async function main() {
   console.log('\n== correção de lançamento pelo escritório ==');
   const alvoC = (await GET({ acao: 'movimentos', limit: 200 })).movimentos.find((m) => m.tipo === 'SAIDA' && m.qtd === 100);
   ok((await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95 })).ok === false, 'correção sem motivo é recusada');
-  const corr = await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95, motivo: 'romaneio dizia 95', usuarioId: 'U001' });
+  const corr = await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95, motivo: 'romaneio dizia 95', usuarioId: 'U001',
+                                  senha: '123456' });
   ok(corr.ok && corr.alterou.length === 1, 'quantidade corrigida', corr);
   const movC = tabelas.movimentos.find((m) => m.id === alvoC.id);
   ok(Number(movC.qtd) === 95, 'valor novo gravado', movC.qtd);
@@ -661,7 +662,7 @@ async function main() {
      'histórico guarda o valor antigo e o novo', movC.historico);
   ok(ultC.motivo === 'romaneio dizia 95' && ultC.por === 'U001',
      'histórico guarda motivo e autor', ultC);
-  ok((await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95, motivo: 'de novo' })).ok === false,
+  ok((await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95, motivo: 'de novo', senha: '123456' })).ok === false,
      'corrigir para o mesmo valor não gera histórico vazio');
 
   /* ---------------------------------------------------------------------------
@@ -679,6 +680,126 @@ async function main() {
    * para mais, ela soma cargas diferentes num cartão; errada para menos, o cartão volta
    * a ser cinco.
    * ------------------------------------------------------------------------- */
+  /* ---------------------------------------------------------------------------
+   * OS DEZ MINUTOS DE CONSERTO LIVRE.
+   *
+   * Corrigir sem pedir nada vale por dez minutos, para o próprio autor, no mesmo dia.
+   * Fora disso, senha. O que se mede aqui é o SERVIDOR — a tela esconde o campo, mas é
+   * esta rota que recusa, e ela aceita pedido de qualquer lugar.
+   * ------------------------------------------------------------------------- */
+  console.log('\n== os dez minutos de conserto livre, e a senha depois deles ==');
+  {
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+
+    /* Um lançamento ACABADO DE FAZER, por U002. */
+    const rNovo = await POST({ acao: 'movimento', tipo: 'SAIDA', usuarioId: 'U002',
+      origemId: G, destinoId: C, motorista: 'Motorista Exemplo',
+      itens: [{ tipoCaixaId: 'T001', qtd: 3 }] });
+    ok(rNovo.ok, 'um lançamento novo, de agora', rNovo.erro);
+    const novo = (await GET({ acao: 'movimentos', limit: 400 })).movimentos
+      .find((m) => Number(m.qtd) === 3 && m.usuarioId === 'U002');
+    ok(!!novo && !!novo.livreAte,
+      'a lista diz até quando ele se conserta de graça', novo && novo.livreAte);
+
+    /* O AUTOR, AGORA: passa sem senha. */
+    ok((await POST({ acao: 'corrigir', id: novo.id, usuarioId: 'U002',
+                     motivo: 'contei de novo', Qtd: 4 })).ok,
+      'o próprio autor conserta na hora, sem senha nenhuma');
+
+    /* OUTRA PESSOA, no mesmo instante: recusado, e o erro DIZ que é senha que falta. */
+    const rOutro = await POST({ acao: 'corrigir', id: novo.id, usuarioId: 'U003',
+                                motivo: 'mexendo no alheio', Qtd: 5 });
+    ok(rOutro.ok === false && rOutro.precisaSenha === true,
+      'outra pessoa é recusada, e a resposta diz que o que falta é a SENHA — "recusado" ' +
+      'sozinho faria tentar de novo achando que errou de botão', rOutro);
+
+    /* A SENHA ERRADA não passa, e a certa passa. */
+    ok((await POST({ acao: 'corrigir', id: novo.id, usuarioId: 'U003',
+                     motivo: 'x', Qtd: 5, senha: '000000' })).ok === false,
+      'senha errada não passa');
+    ok((await POST({ acao: 'corrigir', id: novo.id, usuarioId: 'U003',
+                     motivo: 'conferi no romaneio', Qtd: 5, senha: '123456' })).ok,
+      'e a senha do escritório destranca o conserto de qualquer um');
+
+    /* O LANÇAMENTO DE OUTRO DIA. Repare que "outro dia" é o dia em que foi GRAVADO, e
+       não a data da carga: uma remessa datada da semana passada, digitada há dois
+       minutos, ainda está no prazo — a pessoa acabou de digitar e pode ter errado. Por
+       isso o cenário não serve como está: tudo nele foi gravado agora. A linha vai ao
+       banco falso com o carimbo de ontem. */
+    const ontem = new Date(Date.now() - 36 * 3600 * 1000);
+    tabelas.movimentos.push({
+      id: 'M-ONTEM', client_key: 'K-ONTEM-0', data_hora: ontem.toISOString(),
+      data_ref: ontem.toISOString().slice(0, 10), tipo: 'SAIDA', origem_id: G,
+      destino_id: C, tipo_caixa_id: 'T001', qtd: 30, qtd_conferida: 30,
+      status: 'CONFIRMADO', romaneio: '', usuario_id: 'U002', perfil: 'GALPAO',
+      obs: '', motorista: null, rota: null, cancelado: false, historico: []
+    });
+    const velho = (await GET({ acao: 'movimentos', limit: 400 })).movimentos
+      .find((m) => m.id === 'M-ONTEM');
+    ok(!!velho, 'há um lançamento gravado ontem');
+    ok(velho.livreAte === '',
+      'e o prazo dele vem vazio — passado o dia, não há conserto livre', velho.livreAte);
+    const rVelho = await POST({ acao: 'corrigir', id: velho.id, usuarioId: velho.usuarioId,
+                                motivo: 'tarde demais', Qtd: Number(velho.qtd) + 1 });
+    ok(rVelho.ok === false && rVelho.precisaSenha === true,
+      'nem o próprio autor conserta de graça um lançamento de ontem', rVelho);
+
+    /* A REGRA CRUA, com o relógio na mão. */
+    const base = new Date('2026-09-17T14:00:00Z');
+    const mov = { UsuarioID: 'U1', DataHora: new Date('2026-09-17T13:55:00Z') };
+    ok(F.correcaoLivre(mov, 'U1', base) === true, 'cinco minutos depois ainda é livre');
+    ok(F.correcaoLivre(mov, 'U1', new Date('2026-09-17T14:06:00Z')) === false,
+      'onze minutos depois, não');
+    ok(F.correcaoLivre(mov, 'U9', base) === false, 'e nunca para outra pessoa');
+    /* O CASO QUE A GUARDA `!quem` COBRE: pedido sem `usuarioId` contra uma linha antiga
+       sem dono. Sem ela, `'' === ''` dá certo, e o prazo de todo lançamento órfão abre
+       para quem nem se identificou. */
+    ok(F.correcaoLivre({ UsuarioID: null, DataHora: new Date(base.getTime() - 60000) },
+                       '', base) === false,
+      'e pedido sem autor não casa com lançamento sem dono — os dois vazios abririam a ' +
+      'porta um para o outro');
+
+    /* O DIA É O DO GALPÃO. A Vercel roda em UTC, e às 21h de Brasília lá já é amanhã:
+       sem o deslocamento, todo lançamento do fim da tarde nasceria "de outro dia". */
+    const noite = { UsuarioID: 'U1', DataHora: new Date('2026-09-18T01:30:00Z') };
+    ok(F.correcaoLivre(noite, 'U1', new Date('2026-09-18T01:33:00Z')) === true,
+      'lançamento das 22h30 do galpão, corrigido às 22h33, ainda é do mesmo dia — em ' +
+      'UTC os dois já são 18/09, e a conta pelo fuso do servidor o trancaria sem motivo');
+    ok(F.diaDaOperacao(new Date('2026-09-18T01:30:00Z')) === '2026-09-17',
+      'porque o dia da operação conta no fuso do Nordeste, e não no do servidor',
+      F.diaDaOperacao(new Date('2026-09-18T01:30:00Z')));
+
+    ok((await POST({ acao: 'salvarConfig', chave: 'senhaCorrecao', valor: 'curta' })).ok === false,
+      'senha curta é recusada, como a de qualquer pessoa');
+    ok((await POST({ acao: 'salvarConfig', chave: 'senhaCorrecao', valor: 'trocada9' })).ok,
+      'e a senha do conserto se troca pela configuração');
+
+    /* A SENHA NÃO SAI NA ROTA PÚBLICA. `dados` não tem autorização nenhuma, e é ela que
+       a tela de login chama antes de qualquer pessoa entrar.
+
+       A conferência vem DEPOIS de cadastrar a senha, de propósito: antes disso não havia
+       chave nenhuma com esse nome no `config`, e a afirmação passava sem medir nada. */
+    const dd = await GET({ acao: 'dados' });
+    ok(tabelas.config.some((r) => r.chave === 'senhaCorrecao'),
+      'a senha está mesmo guardada — senão a conferência abaixo não mede nada');
+    ok(JSON.stringify(dd.config || {}).toLowerCase().indexOf('senha') < 0,
+      'e mesmo assim a rota pública `dados` não devolve nada com cara de segredo', dd.config);
+    const guardada = tabelas.config.find((r) => r.chave === 'senhaCorrecao');
+    ok(guardada && /^s1\$/.test(String(guardada.valor)),
+      'que vai ao banco em HASH — em texto, quem abre a tabela lê a senha que destranca ' +
+      'a correção de qualquer lançamento', guardada && guardada.valor.slice(0, 12));
+    ok((await POST({ acao: 'corrigir', id: velho.id, usuarioId: velho.usuarioId,
+                     motivo: 'com a nova', Qtd: Number(velho.qtd) + 1, senha: 'trocada9' })).ok,
+      'e é a cadastrada que passa a valer');
+    ok((await POST({ acao: 'corrigir', id: velho.id, usuarioId: velho.usuarioId,
+                     motivo: 'com a de fábrica', Qtd: Number(velho.qtd) + 2,
+                     senha: '123456' })).ok === false,
+      'a de fábrica para de valer assim que existe uma cadastrada');
+
+    /* De volta à de fábrica, porque o cenário continua depois daqui. */
+    tabelas.config = tabelas.config.filter((r) => r.chave !== 'senhaCorrecao');
+  }
+
   console.log('\n== o lote: as linhas de um envio só se reconhecem ==');
   {
     /* Uma remessa com DOIS tipos de caixa, que é o caso que o cartão existe para juntar.
@@ -752,7 +873,7 @@ async function main() {
 
     /* `usuarioId` do CONFERENTE, que é quem estaria com o celular na mão — não o admin. */
     const rF = await POST({ acao: 'corrigir', id: alvoF.id, usuarioId: 'U002',
-                            motivo: 'contei de novo na doca',
+                            motivo: 'contei de novo na doca', senha: '123456',
                             Qtd: Number(alvoF.qtd) - 1 });
     ok(rF.ok, 'o campo grava a correção pela rota do painel', rF.erro);
 
@@ -766,7 +887,7 @@ async function main() {
       'com o campo que mudou e o motivo escrito no galpão', depoisF.alterado);
 
     /* E volta ao que era, porque o cenário continua depois daqui. */
-    await POST({ acao: 'corrigir', id: alvoF.id, usuarioId: 'U001',
+    await POST({ acao: 'corrigir', id: alvoF.id, usuarioId: 'U001', senha: '123456',
                  motivo: 'desfazendo o ensaio', Qtd: Number(alvoF.qtd) });
   }
 
@@ -2171,6 +2292,12 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
   console.log('\n== corrigir o lançamento ==');
   {
     const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    /* Este bloco mede o que a correção GRAVA — quais campos entram no patch e o que o
+       histórico guarda. A guarda da senha é outra coisa, e tem bloco próprio logo
+       abaixo; aqui ela entra satisfeita para não transformar cada afirmação sobre
+       mapeamento de campo numa afirmação sobre prazo. */
+    const comSenha = (mov, p, agora, nomes) =>
+      F.montarCorrecao(mov, p, agora, nomes, { senhaOk: true });
     /* Um mapa por tipo de campo: origem e destino saem da lista de locais, a caixa da de
        tipos. Com um mapa só, o histórico guardaria "origem: de L1 para L2". */
     const nomes = {
@@ -2185,7 +2312,7 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
       DataRef: new Date('2026-09-15T00:00:00'), Historico: []
     };
 
-    let r = F.montarCorrecao(mov, { UsuarioID: 'U2', motivo: 'lançou no lugar do colega', usuarioId: 'U1' },
+    let r = comSenha(mov, { UsuarioID: 'U2', motivo: 'lançou no lugar do colega', usuarioId: 'U1' },
       new Date('2026-09-16T10:00:00'), nomes);
     ok(r.ok && r.patch.UsuarioID === 'U2', 'grava o novo responsável pelo lançamento', r);
     ok(r.entradas[0].campo === 'quem lançou', 'o histórico nomeia o campo', r.entradas[0]);
@@ -2193,20 +2320,20 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
       'e guarda o NOME, não o id — "de U1 para U2" não serve para conferir nada', r.entradas[0]);
 
     // sem o mapa de nomes o id ainda passa: quem chamava com três argumentos não quebra
-    r = F.montarCorrecao(mov, { UsuarioID: 'U2', motivo: 'x', usuarioId: 'U1' }, new Date());
+    r = comSenha(mov, { UsuarioID: 'U2', motivo: 'x', usuarioId: 'U1' }, new Date());
     ok(r.ok && r.entradas[0].de === 'U1', 'sem o mapa cai no valor cru, sem estourar', r.entradas[0]);
 
     // trocar para o mesmo não é correção
-    r = F.montarCorrecao(mov, { UsuarioID: 'U1', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
+    r = comSenha(mov, { UsuarioID: 'U1', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
     ok(!r.ok && /Nada mudou/.test(r.erro), 'escolher o mesmo usuário não vira correção', r);
 
     // e os campos antigos seguem funcionando junto
-    r = F.montarCorrecao(mov, { Qtd: 60, UsuarioID: 'U2', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
+    r = comSenha(mov, { Qtd: 60, UsuarioID: 'U2', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
     ok(r.ok && r.entradas.length === 2, 'quantidade e responsável mudam no mesmo envio', r.entradas.length);
 
     /* Os quatro campos que faltavam. Origem, destino e caixa mexem no razão — é
        justamente para isso que se corrige: o lançamento saiu no local errado. */
-    r = F.montarCorrecao(mov, { OrigemID: 'L2', motivo: 'saiu da filial, não da matriz',
+    r = comSenha(mov, { OrigemID: 'L2', motivo: 'saiu da filial, não da matriz',
                                 usuarioId: 'U1' }, new Date(), nomes);
     ok(r.ok && r.patch.OrigemID === 'L2', 'a origem se corrige', r.patch);
     ok(r.entradas[0].campo === 'origem' &&
@@ -2214,28 +2341,28 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
       'e o histórico guarda os NOMES — "de L1 para L2" não serve para conferir nada',
       r.entradas[0]);
 
-    r = F.montarCorrecao(mov, { DestinoID: 'L2', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
+    r = comSenha(mov, { DestinoID: 'L2', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
     ok(r.ok && r.patch.DestinoID === 'L2' && r.entradas[0].de === 'Caruaru',
       'o destino idem, e pelo mesmo mapa de locais', r.entradas[0]);
 
-    r = F.montarCorrecao(mov, { TipoCaixaID: 'T2', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
+    r = comSenha(mov, { TipoCaixaID: 'T2', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
     ok(r.ok && r.patch.TipoCaixaID === 'T2' &&
        r.entradas[0].de === 'CX P' && r.entradas[0].para === 'CX G',
       'a caixa se corrige e usa o mapa DELA, não o de locais', r.entradas[0]);
 
     // o motorista é gravado pelo nome: não há id para mapear
-    r = F.montarCorrecao(mov, { Motorista: 'Wesley', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
+    r = comSenha(mov, { Motorista: 'Wesley', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
     ok(r.ok && r.patch.Motorista === 'Wesley' && r.entradas[0].de === 'Ramos',
       'o motorista se corrige direto pelo nome', r.entradas[0]);
 
     // trocar por igual continua não sendo correção, campo novo ou velho
-    r = F.montarCorrecao(mov, { OrigemID: 'L1', TipoCaixaID: 'T1', Motorista: 'Ramos',
+    r = comSenha(mov, { OrigemID: 'L1', TipoCaixaID: 'T1', Motorista: 'Ramos',
                                 motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
     ok(!r.ok && /Nada mudou/.test(r.erro),
       'repetir os mesmos valores não vira correção nos campos novos também', r);
 
     // os sete de uma vez
-    r = F.montarCorrecao(mov, {
+    r = comSenha(mov, {
       DataRef: '2026-09-20', OrigemID: 'L2', DestinoID: 'L1', TipoCaixaID: 'T2',
       Qtd: 70, Motorista: 'Wesley', UsuarioID: 'U2', motivo: 'refazendo o lançamento',
       usuarioId: 'U1'
@@ -2833,7 +2960,11 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
   const corpo = src.slice(ini, src.indexOf('\nfunction ', ini + 10));
   if (corpo.length < 500) throw new Error('recorte de listaMovimentos ficou curto demais');
   // todo `p.<campo>` que a lista consulta, menos os que nao sao recorte
-  const fora = { limit: 1, teste: 1 };
+  /* `agora` não é recorte: é o relógio com que a lista calcula o prazo do conserto
+     livre. Repassá-lo ao apagar não mudaria o conjunto apagado — e cobrá-lo aqui faria
+     esta afirmação, que existe para pegar FILTRO esquecido, falhar por um campo que
+     filtro nenhum é. */
+  const fora = { limit: 1, teste: 1, agora: 1 };
   const campos = {};
   (corpo.match(/\bp\.([a-zA-Z]+)/g) || []).forEach((m) => {
     const k = m.slice(2);

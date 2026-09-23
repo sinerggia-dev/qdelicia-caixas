@@ -182,7 +182,7 @@ var faltaEstrela = naLista.filter(function (id) { return comEstrela.indexOf(id) 
    da correção, e quem o exige é o botão de gravar mais a regra do servidor. Entra aqui
    nomeado, e não por um filtro esperto — e as duas guardas dele são conferidas logo
    abaixo. Sem isso, a estrela seria uma promessa que ninguém cumpre. */
-var FORA_DO_ENVIO = ['crMotivo'];
+var FORA_DO_ENVIO = ['crMotivo', 'crSenha'];
 var estrelaSobrando = comEstrela.filter(function (id) {
   return naLista.indexOf(id) < 0 && FORA_DO_ENVIO.indexOf(id) < 0;
 });
@@ -196,6 +196,16 @@ var logica = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'u
 ok(/if \(!motivo\) return \{ ok: false, erro: 'Descreva o motivo da correção\.' \}/.test(logica),
    'e o servidor recusa de novo — a API aceita pedido de qualquer lugar, e a tela ' +
    'sozinha seria enfeite');
+
+/* ---- 12. a senha do conserto fora de prazo, dos dois lados ---- */
+ok(/if \(!livre && !senha\) return Q\.toast\('Informe a senha do escritório\.'/.test(html),
+   'a tela recusa o conserto trancado sem senha, com o que foi digitado ainda na tela');
+ok(/if \(!correcaoLivre\(mov, p\.usuarioId, agora\) && guarda\.senhaOk !== true\)/.test(logica),
+   'e o servidor confere de novo — esconder o campo é conveniência, e um POST direto ' +
+   'passa por cima dela');
+ok(/guarda\.senhaOk !== true/.test(logica),
+   'a guarda é pelo SIM explícito: um caminho novo que esqueça de passá-la cai no lado ' +
+   'que pede senha, e não no que abre');
 ok(/Quantas caixas<span class="obrig">/.test(html), 'as quantidades também são marcadas');
 ok(!/for="(sdObs|dvObs)">[^<]*<span class="obrig">/.test(html), 'observação não recebeu *');
 

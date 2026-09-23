@@ -534,35 +534,44 @@
     return s.acessoPainel === true;
   }
 
-  /** Quem pode corrigir QUAL lançamento.
+  /** TODO LANÇAMENTO TEM O BOTÃO. O que muda não é se ele aparece, é o que ele pede.
    *
-   * Mora aqui, e não em cada tela, porque agora são DUAS: o painel do escritório e a
-   * lista de Lançamentos do app de campo. Escrita duas vezes, a regra diverge — foi
-   * exatamente o que aconteceu com a porta do painel, que aparecia numa tela e era
-   * recusada na outra.
+   * Antes o botão só nascia para o autor e para o ADMIN — e quem precisava consertar o
+   * lançamento de um colega que já foi embora não tinha nem por onde começar: a tela
+   * não dizia "peça a senha", ela simplesmente não mostrava nada.
    *
-   * ADMIN corrige qualquer um: é o escritório consertando o que chegou errado, e era
-   * a única regra que existia até aqui.
+   * Quem separa o conserto livre do conserto com senha é `correcaoLivre`, logo abaixo.
    *
-   * OS DEMAIS corrigem só o que LANÇARAM. Quem errou conserta, na tela em que está —
-   * e ninguém mexe no número de outra pessoa. A lista de Lançamentos mostra o que a
-   * permissão `usuariosVistos` deixa ver, que pode ser a equipe inteira: sem esta
-   * linha, ver o lançamento do colega passaria a ser poder mudá-lo.
-   *
-   * POR ID, e não por nome: dois "João" no cadastro e a comparação por nome entrega a
-   * um o lançamento do outro.
-   *
-   * O PIN PASSA, ao contrário do painel. A credencial curta já cria lançamento — que é
-   * poder igual ou maior sobre o mesmo saldo —, então exigi-la aqui não guardaria nada
-   * e tiraria o conserto justamente de quem está com o celular na mão.
-   *
-   * ISTO É A TELA, NÃO A TRANCA: a API não tem autorização, e um POST direto corrige
-   * qualquer lançamento. Serve para ninguém mexer no que não é seu sem querer.
+   * Uma sessão é o único requisito: sem ela não há quem assine a correção, e o
+   * histórico ficaria com um autor vazio.
    */
   function podeCorrigir(s, m) {
-    if (!s || !m) return false;
-    if (String(s.perfil).toUpperCase() === 'ADMIN') return true;
-    return !!m.usuarioId && String(m.usuarioId) === String(s.id);
+    return !!s && !!m;
+  }
+
+  /** O conserto sai de graça, ou vai pedir a senha do escritório?
+   *
+   * Livre é: o PRÓPRIO autor, dentro do prazo, no mesmo dia. Fora disso, senha.
+   *
+   * O PRAZO NÃO ESTÁ ESCRITO AQUI. Quem o calcula é o servidor, que manda `livreAte`
+   * pronto em cada lançamento — os dez minutos escritos também no navegador seriam dois
+   * números sobre a mesma regra, e no dia em que discordassem a tela ofereceria o
+   * conserto livre para o servidor recusar em seguida. O "mesmo dia" vem embutido: fora
+   * dele o servidor manda `livreAte` vazio.
+   *
+   * POR ID, e não por nome: dois "João" no cadastro e a comparação por nome daria a um
+   * o prazo do outro.
+   *
+   * ISTO É A TELA, NÃO A TRANCA: a API não tem autorização, e quem manda um POST direto
+   * escapa daqui — mas não escapa do servidor, que refaz esta mesma conta antes de
+   * gravar. Aqui é para a pessoa saber o que vai acontecer antes de digitar.
+   */
+  function correcaoLivre(s, m, agora) {
+    if (!s || !m || !m.livreAte) return false;
+    if (!m.usuarioId || String(m.usuarioId) !== String(s.id)) return false;
+    var limite = new Date(comoUTC(m.livreAte));
+    if (isNaN(limite.getTime())) return false;
+    return (agora || new Date()).getTime() < limite.getTime();
   }
 
   /**
@@ -600,6 +609,9 @@
           origem: m.origem, destino: m.destino, origemId: m.origemId,
           destinoId: m.destinoId, motorista: m.motorista, usuario: m.usuario,
           usuarioId: m.usuarioId, teste: m.teste, situacao: m.situacao,
+          /* O prazo é da REMESSA: as linhas dela nascem do mesmo carimbo, então o
+             `livreAte` é o mesmo em todas. Vindo da primeira, vale para o cartão. */
+          livreAte: m.livreAte,
           obs: m.obs, romaneio: m.romaneio,
           itens: [], total: 0, alterado: null, caixas: {}
         };
@@ -1134,7 +1146,8 @@
     horaBR: horaBR, dataDoCarimboBR: dataDoCarimboBR, dataHoraBR: dataHoraBR,
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
-    podeCorrigir: podeCorrigir, agruparLancamentos: agruparLancamentos,
+    podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,
+    agruparLancamentos: agruparLancamentos,
     gruposDaNavegacao: gruposDaNavegacao,
     quemEsta: quemEsta, iniciais: iniciais,
     barraAging: barraAging, assinatura: assinatura,
