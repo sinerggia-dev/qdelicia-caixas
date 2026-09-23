@@ -2461,15 +2461,33 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
     'com lançamento preso');
 
   /* Escrever as iniciais NAO pode apagar o ponto, que mora dentro do mesmo elemento. */
-  var iQ = js.indexOf('function quemEsta(nome, perfil)');
+  var iQ = js.indexOf('function quemEsta(nome, perfil, foto)');
   var quem = js.slice(iQ, js.indexOf('\n  }', iQ));
-  ok(iQ > 0 && quem.indexOf('avatarTopo') > 0,
-    'as iniciais entram nos dois círculos');
-  ok(!/avatarTopo'\);\s*if \(t\) t\.textContent/.test(js) && /nodeValue|createTextNode/.test(quem),
+  var iPC = js.indexOf('function pintarCirculo(el, nome, foto)');
+  var circulo = js.slice(iPC, js.indexOf('\n  }', iPC));
+  ok(iQ > 0 && (quem.match(/pintarCirculo\(/g) || []).length === 2,
+    'o retrato entra nos dois círculos, pela mesma função — dois desenhos do mesmo ' +
+    'rosto acabam discordando no primeiro ajuste');
+  ok(!/avatarTopo'\);\s*if \(t\) t\.textContent/.test(js) &&
+     /nodeValue|createTextNode/.test(circulo),
     'e o de cima é escrito sem apagar o ponto — `textContent` levaria o ponto junto, e a ' +
-    'rede ficaria sem indicador nenhum depois do primeiro login', quem);
+    'rede ficaria sem indicador nenhum depois do primeiro login', circulo);
   ok(/t\.title = /.test(quem),
     'e o círculo leva o nome inteiro — duas letras identificam pouco quando há dois Josés');
+
+  /* A FOTO POR CIMA DAS LETRAS, e não no lugar delas: o `onerror` devolve as iniciais
+     quando o endereço quebra — arquivo apagado do balde, rede fora. Como imagem de
+     FUNDO não haveria esse evento, e o círculo ficaria vazio, que diz menos que duas
+     letras. */
+  ok(/img\.addEventListener\('error', function \(\) \{ img\.remove\(\); \}\);/.test(circulo),
+    'a foto que não carrega se retira, e as iniciais voltam sozinhas');
+  ok(/if \(!foto\) \{ if \(img\) img\.remove\(\); return; \}/.test(circulo),
+    'e tirar a foto no cadastro tira a imagem do círculo, sem recarregar a página');
+  ok(/\.avatar__foto\{position:absolute;inset:0/.test(css),
+    'ela cobre o círculo em vez de ficar ao lado dele');
+  ok(/foto: u\.Foto \|\| '',/.test(fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8')),
+    'e a sessão carrega a foto de quem está logada — sem ela, a lateral mostraria as ' +
+    'iniciais de quem acabou de pôr foto, e a pessoa concluiria que não salvou');
 
   /* A MARCA ENCOLHE, o canto direito NAO. Medido a 390px com "Offline · 2 na fila": sem
      isto o avatar era empurrado para fora da barra, e quem estava sem rede perdia de
@@ -6098,7 +6116,7 @@ console.log('\n== nome de classe só tem UM dono ==');
     'mov__pe', 'mov__total', 'mov-item', 'mov-itens', 'acoes-btn',
     'folha', 'folha__cab', 'folha__corpo', 'folha__t', 'folha__ctx', 'veu-folha',
     'opcao', 'pill', 'aplicados', 'filtros-caixa', 'so-celular',
-    'users', 'u', 'u__topo', 'u__ini', 'u__nome', 'u__dados', 'u__acesso', 'u__pe',
+    'users', 'u', 'u__topo', 'u__ini', 'u-linha', 'u-linha__r', 'retrato__f', 'foto-campo', 'u__nome', 'u__dados', 'u__acesso', 'u__pe',
     'acoes-topo', 'trilho', 'chip__n', 'so-largo', 'secao__alerta',
     /* As do Painel da Operação. `rt` e `cli` são curtas de propósito — e é exatamente
        nome curto que já colidiu quatro vezes aqui. */

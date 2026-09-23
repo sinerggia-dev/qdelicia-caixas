@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=33799103">
+<link rel="stylesheet" href="styles.css?v=c75f7002">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -452,7 +452,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=3dddf2ba"></script>
+<script src="app.js?v=a210c955"></script>
 <script>
 (function(){
   'use strict';
@@ -469,7 +469,7 @@
      painel e as abas. Duas chamadas passam por aqui — a abertura e a renovacao —, e
      espalhar isso pelas duas faria a renovacao esquecer alguma. */
   function aplicarSessao(s){
-    Q.quemEsta(s.nome, s.perfil);
+    Q.quemEsta(s.nome, s.perfil, s.foto);
 
     /* A porta para o painel, para quem tem o painel — e A MESMA PERGUNTA que o
        `admin.html` faz na chegada, feita à mesma função.

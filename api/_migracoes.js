@@ -351,5 +351,21 @@ module.exports = [
       "'Quando o lançamento foi mandado para a lixeira. Nulo = está valendo. " +
       "Preenchido, ele não conta em saldo, painel, extrato nem lista.';"
     ].join('\n')
+  },
+  {
+    id: '2026-09-23-foto-do-usuario',
+    nota: 'a foto do cadastro, que aparece no lugar das iniciais',
+    /* UMA COLUNA DE TEXTO, e não a imagem. O que fica aqui é o ENDEREÇO do arquivo no
+       mesmo balde que já guarda canhoto e foto de lançamento; o byte da imagem não entra
+       na tabela de usuários, que é lida inteira a cada visita ao painel.
+
+       Nula é o normal: quem não tem foto continua aparecendo pelas iniciais, e nada muda
+       para os cadastros que já existem. */
+    sql: [
+      "alter table public.usuarios add column if not exists foto text;",
+      "comment on column public.usuarios.foto is " +
+      "'Endereço público da foto do cadastro, no balde canhotos. " +
+      "Nulo = sem foto, e a tela mostra as iniciais do nome.';"
+    ].join('\n')
   }
 ];

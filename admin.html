@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=33799103">
+<link rel="stylesheet" href="styles.css?v=c75f7002">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -786,7 +786,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=3dddf2ba"></script>
+<script src="app.js?v=a210c955"></script>
 <script>
 (function(){
   'use strict';
@@ -905,7 +905,7 @@
      campo. Dois caminhos passam por aqui, a abertura e a renovacao, e espalhar isso pelos
      dois faria a renovacao esquecer alguma coisa, calada. */
   function aplicarSessao(s){
-    Q.quemEsta(s.nome, s.perfil);
+    Q.quemEsta(s.nome, s.perfil, s.foto);
 
     /* A porta de volta para o app de lancamento, para quem consegue entrar la.
 
@@ -989,6 +989,10 @@
     function lista(v){ return Array.isArray(v) ? v : []; }
     return {
       id: u.ID, nome: u.Nome, perfil: u.Perfil,
+      /* A foto entra junto: é este caminho que renova a sessão a cada abertura do
+         painel, e sem ela aqui o círculo da lateral voltaria às iniciais no primeiro
+         recarregamento depois de a pessoa escolher a foto. */
+      foto: u.Foto || '',
       localPadrao: u.LocalPadrao, acessoPainel: podeVerPainelRegistro(u),
       saidas: lista(u.Saidas), destinos: lista(u.Destinos),
       tiposCaixa: lista(u.TiposCaixa), motoristas: lista(u.Motoristas),
@@ -4727,6 +4731,21 @@
     return ((p[0][0] || '?') + (p[1] ? p[1][0] : '')).toUpperCase();
   }
 
+  /* O RETRATO DE UMA PESSOA NA LISTA: a foto quando há, as iniciais quando não há.
+   *
+   * A foto vem POR CIMA das letras, com `onerror` que a tira — é a mesma ideia do
+   * círculo da lateral, e pela mesma razão: o dia em que o arquivo sumir do balde, o
+   * lugar volta a mostrar duas letras em vez de um quadrado vazio.
+   *
+   * `aria-hidden` no bloco todo: o nome da pessoa está escrito ao lado, e um leitor de
+   * tela anunciando "AD, Administrador" diz a mesma coisa duas vezes. */
+  function retrato(u, classe){
+    var foto = String(u.Foto || '');
+    return '<span class="'+classe+'" aria-hidden="true">'+Q.esc(iniciaisDe(u.Nome))+
+      (foto ? '<img class="retrato__f" src="'+Q.esc(foto)+'" alt="" '+
+              'onerror="this.remove()">' : '')+'</span>';
+  }
+
   /* OS CHIPS DE PERFIL saem dos DADOS, e não de uma lista escrita à mão: hoje existem
      seis perfis em uso — três deles variações de teste — e uma lista fixa esqueceria os
      que o escritório criar amanhã, ou ofereceria um chip que não filtra nada.
@@ -4813,7 +4832,7 @@
 
     return '<article class="u'+(on ? '' : ' u--inativo')+'" style="--d:'+atraso+'ms">'+
       '<div class="u__topo">'+
-        '<span class="u__ini" aria-hidden="true">'+Q.esc(iniciaisDe(u.Nome))+'</span>'+
+        retrato(u, 'u__ini')+
         '<span class="u__id"><span class="u__nome">'+Q.esc(u.Nome)+'</span></span>'+
         tagPerfil(u.Perfil)+
       '</div>'+
@@ -4928,8 +4947,14 @@
        para alargar e esconder pela aba Colunas — a ordem e so a ordem desta lista. */
     var TIT = TAB_USUARIOS.titulos;
     var DEFS = {
+      /* O RETRATO ENTRA NO NOME, e não numa coluna própria. Coluna de foto seria uma
+         coluna que se pode esconder pela aba Colunas — e o rosto some do lugar onde ele
+         serve, que é ao lado do nome. Aqui os dois andam juntos: numa lista de treze,
+         achar pela cara é mais rápido que ler treze nomes. */
       nome:     { t: TIT['nome'],
-                  v: function(u){ return '<b>'+Q.esc(u.Nome)+'</b>'; } },
+                  v: function(u){
+                    return '<span class="u-linha">'+retrato(u, 'u-linha__r')+
+                      '<b>'+Q.esc(u.Nome)+'</b></span>'; } },
       perfil:   { t: TIT['perfil'],
                   v: function(u){ return '<span class="tag azul">'+Q.esc(u.Perfil)+'</span>'; } },
       /* O login curto tem coluna propria: e ele que a pessoa digita para entrar, e antes
@@ -5467,6 +5492,33 @@
 
     modal('<h2>'+(u.ID?'Editar':'Novo')+' usuário</h2>'+
       avisoItemNovo(u.ID, 'esta pessoa', 'Usuários → cada colega que precisa vê-la')+
+      /* A FOTO FICA NO ALTO, junto do nome: as duas respondem "quem é esta pessoa", e
+         é o retrato que a lista vai mostrar no lugar das iniciais.
+
+         O botão é um `<label>` amarrado a um `<input type=file>` escondido: o botão de
+         arquivo do navegador não se estiliza, e escrito "Nenhum arquivo selecionado" em
+         inglês ele fica fora do resto da tela. */
+      '<label>Foto</label>'+
+      '<div class="foto-campo">'+
+        '<span class="foto-campo__r" id="fFotoPreview" aria-hidden="true">'+
+          Q.esc(iniciaisDe(u.Nome||''))+
+          (u.Foto ? '<img class="retrato__f" src="'+Q.esc(u.Foto)+'" alt="" '+
+                    'onerror="this.remove()">' : '')+'</span>'+
+        '<div class="foto-campo__b">'+
+          '<label class="btn sec foto-campo__esc" for="fFotoArq">'+
+            (u.Foto ? 'Trocar a foto' : 'Escolher uma foto')+'</label>'+
+          '<input type="file" id="fFotoArq" accept="image/png,image/jpeg,image/webp" '+
+            'class="sr">'+
+          '<button class="btn neutro" type="button" id="fFotoTirar"'+
+            (u.Foto ? '' : ' hidden')+'>Tirar a foto</button>'+
+        '</div>'+
+      '</div>'+
+      /* O que vai gravado: o endereço do que já existe, ou a imagem nova em `data:`.
+         Guardado num campo escondido, e não numa variável solta, porque é o formulário
+         inteiro que se lê na hora de salvar. */
+      '<input type="hidden" id="fFoto" value="'+Q.esc(u.Foto||'')+'">'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fFotoNota">'+
+        'Ela aparece no lugar das iniciais, aqui e no app. Sem foto, ficam as letras.</p>'+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(u.Nome||'')+'">'+
       /* Campo escrito, não lista fechada: o escritório cria o cargo que precisar. As
          sugestões vêm do servidor — os de fábrica mais os que alguém já escreveu — para o mesmo
@@ -5852,6 +5904,7 @@
     document.getElementById('fSenha').addEventListener('input', ajustarPainel);
     document.getElementById('fVerLanc').addEventListener('change', ajustarPainel);
     ajustarPainel();
+    ligarCampoFoto();
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:perfilDigitado(),
         Telefone:document.getElementById('fTel').value.trim(),
@@ -5866,7 +5919,12 @@
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
         TiposCaixa:lerMarcados('fTiposCaixa'), Motoristas:lerMarcados('fMotoristas'),
         Operacoes:lerMarcados('fOperacoes'), Abas:lerMarcados('fAbas'),
-        Ajustes:lerMarcados('fAjustes') };
+        Ajustes:lerMarcados('fAjustes'),
+        /* O campo escondido leva UMA das duas coisas: o endereço do que já estava
+           gravado, ou a imagem nova em `data:`. Quem decide o que fazer com cada um é o
+           servidor — subir de novo o endereço que já existe encheria o balde de cópias
+           do mesmo rosto. Vazio quer dizer "tirei a foto", e precisa chegar lá. */
+        Foto:document.getElementById('fFoto').value };
       var pin = document.getElementById('fPin').value.trim();
       if (pin) reg.PIN = pin;
       reg.Email = document.getElementById('fEmail').value.trim();
@@ -5887,6 +5945,72 @@
       salvar('salvarUsuario', reg, this);
     });
   }
+  /* O CAMPO DE FOTO. Escolher o arquivo já mostra o rosto ali, antes de salvar: sem
+     isso a pessoa escolhe, não vê nada mudar, e não sabe se pegou.
+   *
+   * A IMAGEM ENCOLHE NO NAVEGADOR. Um retrato de celular tem 4 MB e 4000px de lado; o
+   * que a tela usa é um quadrado de 38px. Subir os 4 MB gastaria os dados de quem está
+   * no galpão para guardar um arquivo que ninguém vai ver inteiro — e a rota recusa
+   * acima de 1,5 MB, então a pessoa levaria um "não" depois da espera. 320px é o dobro
+   * do maior lugar em que ela aparece, que é o que uma tela retina pede.
+   *
+   * O servidor confere de novo o tipo e o tamanho: esta redução é conveniência, e a
+   * conveniência não é fronteira. */
+  function ligarCampoFoto(){
+    var arq = document.getElementById('fFotoArq');
+    var campo = document.getElementById('fFoto');
+    var olho = document.getElementById('fFotoPreview');
+    var tirar = document.getElementById('fFotoTirar');
+    var esc = document.querySelector('.foto-campo__esc');
+    var nota = document.getElementById('fFotoNota');
+    if (!arq || !campo || !olho) return;
+
+    function mostrar(src){
+      var img = olho.querySelector('.retrato__f');
+      if (!src) { if (img) img.remove(); return; }
+      if (!img) {
+        img = document.createElement('img');
+        img.className = 'retrato__f';
+        img.alt = '';
+        img.addEventListener('error', function(){ img.remove(); });
+        olho.appendChild(img);
+      }
+      img.src = src;
+    }
+
+    arq.addEventListener('change', function(){
+      var f = this.files && this.files[0];
+      if (!f) return;
+      /* O `accept` do campo é dica, não trava: o seletor do sistema deixa escolher
+         "todos os arquivos" em quase todo aparelho. */
+      if (!/^image\/(png|jpeg|webp)$/.test(f.type)) {
+        this.value = '';
+        return Q.toast('Escolha uma imagem PNG, JPG ou WEBP.','erro');
+      }
+      if (nota) nota.textContent = 'Preparando a imagem…';
+      Q.comprimirFoto(f, 320, 0.8).then(function(dataUrl){
+        campo.value = dataUrl;
+        mostrar(dataUrl);
+        if (tirar) tirar.hidden = false;
+        if (esc) esc.textContent = 'Trocar a foto';
+        if (nota) nota.textContent = 'Foto escolhida. Ela só vai para o cadastro quando '+
+          'você salvar.';
+      }).catch(function(e){
+        if (nota) nota.textContent = '';
+        Q.toast(e.message || 'Não consegui ler a imagem.','erro');
+      });
+    });
+
+    if (tirar) tirar.addEventListener('click', function(){
+      campo.value = '';          // vazio chega ao banco e limpa a coluna
+      arq.value = '';
+      mostrar('');
+      this.hidden = true;
+      if (esc) esc.textContent = 'Escolher uma foto';
+      if (nota) nota.textContent = 'Sem foto, ficam as iniciais. Salve para valer.';
+    });
+  }
+
   function salvar(acao, registro, btn){
     btn.disabled = true; btn.textContent = 'Salvando…';
     Q.post({acao:acao, registro:registro}).then(function(r){

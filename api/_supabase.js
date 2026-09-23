@@ -217,6 +217,9 @@ var USUARIO = {
       VerLancamentos: r.ver_lancamentos !== false,
       UsuariosVistos: Array.isArray(r.usuarios_vistos) ? r.usuarios_vistos : [],
       Teste: r.teste === true,
+      /* O ENDEREÇO da foto, não a imagem: o byte mora no balde, e esta tabela é lida
+         inteira a cada visita ao painel. */
+      Foto: r.foto || '',
       Saidas: lista(r.saidas), Destinos: lista(r.destinos),
       TiposCaixa: lista(r.tipos_caixa), Motoristas: lista(r.motoristas),
       Operacoes: lista(r.operacoes), Abas: lista(r.abas),
@@ -242,6 +245,9 @@ var USUARIO = {
     if (o.VerLancamentos !== undefined) r.ver_lancamentos = bool(o.VerLancamentos);
     if (o.UsuariosVistos !== undefined) r.usuarios_vistos = o.UsuariosVistos || [];
     if (o.Teste !== undefined) r.teste = bool(o.Teste);
+    /* `nulo('')` limpa a coluna: tirar a foto é gravar vazio, e vazio aqui tem de virar
+       nulo — a tela pergunta "tem foto?" e uma string vazia responderia que sim. */
+    if (o.Foto !== undefined) r.foto = nulo(o.Foto);
     if (o.Saidas !== undefined) r.saidas = lista(o.Saidas);
     if (o.TiposCaixa !== undefined) r.tipos_caixa = lista(o.TiposCaixa);
     if (o.Motoristas !== undefined) r.motoristas = lista(o.Motoristas);

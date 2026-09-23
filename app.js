@@ -486,7 +486,34 @@
    * a linha unica era cortada no meio do nome, e o que sobrava era justamente a parte
    * que nao identifica ninguem.
    */
-  function quemEsta(nome, perfil) {
+  /* O CÍRCULO: a foto quando há, as iniciais quando não há.
+   *
+   * A foto entra como um `<img>` POR CIMA das letras, e não no lugar delas. Duas razões:
+   * o `onerror` devolve as iniciais quando o endereço quebra — arquivo apagado do balde,
+   * rede fora —, coisa que uma imagem de fundo não oferece; e o ponto de estado que mora
+   * dentro do círculo continua desenhado por cima de tudo, pela regra de sempre.
+   */
+  function pintarCirculo(el, nome, foto) {
+    if (!el) return;
+    var letras = iniciais(nome);
+    /* `insertBefore` em vez de `textContent`: o ponto de estado e a própria foto moram
+       dentro deste elemento, e escrever o texto por cima apagaria os dois. */
+    if (el.firstChild && el.firstChild.nodeType === 3) el.firstChild.nodeValue = letras;
+    else el.insertBefore(document.createTextNode(letras), el.firstChild);
+
+    var img = el.querySelector('.avatar__foto');
+    if (!foto) { if (img) img.remove(); return; }
+    if (!img) {
+      img = document.createElement('img');
+      img.className = 'avatar__foto';
+      img.alt = '';                       // decorativo: o nome já está escrito ao lado
+      img.addEventListener('error', function () { img.remove(); });
+      el.appendChild(img);
+    }
+    if (img.getAttribute('src') !== foto) img.src = foto;
+  }
+
+  function quemEsta(nome, perfil, foto) {
     var n = document.getElementById('cabUsuario');
     if (n) n.textContent = nome || '—';
     var p = document.getElementById('cabPerfil');
@@ -497,15 +524,13 @@
 
        `insertBefore` em vez de `textContent` no de cima: o ponto de estado mora dentro
        dele, e escrever o texto por cima apagaria o ponto junto. */
-    var a = document.getElementById('avatarUsuario');
-    if (a) a.textContent = iniciais(nome);
+    pintarCirculo(document.getElementById('avatarUsuario'), nome, foto);
     var t = document.getElementById('avatarTopo');
-    if (t) {
-      t.firstChild && t.firstChild.nodeType === 3
-        ? (t.firstChild.nodeValue = iniciais(nome))
-        : t.insertBefore(document.createTextNode(iniciais(nome)), t.firstChild);
-      t.title = (nome || '—') + (perfil ? ' · ' + perfil : '');
-    }
+    pintarCirculo(t, nome, foto);
+    /* O de cima leva o nome inteiro no `title`: no celular com a gaveta fechada ele é a
+       ÚNICA pista de quem está logado, e duas letras — ou um rosto pequeno — identificam
+       pouco quando há dois Josés. */
+    if (t) t.title = (nome || '—') + (perfil ? ' · ' + perfil : '');
   }
 
 
@@ -1183,7 +1208,7 @@
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,
     agruparLancamentos: agruparLancamentos, chaveDoLote: chaveDoLote,
     gruposDaNavegacao: gruposDaNavegacao,
-    quemEsta: quemEsta, iniciais: iniciais,
+    quemEsta: quemEsta, iniciais: iniciais, pintarCirculo: pintarCirculo,
     barraAging: barraAging, assinatura: assinatura,
     comprimirFoto: comprimirFoto, csv: csv, atualizarBadge: atualizarBadge
   };

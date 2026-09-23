@@ -258,6 +258,13 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   display:inline-flex;align-items:center;justify-content:center;
   background:var(--brand-soft);color:var(--roxo-txt);font-size:12px;font-weight:600
 }
+/* A FOTO POR CIMA DAS LETRAS, e não no lugar delas.
+ * Um `<img>` que cobre o círculo: as iniciais continuam embaixo, e o dia em que o
+ * endereço quebrar — arquivo apagado do balde, rede fora — o `onerror` tira a imagem e
+ * as letras reaparecem sozinhas. Com a foto de FUNDO não haveria esse evento: o
+ * círculo ficaria vazio, que diz menos do que duas letras. */
+.avatar__foto{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;
+  object-fit:cover;background:var(--campo)}
 /* O ponto de estado, colado no circulo. A cor sai de `atualizarBadge()`, a MESMA
    funcao que escreve o chip da lateral — duas contas sobre o estado da rede discordariam
    no primeiro ajuste, e uma delas mentiria em silencio.
@@ -1119,9 +1126,39 @@ tr.ruim{background:var(--vermelho-claro)}
    reativável — sumido, a pessoa o procuraria num cadastro que já tem. */
 .u--inativo{opacity:.58}
 .u__topo{display:flex;align-items:center;gap:10px}
-.u__ini{width:38px;height:38px;flex:0 0 auto;border-radius:10px;display:inline-flex;
+/* `position:relative` e `overflow:hidden` moram AQUI, na regra que já é dona da classe:
+   escritos numa segunda regra, o nome passava a ter dois donos — e é assim que uma peça
+   acaba herdando o desenho de outra, torta e sem erro nenhum. */
+.u__ini{position:relative;overflow:hidden;
+  width:38px;height:38px;flex:0 0 auto;border-radius:10px;display:inline-flex;
   align-items:center;justify-content:center;background:var(--brand-soft);
   color:var(--roxo-txt);font-size:13px;font-weight:700}
+
+/* ---------- o retrato na lista de pessoas ----------
+ * A foto por cima das iniciais, no mesmo quadrado: quebrado o endereço, o `onerror`
+ * tira a imagem e as letras reaparecem. */
+.retrato__f{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  background:var(--campo)}
+/* Na TABELA o retrato é pequeno e vem antes do nome, na mesma linha: numa lista de
+   treze, achar pela cara é mais rápido do que ler treze nomes. */
+.u-linha{display:inline-flex;align-items:center;gap:9px;min-width:0}
+.u-linha__r{position:relative;overflow:hidden;
+  width:26px;height:26px;flex:0 0 auto;border-radius:7px;display:inline-flex;
+  align-items:center;justify-content:center;background:var(--brand-soft);
+  color:var(--roxo-txt);font-size:10px;font-weight:700;line-height:1}
+
+/* ---------- o campo de foto do cadastro ----------
+ * O retrato ao lado dos botões: escolher o arquivo já muda o que está ali, antes de
+ * salvar. Sem isso a pessoa escolhe, não vê nada mudar e não sabe se pegou. */
+.foto-campo{display:flex;align-items:center;gap:12px;margin:0 0 6px}
+.foto-campo__r{position:relative;overflow:hidden;width:56px;height:56px;flex:0 0 auto;
+  border-radius:14px;display:inline-flex;align-items:center;justify-content:center;
+  background:var(--brand-soft);color:var(--roxo-txt);font-size:17px;font-weight:700}
+.foto-campo__b{display:flex;gap:8px;flex-wrap:wrap;min-width:0}
+.foto-campo__b .btn{min-width:0;padding:0 14px;min-height:40px;font-size:13.5px}
+/* O botão é um `<label>`: o campo de arquivo do navegador não se estiliza, e escrito
+   "Nenhum arquivo selecionado" em inglês ele fica fora do resto da tela. */
+.foto-campo__esc{cursor:pointer}
 .u__id{flex:1 1 auto;min-width:0}
 .u__nome{font-size:15px;font-weight:700;line-height:1.25}
 .u__dados{display:grid;gap:5px;margin-top:11px;padding-top:10px;border-top:1px solid var(--linha)}

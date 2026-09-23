@@ -498,6 +498,34 @@ async function salvarUsuario(p) {
     }
   }
 
+  /* A FOTO SOBE PARA O BALDE, e a tabela guarda só o endereço.
+     Três casos, e os três precisam ser distinguidos aqui:
+       · começa com "data:" — é imagem nova, sobe e vira URL;
+       · vazio — é a pessoa TIRANDO a foto, e o vazio tem de chegar ao banco;
+       · qualquer outra coisa — é o endereço que já estava lá, e regravá-lo é o normal
+         de um formulário que manda o registro inteiro. Subir de novo a cada Salvar
+         encheria o balde de cópias do mesmo rosto.
+
+     E o que sobe é conferido: um `data:` que não seja imagem é recusado em vez de virar
+     um arquivo com extensão de foto e conteúdo de outra coisa. */
+  if (typeof dados.Foto === 'string' && dados.Foto.slice(0, 5) === 'data:') {
+    if (!/^data:image\/(png|jpe?g|webp);base64,/i.test(dados.Foto)) {
+      return { ok: false, erro: 'A foto precisa ser uma imagem PNG, JPG ou WEBP.' };
+    }
+    /* O TETO É DO SERVIDOR. A tela já reduz antes de mandar, mas a tela não é a
+       fronteira: esta rota aceita pedido de qualquer origem. 1,5 MB em base64 são uns
+       1,1 MB de imagem — muito mais do que um retrato de 320px precisa. */
+    if (dados.Foto.length > 1500000) {
+      return { ok: false, erro: 'A foto ficou grande demais. Envie uma imagem menor.' };
+    }
+    var selo = 'u' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    var url = await db.subirArquivo('foto-usuario-' + selo + '.jpg', dados.Foto, 'image/jpeg');
+    /* Falhou o envio, a gravação PARA. Seguir gravando o resto deixaria a pessoa com o
+       cadastro salvo, a foto perdida e nenhum aviso de que ela se perdeu. */
+    if (!url) return { ok: false, erro: 'Não consegui guardar a foto. Tente de novo.' };
+    dados.Foto = url;
+  }
+
   var d = await db.carregarTudo();
 
   /* `__EU__` quer dizer "ela mesma" na lista de quem ela ve os lancamentos. O formulario

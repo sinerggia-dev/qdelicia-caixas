@@ -561,6 +561,10 @@ function locaisPermitidos(ids, locais) {
 function sessaoDe(u) {
   return {
     id: u.ID, nome: u.Nome, perfil: normalizarPerfil(u.Perfil),
+    /* A foto de quem está logada, para o círculo do rodapé e o da barra. Sem ela na
+       sessão, a lateral mostraria as iniciais de quem já pôs foto — e a pessoa
+       concluiria que a foto não salvou. */
+    foto: u.Foto || '',
     localPadrao: u.LocalPadrao, acessoPainel: podeVerPainel(u),
     saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
     destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
@@ -1925,6 +1929,9 @@ function usuariosPublicos(usuarios) {
       LocalPadrao: u.LocalPadrao, Telefone: u.Telefone || '',
       Email: u.Email || '', Usuario: u.Usuario || '',
       Ativo: u.Ativo !== false, TemSenha: !!u.SenhaHash,
+      /* A foto vem junto: é ela que o painel mostra no lugar das iniciais, e sem ela
+         aqui a tela cairia nas letras para todo mundo sem dizer por quê. */
+      Foto: u.Foto || '',
       // Se existe PIN, nao qual e: a coluna Senha do painel precisa distinguir
       // "ainda nao trocou" de "nao tem essa credencial".
       TemPin: !!String(u.PIN == null ? '' : u.PIN).trim(),
