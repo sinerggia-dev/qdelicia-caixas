@@ -524,28 +524,25 @@
 
        `insertBefore` em vez de `textContent` no de cima: o ponto de estado mora dentro
        dele, e escrever o texto por cima apagaria o ponto junto. */
-    /* "OLÁ, FULANO" NA BARRA DE APP — que só existe abaixo de 1024px, onde a lateral
-       está fechada e este canto é a única pista de quem entrou. O nome do app é
-       constante e já está no logo ao lado; quem está logado é o que muda, e é o que
-       importa num aparelho que roda de mão em mão no galpão.
+    /* A SAUDAÇÃO MORA NA LINHA DA SOBRANCELHA, e não na barra do app.
+       Ela já esteve na barra de duas formas — escrevendo por cima do nome do sistema, e
+       depois ao lado dele — e as duas obrigavam a escolher quem cortava quando faltasse
+       largura. A linha da sobrancelha já existia e estava vazia do lado direito: o
+       cabeçalho não cresceu um pixel, e ninguém disputa espaço com ninguém.
 
-       SÓ O PRIMEIRO NOME: "Olá, Melkezedeque Soares" não cabe em 390px e sai cortado no
-       meio do sobrenome, que é a parte que não cumprimenta ninguém. */
-    /* A SAUDAÇÃO TEM ELEMENTO PRÓPRIO, ao lado do nome do app — e não no lugar dele.
-       Escrita por cima, ela obrigava a escolher entre as duas; separadas, o nome do app
-       é a única peça elástica da barra e corta primeiro, porque é o texto menos
-       importante ali: a pessoa já sabe em que sistema está.
+       O NOME INTEIRO, agora que cabe. Na barra só o primeiro cabia; aqui sobra linha, e
+       o sobrenome é o que separa dois Josés no mesmo galpão. Cortando ainda assim,
+       corta na ponta direita com reticências — e o `title` guarda o inteiro.
 
-       SÓ O PRIMEIRO NOME: "Olá, Melkezedeque Soares" não cabe em 390px e sai cortado no
-       meio do sobrenome, que é a parte que não cumprimenta ninguém. O nome inteiro vai
-       no `title`. */
+       A CONTRAPARTIDA É ASSUMIDA: esta linha rola e some. Para uma saudação está certo,
+       porque se lê uma vez. Para "em qual unidade estou logado" NÃO serviria. */
     var ola = document.getElementById('olaUsuario');
     var olaN = document.getElementById('olaNome');
     if (ola && olaN) {
-      olaN.textContent = nome ? String(nome).trim().split(/\s+/)[0] : '—';
+      olaN.textContent = nome ? String(nome).trim() : '—';
       ola.title = (nome || '') + (perfil ? ' · ' + perfil : '');
-      /* Some enquanto não há nome: "Olá, —" na barra durante o carregamento é pior do
-         que a barra sem a saudação. */
+      /* Some enquanto não há nome: "Olá, —" durante o carregamento é pior do que a
+         linha sem a saudação. */
       ola.hidden = !nome;
     }
 

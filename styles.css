@@ -72,7 +72,7 @@
   --fonte-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Consolas,monospace;
 
   /* O esqueleto do app shell. */
-  --lateral-larg:236px; --trilho-larg:68px; --topo-alt:64px;
+  --lateral-larg:236px; --trilho-larg:68px; --topo-alt:54px;
   --foco:0 0 0 2px var(--bg),0 0 0 4px #5b9ef0;
 }
 
@@ -140,13 +140,18 @@ a{color:var(--marca-txt);text-decoration:none}
   background:var(--verde)}
 
 /* ---------- "Olá, Fulano" ----------
- * Ao LADO do nome do app, e não no lugar dele. `flex:0 0 auto` porque ela não encolhe:
- * quem corta é a marca, que é o texto menos importante da barra. */
-.ola{flex:0 0 auto;font-size:13px;color:var(--txt3);white-space:nowrap;line-height:1.2}
-.ola b{color:var(--txt);font-weight:700}
-/* Num aparelho estreito a saudação sai e a FOTO fica: ela também diz quem está logado,
-   e ocupa o espaço de um ícone em vez de o de uma frase. */
-@media (max-width:379px){ .ola{display:none} }
+ * NA LINHA DA SOBRANCELHA, e não na barra do app. Ela saiu de lá porque disputava a
+ * largura com a marca e obrigava a cortar um dos dois; esta linha já existia e estava
+ * vazia do lado direito, então o cabeçalho não cresceu um pixel — e aqui cabe o NOME
+ * INTEIRO, que é o que derrubava as versões anteriores.
+ *
+ * A contrapartida é assumida: esta linha ROLA e some. Para uma saudação está certo,
+ * porque se lê uma vez. Para "em qual unidade estou logado" NÃO serviria. */
+.cab-pagina__linha{display:flex;align-items:baseline;gap:10px;margin-bottom:5px}
+.cab-pagina__linha .cab-pagina__acima{flex:0 0 auto;margin-bottom:0}
+.ola{margin-left:auto;min-width:0;font-size:12px;color:var(--txt2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ola b{color:var(--txt);font-weight:600}
 /* A marca ENCOLHE, e o canto direito nao. Medido a 390px com "⚠ Offline · 2 na fila":
    sem isto o avatar era empurrado para fora da barra, e quem estava sem rede perdia de
    vista justamente o aviso e a propria identificacao. O nome da marca e decoracao; o
@@ -162,12 +167,15 @@ a{color:var(--marca-txt);text-decoration:none}
    aparece no celular, e a 32px o rosto virava uma mancha. 40px é o que cabe numa barra
    de 52px sem encostar nas bordas — e o `--topo-alt` subiu para 58 junto, porque com o
    círculo maior a barra ficava apertada. */
-/* 42px e com ANEL. O anel separa o rosto do fundo da barra — sem ele, uma foto escura
+/* 36px e com ANEL. O anel separa o rosto do fundo da barra — sem ele, uma foto escura
    encostada num cabeçalho escuro some, e o que resta é um borrão. Ele é desenhado com
    duas sombras em vez de `border`: assim não entra na conta do tamanho, e o círculo
-   continua tendo 42px de alvo em vez de 42 menos a borda. */
-.topo__conta .avatar{width:42px;height:42px;font-size:13px;
-  box-shadow:0 0 0 2px var(--campo),0 0 0 3.5px rgba(53,214,160,.45)}
+   continua tendo os 36px em vez de 36 menos a borda.
+
+   Voltou de 42 para 36 quando a saudação saiu da barra: sem a frase ao lado, o rosto
+   não precisa mais competir por atenção, e a barra volta aos 54px de altura. */
+.topo__conta .avatar{width:36px;height:36px;font-size:12px;
+  box-shadow:0 0 0 2px var(--campo),0 0 0 3px rgba(53,214,160,.45)}
 
 /* Botao so de icone. 44px porque e o alvo minimo de dedo — o app e usado de luva. */
 .btn-icone{
@@ -200,9 +208,14 @@ a{color:var(--marca-txt);text-decoration:none}
 /* Sem caixa alta e sem espaçamento: a marca desenhada ficou ao lado, e CAIXA ALTA pede
    121px de linha onde havia 104. Medido com a lateral aberta em 236px — cortado, o nome
    do app virava "PAINEL DE CAIX…", e é o nome que diz em qual dos dois apps se está. */
+/* MAIOR E MAIS CLARA, a pedido. Ela estava em 12,5px com `--txt3`, que é a tinta mais
+   apagada da paleta — feita para legenda, não para o nome do sistema. Num galpão, sob
+   luz forte, um cinza fraco de 12px na barra some. Agora é 14px em `--txt`, a mesma
+   tinta do resto do texto, e em negrito: com a saudação fora da barra, sobrou largura
+   para ela crescer sem empurrar ninguém. */
 .marca-nome{
-  font-size:12.5px;font-weight:600;
-  color:var(--txt3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+  font-size:14px;font-weight:700;
+  color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
 
 /* ---------- navegacao ----------

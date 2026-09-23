@@ -2483,10 +2483,12 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
      argumento de que ele é constante e ela é o que muda. Verdade — e não era preciso
      escolher: o nome do app é a única peça ELÁSTICA da barra, então quando falta espaço
      é ele que corta e a saudação fica inteira. */
-  ok(/olaN\.textContent = nome \? String\(nome\)\.trim\(\)\.split\(\/\\s\+\/\)\[0\] : '—';/.test(js),
-    'a barra de app cumprimenta pelo PRIMEIRO nome — "Olá, Melkezedeque Soares" não ' +
-    'cabe em 390px e sai cortado no meio do sobrenome, que é a parte que não ' +
-    'cumprimenta ninguém');
+  /* O NOME INTEIRO, agora que cabe. Na barra só o primeiro cabia — "Olá, Melkezedeque
+     Soares" cortava no meio do sobrenome, que é justamente o que separa dois Josés no
+     mesmo galpão. Fora da barra sobra linha. */
+  ok(/olaN\.textContent = nome \? String\(nome\)\.trim\(\) : '—';/.test(js),
+    'a saudação usa o nome INTEIRO — fora da barra do app sobra linha para ele, e o ' +
+    'sobrenome é o que separa dois Josés no mesmo galpão');
   ok(/ola\.hidden = !nome;/.test(js),
     'e some enquanto não há nome: "Olá, —" durante o carregamento é pior que a barra ' +
     'sem a saudação');
@@ -2499,17 +2501,30 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
      (telas['index.html'].match(/id="marcaNome"/g) || []).length === 1,
     'uma vez só em cada: o app de campo tem DOIS `.marca-nome` — o da barra e o da ' +
     'lateral —, e o id nos dois faria a saudação cair no título da gaveta');
-  /* A MARCA É QUEM CORTA. `flex:0 1 auto` com `overflow:hidden` nela, e `flex:0 0 auto`
-     na saudação: invertido, quem sairia pela borda seria o nome de quem está logado. */
-  ok(/\.topo__marca\{[^}]*flex:0 1 auto;overflow:hidden\}/.test(css) &&
-     /\.ola\{flex:0 0 auto/.test(css),
-    'e quando falta espaço quem corta é a marca, não a saudação');
-  ok(/@media \(max-width:379px\)\{ \.ola\{display:none\} \}/.test(css),
-    'num aparelho estreito a saudação sai e a FOTO fica — ela também diz quem está ' +
-    'logado, e ocupa o espaço de um ícone em vez de o de uma frase');
+  /* A SAUDAÇÃO SAIU DA BARRA e foi para a linha da sobrancelha, que já existia e estava
+     vazia à direita: o cabeçalho não cresceu um pixel e o NOME INTEIRO cabe — era o
+     nome longo cortando em 10px que derrubava as versões anteriores.
+
+     A contrapartida é assumida: esta linha ROLA e some. Para uma saudação está certo,
+     porque se lê uma vez. Para "em qual unidade estou logado" NÃO serviria. */
+  ok(/<div class="cab-pagina__linha">[\s\S]{0,900}id="olaUsuario"/.test(telas['admin.html']) &&
+     /<div class="cab-pagina__linha">[\s\S]{0,900}id="olaUsuario"/.test(telas['index.html']),
+    'a saudação mora na linha da sobrancelha, e não na barra do app');
+  ok(/\.ola\{margin-left:auto;min-width:0/.test(css) &&
+     /text-overflow:ellipsis\}/.test(css.slice(css.indexOf('.ola{'), css.indexOf('.ola{') + 220)),
+    'encostada à direita, e cortando ali se precisar — e não no meio da barra do app');
+  ok(!/\.ola\{flex:0 0 auto/.test(css) && !/@media \(max-width:379px\)\{ \.ola\{display:none\} \}/.test(css),
+    'e sem o remendo de escondê-la em tela estreita: fora da barra, ela não disputa ' +
+    'largura com ninguém');
+  /* MAIOR E MAIS CLARA, a pedido: ela estava em 12,5px com `--txt3`, a tinta mais
+     apagada da paleta — feita para legenda, não para o nome do sistema. Num galpão sob
+     luz forte, um cinza fraco de 12px na barra some. */
+  ok(/\.marca-nome\{[\s\S]{0,20}font-size:14px;font-weight:700;[\s\S]{0,20}color:var\(--txt\)/
+    .test(css),
+    'o nome do sistema está maior e na tinta cheia — `--txt3` é legenda, e sumia');
   /* MAIOR NA BARRA E COM ANEL: é o único lugar em que um rosto aparece no celular, e a
      32px ele virava uma mancha. O anel o separa do fundo escuro da barra. */
-  ok(/\.topo__conta \.avatar\{width:42px;height:42px[\s\S]{0,120}box-shadow:0 0 0 2px var\(--campo\)/
+  ok(/\.topo__conta \.avatar\{width:36px;height:36px[\s\S]{0,120}box-shadow:0 0 0 2px var\(--campo\)/
     .test(css),
     'o círculo da barra de app é maior que o da lateral, e tem anel');
   /* O anel é SOMBRA, e não borda: borda entra na conta do tamanho, e o alvo cairia de
@@ -2526,8 +2541,8 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
      40px ficava a dois pixels de encostar nas bordas. */
   ok(/\.topo\{[\s\S]{0,600}flex:0 0 auto;[\s\S]{0,400}min-height:var\(--topo-alt\)/.test(css),
     'e a barra guarda a altura que declara, em vez de ceder ao que vem embaixo');
-  ok(/--topo-alt:64px/.test(css),
-    'com altura suficiente para o círculo de 42px e o anel dele não encostarem nas bordas');
+  ok(/--topo-alt:54px/.test(css),
+    'com altura suficiente para o círculo e o anel dele não encostarem nas bordas');
   ok(/\.foto-campo__r\{[^}]*width:84px;height:84px/.test(css),
     'e o retrato do formulário é grande: é o único lugar em que se CONFERE a foto antes ' +
     'de gravá-la — pequeno demais, a conferência não se faz e o erro só aparece depois, ' +
