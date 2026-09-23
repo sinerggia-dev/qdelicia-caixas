@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=41e87e50">
+<link rel="stylesheet" href="styles.css?v=fdb007f2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -134,7 +134,10 @@
     <!-- Mesmo arquivo da tela de entrada: ja veio no cache, entao aqui nao custa
          download nenhum. -->
     <span class="selo selo--marca"><img src="logo.png" alt="" width="243" height="165"></span>
-    <span class="marca-nome">Controle de Caixas</span>
+    <!-- QUEM ESTÁ, e não o nome do app: no celular a lateral fica fechada, e este canto
+         é a única pista de quem entrou. O nome do app é constante e já está no logo ao
+         lado. Ele volta para o `title`. -->
+    <span class="marca-nome" id="marcaNome">Controle de Caixas</span>
   </div>
 
   <!-- O canto direito da barra de app. Ele existe porque o celular NAO tem a lateral a
@@ -452,7 +455,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=b41d4115"></script>
+<script src="app.js?v=da5250e0"></script>
 <script>
 (function(){
   'use strict';

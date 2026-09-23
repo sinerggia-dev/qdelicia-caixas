@@ -72,7 +72,7 @@
   --fonte-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Consolas,monospace;
 
   /* O esqueleto do app shell. */
-  --lateral-larg:236px; --trilho-larg:68px; --topo-alt:52px;
+  --lateral-larg:236px; --trilho-larg:68px; --topo-alt:58px;
   --foco:0 0 0 2px var(--bg),0 0 0 4px #5b9ef0;
 }
 
@@ -121,6 +121,11 @@ a{color:var(--marca-txt);text-decoration:none}
    texto encostado na borda fica apertado; o gatilho, que fechou a direita, ja tem os seus
    44px de alvo e nao precisa de margem. */
 .topo{
+  /* `flex:0 0 auto`: ela é item de um flex em coluna, e sem isto ENCOLHIA abaixo da
+     altura declarada quando o miolo pedia espaço — medido, os 58px viravam 45, e o
+     círculo de 40px ficava a dois pixels de encostar nas bordas. Altura de barra fixa
+     não é sugestão: é o que reserva o lugar do que está dentro dela. */
+  flex:0 0 auto;
   position:sticky;top:0;z-index:40;height:var(--topo-alt);
   display:flex;align-items:center;gap:8px;padding:0 4px 0 12px;
   background:var(--campo);border-bottom:1px solid var(--linha)
@@ -136,6 +141,11 @@ a{color:var(--marca-txt);text-decoration:none}
    para a direita, colados, em vez de a conta ficar no meio da barra. */
 .topo__conta{display:flex;align-items:center;gap:8px;margin-left:auto;flex:0 0 auto}
 .topo__conta .chip{font-size:11px;padding:4px 9px}
+/* MAIOR NA BARRA DE APP. Aqui ele não é enfeite: é o único lugar em que um rosto
+   aparece no celular, e a 32px o rosto virava uma mancha. 40px é o que cabe numa barra
+   de 52px sem encostar nas bordas — e o `--topo-alt` subiu para 58 junto, porque com o
+   círculo maior a barra ficava apertada. */
+.topo__conta .avatar{width:40px;height:40px;font-size:13px}
 
 /* Botao so de icone. 44px porque e o alvo minimo de dedo — o app e usado de luva. */
 .btn-icone{
@@ -1184,9 +1194,12 @@ input[type="password"]::-ms-clear{display:none}
  * O retrato ao lado dos botões: escolher o arquivo já muda o que está ali, antes de
  * salvar. Sem isso a pessoa escolhe, não vê nada mudar e não sabe se pegou. */
 .foto-campo{display:flex;align-items:center;gap:12px;margin:0 0 6px}
-.foto-campo__r{position:relative;overflow:hidden;width:56px;height:56px;flex:0 0 auto;
-  border-radius:14px;display:inline-flex;align-items:center;justify-content:center;
-  background:var(--brand-soft);color:var(--roxo-txt);font-size:17px;font-weight:700}
+/* 84px, e não 56: este é o único lugar em que se CONFERE a foto antes de gravá-la — se
+   está cortada, torta ou se pegou o rosto errado. Pequeno demais, a conferência não se
+   faz, e o erro só aparece depois, espalhado por todas as listas. */
+.foto-campo__r{position:relative;overflow:hidden;width:84px;height:84px;flex:0 0 auto;
+  border-radius:18px;display:inline-flex;align-items:center;justify-content:center;
+  background:var(--brand-soft);color:var(--roxo-txt);font-size:24px;font-weight:700}
 .foto-campo__b{display:flex;gap:8px;flex-wrap:wrap;min-width:0}
 .foto-campo__b .btn{min-width:0;padding:0 14px;min-height:40px;font-size:13.5px}
 /* O botão que abre o seletor é um `<label>`, e não um `<button>`: o campo de arquivo do

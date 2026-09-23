@@ -524,6 +524,25 @@
 
        `insertBefore` em vez de `textContent` no de cima: o ponto de estado mora dentro
        dele, e escrever o texto por cima apagaria o ponto junto. */
+    /* "OLÁ, FULANO" NA BARRA DE APP — que só existe abaixo de 1024px, onde a lateral
+       está fechada e este canto é a única pista de quem entrou. O nome do app é
+       constante e já está no logo ao lado; quem está logado é o que muda, e é o que
+       importa num aparelho que roda de mão em mão no galpão.
+
+       SÓ O PRIMEIRO NOME: "Olá, Melkezedeque Soares" não cabe em 390px e sai cortado no
+       meio do sobrenome, que é a parte que não cumprimenta ninguém. */
+    var mn = document.getElementById('marcaNome');
+    if (mn && nome) {
+      /* O nome do app é guardado na PRIMEIRA passada, antes de ser escrito por cima:
+         lido depois, na segunda troca de usuário ele já seria "Olá, Fulano · Fulano".
+         E é lido do próprio elemento, não escrito aqui: os dois apps têm nomes
+         diferentes — "Painel de Caixas" e "Controle de Caixas" —, e um nome fixo no
+         código compartilhado poria o do painel dentro do app de campo. */
+      if (!mn.dataset.app) mn.dataset.app = mn.textContent.trim();
+      mn.textContent = 'Olá, ' + String(nome).trim().split(/\s+/)[0];
+      mn.title = mn.dataset.app + ' · ' + nome;
+    }
+
     pintarCirculo(document.getElementById('avatarUsuario'), nome, foto);
     var t = document.getElementById('avatarTopo');
     pintarCirculo(t, nome, foto);
