@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=2cf39879">
+<link rel="stylesheet" href="styles.css?v=6118a84e">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1948,9 +1948,25 @@
        lado, mostra a contagem e permite desfazer. */
     if (!cs.length) cs = cabem;
 
+    /* NO CELULAR, EXTRATO. A tabela tem nove colunas: no telefone ela só se lê
+       arrastando de lado, e o saldo final — o número que interessa — fica sempre fora da
+       tela. O extrato põe saldo inicial, saída, retorno e saldo final um embaixo do
+       outro, na ordem da conta, e esconde o detalhe por tipo de caixa atrás de um toque.
+
+       Da largura do menu fixo para cima a tabela fica: é onde se compara uma linha com a
+       outra, que é o que o escritório faz. O mesmo corte de 1024px da lista de
+       Lançamentos — duas medidas diferentes fariam a tela trocar de forma em lugares
+       diferentes. */
+    /* `desenhoDaTabela`, e não um `return` aqui: os cinco indicadores são montados mais
+       ABAIXO nesta mesma função, e sair antes deixava a faixa vazia no celular — a
+       tabela virava extrato e os números sumiam junto. Pego medindo, não olhando. */
+    var desenhoDaTabela = !emCartoesPainel() ? null : (lista.length
+      ? fluxoEmCartoes(lista, gente)
+      : '<div class="vazio">'+avisoVazio()+'</div>');
+
     // O cabeçalho fica SEMPRE de pé, mesmo sem linha nenhuma: sem as colunas a tela não
     // diz o que vai mostrar quando os lançamentos começarem.
-    document.getElementById('tabelaFluxo').innerHTML =
+    document.getElementById('tabelaFluxo').innerHTML = desenhoDaTabela !== null ? desenhoDaTabela :
         '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
         cs.map(function(c){
           var ord = ORDEM_FLUXO.col === c.id;
@@ -2086,6 +2102,76 @@
      ser mil de um tipo quanto duzentos de cinco — e a diferença muda o que se cobra.
      Com um tipo só, repetir o número embaixo dele não acrescenta nada: vai só o nome,
      que é a parte que ainda faltava. */
+  /* O MESMO corte da lista de Lançamentos, e não uma medida própria: duas medidas
+     fariam a tela trocar de forma em larguras diferentes, e quem gira o aparelho veria
+     uma parte virar cartão e a outra não. */
+  function emCartoesPainel(){
+    return window.matchMedia('(max-width:1023px)').matches;
+  }
+
+  /* O EXTRATO DE UM DIA, no celular. A ordem é a da conta: começa no saldo inicial,
+     tira a saída, soma o retorno, fecha no saldo final. Lido de cima para baixo, ele
+     responde sozinho de onde veio o número do fim — que na tabela exigia atravessar
+     nove colunas. */
+  function cartaoFluxo(l, gente){
+    var fim = gente ? l.saldo : l.fimCorrido;
+    var parado = !l.saida && !l.retorno;
+    var seta = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" '+
+      'stroke="currentColor" stroke-width="2" stroke-linecap="round" '+
+      'stroke-linejoin="round" aria-label="para"><line x1="4" y1="12" x2="19" y2="12">'+
+      '</line><polyline points="14 7 19 12 14 17"></polyline></svg>';
+
+    /* Na visão de gente não há origem nem destino — há uma pessoa. O cabeçalho troca,
+       e o resto da conta é o mesmo. */
+    var titulo = gente
+      ? '<h3 class="ext-dia__rota">'+Q.esc(l.nome||'—')+'</h3>'
+      : '<h3 class="ext-dia__rota">'+lugares(l.origens)+
+        (l.destinos && l.destinos.length ? ' '+seta+' '+lugares(l.destinos)
+                                         : ' <em>· sem destino</em>')+'</h3>';
+
+    function porTipo(rotulo, tipos, total){
+      if (!tipos || !tipos.length) return '';
+      return '<div class="tipos__t">'+rotulo+' · '+Q.num(total)+'</div><dl class="tipos__l">'+
+        tipos.map(function(t){
+          return '<div><dt>'+Q.esc(String(t.caixa||'').replace(/^CX\s+/i,''))+'</dt>'+
+                 '<dd>'+Q.num(t.qtd)+'</dd></div>';
+        }).join('')+'</dl>';
+    }
+
+    return '<article class="ext-dia">'+
+      '<div class="ext-dia__topo">'+
+        '<span class="ext-dia__data">'+(l.data ? Q.dataBR(l.data) : '—')+'</span>'+
+        '<span class="tag '+(parado ? 'cinza">Sem movimento' : 'verde">Movimento')+'</span>'+
+        '<span class="ext-dia__n">'+Q.esc(l.sub||'')+'</span>'+
+      '</div>'+
+      titulo+
+      '<div class="ext">'+
+        (gente ? '' :
+          '<div class="ext__l"><span>Saldo inicial</span><b>'+Q.num(l.iniCorrido||0)+'</b></div>')+
+        '<div class="ext__l ext--saida"><span>Saída</span><b>'+
+          (l.saida ? '−'+Q.num(l.saida) : '0')+'</b></div>'+
+        '<div class="ext__l ext--retorno"><span>Retorno</span><b>'+
+          (l.retorno ? '+'+Q.num(l.retorno) : '0')+'</b></div>'+
+        '<div class="ext__f"><span>Saldo final</span>'+
+          '<b class="'+(fim < 0 ? 'val-ruim' : (fim > 0 ? 'val-ok' : ''))+'">'+
+          (fim > 0 ? '+' : '')+Q.num(fim)+'</b></div>'+
+      '</div>'+
+      /* O DETALHE POR TIPO fica atrás de um toque. Aberto sempre, cada dia ocupava uma
+         tela inteira e a lista deixava de ser lista; escondido de vez, some a
+         informação que explica o total. */
+      (parado ? '' :
+        '<details class="tipos"><summary>Ver por tipo de caixa</summary>'+
+        porTipo('Saída', l.saidaTipos, l.saida)+
+        porTipo('Retorno', l.retornoTipos, l.retorno)+'</details>')+
+    '</article>';
+  }
+
+  function fluxoEmCartoes(lista, gente){
+    return '<div class="extrato">'+lista.map(function(l){
+      return cartaoFluxo(l, gente);
+    }).join('')+'</div>';
+  }
+
   function detalheCaixas(tipos){
     if (!tipos || !tipos.length) return '';
     return '<span class="fsub tipos">'+tipos.map(function(t){
@@ -2148,6 +2234,13 @@
     }, { rootMargin: '80px' });
     OLHO_TILES.observe(faixa);
   }
+
+  /* Girar o aparelho troca a tabela pelo extrato, e o extrato pela tabela. Desenhado só
+     na abertura, o painel ficaria com a forma da largura de quando abriu. Redesenha do
+     que já está na memória: nenhuma ida de rede por girar o celular. */
+  window.matchMedia('(max-width:1023px)').addEventListener('change', function(){
+    if (PAINEL) desenharFluxo();
+  });
 
   document.getElementById('btnAtualizarRetornos').addEventListener('click', carregarPainel);
   /* Recarrega sozinho ao trocar a data. O botao Atualizar continua existindo, mas quem

@@ -4251,6 +4251,70 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'sem taxa não há barra — uma barra vazia diria "zero por cento", e zero por cento é ' +
     'outra coisa que "ainda não saiu nada"');
 
+  /* --- no celular, a tabela vira EXTRATO -----------------------------------
+     Nove colunas não se leem num telefone: o saldo final, que é o número que interessa,
+     fica sempre fora da tela. O extrato põe a conta na vertical. */
+  ok(/function emCartoesPainel\(\)/.test(adm) &&
+     /emCartoesPainel[\s\S]{0,140}max-width:1023px/.test(adm),
+    'o painel troca de forma em 1024px — o MESMO corte da lista de Lançamentos, e não ' +
+    'uma medida própria');
+  ok(/var desenhoDaTabela = !emCartoesPainel\(\)/.test(adm),
+    'a troca é uma variável, e não um `return` antes da hora');
+  /* O `return` ANTES DA HORA foi o defeito de verdade: os cinco indicadores são montados
+     mais abaixo na mesma função, e sair antes deixava a faixa vazia no celular. */
+  var iDF = adm.indexOf('function desenharFluxo()');
+  var corpoDF = adm.slice(iDF, adm.indexOf("\n  /* Três frases diferentes", iDF));
+  ok(corpoDF.length > 2000, 'o recorte de desenharFluxo pegou o corpo', corpoDF.length);
+  ok(corpoDF.indexOf('emCartoesPainel()') < corpoDF.indexOf("getElementById('fluxoTiles')"),
+    'e a decisão vem ANTES dos indicadores, que continuam sendo montados nos dois ' +
+    'casos — saindo antes, a faixa nascia vazia no celular');
+  ok(!/if \(emCartoesPainel\(\)\) \{[\s\S]{0,200}return;/.test(corpoDF),
+    'não há saída antecipada no meio do desenho');
+
+  var iCF = adm.indexOf('function cartaoFluxo(l, gente)');
+  var cartao = adm.slice(iCF, adm.indexOf('\n  function fluxoEmCartoes', iCF));
+  ok(cartao.length > 800, 'o recorte do cartão do extrato pegou o corpo', cartao.length);
+  /* A ORDEM É A DA CONTA: começa no saldo inicial, tira a saída, soma o retorno, fecha
+     no final. Fora de ordem, o extrato deixa de explicar de onde veio o número do fim. */
+  var ordemExt = ['Saldo inicial', 'Saída', 'Retorno', 'Saldo final']
+    .map(function (r) { return cartao.indexOf('>' + r + '<'); });
+  ok(ordemExt.every(function (p) { return p > 0; }) &&
+     ordemExt[0] < ordemExt[1] && ordemExt[1] < ordemExt[2] && ordemExt[2] < ordemExt[3],
+    'o extrato lê na ordem da conta: saldo inicial, saída, retorno, saldo final', ordemExt);
+  ok(/<details class="tipos"><summary>Ver por tipo de caixa<\/summary>/.test(cartao),
+    'e o detalhe por tipo de caixa fica atrás de um toque — aberto sempre, cada dia ' +
+    'ocuparia uma tela inteira');
+  ok(/parado \? '' :/.test(cartao),
+    'dia sem movimento não oferece o detalhe: não há o que abrir');
+  ok(/gente \? '' :[\s\S]{0,120}Saldo inicial/.test(cartao),
+    'a visão de gente não tem saldo inicial — ali a linha é uma pessoa, e não um dia');
+
+  /* A COLISÃO DE CLASSE que a foto pegou: `.dia` já era o separador de dia dos cartões
+     de Lançamentos, e é `display:flex`. O cartão do extrato herdava o flex e saía
+     deitado, com a rota ao lado do saldo. */
+  ok(/class="ext-dia"/.test(cartao) && !/class="dia"/.test(cartao),
+    'o cartão do extrato tem classe própria, e não a do separador de dia dos ' +
+    'Lançamentos — com o mesmo nome ele herdava o `display:flex` e saía deitado');
+  ok(/\n\.dia\{display:flex/.test(css) && /\n\.ext-dia\{background/.test(css),
+    'as duas continuam existindo, e são coisas diferentes');
+
+  /* --- o arranjo do celular ------------------------------------------------ */
+  ok(/@media \(max-width:1023px\)\{[\s\S]{0,900}\.ftiles\{grid-template-columns:1fr 1fr/
+    .test(css),
+    'no celular são DOIS indicadores por linha — `auto-fit` dava um só no aparelho ' +
+    'estreito, e um por linha empurra a tabela para fora da primeira dobra');
+  ok(/\.ftile:last-child\{grid-column:1\/-1\}/.test(css),
+    'e a taxa ocupa a linha toda: é a única com barra, e espremida em meia largura a ' +
+    'barra fica curta demais para se ler contra a marca da meta');
+  ok(/\.ret-nav\{scrollbar-width:none;[\s\S]{0,200}mask-image:linear-gradient/.test(css),
+    'o trilho de chips esmaece na borda em vez de mostrar barra de rolagem — a barra é ' +
+    'um risco branco que não se arrasta com o dedo');
+
+  ok(/matchMedia\('\(max-width:1023px\)'\)\.addEventListener\('change'[\s\S]{0,120}desenharFluxo\(\)/
+    .test(adm),
+    'girar o aparelho troca tabela por extrato — desenhado só na abertura, o painel ' +
+    'ficaria com a forma da largura de quando abriu');
+
   /* --- a animação para quando sai da tela ---------------------------------- */
   ok(/vigiarTiles\(\);/.test(adm) && /IntersectionObserver/.test(adm),
     'a faixa para de animar fora da tela — animação escondida gasta bateria do celular ' +

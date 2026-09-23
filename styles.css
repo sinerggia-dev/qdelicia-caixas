@@ -875,6 +875,83 @@ tr.ruim{background:var(--vermelho-claro)}
 .meta i{display:block;height:100%;width:var(--pct,0%);border-radius:999px;background:var(--cor)}
 .meta .alvo{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--txt2);opacity:.6}
 
+/* ---------- O PAINEL DE ATIVOS NO CELULAR ----------
+ * A tabela tem nove colunas: no telefone ela só se lê arrastando de lado, e o saldo
+ * final — o número que interessa — fica sempre fora da tela. Aqui cada dia vira um
+ * extrato: saldo inicial, saída, retorno e saldo final um embaixo do outro, na ordem da
+ * conta. Quem troca uma pela outra é o `desenharFluxo`, em 1024px. */
+.extrato{display:grid;gap:10px}
+/* `ext-dia`, e não `dia`: `.dia` JÁ EXISTE neste arquivo — é o separador de dia dos
+   cartões de Lançamentos, e ele é `display:flex`. Com o mesmo nome, o cartão do extrato
+   herdava o flex e saía deitado, com a rota ao lado do saldo. Foi assim que apareceu na
+   primeira foto. */
+.ext-dia{background:var(--surface);border:1px solid var(--linha);
+  border-radius:var(--raio);padding:13px}
+.ext-dia__topo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.ext-dia__data{font-family:var(--fonte-mono);font-size:14px;font-weight:700}
+/* Empurrado para a ponta: é o dado que se confere de relance, e no meio das etiquetas
+   ele vira mais uma etiqueta. */
+.ext-dia__n{margin-left:auto;font-size:11px;color:var(--txt3)}
+h3.ext-dia__rota{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0;
+  font-size:13.5px;font-weight:600;line-height:1.35;
+  text-transform:none;letter-spacing:normal;color:var(--txt)}
+h3.ext-dia__rota svg{flex:0 0 auto;color:var(--txt3)}
+h3.ext-dia__rota em{font-style:normal;color:var(--txt3);font-weight:500}
+
+.ext{margin-top:11px;border-top:1px solid var(--linha);padding-top:9px}
+.ext__l{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  padding:5px 0;font-size:13px}
+.ext__l span{color:var(--txt3)}
+.ext__l b{font-family:var(--fonte-mono);font-size:14px;font-weight:600}
+/* As MESMAS cores dos indicadores logo acima: verde o que saiu, azul o que voltou. Duas
+   paletas para a mesma ideia na mesma tela fariam a pessoa procurar a diferença. */
+.ext__l.ext--saida b{color:var(--verde)}
+.ext__l.ext--retorno b{color:var(--marca-txt)}
+.ext__f{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  margin-top:7px;padding-top:9px;border-top:1px solid var(--linha);
+  font-size:13px;font-weight:600}
+.ext__f b{font-family:var(--fonte-mono);font-size:21px;font-weight:700}
+
+details.tipos summary{display:flex;align-items:center;gap:7px;min-height:44px;margin-top:4px;
+  cursor:pointer;list-style:none;font-size:12.5px;font-weight:600;color:var(--marca-txt)}
+details.tipos summary::-webkit-details-marker{display:none}
+/* O triângulo é feito aqui e não no HTML: um `<svg>` por dia, em quarenta dias, é
+   quarenta cópias do mesmo desenho no meio do texto. */
+details.tipos summary::before{content:"▸";font-size:13px}
+details.tipos[open] summary::before{content:"▾"}
+.tipos__t{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--txt3);margin:8px 0 5px}
+.tipos__l{display:grid;grid-template-columns:repeat(auto-fit,minmax(66px,1fr));gap:6px;margin:0}
+.tipos__l div{background:var(--campo);border:1px solid var(--linha);border-radius:8px;
+  padding:6px;text-align:center}
+.tipos__l dt{font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--txt3)}
+.tipos__l dd{margin:2px 0 0;font-family:var(--fonte-mono);font-size:14px;font-weight:600}
+
+@media (max-width:1023px){
+  /* DOIS POR LINHA, e a taxa inteira. `auto-fit` com piso de 160px cabia dois num
+     telefone comum e UM num estreito — e um indicador por linha empurra a tabela para
+     fora da primeira dobra. Fixando em dois, a faixa tem altura previsível.
+
+     A taxa ocupa a linha toda porque ela é a única com barra: espremida em meia
+     largura, a barra fica curta demais para se ler contra a marca da meta. */
+  .ftiles{grid-template-columns:1fr 1fr;gap:9px}
+  .ftile{background:var(--surface);border:1px solid var(--linha);
+    border-left:3px solid var(--cor,var(--linha));border-radius:11px;padding:10px 12px}
+  .ftile:last-child{grid-column:1/-1}
+
+  /* O TRILHO DE CHIPS é a única coisa que rola de lado nesta tela, e ele avisa: a névoa
+     na borda direita diz que há mais itens. Sem ela, o último chip visível parece o
+     último que existe. */
+  .ret-nav{scrollbar-width:none;
+    -webkit-mask-image:linear-gradient(90deg,#000 86%,transparent 100%);
+            mask-image:linear-gradient(90deg,#000 86%,transparent 100%)}
+  /* A barra de rolagem some e a NÉVOA fica no lugar dela: no celular a barra é um
+     risco branco que ocupa altura e não se arrasta com o dedo. Quem diz que há mais
+     chips passa a ser o esmaecer da borda. */
+  .ret-nav::-webkit-scrollbar{display:none}
+}
+
 /* QUEM PEDIU MENOS MOVIMENTO recebe menos. O desenho fica, parado no fim do percurso:
    apagá-lo tiraria também a informação que ele carrega. */
 @media (prefers-reduced-motion:reduce){
