@@ -1798,12 +1798,51 @@ article.lanc.em-correcao{border-color:var(--brand)}
 
    Quem troca uma pela outra é o `desenharLanc`, em 1024px, e não estas regras: as duas
    montadas ao mesmo tempo seriam o dobro do trabalho para mostrar metade. */
-.dia{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
-  margin:18px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--linha)}
+/* ---------- a barra compacta de filtros ----------
+ * As cinco listas empilhadas gastavam umas 250 linhas de altura antes do primeiro
+ * lançamento, quase sempre sem nada marcado. Aqui é um botão de 44px com a contagem e
+ * um trilho de recortes rápidos ao lado. */
+.barra-f{display:flex;align-items:center;gap:8px;margin:10px 0 0}
+.barra-f .trilho{flex:1 1 auto;min-width:0;margin:0}
+.btn-filtros{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;
+  min-height:44px;padding:0 14px;border:1px solid var(--neutro);border-radius:999px;
+  background:var(--surface);color:var(--txt);font:inherit;font-size:14px;
+  font-weight:600;cursor:pointer;white-space:nowrap}
+.btn-filtros:hover{background:var(--surface-2)}
+.btn-filtros .n{min-width:20px;height:20px;padding:0 6px;display:inline-flex;
+  align-items:center;justify-content:center;border-radius:999px;background:var(--brand);
+  color:#fff;font-family:var(--fonte-mono);font-size:11px;font-weight:700}
+/* No computador os filtros já estão à vista, e o botão não teria o que abrir. */
+@media (min-width:1024px){ .barra-f .btn-filtros{display:none} }
+
+/* ---------- a faixa do dia, grudada no topo ----------
+ * Era um texto com um filete embaixo, e sumia entre os cartões: num dia com quinze
+ * lançamentos, quem rolava até o meio da lista já não sabia de que dia estava olhando.
+ * Agora é uma faixa que fica presa no topo enquanto o dia dela passa, com a barra verde
+ * na frente e a contagem numa pílula à direita.
+ *
+ * É `<h2>`, e não `<div>`: quem ouve a tela navega de título em título, e dia a dia é
+ * exatamente como se percorre esta lista. */
+.dia{position:sticky;top:0;z-index:5;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:16px 0 10px;padding:9px 12px;border-radius:11px;
+  font-size:14px;font-weight:700;
+  background:linear-gradient(90deg,var(--verde-claro),rgba(53,214,160,.05) 55%,
+    rgba(53,214,160,0) 100%),var(--surface);
+  border:1px solid var(--linha);box-shadow:0 8px 18px rgba(4,14,28,.4)}
 .dia-bloco:first-child .dia{margin-top:4px}
-.dia__d{font-size:14px;font-weight:700}
-.dia__r{font-size:12px;color:var(--txt3)}
-.dia__r b{font-family:var(--fonte-mono);color:var(--txt2);font-weight:600}
+/* A barra verde ocupa a altura inteira da faixa, e é o que a distingue de um cartão. */
+.dia::before{content:"";flex:0 0 auto;width:4px;align-self:stretch;min-height:26px;
+  border-radius:2px;background:var(--verde)}
+.dia__d{font-size:14px;font-weight:700;line-height:1.25}
+/* O dia da semana embaixo da data: "terça" responde mais rápido que "16/09" a quem
+   procura "o dia em que o Chico rodou". */
+.dia__d small{display:block;font-size:11px;font-weight:500;color:var(--txt3);
+  text-transform:capitalize}
+.dia__r{margin-left:auto;flex:0 0 auto;padding:3px 10px;border-radius:999px;
+  background:var(--campo);border:1px solid var(--linha);
+  font-size:11.5px;font-weight:400;color:var(--txt2);white-space:nowrap}
+.dia__r b{font-family:var(--fonte-mono);color:var(--txt);font-weight:700}
 
 .cartoes{list-style:none;margin:0;padding:0;display:grid;gap:12px;grid-template-columns:1fr}
 

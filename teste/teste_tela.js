@@ -4645,7 +4645,11 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   ok(/class="ext-dia"/.test(cartao) && !/class="dia"/.test(cartao),
     'o cartão do extrato tem classe própria, e não a do separador de dia dos ' +
     'Lançamentos — com o mesmo nome ele herdava o `display:flex` e saía deitado');
-  ok(/\n\.dia\{display:flex/.test(css) && /\n\.ext-dia\{background/.test(css),
+  /* `.dia` virou faixa grudada e ganhou `position:sticky` antes do `display:flex` — o
+     que esta afirmação cobra não é a ordem das linhas, é que as DUAS classes existam
+     como donas de coisas diferentes. */
+  ok(/\n\.dia\{position:sticky[\s\S]{0,120}display:flex/.test(css) &&
+     /\n\.ext-dia\{background/.test(css),
     'as duas continuam existindo, e são coisas diferentes');
 
   /* --- o arranjo do celular ------------------------------------------------ */
@@ -5053,12 +5057,16 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
   /* `passaFiltro` passou a chamar `passaBusca`. A bancada entrega uma busca VAZIA — o
      que este bloco mede sao os filtros, e a busca tem bloco proprio. Entregar a de
      verdade faria estas afirmacoes falharem por um motivo que nao e delas. */
-  function passa(m, sel) {
+  /* `LC_CHIP` entra como PARAMETRO: o recorte rapido — Todos / Saidas / Retornos /
+     Corrigidos — substituiu a lista de multipla escolha "Entrada / Saida", que com dois
+     valores custava tres toques onde cabe um. A bancada passa 'todos' por padrao,
+     porque o que estes casos medem sao as OUTRAS listas. */
+  function passa(m, sel, chip) {
     marcados = sel;
-    var f = new Function('marcados', 'passaBusca', 'm',
+    var f = new Function('marcados', 'passaBusca', 'LC_CHIP', 'm',
       pf.slice(pf.indexOf('{') + 1, pf.lastIndexOf('}')));
     return f(function (id) { return marcados[id] || []; },
-             function () { return true; }, m);
+             function () { return true; }, chip || 'todos', m);
   }
   var saida = { tipo: 'SAIDA', motorista: 'Chico', origem: 'Matriz', destino: 'Caruaru',
                 usuario: 'Nestor Neto' };
@@ -5067,9 +5075,21 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
 
   ok(passa(saida, {}) && passa(volta, {}),
     'nada marcado quer dizer TODOS — senao a tela abriria vazia sem dizer por que');
-  ok(passa(saida, { lcFSentido: ['SAIDA'] }) && !passa(volta, { lcFSentido: ['SAIDA'] }),
-    'o sentido separa saida de retorno');
-  ok(passa(volta, { lcFSentido: ['RETORNO'] }), 'e a devolucao e o retorno');
+  /* O SENTIDO VIROU CHIP, e saiu da folha. Com dois valores, marcar os dois e o mesmo
+     que nao marcar nenhum — e uma lista de multipla escolha para isso era tres toques
+     onde cabe um. */
+  ok(passa(saida, {}, 'saida') && !passa(volta, {}, 'saida'),
+    'o chip de saidas separa saida de retorno');
+  ok(passa(volta, {}, 'retorno') && !passa(saida, {}, 'retorno'),
+    'e o de retornos, o contrario');
+  ok(passa(saida, {}, 'todos') && passa(volta, {}, 'todos'),
+    '"Todos" nao recorta nada');
+  /* CORRIGIDOS nao existia em lugar nenhum: e o recorte de quem foi conferir o que
+     mudou, e sem ele isso se fazia lendo cartao por cartao atras da etiqueta. */
+  var mexido = { tipo: 'SAIDA', motorista: 'Chico', origem: 'Matriz', destino: 'Caruaru',
+                 usuario: 'Nestor Neto', alterado: { vezes: 2 } };
+  ok(passa(mexido, {}, 'corrigido') && !passa(saida, {}, 'corrigido'),
+    'e o de corrigidos fica so com o que tem historico de alteracao');
 
   /* O ponto da multipla escolha: dois valores no mesmo filtro passam os dois. */
   ok(passa(saida, { lcFMotorista: ['Chico', 'Ramos'] }) &&
@@ -5151,10 +5171,13 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
   ok(/Q\.esc\(m\.usuario \|\| '—'\)/.test(tl),
     'e a célula de quem lançou sai do campo que o servidor manda');
 
-  ok(html.indexOf('id="lcFSentido"') > 0 && html.indexOf('id="lcFMotorista"') > 0 &&
+  /* QUATRO, e nao mais cinco: "Entrada / Saida" virou chip no trilho, porque com dois
+     valores marcar os dois e o mesmo que nao marcar nenhum. A lista dele so custava
+     toques. O chip tem afirmacao propria logo acima, rodando. */
+  ok(html.indexOf('id="lcFMotorista"') > 0 &&
      html.indexOf('id="lcFOrigem"') > 0 && html.indexOf('id="lcFDestino"') > 0 &&
-     html.indexOf('id="lcFUsuario"') > 0,
-    'os cinco filtros existem na tela');
+     html.indexOf('id="lcFUsuario"') > 0 && html.indexOf('id="lcFSentido"') < 0,
+    'os quatro filtros de múltipla escolha existem, e o sentido saiu deles');
   /* O contador de marcados e o "Limpar filtros" tem de alcancar o quinto. O limpar
      alcanca porque varre o container inteiro — e e por isso que o filtro novo mora
      DENTRO de `.filtros-lanc`, e nao ao lado dele. */
@@ -5165,7 +5188,7 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
      reordenacao sem deixar de cobrar o que importa. */
   var iCont = html.indexOf('].forEach(function(id){' + String.fromCharCode(10) + '      var n = marcados(id).length;');
   var listaCont = html.slice(html.lastIndexOf('[', iCont), iCont + 1);
-  ['lcFUsuario', 'lcFSentido', 'lcFMotorista', 'lcFOrigem', 'lcFDestino']
+  ['lcFUsuario', 'lcFMotorista', 'lcFOrigem', 'lcFDestino']
     .forEach(function (id) {
       ok(listaCont.indexOf("'" + id + "'") > 0,
         'o contador de marcados conta o ' + id + ' — esquecido, o filtro ficaria ligado ' +
@@ -5198,13 +5221,13 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
   /* --- o Usuario vem PRIMEIRO -------------------------------------------- */
   /* Com a permissao "de quem ela ve" citando varias pessoas, "de quem e isto" passa a ser
      a primeira pergunta de quem olha a lista, e nao a ultima. */
-  var ordem = ['lcFUsuario', 'lcFSentido', 'lcFMotorista', 'lcFOrigem', 'lcFDestino']
+  var ordem = ['lcFUsuario', 'lcFMotorista', 'lcFOrigem', 'lcFDestino']
     .map(function (id) { return html.indexOf('id="' + id + '"'); });
   ok(ordem.every(function (p, i) { return p > 0 && (i === 0 || p > ordem[i - 1]); }),
     'o filtro de quem lançou vem PRIMEIRO na fileira — é a primeira pergunta de quem ' +
     'olha uma lista com mais de uma pessoa', ordem);
   var mfOrdem = mf.indexOf("['lcFUsuario'");
-  ok(mfOrdem > 0 && mfOrdem < mf.indexOf("['lcFSentido'"),
+  ok(mfOrdem > 0 && mfOrdem < mf.indexOf("['lcFMotorista'"),
     'e a montagem das opções segue a mesma ordem — duas ordens diferentes para a mesma ' +
     'fileira é uma delas esperando para ficar errada');
 
@@ -5734,6 +5757,111 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
     'o quadro do caminhão deixa a fumaça passar');
   ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\n\s*\.desenho \*/.test(css),
     'e quem pediu menos movimento não recebe nenhuma delas');
+})();
+
+console.log('\n== Lançamentos no celular: barra compacta, trilho e faixa do dia ==');
+(function () {
+  var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* ---- a barra compacta ---------------------------------------------------- */
+  /* As cinco listas empilhadas gastavam ~250px de altura antes do primeiro lançamento,
+     quase sempre sem nada marcado. Agora são um botão de 44px e um trilho. */
+  ok(/<div class="barra-f">[\s\S]{0,700}id="btnAbrirFiltrosLanc"/.test(html) &&
+     /id="lcChips"/.test(html),
+    'os filtros viram um botão e um trilho de recortes rápidos');
+  ok(/\.btn-filtros\{[^}]*min-height:44px/.test(css),
+    'o botão tem os 44px de alvo — o app é usado de luva');
+  ok(/@media \(min-width:1024px\)\{ \.barra-f \.btn-filtros\{display:none\} \}/.test(css),
+    'e some no computador, onde os filtros já estão à vista e ele não teria o que abrir');
+  ok(/<div class="filtros-caixa" id="caixaFiltrosLanc">/.test(html) &&
+     /<div class="folha__puxador so-celular"/.test(html),
+    'as listas passam para a folha que sobe, com o puxador das outras');
+  /* É O MESMO NÓ nas duas larguras: dois conjuntos dos mesmos campos seriam dois ids
+     repetidos, e `getElementById` leria sempre o primeiro. */
+  ok((html.match(/id="lcFMotorista"/g) || []).length === 1,
+    'e é o MESMO nó do computador — dois conjuntos dos mesmos campos seriam dois ids ' +
+    'repetidos, e a tela filtraria pelo que a outra cópia tem');
+
+  /* ---- o sentido virou chip ------------------------------------------------ */
+  ok(html.indexOf('id="lcFSentido"') < 0 &&
+     /\['todos','Todos'\],\['saida','Saídas'\],\['retorno','Retornos'\]/.test(html),
+    '"Entrada / Saída" virou chip: com dois valores, marcar os dois é o mesmo que não ' +
+    'marcar nenhum, e a lista custava três toques onde cabe um');
+  ok(/\['corrigido','Corrigidos'\]/.test(html) &&
+     /LC_CHIP === 'corrigido' && !\(\(m\.alterado \|\| \{\}\)\.vezes\)/.test(html),
+    'e "Corrigidos" é novo — é o recorte de quem foi conferir o que mudou, e sem ele ' +
+    'isso se fazia lendo cartão por cartão atrás da etiqueta');
+  /* A CONTAGEM DE CADA CHIP É SOBRE OS OUTROS FILTROS JÁ APLICADOS: com "Motorista:
+     Chico" ligado, um chip dizendo "Retornos 40" sobre uma lista de dois mandaria a
+     pessoa procurar trinta e oito que não existem naquele recorte. */
+  ok(/function contaChipLanc\(qual\)\{[\s\S]{0,300}LC_CHIP = qual;[\s\S]{0,200}LANC\.filter\(passaFiltro\)/
+    .test(html),
+    'a contagem do chip respeita os outros filtros — o que ele promete é o que entrega');
+  /* E CONTA REMESSAS, não linhas: uma carga de cinco tipos de caixa é UM lançamento
+     para quem a fez, e um cartão na tela. */
+  ok(/Q\.agruparLancamentos\(LANC\.filter\(passaFiltro\)\)\.length/.test(html),
+    'e conta remessas, não linhas: a carga de cinco tipos é um cartão, e contar as ' +
+    'cinco faria o chip prometer doze sobre uma lista de três');
+  ok(/var remessas = Q\.agruparLancamentos\(lista\)\.length;/.test(html),
+    'o rodapé de cima passou a contar igual — era ele que estava fora de passo com a ' +
+    'faixa do dia e com a lista');
+  /* O TRILHO É REDESENHADO a cada `desenharLanc`, então quem ouve o clique é o
+     CONTÊINER: religar os botões a cada redesenho é trabalho que se esquece num
+     caminho qualquer, e o chip para de responder sem erro nenhum. */
+  ok(/getElementById\('lcChips'\)\.addEventListener\('click'/.test(html),
+    'o clique é ouvido no contêiner do trilho, e não em cada botão');
+
+  /* ---- as pílulas ---------------------------------------------------------- */
+  /* NA PINTURA, e não só no arquivo: a função podia existir inteira e ninguém chamá-la
+     — as pílulas sumiam, a folha fechada voltava a esconder o recorte, e o teste
+     continuava verde. */
+  ok(/desenharChipsLanc\(\);\s*\n\s*pintarFiltrosLanc\(\);/.test(html) &&
+     /function pintarFiltrosLanc\(\)/.test(html) && /data-tirar-lc/.test(html),
+    'o que está recortando a lista vira pílula, e cada uma tira o SEU filtro');
+  ok(/m\.length === 1 \? m\[0\] : m\.length/.test(html),
+    'um valor mostra o nome, vários mostram a contagem — cinco motoristas por extenso ' +
+    'viram três linhas de pílula em cima da lista que se quer ver');
+  ok(/n\.textContent = pilulas\.length;/.test(html),
+    'e o contador do botão conta o MESMO que as pílulas: dois números sobre o mesmo ' +
+    'recorte acabam discordando');
+  ok(/LC_CHIP = 'todos';\s*\n\s*desenharLanc\(\);\s*\n\s*\}\);/.test(html),
+    '"Limpar filtros" leva o recorte rápido junto — senão devolvia a lista com "Só ' +
+    'retornos" ainda aceso no trilho');
+
+  /* ---- a faixa do dia ------------------------------------------------------ */
+  ok(/<h2 class="dia">/.test(html),
+    'a faixa do dia é `<h2>`: quem ouve a tela navega de título em título, e dia a dia ' +
+    'é como se percorre esta lista');
+  ok(/\.dia\{position:sticky;top:0/.test(css),
+    'e fica grudada no topo — num dia com quinze lançamentos, quem rolava até o meio já ' +
+    'não sabia de que dia estava olhando');
+  ok(/\.dia::before\{[^}]*background:var\(--verde\)/.test(css),
+    'com a barra verde que a distingue de um cartão');
+  /* NA FAIXA, e não só no arquivo: a função podia continuar existindo e a marcação
+     deixar de chamá-la. */
+  ok(/<small>'\+Q\.esc\(diaDaSemana\(d\)\)\+'<\/small>/.test(html) &&
+     /function diaDaSemana\(iso\)/.test(html) && /weekday: 'long'/.test(html),
+    'e o dia da semana embaixo da data: "terça" responde mais rápido que "16/09" a quem ' +
+    'procura o dia em que o Chico rodou');
+  ok(/new Date\(\+p\[0\], \+p\[1\] - 1, \+p\[2\], 12\)/.test(html),
+    'montado com meio-dia na hora: às zero horas um fuso a oeste joga a data para o ' +
+    'dia anterior');
+
+  /* ---- a folha fecha por três caminhos ------------------------------------- */
+  ok(/<div class="veu-folha" id="veuFolha" hidden><\/div>/.test(html),
+    'o app de campo ganhou o véu da folha — ele não tinha, e a folha ficaria flutuando ' +
+    'sobre uma lista que continua parecendo clicável');
+  ok(/id="veuFolha"[\s\S]{0,200}veu da gaveta|véu da gaveta/.test(html) ||
+     /Os dois escurecem a tela, mas fecham/.test(html),
+    'separado do véu da gaveta: um véu só com duas responsabilidades fecharia a coisa ' +
+    'errada');
+  ok(/function fecharFolhaLanc\(\)/.test(html) &&
+     /veu\.addEventListener\('click', fecharFolhaLanc\)/.test(html) &&
+     /e\.target\.closest\('\[data-fechar-folha\]'\)\) fecharFolhaLanc\(\)/.test(html) &&
+     /e\.key === 'Escape'\) fecharFolhaLanc\(\)/.test(html),
+    'e ela fecha pelo X, pelo véu e pelo Esc — só pelo botão que a abriu obriga a mirar ' +
+    'de volta num alvo pequeno');
 })();
 
 console.log('\n== A foto do usuário: do arquivo ao círculo ==');

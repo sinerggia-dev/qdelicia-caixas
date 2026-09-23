@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=fdb007f2">
+<link rel="stylesheet" href="styles.css?v=278266ff">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -418,26 +418,64 @@
       <div class="busca"><input id="lcBusca" type="search"
         placeholder="🔍 Buscar por origem, destino, caixa, motorista ou quem lançou"></div>
 
+      <!-- A BARRA COMPACTA. As cinco listas empilhadas gastavam umas 250 linhas de
+           altura antes do primeiro lançamento, quase sempre sem nada marcado. Agora
+           são um botão de 44px com a contagem e um trilho de recortes rápidos; as
+           listas continuam existindo, atrás da folha que sobe. -->
+      <div class="barra-f">
+        <button class="btn-filtros so-celular" id="btnAbrirFiltrosLanc" type="button"
+                aria-haspopup="dialog" aria-controls="caixaFiltrosLanc">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <line x1="4" y1="7" x2="20" y2="7"></line><line x1="7" y1="12" x2="17" y2="12"></line>
+            <line x1="10" y1="17" x2="14" y2="17"></line></svg>
+          Filtros <span class="n" id="lcQtdFiltros" hidden>0</span>
+        </button>
+        <!-- SENTIDO E CORRIGIDOS VIRAM CHIPS, e saem das listas: com dois valores só,
+             marcar "os dois" é o mesmo que não marcar nenhum, e uma lista de múltipla
+             escolha para isso é três toques onde cabe um. "Corrigidos" não existia. -->
+        <div class="trilho" id="lcChips" role="group" aria-label="Recortes rápidos"></div>
+      </div>
+
+      <div class="aplicados" id="lcAplicados" hidden></div>
+
       <!-- Multipla escolha em <details> e nao em <select multiple>: no celular o select
            multiplo exige segurar a tecla, que nao existe, e mostra so tres linhas. Aqui a
-           pessoa toca, abre e marca — e o resumo diz quantos estao marcados sem abrir. -->
-      <div class="filtros-lanc">
-        <!-- Quem lancou vem PRIMEIRO: com a permissao "de quem ela ve" citando varias
-             pessoas, "de quem e isto" passa a ser a primeira pergunta de quem olha a
-             lista, e nao a ultima. -->
-        <details class="fchk" id="lcFUsuario"><summary>Usuário<span class="qt"></span></summary>
-          <div class="opcoes"></div></details>
-        <details class="fchk" id="lcFSentido"><summary>Entrada / Saída<span class="qt"></span></summary>
-          <div class="opcoes"></div></details>
-        <details class="fchk" id="lcFMotorista"><summary>Motorista<span class="qt"></span></summary>
-          <div class="opcoes"></div></details>
-        <details class="fchk" id="lcFOrigem"><summary>Origem<span class="qt"></span></summary>
-          <div class="opcoes"></div></details>
-        <details class="fchk" id="lcFDestino"><summary>Destino<span class="qt"></span></summary>
-          <div class="opcoes"></div></details>
-      </div>
-      <div class="linha-btn">
-        <button class="btn sec" id="btnLimparLanc" type="button" style="flex:0 0 auto;min-width:150px;white-space:nowrap">Limpar filtros</button>
+           pessoa toca, abre e marca — e o resumo diz quantos estao marcados sem abrir.
+
+           No celular esta caixa é a folha que sobe; no computador continua sendo um
+           bloco comum. É o MESMO nó nas duas — dois conjuntos dos mesmos campos seriam
+           dois ids repetidos, e a tela filtraria pelo que a outra cópia tem. -->
+      <div class="filtros-caixa" id="caixaFiltrosLanc">
+        <div class="folha__puxador so-celular" aria-hidden="true"></div>
+        <div class="folha__cab so-celular">
+          <h3 class="folha__t">Filtros</h3>
+          <button class="btn-icone" type="button" data-fechar-folha
+                  aria-label="Fechar os filtros">✕</button>
+        </div>
+        <div class="filtros-caixa__corpo">
+          <div class="filtros-lanc">
+            <!-- Quem lancou vem PRIMEIRO: com a permissao "de quem ela ve" citando varias
+                 pessoas, "de quem e isto" passa a ser a primeira pergunta de quem olha a
+                 lista, e nao a ultima. -->
+            <details class="fchk" id="lcFUsuario"><summary>Usuário<span class="qt"></span></summary>
+              <div class="opcoes"></div></details>
+            <details class="fchk" id="lcFMotorista"><summary>Motorista<span class="qt"></span></summary>
+              <div class="opcoes"></div></details>
+            <details class="fchk" id="lcFOrigem"><summary>Origem<span class="qt"></span></summary>
+              <div class="opcoes"></div></details>
+            <details class="fchk" id="lcFDestino"><summary>Destino<span class="qt"></span></summary>
+              <div class="opcoes"></div></details>
+          </div>
+          <div class="linha-btn">
+            <button class="btn sec" id="btnLimparLanc" type="button" style="flex:0 0 auto;min-width:150px;white-space:nowrap">Limpar filtros</button>
+            <!-- Só no celular, e escrito "Fechar": os campos já valeram na hora em que
+                 se mexeu neles, e um botão chamado "Aplicar" fingiria confirmar o que
+                 já aconteceu. -->
+            <button class="btn neutro so-celular" type="button" data-fechar-folha
+                    style="flex:1 1 auto">Fechar</button>
+          </div>
+        </div>
       </div>
 
       <div id="listaLanc"><div class="vazio">Carregando…</div></div>
@@ -451,6 +489,11 @@
 
 <div class="veu" id="veu" hidden></div>
 </div>
+
+<!-- O VÉU DA FOLHA, separado do véu da gaveta. Os dois escurecem a tela, mas fecham
+     coisas diferentes: clicar no da gaveta fecha o menu, e clicar neste fecha a folha
+     de filtros. Um véu só com duas responsabilidades fecharia a coisa errada. -->
+<div class="veu-folha" id="veuFolha" hidden></div>
 
 <div id="toast"></div>
 
@@ -1175,14 +1218,22 @@
     return q.split(/\s+/).every(function(p){ return alvo.indexOf(p) >= 0; });
   }
 
+  /* O RECORTE RÁPIDO: 'todos', 'saida', 'retorno' ou 'corrigido'.
+     Ele SUBSTITUIU a lista de múltipla escolha "Entrada / Saída": com dois valores só,
+     marcar os dois é o mesmo que não marcar nenhum, e uma lista para isso custava três
+     toques onde cabe um. "Corrigidos" não existia em lugar nenhum — e é o recorte de
+     quem foi conferir o que mudou. */
+  var LC_CHIP = 'todos';
+
   function passaFiltro(m){
-    var sent = marcados('lcFSentido');
     var mot = marcados('lcFMotorista');
     var ori = marcados('lcFOrigem');
     var des = marcados('lcFDestino');
     var usu = marcados('lcFUsuario');
     var ehRetorno = m.tipo === 'DEVOLUCAO';
-    if (sent.length && sent.indexOf(ehRetorno ? 'RETORNO' : 'SAIDA') < 0) return false;
+    if (LC_CHIP === 'saida' && ehRetorno) return false;
+    if (LC_CHIP === 'retorno' && !ehRetorno) return false;
+    if (LC_CHIP === 'corrigido' && !((m.alterado || {}).vezes)) return false;
     if (mot.length && mot.indexOf(m.motorista || '') < 0) return false;
     if (ori.length && ori.indexOf(m.origem || '') < 0) return false;
     if (des.length && des.indexOf(m.destino || '') < 0) return false;
@@ -1205,7 +1256,6 @@
     }
     var grupos = [
       ['lcFUsuario', valores(function(m){ return m.usuario; }).map(function(v){ return [v,v]; })],
-      ['lcFSentido', [['SAIDA','Saída'],['RETORNO','Retorno']]],
       ['lcFMotorista', valores(function(m){ return m.motorista; }).map(function(v){ return [v,v]; })],
       ['lcFOrigem', valores(function(m){ return m.origem; }).map(function(v){ return [v,v]; })],
       ['lcFDestino', valores(function(m){ return m.destino; }).map(function(v){ return [v,v]; })]
@@ -1236,17 +1286,25 @@
       if (m.tipo === 'DEVOLUCAO') voltou += Number(m.qtd) || 0;
       else saiu += Number(m.qtd) || 0;
     });
+    /* REMESSAS, e não linhas. Uma carga de cinco tipos de caixa é UM lançamento para
+       quem a fez, e um cartão na tela; dizer "10 lançamentos" sobre dois cartões é o
+       rodapé discordando da lista logo abaixo dele. A faixa do dia e os chips já
+       contavam assim — este era o número fora de passo. */
+    var remessas = Q.agruparLancamentos(lista).length;
     document.getElementById('lcTiles').innerHTML =
-      tileLanc(Q.num(saiu), 'caixas que saíram', lista.length + ' lançamento(s) no filtro', 'aviso')+
+      tileLanc(Q.num(saiu), 'caixas que saíram',
+        remessas + (remessas === 1 ? ' lançamento no filtro' : ' lançamentos no filtro'), 'aviso')+
       tileLanc(Q.num(voltou), 'caixas que voltaram', 'retornos do período', 'ok')+
       tileLanc(Q.num(saiu + voltou), 'total de caixas', 'saídas mais retornos', '');
 
     // o contador de cada filtro: quantos estao marcados, sem precisar abrir
-    ['lcFUsuario','lcFSentido','lcFMotorista','lcFOrigem','lcFDestino'].forEach(function(id){
+    ['lcFUsuario','lcFMotorista','lcFOrigem','lcFDestino'].forEach(function(id){
       var n = marcados(id).length;
       var q = document.querySelector('#'+id+' .qt');
       if (q) q.textContent = n ? ' ('+n+')' : '';
     });
+    desenharChipsLanc();
+    pintarFiltrosLanc();
 
     var box = document.getElementById('listaLanc');
     if (!lista.length){
@@ -1322,6 +1380,106 @@
 
      Os dias vêm separados porque a lista já chega em ordem de data: sem o risco, os
      cartões de terça e de quarta viram uma fileira só. */
+  /* ---------- o trilho de recortes rápidos ----------
+   *
+   * A CONTAGEM DE CADA CHIP É SOBRE OS OUTROS FILTROS JÁ APLICADOS, e não sobre a lista
+   * crua: com "Motorista: Chico" ligado, um chip dizendo "Retornos 40" sobre uma lista
+   * de dois faria a pessoa tocar nele para achar os outros trinta e oito — que não
+   * existem naquele recorte. O que ele promete é o que ele entrega.
+   *
+   * O próprio chip não conta a si mesmo: senão "Saídas" mostraria a contagem de quando
+   * já está em saídas, que é a lista inteira da tela e não acrescenta nada. */
+  var LC_CHIPS = [['todos','Todos'],['saida','Saídas'],['retorno','Retornos'],
+                  ['corrigido','Corrigidos']];
+
+  /* CONTA REMESSAS, e não linhas. Uma carga de cinco tipos de caixa é UM lançamento
+     para quem a fez, e é um cartão na tela — contar as cinco linhas faria o chip
+     prometer "Saídas 12" sobre uma lista de três cartões. É a mesma conta que a faixa
+     do dia já fazia; o rodapé de cima é que contava linhas, e passa a contar igual. */
+  function contaChipLanc(qual){
+    var guardado = LC_CHIP;
+    LC_CHIP = qual;
+    var n = Q.agruparLancamentos(LANC.filter(passaFiltro)).length;
+    LC_CHIP = guardado;
+    return n;
+  }
+
+  function desenharChipsLanc(){
+    var box = document.getElementById('lcChips');
+    if (!box) return;
+    box.innerHTML = LC_CHIPS.map(function(c){
+      return '<button class="chip" type="button" data-lcchip="'+c[0]+'" aria-pressed="'+
+        (LC_CHIP === c[0] ? 'true' : 'false')+'">'+c[1]+
+        '<span class="chip__n">'+Q.num(contaChipLanc(c[0]))+'</span></button>';
+    }).join('');
+  }
+
+  /* ---------- o que está recortando a lista ----------
+   *
+   * A folha fechada esconde os filtros, e uma lista curta passa a parecer a lista
+   * inteira. As pílulas são o que sobra à vista — e cada uma tira o SEU filtro: sem
+   * elas, desfazer um recorte custa abrir a folha, achar a lista certa e desmarcar, e
+   * "Limpar filtros" levaria os outros quatro junto. */
+  var LC_FILTROS = [['lcFUsuario','Usuário'],['lcFMotorista','Motorista'],
+                    ['lcFOrigem','Origem'],['lcFDestino','Destino']];
+
+  function pintarFiltrosLanc(){
+    var pilulas = [];
+    LC_FILTROS.forEach(function(f){
+      var m = marcados(f[0]);
+      if (!m.length) return;
+      /* Um valor, o nome dele; vários, a contagem. Cinco motoristas escritos por
+         extenso viram três linhas de pílula em cima da lista que se quer ver. */
+      pilulas.push([f[0], f[1]+': '+(m.length === 1 ? m[0] : m.length)]);
+    });
+    if (LC_CHIP !== 'todos') {
+      var nome = LC_CHIPS.filter(function(c){ return c[0] === LC_CHIP; })[0];
+      pilulas.push(['chip', 'Só '+(nome ? nome[1].toLowerCase() : LC_CHIP)]);
+    }
+    var busca = (document.getElementById('lcBusca') || {}).value || '';
+    if (busca.trim()) pilulas.push(['lcBusca', 'Busca: '+busca.trim()]);
+
+    /* O CONTADOR DO BOTÃO conta o MESMO que as pílulas mostram: dois números sobre o
+       mesmo recorte acabam discordando, e o que some é a confiança nos dois. */
+    var n = document.getElementById('lcQtdFiltros');
+    if (n) { n.textContent = pilulas.length; n.hidden = !pilulas.length; }
+
+    var cx = document.getElementById('lcAplicados');
+    if (!cx) return;
+    cx.hidden = !pilulas.length;
+    cx.innerHTML = pilulas.map(function(p){
+      return '<span class="pill">'+Q.esc(p[1])+
+        '<button type="button" data-tirar-lc="'+p[0]+'" aria-label="Tirar '+
+        Q.esc(p[1])+'">✕</button></span>';
+    }).join('');
+    cx.querySelectorAll('button[data-tirar-lc]').forEach(function(b){
+      b.addEventListener('click', function(){ tirarFiltroLanc(b.dataset.tirarLc); });
+    });
+  }
+
+  function tirarFiltroLanc(chave){
+    if (chave === 'chip') LC_CHIP = 'todos';
+    else if (chave === 'lcBusca') {
+      var q = document.getElementById('lcBusca');
+      if (q) q.value = '';
+    } else {
+      document.querySelectorAll('#'+chave+' input[type="checkbox"]').forEach(function(c){
+        c.checked = false;
+      });
+    }
+    desenharLanc();
+  }
+
+  /* O DIA DA SEMANA, do jeito que a pessoa lembra. "16/09" é o que o sistema guarda;
+     "terça" é como alguém procura o dia em que o Chico rodou. Montado com meio-dia na
+     hora: às zero horas, um fuso a oeste joga a data para o dia anterior. */
+  function diaDaSemana(iso){
+    var p = String(iso).slice(0, 10).split('-');
+    if (p.length !== 3) return '';
+    return new Date(+p[0], +p[1] - 1, +p[2], 12)
+      .toLocaleDateString('pt-BR', { weekday: 'long' });
+  }
+
   function cartoesLanc(lista, s){
     var grupos = Q.agruparLancamentos(lista);
     var dias = [], porDia = {};
@@ -1332,10 +1490,13 @@
     return dias.map(function(d){
       var doDia = porDia[d];
       var caixas = doDia.reduce(function(t, g){ return t + g.total; }, 0);
+      /* `<h2>`, e não `<div>`: quem ouve a tela navega de título em título, e dia a dia
+         é exatamente como se percorre esta lista. */
       return '<section class="dia-bloco">'+
-        '<div class="dia"><span class="dia__d">'+Q.dataBR(d)+'</span>'+
+        '<h2 class="dia"><span class="dia__d">'+Q.dataBR(d)+
+        '<small>'+Q.esc(diaDaSemana(d))+'</small></span>'+
         '<span class="dia__r">'+doDia.length+' lançamento'+(doDia.length > 1 ? 's' : '')+
-        ' · <b>'+Q.num(caixas)+'</b> caixas</span></div>'+
+        ' · <b>'+Q.num(caixas)+'</b> caixas</span></h2>'+
         '<ul class="cartoes">'+doDia.map(function(g){ return cartaoLanc(g, s); }).join('')+
         '</ul></section>';
     }).join('');
@@ -1718,8 +1879,59 @@
     document.querySelectorAll('.filtros-lanc input:checked').forEach(function(c){
       c.checked = false;
     });
+    /* O recorte rápido vai junto: deixado para trás, "Limpar filtros" devolveria a
+       lista com "Só retornos" ainda aceso no trilho. */
+    LC_CHIP = 'todos';
     desenharLanc();
   });
+
+  /* ---------- o trilho, a folha e as pílulas ----------
+   * O trilho é redesenhado a cada `desenharLanc`, então quem ouve o clique é o
+   * CONTÊINER, e não cada botão: religar treze botões a cada redesenho é trabalho que
+   * se esquece de fazer num caminho qualquer, e o chip para de responder sem erro. */
+  document.getElementById('lcChips').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-lcchip]');
+    if (!b) return;
+    LC_CHIP = b.dataset.lcchip;
+    desenharLanc();
+    var lista = document.getElementById('listaLanc');
+    /* Volta ao topo: trocado o recorte no meio da rolagem, a tela fica parada num
+       ponto que já é de outra lista, e parece que nada aconteceu. */
+    if (lista) lista.scrollIntoView({ block: 'nearest' });
+  });
+
+  /* A FOLHA DE FILTROS, com TRÊS saídas: o X, o véu e o Esc. Uma folha que só fecha no
+     mesmo botão que a abriu obriga a mirar de volta num alvo pequeno — e quem toca na
+     lista atrás espera que ela saia da frente.
+
+     A caixa é folha só no celular: no computador ela é um bloco comum, e tirar a classe
+     ali não faz nada. Por isso não há um caminho por largura. */
+  function fecharFolhaLanc(){
+    document.querySelectorAll('.filtros-caixa.aberta').forEach(function(f){
+      f.classList.remove('aberta');
+    });
+    var veu = document.getElementById('veuFolha');
+    if (veu) veu.hidden = true;
+  }
+
+  (function ligarFolhaFiltrosLanc(){
+    var b = document.getElementById('btnAbrirFiltrosLanc');
+    var caixa = document.getElementById('caixaFiltrosLanc');
+    if (!b || !caixa) return;
+    b.addEventListener('click', function(){
+      caixa.classList.add('aberta');
+      var veu = document.getElementById('veuFolha');
+      if (veu) veu.hidden = false;
+    });
+    var veu = document.getElementById('veuFolha');
+    if (veu) veu.addEventListener('click', fecharFolhaLanc);
+    document.addEventListener('click', function(e){
+      if (e.target.closest('[data-fechar-folha]')) fecharFolhaLanc();
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') fecharFolhaLanc();
+    });
+  })();
 
   /* Volta ao mesmo estado da primeira abertura: os ultimos 30 dias. */
   function periodoPadraoLanc(){
