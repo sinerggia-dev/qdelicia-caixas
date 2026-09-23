@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=e52b78c0">
+<link rel="stylesheet" href="styles.css?v=41e87e50">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -786,7 +786,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=a210c955"></script>
+<script src="app.js?v=b41d4115"></script>
 <script>
 (function(){
   'use strict';
@@ -5125,6 +5125,11 @@
     // Todo formulário passa por aqui, então o "marcar todos" se liga sozinho em qualquer
     // lista de marcar — a de usuário e a de rotas do motorista.
     ligarMarcaTudo();
+    /* E o olho de ver a senha, pela mesma razão: os campos de senha do painel são dois
+       — a senha nova que o admin define para alguém e a do escritório na correção — e
+       os dois são digitados às cegas hoje. Ligado AQUI, nenhum formulário novo precisa
+       lembrar de pedir. */
+    Q.olhosDeSenha(document.getElementById('modalBox'));
   }
   function fecharModal(){ document.getElementById('modal').classList.remove('aberto'); }
   document.getElementById('modal').addEventListener('click', function(e){ if (e.target === this) fecharModal(); });

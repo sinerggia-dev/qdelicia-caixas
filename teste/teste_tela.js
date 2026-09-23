@@ -2645,18 +2645,68 @@ console.log('\n== a porta unica: a mesma tela nos dois apps ==');
   ok(/6 números, ou a sua senha do painel/.test(eCampo),
     'e a dica diz que os dois servem — sem ela, quem tem senha longa não tenta');
 
-  /* UM olho, nao dois. O campo tinha o botao do app E o `::-ms-reveal`, que o Edge
-     desenha sozinho em todo `input type=password` — dois controles iguais, lado a
-     lado, com a mesma funcao. Medido: o do app ficava centrado em x=550 e o do Edge
-     em x=510. O do app saiu. Reintroduzi-lo traz a dupla de volta, e num navegador
-     que quem escreveu talvez nao use. */
-  ok(eCampo.indexOf('btnVerSegredo') < 0 && eCampo.indexOf('ver-segredo') < 0,
-    'e o campo do segredo NÃO tem olho próprio — o Edge já desenha o dele em todo ' +
-    '`input type=password`, e os dois juntos pareciam defeito');
+  /* UM OLHO, NÃO DOIS — E NÃO NENHUM.
+     O campo já teve os dois: o botão do app E o `::-ms-reveal`, que o Edge desenha
+     sozinho em todo `input type=password`. Medido na época: o do app centrado em x=550
+     e o do Edge em x=510, dois controles iguais lado a lado. A conclusão foi tirar o do
+     app e ficar com o do navegador.
+
+     O ERRO ESTAVA NO "NAVEGADOR": o Chrome não desenha nenhum. Quem entra por ele
+     digitava a senha às cegas, e a única resposta a um dedo errado era "usuário ou
+     senha incorretos". A saída certa é a inversa da de então — cala-se o do navegador,
+     que só existe em alguns, e fica o do app, que existe em todos. */
   var folha = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
-  ok(!/padding-right:\s*58px/.test(folha),
-    'e o campo não reserva mais o vão de 58px que era do botão — sobraria um buraco ' +
-    'à direita do que se digita');
+  ok(/input\[type="password"\]::-ms-reveal,\s*\n?input\[type="password"\]::-ms-clear\{display:none\}/
+    .test(folha),
+    'o olho que o Edge desenha sozinho é calado — é ele que fazia a dupla');
+  var jsApp = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  ok(/function olhoDeSenha\(input\)/.test(jsApp) && /olhosDeSenha\(document\);/.test(jsApp),
+    'e o olho do app entra em TODOS os campos de senha da tela de entrada — a de trocar '+
+    'pede a senha nova duas vezes, e conferir duas digitações às cegas é onde a pessoa '+
+    'trava no primeiro acesso');
+  ok((jsApp.match(/function olhoDeSenha\(/g) || []).length === 1,
+    'de um lugar só: dois botões de mostrar senha acabam discordando sobre o que o '+
+    'olho aberto quer dizer');
+  ok(/if \(!input \|\| input\.dataset\.olho\) return;/.test(jsApp),
+    'e ele não se duplica quando a tela é desenhada de novo');
+  /* NASCE OCULTO e o foco volta para onde estava: senha revelada que sobrevive a uma
+     troca de tela fica aberta nas costas de quem foi buscar café, e tocar no olho no
+     meio da digitação não pode jogar o cursor para o fim do campo. */
+  ok(/var i = input\.selectionStart, f = input\.selectionEnd;/.test(jsApp) &&
+     /input\.setSelectionRange\(i, f\)/.test(jsApp),
+    'tocar no olho devolve o foco e o cursor ao lugar em que estavam');
+  ok(/b\.tabIndex = -1;/.test(jsApp),
+    'e ele fica fora da ordem do Tab: quem navega pelo teclado vai do campo para '+
+    '"Entrar", sem parar num enfeite no meio');
+  ok(/\.com-olho > input\{width:100%;padding-right:50px!important\}/.test(folha),
+    'o campo abre espaço para o botão — sem isso a senha longa passa por baixo dele, e '+
+    'os últimos caracteres somem justo quando se quer conferi-los');
+  ok(/\.olho\[aria-pressed="true"\]\{color:var\(--marca-txt\)\}/.test(folha),
+    'e revelada, ela acende: senha à mostra não pode virar um estado em que se esquece');
+  /* `type="button"`: dentro de um formulário o padrão de um `<button>` é ENVIAR, e
+     tocar no olho mandaria a tentativa de login com a senha pela metade. */
+  ok(/b\.type = 'button';/.test(jsApp),
+    'o botão não envia o formulário — o padrão de `<button>` é enviar, e tocar no olho ' +
+    'mandaria a senha pela metade');
+  ok(/aria-label', ver \? 'Ocultar a senha' : 'Mostrar a senha'/.test(jsApp),
+    'e o rótulo diz o que o toque VAI fazer, e não o nome do campo');
+  ok(/b\.setAttribute\('aria-pressed', ver \? 'true' : 'false'\);/.test(jsApp),
+    'com o estado chegando a quem ouve a tela: sem ele, o leitor anuncia um botão que ' +
+    'nunca muda de situação');
+  /* 44px é o mínimo do projeto — "o app é usado de luva, e alvo pequeno custa
+     lançamento" —, e a altura não passa do campo: em formulário de painel o campo tem
+     uns 45px, e um botão maior que ele escaparia por cima e por baixo. */
+  ok(/\.olho\{[\s\S]{0,200}width:44px;height:44px;max-height:calc\(100% - 4px\);/.test(folha),
+    'o alvo tem os 44px do projeto, e não estoura a altura do campo');
+  ok(/\.olho\{\s*\n\s*position:absolute;right:3px;top:50%/.test(folha),
+    'e ele fica DENTRO do campo, à direita — fora dele, vira um botão solto que não se ' +
+    'liga ao que ele revela');
+  /* OS CAMPOS DE SENHA DO PAINEL também: a senha nova que o admin define para alguém e
+     a do escritório na correção. Ligado no `modal`, nenhum formulário novo precisa
+     lembrar de pedir. */
+  ok(/Q\.olhosDeSenha\(document\.getElementById\('modalBox'\)\);/.test(adm),
+    'todo formulário do painel ganha o olho ao abrir — os dois campos de senha de lá ' +
+    'também eram digitados às cegas');
 
   /* Nenhuma das duas manda para a outra: o destino e decidido depois de autenticar. */
   ok(eCampo.indexOf('painel administrativo') < 0 && eCampo.indexOf('app de lançamento') < 0,

@@ -757,9 +757,18 @@
       toast(MSG_ADMIN, 'erro');
     }
 
-    /* O app nao tem mais botao de mostrar o segredo: o campo ficava com dois olhos,
-       o nosso e o que o Edge desenha sozinho em `input type=password`. O `campo`
-       continua aqui porque o Enter e o foco da abertura dependem dele. */
+    /* O OLHO VOLTOU, e agora é só um.
+       Ele tinha saído porque o campo ficava com DOIS: o do app e o que o Edge desenha
+       sozinho em `input type=password`. A conclusão da época foi ficar com o do
+       navegador — e o erro estava aí: o Chrome não desenha nenhum, e quem entra por ele
+       digitava seis números às cegas, com "usuário ou senha incorretos" como única
+       resposta. Agora o do navegador é calado pela folha de estilo (`::-ms-reveal`) e
+       fica o do app, igual em todo lugar.
+
+       TODOS os campos de senha desta tela, e não só o da entrada: a de trocar pede a
+       senha nova DUAS vezes, e conferir duas digitações às cegas é justamente onde a
+       pessoa trava no primeiro acesso. */
+    olhosDeSenha(document);
     var campo = $('inSegredo');
 
     /* ---- entrar ------------------------------------------------------------ */
@@ -1142,6 +1151,77 @@
     };
   }
 
+  /* ==================== O OLHO DE VER A SENHA ====================
+   *
+   * ELE JÁ EXISTIU E FOI TIRADO. A razão da época: o Edge desenha um olho SEU em todo
+   * `input type=password`, e dois controles com a mesma função lado a lado parecem
+   * defeito. A conclusão foi deixar só o do navegador, "onde o navegador o oferecer".
+   *
+   * O erro estava nesse "onde": o Chrome não oferece nenhum. Quem entra por ele digita
+   * seis números às cegas, erra, e a única resposta é "usuário ou senha incorretos" —
+   * sem jeito de conferir o que escreveu. No galpão, de luva, isso é o normal.
+   *
+   * Agora o olho é do app, e o do navegador é calado pela folha de estilo
+   * (`::-ms-reveal`). Um controle só, em todo navegador — que era a intenção da decisão
+   * antiga, e não o que ela conseguiu.
+   *
+   * NASCE SEMPRE OCULTO, a cada desenho: senha revelada que sobrevive a uma troca de
+   * tela acaba aberta nas costas de quem foi buscar café.
+   */
+  function olhoDeSenha(input) {
+    if (!input || input.dataset.olho) return;
+    input.dataset.olho = '1';
+
+    var cx = document.createElement('span');
+    cx.className = 'com-olho';
+    input.parentNode.insertBefore(cx, input);
+    cx.appendChild(input);
+
+    var b = document.createElement('button');
+    b.type = 'button';                    // dentro de um formulário, o padrão é enviar
+    b.className = 'olho';
+    b.tabIndex = -1;                      /* Fora da ordem do Tab: quem navega pelo
+                                             teclado vai do campo para "Entrar", e uma
+                                             parada no meio para um enfeite atrapalha
+                                             mais do que ajuda. */
+    function pintar() {
+      var ver = input.type === 'text';
+      b.setAttribute('aria-pressed', ver ? 'true' : 'false');
+      b.setAttribute('aria-label', ver ? 'Ocultar a senha' : 'Mostrar a senha');
+      b.title = b.getAttribute('aria-label');
+      b.innerHTML = ver ? OLHO_FECHADO : OLHO_ABERTO;
+    }
+    b.addEventListener('click', function () {
+      /* O FOCO E O CURSOR VOLTAM para onde estavam. Sem isto, tocar no olho no meio da
+         digitação joga o cursor para o fim do campo — e quem estava corrigindo o
+         terceiro número escreve o resto no lugar errado. */
+      var i = input.selectionStart, f = input.selectionEnd;
+      input.type = input.type === 'password' ? 'text' : 'password';
+      pintar();
+      input.focus();
+      try { input.setSelectionRange(i, f); } catch (e) {}
+    });
+    pintar();
+    cx.appendChild(b);
+  }
+
+  var OLHO_ABERTO =
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"></path>' +
+    '<circle cx="12" cy="12" r="3"></circle></svg>';
+  var OLHO_FECHADO =
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M2 12s3.6-7 10-7c2 0 3.7.7 5.1 1.6M22 12s-3.6 7-10 7c-2 0-3.7-.7-5.1-1.6">' +
+    '</path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path>' +
+    '<line x1="3" y1="3" x2="21" y2="21"></line></svg>';
+
+  /** Põe o olho em TODOS os campos de senha de um pedaço da tela, de uma vez. */
+  function olhosDeSenha(raiz) {
+    (raiz || document).querySelectorAll('input[type="password"]').forEach(olhoDeSenha);
+  }
+
   /** Reduz a foto no navegador antes de subir (economiza dados do celular). */
   function comprimirFoto(file, maxLado, qualidade) {
     return new Promise(function (resolve, reject) {
@@ -1209,6 +1289,7 @@
     agruparLancamentos: agruparLancamentos, chaveDoLote: chaveDoLote,
     gruposDaNavegacao: gruposDaNavegacao,
     quemEsta: quemEsta, iniciais: iniciais, pintarCirculo: pintarCirculo,
+    olhoDeSenha: olhoDeSenha, olhosDeSenha: olhosDeSenha,
     barraAging: barraAging, assinatura: assinatura,
     comprimirFoto: comprimirFoto, csv: csv, atualizarBadge: atualizarBadge
   };

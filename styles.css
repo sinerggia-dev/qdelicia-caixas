@@ -800,6 +800,39 @@ tr.ruim{background:var(--vermelho-claro)}
    que se digita ali sao seis numeros e conta-los tem de ser facil. */
 .pin{font-family:var(--fonte-mono);font-size:20px;letter-spacing:.5em}
 
+/* ==================== O OLHO DE VER A SENHA ====================
+ * Ele existiu, saiu e voltou. Saiu porque o campo ficava com DOIS olhos: o do app e o
+ * que o Edge desenha sozinho em `input type=password`. A decisão de então foi ficar com
+ * o do navegador — e o erro estava aí: o Chrome não desenha nenhum, e quem entra por
+ * ele digita a senha às cegas.
+ *
+ * A saída certa é esta: cala-se o do NAVEGADOR e fica o do app, que é igual em todo
+ * lugar e que a tela controla. `::-ms-reveal` é o do Edge; `::-ms-clear` é o "x" que
+ * ele põe do lado, e que some pela mesma razão. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear{display:none}
+
+.com-olho{position:relative;display:block}
+/* O campo abre espaço para o botão: sem isto a senha longa passa por baixo dele, e os
+   últimos caracteres ficam escondidos justamente quando se quer conferi-los. */
+/* 50px, e não 46: o botão tem 44 e fica a 3 da borda, então ele começa 47 antes do
+   fim do campo. Medido, com 46 o texto chegava a um pixel de passar por baixo dele. */
+.com-olho > input{width:100%;padding-right:50px!important}
+/* 44px de alvo, que é o mínimo do projeto — "o app é usado de luva, e alvo pequeno
+   custa lançamento". A altura NÃO passa do campo: em formulário de painel o campo tem
+   uns 45px, e um botão maior que ele escaparia por cima e por baixo. */
+.olho{
+  position:absolute;right:3px;top:50%;transform:translateY(-50%);
+  width:44px;height:44px;max-height:calc(100% - 4px);
+  display:inline-flex;align-items:center;justify-content:center;
+  border:0;border-radius:9px;background:transparent;color:var(--txt3);cursor:pointer
+}
+.olho:hover{background:var(--surface-2);color:var(--txt)}
+/* Revelada, a senha está à mostra para quem passar atrás: o botão acende para isso não
+   virar um estado em que se esquece. */
+.olho[aria-pressed="true"]{color:var(--marca-txt)}
+.olho svg{pointer-events:none}
+
 /* O botao de entrar e o VERDE do logo, com tinta escura. Ver `--sobre-verde`. */
 .btn-entrar{
   width:100%;min-height:56px;margin-top:22px;
