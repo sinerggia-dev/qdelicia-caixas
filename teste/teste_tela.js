@@ -5647,6 +5647,116 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
     'e quem pediu menos movimento não recebe nenhuma delas');
 })();
 
+console.log('\n== A foto do usuário: do arquivo ao círculo ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var sup = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
+  var ix = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  var mig = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
+
+  /* ---- o caminho do dado --------------------------------------------------- */
+  ok(/alter table public\.usuarios add column if not exists foto text;/.test(mig),
+    'a coluna nasce por migração — sem ela, gravar a foto devolve erro de coluna ' +
+    'inexistente e o cadastro inteiro deixa de salvar');
+  /* O ENDEREÇO, e não a imagem: a tabela de usuários é lida inteira a cada visita ao
+     painel, e um base64 de retrato ali viajaria em toda abertura de tela. */
+  ok(/foto text;/.test(mig) && !/foto bytea/.test(mig),
+    'e é uma coluna de texto: o byte da imagem mora no balde, não na tabela');
+  /* A LEITURA E A GRAVAÇÃO, as duas. Só a gravação tinha guarda — a de simetria, que
+     cobra contrapartida para todo campo LIDO. Apagar a leitura passava por ela sem
+     ruído, e o efeito seria a foto salvando no banco e nunca voltando para a tela:
+     a pessoa escolheria o rosto, salvaria, e veria as iniciais de novo. */
+  ok(/Foto: r\.foto \|\| '',/.test(sup),
+    'a coluna é LIDA do banco — gravada e não lida, a foto salva e a tela nunca a mostra');
+  ok(/if \(o\.Foto !== undefined\) r\.foto = nulo\(o\.Foto\);/.test(sup),
+    'tirar a foto grava NULO, e não string vazia — a tela pergunta "tem foto?", e o ' +
+    'vazio responderia que sim');
+
+  /* ---- o servidor é a fronteira ------------------------------------------- */
+  var iSU = ix.indexOf('async function salvarUsuario(p)');
+  var rota = ix.slice(iSU, ix.indexOf('\nasync function', iSU + 10));
+  ok(iSU > 0 && rota.length > 1000, 'o recorte pegou a rota', rota.length);
+  ok(/dados\.Foto\.slice\(0, 5\) === 'data:'/.test(rota),
+    'só sobe o que veio como imagem nova: regravar o endereço que já existe a cada ' +
+    'Salvar encheria o balde de cópias do mesmo rosto');
+  ok(/\^data:image\\\/\(png\|jpe\?g\|webp\);base64,/.test(rota),
+    'o TIPO é conferido no servidor — um `data:` de outra coisa viraria um arquivo com ' +
+    'extensão de foto e conteúdo de qualquer natureza');
+  ok(/dados\.Foto\.length > 1500000/.test(rota),
+    'e o TAMANHO também: a tela reduz antes de mandar, mas esta rota aceita pedido de ' +
+    'qualquer origem, e a tela não é a fronteira');
+  ok(/if \(!url\) return \{ ok: false, erro: 'Não consegui guardar a foto/.test(rota),
+    'falhando o envio, a gravação PARA — seguir em frente deixaria o cadastro salvo, a ' +
+    'foto perdida e nenhum aviso de que ela se perdeu');
+
+  /* ---- a volta quando o endereço quebra ------------------------------------ */
+  /* NO RECORTE DA FUNÇÃO, e não no arquivo: `onerror` aparece duas vezes em
+     `admin.html` — aqui e no retrato do formulário —, e procurado solto, um respondia
+     pelo outro. Arrancado da lista, a afirmação continuava verde. */
+  var iR = adm.indexOf('function retrato(u, classe)');
+  var retr = adm.slice(iR, adm.indexOf('\n  }', iR));
+  ok(iR > 0 && /onerror="this\.remove\(\)"/.test(retr),
+    'no retrato da lista, a imagem que não carrega se retira');
+  ok(/onerror="this\.remove\(\)"/.test(adm.slice(adm.indexOf('id="fFotoPreview"'),
+                                                 adm.indexOf('id="fFotoPreview"') + 400)),
+    'e no retrato do formulário também — é o mesmo desenho, e a foto velha pode ter ' +
+    'sumido do balde desde o último Salvar');
+  ok(iR > 0 && /Q\.esc\(iniciaisDe\(u\.Nome\)\)\+/.test(retr),
+    'e as iniciais ficam POR BAIXO dela: quebrado o endereço, o lugar volta a mostrar ' +
+    'duas letras em vez de um quadrado vazio');
+  ok(/\.retrato__f\{position:absolute;inset:0/.test(css),
+    'a foto cobre o quadrado inteiro, em vez de ficar ao lado das letras');
+  ok(/\.u__ini\{position:relative;overflow:hidden/.test(css),
+    'e o quadrado recorta o que sobra — sem `overflow`, um retrato deitado escapa dele');
+
+  /* ---- os dois lugares da lista -------------------------------------------- */
+  ok(/retrato\(u, 'u-linha__r'\)/.test(adm),
+    'o retrato entra na coluna NOME da tabela, junto do nome — coluna própria seria ' +
+    'uma que se esconde pela aba Colunas, e o rosto sumiria de onde ele serve');
+  ok(/retrato\(u, 'u__ini'\)/.test(adm),
+    'e no cartão do celular, no lugar das iniciais');
+  ok((adm.match(/function retrato\(u, classe\)/g) || []).length === 1,
+    'os dois saem da MESMA função: escrita duas vezes, a volta do endereço quebrado ' +
+    'existiria num lugar e não no outro');
+
+  /* ---- o formulário -------------------------------------------------------- */
+  var iCF = adm.indexOf('function ligarCampoFoto()');
+  var campo = adm.slice(iCF, adm.indexOf('\n  function salvar(', iCF));
+  ok(iCF > 0 && campo.length > 900, 'o recorte pegou o campo de foto', campo.length);
+  ok(/campo\.value = dataUrl;\s*\n\s*mostrar\(dataUrl\);/.test(campo),
+    'escolher o arquivo já mostra o rosto ali: sem isso a pessoa escolhe, não vê nada ' +
+    'mudar e não sabe se pegou');
+  /* 320px É O DOBRO do maior lugar em que ela aparece. Um retrato de celular tem 4 MB e
+     4000px de lado; subir isso gastaria os dados de quem está no galpão para guardar um
+     arquivo que ninguém vê inteiro — e a rota recusaria depois da espera. */
+  ok(/Q\.comprimirFoto\(f, 320, 0\.8\)/.test(campo),
+    'a imagem encolhe no navegador antes de subir');
+  ok(/if \(!\/\^image\\\/\(png\|jpeg\|webp\)\$\/\.test\(f\.type\)\)/.test(campo),
+    'e o tipo é conferido na hora: o `accept` do campo é dica, e o seletor do sistema ' +
+    'deixa escolher "todos os arquivos" em quase todo aparelho');
+  ok(/Foto:document\.getElementById\('fFoto'\)\.value/.test(adm),
+    'o que o campo escondido guarda é o que vai gravado');
+  /* O BOTÃO É UM `<label>`, e `button.btn` não alcança `<label>` — a mesma armadilha
+     que o `label.btn-foto` da câmera já tinha encontrado. Posto como `class="btn sec"`,
+     ele saía como texto solto ao lado de um botão de verdade. */
+  ok(/<label class="foto-campo__esc" for="fFotoArq"/.test(adm) &&
+     /label\.foto-campo__esc\{/.test(css),
+    'o botão que abre o seletor tem regra própria de `label`');
+  ok(/id="fFotoArq" accept="image\/png,image\/jpeg,image\/webp" '\+\s*\n?\s*'class="sr"/.test(adm),
+    'e o campo de arquivo cru fica escondido — ele não se estiliza, e escrito ' +
+    '"Nenhum arquivo selecionado" em inglês fica fora do resto da tela');
+
+  /* ---- o círculo de quem está logada --------------------------------------- */
+  ok(/Q\.quemEsta\(s\.nome, s\.perfil, s\.foto\)/.test(adm),
+    'a tela manda a foto para o círculo da lateral');
+  ok(/pintarCirculo\(document\.getElementById\('avatarUsuario'\), nome, foto\)/.test(js) &&
+     /pintarCirculo\(t, nome, foto\)/.test(js),
+    'e os dois círculos saem do mesmo desenho — em separado, um mostraria o rosto e o ' +
+    'outro as letras da mesma pessoa');
+})();
+
 console.log('\n== Corrigir: o que é correção e o que é só consulta ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
