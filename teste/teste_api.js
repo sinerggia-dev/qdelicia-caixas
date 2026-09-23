@@ -669,8 +669,23 @@ async function main() {
      'histórico guarda o valor antigo e o novo', movC.historico);
   ok(ultC.motivo === 'romaneio dizia 95' && ultC.por === 'U001',
      'histórico guarda motivo e autor', ultC);
-  ok((await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95, motivo: 'de novo', senha: '123456' })).ok === false,
-     'corrigir para o mesmo valor não gera histórico vazio');
+  /* A ROTA INTEIRA, e não só a regra: corrigir para o mesmo valor grava uma CONSULTA —
+     e o `consulta: true` tem de chegar até aqui, senão a tela diz "Corrigido:" seguido
+     de nada e põe a etiqueta amarela num lançamento intocado. */
+  const vezesAntes = (await GET({ acao: 'movimentos', limit: 200 })).movimentos
+    .filter((m) => m.id === alvoC.id)[0].alterado.vezes;
+  const rIgual = await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95, motivo: 'de novo', senha: '123456' });
+  ok(rIgual.ok === true && rIgual.consulta === true && (rIgual.alterou || []).length === 0,
+     'corrigir para o mesmo valor vira consulta, e a rota diz isso', rIgual);
+  const depoisDaConsulta = (await GET({ acao: 'movimentos', limit: 200 })).movimentos
+    .filter((m) => m.id === alvoC.id)[0];
+  ok(depoisDaConsulta.qtd === 95 && depoisDaConsulta.alterado.consulta.vezes === 1,
+     'o número não se mexe, e a consulta fica contada à parte',
+     { qtd: depoisDaConsulta.qtd, alterado: depoisDaConsulta.alterado });
+  ok(depoisDaConsulta.alterado.vezes === vezesAntes && vezesAntes > 0,
+     'e a conta de alterações fica EXATAMENTE onde estava — a consulta não soma a ela ' +
+     'nem apaga o que já havia',
+     { antes: vezesAntes, depois: depoisDaConsulta.alterado.vezes });
 
   /* ---------------------------------------------------------------------------
    * A CORREÇÃO FEITA NO GALPÃO APARECE NO PAINEL.
@@ -2332,7 +2347,10 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
 
     // trocar para o mesmo não é correção
     r = comSenha(mov, { UsuarioID: 'U1', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
-    ok(!r.ok && /Nada mudou/.test(r.erro), 'escolher o mesmo usuário não vira correção', r);
+    ok(r.ok && r.consulta === true && r.entradas.length === 0,
+      'escolher o mesmo usuário não vira correção — vira consulta', r);
+    ok(Object.keys(r.patch).length === 0,
+      'e não escreve nada no lançamento: uma consulta não muda dado', r.patch);
 
     // e os campos antigos seguem funcionando junto
     r = comSenha(mov, { Qtd: 60, UsuarioID: 'U2', motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
@@ -2365,8 +2383,72 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     // trocar por igual continua não sendo correção, campo novo ou velho
     r = comSenha(mov, { OrigemID: 'L1', TipoCaixaID: 'T1', Motorista: 'Ramos',
                                 motivo: 'x', usuarioId: 'U1' }, new Date(), nomes);
-    ok(!r.ok && /Nada mudou/.test(r.erro),
+    ok(r.ok && r.consulta === true && r.entradas.length === 0,
       'repetir os mesmos valores não vira correção nos campos novos também', r);
+
+    /* ---- ABRIR E GRAVAR SEM MUDAR NADA É CONSULTA, E NÃO CORREÇÃO ----
+     *
+     * "Corrigido" é uma afirmação sobre o DADO: diz que o número ali não é o que foi
+     * lançado. Em cima de um lançamento intocado, ela manda o escritório procurar uma
+     * diferença que não existe — e faz duvidar de um dado correto. O fato fica
+     * registrado assim mesmo: quem abriu a correção e por quê é coisa que se quer saber
+     * depois. O que muda é o nome do que aconteceu. */
+    {
+      const parado = { ID: 'M9', Tipo: 'SAIDA', Qtd: 50, UsuarioID: 'U1',
+        OrigemID: 'L1', DestinoID: 'R1', TipoCaixaID: 'T1', Motorista: 'Ramos',
+        DataRef: new Date('2026-09-15T00:00:00'), Historico: [] };
+      const agora = new Date('2026-09-16T10:00:00');
+
+      let c = comSenha(parado, { Qtd: 50, motivo: 'conferindo o romaneio', usuarioId: 'U2' },
+        agora, nomes);
+      ok(c.ok && c.consulta === true, 'gravar sem mudar nada devolve consulta, e não erro', c);
+      ok(c.historico.length === 1 && c.historico[0].campo === '(consulta)',
+        'a consulta entra no MESMO histórico, com marca própria', c.historico[0]);
+      ok(c.historico[0].por === 'U2' && c.historico[0].motivo === 'conferindo o romaneio' &&
+         c.historico[0].de === '' && c.historico[0].para === '',
+        'e guarda quem olhou e por quê, sem "de" e "para" — não houve de nem para',
+        c.historico[0]);
+
+      /* A MARCA NÃO PODE SER NOME DE CAMPO. Se `(consulta)` fosse um rótulo de
+         `CORRIGIVEIS`, uma correção de verdade seria lida como consulta e sumiria da
+         conta de alterações — o oposto exato do defeito que isto conserta. */
+      ok(F.CORRIGIVEIS.every((x) => x.rotulo !== '(consulta)'),
+        'nenhum campo corrigível se chama "(consulta)"',
+        F.CORRIGIVEIS.map((x) => x.rotulo));
+
+      /* A LEITURA SEPARA AS DUAS COISAS. `vezes` é o que faz a tela dizer "corrigido":
+         uma consulta contada ali acusaria de alteração um lançamento que ninguém tocou. */
+      const so = F.ultimaAlteracao({ Historico: c.historico },
+        F.mapaNomes([{ ID: 'U2', Nome: 'Ivanilda' }]));
+      ok(so.vezes === 0, 'só consulta não conta como alteração', so);
+      ok(so.consulta.vezes === 1 && so.consulta.por === 'Ivanilda',
+        'e a consulta é contada à parte, com o nome de quem olhou', so.consulta);
+
+      /* DEPOIS DE UMA CORREÇÃO DE VERDADE, vale a correção: é ela que muda o que o
+         número quer dizer. A consulta anterior não pode apagá-la da conta. */
+      const mudou = comSenha({ ...parado, Historico: c.historico },
+        { Qtd: 70, motivo: 'romaneio dizia 70', usuarioId: 'U1' }, agora, nomes);
+      const dois = F.ultimaAlteracao({ Historico: mudou.historico }, nomes.usuarios);
+      ok(mudou.ok && !mudou.consulta && dois.vezes === 1 && dois.campo === 'quantidade',
+        'a correção que vem depois da consulta continua sendo uma alteração', dois);
+      ok(dois.consulta.vezes === 1,
+        'e a consulta anterior continua registrada, sem sumir na conta', dois.consulta);
+
+      /* SEM MOTIVO NÃO PASSA, nem para consultar: o histórico sem motivo é uma linha que
+         diz "alguém olhou" e não diz por quê — e a etiqueta na tela fica sem explicação. */
+      const semMotivo = comSenha(parado, { Qtd: 50, motivo: '  ', usuarioId: 'U2' }, agora, nomes);
+      ok(!semMotivo.ok && /motivo/i.test(semMotivo.erro),
+        'consulta também exige o motivo', semMotivo);
+
+      /* E A GUARDA DA SENHA VEM ANTES. Sem isto, quem não pode corrigir passaria a poder
+         escrever no histórico de qualquer lançamento, de qualquer dia — um jeito calado
+         de sujar a auditoria alheia. */
+      const semGuarda = F.montarCorrecao(parado,
+        { Qtd: 50, motivo: 'espiando', usuarioId: 'U2' },
+        new Date('2026-09-20T10:00:00'), nomes, {});
+      ok(!semGuarda.ok && semGuarda.precisaSenha === true,
+        'e fora da janela livre a consulta também pede a senha do escritório', semGuarda);
+    }
 
     // os sete de uma vez
     r = comSenha(mov, {

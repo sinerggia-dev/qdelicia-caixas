@@ -3453,7 +3453,19 @@
       alterado:  { t: TIT['alterado'],
                    v: function(m){
                      var a = m.alterado || {};
-                     if (!a.por && !a.vezes) return '<span class="fraco">—</span>';
+                     var c = a.consulta || {};
+                     if (!a.vezes && !c.vezes) return '<span class="fraco">—</span>';
+                     /* SÓ CONSULTA NÃO É ALTERAÇÃO. A coluna se chama "Alterado por", e
+                        pôr aqui o nome de quem apenas olhou faria a conferência de
+                        escritório procurar uma diferença que não existe. O nome fica —
+                        é dado útil —, mas dito pelo que é. */
+                     if (!a.vezes) {
+                       return '<span class="fraco" title="'+
+                         Q.esc('Abriu a correção e gravou sem mudar nada'+
+                               (c.em ? ' em '+Q.dataHoraBR(c.em) : '')+
+                               (c.motivo ? ' — '+c.motivo : ''))+'">'+
+                         Q.esc(c.por || '—')+' (só consultou)</span>';
+                     }
                      var quando = Q.dataHoraBR(a.em);
                      var detalhe = (a.campo ? a.campo : 'alteração') +
                        (quando ? ' em ' + quando : '') +
@@ -3585,6 +3597,36 @@
     return '<div class="movs">'+grupos.map(cartaoMov).join('')+'</div>';
   }
 
+  /* "CORRIGIDO" É UMA AFIRMAÇÃO SOBRE O DADO: diz que o número ali não é o que foi
+     lançado. Por isso ela só sai quando algum campo mudou de verdade.
+
+     Quem abriu a correção e gravou sem mexer em nada deixa "consultado", em cinza — o
+     fato fica registrado, e não acusa de alteração um lançamento intocado. Se houve as
+     duas coisas, vale a correção: é ela que muda o que o número quer dizer.
+
+     Um lugar só para a etiqueta: a tabela e o cartão mostravam a mesma coisa escrita
+     duas vezes, e a primeira que mudasse deixaria as telas discordando sobre o mesmo
+     lançamento. */
+  function seloAlteracao(alt){
+    alt = alt || {};
+    var c = alt.consulta || {};
+    if (alt.vezes) {
+      return '<span class="tag amarela" title="'+
+        Q.esc((alt.campo||'alteração')+' por '+(alt.por||'—')+
+              (alt.em ? ' em '+Q.dataHoraBR(alt.em) : '')+
+              (alt.motivo ? ' — '+alt.motivo : ''))+'">corrigido</span>';
+    }
+    if (c.vezes) {
+      return '<span class="tag cinza" title="'+
+        Q.esc('Alguém abriu a correção e gravou sem mudar nada. Último: '+
+              (c.por||'—')+(c.em ? ' em '+Q.dataHoraBR(c.em) : '')+
+              (c.motivo ? ' — '+c.motivo : '')+
+              (c.vezes > 1 ? ' ('+c.vezes+' consultas ao todo)' : ''))+
+        '">consultado</span>';
+    }
+    return '';
+  }
+
   function cartaoMov(g){
     var ehRetorno = g.tipo === 'DEVOLUCAO';
     var alt = g.alterado || {};
@@ -3597,10 +3639,7 @@
       '<div class="mov__topo">'+
         '<span class="tag '+tagCiclo(g.situacao)+'">'+Q.esc(g.situacao)+'</span>'+
         (g.teste ? '<span class="tag amarela">teste</span>' : '')+
-        (alt.vezes ? '<span class="tag amarela" title="'+
-           Q.esc((alt.campo||'alteração')+' por '+(alt.por||'—')+
-                 (alt.em ? ' em '+Q.dataHoraBR(alt.em) : '')+
-                 (alt.motivo ? ' — '+alt.motivo : ''))+'">corrigido</span>' : '')+
+        seloAlteracao(alt)+
         '<span class="mov__quando">'+Q.dataBR(g.dataRef)+' · '+
           Q.esc(Q.horaBR(g.dataHora) || '—')+'</span>'+
       '</div>'+
@@ -4733,9 +4772,28 @@
     /* "—" na frente, e nao "Selecione...": um lancamento pode legitimamente nao ter
        origem (o ajuste) ou motorista, e "Selecione..." sugeriria que falta preencher.
        Escolher o vazio apaga o campo, que e o conserto de quem lancou no lugar errado. */
+    /* UM SELETOR NUNCA MOSTRA VALOR DIFERENTE DO QUE ESTÁ GRAVADO. Se o que o
+       lançamento tem não estiver na lista — local desativado, tipo apagado do cadastro —
+       o navegador escolhe a PRIMEIRA opção, a tela passa a exibir outra coisa, e gravar
+       torna a mentira verdadeira: o campo é reescrito sem ninguém ter tocado nele.
+
+       Foi assim que um lançamento de CX P virou CX DIVERSAS — que é a primeira da lista
+       em ordem alfabética — numa correção em que só se queria mexer na quantidade.
+
+       `faltando` devolve a opção que repõe o valor gravado, marcada, quando ele sumiu
+       da lista. É a mesma proteção que o seletor de motorista já tinha. */
+    function faltando(atual, tem, rotulo){
+      if (!atual || tem) return '';
+      return '<option value="'+Q.esc(atual)+'" selected>'+Q.esc(rotulo)+
+        ' · fora do cadastro</option>';
+    }
+
     function seletorLocal(atual){
+      var lista = Q.ordenarLocais((DADOS.locais||[]));
+      var achou = lista.some(function(l){ return String(l.ID)===String(atual); });
       return '<option value="">—</option>'+
-        Q.ordenarLocais((DADOS.locais||[])).map(function(l){
+        faltando(atual, achou, nomeDe(DADOS.locais||[], atual))+
+        lista.map(function(l){
           return '<option value="'+Q.esc(l.ID)+'"'+
             (String(l.ID)===String(atual)?' selected':'')+'>'+Q.esc(l.Nome)+
             ' · '+Q.esc(String(l.Tipo||'').toLowerCase())+'</option>';
@@ -4771,7 +4829,13 @@
           seletorLocal(m.origemId)+'</select></div>'+
         '<div><label>Destino</label><select id="cDestino">'+
           seletorLocal(m.destinoId)+'</select></div>'+
+        /* SEM OPÇÃO VAZIA E SEM CAIR NA PRIMEIRA: todo lançamento tem tipo de caixa, e
+           se o dele não estiver no cadastro é ele que aparece — e não a primeira em
+           ordem alfabética, que era CX DIVERSAS. */
         '<div><label>Caixa</label><select id="cCaixa">'+
+          faltando(m.tipoCaixaId,
+                   (DADOS.tipos||[]).some(function(t){ return String(t.ID)===String(m.tipoCaixaId); }),
+                   m.tipoCaixa || m.tipoCaixaId)+
           Q.ordenarPorNome(DADOS.tipos||[]).map(function(t){
             return '<option value="'+Q.esc(t.ID)+'"'+
               (String(t.ID)===String(m.tipoCaixaId)?' selected':'')+'>'+Q.esc(t.Nome)+'</option>';
@@ -4780,9 +4844,16 @@
         '<div><label>Motorista</label><select id="cMotorista">'+
           seletorMotorista(m.motorista)+'</select></div>'+
         '<div><label>Romaneio</label><input type="text" id="cRom" value="'+Q.esc(m.romaneio||'')+'"></div>'+
+        /* PELO ID, e não pelo nome. O lançamento guarda o id de quem o fez; casar pelo
+           NOME dependia de o cadastro nunca ter sido renomeado — e num nome que já não
+           bate, o seletor caía na primeira pessoa da lista e gravar reatribuía o
+           lançamento a ela. */
         '<div><label>Quem fez o envio</label><select id="cUsuario">'+
+          faltando(m.usuarioId,
+                   (EQUIPE||[]).some(function(u){ return String(u.ID)===String(m.usuarioId); }),
+                   m.usuario || m.usuarioId)+
           Q.ordenarPorNome(EQUIPE).map(function(u){
-            return '<option value="'+Q.esc(u.ID)+'"'+(String(u.Nome)===String(m.usuario)?' selected':'')+'>'+
+            return '<option value="'+Q.esc(u.ID)+'"'+(String(u.ID)===String(m.usuarioId)?' selected':'')+'>'+
               Q.esc(u.Nome)+'</option>';
           }).join('')+
         '</select></div>'+
@@ -4829,7 +4900,12 @@
         b.disabled=false; b.textContent='Gravar correção';
         if (!r.ok) return Q.toast(r.erro,'erro');
         fecharModal();
-        Q.toast('Corrigido: '+r.alterou.map(function(x){ return x.campo; }).join(', '),'ok');
+        /* "Corrigido: " seguido de nada é a mesma mentira da etiqueta, dita em outro
+           lugar — e aqui ela é pior, porque a pessoa acabou de agir e vai acreditar. */
+        Q.toast(r.consulta
+          ? 'Nada mudou — registrei como consulta.'
+          : 'Corrigido: '+r.alterou.map(function(x){ return x.campo; }).join(', '),
+          r.consulta ? 'info' : 'ok');
         document.getElementById('btnFiltrarMov').click();
         carregarPainel();
       }).catch(function(e){ b.disabled=false; b.textContent='Gravar correção'; Q.toast(e.message,'erro'); });

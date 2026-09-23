@@ -806,6 +806,12 @@ function montarConferencia(mov, p) {
    `mapa` diz de QUAL mapa de nomes o campo se serve — o histórico guarda o NOME e não o
    id, porque uma linha dizendo "origem: de L001 para L016" não serve para ninguém
    conferir nada. */
+/* O `campo` que marca uma consulta no mesmo histórico das correções. Ele NÃO pode
+   colidir com nenhum `rotulo` de `CORRIGIVEIS` — se colidisse, uma correção de verdade
+   seria contada como consulta e sumiria da conta de alterações. Os dois parênteses estão
+   aí para isso: nenhum rótulo de campo se chama assim. */
+var MARCA_CONSULTA = '(consulta)';
+
 var CORRIGIVEIS = [
   { campo: 'Qtd', rotulo: 'quantidade', numero: true },
   { campo: 'QtdConferida', rotulo: 'conferida', numero: true },
@@ -929,7 +935,22 @@ function montarCorrecao(mov, p, agora, nomes, guarda) {
     });
   });
 
-  if (!entradas.length) return { ok: false, erro: 'Nada mudou.' };
+  /* ABRIR E GRAVAR SEM MUDAR NADA É UMA CONSULTA, e não uma correção. A etiqueta
+     "corrigido" é uma afirmação sobre o DADO: ela diz que o número que está ali não é o
+     que foi lançado. Posta em cima de um lançamento intocado, ela manda o escritório
+     procurar uma diferença que não existe — e, pior, faz duvidar de um dado correto.
+     Fica registrado assim mesmo: quem abriu a correção de um lançamento e por quê é
+     coisa que se quer saber depois; o que muda é o nome do que aconteceu. */
+  if (!entradas.length) {
+    var consulta = {
+      em: iso(agora), por: String(p.usuarioId || ''), campo: MARCA_CONSULTA,
+      motivo: motivo, de: '', para: ''
+    };
+    return {
+      ok: true, consulta: true, patch: {},
+      historico: (mov.Historico || []).concat([consulta]), entradas: []
+    };
+  }
   return { ok: true, patch: patch, historico: (mov.Historico || []).concat(entradas), entradas: entradas };
 }
 
@@ -1299,13 +1320,30 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
  * lembrada em cada ação nova, e a primeira esquecida deixaria a coluna mentindo por
  * omissão: em branco, como se ninguém tivesse tocado.
  */
+/* O HISTÓRICO É UM SÓ, e guarda duas coisas diferentes: o que MUDOU o dado e quem só
+   abriu a correção e gravou sem mexer. Elas não podem ser contadas juntas — `vezes` é o
+   que faz a tela dizer "corrigido", e uma consulta contada ali acusaria de alteração um
+   lançamento que ninguém tocou.
+
+   Duas listas separadas resolveriam também, e ao custo de duas verdades sobre o mesmo
+   lançamento podendo divergir. Aqui a separação é na leitura, e a marca é uma só. */
+function ehConsulta(u) { return String((u && u.campo) || '') === MARCA_CONSULTA; }
+
 function ultimaAlteracao(m, mUsers) {
   var h = (m && m.Historico) || [];
-  if (!h.length) return { por: '', em: '', campo: '', motivo: '', vezes: 0 };
-  var u = h[h.length - 1] || {};
+  var mudancas = h.filter(function (u) { return !ehConsulta(u); });
+  var consultas = h.filter(ehConsulta);
+  var u = mudancas[mudancas.length - 1] || {};
+  var c = consultas[consultas.length - 1] || {};
   return {
     por: mUsers ? nome(mUsers, u.por) : String(u.por || ''),
-    em: u.em || '', campo: u.campo || '', motivo: u.motivo || '', vezes: h.length
+    em: u.em || '', campo: u.campo || '', motivo: u.motivo || '', vezes: mudancas.length,
+    /* Quem olhou por último, e quantas vezes olharam. Serve à etiqueta "consultado" —
+       que é o que fica quando ninguém mudou nada. */
+    consulta: {
+      por: mUsers ? nome(mUsers, c.por) : String(c.por || ''),
+      em: c.em || '', motivo: c.motivo || '', vezes: consultas.length
+    }
   };
 }
 

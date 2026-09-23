@@ -5326,6 +5326,90 @@ console.log('\n== Movimentos no celular: cartão, folha de ações e filtros =='
     'a folha fecha pelo X, pelo véu e pelo Esc');
 })();
 
+console.log('\n== Corrigir: o que é correção e o que é só consulta ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var lg = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  var ix = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+
+  /* ---- A CAUSA: um seletor que muda o dado sozinho -------------------------
+   *
+   * Se o que o lançamento tem não está na lista, o navegador escolhe a PRIMEIRA opção,
+   * a tela passa a exibir outra coisa, e gravar torna a mentira verdadeira. Foi assim
+   * que um lançamento de CX P virou CX DIVERSAS — a primeira em ordem alfabética — numa
+   * correção em que só se queria mexer na quantidade. */
+  var iFC = adm.indexOf('function formCorrigir(m)');
+  var forma = adm.slice(iFC, adm.indexOf('\n  /* Locais que o admin pode marcar', iFC));
+  ok(iFC > 0 && forma.length > 2000, 'o recorte do formulário pegou o corpo', forma.length);
+
+  ok(/function faltando\(atual, tem, rotulo\)\{[\s\S]{0,260}fora do cadastro/.test(forma),
+    'o formulário repõe o valor gravado quando ele sumiu do cadastro — e diz que ele ' +
+    'está fora, em vez de fingir que é outro');
+  ok((forma.match(/faltando\(/g) || []).length === 4,
+    'e usa isso nos TRÊS seletores que podiam cair na primeira opção — local (que serve ' +
+    'a origem e destino), caixa e quem lançou',
+    (forma.match(/faltando\([a-zA-Z.]*/g) || []));
+  ok(/faltando\(m\.tipoCaixaId,/.test(forma),
+    'a caixa em particular: sem opção vazia, ela caía em CX DIVERSAS, que é a primeira ' +
+    'da lista — e gravar trocava o tipo de caixa do lançamento');
+  /* PELO ID, e não pelo nome: casar pelo nome dependia de o cadastro nunca ter sido
+     renomeado, e num nome que já não bate o seletor caía na primeira pessoa da lista. */
+  ok(/\(String\(u\.ID\)===String\(m\.usuarioId\)\?' selected':''\)/.test(forma) &&
+     !/String\(u\.Nome\)===String\(m\.usuario\)/.test(forma),
+    '"quem fez o envio" casa pelo ID, e não pelo nome — pelo nome, renomear alguém ' +
+    'reatribuía o lançamento na primeira correção seguinte');
+
+  /* ---- O QUE A ETIQUETA AFIRMA -------------------------------------------- */
+  ok((adm.match(/function seloAlteracao\(alt\)/g) || []).length === 1,
+    'a etiqueta de alteração mora num lugar só — escrita duas vezes, a tabela e o ' +
+    'cartão passariam a discordar sobre o mesmo lançamento');
+  /* NO CARTÃO, e não só na contagem de definições: copiada para dentro do `cartaoMov`,
+     a função continuava existindo uma vez e ninguém a chamava mais — o celular voltava
+     a dizer "corrigido" para uma consulta, e o teste seguia verde. */
+  var iCM = adm.indexOf('function cartaoMov(g)');
+  var cmov = adm.slice(iCM, adm.indexOf('\n  function cartoesMov(', iCM));
+  ok(iCM > 0 && /seloAlteracao\(alt\)\+/.test(cmov) && !/>corrigido<\/span>/.test(cmov),
+    'e o cartão a CHAMA, em vez de escrever a sua própria', cmov.length);
+  var iSA = adm.indexOf('function seloAlteracao(alt)');
+  var selo = adm.slice(iSA, adm.indexOf('\n  function cartaoMov(g)', iSA));
+  ok(/if \(alt\.vezes\) \{[\s\S]{0,300}>corrigido<\/span>/.test(selo),
+    '"corrigido" sai só quando algum campo mudou de verdade');
+  ok(/if \(c\.vezes\) \{[\s\S]{0,400}>consultado<\/span>/.test(selo) &&
+     /tag cinza/.test(selo),
+    'e quem abriu a correção sem mexer em nada deixa "consultado", em cinza');
+  ok(selo.indexOf('alt.vezes') < selo.indexOf('c.vezes'),
+    'havendo as duas coisas vale a correção: é ela que muda o que o número quer dizer');
+  ok(/Alguém abriu a correção e gravou sem mudar nada/.test(selo),
+    'e a etiqueta diz exatamente o que aconteceu — "consultado" sozinho seria lido ' +
+    'como "alguém olhou a tela", que não é o que ficou registrado');
+
+  /* A COLUNA "ALTERADO POR" não pode responder por uma consulta: quem só olhou não
+     alterou, e o nome dele ali manda a conferência procurar uma diferença que não há. */
+  ok(/if \(!a\.vezes\) \{[\s\S]{0,500}\(só consultou\)/.test(adm),
+    'na tabela, quem só consultou aparece dito pelo que é, e não como quem alterou');
+
+  /* ---- O SERVIDOR ---------------------------------------------------------- */
+  ok(/var MARCA_CONSULTA = '\(consulta\)';/.test(lg),
+    'a consulta entra no MESMO histórico das correções, com marca própria');
+  ok(/if \(!entradas\.length\) \{[\s\S]{0,400}consulta: true, patch: \{\}/.test(lg),
+    'gravar sem mudar nada devolve consulta e patch vazio — não escreve no dado');
+  ok(/function ehConsulta\(u\)/.test(lg) &&
+     /var mudancas = h\.filter\(function \(u\) \{ return !ehConsulta\(u\); \}\);/.test(lg),
+    '`vezes` conta só o que MUDOU — uma consulta contada ali acusaria de alteração um ' +
+    'lançamento que ninguém tocou');
+  ok(/consulta: \{\s*\n?\s*por: mUsers \? nome\(mUsers, c\.por\)/.test(lg),
+    'e a consulta é lida à parte, com o nome de quem olhou');
+  /* A GUARDA DA SENHA VEM ANTES. Sem isso, quem não pode corrigir passaria a poder
+     escrever no histórico de qualquer lançamento — um jeito calado de sujar auditoria. */
+  ok(lg.indexOf('precisaSenha: true') < lg.indexOf('consulta: true, patch: {}'),
+    'a senha é cobrada antes de a consulta ser gravada');
+  ok(/return \{ ok: true, alterou: r\.entradas, consulta: !!r\.consulta \};/.test(ix),
+    'a rota devolve o que aconteceu de verdade');
+  ok(/'Nada mudou — registrei como consulta\.'/.test(adm),
+    'e a tela avisa isso — "Corrigido:" seguido de nada é a mesma mentira da etiqueta, ' +
+    'dita no momento em que a pessoa mais acredita');
+})();
+
 console.log('\n== Painel da Operação no celular: quadros que dobram, rotas e estoque ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

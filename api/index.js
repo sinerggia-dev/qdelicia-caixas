@@ -342,7 +342,10 @@ async function corrigir(p) {
   var patch = db.MOV.para(r.patch);
   patch.historico = r.historico;
   await db.update('movimentos', mov.ID, patch);
-  return { ok: true, alterou: r.entradas };
+  /* `consulta` viaja de volta para a tela dizer o que aconteceu de verdade: "Corrigido:
+     quantidade" depois de uma gravação que não mudou nada seria a mesma mentira da
+     etiqueta, dita em outro lugar. */
+  return { ok: true, alterou: r.entradas, consulta: !!r.consulta };
 }
 
 async function conferir(p) {
