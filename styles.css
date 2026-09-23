@@ -923,6 +923,77 @@ tr.ruim{background:var(--vermelho-claro)}
   color:var(--txt3);font-size:14px;cursor:pointer}
 .pill button:hover{background:var(--surface-2);color:var(--txt)}
 
+/* ---------- O RESUMO NA ABA DO QUADRO DOBRADO ----------
+ * Fechado, o quadro só tem esta aba para dizer o que há dentro. Quando o resumo é uma
+ * má notícia — estoque negativo, cliente com caixa parada há mais de 30 dias — ela é o
+ * único lugar onde o alerta ainda aparece sem abrir nada. */
+.card.dobra > h2 .conta.alerta{background:var(--vermelho-claro);color:var(--vermelho)}
+
+/* ---------- ROTAS EM CARTÃO, no celular ----------
+ * A tabela tem seis colunas e o número que interessa — "no caminhão" — é a terceira:
+ * no telefone ela só se lê arrastando de lado, e o nome da rota sai da tela junto. */
+.rotas{display:grid;gap:10px}
+.rt{background:var(--surface-2);border:1px solid var(--linha);border-radius:var(--raio);padding:12px}
+/* Rota sem carga fica apagada, e não escondida: sumida, alguém a procuraria no cadastro. */
+.rt--vazia{opacity:.62}
+.rt__topo{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:10px}
+/* A rota zerada cabe numa linha: o nome, o motorista e "sem caixa", sem margem embaixo
+   porque não há nada depois dela. */
+.rt--linha{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 12px}
+.rt--linha .rt__topo{margin:0}
+.rt__nada{margin-left:auto;font-size:12px;color:var(--txt3)}
+.rt__nome{font-size:14.5px;font-weight:700}
+.rt-n{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:0}
+.rt-n__i{background:var(--surface);border:1px solid var(--linha);border-radius:9px;padding:7px 9px}
+.rt-n__i dt{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt3)}
+.rt-n__i dd{margin:3px 0 0;font-family:var(--fonte-mono);font-size:17px;font-weight:600;color:var(--txt)}
+/* O zero fica leve de propósito: numa grade de quatro números, quatro zeros em peso
+   cheio competem com o único que não é zero. */
+.rt-n__i--zero dd{color:var(--txt3);font-weight:400}
+.rt-n__i--aviso dd{color:var(--ambar-forte)}
+.rt-n__i--risco dd{color:var(--vermelho)}
+.rt__pe{display:flex;justify-content:flex-end;margin-top:10px}
+
+/* ---------- CLIENTES EM CARTÃO, no celular ----------
+ * A tabela tem dez colunas, e quatro delas são faixas de idade que só fazem sentido
+ * lidas juntas — no telefone ficam três arrastadas à direita do nome. */
+.clis{display:grid;gap:10px}
+.cli{background:var(--surface-2);border:1px solid var(--linha);border-radius:var(--raio);padding:12px}
+/* A borda inteira, e não só o número: é o cartão que precisa saltar na rolagem. */
+.cli--velho{border-color:var(--vermelho);background:var(--vermelho-claro)}
+.cli__topo{display:flex;align-items:flex-start;gap:10px}
+.cli__id{flex:1 1 auto;min-width:0}
+.cli__nome{font-size:14.5px;font-weight:700;line-height:1.3}
+.cli__rota{margin-top:3px;font-size:12px;color:var(--txt2)}
+.cli__saldo{flex:0 0 auto;text-align:right;line-height:1.15}
+.cli__saldo b{display:block;font-family:var(--fonte-mono);font-size:20px;font-weight:700;color:var(--txt)}
+.cli__saldo span{font-size:10.5px;color:var(--txt3)}
+/* O telefone é link de discar: com a caixa parada há 40 dias, o passo seguinte é ligar,
+   e copiar número à mão no celular é onde a pessoa desiste. */
+.cli__contato{margin-top:9px;padding-top:9px;border-top:1px solid var(--linha);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--txt2)}
+.cli__contato a{color:var(--marca-txt);font-family:var(--fonte-mono);text-decoration:none}
+.cli__pe{display:flex;justify-content:flex-end;margin-top:10px}
+
+/* ---------- ESTOQUE EM CHIPS, no celular ----------
+ * A coluna "Por tipo" é uma frase corrida que quebra em três linhas no telefone, e o
+ * sinal de menos some no meio do texto. Em chip, o negativo tem a borda inteira. */
+.galps{display:grid;gap:10px}
+.galp{background:var(--surface-2);border:1px solid var(--linha);border-radius:var(--raio);padding:12px}
+.galp__topo{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.galp__nome{font-size:14.5px;font-weight:700}
+.galp__saldo{font-family:var(--fonte-mono);font-size:20px;font-weight:700;color:var(--txt)}
+.galp__saldo--neg{color:var(--vermelho)}
+.galp__tipos{display:flex;flex-wrap:wrap;gap:6px}
+.chip-tipo{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;
+  border:1px solid var(--neutro);background:var(--surface);font-size:12px;color:var(--txt2)}
+.chip-tipo b{font-family:var(--fonte-mono);font-size:13px;font-weight:700;color:var(--txt)}
+/* Caixa física não fica abaixo de zero: quando fica, é erro de lançamento, e um erro
+   em cinza se lê como "está acabando" — que é o contrário do que aconteceu. */
+.chip-tipo--neg{border-color:var(--vermelho);background:var(--vermelho-claro)}
+.chip-tipo--neg b{color:var(--vermelho)}
+.galp__vazio{font-size:12.5px;color:var(--txt3);font-style:italic}
+
 /* ---------- USUÁRIOS EM CARTÃO, no celular ----------
  * A tabela tem nove colunas e três botões por linha. No telefone se procura quase sempre
  * a mesma coisa aqui: com que nome a pessoa entra, e em que pé está o acesso dela — por

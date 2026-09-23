@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=bbf15c9e">
+<link rel="stylesheet" href="styles.css?v=ecfb3e6d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -317,12 +317,19 @@
       <span class="dica">Lançamento de teste é o de quem tem <b>teste</b> no perfil. Ele conta no saldo como qualquer outro — isto aqui só separa a leitura.</span>
     </div>
     <div class="kpis" id="kpis"></div>
-    <div class="card" id="cardRotas" style="display:none">
+    <!-- OS QUATRO QUADROS DOBRAM, pelo MESMO mecanismo dos Cadastros (`montarDobras`).
+         Empilhados, eles dão sete telas de rolagem num celular, e o estoque — que é
+         onde está o erro de hoje — fica no fim de tudo.
+
+         `data-conta="propria"` diz que o resumo da aba NÃO é a contagem de linhas da
+         tabela: quantas rotas há não é o que se quer saber de relance; quantas estão
+         com carga, sim. Quem escreve esse resumo é a função que desenha cada quadro. -->
+    <div class="card" id="cardRotas" data-cad="painel_rotas" data-conta="propria" style="display:none">
       <h2>Rotas<span class="sub">No caminhão = carregou e ainda não entregou. Nos clientes = já entregou e ainda não voltou.</span></h2>
       <div id="tabelaRotas"></div>
     </div>
 
-    <div class="card">
+    <div class="card" data-cad="painel_clientes" data-conta="propria">
       <h2>Caixas em poder de clientes e unidades<span class="sub">Ordenado por quem tem mais caixas nossas. Vermelho = tem caixa parada há mais de 30 dias.</span></h2>
       <div class="grid2">
         <div class="busca"><input id="buscaPainel" type="text" placeholder="🔍 Buscar cliente ou filial"></div>
@@ -334,11 +341,11 @@
         <button class="btn neutro" id="btnAtualizarPainel" style="flex:0;min-width:140px">↻ Atualizar</button>
       </div>
     </div>
-    <div class="card">
+    <div class="card" data-cad="painel_idade" data-conta="propria">
       <h2>Idade das caixas na rua (geral)</h2>
       <div id="agingGeral"></div>
     </div>
-    <div class="card">
+    <div class="card" data-cad="painel_estoque" data-conta="propria">
       <h2>Estoque nos galpões<span class="sub">Precisa de um lançamento de Ajuste inicial para ficar correto.</span></h2>
       <div id="tabelaGalpoes"></div>
     </div>
@@ -1114,12 +1121,36 @@
       if (!r.ok) throw new Error(r.erro);
       PAINEL = r.painel; Q.cache('painel', PAINEL);
       montarFiltrosFluxo();
-      desenharRotas(); desenharKpis(); desenharFluxo(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral();
+      desenharPainel();
     }).catch(function(e){
       PAINEL = Q.cache('painel');
-      if (PAINEL){ desenharRotas(); desenharKpis(); desenharFluxo(); desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral(); Q.toast('Mostrando dados salvos: '+e.message,'erro'); }
+      if (PAINEL){ desenharPainel(); Q.toast('Mostrando dados salvos: '+e.message,'erro'); }
       else document.getElementById('tabelaPainel').innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
     });
+  }
+
+  /* A SEQUÊNCIA INTEIRA num lugar só. Ela era escrita duas vezes — no sucesso e no
+     cache —, e as duas cópias já tinham começado a divergir: bastava esquecer uma para
+     o painel voltar da rede completo e voltar do cache faltando um quadro.
+
+     `montarDobras` vem antes: é ele que cria a aba onde cada quadro escreve o resumo. */
+  function desenharPainel(){
+    montarDobras();
+    desenharRotas(); desenharKpis(); desenharFluxo();
+    desenharTabelaPainel(); desenharGalpoes(); desenharAgingGeral();
+  }
+
+  /* O RESUMO NA ABA DO QUADRO. Fechado, o quadro precisa dizer o que tem dentro — senão
+     quadro fechado e quadro vazio ficam iguais na tela, e a pessoa abre os quatro para
+     descobrir qual é qual. O `alerta` pinta a aba quando o resumo é uma má notícia:
+     fechado, é o único lugar onde ela ainda pode aparecer. */
+  function resumoDoCard(cad, texto, alerta){
+    var card = document.querySelector('.card[data-cad="'+cad+'"]');
+    if (!card) return;
+    var alvo = card.querySelector('.conta');
+    if (!alvo) return;
+    alvo.textContent = texto;
+    alvo.classList.toggle('alerta', !!alerta);
   }
   /* ---------------- guia Retornos: saída x retorno do mês ---------------- */
   /* Guia separada do Painel de propósito: o Painel responde "quanto ele tem nosso desde
@@ -2375,7 +2406,9 @@
      na abertura, o painel ficaria com a forma da largura de quando abriu. Redesenha do
      que já está na memória: nenhuma ida de rede por girar o celular. */
   window.matchMedia('(max-width:1023px)').addEventListener('change', function(){
-    if (PAINEL) desenharFluxo();
+    /* O painel INTEIRO, e não só o extrato: rotas, clientes e estoque trocam de forma
+       na mesma largura, e redesenhar um só deixava a tela metade cartão, metade tabela. */
+    if (PAINEL) desenharPainel();
   });
 
   document.getElementById('btnAtualizarRetornos').addEventListener('click', carregarPainel);
@@ -2479,6 +2512,21 @@
       '<option value="__sem">— sem rota —</option>';
     sel.value = atual;
     if (!rotas.length) return;
+
+    /* NA ABA: quantas rotas há não é o que se quer de relance — quantas estão com carga,
+       sim. É a diferença entre "existem sete rotas" e "tem caminhão na estrada". */
+    var comCarga = rotas.filter(function(r){ return r.saldo > 0; }).length;
+    resumoDoCard('painel_rotas',
+      rotas.length+' · '+(comCarga ? comCarga+' com carga' : 'nenhuma com carga'),
+      false);
+
+    if (emCartoesPainel()){
+      document.getElementById('tabelaRotas').innerHTML =
+        '<div class="rotas">'+rotas.map(cartaoRota).join('')+'</div>';
+      ligarVerClientes();
+      return;
+    }
+
     document.getElementById('tabelaRotas').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Rota</th><th>Motorista</th>'+
       '<th class="num">No caminhão</th><th class="num">Nos clientes</th><th class="num">Clientes</th>'+
@@ -2492,17 +2540,93 @@
           '<td class="num">'+(r.vencidasClientes?'<b style="color:var(--vermelho)">'+Q.num(r.vencidasClientes)+'</b>':'0')+'</td>'+
           '<td><button class="mini acao" data-rota="'+Q.esc(r.id)+'">ver clientes</button></td></tr>';
       }).join('')+'</tbody></table></div>';
+    ligarVerClientes();
+  }
+
+  /* O MESMO `data-rota` da tabela, e o mesmo religar: o cartão não reescreveu a ação.
+     Duas cópias dela discordariam no dia em que o filtro mudasse de nome. */
+  function ligarVerClientes(){
     document.querySelectorAll('[data-rota]').forEach(function(b){
       b.addEventListener('click', function(){
         document.getElementById('filtroRota').value = b.dataset.rota;
         desenharTabelaPainel();
+        /* No celular o quadro dos clientes nasce FECHADO: rolar até ele mostraria uma
+           aba dobrada, e a pessoa concluiria que "ver clientes" não fez nada. */
+        abrirCard('painel_clientes');
         document.getElementById('tabelaPainel').scrollIntoView({behavior:'smooth', block:'center'});
       });
     });
   }
+
+  function abrirCard(cad){
+    var card = document.querySelector('.card[data-cad="'+cad+'"]');
+    if (!card || !card.classList.contains('fechado')) return;
+    card.classList.remove('fechado');
+    try { localStorage.setItem(chaveDobra(cad), '1'); } catch(e){}
+  }
+
+  /* AS ROTAS EM CARTÃO, no celular. A tabela tem seis colunas e o número que interessa —
+     "no caminhão" — é a terceira: no telefone ela só se lê arrastando de lado, e o nome
+     da rota sai da tela junto. Aqui o nome fica no alto e os quatro números em grade.
+
+     A rota SEM CARGA fica apagada, e não escondida: ela existe, e some da tela seria
+     alguém procurá-la no cadastro achando que foi apagada. */
+  function cartaoRota(r){
+    var vazia = !r.saldo && !r.saldoClientes && !r.vencidasClientes;
+    var topo = '<div class="rt__topo">'+
+        '<span class="rt__nome">'+Q.esc(r.nome)+'</span>'+
+        /* "SEM MOTORISTA" SÓ É ALARME COM CARGA NA ESTRADA. Numa rota parada é um
+           cadastro em branco, e vermelho nela seria seis alarmes falsos ao lado do
+           único verdadeiro — o jeito mais rápido de ensinar a ignorar o vermelho. */
+        (r.motorista
+          ? '<span class="tag verde">'+Q.esc(r.motorista)+'</span>'
+          : '<span class="tag '+(r.saldo ? 'vermelha' : 'cinza')+'">sem motorista</span>')+
+      '</div>';
+
+    /* A ROTA ZERADA CABE NUMA LINHA. Hoje são cinco de sete, e com a grade de quatro
+       zeros cada uma o quadro que responde "onde estão as caixas" virava quatro telas
+       de rolagem para dizer "em lugar nenhum" — que é justamente o que a dobra veio
+       evitar. Ela continua na lista, com o nome e o motorista: sumida, alguém iria
+       procurá-la no cadastro. O que sai são os quatro zeros e o botão que abriria uma
+       lista de clientes que não existe. */
+    if (vazia) {
+      return '<article class="rt rt--vazia rt--linha">'+topo+
+        '<span class="rt__nada">sem caixa</span></article>';
+    }
+
+    return '<article class="rt">'+topo+
+      '<dl class="rt-n">'+
+        numeroRota('No caminhão', r.saldo, r.saldo ? 'aviso' : '')+
+        numeroRota('Nos clientes', r.saldoClientes, '')+
+        numeroRota('Clientes', r.clientes, '')+
+        numeroRota('Fora do prazo', r.vencidasClientes, r.vencidasClientes ? 'risco' : '')+
+      '</dl>'+
+      '<div class="rt__pe">'+
+        '<button class="mini acao" data-rota="'+Q.esc(r.id)+'">ver clientes</button>'+
+      '</div>'+
+    '</article>';
+  }
+
+  function numeroRota(rotulo, v, cor){
+    return '<div class="rt-n__i'+(v ? (cor ? ' rt-n__i--'+cor : '') : ' rt-n__i--zero')+'">'+
+      '<dt>'+rotulo+'</dt><dd>'+Q.num(v)+'</dd></div>';
+  }
   function desenharTabelaPainel(){
     var lista = listaFiltrada();
+    /* NA ABA, o número de quem ESTÁ NA TELA, e não o total: com um filtro ligado, o
+       total faria a aba e a lista discordarem sobre a mesma pergunta. */
+    var atrasados = lista.filter(function(l){ return l.aging.d31 > 0; }).length;
+    resumoDoCard('painel_clientes',
+      lista.length+(atrasados ? ' · '+atrasados+' com +30d' : ''), atrasados > 0);
     if (!lista.length){ document.getElementById('tabelaPainel').innerHTML='<div class="vazio">Nada encontrado.</div>'; return; }
+
+    if (emCartoesPainel()){
+      document.getElementById('tabelaPainel').innerHTML =
+        '<div class="clis">'+lista.map(cartaoCliente).join('')+'</div>';
+      ligarExtratoDoPainel();
+      return;
+    }
+
     document.getElementById('tabelaPainel').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Cliente / Filial</th><th>Rota</th><th class="num">Saldo</th>'+
       '<th class="num">≤7d</th><th class="num">8–15</th><th class="num">16–30</th><th class="num">+30</th>'+
@@ -2520,6 +2644,10 @@
           '<td>'+Q.esc(l.responsavel||'')+(l.telefone?'<br><span style="font-size:12px;color:var(--txt2)">'+Q.esc(l.telefone)+'</span>':'')+'</td>'+
           '<td><button class="mini acao" data-ex="'+l.id+'">extrato</button></td></tr>';
       }).join('')+'</tbody></table></div>';
+    ligarExtratoDoPainel();
+  }
+
+  function ligarExtratoDoPainel(){
     document.querySelectorAll('#tabelaPainel button[data-ex]').forEach(function(b){
       b.addEventListener('click', function(){
         document.querySelector('#abas button[data-pagina="pgExtrato"]').click();
@@ -2527,6 +2655,40 @@
         gerarExtrato();
       });
     });
+  }
+
+  /* CLIENTES EM CARTÃO, no celular. A tabela tem dez colunas — quatro delas são faixas
+     de idade que só fazem sentido lidas juntas, e no telefone elas ficam três arrastadas
+     à direita do nome. O cartão traz o saldo ao lado do nome e a idade como a MESMA
+     barra do resumo geral logo abaixo: a mesma pergunta, o mesmo desenho.
+
+     `Q.barraAging` é a de sempre, e não uma cópia menor: uma segunda barra com outras
+     faixas faria a mesma caixa cair em "16–30" num lugar e em "+30" no outro. */
+  function cartaoCliente(l){
+    var velho = l.aging.d31 > 0;
+    return '<article class="cli'+(velho ? ' cli--velho' : '')+'">'+
+      '<div class="cli__topo">'+
+        '<div class="cli__id">'+
+          '<div class="cli__nome">'+Q.esc(l.nome)+'</div>'+
+          '<div class="cli__rota">'+(l.rota ? Q.esc(l.rota) : 'sem rota')+
+            (l.tipo === 'FILIAL' ? ' <span class="tag cinza">filial</span>' : '')+
+            (l.acimaLimite ? ' <span class="tag vermelha">limite '+Q.num(l.limite)+'</span>' : '')+
+          '</div>'+
+        '</div>'+
+        '<div class="cli__saldo"><b>'+Q.num(l.saldo)+'</b><span>caixas</span></div>'+
+      '</div>'+
+      Q.barraAging(l.aging)+
+      /* O CONTATO é o passo seguinte de quem abriu este cartão: a caixa está parada há
+         40 dias e a pergunta é para quem ligar. Sem ele, a resposta estava noutra tela. */
+      (l.responsavel || l.telefone
+        ? '<div class="cli__contato">'+Q.esc(l.responsavel||'')+
+          (l.telefone ? '<a href="tel:'+Q.esc(String(l.telefone).replace(/[^0-9+]/g,''))+'">'+
+                        Q.esc(l.telefone)+'</a>' : '')+'</div>'
+        : '')+
+      '<div class="cli__pe">'+
+        '<button class="mini acao" data-ex="'+l.id+'">extrato</button>'+
+      '</div>'+
+    '</article>';
   }
   document.getElementById('buscaPainel').addEventListener('input', function(){ if (PAINEL) desenharTabelaPainel(); });
   document.getElementById('filtroRota').addEventListener('change', function(){ if (PAINEL) desenharTabelaPainel(); });
@@ -2544,17 +2706,101 @@
       if (l.aging.maisAntiga!==null && (t.maisAntiga===null || l.aging.maisAntiga>t.maisAntiga)) t.maisAntiga=l.aging.maisAntiga;
     });
     document.getElementById('agingGeral').innerHTML = Q.barraAging(t);
+    var total = t.d0_7 + t.d8_15 + t.d16_30 + t.d31;
+    resumoDoCard('painel_idade',
+      !total ? 'nada na rua'
+             : (t.maisAntiga === null ? Q.num(total) : 'mais antiga: '+t.maisAntiga+'d'),
+      t.d31 > 0);
   }
+
+  /* UM NEGATIVO AQUI NÃO É UM NÚMERO BAIXO: é um número IMPOSSÍVEL. Caixa é coisa
+     física — não existe menos seis caixas no galpão. Quando aparece, o que o saldo está
+     dizendo é que saiu do galpão mais do que o sistema sabia que havia lá dentro, e a
+     causa quase sempre é a mesma: nunca houve o lançamento de Ajuste inicial, então a
+     conta começou do zero e cada saída empurrou o estoque para baixo.
+
+     Por isso ele grita em vez de aparecer como mais um número na linha: em cinza, ele
+     se lê como "está acabando", que é o contrário do que aconteceu. */
+  function tiposNegativos(g){
+    var n = 0;
+    (g||[]).forEach(function(x){
+      Object.keys(x.porTipo||{}).forEach(function(t){ if (x.porTipo[t] < 0) n++; });
+    });
+    return n;
+  }
+
+  function avisoEstoqueNegativo(n){
+    if (!n) return '';
+    return '<div class="aviso-box erro" style="margin-bottom:12px">'+
+      '<b>'+n+(n === 1 ? ' tipo de caixa está com saldo negativo' :
+                         ' tipos de caixa estão com saldo negativo')+'</b> — '+
+      'e caixa física não fica abaixo de zero. O galpão saiu sem ter: falta o lançamento '+
+      'de <b>Ajuste inicial</b> com o que existia no dia em que o sistema começou. '+
+      'Enquanto ele não entrar, cada saída afunda mais o saldo, e o número de caixas na '+
+      'rua também está errado pelo mesmo tanto.</div>';
+  }
+
   function desenharGalpoes(){
     var g = PAINEL.galpoes||[];
     var tipos = {}; (PAINEL.tipos||[]).forEach(function(t){ tipos[t.ID]=t.Nome; });
-    document.getElementById('tabelaGalpoes').innerHTML = g.length
-      ? '<div class="tabela-wrap"><table><thead><tr><th>Galpão</th><th class="num">Saldo</th><th>Por tipo</th></tr></thead><tbody>'+
-        g.map(function(x){
-          var det = Object.keys(x.porTipo||{}).map(function(t){ return Q.esc(tipos[t]||t)+': '+Q.num(x.porTipo[t]); }).join(' · ');
-          return '<tr><td><b>'+Q.esc(x.nome)+'</b></td><td class="num">'+Q.num(x.saldo)+'</td><td>'+(det||'—')+'</td></tr>';
-        }).join('')+'</tbody></table></div>'
-      : '<div class="vazio">Nenhum galpão cadastrado.</div>';
+    var neg = tiposNegativos(g);
+    var soma = g.reduce(function(s, x){ return s + (x.saldo||0); }, 0);
+    resumoDoCard('painel_estoque',
+      Q.num(soma)+(neg ? ' · '+neg+' negativo'+(neg === 1 ? '' : 's') : ''), neg > 0);
+
+    if (!g.length){
+      document.getElementById('tabelaGalpoes').innerHTML = '<div class="vazio">Nenhum galpão cadastrado.</div>';
+      return;
+    }
+
+    /* O AVISO SAI NAS DUAS LARGURAS: um saldo impossível não deixa de ser impossível
+       numa tela grande, e é no computador que alguém vai lançar o ajuste. */
+    var html = avisoEstoqueNegativo(neg);
+
+    if (emCartoesPainel()){
+      document.getElementById('tabelaGalpoes').innerHTML = html+
+        '<div class="galps">'+g.map(function(x){ return cartaoGalpao(x, tipos); }).join('')+'</div>';
+      return;
+    }
+
+    document.getElementById('tabelaGalpoes').innerHTML = html+
+      '<div class="tabela-wrap"><table><thead><tr><th>Galpão</th><th class="num">Saldo</th><th>Por tipo</th></tr></thead><tbody>'+
+      g.map(function(x){
+        var det = Object.keys(x.porTipo||{}).map(function(t){
+          var v = x.porTipo[t];
+          return Q.esc(tipos[t]||t)+': '+(v < 0 ? '<b style="color:var(--vermelho)">'+Q.num(v)+'</b>' : Q.num(v));
+        }).join(' · ');
+        return '<tr'+(x.saldo < 0 ? ' class="ruim"' : '')+'><td><b>'+Q.esc(x.nome)+'</b></td>'+
+          '<td class="num">'+(x.saldo < 0 ? '<b style="color:var(--vermelho)">'+Q.num(x.saldo)+'</b>' : Q.num(x.saldo))+'</td>'+
+          '<td>'+(det||'—')+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+
+  /* O ESTOQUE EM CHIPS, no celular. A coluna "Por tipo" da tabela é uma frase corrida —
+     "CX P: 314 · CX G: −36 · CX GG: −6 · …" — que no telefone quebra em três linhas e
+     esconde o sinal de menos no meio do texto. Em chip, cada tipo é um alvo próprio, e
+     o negativo tem a cor da borda inteira. */
+  function cartaoGalpao(x, tipos){
+    var chaves = Object.keys(x.porTipo||{}).sort(function(a, b){
+      /* Os negativos primeiro: são o que se veio ver. */
+      var va = x.porTipo[a], vb = x.porTipo[b];
+      if ((va < 0) !== (vb < 0)) return va < 0 ? -1 : 1;
+      return String(tipos[a]||a).localeCompare(String(tipos[b]||b), 'pt-BR');
+    });
+    return '<article class="galp">'+
+      '<div class="galp__topo">'+
+        '<span class="galp__nome">'+Q.esc(x.nome)+'</span>'+
+        '<span class="galp__saldo'+(x.saldo < 0 ? ' galp__saldo--neg' : '')+'">'+
+          Q.num(x.saldo)+'</span>'+
+      '</div>'+
+      (chaves.length
+        ? '<div class="galp__tipos">'+chaves.map(function(t){
+            var v = x.porTipo[t];
+            return '<span class="chip-tipo'+(v < 0 ? ' chip-tipo--neg' : '')+'">'+
+              Q.esc(tipos[t]||t)+' <b>'+Q.num(v)+'</b></span>';
+          }).join('')+'</div>'
+        : '<div class="galp__vazio">sem caixa lançada</div>')+
+    '</article>';
   }
 
   /* ---------------- extrato ---------------- */
@@ -4183,10 +4429,31 @@
      para esquecer um. Aqui o `data-dobra` garante que só aconteça uma vez. */
   var ABERTO_POR_PADRAO = { pedidos: true };
 
+  /* NO PAINEL O PADRÃO DEPENDE DA LARGURA. No computador os quatro quadros cabem e
+     fechá-los seria esconder o que já estava à vista. No celular eles são sete telas de
+     rolagem, e duas perguntas respondem quase tudo: onde estão as caixas (Rotas) e
+     quanto há em casa (Estoque). As outras duas nascem fechadas, com o resumo na aba.
+
+     É PADRÃO, e não regra: o que a pessoa abriu ou fechou fica guardado e vence isto
+     aqui — inclusive ao girar o aparelho, porque reaplicar o padrão numa rotação
+     desfaria na mão dela o que ela acabou de abrir. */
+  var PADRAO_CELULAR = { painel_rotas: true, painel_estoque: true,
+                         painel_clientes: false, painel_idade: false };
+
+  function abertoPorPadrao(cad){
+    if (cad.indexOf('painel_') === 0) {
+      return emCartoesPainel() ? !!PADRAO_CELULAR[cad] : true;
+    }
+    return !!ABERTO_POR_PADRAO[cad];
+  }
+
   function chaveDobra(cad){ return 'qdc_cad_' + cad; }
 
+  /* O MESMO mecanismo para os dois lugares: Cadastros e Painel. Um segundo, escrito à
+     parte para o Painel, seria outro jeito de guardar o estado e outra seta na tela
+     fazendo a mesma coisa. */
   function montarDobras(){
-    var cards = document.querySelectorAll('#pgCadastros .card[data-cad]');
+    var cards = document.querySelectorAll('.card[data-cad]');
     Array.prototype.forEach.call(cards, function(card){
       if (card.dataset.dobra) return;
       card.dataset.dobra = '1';
@@ -4208,7 +4475,7 @@
 
       var guardado = null;
       try { guardado = localStorage.getItem(chaveDobra(card.dataset.cad)); } catch(e){}
-      var aberto = guardado === null ? !!ABERTO_POR_PADRAO[card.dataset.cad] : guardado === '1';
+      var aberto = guardado === null ? abertoPorPadrao(card.dataset.cad) : guardado === '1';
       card.classList.toggle('fechado', !aberto);
 
       h2.addEventListener('click', function(){
@@ -4225,6 +4492,9 @@
   function atualizarContagens(){
     var cards = document.querySelectorAll('#pgCadastros .card[data-cad]');
     Array.prototype.forEach.call(cards, function(card){
+      /* Os quadros do Painel escrevem o próprio resumo: contar as linhas da tabela daria
+         "7" para as Rotas, quando o que se quer de relance é quantas estão com carga. */
+      if (card.dataset.conta === 'propria') return;
       var alvo = card.querySelector('.conta');
       if (!alvo) return;
       var n = card.querySelectorAll('.corpo tbody tr').length;

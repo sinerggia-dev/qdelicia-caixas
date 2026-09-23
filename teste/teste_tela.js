@@ -4470,10 +4470,15 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'o trilho de chips esmaece na borda em vez de mostrar barra de rolagem — a barra é ' +
     'um risco branco que não se arrasta com o dedo');
 
-  ok(/matchMedia\('\(max-width:1023px\)'\)\.addEventListener\('change'[\s\S]{0,120}desenharFluxo\(\)/
+  /* O PAINEL INTEIRO ao girar, e não só o extrato: rotas, clientes e estoque trocam de
+     forma na MESMA largura, e redesenhar um só deixava a tela metade cartão, metade
+     tabela — com a tabela ainda arrastando de lado ao lado dos cartões. */
+  ok(/matchMedia\('\(max-width:1023px\)'\)\.addEventListener\('change'[\s\S]{0,260}desenharPainel\(\)/
     .test(adm),
-    'girar o aparelho troca tabela por extrato — desenhado só na abertura, o painel ' +
+    'girar o aparelho troca tabela por cartão — desenhado só na abertura, o painel ' +
     'ficaria com a forma da largura de quando abriu');
+  ok(/function desenharPainel\(\)\{[\s\S]{0,300}desenharFluxo\(\)/.test(adm),
+    'e o extrato está nessa mesma sequência');
 
   /* --- a animação para quando sai da tela ---------------------------------- */
   ok(/vigiarTiles\(\);/.test(adm) && /IntersectionObserver/.test(adm),
@@ -5316,6 +5321,170 @@ console.log('\n== Movimentos no celular: cartão, folha de ações e filtros =='
     'a folha fecha pelo X, pelo véu e pelo Esc');
 })();
 
+console.log('\n== Painel da Operação no celular: quadros que dobram, rotas e estoque ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* --- os quatro quadros dobram, pelo MESMO mecanismo dos Cadastros ---------- */
+  ['painel_rotas', 'painel_clientes', 'painel_idade', 'painel_estoque'].forEach(function (c) {
+    ok(new RegExp('data-cad="' + c + '" data-conta="propria"').test(adm),
+      'o quadro ' + c + ' dobra e escreve o próprio resumo');
+  });
+  /* O SELETOR É O GERAL. Preso a `#pgCadastros`, o mecanismo não alcançava o Painel, e
+     seria preciso um SEGUNDO igual ao lado — outro jeito de guardar o estado e outra
+     seta na tela fazendo a mesma coisa. */
+  ok(/function montarDobras\(\)\{\s*\n\s*var cards = document\.querySelectorAll\('\.card\[data-cad\]'\)/
+    .test(adm),
+    'quem dobra é o mesmo `montarDobras` das duas telas, e não uma segunda cópia dele');
+  ok((adm.match(/function montarDobras\(/g) || []).length === 1,
+    'que existe uma vez só');
+
+  /* --- o padrão depende da largura, e o guardado vence os dois --------------- */
+  ok(/function abertoPorPadrao\(cad\)\{[\s\S]{0,260}emCartoesPainel\(\) \? !!PADRAO_CELULAR\[cad\] : true/
+    .test(adm),
+    'no computador os quatro nascem abertos, no celular só os do padrão — os quatro ' +
+    'abertos num telefone são sete telas de rolagem');
+  ok(/PADRAO_CELULAR = \{ painel_rotas: true, painel_estoque: true,\s*\n?\s*painel_clientes: false, painel_idade: false \}/
+    .test(adm),
+    'e os que abrem são Rotas e Estoque: "onde estão as caixas" e "quanto há em casa"');
+  ok(/guardado === null \? abertoPorPadrao\(card\.dataset\.cad\) : guardado === '1'/.test(adm),
+    'o que a pessoa abriu ou fechou VENCE o padrão — reaplicá-lo desfaria na mão dela ' +
+    'o que ela acabou de abrir');
+  /* O corte é o MESMO das outras telas: uma medida própria faria uma parte da página
+     virar cartão numa largura e outra parte noutra. */
+  ok(/emCartoesPainel\(\) \? !!PADRAO_CELULAR/.test(adm) &&
+     (adm.match(/function emCartoesPainel\(\)/g) || []).length === 1,
+    'e o corte é o mesmo `emCartoesPainel` do resto do app');
+
+  ok(/if \(card\.dataset\.conta === 'propria'\) return;/.test(adm),
+    'a contagem de linhas não passa por cima do resumo escrito à mão — contar as ' +
+    'linhas daria "7" para as Rotas, quando o que se quer saber é quantas têm carga');
+
+  /* --- uma sequência de desenho, e não duas ---------------------------------- */
+  ok(/function desenharPainel\(\)\{\s*\n\s*montarDobras\(\);/.test(adm),
+    '`montarDobras` vem antes dos desenhos: é ele que cria a aba onde cada quadro ' +
+    'escreve o resumo');
+  ok((adm.match(/desenharRotas\(\); desenharKpis\(\)/g) || []).length === 1,
+    'a sequência do painel é escrita UMA vez — em duas cópias, a do cache já tinha ' +
+    'começado a divergir da da rede');
+  ok((adm.match(/desenharPainel\(\);/g) || []).length === 3,
+    'e as três chamadas dela são: rede, cache e girar o aparelho');
+
+  /* --- rotas: cartão no celular, tabela no computador ----------------------- */
+  var iCR = adm.indexOf('function cartaoRota(r)');
+  var rota = adm.slice(iCR, adm.indexOf('\n  function numeroRota', iCR));
+  ok(iCR > 0 && rota.length > 600, 'o cartão de rota tem corpo', rota.length);
+  ok(/if \(emCartoesPainel\(\)\)\{\s*\n[\s\S]{0,200}rotas\.map\(cartaoRota\)/.test(adm),
+    'no celular as rotas viram cartão');
+  ok(/<th>Rota<\/th><th>Motorista<\/th>/.test(adm),
+    'e no computador a tabela de seis colunas continua lá');
+
+  /* "VER CLIENTES" NÃO FOI REESCRITO: o cartão usa o mesmo `data-rota` da tabela, e
+     quem liga é a mesma função. Duas cópias discordariam no dia em que o filtro
+     mudasse de nome. */
+  ok((adm.match(/function ligarVerClientes\(\)/g) || []).length === 1 &&
+     (adm.match(/ligarVerClientes\(\);/g) || []).length === 2,
+    'o mesmo religar serve à tabela e ao cartão');
+  /* NO CARTÃO, e não só na contagem de chamadas: trocando o `data-rota` do cartão por
+     outro nome, o religar continuava sendo um só e não achava mais o botão — ele
+     deixava de fazer qualquer coisa, sem erro no console. */
+  ok(/data-rota="'\+Q\.esc\(r\.id\)\+'">ver clientes/.test(rota),
+    'e o botão do cartão carrega o MESMO `data-rota` que a linha da tabela');
+  ok(/abrirCard\('painel_clientes'\);/.test(adm),
+    'e ele ABRE o quadro dos clientes: no celular ele nasce fechado, e rolar até uma ' +
+    'aba dobrada faz concluir que o botão não fez nada');
+
+  /* A ROTA ZERADA CABE NUMA LINHA. Hoje são cinco de sete: com a grade de quatro zeros
+     cada uma, o quadro que responde "onde estão as caixas" virava quatro telas para
+     dizer "em lugar nenhum". */
+  ok(/if \(vazia\) \{[\s\S]{0,220}rt rt--vazia rt--linha/.test(rota),
+    'a rota zerada sai numa linha só, e não numa grade de quatro zeros');
+  ok(/rt__nada">sem caixa/.test(rota),
+    'dizendo que está sem caixa — sumida da lista, alguém a procuraria no cadastro');
+  var iLinha = rota.indexOf('rt--linha');
+  ok(iLinha > 0 && rota.indexOf('rt-n') > iLinha,
+    'e a grade de números fica só para as que têm o que mostrar');
+  ok(/\.rt--vazia\{opacity/.test(css),
+    'ela fica apagada, e não escondida');
+
+  /* "SEM MOTORISTA" SÓ É ALARME COM CARGA NA ESTRADA. Hoje as sete estão sem motorista:
+     sete vermelhos ao lado do único que importa é o jeito mais rápido de ensinar
+     alguém a ignorar o vermelho. */
+  ok(/<span class="tag '\+\(r\.saldo \? 'vermelha' : 'cinza'\)\+'">sem motorista/.test(rota),
+    'o "sem motorista" só fica vermelho na rota que tem carga — numa rota parada é ' +
+    'cadastro em branco, não alarme');
+
+  ok(/resumoDoCard\('painel_rotas',\s*\n?\s*rotas\.length\+' · '\+\(comCarga \? comCarga\+' com carga'/
+    .test(adm),
+    'a aba das Rotas diz quantas estão COM CARGA, e não só quantas existem');
+
+  /* --- clientes: cartão, e a barra de idade é a de sempre -------------------- */
+  var iCC = adm.indexOf('function cartaoCliente(l)');
+  var cli = adm.slice(iCC, adm.indexOf('\n  function desenharAgingGeral', iCC));
+  ok(iCC > 0 && cli.length > 500, 'o cartão de cliente tem corpo', cli.length);
+  ok(/Q\.barraAging\(l\.aging\)/.test(cli),
+    'a idade sai da MESMA barra do resumo geral — uma segunda barra com outras faixas ' +
+    'faria a mesma caixa cair em "16–30" num lugar e em "+30" no outro');
+  ok(/href="tel:'\+Q\.esc\(String\(l\.telefone\)\.replace\(\/\[\^0-9\+\]\/g,''\)\)/.test(cli),
+    'o telefone disca: com a caixa parada há 40 dias o passo seguinte é ligar, e ' +
+    'copiar número à mão no celular é onde a pessoa desiste');
+  ok(/var atrasados = lista\.filter/.test(adm),
+    'a aba conta sobre a lista FILTRADA — sobre o total, ela e a lista discordariam ' +
+    'sobre a mesma pergunta com um filtro ligado');
+  ok((adm.match(/function ligarExtratoDoPainel\(\)/g) || []).length === 1 &&
+     (adm.match(/ligarExtratoDoPainel\(\);/g) || []).length === 2,
+    'o botão de extrato é o mesmo nos dois');
+  ok(/data-ex="'\+l\.id\+'">extrato/.test(cli),
+    'e o do cartão carrega o mesmo `data-ex` da tabela — com outro nome, o religar ' +
+    'continuava único e não achava mais o botão');
+
+  /* --- estoque: o negativo é o achado --------------------------------------- */
+  ok(/function tiposNegativos\(g\)/.test(adm) && /function avisoEstoqueNegativo\(n\)/.test(adm),
+    'a tela conta os saldos negativos e diz o que eles significam');
+  ok(/if \(!n\) return '';/.test(adm),
+    'e cala quando não há nenhum — aviso permanente vira paisagem');
+  ok(/caixa física não fica abaixo de zero/.test(adm) &&
+     /falta o lançamento '\+\s*\n?\s*'de <b>Ajuste inicial<\/b>/.test(adm),
+    'o aviso diz a CAUSA — sem saldo de abertura a conta começou do zero — e não só ' +
+    'que o número está estranho');
+  ok(/o número de caixas na '\+\s*\n?\s*'rua também está errado pelo mesmo tanto/.test(adm),
+    'e diz que o erro não para no estoque: a mesma falta desloca as caixas na rua');
+  /* O AVISO SAI NAS DUAS LARGURAS: um saldo impossível não deixa de ser impossível numa
+     tela grande — e é no computador que alguém vai lançar o ajuste. */
+  var iDG = adm.indexOf('function desenharGalpoes()');
+  var galp = adm.slice(iDG, adm.indexOf('\n  function cartaoGalpao', iDG));
+  /* `> 0 &&` PORQUE `indexOf` DE UM TEXTO AUSENTE É −1, e −1 é menor que qualquer
+     índice: apagando a linha, a afirmação de ordem passava sozinha. Foi assim que dois
+     defeitos plantados — o aviso sumindo de vez e o aviso indo para dentro do ramo do
+     celular — atravessaram este teste. */
+  var iAviso = galp.indexOf('var html = avisoEstoqueNegativo(neg)');
+  ok(iAviso > 0 && iAviso < galp.indexOf('if (emCartoesPainel())'),
+    'o aviso é montado ANTES de escolher cartão ou tabela: dentro do ramo do celular, ' +
+    'ele sumiria justo na tela onde se lança o ajuste');
+  ok((galp.match(/avisoEstoqueNegativo\(/g) || []).length === 1,
+    'e é montado uma vez só, e não uma por largura');
+  ok(/<td class="num">'\+\(x\.saldo < 0 \? '<b style="color:var\(--vermelho\)">/.test(galp),
+    'e na tabela o saldo negativo também é vermelho');
+
+  var iCG = adm.indexOf('function cartaoGalpao(x, tipos)');
+  var gal = adm.slice(iCG, adm.indexOf('\n  /* ---------------- extrato', iCG));
+  ok(iCG > 0 && gal.length > 400, 'o cartão de galpão tem corpo', gal.length);
+  ok(/if \(\(va < 0\) !== \(vb < 0\)\) return va < 0 \? -1 : 1;/.test(gal),
+    'os tipos negativos vêm primeiro: são o que se veio ver');
+  ok(/chip-tipo'\+\(v < 0 \? ' chip-tipo--neg' : ''\)/.test(gal),
+    'e o negativo tem a borda inteira vermelha');
+  ok(/\.chip-tipo--neg\{border-color:var\(--vermelho\)/.test(css),
+    'que é o que o distingue de "está acabando"');
+  ok(/resumoDoCard\('painel_estoque',\s*\n?\s*Q\.num\(soma\)\+\(neg \? ' · '\+neg\+' negativo'/
+    .test(adm),
+    'a aba do Estoque leva a contagem de negativos: fechado, é o único lugar onde o ' +
+    'alerta ainda aparece');
+  ok(/alvo\.classList\.toggle\('alerta', !!alerta\)/.test(adm) &&
+     /\.card\.dobra > h2 \.conta\.alerta\{background:var\(--vermelho-claro\)/.test(css),
+    'e ela fica vermelha quando o resumo é má notícia');
+})();
+
 console.log('\n== Usuários no celular: cartão, acesso à vista e folha de ações ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -5432,7 +5601,14 @@ console.log('\n== nome de classe só tem UM dono ==');
     'extrato', 'ordenar', 'movs', 'mov', 'mov__topo', 'mov__quando', 'mov__quem',
     'mov__pe', 'mov__total', 'mov-item', 'mov-itens', 'acoes-btn',
     'folha', 'folha__cab', 'folha__corpo', 'folha__t', 'folha__ctx', 'veu-folha',
-    'opcao', 'pill', 'aplicados', 'filtros-caixa', 'so-celular'
+    'opcao', 'pill', 'aplicados', 'filtros-caixa', 'so-celular',
+    'users', 'u', 'u__topo', 'u__ini', 'u__nome', 'u__dados', 'u__acesso', 'u__pe',
+    /* As do Painel da Operação. `rt` e `cli` são curtas de propósito — e é exatamente
+       nome curto que já colidiu quatro vezes aqui. */
+    'rotas', 'rt', 'rt__topo', 'rt__nome', 'rt-n', 'rt-n__i', 'rt__pe', 'rt__nada', 'rt--linha',
+    'clis', 'cli', 'cli__topo', 'cli__nome', 'cli__saldo', 'cli__contato', 'cli__pe',
+    'galps', 'galp', 'galp__topo', 'galp__nome', 'galp__saldo', 'galp__tipos',
+    'chip-tipo'
   ];
   /* As ANTIGAS entram na mesma conta. Elas têm um dono legítimo cada — e é justamente
      por cima delas que as peças novas caíram. Renomear a nova de volta para `.item`
