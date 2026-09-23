@@ -816,28 +816,33 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
   ok(!!ESTQ && /^[^A-Za-zÀ-ÿ0-9]/.test(ESTQ),
     'o valor reservado do filtro não começa como um nome de local começaria', ESTQ);
 
-  var passa = new Function('l', 'o', 'd', 'DESTINO_ESTOQUE', fonte);
+  /* `b` e `alvoBusca` entram como PARÂMETROS porque a regra passou a peneirar também
+     pela busca: sem eles o corpo extraído estoura em `b is not defined`, e é assim que
+     este teste avisa que a peneira mudou em vez de continuar medindo a de ontem. */
+  var passa = new Function('l', 'o', 'd', 'DESTINO_ESTOQUE', 'b', 'alvoBusca',
+    fonte).bind(null);
+  var semBusca = function (l, o, d, e) { return passa(l, o, d, e, '', function () { return ''; }); };
   var estoque = { estoqueInicial: true, inicial: 1250, situacao: 'parado',
                   origens: ['Matriz Fazenda'], destinos: [] };
   var caminho = { inicial: 0, situacao: 'atencao',
                   origens: ['Matriz Fazenda'], destinos: ['João Pessoa'] };
 
-  ok(passa(estoque, '', 'João Pessoa', ESTQ) === true,
+  ok(semBusca(estoque, '', 'João Pessoa', ESTQ) === true,
     'filtrando por destino, o estoque da Matriz continua na lista');
-  ok(passa(caminho, '', 'João Pessoa', ESTQ) === true, 'e o caminho filtrado tambem');
-  ok(passa(estoque, 'Filial Maceió', '', ESTQ) === false,
+  ok(semBusca(caminho, '', 'João Pessoa', ESTQ) === true, 'e o caminho filtrado tambem');
+  ok(semBusca(estoque, 'Filial Maceió', '', ESTQ) === false,
     'mas filtrando por OUTRA origem ele sai: a conta e de outra unidade');
-  ok(passa(estoque, 'Matriz Fazenda', '', ESTQ) === true,
+  ok(semBusca(estoque, 'Matriz Fazenda', '', ESTQ) === true,
     'e pela origem dele, fica');
 
   /* A opcao propria: ver SO os lancamentos de estoque. Ela nao cabia no filtro de destino
      pelo nome, porque estoque nao e um lugar — a linha nem destino tem. */
-  ok(passa(estoque, '', ESTQ, ESTQ) === true,
+  ok(semBusca(estoque, '', ESTQ, ESTQ) === true,
     'escolhendo "Estoque Inicial" no destino, as linhas de estoque ficam');
-  ok(passa(caminho, '', ESTQ, ESTQ) === false,
+  ok(semBusca(caminho, '', ESTQ, ESTQ) === false,
     'e os caminhos saem — é o único caso em que o estoque não é a exceção, mas a regra');
-  ok(passa(estoque, 'Matriz Fazenda', ESTQ, ESTQ) === true &&
-     passa(estoque, 'Filial Maceió', ESTQ, ESTQ) === false,
+  ok(semBusca(estoque, 'Matriz Fazenda', ESTQ, ESTQ) === true &&
+     semBusca(estoque, 'Filial Maceió', ESTQ, ESTQ) === false,
     'e a origem continua somando com ele: os dois filtros valem juntos');
 
   /* Este caso parece artificial e e o unico que separa a regra da sorte.
@@ -851,9 +856,9 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
      mantem o token RESERVADO em vez de so improvavel. */
   var homonimo = { inicial: 0, situacao: 'atencao',
                    origens: ['Matriz Fazenda'], destinos: [ESTQ] };
-  ok(passa(homonimo, '', ESTQ, ESTQ) === false,
+  ok(semBusca(homonimo, '', ESTQ, ESTQ) === false,
     'um caminho cujo destino fosse o próprio token ainda assim sai: o valor é reservado, '
-    + 'e não um nome que se compara com os outros', passa(homonimo, '', ESTQ, ESTQ));
+    + 'e não um nome que se compara com os outros', semBusca(homonimo, '', ESTQ, ESTQ));
 
   /* As opcoes saem do fluxo CRU. Monta-las a partir da lista ja filtrada faria escolher
      uma origem apagar as outras opcoes, sem caminho de volta. */
@@ -3905,44 +3910,72 @@ console.log('\n== os filtros num painel suspenso ==');
      a rolagem da pagina alcanca.
 
      Exercitado rodando, com as duas preferencias e as duas medidas. */
-  var ip = adm.indexOf('function posicionarPop(pop, preferBaixo)');
-  var pk = adm.indexOf('{', ip), pn = 0;
-  do {
-    if (adm[pk] === '{') pn++; else if (adm[pk] === '}') pn--;
-    pk++;
-  } while (pn > 0 && pk < adm.length);
-  var fontePos = adm.slice(ip, pk);
-  ok(ip > 0 && /preferBaixo/.test(fontePos), 'o recorte pegou a função da direção');
+  /* AS DUAS FUNÇÕES: `posicionarPop` agenda a segunda medida, `medirPop` mede. Recortar
+     só a primeira deixaria a bancada exercitando o agendador sobre um `medirPop` que
+     não existe — e o erro apareceria como "não é função", não como regra errada. */
+  function recorte(nome) {
+    var i = adm.indexOf('function ' + nome + '(');
+    var k = adm.indexOf('{', i), n = 0;
+    do {
+      if (adm[k] === '{') n++; else if (adm[k] === '}') n--;
+      k++;
+    } while (n > 0 && k < adm.length);
+    return adm.slice(i, k);
+  }
+  var fontePos = recorte('posicionarPop') + '\n' + recorte('medirPop');
+  ok(/preferBaixo/.test(fontePos) && /function medirPop/.test(fontePos),
+    'o recorte pegou as duas funções da direção');
 
-  function direcao(preferBaixo, topo, base, janela) {
-    var cls = {};
+  /* A BANCADA. O gatilho fica em `base`, e a área que rola vai de `teto` ao chão da
+     janela. Para cima a caixa TERMINA no gatilho; para baixo ela COMEÇA nele — é a
+     posição, e não a altura, que responde pelo espaço de cada lado. */
+  function medir(preferBaixo, base, janela, teto, altura) {
+    var cls = {}, estilo = {};
     var pop = {
+      hidden: false, dataset: {}, style: estilo,
+      scrollHeight: altura === undefined ? 300 : altura,
+      closest: function () { return { getBoundingClientRect: function () {
+        return { top: teto === undefined ? 0 : teto, bottom: janela }; } }; },
       classList: {
         toggle: function (c, v) { if (v) cls[c] = 1; else delete cls[c]; },
+        add: function (c) { cls[c] = 1; },
+        remove: function (c) { delete cls[c]; },
         contains: function (c) { return !!cls[c]; }
       },
       getBoundingClientRect: function () {
-        /* Para baixo a caixa comeca no gatilho; para cima ela termina nele. A bancada
-           devolve a medida que corresponde ao lado em que ela esta no momento. */
-        return cls['para-baixo'] ? { top: base - 300, bottom: base }
-                                 : { top: topo, bottom: topo + 300 };
+        return cls['para-baixo'] ? { top: base, bottom: base + 300 }
+                                 : { top: base - 300, bottom: base };
       }
     };
-    new Function('pop', 'preferBaixo', 'window',
-      fontePos + '\n posicionarPop(pop, preferBaixo);')(pop, preferBaixo, { innerHeight: janela });
-    return cls['para-baixo'] ? 'desce' : 'sobe';
+    new Function('pop', 'preferBaixo', 'window', 'requestAnimationFrame',
+      fontePos + '\n posicionarPop(pop, preferBaixo);')(
+      pop, preferBaixo, { innerHeight: janela }, function () {});
+    return { lado: cls['para-baixo'] ? 'desce' : 'sobe', teto: estilo.maxHeight || '' };
   }
 
-  ok(direcao(false, 400, 500, 900) === 'sobe',
+  ok(medir(false, 500, 900, 0).lado === 'sobe',
     'preferindo subir e cabendo acima, sobe');
-  ok(direcao(false, -50, 500, 900) === 'desce',
+  ok(medir(false, 250, 900, 0).lado === 'desce',
     'preferindo subir e NÃO cabendo acima, desce');
-  ok(direcao(true, 400, 700, 900) === 'desce',
+  ok(medir(true, 300, 900, 0).lado === 'desce',
     'preferindo descer e cabendo abaixo, desce — a barra fica acima da tabela');
-  ok(direcao(true, 400, 1200, 900) === 'sobe',
+  ok(medir(true, 700, 900, 0).lado === 'sobe',
     'preferindo descer e não cabendo abaixo, sobe');
-  ok(direcao(true, -50, 1200, 900) === 'desce',
-    'não cabendo em nenhum dos dois, volta ao preferido: lá a rolagem da página alcança');
+
+  /* O TETO DA ÁREA QUE ROLA. O painel é recortado pelo `.corpo-pagina`, que começa
+     abaixo do cabeçalho: medindo contra a janela, ele concluía que cabia e o topo dele
+     — o campo de busca — ficava escondido atrás dessa borda. */
+  ok(medir(false, 500, 900, 400).lado === 'desce',
+    'com o cabeçalho ocupando os primeiros 400px, o que caberia na janela já não cabe ' +
+    'na área que rola — e ele desce');
+  var apertado = medir(false, 500, 520, 90, 900);
+  ok(apertado.lado === 'sobe' && apertado.teto === '402px',
+    'não cabendo dos dois lados, ele encolhe ao espaço real e rola por dentro, em vez ' +
+    'de ter o topo cortado', apertado);
+  var fresta = medir(false, 150, 250, 90, 900);
+  ok(fresta.teto === '',
+    'e abaixo de 180px de espaço não encolhe: uma fresta não serve para nada, e a ' +
+    'rolagem da página ainda alcança', fresta);
   /* Uma funcao para os DOIS paineis. Dois lugares decidindo a mesma coisa acabam
      discordando, e o segundo nasceria fora da tela no dia em que o primeiro fosse
      corrigido. */
@@ -4606,7 +4639,11 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
       '\n return { ativo: algumFiltroFluxo, limpar: limparFiltrosFluxo,' +
       '\n          grupo: function(){ return FLUXO_FILTRO; } };' +
       '\n function carregarPainel(){ chamou.carregou++; }' +
-      '\n function desenharFluxo(){ chamou.desenhou++; }');
+      '\n function desenharFluxo(){ chamou.desenhou++; }' +
+      /* O atalho de período aceso é enfeite que ACOMPANHA o campo de data: limpo o
+         campo e deixado o botão marcado, o painel mostraria "7 dias" ligado sobre um
+         período vazio. Aqui ele é anotado para a afirmação abaixo poder cobrá-lo. */
+      '\n function marcarAtalhoFluxo(q){ chamou.atalho = q; }');
     var api = faz(doc, grupo, chamou);
     api.chamou = chamou;
     api.botao = botao;
@@ -4674,10 +4711,17 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
     'e so um lugar mostra e esconde o Limpar — espalhar isso deixa o botao aceso depois ' +
     'de limpo', corpoBarra);
 
+  /* NÃO NASCE DESABILITADO. Ele nasceu assim na época em que ficava sempre na tela;
+     quando passou a APARECER só havendo filtro, o atributo ficou para trás — e
+     `ajustarBarraFiltros` só mexe no `hidden`. O resultado, ao vivo: um botão que
+     surgia exatamente quando havia o que limpar, e não limpava nada.
+
+     Quem esconde antes do primeiro desenho é o `hidden`, que a mesma função controla. */
   var html = adm.slice(adm.indexOf('id="btnLimparRetornos"') - 200,
                        adm.indexOf('id="btnLimparRetornos"') + 200);
-  ok(/disabled/.test(html),
-    'o botao nasce desligado no HTML: antes do primeiro desenho não há o que limpar');
+  ok(!/disabled/.test(html),
+    'o botão de limpar não nasce desabilitado — aparecendo só com filtro, o `disabled` ' +
+    'virava um botão que surgia na hora certa e não fazia nada');
 })();
 
 /* ---------------------------------------------------------------------------
@@ -5324,6 +5368,154 @@ console.log('\n== Movimentos no celular: cartão, folha de ações e filtros =='
      /\[data-fechar-folha\]/.test(adm) &&
      /e\.key === 'Escape'\) fecharFolhas\(\)/.test(adm),
     'a folha fecha pelo X, pelo véu e pelo Esc');
+})();
+
+console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo contado ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  /* ---- o relógio é o do GALPÃO ------------------------------------------- */
+  ok(/var FUSO_OPERACAO = 'America\/Recife';/.test(js) &&
+     (js.match(/var FUSO_OPERACAO =/g) || []).length === 1,
+    'o fuso da operação mora num lugar só — dois números iguais em arquivos diferentes ' +
+    'divergem no dia em que um deles mudar');
+  ok(/fuso: Q\.FUSO_OPERACAO/.test(adm),
+    'e o relógio do cabeçalho lê esse mesmo fuso, não um escrito à mão ao lado');
+  /* AS DUAS, e contadas: a data ficou no fuso certo e a HORA voltou para o relógio da
+     máquina, e a afirmação continuava verde achando a outra. */
+  ok((adm.match(/timeZone:UNIDADE\.fuso/g) || []).length === 2,
+    'a data E a hora saem no fuso da unidade: quem confere de outro estado precisa ler ' +
+    'a hora do galpão, senão "lançado às 17h" muda de significado');
+  /* REAGENDA em vez de `setInterval`: intervalo acumula atraso e o relógio pula
+     segundos num painel que fica aberto o dia inteiro. */
+  ok(/tique = setTimeout\(function\(\)\{ bater\(\); agendar\(\); \}, 1000 - \(Date\.now\(\) % 1000\)\);/
+    .test(adm),
+    'o relógio se reagenda a cada volta, acertando pelo relógio do sistema');
+  ok(/if \(document\.hidden\) clearTimeout\(tique\);/.test(adm),
+    'e para com a aba escondida — painel de galpão fica aberto o dia inteiro');
+  /* NA REGRA DO RELÓGIO: a tabela numérica já usava `tabular-nums` noutra linha, e era
+     ela que respondia por esta afirmação. */
+  ok(/\.tempo__hora\{[^}]*font-variant-numeric:tabular-nums/.test(css),
+    'os dígitos do relógio têm largura fixa: sem isso ele "respira" a cada segundo');
+
+  /* SEM VALOR DE MENTIRA. O modelo trazia uma temperatura fixa no código para
+     demonstrar sem internet; num painel publicado isso é um número inventado que
+     ninguém desconfia. */
+  ok(!/TEMPO_FIXO/.test(adm),
+    'não há temperatura fixa no código — número inventado no lugar do que não carregou ' +
+    'é pior que o campo vazio');
+  ok(/\.tempo--sem \.tempo__g\{color:var\(--txt3\)\}/.test(css) &&
+     /classList\.add\('tempo--sem'\)/.test(adm),
+    'sem resposta, o grau fica apagado em "--°" e a hora continua: relógio que depende ' +
+    'de internet é pior que relógio nenhum');
+  ok(/corta\.abort\(\); \}, 8000\)/.test(adm),
+    'a consulta corta em 8s — uma rede que aceita a conexão e não responde deixaria a ' +
+    'promessa pendurada e a próxima empilharia em cima');
+  ok(/@media \(max-width:860px\)\{ \.tempo\{display:none\} \}/.test(css),
+    'e o bloco some no celular, onde o cabeçalho já disputa espaço com o menu');
+
+  /* ---- a busca peneira na FONTE ------------------------------------------ */
+  ok(/if \(b && alvoBusca\(l\)\.indexOf\(b\) < 0\) return false;/.test(adm),
+    'a busca peneira dentro do `todasAsLinhas`, com os outros filtros');
+  ok(/function alvoBusca\(l\)/.test(adm) && /l\.saidaTipos \|\| \[\]/.test(adm),
+    'e procura no que a linha MOSTRA, inclusive o detalhe por tipo de caixa — buscar só ' +
+    'no que tem seletor deixaria de fora justamente o que não tem');
+  var iCh = adm.indexOf('function chato(t)');
+  var fChato = adm.slice(iCh, adm.indexOf('\n\n', iCh));
+  ok(iCh > 0 && /normalize\('NFD'\)/.test(fChato) && /toLowerCase\(\)/.test(fChato) &&
+     fChato.indexOf("replace(/\\./g, '')") > 0,
+    'achatando acento e ponto: no galpão ninguém procura acentuando, e o número na tela ' +
+    'tem ponto que ninguém digita', fChato);
+  ok(/FILTROS_FLUXO = \['rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'rtBusca'\]/.test(adm),
+    'e ela entra na conta de "quantos filtros estão ligados" — fora dela, a tabela ' +
+    'ficaria curta com o botão dizendo que não há filtro nenhum');
+  ok(/espera = setTimeout\(desenharFluxo, 160\);/.test(adm),
+    'a busca espera a pessoa parar de digitar: o fluxo inteiro é peneirado a cada tecla, ' +
+    'e é ele que carrega os cinco indicadores junto');
+
+  /* ---- os atalhos de período --------------------------------------------- */
+  /* NA LINHA QUE CALCULA, e não no comentário que a explica: `Q.hojeOperacao()` aparece
+     duas vezes no arquivo, e uma delas é a explicação logo acima. */
+  ok(/function hojeOperacao\(\)/.test(js) &&
+     /var hoje = Q\.hojeOperacao\(\);/.test(adm) && !/var hoje = Q\.hoje\(\);/.test(adm),
+    'o atalho conta a partir do dia do GALPÃO: um atalho decide sozinho o que vai ser ' +
+    'somado, e com o relógio em outro fuso mudaria de significado sem ninguém perceber');
+  ok(/\.formatToParts\(new Date\(\)\)\.forEach/.test(js) &&
+     !/toLocaleDateString\('sv-SE'/.test(js),
+    'e a data sai de `formatToParts`, não do truque de formatar num locale que por acaso ' +
+    'devolve ISO — separador de locale não é contrato de ninguém');
+  ok(/if \(b\.getAttribute\('aria-pressed'\) === 'true'\) \{   \/\/ desliga/.test(adm),
+    'os atalhos são liga-desliga — sem isso o único caminho de volta seria "Limpar ' +
+    'filtros", que apagaria origem, destino e busca junto');
+  ok(/de\.value = hoje\.slice\(0, 8\) \+ '01';/.test(adm),
+    '"Este mês" começa no dia 1º');
+
+  /* ---- data invertida ----------------------------------------------------- */
+  ok(/if \(de\.value && ate\.value && de\.value > ate\.value\) \{[\s\S]{0,300}inverti as duas/
+    .test(adm),
+    'data inicial maior que a final é avisada e invertida — sozinha, ela devolve lista ' +
+    'vazia e a pessoa conclui que o período não teve movimento');
+
+  /* ---- o que está sendo contado ------------------------------------------ */
+  ok(/function escreverResumoFluxo\(lista\)/.test(adm) &&
+     /escreverResumoFluxo\(lista\);/.test(adm),
+    'a tela diz, em português, o que está sendo contado');
+  ok(/\.resumo\{position:sticky;top:0/.test(css),
+    'e a linha fica grudada: quem rola a tabela perde de vista tanto os indicadores ' +
+    'quanto o botão de filtros');
+  ok(/if \(!partes\.length\) \{ alvo\.hidden = true;/.test(adm),
+    'sem filtro nenhum ela some — linha permanente vira paisagem, e paisagem não avisa ' +
+    'nada no dia em que houver um recorte');
+  /* O TOTAL É O DE ANTES DE QUALQUER FILTRO, e a comparação só aparece quando há o que
+     comparar: "Contando 4 de 4" é ruído. */
+  ok(/var base = \(\(\(PAINEL && PAINEL\.fluxo\) \|\| \{\}\)\.linhas \|\| \[\]\)\.filter/.test(adm),
+    'o total sai do fluxo inteiro, e não da lista já peneirada');
+  ok(/lista\.length === base\.length\s*\n?\s*\? '<b>'\+lista\.length/.test(adm),
+    'e o "de N" só aparece quando algum filtro desta tela escondeu linhas');
+
+  /* ---- o botão que aparecia e não limpava --------------------------------- */
+  ok(!/id="btnLimparRetornos" type="button" disabled/.test(adm),
+    '"Limpar filtros" não nasce desabilitado — ele passou a aparecer só quando há ' +
+    'filtro, e o atributo ficou para trás: o botão surgia exatamente quando havia o ' +
+    'que limpar, e não limpava nada');
+  ok(/marcarAtalhoFluxo\(''\);\s*\n\s*if \(tinhaData\)/.test(adm),
+    'e limpar apaga também o atalho aceso — senão o painel mostrava "7 dias" ligado ' +
+    'sobre um período vazio');
+
+  /* ---- o painel de filtros cabe ------------------------------------------- */
+  ok(/var caixa = pop\.closest\('\.corpo-pagina'\);/.test(adm),
+    'o painel de filtros se mede contra o bloco que ROLA, e não contra a janela: é essa ' +
+    'borda que recorta um elemento posicionado');
+  ok(/pop\.classList\.remove\('para-baixo'\);\s*\n\s*var acima = pop\.getBoundingClientRect\(\)\.bottom - teto;/
+    .test(adm),
+    'e o espaço de cada lado sai da POSIÇÃO do próprio painel — `.ret-pop` se ancora no ' +
+    'ancestral posicionado, que não é o pai, e medir pelo pai dava uma régua errada');
+  ok(/requestAnimationFrame\(function\(\)\{\s*\n\s*delete pop\.dataset\.medindo;/.test(adm),
+    'a medida se repete no quadro seguinte: a primeira pega o layout de ANTES de a ' +
+    'coluna se reacomodar, e sobrava 76px de espaço que não existia');
+  ok(/if \(espaco >= 180\) pop\.style\.maxHeight = espaco \+ 'px';/.test(adm),
+    'não cabendo, ele encolhe e rola por dentro em vez de ter o topo cortado');
+  ok(/pop\.style\.maxHeight = '';/.test(adm),
+    'e zera o encolhimento antes de medir de novo — guardado, ele nunca voltaria ao ' +
+    'tamanho inteiro numa janela que cresceu');
+
+  /* ---- a classe que faltava ----------------------------------------------- */
+  ok(/\.sr\{position:absolute;width:1px;height:1px/.test(css),
+    'o texto só para quem ouve a tela tem regra — sem ela, a primeira frase escrita ' +
+    'assim apareceu solta no meio do painel de filtros');
+
+  /* ---- a fumaça ----------------------------------------------------------- */
+  ok(/class="fumaca"/.test(adm) && /\.fumaca\{fill:var\(--txt3\)/.test(css),
+    'o caminhão solta fumaça pela traseira');
+  ok(/animation:fumegar[\s\S]{0,400}transform:translate\(-9px,-11px\) scale\(3\)/.test(css),
+    'e ela anima por `transform`, que a placa de vídeo resolve — mexer no raio do ' +
+    'círculo obrigaria o navegador a refazer o desenho 60 vezes por segundo');
+  ok(/\.caminhao\{[^}]*overflow:visible\}/.test(css),
+    'o quadro do caminhão deixa a fumaça passar');
+  ok(/@media \(prefers-reduced-motion:reduce\)\{\s*\n\s*\.desenho \*/.test(css),
+    'e quem pediu menos movimento não recebe nenhuma delas');
 })();
 
 console.log('\n== Corrigir: o que é correção e o que é só consulta ==');

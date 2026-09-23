@@ -388,6 +388,28 @@
     var d = new Date();
     return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
   }
+
+  /* O FUSO DA OPERAÇÃO. Um só, e aqui: o servidor tem o dele em `FUSO_OPERACAO_H`, e
+     dois lugares com o mesmo número acabam divergindo no dia em que um deles mudar. */
+  var FUSO_OPERACAO = 'America/Recife';
+
+  /* O DIA DE HOJE NO GALPÃO, e não no computador de quem olha.
+     `hoje()` acima devolve a data da máquina, que é o certo para preencher um campo que
+     a pessoa vai conferir. Já um ATALHO de período ("últimos 7 dias") decide sozinho o
+     que vai ser somado: com o relógio em outro fuso — gerente em viagem, servidor em
+     UTC — ele mudaria de significado sem ninguém perceber. Este devolve o mesmo dia que
+     o servidor usa para decidir se um lançamento é "de hoje".
+
+     `formatToParts` em vez do truque de formatar com um locale que sai em ISO: o truque
+     depende do separador do locale, e isso não é contrato de lugar nenhum. */
+  function hojeOperacao() {
+    if (!window.Intl || !Intl.DateTimeFormat) return hoje();
+    var p = {};
+    new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_OPERACAO,
+      year: 'numeric', month: '2-digit', day: '2-digit' })
+      .formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; });
+    return p.year && p.month && p.day ? p.year + '-' + p.month + '-' + p.day : hoje();
+  }
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function esc(s) {
     return String(s === undefined || s === null ? '' : s)
@@ -1154,6 +1176,7 @@
     precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
     temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
+    hojeOperacao: hojeOperacao, FUSO_OPERACAO: FUSO_OPERACAO,
     horaBR: horaBR, dataDoCarimboBR: dataDoCarimboBR, dataHoraBR: dataHoraBR,
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,

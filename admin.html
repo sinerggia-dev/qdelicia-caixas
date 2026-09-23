@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=cd911491">
+<link rel="stylesheet" href="styles.css?v=9154210d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -300,6 +300,38 @@
         <div class="cab-pagina__acima" id="acimaPagina">Operação</div>
         <h1 class="cab-pagina__titulo" id="tituloPagina">Painel de Ativos</h1>
       </div>
+
+      <!-- RELÓGIO E TEMPO DA UNIDADE.
+           A hora é a da OPERAÇÃO, e não a do computador de quem olha: quem confere de
+           outro estado precisa ler a hora do galpão, senão "lançado às 17h" muda de
+           significado com o fuso de quem lê.
+
+           O tempo não é enfeite: caixa de papelão em pátio molhado é perda, e chuva na
+           rota é atraso de retorno. Fica ao lado da hora porque as duas respondem à
+           mesma pergunta — "como está lá agora".
+
+           Se a consulta falhar, o grau fica apagado e a HORA continua: relógio que
+           depende de internet é pior que relógio nenhum. -->
+      <div class="tempo" id="tempo" hidden>
+        <div class="tempo__t" id="tempoT">
+          <span class="tempo__ico" id="tempoIco" aria-hidden="true"></span>
+          <span class="tempo__c">
+            <span class="tempo__g" id="tempoGrau">--°</span>
+            <span class="tempo__loc">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"></path>
+                <circle cx="12" cy="10" r="2.6"></circle></svg>
+              <span id="tempoLocal"></span>
+            </span>
+          </span>
+        </div>
+        <span class="tempo__div" aria-hidden="true"></span>
+        <div class="tempo__d">
+          <span class="tempo__data" id="tempoData"></span>
+          <time class="tempo__hora" id="tempoHora"></time>
+        </div>
+      </div>
     </div>
 
     <div class="corpo-pagina">
@@ -379,16 +411,39 @@
             <button class="ret-acao" id="btnVerFiltros" type="button"
                     aria-expanded="false" aria-controls="filtrosRet"></button>
             <div class="ret-pop" id="filtrosRet" hidden>
+              <!-- A BUSCA VEM PRIMEIRO: é o controle mais usado, e é o único que acha
+                   uma linha por um dado que não tem seletor — o tipo de caixa, um
+                   número, um pedaço do nome. -->
+              <label for="rtBusca">Buscar</label>
+              <div class="busca busca--pop" id="rtBuscaCx">
+                <input id="rtBusca" type="search" autocomplete="off"
+                       placeholder="rota, unidade, CX IFCO, 1.620…"
+                       aria-describedby="rtBuscaDica">
+                <button class="limpa" type="button" id="rtBuscaX" aria-label="Limpar a busca">✕</button>
+              </div>
+              <span class="sr" id="rtBuscaDica">Procura na data, na origem, no destino,
+                no tipo de caixa e nos valores da linha.</span>
               <label for="rtOrigem">Origem</label>
               <select id="rtOrigem"><option value="">Todas</option></select>
               <label for="rtDestino">Destino</label>
               <select id="rtDestino"><option value="">Todos</option></select>
+              <!-- ATALHOS DE PERÍODO: é assim que a operação pede período na prática.
+                   Eles são liga-desliga — tocar no que já está aceso limpa a data e
+                   devolve a tabela inteira. Sem isso, o único caminho de volta seria
+                   "Limpar filtros", que apagaria origem, destino e busca junto. -->
+              <label id="rtPeriodoR">Período</label>
+              <div class="atalhos" id="rtAtalhos" role="group" aria-labelledby="rtPeriodoR">
+                <button type="button" data-dias="7" aria-pressed="false">7 dias</button>
+                <button type="button" data-dias="30" aria-pressed="false">30 dias</button>
+                <button type="button" data-dias="mes" aria-pressed="false">Este mês</button>
+              </div>
               <!-- As duas datas dividem uma fileira: sozinhas, cada uma custava uma
                    linha inteira do painel para um campo que nao usa metade da largura. -->
               <div class="pop-duplo">
                 <div><label for="rtDe">De</label><input id="rtDe" type="date"></div>
                 <div><label for="rtAte">Até</label><input id="rtAte" type="date"></div>
               </div>
+              <p class="erro-data" id="rtErroData" role="alert" hidden></p>
               <label for="verTesteRetornos">Lançamentos</label>
               <select id="verTesteRetornos" data-verteste>
                 <option value="reais">Só reais</option>
@@ -396,10 +451,15 @@
               </select>
             </div>
           </div>
-          <!-- Nasce desligado e so acende quando ha o que limpar: assim ele tambem
-               responde "tem algum filtro ligado?", que e a pergunta de quem estranha a
-               tabela curta e nao lembra do que escolheu tres cliques atras. -->
-          <button class="ret-acao" id="btnLimparRetornos" type="button" disabled
+          <!-- Só existe quando ha o que limpar: assim ele tambem responde "tem algum
+               filtro ligado?", que e a pergunta de quem estranha a tabela curta e nao
+               lembra do que escolheu tres cliques atras.
+
+               SEM `disabled`. Ele nasceu desligado, na epoca em que ficava sempre na
+               tela; quando passou a aparecer só com filtro, o atributo ficou para tras —
+               e `ajustarBarraFiltros` só mexe no `hidden`. O resultado era um botão que
+               aparecia exatamente quando havia o que limpar e não limpava nada. -->
+          <button class="ret-acao" id="btnLimparRetornos" type="button"
                   title="Volta origem, destino, período e a lista da esquerda ao estado inicial">✕ Limpar filtros</button>
           <div class="ret-risco"></div>
           <button class="ret-acao" id="btnCsvRetornos" type="button">⬇ Exportar CSV</button>
@@ -419,6 +479,11 @@
         <!-- Os totais vem ANTES da tabela: sao a leitura do conjunto, e quem abre a
              tela quer o resumo antes do detalhe. Embaixo, com a tabela crescendo, eles
              saiam da primeira dobra e so apareciam para quem rolasse ate o fim. -->
+        <!-- O QUE ESTÁ SENDO CONTADO, em português e GRUDADO no topo. Os cinco números
+             abaixo mudam com o filtro, e o filtro mora na coluna da esquerda, longe
+             deles: quem rola a tabela perde os controles de vista e lê 4.400 sem saber
+             que está vendo só setembro, ou só as saídas. Esta linha desce junto. -->
+        <p class="resumo" id="resumoFluxo" aria-live="polite"></p>
         <div class="ftiles" id="fluxoTiles"></div>
         <div id="tabelaFluxo"><div class="vazio">Carregando…</div></div>
       </div>
@@ -692,7 +757,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=722802ef"></script>
+<script src="app.js?v=3dddf2ba"></script>
 <script>
 (function(){
   'use strict';
@@ -1271,11 +1336,38 @@
   /* Os filtros de origem e destino ficam AQUI, na fonte, e nao em cada tela que le a
      lista. Os chips, os indicadores do rodape e o CSV bebem todos desta funcao — filtrar
      so na tabela faria o chip dizer "Rotas 3" com uma linha listada embaixo. */
+  /* ACHATA ACENTO E PONTO DE MILHAR. Quem digita "sao vicente" tem de achar "São
+     Vicente", e quem digita "1620" tem de achar "1.620" — no galpão ninguém procura
+     acentuando, e o número que está na tela tem ponto que ninguém digita. */
+  function chato(t){
+    return String(t == null ? '' : t).normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().replace(/\./g, '');
+  }
+
+  /* TUDO O QUE A LINHA MOSTRA vira texto procurável — inclusive o detalhe por tipo de
+     caixa e os valores já formatados. Procurar só no que tem seletor deixaria de fora
+     justamente o que não tem: "CX IFCO", um romaneio, um número. */
+  function alvoBusca(l){
+    return chato([
+      l.data ? Q.dataBR(l.data) : '', l.nome || '', l.sub || '',
+      (l.origens || []).join(' '), (l.destinos || []).join(' '),
+      l.inicial, l.saida, l.retorno, l.iniCorrido, l.fimCorrido,
+      Q.num(l.inicial), Q.num(l.saida), Q.num(l.retorno), Q.num(l.fimCorrido),
+      (l.saidaTipos || []).map(function(t){ return t.caixa+' '+t.qtd; }).join(' '),
+      (l.retornoTipos || []).map(function(t){ return t.caixa+' '+t.qtd; }).join(' ')
+    ].join(' '));
+  }
+
   function todasAsLinhas(){
     var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
     var o = valor('rtOrigem'), d = valor('rtDestino');
+    var b = chato(valor('rtBusca').trim());
     return f.linhas.filter(function(l){
       if (l.situacao === 'parado' && !l.inicial) return false;
+      /* A BUSCA PENEIRA AQUI, na fonte, com os outros. Filtrando só na tabela, os chips
+         diriam "Rotas 3" com uma linha listada embaixo, e os cinco indicadores
+         continuariam somando o que a busca tirou da vista. */
+      if (b && alvoBusca(l).indexOf(b) < 0) return false;
       if (o && (l.origens || []).indexOf(o) < 0) return false;
       /* A linha de estoque inicial nao tem destino — ela nao e um caminho, e o ponto de
          partida da conta. Por isso ela atravessa o filtro de destino em vez de cair fora:
@@ -1305,7 +1397,7 @@
      O "So reais / So de teste" fica FORA. Ele nao estreita nada — escolhe qual das duas
      operacoes se esta lendo, e nao existe estado "os dois". Zerar junto faria o ensaio
      sumir da tela de quem estava justamente olhando o ensaio. */
-  var FILTROS_FLUXO = ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte'];
+  var FILTROS_FLUXO = ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'rtBusca'];
 
   /* Conta, e nao so responde sim ou nao: o botao de recolher precisa DIZER quantos
      filtros ficaram escondidos, e duas contagens sobre a mesma regra divergiriam. */
@@ -1403,22 +1495,126 @@
      Uma funcao para os dois paineis: dois lugares decidindo a mesma coisa acabam
      discordando, e o segundo painel nasceria fora da tela no dia em que o primeiro fosse
      corrigido. */
+  /* MEDE DUAS VEZES: agora e no quadro seguinte.
+     A primeira medida pega o layout de ANTES de o navegador reagir à abertura — o
+     rótulo do botão muda de "▸" para "▾", o "Limpar filtros" aparece, e a coluna
+     inteira se reacomoda. Medido nesse instante, o espaço acima do gatilho dava 76px a
+     mais do que existe, o painel recebia um teto folgado demais e o topo dele — o campo
+     de busca — ficava escondido atrás da borda da área que rola.
+
+     Duas passadas, e não um `setTimeout`: o quadro seguinte é o primeiro momento em que
+     a conta do navegador já terminou, e é curto o bastante para ninguém ver. */
   function posicionarPop(pop, preferBaixo){
-    if (!pop) return;
+    if (!pop || pop.hidden) return;
+    if (!pop.dataset.medindo) {
+      pop.dataset.medindo = '1';
+      requestAnimationFrame(function(){
+        delete pop.dataset.medindo;
+        if (!pop.hidden) posicionarPop(pop, preferBaixo);
+      });
+    }
+    medirPop(pop, preferBaixo);
+  }
+
+  function medirPop(pop, preferBaixo){
     /* O lado PREFERIDO depende de onde o gatilho mora. No rodape do trilho o painel sobe,
        porque para baixo so ha a borda da tela. Numa barra de ferramentas acima da tabela
        ele desce, senao taparia os filtros que a pessoa acabou de usar. */
-    pop.classList.toggle('para-baixo', !!preferBaixo);
-    var r = pop.getBoundingClientRect();
-    var cabe = preferBaixo ? (r.bottom <= window.innerHeight - 8) : (r.top >= 8);
-    if (cabe) return;
-    /* Nao coube do lado preferido: tenta o outro. Nao cabendo tambem, volta ao preferido —
-       la pelo menos a rolagem da pagina alcanca, e o `max-height` do painel garante o
-       resto. */
-    pop.classList.toggle('para-baixo', !preferBaixo);
-    var r2 = pop.getBoundingClientRect();
-    var cabe2 = preferBaixo ? (r2.top >= 8) : (r2.bottom <= window.innerHeight - 8);
-    if (!cabe2) pop.classList.toggle('para-baixo', !!preferBaixo);
+    /* Zera o encolhimento da abertura anterior ANTES de medir: guardado, o painel
+       mediria a própria altura reduzida e nunca mais voltaria ao tamanho inteiro numa
+       janela que cresceu. */
+    pop.style.maxHeight = '';
+
+    /* O LIMITE É O BLOCO QUE ROLA, e não a janela. Um elemento posicionado é recortado
+       pelo ancestral que rola — aqui, o `.corpo-pagina`, que começa abaixo do cabeçalho
+       da página. Medindo contra a janela, o painel concluía que cabia e o topo dele
+       ficava escondido atrás dessa borda: o campo de busca, que é o primeiro, sumia e o
+       painel parecia começar no meio. Foi o que apareceu quando ele ganhou a busca e os
+       atalhos e passou de 419px. */
+    var caixa = pop.closest('.corpo-pagina');
+    var area = caixa ? caixa.getBoundingClientRect()
+                     : { top: 0, bottom: window.innerHeight };
+    var teto = area.top + 8, chao = area.bottom - 8;
+
+    /* O ESPAÇO DE CADA LADO SAI DA POSIÇÃO DO PRÓPRIO PAINEL, e não do elemento que
+       parece ser o gatilho: `.ret-pop` se ancora no ancestral POSICIONADO, que não é
+       necessariamente o pai — medir pelo pai devolvia um espaço que não existia, e o
+       painel continuava cortado com um `max-height` calculado sobre a régua errada.
+
+       Aberto para cima, a base dele é a borda de baixo do espaço disponível; aberto
+       para baixo, o topo é a borda de cima. Duas medidas de POSIÇÃO, que não dependem
+       da altura do conteúdo. */
+    pop.classList.remove('para-baixo');
+    var acima = pop.getBoundingClientRect().bottom - teto;
+    pop.classList.add('para-baixo');
+    var abaixo = chao - pop.getBoundingClientRect().top;
+
+    /* ESCOLHE O LADO PELO ESPAÇO, e não por tentativa e erro. A versão anterior media o
+       painel de um lado, do outro, e voltava ao primeiro: três medidas encadeadas, cada
+       uma dependendo do reflow da anterior, e bastava uma delas pegar o layout de antes
+       para a decisão sair errada — em silêncio, porque o resultado é um painel cortado e
+       não um erro.
+
+       Aqui a conta é sobre o GATILHO, que não se mexe: de que lado dele há mais espaço
+       dentro da área que rola. O lado preferido só perde quando o outro tem mais. */
+    var pedido = Math.min(pop.scrollHeight, 420);
+    var baixo = preferBaixo ? (abaixo >= pedido || abaixo >= acima)
+                            : (acima < pedido && abaixo > acima);
+    pop.classList.toggle('para-baixo', baixo);
+
+    /* E ENCOLHE ao que couber daquele lado: o painel rola por dentro em vez de ter o
+       topo cortado. Abaixo de 180px vira fresta inútil — aí é melhor transbordar e
+       deixar a rolagem da página alcançar. */
+    var espaco = baixo ? abaixo : acima;
+    if (espaco >= 180) pop.style.maxHeight = espaco + 'px';
+  }
+
+  /* ================= O QUE ESTÁ SENDO CONTADO =================
+   *
+   * Os cinco indicadores mudam com o filtro, e o filtro mora na coluna da esquerda,
+   * atrás de um botão. Fechado, ele esconde o recorte o tempo todo: a pessoa lê 4.400 e
+   * não tem como saber que está vendo só setembro, ou só uma origem.
+   *
+   * Esta linha fecha esse buraco em PORTUGUÊS, e fica grudada no topo enquanto a tabela
+   * rola. A contagem do botão "Filtros (3)" diz QUANTOS; ela diz QUAIS.
+   *
+   * Sem filtro nenhum ela some: uma linha permanente dizendo "todo o período" vira
+   * paisagem, e paisagem não avisa nada no dia em que houver um recorte. */
+  function escreverResumoFluxo(lista){
+    var alvo = document.getElementById('resumoFluxo');
+    if (!alvo) return;
+    /* O TOTAL É O DE ANTES DE QUALQUER FILTRO. Comparar com a lista já peneirada daria
+       "Contando 3 de 3" com um filtro ligado, que é exatamente a leitura errada que
+       esta linha existe para impedir. O único corte que fica de fora da conta é o do
+       dia sem movimento nenhum, que nunca foi mostrado em lugar algum. */
+    var base = (((PAINEL && PAINEL.fluxo) || {}).linhas || []).filter(function(l){
+      return !(l.situacao === 'parado' && !l.inicial);
+    });
+    var partes = [];
+    var de = valor('rtDe'), ate = valor('rtAte');
+    if (de && ate) partes.push(de === ate ? 'dia '+Q.dataBR(de)
+                                          : 'de '+Q.dataBR(de)+' a '+Q.dataBR(ate));
+    else if (de) partes.push('a partir de '+Q.dataBR(de));
+    else if (ate) partes.push('até '+Q.dataBR(ate));
+    if (FLUXO_FILTRO !== 'todas') partes.push('só '+(NOMES_GRUPO[FLUXO_FILTRO]||'').toLowerCase());
+    if (valor('rtOrigem')) partes.push('origem '+valor('rtOrigem'));
+    if (valor('rtDestino')) {
+      partes.push('destino '+(valor('rtDestino') === DESTINO_ESTOQUE
+        ? 'nenhum (só estoque)' : valor('rtDestino')));
+    }
+    if (valor('rtBusca').trim()) partes.push('busca “'+valor('rtBusca').trim()+'”');
+
+    if (!partes.length) { alvo.hidden = true; alvo.innerHTML = ''; return; }
+    alvo.hidden = false;
+    /* "CONTANDO 4 DE 4" É RUÍDO. O período vai ao servidor, e o que volta já vem
+       recortado: comparar a lista com ela mesma enche a linha de um número que não
+       distingue nada. A comparação só aparece quando há o que comparar — quando algum
+       filtro desta tela escondeu linhas que estão na memória. */
+    alvo.innerHTML = (lista.length === base.length
+        ? '<b>'+lista.length+'</b>'+(lista.length === 1 ? ' linha' : ' linhas')
+        : 'Contando <b>'+lista.length+'</b> de '+base.length+
+          (base.length === 1 ? ' linha' : ' linhas'))+
+      ' · '+Q.esc(partes.join(' · '))+'.';
   }
 
   function limparFiltrosFluxo(){
@@ -1431,6 +1627,13 @@
       if (e) e.value = '';
     });
     FLUXO_FILTRO = 'todas';
+    /* Os enfeites que acompanham os campos: o "x" da busca e o atalho aceso. Deixados
+       para trás, o painel mostrava um atalho marcado sobre um período já vazio. */
+    var cx = document.getElementById('rtBuscaCx');
+    if (cx) cx.classList.remove('tem');
+    var erro = document.getElementById('rtErroData');
+    if (erro) erro.hidden = true;
+    marcarAtalhoFluxo('');
     if (tinhaData) carregarPainel(); else desenharFluxo();
   }
 
@@ -2142,6 +2345,7 @@
        o rotulo do trilho tambem: recolhido, ele mostra o grupo escolhido. */
     ajustarBarraFiltros();
     ajustarTrilho();
+    escreverResumoFluxo(lista);
 
     var t = totaisDe(lista);
     /* Cinco cartoes, na ordem de quem lê: primeiro o indicador que se cobra (a taxa),
@@ -2402,7 +2606,13 @@
       '<circle cx="11" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
       '<circle cx="26" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
       '<circle cx="42" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
-      '<path d="M1.5 16.5h32M33.5 16.5h13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+      '<path d="M1.5 16.5h32M33.5 16.5h13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'+
+      /* O escapamento fica na traseira (x≈1): a fumaça sobe e fica para trás. Três
+         baforadas defasadas, dentro do próprio SVG — assim andam junto com o caminhão
+         sem um segundo elemento para manter no lugar. */
+      '<circle class="fumaca" cx="1" cy="13" r="1.7"/>'+
+      '<circle class="fumaca fumaca--2" cx="1" cy="13" r="1.7"/>'+
+      '<circle class="fumaca fumaca--3" cx="1" cy="13" r="1.7"/></svg>';
   }
 
   /* A faixa toda para de animar quando sai da tela. Ligado uma vez, e não a cada
@@ -2432,8 +2642,97 @@
   /* Recarrega sozinho ao trocar a data. O botao Atualizar continua existindo, mas quem
      escolhe um periodo e nao ve a tabela mudar conclui que o filtro nao funciona. */
   ['rtDe', 'rtAte'].forEach(function(id){
-    document.getElementById(id).addEventListener('change', carregarPainel);
+    document.getElementById(id).addEventListener('change', lerDatasFluxo);
   });
+
+  /* DATA INICIAL MAIOR QUE A FINAL devolve lista vazia e não explica nada — a pessoa
+     conclui que o período não tem movimento. Aqui a tela avisa e inverte as duas: o que
+     ela queria era o intervalo entre elas, e a ordem em que digitou é acidente. */
+  function lerDatasFluxo(){
+    var de = document.getElementById('rtDe'), ate = document.getElementById('rtAte');
+    var erro = document.getElementById('rtErroData');
+    if (de.value && ate.value && de.value > ate.value) {
+      var t = de.value; de.value = ate.value; ate.value = t;
+      if (erro) {
+        erro.textContent = 'A data inicial era maior que a final — inverti as duas.';
+        erro.hidden = false;
+      }
+    } else if (erro) erro.hidden = true;
+    marcarAtalhoFluxo('');
+    carregarPainel();
+  }
+
+  /* ---- ATALHOS DE PERÍODO ----
+   *
+   * É assim que a operação pede período na prática: "os últimos sete dias", "este mês".
+   * Digitar duas datas para isso é trabalho que o botão faz melhor.
+   *
+   * O DIA DE HOJE É O DA OPERAÇÃO, e não o do computador de quem olha. `Q.hoje()` serve
+   * para preencher campo que a pessoa vai conferir; um atalho decide SOZINHO o que vai
+   * ser somado, e com o relógio em outro fuso ele mudaria de significado sem ninguém
+   * perceber. Por isso `Q.hojeOperacao()`, que devolve o mesmo dia que o servidor usa.
+   *
+   * SÃO LIGA-DESLIGA. Tocar no que já está aceso limpa o período e devolve a tabela
+   * inteira. Sem isso o único caminho de volta seria "Limpar filtros", que apagaria
+   * origem, destino e busca junto — perder o recorte inteiro para desfazer uma coisa. */
+  function marcarAtalhoFluxo(qual){
+    var cx = document.getElementById('rtAtalhos');
+    if (!cx) return;
+    Array.prototype.forEach.call(cx.children, function(b){
+      b.setAttribute('aria-pressed', String(b.dataset.dias === qual));
+    });
+  }
+
+  document.getElementById('rtAtalhos').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-dias]');
+    if (!b) return;
+    var de = document.getElementById('rtDe'), ate = document.getElementById('rtAte');
+    var erro = document.getElementById('rtErroData');
+    if (erro) erro.hidden = true;
+
+    if (b.getAttribute('aria-pressed') === 'true') {   // desliga
+      de.value = ''; ate.value = '';
+      marcarAtalhoFluxo('');
+      carregarPainel();
+      return;
+    }
+
+    var hoje = Q.hojeOperacao();               // o dia no galpão, não o da máquina
+    if (b.dataset.dias === 'mes') {
+      de.value = hoje.slice(0, 8) + '01';
+    } else {
+      var d = new Date(hoje + 'T12:00:00');    // meio-dia: nenhum fuso vira o dia
+      d.setDate(d.getDate() - (Number(b.dataset.dias) - 1));
+      de.value = d.toISOString().slice(0, 10);
+    }
+    ate.value = hoje;
+    marcarAtalhoFluxo(b.dataset.dias);
+    carregarPainel();
+  });
+
+  /* A BUSCA ESPERA A PESSOA PARAR DE DIGITAR. Sem isso o fluxo inteiro é peneirado e a
+     tabela redesenhada a cada tecla — e é ela que carrega os cinco indicadores junto. */
+  (function ligarBuscaFluxo(){
+    var campo = document.getElementById('rtBusca');
+    var cx = document.getElementById('rtBuscaCx');
+    var limpa = document.getElementById('rtBuscaX');
+    if (!campo) return;
+    var espera;
+    campo.addEventListener('input', function(){
+      cx.classList.toggle('tem', !!this.value);
+      clearTimeout(espera);
+      espera = setTimeout(desenharFluxo, 160);
+    });
+    /* Esc limpa em vez de fechar o painel de filtros por baixo: quem está no campo de
+       busca espera que a tecla apague o que digitou. */
+    campo.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && this.value) { e.stopPropagation(); limpa.click(); }
+    });
+    limpa.addEventListener('click', function(){
+      campo.value = ''; cx.classList.remove('tem');
+      desenharFluxo(); campo.focus();
+    });
+  })();
   /* Origem e destino nao vao ao servidor: a peneira e local, sobre o fluxo que ja veio.
      Ir ao servidor so para esconder linhas seria uma ida de rede por clique. */
   ['rtOrigem', 'rtDestino'].forEach(function(id){
@@ -5484,6 +5783,141 @@
   window.addEventListener('dadosAtualizados', function(e){
     DADOS = e.detail; ordenarTudo(); montarSelects(); desenharCadastros();
   });
+
+  /* ================= RELÓGIO E TEMPO DA UNIDADE =================
+   *
+   * A HORA É A DA OPERAÇÃO. Quem confere de outro estado — ou de casa, com o relógio do
+   * computador em outro fuso — precisa ler a hora do galpão: é ela que decide se um
+   * lançamento é "de hoje", e é por ela que a janela de dez minutos da correção conta.
+   * O mesmo fuso que o servidor usa em `FUSO_OPERACAO_H`.
+   *
+   * O TEMPO NÃO É ENFEITE: caixa de papelão em pátio molhado é perda, e chuva na rota é
+   * atraso de retorno. Fica ao lado da hora porque as duas respondem "como está lá
+   * agora". Vem da Open-Meteo, que não pede chave nem cadastro, e o que sai daqui é a
+   * coordenada do galpão — nada de pessoa nenhuma.
+   *
+   * SEM VALOR DE MENTIRA. Se a consulta não voltar, o grau fica apagado em "--°" e a
+   * hora continua: um número inventado no lugar do que não carregou é pior que o campo
+   * vazio, porque ninguém desconfia dele. */
+  var UNIDADE = {
+    /* Trocar aqui se o painel passar a ser de outra unidade. Um lugar só. O fuso vem do
+       `app.js`: é o MESMO que decide o dia da operação nos atalhos de período e na
+       janela de correção — dois relógios diferentes na mesma tela discordariam sobre
+       que dia é hoje. */
+    nome: 'Recife', lat: -8.0632, lon: -34.8926, fuso: Q.FUSO_OPERACAO
+  };
+
+  (function relogioETempo(){
+    var caixa = document.getElementById('tempo');
+    var elData = document.getElementById('tempoData');
+    var elHora = document.getElementById('tempoHora');
+    if (!caixa || !elData || !elHora) return;
+    document.getElementById('tempoLocal').textContent = UNIDADE.nome;
+    caixa.hidden = false;
+
+    function bater(){
+      var agora = new Date();
+      elData.textContent = agora.toLocaleDateString('pt-BR',
+        { weekday:'short', day:'numeric', month:'short', timeZone:UNIDADE.fuso });
+      elHora.textContent = agora.toLocaleTimeString('pt-BR',
+        { hour:'2-digit', minute:'2-digit', second:'2-digit', timeZone:UNIDADE.fuso });
+      elHora.dateTime = agora.toISOString();
+    }
+    bater();
+
+    /* REAGENDA a cada volta, em vez de `setInterval` fixo: intervalo acumula atraso e o
+       relógio passa a pular segundos. E PARA com a aba escondida, acertando quando ela
+       volta — painel de galpão fica aberto o dia inteiro. */
+    var tique;
+    function agendar(){
+      clearTimeout(tique);
+      tique = setTimeout(function(){ bater(); agendar(); }, 1000 - (Date.now() % 1000));
+    }
+    agendar();
+    document.addEventListener('visibilitychange', function(){
+      if (document.hidden) clearTimeout(tique);
+      else { bater(); agendar(); }
+    });
+
+    /* ---- os desenhos ---- */
+    var C = { sol:'#e8a33d', nuvem:'#c3d3e6', chuva:'#8ab8f5', neve:'#e8eef5' };
+    function svg(miolo){
+      return '<svg width="28" height="28" viewBox="0 0 32 32" fill="none" '+
+        'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+miolo+'</svg>';
+    }
+    var raios = '';
+    for (var i = 0; i < 8; i++){
+      var a = i * Math.PI / 4;
+      raios += '<line x1="'+(11 + Math.cos(a) * 7.2).toFixed(1)+
+               '" y1="'+(12 + Math.sin(a) * 7.2).toFixed(1)+
+               '" x2="'+(11 + Math.cos(a) * 9.4).toFixed(1)+
+               '" y2="'+(12 + Math.sin(a) * 9.4).toFixed(1)+
+               '" stroke="'+C.sol+'"/>';
+    }
+    var SOL = '<circle cx="11" cy="12" r="5" stroke="'+C.sol+'" fill="'+C.sol+
+      '" fill-opacity=".22"/>'+raios;
+    var LUA = '<path d="M20 17.5A8 8 0 0 1 11.5 9a7 7 0 1 0 8.5 8.5z" stroke="'+C.nuvem+
+      '" fill="'+C.nuvem+'" fill-opacity=".18"/>';
+    var NUVEM = '<path d="M10.5 25h12a5 5 0 0 0 .4-10 7 7 0 0 0-13.2 2A4.2 4.2 0 0 0 10.5 25z" '+
+      'stroke="'+C.nuvem+'" fill="'+C.nuvem+'" fill-opacity=".14"/>';
+    var GOTAS = '<path d="M12 27l-1.4 3M17 27l-1.4 3M22 27l-1.4 3" stroke="'+C.chuva+'"/>';
+    var RAIO = '<path d="M17 25l-3.5 5h3l-2 4.5" stroke="'+C.sol+'"/>';
+    var FLOCO = '<path d="M12 28.5h1M16.5 28.5h1M21 28.5h1" stroke="'+C.neve+'"/>';
+    var NEVOA = '<path d="M7 14h18M5 19h22M8 24h16" stroke="'+C.nuvem+'"/>';
+
+    /* Os códigos da OMM. A palavra importa tanto quanto o desenho: ela vai no `title`, e
+       é ela que o leitor de tela lê. */
+    function desenho(cod, dia){
+      if (cod === 0) return [dia ? SOL : LUA, dia ? 'céu limpo' : 'noite limpa'];
+      if (cod === 1 || cod === 2) return [(dia ? SOL : LUA)+NUVEM, 'sol entre nuvens'];
+      if (cod === 3) return [NUVEM, 'nublado'];
+      if (cod === 45 || cod === 48) return [NEVOA, 'neblina'];
+      if (cod >= 95) return [NUVEM+RAIO, 'tempestade'];
+      if ((cod >= 71 && cod <= 77) || cod === 85 || cod === 86) return [NUVEM+FLOCO, 'neve'];
+      if ((cod >= 51 && cod <= 67) || (cod >= 80 && cod <= 82)) return [NUVEM+GOTAS, 'chuva'];
+      return [NUVEM, 'nublado'];
+    }
+
+    function pintar(grau, cod, dia){
+      var d = desenho(cod, dia);
+      document.getElementById('tempoIco').innerHTML = svg(d[0]);
+      document.getElementById('tempoGrau').textContent = grau + '°';
+      document.getElementById('tempoT').classList.remove('tempo--sem');
+      caixa.title = d[1]+' em '+UNIDADE.nome+' · '+grau+'°C';
+    }
+
+    /* Nasce apagado e com "--°": o campo existe e ainda não carregou, que é diferente
+       de não existir. */
+    document.getElementById('tempoIco').innerHTML = svg(NUVEM);
+    document.getElementById('tempoT').classList.add('tempo--sem');
+    caixa.title = 'Consultando o tempo em '+UNIDADE.nome+'…';
+
+    function buscar(){
+      if (!window.fetch) return;
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude='+UNIDADE.lat+
+        '&longitude='+UNIDADE.lon+'&current=temperature_2m,weather_code,is_day'+
+        '&timezone='+encodeURIComponent(UNIDADE.fuso);
+      /* CORTA EM 8 SEGUNDOS. Sem isso, uma rede de galpão que aceita a conexão e não
+         responde deixa a promessa pendurada para sempre, e a próxima consulta empilha
+         em cima dela. */
+      var corta = window.AbortController ? new AbortController() : null;
+      if (corta) setTimeout(function(){ corta.abort(); }, 8000);
+      fetch(url, corta ? { signal: corta.signal } : undefined)
+        .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(d){
+          var c = (d && d.current) || {};
+          if (c.temperature_2m == null || c.weather_code == null) return;
+          pintar(Math.round(c.temperature_2m), +c.weather_code,
+                 c.is_day == null ? true : !!c.is_day);
+        })
+        .catch(function(){
+          caixa.title = 'Não consegui consultar o tempo agora. '+
+            'O local e a hora não dependem da internet.';
+        });
+    }
+    buscar();
+    setInterval(buscar, 15 * 60 * 1000);
+  })();
 
   if (podeEntrar(Q.sessao())) abrirApp(); else iniciarLogin(motivoDaRecusa(Q.sessao()));
 })();

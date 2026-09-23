@@ -310,6 +310,33 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .cab-pagina__titulo{margin:0;font-size:24px;font-weight:700;letter-spacing:-.4px;line-height:1.12}
 .cab-pagina__acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
+/* ---------- relógio e tempo da unidade ----------
+ * A hora é a da OPERAÇÃO, não a de quem olha. O tempo fica ao lado dela porque as duas
+ * respondem "como está lá agora" — e chuva na rota é atraso de retorno. */
+.tempo{flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:8px 15px;
+  border:1px solid var(--linha);border-radius:13px;background:var(--campo)}
+.tempo__t{display:flex;align-items:center;gap:10px}
+/* Enquanto o grau não chegou, ele fica apagado — e o NOME da unidade continua legível:
+   ele não depende de internet. */
+.tempo--sem .tempo__g{color:var(--txt3)}
+.tempo--sem .tempo__ico{opacity:.55}
+.tempo__ico{flex:0 0 auto;width:28px;height:28px;display:inline-flex;align-items:center;
+  justify-content:center}
+.tempo__c{display:flex;flex-direction:column;line-height:1.2}
+.tempo__g{font-size:18px;font-weight:700;letter-spacing:-.3px}
+.tempo__loc{display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--txt2);
+  white-space:nowrap}
+.tempo__loc svg{flex:0 0 auto;color:var(--txt3)}
+.tempo__div{width:1px;align-self:stretch;background:var(--linha)}
+.tempo__d{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
+.tempo__data{font-size:11.5px;color:var(--txt2);white-space:nowrap}
+/* `tabular-nums`: sem isso o relógio muda de largura a cada segundo e o bloco "respira". */
+.tempo__hora{font-family:var(--fonte-mono);font-size:18px;font-weight:700;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+/* Num telefone o cabeçalho tem o título e o botão do menu; o relógio empurraria os dois
+   para duas linhas, e a hora do galpão não é o que se vem buscar no celular. */
+@media (max-width:860px){ .tempo{display:none} }
+
 /* ---------- veu da gaveta (so abaixo de 1024px) ---------- */
 .veu{
   position:fixed;inset:0;z-index:50;background:rgba(3,8,15,.62);
@@ -838,7 +865,27 @@ tr.ruim{background:var(--vermelho-claro)}
   background-size:24px 2px;animation:asfalto 3.2s linear infinite}
 .desenho--volta::after{animation-direction:reverse}
 @keyframes asfalto{from{background-position:0 0}to{background-position:-24px 0}}
-.caminhao{position:absolute;bottom:1px;width:54px;height:22px}
+/* `overflow:visible`: a fumaça sai da traseira e passa do quadro do desenho. */
+.caminhao{position:absolute;bottom:1px;width:54px;height:22px;overflow:visible}
+
+/* ---------- fumaça do escapamento ----------
+ * Três baforadas iguais, defasadas, cada uma subindo, abrindo e apagando. Ficam DENTRO
+ * do SVG do caminhão: assim andam junto com ele de graça, sem um segundo elemento para
+ * manter sincronizado.
+ *
+ * A animação é por `transform`, e não por `r`/`cx`: transform o navegador resolve na
+ * placa de vídeo; mexer no raio de um círculo SVG o obriga a refazer o desenho sessenta
+ * vezes por segundo, em dois cartões ao mesmo tempo. */
+.fumaca{fill:var(--txt3);opacity:0;transform-box:fill-box;transform-origin:center;
+  animation:fumegar 5s ease-out infinite}
+.fumaca--2{animation-delay:1.67s}
+.fumaca--3{animation-delay:3.33s}
+@keyframes fumegar{
+  0%  {opacity:0;   transform:translate(0,0)        scale(.35)}
+  12% {opacity:.42}
+  55% {opacity:.22}
+  100%{opacity:0;   transform:translate(-9px,-11px) scale(3)}
+}
 .desenho--pista .caminhao{left:-58px;animation:indo 13s linear infinite}
 .desenho--volta .caminhao{left:100%;animation:voltando 13s linear infinite;transform:scaleX(-1)}
 @keyframes indo{from{left:-58px}to{left:100%}}
@@ -1372,6 +1419,48 @@ details.tipos[open] summary::before{content:"▾"}
    formulario. */
 .ret-pop select,.ret-pop input{width:100%;max-width:none;margin:0;
   padding:7px 9px;font-size:13px;border-radius:8px}
+
+/* SÓ PARA QUEM OUVE A TELA. O projeto não tinha essa classe, e o primeiro texto escrito
+   com ela apareceu no meio do painel de filtros como uma frase solta — a marcação já
+   estava certa, faltava a regra. `clip-path` e não `display:none`: escondido de verdade,
+   o leitor de tela também não lê. */
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap;border:0}
+
+/* ---------- a busca dentro do painel de filtros ---------- */
+.busca--pop{position:relative;margin:0}
+.busca--pop input{padding-right:28px!important}
+/* O "x" nativo do `type=search` some: com o nosso ao lado eram DOIS xis colados, e o do
+   navegador não combina com o resto nem responde ao mesmo caminho de limpeza. */
+.busca--pop input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+/* O "x" só existe quando há o que limpar: vazio, ele é um alvo que não faz nada. */
+.busca--pop .limpa{position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  width:22px;height:22px;display:none;align-items:center;justify-content:center;
+  border:0;border-radius:6px;background:transparent;color:var(--txt3);
+  font-size:12px;line-height:1;cursor:pointer}
+.busca--pop .limpa:hover{background:var(--surface-2);color:var(--txt)}
+.busca--pop.tem .limpa{display:inline-flex}
+
+/* ---------- atalhos de período ---------- */
+.atalhos{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:3px}
+/* "Este mês" sozinho na linha: o nome é o mais longo dos três e, espremido em metade
+   da largura de um painel de 240px, ele quebrava em duas linhas. */
+.atalhos button:last-child{grid-column:1/-1}
+.atalhos button{min-height:28px;padding:0 6px;border:1px solid var(--linha);
+  border-radius:999px;background:var(--surface);color:var(--txt2);
+  font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.atalhos button:hover{background:var(--surface-2);color:var(--txt)}
+.atalhos button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+.erro-data{margin:6px 0 0;font-size:11.5px;color:var(--vermelho);line-height:1.4}
+
+/* ---------- o que está sendo contado ----------
+ * GRUDADA no topo: os cinco indicadores mudam com o filtro, o filtro está na coluna da
+ * esquerda atrás de um botão, e quem rola a tabela perde os dois de vista. Ela desce
+ * junto dizendo, em português, o que está recortado. */
+.resumo{position:sticky;top:0;z-index:5;margin:0;padding:9px 16px;
+  font-size:12px;color:var(--txt2);line-height:1.5;
+  background:var(--campo);border-bottom:1px solid var(--linha)}
+.resumo b{color:var(--txt);font-weight:600}
 /* `min-width:0` em tudo que e item de grade. Item de grade nasce com `min-width:auto`, que
    e o minimo INTRINSECO do conteudo — e o campo de data tem um: ele nao encolhe abaixo de
    "dd/mm/aaaa" mais o icone do calendario. Sem isto o par de datas empurrava a coluna para
