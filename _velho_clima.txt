@@ -1,0 +1,50 @@
+    /* Os códigos da OMM. A palavra importa tanto quanto o desenho: ela vai no `title`, e
+       é ela que o leitor de tela lê. */
+    function desenho(cod, dia) {
+      if (cod === 0) return [dia ? SOL : LUA, dia ? 'céu limpo' : 'noite limpa'];
+      if (cod === 1 || cod === 2) return [(dia ? SOL : LUA) + NUVEM, 'sol entre nuvens'];
+      if (cod === 3) return [NUVEM, 'nublado'];
+      if (cod === 45 || cod === 48) return [NEVOA, 'neblina'];
+      if (cod >= 95) return [NUVEM + RAIO, 'tempestade'];
+      if ((cod >= 71 && cod <= 77) || cod === 85 || cod === 86) return [NUVEM + FLOCO, 'neve'];
+      if ((cod >= 51 && cod <= 67) || (cod >= 80 && cod <= 82)) return [NUVEM + GOTAS, 'chuva'];
+      return [NUVEM, 'nublado'];
+    }
+
+    function pintar(grau, cod, dia) {
+      var d = desenho(cod, dia);
+      elIco.innerHTML = svg(d[0]);
+      elGrau.textContent = grau + '°';
+      elT.classList.remove('tempo--sem');
+      caixa.title = d[1] + ' em ' + UNIDADE.nome + ' · ' + grau + '°C';
+    }
+
+    /* Nasce apagado e com "--°": o campo existe e ainda não carregou, que é diferente
+       de não existir. */
+    elIco.innerHTML = svg(NUVEM);
+    elT.classList.add('tempo--sem');
+    caixa.title = 'Consultando o tempo em ' + UNIDADE.nome + '…';
+
+    function buscar() {
+      if (!window.fetch) return;
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + UNIDADE.lat +
+        '&longitude=' + UNIDADE.lon + '&current=temperature_2m,weather_code,is_day' +
+        '&timezone=' + encodeURIComponent(UNIDADE.fuso);
+      /* CORTA EM 8 SEGUNDOS. Sem isso, uma rede de galpão que aceita a conexão e não
+         responde deixa a promessa pendurada para sempre, e a próxima consulta empilha
+         em cima dela. */
+      var corta = window.AbortController ? new AbortController() : null;
+      if (corta) setTimeout(function () { corta.abort(); }, 8000);
+      fetch(url, corta ? { signal: corta.signal } : undefined)
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (d) {
+          var c = (d && d.current) || {};
+          if (c.temperature_2m == null || c.weather_code == null) return;
+          pintar(Math.round(c.temperature_2m), +c.weather_code,
+                 c.is_day == null ? true : !!c.is_day);
+        })
+        .catch(function () {
+          caixa.title = 'Não consegui consultar o tempo agora. ' +
+            'O local e a hora não dependem da internet.';
+        });
+    }

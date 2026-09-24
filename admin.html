@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=e5024e76">
+<link rel="stylesheet" href="styles.css?v=fd4d6c36">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -171,7 +171,7 @@
        Aqui ela fica debaixo da foto e junto dela — mesmo fundo, mesma sombra, mesma
        barra de acento. Custa ~20px de altura, e esses 20px sao o que faz a foto e o
        nome lerem como uma coisa so. -->
-  <span class="ola" id="olaUsuario" hidden>Olá, <b id="olaNome">—</b></span>
+  <span class="ola" id="olaUsuario" hidden><span id="olaSaudacao">Olá,</span> <b id="olaNome">—</b></span>
 </header>
 
 <div class="shell__corpo">
@@ -772,7 +772,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=312416ae"></script>
+<script src="app.js?v=fb04f0cb"></script>
 <script>
 (function(){
   'use strict';

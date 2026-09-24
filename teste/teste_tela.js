@@ -5921,7 +5921,12 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
     'e a unidade também: um lugar só para trocar de cidade, valendo para os dois apps');
   /* AS DUAS, e contadas: a data ficou no fuso certo e a HORA voltou para o relógio da
      máquina, e a afirmação continuava verde achando a outra. */
-  ok((js.match(/timeZone: UNIDADE\.fuso/g) || []).length === 2,
+  /* AS DUAS LINHAS, nomeadas. Contar as ocorrências de `timeZone: UNIDADE.fuso` já
+     serviu, e deixou de servir quando a hora do "lido às" e o `ehDia()` passaram a usar
+     o mesmo fuso: a conta subiu para quatro e a afirmação ficou vermelha por uma
+     mudança que não era a que ela cobra. Agora ela olha as duas chamadas que importam. */
+  ok(/\{ weekday: 'short', day: 'numeric', month: 'short', timeZone: UNIDADE\.fuso \}/.test(js) &&
+     /\{ hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: UNIDADE\.fuso \}/.test(js),
     'a data E a hora saem no fuso da unidade: quem confere de outro estado precisa ler ' +
     'a hora do galpão, senão "lançado às 17h" muda de significado');
   /* REAGENDA em vez de `setInterval`: intervalo acumula atraso e o relógio pula
@@ -5946,6 +5951,102 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
      /elT\.classList\.add\('tempo--sem'\);/.test(js),
     'sem resposta, o grau fica apagado em "--°" e a hora continua: relógio que depende ' +
     'de internet é pior que relógio nenhum');
+  /* ---- A SAUDAÇÃO PELO HORÁRIO ------------------------------------------
+   * "Bom dia" no lugar de "Olá": custa o mesmo espaço e diz que a tela sabe que horas
+   * são — num app aberto o dia inteiro, é o sinal mais discreto de que ele não
+   * congelou às 8h da manhã. */
+  ok(/function saudacaoDe\(h\)/.test(js) && /saudacaoDe: saudacaoDe,/.test(js),
+    'a saudação muda com a hora, e mora no `app.js` — vale para os dois apps');
+  ok(/id="olaSaudacao"/.test(adm) && /id="olaSaudacao"/.test(idx),
+    'e os dois apps têm o lugar dela');
+  /* A TABELA INTEIRA, e não uma hora de amostra. As três faixas e as duas viradas —
+     medido: 0h boa noite, 7h bom dia, 13h boa tarde, 20h boa noite. */
+  /* O RECORTE POR CHAVES, e não por índice de texto. Fatiado até o primeiro `}`
+     depois de uma linha escolhida a dedo, o recorte quebrava quando a função mudava de
+     forma — e a bancada estourava com `SyntaxError` em vez de reprovar a regra. Erro de
+     bancada lido como defeito do código é o pior tipo de teste verde. */
+  function fn(nome) {
+    var i = js.indexOf('function ' + nome + '('), k = js.indexOf('{', i), n = 0;
+    do { if (js[k] === '{') n++; else if (js[k] === '}') n--; k++; } while (n > 0 && k < js.length);
+    return js.slice(i, k);
+  }
+  var saud = new Function(fn('saudacaoDe') + ' return saudacaoDe;')();
+  ok(saud(5) === 'Bom dia,' && saud(11) === 'Bom dia,' &&
+     saud(12) === 'Boa tarde,' && saud(17) === 'Boa tarde,' &&
+     saud(18) === 'Boa noite,' && saud(4) === 'Boa noite,' && saud(0) === 'Boa noite,',
+    'e as viradas caem na hora certa: 5h, 12h e 18h — "boa tarde" às 18h01 é o tipo ' +
+    'de erro que ninguém reporta e todo mundo nota');
+  /* O FUSO DA OPERAÇÃO, e não o do aparelho. Celular de galpão com fuso errado veria
+     "bom dia" às 22h — e a saudação errada anuncia que o relógio da tela não vale
+     nada, sendo que é o MESMO relógio que decide o dia do lançamento. */
+  ok(/timeZone: FUSO_OPERACAO, hour: '2-digit', hour12: false/.test(js),
+    'e a hora dela sai do fuso da operação, como a do relógio');
+  ok(/return h === 24 \? 0 : h;/.test(js),
+    'e meia-noite vindo como "24" vira 0 — sem isso `24 >= 18` daria "boa noite" por ' +
+    'acidente às 00h, e a virada das 00h30 já erraria');
+  ok(/if \(el\.textContent !== t\) el\.textContent = t;/.test(js),
+    'e ela só toca no DOM quando muda — reescrever o mesmo texto a cada minuto ' +
+    'atrapalha quem estiver com ele selecionado');
+  ok(/function agendarSaudacao\(\)/.test(js) && /agendarSaudacao\(\);   \/\* a virada/.test(js),
+    'e vira sozinha no minuto cheio: quem deixa o painel aberto vê "Boa tarde" virar ' +
+    '"Boa noite" às 18h sem recarregar');
+
+  /* ---- DUAS FONTES DE TEMPO, EM CADEIA ----------------------------------
+   * MEDIDO, e não suposto: as duas respondem com `Access-Control-Allow-Origin: *`, e
+   * consultadas no mesmo minuto para Recife CONCORDARAM — WMO 2 e WWO 116 são o mesmo
+   * "sol entre nuvens". Reserva que discorda da principal é pior que reserva nenhuma. */
+  ok(/nome: 'Open-Meteo'/.test(js) && /nome: 'wttr\.in'/.test(js) &&
+     /function tentarTodas\(i\)/.test(js),
+    'o tempo tem DUAS fontes em cadeia — a faixa deixa de depender de um serviço só');
+  ok(/return pedirA\(ordemFontes\[i\]\)\.catch\(function \(\) \{ return tentarTodas\(i \+ 1\); \}\);/.test(js),
+    'e falhando a primeira ela tenta a seguinte, em vez de desistir — medido: com a ' +
+    'Open-Meteo caída, o wttr.in respondeu e a faixa pintou');
+  ok(/ordemFontes\.sort\(function \(a, b\) \{/.test(js),
+    'e a que respondeu vai para a frente da fila: insistir na que acabou de cair é ' +
+    'gastar os 8s do corte antes de chegar na que funciona');
+  /* O WWO VIRA WMO. Cada fonte traduz para o MESMO formato, senão os desenhos e a
+     tabela de palavras precisariam conhecer o vocabulário de cada serviço. */
+  ok(/var WWO_WMO = \{/.test(js) && /WWO_WMO\[w\] != null \? WWO_WMO\[w\] : 3/.test(js),
+    'e o vocabulário do wttr.in é convertido para WMO na própria fonte — código ' +
+    'desconhecido cai em nublado, que é a resposta que não promete nem assusta');
+  /* O RECUO. Tentar de 30 em 30 segundos numa rede caída é bater na porta de quem não
+     está em casa — e são duas fontes por tentativa. */
+  ok(/agendarBusca\(Math\.min\(30000 \* Math\.pow\(2, falhas - 1\), RITMO_MAX\)\);/.test(js),
+    'e falhando ela recua — 30s, 1min, 2min, 4min… até o teto, em vez de martelar');
+  ok(/falhas = 0;/.test(js) && /agendarBusca\(RITMO_OK\);/.test(js),
+    'e voltando a responder, o recuo zera');
+  ok(/if \(!document\.hidden\) buscar\(\);/.test(js) &&
+     /window\.addEventListener\('online', buscar\);/.test(js),
+    'e busca de novo ao voltar para a aba e quando a internet volta — são os dois ' +
+    'momentos em que o dado está mais velho E alguém está olhando');
+  ok(/if \(!window\.fetch \|\| buscando\) return;/.test(js),
+    'e duas buscas nunca correm juntas: voltar para a aba com uma consulta em curso ' +
+    'empilharia as duas e a mais velha poderia pintar por último');
+
+  /* ---- A CONDIÇÃO EM PALAVRAS ------------------------------------------- */
+  ok(/65: \['chuvaforte', 'chuva forte'/.test(js) && /51: \['garoa', +'garoa fraca'/.test(js),
+    'os graus de intensidade viram palavras DIFERENTES — a tabela antiga dizia "chuva" ' +
+    'de 51 a 82, e garoa e chuva forte mudam a decisão de quem carrega caminhão');
+  ok(/elCond\.textContent = d\[1\];/.test(js) && /id="tempoCond"/.test(js),
+    'e a palavra vai para a TELA, não só para o balão — desenho de 28px não distingue ' +
+    'garoa de chuva forte, e balão exige parar o mouse em cima');
+  ok(/\.tempo__cond:empty\{display:none\}/.test(css),
+    'e vazia ela some inteira, senão o "·" dela sobraria solto antes do nome da cidade');
+
+  /* ---- DIA OU NOITE, quando a fonte não diz ------------------------------
+   * O wttr.in não manda `is_day`. Assumir dia mostraria SOL ÀS 22H. */
+  ok(/function ehDia\(\)/.test(js) && /v\.dia == null \? ehDia\(\) : v\.dia/.test(js),
+    'faltando o dia/noite na resposta, quem decide é o relógio — medido: com o ' +
+    'wttr.in respondendo às 22h57, a faixa disse "noite entre nuvens"');
+  ok(/return h >= 6 && h < 18;/.test(js),
+    'e o corte é 6h–18h: erra por minutos duas vezes por ano, em vez de errar por ' +
+    'doze horas todo dia');
+  ok(/estrela\(25, 6, 2\.1, 'e1'\)/.test(js) && /\.tempo__ico \.estrela\{animation:cintilar/.test(css),
+    'e a noite limpa tem estrelas, que é o que distingue o desenho dela do do dia — ' +
+    'medido: três no ícone');
+  ok(/\.tempo__ico \.estrela\.e2\{animation-duration:4\.8s;animation-delay:\.9s\}/.test(css),
+    'e elas cintilam fora de compasso: piscando juntas leriam como alarme');
+
   ok(/corta\.abort\(\); \}, 8000\)/.test(js),
     'a consulta corta em 8s — uma rede que aceita a conexão e não responde deixaria a ' +
     'promessa pendurada e a próxima empilharia em cima');

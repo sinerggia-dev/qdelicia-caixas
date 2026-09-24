@@ -446,6 +446,11 @@
       '<span class="tempo__c">' +
         '<span class="tempo__g" id="tempoGrau">--°</span>' +
         '<span class="tempo__loc">' +
+          /* A CONDIÇÃO EM PALAVRAS, e não só no `title`. Um desenho de 28px não
+             distingue "garoa" de "chuva forte", e é justamente essa diferença que muda
+             a decisão de quem vai carregar caminhão. O balão exige parar o mouse em
+             cima; a palavra se lê de passagem. */
+          '<b class="tempo__cond" id="tempoCond"></b>' +
           '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
                'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
             '<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"></path>' +
@@ -459,6 +464,53 @@
       '<span class="tempo__data" id="tempoData"></span>' +
       '<time class="tempo__hora" id="tempoHora"></time>' +
     '</div>';
+
+  /* ================= A SAUDAÇÃO PELO HORÁRIO =================
+   *
+   * "Bom dia" no lugar de "Olá". Custa o mesmo espaço e diz uma coisa a mais: que a
+   * tela sabe que horas são. Num app que fica aberto o dia inteiro, é também o sinal
+   * mais discreto de que ele não congelou às 8h da manhã.
+   *
+   * 05:00–11:59 bom dia · 12:00–17:59 boa tarde · 18:00–04:59 boa noite.
+   *
+   * A HORA SAI DO FUSO DA OPERAÇÃO, e não do relógio do aparelho. Celular de galpão
+   * com o fuso errado — ou gerente conferindo de outro estado — veria "bom dia" às
+   * 22h, e a saudação errada é pior que nenhuma: ela anuncia que o relógio da tela
+   * não vale nada, e é o mesmo relógio que decide o dia do lançamento. */
+  function saudacaoDe(h) {
+    if (h >= 5 && h < 12) return 'Bom dia,';
+    if (h >= 12 && h < 18) return 'Boa tarde,';
+    return 'Boa noite,';
+  }
+  function horaDaOperacao() {
+    if (!window.Intl || !Intl.DateTimeFormat) return new Date().getHours();
+    try {
+      var t = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: FUSO_OPERACAO, hour: '2-digit', hour12: false
+      }).format(new Date());
+      var h = parseInt(t, 10);
+      /* meia-noite vem como "24" em alguns navegadores, e `24 >= 18` daria "boa noite"
+         por acidente certo pelo motivo errado — às 00h30 ele já erraria a virada. */
+      return h === 24 ? 0 : h;
+    } catch (e) { return new Date().getHours(); }
+  }
+  function pintarSaudacao() {
+    var el = document.getElementById('olaSaudacao');
+    if (!el) return;
+    var t = saudacaoDe(horaDaOperacao());
+    /* só toca no DOM se mudou: escrever o mesmo texto a cada minuto é trabalho que não
+       muda nada e ainda atrapalha quem estiver com o texto selecionado. */
+    if (el.textContent !== t) el.textContent = t;
+  }
+  /* VIRA SOZINHA, no minuto cheio. Quem deixa o painel aberto a tarde toda vê "Boa
+     tarde" virar "Boa noite" às 18h sem recarregar. Reagenda em vez de `setInterval`
+     pela mesma razão do relógio: intervalo fixo acumula atraso, e depois de horas
+     aberto a virada chegaria minutos depois da hora. */
+  function agendarSaudacao() {
+    var a = new Date();
+    setTimeout(function () { pintarSaudacao(); agendarSaudacao(); },
+      (60 - a.getSeconds()) * 1000 - a.getMilliseconds());
+  }
 
   function relogioETempo() {
     /* NO CABEÇALHO DA PÁGINA, que é um só para o app inteiro e fica FORA do
@@ -480,6 +532,7 @@
     var elT = caixa.querySelector('.tempo__t');
     var elIco = caixa.querySelector('.tempo__ico');
     var elGrau = caixa.querySelector('.tempo__g');
+    var elCond = caixa.querySelector('.tempo__cond');
     var elData = caixa.querySelector('.tempo__data');
     var elHora = caixa.querySelector('.tempo__hora');
     caixa.querySelector('#tempoLocal').textContent = UNIDADE.nome;
@@ -526,34 +579,125 @@
     }
     var SOL = '<circle cx="11" cy="12" r="5" stroke="' + C.sol + '" fill="' + C.sol +
       '" fill-opacity=".22"/>' + raios;
-    var LUA = '<path d="M20 17.5A8 8 0 0 1 11.5 9a7 7 0 1 0 8.5 8.5z" stroke="' + C.nuvem +
+
+    /* ---- estrelas da noite ----
+       Quatro pontas em curva, e não um polígono de dez lados: em 3px de tela a
+       diferença não aparece e o caminho fica quatro vezes menor. Ficam na parte de
+       cima, fora de onde a nuvem entra — senão em "noite entre nuvens" elas
+       apareceriam POR CIMA dela. Cintilam fora de compasso: piscando juntas leriam
+       como alarme. */
+    function estrela(x, y, r, classe) {
+      return '<path class="estrela ' + classe + '" d="M' + x + ' ' + (y - r) +
+        'Q' + x + ' ' + y + ' ' + (x + r) + ' ' + y +
+        'Q' + x + ' ' + y + ' ' + x + ' ' + (y + r) +
+        'Q' + x + ' ' + y + ' ' + (x - r) + ' ' + y +
+        'Q' + x + ' ' + y + ' ' + x + ' ' + (y - r) +
+        'Z" fill="' + C.neve + '" stroke="none"/>';
+    }
+    var ESTRELAS = estrela(25, 6, 2.1, 'e1') + estrela(6.5, 8.5, 1.5, 'e2') +
+                   estrela(28, 13.5, 1.2, 'e3');
+    var LUA = ESTRELAS +
+      '<path d="M20 17.5A8 8 0 0 1 11.5 9a7 7 0 1 0 8.5 8.5z" stroke="' + C.nuvem +
       '" fill="' + C.nuvem + '" fill-opacity=".18"/>';
     var NUVEM = '<path d="M10.5 25h12a5 5 0 0 0 .4-10 7 7 0 0 0-13.2 2A4.2 4.2 0 0 0 10.5 25z" ' +
       'stroke="' + C.nuvem + '" fill="' + C.nuvem + '" fill-opacity=".14"/>';
+    var NUVEM2 = '<path d="M6 21h9a4 4 0 0 0 .3-8 5.6 5.6 0 0 0-10.5 1.5A3.4 3.4 0 0 0 6 21z" ' +
+      'stroke="' + C.nuvem + '" stroke-opacity=".6" fill="none"/>';
     var GOTAS = '<path d="M12 27l-1.4 3M17 27l-1.4 3M22 27l-1.4 3" stroke="' + C.chuva + '"/>';
+    var GOTAS2 = '<path d="M14.5 27l-1.4 3.4M19.5 27l-1.4 3.4" stroke="' + C.chuva + '"/>';
+    var GAROA = '<path d="M13 27l-.8 2M18 27l-.8 2M23 27l-.8 2" stroke="' + C.chuva +
+      '" stroke-opacity=".75"/>';
     var RAIO = '<path d="M17 25l-3.5 5h3l-2 4.5" stroke="' + C.sol + '"/>';
     var FLOCO = '<path d="M12 28.5h1M16.5 28.5h1M21 28.5h1" stroke="' + C.neve + '"/>';
     var NEVOA = '<path d="M7 14h18M5 19h22M8 24h16" stroke="' + C.nuvem + '"/>';
 
-    /* Os códigos da OMM. A palavra importa tanto quanto o desenho: ela vai no `title`, e
-       é ela que o leitor de tela lê. */
+    /* ================= OS CÓDIGOS DA OMM =================
+     * [família do desenho, palavra de dia, palavra de noite].
+     *
+     * OS GRAUS DE INTENSIDADE VIRAM PALAVRAS DIFERENTES de propósito. A tabela antiga
+     * devolvia "chuva" para tudo entre 51 e 82 — garoa, chuva forte e pancada na mesma
+     * palavra. Quem vai decidir se carrega o caminhão agora precisa da diferença, e o
+     * desenho de 28px não a dá.
+     *
+     * Código desconhecido cai em "nublado", que é a resposta mais inofensiva: não
+     * promete sol nem assusta com tempestade. */
+    var TEMPO = {
+      0:  ['limpo',      'céu limpo',              'noite limpa'],
+      1:  ['poucas',     'sol com poucas nuvens',  'noite com poucas nuvens'],
+      2:  ['parcial',    'sol entre nuvens',       'noite entre nuvens'],
+      3:  ['nublado',    'nublado',                'nublado'],
+      45: ['nevoa',      'neblina',                'neblina'],
+      48: ['nevoa',      'neblina gelada',         'neblina gelada'],
+      51: ['garoa',      'garoa fraca',            'garoa fraca'],
+      53: ['garoa',      'garoa',                  'garoa'],
+      55: ['garoa',      'garoa forte',            'garoa forte'],
+      56: ['garoa',      'garoa congelante',       'garoa congelante'],
+      57: ['garoa',      'garoa congelante',       'garoa congelante'],
+      61: ['chuva',      'chuva fraca',            'chuva fraca'],
+      63: ['chuva',      'chuva',                  'chuva'],
+      65: ['chuvaforte', 'chuva forte',            'chuva forte'],
+      66: ['chuva',      'chuva congelante',       'chuva congelante'],
+      67: ['chuvaforte', 'chuva congelante forte', 'chuva congelante forte'],
+      71: ['neve',       'neve fraca',             'neve fraca'],
+      73: ['neve',       'neve',                   'neve'],
+      75: ['neve',       'neve forte',             'neve forte'],
+      77: ['neve',       'grãos de neve',          'grãos de neve'],
+      80: ['pancada',    'pancadas de chuva',      'pancadas de chuva'],
+      81: ['pancada',    'pancadas de chuva',      'pancadas de chuva'],
+      82: ['chuvaforte', 'pancadas fortes',        'pancadas fortes'],
+      85: ['neve',       'pancadas de neve',       'pancadas de neve'],
+      86: ['neve',       'pancadas de neve',       'pancadas de neve'],
+      95: ['tempestade', 'tempestade',             'tempestade'],
+      96: ['tempestade', 'tempestade com granizo', 'tempestade com granizo'],
+      99: ['tempestade', 'tempestade com granizo', 'tempestade com granizo']
+    };
+
     function desenho(cod, dia) {
-      if (cod === 0) return [dia ? SOL : LUA, dia ? 'céu limpo' : 'noite limpa'];
-      if (cod === 1 || cod === 2) return [(dia ? SOL : LUA) + NUVEM, 'sol entre nuvens'];
-      if (cod === 3) return [NUVEM, 'nublado'];
-      if (cod === 45 || cod === 48) return [NEVOA, 'neblina'];
-      if (cod >= 95) return [NUVEM + RAIO, 'tempestade'];
-      if ((cod >= 71 && cod <= 77) || cod === 85 || cod === 86) return [NUVEM + FLOCO, 'neve'];
-      if ((cod >= 51 && cod <= 67) || (cod >= 80 && cod <= 82)) return [NUVEM + GOTAS, 'chuva'];
-      return [NUVEM, 'nublado'];
+      var t = TEMPO[cod] || TEMPO[3];
+      var f = t[0], texto = dia ? t[1] : t[2], astro = dia ? SOL : LUA, m;
+      if (f === 'limpo') m = astro;
+      else if (f === 'poucas' || f === 'parcial') m = astro + NUVEM;
+      else if (f === 'nublado') m = NUVEM + NUVEM2;
+      else if (f === 'nevoa') m = NEVOA;
+      else if (f === 'garoa') m = NUVEM + GAROA;
+      else if (f === 'chuva') m = NUVEM + GOTAS;
+      else if (f === 'chuvaforte') m = NUVEM + GOTAS + GOTAS2;
+      else if (f === 'pancada') m = astro + NUVEM + GOTAS;
+      else if (f === 'neve') m = NUVEM + FLOCO;
+      else if (f === 'tempestade') m = NUVEM + RAIO + GOTAS;
+      else m = NUVEM;
+      return [m, texto];
     }
 
-    function pintar(grau, cod, dia) {
+    /* É DIA OU É NOITE, quando a fonte não diz.
+       A Open-Meteo manda `is_day`; o wttr.in não manda. Antes disso o código assumia
+       DIA quando o campo faltava — e a faixa mostrava sol às 22h. 6h às 17h59 no fuso
+       da operação: não é o nascer do sol exato, mas erra por minutos duas vezes por
+       ano, em vez de errar por doze horas todo dia. */
+    function ehDia() {
+      try {
+        var t = new Intl.DateTimeFormat('pt-BR', {
+          timeZone: UNIDADE.fuso, hour: '2-digit', hour12: false
+        }).format(new Date());
+        var h = parseInt(t, 10); if (h === 24) h = 0;
+        return h >= 6 && h < 18;
+      } catch (e) {
+        var g = new Date().getHours();
+        return g >= 6 && g < 18;
+      }
+    }
+
+    var ultima = null;
+    function pintar(grau, cod, dia, fonte) {
       var d = desenho(cod, dia);
       elIco.innerHTML = svg(d[0]);
       elGrau.textContent = grau + '°';
+      elCond.textContent = d[1];
       elT.classList.remove('tempo--sem');
-      caixa.title = d[1] + ' em ' + UNIDADE.nome + ' · ' + grau + '°C';
+      ultima = new Date();
+      caixa.title = d[1] + ' em ' + UNIDADE.nome + ' · ' + grau + '°C · ' + fonte +
+        ' · lido às ' + ultima.toLocaleTimeString('pt-BR',
+          { hour: '2-digit', minute: '2-digit', timeZone: UNIDADE.fuso });
     }
 
     /* Nasce apagado e com "--°": o campo existe e ainda não carregou, que é diferente
@@ -562,31 +706,133 @@
     elT.classList.add('tempo--sem');
     caixa.title = 'Consultando o tempo em ' + UNIDADE.nome + '…';
 
-    function buscar() {
-      if (!window.fetch) return;
-      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + UNIDADE.lat +
-        '&longitude=' + UNIDADE.lon + '&current=temperature_2m,weather_code,is_day' +
-        '&timezone=' + encodeURIComponent(UNIDADE.fuso);
+    /* ================= DUAS FONTES, EM CADEIA =================
+     *
+     * A faixa deixa de depender de um serviço só. A ordem é tentada de cima para
+     * baixo, a primeira que responder direito ganha, e a VENCEDORA vai para a frente
+     * da fila da próxima vez — não faz sentido insistir numa que acabou de cair.
+     *
+     * Cada fonte traduz a resposta dela para o MESMO formato, `{grau, cod, dia}`, com
+     * `cod` sempre em WMO: é o que os desenhos e a tabela de palavras entendem. Fonte
+     * com vocabulário próprio traz a sua conversão junto.
+     *
+     * MEDIDO, e não suposto: as duas respondem com `Access-Control-Allow-Origin: *`,
+     * então funcionam do navegador. E, consultadas no mesmo minuto para Recife, as
+     * duas concordaram — WMO 2 e WWO 116, que é o mesmo "sol entre nuvens". Uma fonte
+     * de reserva que discordasse da principal seria pior que nenhuma.
+     *
+     * NÃO há terceira. A que o modelo sugeria exige chave de cadastro, e código que
+     * não pode rodar não pode ser conferido — entra no dia em que houver chave. */
+    var WWO_WMO = {
+      113:0, 116:2, 119:3, 122:3, 143:45, 248:45, 260:45,
+      176:80, 263:51, 266:53, 281:56, 284:57,
+      293:61, 296:61, 299:63, 302:63, 305:65, 308:65, 311:66, 314:67,
+      353:80, 356:81, 359:82,
+      179:71, 182:66, 185:56, 227:73, 230:75, 317:71, 320:73,
+      323:71, 326:71, 329:73, 332:73, 335:75, 338:75, 350:77,
+      362:85, 365:86, 368:85, 371:86, 374:85, 377:86,
+      200:95, 386:95, 389:96, 392:95, 395:96
+    };
+
+    var FONTES = [
+      { nome: 'Open-Meteo',
+        url: function () {
+          return 'https://api.open-meteo.com/v1/forecast?latitude=' + UNIDADE.lat +
+            '&longitude=' + UNIDADE.lon + '&current=temperature_2m,weather_code,is_day' +
+            '&timezone=' + encodeURIComponent(UNIDADE.fuso);
+        },
+        ler: function (d) {
+          var c = (d && d.current) || (d && d.current_weather) || null;
+          if (!c) return null;
+          var t = c.temperature_2m != null ? c.temperature_2m : c.temperature;
+          var cod = c.weather_code != null ? c.weather_code : c.weathercode;
+          if (t == null || cod == null) return null;
+          return { grau: Math.round(t), cod: +cod,
+                   dia: c.is_day == null ? null : !!c.is_day };
+        } },
+      { nome: 'wttr.in',
+        url: function () {
+          return 'https://wttr.in/' + UNIDADE.lat + ',' + UNIDADE.lon + '?format=j1';
+        },
+        ler: function (d) {
+          var c = d && d.current_condition && d.current_condition[0];
+          if (!c || c.temp_C == null) return null;
+          var w = parseInt(c.weatherCode, 10);
+          return { grau: Math.round(+c.temp_C),
+                   cod: WWO_WMO[w] != null ? WWO_WMO[w] : 3,
+                   dia: null };   /* não manda dia/noite: quem decide é o relógio */
+        } }
+    ];
+    var ordemFontes = FONTES.slice();
+
+    function pedirA(f) {
       /* CORTA EM 8 SEGUNDOS. Sem isso, uma rede de galpão que aceita a conexão e não
-         responde deixa a promessa pendurada para sempre, e a próxima consulta empilha
-         em cima dela. */
+         responde deixa a promessa pendurada para sempre — e, com a cadeia, seguraria
+         também a fonte seguinte, que é justamente a saída. */
       var corta = window.AbortController ? new AbortController() : null;
       if (corta) setTimeout(function () { corta.abort(); }, 8000);
-      fetch(url, corta ? { signal: corta.signal } : undefined)
+      var opc = { cache: 'no-store' };
+      if (corta) opc.signal = corta.signal;
+      return fetch(f.url(), opc)
         .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
-        .then(function (d) {
-          var c = (d && d.current) || {};
-          if (c.temperature_2m == null || c.weather_code == null) return;
-          pintar(Math.round(c.temperature_2m), +c.weather_code,
-                 c.is_day == null ? true : !!c.is_day);
-        })
-        .catch(function () {
-          caixa.title = 'Não consegui consultar o tempo agora. ' +
-            'O local e a hora não dependem da internet.';
+        .then(function (j) {
+          var v = f.ler(j);
+          if (!v || v.grau == null || isNaN(v.grau)) return Promise.reject('sem os campos');
+          v.fonte = f.nome;
+          return v;
         });
     }
-    buscar();
-    setInterval(buscar, 15 * 60 * 1000);
+
+    function tentarTodas(i) {
+      i = i || 0;
+      if (i >= ordemFontes.length) return Promise.reject('nenhuma fonte respondeu');
+      return pedirA(ordemFontes[i]).catch(function () { return tentarTodas(i + 1); });
+    }
+
+    /* ---- o ritmo ----
+       De 10 em 10 minutos no normal. Falhando, recua: 30s, 1min, 2min, 4min… até o
+       teto de 10min. Tentar de 30 em 30 segundos numa rede caída é bater na porta de
+       alguém que não está em casa — e são duas fontes por tentativa.
+       E busca de novo ao VOLTAR para a aba e ao a internet VOLTAR: são os dois
+       momentos em que o dado está mais velho e em que alguém está olhando. */
+    var RITMO_OK = 10 * 60 * 1000, RITMO_MAX = 10 * 60 * 1000;
+    var falhas = 0, agenda = null, buscando = false;
+    function agendarBusca(ms) { clearTimeout(agenda); agenda = setTimeout(buscar, ms); }
+
+    function buscar() {
+      if (!window.fetch || buscando) return;
+      buscando = true;
+      tentarTodas()
+        .then(function (v) {
+          /* a que respondeu vira a primeira da próxima vez */
+          ordemFontes.sort(function (a, b) {
+            return (b.nome === v.fonte) - (a.nome === v.fonte);
+          });
+          pintar(v.grau, v.cod, v.dia == null ? ehDia() : v.dia, v.fonte);
+          falhas = 0;
+          agendarBusca(RITMO_OK);
+        })
+        .catch(function () {
+          falhas++;
+          /* SÓ FALA SE NUNCA LEU NADA. Havendo uma leitura na tela, ela FICA: um valor
+             de vinte minutos atrás é melhor que apagar o campo, e a hora do `title` diz
+             de quando ele é. Número inventado é que não entra — o campo nasce em "--°"
+             e continua assim até alguma fonte responder. */
+          if (!ultima) {
+            caixa.title = 'Nenhuma fonte de tempo respondeu. ' +
+              'O local e a hora não dependem da internet.';
+          }
+          agendarBusca(Math.min(30000 * Math.pow(2, falhas - 1), RITMO_MAX));
+        })
+        .then(function () { buscando = false; });
+    }
+
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) buscar();
+    });
+    window.addEventListener('online', buscar);
+    agendarSaudacao();   /* a virada das 18h sem recarregar */
+    buscar();   /* dali em diante quem reagenda é a própria cadeia */
     return caixa;
   }
 
@@ -720,6 +966,7 @@
     var olaN = document.getElementById('olaNome');
     if (ola && olaN) {
       olaN.textContent = nome ? String(nome).trim() : '—';
+      pintarSaudacao();
       ola.title = (nome || '') + (perfil ? ' · ' + perfil : '');
       /* Some enquanto não há nome: "Olá, —" durante o carregamento é pior do que a
          linha sem a saudação. */
@@ -1485,6 +1732,7 @@
     temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     hojeOperacao: hojeOperacao, FUSO_OPERACAO: FUSO_OPERACAO,
     UNIDADE: UNIDADE, relogioETempo: relogioETempo,
+    saudacaoDe: saudacaoDe, pintarSaudacao: pintarSaudacao,
     horaBR: horaBR, dataDoCarimboBR: dataDoCarimboBR, dataHoraBR: dataHoraBR,
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,

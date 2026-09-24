@@ -504,6 +504,21 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .tempo__g{font-size:18px;font-weight:700;letter-spacing:-.3px}
 .tempo__loc{display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--txt2);
   white-space:nowrap}
+/* A CONDIÇÃO EM PALAVRAS, antes do local: "chuva forte · Recife". Em branco cheio,
+   como o local — a hierarquia é por TAMANHO (o grau tem 14px, esta linha 11,5), e não
+   por brilho. Texto apagado no meio de uma frase branca lê como defeito de estilo, não
+   como informação secundária. */
+.tempo__cond{font-weight:600;color:var(--txt)}
+.tempo__cond:not(:empty)::after{content:"·";margin:0 3px 0 5px;color:var(--txt-fraco);
+  font-weight:400}
+/* Vazio, some por inteiro — senão o "·" dele sobraria solto antes do nome da cidade
+   enquanto nenhuma fonte respondeu. */
+.tempo__cond:empty{display:none}
+/* As estrelas da noite cintilam fora de compasso: juntas, leriam como alarme. */
+@keyframes cintilar{0%,100%{opacity:.9}50%{opacity:.25}}
+.tempo__ico .estrela{animation:cintilar 3.6s ease-in-out infinite}
+.tempo__ico .estrela.e2{animation-duration:4.8s;animation-delay:.9s}
+.tempo__ico .estrela.e3{animation-duration:4.2s;animation-delay:1.9s}
 .tempo__loc svg{flex:0 0 auto;color:var(--txt3)}
 .tempo__div{width:1px;align-self:stretch;background:var(--linha)}
 .tempo__d{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
@@ -657,6 +672,9 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   .topo::before{background:var(--verde);animation:none!important}
   .topo::after{display:none}
   .topo__conta .avatar,.conta .avatar,.avatar .ponto{animation:none!important}
+  /* E as estrelas param acesas, em vez de sumirem: o desenho da noite sem elas
+     perde o que o distingue do desenho do dia. */
+  .tempo__ico .estrela{animation:none!important;opacity:.8}
   /* E o gêmeo de computador junto, pelo mesmo motivo e com a mesma correção: a barra
      de acento vira CHEIA, em vez do degradê congelado num quadro qualquer. Estas
      regras vêm depois das do `@media (min-width:1024px)` no arquivo, e é a ordem que
