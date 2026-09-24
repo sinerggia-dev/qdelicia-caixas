@@ -1692,7 +1692,12 @@ details.tipos[open] summary::before{content:"▾"}
   box-shadow:0 12px 34px rgba(0,0,0,.45);display:grid;gap:0;
   /* Ultima garantia: numa janela baixa ele nao cabe nem para cima nem para baixo, e sem
      isto os ultimos campos ficariam fora de alcance. Com rolagem propria, sempre da. */
-  max-height:calc(100vh - 24px);overflow-y:auto}
+  max-height:calc(100vh - 24px);overflow-y:auto;
+  /* A BARRA DE ROLAGEM PINTADA. Sem isto o Windows desenha a dele, clara, colada
+     na borda de um painel escuro: ela não lê como parte do painel, e foi por isso
+     que o painel passou por "a rolagem não funciona" — a barra estava lá, parecendo
+     de outra coisa. `thin` porque o painel tem 240px e a barra cheia come 17. */
+  scrollbar-width:thin;scrollbar-color:var(--linha-viva) transparent}
 /* Quando nao cabe acima. Quem decide e o `abrirFiltros`, medindo — a altura do trilho
    depende da tabela, e isso o CSS nao tem como saber. */
 .ret-pop.para-baixo{bottom:auto;top:calc(100% + 6px)}

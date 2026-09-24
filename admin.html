@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=c13ebf41">
+<link rel="stylesheet" href="styles.css?v=e5024e76">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1555,8 +1555,17 @@
        ele desce, senao taparia os filtros que a pessoa acabou de usar. */
     /* Zera o encolhimento da abertura anterior ANTES de medir: guardado, o painel
        mediria a própria altura reduzida e nunca mais voltaria ao tamanho inteiro numa
-       janela que cresceu. */
+       janela que cresceu.
+
+       E zera a POSIÇÃO junto, pelo mesmo motivo — este custou uma medição para
+       aparecer. Esta função roda duas vezes, e na segunda o `top` escrito pela
+       primeira ainda estava lá: com `top` e `bottom` os dois postos, o `top` ganha, e
+       a medida de "quanto espaço há acima" saía da posição que a passada anterior
+       tinha escolhido, não da que o gatilho dita. Medido, o painel nascia em -165px,
+       com o topo fora da tela. Zerar só o `max-height` não bastava. */
     pop.style.maxHeight = '';
+    pop.style.top = '';
+    pop.style.bottom = '';
 
     /* O LIMITE É O BLOCO QUE ROLA, e não a janela. Um elemento posicionado é recortado
        pelo ancestral que rola — aqui, o `.corpo-pagina`, que começa abaixo do cabeçalho
@@ -1596,9 +1605,53 @@
     pop.classList.toggle('para-baixo', baixo);
 
     /* E ENCOLHE ao que couber daquele lado: o painel rola por dentro em vez de ter o
-       topo cortado. Abaixo de 180px vira fresta inútil — aí é melhor transbordar e
-       deixar a rolagem da página alcançar. */
+       topo cortado. */
     var espaco = baixo ? abaixo : acima;
+
+    /* SOLTA A ÂNCORA quando o gatilho é o problema.
+     *
+     * O gatilho mora no PÉ de uma coluna alta — logo, a distância dele até a borda é
+     * sempre curta, e não é a janela que decide. Medido em quatro alturas de janela,
+     * de 700 a 940px, o painel recebeu SEMPRE os mesmos ~370px para um formulário de
+     * 629: um terço dele atrás de uma rolagem interna, num painel de 240px de largura,
+     * com a barra de rolagem clara do sistema encostada na borda de um painel escuro.
+     * Foi assim que ele passou por "a rolagem não funciona".
+     *
+     * E a área INTEIRA tem 769px: o formulário cabe nela com folga. O que o apertava
+     * era estar preso ao gatilho, não falta de espaço.
+     *
+     * A versão anterior dizia, quando o espaço era curto demais, que era "melhor
+     * transbordar e deixar a rolagem da página alcançar". Essa saída não existe:
+     * medido, o `.corpo-pagina` não tem nada para rolar (`scrollHeight` igual ao
+     * `clientHeight`) sempre que a tabela está vazia ou curta — que é justamente
+     * quando a coluna de grupos é o elemento mais alto da tela. O painel transbordava
+     * e nada alcançava a parte de baixo dele.
+     *
+     * Aqui ele deixa de nascer colado no gatilho e passa a se encostar no CHÃO da área
+     * que rola, subindo o quanto precisar. Continua ao lado do gatilho — mesma coluna,
+     * mesma largura, a poucos pixels —, então não vira um painel solto no meio da
+     * tela. */
+    var area = chao - teto;
+    var precisa = pop.scrollHeight;
+    /* `area > espaco`, e não `precisa <= area`: a área nem sempre comporta o formulário
+       inteiro — numa janela baixa nada comporta. Mas SEMPRE que ela dá mais que o lado
+       ancorado, usar a área esconde menos. Medido a 780px: presa ao gatilho, 368px com
+       263 escondidos; solta, 594px com 37. Exigir que coubesse inteiro descartava esse
+       ganho justamente nas janelas em que ele mais importa. */
+    if (precisa > espaco && area > espaco) {
+      /* O `top` é relativo ao ancestral POSICIONADO, e não à janela: o mesmo cuidado
+         que as medidas de espaço já tomam. Sem descontar a posição dele, o painel
+         saltaria para baixo tantos pixels quanto a coluna estivesse abaixo do topo. */
+      var anc = pop.offsetParent
+        ? pop.offsetParent.getBoundingClientRect().top
+        : 0;
+      pop.style.bottom = 'auto';
+      pop.style.top = Math.max(teto, chao - precisa) - anc + 'px';
+      pop.style.maxHeight = area + 'px';
+      return;
+    }
+    pop.style.top = '';
+    pop.style.bottom = '';
     if (espaco >= 180) pop.style.maxHeight = espaco + 'px';
   }
 

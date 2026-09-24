@@ -4315,14 +4315,35 @@ console.log('\n== os filtros num painel suspenso ==');
         contains: function (c) { return !!cls[c]; }
       },
       getBoundingClientRect: function () {
+        /* HONRA O `top` EM LINHA, como um elemento de verdade. É por aqui que a segunda
+           passada era contaminada pela primeira: com `top` e `bottom` os dois postos, o
+           `top` ganha, e a medida de "quanto espaço há acima" passa a sair da posição
+           que a passada anterior escolheu. Um pop falso que ignora o `top` nunca
+           reproduz isso — e a afirmação sobre o zeramento passava sabotada. */
+        if (estilo.top) {
+          var t = 40 + parseFloat(estilo.top);
+          return { top: t, bottom: t + 300 };
+        }
         return cls['para-baixo'] ? { top: base, bottom: base + 300 }
                                  : { top: base - 300, bottom: base };
-      }
+      },
+      /* O ancestral POSICIONADO. O `top` que a função escreve é relativo a ele, e sem
+         ele na bancada o cálculo seria exercitado só no caso em que a coluna começa no
+         zero — que é justamente o caso que não revela um desconto errado. */
+      offsetParent: { getBoundingClientRect: function () { return { top: 40 }; } }
     };
+    var voltas = 0;
     new Function('pop', 'preferBaixo', 'window', 'requestAnimationFrame',
       fontePos + '\n posicionarPop(pop, preferBaixo);')(
-      pop, preferBaixo, { innerHeight: janela }, function () {});
-    return { lado: cls['para-baixo'] ? 'desce' : 'sobe', teto: estilo.maxHeight || '' };
+      pop, preferBaixo, { innerHeight: janela },
+      /* O AGENDADOR RODA DE VERDADE, uma vez. Com um `function(){}` mudo a bancada
+         exercitava só a PRIMEIRA passada — e o defeito que apareceu na tela, o painel
+         nascendo em -165px com o topo fora dela, é da SEGUNDA, que herdava a posição
+         escrita pela primeira. Uma vez só, e não em laço: `posicionarPop` reagenda, e
+         um agendador que executa sempre entraria em recursão infinita. */
+      function (fn) { if (voltas++ === 0) fn(); });
+    return { lado: cls['para-baixo'] ? 'desce' : 'sobe', teto: estilo.maxHeight || '',
+             topo: estilo.top || '', chaoDe: estilo.bottom || '' };
   }
 
   ok(medir(false, 500, 900, 0).lado === 'sobe',
@@ -4334,20 +4355,93 @@ console.log('\n== os filtros num painel suspenso ==');
   ok(medir(true, 700, 900, 0).lado === 'sobe',
     'preferindo descer e não cabendo abaixo, sobe');
 
+  /* ---- SOLTA A ÂNCORA quando o gatilho é o problema ----------------------
+   * O gatilho mora no PÉ de uma coluna alta, e a distância dele até a borda é sempre
+   * curta — não é a janela que decide. Medido em quatro alturas, de 700 a 940px, o
+   * painel recebeu SEMPRE os mesmos ~370px para um formulário de 629: um terço atrás
+   * de uma rolagem interna, num painel de 240px de largura. Foi assim que ele passou
+   * por "a rolagem não funciona".
+   *
+   * E a área inteira tem 769px: o formulário cabe nela com folga. */
+  var solto = medir(false, 500, 900, 90, 629);
+  /* 223 e não 263: o `top` é relativo ao ancestral POSICIONADO, que na bancada começa
+     em 40. Sem descontá-lo, o painel desceria tantos pixels quanto a coluna estivesse
+     abaixo do topo — e no computador ela está 90 e tantos. */
+  ok(solto.topo === '223px' && solto.teto === '794px' && solto.chaoDe === 'auto',
+    'não cabendo em nenhum dos lados do gatilho, o painel se solta dele e encosta no ' +
+    'CHÃO da área — medido: 631px inteiros à vista, contra 368 com 263 escondidos',
+    solto.topo + ' / ' + solto.teto + ' / ' + solto.chaoDe);
+  /* O `bottom:auto` junto com o `top`: postos os dois, um elemento absoluto com altura
+     ESTICA entre eles em vez de se posicionar. */
+  ok(/pop\.style\.bottom = 'auto';/.test(fontePos),
+    'e larga o `bottom` do CSS ao assumir o `top` — com os dois postos ele esticaria ' +
+    'entre as duas bordas em vez de se posicionar');
+  ok(medir(false, 500, 900, 90, 300).topo === '',
+    'e cabendo ao lado do gatilho ele FICA lá: soltar sempre seria afastar o painel do ' +
+    'botão que o abriu sem ter ganhado nada com isso');
+  /* `area > espaco`, e não `precisa <= area`: numa janela baixa nada comporta o
+     formulário inteiro, mas a área ainda dá mais que o lado ancorado. Medido a 780px:
+     preso, 368px com 263 escondidos; solto, 578px com 53. */
+  var apertado = medir(false, 500, 700, 90, 629);
+  ok(apertado.teto === '594px',
+    'e mesmo quando NEM a área comporta o formulário ele se solta, porque esconder 53px ' +
+    'é melhor que esconder 263 — exigir que coubesse inteiro descartava o ganho ' +
+    'justamente nas janelas baixas, onde ele mais importa', apertado.teto);
+
+  /* ZERA A POSIÇÃO ANTES DE MEDIR, e não só o `max-height`. Esta função roda duas
+     vezes; na segunda o `top` escrito pela primeira ainda estava lá, e com `top` e
+     `bottom` os dois postos o `top` ganha: a medida de "quanto espaço há acima" saía
+     da posição que a passada anterior escolheu. Medido, o painel nascia em -165px, com
+     o topo fora da tela. Duas chamadas seguidas têm de dar o MESMO resultado. */
+  /* Duas chamadas com bancadas NOVAS nunca se distinguem — cada uma nasce limpa, e a
+     afirmação que as comparava não media nada. Quem mede é a bancada honrando o `top`:
+     ela roda as duas passadas sobre o MESMO pop, e sem o zeramento a segunda mede a
+     régua que a primeira escreveu. É o caso `solto` acima que reprova. */
+  /* OS TRÊS JUNTOS, como bloco. Escritas soltas, as duas buscas eram satisfeitas pelo
+     `pop.style.bottom = '';` do OUTRO ramo da função — apagar o do zeramento deixava a
+     afirmação verde. Pego na sabotagem, e é a mesma família de sempre: uma ocorrência
+     respondendo pela outra. */
+  ok(/pop\.style\.maxHeight = '';\s*pop\.style\.top = '';\s*pop\.style\.bottom = '';/
+    .test(fontePos),
+    'e o zeramento da posição está escrito JUNTO com o do `max-height`, que existe pela ' +
+    'mesma razão — os três zeram a sujeira da passada anterior antes de medir');
+
+  /* A BARRA DE ROLAGEM PINTADA. Quando ele ainda precisa rolar por dentro, a barra
+     clara do sistema encostada num painel escuro não lê como parte dele. */
+  ok(/\.ret-pop\{[^}]*scrollbar-color:var\(--linha-viva\) transparent\}/.test(css),
+    'e quando ainda sobra conteúdo, a barra de rolagem é pintada com a cor do painel — ' +
+    'a do sistema é clara e não lê como parte de um painel escuro');
+
   /* O TETO DA ÁREA QUE ROLA. O painel é recortado pelo `.corpo-pagina`, que começa
      abaixo do cabeçalho: medindo contra a janela, ele concluía que cabia e o topo dele
      — o campo de busca — ficava escondido atrás dessa borda. */
   ok(medir(false, 500, 900, 400).lado === 'desce',
     'com o cabeçalho ocupando os primeiros 400px, o que caberia na janela já não cabe ' +
     'na área que rola — e ele desce');
-  var apertado = medir(false, 500, 520, 90, 900);
-  ok(apertado.lado === 'sobe' && apertado.teto === '402px',
-    'não cabendo dos dois lados, ele encolhe ao espaço real e rola por dentro, em vez ' +
-    'de ter o topo cortado', apertado);
+  var semLado = medir(false, 500, 520, 90, 900);
+  ok(semLado.teto === '414px' && semLado.topo === '58px',
+    'não cabendo dos dois lados do gatilho, ele usa a ÁREA inteira — 414px, contra os ' +
+    '402 que sobravam acima do gatilho — e encosta no teto dela', semLado);
+  /* NUNCA ACIMA DO TETO DA ÁREA. Quando nem a área comporta o formulário, encostar no
+     chão colocaria o topo acima dela — fora da tela, e sem rolagem que o alcance, que é
+     o mesmo buraco de antes com outra roupa. O `Math.max` prende o topo no teto e deixa
+     a rolagem interna resolver o resto. */
+  var maiorQueTudo = medir(false, 500, 700, 90, 900);
+  ok(maiorQueTudo.topo === '58px',
+    'e um formulário maior que a área inteira encosta no TETO dela, não acima — sem ' +
+    'isso ele nasceria 248px fora da tela', maiorQueTudo.topo);
+
+  /* A FRESTA, agora ASSUMIDA. A regra antiga deixava de encolher abaixo de 180px, com
+     o argumento de que uma fresta não serve para nada e a rolagem da página alcançaria
+     o resto. Medido: não alcança — com a tabela vazia ou curta o `.corpo-pagina` não
+     tem nada para rolar, e a tabela é curta justamente quando a coluna de grupos é o
+     elemento mais alto da tela. Sem teto, o painel transbordava e o fim dele ficava
+     fora de alcance. Uma fresta que ROLA chega ao fim do formulário; uma fresta que
+     transborda, não. */
   var fresta = medir(false, 150, 250, 90, 900);
-  ok(fresta.teto === '',
-    'e abaixo de 180px de espaço não encolhe: uma fresta não serve para nada, e a ' +
-    'rolagem da página ainda alcança', fresta);
+  ok(fresta.teto === '144px',
+    'e numa janela em que nem a área dá 180px ele vira fresta mesmo assim — fresta que ' +
+    'rola alcança o fim do formulário, e transbordar não alcançava nada', fresta);
   /* Uma funcao para os DOIS paineis. Dois lugares decidindo a mesma coisa acabam
      discordando, e o segundo nasceria fora da tela no dia em que o primeiro fosse
      corrigido. */
