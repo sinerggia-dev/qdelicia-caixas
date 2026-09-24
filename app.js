@@ -1477,6 +1477,44 @@
    * parecia defeito, e o cadastro estava certo o tempo todo. Tela que recusa sem
    * dizer o motivo manda a pessoa procurar o problema no lugar errado.
    */
+  /**
+   * CONFERIR A SENHA DE QUEM JA ESTA DENTRO.
+   *
+   * Nao e login: a sessao ja existe e continua valendo. E a pergunta "e voce mesmo?",
+   * feita antes de um passo que nao se quer dar por acidente nem por quem sentou na
+   * cadeira de outra pessoa.
+   *
+   * MORA AQUI, e nao na tela que precisa: a comparacao passa pela MESMA rota do login,
+   * e uma segunda copia dela divergiria da primeira no dia em que a entrada mudasse —
+   * a pessoa entraria por um caminho e seria recusada pelo outro. E o painel tem uma
+   * afirmacao que proibe login proprio justamente por isso.
+   *
+   * MANDA `segredo`, e nao `senha`: quem entra por PIN tambem precisa poder confirmar,
+   * e a rota unica do servidor descobre qual dos dois e. A senha nao e guardada em
+   * lugar nenhum — vai, e a resposta e um sim ou um nao.
+   *
+   * E CONFERE QUEM VOLTOU, e nao so que a senha serviu. O servidor acha a pessoa por
+   * nome, usuario ou e-mail e devolve o PRIMEIRO que bater: dois cadastros ativos com o
+   * mesmo nome fariam a senha de um confirmar a sessao do outro. Comparar o id fecha
+   * isso. E o perfil volta do banco, entao quem deixou de ser admin depois de entrar e
+   * pego aqui, sem precisar sair e voltar.
+   */
+  function conferirSenha(segredo) {
+    var s = sessao() || {};
+    if (!s.id) return Promise.resolve({ ok: false, erro: 'Sua sessao acabou. Entre de novo.' });
+    if (!segredo) return Promise.resolve({ ok: false, erro: 'Digite sua senha.' });
+    return post({ acao: 'login', identificador: s.nome, segredo: segredo })
+      .then(function (r) {
+        if (!r || !r.ok) return { ok: false, erro: (r && r.erro) || 'Senha incorreta.' };
+        var u = r.usuario || {};
+        if (String(u.id) !== String(s.id)) {
+          return { ok: false, erro: 'Esta senha e de outro cadastro com o mesmo nome. ' +
+                                    'Fale com o administrador.' };
+        }
+        return { ok: true, usuario: u, via: r.via || '' };
+      });
+  }
+
   function portaUnica(aqui, abrir, aviso) {
     var pagina = aqui === 'painel' ? 'admin.html' : 'index.html';
     var $ = function (id) { return document.getElementById(id); };
@@ -2044,6 +2082,7 @@
     horaBR: horaBR, dataDoCarimboBR: dataDoCarimboBR, dataHoraBR: dataHoraBR,
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
+    conferirSenha: conferirSenha,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,
     agruparLancamentos: agruparLancamentos, chaveDoLote: chaveDoLote,
     gruposDaNavegacao: gruposDaNavegacao,

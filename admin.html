@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=678fc228">
+<link rel="stylesheet" href="styles.css?v=36375b3f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -782,7 +782,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=be5e2580"></script>
+<script src="app.js?v=351f8ba8"></script>
 <script>
 (function(){
   'use strict';
@@ -1991,16 +1991,67 @@
     /* A TELA RECUSA POR CONTA PRÓPRIA, e não confia em estar escondida no menu. O botão
        some para quem não é admin, mas a página existe e o endereço dela é alcançável —
        e uma tela que aparece vazia não se distingue de uma tela quebrada. */
-    if (!podeArranjarColunas()) {
+    if (!Q.ehAdmin()) {
       box.innerHTML = '<div class="vazio">Só o administrador ajusta as colunas. '+
         'As tabelas aparecem para você como saíram de fábrica: todas as colunas, '+
         'na ordem e na largura padrão.</div>';
       return;
     }
+    /* TRAVADO: a tela pede a senha antes de mostrar o editor. Mostrar o editor e
+       recusar no fim faria a pessoa mexer em tudo para levar um não no último passo. */
+    if (!colunasDestravadas()) {
+      box.innerHTML =
+        '<div class="destrava-colunas">'+
+          '<p class="nota-colunas nota-topo">As colunas estão <b>travadas</b>. '+
+          'Confirme sua senha do painel para mover, esconder ou expandir — a liberação '+
+          'vale por <b>15 minutos</b> e acaba ao recarregar a página.</p>'+
+          '<div class="destrava-linha">'+
+            '<div><label for="senhaColunas">Sua senha do painel</label>'+
+              '<input type="password" id="senhaColunas" autocomplete="current-password">'+
+            '</div>'+
+            '<button class="btn" type="button" id="btnDestravarColunas">Destravar</button>'+
+          '</div>'+
+          '<p class="erro-destrava" id="erroDestrava" hidden></p>'+
+        '</div>';
+      var campo = document.getElementById('senhaColunas');
+      var erro = document.getElementById('erroDestrava');
+      var bt = document.getElementById('btnDestravarColunas');
+      function dizer(m){
+        erro.textContent = m || '';
+        erro.hidden = !m;
+      }
+      function tentar(){
+        var v = campo.value;
+        if (!v) { dizer('Digite sua senha.'); campo.focus(); return; }
+        bt.disabled = true; bt.textContent = 'Conferindo…';
+        dizer('');
+        conferirSenhaDasColunas(v).then(function(r){
+          bt.disabled = false; bt.textContent = 'Destravar';
+          /* A SENHA NÃO FICA NO CAMPO depois da tentativa, certa ou errada: o campo
+             continua na tela enquanto a pessoa arruma as colunas. */
+          campo.value = '';
+          if (!r.ok) { dizer(r.erro); campo.focus(); return; }
+          destravarColunas();
+        }).catch(function(e){
+          bt.disabled = false; bt.textContent = 'Destravar';
+          campo.value = '';
+          dizer('Não deu para conferir agora: '+(e && e.message ? e.message : 'sem conexão')+'.');
+        });
+      }
+      bt.addEventListener('click', tentar);
+      campo.addEventListener('keydown', function(e){ if (e.key === 'Enter') tentar(); });
+      Q.olhosDeSenha(box);
+      return;
+    }
     /* Uma linha dizendo as tres acoes, antes das fichas. Sem ela, as setas e o numero
        se explicam pela forma, mas so quem passa o ponteiro descobre o que fazem — e num
        celular nao ha ponteiro que passe. */
-    box.innerHTML = '<p class="nota-colunas nota-topo">Em cada coluna: '+
+    box.innerHTML =
+      '<div class="destravado-ate">'+
+        '<span>Colunas liberadas até <b>'+Q.esc(horaDaTrava())+'</b></span>'+
+        '<button class="mini" type="button" id="btnTravarColunas">Travar agora</button>'+
+      '</div>'+
+      '<p class="nota-colunas nota-topo">Em cada coluna: '+
       '<b>↑ ↓</b> mudam a ordem, o número é a <b>largura em pixels</b>, e '+
       '<b>✕ esconder</b> tira a coluna da tabela. Escondida, ela continua nesta lista '+
       'para poder voltar.</p>'+
@@ -2140,7 +2191,80 @@
    * E A GRAVAÇÃO TAMBÉM RECUSA, embora nada devesse chegar até ela. Um ouvinte que
    * sobreviva a uma troca de sessão sem redesenho é justamente o tipo de coisa que
    * ninguém vê acontecer. */
-  function podeArranjarColunas(){ return Q.ehAdmin(); }
+  /* ---- E A SENHA, MESMO SENDO ADMIN ----
+   *
+   * Ser admin passa a ser condição NECESSÁRIA e não suficiente: o arranjo nasce
+   * travado a cada abertura da página, e destravar pede a senha do painel de novo.
+   *
+   * O QUE ISTO RESOLVE, dito sem exagero: o computador do escritório com a sessão do
+   * administrador aberta, e alguém sentando nele. Esse é o caso real, e é frequente.
+   *
+   * O QUE NÃO RESOLVE, dito com a mesma clareza: quem abrir as ferramentas do navegador
+   * edita o `localStorage` e remonta a tabela sem senha nenhuma. Isto é uma CONFIRMAÇÃO,
+   * não uma tranca — e chamá-la de tranca seria pior do que não tê-la, porque alguém
+   * confiaria nela para uma coisa que ela não faz.
+   *
+   * NA MEMÓRIA, e não no armazenamento. Guardar "está destravado" onde a própria pessoa
+   * escreve é entregar a chave junto com a fechadura: bastaria um `setItem` para pular a
+   * senha. Na memória, fechar a aba ou recarregar volta a travar — que é também o
+   * comportamento certo para o computador compartilhado.
+   *
+   * A JANELA É DE 15 MINUTOS, e não até o fim da sessão: o motivo de existir a senha é o
+   * computador que fica aberto, e uma liberação que dura o dia inteiro devolve
+   * exatamente esse caso. Quinze minutos é o tempo de arrumar as colunas e não é o
+   * tempo de ir almoçar. Vencendo, as tabelas são REDESENHADAS — não basta parar de
+   * gravar, senão o cabeçalho continuaria arrastável e o arrasto não faria nada. */
+  var JANELA_COLUNAS = 15 * 60 * 1000;
+  var COLUNAS_ATE = 0;
+  var relogioTrava = null;
+
+  function colunasDestravadas(){ return Date.now() < COLUNAS_ATE; }
+  function podeArranjarColunas(){ return Q.ehAdmin() && colunasDestravadas(); }
+
+  /* As tabelas precisam ser REDESENHADAS nas duas viradas: é no desenho que o <th>
+     ganha ou perde o `draggable` e a alcinha. Sem isto, destravar não solta nada até a
+     pessoa trocar de aba, e travar deixaria o convite na tela. */
+  function redesenharArranjaveis(){
+    tabelasGerenciaveis().forEach(function(g){
+      try { g.t.redesenha(); } catch (e) {}
+    });
+    if (document.getElementById('listaColunas')) desenharColunas();
+  }
+
+  function travarColunas(porVencimento){
+    COLUNAS_ATE = 0;
+    clearTimeout(relogioTrava);
+    redesenharArranjaveis();
+    if (porVencimento) Q.toast('Os quinze minutos acabaram: as colunas voltaram a ficar travadas.');
+  }
+
+  function destravarColunas(){
+    COLUNAS_ATE = Date.now() + JANELA_COLUNAS;
+    clearTimeout(relogioTrava);
+    relogioTrava = setTimeout(function(){ travarColunas(true); }, JANELA_COLUNAS);
+    redesenharArranjaveis();
+  }
+
+  function horaDaTrava(){
+    return new Date(COLUNAS_ATE).toLocaleTimeString('pt-BR',
+      { hour: '2-digit', minute: '2-digit', timeZone: Q.FUSO_OPERACAO });
+  }
+
+  /* A CONFERÊNCIA MORA NO `app.js`, junto da entrada: é a MESMA rota, e uma segunda
+     cópia dela divergiria da primeira no dia em que o login mudasse. O que fica aqui é
+     só o que é DESTA tela — reler o perfil e exigir que ele ainda seja de
+     administrador, porque quem deixou de ser admin depois de entrar não pode destravar
+     coluna nenhuma. */
+  function conferirSenhaDasColunas(segredo){
+    return Q.conferirSenha(segredo).then(function(r){
+      if (!r.ok) return r;
+      if (String((r.usuario || {}).perfil).toUpperCase() !== 'ADMIN') {
+        return { ok: false, erro: 'Seu perfil não é mais de administrador.' };
+      }
+      return { ok: true };
+    });
+  }
+
 
   function ordemColunas(t){
     /* Sem permissão, a ordem de fábrica — e não a guardada. Ver o portão acima. */
@@ -5504,6 +5628,14 @@
        lembrar de pedir. */
     Q.olhosDeSenha(document.getElementById('modalBox'));
   }
+  /* O botão de travar mora fora do `desenharColunas` por um motivo prático: aquele
+     desenho é refeito por dentro do próprio `travarColunas`, e ligar o ouvinte lá
+     dentro criaria a recursão na hora de apagar a tela que segura o botão. */
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest && e.target.closest('#btnTravarColunas');
+    if (b) travarColunas(false);
+  });
+
   function fecharModal(){ document.getElementById('modal').classList.remove('aberto'); }
   document.getElementById('modal').addEventListener('click', function(e){ if (e.target === this) fecharModal(); });
 

@@ -1893,6 +1893,25 @@ details.tipos[open] summary::before{content:"▾"}
 /* As duas datas dividem a fileira. */
 .ret-pop .pop-duplo{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
 /* A tela de Colunas: uma ficha por modulo. */
+/* ---------- a trava das colunas ----------
+ * Arranjar as colunas pede a senha do painel de novo, mesmo sendo admin: o caso e o
+ * computador do escritorio com a sessao aberta e alguem sentando nele.
+ * A caixa de destravar NAO e um alarme — nada esta errado, e vermelho aqui faria a
+ * pessoa procurar um problema. E a borda neutra de sempre, com o campo e o botao numa
+ * linha so, que e o formato de "confirme e siga". */
+.destrava-colunas{border:1px solid var(--linha);border-radius:var(--raio);padding:14px}
+.destrava-linha{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:10px}
+.destrava-linha>div{flex:1 1 220px;min-width:0}
+.destrava-linha .btn{flex:0 0 auto}
+/* O erro aparece DEBAIXO do campo. Sem regra de `[hidden]` propria: ja existe UMA
+   para qualquer elemento, la embaixo, e o projeto ja tropecou tres vezes em escrever
+   uma por peca descoberta. */
+.erro-destrava{margin:8px 0 0;color:var(--vermelho,#ff6b6b);font-size:12.5px}
+/* Ate quando vale, a vista. Sem isso a liberacao vence de surpresa, e a pessoa
+   arrasta uma coluna que nao se move mais sem saber por que. */
+.destravado-ate{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;border-radius:var(--raio);
+  background:var(--surface-2);font-size:12.5px;color:var(--txt2)}
 .mod-colunas{border:1px solid var(--linha);border-radius:var(--raio);margin-bottom:12px}
 /* O canto arredondado vem do PROPRIO cabecalho, e nao de um `overflow:hidden` na ficha.
    E a unica coisa aqui com fundo, entao e ela que precisa do canto — e recortar a ficha

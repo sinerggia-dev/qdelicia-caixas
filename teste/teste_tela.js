@@ -631,9 +631,17 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
      declaração dentro do corpo sombreia o parâmetro de mesmo nome — o portão injetado
      nunca seria chamado, e as duas asserções abaixo estariam medindo o nada.
      Injetando `Q.ehAdmin`, quem roda é o portão do arquivo. */
+  /* E a TRAVA entra junto. Ser admin virou condição necessária e não suficiente: o
+     arranjo nasce travado a cada abertura, e destravar pede a senha. A bancada mexe na
+     MESMA variável que o portão lê — um portão de mentira provaria só a si mesmo. */
   var mont = new Function('localStorage', 'desenharFluxo', 'Q',
-    fonteOrdem + ' return { fn: ordemColunas, t: TAB_ATIVOS };')(
+    fonteOrdem + ' return { fn: ordemColunas, t: TAB_ATIVOS,' +
+    ' liberar: function(ms){ COLUNAS_ATE = Date.now() + ms; },' +
+    ' travado: function(){ return !colunasDestravadas(); } };')(
       localStorage, function(){}, { ehAdmin: function(){ return EH_ADMIN; } });
+  ok(mont.travado(), 'o arranjo NASCE travado, mesmo para o admin — a liberação não ' +
+    'sobrevive a recarregar a página, que é o caso do computador compartilhado');
+  mont.liberar(60000);
   var TAB = mont.t;
   var ordemColunas = function () { return mont.fn(TAB); };
 
@@ -984,8 +992,10 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
   };
   var LARG_ADMIN = true;
   var mm = new Function('localStorage', 'desenharFluxo', 'Q',
-    fonte + ' return { fn: larguras, t: TAB_ATIVOS };')(
+    fonte + ' return { fn: larguras, t: TAB_ATIVOS,' +
+    ' liberar: function(ms){ COLUNAS_ATE = Date.now() + ms; } };')(
       localStorage, function(){}, { ehAdmin: function(){ return LARG_ADMIN; } });
+  mm.liberar(60000);
   var TABL = mm.t;
   var larguras = function () { return mm.fn(TABL); };
 
@@ -4268,23 +4278,37 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
      /data-collarg=/.test(fonte),
     'o recorte pegou a tela, e ela traz as três funções: esconder, mover e expandir');
 
-  /* O QUARTO ARGUMENTO é o portão: a tela é a mesma, e o que muda é quem está olhando.
-     `podeArranjarColunas` entra por parâmetro porque o recorte não o traz — ele mora
-     acima do `desenharColunas`, na cabeceira da maquinaria. */
-  function tela(ordem, ocultas, larg, admin) {
+  /* A TELA TEM TRÊS ESTADOS, e o quarto argumento diz qual: quem não é admin, o admin
+     com as colunas travadas, e o admin depois de confirmar a senha. Os dois interruptores
+     entram separados porque respondem perguntas diferentes — quem é a pessoa, e se ela
+     acabou de confirmar que é ela. */
+  function tela(ordem, ocultas, larg, quem) {
+    quem = quem || {};
+    var admin = quem.admin !== false, aberto = quem.destravado !== false;
     var box = { innerHTML: '', querySelectorAll: function () { return []; } };
+    /* Um elemento genérico para os ids do formulário de senha: o desenho travado
+       procura o campo, o botão e a linha de erro, e `null` estouraria antes da
+       asserção poder olhar o HTML. */
+    function falso() {
+      return { value: '', textContent: '', hidden: false, disabled: false,
+               addEventListener: function () {}, focus: function () {} };
+    }
     new Function('document', 'Q', 'tabelasGerenciaveis', 'ordemColunas', 'colunasOcultas',
-      'larguras', 'LARG_MIN', 'podeArranjarColunas',
+      'larguras', 'LARG_MIN', 'colunasDestravadas', 'horaDaTrava', 'destravarColunas',
+      'conferirSenhaDasColunas',
       fonte + '\n desenharColunas();')(
-      { getElementById: function (id) { return id === 'listaColunas' ? box : null; } },
-      { esc: function (v) { return String(v); } },
+      { getElementById: function (id) { return id === 'listaColunas' ? box : falso(); } },
+      { esc: function (v) { return String(v); },
+        ehAdmin: function () { return admin; },
+        olhosDeSenha: function () {} },
       function () {
         return [{ modulo: 'Painel de Ativos',
                   t: { titulos: { data: 'Data', saida: 'Saída', quem: 'Quem' } } }];
       },
       function () { return ordem; }, function () { return ocultas; },
       function () { return larg; }, 70,
-      function () { return admin !== false; });
+      function () { return aberto; }, function () { return '13:05'; },
+      function () {}, function () { return Promise.resolve({ ok: true }); });
     return box.innerHTML;
   }
 
@@ -4426,8 +4450,9 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
    *
    * UM PORTÃO SÓ, e todos os caminhos passam por ele. Seis lugares poderiam ter a
    * própria cópia da regra, e a primeira mudança pegaria cinco. */
-  ok(/function podeArranjarColunas\(\)\{ return Q\.ehAdmin\(\); \}/.test(adm),
-    'quem arranja as colunas é o administrador, e a regra mora num lugar só');
+  ok(/function podeArranjarColunas\(\)\{ return Q\.ehAdmin\(\) && colunasDestravadas\(\); \}/.test(adm),
+    'quem arranja as colunas é o administrador COM a senha confirmada — ser admin é ' +
+    'condição necessária e não suficiente, e a regra mora num lugar só');
   /* O PORTÃO ESTÁ NA LEITURA, e é isso que faz a tabela voltar ao padrão para quem
      não é admin. Só nos gestos, o caso que mais importa ficaria de pé: quem ERA admin,
      arrumou as colunas e teve o perfil trocado continuaria com o arranjo antigo e com
@@ -4486,7 +4511,8 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
     'tabela, não a ordem das linhas');
   /* A TELA RECUSA POR CONTA PRÓPRIA, e não confia em estar escondida no menu: a página
      existe e o endereço dela é alcançável, e tela vazia não se distingue de quebrada. */
-  var recusa = tela(['data', 'saida', 'quem'], [], { data: 95, saida: 160, quem: 190 }, false);
+  var recusa = tela(['data', 'saida', 'quem'], [], { data: 95, saida: 160, quem: 190 },
+                    { admin: false });
   ok(recusa.indexOf('Só o administrador ajusta as colunas') > 0 &&
      recusa.indexOf('data-colver=') < 0,
     'e a aba Colunas recusa por conta própria, dizendo por quê — escondida no menu ' +
@@ -4496,6 +4522,100 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
   ok(/if \(b\.dataset\.pagina === 'pgColunas' && !podeArranjarColunas\(\)\) ok = false;/.test(adm),
     'e o botão dela some do menu mesmo que a aba tenha sido concedida — oferecer o ' +
     'caminho para uma porta trancada é pior que não oferecer');
+
+  /* ================= A SENHA, MESMO SENDO ADMIN =================
+   *
+   * O arranjo nasce TRAVADO a cada abertura da página, e destravar pede a senha do
+   * painel de novo. O caso que isto resolve é o computador do escritório com a sessão
+   * do administrador aberta, e alguém sentando nele — que é frequente.
+   *
+   * O que NÃO resolve, e por isso não se chama tranca: quem abrir as ferramentas do
+   * navegador edita o `localStorage` e remonta a tabela sem senha nenhuma. É uma
+   * confirmação. Chamá-la de tranca seria pior que não tê-la, porque alguém confiaria
+   * nela para uma coisa que ela não faz. */
+  ok(/var COLUNAS_ATE = 0;/.test(adm) &&
+     !/localStorage[\s\S]{0,60}COLUNAS_ATE/.test(adm) &&
+     !/COLUNAS_ATE[\s\S]{0,60}localStorage\.setItem/.test(adm),
+    'a liberação vive na MEMÓRIA, e não no armazenamento — guardar "está destravado" ' +
+    'onde a própria pessoa escreve é entregar a chave junto com a fechadura');
+  ok(/var JANELA_COLUNAS = 15 \* 60 \* 1000;/.test(adm) &&
+     /relogioTrava = setTimeout\(function\(\)\{ travarColunas\(true\); \}, JANELA_COLUNAS\);/.test(adm),
+    'e ela vence em quinze minutos — o motivo de existir a senha é o computador que ' +
+    'fica aberto, e liberar até o fim do dia devolveria exatamente esse caso');
+  /* VENCENDO, AS TABELAS SÃO REDESENHADAS. Não basta parar de gravar: o cabeçalho
+     continuaria arrastável e o arrasto não faria nada — a pessoa mexe, nada acontece,
+     e conclui que a tela travou. É a mesma lição do cursor de mão aberta. */
+  ok(/function travarColunas\(porVencimento\)\{[\s\S]{0,200}redesenharArranjaveis\(\);/.test(adm) &&
+     /function destravarColunas\(\)\{[\s\S]{0,260}redesenharArranjaveis\(\);/.test(adm),
+    'e as duas viradas redesenham as tabelas — é no desenho que o `<th>` ganha ou ' +
+    'perde o `draggable`, e sem isso o gesto fica prometido e sem efeito');
+  ok(/travarColunas\(true\)[\s\S]{0,400}Q\.toast\(/.test(adm) ||
+     /if \(porVencimento\) Q\.toast\(/.test(adm),
+    'e o vencimento AVISA — trancar calado deixa a pessoa arrastando sem entender');
+  /* A CONFERÊNCIA MORA NO `app.js`, junto da entrada: a mesma rota, uma vez só. Uma
+     segunda cópia divergiria da primeira no dia em que o login mudasse. */
+  var nucleo = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  ok(/function conferirSenha\(segredo\) \{/.test(nucleo) &&
+     /conferirSenha: conferirSenha,/.test(nucleo) &&
+     /Q\.conferirSenha\(segredo\)/.test(adm),
+    'e a conferência da senha mora no `app.js`, na mesma rota do login — duas cópias ' +
+    'divergiriam no dia em que a entrada mudasse');
+  /* MANDA `segredo`, e não `senha`: quem entra por PIN também precisa poder confirmar. */
+  ok(/post\(\{ acao: 'login', identificador: s\.nome, segredo: segredo \}\)/.test(nucleo),
+    'e manda `segredo`, não `senha` — quem entra por PIN também confirma');
+  /* CONFERE QUEM VOLTOU. O servidor acha por nome, usuário ou e-mail e devolve o
+     PRIMEIRO que bater: dois cadastros ativos com o mesmo nome fariam a senha de um
+     confirmar a sessão do outro. */
+  ok(/if \(String\(u\.id\) !== String\(s\.id\)\) \{/.test(nucleo),
+    'e confere se voltou a MESMA pessoa — o servidor devolve o primeiro nome que bate, ' +
+    'e dois cadastros homônimos deixariam a senha de um valer pela sessão do outro');
+  /* E O PERFIL VOLTA DO BANCO: quem deixou de ser admin depois de entrar é pego aqui,
+     sem precisar sair e voltar. */
+  ok(/String\(\(r\.usuario \|\| \{\}\)\.perfil\)\.toUpperCase\(\) !== 'ADMIN'/.test(adm),
+    'e o perfil é relido do servidor: quem deixou de ser admin depois de entrar não ' +
+    'destrava coluna nenhuma');
+  /* A SENHA NÃO FICA NO CAMPO depois da tentativa, certa ou errada — o formulário
+     continua na tela enquanto a pessoa arruma as colunas.
+     ESCOPADO no tratador da senha, e não contado no arquivo: `campo.value = ''`
+     aparece cinco vezes no admin.html, e três não têm nada a ver com senha — a
+     contagem passava com a linha certa apagada, porque as outras respondiam por ela.
+     E a limpeza vem ANTES do `if (!r.ok)`: assim ela vale para a tentativa certa e
+     para a errada. O `catch` responde pelo terceiro caso, o da rede que cai no meio. */
+  /* O `catch` é ancorado no BOTÃO desta tela, e não em `.catch(function(e){` solto:
+     há vinte e sete deles no admin.html, e um outro — a 250 mil caracteres daqui —
+     tem um `campo.value = ''` logo abaixo e respondia por este. Apagar a linha certa
+     passava. */
+  ok(/conferirSenhaDasColunas\(v\)\.then\(function\(r\)\{[\s\S]{0,300}?campo\.value = '';\s*\n\s*if \(!r\.ok\)/.test(adm) &&
+     /\.catch\(function\(e\)\{\s*\n\s*bt\.disabled = false; bt\.textContent = 'Destravar';\s*\n\s*campo\.value = '';/.test(adm),
+    'e o campo é esvaziado depois da tentativa — certa, errada e sem rede');
+
+  /* --- os três estados da tela, desenhados ---------------------------------- */
+  var travado = tela(['data', 'saida', 'quem'], [], { data: 95, saida: 160, quem: 190 },
+                     { admin: true, destravado: false });
+  ok(travado.indexOf('id="senhaColunas"') > 0 &&
+     travado.indexOf('type="password"') > 0 &&
+     travado.indexOf('data-colver=') < 0,
+    'travada, a aba pede a senha ANTES de mostrar o editor — mostrar tudo e recusar no ' +
+    'fim faria a pessoa mexer em tudo para levar um não no último passo', travado);
+  ok(travado.indexOf('15 minutos') > 0 && travado.indexOf('recarregar') > 0,
+    'e diz quanto tempo vale e o que a encerra, em vez de deixar a pessoa descobrir');
+  var aberto = tela(['data', 'saida', 'quem'], [], { data: 95, saida: 160, quem: 190 },
+                    { admin: true, destravado: true });
+  ok(aberto.indexOf('Colunas liberadas até') > 0 &&
+     aberto.indexOf('id="btnTravarColunas"') > 0 &&
+     aberto.indexOf('data-colver=') > 0,
+    'destravada, ela mostra o editor, ATÉ QUANDO vale e um jeito de travar na hora — ' +
+    'quem terminou não precisa esperar quinze minutos', aberto);
+  /* SEM regra de `[hidden]` própria: já existe UMA para qualquer elemento, e a
+     asserção lá de cima cobra exatamente que não se escreva outra por peça descoberta.
+     Foi a quarta tentativa do projeto de fazer isso, e a suíte pegou na hora. */
+  ok(/\.destrava-colunas\{/.test(css) && /\.destravado-ate\{/.test(css) &&
+     /\.erro-destrava\{/.test(css),
+    'e os três pedaços têm estilo, sem `[hidden]` próprio — a regra geral já cuida disso');
+  /* NADA ESTÁ ERRADO quando a tela pede a senha: vermelho ali faria a pessoa procurar
+     um problema que não existe. A cor fica para o erro de verdade, logo abaixo. */
+  ok(!/\.destrava-colunas\{[^}]*(--vermelho|--amarelo)/.test(css),
+    'e a caixa de destravar não é um alarme — a cor fica para o erro de verdade');
 })();
 
 console.log('\n== recolher o trilho ==');
