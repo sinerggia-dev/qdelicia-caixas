@@ -2056,10 +2056,17 @@
      de referência, a do romaneio — não responde. Lançar hoje uma carga de ontem é
      rotina, e até aqui não havia onde ver que foi isso que aconteceu.
 
-     E A COLUNA SE CHAMA "Data do movimento", e não "Data". Três colunas de data
-     seguidas, uma delas chamada só "Data", não distinguem nada — a pergunta "o que são
-     essas duas datas?" veio de olhar exatamente para elas. O nome batiza o FATO: o dia
-     em que as caixas se moveram.
+     E A COLUNA SE CHAMA "Movimento", e não "Data". Três colunas de data seguidas, uma
+     delas chamada só "Data", não distinguem nada — a pergunta "o que são essas duas
+     datas?" veio de olhar exatamente para elas. O nome batiza o FATO: o dia em que as
+     caixas se moveram.
+
+     "Movimento" e não "Data do movimento": num cabeçalho de tabela, ao lado de "Hora" e
+     "Criado em", a palavra "Data" é redundante — as três são datas, e o que distingue é
+     o resto. O CAMPO DO FORMULÁRIO continua "Data do movimento", e a diferença é de
+     propósito: um cabeçalho rotula uma coluna que a pessoa está lendo, e um rótulo de
+     formulário pede um valor. "Movimento *" em cima de um seletor de data não diz o que
+     se espera dali.
      E NÃO "Lançamento", que foi a primeira ideia: neste sistema "lançar" já quer dizer
      o ATO de registrar, em quase trinta lugares — "app de lançamento", "Quem lançou",
      "Lançado por". A coluna chamada assim soaria como a vizinha, e o balão do âmbar,
@@ -2082,10 +2089,10 @@
     /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
        coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
        com a data mais larga do formato e a etiqueta junto. */
-    larg: { data:170, hora:70, criado:110, status:110, origem:150, destino:150,
+    larg: { data:120, hora:70, criado:110, status:110, origem:150, destino:150,
             caixa:120, qtd:80, motorista:130, quem:120, alterado:140,
             alteradoEm:150 },
-    titulos: { data:'Data do movimento', hora:'Hora', criado:'Criado em',
+    titulos: { data:'Movimento', hora:'Hora', criado:'Criado em',
                status:'Status',
                origem:'Origem', destino:'Destino', caixa:'Caixa', qtd:'Qtd',
                motorista:'Motorista', quem:'Quem', alterado:'Alterado por',
@@ -4272,7 +4279,7 @@
     box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
       /* 150 pela mesma razão da tabela de cima: a etiqueta "teste" divide a célula com
          a data, e em 110px ela cobria a hora da coluna seguinte. */
-      '<th style="width:170px">Data do movimento</th><th style="width:70px">Hora</th>'+
+      '<th style="width:120px">Movimento</th><th style="width:70px">Hora</th>'+
       '<th style="width:140px">Origem</th><th style="width:140px">Destino</th>'+
       '<th style="width:110px">Caixa</th><th class="num" style="width:70px">Qtd</th>'+
       '<th style="width:110px">Quem lançou</th>'+
@@ -4281,7 +4288,7 @@
       LIXO.map(function(m){
         return '<tr>'+
           '<td>'+Q.dataBR(m.dataRef)+
-            (m.teste ? ' <span class="tag amarela">teste</span>' : '')+'</td>'+
+            '</td>'+
           '<td>'+Q.esc(Q.horaBR(m.dataHora) || '—')+'</td>'+
           '<td>'+Q.esc(m.origem)+'</td>'+
           '<td>'+Q.esc(m.destino)+'</td>'+
@@ -4693,9 +4700,20 @@
          traz a etiqueta "teste" dentro, e ordenar pelo desenho poria todas as de
          teste juntas como se fossem uma data. A data ordena pelo CARIMBO ISO, que
          ja vem ordenavel como texto — `17/09` antes de `9/09` e o erro classico. */
+      /* A ETIQUETA "teste" SAIU DA LINHA, a pedido. Ela repetia em CADA linha uma
+         informação que já está dita duas vezes acima — no cartão "De teste", que conta
+         quantas são, e na legenda dos gráficos, que avisa que elas estão dentro dos
+         números. Quarenta etiquetas âmbar numa coluna de datas é ruído constante, e
+         ruído constante é o que faz ninguém reparar no dia em que ele muda.
+
+         O QUE SE PERDE, e é honesto dizer: num recorte que misture ensaio e operação
+         real, a linha deixa de dizer qual é qual. O cartão continua contando quantas
+         são, mas não aponta a linha. Quem precisar separar tem o filtro "Lançamentos",
+         que recorta a lista inteira — e é a ferramenta certa para essa pergunta.
+         A coluna "Teste" do CSV não mudou: lá não há problema de largura, e é onde a
+         conferência de escritório separa uma coisa da outra. */
       data:      { t: TIT['data'], k: function(m){ return m.dataRef || ''; },
-                   v: function(m){ return Q.dataBR(m.dataRef) +
-                     (m.teste ? ' <span class="tag amarela">teste</span>' : ''); } },
+                   v: function(m){ return Q.dataBR(m.dataRef); } },
       status:    { t: TIT['status'], k: function(m){ return m.situacao || ''; },
                    v: function(m){ return '<span class="tag '+tagCiclo(m.situacao)+'">'+
                      Q.esc(m.situacao)+'</span>'; } },
@@ -5189,7 +5207,7 @@
       /* As colunas novas entram AQUI também. O CSV é a tabela levada para fora: uma
          coluna que existe na tela e falta no arquivo faz a conferência de escritório
          chegar a um número que a tela não explica. */
-      ['Data do movimento','Hora','Criado em','Teste','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Quem','Alterado por','Alterado em','Obs'],
+      ['Movimento','Hora','Criado em','Teste','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Quem','Alterado por','Alterado em','Obs'],
       MOVS.map(function(m){
         var a = m.alterado || {};
         return [Q.dataBR(m.dataRef),Q.horaBR(m.dataHora),Q.dataDoCarimboBR(m.dataHora),

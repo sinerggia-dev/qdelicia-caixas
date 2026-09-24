@@ -2601,20 +2601,61 @@ console.log('\n== as colunas da tabela de Movimentos ==');
    * quase trinta lugares. A coluna chamada assim soaria como a vizinha "Criado em", e o
    * balão do âmbar — que diz "foi lançado em" — contradiria o cabeçalho na mesma linha.
    * A asserção cobra as duas metades: o nome que entrou E o que não pode entrar. */
-  ok(/data:'Data do movimento'/.test(desc),
-    'a coluna da data da operação se chama "Data do movimento" — "Data", sozinha, não ' +
-    'distingue nada de "Criado em" nem de "Hora"');
+  ok(/data:'Movimento'/.test(desc),
+    'a coluna da data da operação se chama "Movimento" — "Data", sozinha, não ' +
+    'distingue nada de "Criado em" nem de "Hora", e "Data do movimento" repete a ' +
+    'palavra que as três colunas já têm em comum');
   ok(!/data:'Lançamento'/.test(desc) && !/data:'Data do lançamento'/.test(desc),
     'e não "Lançamento": aqui lançar é o ATO de registrar, e o nome colidiria com a ' +
     'coluna vizinha e com o balão que diz "foi lançado em"');
-  /* O MESMO NOME NO CAMPO QUE A PESSOA PREENCHE. O cabeçalho da consulta e o rótulo do
-     formulário são a mesma pergunta; nomes diferentes fazem parecer campos diferentes. */
+  /* O CAMPO DO FORMULÁRIO CONTINUA "Data do movimento", e a diferença é de propósito.
+     Um CABEÇALHO rotula uma coluna que a pessoa está lendo, ao lado de "Hora" e "Criado
+     em" — ali "Data" é a palavra que as três têm em comum, e repeti-la não distingue
+     nada. Um RÓTULO DE FORMULÁRIO pede um valor: "Movimento *" em cima de um seletor de
+     data não diz o que se espera dali.
+     São dois trabalhos diferentes, e por isso dois nomes. O que não pode é a MESMA
+     pergunta ter dois nomes — e os quatro campos de formulário continuam iguais entre
+     si, que é o que esta afirmação guarda. */
   var campo = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   ok((campo.match(/>Data do movimento<span class="obrig">/g) || []).length === 2 &&
      /<label for="crData">Data do movimento<\/label>/.test(campo) &&
-     /<label>Data do movimento<\/label><input type="date" id="cData"/.test(adm),
-    'e o campo que a pessoa preenche tem o MESMO nome — na Saída, no Retorno e nas ' +
-    'duas telas de correção');
+     /<label>Data do movimento<\/label><input type="date" id="cData"/.test(adm) &&
+     /<label for="lcData">Data do movimento<\/label>/.test(adm),
+    'e os quatro campos que a pessoa PREENCHE continuam com o nome inteiro — na Saída, ' +
+    'no Retorno, nas duas correções e nos ajustes: um rótulo pede um valor, e ' +
+    '"Movimento" sozinho não diz o que se espera dali');
+
+  /* --- A ETIQUETA "teste" SAIU DA LINHA ------------------------------------
+   * Ela repetia em CADA linha uma informação já dita duas vezes acima: no cartão "De
+   * teste", que conta quantas são, e na legenda, que avisa que elas estão dentro dos
+   * números. Quarenta etiquetas âmbar numa coluna de datas é ruído constante — e ruído
+   * constante é o que faz ninguém reparar no dia em que ele muda.
+   *
+   * O QUE SE PERDE: num recorte que misture ensaio e operação real, a linha deixa de
+   * dizer qual é qual. Quem precisa separar tem o filtro "Lançamentos", que recorta a
+   * lista inteira — e é a ferramenta certa para essa pergunta. */
+  ok(!/m\.teste \? ' <span class="tag amarela">teste<\/span>' : ''/.test(adm),
+    'a etiqueta "teste" saiu das linhas da tabela — quarenta delas numa coluna de datas ' +
+    'repetem o que o cartão e a legenda já dizem');
+  /* MAS NÃO DO CSV: lá não há problema de largura, e é onde a conferência de escritório
+     separa uma coisa da outra. Tirá-la do arquivo junto seria perder o dado, e não o
+     ruído. */
+  ok(/'Movimento','Hora','Criado em','Teste',/.test(adm) &&
+     /m\.teste\?'SIM':''/.test(adm),
+    'mas continua no CSV: lá não há aperto de largura, e é onde a conferência separa ' +
+    'ensaio de operação');
+  /* E O FILTRO CONTINUA SENDO O CAMINHO para a pergunta "quais são de teste?". */
+  ok(/<div><label for="mvTeste">Lançamentos<\/label>/.test(adm),
+    'e o filtro "Lançamentos" continua lá — é ele que responde "quais são de teste?" ' +
+    'agora que a linha não responde');
+  /* A LIXEIRA MOSTRA OS MESMOS LANÇAMENTOS, e o cabeçalho dela é escrito à mão — ela
+     não entrou na maquinaria de colunas. Discordar ali é o tipo de coisa que ninguém
+     confere, porque quase ninguém abre a lixeira: quem abre está procurando uma linha
+     específica, e ler "Data" onde a tabela diz "Movimento" é uma dúvida a mais no pior
+     momento possível. */
+  ok(/<th style="width:120px">Movimento<\/th><th style="width:70px">Hora<\/th>/.test(adm),
+    'e a lixeira chama a coluna pelo mesmo nome, com a mesma largura — ela mostra os ' +
+    'mesmos lançamentos, e o cabeçalho dela é escrito à mão');
   /* O BALÃO FALA A MESMA LÍNGUA da coluna: "a carga é de…" ficou de fora porque num
      Retorno as caixas estão voltando, e "carga" lê como se estivessem saindo. */
   ok(/o movimento é de '\+Q\.esc\(Q\.dataBR\(m\.dataRef\)\)/.test(adm) &&
@@ -2623,8 +2664,13 @@ console.log('\n== as colunas da tabela de Movimentos ==');
     'lançado em Y"');
   /* A LARGURA ACOMPANHA O CABEÇALHO: "Data do movimento" é quatro vezes "Data", e a
      etiqueta "teste" continua dividindo a célula com a data. */
-  ok(/data:170/.test(desc),
-    'e a coluna alargou para o cabeçalho novo caber sem espremer a etiqueta "teste"');
+  /* A LARGURA ACOMPANHOU O NOME NOS DOIS SENTIDOS: foi de 150 para 170 quando o título
+     virou "Data do movimento", e voltou para 120 quando encurtou para "Movimento" e a
+     etiqueta "teste" saiu da célula. Coluna larga demais é espaço roubado das outras
+     onze, num cabeçalho que já rola de lado. */
+  ok(/data:120/.test(desc),
+    'e a largura acompanhou o nome mais curto — larga demais, ela rouba espaço das ' +
+    'outras onze colunas');
 
   var il = desc.indexOf('larg: {');
   var larg = desc.slice(il, desc.indexOf('}', il));
@@ -6669,7 +6715,7 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
   /* "Data do movimento", e não "Data": é a mesma data que o formulário pede e que a
      consulta do escritório mostra, e um nome por tela faria a pessoa achar que são
      coisas diferentes. */
-  ['Data do movimento', 'Origem', 'Destino', 'Caixa', 'Saída', 'Retorno', 'Motorista',
+  ['Movimento', 'Origem', 'Destino', 'Caixa', 'Saída', 'Retorno', 'Motorista',
    'Quem lançou'].forEach(function (c) {
     ok(tl.indexOf('>' + c + '<') > 0, 'a tabela tem a coluna ' + c, c);
   });
