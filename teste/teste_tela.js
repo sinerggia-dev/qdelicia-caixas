@@ -1403,8 +1403,13 @@ console.log('\n== o app shell: navegacao na lateral, gaveta no celular ==');
      /@media \(min-width:1024px\)\{\s*\.topo\{display:none\}/.test(css),
     'no desktop a barra de app some — a navegação já está fixa na lateral, e uma barra ' +
     'em cima dela repetiria o que se vê');
-  var iEstreito = css.indexOf('@media (max-width:1023.98px){');
-  var estreito = css.slice(iEstreito, css.indexOf('\n}', iEstreito));
+  /* O BLOCO ESTREITO QUE TRATA DA GAVETA, e não o primeiro do arquivo. O `indexOf`
+     pegava qualquer `@media (max-width:1023.98px){`, e no dia em que outro apareceu
+     antes dele a afirmação ficou vermelha por uma regra que não é a que ela cobra.
+     Agora a busca parte da própria regra da lateral e volta até a abertura. */
+  var iLat = css.indexOf('position:fixed;inset:0 auto 0 0;z-index:60');
+  var iEstreito = iLat > 0 ? css.lastIndexOf('@media (max-width:1023.98px){', iLat) : -1;
+  var estreito = iEstreito > 0 ? css.slice(iEstreito, css.indexOf('\n}', iLat)) : '';
   ok(iEstreito > 0 && /\.lateral\{[^}]*position:fixed/.test(estreito),
     'e no estreito a lateral vira gaveta — em fluxo, ela comeria a largura da tela');
   ok(/transform:translateX\(-100%\)/.test(estreito),
@@ -4751,9 +4756,9 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   ok(/desenho--zero/.test(fileira),
     'o estoque mostra caixa cruzando a linha do zero: é o SINAL, e não a quantidade — ' +
     'não há referência para dizer se −80 é pouco, e barra proporcional a nada seria mentira');
-  ok(/desenho desenho--pista">'\+caminhao\(4\)/.test(fileira),
+  ok(/desenho desenho--pista">'\+Q\.caminhao\(4\)/.test(fileira),
     'a saída é um caminhão cheio indo');
-  ok(/desenho--volta[\s\S]{0,120}caminhao\(t\.saida \? Math\.max\(0, Math\.min\(4, Math\.round\(t\.retorno \/ t\.saida \* 4\)\)\) : 0\)/
+  ok(/desenho--volta[\s\S]{0,120}Q\.caminhao\(t\.saida \? Math\.max\(0, Math\.min\(4, Math\.round\(t\.retorno \/ t\.saida \* 4\)\)\) : 0\)/
     .test(fileira),
     'e o retorno volta com a carga PROPORCIONAL ao que voltou — cheio sempre, ele ' +
     'desmentiria o número ao lado');
@@ -6008,6 +6013,48 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
     'e vira sozinha no minuto cheio: quem deixa o painel aberto vê "Boa tarde" virar ' +
     '"Boa noite" às 18h sem recarregar');
 
+  /* ---- A FAIXA SOBE, NO CELULAR ------------------------------------------
+   * Ela é contexto do AMBIENTE — que horas são, como está o tempo lá fora —, e não da
+   * página. Entre o título e o formulário, separava duas coisas que se leem juntas.
+   * No computador fica onde está: lá é uma pílula no canto do cabeçalho, ao lado do
+   * título, e não uma faixa atravessada no meio. */
+  ok(/@media \(max-width:1023\.98px\)\{ \.cab-pagina \.tempo\{order:-1;width:100%\} \}/.test(css),
+    'no celular a faixa de tempo sobe para ACIMA de "Operação" — medido a 390px: ' +
+    'faixa em 18px, "Operação" em 58');
+  ok(!/<div class="tempo"/.test(adm) && !/<div class="tempo"/.test(idx),
+    'e é `order`, não uma segunda posição no HTML: a faixa é montada uma vez só, e dois ' +
+    'lugares no documento seriam dois elementos para divergirem');
+
+  /* ---- A ESTRADA DA LINHA DO TÍTULO --------------------------------------
+   * Saída e Retorno são telas gêmeas — mesmos campos, mesmas travas, mesmo botão. A
+   * única coisa que as distingue é o SENTIDO do movimento, e quem abre a errada percebe
+   * pela cor e pela direção antes de ler o título. */
+  ok(/function pintarEstrada\(pagina\)/.test(js) && /pintarEstrada\(botao\.dataset\.pagina\);/.test(js),
+    'a estrada entra na linha do título, e quem decide é a PÁGINA aberta');
+  ok(/pgSaida: +\{ volta: false, cor: 'var\(--verde\)', cheios: 4/.test(js) &&
+     /pgDevolucao: \{ volta: true, +cor: 'var\(--azul\)', +cheios: 2/.test(js),
+    'verde indo na saída, azul voltando no retorno — medido: 4 baús cheios numa, 2 na ' +
+    'outra, e o caminhão do retorno espelhado');
+  /* SÓ NESSAS DUAS. Movimento que não informa é ruído, e uma faixa animada ao lado de
+     "Cadastros" não diria nada. Medido em `pgSaldo`: nenhuma estrada. */
+  ok(/var e = ESTRADAS\[pagina\];\s*if \(!e\) return;/.test(js),
+    'e nas outras páginas ela some da tela — movimento que não informa é ruído');
+  ok(/var velha = linha\.querySelector\('\.desenho'\);\s*if \(velha\) velha\.remove\(\);/.test(js),
+    'e trocar de página tira a anterior: sem isso, ir de Saída para Retorno deixaria os ' +
+    'dois caminhões correndo em sentidos opostos na mesma linha');
+  /* UM CAMINHÃO SÓ, no `app.js`. Ele nasceu no painel e o app de campo precisou do
+     mesmo desenho — copiá-lo seria manter dois que divergem na primeira mexida. */
+  ok(/function caminhao\(cheios\)/.test(js) && /caminhao: caminhao,/.test(js) &&
+     !/function caminhao\(/.test(adm),
+    'e o desenho do caminhão mora num lugar só, de onde os dois apps o pegam');
+  ok(/\.cab-pagina__rota\{display:flex;align-items:flex-end/.test(css) &&
+     /\.desenho--titulo\{flex:1 1 auto;min-width:0/.test(css),
+    'o título toma o que precisa e a estrada fica com a sobra — é o que faz o caminhão ' +
+    'nascer na borda da palavra em vez de correr num quadro de largura arbitrária');
+  ok(/\.desenho--titulo\.desenho--pista \.caminhao\{animation-duration:30s\}/.test(css),
+    'e ela corre em 30s, não nos 13 dos cartões: atravessa a largura da tela, e no ' +
+    'mesmo tempo o caminhão pareceria correndo em vez de carregado');
+
   /* ---- A CONTA DENTRO DA PÍLULA DO TEMPO ---------------------------------
    * Uma moldura só, em vez de duas arredondadas encostadas no mesmo canto. A conta, o
    * tempo e a hora se separam pela MESMA divisória que já separava tempo de hora. */
@@ -6265,7 +6312,7 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
     'no celular os três botões são alvo de dedo, como o resto da folha');
 
   /* ---- a fumaça ----------------------------------------------------------- */
-  ok(/class="fumaca"/.test(adm) && /\.fumaca\{fill:var\(--txt3\)/.test(css),
+  ok(/class="fumaca"/.test(js) && /\.fumaca\{fill:var\(--txt3\)/.test(css),
     'o caminhão solta fumaça pela traseira');
   ok(/animation:fumegar[\s\S]{0,400}transform:translate\(-9px,-11px\) scale\(3\)/.test(css),
     'e ela anima por `transform`, que a placa de vídeo resolve — mexer no raio do ' +

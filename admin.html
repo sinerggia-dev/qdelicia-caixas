@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=4c502ac4">
+<link rel="stylesheet" href="styles.css?v=44af9b17">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -315,7 +315,10 @@
     <div class="cab-pagina">
       <div class="cab-pagina__id">
         <div class="cab-pagina__acima" id="acimaPagina">Operação</div>
-        <h1 class="cab-pagina__titulo" id="tituloPagina">Painel de Ativos</h1>
+        <!-- A LINHA DO TÍTULO. A estrada entra aqui, à direita da palavra, e ocupa a
+             sobra da largura — o caminhão nasce na borda do título e some na outra
+             ponta. Quem a monta é o `app.js`, pela página aberta. -->
+        <div class="cab-pagina__rota"><h1 class="cab-pagina__titulo" id="tituloPagina">Painel de Ativos</h1></div>
       </div>
 
     </div>
@@ -772,7 +775,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=a1970d73"></script>
+<script src="app.js?v=d354bfba"></script>
 <script>
 (function(){
   'use strict';
@@ -2507,14 +2510,14 @@
         '<span class="cai"></span><span class="cai"></span><span class="cai"></span></div>')+
 
       tileCor(Q.num(t.saida), 'Total de Saída', 'no período filtrado', COR_TILE.saida,
-        '<div class="desenho desenho--pista">'+caminhao(4)+'</div>')+
+        '<div class="desenho desenho--pista">'+Q.caminhao(4)+'</div>')+
 
       /* O caminhão do retorno vem com a carga PROPORCIONAL ao que voltou: quatro
          quadrados, quantos couberem na fração. É o mesmo número do rodapé, desenhado. */
       tileCor(Q.num(t.retorno), 'Total de Retorno',
         Q.num(t.saida + t.retorno)+' caixas movimentadas', COR_TILE.retorno,
         '<div class="desenho desenho--pista desenho--volta">'+
-        caminhao(t.saida ? Math.max(0, Math.min(4, Math.round(t.retorno / t.saida * 4))) : 0)+
+        Q.caminhao(t.saida ? Math.max(0, Math.min(4, Math.round(t.retorno / t.saida * 4))) : 0)+
         '</div>')+
 
       tileCor(Q.num(t.deficit), 'Caixas que Saíram e Não Voltaram',
@@ -2729,30 +2732,9 @@
       '<div class="v">'+v+'</div><div class="d">'+d+'</div>'+(desenho||'')+'</div>';
   }
 
-  /* O caminhão, com a carga à vista: quanto mais cheio, mais do que saiu já voltou. Os
-     quadrados vazios são a diferença — é o mesmo número do cartão, desenhado. */
-  function caminhao(cheios){
-    var cx = '';
-    for (var i = 0; i < 4; i++){
-      cx += '<rect x="'+(4+i*7)+'" y="6" width="6" height="8" rx="1" fill="'+
-        (i < cheios ? 'currentColor' : 'none')+'" stroke="currentColor" stroke-opacity="'+
-        (i < cheios ? '1' : '.35')+'" stroke-width=".9"/>';
-    }
-    return '<svg class="caminhao" viewBox="0 0 58 24" fill="none" aria-hidden="true" '+
-      'style="color:var(--cor)">'+
-      '<rect x="1.5" y="2.5" width="32" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/>'+cx+
-      '<path d="M33.5 7.5h8l5 5v4h-13z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>'+
-      '<circle cx="11" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
-      '<circle cx="26" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
-      '<circle cx="42" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
-      '<path d="M1.5 16.5h32M33.5 16.5h13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'+
-      /* O escapamento fica na traseira (x≈1): a fumaça sobe e fica para trás. Três
-         baforadas defasadas, dentro do próprio SVG — assim andam junto com o caminhão
-         sem um segundo elemento para manter no lugar. */
-      '<circle class="fumaca" cx="1" cy="13" r="1.7"/>'+
-      '<circle class="fumaca fumaca--2" cx="1" cy="13" r="1.7"/>'+
-      '<circle class="fumaca fumaca--3" cx="1" cy="13" r="1.7"/></svg>';
-  }
+  /* O CAMINHÃO MORA NO `app.js`. Ele nasceu aqui, e o app de campo precisou do mesmo
+     desenho para a estrada da linha do título — copiá-lo seria manter dois caminhões
+     que divergem na primeira mexida. `Q.caminhao(cheios)`. */
 
   /* A faixa toda para de animar quando sai da tela. Ligado uma vez, e não a cada
      desenho: um observador por redesenho empilharia dezenas deles no mesmo elemento. */

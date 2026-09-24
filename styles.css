@@ -451,6 +451,23 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .cab-pagina__id{min-width:0;flex:1 1 260px}
 .cab-pagina__acima{font-size:12px;color:var(--txt3);margin-bottom:5px}
 .cab-pagina__titulo{margin:0;font-size:24px;font-weight:700;letter-spacing:-.4px;line-height:1.12}
+/* A LINHA DO TÍTULO. O título toma o que precisa e a estrada fica com a sobra: assim o
+   caminhão nasce na borda da palavra e some na outra ponta, em vez de correr num quadro
+   de largura arbitrária. `align-items:flex-end` alinha a estrada pela BASE do título,
+   que é onde o chão dela deve estar. */
+.cab-pagina__rota{display:flex;align-items:flex-end;gap:12px}
+.cab-pagina__rota .cab-pagina__titulo{flex:0 0 auto}
+/* `min-width:0` é o que deixa a estrada encolher: sem ele um item de flex se recusa a
+   ficar menor que o conteúdo, e o caminhão de 54px empurraria o título. */
+.desenho--titulo{flex:1 1 auto;min-width:0;height:24px;margin:0 0 3px}
+/* A estrada da linha do título é MAIS LONGA que a dos cartões — ela atravessa a largura
+   da tela, não um cartão de 200px. Na mesma velocidade o caminhão pareceria correndo:
+   30s é o que dá o passo de caminhão carregado. */
+.desenho--titulo.desenho--pista .caminhao{animation-duration:30s}
+.desenho--titulo.desenho--volta .caminhao{animation-duration:30s}
+/* Fora da tela, nada anima — o app de campo roda em aparelho de galpão. */
+.cab-pagina:not(.rodando) .desenho--titulo *,
+.cab-pagina:not(.rodando) .desenho--titulo::after{animation-play-state:paused}
 .cab-pagina__acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
 /* ---------- o cabeçalho de página fica vivo, NO COMPUTADOR ----------
@@ -493,6 +510,16 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
  * respondem "como está lá agora" — e chuva na rota é atraso de retorno. */
 .tempo{flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:8px 15px;
   border:1px solid var(--linha);border-radius:13px;background:var(--campo)}
+/* NO CELULAR ELA SOBE, para acima de "Operação".
+   Ela é contexto do AMBIENTE — que horas são, como está o tempo lá fora —, e não da
+   página. Entre o título e o formulário, separava duas coisas que se leem juntas. No
+   computador ela fica onde está: lá é uma pílula no canto direito do cabeçalho, ao lado
+   do título, e não uma faixa atravessada no meio.
+
+   `order` e não uma segunda posição no HTML: a faixa é montada uma vez só, e quem manda
+   nela é a largura da tela. Dois lugares no documento seriam dois elementos para
+   divergirem. */
+@media (max-width:1023.98px){ .cab-pagina .tempo{order:-1;width:100%} }
 .tempo__t{display:flex;align-items:center;gap:10px}
 /* Enquanto o grau não chegou, ele fica apagado — e o NOME da unidade continua legível:
    ele não depende de internet. */

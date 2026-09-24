@@ -563,6 +563,38 @@
     pintarSaudacao();
   }
 
+  /* O CAMINHÃO, com a carga à vista: quanto mais cheio, mais do que saiu já voltou.
+     Os quadrados vazios são a diferença — é o mesmo número do cartão, desenhado.
+
+     Nasceu no `admin.html` e mudou para cá quando o app de campo precisou do mesmo
+     desenho na estrada da linha do título: dois caminhões divergem na primeira
+     mexida. A cor sai de `currentColor`, e o `--cor` de quem o contém — assim o
+     mesmo desenho serve de verde na saída e de azul no retorno, herdando o
+     significado que o sistema inteiro já dá às duas cores. */
+  function caminhao(cheios){
+    var cx = '';
+    for (var i = 0; i < 4; i++){
+      cx += '<rect x="'+(4+i*7)+'" y="6" width="6" height="8" rx="1" fill="'+
+        (i < cheios ? 'currentColor' : 'none')+'" stroke="currentColor" stroke-opacity="'+
+        (i < cheios ? '1' : '.35')+'" stroke-width=".9"/>';
+    }
+    return '<svg class="caminhao" viewBox="0 0 58 24" fill="none" aria-hidden="true" '+
+      'style="color:var(--cor)">'+
+      '<rect x="1.5" y="2.5" width="32" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/>'+cx+
+      '<path d="M33.5 7.5h8l5 5v4h-13z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>'+
+      '<circle cx="11" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
+      '<circle cx="26" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
+      '<circle cx="42" cy="19" r="3.4" stroke="currentColor" stroke-width="1.4"/>'+
+      '<path d="M1.5 16.5h32M33.5 16.5h13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'+
+      /* O escapamento fica na traseira (x≈1): a fumaça sobe e fica para trás. Três
+         baforadas defasadas, dentro do próprio SVG — assim andam junto com o caminhão
+         sem um segundo elemento para manter no lugar. */
+      '<circle class="fumaca" cx="1" cy="13" r="1.7"/>'+
+      '<circle class="fumaca fumaca--2" cx="1" cy="13" r="1.7"/>'+
+      '<circle class="fumaca fumaca--3" cx="1" cy="13" r="1.7"/></svg>';
+  }
+
+
   function relogioETempo() {
     /* NO CABEÇALHO DA PÁGINA, que é um só para o app inteiro e fica FORA do
        `.corpo-pagina` que troca de conteúdo. Por isso a faixa aparece em todos os
@@ -928,6 +960,43 @@
     t.textContent = botao.dataset.titulo || botao.textContent.trim();
     var acima = document.getElementById('acimaPagina');
     if (acima && botao.dataset.acima) acima.textContent = botao.dataset.acima;
+    pintarEstrada(botao.dataset.pagina);
+  }
+
+  /* ================= A ESTRADA DA LINHA DO TÍTULO =================
+   *
+   * VERDE PARA A DIREITA na saída, AZUL ESPELHADO no retorno. Não é enfeite: estas duas
+   * telas são gêmeas — mesmos campos, mesmas travas, mesmo botão —, e a única coisa que
+   * as distingue é o SENTIDO do movimento. Quem abre a errada percebe pela cor e pela
+   * direção antes de ler o título, que é justamente o que ninguém lê com pressa.
+   *
+   * As duas cores não são escolha de estética: no sistema inteiro verde é saída e azul
+   * é retorno, e o caminhão herda o significado que os cartões do painel já deram.
+   *
+   * SÓ NESSAS DUAS. Nas outras páginas a estrada sai da tela — uma faixa animada ao
+   * lado de "Cadastros" não diria nada, e movimento que não informa é ruído. */
+  var ESTRADAS = {
+    pgSaida:     { volta: false, cor: 'var(--verde)', cheios: 4, diz: 'saindo' },
+    pgDevolucao: { volta: true,  cor: 'var(--azul)',  cheios: 2, diz: 'voltando' }
+  };
+
+  function pintarEstrada(pagina) {
+    var linha = document.querySelector('.cab-pagina__rota');
+    if (!linha) return;
+    var velha = linha.querySelector('.desenho');
+    if (velha) velha.remove();
+    var e = ESTRADAS[pagina];
+    if (!e) return;
+    var d = document.createElement('div');
+    /* `aria-hidden`: o leitor de tela já leu o título, e "imagem" repetida a cada troca
+       de página é ruído para quem depende dele. */
+    d.className = 'desenho desenho--titulo ' + (e.volta ? 'desenho--volta' : 'desenho--pista');
+    d.setAttribute('aria-hidden', 'true');
+    d.style.setProperty('--cor', e.cor);
+    /* DOIS DE QUATRO no retorno, e quatro de quatro na saída: retorno quase nunca traz
+       tudo de volta, e o desenho não deve prometer o contrário. */
+    d.innerHTML = caminhao(e.cheios);
+    linha.appendChild(d);
   }
 
   function abas(seletor) {
@@ -1790,7 +1859,7 @@
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
     temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     hojeOperacao: hojeOperacao, FUSO_OPERACAO: FUSO_OPERACAO,
-    UNIDADE: UNIDADE, relogioETempo: relogioETempo,
+    UNIDADE: UNIDADE, relogioETempo: relogioETempo, caminhao: caminhao,
     saudacaoDe: saudacaoDe, pintarSaudacao: pintarSaudacao,
     horaBR: horaBR, dataDoCarimboBR: dataDoCarimboBR, dataHoraBR: dataHoraBR,
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
