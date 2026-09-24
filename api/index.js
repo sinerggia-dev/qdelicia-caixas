@@ -17,12 +17,15 @@ var senha = require('./_senha');
 var MIGRACOES = require('./_migracoes');
 
 var TABELA = { Locais: 'locais', TiposCaixa: 'tipos_caixa', Usuarios: 'usuarios', Motoristas: 'motoristas',
-               LocaisPadrao: 'locais_padrao' };
-var PREFIXO = { Locais: 'L', TiposCaixa: 'T', Usuarios: 'U', Motoristas: 'D', LocaisPadrao: 'P' };
+               LocaisPadrao: 'locais_padrao', Veiculos: 'veiculos' };
+/* `V` de veículo. O prefixo é o que separa os ids de cadastros diferentes num sistema em
+   que tudo é texto — `D001` é motorista, `V001` é carro, e nenhum id vira o do outro. */
+var PREFIXO = { Locais: 'L', TiposCaixa: 'T', Usuarios: 'U', Motoristas: 'D', LocaisPadrao: 'P',
+                Veiculos: 'V' };
 var MAPA = { Locais: db.LOCAL, TiposCaixa: db.TIPO, Usuarios: db.USUARIO, Motoristas: db.MOTORISTA,
-             LocaisPadrao: db.LOCAL_PADRAO };
+             LocaisPadrao: db.LOCAL_PADRAO, Veiculos: db.VEICULO };
 var COLECAO = { Locais: 'locais', TiposCaixa: 'tipos', Usuarios: 'usuarios', Motoristas: 'motoristas',
-                LocaisPadrao: 'locaisPadrao' };
+                LocaisPadrao: 'locaisPadrao', Veiculos: 'veiculos' };
 
 /* ============================ migrações ============================ */
 
@@ -91,10 +94,12 @@ async function rotaGet(p) {
       // A lista de usuários saiu daqui de propósito: era carregada na tela de login e expunha
       // o nome de todo mundo para quem só abrisse o endereço. Quem precisa dela pede `equipe`.
       return { ok: true, locais: d.locais, tipos: d.tipos, config: configPublica(d.config),
-               motoristas: L.motoristasPublicos(d.motoristas) };
+               motoristas: L.motoristasPublicos(d.motoristas),
+               veiculos: L.veiculosPublicos(d.veiculos) };
     case 'equipe':
       // Aqui vai o cadastro completo, com documento — é a tela do escritório.
       return { ok: true, usuarios: L.usuariosPublicos(d.usuarios), motoristas: d.motoristas,
+               veiculos: d.veiculos,
                locaisPadrao: d.locaisPadrao, pedidosSenha: d.pedidosSenha,
                perfis: L.perfisConhecidos(d.usuarios),
                // A MESMA lista que a gravacao usa para recusar. Escrever as opcoes na tela
@@ -165,6 +170,7 @@ async function rotaPost(p) {
   if (acao === 'salvarLocal') return await salvarRegistro('Locais', p);
   if (acao === 'salvarTipo') return await salvarRegistro('TiposCaixa', p);
   if (acao === 'salvarMotorista') return await salvarRegistro('Motoristas', p);
+  if (acao === 'salvarVeiculo') return await salvarRegistro('Veiculos', p);
   if (acao === 'salvarLocalPadrao') return await salvarRegistro('LocaisPadrao', p);
   if (acao === 'salvarUsuario') return await salvarUsuario(p);
   if (acao === 'salvarConfig') return await salvarConfig(p);

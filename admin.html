@@ -754,6 +754,13 @@
       </div>
       <div id="tabelaMotoristas"></div>
     </div>
+    <div class="card" data-cad="veiculos">
+      <h2>Veículos<span class="sub">A frota. A placa é escolhida no lançamento, e o motorista habitual vem preenchido junto — dá para trocar na hora.</span></h2>
+      <div class="linha-btn" style="margin-top:2px">
+        <button class="btn" id="btnNovoVeiculo" style="flex:0;min-width:170px">+ Novo veículo</button>
+      </div>
+      <div id="tabelaVeiculos"></div>
+    </div>
     <div class="card" data-cad="locaispadrao">
       <h2>Locais padrão<span class="sub">Onde a pessoa trabalha. É o que aparece na coluna Local padrão dos usuários.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
@@ -780,7 +787,7 @@
 (function(){
   'use strict';
   var Q = window.QDC;
-  var DADOS = null, EQUIPE = [], MOTORISTAS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PAINEL = null, EXTRATO = null, MOVS = [], SITUACOES = [];
+  var DADOS = null, EQUIPE = [], MOTORISTAS = [], VEICULOS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PAINEL = null, EXTRATO = null, MOVS = [], SITUACOES = [];
 
   /* Fica fora de montarSelects porque a lista chega pela `equipe`, que e outra ida de
      rede: montada junto com as demais, ela ainda estaria vazia. */
@@ -840,7 +847,7 @@
 
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
+      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; VEICULOS = r.veiculos || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
       ordenarTudo();
       montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
@@ -985,6 +992,7 @@
       localPadrao: u.LocalPadrao, acessoPainel: podeVerPainelRegistro(u),
       saidas: lista(u.Saidas), destinos: lista(u.Destinos),
       tiposCaixa: lista(u.TiposCaixa), motoristas: lista(u.Motoristas),
+      veiculos: lista(u.Veiculos),
       operacoes: lista(u.Operacoes), abas: lista(u.Abas),
       /* `TemPin` e o que a `equipe` manda: o SIM ou NAO, nunca o PIN. */
       temPin: u.TemPin === true,
@@ -4459,6 +4467,129 @@
     });
   }
 
+  /* ================= A FROTA =================
+   *
+   * A PLACA ERA CAMPO DO MOTORISTA, e isso dizia que cada motorista tem um carro e cada
+   * carro um motorista. No galpão não é assim: carro quebra, alguém cobre a rota do
+   * outro, e a mesma placa roda com gente diferente na mesma semana. Agora a placa é
+   * cadastro próprio, e o motorista habitual é só o PADRÃO que a saída preenche.
+   *
+   * `motoristas.placa` continua no banco com o que já foi digitado — ela só deixou de
+   * ser lida. Apagá-la agora perderia o trabalho de quem cadastrou. */
+  function desenharVeiculos(){
+    var lista = VEICULOS;
+    var box = document.getElementById('tabelaVeiculos');
+    if (!box) return;
+    if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhum veículo cadastrado.</div>'; return; }
+    box.innerHTML =
+      '<div class="tabela-wrap"><table><thead><tr><th>Placa</th><th>Modelo</th><th>Tipo</th>'+
+      '<th>Motorista habitual</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      lista.map(function(v){
+        var on = Q.ativo(v.Ativo);
+        /* O motorista habitual pode ter sido APAGADO depois: o banco põe o vínculo em
+           nulo, mas um id órfão que sobreviva a uma corrida entre abas apareceria como
+           código cru. Dizer "não encontrado" é mais honesto que mostrar `D007`. */
+        var hab = v.MotoristaID
+          ? (MOTORISTAS.filter(function(m){ return String(m.ID)===String(v.MotoristaID); })[0] || null)
+          : null;
+        return '<tr'+(on?'':' style="opacity:.55"')+'>'+
+          '<td><b>'+Q.esc(v.Placa||'')+'</b></td>'+
+          '<td>'+(v.Modelo?Q.esc(v.Modelo):'—')+'</td>'+
+          '<td>'+(v.Tipo?'<span class="tag azul">'+Q.esc(v.Tipo)+'</span>':'—')+'</td>'+
+          '<td>'+(v.MotoristaID
+              ? (hab ? Q.esc(hab.Nome)
+                     : '<span class="tag vermelha">motorista não encontrado</span>')
+              : '<span class="tag cinza">sem motorista fixo</span>')+'</td>'+
+          '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
+          '<td><button class="mini acao" data-editar-vei="'+v.ID+'">editar</button> '+
+              '<button class="mini'+(on?' perigo':'')+'" data-ativar-vei="'+v.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
+                (on?'desativar':'ativar')+'</button> '+
+              '<button class="mini perigo" data-excluir-vei="'+v.ID+'">excluir</button></td></tr>';
+      }).join('')+'</tbody></table></div>';
+
+    document.querySelectorAll('[data-editar-vei]').forEach(function(b){
+      b.addEventListener('click', function(){
+        formVeiculo(lista.filter(function(v){ return String(v.ID)===b.dataset.editarVei; })[0]);
+      });
+    });
+    /* Desativar é o caminho normal para carro vendido ou parado: some da lista do
+       celular na hora, e a placa continua legível aqui e nos lançamentos que ele levou. */
+    document.querySelectorAll('[data-ativar-vei]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var v = lista.filter(function(x){ return String(x.ID)===b.dataset.ativarVei; })[0];
+        if (!v) return;
+        var ligando = b.dataset.para === 'SIM';
+        if (!ligando && Q.precisaConfirmar(b, 'Desativar '+v.Placa+'? A placa sai da lista de escolha no lançamento.')) return;
+        b.disabled = true;
+        Q.post({acao:'salvarVeiculo', registro:{ ID:v.ID, Ativo:b.dataset.para }}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui salvar.','erro');
+          Q.toast(ligando?'Veículo ativado.':'Veículo desativado.','ok');
+          /* As DUAS: o celular lê a frota pela rota pública, o escritório pela `equipe`. */
+          return Promise.all([carregarEquipe(), recarregarCadastros()]);
+        }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
+      });
+    });
+    document.querySelectorAll('[data-excluir-vei]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var v = lista.filter(function(x){ return String(x.ID)===b.dataset.excluirVei; })[0];
+        if (!v || Q.precisaConfirmar(b, 'Excluir '+v.Placa+'? Os lançamentos que ele levou guardam a placa como texto e continuam legíveis.')) return;
+        b.disabled = true;
+        Q.post({acao:'excluir', aba:'Veiculos', id:v.ID}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          Q.toast('Excluído.','ok'); carregarEquipe(); recarregarCadastros();
+        }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
+      });
+    });
+  }
+  document.getElementById('btnNovoVeiculo').addEventListener('click', function(){ formVeiculo(null); });
+
+  function formVeiculo(v){
+    v = v || {};
+    /* SÓ OS ATIVOS na escolha do habitual, e o atual mesmo se tiver sido desativado: sem
+       isso, editar um veículo cujo motorista saiu apagaria o vínculo em silêncio. */
+    var mots = MOTORISTAS.filter(function(m){
+      return Q.ativo(m.Ativo) || String(m.ID)===String(v.MotoristaID||'');
+    });
+    modal('<h2>'+(v.ID?'Editar':'Novo')+' veículo</h2>'+
+      avisoItemNovo(v.ID, 'este veículo', 'Usuários')+
+      '<div class="grid2">'+
+        '<div><label>Placa</label><input type="text" id="fPlacaV" maxlength="10" autocapitalize="characters" '+
+          'value="'+Q.esc(v.Placa||'')+'" placeholder="ABC1D23"></div>'+
+        '<div><label>Modelo</label><input type="text" id="fModelo" value="'+Q.esc(v.Modelo||'')+'" placeholder="ex.: HR baú"></div>'+
+        '<div><label>Tipo</label><select id="fTipoVei">'+
+          ['','Baú','Carroceria','Furgão','Utilitário'].map(function(t){
+            return '<option value="'+t+'"'+(String(v.Tipo||'')===t?' selected':'')+'>'+(t||'— não informado —')+'</option>';
+          }).join('')+'</select></div>'+
+        '<div><label>Ativo</label><select id="fAtivoV">'+
+          '<option value="SIM"'+(Q.ativo(v.Ativo)?' selected':'')+'>sim</option>'+
+          '<option value="NAO"'+(Q.ativo(v.Ativo)?'':' selected')+'>não</option></select></div>'+
+      '</div>'+
+      '<label>Motorista habitual</label>'+
+      '<select id="fMotHab"><option value="">— nenhum —</option>'+
+        mots.map(function(m){
+          return '<option value="'+Q.esc(m.ID)+'"'+(String(v.MotoristaID||'')===String(m.ID)?' selected':'')+'>'+
+            Q.esc(m.Nome)+(Q.ativo(m.Ativo)?'':' (inativo)')+'</option>';
+        }).join('')+'</select>'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+        'É um <b>padrão</b>, não uma regra: escolher esta placa no lançamento preenche o '+
+        'motorista com ele, e quem lança pode trocar.</p>'+
+      '<label>Observação</label><textarea id="fObsV">'+Q.esc(v.Obs||'')+'</textarea>'+
+      '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
+    document.getElementById('fSalvar').addEventListener('click', function(){
+      var reg = { ID:v.ID||'',
+        Placa:document.getElementById('fPlacaV').value.trim(),
+        Modelo:document.getElementById('fModelo').value.trim(),
+        Tipo:document.getElementById('fTipoVei').value,
+        MotoristaID:document.getElementById('fMotHab').value,
+        Ativo:document.getElementById('fAtivoV').value,
+        Obs:document.getElementById('fObsV').value };
+      if (!reg.Placa) return Q.toast('Informe a placa.','erro');
+      salvar('salvarVeiculo', reg, this);
+    });
+  }
+
   function formMotorista(m){
     m = m || {};
     modal('<h2>'+(m.ID?'Editar':'Novo')+' motorista</h2>'+
@@ -4562,6 +4693,7 @@
     });
 
     desenharMotoristas();
+    desenharVeiculos();
     desenharLocaisPadrao();
     desenharPedidos();
     document.getElementById('tabelaTipos').innerHTML =
@@ -5418,6 +5550,21 @@
     }));
   }
 
+  /* A CAIXA DE MARCAR LÊ `Nome`, e o veículo não tem um: ele tem PLACA. Em vez de
+     ensinar a caixa a falar de veículo — ela serve a quatro listas —, o veículo se
+     apresenta com um nome que se lê bem numa linha: "ABC1D23 — HR baú". A placa vem
+     primeiro porque é ela que identifica; o modelo é o que ajuda a reconhecer. */
+  function veiculosEscolhiveis(jaMarcados){
+    var marcado = {};
+    (jaMarcados||[]).forEach(function(id){ marcado[String(id)] = true; });
+    return VEICULOS.filter(function(v){
+      return Q.ativo(v.Ativo) || marcado[String(v.ID)];
+    }).map(function(v){
+      return { ID:v.ID, Ativo:v.Ativo, Tipo:v.Tipo||'',
+               Nome: v.Placa + (v.Modelo ? ' — ' + v.Modelo : '') };
+    }).sort(function(a,b){ return String(a.Nome).localeCompare(String(b.Nome),'pt-BR'); });
+  }
+
   function tiposEscolhiveis(jaMarcados){
     var marcado = {};
     (jaMarcados||[]).forEach(function(id){ marcado[String(id)] = true; });
@@ -5666,6 +5813,9 @@
       caixaLocais('fMotoristas', 'Motorista — quem ela pode escolher na saída',
                   motoristasEscolhiveis(u.Motoristas), u.Motoristas,
                   'Nenhum motorista cadastrado ainda.')+
+      caixaLocais('fVeiculos', 'Veículo — quais placas ela pode escolher',
+                  veiculosEscolhiveis(u.Veiculos), u.Veiculos,
+                  'Nenhum veículo cadastrado ainda.')+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
         'Nada marcado = <b>nenhum</b>: marcar é conceder.</p>'+
       '<h3 style="margin-top:20px">Outros</h3>'+
@@ -5946,6 +6096,7 @@
         UsuariosVistos:lerMarcados('fUsuariosVistos'),
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
         TiposCaixa:lerMarcados('fTiposCaixa'), Motoristas:lerMarcados('fMotoristas'),
+        Veiculos:lerMarcados('fVeiculos'),
         Operacoes:lerMarcados('fOperacoes'), Abas:lerMarcados('fAbas'),
         Ajustes:lerMarcados('fAjustes'),
         /* O campo escondido leva UMA das duas coisas: o endereço do que já estava

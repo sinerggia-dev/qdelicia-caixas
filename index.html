@@ -329,6 +329,14 @@
           <label for="sdMotorista">Motorista<span class="obrig">*</span></label>
           <select id="sdMotorista"></select>
         </div>
+        <!-- O VEÍCULO DEPOIS DO MOTORISTA na marcação, mas é ele que preenche o outro:
+             escolher a placa põe o motorista habitual, e quem lança pode trocar. A ordem
+             na tela segue o hábito de quem já usava o app — o motorista continua onde
+             sempre esteve. -->
+        <div id="sdWrapVeiculo">
+          <label for="sdVeiculo">Veículo<span class="obrig">*</span></label>
+          <select id="sdVeiculo"></select>
+        </div>
       </div>
 
       <p class="legenda-obrig">Campos com <span class="obrig">*</span> são obrigatórios.</p>
@@ -377,6 +385,10 @@
         <div>
           <label for="dvMotorista">Motorista<span class="obrig">*</span></label>
           <select id="dvMotorista"></select>
+        </div>
+        <div id="dvWrapVeiculo">
+          <label for="dvVeiculo">Veículo<span class="obrig">*</span></label>
+          <select id="dvVeiculo"></select>
         </div>
       </div>
 
@@ -728,6 +740,54 @@
     return meusMotoristas().map(function(m){ return m.Nome; });
   }
 
+  /* A FROTA QUE ESTA PESSOA PODE ESCOLHER, pela mesma peneira dos motoristas: nada
+     marcado no cadastro = NENHUM. */
+  function meusVeiculos(){
+    return permitidos((DADOS||{}).veiculos || [], 'veiculos');
+  }
+
+  /* A PLACA É O VALOR, e não o id. O movimento guarda a placa como TEXTO, pela mesma
+     razão que guarda o nome do motorista: repintar ou apagar um veículo não pode
+     reescrever o que já saiu do galpão. */
+  function montarVeiculos(idVeiculo){
+    var sel = document.getElementById(idVeiculo);
+    if (!sel) return;
+    var escolhido = sel.value;
+    var frota = meusVeiculos();
+    sel.innerHTML = '<option value="">Selecione…</option>' +
+      frota.map(function(v){
+        return '<option value="'+Q.esc(v.Placa)+'" data-mot="'+Q.esc(v.MotoristaID||'')+'"'+
+          (v.Placa===escolhido?' selected':'')+'>'+Q.esc(v.Placa)+
+          (v.Modelo?' — '+Q.esc(v.Modelo):'')+'</option>';
+      }).join('');
+    /* Sem frota liberada, o campo diz POR QUE está vazio. Um seletor só com
+       "Selecione…" e nada dentro lê como tela quebrada, e a pessoa fica tentando. */
+    if (!frota.length) {
+      sel.innerHTML = '<option value="">— nenhum veículo liberado para você —</option>';
+    }
+  }
+
+  /* ESCOLHER A PLACA PREENCHE O MOTORISTA, e só isso: o campo continua aberto para
+     troca. É o caso comum resolvido sem tirar o caso raro — carro quebra, alguém cobre
+     a rota do outro, e o cadastro não pode mandar mais que a realidade.
+
+     Só preenche se o motorista habitual estiver na lista que ESTA pessoa pode escolher:
+     pôr um nome que o seletor não tem deixaria o campo em branco com jeito de
+     preenchido. */
+  function veiculoPuxaMotorista(idVeiculo, idMotorista){
+    var sv = document.getElementById(idVeiculo), sm = document.getElementById(idMotorista);
+    if (!sv || !sm) return;
+    sv.addEventListener('change', function(){
+      var op = sv.options[sv.selectedIndex];
+      var motId = op ? op.getAttribute('data-mot') : '';
+      if (!motId) return;
+      var m = meusMotoristas().filter(function(x){ return String(x.ID)===String(motId); })[0];
+      if (!m) return;
+      var tem = Array.prototype.some.call(sm.options, function(o){ return o.value === m.Nome; });
+      if (tem) sm.value = m.Nome;
+    });
+  }
+
   /* Mesma regra do painel, repetida aqui porque o celular não carrega `_logica.js`:
      sem rota escolhida, todos; com rota, quem está atribuído a ela mais quem não tem
      rota nenhuma marcada. Rota sem ninguém atribuído devolve todos — melhor oferecer a
@@ -833,6 +893,7 @@
        nos dois casos — nome digitado vira grafia diferente do mesmo motorista, e o
        extrato passa a mostrar "Valcy" e "valci" como duas pessoas. */
     montarMotoristas('sdMotorista', doGalpao ? 'sdRota' : 'sdOrigem');
+    montarVeiculos('sdVeiculo');
   }
 
   /* Refeito toda vez que a rota muda. A rota decide a ORDEM, não quem pode aparecer:
@@ -945,13 +1006,16 @@
     document.getElementById('dvOrigem').addEventListener('change', function(){
       ajustarDestinoRetorno();
       montarMotoristas('dvMotorista', 'dvOrigem');
+      montarVeiculos('dvVeiculo');
     });
     // Quem trouxe a carga de volta, agrupado pela rota de onde ela vem.
     montarMotoristas('dvMotorista', 'dvOrigem');
+    montarVeiculos('dvVeiculo');
     document.getElementById('sdOrigem').addEventListener('change', ajustarCamposSaida);
     // É a rota que decide quais motoristas aparecem.
     document.getElementById('sdRota').addEventListener('change', function(){
       montarMotoristas('sdMotorista', 'sdRota');
+      montarVeiculos('sdVeiculo');
     });
     ajustarCamposSaida();
   }
@@ -983,13 +1047,15 @@
       { id:'sdOrigem',    msg:'Informe de onde as caixas estão saindo.' },
       { id:'sdRota',      msg:'Escolha a rota que vai levar a carga.' },
       { id:'sdDestino',   msg:'Informe para quem as caixas vão.' },
-      { id:'sdMotorista', msg:'Escolha o motorista que vai levar a carga.' }
+      { id:'sdMotorista', msg:'Escolha o motorista que vai levar a carga.' },
+      { id:'sdVeiculo',   msg:'Escolha o veículo que vai levar a carga.' }
     ],
     dv: [
       { id:'dvData',      msg:'Informe a data do retorno.' },
       { id:'dvOrigem',    msg:'Informe quem está devolvendo.' },
       { id:'dvDestino',   msg:'Informe onde as caixas foram recebidas.' },
-      { id:'dvMotorista', msg:'Informe quem trouxe as caixas de volta.' }
+      { id:'dvMotorista', msg:'Informe quem trouxe as caixas de volta.' },
+      { id:'dvVeiculo',   msg:'Informe em que veículo as caixas voltaram.' }
     ]
   };
 
@@ -1077,6 +1143,7 @@
       obs: document.getElementById('sdObs').value,
       usuarioId: s.id, perfil: s.perfil,
       motorista: document.getElementById('sdMotorista').value.trim(),
+      veiculo: document.getElementById('sdVeiculo').value.trim(),
       rota: nomeDoLocal(destino),
       foto: sdFotoData
     }).then(function(r){
@@ -1101,6 +1168,7 @@
     zerarItens('sd_');
     document.getElementById('sdObs').value = '';
     document.getElementById('sdMotorista').value = '';
+    document.getElementById('sdVeiculo').value = '';
     sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
     document.getElementById('sdFoto').value = '';
     if (!manterLocais){
@@ -1131,6 +1199,7 @@
       origemId: origem, destinoId: destino, itens: itens,
       dataRef: document.getElementById('dvData').value,
       motorista: document.getElementById('dvMotorista').value,
+      veiculo: document.getElementById('dvVeiculo').value,
       obs: document.getElementById('dvObs').value,
       usuarioId: s.id, perfil: s.perfil,
       foto: dvFotoData
@@ -1162,6 +1231,7 @@
       mostrarSaldoDoOrigem();
       // Sem rota nao ha grupo: a lista volta a ser simples, com a equipe inteira.
       montarMotoristas('dvMotorista', 'dvOrigem');
+      montarVeiculos('dvVeiculo');
     }
   }
   document.getElementById('btnLimparDevolucao').addEventListener('click', function(){ limparDevolucao(false); });
@@ -1993,6 +2063,12 @@
      justamente quem não a via. Monta-se sozinha no `.cab-pagina`, que fica fora do
      `.corpo-pagina`: aparece nas cinco páginas do app de campo, e não numa só. */
   Q.relogioETempo();
+
+  /* O VÍNCULO, ligado UMA vez. Os seletores são redesenhados a cada troca de rota,
+     mas o ouvinte fica no elemento, que é sempre o mesmo — pendurar um a cada
+     redesenho empilharia dezenas no mesmo `change`. */
+  veiculoPuxaMotorista('sdVeiculo', 'sdMotorista');
+  veiculoPuxaMotorista('dvVeiculo', 'dvMotorista');
 
   /* ---------------- arranque ---------------- */
   if (Q.sessao()) abrirApp(); else iniciarLogin();

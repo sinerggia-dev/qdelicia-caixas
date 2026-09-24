@@ -367,5 +367,58 @@ module.exports = [
       "'Endereço público da foto do cadastro, no balde canhotos. " +
       "Nulo = sem foto, e a tela mostra as iniciais do nome.';"
     ].join('\n')
+  },
+
+  {
+    id: '2026-09-24-veiculos',
+    nota: 'a frota: placa como cadastro próprio, escolhida no lançamento',
+    /* A PLACA ERA CAMPO DO MOTORISTA, e isso dizia que cada motorista tem um carro e
+       cada carro um motorista. No galpão não é assim: carro quebra, alguém cobre a rota
+       do outro, e a mesma placa roda com gente diferente na mesma semana.
+       `motoristas.placa` continua onde está — apagá-la agora perderia o que já foi
+       digitado, e ela deixa de ser lida pelas telas nesta mesma entrega.
+
+       O MOTORISTA HABITUAL fica no veículo, e é só um PADRÃO: escolher a placa na saída
+       preenche o motorista, e quem lança pode trocar. Por isso `on delete set null` —
+       apagar um motorista não pode levar o veículo junto, só desfazer o hábito.
+
+       A PLACA É ÚNICA, e comparada sem hífen, sem espaço e sem caixa: duas linhas para o
+       mesmo carro fazem o relatório dividir a rota dele em duas. O índice é sobre a
+       forma normalizada, e não sobre o texto cru — senão "ABC-1D23" e "abc 1d23" passam
+       as duas. */
+    sql: [
+      "create table if not exists public.veiculos (",
+      "  id text primary key,",
+      "  placa text not null,",
+      "  modelo text,",
+      "  tipo text,",
+      "  motorista_id text references public.motoristas(id) on delete set null,",
+      "  obs text,",
+      "  ativo boolean not null default true,",
+      "  criado_em timestamptz not null default now()",
+      ");",
+      "create unique index if not exists veiculos_placa_unica",
+      "  on public.veiculos (upper(replace(replace(placa, '-', ''), ' ', '')));",
+      "alter table public.veiculos enable row level security;",
+      "comment on table public.veiculos is",
+      "  'A frota. A placa e escolhida no lancamento e fica gravada como TEXTO no",
+      "   movimento: apagar ou repintar um veiculo nao reescreve o que ja aconteceu.';",
+      "comment on column public.veiculos.motorista_id is",
+      "  'Quem costuma levar este carro. E PADRAO, nao regra: a saida preenche com ele e",
+      "   deixa trocar. Nulo = sem motorista habitual.';",
+      "",
+      "-- A PLACA NO MOVIMENTO, como TEXTO e ao lado do motorista, que ja e texto pela",
+      "-- mesma razao: o historico nao pode mudar quando o cadastro muda.",
+      "alter table public.movimentos add column if not exists veiculo text;",
+      "comment on column public.movimentos.veiculo is",
+      "  'A placa que levou esta carga, como estava no dia. Vazia nos lancamentos",
+      "   anteriores a este campo, e e por isso que ela nao e obrigatoria no banco.';",
+      "",
+      "-- QUEM PODE ESCOLHER QUAL PLACA, na mesma forma das outras listas: vazia =",
+      "-- NENHUM, e marcar e conceder.",
+      "alter table public.usuarios add column if not exists veiculos jsonb;",
+      "comment on column public.usuarios.veiculos is",
+      "  'Ids de veiculo que esta pessoa pode escolher no lancamento. Vazia = nenhum.';"
+    ].join('\n')
   }
 ];

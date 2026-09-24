@@ -222,6 +222,7 @@ var USUARIO = {
       Foto: r.foto || '',
       Saidas: lista(r.saidas), Destinos: lista(r.destinos),
       TiposCaixa: lista(r.tipos_caixa), Motoristas: lista(r.motoristas),
+      Veiculos: lista(r.veiculos),
       Operacoes: lista(r.operacoes), Abas: lista(r.abas),
       Ajustes: lista(r.ajustes)
     };
@@ -251,6 +252,7 @@ var USUARIO = {
     if (o.Saidas !== undefined) r.saidas = lista(o.Saidas);
     if (o.TiposCaixa !== undefined) r.tipos_caixa = lista(o.TiposCaixa);
     if (o.Motoristas !== undefined) r.motoristas = lista(o.Motoristas);
+    if (o.Veiculos !== undefined) r.veiculos = lista(o.Veiculos);
     if (o.Operacoes !== undefined) r.operacoes = lista(o.Operacoes);
     if (o.Abas !== undefined) r.abas = lista(o.Abas);
     if (o.Ajustes !== undefined) r.ajustes = lista(o.Ajustes);
@@ -299,6 +301,38 @@ var MOTORISTA = {
   }
 };
 
+/* O VEÍCULO. A placa sobe normalizada — sem hífen, sem espaço e em caixa alta — porque
+   é assim que o índice único do banco compara: gravar "abc 1d23" ao lado de "ABC-1D23"
+   criaria duas linhas para o mesmo carro, e o relatório dividiria a rota dele em duas.
+   `MotoristaID` é o motorista HABITUAL, e só um padrão: a saída preenche com ele e
+   deixa trocar. */
+var VEICULO = {
+  de: function (r) {
+    return {
+      ID: r.id, Placa: r.placa || '', Modelo: r.modelo || '', Tipo: r.tipo || '',
+      MotoristaID: r.motorista_id || '', Obs: r.obs || '', Ativo: r.ativo !== false
+    };
+  },
+  para: function (o) {
+    var r = {};
+    if (o.ID !== undefined) r.id = o.ID;
+    if (o.Placa !== undefined) r.placa = placaLimpa(o.Placa);
+    if (o.Modelo !== undefined) r.modelo = String(o.Modelo || '').trim();
+    if (o.Tipo !== undefined) r.tipo = String(o.Tipo || '').trim();
+    if (o.MotoristaID !== undefined) r.motorista_id = nulo(o.MotoristaID);
+    if (o.Obs !== undefined) r.obs = o.Obs || '';
+    if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
+    return r;
+  }
+};
+
+/* UMA FORMA SÓ para a placa, e é esta. O índice único do banco compara
+   `upper(replace(replace(placa,'-',''),' ',''))`; se a gravação usasse outra regra, o
+   banco aceitaria duas linhas que a tela mostra como iguais. */
+function placaLimpa(v) {
+  return String(v || '').replace(/[-\s]/g, '').trim().toUpperCase();
+}
+
 var MOV = {
   de: function (r) {
     return {
@@ -313,7 +347,8 @@ var MOV = {
       AssinaturaURL: r.assinatura_url, FotoURL: r.foto_url,
       ConferidoEm: r.conferido_em, ConferidoPor: r.conferido_por,
       Cancelado: r.cancelado === true, MotivoCancel: r.motivo_cancel,
-      Motorista: r.motorista || '', Rota: r.rota || '', Teste: r.teste === true,
+      Motorista: r.motorista || '', Veiculo: r.veiculo || '',
+      Rota: r.rota || '', Teste: r.teste === true,
       /* Date, e não o texto cru: `iso()` só sabe formatar Date, e devolve string vazia
          para qualquer outra coisa — sem estourar. A coluna "Excluído em" da lixeira
          nascia em branco por causa disto, com tudo o mais funcionando. */
@@ -348,6 +383,9 @@ var MOV = {
     pos('Perfil', 'perfil', nulo);
     pos('Obs', 'obs');
     pos('Motorista', 'motorista', nulo);
+    /* A PLACA COMO TEXTO, pela mesma razão do motorista: o histórico não muda
+       quando o cadastro muda. Repintar um carro não reescreve o que já saiu. */
+    pos('Veiculo', 'veiculo', nulo);
     pos('Teste', 'teste', bool);
     pos('Rota', 'rota', nulo);
     pos('AssinaturaURL', 'assinatura_url', nulo);
@@ -378,7 +416,8 @@ async function carregarTudo() {
     selectAll('config', 'chave'),
     selectAll('motoristas', 'nome'),
     selectAll('locais_padrao', 'nome'),
-    selectAll('pedidos_senha', 'criado_em.desc')
+    selectAll('pedidos_senha', 'criado_em.desc'),
+    selectAll('veiculos', 'placa')
   ]);
   var config = {};
   (partes[4] || []).forEach(function (r) { config[r.chave] = r.valor; });
@@ -390,6 +429,7 @@ async function carregarTudo() {
     motoristas: (partes[5] || []).map(MOTORISTA.de),
     locaisPadrao: (partes[6] || []).map(LOCAL_PADRAO.de),
     pedidosSenha: (partes[7] || []).filter(function (r) { return r.atendido !== true; }),
+    veiculos: (partes[8] || []).map(VEICULO.de),
     config: config
   };
 }
@@ -401,5 +441,6 @@ module.exports = {
   rpc: rpc,
   subirArquivo: subirArquivo, carregarTudo: carregarTudo,
   LOCAL: LOCAL, TIPO: TIPO, USUARIO: USUARIO, MOV: MOV, MOTORISTA: MOTORISTA,
+  VEICULO: VEICULO, placaLimpa: placaLimpa,
   LOCAL_PADRAO: LOCAL_PADRAO
 };

@@ -2688,6 +2688,7 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     const volta = F.usuariosPublicos([{
       ID: 'U1', Nome: 'A', Perfil: 'Gestor',
       Saidas: ['a'], Destinos: ['b'], TiposCaixa: ['c'], Motoristas: ['d'],
+      Veiculos: ['V1'],
       Operacoes: ['SAIDA'], Abas: ['pgPainel'], Ajustes: ['L1'], SoProprios: true
     }])[0];
 
@@ -3072,6 +3073,89 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     Object.keys(campos));
   ok(literal.indexOf('teste:') >= 0,
     'inclusive o recorte real/teste, que tem valor padrão e não apareceria na varredura');
+}
+
+{
+  console.log('\n== a frota: a placa é cadastro, e é escolhida no lançamento ==');
+  const mig = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
+  const sup = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
+  const log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  const idx = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  const db2 = require('../api/_supabase.js');
+  const L2 = require('../api/_logica.js');
+
+  ok(/id: '2026-09-24-veiculos'/.test(mig) &&
+     /create table if not exists public\.veiculos/.test(mig),
+    'a frota tem tabela própria — a placa era campo do motorista, e isso dizia que ' +
+    'cada motorista tem um carro e cada carro um motorista');
+
+  /* A MESMA FORMA DOS DOIS LADOS. O índice único do banco compara a placa sem hífen,
+     sem espaço e em caixa alta. Se a GRAVAÇÃO normalizasse de outro jeito, o banco
+     aceitaria duas linhas que a tela mostra como iguais — e o relatório por veículo
+     dividiria a rota do mesmo carro em duas. */
+  ok(/on public\.veiculos \(upper\(replace\(replace\(placa, '-', ''\), ' ', ''\)\)\)/.test(mig),
+    'e a placa é única pela forma NORMALIZADA, não pelo texto cru');
+  ok(db2.placaLimpa('abc-1d23') === 'ABC1D23' && db2.placaLimpa(' ABC 1D23 ') === 'ABC1D23',
+    'e a gravação normaliza do mesmo jeito que o índice compara — duas regras ' +
+    'diferentes deixam o banco aceitar duas linhas que a tela mostra iguais',
+    db2.placaLimpa('abc-1d23') + ' / ' + db2.placaLimpa(' ABC 1D23 '));
+
+  /* A PLACA NO MOVIMENTO É TEXTO, como o motorista e pela mesma razão: repintar ou
+     apagar um veículo não pode reescrever o que já saiu do galpão. */
+  ok(/alter table public\.movimentos add column if not exists veiculo text;/.test(mig) &&
+     /pos\('Veiculo', 'veiculo', nulo\);/.test(sup),
+    'o movimento guarda a PLACA como texto, e não um id — o histórico não muda quando ' +
+    'o cadastro muda');
+  ok(/Veiculo: String\(p\.veiculo \|\| ''\)\.replace\(/.test(log) &&
+     /\.trim\(\)\.toUpperCase\(\) \|\| null,/.test(log),
+    'e ela entra no movimento já normalizada: gravada de um jeito e cadastrada de ' +
+    'outro, o relatório por veículo listaria o mesmo carro duas vezes');
+
+  /* O MOTORISTA HABITUAL É PADRÃO, NÃO REGRA — e o banco diz isso: apagar o motorista
+     desfaz o hábito, não leva o veículo junto. */
+  ok(/motorista_id text references public\.motoristas\(id\) on delete set null/.test(mig),
+    'apagar um motorista desfaz o hábito, não apaga o veículo junto');
+
+  const pubV = L2.veiculosPublicos([
+    { ID: 'V1', Placa: 'ABC1D23', Modelo: 'HR', MotoristaID: 'D1', Obs: 'trocar o óleo', Ativo: true },
+    { ID: 'V2', Placa: 'ZZZ9Z99', Ativo: false }
+  ]);
+  ok(pubV.length === 1 && pubV[0].ID === 'V1',
+    'carro desativado não aparece para quem vai lançar hoje — mas continua no cadastro, ' +
+    'porque o histórico aponta para ele', pubV.map((v) => v.ID));
+  ok(pubV[0].Obs === undefined && pubV[0].MotoristaID === 'D1',
+    'e o que sai é o que a saída usa: placa, modelo e o motorista habitual. A ' +
+    'observação é anotação de oficina e fica no escritório', Object.keys(pubV[0]));
+
+  ok(/Veiculos: 'veiculos'/.test(idx) && /Veiculos: 'V'/.test(idx) &&
+     /acao === 'salvarVeiculo'/.test(idx),
+    'e o cadastro tem rota, tabela e prefixo de id próprios — `D001` é motorista, ' +
+    '`V001` é carro, e nenhum id vira o do outro');
+  ok(/veiculos: L\.veiculosPublicos\(d\.veiculos\)/.test(idx),
+    'a frota viaja na rota pública, que é a que o celular lê');
+
+  /* ---- IDA E VOLTA PELO BANCO, para TODAS as listas de permissão ----------
+   * Duas sabotagens da frota passaram verdes: apagar a leitura e apagar a gravação de
+   * `veiculos` no mapeador do banco não reprovava nada. E o buraco não era da frota —
+   * NENHUMA das listas tinha essa conferência. Marcar placas, salvar e ver tudo sumir
+   * na volta é o tipo de defeito que só aparece com o usuário na frente.
+   *
+   * A ida e volta cobra as duas pontas de uma vez: o que `para()` escreve no banco,
+   * `de()` tem de ler de volta. */
+  const LISTAS_PERM = [
+    ['Saidas', 'saidas'], ['Destinos', 'destinos'], ['TiposCaixa', 'tipos_caixa'],
+    ['Motoristas', 'motoristas'], ['Veiculos', 'veiculos']
+  ];
+  LISTAS_PERM.forEach(([chave, coluna]) => {
+    const entra = {}; entra[chave] = ['X1', 'X2'];
+    const linha = db2.USUARIO.para(entra);
+    const volta = db2.USUARIO.de(Object.assign({ id: 'U1', nome: 'A' }, linha));
+    ok(Array.isArray(linha[coluna]) && linha[coluna].length === 2,
+      chave + ': a marcação vai para a coluna `' + coluna + '` do banco', linha[coluna]);
+    ok(Array.isArray(volta[chave]) && volta[chave].length === 2,
+      chave + ': e volta de lá — sem a volta, a pessoa marca, salva, e encontra tudo ' +
+      'em branco na próxima abertura', volta[chave]);
+  });
 }
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');

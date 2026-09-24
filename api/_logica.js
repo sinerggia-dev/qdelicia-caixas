@@ -242,6 +242,25 @@ var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA', 'FORNECEDOR'];
  * de fora: a rota `dados` é pública, e documento de motorista não tem por que trafegar
  * para quem só abriu o endereço do app.
  */
+/* OS VEÍCULOS QUE O APP DE CAMPO PODE VER. Sai a placa, o modelo e o motorista
+   habitual — é ele que a saída usa para preencher o campo sozinha. `Obs` fica de fora:
+   é anotação de oficina, não interessa a quem lança.
+
+   Só os ATIVOS: carro vendido ou parado não some do cadastro, porque o histórico aponta
+   para ele, mas não pode aparecer na lista de quem vai lançar hoje. */
+function veiculosPublicos(veiculos) {
+  return (veiculos || [])
+    .filter(function (v) { return v.Ativo !== false; })
+    .map(function (v) {
+      return { ID: v.ID, Placa: v.Placa, Modelo: v.Modelo || '', Tipo: v.Tipo || '',
+               MotoristaID: v.MotoristaID || '' };
+    })
+    .sort(function (a, b) {
+      return pesoTeste(a.Placa) - pesoTeste(b.Placa) ||
+             String(a.Placa).localeCompare(String(b.Placa), 'pt-BR');
+    });
+}
+
 function motoristasPublicos(motoristas) {
   return (motoristas || [])
     .filter(function (m) { return m.Ativo !== false; })
@@ -571,6 +590,7 @@ function sessaoDe(u) {
     // Mesma convenção das outras: lista vazia quer dizer NENHUM — marcar é conceder.
     tiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
     motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
+    veiculos: Array.isArray(u.Veiculos) ? u.Veiculos : [],
     // Idem: vazia = todas. E o celular esconde a aba que nao esta aqui.
     operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : [],
     /* Em quais locais ela ajusta. Esquecido aqui, a tela do painel ofereceria todos
@@ -753,6 +773,10 @@ function montarMovimento(p, ctx) {
       Perfil: perfil || null,
       Obs: String(p.obs || ''),
       Motorista: String(p.motorista || '').trim() || null,
+      /* A PLACA, na mesma forma do cadastro: sem hífen, sem espaço, em caixa alta.
+         Se o movimento guardasse "abc-1d23" e o cadastro "ABC1D23", um relatório
+         por veículo listaria o mesmo carro duas vezes. */
+      Veiculo: String(p.veiculo || '').replace(/[-\s]/g, '').trim().toUpperCase() || null,
       Rota: String(p.rota || '').trim() || null,
       AssinaturaURL: ctx.assinaturaUrl || null,
       FotoURL: ctx.fotoUrl || null,
@@ -1952,6 +1976,7 @@ function usuariosPublicos(usuarios) {
       Destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
       TiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
       Motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
+      Veiculos: Array.isArray(u.Veiculos) ? u.Veiculos : [],
       Operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : [],
       Ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
       Abas: Array.isArray(u.Abas) ? u.Abas : []
@@ -1965,7 +1990,8 @@ module.exports = {
   localDoAjuste: localDoAjuste, podeAjustarEm: podeAjustarEm,
   TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
   rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,
-  motoristasPublicos: motoristasPublicos, cnhVencida: cnhVencida,
+  motoristasPublicos: motoristasPublicos, veiculosPublicos: veiculosPublicos,
+  cnhVencida: cnhVencida,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, naoCancelados: naoCancelados,
   naLixeira: naLixeira, listaLixeira: listaLixeira, ultimaAlteracao: ultimaAlteracao,

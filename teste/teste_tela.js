@@ -2782,6 +2782,103 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
     'zero animações vivas, o brilho sumido e a barra de acento cheia');
 })();
 
+console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  /* ---- o cadastro, DEPOIS do de motoristas ---- */
+  var iMot = adm.indexOf('data-cad="motoristas"');
+  var iVei = adm.indexOf('data-cad="veiculos"');
+  ok(iMot > 0 && iVei > 0 && iVei > iMot,
+    'o cartão de Veículos existe e vem DEPOIS do de Motoristas — é a ordem em que os ' +
+    'dois são preenchidos, e a que foi pedida', iMot + '/' + iVei);
+  ok(/function formVeiculo\(v\)/.test(adm) && /function desenharVeiculos\(\)/.test(adm) &&
+     /btnNovoVeiculo'\)\.addEventListener/.test(adm),
+    'e ele tem lista, formulário e botão de novo, como os outros cadastros');
+  /* DESATIVAR é o caminho normal para carro vendido; excluir some do cadastro mas os
+     lançamentos guardam a placa como TEXTO e continuam legíveis. */
+  ok(/data-ativar-vei/.test(adm) && /data-excluir-vei/.test(adm),
+    'e dá para desativar sem excluir: carro vendido sai da lista do celular e continua ' +
+    'legível no que ele já levou');
+
+  /* O MOTORISTA HABITUAL É PADRÃO, e a tela diz isso em português. A promessa importa
+     tanto quanto o código: quem cadastra precisa saber que não está travando nada. */
+  ok(/É um <b>padrão<\/b>, não uma regra/.test(adm),
+    'a tela diz que o motorista habitual é um padrão, não uma regra — quem cadastra ' +
+    'precisa saber que não está travando a troca de carro');
+  /* O habitual pode ter sido apagado depois. Mostrar `D007` cru é pior que dizer que
+     não foi encontrado. */
+  ok(/motorista não encontrado/.test(adm),
+    'e o vínculo órfão se anuncia, em vez de aparecer como código cru na coluna');
+
+  /* ---- a permissão por usuário, como a do motorista ---- */
+  var iPm = adm.indexOf("caixaLocais('fMotoristas'");
+  var iPv = adm.indexOf("caixaLocais('fVeiculos'");
+  ok(iPm > 0 && iPv > 0 && iPv > iPm,
+    'o usuário ganha a lista "quais placas ela pode escolher", logo depois da de ' +
+    'motorista', iPm + '/' + iPv);
+  ok(/Veiculos:lerMarcados\('fVeiculos'\)/.test(adm),
+    'e a marcação é lida ao salvar — a lista que aparece e não grava é pior que lista ' +
+    'nenhuma, porque parece ter funcionado');
+  /* A CAIXA DE MARCAR LÊ `Nome`, e o veículo tem PLACA. Em vez de ensinar a caixa a
+     falar de veículo — ela serve a quatro listas —, o veículo se apresenta. */
+  ok(/Nome: v\.Placa \+ \(v\.Modelo \? ' — ' \+ v\.Modelo : ''\)/.test(adm),
+    'e o veículo se apresenta com placa e modelo numa linha, em vez de a caixa de ' +
+    'marcar aprender um quinto formato');
+
+  /* ---- o campo no lançamento ---- */
+  ok(/id="sdVeiculo"/.test(idx) && /id="dvVeiculo"/.test(idx),
+    'Saída e Retorno têm o campo Veículo');
+  ok(/\{ id:'sdVeiculo',   msg:'Escolha o veículo que vai levar a carga\.' \}/.test(idx) &&
+     /\{ id:'dvVeiculo',   msg:'Informe em que veículo as caixas voltaram\.' \}/.test(idx),
+    'e ele é obrigatório nos dois, como o motorista');
+  ok(/veiculo: document\.getElementById\('sdVeiculo'\)\.value\.trim\(\)/.test(idx) &&
+     /veiculo: document\.getElementById\('dvVeiculo'\)\.value/.test(idx),
+    'e a placa VIAJA no pedido: campo que a pessoa preenche e não chega ao servidor é ' +
+    'trabalho jogado fora, e ninguém descobre até o relatório');
+  ok(/function meusVeiculos\(\)\s*\{\s*return permitidos\(\(DADOS\|\|\{\}\)\.veiculos \|\| \[\], 'veiculos'\);/
+      .test(idx.replace(/\s+/g, ' ').replace(/ \{ /g, '{').replace(/; /g, ';')) ||
+     /permitidos\(\(DADOS\|\|\{\}\)\.veiculos \|\| \[\], 'veiculos'\)/.test(idx),
+    'e a frota passa pela MESMA peneira de permissão dos motoristas — nada marcado = ' +
+    'nenhum');
+
+  /* A PLACA É O VALOR, não o id: o movimento guarda texto. */
+  ok(/'<option value="'\+Q\.esc\(v\.Placa\)\+'" data-mot="'/.test(idx),
+    'o valor do seletor é a PLACA, e o motorista habitual viaja no próprio option — ' +
+    'sem uma segunda busca na hora de preencher');
+
+  /* ESCOLHER A PLACA PREENCHE O MOTORISTA, e o campo continua aberto. */
+  var iV = idx.indexOf('function veiculoPuxaMotorista');
+  var fnV = iV > 0 ? idx.slice(iV, idx.indexOf('\n  }', iV)) : '';
+  ok(iV > 0 && /sv\.addEventListener\('change'/.test(fnV) && /sm\.value = m\.Nome;/.test(fnV),
+    'escolher a placa preenche o motorista habitual', fnV.length);
+  ok(!/disabled/.test(fnV) && !/readOnly/.test(fnV),
+    'e NÃO trava o campo: carro quebra, alguém cobre a rota do outro, e o cadastro não ' +
+    'pode mandar mais que a realidade');
+  /* Pôr um nome que o seletor não tem deixa o campo em branco com jeito de preenchido. */
+  ok(/var tem = Array\.prototype\.some\.call\(sm\.options/.test(fnV),
+    'e só preenche se o motorista estiver na lista que ESTA pessoa pode escolher — um ' +
+    'nome que o seletor não tem deixaria o campo vazio com jeito de preenchido');
+  /* UM ouvinte, e não um por redesenho: os seletores são refeitos a cada troca de rota. */
+  ok((idx.match(/veiculoPuxaMotorista\('/g) || []).length === 2 &&
+     !/montarVeiculos[\s\S]{0,200}veiculoPuxaMotorista/.test(idx),
+    'e o vínculo é ligado UMA vez, fora do redesenho: os seletores são refeitos a cada ' +
+    'troca de rota, e um ouvinte por redesenho empilharia dezenas no mesmo `change`');
+
+  /* A FROTA É MONTADA ONDE O MOTORISTA É. Um caminho que redesenha um e esquece o
+     outro deixa o seletor com a frota de antes. */
+  ok((idx.match(/montarMotoristas\(/g) || []).length ===
+     (idx.match(/montarVeiculos\(/g) || []).length,
+    'e a frota é remontada em todo ponto em que o motorista é — um caminho que ' +
+    'redesenha um e esquece o outro deixa o seletor com a lista velha',
+    (idx.match(/montarMotoristas\(/g) || []).length + ' vs ' +
+    (idx.match(/montarVeiculos\(/g) || []).length);
+  ok(/nenhum veículo liberado para você/.test(idx),
+    'e sem frota liberada o campo diz POR QUE está vazio — um seletor só com ' +
+    '"Selecione…" e nada dentro lê como tela quebrada');
+})();
+
 console.log('\n== o cadastro novo avisa que o item nasce negado ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

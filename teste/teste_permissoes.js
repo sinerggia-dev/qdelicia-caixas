@@ -95,6 +95,8 @@ var PERMISSOES = [
     usa: [['index.html', 'tiposCaixa']] },
   { nome: 'Motoristas', chave: 'Motoristas', campo: 'fMotoristas', sessao: 'motoristas',
     usa: [['index.html', 'motoristas']] },
+  { nome: 'Veiculos', chave: 'Veiculos', campo: 'fVeiculos', sessao: 'veiculos',
+    usa: [['index.html', 'veiculos']] },
   { nome: 'Perfil', chave: 'Perfil', campo: 'fPerfil', sessao: 'perfil',
     usa: [['admin.html', 'perfil'], ['index.html', 'perfil']] },
   { nome: 'LocalPadrao', chave: 'LocalPadrao', campo: 'fLocal', sessao: 'localPadrao',
