@@ -2384,7 +2384,27 @@
   var relogioTrava = null;
 
   function colunasDestravadas(){ return Date.now() < COLUNAS_ATE; }
-  function podeArranjarColunas(){ return Q.ehAdmin() && colunasDestravadas(); }
+  /* SÃO DOIS PORTÕES, e confundi-los foi um defeito que foi ao ar.
+   *
+   * VER o arranjo salvo depende só do PERFIL. ARRANJAR depende do perfil E da senha.
+   *
+   * A primeira versão tinha um portão só, e as duas coisas passavam por ele. O efeito,
+   * que o usuário encontrou: a trava nasce fechada a cada carregamento da página, então
+   * abrir Movimentos IGNORAVA as colunas escondidas e a coluna escondida voltava. Ela só
+   * sumia depois de a pessoa ir na aba Colunas, digitar a senha, e voltar — e voltava a
+   * aparecer no próximo carregamento. O arranjo parecia não salvar.
+   *
+   * O raciocínio errado foi este: eu queria que quem DEIXOU de ser admin não ficasse com
+   * o arranjo antigo, nem com colunas escondidas que não teria como trazer de volta. Isso
+   * continua valendo — e `Q.ehAdmin()` sozinho já resolve, porque quem deixou de ser
+   * admin não é admin. A senha nunca teve nada a ver com esse caso: ela existe para o
+   * computador do escritório com a sessão aberta, e o que se quer impedir ali é alguém
+   * MEXER nas colunas, não alguém VER a tabela como o dono dela a deixou.
+   *
+   * Pedir a senha para ler o que a própria pessoa salvou é cobrar duas vezes pela mesma
+   * coisa: ela já provou quem é ao entrar. */
+  function podeVerArranjo(){ return Q.ehAdmin(); }
+  function podeArranjarColunas(){ return podeVerArranjo() && colunasDestravadas(); }
 
   /* As tabelas precisam ser REDESENHADAS nas duas viradas: é no desenho que o <th>
      ganha ou perde o `draggable` e a alcinha. Sem isto, destravar não solta nada até a
@@ -2432,8 +2452,9 @@
 
 
   function ordemColunas(t){
-    /* Sem permissão, a ordem de fábrica — e não a guardada. Ver o portão acima. */
-    if (!podeArranjarColunas()) return t.padrao.slice();
+    /* Sem PERFIL, a ordem de fábrica — e não a guardada. A senha não entra aqui:
+       ver o que se salvou não é mexer nele. Ver o portão acima. */
+    if (!podeVerArranjo()) return t.padrao.slice();
     var salva = [];
     try { salva = JSON.parse(localStorage.getItem(t.kOrdem) || '[]') || []; }
     catch (e) { salva = []; }
@@ -2484,7 +2505,7 @@
 
   function larguras(t){
     var r0 = {};
-    if (!podeArranjarColunas()) {
+    if (!podeVerArranjo()) {
       Object.keys(t.larg).forEach(function(id){ r0[id] = t.larg[id]; });
       return r0;
     }
@@ -2505,9 +2526,11 @@
      ja tinha mexido aqui. Ao contrario, ela nasceria invisivel e ninguem saberia que
      existe. */
   function colunasOcultas(t){
-    /* NENHUMA escondida: quem não arranja vê a tabela inteira. Uma coluna sumida sem
-       jeito de trazer de volta é pior que uma coluna a mais. */
-    if (!podeArranjarColunas()) return [];
+    /* NENHUMA escondida para quem não é admin: uma coluna sumida sem jeito de trazer de
+       volta é pior que uma coluna a mais. Para o admin, a lista guardada vale SEMPRE —
+       com a trava aberta ou fechada. Era aqui que a coluna escondida reaparecia a cada
+       carregamento, e o arranjo parecia não salvar. */
+    if (!podeVerArranjo()) return [];
     try {
       var l = JSON.parse(localStorage.getItem(t.kOcultas) || '[]');
       return Array.isArray(l) ? l : [];

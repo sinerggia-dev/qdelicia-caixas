@@ -5070,25 +5070,42 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
    * é decisão sobre quem personaliza a própria vista. O que se ganha é a tela ser a
    * MESMA para todo mundo na hora de conferir um número por telefone.
    *
-   * UM PORTÃO SÓ, e todos os caminhos passam por ele. Seis lugares poderiam ter a
-   * própria cópia da regra, e a primeira mudança pegaria cinco. */
-  ok(/function podeArranjarColunas\(\)\{ return Q\.ehAdmin\(\) && colunasDestravadas\(\); \}/.test(adm),
-    'quem arranja as colunas é o administrador COM a senha confirmada — ser admin é ' +
-    'condição necessária e não suficiente, e a regra mora num lugar só');
-  /* O PORTÃO ESTÁ NA LEITURA, e é isso que faz a tabela voltar ao padrão para quem
-     não é admin. Só nos gestos, o caso que mais importa ficaria de pé: quem ERA admin,
-     arrumou as colunas e teve o perfil trocado continuaria com o arranjo antigo e com
-     colunas escondidas que não teria mais como trazer de volta. */
-  [['ordemColunas',  /function ordemColunas\(t\)\{\s*\n[\s\S]{0,140}?if \(!podeArranjarColunas\(\)\) return t\.padrao\.slice\(\);/,
+   * SÃO DOIS PORTÕES, e confundi-los foi um defeito que foi ao ar. VER o arranjo salvo
+   * depende do PERFIL; ARRANJAR depende do perfil E da senha.
+   *
+   * Com um portão só, a trava — que nasce fechada a cada carregamento — fazia a tabela
+   * IGNORAR o arranjo guardado: a coluna escondida reaparecia toda vez que se abria
+   * Movimentos, sumia depois de a pessoa digitar a senha na aba Colunas, e voltava no
+   * carregamento seguinte. O arranjo parecia não salvar.
+   *
+   * O raciocínio errado foi querer que quem DEIXOU de ser admin não ficasse com o
+   * arranjo antigo. Isso continua valendo — e `Q.ehAdmin()` sozinho já resolve, porque
+   * quem deixou de ser admin não é admin. A senha nunca teve nada a ver com esse caso:
+   * ela existe para impedir alguém de MEXER nas colunas no computador do escritório, e
+   * não para impedir alguém de VER a tabela como o dono dela a deixou. */
+  ok(/function podeVerArranjo\(\)\{ return Q\.ehAdmin\(\); \}/.test(adm) &&
+     /function podeArranjarColunas\(\)\{ return podeVerArranjo\(\) && colunasDestravadas\(\); \}/.test(adm),
+    'são dois portões: VER o arranjo depende do perfil, ARRANJAR depende do perfil E ' +
+    'da senha — com um só, o arranjo salvo sumia a cada carregamento');
+  /* AS TRÊS LEITURAS perguntam pelo PERFIL, e nunca pelo portão inteiro. */
+  [['ordemColunas',  /function ordemColunas\(t\)\{[\s\S]{0,260}?if \(!podeVerArranjo\(\)\) return t\.padrao\.slice\(\);/,
     'a ordem de fábrica'],
-   ['larguras',      /function larguras\(t\)\{\s*\n[\s\S]{0,200}?if \(!podeArranjarColunas\(\)\) \{/,
+   ['larguras',      /function larguras\(t\)\{[\s\S]{0,200}?if \(!podeVerArranjo\(\)\) \{/,
     'a largura de fábrica'],
-   ['colunasOcultas', /function colunasOcultas\(t\)\{\s*\n[\s\S]{0,220}?if \(!podeArranjarColunas\(\)\) return \[\];/,
+   ['colunasOcultas', /function colunasOcultas\(t\)\{[\s\S]{0,360}?if \(!podeVerArranjo\(\)\) return \[\];/,
     'nenhuma coluna escondida']].forEach(function (p) {
     ok(p[1].test(adm),
-      'e `' + p[0] + '` devolve ' + p[2] + ' para quem não é admin — ignorar o que está ' +
-      'guardado é o que desfaz o arranjo de quem deixou de ser admin, e o do computador ' +
-      'compartilhado');
+      'e `' + p[0] + '` devolve ' + p[2] + ' para quem não é admin — e para o admin vale ' +
+      'SEMPRE o que está guardado, com a trava aberta ou fechada');
+  });
+  /* E NENHUMA DAS TRÊS pergunta pela SENHA: era exatamente isso que fazia o arranjo
+     salvo sumir a cada carregamento, e é o defeito que o usuário encontrou. */
+  ['ordemColunas', 'larguras', 'colunasOcultas'].forEach(function (f) {
+    var iF = adm.indexOf('function ' + f + '(t)');
+    var corpoF = adm.slice(iF, adm.indexOf('\n  }', iF));
+    ok(iF > 0 && corpoF.indexOf('podeArranjarColunas') < 0,
+      'e `' + f + '` não pergunta pela SENHA — pedi-la para ler o que a própria pessoa ' +
+      'salvou faz o arranjo parecer que não salvou');
   });
   /* A GRAVAÇÃO TAMBÉM RECUSA, embora nada devesse chegar até ela: um ouvinte que
      sobreviva a uma troca de sessão sem redesenho é o tipo de coisa que ninguém vê. */
