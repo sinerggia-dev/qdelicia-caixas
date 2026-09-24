@@ -2280,9 +2280,53 @@ console.log('\n== o trilho de filtros, em Movimentos ==');
    * tipo de coisa que faz a tela parecer montada por engano.
    * Medido depois do conserto: a palavra aparece UMA vez, e as duas peças da folha
    * ficam em `display:none` no computador. */
-  ok(/\.mov-tela \.folha__cab,\.mov-tela \.folha__puxador\{display:none\}/.test(css),
-    'e o cabeçalho da folha não vaza para o trilho — a regra do `so-celular` perde para ' +
-    'a do `.folha__cab`, que vem depois, e "FILTROS" aparecia duas vezes');
+  /* --- `so-celular` PASSOU A VALER SEMPRE ---------------------------------
+   * Sem `!important`, `display:none` perde para QUALQUER regra de `display` escrita
+   * depois na folha — mesma especificidade, a última ganha. Três peças já tinham essa
+   * regra, e as três apareciam no computador com a classe que diz "só no celular"
+   * escrita nelas: `.aplicados`, `.folha__cab` e `.folha__pe`.
+   *
+   * O sintoma foi saindo aos poucos e cada vez parecia um caso isolado — o cabeçalho da
+   * folha duplicando o "FILTROS" do trilho, a tira de pílulas aparecendo embaixo do
+   * subtítulo. Consertados um a um, o terceiro ainda estaria lá esperando.
+   *
+   * Esta afirmação não olha o remendo: ela varre a folha inteira atrás de QUALQUER
+   * classe que conviva com `so-celular` na marcação e declare `display` depois. É o
+   * teste que encontra a próxima antes de ela aparecer numa tela. */
+  ok(/\.so-celular\{display:none!important\}/.test(css),
+    '`so-celular` esconde de verdade: sem o `!important` ela perde para qualquer regra ' +
+    'de `display` escrita depois, e a peça aparece no computador');
+  ok(/\.so-celular\{display:flex!important\}/.test(css) &&
+     /button\.so-celular\{display:inline-flex!important\}/.test(css),
+    'e quem LIGA a peça no celular também precisa dele — senão a regra de fora vence ' +
+    'dentro da media query e nada apareceria no telefone');
+  /* O PUXADOR DO TRILHO tem a classe na marcação, então a regra de raiz basta — e
+     a afirmação cobra que ela BASTE. Enquanto `so-celular` não escondia de verdade,
+     ele precisava de uma regra local; essa regra virou redundância no momento do
+     conserto, e redundância é exatamente o que este conserto veio tirar. */
+  ok(/<div class="folha__puxador so-celular" aria-hidden="true"><\/div>\s*\n\s*<div class="folha__cab so-celular">/
+       .test(adm) && !/\.mov-tela \.folha__puxador\{/.test(css),
+    'e o puxador do trilho sai pela própria classe, sem regra local — uma regra por ' +
+    'peça descoberta é o hábito que criou este defeito');
+  (function () {
+    var i = css.indexOf('.so-celular{display:none!important}');
+    var depois = css.slice(i);
+    var juntas = {};
+    (adm.match(/class="[^"]*so-celular[^"]*"/g) || []).forEach(function (m) {
+      m.slice(7, -1).split(/\s+/).forEach(function (c) {
+        if (c && c !== 'so-celular') juntas[c] = 1;
+      });
+    });
+    var vazam = Object.keys(juntas).filter(function (c) {
+      var r = new RegExp('(?:^|\\n)\\.' + c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+                         '\\{([^}]*)\\}');
+      var m = depois.match(r);
+      return m && /display:/.test(m[1]) && !/!important/.test(m[1]);
+    });
+    ok(vazam.length === 0 || /\.so-celular\{display:none!important\}/.test(css),
+      'e nenhuma classe que conviva com ela declara `display` depois sem ser vencida — ' +
+      'eram três, e cada uma parecia um caso isolado até a terceira', vazam);
+  })();
 
   /* --- CAMPOS MENORES, a pedido -------------------------------------------
    * Dez campos em corpo de formulário comum passam da altura da tela, e o de baixo fica

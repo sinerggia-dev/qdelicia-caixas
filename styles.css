@@ -1303,11 +1303,26 @@ input[type="password"]::-ms-clear{display:none}
  * extrato: saldo inicial, saída, retorno e saldo final um embaixo do outro, na ordem da
  * conta. Quem troca uma pela outra é o `desenharFluxo`, em 1024px. */
 /* `so-celular`: peças que só existem no telefone. No computador os filtros estão à
-   vista, e o botão que os abre não teria o que abrir. */
-.so-celular{display:none}
+   vista, e o botão que os abre não teria o que abrir.
+
+   O `!important` NÃO É ATALHO, é o conserto de uma classe que não estava
+   cumprindo o que promete. Sem ele, `display:none` perde para QUALQUER regra de
+   `display` escrita depois na folha — mesma especificidade, a última ganha. E três
+   peças já tinham essa regra: `.aplicados`, `.folha__cab` e `.folha__pe`. As três
+   apareciam no computador com a classe que diz "só no celular" escrita nelas.
+
+   O sintoma foi ficando visível aos poucos, e cada vez parecia um caso isolado: o
+   cabeçalho da folha duplicando o "FILTROS" do trilho, e a tira de pílulas de
+   filtro aparecendo embaixo do subtítulo. Consertados um a um, o terceiro ainda
+   estaria lá esperando.
+
+   Quem LIGA a peça no celular precisa do `!important` também — senão a regra de
+   fora, mais forte, venceria dentro da media query e nada apareceria no telefone.
+   São três linhas no total, e é o preço de a classe passar a valer sempre. */
+.so-celular{display:none!important}
 @media (max-width:1023px){
-  .so-celular{display:flex}
-  button.so-celular{display:inline-flex}
+  .so-celular{display:flex!important}
+  button.so-celular{display:inline-flex!important}
 
   /* A CAIXA DE FILTROS VIRA FOLHA. É o MESMO nó do computador — dois conjuntos dos
      mesmos campos seriam dois ids repetidos, e `getElementById` leria sempre o primeiro:
@@ -1983,13 +1998,6 @@ details.tipos[open] summary::before{content:"▾"}
     align-items:center;justify-content:center;border-radius:999px;
     background:var(--verde);color:var(--sobre-verde);
     font-family:var(--fonte-mono);font-size:11px;font-weight:700}
-
-  /* O CABECALHO DA FOLHA E O PUXADOR SAO DO CELULAR, e estavam vazando para ca: a
-     regra `.folha__cab{display:flex}` vem depois de `.so-celular{display:none}` na
-     folha de estilo e ganhava dela. O resultado era "FILTROS" escrito duas vezes, com
-     dois botoes de fechar — visivel no print, e o tipo de coisa que faz a tela parecer
-     montada por engano. Aqui a regra e mais especifica, entao vence. */
-  .mov-tela .folha__cab,.mov-tela .folha__puxador{display:none}
 
   .trilho__cab{display:none;align-items:center;gap:4px;padding:12px 12px 0}
   .mov-tela.aberta .trilho__cab{display:flex}
