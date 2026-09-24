@@ -305,7 +305,7 @@
            com quem, e o documento por último, que é o único opcional. -->
       <div class="grid2">
         <div>
-          <label for="sdData">Data<span class="obrig">*</span></label>
+          <label for="sdData">Data do movimento<span class="obrig">*</span></label>
           <input id="sdData" type="date">
         </div>
         <div>
@@ -371,7 +371,7 @@
       <h2>Retorno de caixas<span class="sub" id="devSub">Caixas voltando na rota para o galpão.</span></h2>
       <div class="grid2">
         <div>
-          <label for="dvData">Data<span class="obrig">*</span></label>
+          <label for="dvData">Data do movimento<span class="obrig">*</span></label>
           <input id="dvData" type="date">
         </div>
         <div>
@@ -1495,7 +1495,7 @@
 
   function tabelaLanc(lista, s){
     return '<div class="tabela-wrap"><table><thead><tr>'+
-      '<th>Data</th><th>Origem</th><th>Destino</th><th>Caixa</th>'+
+      '<th>Data do movimento</th><th>Origem</th><th>Destino</th><th>Caixa</th>'+
       '<th class="num">Saída</th><th class="num">Retorno</th><th>Motorista</th>'+
       '<th>Quem lançou</th><th></th>'+
       '</tr></thead><tbody>'+
@@ -1792,7 +1792,7 @@
         }).join('')+
       '</div>'+
       '<div class="grid2">'+
-        '<div><label for="crData">Data</label>'+
+        '<div><label for="crData">Data do movimento</label>'+
           '<input type="date" id="crData" value="'+Q.esc(String(m.dataRef||'').slice(0,10))+'"></div>'+
         '<div><label for="crOrigem">Origem</label>'+
           '<select id="crOrigem">'+opcoesLocal(m.origemId)+'</select></div>'+

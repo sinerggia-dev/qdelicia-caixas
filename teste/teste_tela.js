@@ -1964,6 +1964,39 @@ console.log('\n== as colunas da tabela de Movimentos ==');
     ok(cols.indexOf(c[0]) >= 0, 'a tabela de Movimentos traz ' + c[1], cols);
   });
 
+  /* --- O NOME DA DATA, e por que não é "Lançamento" ----------------------
+   * Três colunas de data seguidas, uma chamada só "Data", não distinguem nada — foi
+   * olhando para elas que veio a pergunta "o que são essas duas datas?". O nome batiza
+   * o FATO: o dia em que as caixas se moveram.
+   * E NÃO "Lançamento": neste sistema "lançar" já quer dizer o ATO de registrar, em
+   * quase trinta lugares. A coluna chamada assim soaria como a vizinha "Criado em", e o
+   * balão do âmbar — que diz "foi lançado em" — contradiria o cabeçalho na mesma linha.
+   * A asserção cobra as duas metades: o nome que entrou E o que não pode entrar. */
+  ok(/data:'Data do movimento'/.test(desc),
+    'a coluna da data da operação se chama "Data do movimento" — "Data", sozinha, não ' +
+    'distingue nada de "Criado em" nem de "Hora"');
+  ok(!/data:'Lançamento'/.test(desc) && !/data:'Data do lançamento'/.test(desc),
+    'e não "Lançamento": aqui lançar é o ATO de registrar, e o nome colidiria com a ' +
+    'coluna vizinha e com o balão que diz "foi lançado em"');
+  /* O MESMO NOME NO CAMPO QUE A PESSOA PREENCHE. O cabeçalho da consulta e o rótulo do
+     formulário são a mesma pergunta; nomes diferentes fazem parecer campos diferentes. */
+  var campo = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  ok((campo.match(/>Data do movimento<span class="obrig">/g) || []).length === 2 &&
+     /<label for="crData">Data do movimento<\/label>/.test(campo) &&
+     /<label>Data do movimento<\/label><input type="date" id="cData"/.test(adm),
+    'e o campo que a pessoa preenche tem o MESMO nome — na Saída, no Retorno e nas ' +
+    'duas telas de correção');
+  /* O BALÃO FALA A MESMA LÍNGUA da coluna: "a carga é de…" ficou de fora porque num
+     Retorno as caixas estão voltando, e "carga" lê como se estivessem saindo. */
+  ok(/o movimento é de '\+Q\.esc\(Q\.dataBR\(m\.dataRef\)\)/.test(adm) &&
+     !/a carga é de/.test(adm),
+    'e o balão do âmbar usa a mesma palavra da coluna — "o movimento é de X e foi ' +
+    'lançado em Y"');
+  /* A LARGURA ACOMPANHA O CABEÇALHO: "Data do movimento" é quatro vezes "Data", e a
+     etiqueta "teste" continua dividindo a célula com a data. */
+  ok(/data:170/.test(desc),
+    'e a coluna alargou para o cabeçalho novo caber sem espremer a etiqueta "teste"');
+
   var il = desc.indexOf('larg: {');
   var larg = desc.slice(il, desc.indexOf('}', il));
   var semLarg = cols.filter(function (c) { return larg.indexOf(c + ':') < 0; });
@@ -5743,8 +5776,10 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
      passariam a falhar sem que nada tivesse quebrado. */
   var tl = corpo('tabelaLanc');
 
-  // a tabela traz as colunas pedidas
-  ['Data', 'Origem', 'Destino', 'Caixa', 'Saída', 'Retorno', 'Motorista',
+  /* "Data do movimento", e não "Data": é a mesma data que o formulário pede e que a
+     consulta do escritório mostra, e um nome por tela faria a pessoa achar que são
+     coisas diferentes. */
+  ['Data do movimento', 'Origem', 'Destino', 'Caixa', 'Saída', 'Retorno', 'Motorista',
    'Quem lançou'].forEach(function (c) {
     ok(tl.indexOf('>' + c + '<') > 0, 'a tabela tem a coluna ' + c, c);
   });

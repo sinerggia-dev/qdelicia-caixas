@@ -1889,9 +1889,20 @@
   };
 
   /* `criado` e `hora` andam juntos e ficam ao lado da data de propósito: eles respondem
-     "quando isto entrou no sistema", que é outra pergunta que a coluna Data — a data de
-     REFERÊNCIA, a do romaneio — não responde. Lançar hoje uma carga de ontem é rotina,
-     e até aqui não havia onde ver que foi isso que aconteceu.
+     "quando isto entrou no sistema", que é outra pergunta que a data do MOVIMENTO — a
+     de referência, a do romaneio — não responde. Lançar hoje uma carga de ontem é
+     rotina, e até aqui não havia onde ver que foi isso que aconteceu.
+
+     E A COLUNA SE CHAMA "Data do movimento", e não "Data". Três colunas de data
+     seguidas, uma delas chamada só "Data", não distinguem nada — a pergunta "o que são
+     essas duas datas?" veio de olhar exatamente para elas. O nome batiza o FATO: o dia
+     em que as caixas se moveram.
+     E NÃO "Lançamento", que foi a primeira ideia: neste sistema "lançar" já quer dizer
+     o ATO de registrar, em quase trinta lugares — "app de lançamento", "Quem lançou",
+     "Lançado por". A coluna chamada assim soaria como a vizinha, e o balão do âmbar,
+     que diz "foi lançado em", passaria a contradizer o próprio cabeçalho na mesma
+     linha. O mesmo nome vale no campo que a pessoa preenche no app: o cabeçalho da
+     consulta e o rótulo do formulário são a mesma pergunta.
 
      `alterado` e `alteradoEm` fecham a linha: quem mexeu por último, e QUANDO. Sem a
      primeira, uma quantidade corrigida e uma original são a mesma célula na tela. Sem a
@@ -1908,10 +1919,11 @@
     /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
        coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
        com a data mais larga do formato e a etiqueta junto. */
-    larg: { data:150, hora:70, criado:110, status:110, origem:150, destino:150,
+    larg: { data:170, hora:70, criado:110, status:110, origem:150, destino:150,
             caixa:120, qtd:80, motorista:130, quem:120, alterado:140,
             alteradoEm:150 },
-    titulos: { data:'Data', hora:'Hora', criado:'Criado em', status:'Status',
+    titulos: { data:'Data do movimento', hora:'Hora', criado:'Criado em',
+               status:'Status',
                origem:'Origem', destino:'Destino', caixa:'Caixa', qtd:'Qtd',
                motorista:'Motorista', quem:'Quem', alterado:'Alterado por',
                alteradoEm:'Alterado em' },
@@ -3808,7 +3820,7 @@
     box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
       /* 150 pela mesma razão da tabela de cima: a etiqueta "teste" divide a célula com
          a data, e em 110px ela cobria a hora da coluna seguinte. */
-      '<th style="width:150px">Data</th><th style="width:70px">Hora</th>'+
+      '<th style="width:170px">Data do movimento</th><th style="width:70px">Hora</th>'+
       '<th style="width:140px">Origem</th><th style="width:140px">Destino</th>'+
       '<th style="width:110px">Caixa</th><th class="num" style="width:70px">Qtd</th>'+
       '<th style="width:110px">Quem lançou</th>'+
@@ -3906,8 +3918,8 @@
                      if (!dt) return '<span class="fraco">—</span>';
                      var diferente = dt !== Q.dataBR(m.dataRef);
                      return diferente
-                       ? '<span title="a carga é de '+Q.esc(Q.dataBR(m.dataRef))+
-                         ' e foi lançada em '+Q.esc(dt)+'" class="tag amarela">'+Q.esc(dt)+'</span>'
+                       ? '<span title="o movimento é de '+Q.esc(Q.dataBR(m.dataRef))+
+                         ' e foi lançado em '+Q.esc(dt)+'" class="tag amarela">'+Q.esc(dt)+'</span>'
                        : Q.esc(dt); } },
       /* Quem mexeu por último. Vazio é uma resposta: ninguém mexeu desde que foi
          lançado. Por isso o travessão fraco, e não a célula em branco — em branco não se
@@ -4312,7 +4324,7 @@
       /* As colunas novas entram AQUI também. O CSV é a tabela levada para fora: uma
          coluna que existe na tela e falta no arquivo faz a conferência de escritório
          chegar a um número que a tela não explica. */
-      ['Data','Hora','Criado em','Teste','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Quem','Alterado por','Alterado em','Obs'],
+      ['Data do movimento','Hora','Criado em','Teste','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Quem','Alterado por','Alterado em','Obs'],
       MOVS.map(function(m){
         var a = m.alterado || {};
         return [Q.dataBR(m.dataRef),Q.horaBR(m.dataHora),Q.dataDoCarimboBR(m.dataHora),
@@ -5567,7 +5579,7 @@
       '<div class="grid2">'+
         '<div><label>Quantidade</label><input type="number" id="cQtd" value="'+Q.esc(m.qtd)+'"></div>'+
         '<div><label>Conferida</label><input type="number" id="cConf" value="'+Q.esc(m.qtdConferida===''?'':m.qtdConferida)+'"></div>'+
-        '<div><label>Data</label><input type="date" id="cData" value="'+Q.esc(String(m.dataRef||'').slice(0,10))+'"></div>'+
+        '<div><label>Data do movimento</label><input type="date" id="cData" value="'+Q.esc(String(m.dataRef||'').slice(0,10))+'"></div>'+
         /* Todos os locais, sem peneirar por tipo: aqui e o escritorio consertando um
            lancamento que saiu errado, e a lista curta seria justamente a que nao teria o
            local certo. As permissoes do campo valem para quem LANCA, nao para quem
