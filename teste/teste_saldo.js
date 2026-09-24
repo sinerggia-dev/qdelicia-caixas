@@ -1,22 +1,25 @@
 /**
  * Qdelícia Frutas — Controle de Caixas
- * Aba Saldo por rota, e o aviso de saldo da devolução.
+ * O aviso de saldo na devolução.
  *
  * POR QUE ISTO EXISTE
  * `painel()` monta `locais` só com CLIENTE e FILIAL, e devolve as rotas à parte,
- * em `rotas`. Duas telas liam a fonte errada:
+ * em `rotas`. `mostrarSaldoDoOrigem` procurava a origem da devolução em
+ * `locais`, mas `dvOrigem` lista ROTAS. Nunca achava. A caixa de saldo e o
+ * alerta de "você contou mais do que o saldo" ficavam mudos — e esse alerta é
+ * uma das guardas do app contra saída não lançada.
  *
- *  - a aba Saldo listava `locais`, então nunca mostrou rota nenhuma;
- *  - `mostrarSaldoDoOrigem` procurava a origem da devolução em `locais`, mas
- *    `dvOrigem` lista ROTAS. Nunca achava. A caixa de saldo e o alerta de
- *    "você contou mais do que o saldo" ficavam mudos — e esse alerta é uma das
- *    guardas do app contra saída não lançada.
+ * A METADE QUE SAIU DAQUI, e por quê: este arquivo também cobrava a aba "Saldo
+ * de Caixas por Rota", que foi trocada por Lançamentos em `0787829` — de
+ * propósito, porque respondia uma pergunta só e não deixava conferir
+ * lançamento nenhum. As treze asserções dela ficaram apontando para uma
+ * `desenharSaldos` que não existe mais, e a suíte inteira passou a morrer no
+ * carregamento: as nove que AINDA guardam alguma coisa não rodavam havia
+ * semanas por causa das treze que já não guardavam nada. Suíte vermelha que
+ * todo mundo aprendeu a ignorar é pior que suíte nenhuma, porque ocupa o lugar
+ * de uma que falaria.
  *
- * O teste fixa a fonte certa de cada uma, e a regra de não somar as duas contas
- * da rota: `saldo` é o que está no caminhão, `saldoClientes` é o que está nos
- * pontos dela. Somar esconde onde a caixa está.
- *
- * Não roda navegador: lê as funções do index.html e executa com DOM de mentira.
+ * Não roda navegador: lê a função do index.html e executa com DOM de mentira.
  */
 'use strict';
 
@@ -50,7 +53,7 @@ function el() {
     querySelectorAll: function () { return []; }
   };
 }
-var els = { buscaSaldo: el(), listaSaldos: el(), dvOrigem: el(), dvSaldoAtual: el() };
+var els = { dvOrigem: el(), dvSaldoAtual: el() };
 global.document = { getElementById: function (id) { return els[id] || null; } };
 global.Q = {
   esc: function (t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); },
@@ -70,46 +73,8 @@ global.PAINEL = {
 global.coletarItens = function () { return CONTAGEM; };
 var CONTAGEM = [];
 
-eval(corpo('desenharSaldos') + '\n' + corpo('mostrarSaldoDoOrigem') +
-     '\nglobal.desenharSaldos = desenharSaldos; global.mostrarSaldoDoOrigem = mostrarSaldoDoOrigem;');
-
-console.log('\n== Saldo por rota ==');
-
-/* ---- 1. a lista é de rotas, não de clientes ---- */
-els.buscaSaldo.value = '';
-desenharSaldos();
-var h = els.listaSaldos.innerHTML;
-ok(h.indexOf('Caruaru') >= 0 && h.indexOf('Petrolina') >= 0, 'as rotas aparecem');
-ok(h.indexOf('Mercado Bom Preço') === -1, 'cliente não entra mais nesta lista');
-ok(h.indexOf('<th>Rota</th>') >= 0, 'a coluna se chama Rota');
-
-/* ---- 2. as duas contas ficam separadas ---- */
-ok(h.indexOf('>120<') >= 0, 'mostra o que está no caminhão');
-// O numero vem seguido da etiqueta com quantos clientes a rota atende.
-ok(/>300 /.test(h), 'mostra o que está com os clientes');
-ok(/class="tag cinza">7</.test(h), 'e quantos clientes a rota atende');
-ok(h.indexOf('>420<') === -1, 'NÃO soma as duas: somar esconde onde a caixa está');
-ok(h.indexOf('No caminhão') >= 0 && h.indexOf('Com os clientes') >= 0, 'as colunas dizem qual é qual');
-
-/* ---- 3. o motorista aparece junto ---- */
-ok(h.indexOf('Ramos') >= 0, 'a rota mostra o motorista dela');
-
-/* ---- 4. busca acha por rota e por motorista ---- */
-els.buscaSaldo.value = 'caruaru';
-desenharSaldos();
-ok(els.listaSaldos.innerHTML.indexOf('Petrolina') === -1, 'busca filtra pelo nome da rota');
-els.buscaSaldo.value = 'jorge';
-desenharSaldos();
-h = els.listaSaldos.innerHTML;
-ok(h.indexOf('Petrolina') >= 0 && h.indexOf('Caruaru') === -1, 'busca acha pelo motorista');
-els.buscaSaldo.value = 'zzz';
-desenharSaldos();
-ok(/Nenhuma rota encontrada/.test(els.listaSaldos.innerHTML), 'vazio fala em rota, não em local');
-els.buscaSaldo.value = '';
-
-/* ---- 5. o extrato continua alcançável ---- */
-desenharSaldos();
-ok(els.listaSaldos.innerHTML.indexOf('data-extrato="R1"') >= 0, 'dá para abrir o extrato da rota');
+eval(corpo('mostrarSaldoDoOrigem') +
+     '\nglobal.mostrarSaldoDoOrigem = mostrarSaldoDoOrigem;');
 
 console.log('\n== Aviso de saldo na devolução (estava mudo) ==');
 

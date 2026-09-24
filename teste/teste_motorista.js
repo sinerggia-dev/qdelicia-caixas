@@ -45,11 +45,27 @@ function corpo(nome) {
 
 /* ---- cadastro de mentira: cada motorista na sua rota ---- */
 var DADOS = { motoristas: [
-  { Nome: 'Ramos',   Rotas: ['R-CARUARU'] },
-  { Nome: 'Jorge',   Rotas: ['R-PETROLINA'] },
-  { Nome: 'Sebastião', Rotas: ['R-RECIFE'] },
-  { Nome: 'Val',     Rotas: [], Tipo: 'VOLANTE' }     // volante roda qualquer rota
+  { ID: 'D1', Nome: 'Ramos',   Rotas: ['R-CARUARU'] },
+  { ID: 'D2', Nome: 'Jorge',   Rotas: ['R-PETROLINA'] },
+  { ID: 'D3', Nome: 'Sebastião', Rotas: ['R-RECIFE'] },
+  /* A VAL TEM ROTA PRÓPRIA, e é de propósito. Com `Rotas: []` ela entrava na
+     primeira lista por NÃO TER rota, não por ser volante — os dois caminhos levam
+     ao mesmo lugar no código, e a asserção não distinguia um do outro. Medido:
+     apagar a cláusula do VOLANTE passava, porque a cláusula do sem-rota respondia
+     por ela. R-GARANHUNS não é escolhida por nenhum caso, então aqui a Val só
+     pode aparecer pelo que este teste diz que ela é. */
+  { ID: 'D4', Nome: 'Val',     Rotas: ['R-GARANHUNS'], Tipo: 'VOLANTE' }
 ]};
+
+/* A PENEIRA DE PERMISSÃO entrou entre este teste e a tela: hoje `motoristas()`
+   passa por `meusMotoristas()`, que passa por `permitidos()`, que pergunta à
+   sessão quais IDs esta pessoa pode escolher. Ela não existia quando o teste
+   foi escrito, e foi por isso que ele parou de rodar — `meusMotoristas is not
+   defined`, no carregamento, antes da primeira asserção.
+
+   Aqui a sessão libera TODOS: o que este arquivo mede é a ORDEM da lista, e
+   quem mede a peneira é o `teste_permissoes.js`. Dois testes cobrando a mesma
+   regra discordam no primeiro dia em que ela muda. */
 
 /* ---- DOM de mentira: só os dois seletores ---- */
 function selFalso() {
@@ -64,10 +80,30 @@ var elDvMotorista = selFalso(), elDvOrigem = selFalso();
 var POR_ID = { sdMotorista: elMotorista, sdRota: elRota,
                dvMotorista: elDvMotorista, dvOrigem: elDvOrigem };
 global.document = { getElementById: function (id) { return POR_ID[id] || null; } };
-global.Q = { esc: function (t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); } };
+global.Q = {
+  /* O MESMO `esc` do app.js, e nao uma versao curta dele. A daqui escapava so `&`
+     e `<`, e a aspa passava — o dublê era mais FRACO que o original, entao o teste
+     nao podia enxergar a injecao pelo atributo nem se ela existisse. */
+  esc: function (s) {
+    return String(s === undefined || s === null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  },
+  /* LIBERA TODOS, e LE O CADASTRO NA HORA. Uma lista de IDs escrita a mao aqui
+     faria o motorista que um caso empurra no meio do teste — o Neto, do caso 4 —
+     ser peneirado fora sem dizer nada, e a assercao mediria a peneira achando que
+     media a ordem. Foi exatamente o que aconteceu na primeira tentativa. */
+  sessao: function () {
+    return { motoristas: DADOS.motoristas.map(function (m) {
+      if (!m.ID) throw new Error('motorista de mentira sem ID: ' + m.Nome);
+      return m.ID;
+    }) };
+  }
+};
 global.DADOS = DADOS;
 
-var F = eval('(function(){' + corpo('motoristas') + corpo('motoristasDaRota') + corpo('montarMotoristas') +
+var F = eval('(function(){' + corpo('permitidos') + corpo('meusMotoristas') +
+             corpo('motoristas') + corpo('motoristasDaRota') + corpo('montarMotoristas') +
              'return { montar: montarMotoristas, daRota: motoristasDaRota };})()');
 
 /** Lê o HTML gerado: nomes por grupo, na ordem. */
@@ -118,7 +154,7 @@ r = escolherRota('R-RECIFE');
 ok(r.escolhido === 'Sebastião', 'a cobertura não atravessa a troca de rota');
 
 /* ---- 4. rota com mais de um não escolhe por ninguém ---- */
-DADOS.motoristas.push({ Nome: 'Neto', Rotas: ['R-RECIFE'] });
+DADOS.motoristas.push({ ID: 'D5', Nome: 'Neto', Rotas: ['R-RECIFE'] });
 elRota.value = '';                            // força a rota a "mudar" de novo
 F.montar('sdMotorista', 'sdRota');
 r = escolherRota('R-RECIFE');
@@ -134,11 +170,23 @@ ok(r.todos.length === 4, 'sem rota mostra todo mundo');
 r = escolherRota('R-FANTASMA');
 ok(r.todos.length === 4, 'rota sem cadastro ainda oferece a lista inteira');
 
-/* ---- 7. o nome sai escapado ---- */
-DADOS.motoristas.push({ Nome: 'A & <b>B</b>', Rotas: [] });
+/* ---- 7. o nome sai escapado, NOS DOIS LUGARES ----
+   O nome entra no `<option>` duas vezes: como texto entre as tags e como valor do
+   atributo. Uma fixture com `<b>` só alcança a primeira — o texto escapado bastava
+   para a asserção passar enquanto o ATRIBUTO ia cru, que é justamente por onde se
+   sai da aspa e se escreve um `onmouseover`. Medido: arrancar o `Q.esc` do valor
+   passava. A aspa dentro do nome é o que separa os dois caminhos. */
+DADOS.motoristas.push({ ID: 'D6', Nome: 'A & <b>B</b>" onmouseover="x', Rotas: [] });
 elRota.value = '';
 r = escolherRota('R-CARUARU');
-ok(elMotorista.innerHTML.indexOf('<b>B</b>') === -1, 'nome com HTML não é injetado');
+ok(elMotorista.innerHTML.indexOf('<b>B</b>') === -1,
+   'nome com HTML não é injetado no TEXTO da opção');
+/* A ASPA DE VERDADE, e nao a palavra: escapada, ela vira `onmouseover=&quot;`, que
+   ainda CONTEM o texto "onmouseover=". Procurar so a palavra dava falha com o
+   codigo certo. O que distingue um do outro e a aspa aberta logo depois do `=`. */
+ok(elMotorista.innerHTML.indexOf('onmouseover="') === -1 &&
+   elMotorista.innerHTML.indexOf('&quot;') > 0,
+   'nem no ATRIBUTO: sem escapar a aspa, o nome fecha o `value` e escreve evento');
 DADOS.motoristas.pop();
 
 /* ---- 8. a devolução segue a mesma regra, pela rota de onde a carga vem ---- */

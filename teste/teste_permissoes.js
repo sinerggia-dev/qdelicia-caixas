@@ -128,6 +128,26 @@ PERMISSOES.forEach(function (p) {
   });
 });
 
+/* A PENEIRA DE VERDADE, e não a palavra.
+ *
+ * A varredura acima pergunta se o nome da chave APARECE na tela — e "motoristas"
+ * aparece dezenas de vezes no index.html por motivos que nada têm a ver com
+ * permissão: o campo, o rótulo, o cadastro, a rota. MEDIDO: arrancar o
+ * `permitidos()` de dentro do `meusMotoristas()` — que é a peneira inteira, a
+ * pessoa passa a ver toda a equipe — não derrubou NENHUMA das nove suítes.
+ * Uma ocorrência respondendo por outra, que é o jeito mais comum de uma
+ * asserção parecer que guarda uma coisa e guardar outra.
+ *
+ * As cinco listas de cadastro passam todas pela MESMA função, com a chave da
+ * sessão como segundo argumento. É isso que se cobra aqui: a chamada, com a
+ * chave certa, e não a palavra solta no arquivo. */
+var PENEIRADAS = ['saidas', 'destinos', 'tiposCaixa', 'motoristas', 'veiculos'];
+PENEIRADAS.forEach(function (k) {
+  ok(new RegExp("permitidos\\([\\s\\S]{0,120}?,\\s*'" + k + "'\\)").test(telas['index.html']),
+    k + ": a lista passa por `permitidos(…, '" + k + "')` — sem a peneira a pessoa " +
+    'vê e escolhe exatamente o que a gravação vai recusar');
+});
+
 /* A lista acima não pode ficar para trás do formulário. Uma permissão nova que entre no
    salvar e não aqui escaparia da varredura inteira, calada. */
 var envio = form.slice(form.indexOf('Saidas:lerMarcados'));
