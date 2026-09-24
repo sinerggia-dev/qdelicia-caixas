@@ -146,9 +146,37 @@ a{color:var(--marca-txt);text-decoration:none}
     rgba(53,214,160,0) 100%),var(--campo);
   border-bottom:1px solid var(--linha);box-shadow:0 8px 20px rgba(4,14,28,.4)
 }
-/* A barra de acento na borda esquerda, como a da faixa do dia. */
+/* A BARRA DE ACENTO na borda esquerda, como a da faixa do dia — e uma luz desce por ela.
+   Não é enfeite gratuito: o app fica aberto o dia inteiro num aparelho de galpão, e uma
+   tela inteiramente parada não distingue "carregando", "travado" e "em dia". Este é o
+   sinal mais barato de que o app está vivo, e fica na moldura, longe do número.
+
+   Anima a POSIÇÃO DO FUNDO, e não o tamanho nem a sombra: posição de fundo a placa de
+   vídeo resolve sozinha, sem recalcular layout. É o que deixa isto rodar para sempre num
+   celular de entrada sem comer bateria.
+
+   O `background-size:100% 300%` é o que faz a luz ter para onde ir — sem ele o degradê
+   cabe inteiro na barra e a animação roda sem mover nada. */
 .topo::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
-  background:var(--verde)}
+  background:linear-gradient(180deg,
+    rgba(53,214,160,.35) 0%, var(--verde) 22%,
+    rgba(53,214,160,.35) 45%, rgba(53,214,160,.35) 100%);
+  background-size:100% 300%;animation:descer 7s ease-in-out infinite}
+@keyframes descer{
+  0%{background-position:0 -100%} 55%{background-position:0 200%}
+  100%{background-position:0 200%}}
+
+/* E um brilho varre a linha de baixo, da esquerda para a direita. Mesma conta: posição
+   de fundo, nada de layout. Os 45% parados no fim de cada volta são de propósito — um
+   movimento contínuo vira ruído, e ruído constante é o que faz ninguém reparar. */
+.topo::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
+  background:linear-gradient(90deg,rgba(53,214,160,0) 0%,
+    rgba(53,214,160,.9) 50%,rgba(53,214,160,0) 100%);
+  background-size:42% 100%;background-repeat:no-repeat;
+  animation:varrer 8s ease-in-out infinite}
+@keyframes varrer{
+  0%{background-position:-60% 0} 60%{background-position:160% 0}
+  100%{background-position:160% 0}}
 
 /* ---------- "Olá, Fulano" ----------
  * NA SEGUNDA LINHA DA BARRA DO APP, debaixo da foto. Ela ja morou na linha da
@@ -207,7 +235,20 @@ a{color:var(--marca-txt);text-decoration:none}
    lugar mesmo enquanto a sessão não carregou e a saudação está `hidden`: sem isso a
    barra nasceria com 56px e pularia para 75 no primeiro pintar. */
 .topo__conta .avatar{width:36px;height:36px;font-size:12px;
-  box-shadow:0 0 0 2px var(--campo),0 0 0 3px rgba(53,214,160,.45)}
+  box-shadow:0 0 0 2px var(--campo),0 0 0 3px rgba(53,214,160,.45);
+  animation:anel 5s ease-out infinite}
+/* O ANEL ABRE E SE DISSOLVE. As duas primeiras sombras são o contorno FIXO e estão nos
+   dois quadros: com a animação desligada — ou enquanto ela não começou — o rosto
+   continua separado do fundo escuro, que é a razão de o anel existir. A terceira é a
+   única que cresce e some. Anel que some junto com a animação seria um contorno que
+   depende de enfeite para existir. */
+@keyframes anel{
+  0%{box-shadow:0 0 0 2px var(--campo),0 0 0 3px rgba(53,214,160,.45),
+               0 0 0 3px rgba(53,214,160,.45)}
+  55%,100%{box-shadow:0 0 0 2px var(--campo),0 0 0 3px rgba(53,214,160,.45),
+               0 0 0 13px rgba(53,214,160,0)}}
+/* Parado sob o dedo: quem foi tocar na conta não quer o alvo respirando embaixo dele. */
+.topo__conta .avatar:hover,.topo__conta .avatar:focus-visible{animation-play-state:paused}
 
 /* Botao so de icone. 44px porque e o alvo minimo de dedo — o app e usado de luva. */
 .btn-icone{
@@ -352,8 +393,15 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border-radius:50%;
   background:var(--verde);border:2px solid var(--campo)
 }
-.avatar .ponto.alerta{background:var(--ambar)}
-.avatar .ponto.off{background:var(--vermelho)}
+/* RESPIRA, NUNCA PISCA: piscar lê como alerta, e isto não é alerta — é o contrário,
+   é o sinal de que está tudo bem. */
+.avatar .ponto{animation:respirar 4s ease-in-out infinite}
+@keyframes respirar{0%,100%{opacity:1}50%{opacity:.55}}
+/* E SÓ O VERDE RESPIRA. Amarelo e vermelho são estado, não batimento: um ponto de
+   alerta que esmaece e volta parece estar se resolvendo sozinho, e não está. Parado,
+   ele fica como quem está esperando — que é o que é. */
+.avatar .ponto.alerta{background:var(--ambar);animation:none}
+.avatar .ponto.off{background:var(--vermelho);animation:none}
 .conta__id{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
 .conta__nome{font-size:13px;font-weight:600;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .conta__meta{font-size:11px;color:var(--txt3);line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -556,6 +604,13 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   .users .u,.folha,.veu-folha,
   .u__acesso .pilha-selos .tag.amarela,
   .u__acesso .pilha-selos .tag.vermelha{animation:none!important}
+  /* A BARRA DO APP TAMBÉM. A luz que desce, o brilho que varre, o anel que abre e o
+     ponto que respira são os quatro enfeite: a barra diz exatamente a mesma coisa
+     parada. A de acento volta a ser uma barra CHEIA, e não o degradê congelado num
+     quadro qualquer — parada, a luz viraria uma mancha clara no meio dela. */
+  .topo::before{background:var(--verde);animation:none!important}
+  .topo::after{display:none}
+  .topo__conta .avatar,.avatar .ponto{animation:none!important}
 }
 
 /* 1180px prendia a tabela de Movimentos, que precisa de 1300px com nome de local e

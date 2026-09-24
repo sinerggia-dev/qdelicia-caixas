@@ -2467,8 +2467,8 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
   ok(/ponto\.className = estado \? 'ponto ' \+ estado : 'ponto'/.test(badge),
     'a cor do ponto sai do mesmo estado do texto — verde é "está tudo bem", e nada mais');
   ok(/\.avatar \.ponto\{[^}]*background:var\(--verde\)/.test(css) &&
-     /\.avatar \.ponto\.alerta\{background:var\(--ambar\)\}/.test(css) &&
-     /\.avatar \.ponto\.off\{background:var\(--vermelho\)\}/.test(css),
+     /\.avatar \.ponto\.alerta\{background:var\(--ambar\)/.test(css) &&
+     /\.avatar \.ponto\.off\{background:var\(--vermelho\)/.test(css),
     'e as três cores existem: verde, âmbar para a fila, vermelho para sem rede');
 
   /* Quem ve o aviso no celular e quem esta com lancamento preso — e era o unico que nao
@@ -2532,6 +2532,10 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
   var iTopo = css.indexOf('.topo{');
   var barra = css.slice(iTopo, css.indexOf('\n}', iTopo));
   ok(iTopo > 0, 'a barra de app tem bloco próprio', iTopo);
+  var i0 = css.indexOf('.topo::before{'), i1 = css.indexOf('.topo::after{');
+  var barra0 = css.slice(i0, css.indexOf('}', i0) + 1);
+  var barra1 = css.slice(i1, css.indexOf('}', i1) + 1);
+  ok(i0 > 0 && i1 > 0, 'e as duas bordas vivas dela também', i0 + '/' + i1);
 
   var iOla = telas['admin.html'].indexOf('id="olaUsuario"');
   var iCab = telas['admin.html'].indexOf('</header>');
@@ -2648,6 +2652,66 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
      /\.topo > \.btn-icone\{grid-column:3;grid-row:1\}/.test(css),
     'e a conta e o gatilho ficam na linha de CIMA, ao lado da marca — soltos na grade ' +
     'eles cairiam para a linha da saudação');
+
+  /* ---- A BARRA ESTÁ VIVA -------------------------------------------------
+   * O app fica aberto o dia inteiro num aparelho de galpão, e uma tela inteiramente
+   * parada não distingue "carregando", "travado" e "em dia". Quatro sinais, todos na
+   * MOLDURA e nenhum em cima de um número: a luz que desce pela barra de acento, o
+   * brilho que varre a linha de baixo, o anel que abre em volta do rosto e o ponto de
+   * rede que respira. Como moram no `.topo`, que é um só por app e fica fora do corpo
+   * que troca, eles valem para TODOS os módulos dos dois apps. */
+  ok(/animation:descer 7s ease-in-out infinite\}/.test(barra0) &&
+     /@keyframes descer\{/.test(css),
+    'uma luz desce pela barra de acento — o sinal mais barato de que o app está vivo');
+  /* O QUE FAZ ANDAR, e não o que está escrito. `animation` sem `background-size` roda
+     e não move NADA: o degradê cabe inteiro nos 4px e cada quadro é igual ao anterior.
+     Medido com o instante de cada animação fixado a mão — sem `background-size`, a
+     posição no instante 0 e no instante 2,6s é a mesma. */
+  ok(/background-size:100% 300%;animation:descer/.test(barra0),
+    'e o degradê é TRÊS VEZES a altura da barra, que é o que dá à luz para onde ir — ' +
+    'sem isso a animação roda e a barra fica parada, e nenhuma conferência de texto vê');
+  ok(/animation:varrer 8s ease-in-out infinite\}/.test(barra1) &&
+     /background-size:42% 100%;background-repeat:no-repeat;/.test(barra1) &&
+     /@keyframes varrer\{/.test(css),
+    'e um brilho varre a linha de baixo — com largura e sem repetir, senão a linha ' +
+    'inteira acende de uma vez e não varre coisa nenhuma');
+  /* O ANEL ABRE. As DUAS primeiras sombras são o contorno fixo e estão nos DOIS
+     quadros: elas são a razão de o anel existir — separar o rosto do fundo escuro. */
+  var iAnel = css.indexOf('@keyframes anel{');
+  var quadrosAnel = css.slice(iAnel, css.indexOf('}}', iAnel));
+  ok(/animation:anel 5s ease-out infinite/.test(css),
+    'o anel do rosto abre e se dissolve');
+  ok(iAnel > 0 &&
+     (quadrosAnel.match(/0 0 0 2px var\(--campo\),0 0 0 3px rgba\(53,214,160,\.45\)/g) || []).length === 2,
+    'e o contorno FIXO está nos dois quadros — anel que some junto com a animação é um ' +
+    'contorno que depende de enfeite para existir', quadrosAnel.length);
+  ok(/\.topo__conta \.avatar:hover,\.topo__conta \.avatar:focus-visible\{animation-play-state:paused\}/.test(css),
+    'e para sob o dedo: quem foi tocar na conta não quer o alvo respirando embaixo dele');
+  /* RESPIRA, NUNCA PISCA — e só o verde. */
+  ok(/\.avatar \.ponto\{animation:respirar 4s ease-in-out infinite\}/.test(css) &&
+     /@keyframes respirar\{0%,100%\{opacity:1\}50%\{opacity:\.55\}\}/.test(css),
+    'o ponto de rede respira em vez de piscar — piscar lê como alerta, e ponto verde é ' +
+    'o contrário de alerta');
+  ok(/\.avatar \.ponto\.alerta\{background:var\(--ambar\);animation:none\}/.test(css) &&
+     /\.avatar \.ponto\.off\{background:var\(--vermelho\);animation:none\}/.test(css),
+    'e amarelo e vermelho NÃO respiram: um ponto de alerta que esmaece e volta parece ' +
+    'estar se resolvendo sozinho, e não está');
+  /* QUEM PEDIU MENOS MOVIMENTO RECEBE NENHUM. Medido com o Chrome em movimento
+     reduzido: zero animações vivas na barra. */
+  /* O bloco de movimento reduzido QUE TRATA DA BARRA. O arquivo tem quatro deles, e
+     tanto `lastIndexOf` quanto `indexOf` pegariam um bloco qualquer — a afirmação
+     ficaria vermelha ou verde por causa de um bloco que não é o que ela cobra. */
+  var iAfter = css.indexOf('.topo::after{display:none}');
+  var iRed = css.lastIndexOf('@media (prefers-reduced-motion:reduce){', iAfter);
+  var reduzido = iAfter > 0 ? css.slice(iRed, css.indexOf('\n}', iRed)) : '';
+  ok(iRed > 0 && /\.topo::after\{display:none\}/.test(reduzido) &&
+     /\.topo__conta \.avatar,\.avatar \.ponto\{animation:none!important\}/.test(reduzido),
+    'e quem pede menos movimento não recebe nenhum dos quatro — medido: zero animações ' +
+    'vivas na barra', reduzido.length);
+  /* A BARRA DE ACENTO VOLTA CHEIA, e não é o degradê congelado: parada num quadro
+     qualquer, a luz viraria uma mancha clara no meio dela. */
+  ok(/\.topo::before\{background:var\(--verde\);animation:none!important\}/.test(reduzido),
+    'e a barra de acento volta a ser CHEIA, em vez do degradê congelado num quadro');
 })();
 
 console.log('\n== o cadastro novo avisa que o item nasce negado ==');
