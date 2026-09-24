@@ -546,10 +546,6 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .tempo__g{font-size:18px;font-weight:700;letter-spacing:-.3px}
 .tempo__loc{display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--txt2);
   white-space:nowrap}
-/* A CONDIÇÃO EM PALAVRAS, antes do local: "chuva forte · Recife". Em branco cheio,
-   como o local — a hierarquia é por TAMANHO (o grau tem 14px, esta linha 11,5), e não
-   por brilho. Texto apagado no meio de uma frase branca lê como defeito de estilo, não
-   como informação secundária. */
 /* ===== A CONTA DENTRO DA PÍLULA DO TEMPO (só no computador) =====
  * Uma moldura só, em vez de duas encostadas no mesmo canto. A conta, o tempo e a hora
  * se separam pela MESMA divisória que já separava tempo de hora.
@@ -583,18 +579,32 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 @media (max-width:1180px){ .tempo__quem{display:none}
   .tempo__conta{padding:5px;margin:-5px 0 -5px -4px} }
 
-.tempo__cond{font-weight:600;color:var(--txt)}
-.tempo__cond:not(:empty)::after{content:"·";margin:0 3px 0 5px;color:var(--txt-fraco);
-  font-weight:400}
-/* Vazio, some por inteiro — senão o "·" dele sobraria solto antes do nome da cidade
-   enquanto nenhuma fonte respondeu. */
-.tempo__cond:empty{display:none}
+/* A CONDIÇÃO EM PALAVRAS saiu da linha, a pedido, e ficou só no balão. O que pesou foi
+   a largura: com grau, condição e local disputando a mesma linha, o LOCAL era o primeiro
+   a cortar — e é ele que diz de onde é o tempo mostrado. Tempo certo da cidade errada é
+   pior que tempo vago da certa. */
 /* As estrelas da noite cintilam fora de compasso: juntas, leriam como alarme. */
 @keyframes cintilar{0%,100%{opacity:.9}50%{opacity:.25}}
 .tempo__ico .estrela{animation:cintilar 3.6s ease-in-out infinite}
 .tempo__ico .estrela.e2{animation-duration:4.8s;animation-delay:.9s}
 .tempo__ico .estrela.e3{animation-duration:4.2s;animation-delay:1.9s}
 .tempo__loc svg{flex:0 0 auto;color:var(--txt3)}
+/* O CONVITE DO GPS. Enquanto a localizacao do aparelho nao esta em uso, o nome do
+   local e tocavel — e precisa PARECER tocavel sem virar botao: um botao ali, do lado
+   do grau, competiria com a conta e com o menu pela mesma atencao. O tracejado por
+   baixo e o cursor dizem "da para tocar" e mais nada. Ao aceitar, a classe sai e o
+   nome volta a ser so texto: o convite existe enquanto ainda ha o que oferecer.
+   A area de toque vai a 24px pelo `::after` — 11px de texto e menos da metade do
+   alvo minimo, e quem usa isso esta de luva. */
+.tempo__loc .pode-gps{position:relative;cursor:pointer;
+  text-decoration:underline dotted;text-underline-offset:2px;
+  text-decoration-color:var(--txt3)}
+.tempo__loc .pode-gps::after{content:"";position:absolute;left:-14px;right:-4px;
+  top:50%;height:24px;transform:translateY(-50%)}
+.tempo__loc .pode-gps:hover,.tempo__loc .pode-gps:focus-visible{color:var(--txt);
+  text-decoration-color:currentColor}
+.tempo__loc .pode-gps:focus-visible{outline:2px solid var(--azul);outline-offset:3px;
+  border-radius:3px}
 .tempo__div{width:1px;align-self:stretch;background:var(--linha)}
 .tempo__d{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
 .tempo__data{font-size:11.5px;color:var(--txt2);white-space:nowrap}

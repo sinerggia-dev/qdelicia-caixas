@@ -464,11 +464,14 @@
       '<span class="tempo__c">' +
         '<span class="tempo__g" id="tempoGrau">--°</span>' +
         '<span class="tempo__loc">' +
-          /* A CONDIÇÃO EM PALAVRAS, e não só no `title`. Um desenho de 28px não
-             distingue "garoa" de "chuva forte", e é justamente essa diferença que muda
-             a decisão de quem vai carregar caminhão. O balão exige parar o mouse em
-             cima; a palavra se lê de passagem. */
-          '<b class="tempo__cond" id="tempoCond"></b>' +
+          /* A CONDIÇÃO SAIU DA LINHA, a pedido, e ficou só no balão.
+             Ela esteve aqui com um argumento que continua valendo — um desenho de 28px
+             não distingue "garoa" de "chuva forte", e essa diferença muda a decisão de
+             quem carrega caminhão. O que pesou contra foi a largura: com grau,
+             condição e local na mesma linha, o local — que diz de ONDE é o tempo —
+             era o primeiro a cortar. Entre perder a palavra e perder a cidade, a
+             cidade fica: tempo certo da cidade errada é pior que tempo vago da certa.
+             A palavra continua no `title`, e a tabela de intensidades continua inteira. */
           '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
                'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
             '<path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"></path>' +
@@ -595,6 +598,86 @@
   }
 
 
+  /* ================= O LOCAL DE VERDADE, PELO GPS =================
+   *
+   * "Recife" é o município do meio de uma região metropolitana, e o galpão pode estar
+   * em São Lourenço da Mata, Jaboatão, Paulista ou Cabo. Medido nos dois pontos daqui:
+   * a mesma consulta devolve "Recife" para a Ilha do Leite e "São Lourenço da Mata"
+   * para um ponto a 20km — ou seja, com o GPS o rótulo passa a dizer o lugar de
+   * verdade, e o grau passa a ser lido NA COORDENADA de quem está olhando.
+   *
+   * NÃO PEDE NADA SOZINHO. Se o navegador já tem a permissão concedida, usa; se não, o
+   * nome do local vira um BOTÃO e quem quiser toca. Janela de GPS na cara de quem só
+   * abriu a tela é o tipo de coisa que faz a pessoa fechar e não voltar.
+   *
+   * O RELÓGIO NÃO SEGUE O GPS. A hora continua sendo a da OPERAÇÃO: é ela que decide
+   * se um lançamento é "de hoje" e é por ela que a janela de dez minutos da correção
+   * conta. O GPS move só o TEMPO, que responde outra pergunta — "como está AQUI agora".
+   * Por isso `UNIDADE.fuso` não é tocado em lugar nenhum daqui.
+   *
+   * E É POR ISSO QUE É OFERTA, não padrão: o gerente que abre o painel de casa no
+   * domingo veria o tempo DA CASA DELE, não o do galpão, e tomaria decisão de carga
+   * com a chuva errada. A coordenada fixa da unidade continua sendo o começo de toda
+   * sessão; o GPS é de quem está no lugar e sabe que está.
+   *
+   * A COORDENADA vai para o serviço de tempo e para o de nome, e mais nada: não é
+   * gravada, não entra em movimento nenhum e não passa pelo servidor do sistema. */
+  var GPS_LIGADO = true;
+
+  function ondeEstou() {
+    return new Promise(function (ok, erro) {
+      if (!navigator.geolocation) return erro('navegador sem GPS');
+      navigator.geolocation.getCurrentPosition(
+        function (p) {
+          ok({ lat: +p.coords.latitude.toFixed(4),
+               lon: +p.coords.longitude.toFixed(4),
+               prec: Math.round(p.coords.accuracy || 0) });
+        },
+        function (e) { erro((e && e.message) || 'permissão negada'); },
+        /* 15min de `maximumAge`: quem está no galpão não se moveu entre duas trocas de
+           aba, e reaproveitar a leitura poupa o rádio do aparelho. */
+        { enableHighAccuracy: true, timeout: 9000, maximumAge: 15 * 60 * 1000 }
+      );
+    });
+  }
+
+  /* DUAS FONTES DE NOME, as duas medidas daqui antes de entrarem:
+   *
+   * 1. BigDataCloud — responde com `Access-Control-Allow-Origin: *`, não pede chave e
+   *    distingue município de município: devolveu "São Lourenço da Mata" no ponto onde
+   *    uma consulta mais grossa diria só "Recife".
+   * 2. wttr.in — o `nearest_area` da MESMA resposta que já buscamos para o tempo. Mais
+   *    grosso, mas não acrescenta domínio nenhum e já está provado que atende o
+   *    navegador, porque é de lá que o grau vem quando a Open-Meteo falha.
+   *
+   * O NOMINATIM FICOU DE FORA de propósito. Ele seria a reserva óbvia — é o do
+   * OpenStreetMap —, e daqui ele até responde. Mas com cabeçalho `Origin`, que é o que
+   * todo navegador manda, ele devolve 403: recusa página. Uma reserva que nunca pode
+   * ser exercitada é pior que reserva nenhuma, porque parece que existe. */
+  function nomeDoLugar(lat, lon) {
+    return fetch('https://api.bigdatacloud.net/data/reverse-geocode-client' +
+                 '?latitude=' + lat + '&longitude=' + lon + '&localityLanguage=pt',
+                 { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (d) {
+        /* `locality` é o menor nome que o serviço conhece — o bairro ou o município —,
+           e é o que a pessoa reconhece como "onde eu estou". `city` e a região são os
+           degraus acima, para quando o menor não vem. */
+        return d.locality || d.city || d.principalSubdivision ||
+               Promise.reject('sem nome');
+      })
+      .catch(function () {
+        return fetch('https://wttr.in/' + lat + ',' + lon + '?format=j1',
+                     { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+          .then(function (d) {
+            var a = (d && d.nearest_area && d.nearest_area[0]) || {};
+            var n = ((a.areaName || [])[0] || {}).value;
+            return n || Promise.reject('sem nome');
+          });
+      });
+  }
+
   function relogioETempo() {
     /* NO CABEÇALHO DA PÁGINA, que é um só para o app inteiro e fica FORA do
        `.corpo-pagina` que troca de conteúdo. Por isso a faixa aparece em todos os
@@ -615,7 +698,6 @@
     var elT = caixa.querySelector('.tempo__t');
     var elIco = caixa.querySelector('.tempo__ico');
     var elGrau = caixa.querySelector('.tempo__g');
-    var elCond = caixa.querySelector('.tempo__cond');
     var elData = caixa.querySelector('.tempo__data');
     var elHora = caixa.querySelector('.tempo__hora');
     caixa.querySelector('#tempoLocal').textContent = UNIDADE.nome;
@@ -782,7 +864,6 @@
       var d = desenho(cod, dia);
       elIco.innerHTML = svg(d[0]);
       elGrau.textContent = grau + '°';
-      elCond.textContent = d[1];
       elT.classList.remove('tempo--sem');
       ultima = new Date();
       caixa.title = d[1] + ' em ' + UNIDADE.nome + ' · ' + grau + '°C · ' + fonte +
@@ -887,13 +968,18 @@
        momentos em que o dado está mais velho e em que alguém está olhando. */
     var RITMO_OK = 10 * 60 * 1000, RITMO_MAX = 10 * 60 * 1000;
     var falhas = 0, agenda = null, buscando = false;
+    /* QUAL COORDENADA a busca no ar esta perguntando. O GPS vira este numero;
+       resposta de geracao vencida e jogada fora em vez de virar grau na tela. */
+    var geracao = 0;
     function agendarBusca(ms) { clearTimeout(agenda); agenda = setTimeout(buscar, ms); }
 
     function buscar() {
       if (!window.fetch || buscando) return;
       buscando = true;
+      var minha = geracao;
       tentarTodas()
         .then(function (v) {
+          if (minha !== geracao) return;
           /* a que respondeu vira a primeira da próxima vez */
           ordemFontes.sort(function (a, b) {
             return (b.nome === v.fonte) - (a.nome === v.fonte);
@@ -903,6 +989,7 @@
           agendarBusca(RITMO_OK);
         })
         .catch(function () {
+          if (minha !== geracao) return;
           falhas++;
           /* SÓ FALA SE NUNCA LEU NADA. Havendo uma leitura na tela, ela FICA: um valor
              de vinte minutos atrás é melhor que apagar o campo, e a hora do `title` diz
@@ -914,7 +1001,83 @@
           }
           agendarBusca(Math.min(30000 * Math.pow(2, falhas - 1), RITMO_MAX));
         })
-        .then(function () { buscando = false; });
+        .then(function () { if (minha === geracao) buscando = false; });
+    }
+
+    /* ---- passar a ler no lugar de quem está olhando ----
+       Ver o bloco "O LOCAL DE VERDADE, PELO GPS" lá em cima: nada aqui pede permissão
+       por conta própria, e o relógio não se mexe. */
+    var elLocal = caixa.querySelector('#tempoLocal');
+
+    function usarGPS() {
+      elLocal.textContent = 'localizando…';
+      return ondeEstou().then(function (p) {
+        UNIDADE.lat = p.lat; UNIDADE.lon = p.lon;
+        /* O GRAU QUE ESTÁ NA TELA É DE OUTRO LUGAR. Zerar `ultima` e apagar o número
+           é o que impede o pior desfecho deste recurso: o rótulo trocar para a cidade
+           nova enquanto o grau continua sendo o da antiga — tempo errado com etiqueta
+           convincente. Volta para "--°" até a consulta nova responder. */
+        ultima = null;
+        elGrau.textContent = '--°';
+        elT.classList.add('tempo--sem');
+        /* E a busca que estiver NO AR agora responde pela coordenada velha. Sem virar
+           a geração, ela chegaria depois e repintaria o grau do lugar antigo por cima
+           do novo — o `buscando` sozinho só a faria ser ignorada na ida, não na volta. */
+        geracao++;
+        buscando = false;
+        buscar();
+        return nomeDoLugar(p.lat, p.lon).then(function (n) {
+          UNIDADE.nome = n;
+          elLocal.textContent = n;
+          elLocal.classList.remove('pode-gps');
+          elLocal.title = 'Pelo GPS · precisão de cerca de ' + p.prec + ' m';
+          return n;
+        }).catch(function () {
+          /* Achou a coordenada e não achou o nome. O GRAU JÁ ESTÁ CERTO — foi buscado
+             na coordenada —, então não se desfaz nada: só o rótulo cede, e diz a
+             verdade sobre o que sabe. */
+          UNIDADE.nome = 'sua localização';
+          elLocal.textContent = UNIDADE.nome;
+          elLocal.classList.remove('pode-gps');
+          return null;
+        });
+      }).catch(function (e) {
+        /* Negou, deu tempo esgotado ou o aparelho não tem GPS: volta a dizer a unidade,
+           e o convite continua de pé. Nada foi trocado — a coordenada só muda DEPOIS
+           de a posição chegar. */
+        elLocal.textContent = UNIDADE.nome;
+        elLocal.classList.add('pode-gps');
+        return Promise.reject(e);
+      });
+    }
+
+    function oferecerGPS() {
+      elLocal.classList.add('pode-gps');
+      elLocal.title = 'Tocar para usar a localização deste aparelho';
+      elLocal.setAttribute('role', 'button');
+      elLocal.setAttribute('tabindex', '0');
+      elLocal.addEventListener('click', function () { usarGPS().catch(function () {}); });
+      elLocal.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault(); usarGPS().catch(function () {});
+        }
+      });
+    }
+
+    if (GPS_LIGADO && navigator.geolocation) {
+      /* `permissions.query` RESPONDE se já foi concedida sem pedir nada — é ele que
+         permite usar o GPS de quem já disse sim sem abrir janela para quem não disse.
+         Onde ele não existe, oferece o botão: é o caminho que nunca pede sozinho. */
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' })
+          .then(function (st) {
+            if (st.state === 'granted') usarGPS().catch(oferecerGPS);
+            else oferecerGPS();
+          })
+          .catch(oferecerGPS);
+      } else {
+        oferecerGPS();
+      }
     }
 
     document.addEventListener('visibilitychange', function () {
@@ -1876,6 +2039,7 @@
     temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
     hojeOperacao: hojeOperacao, FUSO_OPERACAO: FUSO_OPERACAO,
     UNIDADE: UNIDADE, relogioETempo: relogioETempo, caminhao: caminhao,
+    ondeEstou: ondeEstou, nomeDoLugar: nomeDoLugar,
     saudacaoDe: saudacaoDe, pintarSaudacao: pintarSaudacao,
     horaBR: horaBR, dataDoCarimboBR: dataDoCarimboBR, dataHoraBR: dataHoraBR,
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,

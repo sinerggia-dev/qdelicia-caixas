@@ -6268,11 +6268,97 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
   ok(/65: \['chuvaforte', 'chuva forte'/.test(js) && /51: \['garoa', +'garoa fraca'/.test(js),
     'os graus de intensidade viram palavras DIFERENTES — a tabela antiga dizia "chuva" ' +
     'de 51 a 82, e garoa e chuva forte mudam a decisão de quem carrega caminhão');
-  ok(/elCond\.textContent = d\[1\];/.test(js) && /id="tempoCond"/.test(js),
-    'e a palavra vai para a TELA, não só para o balão — desenho de 28px não distingue ' +
-    'garoa de chuva forte, e balão exige parar o mouse em cima');
-  ok(/\.tempo__cond:empty\{display:none\}/.test(css),
-    'e vazia ela some inteira, senão o "·" dela sobraria solto antes do nome da cidade');
+  /* A PALAVRA SAIU DA LINHA, a pedido, e ficou só no balão. O argumento que a tinha
+     posto lá continua valendo — um desenho de 28px não distingue garoa de chuva forte.
+     O que pesou contra foi a LARGURA: com grau, palavra e cidade na mesma linha, a
+     cidade era a primeira a cortar, e é ela que diz DE ONDE é o tempo mostrado.
+     Esta asserção cobra as duas metades — que a peça da linha não voltou, e que a
+     palavra não se perdeu no caminho: sair da tela E sair do balão seria jogar fora a
+     tabela de intensidades inteira sem ninguém perceber. */
+  ok(!/tempo__cond/.test(semComentarios(js)) && !/tempo__cond/.test(semComentarios(css)),
+    'a condição em palavras não ocupa mais a linha: ali a cidade cortava primeiro, e ' +
+    'tempo certo da cidade errada é pior que tempo vago da certa');
+  ok(/caixa\.title = d\[1\] \+ ' em ' \+ UNIDADE\.nome/.test(js),
+    'e ela continua no balão, com a cidade e a hora da leitura — a tabela de ' +
+    'intensidades segue inteira, só mudou de lugar');
+
+  /* ---- O LOCAL DE VERDADE, PELO GPS -------------------------------------
+   * "Recife" é o município do meio de uma região metropolitana. Medido daqui nos dois
+   * pontos: a consulta devolve "Recife" para a Ilha do Leite e "São Lourenço da Mata"
+   * para um ponto a 20km — que é exatamente a diferença que o rótulo fixo apaga. */
+  ok(/function ondeEstou\(\)/.test(js) &&
+     /navigator\.geolocation\.getCurrentPosition\(/.test(js),
+    'o tempo pode ser lido na coordenada de quem está olhando, e não só na do galpão');
+  /* NÃO PEDE NADA SOZINHO — e é isto que a asserção precisa provar, não a existência
+     da função. O caminho que pede é `getCurrentPosition`, e o único lugar de onde ele
+     pode partir sem toque é a permissão JÁ concedida, que `permissions.query` responde
+     sem abrir janela nenhuma. Janela de GPS na cara de quem só abriu a tela é o tipo
+     de coisa que faz a pessoa fechar e não voltar. */
+  /* E ESTA É A ASSERÇÃO QUE PRECISA MEDIR O EFEITO, não a regra: escrever o desvio
+     de `permissions.query` não impede ninguém de chamar `usarGPS()` uma linha acima e
+     abrir a janela do mesmo jeito — foi exatamente assim que a versão anterior desta
+     asserção passou sabotada, com o desvio intacto dentro de um `if (false)`.
+     O que ela cobra agora é a LISTA FECHADA de quem pode chamar: o desvio do
+     `granted`, o clique e a tecla. Qualquer quarta chamada — em qualquer lugar do
+     arquivo — derruba, porque toda chamada que não parte de um gesto nem de uma
+     permissão já concedida é uma janela de GPS na cara de quem só abriu a tela. */
+  var chamaGPS = semComentarios(js).split('\n')
+    .filter(function (l) {
+      return /usarGPS\(\)/.test(l) && !/function usarGPS\(\)/.test(l);
+    });
+  ok(/navigator\.permissions\.query\(\{ name: 'geolocation' \}\)/.test(js) &&
+     /if \(st\.state === 'granted'\) usarGPS\(\)\.catch\(oferecerGPS\);\s*\n\s*else oferecerGPS\(\);/.test(js) &&
+     chamaGPS.length === 3 && chamaGPS.every(function (l) {
+       return /st\.state === 'granted'/.test(l) ||
+              /addEventListener\('click'/.test(l) ||
+              /e\.preventDefault\(\);/.test(l);
+     }),
+    'e ele não é pedido sozinho: as ÚNICAS três chamadas são a permissão já ' +
+    'concedida, o clique e a tecla — o resto recebe um convite que pode ignorar');
+  ok(/function oferecerGPS\(\)/.test(js) &&
+     /elLocal\.setAttribute\('tabindex', '0'\);/.test(js) &&
+     /if \(e\.key === 'Enter' \|\| e\.key === ' '\)/.test(js),
+    'e o convite é alcançável pelo teclado — sem isso ele existe só para quem tem ' +
+    'mouse ou dedo na tela');
+  ok(/\.tempo__loc \.pode-gps\{[^}]*cursor:pointer/.test(css) &&
+     /\.tempo__loc \.pode-gps::after\{[^}]*height:24px/.test(css),
+    'e ele PARECE tocável sem virar botão, com alvo de 24px: 11px de texto é menos ' +
+    'da metade do mínimo, e quem usa isso está de luva');
+  /* DUAS FONTES DE NOME, as duas medidas daqui. O Nominatim ficou de fora de propósito:
+     com cabeçalho `Origin` — o que todo navegador manda — ele devolve 403. Reserva que
+     nunca pode ser exercitada é pior que reserva nenhuma, porque parece que existe. */
+  ok(/api\.bigdatacloud\.net\/data\/reverse-geocode-client/.test(js) &&
+     /d\.nearest_area && d\.nearest_area\[0\]/.test(js),
+    'o nome do lugar tem duas fontes: a que distingue município, e o `nearest_area` ' +
+    'da MESMA resposta que já traz o grau — sem domínio novo');
+  ok(!/nominatim/i.test(semComentarios(js)),
+    'e a reserva óbvia ficou de fora medida: o Nominatim devolve 403 para requisição ' +
+    'com `Origin`, e reserva que nunca pode rodar só parece que existe');
+  /* O RELÓGIO NÃO SEGUE O GPS. A hora é a da OPERAÇÃO — é ela que decide se um
+     lançamento é de hoje e é por ela que a janela de dez minutos da correção conta. */
+  ok(/UNIDADE\.lat = p\.lat; UNIDADE\.lon = p\.lon;/.test(js) &&
+     !/UNIDADE\.fuso *=/.test(js),
+    'e o GPS move a COORDENADA e nunca o fuso: a hora continua sendo a da operação, ' +
+    'que é quem decide o dia do lançamento');
+  /* O PIOR DESFECHO DESTE RECURSO seria o rótulo trocar para a cidade nova com o grau
+     da antiga ainda na tela — tempo errado com etiqueta convincente. */
+  ok(/ultima = null;\s*\n\s*elGrau\.textContent = '--°';\s*\n\s*elT\.classList\.add\('tempo--sem'\);/.test(js),
+    'e ao trocar de lugar o grau volta para "--°": o número da cidade velha sob o ' +
+    'nome da nova é mentira com cara de dado');
+  /* E A BUSCA QUE ESTÁ NO AR responde pela coordenada VELHA: sem virar a geração, ela
+     chegaria depois e repintaria o grau antigo por cima do novo. O `buscando` sozinho
+     só a faria ser ignorada na IDA, não na volta. */
+  /* OS TRÊS DESFECHOS da busca vencida precisam ser cobrados SEPARADAMENTE: um
+     `if (minha !== geracao)` solto no arquivo respondia pelos três, e apagar dois
+     deles passava. Ela pode voltar com sucesso (e repintar o grau velho), voltar com
+     erro (e recuar o ritmo por culpa de uma consulta que não interessa mais) ou
+     apenas terminar (e liberar o `buscando` de uma busca que ainda está no ar). */
+  ok(/var minha = geracao;/.test(js) && /geracao\+\+;/.test(js) &&
+     /\.then\(function \(v\) \{\n +if \(minha !== geracao\) return;/.test(js) &&
+     /\.catch\(function \(\) \{\n +if \(minha !== geracao\) return;\n +falhas\+\+;/.test(js) &&
+     /\.then\(function \(\) \{ if \(minha === geracao\) buscando = false; \}\);/.test(js),
+    'e a consulta que já estava no ar é descartada nos TRÊS desfechos — ela responde ' +
+    'pela coordenada velha e chegaria DEPOIS, pintando por cima da nova');
 
   /* ---- DIA OU NOITE, quando a fonte não diz ------------------------------
    * O wttr.in não manda `is_day`. Assumir dia mostraria SOL ÀS 22H. */
