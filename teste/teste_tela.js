@@ -5202,6 +5202,54 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
   ok(/travarColunas\(true\)[\s\S]{0,400}Q\.toast\(/.test(adm) ||
      /if \(porVencimento\) Q\.toast\(/.test(adm),
     'e o vencimento AVISA — trancar calado deixa a pessoa arrastando sem entender');
+  /* ---- O CADEADO FICA ONDE O GESTO É TENTADO ------------------------------
+   * O destravamento morava só na aba "Colunas", e isso estava errado na prática: para
+   * mexer numa coluna era preciso SAIR da tabela, atravessar o menu, digitar a senha e
+   * voltar. Atrito demais para uma coisa de uso diário — e o efeito real, relatado, foi
+   * a pessoa arrastar, nada acontecer, e concluir que o recurso tinha sido tirado.
+   * O cadeado agora fica ao lado da tabela, e um clique abre o pedido de senha. */
+  /* UM SÓ, e ANTES da tabela. A contagem não é detalhe: dois cadeados na mesma tela
+     seriam dois estados a conferir para a mesma coisa, e o de baixo diria "travadas"
+     enquanto o de cima já tivesse sido usado. E "antes da tabela" sozinho passava com um
+     segundo cadeado no rodapé, porque a busca acha o primeiro e para. */
+  /* A contagem é do ELEMENTO, e não da palavra: `data-trava-colunas` aparece também
+     como seletor dentro do `pintarTrava`, e contar a palavra solta dava dois desde o
+     primeiro dia. */
+  var cadeados = (adm.match(/<div class="trava-colunas" data-trava-colunas><\/div>/g) || []);
+  ok(cadeados.length === 1 &&
+     adm.indexOf('<div class="trava-colunas"') < adm.indexOf('id="tabelaMov"'),
+    'o cadeado fica ao lado da tabela, um só, e não numa aba distante — o destravamento ' +
+    'tem de estar onde o gesto é tentado', cadeados.length);
+  ok(/function pedirSenhaDasColunas\(\)\{/.test(adm) &&
+     /modal\('<h3 style="margin:0 0 4px">Liberar as colunas<\/h3>'\+/.test(adm),
+    'e o pedido de senha é um modal, que volta para onde a pessoa estava — a tabela ' +
+    'que ela quer arrumar');
+  /* ELE DIZ O ESTADO, e não só o que fazer. Sem isso a liberação vence de surpresa e a
+     pessoa volta a arrastar no vazio. Medido nos quatro cenários. */
+  ok(/colunasDestravadas\(\)\s*\n\s*\? '<span class="trava__on">Colunas liberadas até/.test(adm) &&
+     /data-travar>Travar agora<\/button>/.test(adm),
+    'e ele diz o ESTADO: travado mostra o cadeado, liberado mostra até que horas vale e ' +
+    'o jeito de travar na hora');
+  /* SÓ PARA QUEM PODE: oferecer o caminho para uma porta trancada é pior que não
+     oferecer. E ele pergunta pelo PERFIL, não pela trava — senão sumiria justamente
+     quando é preciso, que é com a trava fechada. */
+  ok(/if \(!podeVerArranjo\(\)\) \{ box\.innerHTML = ''; return; \}/.test(adm),
+    'e some para quem não é administrador — perguntando pelo PERFIL, porque pela trava ' +
+    'ele sumiria justamente quando é preciso');
+  ok(/\.trava-colunas:empty\{display:none\}/.test(css),
+    'e vazio ele não deixa um buraco na tela — espaço em branco no meio da página ' +
+    'parece peça que não carregou');
+  /* O CADEADO VIRA JUNTO com as tabelas. Esquecido, ele diria "travadas" com a tabela
+     já arrastável, e "liberadas até 13:05" quinze minutos depois de vencer. */
+  ok(/if \(document\.getElementById\('listaColunas'\)\) desenharColunas\(\);\s*\n[\s\S]{0,400}?pintarTrava\(\);/.test(adm),
+    'e ele é repintado nas duas viradas da trava — rótulo que mente sobre o próprio ' +
+    'estado é pior que rótulo nenhum');
+  /* UM OUVINTE SÓ, no documento: os cadeados são redesenhados a cada virada, e um
+     ouvinte por desenho empilharia dezenas no mesmo botão. */
+  ok(/if \(e\.target\.closest\('\[data-destravar\]'\)\) \{ pedirSenhaDasColunas\(\); return; \}/.test(adm),
+    'e o clique é ligado uma vez no documento — por desenho, empilharia dezenas no ' +
+    'mesmo botão');
+
   /* A CONFERÊNCIA MORA NO `app.js`, junto da entrada: a mesma rota, uma vez só. Uma
      segunda cópia divergiria da primeira no dia em que o login mudasse. */
   var nucleo = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
