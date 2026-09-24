@@ -2319,6 +2319,12 @@ table.fixa th.alvo{box-shadow:inset 3px 0 0 var(--azul,#4f8ef7)}
    trata `width` como sugestao e reparte pelo conteudo: arrastar a borda quase nao mudava
    nada e a coluna voltava sozinha ao soltar. */
 table.fixa{table-layout:fixed}
+/* TEXTO LIVRE NUMA COLUNA DE LARGURA FIXA. `table-layout:fixed` segura a LARGURA da
+   coluna, mas nao corta o conteudo: sem isto a observacao longa atravessa por cima da
+   celula vizinha, e a tabela fica ilegivel na linha em que alguem escreveu uma frase.
+   `display:block` e o que faz o span herdar a largura do `td` — como `inline`, ele se
+   estica e o `overflow` nao tem contra o que medir. */
+.corta{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Sem `position:relative` aqui de proposito: `th` ja e `sticky`, que tambem serve de
    referencia para a alcinha absoluta — e trocar por `relative` custaria o cabecalho
    grudado no topo, que e o que segura a leitura de uma lista longa. */

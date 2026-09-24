@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=0d171456">
+<link rel="stylesheet" href="styles.css?v=f1cfe038">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -2100,19 +2100,30 @@
      era a TELA que não levava, e tela e arquivo discordando sobre as mesmas linhas
      fazem a conferência chegar a um número que a tela não explica. */
   var TAB_MOV = {
-    padrao: ['data','hora','criado','status','origem','destino','caixa','qtd',
-             'motorista','veiculo','quem','alterado','alteradoEm'],
+    /* ROTA FICA AO LADO DE DESTINO porque e onde ela se le — e tambem onde a
+       duplicacao fica visivel. Hoje, na saida, a rota E o nome do destino: o app de
+       campo manda `rota: nomeDoLocal(destino)`, e o servidor monta `destino` com o
+       mesmo `nome(mLocais, DestinoID)`. Sao a mesma string. E o retorno nao manda rota
+       nenhuma, entao ali a coluna fica vazia. Posta longe do destino, ela pareceria um
+       dado a parte; ao lado dele, quem olhar ve de uma vez o que ela e hoje.
+       OBS FICA NO FIM, depois de tudo o que tem largura previsivel. E o unico campo de
+       texto livre da tabela: no meio, ele quebraria o ritmo de leitura das colunas
+       estreitas, e e o que se le por ultimo — quando uma linha estranha e se quer saber
+       por que. */
+    padrao: ['data','hora','criado','status','origem','destino','rota','caixa','qtd',
+             'motorista','veiculo','quem','alterado','alteradoEm','obs'],
     /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
        coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
        com a data mais larga do formato e a etiqueta junto. */
     larg: { data:120, hora:70, criado:110, status:110, origem:150, destino:150,
-            caixa:120, qtd:80, motorista:130, veiculo:110, quem:120, alterado:140,
-            alteradoEm:150 },
+            rota:150, caixa:120, qtd:80, motorista:130, veiculo:110, quem:120,
+            alterado:140, alteradoEm:150, obs:240 },
     titulos: { data:'Movimento', hora:'Hora', criado:'Criado em',
                status:'Status',
-               origem:'Origem', destino:'Destino', caixa:'Caixa', qtd:'Qtd',
-               motorista:'Motorista', veiculo:'Veículo', quem:'Quem',
-               alterado:'Alterado por', alteradoEm:'Alterado em' },
+               origem:'Origem', destino:'Destino', rota:'Rota', caixa:'Caixa',
+               qtd:'Qtd', motorista:'Motorista', veiculo:'Veículo', quem:'Quem',
+               alterado:'Alterado por', alteradoEm:'Alterado em',
+               obs:'Observação' },
     kOrdem: 'qdc_cols_mov_v1',
     kLarg: 'qdc_larg_mov_v1',
     kOcultas: 'qdc_cols_ocultas_mov_v1',
@@ -4856,6 +4867,15 @@
          VAZIO E RESPOSTA: lancamento antigo, de antes de o veiculo existir no cadastro,
          nao tem placa — e o travessao fraco diz isso, enquanto a celula em branco nao se
          distingue de uma coluna que nao soube responder. */
+      rota:      { t: TIT['rota'], k: function(m){ return m.rota || ''; },
+                   v: function(m){ return m.rota ? Q.esc(m.rota)
+                                                 : '<span class="fraco">—</span>'; } },
+      /* O TEXTO INTEIRO VAI NO `title`. Cortar sem deixar como ler e esconder o dado:
+         observacao existe justamente para o caso raro, e o caso raro e longo. */
+      obs:       { t: TIT['obs'], k: function(m){ return m.obs || ''; },
+                   v: function(m){ return m.obs
+                     ? '<span class="corta" title="'+Q.esc(m.obs)+'">'+Q.esc(m.obs)+'</span>'
+                     : '<span class="fraco">—</span>'; } },
       veiculo:   { t: TIT['veiculo'], k: function(m){ return m.veiculo || ''; },
                    v: function(m){ return m.veiculo
                      ? '<span class="tag cinza">'+Q.esc(m.veiculo)+'</span>'

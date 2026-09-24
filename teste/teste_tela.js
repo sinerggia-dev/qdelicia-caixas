@@ -2672,12 +2672,12 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var ip = desc.indexOf('padrao: [');
   var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
     .map(function (t) { return t.slice(1, -1); });
-  ok(cols.length === 13, 'são treze colunas de fábrica', cols);
+  ok(cols.length === 15, 'são quinze colunas de fábrica', cols);
 
-  /* AS CINCO QUE FORAM SENDO ACRESCENTADAS. Contar treze não diz QUAIS são treze:
+  /* AS SETE QUE FORAM SENDO ACRESCENTADAS. Contar quinze não diz QUAIS são quinze:
      trocar `hora` por outra coluna qualquer manteria a conta de pé. Elas respondem
      perguntas que a tabela não respondia — quando isto entrou no sistema, quem mexeu
-     depois, quando, e em que carro a carga foi. */
+     depois, quando, em que carro a carga foi, por que rota, e o que foi escrito à mão. */
   [['hora', 'a hora em que o lançamento foi gravado'],
    ['criado', 'o dia em que foi gravado, que nem sempre é o dia da carga'],
    ['alterado', 'quem mexeu por último — sem ela, um número corrigido e um número ' +
@@ -2685,9 +2685,64 @@ console.log('\n== as colunas da tabela de Movimentos ==');
    ['alteradoEm', 'QUANDO mexeram — correção no mesmo dia é acerto de digitação, e ' +
                   'seis dias depois do romaneio é outra conversa'],
    ['veiculo', 'em que CARRO a carga foi — no dia em que ela não bate, é o par ' +
-               'motorista-e-placa que se procura']].forEach(function (c) {
+               'motorista-e-placa que se procura'],
+   ['rota', 'a ROTA, que estava só na exportação — e dado que só existe no arquivo é ' +
+            'dado que ninguém revisa antes de mandar para fora'],
+   ['obs', 'a OBSERVAÇÃO, o único texto livre do lançamento: é onde está o porquê de ' +
+           'uma linha estranha, e ela também só saía no CSV']].forEach(function (c) {
     ok(cols.indexOf(c[0]) >= 0, 'a tabela de Movimentos traz ' + c[1], cols);
   });
+
+  /* --- AS DUAS CÉLULAS NOVAS, RODADAS, e não lidas ------------------------
+   * Procurar `class="corta"` no texto do arquivo prova que a letra está lá, e não que a
+   * célula a produz: basta a Obs vir por outro ramo do `? :` para a busca continuar
+   * verde e a tabela quebrar. Então as funções saem do arquivo e são EXECUTADAS. */
+  var iTit = adm.indexOf('var TIT = TAB_MOV.titulos;');
+  var iDefs = adm.indexOf('var DEFS = {', iTit);
+  var fimDefs = adm.indexOf('\n    };', iDefs);
+  /* O `Q.esc` DE VERDADE, copiado de `app.js`. Um dublê mais fraco — `esc: String`, que
+     esta suíte usa noutros lugares — deixaria a asserção de injeção cega: ela procura
+     uma aspa que o dublê nunca teria removido. Foi esse o engano da vez passada. */
+  var Qesc = { esc: function (s) {
+    return String(s === undefined || s === null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  } };
+  var DEFS = new Function('Q', 'TIT', adm.slice(iDefs, fimDefs + 7) + ' return DEFS;')(
+    Qesc, { rota: 'Rota', obs: 'Observação' });
+
+  ok(DEFS.rota && DEFS.obs, 'as colunas Rota e Observação têm célula própria',
+    Object.keys(DEFS || {}));
+  ok(DEFS.rota.v({ rota: 'João Pessoa' }).indexOf('João Pessoa') >= 0,
+    'a célula da Rota escreve a rota que recebeu');
+  ok(DEFS.rota.v({}).indexOf('—') >= 0 && DEFS.obs.v({}).indexOf('—') >= 0,
+    'e as duas põem travessão quando não há valor — célula em branco não se distingue ' +
+    'de uma coluna que não soube responder');
+
+  /* O CORTE. Sem a classe, `table-layout:fixed` segura a LARGURA da coluna e o texto
+     passa por cima da célula vizinha — medido no navegador: a frase pedia 969px numa
+     coluna de 224px úteis. E o texto inteiro no `title`, senão cortar vira esconder. */
+  var cel = DEFS.obs.v({ obs: 'Deixado no portão dos fundos, conferido com o Seu Joaquim' });
+  ok(/class="corta"/.test(cel),
+    'a observação sai com a classe que a corta na largura da coluna — sem ela o texto ' +
+    'longo atravessa por cima da célula vizinha');
+  ok(/title="[^"]*Seu Joaquim/.test(cel),
+    'e o texto inteiro fica no `title`: cortar sem deixar como ler é esconder o dado');
+
+  /* INJEÇÃO PELO TEXTO LIVRE. A Obs é digitada por quem lança, e vai para dentro de um
+     ATRIBUTO — é o único lugar da tabela onde isso acontece. A busca é por uma aspa DE
+     VERDADE: a forma escapada `&quot;` contém as mesmas letras, e procurar sem a aspa
+     seria satisfeito pelo próprio escape. */
+  var mau = DEFS.obs.v({ obs: 'x" onmouseover="alerta(1)' });
+  ok(mau.indexOf('onmouseover="') < 0,
+    'e uma observação com aspas não escapa do atributo `title` — ela é texto que o ' +
+    'motorista digita, e vai parar dentro de um atributo');
+
+  /* ORDENAR PELO VALOR CRU, nunca pelo HTML: a célula da Obs traz `<span>` e o `title`
+     inteiro dentro, e classificar por isso ordenaria pela marcação. */
+  ok(DEFS.obs.k({ obs: 'zebra' }) === 'zebra' && DEFS.obs.k({}) === '' &&
+     DEFS.rota.k({ rota: 'Recife' }) === 'Recife',
+    'e as duas classificam pelo valor cru, não pelo HTML da célula');
 
   /* --- O NOME DA DATA, e por que não é "Lançamento" ----------------------
    * Três colunas de data seguidas, uma chamada só "Data", não distinguem nada — foi
