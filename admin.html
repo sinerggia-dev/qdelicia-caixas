@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=c00bfaba">
+<link rel="stylesheet" href="styles.css?v=1ec56ce5">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -2430,6 +2430,11 @@
       try { g.t.redesenha(); } catch (e) {}
     });
     if (document.getElementById('listaColunas')) desenharColunas();
+    /* OS FILTROS VIRAM JUNTO das colunas: é o mesmo cadeado, e o rótulo deles é a alça
+       do arrasto. Esquecidos aqui, continuariam arrastáveis quinze minutos depois de a
+       liberação vencer — e o arrasto não gravaria nada, porque `guardarOrdem` recusa.
+       O gesto prometido e sem efeito é o pior dos dois mundos. */
+    ligarArrastarFiltros();
     /* O CADEADO VIRA JUNTO. Esquecido aqui, ele continuaria dizendo "travadas" com a
        tabela já arrastável — e dizendo "liberadas até 13:05" quinze minutos depois de
        a liberação ter vencido. Rótulo que mente sobre o próprio estado é pior que
@@ -4204,6 +4209,11 @@
    * pelo botão "Filtros" — e é por isso que a largura é perguntada ao CSS, com
    * `matchMedia`, e não adivinhada: duas respostas para "estamos no computador?"
    * divergiriam no dia em que o ponto de corte mudasse. */
+  /* A ORDEM SALVA VALE DESDE A PRIMEIRA PINTURA. Aplicada só depois de algum evento, a
+     barra abriria na ordem de fábrica e se reorganizaria sozinha na frente da pessoa. */
+  aplicarOrdemFiltros();
+  ligarArrastarFiltros();
+
   (function trilhoFiltros(){
     var tela = document.getElementById('movTela');
     var caixa = document.getElementById('caixaFiltrosMov');
@@ -6369,6 +6379,117 @@
     if (b) travarColunas(false);
   });
 
+  /* ================= MOVER OS FILTROS DE LUGAR =================
+   *
+   * A mesma ideia das colunas, e de propósito a MESMA maquinaria: `ordemColunas` e
+   * `guardarOrdem` só precisam de um descritor com `padrao` e `kOrdem`, e não sabem
+   * nem se o que estão ordenando é coluna. Escrever uma segunda cópia da regra —
+   * inclusive a de "campo novo entra ao lado do vizinho de fábrica" — divergiria da
+   * primeira no primeiro conserto que só uma recebesse.
+   *
+   * E A MESMA TRAVA: quem arranja as colunas arranja os filtros. Um cadeado governando
+   * uma coisa e não a outra, na mesma tela, seria uma regra que ninguém consegue
+   * repetir de cabeça.
+   *
+   * O TRECHO FICA DE FORA da lista: ele é um campo escondido, que só nasce do clique no
+   * gráfico. Ordenar o que não se vê não quer dizer nada. */
+  var FILTROS_MOV = {
+    padrao: ['mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa', 'mvStatus',
+             'mvUsuario', 'mvMotorista', 'mvTeste', 'mvDe', 'mvAte'],
+    kOrdem: 'qdc_ordem_filtros_mov_v1'
+  };
+
+  function gradeFiltros(){
+    return document.querySelector('#caixaFiltrosMov .grid-filtros');
+  }
+
+  /* Cada campo é uma caixinha com rótulo e controle dentro. A CHAVE sai do id do
+     controle, e não de um atributo escrito à mão: um `data-` a mais na marcação é mais
+     um lugar para esquecer quando um campo novo entrar, e o id já existe porque o
+     `filtroExclusao()` lê por ele. */
+  function caixasDeFiltro(){
+    var g = gradeFiltros();
+    if (!g) return {};
+    var por = {};
+    Array.prototype.forEach.call(g.children, function(div){
+      var c = div.querySelector('select,input');
+      /* O campo escondido do trecho fica fora: ordenar o que não se vê não quer dizer
+         nada, e ele acabaria ocupando uma posição invisível no meio da lista. */
+      if (c && !div.hasAttribute('hidden')) por[c.id] = div;
+    });
+    return por;
+  }
+
+  function aplicarOrdemFiltros(){
+    var g = gradeFiltros();
+    if (!g) return;
+    var por = caixasDeFiltro();
+    /* `appendChild` MOVE o nó, não copia: reanexar na ordem certa é o reordenamento
+       inteiro. E move o nó ORIGINAL, então o valor escolhido, o foco e os ouvintes vão
+       junto — refazer a marcação perderia os três, e o filtro se limparia sozinho ao
+       ser arrastado. */
+    ordemColunas(FILTROS_MOV).forEach(function(id){
+      if (por[id]) g.appendChild(por[id]);
+    });
+  }
+
+  /* O RÓTULO É A ALÇA, e não a caixinha inteira. Com a caixinha arrastável, começar um
+     arrasto em cima do seletor roubava o clique que abre a lista — e um seletor que não
+     abre é pior que um filtro que não se move. */
+  function ligarArrastarFiltros(){
+    var g = gradeFiltros();
+    if (!g) return;
+    var por = caixasDeFiltro(), arrastado = null;
+    Object.keys(por).forEach(function(id){
+      var div = por[id], lab = div.querySelector('label');
+      if (!lab) return;
+      div.setAttribute('data-filtro', id);
+      lab.draggable = podeArranjarColunas();
+      if (!lab.draggable) return;
+      lab.addEventListener('dragstart', function(e){
+        arrastado = id;
+        div.classList.add('arrastando');
+        try { e.dataTransfer.setData('text/plain', id); } catch (err) {}
+      });
+      lab.addEventListener('dragend', function(){
+        div.classList.remove('arrastando');
+        g.querySelectorAll('.alvo').forEach(function(x){ x.classList.remove('alvo'); });
+      });
+      div.addEventListener('dragover', function(e){
+        e.preventDefault();
+        if (id !== arrastado) div.classList.add('alvo');
+      });
+      div.addEventListener('dragleave', function(){ div.classList.remove('alvo'); });
+      div.addEventListener('drop', function(e){
+        e.preventDefault();
+        div.classList.remove('alvo');
+        if (!arrastado || id === arrastado) return;
+        /* A ORDEM SALVA É A COMPLETA, e não a que está na tela: o trecho escondido não
+           entra aqui, mas se um dia um campo for escondido por outra razão ele
+           continuará na lista, no lugar dele. Mexer só no visível embaralharia a
+           posição dos escondidos sem ninguém ver. */
+        var ordem = ordemColunas(FILTROS_MOV);
+        var de = ordem.indexOf(arrastado);
+        if (de < 0) return;
+        ordem.splice(de, 1);
+        ordem.splice(ordem.indexOf(id), 0, arrastado);
+        guardarOrdem(FILTROS_MOV, ordem);
+        aplicarOrdemFiltros();
+        ligarArrastarFiltros();
+      });
+    });
+  }
+
+  /* A VOLTA AO PADRÃO. Sem ela, quem embaralhou os onze campos não tem como desfazer a
+     não ser arrastando de volta um por um — e nem se lembra de qual era a ordem. Ela
+     aparece junto do cadeado, e só com a trava aberta: é ali que se está mexendo. */
+  function restaurarFiltros(){
+    try { localStorage.removeItem(FILTROS_MOV.kOrdem); } catch (e) {}
+    aplicarOrdemFiltros();
+    ligarArrastarFiltros();
+    Q.toast('Ordem dos filtros de volta ao padrão.');
+  }
+
   /* ================= O CADEADO, AO LADO DA TABELA =================
    *
    * Arrastar e alargar coluna pede a senha. O destravamento morava na aba "Colunas", e
@@ -6390,14 +6511,20 @@
     document.querySelectorAll('[data-trava-colunas]').forEach(function(box){
       if (!podeVerArranjo()) { box.innerHTML = ''; return; }
       box.innerHTML = colunasDestravadas()
-        ? '<span class="trava__on">Colunas liberadas até <b>'+Q.esc(horaDaTrava())+'</b></span>'+
-          '<button class="mini" type="button" data-travar>Travar agora</button>'
+        ? '<span class="trava__on">Colunas e filtros liberados até <b>'+
+            Q.esc(horaDaTrava())+'</b></span>'+
+          '<button class="mini" type="button" data-travar>Travar agora</button>'+
+          /* A VOLTA AO PADRÃO aparece só com a trava aberta: é quando se está mexendo,
+             e é quando ela resolve alguma coisa. Travada, ela seria um botão que pede
+             senha para desfazer algo que ninguém pode fazer. */
+          '<button class="mini" type="button" data-restaurar-filtros '+
+          'title="Devolve os filtros à ordem de fábrica">ordem dos filtros</button>'
         : '<button class="mini trava__btn" type="button" data-destravar '+
-          'title="Mover, esconder e alargar colunas pede sua senha do painel">'+
+          'title="Mover colunas e filtros de lugar pede sua senha do painel">'+
           '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
             'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
             '<rect x="4" y="10" width="16" height="10" rx="2"></rect>'+
-            '<path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg> Colunas travadas</button>';
+            '<path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg> Colunas e filtros travados</button>';
     });
   }
 
@@ -6446,7 +6573,8 @@
   document.addEventListener('click', function(e){
     if (!e.target || !e.target.closest) return;
     if (e.target.closest('[data-destravar]')) { pedirSenhaDasColunas(); return; }
-    if (e.target.closest('[data-travar]')) travarColunas(false);
+    if (e.target.closest('[data-travar]')) { travarColunas(false); return; }
+    if (e.target.closest('[data-restaurar-filtros]')) restaurarFiltros();
   });
 
   function fecharModal(){ document.getElementById('modal').classList.remove('aberto'); }

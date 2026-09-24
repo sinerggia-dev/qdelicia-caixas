@@ -1390,9 +1390,15 @@ console.log('\n== classificar pelo titulo da coluna ==');
     'e os totais são somados depois, sem se importar com a ordem — somar não depende dela',
     [iOrd, iTot]);
 
-  /* Nao se guarda: e um recorte para responder uma pergunta, nao um jeito de trabalhar. */
+  /* Nao se guarda: e um recorte para responder uma pergunta, nao um jeito de trabalhar.
+     A busca deixou de ser pela palavra `qdc_ordem` solta: a ordem dos FILTROS na barra
+     lateral também é guardada, com uma chave que começa igual, e ela é outra coisa —
+     arranjo da tela, e não recorte de leitura. O que não pode ser guardado é o estado
+     da CLASSIFICAÇÃO, e é por ele que se pergunta agora. */
   ok(/var ORDEM_FLUXO = \{ col: '', desc: false \};/.test(adm) &&
-     adm.indexOf('qdc_ordem') < 0,
+     /var ORDEM_MOV = \{ col: '', desc: false \};/.test(adm) &&
+     adm.indexOf('qdc_ordem_fluxo') < 0 && adm.indexOf('qdc_ordem_mov') < 0 &&
+     !/setItem\([^)]*,\s*JSON\.stringify\(ORDEM_/.test(adm),
     'a classificação não fica guardada: a tela volta na ordem de extrato');
 })();
 
@@ -5228,6 +5234,69 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
   ok(/travarColunas\(true\)[\s\S]{0,400}Q\.toast\(/.test(adm) ||
      /if \(porVencimento\) Q\.toast\(/.test(adm),
     'e o vencimento AVISA — trancar calado deixa a pessoa arrastando sem entender');
+  /* ---- MOVER OS FILTROS DE LUGAR ------------------------------------------
+   * A MESMA maquinaria das colunas, e de propósito: `ordemColunas` e `guardarOrdem` só
+   * precisam de um descritor com `padrao` e `kOrdem`, e não sabem nem se o que estão
+   * ordenando é coluna. Uma segunda cópia da regra — inclusive a de "campo novo entra
+   * ao lado do vizinho de fábrica" — divergiria no primeiro conserto que só uma
+   * recebesse. */
+  ok(/var FILTROS_MOV = \{\s*\n\s*padrao: \[/.test(adm) &&
+     /kOrdem: 'qdc_ordem_filtros_mov_v1'/.test(adm) &&
+     /ordemColunas\(FILTROS_MOV\)/.test(adm) &&
+     /guardarOrdem\(FILTROS_MOV, ordem\);/.test(adm),
+    'os filtros se movem pela MESMA maquinaria das colunas — a regra de ordem é uma só, ' +
+    'e ela nem sabe se o que ordena é coluna ou campo');
+  /* E PELA MESMA TRAVA: um cadeado governando uma coisa e não a outra, na mesma tela,
+     seria uma regra que ninguém consegue repetir de cabeça. */
+  ok(/lab\.draggable = podeArranjarColunas\(\);/.test(adm),
+    'e pela MESMA trava — quem arranja as colunas arranja os filtros');
+  /* O RÓTULO É A ALÇA. Com a caixinha inteira arrastável, começar um arrasto em cima do
+     seletor rouba o clique que abre a lista — e um seletor que não abre é pior que um
+     filtro que não se move. */
+  ok(/var div = por\[id\], lab = div\.querySelector\('label'\);/.test(adm) &&
+     /\.grid-filtros label\[draggable="true"\]\{cursor:grab/.test(css),
+    'o rótulo é a alça, e não a caixinha inteira — arrastar de cima do seletor roubaria ' +
+    'o clique que abre a lista');
+  /* A MÃO PERGUNTA PELO PRÓPRIO `draggable`, e não por uma classe à parte: dois lugares
+     dizendo quem arrasta divergem no dia em que só um mudar. É a mesma lição do cursor
+     do cabeçalho da tabela. */
+  ok(!/\.grid-filtros label\.pode-arrastar/.test(css),
+    'e o cursor sai do próprio `draggable` — uma classe à parte seria um segundo lugar ' +
+    'dizendo quem arrasta');
+  /* `appendChild` MOVE o nó original, então o valor escolhido, o foco e os ouvintes vão
+     junto. Refazer a marcação perderia os três, e o filtro se limparia sozinho ao ser
+     arrastado — com o agravante de a lista recarregar com outro recorte. */
+  ok(/ordemColunas\(FILTROS_MOV\)\.forEach\(function\(id\)\{\s*\n\s*if \(por\[id\]\) g\.appendChild\(por\[id\]\);/.test(adm),
+    'e reordenar MOVE o nó, em vez de reescrever a marcação — o valor escolhido, o foco ' +
+    'e os ouvintes vão junto');
+  /* O CAMPO ESCONDIDO DO TRECHO fica fora: ordenar o que não se vê não quer dizer nada,
+     e ele ocuparia uma posição invisível no meio da lista. */
+  ok(/if \(c && !div\.hasAttribute\('hidden'\)\) por\[c\.id\] = div;/.test(adm),
+    'e o campo escondido do trecho fica de fora — ele ocuparia uma posição invisível no ' +
+    'meio da lista');
+  /* A CHAVE SAI DO ID DO CONTROLE: um `data-` escrito à mão seria mais um lugar para
+     esquecer quando um campo novo entrar, e o id já existe porque o `filtroExclusao()`
+     lê por ele. */
+  ok(/var c = div\.querySelector\('select,input'\);/.test(adm),
+    'e a chave sai do id do controle, que já existe — um atributo à mão seria mais um ' +
+    'lugar para esquecer no campo seguinte');
+  /* A ORDEM SALVA É A COMPLETA. Mexer só no que está visível embaralharia a posição dos
+     escondidos sem ninguém ver — é a mesma razão da regra das colunas. */
+  ok(/var ordem = ordemColunas\(FILTROS_MOV\);\s*\n\s*var de = ordem\.indexOf\(arrastado\);/.test(adm),
+    'e a ordem gravada é a COMPLETA, e não a visível — mexer só no visível embaralha a ' +
+    'posição dos escondidos sem ninguém ver');
+  /* A VOLTA AO PADRÃO: sem ela, quem embaralhou onze campos não desfaz a não ser
+     arrastando de volta um por um, e nem lembra qual era a ordem. */
+  ok(/function restaurarFiltros\(\)\{[\s\S]{0,200}removeItem\(FILTROS_MOV\.kOrdem\)/.test(adm) &&
+     /data-restaurar-filtros/.test(adm),
+    'e há como voltar ao padrão — sem isso, quem embaralhou onze campos desfaz ' +
+    'arrastando um por um, e nem lembra qual era a ordem');
+  /* A ORDEM VALE DESDE A PRIMEIRA PINTURA: aplicada só depois de um evento, a barra
+     abriria na ordem de fábrica e se reorganizaria sozinha na frente da pessoa. */
+  ok(/aplicarOrdemFiltros\(\);\s*\n\s*ligarArrastarFiltros\(\);\s*\n\s*\n\s*\(function trilhoFiltros\(\)\{/.test(adm),
+    'e a ordem salva vale desde a primeira pintura — aplicada depois, a barra se ' +
+    'reorganizaria sozinha na frente da pessoa');
+
   /* ---- O CADEADO FICA ONDE O GESTO É TENTADO ------------------------------
    * O destravamento morava só na aba "Colunas", e isso estava errado na prática: para
    * mexer numa coluna era preciso SAIR da tabela, atravessar o menu, digitar a senha e
@@ -5252,7 +5321,7 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
     'que ela quer arrumar');
   /* ELE DIZ O ESTADO, e não só o que fazer. Sem isso a liberação vence de surpresa e a
      pessoa volta a arrastar no vazio. Medido nos quatro cenários. */
-  ok(/colunasDestravadas\(\)\s*\n\s*\? '<span class="trava__on">Colunas liberadas até/.test(adm) &&
+  ok(/colunasDestravadas\(\)\s*\n\s*\? '<span class="trava__on">Colunas e filtros liberados até/.test(adm) &&
      /data-travar>Travar agora<\/button>/.test(adm),
     'e ele diz o ESTADO: travado mostra o cadeado, liberado mostra até que horas vale e ' +
     'o jeito de travar na hora');
@@ -5265,9 +5334,14 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
   ok(/\.trava-colunas:empty\{display:none\}/.test(css),
     'e vazio ele não deixa um buraco na tela — espaço em branco no meio da página ' +
     'parece peça que não carregou');
-  /* O CADEADO VIRA JUNTO com as tabelas. Esquecido, ele diria "travadas" com a tabela
-     já arrastável, e "liberadas até 13:05" quinze minutos depois de vencer. */
-  ok(/if \(document\.getElementById\('listaColunas'\)\) desenharColunas\(\);\s*\n[\s\S]{0,400}?pintarTrava\(\);/.test(adm),
+  /* O CADEADO E OS FILTROS VIRAM JUNTO com as tabelas. Esquecido, o cadeado diria
+     "travadas" com a tabela já arrastável, e "liberados até 13:05" quinze minutos
+     depois de vencer; e os rótulos dos filtros continuariam arrastáveis sem gravar
+     nada, porque `guardarOrdem` recusa — gesto prometido e sem efeito. */
+  var iRed = adm.indexOf('function redesenharArranjaveis()');
+  var red = iRed > 0 ? adm.slice(iRed, adm.indexOf('\n  }', iRed)) : '';
+  ok(/desenharColunas\(\);/.test(red) && /ligarArrastarFiltros\(\);/.test(red) &&
+     /pintarTrava\(\);/.test(red),
     'e ele é repintado nas duas viradas da trava — rótulo que mente sobre o próprio ' +
     'estado é pior que rótulo nenhum');
   /* UM OUVINTE SÓ, no documento: os cadeados são redesenhados a cada virada, e um

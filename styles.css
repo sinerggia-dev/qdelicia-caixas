@@ -1941,6 +1941,20 @@ details.tipos[open] summary::before{content:"▾"}
 .destravado-ate{display:flex;align-items:center;justify-content:space-between;gap:10px;
   flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;border-radius:var(--raio);
   background:var(--surface-2);font-size:12.5px;color:var(--txt2)}
+/* ---------- mover os filtros de lugar ----------
+ * O ROTULO E A ALCA. Com a caixinha inteira arrastavel, comecar um arrasto em cima do
+ * seletor roubava o clique que abre a lista — e um seletor que nao abre e pior que um
+ * filtro que nao se move.
+ * A mao so aparece quando a trava esta aberta: o `draggable` e posto pelo JS, e o
+ * seletor pergunta por ele em vez de por uma classe a parte. Dois lugares dizendo quem
+ * arrasta divergem no dia em que so um mudar. */
+.grid-filtros label[draggable="true"]{cursor:grab;user-select:none}
+.grid-filtros label[draggable="true"]:active{cursor:grabbing}
+.grid-filtros>div.arrastando{opacity:.45}
+/* O ALVO marca a BORDA DE CIMA, e nao a caixa toda: e ali que o campo vai entrar, e um
+   realce da caixa inteira nao diz se ele cai antes ou depois dela. */
+.grid-filtros>div.alvo{box-shadow:inset 0 3px 0 var(--verde)}
+
 /* ---------- o cadeado das colunas ----------
  * Discreto de proposito: ele nao e uma acao do dia, e um estado com um caminho. Um
  * botao cheio ali competiria com "Filtrar" e "CSV", que sao o que se vem fazer.
