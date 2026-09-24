@@ -1981,6 +1981,110 @@ console.log('\n== as abas de admin travam no cadastro ==');
  * copias de arrastar-e-soltar divergem no primeiro conserto que so uma recebe, e o
  * sintoma e mudo: a tabela que ficou para tras apenas para de obedecer.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * OS SEIS TOTAIS DO RECORTE, em Movimentos.
+ *
+ * A tabela responde "o que aconteceu"; os cartões respondem "quanto deu". Antes era
+ * preciso exportar o CSV e somar na planilha para saber quanto saiu no filtro que se
+ * acabou de aplicar.
+ *
+ * O que estas afirmações guardam não é a aparência — é a CONTA fechar e os números
+ * virem do MESMO lugar que a tabela. Dois totais diferentes na mesma tela é o defeito
+ * que ninguém consegue explicar depois.
+ * ------------------------------------------------------------------------- */
+console.log('\n== os seis totais do recorte, em Movimentos ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  ok(/<div class="tot" id="totMov"><\/div>/.test(adm) &&
+     adm.indexOf('id="totMov"') < adm.indexOf('id="tabelaMov"'),
+    'os totais existem e ficam ACIMA da tabela — embaixo, seria preciso rolar a lista ' +
+    'inteira para chegar no total dela');
+
+  /* O MESMO `MOVS` QUE DESENHA A TABELA. Um número vindo de outra consulta discordaria
+     da lista logo abaixo dele, e quem visse os dois não saberia em qual acreditar. */
+  var i0 = adm.indexOf('function desenharMovimentos()');
+  var dm = adm.slice(i0, adm.indexOf('\n  }', i0));
+  ok(/desenharTotaisMov\(MOVS \|\| \[\]\);/.test(dm),
+    'e são recalculados do MESMO `MOVS` que desenha a tabela, a cada filtro');
+  /* FORA DO CORTE DA LISTA VAZIA. Deixados depois do `return`, ficariam com os números
+     do filtro ANTERIOR ao lado de "nenhum movimento" — a contradição mais difícil de
+     explicar que uma tela pode mostrar. */
+  ok(/desenharTotaisMov\(MOVS \|\| \[\]\);\s*\n\s*if \(!MOVS \|\| !MOVS\.length\)\{/.test(dm),
+    'e são desenhados ANTES do corte da lista vazia — depois dele, um filtro sem ' +
+    'resultado mostraria os números do filtro anterior ao lado de "nenhum movimento"');
+
+  /* O SENTIDO SAI DO TIPO, não da situação: `situacao` é o rótulo do ciclo da carga e
+     muda com o tempo — "Enviada" vira "Devolvida" quando a carga volta. Somar por ela
+     faria a mesma remessa trocar de coluna sozinha. */
+  ok(/function sentidoDoMov\(m\)\{[\s\S]{0,200}String\(m\.tipo \|\| ''\)\.toUpperCase\(\)/.test(adm) &&
+     !/sentidoDoMov[\s\S]{0,200}m\.situacao/.test(adm),
+    'o sentido sai do TIPO do lançamento, não da situação — a situação muda com o ' +
+    'ciclo da carga, e a mesma remessa trocaria de coluna sozinha');
+  /* TRÊS SENTIDOS, não dois. Ajuste e perda não são viagem de caixa: empurrá-las para
+     saída ou retorno inflaria os dois, e ignorá-las faria a soma não fechar com a
+     contagem de linhas. */
+  ok(/if \(t === 'SAIDA' \|\| t === 'TRANSFERENCIA'\) return 'saida';/.test(adm) &&
+     /return 'acerto';/.test(adm),
+    'e são TRÊS sentidos: transferência conta como saída, e ajuste e perda têm o ' +
+    'cartão delas — nos dados de hoje são 10 das 40 linhas');
+  /* A BASE DA PROPORÇÃO são os três. Com saída+retorno só, as fatias passariam de 100%
+     assim que houvesse um ajuste no recorte. */
+  ok(/var base = t\.saida \+ t\.retorno \+ t\.acerto;/.test(adm),
+    'e a proporção tem os três no denominador — sem o acerto, as fatias passam de 100%');
+  /* O LOTE é quem diz quantos MOVIMENTOS existem: cinco linhas podem ser um movimento
+     só, com cinco tipos de caixa. */
+  ok(/t\.lotes\[m\.lote \|\| m\.id\] = 1;/.test(adm),
+    'e "Movimentos" conta LOTES, não linhas — cinco linhas podem ser uma remessa só');
+  /* CANCELADAS NÃO TÊM CARTÃO: o servidor devolve esta lista por `naoCancelados()`, e
+     um cartão que mostra zero para sempre é pior que ausência — ele AFIRMA que não há
+     nenhuma. */
+  var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  ok(/return naoCancelados\(movimentos\)\.filter/.test(log) &&
+     !/'Canceladas'/.test(adm),
+    'e não há cartão de canceladas: o servidor as filtra antes, e um zero permanente ' +
+    'afirma que não existe nenhuma');
+
+  /* A VARREDURA atravessa a fileira UMA vez, e cada cartão recebe a fatia dele. Com um
+     degradê gigante deslocado por `background-position` não funciona: porcentagem ali
+     é alinhamento proporcional à SOBRA, e com a imagem maior que a caixa a conta
+     inverte — só o primeiro cartão mostrava a cor certa. */
+  ok(/--c1:'\+tomDeg\(i \/ n\)\+';--c2:'\+tomDeg\(\(i \+ 1\) \/ n\)/.test(adm),
+    'a varredura de cor emenda entre os cartões: o fim de um é o começo do outro, e a ' +
+    'costura some');
+  /* `isolation:isolate` com `z-index:-1`: a cor pinta ACIMA do fundo e ABAIXO do texto.
+     Sem isso ela cobre os números. */
+  ok(/\.tot__c\{position:relative;isolation:isolate/.test(css) &&
+     /\.tot__c::before\{[^}]*z-index:-1/.test(css),
+    'e ela fica entre o fundo e o texto — sem o `isolation`, cobre os números');
+  /* A faixa vazia de 18px no rodapé é medida, não gosto: sem ela a cor batia com força
+     total onde fica o texto cinza e o contraste caía para 3,7:1. */
+  ok(/\.tot__c\{[^}]*padding:10px clamp\(8px,\.85vw,13px\) 18px\}/.test(css),
+    'e o cartão tem rodapé vazio de 18px só para ela — medido, sem ele o texto do ' +
+    'rodapé caía para 3,7:1 de contraste');
+
+  /* SEIS NUMA LINHA, e a linha não quebra por largura: quem encolhe é o TEXTO. Medido
+     a 1400, 1000 e 820px: seis cartões sempre, de 220px, 154px e 124px. */
+  ok(/\.tot\{display:grid;grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/.test(css),
+    'os seis ficam numa linha só');
+  var corte = (css.match(/@media \(max-width:(\d+)px\)\{\.tot\{grid-template-columns/g) || []);
+  ok(corte.length === 1 && /max-width:700px/.test(corte[0]),
+    'e o ÚNICO ponto de quebra é 700px, que é celular — um corte em 1180px fazia 3+3 ' +
+    'numa janela de 1100px, e meia fileira lê como se a outra metade tivesse sumido',
+    corte);
+  ok(/font-size:clamp\(16px,1\.42vw,21px\)/.test(css) &&
+     /\.tot__r\{[\s\S]{0,120}font-size:clamp\(10px,\.82vw,11\.5px\)/.test(css),
+    'e quem encolhe é o texto, pelo `clamp` — a grade não quebra');
+  /* A COR IDENTIFICA UMA VEZ SÓ: num quadradinho junto do rótulo, com o número branco.
+     Colorindo o número também, a cor dizia a mesma coisa duas vezes e os seis valores
+     deixavam de ter o mesmo peso. */
+  ok(/\.tot__v\{[^}]*color:var\(--txt\)/.test(css) &&
+     /\.tot__r i\{[^}]*background:var\(--cor/.test(css),
+    'e a cor aparece uma vez só, no quadradinho — o número fica branco, e os seis ' +
+    'valores têm o mesmo peso');
+})();
+
 console.log('\n== as colunas da tabela de Movimentos ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
