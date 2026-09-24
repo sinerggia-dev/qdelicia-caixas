@@ -2539,6 +2539,41 @@ console.log('\n== classificar e a janela de linhas, em Movimentos ==');
     'e a hora ordena pelo carimbo inteiro: duas cargas de dias diferentes na mesma ' +
     'hora empatariam, e o desempate cairia na ordem em que vieram');
 
+  /* ---- A COLUNA DO VEÍCULO ------------------------------------------------
+   * A placa era gravada no movimento e NÃO chegava à tela: `listaMovimentos` montava a
+   * linha sem ela. Uma coluna posta antes disso nasceria vazia em todas as linhas, e a
+   * conclusão natural de quem olhasse seria que ninguém preenche o campo — um dado que
+   * existe parecendo um campo abandonado. */
+  var log2 = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  ok(/motorista: m\.Motorista \|\| '', veiculo: m\.Veiculo \|\| '', rota: m\.Rota \|\| '',/.test(log2),
+    'a placa viaja do servidor até a tela — sem isso a coluna nasce vazia e o dado ' +
+    'gravado parece campo que ninguém preenche');
+  /* A LIXEIRA MOSTRA OS MESMOS LANÇAMENTOS. Sem a placa lá, quem confere o que foi
+     excluído perde a referência de que carro era — justamente no momento em que está
+     procurando uma linha específica. */
+  ok(/usuario: nome\(mUsers, m\.UsuarioID\), motorista: m\.Motorista \|\| '',\s*\n\s*veiculo: m\.Veiculo \|\| '',/.test(log2),
+    'e na lixeira também: é lá que se procura uma linha específica, e a placa é parte ' +
+    'de como ela se reconhece');
+  /* AO LADO DO MOTORISTA: as duas respondem "quem levou", e no dia em que a carga não
+     bate é o par que se procura. Separadas por seis colunas, a conferência teria de
+     rolar de lado para juntar as duas metades da resposta. */
+  var ordemCols = (adm.match(/padrao: \['data','hora'[^\]]*\]/) || [''])[0];
+  ok(ordemCols.indexOf("'veiculo'") === ordemCols.indexOf("'motorista'") + "'motorista',".length,
+    'e a placa fica ao lado do motorista — as duas respondem "quem levou", e separadas ' +
+    'a conferência rolaria de lado para juntar as duas metades', ordemCols);
+  /* VAZIO É RESPOSTA: lançamento antigo, de antes de o veículo existir no cadastro, não
+     tem placa. O travessão fraco diz isso; a célula em branco não se distingue de uma
+     coluna que não soube responder. */
+  ok(/veiculo:   \{ t: TIT\['veiculo'\], k: function\(m\)\{ return m\.veiculo \|\| ''; \}/.test(dm) &&
+     /: '<span class="fraco">—<\/span>'; \} \},\s*\n\s*motorista:/.test(dm),
+    'e lançamento sem placa mostra o travessão fraco — branco não se distingue de uma ' +
+    'coluna que não soube responder');
+  /* O CSV LEVA A MESMA COLUNA: tela e arquivo discordando sobre as mesmas linhas fazem
+     a conferência de escritório chegar a um número que a tela não explica. */
+  ok(/'Rota','Motorista','Veiculo','Quem'/.test(adm) && /m\.veiculo\|\|'',/.test(adm),
+    'e o CSV leva a mesma coluna — arquivo e tela discordando fazem a conferência ' +
+    'chegar a um número que a tela não explica');
+
   /* A SETA e o `aria-sort`: a coluna ordenada precisa dizer que está, e dizer também a
      quem usa leitor de tela — sem isso ela é uma coluna qualquer. */
   ok(/var seta = ord \? \(ORDEM_MOV\.desc \? ' ▾' : ' ▴'\) : '';/.test(dm) &&
@@ -2637,17 +2672,20 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var ip = desc.indexOf('padrao: [');
   var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
     .map(function (t) { return t.slice(1, -1); });
-  ok(cols.length === 12, 'são doze colunas de fábrica', cols);
+  ok(cols.length === 13, 'são treze colunas de fábrica', cols);
 
-  /* AS QUATRO DO CARIMBO. Contar doze não diz QUAIS são doze: trocar `hora` por outra
-     coluna qualquer manteria a conta de pé. Elas respondem perguntas que a tabela não
-     respondia — quando isto entrou no sistema, e quem mexeu depois, e quando. */
+  /* AS CINCO QUE FORAM SENDO ACRESCENTADAS. Contar treze não diz QUAIS são treze:
+     trocar `hora` por outra coluna qualquer manteria a conta de pé. Elas respondem
+     perguntas que a tabela não respondia — quando isto entrou no sistema, quem mexeu
+     depois, quando, e em que carro a carga foi. */
   [['hora', 'a hora em que o lançamento foi gravado'],
    ['criado', 'o dia em que foi gravado, que nem sempre é o dia da carga'],
    ['alterado', 'quem mexeu por último — sem ela, um número corrigido e um número ' +
                 'original são a mesma célula'],
    ['alteradoEm', 'QUANDO mexeram — correção no mesmo dia é acerto de digitação, e ' +
-                  'seis dias depois do romaneio é outra conversa']].forEach(function (c) {
+                  'seis dias depois do romaneio é outra conversa'],
+   ['veiculo', 'em que CARRO a carga foi — no dia em que ela não bate, é o par ' +
+               'motorista-e-placa que se procura']].forEach(function (c) {
     ok(cols.indexOf(c[0]) >= 0, 'a tabela de Movimentos traz ' + c[1], cols);
   });
 

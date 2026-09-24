@@ -1347,7 +1347,12 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       teste: lancamentoDeTeste(m),
       situacao: rotuloCiclo(m, ciclo[m.ID]),
       devolvido: ciclo[m.ID] ? ciclo[m.ID].devolvido : null,
-      motorista: m.Motorista || '', rota: m.Rota || '',
+      /* A PLACA VIAJA JUNTO com o motorista, e pelo mesmo motivo: o movimento guarda
+         o TEXTO dela, e nao o id do cadastro — repintar ou apagar um veiculo nao pode
+         reescrever o que ja saiu do galpao. Ela era gravada e nao chegava a tela:
+         uma coluna de Veiculo nasceria vazia em todas as linhas, e a conclusao
+         natural seria que ninguem preenche o campo. */
+      motorista: m.Motorista || '', veiculo: m.Veiculo || '', rota: m.Rota || '',
       obs: m.Obs, assinatura: m.AssinaturaURL, foto: m.FotoURL,
       historico: m.Historico || [],
       /* Quem mexeu por último, já com NOME. O id resolvido aqui e não na tela porque a
@@ -1413,6 +1418,7 @@ function listaLixeira(movimentos, locais, tipos, usuarios, p) {
       origem: nome(mLocais, m.OrigemID), destino: nome(mLocais, m.DestinoID),
       tipoCaixa: nome(mTipos, m.TipoCaixaID), qtd: m.Qtd,
       usuario: nome(mUsers, m.UsuarioID), motorista: m.Motorista || '',
+      veiculo: m.Veiculo || '',
       teste: lancamentoDeTeste(m), obs: m.Obs || '',
       excluidoEm: iso(m.ExcluidoEm), excluidoPor: nome(mUsers, m.ExcluidoPor)
     };

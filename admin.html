@@ -2101,18 +2101,18 @@
      fazem a conferência chegar a um número que a tela não explica. */
   var TAB_MOV = {
     padrao: ['data','hora','criado','status','origem','destino','caixa','qtd',
-             'motorista','quem','alterado','alteradoEm'],
+             'motorista','veiculo','quem','alterado','alteradoEm'],
     /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
        coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
        com a data mais larga do formato e a etiqueta junto. */
     larg: { data:120, hora:70, criado:110, status:110, origem:150, destino:150,
-            caixa:120, qtd:80, motorista:130, quem:120, alterado:140,
+            caixa:120, qtd:80, motorista:130, veiculo:110, quem:120, alterado:140,
             alteradoEm:150 },
     titulos: { data:'Movimento', hora:'Hora', criado:'Criado em',
                status:'Status',
                origem:'Origem', destino:'Destino', caixa:'Caixa', qtd:'Qtd',
-               motorista:'Motorista', quem:'Quem', alterado:'Alterado por',
-               alteradoEm:'Alterado em' },
+               motorista:'Motorista', veiculo:'Veículo', quem:'Quem',
+               alterado:'Alterado por', alteradoEm:'Alterado em' },
     kOrdem: 'qdc_cols_mov_v1',
     kLarg: 'qdc_larg_mov_v1',
     kOcultas: 'qdc_cols_ocultas_mov_v1',
@@ -4850,6 +4850,16 @@
          e o tipo de erro que ninguem confere, porque a coluna "parece ordenada". */
       qtd:       { t: TIT['qtd'], num: true, k: function(m){ return Number(m.qtd) || 0; },
                    v: function(m){ return Q.num(m.qtd); } },
+      /* A PLACA AO LADO DO MOTORISTA, porque as duas respondem "quem levou": no dia em
+         que a carga nao bate, e o par que se procura. Separadas por seis colunas, a
+         conferencia teria de rolar de lado para juntar as duas metades da resposta.
+         VAZIO E RESPOSTA: lancamento antigo, de antes de o veiculo existir no cadastro,
+         nao tem placa — e o travessao fraco diz isso, enquanto a celula em branco nao se
+         distingue de uma coluna que nao soube responder. */
+      veiculo:   { t: TIT['veiculo'], k: function(m){ return m.veiculo || ''; },
+                   v: function(m){ return m.veiculo
+                     ? '<span class="tag cinza">'+Q.esc(m.veiculo)+'</span>'
+                     : '<span class="fraco">—</span>'; } },
       motorista: { t: TIT['motorista'], k: function(m){ return m.motorista || ''; },
                    v: function(m){ return m.motorista ? Q.esc(m.motorista)
                                                       : '<span class="fraco">—</span>'; } },
@@ -5262,12 +5272,13 @@
       /* As colunas novas entram AQUI também. O CSV é a tabela levada para fora: uma
          coluna que existe na tela e falta no arquivo faz a conferência de escritório
          chegar a um número que a tela não explica. */
-      ['Movimento','Hora','Criado em','Teste','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Quem','Alterado por','Alterado em','Obs'],
+      ['Movimento','Hora','Criado em','Teste','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Veiculo','Quem','Alterado por','Alterado em','Obs'],
       MOVS.map(function(m){
         var a = m.alterado || {};
         return [Q.dataBR(m.dataRef),Q.horaBR(m.dataHora),Q.dataDoCarimboBR(m.dataHora),
                 m.teste?'SIM':'',m.situacao,m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,
                 m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',
+                m.veiculo||'',
                 m.usuario,a.por||'',a.em?Q.dataHoraBR(a.em):'',m.obs];
       }));
   });
