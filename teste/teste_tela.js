@@ -2031,8 +2031,29 @@ console.log('\n== a tabela de Usuários entrou na maquinaria de colunas ==');
     dk++;
   } while (dn > 0 && dk < adm.length);
   var fonte = adm.slice(d, dk);
-  ok(d > 0 && fonte.length > 2000 && fonte.indexOf('</tbody></table>') > 0,
+  ok(d > 0 && fonte.length > 1200 && fonte.indexOf('</tbody></table>') > 0,
     'o recorte pegou a função inteira', fonte.length);
+
+  /* AS DEFINIÇÕES DE COLUNA saíram de dentro do `desenharUsuarios` e viraram
+     `colunasUsuarios()`. Não foi arrumação: era por estarem escondidas ali dentro que
+     só a tabela as enxergava, e a busca tinha a lista de campos DELA, escrita à parte.
+     Duas listas para a mesma tabela divergem na primeira coluna nova — e divergiram:
+     a busca ficou procurando em três colunas de nove. */
+  var c0 = adm.indexOf('function colunasUsuarios(){');
+  var ck = adm.indexOf('{', c0), cn = 0;
+  do {
+    if (adm[ck] === '{') cn++; else if (adm[ck] === '}') cn--;
+    ck++;
+  } while (cn > 0 && ck < adm.length);
+  var cols = adm.slice(c0, ck);
+  ok(c0 > 0 && cols.length > 2000, 'as colunas moram numa função própria', cols.length);
+  ok(/var DEFS = colunasUsuarios\(\);/.test(fonte),
+    'e a tabela lê dela — não tem cópia própria');
+  ok(/var DEFS = colunasUsuarios\(\);/.test(
+       adm.slice(adm.indexOf('function usuariosNaTela(){'),
+                 adm.indexOf('function usuariosNaTela(){') + 900)),
+    'e a BUSCA lê da mesma: é isso que faz coluna nova nascer encontrável, sem ' +
+    'ninguém lembrar de mexer numa segunda lista');
 
   /* O cabecalho escrito a mao nao pode sobrar em lugar nenhum: sobrando, seriam duas
      listas de colunas para a mesma tabela, e a escondida continuaria aparecendo. */
@@ -2059,12 +2080,28 @@ console.log('\n== a tabela de Usuários entrou na maquinaria de colunas ==');
      jeito de editar, desativar ou excluir um cadastro. */
   var i0 = fonte.indexOf('padrao:');
   var ids = ['nome', 'perfil', 'usuario', 'email', 'senha', 'painel', 'local',
-             'telefone', 'ativo'];
+             'veiculo', 'telefone', 'ativo'];
   var descr = adm.slice(adm.indexOf('var TAB_USUARIOS = {'),
                         adm.indexOf('\n  };', adm.indexOf('var TAB_USUARIOS = {')));
+  /* AS TRÊS PARTES, SEPARADAS — e não o descritor inteiro. Procurando `veiculo:` no
+     bloco todo, o `larg` e o `titulos` respondiam pelo `padrao`, e é o `padrao` que faz
+     a coluna EXISTIR: é dele que o `ordemColunas` tira a lista, e o que não está lá
+     não é desenhado. Medido: arrancar 'veiculo' do `padrao` — a coluna some da tela —
+     passava por esta asserção, e passava pelas dez, porque o furo nunca foi do
+     `veiculo`, foi da forma de perguntar. */
+  function parte(de, ate) {
+    return descr.slice(descr.indexOf(de + ':'), descr.indexOf(ate + ':'));
+  }
+  var PARTES = [
+    ['padrao',  parte('padrao', 'larg'),      'é dele que sai a lista de colunas a desenhar'],
+    ['larg',    parte('larg', 'titulos'),     'sem largura de fábrica a coluna nasce com a genérica'],
+    ['titulos', parte('titulos', 'kOrdem'),   'é daqui que a aba Colunas tira o NOME dela']
+  ];
   ids.forEach(function (id) {
-    ok(descr.indexOf("'" + id + "'") > 0 || descr.indexOf(id + ':') > 0,
-      'a coluna ' + id + ' está no descritor');
+    PARTES.forEach(function (p) {
+      ok(p[1].indexOf("'" + id + "'") > 0 || new RegExp('\\b' + id + ':').test(p[1]),
+        'a coluna ' + id + ' está em `' + p[0] + '` — ' + p[2]);
+    });
   });
   ok(descr.indexOf('editar') < 0 && descr.indexOf('acoes') < 0,
     'e a coluna dos botões fica FORA do sistema: escondível, alguém a esconderia sem ' +
@@ -2089,7 +2126,7 @@ console.log('\n== a tabela de Usuários entrou na maquinaria de colunas ==');
 
   /* O subtitulo do cabecalho NAO entra em `titulos`: a aba Colunas precisa do nome da
      coluna, e "entra no app e no painel" e explicacao, nao nome. */
-  ok(/sub: 'entra no app e no painel'/.test(fonte),
+  ok(/sub: 'entra no app e no painel'/.test(cols),
     'o subtítulo do cabeçalho mora na definição da célula');
   ok(descr.indexOf('entra no app') < 0 && /usuario:'Usuário'/.test(descr.replace(/\s+/g, '')),
     'e não no `titulos`, que é de onde a aba Colunas tira o NOME da coluna', descr);
@@ -7068,13 +7105,72 @@ console.log('\n== Usuários no celular: cartão, acesso à vista e folha de aç�
     'e o trilho esmaece na borda em vez de mostrar barra de rolagem: seis perfis não ' +
     'cabem em 390px');
 
-  /* --- o que a busca promete ------------------------------------------------ */
-  ok(/return \[u\.Nome, u\.Usuario, u\.Email\]\.some/.test(adm) &&
-     /placeholder="🔍 Buscar nome, usuário ou e-mail"/.test(adm),
-    'a busca procura exatamente o que a etiqueta promete — e a etiqueta cabe no campo, ' +
-    'que em 334px cortava "e-mail" no meio');
-  ok(!/\[u\.Nome, u\.Perfil, u\.Usuario/.test(adm),
-    'o perfil saiu da busca por texto: quem filtra por ele é o trilho, à vista e contado');
+  /* --- o que a busca promete ------------------------------------------------
+   * A ETIQUETA E O COMPORTAMENTO SÃO A MESMA PROMESSA. Antes ela dizia três campos e
+   * procurava nesses três; agora diz todas as colunas, e a asserção cobra que ela
+   * procure em TODAS — e que a lista de campos escrita à mão não tenha ficado para
+   * trás em lugar nenhum, porque, sobrando, ela é a que a busca continuaria usando. */
+  ok(/placeholder="🔍 Buscar em todas as colunas"/.test(adm),
+    'a etiqueta promete todas as colunas — e cabe no campo, que em 334px cortava ' +
+    '"e-mail" no meio');
+  ok(!/\[u\.Nome, u\.Usuario, u\.Email\]\.some/.test(semComentarios(adm)),
+    'e a lista de três campos escrita à mão não ficou para trás — sobrando, é ELA que ' +
+    'a busca usaria, e a etiqueta prometeria o que a tela não faz');
+  ok(/return ids\.some\(function\(id\)\{[\s\S]{0,240}txt\.indexOf\(b\) >= 0;/.test(adm),
+    'a busca varre as colunas todas, uma por uma, pela lista que a tabela desenha');
+  /* SÓ O TEXTO. As células saem em HTML: procurar em cima dele acharia "span", "tag" e
+     "cinza" em toda pessoa da lista, e a busca devolveria a equipe inteira para meia
+     dúzia de palavras — com jeito de estar quebrada. */
+  ok(/function textoDaCelula\(html\)\{?[\s\S]{0,120}replace\(\/<\[\^>\]\*>\/g, ' '\)/.test(adm),
+    'e procura no TEXTO da célula, não na marcação — senão "span" e "tag" achariam ' +
+    'todo mundo');
+  /* A ORDEM das entidades: o `&amp;` desfeito antes dos outros faria `&amp;lt;` virar
+     `<`, e um nome com HTML escapado voltaria a se comportar como HTML na comparação. */
+  ok(/replace\(\/&quot;\/g, '"'\)[\s\S]{0,80}replace\(\/&amp;\/g, '&'\)/.test(adm),
+    'e desfaz o `&amp;` por ÚLTIMO: antes dos outros, um `&amp;lt;` viraria `<`');
+  /* O QUE A CÉLULA MOSTRA E O QUE ELA CONTÉM PODEM DIFERIR — a frota mostra duas placas
+     e conta o resto. O que não pode é a busca conhecer só a parte visível.
+     E o `busca` ACRESCENTA, não SUBSTITUI: a diferença não é de estilo. Substituindo,
+     a própria coluna da frota perdia o aviso "nenhum liberado" — nesse caso não há
+     placa nenhuma para a função devolver, e o texto que importa é justamente o que
+     está escrito na célula. Medido antes da correção: procurar por "nenhum liberado"
+     não achava ninguém, embora a etiqueta estivesse na tela. */
+  ok(/var txt = textoDaCelula\(d\.v\(u\)\);\s*\n\s*if \(d\.busca\) txt \+= ' ' \+ String\(d\.busca\(u\)\)\.toLowerCase\(\);/.test(adm),
+    'e quando a célula mostra um resumo, a coluna ACRESCENTA o que ficou de fora — o ' +
+    '"+5" da frota não pode tornar cinco placas inencontráveis, e o aviso escrito na ' +
+    'célula não pode sumir junto');
+
+  /* --- a coluna da frota ----------------------------------------------------
+   * O cadastro guarda IDs; a coluna mostra PLACA. Guardar ID e mostrar ID seria pedir
+   * ao escritório que decorasse código de veículo. */
+  ok(/veiculo:  \{ t: TIT\['veiculo'\]/.test(adm) && /function placasDe\(u\)\{/.test(adm),
+    'a tabela de usuários tem coluna de Veículo, com as placas que a pessoa pode escolher');
+  ok(/busca: function\(u\)\{ return placasDe\(u\)\.join\(' '\); \}/.test(adm),
+    'e a busca enxerga TODAS as placas, inclusive as que o "+N" resumiu');
+  /* QUANTAS CABEM É MEDIDA, não gosto. Na régua, com a largura de fábrica: as duas
+     etiquetas de placa e o "+3" somam 165px, e com os vãos e os 20px de recheio dão
+     192 — contra os 180 que a coluna tinha. A última etiqueta terminava DOIS PIXELS
+     fora da célula e entrava na coluna vizinha, porque a tabela é `fixa` e o que não
+     cabe não encolhe: transborda. Com 200px sobram 26, e a linha fica da mesma altura
+     das outras. As duas metades andam juntas — soltar uma delas devolve o estouro. */
+  ok(/veiculo:200/.test(adm) && /placas\.slice\(0, 2\)/.test(adm) &&
+     /placas\.length > 2/.test(adm),
+    'e a coluna mostra DUAS placas em 200px: medido, três em 180 terminavam fora da ' +
+    'célula e entravam na coluna vizinha');
+  /* UM VEÍCULO EXCLUÍDO que ficou marcado no cadastro sai da lista em vez de virar
+     código cru na tela — o vínculo órfão é assunto do cadastro de Veículos. */
+  ok(/return v \? v\.Placa : null;\s*\n\s*\}\)\.filter\(Boolean\);/.test(adm),
+    'e placa de veículo que não existe mais some, em vez de aparecer como código');
+  /* NADA MARCADO = NENHUM, e o veículo é OBRIGATÓRIO nas duas telas de lançamento:
+     quem lança e não tem placa liberada não consegue salvar nada. É o mesmo caso do
+     "painel: falta a senha" — permissão que não se exerce —, e o sintoma é a pessoa
+     ligando para dizer que o app não deixa. Quem não lança não tem o problema. */
+  ok(/return u\.TemPin\s*\n\s*\? '<span class="tag amarela"[\s\S]{0,220}nenhum liberado/.test(adm),
+    'e quem lança sem nenhuma placa liberada aparece em âmbar: o veículo é obrigatório ' +
+    'na Saída e no Retorno, e essa pessoa não consegue lançar');
+  ok(/: '<span class="tag cinza">—<\/span>';/.test(adm),
+    'mas quem não lança fica em cinza — para ela é um campo que não usa, e âmbar ali ' +
+    'seria alarme sobre coisa nenhuma');
 
   /* --- a aba do quadro reconta ---------------------------------------------- */
   ok(/card\.querySelectorAll\('\.corpo tbody tr'\)\.length \|\|\s*\n?\s*card\.querySelectorAll\('\.corpo \.users > \.u'\)\.length/

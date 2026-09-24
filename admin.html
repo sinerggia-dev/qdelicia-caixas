@@ -723,7 +723,7 @@
              saiu do texto E da peneira: quem filtra por perfil agora é o trilho de chips
              logo abaixo, à vista e com a contagem. -->
         <div class="busca"><input id="buscaUsuarios" type="text"
-          placeholder="🔍 Buscar nome, usuário ou e-mail"></div>
+          placeholder="🔍 Buscar em todas as colunas"></div>
         <button class="btn" id="btnNovoUsuario">+ Novo<span class="so-largo"> usuário</span></button>
       </div>
       <!-- O TRILHO DE PERFIS vale nas duas larguras: filtro que só existe numa delas
@@ -1921,12 +1921,13 @@
      `titulos` de proposito: a aba Colunas precisa do NOME da coluna, e "Usuário entra no
      app e no painel" nao e nome, e explicacao de cabecalho. */
   var TAB_USUARIOS = {
-    padrao: ['nome','perfil','usuario','email','senha','painel','local','telefone','ativo'],
+    padrao: ['nome','perfil','usuario','email','senha','painel','local','veiculo',
+             'telefone','ativo'],
     larg: { nome:190, perfil:120, usuario:150, email:230, senha:190,
-            painel:80, local:150, telefone:130, ativo:80 },
+            painel:80, local:150, veiculo:200, telefone:130, ativo:80 },
     titulos: { nome:'Nome', perfil:'Perfil', usuario:'Usuário', email:'E-mail',
                senha:'Senha', painel:'Painel', local:'Local padrão',
-               telefone:'Telefone', ativo:'Ativo' },
+               veiculo:'Veículo', telefone:'Telefone', ativo:'Ativo' },
     kOrdem: 'qdc_cols_users_v1',
     kLarg: 'qdc_larg_users_v1',
     kOcultas: 'qdc_cols_ocultas_users_v1',
@@ -4813,6 +4814,116 @@
     });
   }
 
+  /* ================= AS COLUNAS DE USUÁRIOS, NUM LUGAR SÓ =================
+   *
+   * Elas moravam DENTRO do `desenharUsuarios`, e por isso só a tabela as enxergava. A
+   * busca tinha a lista de campos dela, escrita à parte — e foi assim que a busca ficou
+   * procurando em três colunas de nove: acrescentar coluna nunca lembrava de mexer na
+   * outra lista, porque as duas nem se viam.
+   *
+   * Agora é uma lista só, e quem desenha e quem procura leem a MESMA. Coluna nova passa
+   * a ser encontrável no dia em que nasce, sem ninguém lembrar de nada. */
+  function colunasUsuarios(){
+    var TIT = TAB_USUARIOS.titulos;
+    return {
+      /* O RETRATO ENTRA NO NOME, e não numa coluna própria. Coluna de foto seria uma
+         coluna que se pode esconder pela aba Colunas — e o rosto some do lugar onde ele
+         serve, que é ao lado do nome. Aqui os dois andam juntos: numa lista de treze,
+         achar pela cara é mais rápido que ler treze nomes. */
+      nome:     { t: TIT['nome'],
+                  v: function(u){
+                    return '<span class="u-linha">'+retrato(u, 'u-linha__r')+
+                      '<b>'+Q.esc(u.Nome)+'</b></span>'; } },
+      perfil:   { t: TIT['perfil'],
+                  v: function(u){ return '<span class="tag azul">'+Q.esc(u.Perfil)+'</span>'; } },
+      /* O login curto tem coluna propria: e ele que a pessoa digita para entrar, e antes
+         so aparecia para quem nao tivesse e-mail. */
+      usuario:  { t: TIT['usuario'], sub: 'entra no app e no painel',
+                  v: function(u){ return u.Usuario
+                    ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—'; } },
+      email:    { t: TIT['email'],
+                  v: function(u){ return u.Email ? Q.esc(u.Email) : '—'; } },
+      senha:    { t: TIT['senha'],
+                  v: function(u){
+        /* Quem nao entra no painel nao tem "estado de senha" para mostrar: o fato ali e
+           que ele nao entra, e ponto. Nao existe mais o caso de sobrar senha sem acesso —
+           a migracao apagou as antigas e o caminho de gravacao apaga as novas. */
+        var linhaPainel = u.AcessoPainel
+          ? seloSenha(u.TemSenha, u.SenhaProvisoria, 'painel')
+          : '<span class="tag cinza" title="Esta pessoa usa só o app de lançamento">painel: sem acesso</span>';
+        return '<div class="pilha-selos">'+
+          seloSenha(u.TemPin, u.PinProvisorio, 'lançamento')+linhaPainel+'</div>';
+      } },
+      painel:   { t: TIT['painel'],
+                  v: function(u){ return u.AcessoPainel
+                    ? '<span class="tag verde">sim</span>'
+                    : '<span class="tag cinza">não</span>'; } },
+      local:    { t: TIT['local'],
+                  v: function(u){
+        var lp = LOCAIS_PADRAO.filter(function(l){
+          return String(l.ID) === String(u.LocalPadrao); })[0];
+        return Q.esc(lp ? lp.Nome : '');
+      } },
+      /* ---- A FROTA QUE ESTA PESSOA PODE ESCOLHER ----
+       *
+       * O cadastro guarda IDs; aqui sai a PLACA, que é o que ela vê no seletor do
+       * lançamento e o que fica gravado no movimento. Guardar ID e mostrar ID seria
+       * pedir para o escritório decorar código de veículo.
+       *
+       * MOSTRA DUAS E CONTA O RESTO, mas a BUSCA enxerga todas — é para isso que existe
+       * o `busca` abaixo. Sem ele, quem libera oito placas para um motorista teria cinco
+       * delas inencontráveis, e a busca diria "não achei" sobre um dado que está
+       * gravado. O que a célula MOSTRA e o que ela CONTÉM podem diferir; o que não pode
+       * é a busca só conhecer a parte visível. */
+      veiculo:  { t: TIT['veiculo'],
+                  v: function(u){
+        var placas = placasDe(u);
+        if (!placas.length) {
+          /* NADA MARCADO = NENHUM, e o veículo é OBRIGATÓRIO na Saída e no Retorno:
+             quem lança e não tem placa liberada não consegue salvar lançamento nenhum.
+             É o mesmo caso do "painel: falta a senha" — uma permissão que não se
+             exerce, e o sintoma é a pessoa ligando para dizer que o app não deixa.
+             Âmbar, porque pede providência.
+             Quem não lança não tem o problema: para ela é um campo que não usa. */
+          return u.TemPin
+            ? '<span class="tag amarela" title="Nenhum veículo liberado, e o veículo é '+
+              'obrigatório na Saída e no Retorno: esta pessoa não consegue lançar.">'+
+              'nenhum liberado</span>'
+            : '<span class="tag cinza">—</span>';
+        }
+        /* DUAS, e não três. Medido na régua, com a largura de fábrica: três placas de
+           sete caracteres mais o "+2" terminavam FORA da célula e entravam na coluna
+           vizinha. A tabela é `fixa` — largura pedida é largura obedecida —, então o
+           que não cabe não encolhe: transborda. Com duas, a linha continua da altura
+           das outras, e o resto vai para o balão e para a busca. */
+        var mostra = placas.slice(0, 2).map(function(p){
+          return '<span class="tag cinza">'+Q.esc(p)+'</span>';
+        }).join(' ');
+        return '<span title="'+Q.esc(placas.join(' · '))+'">'+mostra+
+          (placas.length > 2
+            ? ' <span class="tag cinza">+'+(placas.length - 2)+'</span>' : '')+'</span>';
+      },
+                  busca: function(u){ return placasDe(u).join(' '); } },
+      telefone: { t: TIT['telefone'],
+                  v: function(u){ return Q.esc(u.Telefone || ''); } },
+      ativo:    { t: TIT['ativo'],
+                  v: function(u){ return Q.ativo(u.Ativo)
+                    ? '<span class="tag verde">sim</span>'
+                    : '<span class="tag vermelha">não</span>'; } }
+    };
+  }
+
+  /* AS PLACAS QUE ESTA PESSOA PODE ESCOLHER, na ordem do cadastro. Um veículo marcado
+     que depois foi EXCLUÍDO sai da lista em vez de virar código cru: o vínculo órfão é
+     assunto do cadastro de Veículos, e não desta coluna. */
+  function placasDe(u){
+    var ids = Array.isArray(u.Veiculos) ? u.Veiculos : [];
+    return ids.map(function(id){
+      var v = VEICULOS.filter(function(x){ return String(x.ID) === String(id); })[0];
+      return v ? v.Placa : null;
+    }).filter(Boolean);
+  }
+
   /* A PENEIRA É UMA SÓ, e serve à tabela e aos cartões. Dois filtros — um por largura —
      fariam a lista mudar de conteúdo ao girar o aparelho, sem que nada na tela dissesse
      por quê. */
@@ -4824,19 +4935,49 @@
 
   var PERFIL_FILTRO = '';
 
+  /* SÓ O TEXTO, e não a marcação. As células saem em HTML, e procurar em cima dele
+     acharia "span", "tag" e "cinza" em toda pessoa da lista — a busca devolveria a
+     equipe inteira para meia dúzia de palavras, e ninguém entenderia por quê.
+     O `&amp;` é desfeito POR ÚLTIMO: antes dos outros, um `&amp;lt;` viraria `<`. */
+  function textoDaCelula(html){
+    return String(html)
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&quot;/g, '"').replace(/&gt;/g, '>').replace(/&lt;/g, '<')
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
   function usuariosNaTela(){
     var b = (document.getElementById('buscaUsuarios').value || '')
       .trim().toLowerCase();
+    var DEFS = colunasUsuarios();
+    var ids = Object.keys(DEFS);
     return EQUIPE.filter(function(u){
       if (PERFIL_FILTRO && String(u.Perfil || '') !== PERFIL_FILTRO) return false;
       if (!b) return true;
-      /* Os campos que a etiqueta promete, e só eles: buscar em telefone sem dizer
-         devolveria resultado que a pessoa não entende de onde veio. O e-mail entrou
-         junto com a promessa — antes ele era o único dado à vista no cartão que a
-         busca ignorava. O perfil saiu: quem filtra por ele é o trilho de chips, que
-         mostra os que existem e quantos há em cada um. */
-      return [u.Nome, u.Usuario, u.Email].some(function(c){
-        return String(c || '').toLowerCase().indexOf(b) >= 0;
+      /* TODAS AS COLUNAS, a pedido — e lidas das MESMAS definições que a tabela
+         desenha, e não de uma lista de campos escrita à parte. Era essa lista à parte
+         que deixava a busca procurando em três colunas de nove: acrescentar coluna
+         nunca lembrava de mexer nela.
+         Assim entram também os estados que não são campo de cadastro: procurar por
+         "provisória" traz quem ainda não trocou a senha, e "falta a senha" traz quem
+         tem o painel liberado e não consegue entrar. Eram dados à vista na tela e sem
+         nenhum jeito de filtrar.
+         AS ESCONDIDAS TAMBÉM: esconder uma coluna é decisão sobre a LARGURA da tabela,
+         não sobre o que existe no cadastro — um telefone não deixa de ser encontrável
+         porque alguém estreitou a tela.
+         E quando a célula MOSTRA um resumo, o `busca` da coluna ACRESCENTA o que ficou
+         de fora: o `+5` da frota não pode tornar cinco placas inencontráveis.
+         ACRESCENTA, e não substitui. Substituindo, a própria coluna da frota perdia o
+         aviso "nenhum liberado" — nesse caso não há placa nenhuma para a função
+         devolver, e o texto que importa é justamente o que está escrito na célula.
+         Medido: com `busca` no lugar do texto, procurar por "nenhum liberado" não
+         achava ninguém. */
+      return ids.some(function(id){
+        var d = DEFS[id];
+        var txt = textoDaCelula(d.v(u));
+        if (d.busca) txt += ' ' + String(d.busca(u)).toLowerCase();
+        return txt.indexOf(b) >= 0;
       });
     }).sort(function(x, y){
       var tx = Q.temTeste(x.Perfil) || Q.temTeste(x.Nome) ? 1 : 0;
@@ -5099,54 +5240,9 @@
 
     /* As colunas sao DADOS, como no Painel de Ativos e em Movimentos: titulo, como
        preencher a celula, e so. E isso que deixa arrastar para reordenar, puxar a borda
-       para alargar e esconder pela aba Colunas — a ordem e so a ordem desta lista. */
-    var TIT = TAB_USUARIOS.titulos;
-    var DEFS = {
-      /* O RETRATO ENTRA NO NOME, e não numa coluna própria. Coluna de foto seria uma
-         coluna que se pode esconder pela aba Colunas — e o rosto some do lugar onde ele
-         serve, que é ao lado do nome. Aqui os dois andam juntos: numa lista de treze,
-         achar pela cara é mais rápido que ler treze nomes. */
-      nome:     { t: TIT['nome'],
-                  v: function(u){
-                    return '<span class="u-linha">'+retrato(u, 'u-linha__r')+
-                      '<b>'+Q.esc(u.Nome)+'</b></span>'; } },
-      perfil:   { t: TIT['perfil'],
-                  v: function(u){ return '<span class="tag azul">'+Q.esc(u.Perfil)+'</span>'; } },
-      /* O login curto tem coluna propria: e ele que a pessoa digita para entrar, e antes
-         so aparecia para quem nao tivesse e-mail. */
-      usuario:  { t: TIT['usuario'], sub: 'entra no app e no painel',
-                  v: function(u){ return u.Usuario
-                    ? '<span class="tag cinza">'+Q.esc(u.Usuario)+'</span>' : '—'; } },
-      email:    { t: TIT['email'],
-                  v: function(u){ return u.Email ? Q.esc(u.Email) : '—'; } },
-      senha:    { t: TIT['senha'],
-                  v: function(u){
-        /* Quem nao entra no painel nao tem "estado de senha" para mostrar: o fato ali e
-           que ele nao entra, e ponto. Nao existe mais o caso de sobrar senha sem acesso —
-           a migracao apagou as antigas e o caminho de gravacao apaga as novas. */
-        var linhaPainel = u.AcessoPainel
-          ? seloSenha(u.TemSenha, u.SenhaProvisoria, 'painel')
-          : '<span class="tag cinza" title="Esta pessoa usa só o app de lançamento">painel: sem acesso</span>';
-        return '<div class="pilha-selos">'+
-          seloSenha(u.TemPin, u.PinProvisorio, 'lançamento')+linhaPainel+'</div>';
-      } },
-      painel:   { t: TIT['painel'],
-                  v: function(u){ return u.AcessoPainel
-                    ? '<span class="tag verde">sim</span>'
-                    : '<span class="tag cinza">não</span>'; } },
-      local:    { t: TIT['local'],
-                  v: function(u){
-        var lp = LOCAIS_PADRAO.filter(function(l){
-          return String(l.ID) === String(u.LocalPadrao); })[0];
-        return Q.esc(lp ? lp.Nome : '');
-      } },
-      telefone: { t: TIT['telefone'],
-                  v: function(u){ return Q.esc(u.Telefone || ''); } },
-      ativo:    { t: TIT['ativo'],
-                  v: function(u){ return Q.ativo(u.Ativo)
-                    ? '<span class="tag verde">sim</span>'
-                    : '<span class="tag vermelha">não</span>'; } }
-    };
+       para alargar e esconder pela aba Colunas — a ordem e so a ordem desta lista.
+       Elas vivem em `colunasUsuarios()`, porque a BUSCA le a mesma lista. */
+    var DEFS = colunasUsuarios();
 
     var LARG = larguras(TAB_USUARIOS);
     var cabem = ordemColunas(TAB_USUARIOS).map(function(id){ return { id: id, d: DEFS[id] }; })
