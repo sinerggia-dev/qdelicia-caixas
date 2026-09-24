@@ -1692,7 +1692,13 @@ details.tipos[open] summary::before{content:"▾"}
 /* A marca do trilho de retornos. `height:auto` com width/height no HTML reserva a
    altura certa antes de a imagem chegar — sem isso a lista de grupos dá um salto
    quando ela termina de carregar, e o clique cai no grupo errado. */
-.ret-marca{display:block;width:100%;max-width:104px;height:auto;padding:2px 8px 16px}
+/* `margin-inline:auto` É O QUE CENTRALIZA. Com `display:block` e `max-width`, a
+   imagem para de ocupar a largura toda mas continua ENCOSTADA À ESQUERDA — o
+   espaço que sobra fica todo de um lado. O `width:100%` engana: ele diz que a
+   imagem quer a coluna inteira, e o `max-width` a impede; sem as margens
+   automáticas ninguém distribui a diferença. */
+.ret-marca{display:block;width:100%;max-width:104px;height:auto;
+  margin-inline:auto;padding:2px 8px 16px}
 /* O flex tem de ficar AQUI, na caixa dos botoes: no trilho ele arruma
    marca/botoes/resumo, nao os botoes entre si — e no celular eles
    continuavam empilhados. */

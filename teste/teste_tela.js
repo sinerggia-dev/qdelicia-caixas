@@ -7538,6 +7538,18 @@ console.log('\n== a marca: um desenho só, e do tamanho que ele pede ==');
     'no trilho de retornos a altura sai da proporção do arquivo, e o espaço dela fica ' +
     'reservado — sem isso a lista de grupos salta quando a imagem chega');
 
+  /* CENTRALIZADA na coluna. `display:block` com `max-width` faz a imagem parar de
+     ocupar a largura toda — e ficar ENCOSTADA À ESQUERDA, com a sobra inteira de um
+     lado. O `width:100%` engana quem lê a regra: ele diz que a imagem quer a coluna
+     inteira, e o `max-width` a impede; sem as margens automáticas ninguém distribui a
+     diferença. Medido a 1400px: coluna de 220px, marca de 104 — 58px de cada lado. */
+  ok(/\.ret-marca\{[^}]*max-width:104px/.test(css),
+    'a marca tem TETO de largura: com `width:100%` e sem ele, o desenho estica até a ' +
+    'coluna inteira e empurra a lista de grupos para baixo');
+  ok(/\.ret-marca\{[^}]*margin-inline:auto/.test(css),
+    'e fica CENTRADA nela: é o teto que cria a sobra, e é a margem automática que a ' +
+    'divide — sem ela a sobra fica toda de um lado e o desenho encosta na esquerda');
+
   /* E CABE NO TRILHO RECOLHIDO. Com a altura presa, a largura que o desenho pede sai da
      proporção do arquivo: chegando um desenho mais largo, é aqui que se descobre, e não
      no galpão com a marca por cima do botão de recolher. */
