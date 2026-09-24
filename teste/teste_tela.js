@@ -2031,6 +2031,32 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
     'os totais existem e ficam ACIMA da tabela — embaixo, seria preciso rolar a lista ' +
     'inteira para chegar no total dela');
 
+  /* --- SEM TÍTULO DENTRO DO QUADRO ----------------------------------------
+   * O cabeçalho da página já diz "Consulta · Movimentos". Um título repetido três
+   * centímetros abaixo do outro não informa — só empurra a tabela para baixo, e esta é
+   * a tela que menos pode fazer isso: ela divide a altura com seis cartões e cinco
+   * gráficos. Medido: tudo subiu 49px, e numa janela de 800 os gráficos passaram a
+   * aparecer INTEIROS, contra 92% antes.
+   *
+   * E O SUBTÍTULO ESTAVA VELHO: definia "Divergência", que deixou de ser coluna desta
+   * tabela quando a etapa de conferência saiu. Explicar um campo que não está na tela é
+   * pior que não explicar nada — manda procurar o que não existe. */
+  var iSec = adm.indexOf('<section id="pgMovimentos"');
+  /* SEM OS COMENTÁRIOS: o comentário que explica a remoção CITA o texto removido, e a
+     afirmação passou a ser respondida pela própria justificativa dela. `semComentarios`
+     não trata comentário de HTML, então este corte é feito aqui. */
+  var secMov = adm.slice(iSec, adm.indexOf('</section>', iSec))
+    .replace(/<!--[\s\S]*?-->/g, '');
+  ok(secMov.indexOf('<h2>') < 0,
+    'a tela de Movimentos não repete o próprio nome dentro do quadro — o cabeçalho da ' +
+    'página já o diz, e o espaço vai para os gráficos');
+  ok(secMov.indexOf('Divergência =') < 0,
+    'e o subtítulo que definia Divergência saiu com ele: a coluna não existe mais nesta ' +
+    'tabela, e explicar um campo ausente manda procurar o que não está lá');
+  /* MAS A DEFINIÇÃO NÃO SE PERDEU: ela continua onde a coluna continua viva. */
+  ok(/<th class="num">Divergência<\/th>/.test(adm),
+    'e a coluna Divergência continua no Extrato, que é onde ela existe');
+
   /* O MESMO `MOVS` QUE DESENHA A TABELA. Um número vindo de outra consulta discordaria
      da lista logo abaixo dele, e quem visse os dois não saberia em qual acreditar. */
   var i0 = adm.indexOf('function desenharMovimentos()');
