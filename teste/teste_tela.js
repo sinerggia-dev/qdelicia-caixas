@@ -2558,12 +2558,38 @@ console.log('\n== classificar e a janela de linhas, em Movimentos ==');
   /* ---- a janela de linhas ----
      Não é paginação: nenhuma linha some, a tabela rola dentro do quadro com o cabeçalho
      grudado no topo. */
-  /* OITO, e nao doze: a tela tem seis cartoes em cima e cinco graficos embaixo, e com
-     doze linhas os graficos nasciam abaixo da dobra — existiam e ninguem via. */
-  ok(/var LINHAS_JANELA_MOV = 8;/.test(adm) &&
+  /* DEZ. O número já foi doze e já foi oito, e cada mudança teve uma medida atrás:
+     com DOZE os gráficos nasciam abaixo da dobra — existiam e ninguém via (50% à
+     mostra numa janela de 800px); com OITO sobrava folga (92%); e DEZ coube porque o
+     título repetido e o subtítulo velho saíram do quadro no caminho, devolvendo 49px.
+     A 1456x800 os gráficos começam em 533px e aparecem 87%, inteiros a partir de 850px
+     de altura — e o que se comprou com os 5% foram duas linhas de lista, que é o que se
+     veio ler.
+     O QUE A AFIRMAÇÃO GUARDA não é o número: é que ele more num lugar só, e que a
+     função que mede a altura continue existindo. O número é decisão, e muda. */
+  ok(/var LINHAS_JANELA_MOV = 10;/.test(adm) &&
+     /* TRES vezes: a declaracao, o corte de "poucas linhas" e a conta da altura.
+        O que a contagem guarda e o numero nao ser repetido a mao num quarto lugar,
+        onde ficaria para tras na proxima mudanca. */
+     (adm.match(/LINHAS_JANELA_MOV/g) || []).length === 3 &&
      /function ajustarJanelaMov\(\)\{/.test(adm),
-    'a tabela vira uma janela de OITO linhas — com doze, os gráficos nasciam abaixo da ' +
-    'dobra e ninguém os via; e mudar esse número é mexer numa linha só');
+    'a tabela vira uma janela de DEZ linhas, e o número mora num lugar só — mudar ' +
+    'quantas aparecem é mexer numa linha',
+    (adm.match(/LINHAS_JANELA_MOV/g) || []).length);
+  /* E NENHUM NÚMERO SOLTO dentro da função que mede. A contagem acima pega a troca do
+     nome por um literal, mas não pega a DUPLICATA — alguém escrever `<= 10` ao lado do
+     `<= LINHAS_JANELA_MOV`, que passa a contagem e fica para trás na mudança seguinte.
+     Foi a sabotagem que mostrou esse furo.
+     O único literal permitido aqui é o `2` da borda: qualquer outro é um segundo lugar
+     guardando a mesma decisão. */
+  var iAj = adm.indexOf('function ajustarJanelaMov()');
+  var aj = iAj > 0 ? adm.slice(iAj, adm.indexOf('\n  }', iAj)) : '';
+  var soltos = (aj.replace(/\/\*[\s\S]*?\*\//g, '').match(/(?:^|[^\w.])(\d+)/g) || [])
+    .map(function (x) { return x.replace(/\D/g, ''); })
+    .filter(function (x) { return x !== '2' && x !== '0'; });
+  ok(iAj > 0 && soltos.length === 0,
+    'e a função que mede a altura não tem número solto — um `10` escrito ao lado da ' +
+    'constante passa pela contagem e fica para trás na mudança seguinte', soltos);
   /* A ALTURA É MEDIDA, e não escrita: ela muda com o zoom, com a fonte do sistema e com
      a etiqueta "teste" dentro da célula da data. Número chutado erra para MENOS, e
      cortar a décima linha pela metade é o jeito mais convincente de a tabela parecer

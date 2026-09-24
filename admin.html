@@ -4936,11 +4936,16 @@
    * metade, que e o jeito mais convincente de a tabela parecer quebrada.
    *
    * Mudar quantas linhas aparecem e mexer numa linha so, a de baixo. */
-  /* OITO, e nao doze: a tela tem seis cartoes em cima e cinco graficos embaixo, e com
-     doze linhas os graficos nasciam abaixo da dobra — existiam e ninguem via. Oito
-     linhas e o que deixa os tres blocos na mesma tela num monitor comum.
+  /* DEZ, a pedido — e coube porque o titulo repetido e o subtitulo velho sairam do
+     quadro no caminho, devolvendo 49px. A tela divide a altura com seis cartoes em cima
+     e cinco graficos embaixo: com doze linhas os graficos nasciam abaixo da dobra e
+     ninguem os via, com oito sobrava folga, e dez e o ponto em que a lista cresce sem
+     empurrar os graficos para fora.
+     Medido a 1456x800: os graficos comecam em 533px e aparecem 87% — inteiros a partir
+     de 850px de altura. Com oito linhas eram 92%, e o que se comprou com os 5% foi
+     duas linhas a mais de lista, que e o que se veio ler.
      Nenhuma linha some por isso: a tabela rola por dentro, com o cabecalho grudado. */
-  var LINHAS_JANELA_MOV = 8;
+  var LINHAS_JANELA_MOV = 10;
 
   function ajustarJanelaMov(){
     var wrap = document.querySelector('#tabelaMov .tabela-wrap');
