@@ -5291,11 +5291,24 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
      /data-restaurar-filtros/.test(adm),
     'e há como voltar ao padrão — sem isso, quem embaralhou onze campos desfaz ' +
     'arrastando um por um, e nem lembra qual era a ordem');
-  /* A ORDEM VALE DESDE A PRIMEIRA PINTURA: aplicada só depois de um evento, a barra
-     abriria na ordem de fábrica e se reorganizaria sozinha na frente da pessoa. */
-  ok(/aplicarOrdemFiltros\(\);\s*\n\s*ligarArrastarFiltros\(\);\s*\n\s*\n\s*\(function trilhoFiltros\(\)\{/.test(adm),
-    'e a ordem salva vale desde a primeira pintura — aplicada depois, a barra se ' +
-    'reorganizaria sozinha na frente da pessoa');
+  /* A ORDEM VALE DESDE A PRIMEIRA PINTURA — mas a chamada mora no ARRANQUE, no fim do
+     arquivo, e não no meio dele.
+     A versão anterior desta afirmação cobrava a posição ERRADA: ela exigia a chamada
+     logo acima do `trilhoFiltros`, que fica ACIMA de `var FILTROS_MOV = {…}`. `var` iça
+     a declaração e não o valor, então a chamada recebia `undefined` e estourava — e um
+     erro no carregamento para tudo o que vem depois dele, inclusive a última linha do
+     arquivo, que é a que abre a porta. O painel foi ao ar sem login.
+     Mais uma afirmação que FIXOU o defeito em vez de pegá-lo, e a sabotagem confirmou o
+     errado. Agora ela cobra o que importa: a chamada DEPOIS da declaração. */
+  var iDecl = adm.indexOf('var FILTROS_MOV = {');
+  var iUso = adm.indexOf('  aplicarOrdemFiltros();\n  ligarArrastarFiltros();');
+  ok(iDecl > 0 && iUso > iDecl,
+    'e a ordem salva é aplicada DEPOIS da declaração do descritor — antes dela, `var` ' +
+    'entrega `undefined`, a chamada estoura, e o arquivo para antes de abrir a porta',
+    [iDecl, iUso]);
+  ok(/aplicarOrdemFiltros\(\);\s*\n\s*ligarArrastarFiltros\(\);\s*\n\s*\n\s*if \(podeEntrar\(Q\.sessao\(\)\)\)/.test(adm),
+    'e ela roda no arranque, ao lado do que decide entre abrir o app e pedir login — ' +
+    'é o lugar de quem precisa do arquivo inteiro montado');
 
   /* ---- O CADEADO FICA ONDE O GESTO É TENTADO ------------------------------
    * O destravamento morava só na aba "Colunas", e isso estava errado na prática: para
