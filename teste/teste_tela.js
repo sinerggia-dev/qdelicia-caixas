@@ -623,8 +623,17 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
     getItem: function (k) { return loja[k] === undefined ? null : loja[k]; },
     setItem: function (k, v) { loja[k] = String(v); }
   };
-  var mont = new Function('localStorage', 'desenharFluxo',
-    fonteOrdem + ' return { fn: ordemColunas, t: TAB_ATIVOS };')(localStorage, function(){});
+  /* O PORTÃO ENTRA NA BANCADA como interruptor, e não como verdade fixa: é assim que os
+     dois estados — admin e não-admin — podem ser exercitados na MESMA função, que é a
+     única maneira de provar que a de fábrica volta. */
+  var EH_ADMIN = true;
+  /* O `Q`, e NÃO o `podeArranjarColunas`: o recorte já traz a função de verdade, e uma
+     declaração dentro do corpo sombreia o parâmetro de mesmo nome — o portão injetado
+     nunca seria chamado, e as duas asserções abaixo estariam medindo o nada.
+     Injetando `Q.ehAdmin`, quem roda é o portão do arquivo. */
+  var mont = new Function('localStorage', 'desenharFluxo', 'Q',
+    fonteOrdem + ' return { fn: ordemColunas, t: TAB_ATIVOS };')(
+      localStorage, function(){}, { ehAdmin: function(){ return EH_ADMIN; } });
   var TAB = mont.t;
   var ordemColunas = function () { return mont.fn(TAB); };
 
@@ -664,6 +673,30 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
   loja.qdc_cols_ativos_v1 = '{lixo';
   ok(ordemColunas().length >= 8,
     'e lixo no armazenamento cai na ordem de fabrica, sem estourar', ordemColunas());
+
+  /* ---- SÓ O ADMINISTRADOR ARRANJA -------------------------------------
+   * O portão está na LEITURA, e não só nos gestos. Bloquear apenas o arrastar deixaria
+   * de pé o caso que mais importa: quem ERA admin, arrumou as colunas, e teve o perfil
+   * trocado — a tela continuaria com o arranjo antigo, e com colunas escondidas que a
+   * pessoa não tem mais como trazer de volta. O mesmo vale para o computador do
+   * escritório onde o admin mexeu e o conferente senta depois. */
+  loja.qdc_cols_ativos_v1 = JSON.stringify(['final', 'saida', 'data']);
+  EH_ADMIN = true;
+  var comoAdmin = ordemColunas();
+  EH_ADMIN = false;
+  var comoOutro = ordemColunas();
+  ok(comoAdmin[0] === 'final',
+    'o admin continua vendo o arranjo que ele salvou', comoAdmin);
+  ok(comoOutro.join(',') === TAB.padrao.join(','),
+    'e quem NÃO é admin vê a ordem de fábrica, ainda que haja arranjo guardado neste ' +
+    'navegador — é o caso de quem deixou de ser admin, e do computador compartilhado',
+    comoOutro);
+  /* O QUE ESTÁ GUARDADO NÃO É APAGADO: a preferência volta a valer no dia em que a
+     pessoa voltar a ser admin. Ignorar é diferente de destruir. */
+  EH_ADMIN = true;
+  ok(ordemColunas()[0] === 'final',
+    'e o arranjo guardado não foi apagado — volta a valer quando o perfil volta',
+    ordemColunas());
 })();
 
 /* ---------------------------------------------------------------------------
@@ -949,8 +982,10 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
     getItem: function (k) { return loja[k] === undefined ? null : loja[k]; },
     setItem: function (k, v) { loja[k] = String(v); }
   };
-  var mm = new Function('localStorage', 'desenharFluxo',
-    fonte + ' return { fn: larguras, t: TAB_ATIVOS };')(localStorage, function(){});
+  var LARG_ADMIN = true;
+  var mm = new Function('localStorage', 'desenharFluxo', 'Q',
+    fonte + ' return { fn: larguras, t: TAB_ATIVOS };')(
+      localStorage, function(){}, { ehAdmin: function(){ return LARG_ADMIN; } });
   var TABL = mm.t;
   var larguras = function () { return mm.fn(TABL); };
 
@@ -970,6 +1005,17 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
 
   loja.qdc_larg_ativos_v1 = '{lixo';
   ok(larguras().saida === d.saida, 'lixo no armazenamento cai na largura de fabrica');
+
+  /* A LARGURA SEGUE A MESMA REGRA DA ORDEM: sem permissão, a de fábrica. Uma coluna
+     que alguém deixou em 70px continuaria espremida para quem não tem como alargá-la. */
+  loja.qdc_larg_ativos_v1 = JSON.stringify({ saida: 320 });
+  LARG_ADMIN = false;
+  ok(larguras().saida === d.saida,
+    'quem não é admin vê a largura de fábrica, ainda que haja uma guardada neste ' +
+    'navegador — senão uma coluna espremida fica espremida sem ter como alargar',
+    larguras().saida);
+  LARG_ADMIN = true;
+  ok(larguras().saida === 320, 'e a guardada volta a valer quando o perfil volta');
 
   /* Layout fixo: em layout automatico o navegador trata `width` como sugestao, e a
      coluna volta sozinha ao soltar. */
@@ -2149,8 +2195,14 @@ console.log('\n== a tabela de Usuários entrou na maquinaria de colunas ==');
   ok(/ligarArrastarColunas\(TAB_USUARIOS\)/.test(fonte) &&
      /ligarLarguraColunas\(TAB_USUARIOS\)/.test(fonte),
     'e liga arrastar e redimensionar, com o descritor dela');
-  ok(/data-col="'\+c\.id\+'"/.test(fonte) && /<span class="puxador">/.test(fonte),
-    'cada título sai com o `data-col` e a alcinha — é por eles que as duas se agarram');
+  /* A alcinha passou a sair de `puxador()`, que é quem decide se ela existe: sem
+     permissão o <th> sai sem ela, sem `draggable` e sem o convite no balão. O `data-col`
+     fica em todas — é por ele que a aba Colunas e a classificação se agarram, e os dois
+     valem para quem não arranja nada. */
+  ok(/data-col="'\+c\.id\+'"/.test(fonte) && /puxador\(\)\+'<\/th>'/.test(fonte) &&
+     /<th'\+arrastavel\(\)\+' data-col=/.test(fonte),
+    'cada título sai com o `data-col`, e a alcinha e o `draggable` vêm das funções que ' +
+    'conhecem a permissão — é por eles que as duas se agarram');
 
   /* A coluna de acoes fica FORA. Escondivel, alguem a esconde sem querer e perde o unico
      jeito de editar, desativar ou excluir um cadastro. */
@@ -4216,10 +4268,13 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
      /data-collarg=/.test(fonte),
     'o recorte pegou a tela, e ela traz as três funções: esconder, mover e expandir');
 
-  function tela(ordem, ocultas, larg) {
+  /* O QUARTO ARGUMENTO é o portão: a tela é a mesma, e o que muda é quem está olhando.
+     `podeArranjarColunas` entra por parâmetro porque o recorte não o traz — ele mora
+     acima do `desenharColunas`, na cabeceira da maquinaria. */
+  function tela(ordem, ocultas, larg, admin) {
     var box = { innerHTML: '', querySelectorAll: function () { return []; } };
     new Function('document', 'Q', 'tabelasGerenciaveis', 'ordemColunas', 'colunasOcultas',
-      'larguras', 'LARG_MIN',
+      'larguras', 'LARG_MIN', 'podeArranjarColunas',
       fonte + '\n desenharColunas();')(
       { getElementById: function (id) { return id === 'listaColunas' ? box : null; } },
       { esc: function (v) { return String(v); } },
@@ -4228,7 +4283,8 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
                   t: { titulos: { data: 'Data', saida: 'Saída', quem: 'Quem' } } }];
       },
       function () { return ordem; }, function () { return ocultas; },
-      function () { return larg; }, 70);
+      function () { return larg; }, 70,
+      function () { return admin !== false; });
     return box.innerHTML;
   }
 
@@ -4360,6 +4416,86 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
 
   ok(/\.col-linha\.apagada\{opacity/.test(css) && /\.mod-colunas\{/.test(css),
     'a tela tem estilo próprio');
+
+  /* ================= SÓ O ADMINISTRADOR ARRANJA AS COLUNAS =================
+   *
+   * Mover, esconder e alargar passaram a ser do administrador. Não é tranca de
+   * segurança — o arranjo mora no `localStorage` de quem olha e nunca saiu de lá —,
+   * é decisão sobre quem personaliza a própria vista. O que se ganha é a tela ser a
+   * MESMA para todo mundo na hora de conferir um número por telefone.
+   *
+   * UM PORTÃO SÓ, e todos os caminhos passam por ele. Seis lugares poderiam ter a
+   * própria cópia da regra, e a primeira mudança pegaria cinco. */
+  ok(/function podeArranjarColunas\(\)\{ return Q\.ehAdmin\(\); \}/.test(adm),
+    'quem arranja as colunas é o administrador, e a regra mora num lugar só');
+  /* O PORTÃO ESTÁ NA LEITURA, e é isso que faz a tabela voltar ao padrão para quem
+     não é admin. Só nos gestos, o caso que mais importa ficaria de pé: quem ERA admin,
+     arrumou as colunas e teve o perfil trocado continuaria com o arranjo antigo e com
+     colunas escondidas que não teria mais como trazer de volta. */
+  [['ordemColunas',  /function ordemColunas\(t\)\{\s*\n[\s\S]{0,140}?if \(!podeArranjarColunas\(\)\) return t\.padrao\.slice\(\);/,
+    'a ordem de fábrica'],
+   ['larguras',      /function larguras\(t\)\{\s*\n[\s\S]{0,200}?if \(!podeArranjarColunas\(\)\) \{/,
+    'a largura de fábrica'],
+   ['colunasOcultas', /function colunasOcultas\(t\)\{\s*\n[\s\S]{0,220}?if \(!podeArranjarColunas\(\)\) return \[\];/,
+    'nenhuma coluna escondida']].forEach(function (p) {
+    ok(p[1].test(adm),
+      'e `' + p[0] + '` devolve ' + p[2] + ' para quem não é admin — ignorar o que está ' +
+      'guardado é o que desfaz o arranjo de quem deixou de ser admin, e o do computador ' +
+      'compartilhado');
+  });
+  /* A GRAVAÇÃO TAMBÉM RECUSA, embora nada devesse chegar até ela: um ouvinte que
+     sobreviva a uma troca de sessão sem redesenho é o tipo de coisa que ninguém vê. */
+  ['guardarOrdem', 'guardarLargura', 'guardarOcultas'].forEach(function (f) {
+    var i = adm.indexOf('function ' + f + '(');
+    ok(i > 0 && /^[\s\S]{0,120}?if \(!podeArranjarColunas\(\)\) return;/
+                  .test(adm.slice(i)),
+      'e `' + f + '` se recusa a gravar — defesa no caminho de escrita, não só no gesto');
+  });
+  /* OS GESTOS NÃO SÃO LIGADOS, e o cabeçalho não os PROMETE: prometer um gesto que não
+     acontece é pior que não prometer nada, porque a pessoa insiste achando que errou. */
+  ['ligarArrastarColunas', 'ligarLarguraColunas'].forEach(function (f) {
+    var i = adm.indexOf('function ' + f + '(t)');
+    ok(i > 0 && /^[\s\S]{0,60}?if \(!podeArranjarColunas\(\)\) return;/.test(adm.slice(i)),
+      'e `' + f + '` nem se liga');
+  });
+  ok(/function arrastavel\(\)\{ return podeArranjarColunas\(\) \? ' draggable="true"' : ''; \}/.test(adm) &&
+     /function puxador\(\)\{ return podeArranjarColunas\(\) \? '<span class="puxador"><\/span>' : ''; \}/.test(adm),
+    'e o cabeçalho sai sem `draggable` e sem alcinha — prometer um gesto que não ' +
+    'acontece faz a pessoa insistir achando que errou a mão');
+  /* E O CURSOR VAI JUNTO — foi a régua que achou isto, e não o código: com o JS todo
+     correto, medido no Chrome com sessão de conferente, o título continuava com
+     `cursor:grab`. A mão aberta é uma promessa: a pessoa arrasta, nada se move, e
+     conclui que a tela travou. O seletor pergunta pelo PRÓPRIO `draggable` para não
+     haver dois lugares dizendo quem arrasta. */
+  ok(/table\.fixa th\[data-col\]:not\(\[draggable\]\)\{cursor:default\}/.test(css),
+    'e a mão aberta some junto: medido, o cursor continuava `grab` para quem não pode ' +
+    'arrastar, prometendo um gesto que não acontece');
+  ok(/table\.fixa th\.ordenavel:not\(\[draggable\]\)\{cursor:pointer\}/.test(css),
+    'mas a coluna que classifica mantém a mão de clique — classificar vale para todos');
+  /* AS TRÊS TABELAS pelas mesmas peças: três cópias divergiriam na primeira mexida. */
+  ok((adm.match(/<th'\+arrastavel\(\)\+' data-col=/g) || []).length === 3 &&
+     (adm.match(/puxador\(\)\+/g) || []).length === 3,
+    'e as TRÊS tabelas usam as mesmas peças — Ativos, Movimentos e Usuários',
+    (adm.match(/<th'\+arrastavel\(\)\+' data-col=/g) || []).length);
+  /* CLASSIFICAR NÃO É ARRANJAR. Clicar no título para ordenar continua valendo para
+     todos: a permissão governa a FORMA da tabela, não a ordem das linhas, e tirar a
+     classificação de quem confere seria tirar a única ferramenta de leitura que tem. */
+  ok(/dicaColuna\(c\.d\.k \? 'clique para classificar; ' : ''\)/.test(adm) &&
+     !/ordenavel[\s\S]{0,60}podeArranjarColunas/.test(adm),
+    'mas classificar continua valendo para todos: a permissão governa a FORMA da ' +
+    'tabela, não a ordem das linhas');
+  /* A TELA RECUSA POR CONTA PRÓPRIA, e não confia em estar escondida no menu: a página
+     existe e o endereço dela é alcançável, e tela vazia não se distingue de quebrada. */
+  var recusa = tela(['data', 'saida', 'quem'], [], { data: 95, saida: 160, quem: 190 }, false);
+  ok(recusa.indexOf('Só o administrador ajusta as colunas') > 0 &&
+     recusa.indexOf('data-colver=') < 0,
+    'e a aba Colunas recusa por conta própria, dizendo por quê — escondida no menu ' +
+    'ela ainda é alcançável, e tela vazia não se distingue de tela quebrada', recusa);
+  /* E O CAMINHO ATÉ ELA SOME: conceder a porta para uma tela que recusa é pior que não
+     oferecer a porta. A palavra do perfil vem ANTES da marcação de abas. */
+  ok(/if \(b\.dataset\.pagina === 'pgColunas' && !podeArranjarColunas\(\)\) ok = false;/.test(adm),
+    'e o botão dela some do menu mesmo que a aba tenha sido concedida — oferecer o ' +
+    'caminho para uma porta trancada é pior que não oferecer');
 })();
 
 console.log('\n== recolher o trilho ==');

@@ -1977,6 +1977,15 @@ table.fixa th.ordenado{color:var(--ambar-forte)}
    Foi o que aconteceu com Movimentos: medida no Chrome, a alcinha dela tinha 0x16px e a
    tabela ficava em `table-layout:auto`. Tudo ligado, nada funcionando. */
 table.fixa th[data-col]{cursor:grab;user-select:none}
+/* A MAO ABERTA SO PARA QUEM PODE ARRASTAR. Mover as colunas e do administrador, e o JS
+   ja tira o `draggable` e a alcinha de quem nao pode — mas o cursor ficava: medido no
+   Chrome com sessao de conferente, o titulo continuava com `grab`, prometendo um gesto
+   que nao acontece. A pessoa arrasta, nada se move, e ela conclui que a tela travou.
+   O seletor pergunta pelo PROPRIO `draggable`, e nao por uma classe a parte, para nao
+   haver dois lugares dizendo quem arrasta. Classificar nao entra nisso: a coluna
+   ordenavel continua com a mao de clique, que vale para todo mundo. */
+table.fixa th[data-col]:not([draggable]){cursor:default}
+table.fixa th.ordenavel:not([draggable]){cursor:pointer}
 table.fixa th.arrastando{opacity:.45;cursor:grabbing}
 table.fixa th.alvo{box-shadow:inset 3px 0 0 var(--azul,#4f8ef7)}
 /* Layout fixo para que a largura pedida seja obedecida. Em layout automatico o navegador

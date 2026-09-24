@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=b37e6b2e">
+<link rel="stylesheet" href="styles.css?v=678fc228">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1111,6 +1111,11 @@
     var botoes = document.querySelectorAll('#abas button[data-pagina]');
     Array.prototype.forEach.call(botoes, function(b){
       var ok = pode.indexOf(b.dataset.pagina) >= 0;
+      /* AJUSTES DA TELA é do administrador, e essa palavra vem ANTES da marcação: sem
+         isto, o admin poderia conceder a aba a alguém que, chegando lá, encontraria uma
+         tela que recusa. Conceder o caminho para uma porta trancada é pior que não
+         oferecer o caminho. */
+      if (b.dataset.pagina === 'pgColunas' && !podeArranjarColunas()) ok = false;
       b.style.display = ok ? '' : 'none';
       if (!ok) {
         b.classList.remove('ativa');
@@ -1983,6 +1988,15 @@
   function desenharColunas(){
     var box = document.getElementById('listaColunas');
     if (!box) return;
+    /* A TELA RECUSA POR CONTA PRÓPRIA, e não confia em estar escondida no menu. O botão
+       some para quem não é admin, mas a página existe e o endereço dela é alcançável —
+       e uma tela que aparece vazia não se distingue de uma tela quebrada. */
+    if (!podeArranjarColunas()) {
+      box.innerHTML = '<div class="vazio">Só o administrador ajusta as colunas. '+
+        'As tabelas aparecem para você como saíram de fábrica: todas as colunas, '+
+        'na ordem e na largura padrão.</div>';
+      return;
+    }
     /* Uma linha dizendo as tres acoes, antes das fichas. Sem ela, as setas e o numero
        se explicam pela forma, mas so quem passa o ponteiro descobre o que fazem — e num
        celular nao ha ponteiro que passe. */
@@ -2102,7 +2116,35 @@
     });
   }
 
+  /* ================= QUEM ARRANJA AS COLUNAS =================
+   *
+   * Mover, esconder e alargar são do ADMINISTRADOR. Para os demais a tabela sai como
+   * saiu de fábrica: todas as colunas, na ordem de fábrica, na largura de fábrica.
+   *
+   * O QUE ISTO É E O QUE NÃO É. Não é tranca de segurança — o arranjo é gravado no
+   * `localStorage`, ou seja, NO NAVEGADOR de quem olha, e nunca saiu daqui: ninguém
+   * nunca mexeu na tela de outra pessoa. É decisão sobre quem pode personalizar a
+   * própria vista, e o que se ganha é a tela ser a MESMA para todo mundo na hora de
+   * conferir um número por telefone — "olha a terceira coluna" passa a querer dizer a
+   * mesma coluna para os dois lados da ligação.
+   *
+   * O PORTÃO ESTÁ NA LEITURA, e não só nos gestos. Bloquear apenas o arrastar deixaria
+   * de pé o caso que mais importa: alguém que ERA admin, arrumou as colunas, e depois
+   * teve o perfil trocado — a tela dessa pessoa continuaria com o arranjo antigo, e
+   * com colunas escondidas que ela não tem mais como trazer de volta. O mesmo vale para
+   * o computador compartilhado do escritório, onde o admin mexeu e o conferente senta
+   * depois. Por isso `ordemColunas`, `larguras` e `colunasOcultas` IGNORAM o que está
+   * guardado quando quem olha não é admin: o que está no navegador continua lá, intacto,
+   * e volta a valer no dia em que a pessoa voltar a ser admin.
+   *
+   * E A GRAVAÇÃO TAMBÉM RECUSA, embora nada devesse chegar até ela. Um ouvinte que
+   * sobreviva a uma troca de sessão sem redesenho é justamente o tipo de coisa que
+   * ninguém vê acontecer. */
+  function podeArranjarColunas(){ return Q.ehAdmin(); }
+
   function ordemColunas(t){
+    /* Sem permissão, a ordem de fábrica — e não a guardada. Ver o portão acima. */
+    if (!podeArranjarColunas()) return t.padrao.slice();
     var salva = [];
     try { salva = JSON.parse(localStorage.getItem(t.kOrdem) || '[]') || []; }
     catch (e) { salva = []; }
@@ -2123,6 +2165,7 @@
   }
 
   function guardarOrdem(t, ordem){
+    if (!podeArranjarColunas()) return;
     try { localStorage.setItem(t.kOrdem, JSON.stringify(ordem)); } catch (e) {}
   }
 
@@ -2137,7 +2180,25 @@
      arrastar a borda nao mudava quase nada, e a coluna voltava sozinha ao soltar. */
   var LARG_MIN = 70;
 
+  /* AS TRÊS PEÇAS DO CABEÇALHO ARRASTÁVEL, num lugar só: são três tabelas, e três
+     cópias divergiriam na primeira mexida. Sem permissão o <th> sai sem `draggable`,
+     sem alcinha e sem o convite no balão — prometer um gesto que não acontece é pior
+     que não prometer nada, porque a pessoa insiste achando que errou a mão. */
+  function arrastavel(){ return podeArranjarColunas() ? ' draggable="true"' : ''; }
+  function puxador(){ return podeArranjarColunas() ? '<span class="puxador"></span>' : ''; }
+  function dicaColuna(antes){
+    antes = antes || '';
+    return podeArranjarColunas()
+      ? antes + 'arraste o titulo para mudar de lugar; a borda, para mudar a largura'
+      : antes.replace(/; $/, '');
+  }
+
   function larguras(t){
+    var r0 = {};
+    if (!podeArranjarColunas()) {
+      Object.keys(t.larg).forEach(function(id){ r0[id] = t.larg[id]; });
+      return r0;
+    }
     var salvo = {};
     try { salvo = JSON.parse(localStorage.getItem(t.kLarg) || '{}') || {}; }
     catch (e) { salvo = {}; }
@@ -2155,6 +2216,9 @@
      ja tinha mexido aqui. Ao contrario, ela nasceria invisivel e ninguem saberia que
      existe. */
   function colunasOcultas(t){
+    /* NENHUMA escondida: quem não arranja vê a tabela inteira. Uma coluna sumida sem
+       jeito de trazer de volta é pior que uma coluna a mais. */
+    if (!podeArranjarColunas()) return [];
     try {
       var l = JSON.parse(localStorage.getItem(t.kOcultas) || '[]');
       return Array.isArray(l) ? l : [];
@@ -2162,10 +2226,12 @@
   }
 
   function guardarOcultas(t, lista){
+    if (!podeArranjarColunas()) return;
     try { localStorage.setItem(t.kOcultas, JSON.stringify(lista)); } catch (e) {}
   }
 
   function guardarLargura(t, id, px){
+    if (!podeArranjarColunas()) return;
     var salvo = {};
     try { salvo = JSON.parse(localStorage.getItem(t.kLarg) || '{}') || {}; }
     catch (e) { salvo = {}; }
@@ -2213,6 +2279,7 @@
   }
 
   function ligarLarguraColunas(t){
+    if (!podeArranjarColunas()) return;
     document.querySelectorAll(t.alvo + ' th[data-col] .puxador').forEach(function(p){
       p.addEventListener('mousedown', function(e){
         e.preventDefault();
@@ -2241,6 +2308,7 @@
   }
 
   function ligarArrastarColunas(t){
+    if (!podeArranjarColunas()) return;
     var ths = document.querySelectorAll(t.alvo + ' th[data-col]');
     var arrastado = null;
     Array.prototype.forEach.call(ths, function(th){
@@ -2471,15 +2539,18 @@
         cs.map(function(c){
           var ord = ORDEM_FLUXO.col === c.id;
           var seta = ord ? (ORDEM_FLUXO.desc ? ' ▾' : ' ▴') : '';
-          return '<th draggable="true" data-col="'+c.id+'"'+
+          return '<th'+arrastavel()+' data-col="'+c.id+'"'+
             ' class="'+(c.d.num ? 'num ' : '')+(c.d.k ? 'ordenavel ' : '')+
               (ord ? 'ordenado' : '')+'"'+
             (c.d.k ? ' aria-sort="'+(ord ? (ORDEM_FLUXO.desc ? 'descending' : 'ascending')
                                          : 'none')+'"' : '')+
             ' style="width:'+(LARG[c.id] || 120)+'px"'+
-            ' title="'+(c.d.k ? 'clique para classificar; ' : '')+
-              'arraste o titulo para mudar de lugar; a borda, para mudar a largura">'+
-            Q.esc(c.d.t)+seta+'<span class="puxador"></span></th>';
+            /* CLASSIFICAR NÃO É ARRANJAR: clicar no título para ordenar continua valendo
+               para todo mundo. O que a permissão governa é a FORMA da tabela, não a
+               ordem das linhas — e tirar a classificação de quem confere seria tirar a
+               única ferramenta de leitura que ela tem. */
+            ' title="'+Q.esc(dicaColuna(c.d.k ? 'clique para classificar; ' : ''))+'">'+
+            Q.esc(c.d.t)+seta+puxador()+'</th>';
         }).join('')+
         /* A coluna de FOLGA, sem titulo e sem largura. Em `table-layout:fixed` com a
            tabela a 100%, o que sobra e repartido entre as colunas: medido no Chrome,
@@ -3997,11 +4068,11 @@
        no meio da leitura. */
     box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
       cs.map(function(c){
-        return '<th draggable="true" data-col="'+c.id+'"'+
+        return '<th'+arrastavel()+' data-col="'+c.id+'"'+
           (c.d.num ? ' class="num"' : '')+
           ' style="width:'+(LARG[c.id] || 120)+'px"'+
-          ' title="arraste o titulo para mudar de lugar; a borda, para mudar a largura">'+
-          Q.esc(c.d.t)+'<span class="puxador"></span></th>';
+          ' title="'+Q.esc(dicaColuna())+'">'+
+          Q.esc(c.d.t)+puxador()+'</th>';
       }).join('')+
       '<th></th></tr></thead><tbody>'+
       MOVS.map(function(m){
@@ -5307,12 +5378,12 @@
        esconderia sem querer e perderia o unico jeito de mexer num cadastro. */
     box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
       cs.map(function(c){
-        return '<th draggable="true" data-col="'+c.id+'"'+
+        return '<th'+arrastavel()+' data-col="'+c.id+'"'+
           ' style="width:'+(LARG[c.id] || 120)+'px"'+
-          ' title="arraste o titulo para mudar de lugar; a borda, para mudar a largura">'+
+          ' title="'+Q.esc(dicaColuna())+'">'+
           Q.esc(c.d.t)+
           (c.d.sub ? '<br><span class="sub-col">'+Q.esc(c.d.sub)+'</span>' : '')+
-          '<span class="puxador"></span></th>';
+          puxador()+'</th>';
       }).join('')+
       '<th></th></tr></thead><tbody>'+
       lista.map(function(u){
