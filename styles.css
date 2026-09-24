@@ -44,6 +44,11 @@
   --txt-fraco:#7d97b6; --linha-viva:#3e6a96; --vermelho-txt:#ffd9d9;
   --vermelho:#f0a5a5; --vermelho-claro:#3a2430;
   --azul:#8ab8f5; --azul-claro:#21344d;
+  /* OS DOIS TONS DE PREENCHIMENTO das barras dos graficos. Nao sao os mesmos do
+     resto da tela de proposito: `--verde` e `--azul` sao claros o bastante para
+     TEXTO em fundo escuro, e como AREA CHEIA eles brilham e reprovam. Estes dois
+     foram escolhidos para preencher. */
+  --azul-cheio:#5391e0; --verde-cheio:#2aa95f;
   --laranja:#e8a33d;
   /* AS CORES DA MARCA. Elas vivem aqui e nao na tela de entrada para nao virarem cor
      solta: e o mesmo roxo e o mesmo verde em qualquer lugar que a marca apareca.
@@ -1912,6 +1917,70 @@ details.tipos[open] summary::before{content:"▾"}
 .destravado-ate{display:flex;align-items:center;justify-content:space-between;gap:10px;
   flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;border-radius:var(--raio);
   background:var(--surface-2);font-size:12.5px;color:var(--txt2)}
+/* ---------- os cinco recortes em grafico (Movimentos) ----------
+ * CINCO COLUNAS FIXAS. Com `auto-fit` o quinto painel caia sozinho para a segunda
+ * linha e sobrava meia tela vazia. Largura em fracao mais `min-width:0` deixa o texto
+ * encolher por reticencias em vez de empurrar a grade; o rotulo inteiro continua no
+ * balao. A unica quebra e em 520px, onde cinco colunas dariam 85px cada e nenhum
+ * rotulo caberia. */
+.graficos{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;
+  margin:12px 0 0}
+@media (max-width:520px){.graficos{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.graficos:empty{display:none}
+.g{position:relative;isolation:isolate;min-width:0;background:var(--campo);
+  border:1px solid var(--linha);border-radius:var(--raio);
+  padding:10px clamp(7px,.72vw,11px) 18px}
+/* A mesma varredura dos cartoes, pela mesma razao e com a mesma mascara. */
+.g::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  border-radius:inherit;opacity:.32;
+  background-image:linear-gradient(90deg,var(--c1,transparent),var(--c2,transparent));
+  -webkit-mask:linear-gradient(to top,#000 0,#000 6px,rgba(0,0,0,.35) 18px,transparent 46px);
+  mask:linear-gradient(to top,#000 0,#000 6px,rgba(0,0,0,.35) 18px,transparent 46px)}
+.g__c{display:flex;align-items:baseline;gap:4px;margin-bottom:9px;min-width:0}
+.g__t{margin:0;flex:1 1 auto;min-width:0;font-size:clamp(9px,.8vw,10.5px);font-weight:700;
+  letter-spacing:.02em;text-transform:uppercase;color:var(--txt3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g__n{flex:0 0 auto;font-size:clamp(9px,.74vw,10px);color:var(--txt3);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+/* Abaixo de 1000px a contagem some antes do rotulo: ela e o dado menos importante do
+   painel, e some sem levar informacao junto. */
+@media (max-width:1000px){.g__n{display:none}}
+.g__vazio{font-size:11px;color:var(--txt3);padding:6px 0}
+/* A BARRA TAMBEM E UM BOTAO: clicar filtra a tela inteira. Ela nasce como <button>, e
+   nao como <div> com ouvinte, para chegar pelo teclado e ser anunciada como botao. */
+.gb{display:block;width:100%;text-align:left;padding:3px 4px;margin:0 -4px 5px;
+  border:0;border-radius:7px;background:transparent;font:inherit;color:inherit;
+  cursor:pointer}
+.gb[disabled]{cursor:default}
+.gb:hover:not([disabled]){background:rgba(255,255,255,.045)}
+.gb:focus-visible{outline:2px solid var(--azul);outline-offset:1px}
+/* Ligada, ela fica marcada: sem isto nao ha como saber que a lista esta recortada por
+   um clique que se deu dois minutos atras. */
+.gb[aria-pressed="true"]{background:rgba(52,211,153,.13);box-shadow:inset 2px 0 0 var(--verde)}
+.gb[aria-pressed="true"] .gb__k{color:var(--txt);font-weight:600}
+.g .gb:last-child{margin-bottom:0}
+.gb__r{display:flex;align-items:baseline;gap:6px;margin-bottom:4px;min-width:0}
+.gb__k{flex:1 1 auto;min-width:0;font-size:clamp(9.5px,.82vw,11px);color:var(--txt2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gb__v{flex:0 0 auto;font-size:clamp(9.5px,.82vw,11px);font-weight:600;color:var(--txt);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.gb__t{display:block;height:7px;border-radius:999px;background:rgba(255,255,255,.055)}
+.gb__f{display:flex;gap:2px;height:100%;border-radius:999px;overflow:hidden}
+.gb__f i{display:block;height:100%;min-width:0}
+/* Os dois tons sao os VALIDADOS PARA PREENCHIMENTO em fundo escuro. Os claros do resto
+   da tela passam como TEXTO e reprovam como area cheia. */
+.gb__s{background:var(--azul-cheio)}
+.gb__d{background:var(--verde-cheio)}
+.gb:hover .gb__k,.gb:hover .gb__v{color:var(--txt)}
+.legenda-g{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:14px 0 0;
+  font-size:11.5px;color:var(--txt2)}
+.legenda-g span{display:inline-flex;align-items:center;gap:6px}
+.legenda-g i{width:9px;height:9px;border-radius:2px}
+/* O aviso vai para a DIREITA e some quando nao ha o que avisar. Aviso permanente vira
+   ruido, e ruido constante e o que faz ninguem reparar no dia em que ele muda. */
+.legenda-g em{margin-left:auto;font-style:normal;color:var(--ambar-forte);font-size:11px}
+.legenda-g em:empty{display:none}
+
 /* ---------- os seis totais do recorte (Movimentos) ----------
  * SEIS NUMA LINHA, e a linha nao quebra por largura: quem encolhe e o TEXTO, pelo
  * clamp(), e nao a grade. Um ponto de corte em 1180px fazia 3+3 numa janela de 1100px,

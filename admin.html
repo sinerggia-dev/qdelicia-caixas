@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=d21ada09">
+<link rel="stylesheet" href="styles.css?v=f733311a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -615,6 +615,16 @@
              Escritas aqui, seriam duas listas sobre a mesma regra. -->
         <div><label for="mvStatus">Status</label><select id="mvStatus"><option value="">Todos</option></select></div>
         <div><label for="mvUsuario">Quem lançou</label><select id="mvUsuario"><option value="">Todos</option></select></div>
+        <!-- MOTORISTA: o nome já era coluna da tabela e não dava para filtrar por ele.
+             O lançamento guarda o NOME, e não um id — repintar ou apagar um cadastro não
+             pode reescrever o que já saiu do galpão —, então o valor da opção é o nome. -->
+        <div><label for="mvMotorista">Motorista</label><select id="mvMotorista"><option value="">Todos</option></select></div>
+        <!-- O TRECHO não tem lista para escolher: ele só nasce do clique no gráfico, e
+             uma lista de todos os pares possíveis seria combinatória. Fica escondido, e
+             não à parte, para a pílula, o "tirar o filtro" e o `filtroExclusao()`
+             funcionarem sem nenhum caso especial — um filtro guardado fora do mecanismo
+             é o que faz a tela e o "apagar" recortarem coisas diferentes. -->
+        <div hidden><label for="mvTrecho">Trecho</label><select id="mvTrecho"><option value=""></option></select></div>
         <div><label for="mvTeste">Lançamentos</label><select id="mvTeste">
           <option value="reais">Só reais</option>
           <option value="teste">Só de teste</option>
@@ -661,6 +671,16 @@
            inteira para chegar no total dela. -->
       <div class="tot" id="totMov"></div>
       <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
+
+      <!-- OS CINCO RECORTES, abaixo da tabela: quem chega nesta tela vem ver uma LINHA,
+           e o resumo é o segundo olhar. Acima, eles empurrariam a lista para baixo da
+           dobra em toda visita. -->
+      <div class="legenda-g">
+        <span><i style="background:var(--azul-cheio)"></i>Saída</span>
+        <span><i style="background:var(--verde-cheio)"></i>Retorno</span>
+        <em id="gNotaMov"></em>
+      </div>
+      <div class="graficos" id="graficosMov"></div>
     </div>
   </section>
 
@@ -885,6 +905,30 @@
       sel.innerHTML = html;
       sel.value = atual;
     });
+
+    /* O MOTORISTA sai do cadastro de motoristas, e o valor da opção é o NOME — porque é
+       o nome que o lançamento guarda. Guardar o id ali faria repintar um cadastro
+       reescrever o que já saiu do galpão, e é de propósito que não seja assim.
+       O valor escolhido sobrevive ao redesenho: a lista é refeita sempre que o cadastro
+       chega, e sem guardar o atual o filtro se limparia sozinho no meio da leitura. */
+    var sm = document.getElementById('mvMotorista');
+    if (sm) {
+      var eraM = sm.value;
+      sm.innerHTML = '<option value="">Todos</option>' +
+        Q.ordenarPorNome(MOTORISTAS || []).map(function(m){
+          return '<option value="'+Q.esc(m.Nome)+'">'+Q.esc(m.Nome)+'</option>';
+        }).join('');
+      sm.value = eraM;
+      /* O nome pode ter vindo de um clique no gráfico e não estar no cadastro — é o caso
+         do motorista que saiu da frota e continua nos lançamentos antigos. Sem esta
+         volta o filtro se apagaria sozinho ao recarregar os cadastros. */
+      if (sm.value !== eraM && eraM) {
+        var op = document.createElement('option');
+        op.value = eraM; op.textContent = eraM + ' (fora do cadastro)';
+        sm.appendChild(op);
+        sm.value = eraM;
+      }
+    }
   }
 
   /* ---------------- app ---------------- */
@@ -3814,10 +3858,21 @@
       caixa:   document.getElementById('mvCaixa').value,
       situacao: document.getElementById('mvStatus').value,
       usuario: document.getElementById('mvUsuario').value,
+      motorista: document.getElementById('mvMotorista').value,
+      trecho:  document.getElementById('mvTrecho').value,
       teste:   document.getElementById('mvTeste').value,
       de:      document.getElementById('mvDe').value,
       ate:     document.getElementById('mvAte').value
     };
+  }
+
+  /* O trecho vem como dois ids colados; aqui ele volta a ser dois nomes. Sem isto a
+     frase da confirmação mostraria "L001|L011", que não diz nada a ninguém. */
+  function nomeTrecho(par){
+    return String(par).split('|').map(function(id){
+      var l = (DADOS.locais||[]).filter(function(x){ return String(x.ID)===String(id); })[0];
+      return l ? l.Nome : id;
+    }).join(' ↔ ');
   }
 
   function descreveFiltro(f){
@@ -3842,6 +3897,12 @@
     if (f.fluxo === 'ENTRADA') p.push('<b>só o que voltou</b>');
     if (f.caixa)   p.push('da caixa <b>'+Q.esc(nomeCaixa(f.caixa))+'</b>');
     if (f.situacao) p.push('com status <b>'+Q.esc(f.situacao)+'</b>');
+    /* OS DOIS NOVOS ENTRAM AQUI TAMBÉM, e não é detalhe: este texto é o que a confirmação
+       do "Apagar o que está no filtro" mostra. Um filtro que recorta a lista e não
+       aparece na frase faria alguém confirmar o apagamento de um recorte que não é o que
+       está lendo. */
+    if (f.motorista) p.push('com o motorista <b>'+Q.esc(f.motorista)+'</b>');
+    if (f.trecho)    p.push('no trecho <b>'+Q.esc(nomeTrecho(f.trecho))+'</b>');
     if (f.teste === 'reais') p.push('<b>só reais</b>');
     if (f.teste === 'teste') p.push('<b>só de teste</b>');
     if (f.de)      p.push('a partir de <b>'+Q.dataBR(f.de)+'</b>');
@@ -3874,7 +3935,7 @@
      busca: a pessoa trocava o Tipo, a tabela continuava igual, e a conclusão natural era
      que o filtro não funcionava. O botão fica como recarregar. */
   ['mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa', 'mvStatus', 'mvUsuario',
-   'mvTeste', 'mvDe', 'mvAte'].forEach(function(id){
+   'mvMotorista', 'mvTrecho', 'mvTeste', 'mvDe', 'mvAte'].forEach(function(id){
     document.getElementById(id).addEventListener('change', carregarMovimentos);
   });
 
@@ -3901,6 +3962,11 @@
     document.getElementById('mvCaixa').value = '';
     document.getElementById('mvStatus').value = '';
     document.getElementById('mvUsuario').value = '';
+    /* Os dois novos limpam junto. Esquecido aqui, o "Limpar" deixaria de pé justamente o
+       filtro que veio de um clique no gráfico — o menos visível de todos, porque não tem
+       campo à vista para a pessoa conferir. */
+    document.getElementById('mvMotorista').value = '';
+    document.getElementById('mvTrecho').value = '';
     document.getElementById('mvTeste').value = 'reais';
     periodoPadraoMov();
     carregarMovimentos();
@@ -3915,7 +3981,8 @@
        mandava os dois, entao a tela e o apagar recortavam coisas diferentes. */
     Q.get({acao:'movimentos', origem:f.origem, destino:f.destino,
            tipo:f.tipo, fluxo:f.fluxo, caixa:f.caixa, usuario:f.usuario, teste:f.teste,
-           situacao:f.situacao, de:f.de, ate:f.ate, limit:500})
+           situacao:f.situacao, motorista:f.motorista, trecho:f.trecho,
+           de:f.de, ate:f.ate, limit:500})
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
         MOVS = r.movimentos;
@@ -3955,7 +4022,7 @@
    * o dia em que um filtro fosse renomeado a pílula continuaria com o nome antigo.
    */
   var CAMPOS_MOV = ['mvOrigem','mvDestino','mvFluxo','mvTipo','mvCaixa','mvStatus',
-                    'mvUsuario','mvDe','mvAte'];
+                    'mvUsuario','mvMotorista','mvTrecho','mvDe','mvAte'];
 
   function rotuloDoCampo(id){
     var lab = document.querySelector('label[for="'+id+'"]');
@@ -4242,6 +4309,214 @@
         fat(t.acerto));
   }
 
+  /* ================= OS CINCO RECORTES DO MESMO FILTRO =================
+   *
+   * Cinco painéis, uma leitura só: barra horizontal por categoria, dividida em saída
+   * (azul) e retorno (verde). Horizontal porque o rótulo é texto de tamanho variável —
+   * em barra vertical ele deita ou corta, e nome de motorista não se lê de lado.
+   *
+   * SÓ O TOTAL ESCONDIA O QUE INTERESSA: motorista que leva e nunca traz aparecia igual
+   * a um que fecha o ciclo. A divisão é a informação.
+   *
+   * A BARRA É PROPORCIONAL AO MAIOR DA PRÓPRIA COLUNA, e não ao total geral. Cada painel
+   * responde "quem é o maior AQUI"; comparar entre painéis pela largura seria errado, e
+   * por isso o número está escrito ao lado — é ele que se compara.
+   *
+   * NO MÁXIMO SEIS categorias, o resto vira "Outros". Barra de dois pixels de altura não
+   * é leitura, é enfeite — e uma lista de quarenta nomes empurra a tabela para fora da
+   * tela.
+   *
+   * AJUSTE, PERDA E CANCELADA FICAM DE FORA da divisão saída/retorno pela mesma razão
+   * dos cartões: não são viagem de caixa. Mas continuam no TOTAL da barra, senão o
+   * número do painel discordaria do cartão logo acima dele. */
+  var TETO_G = 6;
+
+  function agruparMov(L, chave){
+    /* `chave` devolve [rótulo, valor]. O rótulo é o que se lê; o valor é o que vai para
+       o filtro ao clicar. Separar os dois é o que permite a barra mostrar "Matriz São
+       Vicente" e o clique mandar o ID que o servidor entende. */
+    var mapa = {}, ordem = [];
+    L.forEach(function(m){
+      var r = chave(m);
+      if (!Array.isArray(r)) r = [r, r];
+      var k = r[0];
+      /* SEM INFORMAÇÃO É UMA CATEGORIA, e não um buraco: rota sem motorista é caso real
+         na operação, e some-la faria o painel somar menos que o cartão. */
+      if (k == null || k === '') { k = 'sem informação'; r[1] = ''; }
+      if (!mapa[k]) { mapa[k] = { k:k, v:r[1], saida:0, retorno:0, total:0 }; ordem.push(k); }
+      var g = mapa[k], q = Number(m.qtd) || 0, s = sentidoDoMov(m);
+      if (s === 'saida') g.saida += q; else if (s === 'retorno') g.retorno += q;
+      g.total += q;
+    });
+    return ordem.map(function(k){ return mapa[k]; });
+  }
+
+  function cortarG(lista){
+    if (lista.length <= TETO_G) return lista;
+    var fica = lista.slice(0, TETO_G - 1);
+    var resto = lista.slice(TETO_G - 1).reduce(function(a, g){
+      a.saida += g.saida; a.retorno += g.retorno; a.total += g.total; a.n++; return a;
+    }, { k:'', saida:0, retorno:0, total:0, n:0 });
+    resto.k = 'Outros (' + resto.n + ')';
+    /* O AGREGADO NÃO VIRA FILTRO: não existe um valor único que o represente, e um
+       clique que filtrasse "Outros" precisaria mandar sete valores de uma vez. */
+    resto.v = null;
+    fica.push(resto);
+    return fica;
+  }
+
+  /* O filtro JÁ ESTÁ nesta barra? Precisa saber para o clique poder DESLIGAR, em vez de
+     reaplicar o mesmo filtro e a pessoa ficar presa nele. */
+  function gLigado(campo, g){
+    if (campo === 'mvData') {
+      var de = document.getElementById('mvDe'), ate = document.getElementById('mvAte');
+      return !!de && de.value === g.v && !!ate && ate.value === g.v;
+    }
+    var el = document.getElementById(campo);
+    return !!el && String(el.value) === String(g.v);
+  }
+
+  function barraG(g, maior, campo){
+    var pc = maior ? (g.total / maior * 100) : 0;
+    var ps = g.total ? (g.saida / g.total * 100) : 0;
+    /* `g.v` vazio é diferente de nulo: vazio é "sem informação", que o servidor não sabe
+       filtrar (ele não tem um valor para "nenhum"), e nulo é o agregado. Nos dois casos
+       a barra continua sendo desenhada — ela é informação —, só não é clicável. */
+    var pode = campo && g.v != null && g.v !== '';
+    var lig = pode && gLigado(campo, g);
+    var titulo = g.k + ' — ' + Q.num(g.total) + ' caixas · saída ' + Q.num(g.saida) +
+      ' · retorno ' + Q.num(g.retorno) +
+      (pode ? (lig ? ' · clique para tirar o filtro' : ' · clique para filtrar por isto')
+            : (g.v === '' ? ' · sem informação não vira filtro' : ''));
+    return '<button class="gb" type="button" title="'+Q.esc(titulo)+'"'+
+      (pode ? ' data-gcampo="'+Q.esc(campo)+'" data-gvalor="'+Q.esc(g.v)+'"'+
+              ' aria-pressed="'+(lig ? 'true' : 'false')+'"'
+            : ' disabled')+'>'+
+      '<span class="gb__r"><span class="gb__k">'+Q.esc(g.k)+'</span>'+
+      '<b class="gb__v">'+Q.num(g.total)+'</b></span>'+
+      '<span class="gb__t"><span class="gb__f" style="width:'+pc.toFixed(1)+'%">'+
+        (g.saida ? '<i class="gb__s" style="flex:'+ps+' 1 0"></i>' : '')+
+        (g.retorno ? '<i class="gb__d" style="flex:'+(100 - ps)+' 1 0"></i>' : '')+
+      '</span></span></button>';
+  }
+
+  function painelG(i, titulo, lista, nota, campo){
+    var maior = lista.reduce(function(a, g){ return Math.max(a, g.total); }, 0);
+    return '<section class="g" style="--c1:'+tomDeg(i / 5)+';--c2:'+tomDeg((i + 1) / 5)+'">'+
+      '<div class="g__c"><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
+      '<span class="g__n">'+Q.esc(nota)+'</span></div>'+
+      (lista.length
+        ? lista.map(function(g){ return barraG(g, maior, campo); }).join('')
+        : '<p class="g__vazio">sem dados no recorte</p>')+
+      '</section>';
+  }
+
+  function porTotalG(a, b){ return b.total - a.total; }
+
+  /* O TRECHO é o par de pontas SEM direção: "Matriz → João Pessoa" e "João Pessoa →
+     Matriz" são a mesma perna da operação vista dos dois lados. Separados, cada barra
+     fica 100% azul ou 100% verde e a divisão não informa nada; juntos, ela mostra o que
+     importa — quanto saiu e quanto voltou naquele trecho.
+     O rótulo sai dos NOMES, para ler; o valor, dos IDS, para o servidor casar a ida com
+     a volta. Nome de local muda no cadastro, e um filtro guardado por nome deixaria de
+     casar no dia seguinte a uma correção de grafia. */
+  function trechoDo(m){
+    var nomes = [m.origem || '—', m.destino || '—'].sort(function(a, b){
+      return String(a).localeCompare(String(b), 'pt-BR'); });
+    var ids = [String(m.origemId || ''), String(m.destinoId || '')].sort();
+    return [nomes.join(' ↔ '), ids.join('|')];
+  }
+
+  function desenharGraficosMov(L){
+    var box = document.getElementById('graficosMov');
+    if (!box) return;
+    if (!L.length) { box.innerHTML = ''; pintarLegendaMov(L); return; }
+
+    /* O DIA VAI EM ORDEM DE DATA, e não de tamanho: tempo tem ordem própria, e
+       embaralhar por valor destrói a leitura. Havendo mais dias do que cabe, ficam os
+       MAIS RECENTES — é para onde se olha. */
+    var dias = agruparMov(L, function(m){
+      var d = String(m.dataRef || '').slice(0, 10);
+      return [Q.dataBR(m.dataRef), d];
+    }).sort(function(a, b){ return a.v < b.v ? -1 : 1; });
+    if (dias.length > TETO_G) dias = dias.slice(dias.length - TETO_G);
+
+    var trecho = cortarG(agruparMov(L, trechoDo).sort(porTotalG));
+    var mot    = cortarG(agruparMov(L, function(m){ return m.motorista; }).sort(porTotalG));
+    var quem   = cortarG(agruparMov(L, function(m){
+      return [m.usuario, m.usuarioId]; }).sort(porTotalG));
+    var caixa  = cortarG(agruparMov(L, function(m){
+      return [m.tipoCaixa, m.tipoCaixaId]; }).sort(porTotalG));
+
+    var pl = function(n, s1, s2){ return n + ' ' + (n === 1 ? s1 : s2); };
+    box.innerHTML =
+      painelG(0, 'Total por dia',     dias,   pl(dias.length, 'dia', 'dias'), 'mvData') +
+      painelG(1, 'Por trecho',        trecho, pl(trecho.length, 'trecho', 'trechos'), 'mvTrecho') +
+      painelG(2, 'Por motorista',     mot,    pl(mot.length, 'nome', 'nomes'), 'mvMotorista') +
+      painelG(3, 'Por quem lançou',   quem,   pl(quem.length, 'nome', 'nomes'), 'mvUsuario') +
+      painelG(4, 'Por tipo de caixa', caixa,  pl(caixa.length, 'tipo', 'tipos'), 'mvCaixa');
+    pintarLegendaMov(L);
+  }
+
+  /* ================= O AVISO HONESTO =================
+   * Se o recorte tem lançamento de ensaio, os gráficos NÃO são a operação real — e a
+   * pessoa precisa ver isso sem ter de conferir os cartões um por um. A legenda diz o
+   * que as cores são e, quando há o que avisar, avisa; quando não há, fica só a
+   * legenda. Aviso permanente vira ruído, e ruído constante é o que faz ninguém reparar
+   * no dia em que ele muda. */
+  function pintarLegendaMov(L){
+    var el = document.getElementById('gNotaMov');
+    if (!el) return;
+    var teste = 0, acerto = 0;
+    L.forEach(function(m){
+      if (m.teste) teste++;
+      if (sentidoDoMov(m) === 'acerto') acerto++;
+    });
+    var av = [];
+    if (teste) av.push(teste + (teste === 1 ? ' linha de teste' : ' linhas de teste') +
+      ' dentro dos números');
+    if (acerto) av.push(acerto + (acerto === 1 ? ' linha de ajuste ou perda'
+                                               : ' linhas de ajuste ou perda') +
+      ' fora da divisão saída/retorno');
+    el.textContent = av.join(' · ');
+  }
+
+  /* O CLIQUE NA BARRA FILTRA A TELA INTEIRA — cartões, tabela e os outros quatro
+     painéis —, porque todos leem do mesmo `MOVS`, que vem do mesmo pedido ao servidor.
+     Um clique que mudasse só o gráfico criaria duas verdades na mesma tela.
+
+     E ESCREVE NO MESMO CAMPO que a pessoa usaria à mão. É isso que impede o pior
+     desfecho possível aqui: o "Apagar o que está no filtro" lê `filtroExclusao()`, e se
+     o clique no gráfico criasse um recorte à parte, a tela mostraria dez linhas e o
+     apagar levaria quinhentas. */
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest && e.target.closest('.gb[data-gcampo]');
+    if (!b) return;
+    var campo = b.dataset.gcampo, v = b.dataset.gvalor;
+    var ligado = b.getAttribute('aria-pressed') === 'true';
+    if (campo === 'mvData') {
+      var d = ligado ? '' : v;
+      document.getElementById('mvDe').value = d;
+      document.getElementById('mvAte').value = d;
+    } else {
+      var el = document.getElementById(campo);
+      if (!el) return;
+      /* O TRECHO não tem lista de opções própria — ele só nasce daqui. A opção é criada
+         no ato, com o rótulo que a barra mostrava, para a pílula acima da tabela poder
+         dizer de que trecho se trata em vez de mostrar dois ids colados. */
+      if (campo === 'mvTrecho' || campo === 'mvMotorista') {
+        var rot = (b.querySelector('.gb__k') || {}).textContent || v;
+        if (!Array.prototype.some.call(el.options, function(o){ return o.value === v; })) {
+          var op = document.createElement('option');
+          op.value = v; op.textContent = rot;
+          el.appendChild(op);
+        }
+      }
+      el.value = ligado ? '' : v;
+    }
+    carregarMovimentos();
+  });
+
   function desenharMovimentos(){
     var box = document.getElementById('tabelaMov');
     if (!box) return;
@@ -4251,6 +4526,7 @@
        ANTERIOR na tela, ao lado de "nenhum movimento": a contradição mais difícil de
        explicar que uma tela pode mostrar. */
     desenharTotaisMov(MOVS || []);
+    desenharGraficosMov(MOVS || []);
     if (!MOVS || !MOVS.length){
       box.innerHTML = '<div class="vazio">Nenhum movimento no filtro.</div>';
       return;

@@ -384,7 +384,8 @@ async function limparMovimentos(p) {
   var filtro = {
     local: p.local, origem: p.origem, destino: p.destino,
     tipo: p.tipo, fluxo: p.fluxo, caixa: p.caixa, usuario: p.usuario, teste: p.teste,
-    situacao: p.situacao, de: p.de, ate: p.ate, limit: 100000
+    situacao: p.situacao, motorista: p.motorista, trecho: p.trecho,
+    de: p.de, ate: p.ate, limit: 100000
   };
   var ids = L.listaMovimentos(d.movimentos, d.locais, d.tipos, d.usuarios, filtro)
     .map(function (m) { return m.id; });

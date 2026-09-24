@@ -401,7 +401,12 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
   var pedido = adm.slice(p, adm.indexOf('})', p));
   var campoDoPedido = { mvOrigem: 'origem', mvDestino: 'destino', mvFluxo: 'fluxo',
                         mvTipo: 'tipo', mvCaixa: 'caixa', mvStatus: 'situacao',
-                        mvUsuario: 'usuario', mvTeste: 'teste', mvDe: 'de', mvAte: 'ate' };
+                        mvUsuario: 'usuario', mvTeste: 'teste', mvDe: 'de', mvAte: 'ate',
+                        /* Os dois que nasceram do clique no grafico. O `mvTrecho` nao
+                           tem campo a vista, e e justamente por isso que ele precisa
+                           estar aqui: um filtro invisivel que nao viajasse no pedido
+                           recortaria a tela sem recortar o apagar. */
+                        mvMotorista: 'motorista', mvTrecho: 'trecho' };
   var semMapa = campos.filter(function(c){ return !campoDoPedido[c]; });
   ok(semMapa.length === 0,
     'todo campo da barra tem um nome conhecido no pedido — campo novo entra aqui também',
@@ -2035,7 +2040,11 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
   /* FORA DO CORTE DA LISTA VAZIA. Deixados depois do `return`, ficariam com os números
      do filtro ANTERIOR ao lado de "nenhum movimento" — a contradição mais difícil de
      explicar que uma tela pode mostrar. */
-  ok(/desenharTotaisMov\(MOVS \|\| \[\]\);\s*\n\s*if \(!MOVS \|\| !MOVS\.length\)\{/.test(dm),
+  /* OS GRÁFICOS ENTRARAM NO MEIO, e pela mesma razão: um recorte sem resultado tem uma
+     resposta — seis zeros e cinco painéis vazios —, e ela é diferente de a tela não ter
+     desenhado nada. Deixados depois do `return`, os dois ficariam com o filtro ANTERIOR
+     na tela ao lado de "nenhum movimento". */
+  ok(/desenharTotaisMov\(MOVS \|\| \[\]\);\s*\n\s*desenharGraficosMov\(MOVS \|\| \[\]\);\s*\n\s*if \(!MOVS \|\| !MOVS\.length\)\{/.test(dm),
     'e são desenhados ANTES do corte da lista vazia — depois dele, um filtro sem ' +
     'resultado mostraria os números do filtro anterior ao lado de "nenhum movimento"');
 
@@ -2117,6 +2126,146 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
  * quinhentas linhas no filtro, os seis totais e o rodapé da página ficavam a uma rolagem
  * de distância que ninguém faz.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * OS CINCO RECORTES EM GRÁFICO, em Movimentos.
+ *
+ * Cinco painéis do MESMO conjunto filtrado, cada barra dividida em saída e retorno — só
+ * o total escondia o que interessa: motorista que leva e nunca traz aparecia igual a um
+ * que fecha o ciclo.
+ *
+ * E a barra é um BOTÃO: clicar filtra a tela inteira. É aí que mora o risco desta peça,
+ * e é o que a maior parte destas afirmações guarda.
+ * ------------------------------------------------------------------------- */
+console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+
+  ok(/<div class="graficos" id="graficosMov"><\/div>/.test(adm) &&
+     adm.indexOf('id="tabelaMov"') < adm.indexOf('id="graficosMov"'),
+    'os cinco painéis existem e ficam ABAIXO da tabela — quem chega nesta tela vem ver ' +
+    'uma linha, e o resumo é o segundo olhar');
+  ['Total por dia', 'Por trecho', 'Por motorista', 'Por quem lançou',
+   'Por tipo de caixa'].forEach(function (t) {
+    ok(adm.indexOf("'" + t + "'") > 0, 'existe o painel ' + t);
+  });
+
+  /* ---- O CLIQUE ESCREVE NO MESMO FILTRO QUE A PESSOA USARIA À MÃO ----------
+   * Este é o ponto perigoso da peça. O "Apagar o que está no filtro" lê
+   * `filtroExclusao()`; se o clique no gráfico criasse um recorte à parte, a tela
+   * mostraria dez linhas e o apagar levaria quinhentas. A suíte já pegou isso uma vez
+   * nesta mesma leva — `limparMovimentos` não repassava os dois campos novos. */
+  /* ESCOPADO NO TRATADOR DO CLIQUE, e não procurado no arquivo: `var el =
+     document.getElementById(campo);` aparece duas vezes no admin.html — a outra está no
+     `gLigado`, que só pergunta se a barra já está ligada. Apagar a linha do CLIQUE
+     passava, porque a do `gLigado` respondia por ela. Foi a sabotagem que mostrou isso,
+     e era justamente o defeito mais grave da peça. */
+  var iCl = adm.indexOf(".closest('.gb[data-gcampo]')");
+  /* O FIM DA FATIA É O FIM DO TRATADOR, e não a chamada que se quer testar. Cortando em
+     `carregarMovimentos();`, a fatia terminava exatamente na linha cobrada — e apagando
+     a linha o corte ia parar na PRÓXIMA chamada do arquivo, lá adiante, trazendo um
+     trecho grande o bastante para a afirmação passar. Âncora circular: ela media a si
+     mesma. A sabotagem mostrou isso. */
+  var trat = iCl > 0 ? adm.slice(iCl, adm.indexOf('\n  });', iCl) + 6) : '';
+  ok(/var el = document\.getElementById\(campo\);\s*\n\s*if \(!el\) return;/.test(trat) &&
+     /el\.value = ligado \? '' : v;/.test(trat) &&
+     /carregarMovimentos\(\);/.test(trat),
+    'o clique na barra escreve no MESMO campo do filtro e recarrega — um recorte à ' +
+    'parte faria a tela mostrar dez linhas e o "apagar" levar quinhentas', trat.length);
+  /* E a data escreve nos DOIS campos do período, senão clicar num dia deixaria o outro
+     lado da janela aberto e o recorte seria "daquele dia em diante". */
+  ok(/document\.getElementById\('mvDe'\)\.value = d;\s*\n\s*document\.getElementById\('mvAte'\)\.value = d;/
+       .test(trat),
+    'e o clique num dia fecha os DOIS lados do período — só um, e o recorte viraria ' +
+    '"daquele dia em diante"');
+  ok(/motorista: document\.getElementById\('mvMotorista'\)\.value,/.test(adm) &&
+     /trecho:  document\.getElementById\('mvTrecho'\)\.value,/.test(adm),
+    'e os dois campos novos entram no `filtroExclusao()`, que é o que a lista, o CSV e ' +
+    'o apagar leem');
+  ok(/situacao: p\.situacao, motorista: p\.motorista, trecho: p\.trecho,/.test(idx),
+    'e o `limparMovimentos` repassa os dois — sem isso o apagar recorta um conjunto ' +
+    'maior do que o que está na tela');
+  ok(/if \(f\.motorista\) p\.push\('com o motorista/.test(adm) &&
+     /if \(f\.trecho\)    p\.push\('no trecho/.test(adm),
+    'e os dois aparecem na frase da confirmação do apagar — um filtro que recorta e ' +
+    'não é dito faria alguém confirmar o apagamento de um recorte que não está lendo');
+  ok(/document\.getElementById\('mvMotorista'\)\.value = '';/.test(adm) &&
+     /document\.getElementById\('mvTrecho'\)\.value = '';/.test(adm),
+    'e o "Limpar" limpa os dois — esquecido ali, ficaria de pé justamente o filtro que ' +
+    'não tem campo à vista para conferir');
+
+  /* ---- O SERVIDOR SABE FILTRAR pelos dois ---------------------------------
+   * Eram os dois únicos recortes do gráfico que o servidor não entendia; sem eles, três
+   * dos cinco painéis nasceriam sem clique. */
+  ok(/if \(p\.motorista && String\(m\.Motorista \|\| ''\) !== String\(p\.motorista\)\) return false;/.test(log),
+    'o servidor filtra por motorista — e por TEXTO exato, porque o lançamento guarda o ' +
+    'nome e não um id: "Chico" não pode trazer "Francisco Chico" junto');
+  /* O TRECHO É O PAR SEM DIREÇÃO, e por ID. Ordenar os dois lados é o que faz a ida e a
+     volta casarem com o mesmo filtro; por nome, uma correção de grafia no cadastro
+     quebraria o filtro no dia seguinte. */
+  ok(/var par = String\(p\.trecho\)\.split\('\|'\)[\s\S]{0,80}\.sort\(\);/.test(log) &&
+     /var deste = \[String\(m\.OrigemID \|\| ''\), String\(m\.DestinoID \|\| ''\)\]\.sort\(\);/.test(log),
+    'e por trecho: o par de pontas ordenado, por ID — assim a ida e a volta casam com o ' +
+    'mesmo filtro, e uma correção de grafia no cadastro não o quebra');
+
+  /* ---- o que a barra mostra ---------------------------------------------- */
+  ok(/var pode = campo && g\.v != null && g\.v !== '';/.test(adm),
+    '"sem informação" e "Outros" continuam desenhados, mas não viram filtro: o servidor ' +
+    'não tem um valor para "nenhum", e o agregado precisaria mandar sete de uma vez');
+  ok(/var lig = pode && gLigado\(campo, g\);/.test(adm) &&
+     /aria-pressed="'\+\(lig \? 'true' : 'false'\)/.test(adm),
+    'e a barra já filtrada fica marcada, e o clique nela DESLIGA — senão a pessoa fica ' +
+    'presa no filtro que acabou de aplicar');
+  /* A BARRA É UM <button>, e não um <div> com ouvinte: chega pelo teclado e é anunciada
+     como botão por quem usa leitor de tela. */
+  ok(/<button class="gb" type="button"/.test(adm),
+    'a barra é um botão de verdade — pelo teclado e para o leitor de tela');
+  /* A PROPORÇÃO É DA PRÓPRIA COLUNA: cada painel responde "quem é o maior AQUI".
+     Comparar entre painéis pela largura seria errado, e por isso o número está escrito. */
+  ok(/var maior = lista\.reduce\(function\(a, g\)\{ return Math\.max\(a, g\.total\); \}, 0\);/.test(adm),
+    'e a largura é proporcional ao maior da PRÓPRIA coluna — entre painéis, quem se ' +
+    'compara é o número escrito');
+  ok(/var TETO_G = 6;/.test(adm) && /resto\.k = 'Outros \(' \+ resto\.n \+ '\)';/.test(adm),
+    'no máximo seis categorias, e o resto vira "Outros" — barra de dois pixels não é ' +
+    'leitura, e quarenta nomes empurram a tabela para fora da tela');
+  /* O DIA VAI EM ORDEM DE DATA, não de tamanho: tempo tem ordem própria. */
+  ok(/\.sort\(function\(a, b\)\{ return a\.v < b\.v \? -1 : 1; \}\);/.test(adm) &&
+     /if \(dias\.length > TETO_G\) dias = dias\.slice\(dias\.length - TETO_G\);/.test(adm),
+    'e o painel do dia vai em ordem de DATA, ficando com os mais recentes — embaralhar ' +
+    'o tempo por valor destrói a leitura');
+
+  /* ---- A LEGENDA CONCORDA COM A BARRA ------------------------------------
+   * Isto quase saiu errado: a legenda veio do desenho com saída em VERDE, e as barras
+   * pintam saída em AZUL — que é como o resto do sistema já marca SAIDA e DEVOLUCAO.
+   * Legenda que discorda da barra é pior que legenda nenhuma: ela ensina a ler errado, e
+   * quem confere não tem como desconfiar. A afirmação compara os dois tokens. */
+  var swSaida = (adm.match(/<i style="background:var\((--[\w-]+)\)"><\/i>Saída/) || [])[1];
+  var swRet   = (adm.match(/<i style="background:var\((--[\w-]+)\)"><\/i>Retorno/) || [])[1];
+  var fillS   = (css.match(/\.gb__s\{background:var\((--[\w-]+)\)\}/) || [])[1];
+  var fillR   = (css.match(/\.gb__d\{background:var\((--[\w-]+)\)\}/) || [])[1];
+  ok(swSaida && swSaida === fillS && swRet && swRet === fillR,
+    'a legenda usa exatamente os tokens que pintam as barras — discordando, ela ensina ' +
+    'a ler errado e quem confere não tem como desconfiar',
+    { legenda: [swSaida, swRet], barras: [fillS, fillR] });
+  /* E O AVISO SOME quando não há o que avisar: aviso permanente vira ruído, e ruído
+     constante é o que faz ninguém reparar no dia em que ele muda. */
+  ok(/function pintarLegendaMov\(L\)\{/.test(adm) &&
+     /\.legenda-g em:empty\{display:none\}/.test(css),
+    'e o aviso de linhas de teste some quando não há nenhuma — aviso permanente vira ' +
+    'ruído, e ruído constante faz ninguém reparar no dia em que ele muda');
+
+  /* CINCO COLUNAS FIXAS: com `auto-fit` o quinto painel caía sozinho para a segunda
+     linha e sobrava meia tela vazia. */
+  ok(/\.graficos\{display:grid;grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/.test(css),
+    'os cinco ficam lado a lado, e quem encolhe é o texto');
+  var q = (css.match(/@media \(max-width:(\d+)px\)\{\.graficos\{/g) || []);
+  ok(q.length === 1 && /520px/.test(q[0]),
+    'com uma única quebra, em 520px — cinco colunas ali dariam 85px cada e nenhum ' +
+    'rótulo caberia', q);
+})();
+
 console.log('\n== classificar e a janela de linhas, em Movimentos ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

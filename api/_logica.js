@@ -1298,6 +1298,23 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
     // Aqui e nao no navegador: o corte de 500 linhas vem DEPOIS deste filtro, entao
     // filtrar na tela mostraria so os lancamentos da pessoa que couberam nas 500.
     if (p.usuario && String(m.UsuarioID) !== String(p.usuario)) return false;
+    /* O MOTORISTA e TEXTO no movimento, e nao um id: o lancamento guarda o nome porque
+       repintar ou apagar um cadastro nao pode reescrever o que ja saiu do galpao. Entao
+       a comparacao e de texto mesmo — e por isso ela e exata, e nao "contem": "Chico"
+       nao pode trazer "Francisco Chico" junto sem ninguem ter pedido. */
+    if (p.motorista && String(m.Motorista || '') !== String(p.motorista)) return false;
+    /* O TRECHO e o par de pontas SEM direcao: "Matriz -> Joao Pessoa" e "Joao Pessoa ->
+       Matriz" sao a mesma perna da operacao vista dos dois lados, e e assim que o
+       grafico agrupa. Vem como dois ids separados por "|", em qualquer ordem — ordenar
+       os dois aqui e o que faz a ida e a volta casarem com o mesmo filtro.
+
+       POR ID, e nao por nome: nome de local muda no cadastro, e um filtro guardado por
+       nome deixaria de casar no dia seguinte a uma correcao de grafia. */
+    if (p.trecho) {
+      var par = String(p.trecho).split('|').map(function (x) { return String(x).trim(); }).sort();
+      var deste = [String(m.OrigemID || ''), String(m.DestinoID || '')].sort();
+      if (par.length !== 2 || par[0] !== deste[0] || par[1] !== deste[1]) return false;
+    }
     return true;
   }).sort(function (a, b) {
     // O ensaio desce para o fim; dentro de cada grupo a data continua mandando.
