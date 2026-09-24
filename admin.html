@@ -1299,25 +1299,85 @@
      extrato sem ninguem lembrar por que. */
   var ORDEM_FLUXO = { col: '', desc: false };
 
-  function classificarPor(col){
-    if (ORDEM_FLUXO.col === col) {
-      /* Terceiro clique volta ao padrao. Sem essa volta, nao haveria como recuperar a
-         ordem de extrato sem recarregar a pagina. */
-      if (ORDEM_FLUXO.desc) ORDEM_FLUXO = { col: '', desc: false };
-      else ORDEM_FLUXO.desc = true;
+  /* A ORDEM DA TABELA DE MOVIMENTOS, no mesmo formato. Duas tabelas, dois estados —
+     ordenar uma não pode reordenar a outra —, mas UMA máquina: a regra dos três cliques
+     escrita duas vezes divergiria no primeiro conserto que só uma recebesse. */
+  var ORDEM_MOV = { col: '', desc: false };
+
+  /* TRÊS CLIQUES, e o terceiro volta ao padrão. Sem essa volta não haveria como
+     recuperar a ordem de fábrica sem recarregar a página — e a de fábrica é a do
+     servidor, que no extrato é o que faz o Saldo final de uma linha ser o inicial da de
+     baixo. */
+  function trocarOrdem(estado, col){
+    if (estado.col === col) {
+      if (estado.desc) { estado.col = ''; estado.desc = false; }
+      else estado.desc = true;
     } else {
-      ORDEM_FLUXO = { col: col, desc: false };
+      estado.col = col; estado.desc = false;
     }
-    desenharFluxo();
   }
+
+  /* ORDENA UMA CÓPIA, sempre. A lista vem de dentro de PAINEL ou de MOVS, e ordenar no
+     lugar mudaria a ordem para todo mundo que a lê depois — inclusive o CSV, que tem a
+     ordem própria dele.
+
+     O DESEMPATE INVERTE JUNTO. A ordenação do JavaScript é estável: em `-r`, as linhas
+     de chave igual ficam na ordem em que estavam. Num mesmo dia, isso deixava o bloco
+     do dia na ordem antiga enquanto os dias viravam — a lista "vira pela metade", e
+     quem olha conclui que ela não ordenou direito. O índice de origem entra como
+     segundo critério, e inverte com o primeiro. */
+  function aplicarOrdem(lista, DEFS, estado){
+    if (!estado.col || !DEFS[estado.col] || !DEFS[estado.col].k) return lista;
+    var chave = DEFS[estado.col].k;
+    var posicao = new Map();
+    lista.forEach(function(l, i){ posicao.set(l, i); });
+    return lista.slice().sort(function(a, b){
+      var x = chave(a), y = chave(b);
+      /* O VAZIO SAI DA INVERSÃO, e isto é conserto de um defeito antigo — herdado do
+         Painel de Ativos, onde ele estava desde o começo.
+
+         `compararValores` manda vazio para o fim, e essa era a regra escrita: "linha sem
+         dado não é a menor nem a maior, e no meio ela atrapalha a leitura das que têm".
+         Só que a inversão do decrescente negava o resultado INTEIRO, o do vazio junto —
+         e no segundo clique as linhas sem dado subiam todas para o topo, empurrando para
+         baixo justamente as que a pessoa clicou para ver.
+         Medido nos 40 movimentos que estão no ar, na coluna Origem: no decrescente as
+         linhas de ajuste, que não têm origem, vinham primeiro. A afirmação que guardava
+         a regra testava o COMPARADOR sozinho, onde ela está certa — nunca o resultado
+         ordenado, que é onde ela se perdia. */
+      var vx = semValor(x), vy = semValor(y);
+      if (vx || vy) {
+        return (vx && vy) ? (posicao.get(a) - posicao.get(b)) : (vx ? 1 : -1);
+      }
+      var r = compararValores(x, y) || (posicao.get(a) - posicao.get(b));
+      return estado.desc ? -r : r;
+    });
+  }
+
+  /* O CABEÇALHO CLICÁVEL, também numa função só. Ela é chamada depois de cada desenho,
+     porque os `<th>` são refeitos — e o `puxador` é excluído do clique de propósito:
+     soltar a borda da largura dispara um `click` no `<th>` logo depois, e sem esta
+     guarda arrastar a borda classificava a tabela junto. */
+  function ligarOrdemColunas(alvo, aoClicar){
+    document.querySelectorAll(alvo + ' th.ordenavel').forEach(function(th){
+      th.addEventListener('click', function(e){
+        if (e.target.classList.contains('puxador')) return;
+        aoClicar(th.dataset.col);
+      });
+    });
+  }
+
+  function classificarPor(col){ trocarOrdem(ORDEM_FLUXO, col); desenharFluxo(); }
+  function classificarMovPor(col){ trocarOrdem(ORDEM_MOV, col); desenharMovimentos(); }
 
   /* Compara numero como numero e texto como texto. Numero comparado como texto poe "1.620"
      antes de "810", que e o tipo de erro que ninguem confere porque a coluna "parece
      ordenada". Vazio vai sempre para o fim, nos dois sentidos: linha sem dado nao e a
      menor nem a maior, e no meio ela atrapalha a leitura das que tem. */
+  function semValor(v){ return v === null || v === undefined || v === ''; }
+
   function compararValores(x, y){
-    var vx = (x === null || x === undefined || x === '');
-    var vy = (y === null || y === undefined || y === '');
+    var vx = semValor(x), vy = semValor(y);
     if (vx || vy) return vx && vy ? 0 : (vx ? 1 : -1);
     if (typeof x === 'number' && typeof y === 'number') return x - y;
     return String(x).localeCompare(String(y), 'pt-BR');
@@ -2407,12 +2467,7 @@
   }
 
   function ligarClassificacao(){
-    document.querySelectorAll('#tabelaFluxo th.ordenavel').forEach(function(th){
-      th.addEventListener('click', function(e){
-        if (e.target.classList.contains('puxador')) return;
-        classificarPor(th.dataset.col);
-      });
-    });
+    ligarOrdemColunas('#tabelaFluxo', classificarPor);
   }
 
   function ligarLarguraColunas(t){
@@ -2620,21 +2675,7 @@
 
        Os totais dos cartoes ficam de fora de proposito: somar nao depende da ordem, e
        recalcula-los aqui so criaria um segundo caminho para o mesmo numero. */
-    if (ORDEM_FLUXO.col && DEFS[ORDEM_FLUXO.col] && DEFS[ORDEM_FLUXO.col].k) {
-      var chave = DEFS[ORDEM_FLUXO.col].k;
-      /* O DESEMPATE INVERTE JUNTO. A ordenação do JavaScript é estável: em `-r`, as
-         linhas de chave igual ficam na ordem em que estavam. Num mesmo dia, isso deixava
-         o bloco do dia na ordem antiga enquanto os dias viravam — a lista "vira pela
-         metade", e quem olha conclui que ela não ordenou direito.
-
-         O índice de origem entra como segundo critério, e inverte com o primeiro. */
-      var posicao = new Map();
-      lista.forEach(function(l, i){ posicao.set(l, i); });
-      lista = lista.slice().sort(function(a, b){
-        var r = compararValores(chave(a), chave(b)) || (posicao.get(a) - posicao.get(b));
-        return ORDEM_FLUXO.desc ? -r : r;
-      });
-    }
+    lista = aplicarOrdem(lista, DEFS, ORDEM_FLUXO);
 
     var LARG = larguras(TAB_ATIVOS);
     /* Duas peneiras, e elas nao sao a mesma coisa. `so` diz quais colunas FAZEM SENTIDO
@@ -4236,15 +4277,22 @@
        reordenar e esconder pelo painel — a ordem e so a ordem desta lista. */
     var TIT = TAB_MOV.titulos;
     var DEFS = {
-      data:      { t: TIT['data'],
+      /* A CHAVE ORDENA PELO VALOR CRU, nunca pelo HTML da celula: a celula da data
+         traz a etiqueta "teste" dentro, e ordenar pelo desenho poria todas as de
+         teste juntas como se fossem uma data. A data ordena pelo CARIMBO ISO, que
+         ja vem ordenavel como texto — `17/09` antes de `9/09` e o erro classico. */
+      data:      { t: TIT['data'], k: function(m){ return m.dataRef || ''; },
                    v: function(m){ return Q.dataBR(m.dataRef) +
                      (m.teste ? ' <span class="tag amarela">teste</span>' : ''); } },
-      status:    { t: TIT['status'],
+      status:    { t: TIT['status'], k: function(m){ return m.situacao || ''; },
                    v: function(m){ return '<span class="tag '+tagCiclo(m.situacao)+'">'+
                      Q.esc(m.situacao)+'</span>'; } },
       /* O carimbo de quando entrou no sistema. `Q.horaBR` e não um recorte do texto: o
          carimbo vem em UTC, e recortado um lançamento das 22h aparece no dia seguinte. */
-      hora:      { t: TIT['hora'],
+      /* A hora ordena pelo carimbo INTEIRO, e nao pelo texto "13:58": duas cargas
+         de dias diferentes na mesma hora ficariam empatadas, e o desempate cairia
+         na ordem em que vieram. */
+      hora:      { t: TIT['hora'], k: function(m){ return m.dataHora || ''; },
                    v: function(m){
                      var h = Q.horaBR(m.dataHora);
                      return h ? '<span title="lançado em '+Q.esc(Q.dataHoraBR(m.dataHora))+'">'+
@@ -4252,7 +4300,7 @@
                               : '<span class="fraco">—</span>'; } },
       /* O dia em que foi LANÇADO, que não é sempre o dia da carga. Quando os dois
          diferem, esta coluna é a única que conta que a carga foi lançada depois. */
-      criado:    { t: TIT['criado'],
+      criado:    { t: TIT['criado'], k: function(m){ return m.dataHora || ''; },
                    v: function(m){
                      var dt = Q.dataDoCarimboBR(m.dataHora);
                      if (!dt) return '<span class="fraco">—</span>';
@@ -4265,6 +4313,7 @@
          lançado. Por isso o travessão fraco, e não a célula em branco — em branco não se
          distingue de uma coluna que não soube responder. */
       alterado:  { t: TIT['alterado'],
+                   k: function(m){ return (m.alterado || {}).por || ''; },
                    v: function(m){
                      var a = m.alterado || {};
                      var c = a.consulta || {};
@@ -4296,6 +4345,7 @@
          só abriu e gravou sem mudar nada fica em cinza e dizendo o que é, senão a
          conferência procuraria uma diferença que não existe naquela data. */
       alteradoEm:{ t: TIT['alteradoEm'],
+                   k: function(m){ return (m.alterado || {}).em || ''; },
                    v: function(m){
                      var a = m.alterado || {};
                      var c = a.consulta || {};
@@ -4314,14 +4364,17 @@
                        (a.campo ? ' — ' + a.campo : '') +
                        (a.vezes > 1 ? ' · ' + a.vezes + ' alterações ao todo' : ''))+'">'+
                        Q.esc(quando)+'</span>'; } },
-      origem:    { t: TIT['origem'],   v: function(m){ return Q.esc(m.origem); } },
-      destino:   { t: TIT['destino'],  v: function(m){ return Q.esc(m.destino); } },
-      caixa:     { t: TIT['caixa'],    v: function(m){ return Q.esc(m.tipoCaixa); } },
-      qtd:       { t: TIT['qtd'], num: true, v: function(m){ return Q.num(m.qtd); } },
-      motorista: { t: TIT['motorista'],
+      origem:    { t: TIT['origem'], k: function(m){ return m.origem || ''; },   v: function(m){ return Q.esc(m.origem); } },
+      destino:   { t: TIT['destino'], k: function(m){ return m.destino || ''; },  v: function(m){ return Q.esc(m.destino); } },
+      caixa:     { t: TIT['caixa'], k: function(m){ return m.tipoCaixa || ''; },    v: function(m){ return Q.esc(m.tipoCaixa); } },
+      /* NUMERO como NUMERO. Comparado como texto, "1.620" vem antes de "810" — e
+         e o tipo de erro que ninguem confere, porque a coluna "parece ordenada". */
+      qtd:       { t: TIT['qtd'], num: true, k: function(m){ return Number(m.qtd) || 0; },
+                   v: function(m){ return Q.num(m.qtd); } },
+      motorista: { t: TIT['motorista'], k: function(m){ return m.motorista || ''; },
                    v: function(m){ return m.motorista ? Q.esc(m.motorista)
                                                       : '<span class="fraco">—</span>'; } },
-      quem:      { t: TIT['quem'],     v: function(m){ return Q.esc(m.usuario||''); } }
+      quem:      { t: TIT['quem'], k: function(m){ return m.usuario || ''; },     v: function(m){ return Q.esc(m.usuario||''); } }
     };
 
     var LARG = larguras(TAB_MOV);
@@ -4335,16 +4388,31 @@
        e o caminho para corrigir, cancelar e excluir. Escondivel, alguem a esconderia sem
        querer e perderia o unico jeito de consertar um lancamento; arrastavel, ela cairia
        no meio da leitura. */
+    /* A ORDEM ENTRA AQUI, depois de `DEFS`, e sobre uma copia — a mesma maquina do
+       Painel de Ativos. Os cartoes de cima ficam de fora de proposito: somar nao depende
+       da ordem, e recalcula-los aqui so criaria um segundo caminho para o mesmo numero. */
+    var linhas = aplicarOrdem(MOVS, DEFS, ORDEM_MOV);
+
     box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
       cs.map(function(c){
+        var ord = ORDEM_MOV.col === c.id;
+        /* A SETA diz em que ordem está, e o `aria-sort` diz o mesmo a quem usa leitor de
+           tela — sem ele a coluna ordenada é uma coluna qualquer. */
+        var seta = ord ? (ORDEM_MOV.desc ? ' ▾' : ' ▴') : '';
         return '<th'+arrastavel()+' data-col="'+c.id+'"'+
-          (c.d.num ? ' class="num"' : '')+
+          ' class="'+(c.d.num ? 'num ' : '')+(c.d.k ? 'ordenavel ' : '')+
+            (ord ? 'ordenado' : '')+'"'+
+          (c.d.k ? ' aria-sort="'+(ord ? (ORDEM_MOV.desc ? 'descending' : 'ascending')
+                                       : 'none')+'"' : '')+
           ' style="width:'+(LARG[c.id] || 120)+'px"'+
-          ' title="'+Q.esc(dicaColuna())+'">'+
-          Q.esc(c.d.t)+puxador()+'</th>';
+          /* CLASSIFICAR NAO E ARRANJAR: o clique no titulo vale para todo mundo, e a
+             permissao governa so a FORMA da tabela. So a coluna com chave promete o
+             clique — as outras nao dizem o que nao fazem. */
+          ' title="'+Q.esc(dicaColuna(c.d.k ? 'clique para classificar; ' : ''))+'">'+
+          Q.esc(c.d.t)+seta+puxador()+'</th>';
       }).join('')+
       '<th></th></tr></thead><tbody>'+
-      MOVS.map(function(m){
+      linhas.map(function(m){
         /* Vermelha continua valendo: o contado na chegada não bateu com o declarado, e a
            coluna que mostrava isso saiu. O amarelo de AGUARDANDO foi embora com a etapa
            de conferência — ele dizia "não entrou no saldo". */
@@ -4369,9 +4437,50 @@
 
     ligarArrastarColunas(TAB_MOV);
     ligarLarguraColunas(TAB_MOV);
+    ligarOrdemColunas('#tabelaMov', classificarMovPor);
 
     ligarAcoesMov(box);
+    ajustarJanelaMov();
   }
+
+  /* ================= A TABELA VIRA UMA JANELA DE N LINHAS =================
+   *
+   * Nao e paginacao: nenhuma linha some. A tabela rola DENTRO do quadro, com o cabecalho
+   * grudado no topo — a pessoa nunca perde a referencia da coluna. O motivo e caber os
+   * seis totais e a tabela na mesma tela sem rolar a pagina inteira, e o efeito colateral
+   * bom e que o rodape da pagina volta a ser alcancavel com 500 linhas no filtro.
+   *
+   * A ALTURA E MEDIDA, e nao escrita: altura de linha muda com o zoom do navegador, com a
+   * fonte do sistema e com a etiqueta "teste" dentro da celula da data. Numero chutado no
+   * CSS erra em metade das maquinas — e erra para menos, cortando a decima linha pela
+   * metade, que e o jeito mais convincente de a tabela parecer quebrada.
+   *
+   * Mudar quantas linhas aparecem e mexer numa linha so, a de baixo. */
+  var LINHAS_JANELA_MOV = 12;
+
+  function ajustarJanelaMov(){
+    var wrap = document.querySelector('#tabelaMov .tabela-wrap');
+    if (!wrap) return;
+    var cab = wrap.querySelector('thead');
+    var tr = wrap.querySelector('tbody tr');
+    if (!cab || !tr) return;
+    var alt = tr.getBoundingClientRect().height;
+    /* ALTURA ZERO acontece com a aba em segundo plano, ou antes de a tela ter sido
+       pintada. Medir nessa hora daria uma janela de 0px e a tabela sumiria — melhor
+       deixar como esta e medir de novo no proximo desenho. */
+    if (!alt) return;
+    /* Com menos linhas que a janela, nao ha o que limitar: fixar a altura assim mesmo
+       deixaria um vazio abaixo da ultima linha, dentro de uma caixa com barra de rolagem
+       que nao rola. */
+    var total = wrap.querySelectorAll('tbody tr').length;
+    if (total <= LINHAS_JANELA_MOV) { wrap.style.maxHeight = ''; return; }
+    wrap.style.maxHeight = Math.round(
+      cab.getBoundingClientRect().height + alt * LINHAS_JANELA_MOV + 2) + 'px';
+  }
+
+  /* Zoom e troca de fonte mudam a altura da linha depois de a tabela estar desenhada;
+     sem isto a janela fica com doze linhas e meia assim que alguem da um Ctrl+. */
+  window.addEventListener('resize', ajustarJanelaMov);
 
   /* AS TRÊS AÇÕES, cada uma numa função. Elas eram escritas dentro da ligação dos botões
      da tabela — e a tabela deixou de existir no celular, onde as mesmas três passaram a

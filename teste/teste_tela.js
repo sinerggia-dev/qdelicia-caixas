@@ -1272,15 +1272,20 @@ console.log('\n== classificar pelo titulo da coluna ==');
     'toda coluna diz por onde se classifica, junto da célula — em lista à parte, as duas ' +
     'divergiriam na primeira coluna nova', semChave);
 
-  /* --- a comparacao, rodando --------------------------------------------- */
+  /* --- a comparacao, rodando ---------------------------------------------
+     `semValor` entra junto: a resposta de "o que é vazio" saiu para uma função própria
+     porque a ordenação precisa da MESMA pergunta, fora da inversão do decrescente. Duas
+     definições de vazio divergiriam no dia em que zero ou `false` entrassem numa coluna. */
+  var sv = adm.indexOf('function semValor(v)');
+  var svFim = adm.indexOf('\n', sv);
   var c = adm.indexOf('function compararValores(x, y)');
   var k = adm.indexOf('{', c), abertas = 0;
   do {
     if (adm[k] === '{') abertas++; else if (adm[k] === '}') abertas--;
     k++;
   } while (abertas > 0 && k < adm.length);
-  var cmp = new Function('return ' + adm.slice(c, k) + '; compararValores;')();
-  cmp = new Function(adm.slice(c, k) + '\n return compararValores;')();
+  var cmp = new Function(adm.slice(sv, svFim) + adm.slice(c, k) +
+                         '\n return compararValores;')();
 
   /* Numero como NUMERO. Comparado como texto, "1620" vem antes de "810" — e esse e o erro
      que ninguem confere, porque a coluna "parece ordenada". */
@@ -1298,27 +1303,29 @@ console.log('\n== classificar pelo titulo da coluna ==');
     'vazio vai para o fim, e dois vazios empatam', [cmp('', 'x'), cmp('x', ''), cmp('', '')]);
   ok(cmp(null, 5) > 0 && cmp(undefined, 5) > 0, 'nulo e indefinido idem');
 
-  /* --- os tres cliques ---------------------------------------------------- */
-  var f = adm.indexOf('function classificarPor(col)');
+  /* --- os tres cliques ----------------------------------------------------
+   * A REGRA VIROU UMA MÁQUINA SÓ, `trocarOrdem`, porque agora são DUAS tabelas que
+   * classificam: o Painel de Ativos e Movimentos. Cada uma tem o estado dela — ordenar
+   * uma não pode reordenar a outra —, mas a regra dos três cliques escrita duas vezes
+   * divergiria no primeiro conserto que só uma recebesse.
+   * Por isso a bancada exercita `trocarOrdem` direto, e não mais o invólucro de uma das
+   * tabelas: é a máquina que precisa estar certa. */
+  var f = adm.indexOf('function trocarOrdem(estado, col)');
   var k2 = adm.indexOf('{', f), a2 = 0;
   do {
     if (adm[k2] === '{') a2++; else if (adm[k2] === '}') a2--;
     k2++;
   } while (a2 > 0 && k2 < adm.length);
-  var passos = [];
-  var classificar = new Function('ORDEM_FLUXO', 'desenharFluxo',
-    'var estado = ORDEM_FLUXO;' +
-    adm.slice(f, k2).replace(/ORDEM_FLUXO/g, 'estado') +
-    '\n return function(c){ classificarPor(c); return estado; };');
+  var trocarOrdem = new Function(adm.slice(f, k2) + '\n return trocarOrdem;')();
+
   /* Uma FOTO a cada clique. Guardando a referencia do estado, os tres itens da lista
      apontariam para o mesmo objeto e mostrariam o valor final tres vezes — o teste
      passaria a comparar o ultimo passo com ele mesmo. */
   function ciclo() {
     var estado = { col: '', desc: false };
-    var fn = classificar(estado, function () { passos.push(1); });
     return [1, 2, 3].map(function () {
-      var e = fn('saida');
-      return e.col + (e.col ? (e.desc ? ':desc' : ':asc') : '');
+      trocarOrdem(estado, 'saida');
+      return estado.col + (estado.col ? (estado.desc ? ':desc' : ':asc') : '');
     });
   }
   ok(ciclo().join(' → ') === 'saida:asc → saida:desc → ',
@@ -1326,18 +1333,28 @@ console.log('\n== classificar pelo titulo da coluna ==');
     'essa volta não haveria como recuperar a ordem de extrato sem recarregar', ciclo());
 
   var estado2 = { col: 'saida', desc: true };
-  var fn2 = classificar(estado2, function () {});
-  ok(fn2('retorno').col === 'retorno' && fn2('retorno').desc === true,
-    'e trocar de coluna começa de novo no crescente');
-  ok(passos.length >= 3, 'e todo clique redesenha a tabela', passos.length);
+  trocarOrdem(estado2, 'retorno');
+  ok(estado2.col === 'retorno' && estado2.desc === false,
+    'e trocar de coluna começa de novo no crescente', estado2);
+  /* AS DUAS TABELAS PELA MESMA MÁQUINA, e cada uma com o estado dela: um estado só
+     faria classificar Movimentos reordenar o Painel de Ativos por tabela. */
+  ok(/function classificarPor\(col\)\{ trocarOrdem\(ORDEM_FLUXO, col\); desenharFluxo\(\); \}/.test(adm) &&
+     /function classificarMovPor\(col\)\{ trocarOrdem\(ORDEM_MOV, col\); desenharMovimentos\(\); \}/.test(adm),
+    'e as duas tabelas usam a MESMA máquina com estados separados — todo clique ' +
+    'redesenha a tabela dele, e só a dele');
 
   /* --- os tres gestos no mesmo <th> --------------------------------------- */
   ok(/c\.d\.k \? 'ordenavel ' : ''/.test(corpo),
     'só a coluna com chave ganha a classe de clicável — as outras não prometem o que ' +
     'não fazem', corpo.slice(corpo.indexOf('<th draggable'), corpo.indexOf('<th draggable') + 300));
-  var lc = adm.indexOf('function ligarClassificacao()');
+  /* O OUVINTE TAMBÉM VIROU UMA FUNÇÃO SÓ, `ligarOrdemColunas`, pela mesma razão da
+     máquina acima: duas tabelas clicáveis, e a guarda do puxador escrita duas vezes
+     seria esquecida numa delas. `ligarClassificacao` passou a ser a chamada dela para
+     a tabela do Painel de Ativos. */
+  var lc = adm.indexOf('function ligarOrdemColunas(alvo, aoClicar)');
   var ouv = adm.slice(lc, adm.indexOf('\n  }', lc));
-  ok(/th\.ordenavel/.test(ouv),
+  ok(/th\.ordenavel/.test(ouv) &&
+     /ligarOrdemColunas\('#tabelaFluxo', classificarPor\);/.test(adm),
     'e o ouvinte só é ligado nelas');
   ok(/if \(e\.target\.classList\.contains\('puxador'\)\) return;/.test(ouv),
     'a alcinha de largura não classifica: soltar a borda dispara um clique no <th>');
@@ -1350,12 +1367,19 @@ console.log('\n== classificar pelo titulo da coluna ==');
     'e a coluna pela qual se classificou muda de cor');
 
   /* --- a ordem sai sobre uma COPIA ---------------------------------------- */
-  ok(/lista = lista\.slice\(\)\.sort\(/.test(corpo),
+  /* A CÓPIA mora no `aplicarOrdem`, que as duas tabelas chamam. A lista vem de dentro
+     do PAINEL ou de MOVS, e ordenar no lugar mudaria a ordem para quem a lê depois —
+     inclusive o CSV, que tem a ordem própria dele. */
+  ok(/return lista\.slice\(\)\.sort\(function\(a, b\)\{/.test(adm) &&
+     /lista = aplicarOrdem\(lista, DEFS, ORDEM_FLUXO\);/.test(corpo),
     'ordena sobre uma cópia: a lista vem de dentro do PAINEL, e ordenar no lugar mudaria ' +
     'a ordem para quem a lê depois — inclusive o CSV, que tem a ordem própria dele');
-  /* Os cartoes ficam DEPOIS do fim de `corpo`, entao a busca e no arquivo inteiro —
-     recortado, `iTot` daria -1 e a comparacao passaria por acidente. */
-  var iOrd = adm.indexOf('lista = lista.slice().sort(');
+  /* A ORDEM VEM ANTES DOS TOTAIS. As duas âncoras são a CHAMADA, e não a declaração:
+     `aplicarOrdem` agora é compartilhada e vive lá em cima, e ancorar na declaração
+     passaria a responder sobre a ordem em que as funções foram escritas — coisa que
+     não diz nada sobre o que acontece quando a tabela é desenhada.
+     `corpo` não serve aqui: ele termina no primeiro `\n  }`, e os totais ficam depois. */
+  var iOrd = adm.indexOf('lista = aplicarOrdem(lista, DEFS, ORDEM_FLUXO);');
   var iTot = adm.indexOf('var t = totaisDe(lista);');
   ok(iOrd > 0 && iTot > iOrd,
     'e os totais são somados depois, sem se importar com a ordem — somar não depende dela',
@@ -2085,6 +2109,80 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
     'valores têm o mesmo peso');
 })();
 
+/* ---------------------------------------------------------------------------
+ * CLASSIFICAR E A JANELA DE LINHAS, em Movimentos.
+ *
+ * A tabela já arrastava, escondia e alargava colunas. Faltava o gesto que se tenta
+ * primeiro em qualquer tabela: clicar no título. E faltava a lista caber na tela — com
+ * quinhentas linhas no filtro, os seis totais e o rodapé da página ficavam a uma rolagem
+ * de distância que ninguém faz.
+ * ------------------------------------------------------------------------- */
+console.log('\n== classificar e a janela de linhas, em Movimentos ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var i0 = adm.indexOf('function desenharMovimentos()');
+  var dm = adm.slice(i0, adm.indexOf('\n  function ajustarJanelaMov()'));
+
+  /* A CHAVE ORDENA PELO VALOR CRU, nunca pelo HTML da célula: a célula da data traz a
+     etiqueta "teste" dentro, e ordenar pelo desenho poria todas as de teste juntas como
+     se fossem a mesma data. */
+  var comChave = (dm.match(/\n      \w+: *\{ t: TIT\[[^\]]+\],(?: num: true,)?\s*\n?\s*k: function/g) || []).length +
+                 (dm.match(/\n      \w+: *\{ t: TIT\[[^\]]+\], k: function/g) || []).length;
+  ok(comChave >= 12, 'as doze colunas de Movimentos têm chave de ordenação', comChave);
+  ok(/k: function\(m\)\{ return m\.dataRef \|\| ''; \}/.test(dm),
+    'e a data ordena pelo CARIMBO ISO, não pelo texto "17/09" — como texto, "9/09" ' +
+    'cairia depois de "17/09"');
+  ok(/k: function\(m\)\{ return Number\(m\.qtd\) \|\| 0; \}/.test(dm),
+    'e a quantidade ordena como NÚMERO — como texto, "1.620" vem antes de "810", e é o ' +
+    'erro que ninguém confere porque a coluna "parece ordenada"');
+  ok(/hora:      \{ t: TIT\['hora'\], k: function\(m\)\{ return m\.dataHora \|\| ''; \}/.test(dm),
+    'e a hora ordena pelo carimbo inteiro: duas cargas de dias diferentes na mesma ' +
+    'hora empatariam, e o desempate cairia na ordem em que vieram');
+
+  /* A SETA e o `aria-sort`: a coluna ordenada precisa dizer que está, e dizer também a
+     quem usa leitor de tela — sem isso ela é uma coluna qualquer. */
+  ok(/var seta = ord \? \(ORDEM_MOV\.desc \? ' ▾' : ' ▴'\) : '';/.test(dm) &&
+     /aria-sort="'\+\(ord \? \(ORDEM_MOV\.desc \? 'descending' : 'ascending'\)/.test(dm),
+    'a coluna ordenada mostra a seta e diz `aria-sort` — e a seta vira no decrescente');
+  ok(/\(c\.d\.k \? 'ordenavel ' : ''\)/.test(dm),
+    'e só a coluna com chave promete o clique — as outras não dizem o que não fazem');
+  ok(/ligarOrdemColunas\('#tabelaMov', classificarMovPor\);/.test(adm),
+    'e o clique é ligado pela mesma função das outras tabelas');
+  /* A ORDEM VEM DEPOIS DE `DEFS` e sobre uma cópia; os totais ficam de fora, porque
+     somar não depende da ordem e recalcular aqui criaria um segundo caminho para o
+     mesmo número. */
+  ok(/var linhas = aplicarOrdem\(MOVS, DEFS, ORDEM_MOV\);/.test(dm) &&
+     /linhas\.map\(function\(m\)\{/.test(dm),
+    'a tabela desenha a lista ORDENADA, e a ordem sai da mesma máquina do Painel');
+
+  /* ---- a janela de linhas ----
+     Não é paginação: nenhuma linha some, a tabela rola dentro do quadro com o cabeçalho
+     grudado no topo. */
+  ok(/var LINHAS_JANELA_MOV = 12;/.test(adm) &&
+     /function ajustarJanelaMov\(\)\{/.test(adm),
+    'a tabela vira uma janela de doze linhas, e mudar esse número é mexer numa linha só');
+  /* A ALTURA É MEDIDA, e não escrita: ela muda com o zoom, com a fonte do sistema e com
+     a etiqueta "teste" dentro da célula da data. Número chutado erra para MENOS, e
+     cortar a décima linha pela metade é o jeito mais convincente de a tabela parecer
+     quebrada. */
+  ok(/var alt = tr\.getBoundingClientRect\(\)\.height;/.test(adm) &&
+     /cab\.getBoundingClientRect\(\)\.height \+ alt \* LINHAS_JANELA_MOV/.test(adm),
+    'e a altura é MEDIDA da linha real, não escrita no CSS — ela muda com o zoom e com ' +
+    'a etiqueta "teste" dentro da célula');
+  /* ALTURA ZERO acontece com a aba em segundo plano ou antes de a tela ser pintada.
+     Medir nessa hora daria uma janela de 0px e a tabela sumiria. */
+  ok(/if \(!alt\) return;/.test(adm),
+    'e com altura zero — aba em segundo plano — ela não mede, em vez de fixar a janela ' +
+    'em 0px e sumir com a tabela');
+  /* Com menos linhas que a janela não há o que limitar: fixar a altura assim mesmo
+     deixaria um vazio abaixo da última linha, dentro de uma caixa que não rola. */
+  ok(/if \(total <= LINHAS_JANELA_MOV\) \{ wrap\.style\.maxHeight = ''; return; \}/.test(adm),
+    'e com poucas linhas ela não limita nada — senão sobraria um vazio embaixo da ' +
+    'última, dentro de uma caixa com barra que não rola');
+  ok(/window\.addEventListener\('resize', ajustarJanelaMov\);/.test(adm),
+    'e remede ao redimensionar: um Ctrl+ deixaria a janela com doze linhas e meia');
+})();
+
 console.log('\n== as colunas da tabela de Movimentos ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -2211,8 +2309,11 @@ console.log('\n== as colunas da tabela de Movimentos ==');
     'e o cartão do celular diz a data junto com o nome — lá o balão não existe, e é ' +
     'lá que o conferente está');
 
-  /* --- cabecalho e celulas saem da MESMA lista ---------------------------- */
-  ok(/cs\.map\(function\(c\)\{[\s\S]{0,260}<th/.test(corpo),
+  /* --- cabecalho e celulas saem da MESMA lista ----------------------------
+     A folga subiu de 260 para 460 porque o `<th>` ganhou a seta e o `aria-sort` da
+     classificação — e o que a afirmação guarda é que o cabeçalho sai da lista `cs`, não
+     o tamanho do trecho entre uma coisa e outra. */
+  ok(/cs\.map\(function\(c\)\{[\s\S]{0,460}<th/.test(corpo),
     'o cabeçalho percorre a lista de colunas');
   ok(/cs\.map\(function\(c\)\{[\s\S]{0,120}<td/.test(corpo),
     'e as células percorrem a MESMA lista — não há duas strings para lembrar de casar');
@@ -5615,12 +5716,59 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      de chave igual ficam como estavam. Num mesmo dia isso deixava o bloco do dia na
      ordem antiga enquanto os dias viravam — a lista vira pela metade, e quem olha
      conclui que ela não ordenou direito. */
-  ok(/compararValores\(chave\(a\), chave\(b\)\) \|\| \(posicao\.get\(a\) - posicao\.get\(b\)\)/
+  /* A chave é lida uma vez em `x` e `y` no topo do comparador — antes ela era chamada
+     duas vezes dentro da mesma linha, e agora a pergunta do vazio precisa do valor. */
+  ok(/var r = compararValores\(x, y\) \|\| \(posicao\.get\(a\) - posicao\.get\(b\)\);/
     .test(adm),
     'o desempate entra como segundo critério, dentro da mesma comparação — e por isso ' +
     'inverte junto com o primeiro');
-  ok(/return ORDEM_FLUXO\.desc \? -r : r;/.test(adm),
+  ok(/return estado\.desc \? -r : r;/.test(adm),
     'e a inversão é do resultado inteiro, empate incluído');
+
+  /* ---- O VAZIO FICA DE FORA DA INVERSÃO -----------------------------------
+   * Este é o conserto de um defeito que viveu desde o começo no Painel de Ativos, e
+   * que a suíte não via porque estava olhando para o lugar errado.
+   *
+   * A regra escrita era "linha sem dado não é a menor nem a maior, e no meio ela
+   * atrapalha a leitura das que têm" — vazio para o FIM, nos dois sentidos. E havia uma
+   * afirmação guardando exatamente isso… no COMPARADOR sozinho, onde a regra sempre
+   * esteve certa. O que ninguém media era o resultado ORDENADO: a inversão do
+   * decrescente negava o resultado inteiro, o do vazio junto, e no segundo clique as
+   * linhas sem dado subiam todas para o topo — empurrando para baixo justamente as que
+   * a pessoa clicou para ver.
+   *
+   * Medido nos 40 movimentos no ar, coluna Origem: no decrescente as linhas de ajuste,
+   * que não têm origem, vinham primeiro.
+   *
+   * Por isso esta afirmação EXECUTA a ordenação, em vez de olhar o texto dela. Era a
+   * diferença entre as duas que deixava o defeito passar. */
+  var fa = adm.indexOf('function aplicarOrdem(lista, DEFS, estado)');
+  var ka = adm.indexOf('{', fa), aa = 0;
+  do {
+    if (adm[ka] === '{') aa++; else if (adm[ka] === '}') aa--;
+    ka++;
+  } while (aa > 0 && ka < adm.length);
+  var fc = adm.indexOf('function semValor(v)');
+  var kc = adm.indexOf('\n  }', adm.indexOf('function compararValores(x, y)')) + 4;
+  var aplicarOrdem = new Function(
+    adm.slice(fc, kc) + adm.slice(fa, ka) + '\n return aplicarOrdem;')();
+
+  var CAIXA = [{ n: 'b' }, { n: '' }, { n: 'a' }, { n: null }, { n: 'c' }];
+  var DEFS_T = { n: { k: function (x) { return x.n; } } };
+  var nomes = function (l) {
+    return l.map(function (x) { return x.n === null ? '(nulo)' : (x.n || '(vazio)'); }).join(' ');
+  };
+  var asc  = nomes(aplicarOrdem(CAIXA, DEFS_T, { col: 'n', desc: false }));
+  var desc = nomes(aplicarOrdem(CAIXA, DEFS_T, { col: 'n', desc: true  }));
+  ok(asc === 'a b c (vazio) (nulo)',
+    'ordenado, o vazio vai para o fim no crescente', asc);
+  ok(desc === 'c b a (vazio) (nulo)',
+    'e TAMBÉM no decrescente — era aqui que a regra se perdia: a inversão levava o ' +
+    'vazio junto, e no segundo clique as linhas sem dado subiam todas para o topo',
+    desc);
+  ok(/var vx = semValor\(x\), vy = semValor\(y\);\s*\n\s*if \(vx \|\| vy\) \{/.test(adm),
+    'e os dois lugares perguntam pelo MESMO `semValor` — duas definições de "vazio" ' +
+    'divergiriam no dia em que zero ou `false` entrassem numa coluna');
 
   /* A COLISÃO DE CLASSE que a foto pegou: `.dia` já era o separador de dia dos cartões
      de Lançamentos, e é `display:flex`. O cartão do extrato herdava o flex e saía
