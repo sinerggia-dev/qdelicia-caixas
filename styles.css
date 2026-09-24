@@ -462,12 +462,27 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .desenho--titulo{flex:1 1 auto;min-width:0;height:24px;margin:0 0 3px}
 /* A estrada da linha do título é MAIS LONGA que a dos cartões — ela atravessa a largura
    da tela, não um cartão de 200px. Na mesma velocidade o caminhão pareceria correndo:
-   30s é o que dá o passo de caminhão carregado. */
-.desenho--titulo.desenho--pista .caminhao{animation-duration:30s}
-.desenho--titulo.desenho--volta .caminhao{animation-duration:30s}
-/* Fora da tela, nada anima — o app de campo roda em aparelho de galpão. */
-.cab-pagina:not(.rodando) .desenho--titulo *,
-.cab-pagina:not(.rodando) .desenho--titulo::after{animation-play-state:paused}
+   30s é o que dá o passo de caminhão carregado.
+
+   ATRASO NEGATIVO: com 30s de travessia e começo do zero, quem abre a tela fica onze
+   segundos olhando uma estrada vazia — e conclui que o desenho está quebrado. O atraso
+   negativo faz a animação nascer no meio do caminho, com o caminhão já à vista. */
+.desenho--titulo.desenho--pista .caminhao{animation-duration:30s;animation-delay:-11s}
+.desenho--titulo.desenho--volta .caminhao{animation-duration:30s;animation-delay:-11s}
+/* ---------- A PAUSA É POR CLASSE PRESENTE, NUNCA AUSENTE ----------
+ * Estava ao contrário, e o defeito foi ao ar: o CSS pausava enquanto `.rodando` não
+ * existisse, e NINGUÉM punha essa classe no cabeçalho. `:not(.rodando)` era sempre
+ * verdadeiro, e o caminhão ficava parado em `left:-58px` — fora do quadro. A estrada
+ * existia, media certo e não aparecia.
+ *
+ * Animação parada por padrão é sempre risco: basta o JS não rodar — aparelho velho,
+ * script que falhou antes, pré-visualização dentro de iframe — para o desenho sumir da
+ * tela sem erro nenhum no console. Agora o padrão é ANDAR, e a classe LIGA a pausa.
+ *
+ * Foi também o que a minha medição não pegou: ela leu `animation-name` e
+ * `animation-duration`, que estavam certos, e nunca leu `animation-play-state`. */
+.cab-pagina.parado .desenho--titulo *,
+.cab-pagina.parado .desenho--titulo::after{animation-play-state:paused}
 .cab-pagina__acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
 /* ---------- o cabeçalho de página fica vivo, NO COMPUTADOR ----------
@@ -1176,11 +1191,11 @@ input[type="password"]::-ms-clear{display:none}
  * para o que não voltou. A taxa não tem desenho — ela já tem a barra de meta, que é uma
  * leitura melhor do que qualquer movimento.
  *
- * `.rodando` é ligado por `IntersectionObserver`: fora da tela, tudo para. Animação que
+ * `.parado` é ligado por `IntersectionObserver`: fora da tela, tudo para. Animação que
  * roda escondida gasta bateria do celular do galpão sem ninguém ver. */
 .desenho{position:relative;height:26px;margin-top:5px;overflow:hidden;border-radius:6px}
-.ftiles:not(.rodando) .desenho *{animation-play-state:paused}
-.ftiles:not(.rodando) .desenho::after{animation-play-state:paused}
+.ftiles.parado .desenho *{animation-play-state:paused}
+.ftiles.parado .desenho::after{animation-play-state:paused}
 
 .desenho--pista::after{content:"";position:absolute;left:0;right:0;bottom:6px;height:2px;
   background:repeating-linear-gradient(90deg,var(--linha) 0 12px,transparent 12px 24px);

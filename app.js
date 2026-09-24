@@ -922,6 +922,8 @@
     });
     window.addEventListener('online', buscar);
     pintarContaTopo();
+    pausarEstrada();
+    document.addEventListener('visibilitychange', pausarEstrada);
     agendarSaudacao();   /* a virada das 18h sem recarregar */
     buscar();   /* dali em diante quem reagenda é a própria cadeia */
     return caixa;
@@ -997,6 +999,14 @@
        tudo de volta, e o desenho não deve prometer o contrário. */
     d.innerHTML = caminhao(e.cheios);
     linha.appendChild(d);
+  }
+
+  /* A ABA ESCONDIDA PARA A ESTRADA — bateria de aparelho de galpão. A classe LIGA a
+     pausa; sem ela, anda. É a ordem certa: se este trecho nunca rodar, o desenho
+     continua na tela em vez de sumir sem avisar. */
+  function pausarEstrada() {
+    var cab = document.querySelector('.cab-pagina');
+    if (cab) cab.classList.toggle('parado', document.hidden);
   }
 
   function abas(seletor) {

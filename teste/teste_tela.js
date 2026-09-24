@@ -5015,8 +5015,22 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'do galpão sem ninguém ver');
   ok(/if \(OLHO_TILES\) return;/.test(adm),
     'e o observador é ligado UMA vez: um por redesenho empilharia dezenas no mesmo elemento');
-  ok(/\.ftiles:not\(\.rodando\) \.desenho \*\{animation-play-state:paused\}/.test(css),
-    'quem pausa é o CSS, pela classe que o observador liga');
+  /* A PAUSA É POR CLASSE PRESENTE, NUNCA AUSENTE. Escrita como `:not(.rodando)`, ela
+     vale enquanto o JS não tiver rodado — e um desenho que só aparece se o script
+     chegar até o fim some da tela sem erro nenhum no console. Foi assim que a estrada
+     da linha do título foi ao ar congelada: ninguém punha `.rodando` no cabeçalho.
+     Agora o padrão é ANDAR, e a classe LIGA a pausa. */
+  /* SEM OS COMENTÁRIOS: a busca pela AUSÊNCIA de `:not(.rodando)` casava com o
+     comentário logo acima da regra, que cita o jeito antigo para explicar por que ele
+     saiu. É a mesma família de sempre — a afirmação lendo o que eu escrevi sobre o
+     código em vez do código. */
+  ok(/\.ftiles\.parado \.desenho \*\{animation-play-state:paused\}/.test(css) &&
+     !/:not\(\.rodando\)/.test(semComentarios(css)),
+    'quem pausa é o CSS, por uma classe que LIGA a pausa — parado por padrão, o ' +
+    'desenho some no dia em que o JS não rodar');
+  ok(/faixa\.classList\.toggle\('parado', !e\[0\]\.isIntersecting\);/.test(adm) &&
+     /\{ faixa\.classList\.remove\('parado'\); return; \}/.test(adm),
+    'e sem observador ele ANDA: a pausa é uma economia, não um requisito');
   ok(/@media \(prefers-reduced-motion:reduce\)[\s\S]{0,600}\.desenho \*,\.desenho::after\{animation:none!important\}/
     .test(css),
     'e quem pediu menos movimento recebe o desenho parado, não o desenho apagado — ' +
@@ -6051,9 +6065,19 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
      /\.desenho--titulo\{flex:1 1 auto;min-width:0/.test(css),
     'o título toma o que precisa e a estrada fica com a sobra — é o que faz o caminhão ' +
     'nascer na borda da palavra em vez de correr num quadro de largura arbitrária');
-  ok(/\.desenho--titulo\.desenho--pista \.caminhao\{animation-duration:30s\}/.test(css),
+  ok(/\.desenho--titulo\.desenho--pista \.caminhao\{animation-duration:30s;animation-delay:-11s\}/.test(css),
     'e ela corre em 30s, não nos 13 dos cartões: atravessa a largura da tela, e no ' +
     'mesmo tempo o caminhão pareceria correndo em vez de carregado');
+  /* ATRASO NEGATIVO: com 30s de travessia e começo do zero, quem abre a tela fica onze
+     segundos olhando estrada vazia — e conclui que o desenho está quebrado. */
+  ok(/\.desenho--titulo\.desenho--volta \.caminhao\{[^}]*animation-delay:-11s\}/.test(css),
+    'e nasce no MEIO do caminho: começando do zero, a tela abre com onze segundos de ' +
+    'estrada vazia, que se lê como desenho quebrado');
+  /* A PAUSA DA ESTRADA, pela mesma regra do resto: classe que LIGA. */
+  ok(/\.cab-pagina\.parado \.desenho--titulo \*/.test(css) &&
+     /cab\.classList\.toggle\('parado', document\.hidden\);/.test(js),
+    'e a aba escondida para a estrada — pela classe que liga a pausa, nunca pela que ' +
+    'falta');
 
   /* ---- A CONTA DENTRO DA PÍLULA DO TEMPO ---------------------------------
    * Uma moldura só, em vez de duas arredondadas encostadas no mesmo canto. A conta, o
