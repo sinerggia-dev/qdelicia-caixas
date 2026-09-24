@@ -2885,6 +2885,53 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
     'o valor do seletor é a PLACA, e o motorista habitual viaja no próprio option — ' +
     'sem uma segunda busca na hora de preencher');
 
+  /* ---- O VEÍCULO DO MOTORISTA EM CIMA, NUM GRUPO PRÓPRIO -------------------
+   * Onze placas todas parecidas numa lista só, com o carro certo no meio, é escolher no
+   * olho: `SON1B00` e `SON5E11` diferem em dois caracteres, e quem lança está de luva,
+   * no pátio. A placa errada não avisa que está errada — entra no movimento e só
+   * aparece semanas depois, quando alguém for conferir de que carro as caixas voltaram.
+   * É a mesma regra que a rota já aplica à lista de motoristas. */
+  var iMV = idx.indexOf('function montarVeiculos(');
+  var fnMV = iMV > 0 ? idx.slice(iMV, idx.indexOf('\n  }', iMV)) : '';
+  ok(/grupo\('Veículo de ' \+ nome, dele\) \+ grupo\('Outros veículos', outros\)/.test(fnMV),
+    'o veículo do motorista sai num grupo próprio, em cima, e o resto embaixo');
+  /* O RESTO CONTINUA ALCANÇÁVEL: carro quebra, alguém cobre a rota do outro, e uma
+     lista que só ofereça o carro de fábrica trava o lançamento no dia em que a
+     realidade não obedece ao cadastro. */
+  ok(/var outros = frota\.filter\(function\(v\)\{ return dele\.indexOf\(v\) < 0; \}\);/.test(fnMV),
+    'e todo veículo liberado continua na lista — separar não é esconder');
+  /* Sem veículo do motorista não há o que separar: rótulo de grupo sozinho é rótulo
+     para ler à toa. Mesma regra da lista de motoristas. */
+  ok(/\? grupo\('Veículo de[\s\S]{0,90}: itens\(frota\)\);/.test(fnMV),
+    'e sem veículo do motorista a lista sai simples, sem rótulo de grupo sozinho');
+  /* A PONTE ENTRE OS DOIS CAMPOS é o cadastro: o seletor de motorista guarda o NOME — é
+     ele que vai para o movimento — e o vínculo do veículo é por ID. Comparar texto com
+     texto faria "Chico" bater com outro Chico. */
+  ok(/meusMotoristas\(\)\.filter\(function\(x\)\{ return x\.Nome === nome; \}\)\[0\]/.test(fnMV) &&
+     /String\(v\.MotoristaID\|\|''\) === motId/.test(fnMV),
+    'e o vínculo é por ID, com o nome do campo passando pelo cadastro — o seletor ' +
+    'guarda nome, o veículo guarda id');
+  /* MOTORISTA NOVO, VEÍCULO NOVO. Trocar o motorista e deixar a placa do anterior é o
+     erro mais difícil de ver: o campo fica preenchido, com jeito de conferido. */
+  ok(/if \(motId !== anterior\) \{\s*\n\s*sel\.value = dele\.length === 1 \? dele\[0\]\.Placa : '';/.test(fnMV),
+    'trocar de motorista não deixa a placa do anterior no campo — e com UM carro só ' +
+    'ele já vem posto, que é um toque a menos por lançamento');
+  ok(/sel\.setAttribute\('data-mot-lista', motId\);/.test(fnMV),
+    'e o seletor lembra de qual motorista era a lista — sem isso, todo redesenho ' +
+    'contaria como troca e limparia a placa escolhida');
+  /* O PAR DO VÍNCULO. Sem ele o agrupamento só valeria para o estado em que a tela
+     nasceu: escolher o motorista depois deixaria a lista agrupada em volta de quem não
+     está mais no campo. */
+  ok(/function motoristaPuxaVeiculo\(idMotorista, idVeiculo\)\{/.test(idx) &&
+     (idx.match(/motoristaPuxaVeiculo\('/g) || []).length === 2,
+    'e escolher o MOTORISTA reagrupa a frota — nas duas telas, e ligado uma vez só');
+  /* E o caminho de volta reagrupa também: senão a lista continuaria dizendo "Outros
+     veículos" sobre o carro que, depois do preenchimento, É o do motorista no campo. */
+  ok(/sv\.setAttribute\('data-mot-lista', String\(m\.ID\)\);\s*\n\s*montarVeiculos\(idVeiculo, idMotorista\);/
+       .test(idx),
+    'e escolher a PLACA reagrupa a lista em volta do motorista que ela preencheu — ' +
+    'acertando a lembrança ANTES, para a remontagem não limpar a placa recém-escolhida');
+
   /* ESCOLHER A PLACA PREENCHE O MOTORISTA, e o campo continua aberto. */
   var iV = idx.indexOf('function veiculoPuxaMotorista');
   var fnV = iV > 0 ? idx.slice(iV, idx.indexOf('\n  }', iV)) : '';
@@ -2903,14 +2950,34 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
     'e o vínculo é ligado UMA vez, fora do redesenho: os seletores são refeitos a cada ' +
     'troca de rota, e um ouvinte por redesenho empilharia dezenas no mesmo `change`');
 
-  /* A FROTA É MONTADA ONDE O MOTORISTA É. Um caminho que redesenha um e esquece o
-     outro deixa o seletor com a frota de antes. */
-  ok((idx.match(/montarMotoristas\(/g) || []).length ===
-     (idx.match(/montarVeiculos\(/g) || []).length,
+  /* A FROTA É MONTADA ONDE O MOTORISTA É, e DEPOIS dele. Um caminho que redesenha um e
+     esquece o outro deixa o seletor com a frota de antes.
+     A ORDEM passou a importar: é o motorista no campo que decide o agrupamento da
+     frota, então montar a frota primeiro a agruparia em volta de quem acabou de sair.
+     Contar ocorrências não diria nada disso — e nem serve mais, porque `montarVeiculos`
+     agora aparece também dentro dos dois vínculos, com variável no lugar do id. */
+  /* O TRECHO É O QUE VEM DEPOIS de cada chamada — 220 caracteres, o bastante para a
+     linha seguinte e um comentário no meio. Com expressão regular preguiçosa o trecho
+     terminava no PRIMEIRO `;`, que é o fim da própria chamada do motorista: cinco
+     trechos, cinco sem a frota, e a asserção acusaria sempre. */
+  var pares = [];
+  for (var pi = idx.indexOf("montarMotoristas('"); pi >= 0;
+       pi = idx.indexOf("montarMotoristas('", pi + 1)) {
+    pares.push(idx.slice(pi, pi + 220));
+  }
+  ok(pares.length >= 5 && pares.every(function (p) {
+       return /montarVeiculos\('/.test(p);
+     }),
     'e a frota é remontada em todo ponto em que o motorista é — um caminho que ' +
     'redesenha um e esquece o outro deixa o seletor com a lista velha',
-    (idx.match(/montarMotoristas\(/g) || []).length + ' vs ' +
-    (idx.match(/montarVeiculos\(/g) || []).length);
+    pares.length + ' trechos, ' +
+    pares.filter(function (p) { return !/montarVeiculos\('/.test(p); }).length + ' sem a frota');
+  ok((idx.match(/montarVeiculos\('/g) || []).length ===
+     (idx.match(/montarMotoristas\('/g) || []).length,
+    'e nenhuma sobra dos dois lados: frota montada onde o motorista NÃO é fica ' +
+    'agrupada em volta de um campo que ninguém acabou de mexer',
+    (idx.match(/montarMotoristas\('/g) || []).length + ' vs ' +
+    (idx.match(/montarVeiculos\('/g) || []).length);
   ok(/nenhum veículo liberado para você/.test(idx),
     'e sem frota liberada o campo diz POR QUE está vazio — um seletor só com ' +
     '"Selecione…" e nada dentro lê como tela quebrada');
