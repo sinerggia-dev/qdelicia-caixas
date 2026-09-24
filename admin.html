@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=f91dae9d">
+<link rel="stylesheet" href="styles.css?v=de5644fa">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -4868,7 +4868,11 @@
    * metade, que e o jeito mais convincente de a tabela parecer quebrada.
    *
    * Mudar quantas linhas aparecem e mexer numa linha so, a de baixo. */
-  var LINHAS_JANELA_MOV = 12;
+  /* OITO, e nao doze: a tela tem seis cartoes em cima e cinco graficos embaixo, e com
+     doze linhas os graficos nasciam abaixo da dobra — existiam e ninguem via. Oito
+     linhas e o que deixa os tres blocos na mesma tela num monitor comum.
+     Nenhuma linha some por isso: a tabela rola por dentro, com o cabecalho grudado. */
+  var LINHAS_JANELA_MOV = 8;
 
   function ajustarJanelaMov(){
     var wrap = document.querySelector('#tabelaMov .tabela-wrap');

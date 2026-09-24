@@ -2173,17 +2173,26 @@ console.log('\n== o trilho de filtros, em Movimentos ==');
   /* EMPURRA, NÃO COBRE. Medido no Chrome a 1440px: fechada, a tabela tem 1318px;
      aberta, 1106 — e as duas caixas nunca se sobrepõem. Filtro por cima do dado faz a
      pessoa fechar o filtro para conferir o que acabou de filtrar. */
-  ok(/\.mov-tela\{display:grid;grid-template-columns:minmax\(0,1fr\) 56px;/.test(css) &&
-     /\.mov-tela\.aberta\{grid-template-columns:minmax\(0,1fr\) 268px\}/.test(css),
-    'o trilho EMPURRA a lista: 56px fechado, 268 aberto — e a tabela encolhe junto, em ' +
-    'vez de ficar debaixo do filtro');
+  /* O TRILHO FICA A ESQUERDA, a pedido — a coluna dele e a PRIMEIRA. Mas a caixa
+     continua DEPOIS do conteudo no documento, e as duas coisas juntas sao a afirmacao:
+     a ordem visual e escolha de leitura, e a ordem do documento e a ordem do Tab.
+     Invertidas as duas, quem navega de teclado passaria pelos dez campos do filtro
+     antes de chegar na lista — dez tabulacoes de pedagio em toda visita. */
+  ok(/\.mov-tela\{display:grid;grid-template-columns:56px minmax\(0,1fr\);/.test(css) &&
+     /\.mov-tela\.aberta\{grid-template-columns:248px minmax\(0,1fr\)\}/.test(css) &&
+     /\.mov-tela \.filtros-caixa\{grid-column:1;grid-row:1\}/.test(css),
+    'o trilho EMPURRA a lista e fica a ESQUERDA: 56px fechado, 248 aberto — e a tabela ' +
+    'encolhe junto, em vez de ficar debaixo do filtro');
+  ok(adm.indexOf('id="graficosMov"') < adm.indexOf('id="caixaFiltrosMov"'),
+    'e a caixa continua DEPOIS do conteudo no documento: a ordem do Tab e a da leitura, ' +
+    'e nao a da tela — senao sao dez campos de pedagio antes da lista');
   /* A LARGURA É DECLARADA NOS DOIS ESTADOS, e não numa variável: propriedade
      personalizada não anima sem `@property`, e o trilho abriria de um salto. */
   /* A checagem é da PRÓPRIA regra, e não do arquivo: `--trilho-larg` já existe há muito
      para o menu lateral do app, e procurar a palavra solta acusava aquele. */
   var regraAberta = (css.match(/\.mov-tela\.aberta\{[^}]*\}/) || [''])[0];
   ok(/transition:grid-template-columns \.22s/.test(css) &&
-     /268px/.test(regraAberta) && regraAberta.indexOf('var(') < 0,
+     /248px/.test(regraAberta) && regraAberta.indexOf('var(') < 0,
     'e a transição é do próprio `grid-template-columns`, com a largura escrita — por ' +
     'variável ela não anima sem `@property`, e a barra abriria de um salto', regraAberta);
   /* `min-width:0` na coluna do conteúdo: sem ele a tabela larga estica a coluna, a
@@ -2263,6 +2272,43 @@ console.log('\n== o trilho de filtros, em Movimentos ==');
     'e a folha continua sendo a folha: `fixed`, subindo de baixo, aberta pela classe');
   ok(/<button class="btn sec so-celular" id="btnAbrirFiltrosMov"/.test(adm),
     'e o botão que a abre continua lá');
+
+  /* --- O CABEÇALHO DA FOLHA VAZAVA PARA O COMPUTADOR ----------------------
+   * `.folha__cab{display:flex}` vem DEPOIS de `.so-celular{display:none}` na folha de
+   * estilo, e com a mesma especificidade a última ganha. O resultado era "FILTROS"
+   * escrito duas vezes no trilho, com dois botões de fechar — visível no print, e o
+   * tipo de coisa que faz a tela parecer montada por engano.
+   * Medido depois do conserto: a palavra aparece UMA vez, e as duas peças da folha
+   * ficam em `display:none` no computador. */
+  ok(/\.mov-tela \.folha__cab,\.mov-tela \.folha__puxador\{display:none\}/.test(css),
+    'e o cabeçalho da folha não vaza para o trilho — a regra do `so-celular` perde para ' +
+    'a do `.folha__cab`, que vem depois, e "FILTROS" aparecia duas vezes');
+
+  /* --- CAMPOS MENORES, a pedido -------------------------------------------
+   * Dez campos em corpo de formulário comum passam da altura da tela, e o de baixo fica
+   * fora do alcance sem rolar. O piso de 44px do alvo de dedo NÃO se aplica aqui: ele
+   * vale para o app de campo, usado de luva; isto é teclado e mouse de escritório.
+   * E a letra do campo fica em 13px, não menos: abaixo disso o Safari do iPad dá zoom
+   * sozinho ao focar, e a tela salta. */
+  var regraCampo = (css.match(/\.mov-tela \.filtros-caixa select,\s*\n\s*\.mov-tela \.filtros-caixa input\{[^}]*\}/) || [''])[0];
+  var tam = (regraCampo.match(/font-size:([\d.]+)px/) || [])[1];
+  ok(tam && Number(tam) >= 13,
+    'os campos do trilho encolheram, mas a letra não desce de 13px — abaixo disso o ' +
+    'Safari do iPad dá zoom sozinho ao focar, e a tela salta', regraCampo);
+  ok(/\.mov-tela \.filtros-caixa label\{font-size:11px/.test(css),
+    'e o rótulo encolhe junto — é ele que empilha dez vezes');
+
+  /* --- A TABELA APERTA, mas o ALVO não ------------------------------------
+   * Quem define a altura da linha não é o recuo da célula: é o botão de ação. Apertar
+   * só o recuo é o que deixa a linha mais baixa sem encolher o alvo de quem corrige um
+   * lançamento. Medido: a linha foi de 41 para 32px. */
+  ok(/#tabelaMov th,#tabelaMov td\{padding:4px 8px\}/.test(css),
+    'a tabela de Movimentos aperta o recuo — é ela que divide a tela com os cartões em ' +
+    'cima e os gráficos embaixo');
+  var mini = (css.match(/#tabelaMov \.mini\{[^}]*\}/) || [''])[0];
+  ok(/padding:3px 8px/.test(mini) && /font-size:12px/.test(mini),
+    'e o botão encolhe o RECUO, não a altura útil — ele é quem manda na altura da linha',
+    mini);
 })();
 
 console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
@@ -2436,9 +2482,12 @@ console.log('\n== classificar e a janela de linhas, em Movimentos ==');
   /* ---- a janela de linhas ----
      Não é paginação: nenhuma linha some, a tabela rola dentro do quadro com o cabeçalho
      grudado no topo. */
-  ok(/var LINHAS_JANELA_MOV = 12;/.test(adm) &&
+  /* OITO, e nao doze: a tela tem seis cartoes em cima e cinco graficos embaixo, e com
+     doze linhas os graficos nasciam abaixo da dobra — existiam e ninguem via. */
+  ok(/var LINHAS_JANELA_MOV = 8;/.test(adm) &&
      /function ajustarJanelaMov\(\)\{/.test(adm),
-    'a tabela vira uma janela de doze linhas, e mudar esse número é mexer numa linha só');
+    'a tabela vira uma janela de OITO linhas — com doze, os gráficos nasciam abaixo da ' +
+    'dobra e ninguém os via; e mudar esse número é mexer numa linha só');
   /* A ALTURA É MEDIDA, e não escrita: ela muda com o zoom, com a fonte do sistema e com
      a etiqueta "teste" dentro da célula da data. Número chutado erra para MENOS, e
      cortar a décima linha pela metade é o jeito mais convincente de a tabela parecer

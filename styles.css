@@ -974,6 +974,15 @@ button.mini.perigo{border-color:var(--vermelho);color:var(--vermelho)}
 .tabela-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--linha);white-space:nowrap}
+/* A TABELA DE MOVIMENTOS APERTA, a pedido: e ela que divide a tela com seis cartoes em
+   cima e cinco graficos embaixo, e com o respiro de sempre os graficos nasciam abaixo da
+   dobra — existiam e ninguem via.
+   O RECUO ENCOLHE, A ALTURA UTIL NAO. Quem define a altura da linha aqui nao e este
+   `padding`: e o botao de acao, que tem piso de alvo clicavel. Apertar so o recuo e o
+   que deixa a linha mais baixa sem encolher o alvo de quem corrige um lancamento. */
+#tabelaMov th,#tabelaMov td{padding:4px 8px}
+#tabelaMov .mini{padding:3px 8px;font-size:12px}
+#tabelaMov .tag{padding:0 6px;font-size:9.5px}
 th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--txt2);background:var(--surface-2);position:sticky;top:0}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 tbody tr:hover{background:var(--surface-2)}
@@ -1923,8 +1932,11 @@ details.tipos[open] summary::before{content:"▾"}
  * mouse e EMPURRA a lista em vez de cobri-la. Filtro por cima do dado faz a pessoa
  * fechar o filtro para conferir o que acabou de filtrar.
  *
- * A DIREITA porque o menu do app ja ocupa a esquerda, e porque assim a tabela comeca
- * na borda esquerda, que e por onde os olhos leem.
+ * A ESQUERDA, a pedido. O argumento contrario era que o menu do app ja ocupa aquele
+ * lado e que a tabela deveria comecar na borda esquerda, por onde os olhos leem. O que
+ * pesa a favor e mais forte: os filtros passam a ficar na MESMA margem da navegacao, e
+ * a leitura de cima para baixo vira "onde estou, o que estou filtrando, o que saiu".
+ * A tabela comeca 56px adentro, e e o preco.
  *
  * ABAIXO DE 1024px NADA DISTO VALE: a caixa volta a ser a folha que sobe de baixo,
  * `position:fixed`, como sempre foi. Por isso tudo aqui esta preso a `min-width`.
@@ -1933,10 +1945,16 @@ details.tipos[open] summary::before{content:"▾"}
   /* As duas colunas, e a transicao entre elas. A largura e declarada nos DOIS
      estados em vez de numa variavel: propriedade personalizada nao anima sem
      `@property`, e o trilho abriria de um salto. */
-  .mov-tela{display:grid;grid-template-columns:minmax(0,1fr) 56px;gap:12px;
+  .mov-tela{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;
     align-items:start;
     transition:grid-template-columns .22s cubic-bezier(.2,.8,.3,1)}
-  .mov-tela.aberta{grid-template-columns:minmax(0,1fr) 268px}
+  .mov-tela.aberta{grid-template-columns:248px minmax(0,1fr)}
+  /* A CAIXA VEM DEPOIS DO CONTEUDO no documento, e vai para a PRIMEIRA coluna aqui.
+     A ordem do documento nao muda de proposito: e ela que decide a ordem do Tab, e a
+     lista e o que a pessoa vem ver — chegar nos dez campos do filtro antes de chegar na
+     tabela seria dez tabulacoes de pedagio em toda visita. */
+  .mov-tela .filtros-caixa{grid-column:1;grid-row:1}
+  .mov-tela .mov-conteudo{grid-column:2;grid-row:1}
   /* `min-width:0` na coluna do conteudo: sem ele a tabela larga estica a coluna e a
      grade deixa de caber, empurrando o trilho para fora da tela. */
   .mov-conteudo{min-width:0}
@@ -1966,6 +1984,13 @@ details.tipos[open] summary::before{content:"▾"}
     background:var(--verde);color:var(--sobre-verde);
     font-family:var(--fonte-mono);font-size:11px;font-weight:700}
 
+  /* O CABECALHO DA FOLHA E O PUXADOR SAO DO CELULAR, e estavam vazando para ca: a
+     regra `.folha__cab{display:flex}` vem depois de `.so-celular{display:none}` na
+     folha de estilo e ganhava dela. O resultado era "FILTROS" escrito duas vezes, com
+     dois botoes de fechar — visivel no print, e o tipo de coisa que faz a tela parecer
+     montada por engano. Aqui a regra e mais especifica, entao vence. */
+  .mov-tela .folha__cab,.mov-tela .folha__puxador{display:none}
+
   .trilho__cab{display:none;align-items:center;gap:4px;padding:12px 12px 0}
   .mov-tela.aberta .trilho__cab{display:flex}
   .trilho__cab h3{margin:0;flex:1 1 auto;font-size:11px;font-weight:700;
@@ -1981,6 +2006,18 @@ details.tipos[open] summary::before{content:"▾"}
   /* UM CAMPO POR LINHA: em 268px, dois lado a lado dao 125px cada, e nome de local
      nao cabe em 125px. */
   .mov-tela .grid-filtros{grid-template-columns:1fr}
+  /* CAMPOS MENORES, a pedido — e o trilho estreitou de 268 para 248px junto. Dez
+     campos em corpo de formulario comum ocupam mais que a altura da tela, e o de baixo
+     fica fora do alcance sem rolar. O piso de 44px do alvo de dedo NAO se aplica aqui:
+     ele vale para o app de campo, usado de luva; isto e teclado e mouse de escritorio.
+     A LETRA DO CAMPO fica em 13px e nao menos: abaixo disso o Safari do iPad da zoom
+     sozinho ao focar, e a tela salta. */
+  .mov-tela .filtros-caixa label{font-size:11px;font-weight:600;margin:8px 0 3px}
+  .mov-tela .filtros-caixa select,
+  .mov-tela .filtros-caixa input{font-size:13px;padding:5px 8px;min-height:30px}
+  .mov-tela .filtros-caixa .btn{font-size:12.5px;min-height:30px;padding:0 10px}
+  .mov-tela .trilho__cab{padding:10px 10px 0}
+  .mov-tela.aberta .filtros-caixa__corpo{padding:6px 10px 12px}
   /* E os botoes empilham. Em linha, cinco deles viravam cinco fatias de 45px. */
   .mov-tela .linha-btn{flex-direction:column;align-items:stretch;gap:6px}
   .mov-tela .linha-btn .btn{width:100%;min-width:0!important;flex:0 0 auto!important}
