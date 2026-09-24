@@ -4209,11 +4209,6 @@
    * pelo botão "Filtros" — e é por isso que a largura é perguntada ao CSS, com
    * `matchMedia`, e não adivinhada: duas respostas para "estamos no computador?"
    * divergiriam no dia em que o ponto de corte mudasse. */
-  /* A ORDEM SALVA VALE DESDE A PRIMEIRA PINTURA. Aplicada só depois de algum evento, a
-     barra abriria na ordem de fábrica e se reorganizaria sozinha na frente da pessoa. */
-  aplicarOrdemFiltros();
-  ligarArrastarFiltros();
-
   (function trilhoFiltros(){
     var tela = document.getElementById('movTela');
     var caixa = document.getElementById('caixaFiltrosMov');
@@ -7512,6 +7507,16 @@
      chover. A faixa se monta sozinha no `.cab-pagina`, que é um só para o app inteiro
      e fica FORA do `.corpo-pagina`: por isso ela aparece em todos os módulos. */
   Q.relogioETempo();
+
+  /* A ORDEM SALVA DOS FILTROS, aplicada no ARRANQUE e não no meio do arquivo.
+     `var` iça a declaração e NÃO o valor: chamada antes de `var FILTROS_MOV = {…}`,
+     ela recebia `undefined`, estourava — e um erro no carregamento para tudo o que
+     vem DEPOIS dele, inclusive a linha abaixo, que é a que abre a porta. A tela
+     desenhava, o botão Entrar aparecia, e clicar nele não fazia nada.
+     Aqui, no fim, todas as declarações já existem — é o lugar de quem precisa do
+     arquivo inteiro montado. */
+  aplicarOrdemFiltros();
+  ligarArrastarFiltros();
 
   if (podeEntrar(Q.sessao())) abrirApp(); else iniciarLogin(motivoDaRecusa(Q.sessao()));
 })();
