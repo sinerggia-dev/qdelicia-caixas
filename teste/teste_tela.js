@@ -2679,8 +2679,12 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
      quadros: elas são a razão de o anel existir — separar o rosto do fundo escuro. */
   var iAnel = css.indexOf('@keyframes anel{');
   var quadrosAnel = css.slice(iAnel, css.indexOf('}}', iAnel));
-  ok(/animation:anel 5s ease-out infinite/.test(css),
-    'o anel do rosto abre e se dissolve');
+  /* O DA BARRA, dito por inteiro. Escrito só como `animation:anel 5s`, quem respondia
+     por esta afirmação era a regra do rosto da LATERAL, que tem o mesmo texto: apagar
+     a animação da barra deixava tudo verde. Pego quando o gêmeo de computador criou a
+     segunda cópia — antes dela a afirmação era honesta por acidente. */
+  ok(/\.topo__conta \.avatar\{[^}]*animation:anel 5s ease-out infinite\}/.test(css),
+    'o anel do rosto DA BARRA abre e se dissolve');
   ok(iAnel > 0 &&
      (quadrosAnel.match(/0 0 0 2px var\(--campo\),0 0 0 3px rgba\(53,214,160,\.45\)/g) || []).length === 2,
     'e o contorno FIXO está nos dois quadros — anel que some junto com a animação é um ' +
@@ -2705,13 +2709,68 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
   var iRed = css.lastIndexOf('@media (prefers-reduced-motion:reduce){', iAfter);
   var reduzido = iAfter > 0 ? css.slice(iRed, css.indexOf('\n}', iRed)) : '';
   ok(iRed > 0 && /\.topo::after\{display:none\}/.test(reduzido) &&
-     /\.topo__conta \.avatar,\.avatar \.ponto\{animation:none!important\}/.test(reduzido),
+     /\.topo__conta \.avatar,[^}]*\.avatar \.ponto\{animation:none!important\}/.test(reduzido),
     'e quem pede menos movimento não recebe nenhum dos quatro — medido: zero animações ' +
     'vivas na barra', reduzido.length);
   /* A BARRA DE ACENTO VOLTA CHEIA, e não é o degradê congelado: parada num quadro
      qualquer, a luz viraria uma mancha clara no meio dela. */
   ok(/\.topo::before\{background:var\(--verde\);animation:none!important\}/.test(reduzido),
     'e a barra de acento volta a ser CHEIA, em vez do degradê congelado num quadro');
+
+  /* ---- O GÊMEO DE COMPUTADOR ---------------------------------------------
+   * Os quatro sinais moram no `.topo`, e o `.topo` some acima de 1024px: no
+   * computador o app não tinha sinal de vida nenhum — e é lá que a tela fica aberta o
+   * dia inteiro num monitor de galpão. O equivalente é o `.cab-pagina`, que também é
+   * um só para o app inteiro e também fica fora do corpo que troca. */
+  var iCabAntes = css.indexOf('.cab-pagina::before{');
+  var iCabDepois = css.indexOf('.cab-pagina::after{');
+  ok(iCabAntes > 0 && iCabDepois > 0,
+    'o cabeçalho de página também tem barra de acento e linha varrida — no computador ' +
+    'a barra do app não existe, e sem isto nada na tela dizia que o app está vivo',
+    iCabAntes + '/' + iCabDepois);
+  ok(/\.cab-pagina::before\{[^}]*background-size:100% 300%;animation:descer 7s/.test(css),
+    'e a luz desce por ela com o mesmo desenho e o mesmo `background-size` do celular');
+  /* O QUE ANCORA OS DOIS. Pego numa sabotagem: sem `position:relative` as duas regras
+     continuam escritas e o `position:absolute` delas sobe até achar um ancestral
+     posicionado — não há nenhum, então caem no bloco inicial e a barra de acento vira
+     um risco de 4px descendo a JANELA inteira, por cima da lateral. O `.topo` nunca
+     precisou disto porque já é `position:sticky`, que também posiciona. */
+  ok(/\.cab-pagina\{position:relative;/.test(css),
+    'e o cabeçalho é posicionado — sem isso a barra de acento ancora na janela e ' +
+    'desce por cima da lateral inteira, e as regras continuam todas escritas');
+  /* 9s, e não os 8s do celular: um monitor é o triplo da largura, e no mesmo tempo o
+     brilho cruzaria rápido demais para ler como varredura. */
+  ok(/\.cab-pagina::after\{[^}]*background-size:28% 100%;background-repeat:no-repeat;[^}]*animation:varrer 9s/.test(css),
+    'e o brilho varre mais devagar que o do celular, porque a largura é o triplo');
+
+  /* UMA LUZ, NUNCA DUAS — e é por isso que a regra vive DENTRO do `@media
+   * (min-width:1024px)`. Abaixo de 1024 o `.topo` está na tela com a sua própria barra
+   * de acento, e as duas juntas dariam duas luzes descendo, uma embaixo da outra.
+   *
+   * A conferência é ESTRUTURAL, e não de texto: confere que não há fechamento de bloco
+   * entre a abertura da media query e a regra. Escrita fora dela, a regra continuaria
+   * existindo no arquivo e a afirmação acima continuaria verde.
+   *
+   * Medido a 1280px e a 390px: uma luz viva em cada, e as duas nunca ao mesmo tempo —
+   * a 390px o `.cab-pagina::before` nem chega a ter `content`. */
+  var iMq = css.lastIndexOf('@media (min-width:1024px){', iCabAntes);
+  var entre = iCabAntes > 0 && iMq > 0 ? css.slice(iMq, iCabAntes) : '}';
+  ok(iMq > 0 && entre.indexOf('\n}') === -1,
+    'e ela vale SÓ no computador: no celular a barra do app já tem a dela, e as duas ' +
+    'juntas dariam DUAS luzes descendo, uma embaixo da outra');
+
+  /* O ROSTO DA LATERAL, pela mesma razão do da barra: no computador ele é o ÚNICO
+     rosto na tela, e a lateral tem o mesmo `--campo` de fundo. */
+  ok(/\.conta \.avatar\{[^}]*box-shadow:0 0 0 2px var\(--campo\),0 0 0 3px rgba\(53,214,160,\.45\);[^}]*animation:anel 5s ease-out infinite\}/.test(css),
+    'o rosto da lateral ganhou o mesmo anel — e o contorno FIXO está na regra base, ' +
+    'para existir com a animação desligada');
+  ok(/\.conta:hover \.avatar,\.conta:focus-within \.avatar\{animation-play-state:paused\}/.test(css),
+    'e ele também para sob o dedo');
+  ok(/\.topo__conta \.avatar,\.conta \.avatar,\.avatar \.ponto\{animation:none!important\}/.test(reduzido) &&
+     /\.cab-pagina::before\{background:var\(--verde\);animation:none!important\}/.test(reduzido) &&
+     /\.cab-pagina::after\{display:none\}/.test(reduzido),
+    'e quem pede menos movimento não recebe nenhum dos dois lados — medido a 1280px: ' +
+    'zero animações vivas, o brilho sumido e a barra de acento cheia');
 })();
 
 console.log('\n== o cadastro novo avisa que o item nasce negado ==');

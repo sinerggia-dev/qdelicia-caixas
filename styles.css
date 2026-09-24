@@ -371,6 +371,17 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 /* ---------- quem esta logado ---------- */
 /* O risco que separa o rodapé subiu para o `.lateral__pe`: ele é que é o rodapé. */
 .conta{display:flex;align-items:center;gap:10px}
+/* O ROSTO DA LATERAL GANHA O ANEL, pela mesma razão que o da barra do app: no
+   computador ele é o ÚNICO rosto na tela, e um retrato escuro encostado num rodapé
+   escuro vira um borrão. A lateral tem o mesmo `--campo` de fundo que a barra, então
+   é o mesmo `@keyframes anel` — o recorte de 2px continua casando com o fundo.
+
+   O contorno é declarado AQUI, e não só nos quadros: ele precisa existir com a
+   animação desligada. Só a terceira sombra é que abre e some. */
+.conta .avatar{
+  box-shadow:0 0 0 2px var(--campo),0 0 0 3px rgba(53,214,160,.45);
+  animation:anel 5s ease-out infinite}
+.conta:hover .avatar,.conta:focus-within .avatar{animation-play-state:paused}
 .avatar{
   position:relative;flex:0 0 auto;width:32px;height:32px;border-radius:50%;
   display:inline-flex;align-items:center;justify-content:center;
@@ -441,6 +452,41 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .cab-pagina__acima{font-size:12px;color:var(--txt3);margin-bottom:5px}
 .cab-pagina__titulo{margin:0;font-size:24px;font-weight:700;letter-spacing:-.4px;line-height:1.12}
 .cab-pagina__acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* ---------- o cabeçalho de página fica vivo, NO COMPUTADOR ----------
+ * Os quatro sinais da barra do app — a luz que desce, o brilho que varre, o anel do
+ * rosto e o ponto que respira — moram no `.topo`, e o `.topo` some acima de 1024px.
+ * Resultado: no computador o app não tinha sinal de vida nenhum, e é lá que a tela
+ * fica aberta o dia inteiro num monitor de galpão.
+ *
+ * O equivalente de computador da barra do app é ESTE cabeçalho: ele também é um só
+ * para o app inteiro e também fica fora do `.corpo-pagina` que troca — então a luz
+ * vale para todos os módulos sem ser remontada a cada página.
+ *
+ * SÓ acima de 1024px, e é o ponto todo: abaixo disso o `.topo` está na tela com a sua
+ * própria barra de acento, e as duas juntas dariam DUAS luzes descendo, uma embaixo
+ * da outra. */
+@media (min-width:1024px){
+  /* `position:relative` é o que ancora os dois pseudo-elementos. O `z-index:30` acima
+     já valia por ser item de flex; agora vale pelos dois motivos. */
+  .cab-pagina{position:relative;
+    background:linear-gradient(90deg,rgba(53,214,160,.10),rgba(53,214,160,.03) 45%,
+      rgba(53,214,160,0) 78%),var(--bg)}
+  /* MAIS FRACO que o da barra do app: ali é a moldura do celular, o único enfeite da
+     tela; aqui há uma lateral inteira, uma tabela e cinco números disputando o olho. */
+  .cab-pagina::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:linear-gradient(180deg,
+      rgba(53,214,160,.35) 0%, var(--verde) 22%,
+      rgba(53,214,160,.35) 45%, rgba(53,214,160,.35) 100%);
+    background-size:100% 300%;animation:descer 7s ease-in-out infinite}
+  /* 9s, e não os 8s do celular: a largura de um monitor é o triplo, e no mesmo tempo
+     o brilho cruzaria rápido demais para ler como uma varredura. */
+  .cab-pagina::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
+    background:linear-gradient(90deg,rgba(53,214,160,0) 0%,
+      rgba(53,214,160,.9) 50%,rgba(53,214,160,0) 100%);
+    background-size:28% 100%;background-repeat:no-repeat;
+    animation:varrer 9s ease-in-out infinite}
+}
 
 /* ---------- relógio e tempo da unidade ----------
  * A hora é a da OPERAÇÃO, não a de quem olha. O tempo fica ao lado dela porque as duas
@@ -610,7 +656,13 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
      quadro qualquer — parada, a luz viraria uma mancha clara no meio dela. */
   .topo::before{background:var(--verde);animation:none!important}
   .topo::after{display:none}
-  .topo__conta .avatar,.avatar .ponto{animation:none!important}
+  .topo__conta .avatar,.conta .avatar,.avatar .ponto{animation:none!important}
+  /* E o gêmeo de computador junto, pelo mesmo motivo e com a mesma correção: a barra
+     de acento vira CHEIA, em vez do degradê congelado num quadro qualquer. Estas
+     regras vêm depois das do `@media (min-width:1024px)` no arquivo, e é a ordem que
+     as faz ganhar — a media query não muda especificidade. */
+  .cab-pagina::before{background:var(--verde);animation:none!important}
+  .cab-pagina::after{display:none}
 }
 
 /* 1180px prendia a tabela de Movimentos, que precisa de 1300px com nome de local e
