@@ -992,7 +992,13 @@
     var d = document.createElement('div');
     /* `aria-hidden`: o leitor de tela já leu o título, e "imagem" repetida a cada troca
        de página é ruído para quem depende dele. */
-    d.className = 'desenho desenho--titulo ' + (e.volta ? 'desenho--volta' : 'desenho--pista');
+    /* AS DUAS CLASSES NA VOLTA, e não uma ou outra. Quem desenha o asfalto tracejado é
+       o `::after` do `.desenho--pista`; o `.desenho--volta` sozinho só INVERTE a
+       direção dele — e invertendo o nada dá nada. Posto como alternativa, o retorno
+       ficava com o caminhão andando sobre estrada nenhuma. É assim que o painel
+       sempre usou as duas: `desenho--pista desenho--volta`. */
+    d.className = 'desenho desenho--titulo desenho--pista' +
+      (e.volta ? ' desenho--volta' : '');
     d.setAttribute('aria-hidden', 'true');
     d.style.setProperty('--cor', e.cor);
     /* DOIS DE QUATRO no retorno, e quatro de quatro na saída: retorno quase nunca traz

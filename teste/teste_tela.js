@@ -6053,6 +6053,20 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
      "Cadastros" não diria nada. Medido em `pgSaldo`: nenhuma estrada. */
   ok(/var e = ESTRADAS\[pagina\];\s*if \(!e\) return;/.test(js),
     'e nas outras páginas ela some da tela — movimento que não informa é ruído');
+  /* AS DUAS CLASSES NA VOLTA. Quem desenha o asfalto tracejado é o `::after` do
+     `.desenho--pista`; o `.desenho--volta` sozinho só INVERTE a direção dele — e
+     inverter o nada dá nada. Posto como alternativa, o retorno ficou com o caminhão
+     andando sobre estrada nenhuma, e foi assim que foi ao ar.
+     Medido agora nas duas: asfalto presente, `normal` na saída e `reverse` na volta. */
+  ok(/'desenho desenho--titulo desenho--pista' \+\s*\(e\.volta \? ' desenho--volta' : ''\)/.test(js),
+    'o retorno leva as DUAS classes da estrada — `desenho--volta` sozinho não tem ' +
+    'asfalto para inverter, e o caminhão andava sobre estrada nenhuma');
+  /* A REGRA DO OUTRO LADO, para a afirmação acima não depender só da forma de escrever:
+     é o `.desenho--pista::after` que tem o desenho, e o `--volta` só a direção. */
+  ok(/\.desenho--pista::after\{content:""[^}]*repeating-linear-gradient/.test(css) &&
+     /\.desenho--volta::after\{animation-direction:reverse\}/.test(css),
+    'e é mesmo o `--pista` que desenha: o `--volta` só tem a direção');
+
   ok(/var velha = linha\.querySelector\('\.desenho'\);\s*if \(velha\) velha\.remove\(\);/.test(js),
     'e trocar de página tira a anterior: sem isso, ir de Saída para Retorno deixaria os ' +
     'dois caminhões correndo em sentidos opostos na mesma linha');
