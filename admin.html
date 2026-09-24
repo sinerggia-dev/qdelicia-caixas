@@ -1114,8 +1114,17 @@
       /* AJUSTES DA TELA é do administrador, e essa palavra vem ANTES da marcação: sem
          isto, o admin poderia conceder a aba a alguém que, chegando lá, encontraria uma
          tela que recusa. Conceder o caminho para uma porta trancada é pior que não
-         oferecer o caminho. */
-      if (b.dataset.pagina === 'pgColunas' && !podeArranjarColunas()) ok = false;
+         oferecer o caminho.
+
+         E QUEM PERGUNTA AQUI É O PERFIL, `Q.ehAdmin()` — nunca o `podeArranjarColunas()`,
+         que exige a senha JÁ confirmada. Foi o que esta linha dizia quando nasceu, e ela
+         trancou a porta pelo lado de fora: o item do menu só apareceria depois de
+         destravar, e destravar é o que se faz DENTRO dele. A aba sumiu para o próprio
+         administrador, e a asserção que eu tinha escrito cobrava justamente o
+         comportamento errado — ela fixou o defeito em vez de pegá-lo.
+         A regra certa tem dois degraus, e cada um no seu lugar: o PERFIL decide se a
+         porta existe, e a SENHA decide o que acontece depois de entrar. */
+      if (b.dataset.pagina === 'pgColunas' && !Q.ehAdmin()) ok = false;
       b.style.display = ok ? '' : 'none';
       if (!ok) {
         b.classList.remove('ativa');

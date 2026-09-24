@@ -4517,11 +4517,22 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
      recusa.indexOf('data-colver=') < 0,
     'e a aba Colunas recusa por conta própria, dizendo por quê — escondida no menu ' +
     'ela ainda é alcançável, e tela vazia não se distingue de tela quebrada', recusa);
-  /* E O CAMINHO ATÉ ELA SOME: conceder a porta para uma tela que recusa é pior que não
-     oferecer a porta. A palavra do perfil vem ANTES da marcação de abas. */
-  ok(/if \(b\.dataset\.pagina === 'pgColunas' && !podeArranjarColunas\(\)\) ok = false;/.test(adm),
-    'e o botão dela some do menu mesmo que a aba tenha sido concedida — oferecer o ' +
-    'caminho para uma porta trancada é pior que não oferecer');
+  /* E O CAMINHO ATÉ ELA SOME PARA QUEM NÃO É ADMIN: conceder a porta para uma tela que
+     recusa é pior que não oferecer a porta. A palavra do perfil vem ANTES da marcação.
+     MAS QUEM PERGUNTA AQUI É O PERFIL, e nunca o `podeArranjarColunas()`, que exige a
+     senha já confirmada. A primeira versão desta linha usava o portão completo e
+     TRANCOU A PORTA PELO LADO DE FORA: o item só apareceria depois de destravar, e
+     destravar é o que se faz dentro dele — a aba sumiu para o próprio administrador, e
+     foi ele quem percebeu, não a suíte. A asserção de então cobrava o portão completo:
+     ela não deixou o defeito passar, ela o FIXOU, e a sabotagem confirmou o errado.
+     São dois degraus: o PERFIL decide se a porta existe; a SENHA decide o que acontece
+     depois de entrar. A asserção cobra os dois, e cobra que não se troquem. */
+  ok(/if \(b\.dataset\.pagina === 'pgColunas' && !Q\.ehAdmin\(\)\) ok = false;/.test(adm),
+    'o botão dela some do menu para quem não é admin, mesmo que a aba tenha sido ' +
+    'concedida — oferecer o caminho para uma porta trancada é pior que não oferecer');
+  ok(!/pgColunas' && !podeArranjarColunas\(\)/.test(adm),
+    'e quem decide isso é o PERFIL, não o portão inteiro: exigir a senha para MOSTRAR ' +
+    'o item tranca a porta pelo lado de fora, porque a senha se digita lá dentro');
 
   /* ================= A SENHA, MESMO SENDO ADMIN =================
    *
