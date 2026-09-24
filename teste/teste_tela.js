@@ -1950,15 +1950,17 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var ip = desc.indexOf('padrao: [');
   var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
     .map(function (t) { return t.slice(1, -1); });
-  ok(cols.length === 11, 'são onze colunas de fábrica', cols);
+  ok(cols.length === 12, 'são doze colunas de fábrica', cols);
 
-  /* AS TRÊS DO CARIMBO. Contar onze não diz QUAIS são onze: trocar `hora` por outra
+  /* AS QUATRO DO CARIMBO. Contar doze não diz QUAIS são doze: trocar `hora` por outra
      coluna qualquer manteria a conta de pé. Elas respondem perguntas que a tabela não
-     respondia — quando isto entrou no sistema, e quem mexeu depois. */
+     respondia — quando isto entrou no sistema, e quem mexeu depois, e quando. */
   [['hora', 'a hora em que o lançamento foi gravado'],
    ['criado', 'o dia em que foi gravado, que nem sempre é o dia da carga'],
    ['alterado', 'quem mexeu por último — sem ela, um número corrigido e um número ' +
-                'original são a mesma célula']].forEach(function (c) {
+                'original são a mesma célula'],
+   ['alteradoEm', 'QUANDO mexeram — correção no mesmo dia é acerto de digitação, e ' +
+                  'seis dias depois do romaneio é outra conversa']].forEach(function (c) {
     ok(cols.indexOf(c[0]) >= 0, 'a tabela de Movimentos traz ' + c[1], cols);
   });
 
@@ -1974,6 +1976,47 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var defs = corpo.slice(corpo.indexOf('var DEFS = {'), corpo.indexOf('var LARG = larguras'));
   var semDef = cols.filter(function (c) { return defs.indexOf('\n      ' + c + ':') < 0; });
   ok(semDef.length === 0, 'e toda coluna tem célula — sem ela o <td> sai vazio', semDef);
+
+  /* --- QUEM mexeu e QUANDO são DUAS colunas -------------------------------
+   * O dado sempre existiu em `alterado.em`, e estava só no `title`: é preciso parar o
+   * mouse em cima para ver, e no celular não existe balão nenhum. A tela ficava dizendo
+   * que mexeram e não dizendo quando — e essa é a pergunta inteira de uma conferência:
+   * correção no mesmo dia do lançamento é acerto de digitação, e seis dias depois do
+   * romaneio é outra conversa. */
+  var iAE = defs.indexOf('\n      alteradoEm:');
+  var celAE = iAE > 0 ? defs.slice(iAE, defs.indexOf('\n      origem:', iAE)) : '';
+  /* DEPOIS do `'">'`, e não dentro do `title`. Calcular a data não é mostrá-la: a
+     primeira versão desta asserção cobrava só a chamada de `Q.dataHoraBR(a.em)`, e a
+     sabotagem que devolvia a data para o balão — deixando a célula com "···" na tela —
+     passou limpa, porque a chamada continuava lá. O que distingue um do outro é o
+     `Q.esc(quando)` estar FORA das aspas do atributo. */
+  ok(/Q\.dataHoraBR\(a\.em\)/.test(celAE) &&
+     /\+'">'\+\s*\n\s*Q\.esc\(quando\)\+'<\/span>'/.test(celAE),
+    'a coluna Alterado em mostra data E hora da última alteração no TEXTO da célula — ' +
+    'no balão ela exigia parar o mouse em cima, e no celular não há balão');
+  /* Vazio é RESPOSTA: ninguém mexeu. Célula em branco não se distingue de uma coluna
+     que não soube responder. */
+  ok((celAE.match(/<span class="fraco">—<\/span>/g) || []).length === 2,
+    'e vazia ela diz "—" fraco nos dois caminhos — sem alteração e sem data gravada — ' +
+    'porque branco não se distingue de coluna que não soube responder');
+  /* SÓ CONSULTA NÃO É ALTERAÇÃO, pela mesma regra da coluna ao lado: a data de quem
+     abriu e gravou sem mudar nada faria a conferência procurar uma diferença que não
+     existe naquela data. */
+  ok(/if \(!a\.vezes\) \{[\s\S]{0,300}\(consulta\)/.test(celAE),
+    'e a data de quem só consultou vem dita pelo que é — senão a conferência procura ' +
+    'uma diferença que não existe naquela data');
+  /* A TELA E O ARQUIVO CONTAM A MESMA COISA. O CSV já levava "Alterado em" quando a
+     tela não levava, e tela e arquivo discordando sobre as mesmas linhas fazem a
+     conferência de escritório chegar a um número que a tela não explica. */
+  ok(/'Alterado por','Alterado em'/.test(adm) &&
+     /a\.em\?Q\.dataHoraBR\(a\.em\):''/.test(adm),
+    'e o CSV leva a mesma coluna, com o mesmo formato — arquivo e tela discordando ' +
+    'fazem a conferência chegar a um número que a tela não explica');
+  /* NO CELULAR NÃO HÁ BALÃO, e é no celular que o conferente está. */
+  ok(/alterado por <b>'\+Q\.esc\(alt\.por\|\|'—'\)\+'<\/b>'\+\s*\n\s*\(alt\.em \? ' em <b>'\+Q\.esc\(Q\.dataHoraBR\(alt\.em\)\)/
+       .test(adm),
+    'e o cartão do celular diz a data junto com o nome — lá o balão não existe, e é ' +
+    'lá que o conferente está');
 
   /* --- cabecalho e celulas saem da MESMA lista ---------------------------- */
   ok(/cs\.map\(function\(c\)\{[\s\S]{0,260}<th/.test(corpo),

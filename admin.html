@@ -1893,19 +1893,28 @@
      REFERÊNCIA, a do romaneio — não responde. Lançar hoje uma carga de ontem é rotina,
      e até aqui não havia onde ver que foi isso que aconteceu.
 
-     `alterado` fecha a linha: quem mexeu por último. Sem ela, uma quantidade corrigida e
-     uma quantidade original são a mesma célula na tela. */
+     `alterado` e `alteradoEm` fecham a linha: quem mexeu por último, e QUANDO. Sem a
+     primeira, uma quantidade corrigida e uma original são a mesma célula na tela. Sem a
+     segunda, sabe-se que mexeram e não se sabe se foi no dia do lançamento ou uma
+     semana depois — e essa diferença é a pergunta inteira de uma conferência: correção
+     no mesmo dia é acerto de digitação, correção seis dias depois do romaneio é outra
+     conversa. O dado sempre existiu (`alterado.em`) e estava só no balão, que é preciso
+     parar o mouse em cima para ver e não existe no celular. O CSV já levava a coluna;
+     era a TELA que não levava, e tela e arquivo discordando sobre as mesmas linhas
+     fazem a conferência chegar a um número que a tela não explica. */
   var TAB_MOV = {
     padrao: ['data','hora','criado','status','origem','destino','caixa','qtd',
-             'motorista','quem','alterado'],
+             'motorista','quem','alterado','alteradoEm'],
     /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
        coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
        com a data mais larga do formato e a etiqueta junto. */
     larg: { data:150, hora:70, criado:110, status:110, origem:150, destino:150,
-            caixa:120, qtd:80, motorista:130, quem:120, alterado:140 },
+            caixa:120, qtd:80, motorista:130, quem:120, alterado:140,
+            alteradoEm:150 },
     titulos: { data:'Data', hora:'Hora', criado:'Criado em', status:'Status',
                origem:'Origem', destino:'Destino', caixa:'Caixa', qtd:'Qtd',
-               motorista:'Motorista', quem:'Quem', alterado:'Alterado por' },
+               motorista:'Motorista', quem:'Quem', alterado:'Alterado por',
+               alteradoEm:'Alterado em' },
     kOrdem: 'qdc_cols_mov_v1',
     kLarg: 'qdc_larg_mov_v1',
     kOcultas: 'qdc_cols_ocultas_mov_v1',
@@ -3926,6 +3935,33 @@
                        (a.vezes > 1 ? ' (' + a.vezes + ' alterações ao todo)' : '');
                      return '<span title="'+Q.esc(detalhe)+'">'+
                             Q.esc(a.por || '—')+'</span>'; } },
+      /* QUANDO mexeram. Anda colada na de cima e responde a outra metade da pergunta:
+         uma correção no mesmo dia do lançamento é acerto de digitação, e uma seis dias
+         depois do romaneio é outra conversa. Vazio é resposta — ninguém mexeu —, e por
+         isso o travessão fraco em vez da célula em branco, que não se distingue de uma
+         coluna que não soube responder.
+         SÓ CONSULTA NÃO É ALTERAÇÃO, pela mesma regra da coluna ao lado: a data de quem
+         só abriu e gravou sem mudar nada fica em cinza e dizendo o que é, senão a
+         conferência procuraria uma diferença que não existe naquela data. */
+      alteradoEm:{ t: TIT['alteradoEm'],
+                   v: function(m){
+                     var a = m.alterado || {};
+                     var c = a.consulta || {};
+                     if (!a.vezes && !c.vezes) return '<span class="fraco">—</span>';
+                     if (!a.vezes) {
+                       return '<span class="fraco" title="Abriu a correção e gravou sem '+
+                         'mudar nada">'+Q.esc(c.em ? Q.dataHoraBR(c.em) : '—')+
+                         ' (consulta)</span>';
+                     }
+                     var quando = a.em ? Q.dataHoraBR(a.em) : '';
+                     if (!quando) return '<span class="fraco">—</span>';
+                     /* A DATA DA ÚLTIMA, e o total no balão: a coluna responde "quando
+                        foi a última vez", e o histórico completo mora na tela de
+                        correção, que é onde ele cabe. */
+                     return '<span title="'+Q.esc('Última alteração' +
+                       (a.campo ? ' — ' + a.campo : '') +
+                       (a.vezes > 1 ? ' · ' + a.vezes + ' alterações ao todo' : ''))+'">'+
+                       Q.esc(quando)+'</span>'; } },
       origem:    { t: TIT['origem'],   v: function(m){ return Q.esc(m.origem); } },
       destino:   { t: TIT['destino'],  v: function(m){ return Q.esc(m.destino); } },
       caixa:     { t: TIT['caixa'],    v: function(m){ return Q.esc(m.tipoCaixa); } },
@@ -4099,7 +4135,10 @@
       '<h3 class="mov__rota">'+Q.esc(g.origem||'—')+' '+seta+' '+Q.esc(g.destino||'—')+'</h3>'+
       '<p class="mov__quem">Motorista <b>'+Q.esc(g.motorista||'—')+'</b><br>'+
         'Lançado por <b>'+Q.esc(g.usuario||'—')+'</b>'+
-        (alt.vezes ? ' · alterado por <b>'+Q.esc(alt.por||'—')+'</b>' : '')+'</p>'+
+        /* NO CELULAR NÃO HÁ BALÃO: sem a data escrita aqui, o cartão diz que
+           mexeram e não diz quando, e é no celular que o conferente está. */
+        (alt.vezes ? ' · alterado por <b>'+Q.esc(alt.por||'—')+'</b>'+
+          (alt.em ? ' em <b>'+Q.esc(Q.dataHoraBR(alt.em))+'</b>' : '') : '')+'</p>'+
       '<div class="mov-itens">'+g.itens.map(function(i){
         return '<div class="mov-item"><span>'+Q.esc(i.tipoCaixa||'—')+'</span>'+
                '<b class="'+(ehRetorno ? 'val-ok' : 'val-saida')+'">'+Q.num(i.qtd)+'</b></div>';
