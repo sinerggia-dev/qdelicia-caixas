@@ -508,6 +508,39 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    como o local — a hierarquia é por TAMANHO (o grau tem 14px, esta linha 11,5), e não
    por brilho. Texto apagado no meio de uma frase branca lê como defeito de estilo, não
    como informação secundária. */
+/* ===== A CONTA DENTRO DA PÍLULA DO TEMPO (só no computador) =====
+ * Uma moldura só, em vez de duas encostadas no mesmo canto. A conta, o tempo e a hora
+ * se separam pela MESMA divisória que já separava tempo de hora.
+ *
+ * ESCONDIDA POR PADRÃO, e ligada por `.tem-conta` acima de 1024px. Dois interruptores,
+ * e cada um responde por uma coisa: a largura decide se cabe, e a sessão decide se há
+ * o que mostrar. "Olá, —" na moldura do tempo é pior que a pílula sem a conta. */
+.tempo__conta,.tempo__div--conta{display:none}
+@media (min-width:1024px){
+  .tempo.tem-conta .tempo__conta{display:flex}
+  .tempo.tem-conta .tempo__div--conta{display:block}
+}
+/* Sem borda própria ela deixaria de parecer botão — o fundo no `hover` e o cursor de
+   clique são o que devolve o "isto aqui se toca". As margens negativas comem o respiro
+   que o `padding` acrescenta, para o alvo crescer sem empurrar a pílula. */
+.tempo__conta{align-items:center;gap:10px;flex:0 0 auto;
+  padding:5px 8px;margin:-5px -4px -5px -6px;border:0;border-radius:11px;
+  background:transparent;color:var(--txt);font:inherit;text-align:left;cursor:pointer}
+.tempo__conta:hover{background:var(--surface-2)}
+.tempo__conta .avatar{width:34px;height:34px;font-size:12px;
+  box-shadow:0 0 0 2px var(--campo),0 0 0 3px rgba(53,214,160,.45);
+  animation:anel 5s ease-out infinite}
+.tempo__conta:hover .avatar{animation-play-state:paused}
+.tempo__quem{min-width:0;line-height:1.2}
+.tempo__ola{display:block;font-size:11.5px;color:var(--txt2)}
+/* O nome em 14px e cheio: é a única coisa da pílula que identifica PESSOA, e o resto
+   dela é tempo e hora. `max-width` porque a pílula divide a largura com os dois. */
+.tempo__nome{display:block;font-size:14px;font-weight:700;letter-spacing:-.2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+/* Telas médias: fica só a foto, para não espremer o relógio. O nome continua no balão. */
+@media (max-width:1180px){ .tempo__quem{display:none}
+  .tempo__conta{padding:5px;margin:-5px 0 -5px -4px} }
+
 .tempo__cond{font-weight:600;color:var(--txt)}
 .tempo__cond:not(:empty)::after{content:"·";margin:0 3px 0 5px;color:var(--txt-fraco);
   font-weight:400}
@@ -671,7 +704,8 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
      quadro qualquer — parada, a luz viraria uma mancha clara no meio dela. */
   .topo::before{background:var(--verde);animation:none!important}
   .topo::after{display:none}
-  .topo__conta .avatar,.conta .avatar,.avatar .ponto{animation:none!important}
+  .topo__conta .avatar,.conta .avatar,.tempo__conta .avatar,
+  .avatar .ponto{animation:none!important}
   /* E as estrelas param acesas, em vez de sumirem: o desenho da noite sem elas
      perde o que o distingue do desenho do dia. */
   .tempo__ico .estrela{animation:none!important;opacity:.8}

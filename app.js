@@ -441,6 +441,24 @@
      palavra que mude de página, e nasce `hidden` — sem o JS ela não aparece de qualquer
      jeito, então copiá-la nos dois arquivos só criaria duas cópias para divergirem. */
   var TEMPO_HTML =
+    /* A CONTA DENTRO DA PÍLULA, e não numa moldura ao lado. Duas caixas arredondadas
+       encostadas no mesmo canto viram duas bordas competindo; aqui a conta, o tempo e a
+       hora se separam pela MESMA divisória que já separava tempo de hora.
+
+       SÓ NO COMPUTADOR — o CSS cuida disso. No celular a barra do app já tem a foto e a
+       saudação numa linha própria, e repetir as duas na faixa seria dizer duas vezes a
+       mesma coisa num espaço que não sobra.
+
+       O risco do arranjo é assumido: sem borda própria a conta deixa de parecer botão.
+       Por isso ela ganha fundo ao passar o mouse e mantém o cursor de clique. */
+    '<button class="tempo__conta" id="tempoConta" type="button">' +
+      '<span class="avatar" id="avatarTempo" aria-hidden="true">—</span>' +
+      '<span class="tempo__quem">' +
+        '<span class="tempo__ola" id="tempoOla">Olá,</span>' +
+        '<b class="tempo__nome" id="tempoNome">—</b>' +
+      '</span>' +
+    '</button>' +
+    '<span class="tempo__div tempo__div--conta" aria-hidden="true"></span>' +
     '<div class="tempo__t" id="tempoT">' +
       '<span class="tempo__ico" id="tempoIco" aria-hidden="true"></span>' +
       '<span class="tempo__c">' +
@@ -495,12 +513,17 @@
     } catch (e) { return new Date().getHours(); }
   }
   function pintarSaudacao() {
-    var el = document.getElementById('olaSaudacao');
-    if (!el) return;
+    /* OS DOIS LUGARES: a barra do app no celular e a pílula no computador. Um só
+       elemento por vez estaria certo hoje — `.topo` e a pílula nunca aparecem juntos —,
+       mas escrever num id fixo era o que deixaria a saudação congelada no outro no dia
+       em que os dois convivessem. */
+    var alvos = [document.getElementById('olaSaudacao'),
+                 document.querySelector('.tempo .tempo__ola')].filter(Boolean);
+    if (!alvos.length) return;
     var t = saudacaoDe(horaDaOperacao());
-    /* só toca no DOM se mudou: escrever o mesmo texto a cada minuto é trabalho que não
-       muda nada e ainda atrapalha quem estiver com o texto selecionado. */
-    if (el.textContent !== t) el.textContent = t;
+    /* só toca no DOM quando muda: escrever o mesmo texto a cada minuto é trabalho que
+       não muda nada e ainda atrapalha quem estiver com o texto selecionado. */
+    alvos.forEach(function (el) { if (el.textContent !== t) el.textContent = t; });
   }
   /* VIRA SOZINHA, no minuto cheio. Quem deixa o painel aberto a tarde toda vê "Boa
      tarde" virar "Boa noite" às 18h sem recarregar. Reagenda em vez de `setInterval`
@@ -510,6 +533,34 @@
     var a = new Date();
     setTimeout(function () { pintarSaudacao(); agendarSaudacao(); },
       (60 - a.getSeconds()) * 1000 - a.getMilliseconds());
+  }
+
+  /* Preenche a conta da pílula a partir da sessão. Chamada pelos DOIS lados porque a
+     ordem não é garantida: a faixa se monta no arranque e o `quemEsta` roda quando a
+     sessão carrega, e qualquer um dos dois pode chegar primeiro. Chamar nos dois é mais
+     barato que um sinal entre eles, e não tem estado para desencontrar. */
+  function pintarContaTopo() {
+    /* AS PEÇAS SAEM DA FAIXA, e não de uma busca global por id — a mesma razão do
+       resto da faixa: o app de campo já teve dois elementos com o mesmo id e a busca
+       global entregou o errado. */
+    var faixa = document.querySelector('.tempo');
+    var cx = faixa && faixa.querySelector('.tempo__conta');
+    if (!cx || !faixa) return;
+    var s = sessao() || {};
+    var nome = s.nome || '';
+    /* SÓ O PRIMEIRO NOME aqui, e o inteiro no balão. "Boa noite, Natanael" soa como
+       gente falando; com o nome completo vira crachá — e a pílula divide ~180px com o
+       tempo e o relógio, então o sobrenome cortaria no meio de qualquer jeito. Na barra
+       do celular, que tem uma linha inteira só para ela, continua o nome completo. */
+    var primeiro = nome ? String(nome).trim().split(/\s+/)[0] : '—';
+    faixa.querySelector('.tempo__nome').textContent = primeiro;
+    pintarCirculo(faixa.querySelector('.tempo__conta .avatar'), nome, s.foto);
+    cx.title = nome + (s.perfil ? ' · ' + s.perfil : '');
+    cx.setAttribute('aria-label', 'Conta de ' + nome + (s.perfil ? ' · ' + s.perfil : ''));
+    /* A CHAVE ÚNICA: sem nome, a conta e a divisória dela não aparecem. "Olá, —" na
+       moldura do tempo é pior que a pílula sem a conta. */
+    faixa.classList.toggle('tem-conta', !!nome);
+    pintarSaudacao();
   }
 
   function relogioETempo() {
@@ -543,18 +594,25 @@
       elData.textContent = agora.toLocaleDateString('pt-BR',
         { weekday: 'short', day: 'numeric', month: 'short', timeZone: UNIDADE.fuso });
       elHora.textContent = agora.toLocaleTimeString('pt-BR',
-        { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: UNIDADE.fuso });
+        { hour: '2-digit', minute: '2-digit', timeZone: UNIDADE.fuso });
       elHora.dateTime = agora.toISOString();
     }
     bater();
 
-    /* REAGENDA a cada volta, em vez de `setInterval` fixo: intervalo acumula atraso e o
-       relógio passa a pular segundos. E PARA com a aba escondida, acertando quando ela
-       volta — painel de galpão fica aberto o dia inteiro. */
+    /* SEM SEGUNDOS, e batendo na virada do MINUTO. Os segundos serviam de sinal de que
+       o app estava vivo; hoje quem dá esse sinal é a luz que desce pela barra, e um
+       temporizador por segundo num aparelho de galpão é trabalho que ninguém pediu. E
+       nada no sistema precisa deles: a janela da correção conta dez MINUTOS.
+
+       REAGENDA a cada volta, em vez de `setInterval` fixo: intervalo acumula atraso e a
+       virada chega segundos depois da hora. E PARA com a aba escondida, acertando
+       quando ela volta — painel de galpão fica aberto o dia inteiro. */
     var tique;
     function agendar() {
       clearTimeout(tique);
-      tique = setTimeout(function () { bater(); agendar(); }, 1000 - (Date.now() % 1000));
+      var a = new Date();
+      tique = setTimeout(function () { bater(); agendar(); },
+        (60 - a.getSeconds()) * 1000 - a.getMilliseconds());
     }
     agendar();
     document.addEventListener('visibilitychange', function () {
@@ -831,6 +889,7 @@
       if (!document.hidden) buscar();
     });
     window.addEventListener('online', buscar);
+    pintarContaTopo();
     agendarSaudacao();   /* a virada das 18h sem recarregar */
     buscar();   /* dali em diante quem reagenda é a própria cadeia */
     return caixa;
@@ -966,7 +1025,6 @@
     var olaN = document.getElementById('olaNome');
     if (ola && olaN) {
       olaN.textContent = nome ? String(nome).trim() : '—';
-      pintarSaudacao();
       ola.title = (nome || '') + (perfil ? ' · ' + perfil : '');
       /* Some enquanto não há nome: "Olá, —" durante o carregamento é pior do que a
          linha sem a saudação. */
@@ -974,6 +1032,7 @@
     }
 
     pintarCirculo(document.getElementById('avatarUsuario'), nome, foto);
+    pintarContaTopo();
     var t = document.getElementById('avatarTopo');
     pintarCirculo(t, nome, foto);
     /* O de cima leva o nome inteiro no `title`: no celular com a gaveta fechada ele é a

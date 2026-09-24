@@ -2766,7 +2766,11 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
     'para existir com a animação desligada');
   ok(/\.conta:hover \.avatar,\.conta:focus-within \.avatar\{animation-play-state:paused\}/.test(css),
     'e ele também para sob o dedo');
-  ok(/\.topo__conta \.avatar,\.conta \.avatar,\.avatar \.ponto\{animation:none!important\}/.test(reduzido) &&
+  /* OS TRÊS ROSTOS: o da barra do app, o da lateral e o da pílula do tempo. A lista
+     cresceu de dois para três e vai crescer de novo — por isso a afirmação cobra os
+     extremos dela e não o texto inteiro, que quebraria a cada rosto novo sem que nada
+     de errado tivesse acontecido. */
+  ok(/\.topo__conta \.avatar,[^}]*\.tempo__conta \.avatar,[^}]*\.avatar \.ponto\{animation:none!important\}/.test(reduzido) &&
      /\.cab-pagina::before\{background:var\(--verde\);animation:none!important\}/.test(reduzido) &&
      /\.cab-pagina::after\{display:none\}/.test(reduzido),
     'e quem pede menos movimento não recebe nenhum dos dois lados — medido a 1280px: ' +
@@ -5926,14 +5930,27 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
      o mesmo fuso: a conta subiu para quatro e a afirmação ficou vermelha por uma
      mudança que não era a que ela cobra. Agora ela olha as duas chamadas que importam. */
   ok(/\{ weekday: 'short', day: 'numeric', month: 'short', timeZone: UNIDADE\.fuso \}/.test(js) &&
-     /\{ hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: UNIDADE\.fuso \}/.test(js),
+     /\{ hour: '2-digit', minute: '2-digit', timeZone: UNIDADE\.fuso \}/.test(js),
     'a data E a hora saem no fuso da unidade: quem confere de outro estado precisa ler ' +
     'a hora do galpão, senão "lançado às 17h" muda de significado');
   /* REAGENDA em vez de `setInterval`: intervalo acumula atraso e o relógio pula
      segundos num painel que fica aberto o dia inteiro. */
-  ok(/tique = setTimeout\(function \(\) \{ bater\(\); agendar\(\); \}, 1000 - \(Date\.now\(\) % 1000\)\);/
-    .test(js),
-    'o relógio se reagenda a cada volta, acertando pelo relógio do sistema');
+  /* SEM SEGUNDOS, na virada do MINUTO. Eles serviam de sinal de que o app estava vivo;
+     hoje quem dá esse sinal é a luz que desce pela barra, e nada no sistema precisa
+     deles — a janela da correção conta dez MINUTOS. */
+  ok(!/second: '2-digit'/.test(js),
+    'o relógio não mostra segundos: um temporizador por segundo num aparelho de galpão ' +
+    'é trabalho que ninguém pediu, e a janela da correção conta em minutos');
+  /* CONTADAS, e a ausência do outro jeito cobrada junto. O agendador da SAUDAÇÃO tem o
+     mesmo texto, e a afirmação escrita só como "existe a conta do minuto" passava
+     verde com o relógio voltando a bater de segundo em segundo — a saudação respondia
+     por ele. Pego na sabotagem; é a mesma família de sempre. */
+  ok((js.match(/\(60 - a\.getSeconds\(\)\) \* 1000 - a\.getMilliseconds\(\)/g) || []).length === 2,
+    'e o relógio E a saudação se reagendam para a virada do minuto — `setInterval` ' +
+    'fixo acumula atraso e a virada chega depois da hora');
+  ok(!/1000 - \(Date\.now\(\) % 1000\)/.test(js),
+    'e nada mais se reagenda de segundo em segundo: era o relógio, e ele não precisa ' +
+    'mais — quem diz que o app está vivo é a luz que desce pela barra');
   ok(/if \(document\.hidden\) clearTimeout\(tique\);/.test(js),
     'e para com a aba escondida — painel de galpão fica aberto o dia inteiro');
   /* NA REGRA DO RELÓGIO: a tabela numérica já usava `tabular-nums` noutra linha, e era
@@ -5990,6 +6007,48 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
   ok(/function agendarSaudacao\(\)/.test(js) && /agendarSaudacao\(\);   \/\* a virada/.test(js),
     'e vira sozinha no minuto cheio: quem deixa o painel aberto vê "Boa tarde" virar ' +
     '"Boa noite" às 18h sem recarregar');
+
+  /* ---- A CONTA DENTRO DA PÍLULA DO TEMPO ---------------------------------
+   * Uma moldura só, em vez de duas arredondadas encostadas no mesmo canto. A conta, o
+   * tempo e a hora se separam pela MESMA divisória que já separava tempo de hora. */
+  ok(/class="tempo__conta" id="tempoConta"/.test(js) &&
+     /function pintarContaTopo\(\)/.test(js),
+    'no computador a conta mora DENTRO da pílula do tempo, e não numa moldura ao lado');
+  /* DOIS INTERRUPTORES, e cada um responde por uma coisa: a LARGURA decide se cabe, a
+     SESSÃO decide se há o que mostrar. Medido: visível a 1440 e a 1100px, escondida a
+     390 — onde a barra do app já tem a foto e a saudação numa linha própria. */
+  ok(/\.tempo__conta,\.tempo__div--conta\{display:none\}/.test(css) &&
+     /@media \(min-width:1024px\)\{[\s\S]{0,200}\.tempo\.tem-conta \.tempo__conta\{display:flex\}/.test(css),
+    'e ela só aparece no computador — no celular seria a segunda vez que a mesma foto ' +
+    'e a mesma saudação apareceriam, num espaço que não sobra');
+  ok(/faixa\.classList\.toggle\('tem-conta', !!nome\);/.test(js),
+    'e só quando há nome: "Olá, —" dentro da moldura do tempo é pior que a pílula sem ' +
+    'a conta');
+  ok(/\.tempo\.tem-conta \.tempo__div--conta\{display:block\}/.test(css),
+    'e a divisória dela acompanha — sozinha, sobraria um risco solto antes do ícone');
+  /* SÓ O PRIMEIRO NOME aqui, e o inteiro no balão: a pílula divide a largura com o
+     tempo e o relógio. Na barra do celular, que tem uma linha inteira, continua o nome
+     completo — dois lugares, dois orçamentos de largura. */
+  ok(/var primeiro = nome \? String\(nome\)\.trim\(\)\.split\([^)]*\)\[0\]/.test(js) &&
+     /cx\.title = nome \+/.test(js),
+    'e mostra o primeiro nome com o inteiro no balão — medido: "Boa noite, Natanael" ' +
+    'com as iniciais NS no círculo');
+  ok(/\.tempo__conta:hover\{background:var\(--surface-2\)\}/.test(css) &&
+     /\.tempo__conta\{[^}]*cursor:pointer\}/.test(css),
+    'e sem borda própria ela ganha fundo ao passar o mouse: era a borda que dizia ' +
+    '"isto aqui se toca", e ela saiu');
+  ok(/@media \(max-width:1180px\)\{ \.tempo__quem\{display:none\}/.test(css),
+    'e em tela média fica só a foto, para não espremer o relógio');
+  /* AS PEÇAS SAEM DA FAIXA, e não de `getElementById`. A regra vale para esta função
+     também — ela roda fora do fecho que montou a faixa, e foi por aí que a busca global
+     voltou a entrar. */
+  ok(/var cx = faixa && faixa\.querySelector\('\.tempo__conta'\);/.test(js) &&
+     !/getElementById\('tempoConta'\)/.test(js),
+    'e ela também procura DENTRO da faixa, não por id no documento inteiro');
+  /* OS DOIS LUGARES DA SAUDAÇÃO. Hoje `.topo` e a pílula nunca aparecem juntos, mas
+     escrever num id fixo é o que a deixaria congelada no outro se um dia aparecessem. */
+  ok(/document\.getElementById\('olaSaudacao'\),\s*document\.querySelector\('\.tempo \.tempo__ola'\)/.test(js),
+    'e a saudação pinta os DOIS lugares: a barra do app e a pílula');
 
   /* ---- DUAS FONTES DE TEMPO, EM CADEIA ----------------------------------
    * MEDIDO, e não suposto: as duas respondem com `Access-Control-Allow-Origin: *`, e
