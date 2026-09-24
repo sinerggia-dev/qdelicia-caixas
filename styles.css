@@ -1917,6 +1917,80 @@ details.tipos[open] summary::before{content:"▾"}
 .destravado-ate{display:flex;align-items:center;justify-content:space-between;gap:10px;
   flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;border-radius:var(--raio);
   background:var(--surface-2);font-size:12.5px;color:var(--txt2)}
+/* ---------- o trilho de filtros (Movimentos, so no computador) ----------
+ *
+ * A caixa de filtros vira uma barra de 56px na borda direita, que abre ao passar o
+ * mouse e EMPURRA a lista em vez de cobri-la. Filtro por cima do dado faz a pessoa
+ * fechar o filtro para conferir o que acabou de filtrar.
+ *
+ * A DIREITA porque o menu do app ja ocupa a esquerda, e porque assim a tabela comeca
+ * na borda esquerda, que e por onde os olhos leem.
+ *
+ * ABAIXO DE 1024px NADA DISTO VALE: a caixa volta a ser a folha que sobe de baixo,
+ * `position:fixed`, como sempre foi. Por isso tudo aqui esta preso a `min-width`.
+ */
+@media (min-width:1024px){
+  /* As duas colunas, e a transicao entre elas. A largura e declarada nos DOIS
+     estados em vez de numa variavel: propriedade personalizada nao anima sem
+     `@property`, e o trilho abriria de um salto. */
+  .mov-tela{display:grid;grid-template-columns:minmax(0,1fr) 56px;gap:12px;
+    align-items:start;
+    transition:grid-template-columns .22s cubic-bezier(.2,.8,.3,1)}
+  .mov-tela.aberta{grid-template-columns:minmax(0,1fr) 268px}
+  /* `min-width:0` na coluna do conteudo: sem ele a tabela larga estica a coluna e a
+     grade deixa de caber, empurrando o trilho para fora da tela. */
+  .mov-conteudo{min-width:0}
+
+  /* O trilho acompanha a rolagem: com 500 linhas na tabela, um filtro preso no topo
+     da pagina obriga a subir tudo para mexer num campo. */
+  .filtros-caixa{position:sticky;top:10px;align-self:start;
+    max-height:calc(100dvh - 20px);overflow:hidden;
+    background:var(--campo);border:1px solid var(--linha);border-radius:var(--raio);
+    cursor:pointer}
+  .mov-tela.aberta .filtros-caixa{overflow-y:auto;cursor:default;background:var(--surface)}
+
+  /* A FAIXA FECHADA. `writing-mode` poe o rotulo em pe: em 56px, "Filtros" deitado
+     nao cabe, e um icone sozinho nao diz o que ele abre. */
+  .trilho-fechado{display:flex;flex-direction:column;align-items:center;gap:12px;
+    padding:14px 0}
+  .mov-tela.aberta .trilho-fechado{display:none}
+  .trilho__ico{width:34px;height:34px;display:inline-flex;align-items:center;
+    justify-content:center;border-radius:9px;background:var(--surface-2);color:var(--txt2)}
+  .filtros-caixa:hover .trilho__ico{color:var(--txt)}
+  .trilho__t{writing-mode:vertical-rl;font-size:11px;font-weight:700;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--txt3)}
+  /* A CONTAGEM fechada: e a unica pista de que a lista esta recortada quando o trilho
+     esta encolhido. Sem ela, quem chega na tela ve poucas linhas e nao sabe por que. */
+  .trilho__n{min-width:22px;height:22px;padding:0 6px;display:inline-flex;
+    align-items:center;justify-content:center;border-radius:999px;
+    background:var(--verde);color:var(--sobre-verde);
+    font-family:var(--fonte-mono);font-size:11px;font-weight:700}
+
+  .trilho__cab{display:none;align-items:center;gap:4px;padding:12px 12px 0}
+  .mov-tela.aberta .trilho__cab{display:flex}
+  .trilho__cab h3{margin:0;flex:1 1 auto;font-size:11px;font-weight:700;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--txt3)}
+  /* O alfinete ACESO diz que a barra esta presa. Sem esse estado, quem prendeu por
+     engano nao descobre por que ela parou de fechar. */
+  #btnFixarFiltros[aria-pressed="true"]{background:var(--verde);color:var(--sobre-verde)}
+
+  /* Fechado, o miolo nao pode aparecer nem ser alcancado pelo Tab: um campo invisivel
+     que recebe foco arrasta a tela para um lugar que nao esta na tela. */
+  .filtros-caixa .filtros-caixa__corpo{display:none}
+  .mov-tela.aberta .filtros-caixa__corpo{display:block;padding:10px 12px 16px}
+  /* UM CAMPO POR LINHA: em 268px, dois lado a lado dao 125px cada, e nome de local
+     nao cabe em 125px. */
+  .mov-tela .grid-filtros{grid-template-columns:1fr}
+  /* E os botoes empilham. Em linha, cinco deles viravam cinco fatias de 45px. */
+  .mov-tela .linha-btn{flex-direction:column;align-items:stretch;gap:6px}
+  .mov-tela .linha-btn .btn{width:100%;min-width:0!important;flex:0 0 auto!important}
+}
+/* Abaixo de 1024px o trilho nao existe: as duas pecas dele saem do caminho, e a folha
+   segue com o cabecalho `so-celular` que ja tinha. */
+@media (max-width:1023px){
+  .trilho-fechado,.trilho__cab{display:none}
+}
+
 /* ---------- os cinco recortes em grafico (Movimentos) ----------
  * CINCO COLUNAS FIXAS. Com `auto-fit` o quinto painel caia sozinho para a segunda
  * linha e sobrava meia tela vazia. Largura em fracao mais `min-width:0` deixa o texto

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=f733311a">
+<link rel="stylesheet" href="styles.css?v=f91dae9d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -587,7 +587,75 @@
       </button>
       <div id="mvAplicados" class="aplicados so-celular" hidden></div>
 
-      <div class="filtros-caixa" id="caixaFiltrosMov">
+      <!-- A GRADE DE DUAS COLUNAS, só no computador: a lista à esquerda, os filtros num
+           trilho à direita. O trilho EMPURRA a lista, não a cobre — filtro por cima do
+           dado faz a pessoa fechar o filtro para conferir o que acabou de filtrar.
+
+           À DIREITA porque o menu do app já ocupa a esquerda, e porque assim a tabela
+           começa na borda esquerda, que é por onde os olhos leem.
+
+           No celular esta grade vira uma coluna só e a caixa volta a ser a folha que
+           sobe de baixo. É o MESMO nó nas duas larguras, e não duas cópias: dois
+           conjuntos dos mesmos campos seriam dois ids repetidos, e `getElementById`
+           passaria a ler sempre o primeiro — a tela filtraria pelo que a outra tem. -->
+      <div class="mov-tela" id="movTela">
+      <div class="mov-conteudo">
+
+      <div id="limparAviso"></div>
+
+      <!-- A LIXEIRA, fechada por padrão: é para onde se vai quando algo deu errado, e não
+           parte da leitura de todo dia. -->
+      <div id="lixeiraBox" style="display:none;margin-top:14px;
+           border-top:1px solid var(--linha);padding-top:12px">
+        <h3 style="margin:0 0 2px;font-size:15px">Lançamentos excluídos</h3>
+        <div class="sub" style="margin-bottom:10px">
+          Excluir não apaga: o lançamento sai da lista, do saldo, do painel e do extrato, e
+          fica aqui até alguém trazê-lo de volta. Restaurado, ele volta exatamente como era.
+        </div>
+        <div id="tabelaLixeira"><div class="vazio">Carregando…</div></div>
+      </div>
+      <!-- OS SEIS TOTAIS, acima da tabela: a resposta de "quanto deu" vem antes
+           da lista de "o que aconteceu". Embaixo, seria preciso rolar a tabela
+           inteira para chegar no total dela. -->
+      <div class="tot" id="totMov"></div>
+      <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
+
+      <!-- OS CINCO RECORTES, abaixo da tabela: quem chega nesta tela vem ver uma LINHA,
+           e o resumo é o segundo olhar. Acima, eles empurrariam a lista para baixo da
+           dobra em toda visita. -->
+      <div class="legenda-g">
+        <span><i style="background:var(--azul-cheio)"></i>Saída</span>
+        <span><i style="background:var(--verde-cheio)"></i>Retorno</span>
+        <em id="gNotaMov"></em>
+      </div>
+      <div class="graficos" id="graficosMov"></div>
+      </div><!-- /mov-conteudo -->
+
+      <aside class="filtros-caixa" id="caixaFiltrosMov" aria-label="Filtros"
+             aria-expanded="false">
+        <!-- A FAIXA FECHADA: o funil, a contagem e o rótulo em pé. É o que se vê nos
+             56px de largura, e é o que diz que ali há filtros — sem ela o trilho seria
+             uma tira cinza que ninguém descobre. -->
+        <div class="trilho-fechado" aria-hidden="true">
+          <span class="trilho__ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="10" y1="17" x2="14" y2="17"></line></svg>
+          </span>
+          <span class="trilho__n" id="mvFiltrosQtdTrilho" hidden>0</span>
+          <span class="trilho__t">Filtros</span>
+        </div>
+        <!-- O cabeçalho do trilho, com o alfinete e o fechar. Só aparece no computador:
+             no celular quem fecha é o cabeçalho da folha, logo abaixo. -->
+        <div class="trilho__cab">
+          <h3>Filtros</h3>
+          <button class="btn-icone" type="button" id="btnFixarFiltros" aria-pressed="false"
+                  title="Manter a barra aberta">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l-1 6 4 3v2H6v-2l4-3z"></path><line x1="12" y1="15" x2="12" y2="21"></line></svg>
+          </button>
+          <button class="btn-icone" type="button" id="btnFecharTrilho"
+                  aria-label="Fechar filtros">✕</button>
+        </div>
         <div class="folha__puxador so-celular" aria-hidden="true"></div>
         <div class="folha__cab so-celular">
           <h3 class="folha__t">Filtros</h3>
@@ -652,35 +720,8 @@
         </button>
       </div>
         </div>
-      </div>
-      <div id="limparAviso"></div>
-
-      <!-- A LIXEIRA, fechada por padrão: é para onde se vai quando algo deu errado, e não
-           parte da leitura de todo dia. -->
-      <div id="lixeiraBox" style="display:none;margin-top:14px;
-           border-top:1px solid var(--linha);padding-top:12px">
-        <h3 style="margin:0 0 2px;font-size:15px">Lançamentos excluídos</h3>
-        <div class="sub" style="margin-bottom:10px">
-          Excluir não apaga: o lançamento sai da lista, do saldo, do painel e do extrato, e
-          fica aqui até alguém trazê-lo de volta. Restaurado, ele volta exatamente como era.
-        </div>
-        <div id="tabelaLixeira"><div class="vazio">Carregando…</div></div>
-      </div>
-      <!-- OS SEIS TOTAIS, acima da tabela: a resposta de "quanto deu" vem antes
-           da lista de "o que aconteceu". Embaixo, seria preciso rolar a tabela
-           inteira para chegar no total dela. -->
-      <div class="tot" id="totMov"></div>
-      <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
-
-      <!-- OS CINCO RECORTES, abaixo da tabela: quem chega nesta tela vem ver uma LINHA,
-           e o resumo é o segundo olhar. Acima, eles empurrariam a lista para baixo da
-           dobra em toda visita. -->
-      <div class="legenda-g">
-        <span><i style="background:var(--azul-cheio)"></i>Saída</span>
-        <span><i style="background:var(--verde-cheio)"></i>Retorno</span>
-        <em id="gNotaMov"></em>
-      </div>
-      <div class="graficos" id="graficosMov"></div>
+      </aside>
+      </div><!-- /mov-tela -->
     </div>
   </section>
 
@@ -4066,6 +4107,15 @@
       chip.style.display = l.length ? '' : 'none';
       chip.textContent = l.length;
     }
+    /* A MESMA CONTAGEM na faixa fechada do trilho. Fechado, ele é uma tira de 56px — e
+       sem este número quem chega na tela vê poucas linhas e não tem como saber que há
+       um filtro escondido ali dentro. É o mesmo `l`, e não uma segunda contagem: duas
+       discordariam no dia em que um campo novo entrasse só numa delas. */
+    var chipT = document.getElementById('mvFiltrosQtdTrilho');
+    if (chipT){
+      chipT.hidden = !l.length;
+      chipT.textContent = l.length;
+    }
     var cx = document.getElementById('mvAplicados');
     if (!cx) return;
     cx.hidden = !l.length;
@@ -4084,6 +4134,92 @@
       });
     });
   }
+
+  /* ================= O TRILHO DE FILTROS, NO COMPUTADOR =================
+   *
+   * Mesmo comportamento do menu do app: passa o mouse e abre, tira e fecha. Um clique
+   * PRENDE aberta, para quem vai mexer em vários campos e não quer que ela feche ao
+   * esbarrar o cursor fora.
+   *
+   * DOIS ATRASOS, e os dois de propósito:
+   *   · 130ms para ABRIR — o cursor atravessa a borda direita dezenas de vezes por dia a
+   *     caminho da barra de rolagem; sem a espera, ela abriria em todas elas.
+   *   · 260ms para FECHAR — dá tempo de voltar quando o mouse sai por um instante, e é o
+   *     que impede a barra de piscar enquanto alguém mira um campo.
+   *
+   * PRESA, o mouse não fecha mais: só outro clique no alfinete, o Esc ou o ✕.
+   *
+   * NADA DISTO EXISTE NO CELULAR. Lá a mesma caixa é a folha que sobe de baixo, aberta
+   * pelo botão "Filtros" — e é por isso que a largura é perguntada ao CSS, com
+   * `matchMedia`, e não adivinhada: duas respostas para "estamos no computador?"
+   * divergiriam no dia em que o ponto de corte mudasse. */
+  (function trilhoFiltros(){
+    var tela = document.getElementById('movTela');
+    var caixa = document.getElementById('caixaFiltrosMov');
+    if (!tela || !caixa) return;
+    var noComputador = window.matchMedia('(min-width:1024px)');
+    var abrirT = null, fecharT = null, presa = false;
+
+    function abrir(){
+      if (!noComputador.matches) return;
+      tela.classList.add('aberta');
+      caixa.setAttribute('aria-expanded', 'true');
+    }
+    function fechar(){
+      if (presa) return;
+      tela.classList.remove('aberta');
+      caixa.setAttribute('aria-expanded', 'false');
+    }
+    function prender(v){
+      presa = v;
+      var bt = document.getElementById('btnFixarFiltros');
+      if (bt){
+        bt.setAttribute('aria-pressed', String(v));
+        bt.title = v ? 'Soltar a barra' : 'Manter a barra aberta';
+      }
+      if (v) abrir();
+    }
+
+    caixa.addEventListener('mouseenter', function(){
+      clearTimeout(fecharT); abrirT = setTimeout(abrir, 130);
+    });
+    caixa.addEventListener('mouseleave', function(){
+      clearTimeout(abrirT); fecharT = setTimeout(fechar, 260);
+    });
+    /* PELO TECLADO ela abre ao receber foco e fecha ao perdê-lo. Sem isto, quem navega
+       de Tab chegaria a campos dentro de uma caixa de 56px — foco numa coisa que não
+       se vê é o jeito mais rápido de a tela parecer quebrada. */
+    caixa.addEventListener('focusin', abrir);
+    caixa.addEventListener('focusout', function(e){
+      if (!caixa.contains(e.relatedTarget)) fechar();
+    });
+    /* NO TOQUE não há "passar o mouse". Um tablet em 1024px cai no computador e a barra
+       seria inalcançável; o clique na faixa fechada resolve — e não atrapalha o mouse,
+       porque com ele a barra já está aberta quando o clique chega. */
+    caixa.addEventListener('click', function(e){
+      if (!noComputador.matches) return;
+      if (e.target.closest('#btnFixarFiltros') || e.target.closest('#btnFecharTrilho')) return;
+      if (!tela.classList.contains('aberta')) prender(true);
+    });
+
+    var fx = document.getElementById('btnFixarFiltros');
+    if (fx) fx.addEventListener('click', function(e){
+      e.stopPropagation(); prender(!presa);
+    });
+    var fc = document.getElementById('btnFecharTrilho');
+    if (fc) fc.addEventListener('click', function(e){
+      e.stopPropagation(); prender(false); presa = false; fechar();
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && tela.classList.contains('aberta')) { presa = false; prender(false); fechar(); }
+    });
+    /* GIRAR O TABLET não pode deixar a classe `aberta` presa numa tela que virou
+       celular: lá ela não quer dizer nada, e a folha passaria a abrir já aberta. */
+    noComputador.addEventListener('change', function(ev){
+      if (!ev.matches) { presa = false; tela.classList.remove('aberta');
+                         caixa.setAttribute('aria-expanded', 'false'); }
+    });
+  })();
 
   (function(){
     var b = document.getElementById('btnAbrirFiltrosMov');

@@ -2136,6 +2136,135 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
  * E a barra é um BOTÃO: clicar filtra a tela inteira. É aí que mora o risco desta peça,
  * e é o que a maior parte destas afirmações guarda.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * O TRILHO DE FILTROS, em Movimentos.
+ *
+ * No computador a caixa de filtros vira uma barra de 56px na borda direita, que abre ao
+ * passar o mouse e EMPURRA a lista em vez de cobri-la.
+ *
+ * O RISCO DESTA PEÇA NÃO É O COMPUTADOR — é o CELULAR. A caixa mudou de lugar no
+ * documento, e lá ela é a folha que sobe de baixo. Quebrada, ninguém mais filtra no
+ * telefone, e a tela continua parecendo certa para quem só olha no monitor.
+ * ------------------------------------------------------------------------- */
+console.log('\n== o trilho de filtros, em Movimentos ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* UM NÓ SÓ nas duas larguras. Duas cópias dos mesmos campos seriam dois ids
+     repetidos, e `getElementById` passaria a ler sempre o primeiro: a tela filtraria
+     pelo que a outra cópia tem, e ninguém entenderia por quê. */
+  ['mvOrigem', 'mvDestino', 'mvCaixa', 'mvUsuario', 'mvDe', 'mvAte'].forEach(function (id) {
+    ok((adm.match(new RegExp('id="' + id + '"', 'g')) || []).length === 1,
+      'o campo ' + id + ' existe uma vez só — duas cópias, e `getElementById` leria ' +
+      'sempre a primeira');
+  });
+
+  /* A CAIXA FICA DEPOIS DO CONTEÚDO no documento, porque no computador ela é a segunda
+     coluna da grade. No celular ela é `position:fixed`, então a ordem não muda nada lá —
+     foi o que permitiu movê-la. */
+  ok(adm.indexOf('id="graficosMov"') < adm.indexOf('id="caixaFiltrosMov"') &&
+     /<div class="mov-tela" id="movTela">/.test(adm) &&
+     /<div class="mov-conteudo">/.test(adm),
+    'a grade existe e a caixa é a segunda coluna dela');
+  ok(/<aside class="filtros-caixa" id="caixaFiltrosMov"/.test(adm),
+    'e ela é um `aside`: a barra de filtros não é o conteúdo da página');
+
+  /* EMPURRA, NÃO COBRE. Medido no Chrome a 1440px: fechada, a tabela tem 1318px;
+     aberta, 1106 — e as duas caixas nunca se sobrepõem. Filtro por cima do dado faz a
+     pessoa fechar o filtro para conferir o que acabou de filtrar. */
+  ok(/\.mov-tela\{display:grid;grid-template-columns:minmax\(0,1fr\) 56px;/.test(css) &&
+     /\.mov-tela\.aberta\{grid-template-columns:minmax\(0,1fr\) 268px\}/.test(css),
+    'o trilho EMPURRA a lista: 56px fechado, 268 aberto — e a tabela encolhe junto, em ' +
+    'vez de ficar debaixo do filtro');
+  /* A LARGURA É DECLARADA NOS DOIS ESTADOS, e não numa variável: propriedade
+     personalizada não anima sem `@property`, e o trilho abriria de um salto. */
+  /* A checagem é da PRÓPRIA regra, e não do arquivo: `--trilho-larg` já existe há muito
+     para o menu lateral do app, e procurar a palavra solta acusava aquele. */
+  var regraAberta = (css.match(/\.mov-tela\.aberta\{[^}]*\}/) || [''])[0];
+  ok(/transition:grid-template-columns \.22s/.test(css) &&
+     /268px/.test(regraAberta) && regraAberta.indexOf('var(') < 0,
+    'e a transição é do próprio `grid-template-columns`, com a largura escrita — por ' +
+    'variável ela não anima sem `@property`, e a barra abriria de um salto', regraAberta);
+  /* `min-width:0` na coluna do conteúdo: sem ele a tabela larga estica a coluna, a
+     grade deixa de caber e o trilho vai para fora da tela. */
+  ok(/\.mov-conteudo\{min-width:0\}/.test(css),
+    'e a coluna do conteúdo pode encolher — sem isso a tabela larga empurra o trilho ' +
+    'para fora da tela');
+  /* ACOMPANHA A ROLAGEM: com 500 linhas na tabela, um filtro preso no topo obriga a
+     subir a página inteira para mexer num campo. */
+  ok(/\.filtros-caixa\{position:sticky;top:10px/.test(css),
+    'e ele acompanha a rolagem — com 500 linhas, um filtro preso no topo obriga a ' +
+    'subir a página toda para mexer num campo');
+
+  /* FECHADO, O MIOLO NÃO EXISTE PARA O TAB. Um campo invisível que recebe foco arrasta
+     a tela para um lugar que não está na tela — e a pessoa não vê o que está editando. */
+  ok(/\.filtros-caixa \.filtros-caixa__corpo\{display:none\}/.test(css) &&
+     /\.mov-tela\.aberta \.filtros-caixa__corpo\{display:block/.test(css),
+    'fechado, os campos não são alcançáveis pelo Tab — foco numa coisa que não se vê ' +
+    'arrasta a tela para fora dela');
+  /* A FAIXA FECHADA diz que ali há filtros. Só o ícone não diz o que ele abre, e
+     "Filtros" deitado não cabe em 56px — daí o rótulo em pé. */
+  ok(/\.trilho__t\{writing-mode:vertical-rl/.test(css) &&
+     /<span class="trilho__t">Filtros<\/span>/.test(adm),
+    'e a faixa fechada leva o rótulo em pé — em 56px ele não cabe deitado, e só o ' +
+    'ícone não diz o que ele abre');
+  /* A CONTAGEM na faixa fechada é a única pista de que a lista está recortada quando o
+     trilho está encolhido. E sai do MESMO `l` da outra contagem. */
+  ok(/var chipT = document\.getElementById\('mvFiltrosQtdTrilho'\);/.test(adm) &&
+     /chipT\.hidden = !l\.length;/.test(adm),
+    'e a contagem aparece na faixa fechada, do mesmo `l` da outra — duas contagens ' +
+    'discordariam no dia em que um campo entrasse só numa delas');
+
+  /* --- o comportamento --- */
+  var it = adm.indexOf('function trilhoFiltros()');
+  var tr = it > 0 ? adm.slice(it, adm.indexOf('\n  })();', it)) : '';
+  /* OS DOIS ATRASOS, e os dois por um motivo. 130ms para abrir: o cursor atravessa a
+     borda direita dezenas de vezes por dia a caminho da barra de rolagem. 260 para
+     fechar: dá tempo de voltar quando o mouse sai por um instante. */
+  ok(/abrirT = setTimeout\(abrir, 130\);/.test(tr) &&
+     /fecharT = setTimeout\(fechar, 260\);/.test(tr),
+    'abre em 130ms e fecha em 260 — sem a espera de abrir, ela abriria toda vez que o ' +
+    'cursor passasse a caminho da barra de rolagem');
+  ok(/function fechar\(\)\{\s*\n\s*if \(presa\) return;/.test(tr),
+    'e presa pelo alfinete, o mouse não fecha mais — quem vai mexer em vários campos ' +
+    'não quer que ela feche ao esbarrar o cursor fora');
+  ok(/caixa\.addEventListener\('focusin', abrir\);/.test(tr) &&
+     /if \(!caixa\.contains\(e\.relatedTarget\)\) fechar\(\);/.test(tr),
+    'e pelo teclado ela abre ao receber foco e fecha ao perdê-lo');
+  ok(/e\.key === 'Escape'/.test(tr),
+    'e o Esc fecha, inclusive presa');
+  /* NO TOQUE não há "passar o mouse": um tablet em 1024px cai no computador e a barra
+     seria inalcançável sem o clique. */
+  ok(/caixa\.addEventListener\('click', function\(e\)\{/.test(tr) &&
+     /if \(!tela\.classList\.contains\('aberta'\)\) prender\(true\);/.test(tr),
+    'e o clique na faixa fechada abre — num tablet não há mouse a passar, e sem isso a ' +
+    'barra seria inalcançável');
+  /* A LARGURA É PERGUNTADA AO CSS, e não adivinhada: duas respostas para "estamos no
+     computador?" divergiriam no dia em que o ponto de corte mudasse. */
+  ok(/window\.matchMedia\('\(min-width:1024px\)'\)/.test(tr) &&
+     /function abrir\(\)\{\s*\n\s*if \(!noComputador\.matches\) return;/.test(tr),
+    'e quem responde "estamos no computador?" é o CSS, pelo `matchMedia` — adivinhar a ' +
+    'largura no JS criaria duas verdades que divergem no dia em que o corte mudar');
+  /* GIRAR O TABLET não pode deixar a classe `aberta` presa numa tela que virou celular:
+     lá ela não quer dizer nada, e a folha passaria a abrir já aberta. */
+  ok(/noComputador\.addEventListener\('change', function\(ev\)\{/.test(tr) &&
+     /if \(!ev\.matches\) \{ presa = false; tela\.classList\.remove\('aberta'\);/.test(tr),
+    'e girar o tablet solta o estado do trilho — deixado aceso, a folha do celular ' +
+    'passaria a abrir já aberta');
+
+  /* --- O CELULAR CONTINUA INTEIRO ---
+     Medido no Chrome a 390px: a caixa é `position:fixed`, a folha sobe com os campos
+     alcançáveis, e as duas peças do trilho ficam fora do caminho. */
+  ok(/@media \(max-width:1023px\)\{\s*\n\s*\.trilho-fechado,\.trilho__cab\{display:none\}/.test(css),
+    'no celular as peças do trilho somem — a caixa volta a ser a folha que sobe de baixo');
+  ok(/\.filtros-caixa\{position:fixed;left:0;right:0;bottom:0/.test(css) &&
+     /\.filtros-caixa\.aberta\{display:flex\}/.test(css),
+    'e a folha continua sendo a folha: `fixed`, subindo de baixo, aberta pela classe');
+  ok(/<button class="btn sec so-celular" id="btnAbrirFiltrosMov"/.test(adm),
+    'e o botão que a abre continua lá');
+})();
+
 console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
