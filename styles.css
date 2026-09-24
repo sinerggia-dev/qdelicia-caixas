@@ -82,13 +82,71 @@
 }
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0}
+/* `color-scheme:dark` avisa o NAVEGADOR, e nao a folha de estilo. Ele governa o que
+   o CSS nao alcanca: a lista que abre de um <select>, o calendario de um campo de
+   data, a barra de rolagem da propria pagina. Sem isto tudo isso nasce claro por
+   baixo de uma tela escura. Estava dito so na tela de entrada. */
+html,body{margin:0;padding:0;color-scheme:dark}
 body{
   font-family:var(--fonte);
   background:var(--bg);color:var(--txt);font-size:16px;line-height:1.45;
   padding-bottom:env(safe-area-inset-bottom);
   -webkit-font-smoothing:antialiased;
 }
+/* ---------- a barra de rolagem, uma vez só para a tela inteira ----------
+   O Windows desenha a dele CLARA: uma faixa de #fcfcfc com 15px e setas cinzas nas
+   pontas, colada na borda de um painel escuro — medido, é essa a cor. Ela não lê como
+   parte do painel; lê como um pedaço de outra janela sobrando por cima. Foi assim que o
+   painel de filtros passou por "a rolagem não funciona": a barra estava lá, e parecia
+   ser de outra coisa.
+
+   Isso já estava resolvido — num lugar só, no `.ret-pop`. E é essa a razão de a regra
+   subir para cá: a tabela de Movimentos mostra dez linhas de quarenta e rola com a MESMA
+   barra do sistema, e um remendo local conserta o painel onde foi escrito e deixa todo o
+   resto como estava. Quem rola, rola com esta.
+
+   `scrollbar-color` E `scrollbar-width` FICAM DE FORA, e isso não é preferência de
+   estilo: no Chrome, qualquer uma das duas DESLIGA as regras `::-webkit-scrollbar` e
+   devolve a barra nativa só que recolorida. Medido nas três combinações — com
+   `scrollbar-color`, a barra volta a ter 15px e a ganhar uma seta de 15px em cada ponta,
+   que empurra o polegar para baixo; com `scrollbar-width:thin` sozinho, ela vira uma
+   faixa cinza chapada de 10px. Escrever as duas "para o Firefox também" custava a barra
+   do Chrome, que é o navegador em que este painel é aberto. Daí o `@supports`: o Firefox
+   não conhece `::-webkit-scrollbar`, entra no bloco e usa as duas; o Chrome não entra.
+
+   A barra personalizada não tem setas — não há regra aqui para escondê-las porque não
+   há o que esconder: ela nasce só com trilho e polegar. (Um `::-webkit-scrollbar-button`
+   com `display:none` foi medido e não muda um pixel; dar a ele um fundo é que FAZ
+   aparecer um botão de 15px.)
+
+   ELA CONTINUA VISÍVEL, de propósito. Dá para o polegar só aparecer sob o mouse, e fica
+   mais limpo; só que na tabela de Movimentos a barra é o ÚNICO sinal de que existem mais
+   trinta linhas embaixo. Escondê-la deixaria a tela mais bonita e a lista mais curta do
+   que ela é.
+
+   Classe vence `*`, então os dois lugares que escondem a barra de propósito — o trilho
+   dos filtros e a navegação do Retorno, que rolam de lado com o dedo — continuam sem
+   nenhuma. */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-corner{background:transparent}
+/* A BORDA TRANSPARENTE é o respiro: o polegar de 10px vira 6px de cor com 2px de folga
+   de cada lado, sem precisar de um trilho pintado para afastá-lo da borda.
+   `background-clip:padding-box` é o que faz a borda deixar ver o que está atrás, em vez
+   de ser pintada da cor do polegar — sem ele o respiro some e voltam os 10px cheios. */
+*::-webkit-scrollbar-thumb{
+  background:var(--linha-viva);background-clip:padding-box;
+  border:2px solid transparent;border-radius:999px}
+*::-webkit-scrollbar-thumb:hover{
+  background:var(--marca-txt);background-clip:padding-box;
+  border:2px solid transparent}
+/* O Firefox, que não tem `::-webkit-scrollbar`. NÃO MEDIDO: o Firefox desta máquina não
+   gera captura em modo headless. O risco é limitado de propósito — se ele não entrar
+   neste bloco, fica com a barra padrão dele, que é a que ele já mostra hoje. */
+@supports not selector(::-webkit-scrollbar){
+  *{scrollbar-width:thin;scrollbar-color:var(--linha-viva) transparent}
+}
+
 a{color:var(--marca-txt);text-decoration:none}
 
 /* O anel de foco do teclado, uma vez so para a tela inteira. Duas sombras: a de dentro
@@ -318,7 +376,7 @@ a{color:var(--marca-txt);text-decoration:none}
    desciam para fora da lateral, e quem queria sair tinha de rolar para achá-los. */
 .lateral__rolagem{
   flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;
-  padding:10px 12px 12px;scrollbar-width:thin
+  padding:10px 12px 12px
 }
 /* O rodapé: preso embaixo, sempre à vista. */
 .lateral__pe{
@@ -1831,12 +1889,7 @@ details.tipos[open] summary::before{content:"▾"}
   box-shadow:0 12px 34px rgba(0,0,0,.45);display:grid;gap:0;
   /* Ultima garantia: numa janela baixa ele nao cabe nem para cima nem para baixo, e sem
      isto os ultimos campos ficariam fora de alcance. Com rolagem propria, sempre da. */
-  max-height:calc(100vh - 24px);overflow-y:auto;
-  /* A BARRA DE ROLAGEM PINTADA. Sem isto o Windows desenha a dele, clara, colada
-     na borda de um painel escuro: ela não lê como parte do painel, e foi por isso
-     que o painel passou por "a rolagem não funciona" — a barra estava lá, parecendo
-     de outra coisa. `thin` porque o painel tem 240px e a barra cheia come 17. */
-  scrollbar-width:thin;scrollbar-color:var(--linha-viva) transparent}
+  max-height:calc(100vh - 24px);overflow-y:auto}
 /* Quando nao cabe acima. Quem decide e o `abrirFiltros`, medindo — a altura do trilho
    depende da tabela, e isso o CSS nao tem como saber. */
 .ret-pop.para-baixo{bottom:auto;top:calc(100% + 6px)}

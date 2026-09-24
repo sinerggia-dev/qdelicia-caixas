@@ -5824,10 +5824,41 @@ console.log('\n== os filtros num painel suspenso ==');
     'mesma razão — os três zeram a sujeira da passada anterior antes de medir');
 
   /* A BARRA DE ROLAGEM PINTADA. Quando ele ainda precisa rolar por dentro, a barra
-     clara do sistema encostada num painel escuro não lê como parte dele. */
-  ok(/\.ret-pop\{[^}]*scrollbar-color:var\(--linha-viva\) transparent\}/.test(css),
-    'e quando ainda sobra conteúdo, a barra de rolagem é pintada com a cor do painel — ' +
+     clara do sistema encostada num painel escuro não lê como parte dele.
+
+     ESTA AFIRMAÇÃO COBRAVA O ENDEREÇO DA REGRA, e não o que ela garante: exigia a
+     declaração DENTRO do `.ret-pop{}`. A regra subiu para o `*` — o mesmo problema
+     aparecia na tabela de Movimentos, e um remendo por painel conserta um painel de
+     cada vez —, e ela reprovou sem nada ter piorado. Agora cobra a garantia: existe
+     uma regra que pinta o polegar de QUALQUER coisa que role, com cor da paleta.
+
+     O `[^}]*` continua ali de propósito: ele não atravessa o fim do bloco, então o
+     que satisfaz a busca está mesmo dentro da regra do polegar, e não numa outra
+     qualquer que por acaso cite o token. */
+  var cssSem = semComentarios(css);
+  ok(/\*::-webkit-scrollbar-thumb\{[^}]*background:var\(--linha-viva\)/.test(cssSem),
+    'e quando ainda sobra conteúdo, a barra de rolagem é pintada com a cor da paleta — ' +
     'a do sistema é clara e não lê como parte de um painel escuro');
+
+  /* O RESPIRO SÓ EXISTE COM AS DUAS. `background-clip:padding-box` sem a borda não
+     afasta nada, e a borda sem o `background-clip` é pintada da cor do polegar — nos
+     dois casos ele volta a encher os 10px. Medido: 10px pintados em vez de 6. */
+  ok(/\*::-webkit-scrollbar-thumb\{[^}]*background-clip:padding-box[^}]*border:2px solid transparent/
+     .test(cssSem),
+    'e o polegar tem `background-clip:padding-box` E a borda transparente, que é o par ' +
+    'que lhe dá o respiro — qualquer um dos dois sozinho não afasta nada');
+
+  /* A ARMADILHA, e é por isto que ela vira afirmação: `scrollbar-color` e
+     `scrollbar-width` são as propriedades "certas", de padrão, e a coisa mais natural
+     do mundo é alguém acrescentá-las aqui achando que ajuda o Firefox. No Chrome elas
+     DESLIGAM as regras `::-webkit-scrollbar` e devolvem a barra nativa recolorida —
+     medido: volta a reservar 15px e ganha uma seta de 15px em cada ponta. Por isso
+     elas só podem aparecer dentro do `@supports`, onde o Chrome não entra. */
+  var forasDoSupports = cssSem
+    .replace(/@supports not selector\(::-webkit-scrollbar\)\{[\s\S]*?\n\}/, '');
+  ok(!/scrollbar-color/.test(forasDoSupports),
+    'e `scrollbar-color` não é declarado fora do `@supports` — no Chrome ele desliga as ' +
+    'regras `::-webkit-scrollbar` e traz de volta a barra nativa, com setas');
 
   /* O TETO DA ÁREA QUE ROLA. O painel é recortado pelo `.corpo-pagina`, que começa
      abaixo do cabeçalho: medindo contra a janela, ele concluía que cabia e o topo dele
