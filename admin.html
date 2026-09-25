@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=436241a6">
+<link rel="stylesheet" href="styles.css?v=17040154">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -6721,6 +6721,137 @@
      campo de busca; o resto entra escalonado. */
   function desenharUsuariosDigitando(){ desenharUsuarios(true); }
 
+  /* ================= MARCAR VÁRIOS E TROCAR A BASE DE UMA VEZ =================
+   *
+   * A base de uma pessoa já se troca no cadastro, um por um. Isto existe porque a
+   * virada não é um cadastro: no dia em que a validação acaba, a equipe INTEIRA sai da
+   * Base Teste junto. Abrir trinta cadastros nesse dia são trinta chances de pular um —
+   * e o que ficar para trás não avisa: ele continua lançando em ensaio, e o saldo real
+   * fica faltando o que ele mandou.
+   *
+   * QUEM ESTÁ MARCADO É SEMPRE QUEM ESTÁ NA TELA. A cada desenho a marcação é podada
+   * para a lista visível: filtrar por perfil ou digitar na busca SOLTA quem saiu de
+   * vista. Guardar marcação invisível deixaria o botão "Base Produção" mexer em gente
+   * que a pessoa não está vendo — e o número na barra passaria a contar alguém que ela
+   * não pode conferir. Perder a marcação ao filtrar incomoda; mexer nas escondidas
+   * estraga. */
+  var SEL_USERS = {};
+
+  function idsMarcados(){
+    return Object.keys(SEL_USERS).filter(function(id){ return SEL_USERS[id] === true; });
+  }
+
+  function podarSelecaoUser(lista){
+    var visiveis = {};
+    (lista || []).forEach(function(u){ visiveis[String(u.ID)] = true; });
+    Object.keys(SEL_USERS).forEach(function(id){
+      if (!visiveis[id]) delete SEL_USERS[id];
+    });
+  }
+
+  function barraSelecaoUser(){
+    /* Nasce vazia e escondida: quem preenche é o `sincronizarSelecaoUser`, que roda no
+       fim do desenho e a cada clique. Duas maneiras de montar a mesma barra seriam duas
+       maneiras de ela discordar de si mesma. */
+    return '<div class="sel-user" id="barraSelUser" hidden></div>';
+  }
+
+  function conteudoSelUser(){
+    var n = idsMarcados().length;
+    if (!n) return '';
+    return '<span class="sel-user__n">'+n+(n === 1 ? ' marcado' : ' marcados')+'</span>'+
+      '<span class="sel-user__p">passar para</span>'+
+      '<button class="mini acao" type="button" data-base-user="reais">Base Produção</button>'+
+      '<button class="mini acao" type="button" data-base-user="teste">Base Teste</button>'+
+      '<button class="mini" type="button" data-base-user="">desmarcar</button>';
+  }
+
+  function sincronizarSelecaoUser(){
+    var barra = document.getElementById('barraSelUser');
+    if (!barra) return;
+    barra.innerHTML = conteudoSelUser();
+    barra.hidden = !idsMarcados().length;
+    /* Os botões são refeitos junto com o texto, então os ouvintes velhos morrem com os
+       nós velhos — e não há como acumular dois no mesmo botão. */
+    ligarBotoesBaseUser();
+    var caixas = document.querySelectorAll('[data-marcar-user]');
+    var vistos = 0;
+    caixas.forEach(function(c){
+      var on = SEL_USERS[c.dataset.marcarUser] === true;
+      c.checked = on;
+      if (on) vistos++;
+      var tr = c.closest('tr');
+      if (tr) tr.classList.toggle('marcada', on);
+    });
+    var todos = document.getElementById('userTodos');
+    if (todos){
+      todos.checked = caixas.length > 0 && vistos === caixas.length;
+      /* NEM VAZIA NEM CHEIA quando é uma parte. Vazia, a caixa de cima diria "nenhum"
+         com cinco marcados embaixo; cheia, diria "todos" — e o próximo clique nela
+         DESMARCARIA tudo em vez de completar a marcação, que é o que se espera ao ver
+         o tracinho. */
+      todos.indeterminate = vistos > 0 && vistos < caixas.length;
+    }
+  }
+
+  function ligarSelecaoUser(){
+    document.querySelectorAll('[data-marcar-user]').forEach(function(c){
+      c.addEventListener('change', function(){
+        if (c.checked) SEL_USERS[c.dataset.marcarUser] = true;
+        else delete SEL_USERS[c.dataset.marcarUser];
+        sincronizarSelecaoUser();
+      });
+    });
+    var todos = document.getElementById('userTodos');
+    if (todos) todos.addEventListener('change', function(){
+      /* "TODOS" SÃO TODOS OS QUE ESTÃO NA TELA, e não a equipe inteira: com um perfil
+         escolhido no trilho ou uma palavra na busca, a tela mostra um recorte, e é o
+         recorte que a pessoa está olhando quando clica. */
+      var ligar = todos.checked;
+      document.querySelectorAll('[data-marcar-user]').forEach(function(c){
+        if (ligar) SEL_USERS[c.dataset.marcarUser] = true;
+        else delete SEL_USERS[c.dataset.marcarUser];
+      });
+      sincronizarSelecaoUser();
+    });
+    sincronizarSelecaoUser();
+  }
+
+  function ligarBotoesBaseUser(){
+    document.querySelectorAll('[data-base-user]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var alvo = b.dataset.baseUser;
+        if (!alvo){ SEL_USERS = {}; sincronizarSelecaoUser(); return; }
+        var ids = idsMarcados();
+        if (!ids.length) return;
+        var teste = alvo === 'teste';
+        var nome = teste ? 'Base Teste' : 'Base Produção';
+        /* O SEGUNDO CLIQUE CONFIRMA, a mesma porta de desativar e excluir. Trocar a base
+           não apaga nada, mas muda para onde vai TODO lançamento seguinte dessas
+           pessoas — e o engano só aparece dias depois, num saldo que não fecha. */
+        if (Q.precisaConfirmar(b, 'Passar '+ids.length+' para a '+nome+'?')) return;
+        b.disabled = true;
+        Q.post({acao:'baseUsuarios', ids:ids, teste:teste}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok === false) return Q.toast((r && r.erro) || 'Não consegui mudar.','erro');
+          /* O QUE MUDOU E O QUE JÁ ESTAVA LÁ, separados. "12 alterados" quando oito já
+             estavam na base pedida faria procurar quatro mudanças que não houve — e,
+             pior, acreditar que mexeu em doze cadastros. */
+          var partes = [];
+          if (r.mudados) partes.push(r.mudados+(r.mudados === 1 ? ' passou' : ' passaram')+
+            ' para a '+nome);
+          if (r.jaEstavam) partes.push(r.jaEstavam+
+            (r.jaEstavam === 1 ? ' já estava lá' : ' já estavam lá'));
+          Q.toast(partes.join(' · ')+'.','ok');
+          /* A marcação morre com a ação feita. Viva, o mesmo bloco continuaria armado
+             debaixo do dedo para o botão vizinho. */
+          SEL_USERS = {};
+          carregarEquipe();
+        }).catch(function(e){ b.disabled = false; Q.toast(e.message,'erro'); });
+      });
+    });
+  }
+
   function desenharUsuarios(digitando){
     var box = document.getElementById('tabelaUsuarios');
     if (!box) return;
@@ -6729,6 +6860,7 @@
        com "nenhum usuário" e nenhuma saída. */
     desenharChipsPerfil();
     var lista = usuariosNaTela();
+    podarSelecaoUser(lista);
     if (!lista.length){
       box.innerHTML = '<div class="vazio">Nenhum usuário encontrado.</div>';
       return;
@@ -6771,7 +6903,16 @@
     /* A coluna de acoes fica FORA do sistema, presa no fim — a mesma regra de Movimentos.
        Ela nao e dado: e o caminho para editar, desativar e excluir. Escondivel, alguem a
        esconderia sem querer e perderia o unico jeito de mexer num cadastro. */
-    box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
+    /* A COLUNA DE MARCAR FICA FORA DO SISTEMA, presa no começo — a mesma regra da
+       coluna de ações, presa no fim. Ela não é dado: é o caminho para mexer em vários
+       cadastros de uma vez. Arrastável, cairia no meio da leitura; escondível, alguém a
+       esconderia sem querer e perderia o único jeito de marcar em lote.
+       A LARGURA É ESCRITA porque a tabela é `table-layout:fixed`: sem ela, esta coluna
+       e a das ações dividiriam a sobra, e os botões de editar/excluir espremeriam. */
+    box.innerHTML = barraSelecaoUser()+
+      '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
+      '<th class="col-marcar" style="width:34px"><input type="checkbox" id="userTodos" '+
+        'title="Marcar todos os que estão na tela"></th>'+
       cs.map(function(c){
         return '<th'+arrastavel()+' data-col="'+c.id+'"'+
           ' style="width:'+(LARG[c.id] || 120)+'px"'+
@@ -6784,6 +6925,8 @@
       lista.map(function(u){
         var on = Q.ativo(u.Ativo);
         return '<tr'+(on?'':' style="opacity:.55"')+'>'+
+          '<td class="col-marcar"><input type="checkbox" data-marcar-user="'+
+            Q.esc(u.ID)+'"></td>'+
           cs.map(function(c){ return '<td>'+c.d.v(u)+'</td>'; }).join('')+
           '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
               '<button class="mini'+(on?' perigo':'')+'" data-ativar="'+u.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
@@ -6794,6 +6937,7 @@
     ligarArrastarColunas(TAB_USUARIOS);
     ligarLarguraColunas(TAB_USUARIOS);
     ligarBotoesUsuarios();
+    ligarSelecaoUser();
     atualizarContagens();
   }
 

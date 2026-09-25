@@ -3864,8 +3864,13 @@ console.log('\n== quem esta logado e a rede, na barra de app ==');
   ok(/\[hidden\]\{display:none!important\}/.test(css),
     'e `hidden` vence o `display` para qualquer elemento — sem esta regra o ' +
     '`display:inline-flex` do chip ganha do atributo, e o aviso fica na tela o tempo todo');
+  /* COMENTARIO NAO E REGRA. Este filtro nasceu porque a assercao reprovou uma LINHA DE
+     TEXTO que explicava, dentro de um `/* *\/`, por que a regra global existe — e o
+     conserto obvio seria reescrever a explicacao para enganar a peneira. Uma peneira
+     que obriga a prosa a se desviar dela esta medindo o arquivo, e nao o CSS. */
   var porElemento = (css.match(/^[^\n@]*\[hidden\]\{/gm) || [])
-    .filter(function (r) { return r.trim().indexOf('[hidden]{') !== 0; });
+    .filter(function (r) { return r.trim().indexOf('[hidden]{') !== 0; })
+    .filter(function (r) { return !/^\s*(\/\*|\*)/.test(r); });
   ok(porElemento.length === 0,
     'e é UMA regra, não uma por elemento descoberto — eram três (`.ret-pop`, ' +
     '`.aviso-trava` e a porta do painel), cada uma escrita depois de a peça aparecer ' +
@@ -10092,6 +10097,92 @@ console.log('\n== a base do usuário ==');
     'e apagar em bloco pede a senha do painel, além de escrever o número');
   ok(/id="limparDito"/.test(adm) && /dito !== String\(limparN\)/.test(adm),
     'e continua pedindo o número exato — a senha diz quem é, não que a pessoa leu');
+
+  /* ---------------- MARCAR VÁRIOS E VIRAR A BASE DE UMA VEZ ----------------
+   *
+   * O dia da virada é o caso de uso inteiro: a equipe de validação sai do ensaio junto.
+   * Um por um, trinta cadastros são trinta chances de pular alguém — e quem fica para
+   * trás não reclama, continua lançando em ensaio, e o saldo real fica faltando o que
+   * ele mandou. */
+
+  /* A PODA RODA DE VERDADE, e não só existe escrita. Ela é a peça que sustenta a
+     promessa "o que está marcado é o que está na tela": sem ela o botão mexeria em
+     gente que a pessoa filtrou para fora e não consegue conferir. */
+  var poda = adm.slice(adm.indexOf('function podarSelecaoUser'),
+                       adm.indexOf('function barraSelecaoUser'));
+  var SEL = { a: true, b: true, c: true };
+  new Function('SEL_USERS', poda + ' podarSelecaoUser([{ID:"a"},{ID:"c"}]);')(SEL);
+  ok(Object.keys(SEL).join(',') === 'a,c',
+    'a marcação é podada para quem está na tela: filtrar solta os que saíram de vista — ' +
+    'senão "3 marcados" contaria alguém que ninguém está vendo',
+    Object.keys(SEL).join(',') || '(vazio)');
+
+  /* E ela roda ANTES do desenho, não depois. Depois, a tela já teria sido montada com a
+     conta velha, e a barra diria um número e a lista mostraria outro. */
+  var dU = adm.slice(adm.indexOf('function desenharUsuarios(digitando)'));
+  dU = dU.slice(0, dU.indexOf('\n  function ', 10));
+  /* O `>= 0` NÃO É ENFEITE. Escrita só como "vem antes", esta linha aprovava o pior
+     caso de todos: sem a chamada, `indexOf` devolve -1, e -1 vem antes de qualquer
+     coisa. A poda sumia da tela inteira e a asserção continuava verde. */
+  var iPoda = dU.indexOf('podarSelecaoUser(lista)');
+  ok(iPoda >= 0 && iPoda < dU.indexOf('if (!lista.length)'),
+    'e a poda acontece antes de qualquer desenho — depois dele a barra mostraria a ' +
+    'conta de antes do filtro', iPoda);
+
+  /* "TODOS" É O QUE ESTÁ NA TELA. Varrendo `EQUIPE`, um clique com um perfil escolhido
+     no trilho marcaria a empresa inteira sem mostrar — e o próximo clique viraria a base
+     de gente que nunca apareceu. */
+  var todos = adm.slice(adm.indexOf("var todos = document.getElementById('userTodos');",
+                                    adm.indexOf('function ligarSelecaoUser')));
+  todos = todos.slice(0, todos.indexOf('sincronizarSelecaoUser();\n  }'));
+  ok(/querySelectorAll\('\[data-marcar-user\]'\)/.test(todos) && !/EQUIPE/.test(todos),
+    'e "marcar todos" marca os que estão na tela, e não a equipe inteira — com um perfil ' +
+    'filtrado, os dois números são diferentes');
+
+  /* NEM VAZIA NEM CHEIA quando é uma parte: cheia, o clique seguinte DESMARCA tudo em vez
+     de completar — que é o contrário do que se espera ao ver marcados no meio. */
+  ok(/todos\.indeterminate = vistos > 0 && vistos < caixas\.length/.test(adm),
+    'e a caixa de cima fica no tracinho quando só uma parte está marcada');
+
+  /* O QUE VAI PARA O SERVIDOR são os ids marcados — nem a tela inteira, nem os ativos. */
+  ok(/acao:'baseUsuarios', ids:ids, teste:teste/.test(adm),
+    'e o botão manda os ids marcados para o `baseUsuarios`');
+  ok(/if \(Q\.precisaConfirmar\(b, 'Passar '\+ids\.length\+' para a '\+nome/.test(adm),
+    'e o segundo clique confirma, dizendo quantos e para qual base — trocar a base não ' +
+    'apaga nada, mas desvia todo lançamento seguinte, e o engano só aparece no saldo');
+
+  /* A MARCAÇÃO MORRE COM A AÇÃO FEITA. Viva, o mesmo bloco ficaria armado debaixo do
+     dedo para o botão vizinho, e um clique de conferência mandaria todo mundo de volta. */
+  var acao = adm.slice(adm.indexOf('function ligarBotoesBaseUser'));
+  acao = acao.slice(0, acao.indexOf('\n  }\n'));
+  ok(/SEL_USERS = \{\};\s*\n\s*carregarEquipe\(\)/.test(acao),
+    'e a marcação é solta depois de feita, antes de recarregar a equipe');
+
+  /* O QUE MUDOU E O QUE JÁ ESTAVA LÁ, separados. Um "12 alterados" com oito já na base
+     pedida faria procurar quatro mudanças que não houve. */
+  ok(/r\.mudados/.test(acao) && /r\.jaEstavam/.test(acao),
+    'e o aviso separa quem mudou de quem já estava na base pedida');
+
+  /* A COLUNA DE MARCAR FICA FORA DO SISTEMA DE COLUNAS. Dentro, a aba Colunas a
+     esconderia — e esconder o caminho de marcar é perder o único jeito de virar a base
+     em bloco, sem que a tela diga que foi isso que aconteceu. */
+  var tab = adm.slice(adm.indexOf('var TAB_USUARIOS = {'));
+  tab = tab.slice(0, tab.indexOf('\n  };'));
+  ok(!/marcar/.test(tab),
+    'e a coluna de marcar não entra no descritor das colunas — a aba Colunas a esconderia');
+
+  /* LARGURA ESCRITA, porque a tabela é `table-layout:fixed`: sem ela, esta coluna e a
+     das ações dividem a sobra e os botões de editar/excluir espremem. */
+  ok(/<th class="col-marcar" style="width:34px">/.test(adm),
+    'e ela tem largura própria — em tabela de layout fixo, sem largura ela roubaria a ' +
+    'faixa dos botões de ação');
+
+  /* O LADO DO SERVIDOR NAO SE LE, SE RODA — `teste_api.js`, secao "virar a base de
+     vários de uma vez". Escrito aqui, ele virava busca de nome: eu cobrava que a linha
+     `faltam.length` existisse, e um `var faltam = []` — a conferência vazia, que aceita
+     qualquer id — passava por cima da asserção sem ela piscar. Medido: o defeito
+     ESCAPOU. Quem responde "gravou alguma coisa antes de conferir?" é a chamada de
+     verdade contra o banco falso, e mais nada. */
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

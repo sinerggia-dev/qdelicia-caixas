@@ -2814,8 +2814,38 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   .cab-pagina__titulo{font-size:20px}
 }
 
+/* ============ MARCAR VÁRIOS USUÁRIOS ============
+ *
+ * A barra só existe quando há alguém marcado — o `hidden` é posto pelo JS, e o
+ * `[hidden]{display:none!important}` global é que a apaga. Uma barra permanente
+ * dizendo "0 marcados" seria uma faixa a menos de lista em toda visita à tela.
+ *
+ * Ela fica ACIMA da tabela e não flutuando por cima: flutuando, ela taparia as últimas
+ * linhas justamente enquanto a pessoa termina de marcar. */
+.sel-user{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:0 2px 8px;padding:7px 10px;border-radius:8px;
+  background:var(--ambar-claro);border:1px solid var(--ambar)}
+.sel-user__n{font-size:12.5px;font-weight:700;color:var(--ambar-forte)}
+.sel-user__p{font-size:12.5px;color:var(--txt2)}
+
+/* A LINHA MARCADA ACESA. Sem isto, marcadas e soltas ficam iguais assim que a caixinha
+   sai do canto do olho, e conferir "são estas cinco?" antes de confirmar exigiria
+   percorrer a coluna inteira de volta. A cor é a mesma da barra — o mesmo assunto. */
+tr.marcada > td{background:var(--ambar-claro)}
+tr.marcada > td:first-child{box-shadow:inset 3px 0 0 var(--ambar)}
+
+/* A CAIXINHA CENTRADA NA CÉLULA e com alvo de toque inteiro. Encostada à esquerda como
+   um texto, ela ficava a três pixels da borda da tabela e o clique escorregava para
+   fora. */
+.col-marcar{text-align:center;padding-left:4px;padding-right:4px}
+.col-marcar input{width:16px;height:16px;cursor:pointer;accent-color:var(--ambar,#d69e2e);
+  margin:0;vertical-align:middle}
+
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}
+  /* A coluna de marcar não se imprime: no papel não há o que marcar, e ela empurraria
+     uma coluna de dado para fora da folha. */
+  .col-marcar,.sel-user{display:none!important}
   body{background:#fff}
   .card{box-shadow:none;border:1px solid #ccc;break-inside:avoid}
   th,td{white-space:normal}

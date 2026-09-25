@@ -3158,6 +3158,76 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
   });
 }
 
+{
+  console.log('\n== virar a base de varios usuarios de uma vez ==');
+
+  /* O DIA DA VIRADA e o caso de uso: quando a validacao acaba, a equipe inteira sai da
+     Base Teste junto. Um por um, trinta cadastros sao trinta chances de pular alguem —
+     e quem fica para tras nao reclama: continua lancando em ensaio, e o saldo real fica
+     faltando o que ele mandou.
+
+     ESTE BLOCO RODA A ROTA, contra o banco falso. Lido no arquivo, o teste virava busca
+     de nome: um `var faltam = []` — a conferencia vazia — deixava a rota gravar sem
+     conferir nada e a leitura nao via diferenca alguma. Medido: escapou. */
+  const nomes = ['Base Alfa', 'Base Beta', 'Base Gama'];
+  for (const n of nomes) {
+    await POST({ acao: 'salvarUsuario',
+      registro: { Nome: n, Perfil: 'CONFERENTE', PIN: '445566' } });
+  }
+  const equipe = () => GET({ acao: 'equipe' }).then((r) => {
+    const m = {};
+    r.usuarios.forEach((u) => { m[u.Nome] = u; });
+    return m;
+  });
+  let e = await equipe();
+  const [alfa, beta, gama] = nomes.map((n) => e[n].ID);
+  ok(e['Base Alfa'].Teste === false && e['Base Gama'].Teste === false,
+    'os tres nascem na Base Producao', [e['Base Alfa'].Teste, e['Base Gama'].Teste]);
+
+  const r1 = await POST({ acao: 'baseUsuarios', ids: [alfa, beta], teste: true });
+  e = await equipe();
+  ok(r1.ok === true && r1.mudados === 2,
+    'dois viram Base Teste numa chamada so — e a rota diz quantos mudou', r1);
+  ok(e['Base Alfa'].Teste === true && e['Base Beta'].Teste === true,
+    'e a mudanca esta no banco, nao so na resposta',
+    [e['Base Alfa'].Teste, e['Base Beta'].Teste]);
+  ok(e['Base Gama'].Teste === false,
+    'e quem nao foi marcado ficou onde estava — o lote e o lote, nao a tabela inteira',
+    e['Base Gama'].Teste);
+
+  /* O QUE MUDOU E O QUE JA ESTAVA LA, contados separados. Somados, "2 alterados" numa
+     segunda chamada faria a pessoa procurar duas mudancas que nao houve. */
+  const r2 = await POST({ acao: 'baseUsuarios', ids: [alfa, beta], teste: true });
+  ok(r2.ok === true && r2.mudados === 0 && r2.jaEstavam === 2,
+    'repetir a mesma virada nao grava ninguem de novo, e diz que os dois ja estavam la',
+    r2);
+
+  /* A TELA PODE ESTAR VELHA. Alguem apagou um cadastro enquanto a lista estava aberta, e
+     os ids chegam com um fantasma no meio. Gravar o que da e responder "1 de 2" deixaria
+     a pessoa sem saber QUAL ficou de fora — e a metade gravada e a pior das duas
+     respostas, porque parece sucesso. */
+  const r3 = await POST({ acao: 'baseUsuarios', ids: [alfa, 'NAO-EXISTE'], teste: false });
+  e = await equipe();
+  ok(r3.ok === false && /nao existem mais|não existem mais/.test(String(r3.erro)),
+    'um id fantasma no meio recusa o lote inteiro e explica por que', r3);
+  ok(e['Base Alfa'].Teste === true,
+    'E NADA FOI GRAVADO: quem existia continua onde estava — a conferencia acontece ' +
+    'antes da primeira escrita, e nao a cada linha',
+    e['Base Alfa'].Teste);
+
+  ok((await POST({ acao: 'baseUsuarios', ids: [], teste: true })).ok === false,
+    'lote vazio recusa em vez de responder "0 alterados", que parece que funcionou');
+
+  const muitos = [];
+  for (let i = 0; i < 301; i++) muitos.push('U' + i);
+  const r4 = await POST({ acao: 'baseUsuarios', ids: muitos, teste: true });
+  ok(r4.ok === false && /301/.test(String(r4.erro)),
+    'e um lote grande demais recusa dizendo o tamanho, antes de abrir o banco', r4);
+
+  /* Deixa a casa como encontrou: os blocos seguintes contam usuarios. */
+  await POST({ acao: 'baseUsuarios', ids: [alfa, beta, gama], teste: false });
+}
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }

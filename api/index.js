@@ -178,6 +178,7 @@ async function rotaPost(p) {
   if (acao === 'excluirMovimento') return await excluirMovimento(p);
   if (acao === 'restaurarMovimento') return await restaurarMovimento(p);
   if (acao === 'limparMovimentos') return await limparMovimentos(p);
+  if (acao === 'baseUsuarios') return await baseUsuarios(p);
 
   return { ok: false, erro: 'Ação desconhecida: ' + acao };
 }
@@ -387,6 +388,47 @@ async function conferir(p) {
    ter lançado — sem a conferência, esses lançamentos novos iriam junto sem ninguém ver.
    A segunda é que esta API não tem autorização nenhuma; exigir o número certo não é
    segurança, mas tira do caminho o POST às cegas, que é o engano mais provável. */
+/**
+ * A BASE DE VARIAS PESSOAS DE UMA VEZ.
+ *
+ * Quem vai cadastrar trinta pessoas para uma validacao precisa marcar as trinta — uma a
+ * uma sao trinta formularios abertos e fechados, e basta esquecer de um para o
+ * lancamento dele entrar no saldo real sem ninguem perceber.
+ *
+ * TODOS OS IDS TEM DE EXISTIR, e a funcao nao grava nada se um nao existir. Gravando o
+ * que da e devolvendo "18 de 20", ninguem saberia QUAIS dois ficaram de fora — e a
+ * resposta seria procurar um por um na tabela.
+ */
+async function baseUsuarios(p) {
+  var ids = Array.isArray(p.ids) ? p.ids.map(String) : [];
+  if (!ids.length) return { ok: false, erro: 'Nenhum usuário selecionado.' };
+  /* Teto alto, mas teto: esta funcao faz uma ida ao banco por pessoa, e o tempo de uma
+     chamada sem servidor e contado. Com uma lista absurda, e melhor recusar do que
+     estourar no meio e deixar metade marcada. */
+  if (ids.length > 300) {
+    return { ok: false, erro: 'São ' + ids.length + ' de uma vez. Faça em partes de 300.' };
+  }
+  var teste = p.teste === true || String(p.teste) === 'true';
+
+  var d = await db.carregarTudo();
+  var porId = {};
+  (d.usuarios || []).forEach(function (u) { porId[String(u.ID)] = u; });
+  var faltam = ids.filter(function (id) { return !porId[id]; });
+  if (faltam.length) {
+    return { ok: false, erro: faltam.length + ' cadastro(s) não existem mais. ' +
+                              'Atualize a tela. Nada foi mudado.' };
+  }
+
+  /* SO GRAVA QUEM MUDA. Regravar quem ja estava na base escolhida seria uma ida ao banco
+     por nada, e o numero devolvido diria "25 alterados" quando um so mudou. */
+  var mexer = ids.filter(function (id) { return (porId[id].Teste === true) !== teste; });
+  for (var i = 0; i < mexer.length; i++) {
+    await db.update('usuarios', mexer[i], { teste: teste });
+  }
+  return { ok: true, mudados: mexer.length, jaEstavam: ids.length - mexer.length,
+           base: teste ? 'teste' : 'producao' };
+}
+
 async function limparMovimentos(p) {
   var d = await db.carregarTudo();
 
