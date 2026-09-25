@@ -2129,10 +2129,130 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
     'e o cartão tem rodapé vazio de 18px só para ela — medido, sem ele o texto do ' +
     'rodapé caía para 3,7:1 de contraste');
 
-  /* SEIS NUMA LINHA, e a linha não quebra por largura: quem encolhe é o TEXTO. Medido
-     a 1400, 1000 e 820px: seis cartões sempre, de 220px, 154px e 124px. */
-  ok(/\.tot\{display:grid;grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/.test(css),
-    'os seis ficam numa linha só');
+  /* SETE NUMA LINHA, e a linha não quebra por largura: quem encolhe é o TEXTO. Medido
+     no navegador: uma fileira só de 1280 a 2560px, com o cartão indo de 156 a 339px, e
+     nenhum rótulo cortado em largura nenhuma. */
+  var colsTot = (css.match(/\.tot\{display:grid;grid-template-columns:repeat\((\d+),minmax\(0,1fr\)\)/) || [])[1];
+  ok(colsTot === '7', 'os sete ficam numa linha só', colsTot);
+
+  /* A GRADE E A VARREDURA DE COR CONTAM A MESMA FILEIRA. `cartaoTot(i, n, ...)` recebe
+     `n` para saber que fatia do degradê é a dele; com `n` menor que a grade, o último
+     cartão repete a cor do vizinho e a emenda aparece. São dois números em arquivos
+     diferentes que precisam concordar — exatamente o tipo de par que se separa na
+     primeira mexida e ninguém vê, porque a tela continua funcionando. */
+  /* O CORPO INTEIRO DA FUNÇÃO, contando chaves. Estava como uma fatia de 2600
+     caracteres a partir do nome, e ela cortava a função no meio: encontrava cinco das
+     sete chamadas e acusava um erro que não existia. Fatia de tamanho fixo é âncora que
+     envelhece — basta um comentário a mais para ela passar a medir outra coisa. */
+  var corpoDe = function (txt, nome) {
+    var i = txt.indexOf('function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = txt.indexOf('{', i);
+    for (; k < txt.length; k++) {
+      if (txt[k] === '{') d++;
+      else if (txt[k] === '}' && --d === 0) return txt.slice(i, k + 1);
+    }
+    return '';
+  };
+  var chamadas = corpoDe(adm, 'desenharTotaisMov').match(/cartaoTot\((\d+),\s*(\d+),/g) || [];
+  var indices = chamadas.map(function (c) { return c.match(/\((\d+),\s*(\d+),/); });
+  ok(indices.length === Number(colsTot),
+    'há um cartão para cada coluna da grade', [indices.length, colsTot]);
+  ok(indices.every(function (m) { return m[2] === colsTot; }),
+    'e todos dizem à varredura de cor o MESMO tamanho de fileira que a grade tem — ' +
+    'com um número a menos, o último cartão repete a cor do vizinho',
+    indices.map(function (m) { return m[2]; }));
+  ok(indices.every(function (m, k) { return Number(m[1]) === k; }),
+    'e as posições vão de 0 em diante, sem pular nem repetir — posição repetida são ' +
+    'dois cartões com a mesma cor no meio da fileira',
+    indices.map(function (m) { return m[1]; }));
+
+  /* --- "LANÇADOS HOJE", RODADO ------------------------------------------
+   * O que este cartão conta é uma DECISÃO, não um detalhe: neste sistema "lançar" é o
+   * ATO de registrar — é o que a coluna "Criado em" mostra —, então o carimbo responde
+   * por ele, e não a data do movimento. Pela data do movimento, o cartão diria "cargas
+   * datadas de hoje", que é outra pergunta e a que o filtro por dia já responde.
+   * Uma busca por `dataHora` no texto não distingue as duas: `totaisMov` cita os dois
+   * campos. Então a função sai do arquivo e é EXECUTADA, com os dois casos que separam
+   * uma leitura da outra. */
+  var fonteTot = (function () {
+    var i = adm.indexOf('function totaisMov(');
+    var d = 0, k = adm.indexOf('{', i);
+    for (; k < adm.length; k++) {
+      if (adm[k] === '{') d++;
+      else if (adm[k] === '}' && --d === 0) return adm.slice(i, k + 1);
+    }
+  })();
+  /* O `diaOperacao` DE VERDADE, tirado de `app.js`. É ele quem decide o dia, e um dublê
+     aqui responderia pelo que eu escrevi em vez de pelo que roda no painel. */
+  var nucleo = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var fonteDia = ['comoUTC', 'diaOperacao', 'diaLocal', 'hojeOperacao']
+    .map(function (n) { return corpoDe(nucleo, n); }).join('\n');
+  /* O FUSO VEM DO ARQUIVO, e não escrito aqui: com o valor repetido, mudar o fuso da
+     operação deixaria esta medição olhando para o fuso antigo e continuando verde. */
+  var fuso = (nucleo.match(/var FUSO_OPERACAO = '([^']+)'/) || [])[1];
+  var pad2 = function (n) { return String(n).padStart(2, '0'); };
+  /* `hoje` ENTRA NA BANCADA mesmo sem nenhuma afirmação usá-lo. Sem ele, trocar
+     `Q.hojeOperacao()` por `Q.hoje()` na conta derruba a suíte com "Q.hoje is not a
+     function" — e a sabotagem registra isso como defeito PEGO. Não foi pego: a bancada
+     é que estava incompleta, e um dia em que ela estivesse completa o defeito passaria.
+     Quebrar não é reprovar. */
+  var Qdia = new Function('FUSO_OPERACAO', 'pad', 'window', fonteDia + '\n' +
+    corpoDe(nucleo, 'hoje') +
+    ' return {diaOperacao: diaOperacao, hojeOperacao: hojeOperacao, hoje: hoje};')(
+      fuso, pad2, { Intl: global.Intl });
+  var totaisMov = new Function('Q', 'sentidoDoMov', fonteTot + ' return totaisMov;')(
+    Qdia, function (m) { return m.sentido; });
+
+  var carimbo = function (diasAtras) {
+    var d = new Date(); d.setUTCDate(d.getUTCDate() - diasAtras);
+    return d.toISOString().slice(0, 19).replace('T', ' ');
+  };
+  var tHoje = totaisMov([
+    { id: 'a1', lote: 'L1', qtd: 100, sentido: 'saida', dataHora: carimbo(0) },
+    { id: 'a2', lote: 'L1', qtd: 50,  sentido: 'saida', dataHora: carimbo(0) },
+    { id: 'b1', lote: 'L2', qtd: 30,  sentido: 'retorno', dataRef: '2020-01-01',
+      dataHora: carimbo(0) },
+    { id: 'c1', lote: 'L3', qtd: 999, sentido: 'saida', dataHora: carimbo(1) },
+    { id: 'd1', lote: 'L4', qtd: 7,   sentido: 'saida', dataHora: '' }
+  ]);
+  ok(tHoje.hoje === 2,
+    'o cartão conta LANÇAMENTOS e não linhas — duas linhas do mesmo lote são um ' +
+    'lançamento só, a mesma regra do cartão "Movimentos" ao lado', tHoje.hoje);
+  ok(tHoje.hojeLinhas === 3 && tHoje.hojeQtd === 180,
+    'e a nota dele traz as linhas e as caixas de hoje', [tHoje.hojeLinhas, tHoje.hojeQtd]);
+  ok(tHoje.movimentos === 4 && tHoje.hoje < tHoje.movimentos,
+    'o de ontem sai de "hoje" e continua no total do recorte — os dois cartões contam ' +
+    'a mesma coisa em recortes diferentes', [tHoje.hoje, tHoje.movimentos]);
+
+  /* OS DOIS CASOS QUE DEFINEM O CARTÃO, e é só por eles que se distingue "lançado" de
+     "movimentado". Trocar `dataHora` por `dataRef` na conta passa por todas as
+     afirmações acima e reprova nestas duas. */
+  ok(totaisMov([{ id: 'x', lote: 'LX', qtd: 5, sentido: 'saida',
+                  dataRef: '2020-01-01', dataHora: carimbo(0) }]).hoje === 1,
+    'carga de data antiga DIGITADA hoje conta — "lançar" é o ato de registrar');
+  ok(totaisMov([{ id: 'y', lote: 'LY', qtd: 5, sentido: 'saida',
+                  dataRef: Qdia.hojeOperacao(), dataHora: carimbo(1) }]).hoje === 0,
+    'e carga DATADA de hoje, digitada ontem, não conta — essa é a pergunta que o ' +
+    'filtro por dia já responde');
+
+  /* O DIA VEM DO GALPÃO, não do relógio de quem abre o painel. Um carimbo de 02:00 UTC
+     ainda é ONTEM em Recife (−3). Lido pelo fuso errado, o lançamento pula de dia — é o
+     mesmo erro do `toISOString()`, e é na virada da noite que ele aparece. */
+  var duasUTC = new Date(); duasUTC.setUTCHours(2, 0, 0, 0);
+  ok(Qdia.diaOperacao(duasUTC.toISOString().slice(0, 19).replace('T', ' ')) !==
+     duasUTC.toISOString().slice(0, 10),
+    'e o dia sai do fuso da operação: às 02:00 UTC o galpão ainda está no dia anterior');
+
+  /* ESTA É TEXTUAL, e é a exceção que se justifica: `Q.hoje()` devolve o dia da máquina
+     e `Q.hojeOperacao()` o dia do galpão, e numa máquina que já está em −3 os dois dão
+     a MESMA resposta. Nenhuma execução aqui distingue os dois — quem os distingue é o
+     gerente conferindo de outro fuso, e esse caso não roda nesta suíte. Sem ela, trocar
+     um pelo outro passa por tudo. O mesmo par já é cobrado assim nos atalhos de período. */
+  ok(/var HOJE = Q\.hojeOperacao\(\);/.test(fonteTot) && !/Q\.hoje\(\)/.test(fonteTot),
+    'e o "hoje" do cartão é o do GALPÃO, não o do computador de quem abre o painel — ' +
+    'numa máquina no mesmo fuso os dois coincidem, e é por isso que isto se cobra na ' +
+    'letra: a diferença só aparece para quem confere de fora');
   var corte = (css.match(/@media \(max-width:(\d+)px\)\{\.tot\{grid-template-columns/g) || []);
   ok(corte.length === 1 && /max-width:700px/.test(corte[0]),
     'e o ÚNICO ponto de quebra é 700px, que é celular — um corte em 1180px fazia 3+3 ' +
@@ -7883,7 +8003,11 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
      /var hoje = Q\.hojeOperacao\(\);/.test(adm) && !/var hoje = Q\.hoje\(\);/.test(adm),
     'o atalho conta a partir do dia do GALPÃO: um atalho decide sozinho o que vai ser ' +
     'somado, e com o relógio em outro fuso mudaria de significado sem ninguém perceber');
-  ok(/\.formatToParts\(new Date\(\)\)\.forEach/.test(js) &&
+  /* A afirmação pedia `formatToParts(new Date())` literal. O instante passou a entrar
+     por parâmetro — `hojeOperacao()` virou o caso de hoje de um `diaOperacao(quando)`,
+     porque comparar o carimbo de um lançamento com "hoje" exige os dois na mesma régua.
+     O que ela garante não mudou: a data sai do `formatToParts`. */
+  ok(/\.formatToParts\([^)]*\)\.forEach/.test(js) &&
      !/toLocaleDateString\('sv-SE'/.test(js),
     'e a data sai de `formatToParts`, não do truque de formatar num locale que por acaso ' +
     'devolve ISO — separador de locale não é contrato de ninguém');

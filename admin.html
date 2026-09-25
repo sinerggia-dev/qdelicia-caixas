@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=0d49011d">
+<link rel="stylesheet" href="styles.css?v=d55125d7">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -863,7 +863,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=351f8ba8"></script>
+<script src="app.js?v=0f1c271f"></script>
 <script>
 (function(){
   'use strict';
@@ -4423,7 +4423,13 @@
 
   function totaisMov(L){
     var t = { linhas: L.length, lotes: {}, saida: 0, retorno: 0,
-              acerto: 0, acertoN: 0, teste: 0, testeQtd: 0 };
+              acerto: 0, acertoN: 0, teste: 0, testeQtd: 0,
+              hojeLotes: {}, hojeLinhas: 0, hojeQtd: 0 };
+    /* O DIA DE HOJE VEM DO GALPÃO, e não do computador de quem abre o painel. Lido UMA
+       vez, fora do laço: dentro dele, quarenta linhas fariam quarenta consultas ao
+       `Intl` para responder sempre a mesma coisa — e, na virada da meia-noite, as
+       primeiras linhas seriam comparadas com um dia e as últimas com outro. */
+    var HOJE = Q.hojeOperacao();
     L.forEach(function(m){
       /* O LOTE é quem diz quantos MOVIMENTOS existem. Sem ele só daria para contar
          linhas — e cinco linhas podem ser um movimento só, com cinco tipos de caixa. */
@@ -4437,15 +4443,26 @@
          retorno, e está somada acima. Este cartão não é uma sexta fatia — é um aviso de
          quanto do número ao lado é ensaio. O rodapé dele diz isso. */
       if (m.teste) { t.teste++; t.testeQtd += q; }
+      /* LANÇADO HOJE É PELO CARIMBO, e não pela data do movimento. Neste sistema
+         "lançar" é o ATO de registrar — é o que a coluna "Criado em" mostra —, e uma
+         carga de terça digitada hoje é lançamento de hoje. Pela data do movimento, o
+         cartão responderia "cargas datadas de hoje", que é outra pergunta e a que os
+         outros seis já respondem quando o filtro é o dia. */
+      if (m.dataHora && Q.diaOperacao(m.dataHora) === HOJE) {
+        t.hojeLotes[m.lote || m.id] = 1;
+        t.hojeLinhas++;
+        t.hojeQtd += q;
+      }
     });
     t.movimentos = Object.keys(t.lotes).length;
+    t.hoje = Object.keys(t.hojeLotes).length;
     t.saldo = t.retorno - t.saida;
     t.taxa = t.saida ? (t.retorno / t.saida * 100) : 0;
     return t;
   }
 
   /* ---- a varredura de cor, de ponta a ponta da fileira ----
-     A cor atravessa os seis UMA vez, e cada cartão recebe a fatia dele. Não dá para
+     A cor atravessa a fileira UMA vez, e cada cartão recebe a fatia dele. Não dá para
      fazer isso com um degradê gigante deslocado por `background-position`: porcentagem
      ali não quer dizer "ande X% da largura", e sim alinhamento proporcional à SOBRA —
      com a imagem maior que a caixa a sobra é negativa e a conta inverte.
@@ -4486,26 +4503,42 @@
     var sinal = function(n){ return (n < 0 ? '−' : '+') + Q.num(Math.abs(n)); };
 
     box.innerHTML =
-      cartaoTot(0, 6, 'var(--txt)', 'Movimentos', Q.num(t.movimentos),
+      cartaoTot(0, 7, 'var(--txt)', 'Movimentos', Q.num(t.movimentos),
         t.linhas + (t.linhas === 1 ? ' linha de caixa' : ' linhas de caixa'), null) +
-      cartaoTot(1, 6, 'var(--azul)', 'Saída', Q.num(t.saida),
+      /* AO LADO DE "MOVIMENTOS", e não no fim da fileira: os dois contam a mesma coisa
+         — lançamentos —, e juntos respondem "quanto há no recorte, e quanto disso
+         entrou hoje". Depois deles vêm as QUANTIDADES de caixa, e por último as duas
+         ressalvas. A mesma tinta neutra do vizinho diz que são da mesma família; azul
+         ou verde aqui colidiriam com a legenda, onde já querem dizer saída e retorno.
+         SEM BARRA, pela razão que já vale para "Movimentos": a fatia seria de CONTAGEM
+         contra QUANTIDADE de caixa, e comparar coisas diferentes dá número bonito e
+         falso.
+         ELE OBEDECE AO FILTRO, como os outros seis — é a lista já recortada que chega
+         aqui. Com o período padrão de 30 dias hoje está dentro; um recorte que termine
+         ontem zera este cartão, e é a resposta certa para o que foi perguntado. */
+      cartaoTot(1, 7, 'var(--txt)', 'Lançados hoje', Q.num(t.hoje),
+        t.hoje ? t.hojeLinhas + (t.hojeLinhas === 1 ? ' linha · ' : ' linhas · ') +
+                 Q.num(t.hojeQtd) + (t.hojeQtd === 1 ? ' caixa' : ' caixas')
+               : 'nada lançado hoje',
+        null) +
+      cartaoTot(2, 7, 'var(--azul)', 'Saída', Q.num(t.saida),
         'caixas que saíram', fat(t.saida)) +
-      cartaoTot(2, 6, 'var(--verde)', 'Retorno', Q.num(t.retorno),
+      cartaoTot(3, 7, 'var(--verde)', 'Retorno', Q.num(t.retorno),
         t.saida ? Q.num(Math.round(t.taxa * 10) / 10) + '% do que saiu' : 'nada saiu',
         fat(t.retorno)) +
       /* O SALDO É RETORNO MENOS SAÍDA, e o sinal importa mais que o número: negativo
          quer dizer caixa na rua. Vermelho só nesse caso — pintar de vermelho um saldo
          positivo ensinaria a ignorar a cor. */
-      cartaoTot(3, 6, t.saldo < 0 ? 'var(--vermelho)' : 'var(--verde)', 'Saldo',
+      cartaoTot(4, 7, t.saldo < 0 ? 'var(--vermelho)' : 'var(--verde)', 'Saldo',
         (t.saldo === 0 ? '0' : sinal(t.saldo)),
         t.saldo < 0 ? 'saiu mais do que voltou' : 'voltou mais do que saiu',
         fat(Math.abs(t.saldo))) +
-      cartaoTot(4, 6, 'var(--amarelo)', 'De teste', Q.num(t.testeQtd),
+      cartaoTot(5, 7, 'var(--amarelo)', 'De teste', Q.num(t.testeQtd),
         t.teste ? t.teste + (t.teste === 1 ? ' linha · já contada acima'
                                            : ' linhas · já contadas acima')
                 : 'nenhum de teste',
         fat(t.testeQtd)) +
-      cartaoTot(5, 6, 'var(--txt3)', 'Ajuste e perda', Q.num(t.acerto),
+      cartaoTot(6, 7, 'var(--txt3)', 'Ajuste e perda', Q.num(t.acerto),
         t.acertoN ? t.acertoN + (t.acertoN === 1 ? ' linha · não é viagem de caixa'
                                                  : ' linhas · não são viagem de caixa')
                   : 'nenhum acerto',

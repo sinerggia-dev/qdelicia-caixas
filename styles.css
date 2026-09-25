@@ -2186,7 +2186,9 @@ details.tipos[open] summary::before{content:"▾"}
  * clamp(), e nao a grade. Um ponto de corte em 1180px fazia 3+3 numa janela de 1100px,
  * e meia fileira de cartoes le como se a outra metade tivesse sumido.
  * So abaixo de 700px viram duas colunas, que e celular. */
-.tot{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:0 0 12px}
+/* SETE NUMA LINHA. O número está aqui e no `cartaoTot` — se um mudar sem o outro, a
+   varredura de cor perde o passo e a emenda entre os cartões aparece. */
+.tot{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin:0 0 12px}
 @media (max-width:700px){.tot{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .tot:empty{display:none}
 /* `isolation:isolate` com o `z-index:-1` da varredura: assim a cor pinta ACIMA do

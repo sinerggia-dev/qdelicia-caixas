@@ -402,14 +402,28 @@
 
      `formatToParts` em vez do truque de formatar com um locale que sai em ISO: o truque
      depende do separador do locale, e isso não é contrato de lugar nenhum. */
-  function hojeOperacao() {
-    if (!window.Intl || !Intl.DateTimeFormat) return hoje();
+  /* O DIA DA OPERACAO DE UM INSTANTE QUALQUER, e `hojeOperacao()` virou o caso de
+     hoje. Os dois saem da MESMA conta de propósito: perguntar "que dia é hoje no
+     galpão" por um caminho e "de que dia é este carimbo" por outro é como os dois
+     divergem — e divergem exatamente na virada do dia, que é quando a resposta
+     importa. Quem compara um carimbo com hoje precisa dos dois na mesma régua. */
+  function diaOperacao(quando) {
+    var d = (quando instanceof Date) ? quando : new Date(comoUTC(quando));
+    if (isNaN(d.getTime())) return '';
+    /* SEM `Intl`, o dia da MÁQUINA — e está dito que não é o mesmo contrato. Devolver
+       vazio seria pior: o cartão somaria zero para sempre num navegador velho, sem
+       nada na tela dizendo que a conta não pôde ser feita. */
+    if (!window.Intl || !Intl.DateTimeFormat) return diaLocal(d);
     var p = {};
     new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_OPERACAO,
       year: 'numeric', month: '2-digit', day: '2-digit' })
-      .formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; });
-    return p.year && p.month && p.day ? p.year + '-' + p.month + '-' + p.day : hoje();
+      .formatToParts(d).forEach(function (x) { p[x.type] = x.value; });
+    return p.year && p.month && p.day ? p.year + '-' + p.month + '-' + p.day : diaLocal(d);
   }
+  function diaLocal(d) {
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  function hojeOperacao() { return diaOperacao(new Date()); }
   /* ================= RELÓGIO E TEMPO DA UNIDADE =================
    *
    * AQUI, E NÃO NO PAINEL. Nasceu dentro do `admin.html`, e por isso só existia nas sete
@@ -2075,7 +2089,8 @@
     precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
     temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
-    hojeOperacao: hojeOperacao, FUSO_OPERACAO: FUSO_OPERACAO,
+    hojeOperacao: hojeOperacao, diaOperacao: diaOperacao,
+    FUSO_OPERACAO: FUSO_OPERACAO,
     UNIDADE: UNIDADE, relogioETempo: relogioETempo, caminhao: caminhao,
     ondeEstou: ondeEstou, nomeDoLugar: nomeDoLugar,
     saudacaoDe: saudacaoDe, pintarSaudacao: pintarSaudacao,
