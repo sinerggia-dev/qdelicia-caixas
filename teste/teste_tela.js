@@ -2362,7 +2362,7 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
      `admin.html` escreve. Medido: tirar o `so-celular` daqui não muda um pixel do que
      ela desenha. */
   [['totMov3', 'a tarja de três'], ['abasMov', 'a fileira de abas'],
-   ['btnHojeMov', 'o chip "Hoje"']].forEach(function (p) {
+   ].forEach(function (p) {
     var tag = (adm.match(new RegExp('<[^>]*id="' + p[0] + '"[^>]*>')) || [])[0] || '';
     ok(/\bso-celular\b/.test(tag),
       'e ' + p[1] + ' só existe no celular — no computador os sete cartões já estão ' +
@@ -2659,10 +2659,33 @@ console.log('\n== o trilho de filtros, em Movimentos ==');
      PÍLULA que o envolve, junto com o X que limpa. Esta afirmação pedia a classe no
      próprio botão e reprovou sem nada ter piorado: o que ela guarda é que o botão exista
      e não vaze para o computador, e isso a pílula continua garantindo. */
-  var envolve = (adm.match(/<span class="([^"]*)"[^>]*>\s*<button[^>]*id="btnAbrirFiltrosMov"/) || [])[1] || '';
-  ok(/id="btnAbrirFiltrosMov"/.test(adm) && /\bso-celular\b/.test(envolve),
-    'e o botão que a abre continua lá, dentro da pílula que só existe no celular',
-    envolve);
+  /* AS DUAS PASTILHAS SUBIRAM PARA A LINHA DO TÍTULO, e com isso saíram do corpo da
+     página: agora moram no cabeçalho, que é COMPARTILHADO pelas sete telas. Esta
+     afirmação pedia `so-celular` na pílula e reprovou sem nada ter piorado — a garantia
+     (existir, e não vazar para o computador) mudou de dono, não de conteúdo. */
+  var iAc = adm.indexOf('id="acoesMovCab"');
+  var acoes = iAc < 0 ? '' :
+    adm.slice(iAc, adm.indexOf('</div>', adm.indexOf('btnLimparFiltrosMov', iAc)));
+  ok(/id="btnAbrirFiltrosMov"/.test(acoes) && /id="btnHojeMov"/.test(acoes),
+    'e as duas pastilhas moram na linha do título, dentro das ações do cabeçalho — ' +
+    'numa linha própria custavam três dedos de altura à lista, que é o que se veio ver');
+
+  /* E NÃO USAM `so-celular`, o que parece descuido e é o contrário. Aquela classe
+     declara `display:flex!important` no celular, e `!important` venceria a regra de
+     página: as duas apareceriam em Cadastros, no Extrato, nas sete telas. A
+     visibilidade é escrita inteira no bloco próprio, justamente para aceitar exceção. */
+  ok(!/\bso-celular\b/.test(acoes),
+    'e NÃO carregam `so-celular` — aquela classe usa `!important` e atropelaria a ' +
+    'regra de página, fazendo as duas aparecerem nas sete telas', acoes.slice(0, 120));
+  var semCom = semComentarios(css);
+  ok(/\.cab-pagina__acoes\{display:none/.test(semCom) &&
+     /html\[data-pagina="pgMovimentos"\] \.cab-pagina__acoes\{display:flex\}/.test(semCom),
+    'e quem as mostra é a folha, só no celular e só em Movimentos — o cabeçalho é um ' +
+    'só para as sete telas');
+  var nucleoNav = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  ok(/document\.documentElement\.dataset\.pagina = botao\.dataset\.pagina/.test(nucleoNav),
+    'e a página aberta vira atributo no <html>, escrito pela navegação que já tem essa ' +
+    'informação — cada tela inventando o próprio jeito de se descobrir seria sete jeitos');
 
   /* --- O CABEÇALHO DA FOLHA VAZAVA PARA O COMPUTADOR ----------------------
    * `.folha__cab{display:flex}` vem DEPOIS de `.so-celular{display:none}` na folha de

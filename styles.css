@@ -2653,7 +2653,7 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
 
      ACESO, o Hoje usa o verde da marca: e um recorte ligado, e recorte ligado tem de se
      distinguir de um botao que so esta ali. */
-  .chip-hoje{flex:0 0 auto;min-height:38px;padding:0 14px;border-radius:999px;
+  .chip-hoje{flex:0 0 auto;min-height:38px;padding:0 11px;border-radius:999px;
     border:1px solid var(--neutro);background:var(--surface);color:var(--txt2);
     font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap}
   .chip-hoje[aria-pressed="true"]{background:var(--verde);border-color:var(--verde);
@@ -2663,12 +2663,18 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
      X perde o esquerdo, e a borda do meio e unica. Com o X escondido, o primeiro volta a
      ter os dois cantos — senao a pilula fica com um lado reto e sem par. */
   .pilula-filtros{display:inline-flex;align-items:stretch;flex:0 0 auto}
-  .pilula-filtros>.btn{min-width:130px;border-radius:999px;margin:0}
+  /* SEM LARGURA MINIMA. Os 130px que estavam aqui nao cabiam num telefone de 320px:
+     o titulo pede 110, as duas pastilhas pediam 196, e a soma com o respiro passava dos
+     320 — o `flex-wrap` do cabecalho mandava as duas para uma segunda fileira, que e
+     exatamente a linha propria que elas vieram deixar de ocupar. Cair assim nao quebra
+     nada e nao acusa erro: so desfaz o pedido, em silencio.
+     Sem o minimo, o botao fica do tamanho do que escreve. */
+  .pilula-filtros>.btn{min-width:0;border-radius:999px;margin:0;padding:0 11px}
   .pilula-filtros.tem>.btn{border-top-right-radius:0;border-bottom-right-radius:0;
     border-right:0}
   .pilula-filtros.tem>.btn,.pilula-filtros.tem>.pilula-filtros__x{
     border-color:var(--verde);background:var(--verde-claro)}
-  .pilula-filtros__x{width:40px;flex:0 0 auto;display:inline-flex;align-items:center;
+  .pilula-filtros__x{width:32px;flex:0 0 auto;display:inline-flex;align-items:center;
     justify-content:center;border:1px solid var(--neutro);border-left:1px solid var(--linha);
     border-radius:0 999px 999px 0;background:var(--surface);color:var(--txt2);
     font:inherit;font-size:13px;cursor:pointer}
@@ -2715,6 +2721,38 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
      por movimento e sai da funcao antes de montar uma coluna que seja. Esconder coluna
      de uma tabela que nao existe e dizer ao proximo leitor que o caso esta tratado aqui,
      e faze-lo parar de procurar onde o tratamento de fato esta. */
+}
+
+/* ---- AS ACOES NA LINHA DO TITULO ----
+   O cabecalho da pagina e COMPARTILHADO pelas sete telas: estas duas pecas sao de
+   Movimentos, e aparecem so la. Quem decide e a folha, pelo atributo que a navegacao
+   escreve no <html> — a mesma informacao que ela ja usa para trocar o titulo.
+
+   NAO USA `so-celular`, e a ausencia e deliberada: aquela classe declara
+   `display:flex!important` no celular, e `!important` venceria a regra de pagina — as
+   duas pecas apareceriam em Cadastros, no Extrato, em tudo. A visibilidade e escrita
+   aqui, inteira, justamente para nao depender de uma classe que nao aceita excecao.
+   (Esta armadilha ja esta documentada no bloco das abas, logo abaixo.) */
+.cab-pagina__acoes{display:none;flex:0 0 auto;align-items:center;gap:7px}
+@media (max-width:1023px){
+  html[data-pagina="pgMovimentos"] .cab-pagina__acoes{display:flex}
+  /* O CABECALHO APERTA no telefone: com 24px de titulo e duas pastilhas na mesma linha,
+     `flex-wrap` mandava as duas para uma segunda fileira — que e exatamente a linha
+     propria que elas vieram deixar de ocupar.
+     ISTO VALE PARA AS SETE TELAS, e nao so para Movimentos: o cabecalho e um so. O
+     efeito e um cabecalho de 68px em vez de 90 no celular, em todas elas.
+
+     ATE ONDE CABE, medido com o contador e o X acesos (que e o estado largo, e o do uso
+     real): de 360px para cima as duas ficam na linha do titulo. Em 320px elas caem para
+     uma segunda fileira, e o cabecalho vai a 119px.
+     ISSO E ACEITO DE PROPOSITO. Para faze-las caber ali faltavam 11px, e os dois jeitos
+     de arranja-los eram piores: encolher a letra do titulo ate 18px deixava a conta no
+     fio, e corta-lo por reticencias custaria a unica pista de QUE PAGINA esta aberta —
+     no celular a barra lateral e uma gaveta fechada, e o titulo e a unica resposta.
+     Uma segunda fileira de 51px, num aparelho de 320px, e mais barata que isso. */
+  .cab-pagina{padding:12px 12px 10px;gap:7px}
+  .cab-pagina__id{flex:1 1 auto;min-width:0}
+  .cab-pagina__titulo{font-size:20px}
 }
 
 @media print{

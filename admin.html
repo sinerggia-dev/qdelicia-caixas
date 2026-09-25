@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=43fb59db">
+<link rel="stylesheet" href="styles.css?v=097e7f80">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -321,6 +321,34 @@
         <div class="cab-pagina__rota"><h1 class="cab-pagina__titulo" id="tituloPagina">Painel de Ativos</h1></div>
       </div>
 
+      <!-- AS AÇÕES DA PÁGINA, na linha do título. O cabeçalho é COMPARTILHADO pelas sete
+           telas, então quem decide se elas aparecem é a folha de estilo, pelo atributo
+           que a navegação escreve: só no celular, e só em Movimentos.
+           ELAS FICAM AQUI E NÃO NO CORPO porque numa linha própria custavam três dedos
+           de altura para duas coisas que se usam uma vez por visita — e essa altura sai
+           da lista, que é o que a pessoa veio ver. -->
+      <div class="cab-pagina__acoes" id="acoesMovCab">
+        <!-- HOJE: o recorte mais pedido do dia a dia, num toque. Só no celular — no
+             computador os dois campos de data ficam à vista na barra lateral, e um
+             atalho para o que já está preenchido seria um botão dizendo o mesmo.
+             Tocar de novo DESLIGA: botão que só liga é caminho sem volta. -->
+        <button class="chip-hoje" id="btnHojeMov" type="button"
+                aria-pressed="false">Hoje</button>
+
+        <!-- DOIS BOTÕES, UMA PÍLULA. O X é um <button> de verdade ao lado, e não um
+             <span> clicável dentro do outro: elemento focável dentro de um botão é
+             marcação inválida, o leitor de tela anuncia os dois como um só, e o Tab
+             passa por um alvo que não se anuncia. Encostados, eles leem como uma peça
+             só assim mesmo — medido, 0px de vão e 0px de degrau.
+             O X SÓ APARECE COM FILTRO: sem nenhum, seria um botão que não faz nada. -->
+        <span class="pilula-filtros">
+          <button class="btn sec" id="btnAbrirFiltrosMov" type="button">
+            Filtros <span id="mvFiltrosQtd" class="tag" style="display:none"></span>
+          </button>
+          <button class="pilula-filtros__x" id="btnLimparFiltrosMov" type="button" hidden
+                  title="Limpar todos os filtros">✕</button>
+        </span>
+      </div>
     </div>
 
     <div class="corpo-pagina">
@@ -592,27 +620,6 @@
            O MESMO nó nas duas larguras, e não duas cópias: dois conjuntos dos mesmos
            campos seriam dois ids repetidos, e `getElementById` passaria a ler sempre o
            primeiro — a tela filtraria pelo que a outra cópia tem. -->
-      <!-- HOJE: o recorte mais pedido do dia a dia, num toque. Só no celular — no
-           computador os dois campos de data ficam à vista na barra lateral, e um atalho
-           para o que já está preenchido seria um botão a mais dizendo o mesmo.
-           Tocar de novo DESLIGA: botão que só liga é caminho sem volta, e quem errou o
-           toque teria de abrir a folha para desfazer. -->
-      <button class="chip-hoje so-celular" id="btnHojeMov" type="button"
-              aria-pressed="false">Hoje</button>
-
-      <!-- DOIS BOTÕES, UMA PÍLULA. O X é um <button> de verdade ao lado, e não um
-           <span> clicável dentro do outro: elemento focável dentro de um botão é
-           marcação inválida, o leitor de tela anuncia os dois como um só, e o Tab passa
-           por um alvo que não se anuncia. Encostados e com a borda dividida, eles leem
-           como uma peça só — que é o desenho pedido — sem custar nada disso.
-           O X SÓ APARECE COM FILTRO: sem nenhum, ele seria um botão que não faz nada. -->
-      <span class="pilula-filtros so-celular">
-        <button class="btn sec" id="btnAbrirFiltrosMov" type="button">
-          Filtros <span id="mvFiltrosQtd" class="tag" style="display:none"></span>
-        </button>
-        <button class="pilula-filtros__x" id="btnLimparFiltrosMov" type="button" hidden
-                title="Limpar todos os filtros">✕</button>
-      </span>
       <div id="mvAplicados" class="aplicados so-celular" hidden></div>
 
       <!-- A GRADE DE DUAS COLUNAS, só no computador: a lista à esquerda, os filtros num
@@ -910,7 +917,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=0f1c271f"></script>
+<script src="app.js?v=a0cd515a"></script>
 <script>
 (function(){
   'use strict';

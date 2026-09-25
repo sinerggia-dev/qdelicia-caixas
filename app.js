@@ -1139,6 +1139,11 @@
     t.textContent = botao.dataset.titulo || botao.textContent.trim();
     var acima = document.getElementById('acimaPagina');
     if (acima && botao.dataset.acima) acima.textContent = botao.dataset.acima;
+    /* QUAL PÁGINA ESTÁ ABERTA, num atributo que a folha de estilo enxerga. A navegação
+       já tem essa informação — ela acabou de trocar o título com ela —, e escrevê-la
+       aqui evita que cada tela invente o próprio jeito de descobrir onde está. É o que
+       deixa uma peça do cabeçalho, que é compartilhado, aparecer só numa página. */
+    document.documentElement.dataset.pagina = botao.dataset.pagina || '';
     pintarEstrada(botao.dataset.pagina);
   }
 
