@@ -7697,6 +7697,26 @@ console.log('\n== a navegação separada por módulo ==');
       nome + ': e todo módulo usado tem título na lista', semTitulo);
   });
 
+  /* A ORDEM DO MENU DO PAINEL, a pedido — e cada rótulo com a SUA página.
+     A ordem é escolha de quem usa: Painel de Ativos abre primeiro porque é a tela do
+     dia, e é ela que a navegação abre sozinha quando nenhuma está aberta (a primeira
+     visível é a que recebe o clique). Trocar a ordem, aqui, troca a tela inicial.
+     O PAR `página > rótulo` é o que esta linha realmente defende. Reordenar o menu na
+     mão é mover seis blocos de ícone + texto + `data-pagina`, e o estrago típico não é
+     a ordem errada: é um botão ficar com o ícone e a página do vizinho, dizendo
+     "Extratos" e abrindo Cadastros. Só a ordem dos rótulos não veria isso. */
+  var pnl = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var navA = pnl.slice(pnl.indexOf('<nav class="abas" id="abas"'), pnl.indexOf('</nav>'));
+  var pares = (navA.match(/data-pagina="([^"]+)"[\s\S]*?nav-rotulo">([^<]+)</g) || [])
+    .map(function (m) {
+      var r = /data-pagina="([^"]+)"[\s\S]*?nav-rotulo">([^<]+)</.exec(m);
+      return r[1] + '>' + r[2];
+    }).join(' | ');
+  ok(pares === 'pgRetornos>Painel de Ativos | pgMovimentos>Movimentos | pgPainel>Painel' +
+                ' | pgCadastros>Cadastros | pgColunas>Colunas | pgExtrato>Extratos' +
+                ' | pgLancar>Ajustes',
+    'o menu do painel está na ordem pedida, e cada rótulo abre a página dele', pares);
+
   /* O título do módulo é VERDE, e pelo token — cor solta ali escaparia da medição de
      contraste logo abaixo e chegaria ao galpão sem passar por ela. */
   ok(/\.nav-grupo\{[^}]*color:var\(--verde\)/.test(css),
