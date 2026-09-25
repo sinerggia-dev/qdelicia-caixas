@@ -539,6 +539,15 @@
              que está vendo só setembro, ou só as saídas. Esta linha desce junto. -->
         <p class="resumo" id="resumoFluxo" aria-live="polite"></p>
         <div class="ftiles" id="fluxoTiles"></div>
+        <!-- O CADEADO, AQUI TAMBÉM. Ele vivia só em Movimentos, e esta tabela ficava
+             com o arrasto travado e nada na tela dizendo por quê: a pessoa puxava o
+             título, não acontecia nada, e a conclusão razoável era que o recurso tinha
+             quebrado. Foi exatamente o que aconteceu — e o comentário ao lado da versão
+             de Movimentos já descrevia esse efeito, escrito quando o cadeado saiu da
+             aba Colunas. A lição não tinha sido aplicada nas outras duas tabelas.
+             A LIBERAÇÃO É UMA SÓ, de quinze minutos, e vale para as três: o que muda de
+             lugar é o botão, não o estado. -->
+        <div class="trava-colunas" data-trava-colunas></div>
         <div id="tabelaFluxo"><div class="vazio">Carregando…</div></div>
       </div>
     </div>
@@ -889,6 +898,10 @@
            continua peneirando quando a outra aparece, e a lista curta passa a parecer
            a lista inteira. -->
       <div class="trilho" id="chipsPerfil" role="group" aria-label="Filtrar por perfil"></div>
+      <!-- Mesma razão do Painel de Ativos: o gesto é tentado aqui, e o cadeado precisa
+           estar aqui. No celular esta tabela vira cartões e não há coluna para arrastar,
+           mas o cadeado continua valendo — ele libera os filtros também. -->
+      <div class="trava-colunas" data-trava-colunas></div>
       <div id="tabelaUsuarios"></div>
     </div>
     <div class="card" data-cad="locais">
@@ -2996,6 +3009,10 @@
           }).join(''))+'</tbody></table></div>';
     ligarArrastarColunas(TAB_ATIVOS);
     ligarLarguraColunas(TAB_ATIVOS);
+    /* O CADEADO SE PINTA QUANDO A TABELA DESENHA, como em Movimentos. Pintado so num
+       lugar de partida, ele nasceria vazio nas paginas que ainda nao foram abertas — e
+       vazio e exatamente o estado que fez esta tabela parecer quebrada. */
+    pintarTrava();
     ligarClassificacao();
     ligarOrdemExtrato();
 
@@ -6859,6 +6876,10 @@
        ninguém, eles são o único caminho de volta — desenhados depois, a tela ficaria
        com "nenhum usuário" e nenhuma saída. */
     desenharChipsPerfil();
+    /* ANTES DOS TRES DESVIOS desta função — lista vazia, cartões do celular e tabela.
+       Pintado só no caminho da tabela, o cadeado ficaria vazio no celular e na lista
+       vazia, e ele governa os filtros também, não só as colunas. */
+    pintarTrava();
     var lista = usuariosNaTela();
     podarSelecaoUser(lista);
     if (!lista.length){

@@ -5895,18 +5895,41 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
    * voltar. Atrito demais para uma coisa de uso diário — e o efeito real, relatado, foi
    * a pessoa arrastar, nada acontecer, e concluir que o recurso tinha sido tirado.
    * O cadeado agora fica ao lado da tabela, e um clique abre o pedido de senha. */
-  /* UM SÓ, e ANTES da tabela. A contagem não é detalhe: dois cadeados na mesma tela
-     seriam dois estados a conferir para a mesma coisa, e o de baixo diria "travadas"
-     enquanto o de cima já tivesse sido usado. E "antes da tabela" sozinho passava com um
-     segundo cadeado no rodapé, porque a busca acha o primeiro e para. */
-  /* A contagem é do ELEMENTO, e não da palavra: `data-trava-colunas` aparece também
-     como seletor dentro do `pintarTrava`, e contar a palavra solta dava dois desde o
-     primeiro dia. */
-  var cadeados = (adm.match(/<div class="trava-colunas" data-trava-colunas><\/div>/g) || []);
-  ok(cadeados.length === 1 &&
-     adm.indexOf('<div class="trava-colunas"') < adm.indexOf('id="tabelaMov"'),
-    'o cadeado fica ao lado da tabela, um só, e não numa aba distante — o destravamento ' +
-    'tem de estar onde o gesto é tentado', cadeados.length);
+  /* UM POR TELA QUE TEM TABELA ARRANJÁVEL, e antes da tabela.
+   *
+   * Esta asserção já existiu cobrando "um cadeado no arquivo inteiro", e a justificativa
+   * era boa — dois cadeados na MESMA tela são dois estados a conferir para a mesma
+   * coisa. Só que "na mesma tela" virou "no arquivo" na hora de escrever, e o arquivo
+   * tem três telas. O efeito: o cadeado ficou só em Movimentos, o Painel de Ativos e os
+   * Usuários ficaram com o arrasto travado e NADA dizendo por quê, e a asserção
+   * aprovava isso. Depois ela reprovou o conserto.
+   *
+   * O que ela cobra agora é a garantia de verdade: toda tabela que se pode arranjar tem
+   * o cadeado na tela dela, um só, e acima da tabela. A lista das tabelas sai do próprio
+   * código — uma quarta tabela arranjável entra nesta conta sozinha, em vez de nascer
+   * sem cadeado e sem ninguém reparar. */
+  var alvos = (adm.match(/alvo: '#([A-Za-z]+)'/g) || [])
+    .map(function (m) { return /alvo: '#([A-Za-z]+)'/.exec(m)[1]; });
+  ok(alvos.length >= 3, 'a leitura achou as tabelas arranjáveis mesmo', alvos);
+  var telas = adm.split(/(?=<section id="pg)/);
+  alvos.forEach(function (id) {
+    var tela = telas.filter(function (s) { return s.indexOf('id="' + id + '"') >= 0; })[0];
+    var n = (String(tela).match(/<div class="trava-colunas" data-trava-colunas><\/div>/g)
+             || []).length;
+    ok(n === 1 && tela.indexOf('data-trava-colunas') < tela.indexOf('id="' + id + '"'),
+      '#' + id + ': o cadeado fica nesta tela, um só, e acima da tabela — sem ele a ' +
+      'pessoa arrasta, nada acontece, e conclui que o recurso quebrou',
+      { cadeados: n, antes: tela.indexOf('data-trava-colunas') < tela.indexOf('id="' + id + '"') });
+  });
+  /* E CADA TABELA PINTA O SEU AO DESENHAR. O elemento no HTML nasce vazio; pintado só
+     num lugar de partida, ele ficaria em branco justamente nas telas ainda não abertas —
+     e vazio é o estado que fez a tabela parecer quebrada. */
+  ['desenharFluxo', 'desenharMovimentos', 'desenharUsuarios'].forEach(function (f) {
+    var i = adm.indexOf('function ' + f + '(');
+    var corpo = adm.slice(i, adm.indexOf('\n  function ', i + 10));
+    ok(i > 0 && corpo.indexOf('pintarTrava();') > 0,
+      f + ': pinta o cadeado ao desenhar — no HTML ele nasce vazio', i > 0);
+  });
   ok(/function pedirSenhaDasColunas\(\)\{/.test(adm) &&
      /modal\('<h3 style="margin:0 0 4px">Liberar as colunas<\/h3>'\+/.test(adm),
     'e o pedido de senha é um modal, que volta para onde a pessoa estava — a tabela ' +
@@ -8988,7 +9011,14 @@ console.log('\n== Usuários no celular: cartão, acesso à vista e folha de aç�
   ok(/if \(PERFIL_FILTRO && String\(u\.Perfil \|\| ''\) !== PERFIL_FILTRO\) return false;/
     .test(adm),
     'quem peneira por perfil é o `usuariosNaTela`, que serve à tabela e aos cartões');
-  ok(/desenharChipsPerfil\(\);\s*\n\s*var lista = usuariosNaTela\(\);/.test(adm),
+  /* ANTES DO CORTE, e não colado nele. Escrita como duas linhas grudadas, esta
+     asserção reprovava qualquer coisa inserida entre elas — inclusive o `pintarTrava()`,
+     que também precisa rodar antes dos desvios. Colagem é endereço; o que importa é a
+     ORDEM. */
+  var fU = adm.slice(adm.indexOf('function desenharUsuarios(digitando)'));
+  fU = fU.slice(0, fU.indexOf('\n  function ', 10));
+  var iChips = fU.indexOf('desenharChipsPerfil();');
+  ok(iChips >= 0 && iChips < fU.indexOf('if (!lista.length)'),
     'e os chips são desenhados ANTES do corte de lista vazia: filtrando um perfil sem ' +
     'ninguém, eles são o único caminho de volta');
   ok(/\.trilho \.chip\{flex:0 0 auto;min-height:38px/.test(css),
