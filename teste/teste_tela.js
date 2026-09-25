@@ -2078,8 +2078,75 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
      da lista logo abaixo dele, e quem visse os dois não saberia em qual acreditar. */
   var i0 = adm.indexOf('function desenharMovimentos()');
   var dm = adm.slice(i0, adm.indexOf('\n  }', i0));
-  ok(/desenharTotaisMov\(MOVS \|\| \[\]\);/.test(dm),
-    'e são recalculados do MESMO `MOVS` que desenha a tabela, a cada filtro');
+  /* A LISTA DEIXOU DE SER `MOVS` CRU: a busca do celular peneira antes, e `L` é o
+     resultado. A garantia não mudou — uma lista só alimenta os cartões, os gráficos, a
+     tabela e os cartões do celular. Peneirando só a lista, os números continuariam
+     mostrando o recorte inteiro ao lado de três linhas, que é a contradição mais cara
+     de explicar que esta tela pode ter. Esta afirmação pedia o NOME `MOVS` e reprovou
+     sem nada ter piorado. */
+  ok(/var L = peneirarMov\(MOVS \|\| \[\]\);/.test(dm) &&
+     /desenharTotaisMov\(L\);/.test(dm),
+    'e são recalculados da lista já peneirada pela busca, a mesma que desenha a tabela');
+  ok(/desenharGraficosMov\(L\);/.test(dm),
+    'e os gráficos recebem essa MESMA lista — dois recortes na mesma tela dariam dois ' +
+    'totais para o mesmo filtro');
+
+  /* --- A BUSCA DO CELULAR -------------------------------------------------
+   * SEM ACENTO E SEM MAIÚSCULA DOS DOIS LADOS. Quem digita "joao" no teclado do celular
+   * espera achar "João", e quem digita "JOÃO" também. Dobrar a regra só de um lado é o
+   * erro clássico: a busca acha metade e a pessoa conclui que o lançamento sumiu. */
+  /* O EXTRATOR É LOCAL a este bloco: há um `corpoDe` mais abaixo no arquivo, noutro
+     escopo, e usá-lo daqui derruba a suíte inteira com "not a function" — que é uma
+     QUEBRA, não uma reprovação, e esconde as afirmações que vinham depois. */
+  var corpoDaFn = function (nome) {
+    var i = adm.indexOf('function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = adm.indexOf('{', i);
+    for (; k < adm.length; k++) {
+      if (adm[k] === '{') d++;
+      else if (adm[k] === '}' && --d === 0) return adm.slice(i, k + 1);
+    }
+    return '';
+  };
+  var fChato = corpoDaFn('chato');
+  ok(/normalize\('NFD'\)/.test(fChato) && /toLowerCase\(\)/.test(fChato),
+    'a busca tira acento E maiúscula dos dois lados — "joao" acha "João", e o ' +
+    'contrário também', fChato.slice(0, 140));
+
+  /* ELA OLHA O QUE O CARTÃO MOSTRA, e não todos os campos do movimento: achar por um
+     campo que não está na tela devolve linha que a pessoa não reconhece. */
+  var fAlvo = corpoDaFn('alvoDaBusca');
+  ['origem', 'destino', 'motorista', 'usuario', 'tipoCaixa'].forEach(function (c) {
+    ok(fAlvo.indexOf('m.' + c) >= 0,
+      'e ela procura em ' + c + ', que é o que o cartão mostra', fAlvo.slice(0, 120));
+  });
+  ok(/Q\.dataBR\(m\.dataRef\)/.test(fAlvo),
+    'e na data COMO SE LÊ, não só na forma do banco — ninguém digita 2026-09-17');
+
+  /* --- A TARJA DO DIA ----------------------------------------------------
+   * A LINHA DE GRUDE NÃO É O TOPO DA CAIXA. `.corpo-pagina` tem respiro no topo, e
+   * `position:sticky` encaixa a tarja NELE. Medindo contra o topo puro, a marca acendia
+   * na tarja que já tinha subido além do encaixe — o dia ANTERIOR ao que estava preso.
+   * Medido: com 800px de rolagem, a presa era 16/09 e a acesa continuava 17/09. */
+  var fMarcar = corpoDaFn('marcarDiaMov');
+  ok(/getComputedStyle\(caixa\)\.paddingTop/.test(fMarcar),
+    'a marca da tarja conta a partir do respiro da área que rola, e não do topo puro — ' +
+    'medido, com o topo puro ela acendia um dia atrás do que está preso na tela');
+  ok(/querySelector\('\.corpo-pagina'\)/.test(fMarcar),
+    'e quem rola é `.corpo-pagina`, não a janela — um ouvinte na janela não receberia ' +
+    'evento nenhum e a marca ficaria parada na primeira tarja');
+  ok(/scrollTop \+ caixa\.clientHeight >= caixa\.scrollHeight/.test(fMarcar),
+    'e no fim da lista a última acende mesmo sem alcançar o encaixe — com um grupo ' +
+    'curto a rolagem acaba antes, e o dia que se está lendo jamais acenderia');
+
+  /* OS TOTAIS DO DIA SAEM DAS LINHAS, não dos lotes: um lote tem várias linhas de
+     caixa, e somar o lote uma vez perderia as outras. E pelo MESMO `sentidoDoMov` dos
+     cartões de cima — dois jeitos de decidir "isto é saída?" divergem no primeiro tipo
+     novo, e o dia passaria a não fechar com o total. */
+  var fCartoes = corpoDaFn('cartoesMov');
+  ok(/lista\.forEach\(/.test(fCartoes) && /sentidoDoMov\(m\)/.test(fCartoes),
+    'e os totais do dia somam as LINHAS, pelo mesmo `sentidoDoMov` dos cartões de ' +
+    'cima — somados de outro jeito, o dia não fecharia com o total da tela');
   /* FORA DO CORTE DA LISTA VAZIA. Deixados depois do `return`, ficariam com os números
      do filtro ANTERIOR ao lado de "nenhum movimento" — a contradição mais difícil de
      explicar que uma tela pode mostrar. */
@@ -2087,7 +2154,7 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
      resposta — seis zeros e cinco painéis vazios —, e ela é diferente de a tela não ter
      desenhado nada. Deixados depois do `return`, os dois ficariam com o filtro ANTERIOR
      na tela ao lado de "nenhum movimento". */
-  ok(/desenharTotaisMov\(MOVS \|\| \[\]\);\s*\n\s*desenharGraficosMov\(MOVS \|\| \[\]\);\s*\n\s*if \(!MOVS \|\| !MOVS\.length\)\{/.test(dm),
+  ok(/desenharTotaisMov\(L\);\s*\n\s*desenharGraficosMov\(L\);\s*\n\s*if \(!L\.length\)\{/.test(dm),
     'e são desenhados ANTES do corte da lista vazia — depois dele, um filtro sem ' +
     'resultado mostraria os números do filtro anterior ao lado de "nenhum movimento"');
 
@@ -2968,7 +3035,7 @@ console.log('\n== classificar e a janela de linhas, em Movimentos ==');
   /* A ORDEM VEM DEPOIS DE `DEFS` e sobre uma cópia; os totais ficam de fora, porque
      somar não depende da ordem e recalcular aqui criaria um segundo caminho para o
      mesmo número. */
-  ok(/var linhas = aplicarOrdem\(MOVS, DEFS, ORDEM_MOV\);/.test(dm) &&
+  ok(/var linhas = aplicarOrdem\(L, DEFS, ORDEM_MOV\);/.test(dm) &&
      /linhas\.map\(function\(m\)\{/.test(dm),
     'a tabela desenha a lista ORDENADA, e a ordem sai da mesma máquina do Painel');
 
@@ -7736,7 +7803,7 @@ console.log('\n== Movimentos no celular: cartão, folha de ações e filtros =='
   /* A TABELA TEM ONZE COLUNAS E TRÊS BOTÕES POR LINHA. No telefone são dezenas de alvos
      de toque numa tela que só se lê arrastando de lado — e o do meio é "cancelar",
      vizinho de "excluir". */
-  ok(/if \(emCartoesPainel\(\)\) \{[\s\S]{0,200}barraOrdemMov\(MOVS\)\+cartoesMov\(MOVS\)/
+  ok(/if \(emCartoesPainel\(\)\) \{[\s\S]{0,200}barraOrdemMov\(L\)\+cartoesMov\(L\)/
     .test(adm),
     'no celular a lista de Movimentos vira cartão, no MESMO corte de 1024px das outras ' +
     'telas');

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=097e7f80">
+<link rel="stylesheet" href="styles.css?v=436241a6">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -673,6 +673,21 @@
         <button type="button" role="tab" data-aba="resumo" aria-selected="false">Resumo</button>
         <button type="button" role="tab" data-aba="graficos" aria-selected="false">Gráficos</button>
       </nav>
+
+      <!-- A BUSCA PENEIRA O QUE JA ESTA NA TELA, e nao a base inteira: o filtro de
+           verdade mora na folha e vai ao servidor; esta aqui e um recorte rapido sobre
+           as linhas que o servidor ja mandou. Está dito no `placeholder` e no balão.
+           FORA DAS ABAS, como a tarja: quem busca quer o resultado, e ter de lembrar em
+           que aba a busca mora seria uma pergunta a mais antes da pergunta. -->
+      <div class="busca-mov so-celular" id="buscaMov">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+        <input id="mvBusca" type="search" autocomplete="off" enterkeyhint="search"
+               aria-label="Buscar no que está na tela"
+               placeholder="buscar no que está na tela…">
+        <button class="busca-mov__x" type="button" id="mvBuscaX" hidden
+                aria-label="Limpar a busca">✕</button>
+      </div>
 
       <div class="tot" id="totMov"></div>
       <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
@@ -4560,6 +4575,62 @@
    * `naoCancelados()`, então movimento cancelado nunca chega aqui. Um cartão
    * "Canceladas" mostraria zero para sempre, e zero permanente é pior que ausência —
    * ele afirma que não há nenhuma. */
+  /* ---------- A BUSCA DO CELULAR ----------
+   *
+   * Ela peneira o que JÁ ESTÁ NA TELA. O filtro de verdade — origem, destino, período —
+   * mora na folha e viaja ao servidor; esta é um recorte imediato sobre as linhas que o
+   * servidor já mandou. Duas coisas diferentes, e a tela diz qual é qual: o contador do
+   * botão conta filtros, e o vazio da busca explica que ela não foi além do filtro.
+   *
+   * SEM ACENTO E SEM MAIÚSCULA dos dois lados: quem digita "joao" no teclado do
+   * celular espera achar "João". Quem faz isso é o `chato()` que JÁ EXISTE nesta tela,
+   * usado pela busca do Retorno — e ele ainda tira os pontos, então "1.250" acha
+   * "1250".
+   *
+   * EU TINHA DECLARADO UM SEGUNDO `chato` AQUI, com o mesmo nome. Duas declarações
+   * de função no mesmo escopo não convivem: a de baixo apaga a de cima, sem um aviso
+   * sequer no console. A busca do Retorno passava a usar a minha e perdia a regra
+   * dos pontos — e nada na tela dizia isso.
+   * PEGO NA SABOTAGEM, e por um caminho torto: o defeito plantado na minha cópia
+   * ESCAPOU, porque a afirmação procurava a PRIMEIRA `chato` do arquivo e essa era
+   * a outra. O escape é que denunciou a duplicata.
+   */
+  var BUSCA_MOV = '';
+
+  /* O QUE A BUSCA OLHA. É a lista dos campos que o cartão MOSTRA, e não todos os campos
+     do movimento: procurar dentro de coisa que não está na tela devolve linha que a
+     pessoa não tem como reconhecer. */
+  function alvoDaBusca(m){
+    return chato([m.dataRef, Q.dataBR(m.dataRef), m.origem, m.destino, m.rota,
+                  m.motorista, m.veiculo, m.usuario, m.tipoCaixa, m.qtd, m.romaneio,
+                  m.situacao, m.obs, (m.alterado || {}).por].join(' '));
+  }
+
+  function peneirarMov(lista){
+    if (!BUSCA_MOV) return lista;
+    var t = chato(BUSCA_MOV);
+    return lista.filter(function(m){ return alvoDaBusca(m).indexOf(t) >= 0; });
+  }
+
+  (function(){
+    var cx = document.getElementById('mvBusca');
+    var x = document.getElementById('mvBuscaX');
+    if (!cx) return;
+    var espera;
+    cx.addEventListener('input', function(){
+      var v = this.value;
+      if (x) x.hidden = !v;
+      clearTimeout(espera);
+      /* ESPERA O DEDO PARAR. Redesenhar a cada tecla repinta os cartões, os cinco
+         gráficos e a lista inteira — num aparelho fraco o campo trava e as letras
+         chegam atrasadas. */
+      espera = setTimeout(function(){ BUSCA_MOV = v.trim(); desenharMovimentos(); }, 180);
+    });
+    if (x) x.addEventListener('click', function(){
+      cx.value = ''; x.hidden = true; BUSCA_MOV = ''; desenharMovimentos(); cx.focus();
+    });
+  })();
+
   function sentidoDoMov(m){
     var t = String(m.tipo || '').toUpperCase();
     if (t === 'DEVOLUCAO') return 'retorno';
@@ -5000,10 +5071,18 @@
        desenhado nada. Deixados depois do `return`, ficariam com os números do filtro
        ANTERIOR na tela, ao lado de "nenhum movimento": a contradição mais difícil de
        explicar que uma tela pode mostrar. */
-    desenharTotaisMov(MOVS || []);
-    desenharGraficosMov(MOVS || []);
-    if (!MOVS || !MOVS.length){
-      box.innerHTML = '<div class="vazio">Nenhum movimento no filtro.</div>';
+    /* A BUSCA ENTRA AQUI, ANTES DOS TOTAIS, e não só na lista. Peneirando só a lista,
+       os cartões e os gráficos continuariam mostrando o total do recorte inteiro
+       enquanto a lista mostra três linhas — duas verdades na mesma tela, e a mais cara
+       de explicar: os números diriam que há 2.380 caixas onde a lista mostra 60. */
+    var L = peneirarMov(MOVS || []);
+    desenharTotaisMov(L);
+    desenharGraficosMov(L);
+    if (!L.length){
+      box.innerHTML = '<div class="vazio">'+
+        (BUSCA_MOV ? 'Nada na tela com <b>'+Q.esc(BUSCA_MOV)+'</b>. A busca olha só o '+
+                     'que o filtro já trouxe — para procurar fora dele, mude o filtro.'
+                   : 'Nenhum movimento no filtro.')+'</div>';
       return;
     }
 
@@ -5017,9 +5096,10 @@
        data+hora+origem+destino seria adivinhação: dois lançamentos do mesmo minuto na
        mesma rota, feitos por pessoas diferentes, virariam um. */
     if (emCartoesPainel()) {
-      box.innerHTML = barraOrdemMov(MOVS)+cartoesMov(MOVS)+'<div id="correcaoBox"></div>';
+      box.innerHTML = barraOrdemMov(L)+cartoesMov(L)+'<div id="correcaoBox"></div>';
       ligarAcoesMov(box);
       ligarOrdemMov();
+      marcarDiaMov();
       return;
     }
 
@@ -5172,7 +5252,7 @@
     /* A ORDEM ENTRA AQUI, depois de `DEFS`, e sobre uma copia — a mesma maquina do
        Painel de Ativos. Os cartoes de cima ficam de fora de proposito: somar nao depende
        da ordem, e recalcula-los aqui so criaria um segundo caminho para o mesmo numero. */
-    var linhas = aplicarOrdem(MOVS, DEFS, ORDEM_MOV);
+    var linhas = aplicarOrdem(L, DEFS, ORDEM_MOV);
 
     box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
       cs.map(function(c){
@@ -5339,8 +5419,94 @@
        viram ao contrário inteiros — inclusive os itens dentro de cada um, que é o que
        impede a lista de "virar pela metade". */
     if (!ORDEM_MOV_DESC) grupos.reverse();
-    return '<div class="movs">'+grupos.map(cartaoMov).join('')+'</div>';
+
+    /* ---------- A TARJA DO DIA ----------
+     * Uma por dia, com o que saiu, o que voltou e o saldo DAQUELE dia. Ela gruda no topo
+     * enquanto os cartões do dia passam por baixo, e o próximo dia a empurra para fora —
+     * assim a data em que a pessoa está nunca sai da tela, por mais que ela role.
+     *
+     * OS TOTAIS DO DIA SAEM DAS LINHAS, e não dos grupos: um lote tem várias linhas de
+     * caixa, e somar o lote uma vez perderia as outras. É o mesmo `sentidoDoMov` dos
+     * cartões de cima — dois jeitos de decidir "isto é saída?" divergem no primeiro
+     * tipo novo, e o dia passaria a não fechar com o total.
+     */
+    var porDia = {}, ordemDias = [];
+    lista.forEach(function(m){
+      var d = m.dataRef || '';
+      if (!porDia[d]) { porDia[d] = { saida: 0, retorno: 0 }; }
+      var q = Number(m.qtd) || 0;
+      var s = sentidoDoMov(m);
+      if (s === 'saida') porDia[d].saida += q;
+      else if (s === 'retorno') porDia[d].retorno += q;
+    });
+
+    var fora = [], diaAberto = null;
+    grupos.forEach(function(g){
+      var d = g.dataRef || '';
+      if (d !== diaAberto) {
+        if (diaAberto !== null) fora.push('</div></section>');
+        diaAberto = d;
+        ordemDias.push(d);
+        var t = porDia[d] || { saida: 0, retorno: 0 };
+        var saldo = t.retorno - t.saida;
+        fora.push('<section class="grupo-dia">'+
+          '<header class="dia-mov" data-dia="'+Q.esc(d)+'">'+
+            '<b>'+Q.esc(Q.dataBR(d))+'</b><span class="dia-mov__esp"></span>'+
+            '<span class="dia-mov__s">\u2191'+Q.num(t.saida)+'</span>'+
+            '<span class="dia-mov__r">\u2193'+Q.num(t.retorno)+'</span>'+
+            '<span class="dia-mov__b'+(saldo < 0 ? ' ruim' : '')+'">'+
+              (saldo === 0 ? '0' : (saldo < 0 ? '\u2212' : '+')+Q.num(Math.abs(saldo)))+
+            '</span>'+
+          '</header><div class="movs">');
+      }
+      fora.push(cartaoMov(g));
+    });
+    if (diaAberto !== null) fora.push('</div></section>');
+    return fora.join('');
   }
+
+  /* QUAL TARJA ESTÁ GRUDADA AGORA. É a ÚLTIMA cujo topo já passou do topo da área que
+     rola — as seguintes ainda estão abaixo dela. Sem esta marca, três tarjas iguais na
+     tela confundem em vez de ajudar: não dá para saber qual é a do que se está lendo.
+     QUEM ROLA É `.corpo-pagina`, e não a janela: o painel tem altura fixa e a rolagem
+     acontece dentro dele. Ouvir a janela aqui não receberia evento nenhum. */
+  var marcandoDia = false;
+  function marcarDiaMov(){
+    if (marcandoDia) return;
+    marcandoDia = true;
+    requestAnimationFrame(function(){
+      marcandoDia = false;
+      var caixa = document.querySelector('.corpo-pagina');
+      var tarjas = document.querySelectorAll('#tabelaMov .dia-mov');
+      if (!caixa || !tarjas.length) return;
+      /* A LINHA DE GRUDE NAO E O TOPO DA CAIXA: `.corpo-pagina` tem respiro no topo, e
+         `position:sticky` encaixa a tarja NELE. Medindo contra o topo puro, a marca
+         acendia na tarja que JA TINHA SUBIDO alem do encaixe — ou seja, no dia
+         anterior ao que estava preso na tela. Medido: com 800px de rolagem, a tarja
+         presa era 16/09 e a acesa continuava 17/09. */
+      var r = caixa.getBoundingClientRect();
+      var respiro = parseFloat(getComputedStyle(caixa).paddingTop) || 0;
+      var linha = r.top + respiro + 2;
+      var ativa = tarjas[0];
+      Array.prototype.forEach.call(tarjas, function(t){
+        if (t.getBoundingClientRect().top <= linha) ativa = t;
+      });
+      /* NO FIM DA LISTA a última tarja pode nunca alcançar a linha de grude, se o grupo
+         dela for curto: a rolagem acaba antes. Sem isto, o último dia jamais acende — e
+         é justamente o dia que a pessoa está lendo quando chega ao fim. */
+      if (caixa.scrollTop + caixa.clientHeight >= caixa.scrollHeight - 4) {
+        ativa = tarjas[tarjas.length - 1];
+      }
+      Array.prototype.forEach.call(tarjas, function(t){
+        t.classList.toggle('dia-mov--ativa', t === ativa);
+      });
+    });
+  }
+  (function(){
+    var caixa = document.querySelector('.corpo-pagina');
+    if (caixa) caixa.addEventListener('scroll', marcarDiaMov, { passive: true });
+    window.addEventListener('resize', marcarDiaMov);
+  })();
 
   /* "CORRIGIDO" É UMA AFIRMAÇÃO SOBRE O DADO: diz que o número ali não é o que foi
      lançado. Por isso ela só sai quando algum campo mudou de verdade.

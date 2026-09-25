@@ -2723,6 +2723,55 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
      e faze-lo parar de procurar onde o tratamento de fato esta. */
 }
 
+/* ---- A BUSCA DO CELULAR ----
+   Uma linha so, e baixa: 40px de altura contra os 46 dos campos da folha. Ela nao e um
+   formulario — e um recorte que se digita e se apaga em segundos —, e ocupar altura de
+   campo de formulario custaria a primeira linha da lista.
+   16px NA LETRA, e isso nao e escolha de estilo: abaixo disso o iOS da zoom sozinho ao
+   focar e a tela inteira "pula". No computador 13px seria seguro; aqui nao e. */
+/* SEM REGRA DE `display` AQUI: a busca carrega `so-celular`, que ja declara
+   `display:none!important` no computador e `flex!important` no celular. Escrever as
+   duas de novo seria o terceiro par de regras mortas deste dia — vivas em largura
+   nenhuma, e dizendo ao proximo leitor que a visibilidade se decide aqui. */
+.busca-mov{align-items:center;gap:8px;margin:0 0 10px;padding:0 11px;
+  min-height:40px;background:var(--campo);border:1px solid var(--linha);
+  border-radius:var(--raio)}
+.busca-mov svg{flex:0 0 auto;color:var(--txt3)}
+.busca-mov input{flex:1 1 auto;min-width:0;border:0;background:transparent;
+  color:var(--txt);font:inherit;font-size:16px;outline:none;padding:0}
+.busca-mov input::placeholder{color:var(--txt3)}
+.busca-mov input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.busca-mov__x{width:28px;height:28px;flex:0 0 auto;display:inline-flex;
+  align-items:center;justify-content:center;border:0;border-radius:999px;
+  background:var(--surface-2);color:var(--txt2);font:inherit;font-size:12px;
+  cursor:pointer}
+
+/* ---- A TARJA DO DIA ----
+   Gruda no topo enquanto os cartoes daquele dia passam por baixo, e o dia seguinte a
+   empurra para fora. QUEM ROLA E `.corpo-pagina`, entao `top:0` e o topo DELA — nao o
+   da janela. `z-index` acima dos cartoes, senao ela passa por tras deles.
+   A GRUDADA GANHA DESTAQUE e as outras ficam discretas: tres tarjas iguais na tela
+   confundem em vez de ajudar, porque nenhuma diz qual e a do que se esta lendo. */
+.grupo-dia{margin:0 0 16px}
+.dia-mov{position:sticky;top:0;z-index:6;display:flex;align-items:baseline;gap:10px;
+  margin:0 0 10px;padding:9px 12px;border-radius:var(--raio);
+  background:var(--surface-2);border:1px solid var(--linha);
+  font-size:12.5px;color:var(--txt);
+  transition:background-color .18s,border-color .18s,box-shadow .18s}
+.dia-mov b{font-family:var(--fonte-mono);font-weight:600}
+.dia-mov__esp{flex:1 1 auto}
+.dia-mov__s{color:var(--azul-cheio);font-family:var(--fonte-mono)}
+.dia-mov__r{color:var(--verde-cheio);font-family:var(--fonte-mono)}
+.dia-mov__b{font-family:var(--fonte-mono);color:var(--verde-esc)}
+.dia-mov__b.ruim{color:var(--vermelho)}
+/* FUNDO SOLIDO POR BAIXO do degrade: com `background` recebendo so o gradiente, a
+   primeira parada e transparente e os cartoes passam POR TRAS da tarja grudada. */
+.dia-mov--ativa{background-color:var(--surface-2);
+  background-image:linear-gradient(90deg,rgba(42,169,95,.20),rgba(42,169,95,0) 62%);
+  border-color:var(--verde);
+  box-shadow:inset 3px 0 0 var(--verde),0 4px 14px rgba(4,14,28,.42)}
+@media (prefers-reduced-motion:reduce){.dia-mov{transition:none}}
+
 /* ---- AS ACOES NA LINHA DO TITULO ----
    O cabecalho da pagina e COMPARTILHADO pelas sete telas: estas duas pecas sao de
    Movimentos, e aparecem so la. Quem decide e a folha, pelo atributo que a navegacao
@@ -2733,7 +2782,16 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
    duas pecas apareceriam em Cadastros, no Extrato, em tudo. A visibilidade e escrita
    aqui, inteira, justamente para nao depender de uma classe que nao aceita excecao.
    (Esta armadilha ja esta documentada no bloco das abas, logo abaixo.) */
-.cab-pagina__acoes{display:none;flex:0 0 auto;align-items:center;gap:7px}
+.cab-pagina__acoes{display:none;flex:0 0 auto;align-items:center;gap:6px}
+/* AS PASTILHAS SAO MENORES QUE UM BOTAO DE FORMULARIO, a pedido: elas vivem no canto do
+   cabecalho, isoladas, e nao no meio de um formulario onde errar o toque custa caro.
+   A altura vem daqui e nao do `.btn`, que traz o respiro de um botao de acao. */
+.cab-pagina__acoes .btn,
+.cab-pagina__acoes .chip-hoje,
+.cab-pagina__acoes .pilula-filtros__x{min-height:0;height:34px;font-size:12.5px;
+  padding:0 10px}
+.cab-pagina__acoes .pilula-filtros__x{width:28px;padding:0}
+.cab-pagina__acoes .tag{font-size:10px;padding:0 5px}
 @media (max-width:1023px){
   html[data-pagina="pgMovimentos"] .cab-pagina__acoes{display:flex}
   /* O CABECALHO APERTA no telefone: com 24px de titulo e duas pastilhas na mesma linha,
@@ -2743,13 +2801,14 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
      efeito e um cabecalho de 68px em vez de 90 no celular, em todas elas.
 
      ATE ONDE CABE, medido com o contador e o X acesos (que e o estado largo, e o do uso
-     real): de 360px para cima as duas ficam na linha do titulo. Em 320px elas caem para
-     uma segunda fileira, e o cabecalho vai a 119px.
-     ISSO E ACEITO DE PROPOSITO. Para faze-las caber ali faltavam 11px, e os dois jeitos
-     de arranja-los eram piores: encolher a letra do titulo ate 18px deixava a conta no
-     fio, e corta-lo por reticencias custaria a unica pista de QUE PAGINA esta aberta —
-     no celular a barra lateral e uma gaveta fechada, e o titulo e a unica resposta.
-     Uma segunda fileira de 51px, num aparelho de 320px, e mais barata que isso. */
+     real): de 320px para cima as duas ficam na linha do titulo, com 26px de sobra no
+     aparelho mais estreito.
+     ISTO JA FOI DIFERENTE. Na primeira versao as pastilhas pediam 190px e caiam para
+     uma segunda fileira em 320 e em 360 — e este comentario dizia que 320 era aceito de
+     proposito, com uma justificativa inteira sobre nao cortar o titulo. Encolhe-las a
+     pedido resolveu o caso, e a justificativa virou descricao de um problema que nao
+     existe mais. Ficasse escrita, mandaria o proximo leitor procurar um limite que nao
+     esta la. */
   .cab-pagina{padding:12px 12px 10px;gap:7px}
   .cab-pagina__id{flex:1 1 auto;min-width:0}
   .cab-pagina__titulo{font-size:20px}
