@@ -2620,49 +2620,66 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   .legenda-g em{font-size:11px}
   #tabelaMov .tag{font-size:9.5px}
 
-  /* ---- MODELO B: A FAIXA FINA ----
-     Os numeros deixam de ser seis cartoes e viram uma tira de tres celulas. O motivo
-     esta no uso, e nao no espaco: quem abre Movimentos no telefone quase sempre quer
-     ACHAR UM LANCAMENTO, nao analisar — e com os cartoes de antes a lista so comecava
-     depois de 299px de rolagem. Na faixa, ela comeca quase no topo.
+  /* ---- MODELO C: A TARJA DE TRES ----
+     Tres celulas — Movimentos, Saida, Retorno — numa tira fina, ACIMA das abas. Por
+     estar fora delas, os tres numeros continuam na tela com a Lista aberta: dentro de
+     uma aba, trocar para a Lista apagaria o resumo e a pessoa teria de voltar so para
+     lembrar quanto saiu.
 
-     TRES, E ESCOLHIDOS PELO NOME. `nth-child(n+4)` esconderia o QUARTO da fileira, e a
-     fileira e reordenavel: quem arrastasse o Saldo para o inicio perderia a Saida sem
-     entender por que. O seletor pergunta quem o cartao E, nao onde ele esta.
+     AS TRES SAO ESCOLHIDAS PELO NOME, e nao por posicao: a fileira de cartoes e
+     reordenavel, e `nth-child` mostraria quem estivesse nas tres primeiras casas.
 
-     O QUE SAI DO TELEFONE: saldo, lancados hoje, de teste e ajuste. Os quatro continuam
-     no computador. E uma escolha de modelo, nao um limite de largura — cabiam.
+     A VARREDURA DE COR NAO ENTRA. Ela depende de uma faixa vazia de 18px no rodape do
+     cartao, medida para o texto cinza nao cair para 3,7:1 de contraste; a celula da
+     tira tem 10px e nao tem esse rodape. O quadradinho ao lado do nome continua — a
+     identidade da cor nao se perde.
 
-     A VARREDURA DE COR NAO ENTRA AQUI. Ela depende de uma faixa vazia de 18px no rodape
-     do cartao, medida para o texto cinza nao cair para 3,7:1 de contraste; a celula da
-     tira tem 12px e nao tem esse rodape. Sem a faixa, a cor bateria em cima do rotulo.
-     O quadradinho ao lado do nome continua — a identidade da cor nao se perde. */
-  #totMov{display:flex;gap:1px;overflow:hidden;background:var(--linha);
-    border:1px solid var(--linha);border-radius:var(--raio)}
-  /* O VAO DE 1px E A DIVISORIA, e nao uma borda em cada celula: com `border-right` no
-     filho, a ULTIMA celula visivel precisaria perder a dela — e `:last-child` aponta
-     para um cartao escondido, nao para o ultimo que aparece. O fundo do pai aparecendo
-     pelo vao nao tem esse problema, seja qual for o que esta escondido. */
-  #totMov .tot__c{flex:1 1 0;border:0;border-radius:0;padding:8px 10px 10px;
-    background:var(--campo)}
-  #totMov .tot__c::before{display:none}
-  #totMov .tot__c:not([data-cartao="movimentos"]):not([data-cartao="saida"]):not([data-cartao="retorno"]){display:none}
-  #totMov .tot__v{font-size:17px}
-  #totMov .tot__n,#totMov .tot__f{display:none}
+     O VAO DE 1px E A DIVISORIA, e nao uma borda em cada celula: com `border-right` no
+     filho, a ULTIMA celula precisaria perder a dela, e `:last-child` nao serve porque
+     nem todas as celulas da tira estao visiveis. */
+  .faixa3{display:flex;gap:1px;overflow:hidden;background:var(--linha);
+    border:1px solid var(--linha);border-radius:var(--raio);margin:0 0 10px}
+  .faixa3 .tot__c{flex:1 1 0;border:0;border-radius:0;padding:7px 10px 10px;
+    background:var(--campo);min-width:0}
+  .faixa3 .tot__c::before{display:none}
+  .faixa3 .tot__v{font-size:17px}
+  .faixa3 .tot__n,.faixa3 .tot__f{display:none}
 
-  /* ---- MODELO B: OS GRAFICOS ATRAS DE UM BOTAO ----
-     A mesma gaveta dos filtros, com as mesmas medidas: quem ja usou uma sabe usar a
-     outra. Eles EMPILHAM aqui em vez de deslizar de lado: a gaveta tem 92% da altura da
-     tela e rola por dentro, entao ha lugar para os cinco — e um trilho que desliza
-     dentro de uma gaveta que rola faz o dedo competir consigo mesmo. */
-  .gaveta-graficos{position:fixed;left:0;right:0;bottom:0;z-index:61;max-height:92dvh;
-    display:none;flex-direction:column;background:var(--surface);
-    border-top:1px solid var(--neutro);border-radius:18px 18px 0 0;
-    box-shadow:0 -18px 44px rgba(4,14,28,.5)}
-  .gaveta-graficos.aberta{display:flex}
-  .gaveta-graficos__corpo{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 12px 12px}
-  .gaveta-graficos .graficos{grid-template-columns:1fr}
-  .gaveta-graficos .legenda-g{margin-top:10px}
+  /* ---- MODELO C: AS TRES ABAS ---- */
+  .abas-mov{display:flex;gap:4px;margin:0 0 10px}
+  .abas-mov button{flex:1 1 0;min-height:40px;border:1px solid var(--neutro);
+    border-radius:11px;background:var(--surface);color:var(--txt2);
+    font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+  .abas-mov button[aria-selected="true"]{background:var(--surface-2);color:var(--txt);
+    border-color:var(--linha-viva);box-shadow:inset 0 -2px 0 var(--verde)}
+
+  /* QUEM MOSTRA E ESCONDE E A FOLHA, e so aqui dentro. O atributo fica no <html> e o
+     computador o ignora por inteiro — la as tres coisas aparecem juntas, e um script
+     que escondesse blocos por conta propria teria de ser desfeito a cada giro do
+     aparelho. */
+  /* ESTAS REGRAS NAO ALCANCAM NADA QUE SEJA `so-celular`: aquela classe declara
+     `display:flex!important` aqui no celular, e `!important` vence qualquer coisa
+     escrita sem ele. Hoje isso nao atrapalha — as duas pecas `so-celular` desta tela,
+     a tarja e as proprias abas, PRECISAM ficar visiveis nas tres —, mas quem um dia
+     quiser esconder uma delas por aba vai escrever a regra, ver que nada acontece, e
+     procurar o erro em todo lugar menos aqui. Medido: um defeito plantado para esconder
+     a tarja na aba Lista nao mudou um pixel. */
+  html[data-aba-mov="lista"] #totMov,
+  html[data-aba-mov="lista"] #painelGraficosMov,
+  html[data-aba-mov="resumo"] #tabelaMov,
+  html[data-aba-mov="resumo"] #painelGraficosMov,
+  html[data-aba-mov="graficos"] #totMov,
+  html[data-aba-mov="graficos"] #tabelaMov{display:none}
+
+  /* NA ABA RESUMO os sete cartoes voltam a ser cartoes, em DUAS colunas: sete colunas
+     num telefone dariam 50px cada. E "Lancados hoje" sai, como ja tinha sido pedido —
+     com ele seriam sete em duas colunas, e a ultima fileira ficaria com um sozinho. */
+  #totMov{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tot__c[data-cartao="hoje"]{display:none}
+
+  /* OS GRAFICOS EMPILHAM na aba deles: ha tela inteira, e um trilho que desliza de lado
+     dentro de uma pagina que rola para baixo faz o dedo competir consigo mesmo. */
+  .painel-graficos .graficos{grid-template-columns:1fr}
 
   /* NAO HA REGRA AQUI PARA AS COLUNAS NOVAS, e a ausencia e deliberada. Eu tinha escrito
      uma escondendo Veiculo, Rota e Observacao no telefone. Ela nao escondia nada: abaixo

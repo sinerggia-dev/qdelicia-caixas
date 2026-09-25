@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=93d42d6f">
+<link rel="stylesheet" href="styles.css?v=700a28e0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -633,14 +633,24 @@
            voltar — atrito demais para uma coisa de uso diário, e o efeito real era a
            pessoa arrastar, nada acontecer, e concluir que o recurso tinha sumido. -->
       <div class="trava-colunas" data-trava-colunas></div>
+      <!-- A TARJA DE TRÊS, só no celular, e ACIMA das abas de propósito: por estar
+           fora delas, os três números continuam na tela com a Lista aberta. Dentro de
+           uma aba, trocar para a Lista apagaria o resumo inteiro e a pessoa teria de
+           voltar ao Resumo só para lembrar quanto saiu.
+           Três e só três: é tarja de referência, não o resumo. O resumo completo —
+           saldo, teste, ajuste — continua na aba. -->
+      <div class="faixa3 so-celular" id="totMov3"></div>
+
+      <!-- AS TRÊS ABAS. A primeira é a LISTA, e não o Resumo: abrir no resumo esconde
+           justamente o que se veio buscar, e a aba que abre tem de ser a do uso mais
+           frequente. -->
+      <nav class="abas-mov so-celular" id="abasMov" role="tablist" aria-label="O que ver">
+        <button type="button" role="tab" data-aba="lista" aria-selected="true">Lista</button>
+        <button type="button" role="tab" data-aba="resumo" aria-selected="false">Resumo</button>
+        <button type="button" role="tab" data-aba="graficos" aria-selected="false">Gráficos</button>
+      </nav>
+
       <div class="tot" id="totMov"></div>
-      <!-- SÓ NO CELULAR. No computador os cinco gráficos moram na página, abaixo da
-           tabela, e um botão para abri-los seria um clique a mais para ver o que já
-           está à vista. -->
-      <div class="so-celular linha-btn" style="margin:10px 0 0">
-        <button class="btn sec" type="button" id="btnAbrirGraficosMov"
-                style="width:100%">Ver gráficos</button>
-      </div>
       <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
 
       <!-- OS CINCO RECORTES, abaixo da tabela: quem chega nesta tela vem ver uma LINHA,
@@ -651,14 +661,12 @@
            estilo a transforma na gaveta que sobe. Duas cópias dariam dois `#graficosMov`,
            e `getElementById` passaria a desenhar sempre no primeiro — os gráficos do
            telefone congelariam no recorte de quando a tela foi aberta. -->
-      <section class="gaveta-graficos" id="folhaGraficosMov" data-gaveta
-               aria-labelledby="tituloGraficosMov">
-        <div class="folha__puxador so-celular" aria-hidden="true"></div>
-        <div class="folha__cab so-celular">
-          <h3 class="folha__t" id="tituloGraficosMov">Gráficos</h3>
-          <button class="btn-icone" type="button" data-fechar-folha aria-label="Fechar">✕</button>
-        </div>
-        <div class="gaveta-graficos__corpo">
+      <!-- NÃO É MAIS GAVETA, e o nome mudou junto. Na versão anterior os gráficos
+           abriam numa folha que subia; agora são uma das três abas, e um nome que
+           dissesse "gaveta" mandaria o próximo leitor procurar um botão que não
+           existe mais. -->
+      <section class="painel-graficos" id="painelGraficosMov">
+        <div>
       <div class="legenda-g">
         <span><i style="background:var(--azul-cheio)"></i>Saída</span>
         <span><i style="background:var(--verde-cheio)"></i>Retorno</span>
@@ -4327,12 +4335,9 @@
     });
   })();
 
-  /* AS DUAS GAVETAS DO CELULAR abrem pelo mesmo caminho: fecha o que estiver aberto,
-     marca a sua e acende o véu. Escrito duas vezes, a segunda esqueceria o `fecharFolhas`
-     e as duas ficariam abertas uma por cima da outra. */
-  function ligarGaveta(idBotao, idGaveta){
-    var b = document.getElementById(idBotao);
-    var g = document.getElementById(idGaveta);
+  (function(){
+    var b = document.getElementById('btnAbrirFiltrosMov');
+    var g = document.getElementById('caixaFiltrosMov');
     if (!b || !g) return;
     b.addEventListener('click', function(){
       fecharFolhas();
@@ -4340,26 +4345,34 @@
       var veu = document.getElementById('veuFolha');
       if (veu) veu.hidden = false;
     });
-  }
-  ligarGaveta('btnAbrirFiltrosMov', 'caixaFiltrosMov');
-  ligarGaveta('btnAbrirGraficosMov', 'folhaGraficosMov');
+  })();
 
-  /* GIRAR O APARELHO não pode deixar a gaveta marcada como aberta numa largura em que
-     ela é um bloco comum: ao voltar para o telefone, ela nasceria aberta por cima da
-     lista, sem ninguém ter tocado no botão. A mesma guarda que a barra de filtros já
-     tinha no outro sentido. */
+  /* ---------- AS TRÊS ABAS DO CELULAR ----------
+   *
+   * A aba escolhida mora num atributo do <html>, e quem mostra e esconde é a folha de
+   * estilo, dentro do bloco do telefone. Assim o computador ignora o atributo por
+   * inteiro: lá as três coisas aparecem juntas, e um script que escondesse blocos por
+   * conta própria teria de ser desfeito a cada mudança de largura.
+   *
+   * A LISTA ABRE PRIMEIRO. Abrir no Resumo esconde justamente o que a pessoa veio
+   * buscar — e a aba que abre é a do uso mais frequente, não a do nome mais bonito.
+   */
+  function abaMov(qual){
+    document.documentElement.dataset.abaMov = qual;
+    var nav = document.getElementById('abasMov');
+    if (!nav) return;
+    Array.prototype.forEach.call(nav.children, function(b){
+      b.setAttribute('aria-selected', b.dataset.aba === qual ? 'true' : 'false');
+    });
+  }
   (function(){
-    var m = window.matchMedia('(max-width:1023px)');
-    var ouvir = function(ev){
-      if (ev.matches) return;
-      document.querySelectorAll('[data-gaveta].aberta').forEach(function(g){
-        g.classList.remove('aberta');
-      });
-      var veu = document.getElementById('veuFolha');
-      if (veu) veu.hidden = true;
-    };
-    if (m.addEventListener) m.addEventListener('change', ouvir);
-    else if (m.addListener) m.addListener(ouvir);
+    var nav = document.getElementById('abasMov');
+    if (!nav) return;
+    abaMov('lista');
+    nav.addEventListener('click', function(e){
+      var b = e.target.closest('button[data-aba]');
+      if (b) abaMov(b.dataset.aba);
+    });
   })();
 
   /* Só recarrega se ela estiver ABERTA. Fechada, ela busca ao abrir — e buscar aqui
@@ -4623,6 +4636,17 @@
        Um id do `padrao` SEM ficha estoura na linha de baixo, e é o que se quer: é erro
        de código, não de dado, e há afirmação cobrando que as duas listas coincidam. */
     var ordem = ordemColunas(CARTOES_MOV);
+    /* A TARJA LÊ AS MESMAS FICHAS, e não um cálculo próprio. Dois cálculos sobre o
+       mesmo recorte divergem no dia em que um deles for corrigido sozinho — e a tela
+       passaria a mostrar dois "Saída" diferentes, um acima do outro. */
+    var tarja = document.getElementById('totMov3');
+    if (tarja) {
+      tarja.innerHTML = ['movimentos','saida','retorno'].map(function(id, i){
+        var f = FICHAS[id];
+        return f ? cartaoTot(i, 3, f.cor, f.rotulo, f.valor, '', null, id) : '';
+      }).join('');
+    }
+
     box.innerHTML = ordem.map(function(id, i){
       var f = FICHAS[id];
       /* O `i` É A POSIÇÃO NA TELA, e não a identidade do cartão: a varredura de cor

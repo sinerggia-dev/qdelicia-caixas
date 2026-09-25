@@ -2314,24 +2314,63 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
     'e a fileira não tem ponto de quebra nenhum — abaixo de 1024px quem desenha é a ' +
     'faixa fina, e meia fileira não acontece porque não há fileira para partir',
     corte);
-  /* E A FAIXA FINA EXISTE. Sem esta, apagar o bloco do telefone deixaria a afirmação
-     acima verde — sem cortes e sem faixa, os sete cartões cairiam em três fileiras e
+  /* E A TARJA DE TRÊS EXISTE. Sem esta, apagar o bloco do telefone deixaria a afirmação
+     acima verde — sem cortes e sem tarja, os sete cartões cairiam em três fileiras e
      meia num celular, que é exatamente o estrago que ela diz impedir. */
-  ok(/#totMov\{display:flex/.test(semComentarios(css)),
-    'e abaixo de 1024px os números viram uma faixa fina de três células — é o modelo ' +
-    'B: quem abre Movimentos no telefone quer achar um lançamento, não analisar');
+  ok(/\.faixa3\{display:flex/.test(semComentarios(css)),
+    'e abaixo de 1024px os números viram uma tarja fina de três células');
 
-  /* AS TRÊS SÃO ESCOLHIDAS PELO NOME. `nth-child(n+4)` esconderia o quarto da FILEIRA,
-     e a fileira é reordenável: quem arrastasse o Saldo para o início perderia o Retorno
-     sem entender por quê. O seletor pergunta quem o cartão é, não onde ele está. */
-  var faixa = (semComentarios(css).match(/#totMov \.tot__c:not\([^{]*\{display:none\}/) || [])[0] || '';
-  ok(/data-cartao="movimentos"/.test(faixa) && /data-cartao="saida"/.test(faixa) &&
-     /data-cartao="retorno"/.test(faixa),
-    'e as três células da faixa são escolhidas pelo NOME do cartão — por posição, ' +
-    'reordenar a fileira no computador trocaria quem aparece no telefone', faixa);
-  ok(!/#totMov[^{]*nth-child/.test(semComentarios(css)),
-    'e não há `nth-child` decidindo quem aparece na faixa, que é o mesmo erro escrito ' +
-    'de outro jeito');
+  /* A TARJA FICA FORA DAS ABAS, e é isso que a faz sobreviver à troca. Dentro de uma
+     delas, abrir a Lista apagaria o resumo inteiro e a pessoa teria de voltar ao Resumo
+     só para lembrar quanto saiu. No documento ela vem ANTES da fileira de abas. */
+  ok(adm.indexOf('id="totMov3"') < adm.indexOf('id="abasMov"') &&
+     adm.indexOf('id="abasMov"') > 0,
+    'e a tarja fica ACIMA das abas, fora delas — por isso os três números continuam ' +
+    'na tela com a Lista aberta',
+    [adm.indexOf('id="totMov3"'), adm.indexOf('id="abasMov"')]);
+
+  /* AS TRÊS SÃO ESCOLHIDAS PELO NOME, e lidas das MESMAS fichas que desenham os
+     cartões grandes. Por posição, a fileira é reordenável e quem arrastasse o Saldo
+     para o início perderia o Retorno; por um cálculo próprio, a tela mostraria dois
+     "Saída" diferentes, um acima do outro, no dia em que um deles fosse corrigido. */
+  var tarja = desenho.slice(desenho.indexOf("var tarja ="), desenho.indexOf('box.innerHTML'));
+  ok(/\['movimentos','saida','retorno'\]/.test(tarja.replace(/\s/g, '')),
+    'e as três células da tarja são escolhidas pelo NOME do cartão — por posição, ' +
+    'reordenar a fileira no computador trocaria quem aparece no telefone', tarja.slice(0, 160));
+  ok(/FICHAS\[id\]/.test(tarja),
+    'e saem das MESMAS fichas dos cartões grandes — dois cálculos sobre o mesmo ' +
+    'recorte divergem no dia em que um deles for corrigido sozinho');
+
+  /* AS DUAS PEÇAS NOVAS SÓ EXISTEM NO CELULAR. No computador os sete cartões estão na
+     tela inteiros, logo abaixo: uma tarja repetindo três deles seria o mesmo número
+     duas vezes, e abas para esconder o que já cabe seriam um clique para chegar onde
+     já se está.
+     ESTA É TEXTUAL PORQUE A OUTRA MEDIÇÃO NÃO ALCANÇA — e é a segunda vez que este
+     mesmo buraco deixa um defeito passar. A sonda do navegador monta a marcação à mão,
+     para variar a largura sem depender do login: ela mede o CSS, não o que o
+     `admin.html` escreve. Medido: tirar o `so-celular` daqui não muda um pixel do que
+     ela desenha. */
+  [['totMov3', 'a tarja de três'], ['abasMov', 'a fileira de abas']].forEach(function (p) {
+    var tag = (adm.match(new RegExp('<[^>]*id="' + p[0] + '"[^>]*>')) || [])[0] || '';
+    ok(/\bso-celular\b/.test(tag),
+      'e ' + p[1] + ' só existe no celular — no computador os sete cartões já estão ' +
+      'na tela, e repeti-los numa tarja seria o mesmo número duas vezes', tag.slice(0, 110));
+  });
+
+  /* A ABA QUE ABRE É A LISTA. Abrir no Resumo esconde justamente o que a pessoa veio
+     buscar, e a aba inicial tem de ser a do uso mais frequente. */
+  var nav = (adm.match(/<nav class="abas-mov[\s\S]*?<\/nav>/) || [''])[0];
+  ok(/data-aba="lista"[^>]*aria-selected="true"/.test(nav),
+    'e a aba que abre é a LISTA — abrir no Resumo esconde o que se veio buscar', nav.slice(0, 200));
+  ok(/abaMov\('lista'\)/.test(adm),
+    'e o script começa por ela também, senão a marcação diria uma coisa e a tela outra');
+
+  /* QUEM MOSTRA E ESCONDE É A FOLHA DE ESTILO, dentro do bloco do telefone. Um script
+     escondendo blocos por conta própria teria de ser desfeito a cada giro do aparelho —
+     e no computador as três coisas aparecem juntas, sem aba nenhuma. */
+  ok(/html\[data-aba-mov="lista"\] #totMov/.test(semComentarios(css)),
+    'e quem esconde por aba é o CSS, no bloco do celular — no computador o atributo ' +
+    'é ignorado por inteiro e as três coisas ficam na tela');
 
   /* AS GAVETAS DO CELULAR FECHAM POR UMA REGRA SÓ. Com o seletor pelo nome de uma
      delas, a segunda que aparecesse ficaria fora do X, do véu e do Esc — a única que
@@ -2340,30 +2379,27 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
   ok(/\[data-gaveta\]\.aberta/.test(fechar) && !/\.filtros-caixa\.aberta/.test(fechar),
     'e as gavetas do celular fecham por `[data-gaveta]`, não pelo nome de uma delas — ' +
     'a segunda gaveta entra sozinha no X, no véu e no Esc', fechar.slice(0, 200));
-  /* AS DUAS, PELO NOME. Isto era uma CONTAGEM — `>= 3` marcas no arquivo —, e contagem
-     é proxy: tirar a marca da gaveta dos gráficos deixava três (a dos filtros, a busca
-     que fecha e a guarda de girar o aparelho) e a afirmação passava, com o X e o Esc
-     já não alcançando a gaveta nova. Pego na sabotagem. */
-  [['caixaFiltrosMov', 'a dos filtros'],
-   ['folhaGraficosMov', 'a dos gráficos']].forEach(function (g) {
-    var tag = (adm.match(new RegExp('<[^>]*id="' + g[0] + '"[^>]*>')) || [])[0] || '';
-    ok(/data-gaveta/.test(tag),
-      'e a gaveta ' + g[1] + ' carrega a marca que o X, o véu e o Esc procuram — sem ' +
-      'ela, é a única que não fecha, e ninguém consegue explicar por quê', tag.slice(0, 120));
-  });
+  /* A MARCA CONTINUA NA CAIXA DE FILTROS, que é a gaveta que restou. A dos gráficos
+     deixou de existir: eles viraram uma aba, e não uma folha que sobe.
+     Isto era uma CONTAGEM — `>= 3` marcas no arquivo —, e contagem é proxy: tirar a
+     marca de uma delas deixava três e a afirmação passava, com o X e o Esc já não
+     alcançando aquela gaveta. Pego na sabotagem, e por isso é pelo nome. */
+  var tagFiltros = (adm.match(/<[^>]*id="caixaFiltrosMov"[^>]*>/) || [])[0] || '';
+  ok(/data-gaveta/.test(tagFiltros),
+    'e a caixa de filtros carrega a marca que o X, o véu e o Esc procuram — sem ela, ' +
+    'é a única que não fecha, e ninguém consegue explicar por quê', tagFiltros.slice(0, 120));
 
-  /* O BOTÃO "VER GRÁFICOS" SÓ NO CELULAR. No computador os cinco gráficos moram na
-     página, abaixo da tabela: um botão para abrir o que já está à vista é um clique a
-     mais para chegar no mesmo lugar.
-     ESTA É TEXTUAL PORQUE A OUTRA MEDIÇÃO NÃO ALCANÇA. A sonda do navegador monta a
-     marcação à mão, para poder variar a largura sem depender do login — então ela mede
-     o comportamento do CSS, e não o que o `admin.html` escreve. Defeito na marcação
-     passa por ela sem ser visto: medido, tirar o `so-celular` daqui não muda um pixel
-     do que ela desenha. */
-  var botaoG = (adm.match(/<div class="([^"]*)"[^>]*>\s*<button[^>]*id="btnAbrirGraficosMov"/) || [])[1] || '';
-  ok(/\bso-celular\b/.test(botaoG),
-    'e o botão "Ver gráficos" existe só no celular — no computador os cinco já estão ' +
-    'na página, e o botão seria um clique para chegar onde já se está', botaoG);
+  /* A GAVETA DOS GRÁFICOS FOI EMBORA INTEIRA, e o nome foi junto. Ficasse a classe
+     `gaveta-graficos` num bloco que já é aba, o próximo leitor procuraria um botão de
+     abrir que não existe mais — e um nome que mente custa mais caro que um nome feio. */
+  ['gaveta-graficos', 'btnAbrirGraficosMov', 'folhaGraficosMov'].forEach(function (morto) {
+    ok(adm.indexOf(morto) < 0 && css.indexOf(morto) < 0,
+      'e não sobrou nada chamado `' + morto + '` — os gráficos são uma aba, não uma ' +
+      'gaveta, e o nome tem de dizer isso');
+  });
+  ok(/\.painel-graficos \.graficos\{grid-template-columns:1fr\}/.test(semComentarios(css)),
+    'e na aba deles os cinco EMPILHAM — há tela inteira, e um trilho que desliza de ' +
+    'lado dentro de uma página que rola para baixo faz o dedo competir consigo mesmo');
   /* ESTA AFIRMAÇÃO PRENDIA OS NÚMEROS — `clamp(16px,1.42vw,21px)` e
      `clamp(10px,.82vw,11.5px)` — e reprovava a cada mexida de tamanho, que é decisão de
      quem desenha, não regra. A garantia que ela anuncia é outra: o texto é FLUIDO, então
