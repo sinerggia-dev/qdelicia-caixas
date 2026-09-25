@@ -1040,7 +1040,7 @@ th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--linha);whit
    que deixa a linha mais baixa sem encolher o alvo de quem corrige um lancamento. */
 #tabelaMov th,#tabelaMov td{padding:4px 8px}
 #tabelaMov .mini{padding:3px 8px;font-size:12px}
-#tabelaMov .tag{padding:0 6px;font-size:9.5px}
+#tabelaMov .tag{padding:0 6px;font-size:10.5px}
 th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--txt2);background:var(--surface-2);position:sticky;top:0}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 tbody tr:hover{background:var(--surface-2)}
@@ -2137,15 +2137,15 @@ details.tipos[open] summary::before{content:"▾"}
   -webkit-mask:linear-gradient(to top,#000 0,#000 6px,rgba(0,0,0,.35) 18px,transparent 46px);
   mask:linear-gradient(to top,#000 0,#000 6px,rgba(0,0,0,.35) 18px,transparent 46px)}
 .g__c{display:flex;align-items:baseline;gap:4px;margin-bottom:9px;min-width:0}
-.g__t{margin:0;flex:1 1 auto;min-width:0;font-size:clamp(9px,.8vw,10.5px);font-weight:700;
+.g__t{margin:0;flex:1 1 auto;min-width:0;font-size:clamp(10px,.88vw,11.5px);font-weight:700;
   letter-spacing:.02em;text-transform:uppercase;color:var(--txt3);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.g__n{flex:0 0 auto;font-size:clamp(9px,.74vw,10px);color:var(--txt3);
+.g__n{flex:0 0 auto;font-size:clamp(9.5px,.8vw,11px);color:var(--txt3);
   font-variant-numeric:tabular-nums;white-space:nowrap}
 /* Abaixo de 1000px a contagem some antes do rotulo: ela e o dado menos importante do
    painel, e some sem levar informacao junto. */
 @media (max-width:1000px){.g__n{display:none}}
-.g__vazio{font-size:11px;color:var(--txt3);padding:6px 0}
+.g__vazio{font-size:12px;color:var(--txt3);padding:6px 0}
 /* A BARRA TAMBEM E UM BOTAO: clicar filtra a tela inteira. Ela nasce como <button>, e
    nao como <div> com ouvinte, para chegar pelo teclado e ser anunciada como botao. */
 .gb{display:block;width:100%;text-align:left;padding:3px 4px;margin:0 -4px 5px;
@@ -2160,9 +2160,9 @@ details.tipos[open] summary::before{content:"▾"}
 .gb[aria-pressed="true"] .gb__k{color:var(--txt);font-weight:600}
 .g .gb:last-child{margin-bottom:0}
 .gb__r{display:flex;align-items:baseline;gap:6px;margin-bottom:4px;min-width:0}
-.gb__k{flex:1 1 auto;min-width:0;font-size:clamp(9.5px,.82vw,11px);color:var(--txt2);
+.gb__k{flex:1 1 auto;min-width:0;font-size:clamp(10.5px,.9vw,12px);color:var(--txt2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gb__v{flex:0 0 auto;font-size:clamp(9.5px,.82vw,11px);font-weight:600;color:var(--txt);
+.gb__v{flex:0 0 auto;font-size:clamp(10.5px,.9vw,12px);font-weight:600;color:var(--txt);
   font-variant-numeric:tabular-nums;white-space:nowrap}
 .gb__t{display:block;height:7px;border-radius:999px;background:rgba(255,255,255,.055)}
 .gb__f{display:flex;gap:2px;height:100%;border-radius:999px;overflow:hidden}
@@ -2173,12 +2173,12 @@ details.tipos[open] summary::before{content:"▾"}
 .gb__d{background:var(--verde-cheio)}
 .gb:hover .gb__k,.gb:hover .gb__v{color:var(--txt)}
 .legenda-g{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:14px 0 0;
-  font-size:11.5px;color:var(--txt2)}
+  font-size:12.5px;color:var(--txt2)}
 .legenda-g span{display:inline-flex;align-items:center;gap:6px}
 .legenda-g i{width:9px;height:9px;border-radius:2px}
 /* O aviso vai para a DIREITA e some quando nao ha o que avisar. Aviso permanente vira
    ruido, e ruido constante e o que faz ninguem reparar no dia em que ele muda. */
-.legenda-g em{margin-left:auto;font-style:normal;color:var(--ambar-forte);font-size:11px}
+.legenda-g em{margin-left:auto;font-style:normal;color:var(--ambar-forte);font-size:12px}
 .legenda-g em:empty{display:none}
 
 /* ---------- os seis totais do recorte (Movimentos) ----------
@@ -2208,16 +2208,19 @@ details.tipos[open] summary::before{content:"▾"}
    valores deixavam de ter o mesmo peso — um parecia mais importante que o outro sem
    que ninguem tivesse decidido isso. */
 .tot__r{display:flex;align-items:center;gap:6px;margin-bottom:2px;
-  font-size:clamp(10px,.82vw,11.5px);color:var(--txt2);
+  font-size:clamp(11.5px,.95vw,13px);color:var(--txt2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tot__r i{width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:var(--cor,var(--linha))}
-.tot__v{font-family:var(--fonte-mono);font-size:clamp(16px,1.42vw,21px);font-weight:700;
+.tot__v{font-family:var(--fonte-mono);font-size:clamp(17px,1.5vw,22px);font-weight:700;
   letter-spacing:-.5px;line-height:1.1;color:var(--txt);font-variant-numeric:tabular-nums}
 /* A fatia do total movimentado responde "2.380 e muito ou pouco?" sem virar grafico. */
 .tot__f{height:4px;margin-top:7px;border-radius:999px;background:rgba(255,255,255,.08);
   overflow:hidden}
 .tot__f i{display:block;height:100%;border-radius:999px;background:var(--cor,var(--linha))}
-.tot__n{margin-top:5px;font-size:clamp(9.5px,.74vw,10.5px);color:var(--txt3);
+/* A NOTA E QUEM EXPLICA O NUMERO GRANDE: sem ela, "8" nao diz 8 de que. Estava em
+   10px — a menor letra da tela inteira, e no papel de legenda de tudo o que esta
+   acima. Cresce mais do que as outras de proposito, e e a mudanca pedida. */
+.tot__n{margin-top:5px;font-size:clamp(11px,.92vw,12.5px);color:var(--txt3);
   line-height:1.35;overflow:hidden;text-overflow:ellipsis}
 
 .mod-colunas{border:1px solid var(--linha);border-radius:var(--raio);margin-bottom:12px}

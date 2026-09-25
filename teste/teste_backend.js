@@ -78,7 +78,16 @@ const codigo = fs.readFileSync(path.join(__dirname, '..', 'apps-script', 'Code.g
 eval(codigo);
 
 /* ---------- utilidades do teste ---------- */
-const dia = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+/* O DIA LOCAL, montado peça por peça. Com `toISOString()` ele virava UTC, e em Brasília
+   (−3) toda data passava a ser a do DIA SEGUINTE a partir das 21h. A suíte ficava verde
+   o dia inteiro e vermelha à noite: "caixa mais antiga tem 20 dias" media 19, porque a
+   compra tinha sido registrada um dia mais tarde do que o teste pensava. Suíte que muda
+   de cor com a hora do relógio ensina a ignorar o vermelho. */
+const dia = (n) => {
+  const d = new Date(); d.setDate(d.getDate() + n);
+  const p = (x) => String(x).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+};
 const POST = (p) => JSON.parse(doPost({ postData: { contents: JSON.stringify(p) } }).getContent());
 const GET = (p) => JSON.parse(doGet({ parameter: p }).getContent());
 let falhas = 0;

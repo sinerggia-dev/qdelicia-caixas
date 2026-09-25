@@ -2138,9 +2138,34 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
     'e o ÚNICO ponto de quebra é 700px, que é celular — um corte em 1180px fazia 3+3 ' +
     'numa janela de 1100px, e meia fileira lê como se a outra metade tivesse sumido',
     corte);
-  ok(/font-size:clamp\(16px,1\.42vw,21px\)/.test(css) &&
-     /\.tot__r\{[\s\S]{0,120}font-size:clamp\(10px,\.82vw,11\.5px\)/.test(css),
-    'e quem encolhe é o texto, pelo `clamp` — a grade não quebra');
+  /* ESTA AFIRMAÇÃO PRENDIA OS NÚMEROS — `clamp(16px,1.42vw,21px)` e
+     `clamp(10px,.82vw,11.5px)` — e reprovava a cada mexida de tamanho, que é decisão de
+     quem desenha, não regra. A garantia que ela anuncia é outra: o texto é FLUIDO, então
+     quem cede à largura é a letra e não a grade. Quem cobra a grade são as duas
+     afirmações acima. Aqui fica só a forma: piso, meio em `vw`, teto — e piso menor que
+     teto, senão o `clamp` é um tamanho fixo escrito de um jeito complicado. */
+  ['tot__v', 'tot__r', 'tot__n'].forEach(function (cl) {
+    var r = new RegExp('\\.' + cl + '\\{[\\s\\S]{0,160}?font-size:' +
+                       'clamp\\(([\\d.]+)px,([\\d.]+)vw,([\\d.]+)px\\)');
+    var m = css.match(r);
+    ok(m && parseFloat(m[1]) < parseFloat(m[3]),
+      'o texto do cartão (.' + cl + ') encolhe pelo `clamp`, com piso e teto — quem ' +
+      'cede à largura é a letra, e a grade de seis não quebra',
+      m && m.slice(1));
+  });
+
+  /* E O DETALHE NÃO É A MENOR LETRA DA TELA. Ele é quem diz o que o número grande
+     conta — "40 linhas de caixa" embaixo de um "8" que, sozinho, não diz 8 de quê.
+     Estava em 10px, menor que o rótulo e menor que a legenda dos gráficos; ninguém
+     escolheu isso, foi o que sobrou de encolher tudo para os gráficos caberem. */
+  var teto = function (cl) {
+    var m = css.match(new RegExp('\\.' + cl + '\\{[\\s\\S]{0,160}?font-size:' +
+                                 'clamp\\([\\d.]+px,[\\d.]+vw,([\\d.]+)px\\)'));
+    return m ? parseFloat(m[1]) : -1;
+  };
+  ok(teto('tot__n') >= 12,
+    'e a nota do cartão chega a 12px — é ela que diz o que o número grande conta, e ' +
+    'era a menor letra da tela inteira', teto('tot__n'));
   /* A COR IDENTIFICA UMA VEZ SÓ: num quadradinho junto do rótulo, com o número branco.
      Colorindo o número também, a cor dizia a mesma coisa duas vezes e os seis valores
      deixavam de ter o mesmo peso. */
