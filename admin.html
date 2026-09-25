@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=91251049">
+<link rel="stylesheet" href="styles.css?v=93d42d6f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -634,21 +634,43 @@
            pessoa arrastar, nada acontecer, e concluir que o recurso tinha sumido. -->
       <div class="trava-colunas" data-trava-colunas></div>
       <div class="tot" id="totMov"></div>
+      <!-- SÓ NO CELULAR. No computador os cinco gráficos moram na página, abaixo da
+           tabela, e um botão para abri-los seria um clique a mais para ver o que já
+           está à vista. -->
+      <div class="so-celular linha-btn" style="margin:10px 0 0">
+        <button class="btn sec" type="button" id="btnAbrirGraficosMov"
+                style="width:100%">Ver gráficos</button>
+      </div>
       <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
 
       <!-- OS CINCO RECORTES, abaixo da tabela: quem chega nesta tela vem ver uma LINHA,
            e o resumo é o segundo olhar. Acima, eles empurrariam a lista para baixo da
            dobra em toda visita. -->
+      <!-- A MESMA LEGENDA E OS MESMOS GRÁFICOS NAS DUAS LARGURAS, num nó só. No
+           computador esta caixa é um bloco comum e não muda nada; no celular a folha de
+           estilo a transforma na gaveta que sobe. Duas cópias dariam dois `#graficosMov`,
+           e `getElementById` passaria a desenhar sempre no primeiro — os gráficos do
+           telefone congelariam no recorte de quando a tela foi aberta. -->
+      <section class="gaveta-graficos" id="folhaGraficosMov" data-gaveta
+               aria-labelledby="tituloGraficosMov">
+        <div class="folha__puxador so-celular" aria-hidden="true"></div>
+        <div class="folha__cab so-celular">
+          <h3 class="folha__t" id="tituloGraficosMov">Gráficos</h3>
+          <button class="btn-icone" type="button" data-fechar-folha aria-label="Fechar">✕</button>
+        </div>
+        <div class="gaveta-graficos__corpo">
       <div class="legenda-g">
         <span><i style="background:var(--azul-cheio)"></i>Saída</span>
         <span><i style="background:var(--verde-cheio)"></i>Retorno</span>
         <em id="gNotaMov"></em>
       </div>
       <div class="graficos" id="graficosMov"></div>
+        </div>
+      </section>
       </div><!-- /mov-conteudo -->
 
       <aside class="filtros-caixa" id="caixaFiltrosMov" aria-label="Filtros"
-             aria-expanded="false">
+             data-gaveta aria-expanded="false">
         <!-- A FAIXA FECHADA: o funil, a contagem e o rótulo em pé. É o que se vê nos
              56px de largura, e é o que diz que ali há filtros — sem ela o trilho seria
              uma tira cinza que ninguém descobre. -->
@@ -4305,16 +4327,39 @@
     });
   })();
 
-  (function(){
-    var b = document.getElementById('btnAbrirFiltrosMov');
-    var caixa = document.getElementById('caixaFiltrosMov');
-    if (!b || !caixa) return;
+  /* AS DUAS GAVETAS DO CELULAR abrem pelo mesmo caminho: fecha o que estiver aberto,
+     marca a sua e acende o véu. Escrito duas vezes, a segunda esqueceria o `fecharFolhas`
+     e as duas ficariam abertas uma por cima da outra. */
+  function ligarGaveta(idBotao, idGaveta){
+    var b = document.getElementById(idBotao);
+    var g = document.getElementById(idGaveta);
+    if (!b || !g) return;
     b.addEventListener('click', function(){
       fecharFolhas();
-      caixa.classList.add('aberta');
+      g.classList.add('aberta');
       var veu = document.getElementById('veuFolha');
       if (veu) veu.hidden = false;
     });
+  }
+  ligarGaveta('btnAbrirFiltrosMov', 'caixaFiltrosMov');
+  ligarGaveta('btnAbrirGraficosMov', 'folhaGraficosMov');
+
+  /* GIRAR O APARELHO não pode deixar a gaveta marcada como aberta numa largura em que
+     ela é um bloco comum: ao voltar para o telefone, ela nasceria aberta por cima da
+     lista, sem ninguém ter tocado no botão. A mesma guarda que a barra de filtros já
+     tinha no outro sentido. */
+  (function(){
+    var m = window.matchMedia('(max-width:1023px)');
+    var ouvir = function(ev){
+      if (ev.matches) return;
+      document.querySelectorAll('[data-gaveta].aberta').forEach(function(g){
+        g.classList.remove('aberta');
+      });
+      var veu = document.getElementById('veuFolha');
+      if (veu) veu.hidden = true;
+    };
+    if (m.addEventListener) m.addEventListener('change', ouvir);
+    else if (m.addListener) m.addListener(ouvir);
   })();
 
   /* Só recarrega se ela estiver ABERTA. Fechada, ela busca ao abrir — e buscar aqui
@@ -5057,7 +5102,11 @@
            de conferência — ele dizia "não entrou no saldo". */
         return '<tr class="'+(m.divergencia?'ruim':'')+'">'+
           cs.map(function(c){
-            return '<td'+(c.d.num ? ' class="num"' : '')+'>'+c.d.v(m)+'</td>';
+            /* O `data-col` TAMBEM NA CELULA, e nao so no cabecalho: e por ele que a
+               folha de estilo esconde uma coluna inteira no telefone. Escondendo so o
+               `<th>`, as celulas continuariam ali e a linha andaria uma casa. */
+            return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+
+                   '>'+c.d.v(m)+'</td>';
           }).join('')+
           /* Corrigir sai de `Q.podeCorrigir`, a MESMA regra que o app de campo usa: as
              duas telas oferecem o conserto, e uma regra escrita nos dois lugares diverge.
@@ -5377,10 +5426,12 @@
 
   function fecharFolhas(){
     document.querySelectorAll('.folha').forEach(function(f){ f.hidden = true; });
-    /* A caixa de filtros é folha só no celular: no computador ela é um bloco comum, e
-       tirar a classe não faz nada — por isso não há um caminho separado para cada
-       largura. */
-    document.querySelectorAll('.filtros-caixa.aberta').forEach(function(f){
+    /* QUALQUER GAVETA, e não a de filtros por nome. Elas são folha só no celular: no
+       computador são blocos comuns, e tirar a classe não faz nada — por isso não há um
+       caminho separado para cada largura. Com o seletor pelo NOME de uma delas, a
+       segunda gaveta que aparecesse ficaria fora do X, do véu e do Esc, e seria a única
+       que não fecha — o tipo de diferença que ninguém consegue explicar. */
+    document.querySelectorAll('[data-gaveta].aberta').forEach(function(f){
       f.classList.remove('aberta');
     });
     /* O painel de filtros do Painel de Ativos entra na conta: no celular ele é uma

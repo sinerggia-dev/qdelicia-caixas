@@ -2196,7 +2196,13 @@ details.tipos[open] summary::before{content:"▾"}
 /* SETE NUMA LINHA. O número está aqui e no `cartaoTot` — se um mudar sem o outro, a
    varredura de cor perde o passo e a emenda entre os cartões aparece. */
 .tot{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin:0 0 12px}
-@media (max-width:700px){.tot{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* NAO HA MAIS CORTE NENHUM PARA A FILEIRA, e e a terceira regra morta que este bloco
+   acumula. Havia um de 700px (duas colunas) e um de 1023 (seis); os dois valiam onde a
+   faixa fina do modelo B ja governa — e ela e `flex`, que ignora
+   `grid-template-columns` inteiro. Ficavam na folha parecendo decidir alguma coisa.
+   Hoje a conta e simples: acima de 1023px, sete colunas para sete cartoes; abaixo, a
+   faixa. Meia fileira nao acontece em largura nenhuma porque nao ha fileira para
+   partir. */
 .tot:empty{display:none}
 /* `isolation:isolate` com o `z-index:-1` da varredura: assim a cor pinta ACIMA do
    fundo do cartao e ABAIXO do texto. Sem isso ela cobre os numeros. */
@@ -2586,6 +2592,85 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
 .barra-teste label{margin:0;font-size:12.5px}
 .barra-teste .dica{font-size:12px;color:var(--txt3);flex:1 1 260px;min-width:0}
 .sel-teste{width:auto;min-width:180px;padding:7px 10px;font-size:13px}
+
+/* ---------- O TELEFONE FICA COMO ERA ----------
+   As mudancas desta leva — o texto maior, o setimo cartao e as tres colunas novas —
+   foram pensadas e medidas numa tela larga. No telefone elas custam caro, e foi medido
+   quanto: o bloco de cartoes passava de 299px para 412, com o setimo sozinho na ultima
+   fileira; e a tabela pedia 1.460px de rolagem lateral em vez de 965 — metade a mais de
+   gesto para ler a mesma linha.
+
+   OS TAMANHOS SAO OS VALORES FIXOS QUE O `clamp` JA DAVA AQUI. Cada um daqueles
+   `clamp(piso, vw, teto)` resolve para o PISO em qualquer largura de telefone — `.82vw`
+   num aparelho de 390px da 3,2px —, entao repetir o piso antigo devolve exatamente o
+   desenho de antes, e nao uma aproximacao dele.
+
+   O QUE SE PERDE NO TELEFONE, e e bom estar escrito: o numero de lancamentos de hoje e
+   as colunas Veiculo, Rota e Observacao. As tres continuam no computador, na lixeira e
+   na exportacao — o CSV sai completo de onde for baixado. */
+@media (max-width:1023px){
+  .tot__r{font-size:10px}
+  .tot__v{font-size:16px}
+  .tot__n{font-size:9.5px}
+  .g__t{font-size:9px}
+  .g__n{font-size:9px}
+  .gb__k,.gb__v{font-size:9.5px}
+  .g__vazio{font-size:11px}
+  .legenda-g{font-size:11.5px}
+  .legenda-g em{font-size:11px}
+  #tabelaMov .tag{font-size:9.5px}
+
+  /* ---- MODELO B: A FAIXA FINA ----
+     Os numeros deixam de ser seis cartoes e viram uma tira de tres celulas. O motivo
+     esta no uso, e nao no espaco: quem abre Movimentos no telefone quase sempre quer
+     ACHAR UM LANCAMENTO, nao analisar — e com os cartoes de antes a lista so comecava
+     depois de 299px de rolagem. Na faixa, ela comeca quase no topo.
+
+     TRES, E ESCOLHIDOS PELO NOME. `nth-child(n+4)` esconderia o QUARTO da fileira, e a
+     fileira e reordenavel: quem arrastasse o Saldo para o inicio perderia a Saida sem
+     entender por que. O seletor pergunta quem o cartao E, nao onde ele esta.
+
+     O QUE SAI DO TELEFONE: saldo, lancados hoje, de teste e ajuste. Os quatro continuam
+     no computador. E uma escolha de modelo, nao um limite de largura — cabiam.
+
+     A VARREDURA DE COR NAO ENTRA AQUI. Ela depende de uma faixa vazia de 18px no rodape
+     do cartao, medida para o texto cinza nao cair para 3,7:1 de contraste; a celula da
+     tira tem 12px e nao tem esse rodape. Sem a faixa, a cor bateria em cima do rotulo.
+     O quadradinho ao lado do nome continua — a identidade da cor nao se perde. */
+  #totMov{display:flex;gap:1px;overflow:hidden;background:var(--linha);
+    border:1px solid var(--linha);border-radius:var(--raio)}
+  /* O VAO DE 1px E A DIVISORIA, e nao uma borda em cada celula: com `border-right` no
+     filho, a ULTIMA celula visivel precisaria perder a dela — e `:last-child` aponta
+     para um cartao escondido, nao para o ultimo que aparece. O fundo do pai aparecendo
+     pelo vao nao tem esse problema, seja qual for o que esta escondido. */
+  #totMov .tot__c{flex:1 1 0;border:0;border-radius:0;padding:8px 10px 10px;
+    background:var(--campo)}
+  #totMov .tot__c::before{display:none}
+  #totMov .tot__c:not([data-cartao="movimentos"]):not([data-cartao="saida"]):not([data-cartao="retorno"]){display:none}
+  #totMov .tot__v{font-size:17px}
+  #totMov .tot__n,#totMov .tot__f{display:none}
+
+  /* ---- MODELO B: OS GRAFICOS ATRAS DE UM BOTAO ----
+     A mesma gaveta dos filtros, com as mesmas medidas: quem ja usou uma sabe usar a
+     outra. Eles EMPILHAM aqui em vez de deslizar de lado: a gaveta tem 92% da altura da
+     tela e rola por dentro, entao ha lugar para os cinco — e um trilho que desliza
+     dentro de uma gaveta que rola faz o dedo competir consigo mesmo. */
+  .gaveta-graficos{position:fixed;left:0;right:0;bottom:0;z-index:61;max-height:92dvh;
+    display:none;flex-direction:column;background:var(--surface);
+    border-top:1px solid var(--neutro);border-radius:18px 18px 0 0;
+    box-shadow:0 -18px 44px rgba(4,14,28,.5)}
+  .gaveta-graficos.aberta{display:flex}
+  .gaveta-graficos__corpo{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 12px 12px}
+  .gaveta-graficos .graficos{grid-template-columns:1fr}
+  .gaveta-graficos .legenda-g{margin-top:10px}
+
+  /* NAO HA REGRA AQUI PARA AS COLUNAS NOVAS, e a ausencia e deliberada. Eu tinha escrito
+     uma escondendo Veiculo, Rota e Observacao no telefone. Ela nao escondia nada: abaixo
+     de 1024px o painel nem desenha a tabela — `emCartoesPainel()` desvia para um cartao
+     por movimento e sai da funcao antes de montar uma coluna que seja. Esconder coluna
+     de uma tabela que nao existe e dizer ao proximo leitor que o caso esta tratado aqui,
+     e faze-lo parar de procurar onde o tratamento de fato esta. */
+}
 
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}

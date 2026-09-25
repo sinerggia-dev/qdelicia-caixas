@@ -2302,11 +2302,68 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
     'e o "hoje" do cartão é o do GALPÃO, não o do computador de quem abre o painel — ' +
     'numa máquina no mesmo fuso os dois coincidem, e é por isso que isto se cobra na ' +
     'letra: a diferença só aparece para quem confere de fora');
-  var corte = (css.match(/@media \(max-width:(\d+)px\)\{\.tot\{grid-template-columns/g) || []);
-  ok(corte.length === 1 && /max-width:700px/.test(corte[0]),
-    'e o ÚNICO ponto de quebra é 700px, que é celular — um corte em 1180px fazia 3+3 ' +
-    'numa janela de 1100px, e meia fileira lê como se a outra metade tivesse sumido',
+  /* NENHUM PONTO DE QUEBRA, e é isso que se cobra agora. A fileira de sete existe só
+     acima de 1023px; abaixo, a faixa fina do modelo B toma o lugar dela e é `flex`, que
+     ignora `grid-template-columns`. Meia fileira deixou de ser possível porque não há
+     fileira para partir — e não porque alguém escolheu bem os cortes.
+     A afirmação continua valendo a pena: um corte novo aqui, em 1180px por exemplo,
+     faria 3+3 numa janela de 1100 e meia fileira lê como se a outra metade tivesse
+     sumido. É esse retorno que ela impede. */
+  var corte = (css.match(/@media[^{]*\{\.tot\{grid-template-columns/g) || []);
+  ok(corte.length === 0,
+    'e a fileira não tem ponto de quebra nenhum — abaixo de 1024px quem desenha é a ' +
+    'faixa fina, e meia fileira não acontece porque não há fileira para partir',
     corte);
+  /* E A FAIXA FINA EXISTE. Sem esta, apagar o bloco do telefone deixaria a afirmação
+     acima verde — sem cortes e sem faixa, os sete cartões cairiam em três fileiras e
+     meia num celular, que é exatamente o estrago que ela diz impedir. */
+  ok(/#totMov\{display:flex/.test(semComentarios(css)),
+    'e abaixo de 1024px os números viram uma faixa fina de três células — é o modelo ' +
+    'B: quem abre Movimentos no telefone quer achar um lançamento, não analisar');
+
+  /* AS TRÊS SÃO ESCOLHIDAS PELO NOME. `nth-child(n+4)` esconderia o quarto da FILEIRA,
+     e a fileira é reordenável: quem arrastasse o Saldo para o início perderia o Retorno
+     sem entender por quê. O seletor pergunta quem o cartão é, não onde ele está. */
+  var faixa = (semComentarios(css).match(/#totMov \.tot__c:not\([^{]*\{display:none\}/) || [])[0] || '';
+  ok(/data-cartao="movimentos"/.test(faixa) && /data-cartao="saida"/.test(faixa) &&
+     /data-cartao="retorno"/.test(faixa),
+    'e as três células da faixa são escolhidas pelo NOME do cartão — por posição, ' +
+    'reordenar a fileira no computador trocaria quem aparece no telefone', faixa);
+  ok(!/#totMov[^{]*nth-child/.test(semComentarios(css)),
+    'e não há `nth-child` decidindo quem aparece na faixa, que é o mesmo erro escrito ' +
+    'de outro jeito');
+
+  /* AS GAVETAS DO CELULAR FECHAM POR UMA REGRA SÓ. Com o seletor pelo nome de uma
+     delas, a segunda que aparecesse ficaria fora do X, do véu e do Esc — a única que
+     não fecha, e ninguém consegue explicar por quê. */
+  var fechar = corpoDe(adm, 'fecharFolhas');
+  ok(/\[data-gaveta\]\.aberta/.test(fechar) && !/\.filtros-caixa\.aberta/.test(fechar),
+    'e as gavetas do celular fecham por `[data-gaveta]`, não pelo nome de uma delas — ' +
+    'a segunda gaveta entra sozinha no X, no véu e no Esc', fechar.slice(0, 200));
+  /* AS DUAS, PELO NOME. Isto era uma CONTAGEM — `>= 3` marcas no arquivo —, e contagem
+     é proxy: tirar a marca da gaveta dos gráficos deixava três (a dos filtros, a busca
+     que fecha e a guarda de girar o aparelho) e a afirmação passava, com o X e o Esc
+     já não alcançando a gaveta nova. Pego na sabotagem. */
+  [['caixaFiltrosMov', 'a dos filtros'],
+   ['folhaGraficosMov', 'a dos gráficos']].forEach(function (g) {
+    var tag = (adm.match(new RegExp('<[^>]*id="' + g[0] + '"[^>]*>')) || [])[0] || '';
+    ok(/data-gaveta/.test(tag),
+      'e a gaveta ' + g[1] + ' carrega a marca que o X, o véu e o Esc procuram — sem ' +
+      'ela, é a única que não fecha, e ninguém consegue explicar por quê', tag.slice(0, 120));
+  });
+
+  /* O BOTÃO "VER GRÁFICOS" SÓ NO CELULAR. No computador os cinco gráficos moram na
+     página, abaixo da tabela: um botão para abrir o que já está à vista é um clique a
+     mais para chegar no mesmo lugar.
+     ESTA É TEXTUAL PORQUE A OUTRA MEDIÇÃO NÃO ALCANÇA. A sonda do navegador monta a
+     marcação à mão, para poder variar a largura sem depender do login — então ela mede
+     o comportamento do CSS, e não o que o `admin.html` escreve. Defeito na marcação
+     passa por ela sem ser visto: medido, tirar o `so-celular` daqui não muda um pixel
+     do que ela desenha. */
+  var botaoG = (adm.match(/<div class="([^"]*)"[^>]*>\s*<button[^>]*id="btnAbrirGraficosMov"/) || [])[1] || '';
+  ok(/\bso-celular\b/.test(botaoG),
+    'e o botão "Ver gráficos" existe só no celular — no computador os cinco já estão ' +
+    'na página, e o botão seria um clique para chegar onde já se está', botaoG);
   /* ESTA AFIRMAÇÃO PRENDIA OS NÚMEROS — `clamp(16px,1.42vw,21px)` e
      `clamp(10px,.82vw,11.5px)` — e reprovava a cada mexida de tamanho, que é decisão de
      quem desenha, não regra. A garantia que ela anuncia é outra: o texto é FLUIDO, então
@@ -3075,9 +3132,15 @@ console.log('\n== as colunas da tabela de Movimentos ==');
      A folga subiu de 260 para 460 porque o `<th>` ganhou a seta e o `aria-sort` da
      classificação — e o que a afirmação guarda é que o cabeçalho sai da lista `cs`, não
      o tamanho do trecho entre uma coisa e outra. */
-  ok(/cs\.map\(function\(c\)\{[\s\S]{0,460}<th/.test(corpo),
+  /* O ORÇAMENTO DE DISTÂNCIA MEDE CÓDIGO, e não prosa. Ele já tinha sido inflado de 260
+     para 460 uma vez, e reprovou de novo quando um comentário de três linhas entrou
+     entre a lista e a célula — sem que nada da garantia mudasse. Número que só cresce é
+     número medindo a coisa errada: os comentários saem antes da conta, e o que sobra é
+     a distância entre o `cs.map` e a marcação que ele monta. */
+  var corpoSem = semComentarios(corpo);
+  ok(/cs\.map\(function\(c\)\{[\s\S]{0,320}<th/.test(corpoSem),
     'o cabeçalho percorre a lista de colunas');
-  ok(/cs\.map\(function\(c\)\{[\s\S]{0,120}<td/.test(corpo),
+  ok(/cs\.map\(function\(c\)\{[\s\S]{0,120}<td/.test(corpoSem),
     'e as células percorrem a MESMA lista — não há duas strings para lembrar de casar');
   ok(/<table class="fixa">/.test(corpo),
     'a tabela é de layout fixo: em layout automático a largura pedida vira sugestão, e ' +
