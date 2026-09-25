@@ -418,8 +418,19 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
     'e todo campo da barra viaja no pedido: filtro que não chega ao servidor não filtra',
     naoViaja);
 
-  var k = adm.indexOf("getElementById('btnLimparMov')");
-  var limpar = adm.slice(k, adm.indexOf('});', k));
+  /* O CORPO DA FUNÇÃO, e não mais o do ouvinte: o "Limpar" virou `limparFiltrosMov()`
+     porque o X da pílula, no celular, chama a MESMA coisa — copiada, a segunda cópia
+     esqueceria um campo no dia em que um campo novo entrasse. Ancorado no ouvinte, este
+     recorte passou a pegar uma linha só e a afirmação reprovou sem nada ter piorado. */
+  var limpar = (function () {
+    var i = adm.indexOf('function limparFiltrosMov()');
+    var d = 0, j = adm.indexOf('{', i);
+    for (; j < adm.length; j++) {
+      if (adm[j] === '{') d++;
+      else if (adm[j] === '}' && --d === 0) return adm.slice(i, j + 1);
+    }
+    return '';
+  })();
   // as duas datas voltam pelo periodoPadraoMov, nao uma a uma
   var faltam = campos.filter(function (c) {
     if (c === 'mvDe' || c === 'mvAte') return limpar.indexOf('periodoPadraoMov') < 0;
@@ -2350,12 +2361,67 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
      para variar a largura sem depender do login: ela mede o CSS, não o que o
      `admin.html` escreve. Medido: tirar o `so-celular` daqui não muda um pixel do que
      ela desenha. */
-  [['totMov3', 'a tarja de três'], ['abasMov', 'a fileira de abas']].forEach(function (p) {
+  [['totMov3', 'a tarja de três'], ['abasMov', 'a fileira de abas'],
+   ['btnHojeMov', 'o chip "Hoje"']].forEach(function (p) {
     var tag = (adm.match(new RegExp('<[^>]*id="' + p[0] + '"[^>]*>')) || [])[0] || '';
     ok(/\bso-celular\b/.test(tag),
       'e ' + p[1] + ' só existe no celular — no computador os sete cartões já estão ' +
       'na tela, e repeti-los numa tarja seria o mesmo número duas vezes', tag.slice(0, 110));
   });
+
+  /* --- O X QUE LIMPA, E O CHIP "HOJE" -------------------------------------
+   * O X É UM BOTÃO AO LADO, e não um elemento clicável DENTRO do botão de filtros.
+   * Focável dentro de botão é marcação inválida: o leitor de tela anuncia os dois como
+   * um só, e o Tab passa por um alvo que não se anuncia. Encostados — medido, 0px de
+   * vão e 0px de degrau —, eles leem como uma peça só assim mesmo. */
+  /* ATÉ O FECHAMENTO DA PÍLULA, e não até o primeiro `</span>`: o primeiro é o do
+     contador que mora DENTRO do botão, e o recorte parava antes de chegar no X. */
+  var iPil = adm.indexOf('<span class="pilula-filtros');
+  var pilula = iPil < 0 ? '' : adm.slice(iPil, adm.indexOf('</span>', adm.indexOf('btnLimparFiltrosMov', iPil)) + 7);
+  ok(/<button[^>]*id="btnLimparFiltrosMov"/.test(pilula),
+    'o X que limpa é um <button> de verdade ao lado do de filtros — focável dentro de ' +
+    'botão é marcação inválida, e o Tab passaria por um alvo que não se anuncia');
+  ok(!/id="btnAbrirFiltrosMov"[\s\S]{0,400}?(role="button"|tabindex=)[\s\S]{0,60}?<\/button>/
+     .test(adm),
+    'e não há nada focável DENTRO do botão de filtros');
+
+  /* UMA FUNÇÃO DE LIMPAR, chamada dos dois lugares. Copiada para o segundo, ela
+     esqueceria um campo no dia em que um campo novo entrasse — foi exatamente o que já
+     aconteceu com o motorista e o trecho, e está dito dentro dela. */
+  ok(/function limparFiltrosMov\(\)/.test(adm),
+    'e o "Limpar" é uma função, não o corpo de um ouvinte');
+  ok((adm.match(/limparFiltrosMov\b/g) || []).length >= 3,
+    'e os dois botões chamam ELA — o "Limpar" da folha e o X da pílula',
+    (adm.match(/limparFiltrosMov\b/g) || []).length);
+
+  /* O DIA DO "HOJE" VEM DO GALPÃO. Um atalho decide sozinho o que vai ser somado: com o
+     celular em outro fuso — ou com a hora errada — ele traria outro dia, e ninguém teria
+     como desconfiar. É o mesmo `Q.hojeOperacao()` do cartão "Lançados hoje"; dois
+     caminhos para a mesma pergunta divergem na virada da meia-noite.
+     TEXTUAL pela razão de sempre: numa máquina que já está em −3 os dois coincidem. */
+  var fHoje = corpoDe(adm, 'ehHojeMov');
+  ok(/Q\.hojeOperacao\(\)/.test(fHoje) && !/Q\.hoje\(\)/.test(fHoje),
+    'e o "Hoje" conta pelo dia do GALPÃO, não pelo relógio do aparelho', fHoje.slice(0, 160));
+
+  /* DESLIGAR VOLTA AO PADRÃO, e não a um período vazio: vazio traria a base inteira,
+     que é o contrário do que quem desliga um atalho espera. */
+  var cliqueHoje = adm.slice(adm.indexOf("var b = document.getElementById('btnHojeMov')"));
+  cliqueHoje = cliqueHoje.slice(0, cliqueHoje.indexOf('})();'));
+  ok(/if \(ehHojeMov\(\)\) \{\s*periodoPadraoMov\(\);/.test(cliqueHoje),
+    'e desligá-lo volta ao período padrão, não a um período vazio — vazio traria a ' +
+    'base inteira, que é o contrário do que quem desliga um atalho espera',
+    cliqueHoje.slice(0, 200));
+
+  /* OS TRÊS ESTADOS SAEM DA MESMA CONTA: o número do botão, o X e o "Hoje" aceso. Um
+     estado próprio para cada um daria três respostas para "há filtro aplicado?". */
+  var pinta = corpoDe(adm, 'pintarFiltrosMov');
+  /* COM O `if (x)` JUNTO. `x.hidden` sozinho e SUBSTRING de `cx.hidden`, e existe um
+     `cx.hidden = !l.length;` duas linhas abaixo, do bloco de pilulas — a afirmacao
+     estava sendo satisfeita pela linha do vizinho, e um defeito no X passava inteiro.
+     Pego na sabotagem; e a familia de sempre: uma ocorrencia respondendo pela outra. */
+  ok(/if \(x\) x\.hidden = !l\.length;/.test(pinta) && /ehHojeMov\(\)/.test(pinta),
+    'e o X e o "Hoje" leem da MESMA conta que o número do botão — três estados ' +
+    'próprios dariam três respostas para "há filtro aplicado?"');
 
   /* A ABA QUE ABRE É A LISTA. Abrir no Resumo esconde justamente o que a pessoa veio
      buscar, e a aba inicial tem de ser a do uso mais frequente. */
@@ -2589,8 +2655,14 @@ console.log('\n== o trilho de filtros, em Movimentos ==');
   ok(/\.filtros-caixa\{position:fixed;left:0;right:0;bottom:0/.test(css) &&
      /\.filtros-caixa\.aberta\{display:flex\}/.test(css),
     'e a folha continua sendo a folha: `fixed`, subindo de baixo, aberta pela classe');
-  ok(/<button class="btn sec so-celular" id="btnAbrirFiltrosMov"/.test(adm),
-    'e o botão que a abre continua lá');
+  /* O BOTÃO CONTINUA LÁ, e só no celular — mas a classe `so-celular` passou para a
+     PÍLULA que o envolve, junto com o X que limpa. Esta afirmação pedia a classe no
+     próprio botão e reprovou sem nada ter piorado: o que ela guarda é que o botão exista
+     e não vaze para o computador, e isso a pílula continua garantindo. */
+  var envolve = (adm.match(/<span class="([^"]*)"[^>]*>\s*<button[^>]*id="btnAbrirFiltrosMov"/) || [])[1] || '';
+  ok(/id="btnAbrirFiltrosMov"/.test(adm) && /\bso-celular\b/.test(envolve),
+    'e o botão que a abre continua lá, dentro da pílula que só existe no celular',
+    envolve);
 
   /* --- O CABEÇALHO DA FOLHA VAZAVA PARA O COMPUTADOR ----------------------
    * `.folha__cab{display:flex}` vem DEPOIS de `.so-celular{display:none}` na folha de

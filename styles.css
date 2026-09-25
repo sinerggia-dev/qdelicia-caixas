@@ -2645,6 +2645,34 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   .faixa3 .tot__v{font-size:17px}
   .faixa3 .tot__n,.faixa3 .tot__f{display:none}
 
+  /* ---- O CHIP "HOJE" E A PILULA DOS FILTROS ----
+     O `min-height:38px` e um PISO, e nao a altura: medido, os tres saem com 46px, que a
+     letra e o respiro do botao ja davam. Fica acima dos 44px do dedo confortavel, entao
+     nao ha nada a justificar aqui — o piso existe so para o dia em que alguem encolher
+     a letra e a altura passar a vir por acaso da conta do `padding`.
+
+     ACESO, o Hoje usa o verde da marca: e um recorte ligado, e recorte ligado tem de se
+     distinguir de um botao que so esta ali. */
+  .chip-hoje{flex:0 0 auto;min-height:38px;padding:0 14px;border-radius:999px;
+    border:1px solid var(--neutro);background:var(--surface);color:var(--txt2);
+    font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .chip-hoje[aria-pressed="true"]{background:var(--verde);border-color:var(--verde);
+    color:var(--sobre-verde)}
+
+  /* DOIS BOTOES COLADOS, lidos como uma peca so: o da esquerda perde o canto direito, o
+     X perde o esquerdo, e a borda do meio e unica. Com o X escondido, o primeiro volta a
+     ter os dois cantos — senao a pilula fica com um lado reto e sem par. */
+  .pilula-filtros{display:inline-flex;align-items:stretch;flex:0 0 auto}
+  .pilula-filtros>.btn{min-width:130px;border-radius:999px;margin:0}
+  .pilula-filtros.tem>.btn{border-top-right-radius:0;border-bottom-right-radius:0;
+    border-right:0}
+  .pilula-filtros.tem>.btn,.pilula-filtros.tem>.pilula-filtros__x{
+    border-color:var(--verde);background:var(--verde-claro)}
+  .pilula-filtros__x{width:40px;flex:0 0 auto;display:inline-flex;align-items:center;
+    justify-content:center;border:1px solid var(--neutro);border-left:1px solid var(--linha);
+    border-radius:0 999px 999px 0;background:var(--surface);color:var(--txt2);
+    font:inherit;font-size:13px;cursor:pointer}
+
   /* ---- MODELO C: AS TRES ABAS ---- */
   .abas-mov{display:flex;gap:4px;margin:0 0 10px}
   .abas-mov button{flex:1 1 0;min-height:40px;border:1px solid var(--neutro);
