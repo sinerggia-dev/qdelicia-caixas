@@ -357,11 +357,18 @@
   <section id="pgPainel" class="pagina">
     <div class="barra-teste">
       <label for="verTestePainel">Mostrar</label>
-      <!-- Um ou outro, nunca os dois: misturar ensaio com operacao numa soma so
-           produz um numero que nao responde nem uma pergunta nem a outra. -->
+      <!-- ERAM UM OU OUTRO, NUNCA OS DOIS, e a razao escrita aqui era boa: misturar
+           ensaio com operacao numa soma so produz um numero que nao responde nem
+           uma pergunta nem a outra.
+           ELA SUPUNHA QUE ENSAIO E DADO DESCARTAVEL. Com a base virando campo do
+           cadastro, ela deixou de ser: quem esta em validacao lanca movimento de
+           verdade, com caixa de verdade, e na virada pode querer que aquilo conte.
+           Por isso ha uma terceira opcao — e ela NAO e a de fabrica. Quem quiser
+           somar as duas escolhe, e ve o que escolheu escrito no seletor. -->
       <select id="verTestePainel" class="sel-teste" data-verteste>
-        <option value="reais">Só reais</option>
-        <option value="teste">Só de teste</option>
+        <option value="reais">Base Produção</option>
+        <option value="teste">Base Teste</option>
+        <option value="todos">As duas bases</option>
       </select>
       <span class="dica">Lançamento de teste é o de quem tem <b>teste</b> no perfil. Ele conta no saldo como qualquer outro — isto aqui só separa a leitura.</span>
     </div>
@@ -483,8 +490,9 @@
               <p class="erro-data" id="rtErroData" role="alert" hidden></p>
               <label for="verTesteRetornos">Lançamentos</label>
               <select id="verTesteRetornos" data-verteste>
-                <option value="reais">Só reais</option>
-                <option value="teste">Só de teste</option>
+                <option value="reais">Base Produção</option>
+                <option value="teste">Base Teste</option>
+                <option value="todos">As duas bases</option>
               </select>
               <!-- SÓ NO CELULAR. No computador o painel fecha clicando fora, e a folha
                    cobre a tela inteira: sem um rodapé, o dedo não tem para onde ir.
@@ -779,8 +787,9 @@
              é o que faz a tela e o "apagar" recortarem coisas diferentes. -->
         <div hidden><label for="mvTrecho">Trecho</label><select id="mvTrecho"><option value=""></option></select></div>
         <div><label for="mvTeste">Lançamentos</label><select id="mvTeste">
-          <option value="reais">Só reais</option>
-          <option value="teste">Só de teste</option>
+          <option value="reais">Base Produção</option>
+          <option value="teste">Base Teste</option>
+          <option value="todos">As duas bases</option>
         </select></div>
         <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
         <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
@@ -2226,12 +2235,12 @@
      app e no painel" nao e nome, e explicacao de cabecalho. */
   var TAB_USUARIOS = {
     padrao: ['nome','perfil','usuario','email','senha','painel','local','veiculo',
-             'telefone','ativo'],
+             'telefone','base','ativo'],
     larg: { nome:190, perfil:120, usuario:150, email:230, senha:190,
-            painel:80, local:150, veiculo:200, telefone:130, ativo:80 },
+            painel:80, local:150, veiculo:200, telefone:130, base:120, ativo:80 },
     titulos: { nome:'Nome', perfil:'Perfil', usuario:'Usuário', email:'E-mail',
                senha:'Senha', painel:'Painel', local:'Local padrão',
-               veiculo:'Veículo', telefone:'Telefone', ativo:'Ativo' },
+               veiculo:'Veículo', telefone:'Telefone', base:'Base', ativo:'Ativo' },
     kOrdem: 'qdc_cols_users_v1',
     kLarg: 'qdc_larg_users_v1',
     kOcultas: 'qdc_cols_ocultas_users_v1',
@@ -3987,10 +3996,19 @@
         (n > 500 ? ' <b>Atenção:</b> a tabela mostra só os 500 mais recentes — o filtro '+
                    'casa com ' + Q.num(n) + ', e todos eles saem.' : '') +
       '</div>' +
+      /* DOIS PORTOES, e eles respondem a coisas diferentes. O NUMERO defende do
+         engano: quem escreve 412 leu que sao 412, e nao apertou um botao vermelho de
+         passagem. A SENHA defende do computador do escritorio com a sessao aberta e
+         alguem sentando nele — e e a mesma senha do cadeado das colunas, pelo mesmo
+         motivo. Um so nao bastava: o numero nao pergunta QUEM e, e a senha nao pergunta
+         se a pessoa LEU. */
       '<div class="grid2" style="margin-top:10px">' +
         '<div><label for="limparDito">Escreva <b>' + n + '</b> para confirmar</label>' +
         '<input type="text" id="limparDito" inputmode="numeric" autocomplete="off" ' +
         'placeholder="' + n + '"></div>' +
+        '<div><label for="limparSenha">Sua senha do painel</label>' +
+        '<input type="password" id="limparSenha" autocomplete="current-password" ' +
+        'placeholder="a mesma do cadeado das colunas"></div>' +
       '</div>' +
       '<div class="linha-btn">' +
         '<button class="btn" id="limparConfirmar" type="button" style="flex:0;min-width:200px;' +
@@ -4018,8 +4036,32 @@
         '". O número é <b>' + limparN + '</b>. Nada foi apagado.</div>';
       return;
     }
+    var senha = String(document.getElementById('limparSenha').value || '');
+    if (!senha){
+      res.innerHTML = '<div class="aviso-box erro">Digite sua senha do painel. ' +
+        'Nada foi apagado.</div>';
+      return;
+    }
     var b = document.getElementById('limparConfirmar');
-    b.disabled = true; b.textContent = 'Apagando…';
+    b.disabled = true; b.textContent = 'Conferindo a senha…';
+    /* A CONFERENCIA MORA NO `app.js`, junto da entrada: e a MESMA rota do login, e uma
+       segunda maneira de conferir senha seria uma segunda maneira de errar. Ela tambem
+       recusa a senha certa de OUTRA conta com o mesmo nome — o que aqui importa, porque
+       o que se autoriza e apagar em bloco. */
+    Q.conferirSenha(senha).then(function(c){
+      if (!c.ok) throw new Error(c.erro);
+      b.textContent = 'Apagando…';
+      return apagarDeVerdade();
+    }).catch(function(e){
+      b.disabled = false; b.textContent = 'Apagar os ' + Q.num(limparN);
+      res.innerHTML = '<div class="aviso-box erro">' + Q.esc(e.message) +
+        ' Nada foi apagado.</div>';
+    });
+  }
+
+  function apagarDeVerdade(){
+    var res = document.getElementById('limparResultado');
+    var b = document.getElementById('limparConfirmar');
     var envio = { acao:'limparMovimentos', esperado:limparN, usuarioId:Q.sessao().id };
     Object.keys(limparFiltro||{}).forEach(function(k){ if (limparFiltro[k]) envio[k] = limparFiltro[k]; });
     Q.post(envio).then(function(r){
@@ -6370,6 +6412,17 @@
                   busca: function(u){ return placasDe(u).join(' '); } },
       telefone: { t: TIT['telefone'],
                   v: function(u){ return Q.esc(u.Telefone || ''); } },
+      /* A BASE NA TABELA, e nao so no formulario: quem vai cadastrar trinta pessoas
+         precisa conferir de relance quem ficou em qual, sem abrir uma por uma. Ela
+         entra na BUSCA pelas duas palavras, entao digitar "teste" na barra separa a
+         base inteira. */
+      base:     { t: TIT['base'],
+                  k: function(u){ return u.Teste === true ? '1' : '0'; },
+                  v: function(u){ return u.Teste === true
+                    ? '<span class="tag amarela">Teste</span>'
+                    : '<span class="tag cinza">Producao</span>'; },
+                  busca: function(u){ return u.Teste === true
+                    ? 'base teste' : 'base producao'; } },
       ativo:    { t: TIT['ativo'],
                   v: function(u){ return Q.ativo(u.Ativo)
                     ? '<span class="tag verde">sim</span>'
@@ -7475,6 +7528,22 @@
           .map(function(p){ return '<option value="'+Q.esc(p)+'">'; }).join('')+
       '</datalist>'+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fPerfilNota"></p>'+
+      /* A BASE, SEPARADA DO PERFIL. Antes, dizer que alguém era de ensaio exigia escrever
+         "teste" dentro do CARGO — "Conferente de teste" —, e no dia da virada era preciso
+         lembrar de limpar isso em todo mundo. Cargo é cargo; base é onde a pessoa lança.
+         ELA CARIMBA O LANÇAMENTO NA HORA. Trocar a base de alguém depois não reescreve o
+         que já foi lançado: o que está na Base Teste continua lá, e o que vier depois
+         entra em Produção. É a mesma regra do motorista e da placa. */
+      '<label>Base <span style="font-weight:400;color:var(--txt3)">— onde os lançamentos '+
+        'desta pessoa entram</span></label>'+
+      '<select id="fBase">'+
+        '<option value="">Base Produção</option>'+
+        '<option value="teste"'+(u.Teste === true ? ' selected' : '')+'>Base Teste</option>'+
+      '</select>'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+        'Na <b>Base Teste</b>, tudo o que a pessoa lançar fica marcado como ensaio e pode '+
+        'ser separado ou apagado em bloco depois. Os números continuam somando — a '+
+        'separação é de leitura, não de exclusão.</p>'+
       // O usuário curto deixou de ser coisa só do painel: é com ele que a pessoa entra
       // no app de lançamento. Por isso sobe para cá, junto da senha do app.
       '<label>Usuário <span style="font-weight:400;color:var(--txt3)">— é o que a pessoa digita para entrar</span></label>'+
@@ -7857,6 +7926,10 @@
         Telefone:document.getElementById('fTel').value.trim(),
         LocalPadrao:document.getElementById('fLocal').value,
         Ativo:document.getElementById('fAtivo').value,
+        /* `Teste` e booleano no banco, e o seletor fala em BASE. A traducao mora
+           AQUI, num lugar so: espalhada, um caminho esqueceria e a pessoa nasceria
+           em Producao sem ninguem ter escolhido. */
+        Teste:(document.getElementById('fBase').value === 'teste'),
         /* O seletor tem tres valores e a gravacao tem duas colunas. A traducao mora
            AQUI, num lugar so: espalhada, "PROPRIOS" viraria acesso desligado em algum
            caminho esquecido, e a pessoa perderia o painel sem ninguem entender. */

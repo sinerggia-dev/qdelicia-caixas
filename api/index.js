@@ -225,7 +225,23 @@ async function gravarMovimento(p) {
   var r = L.montarMovimento(p, {
     movimentos: d.movimentos,
     agora: agora,
-    teste: L.ehPerfilTeste(quem && quem.Perfil),
+    /* A BASE VEM DO CADASTRO, e nao mais do nome do perfil. Perfil e cargo; base e
+       onde a pessoa lanca. Enquanto as duas coisas moravam no mesmo campo, cadastrar
+       alguem como "Conferente" durante a validacao exigia escrever "Conferente de
+       teste" — e depois lembrar de limpar, em todos, no dia da virada.
+       SO A COLUNA DECIDE, e o perfil nao entra mais nesta conta. Eu tinha deixado o
+       perfil como piso "para as contas antigas" — e isso era guarda morta e mentirosa ao
+       mesmo tempo. Morta porque a migracao copia a regra do perfil para a coluna, entao
+       nao ha conta antiga descoberta. Mentirosa porque quem tivesse "Conferente de
+       teste" escrito no cargo ficaria preso no ensaio mesmo com a Base marcada como
+       Producao no formulario: a tela diria uma coisa e o lancamento faria outra, sem
+       nada a que culpar.
+       Medido antes de tirar: perfil "Conferente de teste" com Base Producao carimbava
+       Base Teste.
+       O PERFIL GRAVADO NO MOVIMENTO continua valendo — `lancamentoDeTeste` le o `Perfil`
+       da LINHA, que e historia e nao cadastro, e cobre os movimentos anteriores a coluna
+       `teste` existir em `movimentos`. Sao duas perguntas diferentes com o mesmo nome. */
+    teste: quem && quem.Teste === true,
     clientKeysExistentes: existentes,
     assinaturaUrl: assinaturaUrl,
     fotoUrl: fotoUrl

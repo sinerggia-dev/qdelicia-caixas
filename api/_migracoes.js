@@ -420,5 +420,26 @@ module.exports = [
       "comment on column public.usuarios.veiculos is",
       "  'Ids de veiculo que esta pessoa pode escolher no lancamento. Vazia = nenhum.';"
     ].join('\n')
+  },
+  {
+    id: '2026-09-25-base-do-usuario',
+    nota: 'a base (teste ou producao) deixa de ser adivinhada pelo nome do perfil',
+    sql: [
+      "-- A COLUNA JA EXISTIA e ninguem a usava: quem decidia se um lancamento era ensaio",
+      "-- era a palavra 'teste' dentro do PERFIL. Perfil e cargo — Motorista, Conferente —,",
+      "-- e cargo nao e base. Quem cadastra uma pessoa com o cargo certo nao deveria",
+      "-- precisar sujar o cargo para dizer em que base ela lanca.",
+      "--",
+      "-- ESTE BACKFILL NAO MUDA COMPORTAMENTO NENHUM no dia em que roda: ele copia para a",
+      "-- coluna exatamente o que a regra do perfil ja dizia. Sem ele, ligar a coluna",
+      "-- passaria todos os usuarios de ensaio para producao de uma vez, e os lancamentos",
+      "-- do dia seguinte entrariam no saldo real sem ninguem ter pedido.",
+      "update public.usuarios set teste = true",
+      " where teste is distinct from true and perfil ~* 'teste';",
+      "comment on column public.usuarios.teste is",
+      "  'Em que base esta pessoa lanca: true = Base Teste, false = Base Producao. O",
+      "   lancamento carimba a base NO MOMENTO em que e gravado; trocar isto depois nao",
+      "   reescreve o que ja aconteceu.';"
+    ].join('\n')
   }
 ];

@@ -1989,6 +1989,12 @@ function usuariosPublicos(usuarios) {
          "ve os lancamentos de todos" e a gravacao seguinte apagaria a restricao — e a
          renovacao da sessao a tiraria de quem ja a tinha, calada. */
       SoProprios: u.SoProprios === true,
+      /* A BASE VOLTA JUNTO, pela mesma razao do `SoProprios` acima — e a suite pegou
+         este exatamente como pegou aquele. Esquecida aqui, o formulario abriria sempre
+         em "Base Producao", e a gravacao seguinte passaria a pessoa de ensaio para
+         producao sem ninguem ter tocado no campo. No meio de uma validacao, isso
+         mandaria lancamento de teste para o saldo real sem deixar rastro. */
+      Teste: u.Teste === true,
       VerLancamentos: u.VerLancamentos !== false,
       UsuariosVistos: usuariosVistosDe(u),
       /* As SEIS listas de permissão voltam para o painel. Esquecer uma aqui não dá

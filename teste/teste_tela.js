@@ -10017,5 +10017,82 @@ console.log('\n== o contador de caixas cabe na tela, sem encolher o alvo do dedo
     '"CX DIVERSAS" não cabia', px(campo, 'width'));
 })();
 
+/* ============================================================================
+ * A BASE DO USUÁRIO — teste ou produção, e já não é o nome do cargo
+ *
+ * Antes, dizer que alguém era de ensaio exigia escrever "teste" dentro do PERFIL, que é
+ * o cargo. Cadastrar trinta pessoas durante uma validação obrigava a sujar o cargo de
+ * todas e lembrar de limpar no dia da virada — em todas, sem esquecer nenhuma.
+ * ==========================================================================*/
+console.log('\n== a base do usuário ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var api = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  var mig = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
+
+  /* QUEM CARIMBA É A COLUNA, e o perfil não entra nesta conta. Com o perfil como piso,
+     quem tivesse "Conferente de teste" no cargo ficaria preso no ensaio mesmo com a Base
+     marcada como Produção no formulário: a tela diria uma coisa e o lançamento faria
+     outra. Medido antes de tirar — era exatamente o que acontecia. */
+  var ctx = api.slice(api.indexOf('teste: quem') - 900, api.indexOf('teste: quem') + 60);
+  ok(/teste: quem && quem\.Teste === true,/.test(api),
+    'o lançamento carimba a base pela COLUNA do cadastro');
+  ok(!/teste: [^\n]*ehPerfilTeste/.test(api),
+    'e o nome do perfil não entra mais nessa conta — com ele, marcar "Base Produção" ' +
+    'no formulário não tiraria do ensaio quem tem "teste" escrito no cargo',
+    (api.match(/teste: [^\n]*/) || [])[0]);
+
+  /* MAS O PERFIL GRAVADO NA LINHA CONTINUA VALENDO. São duas perguntas com o mesmo nome:
+     uma é sobre o cadastro de hoje, a outra sobre o que aconteceu. Tirar esta segunda
+     passaria para "real" os movimentos anteriores à coluna `teste` existir. */
+  ok(/function lancamentoDeTeste\(m\) \{\s*\n\s*return m\.Teste === true \|\| ehPerfilTeste\(m\.Perfil\);/
+     .test(log),
+    'e o perfil GRAVADO NO MOVIMENTO continua classificando a história — sem ele, o que ' +
+    'foi lançado antes desta coluna viraria real de uma vez');
+
+  /* A MIGRAÇÃO COPIA A REGRA DO PERFIL para a coluna. Sem esse backfill, ligar a coluna
+     passaria todos os usuários de ensaio para produção no mesmo instante, e os
+     lançamentos do dia seguinte entrariam no saldo real sem ninguém ter pedido. */
+  ok(/update public\.usuarios set teste = true/.test(mig) && /perfil ~\* 'teste'/.test(mig),
+    'e a migração copia para a coluna exatamente o que a regra do perfil já dizia — ' +
+    'sem ela, ligar a coluna passaria a equipe de ensaio para produção de uma vez');
+
+  /* O CAMPO EXISTE E VOLTA. O `teste_api.js` já cobra que todo campo do formulário volte
+     na leitura, e foi ele que pegou este: sem o `Teste` na `equipe`, o formulário abriria
+     sempre em "Base Produção" e a gravação seguinte apagaria a base de quem estava em
+     ensaio, calada, no meio de uma validação. */
+  ok(/id="fBase"/.test(adm) && /Teste:\(document\.getElementById\('fBase'\)\.value === 'teste'\)/.test(adm),
+    'o formulário tem o campo Base e grava a coluna a partir dele');
+  ok(/Teste: u\.Teste === true,/.test(log),
+    'e ela volta na leitura da equipe — sem isso, abrir e salvar apagaria a base');
+
+  /* A BASE NA TABELA, e não só no formulário: quem cadastra trinta pessoas precisa
+     conferir de relance quem ficou em qual, sem abrir uma por uma. */
+  var desc = adm.slice(adm.indexOf('var TAB_USUARIOS = {'));
+  desc = desc.slice(0, desc.indexOf('\n  };'));
+  ok(/'base'/.test(desc) && /base:'Base'/.test(desc),
+    'e a Base é coluna da tabela de Usuários, com largura e título');
+
+  /* AS TRÊS OPÇÕES, nos três seletores. "As duas bases" existe porque a base de
+     validação pode ser operação de verdade — mas NÃO é a de fábrica: quem quiser somar
+     as duas escolhe, e vê o que escolheu escrito no seletor. */
+  ok((adm.match(/<option value="todos">As duas bases<\/option>/g) || []).length === 3,
+    'e os três seletores de base oferecem "As duas bases"',
+    (adm.match(/As duas bases/g) || []).length);
+  ok(!/<select[^>]*>\s*<option value="todos"/.test(adm),
+    'e ela não é a opção de fábrica — misturar ensaio com operação numa soma só, sem ' +
+    'ninguém ter pedido, dá um número que não responde nem uma pergunta nem a outra');
+
+  /* APAGAR EM BLOCO PEDE DUAS COISAS, e elas respondem a perguntas diferentes: o NÚMERO
+     defende do engano (quem escreve 412 leu que são 412), a SENHA defende do computador
+     do escritório com a sessão aberta. O número não pergunta QUEM é; a senha não
+     pergunta se a pessoa LEU. */
+  ok(/id="limparSenha"/.test(adm) && /Q\.conferirSenha\(senha\)/.test(adm),
+    'e apagar em bloco pede a senha do painel, além de escrever o número');
+  ok(/id="limparDito"/.test(adm) && /dito !== String\(limparN\)/.test(adm),
+    'e continua pedindo o número exato — a senha diz quem é, não que a pessoa leu');
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);
