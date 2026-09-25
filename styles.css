@@ -2003,6 +2003,13 @@ details.tipos[open] summary::before{content:"▾"}
  * arrasta divergem no dia em que so um mudar. */
 .grid-filtros label[draggable="true"]{cursor:grab;user-select:none}
 .grid-filtros label[draggable="true"]:active{cursor:grabbing}
+/* O CARTAO ARRASTAVEL. A marca do alvo entra de LADO — `inset 3px 0 0` —, e nao por
+   cima como na caixinha de filtro: a fileira de cartoes e horizontal, e um risco no
+   topo nao diria de que lado o cartao vai cair. A mesma marca das colunas da tabela,
+   que tambem se movem na horizontal. */
+.tot__c[draggable="true"]{cursor:grab}
+.tot__c.arrastando{opacity:.45;cursor:grabbing}
+.tot__c.alvo{box-shadow:inset 3px 0 0 var(--azul,#4f8ef7)}
 .grid-filtros>div.arrastando{opacity:.45}
 /* O ALVO marca a BORDA DE CIMA, e nao a caixa toda: e ali que o campo vai entrar, e um
    realce da caixa inteira nao diz se ele cai antes ou depois dela. */

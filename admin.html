@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=d55125d7">
+<link rel="stylesheet" href="styles.css?v=91251049">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -2099,6 +2099,23 @@
      parar o mouse em cima para ver e não existe no celular. O CSV já levava a coluna;
      era a TELA que não levava, e tela e arquivo discordando sobre as mesmas linhas
      fazem a conferência chegar a um número que a tela não explica. */
+  /* OS SETE CARTOES, e a ordem deles. MESMO DESCRITOR das colunas e dos filtros de
+     proposito: `ordemColunas` e `guardarOrdem` ja sabem ler `padrao` e `kOrdem`, ja
+     encaixam um cartao novo ao lado do vizinho de fabrica dele, e ja respeitam o portao
+     de permissao. Uma terceira maquina para "mover coisa de lugar" divergiria da
+     primeira na primeira correcao — e quem arrasta nao sabe que sao tres sistemas.
+
+     A CHAVE E PROPRIA. Repetindo a das colunas, mover um cartao embaralharia a tabela.
+
+     ELE FICA AQUI, ao lado do `TAB_MOV`, e nao la embaixo junto do `FILTROS_MOV`:
+     `desenharTotaisMov` le este descritor, e `var` ica a declaracao sem o valor — um
+     descritor declarado depois de quem o le da `undefined.padrao` e para o arquivo
+     inteiro. Foi assim que o painel foi ao ar sem login. */
+  var CARTOES_MOV = {
+    padrao: ['movimentos', 'hoje', 'saida', 'retorno', 'saldo', 'teste', 'acerto'],
+    kOrdem: 'qdc_ordem_cartoes_mov_v1'
+  };
+
   var TAB_MOV = {
     /* ROTA FICA AO LADO DE DESTINO porque e onde ela se le — e tambem onde a
        duplicacao fica visivel. Hoje, na saida, a rota E o nome do destino: o app de
@@ -4476,7 +4493,7 @@
     }).join(',') + ')';
   }
 
-  function cartaoTot(i, n, cor, rotulo, valor, nota, fatia){
+  function cartaoTot(i, n, cor, rotulo, valor, nota, fatia, id){
     /* `fatia` nulo = sem barra. É o caso de "Movimentos", onde a proporção seria de
        CONTAGEM contra QUANTIDADE de caixa — comparar coisas diferentes daria um número
        bonito e falso. */
@@ -4485,7 +4502,10 @@
         Math.min(100, Math.max(0, fatia * 100)).toFixed(1)+'%"></i></div>';
     var pc = (fatia == null) ? ''
       : ' · '+Q.num(Math.round(fatia * 1000) / 10)+'% do total movimentado';
-    return '<div class="tot__c" style="--c1:'+tomDeg(i / n)+';--c2:'+tomDeg((i + 1) / n)+
+    /* O `data-cartao` É A IDENTIDADE, e o que o arrasto grava. Sem ele a ordem teria de
+       sair da posição na tela — e posição é justamente o que o arrasto muda. */
+    return '<div class="tot__c"'+(id ? ' data-cartao="'+Q.esc(id)+'"' : '')+
+        ' style="--c1:'+tomDeg(i / n)+';--c2:'+tomDeg((i + 1) / n)+
         ';--cor:'+cor+'" title="'+Q.esc(rotulo+': '+valor+pc)+'">'+
       '<div class="tot__r"><i></i>'+Q.esc(rotulo)+'</div>'+
       '<div class="tot__v">'+Q.esc(valor)+'</div>'+barra+
@@ -4502,47 +4522,124 @@
     var fat = function(v){ return base ? v / base : null; };
     var sinal = function(n){ return (n < 0 ? '−' : '+') + Q.num(Math.abs(n)); };
 
-    box.innerHTML =
-      cartaoTot(0, 7, 'var(--txt)', 'Movimentos', Q.num(t.movimentos),
-        t.linhas + (t.linhas === 1 ? ' linha de caixa' : ' linhas de caixa'), null) +
-      /* AO LADO DE "MOVIMENTOS", e não no fim da fileira: os dois contam a mesma coisa
-         — lançamentos —, e juntos respondem "quanto há no recorte, e quanto disso
-         entrou hoje". Depois deles vêm as QUANTIDADES de caixa, e por último as duas
-         ressalvas. A mesma tinta neutra do vizinho diz que são da mesma família; azul
-         ou verde aqui colidiriam com a legenda, onde já querem dizer saída e retorno.
+    /* CADA CARTÃO VIRA UMA ENTRADA COM NOME, e a fileira passa a ser montada a partir
+       da ordem guardada. Antes eles eram sete chamadas em sequência, com a posição
+       escrita à mão em cada uma — e posição escrita à mão não se reordena. */
+    var FICHAS = {
+      movimentos: { cor: 'var(--txt)', rotulo: 'Movimentos', valor: Q.num(t.movimentos),
+        nota: t.linhas + (t.linhas === 1 ? ' linha de caixa' : ' linhas de caixa'),
+        fatia: null },
+      /* AO LADO DE "MOVIMENTOS" de fábrica: os dois contam a mesma coisa — lançamentos
+         —, e juntos respondem "quanto há no recorte, e quanto disso entrou hoje". A
+         mesma tinta neutra do vizinho diz que são da mesma família; azul ou verde aqui
+         colidiriam com a legenda, onde já querem dizer saída e retorno.
          SEM BARRA, pela razão que já vale para "Movimentos": a fatia seria de CONTAGEM
          contra QUANTIDADE de caixa, e comparar coisas diferentes dá número bonito e
          falso.
          ELE OBEDECE AO FILTRO, como os outros seis — é a lista já recortada que chega
          aqui. Com o período padrão de 30 dias hoje está dentro; um recorte que termine
          ontem zera este cartão, e é a resposta certa para o que foi perguntado. */
-      cartaoTot(1, 7, 'var(--txt)', 'Lançados hoje', Q.num(t.hoje),
-        t.hoje ? t.hojeLinhas + (t.hojeLinhas === 1 ? ' linha · ' : ' linhas · ') +
-                 Q.num(t.hojeQtd) + (t.hojeQtd === 1 ? ' caixa' : ' caixas')
-               : 'nada lançado hoje',
-        null) +
-      cartaoTot(2, 7, 'var(--azul)', 'Saída', Q.num(t.saida),
-        'caixas que saíram', fat(t.saida)) +
-      cartaoTot(3, 7, 'var(--verde)', 'Retorno', Q.num(t.retorno),
-        t.saida ? Q.num(Math.round(t.taxa * 10) / 10) + '% do que saiu' : 'nada saiu',
-        fat(t.retorno)) +
+      hoje: { cor: 'var(--txt)', rotulo: 'Lançados hoje', valor: Q.num(t.hoje),
+        nota: t.hoje ? t.hojeLinhas + (t.hojeLinhas === 1 ? ' linha · ' : ' linhas · ') +
+                       Q.num(t.hojeQtd) + (t.hojeQtd === 1 ? ' caixa' : ' caixas')
+                     : 'nada lançado hoje',
+        fatia: null },
+      saida: { cor: 'var(--azul)', rotulo: 'Saída', valor: Q.num(t.saida),
+        nota: 'caixas que saíram', fatia: fat(t.saida) },
+      retorno: { cor: 'var(--verde)', rotulo: 'Retorno', valor: Q.num(t.retorno),
+        nota: t.saida ? Q.num(Math.round(t.taxa * 10) / 10) + '% do que saiu' : 'nada saiu',
+        fatia: fat(t.retorno) },
       /* O SALDO É RETORNO MENOS SAÍDA, e o sinal importa mais que o número: negativo
          quer dizer caixa na rua. Vermelho só nesse caso — pintar de vermelho um saldo
          positivo ensinaria a ignorar a cor. */
-      cartaoTot(4, 7, t.saldo < 0 ? 'var(--vermelho)' : 'var(--verde)', 'Saldo',
-        (t.saldo === 0 ? '0' : sinal(t.saldo)),
-        t.saldo < 0 ? 'saiu mais do que voltou' : 'voltou mais do que saiu',
-        fat(Math.abs(t.saldo))) +
-      cartaoTot(5, 7, 'var(--amarelo)', 'De teste', Q.num(t.testeQtd),
-        t.teste ? t.teste + (t.teste === 1 ? ' linha · já contada acima'
-                                           : ' linhas · já contadas acima')
-                : 'nenhum de teste',
-        fat(t.testeQtd)) +
-      cartaoTot(6, 7, 'var(--txt3)', 'Ajuste e perda', Q.num(t.acerto),
-        t.acertoN ? t.acertoN + (t.acertoN === 1 ? ' linha · não é viagem de caixa'
-                                                 : ' linhas · não são viagem de caixa')
-                  : 'nenhum acerto',
-        fat(t.acerto));
+      saldo: { cor: t.saldo < 0 ? 'var(--vermelho)' : 'var(--verde)', rotulo: 'Saldo',
+        valor: (t.saldo === 0 ? '0' : sinal(t.saldo)),
+        nota: t.saldo < 0 ? 'saiu mais do que voltou' : 'voltou mais do que saiu',
+        fatia: fat(Math.abs(t.saldo)) },
+      teste: { cor: 'var(--amarelo)', rotulo: 'De teste', valor: Q.num(t.testeQtd),
+        nota: t.teste ? t.teste + (t.teste === 1 ? ' linha · já contada acima'
+                                                 : ' linhas · já contadas acima')
+                      : 'nenhum de teste',
+        fatia: fat(t.testeQtd) },
+      acerto: { cor: 'var(--txt3)', rotulo: 'Ajuste e perda', valor: Q.num(t.acerto),
+        nota: t.acertoN ? t.acertoN + (t.acertoN === 1 ? ' linha · não é viagem de caixa'
+                                                       : ' linhas · não são viagem de caixa')
+                        : 'nenhum acerto',
+        fatia: fat(t.acerto) }
+    };
+
+    /* NÃO HÁ FILTRO AQUI, e a ausência é deliberada. Havia um `.filter(id => FICHAS[id])`
+       com um comentário dizendo que protegia contra um id guardado de uma versão antiga.
+       Ele não protegia de nada: `ordemColunas` já descarta o que não está no `padrao`,
+       uma camada acima. Medido — com o filtro removido e um id inventado semeado no
+       armazenamento, a fileira sai com os mesmos sete cartões. Guarda que não pode
+       disparar é pior que guarda nenhuma: ela diz ao próximo leitor que o caso está
+       tratado aqui, e ele para de procurar onde o tratamento de fato está.
+       Um id do `padrao` SEM ficha estoura na linha de baixo, e é o que se quer: é erro
+       de código, não de dado, e há afirmação cobrando que as duas listas coincidam. */
+    var ordem = ordemColunas(CARTOES_MOV);
+    box.innerHTML = ordem.map(function(id, i){
+      var f = FICHAS[id];
+      /* O `i` É A POSIÇÃO NA TELA, e não a identidade do cartão: a varredura de cor
+         atravessa a FILEIRA uma vez, da esquerda para a direita. Passar aqui a posição
+         de fábrica faria a cor andar embaralhada junto com os cartões, e as emendas
+         entre eles apareceriam. O quadradinho ao lado do rótulo é o contrário — esse é
+         identidade, e viaja com o cartão. */
+      return cartaoTot(i, ordem.length, f.cor, f.rotulo, f.valor, f.nota, f.fatia, id);
+    }).join('');
+
+    ligarArrastarCartoes();
+  }
+
+  /* O CARTÃO INTEIRO É A ALÇA, e aqui isso pode: diferente do filtro — onde arrastar a
+     caixinha roubava o clique que abre o seletor —, não há nada clicável dentro dele.
+     Alça grande é o que se quer quando o alvo é um cartão de 250px. */
+  function ligarArrastarCartoes(){
+    var box = document.getElementById('totMov');
+    if (!box) return;
+    var arrastado = null;
+    Array.prototype.forEach.call(box.querySelectorAll('[data-cartao]'), function(div){
+      var id = div.getAttribute('data-cartao');
+      div.draggable = podeArranjarColunas();
+      if (!div.draggable) return;
+      div.addEventListener('dragstart', function(e){
+        arrastado = id;
+        div.classList.add('arrastando');
+        try { e.dataTransfer.setData('text/plain', id); } catch (err) {}
+      });
+      div.addEventListener('dragend', function(){
+        div.classList.remove('arrastando');
+        box.querySelectorAll('.alvo').forEach(function(x){ x.classList.remove('alvo'); });
+      });
+      div.addEventListener('dragover', function(e){
+        e.preventDefault();
+        if (id !== arrastado) div.classList.add('alvo');
+      });
+      div.addEventListener('dragleave', function(){ div.classList.remove('alvo'); });
+      div.addEventListener('drop', function(e){
+        e.preventDefault();
+        div.classList.remove('alvo');
+        if (!arrastado || id === arrastado) return;
+        /* A ORDEM SALVA É A COMPLETA — a mesma regra dos filtros: um id que hoje não
+           tem ficha continua guardado no lugar dele, e volta se o cartão voltar. */
+        var ordem = ordemColunas(CARTOES_MOV);
+        var de = ordem.indexOf(arrastado);
+        if (de < 0) return;
+        ordem.splice(de, 1);
+        ordem.splice(ordem.indexOf(id), 0, arrastado);
+        guardarOrdem(CARTOES_MOV, ordem);
+        /* REDESENHA A PARTIR DO QUE ESTÁ NA TELA. Não dá para mover o nó como os filtros
+           fazem: ali o `appendChild` preserva o valor do seletor, aqui a varredura de
+           cor de TODOS muda quando um se move, e só a remontagem acerta as emendas. */
+        desenharTotaisMov(MOVS || []);
+      });
+    });
+  }
+
+  function restaurarCartoes(){
+    try { localStorage.removeItem(CARTOES_MOV.kOrdem); } catch (e) {}
+    desenharTotaisMov(MOVS || []);
+    Q.toast('Ordem dos cartões de volta ao padrão.');
   }
 
   /* ================= OS CINCO RECORTES DO MESMO FILTRO =================
@@ -6582,7 +6679,9 @@
              e é quando ela resolve alguma coisa. Travada, ela seria um botão que pede
              senha para desfazer algo que ninguém pode fazer. */
           '<button class="mini" type="button" data-restaurar-filtros '+
-          'title="Devolve os filtros à ordem de fábrica">ordem dos filtros</button>'
+          'title="Devolve os filtros à ordem de fábrica">ordem dos filtros</button>'+
+          '<button class="mini" type="button" data-restaurar-cartoes '+
+          'title="Devolve os cartões à ordem de fábrica">ordem dos cartões</button>'
         : '<button class="mini trava__btn" type="button" data-destravar '+
           'title="Mover colunas e filtros de lugar pede sua senha do painel">'+
           '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
@@ -6639,6 +6738,7 @@
     if (e.target.closest('[data-destravar]')) { pedirSenhaDasColunas(); return; }
     if (e.target.closest('[data-travar]')) { travarColunas(false); return; }
     if (e.target.closest('[data-restaurar-filtros]')) restaurarFiltros();
+    if (e.target.closest('[data-restaurar-cartoes]')) restaurarCartoes();
   });
 
   function fecharModal(){ document.getElementById('modal').classList.remove('aberto'); }

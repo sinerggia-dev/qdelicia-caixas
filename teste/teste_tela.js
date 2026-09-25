@@ -2154,18 +2154,67 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
     }
     return '';
   };
-  var chamadas = corpoDe(adm, 'desenharTotaisMov').match(/cartaoTot\((\d+),\s*(\d+),/g) || [];
-  var indices = chamadas.map(function (c) { return c.match(/\((\d+),\s*(\d+),/); });
-  ok(indices.length === Number(colsTot),
-    'há um cartão para cada coluna da grade', [indices.length, colsTot]);
-  ok(indices.every(function (m) { return m[2] === colsTot; }),
-    'e todos dizem à varredura de cor o MESMO tamanho de fileira que a grade tem — ' +
-    'com um número a menos, o último cartão repete a cor do vizinho',
-    indices.map(function (m) { return m[2]; }));
-  ok(indices.every(function (m, k) { return Number(m[1]) === k; }),
-    'e as posições vão de 0 em diante, sem pular nem repetir — posição repetida são ' +
-    'dois cartões com a mesma cor no meio da fileira',
-    indices.map(function (m) { return m[1]; }));
+  /* A POSIÇÃO E O TAMANHO DA FILEIRA SAEM DA LISTA, e não estão escritos em cada
+     chamada. Eram sete `cartaoTot(0, 7, …)` … `cartaoTot(6, 7, …)` com a posição na
+     mão — e posição escrita na mão não se reordena. Agora quem manda é a ordem
+     guardada, e a varredura de cor recebe o índice do laço. */
+  var desenho = corpoDe(adm, 'desenharTotaisMov');
+  ok(/ordemColunas\(CARTOES_MOV\)/.test(desenho),
+    'a fileira de cartões é montada a partir da ordem guardada, e não de uma sequência ' +
+    'fixa de chamadas');
+  ok(/cartaoTot\(i,\s*ordem\.length,/.test(desenho),
+    'e a varredura de cor recebe a POSIÇÃO NA TELA e o tamanho da fileira desenhada — ' +
+    'com a posição de fábrica, a cor andaria embaralhada junto com os cartões e as ' +
+    'emendas entre eles apareceriam');
+  ok(!/cartaoTot\(\d/.test(desenho),
+    'e não sobrou nenhuma chamada com a posição escrita à mão, que a ordem guardada ' +
+    'não teria como mover', (desenho.match(/cartaoTot\(\d[^)]{0,20}/g) || []));
+
+  /* OS SETE NOMES EM DOIS LUGARES: a lista de fábrica e as fichas que desenham. Um id
+     só na lista é uma posição que não desenha nada — um buraco na fileira. Um id só nas
+     fichas é um cartão que nunca aparece. Os dois falham em silêncio. */
+  var descCart = adm.slice(adm.indexOf('var CARTOES_MOV = {'));
+  descCart = descCart.slice(0, descCart.indexOf('\n  };'));
+  /* SÓ O QUE ESTÁ DENTRO DE `padrao: [...]`. Varrendo o descritor inteiro, o valor de
+     `kOrdem` entrava na lista como se fosse um cartão. */
+  var listaCart = descCart.slice(descCart.indexOf('padrao: ['),
+                                 descCart.indexOf(']', descCart.indexOf('padrao: [')));
+  var idsPadrao = (listaCart.match(/'(\w+)'/g) || []).map(function (s) { return s.slice(1, -1); });
+  var idsFicha = (desenho.slice(desenho.indexOf('var FICHAS = {'),
+                                desenho.indexOf('var ordem =')).match(/^\s{6}(\w+):\s*\{/gm) || [])
+    .map(function (s) { return s.trim().replace(':', '').replace('{', '').trim(); });
+  ok(idsPadrao.length === Number(colsTot),
+    'há um cartão de fábrica para cada coluna da grade', [idsPadrao.length, colsTot]);
+  ok(idsPadrao.slice().sort().join() === idsFicha.slice().sort().join(),
+    'e a lista de fábrica e as fichas que desenham falam dos MESMOS sete cartões — ' +
+    'um id só de um lado é um buraco na fileira ou um cartão que nunca aparece',
+    [idsPadrao, idsFicha]);
+
+  /* A CHAVE É PRÓPRIA. Repetindo a das colunas ou a dos filtros, mover um cartão
+     embaralharia a tabela — e ninguém procuraria a causa nos cartões. */
+  var chaveCart = (descCart.match(/kOrdem: '([^']+)'/) || [])[1];
+  var chaveFil = (adm.match(/var FILTROS_MOV = \{[\s\S]*?kOrdem: '([^']+)'/) || [])[1];
+  var chaveTab = (adm.match(/var TAB_MOV = \{[\s\S]*?kOrdem: '([^']+)'/) || [])[1];
+  ok(chaveCart && chaveCart !== chaveFil && chaveCart !== chaveTab,
+    'e a ordem dos cartões tem chave própria — dividindo com as colunas ou com os ' +
+    'filtros, mexer num embaralharia o outro', [chaveCart, chaveFil, chaveTab]);
+
+  /* O DESCRITOR VEM ANTES DE QUEM O LÊ. `var` iça a declaração e NÃO o valor: declarado
+     depois, `CARTOES_MOV.padrao` é `undefined.padrao`, estoura, e o erro PARA o arquivo
+     inteiro — inclusive a última linha, que é a que decide entre abrir o app e pedir
+     login. Foi exatamente assim que o painel foi ao ar sem tela de entrada. */
+  ok(adm.indexOf('var CARTOES_MOV = {') < adm.indexOf('function desenharTotaisMov'),
+    'e o descritor dos cartões é declarado ANTES da função que o lê — declarado ' +
+    'depois, ele é `undefined` na hora da chamada e o erro para o arquivo inteiro');
+
+  /* O ARRASTO PASSA PELO MESMO CADEADO das colunas e dos filtros. Preso só ao perfil,
+     o cartão seria arrastável sem a senha; preso a nada, por qualquer um. */
+  var arrastaCart = corpoDe(adm, 'ligarArrastarCartoes');
+  ok(/div\.draggable = podeArranjarColunas\(\);/.test(arrastaCart),
+    'e o cartão só vira alça com o mesmo cadeado das colunas e dos filtros — perfil ' +
+    'de administrador E a senha conferida');
+  ok(/guardarOrdem\(CARTOES_MOV, ordem\);/.test(arrastaCart),
+    'e o que se arrasta fica guardado, na chave dos cartões');
 
   /* --- "LANÇADOS HOJE", RODADO ------------------------------------------
    * O que este cartão conta é uma DECISÃO, não um detalhe: neste sistema "lançar" é o
