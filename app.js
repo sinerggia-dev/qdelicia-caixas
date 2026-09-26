@@ -213,8 +213,8 @@
    * servidor. Não é repetição por descuido — são três portas diferentes, e a única que
    * eu controlo nas três é a lista. Um nome que o CSS não conhece não pinta NADA: a tela
    * fica sem cor de marca e a causa está num lugar que ninguém pensa em abrir. */
-  var TEMAS = ['verde', 'rosa', 'roxo'];
-  var FUNDOS = ['azul', 'cinza', 'preto'];
+  var TEMAS = ['verde', 'roxo', 'ambar', 'gelo'];
+  var FUNDOS = ['azul', 'petroleo', 'cinza', 'roxo', 'gelo'];
   var TEMA_PADRAO = 'roxo', FUNDO_PADRAO = 'azul';
 
   function guardarLocal(chave, valor) {

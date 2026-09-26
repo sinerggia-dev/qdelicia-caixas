@@ -695,8 +695,8 @@ var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas', 'senhaCorrecao'
    não pinta nada: a página fica sem cor de marca nenhuma e ninguém entende por quê. E
    quem manda para esta rota não é só a nossa tela — é qualquer um, porque a API não tem
    autorização. Recusar o nome errado é mais barato que descobrir a tela apagada. */
-var VALORES_APARENCIA = { tema: ['verde', 'rosa', 'roxo'],
-                          fundo: ['azul', 'cinza', 'preto'] };
+var VALORES_APARENCIA = { tema: ['verde', 'roxo', 'ambar', 'gelo'],
+                          fundo: ['azul', 'petroleo', 'cinza', 'roxo', 'gelo'] };
 
 /* A SENHA DO CONSERTO FORA DE PRAZO. Enquanto ninguém cadastrar outra, vale esta — é a
    que foi combinada, e está aqui em vez de no banco para o sistema funcionar num banco

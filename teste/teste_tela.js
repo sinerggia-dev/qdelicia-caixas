@@ -10648,8 +10648,13 @@ console.log('\n== a aparência: cor da marca e fundo ==');
   var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
   var api = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
 
-  var TEMAS = ['verde', 'rosa', 'roxo'];
-  var FUNDOS = ['azul', 'cinza', 'preto'];
+  var TEMAS = ['verde', 'roxo', 'ambar', 'gelo'];
+  var FUNDOS = ['azul', 'petroleo', 'cinza', 'roxo', 'gelo'];
+  /* O CLARO É O ÚNICO em que a tinta é escura, e o único que mexe nas cores que
+     informam. Ele também tem um bloco por marca — o par de seletores pesa mais e ganha
+     do bloco do tema. Quem mede tem de ler os dois, senão mede a cor que o claro
+     substituiu. */
+  var CLARO = 'gelo';
 
   function bloco(sel) {
     var i = css.indexOf(sel + '{');
@@ -10658,6 +10663,18 @@ console.log('\n== a aparência: cor da marca e fundo ==');
   function tokens(sel) {
     var m = {}, re = /(--[a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g, x, b = bloco(sel);
     while ((x = re.exec(b))) m[x[1]] = x[2];
+    return m;
+  }
+  /* O QUE DE FATO VALE numa combinação: o bloco do tema, o do fundo, e por cima o do
+     PAR, quando existe. Medir só os dois primeiros mediria a cor que o fundo claro
+     substituiu — e é justamente nele que as substituições acontecem. */
+  function valendo(tema, fundo) {
+    var m = {};
+    [tokens('[data-tema="' + tema + '"]'), tokens('[data-fundo="' + fundo + '"]'),
+     tokens('[data-fundo="' + fundo + '"][data-tema="' + tema + '"]')
+    ].forEach(function (o) {
+      Object.keys(o).forEach(function (k) { m[k] = o[k]; });
+    });
     return m;
   }
 
@@ -10691,14 +10708,29 @@ console.log('\n== a aparência: cor da marca e fundo ==');
      na tela, e o galpão leria um saldo negativo como se estivesse tudo certo. */
   var SIGNIFICADO = ['--verde', '--azul', '--ambar', '--vermelho', '--verde-cheio',
                      '--azul-cheio', '--laranja'];
-  TEMAS.concat(FUNDOS).forEach(function (k) {
-    var sel = TEMAS.indexOf(k) >= 0 ? '[data-tema="' + k + '"]' : '[data-fundo="' + k + '"]';
-    var tk = tokens(sel);
-    var invadiu = SIGNIFICADO.filter(function (x) { return !!tk[x]; });
+  /* NENHUMA COR DA MARCA toca nelas, e nenhum fundo ESCURO também. Escolher a cor do
+     sistema não pode trocar o sentido dos números. */
+  TEMAS.forEach(function (k) {
+    var invadiu = SIGNIFICADO.filter(function (x) { return !!tokens('[data-tema="' + k + '"]')[x]; });
     ok(invadiu.length === 0,
-      k + ': não toca nas cores que informam — mexendo nelas, escolher uma cor trocaria ' +
-      'o sentido dos números', invadiu);
+      'a cor ' + k + ' não toca nas cores que informam — mexendo nelas, escolher uma cor ' +
+      'trocaria o sentido dos números', invadiu);
   });
+  FUNDOS.filter(function (f) { return f !== CLARO; }).forEach(function (f) {
+    var invadiu = SIGNIFICADO.filter(function (x) { return !!tokens('[data-fundo="' + f + '"]')[x]; });
+    ok(invadiu.length === 0,
+      'o fundo ' + f + ' não toca nelas — os quatro escuros partilham a mesma escala de ' +
+      'tinta, e nada ali obriga a mexer', invadiu);
+  });
+  /* O CLARO É A EXCEÇÃO, e ela é obrigatória, não de conveniência: `--verde` (#35d6a0)
+     sobre branco dá 1,9:1. A cor CONTINUA verde e deixa de ser legível, e um saldo que
+     ninguém lê não informa nada. O que não muda é o SIGNIFICADO nem a FAMÍLIA — muda o
+     tom. Esta asserção cobra as duas metades: que ele mexa, e que o resultado passe. */
+  var claroTk = tokens('[data-fundo="' + CLARO + '"]');
+  var naoMexeu = SIGNIFICADO.filter(function (x) { return !claroTk[x]; });
+  ok(naoMexeu.length === 0,
+    'o fundo claro REDEFINE as cores que informam — sem isso elas ficam na tonalidade ' +
+    'de fundo escuro e somem no branco, e cor que não se lê não informa', naoMexeu);
 
   /* ---- 3. O CONTRASTE DAS NOVE COMBINAÇÕES, calculado aqui ----
    * Cor escolhida no olho e cor que some no galpão são a mesma coisa até alguém medir.
@@ -10728,19 +10760,42 @@ console.log('\n== a aparência: cor da marca e fundo ==');
       if (v < 4.5) ruins.push(k + ': ' + par[2] + ' = ' + v.toFixed(2) + ' (mínimo 4,5)');
     });
     FUNDOS.forEach(function (f) {
-      var F = tokens('[data-fundo="' + f + '"]');
+      var V = valendo(k, f);
       /* O acento CHEIO contra o cartão: 3,0:1, que é elemento gráfico — é a forma do
-         botão, não o texto dele. Foi aqui que o roxo de hoje reprovou, em 2,21:1. */
-      var g = contraste(T['--brand'], F['--surface']);
+         botão, não o texto dele. Foi aqui que o roxo antigo reprovou, em 2,21:1, e é
+         aqui que branco sobre branco daria 1,24:1 se o par não trocasse a cor. */
+      var g = contraste(V['--brand'], V['--surface']);
       if (g < 3.0) ruins.push(f + '/' + k + ': o acento contra o cartão = ' +
         g.toFixed(2) + ' (mínimo 3,0)');
-      var i = contraste(T['--roxo-txt'], F['--surface']);
+      var i = contraste(V['--roxo-txt'], V['--surface']);
       if (i < 4.5) ruins.push(f + '/' + k + ': o acento como tinta = ' +
         i.toFixed(2) + ' (mínimo 4,5)');
+      /* A tinta em cima do acento vale POR COMBINAÇÃO: no chão claro ela inverte. */
+      var s = contraste(V['--sobre-brand'], V['--brand']);
+      if (s < 4.5) ruins.push(f + '/' + k + ': o texto do botão = ' +
+        s.toFixed(2) + ' (mínimo 4,5)');
     });
   });
   FUNDOS.forEach(function (f) {
     var F = tokens('[data-fundo="' + f + '"]');
+    /* AS QUATRO QUE INFORMAM, em cada fundo. Como TEXTO pedem 4,5; o `--azul-cheio` e o
+       `--verde-cheio` são preenchimento de barra e pedem 3,0 — medi-los pela régua do
+       texto reprovaria a tela de hoje, que está certa. */
+    var base = tokens(':root');
+    function vale(nome) { return F[nome] || base[nome]; }
+    [['--verde', 4.5, 'o número bom'], ['--vermelho', 4.5, 'o número ruim'],
+     ['--ambar', 4.5, 'o aviso'], ['--azul', 4.5, 'a etiqueta azul'],
+     ['--azul-cheio', 3.0, 'a barra de saída'], ['--verde-cheio', 3.0, 'a barra de retorno'],
+     /* O AZUL DOS LINKS é texto, e estava fora da conta: ele vem do `:root` e não muda
+        com o fundo escuro, mas no claro ele PRECISA mudar — azul claro sobre branco
+        some. Sem esta linha, o único fundo em que ele reprova é o único que ninguém
+        mediu. */
+     ['--marca-txt', 4.5, 'o link no cartão']
+    ].forEach(function (par) {
+      var v = contraste(vale(par[0]), vale('--surface'));
+      if (v < par[1]) ruins.push(f + ': ' + par[2] + ' = ' + v.toFixed(2) +
+        ' (mínimo ' + par[1].toFixed(1) + ')');
+    });
     [['--txt', '--bg', 'a tinta principal no chão'],
      ['--txt2', '--surface', 'a segunda tinta no cartão'],
      ['--txt3', '--surface', 'a etiqueta apagada no cartão'],
@@ -10753,6 +10808,98 @@ console.log('\n== a aparência: cor da marca e fundo ==');
   ok(ruins.length === 0,
     'as ' + (TEMAS.length * FUNDOS.length) + ' combinações de cor e fundo passam em ' +
     'WCAG — o par que reprova é sempre o que ninguém abriu', ruins);
+
+  /* ---- 3b. AS CINCO PONTAS LISTAM OS MESMOS NOMES ----
+   *
+   * A lista de cores e de fundos vive em cinco lugares, e por um bom motivo cada um: o
+   * CSS pinta, o `app.js` valida e guarda, as TRÊS páginas aplicam antes de pintar, e o
+   * servidor recusa o que não conhece. Cinco cópias da mesma lista é cinco chances de
+   * uma ficar para trás.
+   *
+   * E o sintoma de uma ficar para trás não é um erro: é silêncio. Nome que o CSS não
+   * conhece não pinta NADA — a tela fica sem cor de marca e a causa está numa lista que
+   * ninguém abre. Nome que o CSS tem e o `app.js` não, e a opção simplesmente não
+   * aparece. Medido: dois defeitos assim escaparam da suíte inteira.
+   *
+   * A ORDEM TAMBÉM CONTA, porque ela é a ordem dos botões na tela. */
+  function listaDoBloco(texto, re) {
+    var m = re.exec(texto);
+    return m ? m[1].split(',').map(function (x) { return x.replace(/['\s]/g, ''); }) : [];
+  }
+  var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var idxH = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var admH = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var extH = fs.readFileSync(path.join(__dirname, '..', 'extrato.html'), 'utf8');
+  var apiJ = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+
+  /* Do CSS saem os blocos na ordem em que aparecem — e só os de um atributo só: os
+     pares `[data-fundo][data-tema]` são ajustes, e não opções da lista. */
+  function doCss(attr) {
+    var re = new RegExp('^\\[data-' + attr + '="([a-z]+)"\\]\\{', 'gm'), m, v = [];
+    while ((m = re.exec(css))) if (v.indexOf(m[1]) < 0) v.push(m[1]);
+    return v;
+  }
+
+  [['tema', TEMAS, /var TEMAS = \[([^\]]+)\]/, /'data-tema',\s*\[([^\]]+)\]/,
+    /tema: \[([^\]]+)\]/],
+   ['fundo', FUNDOS, /var FUNDOS = \[([^\]]+)\]/, /'data-fundo',\s*\[([^\]]+)\]/,
+    /fundo: \[([^\]]+)\]/]
+  ].forEach(function (eixo) {
+    var nome = eixo[0], esperado = eixo[1].join(',');
+    var pontas = {
+      'a folha de estilo': doCss(nome).join(','),
+      'o app.js': listaDoBloco(app, eixo[2]).join(','),
+      'a partida do app de campo': listaDoBloco(idxH, eixo[3]).join(','),
+      'a partida do painel': listaDoBloco(admH, eixo[3]).join(','),
+      'a partida do extrato': listaDoBloco(extH, eixo[3]).join(','),
+      'o servidor': listaDoBloco(apiJ, eixo[4]).join(',')
+    };
+    Object.keys(pontas).forEach(function (onde) {
+      ok(pontas[onde] === esperado,
+        nome + ': ' + onde + ' lista os mesmos nomes, na mesma ordem — uma lista para ' +
+        'trás não dá erro, dá silêncio: a cor simplesmente não pinta',
+        pontas[onde] + '  ≠  ' + esperado);
+    });
+  });
+
+  /* ---- 3c. A COR DA MARCA NÃO É UMA DAS QUE INFORMAM ----
+   *
+   * O âmbar quase entrou como a MESMA cor de "Atenção". O botão principal e o chip de
+   * aviso ficariam idênticos, e a cor deixaria de dizer "repare nisto" para dizer só
+   * "isto é clicável". Escapou da suíte inteira: nada cobrava a distância entre as duas
+   * famílias, porque até então nenhuma marca chegou perto de uma delas.
+   *
+   * O QUE ISTO PEGA é a igualdade. O limite fica escrito: âmbar (#ef7b2f) e o aviso
+   * (#e8a33d) diferem em MATIZ, não em brilho — 1,29:1 de luminância —, e quem não
+   * distingue laranja de âmbar vê os dois iguais. Nenhuma conta aqui mede isso; se
+   * aparecer na operação, o caminho é outra família de cor, não um laranja mais escuro. */
+  var raiz = tokens(':root');
+  TEMAS.forEach(function (k) {
+    var b = (tokens('[data-tema="' + k + '"]')['--brand'] || '').toLowerCase();
+    var bate = SIGNIFICADO.filter(function (s) {
+      return (raiz[s] || '').toLowerCase() === b;
+    });
+    ok(bate.length === 0,
+      'a cor ' + k + ' não é igual a nenhuma das que informam — sendo, o botão ' +
+      'principal e o aviso ficam da mesma cor e a cor para de avisar', bate);
+  });
+
+  /* ---- 3d. NENHUM VÉU BRANCO SOLTO ----
+   *
+   * Os `rgba(255,255,255,.05)` que desenham trilho de barra e fundo de contador são
+   * invisíveis sobre um cartão BRANCO — as barras ficariam boiando sem trilho. Viraram
+   * token para inverterem no chão claro, e o branco cru não pode voltar.
+   * A conta é UMA ocorrência: a definição do próprio token. */
+  /* A CONTA ERRADA ERA MINHA: escrevi "uma ocorrência" e a linha da definição tem DUAS
+     — `--veu` e `--veu-forte`. Contar número era cobrar o endereço; o que importa é que
+     toda ocorrência esteja DENTRO de uma declaração de véu, e nenhuma solta numa regra. */
+  var soltos = (css.match(/(--veu[a-z-]*:\s*)?rgba\(255,\s*255,\s*255/g) || [])
+    .filter(function (m) { return m.indexOf('--veu') !== 0; });
+  ok(soltos.length === 0,
+    'o branco translúcido só aparece definindo um véu — solto numa regra, ele some no ' +
+    'fundo claro e a barra fica sem trilho', soltos);
+  ok(/\[data-fundo="gelo"\][\s\S]{0,1200}--veu:rgba\(16,32,52/.test(css),
+    'e o fundo claro inverte os dois véus — sem isso o token não resolve nada');
 
   /* ---- 4. a partida, antes de pintar ----
      No fim da página, a tela nasceria na cor de fábrica e piscaria para a escolhida —

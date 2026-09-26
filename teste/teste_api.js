@@ -3244,24 +3244,24 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
      ESTE BLOCO RODA A ROTA. Lido no arquivo, o teste virava busca de texto: um
      `var permitidos = null` deixava a comparacao escrita e sem efeito, e a leitura nao
      via diferenca. Medido: escapou. */
-  const bom = await POST({ acao: 'salvarConfig', chave: 'tema', valor: 'rosa' });
+  const bom = await POST({ acao: 'salvarConfig', chave: 'tema', valor: 'ambar' });
   ok(bom.ok === true, 'um nome conhecido e aceito', bom);
-  ok((await POST({ acao: 'salvarConfig', chave: 'fundo', valor: 'preto' })).ok === true,
+  ok((await POST({ acao: 'salvarConfig', chave: 'fundo', valor: 'petroleo' })).ok === true,
      'e o fundo tambem');
 
   const volta = await GET({ acao: 'dados' });
-  ok(volta.config.tema === 'rosa' && volta.config.fundo === 'preto',
+  ok(volta.config.tema === 'ambar' && volta.config.fundo === 'petroleo',
     'e as duas voltam na rota `dados`, que e por onde TODA tela recebe a configuracao',
     { tema: volta.config.tema, fundo: volta.config.fundo });
 
   const mau = await POST({ acao: 'salvarConfig', chave: 'tema', valor: 'laranja' });
   ok(mau.ok === false && /laranja/.test(String(mau.erro)),
     'um nome que o CSS nao conhece e RECUSADO, e a resposta diz qual era', mau);
-  ok(/verde, rosa, roxo/.test(String(mau.erro)),
+  ok(/verde, roxo, ambar, gelo/.test(String(mau.erro)),
     'e diz quais valem — "valor invalido" sozinho deixa quem chamou adivinhando', mau.erro);
 
   const depois = await GET({ acao: 'dados' });
-  ok(depois.config.tema === 'rosa',
+  ok(depois.config.tema === 'ambar',
     'E NADA FOI GRAVADO: a cor de antes continua valendo. Gravado o nome errado, a tela '
     + 'inteira ficaria sem cor de marca ate alguem editar o banco a mao',
     depois.config.tema);

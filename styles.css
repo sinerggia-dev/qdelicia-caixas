@@ -68,6 +68,13 @@
   --roxo-txt:#c9a6f0;         /* o roxo como TINTA: as iniciais no circulo */
   --verde-hover:#c9a6f0;      /* o hover CLAREIA: escurecer roubava contraste */
   --sobre-verde:#1a0b2e;      /* a tinta que vai SOBRE a marca */
+  /* OS DOIS VÉUS. São o branco de baixa opacidade que desenha trilho de barra, fundo de
+     contador e realce sob o mouse — coisas que não têm cor própria, só "um pouco mais
+     claro que o que está atrás".
+     VIRARAM TOKEN por causa do fundo claro: branco a 5% sobre um cartão BRANCO é
+     invisível, e as barras ficariam boiando sem trilho. No chão claro eles invertem para
+     um azul-escuro translúcido, e o desenho continua o mesmo. */
+  --veu:rgba(255,255,255,.055); --veu-forte:rgba(255,255,255,.14);
   --raio:14px; --raio-sm:10px;
   /* Sombra no escuro precisa ser mais funda: a de 8% sumia contra o fundo. */
   --sombra:0 1px 3px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.28);
@@ -102,21 +109,25 @@
  * trocável, a tinta que vai em cima dela tem de ser trocável junto, senão o primeiro
  * tema claro deixa o botão principal ilegível no galpão. */
 
-/* O ROXO CLAREOU, e nao foi escolha de gosto: MEDIDO, o #8b44e0 de hoje fica em 2,21:1
-   contra o cartao azul — abaixo dos 3,0:1 que a WCAG pede para elemento grafico. O botao
-   continuava legivel (o texto branco nele dava 5,25:1), mas a FORMA dele quase sumia no
-   cartao. Enquanto foi a unica cor do sistema isso passou despercebido; virando uma das
-   tres, a falha ficaria em uma e nas outras nao.
-   O #a46ce7 da 3,24:1 no azul, 4,08 no cinza e 5,15 no preto. Em compensacao ele nao
-   aceita mais texto BRANCO (3,57:1): a tinta em cima dele passa a ser escura, e e para
-   isso que o `--sobre-brand` existe. */
-[data-tema="roxo"]{
-  --brand:#a46ce7; --brand-hover:#b07fea; --brand-soft:#21344d;
-  --sobre-brand:#1a0b2e; --brand-rgb:164,108,231;
-  --ambar-btn:#a46ce7; --roxo-txt:#c9a6f0;
-  --marca-roxo:#a46ce7; --marca-verde:#bb91ed;
-  --verde-hover:#c9a6f0; --sobre-verde:#1a0b2e;
-}
+/* ---------------- AS QUATRO CORES DA MARCA ----------------
+ *
+ * O ROXO CLAREOU, e nao foi escolha de gosto: MEDIDO, o #8b44e0 de antes fica em 2,21:1
+ * contra o cartao azul — abaixo dos 3,0:1 que a WCAG pede para elemento grafico. O botao
+ * continuava legivel (o texto nele dava 5,25:1), mas a FORMA dele quase sumia no cartao.
+ * O #a46ce7 da 3,24:1 no azul e mais nos outros; em troca ele nao aceita texto BRANCO
+ * (3,57:1), e a tinta em cima passa a ser escura. E para isso que `--sobre-brand` existe.
+ *
+ * O AMBAR DA MARCA NAO E O AMBAR DO AVISO. `--ambar` (#e8a33d) quer dizer ATENCAO e nao
+ * muda com o tema; uma marca com a mesma cor faria o botao principal e o chip de aviso
+ * ficarem identicos, e a cor deixaria de dizer "repare nisto" para dizer so "isto e
+ * clicavel". A marca usa um laranja (#ef7b2f), da mesma familia e distinguivel ao lado.
+ * FICA O LIMITE, medido: a diferenca entre os dois e de MATIZ, nao de brilho (1,29:1 de
+ * luminancia). Quem nao distingue laranja de ambar — daltonismo vermelho-verde — ve os
+ * dois iguais. Se isso aparecer na operacao, o caminho e trocar a marca por uma cor de
+ * outra familia, e nao escurecer o laranja.
+ *
+ * O BRANCO GELO so e branco sobre fundo ESCURO. No fundo claro ele vira chumbo, mais
+ * abaixo: branco sobre branco da 1,24:1, e nao ha tom que passe e continue sendo branco. */
 [data-tema="verde"]{
   --brand:#00a853; --brand-hover:#00b85c; --brand-soft:#10322a;
   --sobre-brand:#0a1f38; --brand-rgb:0,168,83;
@@ -124,27 +135,48 @@
   --marca-roxo:#00a853; --marca-verde:#35d6a0;
   --verde-hover:#4fe0b0; --sobre-verde:#0a1f38;
 }
-[data-tema="rosa"]{
-  --brand:#e25385; --brand-hover:#ea6d98; --brand-soft:#3a1626;
-  --sobre-brand:#2a0c18; --brand-rgb:226,83,133;
-  --ambar-btn:#e25385; --roxo-txt:#f0a0be;
-  --marca-roxo:#e25385; --marca-verde:#f08bb0;
-  --verde-hover:#f7a3c2; --sobre-verde:#2a0c18;
+[data-tema="roxo"]{
+  --brand:#a46ce7; --brand-hover:#b07fea; --brand-soft:#21344d;
+  --sobre-brand:#1a0b2e; --brand-rgb:164,108,231;
+  --ambar-btn:#a46ce7; --roxo-txt:#c9a6f0;
+  --marca-roxo:#a46ce7; --marca-verde:#bb91ed;
+  --verde-hover:#c9a6f0; --sobre-verde:#1a0b2e;
+}
+[data-tema="ambar"]{
+  --brand:#ef7b2f; --brand-hover:#f28f4c; --brand-soft:#3a2310;
+  --sobre-brand:#2b1204; --brand-rgb:239,123,47;
+  --ambar-btn:#ef7b2f; --roxo-txt:#f5a173;
+  --marca-roxo:#ef7b2f; --marca-verde:#f5a173;
+  --verde-hover:#f7b490; --sobre-verde:#2b1204;
+}
+[data-tema="gelo"]{
+  --brand:#dce8f5; --brand-hover:#eef4fb; --brand-soft:#243a54;
+  --sobre-brand:#122437; --brand-rgb:220,232,245;
+  --ambar-btn:#dce8f5; --roxo-txt:#dce8f5;
+  --marca-roxo:#dce8f5; --marca-verde:#b9cee6;
+  --verde-hover:#eef4fb; --sobre-verde:#122437;
 }
 
-/* OS TRÊS FUNDOS. O mapa entre o vocabulário deste arquivo e a escala:
- *   --bg            o chão da página
- *   --surface       o cartão, um degrau acima do chão
+/* ---------------- OS CINCO FUNDOS ----------------
+ * O mapa entre o vocabulario deste arquivo e a escala:
+ *   --bg            o chao da pagina
+ *   --surface       o cartao, um degrau acima do chao
  *   --surface-2     o degrau seguinte (linha sob o mouse, pastilha)
- *   --campo         MAIS ESCURO que o cartão: o que se preenche afunda
+ *   --campo         do lado de LA do cartao: o que se preenche afunda
  *   --marinho-esc   a lateral e o trilho
- *   --linha/--neutro/--linha-viva   as três espessuras de separação
- *   --txt/2/3/-fraco                as quatro forças de tinta */
+ *   --linha/--neutro/--linha-viva   as tres espessuras de separacao
+ *   --txt/2/3/-fraco                as quatro forcas de tinta */
 [data-fundo="azul"]{
   --marinho:#16304f; --marinho-esc:#0d1f38; --marinho-claro:#27507f;
   --bg:#16304f; --surface:#1b3a5e; --surface-2:#24486f; --campo:#102741;
   --neutro:#33587f; --linha:#2a4b71; --linha-viva:#3e6a96;
   --txt:#e8eef5; --txt2:#c3d3e6; --txt3:#9cb1c9; --txt-fraco:#7d97b6;
+}
+[data-fundo="petroleo"]{
+  --marinho:#0f2a2c; --marinho-esc:#081e20; --marinho-claro:#1d4b4e;
+  --bg:#0f2a2c; --surface:#143537; --surface-2:#1d4b4e; --campo:#0a1f21;
+  --neutro:#2c6265; --linha:#234b4d; --linha-viva:#357a7e;
+  --txt:#e6f1f0; --txt2:#bfd6d4; --txt3:#93b0ae; --txt-fraco:#749391;
 }
 [data-fundo="cinza"]{
   --marinho:#1e2124; --marinho-esc:#141618; --marinho-claro:#32363c;
@@ -152,11 +184,77 @@
   --neutro:#454a52; --linha:#383c42; --linha-viva:#565c66;
   --txt:#f2f3f5; --txt2:#cdd1d6; --txt3:#a2a8b0; --txt-fraco:#868c94;
 }
-[data-fundo="preto"]{
-  --marinho:#0b0b0c; --marinho-esc:#050506; --marinho-claro:#252528;
-  --bg:#0b0b0c; --surface:#141416; --surface-2:#252528; --campo:#08080a;
-  --neutro:#323238; --linha:#26262a; --linha-viva:#434349;
-  --txt:#f5f5f6; --txt2:#cfcfd2; --txt3:#a4a4a9; --txt-fraco:#8a8a90;
+[data-fundo="roxo"]{
+  --marinho:#1a1326; --marinho-esc:#120d1b; --marinho-claro:#2e2242;
+  --bg:#1a1326; --surface:#231a33; --surface-2:#2e2242; --campo:#130e1c;
+  --neutro:#433256; --linha:#342747; --linha-viva:#584371;
+  --txt:#f1ecf7; --txt2:#cfc4de; --txt3:#a79bb8; --txt-fraco:#8a7d9c;
+}
+
+/* ---------------- O FUNDO CLARO ----------------
+ *
+ * Ele nao e "os mesmos tokens com outros valores": e a unica escala do sistema em que a
+ * tinta e ESCURA. Por isso ele redefine mais coisa que os outros quatro.
+ *
+ * E POR ISSO ELE MEXE NAS CORES QUE INFORMAM, que nos outros quatro ninguem toca. Nao e
+ * uma excecao de conveniencia — e o unico jeito de a regra continuar valendo. `--verde`
+ * (#35d6a0) sobre branco da 1,9:1: a cor CONTINUA verde e deixa de ser legivel, e um
+ * saldo que ninguem le nao informa nada. O que nao muda e o SIGNIFICADO nem a FAMILIA:
+ * verde continua verde, vermelho continua vermelho — muda o TOM, que e o que o fundo
+ * obriga. Medido, cada uma sobre o cartao branco: saida 7,8 · retorno 6,6 · atencao 5,9
+ * · negativo 7,4.
+ *
+ * E as PASTILHAS invertem junto: `--verde-claro` e companhia eram fundos escuros para
+ * tinta clara; aqui viram fundos claros para tinta escura. Esquecidas, a etiqueta verde
+ * ficaria verde-escuro sobre verde-escuro. */
+[data-fundo="gelo"]{
+  --marinho:#eef2f7; --marinho-esc:#e4eaf2; --marinho-claro:#d3dde9;
+  --bg:#eef2f7; --surface:#ffffff; --surface-2:#e9eef6; --campo:#edf2f8;
+  --neutro:#c2cedd; --linha:#d7e0ec; --linha-viva:#aebdd0;
+  --txt:#14202e; --txt2:#3a4b60; --txt3:#5a6c82; --txt-fraco:#7c8ca0;
+  --marca-txt:#15519e;
+  --verde:#0a7a45; --verde-esc:#0a6b3c; --verde-claro:#d8f2e4;
+  --azul:#15519e; --azul-claro:#dde8f8;
+  --ambar:#8a5a06; --ambar-forte:#6f4805; --ambar-claro:#fbeecd;
+  --amarelo:#8a5a06; --amarelo-claro:#fbeecd;
+  --vermelho:#a3222d; --vermelho-claro:#fadee0; --vermelho-txt:#5c1219;
+  --laranja:#a3540a;
+  --azul-cheio:#15519e; --verde-cheio:#0a7a45;
+  --sombra:0 1px 2px rgba(16,32,52,.10),0 8px 24px rgba(16,32,52,.12);
+  --veu:rgba(16,32,52,.07); --veu-forte:rgba(16,32,52,.15);
+}
+
+/* ---------------- AS MARCAS NO FUNDO CLARO ----------------
+ * Quatro blocos, e nao um: cada acento precisa de um ajuste diferente para o chao claro.
+ * Os dois atributos vivem no mesmo <html>, entao o seletor duplo pesa mais e ganha. */
+/* A TINTA EM CIMA DO ACENTO DEPENDE DO ACENTO, e nao do chao. Escrevi branco nestes
+   dois por reflexo — "fundo claro, letra branca" — e a suite reprovou: branco sobre o
+   verde da 3,12:1 e sobre o roxo 3,57:1. Os dois preenchimentos continuam claros, entao
+   a tinta continua escura; o que o chao claro muda e o que esta AO REDOR deles. */
+[data-fundo="gelo"][data-tema="verde"]{
+  --brand-soft:#d8f2e4; --roxo-txt:#00713a;
+  --marca-verde:#00a853; --verde-hover:#00913f;
+}
+[data-fundo="gelo"][data-tema="roxo"]{
+  --brand-soft:#e9dffa; --roxo-txt:#6b33b8;
+  --marca-verde:#a46ce7; --verde-hover:#8f52dd;
+}
+[data-fundo="gelo"][data-tema="ambar"]{
+  --brand:#b8531a; --brand-hover:#c25a13; --brand-soft:#fbe7d8;
+  --sobre-brand:#ffffff; --brand-rgb:184,83,26;
+  --ambar-btn:#b8531a; --roxo-txt:#a84a10;
+  --marca-roxo:#b8531a; --marca-verde:#b8531a;
+  --verde-hover:#c25a13; --sobre-verde:#ffffff;
+}
+/* BRANCO SOBRE BRANCO DA 1,24:1, e nao ha tom que passe e continue sendo branco. No
+   chao claro esta marca vira o chumbo azulado da propria escala — mesma escolha na
+   lista, cor que acompanha o chao. */
+[data-fundo="gelo"][data-tema="gelo"]{
+  --brand:#36506c; --brand-hover:#2d4560; --brand-soft:#dde5ee;
+  --sobre-brand:#ffffff; --brand-rgb:54,80,108;
+  --ambar-btn:#36506c; --roxo-txt:#36506c;
+  --marca-roxo:#36506c; --marca-verde:#36506c;
+  --verde-hover:#2d4560; --sobre-verde:#ffffff;
 }
 
 
@@ -1600,7 +1698,7 @@ input[type="password"]::-ms-clear{display:none}
 .trilho .chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);
   color:var(--sobre-brand);font-weight:600}
 .chip__n{min-width:20px;height:19px;padding:0 5px;display:inline-flex;align-items:center;
-  justify-content:center;border-radius:999px;background:rgba(255,255,255,.14);
+  justify-content:center;border-radius:999px;background:var(--veu-forte);
   font-family:var(--fonte-mono);font-size:11px;font-weight:600}
 
 /* ---------- USUÁRIOS EM CARTÃO, no celular ----------
@@ -1933,7 +2031,7 @@ details.tipos[open] summary::before{content:"▾"}
    AQUELE botão oferece, e não a que está valendo. Lida do tema, as três ficariam da
    mesma cor e o seletor deixaria de ser seletor. */
 .ap__op i{width:22px;height:22px;flex:0 0 auto;border-radius:999px;
-  border:2px solid rgba(255,255,255,.22)}
+  border:2px solid var(--veu-forte)}
 .ap__op[aria-pressed="true"]{border-color:var(--brand);background:var(--brand-soft);
   color:var(--txt)}
 .ap__op[aria-pressed="true"] i{box-shadow:0 0 0 3px var(--brand)}
@@ -2267,7 +2365,7 @@ details.tipos[open] summary::before{content:"▾"}
   border:0;border-radius:7px;background:transparent;font:inherit;color:inherit;
   cursor:pointer}
 .gb[disabled]{cursor:default}
-.gb:hover:not([disabled]){background:rgba(255,255,255,.045)}
+.gb:hover:not([disabled]){background:var(--veu)}
 .gb:focus-visible{outline:2px solid var(--azul);outline-offset:1px}
 /* Ligada, ela fica marcada: sem isto nao ha como saber que a lista esta recortada por
    um clique que se deu dois minutos atras. */
@@ -2279,7 +2377,7 @@ details.tipos[open] summary::before{content:"▾"}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gb__v{flex:0 0 auto;font-size:clamp(10.5px,.9vw,12px);font-weight:600;color:var(--txt);
   font-variant-numeric:tabular-nums;white-space:nowrap}
-.gb__t{display:block;height:7px;border-radius:999px;background:rgba(255,255,255,.055)}
+.gb__t{display:block;height:7px;border-radius:999px;background:var(--veu)}
 .gb__f{display:flex;gap:2px;height:100%;border-radius:999px;overflow:hidden}
 .gb__f i{display:block;height:100%;min-width:0}
 /* Os dois tons sao os VALIDADOS PARA PREENCHIMENTO em fundo escuro. Os claros do resto
@@ -2337,7 +2435,7 @@ details.tipos[open] summary::before{content:"▾"}
 .tot__v{font-family:var(--fonte-mono);font-size:clamp(17px,1.5vw,22px);font-weight:700;
   letter-spacing:-.5px;line-height:1.1;color:var(--txt);font-variant-numeric:tabular-nums}
 /* A fatia do total movimentado responde "2.380 e muito ou pouco?" sem virar grafico. */
-.tot__f{height:4px;margin-top:7px;border-radius:999px;background:rgba(255,255,255,.08);
+.tot__f{height:4px;margin-top:7px;border-radius:999px;background:var(--veu);
   overflow:hidden}
 .tot__f i{display:block;height:100%;border-radius:999px;background:var(--cor,var(--linha))}
 /* A NOTA E QUEM EXPLICA O NUMERO GRANDE: sem ela, "8" nao diz 8 de que. Estava em

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=ebb255dc">
+<link rel="stylesheet" href="styles.css?v=fa184626">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -43,8 +43,8 @@
     t = localStorage.getItem('qdc_tema');
     f = localStorage.getItem('qdc_fundo');
   } catch (e) { t = f = null; }
-  r.setAttribute('data-tema',  ['verde','rosa','roxo'].indexOf(t) < 0 ? 'roxo' : t);
-  r.setAttribute('data-fundo', ['azul','cinza','preto'].indexOf(f) < 0 ? 'azul' : f);
+  r.setAttribute('data-tema',  ['verde','roxo','ambar','gelo'].indexOf(t) < 0 ? 'roxo' : t);
+  r.setAttribute('data-fundo', ['azul','petroleo','cinza','roxo','gelo'].indexOf(f) < 0 ? 'azul' : f);
 })();
 </script>
 </head>
@@ -1072,7 +1072,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=0f2eabe8"></script>
+<script src="app.js?v=6bd843d6"></script>
 <script>
 (function(){
   'use strict';
@@ -6948,10 +6948,17 @@
    * caminho de volta que não seja lembrar qual era a cor antes. */
   var APARENCIA_ORIGINAL = null;
 
-  var CORES_TEMA = { verde:'#00a853', rosa:'#e25385', roxo:'#a46ce7' };
-  var CORES_FUNDO = { azul:'#16304f', cinza:'#1e2124', preto:'#0b0b0c' };
-  var NOME_TEMA = { verde:'Verde', rosa:'Rosa', roxo:'Roxo' };
-  var NOME_FUNDO = { azul:'Azul', cinza:'Cinza', preto:'Preto' };
+  /* AS BOLINHAS LEVAM A COR CRUA, escrita aqui e não lida do tema: elas mostram a opção
+     que AQUELE botão oferece, e não a que está valendo. Lidas do tema, as quatro ficariam
+     da mesma cor e o seletor deixaria de ser seletor.
+     O ÂMBAR DA BOLINHA É O DA MARCA (laranja), e não o do aviso: a bolinha promete a cor
+     que vai aparecer no botão. */
+  var CORES_TEMA = { verde:'#00a853', roxo:'#a46ce7', ambar:'#ef7b2f', gelo:'#dce8f5' };
+  var CORES_FUNDO = { azul:'#16304f', petroleo:'#0f2a2c', cinza:'#1e2124',
+                      roxo:'#1a1326', gelo:'#eef2f7' };
+  var NOME_TEMA = { verde:'Verde', roxo:'Roxo', ambar:'Âmbar', gelo:'Branco gelo' };
+  var NOME_FUNDO = { azul:'Azul', petroleo:'Petróleo', cinza:'Cinza',
+                     roxo:'Roxo', gelo:'Branco gelo' };
 
   function desenharAparencia(){
     var cx = document.getElementById('cardAparencia');
