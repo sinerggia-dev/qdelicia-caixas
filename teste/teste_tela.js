@@ -11318,6 +11318,99 @@ console.log('\n== a tela de boas-vindas ==');
     'e no celular os passos e os atalhos empilham — dois por linha em 360px dão 160px ' +
     'cada, e a descrição quebra em quatro linhas');
 
+  /* ---- 6c. A TELA SÓ NO PRIMEIRO ACESSO, RODADA ----
+   *
+   * Ela existe para APRESENTAR o sistema a quem nunca o viu. Aparecendo em todo acesso,
+   * virava pedágio: oito atalhos e um "Entrar" entre a pessoa e o trabalho. Ninguém lê
+   * uma apresentação duas vezes — lê-se uma, e depois procura-se o botão de sair dela.
+   *
+   * AQUI O `app.js` DE PRODUÇÃO É CARREGADO E RODADO, num documento de mentira. Lida no
+   * arquivo, a regra responderia "a palavra `sempre` está escrita ali?" — e estaria,
+   * mesmo com a porta invertida. A pergunta é outra: ENTRANDO DE NOVO, A TELA APARECE?
+   *
+   * O documento falso é pequeno de propósito: ele não desenha nada, só registra o que a
+   * função escreveu. Quem mede a APARÊNCIA da tela é a foto no Chrome, não isto. */
+  var vmNode = require('vm');
+  function rodarBoasVindas(viu, sempre) {
+    var guardados = {}, guarda = {};
+    function elemento(id) {
+      return { id: id || '', innerHTML: '', textContent: '', value: '', hidden: false,
+        firstChild: null, nodeValue: '', style: {}, dataset: {},
+        classList: { add: function () {}, remove: function () {}, toggle: function () {},
+                     contains: function () { return false; } },
+        setAttribute: function () {}, removeAttribute: function () {},
+        getAttribute: function () { return null; },
+        addEventListener: function () {}, removeEventListener: function () {},
+        appendChild: function (f) { return f; }, insertBefore: function (f) { return f; },
+        remove: function () {}, click: function () {}, focus: function () {},
+        querySelector: function () { return elemento(); },
+        querySelectorAll: function () { return []; } };
+    }
+    var doc = { documentElement: elemento('html'), body: elemento('body'),
+      head: elemento('head'), readyState: 'complete', hidden: false, title: '',
+      getElementById: function (id) {
+        if (!guardados[id]) guardados[id] = elemento(id);
+        return guardados[id];
+      },
+      createElement: function () { return elemento(); },
+      createTextNode: function (s) { var n = elemento(); n.nodeValue = String(s); return n; },
+      querySelector: function () { return null; },
+      querySelectorAll: function () { return []; },
+      addEventListener: function () {}, removeEventListener: function () {} };
+    var armazem = {
+      getItem: function (k) { return guarda[k] === undefined ? null : guarda[k]; },
+      setItem: function (k, v) { guarda[k] = String(v); },
+      removeItem: function (k) { delete guarda[k]; }, clear: function () { guarda = {}; } };
+    guarda['qdc_sessao'] = JSON.stringify({ id: 'U1', nome: 'Natanael', perfil: 'ADMIN',
+      localPadrao: 'L1', viuBoasVindas: viu });
+    guarda['qdc_cache_dados'] = JSON.stringify({ locais: [{ ID: 'L1', Nome: 'Matriz' }] });
+
+    var janela = { document: doc, localStorage: armazem, sessionStorage: armazem,
+      location: { href: 'file:///app', search: '', pathname: '/admin.html',
+                  reload: function () {} },
+      navigator: { userAgent: 'node', onLine: true, language: 'pt-BR' },
+      addEventListener: function () {}, removeEventListener: function () {},
+      matchMedia: function () { return { matches: false, addListener: function () {},
+                                         addEventListener: function () {} }; },
+      setTimeout: function () { return 0; }, clearTimeout: function () {},
+      setInterval: function () { return 0; }, clearInterval: function () {},
+      requestAnimationFrame: function () { return 0; },
+      fetch: function () { return Promise.resolve({ ok: true,
+        text: function () { return Promise.resolve('{}'); } }); },
+      console: console, Promise: Promise, Date: Date, Math: Math, JSON: JSON,
+      innerWidth: 1366, innerHeight: 768, devicePixelRatio: 1 };
+    janela.window = janela; janela.self = janela; janela.globalThis = janela;
+
+    vmNode.runInContext(app, vmNode.createContext(janela), { filename: 'app.js' });
+    if (!janela.QDC || typeof janela.QDC.boasVindas !== 'function') return -1;
+    janela.QDC.boasVindas({ pode: ['pgPainel', 'pgCadastros'],
+                            painel: { totais: {} }, sempre: sempre });
+    var tela = guardados['telaBoasVindas'];
+    return tela ? String(tela.innerHTML).length : 0;
+  }
+
+  var noPrimeiro = rodarBoasVindas(false, false);
+  /* A GUARDA DA PRÓPRIA MONTAGEM: sem ela, um `app.js` que nem carregasse daria zero nas
+     três e a regra passaria verde por não ter rodado nada. */
+  ok(noPrimeiro > 500,
+    'o `app.js` de produção carrega no documento de mentira e desenha a tela no ' +
+    'primeiro acesso — sem isto, as duas provas abaixo passariam sem rodar nada',
+    noPrimeiro);
+  ok(rodarBoasVindas(true, false) === 0,
+    'e quem JÁ FOI apresentado entra direto no trabalho: a tela não aparece de novo — ' +
+    'em todo acesso ela virava pedágio, oito atalhos e um "Entrar" pela frente',
+    rodarBoasVindas(true, false));
+  ok(rodarBoasVindas(true, true) > 500,
+    'e quem PEDE para revê-la vê: sem essa porta, rever exigiria zerar a marca no ' +
+    'cadastro de alguém — escrever no banco por causa de uma leitura',
+    rodarBoasVindas(true, true));
+  /* E QUEM PEDE É SÓ O BOTÃO DO TUTORIAL. Passado também na abertura, o `sempre` traria
+     a tela de volta para todo acesso e desfaria a regra inteira, calado. */
+  ok(/mostrarBoasVindas\(Q\.sessao\(\) \|\| \{\}, true\)/.test(adm) &&
+     /mostrarBoasVindas\(atual\);/.test(adm),
+    'e o "sempre" vem só do botão do Tutorial — passado também na abertura, ele traria ' +
+    'a tela de volta para todo acesso e desfaria a regra');
+
   /* A BARRA GRUDA NO CELULAR. Medido a 360px, antes: a tela tinha 1.152px de altura e
      era preciso rolar 368px — mais de uma tela — para chegar ao botão. No primeiro
      acesso ele é a ÚNICA saída, e saída que exige procurar lê como tela travada.

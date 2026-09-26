@@ -1100,7 +1100,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=773cd8d1"></script>
+<script src="app.js?v=9fcf47bb"></script>
 <script>
 (function(){
   'use strict';
@@ -1336,8 +1336,11 @@
     return ordenadas.concat(chaves.filter(function(k){ return menu.indexOf(k) < 0; }));
   }
 
-  function mostrarBoasVindas(s){
+  /* `sempre` só vem do botão do Tutorial: na abertura, a tela aparece uma vez e nunca
+     mais — quem já foi apresentado não é apresentado de novo. */
+  function mostrarBoasVindas(s, sempre){
     Q.boasVindas({
+      sempre: sempre === true,
       pode: naOrdemDoMenu(abasPermitidas(s)),
       painel: PAINEL,
       aoIr: function(k){
@@ -3782,7 +3785,7 @@
   (function(){
     var b = document.getElementById('btnVerBoasVindas');
     if (b) b.addEventListener('click', function(){
-      mostrarBoasVindas(Q.sessao() || {});
+      mostrarBoasVindas(Q.sessao() || {}, true);
     });
   })();
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
