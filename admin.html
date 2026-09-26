@@ -1600,9 +1600,6 @@
     Q.get(pedido).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       PAINEL = r.painel; Q.cache('painel', PAINEL);
-      /* A tarja de pendências da tela de boas-vindas só pode ser escrita AGORA: ela vive
-         dos números deste painel, e a tela é desenhada antes desta ida à rede voltar. */
-      Q.pendenciasChegaram(PAINEL);
       montarFiltrosFluxo();
       desenharPainel();
     }).catch(function(e){

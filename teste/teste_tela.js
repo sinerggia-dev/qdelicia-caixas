@@ -10968,5 +10968,38 @@ console.log('\n== a aparência: cor da marca e fundo ==');
     'e o atalho da lateral some junto — visível e recusado seria pior que ausente');
 })();
 
+console.log('\n== toda funcao chamada existe ==');
+(function () {
+  var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  /* O QUE O NUCLEO OFERECE, lido do proprio objeto que ele publica. Uma lista escrita
+     aqui mediria a minha copia, e a copia nunca diverge dela mesma. */
+  var i = app.indexOf('window.QDC = {');
+  var oferece = {};
+  app.slice(i, app.indexOf('\n  };', i)).replace(/(\w+)\s*:/g, function (_, k) {
+    oferece[k] = true; return _;
+  });
+  ok(Object.keys(oferece).length > 30,
+    'a conferência leu o que o `app.js` publica — lista vazia faria a prova abaixo ' +
+    'aprovar qualquer chamada', Object.keys(oferece).length);
+
+  /* E O QUE AS TELAS PEDEM. `Q` é o apelido do núcleo nas três páginas. */
+  function le(nome) { return fs.readFileSync(path.join(__dirname, '..', nome), 'utf8'); }
+  ['admin.html', 'index.html', 'extrato.html'].forEach(function (nome) {
+    var par = [nome, le(nome)];
+    var pedidas = {}, m, re = /\bQ\.([A-Za-z_$][\w$]*)/g;
+    while ((m = re.exec(par[1])) !== null) pedidas[m[1]] = true;
+    var faltam = Object.keys(pedidas).filter(function (k) { return !oferece[k]; });
+    /* O PISO E TRES, e nao dez: o extrato usa CINCO funcoes do nucleo, e um piso alto
+       reprovaria a pagina por ser pequena em vez de por estar quebrada. Ele existe so
+       para denunciar recorte vazio — regex que deixa de casar aprova tudo calada. */
+    ok(Object.keys(pedidas).length >= 3 && faltam.length === 0,
+      par[0] + ': toda função do núcleo que a tela chama existe nele — uma que não ' +
+      'existe só aparece quando a pessoa chega naquela linha, e aparece como erro cru ' +
+      'em cima do trabalho dela',
+      { chamadas: Object.keys(pedidas).length, faltam: faltam });
+  });
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);
