@@ -3153,10 +3153,25 @@ console.log('\n== classificar e a janela de linhas, em Movimentos ==');
   /* AO LADO DO MOTORISTA: as duas respondem "quem levou", e no dia em que a carga não
      bate é o par que se procura. Separadas por seis colunas, a conferência teria de
      rolar de lado para juntar as duas metades da resposta. */
-  var ordemCols = (adm.match(/padrao: \['data','hora'[^\]]*\]/) || [''])[0];
-  ok(ordemCols.indexOf("'veiculo'") === ordemCols.indexOf("'motorista'") + "'motorista',".length,
+  /* A ÂNCORA NÃO LEVA OS PRIMEIROS NOMES DA LISTA. Presa a `['data','hora'`, pôr uma
+     coluna nova na frente esvaziava o recorte e a falha saía como texto vazio — que não
+     diz o que houve. A tabela é achada pela CHAVE dela, que é o que a identifica. */
+  var iMov = adm.indexOf("kOrdem: 'qdc_cols_mov_v1'");
+  var iPad = adm.lastIndexOf('padrao: [', iMov);
+  var ordemCols = iPad < 0 ? '' : adm.slice(iPad, adm.indexOf(']', iPad) + 1);
+  var pos = function (c) {
+    return (ordemCols.match(/'(\w+)'/g) || []).map(function (x) { return x.slice(1, -1); })
+      .indexOf(c);
+  };
+  ok(pos('veiculo') >= 0 && pos('veiculo') === pos('motorista') + 1,
     'e a placa fica ao lado do motorista — as duas respondem "quem levou", e separadas ' +
     'a conferência rolaria de lado para juntar as duas metades', ordemCols);
+  /* E O NÚMERO DO LANÇAMENTO VEM PRIMEIRO: é a identidade da linha, o que se dita ao
+     telefone e o que o escritório anota para conferir depois. No meio, vira mais um
+     dado; na frente, é o endereço da linha. */
+  ok(pos('lancamento') === 0,
+    'e o número do lançamento é a PRIMEIRA coluna — é por ele que se fala de uma linha, ' +
+    'e endereço no meio da tabela não se acha', ordemCols);
   /* VAZIO É RESPOSTA: lançamento antigo, de antes de o veículo existir no cadastro, não
      tem placa. O travessão fraco diz isso; a célula em branco não se distingue de uma
      coluna que não soube responder. */
@@ -3268,7 +3283,10 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var ip = desc.indexOf('padrao: [');
   var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
     .map(function (t) { return t.slice(1, -1); });
-  ok(cols.length === 15, 'são quinze colunas de fábrica', cols);
+  /* DEZESSEIS: o número do lançamento entrou na frente, a pedido do escritório. A
+     conta é escrita de propósito — ela é o tropeço que obriga quem acrescenta uma
+     coluna a passar pelas quatro provas abaixo, em vez de acrescentar e seguir. */
+  ok(cols.length === 16, 'são dezesseis colunas de fábrica', cols);
 
   /* AS SETE QUE FORAM SENDO ACRESCENTADAS. Contar quinze não diz QUAIS são quinze:
      trocar `hora` por outra coluna qualquer manteria a conta de pé. Elas respondem
@@ -3309,6 +3327,82 @@ console.log('\n== as colunas da tabela de Movimentos ==');
 
   ok(DEFS.rota && DEFS.obs, 'as colunas Rota e Observação têm célula própria',
     Object.keys(DEFS || {}));
+
+  /* --- TODA COLUNA DE FÁBRICA TEM LARGURA, TÍTULO E CÉLULA ---
+   *
+   * O cabeçalho deste bloco prometia isso desde que ele nasceu, e ninguém cobrava: o que
+   * havia era a CONTAGEM e uma lista de nomes. Uma coluna acrescentada ao `padrao` sem
+   * largura nasce espremida; sem título, com o cabeçalho vazio; sem célula, com todas as
+   * linhas em branco. Nos três casos a tabela não quebra — ela só fica errada, calada. */
+  function mapaDe(chave) {
+    var i = desc.indexOf(chave + ': {');
+    if (i < 0) return {};
+    var bruto = desc.slice(i + chave.length + 2, desc.indexOf('}', i));
+    var m = {}, r = /(\w+)\s*:/g, x;
+    while ((x = r.exec(bruto)) !== null) m[x[1]] = true;
+    return m;
+  }
+  var temLarg = mapaDe('larg'), temTit = mapaDe('titulos');
+  var semLarg = cols.filter(function (c) { return !temLarg[c]; });
+  var semTit = cols.filter(function (c) { return !temTit[c]; });
+  var semCel = cols.filter(function (c) { return !DEFS[c]; });
+  ok(Object.keys(temLarg).length > 10 && Object.keys(temTit).length > 10,
+    'a conferência leu as larguras e os títulos da tabela — mapa vazio faria as três ' +
+    'provas abaixo aprovarem qualquer coisa',
+    { larg: Object.keys(temLarg).length, tit: Object.keys(temTit).length });
+  ok(semLarg.length === 0,
+    'toda coluna de fábrica tem largura — sem ela a coluna nasce espremida, e ninguém ' +
+    'associa isso à coluna que acabou de entrar', semLarg);
+  ok(semTit.length === 0,
+    'e título — sem ele o cabeçalho sai vazio e a coluna não se identifica', semTit);
+  ok(semCel.length === 0,
+    'e célula — sem ela todas as linhas saem em branco, e o dado parece não existir',
+    semCel);
+
+  /* --- O CSV NÃO DESALINHA ---
+   *
+   * O CSV é a tabela levada para fora, e a lista de títulos dele é escrita à mão. Um
+   * título acrescentado sem o valor correspondente — ou o contrário — não dá erro: ele
+   * DESLOCA todas as colunas seguintes, e o escritório passa a ler cada número debaixo
+   * do título do vizinho. É o pior desfecho possível aqui, porque parece certo. */
+  var iCsv = adm.indexOf("Q.csv('movimentos_'");
+  var trechoCsv = iCsv < 0 ? '' : adm.slice(iCsv, adm.indexOf('}));', iCsv));
+  var cabCsv = (trechoCsv.match(/\['Lancamento'[^\]]*\]/) || [''])[0];
+  var quantosCab = (cabCsv.match(/'/g) || []).length / 2;
+  var iRet = trechoCsv.indexOf('return [');
+  var linhaCsv = iRet < 0 ? '' : trechoCsv.slice(iRet, trechoCsv.indexOf('];', iRet));
+  /* Vírgulas do nível de cima: as de dentro de uma chamada não separam colunas. */
+  var quantosVal = (function () {
+    var n = 0, fundo = 0;
+    for (var i = 0; i < linhaCsv.length; i++) {
+      var c = linhaCsv[i];
+      if (c === '(' || c === '[') fundo++;
+      else if (c === ')' || c === ']') fundo--;
+      else if (c === ',' && fundo === 1) n++;
+    }
+    return n + 1;
+  })();
+  ok(quantosCab > 10 && quantosVal > 10,
+    'a conferência achou os títulos e os valores do CSV — recorte vazio faria a prova ' +
+    'abaixo aprovar qualquer coisa', { titulos: quantosCab, valores: quantosVal });
+  ok(quantosCab === quantosVal,
+    'o CSV tem um valor para cada título — faltando um, todas as colunas seguintes ' +
+    'deslizam e o escritório lê cada número debaixo do título do vizinho',
+    { titulos: quantosCab, valores: quantosVal });
+  ok(/\['Lancamento'/.test(trechoCsv) && /return \[m\.id,/.test(trechoCsv),
+    'e o número do lançamento sai no CSV também — coluna que existe na tela e falta no ' +
+    'arquivo faz a conferência chegar a um número que a tela não explica');
+
+  /* --- A CÉLULA DO LANÇAMENTO, RODADA --- */
+  ok(DEFS.lancamento && DEFS.lancamento.v({ id: 'M000041' }).indexOf('M000041') >= 0,
+    'a célula do lançamento mostra o número', DEFS.lancamento &&
+    DEFS.lancamento.v({ id: 'M000041' }));
+  ok(DEFS.lancamento.k({ id: 'M000041' }) === 'M000041',
+    'e ordena pelo próprio código, que já vem ordenável como texto — o formato tem ' +
+    'largura fixa e zeros à esquerda');
+  ok(DEFS.lancamento.v({}).indexOf('—') >= 0,
+    'e linha sem número mostra o travessão, em vez de uma célula vazia que parece ' +
+    'defeito', DEFS.lancamento.v({}));
   ok(DEFS.rota.v({ rota: 'João Pessoa' }).indexOf('João Pessoa') >= 0,
     'a célula da Rota escreve a rota que recebeu');
   ok(DEFS.rota.v({}).indexOf('—') >= 0 && DEFS.obs.v({}).indexOf('—') >= 0,

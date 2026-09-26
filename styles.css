@@ -1240,6 +1240,11 @@ th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--linha);whit
 #tabelaMov .tag{padding:0 6px;font-size:10.5px}
 th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--txt2);background:var(--surface-2);position:sticky;top:0}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+/* CODIGO, e nao numero: `M000041` se le caractere a caractere, e em fonte de texto
+   o zero e o "O" ficam iguais justamente num campo que alguem vai ditar por
+   telefone. Alinhado a esquerda, porque nao e uma quantidade a somar. */
+.cod{font-family:var(--fonte-mono);font-size:12.5px;letter-spacing:.02em;
+  color:var(--txt2)}
 tbody tr:hover{background:var(--surface-2)}
 tr.destaque{background:var(--amarelo-claro)}
 tr.ruim{background:var(--vermelho-claro)}
