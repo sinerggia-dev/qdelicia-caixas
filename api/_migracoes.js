@@ -441,5 +441,23 @@ module.exports = [
       "   lancamento carimba a base NO MOMENTO em que e gravado; trocar isto depois nao",
       "   reescreve o que ja aconteceu.';"
     ].join('\n')
+  },
+  {
+    id: '2026-09-26-viu-boas-vindas',
+    nota: 'a tela de boas-vindas aparece uma vez por PESSOA, e nao uma vez por aparelho',
+    sql: [
+      "-- Guardado no cadastro, e nao no navegador: no galpao varias pessoas usam o mesmo",
+      "-- tablet, e no aparelho a marca seria de quem entrou antes — a segunda pessoa",
+      "-- nunca veria a apresentacao, e quem trocasse de aparelho veria de novo.",
+      "--",
+      "-- NASCE FALSO PARA TODO MUNDO, inclusive para quem ja usa o sistema ha meses. E de",
+      "-- proposito: a tela explica o PAPEL de cada um na conta das caixas, e isso ninguem",
+      "-- leu ainda. Quem ja sabe fecha em um toque; quem nao sabe descobre.",
+      "alter table public.usuarios",
+      "  add column if not exists viu_boas_vindas boolean not null default false;",
+      "comment on column public.usuarios.viu_boas_vindas is",
+      "  'Esta pessoa ja viu a apresentacao de boas-vindas. O escritorio pode voltar para",
+      "   false para reapresenta-la a quem pedir.';"
+    ].join('\n')
   }
 ];

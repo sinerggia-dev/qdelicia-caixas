@@ -261,6 +261,191 @@
     if (e.key === 'qdc_fundo' && e.newValue) aplicarFundo(e.newValue, false);
   });
 
+
+  /* ================= A TELA DE BOAS-VINDAS =================
+   *
+   * UMA SO PARA OS DOIS APPS, pela mesma razao da tela de entrada: duas copias do mesmo
+   * texto divergem no dia em que uma e corrigida e a outra nao, e quem lanca no galpao
+   * passa a ler uma explicacao diferente da que o escritorio le.
+   *
+   * ELA TEM DOIS ESTADOS, e nao dois momentos parecidos:
+   *   · PRIMEIRO ACESSO — a apresentacao. Para que o sistema existe, os tres passos, e o
+   *     PAPEL desta pessoa na conta. Um texto generico ("bem-vindo") nao ensina nada; o
+   *     que ela precisa saber no primeiro dia e qual pedaco da conta depende dela.
+   *   · DIA A DIA — o que precisa de alguem hoje, e os atalhos.
+   *
+   * QUEM DECIDE QUAL E O CADASTRO, e nao o navegador: a marca de "ja viu" mora na
+   * pessoa. No galpao varias usam o mesmo tablet, e no aparelho a marca seria de quem
+   * entrou antes — a segunda nunca veria a apresentacao.
+   *
+   * AS ACOES SAO AS PERMISSOES. Esta tela nao sabe o que e "administrador": ela desenha
+   * o que veio no cadastro. Chave que esta versao nao conhece NAO some em silencio —
+   * vira um item generico. Sumir faria a pessoa achar que perdeu acesso quando o que
+   * esta velho e a tela. */
+  var ACOES_BV = {
+    pgRetornos:  { t:'Painel de Ativos', d:'Quanto saiu, quanto voltou e quanto está fora agora.' },
+    pgPainel:    { t:'Painel',           d:'O resumo do mês, por rota e por tipo de caixa.' },
+    pgMovimentos:{ t:'Movimentos',       d:'Procurar um lançamento: rota, motorista, data, tipo de caixa.' },
+    pgExtrato:   { t:'Extratos',         d:'O extrato de um local, linha a linha.' },
+    pgCadastros: { t:'Cadastros',        d:'Locais, rotas, veículos, motoristas e usuários.' },
+    pgColunas:   { t:'Colunas',          d:'Escolher o que aparece em cada tabela.' },
+    pgLancar:    { t:'Ajuste Estoque',   d:'Saldo inicial e baixa de perda, com motivo registrado.' },
+    pgAparencia: { t:'Aparência',        d:'A cor e o fundo de todas as telas.' },
+    /* As duas do app de campo não são páginas: são os formulários dele. */
+    saida:       { t:'Lançar saída',   d:'Registrar as caixas que estão saindo numa rota.', forte:1 },
+    retorno:     { t:'Lançar retorno', d:'Conferir e registrar as caixas que voltaram.',   forte:1 }
+  };
+
+  /* O PAPEL DESTA PESSOA, tirado do que ela pode fazer. Cada frase diz onde a conta
+     depende dela — e é isso que um "bem-vindo ao sistema" não diz. */
+  function papelDe(pode) {
+    var tem = function (k) { return pode.indexOf(k) >= 0; };
+    if (tem('pgCadastros') || tem('pgAparencia')) {
+      return 'Você enxerga a operação inteira: acompanha os saldos, corrige o que sair ' +
+             'errado e cuida de quem tem acesso ao sistema.';
+    }
+    if (tem('saida') && tem('retorno')) {
+      return 'O saldo de caixas da empresa é feito do que <b>você</b> lança. Cada carga ' +
+             'que sai e cada devolução que você confere entra direto na conta.';
+    }
+    if (tem('retorno')) {
+      return 'Você confere o que volta. <b>Cada contagem sua vira o saldo da caixa</b> — ' +
+             'se o número não bater, é aqui que a diferença aparece.';
+    }
+    if (tem('saida')) {
+      return 'Você registra o que sai. É o ponto de partida de toda a conta: sem a saída ' +
+             'lançada, a devolução não tem com o que ser comparada.';
+    }
+    return 'Você tem acesso de consulta: pode ver os lançamentos e os saldos, sem ' +
+           'alterar nada.';
+  }
+
+  /* AS PENDÊNCIAS SAIEM DO QUE O PAINEL JÁ CALCULA, e não de contas novas. Três, e as
+     três são perguntas que alguém precisa responder:
+       · caixas que saíram e não voltaram
+       · caixas que passaram do prazo combinado com o local
+       · há quantos dias está fora a mais antiga
+     Nenhuma é enfeite: cada uma vira dinheiro parado no cliente.
+     SEM PAINEL CARREGADO devolve lista vazia — e a tarja some, em vez de mostrar zeros
+     que parecem "está tudo certo" quando na verdade nada foi lido. */
+  function pendenciasDo(painel) {
+    var p = painel || {}, fora = [];
+    var tot = p.totais || {};
+    if (tot.deficit > 0) {
+      fora.push(num(tot.deficit) + ' caixas saíram e não voltaram');
+    }
+    var linhas = (p.rotas || []).concat(p.locais || []);
+    var vencidas = 0, maisAntiga = null;
+    linhas.forEach(function (l) {
+      var a = l.aging || {};
+      vencidas += a.vencidas || 0;
+      if (a.maisAntiga !== null && a.maisAntiga !== undefined &&
+          (maisAntiga === null || a.maisAntiga > maisAntiga)) maisAntiga = a.maisAntiga;
+    });
+    if (vencidas > 0) fora.push(num(vencidas) + ' passaram do prazo combinado');
+    if (maisAntiga !== null && maisAntiga > 0) {
+      fora.push('a mais antiga está fora há ' + maisAntiga +
+                (maisAntiga === 1 ? ' dia' : ' dias'));
+    }
+    return fora;
+  }
+
+  function cartaoDeAcao(chave, dados) {
+    var base = ACOES_BV[chave] || {};
+    var conhecida = !!ACOES_BV[chave];
+    return '<button class="bv-acao' + (base.forte ? ' bv-acao--forte' : '') +
+      (conhecida ? '' : ' bv-acao--nova') + '" type="button" data-bv-ir="' + esc(chave) + '">' +
+      '<span class="bv-acao__t"><b>' + esc(base.t || (dados && dados.t) || chave) + '</b>' +
+      '<span>' + esc(base.d || 'Disponível para o seu usuário.') + '</span></span></button>';
+  }
+
+  /* `opts`: { pode: [chaves], painel: {}, aoFechar: fn, aoIr: fn(chave) } */
+  function boasVindas(opts) {
+    var o = opts || {};
+    var s = sessao() || {};
+    var pode = o.pode || [];
+    var primeiro = s.viuBoasVindas !== true;
+    var pend = primeiro ? [] : pendenciasDo(o.painel);
+
+    var cx = document.getElementById('telaBoasVindas');
+    if (!cx) {
+      cx = document.createElement('div');
+      cx.id = 'telaBoasVindas';
+      cx.className = 'bv';
+      document.body.appendChild(cx);
+    }
+    cx.hidden = false;
+    cx.innerHTML =
+      '<div class="bv__folha" role="dialog" aria-modal="true" aria-labelledby="bvNome">' +
+        '<div class="bv__ola">' +
+          '<span class="bv__foto" id="bvFoto" aria-hidden="true"></span>' +
+          '<div class="bv__id">' +
+            '<div class="bv__o">' + esc(saudacaoDe()) + '</div>' +
+            '<p class="bv__n" id="bvNome">' +
+              esc(String(s.nome || '').split(' ')[0] || '—') + '</p>' +
+            '<p class="bv__p"><span class="bv__selo">' + esc(s.perfil || '') + '</span>' +
+              (s.localNome ? '<span>' + esc(s.localNome) + '</span>' : '') + '</p>' +
+          '</div>' +
+        '</div>' +
+        (primeiro
+          ? '<div class="bv__intro">' +
+              '<p class="bv__forte">Caixa parada no cliente é dinheiro parado.</p>' +
+              '<p>Este sistema existe para responder uma pergunta, a qualquer hora do ' +
+                'dia: <b>quantas caixas estão fora, e com quem</b>.</p>' +
+              '<div class="bv__passos">' +
+                '<div class="bv__passo"><i>1</i><b>Antes de sair</b><span>Alguém lança ' +
+                  'quantas caixas de cada tipo vão, para onde e com qual motorista.</span></div>' +
+                '<div class="bv__passo"><i>2</i><b>Quando volta</b><span>Conta-se de novo. ' +
+                  'Se voltou menos do que foi, a diferença aparece <b>na hora</b> — e não ' +
+                  'no fim do mês, quando ninguém lembra mais.</span></div>' +
+                '<div class="bv__passo"><i>3</i><b>O tempo todo</b><span>O painel soma ' +
+                  'tudo sozinho e mostra onde estão as caixas que ainda não voltaram.</span></div>' +
+              '</div>' +
+              '<p class="bv__papel">' + papelDe(pode) + '</p>' +
+            '</div>'
+          : '') +
+        (pend.length
+          ? '<div class="bv__hoje"><b>' + pend.length +
+            (pend.length === 1 ? ' coisa' : ' coisas') + ' esperando alguém:</b> ' +
+            esc(pend.join(' · ')) + '</div>'
+          : '') +
+        (pode.length
+          ? '<p class="bv__rot">' + (primeiro ? 'O que você pode fazer' : 'Ir direto para') +
+            '</p><div class="bv__acoes">' + pode.map(cartaoDeAcao).join('') + '</div>'
+          : '<p class="bv__vazio">Seu usuário ainda não tem nenhuma permissão. Fale com ' +
+            'quem administra o sistema.</p>') +
+        '<div class="bv__pe">' +
+          '<button class="btn" type="button" id="bvComecar">' +
+            (primeiro ? 'Começar' : 'Entrar') + '</button>' +
+          (primeiro ? '<span class="bv__nota">Esta apresentação só aparece no primeiro ' +
+            'acesso do seu usuário.</span>' : '') +
+        '</div>' +
+      '</div>';
+
+    pintarCirculo(document.getElementById('bvFoto'), s);
+
+    /* A MARCA VAI AO SERVIDOR UMA VEZ, e a tela NÃO espera por ela: a rede do galpão
+       cai, e ninguém deve ficar preso numa apresentação por causa disso. Falhando, ela
+       aparece de novo no próximo acesso — que é o erro barato dos dois. */
+    function fechar(){
+      cx.hidden = true;
+      if (primeiro && s.id) {
+        s.viuBoasVindas = true;
+        try { entrar(s); } catch (e) {}
+        post({ acao: 'viuBoasVindas', usuarioId: s.id }).catch(function () {});
+      }
+      if (typeof o.aoFechar === 'function') o.aoFechar();
+    }
+
+    document.getElementById('bvComecar').addEventListener('click', fechar);
+    cx.querySelectorAll('[data-bv-ir]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        fechar();
+        if (typeof o.aoIr === 'function') o.aoIr(b.dataset.bvIr);
+      });
+    });
+  }
+
   function cache(nome, valor) {
     if (valor === undefined) {
       try { return JSON.parse(localStorage.getItem(KEY_CACHE + nome) || 'null'); } catch (e) { return null; }
@@ -2172,6 +2357,7 @@
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
     conferirSenha: conferirSenha,
+    boasVindas: boasVindas, pendenciasDo: pendenciasDo, papelDe: papelDe,
     aplicarTema: aplicarTema, aplicarFundo: aplicarFundo,
     aplicarAparencia: aplicarAparencia,
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,

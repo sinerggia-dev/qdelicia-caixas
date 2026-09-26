@@ -10955,5 +10955,139 @@ console.log('\n== a aparência: cor da marca e fundo ==');
     'e o atalho da lateral some junto — visível e recusado seria pior que ausente');
 })();
 
+console.log('\n== a tela de boas-vindas ==');
+(function () {
+  var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var api = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  var mig = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
+  var sup = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* ---- 1. UMA TELA SÓ PARA OS DOIS APPS ----
+     Duas cópias do mesmo texto divergem no dia em que uma é corrigida e a outra não, e
+     quem lança no galpão passa a ler uma explicação diferente da que o escritório lê. */
+  ok(/function boasVindas\(opts\)/.test(app),
+    'a tela de boas-vindas mora no `app.js`, uma só para os dois apps');
+  ok(/Q\.boasVindas\(\{/.test(idx) && /Q\.boasVindas\(\{/.test(adm),
+    'e os dois apps a chamam — o de lançamento e o painel');
+  ok(!/Caixa parada no cliente/.test(idx) && !/Caixa parada no cliente/.test(adm),
+    'e o texto não está copiado em nenhum dos dois: ele vive num lugar só');
+
+  /* ---- 2. O QUE A PESSOA PODE, E NÃO UMA LISTA ESCRITA À PARTE ----
+     Escrita à parte, ela ofereceria um atalho para uma página que o menu esconde, e o
+     toque levaria a lugar nenhum. */
+  ok(/pode: abasPermitidas\(s\)/.test(adm),
+    'no painel, os atalhos saem das MESMAS abas que a navegação calculou');
+  ok(/s\.operacoes/.test(idx),
+    'e no app de campo saem das operações liberadas para a pessoa');
+
+  /* ---- 3. O PAPEL, RODADO ----
+     Cada frase diz onde a conta depende daquela pessoa. Lido no arquivo, o teste não
+     responderia "qual frase esta pessoa vê?", que é a única pergunta que importa. */
+  var iP = app.indexOf('  function papelDe(pode)');
+  var papel = new Function(app.slice(iP, app.indexOf('\n  }', iP) + 4) +
+    '\n return papelDe;')();
+  ok(/opera\u00e7\u00e3o inteira/.test(papel(['pgCadastros'])),
+    'quem cuida dos cadastros lê que enxerga a operação inteira');
+  ok(/feito do que <b>voc\u00ea<\/b> lan\u00e7a/.test(papel(['saida', 'retorno'])),
+    'quem lança os dois lê que o saldo da empresa é feito do que ELE lança');
+  ok(/contagem sua vira o saldo/.test(papel(['retorno'])),
+    'quem só confere o retorno lê que a contagem dele VIRA o saldo');
+  ok(/ponto de partida/.test(papel(['saida'])),
+    'e quem só lança saída lê que é o ponto de partida da conta');
+  ok(/consulta/.test(papel(['pgMovimentos'])),
+    'quem só consulta lê que só consulta — e não uma frase que promete mais do que ele pode');
+  /* AS CINCO SÃO DIFERENTES. Uma frase repetida em dois papéis não ensina nada a
+     ninguém: a pessoa lê o texto do vizinho e conclui que o sistema não a conhece. */
+  var frases = [['pgCadastros'], ['saida', 'retorno'], ['retorno'], ['saida'],
+                ['pgMovimentos']].map(papel);
+  ok(new Set(frases).size === 5,
+    'e as cinco frases são diferentes entre si — repetida, ela deixa de falar com quem lê',
+    new Set(frases).size);
+
+  /* ---- 4. AS PENDÊNCIAS, RODADAS ----
+     Elas saem do que o painel JÁ calcula. O caso que mais importa é o do painel que
+     ainda não chegou: zeros na tela leem como "está tudo certo", e nada foi lido. */
+  var iQ = app.indexOf('  function pendenciasDo(painel)');
+  var pend = new Function('num',
+    app.slice(iQ, app.indexOf('\n  }', iQ) + 4) + '\n return pendenciasDo;')(
+    function (n) { return String(n); });
+
+  ok(pend(null).length === 0 && pend({}).length === 0,
+    'sem painel carregado não há pendência nenhuma — zeros na tela leem como "está ' +
+    'tudo certo", e a verdade é que nada foi lido', pend(null));
+
+  var cheio = { totais: { deficit: 2340 },
+                rotas: [{ aging: { vencidas: 120, maisAntiga: 9 } }],
+                locais: [{ aging: { vencidas: 0, maisAntiga: 3 } }] };
+  var r = pend(cheio);
+  ok(r.length === 3, 'com movimento, as três perguntas aparecem', r);
+  ok(/2340 caixas sa\u00edram e n\u00e3o voltaram/.test(r[0]),
+    'o que saiu e não voltou', r[0]);
+  ok(/120 passaram do prazo/.test(r[1]), 'o que passou do prazo do local', r[1]);
+  ok(/h\u00e1 9 dias/.test(r[2]),
+    'e há quantos dias está fora a MAIS antiga — 9, e não os 3 da outra linha', r[2]);
+
+  /* Tudo em dia não inventa pendência: a tarja some. */
+  ok(pend({ totais: { deficit: 0 }, rotas: [{ aging: { vencidas: 0, maisAntiga: 0 } }] })
+       .length === 0,
+    'e com tudo em dia a tarja some, em vez de dizer "0 pendências"');
+
+  /* ---- 5. A MARCA É DA PESSOA, e não do aparelho ----
+     No galpão várias usam o mesmo tablet: no aparelho a marca seria de quem entrou
+     antes, e a segunda pessoa nunca veria a apresentação. */
+  ok(/add column if not exists viu_boas_vindas/.test(mig),
+    'a marca de "já viu" é coluna do cadastro');
+  ok(/ViuBoasVindas: r\.viu_boas_vindas === true/.test(sup) &&
+     /viu_boas_vindas = bool\(o\.ViuBoasVindas\)/.test(sup),
+    'e o mapa vai e volta — só de ida, marcar não gravaria; só de volta, nunca leria');
+  ok(/viuBoasVindas: u\.ViuBoasVindas === true/.test(log),
+    'e ela entra na sessão, que é quem decide o que a tela mostra no instante do login');
+  ok(/ViuBoasVindas: u\.ViuBoasVindas === true/.test(log),
+    'e volta na leitura da equipe — sem isso, abrir e salvar um cadastro faria a ' +
+    'apresentação reaparecer');
+  ok(/if \(acao === 'viuBoasVindas'\) return await viuBoasVindas\(p\);/.test(api),
+    'a rota existe e está no despacho');
+  /* UMA ROTA SÓ PARA A MARCA. O `salvarUsuario` grava o registro inteiro: chamado daqui,
+     apagaria perfil, abas e senha — tudo o que esta tela não conhece. */
+  var bv = api.slice(api.indexOf('async function viuBoasVindas'));
+  bv = bv.slice(0, bv.indexOf('\n}\n'));
+  ok(/viu_boas_vindas: true/.test(bv) && !/salvarUsuario/.test(bv),
+    'e ela grava SÓ essa coluna — o `salvarUsuario` gravaria o registro inteiro e ' +
+    'apagaria o que esta tela não conhece');
+  ok(/if \(u\.ViuBoasVindas === true\) return \{ ok: true, jaEstava: true \};/.test(bv),
+    'e não vai ao banco quando já estava marcado');
+
+  /* ---- 6. A REDE DO GALPÃO CAI ----
+     Ninguém pode ficar preso numa apresentação porque o servidor não respondeu. */
+  var fechar = app.slice(app.indexOf('function fechar(){'));
+  fechar = fechar.slice(0, fechar.indexOf('\n    }'));
+  /* `antesDe` EXISTE POR CAUSA DO -1. Escrita como `indexOf(a) < indexOf(b)`, esta linha
+     aprovava o pior caso: sem o `cx.hidden`, o `indexOf` devolve -1, e -1 vem antes de
+     qualquer coisa. A tela passaria a esperar o servidor para fechar e a asserção
+     continuaria verde. É a terceira vez que este mesmo -1 me pega nesta suíte; daqui em
+     diante, ordem se cobra por aqui. */
+  function antesDe(texto, a, b) {
+    var ia = texto.indexOf(a), ib = texto.indexOf(b);
+    return ia >= 0 && ib >= 0 && ia < ib;
+  }
+  ok(antesDe(fechar, 'cx.hidden = true', "acao: 'viuBoasVindas'"),
+    'a tela fecha ANTES de avisar o servidor — esperando a resposta, a rede do galpão ' +
+    'prenderia a pessoa na apresentação');
+  ok(/\.catch\(function \(\) \{\}\)/.test(fechar),
+    'e a falha é engolida: ela reaparece no próximo acesso, que é o erro barato dos dois');
+
+  /* ---- 7. PERMISSÃO DESCONHECIDA NÃO SOME ----
+     Sumir faria a pessoa achar que perdeu acesso quando o que está velho é a tela. */
+  ok(/bv-acao--nova/.test(app) && /\.bv-acao--nova\{border-style:dashed\}/.test(css),
+    'chave que esta versão não conhece aparece com traço pontilhado, em vez de sumir');
+  ok(/Seu usu\u00e1rio ainda n\u00e3o tem nenhuma permiss\u00e3o/.test(app),
+    'e usuário sem permissão nenhuma lê que é erro de cadastro, em vez de achar uma ' +
+    'tela vazia sem explicação');
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

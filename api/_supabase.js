@@ -214,6 +214,7 @@ var USUARIO = {
       Email: r.email || '', Usuario: r.usuario || '', SenhaHash: r.senha_hash || '',
       PinProvisorio: r.pin_provisorio === true, SenhaProvisoria: r.senha_provisoria === true,
       AcessoPainel: r.acesso_painel === true, SoProprios: r.so_proprios === true,
+      ViuBoasVindas: r.viu_boas_vindas === true,
       VerLancamentos: r.ver_lancamentos !== false,
       UsuariosVistos: Array.isArray(r.usuarios_vistos) ? r.usuarios_vistos : [],
       Teste: r.teste === true,
@@ -243,6 +244,7 @@ var USUARIO = {
     if (o.SenhaProvisoria !== undefined) r.senha_provisoria = bool(o.SenhaProvisoria);
     if (o.AcessoPainel !== undefined) r.acesso_painel = bool(o.AcessoPainel);
     if (o.SoProprios !== undefined) r.so_proprios = bool(o.SoProprios);
+    if (o.ViuBoasVindas !== undefined) r.viu_boas_vindas = bool(o.ViuBoasVindas);
     if (o.VerLancamentos !== undefined) r.ver_lancamentos = bool(o.VerLancamentos);
     if (o.UsuariosVistos !== undefined) r.usuarios_vistos = o.UsuariosVistos || [];
     if (o.Teste !== undefined) r.teste = bool(o.Teste);

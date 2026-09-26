@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=fa184626">
+<link rel="stylesheet" href="styles.css?v=ac8b5a65">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -556,7 +556,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=6bd843d6"></script>
+<script src="app.js?v=bb9f3b82"></script>
 <script>
 (function(){
   'use strict';
@@ -621,6 +621,30 @@
     Q.carregarDados().then(function(d){ DADOS = d; montarFormularios(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
     renovarSessao();
+    /* AS BOAS-VINDAS DEPOIS de mandar buscar os dados, e não antes: assim a apresentação
+       já aparece enquanto a rede trabalha, e quem fecha encontra a tela pronta.
+       AS AÇÕES SÃO AS OPERAÇÕES LIBERADAS para esta pessoa — a mesma lista que decide
+       quais abas o app de campo mostra. Lista vazia quer dizer TODAS, aqui como lá. */
+    (function(){
+      var s = Q.sessao() || {};
+      var ops = (s.operacoes && s.operacoes.length)
+        ? s.operacoes : ['SAIDA', 'RETORNO'];
+      var pode = [];
+      if (ops.indexOf('SAIDA') >= 0) pode.push('saida');
+      if (ops.indexOf('RETORNO') >= 0) pode.push('retorno');
+      Q.boasVindas({
+        pode: pode,
+        /* O painel ainda está vindo; quem chama de novo quando ele chega é o
+           `carregarPainel`. Sem ele, as pendências saem vazias — e a tarja some, em vez
+           de mostrar zeros que parecem "está tudo certo". */
+        painel: PAINEL,
+        aoIr: function(k){
+          var b = document.querySelector('#abas button[data-pagina="' +
+            (k === 'saida' ? 'pgSaida' : 'pgDevolucao') + '"]');
+          if (b) b.click();
+        }
+      });
+    })();
   }
 
   /* A sessao guardada e uma FOTO do login: mudar a permissao de alguem no cadastro nao

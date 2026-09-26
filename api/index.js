@@ -179,6 +179,7 @@ async function rotaPost(p) {
   if (acao === 'restaurarMovimento') return await restaurarMovimento(p);
   if (acao === 'limparMovimentos') return await limparMovimentos(p);
   if (acao === 'baseUsuarios') return await baseUsuarios(p);
+  if (acao === 'viuBoasVindas') return await viuBoasVindas(p);
 
   return { ok: false, erro: 'Ação desconhecida: ' + acao };
 }
@@ -399,6 +400,27 @@ async function conferir(p) {
  * que da e devolvendo "18 de 20", ninguem saberia QUAIS dois ficaram de fora — e a
  * resposta seria procurar um por um na tabela.
  */
+/* UMA ROTA SO PARA ESTA MARCA, e nao o `salvarUsuario`. O `salvarUsuario` grava o
+   registro inteiro: chamado daqui, com o objeto que a tela de boas-vindas tem em maos,
+   ele apagaria tudo o que essa tela nao conhece — perfil, abas, senha. E esta marca e a
+   unica coisa que a PROPRIA pessoa pode mudar no cadastro dela; tudo o mais e do
+   escritorio. Rota separada e o que mantem essa fronteira visivel. */
+async function viuBoasVindas(p) {
+  var id = String(p.usuarioId || '');
+  if (!id) return { ok: false, erro: 'Sem usuario.' };
+  var d = await db.carregarTudo();
+  var u = (d.usuarios || []).filter(function (x) { return String(x.ID) === id; })[0];
+  if (!u) return { ok: false, erro: 'Cadastro nao encontrado.' };
+  /* Ja marcado nao vai ao banco: a tela chama isto ao fechar, e fechar de novo no mesmo
+     dia nao precisa de uma escrita. */
+  if (u.ViuBoasVindas === true) return { ok: true, jaEstava: true };
+  /* O `patch` vai direto para o banco, entao ele usa o NOME DA COLUNA. O mapa
+     camelCase mora na leitura; aqui, um `viuBoasVindas` seria uma coluna que nao
+     existe — e o PATCH voltaria sem erro visivel, sem gravar nada. */
+  await db.update('usuarios', id, { viu_boas_vindas: true });
+  return { ok: true };
+}
+
 async function baseUsuarios(p) {
   var ids = Array.isArray(p.ids) ? p.ids.map(String) : [];
   if (!ids.length) return { ok: false, erro: 'Nenhum usuário selecionado.' };

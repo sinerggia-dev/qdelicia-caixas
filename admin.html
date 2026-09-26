@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=fa184626">
+<link rel="stylesheet" href="styles.css?v=ac8b5a65">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1072,7 +1072,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=6bd843d6"></script>
+<script src="app.js?v=bb9f3b82"></script>
 <script>
 (function(){
   'use strict';
@@ -1247,6 +1247,17 @@
     Q.abas('#abas');
     Q.gaveta();
     ajustarAbasPainel(s);
+    /* AS BOAS-VINDAS LEEM AS MESMAS ABAS que a navegação acabou de calcular — não uma
+       lista escrita à parte. Escrita à parte, ela ofereceria um atalho para uma página
+       que o menu esconde, e o toque levaria a lugar nenhum. */
+    Q.boasVindas({
+      pode: abasPermitidas(s),
+      painel: PAINEL,
+      aoIr: function(k){
+        var b = document.querySelector('#abas button[data-pagina="' + k + '"]');
+        if (b) b.click();
+      }
+    });
     periodoPadraoMov();
     document.getElementById('lcData').value = Q.hoje();
     /* A lista de abas so chega com a `equipe` — e com ela chega tambem o registro
@@ -1314,6 +1325,9 @@
          passaria a ver tudo no primeiro recarregamento — calada. */
       ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
       soProprios: u.SoProprios === true,
+      /* A MARCA DAS BOAS-VINDAS acompanha a sessao renovada. Faltando aqui, a primeira
+         renovacao a apagaria e a apresentacao voltaria a aparecer. */
+      viuBoasVindas: u.ViuBoasVindas === true,
       verLancamentos: u.VerLancamentos !== false,
       usuariosVistos: lista(u.UsuariosVistos)
     };

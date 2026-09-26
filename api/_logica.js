@@ -614,6 +614,10 @@ function sessaoDe(u) {
     /* Painel restrito: entra no painel, mas so enxerga o que ela mesma lancou. Mantido
        para nao quebrar sessao ja guardada; quem manda agora e `usuariosVistos`. */
     soProprios: u.SoProprios === true,
+    /* SE JA VIU A APRESENTACAO. Vai na sessao porque e ela que decide o que a tela de
+       boas-vindas mostra no instante seguinte ao login — esperar a `equipe` chegar para
+       descobrir faria a apresentacao piscar para quem ja a viu. */
+    viuBoasVindas: u.ViuBoasVindas === true,
     /* Se ve lancamentos, e de quem. Lista vazia = TODOS. */
     verLancamentos: u.VerLancamentos !== false,
     usuariosVistos: usuariosVistosDe(u),
@@ -2001,6 +2005,10 @@ function usuariosPublicos(usuarios) {
          "ve os lancamentos de todos" e a gravacao seguinte apagaria a restricao — e a
          renovacao da sessao a tiraria de quem ja a tinha, calada. */
       SoProprios: u.SoProprios === true,
+      /* SE JA VIU A APRESENTACAO. Volta pela mesma razao das outras: a tela abre o
+         cadastro, salva, e o que nao voltou na leitura vira `undefined` no registro —
+         a pessoa veria as boas-vindas de novo a cada vez que alguem a editasse. */
+      ViuBoasVindas: u.ViuBoasVindas === true,
       /* A BASE VOLTA JUNTO, pela mesma razao do `SoProprios` acima — e a suite pegou
          este exatamente como pegou aquele. Esquecida aqui, o formulario abriria sempre
          em "Base Producao", e a gravacao seguinte passaria a pessoa de ensaio para
