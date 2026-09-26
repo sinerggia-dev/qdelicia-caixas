@@ -2089,7 +2089,9 @@ console.log('\n== quais abas do painel a pessoa ve ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
 
-  ok(F.ABAS.length === 7 && F.ABAS[0].ID === 'pgRetornos',
+  /* OITO: a Aparência virou página própria. Antes ela era um cartão dentro da página de
+     lançamento, e as duas não têm nada em comum — uma mexe no SALDO e a outra na COR. */
+  ok(F.ABAS.length === 8 && F.ABAS[0].ID === 'pgRetornos',
     'a lista de abas mora no servidor, uma so para o formulario e para a tela',
     F.ABAS.map((a) => a.ID));
   /* Ajustes e Cadastros vem marcadas como SENSIVEIS na propria lista. Deixar isso

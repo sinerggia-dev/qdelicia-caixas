@@ -5826,8 +5826,13 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
      ela não deixou o defeito passar, ela o FIXOU, e a sabotagem confirmou o errado.
      São dois degraus: o PERFIL decide se a porta existe; a SENHA decide o que acontece
      depois de entrar. A asserção cobra os dois, e cobra que não se troquem. */
-  ok(/if \(b\.dataset\.pagina === 'pgColunas' && !Q\.ehAdmin\(\)\) ok = false;/.test(adm),
-    'o botão dela some do menu para quem não é admin, mesmo que a aba tenha sido ' +
+  /* A REGRA VIROU LISTA, e a asserção cobra a LISTA. A Aparência entrou depois e tem o
+     mesmo feitio — não mexe em dado nenhum, uma arruma a tabela e a outra pinta a tela.
+     Cravada numa página só, esta linha obrigaria um segundo `if` ao lado do primeiro, e
+     é assim que a terceira nasce sem nenhum. */
+  var portao = /if \(\['pgColunas', 'pgAparencia'\]\.indexOf\(b\.dataset\.pagina\) >= 0 && !Q\.ehAdmin\(\)\) ok = false;/;
+  ok(portao.test(adm),
+    'o botão delas some do menu para quem não é admin, mesmo que a aba tenha sido ' +
     'concedida — oferecer o caminho para uma porta trancada é pior que não oferecer');
   ok(!/pgColunas' && !podeArranjarColunas\(\)/.test(adm),
     'e quem decide isso é o PERFIL, não o portão inteiro: exigir a senha para MOSTRAR ' +
@@ -7795,9 +7800,29 @@ console.log('\n== a navegação separada por módulo ==');
       var r = /data-pagina="([^"]+)"[\s\S]*?nav-rotulo">([^<]+)</.exec(m);
       return r[1] + '>' + r[2];
     }).join(' | ');
+  /* O `data-grupo` DE CADA BOTÃO BATE COM O TÍTULO SOB O QUAL ELE APARECE.
+   *
+   * São duas coisas separadas: a POSIÇÃO no arquivo (o que se vê) e o ATRIBUTO (o que o
+   * código lê). Mover um botão de grupo e esquecer o atributo não quebra nada à vista —
+   * ele aparece no lugar certo. Só que quem esconde um título de módulo vazio lê o
+   * ATRIBUTO: o título errado fica de pé sem nenhum item embaixo, e o certo some com os
+   * itens à vista.
+   * Medido: plantei esse defeito duas vezes e ele escapou das duas — a asserção da
+   * ordem cobra `página > rótulo`, e o grupo não passa por ela. */
+  var grupoAtual = null, fora = [];
+  navA.split('\n').forEach(function (linha) {
+    var g = /class="nav-grupo" data-grupo="([^"]+)"/.exec(linha);
+    if (g) { grupoAtual = g[1]; return; }
+    var b = /<button data-grupo="([^"]+)"[^>]*data-pagina="([^"]+)"/.exec(linha);
+    if (b && b[1] !== grupoAtual) fora.push(b[2] + ' diz ' + b[1] + ', mas está sob ' + grupoAtual);
+  });
+  ok(fora.length === 0,
+    'e cada botão declara o grupo sob o qual ele aparece — o atributo é o que decide se o ' +
+    'título do módulo some quando não sobra item nenhum', fora);
+
   ok(pares === 'pgRetornos>Painel de Ativos | pgMovimentos>Movimentos | pgPainel>Painel' +
                 ' | pgCadastros>Cadastros | pgColunas>Colunas | pgExtrato>Extratos' +
-                ' | pgLancar>Ajustes',
+                ' | pgLancar>Ajuste Estoque | pgAparencia>Aparência',
     'o menu do painel está na ordem pedida, e cada rótulo abre a página dele', pares);
 
   /* O título do módulo é VERDE, e pelo token — cor solta ali escaparia da medição de

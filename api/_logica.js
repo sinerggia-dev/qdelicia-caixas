@@ -118,11 +118,23 @@ var ABAS = [
      padrao, o proximo usuario criado com acesso ao painel e sem nenhuma marca ganharia o
      cadastro de usuarios de brinde — e dali se tornaria administrador sozinho.
      Concedida a dedo e escolha; concedida por omissao e acidente. */
-  { ID: 'pgLancar',     Nome: 'Ajustes', sensivel: true },
+  /* "AJUSTES" NAO DIZIA O QUE ERA. Esta pagina lanca ajuste de saldo e baixa de perda —
+     ela MEXE NO ESTOQUE. O nome generico a fazia parecer configuracao do sistema, e foi
+     ao lado das configuracoes que ela morava no menu. */
+  { ID: 'pgLancar',     Nome: 'Ajuste Estoque', sensivel: true },
   { ID: 'pgMovimentos', Nome: 'Movimentos' },
   /* Preferencia de quem olha, e nao dado da operacao: escolher colunas nao muda saldo
      nenhum. Por isso nao e `sensivel` — quem ve uma tabela pode arrumar a propria. */
   { ID: 'pgColunas',    Nome: 'Colunas' },
+  /* A APARENCIA vale para a empresa inteira, e por isso quem troca e o administrador.
+     Nao ganha marca nenhuma no catalogo, pela MESMA razao do Colunas: `sensivel` diria
+     "so por marca explicita", e nao e disso que se trata. Quem esconde o botao e o
+     PERFIL, no desenho do menu, junto do Colunas.
+
+     NAO VOLTAR COM `soAdmin`. Ele ja existiu aqui e saiu a pedido: o administrador
+     concede qualquer aba a quem quiser, e uma trava por perfil no catalogo tirava isso
+     dele. Ha uma assercao no `teste_api.js` escrita para segurar essa volta. */
+  { ID: 'pgAparencia',  Nome: 'Aparência' },
   { ID: 'pgCadastros',  Nome: 'Cadastros', sensivel: true }
 ];
 

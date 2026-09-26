@@ -285,13 +285,26 @@
         </svg>
         <span class="nav-rotulo">Extratos</span>
       </button>
-      <div class="nav-grupo" data-grupo="Sistema">Sistema</div>
-      <button data-grupo="Sistema" style="display:none" data-pagina="pgLancar" data-acima="Correção">
+      <button data-grupo="Dados" style="display:none" data-pagina="pgLancar" data-acima="Dados">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>
         </svg>
-        <span class="nav-rotulo">Ajustes</span>
+        <span class="nav-rotulo">Ajuste Estoque</span>
+      </button>
+      <!-- SISTEMA passa a ser o que o nome diz: o que muda a CARA do
+           sistema, e não os dados dele. "Ajustes do escritório" saiu
+           daqui porque não era ajuste de sistema — ela lança ajuste de
+           saldo e baixa de perda, ou seja, MEXE NO ESTOQUE. Ficava ao
+           lado das configurações por causa do nome, e o nome mudou. -->
+      <div class="nav-grupo" data-grupo="Sistema">Sistema</div>
+      <button data-grupo="Sistema" style="display:none" data-pagina="pgAparencia" data-acima="Sistema">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"></path>
+        </svg>
+        <span class="nav-rotulo">Aparência</span>
       </button>
     </nav>
 
@@ -624,7 +637,7 @@
   <!-- ---------- LANÇAR ---------- -->
   <section id="pgLancar" class="pagina">
     <div class="card">
-      <h2>Ajustes do escritório<span class="sub">Saldo inicial e baixa de perda. Saída, retorno e transferência são lançados no campo — aqui elas se <b>corrigem</b>, na aba Movimentos.</span></h2>
+      <h2>Ajuste de estoque<span class="sub">Saldo inicial e baixa de perda. Saída, retorno e transferência são lançados no campo — aqui elas se <b>corrigem</b>, na aba Movimentos.</span></h2>
       <div class="grid2">
         <div>
           <label for="lcTipo">Tipo de lançamento</label>
@@ -658,55 +671,6 @@
       <textarea id="lcObs" placeholder="Ex.: baixa de 12 caixas quebradas confirmadas pelo promotor"></textarea>
       <div class="linha-btn"><button class="btn" id="btnLancar">Gravar lançamento</button></div>
       <div id="lcAviso"></div>
-    </div>
-
-    <!-- ================= APARÊNCIA =================
-         A escolha é da EMPRESA e vale para todas as telas, a pedido: o app de campo, o
-         painel e o extrato. Por isso ela é gravada na configuração e não no aparelho —
-         guardada no navegador, cada máquina do galpão teria a sua.
-
-         SÓ PARA ADMIN, e o cartão some para os outros: quem não pode trocar não precisa
-         descobrir, tentando, que não pode. Quem faz esse corte é o JS, pelo perfil. -->
-    <div class="card" id="cardAparencia" hidden>
-      <h2>Aparência<span class="sub">Vale para <b>todas as telas</b> e para <b>todo mundo</b> —
-        o app de lançamento, o painel e o extrato. Troque abaixo e veja a tela mudando na hora;
-        só é gravado quando você confirma.</span></h2>
-
-      <p class="ap__eixo">Cor da marca</p>
-      <div class="ap__lista" id="apTemas" role="group" aria-label="Cor da marca"></div>
-
-      <p class="ap__eixo">Fundo das telas</p>
-      <div class="ap__lista" id="apFundos" role="group" aria-label="Fundo das telas"></div>
-
-      <!-- AS PEÇAS DE VERDADE, e não quadradinhos de cor. Amostra de cor não responde a
-           pergunta que importa — "o texto do botão continua legível?" —, e é justamente
-           aí que uma cor escolhida a olho falha. -->
-      <div class="ap__mostra">
-        <button class="btn" type="button" tabindex="-1" aria-hidden="true">Gravar lançamento</button>
-        <span class="chip ativo" aria-hidden="true">Rotas <b>8</b></span>
-        <span class="tag roxa" aria-hidden="true">etiqueta</span>
-        <span class="ap__num" aria-hidden="true">1.620</span>
-      </div>
-
-      <!-- AS CORES QUE INFORMAM NÃO ENTRAM NO TEMA, e isto fica escrito na tela porque é
-           a primeira pergunta de quem escolhe "rosa": o verde do saldo continua verde. -->
-      <div class="ap__sig">
-        <!-- OS MESMOS TOKENS QUE OS GRÁFICOS PINTAM, e não os que eu suporia. Escrevi
-             saída em verde e retorno em azul por hábito; neste sistema é o contrário, e
-             a suíte reprovou. Legenda que discorda da barra é pior que legenda nenhuma:
-             ela ensina a ler errado, e quem confere não tem como desconfiar. -->
-        <span><i style="background:var(--azul-cheio)"></i>Saída</span>
-        <span><i style="background:var(--verde-cheio)"></i>Retorno</span>
-        <span><i style="background:var(--ambar)"></i>Atenção</span>
-        <span><i style="background:var(--vermelho)"></i>Negativo</span>
-        <em>estas quatro não mudam — se mudassem, escolher uma cor trocaria o sentido dos números</em>
-      </div>
-
-      <div class="linha-btn">
-        <button class="btn" type="button" id="btnGravarAparencia">Usar em todas as telas</button>
-        <button class="btn neutro" type="button" id="btnDesfazerAparencia">Desfazer</button>
-      </div>
-      <div id="apAviso"></div>
     </div>
 
   </section>
@@ -964,6 +928,63 @@
       <h2>Colunas das tabelas<span class="sub">O que aparece, em que ordem e com que largura — em cada módulo. Vale só neste navegador.</span></h2>
       <div id="listaColunas"><div class="vazio">Carregando…</div></div>
     </div>
+  </section>
+
+  <!-- ---------- APARÊNCIA ---------- -->
+  <!-- PÁGINA PRÓPRIA, e não mais um cartão dentro da de lançamento. As duas não têm
+       nada em comum: uma mexe no SALDO e a outra na COR. Juntas, a página precisava de
+       um título que servisse às duas, e "Ajustes" era esse título — genérico o bastante
+       para caber em tudo e não dizer nada. -->
+  <section id="pgAparencia" class="pagina">
+    <!-- ================= APARÊNCIA =================
+         A escolha é da EMPRESA e vale para todas as telas, a pedido: o app de campo, o
+         painel e o extrato. Por isso ela é gravada na configuração e não no aparelho —
+         guardada no navegador, cada máquina do galpão teria a sua.
+
+         SÓ PARA ADMIN, e o cartão some para os outros: quem não pode trocar não precisa
+         descobrir, tentando, que não pode. Quem faz esse corte é o JS, pelo perfil. -->
+    <div class="card" id="cardAparencia" hidden>
+      <h2>Aparência<span class="sub">Vale para <b>todas as telas</b> e para <b>todo mundo</b> —
+        o app de lançamento, o painel e o extrato. Troque abaixo e veja a tela mudando na hora;
+        só é gravado quando você confirma.</span></h2>
+
+      <p class="ap__eixo">Cor da marca</p>
+      <div class="ap__lista" id="apTemas" role="group" aria-label="Cor da marca"></div>
+
+      <p class="ap__eixo">Fundo das telas</p>
+      <div class="ap__lista" id="apFundos" role="group" aria-label="Fundo das telas"></div>
+
+      <!-- AS PEÇAS DE VERDADE, e não quadradinhos de cor. Amostra de cor não responde a
+           pergunta que importa — "o texto do botão continua legível?" —, e é justamente
+           aí que uma cor escolhida a olho falha. -->
+      <div class="ap__mostra">
+        <button class="btn" type="button" tabindex="-1" aria-hidden="true">Gravar lançamento</button>
+        <span class="chip ativo" aria-hidden="true">Rotas <b>8</b></span>
+        <span class="tag roxa" aria-hidden="true">etiqueta</span>
+        <span class="ap__num" aria-hidden="true">1.620</span>
+      </div>
+
+      <!-- AS CORES QUE INFORMAM NÃO ENTRAM NO TEMA, e isto fica escrito na tela porque é
+           a primeira pergunta de quem escolhe "rosa": o verde do saldo continua verde. -->
+      <div class="ap__sig">
+        <!-- OS MESMOS TOKENS QUE OS GRÁFICOS PINTAM, e não os que eu suporia. Escrevi
+             saída em verde e retorno em azul por hábito; neste sistema é o contrário, e
+             a suíte reprovou. Legenda que discorda da barra é pior que legenda nenhuma:
+             ela ensina a ler errado, e quem confere não tem como desconfiar. -->
+        <span><i style="background:var(--azul-cheio)"></i>Saída</span>
+        <span><i style="background:var(--verde-cheio)"></i>Retorno</span>
+        <span><i style="background:var(--ambar)"></i>Atenção</span>
+        <span><i style="background:var(--vermelho)"></i>Negativo</span>
+        <em>estas quatro não mudam — se mudassem, escolher uma cor trocaria o sentido dos números</em>
+      </div>
+
+      <div class="linha-btn">
+        <button class="btn" type="button" id="btnGravarAparencia">Usar em todas as telas</button>
+        <button class="btn neutro" type="button" id="btnDesfazerAparencia">Desfazer</button>
+      </div>
+      <div id="apAviso"></div>
+    </div>
+
   </section>
 
   <!-- ---------- CADASTROS ---------- -->
@@ -1404,10 +1425,15 @@
     var botoes = document.querySelectorAll('#abas button[data-pagina]');
     Array.prototype.forEach.call(botoes, function(b){
       var ok = pode.indexOf(b.dataset.pagina) >= 0;
-      /* AJUSTES DA TELA é do administrador, e essa palavra vem ANTES da marcação: sem
+      /* AJUSTES DA TELA são do administrador, e essa palavra vem ANTES da marcação: sem
          isto, o admin poderia conceder a aba a alguém que, chegando lá, encontraria uma
          tela que recusa. Conceder o caminho para uma porta trancada é pior que não
          oferecer o caminho.
+
+         SÃO DUAS PÁGINAS, e a regra é uma lista e não um `if` por página: a Aparência
+         entrou depois, e um segundo `if` ao lado do primeiro é o jeito de a terceira
+         nascer sem nenhum. As duas têm em comum não mexer em dado nenhum — uma arruma a
+         tabela, a outra pinta a tela.
 
          E QUEM PERGUNTA AQUI É O PERFIL, `Q.ehAdmin()` — nunca o `podeArranjarColunas()`,
          que exige a senha JÁ confirmada. Foi o que esta linha dizia quando nasceu, e ela
@@ -1417,7 +1443,7 @@
          comportamento errado — ela fixou o defeito em vez de pegá-lo.
          A regra certa tem dois degraus, e cada um no seu lugar: o PERFIL decide se a
          porta existe, e a SENHA decide o que acontece depois de entrar. */
-      if (b.dataset.pagina === 'pgColunas' && !Q.ehAdmin()) ok = false;
+      if (['pgColunas', 'pgAparencia'].indexOf(b.dataset.pagina) >= 0 && !Q.ehAdmin()) ok = false;
       b.style.display = ok ? '' : 'none';
       if (!ok) {
         b.classList.remove('ativa');
@@ -6996,7 +7022,7 @@
 
     var atalho = document.getElementById('chipAparencia');
     if (atalho) atalho.addEventListener('click', function(){
-      var b = document.querySelector('#abas button[data-pagina="pgLancar"]');
+      var b = document.querySelector('#abas button[data-pagina="pgAparencia"]');
       if (b) b.click();
       var cx = document.getElementById('cardAparencia');
       if (cx) cx.scrollIntoView({ block:'start' });
