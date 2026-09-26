@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=471b8358">
+<link rel="stylesheet" href="styles.css?v=17040154">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -414,13 +414,10 @@
   <section id="pgRetornos" class="pagina">
     <div class="ret-wrap" id="retWrap">
       <aside class="ret-rail" id="retRail">
-        <!-- A MARCA SAIU DAQUI. Ela já está no alto do menu da esquerda, a dois palmos:
-             eram duas vezes o mesmo logo na mesma tela, e o de baixo só custava a altura
-             que a lista de filtros precisa. No celular ela já estava escondida, então o
-             que muda é só o computador. -->
-        <!-- No computador esta lista fica vazia: os recortes vão para a barra acima da
-             tabela (`#retBarra`), onde há largura para separar "ver por" de "só mostrar".
-             No celular ela continua sendo o caminho, porque lá não há essa largura. -->
+        <!-- A marca DESENHADA, e nao a marca digitada. O texto era uma segunda versao do
+             logo, que envelheceria sozinha: mudado o desenho, este canto continuaria com
+             a letra antiga. -->
+        <img class="ret-marca" src="logo.png" alt="Qdelícia Frutas" width="243" height="165">
         <div class="ret-nav" id="retNav"></div>
         <!-- Os botoes ficam no trilho, abaixo dos grupos e colados no rodape dele. Os
              dois primeiros mexem no recorte, os dois ultimos levam a tela embora — a
@@ -435,11 +432,6 @@
                O periodo vale para a tabela e para os indicadores dela. Em branco, o mes
                corrente — a mesma janela de sempre. -->
           <div class="ret-menu">
-            <!-- NO COMPUTADOR OS FILTROS FICAM ABERTOS, e então o gatilho dá lugar a um
-                 rótulo: um botão que abre o que já está aberto ensina a desconfiar da
-                 tela. No celular acontece o contrário — o rótulo some e o botão volta,
-                 porque lá a folha cobre a tela e precisa de quem a chame. -->
-            <div class="ret-filtros-t">Filtros</div>
             <button class="ret-acao" id="btnVerFiltros" type="button"
                     aria-expanded="false" aria-controls="filtrosRet"></button>
             <div class="ret-pop" id="filtrosRet" hidden>
@@ -545,11 +537,6 @@
              abaixo mudam com o filtro, e o filtro mora na coluna da esquerda, longe
              deles: quem rola a tabela perde os controles de vista e lê 4.400 sem saber
              que está vendo só setembro, ou só as saídas. Esta linha desce junto. -->
-        <!-- A BARRA DE RECORTES, só no computador. Ela fica ACIMA do resumo e dos
-             indicadores de propósito: é ela que decide o que está sendo contado, e um
-             controle abaixo do número que ele muda faz a pessoa ler primeiro e entender
-             depois. -->
-        <div class="ret-barra" id="retBarra"></div>
         <p class="resumo" id="resumoFluxo" aria-live="polite"></p>
         <div class="ftiles" id="fluxoTiles"></div>
         <!-- O CADEADO, AQUI TAMBÉM. Ele vivia só em Movimentos, e esta tabela ficava
@@ -1609,27 +1596,7 @@
 
   function ehVisaoDeGente(v){ return v === 'MOTORISTA' || v === 'USUARIO'; }
 
-  /* "EM DÉFICIT" NÃO É UMA DIMENSÃO, É UMA CONDIÇÃO — e por isso mora numa chave
-     própria, e não dentro do `FLUXO_FILTRO`.
-     Enquanto dividiu a chave com Rotas, Unidades, Clientes, Motoristas e Usuários, o
-     clique tinha dois significados: escolher "Em déficit" APAGAVA o agrupamento. Quem
-     estava vendo por motorista e queria só os que devem perdia a visão de motorista e
-     caía numa lista de locais, sem nada na tela explicando a troca.
-     Agora ele se soma ao que estiver escolhido: motoristas em déficit, rotas em
-     déficit, clientes em déficit. */
-  var FLUXO_DEFICIT = false;
-
-  function soDevedores(l){
-    return FLUXO_DEFICIT ? l.filter(function(x){ return x.saldo < 0; }) : l;
-  }
-
-  function linhasFluxo(){ return soDevedores(linhasPorDimensao()); }
-
-  /* A DIMENSÃO SOZINHA, sem a condição. Ela existe separada porque a CONTAGEM do botão
-     de déficit precisa dela: "quantos, dentro do que estou vendo, estão devendo". Lendo
-     a lista já peneirada, o número seria o dele mesmo — e diria sempre o total quando
-     ligado, e o total de outra coisa quando desligado. */
-  function linhasPorDimensao(){
+  function linhasFluxo(){
     var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
     if (FLUXO_FILTRO === 'MOTORISTA') return p.motoristas;
     if (FLUXO_FILTRO === 'USUARIO') return p.usuarios;
@@ -1639,6 +1606,7 @@
     if (FLUXO_FILTRO === 'FILIAL') return linhasFiliais();
     var vivas = linhasVivas();
     if (FLUXO_FILTRO === 'todas') return vivas;
+    if (FLUXO_FILTRO === 'deficit') return vivas.filter(function(l){ return l.saldo < 0; });
     return vivas.filter(function(l){ return l.tipo === FLUXO_FILTRO; });
   }
 
@@ -1740,8 +1708,7 @@
      filtros ficaram escondidos, e duas contagens sobre a mesma regra divergiriam. */
   function quantosFiltrosFluxo(){
     var n = FILTROS_FLUXO.filter(function(id){ return !!valor(id); }).length;
-    return n + (FLUXO_FILTRO !== 'todas' ? 1 : 0) + (FLUXO_TIPO !== 'todos' ? 1 : 0) +
-           (FLUXO_DEFICIT ? 1 : 0);
+    return n + (FLUXO_FILTRO !== 'todas' ? 1 : 0) + (FLUXO_TIPO !== 'todos' ? 1 : 0);
   }
 
   function algumFiltroFluxo(){ return quantosFiltrosFluxo() > 0; }
@@ -1766,18 +1733,7 @@
        o AVISO de que a tabela está recortada. */
     if (limpar) limpar.hidden = !n;
     if (!pop || !btn) return;
-    /* NO COMPUTADOR OS FILTROS FICAM ABERTOS na coluna, e o gatilho sai da tela.
-       A coluna tem altura sobrando desde que os recortes subiram para a barra, e filtro
-       escondido atrás de um botão é o que fazia a tabela mostrar um recorte com o motivo
-       invisível — quem chegava depois concluía que faltavam lançamentos.
-       No CELULAR nada muda: lá a folha cobre a tela e precisa de quem a chame.
-       QUEM DECIDE É A LARGURA MEDIDA, o mesmo `emCartoesPainel()` do resto do painel —
-       uma segunda maneira de perguntar "estamos no computador?" seria uma segunda
-       maneira de as duas discordarem no meio de um redimensionamento. */
-    var fixo = !emCartoesPainel();
-    pop.hidden = fixo ? false : !FILTROS_ABERTO;
-    btn.hidden = fixo;
-    if (fixo) return;
+    pop.hidden = !FILTROS_ABERTO;
     btn.setAttribute('aria-expanded', FILTROS_ABERTO ? 'true' : 'false');
 
     /* O painel voltou a ser so de filtros: as colunas ganharam aba propria, onde se
@@ -2020,9 +1976,6 @@
     if (FLUXO_FILTRO !== 'todas') {
       pilula('grupo', 'só '+(NOMES_GRUPO[FLUXO_FILTRO]||'').toLowerCase());
     }
-    /* PASTILHA PRÓPRIA, e não a mesma do agrupamento: agora as duas coisas podem estar
-       ligadas ao mesmo tempo, e uma pastilha só esconderia uma das duas. */
-    if (FLUXO_DEFICIT) pilula('deficit', 'só em déficit');
     if (FLUXO_TIPO !== 'todos') {
       pilula('movimento', 'só '+(FLUXO_TIPO === 'saida' ? 'saídas' : 'retornos'));
     }
@@ -2073,7 +2026,6 @@
       return carregarPainel();
     }
     if (chave === 'grupo') { FLUXO_FILTRO = 'todas'; return desenharFluxo(); }
-    if (chave === 'deficit') { FLUXO_DEFICIT = false; return desenharFluxo(); }
     if (chave === 'movimento') { marcarMovimentoFluxo('todos'); return desenharFluxo(); }
     var campo = document.getElementById(chave);
     if (campo) campo.value = '';
@@ -2094,7 +2046,6 @@
       if (e) e.value = '';
     });
     FLUXO_FILTRO = 'todas';
-    FLUXO_DEFICIT = false;
     /* Os enfeites que acompanham os campos: o "x" da busca e o atalho aceso. Deixados
        para trás, o painel mostrava um atalho marcado sobre um período já vazio. */
     var cx = document.getElementById('rtBuscaCx');
@@ -2839,56 +2790,6 @@
     });
   }
 
-  /* ================= A BARRA DE RECORTES (só no computador) =================
-   *
-   * DOIS GRUPOS, e não uma lista de sete. Rotas, Unidades, Clientes, Motoristas e
-   * Usuários respondem "por qual campo agrupar"; "Em déficit" responde "quais linhas
-   * mostrar". Eram dois significados no mesmo gesto, e nada na tela avisava qual: quem
-   * estava vendo por motorista e clicava em déficit PERDIA a visão de motorista.
-   *
-   * A forma segue o comportamento. O grupo da esquerda é um controle segmentado — um
-   * bloco, uma escolha por vez, e a moldura em volta já diz que são excludentes. O
-   * déficit fica fora dela, em cor de alerta, porque liga e desliga por cima do que
-   * estiver escolhido.
-   *
-   * ELE FICA VERMELHO MESMO DESLIGADO, de propósito: assim ninguém precisa clicar para
-   * descobrir que existem linhas devendo. Quando não há nenhuma, ele não some — some a
-   * cor: um botão que aparece e desaparece faria a barra pular de largura a cada
-   * redesenho, e quem já mirou o clique erraria o alvo.
-   *
-   * A MESMA `data-fchip` dos itens do celular: quem liga os cliques varre o documento
-   * inteiro, então as duas listas funcionam sem uma segunda ligação — e, sendo o mesmo
-   * atributo, não há como uma ficar sabendo de um recorte que a outra não conhece. */
-  function desenharBarraRecortes(itens){
-    var box = document.getElementById('retBarra');
-    if (!box) return;
-    var dims = itens.filter(function(c){ return c.v !== 'deficit'; });
-    var def  = itens.filter(function(c){ return c.v === 'deficit'; })[0];
-    box.innerHTML =
-      '<div class="ret-barra__g">'+
-        '<span class="ret-barra__r" id="rbarVer">Ver por</span>'+
-        '<div class="seg-rec" role="group" aria-labelledby="rbarVer">'+
-          dims.map(function(c){
-            return '<button type="button" class="seg-rec__b" data-fchip="'+c.v+'"'+
-              ' aria-pressed="'+(FLUXO_FILTRO === c.v)+'">'+Q.esc(c.r)+
-              '<span class="n">'+Q.num(c.n)+'</span></button>';
-          }).join('')+
-        '</div>'+
-      '</div>'+
-      (def
-        ? '<span class="ret-barra__div" aria-hidden="true"></span>'+
-          '<div class="ret-barra__g">'+
-            '<span class="ret-barra__r" id="rbarSo">Só mostrar</span>'+
-            '<button type="button" class="ret-barra__alerta'+(def.n ? '' : ' vazio')+'"'+
-              ' data-fchip="deficit" aria-pressed="'+FLUXO_DEFICIT+'"'+
-              ' aria-describedby="rbarSo" title="'+
-              (def.n ? 'Mostra só as linhas com saldo negativo, dentro do que já está '+
-                       'escolhido ao lado' : 'Nenhuma linha está devendo no recorte atual')+
-              '">'+Q.esc(def.r)+'<span class="n">'+Q.num(def.n)+'</span></button>'+
-          '</div>'
-        : '');
-  }
-
   function desenharFluxo(){
     var f = PAINEL && PAINEL.fluxo;
     if (!f) return;
@@ -2906,10 +2807,8 @@
       { v:'MOTORISTA', n:pes.motoristas.length },
       { v:'USUARIO',   n:pes.usuarios.length }
     ].map(function(c){ c.r = NOMES_GRUPO[c.v]; return c; });
-    desenharBarraRecortes(itens);
     document.getElementById('retNav').innerHTML = itens.map(function(c){
-      return '<button type="button" class="ret-item'+
-        ((c.v === 'deficit' ? FLUXO_DEFICIT : FLUXO_FILTRO === c.v) ? ' ativo':'')+
+      return '<button type="button" class="ret-item'+(FLUXO_FILTRO===c.v?' ativo':'')+
         '" data-fchip="'+c.v+'"><span class="pt"></span>'+c.r+
         '<span class="n">'+Q.num(c.n)+'</span></button>';
     }).join('');
@@ -3117,15 +3016,9 @@
     ligarClassificacao();
     ligarOrdemExtrato();
 
-    /* DOIS GESTOS NO MESMO LAÇO, porque são dois tipos de controle. Os recortes de
-       dimensão são escolha ÚNICA — clicar num desliga os outros. O déficit é liga e
-       desliga por cima do que estiver escolhido, e clicar nele de novo o solta: sem
-       isso, ligado, o único caminho de volta seria "Limpar filtros", que levaria junto
-       origem, destino, período e busca. */
     document.querySelectorAll('[data-fchip]').forEach(function(b){
       b.addEventListener('click', function(){
-        if (b.dataset.fchip === 'deficit') FLUXO_DEFICIT = !FLUXO_DEFICIT;
-        else FLUXO_FILTRO = b.dataset.fchip;
+        FLUXO_FILTRO = b.dataset.fchip;
         desenharFluxo();
       });
     });
@@ -3204,11 +3097,8 @@
     return 'Nenhum movimento no mês para este filtro.';
   }
 
-  /* DENTRO DO QUE SE ESTÁ VENDO, e não sobre a lista inteira. Contado sempre sobre
-     `linhasVivas()`, o botão dizia "2" com a visão de Motoristas aberta e, clicado,
-     mostrava outro número — porque a conta era de locais e a peneira, de motoristas. */
   function linhasDeficit(){
-    return linhasPorDimensao().filter(function(l){ return l.saldo < 0; }).length;
+    return linhasVivas().filter(function(l){ return l.saldo < 0; }).length;
   }
 
   /* As celulas de Origem e Destino. Cada linha e UM trajeto, entao cada celula traz um
@@ -3412,11 +3302,6 @@
     /* O painel INTEIRO, e não só o extrato: rotas, clientes e estoque trocam de forma
        na mesma largura, e redesenhar um só deixava a tela metade cartão, metade tabela. */
     if (PAINEL) desenharPainel();
-    /* A COLUNA DE FILTROS TAMBÉM VIRA. Sem esta linha, quem estreitasse a janela com os
-       filtros abertos ficaria com o painel preso aberto e sem o botão para fechá-lo; e
-       quem alargasse veria a coluna vazia, porque o `hidden` do celular continuaria
-       posto. O desenho do painel não mexe nisso — é atributo, não conteúdo. */
-    ajustarBarraFiltros();
   });
 
   document.getElementById('btnAtualizarRetornos').addEventListener('click', carregarPainel);
