@@ -135,6 +135,11 @@ var ABAS = [
      concede qualquer aba a quem quiser, e uma trava por perfil no catalogo tirava isso
      dele. Ha uma assercao no `teste_api.js` escrita para segurar essa volta. */
   { ID: 'pgAparencia',  Nome: 'Aparência' },
+  /* O VIDEO. Sem dado nenhum para ver: e a demonstracao de como se lanca, a mesma
+     que o app de campo abre no primeiro acesso. Entra no catalogo como qualquer
+     outra — o menu so mostra o que ESTE catalogo conhece, e o botao dela ficou
+     escondido no ar por nao estar aqui. */
+  { ID: 'pgVideo',      Nome: 'Vídeo Tutorial' },
   { ID: 'pgCadastros',  Nome: 'Cadastros', sensivel: true }
 ];
 

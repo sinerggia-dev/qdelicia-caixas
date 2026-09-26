@@ -11232,6 +11232,45 @@ console.log('\n== o tutorial do primeiro acesso ==');
     { classes: Object.keys(doDemo).length, batem: batem });
 })();
 
+console.log('\n== todo item do menu existe no servidor ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var L = require(path.join(__dirname, '..', 'api', '_logica.js'));
+
+  /* O MENU SÓ MOSTRA O QUE O CATÁLOGO DO SERVIDOR CONHECE. Os botões nascem escondidos
+   * e quem os revela é `ajustarAbasPainel`, sobre a lista que chega pela rota `equipe` —
+   * que sai de `ABAS`, no `_logica.js`.
+   *
+   * NADA COBRAVA ISSO. Pus o Vídeo Tutorial no menu, escrevi a seção, liguei o quadro,
+   * rodei nove suítes verdes e subi para produção — e o item ficou invisível no ar,
+   * porque faltava uma linha no catálogo. Havia asserção de que toda página do menu tem
+   * a sua seção, e nenhuma de que o servidor sabe que ela existe.
+   *
+   * A FALHA É MUDA DOS DOIS LADOS: o botão está no HTML, a página está lá, e a pessoa
+   * simplesmente nunca vê o item — sem erro, sem aviso, sem tela em branco. */
+  var doMenu = [], m, re = /data-pagina="(pg[A-Za-z]+)"/g;
+  while ((m = re.exec(adm)) !== null) {
+    if (doMenu.indexOf(m[1]) < 0) doMenu.push(m[1]);
+  }
+  var doServidor = L.ABAS.map(function (a) { return a.ID; });
+  ok(doMenu.length >= 8 && doServidor.length >= 8,
+    'a conferência leu o menu do painel e o catálogo do servidor — lista vazia faria as ' +
+    'provas abaixo aprovarem qualquer coisa',
+    'menu=' + doMenu.length + ' servidor=' + doServidor.length);
+
+  var desconhecidas = doMenu.filter(function (k) { return doServidor.indexOf(k) < 0; });
+  ok(desconhecidas.length === 0,
+    'todo item do menu existe no catálogo do servidor — faltando lá, o botão nasce ' +
+    'escondido e nunca aparece para ninguém, sem erro nem aviso', desconhecidas);
+
+  /* E O CAMINHO DE VOLTA: página no catálogo que o menu não oferece é uma permissão que
+     o escritório concede no cadastro e que não abre nada. */
+  var semBotao = doServidor.filter(function (k) { return doMenu.indexOf(k) < 0; });
+  ok(semBotao.length === 0,
+    'e toda página do catálogo tem botão no menu — sem ele, o escritório concede no ' +
+    'cadastro uma permissão que não abre nada', semBotao);
+})();
+
 console.log('\n== toda funcao chamada existe ==');
 (function () {
   var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
