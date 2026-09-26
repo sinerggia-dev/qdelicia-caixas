@@ -11223,10 +11223,30 @@ console.log('\n== o tutorial do primeiro acesso ==');
   var sair = saidaDo('demo:sair');
   ok(sair.href === 'index.html' && sair.marcada,
     'e Sair também — é a mesma resposta para a mesma pergunta', sair);
-  var ler = saidaDo('demo:ler');
-  ok(ler.marcada && ler.href === '',
-    'e Ler marca sem navegar: quem vai para o manual não pode cair aqui de novo no ' +
-    'próximo acesso, e quem leva ele até lá é o próprio demo', ler);
+  /* ---- TODO BOTÃO DA TELA DE ENTRADA TEM TRATADOR ----
+   *
+   * O botão "Ler" saiu a pedido do escritório, e saiu inteiro — rótulo, endereço,
+   * tratador e ouvinte. O risco de uma remoção assim é a metade: o botão fica na tela e
+   * o tratador some, e aí tocá-lo não faz NADA. Sem erro, sem aviso, sem tela nova.
+   *
+   * A prova não lista os botões: ela LÊ os que a tela monta e cobra que o delegador de
+   * clique conheça cada um. Listados aqui, ela mediria a minha cópia — e um botão novo
+   * nasceria fora da conta. */
+  var iTE = dem.indexOf('  function telaEntrada(sub) {');
+  var telaEnt = iTE < 0 ? '' : dem.slice(iTE, dem.indexOf('\n  }', iTE));
+  var botoes = [], bm, reB = /id="(t-[a-z]+)"/g;
+  while ((bm = reB.exec(telaEnt)) !== null) botoes.push(bm[1]);
+  var iDel = dem.indexOf("e.target.closest('#t-assistir");
+  var delegador = iDel < 0 ? '' : dem.slice(dem.lastIndexOf('ap.addEventListener', iDel),
+                                            dem.indexOf('\n  });', iDel));
+  ok(botoes.length >= 2 && delegador.length > 200,
+    'a conferência achou os botões da tela de entrada e o delegador de clique — recorte ' +
+    'vazio faria a prova abaixo aprovar qualquer coisa',
+    { botoes: botoes, delegador: delegador.length });
+  var mudos = botoes.filter(function (id) { return delegador.indexOf(id) < 0; });
+  ok(mudos.length === 0,
+    'e todo botão da tela de entrada tem tratador — sem ele, tocar o botão não faz ' +
+    'NADA: sem erro, sem aviso, sem tela nova', mudos);
   /* O FIM DA SAIDA NAO ENCERRA: ele emenda no retorno. Marcando ali, quem fechasse o
      app no meio do retorno seria dado por apresentado sem ter visto metade. */
   ok(saidaDo('demo:fim', 'saida').marcada === false,
@@ -11274,11 +11294,22 @@ console.log('\n== o tutorial do primeiro acesso ==');
     'e ele carrega a folha e o núcleo COM carimbo de versão — sem carimbo, a página ' +
     'nova serve o app velho do cache e ninguém vê por que');
 
-  /* ---- 5. O BOTÃO LER LEVA A ALGUM LUGAR ----
-     Ele chegou apontando para uma página que nunca existiu aqui. */
-  var mLer = /var PAGINA_LER = '([^']*)'/.exec(dem);
-  ok(mLer && fs.existsSync(path.join(__dirname, '..', mLer[1])),
-    'a página que o botão Ler abre existe no projeto', mLer && mLer[1]);
+  /* ---- 5. O TUTORIAL NÃO LEVA A PÁGINA NENHUMA QUE NÃO EXISTA ----
+   *
+   * O botão Ler saiu; com ele saiu o único endereço que o tutorial guardava, e que
+   * chegou apontando para `boas-vindas_2.html` — uma página que nunca existiu aqui.
+   * A guarda fica, e agora vale para qualquer endereço que ele volte a guardar. */
+  var enderecos = [], em, reE = /(?:location\.href = |var PAGINA_[A-Z]+ = )'([^']+\.html)'/g;
+  while ((em = reE.exec(dem)) !== null) {
+    if (enderecos.indexOf(em[1]) < 0) enderecos.push(em[1]);
+  }
+  var semPagina = enderecos.filter(function (n) {
+    return !fs.existsSync(path.join(__dirname, '..', n));
+  });
+  ok(semPagina.length === 0,
+    'toda página para onde o tutorial manda existe no projeto — endereço errado leva a ' +
+    'uma tela em branco, sem erro e sem aviso',
+    { manda: enderecos, faltam: semPagina });
 
   /* ---- 6. NENHUMA CLASSE DO TUTORIAL COLIDE COM A DO APP ----
    *

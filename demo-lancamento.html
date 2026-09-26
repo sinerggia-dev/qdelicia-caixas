@@ -514,15 +514,14 @@ html:not([data-editor="1"]) .ed__b{display:none}
   };
 
   /* Rótulos dos botões da tela de entrada. Mude aqui; se mudar, lembre de
-     ajustar as falas 'entrada' e 'fim', que citam esses nomes. */
-  /* O PASSO A PASSO EM TEXTO deste sistema e o `manual.html`, que ja esta no ar. O
-     arquivo chegou apontando para `boas-vindas_2.html`, que nunca existiu aqui — o
-     botao Ler levaria a uma pagina em branco. */
-  var PAGINA_LER = 'manual.html';
+     ajustar as falas 'entrada' e 'fim', que citam esses nomes.
 
+     O BOTAO "LER" SAIU, a pedido do escritorio. Ele abria o `manual.html`, que agora
+     tem lugar proprio no painel — SISTEMA > Manual de Uso. Saiu inteiro: rotulo,
+     endereco, tratador do clique e ouvinte do evento. Botao desligado que fica no
+     arquivo e o proximo a voltar sozinho num conserto distraido. */
   var BOTOES = {
     assistir: 'Assistir Tutorial',
-    ler:      'Ler',
     pular:    'Pular',
     sair:     'Sair'
   };
@@ -928,7 +927,6 @@ html:not([data-editor="1"]) .ed__b{display:none}
         '<p>' + sub + '</p>' +
         '<button class="ap__grv" type="button" id="t-assistir">' + BOTOES.assistir + '</button>' +
         '<div class="ap__fim__l">' +
-          '<button class="ap__grv ap__grv--sec" type="button" id="t-ler">' + BOTOES.ler + '</button>' +
           '<button class="ap__grv ap__grv--fan" type="button" id="t-pular">' + BOTOES.pular + '</button>' +
         '</div>' +
       '</div>';
@@ -1020,7 +1018,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
   var SAIDA = [
 
     { f: async function () {
-        telaEntrada('Assista à demonstração, leia o passo a passo, ou pule direto para os lançamentos.');
+        telaEntrada('Assista à demonstração, ou pule direto para os lançamentos.');
         await dizer(FALAS.entrada, 2800);
         await bater($('t-assistir'), 560);
         await dorme(400);
@@ -1270,31 +1268,17 @@ html:not([data-editor="1"]) .ed__b{display:none}
       TOKEN++;                                   /* interrompe a animação */
       sumir();
       if (sai) {
-        telaEntrada('Assista à demonstração, leia o passo a passo, ou pule direto para os lançamentos.');
+        telaEntrada('Assista à demonstração, ou pule direto para os lançamentos.');
         mostrar(FALAS.entrada);
       }
       return;
     }
-    var b = e.target.closest('#t-assistir,#t-ler,#t-pular');
+    var b = e.target.closest('#t-assistir,#t-pular');
     if (!b) return;
     if (b.id === 't-assistir') {
       document.dispatchEvent(new CustomEvent('demo:assistir'));
       EMENDOU = false;
       trocar('saida');
-      return;
-    }
-    if (b.id === 't-ler') {
-      /* cancelable: o app pode interceptar e navegar do seu jeito */
-      var ev = new CustomEvent('demo:ler', { cancelable: true });
-      var seguir = document.dispatchEvent(ev);
-      calar();
-      TOKEN++;                                   /* para a animação */
-      if (!seguir || !PAGINA_LER) {
-        mostrar('O app abre aqui o <b>passo a passo em texto</b>.');
-        return;
-      }
-      mostrar('Abrindo o <b>passo a passo em texto</b>…');
-      window.location.href = PAGINA_LER;
       return;
     }
     document.dispatchEvent(new CustomEvent('demo:pular'));
@@ -1584,8 +1568,6 @@ html:not([data-editor="1"]) .ed__b{display:none}
     marcar();
     if (!embutido) voltar();
   });
-  /* O Ler navega sozinho para o manual: aqui so fica a marca. */
-  document.addEventListener('demo:ler', function () { marcar(); });
   /* `demo:fim` dispara duas vezes — uma ao fim da saida, que EMENDA no retorno, e uma
      ao fim do retorno, que e o fim de verdade. So a segunda encerra. */
   document.addEventListener('demo:fim', function (e) {
