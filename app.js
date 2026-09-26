@@ -282,6 +282,54 @@
    * o que veio no cadastro. Chave que esta versao nao conhece NAO some em silencio —
    * vira um item generico. Sumir faria a pessoa achar que perdeu acesso quando o que
    * esta velho e a tela. */
+  /* OS ÍCONES SÃO OS MESMOS DO MENU, e não um segundo desenho para a mesma página. A
+     pessoa vê o ícone aqui e o reencontra na lateral um toque depois; dois desenhos
+     diferentes para o mesmo lugar obrigariam a aprender duas vezes. */
+  var ICO_BV = {
+    pgRetornos: '<rect x="3" y="7" width="18" height="13" rx="2"></rect>' +
+      '<path d="M3 11h18"></path><path d="M8 7V4h8v3"></path>',
+    pgPainel: '<rect x="3" y="3" width="7" height="7" rx="1.5"></rect>' +
+      '<rect x="14" y="3" width="7" height="7" rx="1.5"></rect>' +
+      '<rect x="3" y="14" width="7" height="7" rx="1.5"></rect>' +
+      '<rect x="14" y="14" width="7" height="7" rx="1.5"></rect>',
+    pgMovimentos: '<line x1="8" y1="6" x2="21" y2="6"></line>' +
+      '<line x1="8" y1="12" x2="21" y2="12"></line>' +
+      '<line x1="8" y1="18" x2="21" y2="18"></line>' +
+      '<line x1="3" y1="6" x2="3.01" y2="6"></line>' +
+      '<line x1="3" y1="12" x2="3.01" y2="12"></line>' +
+      '<line x1="3" y1="18" x2="3.01" y2="18"></line>',
+    pgExtrato: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>' +
+      '<polyline points="14 2 14 8 20 8"></polyline>' +
+      '<line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="13" y2="17"></line>',
+    pgCadastros: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>' +
+      '<circle cx="9" cy="7" r="4"></circle>' +
+      '<path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
+    pgColunas: '<rect x="3" y="3" width="18" height="18" rx="2"></rect>' +
+      '<line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line>',
+    pgLancar: '<line x1="4" y1="21" x2="4" y2="14"></line>' +
+      '<line x1="4" y1="10" x2="4" y2="3"></line>' +
+      '<line x1="12" y1="21" x2="12" y2="12"></line>' +
+      '<line x1="12" y1="8" x2="12" y2="3"></line>' +
+      '<line x1="20" y1="21" x2="20" y2="16"></line>' +
+      '<line x1="20" y1="12" x2="20" y2="3"></line>' +
+      '<line x1="1" y1="14" x2="7" y2="14"></line>' +
+      '<line x1="9" y1="8" x2="15" y2="8"></line>' +
+      '<line x1="17" y1="16" x2="23" y2="16"></line>',
+    pgAparencia: '<circle cx="12" cy="12" r="9"></circle>' +
+      '<path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"></path>',
+    /* Os dois caminhões do app de campo: o de saída aponta para fora, o de retorno
+       para dentro. É a mesma leitura das setas do formulário. */
+    saida: '<rect x="1" y="6" width="13" height="11" rx="1.5"></rect>' +
+      '<path d="M14 9h4l3 4v4h-7z"></path>' +
+      '<circle cx="6" cy="19" r="2"></circle><circle cx="17" cy="19" r="2"></circle>',
+    retorno: '<rect x="9" y="6" width="13" height="11" rx="1.5"></rect>' +
+      '<path d="M9 9H5l-3 4v4h7z"></path>' +
+      '<circle cx="6" cy="19" r="2"></circle><circle cx="17" cy="19" r="2"></circle>',
+    /* A chave que esta versão não conhece: uma folha em branco, que é o que ela é. */
+    novo: '<rect x="3" y="4" width="18" height="16" rx="2"></rect>' +
+      '<line x1="3" y1="9" x2="21" y2="9"></line>'
+  };
+
   var ACOES_BV = {
     pgRetornos:  { t:'Painel de Ativos', d:'Quanto saiu, quanto voltou e quanto está fora agora.' },
     pgPainel:    { t:'Painel',           d:'O resumo do mês, por rota e por tipo de caixa.' },
@@ -295,6 +343,12 @@
     saida:       { t:'Lançar saída',   d:'Registrar as caixas que estão saindo numa rota.', forte:1 },
     retorno:     { t:'Lançar retorno', d:'Conferir e registrar as caixas que voltaram.',   forte:1 }
   };
+
+  function svgBV(miolo, tam) {
+    return '<svg width="' + tam + '" height="' + tam + '" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" ' +
+      'stroke-linejoin="round" aria-hidden="true">' + miolo + '</svg>';
+  }
 
   /* O PAPEL DESTA PESSOA, tirado do que ela pode fazer. Cada frase diz onde a conta
      depende dela — e é isso que um "bem-vindo ao sistema" não diz. */
@@ -355,6 +409,7 @@
     var conhecida = !!ACOES_BV[chave];
     return '<button class="bv-acao' + (base.forte ? ' bv-acao--forte' : '') +
       (conhecida ? '' : ' bv-acao--nova') + '" type="button" data-bv-ir="' + esc(chave) + '">' +
+      '<span class="bv-acao__i">' + svgBV(ICO_BV[chave] || ICO_BV.novo, 19) + '</span>' +
       '<span class="bv-acao__t"><b>' + esc(base.t || (dados && dados.t) || chave) + '</b>' +
       '<span>' + esc(base.d || 'Disponível para o seu usuário.') + '</span></span></button>';
   }
@@ -413,13 +468,20 @@
                 '<div class="bv__passo"><i>3</i><b>O tempo todo</b><span>O painel soma ' +
                   'tudo sozinho e mostra onde estão as caixas que ainda não voltaram.</span></div>' +
               '</div>' +
-              '<p class="bv__papel">' + papelDe(pode) + '</p>' +
+              '<p class="bv__papel">' +
+                svgBV('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>' +
+                      '<circle cx="12" cy="7" r="4"></circle>', 17) +
+                '<span>' + papelDe(pode) + '</span></p>' +
             '</div>'
           : '') +
         (pend.length
-          ? '<div class="bv__hoje"><b>' + pend.length +
+          ? '<div class="bv__hoje">' +
+            svgBV('<path d="M12 4l9 16H3z"></path>' +
+                  '<line x1="12" y1="10" x2="12" y2="14"></line>' +
+                  '<line x1="12" y1="17" x2="12" y2="17"></line>', 19) +
+            '<span><b>' + pend.length +
             (pend.length === 1 ? ' coisa' : ' coisas') + ' esperando alguém:</b> ' +
-            esc(pend.join(' · ')) + '</div>'
+            esc(pend.join(' · ')) + '</span></div>'
           : '') +
         (pode.length
           ? '<p class="bv__rot">' + (primeiro ? 'O que você pode fazer' : 'Ir direto para') +
@@ -429,7 +491,13 @@
         '<div class="bv__pe">' +
           '<button class="btn" type="button" id="bvComecar">' +
             (primeiro ? 'Começar' : 'Entrar') + '</button>' +
-          (primeiro ? '<span class="bv__nota">Esta apresentação só aparece no primeiro ' +
+          /* "VER DEPOIS" SÓ NO PRIMEIRO ACESSO, e ele faz o mesmo que o Começar: fecha.
+             A diferença é o que a palavra promete — e as duas promessas são verdadeiras,
+             porque a apresentação não volta de qualquer jeito. Ele existe para quem
+             abriu com pressa não sentir que está sendo obrigado a ler. */
+          (primeiro ? '<button class="btn neutro" type="button" id="bvDepois">' +
+            'Ver depois</button>' +
+            '<span class="bv__nota">Esta apresentação só aparece no primeiro ' +
             'acesso do seu usuário.</span>' : '') +
         '</div>' +
       '</div>';
@@ -453,6 +521,8 @@
     }
 
     document.getElementById('bvComecar').addEventListener('click', fechar);
+    var depois = document.getElementById('bvDepois');
+    if (depois) depois.addEventListener('click', fechar);
     cx.querySelectorAll('[data-bv-ir]').forEach(function (b) {
       b.addEventListener('click', function () {
         fechar();

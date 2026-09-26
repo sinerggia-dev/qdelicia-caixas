@@ -3078,8 +3078,10 @@ tr.marcada > td:first-child{box-shadow:inset 3px 0 0 var(--ambar)}
 .bv__ola::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;
   background:var(--brand)}
 /* O `.avatar` trava 32px; aqui o circulo e o retrato de quem entrou, e nao o selo da
-   barra lateral. O `!important` nao cabe: basta a especificidade das duas classes. */
-.bv .bv__foto{width:60px;height:60px;flex:0 0 auto;font-size:20px}
+   barra lateral. O `!important` nao cabe: basta a especificidade das duas classes.
+   O ANEL NA COR DA MARCA, como no modelo: e o que liga o retrato ao resto da tela. */
+.bv .bv__foto{width:64px;height:64px;flex:0 0 auto;font-size:21px;
+  border:2.5px solid var(--brand);overflow:hidden}
 .bv__id{flex:1 1 auto;min-width:0}
 .bv__o{font-size:14.5px;color:var(--txt2)}
 .bv__n{margin:1px 0 0;font-size:23px;font-weight:700;letter-spacing:-.01em}
@@ -3106,14 +3108,18 @@ tr.marcada > td:first-child{box-shadow:inset 3px 0 0 var(--ambar)}
 .bv__passo > b{display:block;font-size:13.5px;margin-bottom:2px}
 .bv__passo span{font-size:12.5px;color:var(--txt3);line-height:1.4}
 .bv__passo span b{color:var(--txt)}
-.bv__papel{margin:13px 0 0;padding:12px 13px;border-radius:var(--raio-sm);
+.bv__papel{display:flex;align-items:flex-start;gap:10px;
+  margin:13px 0 0;padding:12px 13px;border-radius:var(--raio-sm);
   background:var(--brand-soft);border:1px solid var(--brand);
   color:var(--txt);font-size:14px}
+.bv__papel svg{flex:0 0 auto;margin-top:2px;color:var(--roxo-txt)}
 .bv__papel b{color:var(--roxo-txt)}
 
-.bv__hoje{padding:13px 15px;margin-bottom:10px;border-radius:var(--raio);
+.bv__hoje{display:flex;align-items:flex-start;gap:11px;
+  padding:13px 15px;margin-bottom:10px;border-radius:var(--raio);
   border:1px solid var(--ambar);background:var(--ambar-claro);
   color:var(--txt);font-size:14px}
+.bv__hoje svg{flex:0 0 auto;margin-top:2px;color:var(--ambar-forte)}
 .bv__hoje b{color:var(--ambar-forte)}
 
 .bv__rot{margin:18px 0 9px;font-size:11px;font-weight:700;letter-spacing:.08em;
@@ -3123,6 +3129,12 @@ tr.marcada > td:first-child{box-shadow:inset 3px 0 0 var(--ambar)}
   padding:14px;border:1px solid var(--linha);border-radius:var(--raio);
   background:var(--surface);color:inherit;font:inherit;cursor:pointer}
 .bv-acao:hover{background:var(--surface-2);border-color:var(--linha-viva)}
+/* O QUADRADINHO DO ÍCONE. Ele não é enfeite: numa lista de oito atalhos, o desenho é
+   o que a pessoa reconhece de longe, e o texto é o que ela lê quando já parou no certo.
+   A cor é a da marca, em tinta — preenchido, ele competiria com o botão principal. */
+.bv-acao__i{width:38px;height:38px;flex:0 0 auto;display:inline-flex;align-items:center;
+  justify-content:center;border-radius:11px;background:var(--brand-soft);
+  color:var(--roxo-txt)}
 .bv-acao__t{flex:1 1 auto;min-width:0}
 .bv-acao__t b{display:block;font-size:15px;margin-bottom:2px}
 .bv-acao__t span{font-size:13px;color:var(--txt3);line-height:1.4}
@@ -3136,9 +3148,33 @@ tr.marcada > td:first-child{box-shadow:inset 3px 0 0 var(--ambar)}
 .bv__pe{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:20px;
   padding-top:16px;border-top:1px solid var(--linha)}
 .bv__nota{flex:1 1 auto;min-width:0;font-size:12.5px;color:var(--txt3)}
+/* ---------------- O CELULAR ----------------
+ *
+ * O CORTE AQUI É 640px, e não os 1023 do resto do sistema. Não é descuido: os 1023
+ * existem porque as TABELAS não cabem abaixo disso, e esta tela não tem tabela nenhuma.
+ * O que decide aqui é outra coisa — se dois cartões de ~300px cabem lado a lado —, e
+ * isso acontece por volta de 640. Usar 1023 deixaria cartões de 700px de largura e 60
+ * de altura entre 641 e 1023, que é uma fita, não um cartão.
+ *
+ * O RODAPÉ GRUDA EMBAIXO. Medido a 360px: a tela tem 1.152px de altura e era preciso
+ * rolar 368px — mais de uma tela inteira — para chegar ao botão. No primeiro acesso ele
+ * é a ÚNICA saída, e uma saída que exige procurar lê como tela sem saída: a pessoa toca
+ * na tela, nada acontece, e conclui que travou.
+ *
+ * A NOTA SOME no celular. Ela explica que a apresentação não volta — é informação, não
+ * ação —, e dentro da barra grudada ela roubaria duas linhas da altura útil justamente
+ * para dizer algo que não muda o que fazer agora. No computador ela fica. */
 @media (max-width:640px){
   .bv__passos,.bv__acoes{grid-template-columns:1fr}
-  .bv{padding:16px 12px 24px}
+  .bv{padding:16px 12px 0}
+  .bv__pe{position:sticky;bottom:0;z-index:2;margin-top:16px;padding:12px 0;
+    background:var(--bg);border-top:1px solid var(--linha)}
+  .bv__pe .btn{flex:1 1 auto}
+  .bv__nota{display:none}
+  /* A marca encolhe: no celular ela é identificação, e não vitrine. */
+  .bv__marca img{height:42px}
+  .bv .bv__foto{width:54px;height:54px;font-size:18px}
+  .bv__n{font-size:21px}
 }
 
 @media print{

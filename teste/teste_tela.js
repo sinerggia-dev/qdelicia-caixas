@@ -11080,6 +11080,47 @@ console.log('\n== a tela de boas-vindas ==');
   ok(/\.catch\(function \(\) \{\}\)/.test(fechar),
     'e a falha é engolida: ela reaparece no próximo acesso, que é o erro barato dos dois');
 
+  /* ---- 6b. O MODELO: ÍCONE, SAÍDA E A BARRA GRUDADA ----
+   *
+   * OS ÍCONES SÃO OS MESMOS DO MENU, e não um segundo desenho para a mesma página: a
+   * pessoa vê o ícone aqui e o reencontra na lateral um toque depois. */
+  ok(/var ICO_BV = \{/.test(app) && /<span class="bv-acao__i">/.test(app),
+    'cada atalho leva o ícone da página dele — numa lista de oito, o desenho é o que se ' +
+    'reconhece de longe');
+  /* AS CHAVES SÃO PROCURADAS DENTRO DO MAPA DE ÍCONES, e não no arquivo inteiro. Os dois
+     mapas — o de ícones e o de textos — têm as MESMAS chaves, e procurando solto a busca
+     achava a do texto e dava o ícone por existente. Medido: renomeei a chave do ícone do
+     Extratos e esta asserção passou verde. */
+  var mapaIco = app.slice(app.indexOf('var ICO_BV = {'), app.indexOf('var ACOES_BV = {'));
+  var semIcone = ['pgRetornos', 'pgPainel', 'pgMovimentos', 'pgExtrato', 'pgCadastros',
+    'pgColunas', 'pgLancar', 'pgAparencia', 'saida', 'retorno']
+    .filter(function (k) { return mapaIco.indexOf('\n    ' + k + ':') < 0; });
+  ok(semIcone.length === 0,
+    'e nenhuma ação ficou sem ícone — faltando um, o cartão dela sai com a folha em ' +
+    'branco do desconhecido, que quer dizer outra coisa', semIcone);
+  /* O QUADRADINHO PINTADO NA COR DA MARCA. Sem cor, o ícone herda a tinta do texto e o
+     cartão vira um bloco cinza — some justamente a pista que se reconhece de longe. */
+  ok(/\.bv-acao__i\{[^}]*background:var\(--brand-soft\)[^}]*color:var\(--roxo-txt\)/
+     .test(css.replace(/\n\s*/g, '')),
+    'e o quadradinho dele é pintado com a cor da marca — sem ela o cartão vira um bloco ' +
+    'cinza e a pista de reconhecimento some');
+  /* NO CELULAR TUDO EMPILHA. Dois cartões lado a lado em 360px dão 160px cada: o título
+     cabe, a descrição vira quatro linhas, e o cartão fica mais alto do que largo. */
+  ok(/\.bv__passos,\.bv__acoes\{grid-template-columns:1fr\}/.test(css),
+    'e no celular os passos e os atalhos empilham — dois por linha em 360px dão 160px ' +
+    'cada, e a descrição quebra em quatro linhas');
+
+  /* A BARRA GRUDA NO CELULAR. Medido a 360px, antes: a tela tinha 1.152px de altura e
+     era preciso rolar 368px — mais de uma tela — para chegar ao botão. No primeiro
+     acesso ele é a ÚNICA saída, e saída que exige procurar lê como tela travada.
+     Depois: 0px, nos três cenários. */
+  ok(/\.bv__pe\{position:sticky;bottom:0/.test(css),
+    'no celular o rodapé gruda embaixo: o botão de fechar é a única saída, e ele não pode ' +
+    'estar fora da tela');
+  ok(/id="bvDepois"/.test(app),
+    'e existe "Ver depois" no primeiro acesso — quem abriu com pressa não fica com a ' +
+    'sensação de estar sendo obrigado a ler');
+
   /* ---- 7. PERMISSÃO DESCONHECIDA NÃO SOME ----
      Sumir faria a pessoa achar que perdeu acesso quando o que está velho é a tela. */
   ok(/bv-acao--nova/.test(app) && /\.bv-acao--nova\{border-style:dashed\}/.test(css),
