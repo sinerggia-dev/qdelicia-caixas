@@ -1591,17 +1591,48 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
               /* As duas que o PERFIL governa entram no catálogo de teste: é com elas
                  que o caso relatado acontece. */
               { ID: 'pgColunas', Nome: 'Colunas' },
-              { ID: 'pgAparencia', Nome: 'Aparência' }];
+              { ID: 'pgAparencia', Nome: 'Aparência' },
+              { ID: 'pgTutorial', Nome: 'Tutorial App' }];
+
+  /* AS DUAS LISTAS SÃO LIDAS DO ARQUIVO, e não escritas aqui. Escritas, a bancada mede
+     o VALOR QUE EU DIGITEI: esvaziei a `PAGINAS_SEMPRE` de verdade e as asserções
+     continuaram verdes, porque elas rodavam com a minha cópia. Medido — o defeito
+     escapou. */
+  function listaDe(nome) {
+    var m = new RegExp('var ' + nome + ' = \\[([^\\]]*)\\]').exec(adm);
+    return m ? m[1].split(',').map(function (x) { return x.replace(/['\s]/g, ''); })
+                   .filter(function (x) { return !!x; }) : [];
+  }
+  var LISTA_ADMIN = listaDe('PAGINAS_DO_ADMIN');
+  var LISTA_SEMPRE = listaDe('PAGINAS_SEMPRE');
+  ok(LISTA_ADMIN.length > 0 && LISTA_SEMPRE.length > 0,
+    'a leitura achou as duas listas de páginas no arquivo — sem isto a bancada abaixo ' +
+    'roda com listas vazias e aprova qualquer coisa',
+    { admin: LISTA_ADMIN, sempre: LISTA_SEMPRE });
 
   function pode(ehAdmin, marcadas) {
     /* `PAGINAS_DO_ADMIN` entra na bancada porque a peneira a LÊ. Nenhuma das abas de
        teste está nela, então as contas abaixo não mudam — o que muda é que a função
        roda em vez de estourar. */
-    var fn = new Function('ABAS_PAINEL', 'Q', 'PAGINAS_DO_ADMIN',
+    var fn = new Function('ABAS_PAINEL', 'Q', 'PAGINAS_DO_ADMIN', 'PAGINAS_SEMPRE',
       fonte + ' return abasPermitidas;')(
-      ABAS, { ehAdmin: function () { return ehAdmin; } }, ['pgColunas', 'pgAparencia']);
+      ABAS, { ehAdmin: function () { return ehAdmin; } }, LISTA_ADMIN, LISTA_SEMPRE);
     return fn({ abas: marcadas }).join(',');
   }
+  /* `pode` TIRA AS QUE NÃO SE CONCEDEM, e `podeTudo` devolve a lista crua.
+     As asserções abaixo são sobre a regra da MARCA — "marcar é conceder" — e o manual
+     não passa por ela. Misturado, ele entraria em todas as comparações e cada uma
+     passaria a cobrar duas regras ao mesmo tempo; no dia em que uma delas quebrasse,
+     não daria para saber qual. O manual tem as suas, logo abaixo. */
+  var podeCru = pode;
+  /* Chama a CRUA. Chamando `pode`, ele pegaria a versão filtrada — que é reatribuída
+     logo abaixo — e devolveria justamente a lista sem o manual que ele existe para
+     mostrar. Medido: as três asserções do tutorial reprovaram. */
+  function podeTudo(ehAdmin, marcadas) { return podeCru(ehAdmin, marcadas); }
+  pode = function (ehAdmin, marcadas) {
+    return podeCru(ehAdmin, marcadas).split(',')
+      .filter(function (x) { return x && x !== 'pgTutorial'; }).join(',');
+  };
 
   ok(pode(false, []) === '',
     'sem marca, nenhuma aba — marcar é conceder', pode(false, []));
@@ -1610,6 +1641,33 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
     pode(true, []));
   ok(pode(false, ['pgPainel']) === 'pgPainel',
     'com marca que alcança, vale a marca', pode(false, ['pgPainel']));
+
+  /* ---- O MANUAL NÃO SE CONCEDE ----
+   *
+   * O Tutorial não mostra dado nenhum e não muda nada: é a explicação do próprio
+   * sistema. Marcar quem pode LÊR o manual seria decidir quem pode entender o que faz —
+   * e a pessoa que mais precisa dele é justamente a que acabou de chegar e não tem marca
+   * nenhuma. Por isso ele não segue a marca NEM o perfil.
+   *
+   * SÃO TRÊS REGRAS, e cada uma responde a uma pergunta diferente: a marca diz "esta
+   * pessoa pode ver ESTES dados?"; `PAGINAS_DO_ADMIN` diz "isto é do escritório";
+   * `PAGINAS_SEMPRE` diz "isto não é dado". As asserções abaixo cobram que as três não
+   * se confundam. */
+  ok(podeTudo(false, ['pgPainel']).split(',').indexOf('pgTutorial') >= 0,
+    'quem NÃO é admin enxerga o Tutorial — o manual é de quem acabou de chegar, e quem ' +
+    'acabou de chegar não tem marca nenhuma', podeTudo(false, ['pgPainel']));
+  ok(podeTudo(true, ['pgPainel']).split(',').indexOf('pgTutorial') >= 0,
+    'e o admin também', podeTudo(true, ['pgPainel']));
+  /* E ELE NÃO VIRA UM "TODO MUNDO VÊ TUDO": o resto continua valendo pela marca. */
+  ok(podeTudo(false, ['pgPainel']).split(',').indexOf('pgCadastros') < 0,
+    'e isso não abre o resto: Cadastros continua só por marca',
+    podeTudo(false, ['pgPainel']));
+  /* NÃO DUPLICA. Marcado no cadastro E sempre concedido, ele entraria duas vezes e o
+     menu desenharia dois botões para a mesma página. */
+  var comMarca = podeTudo(false, ['pgTutorial', 'pgPainel']).split(',');
+  ok(comMarca.filter(function (x) { return x === 'pgTutorial'; }).length === 1,
+    'e marcá-lo no cadastro não o duplica — duas entradas dariam dois botões para a ' +
+    'mesma página', comMarca);
 
   /* ---- O CASO RELATADO: o grupo SISTEMA sumiu da tela ----
    *
@@ -5581,10 +5639,10 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
     var estado = { sessao: guardada, saiu: false, aviso: '' };
     var relogio = [];
     var api = new Function('EQUIPE', 'EQUIPE_CHEGOU', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN',
-      'Q', 'setTimeout',
+      'PAGINAS_SEMPRE', 'Q', 'setTimeout',
       'return (function(){' + fontes.join('\n') +
       '\n return { renovar: renovarSessao, abas: abasPermitidas }; })();')(
-      equipe, chegou, L.ABAS, ['pgColunas', 'pgAparencia'],
+      equipe, chegou, L.ABAS, ['pgColunas', 'pgAparencia'], ['pgTutorial'],
       { sessao: function () { return estado.sessao; },
         entrar: function (u) { estado.sessao = u; },
         sair: function () { estado.saiu = true; },
@@ -5609,7 +5667,9 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
                 abas: ['pgRetornos'] };
 
   var r = roda([NESTOR], true, velha, false);
-  ok(r.abas.join(',') === 'pgRetornos,pgPainel,pgExtrato,pgLancar,pgMovimentos',
+  /* O TUTORIAL ENTRA NO FIM, e não por marca: ele não se concede. Ele aparece aqui para
+     quem NÃO é admin, que é justamente o ponto — o manual é de quem acabou de chegar. */
+  ok(r.abas.join(',') === 'pgRetornos,pgPainel,pgExtrato,pgLancar,pgMovimentos,pgTutorial',
     'a marca nova do cadastro vale sem a pessoa sair e entrar — a sessão guardada é uma ' +
     'foto do login, e sozinha ela congela a permissão do dia em que a pessoa entrou',
     r.abas);
@@ -7644,8 +7704,9 @@ console.log('\n== as abas do painel obedecem ao cadastro ==');
   ];
   function monta(ehAdmin) {
     var Q = { ehAdmin: function () { return ehAdmin; } };
-    return new Function('Q', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN',
-      fonte + ' return abasPermitidas;')(Q, ABAS, ['pgColunas', 'pgAparencia']);
+    return new Function('Q', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN', 'PAGINAS_SEMPRE',
+      fonte + ' return abasPermitidas;')(Q, ABAS, ['pgColunas', 'pgAparencia'],
+      ['pgTutorial']);
   }
 
   var admin = monta(true), gente = monta(false);
@@ -8040,7 +8101,8 @@ console.log('\n== a navegação separada por módulo ==');
 
   ok(pares === 'pgRetornos>Painel de Ativos | pgMovimentos>Movimentos | pgPainel>Painel' +
                 ' | pgCadastros>Cadastros | pgColunas>Colunas | pgExtrato>Extratos' +
-                ' | pgLancar>Ajuste Estoque | pgAparencia>Aparência',
+                ' | pgLancar>Ajuste Estoque | pgAparencia>Aparência' +
+                ' | pgTutorial>Tutorial App',
     'o menu do painel está na ordem pedida, e cada rótulo abre a página dele', pares);
 
   /* O título do módulo é VERDE, e pelo token — cor solta ali escaparia da medição de
@@ -10975,6 +11037,12 @@ console.log('\n== a tela de boas-vindas ==');
     'e os dois apps a chamam — o de lançamento e o painel');
   ok(!/Caixa parada no cliente/.test(idx) && !/Caixa parada no cliente/.test(adm),
     'e o texto não está copiado em nenhum dos dois: ele vive num lugar só');
+  /* E A TELA DE BOAS-VINDAS USA A MESMA PEÇA. Sem esta linha, ela podia parar de mostrar
+     a apresentação inteira e nada reclamava: o texto continuava existindo, no Tutorial,
+     e a asserção acima só cobra que ele não esteja COPIADO. Medido: o defeito escapou. */
+  ok(/\(primeiro \? apresentacaoHTML\(pode\) : ''\)/.test(app),
+    'e a tela de boas-vindas monta a apresentação pela mesma peça do Tutorial — no ' +
+    'primeiro acesso ela é o motivo de a tela existir');
 
   /* ---- 2. O QUE A PESSOA PODE, E NÃO UMA LISTA ESCRITA À PARTE ----
      Escrita à parte, ela ofereceria um atalho para uma página que o menu esconde, e o

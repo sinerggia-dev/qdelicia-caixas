@@ -306,6 +306,14 @@
         </svg>
         <span class="nav-rotulo">Aparência</span>
       </button>
+      <button data-grupo="Sistema" style="display:none" data-pagina="pgTutorial" data-acima="Sistema">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path>
+          <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H12v16h5.5a2.5 2.5 0 0 1 2.5 2.5z"></path>
+        </svg>
+        <span class="nav-rotulo">Tutorial App</span>
+      </button>
     </nav>
 
     <!-- A porta de volta. Sem ela, quem chega ao painel fica preso nele: para voltar a
@@ -987,6 +995,26 @@
 
   </section>
 
+  <!-- ---------- TUTORIAL ---------- -->
+  <!-- O MESMO TEXTO DA APRESENTAÇÃO, e não uma segunda explicação escrita aqui. Duas
+       cópias divergem no dia em que uma é corrigida, e o sistema passa a se explicar de
+       dois jeitos conforme a porta por onde a pessoa entrou. Quem monta é o `app.js`. -->
+  <section id="pgTutorial" class="pagina">
+    <div class="card">
+      <h2>Tutorial App<span class="sub">A mesma apresentação que aparece no primeiro
+        acesso. Ela fica aqui para reler quando quiser — e para mostrar a alguém.</span></h2>
+      <div id="tutorialTexto"></div>
+      <div class="linha-btn">
+        <button class="btn neutro" type="button" id="btnVerBoasVindas">
+          Ver a tela de boas-vindas</button>
+      </div>
+      <!-- O ATALHO PARA REAPRESENTAR A OUTRA PESSOA fica aqui porque é aqui que alguém
+           está quando pensa nisso. Ele só aparece para quem cuida dos cadastros: mudar a
+           marca de OUTRA pessoa é do escritório. -->
+      <p class="sub" id="tutorialNota" hidden></p>
+    </div>
+  </section>
+
   <!-- ---------- CADASTROS ---------- -->
   <section id="pgCadastros" class="pagina">
     <div class="card" id="cardPedidos" style="display:none;border-left:3px solid var(--ambar)" data-cad="pedidos">
@@ -1072,7 +1100,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=65a50b13"></script>
+<script src="app.js?v=4e2bfd82"></script>
 <script>
 (function(){
   'use strict';
@@ -1264,10 +1292,30 @@
          `if (!ABAS_PAINEL.length) return;` que já existe no `ajustarAbasPainel`.
          E a sessão é a RENOVADA: é nela que vem a marca de já ter visto. */
       mostrarBoasVindas(atual);
+      desenharTutorial(atual);
     });
     Q.carregarDados().then(function(d){ DADOS=d; ordenarTudo(); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
   }
+  /* O TUTORIAL MOSTRA A MESMA APRESENTAÇÃO da tela de boas-vindas, e o botão abre a
+     tela inteira — com o cartão de quem entrou, as pendências e os atalhos. Rever a
+     apresentação NÃO mexe na marca de "já viu": quem veio aqui de propósito não está
+     no primeiro acesso, e regravar a marca seria escrever no cadastro por causa de uma
+     leitura. */
+  function desenharTutorial(s){
+    var cx = document.getElementById('tutorialTexto');
+    if (!cx) return;
+    cx.innerHTML = Q.apresentacaoHTML(abasPermitidas(s));
+    var nota = document.getElementById('tutorialNota');
+    if (nota){
+      /* Só para quem cuida dos cadastros: mudar a marca de OUTRA pessoa é do escritório,
+         e oferecer o caminho a quem não pode seria oferecer uma porta trancada. */
+      nota.hidden = !Q.ehAdmin();
+      nota.innerHTML = 'Para que esta apresentação volte a aparecer no primeiro acesso ' +
+        'de alguém, vá em <b>Cadastros → editar usuário → Boas-vindas</b>.';
+    }
+  }
+
   /* A TELA DE BOAS-VINDAS DESTE APP. Os atalhos saem das MESMAS abas que a navegação
      calculou — escritos à parte, ofereceriam caminho para uma página que o menu
      esconde, e o toque levaria a lugar nenhum. */
@@ -1404,6 +1452,19 @@
    * o menu já não oferece estas duas a mais ninguém. */
   var PAGINAS_DO_ADMIN = ['pgColunas', 'pgAparencia'];
 
+  /* ================= AS PÁGINAS QUE NÃO SE CONCEDEM =================
+   *
+   * O manual não mostra dado nenhum e não muda nada: é a explicação do próprio sistema.
+   * Marcar quem pode LER o manual seria decidir quem pode entender o que faz — e a
+   * pessoa que mais precisa dele é justamente a que acabou de chegar e não tem marca
+   * nenhuma.
+   *
+   * É UMA TERCEIRA REGRA, e não um caso do `PAGINAS_DO_ADMIN`: aquela diz "só o
+   * administrador"; esta diz "todo mundo que entra". As duas existem porque a marca do
+   * cadastro responde bem a uma pergunta só — "esta pessoa pode ver ESTES dados?" — e
+   * nenhuma destas páginas tem dado para ver. */
+  var PAGINAS_SEMPRE = ['pgTutorial'];
+
   /* Quais abas do painel esta pessoa ve. Duas regras, e UMA peneira:
 
        1. Ajustes e Cadastros so para o admin. O conferente e quem gera a divergencia na
@@ -1437,7 +1498,11 @@
     /* As do administrador não passam pela marca: entram para ele e saem para os
        outros, que é o que o menu já fazia sozinho. */
     function comAsDoAdmin(l){
-      var v = ids(l).filter(function(x){ return PAGINAS_DO_ADMIN.indexOf(x) < 0; });
+      var v = ids(l).filter(function(x){
+        return PAGINAS_DO_ADMIN.indexOf(x) < 0 && PAGINAS_SEMPRE.indexOf(x) < 0;
+      });
+      /* O manual entra para todo mundo — inclusive para quem não é admin. */
+      v = v.concat(PAGINAS_SEMPRE.filter(function(x){ return ids(base).indexOf(x) >= 0; }));
       if (!Q.ehAdmin()) return v;
       return v.concat(PAGINAS_DO_ADMIN.filter(function(x){
         return ids(base).indexOf(x) >= 0;
@@ -3671,6 +3736,14 @@
      — o terceiro toque gravaria três vezes. Os botões das duas listas são pegos por
      delegação, na caixa que os contém, justamente porque eles nascem de novo. */
   ligarAparencia();
+  /* O botão do tutorial abre a tela inteira, e não só o texto: o que ele promete é ver
+     COMO ela é, e ela tem mais do que a apresentação. */
+  (function(){
+    var b = document.getElementById('btnVerBoasVindas');
+    if (b) b.addEventListener('click', function(){
+      mostrarBoasVindas(Q.sessao() || {});
+    });
+  })();
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
     /* O CSV sai com as MESMAS colunas da tela, na mesma ordem — inclusive a que a
        pessoa arrastou e sem as que ela escondeu. Um arquivo com as colunas noutra ordem

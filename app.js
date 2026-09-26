@@ -447,6 +447,39 @@
       '</button>';
   }
 
+
+  /* ================= A APRESENTAÇÃO, NUMA PEÇA SÓ =================
+   *
+   * Ela aparece em DOIS lugares: na tela de boas-vindas, no primeiro acesso, e na página
+   * Tutorial App, quando alguém quiser reler. Duas cópias do mesmo texto divergem no dia
+   * em que uma é corrigida e a outra não — e aí o sistema passa a explicar a si mesmo de
+   * dois jeitos diferentes, conforme a porta por onde a pessoa entrou.
+   *
+   * O PAPEL VAI JUNTO, e é por isso que ela recebe `pode`: a apresentação sem a frase do
+   * papel vira folheto. O que ensina é a linha que diz onde a conta depende de QUEM está
+   * lendo. */
+  function apresentacaoHTML(pode) {
+    return '<div class="bv__intro">' +
+      '<p class="bv__forte">Caixa parada no cliente é dinheiro parado.</p>' +
+      '<p>Este sistema existe para responder uma pergunta, a qualquer hora do ' +
+        'dia: <b>quantas caixas estão fora, e com quem</b>.</p>' +
+      '<div class="bv__passos">' +
+        '<div class="bv__passo"><i>1</i><b>Antes de sair</b><span>Alguém lança ' +
+          'quantas caixas de cada tipo vão, para onde e com qual motorista. ' +
+          'Leva menos tempo do que anotar no caderno.</span></div>' +
+        '<div class="bv__passo"><i>2</i><b>Quando volta</b><span>Conta-se de novo. ' +
+          'Se voltou menos do que foi, a diferença aparece <b>na hora</b> — e não ' +
+          'no fim do mês, quando ninguém lembra mais.</span></div>' +
+        '<div class="bv__passo"><i>3</i><b>O tempo todo</b><span>O painel soma ' +
+          'tudo sozinho e mostra onde estão as caixas que ainda não voltaram.</span></div>' +
+      '</div>' +
+      '<p class="bv__papel">' +
+        svgBV('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>' +
+              '<circle cx="12" cy="7" r="4"></circle>', 17) +
+        '<span>' + papelDe(pode) + '</span></p>' +
+    '</div>';
+  }
+
   /* `opts`: { pode: [chaves], painel: {}, aoFechar: fn, aoIr: fn(chave) } */
   function boasVindas(opts) {
     var o = opts || {};
@@ -488,27 +521,7 @@
                 nomeDoLocal(s.localPadrao)) + '</p>' +
           '</div>' +
         '</div>' +
-        (primeiro
-          ? '<div class="bv__intro">' +
-              '<p class="bv__forte">Caixa parada no cliente é dinheiro parado.</p>' +
-              '<p>Este sistema existe para responder uma pergunta, a qualquer hora do ' +
-                'dia: <b>quantas caixas estão fora, e com quem</b>.</p>' +
-              '<div class="bv__passos">' +
-                '<div class="bv__passo"><i>1</i><b>Antes de sair</b><span>Alguém lança ' +
-                  'quantas caixas de cada tipo vão, para onde e com qual motorista. ' +
-                  'Leva menos tempo do que anotar no caderno.</span></div>' +
-                '<div class="bv__passo"><i>2</i><b>Quando volta</b><span>Conta-se de novo. ' +
-                  'Se voltou menos do que foi, a diferença aparece <b>na hora</b> — e não ' +
-                  'no fim do mês, quando ninguém lembra mais.</span></div>' +
-                '<div class="bv__passo"><i>3</i><b>O tempo todo</b><span>O painel soma ' +
-                  'tudo sozinho e mostra onde estão as caixas que ainda não voltaram.</span></div>' +
-              '</div>' +
-              '<p class="bv__papel">' +
-                svgBV('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>' +
-                      '<circle cx="12" cy="7" r="4"></circle>', 17) +
-                '<span>' + papelDe(pode) + '</span></p>' +
-            '</div>'
-          : '') +
+        (primeiro ? apresentacaoHTML(pode) : '') +
         (pend.length
           ? '<div class="bv__hoje">' +
             svgBV('<path d="M12 4l9 16H3z"></path>' +
@@ -2479,6 +2492,7 @@
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
     conferirSenha: conferirSenha,
     boasVindas: boasVindas, pendenciasDo: pendenciasDo, papelDe: papelDe,
+    apresentacaoHTML: apresentacaoHTML,
     aplicarTema: aplicarTema, aplicarFundo: aplicarFundo,
     aplicarAparencia: aplicarAparencia,
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
