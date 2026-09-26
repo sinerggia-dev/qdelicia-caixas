@@ -2399,10 +2399,18 @@ details.tipos[open] summary::before{content:"▾"}
 .g__t{margin:0;flex:1 1 auto;min-width:0;font-size:clamp(10px,.88vw,11.5px);font-weight:700;
   letter-spacing:.02em;text-transform:uppercase;color:var(--txt3);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* O TOTAL DE CAIXAS do painel. Em fonte de números e na cor do texto normal — ele é o
+   dado, e a contagem de linhas ao lado é a legenda dele. Do mesmo tom, os dois números
+   grudados no canto pareceriam um só número partido ao meio. */
+.g__soma{flex:0 0 auto;margin-left:auto;font-family:var(--fonte-mono);
+  font-size:clamp(11px,.95vw,13px);font-weight:700;color:var(--txt);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
 .g__n{flex:0 0 auto;font-size:clamp(9.5px,.8vw,11px);color:var(--txt3);
   font-variant-numeric:tabular-nums;white-space:nowrap}
 /* Abaixo de 1000px a contagem some antes do rotulo: ela e o dado menos importante do
    painel, e some sem levar informacao junto. */
+/* Abaixo de 1000px some a CONTAGEM DE LINHAS, e nao o total: some o que se conta
+   olhando o painel, e fica o que so o cabecalho sabe dizer. */
 @media (max-width:1000px){.g__n{display:none}}
 .g__vazio{font-size:12px;color:var(--txt3);padding:6px 0}
 /* A BARRA TAMBEM E UM BOTAO: clicar filtra a tela inteira. Ela nasce como <button>, e

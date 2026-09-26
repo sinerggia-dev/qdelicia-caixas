@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=eb3c2a73">
+<link rel="stylesheet" href="styles.css?v=106523bb">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -5423,8 +5423,19 @@
 
   function painelG(i, titulo, lista, nota, campo){
     var maior = lista.reduce(function(a, g){ return Math.max(a, g.total); }, 0);
+    /* O TOTAL DE CAIXAS NO CABEÇALHO, ao lado da contagem de linhas. Os dois números
+       respondem perguntas diferentes e estavam sendo confundidos: "1 dia" diz quantas
+       BARRAS o painel tem, e não quantas caixas ele soma. Num painel de uma linha só,
+       a contagem parecia o total — e o total de verdade só aparecia lendo a barra.
+
+       ELE É SOMADO AQUI, das mesmas linhas que viram barra logo abaixo. Calculado fora
+       e passado pronto, seria uma segunda conta sobre a mesma lista: no dia em que um
+       dos cinco painéis ganhasse um recorte próprio, o cabeçalho continuaria somando a
+       lista antiga e ninguém veria — os dois números são plausíveis. */
+    var soma = lista.reduce(function(a, g){ return a + (g.total || 0); }, 0);
     return '<section class="g" style="--c1:'+tomDeg(i / 5)+';--c2:'+tomDeg((i + 1) / 5)+'">'+
       '<div class="g__c"><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
+      '<span class="g__soma" title="total de caixas neste painel">'+Q.num(soma)+'</span>'+
       '<span class="g__n">'+Q.esc(nota)+'</span></div>'+
       (lista.length
         ? lista.map(function(g){ return barraG(g, maior, campo); }).join('')

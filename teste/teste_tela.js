@@ -11541,6 +11541,75 @@ console.log('\n== as ações do filtro mudam de lugar ==');
      cópias divergem no primeiro conserto que só uma recebe. */
 })();
 
+console.log('\n== o total de caixas no cabeçalho do painel ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* O CABEÇALHO TINHA SÓ A CONTAGEM DE LINHAS — "1 dia", "5 tipos" —, e num painel de
+   * uma linha só ela parecia o total. Quem quisesse o total de caixas tinha de ler a
+   * barra, e com várias barras, somá-las de cabeça.
+   *
+   * A PROVA RODA O CONSTRUTOR. Lida no arquivo, ela responderia "a palavra `soma` está
+   * ali?" — e estaria, mesmo somando a lista errada, ou contando linhas em vez de
+   * quantidades. A pergunta é outra: DADAS ESTAS BARRAS, QUE NÚMERO SAI NO CABEÇALHO? */
+  var iP = adm.indexOf('  function painelG(i, titulo, lista, nota, campo){');
+  var fonte = iP < 0 ? '' : adm.slice(iP, adm.indexOf('\n  }', iP) + 4);
+  ok(fonte.length > 400 && fonte.indexOf('g__soma') > 0,
+    'a conferência recortou o construtor do painel — recorte vazio faria as provas ' +
+    'abaixo passarem sem rodar nada', fonte.length);
+
+  var painelG = new Function('Q', 'tomDeg', 'barraG',
+    fonte + '\n return painelG;')(
+    { esc: function (s) { return String(s == null ? '' : s); },
+      num: function (n) { return Number(n || 0).toLocaleString('pt-BR'); } },
+    function () { return '#000'; },
+    function () { return '<i></i>'; });
+
+  function soma(html) {
+    var m = /<span class="g__soma"[^>]*>([^<]*)</.exec(html);
+    return m ? m[1] : null;
+  }
+  var cinco = painelG(0, 'Por tipo de caixa',
+    [{ total: 170 }, { total: 160 }, { total: 160 }, { total: 160 }, { total: 160 }],
+    '5 tipos', 'mvCaixa');
+  ok(soma(cinco) === '810',
+    'o cabeçalho soma as QUANTIDADES das barras — 170 + 160 + 160 + 160 + 160 dá 810, ' +
+    'e era esse número que só existia somando de cabeça', soma(cinco));
+
+  /* UMA LINHA SÓ É O CASO QUE ORIGINOU O PEDIDO: ali a contagem "1 dia" ficava ao lado
+     de uma barra de 810, e os dois números pareciam dizer a mesma coisa. */
+  var uma = painelG(0, 'Total por dia', [{ total: 810 }], '1 dia', 'mvData');
+  ok(soma(uma) === '810',
+    'e com uma barra só o cabeçalho mostra a quantidade dela, e não o "1" da contagem ' +
+    '— era esse o par que se confundia', soma(uma));
+
+  /* VAZIO É ZERO, e não o cabeçalho sem número: uma caixa que às vezes traz o total e
+     às vezes não obriga quem olha a descobrir qual dos dois casos está vendo. */
+  var nada = painelG(0, 'Por trecho', [], '0 trechos', 'mvTrecho');
+  ok(soma(nada) === '0',
+    'e painel sem barra nenhuma mostra zero — cabeçalho que às vezes traz o número e ' +
+    'às vezes não obriga quem olha a descobrir qual caso está vendo', soma(nada));
+
+  /* MILHAR COM PONTO, como todo número do sistema: `2340` cru se lê como "dois mil
+     trezentos e quarenta" só depois de contar as casas com o dedo. */
+  var grande = painelG(0, 'Por motorista', [{ total: 2340 }, { total: 120 }], '2 nomes', 'mvMotorista');
+  ok(soma(grande) === '2.460',
+    'e o total sai com o ponto do milhar, como todo número do sistema', soma(grande));
+
+  /* A CONTAGEM DE LINHAS CONTINUA LÁ, ao lado: ela responde outra pergunta — quantas
+     barras —, e o total sem ela não diz sobre quantas coisas ele foi somado. */
+  ok(/<span class="g__n">5 tipos<\/span>/.test(cinco),
+    'e a contagem de linhas continua ao lado — o total sozinho não diz sobre quantas ' +
+    'coisas ele foi somado');
+  /* E É ELA QUE SOME NA TELA ESTREITA, e não o total: some o que se conta olhando o
+     painel, e fica o que só o cabeçalho sabe dizer. */
+  ok(/@media \(max-width:1000px\)\{\.g__n\{display:none\}\}/.test(css) &&
+     !/@media[^{]*\{\.g__soma\{display:none/.test(css),
+    'e na tela estreita quem some é a CONTAGEM, não o total — some o que se conta ' +
+    'olhando, e fica o que só o cabeçalho sabe');
+})();
+
 console.log('\n== a lateral: nome, retrato e largura ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
