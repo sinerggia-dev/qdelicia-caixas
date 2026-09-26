@@ -243,7 +243,12 @@ async function gravarMovimento(p) {
        O PERFIL GRAVADO NO MOVIMENTO continua valendo — `lancamentoDeTeste` le o `Perfil`
        da LINHA, que e historia e nao cadastro, e cobre os movimentos anteriores a coluna
        `teste` existir em `movimentos`. Sao duas perguntas diferentes com o mesmo nome. */
-    teste: quem && quem.Teste === true,
+    /* O PISO, E NAO A BASE. Quem so tem Base Teste nao consegue mandar nada para a
+       producao — nem por engano, nem por pedido adulterado. Quem tem AS DUAS nao tem
+       piso nenhum: o carimbo vem do `teste` do payload, que e o seletor da tela de
+       lancamento. E quem so tem Producao continua podendo marcar um lancamento avulso
+       como ensaio, que e o caso do ajuste feito no escritorio. */
+    teste: !!quem && quem.Teste === true && quem.BaseProducao !== true,
     clientKeysExistentes: existentes,
     assinaturaUrl: assinaturaUrl,
     fotoUrl: fotoUrl
@@ -432,6 +437,15 @@ async function baseUsuarios(p) {
     return { ok: false, erro: 'São ' + ids.length + ' de uma vez. Faça em partes de 300.' };
   }
   var teste = p.teste === true || String(p.teste) === 'true';
+  /* `producao` PODE NAO VIR. Quando a base era uma so, esta rota dizia tudo com um
+     booleano: `teste:true` queria dizer "para a Base Teste e fora da Producao". Quem
+     chama sem o campo novo continua querendo dizer isso. */
+  var producao = p.producao === undefined
+    ? !teste
+    : (p.producao === true || String(p.producao) === 'true');
+  if (!teste && !producao) {
+    return { ok: false, erro: 'Escolha ao menos uma base: Producao, Teste, ou as duas.' };
+  }
 
   var d = await db.carregarTudo();
   var porId = {};
@@ -444,12 +458,15 @@ async function baseUsuarios(p) {
 
   /* SO GRAVA QUEM MUDA. Regravar quem ja estava na base escolhida seria uma ida ao banco
      por nada, e o numero devolvido diria "25 alterados" quando um so mudou. */
-  var mexer = ids.filter(function (id) { return (porId[id].Teste === true) !== teste; });
+  var mexer = ids.filter(function (id) {
+    return (porId[id].Teste === true) !== teste ||
+           (porId[id].BaseProducao === true) !== producao;
+  });
   for (var i = 0; i < mexer.length; i++) {
-    await db.update('usuarios', mexer[i], { teste: teste });
+    await db.update('usuarios', mexer[i], { teste: teste, base_producao: producao });
   }
   return { ok: true, mudados: mexer.length, jaEstavam: ids.length - mexer.length,
-           base: teste ? 'teste' : 'producao' };
+           base: teste && producao ? 'as duas' : (teste ? 'teste' : 'producao') };
 }
 
 async function limparMovimentos(p) {
@@ -574,6 +591,18 @@ async function salvarUsuario(p) {
     try { dados.SenhaHash = senha.gerar(nova); }
     catch (e) { return { ok: false, erro: e.message }; }
     dados.SenhaProvisoria = true;               // mesma razao do PIN acima
+  }
+
+  /* NINGUEM FICA SEM BASE NENHUMA. Desmarcadas as duas, a pessoa continuaria
+     lancando — e o lancamento cairia na producao, que e o que o codigo faz quando nao
+     ha piso de ensaio. Ou seja: desmarcar tudo teria o efeito de MARCAR Producao, que e
+     o contrario do que quem desmarcou quis dizer. Recusado aqui, e nao so na tela: esta
+     rota aceita pedido de qualquer origem. */
+  var querTeste = dados.Teste === true || String(dados.Teste) === 'true';
+  var querProd = dados.BaseProducao === true || String(dados.BaseProducao) === 'true';
+  if ((dados.Teste !== undefined || dados.BaseProducao !== undefined) &&
+      !querTeste && !querProd) {
+    return { ok: false, erro: 'Escolha ao menos uma base: Producao, Teste, ou as duas.' };
   }
 
   if (dados.Perfil !== undefined) {

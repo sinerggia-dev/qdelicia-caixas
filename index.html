@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=b02aec0c">
+<link rel="stylesheet" href="styles.css?v=53b91dcf">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -334,6 +334,20 @@
   <section id="pgSaida" class="pagina ativa">
     <div class="card">
       <h2>Saída de caixas<span class="sub">Caixas saindo do galpão ou da filial. Confirmado na hora — a contagem da saída é a fonte da verdade.</span></h2>
+      <!-- A BASE DESTE LANÇAMENTO. Só aparece para quem está NAS DUAS bases: quem está
+           numa só não tem escolha a fazer, e um campo de uma opção só e obrigatória é
+           uma pergunta cuja resposta já se sabe — mais uma coisa para ler no galpão,
+           antes de contar caixa.
+           ACIMA DE TUDO, e não no meio dos campos: ela não é um dado do lançamento,
+           é onde o lançamento inteiro vai cair. -->
+      <div class="base-lanc" id="sdBaseBox" hidden>
+        <label for="sdBase">Base deste lançamento</label>
+        <select id="sdBase">
+          <option value="reais">Base Produção</option>
+          <option value="teste">Base Teste</option>
+        </select>
+      </div>
+
       <!-- Ordem na tela = ordem em que a pessoa preenche: quando, de onde, para onde,
            com quem, e o documento por último, que é o único opcional. -->
       <div class="grid2">
@@ -402,6 +416,20 @@
   <section id="pgDevolucao" class="pagina">
     <div class="card">
       <h2>Retorno de caixas<span class="sub" id="devSub">Caixas voltando na rota para o galpão.</span></h2>
+      <!-- A BASE DESTE LANÇAMENTO. Só aparece para quem está NAS DUAS bases: quem está
+           numa só não tem escolha a fazer, e um campo de uma opção só e obrigatória é
+           uma pergunta cuja resposta já se sabe — mais uma coisa para ler no galpão,
+           antes de contar caixa.
+           ACIMA DE TUDO, e não no meio dos campos: ela não é um dado do lançamento,
+           é onde o lançamento inteiro vai cair. -->
+      <div class="base-lanc" id="dvBaseBox" hidden>
+        <label for="dvBase">Base deste lançamento</label>
+        <select id="dvBase">
+          <option value="reais">Base Produção</option>
+          <option value="teste">Base Teste</option>
+        </select>
+      </div>
+
       <div class="grid2">
         <div>
           <label for="dvData">Data do movimento<span class="obrig">*</span></label>
@@ -572,6 +600,34 @@
   /* Tudo o que a sessao MANDA na tela, num lugar so: o nome no cabecalho, a porta para o
      painel e as abas. Duas chamadas passam por aqui — a abertura e a renovacao —, e
      espalhar isso pelas duas faria a renovacao esquecer alguma. */
+  /* ================= EM QUE BASE ESTE LANÇAMENTO ENTRA =================
+   *
+   * Quem está só numa base não escolhe nada: o servidor carimba pela base do cadastro,
+   * e para quem só tem a Base Teste esse carimbo é um PISO — nem um pedido adulterado
+   * tira o lançamento dela do ensaio. Quem está nas duas escolhe aqui.
+   *
+   * A PERGUNTA "MOSTRA?" E A PERGUNTA "O QUE MANDA?" SÃO A MESMA FUNÇÃO, de propósito.
+   * Separadas, bastaria a sessão mudar entre a abertura da tela e o toque em Registrar
+   * para o campo continuar na tela mandando uma base que a pessoa já não tem. */
+  function escolheBase(){
+    var s = Q.sessao() || {};
+    return s.baseTeste === true && s.baseProducao === true;
+  }
+
+  function baseDeTeste(pre){
+    if (!escolheBase()) return false;
+    var el = document.getElementById(pre + 'Base');
+    return !!el && el.value === 'teste';
+  }
+
+  function ajustarBases(){
+    var mostra = escolheBase();
+    ['sd', 'dv'].forEach(function (pre) {
+      var box = document.getElementById(pre + 'BaseBox');
+      if (box) box.hidden = !mostra;
+    });
+  }
+
   function aplicarSessao(s){
     Q.quemEsta(s.nome, s.perfil, s.foto);
 
@@ -586,6 +642,9 @@
     document.getElementById('chipPainel').hidden = !Q.podePainel(s);
 
     ajustarAbas(s);
+    /* Junto das abas, e nao antes da porta do painel: as tres sao a mesma coisa —
+       pedaços de tela que aparecem ou não conforme o cadastro de quem entrou. */
+    ajustarBases();
 
     /* A aba Lancamentos some para quem nao ve lancamento. Some, e nao fica vazia: uma
        aba que abre sem nada dentro parece quebrada, e a pessoa volta nela toda vez
@@ -1268,7 +1327,13 @@
     var itens = coletarItens('sd_');
     if (!podeEnviar('sd', 'sdItens', itens)) return;
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
-    if (Q.precisaConfirmarCaixa(this, 'Confirmar saída de ' + total + ' caixa(s)?', 'Registrar')) return;
+    /* A BASE ENTRA NA FRASE DA CONFIRMAÇÃO quando é a de ensaio. O seletor fica onde a
+       pessoa o deixou — quem passa a tarde validando não o reescolhe a cada lançamento
+       —, e o preço disso é esquecê-lo ligado quando volta ao trabalho de verdade. A
+       frase do botão é o último lugar em que isso ainda dá para ver. */
+    var emTeste = baseDeTeste('sd');
+    if (Q.precisaConfirmarCaixa(this, 'Confirmar saída de ' + total + ' caixa(s)' +
+        (emTeste ? ' na Base Teste' : '') + '?', 'Registrar')) return;
 
     var destinoTipo = (DADOS.locais.filter(function(l){return String(l.ID)===destino;})[0]||{}).Tipo;
     var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
@@ -1280,6 +1345,7 @@
       dataRef: document.getElementById('sdData').value,
       obs: document.getElementById('sdObs').value,
       usuarioId: s.id, perfil: s.perfil,
+      teste: emTeste,
       motorista: document.getElementById('sdMotorista').value.trim(),
       veiculo: document.getElementById('sdVeiculo').value.trim(),
       rota: nomeDoLocal(destino),
@@ -1329,7 +1395,9 @@
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
 
     // Não há mais etapa de conferência: o lançamento já vale no saldo, venha de quem vier.
-    if (Q.precisaConfirmarCaixa(this, 'Confirmar entrada de ' + total + ' caixa(s)?', 'Registrar')) return;
+    var emTesteDv = baseDeTeste('dv');
+    if (Q.precisaConfirmarCaixa(this, 'Confirmar entrada de ' + total + ' caixa(s)' +
+        (emTesteDv ? ' na Base Teste' : '') + '?', 'Registrar')) return;
 
     var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
     Q.enviar({
@@ -1340,6 +1408,7 @@
       veiculo: document.getElementById('dvVeiculo').value,
       obs: document.getElementById('dvObs').value,
       usuarioId: s.id, perfil: s.perfil,
+      teste: emTesteDv,
       foto: dvFotoData
     }).then(function(r){
       btn.disabled = false; btn.textContent = 'Registrar retorno';

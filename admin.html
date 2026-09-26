@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=b02aec0c">
+<link rel="stylesheet" href="styles.css?v=53b91dcf">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1426,6 +1426,12 @@
          apagaria: a pessoa veria o tutorial, seguiria para o app, e no acesso seguinte
          cairia nele de novo — sem nada na tela explicando por quê. */
       viuTutorial: u.ViuTutorial === true,
+      /* AS DUAS BASES acompanham a renovação pela mesma razão de todo o resto daqui:
+         o app de campo pergunta a base a quem está nas duas, e a pergunta sai da
+         sessão. Faltando aqui, ela sumiria no primeiro recarregamento do painel e a
+         pessoa voltaria a lançar sem escolher — calada. */
+      baseTeste: u.Teste === true,
+      baseProducao: u.BaseProducao === true,
       usuariosVistos: lista(u.UsuariosVistos)
     };
   }
@@ -2619,12 +2625,14 @@
      app e no painel" nao e nome, e explicacao de cabecalho. */
   var TAB_USUARIOS = {
     padrao: ['nome','perfil','usuario','email','senha','painel','local','veiculo',
-             'telefone','base','ativo'],
+             'telefone','baseTeste','baseProd','ativo'],
     larg: { nome:190, perfil:120, usuario:150, email:230, senha:190,
-            painel:80, local:150, veiculo:200, telefone:130, base:120, ativo:80 },
+            painel:80, local:150, veiculo:200, telefone:130,
+            baseTeste:110, baseProd:120, ativo:80 },
     titulos: { nome:'Nome', perfil:'Perfil', usuario:'Usuário', email:'E-mail',
                senha:'Senha', painel:'Painel', local:'Local padrão',
-               veiculo:'Veículo', telefone:'Telefone', base:'Base', ativo:'Ativo' },
+               veiculo:'Veículo', telefone:'Telefone',
+               baseTeste:'Base Teste', baseProd:'Base Produção', ativo:'Ativo' },
     kOrdem: 'qdc_cols_users_v1',
     kLarg: 'qdc_larg_users_v1',
     kOcultas: 'qdc_cols_ocultas_users_v1',
@@ -6889,17 +6897,26 @@
                   busca: function(u){ return placasDe(u).join(' '); } },
       telefone: { t: TIT['telefone'],
                   v: function(u){ return Q.esc(u.Telefone || ''); } },
-      /* A BASE NA TABELA, e nao so no formulario: quem vai cadastrar trinta pessoas
-         precisa conferir de relance quem ficou em qual, sem abrir uma por uma. Ela
-         entra na BUSCA pelas duas palavras, entao digitar "teste" na barra separa a
-         base inteira. */
-      base:     { t: TIT['base'],
+      /* AS BASES NA TABELA, e nao so no formulario: quem vai cadastrar trinta pessoas
+         precisa conferir de relance quem esta em qual, sem abrir uma por uma.
+         UMA COLUNA POR BASE, e cada uma responde sim ou nao. Numa coluna so, "as
+         duas" teria de virar uma terceira palavra — e quem procura na tela quem lanca
+         em producao passaria a ter de conhecer as tres para nao pular ninguem.
+         Elas entram na BUSCA pelas palavras da base, entao digitar "base teste" na
+         barra separa o grupo inteiro. */
+      baseTeste:{ t: TIT['baseTeste'],
                   k: function(u){ return u.Teste === true ? '1' : '0'; },
                   v: function(u){ return u.Teste === true
-                    ? '<span class="tag amarela">Teste</span>'
-                    : '<span class="tag cinza">Producao</span>'; },
-                  busca: function(u){ return u.Teste === true
-                    ? 'base teste' : 'base producao'; } },
+                    ? '<span class="tag amarela">sim</span>'
+                    : '<span class="tag cinza">não</span>'; },
+                  busca: function(u){ return u.Teste === true ? 'base teste' : ''; } },
+      baseProd: { t: TIT['baseProd'],
+                  k: function(u){ return u.BaseProducao === true ? '1' : '0'; },
+                  v: function(u){ return u.BaseProducao === true
+                    ? '<span class="tag verde">sim</span>'
+                    : '<span class="tag cinza">não</span>'; },
+                  busca: function(u){ return u.BaseProducao === true
+                    ? 'base producao produção' : ''; } },
       ativo:    { t: TIT['ativo'],
                   v: function(u){ return Q.ativo(u.Ativo)
                     ? '<span class="tag verde">sim</span>'
@@ -7370,6 +7387,10 @@
       '<span class="sel-user__p">passar para</span>'+
       '<button class="mini acao" type="button" data-base-user="reais">Base Produção</button>'+
       '<button class="mini acao" type="button" data-base-user="teste">Base Teste</button>'+
+      /* O TERCEIRO BOTÃO EXISTE porque a base deixou de ser ou uma ou outra. Sem ele, pôr
+         uma equipe nas duas só seria possível um cadastro por vez — e é justamente a
+         turma de uma validação que precisa das duas, a mesma que entra em bloco. */
+      '<button class="mini acao" type="button" data-base-user="duas">as duas</button>'+
       '<button class="mini" type="button" data-base-user="">desmarcar</button>';
   }
 
@@ -7431,14 +7452,20 @@
         if (!alvo){ SEL_USERS = {}; sincronizarSelecaoUser(); return; }
         var ids = idsMarcados();
         if (!ids.length) return;
-        var teste = alvo === 'teste';
-        var nome = teste ? 'Base Teste' : 'Base Produção';
+        /* OS TRÊS BOTÕES DIZEM UM ESTADO INTEIRO, e não "acrescente esta base". Quem
+           clica está dizendo onde essas pessoas passam a lançar; um botão que só
+           acrescentasse nunca conseguiria TIRAR ninguém do ensaio, que é o dia da
+           virada — o caso de uso inteiro desta barra. */
+        var teste = alvo === 'teste' || alvo === 'duas';
+        var producao = alvo === 'reais' || alvo === 'duas';
+        var nome = alvo === 'duas' ? 'as duas bases'
+                 : 'a ' + (teste ? 'Base Teste' : 'Base Produção');
         /* O SEGUNDO CLIQUE CONFIRMA, a mesma porta de desativar e excluir. Trocar a base
            não apaga nada, mas muda para onde vai TODO lançamento seguinte dessas
            pessoas — e o engano só aparece dias depois, num saldo que não fecha. */
-        if (Q.precisaConfirmar(b, 'Passar '+ids.length+' para a '+nome+'?')) return;
+        if (Q.precisaConfirmar(b, 'Passar '+ids.length+' para '+nome+'?')) return;
         b.disabled = true;
-        Q.post({acao:'baseUsuarios', ids:ids, teste:teste}).then(function(r){
+        Q.post({acao:'baseUsuarios', ids:ids, teste:teste, producao:producao}).then(function(r){
           b.disabled = false;
           if (!r || r.ok === false) return Q.toast((r && r.erro) || 'Não consegui mudar.','erro');
           /* O QUE MUDOU E O QUE JÁ ESTAVA LÁ, separados. "12 alterados" quando oito já
@@ -7446,7 +7473,7 @@
              pior, acreditar que mexeu em doze cadastros. */
           var partes = [];
           if (r.mudados) partes.push(r.mudados+(r.mudados === 1 ? ' passou' : ' passaram')+
-            ' para a '+nome);
+            ' para '+nome);
           if (r.jaEstavam) partes.push(r.jaEstavam+
             (r.jaEstavam === 1 ? ' já estava lá' : ' já estavam lá'));
           Q.toast(partes.join(' · ')+'.','ok');
@@ -8289,16 +8316,26 @@
          ELA CARIMBA O LANÇAMENTO NA HORA. Trocar a base de alguém depois não reescreve o
          que já foi lançado: o que está na Base Teste continua lá, e o que vier depois
          entra em Produção. É a mesma regra do motorista e da placa. */
+      /* DUAS CAIXAS, E NÃO UM SELETOR. Um seletor só sabe dizer uma das duas, e há
+         quem precise das duas: quem valida uma rotina nova lança o ensaio E o dia de
+         trabalho, e com um seletor fazia isso trocando a própria base para cá e para
+         lá — um esquecimento no meio do dia e o lançamento real virava ensaio.
+         NOVO NASCE EM PRODUÇÃO: em branco, o formulário recusaria salvar, e a primeira
+         coisa que um cadastro novo faria seria dar um erro. */
       '<label>Base <span style="font-weight:400;color:var(--txt3)">— onde os lançamentos '+
         'desta pessoa entram</span></label>'+
-      '<select id="fBase">'+
-        '<option value="">Base Produção</option>'+
-        '<option value="teste"'+(u.Teste === true ? ' selected' : '')+'>Base Teste</option>'+
-      '</select>'+
-      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+      '<div class="marcalista" id="fBases">'+
+        '<label class="marca"><input type="checkbox" id="fBaseProd"'+
+          ((u.ID ? u.BaseProducao === true : true) ? ' checked' : '')+'> Base Produção</label>'+
+        '<label class="marca"><input type="checkbox" id="fBaseTeste"'+
+          (u.Teste === true ? ' checked' : '')+'> Base Teste</label>'+
+      '</div>'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:8px 0 12px">'+
         'Na <b>Base Teste</b>, tudo o que a pessoa lançar fica marcado como ensaio e pode '+
         'ser separado ou apagado em bloco depois. Os números continuam somando — a '+
-        'separação é de leitura, não de exclusão.</p>'+
+        'separação é de leitura, não de exclusão.<br>'+
+        'Com <b>as duas marcadas</b>, o app de campo pergunta a base em cada lançamento. '+
+        'Com uma só, ele não pergunta nada.</p>'+
       // O usuário curto deixou de ser coisa só do painel: é com ele que a pessoa entra
       // no app de lançamento. Por isso sobe para cá, junto da senha do app.
       '<label>Usuário <span style="font-weight:400;color:var(--txt3)">— é o que a pessoa digita para entrar</span></label>'+
@@ -8681,10 +8718,12 @@
         Telefone:document.getElementById('fTel').value.trim(),
         LocalPadrao:document.getElementById('fLocal').value,
         Ativo:document.getElementById('fAtivo').value,
-        /* `Teste` e booleano no banco, e o seletor fala em BASE. A traducao mora
-           AQUI, num lugar so: espalhada, um caminho esqueceria e a pessoa nasceria
-           em Producao sem ninguem ter escolhido. */
-        Teste:(document.getElementById('fBase').value === 'teste'),
+        /* DUAS COLUNAS, DUAS CAIXAS, e o nome torto de uma delas traduzido AQUI: no
+           banco quem diz "Base Teste" chama-se `teste`, de quando a base era uma so.
+           A traducao mora num lugar so: espalhada, um caminho esqueceria e a pessoa
+           nasceria em Producao sem ninguem ter escolhido. */
+        Teste:document.getElementById('fBaseTeste').checked,
+        BaseProducao:document.getElementById('fBaseProd').checked,
         /* O seletor tem tres valores e a gravacao tem duas colunas. A traducao mora
            AQUI, num lugar so: espalhada, "PROPRIOS" viraria acesso desligado em algum
            caminho esquecido, e a pessoa perderia o painel sem ninguem entender. */
@@ -8708,6 +8747,13 @@
       var novaSenha = document.getElementById('fSenha').value;
       if (novaSenha) reg.Senha = novaSenha;   // vai em texto e volta hash — nunca é guardada assim
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
+      /* SEM BASE NENHUMA NÃO SALVA. Desmarcar as duas parece "tirar a pessoa das
+         bases", mas o efeito seria o contrário: sem piso de ensaio, o lançamento dela
+         cairia na produção. A API recusa de novo — isto aqui é para a pessoa saber na
+         hora, sem esperar a ida ao servidor. */
+      if (!reg.Teste && !reg.BaseProducao) {
+        return Q.toast('Marque ao menos uma base: Produção, Teste, ou as duas.','erro');
+      }
       if (!reg.ID && !pin) return Q.toast('Defina a senha do app de campo para o novo usuário.','erro');
       // Sem usuário a pessoa não entra em lugar nenhum: nem no app, nem no painel.
       if (!reg.Usuario) return Q.toast('Informe o usuário: é com ele que a pessoa entra no app.','erro');

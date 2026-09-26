@@ -2666,7 +2666,12 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     const html = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
 
     const i = html.indexOf("var reg = { ID:u.ID||''");
-    const payload = html.slice(i, html.indexOf('};', i));
+    /* SEM OS COMENTÁRIOS. O payload é lido por expressão, e uma frase em maiúsculas
+       seguida de dois pontos dentro de um comentário — "a tradução mora AQUI: ..." —
+       entra na lista como se fosse um campo, e a prova falha apontando uma palavra.
+       Este teste é sobre o que o formulário GRAVA; prosa não grava nada. */
+    const payload = html.slice(i, html.indexOf('};', i))
+      .replace(/\/\*[\s\S]*?\*\//g, '');
     const enviados = (payload.match(/([A-Z][A-Za-z]*)\s*:\s*lerMarcados/g) || [])
       .map((t) => t.split(':')[0].trim());
 

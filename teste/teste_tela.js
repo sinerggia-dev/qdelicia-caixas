@@ -106,8 +106,10 @@ function camposDa(secao) {
 console.log('\n== o botão Limpar alcança todo campo do formulário ==');
 
 [
-  { secao: 'pgSaida',     fn: 'limparSaida',     data: 'sdData' },
-  { secao: 'pgDevolucao', fn: 'limparDevolucao', data: 'dvData' }
+  { secao: 'pgSaida',     fn: 'limparSaida',     data: 'sdData', base: 'sdBase',
+    botao: 'btnSalvarSaida' },
+  { secao: 'pgDevolucao', fn: 'limparDevolucao', data: 'dvData', base: 'dvBase',
+    botao: 'btnSalvarDevolucao' }
 ].forEach(function (t) {
   var texto = corpo(t.fn);
   var campos = camposDa(t.secao);
@@ -115,13 +117,33 @@ console.log('\n== o botão Limpar alcança todo campo do formulário ==');
   ok(campos.length > 3, t.secao + ': achei os campos do formulário', campos);
 
   var esquecidos = campos.filter(function (id) {
-    if (id === t.data) return false;
+    if (id === t.data || id === t.base) return false;
     return texto.indexOf("'" + id + "'") < 0;
   });
   ok(esquecidos.length === 0, t.fn + ' limpa todos os campos da tela', esquecidos);
 
   ok(texto.indexOf("'" + t.data + "'") < 0,
-    t.fn + ' NÃO mexe na data — ela é a única que fica');
+    t.fn + ' NÃO mexe na data — ela é uma das duas que ficam');
+
+  /* A BASE TAMBÉM FICA, e pela mesma razão da data: quem passa a tarde validando uma
+     rotina nova faz vinte lançamentos seguidos na mesma base, e reescolher a cada um é
+     onde se erra. */
+  ok(texto.indexOf("'" + t.base + "'") < 0,
+    t.fn + ' NÃO mexe na base escolhida — quem valida faz vinte lançamentos seguidos ' +
+    'na mesma base, e reescolher a cada um é onde se erra');
+
+  /* O QUE FICA TEM DE SER DITO. Este é o preço do parágrafo acima: o seletor esquecido
+     ligado manda para o ensaio o trabalho de verdade do dia seguinte, e ensaio não entra
+     no saldo real. A frase do botão é o último lugar em que isso ainda dá para ver — e
+     ela só muda quando a base é a de ensaio, porque um aviso em todo lançamento é um
+     aviso que ninguém lê. */
+  var grava = html.slice(html.indexOf("getElementById('" + t.botao + "')"));
+  grava = grava.slice(0, grava.indexOf('Q.enviar('));
+  ok(grava.length > 100 && grava.indexOf('Base Teste') > 0 &&
+     grava.indexOf('precisaConfirmarCaixa') > 0,
+    t.botao + ': a confirmação diz quando o lançamento vai para a Base Teste — o ' +
+    'seletor fica escolhido entre um lançamento e outro, e esquecê-lo ligado manda o ' +
+    'trabalho de verdade para o ensaio, fora do saldo real', grava.length);
 
   // Zerar as quantidades é o motivo principal de existir o botão.
   ok(/zerarItens\(/.test(texto), t.fn + ' zera as quantidades contadas');
@@ -3785,11 +3807,15 @@ console.log('\n== a porta para o painel, no app de campo ==');
        Mas o `Q.podePainel` NAO e de mentira: e a funcao de verdade, recortada do
        `app.js`. Imita-la aqui mediria a minha copia da regra, e nao a regra — que e
        exatamente o defeito que este bloco existe para pegar. */
-    return new Function('s', 'document', 'ajustarAbas', 'Q',
+    /* `ajustarBases` entra aqui de mentira, como o `ajustarAbas`: ela mostra ou
+       esconde o seletor de base do lançamento, e este recorte é sobre a PORTA do
+       painel. Quem cobra o seletor é a bancada das duas bases, mais abaixo. */
+    return new Function('s', 'document', 'ajustarAbas', 'ajustarBases', 'Q',
       fonte + '\n aplicarSessao(s); return !document.getElementById("chipPainel").hidden;')(
       s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); },
            querySelector: function () { return null; } },
-      function () {}, { quemEsta: function () {}, podePainel: REGRA_PAINEL });
+      function () {}, function () {},
+      { quemEsta: function () {}, podePainel: REGRA_PAINEL });
   }
 
   [['o ADMIN vê, mesmo com a chave desligada — `podeVerPainel()` é a autoridade, e vale ' +
@@ -10662,9 +10688,35 @@ console.log('\n== a base do usuário ==');
      quem tivesse "Conferente de teste" no cargo ficaria preso no ensaio mesmo com a Base
      marcada como Produção no formulário: a tela diria uma coisa e o lançamento faria
      outra. Medido antes de tirar — era exatamente o que acontecia. */
-  var ctx = api.slice(api.indexOf('teste: quem') - 900, api.indexOf('teste: quem') + 60);
-  ok(/teste: quem && quem\.Teste === true,/.test(api),
-    'o lançamento carimba a base pela COLUNA do cadastro');
+  /* A REGRA É RODADA, e não lida. Lida, a prova responderia "as duas colunas estão
+     citadas ali?" — e estariam, mesmo com o `&&` trocado por `||`, que é o defeito
+     plausível aqui: com `||`, quem tem as duas bases ficaria preso no ensaio e o
+     seletor da tela de campo não serviria para nada.
+     A ÂNCORA NÃO CARREGA A REGRA: ela é a linha SEGUINTE do objeto. Ancorada no próprio
+     `teste:`, uma sabotagem que reescrevesse a linha faria o recorte sair vazio, e a
+     falha diria "não achei" em vez de dizer o que o carimbo passou a fazer. */
+  var iCk = api.indexOf('clientKeysExistentes: existentes,');
+  var iT = api.lastIndexOf('teste:', iCk);
+  var expr = iT < 0 ? '' : api.slice(iT + 6, api.indexOf(',', iT)).trim();
+  ok(expr.length > 10 && iT < iCk,
+    'a conferência recortou a regra do carimbo — recorte vazio faria as quatro provas ' +
+    'abaixo passarem sobre nada', expr);
+  var piso = new Function('quem', 'return (' + (expr || 'null') + ') === true;');
+
+  ok(piso({ Teste: true, BaseProducao: false }) === true,
+    'quem só tem a Base Teste lança no ensaio, e isso é PISO — nem um pedido adulterado ' +
+    'tira o lançamento dela de lá');
+  ok(piso({ Teste: false, BaseProducao: true }) === false,
+    'e quem só tem a Base Produção não tem piso de ensaio nenhum');
+  /* O CASO NOVO, e o único que o `&&` decide: com as duas marcadas não há piso, e quem
+     escolhe é o seletor da tela de campo. Com `||` no lugar do `&&`, estas pessoas
+     ficariam presas no ensaio e o seletor viraria enfeite — lançariam o dia de trabalho
+     inteiro em ensaio, fora do saldo real, sem nada na tela dizendo. */
+  ok(piso({ Teste: true, BaseProducao: true }) === false,
+    'e quem tem AS DUAS não tem piso: o carimbo sai da escolha feita na tela de ' +
+    'lançamento, que é a única que sabe qual das duas a pessoa quis');
+  ok(piso(null) === false && piso(undefined) === false,
+    'e cadastro que não existe não estoura a gravação');
   ok(!/teste: [^\n]*ehPerfilTeste/.test(api),
     'e o nome do perfil não entra mais nessa conta — com ele, marcar "Base Produção" ' +
     'no formulário não tiraria do ensaio quem tem "teste" escrito no cargo',
@@ -10689,17 +10741,74 @@ console.log('\n== a base do usuário ==');
      na leitura, e foi ele que pegou este: sem o `Teste` na `equipe`, o formulário abriria
      sempre em "Base Produção" e a gravação seguinte apagaria a base de quem estava em
      ensaio, calada, no meio de uma validação. */
-  ok(/id="fBase"/.test(adm) && /Teste:\(document\.getElementById\('fBase'\)\.value === 'teste'\)/.test(adm),
-    'o formulário tem o campo Base e grava a coluna a partir dele');
-  ok(/Teste: u\.Teste === true,/.test(log),
-    'e ela volta na leitura da equipe — sem isso, abrir e salvar apagaria a base');
+  /* DUAS CAIXAS, E CADA UMA NA SUA COLUNA. O defeito plausível é o de copiar e colar:
+     as duas lendo a mesma caixa, e a tela mostrando um estado que ninguém marcou. */
+  ok(adm.indexOf('id="fBaseProd"') > 0 && adm.indexOf('id="fBaseTeste"') > 0,
+    'o formulário tem uma caixa para cada base — num seletor de escolher uma, quem ' +
+    'valida uma rotina nova trocava a própria base para cá e para lá o dia inteiro');
+  ok(adm.indexOf("Teste:document.getElementById('fBaseTeste').checked") > 0 &&
+     adm.indexOf("BaseProducao:document.getElementById('fBaseProd').checked") > 0,
+    'e cada caixa grava a SUA coluna — trocadas, marcar Produção mandaria a pessoa ' +
+    'para o ensaio, e a tela mostraria o contrário do que o banco guardou');
+  ok(/Teste: u\.Teste === true,/.test(log) && /BaseProducao: u\.BaseProducao === true,/.test(log),
+    'e as duas voltam na leitura da equipe — sem isso, abrir e salvar apagaria a base');
+  /* NINGUÉM FICA SEM BASE NENHUMA. Desmarcar as duas parece "tirar das bases", e o
+     efeito seria o contrário: sem piso de ensaio, o lançamento cai na produção.
+     Nos DOIS lugares: a tela avisa na hora, e a rota recusa — ela atende pedido de
+     qualquer origem, e a tela não é fronteira. */
+  ok(adm.indexOf('if (!reg.Teste && !reg.BaseProducao)') > 0,
+    'a tela recusa salvar sem base nenhuma — desmarcar as duas teria o efeito de ' +
+    'MARCAR Produção, que é o contrário do que quem desmarcou quis dizer');
+  ok(api.indexOf('!querTeste && !querProd') > 0,
+    'e a rota recusa de novo — ela aceita pedido de qualquer origem');
+
+  /* A MIGRAÇÃO SEPARA AS DUAS COLUNAS SEM MEXER EM NINGUÉM. A coluna nova nasce
+     verdadeira para todos, e a linha seguinte a tira de quem está no ensaio — são os
+     dois passos que reproduzem a exclusividade de antes. Sem o segundo, a equipe de
+     validação acordaria também em produção, e o saldo real comeria o ensaio. */
+  ok(mig.indexOf('add column if not exists base_producao') > 0 &&
+     mig.indexOf('set base_producao = false where teste is true') > 0,
+    'e a migração tira a Base Produção de quem estava no ensaio — sem isso, a equipe ' +
+    'de validação acordaria nas duas bases e o saldo real comeria o ensaio');
 
   /* A BASE NA TABELA, e não só no formulário: quem cadastra trinta pessoas precisa
      conferir de relance quem ficou em qual, sem abrir uma por uma. */
   var desc = adm.slice(adm.indexOf('var TAB_USUARIOS = {'));
   desc = desc.slice(0, desc.indexOf('\n  };'));
-  ok(/'base'/.test(desc) && /base:'Base'/.test(desc),
-    'e a Base é coluna da tabela de Usuários, com largura e título');
+  ['baseTeste', 'baseProd'].forEach(function (c) {
+    ok(desc.indexOf("'" + c + "'") > 0 && desc.indexOf(c + ':') > 0,
+      'a coluna ' + c + ' está na tabela de Usuários, com largura e título — sem ' +
+      'largura ela nasce espremida, e sem título a aba Colunas não sabe nomeá-la');
+  });
+
+  /* AS DUAS CÉLULAS, RODADAS. O defeito plausível é as duas lerem a mesma coluna: a
+     tabela ficaria com duas colunas idênticas, e quem procurasse na tela quem lança em
+     produção leria a resposta do ensaio. Lida no arquivo, a prova não veria isso. */
+  var iD = adm.indexOf("baseTeste:{ t: TIT['baseTeste']");
+  var fimD = adm.indexOf("ativo:    { t: TIT['ativo']", iD);
+  var defs = iD < 0 || fimD < 0 ? null : new Function('TIT', 'Q',
+    'return ({' + adm.slice(iD, fimD) + '});')(
+    { baseTeste: 'Base Teste', baseProd: 'Base Produção' },
+    { esc: function (s) { return String(s == null ? '' : s); } });
+  ok(!!defs && !!defs.baseTeste && !!defs.baseProd,
+    'a conferência recortou as duas células — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', !!defs);
+  var soTeste = { Teste: true, BaseProducao: false };
+  var soProd = { Teste: false, BaseProducao: true };
+  var asDuas = { Teste: true, BaseProducao: true };
+  function diz(col, u) { return defs[col].v(u).indexOf('sim') > 0 ? 'sim' : 'não'; }
+  ok(diz('baseTeste', soTeste) === 'sim' && diz('baseProd', soTeste) === 'não',
+    'quem só tem a Base Teste aparece com sim numa coluna e não na outra',
+    [diz('baseTeste', soTeste), diz('baseProd', soTeste)]);
+  ok(diz('baseTeste', soProd) === 'não' && diz('baseProd', soProd) === 'sim',
+    'e quem só tem a Base Produção aparece ao contrário — as duas colunas lendo a ' +
+    'mesma coluna do cadastro dariam a mesma resposta nas duas',
+    [diz('baseTeste', soProd), diz('baseProd', soProd)]);
+  /* O CASO QUE A COLUNA ÚNICA NÃO SABIA DIZER, e que é a razão de haver duas. */
+  ok(diz('baseTeste', asDuas) === 'sim' && diz('baseProd', asDuas) === 'sim',
+    'e quem está nas duas aparece com sim nas duas — numa coluna só, este caso teria ' +
+    'de virar uma terceira palavra, e quem procura por uma base pularia essa gente',
+    [diz('baseTeste', asDuas), diz('baseProd', asDuas)]);
 
   /* AS TRÊS OPÇÕES, nos três seletores. "As duas bases" existe porque a base de
      validação pode ser operação de verdade — mas NÃO é a de fábrica: quem quiser somar
@@ -10766,12 +10875,45 @@ console.log('\n== a base do usuário ==');
   ok(/todos\.indeterminate = vistos > 0 && vistos < caixas\.length/.test(adm),
     'e a caixa de cima fica no tracinho quando só uma parte está marcada');
 
-  /* O QUE VAI PARA O SERVIDOR são os ids marcados — nem a tela inteira, nem os ativos. */
-  ok(/acao:'baseUsuarios', ids:ids, teste:teste/.test(adm),
-    'e o botão manda os ids marcados para o `baseUsuarios`');
-  ok(/if \(Q\.precisaConfirmar\(b, 'Passar '\+ids\.length\+' para a '\+nome/.test(adm),
+  /* O QUE VAI PARA O SERVIDOR são os ids marcados — nem a tela inteira, nem os ativos —
+     e as DUAS bases, porque desde que elas deixaram de ser uma só um booleano não
+     descreve mais o estado inteiro. */
+  ok(/acao:'baseUsuarios', ids:ids, teste:teste, producao:producao/.test(adm),
+    'e o botão manda os ids marcados e as duas bases para o `baseUsuarios`');
+  ok(/if \(Q\.precisaConfirmar\(b, 'Passar '\+ids\.length\+' para '\+nome/.test(adm),
     'e o segundo clique confirma, dizendo quantos e para qual base — trocar a base não ' +
     'apaga nada, mas desvia todo lançamento seguinte, e o engano só aparece no saldo');
+
+  /* ---- OS TRÊS BOTÕES, RODADOS ----
+   *
+   * Cada botão diz um ESTADO INTEIRO, e não "acrescente esta base": um botão que só
+   * acrescentasse nunca conseguiria TIRAR ninguém do ensaio — que é o dia da virada, o
+   * caso de uso que criou esta barra.
+   *
+   * A ÂNCORA NÃO CARREGA O MAPA: ela é a linha anterior, que só confere se há alguém
+   * marcado. Ancorada no próprio `var teste =`, uma sabotagem que reescrevesse o mapa
+   * faria o recorte sair vazio e a falha diria "não achei" em vez de dizer para onde os
+   * botões passaram a mandar as pessoas. */
+  var iLig = adm.indexOf('function ligarBotoesBaseUser');
+  var GUARDA = 'if (!ids.length) return;';
+  var iMapa = adm.indexOf(GUARDA, iLig);
+  var fimMapa = adm.indexOf('if (Q.precisaConfirmar(', iMapa);
+  var mapa = iMapa < 0 || fimMapa < 0 ? '' : adm.slice(iMapa + GUARDA.length, fimMapa);
+  ok(mapa.length > 60,
+    'a conferência recortou o mapa dos botões — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', mapa.length);
+  var quais = new Function('alvo', mapa + ' return teste + "/" + producao;');
+  ok(quais('reais') === 'false/true',
+    'o botão "Base Produção" põe as pessoas SÓ na produção — e não só acrescenta a ' +
+    'produção, senão ninguém sairia do ensaio no dia da virada', quais('reais'));
+  ok(quais('teste') === 'true/false',
+    'o botão "Base Teste" põe as pessoas só no ensaio', quais('teste'));
+  ok(quais('duas') === 'true/true',
+    'e "as duas" põe nas duas — sem este terceiro botão, pôr uma equipe de validação ' +
+    'nas duas bases seria um cadastro por vez, e é ela justamente a que entra em bloco',
+    quais('duas'));
+  ok(adm.indexOf('data-base-user="duas"') > 0,
+    'e o terceiro botão existe na barra — o mapa sozinho não é clicável');
 
   /* A MARCAÇÃO MORRE COM A AÇÃO FEITA. Viva, o mesmo bloco ficaria armado debaixo do
      dedo para o botão vizinho, e um clique de conferência mandaria todo mundo de volta. */
@@ -10805,6 +10947,102 @@ console.log('\n== a base do usuário ==');
      qualquer id — passava por cima da asserção sem ela piscar. Medido: o defeito
      ESCAPOU. Quem responde "gravou alguma coisa antes de conferir?" é a chamada de
      verdade contra o banco falso, e mais nada. */
+})();
+
+/* ==========================================================================
+ * QUEM ESTÁ NAS DUAS BASES ESCOLHE NA HORA
+ *
+ * Com uma base só não há escolha a fazer, e um campo obrigatório de uma opção só é uma
+ * pergunta cuja resposta já se sabe — mais uma coisa para ler no galpão, antes de
+ * contar caixa. Com as duas, o app pergunta.
+ * ==========================================================================*/
+console.log('\n== a base do lançamento, no app de campo ==');
+(function () {
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  var ini = idx.indexOf('  function escolheBase(){');
+  var fim = idx.indexOf('  function aplicarSessao(s){');
+  var fonte = ini < 0 || fim < 0 ? '' : idx.slice(ini, fim);
+  ok(fonte.length > 200 && fonte.indexOf('ajustarBases') > 0,
+    'a conferência recortou as três funções da base — recorte vazio faria as provas ' +
+    'abaixo passarem sem rodar nada', fonte.length);
+
+  /* AS TRÊS RODAM DE VERDADE, com um documento de mentira que só guarda quem é quem.
+     Lidas no arquivo, elas responderiam "a sessão está citada ali?" — e estaria, mesmo
+     com o `&&` trocado por `||`, que é o defeito plausível: com `||`, quem tem UMA base
+     veria um seletor que não decide nada, e o que ele mostrasse seria mentira. */
+  function mundo(sessao, valor) {
+    var caixas = { sdBaseBox: { hidden: null }, dvBaseBox: { hidden: null },
+                   sdBase: { value: valor || 'reais' }, dvBase: { value: valor || 'reais' } };
+    var f = new Function('Q', 'document',
+      fonte + '\n return { base: baseDeTeste, ajusta: ajustarBases };')(
+      { sessao: function () { return sessao; } },
+      { getElementById: function (id) { return caixas[id] || null; } });
+    f.ajusta();
+    return { caixas: caixas, base: f.base };
+  }
+
+  var duas = mundo({ baseTeste: true, baseProducao: true }, 'teste');
+  ok(duas.caixas.sdBaseBox.hidden === false && duas.caixas.dvBaseBox.hidden === false,
+    'quem está NAS DUAS bases vê o seletor nas duas telas de lançamento — é a única ' +
+    'pessoa para quem existe uma escolha a fazer',
+    [duas.caixas.sdBaseBox.hidden, duas.caixas.dvBaseBox.hidden]);
+  ok(duas.base('sd') === true && duas.base('dv') === true,
+    'e o que ela escolhe é o que vai no lançamento');
+
+  var soProd = mundo({ baseTeste: false, baseProducao: true }, 'teste');
+  ok(soProd.caixas.sdBaseBox.hidden === true && soProd.caixas.dvBaseBox.hidden === true,
+    'quem tem uma base só não vê o seletor — campo de uma opção só é pergunta cuja ' +
+    'resposta já se sabe, e no galpão isso é mais uma coisa para ler antes de contar ' +
+    'caixa', [soProd.caixas.sdBaseBox.hidden, soProd.caixas.dvBaseBox.hidden]);
+  /* O CASO QUE JUSTIFICA AS DUAS PERGUNTAS SAÍREM DA MESMA FUNÇÃO: o seletor está na
+     tela com "teste" escolhido, e a pessoa acabou de perder a Base Teste no cadastro.
+     Se "o que mandar" olhasse só o campo, ela continuaria mandando para uma base que
+     já não tem — e o servidor, que só põe piso para quem é de ensaio, aceitaria. */
+  ok(soProd.base('sd') === false,
+    'e um seletor ESQUECIDO na tela em "Base Teste" não manda nada para o ensaio depois ' +
+    'de a pessoa perder essa base — as duas perguntas saem da mesma função de propósito');
+
+  var soTeste = mundo({ baseTeste: true, baseProducao: false }, 'reais');
+  ok(soTeste.caixas.sdBaseBox.hidden === true,
+    'quem só tem a Base Teste também não escolhe — para ela o ensaio é piso, e o ' +
+    'servidor não deixa sair de lá de qualquer jeito');
+
+  /* SESSÃO ANTIGA, de antes destes dois campos existirem: ninguém vê o seletor, e o
+     servidor carimba pela base do cadastro, como sempre fez. Sem este caso, a primeira
+     pessoa a abrir o app com a sessão guardada veria a tela estourar. */
+  var velha = mundo({ id: 'U1', nome: 'x' }, 'teste');
+  ok(velha.caixas.sdBaseBox.hidden === true && velha.base('sd') === false,
+    'e sessão de antes deste campo não vê o seletor nem manda base nenhuma — quem ' +
+    'carimba nesse caso é o cadastro, no servidor');
+  ok(mundo(null, 'teste').base('sd') === false,
+    'e sem sessão nenhuma a tela não estoura');
+
+  /* ---- E A ESCOLHA TEM DE CHEGAR NO ENVIO ----
+   *
+   * Este é o fio que liga tudo o que está acima a alguma consequência, e foi o defeito
+   * que ESCAPOU da primeira versão desta bancada: apagado o `teste:` do payload, as
+   * oito provas acima continuaram verdes. O seletor aparecia, a pessoa escolhia, a
+   * confirmação dizia "na Base Teste" — e o lançamento entrava na produção.
+   *
+   * A PROVA NÃO ESCREVE O NOME DA VARIÁVEL: ela descobre qual recebeu a escolha e exige
+   * que seja ESSA que viaja. Escrito à mão aqui, renomear a variável quebraria o teste
+   * sem nada ter quebrado na tela — e, pior, um `teste: false` fixo passaria. */
+  [['btnSalvarSaida', 'sd'], ['btnSalvarDevolucao', 'dv']].forEach(function (c) {
+    var h = idx.slice(idx.indexOf("getElementById('" + c[0] + "')"));
+    h = h.slice(0, h.indexOf('}).then('));
+    var iV = h.indexOf("baseDeTeste('" + c[1] + "')");
+    var decl = iV < 0 ? -1 : h.lastIndexOf('var ', iV);
+    var nome = decl < 0 ? '' : h.slice(decl + 4, h.indexOf(' =', decl)).trim();
+    ok(h.length > 200 && !!nome,
+      c[0] + ': a conferência achou onde a base é escolhida — sem isso, a prova abaixo ' +
+      'passaria sem olhar nada', { tamanho: h.length, variavel: nome });
+    ok(!!nome && h.indexOf('teste: ' + nome) > 0,
+      c[0] + ': a base escolhida VIAJA no lançamento — sem esta linha o seletor ' +
+      'aparece, a pessoa escolhe, a confirmação diz "na Base Teste", e o lançamento ' +
+      'entra na produção assim mesmo',
+      (h.match(/teste: *[A-Za-z]+/) || ['(não achei)'])[0]);
+  });
 })();
 
 console.log('\n== "Em déficit" peneira pelo número que está na tela ==');

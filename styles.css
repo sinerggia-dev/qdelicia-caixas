@@ -1304,6 +1304,19 @@ tr.ruim{background:var(--vermelho-claro)}
 .aviso-box.info{background:var(--azul-claro);color:var(--azul)}
 .aviso-box.atencao{background:var(--ambar-claro);color:var(--ambar-forte)}
 
+/* ---------- a base do lancamento (app de campo) ----------
+ * So aparece para quem esta NAS DUAS bases. Emoldurada, e nao solta entre os campos:
+ * ela nao e um dado do lancamento — e onde o lancamento inteiro vai cair —, e no meio
+ * da grade de campos seria lida como mais um deles e preenchida no automatico.
+ * O rotulo e o seletor na MESMA linha, para a caixa ocupar uma linha so: acima de um
+ * formulario que ja e longo, duas linhas empurrariam o primeiro campo para fora da
+ * tela do celular. */
+.base-lanc{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:0 0 14px;padding:10px 12px;border:1px solid var(--linha);
+  border-radius:10px;background:var(--campo)}
+.base-lanc label{margin:0;flex:0 0 auto;font-size:13.5px}
+.base-lanc select{flex:1 1 180px;margin:0}
+
 .vazio{text-align:center;color:var(--txt3);padding:26px 10px;font-size:14px}
 .busca{position:relative;margin-bottom:10px}
 

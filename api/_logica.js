@@ -630,6 +630,12 @@ function sessaoDe(u) {
        qualquer outra ida a rede — buscando-a depois, a pessoa veria o app por um
        instante e seria jogada para o tutorial com o dedo ja a caminho de um botao. */
     viuTutorial: u.ViuTutorial === true,
+    /* AS DUAS BASES VAO NA SESSAO porque e o app de campo que precisa delas: com as
+       duas marcadas, a tela de lancamento pergunta em qual delas o lancamento entra.
+       Buscadas numa ida a rede na hora de gravar, o app ficaria sem a pergunta
+       justamente quando o galpao esta sem sinal — que e quando ele mais lanca. */
+    baseTeste: u.Teste === true,
+    baseProducao: u.BaseProducao === true,
     /* SE JA VIU A APRESENTACAO. Vai na sessao porque e ela que decide o que a tela de
        boas-vindas mostra no instante seguinte ao login — esperar a `equipe` chegar para
        descobrir faria a apresentacao piscar para quem ja a viu. */
@@ -2031,6 +2037,10 @@ function usuariosPublicos(usuarios) {
          producao sem ninguem ter tocado no campo. No meio de uma validacao, isso
          mandaria lancamento de teste para o saldo real sem deixar rastro. */
       Teste: u.Teste === true,
+      /* A OUTRA BASE VOLTA PELA MESMA RAZAO, e o risco aqui e o espelho do de cima:
+         esquecida, o formulario abriria com a Base Producao desmarcada e a gravacao
+         seguinte tiraria da producao quem estava nela. */
+      BaseProducao: u.BaseProducao === true,
       VerLancamentos: u.VerLancamentos !== false,
       UsuariosVistos: usuariosVistosDe(u),
       /* As SEIS listas de permissão voltam para o painel. Esquecer uma aqui não dá

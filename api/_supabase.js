@@ -222,7 +222,12 @@ var USUARIO = {
          lugar dela. */
       ViuTutorial: r.viu_boas_vindas === true,
       UsuariosVistos: Array.isArray(r.usuarios_vistos) ? r.usuarios_vistos : [],
+      /* AS DUAS BASES, LADO A LADO. `teste` e o nome de nascenca da coluna que diz
+         "esta na Base Teste"; `base_producao` veio depois, para a pessoa poder estar
+         nas duas. Ficaram com nomes desirmanados no banco de proposito: renomear
+         coluna e apagar e recriar dado, e aqui so se acrescenta. */
       Teste: r.teste === true,
+      BaseProducao: r.base_producao === true,
       /* O ENDEREÇO da foto, não a imagem: o byte mora no balde, e esta tabela é lida
          inteira a cada visita ao painel. */
       Foto: r.foto || '',
@@ -253,6 +258,7 @@ var USUARIO = {
     if (o.ViuTutorial !== undefined) r.viu_boas_vindas = bool(o.ViuTutorial);
     if (o.UsuariosVistos !== undefined) r.usuarios_vistos = o.UsuariosVistos || [];
     if (o.Teste !== undefined) r.teste = bool(o.Teste);
+    if (o.BaseProducao !== undefined) r.base_producao = bool(o.BaseProducao);
     /* `nulo('')` limpa a coluna: tirar a foto é gravar vazio, e vazio aqui tem de virar
        nulo — a tela pergunta "tem foto?" e uma string vazia responderia que sim. */
     if (o.Foto !== undefined) r.foto = nulo(o.Foto);

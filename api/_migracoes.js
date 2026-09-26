@@ -459,5 +459,30 @@ module.exports = [
       "  'Esta pessoa ja viu a apresentacao de boas-vindas. O escritorio pode voltar para",
       "   false para reapresenta-la a quem pedir.';"
     ].join('\n')
+  },
+  {
+    id: '2026-09-26-base-producao',
+    nota: 'a base deixa de ser ou-uma-ou-outra: a pessoa pode estar nas duas',
+    sql: [
+      "-- ATE AQUI A BASE ERA UMA COLUNA SO, `teste`, e ela respondia duas perguntas ao",
+      "-- mesmo tempo: 'esta na Base Teste?' e, pela negativa, 'esta na Base Producao?'.",
+      "-- Uma coluna com duas perguntas dentro nao consegue dizer 'as duas' — e quem",
+      "-- valida uma rotina nova precisa disso: lancar o ensaio E o dia de trabalho.",
+      "--",
+      "-- `teste` FICA COMO ESTA e passa a responder so por 'Base Teste'. Renomea-la seria",
+      "-- apagar e recriar dado, e aqui so se acrescenta.",
+      "--",
+      "-- NASCE VERDADEIRA PARA TODO MUNDO e a linha seguinte tira de quem esta no ensaio.",
+      "-- Sao os dois passos que reproduzem a exclusividade de hoje: quem estava em",
+      "-- Producao continua so em Producao, quem estava em Teste continua so em Teste.",
+      "-- Nascendo falsa, a equipe inteira acordaria sem base nenhuma no dia da migracao.",
+      "alter table public.usuarios",
+      "  add column if not exists base_producao boolean not null default true;",
+      "update public.usuarios set base_producao = false where teste is true;",
+      "comment on column public.usuarios.base_producao is",
+      "  'Esta pessoa lanca na Base Producao. Vale junto com `teste`, que diz o mesmo da",
+      "   Base Teste: as duas verdadeiras querem dizer que a pessoa escolhe a base a cada",
+      "   lancamento, no app de campo.';"
+    ].join('\n')
   }
 ];
