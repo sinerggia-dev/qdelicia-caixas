@@ -11206,12 +11206,45 @@ console.log('\n== a tela de boas-vindas ==');
      achava a do texto e dava o ícone por existente. Medido: renomeei a chave do ícone do
      Extratos e esta asserção passou verde. */
   var mapaIco = app.slice(app.indexOf('var ICO_BV = {'), app.indexOf('var ACOES_BV = {'));
-  var semIcone = ['pgRetornos', 'pgPainel', 'pgMovimentos', 'pgExtrato', 'pgCadastros',
-    'pgColunas', 'pgLancar', 'pgAparencia', 'saida', 'retorno']
-    .filter(function (k) { return mapaIco.indexOf('\n    ' + k + ':') < 0; });
-  ok(semIcone.length === 0,
-    'e nenhuma ação ficou sem ícone — faltando um, o cartão dela sai com a folha em ' +
-    'branco do desconhecido, que quer dizer outra coisa', semIcone);
+  var mapaTxt = app.slice(app.indexOf('var ACOES_BV = {'), app.indexOf('function svgBV'));
+
+  /* ---- AS CHAVES SAEM DO MENU, e não de uma lista escrita AQUI ----
+   *
+   * Escrita aqui, ela media a si mesma. O `Tutorial App` entrou no menu, ficou de fora
+   * dos DOIS mapas, e esta asserção passou verde enquanto o cartão saía na tela da
+   * pessoa com a chave crua `pgTutorial`, a frase de sobra e o traço pontilhado do
+   * "permissão que esta tela não conhece".
+   *
+   * É a MESMA armadilha do `PAGINAS_SEMPRE` injetado no banco: constante copiada para
+   * dentro do teste faz o teste medir a cópia, e a cópia nunca diverge dela mesma.
+   *
+   * O app de campo entra junto porque as duas ações dele — `saida` e `retorno` — não são
+   * páginas do menu e ficariam sem ninguém olhando. */
+  function chavesDe(texto, regra) {
+    var achadas = [], m, re = new RegExp(regra.source, 'g');
+    while ((m = re.exec(texto)) !== null) {
+      if (achadas.indexOf(m[1]) < 0) achadas.push(m[1]);
+    }
+    return achadas;
+  }
+  var doMenu = chavesDe(adm, /data-pagina="(pg[A-Za-z]+)"/);
+  var doCampo = chavesDe(idx, /pode\.push\('([a-z]+)'\)/);
+  /* A GUARDA DA PRÓPRIA LEITURA: se o menu mudar de forma, os recortes voltam vazios e
+     a peneira abaixo passaria verde sem ter olhado nada. Lista vazia é o jeito calado de
+     uma asserção deixar de existir. */
+  ok(doMenu.length >= 8 && doCampo.length === 2,
+    'a conferência lê as ações do menu do painel e do app de campo — recorte vazio ' +
+    'faria a peneira seguinte passar sem olhar nada',
+    'menu=' + doMenu.join(',') + ' campo=' + doCampo.join(','));
+
+  var mudas = doMenu.concat(doCampo).filter(function (k) {
+    return mapaIco.indexOf('\n    ' + k + ':') < 0 ||
+           mapaTxt.indexOf('\n    ' + k + ':') < 0;
+  });
+  ok(mudas.length === 0,
+    'e toda ação que a tela oferece tem ícone E texto — sem um dos dois o cartão sai ' +
+    'com o nome interno da página e a frase de sobra, pontilhado como permissão ' +
+    'desconhecida', mudas);
   /* O QUADRADINHO PINTADO NA COR DA MARCA. Sem cor, o ícone herda a tinta do texto e o
      cartão vira um bloco cinza — some justamente a pista que se reconhece de longe. */
   ok(/\.bv-acao__i\{[^}]*background:var\(--brand-soft\)[^}]*color:var\(--roxo-txt\)/

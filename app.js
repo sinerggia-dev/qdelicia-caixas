@@ -317,6 +317,10 @@
       '<line x1="17" y1="16" x2="23" y2="16"></line>',
     pgAparencia: '<circle cx="12" cy="12" r="9"></circle>' +
       '<path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"></path>',
+    /* O MANUAL ABERTO, e nao o "?" da ajuda: esta pagina nao tira duvida pontual, ela
+       conta o sistema inteiro do comeco. */
+    pgTutorial: '<path d="M2 4h6a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H2z"></path>' +
+      '<path d="M22 4h-6a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z"></path>',
     /* Os dois caminhões do app de campo: o de saída aponta para fora, o de retorno
        para dentro. É a mesma leitura das setas do formulário. */
     saida: '<rect x="1" y="6" width="13" height="11" rx="1.5"></rect>' +
@@ -338,6 +342,10 @@
     pgCadastros: { t:'Cadastros',        d:'Locais, rotas, veículos, motoristas e usuários.' },
     pgColunas:   { t:'Colunas',          d:'Escolher o que aparece em cada tabela.' },
     pgLancar:    { t:'Ajuste Estoque',   d:'Saldo inicial e baixa de perda, com motivo registrado.' },
+    /* O NOME É O DO MENU, letra por letra. A tela ordena os atalhos LENDO o menu, e dar
+       outro nome aqui faria a mesma página chamar-se de dois jeitos em dois lugares que
+       a pessoa vê com um toque de distância. */
+    pgTutorial:  { t:'Tutorial App',   d:'Como o sistema funciona, do começo — para reler quando quiser.' },
     pgAparencia: { t:'Aparência',        d:'A cor e o fundo de todas as telas.' },
     /* As duas do app de campo não são páginas: são os formulários dele. */
     saida:       { t:'Lançar saída',   d:'Registrar as caixas que estão saindo numa rota.', forte:1 },
