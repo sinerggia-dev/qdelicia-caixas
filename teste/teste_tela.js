@@ -4349,6 +4349,136 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
   ok(/var tem = Array\.prototype\.some\.call\(sm\.options/.test(fnV),
     'e só preenche se o motorista estiver na lista que ESTA pessoa pode escolher — um ' +
     'nome que o seletor não tem deixaria o campo vazio com jeito de preenchido');
+  /* ================= RODANDO OS DOIS SELETORES =================
+   *
+   * Tudo acima LÊ o arquivo. Isso responde "a regra está escrita?" e não responde a
+   * única pergunta que importa no pátio: QUEM fica no campo motorista depois de a pessoa
+   * mexer. Foi por falta desta bancada que um defeito relatado atravessou a suíte
+   * inteira sem um único ✗ — escolher outro carro trocava o motorista pelo dono
+   * habitual da placa, e o lançamento saía no nome de quem não estava dirigindo.
+   *
+   * Os seletores são de mentira; as três funções são as de produção, recortadas do
+   * arquivo. O que a bancada precisa saber fazer é o que o código realmente usa:
+   * `innerHTML` virando lista de opções, `selectedIndex` e o `change`. */
+  (function () {
+    var fonte = ['function montarVeiculos(', 'function motoristaPuxaVeiculo(',
+                 'function veiculoPuxaMotorista(']
+      .map(function (a) {
+        var i = idx.indexOf('  ' + a);
+        return i < 0 ? '' : idx.slice(i, idx.indexOf('\n  }', i) + 4);
+      }).join('\n');
+    ok(/function montarVeiculos/.test(fonte) && /function veiculoPuxaMotorista/.test(fonte),
+      'o recorte pegou as três peças — sem isto a bancada abaixo exercita outro código');
+
+    function Sel() { this._a = {}; this._h = ''; this.value = ''; this._ouve = []; }
+    Sel.prototype.setAttribute = function (k, v) { this._a[k] = String(v); };
+    Sel.prototype.getAttribute = function (k) { return k in this._a ? this._a[k] : null; };
+    Sel.prototype.addEventListener = function (tipo, f) {
+      if (tipo === 'change') this._ouve.push(f);
+    };
+    /* O `change` do navegador não dispara quando o código escreve no `value` — só
+       quando a PESSOA escolhe. A bancada separa as duas coisas de propósito: `escolher`
+       é a pessoa, e atribuir `.value` é o código. */
+    Sel.prototype.escolher = function (v) {
+      this.value = v;
+      this._ouve.forEach(function (f) { f(); });
+    };
+    Object.defineProperty(Sel.prototype, 'innerHTML', {
+      get: function () { return this._h; },
+      set: function (h) {
+        this._h = h;
+        var re = /<option value="([^"]*)"(?: data-mot="([^"]*)")?/g, m;
+        this.options = [];
+        while ((m = re.exec(h))) {
+          (function (val, mot) {
+            this.options.push({ value: val,
+              getAttribute: function (k) { return k === 'data-mot' ? (mot || '') : null; } });
+          }).call(this, m[1], m[2]);
+        }
+      }
+    });
+    Object.defineProperty(Sel.prototype, 'selectedIndex', {
+      get: function () {
+        var v = this.value;
+        for (var i = 0; i < (this.options || []).length; i++) {
+          if (this.options[i].value === v) return i;
+        }
+        return -1;
+      }
+    });
+
+    /* Dinho tem o KGD9976; o SON1B00 é do Chico. É o caso do relato. */
+    var MOTS = [{ ID: 'D1', Nome: 'Dinho' }, { ID: 'D2', Nome: 'Chico' }];
+    var FROTA = [{ Placa: 'KGD9976', Modelo: 'Baú', MotoristaID: 'D1' },
+                 { Placa: 'SON1B00', Modelo: 'Baú', MotoristaID: 'D2' },
+                 { Placa: 'UHP', Modelo: 'UHP', MotoristaID: '' }];
+
+    function bancada() {
+      var sv = new Sel(), sm = new Sel();
+      /* O seletor de motorista tem os dois nomes, porque quem lança pode escolher os
+         dois — é o que o `veiculoPuxaMotorista` confere antes de preencher. */
+      sm.innerHTML = '<option value=""></option><option value="Dinho"></option>' +
+                     '<option value="Chico"></option>';
+      var doc = { getElementById: function (id) {
+        return id === 'v' ? sv : (id === 'm' ? sm : null); } };
+      var api = new Function('document', 'meusVeiculos', 'meusMotoristas', 'Q',
+        fonte + '\n return { montar: montarVeiculos, ligarV: veiculoPuxaMotorista,' +
+        '\n          ligarM: motoristaPuxaVeiculo };')(
+        doc, function () { return FROTA; }, function () { return MOTS; },
+        { esc: function (s) { return String(s == null ? '' : s); } });
+      api.ligarV('v', 'm');
+      api.ligarM('m', 'v');
+      api.montar('v', 'm');
+      return { sv: sv, sm: sm, api: api };
+    }
+
+    /* ---- O DEFEITO RELATADO ---- */
+    var b = bancada();
+    b.sm.escolher('Dinho');
+    ok(b.sv.value === 'KGD9976',
+      'escolhido o motorista, o carro dele já vem posto — ele tem um só', b.sv.value);
+    ok(/Veículo de Dinho/.test(b.sv.innerHTML) && /Outros veículos/.test(b.sv.innerHTML),
+      'e a lista sai agrupada: o carro dele em cima, o resto embaixo');
+
+    b.sv.escolher('SON1B00');
+    ok(b.sm.value === 'Dinho',
+      'COM O MOTORISTA JÁ ESCOLHIDO, pegar outro carro NÃO troca o motorista — quem ' +
+      'dirige hoje é quem a pessoa escolheu, e o cadastro só diz de quem o carro ' +
+      'costuma ser', b.sm.value);
+    ok(b.sv.value === 'SON1B00',
+      'e a placa escolhida fica — trocar o motorista por baixo reagruparia a lista e ' +
+      'limparia a placa que ela acabou de escolher', b.sv.value);
+
+    /* ---- O CASO QUE A REGRA EXISTE PARA RESOLVER ---- */
+    var c = bancada();
+    c.sv.escolher('SON1B00');
+    ok(c.sm.value === 'Chico',
+      'com o motorista VAZIO, a placa preenche o dono habitual — preencher o que está ' +
+      'em branco é ajuda; trocar o que a pessoa escolheu é discordar dela em silêncio',
+      c.sm.value);
+    /* E A PLACA SOBREVIVE AO PREENCHIMENTO. Preencher o motorista faz a lista se
+       reagrupar em volta dele; sem acertar a lembrança ANTES, a remontagem lê "trocou de
+       motorista" e limpa a placa que a pessoa acabou de escolher — o campo volta a
+       "Selecione…" sozinho, e ela escolhe de novo, e limpa de novo. */
+    ok(c.sv.value === 'SON1B00',
+      'e a placa que preencheu o motorista continua no campo — o reagrupamento não pode ' +
+      'limpar a escolha que o disparou', c.sv.value);
+
+    /* ---- Um carro sem dono não preenche nada, e não apaga o que havia ---- */
+    var d = bancada();
+    d.sv.escolher('UHP');
+    ok(d.sm.value === '',
+      'carro sem motorista habitual não inventa ninguém', d.sm.value);
+
+    /* ---- Trocar de motorista continua limpando a placa do anterior ---- */
+    var e = bancada();
+    e.sm.escolher('Dinho');
+    e.sm.escolher('Chico');
+    ok(e.sv.value === 'SON1B00',
+      'e trocar de motorista traz o carro DELE, em vez de deixar a placa do anterior — ' +
+      'campo preenchido com o dado errado é o erro mais difícil de ver', e.sv.value);
+  })();
+
   /* UM ouvinte, e não um por redesenho: os seletores são refeitos a cada troca de rota. */
   ok((idx.match(/veiculoPuxaMotorista\('/g) || []).length === 2 &&
      !/montarVeiculos[\s\S]{0,200}veiculoPuxaMotorista/.test(idx),

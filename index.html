@@ -862,17 +862,28 @@
     sm.addEventListener('change', function(){ montarVeiculos(idVeiculo, idMotorista); });
   }
 
-  /* ESCOLHER A PLACA PREENCHE O MOTORISTA, e só isso: o campo continua aberto para
-     troca. É o caso comum resolvido sem tirar o caso raro — carro quebra, alguém cobre
-     a rota do outro, e o cadastro não pode mandar mais que a realidade.
+  /* ESCOLHER A PLACA PREENCHE O MOTORISTA **QUANDO ELE ESTÁ VAZIO**, e só isso.
 
-     Só preenche se o motorista habitual estiver na lista que ESTA pessoa pode escolher:
-     pôr um nome que o seletor não tem deixaria o campo em branco com jeito de
-     preenchido. */
+     A segunda metade da frase é o conserto de um defeito relatado do campo: com o
+     motorista JÁ escolhido, pegar outro carro na lista trocava o motorista pelo dono
+     habitual daquela placa. Quem estava lançando por Dinho escolhia um carro de
+     "Outros veículos" e o lançamento saía no nome de outra pessoa — e o campo ficava
+     preenchido, com jeito de conferido, então ninguém desconfiava.
+
+     Era exatamente ao contrário do que acontece na operação: carro quebra, alguém cobre
+     a rota do outro, e quem dirige HOJE é o que a pessoa acabou de escolher. O cadastro
+     diz de quem o carro costuma ser; ele não manda mais que a realidade.
+
+     A REGRA VIROU: o que a pessoa preencheu não se sobrescreve. Preencher um campo
+     vazio é ajuda; trocar o que ela escolheu é discordar dela em silêncio. */
   function veiculoPuxaMotorista(idVeiculo, idMotorista){
     var sv = document.getElementById(idVeiculo), sm = document.getElementById(idMotorista);
     if (!sv || !sm) return;
     sv.addEventListener('change', function(){
+      /* JÁ TEM MOTORISTA: a placa nova é dele, e a lista continua agrupada em volta
+         dele — o carro escolhido aparece em "Outros veículos", que é a verdade: é o
+         carro de outro, dirigido por este hoje. */
+      if (sm.value) return;
       var op = sv.options[sv.selectedIndex];
       var motId = op ? op.getAttribute('data-mot') : '';
       if (!motId) return;
