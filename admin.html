@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=bd2dd212">
+<link rel="stylesheet" href="styles.css?v=1d44050f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -759,7 +759,21 @@
            mexer numa coluna exigia sair da tabela, atravessar o menu, digitar a senha e
            voltar — atrito demais para uma coisa de uso diário, e o efeito real era a
            pessoa arrastar, nada acontecer, e concluir que o recurso tinha sumido. -->
-      <div class="trava-colunas" data-trava-colunas></div>
+      <!-- A LINHA DO CADEADO PASSA A LEVAR AS AÇÕES DO FILTRO, no computador.
+           Filtrar, Limpar e CSV são o que se usa o tempo todo, e viviam no pé de uma
+           gaveta que fecha: com ela fechada, filtrar de novo exigia reabrir a gaveta,
+           rolar até o fim e só então clicar. Aqui eles ficam onde a pessoa está olhando.
+
+           OS DOIS BOTÕES DE RISCO NÃO SOBEM — "Apagar o que está no filtro" e a Lixeira
+           continuam no pé da gaveta. Um apagar que some quinhentas linhas não pode ficar
+           ao alcance do mesmo movimento distraído que clica em Filtrar.
+
+           A CAIXA FICA AQUI MESMO NO CELULAR, vazia: são os botões que mudam de lugar,
+           e não esta caixa, para o cadeado não trocar de vizinho conforme a largura. -->
+      <div class="barra-trava">
+        <div class="trava-colunas" data-trava-colunas></div>
+        <div class="barra-trava__acoes" id="acoesFiltroTopo"></div>
+      </div>
       <!-- A TARJA DE TRÊS, só no celular, e ACIMA das abas de propósito: por estar
            fora delas, os três números continuam na tela com a Lista aberta. Dentro de
            uma aba, trocar para a Lista apagaria o resumo inteiro e a pessoa teria de
@@ -4542,6 +4556,41 @@
       aviso.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
     });
   });
+
+  /* ================= AS AÇÕES DO FILTRO MUDAM DE LUGAR =================
+   *
+   * No computador elas ficam na linha do cadeado; no celular, no pé da gaveta, onde
+   * sempre estiveram — lá em cima não há linha do cadeado sobrando, e a gaveta é uma
+   * folha que se abre inteira, então o pé dela está à mão.
+   *
+   * SÃO OS MESMOS BOTÕES, movidos. Uma segunda cópia no topo significaria dois
+   * elementos com o mesmo id na mesma página, e o `getElementById` entrega UM deles —
+   * o clique iria para o botão que ninguém está vendo, e o que está na tela não faria
+   * nada. Este projeto já pagou esse preço no app de campo.
+   *
+   * O CORTE É O DE SEMPRE, 1023px, pelo `emCartoesPainel()`: uma segunda medida aqui
+   * faria a tela trocar de forma em largura diferente do resto, e quem gira o aparelho
+   * veria metade virar celular e metade não. */
+  var ACOES_FILTRO = ['btnFiltrarMov', 'btnLimparMov', 'btnCsvMov'];
+
+  function acomodarAcoesDoFiltro(){
+    var topo = document.getElementById('acoesFiltroTopo');
+    var pe = document.getElementById('btnLimparTudo');
+    if (!topo || !pe || !pe.parentNode) return;
+    var destino = emCartoesPainel() ? pe.parentNode : topo;
+    ACOES_FILTRO.forEach(function(id){
+      var b = document.getElementById(id);
+      if (!b) return;
+      if (b.parentNode === destino) return;
+      /* No pé eles voltam ANTES do "Apagar": a ordem de lá é ação, ação, ação e só
+         depois o que tem risco. Anexados no fim, o apagar subiria para o meio da fila. */
+      if (destino === pe.parentNode) destino.insertBefore(b, pe);
+      else destino.appendChild(b);
+    });
+  }
+
+  acomodarAcoesDoFiltro();
+  window.addEventListener('resize', acomodarAcoesDoFiltro);
 
   document.getElementById('btnFiltrarMov').addEventListener('click', carregarMovimentos);
 

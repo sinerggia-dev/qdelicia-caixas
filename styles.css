@@ -3087,6 +3087,22 @@ tr.marcada > td:first-child{box-shadow:inset 3px 0 0 var(--ambar)}
 .quadro-video--instrucoes{height:auto;min-height:0}
 .quadro-video--instrucoes iframe{height:78vh;min-height:520px}
 
+/* ================= A LINHA DO CADEADO =================
+ *
+ * O cadeado à esquerda e as ações do filtro à direita. Elas só estão aqui no
+ * computador — quem as põe e as tira é o JS, pelo mesmo corte de 1023px do resto
+ * do painel.
+ *
+ * `flex-wrap` porque a linha tem largura de tela e três botões de largura mínima:
+ * numa janela estreita eles descem em vez de espremer o cadeado até ele sumir. */
+.barra-trava{display:flex;align-items:center;justify-content:space-between;
+  gap:10px;flex-wrap:wrap}
+.barra-trava__acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* Os botões do filtro no topo são MENORES que os da gaveta: lá eles são a ação
+   principal de uma folha inteira; aqui dividem a linha com o cadeado, e em tamanho
+   de botão principal empurrariam o cadeado para fora da vista. */
+.barra-trava__acoes .btn{min-height:34px;padding:0 14px;font-size:13px}
+
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}
   /* A coluna de marcar não se imprime: no papel não há o que marcar, e ela empurraria

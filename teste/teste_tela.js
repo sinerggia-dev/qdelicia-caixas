@@ -11428,6 +11428,119 @@ console.log('\n== o tutorial do primeiro acesso ==');
     { classes: Object.keys(doDemo).length, batem: batem });
 })();
 
+console.log('\n== as ações do filtro mudam de lugar ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* ---- O VAI E VEM, RODADO ----
+   *
+   * Lida no arquivo, a regra responderia "a palavra `emCartoesPainel` está ali?" — e
+   * estaria, mesmo com a condição invertida. A pergunta é outra: NESTA LARGURA, ONDE
+   * ESTÁ O BOTÃO FILTRAR?
+   *
+   * O documento de mentira é pequeno de propósito: ele não desenha nada, só guarda quem
+   * é pai de quem. Quem mede a APARÊNCIA é a foto no Chrome, não isto. */
+  var iA = adm.indexOf('  var ACOES_FILTRO = ');
+  var fimA = adm.indexOf('\n  }', adm.indexOf('function acomodarAcoesDoFiltro()', iA));
+  var fonte = iA < 0 ? '' : adm.slice(iA, fimA + 4);
+  ok(fonte.indexOf('ACOES_FILTRO') >= 0 && fonte.indexOf('acomodarAcoesDoFiltro') > 0 &&
+     fonte.length > 300,
+    'a conferência recortou o vai e vem inteiro — recorte incompleto faria as provas ' +
+    'abaixo medirem outra coisa', fonte.length);
+
+  function caixa(nome) {
+    return { id: nome, className: nome, filhos: [],
+      appendChild: function (n) {
+        if (n.parentNode) n.parentNode.tira(n);
+        n.parentNode = this; this.filhos.push(n); },
+      insertBefore: function (n, ref) {
+        if (n.parentNode) n.parentNode.tira(n);
+        n.parentNode = this;
+        var i = this.filhos.indexOf(ref);
+        this.filhos.splice(i < 0 ? this.filhos.length : i, 0, n); },
+      tira: function (n) {
+        var i = this.filhos.indexOf(n);
+        if (i >= 0) this.filhos.splice(i, 1); } };
+  }
+  function montar() {
+    var topo = caixa('acoesFiltroTopo'), pe = caixa('linha-btn'), mapa = {};
+    ['btnFiltrarMov', 'btnLimparMov', 'btnCsvMov', 'btnLimparTudo', 'btnLixeira']
+      .forEach(function (id) {
+        var b = { id: id, parentNode: null };
+        pe.appendChild(b);
+        mapa[id] = b;
+      });
+    mapa.acoesFiltroTopo = topo;
+    return { mapa: mapa, topo: topo, pe: pe };
+  }
+  function rodar(estreito, mundo) {
+    mundo = mundo || montar();
+    /* O `window` DE MENTIRA existe para a bancada SOBREVIVER a uma segunda medida de
+       largura escrita no lugar da nossa. Sem ele, `window.matchMedia` estoura, a
+       suíte inteira morre, e o que sobra é um rastro de pilha — que não diz onde o
+       botão foi parar. Com ele, a tela roda e a prova falha dizendo. */
+    new Function('document', 'emCartoesPainel', 'window',
+      fonte + '\n acomodarAcoesDoFiltro();')(
+      { getElementById: function (id) { return mundo.mapa[id] || null; } },
+      function () { return estreito; },
+      { matchMedia: function () { return { matches: false }; } });
+    return mundo;
+  }
+  function ondeEstao(mundo) {
+    return ['btnFiltrarMov', 'btnLimparMov', 'btnCsvMov', 'btnLimparTudo']
+      .map(function (id) { return mundo.mapa[id].parentNode.id; }).join(',');
+  }
+
+  var pc = rodar(false);
+  ok(ondeEstao(pc) === 'acoesFiltroTopo,acoesFiltroTopo,acoesFiltroTopo,linha-btn',
+    'no computador, Filtrar, Limpar e CSV sobem para a linha do cadeado — e o "Apagar ' +
+    'o que está no filtro" FICA na gaveta: um apagar que some quinhentas linhas não ' +
+    'pode ficar ao alcance do mesmo movimento distraído que clica em Filtrar',
+    ondeEstao(pc));
+
+  var cel = rodar(true);
+  ok(ondeEstao(cel) === 'linha-btn,linha-btn,linha-btn,linha-btn',
+    'e no celular todos ficam no pé da gaveta, onde sempre estiveram — lá em cima não ' +
+    'há linha de cadeado sobrando', ondeEstao(cel));
+
+  /* GIRAR O APARELHO LEVA E TRAZ. Rodado duas vezes sobre o MESMO mundo, o segundo
+     resultado tem de ser o do começo — senão o botão fica preso onde a primeira
+     largura o deixou. */
+  var vaiEVem = montar();
+  rodar(false, vaiEVem);
+  rodar(true, vaiEVem);
+  ok(ondeEstao(vaiEVem) === 'linha-btn,linha-btn,linha-btn,linha-btn',
+    'e girar o aparelho traz os três de volta — presos lá em cima, a gaveta do celular ' +
+    'ficaria sem o botão de filtrar', ondeEstao(vaiEVem));
+  /* E VOLTAM NA ORDEM: ação, ação, ação, e só depois o que tem risco. Anexados no fim,
+     o "Apagar" subiria para o meio da fila, entre o Limpar e o CSV. */
+  ok(vaiEVem.pe.filhos.map(function (b) { return b.id; }).join(',') ===
+     'btnFiltrarMov,btnLimparMov,btnCsvMov,btnLimparTudo,btnLixeira',
+    'e voltam ANTES do "Apagar" — no fim da fila, o botão de risco subiria para o meio ' +
+    'dela', vaiEVem.pe.filhos.map(function (b) { return b.id; }));
+
+  /* ---- O CORTE É O DE SEMPRE ----
+     Uma segunda medida aqui faria a tela trocar de forma em largura diferente do resto
+     do painel, e quem gira o aparelho veria metade virar celular e metade não. */
+  ok(/emCartoesPainel\(\)/.test(fonte) && !/matchMedia/.test(fonte),
+    'e a largura de corte é a do resto do painel, e não uma segunda medida escrita aqui');
+  /* E ALGUÉM TEM DE ESTAR OUVINDO A JANELA. As provas acima chamam a função à mão;
+     sem o ouvinte do `resize` ela roda uma vez na abertura e nunca mais — quem gira o
+     aparelho, ou arrasta a janela para além dos 1023px, fica com os botões presos onde
+     a largura daquele momento os deixou. Tirei o ouvinte para conferir: as cinco
+     provas acima continuaram verdes. */
+  ok(/addEventListener\('resize', *acomodarAcoesDoFiltro\)/.test(adm),
+    'e a janela é ouvida — sem isso a função roda uma vez na abertura e os botões ' +
+    'ficam presos onde a largura daquele momento os deixou');
+
+  /* UM ELEMENTO, MOVIDO — E NÃO DOIS COM O MESMO ID. A saída fácil seria uma segunda
+     cópia dos botões no topo, mostrada por CSS; dois elementos com o mesmo id fazem o
+     `getElementById` entregar UM deles, e o clique vai para o que ninguém vê.
+     QUEM COBRA ISSO JÁ EXISTE, e para as três telas — "nenhum id se repete dentro da
+     mesma tela". Uma segunda prova aqui seria a mesma regra escrita duas vezes, e duas
+     cópias divergem no primeiro conserto que só uma recebe. */
+})();
+
 console.log('\n== o nome de quem entrou cabe inteiro ==');
 (function () {
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
