@@ -614,6 +614,11 @@ function sessaoDe(u) {
     /* Painel restrito: entra no painel, mas so enxerga o que ela mesma lancou. Mantido
        para nao quebrar sessao ja guardada; quem manda agora e `usuariosVistos`. */
     soProprios: u.SoProprios === true,
+    /* JA VIU O TUTORIAL? E o que decide se o app de campo abre no tutorial ou direto
+       nos lancamentos. Vem na sessao porque a decisao e tomada na abertura, antes de
+       qualquer outra ida a rede — buscando-a depois, a pessoa veria o app por um
+       instante e seria jogada para o tutorial com o dedo ja a caminho de um botao. */
+    viuTutorial: u.ViuTutorial === true,
     /* SE JA VIU A APRESENTACAO. Vai na sessao porque e ela que decide o que a tela de
        boas-vindas mostra no instante seguinte ao login — esperar a `equipe` chegar para
        descobrir faria a apresentacao piscar para quem ja a viu. */
@@ -2004,6 +2009,8 @@ function usuariosPublicos(usuarios) {
          "ve os lancamentos de todos" e a gravacao seguinte apagaria a restricao — e a
          renovacao da sessao a tiraria de quem ja a tinha, calada. */
       SoProprios: u.SoProprios === true,
+      /* Vai para o painel: e por ele que o escritorio reapresenta o tutorial a alguem. */
+      ViuTutorial: u.ViuTutorial === true,
       /* SE JA VIU A APRESENTACAO. Volta pela mesma razao das outras: a tela abre o
          cadastro, salva, e o que nao voltou na leitura vira `undefined` no registro —
          a pessoa veria as boas-vindas de novo a cada vez que alguem a editasse. */

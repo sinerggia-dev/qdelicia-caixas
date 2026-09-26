@@ -179,6 +179,7 @@ async function rotaPost(p) {
   if (acao === 'restaurarMovimento') return await restaurarMovimento(p);
   if (acao === 'limparMovimentos') return await limparMovimentos(p);
   if (acao === 'baseUsuarios') return await baseUsuarios(p);
+  if (acao === 'viuTutorial') return await viuTutorial(p);
 
   return { ok: false, erro: 'Ação desconhecida: ' + acao };
 }
@@ -399,6 +400,28 @@ async function conferir(p) {
  * que da e devolvendo "18 de 20", ninguem saberia QUAIS dois ficaram de fora — e a
  * resposta seria procurar um por um na tabela.
  */
+/* A MARCA DE JA TER VISTO O TUTORIAL, e nada mais.
+ *
+ * Rota propria, e nao `salvarUsuario`: aquele grava o registro INTEIRO, e chamado daqui
+ * apagaria tudo o que o tutorial nao conhece — perfil, abas, senha. E esta marca e a
+ * unica coisa que a PROPRIA pessoa muda no cadastro dela; todo o resto e do escritorio.
+ * Rota separada e o que mantem essa fronteira visivel. */
+async function viuTutorial(p) {
+  var id = String(p.usuarioId || '');
+  if (!id) return { ok: false, erro: 'Sem usuario.' };
+  var d = await db.carregarTudo();
+  var u = (d.usuarios || []).filter(function (x) { return String(x.ID) === id; })[0];
+  if (!u) return { ok: false, erro: 'Cadastro nao encontrado.' };
+  /* Ja marcado nao vai ao banco: a tela chama isto ao sair do tutorial, e sair dele de
+     novo no mesmo dia nao precisa de uma escrita. */
+  if (u.ViuTutorial === true) return { ok: true, jaEstava: true };
+  /* O `patch` vai direto para o banco, entao usa o NOME DA COLUNA — que continua sendo
+     `viu_boas_vindas`, de quando a marca era de outra tela. Um `viuTutorial` aqui seria
+     uma coluna que nao existe, e o PATCH voltaria sem erro visivel, sem gravar nada. */
+  await db.update('usuarios', id, { viu_boas_vindas: true });
+  return { ok: true };
+}
+
 async function baseUsuarios(p) {
   var ids = Array.isArray(p.ids) ? p.ids.map(String) : [];
   if (!ids.length) return { ok: false, erro: 'Nenhum usuário selecionado.' };

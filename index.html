@@ -607,6 +607,29 @@
   /* ---------------- app ---------------- */
   function abrirApp(){
     var s = Q.sessao();
+
+    /* ================= O TUTORIAL VEM ANTES, UMA VEZ =================
+     *
+     * No PRIMEIRO acesso de cada pessoa o app nao abre: ele manda para o tutorial. E
+     * ali que ela escolhe assistir, ler ou pular — as tres saidas marcam a pessoa como
+     * ja apresentada, e a partir dai o app abre direto nos lancamentos, para sempre.
+     *
+     * A DECISAO E AQUI, ANTES DE DESENHAR. Tomada depois, a pessoa veria o app por um
+     * instante e seria arrancada dele com o dedo ja a caminho de um botao.
+     *
+     * A marca vem na SESSAO, que o login ja traz: buscá-la numa ida à rede propria
+     * atrasaria toda abertura por causa de uma pergunta que so importa uma vez na vida
+     * de cada cadastro.
+     *
+     * `!== true` e nao `=== false`: sessao de antes de este campo existir nao tem a
+     * marca, e uma pessoa que ja usa o sistema ha meses nao precisa do tutorial.
+     * Entao a ausencia PASSA — quem nao tem a marca e quem o servidor disser que nao
+     * tem, e o servidor devolve `false` para cadastro novo. */
+    if (s && s.id && s.viuTutorial !== true) {
+      location.href = 'demo-lancamento.html';
+      return;
+    }
+
     document.getElementById('telaLogin').style.display = 'none';
     /* `flex`, e nao `block`: o `.shell` e uma coluna flex, e `block` desmontava o
        esqueleto — a barra lateral perdia a altura e o rodape dela subia para o meio. */

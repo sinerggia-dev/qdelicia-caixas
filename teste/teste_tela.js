@@ -10968,6 +10968,157 @@ console.log('\n== a aparência: cor da marca e fundo ==');
     'e o atalho da lateral some junto — visível e recusado seria pior que ausente');
 })();
 
+console.log('\n== o tutorial do primeiro acesso ==');
+(function () {
+  var dem = fs.readFileSync(path.join(__dirname, '..', 'demo-lancamento.html'), 'utf8');
+  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var estilo = dem.slice(dem.indexOf('<style>'), dem.indexOf('</style>'));
+
+  /* ---- 1. A IDA, RODADA ----
+   *
+   * Lida no arquivo, a regra responderia "a palavra `demo-lancamento` esta escrita
+   * ali?" — e estaria, mesmo com a condicao invertida. A pergunta que importa: ABRINDO
+   * O APP, ESTA PESSOA CAI ONDE? */
+  /* A ÂNCORA NÃO LEVA A CONDIÇÃO. Presa ao `if` inteiro, qualquer mexida nele esvaziava
+     o RECORTE, e a falha saía como "recorte vazio" — que não diz o que houve. Ancorada
+     no DESTINO, a mesma mexida falha pela garantia, dizendo onde a pessoa foi parar. */
+  var iDest = idx.indexOf("location.href = 'demo-lancamento.html'");
+  var iT = iDest < 0 ? -1 : idx.lastIndexOf('if (', iDest);
+  var desvio = iT < 0 ? '' : idx.slice(iT, idx.indexOf('}', iDest) + 1);
+  ok(desvio.length > 40 && desvio.length < 400,
+    'a conferência achou o desvio do primeiro acesso — recorte vazio faria as três ' +
+    'provas abaixo passarem sem rodar nada', desvio.length);
+  function paraOnde(s) {
+    var loc = { href: '' };
+    new Function('s', 'location', desvio)(s, loc);
+    return loc.href;
+  }
+  ok(paraOnde({ id: 'U1' }) === 'demo-lancamento.html',
+    'quem nunca entrou cai no tutorial antes do app', paraOnde({ id: 'U1' }));
+  ok(paraOnde({ id: 'U1', viuTutorial: true }) === '',
+    'e quem já foi apresentado entra direto nos lançamentos — o tutorial é uma vez na ' +
+    'vida do cadastro, não um pedágio diário',
+    paraOnde({ id: 'U1', viuTutorial: true }));
+  /* SEM `id` NAO DESVIA. A sessao vazia passa por aqui no caminho do login; desviando,
+     a pessoa iria para o tutorial, o tutorial mandaria de volta, e o app mandaria de
+     novo — um ciclo do qual nao se sai sem limpar o navegador. */
+  ok(paraOnde({}) === '' && paraOnde(null) === '',
+    'e sessão sem cadastro não desvia — desviando, o login e o tutorial se mandariam ' +
+    'um para o outro para sempre', paraOnde({}));
+
+  /* ---- 2. AS TRÊS SAÍDAS, RODADAS ----
+   *
+   * O demo não navega: ele AVISA por eventos. Quem escuta é o trecho colado no fim da
+   * página, e é ele que roda aqui — com um documento de mentira que só anota quem se
+   * inscreveu em quê. */
+  var vmNode = require('vm');
+  function saidaDo(evento, detalhe) {
+    var ouvintes = {}, gravou = [], loc = { href: '' };
+    var doc = {
+      addEventListener: function (nome, fn) { ouvintes[nome] = fn; },
+      removeEventListener: function () {}
+    };
+    var sessao = { id: 'U7', nome: 'x' };
+    var janela = {
+      document: doc, location: loc, console: console, Promise: Promise,
+      QDC: {
+        sessao: function () { return sessao; },
+        entrar: function (s) { sessao = s; },
+        post: function (p) { gravou.push(p); return Promise.resolve({ ok: true }); }
+      }
+    };
+    janela.window = janela;
+    var fim = dem.lastIndexOf('<script>');
+    var corpo = dem.slice(fim + 8, dem.indexOf('</script>', fim));
+    vmNode.runInContext(corpo, vmNode.createContext(janela), { filename: 'demo.html' });
+    var fn = ouvintes[evento];
+    if (!fn) return { erro: 'ninguém escuta ' + evento };
+    fn({ detail: detalhe, preventDefault: function () {} });
+    return { href: loc.href, gravou: gravou, marcada: sessao.viuTutorial === true };
+  }
+
+  var pular = saidaDo('demo:pular');
+  ok(pular.href === 'index.html' && pular.marcada &&
+     pular.gravou.length === 1 && pular.gravou[0].acao === 'viuTutorial',
+    'Pular marca a pessoa como apresentada e devolve ela ao app', pular);
+  var sair = saidaDo('demo:sair');
+  ok(sair.href === 'index.html' && sair.marcada,
+    'e Sair também — é a mesma resposta para a mesma pergunta', sair);
+  var ler = saidaDo('demo:ler');
+  ok(ler.marcada && ler.href === '',
+    'e Ler marca sem navegar: quem vai para o manual não pode cair aqui de novo no ' +
+    'próximo acesso, e quem leva ele até lá é o próprio demo', ler);
+  /* O FIM DA SAIDA NAO ENCERRA: ele emenda no retorno. Marcando ali, quem fechasse o
+     app no meio do retorno seria dado por apresentado sem ter visto metade. */
+  ok(saidaDo('demo:fim', 'saida').marcada === false,
+    'e o fim da SAÍDA não encerra — ela emenda no retorno, e só o fim dele marca',
+    saidaDo('demo:fim', 'saida'));
+  ok(saidaDo('demo:fim', 'retorno').marcada === true,
+    'e o fim do RETORNO marca', saidaDo('demo:fim', 'retorno'));
+
+  /* ---- 3. SAÍDA É AZUL, RETORNO É VERDE ----
+   *
+   * O arquivo chegou com o contrário. Não é detalhe de gosto: o painel, os gráficos e o
+   * extrato pintam saída de azul e retorno de verde, e um tutorial que ensina o código
+   * invertido ensina a ler errado a tela que vem logo depois dele.
+   *
+   * OS DOIS LADOS SÃO LIDOS. Uma cor escrita aqui mediria a minha cópia; o que se cobra
+   * é que o demo e o app digam a MESMA coisa. */
+  function corDoApp(regra) {
+    /* NÃO-GULOSO. Com `[^}]*` a busca ia até o ÚLTIMO `var()` da regra e devolvia
+       `--fonte-mono` como se fosse a cor — e a prova seguinte comparava tipografia com
+       tinta. O primeiro `var()` de `.dia-mov__s` é a cor; é ele que se quer. */
+    var m = new RegExp('\\' + regra + '\\{[^}]*?var\\(([^)]+)\\)').exec(css);
+    return m ? m[1].trim() : '';
+  }
+  function corDoDemo(token) {
+    var m = new RegExp('--dl-' + token + ':\\s*var\\(([^)]+)\\)').exec(estilo);
+    return m ? m[1].trim() : '';
+  }
+  var appS = corDoApp('.dia-mov__s'), appR = corDoApp('.dia-mov__r');
+  ok(appS && appR && appS !== appR,
+    'a conferência leu do app qual cor é saída e qual é retorno — sem isso a prova ' +
+    'abaixo compararia nada com nada', appS + ' / ' + appR);
+  ok(corDoDemo('saida') === appS && corDoDemo('retorno') === appR,
+    'e o tutorial pinta saída e retorno com as MESMAS cores do resto do sistema — ' +
+    'invertidas, ele ensina a ler errado a tela seguinte',
+    'demo=' + corDoDemo('saida') + '/' + corDoDemo('retorno') +
+    '  app=' + appS + '/' + appR);
+
+  /* ---- 4. SEM PALETA PRÓPRIA ----
+     Com paleta escrita, o escritório troca a cor da empresa em Aparência e o tutorial
+     continua da cor antiga. */
+  ok(estilo.indexOf('[data-tema=') < 0 && estilo.indexOf('[data-fundo=') < 0,
+    'o tutorial não carrega tema próprio: a cor dele é a que a empresa escolheu');
+  ok(/<link rel="stylesheet" href="styles\.css\?v=/.test(dem) &&
+     /<script src="app\.js\?v=/.test(dem),
+    'e ele carrega a folha e o núcleo COM carimbo de versão — sem carimbo, a página ' +
+    'nova serve o app velho do cache e ninguém vê por que');
+
+  /* ---- 5. O BOTÃO LER LEVA A ALGUM LUGAR ----
+     Ele chegou apontando para uma página que nunca existiu aqui. */
+  var mLer = /var PAGINA_LER = '([^']*)'/.exec(dem);
+  ok(mLer && fs.existsSync(path.join(__dirname, '..', mLer[1])),
+    'a página que o botão Ler abre existe no projeto', mLer && mLer[1]);
+
+  /* ---- 6. NENHUMA CLASSE DO TUTORIAL COLIDE COM A DO APP ----
+   *
+   * As duas folhas convivem na mesma página. Uma classe com o mesmo nome nas duas faz o
+   * tutorial herdar desenho do painel em lugares que ninguém pensou em olhar — foi o
+   * caso de `folha`, `folha__t` e `n`, que ganharam prefixo. */
+  var semComent = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  var doDemo = {}, m2, reC = /\.([a-zA-Z][\w-]*)/g;
+  while ((m2 = reC.exec(estilo)) !== null) doDemo[m2[1]] = true;
+  var batem = Object.keys(doDemo).filter(function (c) {
+    return new RegExp('[^\\w-]\\.' + c + '(?![\\w-])[^{]*\\{').test(semComent);
+  });
+  ok(Object.keys(doDemo).length > 40 && batem.length === 0,
+    'e nenhuma classe do tutorial tem regra com o mesmo nome na folha do app — tendo, ' +
+    'ele herda desenho de outra tela em lugar que ninguém pensa em olhar',
+    { classes: Object.keys(doDemo).length, batem: batem });
+})();
+
 console.log('\n== toda funcao chamada existe ==');
 (function () {
   var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');

@@ -1315,6 +1315,10 @@
       ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
       soProprios: u.SoProprios === true,
       verLancamentos: u.VerLancamentos !== false,
+      /* A MARCA DO TUTORIAL acompanha a sessão renovada. Faltando aqui, a renovação a
+         apagaria: a pessoa veria o tutorial, seguiria para o app, e no acesso seguinte
+         cairia nele de novo — sem nada na tela explicando por quê. */
+      viuTutorial: u.ViuTutorial === true,
       usuariosVistos: lista(u.UsuariosVistos)
     };
   }

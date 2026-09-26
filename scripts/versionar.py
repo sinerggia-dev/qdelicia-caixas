@@ -24,7 +24,12 @@ import re
 import sys
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PAGINAS = ('index.html', 'admin.html', 'extrato.html')
+# AS PAGINAS SAO DESCOBERTAS, e nao digitadas. A lista escrita a mao envelhece calada: a
+# pagina nova entra no projeto sem carimbo, aponta para `app.js` sem `?v=`, e a pessoa
+# continua vendo o app antigo dentro dela sem nenhum sinal. Quem nao aponta para os
+# ativos passa batido de qualquer jeito -- o arquivo so e reescrito se mudar.
+def paginas():
+    return tuple(sorted(n for n in os.listdir(RAIZ) if n.endswith('.html')))
 ATIVOS = ('app.js', 'styles.css')
 
 
@@ -46,7 +51,7 @@ def main():
         print('  %-12s v=%s' % (a, v))
 
     mexidos = []
-    for pagina in PAGINAS:
+    for pagina in paginas():
         caminho = os.path.join(RAIZ, pagina)
         if not os.path.exists(caminho):
             continue
