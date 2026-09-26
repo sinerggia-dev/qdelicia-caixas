@@ -85,7 +85,13 @@
   --fonte-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Consolas,monospace;
 
   /* O esqueleto do app shell. */
-  --lateral-larg:236px; --trilho-larg:68px; --topo-alt:75px;
+  /* 272 e nao 236. MEDIDO: com 236, "Painel de Caixas" ja saia "Painel de Caix..." —
+     e o nome passou a ser "Controle de Caixas", que e mais longo. O que divide a linha
+     com ele e o selo da marca e o botao de recolher, os dois de largura fixa; quem
+     cortava era o nome, porque e a unica peca elastica da linha.
+     Ela tambem e a largura do rodape, onde o retrato e o nome de quem entrou crescem
+     nesta mesma mudanca. */
+  --lateral-larg:272px; --trilho-larg:68px; --topo-alt:75px;
   --foco:0 0 0 2px var(--bg),0 0 0 4px #5b9ef0;
 }
 /* ================= OS DOIS EIXOS DO TEMA =================
@@ -619,8 +625,15 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    O contorno é declarado AQUI, e não só nos quadros: ele precisa existir com a
    animação desligada. Só a terceira sombra é que abre e some. */
 .conta .avatar{
+  /* 44px, e nao os 32 da classe base. A 32 com o anel em volta, a foto de quem entrou
+     tinha uns 26px uteis: davam para dizer que HA uma foto, nao para reconhecer quem
+     esta nela — e reconhecer e a unica coisa que ela existe para fazer. Este e o unico
+     retrato da lateral, e ela tem largura para ele. */
+  width:44px;height:44px;font-size:15px;
   box-shadow:0 0 0 2px var(--campo),0 0 0 3px rgba(53,214,160,.45);
   animation:anel 5s ease-out infinite}
+/* O ponto da rede cresce junto: num circulo maior ele viraria um cisco. */
+.conta .avatar .ponto{width:13px;height:13px}
 .conta:hover .avatar,.conta:focus-within .avatar{animation-play-state:paused}
 .avatar{
   position:relative;flex:0 0 auto;width:32px;height:32px;border-radius:50%;
@@ -654,8 +667,11 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .avatar .ponto.alerta{background:var(--ambar);animation:none}
 .avatar .ponto.off{background:var(--vermelho);animation:none}
 .conta__id{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
-.conta__nome{font-size:13px;font-weight:600;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.conta__meta{font-size:11px;color:var(--txt3);line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 15px e 12.5px, e nao 13 e 11. Este e o unico lugar do painel que responde "quem
+   esta logado aqui" — em tablet de galpao, a 13px isso se le de perto e nao de relance,
+   que e como se olha para uma barra lateral. */
+.conta__nome{font-size:15px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conta__meta{font-size:12.5px;color:var(--txt3);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* ================= O NOME INTEIRO, NO RODAPÉ DA LATERAL =================
  *
@@ -675,7 +691,12 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .lateral__pe .conta__id{flex:1 1 120px}
 /* Descendo, eles descem para a DIREITA: à esquerda ficariam debaixo do retrato, que é
    onde a pessoa procura o nome, e não um botão. */
-.lateral__pe .conta > .btn-icone:nth-of-type(1){margin-left:auto}
+/* OS DOIS BOTOES SAO UM SO BLOCO para efeito de quebra: soltos, eles desciam um de
+   cada vez e sobrava um degrau sem sentido — a Aparencia na linha do nome e o Sair
+   sozinho embaixo. E quando descem, descem para a DIREITA: a esquerda ficariam
+   debaixo do retrato, que e onde se procura o nome. */
+.conta__acoes{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;
+  margin-left:auto}
 
 /* O estado da rede. Continua sendo `#chipRede`, com as mesmas classes que o `app.js`
    escreve (`off`, `alerta`) — so mudou onde ele mora e como ele se parece. */

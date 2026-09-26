@@ -11541,6 +11541,95 @@ console.log('\n== as ações do filtro mudam de lugar ==');
      cópias divergem no primeiro conserto que só uma recebe. */
 })();
 
+console.log('\n== a lateral: nome, retrato e largura ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* ---- O SISTEMA TEM UM NOME SÓ ----
+   *
+   * A lateral dizia "Painel de Caixas" e as três telas de SISTEMA — Instruções, o
+   * tutorial e o manual — dizem "Controle de Caixas". O mesmo sistema com dois nomes,
+   * a um clique de distância: quem procura ajuda sobre "Painel de Caixas" não acha nada
+   * escrito com esse nome em lugar nenhum.
+   *
+   * A CONFERÊNCIA NÃO ESCREVE O NOME: ela compara as telas entre si. Escrito aqui, este
+   * banco mediria a minha cópia, e renomear o sistema passaria a exigir mexer no teste
+   * antes de a tela estar errada. */
+  var daLateral = (adm.match(/<span class="marca-nome"[^>]*>([^<]+)</) || [])[1];
+  var ins = fs.readFileSync(path.join(__dirname, '..', 'instrucoes.html'), 'utf8');
+  var daInstrucao = (ins.match(/<h1 class="ins-topo__t">([^<]+)</) || [])[1];
+  ok(!!daLateral && !!daInstrucao,
+    'a conferência achou o nome do sistema nas duas telas — recorte vazio faria a prova ' +
+    'abaixo comparar nada com nada', { lateral: daLateral, instrucoes: daInstrucao });
+  ok(daLateral === daInstrucao,
+    'a lateral e as telas de instrução chamam o sistema pelo MESMO nome — dois nomes a ' +
+    'um clique de distância fazem quem procura ajuda não achar nada',
+    { lateral: daLateral, instrucoes: daInstrucao });
+  /* NAS DUAS OCORRÊNCIAS: a barra do celular e o alto da lateral. Trocado só num lugar,
+     o nome muda quando a pessoa gira o aparelho. */
+  var quantos = (adm.match(/<span class="marca-nome"[^>]*>/g) || []).length;
+  var iguais = (adm.match(new RegExp('<span class="marca-nome"[^>]*>' + daLateral + '<', 'g'))
+                || []).length;
+  ok(quantos >= 2 && iguais === quantos,
+    'e o nome é o mesmo nos dois lugares onde ele aparece — trocado só num, ele muda ' +
+    'quando a pessoa gira o aparelho', { lugares: quantos, iguais: iguais });
+
+  /* ---- A LATERAL TEM LARGURA PARA O NOME ----
+   *
+   * MEDIDO NO CHROME: com 236px, "Painel de Caixas" já saía "Painel de Caix..." — e o
+   * nome novo é mais longo. Depois de 272: 123px de espaço para 123 de necessidade,
+   * sem corte. O nome é a única peça elástica da linha; o selo da marca e o botão de
+   * recolher têm largura fixa, então quem cortava era sempre ele. */
+  var mLarg = /--lateral-larg:(\d+)px/.exec(css);
+  ok(mLarg && parseInt(mLarg[1], 10) >= 268,
+    'a lateral tem largura para o nome do sistema — medido, "Controle de Caixas" pede ' +
+    '123px, e com a lateral antiga ele saía cortado', mLarg && mLarg[1]);
+
+  /* ---- O RETRATO SE ENXERGA ----
+   *
+   * A 32px com o anel em volta, sobravam uns 26px úteis para a foto: davam para dizer
+   * que HÁ uma foto, não para reconhecer quem está nela — e reconhecer é a única coisa
+   * que ela existe para fazer. */
+  var mAv = /\.conta \.avatar\{[^}]*width:(\d+)px/.exec(css.replace(/\/\*[\s\S]*?\*\//g, ''));
+  var mBase = /\.avatar\{[^}]*width:(\d+)px/.exec(css.replace(/\/\*[\s\S]*?\*\//g, ''));
+  ok(mAv && mBase && parseInt(mAv[1], 10) > parseInt(mBase[1], 10),
+    'o retrato do rodapé é MAIOR que o da classe base — é o único retrato da lateral, e ' +
+    'no tamanho de selo não se reconhece quem está nele',
+    { rodape: mAv && mAv[1], base: mBase && mBase[1] });
+  /* O ponto da rede cresce junto: num círculo maior ele viraria um cisco. */
+  ok(/\.conta \.avatar \.ponto\{width:(\d+)px/.test(css),
+    'e o ponto da rede cresce junto com ele — num círculo maior, o ponto antigo vira ' +
+    'um cisco');
+
+  /* ---- O NOME DE QUEM ENTROU SE LÊ DE RELANCE ----
+     Em tablet de galpão, 13px se lê de perto — e uma barra lateral se olha de relance. */
+  var mNome = /\.conta__nome\{font-size:([\d.]+)px/.exec(css);
+  var mMeta = /\.conta__meta\{font-size:([\d.]+)px/.exec(css);
+  ok(mNome && parseFloat(mNome[1]) >= 15 && mMeta && parseFloat(mMeta[1]) >= 12,
+    'o nome e o perfil de quem entrou se leem de relance — numa barra lateral ninguém ' +
+    'chega perto da tela para descobrir quem está logado',
+    { nome: mNome && mNome[1], perfil: mMeta && mMeta[1] });
+  ok(mNome && mMeta && parseFloat(mNome[1]) > parseFloat(mMeta[1]),
+    'e o nome continua maior que o perfil — do mesmo tamanho, os dois disputam a mesma ' +
+    'primeira olhada');
+
+  /* ---- OS DOIS BOTÕES DESCEM JUNTOS, OU NÃO DESCEM ----
+   *
+   * Soltos ao lado do nome, eles quebravam de linha um de cada vez: medido depois de o
+   * nome crescer, a Aparência ficava na linha do nome e o Sair sozinho embaixo — um
+   * degrau que não quer dizer nada. Num invólucro, ou cabem os dois ou descem os dois. */
+  var iAc = adm.indexOf('<span class="conta__acoes">');
+  var bloco = iAc < 0 ? '' : adm.slice(iAc, adm.indexOf('</span>\n    </div>', iAc));
+  ok(bloco.indexOf('id="chipAparencia"') > 0 && bloco.indexOf('id="chipSair"') > 0,
+    'os dois botões da conta vivem no mesmo invólucro — soltos, quebram de linha um de ' +
+    'cada vez e sobra um degrau que não quer dizer nada',
+    { achou: iAc >= 0, tamanho: bloco.length });
+  ok(/\.conta__acoes\{[^}]*margin-left:auto/.test(css),
+    'e descem para a DIREITA — à esquerda ficariam debaixo do retrato, que é onde se ' +
+    'procura o nome');
+})();
+
 console.log('\n== o nome de quem entrou cabe inteiro ==');
 (function () {
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
@@ -11560,11 +11649,10 @@ console.log('\n== o nome de quem entrou cabe inteiro ==');
     'o nome de quem entrou PEDE espaço na lateral, em vez de aceitar o que sobra dos ' +
     'botões — aceitando, ele sai "Natana..." para quem é admin',
     { envolve: envolve, base: mBase && mBase[1] });
-  /* DESCENDO, ELES DESCEM PARA A DIREITA: à esquerda ficariam debaixo do retrato, que é
-     onde a pessoa procura o nome e não um botão. */
-  ok(/\.lateral__pe \.conta > \.btn-icone:nth-of-type\(1\)\{margin-left:auto\}/.test(css),
-    'e os botões, quando descem, ficam à direita — à esquerda eles ocupariam o lugar ' +
-    'onde se procura o nome');
+  /* DESCENDO, ELES DESCEM PARA A DIREITA — e quem carrega essa regra deixou de ser o
+     primeiro botão e passou a ser o INVÓLUCRO dos dois, quando eles ganharam um. Quem
+     cobra isso agora é o banco da lateral, junto com a prova de que os dois estão no
+     mesmo invólucro; uma segunda prova aqui seria a mesma regra escrita duas vezes. */
 })();
 
 console.log('\n== a tela de Instruções ==');
