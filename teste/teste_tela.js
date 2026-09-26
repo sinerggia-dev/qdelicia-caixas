@@ -1603,6 +1603,7 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
                    .filter(function (x) { return !!x; }) : [];
   }
   var LISTA_ADMIN = listaDe('PAGINAS_DO_ADMIN');
+  var LISTA_SEMPRE = listaDe('PAGINAS_SEMPRE');
   ok(LISTA_ADMIN.length > 0,
     'a leitura achou a lista de páginas do escritório no arquivo — sem isto a bancada ' +
     'abaixo roda com lista vazia e aprova qualquer coisa', LISTA_ADMIN);
@@ -1611,9 +1612,9 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
     /* `PAGINAS_DO_ADMIN` entra na bancada porque a peneira a LÊ. Nenhuma das abas de
        teste está nela, então as contas abaixo não mudam — o que muda é que a função
        roda em vez de estourar. */
-    var fn = new Function('ABAS_PAINEL', 'Q', 'PAGINAS_DO_ADMIN',
+    var fn = new Function('ABAS_PAINEL', 'Q', 'PAGINAS_DO_ADMIN', 'PAGINAS_SEMPRE',
       fonte + ' return abasPermitidas;')(
-      ABAS, { ehAdmin: function () { return ehAdmin; } }, LISTA_ADMIN);
+      ABAS, { ehAdmin: function () { return ehAdmin; } }, LISTA_ADMIN, LISTA_SEMPRE);
     return fn({ abas: marcadas }).join(',');
   }
   ok(pode(false, []) === '',
@@ -1641,6 +1642,43 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
     pode(true, ['pgPainel']));
   ok(pode(true, ['pgPainel']).split(',').indexOf('pgColunas') >= 0,
     'e o Colunas junto, pela mesma razão', pode(true, ['pgPainel']));
+
+  /* ---- E A PÁGINA QUE NÃO SE CONCEDE CHEGA A QUEM JÁ TEM MARCAS ----
+   *
+   * FOI ISTO QUE FALHOU NO AR. Pus o Vídeo Tutorial no menu, escrevi a seção,
+   * acrescentei ao catálogo do servidor — e ele continuou invisível, porque "marcar é
+   * conceder" e página nova não está na marca de NINGUÉM. Quem já tinha abas marcadas,
+   * que é todo mundo que usa o painel há mais de um dia, nunca a receberia.
+   *
+   * A asserção acima cobrava esse mesmo mal para a Aparência, mas só pela porta do
+   * `PAGINAS_DO_ADMIN` — e essa porta é do ESCRITÓRIO. Uma página que é de quem está
+   * aprendendo precisa da outra, e ninguém a cobrava.
+   *
+   * A LISTA É LIDA DO ARQUIVO. Escrita aqui, a prova mediria a minha cópia. */
+  ok(LISTA_SEMPRE.length > 0,
+    'a leitura achou a lista das páginas que não se concedem — vazia, as duas provas ' +
+    'abaixo passariam sem peneirar nada', LISTA_SEMPRE);
+  var SEM_DADO = LISTA_SEMPRE[0];
+  /* O catálogo de teste precisa conhecê-la, senão a peneira não teria o que conceder. */
+  ABAS.push({ ID: SEM_DADO, Nome: 'sem dado' });
+  ok(pode(false, ['pgPainel']).split(',').indexOf(SEM_DADO) >= 0,
+    'quem NÃO é admin e já tem abas marcadas enxerga a página que não mostra dado ' +
+    'nenhum — foi por não enxergar que o Vídeo Tutorial ficou invisível no ar',
+    pode(false, ['pgPainel']));
+  ok(pode(true, ['pgPainel']).split(',').indexOf(SEM_DADO) >= 0,
+    'e o admin com marcas também', pode(true, ['pgPainel']));
+  /* E ELA NÃO ABRE O RESTO: a marca continua mandando nas páginas que têm dado. */
+  ok(pode(false, ['pgPainel']).split(',').indexOf('pgCadastros') < 0,
+    'e isso não abre o resto — Cadastros continua só por marca',
+    pode(false, ['pgPainel']));
+  /* NÃO DUPLICA: marcada no cadastro E sempre concedida, ela daria dois botões para a
+     mesma página. */
+  var duasVezes = pode(false, [SEM_DADO, 'pgPainel']).split(',')
+    .filter(function (x) { return x === SEM_DADO; });
+  ok(duasVezes.length === 1,
+    'e marcá-la no cadastro não a duplica — duas entradas dariam dois botões para a ' +
+    'mesma página', duasVezes.length);
+  ABAS.pop();
   /* E NÃO É "admin vê tudo": a marca continua mandando no resto. */
   ok(pode(true, ['pgPainel']).split(',').indexOf('pgCadastros') < 0,
     'e o resto continua valendo pela marca — o administrador pode se restringir de ' +
@@ -5594,10 +5632,11 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
     var estado = { sessao: guardada, saiu: false, aviso: '' };
     var relogio = [];
     var api = new Function('EQUIPE', 'EQUIPE_CHEGOU', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN',
+      'PAGINAS_SEMPRE',
       'Q', 'setTimeout',
       'return (function(){' + fontes.join('\n') +
       '\n return { renovar: renovarSessao, abas: abasPermitidas }; })();')(
-      equipe, chegou, L.ABAS, ['pgColunas', 'pgAparencia'],
+      equipe, chegou, L.ABAS, ['pgColunas', 'pgAparencia'], [],
       { sessao: function () { return estado.sessao; },
         entrar: function (u) { estado.sessao = u; },
         sair: function () { estado.saiu = true; },
@@ -7752,8 +7791,8 @@ console.log('\n== as abas do painel obedecem ao cadastro ==');
   ];
   function monta(ehAdmin) {
     var Q = { ehAdmin: function () { return ehAdmin; } };
-    return new Function('Q', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN',
-      fonte + ' return abasPermitidas;')(Q, ABAS, ['pgColunas', 'pgAparencia']);
+    return new Function('Q', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN', 'PAGINAS_SEMPRE',
+      fonte + ' return abasPermitidas;')(Q, ABAS, ['pgColunas', 'pgAparencia'], []);
   }
 
   var admin = monta(true), gente = monta(false);
