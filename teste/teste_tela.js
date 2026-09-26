@@ -6480,7 +6480,13 @@ console.log('\n== os filtros num painel suspenso ==');
   ok(wrap.indexOf('overflow') < 0,
     'o cartão não recorta: com overflow escondido, o painel nasce no lugar e é cortado ' +
     'na borda dele', wrap);
-  var rail = css.slice(css.indexOf('.ret-rail{'), css.indexOf('}', css.indexOf('.ret-rail{')));
+  /* A REGRA DE TOPO, e não a primeira que aparecer no arquivo. Escrita como "o primeiro
+     `.ret-rail{`", esta linha reprovou um `.ret-rail{overflow-y:auto}` que nasceu DENTRO
+     de um `@media` mais acima — uma regra que não tem nada a ver com o canto arredondado
+     e que, por acaso de ordem, passou a ser lida no lugar da certa. Regra de topo começa
+     na coluna 1; as de dentro de media vêm indentadas. */
+  var iRail = css.indexOf('\n.ret-rail{') + 1;
+  var rail = css.slice(iRail, css.indexOf('}', iRail));
   ok(/border-radius:var\(--raio\) 0 0 var\(--raio\)/.test(rail),
     'e o canto arredondado passa a vir do trilho, que é quem encosta na borda', rail);
   var mob = css.slice(css.indexOf('@media'));
@@ -6524,7 +6530,14 @@ console.log('\n== os filtros num painel suspenso ==');
   ok(i > 0 && /function ajustarBarraFiltros/.test(fonte) && /function abrirFiltros/.test(fonte),
     'o recorte pegou as peças — sem isto a bancada abaixo exercita outro código');
 
-  function bancada(campos, grupoAtivo, aberto) {
+  /* `opc.celular` É A PERGUNTA NOVA. O painel deixou de ter uma forma só: no computador
+     os filtros ficam FIXOS na coluna, e no celular continuam sendo a folha que sobe.
+     Sem este argumento a bancada exercitava uma forma só e a outra ficava sem teste
+     nenhum — que é pior do que não ter bancada, porque parece coberto.
+     O padrão é `true` (celular), que é onde ainda existe abrir e fechar. */
+  function bancada(campos, grupoAtivo, aberto, opc) {
+    opc = opc || {};
+    var celular = opc.celular !== false;
     var els = {
       /* O painel de mentira precisa do que `abrirFiltros` toca nele: a lista de classes
          e a medida. `top: 400` diz "cabe acima", que e o caso comum; o outro caso e
@@ -6535,6 +6548,7 @@ console.log('\n== os filtros num painel suspenso ==');
                                  contains: function (c) { return !!this._d[c]; } },
                     getBoundingClientRect: function () { return { top: 400 }; } },
       btnVerFiltros: { className: '', textContent: '', title: '', attrs: {},
+                       hidden: false,
                        setAttribute: function (a, v) { this.attrs[a] = v; } },
       btnLimparRetornos: { disabled: false }
     };
@@ -6545,11 +6559,11 @@ console.log('\n== os filtros num painel suspenso ==');
        a decisao de subir ou descer tem teste proprio logo abaixo. */
     /* `colunasOcultas` entra como coto: o gatilho passou a olhar as colunas escondidas
        para decidir a COR, e a lista delas nao e assunto deste bloco — tem teste proprio. */
-    /* `emCartoesPainel` entra como coto devolvendo `false`: esta bancada exercita o
-       painel do COMPUTADOR, onde ele é gaveta medida. No celular ele é folha, e quem
-       responde por isso é o teste do corte de 1024 logo acima. */
+    /* `emCartoesPainel` agora vem do argumento, e não cravado: é ele que decide se o
+       painel é gaveta (celular) ou bloco fixo na coluna (computador), e as duas formas
+       precisam ser exercitadas. */
     var api = new Function('document', 'FLUXO_FILTRO', 'FILTROS_FLUXO', 'valor',
-      'colunasOcultas', 'TAB_ATIVOS', 'emCartoesPainel', 'FLUXO_TIPO',
+      'colunasOcultas', 'TAB_ATIVOS', 'emCartoesPainel', 'FLUXO_TIPO', 'FLUXO_DEFICIT',
       'function posicionarPop(p){ if (!p) return;' +
       ' p.classList.remove("para-baixo");' +
       ' if (p.getBoundingClientRect().top < 8) p.classList.add("para-baixo"); }' +
@@ -6557,7 +6571,7 @@ console.log('\n== os filtros num painel suspenso ==');
       '\n          quantos: quantosFiltrosFluxo };')(
       doc, grupoAtivo, ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'rtBusca'],
       function (id) { return campos[id] || ''; }, function () { return []; }, {},
-      function () { return false; }, campos.__mov || 'todos');
+      function () { return celular; }, campos.__mov || 'todos', !!opc.deficit);
     api.abrir(aberto);
     api.els = els;
     return api;
@@ -6603,7 +6617,7 @@ console.log('\n== os filtros num painel suspenso ==');
 
   /* A direcao, rodando. `top` e o que a medida devolveria: 400 cabe acima, -50 nao. */
   function comTopo(topo) {
-    var b = bancada(VAZIO, 'todas', false);
+    var b = bancada(VAZIO, 'todas', false, { celular: false });
     b.els.filtrosRet.getBoundingClientRect = function () { return { top: topo }; };
     b.abrir(true);
     return b.els.filtrosRet.classList.contains('para-baixo');
@@ -6612,11 +6626,43 @@ console.log('\n== os filtros num painel suspenso ==');
   ok(comTopo(-50) === true,
     'e nascendo acima do topo da tela, ele desce: la em cima nao ha rolagem que o alcance');
 
-  /* O grupo da coluna da esquerda conta como filtro aqui tambem: ele esconde linhas. */
-  var so_grupo = bancada(VAZIO, 'deficit', false);
+  /* O RECORTE DA ESQUERDA CONTA COMO FILTRO: ele esconde linhas. */
+  var so_grupo = bancada(VAZIO, 'ROTA', false);
   ok(so_grupo.quantos() === 1 && so_grupo.els.btnVerFiltros.textContent.indexOf('(1)') > 0,
-    'e o grupo "Em déficit" da esquerda conta junto, porque também esconde linhas',
+    'e o recorte escolhido conta junto, porque também esconde linhas',
     so_grupo.els.btnVerFiltros.textContent);
+
+  /* "EM DÉFICIT" CONTA SOZINHO, e não mais como se fosse o recorte. Ele deixou de morar
+     na mesma chave: agora os dois podem estar ligados ao mesmo tempo, e uma contagem que
+     somasse um só faria o gatilho dizer "1 filtro" com dois recortando a tabela. */
+  var so_def = bancada(VAZIO, 'todas', false, { deficit: true });
+  ok(so_def.quantos() === 1,
+    '"Em déficit" conta como filtro por conta própria', so_def.quantos());
+  var ambos = bancada(VAZIO, 'ROTA', false, { deficit: true });
+  ok(ambos.quantos() === 2,
+    'e soma com o recorte, porque agora os dois valem ao mesmo tempo — rotas em déficit',
+    ambos.quantos());
+
+  /* ---- a forma no COMPUTADOR: fixo aberto, sem gatilho ----
+     Os filtros ficarem escondidos atrás de um botão era o que deixava a tabela recortada
+     com o motivo invisível; quem chegava depois concluía que faltavam lançamentos. Com a
+     coluna livre da lista de recortes, eles cabem à vista. */
+  var pc = bancada(VAZIO, 'todas', false, { celular: false });
+  ok(pc.els.filtrosRet.hidden === false,
+    'no computador os filtros ficam abertos mesmo com o painel "fechado" — não há mais ' +
+    'o que abrir', pc.els.filtrosRet.hidden);
+  ok(pc.els.btnVerFiltros.hidden === true,
+    'e o gatilho sai da tela: um botão que abre o que já está aberto ensina a ' +
+    'desconfiar do que se vê', pc.els.btnVerFiltros.hidden);
+  var pcSuja = bancada(DOIS, 'todas', false, { celular: false });
+  ok(pcSuja.els.btnLimparRetornos.hidden === false,
+    'e o "Limpar filtros" continua aparecendo com filtro ligado — ele não é parte do ' +
+    'gatilho, é a saída', pcSuja.els.btnLimparRetornos.hidden);
+
+  /* No CELULAR nada disso muda: lá a folha cobre a tela e precisa de quem a chame. */
+  var cel = bancada(VAZIO, 'todas', false, { celular: true });
+  ok(cel.els.filtrosRet.hidden === true && cel.els.btnVerFiltros.hidden === false,
+    'no celular continua sendo a folha que abre pelo botão', cel.els.filtrosRet.hidden);
 
   /* A mesma funcao cuida do Limpar: duas contagens sobre a mesma regra divergiriam.
      Ele passou de DESLIGADO a AUSENTE quando não há filtro: um botão permanentemente
@@ -7157,16 +7203,18 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
 
   /* Monta a bancada com o codigo REAL: campos de formulario de mentira, e as duas saidas
      (recarregar / so redesenhar) anotadas em vez de executadas. */
-  function bancada(campos, grupo) {
+  function bancada(campos, grupo, deficit) {
     var chamou = { carregou: 0, desenhou: 0 };
     var botao = { disabled: false };
     var doc = { getElementById: function (id) {
       return id === 'btnLimparRetornos' ? botao : (campos[id] || null);
     } };
     var faz = new Function('document', 'FLUXO_FILTRO', 'chamou', 'FLUXO_TIPO',
+      'FLUXO_DEFICIT',
       fonte +
       '\n return { ativo: algumFiltroFluxo, limpar: limparFiltrosFluxo,' +
       '\n          grupo: function(){ return FLUXO_FILTRO; },' +
+      '\n          deficit: function(){ return FLUXO_DEFICIT; },' +
       '\n          movimento: function(){ return FLUXO_TIPO; } };' +
       '\n function carregarPainel(){ chamou.carregou++; }' +
       '\n function desenharFluxo(){ chamou.desenhou++; }' +
@@ -7177,7 +7225,7 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
       /* O recorte de MOVIMENTO volta junto: deixado como estava, limpar devolvia a
          lista inteira com "Saída" ainda apertado na folha. */
       '\n function marcarMovimentoFluxo(q){ FLUXO_TIPO = q; chamou.mov = q; }');
-    var api = faz(doc, grupo, chamou, campos.__mov || 'todos');
+    var api = faz(doc, grupo, chamou, campos.__mov || 'todos', !!deficit);
     api.chamou = chamou;
     api.botao = botao;
     return api;
@@ -7196,16 +7244,25 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
   ok(bancada(campos('', 'João Pessoa'), 'todas').ativo() === true, 'um destino tambem');
   ok(bancada(campos('', '', '2026-09-17'), 'todas').ativo() === true, 'so a data De tambem');
   ok(bancada(campos('', '', '', '2026-09-17'), 'todas').ativo() === true, 'so a data Ate tambem');
-  /* O grupo da coluna da esquerda e filtro como os outros: "Em deficit" esconde linhas.
-     Ficou de fora uma vez e o botao aparecia apagado com a tabela visivelmente peneirada. */
-  ok(bancada(campos(), 'deficit').ativo() === true,
-    'e o grupo da esquerda conta: "Em déficit" esconde linhas como qualquer filtro');
+  /* O RECORTE E O DÉFICIT contam como filtro, cada um por si. O déficit ficou de fora
+     uma vez e o botão aparecia apagado com a tabela visivelmente peneirada. */
+  ok(bancada(campos(), 'ROTA').ativo() === true,
+    'e o recorte da esquerda conta: escolher um esconde linhas como qualquer filtro');
+  ok(bancada(campos(), 'todas', true).ativo() === true,
+    'e "Em déficit" também, agora por conta própria — ele deixou de dividir a chave ' +
+    'com o recorte, e uma conta que o ignorasse deixaria o botão apagado com a tabela ' +
+    'peneirada');
 
   /* --- o que limpar faz --------------------------------------------------- */
-  var a = bancada(campos('Matriz Fazenda', 'João Pessoa', '2026-09-17', '2026-09-17'), 'deficit');
+  var a = bancada(campos('Matriz Fazenda', 'João Pessoa', '2026-09-17', '2026-09-17'),
+                  'ROTA', true);
   a.limpar();
   ok(a.ativo() === false, 'depois de limpar nao sobra filtro nenhum');
-  ok(a.grupo() === 'todas', 'o grupo da esquerda volta para "Todas"');
+  ok(a.grupo() === 'todas', 'o recorte da esquerda volta para "Todas"');
+  /* SÃO DUAS CHAVES AGORA, e limpar tem de soltar as duas. Esquecida, a tabela voltava
+     com origem, destino e período limpos e continuava mostrando só quem devia — e o
+     botão Limpar, já apagado, não oferecia mais saída nenhuma. */
+  ok(a.deficit() === false, 'e o "Em déficit" solta junto', a.deficit());
 
   /* --- ir ao servidor so quando precisa ----------------------------------- */
   var comData = bancada(campos('', '', '2026-09-17', ''), 'todas');
@@ -7213,7 +7270,7 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
   ok(comData.chamou.carregou === 1 && comData.chamou.desenhou === 0,
     'o periodo e o unico que vai ao servidor: limpar data recarrega', comData.chamou);
 
-  var semData = bancada(campos('Matriz Fazenda'), 'deficit');
+  var semData = bancada(campos('Matriz Fazenda'), 'ROTA', true);
   semData.limpar();
   ok(semData.chamou.carregou === 0 && semData.chamou.desenhou === 1,
     'sem data, so redesenha: ida de rede para reexibir o que ja veio e desperdicio',
@@ -7226,9 +7283,13 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
 
   /* --- um ponto so mexe no estado da barra --------------------------------- */
   var toggles = adm.split('ajustarBarraFiltros()').length - 1;
-  ok(toggles === 4,
-    'a barra tem UMA funcao de estado, chamada do desenho, do botao e da abertura',
-    toggles);
+  /* CINCO CHAMADAS, e a quinta é a virada de largura: no computador os filtros ficam
+     fixos na coluna e no celular são folha, e quem estreita a janela com a folha aberta
+     ficaria com o painel preso e sem o botão para fechá-lo. O desenho do painel não
+     resolve isso — a diferença é de atributo, não de conteúdo. */
+  ok(toggles === 5,
+    'a barra tem UMA função de estado, chamada do desenho, do botão, da abertura e da ' +
+    'virada de largura', toggles);
   var dF = adm.indexOf('function desenharFluxo()');
   var corpoF = adm.slice(dF, adm.indexOf("\n  /* Três frases diferentes", dF));
   ok(corpoF.indexOf('ajustarBarraFiltros()') > 0,
@@ -9779,7 +9840,10 @@ console.log('\n== a marca: um desenho só, e do tamanho que ele pede ==');
     ok(txt.replace(/<!--[\s\S]*?-->/g, '').indexOf('icone.png') < 0,
       nome + ': nada aponta para o arquivo de marca que saiu');
   });
-  ok(usos >= 7, 'os lugares da marca carregam o desenho', { usos: usos });
+  /* SEIS, e não sete: a marca saiu do trilho do Painel de Ativos. Ela já estava no alto
+     do menu da esquerda, a dois palmos — eram duas vezes o mesmo desenho na mesma tela, e
+     o de baixo só custava a altura que a lista de filtros precisa. */
+  ok(usos >= 6, 'os lugares da marca carregam o desenho', { usos: usos });
   ok(errados.length === 0,
     'e cada um declara o tamanho REAL do arquivo (' + larg + '×' + alt + ') — declarado ' +
     'errado, o espaço reservado é o errado e a tela salta quando a imagem chega', errados);
@@ -9803,10 +9867,15 @@ console.log('\n== a marca: um desenho só, e do tamanho que ele pede ==');
       .test(txt), nome + ': e a tela de entrada, que é onde a marca aparece maior');
   });
 
-  ok(/<img class="ret-marca"[^>]*src="logo\.png"/
-    .test(fs.readFileSync(path.join(raiz, 'admin.html'), 'utf8')),
-    'a marca do trilho de retornos é o desenho, e não a marca digitada — o texto era ' +
-    'uma segunda versão do logo, que envelheceria sozinha');
+  /* A MARCA NÃO FICA MAIS NO TRILHO, e a asserção passou a cobrar a AUSÊNCIA dela.
+     Enquanto esteve lá, a mesma marca aparecia duas vezes na mesma tela, a dois palmos
+     uma da outra — a do alto do menu e a do topo da coluna. Voltando por engano, ela
+     leva junto a altura de que a lista de filtros precisa, e os filtros descem para
+     baixo da dobra. */
+  ok(!/class="ret-marca"/.test(fs.readFileSync(path.join(raiz, 'admin.html'), 'utf8')) &&
+     !/\.ret-marca\{/.test(css),
+    'a marca não se repete no trilho do Painel de Ativos: ela já está no alto do menu, ' +
+    'e a coluna precisa da altura para os filtros');
 
   /* A MARCA NÃO É UM ÍCONE QUADRADO, e não cabe na caixa de um. */
   var hSelo = /\.selo--marca\{[^}]*height:(\d+)px/.exec(css);
@@ -9820,22 +9889,6 @@ console.log('\n== a marca: um desenho só, e do tamanho que ele pede ==');
      a pessoa está. */
   ok(!/\.marca-nome\{[^}]*text-transform:uppercase/.test(css),
     'o nome do app ao lado da marca não é em caixa alta — ali ele não caberia inteiro');
-
-  ok(/\.ret-marca\{[^}]*height:auto/.test(css),
-    'no trilho de retornos a altura sai da proporção do arquivo, e o espaço dela fica ' +
-    'reservado — sem isso a lista de grupos salta quando a imagem chega');
-
-  /* CENTRALIZADA na coluna. `display:block` com `max-width` faz a imagem parar de
-     ocupar a largura toda — e ficar ENCOSTADA À ESQUERDA, com a sobra inteira de um
-     lado. O `width:100%` engana quem lê a regra: ele diz que a imagem quer a coluna
-     inteira, e o `max-width` a impede; sem as margens automáticas ninguém distribui a
-     diferença. Medido a 1400px: coluna de 220px, marca de 104 — 58px de cada lado. */
-  ok(/\.ret-marca\{[^}]*max-width:104px/.test(css),
-    'a marca tem TETO de largura: com `width:100%` e sem ele, o desenho estica até a ' +
-    'coluna inteira e empurra a lista de grupos para baixo');
-  ok(/\.ret-marca\{[^}]*margin-inline:auto/.test(css),
-    'e fica CENTRADA nela: é o teto que cria a sobra, e é a margem automática que a ' +
-    'divide — sem ela a sobra fica toda de um lado e o desenho encosta na esquerda');
 
   /* E CABE NO TRILHO RECOLHIDO. Com a altura presa, a largura que o desenho pede sai da
      proporção do arquivo: chegando um desenho mais largo, é aqui que se descobre, e não
@@ -10233,6 +10286,94 @@ console.log('\n== a base do usuário ==');
      qualquer id — passava por cima da asserção sem ela piscar. Medido: o defeito
      ESCAPOU. Quem responde "gravou alguma coisa antes de conferir?" é a chamada de
      verdade contra o banco falso, e mais nada. */
+})();
+
+console.log('\n== a barra de recortes do Painel de Ativos ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* "EM DÉFICIT" DEIXOU DE SER UMA DIMENSÃO. Rotas, Unidades, Clientes, Motoristas e
+     Usuários dizem POR QUAL CAMPO agrupar; ele diz QUAIS LINHAS mostrar. Enquanto
+     dividiram a mesma chave, escolher déficit APAGAVA o agrupamento: quem estava vendo
+     por motorista e queria só os devedores caía numa lista de locais, sem nada na tela
+     explicando a troca. */
+  ok(/var FLUXO_DEFICIT = false;/.test(adm),
+    'o déficit tem chave própria, separada do recorte — na mesma chave, escolher um ' +
+    'apagava o outro');
+  ok(!/FLUXO_FILTRO === 'deficit'/.test(adm),
+    'e não sobrou nenhum lugar tratando "deficit" como se fosse um recorte');
+
+  /* AS DUAS CONDIÇÕES SE SOMAM, e é isso que "rotas em déficit" quer dizer. */
+  var lf = adm.slice(adm.indexOf('function soDevedores'),
+                     adm.indexOf('function linhasPorDimensao'));
+  ok(/FLUXO_DEFICIT \? l\.filter\(function\(x\)\{ return x\.saldo < 0; \}\) : l/.test(lf),
+    'ele peneira POR CIMA do recorte escolhido, em vez de substituí-lo', lf.slice(0, 60));
+  ok(/function linhasFluxo\(\)\{ return soDevedores\(linhasPorDimensao\(\)\); \}/.test(adm),
+    'e todo caminho da lista passa por ele — inclusive motoristas e usuários, que ' +
+    'voltavam antes de qualquer peneira');
+
+  /* A CONTAGEM DO BOTÃO É DA DIMENSÃO ATUAL. Contada sobre a lista inteira, ela dizia
+     "2" com a visão de motoristas aberta e, clicada, mostrava outro número. */
+  ok(/return linhasPorDimensao\(\)\.filter\(function\(l\)\{ return l\.saldo < 0; \}\)\.length;/
+     .test(adm),
+    'o número no botão conta dentro do que se está vendo, e não sobre a lista inteira');
+
+  /* LIGA E DESLIGA. Sem o segundo clique soltar, ligado, o único caminho de volta seria
+     "Limpar filtros" — que levaria junto origem, destino, período e busca. */
+  ok(/if \(b\.dataset\.fchip === 'deficit'\) FLUXO_DEFICIT = !FLUXO_DEFICIT;/.test(adm),
+    'clicar nele de novo o solta; os outros continuam sendo escolha única');
+
+  /* A BARRA SÓ NO COMPUTADOR, e a lista da coluna só no celular. Seis pastilhas com
+     contagem numa fileira de celular viram duas fileiras — comendo a altura da tabela —
+     ou uma rolagem lateral onde os dois últimos recortes nunca são descobertos. */
+  ok(/<div class="ret-barra" id="retBarra"><\/div>/.test(adm),
+    'a barra existe no HTML, acima do resumo e dos indicadores');
+  ok(adm.indexOf('id="retBarra"') < adm.indexOf('id="resumoFluxo"'),
+    'e vem ANTES deles: controle abaixo do número que ele muda faz ler primeiro e ' +
+    'entender depois');
+  ok(/^\.ret-barra\{display:none\}/m.test(css) &&
+     /\.ret-rail \.ret-nav\{display:none\}/.test(css),
+    'no celular aparece a lista da coluna; no computador, a barra — uma de cada vez');
+
+  /* AS DUAS SÃO PREENCHIDAS PELO MESMO `itens`, e os cliques são ligados pelo mesmo
+     `data-fchip`. Duas listas montadas de fontes diferentes divergiriam no dia em que
+     entrasse um recorte novo. */
+  var df = adm.slice(adm.indexOf('var itens = ['), adm.indexOf('var gente = ehVisaoDeGente'));
+  ok(/desenharBarraRecortes\(itens\);/.test(df) && /getElementById\('retNav'\)/.test(df),
+    'quem desenha preenche as duas do mesmo conjunto — fontes diferentes divergiriam ' +
+    'no dia em que entrasse um recorte novo');
+  ok((adm.match(/data-fchip="/g) || []).length === 3,
+    'e o atributo do clique é o mesmo nas duas, então uma ligação só serve às duas',
+    (adm.match(/data-fchip="/g) || []).length);
+
+  /* A FORMA SEGUE O COMPORTAMENTO: moldura em volta dos excludentes, e o déficit fora
+     dela. Dentro da mesma moldura, ele pareceria mais uma opção da mesma lista. */
+  var bar = adm.slice(adm.indexOf('function desenharBarraRecortes'),
+                      adm.indexOf('function desenharFluxo()'));
+  ok(/class="seg-rec"/.test(bar) && bar.indexOf('ret-barra__alerta') > bar.indexOf('</div>'),
+    'os excludentes ficam num bloco só e o déficit fica FORA dele');
+  ok(/aria-pressed="'\+FLUXO_DEFICIT\+'"/.test(bar),
+    'e o estado dele chega a quem usa leitor de tela');
+
+  /* VERMELHO MESMO DESLIGADO: a cor não diz "ligado", diz "há linhas devendo". */
+  ok(/\.ret-barra__alerta\{[^}]*color:var\(--vermelho\)/.test(css),
+    'ele é vermelho antes de qualquer clique — descobrir o déficit não pode depender ' +
+    'de alguém pensar em procurá-lo');
+  ok(/\.ret-barra__alerta\.vazio\{/.test(css) && /\(def\.n \? '' : ' vazio'\)/.test(bar),
+    'e sem ninguém devendo ele apaga em vez de sumir — sumindo, a barra mudaria de ' +
+    'largura a cada redesenho e o clique mirado cairia noutro botão');
+
+  /* OS FILTROS ABERTOS NA COLUNA, no computador. */
+  ok(/var fixo = !emCartoesPainel\(\);\s*\n\s*pop\.hidden = fixo \? false : !FILTROS_ABERTO;/
+     .test(adm),
+    'no computador os filtros ficam abertos; no celular continuam sendo a folha');
+  ok(/btn\.hidden = fixo;/.test(adm),
+    'e o gatilho sai da tela junto — um botão que abre o que já está aberto ensina a ' +
+    'desconfiar do que se vê');
+  ok(/\.ret-menu \.ret-pop\{position:static/.test(css),
+    'e o painel suspenso vira bloco na coluna, sem sombra e sem borda: encostado no ' +
+    'fundo dela, uma segunda caixa desenharia um quadro dentro do outro');
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

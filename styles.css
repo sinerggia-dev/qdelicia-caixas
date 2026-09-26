@@ -1828,19 +1828,22 @@ details.tipos[open] summary::before{content:"▾"}
 .ret-recolher:hover{background:var(--surface-2);color:var(--txt)}
 /* Com grupo escolhido e o trilho fora da tela, ele deixa de ser controle e vira aviso. */
 .ret-recolher.alerta{color:var(--ambar-forte);border-color:var(--ambar)}
-/* A marca do trilho de retornos. `height:auto` com width/height no HTML reserva a
-   altura certa antes de a imagem chegar — sem isso a lista de grupos dá um salto
-   quando ela termina de carregar, e o clique cai no grupo errado. */
-/* `margin-inline:auto` É O QUE CENTRALIZA. Com `display:block` e `max-width`, a
-   imagem para de ocupar a largura toda mas continua ENCOSTADA À ESQUERDA — o
-   espaço que sobra fica todo de um lado. O `width:100%` engana: ele diz que a
-   imagem quer a coluna inteira, e o `max-width` a impede; sem as margens
-   automáticas ninguém distribui a diferença. */
-.ret-marca{display:block;width:100%;max-width:104px;height:auto;
-  margin-inline:auto;padding:2px 8px 16px}
 /* O flex tem de ficar AQUI, na caixa dos botoes: no trilho ele arruma
    marca/botoes/resumo, nao os botoes entre si — e no celular eles
    continuavam empilhados. */
+/* ============ A BARRA DE RECORTES, acima da tabela ============
+ *
+ * SÓ NO COMPUTADOR. No celular ela não cabe: seis pastilhas com contagem numa fileira
+ * ou viram duas fileiras — comendo a altura que a tabela precisa — ou viram uma rolagem
+ * lateral escondida, onde os dois últimos recortes nunca são descobertos. Lá a coluna
+ * de cima continua sendo o caminho.
+ *
+ * Por isso as duas existem no HTML e uma de cada vez aparece. NÃO são dois estados a
+ * manter em acordo: quem desenha preenche as duas do mesmo `itens`, e o clique é ligado
+ * pelo `data-fchip`, que varre o documento inteiro. */
+.ret-barra{display:none}
+/* O rótulo fixo dos filtros é o par do gatilho: um aparece onde o outro some. */
+.ret-filtros-t{display:none}
 .ret-nav{display:flex;flex-direction:column;gap:2px}
 .ret-item{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;
   color:var(--txt2);font-family:inherit;font-size:13px;font-weight:600;text-align:left;
@@ -1974,6 +1977,64 @@ details.tipos[open] summary::before{content:"▾"}
 .ret-pop>*,.ret-pop .pop-duplo>*{min-width:0}
 /* As duas datas dividem a fileira. */
 .ret-pop .pop-duplo{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+/* ============ MODELO E: a coluna vira só filtros ============ */
+@media (min-width:1024px){
+  /* A lista da coluna dá lugar à barra. Ela continua no HTML e continua sendo
+     preenchida — é o caminho do celular, e apagá-la aqui custaria uma segunda regra
+     para trazê-la de volta lá embaixo. */
+  .ret-rail .ret-nav{display:none}
+  .ret-barra{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 13px}
+  .ret-barra__g{display:flex;align-items:center;gap:9px;min-width:0}
+  .ret-barra__r{font-size:10.5px;font-weight:700;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--txt2);white-space:nowrap}
+  .ret-barra__div{width:1px;height:26px;flex:0 0 auto;background:var(--linha)}
+
+  /* UM BLOCO, UMA ESCOLHA. A moldura em volta é o que diz, antes de qualquer clique,
+     que estes são excludentes — e é o que separa visualmente do botão de déficit, que
+     não é. */
+  .seg-rec{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border-radius:11px;
+    background:var(--marinho-esc);border:1px solid var(--linha)}
+  .seg-rec__b{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:0 11px;
+    border:0;border-radius:8px;background:transparent;color:var(--txt2);
+    font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+  .seg-rec__b:hover{color:var(--txt)}
+  .seg-rec__b[aria-pressed="true"]{background:var(--marinho-claro);color:var(--txt);
+    box-shadow:inset 0 -2px 0 var(--brand)}
+  .seg-rec__b .n,.ret-barra__alerta .n{min-width:21px;height:19px;padding:0 6px;
+    display:inline-flex;align-items:center;justify-content:center;border-radius:999px;
+    background:rgba(255,255,255,.12);font-size:11px;font-weight:700}
+  .seg-rec__b[aria-pressed="true"] .n{background:var(--brand);color:#fff}
+
+  /* VERMELHO MESMO DESLIGADO: a cor não diz "ligado", diz "há linhas devendo". Fosse
+     neutro até o clique, descobrir o déficit dependeria de alguém pensar em procurá-lo. */
+  .ret-barra__alerta{display:inline-flex;align-items:center;gap:7px;min-height:32px;
+    padding:0 11px;border:1px solid var(--vermelho);border-radius:999px;
+    background:var(--vermelho-claro);color:var(--vermelho);font:inherit;font-size:13px;
+    font-weight:600;cursor:pointer;white-space:nowrap}
+  .ret-barra__alerta:hover{background:rgba(240,165,165,.2)}
+  .ret-barra__alerta[aria-pressed="true"]{background:var(--vermelho);
+    border-color:var(--vermelho);color:var(--vermelho-claro)}
+  .ret-barra__alerta[aria-pressed="true"] .n{background:rgba(0,0,0,.24);
+    color:var(--vermelho-claro)}
+  /* Sem ninguém devendo ele apaga, mas NÃO some: sumindo, a barra mudaria de largura a
+     cada redesenho e o clique mirado cairia noutro botão. */
+  .ret-barra__alerta.vazio{border-color:var(--linha);background:transparent;
+    color:var(--txt3);cursor:default}
+  .ret-barra__alerta.vazio .n{background:rgba(255,255,255,.08)}
+
+  /* ---- os filtros abertos na coluna ----
+     O painel suspenso vira bloco. Sem posição, sem sombra e sem borda: encostado no
+     fundo da coluna, ele já está dentro de uma moldura, e uma segunda caixa aqui
+     desenharia um quadro dentro do outro. */
+  .ret-menu .ret-pop{position:static;width:auto;max-height:none;overflow:visible;
+    background:transparent;border:0;box-shadow:none;padding:0}
+  .ret-filtros-t{display:block;font-size:10px;font-weight:700;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--txt3);padding:0 2px 9px}
+  /* A coluna passa a ter conteúdo alto: as ações descem para o fim dela, e o bloco dos
+     filtros é quem rola quando a janela é baixa. */
+  .ret-rail{overflow-y:auto}
+}
+
 /* A tela de Colunas: uma ficha por modulo. */
 /* ---------- a trava das colunas ----------
  * Arranjar as colunas pede a senha do painel de novo, mesmo sendo admin: o caso e o
@@ -2564,7 +2625,6 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   /* Faixa no topo: os cantos arredondados passam para cima. */
   .ret-rail{padding:10px;border-radius:var(--raio) var(--raio) 0 0}
   .ret-nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:2px}
-  .ret-marca{display:none}
   /* No celular o trilho e uma faixa no topo, entao os botoes deitam junto com os grupos
      em vez de empilhar — empilhados, empurrariam a tabela para fora da primeira dobra. */
   .ret-acoes{margin-top:8px;padding-top:8px;flex-direction:row;flex-wrap:wrap;gap:4px}
