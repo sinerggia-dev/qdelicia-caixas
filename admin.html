@@ -1100,7 +1100,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=4e2bfd82"></script>
+<script src="app.js?v=5640ed8d"></script>
 <script>
 (function(){
   'use strict';
@@ -1319,9 +1319,26 @@
   /* A TELA DE BOAS-VINDAS DESTE APP. Os atalhos saem das MESMAS abas que a navegação
      calculou — escritos à parte, ofereceriam caminho para uma página que o menu
      esconde, e o toque levaria a lugar nenhum. */
+  /* OS ATALHOS SAEM NA ORDEM DO MENU, e não na do catálogo do servidor. As duas
+     existiam e eram diferentes: a tela oferecia "Painel de Ativos, Painel, Extratos,
+     Ajuste Estoque…" e a lateral, um toque depois, mostrava outra sequência. Quem
+     aprende uma ordem procura por ela na outra tela.
+     A ordem sai do PRÓPRIO menu, lido do documento — uma segunda lista escrita aqui
+     divergiria no dia em que alguém arrastasse um item de lugar. */
+  function naOrdemDoMenu(chaves){
+    var menu = [];
+    document.querySelectorAll('#abas button[data-pagina]').forEach(function(b){
+      menu.push(b.dataset.pagina);
+    });
+    var ordenadas = menu.filter(function(k){ return chaves.indexOf(k) >= 0; });
+    /* O que o menu não conhece vai para o fim, e não some: é a mesma regra do atalho de
+       permissão desconhecida — sumir faria a pessoa achar que perdeu acesso. */
+    return ordenadas.concat(chaves.filter(function(k){ return menu.indexOf(k) < 0; }));
+  }
+
   function mostrarBoasVindas(s){
     Q.boasVindas({
-      pode: abasPermitidas(s),
+      pode: naOrdemDoMenu(abasPermitidas(s)),
       painel: PAINEL,
       aoIr: function(k){
         var b = document.querySelector('#abas button[data-pagina="' + k + '"]');
@@ -1687,6 +1704,9 @@
     Q.get(pedido).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       PAINEL = r.painel; Q.cache('painel', PAINEL);
+      /* A tarja de pendências da tela de boas-vindas só pode ser escrita AGORA: ela vive
+         dos números deste painel, e a tela é desenhada antes desta ida à rede voltar. */
+      Q.pendenciasChegaram(PAINEL);
       montarFiltrosFluxo();
       desenharPainel();
     }).catch(function(e){

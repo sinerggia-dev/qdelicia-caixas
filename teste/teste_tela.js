@@ -11047,8 +11047,36 @@ console.log('\n== a tela de boas-vindas ==');
   /* ---- 2. O QUE A PESSOA PODE, E NÃO UMA LISTA ESCRITA À PARTE ----
      Escrita à parte, ela ofereceria um atalho para uma página que o menu esconde, e o
      toque levaria a lugar nenhum. */
-  ok(/pode: abasPermitidas\(s\)/.test(adm),
+  ok(/pode: naOrdemDoMenu\(abasPermitidas\(s\)\)/.test(adm),
     'no painel, os atalhos saem das MESMAS abas que a navegação calculou');
+  /* E NA ORDEM DO MENU. As duas ordens existiam e eram diferentes: a tela oferecia
+     "Painel de Ativos, Painel, Extratos, Ajuste Estoque…" e a lateral, um toque depois,
+     mostrava outra sequência — porque uma vinha do catálogo do servidor e a outra da
+     ordem dos botões. Quem aprende uma procura por ela na outra tela. */
+  var iOM = adm.indexOf('  function naOrdemDoMenu(chaves)');
+  var ordenar = new Function('document',
+    adm.slice(iOM, adm.indexOf('\n  }', iOM) + 4) + '\n return naOrdemDoMenu;')(
+    /* O MENU DE MENTIRA VAI AO CONTRÁRIO de qualquer ordem plausível escrita no código.
+       Com ele na ordem natural, plantei uma lista fixa no lugar da leitura do documento
+       e a asserção passou verde — a lista que plantei acertou a mesma sequência por
+       coincidência. Invertido, só quem lê o documento de verdade acerta. */
+    { querySelectorAll: function () {
+        return ['pgExtrato', 'pgPainel', 'pgMovimentos', 'pgRetornos']
+          .map(function (k) { return { dataset: { pagina: k } }; }); } });
+  ok(ordenar(['pgRetornos', 'pgPainel', 'pgExtrato']).join(',') ===
+     'pgExtrato,pgPainel,pgRetornos',
+    'e na ORDEM DO MENU — aprender uma ordem aqui e achar outra na lateral faz procurar ' +
+    'o atalho onde ele não está', ordenar(['pgRetornos', 'pgPainel', 'pgExtrato']));
+  /* E A ORDEM SAI DO DOCUMENTO, não de uma lista escrita ao lado: escrita, ela
+     divergiria no dia em que alguém arrastasse um item de lugar no menu. */
+  ok(/querySelectorAll\('#abas button\[data-pagina\]'\)/.test(
+       adm.slice(adm.indexOf('function naOrdemDoMenu'),
+                 adm.indexOf('function naOrdemDoMenu') + 500)),
+    'e ela lê o próprio menu — uma segunda lista escrita à mão divergiria no dia em que ' +
+    'alguém arrastasse um item de lugar');
+  ok(ordenar(['pgPainel', 'pgDesconhecida']).join(',') === 'pgPainel,pgDesconhecida',
+    'e o que o menu não conhece vai para o FIM, e não some — sumindo, a pessoa acharia ' +
+    'que perdeu acesso', ordenar(['pgPainel', 'pgDesconhecida']));
   ok(/s\.operacoes/.test(idx),
     'e no app de campo saem das operações liberadas para a pessoa');
 
@@ -11147,6 +11175,21 @@ console.log('\n== a tela de boas-vindas ==');
     'prenderia a pessoa na apresentação');
   ok(/\.catch\(function \(\) \{\}\)/.test(fechar),
     'e a falha é engolida: ela reaparece no próximo acesso, que é o erro barato dos dois');
+
+  /* ---- AS PENDÊNCIAS CHEGAM DEPOIS ----
+   *
+   * O painel vem por outra ida à rede, e a tela é desenhada antes dela voltar — então a
+   * tarja nascia sempre vazia e NUNCA aparecia. É o mesmo erro das abas, que chegam com
+   * a equipe: consertei aquele e repeti este ao lado. */
+  ok(/Q\.pendenciasChegaram\(PAINEL\);/.test(adm),
+    'quando o painel chega, a tarja de pendências é escrita — desenhada antes, ela nasce ' +
+    'vazia e nunca aparece');
+  ok(/if \(typeof BV_ABERTA === 'function'\) BV_ABERTA\(painel\);/.test(app),
+    'e fechada a tela, escrever nela não faz nada — a pessoa já saiu');
+  ok(/BV_ABERTA = null;/.test(app.slice(app.indexOf('function fechar(){'),
+                                        app.indexOf('function fechar(){') + 200)),
+    'e fechar solta a referência: sem isso o painel que chega depois escreveria numa ' +
+    'tela que não existe mais');
 
   /* ---- 6b. O MODELO: ÍCONE, SAÍDA E A BARRA GRUDADA ----
    *

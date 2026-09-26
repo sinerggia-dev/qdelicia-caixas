@@ -480,6 +480,16 @@
     '</div>';
   }
 
+  /* Quem atualiza a tarja enquanto a tela está aberta. `null` quando ela está fechada
+     ou quando é o primeiro acesso — lá não há tarja, e sim a apresentação. */
+  var BV_ABERTA = null;
+
+  /* Chamada quando o painel finalmente chega. Fechada a tela, não faz nada: a pessoa já
+     saiu, e escrever numa tela que ela não vê é trabalho para ninguém. */
+  function pendenciasChegaram(painel) {
+    if (typeof BV_ABERTA === 'function') BV_ABERTA(painel);
+  }
+
   /* `opts`: { pode: [chaves], painel: {}, aoFechar: fn, aoIr: fn(chave) } */
   function boasVindas(opts) {
     var o = opts || {};
@@ -561,6 +571,7 @@
        aparece de novo no próximo acesso — que é o erro barato dos dois. */
     function fechar(){
       cx.hidden = true;
+      BV_ABERTA = null;
       if (primeiro && s.id) {
         s.viuBoasVindas = true;
         try { entrar(s); } catch (e) {}
@@ -568,6 +579,31 @@
       }
       if (typeof o.aoFechar === 'function') o.aoFechar();
     }
+
+    /* AS PENDÊNCIAS CHEGAM DEPOIS. O painel vem por outra ida à rede, e a tela é
+       desenhada antes dela voltar — então a tarja nascia sempre vazia e NUNCA aparecia.
+       É o mesmo erro das abas, que chegam com a equipe: eu consertei aquele e repeti
+       este ao lado.
+       Guardar a função aqui, e não redesenhar a tela inteira, é de propósito: redesenhar
+       trocaria os botões debaixo do dedo de quem já estava mirando um atalho. */
+    BV_ABERTA = primeiro ? null : function (painel) {
+      var alvo = cx.querySelector('.bv__hoje');
+      var lista = pendenciasDo(painel);
+      if (!lista.length) { if (alvo) alvo.remove(); return; }
+      var html = svgBV('<path d="M12 4l9 16H3z"></path>' +
+        '<line x1="12" y1="10" x2="12" y2="14"></line>' +
+        '<line x1="12" y1="17" x2="12" y2="17"></line>', 19) +
+        '<span><b>' + lista.length + (lista.length === 1 ? ' coisa' : ' coisas') +
+        ' esperando alguém:</b> ' + esc(lista.join(' · ')) + '</span>';
+      if (alvo) { alvo.innerHTML = html; return; }
+      var nova = document.createElement('div');
+      nova.className = 'bv__hoje';
+      nova.innerHTML = html;
+      /* Entra no MESMO lugar de sempre: depois do cartão de quem entrou. Jogada no fim,
+         ela ficaria embaixo dos atalhos, onde ninguém procura um aviso. */
+      var ola = cx.querySelector('.bv__ola');
+      if (ola && ola.parentNode) ola.parentNode.insertBefore(nova, ola.nextSibling);
+    };
 
     document.getElementById('bvComecar').addEventListener('click', fechar);
     var depois = document.getElementById('bvDepois');
@@ -2492,6 +2528,7 @@
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
     conferirSenha: conferirSenha,
     boasVindas: boasVindas, pendenciasDo: pendenciasDo, papelDe: papelDe,
+    pendenciasChegaram: pendenciasChegaram,
     apresentacaoHTML: apresentacaoHTML,
     aplicarTema: aplicarTema, aplicarFundo: aplicarFundo,
     aplicarAparencia: aplicarAparencia,
