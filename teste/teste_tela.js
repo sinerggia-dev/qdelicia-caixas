@@ -11080,67 +11080,6 @@ console.log('\n== a tela de boas-vindas ==');
   ok(/s\.operacoes/.test(idx),
     'e no app de campo saem das operações liberadas para a pessoa');
 
-  /* ---- 2b. A PÁGINA DE ABERTURA, RODADA ----
-   *
-   * O painel abre no Tutorial App. Lido no arquivo, o teste responderia "a palavra
-   * `pgTutorial` está escrita ali?" — e ela estaria mesmo se a busca por nome tivesse
-   * sido trocada pela primeira aba do menu. A pergunta que importa é outra: ABRINDO O
-   * PAINEL, EM QUAL PÁGINA A PESSOA CAI?
-   *
-   * O menu de mentira NÃO começa pelo Tutorial: se começasse, "a primeira do menu" e "a
-   * escolhida pelo nome" dariam a mesma resposta e o banco não distinguiria as duas. */
-  function menuFalso(itens, temAtiva) {
-    var clicados = [];
-    var botoes = itens.map(function (i) {
-      return { k: i.k, escondido: !!i.escondido,
-               click: function () { clicados.push(i.k); } };
-    });
-    return { clicados: clicados, doc: { querySelector: function (sel) {
-      if (sel.indexOf('.ativa') >= 0) return temAtiva ? {} : null;
-      var vivos = botoes.filter(function (b) { return !b.escondido; });
-      var m = sel.match(/data-pagina="([^"]+)"/);
-      if (m) return vivos.filter(function (b) { return b.k === m[1]; })[0] || null;
-      return vivos[0] || null;
-    } } };
-  }
-  /* A ÂNCORA NÃO LEVA O VALOR. Presa a `= 'pgTutorial'`, trocar a página de abertura
-     esvaziava o RECORTE, e a falha saía como "recorte vazio" — que não diz o que houve.
-     Solta, a mesma troca falha pela garantia, dizendo em qual página a pessoa caiu. */
-  var iAb = adm.indexOf('    var ABERTURA =');
-  var fimAb = adm.indexOf('primeira.click();', iAb);
-  var trechoAb = iAb >= 0 && fimAb > iAb
-    ? adm.slice(iAb, fimAb + 'primeira.click();'.length) : '';
-  ok(trechoAb.length > 60 && trechoAb.length < 900,
-    'a conferência achou o trecho que escolhe a página de abertura — recorte vazio ' +
-    'faria as três provas abaixo passarem sem rodar nada', trechoAb.length);
-  function abrirCom(itens, temAtiva) {
-    var f = menuFalso(itens, temAtiva);
-    new Function('document', trechoAb)(f.doc);
-    return f.clicados.join(',');
-  }
-  var MENU = [{ k: 'pgRetornos' }, { k: 'pgMovimentos' }, { k: 'pgPainel' },
-              { k: 'pgCadastros' }, { k: 'pgTutorial' }];
-  ok(abrirCom(MENU, false) === 'pgTutorial',
-    'abrindo o painel, a pessoa cai no Tutorial App — e não no primeiro item do menu',
-    abrirCom(MENU, false));
-  /* A VOLTA. Hoje ninguém fica sem o Tutorial — ele é das que não se concedem —, mas a
-     regra pode mudar, e abertura fixa numa página escondida é uma tela em branco. */
-  ok(abrirCom([{ k: 'pgRetornos' }, { k: 'pgTutorial', escondido: true }], false) ===
-     'pgRetornos',
-    'e quem não tiver essa página cai no primeiro item que sobrou, em vez de numa tela ' +
-    'em branco',
-    abrirCom([{ k: 'pgRetornos' }, { k: 'pgTutorial', escondido: true }], false));
-  /* A RENOVAÇÃO DA SESSÃO passa por aqui segundos depois da abertura. Sem esta guarda,
-     ela arrancaria quem já estava lendo outra página e a jogaria de volta no manual. */
-  ok(abrirCom(MENU, true) === '',
-    'e com uma página já aberta nada é clicado — a renovação da sessão passa por aqui ' +
-    'e arrancaria a pessoa do que ela estava lendo', abrirCom(MENU, true));
-  /* As duas buscas exigem o botão VISÍVEL. Sem isso, o menu de mentira continuaria
-     respondendo certo e o navegador abriria numa aba escondida. */
-  ok((trechoAb.match(/:not\(\[style\*="none"\]\)/g) || []).length === 2,
-    'e as duas buscas exigem o botão visível — sem isso a abertura cairia numa aba que ' +
-    'a peneira de permissão acabou de esconder');
-
   /* ---- 3. O PAPEL, RODADO ----
      Cada frase diz onde a conta depende daquela pessoa. Lido no arquivo, o teste não
      responderia "qual frase esta pessoa vê?", que é a única pergunta que importa. */
@@ -11318,20 +11257,20 @@ console.log('\n== a tela de boas-vindas ==');
     'e no celular os passos e os atalhos empilham — dois por linha em 360px dão 160px ' +
     'cada, e a descrição quebra em quatro linhas');
 
-  /* ---- 6c. A TELA SÓ NO PRIMEIRO ACESSO, RODADA ----
+  /* ---- 6c. A TELA EM TODO ACESSO, RODADA ----
    *
-   * Ela existe para APRESENTAR o sistema a quem nunca o viu. Aparecendo em todo acesso,
-   * virava pedágio: oito atalhos e um "Entrar" entre a pessoa e o trabalho. Ninguém lê
-   * uma apresentação duas vezes — lê-se uma, e depois procura-se o botão de sair dela.
+   * NADA COBRAVA ISSO, e por isso eu consegui trancá-la atrás do primeiro acesso sem
+   * que uma única asserção reclamasse. O escritório teve de me dizer duas vezes.
    *
    * AQUI O `app.js` DE PRODUÇÃO É CARREGADO E RODADO, num documento de mentira. Lida no
-   * arquivo, a regra responderia "a palavra `sempre` está escrita ali?" — e estaria,
-   * mesmo com a porta invertida. A pergunta é outra: ENTRANDO DE NOVO, A TELA APARECE?
+   * arquivo, a regra responderia "a palavra `viuBoasVindas` está escrita ali?" — e
+   * estaria, tanto na versão que mostra a tela quanto na que a esconde. A pergunta é
+   * outra: ENTRANDO DE NOVO, A TELA APARECE?
    *
    * O documento falso é pequeno de propósito: ele não desenha nada, só registra o que a
    * função escreveu. Quem mede a APARÊNCIA da tela é a foto no Chrome, não isto. */
   var vmNode = require('vm');
-  function rodarBoasVindas(viu, sempre) {
+  function rodarBoasVindas(viu) {
     var guardados = {}, guarda = {};
     function elemento(id) {
       return { id: id || '', innerHTML: '', textContent: '', value: '', hidden: false,
@@ -11382,34 +11321,33 @@ console.log('\n== a tela de boas-vindas ==');
     janela.window = janela; janela.self = janela; janela.globalThis = janela;
 
     vmNode.runInContext(app, vmNode.createContext(janela), { filename: 'app.js' });
-    if (!janela.QDC || typeof janela.QDC.boasVindas !== 'function') return -1;
-    janela.QDC.boasVindas({ pode: ['pgPainel', 'pgCadastros'],
-                            painel: { totais: {} }, sempre: sempre });
+    if (!janela.QDC || typeof janela.QDC.boasVindas !== 'function') return { erro: 1 };
+    janela.QDC.boasVindas({ pode: ['pgPainel', 'pgCadastros'], painel: { totais: {} } });
     var tela = guardados['telaBoasVindas'];
-    return tela ? String(tela.innerHTML).length : 0;
+    return { n: tela ? String(tela.innerHTML).length : 0,
+             html: tela ? String(tela.innerHTML) : '' };
   }
 
-  var noPrimeiro = rodarBoasVindas(false, false);
+  var bvNovo = rodarBoasVindas(false);
+  var bvVelho = rodarBoasVindas(true);
   /* A GUARDA DA PRÓPRIA MONTAGEM: sem ela, um `app.js` que nem carregasse daria zero nas
-     três e a regra passaria verde por não ter rodado nada. */
-  ok(noPrimeiro > 500,
+     duas e a regra passaria verde por não ter rodado nada. */
+  ok(bvNovo.n > 500,
     'o `app.js` de produção carrega no documento de mentira e desenha a tela no ' +
-    'primeiro acesso — sem isto, as duas provas abaixo passariam sem rodar nada',
-    noPrimeiro);
-  ok(rodarBoasVindas(true, false) === 0,
-    'e quem JÁ FOI apresentado entra direto no trabalho: a tela não aparece de novo — ' +
-    'em todo acesso ela virava pedágio, oito atalhos e um "Entrar" pela frente',
-    rodarBoasVindas(true, false));
-  ok(rodarBoasVindas(true, true) > 500,
-    'e quem PEDE para revê-la vê: sem essa porta, rever exigiria zerar a marca no ' +
-    'cadastro de alguém — escrever no banco por causa de uma leitura',
-    rodarBoasVindas(true, true));
-  /* E QUEM PEDE É SÓ O BOTÃO DO TUTORIAL. Passado também na abertura, o `sempre` traria
-     a tela de volta para todo acesso e desfaria a regra inteira, calado. */
-  ok(/mostrarBoasVindas\(Q\.sessao\(\) \|\| \{\}, true\)/.test(adm) &&
-     /mostrarBoasVindas\(atual\);/.test(adm),
-    'e o "sempre" vem só do botão do Tutorial — passado também na abertura, ele traria ' +
-    'a tela de volta para todo acesso e desfaria a regra');
+    'primeiro acesso — sem isto, as provas abaixo passariam sem rodar nada',
+    bvNovo.n || bvNovo.erro);
+  ok(bvVelho.n > 500,
+    'e ela aparece TAMBÉM em quem já entrou antes — é a tela de entrada do sistema, e ' +
+    'trancá-la atrás do primeiro acesso tira do dia a dia as pendências e os atalhos',
+    bvVelho.n);
+  /* E AS DUAS NÃO SÃO IGUAIS: a apresentação é só do primeiro acesso. Sem esta prova,
+     "as duas aparecem" seria satisfeito pela mesma tela repetida, e a distinção entre
+     apresentar e voltar ao trabalho teria sumido sem ninguém ver. */
+  ok(bvNovo.html.indexOf('bv__intro') >= 0 && bvVelho.html.indexOf('bv__intro') < 0,
+    'e só o primeiro acesso leva a apresentação — quem já entrou vê a saudação, as ' +
+    'pendências e os atalhos, sem os três passos de novo',
+    'primeiro=' + (bvNovo.html.indexOf('bv__intro') >= 0) +
+    ' devolta=' + (bvVelho.html.indexOf('bv__intro') >= 0));
 
   /* A BARRA GRUDA NO CELULAR. Medido a 360px, antes: a tela tinha 1.152px de altura e
      era preciso rolar 368px — mais de uma tela — para chegar ao botão. No primeiro

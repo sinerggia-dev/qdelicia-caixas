@@ -504,24 +504,6 @@
     var s = sessao() || {};
     var pode = o.pode || [];
     var primeiro = s.viuBoasVindas !== true;
-
-    /* ================= SÓ NO PRIMEIRO ACESSO =================
-     *
-     * Esta tela existe para APRESENTAR o sistema a quem nunca o viu. Quem já entrou uma
-     * vez não precisa ser apresentado de novo, e para essa pessoa ela virava um pedágio:
-     * uma lista de oito atalhos e um "Entrar" entre ela e o trabalho, em TODO acesso.
-     * Ninguém lê uma apresentação duas vezes; lê-se uma e depois procura-se o botão de
-     * sair dela.
-     *
-     * `sempre` é a exceção de quem PEDIU para ver — o botão do Tutorial. Sem ela, rever
-     * a tela exigiria zerar a marca no cadastro de alguém, que é escrever no banco por
-     * causa de uma leitura.
-     *
-     * `BV_ABERTA` some junto: fechada a tela, o painel que chegar depois não tem onde
-     * escrever, e deixá-lo apontando para o desenho anterior escreveria numa tela que
-     * não está mais na frente de ninguém. */
-    if (!primeiro && !o.sempre) { BV_ABERTA = null; return; }
-
     var pend = primeiro ? [] : pendenciasDo(o.painel);
 
     var cx = document.getElementById('telaBoasVindas');

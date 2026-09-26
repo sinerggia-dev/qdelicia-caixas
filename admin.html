@@ -1100,7 +1100,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=9fcf47bb"></script>
+<script src="app.js?v=773cd8d1"></script>
 <script>
 (function(){
   'use strict';
@@ -1336,11 +1336,8 @@
     return ordenadas.concat(chaves.filter(function(k){ return menu.indexOf(k) < 0; }));
   }
 
-  /* `sempre` só vem do botão do Tutorial: na abertura, a tela aparece uma vez e nunca
-     mais — quem já foi apresentado não é apresentado de novo. */
-  function mostrarBoasVindas(s, sempre){
+  function mostrarBoasVindas(s){
     Q.boasVindas({
-      sempre: sempre === true,
       pode: naOrdemDoMenu(abasPermitidas(s)),
       painel: PAINEL,
       aoIr: function(k){
@@ -1590,28 +1587,7 @@
     /* Idem: o titulo do modulo acompanha os itens. Aqui isso pesa mais — sao tres
        modulos, e quem nao e admin perde Sistema inteiro. */
     Q.gruposDaNavegacao('#abas');
-    /* ================= A PÁGINA DE ABERTURA =================
-     *
-     * O painel abre no TUTORIAL APP, e não no primeiro item do menu.
-     *
-     * A ESCOLHA É POR NOME, e não por posição. "A primeira do menu" era uma regra que
-     * mudava sozinha: arrastar um item na navegação trocava a página de abertura sem
-     * que ninguém tivesse pedido, e foi assim que a abertura já virou "Painel de
-     * Ativos" no dia em que a ordem do menu foi reorganizada.
-     *
-     * E TEM VOLTA. A busca exige o botão VISÍVEL: quem não tiver a página — hoje
-     * ninguém, porque ela é das que não se concedem, mas a regra pode mudar — cai no
-     * primeiro item que sobrou, que é o comportamento de antes. Abertura fixa numa
-     * página escondida deixaria a pessoa numa tela em branco.
-     *
-     * O `!...ativa` de sempre fica: ele é o que impede a RENOVAÇÃO da sessão, que passa
-     * por aqui segundos depois, de arrancar quem já estava lendo outra página e jogá-la
-     * de volta no manual. */
-    var ABERTURA = 'pgTutorial';
-    var visivel = '#abas button[data-pagina]:not([style*="none"])';
-    var primeira =
-      document.querySelector('#abas button[data-pagina="' + ABERTURA + '"]:not([style*="none"])') ||
-      document.querySelector(visivel);
+    var primeira = document.querySelector('#abas button[data-pagina]:not([style*="none"])');
     if (primeira && !document.querySelector('#abas button.ativa')) primeira.click();
 
     /* A peneira rodou: o aviso sai. Deixado na tela, ele diria que ainda esta carregando
@@ -3785,7 +3761,7 @@
   (function(){
     var b = document.getElementById('btnVerBoasVindas');
     if (b) b.addEventListener('click', function(){
-      mostrarBoasVindas(Q.sessao() || {}, true);
+      mostrarBoasVindas(Q.sessao() || {});
     });
   })();
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
