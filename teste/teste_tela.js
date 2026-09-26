@@ -5266,6 +5266,48 @@ console.log('\n== o recorte vale no app de campo tambem ==');
     'e a exceção está escrita no código, não só subentendida — sem isso o próximo ' +
     'leitor a "conserta"');
 
+  /* ---- A CAIXA AZUL SAIU; O ALERTA FICOU ----
+   *
+   * As duas moravam na mesma função e pareciam a mesma coisa. Não são: a azul ficava
+   * acesa o tempo todo dizendo um número que quem está no pátio não usa para lançar —
+   * ele conta o que veio no caminhão. O alerta só acende quando a contagem passa do
+   * saldo, e aí o mesmo número deixa de ser informação e vira pergunta.
+   * Esta asserção cobra as DUAS metades. Sem a segunda, "remover a informação" levaria
+   * a guarda junto e ninguém notaria — ela só aparece no dia em que falta lançamento. */
+  var iS = idx.indexOf('function mostrarSaldoDoOrigem()');
+  var fnS = iS > 0 ? idx.slice(iS, idx.indexOf('\n  }', iS)) : '';
+  ok(iS > 0 && !/Saldo atual de/.test(fnS),
+    'o formulário de retorno não mostra mais a caixa com o saldo do local', fnS.length);
+  /* E A GUARDA CONTINUA ACESSÍVEL, o que não é a mesma coisa que continuar escrita.
+     Medido: plantei um `return` logo acima dela e a asserção de texto passou verde — o
+     alerta estava no arquivo inteirinho, e nenhum estado o alcançava. Então aqui a
+     função RODA, e o que se cobra é o que sai na tela. */
+  var rodaSaldo = new Function('document', 'PAINEL', 'coletarItens', 'Q',
+    fnS + '\n  }\n return mostrarSaldoDoOrigem;');
+  function saldoNaTela(saldo, contado) {
+    var el = { innerHTML: '' };
+    var doc = { getElementById: function (id) {
+      return id === 'dvSaldoAtual' ? el : (id === 'dvOrigem' ? { value: 'R1' } : null); } };
+    rodaSaldo(doc, { rotas: [{ id: 'R1', nome: 'João Pessoa', saldo: saldo,
+                               aging: { maisAntiga: 9 } }], locais: [] },
+      function () { return [{ qtd: contado }]; },
+      { num: function (n) { return String(n); },
+        esc: function (s) { return String(s == null ? '' : s); } })();
+    return el.innerHTML;
+  }
+
+  ok(saldoNaTela(2340, 100) === '',
+    'com a contagem dentro do saldo, o formulário não mostra NADA ali — a caixa azul ' +
+    'ficava acesa o tempo todo dizendo um número que quem está no pátio não usa para ' +
+    'lançar', JSON.stringify(saldoNaTela(2340, 100)));
+  var passou = saldoNaTela(100, 2340);
+  ok(/contou/.test(passou) && /saída não lançada/.test(passou),
+    'e passando do saldo o alerta APARECE — é a guarda contra saída não lançada, e ela ' +
+    'tem de estar alcançável, não só escrita', passou.slice(0, 80));
+  ok(!/Saldo atual de/.test(passou),
+    'e nem aí a caixa azul volta: o número entra na pergunta, e não como informação de ' +
+    'rodapé', passou.slice(0, 80));
+
   /* --- a aba SOME para quem nao ve lancamento ----------------------------- */
   /* Some, e nao fica vazia: uma aba que abre sem nada dentro parece quebrada, e a pessoa
      volta nela toda vez achando que nao carregou. */

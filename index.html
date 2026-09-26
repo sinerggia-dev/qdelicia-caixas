@@ -1367,9 +1367,15 @@
     var l = busca(PAINEL.rotas) || busca(PAINEL.locais);
     if (!l){ el.innerHTML=''; return; }
     var contado = coletarItens('dv_').reduce(function(a,i){return a+i.qtd;},0);
-    var html = '<div class="aviso-box info">Saldo atual de <b>'+Q.esc(l.nome)+'</b>: <b>'+Q.num(l.saldo)+' caixa(s)</b>'+
+    /* A CAIXA AZUL COM O SALDO SAIU, a pedido. Ela ficava acesa o tempo todo, entre o
+       formulário e a contagem, dizendo um número que quem está no pátio não usa para
+       lançar: ele conta o que veio no caminhão, e não o que o sistema acha que há lá.
 
-      (l.aging && l.aging.maisAntiga !== null ? ' · mais antiga há '+l.aging.maisAntiga+' dias' : '')+'</div>';
+       O ALERTA CONTINUA, e não é a mesma coisa: ele só aparece quando a contagem passa
+       do saldo, e nesse momento o número deixa de ser informação e vira pergunta —
+       "voltou mais do que saiu?". É uma das guardas contra saída não lançada, e por isso
+       o saldo continua sendo buscado aqui. */
+    var html = '';
     if (contado > l.saldo){
       html += '<div class="aviso-box atencao">⚠ Você contou <b>'+Q.num(contado)+'</b>, mas o sistema mostra saldo de <b>'+Q.num(l.saldo)+'</b>. '+
               'Pode ser saída não lançada — registre e avise o escritório.</div>';
