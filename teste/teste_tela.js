@@ -11181,9 +11181,12 @@ console.log('\n== a tela de boas-vindas ==');
    * O painel vem por outra ida à rede, e a tela é desenhada antes dela voltar — então a
    * tarja nascia sempre vazia e NUNCA aparecia. É o mesmo erro das abas, que chegam com
    * a equipe: consertei aquele e repeti este ao lado. */
-  ok(/Q\.pendenciasChegaram\(PAINEL\);/.test(adm),
-    'quando o painel chega, a tarja de pendências é escrita — desenhada antes, ela nasce ' +
-    'vazia e nunca aparece');
+  /* NOS DOIS APPS. Consertei no painel e esqueci no app de campo — o mesmo defeito, no
+     arquivo ao lado, e a asserção só olhava um deles. */
+  ok(/Q\.pendenciasChegaram\(PAINEL\);/.test(adm) &&
+     /Q\.pendenciasChegaram\(PAINEL\);/.test(idx),
+    'quando o painel chega, a tarja de pendências é escrita nos DOIS apps — desenhada ' +
+    'antes, ela nasce vazia e nunca aparece');
   ok(/if \(typeof BV_ABERTA === 'function'\) BV_ABERTA\(painel\);/.test(app),
     'e fechada a tela, escrever nela não faz nada — a pessoa já saiu');
   ok(/BV_ABERTA = null;/.test(app.slice(app.indexOf('function fechar(){'),

@@ -2184,6 +2184,11 @@
     Q.get({acao:'painel'}).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       PAINEL = r.painel;
+      /* A TARJA DE PENDÊNCIAS SÓ PODE SER ESCRITA AGORA: a tela de boas-vindas é
+         desenhada antes desta ida à rede voltar, e sem esta linha ela nasce vazia e
+         nunca aparece. Eu tinha consertado isto no painel e esquecido aqui — o mesmo
+         defeito, no arquivo ao lado. */
+      Q.pendenciasChegaram(PAINEL);
       Q.cache('painel', PAINEL);
       mostrarSaldoDoOrigem();
     }).catch(function(){
