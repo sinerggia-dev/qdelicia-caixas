@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=17040154">
+<link rel="stylesheet" href="styles.css?v=ebb255dc">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -17,6 +17,36 @@
      esquece de trocar e justamente o que fica errado por meses. -->
 <link rel="icon" href="logo.png" type="image/png">
 <link rel="apple-touch-icon" href="logo.png">
+<!-- ================= A APARÊNCIA, ANTES DE PINTAR =================
+     Este script é o ÚNICO que precisa estar no <head>. O `app.js` carrega no fim da
+     página: esperar por ele faria a tela nascer na cor de fábrica e piscar para a
+     escolhida um instante depois — e quem abre o painel trinta vezes por dia vê esse
+     pisca trinta vezes.
+
+     O QUE ELE LÊ É UMA CÓPIA, não a verdade. A aparência é da EMPRESA e mora na
+     configuração, no servidor; esta cópia local existe só para a tela nascer certa antes
+     de a rede responder. Quando os dados chegam, o `app.js` aplica o que veio de lá e
+     atualiza a cópia — se alguém trocou no escritório, a máquina do galpão acompanha na
+     primeira carga.
+
+     O `try` não é zelo exagerado: `localStorage` estoura em janela anônima, com cookies
+     bloqueados e dentro de iframe. Sem ele, a tela inteira morre aqui, no <head>, antes
+     de existir qualquer coisa para mostrar o erro.
+
+     E OS NOMES SÃO CONFERIDOS. Um valor que o CSS não conhece não pinta nada: a página
+     ficaria sem cor de marca nenhuma, e a causa estaria num armazenamento que ninguém
+     pensa em abrir. -->
+<script>
+(function(){
+  var r = document.documentElement, t, f;
+  try {
+    t = localStorage.getItem('qdc_tema');
+    f = localStorage.getItem('qdc_fundo');
+  } catch (e) { t = f = null; }
+  r.setAttribute('data-tema',  ['verde','rosa','roxo'].indexOf(t) < 0 ? 'roxo' : t);
+  r.setAttribute('data-fundo', ['azul','cinza','preto'].indexOf(f) < 0 ? 'azul' : f);
+})();
+</script>
 </head>
 <body>
 
@@ -526,7 +556,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=a0cd515a"></script>
+<script src="app.js?v=0f2eabe8"></script>
 <script>
 (function(){
   'use strict';

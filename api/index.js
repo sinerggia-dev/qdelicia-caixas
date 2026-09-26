@@ -684,7 +684,19 @@ function ultimoAdmin(usuarios, id) {
 }
 
 /** Só chaves conhecidas: `config` alimenta a tela, não é depósito de qualquer coisa. */
-var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas', 'senhaCorrecao'];
+var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas', 'senhaCorrecao',
+                     'tema', 'fundo'];
+
+/* A APARÊNCIA É DA EMPRESA, e não de cada navegador: uma cor só em todas as telas do
+   galpão, a pedido. Por isso ela mora aqui, na config, e não no armazenamento local —
+   de lá ela valeria só no aparelho em que alguém clicou.
+
+   OS VALORES SÃO CONFERIDOS AQUI TAMBÉM, e não só na tela. Um nome que o CSS não conhece
+   não pinta nada: a página fica sem cor de marca nenhuma e ninguém entende por quê. E
+   quem manda para esta rota não é só a nossa tela — é qualquer um, porque a API não tem
+   autorização. Recusar o nome errado é mais barato que descobrir a tela apagada. */
+var VALORES_APARENCIA = { tema: ['verde', 'rosa', 'roxo'],
+                          fundo: ['azul', 'cinza', 'preto'] };
 
 /* A SENHA DO CONSERTO FORA DE PRAZO. Enquanto ninguém cadastrar outra, vale esta — é a
    que foi combinada, e está aqui em vez de no banco para o sistema funcionar num banco
@@ -720,6 +732,11 @@ async function salvarConfig(p) {
   var chave = String(p.chave || '').trim();
   if (CHAVES_CONFIG.indexOf(chave) < 0) return { ok: false, erro: 'Configuração desconhecida: ' + chave };
   var valor = p.valor;
+  var permitidos = VALORES_APARENCIA[chave];
+  if (permitidos && permitidos.indexOf(String(valor)) < 0) {
+    return { ok: false, erro: 'Não conheço "' + String(valor) + '". Os valores de ' +
+                              chave + ' são: ' + permitidos.join(', ') + '.' };
+  }
   /* Senha vai ao banco em HASH, como a de qualquer pessoa. Em texto, quem abre a tabela
      `config` lê a senha que destranca a correção de qualquer lançamento. */
   if (/senha/i.test(chave)) {

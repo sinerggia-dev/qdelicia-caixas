@@ -197,6 +197,70 @@
 
   /* ---------------- cache local dos cadastros ---------------- */
 
+
+  /* ================= A APARÊNCIA DO SISTEMA =================
+   *
+   * Dois eixos: a COR DA MARCA (verde, rosa, roxo) e o FUNDO (azul, cinza, preto). A
+   * escolha é da EMPRESA — uma cor só em todas as telas —, então ela mora na
+   * configuração, no servidor, e não no aparelho de quem clicou.
+   *
+   * O ARMAZENAMENTO LOCAL GUARDA UMA CÓPIA, e é só isso que ele é. Serve para a tela
+   * nascer na cor certa antes de a rede responder; a verdade chega com os dados e
+   * sobrescreve a cópia. Tratá-lo como fonte faria o galpão ficar com a cor de um mês
+   * atrás até alguém limpar o navegador.
+   *
+   * QUEM CONFERE OS NOMES SÃO TRÊS: este arquivo, o script de partida no <head> e o
+   * servidor. Não é repetição por descuido — são três portas diferentes, e a única que
+   * eu controlo nas três é a lista. Um nome que o CSS não conhece não pinta NADA: a tela
+   * fica sem cor de marca e a causa está num lugar que ninguém pensa em abrir. */
+  var TEMAS = ['verde', 'rosa', 'roxo'];
+  var FUNDOS = ['azul', 'cinza', 'preto'];
+  var TEMA_PADRAO = 'roxo', FUNDO_PADRAO = 'azul';
+
+  function guardarLocal(chave, valor) {
+    try { localStorage.setItem(chave, valor); } catch (e) {}
+  }
+
+  function aplicarTema(nome, guardar) {
+    if (TEMAS.indexOf(nome) < 0) nome = TEMA_PADRAO;
+    document.documentElement.setAttribute('data-tema', nome);
+    if (guardar !== false) guardarLocal('qdc_tema', nome);
+    return nome;
+  }
+
+  function aplicarFundo(nome, guardar) {
+    if (FUNDOS.indexOf(nome) < 0) nome = FUNDO_PADRAO;
+    document.documentElement.setAttribute('data-fundo', nome);
+    if (guardar !== false) guardarLocal('qdc_fundo', nome);
+    return nome;
+  }
+
+  function temaAtual() {
+    return document.documentElement.getAttribute('data-tema') || TEMA_PADRAO;
+  }
+  function fundoAtual() {
+    return document.documentElement.getAttribute('data-fundo') || FUNDO_PADRAO;
+  }
+
+  /* O QUE VEIO DO SERVIDOR MANDA. Chamada a cada carga e a cada atualização dos dados:
+     trocada a cor no escritório, a máquina do galpão acompanha sem ninguém ir até lá.
+     Config sem as chaves — banco novo, ou ninguém escolheu ainda — cai no padrão, e não
+     deixa a tela com o que estivesse guardado antes. */
+  function aplicarAparencia(config) {
+    var c = config || {};
+    aplicarTema(c.tema);
+    aplicarFundo(c.fundo);
+  }
+
+  /* OUTRA ABA TROCOU: esta acompanha sem F5. Sem isto, quem deixa o painel aberto numa
+     aba e os Ajustes noutra fica com duas cores na mesma máquina, e a segunda parece
+     não ter salvado. O `false` é o que impede o eco — guardando de novo, as duas abas
+     ficariam avisando uma à outra em círculo. */
+  window.addEventListener('storage', function (e) {
+    if (e.key === 'qdc_tema' && e.newValue) aplicarTema(e.newValue, false);
+    if (e.key === 'qdc_fundo' && e.newValue) aplicarFundo(e.newValue, false);
+  });
+
   function cache(nome, valor) {
     if (valor === undefined) {
       try { return JSON.parse(localStorage.getItem(KEY_CACHE + nome) || 'null'); } catch (e) { return null; }
@@ -208,8 +272,13 @@
   /** Cadastros: usa cache imediatamente e atualiza em segundo plano. */
   function carregarDados() {
     var local = cache('dados');
+    /* AQUI, e não em cada tela. `carregarDados` é por onde TODA página recebe a
+       configuração — o app de campo, o painel e o extrato. Aplicado em cada uma, seria
+       uma cópia por tela, e a que esquecesse ficaria na cor velha.
+       O cache local entra junto: ele é a partida da PRÓXIMA abertura. */
+    if (local && local.config) aplicarAparencia(local.config);
     var promessa = get({ acao: 'dados' }).then(function (r) {
-      if (r && r.ok) { cache('dados', r); return r; }
+      if (r && r.ok) { cache('dados', r); aplicarAparencia(r.config); return r; }
       throw new Error((r && r.erro) || 'Falha ao carregar cadastros.');
     });
     if (local) { promessa.catch(function () { }); return Promise.resolve(local).then(function (d) { promessa.then(function (n) { window.dispatchEvent(new CustomEvent('dadosAtualizados', { detail: n })); }).catch(function () { }); return d; }); }
@@ -2103,6 +2172,9 @@
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
     conferirSenha: conferirSenha,
+    aplicarTema: aplicarTema, aplicarFundo: aplicarFundo,
+    aplicarAparencia: aplicarAparencia,
+    temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,
     agruparLancamentos: agruparLancamentos, chaveDoLote: chaveDoLote,
     gruposDaNavegacao: gruposDaNavegacao,

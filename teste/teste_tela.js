@@ -2961,8 +2961,22 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
    * pintam saída em AZUL — que é como o resto do sistema já marca SAIDA e DEVOLUCAO.
    * Legenda que discorda da barra é pior que legenda nenhuma: ela ensina a ler errado, e
    * quem confere não tem como desconfiar. A afirmação compara os dois tokens. */
-  var swSaida = (adm.match(/<i style="background:var\((--[\w-]+)\)"><\/i>Saída/) || [])[1];
-  var swRet   = (adm.match(/<i style="background:var\((--[\w-]+)\)"><\/i>Retorno/) || [])[1];
+  /* TODAS AS LEGENDAS, e não a primeira que aparecer. Escrita com `.match` simples,
+     esta linha lia UMA ocorrência — e no dia em que nasceu uma segunda legenda, num
+     cartão mais acima do arquivo, foi essa que passou a ser medida. Por sorte a nova
+     estava errada e a suíte reprovou; estivesse certa, a do gráfico teria ficado sem
+     ninguém olhando, e o defeito que esta asserção existe para pegar passaria. */
+  function corDaLegenda(rotulo) {
+    var achados = [];
+    var re = new RegExp('<i style="background:var\\((--[\\w-]+)\\)"><\\/i>' + rotulo, 'g');
+    var m;
+    while ((m = re.exec(adm))) if (achados.indexOf(m[1]) < 0) achados.push(m[1]);
+    /* Duas legendas com tokens DIFERENTES para o mesmo rótulo já é o defeito: devolve as
+       duas, e a comparação abaixo reprova. */
+    return achados.length === 1 ? achados[0] : achados.join('+');
+  }
+  var swSaida = corDaLegenda('Saída');
+  var swRet   = corDaLegenda('Retorno');
   var fillS   = (css.match(/\.gb__s\{background:var\((--[\w-]+)\)\}/) || [])[1];
   var fillR   = (css.match(/\.gb__d\{background:var\((--[\w-]+)\)\}/) || [])[1];
   ok(swSaida && swSaida === fillS && swRet && swRet === fillR,
@@ -4748,9 +4762,14 @@ console.log('\n== o contraste de cada par que a tela usa ==');
     ['--marca-txt', '--surface', 'o link no cartão'],
     ['--marca-txt', '--bg', 'o link no chão'],
     ['--roxo-txt', '--brand-soft', 'as iniciais no círculo, em roxo'],
-    ['branco', '--ambar-btn', 'o BOTÃO PRINCIPAL'],
-    ['branco', '--brand-hover', 'o botão principal sob o mouse'],
-    ['branco', '--brand', 'a página aberta na navegação'],
+    /* A TINTA SOBRE O ACENTO DEIXOU DE SER BRANCA, e por isso deixou de ser cravada
+       aqui. Com a cor da marca trocável, a tinta em cima dela troca junto: o roxo
+       clareou para passar contra o cartão (3,24:1) e, clareando, parou de aceitar
+       branco (3,57:1). Cravado, este par mediria uma cor que a tela não usa mais — e
+       mediria a mesma em todos os temas, que é o contrário do que o tema faz. */
+    ['--sobre-brand', '--ambar-btn', 'o BOTÃO PRINCIPAL'],
+    ['--sobre-brand', '--brand-hover', 'o botão principal sob o mouse'],
+    ['--sobre-brand', '--brand', 'a página aberta na navegação'],
     ['--verde', '--surface', 'o número bom'],
     ['--verde', '--verde-claro', 'a etiqueta verde'],
     ['--vermelho', '--surface', 'o número ruim'],
@@ -10377,6 +10396,173 @@ console.log('\n== "Em déficit" peneira pelo número que está na tela ==');
       'as linhas se mexem por um valor que não está na tela',
       'ordena por ' + col.k(c.l) + ', mostra ' + mostrado);
   });
+})();
+
+console.log('\n== a aparência: cor da marca e fundo ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var api = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+
+  var TEMAS = ['verde', 'rosa', 'roxo'];
+  var FUNDOS = ['azul', 'cinza', 'preto'];
+
+  function bloco(sel) {
+    var i = css.indexOf(sel + '{');
+    return i < 0 ? '' : css.slice(i, css.indexOf('\n}', i));
+  }
+  function tokens(sel) {
+    var m = {}, re = /(--[a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g, x, b = bloco(sel);
+    while ((x = re.exec(b))) m[x[1]] = x[2];
+    return m;
+  }
+
+  /* ---- 1. os dois eixos existem, inteiros ----
+     Um tema a que falte um token não falha alto: ele HERDA o do `:root`, e a tela fica
+     com a cor de outro tema em uma peça só — o botão verde e o chip ainda roxo. */
+  var PEDE_TEMA = ['--brand', '--brand-hover', '--brand-soft', '--sobre-brand',
+                   '--ambar-btn', '--roxo-txt', '--marca-roxo', '--marca-verde',
+                   '--verde-hover', '--sobre-verde'];
+  var PEDE_FUNDO = ['--bg', '--surface', '--surface-2', '--campo', '--marinho',
+                    '--marinho-esc', '--marinho-claro', '--neutro', '--linha',
+                    '--linha-viva', '--txt', '--txt2', '--txt3', '--txt-fraco'];
+  TEMAS.forEach(function (k) {
+    var tk = tokens('[data-tema="' + k + '"]');
+    var faltam = PEDE_TEMA.filter(function (x) { return !tk[x]; });
+    ok(faltam.length === 0,
+      'o tema ' + k + ' define tudo o que pinta — faltando um, ele herda o do padrão e ' +
+      'a tela fica com duas cores de marca ao mesmo tempo', faltam);
+  });
+  FUNDOS.forEach(function (k) {
+    var tk = tokens('[data-fundo="' + k + '"]');
+    var faltam = PEDE_FUNDO.filter(function (x) { return !tk[x]; });
+    ok(faltam.length === 0,
+      'o fundo ' + k + ' traz a escala INTEIRA — trocar só o chão e deixar o texto e as ' +
+      'linhas medidos contra o antigo derruba o contraste de tudo o que está em cima',
+      faltam);
+  });
+
+  /* ---- 2. as cores que INFORMAM ficam fora dos dois eixos ----
+     Se o tema pintasse o verde do saldo, escolher "rosa" trocaria o SENTIDO dos números
+     na tela, e o galpão leria um saldo negativo como se estivesse tudo certo. */
+  var SIGNIFICADO = ['--verde', '--azul', '--ambar', '--vermelho', '--verde-cheio',
+                     '--azul-cheio', '--laranja'];
+  TEMAS.concat(FUNDOS).forEach(function (k) {
+    var sel = TEMAS.indexOf(k) >= 0 ? '[data-tema="' + k + '"]' : '[data-fundo="' + k + '"]';
+    var tk = tokens(sel);
+    var invadiu = SIGNIFICADO.filter(function (x) { return !!tk[x]; });
+    ok(invadiu.length === 0,
+      k + ': não toca nas cores que informam — mexendo nelas, escolher uma cor trocaria ' +
+      'o sentido dos números', invadiu);
+  });
+
+  /* ---- 3. O CONTRASTE DAS NOVE COMBINAÇÕES, calculado aqui ----
+   * Cor escolhida no olho e cor que some no galpão são a mesma coisa até alguém medir.
+   * Com um eixo só, dava para medir uma vez e seguir; com nove combinações, o par que
+   * reprova é sempre o que ninguém abriu. Por isso a conta roda a cada suíte, e lê os
+   * valores DO ARQUIVO — inventar a paleta aqui seria medir a minha intenção. */
+  function lum(h) {
+    var v = [1, 3, 5].map(function (i) {
+      var c = parseInt(h.substr(i, 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+  function contraste(a, b) {
+    var x = lum(a), y = lum(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  }
+  var ruins = [];
+  TEMAS.forEach(function (k) {
+    var T = tokens('[data-tema="' + k + '"]');
+    /* A tinta sobre o acento: 4,5:1, que é texto. */
+    [['--sobre-brand', '--brand', 'o texto do botão principal'],
+     ['--sobre-brand', '--brand-hover', 'o botão principal sob o mouse'],
+     ['--sobre-verde', '--marca-verde', 'a tinta do Entrar']
+    ].forEach(function (par) {
+      var v = contraste(T[par[0]], T[par[1]]);
+      if (v < 4.5) ruins.push(k + ': ' + par[2] + ' = ' + v.toFixed(2) + ' (mínimo 4,5)');
+    });
+    FUNDOS.forEach(function (f) {
+      var F = tokens('[data-fundo="' + f + '"]');
+      /* O acento CHEIO contra o cartão: 3,0:1, que é elemento gráfico — é a forma do
+         botão, não o texto dele. Foi aqui que o roxo de hoje reprovou, em 2,21:1. */
+      var g = contraste(T['--brand'], F['--surface']);
+      if (g < 3.0) ruins.push(f + '/' + k + ': o acento contra o cartão = ' +
+        g.toFixed(2) + ' (mínimo 3,0)');
+      var i = contraste(T['--roxo-txt'], F['--surface']);
+      if (i < 4.5) ruins.push(f + '/' + k + ': o acento como tinta = ' +
+        i.toFixed(2) + ' (mínimo 4,5)');
+    });
+  });
+  FUNDOS.forEach(function (f) {
+    var F = tokens('[data-fundo="' + f + '"]');
+    [['--txt', '--bg', 'a tinta principal no chão'],
+     ['--txt2', '--surface', 'a segunda tinta no cartão'],
+     ['--txt3', '--surface', 'a etiqueta apagada no cartão'],
+     ['--txt', '--campo', 'o que se digita']
+    ].forEach(function (par) {
+      var v = contraste(F[par[0]], F[par[1]]);
+      if (v < 4.5) ruins.push(f + ': ' + par[2] + ' = ' + v.toFixed(2) + ' (mínimo 4,5)');
+    });
+  });
+  ok(ruins.length === 0,
+    'as ' + (TEMAS.length * FUNDOS.length) + ' combinações de cor e fundo passam em ' +
+    'WCAG — o par que reprova é sempre o que ninguém abriu', ruins);
+
+  /* ---- 4. a partida, antes de pintar ----
+     No fim da página, a tela nasceria na cor de fábrica e piscaria para a escolhida —
+     e quem abre o painel trinta vezes por dia vê esse pisca trinta vezes. */
+  ['index.html', 'admin.html', 'extrato.html'].forEach(function (nome) {
+    var txt = fs.readFileSync(path.join(__dirname, '..', nome), 'utf8');
+    var cabeca = txt.slice(0, txt.indexOf('</head>'));
+    ok(cabeca.indexOf("localStorage.getItem('qdc_tema')") > 0,
+      nome + ': a aparência é aplicada no <head>, antes de pintar');
+    ok(/indexOf\(t\) < 0 \? 'roxo' : t/.test(cabeca) &&
+       /indexOf\(f\) < 0 \? 'azul' : f/.test(cabeca),
+      nome + ': e um nome que o CSS não conhece cai no padrão — sem isso a tela fica ' +
+      'sem cor de marca nenhuma e a causa está num lugar que ninguém abre');
+    ok(/try \{[\s\S]{0,200}localStorage/.test(cabeca),
+      nome + ': e o acesso ao armazenamento é protegido — em janela anônima ele estoura, ' +
+      'e aqui isso mataria a tela antes de existir onde mostrar o erro');
+  });
+
+  /* ---- 5. a verdade é do servidor, o local é cópia ---- */
+  ok(/CHAVES_CONFIG = \[[^\]]*'tema', 'fundo'\]/.test(api),
+    'o servidor guarda a aparência na configuração da empresa');
+  /* A RECUSA NÃO SE LÊ, SE RODA — `teste_api.js`, seção "a aparência é da empresa".
+     Escrita aqui, ela virava busca de texto: eu cobrava que a linha da comparação
+     existisse, e um `var permitidos = null` — a lista esvaziada, que aceita qualquer
+     nome — passava por cima dela sem piscar. Medido: o defeito ESCAPOU. */
+  var cd = app.slice(app.indexOf('function carregarDados'),
+                     app.indexOf('function carregarDados') + 900);
+  ok((cd.match(/aplicarAparencia\(/g) || []).length === 2,
+    'e o que vem do servidor é aplicado no `carregarDados` — que é por onde TODA tela ' +
+    'recebe a configuração, e não uma cópia por página',
+    (cd.match(/aplicarAparencia\(/g) || []).length);
+
+  /* ---- 6. a prévia não é a gravação ----
+     Gravando a cada clique, experimentar três cores mandaria três cores para o galpão. */
+  var lig = adm.slice(adm.indexOf('function ligarAparencia'),
+                      adm.indexOf('function desenharUsuariosDigitando'));
+  ok(/Q\.aplicarTema\(b\.dataset\.valor, false\)/.test(lig) &&
+     /Q\.aplicarFundo\(b\.dataset\.valor, false\)/.test(lig),
+    'clicar numa cor só PREVÊ: não grava no servidor nem na cópia local');
+  ok(lig.indexOf("acao:'salvarConfig', chave:'tema'") > 0 &&
+     lig.indexOf("acao:'salvarConfig', chave:'fundo'") > 0,
+    'e o botão grava as DUAS chaves — gravada uma e falhada a outra, a empresa fica com ' +
+    'uma combinação que ninguém escolheu');
+  ok(lig.indexOf('Q.aplicarTema(tema); Q.aplicarFundo(fundo);') >
+     lig.indexOf("chave:'fundo'"),
+    'e a cópia local só é escrita DEPOIS de o servidor aceitar — antes, ela guardaria ' +
+    'uma cor que não vingou');
+
+  /* ---- 7. só admin ---- */
+  ok(/var pode = Q\.ehAdmin\(\);\s*\n\s*cx\.hidden = !pode;/.test(adm),
+    'o cartão de aparência é só de administrador');
+  ok(/if \(atalho\) atalho\.hidden = !pode;/.test(adm),
+    'e o atalho da lateral some junto — visível e recusado seria pior que ausente');
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

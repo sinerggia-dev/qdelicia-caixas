@@ -17,8 +17,9 @@
   /* A acao. `--ambar-btn` continua se chamando assim e ja nao e ambar: e o nome que as
      regras do botao principal usam, e renomear so por causa da cor espalharia a troca
      por dez arquivos. */
-  --brand:#8b44e0; --brand-hover:#763abe; --brand-soft:#21344d;
-  --ambar-btn:#8b44e0;
+  --brand:#a46ce7; --brand-hover:#b07fea; --brand-soft:#21344d;
+  --sobre-brand:#1a0b2e; --brand-rgb:164,108,231;
+  --ambar-btn:#a46ce7;
   /* O aviso. */
   --ambar:#e8a33d; --ambar-forte:#f0b75a; --ambar-claro:#33270f;
   --verde:#35d6a0; --verde-esc:#6fe6bd; --verde-claro:#10322a;
@@ -63,10 +64,10 @@
      a tinta escura da 5,3:1 e mantem a cor exata do logo. Esse par e a razao de
      `--sobre-verde` existir — sem ele alguem poe branco por habito e o botao fica
      ilegivel no galpao. */
-  --marca-roxo:#8b44e0; --marca-verde:#00a853;
+  --marca-roxo:#a46ce7; --marca-verde:#bb91ed;
   --roxo-txt:#c9a6f0;         /* o roxo como TINTA: as iniciais no circulo */
-  --verde-hover:#00b85c;      /* o hover CLAREIA: escurecer roubava contraste */
-  --sobre-verde:#0a1f38;      /* a tinta que vai SOBRE o verde */
+  --verde-hover:#c9a6f0;      /* o hover CLAREIA: escurecer roubava contraste */
+  --sobre-verde:#1a0b2e;      /* a tinta que vai SOBRE a marca */
   --raio:14px; --raio-sm:10px;
   /* Sombra no escuro precisa ser mais funda: a de 8% sumia contra o fundo. */
   --sombra:0 1px 3px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.28);
@@ -80,6 +81,84 @@
   --lateral-larg:236px; --trilho-larg:68px; --topo-alt:75px;
   --foco:0 0 0 2px var(--bg),0 0 0 4px #5b9ef0;
 }
+/* ================= OS DOIS EIXOS DO TEMA =================
+ *
+ * Eixo 1, COR DA MARCA: o acento do sistema. Ele pinta o botão principal, o item aberto
+ * do menu, o recorte escolhido, os contadores, o foco, o botão Entrar e a faixa de duas
+ * cores sob o logo. A pedido, vale para tudo isso — o par roxo/verde do logo deixa de
+ * existir como par e passa a ser dois tons da cor escolhida.
+ *
+ * Eixo 2, FUNDO: a escala INTEIRA, e não só o `--bg`. Não dá para trocar um sem os
+ * outros: o texto e as linhas foram medidos CONTRA o fundo, e mexer só no chão derruba
+ * o contraste de tudo o que está em cima dele.
+ *
+ * O QUE NENHUM DOS DOIS TOCA são as cores que INFORMAM — `--verde` (saída), `--azul`
+ * (retorno), `--ambar` (atenção) e `--vermelho` (negativo). Se o tema as pintasse,
+ * escolher "rosa" trocaria o sentido dos números na tela, e o galpão leria um saldo
+ * negativo como se estivesse tudo certo.
+ *
+ * `--sobre-brand` NASCEU AQUI, e não é enfeite: o roxo de hoje leva texto branco, e o
+ * verde não — branco sobre o verde do logo dá 3,1:1 e reprova. Com a cor do acento
+ * trocável, a tinta que vai em cima dela tem de ser trocável junto, senão o primeiro
+ * tema claro deixa o botão principal ilegível no galpão. */
+
+/* O ROXO CLAREOU, e nao foi escolha de gosto: MEDIDO, o #8b44e0 de hoje fica em 2,21:1
+   contra o cartao azul — abaixo dos 3,0:1 que a WCAG pede para elemento grafico. O botao
+   continuava legivel (o texto branco nele dava 5,25:1), mas a FORMA dele quase sumia no
+   cartao. Enquanto foi a unica cor do sistema isso passou despercebido; virando uma das
+   tres, a falha ficaria em uma e nas outras nao.
+   O #a46ce7 da 3,24:1 no azul, 4,08 no cinza e 5,15 no preto. Em compensacao ele nao
+   aceita mais texto BRANCO (3,57:1): a tinta em cima dele passa a ser escura, e e para
+   isso que o `--sobre-brand` existe. */
+[data-tema="roxo"]{
+  --brand:#a46ce7; --brand-hover:#b07fea; --brand-soft:#21344d;
+  --sobre-brand:#1a0b2e; --brand-rgb:164,108,231;
+  --ambar-btn:#a46ce7; --roxo-txt:#c9a6f0;
+  --marca-roxo:#a46ce7; --marca-verde:#bb91ed;
+  --verde-hover:#c9a6f0; --sobre-verde:#1a0b2e;
+}
+[data-tema="verde"]{
+  --brand:#00a853; --brand-hover:#00b85c; --brand-soft:#10322a;
+  --sobre-brand:#0a1f38; --brand-rgb:0,168,83;
+  --ambar-btn:#00a853; --roxo-txt:#5cd6a0;
+  --marca-roxo:#00a853; --marca-verde:#35d6a0;
+  --verde-hover:#4fe0b0; --sobre-verde:#0a1f38;
+}
+[data-tema="rosa"]{
+  --brand:#e25385; --brand-hover:#ea6d98; --brand-soft:#3a1626;
+  --sobre-brand:#2a0c18; --brand-rgb:226,83,133;
+  --ambar-btn:#e25385; --roxo-txt:#f0a0be;
+  --marca-roxo:#e25385; --marca-verde:#f08bb0;
+  --verde-hover:#f7a3c2; --sobre-verde:#2a0c18;
+}
+
+/* OS TRÊS FUNDOS. O mapa entre o vocabulário deste arquivo e a escala:
+ *   --bg            o chão da página
+ *   --surface       o cartão, um degrau acima do chão
+ *   --surface-2     o degrau seguinte (linha sob o mouse, pastilha)
+ *   --campo         MAIS ESCURO que o cartão: o que se preenche afunda
+ *   --marinho-esc   a lateral e o trilho
+ *   --linha/--neutro/--linha-viva   as três espessuras de separação
+ *   --txt/2/3/-fraco                as quatro forças de tinta */
+[data-fundo="azul"]{
+  --marinho:#16304f; --marinho-esc:#0d1f38; --marinho-claro:#27507f;
+  --bg:#16304f; --surface:#1b3a5e; --surface-2:#24486f; --campo:#102741;
+  --neutro:#33587f; --linha:#2a4b71; --linha-viva:#3e6a96;
+  --txt:#e8eef5; --txt2:#c3d3e6; --txt3:#9cb1c9; --txt-fraco:#7d97b6;
+}
+[data-fundo="cinza"]{
+  --marinho:#1e2124; --marinho-esc:#141618; --marinho-claro:#32363c;
+  --bg:#1e2124; --surface:#26292e; --surface-2:#32363c; --campo:#171a1c;
+  --neutro:#454a52; --linha:#383c42; --linha-viva:#565c66;
+  --txt:#f2f3f5; --txt2:#cdd1d6; --txt3:#a2a8b0; --txt-fraco:#868c94;
+}
+[data-fundo="preto"]{
+  --marinho:#0b0b0c; --marinho-esc:#050506; --marinho-claro:#252528;
+  --bg:#0b0b0c; --surface:#141416; --surface-2:#252528; --campo:#08080a;
+  --neutro:#323238; --linha:#26262a; --linha-viva:#434349;
+  --txt:#f5f5f6; --txt2:#cfcfd2; --txt3:#a4a4a9; --txt-fraco:#8a8a90;
+}
+
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 /* `color-scheme:dark` avisa o NAVEGADOR, e nao a folha de estilo. Ele governa o que
@@ -425,7 +504,7 @@ nav.abas button:hover,.nav-link:hover{background:var(--surface-2);color:var(--tx
 nav.abas button svg,.nav-link svg{flex:0 0 auto}
 /* A pagina aberta. `.ativa` e o nome que `Q.abas()` ja poe — nao inventamos outro. */
 nav.abas button.ativa,nav.abas button.ativa:hover{
-  background:var(--brand);color:#fff;font-weight:600
+  background:var(--brand);color:var(--sobre-brand);font-weight:600
 }
 /* Portas para a OUTRA tela (painel <-> campo). Ficam separadas das paginas por um
    risco: nao sao abas desta tela, sao saidas dela. */
@@ -980,7 +1059,7 @@ textarea{min-height:70px;resize:vertical}
    celular. O que NAO pode cair e a altura total — 46px, acima dos 44px de alvo de
    toque. O app e usado de luva, e alvo pequeno custa lancamento. */
 button.btn{
-  background:var(--ambar-btn);color:#fff;border:none;border-radius:var(--raio-sm);padding:12px 18px;
+  background:var(--ambar-btn);color:var(--sobre-brand);border:none;border-radius:var(--raio-sm);padding:12px 18px;
   font-weight:700;cursor:pointer;flex:1;min-width:140px;min-height:44px
 }
 button.btn:hover{background:var(--brand-hover)}
@@ -1519,7 +1598,7 @@ input[type="password"]::-ms-clear{display:none}
    tocar. Aqui ele vira botão de filtro. */
 .trilho .chip{flex:0 0 auto;min-height:38px;padding:0 13px;font-size:13px}
 .trilho .chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);
-  color:#fff;font-weight:600}
+  color:var(--sobre-brand);font-weight:600}
 .chip__n{min-width:20px;height:19px;padding:0 5px;display:inline-flex;align-items:center;
   justify-content:center;border-radius:999px;background:rgba(255,255,255,.14);
   font-family:var(--fonte-mono);font-size:11px;font-weight:600}
@@ -1841,12 +1920,40 @@ details.tipos[open] summary::before{content:"▾"}
 /* O flex tem de ficar AQUI, na caixa dos botoes: no trilho ele arruma
    marca/botoes/resumo, nao os botoes entre si — e no celular eles
    continuavam empilhados. */
+/* ============ O CARTÃO DE APARÊNCIA ============ */
+.ap__eixo{margin:14px 0 8px;font-size:10.5px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--txt3)}
+.ap__eixo:first-of-type{margin-top:4px}
+.ap__lista{display:flex;gap:9px;flex-wrap:wrap}
+.ap__op{display:flex;align-items:center;gap:9px;min-height:46px;padding:0 14px 0 10px;
+  border:1.5px solid var(--linha);border-radius:12px;background:var(--surface-2);
+  color:var(--txt2);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+.ap__op:hover{border-color:var(--linha-viva);color:var(--txt)}
+/* A BOLINHA LEVA A COR CRUA, escrita no HTML e não lida do tema: ela mostra a opção que
+   AQUELE botão oferece, e não a que está valendo. Lida do tema, as três ficariam da
+   mesma cor e o seletor deixaria de ser seletor. */
+.ap__op i{width:22px;height:22px;flex:0 0 auto;border-radius:999px;
+  border:2px solid rgba(255,255,255,.22)}
+.ap__op[aria-pressed="true"]{border-color:var(--brand);background:var(--brand-soft);
+  color:var(--txt)}
+.ap__op[aria-pressed="true"] i{box-shadow:0 0 0 3px var(--brand)}
+/* As peças de verdade, para a escolha ser feita olhando o que ela muda. */
+.ap__mostra{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 4px;
+  padding:14px;border:1px solid var(--linha);border-radius:var(--raio);
+  background:var(--campo)}
+.ap__mostra .btn{pointer-events:none}
+.ap__num{font-family:var(--fonte-mono);font-size:24px;font-weight:700;color:var(--roxo-txt)}
+.ap__sig{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:10px 0 2px;
+  font-size:12.5px;color:var(--txt2)}
+.ap__sig span{display:inline-flex;align-items:center;gap:6px}
+.ap__sig i{width:10px;height:10px;border-radius:3px}
+.ap__sig em{font-style:normal;color:var(--txt3);font-size:12px}
 .ret-nav{display:flex;flex-direction:column;gap:2px}
 .ret-item{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;
   color:var(--txt2);font-family:inherit;font-size:13px;font-weight:600;text-align:left;
   padding:9px 10px;border-radius:8px;cursor:pointer}
 .ret-item:hover{background:var(--marinho-claro);color:var(--txt)}
-.ret-item.ativo{background:var(--brand);color:#fff}
+.ret-item.ativo{background:var(--brand);color:var(--sobre-brand)}
 .ret-item .pt{width:7px;height:7px;border-radius:2px;background:var(--marca-txt);flex:none}
 .ret-item.ativo .pt{background:var(--ambar)}
 .ret-item .n{margin-left:auto;font-size:11px;font-weight:700;background:var(--neutro);
@@ -1932,7 +2039,8 @@ details.tipos[open] summary::before{content:"▾"}
   border-radius:999px;background:var(--surface);color:var(--txt2);
   font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
 .atalhos button:hover{background:var(--surface-2);color:var(--txt)}
-.atalhos button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+.atalhos button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);
+  color:var(--sobre-brand)}
 .erro-data{margin:6px 0 0;font-size:11.5px;color:var(--vermelho);line-height:1.4}
 
 /* ---------- o que está sendo contado ----------
@@ -1963,7 +2071,7 @@ details.tipos[open] summary::before{content:"▾"}
   color:var(--txt2);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
   white-space:nowrap}
 .seg button:hover{background:var(--surface-2);color:var(--txt)}
-.seg button[aria-pressed="true"]{background:var(--brand);color:#fff}
+.seg button[aria-pressed="true"]{background:var(--brand);color:var(--sobre-brand)}
 /* No celular eles são alvo de dedo, como o resto da folha. */
 @media (max-width:1023px){ .seg button{min-height:42px;font-size:14px} }
 /* `min-width:0` em tudo que e item de grade. Item de grade nasce com `min-width:auto`, que
