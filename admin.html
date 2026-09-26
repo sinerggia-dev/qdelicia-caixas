@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=106523bb">
+<link rel="stylesheet" href="styles.css?v=b02aec0c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -765,14 +765,18 @@
            mexer numa coluna exigia sair da tabela, atravessar o menu, digitar a senha e
            voltar — atrito demais para uma coisa de uso diário, e o efeito real era a
            pessoa arrastar, nada acontecer, e concluir que o recurso tinha sumido. -->
-      <!-- A LINHA DO CADEADO PASSA A LEVAR AS AÇÕES DO FILTRO, no computador.
-           Filtrar, Limpar e CSV são o que se usa o tempo todo, e viviam no pé de uma
-           gaveta que fecha: com ela fechada, filtrar de novo exigia reabrir a gaveta,
-           rolar até o fim e só então clicar. Aqui eles ficam onde a pessoa está olhando.
+      <!-- A LINHA DO CADEADO LEVA LIMPAR E CSV, no computador. Os dois desfazem ou
+           levam embora o que ESTÁ NA TELA — não dependem de nada digitado —, e viviam
+           no pé de uma gaveta que fecha: com ela fechada, baixar o CSV do que se está
+           olhando exigia reabrir a gaveta, rolar até o fim e só então clicar.
 
-           OS DOIS BOTÕES DE RISCO NÃO SOBEM — "Apagar o que está no filtro" e a Lixeira
-           continuam no pé da gaveta. Um apagar que some quinhentas linhas não pode ficar
-           ao alcance do mesmo movimento distraído que clica em Filtrar.
+           FILTRAR NÃO SOBE. Ele confirma o que foi digitado nos campos, e o lugar de
+           confirmar é junto do formulário: lá em cima, o gesto começaria na gaveta e
+           terminaria no outro canto da tela.
+
+           OS DOIS BOTÕES DE RISCO TAMBÉM NÃO SOBEM — "Apagar o que está no filtro" e a
+           Lixeira continuam no pé da gaveta. Um apagar que some quinhentas linhas não
+           pode ficar ao alcance do mesmo movimento distraído que clica em Limpar.
 
            A CAIXA FICA AQUI MESMO NO CELULAR, vazia: são os botões que mudam de lugar,
            e não esta caixa, para o cadeado não trocar de vizinho conforme a largura. -->
@@ -910,9 +914,17 @@
         <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
       </div>
       <div class="linha-btn">
+        <!-- FILTRAR FICA AQUI, em qualquer largura. Ele é o botão do formulário: o
+             gesto é mexer nos campos e confirmar, e confirmar longe de onde se digitou
+             obriga a olhar para dois cantos da tela por uma coisa só. -->
         <button class="btn" id="btnFiltrarMov" style="flex:0;min-width:140px">Filtrar</button>
-        <button class="btn sec" id="btnLimparMov" style="flex:0;min-width:120px">Limpar</button>
-        <button class="btn neutro" id="btnCsvMov" style="flex:0;min-width:130px">⬇ CSV</button>
+        <!-- LIMPAR E CSV NÃO TÊM MEDIDA AQUI. Eles vivem em dois lugares — o pé desta
+             gaveta e a linha do cadeado —, e quem dá o tamanho é o lugar. Escrita no
+             `style=`, a medida da gaveta venceria a do topo (inline ganha de classe) e
+             os dois subiriam com largura de botão de gaveta — foi isso que os jogou
+             para a borda, longe do cadeado. -->
+        <button class="btn sec" id="btnLimparMov">Limpar</button>
+        <button class="btn neutro" id="btnCsvMov">⬇ CSV</button>
         <!-- `flex:0 0 auto` e nao `flex:0`: o segundo vale flex-basis:0, entao a largura
              do botao passa a ser so o min-width e o texto transborda a borda. Com `auto`
              a base e o proprio conteudo, e o recuo de 20px de cada lado cabe junto. -->
@@ -4569,6 +4581,11 @@
    * sempre estiveram — lá em cima não há linha do cadeado sobrando, e a gaveta é uma
    * folha que se abre inteira, então o pé dela está à mão.
    *
+   * SÃO DOIS, E NÃO TRÊS: Filtrar ficou na gaveta. Limpar e CSV agem sobre o que JÁ
+   * ESTÁ NA TELA e valem de qualquer lugar; Filtrar confirma o que se acabou de
+   * digitar nos campos, e um confirmar longe do formulário parte o gesto em dois
+   * cantos da tela.
+   *
    * SÃO OS MESMOS BOTÕES, movidos. Uma segunda cópia no topo significaria dois
    * elementos com o mesmo id na mesma página, e o `getElementById` entrega UM deles —
    * o clique iria para o botão que ninguém está vendo, e o que está na tela não faria
@@ -4577,7 +4594,7 @@
    * O CORTE É O DE SEMPRE, 1023px, pelo `emCartoesPainel()`: uma segunda medida aqui
    * faria a tela trocar de forma em largura diferente do resto, e quem gira o aparelho
    * veria metade virar celular e metade não. */
-  var ACOES_FILTRO = ['btnFiltrarMov', 'btnLimparMov', 'btnCsvMov'];
+  var ACOES_FILTRO = ['btnLimparMov', 'btnCsvMov'];
 
   function acomodarAcoesDoFiltro(){
     var topo = document.getElementById('acoesFiltroTopo');

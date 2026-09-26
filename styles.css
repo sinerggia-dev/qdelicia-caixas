@@ -2275,6 +2275,12 @@ details.tipos[open] summary::before{content:"▾"}
 .trava-colunas{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:11.5px;
   color:var(--txt3)}
 .trava-colunas:empty{display:none}
+/* A MEDIDA DE LIMPAR E CSV NA GAVETA. Ela morava no `style=` de cada botão, e de lá
+   vencia a regra do topo — inline ganha de classe —, então os dois subiam para a
+   linha do cadeado com largura de botão de gaveta. Cada lugar dá o tamanho: aqui o
+   da gaveta, lá o do cadeado. */
+.linha-btn #btnLimparMov{flex:0 0 auto;min-width:120px}
+.linha-btn #btnCsvMov{flex:0 0 auto;min-width:130px}
 .trava__btn{display:inline-flex;align-items:center;gap:5px}
 /* Liberado, a faixa ganha cor: e um estado temporario, e precisa se distinguir do
    normal sem virar alarme. Verde, e nao ambar: nada esta errado. */
@@ -3118,19 +3124,25 @@ tr.marcada > td:first-child{box-shadow:inset 3px 0 0 var(--ambar)}
 
 /* ================= A LINHA DO CADEADO =================
  *
- * O cadeado à esquerda e as ações do filtro à direita. Elas só estão aqui no
- * computador — quem as põe e as tira é o JS, pelo mesmo corte de 1023px do resto
- * do painel.
+ * O cadeado e, LOGO AO LADO DELE, Limpar e CSV. Eles só estão aqui no computador —
+ * quem os põe e os tira é o JS, pelo mesmo corte de 1023px do resto do painel.
  *
- * `flex-wrap` porque a linha tem largura de tela e três botões de largura mínima:
- * numa janela estreita eles descem em vez de espremer o cadeado até ele sumir. */
-.barra-trava{display:flex;align-items:center;justify-content:space-between;
-  gap:10px;flex-wrap:wrap}
+ * AO LADO, E NÃO NA OUTRA PONTA. Com `space-between` os dois iam para a borda direita
+ * da caixa, encostados no trilho de filtros: ficavam longe do cadeado, que é o texto
+ * com que eles formam uma linha só, e grudados na peca com que não têm relação
+ * nenhuma. Em fluxo normal eles seguem o cadeado, e a folga sobra à direita.
+ *
+ * `flex-wrap` porque a linha tem largura de tela: numa janela estreita os botões
+ * descem em vez de espremer o cadeado até ele sumir. */
+.barra-trava{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .barra-trava__acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-/* Os botões do filtro no topo são MENORES que os da gaveta: lá eles são a ação
-   principal de uma folha inteira; aqui dividem a linha com o cadeado, e em tamanho
-   de botão principal empurrariam o cadeado para fora da vista. */
-.barra-trava__acoes .btn{min-height:34px;padding:0 14px;font-size:13px}
+/* NO TAMANHO DO CADEADO, e não no de botão de gaveta. Na gaveta eles são a ação
+   principal de uma folha inteira; aqui são vizinhos de um `mini` de 13px, e em
+   tamanho grande a linha vira um botão com um texto pendurado.
+   `flex:0 0 auto` e não `flex:0`: o segundo vale flex-basis:0, e com `min-width:0`
+   junto o botão encolheria até sumir. A base tem de ser o próprio conteúdo. */
+.barra-trava__acoes .btn{flex:0 0 auto;min-width:0;
+  min-height:30px;padding:0 12px;font-size:12.5px}
 
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}

@@ -11431,6 +11431,7 @@ console.log('\n== o tutorial do primeiro acesso ==');
 console.log('\n== as ações do filtro mudam de lugar ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 
   /* ---- O VAI E VEM, RODADO ----
    *
@@ -11492,11 +11493,20 @@ console.log('\n== as ações do filtro mudam de lugar ==');
   }
 
   var pc = rodar(false);
-  ok(ondeEstao(pc) === 'acoesFiltroTopo,acoesFiltroTopo,acoesFiltroTopo,linha-btn',
-    'no computador, Filtrar, Limpar e CSV sobem para a linha do cadeado — e o "Apagar ' +
-    'o que está no filtro" FICA na gaveta: um apagar que some quinhentas linhas não ' +
-    'pode ficar ao alcance do mesmo movimento distraído que clica em Filtrar',
+  ok(ondeEstao(pc) === 'linha-btn,acoesFiltroTopo,acoesFiltroTopo,linha-btn',
+    'no computador sobem LIMPAR E CSV, e só eles: os dois agem sobre o que já está na ' +
+    'tela. O "Apagar o que está no filtro" fica na gaveta porque some quinhentas ' +
+    'linhas, e FILTRAR fica porque confirma o que se acabou de digitar nos campos — ' +
+    'confirmar no outro canto da tela parte o gesto em dois lugares',
     ondeEstao(pc));
+
+  /* FILTRAR NÃO SE MEXE EM LARGURA NENHUMA. Medido só no computador, bastaria o corte
+     invertido para ele passar a viajar no celular — e lá a gaveta é uma folha que se
+     abre inteira: o botão subiria para uma linha de cadeado que nem está na tela. */
+  ok(rodar(true).mapa.btnFiltrarMov.parentNode.id === 'linha-btn' &&
+     rodar(false).mapa.btnFiltrarMov.parentNode.id === 'linha-btn',
+    'e o Filtrar fica no pé da gaveta nas DUAS larguras — ele é o botão do formulário, ' +
+    'e o formulário é a gaveta');
 
   var cel = rodar(true);
   ok(ondeEstao(cel) === 'linha-btn,linha-btn,linha-btn,linha-btn',
@@ -11510,8 +11520,8 @@ console.log('\n== as ações do filtro mudam de lugar ==');
   rodar(false, vaiEVem);
   rodar(true, vaiEVem);
   ok(ondeEstao(vaiEVem) === 'linha-btn,linha-btn,linha-btn,linha-btn',
-    'e girar o aparelho traz os três de volta — presos lá em cima, a gaveta do celular ' +
-    'ficaria sem o botão de filtrar', ondeEstao(vaiEVem));
+    'e girar o aparelho traz os dois de volta — presos lá em cima, a gaveta do celular ' +
+    'ficaria sem eles', ondeEstao(vaiEVem));
   /* E VOLTAM NA ORDEM: ação, ação, ação, e só depois o que tem risco. Anexados no fim,
      o "Apagar" subiria para o meio da fila, entre o Limpar e o CSV. */
   ok(vaiEVem.pe.filhos.map(function (b) { return b.id; }).join(',') ===
@@ -11532,6 +11542,53 @@ console.log('\n== as ações do filtro mudam de lugar ==');
   ok(/addEventListener\('resize', *acomodarAcoesDoFiltro\)/.test(adm),
     'e a janela é ouvida — sem isso a função roda uma vez na abertura e os botões ' +
     'ficam presos onde a largura daquele momento os deixou');
+
+  /* ---- AO LADO DO CADEADO, E NO TAMANHO DELE ----
+   *
+   * Subir não basta: subindo, os dois foram parar na OUTRA PONTA da linha, encostados
+   * no trilho de filtros e a meia tela do cadeado — com quem eles formam uma linha só.
+   * Quem os mandava para lá era o `space-between` da caixa. */
+  function regra(sel) {
+    var i = css.indexOf(sel);
+    return i < 0 ? '' : css.slice(i, css.indexOf('}', i));
+  }
+  var barra = regra('.barra-trava{');
+  ok(barra.length > 20, 'a conferência achou a regra da linha do cadeado — recorte ' +
+    'vazio faria as provas abaixo passarem sobre texto nenhum', barra.length);
+  ok(barra.indexOf('justify-content') < 0,
+    'nada empurra os botões para a outra ponta da linha — em fluxo normal eles seguem ' +
+    'o cadeado, que é o texto com que formam uma linha só, e a folga sobra à direita',
+    barra);
+
+  /* O TAMANHO VEM DO LUGAR, e não de um `style=` no botão. Inline, a medida da gaveta
+   * ganha de qualquer regra do topo — os dois subiam com largura fixa de 120 e 130px,
+   * que é o que os fazia atravessar a linha. Isto não é estilo: é a Única razão pela
+   * qual a regra do topo consegue valer. */
+  function tag(id) {
+    var i = adm.indexOf('id="' + id + '"');
+    return i < 0 ? '' : adm.slice(adm.lastIndexOf('<button', i), adm.indexOf('>', i) + 1);
+  }
+  ['btnLimparMov', 'btnCsvMov'].forEach(function (id) {
+    var b = tag(id);
+    ok(b.indexOf('<button') === 0 && b.indexOf(id) > 0,
+      'a conferência achou a etiqueta de ' + id + ' — recorte vazio passaria a prova ' +
+      'abaixo sem olhar nada', b);
+    ok(b.indexOf('min-width') < 0 && b.indexOf('flex:') < 0,
+      id + ' não carrega medida no próprio `style=`: ele vive em dois lugares, e inline ' +
+      'a medida da gaveta venceria a do topo — era assim que ele subia com largura de ' +
+      'botão de gaveta', b);
+  });
+
+  var doTopo = regra('.barra-trava__acoes .btn{');
+  ok(doTopo.length > 20, 'a conferência achou a regra dos botões do topo', doTopo.length);
+  ok(doTopo.indexOf('min-width:0') > 0,
+    'e no topo a largura deles é a do próprio texto — a largura mínima da gaveta os ' +
+    'faria ocupar meia linha ao lado de um cadeado de 13px', doTopo);
+  /* `flex:0` valeria flex-basis:0, e com `min-width:0` junto o botão encolhe até sumir.
+     Este projeto já pagou esse preço no botão de apagar, que transbordava a borda. */
+  ok(doTopo.indexOf('flex:0 0 auto') > 0,
+    'e a base do flex é o conteúdo, e não zero — com base zero e largura mínima zero ' +
+    'juntas, o botão encolhe até sumir', doTopo);
 
   /* UM ELEMENTO, MOVIDO — E NÃO DOIS COM O MESMO ID. A saída fácil seria uma segunda
      cópia dos botões no topo, mostrada por CSS; dois elementos com o mesmo id fazem o
