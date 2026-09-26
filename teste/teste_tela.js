@@ -1655,18 +1655,43 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
    * aprendendo precisa da outra, e ninguém a cobrava.
    *
    * A LISTA É LIDA DO ARQUIVO. Escrita aqui, a prova mediria a minha cópia. */
-  ok(LISTA_SEMPRE.length > 0,
-    'a leitura achou a lista das páginas que não se concedem — vazia, as duas provas ' +
-    'abaixo passariam sem peneirar nada', LISTA_SEMPRE);
-  var SEM_DADO = LISTA_SEMPRE[0];
-  /* O catálogo de teste precisa conhecê-la, senão a peneira não teria o que conceder. */
-  ABAS.push({ ID: SEM_DADO, Nome: 'sem dado' });
-  ok(pode(false, ['pgPainel']).split(',').indexOf(SEM_DADO) >= 0,
-    'quem NÃO é admin e já tem abas marcadas enxerga a página que não mostra dado ' +
-    'nenhum — foi por não enxergar que o Vídeo Tutorial ficou invisível no ar',
-    pode(false, ['pgPainel']));
-  ok(pode(true, ['pgPainel']).split(',').indexOf(SEM_DADO) >= 0,
-    'e o admin com marcas também', pode(true, ['pgPainel']));
+  /* QUAIS PÁGINAS NÃO TÊM DADO É DERIVADO, e não lido da lista. Ler a lista para depois
+     cobrar a lista é o banco medindo a si mesmo: tirei `pgManual` de `PAGINAS_SEMPRE` e
+     esta prova passou verde, porque ela percorria a lista encolhida.
+     O que define a página é o que ela MOSTRA: seção que é só um quadro sobre outra
+     página não tem dado nenhum dentro dela. */
+  var SOQUADRO = [];
+  (function () {
+    var re = /<section id="(pg[A-Za-z]+)" class="pagina">([\s\S]*?)<\/section>/g, m;
+    while ((m = re.exec(adm)) !== null) {
+      if (/<iframe/.test(m[2])) SOQUADRO.push(m[1]);
+    }
+  })();
+  ok(SOQUADRO.length >= 2,
+    'a conferência achou as páginas que são só um quadro sobre outra página — nenhuma ' +
+    'achada faria as provas abaixo passarem sem peneirar nada', SOQUADRO);
+  var foraDaRegra = SOQUADRO.filter(function (k) { return LISTA_SEMPRE.indexOf(k) < 0; });
+  ok(foraDaRegra.length === 0,
+    'e toda página que é só um quadro está entre as que NÃO passam pela marca — ela não ' +
+    'mostra dado nenhum, e marcar quem pode aprender a usar o sistema é decidir quem ' +
+    'pode entender o que ele faz', foraDaRegra);
+  /* TODAS, e não a primeira. Provando só `LISTA_SEMPRE[0]`, tirar a segunda da lista
+     passava verde — e foi exatamente esse o buraco que deixou o Sair do tutorial sem
+     guarda, duas mudanças atrás. */
+  SOQUADRO.forEach(function (chave) { ABAS.push({ ID: chave, Nome: 'sem dado' }); });
+  var faltamGente = SOQUADRO.filter(function (k) {
+    return pode(false, ['pgPainel']).split(',').indexOf(k) < 0;
+  });
+  var faltamAdmin = SOQUADRO.filter(function (k) {
+    return pode(true, ['pgPainel']).split(',').indexOf(k) < 0;
+  });
+  ok(faltamGente.length === 0,
+    'quem NÃO é admin e já tem abas marcadas enxerga TODAS as páginas que não mostram ' +
+    'dado nenhum — foi por não enxergar que o Vídeo Tutorial ficou invisível no ar',
+    { faltam: faltamGente, viu: pode(false, ['pgPainel']) });
+  ok(faltamAdmin.length === 0,
+    'e o admin com marcas também', { faltam: faltamAdmin });
+  var SEM_DADO = SOQUADRO[0];
   /* E ELA NÃO ABRE O RESTO: a marca continua mandando nas páginas que têm dado. */
   ok(pode(false, ['pgPainel']).split(',').indexOf('pgCadastros') < 0,
     'e isso não abre o resto — Cadastros continua só por marca',
@@ -1678,7 +1703,7 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
   ok(duasVezes.length === 1,
     'e marcá-la no cadastro não a duplica — duas entradas dariam dois botões para a ' +
     'mesma página', duasVezes.length);
-  ABAS.pop();
+  SOQUADRO.forEach(function () { ABAS.pop(); });
   /* E NÃO É "admin vê tudo": a marca continua mandando no resto. */
   ok(pode(true, ['pgPainel']).split(',').indexOf('pgCadastros') < 0,
     'e o resto continua valendo pela marca — o administrador pode se restringir de ' +
@@ -8188,7 +8213,8 @@ console.log('\n== a navegação separada por módulo ==');
   ok(pares === 'pgRetornos>Painel de Ativos | pgMovimentos>Movimentos | pgPainel>Painel' +
                 ' | pgCadastros>Cadastros | pgColunas>Colunas | pgExtrato>Extratos' +
                 ' | pgLancar>Ajuste Estoque' +
-                ' | pgVideo>Vídeo Tutorial | pgAparencia>Aparência',
+                ' | pgVideo>Vídeo Tutorial | pgManual>Manual de Uso' +
+                ' | pgAparencia>Aparência',
     'o menu do painel está na ordem pedida, e cada rótulo abre a página dele', pares);
 
   /* O título do módulo é VERDE, e pelo token — cor solta ali escaparia da medição de
@@ -11296,6 +11322,20 @@ console.log('\n== todo item do menu existe no servidor ==');
     'a conferência leu o menu do painel e o catálogo do servidor — lista vazia faria as ' +
     'provas abaixo aprovarem qualquer coisa',
     'menu=' + doMenu.length + ' servidor=' + doServidor.length);
+
+  /* E TODO QUADRO APONTA PARA UMA PAGINA QUE EXISTE. O Video Tutorial e o Manual sao
+     paginas de verdade abertas dentro do painel; um caminho errado da um quadro branco,
+     sem erro e sem aviso — a mesma falha muda do botao Ler, que chegou apontando para
+     uma pagina que nunca existiu aqui. */
+  var quadros = [], q, reQ = /<iframe[^>]*\ssrc="([^"]+)"/g;
+  while ((q = reQ.exec(adm)) !== null) quadros.push(q[1]);
+  var semArquivo = quadros.filter(function (n) {
+    return !fs.existsSync(path.join(__dirname, '..', n.split('?')[0]));
+  });
+  ok(quadros.length >= 2 && semArquivo.length === 0,
+    'todo quadro do painel aponta para uma pagina que existe — caminho errado da um ' +
+    'quadro branco, sem erro e sem aviso',
+    { quadros: quadros, faltam: semArquivo });
 
   var desconhecidas = doMenu.filter(function (k) { return doServidor.indexOf(k) < 0; });
   ok(desconhecidas.length === 0,

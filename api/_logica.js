@@ -140,6 +140,9 @@ var ABAS = [
      outra — o menu so mostra o que ESTE catalogo conhece, e o botao dela ficou
      escondido no ar por nao estar aqui. */
   { ID: 'pgVideo',      Nome: 'Vídeo Tutorial' },
+  /* O MANUAL, pela mesma razao do video: texto que explica o sistema, sem dado nenhum
+     dentro. Os dois vivem em `PAGINAS_SEMPRE`, na tela. */
+  { ID: 'pgManual',     Nome: 'Manual de Uso' },
   { ID: 'pgCadastros',  Nome: 'Cadastros', sensivel: true }
 ];
 

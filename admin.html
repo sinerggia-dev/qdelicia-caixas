@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=a7a3bde8">
+<link rel="stylesheet" href="styles.css?v=a5a65f3d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -305,6 +305,14 @@
           <path d="M10 9.2l5 2.8-5 2.8z"></path>
         </svg>
         <span class="nav-rotulo">Vídeo Tutorial</span>
+      </button>
+      <button data-grupo="Sistema" style="display:none" data-pagina="pgManual" data-acima="Sistema">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path>
+          <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H12v16h5.5a2.5 2.5 0 0 1 2.5 2.5z"></path>
+        </svg>
+        <span class="nav-rotulo">Manual de Uso</span>
       </button>
       <button data-grupo="Sistema" style="display:none" data-pagina="pgAparencia" data-acima="Sistema">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1013,6 +1021,24 @@
     </div>
   </section>
 
+  <!-- ---------- MANUAL DE USO ---------- -->
+  <!-- O MESMO `manual.html` que ja esta no ar e que o botao Ler do tutorial abre, e nao
+       uma segunda copia do texto: duas divergem no primeiro conserto que so uma receber,
+       e ai o sistema passa a se explicar de dois jeitos conforme a porta.
+
+       Ele e autonomo, com folha propria — por isso entra num quadro como esta, sem
+       herdar nada da folha do painel. -->
+  <section id="pgManual" class="pagina">
+    <div class="card">
+      <h2>Manual de Uso<span class="sub">O passo a passo escrito, do cadastro ao
+        fechamento — o mesmo que o botão Ler do tutorial abre.</span></h2>
+      <div class="quadro-video quadro-video--manual">
+        <iframe id="quadroManual" title="Manual do Controle de Caixas"
+                src="manual.html" loading="lazy"></iframe>
+      </div>
+    </div>
+  </section>
+
   <!-- ---------- CADASTROS ---------- -->
   <section id="pgCadastros" class="pagina">
     <div class="card" id="cardPedidos" style="display:none;border-left:3px solid var(--ambar)" data-cad="pedidos">
@@ -1412,10 +1438,11 @@
 
   /* ================= AS PAGINAS QUE NAO SE CONCEDEM =================
    *
-   * O VIDEO TUTORIAL NAO MOSTRA DADO NENHUM: e a demonstracao de como se lanca. A marca
-   * do cadastro responde bem a UMA pergunta — "esta pessoa pode ver ESTES dados?" — e
-   * aqui nao ha dado para ver. Marcar quem pode assistir seria decidir quem pode
-   * aprender a usar o sistema.
+   * O VIDEO TUTORIAL E O MANUAL NAO MOSTRAM DADO NENHUM: um e a demonstracao de como se
+   * lanca, o outro e o passo a passo escrito. A marca do cadastro responde bem a UMA
+   * pergunta — "esta pessoa pode ver ESTES dados?" — e aqui nao ha dado para ver.
+   * Marcar quem pode assistir ou ler seria decidir quem pode aprender a usar o
+   * sistema.
    *
    * E FOI ELA QUE DEIXOU O ITEM INVISIVEL NO AR. Eu pus a pagina no menu, escrevi a
    * secao e acrescentei ao catalogo do servidor — e ela continuou sem aparecer, porque
@@ -1427,7 +1454,7 @@
    * E UMA TERCEIRA REGRA, e nao um caso do `PAGINAS_DO_ADMIN`: aquela diz "so o
    * escritorio"; esta diz "todo mundo que entra". Posta la, o galpao e o conferente
    * ficariam sem o tutorial — que e de quem esta aprendendo, e nao de quem ja sabe. */
-  var PAGINAS_SEMPRE = ['pgVideo'];
+  var PAGINAS_SEMPRE = ['pgVideo', 'pgManual'];
 
   /* Quais abas do painel esta pessoa ve. Duas regras, e UMA peneira:
 
