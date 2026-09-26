@@ -377,8 +377,20 @@
     cx.hidden = false;
     cx.innerHTML =
       '<div class="bv__folha" role="dialog" aria-modal="true" aria-labelledby="bvNome">' +
+        /* A MARCA NO ALTO, a pedido. Ela responde "que sistema e este?" antes de a tela
+           dizer quem e a pessoa — e e a primeira coisa que alguem ve no primeiro acesso.
+           Largura e altura escritas: sem elas a lista abaixo da um salto quando a imagem
+           chega, e o toque cai no atalho errado. */
+        '<div class="bv__marca">' +
+          '<img src="logo.png" alt="" width="243" height="165">' +
+          '<div><span class="bv__marca-e">Delícia Frutas</span>' +
+            '<b>Controle de Caixas</b></div>' +
+        '</div>' +
         '<div class="bv__ola">' +
-          '<span class="bv__foto" id="bvFoto" aria-hidden="true"></span>' +
+          /* `avatar` junto: e essa classe que desenha o circulo e posiciona a foto
+             por cima das iniciais. So com a nossa, a `<img>` que o `pintarCirculo`
+             acrescenta nao tinha onde se encaixar. */
+          '<span class="bv__foto avatar" id="bvFoto" aria-hidden="true"></span>' +
           '<div class="bv__id">' +
             '<div class="bv__o">' + esc(saudacaoDe()) + '</div>' +
             '<p class="bv__n" id="bvNome">' +
@@ -422,7 +434,10 @@
         '</div>' +
       '</div>';
 
-    pintarCirculo(document.getElementById('bvFoto'), s);
+    /* `pintarCirculo(el, NOME, FOTO)` — e nao a sessao inteira. Passando o objeto, o
+       `iniciais()` recebia um objeto, `String(obj)` virava "[object Object]" e o circulo
+       saia escrito "[O". Apareceu na primeira tela que alguem abriu. */
+    pintarCirculo(document.getElementById('bvFoto'), s.nome, s.foto);
 
     /* A MARCA VAI AO SERVIDOR UMA VEZ, e a tela NÃO espera por ela: a rede do galpão
        cai, e ninguém deve ficar preso numa apresentação por causa disso. Falhando, ela

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=ac8b5a65">
+<link rel="stylesheet" href="styles.css?v=7dc44f75">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1072,7 +1072,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=bb9f3b82"></script>
+<script src="app.js?v=c0984e7b"></script>
 <script>
 (function(){
   'use strict';
@@ -1247,17 +1247,6 @@
     Q.abas('#abas');
     Q.gaveta();
     ajustarAbasPainel(s);
-    /* AS BOAS-VINDAS LEEM AS MESMAS ABAS que a navegação acabou de calcular — não uma
-       lista escrita à parte. Escrita à parte, ela ofereceria um atalho para uma página
-       que o menu esconde, e o toque levaria a lugar nenhum. */
-    Q.boasVindas({
-      pode: abasPermitidas(s),
-      painel: PAINEL,
-      aoIr: function(k){
-        var b = document.querySelector('#abas button[data-pagina="' + k + '"]');
-        if (b) b.click();
-      }
-    });
     periodoPadraoMov();
     document.getElementById('lcData').value = Q.hoje();
     /* A lista de abas so chega com a `equipe` — e com ela chega tambem o registro
@@ -1268,10 +1257,31 @@
       var atual = renovarSessao() || s;
       aplicarSessao(atual);
       ajustarAbasPainel(atual);
+      /* AS BOAS-VINDAS SÓ AQUI, e não lá em cima: `abasPermitidas` lê o catálogo de
+         páginas, e o catálogo chega com a EQUIPE. Chamada antes, ela recebia lista
+         vazia e escrevia "seu usuário ainda não tem nenhuma permissão" — para o
+         administrador, na primeira tela que ele viu. O mesmo motivo do
+         `if (!ABAS_PAINEL.length) return;` que já existe no `ajustarAbasPainel`.
+         E a sessão é a RENOVADA: é nela que vem a marca de já ter visto. */
+      mostrarBoasVindas(atual);
     });
     Q.carregarDados().then(function(d){ DADOS=d; ordenarTudo(); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
   }
+  /* A TELA DE BOAS-VINDAS DESTE APP. Os atalhos saem das MESMAS abas que a navegação
+     calculou — escritos à parte, ofereceriam caminho para uma página que o menu
+     esconde, e o toque levaria a lugar nenhum. */
+  function mostrarBoasVindas(s){
+    Q.boasVindas({
+      pode: abasPermitidas(s),
+      painel: PAINEL,
+      aoIr: function(k){
+        var b = document.querySelector('#abas button[data-pagina="' + k + '"]');
+        if (b) b.click();
+      }
+    });
+  }
+
   /* O id de quem esta olhando, quando o painel dela e restrito — e string vazia quando
      nao e. Uma funcao so, e nao `s.soProprios ? s.id : ''` espalhado por quatro pedidos:
      espalhado, o quinto pedido nasce sem o recorte e mostra a todos o que os outros
@@ -8050,6 +8060,17 @@
         'Na <b>Base Teste</b>, tudo o que a pessoa lançar fica marcado como ensaio e pode '+
         'ser separado ou apagado em bloco depois. Os números continuam somando — a '+
         'separação é de leitura, não de exclusão.</p>'+
+      /* REAPRESENTAR AS BOAS-VINDAS. A marca e da PESSOA, e so ela a liga sozinha —
+         fechando a tela. Desligar e do escritorio, e existe por dois motivos reais:
+         alguem pediu para ver de novo, e alguem que entrou pela primeira vez com pressa
+         e fechou sem ler. Sem este campo, a unica volta seria SQL no banco. */
+      '<label>Boas-vindas</label>'+
+      '<select id="fBoasVindas">'+
+        '<option value="visto"'+(u.ViuBoasVindas === true ? ' selected' : '')+
+          '>Já viu a apresentação</option>'+
+        '<option value="mostrar"'+(u.ViuBoasVindas === true ? '' : ' selected')+
+          '>Mostrar no próximo acesso</option>'+
+      '</select>'+
       // O usuário curto deixou de ser coisa só do painel: é com ele que a pessoa entra
       // no app de lançamento. Por isso sobe para cá, junto da senha do app.
       '<label>Usuário <span style="font-weight:400;color:var(--txt3)">— é o que a pessoa digita para entrar</span></label>'+
@@ -8436,6 +8457,7 @@
            AQUI, num lugar so: espalhada, um caminho esqueceria e a pessoa nasceria
            em Producao sem ninguem ter escolhido. */
         Teste:(document.getElementById('fBase').value === 'teste'),
+        ViuBoasVindas:(document.getElementById('fBoasVindas').value === 'visto'),
         /* O seletor tem tres valores e a gravacao tem duas colunas. A traducao mora
            AQUI, num lugar so: espalhada, "PROPRIOS" viraria acesso desligado em algum
            caminho esquecido, e a pessoa perderia o painel sem ninguem entender. */
