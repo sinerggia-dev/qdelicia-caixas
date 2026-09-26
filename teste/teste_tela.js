@@ -4517,6 +4517,16 @@ console.log('\n== a porta unica: a mesma tela nos dois apps ==');
   ok(/6 números, ou a sua senha do painel/.test(eCampo),
     'e a dica diz que os dois servem — sem ela, quem tem senha longa não tenta');
 
+  /* O CAMPO USUÁRIO NÃO TEM DICA DENTRO DELE, a pedido. A etiqueta logo acima já diz o
+     que entra ali, e texto cinza dentro da caixa se confunde com valor já digitado —
+     mais de uma pessoa toca em Entrar achando que o campo está preenchido.
+     A dica da SENHA fica, e não é a mesma coisa: ela está FORA da caixa, embaixo do
+     rótulo, e responde uma pergunta que a etiqueta não responde — que o PIN de seis
+     números e a senha do painel servem os dois. */
+  ok(!/id="inUsuario"[^>]*placeholder=/.test(eCampo.replace(/\n/g, ' ')),
+    'e o campo Usuário não leva dica dentro dele — texto cinza dentro da caixa se ' +
+    'confunde com campo já preenchido');
+
   /* UM OLHO, NÃO DOIS — E NÃO NENHUM.
      O campo já teve os dois: o botão do app E o `::-ms-reveal`, que o Edge desenha
      sozinho em todo `input type=password`. Medido na época: o do app centrado em x=550
