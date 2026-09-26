@@ -11080,6 +11080,67 @@ console.log('\n== a tela de boas-vindas ==');
   ok(/s\.operacoes/.test(idx),
     'e no app de campo saem das operações liberadas para a pessoa');
 
+  /* ---- 2b. A PÁGINA DE ABERTURA, RODADA ----
+   *
+   * O painel abre no Tutorial App. Lido no arquivo, o teste responderia "a palavra
+   * `pgTutorial` está escrita ali?" — e ela estaria mesmo se a busca por nome tivesse
+   * sido trocada pela primeira aba do menu. A pergunta que importa é outra: ABRINDO O
+   * PAINEL, EM QUAL PÁGINA A PESSOA CAI?
+   *
+   * O menu de mentira NÃO começa pelo Tutorial: se começasse, "a primeira do menu" e "a
+   * escolhida pelo nome" dariam a mesma resposta e o banco não distinguiria as duas. */
+  function menuFalso(itens, temAtiva) {
+    var clicados = [];
+    var botoes = itens.map(function (i) {
+      return { k: i.k, escondido: !!i.escondido,
+               click: function () { clicados.push(i.k); } };
+    });
+    return { clicados: clicados, doc: { querySelector: function (sel) {
+      if (sel.indexOf('.ativa') >= 0) return temAtiva ? {} : null;
+      var vivos = botoes.filter(function (b) { return !b.escondido; });
+      var m = sel.match(/data-pagina="([^"]+)"/);
+      if (m) return vivos.filter(function (b) { return b.k === m[1]; })[0] || null;
+      return vivos[0] || null;
+    } } };
+  }
+  /* A ÂNCORA NÃO LEVA O VALOR. Presa a `= 'pgTutorial'`, trocar a página de abertura
+     esvaziava o RECORTE, e a falha saía como "recorte vazio" — que não diz o que houve.
+     Solta, a mesma troca falha pela garantia, dizendo em qual página a pessoa caiu. */
+  var iAb = adm.indexOf('    var ABERTURA =');
+  var fimAb = adm.indexOf('primeira.click();', iAb);
+  var trechoAb = iAb >= 0 && fimAb > iAb
+    ? adm.slice(iAb, fimAb + 'primeira.click();'.length) : '';
+  ok(trechoAb.length > 60 && trechoAb.length < 900,
+    'a conferência achou o trecho que escolhe a página de abertura — recorte vazio ' +
+    'faria as três provas abaixo passarem sem rodar nada', trechoAb.length);
+  function abrirCom(itens, temAtiva) {
+    var f = menuFalso(itens, temAtiva);
+    new Function('document', trechoAb)(f.doc);
+    return f.clicados.join(',');
+  }
+  var MENU = [{ k: 'pgRetornos' }, { k: 'pgMovimentos' }, { k: 'pgPainel' },
+              { k: 'pgCadastros' }, { k: 'pgTutorial' }];
+  ok(abrirCom(MENU, false) === 'pgTutorial',
+    'abrindo o painel, a pessoa cai no Tutorial App — e não no primeiro item do menu',
+    abrirCom(MENU, false));
+  /* A VOLTA. Hoje ninguém fica sem o Tutorial — ele é das que não se concedem —, mas a
+     regra pode mudar, e abertura fixa numa página escondida é uma tela em branco. */
+  ok(abrirCom([{ k: 'pgRetornos' }, { k: 'pgTutorial', escondido: true }], false) ===
+     'pgRetornos',
+    'e quem não tiver essa página cai no primeiro item que sobrou, em vez de numa tela ' +
+    'em branco',
+    abrirCom([{ k: 'pgRetornos' }, { k: 'pgTutorial', escondido: true }], false));
+  /* A RENOVAÇÃO DA SESSÃO passa por aqui segundos depois da abertura. Sem esta guarda,
+     ela arrancaria quem já estava lendo outra página e a jogaria de volta no manual. */
+  ok(abrirCom(MENU, true) === '',
+    'e com uma página já aberta nada é clicado — a renovação da sessão passa por aqui ' +
+    'e arrancaria a pessoa do que ela estava lendo', abrirCom(MENU, true));
+  /* As duas buscas exigem o botão VISÍVEL. Sem isso, o menu de mentira continuaria
+     respondendo certo e o navegador abriria numa aba escondida. */
+  ok((trechoAb.match(/:not\(\[style\*="none"\]\)/g) || []).length === 2,
+    'e as duas buscas exigem o botão visível — sem isso a abertura cairia numa aba que ' +
+    'a peneira de permissão acabou de esconder');
+
   /* ---- 3. O PAPEL, RODADO ----
      Cada frase diz onde a conta depende daquela pessoa. Lido no arquivo, o teste não
      responderia "qual frase esta pessoa vê?", que é a única pergunta que importa. */

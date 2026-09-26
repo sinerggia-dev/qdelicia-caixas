@@ -1587,7 +1587,28 @@
     /* Idem: o titulo do modulo acompanha os itens. Aqui isso pesa mais — sao tres
        modulos, e quem nao e admin perde Sistema inteiro. */
     Q.gruposDaNavegacao('#abas');
-    var primeira = document.querySelector('#abas button[data-pagina]:not([style*="none"])');
+    /* ================= A PÁGINA DE ABERTURA =================
+     *
+     * O painel abre no TUTORIAL APP, e não no primeiro item do menu.
+     *
+     * A ESCOLHA É POR NOME, e não por posição. "A primeira do menu" era uma regra que
+     * mudava sozinha: arrastar um item na navegação trocava a página de abertura sem
+     * que ninguém tivesse pedido, e foi assim que a abertura já virou "Painel de
+     * Ativos" no dia em que a ordem do menu foi reorganizada.
+     *
+     * E TEM VOLTA. A busca exige o botão VISÍVEL: quem não tiver a página — hoje
+     * ninguém, porque ela é das que não se concedem, mas a regra pode mudar — cai no
+     * primeiro item que sobrou, que é o comportamento de antes. Abertura fixa numa
+     * página escondida deixaria a pessoa numa tela em branco.
+     *
+     * O `!...ativa` de sempre fica: ele é o que impede a RENOVAÇÃO da sessão, que passa
+     * por aqui segundos depois, de arrancar quem já estava lendo outra página e jogá-la
+     * de volta no manual. */
+    var ABERTURA = 'pgTutorial';
+    var visivel = '#abas button[data-pagina]:not([style*="none"])';
+    var primeira =
+      document.querySelector('#abas button[data-pagina="' + ABERTURA + '"]:not([style*="none"])') ||
+      document.querySelector(visivel);
     if (primeira && !document.querySelector('#abas button.ativa')) primeira.click();
 
     /* A peneira rodou: o aviso sai. Deixado na tela, ele diria que ainda esta carregando
