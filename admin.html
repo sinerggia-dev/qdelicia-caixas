@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=cc608628">
+<link rel="stylesheet" href="styles.css?v=6661e53b">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -305,14 +305,6 @@
           <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"></path>
         </svg>
         <span class="nav-rotulo">Aparência</span>
-      </button>
-      <button data-grupo="Sistema" style="display:none" data-pagina="pgTutorial" data-acima="Sistema">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path>
-          <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H12v16h5.5a2.5 2.5 0 0 1 2.5 2.5z"></path>
-        </svg>
-        <span class="nav-rotulo">Tutorial App</span>
       </button>
     </nav>
 
@@ -995,26 +987,6 @@
 
   </section>
 
-  <!-- ---------- TUTORIAL ---------- -->
-  <!-- O MESMO TEXTO DA APRESENTAÇÃO, e não uma segunda explicação escrita aqui. Duas
-       cópias divergem no dia em que uma é corrigida, e o sistema passa a se explicar de
-       dois jeitos conforme a porta por onde a pessoa entrou. Quem monta é o `app.js`. -->
-  <section id="pgTutorial" class="pagina">
-    <div class="card">
-      <h2>Tutorial App<span class="sub">A mesma apresentação que aparece no primeiro
-        acesso. Ela fica aqui para reler quando quiser — e para mostrar a alguém.</span></h2>
-      <div id="tutorialTexto"></div>
-      <div class="linha-btn">
-        <button class="btn neutro" type="button" id="btnVerBoasVindas">
-          Ver a tela de boas-vindas</button>
-      </div>
-      <!-- O ATALHO PARA REAPRESENTAR A OUTRA PESSOA fica aqui porque é aqui que alguém
-           está quando pensa nisso. Ele só aparece para quem cuida dos cadastros: mudar a
-           marca de OUTRA pessoa é do escritório. -->
-      <p class="sub" id="tutorialNota" hidden></p>
-    </div>
-  </section>
-
   <!-- ---------- CADASTROS ---------- -->
   <section id="pgCadastros" class="pagina">
     <div class="card" id="cardPedidos" style="display:none;border-left:3px solid var(--ambar)" data-cad="pedidos">
@@ -1100,7 +1072,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=773cd8d1"></script>
+<script src="app.js?v=210eaf47"></script>
 <script>
 (function(){
   'use strict';
@@ -1285,68 +1257,10 @@
       var atual = renovarSessao() || s;
       aplicarSessao(atual);
       ajustarAbasPainel(atual);
-      /* AS BOAS-VINDAS SÓ AQUI, e não lá em cima: `abasPermitidas` lê o catálogo de
-         páginas, e o catálogo chega com a EQUIPE. Chamada antes, ela recebia lista
-         vazia e escrevia "seu usuário ainda não tem nenhuma permissão" — para o
-         administrador, na primeira tela que ele viu. O mesmo motivo do
-         `if (!ABAS_PAINEL.length) return;` que já existe no `ajustarAbasPainel`.
-         E a sessão é a RENOVADA: é nela que vem a marca de já ter visto. */
-      mostrarBoasVindas(atual);
-      desenharTutorial(atual);
     });
     Q.carregarDados().then(function(d){ DADOS=d; ordenarTudo(); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
   }
-  /* O TUTORIAL MOSTRA A MESMA APRESENTAÇÃO da tela de boas-vindas, e o botão abre a
-     tela inteira — com o cartão de quem entrou, as pendências e os atalhos. Rever a
-     apresentação NÃO mexe na marca de "já viu": quem veio aqui de propósito não está
-     no primeiro acesso, e regravar a marca seria escrever no cadastro por causa de uma
-     leitura. */
-  function desenharTutorial(s){
-    var cx = document.getElementById('tutorialTexto');
-    if (!cx) return;
-    cx.innerHTML = Q.apresentacaoHTML(abasPermitidas(s));
-    var nota = document.getElementById('tutorialNota');
-    if (nota){
-      /* Só para quem cuida dos cadastros: mudar a marca de OUTRA pessoa é do escritório,
-         e oferecer o caminho a quem não pode seria oferecer uma porta trancada. */
-      nota.hidden = !Q.ehAdmin();
-      nota.innerHTML = 'Para que esta apresentação volte a aparecer no primeiro acesso ' +
-        'de alguém, vá em <b>Cadastros → editar usuário → Boas-vindas</b>.';
-    }
-  }
-
-  /* A TELA DE BOAS-VINDAS DESTE APP. Os atalhos saem das MESMAS abas que a navegação
-     calculou — escritos à parte, ofereceriam caminho para uma página que o menu
-     esconde, e o toque levaria a lugar nenhum. */
-  /* OS ATALHOS SAEM NA ORDEM DO MENU, e não na do catálogo do servidor. As duas
-     existiam e eram diferentes: a tela oferecia "Painel de Ativos, Painel, Extratos,
-     Ajuste Estoque…" e a lateral, um toque depois, mostrava outra sequência. Quem
-     aprende uma ordem procura por ela na outra tela.
-     A ordem sai do PRÓPRIO menu, lido do documento — uma segunda lista escrita aqui
-     divergiria no dia em que alguém arrastasse um item de lugar. */
-  function naOrdemDoMenu(chaves){
-    var menu = [];
-    document.querySelectorAll('#abas button[data-pagina]').forEach(function(b){
-      menu.push(b.dataset.pagina);
-    });
-    var ordenadas = menu.filter(function(k){ return chaves.indexOf(k) >= 0; });
-    /* O que o menu não conhece vai para o fim, e não some: é a mesma regra do atalho de
-       permissão desconhecida — sumir faria a pessoa achar que perdeu acesso. */
-    return ordenadas.concat(chaves.filter(function(k){ return menu.indexOf(k) < 0; }));
-  }
-
-  function mostrarBoasVindas(s){
-    Q.boasVindas({
-      pode: naOrdemDoMenu(abasPermitidas(s)),
-      painel: PAINEL,
-      aoIr: function(k){
-        var b = document.querySelector('#abas button[data-pagina="' + k + '"]');
-        if (b) b.click();
-      }
-    });
-  }
-
   /* O id de quem esta olhando, quando o painel dela e restrito — e string vazia quando
      nao e. Uma funcao so, e nao `s.soProprios ? s.id : ''` espalhado por quatro pedidos:
      espalhado, o quinto pedido nasce sem o recorte e mostra a todos o que os outros
@@ -1400,9 +1314,6 @@
          passaria a ver tudo no primeiro recarregamento — calada. */
       ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
       soProprios: u.SoProprios === true,
-      /* A MARCA DAS BOAS-VINDAS acompanha a sessao renovada. Faltando aqui, a primeira
-         renovacao a apagaria e a apresentacao voltaria a aparecer. */
-      viuBoasVindas: u.ViuBoasVindas === true,
       verLancamentos: u.VerLancamentos !== false,
       usuariosVistos: lista(u.UsuariosVistos)
     };
@@ -1469,19 +1380,6 @@
    * o menu já não oferece estas duas a mais ninguém. */
   var PAGINAS_DO_ADMIN = ['pgColunas', 'pgAparencia'];
 
-  /* ================= AS PÁGINAS QUE NÃO SE CONCEDEM =================
-   *
-   * O manual não mostra dado nenhum e não muda nada: é a explicação do próprio sistema.
-   * Marcar quem pode LER o manual seria decidir quem pode entender o que faz — e a
-   * pessoa que mais precisa dele é justamente a que acabou de chegar e não tem marca
-   * nenhuma.
-   *
-   * É UMA TERCEIRA REGRA, e não um caso do `PAGINAS_DO_ADMIN`: aquela diz "só o
-   * administrador"; esta diz "todo mundo que entra". As duas existem porque a marca do
-   * cadastro responde bem a uma pergunta só — "esta pessoa pode ver ESTES dados?" — e
-   * nenhuma destas páginas tem dado para ver. */
-  var PAGINAS_SEMPRE = ['pgTutorial'];
-
   /* Quais abas do painel esta pessoa ve. Duas regras, e UMA peneira:
 
        1. Ajustes e Cadastros so para o admin. O conferente e quem gera a divergencia na
@@ -1516,10 +1414,8 @@
        outros, que é o que o menu já fazia sozinho. */
     function comAsDoAdmin(l){
       var v = ids(l).filter(function(x){
-        return PAGINAS_DO_ADMIN.indexOf(x) < 0 && PAGINAS_SEMPRE.indexOf(x) < 0;
+        return PAGINAS_DO_ADMIN.indexOf(x) < 0;
       });
-      /* O manual entra para todo mundo — inclusive para quem não é admin. */
-      v = v.concat(PAGINAS_SEMPRE.filter(function(x){ return ids(base).indexOf(x) >= 0; }));
       if (!Q.ehAdmin()) return v;
       return v.concat(PAGINAS_DO_ADMIN.filter(function(x){
         return ids(base).indexOf(x) >= 0;
@@ -1587,28 +1483,7 @@
     /* Idem: o titulo do modulo acompanha os itens. Aqui isso pesa mais — sao tres
        modulos, e quem nao e admin perde Sistema inteiro. */
     Q.gruposDaNavegacao('#abas');
-    /* ================= A PÁGINA DE ABERTURA =================
-     *
-     * O painel abre no TUTORIAL APP, e não no primeiro item do menu.
-     *
-     * A ESCOLHA É POR NOME, e não por posição. "A primeira do menu" era uma regra que
-     * mudava sozinha: arrastar um item na navegação trocava a página de abertura sem
-     * que ninguém tivesse pedido, e foi assim que a abertura já virou "Painel de
-     * Ativos" no dia em que a ordem do menu foi reorganizada.
-     *
-     * E TEM VOLTA. A busca exige o botão VISÍVEL: quem não tiver a página — hoje
-     * ninguém, porque ela é das que não se concedem, mas a regra pode mudar — cai no
-     * primeiro item que sobrou, que é o comportamento de antes. Abertura fixa numa
-     * página escondida deixaria a pessoa numa tela em branco.
-     *
-     * O `!...ativa` de sempre fica: ele é o que impede a RENOVAÇÃO da sessão, que passa
-     * por aqui segundos depois, de arrancar quem já estava lendo outra página e jogá-la
-     * de volta no manual. */
-    var ABERTURA = 'pgTutorial';
-    var visivel = '#abas button[data-pagina]:not([style*="none"])';
-    var primeira =
-      document.querySelector('#abas button[data-pagina="' + ABERTURA + '"]:not([style*="none"])') ||
-      document.querySelector(visivel);
+    var primeira = document.querySelector('#abas button[data-pagina]:not([style*="none"])');
     if (primeira && !document.querySelector('#abas button.ativa')) primeira.click();
 
     /* A peneira rodou: o aviso sai. Deixado na tela, ele diria que ainda esta carregando
@@ -3777,14 +3652,6 @@
      — o terceiro toque gravaria três vezes. Os botões das duas listas são pegos por
      delegação, na caixa que os contém, justamente porque eles nascem de novo. */
   ligarAparencia();
-  /* O botão do tutorial abre a tela inteira, e não só o texto: o que ele promete é ver
-     COMO ela é, e ela tem mais do que a apresentação. */
-  (function(){
-    var b = document.getElementById('btnVerBoasVindas');
-    if (b) b.addEventListener('click', function(){
-      mostrarBoasVindas(Q.sessao() || {});
-    });
-  })();
   document.getElementById('btnCsvRetornos').addEventListener('click', function(){
     /* O CSV sai com as MESMAS colunas da tela, na mesma ordem — inclusive a que a
        pessoa arrastou e sem as que ela escondeu. Um arquivo com as colunas noutra ordem
@@ -8174,17 +8041,6 @@
         'Na <b>Base Teste</b>, tudo o que a pessoa lançar fica marcado como ensaio e pode '+
         'ser separado ou apagado em bloco depois. Os números continuam somando — a '+
         'separação é de leitura, não de exclusão.</p>'+
-      /* REAPRESENTAR AS BOAS-VINDAS. A marca e da PESSOA, e so ela a liga sozinha —
-         fechando a tela. Desligar e do escritorio, e existe por dois motivos reais:
-         alguem pediu para ver de novo, e alguem que entrou pela primeira vez com pressa
-         e fechou sem ler. Sem este campo, a unica volta seria SQL no banco. */
-      '<label>Boas-vindas</label>'+
-      '<select id="fBoasVindas">'+
-        '<option value="visto"'+(u.ViuBoasVindas === true ? ' selected' : '')+
-          '>Já viu a apresentação</option>'+
-        '<option value="mostrar"'+(u.ViuBoasVindas === true ? '' : ' selected')+
-          '>Mostrar no próximo acesso</option>'+
-      '</select>'+
       // O usuário curto deixou de ser coisa só do painel: é com ele que a pessoa entra
       // no app de lançamento. Por isso sobe para cá, junto da senha do app.
       '<label>Usuário <span style="font-weight:400;color:var(--txt3)">— é o que a pessoa digita para entrar</span></label>'+
@@ -8571,7 +8427,6 @@
            AQUI, num lugar so: espalhada, um caminho esqueceria e a pessoa nasceria
            em Producao sem ninguem ter escolhido. */
         Teste:(document.getElementById('fBase').value === 'teste'),
-        ViuBoasVindas:(document.getElementById('fBoasVindas').value === 'visto'),
         /* O seletor tem tres valores e a gravacao tem duas colunas. A traducao mora
            AQUI, num lugar so: espalhada, "PROPRIOS" viraria acesso desligado em algum
            caminho esquecido, e a pessoa perderia o painel sem ninguem entender. */

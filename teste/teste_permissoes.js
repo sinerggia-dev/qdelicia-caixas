@@ -330,22 +330,20 @@ function listaDe(nome) {
   return m ? JSON.parse(m[1].replace(/'/g, '"')) : null;
 }
 var DO_ADMIN = listaDe('PAGINAS_DO_ADMIN');
-var SEMPRE = listaDe('PAGINAS_SEMPRE');
-ok(Array.isArray(DO_ADMIN) && Array.isArray(SEMPRE) && L.ABAS.length > 5,
-  'a conferência leu o catálogo do servidor e as duas listas de exceção do painel — ' +
-  'lista vazia faria as provas abaixo passarem sem peneirar nada',
-  'doAdmin=' + DO_ADMIN + ' sempre=' + SEMPRE + ' abas=' + L.ABAS.length);
+ok(Array.isArray(DO_ADMIN) && L.ABAS.length > 5,
+  'a conferência leu o catálogo do servidor e a lista de exceção do painel — lista ' +
+  'vazia faria as provas abaixo passarem sem peneirar nada',
+  'doAdmin=' + DO_ADMIN + ' abas=' + L.ABAS.length);
 
 function peneirar(marcadas, ehAdmin) {
-  return new Function('ABAS_PAINEL', 'PAGINAS_DO_ADMIN', 'PAGINAS_SEMPRE', 'Q',
+  return new Function('ABAS_PAINEL', 'PAGINAS_DO_ADMIN', 'Q',
     peneira + '\n return abasPermitidas;')(
-      L.ABAS, DO_ADMIN, SEMPRE, { ehAdmin: function () { return ehAdmin; } })(
+      L.ABAS, DO_ADMIN, { ehAdmin: function () { return ehAdmin; } })(
       { abas: marcadas });
 }
-/* AS PÁGINAS QUE SE CONCEDEM: o catálogo menos as que não passam por marca nenhuma.
-   É sobre ELAS que a garantia fala. */
-var CONCEDIVEIS = L.ABAS.map(function (a) { return a.ID; })
-  .filter(function (k) { return SEMPRE.indexOf(k) < 0; });
+/* AS PÁGINAS QUE SE CONCEDEM: hoje, o catálogo inteiro. Houve um dia em que uma delas
+   não passava por marca nenhuma — o manual —, e essa exceção saiu junto com ele. */
+var CONCEDIVEIS = L.ABAS.map(function (a) { return a.ID; });
 
 var deMarcaTorta = peneirar(['pgQueNaoExisteMais'], false);
 ok(deMarcaTorta.filter(function (k) { return CONCEDIVEIS.indexOf(k) >= 0; }).length === 0,

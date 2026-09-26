@@ -2089,9 +2089,9 @@ console.log('\n== quais abas do painel a pessoa ve ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
 
-  /* NOVE: a Aparência virou página própria (uma mexe no SALDO, a outra na COR) e o
-     Tutorial App entrou depois. */
-  ok(F.ABAS.length === 9 && F.ABAS[0].ID === 'pgRetornos',
+  /* OITO: a Aparência virou página própria — uma mexe no SALDO, a outra na COR. O
+     Tutorial App esteve aqui por um dia e saiu a pedido do escritório. */
+  ok(F.ABAS.length === 8 && F.ABAS[0].ID === 'pgRetornos',
     'a lista de abas mora no servidor, uma so para o formulario e para a tela',
     F.ABAS.map((a) => a.ID));
   /* Ajustes e Cadastros vem marcadas como SENSIVEIS na propria lista. Deixar isso

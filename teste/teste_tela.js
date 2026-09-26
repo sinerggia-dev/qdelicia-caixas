@@ -1591,11 +1591,10 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
               /* As duas que o PERFIL governa entram no catálogo de teste: é com elas
                  que o caso relatado acontece. */
               { ID: 'pgColunas', Nome: 'Colunas' },
-              { ID: 'pgAparencia', Nome: 'Aparência' },
-              { ID: 'pgTutorial', Nome: 'Tutorial App' }];
+              { ID: 'pgAparencia', Nome: 'Aparência' }];
 
-  /* AS DUAS LISTAS SÃO LIDAS DO ARQUIVO, e não escritas aqui. Escritas, a bancada mede
-     o VALOR QUE EU DIGITEI: esvaziei a `PAGINAS_SEMPRE` de verdade e as asserções
+  /* A LISTA É LIDA DO ARQUIVO, e não escrita aqui. Escrita, a bancada mede o VALOR QUE
+     EU DIGITEI: numa versão anterior esvaziei a lista de verdade e as asserções
      continuaram verdes, porque elas rodavam com a minha cópia. Medido — o defeito
      escapou. */
   function listaDe(nome) {
@@ -1604,36 +1603,19 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
                    .filter(function (x) { return !!x; }) : [];
   }
   var LISTA_ADMIN = listaDe('PAGINAS_DO_ADMIN');
-  var LISTA_SEMPRE = listaDe('PAGINAS_SEMPRE');
-  ok(LISTA_ADMIN.length > 0 && LISTA_SEMPRE.length > 0,
-    'a leitura achou as duas listas de páginas no arquivo — sem isto a bancada abaixo ' +
-    'roda com listas vazias e aprova qualquer coisa',
-    { admin: LISTA_ADMIN, sempre: LISTA_SEMPRE });
+  ok(LISTA_ADMIN.length > 0,
+    'a leitura achou a lista de páginas do escritório no arquivo — sem isto a bancada ' +
+    'abaixo roda com lista vazia e aprova qualquer coisa', LISTA_ADMIN);
 
   function pode(ehAdmin, marcadas) {
     /* `PAGINAS_DO_ADMIN` entra na bancada porque a peneira a LÊ. Nenhuma das abas de
        teste está nela, então as contas abaixo não mudam — o que muda é que a função
        roda em vez de estourar. */
-    var fn = new Function('ABAS_PAINEL', 'Q', 'PAGINAS_DO_ADMIN', 'PAGINAS_SEMPRE',
+    var fn = new Function('ABAS_PAINEL', 'Q', 'PAGINAS_DO_ADMIN',
       fonte + ' return abasPermitidas;')(
-      ABAS, { ehAdmin: function () { return ehAdmin; } }, LISTA_ADMIN, LISTA_SEMPRE);
+      ABAS, { ehAdmin: function () { return ehAdmin; } }, LISTA_ADMIN);
     return fn({ abas: marcadas }).join(',');
   }
-  /* `pode` TIRA AS QUE NÃO SE CONCEDEM, e `podeTudo` devolve a lista crua.
-     As asserções abaixo são sobre a regra da MARCA — "marcar é conceder" — e o manual
-     não passa por ela. Misturado, ele entraria em todas as comparações e cada uma
-     passaria a cobrar duas regras ao mesmo tempo; no dia em que uma delas quebrasse,
-     não daria para saber qual. O manual tem as suas, logo abaixo. */
-  var podeCru = pode;
-  /* Chama a CRUA. Chamando `pode`, ele pegaria a versão filtrada — que é reatribuída
-     logo abaixo — e devolveria justamente a lista sem o manual que ele existe para
-     mostrar. Medido: as três asserções do tutorial reprovaram. */
-  function podeTudo(ehAdmin, marcadas) { return podeCru(ehAdmin, marcadas); }
-  pode = function (ehAdmin, marcadas) {
-    return podeCru(ehAdmin, marcadas).split(',')
-      .filter(function (x) { return x && x !== 'pgTutorial'; }).join(',');
-  };
-
   ok(pode(false, []) === '',
     'sem marca, nenhuma aba — marcar é conceder', pode(false, []));
   ok(pode(true, []) === 'pgRetornos,pgPainel,pgLancar,pgCadastros,pgColunas,pgAparencia',
@@ -1641,33 +1623,6 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
     pode(true, []));
   ok(pode(false, ['pgPainel']) === 'pgPainel',
     'com marca que alcança, vale a marca', pode(false, ['pgPainel']));
-
-  /* ---- O MANUAL NÃO SE CONCEDE ----
-   *
-   * O Tutorial não mostra dado nenhum e não muda nada: é a explicação do próprio
-   * sistema. Marcar quem pode LÊR o manual seria decidir quem pode entender o que faz —
-   * e a pessoa que mais precisa dele é justamente a que acabou de chegar e não tem marca
-   * nenhuma. Por isso ele não segue a marca NEM o perfil.
-   *
-   * SÃO TRÊS REGRAS, e cada uma responde a uma pergunta diferente: a marca diz "esta
-   * pessoa pode ver ESTES dados?"; `PAGINAS_DO_ADMIN` diz "isto é do escritório";
-   * `PAGINAS_SEMPRE` diz "isto não é dado". As asserções abaixo cobram que as três não
-   * se confundam. */
-  ok(podeTudo(false, ['pgPainel']).split(',').indexOf('pgTutorial') >= 0,
-    'quem NÃO é admin enxerga o Tutorial — o manual é de quem acabou de chegar, e quem ' +
-    'acabou de chegar não tem marca nenhuma', podeTudo(false, ['pgPainel']));
-  ok(podeTudo(true, ['pgPainel']).split(',').indexOf('pgTutorial') >= 0,
-    'e o admin também', podeTudo(true, ['pgPainel']));
-  /* E ELE NÃO VIRA UM "TODO MUNDO VÊ TUDO": o resto continua valendo pela marca. */
-  ok(podeTudo(false, ['pgPainel']).split(',').indexOf('pgCadastros') < 0,
-    'e isso não abre o resto: Cadastros continua só por marca',
-    podeTudo(false, ['pgPainel']));
-  /* NÃO DUPLICA. Marcado no cadastro E sempre concedido, ele entraria duas vezes e o
-     menu desenharia dois botões para a mesma página. */
-  var comMarca = podeTudo(false, ['pgTutorial', 'pgPainel']).split(',');
-  ok(comMarca.filter(function (x) { return x === 'pgTutorial'; }).length === 1,
-    'e marcá-lo no cadastro não o duplica — duas entradas dariam dois botões para a ' +
-    'mesma página', comMarca);
 
   /* ---- O CASO RELATADO: o grupo SISTEMA sumiu da tela ----
    *
@@ -5639,10 +5594,10 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
     var estado = { sessao: guardada, saiu: false, aviso: '' };
     var relogio = [];
     var api = new Function('EQUIPE', 'EQUIPE_CHEGOU', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN',
-      'PAGINAS_SEMPRE', 'Q', 'setTimeout',
+      'Q', 'setTimeout',
       'return (function(){' + fontes.join('\n') +
       '\n return { renovar: renovarSessao, abas: abasPermitidas }; })();')(
-      equipe, chegou, L.ABAS, ['pgColunas', 'pgAparencia'], ['pgTutorial'],
+      equipe, chegou, L.ABAS, ['pgColunas', 'pgAparencia'],
       { sessao: function () { return estado.sessao; },
         entrar: function (u) { estado.sessao = u; },
         sair: function () { estado.saiu = true; },
@@ -5667,9 +5622,7 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
                 abas: ['pgRetornos'] };
 
   var r = roda([NESTOR], true, velha, false);
-  /* O TUTORIAL ENTRA NO FIM, e não por marca: ele não se concede. Ele aparece aqui para
-     quem NÃO é admin, que é justamente o ponto — o manual é de quem acabou de chegar. */
-  ok(r.abas.join(',') === 'pgRetornos,pgPainel,pgExtrato,pgLancar,pgMovimentos,pgTutorial',
+  ok(r.abas.join(',') === 'pgRetornos,pgPainel,pgExtrato,pgLancar,pgMovimentos',
     'a marca nova do cadastro vale sem a pessoa sair e entrar — a sessão guardada é uma ' +
     'foto do login, e sozinha ela congela a permissão do dia em que a pessoa entrou',
     r.abas);
@@ -7704,9 +7657,8 @@ console.log('\n== as abas do painel obedecem ao cadastro ==');
   ];
   function monta(ehAdmin) {
     var Q = { ehAdmin: function () { return ehAdmin; } };
-    return new Function('Q', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN', 'PAGINAS_SEMPRE',
-      fonte + ' return abasPermitidas;')(Q, ABAS, ['pgColunas', 'pgAparencia'],
-      ['pgTutorial']);
+    return new Function('Q', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN',
+      fonte + ' return abasPermitidas;')(Q, ABAS, ['pgColunas', 'pgAparencia']);
   }
 
   var admin = monta(true), gente = monta(false);
@@ -8101,8 +8053,7 @@ console.log('\n== a navegação separada por módulo ==');
 
   ok(pares === 'pgRetornos>Painel de Ativos | pgMovimentos>Movimentos | pgPainel>Painel' +
                 ' | pgCadastros>Cadastros | pgColunas>Colunas | pgExtrato>Extratos' +
-                ' | pgLancar>Ajuste Estoque | pgAparencia>Aparência' +
-                ' | pgTutorial>Tutorial App',
+                ' | pgLancar>Ajuste Estoque | pgAparencia>Aparência',
     'o menu do painel está na ordem pedida, e cada rótulo abre a página dele', pares);
 
   /* O título do módulo é VERDE, e pelo token — cor solta ali escaparia da medição de
@@ -11015,457 +10966,6 @@ console.log('\n== a aparência: cor da marca e fundo ==');
     'o cartão de aparência é só de administrador');
   ok(/if \(atalho\) atalho\.hidden = !pode;/.test(adm),
     'e o atalho da lateral some junto — visível e recusado seria pior que ausente');
-})();
-
-console.log('\n== a tela de boas-vindas ==');
-(function () {
-  var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-  var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
-  var api = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
-  var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
-  var mig = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
-  var sup = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
-  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
-
-  /* ---- 1. UMA TELA SÓ PARA OS DOIS APPS ----
-     Duas cópias do mesmo texto divergem no dia em que uma é corrigida e a outra não, e
-     quem lança no galpão passa a ler uma explicação diferente da que o escritório lê. */
-  ok(/function boasVindas\(opts\)/.test(app),
-    'a tela de boas-vindas mora no `app.js`, uma só para os dois apps');
-  ok(/Q\.boasVindas\(\{/.test(idx) && /Q\.boasVindas\(\{/.test(adm),
-    'e os dois apps a chamam — o de lançamento e o painel');
-  ok(!/Caixa parada no cliente/.test(idx) && !/Caixa parada no cliente/.test(adm),
-    'e o texto não está copiado em nenhum dos dois: ele vive num lugar só');
-  /* E A TELA DE BOAS-VINDAS USA A MESMA PEÇA. Sem esta linha, ela podia parar de mostrar
-     a apresentação inteira e nada reclamava: o texto continuava existindo, no Tutorial,
-     e a asserção acima só cobra que ele não esteja COPIADO. Medido: o defeito escapou. */
-  ok(/\(primeiro \? apresentacaoHTML\(pode\) : ''\)/.test(app),
-    'e a tela de boas-vindas monta a apresentação pela mesma peça do Tutorial — no ' +
-    'primeiro acesso ela é o motivo de a tela existir');
-
-  /* ---- 2. O QUE A PESSOA PODE, E NÃO UMA LISTA ESCRITA À PARTE ----
-     Escrita à parte, ela ofereceria um atalho para uma página que o menu esconde, e o
-     toque levaria a lugar nenhum. */
-  ok(/pode: naOrdemDoMenu\(abasPermitidas\(s\)\)/.test(adm),
-    'no painel, os atalhos saem das MESMAS abas que a navegação calculou');
-  /* E NA ORDEM DO MENU. As duas ordens existiam e eram diferentes: a tela oferecia
-     "Painel de Ativos, Painel, Extratos, Ajuste Estoque…" e a lateral, um toque depois,
-     mostrava outra sequência — porque uma vinha do catálogo do servidor e a outra da
-     ordem dos botões. Quem aprende uma procura por ela na outra tela. */
-  var iOM = adm.indexOf('  function naOrdemDoMenu(chaves)');
-  var ordenar = new Function('document',
-    adm.slice(iOM, adm.indexOf('\n  }', iOM) + 4) + '\n return naOrdemDoMenu;')(
-    /* O MENU DE MENTIRA VAI AO CONTRÁRIO de qualquer ordem plausível escrita no código.
-       Com ele na ordem natural, plantei uma lista fixa no lugar da leitura do documento
-       e a asserção passou verde — a lista que plantei acertou a mesma sequência por
-       coincidência. Invertido, só quem lê o documento de verdade acerta. */
-    { querySelectorAll: function () {
-        return ['pgExtrato', 'pgPainel', 'pgMovimentos', 'pgRetornos']
-          .map(function (k) { return { dataset: { pagina: k } }; }); } });
-  ok(ordenar(['pgRetornos', 'pgPainel', 'pgExtrato']).join(',') ===
-     'pgExtrato,pgPainel,pgRetornos',
-    'e na ORDEM DO MENU — aprender uma ordem aqui e achar outra na lateral faz procurar ' +
-    'o atalho onde ele não está', ordenar(['pgRetornos', 'pgPainel', 'pgExtrato']));
-  /* E A ORDEM SAI DO DOCUMENTO, não de uma lista escrita ao lado: escrita, ela
-     divergiria no dia em que alguém arrastasse um item de lugar no menu. */
-  ok(/querySelectorAll\('#abas button\[data-pagina\]'\)/.test(
-       adm.slice(adm.indexOf('function naOrdemDoMenu'),
-                 adm.indexOf('function naOrdemDoMenu') + 500)),
-    'e ela lê o próprio menu — uma segunda lista escrita à mão divergiria no dia em que ' +
-    'alguém arrastasse um item de lugar');
-  ok(ordenar(['pgPainel', 'pgDesconhecida']).join(',') === 'pgPainel,pgDesconhecida',
-    'e o que o menu não conhece vai para o FIM, e não some — sumindo, a pessoa acharia ' +
-    'que perdeu acesso', ordenar(['pgPainel', 'pgDesconhecida']));
-  ok(/s\.operacoes/.test(idx),
-    'e no app de campo saem das operações liberadas para a pessoa');
-
-  /* ---- 2b. A PÁGINA DE ABERTURA, RODADA ----
-   *
-   * O painel abre no Tutorial App. Lido no arquivo, o teste responderia "a palavra
-   * `pgTutorial` está escrita ali?" — e ela estaria mesmo se a busca por nome tivesse
-   * sido trocada pela primeira aba do menu. A pergunta que importa é outra: ABRINDO O
-   * PAINEL, EM QUAL PÁGINA A PESSOA CAI?
-   *
-   * O menu de mentira NÃO começa pelo Tutorial: se começasse, "a primeira do menu" e "a
-   * escolhida pelo nome" dariam a mesma resposta e o banco não distinguiria as duas. */
-  function menuFalso(itens, temAtiva) {
-    var clicados = [];
-    var botoes = itens.map(function (i) {
-      return { k: i.k, escondido: !!i.escondido,
-               click: function () { clicados.push(i.k); } };
-    });
-    return { clicados: clicados, doc: { querySelector: function (sel) {
-      if (sel.indexOf('.ativa') >= 0) return temAtiva ? {} : null;
-      var vivos = botoes.filter(function (b) { return !b.escondido; });
-      var m = sel.match(/data-pagina="([^"]+)"/);
-      if (m) return vivos.filter(function (b) { return b.k === m[1]; })[0] || null;
-      return vivos[0] || null;
-    } } };
-  }
-  /* A ÂNCORA NÃO LEVA O VALOR. Presa a `= 'pgTutorial'`, trocar a página de abertura
-     esvaziava o RECORTE, e a falha saía como "recorte vazio" — que não diz o que houve.
-     Solta, a mesma troca falha pela garantia, dizendo em qual página a pessoa caiu. */
-  var iAb = adm.indexOf('    var ABERTURA =');
-  var fimAb = adm.indexOf('primeira.click();', iAb);
-  var trechoAb = iAb >= 0 && fimAb > iAb
-    ? adm.slice(iAb, fimAb + 'primeira.click();'.length) : '';
-  ok(trechoAb.length > 60 && trechoAb.length < 900,
-    'a conferência achou o trecho que escolhe a página de abertura — recorte vazio ' +
-    'faria as três provas abaixo passarem sem rodar nada', trechoAb.length);
-  function abrirCom(itens, temAtiva) {
-    var f = menuFalso(itens, temAtiva);
-    new Function('document', trechoAb)(f.doc);
-    return f.clicados.join(',');
-  }
-  var MENU = [{ k: 'pgRetornos' }, { k: 'pgMovimentos' }, { k: 'pgPainel' },
-              { k: 'pgCadastros' }, { k: 'pgTutorial' }];
-  ok(abrirCom(MENU, false) === 'pgTutorial',
-    'abrindo o painel, a pessoa cai no Tutorial App — e não no primeiro item do menu',
-    abrirCom(MENU, false));
-  /* A VOLTA. Hoje ninguém fica sem o Tutorial — ele é das que não se concedem —, mas a
-     regra pode mudar, e abertura fixa numa página escondida é uma tela em branco. */
-  ok(abrirCom([{ k: 'pgRetornos' }, { k: 'pgTutorial', escondido: true }], false) ===
-     'pgRetornos',
-    'e quem não tiver essa página cai no primeiro item que sobrou, em vez de numa tela ' +
-    'em branco',
-    abrirCom([{ k: 'pgRetornos' }, { k: 'pgTutorial', escondido: true }], false));
-  /* A RENOVAÇÃO DA SESSÃO passa por aqui segundos depois da abertura. Sem esta guarda,
-     ela arrancaria quem já estava lendo outra página e a jogaria de volta no manual. */
-  ok(abrirCom(MENU, true) === '',
-    'e com uma página já aberta nada é clicado — a renovação da sessão passa por aqui ' +
-    'e arrancaria a pessoa do que ela estava lendo', abrirCom(MENU, true));
-  /* As duas buscas exigem o botão VISÍVEL. Sem isso, o menu de mentira continuaria
-     respondendo certo e o navegador abriria numa aba escondida. */
-  ok((trechoAb.match(/:not\(\[style\*="none"\]\)/g) || []).length === 2,
-    'e as duas buscas exigem o botão visível — sem isso a abertura cairia numa aba que ' +
-    'a peneira de permissão acabou de esconder');
-
-  /* ---- 3. O PAPEL, RODADO ----
-     Cada frase diz onde a conta depende daquela pessoa. Lido no arquivo, o teste não
-     responderia "qual frase esta pessoa vê?", que é a única pergunta que importa. */
-  var iP = app.indexOf('  function papelDe(pode)');
-  var papel = new Function(app.slice(iP, app.indexOf('\n  }', iP) + 4) +
-    '\n return papelDe;')();
-  ok(/opera\u00e7\u00e3o inteira/.test(papel(['pgCadastros'])),
-    'quem cuida dos cadastros lê que enxerga a operação inteira');
-  ok(/feito do que <b>voc\u00ea<\/b> lan\u00e7a/.test(papel(['saida', 'retorno'])),
-    'quem lança os dois lê que o saldo da empresa é feito do que ELE lança');
-  ok(/contagem sua vira o saldo/.test(papel(['retorno'])),
-    'quem só confere o retorno lê que a contagem dele VIRA o saldo');
-  ok(/ponto de partida/.test(papel(['saida'])),
-    'e quem só lança saída lê que é o ponto de partida da conta');
-  ok(/consulta/.test(papel(['pgMovimentos'])),
-    'quem só consulta lê que só consulta — e não uma frase que promete mais do que ele pode');
-  /* AS CINCO SÃO DIFERENTES. Uma frase repetida em dois papéis não ensina nada a
-     ninguém: a pessoa lê o texto do vizinho e conclui que o sistema não a conhece. */
-  var frases = [['pgCadastros'], ['saida', 'retorno'], ['retorno'], ['saida'],
-                ['pgMovimentos']].map(papel);
-  ok(new Set(frases).size === 5,
-    'e as cinco frases são diferentes entre si — repetida, ela deixa de falar com quem lê',
-    new Set(frases).size);
-
-  /* ---- 4. AS PENDÊNCIAS, RODADAS ----
-     Elas saem do que o painel JÁ calcula. O caso que mais importa é o do painel que
-     ainda não chegou: zeros na tela leem como "está tudo certo", e nada foi lido. */
-  var iQ = app.indexOf('  function pendenciasDo(painel)');
-  var pend = new Function('num',
-    app.slice(iQ, app.indexOf('\n  }', iQ) + 4) + '\n return pendenciasDo;')(
-    function (n) { return String(n); });
-
-  ok(pend(null).length === 0 && pend({}).length === 0,
-    'sem painel carregado não há pendência nenhuma — zeros na tela leem como "está ' +
-    'tudo certo", e a verdade é que nada foi lido', pend(null));
-
-  var cheio = { totais: { deficit: 2340 },
-                rotas: [{ aging: { vencidas: 120, maisAntiga: 9 } }],
-                locais: [{ aging: { vencidas: 0, maisAntiga: 3 } }] };
-  var r = pend(cheio);
-  ok(r.length === 3, 'com movimento, as três perguntas aparecem', r);
-  ok(/2340 caixas sa\u00edram e n\u00e3o voltaram/.test(r[0]),
-    'o que saiu e não voltou', r[0]);
-  ok(/120 passaram do prazo/.test(r[1]), 'o que passou do prazo do local', r[1]);
-  ok(/h\u00e1 9 dias/.test(r[2]),
-    'e há quantos dias está fora a MAIS antiga — 9, e não os 3 da outra linha', r[2]);
-
-  /* Tudo em dia não inventa pendência: a tarja some. */
-  ok(pend({ totais: { deficit: 0 }, rotas: [{ aging: { vencidas: 0, maisAntiga: 0 } }] })
-       .length === 0,
-    'e com tudo em dia a tarja some, em vez de dizer "0 pendências"');
-
-  /* ---- 5. A MARCA É DA PESSOA, e não do aparelho ----
-     No galpão várias usam o mesmo tablet: no aparelho a marca seria de quem entrou
-     antes, e a segunda pessoa nunca veria a apresentação. */
-  ok(/add column if not exists viu_boas_vindas/.test(mig),
-    'a marca de "já viu" é coluna do cadastro');
-  ok(/ViuBoasVindas: r\.viu_boas_vindas === true/.test(sup) &&
-     /viu_boas_vindas = bool\(o\.ViuBoasVindas\)/.test(sup),
-    'e o mapa vai e volta — só de ida, marcar não gravaria; só de volta, nunca leria');
-  ok(/viuBoasVindas: u\.ViuBoasVindas === true/.test(log),
-    'e ela entra na sessão, que é quem decide o que a tela mostra no instante do login');
-  ok(/ViuBoasVindas: u\.ViuBoasVindas === true/.test(log),
-    'e volta na leitura da equipe — sem isso, abrir e salvar um cadastro faria a ' +
-    'apresentação reaparecer');
-  ok(/if \(acao === 'viuBoasVindas'\) return await viuBoasVindas\(p\);/.test(api),
-    'a rota existe e está no despacho');
-  /* UMA ROTA SÓ PARA A MARCA. O `salvarUsuario` grava o registro inteiro: chamado daqui,
-     apagaria perfil, abas e senha — tudo o que esta tela não conhece. */
-  var bv = api.slice(api.indexOf('async function viuBoasVindas'));
-  bv = bv.slice(0, bv.indexOf('\n}\n'));
-  ok(/viu_boas_vindas: true/.test(bv) && !/salvarUsuario/.test(bv),
-    'e ela grava SÓ essa coluna — o `salvarUsuario` gravaria o registro inteiro e ' +
-    'apagaria o que esta tela não conhece');
-  ok(/if \(u\.ViuBoasVindas === true\) return \{ ok: true, jaEstava: true \};/.test(bv),
-    'e não vai ao banco quando já estava marcado');
-
-  /* ---- 6. A REDE DO GALPÃO CAI ----
-     Ninguém pode ficar preso numa apresentação porque o servidor não respondeu. */
-  var fechar = app.slice(app.indexOf('function fechar(){'));
-  fechar = fechar.slice(0, fechar.indexOf('\n    }'));
-  /* `antesDe` EXISTE POR CAUSA DO -1. Escrita como `indexOf(a) < indexOf(b)`, esta linha
-     aprovava o pior caso: sem o `cx.hidden`, o `indexOf` devolve -1, e -1 vem antes de
-     qualquer coisa. A tela passaria a esperar o servidor para fechar e a asserção
-     continuaria verde. É a terceira vez que este mesmo -1 me pega nesta suíte; daqui em
-     diante, ordem se cobra por aqui. */
-  function antesDe(texto, a, b) {
-    var ia = texto.indexOf(a), ib = texto.indexOf(b);
-    return ia >= 0 && ib >= 0 && ia < ib;
-  }
-  ok(antesDe(fechar, 'cx.hidden = true', "acao: 'viuBoasVindas'"),
-    'a tela fecha ANTES de avisar o servidor — esperando a resposta, a rede do galpão ' +
-    'prenderia a pessoa na apresentação');
-  ok(/\.catch\(function \(\) \{\}\)/.test(fechar),
-    'e a falha é engolida: ela reaparece no próximo acesso, que é o erro barato dos dois');
-
-  /* ---- AS PENDÊNCIAS CHEGAM DEPOIS ----
-   *
-   * O painel vem por outra ida à rede, e a tela é desenhada antes dela voltar — então a
-   * tarja nascia sempre vazia e NUNCA aparecia. É o mesmo erro das abas, que chegam com
-   * a equipe: consertei aquele e repeti este ao lado. */
-  /* NOS DOIS APPS. Consertei no painel e esqueci no app de campo — o mesmo defeito, no
-     arquivo ao lado, e a asserção só olhava um deles. */
-  ok(/Q\.pendenciasChegaram\(PAINEL\);/.test(adm) &&
-     /Q\.pendenciasChegaram\(PAINEL\);/.test(idx),
-    'quando o painel chega, a tarja de pendências é escrita nos DOIS apps — desenhada ' +
-    'antes, ela nasce vazia e nunca aparece');
-  ok(/if \(typeof BV_ABERTA === 'function'\) BV_ABERTA\(painel\);/.test(app),
-    'e fechada a tela, escrever nela não faz nada — a pessoa já saiu');
-  ok(/BV_ABERTA = null;/.test(app.slice(app.indexOf('function fechar(){'),
-                                        app.indexOf('function fechar(){') + 200)),
-    'e fechar solta a referência: sem isso o painel que chega depois escreveria numa ' +
-    'tela que não existe mais');
-
-  /* ---- 6b. O MODELO: ÍCONE, SAÍDA E A BARRA GRUDADA ----
-   *
-   * OS ÍCONES SÃO OS MESMOS DO MENU, e não um segundo desenho para a mesma página: a
-   * pessoa vê o ícone aqui e o reencontra na lateral um toque depois. */
-  ok(/var ICO_BV = \{/.test(app) && /<span class="bv-acao__i">/.test(app),
-    'cada atalho leva o ícone da página dele — numa lista de oito, o desenho é o que se ' +
-    'reconhece de longe');
-  /* AS CHAVES SÃO PROCURADAS DENTRO DO MAPA DE ÍCONES, e não no arquivo inteiro. Os dois
-     mapas — o de ícones e o de textos — têm as MESMAS chaves, e procurando solto a busca
-     achava a do texto e dava o ícone por existente. Medido: renomeei a chave do ícone do
-     Extratos e esta asserção passou verde. */
-  var mapaIco = app.slice(app.indexOf('var ICO_BV = {'), app.indexOf('var ACOES_BV = {'));
-  var mapaTxt = app.slice(app.indexOf('var ACOES_BV = {'), app.indexOf('function svgBV'));
-
-  /* ---- AS CHAVES SAEM DO MENU, e não de uma lista escrita AQUI ----
-   *
-   * Escrita aqui, ela media a si mesma. O `Tutorial App` entrou no menu, ficou de fora
-   * dos DOIS mapas, e esta asserção passou verde enquanto o cartão saía na tela da
-   * pessoa com a chave crua `pgTutorial`, a frase de sobra e o traço pontilhado do
-   * "permissão que esta tela não conhece".
-   *
-   * É a MESMA armadilha do `PAGINAS_SEMPRE` injetado no banco: constante copiada para
-   * dentro do teste faz o teste medir a cópia, e a cópia nunca diverge dela mesma.
-   *
-   * O app de campo entra junto porque as duas ações dele — `saida` e `retorno` — não são
-   * páginas do menu e ficariam sem ninguém olhando. */
-  function chavesDe(texto, regra) {
-    var achadas = [], m, re = new RegExp(regra.source, 'g');
-    while ((m = re.exec(texto)) !== null) {
-      if (achadas.indexOf(m[1]) < 0) achadas.push(m[1]);
-    }
-    return achadas;
-  }
-  var doMenu = chavesDe(adm, /data-pagina="(pg[A-Za-z]+)"/);
-  var doCampo = chavesDe(idx, /pode\.push\('([a-z]+)'\)/);
-  /* A GUARDA DA PRÓPRIA LEITURA: se o menu mudar de forma, os recortes voltam vazios e
-     a peneira abaixo passaria verde sem ter olhado nada. Lista vazia é o jeito calado de
-     uma asserção deixar de existir. */
-  ok(doMenu.length >= 8 && doCampo.length === 2,
-    'a conferência lê as ações do menu do painel e do app de campo — recorte vazio ' +
-    'faria a peneira seguinte passar sem olhar nada',
-    'menu=' + doMenu.join(',') + ' campo=' + doCampo.join(','));
-
-  var mudas = doMenu.concat(doCampo).filter(function (k) {
-    return mapaIco.indexOf('\n    ' + k + ':') < 0 ||
-           mapaTxt.indexOf('\n    ' + k + ':') < 0;
-  });
-  ok(mudas.length === 0,
-    'e toda ação que a tela oferece tem ícone E texto — sem um dos dois o cartão sai ' +
-    'com o nome interno da página e a frase de sobra, pontilhado como permissão ' +
-    'desconhecida', mudas);
-  /* O QUADRADINHO PINTADO NA COR DA MARCA. Sem cor, o ícone herda a tinta do texto e o
-     cartão vira um bloco cinza — some justamente a pista que se reconhece de longe. */
-  ok(/\.bv-acao__i\{[^}]*background:var\(--brand-soft\)[^}]*color:var\(--roxo-txt\)/
-     .test(css.replace(/\n\s*/g, '')),
-    'e o quadradinho dele é pintado com a cor da marca — sem ela o cartão vira um bloco ' +
-    'cinza e a pista de reconhecimento some');
-  /* NO CELULAR TUDO EMPILHA. Dois cartões lado a lado em 360px dão 160px cada: o título
-     cabe, a descrição vira quatro linhas, e o cartão fica mais alto do que largo. */
-  ok(/\.bv__passos,\.bv__acoes\{grid-template-columns:1fr\}/.test(css),
-    'e no celular os passos e os atalhos empilham — dois por linha em 360px dão 160px ' +
-    'cada, e a descrição quebra em quatro linhas');
-
-  /* ---- 6c. A TELA EM TODO ACESSO, RODADA ----
-   *
-   * NADA COBRAVA ISSO, e por isso eu consegui trancá-la atrás do primeiro acesso sem
-   * que uma única asserção reclamasse. O escritório teve de me dizer duas vezes.
-   *
-   * AQUI O `app.js` DE PRODUÇÃO É CARREGADO E RODADO, num documento de mentira. Lida no
-   * arquivo, a regra responderia "a palavra `viuBoasVindas` está escrita ali?" — e
-   * estaria, tanto na versão que mostra a tela quanto na que a esconde. A pergunta é
-   * outra: ENTRANDO DE NOVO, A TELA APARECE?
-   *
-   * O documento falso é pequeno de propósito: ele não desenha nada, só registra o que a
-   * função escreveu. Quem mede a APARÊNCIA da tela é a foto no Chrome, não isto. */
-  var vmNode = require('vm');
-  function rodarBoasVindas(viu) {
-    var guardados = {}, guarda = {};
-    function elemento(id) {
-      return { id: id || '', innerHTML: '', textContent: '', value: '', hidden: false,
-        firstChild: null, nodeValue: '', style: {}, dataset: {},
-        classList: { add: function () {}, remove: function () {}, toggle: function () {},
-                     contains: function () { return false; } },
-        setAttribute: function () {}, removeAttribute: function () {},
-        getAttribute: function () { return null; },
-        addEventListener: function () {}, removeEventListener: function () {},
-        appendChild: function (f) { return f; }, insertBefore: function (f) { return f; },
-        remove: function () {}, click: function () {}, focus: function () {},
-        querySelector: function () { return elemento(); },
-        querySelectorAll: function () { return []; } };
-    }
-    var doc = { documentElement: elemento('html'), body: elemento('body'),
-      head: elemento('head'), readyState: 'complete', hidden: false, title: '',
-      getElementById: function (id) {
-        if (!guardados[id]) guardados[id] = elemento(id);
-        return guardados[id];
-      },
-      createElement: function () { return elemento(); },
-      createTextNode: function (s) { var n = elemento(); n.nodeValue = String(s); return n; },
-      querySelector: function () { return null; },
-      querySelectorAll: function () { return []; },
-      addEventListener: function () {}, removeEventListener: function () {} };
-    var armazem = {
-      getItem: function (k) { return guarda[k] === undefined ? null : guarda[k]; },
-      setItem: function (k, v) { guarda[k] = String(v); },
-      removeItem: function (k) { delete guarda[k]; }, clear: function () { guarda = {}; } };
-    guarda['qdc_sessao'] = JSON.stringify({ id: 'U1', nome: 'Natanael', perfil: 'ADMIN',
-      localPadrao: 'L1', viuBoasVindas: viu });
-    guarda['qdc_cache_dados'] = JSON.stringify({ locais: [{ ID: 'L1', Nome: 'Matriz' }] });
-
-    var janela = { document: doc, localStorage: armazem, sessionStorage: armazem,
-      location: { href: 'file:///app', search: '', pathname: '/admin.html',
-                  reload: function () {} },
-      navigator: { userAgent: 'node', onLine: true, language: 'pt-BR' },
-      addEventListener: function () {}, removeEventListener: function () {},
-      matchMedia: function () { return { matches: false, addListener: function () {},
-                                         addEventListener: function () {} }; },
-      setTimeout: function () { return 0; }, clearTimeout: function () {},
-      setInterval: function () { return 0; }, clearInterval: function () {},
-      requestAnimationFrame: function () { return 0; },
-      fetch: function () { return Promise.resolve({ ok: true,
-        text: function () { return Promise.resolve('{}'); } }); },
-      console: console, Promise: Promise, Date: Date, Math: Math, JSON: JSON,
-      innerWidth: 1366, innerHeight: 768, devicePixelRatio: 1 };
-    janela.window = janela; janela.self = janela; janela.globalThis = janela;
-
-    vmNode.runInContext(app, vmNode.createContext(janela), { filename: 'app.js' });
-    if (!janela.QDC || typeof janela.QDC.boasVindas !== 'function') return { erro: 1 };
-    janela.QDC.boasVindas({ pode: ['pgPainel', 'pgCadastros'], painel: { totais: {} } });
-    var tela = guardados['telaBoasVindas'];
-    return { n: tela ? String(tela.innerHTML).length : 0,
-             html: tela ? String(tela.innerHTML) : '' };
-  }
-
-  var bvNovo = rodarBoasVindas(false);
-  var bvVelho = rodarBoasVindas(true);
-  /* A GUARDA DA PRÓPRIA MONTAGEM: sem ela, um `app.js` que nem carregasse daria zero nas
-     duas e a regra passaria verde por não ter rodado nada. */
-  ok(bvNovo.n > 500,
-    'o `app.js` de produção carrega no documento de mentira e desenha a tela no ' +
-    'primeiro acesso — sem isto, as provas abaixo passariam sem rodar nada',
-    bvNovo.n || bvNovo.erro);
-  ok(bvVelho.n > 500,
-    'e ela aparece TAMBÉM em quem já entrou antes — é a tela de entrada do sistema, e ' +
-    'trancá-la atrás do primeiro acesso tira do dia a dia as pendências e os atalhos',
-    bvVelho.n);
-  /* E AS DUAS NÃO SÃO IGUAIS: a apresentação é só do primeiro acesso. Sem esta prova,
-     "as duas aparecem" seria satisfeito pela mesma tela repetida, e a distinção entre
-     apresentar e voltar ao trabalho teria sumido sem ninguém ver. */
-  ok(bvNovo.html.indexOf('bv__intro') >= 0 && bvVelho.html.indexOf('bv__intro') < 0,
-    'e só o primeiro acesso leva a apresentação — quem já entrou vê a saudação, as ' +
-    'pendências e os atalhos, sem os três passos de novo',
-    'primeiro=' + (bvNovo.html.indexOf('bv__intro') >= 0) +
-    ' devolta=' + (bvVelho.html.indexOf('bv__intro') >= 0));
-
-  /* A BARRA GRUDA NO CELULAR. Medido a 360px, antes: a tela tinha 1.152px de altura e
-     era preciso rolar 368px — mais de uma tela — para chegar ao botão. No primeiro
-     acesso ele é a ÚNICA saída, e saída que exige procurar lê como tela travada.
-     Depois: 0px, nos três cenários. */
-  ok(/\.bv__pe\{position:sticky;bottom:0/.test(css),
-    'no celular o rodapé gruda embaixo: o botão de fechar é a única saída, e ele não pode ' +
-    'estar fora da tela');
-  ok(/id="bvDepois"/.test(app),
-    'e existe "Ver depois" no primeiro acesso — quem abriu com pressa não fica com a ' +
-    'sensação de estar sendo obrigado a ler');
-
-  /* ---- 6c. O QUE FALTAVA EM RELAÇÃO AO MODELO ----
-   *
-   * A UNIDADE DA PESSOA. A sessão guarda o ID do local padrão, e não o nome — e a tela
-   * mostrava um campo que não existe, então a linha saía vazia sem ninguém notar. */
-  var iNL = app.indexOf('  function nomeDoLocal(id)');
-  var nomeLocal = new Function('cache',
-    app.slice(iNL, app.indexOf('\n  }', iNL) + 4) + '\n return nomeDoLocal;')(
-    function () { return { locais: [{ ID: 'L1', Nome: 'Matriz São Vicente' }] }; });
-  ok(nomeLocal('L1') === 'Matriz São Vicente',
-    'a unidade da pessoa é procurada pelo id e sai pelo NOME', nomeLocal('L1'));
-  ok(nomeLocal('L9') === '' && nomeLocal('') === '',
-    'e não achando, a linha some em vez de mostrar o id cru — "L003" ao lado do nome da ' +
-    'pessoa não informa nada e parece defeito', JSON.stringify(nomeLocal('L9')));
-  ok(/nomeDoLocal\(s\.localPadrao\)/.test(app),
-    'e a tela lê o campo que a sessão REALMENTE tem — `localNome` não existe nela, e a ' +
-    'linha saía vazia sem ninguém notar');
-
-  /* OS CONTADORES, e só onde o número tem significado exato. */
-  var iCD = app.indexOf('  function contadorDe(chave, painel)');
-  var contador = new Function('num',
-    app.slice(iCD, app.indexOf('\n  }', iCD) + 4) + '\n return contadorDe;')(
-    function (n) { return String(n); });
-  var pnl = { totais: { deficit: 2340, linhas: 24 } };
-  ok(contador('pgRetornos', pnl).n === '2340',
-    'o Painel de Ativos leva quantas caixas estão fora — que é o que o cartão dele promete',
-    contador('pgRetornos', pnl));
-  ok(contador('pgMovimentos', pnl).n === '24',
-    'e Movimentos leva quantas linhas o mês tem', contador('pgMovimentos', pnl));
-  ok(!contador('pgCadastros', pnl) && !contador('pgAparencia', pnl),
-    'e os outros NÃO levam número — um número solto ao lado de "Cadastros" obriga quem ' +
-    'lê a adivinhar o que ele conta');
-  ok(!contador('pgRetornos', { totais: { deficit: 0 } }) &&
-     !contador('pgRetornos', null),
-    'e zero ou sem painel não vira contador — "0" ao lado do atalho parece dado, e o que ' +
-    'há é ausência de dado');
-  ok(/title="' \+ esc\(c\.q\)/.test(app),
-    'cada contador diz no balão o que ele conta');
-
-  /* ---- 7. PERMISSÃO DESCONHECIDA NÃO SOME ----
-     Sumir faria a pessoa achar que perdeu acesso quando o que está velho é a tela. */
-  ok(/bv-acao--nova/.test(app) && /\.bv-acao--nova\{border-style:dashed\}/.test(css),
-    'chave que esta versão não conhece aparece com traço pontilhado, em vez de sumir');
-  ok(/Seu usu\u00e1rio ainda n\u00e3o tem nenhuma permiss\u00e3o/.test(app),
-    'e usuário sem permissão nenhuma lê que é erro de cadastro, em vez de achar uma ' +
-    'tela vazia sem explicação');
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

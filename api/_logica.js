@@ -135,12 +135,6 @@ var ABAS = [
      concede qualquer aba a quem quiser, e uma trava por perfil no catalogo tirava isso
      dele. Ha uma assercao no `teste_api.js` escrita para segurar essa volta. */
   { ID: 'pgAparencia',  Nome: 'Aparência' },
-  /* O MANUAL NAO SE CONCEDE. Ele nao mostra dado nenhum e nao muda nada: e a explicacao
-     do proprio sistema. Marcar quem pode ler o manual seria decidir quem pode entender o
-     que faz — e a pessoa que mais precisa dele e justamente a que acabou de chegar e
-     nao tem marca nenhuma.
-     Por isso ele entra em `PAGINAS_SEMPRE`, na tela: quem entra no painel enxerga. */
-  { ID: 'pgTutorial',   Nome: 'Tutorial App' },
   { ID: 'pgCadastros',  Nome: 'Cadastros', sensivel: true }
 ];
 
@@ -623,7 +617,6 @@ function sessaoDe(u) {
     /* SE JA VIU A APRESENTACAO. Vai na sessao porque e ela que decide o que a tela de
        boas-vindas mostra no instante seguinte ao login — esperar a `equipe` chegar para
        descobrir faria a apresentacao piscar para quem ja a viu. */
-    viuBoasVindas: u.ViuBoasVindas === true,
     /* Se ve lancamentos, e de quem. Lista vazia = TODOS. */
     verLancamentos: u.VerLancamentos !== false,
     usuariosVistos: usuariosVistosDe(u),
@@ -2014,7 +2007,6 @@ function usuariosPublicos(usuarios) {
       /* SE JA VIU A APRESENTACAO. Volta pela mesma razao das outras: a tela abre o
          cadastro, salva, e o que nao voltou na leitura vira `undefined` no registro —
          a pessoa veria as boas-vindas de novo a cada vez que alguem a editasse. */
-      ViuBoasVindas: u.ViuBoasVindas === true,
       /* A BASE VOLTA JUNTO, pela mesma razao do `SoProprios` acima — e a suite pegou
          este exatamente como pegou aquele. Esquecida aqui, o formulario abriria sempre
          em "Base Producao", e a gravacao seguinte passaria a pessoa de ensaio para
