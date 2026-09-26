@@ -78,27 +78,57 @@ eval(corpo('mostrarSaldoDoOrigem') +
 
 console.log('\n== Aviso de saldo na devolução (estava mudo) ==');
 
-/* ---- 6. a origem é uma ROTA: precisa ser achada ---- */
+/* ---- 6. A CAIXA AZUL SAIU, e o silêncio é a garantia ----
+ *
+ * Estas três asserções cobravam o nome da rota, o saldo do caminhão e a idade da mais
+ * antiga dentro de uma caixa que o escritório mandou tirar: ela ficava acesa o tempo
+ * todo, entre o formulário e a contagem, dizendo um número que quem está no pátio não
+ * usa para lançar. Tirada a caixa, elas ficaram vermelhas cobrando o que já não devia
+ * existir — e uma suíte que pede de volta o que foi removido para de ser lida.
+ *
+ * O SILÊNCIO É MEDIDO DE VERDADE, com `=== ''`. "Não tem a palavra `contou`" deixaria a
+ * caixa voltar inteira sem ninguém reclamar. */
 els.dvOrigem.value = 'R1';
 CONTAGEM = [{ tipo: 'CX P', qtd: 10 }];
 mostrarSaldoDoOrigem();
-var aviso = els.dvSaldoAtual.innerHTML;
-ok(aviso.indexOf('Caruaru') >= 0, 'acha a rota e mostra o saldo dela');
-ok(aviso.indexOf('120') >= 0, 'o número é o do caminhão');
-ok(aviso.indexOf('44 dias') >= 0, 'mostra há quanto tempo está a mais antiga');
+ok(els.dvSaldoAtual.innerHTML === '',
+  'origem escolhida e contagem dentro do saldo não escrevem NADA — a caixa de "Saldo ' +
+  'atual de…" saiu a pedido do escritório', els.dvSaldoAtual.innerHTML);
 
-/* ---- 7. contar mais do que o saldo dispara o alerta ---- */
+/* ---- 7. O ALERTA, que é o que ficou ----
+ *
+ * Ele não é a caixa com outro nome: só aparece quando a contagem passa do saldo, e aí o
+ * número deixa de ser informação e vira pergunta — "voltou mais do que saiu?". É uma das
+ * guardas contra saída não lançada.
+ *
+ * E É AQUI QUE A BUSCA NAS ROTAS CONTINUA SENDO COBRADA: `dvOrigem` lista rotas, e o
+ * painel devolve rota FORA de `locais`. Procurando só em `locais`, o alerta nunca
+ * dispararia — foi o defeito que fez este arquivo nascer, e sem a caixa ele só aparece
+ * por aqui. */
 CONTAGEM = [{ tipo: 'CX P', qtd: 500 }];
 mostrarSaldoDoOrigem();
-ok(/contou/.test(els.dvSaldoAtual.innerHTML), 'contagem acima do saldo avisa');
+var aviso = els.dvSaldoAtual.innerHTML;
+ok(/contou/.test(aviso),
+  'contar mais do que o saldo avisa — e avisa numa ROTA, que o painel devolve fora de ' +
+  '`locais`: procurando só ali, esta guarda ficaria muda', aviso);
+/* OS DOIS NÚMEROS NA FRASE. Sem eles o alerta diz que algo está errado e não diz o quê,
+   e quem está no pátio não tem como decidir se conta de novo ou chama o escritório. */
+ok(aviso.indexOf('500') >= 0 && aviso.indexOf('120') >= 0,
+  'e a frase traz o que a pessoa contou E o saldo do caminhão — sem os dois ela diz ' +
+  'que algo está errado sem dizer o quê', aviso);
 CONTAGEM = [{ tipo: 'CX P', qtd: 10 }];
 mostrarSaldoDoOrigem();
 ok(!/contou/.test(els.dvSaldoAtual.innerHTML), 'contagem dentro do saldo não avisa à toa');
 
 /* ---- 8. cliente como origem ainda funciona ---- */
 els.dvOrigem.value = 'C1';
+CONTAGEM = [{ tipo: 'CX P', qtd: 100 }];
 mostrarSaldoDoOrigem();
-ok(els.dvSaldoAtual.innerHTML.indexOf('Mercado Bom Preço') >= 0, 'cliente como origem segue funcionando');
+ok(/contou/.test(els.dvSaldoAtual.innerHTML) &&
+   els.dvSaldoAtual.innerHTML.indexOf('40') >= 0,
+  'e o alerta vale também para um CLIENTE como origem, que mora na outra lista',
+  els.dvSaldoAtual.innerHTML);
+CONTAGEM = [{ tipo: 'CX P', qtd: 10 }];
 
 /* ---- 9. origem desconhecida não quebra ---- */
 els.dvOrigem.value = 'XX';

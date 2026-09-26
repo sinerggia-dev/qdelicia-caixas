@@ -314,10 +314,52 @@ ok(/PIN de seis números é do app de campo/.test(ajuste),
 console.log('\n== a peneira de abas erra para o lado de mostrar ==');
 var peneira = recorta(adm, 'function abasPermitidas(s)');
 ok(peneira.length > 300, 'o recorte pegou a peneira', peneira.length);
-ok(/return ids\(escolhidas\);/.test(peneira) && !/!a\.sensivel/.test(peneira),
-  'marca que não alcança nenhuma aba não concede nada — antes ela caía no padrão e a ' +
-  'pessoa via tudo menos as sensíveis, que é o contrário do que o administrador pediu ' +
-  'ao marcar');
+/* ---- A PENEIRA, RODADA ----
+ *
+ * A asserção que morava aqui cobrava o texto `return ids(escolhidas);` — o ENDEREÇO da
+ * regra, e não a regra. No dia em que a peneira passou a devolver
+ * `comAsDoAdmin(escolhidas)`, a garantia continuou inteira e o teste caiu sozinho: ele
+ * media ONDE a resposta era montada, nunca QUAL resposta saía. Ficou vermelho por
+ * semanas sem defeito nenhum embaixo, que é o jeito de uma suíte deixar de ser lida.
+ *
+ * Agora a peneira ROD A. O catálogo é o do servidor — `L.ABAS`, o mesmo que chega pela
+ * rota `equipe` — e as duas listas de exceção são LIDAS do `admin.html`: copiadas para
+ * cá, elas fariam o teste medir a cópia, e a cópia nunca diverge dela mesma. */
+function listaDe(nome) {
+  var m = adm.match(new RegExp('var ' + nome + ' = (\\[[^\\]]*\\]);'));
+  return m ? JSON.parse(m[1].replace(/'/g, '"')) : null;
+}
+var DO_ADMIN = listaDe('PAGINAS_DO_ADMIN');
+var SEMPRE = listaDe('PAGINAS_SEMPRE');
+ok(Array.isArray(DO_ADMIN) && Array.isArray(SEMPRE) && L.ABAS.length > 5,
+  'a conferência leu o catálogo do servidor e as duas listas de exceção do painel — ' +
+  'lista vazia faria as provas abaixo passarem sem peneirar nada',
+  'doAdmin=' + DO_ADMIN + ' sempre=' + SEMPRE + ' abas=' + L.ABAS.length);
+
+function peneirar(marcadas, ehAdmin) {
+  return new Function('ABAS_PAINEL', 'PAGINAS_DO_ADMIN', 'PAGINAS_SEMPRE', 'Q',
+    peneira + '\n return abasPermitidas;')(
+      L.ABAS, DO_ADMIN, SEMPRE, { ehAdmin: function () { return ehAdmin; } })(
+      { abas: marcadas });
+}
+/* AS PÁGINAS QUE SE CONCEDEM: o catálogo menos as que não passam por marca nenhuma.
+   É sobre ELAS que a garantia fala. */
+var CONCEDIVEIS = L.ABAS.map(function (a) { return a.ID; })
+  .filter(function (k) { return SEMPRE.indexOf(k) < 0; });
+
+var deMarcaTorta = peneirar(['pgQueNaoExisteMais'], false);
+ok(deMarcaTorta.filter(function (k) { return CONCEDIVEIS.indexOf(k) >= 0; }).length === 0,
+  'marca que não alcança nenhuma aba não concede PÁGINA NENHUMA — antes ela caía no ' +
+  'padrão e a pessoa via tudo menos as sensíveis, que é o contrário do que o ' +
+  'administrador pediu ao marcar', deMarcaTorta);
+/* E A MARCA BOA CONTINUA VALENDO. Sem esta, "não concede nada" seria satisfeito por uma
+   peneira que não concede nada a ninguém — e o painel inteiro ficaria vazio, calado. */
+ok(peneirar(['pgPainel'], false).indexOf('pgPainel') >= 0,
+  'e a marca que ALCANÇA uma aba concede aquela aba — sem esta prova, uma peneira que ' +
+  'nega tudo passaria pela de cima', peneirar(['pgPainel'], false));
+ok(!/!a\.sensivel/.test(peneira),
+  'e nenhuma aba é negada por ser sensível: o administrador concede qualquer uma a ' +
+  'quem quiser — o que as sensíveis não ganham é o PADRÃO');
 /* A regra e a excecao na MESMA linha, de proposito: separadas, a excecao acaba vindo
    antes da marca e o admin perde a capacidade de se restringir — foi o que aconteceu
    enquanto isto era escrito, e o teste pegou. */

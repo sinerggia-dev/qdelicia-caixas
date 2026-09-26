@@ -1101,14 +1101,16 @@ segue sendo o pendente real.
 ## Testar
 
 ```
-node teste/teste_api.js
-node teste/teste_tela.js
-node teste/teste_login.js
-node teste/teste_motorista.js
-node teste/teste_obrigatorios.js
-node teste/teste_saldo.js
-node teste/teste_primeiro_acesso.js
+python scripts/testar.py
 ```
+
+Roda **todas** as suites de `teste/`, descobrindo os arquivos. A lista que morava
+aqui era digitada, e derivou: `teste_backend.js` e `teste_permissoes.js` nunca
+entraram nela, e quem seguia este documento rodava sete de nove. Cinco afirmacoes
+ficaram vermelhas por semanas sem ninguem ver -- duas delas cobrando de volta uma
+caixa que o escritorio tinha mandado tirar. Suite nova entra no ciclo sozinha.
+
+Sai zero com tudo verde, e imprime as linhas vermelhas de cada suite que falhou.
 
 O `teste_api.js` tem **531 verificações**. Roda o roteador, as regras e os tradutores **de
 produção**, trocando só o acesso ao Postgres por um banco falso em memória. Sem rede, sem chave,
