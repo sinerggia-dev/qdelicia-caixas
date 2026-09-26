@@ -3057,6 +3057,10 @@ tr.marcada > td:first-child{box-shadow:inset 3px 0 0 var(--ambar)}
 /* O MANUAL E LARGO, e nao uma tela de celular: ele tem paragrafos e tabelas, e a
    largura do tutorial o espremeria numa coluna de jornal. */
 .quadro-video--manual{max-width:none}
+/* As Instruções são uma coluna de leitura, como o tutorial — mas sem altura de tela de
+   celular: o conteúdo acaba, e a moldura não deve continuar depois dele. */
+.quadro-video--instrucoes{height:auto;min-height:0}
+.quadro-video--instrucoes iframe{height:78vh;min-height:520px}
 
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}

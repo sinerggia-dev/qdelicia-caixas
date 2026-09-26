@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Instruções — Controle de Caixas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<!-- A FOLHA DO APP VEM ANTES: é dela que saem as cores da empresa, e a folha desta
+     página precisa poder sobrescrever o que for dela. -->
+<link rel="stylesheet" href="styles.css?v=5b47d18c">
+<style>
+/* ================= OS TOKENS DO MODELO, APELIDANDO OS DO APP =================
+ *
+ * O modelo trazia a paleta inteira copiada — quatro temas e cinco fundos. Copiada, ela
+ * diverge no primeiro acerto que só um dos arquivos receber, e a empresa passa a ter
+ * duas caras. Aqui os nomes dele viram apelidos dos tokens do app, e a cor passa a ser
+ * a que o escritório escolheu em Aparência.
+ *
+ * As superfícies não são as do app com outro nome: o `surface-2` do modelo é mais
+ * ESCURO que o cartão (é o `--campo` daqui) e o `surface-3` é mais claro. Cada um
+ * aponta para o degrau certo, e não para o de nome parecido. */
+:root{
+  --marca:var(--brand); --sobre-marca:var(--sobre-brand);
+  --marca-ink:var(--roxo-txt); --marca-rgb:var(--brand-rgb);
+  --warn:var(--ambar);
+  --radius:var(--raio-sm); --radius-lg:var(--raio);
+  --font:var(--fonte); --mono:var(--fonte-mono);
+  --surface-3:var(--surface-2);
+  --line:var(--linha); --line-2:var(--neutro); --line-3:var(--linha-viva);
+  --text:var(--txt); --text-soft:var(--txt2); --text-muted:var(--txt3);
+}
+
+/* ================= INSTRUÇÕES =================
+ *
+ * A tela que explica o sistema a quem está dentro dele: quem entrou, o que este sistema
+ * existe para responder, qual pedaço da conta depende desta pessoa, o que está esperando
+ * alguém hoje, e o que ela pode abrir.
+ *
+ * TODA CLASSE LEVA `ins-`. Seis nomes do modelo — `btn`, `ola`, `selo`, `topo`, `sr` e
+ * `vazio` — já têm regra nesta folha; sem prefixo, a página herdaria desenho do painel
+ * em lugares que ninguém pensaria em olhar.
+ *
+ * E SEM PALETA PRÓPRIA: o modelo trazia os cinco fundos e os quatro temas copiados. Duas
+ * cópias da mesma paleta divergem no primeiro acerto que só uma receber. */
+.ins-tela{max-width:820px;margin:0 auto;padding:4px 0 8px}
+
+
+
+/* ---- topo: marca + quem é ---- */
+.ins-topo{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.ins-topo__logo{width:64px;height:auto;flex:0 0 auto}
+.ins-topo__id{flex:1 1 auto;min-width:0}
+.ins-topo__s{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted)}
+.ins-topo__t{margin:1px 0 0;font-size:17px;font-weight:700}
+
+.ins-ola{display:flex;align-items:center;gap:15px;padding:16px;margin-bottom:8px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+  position:relative;overflow:hidden}
+.ins-ola::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--marca)}
+.ins-foto{position:relative;width:64px;height:64px;flex:0 0 auto;display:inline-flex;
+  align-items:center;justify-content:center;border-radius:999px;overflow:hidden;
+  background:var(--surface-3);border:2.5px solid var(--marca);
+  font-family:var(--mono);font-size:21px;font-weight:700;color:var(--text)}
+.ins-foto img{width:100%;height:100%;object-fit:cover;display:none}
+.ins-foto img[src]{display:block}
+.ins-foto img[src] + b{display:none}
+.ins-foto b{font-weight:700}
+.ins-ola__t{flex:1 1 auto;min-width:0}
+.ins-ola__o{font-size:15px;color:var(--text-soft)}
+.ins-ola__n{margin:1px 0 0;font-size:24px;font-weight:700;letter-spacing:-.01em}
+.ins-ola__p{margin:4px 0 0;display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+  font-size:12.5px;color:var(--text-muted)}
+.ins-selo{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;
+  background:rgba(var(--marca-rgb),.16);border:1px solid rgba(var(--marca-rgb),.5);
+  color:var(--marca-ink);font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+
+/* ---- apresentação: só no primeiro acesso ---- */
+/* SEMPRE VISIVEL. No modelo ela sumia fora do primeiro acesso, porque la a tela
+   INTERROMPIA o acesso e no dia a dia so os atalhos importavam. Aqui a pagina se
+   chama Instrucoes e e aberta de proposito: escondida, ela seria uma pagina de
+   instrucoes sem instrucao nenhuma. */
+.ins-intro{display:block;padding:15px 16px;margin-bottom:8px;background:var(--campo);
+  border:1px solid var(--line);border-radius:var(--radius-lg)}
+.ins-intro p{margin:0 0 11px;font-size:14.5px;color:var(--text-soft)}
+.ins-intro__forte{font-size:19px!important;font-weight:700;color:var(--text)!important;
+  margin-bottom:6px!important;letter-spacing:-.01em}
+.ins-intro__papel{display:flex;align-items:flex-start;gap:10px;margin:13px 0 0!important;
+  padding:12px 13px;border-radius:var(--radius);
+  background:rgba(var(--marca-rgb),.12);border:1px solid rgba(var(--marca-rgb),.42);
+  color:var(--text)!important;font-size:14px}
+.ins-intro__papel b{color:var(--marca-ink)}
+.ins-intro__papel svg{flex:0 0 auto;margin-top:2px;color:var(--marca-ink)}
+.ins-intro p:last-child{margin-bottom:0}
+.ins-intro b{color:var(--text)}
+.ins-passos{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:13px}
+.ins-passo{padding:11px 12px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius)}
+.ins-passo i{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;
+  margin-bottom:7px;border-radius:999px;background:var(--marca);color:var(--sobre-marca);
+  font-family:var(--mono);font-size:12px;font-weight:700;font-style:normal}
+/* ">" é essencial: sem ele, qualquer <b> dentro do texto do passo
+   vira bloco e quebra a linha no meio da frase. */
+.ins-passo > b{display:block;font-size:13.5px;margin-bottom:2px}
+.ins-passo span b{color:var(--text)}
+.ins-passo span{font-size:12.5px;color:var(--text-muted);line-height:1.4}
+@media (max-width:640px){.ins-passos{grid-template-columns:1fr}}
+
+/* ---- o que precisa de você (só no dia a dia) ---- */
+/* QUEM DECIDE E O `hidden`, posto pelo JS quando nao ha pendencia. O
+   `[hidden]{display:none!important}` da folha do app ja o obedece — uma regra
+   propria aqui seria a quarta copia da mesma coisa no projeto. */
+.ins-hoje{display:flex;align-items:flex-start;gap:11px;padding:13px 15px;margin-bottom:8px;
+  border:1px solid rgba(243,170,74,.42);border-radius:var(--radius-lg);
+  background:rgba(243,170,74,.10)}
+.ins-hoje svg{flex:0 0 auto;margin-top:2px;color:var(--warn)}
+.ins-hoje__t{flex:1 1 auto;min-width:0;font-size:14px;color:var(--text)}
+.ins-hoje__t b{color:var(--warn)}
+.ins-hoje a{color:var(--warn);font-weight:600;text-decoration:underline;white-space:nowrap}
+
+/* ---- o que você pode fazer ---- */
+.ins-rotulo{margin:20px 0 10px;font-size:11px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--text-muted)}
+.ins-acoes{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (max-width:640px){.ins-acoes{grid-template-columns:1fr}}
+.ins-acao{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;
+  padding:14px;border:1px solid var(--line);border-radius:var(--radius-lg);
+  background:var(--surface);color:inherit;font:inherit;cursor:pointer}
+.ins-acao:hover{background:var(--surface-3);border-color:var(--line-3)}
+.ins-acao__i{width:38px;height:38px;flex:0 0 auto;display:inline-flex;align-items:center;
+  justify-content:center;border-radius:11px;background:rgba(var(--marca-rgb),.16);
+  color:var(--marca-ink)}
+.ins-acao__t{flex:1 1 auto;min-width:0}
+.ins-acao__t b{display:block;font-size:15px;margin-bottom:2px}
+.ins-acao__t span{font-size:13px;color:var(--text-muted);line-height:1.4}
+.ins-acao__n{flex:0 0 auto;align-self:center;min-width:24px;height:22px;padding:0 8px;
+  display:inline-flex;align-items:center;justify-content:center;border-radius:999px;
+  background:var(--surface-3);color:var(--text-soft);font-family:var(--mono);
+  font-size:11.5px;font-weight:700}
+.ins-acao--forte{border-color:var(--marca);background:rgba(var(--marca-rgb),.10)}
+/* permissão que o servidor mandou e esta versão da tela não conhece */
+.ins-acao--nova{border-style:dashed}
+.ins-vazio{margin:0;padding:16px;border:1px dashed var(--line-3);border-radius:var(--radius-lg);
+  font-size:14px;color:var(--text-muted)}
+
+.ins-pe{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:20px;
+  padding-top:16px;border-top:1px solid var(--line)}
+.ins-btn{min-height:48px;padding:0 20px;border:0;border-radius:12px;background:var(--marca);
+  color:var(--sobre-marca);font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.ins-btn--2{background:transparent;border:1px solid var(--line-3);color:var(--text-soft);
+  font-weight:600}
+.ins-pe__nota{flex:1 1 auto;min-width:0;font-size:12.5px;color:var(--text-muted)}
+
+/* O CORPO DESTA PÁGINA É UM QUADRO dentro do painel: sem margem e sem fundo próprio,
+   para não desenhar uma moldura dentro da moldura. */
+body{margin:0;padding:18px 16px 24px;background:var(--surface);color:var(--txt);
+  font-family:var(--fonte);font-size:15px;line-height:1.45}
+</style>
+</head>
+<body>
+
+<div class="ins-tela">
+  <div class="ins-topo">
+    <img class="ins-topo__logo" src="logo.png" alt="Delícia Frutas">
+    <div class="ins-topo__id">
+      <div class="ins-topo__s">Delícia Frutas</div>
+      <h1 class="ins-topo__t">Controle de Caixas</h1>
+    </div>
+  </div>
+
+  <div class="ins-ola">
+    <span class="ins-foto" id="foto"><img id="foto-img" alt=""><b id="foto-ini"></b></span>
+    <div class="ins-ola__t">
+      <div class="ins-ola__o" id="saudacao">Boa tarde,</div>
+      <p class="ins-ola__n" id="nome">—</p>
+      <p class="ins-ola__p">
+        <span class="ins-selo" id="perfil">—</span>
+        <span id="unidade">Matriz São Vicente</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="ins-intro">
+    <p class="ins-intro__forte">Caixa parada no cliente é dinheiro parado.</p>
+    <p>Este sistema existe para responder uma pergunta, a qualquer hora do dia:
+       <b>quantas caixas estão fora, e com quem</b>.</p>
+    <div class="ins-passos">
+      <div class="ins-passo"><i>1</i><b>Antes de sair</b>
+        <span>Alguém lança quantas caixas de cada tipo vão, para onde e com qual
+              motorista. Leva menos tempo do que anotar no caderno.</span></div>
+      <div class="ins-passo"><i>2</i><b>Quando volta</b>
+        <span>Conta-se de novo. Se voltou menos do que foi, a diferença aparece
+              <b>na hora</b> — e não no fim do mês, quando ninguém lembra mais.</span></div>
+      <div class="ins-passo"><i>3</i><b>O tempo todo</b>
+        <span>O painel soma tudo sozinho e mostra onde estão as caixas que ainda
+              não voltaram, por rota e por tipo.</span></div>
+    </div>
+    <p class="ins-intro__papel" id="papel"></p>
+  </div>
+
+  <div class="ins-hoje">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 4l9 16H3z"></path><line x1="12" y1="10" x2="12" y2="14"></line><line x1="12" y1="17" x2="12" y2="17"></line></svg>
+    <span class="ins-hoje__t" id="hoje-txt"></span>
+  </div>
+
+  <p class="ins-rotulo" id="rotulo-acoes">O que você pode fazer</p>
+  <div class="ins-acoes" id="acoes"></div>
+
+
+
+<script src="config.js"></script>
+<script src="app.js?v=210eaf47"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var Q = window.QDC;
+
+  /* A COR DA EMPRESA, do cache e depois do servidor — o mesmo caminho das outras
+     páginas. Sem isto a página abriria no tema padrão e piscaria para o escolhido. */
+  try {
+    if (Q) {
+      var local = Q.cache('dados');
+      if (local && local.config) Q.aplicarAparencia(local.config);
+      Q.carregarDados().catch(function () {});
+    }
+  } catch (e) {}
+
+  /* ================= DE ONDE VÊM OS DADOS =================
+   *
+   * A SESSÃO é a de quem entrou, lida do mesmo lugar que todas as telas leem.
+   *
+   * AS PERMISSÕES vêm do PAINEL, pelo cache. A regra que decide quais páginas cada
+   * pessoa vê é uma só e mora no painel — `abasPermitidas`. Recalculá-la aqui seria uma
+   * segunda cópia dela, e duas cópias divergem no primeiro conserto que só uma receber:
+   * esta tela passaria a oferecer um atalho que o menu esconde, e o toque levaria a
+   * lugar nenhum. O painel publica a lista PRONTA, na ordem do menu, e aqui ela só é
+   * lida.
+   *
+   * AS PENDÊNCIAS saem do painel que o próprio painel já guardou. Nenhuma ida à rede
+   * nova: esta página abre dentro dele, segundos depois de ele ter buscado tudo. */
+  var s = (Q && Q.sessao()) || {};
+  var minhas = (Q && Q.cache('minhasAbas')) || [];
+  var painel = (Q && Q.cache('painel')) || null;
+
+  /* O TEXTO de cada página. O NOME vem do catálogo do servidor, pela lista publicada —
+     escrito aqui, ele divergiria do menu no dia em que alguém renomeasse uma página. */
+  var SOBRE = {
+    pgRetornos:  'Quanto saiu, quanto voltou e quanto está fora agora.',
+    pgMovimentos:'Procurar um lançamento: rota, motorista, data, tipo de caixa.',
+    pgPainel:    'O resumo do mês, por rota e por tipo de caixa.',
+    pgCadastros: 'Locais, rotas, veículos, motoristas e usuários.',
+    pgColunas:   'Escolher o que aparece em cada tabela.',
+    pgExtrato:   'O extrato de um local, linha a linha.',
+    pgLancar:    'Saldo inicial e baixa de perda, com motivo registrado.',
+    pgAparencia: 'A cor e o fundo de todas as telas.',
+    pgVideo:     'A demonstração de como lançar saída e retorno.',
+    pgManual:    'O passo a passo escrito, do cadastro ao fechamento.'
+  };
+
+  function esc(t) {
+    return String(t == null ? '' : t)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function num(n) { return Number(n || 0).toLocaleString('pt-BR'); }
+
+  /* A saudação pelo fuso da OPERAÇÃO, e não pelo relógio do aparelho: tablet de galpão
+     com a hora errada diria "boa noite" às dez da manhã. */
+  function saudacao() {
+    /* A HORA SAI DO FUSO DA OPERACAO, e a frase sai do nucleo. `horaDaOperacao` nao e
+       publicada no `window.QDC` — e a conferencia pegou esta chamada a uma funcao que
+       nao existe —, mas o FUSO e, e a conta e de tres linhas. */
+    var h;
+    try {
+      h = parseInt(new Intl.DateTimeFormat('pt-BR', {
+        timeZone: Q.FUSO_OPERACAO, hour: '2-digit', hour12: false
+      }).format(new Date()), 10);
+      if (h === 24) h = 0;
+    } catch (e) { h = new Date().getHours(); }
+    try { return Q.saudacaoDe(h); }
+    catch (e2) { return h < 12 ? 'Bom dia,' : (h < 18 ? 'Boa tarde,' : 'Boa noite,'); }
+  }
+
+  /* ---- QUAL PEDAÇO DA CONTA DEPENDE DESTA PESSOA ----
+     Um "bem-vindo ao sistema" não ensina nada. O que ela precisa saber é onde a conta
+     depende dela — e isso sai das permissões que ela tem, não do perfil. */
+  function papelDe(ids, ops) {
+    var tem = function (k) { return ids.indexOf(k) >= 0; };
+    var op = function (k) { return (ops || []).indexOf(k) >= 0; };
+    if (tem('pgCadastros') || tem('pgLancar')) {
+      return 'Você enxerga a operação inteira: acompanha os saldos, corrige o que sair ' +
+             'errado e cuida de quem tem acesso ao sistema.';
+    }
+    if (op('SAIDA') && op('RETORNO')) {
+      return 'O saldo de caixas da empresa é feito do que <b>você</b> lança. Cada carga ' +
+             'que sai e cada devolução que você confere entra direto na conta.';
+    }
+    if (op('RETORNO')) {
+      return 'Você confere o que volta. <b>Cada contagem sua vira o saldo da caixa</b> — ' +
+             'se o número não bater, é aqui que a diferença aparece.';
+    }
+    if (op('SAIDA')) {
+      return 'Você registra o que sai. É o ponto de partida de toda a conta: sem a saída ' +
+             'lançada, a devolução não tem com o que ser comparada.';
+    }
+    return 'Você tem acesso de consulta: pode ver os lançamentos e os saldos, sem ' +
+           'alterar nada.';
+  }
+
+  /* ---- O QUE ESTÁ ESPERANDO ALGUÉM ----
+     Só o que o sistema JÁ SABE, e só quando é maior que zero: "0 pendências" ocupa a
+     mesma tarja e diz o contrário do que ela existe para dizer. */
+  function pendenciasDe(p) {
+    var k = (p && p.kpis) || {};
+    var fora = [];
+    if (k.emRota > 0) fora.push(num(k.emRota) + ' caixas saíram e ainda não voltaram');
+    if (k.vencidas > 0) fora.push(num(k.vencidas) + ' passaram do prazo combinado');
+    if (k.aguardandoConferencia > 0) {
+      fora.push(num(k.aguardandoConferencia) + ' aguardando conferência');
+    }
+    if (k.divergenciaMes) fora.push('divergência de ' + num(k.divergenciaMes) + ' no mês');
+    return fora;
+  }
+
+  function desenhar() {
+    var ids = minhas.map(function (a) { return a.ID; });
+
+    $('saudacao').textContent = saudacao();
+    $('nome').textContent = String(s.nome || '').split(' ')[0] || '—';
+    $('perfil').textContent = s.perfil || '';
+    $('perfil').hidden = !s.perfil;
+    /* A UNIDADE sai do cadastro de locais que o painel já guardou. Sem ela, a linha
+       mostrava o id cru — "L003" ao lado do nome não informa nada e parece defeito. */
+    var dados = (Q && Q.cache('dados')) || {};
+    var achado = (dados.locais || []).filter(function (l) {
+      return String(l.ID) === String(s.localPadrao);
+    })[0];
+    $('unidade').textContent = achado ? achado.Nome : '';
+    $('unidade').hidden = !achado;
+
+    if (s.foto) { $('foto-img').src = s.foto; $('foto-ini').textContent = ''; }
+    else {
+      $('foto-img').removeAttribute('src');
+      $('foto-ini').textContent = (Q && Q.iniciais) ? Q.iniciais(s.nome || '?') : '';
+    }
+
+    /* A PROPRIA PAGINA SAI DA LISTA. Um atalho que leva para onde a pessoa ja esta
+       nao e atalho: ele gasta um lugar da grade e, tocado, nao muda nada na tela —
+       que e como se le "o sistema travou". */
+    var cartoes = minhas.filter(function (a) { return a.ID !== 'pgInstrucoes'; });
+
+    $('acoes').innerHTML = cartoes.map(function (a) {
+      var d = SOBRE[a.ID];
+      return '<button class="ins-acao' + (d ? '' : ' ins-acao--nova') +
+        '" type="button" data-ir="' + esc(a.ID) + '">' +
+        '<span class="ins-acao__i">' +
+          '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" ' +
+          'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" ' +
+          'stroke-linejoin="round" aria-hidden="true">' +
+          '<rect x="3" y="4" width="18" height="16" rx="2"></rect>' +
+          '<line x1="3" y1="9" x2="21" y2="9"></line></svg></span>' +
+        '<span class="ins-acao__t"><b>' + esc(a.Nome) + '</b><span>' +
+          esc(d || 'Disponível para o seu usuário.') + '</span></span>' +
+        '</button>';
+    }).join('') ||
+      '<p class="ins-vazio">Seu usuário ainda não tem nenhuma permissão. Fale com quem ' +
+      'administra o sistema.</p>';
+    $('rotulo-acoes').hidden = !cartoes.length;
+
+    $('papel').innerHTML =
+      '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>' +
+      '<circle cx="12" cy="7" r="4"></circle></svg>' +
+      '<span>' + papelDe(ids, s.operacoes) + '</span>';
+
+    var pend = pendenciasDe(painel);
+    var tarja = document.querySelector('.ins-hoje');
+    if (pend.length) {
+      tarja.hidden = false;
+      $('hoje-txt').innerHTML = '<b>' + pend.length +
+        (pend.length === 1 ? ' coisa' : ' coisas') + ' esperando alguém:</b> ' +
+        esc(pend.join(' · '));
+    } else {
+      tarja.hidden = true;
+    }
+  }
+
+  /* O ATALHO ABRE A PÁGINA NO PAINEL, e não aqui dentro: esta página vive num quadro, e
+     carregar o painel dentro do próprio painel é o oposto do que o cartão promete.
+     Aberta fora do quadro, `top` é a própria janela e a navegação é a mesma. */
+  $('acoes').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-ir]');
+    if (!b) return;
+    try { window.top.location.href = 'admin.html#' + b.dataset.ir; }
+    catch (err) { window.location.href = 'admin.html#' + b.dataset.ir; }
+  });
+
+  desenhar();
+})();
+</script>
+</body>
+</html>

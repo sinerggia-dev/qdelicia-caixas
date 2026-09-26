@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=a5a65f3d">
+<link rel="stylesheet" href="styles.css?v=5b47d18c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -298,6 +298,15 @@
            saldo e baixa de perda, ou seja, MEXE NO ESTOQUE. Ficava ao
            lado das configurações por causa do nome, e o nome mudou. -->
       <div class="nav-grupo" data-grupo="Sistema">Sistema</div>
+      <button data-grupo="Sistema" style="display:none" data-pagina="pgInstrucoes" data-acima="Sistema">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle>
+          <line x1="12" y1="11" x2="12" y2="16.5"></line>
+          <line x1="12" y1="7.5" x2="12" y2="7.5"></line>
+        </svg>
+        <span class="nav-rotulo">Instruções</span>
+      </button>
       <button data-grupo="Sistema" style="display:none" data-pagina="pgVideo" data-acima="Sistema">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1003,6 +1012,20 @@
 
   </section>
 
+  <!-- ---------- INSTRUÇÕES ---------- -->
+  <!-- Quem entrou, para que o sistema existe, qual pedaço da conta depende desta pessoa,
+       o que está esperando alguém hoje, e o que ela pode abrir. Página própria, num
+       quadro, como as outras duas de SISTEMA. -->
+  <section id="pgInstrucoes" class="pagina">
+    <div class="card">
+      <h2>Instruções<span class="sub">O sistema explicado para quem está dentro dele —
+        e o que, hoje, depende de você.</span></h2>
+      <div class="quadro-video quadro-video--instrucoes">
+        <iframe id="quadroInstrucoes" title="Instruções" src="instrucoes.html"></iframe>
+      </div>
+    </div>
+  </section>
+
   <!-- ---------- VIDEO TUTORIAL ---------- -->
   <!-- A MESMA PAGINA que o app de campo abre no primeiro acesso, e nao uma segunda
        copia dela: duas divergem no primeiro conserto que so uma receber, e ai o galpao
@@ -1454,7 +1477,7 @@
    * E UMA TERCEIRA REGRA, e nao um caso do `PAGINAS_DO_ADMIN`: aquela diz "so o
    * escritorio"; esta diz "todo mundo que entra". Posta la, o galpao e o conferente
    * ficariam sem o tutorial — que e de quem esta aprendendo, e nao de quem ja sabe. */
-  var PAGINAS_SEMPRE = ['pgVideo', 'pgManual'];
+  var PAGINAS_SEMPRE = ['pgInstrucoes', 'pgVideo', 'pgManual'];
 
   /* Quais abas do painel esta pessoa ve. Duas regras, e UMA peneira:
 
@@ -1560,8 +1583,33 @@
     });
     /* Idem: o titulo do modulo acompanha os itens. Aqui isso pesa mais — sao tres
        modulos, e quem nao e admin perde Sistema inteiro. */
+    /* A LISTA PRONTA VAI PARA O CACHE, na ordem do menu. A página de Instruções abre
+       num quadro, sem acesso às funções daqui, e precisa saber o que esta pessoa pode
+       abrir. Recalcular a regra lá seria uma segunda cópia dela — e duas cópias divergem
+       no primeiro conserto que só uma receber, fazendo aquela tela oferecer um atalho
+       que este menu esconde. Quem decide continua sendo `abasPermitidas`, aqui. */
+    (function(){
+      var lista = [];
+      Array.prototype.forEach.call(botoes, function(b){
+        if (b.style.display === 'none') return;
+        var id = b.dataset.pagina;
+        var doCatalogo = ABAS_PAINEL.filter(function(a){ return a.ID === id; })[0];
+        var rotulo = b.querySelector('.nav-rotulo');
+        lista.push({ ID: id, Nome: (doCatalogo && doCatalogo.Nome) ||
+                                   (rotulo && rotulo.textContent) || id });
+      });
+      Q.cache('minhasAbas', lista);
+    })();
+
     Q.gruposDaNavegacao('#abas');
-    var primeira = document.querySelector('#abas button[data-pagina]:not([style*="none"])');
+    /* O ENDEREÇO MANDA, quando ele aponta para uma página visível. É por aqui que os
+       atalhos da tela de Instruções chegam: ela vive num quadro e não alcança as funções
+       do painel, então pede a página pelo `admin.html#pgX`. Só na abertura, e só se
+       nada estiver aberto — depois disso quem manda é o clique. */
+    var pedida = (location.hash || '').replace('#', '');
+    var primeira = (pedida && document.querySelector(
+        '#abas button[data-pagina="' + pedida + '"]:not([style*="none"])')) ||
+      document.querySelector('#abas button[data-pagina]:not([style*="none"])');
     if (primeira && !document.querySelector('#abas button.ativa')) primeira.click();
 
     /* A peneira rodou: o aviso sai. Deixado na tela, ele diria que ainda esta carregando

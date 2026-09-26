@@ -8213,6 +8213,7 @@ console.log('\n== a navegação separada por módulo ==');
   ok(pares === 'pgRetornos>Painel de Ativos | pgMovimentos>Movimentos | pgPainel>Painel' +
                 ' | pgCadastros>Cadastros | pgColunas>Colunas | pgExtrato>Extratos' +
                 ' | pgLancar>Ajuste Estoque' +
+                ' | pgInstrucoes>Instruções' +
                 ' | pgVideo>Vídeo Tutorial | pgManual>Manual de Uso' +
                 ' | pgAparencia>Aparência',
     'o menu do painel está na ordem pedida, e cada rótulo abre a página dele', pares);
@@ -11311,14 +11312,19 @@ console.log('\n== o tutorial do primeiro acesso ==');
     'uma tela em branco, sem erro e sem aviso',
     { manda: enderecos, faltam: semPagina });
 
-  /* ---- 6. NENHUMA CLASSE DO TUTORIAL COLIDE COM A DO APP ----
+  /* ---- 6. NENHUMA CLASSE DAS PÁGINAS PRÓPRIAS COLIDE COM A DO APP ----
    *
    * As duas folhas convivem na mesma página. Uma classe com o mesmo nome nas duas faz o
    * tutorial herdar desenho do painel em lugares que ninguém pensou em olhar — foi o
    * caso de `folha`, `folha__t` e `n`, que ganharam prefixo. */
   var semComent = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  /* AS DUAS PÁGINAS PRÓPRIAS, e não só o tutorial: as Instruções trouxeram seis nomes
+     que já têm regra aqui — `btn`, `ola`, `selo`, `topo`, `sr` e `vazio` —, e cobrindo
+     só uma delas a outra passaria livre. */
+  var ins = fs.readFileSync(path.join(__dirname, '..', 'instrucoes.html'), 'utf8');
+  var folhas = estilo + ins.slice(ins.indexOf('<style>'), ins.indexOf('</style>'));
   var doDemo = {}, m2, reC = /\.([a-zA-Z][\w-]*)/g;
-  while ((m2 = reC.exec(estilo)) !== null) doDemo[m2[1]] = true;
+  while ((m2 = reC.exec(folhas)) !== null) doDemo[m2[1]] = true;
   var batem = Object.keys(doDemo).filter(function (c) {
     return new RegExp('[^\\w-]\\.' + c + '(?![\\w-])[^{]*\\{').test(semComent);
   });
@@ -11326,6 +11332,84 @@ console.log('\n== o tutorial do primeiro acesso ==');
     'e nenhuma classe do tutorial tem regra com o mesmo nome na folha do app — tendo, ' +
     'ele herda desenho de outra tela em lugar que ninguém pensa em olhar',
     { classes: Object.keys(doDemo).length, batem: batem });
+})();
+
+console.log('\n== a tela de Instruções ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var ins = fs.readFileSync(path.join(__dirname, '..', 'instrucoes.html'), 'utf8');
+
+  /* ---- A REGRA DAS PERMISSÕES NÃO FOI COPIADA ----
+   *
+   * A página vive num quadro e não alcança as funções do painel. A tentação é recalcular
+   * ali quais páginas a pessoa vê; duas cópias da mesma regra divergem no primeiro
+   * conserto que só uma receber, e aí esta tela oferece um atalho que o menu esconde —
+   * o toque leva a lugar nenhum e a pessoa conclui que o sistema está quebrado.
+   * O painel publica a lista PRONTA; a página só lê. */
+  /* O COMENTÁRIO PODE CITAR A REGRA; o código é que não pode tê-la. A primeira versão
+     desta prova reprovou por causa da própria frase que explica POR QUE a regra não está
+     ali — medindo o texto em vez do que roda. */
+  var insCodigo = ins.replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '');
+  ok(!/abasPermitidas|PAGINAS_DO_ADMIN|PAGINAS_SEMPRE/.test(insCodigo),
+    'a tela de Instruções não tem cópia da regra de permissão — quem decide é o painel, ' +
+    'e uma segunda cópia divergiria no primeiro conserto que só uma recebesse');
+  ok(/Q\.cache\('minhasAbas'\)/.test(ins),
+    'ela lê a lista pronta que o painel publicou');
+  ok(/Q\.cache\('minhasAbas', *lista\)/.test(adm),
+    'e o painel publica essa lista onde ele JÁ calculou a peneira — publicada em outro ' +
+    'lugar, ela seria uma terceira resposta para a mesma pergunta');
+
+  /* ---- A LISTA PUBLICADA, RODADA ----
+     Só o que está VISÍVEL no menu entra: publicando o que está escondido, a tela
+     ofereceria justamente o que a peneira acabou de tirar. */
+  var iPub = adm.indexOf('      var lista = [];');
+  var trecho = iPub < 0 ? '' : adm.slice(iPub, adm.indexOf('Q.cache(\'minhasAbas\', lista);',
+                                                          iPub) + 32);
+  ok(trecho.length > 200 && trecho.length < 900,
+    'a conferência achou o trecho que publica a lista — recorte vazio faria a prova ' +
+    'abaixo passar sem rodar nada', trecho.length);
+  var publicada = (function () {
+    var botoes = [
+      { dataset: { pagina: 'pgRetornos' }, style: { display: '' },
+        querySelector: function () { return { textContent: 'Painel de Ativos' }; } },
+      { dataset: { pagina: 'pgCadastros' }, style: { display: 'none' },
+        querySelector: function () { return { textContent: 'Cadastros' }; } },
+      { dataset: { pagina: 'pgNova' }, style: { display: '' },
+        querySelector: function () { return { textContent: 'Rótulo da tela' }; } }
+    ];
+    var guardado = null;
+    new Function('botoes', 'ABAS_PAINEL', 'Q', trecho)(
+      botoes,
+      [{ ID: 'pgRetornos', Nome: 'Painel de Ativos' }],
+      { cache: function (n, v) { guardado = v; } });
+    return guardado || [];
+  })();
+  ok(publicada.length === 2 &&
+     publicada.map(function (a) { return a.ID; }).join(',') === 'pgRetornos,pgNova',
+    'a lista publicada leva só o que está VISÍVEL no menu — levando o escondido, a tela ' +
+    'de Instruções ofereceria justamente o que a peneira acabou de tirar',
+    publicada.map(function (a) { return a.ID; }));
+  /* O NOME SAI DO CATÁLOGO DO SERVIDOR, e o rótulo do menu é o reserva: escrito só no
+     menu, ele divergiria do catálogo no dia em que alguém renomeasse uma página. */
+  ok(publicada[1] && publicada[1].Nome === 'Rótulo da tela',
+    'e página que o catálogo não nomeia entra com o rótulo do menu, em vez de com o id ' +
+    'cru — "pgNova" ao lado de um ícone não informa nada', publicada[1]);
+
+  /* ---- A PRÓPRIA PÁGINA NÃO ENTRA NOS ATALHOS ----
+     Um atalho que leva para onde a pessoa já está gasta um lugar da grade e, tocado,
+     não muda nada na tela — que é como se lê "o sistema travou". */
+  ok(/minhas\.filter\(function \(a\) \{ return a\.ID !== 'pgInstrucoes'; \}\)/.test(ins),
+    'a tela de Instruções não se oferece como atalho — tocado, ele não mudaria nada, e ' +
+    'tela que não muda lê-se como tela travada');
+
+  /* ---- O ATALHO ABRE NO PAINEL, E NÃO DENTRO DO QUADRO ---- */
+  ok(/window\.top\.location\.href = 'admin\.html#'/.test(ins),
+    'o atalho da tela de Instruções abre a página no PAINEL — dentro do quadro, ele ' +
+    'carregaria o painel dentro do próprio painel');
+  ok(/location\.hash/.test(adm) &&
+     /'#abas button\[data-pagina="' \+ pedida \+ '"\]:not\(\[style\*="none"\]\)'/.test(adm),
+    'e o painel atende o endereço pedido, se a página estiver visível — sem isso o ' +
+    'atalho recarrega o painel e cai na página de sempre');
 })();
 
 console.log('\n== todo item do menu existe no servidor ==');
@@ -11398,7 +11482,14 @@ console.log('\n== toda funcao chamada existe ==');
 
   /* E O QUE AS TELAS PEDEM. `Q` é o apelido do núcleo nas três páginas. */
   function le(nome) { return fs.readFileSync(path.join(__dirname, '..', nome), 'utf8'); }
-  ['admin.html', 'index.html', 'extrato.html'].forEach(function (nome) {
+  /* AS PÁGINAS SÃO DESCOBERTAS, e não digitadas. A lista escrita envelhece calada: a
+     página nova entra no projeto, chama uma função do núcleo que não existe mais, e esta
+     conferência não olha para ela. Foi assim que `Q.pendenciasChegaram` ficou no ar. */
+  /* `fsReal`: o `fs` daqui e um embrulho que so normaliza fim de linha na LEITURA. */
+  fsReal.readdirSync(path.join(__dirname, '..'))
+    .filter(function (n) { return /\.html$/.test(n); })
+    .filter(function (n) { return /Q\.[A-Za-z_$]/.test(le(n)); })
+    .forEach(function (nome) {
     var par = [nome, le(nome)];
     var pedidas = {}, m, re = /\bQ\.([A-Za-z_$][\w$]*)/g;
     while ((m = re.exec(par[1])) !== null) pedidas[m[1]] = true;

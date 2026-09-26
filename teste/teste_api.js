@@ -2089,9 +2089,10 @@ console.log('\n== quais abas do painel a pessoa ve ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
 
-  /* DEZ. As duas últimas não mostram dado nenhum: o Vídeo Tutorial e o Manual de Uso
-     explicam o sistema, e por isso vivem em `PAGINAS_SEMPRE` na tela. */
-  ok(F.ABAS.length === 10 && F.ABAS[0].ID === 'pgRetornos',
+  /* ONZE. As três de SISTEMA — Instruções, Vídeo Tutorial e Manual de Uso — não
+     mostram dado de operação: elas explicam o sistema, e por isso vivem em
+     `PAGINAS_SEMPRE` na tela, fora da regra da marca. */
+  ok(F.ABAS.length === 11 && F.ABAS[0].ID === 'pgRetornos',
     'a lista de abas mora no servidor, uma so para o formulario e para a tela',
     F.ABAS.map((a) => a.ID));
   /* Ajustes e Cadastros vem marcadas como SENSIVEIS na propria lista. Deixar isso

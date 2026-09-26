@@ -139,6 +139,9 @@ var ABAS = [
      que o app de campo abre no primeiro acesso. Entra no catalogo como qualquer
      outra — o menu so mostra o que ESTE catalogo conhece, e o botao dela ficou
      escondido no ar por nao estar aqui. */
+  /* A TELA QUE EXPLICA O SISTEMA a quem esta dentro dele. Como as duas abaixo, nao
+     mostra dado de operacao: mostra quem entrou e o que essa pessoa pode abrir. */
+  { ID: 'pgInstrucoes', Nome: 'Instruções' },
   { ID: 'pgVideo',      Nome: 'Vídeo Tutorial' },
   /* O MANUAL, pela mesma razao do video: texto que explica o sistema, sem dado nenhum
      dentro. Os dois vivem em `PAGINAS_SEMPRE`, na tela. */
