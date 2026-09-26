@@ -1587,21 +1587,58 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
   var ABAS = [{ ID: 'pgRetornos', Nome: 'Painel de Ativos' },
               { ID: 'pgPainel', Nome: 'Painel' },
               { ID: 'pgLancar', Nome: 'Ajustes', sensivel: true },
-              { ID: 'pgCadastros', Nome: 'Cadastros', sensivel: true }];
+              { ID: 'pgCadastros', Nome: 'Cadastros', sensivel: true },
+              /* As duas que o PERFIL governa entram no catálogo de teste: é com elas
+                 que o caso relatado acontece. */
+              { ID: 'pgColunas', Nome: 'Colunas' },
+              { ID: 'pgAparencia', Nome: 'Aparência' }];
 
   function pode(ehAdmin, marcadas) {
-    var fn = new Function('ABAS_PAINEL', 'Q', fonte + ' return abasPermitidas;')(
-      ABAS, { ehAdmin: function () { return ehAdmin; } });
+    /* `PAGINAS_DO_ADMIN` entra na bancada porque a peneira a LÊ. Nenhuma das abas de
+       teste está nela, então as contas abaixo não mudam — o que muda é que a função
+       roda em vez de estourar. */
+    var fn = new Function('ABAS_PAINEL', 'Q', 'PAGINAS_DO_ADMIN',
+      fonte + ' return abasPermitidas;')(
+      ABAS, { ehAdmin: function () { return ehAdmin; } }, ['pgColunas', 'pgAparencia']);
     return fn({ abas: marcadas }).join(',');
   }
 
   ok(pode(false, []) === '',
     'sem marca, nenhuma aba — marcar é conceder', pode(false, []));
-  ok(pode(true, []) === 'pgRetornos,pgPainel,pgLancar,pgCadastros',
+  ok(pode(true, []) === 'pgRetornos,pgPainel,pgLancar,pgCadastros,pgColunas,pgAparencia',
     'para o admin, todas — trancá-lo fora do próprio cadastro não teria como ser desfeito',
     pode(true, []));
   ok(pode(false, ['pgPainel']) === 'pgPainel',
     'com marca que alcança, vale a marca', pode(false, ['pgPainel']));
+
+  /* ---- O CASO RELATADO: o grupo SISTEMA sumiu da tela ----
+   *
+   * A Aparência nasceu depois de as pessoas já terem abas marcadas no cadastro. Com
+   * "marcar é conceder", página nova não está na marca de NINGUÉM — nem do
+   * administrador. O botão dela ficava escondido, e como era o único do módulo, o
+   * título SISTEMA sumia junto: da tela, o que se via é que o grupo tinha sido
+   * removido.
+   *
+   * Para estas duas a marca nunca decidiu nada — o menu já escondia o botão do Colunas
+   * para quem não é admin, marcado ou não. O que faltava era a peneira concordar com o
+   * menu em vez de pedir uma senha para uma porta que o perfil já tinha trancado. */
+  ok(pode(true, ['pgPainel']).split(',').indexOf('pgAparencia') >= 0,
+    'o ADMIN com abas já marcadas enxerga a Aparência — página nova não está na marca ' +
+    'de ninguém, e sem isto o módulo SISTEMA nasce vazio e o título some com ele',
+    pode(true, ['pgPainel']));
+  ok(pode(true, ['pgPainel']).split(',').indexOf('pgColunas') >= 0,
+    'e o Colunas junto, pela mesma razão', pode(true, ['pgPainel']));
+  /* E NÃO É "admin vê tudo": a marca continua mandando no resto. */
+  ok(pode(true, ['pgPainel']).split(',').indexOf('pgCadastros') < 0,
+    'e o resto continua valendo pela marca — o administrador pode se restringir de ' +
+    'propósito, e continua podendo', pode(true, ['pgPainel']));
+  /* DO OUTRO LADO: marcá-las para quem não é admin não abre nada, porque o menu esconde
+     o botão de qualquer jeito. Conceder o caminho para uma porta trancada é pior que
+     não oferecer — e a peneira agora diz a mesma coisa que o menu faz. */
+  ok(pode(false, ['pgAparencia', 'pgPainel']) === 'pgPainel',
+    'e marcá-las para quem não é admin não concede nada — a peneira passa a dizer o ' +
+    'mesmo que o menu já fazia, em vez de conceder e o menu esconder depois',
+    pode(false, ['pgAparencia', 'pgPainel']));
 
   /* O PEDIDO: o administrador concede qualquer aba a qualquer pessoa. */
   ok(pode(false, ['pgCadastros']) === 'pgCadastros',
@@ -5501,10 +5538,11 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
   function roda(equipe, chegou, guardada, admin) {
     var estado = { sessao: guardada, saiu: false, aviso: '' };
     var relogio = [];
-    var api = new Function('EQUIPE', 'EQUIPE_CHEGOU', 'ABAS_PAINEL', 'Q', 'setTimeout',
+    var api = new Function('EQUIPE', 'EQUIPE_CHEGOU', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN',
+      'Q', 'setTimeout',
       'return (function(){' + fontes.join('\n') +
       '\n return { renovar: renovarSessao, abas: abasPermitidas }; })();')(
-      equipe, chegou, L.ABAS,
+      equipe, chegou, L.ABAS, ['pgColunas', 'pgAparencia'],
       { sessao: function () { return estado.sessao; },
         entrar: function (u) { estado.sessao = u; },
         sair: function () { estado.saiu = true; },
@@ -5960,8 +5998,15 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
      mesmo feitio — não mexe em dado nenhum, uma arruma a tabela e a outra pinta a tela.
      Cravada numa página só, esta linha obrigaria um segundo `if` ao lado do primeiro, e
      é assim que a terceira nasce sem nenhum. */
-  var portao = /if \(\['pgColunas', 'pgAparencia'\]\.indexOf\(b\.dataset\.pagina\) >= 0 && !Q\.ehAdmin\(\)\) ok = false;/;
-  ok(portao.test(adm),
+  /* A LISTA VIROU CONSTANTE, e a peneira passou a ler a MESMA. Enquanto o menu escondia
+     e a peneira exigia marca, as duas discordavam — e o efeito só apareceu no dia em que
+     a Aparência nasceu: página nova não está na lista marcada de ninguém, então ela não
+     chegava nem ao administrador, e o título SISTEMA sumia com o único item dele.
+     Esta asserção cobra que as duas pontas leiam a mesma constante. */
+  var portao = /if \(PAGINAS_DO_ADMIN\.indexOf\(b\.dataset\.pagina\) >= 0 && !Q\.ehAdmin\(\)\) ok = false;/;
+  ok(portao.test(adm) &&
+     /var PAGINAS_DO_ADMIN = \['pgColunas', 'pgAparencia'\];/.test(adm) &&
+     /PAGINAS_DO_ADMIN\.indexOf\(x\) < 0/.test(adm),
     'o botão delas some do menu para quem não é admin, mesmo que a aba tenha sido ' +
     'concedida — oferecer o caminho para uma porta trancada é pior que não oferecer');
   ok(!/pgColunas' && !podeArranjarColunas\(\)/.test(adm),
@@ -7557,7 +7602,8 @@ console.log('\n== as abas do painel obedecem ao cadastro ==');
   ];
   function monta(ehAdmin) {
     var Q = { ehAdmin: function () { return ehAdmin; } };
-    return new Function('Q', 'ABAS_PAINEL', fonte + ' return abasPermitidas;')(Q, ABAS);
+    return new Function('Q', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN',
+      fonte + ' return abasPermitidas;')(Q, ABAS, ['pgColunas', 'pgAparencia']);
   }
 
   var admin = monta(true), gente = monta(false);

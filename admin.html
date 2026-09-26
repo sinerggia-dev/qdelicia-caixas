@@ -1362,6 +1362,24 @@
     return nova;
   }
 
+  /* ================= AS PÁGINAS QUE O PERFIL GOVERNA =================
+   *
+   * Colunas e Aparência não mexem em dado nenhum: uma arruma a tabela, a outra pinta a
+   * tela. As duas são do administrador, e isso já era verdade antes desta lista existir
+   * — o menu escondia o botão do Colunas para quem não é admin, marcado ou não.
+   *
+   * O QUE FALTAVA ERA A PENEIRA CONCORDAR COM O MENU. Ela continuava exigindo a marca
+   * do cadastro, e o menu escondia depois; para estas duas, a marca nunca decidiu nada,
+   * e pedi-la era pedir uma senha para uma porta que o perfil já tinha trancado.
+   * O efeito apareceu no dia em que a Aparência nasceu: página nova não está na lista
+   * marcada de ninguém — "marcar é conceder" —, então ela não chegava nem ao
+   * administrador, e o título SISTEMA sumia junto com o único item dele.
+   *
+   * ISTO NÃO É O `soAdmin` QUE SAIU DO CATÁLOGO. Aquele travava por perfil abas que o
+   * administrador PODE conceder, e era isso que incomodava. Aqui não há o que conceder:
+   * o menu já não oferece estas duas a mais ninguém. */
+  var PAGINAS_DO_ADMIN = ['pgColunas', 'pgAparencia'];
+
   /* Quais abas do painel esta pessoa ve. Duas regras, e UMA peneira:
 
        1. Ajustes e Cadastros so para o admin. O conferente e quem gera a divergencia na
@@ -1392,6 +1410,15 @@
        mundo. Ele pode se restringir de proposito, e continua podendo. Fosse a excecao
        antes da marca, a marcacao dele nao faria nada e o formulario mentiria para quem
        mais precisa confiar nele. */
+    /* As do administrador não passam pela marca: entram para ele e saem para os
+       outros, que é o que o menu já fazia sozinho. */
+    function comAsDoAdmin(l){
+      var v = ids(l).filter(function(x){ return PAGINAS_DO_ADMIN.indexOf(x) < 0; });
+      if (!Q.ehAdmin()) return v;
+      return v.concat(PAGINAS_DO_ADMIN.filter(function(x){
+        return ids(base).indexOf(x) >= 0;
+      }));
+    }
     if (!marcadas.length) return Q.ehAdmin() ? ids(base) : [];
 
     var escolhidas = base.filter(function(a){
@@ -1408,7 +1435,7 @@
 
        Quem diz o que houve e `ajustarAbasPainel()`, que escreve na lateral em vez de
        deixa-la muda. */
-    return ids(escolhidas);
+    return comAsDoAdmin(escolhidas);
   }
 
   /* A aba some, e a pagina dela deixa de ser a ativa. A primeira que sobrou vira a
@@ -1443,7 +1470,7 @@
          comportamento errado — ela fixou o defeito em vez de pegá-lo.
          A regra certa tem dois degraus, e cada um no seu lugar: o PERFIL decide se a
          porta existe, e a SENHA decide o que acontece depois de entrar. */
-      if (['pgColunas', 'pgAparencia'].indexOf(b.dataset.pagina) >= 0 && !Q.ehAdmin()) ok = false;
+      if (PAGINAS_DO_ADMIN.indexOf(b.dataset.pagina) >= 0 && !Q.ehAdmin()) ok = false;
       b.style.display = ok ? '' : 'none';
       if (!ok) {
         b.classList.remove('ativa');
