@@ -11334,6 +11334,32 @@ console.log('\n== o tutorial do primeiro acesso ==');
     { classes: Object.keys(doDemo).length, batem: batem });
 })();
 
+console.log('\n== o nome de quem entrou cabe inteiro ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* MEDIDO NO CHROME, na lateral de 235px: com os dois botões ao lado — Aparência e
+   * Sair —, sobravam 61px para o nome e "Natanael Silva" precisa de 87. Saía
+   * "Natana...". E o botão da Aparência só nasce para ADMIN, depois que as permissões
+   * chegam: quem desenhou a tela sem ele viu o nome caber e foi embora.
+   *
+   * A REGRA É "O NOME PEDE ESPAÇO", e não "o nome aceita o que sobrar". Ele pede uma
+   * base própria; não cabendo com os botões, são eles que descem uma linha — e o nome
+   * passa a ter os 169px da lateral inteira. Medido depois: 169 de espaço, 169 de
+   * necessidade, sem corte. */
+  var envolve = /\.lateral__pe \.conta\{[^}]*flex-wrap:wrap/.test(css);
+  var mBase = /\.lateral__pe \.conta__id\{flex:1 1 (\d+)px\}/.exec(css);
+  ok(envolve && mBase && parseInt(mBase[1], 10) >= 100,
+    'o nome de quem entrou PEDE espaço na lateral, em vez de aceitar o que sobra dos ' +
+    'botões — aceitando, ele sai "Natana..." para quem é admin',
+    { envolve: envolve, base: mBase && mBase[1] });
+  /* DESCENDO, ELES DESCEM PARA A DIREITA: à esquerda ficariam debaixo do retrato, que é
+     onde a pessoa procura o nome e não um botão. */
+  ok(/\.lateral__pe \.conta > \.btn-icone:nth-of-type\(1\)\{margin-left:auto\}/.test(css),
+    'e os botões, quando descem, ficam à direita — à esquerda eles ocupariam o lugar ' +
+    'onde se procura o nome');
+})();
+
 console.log('\n== a tela de Instruções ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -11398,9 +11424,58 @@ console.log('\n== a tela de Instruções ==');
   /* ---- A PRÓPRIA PÁGINA NÃO ENTRA NOS ATALHOS ----
      Um atalho que leva para onde a pessoa já está gasta um lugar da grade e, tocado,
      não muda nada na tela — que é como se lê "o sistema travou". */
-  ok(/minhas\.filter\(function \(a\) \{ return a\.ID !== 'pgInstrucoes'; \}\)/.test(ins),
+  /* A PENEIRA E RODADA, e nao lida: escrita a mao, a asserção cobrava a linha inteira e
+     caiu no dia em que a linha ganhou um `|| []` — sem que a garantia tivesse mudado. */
+  var iCart = insCodigo.indexOf('var cartoes = ');
+  var linhaCart = iCart < 0 ? '' : insCodigo.slice(iCart, insCodigo.indexOf('\n', iCart));
+  var sobraram = linhaCart
+    ? new Function('minhas', linhaCart + '\n return cartoes.map(function (a) { return a.ID; });')(
+        [{ ID: 'pgPainel' }, { ID: 'pgInstrucoes' }, { ID: 'pgVideo' }])
+    : null;
+  ok(sobraram && sobraram.join(',') === 'pgPainel,pgVideo',
     'a tela de Instruções não se oferece como atalho — tocado, ele não mudaria nada, e ' +
-    'tela que não muda lê-se como tela travada');
+    'tela que não muda lê-se como tela travada', sobraram);
+
+  /* ---- "AINDA NÃO CHEGOU" NÃO É "NÃO TEM PERMISSÃO" ----
+   *
+   * Esta página abre num quadro dentro do painel, e o navegador a carrega JUNTO com ele
+   * — antes, portanto, de a rota `equipe` voltar e o painel publicar a lista. Na
+   * primeira visita, a tela de um administrador dizia "Seu usuário ainda não tem nenhuma
+   * permissão. Fale com quem administra o sistema."
+   *
+   * São dois estados, e confundi-los acusa a pessoa de algo que não é verdade no segundo
+   * em que ela olha para a tela: `null` é "a lista não chegou"; `[]` é "o cadastro não
+   * concede nada", que é erro de cadastro e merece a frase.
+   *
+   * A LEITURA É RODADA: o trecho sai do arquivo e é chamado com o cache vazio. Lido, ele
+   * responderia "a palavra null está ali?" — e estaria, mesmo com o `|| []` de volta. */
+  var iM = ins.indexOf('  var minhas = ');
+  var leitura = iM < 0 ? '' : ins.slice(iM, ins.indexOf('\n', ins.indexOf('var painel =', iM)));
+  ok(leitura.length > 30 && leitura.length < 300,
+    'a conferência achou a leitura do cache — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', leitura.length);
+  function lerCom(guardado) {
+    return new Function('Q', leitura + '\n return minhas;')(
+      { cache: function () { return guardado; } });
+  }
+  ok(lerCom(null) === null && lerCom(undefined) === null,
+    'cache ainda vazio devolve NULO, e não lista vazia — tratados como um só, a tela ' +
+    'acusa de "sem permissão" quem só está esperando a lista chegar', lerCom(null));
+  ok(Array.isArray(lerCom([])) && lerCom([]).length === 0,
+    'e lista vazia continua sendo lista vazia — essa é a que merece a frase, porque é ' +
+    'erro de cadastro', lerCom([]));
+  /* E a frase só é escrita DEPOIS da guarda do nulo. */
+  /* NO CÓDIGO, e não no arquivo: o comentário que explica POR QUE os dois estados são
+     diferentes cita a própria frase, e a primeira versão desta prova reprovou por causa
+     dele — medindo o texto em vez do que roda. */
+  var iGuarda = insCodigo.indexOf('if (!minhas) {');
+  var iFrase = insCodigo.indexOf('ainda não tem nenhuma');
+  ok(iGuarda > 0 && iFrase > iGuarda,
+    'e a guarda do nulo vem ANTES da frase de erro de cadastro — depois dela, a frase ' +
+    'já teria sido escrita', { guarda: iGuarda, frase: iFrase });
+  ok(/addEventListener\('storage'/.test(ins),
+    'e quando a lista chega, a tela se redesenha sozinha — o quadro é outro documento, e ' +
+    'o `storage` é o que avisa um documento do que o outro escreveu');
 
   /* ---- O ATALHO ABRE NO PAINEL, E NÃO DENTRO DO QUADRO ---- */
   ok(/window\.top\.location\.href = 'admin\.html#'/.test(ins),

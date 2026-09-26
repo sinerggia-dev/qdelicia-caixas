@@ -657,6 +657,26 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .conta__nome{font-size:13px;font-weight:600;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .conta__meta{font-size:11px;color:var(--txt3);line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+/* ================= O NOME INTEIRO, NO RODAPÉ DA LATERAL =================
+ *
+ * MEDIDO: com os dois botões ao lado — Aparência e Sair —, sobravam 61px para o nome, e
+ * "Natanael Silva" precisa de 87. Ele saía "Natana...". E o segundo botão só nasce para
+ * quem é ADMIN, depois que as permissões chegam: quem desenhou a tela sem ele viu o nome
+ * caber e foi embora.
+ *
+ * A SAÍDA NÃO É ENCOLHER A LETRA nem quebrar o nome em duas linhas: com 61px, "Natanael"
+ * mal cabe, e um primeiro nome maior quebraria no meio da palavra. Aqui o BLOCO DO NOME
+ * pede 120px; não cabendo com os botões, são eles que descem uma linha — e o nome passa
+ * a ter os ~169px da lateral inteira. Sem os dois botões, tudo continua em uma linha só.
+ *
+ * E o `ellipsis` fica onde está: nome que ainda assim não couber é cortado com as
+ * reticências, que dizem "tem mais", em vez de quebrar a caixa. */
+.lateral__pe .conta{flex-wrap:wrap;row-gap:8px}
+.lateral__pe .conta__id{flex:1 1 120px}
+/* Descendo, eles descem para a DIREITA: à esquerda ficariam debaixo do retrato, que é
+   onde a pessoa procura o nome, e não um botão. */
+.lateral__pe .conta > .btn-icone:nth-of-type(1){margin-left:auto}
+
 /* O estado da rede. Continua sendo `#chipRede`, com as mesmas classes que o `app.js`
    escreve (`off`, `alerta`) — so mudou onde ele mora e como ele se parece. */
 .chip{

@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <!-- A FOLHA DO APP VEM ANTES: é dela que saem as cores da empresa, e a folha desta
      página precisa poder sobrescrever o que for dela. -->
-<link rel="stylesheet" href="styles.css?v=5b47d18c">
+<link rel="stylesheet" href="styles.css?v=28323bcd">
 <style>
 /* ================= OS TOKENS DO MODELO, APELIDANDO OS DO APP =================
  *
@@ -241,7 +241,13 @@ body{margin:0;padding:18px 16px 24px;background:var(--surface);color:var(--txt);
    * AS PENDÊNCIAS saem do painel que o próprio painel já guardou. Nenhuma ida à rede
    * nova: esta página abre dentro dele, segundos depois de ele ter buscado tudo. */
   var s = (Q && Q.sessao()) || {};
-  var minhas = (Q && Q.cache('minhasAbas')) || [];
+  /* `null` e `[]` DIZEM COISAS DIFERENTES, e confundi-los foi o que pôs "seu usuário
+     ainda não tem nenhuma permissão" na tela de um administrador. `null` é "a lista
+     ainda não chegou" — esta página abre dentro do painel, e o painel só a publica
+     depois que a rota `equipe` volta. `[]` é "o cadastro não concede nada", que é erro
+     de cadastro e merece a frase. Tratados como um só, o primeiro caso acusa a pessoa de
+     algo que não é verdade, no segundo em que ela olha para a tela. */
+  var minhas = (Q && Q.cache('minhasAbas')) || null;
   var painel = (Q && Q.cache('painel')) || null;
 
   /* O TEXTO de cada página. O NOME vem do catálogo do servidor, pela lista publicada —
@@ -349,7 +355,15 @@ body{margin:0;padding:18px 16px 24px;background:var(--surface);color:var(--txt);
     /* A PROPRIA PAGINA SAI DA LISTA. Um atalho que leva para onde a pessoa ja esta
        nao e atalho: ele gasta um lugar da grade e, tocado, nao muda nada na tela —
        que e como se le "o sistema travou". */
-    var cartoes = minhas.filter(function (a) { return a.ID !== 'pgInstrucoes'; });
+    var cartoes = (minhas || []).filter(function (a) { return a.ID !== 'pgInstrucoes'; });
+
+    /* Sem lista ainda, a grade fica vazia e calada: a frase de erro de cadastro só
+       aparece quando a lista CHEGOU e veio vazia. */
+    if (!minhas) {
+      $('acoes').innerHTML = '';
+      $('rotulo-acoes').hidden = true;
+      return;
+    }
 
     $('acoes').innerHTML = cartoes.map(function (a) {
       var d = SOBRE[a.ID];
@@ -396,6 +410,25 @@ body{margin:0;padding:18px 16px 24px;background:var(--surface);color:var(--txt);
     if (!b) return;
     try { window.top.location.href = 'admin.html#' + b.dataset.ir; }
     catch (err) { window.location.href = 'admin.html#' + b.dataset.ir; }
+  });
+
+  /* ---- E QUANDO A LISTA CHEGAR, A TELA SE REDESENHA ----
+   *
+   * Esta página vive num quadro dentro do painel, e o navegador a carrega junto com ele
+   * — antes, portanto, de o painel saber quais páginas esta pessoa vê. Sem isto, quem
+   * abrisse as Instruções na PRIMEIRA visita veria a tela sem atalho nenhum até
+   * recarregar, e não haveria nada na tela dizendo por quê.
+   *
+   * O evento `storage` existe exatamente para isto: ele dispara nos OUTROS documentos
+   * da mesma origem quando um deles escreve. O painel escreve; este quadro ouve. */
+  window.addEventListener('storage', function (e) {
+    if (!e || !e.key) return;
+    if (e.key.indexOf('minhasAbas') < 0 && e.key.indexOf('painel') < 0) return;
+    try {
+      minhas = (Q && Q.cache('minhasAbas')) || null;
+      painel = (Q && Q.cache('painel')) || null;
+      desenhar();
+    } catch (err) {}
   });
 
   desenhar();
