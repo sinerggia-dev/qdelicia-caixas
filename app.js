@@ -404,14 +404,47 @@
     return fora;
   }
 
-  function cartaoDeAcao(chave, dados) {
+  /* O NOME DA UNIDADE. A sessão guarda o ID do local padrão, e não o nome — o nome é
+     cadastro, e cadastro muda. Ele é procurado na cópia local dos dados, que é a mesma
+     que alimenta os seletores do app.
+     NÃO ACHANDO, a linha some em vez de mostrar o id cru: "L003" ao lado do nome da
+     pessoa não informa nada e parece defeito. É o caso do primeiro acesso num aparelho
+     novo, em que os dados ainda não chegaram. */
+  function nomeDoLocal(id) {
+    if (!id) return '';
+    var d = cache('dados') || {};
+    var l = (d.locais || []).filter(function (x) { return String(x.ID) === String(id); })[0];
+    return l ? (l.Nome || '') : '';
+  }
+
+  /* OS CONTADORES, e só onde o número tem significado exato.
+     O cartão do Painel de Ativos promete "quanto está fora agora", e é esse número que
+     ele leva. O de Movimentos leva quantas linhas o mês tem.
+     NOS OUTROS NÃO HÁ CONTADOR, de propósito: um número solto ao lado de "Cadastros"
+     obriga quem lê a adivinhar o que ele conta, e adivinhar errado é pior do que não
+     ter número. Cada um leva um balão dizendo o que é. */
+  function contadorDe(chave, painel) {
+    var tot = (painel || {}).totais || {};
+    if (chave === 'pgRetornos' && tot.deficit > 0) {
+      return { n: num(tot.deficit), q: 'caixas que sairam e ainda nao voltaram' };
+    }
+    if (chave === 'pgMovimentos' && tot.linhas > 0) {
+      return { n: num(tot.linhas), q: 'linhas com movimento no mes' };
+    }
+    return null;
+  }
+
+  function cartaoDeAcao(chave, painel) {
     var base = ACOES_BV[chave] || {};
     var conhecida = !!ACOES_BV[chave];
+    var c = contadorDe(chave, painel);
     return '<button class="bv-acao' + (base.forte ? ' bv-acao--forte' : '') +
       (conhecida ? '' : ' bv-acao--nova') + '" type="button" data-bv-ir="' + esc(chave) + '">' +
       '<span class="bv-acao__i">' + svgBV(ICO_BV[chave] || ICO_BV.novo, 19) + '</span>' +
-      '<span class="bv-acao__t"><b>' + esc(base.t || (dados && dados.t) || chave) + '</b>' +
-      '<span>' + esc(base.d || 'Disponível para o seu usuário.') + '</span></span></button>';
+      '<span class="bv-acao__t"><b>' + esc(base.t || chave) + '</b>' +
+      '<span>' + esc(base.d || 'Disponível para o seu usuário.') + '</span></span>' +
+      (c ? '<span class="bv-acao__n" title="' + esc(c.q) + '">' + c.n + '</span>' : '') +
+      '</button>';
   }
 
   /* `opts`: { pode: [chaves], painel: {}, aoFechar: fn, aoIr: fn(chave) } */
@@ -451,7 +484,8 @@
             '<p class="bv__n" id="bvNome">' +
               esc(String(s.nome || '').split(' ')[0] || '—') + '</p>' +
             '<p class="bv__p"><span class="bv__selo">' + esc(s.perfil || '') + '</span>' +
-              (s.localNome ? '<span>' + esc(s.localNome) + '</span>' : '') + '</p>' +
+              (function (n) { return n ? '<span>' + esc(n) + '</span>' : ''; })(
+                nomeDoLocal(s.localPadrao)) + '</p>' +
           '</div>' +
         '</div>' +
         (primeiro
@@ -461,7 +495,8 @@
                 'dia: <b>quantas caixas estão fora, e com quem</b>.</p>' +
               '<div class="bv__passos">' +
                 '<div class="bv__passo"><i>1</i><b>Antes de sair</b><span>Alguém lança ' +
-                  'quantas caixas de cada tipo vão, para onde e com qual motorista.</span></div>' +
+                  'quantas caixas de cada tipo vão, para onde e com qual motorista. ' +
+                  'Leva menos tempo do que anotar no caderno.</span></div>' +
                 '<div class="bv__passo"><i>2</i><b>Quando volta</b><span>Conta-se de novo. ' +
                   'Se voltou menos do que foi, a diferença aparece <b>na hora</b> — e não ' +
                   'no fim do mês, quando ninguém lembra mais.</span></div>' +
@@ -485,7 +520,8 @@
           : '') +
         (pode.length
           ? '<p class="bv__rot">' + (primeiro ? 'O que você pode fazer' : 'Ir direto para') +
-            '</p><div class="bv__acoes">' + pode.map(cartaoDeAcao).join('') + '</div>'
+            '</p><div class="bv__acoes">' +
+            pode.map(function (k) { return cartaoDeAcao(k, o.painel); }).join('') + '</div>'
           : '<p class="bv__vazio">Seu usuário ainda não tem nenhuma permissão. Fale com ' +
             'quem administra o sistema.</p>') +
         '<div class="bv__pe">' +

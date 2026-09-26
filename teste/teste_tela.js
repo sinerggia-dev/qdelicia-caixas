@@ -11121,6 +11121,44 @@ console.log('\n== a tela de boas-vindas ==');
     'e existe "Ver depois" no primeiro acesso — quem abriu com pressa não fica com a ' +
     'sensação de estar sendo obrigado a ler');
 
+  /* ---- 6c. O QUE FALTAVA EM RELAÇÃO AO MODELO ----
+   *
+   * A UNIDADE DA PESSOA. A sessão guarda o ID do local padrão, e não o nome — e a tela
+   * mostrava um campo que não existe, então a linha saía vazia sem ninguém notar. */
+  var iNL = app.indexOf('  function nomeDoLocal(id)');
+  var nomeLocal = new Function('cache',
+    app.slice(iNL, app.indexOf('\n  }', iNL) + 4) + '\n return nomeDoLocal;')(
+    function () { return { locais: [{ ID: 'L1', Nome: 'Matriz São Vicente' }] }; });
+  ok(nomeLocal('L1') === 'Matriz São Vicente',
+    'a unidade da pessoa é procurada pelo id e sai pelo NOME', nomeLocal('L1'));
+  ok(nomeLocal('L9') === '' && nomeLocal('') === '',
+    'e não achando, a linha some em vez de mostrar o id cru — "L003" ao lado do nome da ' +
+    'pessoa não informa nada e parece defeito', JSON.stringify(nomeLocal('L9')));
+  ok(/nomeDoLocal\(s\.localPadrao\)/.test(app),
+    'e a tela lê o campo que a sessão REALMENTE tem — `localNome` não existe nela, e a ' +
+    'linha saía vazia sem ninguém notar');
+
+  /* OS CONTADORES, e só onde o número tem significado exato. */
+  var iCD = app.indexOf('  function contadorDe(chave, painel)');
+  var contador = new Function('num',
+    app.slice(iCD, app.indexOf('\n  }', iCD) + 4) + '\n return contadorDe;')(
+    function (n) { return String(n); });
+  var pnl = { totais: { deficit: 2340, linhas: 24 } };
+  ok(contador('pgRetornos', pnl).n === '2340',
+    'o Painel de Ativos leva quantas caixas estão fora — que é o que o cartão dele promete',
+    contador('pgRetornos', pnl));
+  ok(contador('pgMovimentos', pnl).n === '24',
+    'e Movimentos leva quantas linhas o mês tem', contador('pgMovimentos', pnl));
+  ok(!contador('pgCadastros', pnl) && !contador('pgAparencia', pnl),
+    'e os outros NÃO levam número — um número solto ao lado de "Cadastros" obriga quem ' +
+    'lê a adivinhar o que ele conta');
+  ok(!contador('pgRetornos', { totais: { deficit: 0 } }) &&
+     !contador('pgRetornos', null),
+    'e zero ou sem painel não vira contador — "0" ao lado do atalho parece dado, e o que ' +
+    'há é ausência de dado');
+  ok(/title="' \+ esc\(c\.q\)/.test(app),
+    'cada contador diz no balão o que ele conta');
+
   /* ---- 7. PERMISSÃO DESCONHECIDA NÃO SOME ----
      Sumir faria a pessoa achar que perdeu acesso quando o que está velho é a tela. */
   ok(/bv-acao--nova/.test(app) && /\.bv-acao--nova\{border-style:dashed\}/.test(css),
