@@ -524,10 +524,23 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
   ok(/tipo === 'GALPAO'/.test(lfi) && /tipo === 'FILIAL'/.test(lfi),
     'o chip Filiais junta filial e galpao', lfi.trim());
 
-  // o deficit conta a partir da lista comum, nunca de todasAsLinhas
+  /* O CHIP CONTA E PENEIRA PELO MESMO NÚMERO QUE A TABELA MOSTRA.
+   *
+   * Relatado da operação: "Em déficit 2", e uma das duas linhas com `+810` no Saldo
+   * final. Não era erro de conta — a peneira olhava o `saldo` da linha (retorno menos
+   * saída) e a coluna mostrava o corrido (inicial − saída + retorno). Dois números
+   * certos, e só um na tela: não havia como conferir o filtro olhando.
+   * Esta asserção cobra o ACORDO, e não uma fórmula: as três leituras — a contagem do
+   * chip, a peneira e a célula — passam pela mesma função. */
   var def = corpoDe('linhasDeficit');
-  ok(def.indexOf('saldo < 0') >= 0,
-    'o chip "Em deficit" conta quem tem saldo negativo', def.trim());
+  ok(/saldoFinalDaLinha\(l, false\) < 0/.test(def),
+    'o chip "Em déficit" conta pelo Saldo final, que é o número que a tabela mostra',
+    def.trim());
+  var peneira = adm.slice(adm.indexOf("if (FLUXO_FILTRO === 'deficit')"),
+                          adm.indexOf("if (FLUXO_FILTRO === 'deficit')") + 220);
+  ok(/saldoFinalDaLinha\(l, false\) < 0/.test(peneira),
+    'e peneira pelo mesmo — contado por uma regra e peneirado por outra, o número no ' +
+    'chip promete uma coisa e o clique entrega outra', peneira.slice(0, 90));
 
   var lf = corpoDe('linhasFluxo');
   ok(/FLUXO_FILTRO === 'FILIAL'/.test(lf) && lf.indexOf('linhasFiliais') >= 0,
@@ -1114,8 +1127,15 @@ console.log('\n== o saldo corrido vem do servidor ==');
   /* O Saldo final le o MESMO corrido, um passo adiante: inicial − saida + retorno. E o
      que faz a cadeia fechar — o final de uma linha e o inicial da de baixo, mais o que
      tiver sido lancado naquele dia. A formula esta testada no bloco proprio dela. */
-  ok(/var fim = gente \? l\.saldo : l\.fimCorrido;/.test(corpo),
-    'e o Saldo final vem do mesmo corrido — nas visoes de gente, do saldo da pessoa');
+  ok(/var fim = saldoFinalDaLinha\(l, gente\);/.test(corpo),
+    'e o Saldo final vem do mesmo corrido — nas visões de gente, do saldo da pessoa');
+  /* A FÓRMULA MORA NUM LUGAR SÓ. Ela estava copiada em três — a célula, a chave de
+     ordenação e o cartão do extrato — e uma quarta leitura, a do déficit, usava outra.
+     Foi assim que a tela passou a dizer uma coisa e a peneira outra. */
+  ok((adm.match(/gente \? l\.saldo : l\.fimCorrido/g) || []).length === 1,
+    'e a fórmula do Saldo final existe uma vez só, dentro do `saldoFinalDaLinha` — ' +
+    'copiada, é uma das cópias que se esquece de atualizar',
+    (adm.match(/gente \? l\.saldo : l\.fimCorrido/g) || []).length);
 
   var j = adm.indexOf("Q.csv('retornos'");
   var csv = adm.slice(adm.lastIndexOf('var cs =', j), adm.indexOf('}));', j));
@@ -6818,7 +6838,11 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   /* A CONTA FECHA NA TELA. Rodado de verdade: `iniCorrido` já vem com o lançamento
      somado, e escrito cru a linha dizia 1.620 mais 810 dando 1.620. */
   (function () {
-    var fonte = ['function lugares(', 'function cartaoFluxo(']
+    /* `saldoFinalDaLinha` entra no recorte porque o cartão a CHAMA. Posta como coto
+       aqui, a bancada mediria a minha cópia da fórmula e não a que vai para a tela — e
+       era justamente uma fórmula copiada que fazia o chip de déficit discordar da
+       coluna. */
+    var fonte = ['function lugares(', 'function saldoFinalDaLinha(', 'function cartaoFluxo(']
       .map(function (a) {
         var i = adm.indexOf('  ' + a);
         return adm.slice(i, adm.indexOf('\n  }', i) + 4);
@@ -7277,10 +7301,17 @@ console.log('\n== o Saldo final segue a formula do saldo ==');
   var corpo = bloco.slice(bloco.indexOf('v: function(l){'));
   corpo = corpo.slice(corpo.indexOf('{') + 1, corpo.lastIndexOf('}'));
   corpo = corpo.slice(0, corpo.lastIndexOf('}'));
-  ok(/l\.fimCorrido/.test(corpo) && corpo.indexOf('estoqueInicial') < 0,
+  ok(/saldoFinalDaLinha\(l, gente\)/.test(corpo) && corpo.indexOf('estoqueInicial') < 0,
     'o recorte pegou a celula certa, e ela nao tem mais excecao para o estoque');
+  /* A CÉLULA PASSOU A CHAMAR `saldoFinalDaLinha`, e a função REAL entra na bancada junto.
+     Escrita aqui como coto, esta bancada mediria a minha cópia da fórmula — e foi uma
+     cópia divergente que fez o chip de déficit discordar desta coluna. */
+  var iSF = adm.indexOf('  function saldoFinalDaLinha(');
+  var fonteSF = adm.slice(iSF, adm.indexOf('\n  }', iSF) + 4);
+  ok(iSF > 0 && /gente \? l\.saldo : l\.fimCorrido/.test(fonteSF),
+    'e a função do saldo final veio do arquivo, não de uma cópia escrita no teste');
   var Q = { num: function (n) { return String(n); } };
-  var celula = new Function('Q', 'gente', 'l', corpo);
+  var celula = new Function('Q', 'gente', 'l', fonteSF + '\n' + corpo);
 
   /* Os quatro dias da tela do usuario, com a conta que ele escreveu ao lado. O campo
      `saldo` (retorno − saida) vai junto e DIFERENTE em cada um: se a celula voltar a
@@ -10233,6 +10264,109 @@ console.log('\n== a base do usuário ==');
      qualquer id — passava por cima da asserção sem ela piscar. Medido: o defeito
      ESCAPOU. Quem responde "gravou alguma coisa antes de conferir?" é a chamada de
      verdade contra o banco falso, e mais nada. */
+})();
+
+console.log('\n== "Em déficit" peneira pelo número que está na tela ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* OS QUATRO DIAS DA TELA DE QUEM RELATOU, com os números que ele viu.
+   *
+   * O chip dizia "2" e uma das duas linhas mostrava `+810` no Saldo final. As duas
+   * contas estavam certas e eram DIFERENTES: a peneira olhava `saldo` (retorno menos
+   * saída, −440 e −1.900) e a coluna mostrava o corrido (+810 e −280). Só o segundo
+   * estava na tela, então não havia como conferir o filtro olhando.
+   *
+   * Este bloco RODA a peneira. Lido no arquivo, o teste não responderia a pergunta que
+   * importa — "quais linhas aparecem?" —, e é ela que a pessoa faz olhando a tabela. */
+  var iLF = adm.indexOf('  function linhasFluxo(){');
+  var fonte = adm.slice(adm.indexOf('  function saldoFinalDaLinha('),
+                        adm.indexOf('\n  }', adm.indexOf('  function saldoFinalDaLinha(')) + 4) +
+              adm.slice(iLF, adm.indexOf('\n  }', iLF) + 4);
+  ok(iLF > 0 && /saldoFinalDaLinha/.test(fonte),
+    'o recorte pegou a peneira e a função do saldo final — sem isto o bloco abaixo ' +
+    'exercitaria outro código');
+
+  var DIAS = [
+    { d: '15/09 estoque', saida: 0,    retorno: 0,    saldo: 0,     fimCorrido: 1250 },
+    { d: '16/09',         saida: 1690, retorno: 1250, saldo: -440,  fimCorrido: 810 },
+    { d: '17/09 estoque', saida: 0,    retorno: 0,    saldo: 0,     fimCorrido: 1620 },
+    { d: '17/09',         saida: 2710, retorno: 810,  saldo: -1900, fimCorrido: -280 }
+  ];
+
+  function comFiltro(qual) {
+    return new Function('FLUXO_FILTRO', 'PAINEL', 'linhasVivas', 'linhasFiliais',
+      fonte + '\n return linhasFluxo();')(
+      qual, { fluxoPessoas: { motoristas: [], usuarios: [] } },
+      function () { return DIAS; }, function () { return []; });
+  }
+
+  var todas = comFiltro('todas');
+  ok(todas.length === 4, 'sem recorte, os quatro dias aparecem', todas.length);
+
+  var def = comFiltro('deficit');
+  ok(def.length === 1 && def[0].d === '17/09',
+    'em déficit, só o dia que fechou no vermelho: 1.620 − 2.710 + 810 = −280',
+    def.map(function (l) { return l.d + '(' + l.fimCorrido + ')'; }).join(' '));
+  ok(def.every(function (l) { return l.fimCorrido < 0; }),
+    'e nenhuma linha com Saldo final positivo entra — era o `+810` que fazia o filtro ' +
+    'parecer quebrado para quem olhava a tabela',
+    def.map(function (l) { return l.fimCorrido; }).join(' '));
+
+  /* O OUTRO NÚMERO NÃO SUMIU NEM ESTAVA ERRADO. Ele é quanto ficou na rua, e é dele que
+     sai o cartão "Caixas que Saíram e Não Voltaram": 440 + 1.900 = 2.340, que é o que a
+     tela mostrava no alto. O que mudou foi de qual dos dois o CHIP fala. */
+  var naRua = DIAS.reduce(function (s, l) { return s + (l.saldo < 0 ? -l.saldo : 0); }, 0);
+  ok(naRua === 2340,
+    'e o número do cartão de déficit continua sendo o outro: 440 + 1.900 = 2.340 na rua',
+    naRua);
+
+  /* A CONTAGEM DO CHIP PROMETE O QUE O CLIQUE ENTREGA. Contada por uma regra e peneirada
+     por outra, ela dizia 2 e mostrava algo que não se podia conferir. */
+  var iLD = adm.indexOf('  function linhasDeficit(){');
+  var conta = new Function('linhasVivas',
+    adm.slice(adm.indexOf('  function saldoFinalDaLinha('),
+              adm.indexOf('\n  }', adm.indexOf('  function saldoFinalDaLinha(')) + 4) +
+    adm.slice(iLD, adm.indexOf('\n  }', iLD) + 4) +
+    '\n return linhasDeficit();')(function () { return DIAS; });
+  ok(conta === def.length,
+    'e o número no chip é exatamente quantas linhas o clique mostra',
+    conta + ' vs ' + def.length);
+
+  /* ---- A CHAVE DE ORDENAÇÃO E A CÉLULA DEVOLVEM O MESMO NÚMERO ----
+   *
+   * Um defeito plantado escapou de todas as outras: a chave lendo `l.saldo` enquanto a
+   * célula mostra o corrido. Nada quebra na tela — clicar no título ordena, as linhas se
+   * mexem, e a ordem é por um número que não está em coluna nenhuma. Quem confere de
+   * olho conclui que a ordenação está quebrada.
+   *
+   * O comentário ao lado da coluna já avisava desse risco, com essas palavras: "Lendo
+   * `fimCorrido` direto, a coluna ordenaria por um numero nas visoes de gente e mostraria
+   * outro". Aviso não é guarda — nada cobrava.
+   *
+   * RODANDO AS DUAS, e não comparando o texto delas: escritas de formas diferentes e com
+   * o mesmo resultado, ficam certas; escritas iguais e lidas de campos diferentes, não.
+   * A linha de teste tem `saldo` e `fimCorrido` BEM distintos de propósito — iguais, o
+   * defeito passaria. */
+  var iFim = adm.indexOf("      final:    { t: TIT['final']");
+  var blocoFim = adm.slice(iFim, adm.indexOf('\n    };', iFim));
+  var col = new Function('Q', 'gente', 'TIT', 'saldoFinalDaLinha',
+    'return {' + blocoFim + '};')(
+    { num: function (n) { return String(n); } }, false, { final: 'Saldo final' },
+    new Function('l', 'gente', 'return gente ? l.saldo : l.fimCorrido;')).final;
+
+  [{ nome: 'local no vermelho', gente: false, l: { saldo: -1900, fimCorrido: -280 } },
+   { nome: 'local no azul',     gente: false, l: { saldo: -440,  fimCorrido: 810 } }
+  ].forEach(function (c) {
+    /* SÓ O TEXTO DENTRO DO `<b>`. Limpando a marcação inteira com um `[^0-9-]`, os
+       hífens de `class="val val-ruim"` entravam na conta e `-280` virava `--280`. A
+       sonda estava errada, não a coluna. */
+    var mostrado = Number(/>([^<]*)</.exec(col.v(c.l))[1].replace(/[^0-9\-]/g, ''));
+    ok(col.k(c.l) === mostrado,
+      c.nome + ': a coluna ordena pelo MESMO número que imprime — ordenando por outro, ' +
+      'as linhas se mexem por um valor que não está na tela',
+      'ordena por ' + col.k(c.l) + ', mostra ' + mostrado);
+  });
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

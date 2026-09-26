@@ -1596,6 +1596,26 @@
 
   function ehVisaoDeGente(v){ return v === 'MOTORISTA' || v === 'USUARIO'; }
 
+  /* ================= O SALDO FINAL DE UMA LINHA, NUM LUGAR SÓ =================
+   *
+   * Esta conta estava escrita em três lugares — a célula da coluna, a chave de ordenação
+   * dela e o cartão do extrato — e o "Em déficit" peneirava por OUTRA: o `saldo` da
+   * linha, que é retorno menos saída. São dois números diferentes e só um aparece na
+   * tela, então o chip dizia "2 em déficit" com um `+810` bem à vista numa delas.
+   * Quem relatou não tinha como conferir: o número que justificava o filtro não estava
+   * em coluna nenhuma.
+   *
+   * O outro número não sumiu nem é mentira — ele é quanto ficou na rua, e é dele que sai
+   * o cartão "Caixas que Saíram e Não Voltaram", no alto. O que não podia continuar era
+   * a TELA dizer uma coisa e a PENEIRA outra.
+   *
+   * Nas visões de gente não há saldo corrido: um motorista não tem estoque próprio, e o
+   * que ele deve é o que levou e não trouxe. Por isso ali o saldo final É o `saldo` —
+   * e é por isso que esta função pergunta a visão, em vez de escolher um campo fixo. */
+  function saldoFinalDaLinha(l, gente){
+    return gente ? l.saldo : l.fimCorrido;
+  }
+
   function linhasFluxo(){
     var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
     if (FLUXO_FILTRO === 'MOTORISTA') return p.motoristas;
@@ -1606,7 +1626,13 @@
     if (FLUXO_FILTRO === 'FILIAL') return linhasFiliais();
     var vivas = linhasVivas();
     if (FLUXO_FILTRO === 'todas') return vivas;
-    if (FLUXO_FILTRO === 'deficit') return vivas.filter(function(l){ return l.saldo < 0; });
+    /* PELO NÚMERO QUE ESTÁ NA TELA. Peneirando pelo `saldo`, o filtro trazia linhas com
+       Saldo final positivo — certas pela regra dele e impossíveis de conferir olhando.
+       A visão de déficit é sempre de locais (ela sai de `linhasVivas`), e por isso o
+       `false`: aqui o saldo final é o corrido, o mesmo da coluna. */
+    if (FLUXO_FILTRO === 'deficit') {
+      return vivas.filter(function(l){ return saldoFinalDaLinha(l, false) < 0; });
+    }
     return vivas.filter(function(l){ return l.tipo === FLUXO_FILTRO; });
   }
 
@@ -2809,7 +2835,13 @@
     ].map(function(c){ c.r = NOMES_GRUPO[c.v]; return c; });
     document.getElementById('retNav').innerHTML = itens.map(function(c){
       return '<button type="button" class="ret-item'+(FLUXO_FILTRO===c.v?' ativo':'')+
-        '" data-fchip="'+c.v+'"><span class="pt"></span>'+c.r+
+        '" data-fchip="'+c.v+'"'+
+        /* O QUE ELE PENEIRA, escrito. "Em déficit" é a única linha da lista que não
+           nomeia um campo, e por isso é a única em que a pessoa precisa adivinhar o
+           critério — foi adivinhando errado que o "+810" pareceu defeito. */
+        (c.v === 'deficit'
+          ? ' title="Mostra as linhas em que o Saldo final ficou negativo"' : '')+
+        '><span class="pt"></span>'+c.r+
         '<span class="n">'+Q.num(c.n)+'</span></button>';
     }).join('');
 
@@ -2919,9 +2951,9 @@
          resposta, e a celula e quem manda. Lendo `fimCorrido` direto, a coluna ordenaria
          por um numero nas visoes de gente e mostraria outro. */
       final:    { t: TIT['final'], num: true,
-                  k: function(l){ return gente ? l.saldo : l.fimCorrido; },
+                  k: function(l){ return saldoFinalDaLinha(l, gente); },
                   v: function(l){
-                    var fim = gente ? l.saldo : l.fimCorrido;
+                    var fim = saldoFinalDaLinha(l, gente);
                     var cor = fim > 0 ? ' val-ok' : (fim < 0 ? ' val-ruim' : '');
                     return '<b class="val' + cor + '">' +
                       (fim > 0 ? '+' : '') + Q.num(fim) + '</b>';
@@ -3097,8 +3129,12 @@
     return 'Nenhum movimento no mês para este filtro.';
   }
 
+  /* A MESMA PERGUNTA DA PENEIRA, e não uma parecida: o número no chip é a promessa do
+     que o clique vai mostrar. Contado por uma regra e peneirado por outra, ele prometia
+     duas linhas e entregava outra coisa. */
   function linhasDeficit(){
-    return linhasVivas().filter(function(l){ return l.saldo < 0; }).length;
+    return linhasVivas().filter(function(l){ return saldoFinalDaLinha(l, false) < 0; })
+      .length;
   }
 
   /* As celulas de Origem e Destino. Cada linha e UM trajeto, entao cada celula traz um
@@ -3129,7 +3165,7 @@
      responde sozinho de onde veio o número do fim — que na tabela exigia atravessar
      nove colunas. */
   function cartaoFluxo(l, gente){
-    var fim = gente ? l.saldo : l.fimCorrido;
+    var fim = saldoFinalDaLinha(l, gente);
     /* TRÊS ESTADOS, e não dois. A linha de ESTOQUE LANÇADO tinha saída e retorno zerados
        e caía em "Sem movimento" — mas ela não é um dia parado: é o lançamento que abre a
        conta, e dizer que nada aconteceu nele é o contrário do que aconteceu. */
