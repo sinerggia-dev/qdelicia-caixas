@@ -7224,9 +7224,70 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   ok(ligar.indexOf('classificarPor') < 0,
     'e não passa por `classificarPor`: lá o terceiro clique volta ao padrão, e um botão ' +
     'de duas palavras com três estados deixa a pessoa sem saber onde está');
-  ok(/function ordemDoExtrato\(\)[\s\S]{0,220}ORDEM_FLUXO\.col === 'data' && ORDEM_FLUXO\.desc/
-    .test(adm),
-    'e quem responde "em que ordem está" lê esse mesmo estado, e não uma cópia');
+  /* ---- O ORDENADOR, RODADO ----
+   *
+   * As duas asserções que moravam aqui cobravam o TEXTO — `estado.desc ? -r : r` e o
+   * corpo do `ordemDoExtrato`. Bastou a ordem de fábrica virar decrescente, e as duas
+   * caíram sem que garantia nenhuma tivesse se perdido: elas mediam onde a regra estava
+   * escrita, nunca o que ela faz.
+   *
+   * Agora a máquina roda. As peças saem do arquivo: `semValor`, `compararValores`,
+   * `ORDEM_PADRAO` e `aplicarOrdem`. */
+  var pecas = ['  var ORDEM_PADRAO = ', '  function semValor(v)',
+               '  function compararValores(x, y)', '  function aplicarOrdem(lista, DEFS, estado)'];
+  var fonte = pecas.map(function (m) {
+    var i = adm.indexOf(m);
+    if (i < 0) return '';
+    var fim = m.indexOf('function') >= 0 ? adm.indexOf('\n  }', i) + 4
+                                         : adm.indexOf('\n', i) + 1;
+    return adm.slice(i, fim);
+  }).join('\n');
+  ok(fonte.indexOf('ORDEM_PADRAO') > 0 && fonte.indexOf('aplicarOrdem') > 0 &&
+     fonte.length > 600,
+    'a conferência recortou o ordenador inteiro — recorte incompleto faria as provas ' +
+    'abaixo medirem outra coisa', fonte.length);
+
+  var ordenar = new Function(fonte + '\n return { aplicarOrdem: aplicarOrdem, ' +
+    'ORDEM_PADRAO: ORDEM_PADRAO };')();
+  var DEFS_D = { data: { k: function (l) { return l.data; } } };
+  /* A lista chega do servidor na ordem CRESCENTE, que era a de fábrica antiga. */
+  var DIAS = [{ data: '2026-09-15' }, { data: '2026-09-16' }, { data: '2026-09-17' }];
+  function datas(estado) {
+    return ordenar.aplicarOrdem(DIAS, DEFS_D, estado)
+      .map(function (l) { return l.data.slice(8); }).join(',');
+  }
+  ok(datas({ col: '', desc: false }) === '17,16,15',
+    'a tabela abre do MAIS RECENTE para o mais antigo — quem abre quer ver o que ' +
+    'aconteceu hoje, e não rolar um mês para chegar nele', datas({ col: '', desc: false }));
+  /* E O TERCEIRO CLIQUE VOLTA PARA CÁ. `trocarOrdem` zera a coluna no terceiro clique;
+     se o vazio não fosse a ordem de fábrica, a tabela cairia na ordem do servidor e o
+     "sempre do mais recente" teria uma fuga. */
+  ok(datas({ col: 'data', desc: false }) === '15,16,17' &&
+     datas({ col: 'data', desc: true }) === '17,16,15',
+    'e clicar na coluna ainda vira a tabela nos dois sentidos',
+    datas({ col: 'data', desc: false }) + ' / ' + datas({ col: 'data', desc: true }));
+
+  /* O VAZIO NÃO ENTRA NA INVERSÃO: linha sem dado vai para o fim nos dois sentidos. */
+  var COM_VAZIO = [{ data: '2026-09-15' }, { data: '' }, { data: '2026-09-17' }];
+  function comVazio(desc) {
+    return ordenar.aplicarOrdem(COM_VAZIO, DEFS_D, { col: 'data', desc: desc })
+      .map(function (l) { return l.data ? l.data.slice(8) : '—'; }).join(',');
+  }
+  ok(comVazio(false) === '15,17,—' && comVazio(true) === '17,15,—',
+    'e a linha sem data fica no FIM nos dois sentidos — subindo ao topo no decrescente, ' +
+    'ela empurra para baixo justamente as que a pessoa clicou para ver',
+    comVazio(false) + ' / ' + comVazio(true));
+
+  /* O DESEMPATE INVERTE JUNTO. Duas linhas do mesmo dia trocam de lugar entre o
+     crescente e o decrescente; ficando paradas, a lista "vira pela metade". */
+  var MESMO_DIA = [{ data: '2026-09-17', n: 1 }, { data: '2026-09-17', n: 2 }];
+  function empate(desc) {
+    return ordenar.aplicarOrdem(MESMO_DIA, DEFS_D, { col: 'data', desc: desc })
+      .map(function (l) { return l.n; }).join(',');
+  }
+  ok(empate(false) === '1,2' && empate(true) === '2,1',
+    'e o empate inverte junto — parado, o bloco do dia fica na ordem antiga enquanto os ' +
+    'dias viram, e a lista parece não ter ordenado', empate(false) + ' / ' + empate(true));
 
   /* O DESEMPATE INVERTE JUNTO. A ordenação do JavaScript é estável: em `-r`, as linhas
      de chave igual ficam como estavam. Num mesmo dia isso deixava o bloco do dia na
@@ -7238,8 +7299,17 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     .test(adm),
     'o desempate entra como segundo critério, dentro da mesma comparação — e por isso ' +
     'inverte junto com o primeiro');
-  ok(/return estado\.desc \? -r : r;/.test(adm),
-    'e a inversão é do resultado inteiro, empate incluído');
+  /* A inversão do resultado inteiro, empate incluído, é o que a prova do empate acima
+     mede rodando. Aqui fica só a pergunta que o botão do celular faz. */
+  var iOE = adm.indexOf('  function ordemDoExtrato(){');
+  var qualOrdem = new Function('ORDEM_FLUXO', 'ORDEM_PADRAO',
+    adm.slice(iOE, adm.indexOf('\n  }', iOE) + 4) + '\n return ordemDoExtrato;');
+  ok(qualOrdem({ col: '', desc: false }, ordenar.ORDEM_PADRAO)() === 'desc',
+    'e quem responde "em que ordem está" diz DECRESCENTE na tabela recém-aberta — ' +
+    'dizendo crescente, o botão do celular nasce mentindo e o primeiro toque não muda ' +
+    'nada visível', qualOrdem({ col: '', desc: false }, ordenar.ORDEM_PADRAO)());
+  ok(qualOrdem({ col: 'data', desc: false }, ordenar.ORDEM_PADRAO)() === 'asc',
+    'e crescente depois de a pessoa virar a tabela');
 
   /* ---- O VAZIO FICA DE FORA DA INVERSÃO -----------------------------------
    * Este é o conserto de um defeito que viveu desde o começo no Painel de Ativos, e
@@ -7371,6 +7441,31 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'e não usa mais a cor de severidade — verde ali é a cor de "tudo certo"');
   ok(/\.ftile\.ok \.v\{color:var\(--verde\)\}/.test(css),
     'e "ok" é verde de verdade no CSS — o rótulo sozinho não pinta nada');
+
+  /* ---- ABAIXO DO ZERO, EM VERMELHO ----
+   *
+   * Estoque negativo quer dizer que saiu mais do que havia: ou falta lançamento, ou o
+   * saldo inicial nunca foi posto. Nos dois casos é defeito a corrigir, e na cor do
+   * texto comum ele passava despercebido no meio de quatro outros números.
+   *
+   * A DECISÃO É RODADA, e não lida: a expressão sai do arquivo e é chamada com um valor
+   * de cada lado do zero. Lida, ela responderia "a palavra vermelho está ali?" — e
+   * estaria, mesmo com a comparação invertida. */
+  /* A ÂNCORA NÃO LEVA A COMPARAÇÃO. Presa a `estoque < 0`, invertê-la esvaziava o
+     recorte e a falha saía como "não achei" — que não diz o que houve. Solta, a mesma
+     inversão falha pela garantia, dizendo qual cor saiu de cada lado do zero. */
+  var mCor = /(estoque [<>=]+ 0) \? ('var\(--[a-z-]+\)') : (COR_TILE\.estoque)/.exec(fileira);
+  ok(!!mCor, 'a conferência achou a escolha de cor do estoque', mCor && mCor[0]);
+  var corDoEstoque = mCor && new Function('estoque', 'COR_TILE',
+    'return ' + mCor[0] + ';');
+  var negativo = corDoEstoque && corDoEstoque(-280, { estoque: 'normal' });
+  var positivo = corDoEstoque && corDoEstoque(1250, { estoque: 'normal' });
+  ok(negativo === 'var(--vermelho)' && positivo === 'normal',
+    'estoque abaixo do zero sai em VERMELHO, e só ele — o número que denuncia lançamento ' +
+    'faltando não pode se parecer com os outros quatro da faixa',
+    negativo + ' / ' + positivo);
+  ok(/--vermelho:#[0-9a-f]{3,6}/.test(css),
+    'e `--vermelho` é uma cor de verdade na folha — token inventado não pinta nada');
 
   /* Ele soma os GALPOES. Somar `locais` traria os clientes junto, e o cartao diria que
      temos em casa o que esta na rua. */
@@ -8053,7 +8148,8 @@ console.log('\n== a navegação separada por módulo ==');
 
   ok(pares === 'pgRetornos>Painel de Ativos | pgMovimentos>Movimentos | pgPainel>Painel' +
                 ' | pgCadastros>Cadastros | pgColunas>Colunas | pgExtrato>Extratos' +
-                ' | pgLancar>Ajuste Estoque | pgAparencia>Aparência',
+                ' | pgLancar>Ajuste Estoque' +
+                ' | pgVideo>Vídeo Tutorial | pgAparencia>Aparência',
     'o menu do painel está na ordem pedida, e cada rótulo abre a página dele', pares);
 
   /* O título do módulo é VERDE, e pelo token — cor solta ali escaparia da medição de
@@ -11013,7 +11109,7 @@ console.log('\n== o tutorial do primeiro acesso ==');
    * página, e é ele que roda aqui — com um documento de mentira que só anota quem se
    * inscreveu em quê. */
   var vmNode = require('vm');
-  function saidaDo(evento, detalhe) {
+  function saidaDo(evento, detalhe, dentroDeQuadro) {
     var ouvintes = {}, gravou = [], loc = { href: '' };
     var doc = {
       addEventListener: function (nome, fn) { ouvintes[nome] = fn; },
@@ -11029,6 +11125,9 @@ console.log('\n== o tutorial do primeiro acesso ==');
       }
     };
     janela.window = janela;
+    /* `top` diferente de `self` é como uma página descobre que está dentro de um quadro. */
+    janela.self = janela;
+    janela.top = dentroDeQuadro ? {} : janela;
     var fim = dem.lastIndexOf('<script>');
     var corpo = dem.slice(fim + 8, dem.indexOf('</script>', fim));
     vmNode.runInContext(corpo, vmNode.createContext(janela), { filename: 'demo.html' });
@@ -11037,6 +11136,20 @@ console.log('\n== o tutorial do primeiro acesso ==');
     fn({ detail: detalhe, preventDefault: function () {} });
     return { href: loc.href, gravou: gravou, marcada: sessao.viuTutorial === true };
   }
+
+  /* DENTRO DO QUADRO DO PAINEL ele não navega. As saídas dele mandam para o app de
+     campo; dentro do quadro isso carregaria o app de campo DENTRO da página do
+     escritório — o oposto do que o botão promete. Marca, e deixa o demo voltar sozinho
+     para a própria tela de entrada. */
+  var noQuadro = saidaDo('demo:pular', undefined, true);
+  var saiQuadro = saidaDo('demo:sair', undefined, true);
+  /* AS DUAS SAÍDAS, e não só uma: provando só o Pular, tirar a guarda do Sair passava
+     verde — e foi exatamente o que escapou na primeira sabotagem. */
+  ok(noQuadro.href === '' && noQuadro.marcada === true &&
+     saiQuadro.href === '' && saiQuadro.marcada === true,
+    'embutido no painel, NENHUMA saída do tutorial navega — navegando, o app de campo ' +
+    'abriria dentro da página do escritório',
+    { pular: noQuadro.href, sair: saiQuadro.href });
 
   var pular = saidaDo('demo:pular');
   ok(pular.href === 'index.html' && pular.marcada &&

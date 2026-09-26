@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Painel de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=6661e53b">
+<link rel="stylesheet" href="styles.css?v=a7a3bde8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -298,6 +298,14 @@
            saldo e baixa de perda, ou seja, MEXE NO ESTOQUE. Ficava ao
            lado das configurações por causa do nome, e o nome mudou. -->
       <div class="nav-grupo" data-grupo="Sistema">Sistema</div>
+      <button data-grupo="Sistema" style="display:none" data-pagina="pgVideo" data-acima="Sistema">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2.5" y="5" width="19" height="14" rx="2.5"></rect>
+          <path d="M10 9.2l5 2.8-5 2.8z"></path>
+        </svg>
+        <span class="nav-rotulo">Vídeo Tutorial</span>
+      </button>
       <button data-grupo="Sistema" style="display:none" data-pagina="pgAparencia" data-acima="Sistema">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -987,6 +995,24 @@
 
   </section>
 
+  <!-- ---------- VIDEO TUTORIAL ---------- -->
+  <!-- A MESMA PAGINA que o app de campo abre no primeiro acesso, e nao uma segunda
+       copia dela: duas divergem no primeiro conserto que so uma receber, e ai o galpao
+       e o escritorio passam a ver tutoriais diferentes do mesmo sistema.
+
+       DENTRO DE UM QUADRO, e nao um link que leva embora: quem esta no painel esta
+       trabalhando, e sair dele para assistir obrigaria a entrar de novo depois. -->
+  <section id="pgVideo" class="pagina">
+    <div class="card">
+      <h2>Vídeo Tutorial<span class="sub">A demonstração de como lançar saída e
+        retorno — a mesma que aparece no primeiro acesso de quem lança.</span></h2>
+      <div class="quadro-video">
+        <iframe id="quadroTutorial" title="Demonstração de lançamento"
+                src="demo-lancamento.html" loading="lazy"></iframe>
+      </div>
+    </div>
+  </section>
+
   <!-- ---------- CADASTROS ---------- -->
   <section id="pgCadastros" class="pagina">
     <div class="card" id="cardPedidos" style="display:none;border-left:3px solid var(--ambar)" data-cad="pedidos">
@@ -1651,6 +1677,22 @@
      Nao fica guardado: e um recorte para responder uma pergunta ("quem devolveu menos?"),
      e nao um jeito de trabalhar. Guardado, a tela voltaria dias depois fora da ordem de
      extrato sem ninguem lembrar por que. */
+  /* ================= A ORDEM DE FABRICA E A MAIS RECENTE PRIMEIRO =================
+   *
+   * `col` vazio nao quer mais dizer "a ordem em que o servidor mandou": quer dizer a
+   * ordem de fabrica, que e DATA, decrescente. Quem abre a tabela quer ver o que
+   * aconteceu hoje, e nao rolar um mes para chegar nele.
+   *
+   * VALE PARA AS DUAS TABELAS e para os tres cliques: o terceiro volta para ca, e nao
+   * para a ordem do servidor. "Sempre do mais recente para o mais antigo" nao admite um
+   * estado que escape.
+   *
+   * O PRECO ESTA NO EXTRATO, e ele e real: o Saldo final de uma linha e o Saldo inicial
+   * da de baixo, e essa corrente se lia de cima para baixo. Invertida, ela se le de
+   * baixo para cima. O escritorio pediu assim, e o botao de ordem do celular continua
+   * virando a tabela num toque para quem quiser conferir a corrente no sentido antigo. */
+  var ORDEM_PADRAO = { col: 'data', desc: true };
+
   var ORDEM_FLUXO = { col: '', desc: false };
 
   /* A ORDEM DA TABELA DE MOVIMENTOS, no mesmo formato. Duas tabelas, dois estados —
@@ -1681,8 +1723,12 @@
      quem olha conclui que ela não ordenou direito. O índice de origem entra como
      segundo critério, e inverte com o primeiro. */
   function aplicarOrdem(lista, DEFS, estado){
-    if (!estado.col || !DEFS[estado.col] || !DEFS[estado.col].k) return lista;
-    var chave = DEFS[estado.col].k;
+    /* Sem coluna escolhida vale a ordem de fabrica. Tabela que nao tenha a coluna de
+       data — se um dia houver — cai no `return` abaixo e fica como veio, em vez de
+       estourar. */
+    var e = estado.col ? estado : ORDEM_PADRAO;
+    if (!e.col || !DEFS[e.col] || !DEFS[e.col].k) return lista;
+    var chave = DEFS[e.col].k;
     var posicao = new Map();
     lista.forEach(function(l, i){ posicao.set(l, i); });
     return lista.slice().sort(function(a, b){
@@ -1704,7 +1750,7 @@
         return (vx && vy) ? (posicao.get(a) - posicao.get(b)) : (vx ? 1 : -1);
       }
       var r = compararValores(x, y) || (posicao.get(a) - posicao.get(b));
-      return estado.desc ? -r : r;
+      return e.desc ? -r : r;
     });
   }
 
@@ -3240,9 +3286,13 @@
       /* Verde, e o unico que NAO responde aos filtros: ele sai do razao — o que esta nas
          nossas casas AGORA —, e nao do fluxo do periodo. Filtrar por uma origem nao o
          estreitaria, so o deixaria parecendo travado, e por isso o rodape avisa. */
+      /* ABAIXO DO ZERO, EM VERMELHO. Estoque negativo quer dizer que saiu mais do que
+         havia — ou falta lançamento, ou o saldo inicial nunca foi posto. Nos dois casos
+         e defeito a corrigir, e nao numero a ler de passagem: na cor do texto comum ele
+         passava despercebido no meio de quatro outros numeros. */
       tileCor(Q.num(estoque), 'Total no Estoque',
         estoque < 0 ? 'abaixo do zero' : 'nos galpões e unidades, fora do filtro',
-        COR_TILE.estoque,
+        estoque < 0 ? 'var(--vermelho)' : COR_TILE.estoque,
         '<div class="desenho desenho--zero"><span class="risco"></span><span class="rot">0</span>'+
         '<span class="cai"></span><span class="cai"></span><span class="cai"></span></div>')+
 
@@ -3414,9 +3464,12 @@
      Ele mexe no MESMO `ORDEM_FLUXO` do clique no cabeçalho: dois estados de ordem para
      a mesma lista discordariam no instante em que alguém girasse o aparelho. */
   function ordemDoExtrato(){
-    /* `col` vazio é a ordem natural do extrato, que é a crescente. Os dois casos dizem
-       a mesma coisa, e a pergunta é só "está descendo?". */
-    return ORDEM_FLUXO.col === 'data' && ORDEM_FLUXO.desc ? 'desc' : 'asc';
+    /* `col` vazio e a ordem de FABRICA, que passou a ser a decrescente. Antes ele queria
+       dizer crescente, e esta funcao respondia 'asc' para os dois casos; deixada como
+       estava, o botao do celular nasceria mentindo — diria "crescente" sobre uma tabela
+       que abre decrescente, e o primeiro toque nao mudaria nada visivel. */
+    var e = ORDEM_FLUXO.col ? ORDEM_FLUXO : ORDEM_PADRAO;
+    return e.col === 'data' && e.desc ? 'desc' : 'asc';
   }
 
   function barraOrdem(lista){

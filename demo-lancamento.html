@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- A FOLHA DO APP VEM ANTES da do demo: e dela que saem as cores da empresa, e a
      ordem importa — a folha do demo precisa poder sobrescrever o que for dela. -->
-<link rel="stylesheet" href="styles.css?v=6661e53b">
+<link rel="stylesheet" href="styles.css?v=a7a3bde8">
 <style>
 :root{
   /* ================= SEM PALETA PROPRIA =================
@@ -1553,6 +1553,14 @@ html:not([data-editor="1"]) .ed__b{display:none}
   'use strict';
   var Q = window.QDC;
 
+  /* EMBUTIDO NO PAINEL, ele nao navega. As saidas dele mandam para o app de campo; dentro
+     do quadro do painel isso carregaria o app de campo DENTRO da pagina do escritorio,
+     que e o oposto do que o botao promete. Aqui ele so marca e deixa o demo fazer o que
+     ja faz sozinho: voltar para a propria tela de entrada. */
+  var embutido = (function () {
+    try { return window.top !== window.self; } catch (e) { return true; }
+  })();
+
   function marcar() {
     try {
       var s = Q && Q.sessao();
@@ -1566,8 +1574,16 @@ html:not([data-editor="1"]) .ed__b{display:none}
 
   /* `preventDefault` no que e cancelavel: sem ele o demo redesenha a propria tela de
      entrada no instante anterior a navegacao, e a pessoa ve um pisca sem sentido. */
-  document.addEventListener('demo:sair', function (e) { e.preventDefault(); marcar(); voltar(); });
-  document.addEventListener('demo:pular', function () { marcar(); voltar(); });
+  document.addEventListener('demo:sair', function (e) {
+    marcar();
+    if (embutido) return;          /* o demo redesenha a tela de entrada sozinho */
+    e.preventDefault();
+    voltar();
+  });
+  document.addEventListener('demo:pular', function () {
+    marcar();
+    if (!embutido) voltar();
+  });
   /* O Ler navega sozinho para o manual: aqui so fica a marca. */
   document.addEventListener('demo:ler', function () { marcar(); });
   /* `demo:fim` dispara duas vezes — uma ao fim da saida, que EMENDA no retorno, e uma
