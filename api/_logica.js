@@ -148,6 +148,13 @@ var ABAS = [
      completo continua existindo para quem quer os dois seguidos. */
   { ID: 'pgTutorialSaida',   Nome: 'Tutorial de Saída' },
   { ID: 'pgTutorialRetorno', Nome: 'Tutorial de Retorno' },
+  /* OS LANCAMENTOS DO MOTORISTA. Aba propria, e nao um filtro de Movimentos, por uma
+     razao que nao e de arrumacao: a contagem do conferente tem de ser CEGA. Se ele
+     puder ler o que o motorista declarou antes de contar, ele copia o numero — e a
+     comparacao entre os dois passa a nao comparar nada.
+     Por isso esta aba faz mais do que abrir uma tela: e ela que decide quem RECEBE
+     declaracao, em qualquer rota. Ver `veDeclaracao`. */
+  { ID: 'pgLancamentosMotorista', Nome: 'Lançamentos Motorista' },
   /* O MANUAL, pela mesma razao do video: texto que explica o sistema, sem dado nenhum
      dentro. As tres passam pela marca como qualquer outra: houve tempo em que chegavam
      a todo mundo que entrasse, e um motorista com uma aba marcada via quatro. */
@@ -500,6 +507,53 @@ function baseEscolhida(u, p) {
     return velho ? 'teste' : 'reais';
   }
   return null;
+}
+
+/**
+ * QUEM PODE VER DECLARACAO.
+ *
+ * A contagem do conferente e CEGA: se ele ler o que o motorista declarou antes de
+ * contar, ele copia o numero, e a comparacao entre os dois deixa de comparar. Entao a
+ * declaracao nao e so uma tela a mais — e um dado que so chega a quem foi habilitado.
+ *
+ * DECIDIDO NO SERVIDOR, e nao escondendo a aba: esconder o botao e conveniencia; quem
+ * filtra "Base Declaracao" na lista de Movimentos passa por cima dela. E a lista, o
+ * extrato, a lixeira e o CSV leem do mesmo lugar.
+ *
+ * A MARCA E A ABA `pgLancamentosMotorista`, e nao uma permissao nova ao lado dela: duas
+ * marcas para a mesma pergunta divergem no primeiro cadastro em que alguem mexer so numa
+ * — e ai a tela mostra o que a lista esconde, ou o contrario.
+ *
+ * ADMIN SEM MARCA NENHUMA VE, pela mesma regra do painel: lista vazia quer dizer "todas"
+ * so para ele, que e a origem da concessao.
+ */
+/* QUEM ESTA PERGUNTANDO, achado uma vez. Antes a busca vivia dentro do ;
+   com a contagem cega passaram a ser duas perguntas sobre a MESMA pessoa, e duas buscas
+   escritas separadas sao duas chances de uma delas comparar o id de outro jeito. */
+function acharUsuario(usuarios, quem) {
+  var id = String(quem == null ? '' : quem).trim();
+  if (!id) return null;
+  return (usuarios || []).filter(function (x) { return String(x.ID) === id; })[0] || null;
+}
+
+function veDeclaracao(u) {
+  if (!u) return false;
+  var abas = Array.isArray(u.Abas) ? u.Abas : [];
+  if (!abas.length) return String(u.Perfil).toUpperCase() === 'ADMIN';
+  return abas.indexOf('pgLancamentosMotorista') >= 0;
+}
+
+/* A PENEIRA DA CONTAGEM CEGA, na porta — do mesmo jeito que `recorteTeste` e
+   `recorteProprios`. Aplicada em cada consumidor, o proximo nasceria sem ela e
+   entregaria a declaracao a quem nao pode ve-la, sem dar erro nenhum. */
+function recorteDeclaracao(dados, u) {
+  if (veDeclaracao(u)) return dados;
+  var copia = {};
+  Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
+  copia.movimentos = (dados.movimentos || []).filter(function (m) {
+    return !ehDeclaracao(m);
+  });
+  return copia;
 }
 
 /* EM QUE LIVROS ESTA LINHA ENTROU — no plural, e esse plural nao e enfeite.
@@ -2259,6 +2313,8 @@ module.exports = {
   lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste,
   ehDeclaracao: ehDeclaracao, basesDoMovimento: basesDoMovimento,
   basesDoUsuario: basesDoUsuario, baseEscolhida: baseEscolhida,
+  veDeclaracao: veDeclaracao, recorteDeclaracao: recorteDeclaracao,
+  acharUsuario: acharUsuario,
   recorteProprios: recorteProprios, usuariosVistosDe: usuariosVistosDe,
   idsVisiveis: idsVisiveis, NINGUEM: NINGUEM, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,

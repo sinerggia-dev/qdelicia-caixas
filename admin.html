@@ -282,6 +282,17 @@
         </svg>
         <span class="nav-rotulo">Instruções</span>
       </button>
+      <!-- OS LANÇAMENTOS DO MOTORISTA. Aba própria, e não um filtro de Movimentos: a
+           contagem do conferente tem de ser CEGA. Quem não tem esta aba não recebe
+           declaração em rota nenhuma — nem na lista, nem no extrato, nem no CSV. -->
+      <button data-grupo="Operação" style="display:none" data-pagina="pgLancamentosMotorista" data-acima="Operação">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 16V5h11v11"></path><path d="M14 9h4l3 3v4h-7"></path>
+          <circle cx="7" cy="17.5" r="1.9"></circle><circle cx="17" cy="17.5" r="1.9"></circle>
+        </svg>
+        <span class="nav-rotulo">Lançamentos Motorista</span>
+      </button>
       <button data-grupo="Operação" style="display:none" data-pagina="pgTutorialSaida" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1119,6 +1130,35 @@
     </div>
   </section>
 
+  <!-- ---------- LANÇAMENTOS MOTORISTA ---------- -->
+  <!-- O QUE O MOTORISTA DECLAROU, e só isso. Não é um recorte do Movimentos posto em
+       outra tela: é a única porta para um dado que não chega a quem não tem esta aba.
+       Quem conta as caixas não pode ler aqui antes de contar — se lesse, copiaria o
+       número, e a comparação entre os dois deixaria de comparar. -->
+  <section id="pgLancamentosMotorista" class="pagina">
+    <div class="card">
+      <h2>Lançamentos Motorista<span class="sub">O que o motorista informou que trouxe —
+        <b>informação</b>, não movimento: nada disto entra no estoque.</span></h2>
+
+      <div class="grid-filtros">
+        <div><label for="dcDe">De</label><input id="dcDe" type="date"></div>
+        <div><label for="dcAte">Até</label><input id="dcAte" type="date"></div>
+        <div><label for="dcMotorista">Motorista</label>
+          <select id="dcMotorista" multiple data-multi><option value="">Todos</option></select></div>
+      </div>
+      <div class="linha-btn">
+        <button class="btn" type="button" id="btnFiltrarDecl" style="flex:0;min-width:140px">Filtrar</button>
+        <button class="btn neutro" type="button" id="btnCsvDecl" style="flex:0;min-width:130px">⬇ CSV</button>
+      </div>
+
+      <!-- OS TRÊS NÚMEROS ACIMA DA TABELA: "quanto foi declarado" é a pergunta que traz
+           alguém a esta tela, e ela não pode depender de somar a coluna à mão. -->
+      <div id="dcTotais" class="tot"></div>
+      <div class="trava-colunas" data-trava-colunas></div>
+      <div id="tabelaDecl"><div class="vazio">Carregando…</div></div>
+    </div>
+  </section>
+
   <!-- ---------- TUTORIAL DE SAÍDA ---------- -->
   <!-- A MESMA PÁGINA que o app de campo abre, e não uma segunda cópia dela: duas
        divergem no primeiro conserto que só uma receber, e aí o galpão e o escritório
@@ -1359,6 +1399,10 @@
        reescrever o que já saiu do galpão, e é de propósito que não seja assim.
        O valor escolhido sobrevive ao redesenho: a lista é refeita sempre que o cadastro
        chega, e sem guardar o atual o filtro se limparia sozinho no meio da leitura. */
+    /* O MESMO HTML nos dois seletores de motorista — o do filtro de Movimentos e o da
+       tela de Lançamentos Motorista. Montados separados, um ganharia o nome novo que o
+       outro não tem, e os dois filtros passariam a oferecer listas diferentes para a
+       mesma pergunta. */
     var sm = document.getElementById('mvMotorista');
     if (sm) {
       var eraM = escolhaDe(sm);
@@ -1385,6 +1429,12 @@
         sm.appendChild(op);
       });
       porEscolha(sm, eraM);
+    }
+    var sd = document.getElementById('dcMotorista');
+    if (sd) {
+      var eraD = escolhaDe(sd);
+      sd.innerHTML = sm ? sm.innerHTML : '<option value="">Todos</option>';
+      porEscolha(sd, eraD);
     }
     ligarMultis();
   }
@@ -1706,6 +1756,23 @@
       Q.cache('minhasAbas', lista);
     })();
 
+    /* A BASE DECLARAÇÃO SOME DO FILTRO de quem não tem a aba que a mostra. O servidor
+       já não manda declaração para essa pessoa — a peneira é de lá, e é ela que vale —,
+       mas deixar a opção na tela seria pior que inútil: ela filtraria e voltaria vazio
+       sempre, e "vazio" se lê como "não houve", não como "você não pode ver".
+       A MESMA LISTA que decide o menu decide isto, e não uma segunda pergunta: duas
+       divergem no primeiro conserto que só uma receber, e aí a tela oferece o que a
+       rota recusa. */
+    (function(){
+      var opcao = document.querySelector('#mvTeste option[value="declaracao"]');
+      if (!opcao) return;
+      var temAba = pode.indexOf('pgLancamentosMotorista') >= 0;
+      opcao.hidden = !temAba;
+      opcao.disabled = !temAba;
+      if (!temAba && opcao.selected) opcao.selected = false;
+      ligarMultis();
+    })();
+
     Q.gruposDaNavegacao('#abas');
     /* O ENDEREÇO MANDA, quando ele aponta para uma página visível. É por aqui que os
        atalhos da tela de Instruções chegam: ela vive num quadro e não alcança as funções
@@ -1750,9 +1817,43 @@
      Quem diz ONDE se esta agora e o titulo do cabecalho da pagina, que `Q.abas()`
      escreve a cada troca. Fechar a navegacao ao escolher uma pagina tambem mora la:
      era a mesma regra nas duas telas, e duas copias divergem no primeiro ajuste. */
+  /* A LIGAÇÃO DA TELA DE DECLARAÇÕES MORA AQUI, e não ao lado da tabela dela: lá ela
+     cai no meio do bloco que a bancada das colunas recorta e EXECUTA para exercitar a
+     ordem das colunas — e um `getElementById` executado fora do navegador derruba a
+     suíte inteira com um erro que não fala de coluna nenhuma.
+     As funções que ela chama são declarações, então já existem quando isto roda. */
+  (function(){
+    var b = document.getElementById('btnFiltrarDecl');
+    if (b) b.addEventListener('click', carregarDecl);
+    /* OS CAMPOS RECARREGAM SOZINHOS, como os de Movimentos: mudar um filtro e a tabela
+       continuar igual faz a pessoa concluir que o filtro não funciona. O botão fica
+       como "recarregar". */
+    ['dcDe', 'dcAte', 'dcMotorista'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('change', carregarDecl);
+    });
+    var c = document.getElementById('btnCsvDecl');
+    if (c) c.addEventListener('click', function(){
+      if (!DECLS.length) return Q.toast('Nada para exportar neste período.','erro');
+      /* O CSV É A TABELA LEVADA PARA FORA, e sai com as colunas que ela tem — uma coluna
+         que existe na tela e falta no arquivo faz a conferência de escritório chegar a
+         um número que a tela não explica. */
+      Q.csv('lancamentos_motorista_'+Q.hoje()+'.csv',
+        ['Lancamento','Movimento','Hora','Motorista','Quem lancou','Origem','Destino',
+         'Caixa','Qtd','Observacao'],
+        DECLS.map(function(m){
+          return [m.id, Q.dataBR(m.dataRef), Q.horaBR(m.dataHora), m.motorista||'',
+                  m.usuario||'', m.origem||'', m.destino||'', m.tipoCaixa||'',
+                  m.qtd, m.obs||''];
+        }));
+    });
+    periodoPadraoDecl();
+  })();
+
   window.aoAbrirAba = function(p){
     if (p==='pgPainel' || p==='pgRetornos') carregarPainel();
     if (p==='pgMovimentos') carregarMovimentos();
+    if (p==='pgLancamentosMotorista') carregarDecl();
     if (p==='pgColunas') desenharColunas();
   };
 
@@ -2714,6 +2815,172 @@
     return o ? o.textContent.trim() : String(t);
   }
 
+  /* O PERÍODO ABRE NOS MESMOS 30 DIAS do resto do painel. Escrito com outro padrão
+     aqui, os dois totais da mesma operação nunca bateriam — e ninguém desconfiaria do
+     período, que é o filtro que não se vê. */
+  function periodoPadraoDecl(){
+    var de = document.getElementById('dcDe'), ate = document.getElementById('dcAte');
+    if (!de || !ate) return;
+    var p = periodoPadraoValores();
+    de.value = p.de; ate.value = p.ate;
+  }
+
+  /* ================= LANÇAMENTOS MOTORISTA =================
+   *
+   * A lista do que o motorista declarou. Ela lê a MESMA rota de Movimentos, com a base
+   * fixa em `declaracao` — e não uma rota própria: duas leituras do mesmo dado divergem
+   * no primeiro conserto que só uma receber.
+   *
+   * A BASE VAI FIXA, e não sai de um seletor na tela: esta página é a porta da
+   * declaração, e um seletor de base aqui deixaria trazer para ela a operação inteira —
+   * que é o que a aba de Movimentos já faz, para quem a tem.
+   *
+   * E QUEM NÃO TEM A ABA NÃO RECEBE NADA AQUI, nem montando o pedido à mão: a peneira é
+   * do servidor (`veDeclaracao`). Esta tela é a porta, e não a tranca. */
+  var DECLS = [];
+  var ORDEM_DECL = { col: 'data', desc: true };
+
+  var TAB_DECL = {
+    padrao: ['data','hora','motorista','quem','origem','destino','caixa','qtd','obs'],
+    larg: { data:120, hora:70, motorista:150, quem:140, origem:150, destino:150,
+            caixa:120, qtd:80, obs:240 },
+    titulos: { data:'Movimento', hora:'Hora', motorista:'Motorista', quem:'Quem lançou',
+               origem:'Origem', destino:'Destino', caixa:'Caixa', qtd:'Qtd',
+               obs:'Observação' },
+    kOrdem: 'qdc_cols_decl_v1',
+    kLarg: 'qdc_larg_decl_v1',
+    kOcultas: 'qdc_cols_ocultas_decl_v1',
+    alvo: '#tabelaDecl',
+    redesenha: function(){ desenharDecl(); }
+  };
+
+  function defsDecl(){
+    var T = TAB_DECL.titulos;
+    return {
+      data:      { t: T.data, k: function(m){ return m.dataRef || ''; },
+                   v: function(m){ return Q.dataBR(m.dataRef); } },
+      hora:      { t: T.hora, k: function(m){ return m.dataHora || ''; },
+                   v: function(m){ return Q.esc(Q.horaBR(m.dataHora) || '—'); } },
+      /* MOTORISTA E "QUEM LANÇOU" SÃO DUAS COLUNAS, e quase sempre o mesmo nome — o
+         motorista declara a carga dele. Quando forem diferentes, essa diferença é a
+         informação mais importante da linha: alguém declarou no lugar de outro. */
+      motorista: { t: T.motorista, k: function(m){ return m.motorista || ''; },
+                   v: function(m){ return m.motorista ? Q.esc(m.motorista)
+                     : '<span class="fraco">—</span>'; } },
+      quem:      { t: T.quem, k: function(m){ return m.usuario || ''; },
+                   v: function(m){ return Q.esc(m.usuario || ''); } },
+      origem:    { t: T.origem, k: function(m){ return m.origem || ''; },
+                   v: function(m){ return Q.esc(m.origem || ''); } },
+      destino:   { t: T.destino, k: function(m){ return m.destino || ''; },
+                   v: function(m){ return Q.esc(m.destino || ''); } },
+      caixa:     { t: T.caixa, k: function(m){ return m.tipoCaixa || ''; },
+                   v: function(m){ return Q.esc(m.tipoCaixa || ''); } },
+      /* NÚMERO como NÚMERO: comparado como texto, "1.620" vem antes de "810". */
+      qtd:       { t: T.qtd, num: true, k: function(m){ return Number(m.qtd) || 0; },
+                   v: function(m){ return Q.num(m.qtd); } },
+      obs:       { t: T.obs, k: function(m){ return m.obs || ''; },
+                   v: function(m){ return m.obs
+                     ? '<span class="corta" title="'+Q.esc(m.obs)+'">'+Q.esc(m.obs)+'</span>'
+                     : '<span class="fraco">—</span>'; } }
+    };
+  }
+
+  function filtroDecl(){
+    return { de: valorFiltro('dcDe'), ate: valorFiltro('dcAte'),
+             motorista: valorFiltro('dcMotorista') };
+  }
+
+  function carregarDecl(){
+    var box = document.getElementById('tabelaDecl');
+    if (!box) return;
+    box.innerHTML = '<div class="vazio">Carregando…</div>';
+    var f = filtroDecl();
+    Q.get(Q.lendo({ acao:'movimentos', teste:'declaracao', limit:500,
+                    motorista:f.motorista, de:f.de, ate:f.ate }))
+      .then(function(r){
+        if (!r.ok) throw new Error(r.erro);
+        DECLS = r.movimentos || [];
+        desenharDecl();
+      }).catch(function(e){
+        box.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
+      });
+  }
+
+  function classificarDeclPor(col){
+    if (ORDEM_DECL.col === col) ORDEM_DECL.desc = !ORDEM_DECL.desc;
+    else { ORDEM_DECL.col = col; ORDEM_DECL.desc = true; }
+    desenharDecl();
+  }
+
+  function desenharDecl(){
+    var box = document.getElementById('tabelaDecl');
+    if (!box) return;
+    var DEFS = defsDecl();
+
+    /* OS TOTAIS FORA DO CORTE DA LISTA VAZIA: um recorte sem nenhuma linha ainda tem
+       resposta — três zeros —, e ela é diferente de a tela não ter desenhado nada.
+       Depois do `return`, ficariam com os números do filtro anterior ao lado de
+       "nenhuma declaração". */
+    var caixas = DECLS.reduce(function(a, m){ return a + (Number(m.qtd) || 0); }, 0);
+    var nomes = {};
+    DECLS.forEach(function(m){ if (m.motorista) nomes[m.motorista] = 1; });
+    var faixa = document.getElementById('dcTotais');
+    if (faixa){
+      /* O MESMO CARTÃO dos outros painéis, e não uma faixa própria: três números com
+         outro desenho na mesma tela fazem quem lê parar para descobrir se eles querem
+         dizer a mesma coisa. Sem barra de proporção — comparar contagem de linhas com
+         quantidade de caixa daria um número bonito e falso. */
+      faixa.innerHTML =
+        cartaoTot(0, 3, 'var(--azul)', 'Caixas declaradas', Q.num(caixas),
+                  'somadas de todas as linhas', null) +
+        cartaoTot(1, 3, 'var(--roxo-txt)', 'Lançamentos', Q.num(DECLS.length),
+                  'linhas no período', null) +
+        cartaoTot(2, 3, 'var(--verde)', 'Motoristas', Q.num(Object.keys(nomes).length),
+                  'nomes diferentes', null);
+    }
+
+    pintarTrava();
+    if (!DECLS.length){
+      box.innerHTML = '<div class="vazio">Nenhuma declaração no período. Elas aparecem '+
+        'aqui quando alguém lança na <b>Base Declaração</b>.</div>';
+      return;
+    }
+
+    var LARG = larguras(TAB_DECL);
+    var cabem = ordemColunas(TAB_DECL).map(function(id){ return { id: id, d: DEFS[id] }; })
+      .filter(function(c){ return !!c.d; });
+    var ocultas = colunasOcultas(TAB_DECL);
+    var cs = cabem.filter(function(c){ return ocultas.indexOf(c.id) < 0; });
+    if (!cs.length) cs = cabem;
+
+    var linhas = aplicarOrdem(DECLS, DEFS, ORDEM_DECL);
+    box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
+      cs.map(function(c){
+        var ord = ORDEM_DECL.col === c.id;
+        var seta = ord ? (ORDEM_DECL.desc ? ' ▾' : ' ▴') : '';
+        return '<th'+arrastavel()+' data-col="'+c.id+'"'+
+          ' class="'+(c.d.num ? 'num ' : '')+(c.d.k ? 'ordenavel ' : '')+
+            (ord ? 'ordenado' : '')+'"'+
+          (c.d.k ? ' aria-sort="'+(ord ? (ORDEM_DECL.desc ? 'descending' : 'ascending')
+                                       : 'none')+'"' : '')+
+          ' style="width:'+(LARG[c.id] || 120)+'px"'+
+          ' title="'+Q.esc(dicaColuna(c.d.k ? 'clique para classificar; ' : ''))+'">'+
+          Q.esc(c.d.t)+seta+puxador()+'</th>';
+      }).join('')+
+      '</tr></thead><tbody>'+
+      linhas.map(function(m){
+        return '<tr>'+cs.map(function(c){
+          return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+
+                 '>'+c.d.v(m)+'</td>';
+        }).join('')+'</tr>';
+      }).join('')+'</tbody></table></div>';
+
+    ligarArrastarColunas(TAB_DECL);
+    ligarLarguraColunas(TAB_DECL);
+    ligarOrdemColunas('#tabelaDecl', classificarDeclPor);
+  }
+
+
   /* A tabela de Usuarios, no Cadastros. E a mais larga do app — nove colunas de dado —
      e por isso a que mais precisa: quem nao usa e-mail nem telefone escondia as duas e
      ganhava a tela de volta, e ate aqui nao tinha como.
@@ -2748,7 +3015,8 @@
     return [
       { modulo: 'Painel de Ativos',     t: TAB_ATIVOS },
       { modulo: 'Movimentos',           t: TAB_MOV },
-      { modulo: 'Cadastros · Usuários', t: TAB_USUARIOS }
+      { modulo: 'Cadastros · Usuários', t: TAB_USUARIOS },
+      { modulo: 'Lançamentos Motorista',  t: TAB_DECL }
     ];
   }
 

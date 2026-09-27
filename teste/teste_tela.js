@@ -6328,10 +6328,19 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
     'arrastar, prometendo um gesto que não acontece');
   ok(/table\.fixa th\.ordenavel:not\(\[draggable\]\)\{cursor:pointer\}/.test(css),
     'mas a coluna que classifica mantém a mão de clique — classificar vale para todos');
-  /* AS TRÊS TABELAS pelas mesmas peças: três cópias divergiriam na primeira mexida. */
-  ok((adm.match(/<th'\+arrastavel\(\)\+' data-col=/g) || []).length === 3 &&
-     (adm.match(/puxador\(\)\+/g) || []).length === 3,
-    'e as TRÊS tabelas usam as mesmas peças — Ativos, Movimentos e Usuários',
+  /* TODA TABELA DO PAINEL pelas mesmas peças: cópias divergem na primeira mexida.
+     A CONTA É DERIVADA de quantas tabelas o sistema de colunas gerencia, e não escrita:
+     escrita, a quarta tabela nasceria com o cabeçalho próprio e a prova continuaria
+     verde falando de três — foi o que quase aconteceu quando a de Lançamentos
+     Motorista entrou. */
+  var iTab = adm.indexOf('function tabelasGerenciaveis()');
+  var quantasTabelas = (adm.slice(iTab, adm.indexOf('];', iTab))
+    .match(/modulo:/g) || []).length;
+  ok(quantasTabelas >= 4 &&
+     (adm.match(/<th'\+arrastavel\(\)\+' data-col=/g) || []).length === quantasTabelas &&
+     (adm.match(/puxador\(\)\+/g) || []).length === quantasTabelas,
+    'e TODA tabela que a aba Colunas gerencia usa as mesmas peças de cabeçalho — uma ' +
+    'com o cabeçalho próprio promete arrastar e não arrasta',
     (adm.match(/<th'\+arrastavel\(\)\+' data-col=/g) || []).length);
   /* CLASSIFICAR NÃO É ARRANJAR. Clicar no título para ordenar continua valendo para
      todos: a permissão governa a FORMA da tabela, não a ordem das linhas, e tirar a
@@ -8462,6 +8471,7 @@ console.log('\n== a navegação separada por módulo ==');
      gestos seguidos. */
   ok(pares === 'pgRetornos>Painel de Ativos | pgMovimentos>Movimentos | pgPainel>Painel' +
                 ' | pgInstrucoes>Instruções' +
+                ' | pgLancamentosMotorista>Lançamentos Motorista' +
                 ' | pgTutorialSaida>Tutorial de Saída | pgTutorialRetorno>Tutorial de Retorno' +
                 ' | pgCadastros>Cadastros | pgColunas>Colunas | pgExtrato>Extratos' +
                 ' | pgLancar>Ajuste Estoque' +
@@ -11137,6 +11147,114 @@ console.log('\n== a base do usuário ==');
  * vivem na OPERAÇÃO — ao lado das telas de lançar, que é onde quem acabou de chegar
  * procura por "como eu faço isto".
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * LANÇAMENTOS MOTORISTA, E A CONTAGEM CEGA
+ *
+ * A tela que mostra o que o motorista declarou. Ela existe separada por uma razão que
+ * não é de arrumação: quem conta as caixas não pode ler o número antes de contar.
+ * ------------------------------------------------------------------------- */
+console.log('\n== Lançamentos Motorista ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  var api = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+
+  /* ---- A BASE VAI FIXA NA TELA ----
+     Um seletor de base aqui deixaria trazer para esta página a operação inteira — e ela
+     é a porta de um dado que não chega a quem não tem a aba. */
+  var pag = adm.slice(adm.indexOf('function carregarDecl()'));
+  pag = pag.slice(0, pag.indexOf('\n  }') + 4);
+  /* UMA BASE, E É A DECLARAÇÃO. Escrito como "contém `declaracao`", um `teste:'todos'`
+     acrescentado ao lado passaria — e a página que existe para mostrar a declaração
+     passaria a mostrar a operação inteira a quem só foi habilitado a ver aquela. */
+  var basesPedidas = (pag.match(/teste: *'([^']*)'/g) || []);
+  ok(basesPedidas.length === 1 && basesPedidas[0].indexOf("'declaracao'") > 0 &&
+     pag.indexOf('Q.lendo(') > 0,
+    'a tela de Lançamentos Motorista pede UMA base, a Declaração, e diz quem está ' +
+    'perguntando — com outra ao lado, ela traria a operação inteira para dentro da ' +
+    'porta da declaração', basesPedidas);
+
+  /* ---- E A PENEIRA É DO SERVIDOR ----
+     Esconder a aba é conveniência; quem filtra "Base Declaração" na lista de Movimentos
+     passa por cima dela. Quem cobra o efeito é o `teste_api.js`, contra as rotas; aqui
+     se cobra que as rotas que devolvem lançamento passem pela peneira. */
+  /* SEM OS COMENTÁRIOS: a rota de Movimentos carrega dez linhas de prosa entre o `case`
+     e a primeira instrução, e por elas a janela deste recorte terminava antes do código.
+     A prova falhava falando de peneira sobre um trecho que só tinha texto. */
+  var apiLimpa = semComentarios(api);
+  var rotas = ['movimentos', 'lixeira', 'extrato'];
+  var semPeneira = rotas.filter(function (r) {
+    var i = apiLimpa.indexOf("case '" + r + "':");
+    return i < 0 || apiLimpa.slice(i, i + 320).indexOf('recorteDeclaracao') < 0;
+  });
+  ok(semPeneira.length === 0,
+    'toda rota que devolve lançamento passa pela peneira da contagem cega — uma que ' +
+    'não passe é a porta de trás, e ainda faz quem administra acreditar que fechou ' +
+    'todas', semPeneira);
+  ok(/function veDeclaracao\(u\)/.test(log) &&
+     log.indexOf("abas.indexOf('pgLancamentosMotorista')") > 0,
+    'e quem decide é a MESMA aba que abre a tela — uma permissão nova ao lado dela ' +
+    'divergiria no primeiro cadastro em que alguém mexesse só numa');
+
+  /* A REGRA RODADA, e os quatro casos que ela decide. O que mais me preocupa é a lista
+     de abas VAZIA: ela quer dizer "nenhuma" para todo mundo, menos para o admin, que é a
+     origem da concessão. Lida como "todas", um cadastro recém-criado — que nasce sem
+     marca nenhuma — passaria a receber declaração antes de alguém ter decidido nada. */
+  var Lc = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  ok(Lc.veDeclaracao({ Perfil: 'Conferente', Abas: ['pgMovimentos'] }) === false,
+    'quem tem abas marcadas e não tem esta não vê declaração');
+  ok(Lc.veDeclaracao({ Perfil: 'Conferente',
+                       Abas: ['pgMovimentos', 'pgLancamentosMotorista'] }) === true,
+    'e quem tem, vê');
+  ok(Lc.veDeclaracao({ Perfil: 'Conferente' }) === false &&
+     Lc.veDeclaracao({ Perfil: 'Conferente', Abas: [] }) === false,
+    'e a lista VAZIA não é "todas": um cadastro recém-criado nasce sem marca nenhuma, e ' +
+    'lida como "todas" ele receberia a declaração antes de alguém ter decidido nada',
+    Lc.veDeclaracao({ Perfil: 'Conferente' }));
+  ok(Lc.veDeclaracao({ Perfil: 'Admin' }) === true,
+    'menos para o ADMIN, que é a origem da concessão — é a mesma regra do menu');
+  ok(Lc.veDeclaracao(null) === false,
+    'e cadastro que não existe não vê nada');
+
+  /* ---- A OPÇÃO SOME DO FILTRO DE QUEM NÃO PODE ----
+     O servidor já não manda nada para essa pessoa; deixar a opção na tela seria pior que
+     inútil, porque "vazio" se lê como "não houve", e não como "você não pode ver". */
+  /* RODADO, e não lido: lido, a prova responderia "a aba está citada ali?" — e estaria,
+     mesmo com o resultado jogado fora na linha seguinte. */
+  var iOp = adm.indexOf("var opcao = document.querySelector('#mvTeste option");
+  var blocoOp = iOp < 0 ? '' : adm.slice(adm.lastIndexOf('(function(){', iOp),
+                                         adm.indexOf('})();', iOp) + 5);
+  ok(blocoOp.length > 80 && blocoOp.indexOf('opcao') > 0,
+    'a conferência recortou o trecho que esconde a opção — recorte vazio faria as duas ' +
+    'provas abaixo passarem sem rodar nada', blocoOp.length);
+  function opcaoCom(abas) {
+    var op = { hidden: null, disabled: null, selected: true };
+    new Function('pode', 'document', 'ligarMultis', blocoOp)(
+      abas, { querySelector: function () { return op; } }, function () {});
+    return op;
+  }
+  var semAba = opcaoCom(['pgMovimentos']);
+  ok(semAba.hidden === true && semAba.disabled === true && semAba.selected === false,
+    'a opção "Base Declaração" some do filtro de quem não tem a aba, e sai de marcada ' +
+    'se estiver — deixada lá, ela filtraria e voltaria vazio sempre, e vazio se lê como ' +
+    '"não houve", não como "você não pode ver"',
+    [semAba.hidden, semAba.disabled, semAba.selected]);
+  var comAba = opcaoCom(['pgMovimentos', 'pgLancamentosMotorista']);
+  ok(comAba.hidden === false && comAba.disabled === false,
+    'e continua lá para quem tem — senão quem compara não teria como separar os dois ' +
+    'livros na lista', [comAba.hidden, comAba.disabled]);
+
+  /* ---- A TELA ESTÁ EM OPERAÇÃO, e é uma aba que se concede ---- */
+  var nav = adm.slice(adm.indexOf('<nav class="abas"'), adm.indexOf('</nav>'));
+  var i = nav.indexOf('data-pagina="pgLancamentosMotorista"');
+  var grupo = (nav.slice(0, i).match(/data-grupo="([^"]+)"[^>]*>[^<]*<\/div>/g) || []).pop() || '';
+  ok(i > 0 && /data-grupo="Opera\u00e7\u00e3o"/.test(grupo),
+    'a tela fica na OPERAÇÃO, ao lado das telas de lançar', grupo);
+  ok(log.indexOf("{ ID: 'pgLancamentosMotorista'") > 0,
+    'e está no catálogo do servidor — fora dele, ela não apareceria na lista de abas do ' +
+    'cadastro, e não haveria como conceder a ninguém');
+})();
+
 console.log('\n== os dois tutoriais separados ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

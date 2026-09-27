@@ -144,7 +144,11 @@ async function rotaGet(p) {
          ESTA ROTA NAO MANDAVA RECORTE NENHUM ate aqui, porque quem o mandava era a tela
          — e esta tela esquecia. Era por ela que um motorista habilitado a ver apenas os
          proprios lancamentos via a operacao inteira. */
-      var mov = L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem));
+      /* DOIS RECORTES, e a ordem nao importa: um estreita por QUEM LANCOU, o outro tira
+         a declaracao de quem nao pode ve-la. O segundo e a contagem cega — ver
+         `veDeclaracao`. */
+      var mov = L.recorteDeclaracao(
+        L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)), L.acharUsuario(d.usuarios, p.quem));
       return { ok: true, movimentos: L.listaMovimentos(mov.movimentos, d.locais, d.tipos,
                  d.usuarios, p) };
     /* A lixeira entende o MESMO `so` que `movimentos`, e pela mesma razão: ela é o
@@ -154,11 +158,15 @@ async function rotaGet(p) {
        um lançamento não o encontra aqui para restaurar. */
     case 'lixeira':
       return { ok: true, movimentos: L.listaLixeira(
-                 L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)).movimentos,
+                 L.recorteDeclaracao(
+                   L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)),
+                   L.acharUsuario(d.usuarios, p.quem)).movimentos,
                  d.locais, d.tipos, d.usuarios, p) };
     case 'extrato':
-      return L.extrato(L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)),
-                       p.local, p.de, p.ate);
+      return L.extrato(
+        L.recorteDeclaracao(L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)),
+                            L.acharUsuario(d.usuarios, p.quem)),
+        p.local, p.de, p.ate);
     case 'extratoToken':
       return L.extratoToken(d, p.t, p.de, p.ate);
     default:

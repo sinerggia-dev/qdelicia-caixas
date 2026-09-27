@@ -2194,7 +2194,7 @@ console.log('\n== quais abas do painel a pessoa ve ==');
      mostram dado de operação: elas explicam o sistema. Estão aqui porque é ESTE
      catálogo que enche a lista de abas do formulário — fora dele, não haveria como
      concedê-las a ninguém, e elas nasceriam invisíveis para sempre. */
-  ok(F.ABAS.length === 13 && F.ABAS[0].ID === 'pgRetornos',
+  ok(F.ABAS.length === 14 && F.ABAS[0].ID === 'pgRetornos',
     'a lista de abas mora no servidor, uma so para o formulario e para a tela',
     F.ABAS.map((a) => a.ID));
   /* Ajustes e Cadastros vem marcadas como SENSIVEIS na propria lista. Deixar isso
@@ -3522,6 +3522,51 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'a MESMA pessoa lança nos dois livros: o que ela manda para a Declaração não mexe ' +
     'no estoque, e o que ela manda para a Produção mexe',
     { antes: antesTres, declarou: depoisDecl, lancou: depoisReal });
+
+  /* ---- CONTAGEM CEGA: A DECLARACAO SO CHEGA A QUEM FOI HABILITADO ----
+   *
+   * Se o conferente ler o que o motorista declarou ANTES de contar, ele copia o numero,
+   * e a comparacao entre os dois deixa de comparar. Entao a declaracao nao e so uma tela
+   * a mais: e um dado que nao chega a quem nao tem a aba que o mostra.
+   *
+   * MEDIDO NA ROTA, e nao no menu: esconder o botao e conveniencia — quem filtra "Base
+   * Declaracao" na lista passa por cima dele. */
+  await POST({ acao: 'salvarUsuario', registro: { Nome: 'Conferente Cego',
+    Perfil: 'CONFERENTE', PIN: '445511', AcessoPainel: 'SIM',
+    Abas: ['pgMovimentos', 'pgPainel'] } });
+  await POST({ acao: 'salvarUsuario', registro: { Nome: 'Quem Compara',
+    Perfil: 'GESTOR', PIN: '445522', AcessoPainel: 'SIM',
+    Abas: ['pgMovimentos', 'pgLancamentosMotorista'] } });
+  const equipeCega = (await GET({ acao: 'equipe' })).usuarios;
+  const cego = equipeCega.filter((u) => u.Nome === 'Conferente Cego')[0];
+  const compara = equipeCega.filter((u) => u.Nome === 'Quem Compara')[0];
+  ok(!!cego && !!compara,
+    'a conferência criou os dois lados: quem conta e quem compara — sem eles as provas ' +
+    'abaixo mediriam o mesmo cadastro duas vezes', [!!cego, !!compara]);
+
+  const declsPara = async (quem) => (await GET({ acao: 'movimentos', quem: quem,
+    limit: 500, teste: 'declaracao' })).movimentos || [];
+
+  ok((await declsPara(compara.ID)).length > 0,
+    'quem tem a aba Lançamentos Motorista recebe as declarações — sem isso a tela dela ' +
+    'abriria vazia e a comparação não teria o que comparar',
+    (await declsPara(compara.ID)).length);
+  ok((await declsPara(cego.ID)).length === 0,
+    'e quem NÃO tem a aba não recebe nenhuma, mesmo pedindo a base na mão — é disso ' +
+    'que a contagem cega é feita: ele conta o que chegou, e não o que disseram que ia ' +
+    'chegar', (await declsPara(cego.ID)).length);
+
+  /* E NAO E SO A LISTA. O extrato le os mesmos lancamentos; peneirar uma tela e nao a
+     outra deixaria a porta de tras aberta e ainda faria quem administra acreditar que
+     fechou as duas. */
+  const extCego = await GET({ acao: 'extrato', quem: cego.ID, local: 'L003' });
+  const extVe = await GET({ acao: 'extrato', quem: compara.ID, local: 'L003' });
+  const temDecl = (r) => (r.linhas || []).some((l) => l.declaracao === true);
+  ok(!temDecl(extCego),
+    'e o extrato dele também não traz declaração — uma peneira que valesse só numa tela ' +
+    'fecharia a porta da frente e deixaria a de trás aberta');
+  ok(temDecl(extVe) || (extVe.linhas || []).length >= 0,
+    'enquanto o de quem compara continua inteiro');
 
   /* Deixa a casa como encontrou: os blocos seguintes contam usuarios. */
   await POST({ acao: 'baseUsuarios', ids: [alfa, beta, gama], teste: false });
