@@ -139,11 +139,12 @@ console.log('\n== o botão Limpar alcança todo campo do formulário ==');
      aviso que ninguém lê. */
   var grava = html.slice(html.indexOf("getElementById('" + t.botao + "')"));
   grava = grava.slice(0, grava.indexOf('Q.enviar('));
-  ok(grava.length > 100 && grava.indexOf('Base Teste') > 0 &&
+  ok(grava.length > 100 && grava.indexOf('NOME_BASE[') > 0 &&
      grava.indexOf('precisaConfirmarCaixa') > 0,
-    t.botao + ': a confirmação diz quando o lançamento vai para a Base Teste — o ' +
-    'seletor fica escolhido entre um lançamento e outro, e esquecê-lo ligado manda o ' +
-    'trabalho de verdade para o ensaio, fora do saldo real', grava.length);
+    t.botao + ': a confirmação NOMEIA a base quando ela não é a Produção — o seletor ' +
+    'fica escolhido entre um lançamento e outro, e esquecê-lo no livro errado manda o ' +
+    'trabalho de verdade para fora do saldo, ou uma informação para dentro dele',
+    grava.length);
 
   // Zerar as quantidades é o motivo principal de existir o botão.
   ok(/zerarItens\(/.test(texto), t.fn + ' zera as quantidades contadas');
@@ -10821,35 +10822,54 @@ console.log('\n== a base do usuário ==');
      quem tivesse "Conferente de teste" no cargo ficaria preso no ensaio mesmo com a Base
      marcada como Produção no formulário: a tela diria uma coisa e o lançamento faria
      outra. Medido antes de tirar — era exatamente o que acontecia. */
-  /* A REGRA É RODADA, e não lida. Lida, a prova responderia "as duas colunas estão
-     citadas ali?" — e estariam, mesmo com o `&&` trocado por `||`, que é o defeito
-     plausível aqui: com `||`, quem tem as duas bases ficaria preso no ensaio e o
-     seletor da tela de campo não serviria para nada.
-     A ÂNCORA NÃO CARREGA A REGRA: ela é a linha SEGUINTE do objeto. Ancorada no próprio
-     `teste:`, uma sabotagem que reescrevesse a linha faria o recorte sair vazio, e a
-     falha diria "não achei" em vez de dizer o que o carimbo passou a fazer. */
-  var iCk = api.indexOf('clientKeysExistentes: existentes,');
-  var iT = api.lastIndexOf('teste:', iCk);
-  var expr = iT < 0 ? '' : api.slice(iT + 6, api.indexOf(',', iT)).trim();
-  ok(expr.length > 10 && iT < iCk,
-    'a conferência recortou a regra do carimbo — recorte vazio faria as quatro provas ' +
-    'abaixo passarem sobre nada', expr);
-  var piso = new Function('quem', 'return (' + (expr || 'null') + ') === true;');
+  /* A REGRA É RODADA, e é a de verdade: `baseEscolhida`, exportada do `_logica.js`. Ela
+     deixou de ser uma expressão dentro do objeto do contexto no dia em que as bases
+     viraram três — porque a pergunta deixou de ser "é ensaio?" e passou a ser "em qual
+     dos três livros isto entra?", que é uma pergunta com resposta nula possível. */
+  var Lb = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  function qual(u, p) { return Lb.baseEscolhida(u, p || {}); }
 
-  ok(piso({ Teste: true, BaseProducao: false }) === true,
+  ok(qual({ Teste: true }) === 'teste',
     'quem só tem a Base Teste lança no ensaio, e isso é PISO — nem um pedido adulterado ' +
-    'tira o lançamento dela de lá');
-  ok(piso({ Teste: false, BaseProducao: true }) === false,
-    'e quem só tem a Base Produção não tem piso de ensaio nenhum');
-  /* O CASO NOVO, e o único que o `&&` decide: com as duas marcadas não há piso, e quem
-     escolhe é o seletor da tela de campo. Com `||` no lugar do `&&`, estas pessoas
-     ficariam presas no ensaio e o seletor viraria enfeite — lançariam o dia de trabalho
-     inteiro em ensaio, fora do saldo real, sem nada na tela dizendo. */
-  ok(piso({ Teste: true, BaseProducao: true }) === false,
-    'e quem tem AS DUAS não tem piso: o carimbo sai da escolha feita na tela de ' +
-    'lançamento, que é a única que sabe qual das duas a pessoa quis');
-  ok(piso(null) === false && piso(undefined) === false,
-    'e cadastro que não existe não estoura a gravação');
+    'tira o lançamento dela de lá', qual({ Teste: true }, { base: 'reais' }));
+  ok(qual({ Teste: true }, { base: 'reais' }) === 'teste',
+    'e o pedido não a tira de lá: com uma base só não há escolha a fazer');
+  ok(qual({ BaseProducao: true }) === 'reais',
+    'quem só tem a Base Produção lança na produção');
+  ok(qual({ BaseDeclaracao: true }) === 'declaracao',
+    'e quem só declara, declara — sem precisar dizer nada no pedido');
+
+  /* O MUNDO DE ANTES continua entendido: quem tem produção e ensaio é lido pelo `teste`
+     do pedido, que é o que os aparelhos com a fila cheia ainda mandam. */
+  var duas = { BaseProducao: true, Teste: true };
+  ok(qual(duas, { teste: true }) === 'teste' && qual(duas, {}) === 'reais',
+    'quem tem produção e ensaio continua sendo entendido pelo pedido antigo — é o que ' +
+    'os aparelhos com a fila cheia ainda mandam', [qual(duas, { teste: true }), qual(duas, {})]);
+
+  /* COM A DECLARAÇÃO NO MEIO, NÃO SE ADIVINHA. Chutar produção faz uma declaração baixar
+     estoque; chutar declaração faz um retorno de verdade sumir da conta. Nos dois casos
+     ninguém fica sabendo — e é por isso que a resposta é nula, e a rota recusa. */
+  var tres = { BaseProducao: true, Teste: true, BaseDeclaracao: true };
+  ok(qual(tres, {}) === null,
+    'quem lança em mais de uma base e não diz em qual não recebe um palpite — recebe ' +
+    'uma recusa, e conserta com o dedo ainda na tela', qual(tres, {}));
+  ok(qual(tres, { base: 'declaracao' }) === 'declaracao' &&
+     qual(tres, { base: 'reais' }) === 'reais',
+    'e dizendo, vale o que ela disse');
+  ok(qual(duas, { base: 'declaracao' }) === null,
+    'mas só entre as que o CADASTRO deu: o pedido diz qual ela escolheu, o cadastro diz ' +
+    'quais ela pode escolher — sem a segunda metade, um pedido montado à mão mandaria ' +
+    'para a produção a contagem de quem só declara', qual(duas, { base: 'declaracao' }));
+
+  ok(qual(null) === 'reais' && qual({}) === 'reais',
+    'e cadastro sem base nenhuma não estoura a gravação: vale o de sempre');
+
+  /* E A ROTA RECUSA quando a resposta é nula. Sem esta linha, `base` viria nulo e o
+     carimbo sairia falso nos dois livros — a declaração entraria na produção. */
+  ok(api.indexOf('var base = L.baseEscolhida(quem, p);') > 0 &&
+     api.indexOf('if (!base) {') > 0,
+    'e a rota recusa o lançamento sem base — sem isso o carimbo sai falso nos dois ' +
+    'livros, e a declaração entra na produção');
   ok(!/teste: [^\n]*ehPerfilTeste/.test(api),
     'e o nome do perfil não entra mais nessa conta — com ele, marcar "Base Produção" ' +
     'no formulário não tiraria do ensaio quem tem "teste" escrito no cargo',
@@ -10894,13 +10914,14 @@ console.log('\n== a base do usuário ==');
   ok(adm.indexOf('if (!reg.Teste && !reg.BaseProducao && !reg.BaseDeclaracao)') > 0,
     'a tela recusa salvar sem base nenhuma — desmarcar todas teria o efeito de ' +
     'MARCAR Produção, que é o contrário do que quem desmarcou quis dizer');
-  /* E AS DUAS QUE NÃO CONVIVEM. Juntas, o app de campo passaria a perguntar a base a
-     cada lançamento — e uma distração no seletor mandaria para o estoque de verdade uma
-     contagem que era só informação. */
-  ok(adm.indexOf('if (reg.BaseDeclaracao && reg.BaseProducao)') > 0 &&
-     api.indexOf('if (querDecl && querProd)') > 0,
-    'e recusa Declaração junto com Produção, na tela e na rota — juntas, uma distração ' +
-    'no seletor do app mandaria para o estoque uma contagem que era só informação');
+  /* E AS TRÊS CONVIVEM, a pedido: produção e declaração são lidas em relatórios
+     separados, e a mesma pessoa escreve nos dois livros. A trava que existia aqui caiu —
+     e o preço dela está pago do outro lado: quem tem mais de uma base ESCOLHE a cada
+     lançamento, e o servidor recusa quem não disser em qual entra. */
+  ok(adm.indexOf('BaseDeclaracao && reg.BaseProducao') < 0 &&
+     api.indexOf('querDecl && querProd') < 0,
+    'e as três bases convivem no mesmo cadastro — a trava caiu a pedido, porque os dois ' +
+    'livros são lidos em relatórios separados');
   ok(api.indexOf('!querTeste && !querProd') > 0,
     'e a rota recusa de novo — ela aceita pedido de qualquer origem');
 
@@ -11189,62 +11210,95 @@ console.log('\n== a base do lançamento, no app de campo ==');
 (function () {
   var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
-  var ini = idx.indexOf('  function escolheBase(){');
+  /* O RECORTE COMECA NA LISTA DAS BASES, e nao na primeira funcao: e dela que as tres
+     saem, e comecando depois a bancada rodaria sobre um `basesDaSessao` que nao existe —
+     e o erro falaria de escopo, nao do seletor. */
+  var ini = idx.indexOf('  var NOME_BASE = {');
   var fim = idx.indexOf('  function aplicarSessao(s){');
   var fonte = ini < 0 || fim < 0 ? '' : idx.slice(ini, fim);
-  ok(fonte.length > 200 && fonte.indexOf('ajustarBases') > 0,
+  ok(fonte.length > 200 && fonte.indexOf('ajustarBases') > 0 &&
+     fonte.indexOf('basesDaSessao') > 0,
     'a conferência recortou as três funções da base — recorte vazio faria as provas ' +
     'abaixo passarem sem rodar nada', fonte.length);
 
-  /* AS TRÊS RODAM DE VERDADE, com um documento de mentira que só guarda quem é quem.
+  /* AS FUNÇÕES RODAM DE VERDADE, com um documento de mentira que só guarda quem é quem.
      Lidas no arquivo, elas responderiam "a sessão está citada ali?" — e estaria, mesmo
-     com o `&&` trocado por `||`, que é o defeito plausível: com `||`, quem tem UMA base
-     veria um seletor que não decide nada, e o que ele mostrasse seria mentira. */
+     com a lista das bases montada ao contrário. */
   function mundo(sessao, valor) {
+    function sel(v) {
+      return { value: v || '', innerHTML: '',
+               set html(x) { this.innerHTML = x; } };
+    }
     var caixas = { sdBaseBox: { hidden: null }, dvBaseBox: { hidden: null },
-                   sdBase: { value: valor || 'reais' }, dvBase: { value: valor || 'reais' } };
+                   sdBase: sel(valor), dvBase: sel(valor) };
     var f = new Function('Q', 'document',
-      fonte + '\n return { base: baseDeTeste, ajusta: ajustarBases };')(
+      fonte + '\n return { base: baseDoLancamento, ajusta: ajustarBases,' +
+              ' bases: basesDaSessao };')(
       { sessao: function () { return sessao; } },
       { getElementById: function (id) { return caixas[id] || null; } });
     f.ajusta();
-    return { caixas: caixas, base: f.base };
+    return { caixas: caixas, base: f.base, bases: f.bases };
   }
+
+  /* OPÇÕES NA ORDEM, e não uma lista qualquer: Produção, Teste, Declaração. A ordem é a
+     de quanto cada livro pesa na operação, e ela é a mesma do cadastro e da tabela —
+     três ordens diferentes para as mesmas três palavras fazem a pessoa reler o seletor
+     toda vez. */
+  var tres = mundo({ baseProducao: true, baseTeste: true, baseDeclaracao: true }, 'reais');
+  ok(tres.bases().join(',') === 'reais,teste,declaracao',
+    'as três bases da pessoa saem na mesma ordem do cadastro e da tabela',
+    tres.bases());
+  ok(tres.caixas.sdBaseBox.hidden === false &&
+     (tres.caixas.sdBase.innerHTML.match(/<option/g) || []).length === 3,
+    'quem tem as três vê o seletor com as três — é a única pessoa para quem existe uma ' +
+    'escolha a fazer, e ela tem de ser entre TODAS as que o cadastro deu',
+    tres.caixas.sdBase.innerHTML);
 
   var duas = mundo({ baseTeste: true, baseProducao: true }, 'teste');
   ok(duas.caixas.sdBaseBox.hidden === false && duas.caixas.dvBaseBox.hidden === false,
-    'quem está NAS DUAS bases vê o seletor nas duas telas de lançamento — é a única ' +
-    'pessoa para quem existe uma escolha a fazer',
+    'quem está em duas bases vê o seletor nas duas telas de lançamento',
     [duas.caixas.sdBaseBox.hidden, duas.caixas.dvBaseBox.hidden]);
-  ok(duas.base('sd') === true && duas.base('dv') === true,
-    'e o que ela escolhe é o que vai no lançamento');
+  ok(duas.base('sd') === 'teste' && duas.base('dv') === 'teste',
+    'e o que ela escolhe é o que vai no lançamento', duas.base('sd'));
 
   var soProd = mundo({ baseTeste: false, baseProducao: true }, 'teste');
   ok(soProd.caixas.sdBaseBox.hidden === true && soProd.caixas.dvBaseBox.hidden === true,
     'quem tem uma base só não vê o seletor — campo de uma opção só é pergunta cuja ' +
     'resposta já se sabe, e no galpão isso é mais uma coisa para ler antes de contar ' +
     'caixa', [soProd.caixas.sdBaseBox.hidden, soProd.caixas.dvBaseBox.hidden]);
-  /* O CASO QUE JUSTIFICA AS DUAS PERGUNTAS SAÍREM DA MESMA FUNÇÃO: o seletor está na
+  /* O CASO QUE JUSTIFICA AS DUAS PERGUNTAS SAÍREM DA MESMA LISTA: o seletor está na
      tela com "teste" escolhido, e a pessoa acabou de perder a Base Teste no cadastro.
-     Se "o que mandar" olhasse só o campo, ela continuaria mandando para uma base que
-     já não tem — e o servidor, que só põe piso para quem é de ensaio, aceitaria. */
-  ok(soProd.base('sd') === false,
-    'e um seletor ESQUECIDO na tela em "Base Teste" não manda nada para o ensaio depois ' +
-    'de a pessoa perder essa base — as duas perguntas saem da mesma função de propósito');
+     Se "o que mandar" olhasse só o campo, ela continuaria mandando uma base que já não
+     tem — e levaria uma recusa depois de ter contado as caixas. */
+  ok(soProd.base('sd') === '',
+    'e um seletor ESQUECIDO na tela numa base que a pessoa perdeu não manda nada — as ' +
+    'duas perguntas saem da mesma lista de propósito', soProd.base('sd'));
 
-  var soTeste = mundo({ baseTeste: true, baseProducao: false }, 'reais');
-  ok(soTeste.caixas.sdBaseBox.hidden === true,
-    'quem só tem a Base Teste também não escolhe — para ela o ensaio é piso, e o ' +
-    'servidor não deixa sair de lá de qualquer jeito');
+  /* O SELETOR PODE TER FICADO COM A ESCOLHA DE ONTEM. A pessoa tinha tres bases,
+     perdeu a Declaracao no cadastro, e a tela continua aberta com ela escolhida. Sem a
+     conferencia contra a lista, o lancamento sairia dizendo uma base que ela ja nao tem
+     — e voltaria recusado depois de ela ter contado as caixas.
+     ESTE CASO SO E ALCANCAVEL COM DUAS OU MAIS BASES: com uma so, a funcao devolve vazio
+     antes de olhar o seletor. Foi por isso que a primeira versao desta bancada deixou a
+     conferencia passar: nenhum caso chegava ate ela. */
+  var perdeu = mundo({ baseProducao: true, baseTeste: true }, 'declaracao');
+  ok(perdeu.base('sd') === '',
+    'e a base que sobrou no seletor, de quando a pessoa ainda a tinha, não viaja — o ' +
+    'lançamento voltaria recusado depois de ela ter contado as caixas',
+    perdeu.base('sd'));
 
-  /* SESSÃO ANTIGA, de antes destes dois campos existirem: ninguém vê o seletor, e o
-     servidor carimba pela base do cadastro, como sempre fez. Sem este caso, a primeira
-     pessoa a abrir o app com a sessão guardada veria a tela estourar. */
+  var soDecl = mundo({ baseDeclaracao: true }, 'reais');
+  ok(soDecl.caixas.sdBaseBox.hidden === true && soDecl.base('sd') === '',
+    'quem só declara também não escolhe — o servidor carimba pela base do cadastro dela');
+
+  /* SESSÃO ANTIGA, de antes destes campos existirem: ninguém vê o seletor, e o servidor
+     carimba pela base do cadastro, como sempre fez. Sem este caso, a primeira pessoa a
+     abrir o app com a sessão guardada veria a tela estourar. */
   var velha = mundo({ id: 'U1', nome: 'x' }, 'teste');
-  ok(velha.caixas.sdBaseBox.hidden === true && velha.base('sd') === false,
-    'e sessão de antes deste campo não vê o seletor nem manda base nenhuma — quem ' +
+  ok(velha.caixas.sdBaseBox.hidden === true && velha.base('sd') === '',
+    'e sessão de antes destes campos não vê o seletor nem manda base nenhuma — quem ' +
     'carimba nesse caso é o cadastro, no servidor');
-  ok(mundo(null, 'teste').base('sd') === false,
+  ok(mundo(null, 'teste').base('sd') === '',
     'e sem sessão nenhuma a tela não estoura');
 
   /* ---- E A ESCOLHA TEM DE CHEGAR NO ENVIO ----
@@ -11260,17 +11314,27 @@ console.log('\n== a base do lançamento, no app de campo ==');
   [['btnSalvarSaida', 'sd'], ['btnSalvarDevolucao', 'dv']].forEach(function (c) {
     var h = idx.slice(idx.indexOf("getElementById('" + c[0] + "')"));
     h = h.slice(0, h.indexOf('}).then('));
-    var iV = h.indexOf("baseDeTeste('" + c[1] + "')");
+    var iV = h.indexOf("baseDoLancamento('" + c[1] + "')");
     var decl = iV < 0 ? -1 : h.lastIndexOf('var ', iV);
     var nome = decl < 0 ? '' : h.slice(decl + 4, h.indexOf(' =', decl)).trim();
     ok(h.length > 200 && !!nome,
-      c[0] + ': a conferência achou onde a base é escolhida — sem isso, a prova abaixo ' +
-      'passaria sem olhar nada', { tamanho: h.length, variavel: nome });
-    ok(!!nome && h.indexOf('teste: ' + nome) > 0,
+      c[0] + ': a conferência achou onde a base é escolhida — sem isso, as provas ' +
+      'abaixo passariam sem olhar nada', { tamanho: h.length, variavel: nome });
+    ok(!!nome && h.indexOf('base: ' + nome) > 0,
       c[0] + ': a base escolhida VIAJA no lançamento — sem esta linha o seletor ' +
-      'aparece, a pessoa escolhe, a confirmação diz "na Base Teste", e o lançamento ' +
-      'entra na produção assim mesmo',
-      (h.match(/teste: *[A-Za-z]+/) || ['(não achei)'])[0]);
+      'aparece, a pessoa escolhe, a confirmação diz a base, e o servidor recusa o ' +
+      'lançamento por não saber em qual livro ele entra',
+      (h.match(/base: *[A-Za-z]+/) || ['(não achei)'])[0]);
+    /* E A FRASE DA CONFIRMAÇÃO DIZ A BASE quando ela não é a produção. O seletor fica
+       escolhido entre um lançamento e outro — quem passa a tarde declarando não o
+       reescolhe a cada um —, e esquecê-lo no livro errado manda o trabalho de verdade
+       para fora do saldo, ou uma informação para dentro dele. Esta frase é o último
+       lugar em que isso ainda dá para ver. */
+    ok(h.indexOf("!== 'reais' ? ' na ' + NOME_BASE[") > 0 &&
+       h.indexOf('precisaConfirmarCaixa') > 0,
+      c[0] + ': a confirmação nomeia a base sempre que ela não é a Produção — um aviso ' +
+      'em todo lançamento é um aviso que ninguém lê, e nenhum aviso é o seletor ' +
+      'esquecido no livro errado');
   });
 })();
 

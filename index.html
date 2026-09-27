@@ -342,10 +342,7 @@
            é onde o lançamento inteiro vai cair. -->
       <div class="base-lanc" id="sdBaseBox" hidden>
         <label for="sdBase">Base deste lançamento</label>
-        <select id="sdBase">
-          <option value="reais">Base Produção</option>
-          <option value="teste">Base Teste</option>
-        </select>
+        <select id="sdBase"></select>
       </div>
 
       <!-- Ordem na tela = ordem em que a pessoa preenche: quando, de onde, para onde,
@@ -424,10 +421,7 @@
            é onde o lançamento inteiro vai cair. -->
       <div class="base-lanc" id="dvBaseBox" hidden>
         <label for="dvBase">Base deste lançamento</label>
-        <select id="dvBase">
-          <option value="reais">Base Produção</option>
-          <option value="teste">Base Teste</option>
-        </select>
+        <select id="dvBase"></select>
       </div>
 
       <div class="grid2">
@@ -609,22 +603,55 @@
    * A PERGUNTA "MOSTRA?" E A PERGUNTA "O QUE MANDA?" SÃO A MESMA FUNÇÃO, de propósito.
    * Separadas, bastaria a sessão mudar entre a abertura da tela e o toque em Registrar
    * para o campo continuar na tela mandando uma base que a pessoa já não tem. */
-  function escolheBase(){
+  /* AS BASES DESTA PESSOA, na ordem em que o seletor as oferece. Elas saem da SESSÃO,
+     que o login traz e a renovação atualiza — perguntar à rede na hora de gravar
+     deixaria o galpão sem a pergunta justamente quando está sem sinal, que é quando ele
+     mais lança. */
+  var NOME_BASE = { reais: 'Base Produção', teste: 'Base Teste',
+                    declaracao: 'Base Declaração' };
+
+  function basesDaSessao(){
     var s = Q.sessao() || {};
-    return s.baseTeste === true && s.baseProducao === true;
+    var b = [];
+    if (s.baseProducao === true) b.push('reais');
+    if (s.baseTeste === true) b.push('teste');
+    if (s.baseDeclaracao === true) b.push('declaracao');
+    return b;
   }
 
-  function baseDeTeste(pre){
-    if (!escolheBase()) return false;
+  function escolheBase(){ return basesDaSessao().length > 1; }
+
+  /* A BASE DESTE LANÇAMENTO. Com uma base só não há escolha a fazer, e o servidor
+     carimba pela do cadastro. Com mais de uma, vale o que está no seletor — e se o que
+     estiver nele não for uma base desta pessoa, não vale nada: o seletor pode ter ficado
+     na tela com a escolha de ontem, depois de o cadastro dela mudar.
+     A PERGUNTA "MOSTRA?" E A PERGUNTA "O QUE MANDA?" SAEM DA MESMA LISTA, de propósito:
+     separadas, bastaria a sessão mudar entre a abertura da tela e o toque em Registrar
+     para o campo continuar mandando uma base que a pessoa já não tem. */
+  function baseDoLancamento(pre){
+    var tem = basesDaSessao();
+    if (tem.length < 2) return '';
     var el = document.getElementById(pre + 'Base');
-    return !!el && el.value === 'teste';
+    var v = el ? el.value : '';
+    return tem.indexOf(v) >= 0 ? v : '';
   }
 
   function ajustarBases(){
-    var mostra = escolheBase();
+    var tem = basesDaSessao();
+    var mostra = tem.length > 1;
     ['sd', 'dv'].forEach(function (pre) {
       var box = document.getElementById(pre + 'BaseBox');
+      var sel = document.getElementById(pre + 'Base');
       if (box) box.hidden = !mostra;
+      if (!sel) return;
+      /* REFEITO A CADA AJUSTE, e não escrito no HTML: as bases da pessoa mudam no
+         cadastro, e um seletor com as opções de ontem ofereceria um livro que ela já não
+         tem — e o servidor recusaria o lançamento depois de ela contar as caixas. */
+      var era = sel.value;
+      sel.innerHTML = tem.map(function (b) {
+        return '<option value="' + b + '">' + NOME_BASE[b] + '</option>';
+      }).join('');
+      if (tem.indexOf(era) >= 0) sel.value = era;
     });
   }
 
@@ -1327,13 +1354,14 @@
     var itens = coletarItens('sd_');
     if (!podeEnviar('sd', 'sdItens', itens)) return;
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
-    /* A BASE ENTRA NA FRASE DA CONFIRMAÇÃO quando é a de ensaio. O seletor fica onde a
-       pessoa o deixou — quem passa a tarde validando não o reescolhe a cada lançamento
-       —, e o preço disso é esquecê-lo ligado quando volta ao trabalho de verdade. A
-       frase do botão é o último lugar em que isso ainda dá para ver. */
-    var emTeste = baseDeTeste('sd');
+    /* A BASE ENTRA NA FRASE DA CONFIRMAÇÃO quando não é a produção. O seletor fica onde
+       a pessoa o deixou — quem passa a tarde declarando não o reescolhe a cada
+       lançamento —, e o preço disso é esquecê-lo em outro livro quando volta ao trabalho
+       de sempre. A frase do botão é o último lugar em que isso ainda dá para ver. */
+    var baseSd = baseDoLancamento('sd');
+    var dizBase = baseSd && baseSd !== 'reais' ? ' na ' + NOME_BASE[baseSd] : '';
     if (Q.precisaConfirmarCaixa(this, 'Confirmar saída de ' + total + ' caixa(s)' +
-        (emTeste ? ' na Base Teste' : '') + '?', 'Registrar')) return;
+        dizBase + '?', 'Registrar')) return;
 
     var destinoTipo = (DADOS.locais.filter(function(l){return String(l.ID)===destino;})[0]||{}).Tipo;
     var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
@@ -1345,7 +1373,7 @@
       dataRef: document.getElementById('sdData').value,
       obs: document.getElementById('sdObs').value,
       usuarioId: s.id, perfil: s.perfil,
-      teste: emTeste,
+      base: baseSd,
       motorista: document.getElementById('sdMotorista').value.trim(),
       veiculo: document.getElementById('sdVeiculo').value.trim(),
       rota: nomeDoLocal(destino),
@@ -1395,9 +1423,10 @@
     var total = itens.reduce(function(a,i){return a+i.qtd;},0);
 
     // Não há mais etapa de conferência: o lançamento já vale no saldo, venha de quem vier.
-    var emTesteDv = baseDeTeste('dv');
+    var baseDv = baseDoLancamento('dv');
+    var dizBaseDv = baseDv && baseDv !== 'reais' ? ' na ' + NOME_BASE[baseDv] : '';
     if (Q.precisaConfirmarCaixa(this, 'Confirmar entrada de ' + total + ' caixa(s)' +
-        (emTesteDv ? ' na Base Teste' : '') + '?', 'Registrar')) return;
+        dizBaseDv + '?', 'Registrar')) return;
 
     var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
     Q.enviar({
@@ -1408,7 +1437,7 @@
       veiculo: document.getElementById('dvVeiculo').value,
       obs: document.getElementById('dvObs').value,
       usuarioId: s.id, perfil: s.perfil,
-      teste: emTesteDv,
+      base: baseDv,
       foto: dvFotoData
     }).then(function(r){
       btn.disabled = false; btn.textContent = 'Registrar retorno';

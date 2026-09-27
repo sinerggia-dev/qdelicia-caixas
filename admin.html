@@ -2726,7 +2726,7 @@
              'telefone','baseTeste','baseProd','baseDecl','ativo'],
     larg: { nome:190, perfil:120, usuario:150, email:230, senha:190,
             painel:80, local:150, veiculo:200, telefone:130,
-            baseTeste:110, baseProd:120, baseDecl:130, ativo:80 },
+            baseTeste:110, baseProd:120, baseDecl:150, ativo:80 },
     titulos: { nome:'Nome', perfil:'Perfil', usuario:'Usuário', email:'E-mail',
                senha:'Senha', painel:'Painel', local:'Local padrão',
                veiculo:'Veículo', telefone:'Telefone',
@@ -4480,6 +4480,12 @@
       romaneio: document.getElementById('lcRomaneio').value,
       obs: document.getElementById('lcObs').value,
       usuarioId: s.id, perfil: 'ESCRITORIO', status:'CONFIRMADO',
+      /* A BASE DESTE AJUSTE vai escrita. Quem lança daqui pode ter mais de uma base no
+         cadastro, e nesse caso o servidor recusa lançamento que não diga em qual entra —
+         de propósito: ele não escolhe por ninguém entre um livro que baixa estoque e um
+         que não baixa. O seletor desta tela só oferece produção e ensaio, que é o que um
+         ajuste de escritório pode ser. */
+      base: document.getElementById('lcTeste').value === 'teste' ? 'teste' : 'reais',
       teste: document.getElementById('lcTeste').value === 'teste'
     }).then(function(r){
       btn.disabled=false; btn.textContent='Gravar lançamento';
@@ -8704,9 +8710,9 @@
         'Na <b>Base Declaração</b>, o que ela lançar é <b>informação</b>: aparece na lista '+
         'e no CSV, e não entra em conta nenhuma — nem saldo, nem painel, nem extrato. É a '+
         'base do motorista, que informa o que trouxe para ser conferido contra a contagem '+
-        'de quem recebeu. Por isso ela não anda junto com a Base Produção.<br>'+
-        'Com <b>duas marcadas</b>, o app de campo pergunta a base em cada lançamento. '+
-        'Com uma só, ele não pergunta nada.</p>'+
+        'de quem recebeu.<br>'+
+        'Com <b>mais de uma marcada</b>, o app de campo pergunta a base em cada '+
+        'lançamento, e é a pessoa que escolhe. Com uma só, ele não pergunta nada.</p>'+
       // O usuário curto deixou de ser coisa só do painel: é com ele que a pessoa entra
       // no app de lançamento. Por isso sobe para cá, junto da senha do app.
       '<label>Usuário <span style="font-weight:400;color:var(--txt3)">— é o que a pessoa digita para entrar</span></label>'+
@@ -9084,18 +9090,6 @@
     document.getElementById('fVerLanc').addEventListener('change', ajustarPainel);
     ajustarPainel();
     ligarCampoFoto();
-    /* DECLARAÇÃO E PRODUÇÃO NÃO CONVIVEM, e a tela diz isso desmarcando na hora em vez de
-       recusar no fim. Recusar depois de a pessoa preencher o formulário inteiro é pedir
-       que ela descubra sozinha qual das duas escolhas estava errada.
-       A API recusa de novo: ela aceita pedido de qualquer origem, e esta trava é
-       conveniência, não fronteira. */
-    (function(){
-      var prod = document.getElementById('fBaseProd');
-      var decl = document.getElementById('fBaseDecl');
-      if (!prod || !decl) return;
-      prod.addEventListener('change', function(){ if (prod.checked) decl.checked = false; });
-      decl.addEventListener('change', function(){ if (decl.checked) prod.checked = false; });
-    })();
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:perfilDigitado(),
         Telefone:document.getElementById('fTel').value.trim(),
@@ -9137,10 +9131,6 @@
          hora, sem esperar a ida ao servidor. */
       if (!reg.Teste && !reg.BaseProducao && !reg.BaseDeclaracao) {
         return Q.toast('Marque ao menos uma base: Produção, Teste ou Declaração.','erro');
-      }
-      if (reg.BaseDeclaracao && reg.BaseProducao) {
-        return Q.toast('Base Declaração e Base Produção não andam juntas: o que é ' +
-          'declaração nunca conta no estoque.','erro');
       }
       if (!reg.ID && !pin) return Q.toast('Defina a senha do app de campo para o novo usuário.','erro');
       // Sem usuário a pessoa não entra em lugar nenhum: nem no app, nem no painel.

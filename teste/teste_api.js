@@ -3463,36 +3463,65 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'devolvida sem ninguém ter contado uma caixa',
     Fl.rotuloCiclo(comDeclaracao[0], cicloDecl.S1));
 
-  /* AS DUAS QUE NAO CONVIVEM, recusadas na rota — a tela avisa antes, e a rota atende
-     pedido de qualquer origem. */
-  const juntas = await POST({ acao: 'salvarUsuario', registro: { ID: declarante.ID,
-    Nome: declarante.Nome, Perfil: declarante.Perfil,
-    BaseProducao: true, BaseDeclaracao: true } });
-  ok(juntas.ok === false && /Declaracao e Base Producao/.test(String(juntas.erro)),
-    'Base Declaração e Base Produção são recusadas juntas — juntas, o app perguntaria a ' +
-    'base a cada lançamento, e uma distração mandaria para o estoque o que era ' +
-    'informação', juntas.erro);
+  /* ---- AS TRES CONVIVEM, E QUEM ESCOLHE E A PESSOA ----
+   *
+   * A pedido do escritorio: producao e declaracao sao lidas em relatorios separados, e a
+   * mesma pessoa escreve nos dois livros. O preco e a escolha a cada lancamento — e o
+   * servidor nao escolhe por ninguem entre um livro que baixa estoque e um que nao. */
+  const comTres = await POST({ acao: 'salvarUsuario', registro: { ID: declarante.ID,
+    Nome: declarante.Nome, Perfil: declarante.Perfil, Operacoes: ['SAIDA', 'RETORNO'],
+    BaseProducao: true, Teste: true, BaseDeclaracao: true } });
+  const tresBases = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.ID === declarante.ID)[0];
+  ok(comTres.ok === true && tresBases.BaseProducao === true &&
+     tresBases.Teste === true && tresBases.BaseDeclaracao === true,
+    'as três bases convivem no mesmo cadastro — produção e declaração são lidas em ' +
+    'relatórios separados, e a mesma pessoa escreve nos dois livros',
+    [tresBases.BaseProducao, tresBases.Teste, tresBases.BaseDeclaracao]);
 
-  /* E A DECLARACAO DE ENSAIO existe: sao duas perguntas diferentes — "isto conta?" e
-     "isto e treino?" —, e sem a combinacao nao haveria como experimentar o fluxo do
-     motorista sem sujar o relatorio. */
-  await POST({ acao: 'salvarUsuario', registro: { ID: declarante.ID, Nome: declarante.Nome,
-    Perfil: declarante.Perfil, Operacoes: ['SAIDA', 'RETORNO'],
-    BaseProducao: false, BaseDeclaracao: true, Teste: true } });
+  /* SEM DIZER QUAL, O LANCAMENTO E RECUSADO. Adivinhar e o pior dos caminhos: chutar
+     producao faz uma declaracao baixar estoque, chutar declaracao faz um retorno de
+     verdade sumir da conta, e nos dois casos ninguem fica sabendo. Recusado, quem esta
+     com o dedo na tela conserta na hora. */
+  const mudo = await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: 'L003',
+    destinoId: 'L001', itens: [{ tipoId: 'T001', qtd: 12 }], dataRef: dia(0),
+    usuarioId: declarante.ID, clientKey: 'k-decl-mudo' });
+  ok(mudo.ok === false && /base deste lançamento/i.test(String(mudo.erro)),
+    'quem lança em mais de uma base e não diz em qual é RECUSADO — o servidor não ' +
+    'escolhe entre um livro que baixa o estoque e um que não baixa', mudo.erro);
+
+  /* E A ESCOLHA E CONFERIDA CONTRA O CADASTRO: sem isso, um pedido montado a mao
+     mandaria para a producao a contagem de quem so declara. */
+  /* DUAS BASES, e nao uma: com uma so nao ha escolha a fazer, e o pedido e ignorado —
+     um cadastro de producao que pedisse declaracao continuaria em producao, que ja e
+     seguro. A pergunta aqui e outra: com escolha possivel, o pedido pode nomear uma base
+     que o cadastro nao deu? */
+  await POST({ acao: 'salvarUsuario', registro: { Nome: 'Sem Declaracao',
+    Perfil: 'CONFERENTE', PIN: '667788', Operacoes: ['SAIDA', 'RETORNO'],
+    BaseProducao: true, Teste: true } });
+  const soProd = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.Nome === 'Sem Declaracao')[0];
+  const semTer = await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: 'L003',
+    destinoId: 'L001', itens: [{ tipoId: 'T001', qtd: 12 }], dataRef: dia(0),
+    usuarioId: soProd.ID, base: 'declaracao', clientKey: 'k-decl-semter' });
+  ok(semTer.ok === false,
+    'e pedir uma base que o cadastro não deu também é recusado — o pedido diz qual ela ' +
+    'escolheu, o cadastro diz quais ela pode escolher', semTer.erro);
+
+  /* A MESMA PESSOA, OS DOIS LIVROS, o estoque mexendo num e no outro nao. */
+  const antesTres = await saldoDe('L003');
   await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: 'L003', destinoId: 'L001',
-    itens: [{ tipoId: 'T001', qtd: 777 }], dataRef: dia(0), usuarioId: declarante.ID,
-    clientKey: 'k-decl-2' });
-  const ensaio = (await GET({ acao: 'movimentos', quem: 'U001', limit: 500,
-    teste: 'declaracao' })).movimentos.filter((m) => m.qtd === 777)[0];
-  ok(!!ensaio && ensaio.declaracao === true && ensaio.teste === true,
-    'a declaração de ENSAIO está nos dois livros — num só, o filtro "Base Teste" não a ' +
-    'acharia e o relatório a somaria como carga de verdade',
-    ensaio && [ensaio.declaracao, ensaio.teste]);
-  const porTeste = (await GET({ acao: 'movimentos', quem: 'U001', limit: 500,
-    teste: 'teste' })).movimentos.filter((m) => m.qtd === 777).length;
-  ok(porTeste === 1,
-    'e o filtro "Base Teste" a acha — é assim que se experimenta o fluxo do motorista ' +
-    'sem sujar o que o escritório lê', porTeste);
+    itens: [{ tipoId: 'T001', qtd: 40 }], dataRef: dia(0), usuarioId: declarante.ID,
+    base: 'declaracao', clientKey: 'k-decl-3' });
+  const depoisDecl = await saldoDe('L003');
+  await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: 'L003', destinoId: 'L001',
+    itens: [{ tipoId: 'T001', qtd: 40 }], dataRef: dia(0), usuarioId: declarante.ID,
+    base: 'reais', clientKey: 'k-decl-4' });
+  const depoisReal = await saldoDe('L003');
+  ok(depoisDecl === antesTres && depoisReal !== antesTres,
+    'a MESMA pessoa lança nos dois livros: o que ela manda para a Declaração não mexe ' +
+    'no estoque, e o que ela manda para a Produção mexe',
+    { antes: antesTres, declarou: depoisDecl, lancou: depoisReal });
 
   /* Deixa a casa como encontrou: os blocos seguintes contam usuarios. */
   await POST({ acao: 'baseUsuarios', ids: [alfa, beta, gama], teste: false });

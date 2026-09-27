@@ -459,6 +459,49 @@ function ehDeclaracao(m) {
   return !!m && m.Declaracao === true;
 }
 
+/* AS BASES QUE ESTA PESSOA TEM, na ordem em que o app as oferece.
+ *
+ * As tres convivem: producao, ensaio e declaracao sao livros diferentes, e o escritorio
+ * decidiu que a mesma pessoa pode escrever em mais de um — os relatorios os leem
+ * separados. Quando ha mais de uma, quem escolhe e ela, lancamento a lancamento. */
+function basesDoUsuario(u) {
+  var b = [];
+  if (u && u.BaseProducao === true) b.push('reais');
+  if (u && u.Teste === true) b.push('teste');
+  if (u && u.BaseDeclaracao === true) b.push('declaracao');
+  return b;
+}
+
+/**
+ * EM QUE BASE ESTE LANCAMENTO ENTRA.
+ *
+ * O pedido diz qual ela escolheu; o CADASTRO diz quais ela pode escolher. Sem a segunda
+ * metade, um pedido montado a mao mandaria para a producao a contagem de quem so
+ * declara — e o estoque mudaria por causa de uma informacao.
+ *
+ * SEM ESCOLHA POSSIVEL, nao ha o que perguntar: uma base so, e e ela.
+ *
+ * E SEM RESPOSTA, QUANDO HA ESCOLHA, devolve nulo — e a rota RECUSA. Adivinhar aqui e o
+ * pior dos caminhos: chutar producao faz uma declaracao baixar estoque, chutar
+ * declaracao faz um retorno de verdade sumir da conta, e nos dois casos ninguem fica
+ * sabendo. Recusado, quem esta com o dedo na tela conserta na hora.
+ *
+ * A EXCECAO E O MUNDO DE ANTES: quem tem so producao e ensaio continua sendo entendido
+ * pelo `teste` do pedido, que e o que os aparelhos com a fila cheia ainda mandam.
+ */
+function baseEscolhida(u, p) {
+  var tem = basesDoUsuario(u);
+  if (!tem.length) return 'reais';
+  if (tem.length === 1) return tem[0];
+  var pedida = String((p && p.base) || '').trim();
+  if (pedida) return tem.indexOf(pedida) >= 0 ? pedida : null;
+  if (tem.indexOf('declaracao') < 0) {
+    var velho = p && (p.teste === true || String(p.teste) === 'true');
+    return velho ? 'teste' : 'reais';
+  }
+  return null;
+}
+
 /* EM QUE LIVROS ESTA LINHA ENTROU — no plural, e esse plural nao e enfeite.
  *
  * "E declaracao?" e "e ensaio?" sao perguntas DIFERENTES: a primeira pergunta se a linha
@@ -2215,6 +2258,7 @@ module.exports = {
   ehPerfilTeste: ehPerfilTeste, temTeste: temTeste, pesoTeste: pesoTeste, pesoMatriz: pesoMatriz,
   lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste,
   ehDeclaracao: ehDeclaracao, basesDoMovimento: basesDoMovimento,
+  basesDoUsuario: basesDoUsuario, baseEscolhida: baseEscolhida,
   recorteProprios: recorteProprios, usuariosVistosDe: usuariosVistosDe,
   idsVisiveis: idsVisiveis, NINGUEM: NINGUEM, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,

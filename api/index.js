@@ -228,6 +228,14 @@ async function gravarMovimento(p) {
   /* A permissao e recusada AQUI, e nao so escondendo a aba no celular. Esconder o botao
      e conveniencia; quem manda um POST direto passa por cima dela. E o cadastro que
      decide, lido do servidor — o payload nao opina sobre o que quem o mandou pode fazer. */
+  /* EM QUE BASE ESTE LANCAMENTO ENTRA. Decidido antes de qualquer outra coisa porque,
+     sem resposta, nao ha lancamento: ver `baseEscolhida`. */
+  var base = L.baseEscolhida(quem, p);
+  if (!base) {
+    return { ok: false, erro: 'Escolha a base deste lançamento: você lança em mais de ' +
+      'uma, e o sistema não escolhe por você — uma baixa o estoque e a outra não.' };
+  }
+
   var op = L.operacaoDoTipo(p.tipo);
   if (quem && !L.podeOperacao(quem, op)) {
     return { ok: false, erro: 'Este usuário não está habilitado a lançar ' +
@@ -273,10 +281,12 @@ async function gravarMovimento(p) {
        piso nenhum: o carimbo vem do `teste` do payload, que e o seletor da tela de
        lancamento. E quem so tem Producao continua podendo marcar um lancamento avulso
        como ensaio, que e o caso do ajuste feito no escritorio. */
-    teste: !!quem && quem.Teste === true && quem.BaseProducao !== true,
-    /* DECLARACAO: o que esta pessoa lanca e informacao, e nao movimento. Sai so do
-       cadastro — ver o comentario em `montarLancamento`. */
-    declaracao: !!quem && quem.BaseDeclaracao === true,
+    /* AS DUAS SAEM DA BASE ESCOLHIDA, e a escolha ja foi conferida contra o cadastro.
+       O `|| p.teste` que sobrou dentro de `montarLancamento` continua valendo e e de
+       proposito: e por ele que o escritorio marca um AJUSTE como ensaio sem precisar
+       estar na Base Teste — subir para o ensaio e a direcao inofensiva. */
+    teste: base === 'teste',
+    declaracao: base === 'declaracao',
     clientKeysExistentes: existentes,
     assinaturaUrl: assinaturaUrl,
     fotoUrl: fotoUrl
@@ -475,9 +485,7 @@ async function baseUsuarios(p) {
   if (!teste && !producao && !declaracao) {
     return { ok: false, erro: 'Escolha ao menos uma base: Producao, Teste ou Declaracao.' };
   }
-  if (declaracao && producao) {
-    return { ok: false, erro: 'Base Declaracao e Base Producao nao andam juntas.' };
-  }
+
 
   var d = await db.carregarTudo();
   var porId = {};
@@ -641,17 +649,12 @@ async function salvarUsuario(p) {
   if (mexeuEmBase && !querTeste && !querProd && !querDecl) {
     return { ok: false, erro: 'Escolha ao menos uma base: Producao, Teste ou Declaracao.' };
   }
-  /* DECLARACAO E PRODUCAO NAO CONVIVEM. Quem tem duas bases escolhe a base na hora do
-     lancamento, e e justamente isso que nao pode existir aqui: uma distracao no seletor
-     mandaria para o estoque de verdade uma contagem que so era informacao — que e o erro
-     que esta base inteira existe para impedir.
-     COM A BASE TESTE ELA CONVIVE, porque sao duas perguntas diferentes: uma e "isto conta
-     no estoque?", a outra e "isto e ensaio ou e de verdade?". Sem essa combinacao nao
-     haveria como ensaiar a declaracao sem sujar o relatorio com linhas de teste. */
-  if (querDecl && querProd) {
-    return { ok: false, erro: 'Base Declaracao e Base Producao nao andam juntas: o que ' +
-             'e declaracao nunca conta no estoque. Deixe so uma das duas.' };
-  }
+  /* AS TRES CONVIVEM, a pedido do escritorio: producao e declaracao sao lidas em
+     relatorios separados, e a mesma pessoa pode escrever nos dois livros. O preco e que
+     ela passa a ESCOLHER a base a cada lancamento, no app de campo — e escolher errado
+     manda para o estoque uma contagem que era so informacao, ou tira da conta um retorno
+     de verdade. Por isso o seletor fica a vista e a frase da confirmacao diz a base
+     sempre que ela nao e a producao. */
 
   if (dados.Perfil !== undefined) {
     dados.Perfil = L.normalizarPerfil(dados.Perfil);
