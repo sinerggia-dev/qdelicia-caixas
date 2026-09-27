@@ -406,7 +406,10 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
     'todo campo da barra entra no filtro que lista E apaga',
     campos.filter(function (c) { return leitura.indexOf("'" + c + "'") < 0; }));
 
-  var j = adm.indexOf("['mvOrigem', 'mvDestino'");
+  /* A ÂNCORA É O FIM DA LISTA DE OUVINTES, e não o começo dela: pelo começo, este
+     recorte passou a cair numa outra lista de campos que nasceu antes no arquivo — e a
+     prova reprovou sem nada ter piorado na tela. */
+  var j = adm.lastIndexOf('[', adm.indexOf("'mvTrecho', 'mvTeste', 'mvDe', 'mvAte'"));
   var ouvintes = adm.slice(j, adm.indexOf('});', j));
   ok(campos.filter(function (c) { return ouvintes.indexOf("'" + c + "'") < 0; }).length === 0,
     'e todo campo recarrega a lista sozinho ao mudar',
@@ -453,12 +456,48 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
     }
     return '';
   })();
-  // as duas datas voltam pelo periodoPadraoMov, nao uma a uma
-  var faltam = campos.filter(function (c) {
-    if (c === 'mvDe' || c === 'mvAte') return limpar.indexOf('periodoPadraoMov') < 0;
-    return limpar.indexOf("'" + c + "'") < 0;
+  /* O LIMPAR É RODADO, e não lido. Ele deixou de nomear os campos um a um — percorre a
+     lista `CAMPOS_MOV`, a mesma das pílulas —, e uma prova que procurasse o nome de cada
+     campo dentro dele reprovaria a versão derivada, que é a melhor das duas: ela não tem
+     como esquecer um campo que entrou na barra depois.
+     O que continua valendo é a GARANTIA: depois do Limpar, campo nenhum filtra. */
+  var limparFn = new Function('document', 'CAMPOS_MOV', 'porEscolha',
+    'ligarMultis', 'periodoPadraoMov', 'carregarMovimentos',
+    limpar + '\n return limparFiltrosMov;');
+  var mundo = {};
+  campos.forEach(function (c) {
+    mundo[c] = c === 'mvDe' || c === 'mvAte'
+      ? { type: 'date', value: '2026-01-01' }
+      : { value: c === 'mvTeste' ? 'teste' : 'ALGO', multiple: c !== 'mvTeste' && c !== 'mvTrecho',
+          options: [], escolha: ['ALGO'] };
   });
-  ok(faltam.length === 0, 'e todo campo volta ao padrao no botao Limpar', faltam);
+  var comoFicou = {};
+  limparFn(
+    { getElementById: function (id) { return mundo[id] || null; } },
+    campos,
+    function (el, vals) { el.escolha = vals || []; el.value = (vals && vals[0]) || ''; },
+    function () {},
+    function () { mundo.mvDe.value = ''; mundo.mvAte.value = ''; },
+    function () {})();
+  var sobraram = campos.filter(function (c) {
+    var el = mundo[c];
+    if (c === 'mvTeste') return el.value !== 'reais';   // o recorte tem estado, e volta ao dele
+    if (el.type === 'date') return !!el.value;
+    return (el.escolha || []).length > 0;
+  });
+  ok(sobraram.length === 0,
+    'depois do Limpar, campo nenhum continua filtrando — e a conta vale para o campo ' +
+    'que entrar na barra amanhã, porque o Limpar percorre a lista em vez de nomear ' +
+    'cada um', sobraram);
+  /* E A LISTA QUE ELE PERCORRE É A DA BARRA. Derivar de uma lista que não tem todos os
+     campos é o mesmo que esquecer campos, só que mais difícil de ver. */
+  var listaCampos = (adm.match(/var CAMPOS_MOV = \[([\s\S]*?)\]/) || ['', ''])[1];
+  var foraDaLista = campos.filter(function (c) {
+    return c !== 'mvTeste' && listaCampos.indexOf("'" + c + "'") < 0;
+  });
+  ok(listaCampos.length > 20 && foraDaLista.length === 0,
+    'e a lista que o Limpar percorre tem todos os campos da barra — o de fora dela não ' +
+    'seria limpo nem viraria pílula', foraDaLista);
 })();
 
 /* ---------------------------------------------------------------------------
@@ -2975,7 +3014,12 @@ console.log('\n== o trilho de filtros, em Movimentos ==');
    * vale para o app de campo, usado de luva; isto é teclado e mouse de escritório.
    * E a letra do campo fica em 13px, não menos: abaixo disso o Safari do iPad dá zoom
    * sozinho ao focar, e a tela salta. */
-  var regraCampo = (css.match(/\.mov-tela \.filtros-caixa select,\s*\n\s*\.mov-tela \.filtros-caixa input\{[^}]*\}/) || [''])[0];
+  /* A regra ganhou uma terceira linha de seletor — o botão do filtro de várias, que
+     é um campo como os outros. O recorte vai do primeiro seletor até a chave, sem
+     contar quantos seletores há no meio: contando, acrescentar um campo novo à regra
+     reprovaria uma prova que é sobre o TAMANHO DA LETRA. */
+  var iRegra = css.indexOf('.mov-tela .filtros-caixa select,');
+  var regraCampo = iRegra < 0 ? '' : css.slice(iRegra, css.indexOf('}', iRegra) + 1);
   var tam = (regraCampo.match(/font-size:([\d.]+)px/) || [])[1];
   ok(tam && Number(tam) >= 13,
     'os campos do trilho encolheram, mas a letra não desce de 13px — abaixo disso o ' +
@@ -3040,8 +3084,8 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
        .test(trat),
     'e o clique num dia fecha os DOIS lados do período — só um, e o recorte viraria ' +
     '"daquele dia em diante"');
-  ok(/motorista: document\.getElementById\('mvMotorista'\)\.value,/.test(adm) &&
-     /trecho:  document\.getElementById\('mvTrecho'\)\.value,/.test(adm),
+  ok(/motorista: valorFiltro\('mvMotorista'\),/.test(adm) &&
+     /trecho:  valorFiltro\('mvTrecho'\),/.test(adm),
     'e os dois campos novos entram no `filtroExclusao()`, que é o que a lista, o CSV e ' +
     'o apagar leem');
   ok(/situacao: p\.situacao, motorista: p\.motorista, trecho: p\.trecho,/.test(idx),
@@ -3051,17 +3095,21 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
      /if \(f\.trecho\)    p\.push\('no trecho/.test(adm),
     'e os dois aparecem na frase da confirmação do apagar — um filtro que recorta e ' +
     'não é dito faria alguém confirmar o apagamento de um recorte que não está lendo');
-  ok(/document\.getElementById\('mvMotorista'\)\.value = '';/.test(adm) &&
-     /document\.getElementById\('mvTrecho'\)\.value = '';/.test(adm),
+  /* O LIMPAR PERCORRE `CAMPOS_MOV`; estar nessa lista É ser limpo, e quem roda o Limpar
+     de verdade é a bancada "a barra de Movimentos nao esquece campo". Aqui basta cobrar
+     que os dois estão na lista — fora dela, o filtro que não tem campo à vista ficaria
+     de pé depois de a pessoa mandar limpar tudo. */
+  var listaDosCampos = (adm.match(/var CAMPOS_MOV = \[([\s\S]*?)\]/) || ['', ''])[1];
+  ok(listaDosCampos.indexOf("'mvMotorista'") >= 0 && listaDosCampos.indexOf("'mvTrecho'") >= 0,
     'e o "Limpar" limpa os dois — esquecido ali, ficaria de pé justamente o filtro que ' +
-    'não tem campo à vista para conferir');
+    'não tem campo à vista para conferir', listaDosCampos.slice(0, 120));
 
   /* ---- O SERVIDOR SABE FILTRAR pelos dois ---------------------------------
    * Eram os dois únicos recortes do gráfico que o servidor não entendia; sem eles, três
    * dos cinco painéis nasceriam sem clique. */
-  ok(/if \(p\.motorista && String\(m\.Motorista \|\| ''\) !== String\(p\.motorista\)\) return false;/.test(log),
-    'o servidor filtra por motorista — e por TEXTO exato, porque o lançamento guarda o ' +
-    'nome e não um id: "Chico" não pode trazer "Francisco Chico" junto');
+  ok(/if \(!casa\(p\.motorista, m\.Motorista \|\| ''\)\) return false;/.test(log),
+    'o servidor filtra por motorista — e pelo NOME que o lançamento guarda, porque ' +
+    'repintar ou apagar um cadastro não pode reescrever o que já saiu do galpão');
   /* O TRECHO É O PAR SEM DIREÇÃO, e por ID. Ordenar os dois lados é o que faz a ida e a
      volta casarem com o mesmo filtro; por nome, uma correção de grafia no cadastro
      quebraria o filtro no dia seguinte. */
@@ -3310,10 +3358,10 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var ip = desc.indexOf('padrao: [');
   var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
     .map(function (t) { return t.slice(1, -1); });
-  /* DEZESSEIS: o número do lançamento entrou na frente, a pedido do escritório. A
-     conta é escrita de propósito — ela é o tropeço que obriga quem acrescenta uma
-     coluna a passar pelas quatro provas abaixo, em vez de acrescentar e seguir. */
-  ok(cols.length === 16, 'são dezesseis colunas de fábrica', cols);
+  /* DEZESSETE: o Tipo entrou depois, no lugar em que o CSV já o punha. A conta é
+     escrita de propósito — ela é o tropeço que obriga quem acrescenta uma coluna a
+     passar pelas quatro provas abaixo, em vez de acrescentar e seguir. */
+  ok(cols.length === 17, 'são dezessete colunas de fábrica', cols);
 
   /* AS SETE QUE FORAM SENDO ACRESCENTADAS. Contar quinze não diz QUAIS são quinze:
      trocar `hora` por outra coluna qualquer manteria a conta de pé. Elas respondem
@@ -3330,7 +3378,10 @@ console.log('\n== as colunas da tabela de Movimentos ==');
    ['rota', 'a ROTA, que estava só na exportação — e dado que só existe no arquivo é ' +
             'dado que ninguém revisa antes de mandar para fora'],
    ['obs', 'a OBSERVAÇÃO, o único texto livre do lançamento: é onde está o porquê de ' +
-           'uma linha estranha, e ela também só saía no CSV']].forEach(function (c) {
+           'uma linha estranha, e ela também só saía no CSV'],
+   ['tipo', 'o TIPO do lançamento — sem ele, uma perda e uma transferência entre ' +
+            'galpões são duas linhas idênticas na tela, e a diferença só sai abrindo ' +
+            'a linha ou exportando o CSV']].forEach(function (c) {
     ok(cols.indexOf(c[0]) >= 0, 'a tabela de Movimentos traz ' + c[1], cols);
   });
 
@@ -3385,6 +3436,62 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   ok(semCel.length === 0,
     'e célula — sem ela todas as linhas saem em branco, e o dado parece não existir',
     semCel);
+
+  /* --- A COLUNA TIPO DIZ A MESMA PALAVRA QUE O FILTRO ---
+   *
+   * A tabela mostrava as duas pontas e a quantidade, e não O QUE tinha acontecido entre
+   * elas: uma perda e uma transferência entre galpões eram duas linhas idênticas.
+   *
+   * O RÓTULO SAI DO SELETOR DE FILTRO, lido do DOM, e é isto que se mede aqui. Escrito
+   * uma segunda vez dentro da célula, o dia em que alguém renomeasse "Retorno" no filtro
+   * a coluna continuaria com a palavra antiga — e as duas estariam certas cada uma por
+   * si, que é o jeito de o erro durar.
+   *
+   * O `document` DE MENTIRA responde da MESMA fonte que a tela: as opções do `#mvTipo`,
+   * lidas do arquivo. Respondendo de uma lista escrita aqui, a prova mediria a cópia. */
+  var fonteRot = adm.slice(adm.indexOf('  function rotuloDoTipoMov(t){'));
+  fonteRot = fonteRot.slice(0, fonteRot.indexOf('\n  }') + 4);
+  var iSel = adm.indexOf('<select id="mvTipo"');
+  var opcoesTipo = {};
+  (function () {
+    var trecho = adm.slice(iSel, adm.indexOf('</select>', iSel));
+    var re = /<option value="([^"]*)"[^>]*>([^<]*)</g, m;
+    while ((m = re.exec(trecho)) !== null) if (m[1]) opcoesTipo[m[1]] = m[2].trim();
+  })();
+  ok(Object.keys(opcoesTipo).length >= 5 && fonteRot.length > 80,
+    'a conferência achou o seletor de Tipo e a função do rótulo — recorte vazio faria ' +
+    'as provas abaixo passarem sem rodar nada',
+    { opcoes: Object.keys(opcoesTipo).length, rotulo: fonteRot.length });
+
+  var docFalso = { querySelector: function (sel) {
+    var m = /#mvTipo option\[value="([^"]*)"\]/.exec(sel);
+    var txt = m && opcoesTipo[m[1]];
+    return txt ? { textContent: txt } : null;
+  } };
+  var celulaTipo = new Function('Q', 'TIT', 'document',
+    fonteRot + '\n var D = {' + (function () {
+      var i = adm.indexOf("      tipo:      { t: TIT['tipo']");
+      return adm.slice(i, adm.indexOf('} },', i) + 4);
+    })() + '};\n return D.tipo;')(Qesc, { tipo: 'Tipo' }, docFalso);
+
+  ok(celulaTipo.v({ tipo: 'DEVOLUCAO' }) === opcoesTipo.DEVOLUCAO &&
+     celulaTipo.v({ tipo: 'SAIDA' }) === opcoesTipo.SAIDA,
+    'a célula do Tipo mostra a MESMA palavra que o filtro oferece — escrita uma segunda ' +
+    'vez, renomear o tipo no filtro deixaria a coluna com a palavra antiga',
+    [celulaTipo.v({ tipo: 'DEVOLUCAO' }), opcoesTipo.DEVOLUCAO]);
+  /* SEM CORRESPONDÊNCIA, mostra o que veio do banco. Um tipo acrescentado no servidor e
+     ainda não oferecido no filtro apareceria como célula VAZIA — e linha em branco na
+     tabela se lê como dado que não existe, não como rótulo que falta. */
+  ok(celulaTipo.v({ tipo: 'COISA_NOVA' }) === 'COISA_NOVA',
+    'e tipo que o filtro ainda não conhece aparece como está — vazia, a linha diria que ' +
+    'o lançamento não tem tipo', celulaTipo.v({ tipo: 'COISA_NOVA' }));
+  ok(celulaTipo.v({ tipo: '' }) === '' && celulaTipo.v({}) === '',
+    'e lançamento sem tipo não estoura a tabela');
+  /* ORDENA PELO QUE ESTÁ ESCRITO. Ordenada por `DEVOLUCAO`, a coluna poria o Retorno
+     entre Ajuste e Perda, e ficaria fora de ordem para quem lê a tela. */
+  ok(celulaTipo.k({ tipo: 'DEVOLUCAO' }) === opcoesTipo.DEVOLUCAO,
+    'e a ordenação usa o rótulo, não a palavra do banco — por ela, "Retorno" cairia ' +
+    'entre "Ajuste" e "Perda"', celulaTipo.k({ tipo: 'DEVOLUCAO' }));
 
   /* --- O CSV NÃO DESALINHA ---
    *
@@ -8510,9 +8617,12 @@ console.log('\n== Movimentos no celular: cartão, folha de ações e filtros =='
      afirmação de cima continuava passando. */
   ok(/cx\.innerHTML = l\.map\(function\(f\)\{/.test(adm),
     'e elas saem da lista do que está aplicado, não de uma lista vazia');
-  ok(/data-tirar="'\+f\.id\+'"/.test(adm) && /el\.value = b\.dataset\.tirar === 'mvTeste'/.test(adm),
+  ok(/data-tirar="'\+f\.id\+'"/.test(adm) &&
+     /if \(b\.dataset\.tirar === 'mvTeste'\) el\.value = 'reais';/.test(adm) &&
+     /else porEscolha\(el, \[\]\);/.test(adm),
     'cada pílula sabe qual campo ela limpa — e o recorte de ensaio volta para "só ' +
-    'reais", que é o estado que aquele seletor tem');
+    'reais", que é o estado que aquele seletor tem, enquanto os outros são DESMARCADOS: ' +
+    'num seletor de várias, atribuir vazio escolhe a opção "Todas" em vez de desmarcar');
   ok(/chip\.style\.display = l\.length \? '' : 'none'/.test(adm),
     'e o número no botão só aparece quando há filtro — um "0" pendurado promete que há ' +
     'o que ver');
@@ -11668,6 +11778,162 @@ console.log('\n== o tutorial do primeiro acesso ==');
     'e nenhuma classe do tutorial tem regra com o mesmo nome na folha do app — tendo, ' +
     'ele herda desenho de outra tela em lugar que ninguém pensa em olhar',
     { classes: Object.keys(doDemo).length, batem: batem });
+})();
+
+/* ---------------------------------------------------------------------------
+ * ESCOLHER VÁRIOS NUM FILTRO SÓ
+ *
+ * Cada filtro respondia UMA coisa: uma origem, um tipo, um motorista. "O que saiu para
+ * Caruaru E para João Pessoa" pedia duas leituras da tela e uma soma de cabeça — e somar
+ * de cabeça duas listas de quinhentas linhas é como o número errado entra no relatório.
+ *
+ * O PONTO FRÁGIL NÃO É O CONTROLE, É A EMENDA: a tela cola os valores escolhidos num
+ * texto só e o servidor o separa de volta. Se os dois discordarem do separador, não há
+ * erro nenhum — a lista volta inteira, ou volta vazia, e nos dois casos parece resposta.
+ * Por isso esta bancada roda os DOIS LADOS, com o texto que um produz entrando no outro.
+ * ------------------------------------------------------------------------- */
+console.log('\n== escolher vários num filtro só ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* ---- O LADO DA TELA ---- */
+  var ini = adm.indexOf('  function opcoesDe(sel){');
+  var fim = adm.indexOf('  function pintarMulti(cx){');
+  var fonte = ini < 0 || fim < 0 ? '' : adm.slice(ini, fim);
+  ok(fonte.length > 400 && fonte.indexOf('valorFiltro') > 0,
+    'a conferência recortou a leitura e a escrita da escolha — recorte vazio faria as ' +
+    'provas abaixo passarem sem rodar nada', fonte.length);
+
+  function campo(valores, escolhidos, multiple) {
+    var opts = [{ value: '', textContent: 'Todas', selected: false }].concat(
+      valores.map(function (v) {
+        return { value: v, textContent: 'Nome de ' + v,
+                 selected: (escolhidos || []).indexOf(v) >= 0 };
+      }));
+    return { multiple: multiple !== false, options: opts, value: '',
+             querySelector: function (s) {
+               return s === 'option[value=""]' ? opts[0] : null; } };
+  }
+  function tela(el) {
+    return new Function('document',
+      fonte + '\n return { valor: valorFiltro, texto: textoMulti, ' +
+              'escolha: escolhaDe, por: porEscolha };')(
+      { getElementById: function () { return el; } });
+  }
+
+  var tres = campo(['L1', 'L2', 'L3'], ['L1', 'L3']);
+  var api = tela(tres);
+  ok(api.valor('x') === 'L1|L3',
+    'o que viaja para o servidor traz TODOS os escolhidos — por `el.value`, um seletor ' +
+    'de várias devolve só o primeiro: a tela mostraria três e o servidor receberia um',
+    api.valor('x'));
+
+  /* A OPÇÃO "TODAS" NÃO É UMA ESCOLHA, é o nome do estado "não filtra por isto". Contada
+     como valor, ela viajaria como texto vazio no meio da lista — e o servidor, que
+     descarta os vazios, receberia um filtro que não é o que está marcado na tela. */
+  var comTodas = campo(['L1'], ['L1']);
+  comTodas.options[0].selected = true;
+  ok(tela(comTodas).valor('x') === 'L1',
+    'e a opção "Todas" não entra na conta nem quando fica marcada por dentro',
+    tela(comTodas).valor('x'));
+
+  var nada = campo(['L1', 'L2'], []);
+  ok(tela(nada).valor('x') === '',
+    'e nada escolhido é filtro nenhum — o contrário, lista vazia não casando com nada, ' +
+    'devolveria a tela em branco a quem não escolheu coisa alguma', tela(nada).valor('x'));
+
+  /* O RESUMO DIZ POR ONDE ESTÁ CORTADO sem abrir o painel. Só a conta — "3 escolhidos" —
+     obrigaria a abrir para saber do que se trata; só o primeiro nome esconderia que há
+     mais. */
+  ok(tela(nada).texto(nada) === 'Todas', 'sem escolha, o campo diz a palavra dele',
+    tela(nada).texto(nada));
+  ok(tela(campo(['L1'], ['L1'])).texto(campo(['L1'], ['L1'])) === 'Nome de L1',
+    'com uma, o nome dela');
+  /* DUAS ESCOLHIDAS DE TRES: o resumo diz o primeiro nome e quantas MAIS, e nao
+     quantas ao todo. "Nome de L1 +2" sobre duas escolhas contaria a propria primeira
+     duas vezes. */
+  ok(api.texto(tres) === 'Nome de L1  +1',
+    'e com várias, o primeiro nome e quantas mais — só a conta obrigaria a abrir o ' +
+    'painel para saber do que se trata', api.texto(tres));
+
+  /* ESCREVER TAMBÉM: é por aqui que o "Limpar", o X da pílula e a lista refeita devolvem
+     a escolha. `porEscolha(el, [])` num seletor de várias tem de DESMARCAR — atribuir
+     vazio escolheria a opção "Todas", e o campo ficaria com uma opção marcada que a
+     conta de pílulas não vê. */
+  var pra = campo(['L1', 'L2', 'L3'], ['L1']);
+  tela(pra).por(pra, ['L2', 'L3']);
+  ok(tela(pra).valor('x') === 'L2|L3', 'devolver a escolha marca exatamente as pedidas',
+    tela(pra).valor('x'));
+  tela(pra).por(pra, []);
+  ok(tela(pra).valor('x') === '' && pra.options[0].selected === false,
+    'e limpar DESMARCA, em vez de escolher a opção "Todas"',
+    [tela(pra).valor('x'), pra.options[0].selected]);
+
+  /* ---- O LADO DO SERVIDOR, COM O TEXTO QUE A TELA PRODUZIU ----
+   *
+   * Esta é a emenda. Os dois lados combinam um separador, e nada quebra se eles
+   * discordarem: a lista volta inteira ou volta vazia, e as duas parecem resposta. */
+  var L = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  var LOCAIS = [{ ID: 'L1', Nome: 'Matriz' }, { ID: 'L2', Nome: 'Ceasa' },
+                { ID: 'L3', Nome: 'Caruaru' }];
+  var CAIXAS = [{ ID: 'C1', Nome: 'CX G' }, { ID: 'C2', Nome: 'CX P' }];
+  var GENTE = [{ ID: 'U1', Nome: 'Ana' }, { ID: 'U2', Nome: 'Bia' }];
+  var dia = new Date(2026, 0, 10);
+  function mov(id, origem, destino, tipo, caixa, quem, motorista) {
+    return { ID: id, Tipo: tipo, OrigemID: origem, DestinoID: destino,
+             TipoCaixaID: caixa, Qtd: 10, DataRef: dia, DataHora: dia,
+             Status: 'CONFIRMADO', UsuarioID: quem, Motorista: motorista, Obs: '' };
+  }
+  var MOVS = [
+    mov('M1', 'L1', 'L2', 'SAIDA', 'C1', 'U1', 'Chico'),
+    mov('M2', 'L1', 'L3', 'SAIDA', 'C2', 'U2', 'Dinho'),
+    mov('M3', 'L2', 'L1', 'DEVOLUCAO', 'C1', 'U1', 'Arilson'),
+    mov('M4', 'L3', 'L1', 'PERDA', 'C2', 'U2', 'Chico')
+  ];
+  function filtra(f) {
+    return L.listaMovimentos(MOVS, LOCAIS, CAIXAS, GENTE, f)
+      .map(function (m) { return m.id; }).sort().join(',');
+  }
+
+  ok(filtra({}) === 'M1,M2,M3,M4',
+    'a conferência montou quatro lançamentos que o servidor enxerga — nenhum, e as ' +
+    'provas abaixo aprovariam qualquer filtro', filtra({}));
+
+  var doisDestinos = campo(['L2', 'L3'], ['L2', 'L3']);
+  ok(filtra({ destino: tela(doisDestinos).valor('x') }) === 'M1,M2',
+    'o servidor entende o texto que a TELA produziu: dois destinos trazem as duas ' +
+    'viagens — este é o par que quebra calado se os dois lados discordarem do separador',
+    filtra({ destino: tela(doisDestinos).valor('x') }));
+  ok(filtra({ destino: 'L2' }) === 'M1',
+    'e um valor só continua valendo como antes — quem chama com o formato velho não ' +
+    'precisa saber que ele virou lista', filtra({ destino: 'L2' }));
+  ok(filtra({ destino: '' }) === 'M1,M2,M3,M4',
+    'e vazio não filtra nada');
+  ok(filtra({ tipo: 'SAIDA|PERDA' }) === 'M1,M2,M4',
+    'vale para o tipo', filtra({ tipo: 'SAIDA|PERDA' }));
+  ok(filtra({ caixa: 'C1|C2' }) === 'M1,M2,M3,M4' && filtra({ caixa: 'C1' }) === 'M1,M3',
+    'para a caixa', filtra({ caixa: 'C1' }));
+  ok(filtra({ usuario: 'U1|U2' }) === 'M1,M2,M3,M4' && filtra({ usuario: 'U2' }) === 'M2,M4',
+    'para quem lançou', filtra({ usuario: 'U2' }));
+  ok(filtra({ motorista: 'Chico|Arilson' }) === 'M1,M3,M4',
+    'e para o motorista, que casa pelo NOME inteiro — por pedaço, "Chico" traria ' +
+    '"Francisco Chico" junto sem ninguém ter pedido',
+    filtra({ motorista: 'Chico|Arilson' }));
+  ok(filtra({ motorista: 'Chi' }) === '',
+    'e pedaço de nome não traz ninguém', filtra({ motorista: 'Chi' }));
+  ok(filtra({ origem: 'L1|L2' }) === 'M1,M2,M3',
+    'e para a origem', filtra({ origem: 'L1|L2' }));
+  /* O `local` CASA NAS DUAS PONTAS — é outra pergunta: "tudo que passou por aqui". Com
+     lista, ele tem de continuar casando nas duas: lendo só uma, o painel de um local
+     perderia metade do movimento dele. */
+  ok(filtra({ local: 'L3' }) === 'M2,M4',
+    'e o filtro de local continua casando nas DUAS pontas', filtra({ local: 'L3' }));
+  /* NADA DO QUE FOI ESCOLHIDO CASA: a resposta é lista vazia, e não a base inteira. O
+     contrário seria o pior desfecho desta tela — o "apagar o que está no filtro"
+     apagaria tudo achando que não havia filtro. */
+  ok(filtra({ destino: 'L9|L8' }) === '',
+    'e escolha que não casa com nada devolve nada — a base inteira ali faria o "apagar ' +
+    'o que está no filtro" levar tudo', filtra({ destino: 'L9|L8' }));
 })();
 
 console.log('\n== as ações do filtro mudam de lugar ==');

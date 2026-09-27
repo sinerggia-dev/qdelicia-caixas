@@ -1312,35 +1312,56 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
      tela mostrar menos do que o saldo soma. 'reais' e 'teste' separam quando se quer. */
   var recorte = String(p.teste || 'todos');
 
+  /* ============ UM FILTRO PODE TRAZER VÁRIOS VALORES ============
+   *
+   * Vêm colados por "|", que é o mesmo separador que o Trecho já usava para as duas
+   * pontas dele — lá também é uma lista, vista de outro jeito.
+   *
+   * VAZIO QUER DIZER "NÃO FILTRA POR ISTO", e é a única convenção segura: invertida —
+   * lista vazia não casando com nada —, um campo que nasce vazio no navegador devolveria
+   * a tela em branco, e quem olhasse concluiria que não há movimento nenhum.
+   *
+   * COMPARADO COMO TEXTO, como era antes: o id do local vem como número do banco e como
+   * texto do formulário, e `===` entre os dois é falso para o mesmo local. */
+  function escolhidos(v) {
+    return String(v == null ? '' : v).split('|')
+      .map(function (x) { return String(x).trim(); })
+      .filter(function (x) { return !!x; });
+  }
+  function casa(v, doMovimento) {
+    var l = escolhidos(v);
+    return !l.length || l.indexOf(String(doMovimento)) >= 0;
+  }
+
   return naoCancelados(movimentos).filter(function (m) {
     if (recorte === 'reais' && lancamentoDeTeste(m)) return false;
     if (recorte === 'teste' && !lancamentoDeTeste(m)) return false;
     if (de && m.DataRef < de) return false;
     if (ate && m.DataRef > ate) return false;
-    if (p.local && String(m.OrigemID) !== String(p.local) && String(m.DestinoID) !== String(p.local)) return false;
+    if (!casa(p.local, m.OrigemID) && !casa(p.local, m.DestinoID)) return false;
     // `local` casa nas duas pontas; `origem` e `destino` prendem cada uma na sua. Os dois
     // existem porque "tudo que passou por Caruaru" e "tudo que SAIU de Caruaru" são
     // perguntas diferentes, e a segunda é a que importa na hora de apagar.
-    if (p.origem && String(m.OrigemID) !== String(p.origem)) return false;
-    if (p.destino && String(m.DestinoID) !== String(p.destino)) return false;
-    if (p.tipo && m.Tipo !== String(p.tipo).toUpperCase()) return false;
+    if (!casa(p.origem, m.OrigemID)) return false;
+    if (!casa(p.destino, m.DestinoID)) return false;
+    if (!casa(String(p.tipo || '').toUpperCase(), m.Tipo)) return false;
     // Sentido e Tipo convivem: Tipo escolhe UMA linha do razão, sentido pega o grupo.
     // "Saída" aqui traz remessa E transferência juntas, que é como o operador pensa —
     // e deixa de fora perda e ajuste, que não são viagem de caixa nenhuma.
-    if (p.fluxo && sentidoDoMovimento(m.Tipo) !== String(p.fluxo).toUpperCase()) return false;
-    if (p.caixa && String(m.TipoCaixaID) !== String(p.caixa)) return false;
+    if (!casa(String(p.fluxo || '').toUpperCase(), sentidoDoMovimento(m.Tipo))) return false;
+    if (!casa(p.caixa, m.TipoCaixaID)) return false;
     /* O status nao esta no movimento: e calculado do ciclo da carga, entao filtra-lo na
        tela nao daria — pela mesma razao do usuario, o corte de 500 linhas vem DEPOIS
        daqui, e a tela veria so os "Parcial" que couberam nas 500. */
-    if (p.situacao && rotuloCiclo(m, ciclo[m.ID]) !== String(p.situacao)) return false;
+    if (!casa(p.situacao, rotuloCiclo(m, ciclo[m.ID]))) return false;
     // Aqui e nao no navegador: o corte de 500 linhas vem DEPOIS deste filtro, entao
     // filtrar na tela mostraria so os lancamentos da pessoa que couberam nas 500.
-    if (p.usuario && String(m.UsuarioID) !== String(p.usuario)) return false;
+    if (!casa(p.usuario, m.UsuarioID)) return false;
     /* O MOTORISTA e TEXTO no movimento, e nao um id: o lancamento guarda o nome porque
        repintar ou apagar um cadastro nao pode reescrever o que ja saiu do galpao. Entao
        a comparacao e de texto mesmo — e por isso ela e exata, e nao "contem": "Chico"
        nao pode trazer "Francisco Chico" junto sem ninguem ter pedido. */
-    if (p.motorista && String(m.Motorista || '') !== String(p.motorista)) return false;
+    if (!casa(p.motorista, m.Motorista || '')) return false;
     /* O TRECHO e o par de pontas SEM direcao: "Matriz -> Joao Pessoa" e "Joao Pessoa ->
        Matriz" sao a mesma perna da operacao vista dos dois lados, e e assim que o
        grafico agrupa. Vem como dois ids separados por "|", em qualquer ordem — ordenar

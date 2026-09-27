@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=53b91dcf">
+<link rel="stylesheet" href="styles.css?v=b45dbea8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -874,31 +874,38 @@
           <button class="btn-icone" type="button" data-fechar-folha aria-label="Fechar">✕</button>
         </div>
         <div class="filtros-caixa__corpo">
+      <!-- `data-multi` MARCA QUEM ACEITA VARIAS ESCOLHAS. O <select> continua sendo o
+           dono das opcoes e do que esta escolhido — quem enche as listas continua
+           enchendo ele, e quem le o filtro continua lendo ele. O que o `ligarMultis()`
+           acrescenta e uma casca visivel por cima; o miolo nao mudou de lugar.
+           QUEM NAO TEM A MARCA: o Trecho, que nasce de um clique no grafico e ja e um
+           par de pontas (escolher dois pares seria outra pergunta), e os Lancamentos,
+           cujas tres opcoes JA sao todas as combinacoes possiveis de duas bases. -->
       <div class="grid-filtros">
-        <div><label for="mvOrigem">Origem</label><select id="mvOrigem"></select></div>
-        <div><label for="mvDestino">Destino</label><select id="mvDestino"></select></div>
+        <div><label for="mvOrigem">Origem</label><select id="mvOrigem" multiple data-multi></select></div>
+        <div><label for="mvDestino">Destino</label><select id="mvDestino" multiple data-multi></select></div>
         <!-- "O que saiu" e não "Saída": o campo ao lado já tem uma opção com esse
              nome e elas não são a mesma coisa. Aqui saída é o grupo — remessa mais
              transferência —, e perda e ajuste não entram em lado nenhum, porque não são
              viagem de caixa. -->
-        <div><label for="mvFluxo">Entrada / Saída</label><select id="mvFluxo">
+        <div><label for="mvFluxo">Entrada / Saída</label><select id="mvFluxo" multiple data-multi>
           <option value="">Todos</option>
           <option value="SAIDA">O que saiu</option>
           <option value="ENTRADA">O que voltou</option>
         </select></div>
-        <div><label for="mvTipo">Tipo</label><select id="mvTipo">
+        <div><label for="mvTipo">Tipo</label><select id="mvTipo" multiple data-multi>
           <option value="">Todos</option><option value="SAIDA">Saída</option><option value="DEVOLUCAO">Retorno</option>
           <option value="TRANSFERENCIA">Transferência</option><option value="PERDA">Perda</option><option value="AJUSTE">Ajuste</option>
         </select></div>
-        <div><label for="mvCaixa">Caixa</label><select id="mvCaixa"><option value="">Todas</option></select></div>
+        <div><label for="mvCaixa">Caixa</label><select id="mvCaixa" multiple data-multi><option value="">Todas</option></select></div>
         <!-- As opcoes vem da `equipe`, da mesma lista que o servidor usa para rotular.
              Escritas aqui, seriam duas listas sobre a mesma regra. -->
-        <div><label for="mvStatus">Status</label><select id="mvStatus"><option value="">Todos</option></select></div>
-        <div><label for="mvUsuario">Quem lançou</label><select id="mvUsuario"><option value="">Todos</option></select></div>
+        <div><label for="mvStatus">Status</label><select id="mvStatus" multiple data-multi><option value="">Todos</option></select></div>
+        <div><label for="mvUsuario">Quem lançou</label><select id="mvUsuario" multiple data-multi><option value="">Todos</option></select></div>
         <!-- MOTORISTA: o nome já era coluna da tabela e não dava para filtrar por ele.
              O lançamento guarda o NOME, e não um id — repintar ou apagar um cadastro não
              pode reescrever o que já saiu do galpão —, então o valor da opção é o nome. -->
-        <div><label for="mvMotorista">Motorista</label><select id="mvMotorista"><option value="">Todos</option></select></div>
+        <div><label for="mvMotorista">Motorista</label><select id="mvMotorista" multiple data-multi><option value="">Todos</option></select></div>
         <!-- O TRECHO não tem lista para escolher: ele só nasce do clique no gráfico, e
              uma lista de todos os pares possíveis seria combinatória. Fica escondido, e
              não à parte, para a pílula, o "tirar o filtro" e o `filtroExclusao()`
@@ -1191,11 +1198,12 @@
   function montarStatusMov(){
     var sel = document.getElementById('mvStatus');
     if (!sel) return;
-    var antes = sel.value;
+    var antes = escolhaDe(sel);
     sel.innerHTML = '<option value="">Todos</option>' + SITUACOES.map(function(s){
       return '<option value="'+Q.esc(s)+'">'+Q.esc(s)+'</option>';
     }).join('');
-    if (SITUACOES.indexOf(antes) >= 0) sel.value = antes;
+    porEscolha(sel, antes.filter(function(s){ return SITUACOES.indexOf(s) >= 0; }));
+    ligarMultis();
   }
 
   /* ---------------- entrada ----------------
@@ -1274,10 +1282,14 @@
     ['mvUsuario'].forEach(function(id){
       var sel = document.getElementById(id);
       if (!sel) return;
-      var atual = sel.value;
+      /* `escolhaDe`/`porEscolha` e nao `sel.value`: este campo aceita varias escolhas, e
+         `value` devolveria so a primeira — refazer a lista apagaria as outras sem dizer,
+         no meio de uma leitura ja filtrada. */
+      var atual = escolhaDe(sel);
       sel.innerHTML = html;
-      sel.value = atual;
+      porEscolha(sel, atual);
     });
+    ligarMultis();
 
     /* O MOTORISTA sai do cadastro de motoristas, e o valor da opção é o NOME — porque é
        o nome que o lançamento guarda. Guardar o id ali faria repintar um cadastro
@@ -1286,22 +1298,32 @@
        chega, e sem guardar o atual o filtro se limparia sozinho no meio da leitura. */
     var sm = document.getElementById('mvMotorista');
     if (sm) {
-      var eraM = sm.value;
+      var eraM = escolhaDe(sm);
       sm.innerHTML = '<option value="">Todos</option>' +
         Q.ordenarPorNome(MOTORISTAS || []).map(function(m){
           return '<option value="'+Q.esc(m.Nome)+'">'+Q.esc(m.Nome)+'</option>';
         }).join('');
-      sm.value = eraM;
       /* O nome pode ter vindo de um clique no gráfico e não estar no cadastro — é o caso
          do motorista que saiu da frota e continua nos lançamentos antigos. Sem esta
-         volta o filtro se apagaria sozinho ao recarregar os cadastros. */
-      if (sm.value !== eraM && eraM) {
+         volta o filtro se apagaria sozinho ao recarregar os cadastros.
+         UM POR UM porque agora são vários: com a lista refeita, cada nome escolhido que
+         não achar opção precisa da sua — devolvendo só o primeiro, os outros sumiriam do
+         filtro e a lista da tela cresceria sem ninguém ter mexido nela. */
+      /* VARRENDO AS OPCOES, e nao por `querySelector`: o valor aqui e um NOME de
+         pessoa, escrito a mao no cadastro, e um nome com aspas ou parenteses dentro
+         faz o seletor de CSS estourar — a lista de motoristas sumiria inteira por
+         causa de uma grafia. */
+      var temOpcao = {};
+      opcoesDe(sm).forEach(function(o){ temOpcao[o.value] = true; });
+      var deFora = eraM.filter(function(nome){ return !temOpcao[nome]; });
+      deFora.forEach(function(nome){
         var op = document.createElement('option');
-        op.value = eraM; op.textContent = eraM + ' (fora do cadastro)';
+        op.value = nome; op.textContent = nome + ' (fora do cadastro)';
         sm.appendChild(op);
-        sm.value = eraM;
-      }
+      });
+      porEscolha(sm, eraM);
     }
+    ligarMultis();
   }
 
   /* ---------------- app ---------------- */
@@ -1716,6 +1738,15 @@
     var todosLocais = locaisPor(['CLIENTE','FILIAL','GALPAO','ROTA','FORNECEDOR']);
     // Os dois do cartao de apagar. "Todas/Todos" e nao "Selecione...": em branco quer
     // dizer "nao filtra por isto", e "Selecione..." sugeriria que falta escolher.
+    /* GUARDA E DEVOLVE A ESCOLHA. Estas três listas são refeitas sempre que o cadastro
+       chega ou muda, e até aqui o filtro se apagava sozinho quando isso acontecia no
+       meio de uma leitura — com um campo só isso passava por "recarregou"; com vários
+       escolhidos, some um recorte inteiro e a lista da tela cresce sem ninguém ter
+       mexido nela. */
+    ['mvOrigem', 'mvDestino', 'mvCaixa'].forEach(function(id){
+      var s = document.getElementById(id);
+      if (s) s.dataset.eraEscolha = JSON.stringify(escolhaDe(s));
+    });
     document.getElementById('mvOrigem').innerHTML = opcoes(todosLocais, 'Todas');
     document.getElementById('mvDestino').innerHTML = opcoes(todosLocais, 'Todos');
     /* Em ordem de nome, como a coluna CAIXA da tabela: procurar "CX G" numa lista em
@@ -1724,6 +1755,15 @@
       Q.ordenarPorNome(DADOS.tipos||[]).map(function(t){
         return '<option value="'+t.ID+'">'+Q.esc(t.Nome)+'</option>';
       }).join('');
+    /* E DEVOLVE. Guardar sem devolver seria o mesmo que nao guardar. */
+    ['mvOrigem', 'mvDestino', 'mvCaixa'].forEach(function(id){
+      var s = document.getElementById(id);
+      if (!s) return;
+      var era = [];
+      try { era = JSON.parse(s.dataset.eraEscolha || '[]'); } catch (e) { era = []; }
+      porEscolha(s, era);
+    });
+    ligarMultis();
     document.getElementById('lcItens').innerHTML = (DADOS.tipos||[]).map(function(t){
       return '<div class="item"><div class="nome">'+Q.esc(t.Nome)+'</div><div class="stepper">'+
         '<input id="lc_'+t.ID+'" type="number" inputmode="numeric" placeholder="0"></div></div>';
@@ -2586,7 +2626,11 @@
        depois. Posto no meio, seria mais um dado; na frente, e o endereco da linha.
        Quem ja arrastou as colunas nao perde o arranjo: `ordemColunas` poe a coluna nova
        ao lado do vizinho de fabrica dela, e o vizinho de fabrica desta e o comeco. */
-    padrao: ['lancamento','data','hora','criado','status','origem','destino','rota',
+    /* TIPO FICA DEPOIS DE STATUS e antes da Origem, que é onde o CSV já o punha: as
+       duas leituras da mesma tabela não podem pôr a mesma coluna em lugares
+       diferentes. Ele responde "o que foi isto" — saída, retorno, perda —, e essa
+       pergunta vem antes de "entre onde e onde". */
+    padrao: ['lancamento','data','hora','criado','status','tipo','origem','destino','rota',
              'caixa','qtd','motorista','veiculo','quem','alterado','alteradoEm','obs'],
     /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
        coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
@@ -2594,12 +2638,12 @@
     /* 105 para o lancamento: `M000041` sao sete caracteres em fonte de numeros, e a
        coluna nao cresce com o tempo — o formato e fixo. */
     larg: { lancamento:105,
-            data:120, hora:70, criado:110, status:110, origem:150, destino:150,
+            data:120, hora:70, criado:110, status:110, tipo:120, origem:150, destino:150,
             rota:150, caixa:120, qtd:80, motorista:130, veiculo:110, quem:120,
             alterado:140, alteradoEm:150, obs:240 },
     titulos: { lancamento:'Lançamento',
                data:'Movimento', hora:'Hora', criado:'Criado em',
-               status:'Status',
+               status:'Status', tipo:'Tipo',
                origem:'Origem', destino:'Destino', rota:'Rota', caixa:'Caixa',
                qtd:'Qtd', motorista:'Motorista', veiculo:'Veículo', quem:'Quem',
                alterado:'Alterado por', alteradoEm:'Alterado em',
@@ -2610,6 +2654,17 @@
     alvo: '#tabelaMov',
     redesenha: function(){ desenharMovimentos(); }
   };
+
+  /* O NOME DO TIPO SAI DO SELETOR DE FILTRO, lido do DOM. Escrito aqui de novo, seriam
+     duas listas sobre a mesma coisa: renomear "Retorno" no filtro deixaria a coluna
+     dizendo a palavra antiga, e as duas ficariam certas cada uma por si.
+     Sem correspondência, devolve o que veio do banco: tipo que alguém acrescentar no
+     servidor aparece como está, em vez de sumir da coluna. */
+  function rotuloDoTipoMov(t){
+    if (!t) return '';
+    var o = document.querySelector('#mvTipo option[value="' + String(t) + '"]');
+    return o ? o.textContent.trim() : String(t);
+  }
 
   /* A tabela de Usuarios, no Cadastros. E a mais larga do app — nove colunas de dado —
      e por isso a que mais precisa: quem nao usa e-mail nem telefone escondia as duas e
@@ -4493,25 +4548,207 @@
     });
   }
 
+  /* ================= ESCOLHER VARIOS NUM FILTRO SO =================
+   *
+   * Cada filtro respondia UMA coisa: uma origem, um tipo, um motorista. Perguntas
+   * comuns do escritorio nao cabem nisso — "o que saiu para Caruaru E para Joao
+   * Pessoa" pedia duas leituras da tela e uma soma de cabeca, e somar de cabeca duas
+   * listas de quinhentas linhas e como o numero errado entra no relatorio.
+   *
+   * O <select> CONTINUA SENDO O DONO. Ele guarda as opcoes e o que esta escolhido;
+   * quem enche as listas continua enchendo ele, e quem le o filtro continua lendo ele.
+   * O que existe por cima e uma casca: um botao com o resumo e um painel de caixas de
+   * marcar. Trocar o <select> por um estado proprio em JS seria criar uma segunda
+   * verdade sobre o que esta filtrado — e a tela, o CSV e o "apagar o que esta no
+   * filtro" leem esse estado em quatro lugares diferentes.
+   *
+   * O PAINEL ABRE NO FLUXO, empurrando o resto do formulario para baixo, e nao
+   * flutuando por cima. Flutuando, ele seria recortado pelo trilho de filtros do
+   * computador, que rola — e a lista de trinta locais ficaria com metade fora da vista,
+   * sem barra de rolagem que a alcancasse. */
+
+  function opcoesDe(sel){ return Array.prototype.slice.call(sel.options); }
+
+  /* A opcao de valor vazio — "Todas", "Todos" — nao e uma escolha: e o nome do estado
+     "nao filtra por isto". Ela fica na lista porque e de la que sai a palavra do resumo,
+     e escreve-la aqui seria uma segunda copia dela. */
+  function escolhidasDe(sel){
+    return opcoesDe(sel).filter(function(o){ return o.selected && o.value !== ''; });
+  }
+  function palavraTodos(sel){
+    var o = sel.querySelector('option[value=""]');
+    return o ? o.textContent.trim() : 'Todos';
+  }
+
+  /* LER E ESCREVER A ESCOLHA, valendo para os dois tipos de campo. O resto do arquivo
+     fala por estas duas, e nao por `el.value`: num seletor de varias, `value` devolve
+     so a PRIMEIRA escolhida — a tela mostraria tres e o servidor receberia uma. */
+  function escolhaDe(sel){
+    if (!sel) return [];
+    if (!sel.multiple) return sel.value ? [sel.value] : [];
+    return escolhidasDe(sel).map(function(o){ return o.value; });
+  }
+  function porEscolha(sel, vals){
+    if (!sel) return;
+    if (!sel.multiple) { sel.value = (vals && vals[0]) || ''; return; }
+    opcoesDe(sel).forEach(function(o){
+      o.selected = o.value !== '' && (vals || []).indexOf(o.value) >= 0;
+    });
+  }
+  /* O QUE VIAJA PARA O SERVIDOR: os valores colados por "|". Uma barra e o mesmo
+     separador que o Trecho ja usa para as duas pontas dele — e la tambem e uma lista,
+     vista de outro jeito. */
+  function valorFiltro(id){
+    return escolhaDe(document.getElementById(id)).join('|');
+  }
+
+  function textoMulti(sel){
+    var e = escolhidasDe(sel);
+    if (!e.length) return palavraTodos(sel);
+    var primeiro = e[0].textContent.trim();
+    /* O PRIMEIRO NOME E O RESTO CONTADO, e nao "3 escolhidos": o nome diz por onde a
+       lista esta cortada sem abrir o painel, e a conta diz que ha mais. So a conta
+       obrigaria a abrir para saber do que se trata. */
+    return e.length === 1 ? primeiro : primeiro + '  +' + (e.length - 1);
+  }
+
+  function pintarMulti(cx){
+    var sel = cx.querySelector('select[data-multi]');
+    var b = cx.querySelector('.multi__b');
+    if (!sel || !b) return;
+    b.textContent = textoMulti(sel);
+    cx.classList.toggle('tem', escolhidasDe(sel).length > 0);
+  }
+
+  var MULTI_ABERTO = null;
+
+  function fecharMulti(cx){
+    if (!cx) return;
+    var p = cx.querySelector('.multi__p'), b = cx.querySelector('.multi__b');
+    if (p) p.hidden = true;
+    if (b) b.setAttribute('aria-expanded', 'false');
+    if (MULTI_ABERTO === cx) MULTI_ABERTO = null;
+  }
+
+  function abrirMulti(cx){
+    /* UM DE CADA VEZ. Dois painheis abertos num formulario que ja tem onze campos
+       empurram os de baixo para fora da tela, e a pessoa perde de vista o que escolheu
+       no primeiro. */
+    if (MULTI_ABERTO && MULTI_ABERTO !== cx) fecharMulti(MULTI_ABERTO);
+    var sel = cx.querySelector('select[data-multi]');
+    var p = cx.querySelector('.multi__p'), b = cx.querySelector('.multi__b');
+    /* O PAINEL E MONTADO NA ABERTURA, a partir das opcoes de agora. Montado uma vez, a
+       lista de motoristas que chega depois — ela vem de outra ida de rede — deixaria o
+       painel com a lista velha, e o filtro ofereceria menos do que o cadastro tem. */
+    var itens = opcoesDe(sel).filter(function(o){ return o.value !== ''; });
+    p.innerHTML = '<div class="multi__acoes">'+
+        '<button type="button" class="mini" data-multi-todos>marcar todos</button>'+
+        '<button type="button" class="mini" data-multi-nada>limpar</button></div>'+
+      '<div class="marcalista">'+
+        (itens.length ? itens.map(function(o){
+          return '<label class="marca"><input type="checkbox" value="'+Q.esc(o.value)+'"'+
+            (o.selected ? ' checked' : '')+'> '+Q.esc(o.textContent)+'</label>';
+        }).join('') : '<div class="vazio">Nada para escolher ainda.</div>')+
+      '</div>';
+    p.hidden = false;
+    b.setAttribute('aria-expanded', 'true');
+    MULTI_ABERTO = cx;
+  }
+
+  /* LIGAR E REPINTAR SAO A MESMA CHAMADA, de proposito: ela roda na abertura e de novo
+     a cada vez que uma lista e refeita, e nos dois casos o que se quer e "o controle
+     existe e diz o que esta escolhido". Duas funcoes conviveriam com um lugar que
+     chamasse so uma delas. */
+  function ligarMultis(){
+    document.querySelectorAll('select[data-multi]').forEach(function(sel){
+      var cx = sel.parentNode;
+      if (!cx || !cx.classList.contains('multi')) {
+        cx = document.createElement('div');
+        cx.className = 'multi';
+        sel.parentNode.insertBefore(cx, sel);
+        cx.appendChild(sel);
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'multi__b';
+        b.setAttribute('aria-expanded', 'false');
+        var pn = document.createElement('div');
+        pn.className = 'multi__p';
+        pn.hidden = true;
+        cx.appendChild(b);
+        cx.appendChild(pn);
+
+        b.addEventListener('click', function(){
+          if (pn.hidden) abrirMulti(cx); else fecharMulti(cx);
+        });
+
+        pn.addEventListener('change', function(e){
+          var c = e.target;
+          if (!c || c.type !== 'checkbox') return;
+          opcoesDe(sel).forEach(function(o){ if (o.value === c.value) o.selected = c.checked; });
+          mudouMulti(cx, sel);
+        });
+
+        pn.addEventListener('click', function(e){
+          var alvo = e.target;
+          if (!alvo || !alvo.hasAttribute) return;
+          var todos = alvo.hasAttribute('data-multi-todos');
+          var nada = alvo.hasAttribute('data-multi-nada');
+          if (!todos && !nada) return;
+          opcoesDe(sel).forEach(function(o){ o.selected = todos && o.value !== ''; });
+          pn.querySelectorAll('input[type=checkbox]').forEach(function(c){ c.checked = todos; });
+          mudouMulti(cx, sel);
+        });
+      }
+      pintarMulti(cx);
+    });
+  }
+
+  /* O `change` E DISPARADO NO <select>, e nao tratado aqui. Quem recarrega a tabela, quem
+     conta as pilulas e quem pinta o numero do botao ja ouvem o campo — a casca nao pode
+     ter uma segunda lista de quem avisar, porque a proxima coisa que passar a ouvir o
+     filtro seria avisada de um jeito e nao do outro. */
+  function mudouMulti(cx, sel){
+    pintarMulti(cx);
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  /* Clicar fora fecha. O painel empurra o formulario; deixado aberto, ele continuaria
+     empurrando depois de a pessoa ter ido cuidar de outro campo. */
+  document.addEventListener('click', function(e){
+    if (!MULTI_ABERTO) return;
+    if (MULTI_ABERTO.contains(e.target)) return;
+    fecharMulti(MULTI_ABERTO);
+  });
+
+  /* NASCE COM A TELA, e nao so quando a primeira lista chega. Ligado so no preenchimento,
+     o filtro apareceria como um <select> cru pelos segundos ate a rede responder — e o
+     <select> cru de varias escolhas e uma caixa alta de rolagem, que nao se parece com
+     nada do resto do formulario. */
+  ligarMultis();
+
   /* O filtro é montado UMA vez e mandado tanto para contar quanto para apagar. Montar
      duas vezes convidaria as duas chamadas a divergirem — e aí a pessoa confirma um
      número e o servidor apaga outro conjunto. */
   /* Le os MESMOS campos que montam a lista. Assim o que se apaga e exatamente o que
      esta na tela — nao ha um segundo formulario para divergir do primeiro. */
   function filtroExclusao(){
+    /* `valorFiltro` E NAO `.value`: oito destes campos aceitam varias escolhas, e num
+       seletor de varias o `value` devolve so a PRIMEIRA — a tela mostraria tres locais
+       e o servidor receberia um. O pior desfecho nao e a lista errada: e o "apagar o
+       que esta no filtro" apagando um recorte maior do que o que esta na tela. */
     return {
-      origem:  document.getElementById('mvOrigem').value,
-      destino: document.getElementById('mvDestino').value,
-      tipo:    document.getElementById('mvTipo').value,
-      fluxo:   document.getElementById('mvFluxo').value,
-      caixa:   document.getElementById('mvCaixa').value,
-      situacao: document.getElementById('mvStatus').value,
-      usuario: document.getElementById('mvUsuario').value,
-      motorista: document.getElementById('mvMotorista').value,
-      trecho:  document.getElementById('mvTrecho').value,
-      teste:   document.getElementById('mvTeste').value,
-      de:      document.getElementById('mvDe').value,
-      ate:     document.getElementById('mvAte').value
+      origem:  valorFiltro('mvOrigem'),
+      destino: valorFiltro('mvDestino'),
+      tipo:    valorFiltro('mvTipo'),
+      fluxo:   valorFiltro('mvFluxo'),
+      caixa:   valorFiltro('mvCaixa'),
+      situacao: valorFiltro('mvStatus'),
+      usuario: valorFiltro('mvUsuario'),
+      motorista: valorFiltro('mvMotorista'),
+      trecho:  valorFiltro('mvTrecho'),
+      teste:   valorFiltro('mvTeste'),
+      de:      valorFiltro('mvDe'),
+      ate:     valorFiltro('mvAte')
     };
   }
 
@@ -4537,20 +4774,35 @@
       var u = EQUIPE.filter(function(x){ return String(x.ID)===String(id); })[0];
       return u ? u.Nome : id;
     }
+    /* CADA FILTRO PODE TRAZER VÁRIOS VALORES, colados por "|". Descrito como um só, o
+       texto diria "com origem Matriz" sobre um recorte que também leva Ceasa — e esta
+       frase é a que a pessoa lê antes de confirmar o APAGAR. Dizer menos do que se vai
+       apagar é o pior defeito possível nesta tela. */
+    function partes(v){
+      return String(v == null ? '' : v).split('|')
+        .map(function(x){ return x.trim(); })
+        .filter(function(x){ return !!x; });
+    }
+    function nomes(v, como){
+      return partes(v).map(como).join(' ou ');
+    }
     var p = [];
-    if (f.usuario) p.push('lançados por <b>'+Q.esc(nomeUser(f.usuario))+'</b>');
-    if (f.origem)  p.push('com origem <b>'+Q.esc(nomeLocal(f.origem))+'</b>');
-    if (f.destino) p.push('com destino <b>'+Q.esc(nomeLocal(f.destino))+'</b>');
-    if (f.tipo)    p.push('do tipo <b>'+Q.esc(f.tipo.toLowerCase())+'</b>');
-    if (f.fluxo === 'SAIDA')   p.push('<b>só o que saiu</b>');
-    if (f.fluxo === 'ENTRADA') p.push('<b>só o que voltou</b>');
-    if (f.caixa)   p.push('da caixa <b>'+Q.esc(nomeCaixa(f.caixa))+'</b>');
-    if (f.situacao) p.push('com status <b>'+Q.esc(f.situacao)+'</b>');
+    if (f.usuario) p.push('lançados por <b>'+Q.esc(nomes(f.usuario, nomeUser))+'</b>');
+    if (f.origem)  p.push('com origem <b>'+Q.esc(nomes(f.origem, nomeLocal))+'</b>');
+    if (f.destino) p.push('com destino <b>'+Q.esc(nomes(f.destino, nomeLocal))+'</b>');
+    if (f.tipo)    p.push('do tipo <b>'+Q.esc(nomes(f.tipo, function(x){
+      return String(x).toLowerCase(); }))+'</b>');
+    if (partes(f.fluxo).indexOf('SAIDA') >= 0)   p.push('<b>o que saiu</b>');
+    if (partes(f.fluxo).indexOf('ENTRADA') >= 0) p.push('<b>o que voltou</b>');
+    if (f.caixa)   p.push('da caixa <b>'+Q.esc(nomes(f.caixa, nomeCaixa))+'</b>');
+    if (f.situacao) p.push('com status <b>'+Q.esc(nomes(f.situacao, function(x){
+      return x; }))+'</b>');
     /* OS DOIS NOVOS ENTRAM AQUI TAMBÉM, e não é detalhe: este texto é o que a confirmação
        do "Apagar o que está no filtro" mostra. Um filtro que recorta a lista e não
        aparece na frase faria alguém confirmar o apagamento de um recorte que não é o que
        está lendo. */
-    if (f.motorista) p.push('com o motorista <b>'+Q.esc(f.motorista)+'</b>');
+    if (f.motorista) p.push('com o motorista <b>'+Q.esc(nomes(f.motorista, function(x){
+      return x; }))+'</b>');
     if (f.trecho)    p.push('no trecho <b>'+Q.esc(nomeTrecho(f.trecho))+'</b>');
     if (f.teste === 'reais') p.push('<b>só reais</b>');
     if (f.teste === 'teste') p.push('<b>só de teste</b>');
@@ -4647,20 +4899,22 @@
      "Limpar" dentro da folha e o X da pílula no celular —, e copiada para o segundo ela
      esqueceria um campo no dia em que um campo novo entrasse. Foi exatamente o que já
      aconteceu com o motorista e o trecho, e está dito no comentário abaixo. */
+  /* LIMPA A PARTIR DA LISTA DOS CAMPOS, e não de uma segunda lista escrita aqui. A
+     anterior era escrita à mão e já tinha deixado um campo de fora uma vez — e o campo
+     esquecido pelo "Limpar" é o pior de todos: a pessoa acabou de mandar tirar tudo, e
+     continua lendo uma lista recortada por algo que ela não vê mais.
+     `porEscolha(sel, [])` e não `.value = ''`: num seletor de várias, atribuir vazio
+     escolhe a opção "Todas" em vez de desmarcar o que está marcado. */
   function limparFiltrosMov(){
-    document.getElementById('mvOrigem').value = '';
-    document.getElementById('mvDestino').value = '';
-    document.getElementById('mvFluxo').value = '';
-    document.getElementById('mvTipo').value = '';
-    document.getElementById('mvCaixa').value = '';
-    document.getElementById('mvStatus').value = '';
-    document.getElementById('mvUsuario').value = '';
-    /* Os dois novos limpam junto. Esquecido aqui, o "Limpar" deixaria de pé justamente o
-       filtro que veio de um clique no gráfico — o menos visível de todos, porque não tem
-       campo à vista para a pessoa conferir. */
-    document.getElementById('mvMotorista').value = '';
-    document.getElementById('mvTrecho').value = '';
+    CAMPOS_MOV.forEach(function(id){
+      var el = document.getElementById(id);
+      if (!el || el.type === 'date') return;
+      porEscolha(el, []);
+    });
+    /* O recorte de base volta para "só produção", e não para vazio: vazio ali não é um
+       estado que o seletor tenha. */
     document.getElementById('mvTeste').value = 'reais';
+    ligarMultis();
     periodoPadraoMov();
     carregarMovimentos();
   }
@@ -4760,6 +5014,11 @@
   }
 
   function textoDoCampo(el){
+    /* O SELETOR DE VÁRIAS RESPONDE PELO RESUMO DELE, o mesmo que está escrito no botão.
+       Por `options[selectedIndex]`, a pílula mostraria a PRIMEIRA escolha como se fosse
+       a única — e a pílula é justamente o que existe para dizer o que está recortando a
+       lista quando a gaveta está fechada. */
+    if (el.multiple) return textoMulti(el);
     if (el.tagName === 'SELECT') {
       var o = el.options[el.selectedIndex];
       return o ? o.textContent.trim() : el.value;
@@ -4776,7 +5035,10 @@
     var padrao = periodoPadraoValores();
     CAMPOS_MOV.forEach(function(id){
       var el = document.getElementById(id);
-      if (!el || !el.value) return;
+      /* `escolhaDe` E NAO `el.value`: num seletor de várias, `value` devolve a primeira
+         escolhida — e devolve vazio quando o que está marcado não é a primeira opção da
+         lista. Aí o campo estaria filtrando e a pílula diria que não há filtro nenhum. */
+      if (!el || !escolhaDe(el).length) return;
       if (id === 'mvDe' && el.value === padrao.de) return;
       if (id === 'mvAte' && el.value === padrao.ate) return;
       l.push({ id: id, t: rotuloDoCampo(id)+': '+textoDoCampo(el) });
@@ -4826,7 +5088,9 @@
         if (!el) return;
         /* O recorte de ensaio volta para "só reais", e não para vazio: vazio ali não é
            um estado que o seletor tenha. */
-        el.value = b.dataset.tirar === 'mvTeste' ? 'reais' : '';
+        if (b.dataset.tirar === 'mvTeste') el.value = 'reais';
+        else porEscolha(el, []);
+        ligarMultis();
         carregarMovimentos();
       });
     });
@@ -5650,6 +5914,15 @@
       status:    { t: TIT['status'], k: function(m){ return m.situacao || ''; },
                    v: function(m){ return '<span class="tag '+tagCiclo(m.situacao)+'">'+
                      Q.esc(m.situacao)+'</span>'; } },
+      /* O TIPO DO LANÇAMENTO: saída, retorno, transferência, perda, ajuste. A tabela
+         mostrava as duas pontas e a quantidade, e não O QUE tinha acontecido entre
+         elas — uma perda e uma transferência entre galpões apareciam iguais, e a
+         diferença só saía abrindo a linha ou exportando o CSV.
+         ORDENA PELO RÓTULO, e não pela palavra do banco: ordenado por `DEVOLUCAO`, o
+         Retorno cairia entre Ajuste e Perda, e a coluna ficaria fora de ordem para
+         quem lê o que está escrito nela. */
+      tipo:      { t: TIT['tipo'], k: function(m){ return rotuloDoTipoMov(m.tipo); },
+                   v: function(m){ return Q.esc(rotuloDoTipoMov(m.tipo)); } },
       /* O carimbo de quando entrou no sistema. `Q.horaBR` e não um recorte do texto: o
          carimbo vem em UTC, e recortado um lançamento das 22h aparece no dia seguinte. */
       /* A hora ordena pelo carimbo INTEIRO, e nao pelo texto "13:58": duas cargas
@@ -6262,7 +6535,7 @@
         var a = m.alterado || {};
         return [m.id,
                 Q.dataBR(m.dataRef),Q.horaBR(m.dataHora),Q.dataDoCarimboBR(m.dataHora),
-                m.teste?'SIM':'',m.situacao,m.tipo,m.origem,m.destino,m.tipoCaixa,m.qtd,
+                m.teste?'SIM':'',m.situacao,rotuloDoTipoMov(m.tipo),m.origem,m.destino,m.tipoCaixa,m.qtd,
                 m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',
                 m.veiculo||'',
                 m.usuario,a.por||'',a.em?Q.dataHoraBR(a.em):'',m.obs];
