@@ -1,0 +1,1660 @@
+<!doctype html>
+<html lang="pt-BR" data-fluxo="saida">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Demonstração — lançar saída</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- A FOLHA DO APP VEM ANTES da do demo: e dela que saem as cores da empresa, e a
+     ordem importa — a folha do demo precisa poder sobrescrever o que for dela. -->
+<link rel="stylesheet" href="styles.css?v=b45dbea8">
+<style>
+:root{
+  /* ================= SEM PALETA PROPRIA =================
+   *
+   * O demo chegou com UM tema e UM fundo escritos a mao. Dentro do app isso queria
+   * dizer: o escritorio escolhe roxo em Aparencia, e o tutorial continua verde — a
+   * mesma empresa com duas caras, a um toque de distancia.
+   *
+   * Aqui os tokens dele viram APELIDOS dos tokens do app. A folha do demo nao muda em
+   * regra nenhuma; muda so de onde vem a cor. Trocar a cor da empresa passa a trocar a
+   * cor do tutorial junto, sem ninguem mexer neste arquivo.
+   *
+   * SAIDA E AZUL, RETORNO E VERDE. O demo trazia o contrario — saida verde, retorno
+   * azul. Nao e detalhe: o painel, os graficos e o extrato pintam saida com
+   * `--azul-cheio` e retorno com `--verde-cheio`, e um tutorial que ensina o codigo de
+   * cor invertido ensina a ler errado a tela que vem depois dele. */
+  --dl-marca:var(--brand); --dl-sobre-marca:var(--sobre-brand);
+  --dl-marca-ink:var(--roxo-txt); --dl-marca-rgb:var(--brand-rgb);
+  --dl-brand:var(--brand);
+  --dl-saida:var(--azul-cheio); --dl-retorno:var(--verde-cheio);
+  --dl-warn:var(--ambar); --dl-danger:var(--vermelho);
+  --dl-radius:var(--raio-sm); --dl-radius-lg:var(--raio);
+  --dl-font:var(--fonte); --dl-mono:var(--fonte-mono);
+  /* As superficies do demo nao sao as do app com outro nome: o `surface-2` dele e mais
+     ESCURO que o cartao (e o `--campo` daqui), e o `surface-3` e mais claro. Por isso
+     cada um aponta para o degrau certo, e nao para o de nome parecido. */
+  --dl-bg:var(--bg); --dl-fim:var(--campo);
+  --dl-surface:var(--surface); --dl-surface-2:var(--campo); --dl-surface-3:var(--surface-2);
+  --dl-line:var(--linha); --dl-line-2:var(--neutro); --dl-line-3:var(--linha-viva);
+  --dl-text:var(--txt); --dl-text-soft:var(--txt2); --dl-text-muted:var(--txt3);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;min-height:100%}
+body{background:linear-gradient(180deg,var(--dl-bg) 0%,var(--dl-fim) 100%) fixed;color:var(--dl-text);
+  font-family:var(--dl-font);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+:where(a,button):focus-visible{outline:2px solid var(--dl-marca-ink);outline-offset:2px}
+
+.tela{max-width:460px;margin:0 auto;padding:14px 14px 26px}
+
+
+/* ---------- escolher o fluxo ---------- */
+.fluxos{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.fluxo{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1.5px solid var(--dl-line-2);
+  border-radius:var(--dl-radius);background:var(--dl-surface);color:var(--dl-text-soft);
+  font:inherit;font-size:14px;font-weight:700;cursor:pointer;text-align:left}
+.fluxo i{width:26px;height:26px;flex:0 0 auto;display:inline-flex;align-items:center;
+  justify-content:center;border-radius:8px;font-style:normal;font-size:14px}
+.fluxo--s i{background:rgba(52,196,110,.16);color:var(--dl-saida)}
+.fluxo--r i{background:rgba(111,168,240,.16);color:var(--dl-retorno)}
+[data-fluxo="saida"] .fluxo--s{border-color:var(--dl-saida);background:rgba(52,196,110,.12);color:var(--dl-text)}
+[data-fluxo="retorno"] .fluxo--r{border-color:var(--dl-retorno);background:rgba(111,168,240,.12);color:var(--dl-text)}
+
+/* ---------- palco (o que entra no vídeo) ---------- */
+.palco{position:relative}
+
+.fone{position:relative;width:100%;max-width:372px;margin:0 auto;
+  border:7px solid #0B1A2B;border-radius:30px;background:#0B1A2B;
+  box-shadow:0 14px 40px rgba(0,0,0,.45),0 0 0 1.5px var(--dl-line-2)}
+.fone__barra{display:flex;align-items:center;justify-content:space-between;
+  padding:5px 16px 4px;font-family:var(--dl-mono);font-size:10.5px;color:var(--dl-text-muted);
+  letter-spacing:.04em}
+.fone__vp{position:relative;height:600px;overflow:hidden;border-radius:0 0 23px 23px;
+  background:linear-gradient(180deg,var(--dl-bg) 0%,var(--dl-fim) 100%)}
+
+/* ---------- o dedo ---------- */
+.dedo{position:absolute;left:0;top:0;width:36px;height:36px;margin:-18px 0 0 -18px;
+  border-radius:50%;background:rgba(255,255,255,.20);border:2px solid rgba(255,255,255,.78);
+  box-shadow:0 3px 14px rgba(0,0,0,.5);pointer-events:none;z-index:60;opacity:0;
+  transform:translate(var(--x,60px),var(--y,60px)) scale(var(--s,1));
+  transition:transform .36s cubic-bezier(.3,.72,.2,1),opacity .22s linear}
+.dedo--on{opacity:1}
+.dedo b{position:absolute;inset:-7px;border-radius:50%;border:2.5px solid var(--dl-marca-ink);
+  opacity:0}
+.dedo--toca b{animation:toque .42s ease-out}
+@keyframes toque{0%{opacity:.95;transform:scale(.45)}100%{opacity:0;transform:scale(1.6)}}
+
+/* ---------- a tela do app ---------- */
+.ap{position:absolute;inset:0;display:flex;flex-direction:column}
+/* z-index no cabeçalho: o corpo transformado cria contexto de empilhamento e,
+   sem isto, o conteúdo que sobe passa POR CIMA do cabeçalho em vez de sumir
+   debaixo dele — que é como rolagem se parece num app de verdade */
+.ap__cab{position:relative;z-index:5;flex:0 0 auto;display:flex;align-items:center;gap:9px;
+  padding:11px 14px;border-bottom:1px solid var(--dl-line);background:var(--dl-surface-2)}
+.ap__corpo{position:relative;z-index:1}
+.ap__cab b{font-size:14.5px}
+.ap__cab span{font-size:11.5px;color:var(--dl-text-muted)}
+.ap__sair{margin-left:auto;flex:0 0 auto;padding:5px 11px;border:1px solid var(--dl-line-3);
+  border-radius:8px;background:transparent;color:var(--dl-text-soft);font:inherit;font-size:12px;
+  font-weight:600;cursor:pointer}
+.ap__volta{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:7px;background:var(--dl-surface-3);color:var(--dl-text-soft);font-size:13px}
+/* o corpo sobe quando o teclado abre, como num app de verdade: sem isto o
+   teclado tapa justamente a contagem e o total, que é o que precisa ser visto */
+/* sem overflow:hidden aqui de propósito: quem recorta é o .fone__vp.
+   Se o recorte ficasse neste elemento, o translateY levaria a caixa de
+   recorte junto e o conteúdo que sobra embaixo nunca apareceria. */
+.ap__corpo{flex:1 1 auto;padding:12px 13px;
+  transition:transform .32s cubic-bezier(.25,.8,.3,1)}
+.ap__r{margin:0 0 7px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--dl-text-muted)}
+.ap__r+.ap__r{margin-top:12px}
+
+.ap__acao{display:flex;width:100%;align-items:center;gap:11px;padding:13px 12px;margin-bottom:9px;
+  border:1.5px solid var(--dl-line-2);border-radius:var(--dl-radius-lg);background:var(--dl-surface);
+  color:var(--dl-text);font:inherit;text-align:left}
+.ap__acao i{width:34px;height:34px;flex:0 0 auto;display:inline-flex;align-items:center;
+  justify-content:center;border-radius:10px;font-style:normal;font-size:16px}
+.ap__acao--s i{background:rgba(52,196,110,.16);color:var(--dl-saida)}
+.ap__acao--r i{background:rgba(111,168,240,.16);color:var(--dl-retorno)}
+.ap__acao b{display:block;font-size:14.5px}
+.ap__acao em{display:block;font-style:normal;font-size:11.5px;color:var(--dl-text-muted)}
+
+.ap__mini{border:1px solid var(--dl-line);border-radius:var(--dl-radius);background:var(--dl-surface);
+  overflow:hidden}
+.ap__mini div{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:9px 11px;font-size:12.5px;color:var(--dl-text-soft)}
+.ap__mini div+div{border-top:1px solid var(--dl-line)}
+.ap__mini .dl-n{font-family:var(--dl-mono);font-weight:600;color:var(--dl-text)}
+.ap__mini .novo{background:rgba(var(--dl-marca-rgb),.14)}
+
+/* rótulo em cima e caixa embaixo, como no app */
+.ap__campo{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 11px;margin-bottom:10px;
+  border:1.5px solid var(--dl-line-2);border-radius:var(--dl-radius);background:var(--dl-surface-2)}
+.ap__campo--foco{border-color:var(--dl-marca-ink);box-shadow:0 0 0 3px rgba(var(--dl-marca-rgb),.20)}
+.ap__lab{display:block;margin-bottom:4px;font-size:12px;color:var(--dl-text-soft)}
+.ap__val{flex:1 1 auto;min-width:0;font-size:14px;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ap__val--v{color:var(--dl-text-muted);font-weight:400}
+.ap__seta{flex:0 0 auto;color:var(--dl-text-muted);font-size:13px}
+.ob{font-style:normal;color:var(--dl-warn)}
+.ap__cartao{padding:11px 12px;margin-bottom:13px;border:1px solid var(--dl-line);
+  border-radius:var(--dl-radius);background:var(--dl-surface)}
+.ap__cartao b{display:block;font-size:14.5px;margin-bottom:3px}
+.ap__cartao p{margin:0;font-size:11.5px;line-height:1.4;color:var(--dl-text-muted)}
+.ap__req{margin:-2px 0 12px;font-size:11px;color:var(--dl-text-muted)}
+/* tela de encerramento */
+.ap__fim{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:18px 20px}
+.ap__fim__logo{width:186px;height:auto;margin-bottom:16px}
+.ap__fim h2{margin:0 0 10px;font-size:19px;line-height:1.28;font-weight:700;letter-spacing:-.01em}
+.ap__fim h2 b{color:var(--dl-marca-ink)}
+.ap__fim p{margin:0 0 24px;font-size:13px;line-height:1.45;color:var(--dl-text-muted);max-width:270px}
+.ap__fim .ap__grv{max-width:280px}
+.ap__fim__l{display:flex;gap:9px;width:100%;max-width:280px;margin-top:9px}
+.ap__fim__l .ap__grv{flex:1 1 0;margin-top:0}
+/* seletor com .ap__fim de propósito: a regra base .ap__grv vem depois nesta
+   folha e, com a mesma especificidade, ganharia — os três botões saíam verdes */
+.ap__fim .ap__grv--sec{background:transparent;color:var(--dl-text);
+  border:1.5px solid var(--dl-line-3);font-weight:600}
+.ap__fim .ap__grv--fan{background:transparent;color:var(--dl-text-muted);
+  border:1.5px solid transparent;font-weight:600}
+.ap__fim .ap__grv--bloq{color:var(--dl-text-muted);opacity:.62}
+.ap__chk{list-style:none;margin:18px 0 0;padding:0;text-align:left;width:100%;max-width:280px}
+.ap__chk li{display:flex;align-items:center;gap:9px;padding:4px 0;font-size:12.5px;
+  color:var(--dl-text-muted)}
+.ap__chk li.ok{color:var(--dl-marca-ink)}
+.ap__chk i{width:19px;height:19px;flex:0 0 auto;display:inline-flex;align-items:center;
+  justify-content:center;border-radius:999px;border:1.5px solid currentColor;
+  font-style:normal;font-size:11px}
+
+.ap__ref{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:7px 11px;margin:-4px 0 10px;border-radius:9px;background:rgba(111,168,240,.12);
+  font-size:11.5px;color:var(--dl-text-soft)}
+.ap__ref b{font-family:var(--dl-mono);font-size:13px;color:var(--dl-retorno)}
+
+.ap__cont{border:1px solid var(--dl-line);border-radius:var(--dl-radius);background:var(--dl-surface-2);
+  overflow:hidden}
+.ap__ln{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:6px 11px;
+  font-size:13.5px}
+.ap__ln+.ap__ln{border-top:1px solid var(--dl-line)}
+.ap__ln .cz{color:var(--dl-text-muted);font-size:11.5px}
+.ap__cx{min-width:62px;height:32px;display:inline-flex;align-items:center;justify-content:flex-end;
+  padding:0 10px;border:1.5px solid var(--dl-line-2);border-radius:9px;background:var(--dl-surface-3);
+  font-family:var(--dl-mono);font-size:14.5px;font-weight:600;color:var(--dl-text)}
+.ap__cx--foco{border-color:var(--dl-marca-ink);box-shadow:0 0 0 3px rgba(var(--dl-marca-rgb),.20)}
+.ap__cx--erro{border-color:var(--dl-danger);color:var(--dl-danger);box-shadow:0 0 0 3px rgba(255,153,153,.18)}
+.ap__cx i{display:inline-block;width:1.5px;height:17px;margin-left:2px;background:var(--dl-marca-ink);
+  animation:pisca 1s steps(1) infinite}
+@keyframes pisca{50%{opacity:0}}
+
+.ap__tot{display:flex;align-items:center;justify-content:space-between;gap:9px;
+  margin-top:9px;padding:9px 12px;border:1px solid var(--dl-line-2);border-radius:var(--dl-radius);
+  background:var(--dl-surface);font-size:13px;color:var(--dl-text-soft)}
+.ap__tot b{font-family:var(--dl-mono);font-size:19px;font-weight:700;color:var(--dl-text)}
+.ap__tot--neg b{color:var(--dl-danger)}
+.ap__tot--pulso{animation:pulso .7s ease-out}
+@keyframes pulso{0%{box-shadow:0 0 0 0 rgba(var(--dl-marca-rgb),.55)}
+  100%{box-shadow:0 0 0 13px rgba(var(--dl-marca-rgb),0)}}
+
+.ap__obs{margin-top:9px;padding:8px 11px;border:1.5px solid var(--dl-line-2);border-radius:var(--dl-radius);
+  background:var(--dl-surface-2);min-height:62px}
+.ap__obs--foco{border-color:var(--dl-marca-ink);box-shadow:0 0 0 3px rgba(var(--dl-marca-rgb),.20)}
+.ap__obs p{margin:3px 0 0;font-size:13px;line-height:1.35;min-height:18px}
+.ap__obs i{display:inline-block;width:1.5px;height:15px;vertical-align:-2px;
+  background:var(--dl-marca-ink);animation:pisca 1s steps(1) infinite}
+
+.ap__grv{display:block;width:100%;margin-top:10px;padding:12px;border:0;border-radius:var(--dl-radius);
+  background:var(--dl-marca);color:var(--dl-sobre-marca);font:inherit;font-size:14.5px;font-weight:700}
+.ap__grv[disabled]{background:var(--dl-surface-3);color:var(--dl-text-muted)}
+.ap--tec .ap__grv{visibility:hidden}
+
+.ap__alerta{margin-top:9px;padding:9px 11px;border:1px solid rgba(255,153,153,.5);
+  border-radius:var(--dl-radius);background:rgba(255,153,153,.10);font-size:12.5px;
+  line-height:1.4;color:var(--dl-text-soft)}
+.ap__alerta b{color:var(--dl-danger)}
+
+/* folha (select) e teclados */
+.dl-folha,.tec{position:absolute;left:0;right:0;bottom:0;z-index:30;
+  border-top:1px solid var(--dl-line-2);background:var(--dl-surface-2);
+  box-shadow:0 -10px 26px rgba(0,0,0,.36);
+  transform:translateY(102%);transition:transform .3s cubic-bezier(.25,.8,.3,1)}
+.dl-folha--on,.tec--on{transform:translateY(0)}
+.dl-folha{border-radius:16px 16px 0 0;padding:9px 11px 13px}
+.dl-folha__t{margin:2px 0 8px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--dl-text-muted)}
+.dl-folha__o{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
+  padding:10px 11px;margin-bottom:6px;border:1px solid var(--dl-line);border-radius:10px;
+  background:var(--dl-surface);color:var(--dl-text);font:inherit;font-size:13.5px;text-align:left}
+
+.tec{padding:7px 6px 10px}
+.tec__g{display:grid;gap:5px}
+.tec--num .tec__g{grid-template-columns:repeat(3,1fr)}
+.tec__k{padding:11px 0;border:1px solid var(--dl-line);border-radius:9px;background:var(--dl-surface-3);
+  color:var(--dl-text);font-family:var(--dl-mono);font-size:17px;font-weight:600;text-align:center}
+.tec--txt .tec__l{display:flex;gap:4px;margin-bottom:5px;justify-content:center}
+.tec--txt .tec__k{flex:1 1 0;min-width:0;padding:9px 0;font-family:var(--dl-font);font-size:14px}
+.tec__k--w{flex:3 1 0 !important}
+
+.flash{animation:fl .55s ease-out}
+@keyframes fl{0%{background-color:rgba(var(--dl-marca-rgb),.34)}100%{background-color:transparent}}
+
+.toast{position:absolute;left:12px;right:12px;bottom:14px;z-index:50;
+  display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:13px;
+  border:1px solid rgba(52,196,110,.45);background:rgba(20,58,40,.96);
+  box-shadow:0 10px 30px rgba(0,0,0,.45);font-size:13px;
+  transform:translateY(130%);transition:transform .34s cubic-bezier(.25,.85,.3,1)}
+.toast--on{transform:translateY(0)}
+.toast i{width:24px;height:24px;flex:0 0 auto;display:inline-flex;align-items:center;
+  justify-content:center;border-radius:50%;background:var(--dl-saida);color:#0A1F38;
+  font-style:normal;font-size:13px;font-weight:700}
+.toast b{display:block;font-size:13px}
+.toast em{display:block;font-style:normal;font-size:11.5px;color:var(--dl-text-soft)}
+
+/* ---------- legenda ---------- */
+.leg{min-height:68px;margin:12px auto 0;max-width:372px;padding:11px 13px;
+  border:1px solid var(--dl-line);border-left:3px solid var(--dl-marca-ink);
+  border-radius:11px;background:var(--dl-surface);font-size:13.5px;line-height:1.42;
+  color:var(--dl-text-soft)}
+.leg b{color:var(--dl-text)}
+.leg--erro{border-left-color:var(--dl-danger)}
+.leg--erro b{color:var(--dl-danger)}
+
+/* ---------- controles (fora do vídeo) ---------- */
+.ctrl{display:flex;align-items:center;gap:8px;max-width:372px;margin:13px auto 0}
+.ctrl button{padding:8px 12px;border:1px solid var(--dl-line-2);border-radius:10px;
+  background:var(--dl-surface);color:var(--dl-text);font:inherit;font-size:13px;font-weight:600;
+  cursor:pointer}
+.ctrl__b{flex:1 1 auto;height:6px;border-radius:999px;background:rgba(255,255,255,.09);
+  overflow:hidden}
+.ctrl__b i{display:block;height:100%;width:0;background:var(--dl-marca);border-radius:999px;
+  transition:width .3s linear}
+.vels{display:flex;gap:5px;max-width:372px;margin:9px auto 0}
+.vels button{flex:1 1 0;padding:7px 0;border:1px solid var(--dl-line-2);border-radius:9px;
+  background:var(--dl-surface);color:var(--dl-text-muted);font:inherit;font-family:var(--dl-mono);
+  font-size:12.5px;cursor:pointer}
+.vels button[aria-pressed="true"]{border-color:var(--dl-marca-ink);color:var(--dl-text);
+  background:rgba(var(--dl-marca-rgb),.14)}
+/* botão de áudio: fica na mesma linha dos controles, sempre à mão */
+.som__b{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;
+  padding:8px 11px;border:1px solid var(--dl-line-2);border-radius:10px;
+  background:var(--dl-surface);color:var(--dl-text-muted);font:inherit;font-size:13px;
+  font-weight:600;cursor:pointer}
+.som__b b{font-weight:600}
+.som__b .som__on{display:none}
+.som__b[aria-pressed="true"]{border-color:var(--dl-marca-ink);color:var(--dl-text);
+  background:rgba(var(--dl-marca-rgb),.16)}
+.som__b[aria-pressed="true"] .som__on{display:block}
+.som__b[aria-pressed="true"] .som__off{display:none}
+.som__b[disabled]{opacity:.5;font-weight:400;cursor:default}
+.som{display:flex;align-items:center;gap:8px;max-width:372px;margin:9px auto 0}
+.som select{flex:1 1 auto;min-width:0;padding:8px 9px;border:1px solid var(--dl-line-2);border-radius:10px;
+  background:var(--dl-surface);color:var(--dl-text-soft);font:inherit;font-size:12.5px}
+.som select[hidden],.aviso[hidden]{display:none}
+/* ---------- editor de falas ---------- */
+.ed{max-width:372px;margin:10px auto 0;border:1px solid var(--dl-line-2);border-radius:12px;
+  background:var(--dl-surface-2);padding:11px 11px 13px}
+.ed[hidden]{display:none}
+.ed__t{margin:0 0 4px;font-size:12px;color:var(--dl-text-muted);line-height:1.45}
+.ed__i{margin:11px 0 0}
+.ed__i label{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--dl-text-muted);margin-bottom:4px}
+.ed__i label b{font-family:var(--dl-mono);text-transform:none;letter-spacing:0;color:var(--dl-marca-ink)}
+.ed textarea{display:block;width:100%;min-height:74px;padding:8px 9px;resize:vertical;
+  border:1px solid var(--dl-line-2);border-radius:9px;background:var(--dl-surface);
+  color:var(--dl-text);font:inherit;font-size:12.5px;line-height:1.4}
+.ed textarea:focus{outline:none;border-color:var(--dl-marca-ink);
+  box-shadow:0 0 0 3px rgba(var(--dl-marca-rgb),.18)}
+.ed__g{margin:16px 0 2px;font-size:11px;letter-spacing:.09em;color:var(--dl-marca-ink);
+  border-top:1px solid var(--dl-line);padding-top:11px}
+.ed__i{position:relative}
+.ed__ouvir{position:absolute;right:6px;bottom:6px;padding:4px 9px;border:1px solid var(--dl-line-2);
+  border-radius:7px;background:var(--dl-surface-3);color:var(--dl-text-soft);font:inherit;
+  font-size:11px;cursor:pointer}
+.ed textarea{padding-right:62px}
+.ed__acoes{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
+.ed__acoes button{flex:1 1 auto;padding:9px 10px;border:1px solid var(--dl-line-2);border-radius:9px;
+  background:var(--dl-surface);color:var(--dl-text);font:inherit;font-size:12.5px;font-weight:600;
+  cursor:pointer}
+.ed__acoes button.pri{border-color:var(--dl-marca);background:var(--dl-marca);color:var(--dl-sobre-marca)}
+.ed__ok{margin:9px 0 0;font-size:12px;color:var(--dl-marca-ink);min-height:16px}
+.aviso{max-width:372px;margin:8px auto 0;padding:8px 11px;border-radius:9px;
+  border:1px solid rgba(243,170,74,.45);background:rgba(243,170,74,.10);
+  font-size:12px;line-height:1.45;color:var(--dl-text-soft)}
+.nota{max-width:372px;margin:14px auto 0;font-size:12px;line-height:1.5;color:var(--dl-text-muted)}
+
+#painel[hidden]{display:none}
+
+/* ---------- computador ----------
+   Abaixo de 900px é uma coluna só (celular). Acima, o celular fica à
+   esquerda e os controles à direita, em vez de virar uma fita estreita
+   no meio de uma tela larga. */
+@media (min-width:900px){
+  .tela{max-width:880px;display:grid;grid-template-columns:392px 1fr;
+    column-gap:32px;align-items:start;padding:30px 20px 44px}
+  .palco{grid-column:1;grid-row:1 / span 30}
+  /* as margens auto centralizavam e encolhiam os controles: na coluna da
+     direita eles precisam ocupar a largura toda */
+  .ctrl,.vels,.som,.aviso,.ed__b,.ed,.nota{grid-column:2;max-width:none;
+    margin-left:0;margin-right:0}
+  .ctrl{margin-top:0}
+  .som__b,.ed__b .som__b{justify-content:center}
+  .leg{max-width:none}
+}
+
+/* ================= O EDITOR DE FALAS NAO VAI PARA O GALPAO =================
+ *
+ * Ele reescreve a narracao e guarda no aparelho. E ferramenta de quem ESCREVE o
+ * tutorial, nao de quem o assiste — e no primeiro acesso quem esta na tela e uma pessoa
+ * que acabou de chegar. Deixado a vista, o primeiro contato dela com o sistema oferece
+ * um campo de texto que muda o que o sistema diz.
+ *
+ * Ele nao foi removido: vive em `?editar=1`, que e como voce o abre. Os controles de
+ * pausa, velocidade e audio FICAM — esses sao de quem assiste. */
+html:not([data-editor="1"]) .ed,
+html:not([data-editor="1"]) .ed__b{display:none}
+
+/* modo gravação: só o palco */
+[data-gravar="1"] .ctrl,[data-gravar="1"] .som,
+[data-gravar="1"] .aviso,[data-gravar="1"] .ed,
+[data-gravar="1"] .ed__b,
+[data-gravar="1"] .vels,[data-gravar="1"] .nota{display:none}
+[data-gravar="1"] .tela{padding-top:10px}
+</style>
+</head>
+<body>
+
+<div class="tela">
+
+  <div class="palco">
+    <div class="fone">
+      <div class="fone__barra"><span>9:41</span><span>4G &nbsp;▮▮▮&nbsp; 86%</span></div>
+      <div class="fone__vp" id="vp">
+        <div class="ap" id="ap"></div>
+        <div class="dedo" id="dedo"><b></b></div>
+      </div>
+    </div>
+    <p class="leg" id="leg">Carregando…</p>
+  </div>
+
+  <div id="painel" hidden>
+  <div class="ctrl">
+    <button type="button" id="reiniciar" title="Recomeçar">↺</button>
+    <button type="button" id="tocar">Pausar</button>
+    <div class="ctrl__b"><i id="ctrl-i"></i></div>
+  </div>
+
+  <div class="vels" id="vels">
+    <button type="button" data-v="0.5">0,5×</button>
+    <button type="button" data-v="1" aria-pressed="true">1×</button>
+    <button type="button" data-v="1.5">1,5×</button>
+    <button type="button" data-v="2">2×</button>
+  </div>
+
+  <div class="som">
+    <button type="button" id="som" class="som__b" aria-pressed="false"
+            aria-label="Ligar a narração" title="Ligar a narração">
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false">
+        <path d="M4 9h3.3L12 5.2v13.6L7.3 15H4z" fill="currentColor"/>
+        <g class="som__on" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round">
+          <path d="M15.4 9.4a3.7 3.7 0 0 1 0 5.2"/>
+          <path d="M18 7a7.2 7.2 0 0 1 0 10"/>
+        </g>
+        <g class="som__off" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round">
+          <path d="M15.8 9.8l4.6 4.4M20.4 9.8l-4.6 4.4"/>
+        </g>
+      </svg>
+      <b id="som-t">Áudio</b>
+    </button>
+    <select id="vozes" aria-label="Voz da narração" hidden></select>
+  </div>
+  <p class="aviso" id="som-aviso" hidden></p>
+
+  <div class="som ed__b">
+    <button type="button" id="abrir-ed" class="som__b" aria-expanded="false"
+            style="flex:1 1 auto;justify-content:center">Editar as falas</button>
+  </div>
+
+  <div class="ed" id="ed" hidden>
+    <p class="ed__t">Altere o texto de cada trecho. A mudança vale na hora, fica
+    guardada neste aparelho e também muda o que a voz fala. Use
+    <code>&lt;b&gt;palavra&lt;/b&gt;</code> para negrito na legenda.</p>
+    <div id="ed-campos"></div>
+    <p class="ed__ok" id="ed-ok"></p>
+    <div class="ed__acoes">
+      <button type="button" id="ed-baixar" class="pri">Baixar o HTML com as falas novas</button>
+      <button type="button" id="ed-reset">Restaurar os textos originais</button>
+    </div>
+  </div>
+
+  <p class="nota">Simulação da tela real, com os números que o sistema mostra hoje.
+  Nenhum dado é gravado aqui.</p>
+  </div>
+
+</div>
+
+<!-- O NUCLEO, pelos mesmos dois arquivos das outras paginas. Daqui saem a cor
+     gravada pela empresa, a sessao de quem entrou e a rota que marca o tutorial como
+     visto. Uma copia dessas coisas aqui dentro divergiria no primeiro conserto. -->
+<script src="config.js"></script>
+<script src="app.js?v=43f39479"></script>
+<script>
+(function () {
+  'use strict';
+  /* A COR DA EMPRESA, do cache e depois do servidor. E o mesmo caminho das outras
+     paginas: `carregarDados` aplica a aparencia guardada na hora e a do servidor
+     quando ela chega. Sem isto a pagina abriria no tema padrao e piscaria para o
+     escolhido — ou ficaria no padrao, se a rede falhasse. */
+  if (/[?&]editar=1/.test(location.search)) {
+    document.documentElement.setAttribute('data-editor', '1');
+  }
+  try {
+    if (window.QDC) {
+      var local = window.QDC.cache('dados');
+      if (local && local.config) window.QDC.aplicarAparencia(local.config);
+      window.QDC.carregarDados().catch(function () {});
+    }
+  } catch (e) {}
+})();
+</script>
+
+<script>
+(function () {
+  'use strict';
+
+  var raiz = document.documentElement;
+  function $(id) { return document.getElementById(id); }
+  var vp = $('vp'), ap = $('ap'), dedo = $('dedo'), leg = $('leg');
+
+  /* O QUE ESTE ARQUIVO DEMONSTRA: 'ambos', 'saida' ou 'retorno'.
+     É a única linha que muda entre as três versões do demo. */
+  var SO = 'saida';
+
+  var VEL = 1, PAUSA = false, TOKEN = 0, ATO = 0, TOTAL = 1;
+
+  /* ==================================================================
+     FALAS — É AQUI QUE VOCÊ EDITA O TEXTO DE CADA TRECHO.
+
+     Cada linha é uma cena. Troque o texto entre aspas à vontade.
+     O que estiver entre <b> e </b> aparece em negrito na legenda
+     (a voz ignora as marcações, ela lê só o texto).
+
+     Regras para não quebrar nada:
+       • não mude os nomes à esquerda (s01, s02, r01...);
+       • mantenha as aspas simples no começo e no fim;
+       • se o seu texto tiver um apóstrofo, escreva \' (barra + aspa).
+
+     Este mesmo texto é o que vai para o narracao.json e vira o áudio
+     gravado — então editar aqui é editar a voz também.
+     ================================================================== */
+  var FALAS = {
+
+    /* ---------- SAÍDA ---------- */
+    s01:   'Vamos aprender a preencher as informações do <b>controle de caixas</b>. Vamos começar pelos <b>lançamentos de saída</b>.',
+    sData: 'Confirme a <b>data do movimento</b>. Ela já vem com o dia de hoje.',
+    s02:   'Selecione o local de <b>saída</b>.',
+    s03:   'Selecione o <b>destino</b>.',
+    s04:   'Selecione o <b>motorista</b> responsável.',
+    s05:   'Selecione o <b>veículo</b>.',
+    s06:   'Vamos agora preencher as <b>quantidades</b>, um tipo de caixa de cada vez.',
+    s07:   'Confira o <b>total</b> e grave o lançamento.',
+    s08:   'Pronto. O lançamento entra em <b>Movimentos</b> na hora e o saldo já muda.',
+
+    /* passagem automática da saída para o retorno */
+    s09:   'Lançamento de saída concluído. Vamos seguir para os <b>lançamentos de retorno</b>.',
+
+    /* ---------- RETORNO ---------- */
+    /* r01 é falado quando alguém abre o retorno direto, pela aba */
+    r01:   'Vamos agora fazer os <b>lançamentos de retorno</b>. Toque em <b>Lançar retorno</b>.',
+    /* r01b é falado quando o retorno veio emendado no fim da saída */
+    r01b:  'Estamos de volta ao início. Toque em <b>Lançar retorno</b>.',
+    rData: 'Confirme a <b>data do movimento</b>. Ela já vem com o dia de hoje.',
+    r02:   'Selecione a origem <b>de retorno da caixa</b>.',
+    r03:   'Selecione o <b>destino de envio da caixa</b>.',
+    r04:   'Selecione o <b>motorista responsável</b> pelo retorno.',
+    r05:   'Selecione o <b>veículo</b> que trouxe as caixas.',
+    r06:   'Vamos agora preencher as <b>quantidades</b> que voltaram, um tipo de caixa de cada vez.',
+    r07:   'Confira o <b>total</b> e grave o lançamento.',
+    r08:   'Pronto. O retorno entra em <b>Movimentos</b> na hora e o saldo já muda.',
+
+    /* ---------- ENTRADA E ENCERRAMENTO ---------- */
+    entrada: 'Vamos começar a nossa jornada de <b>Controle de Caixas</b>. Toque em <b>Assistir Tutorial</b> para ver como se faz.',
+    fim:     'Pronto. Sempre que precisar, é só voltar aqui e assistir de novo. Toque em <b>Pular</b> para ir aos lançamentos.'
+  };
+
+  /* Rótulos dos botões da tela de entrada. Mude aqui; se mudar, lembre de
+     ajustar as falas 'entrada' e 'fim', que citam esses nomes.
+     O BOTÃO "LER" SAIU, a pedido: dentro do app a leitura tem lugar próprio — o
+     Manual de Uso, no menu —, e um segundo caminho para o mesmo texto é um segundo
+     lugar para consertar. Com ele fora, o cadeado do Pular passa a depender só do
+     vídeo: mantê-lo dependendo de uma leitura que não existe mais trancaria a porta
+     pelo lado de fora. */
+  var BOTOES = {
+    assistir: 'Assistir Tutorial',
+    pular:    'Pular',
+    sair:     'Sair'
+  };
+
+
+  /* ------------------------------------------------------------------
+     dorme(ms): a única fonte de tempo da animação.
+     Respeita pausa e velocidade, e é cancelada quando o TOKEN muda
+     (reiniciar ou trocar de fluxo) — senão duas sequências rodariam
+     em cima da mesma tela.
+  ------------------------------------------------------------------ */
+  function dorme(ms) {
+    var meu = TOKEN;
+    return new Promise(function (ok, falha) {
+      var resta = ms;
+      var t = setInterval(function () {
+        if (meu !== TOKEN) { clearInterval(t); falha('cancelado'); return; }
+        if (PAUSA) return;
+        resta -= 34 * VEL;
+        if (resta <= 0) { clearInterval(t); ok(); }
+      }, 34);
+    });
+  }
+
+  /* ---- o dedo ---- */
+  /* getBoundingClientRect devolve px já com zoom aplicado; translate() dentro
+     do mesmo contexto usa px sem zoom. Sem dividir pelo zoom, o dedo aterrissa
+     no dobro da distância. Com zoom 1 o divisor é 1 e nada muda. */
+  function zoom() {
+    var r = vp.getBoundingClientRect();
+    return vp.offsetWidth ? r.width / vp.offsetWidth : 1;
+  }
+  function pos(el) {
+    var a = el.getBoundingClientRect(), b = vp.getBoundingClientRect(), z = zoom() || 1;
+    return { x: (a.left - b.left + a.width / 2) / z, y: (a.top - b.top + a.height / 2) / z };
+  }
+  async function mover(el, ms) {
+    ms = ms || 420;
+    var p = pos(el);
+    dedo.style.transitionDuration = (ms / VEL) + 'ms, .22s';
+    dedo.classList.add('dedo--on');
+    dedo.style.setProperty('--x', p.x + 'px');
+    dedo.style.setProperty('--y', p.y + 'px');
+    await dorme(ms);
+  }
+  async function tocar(el) {
+    dedo.style.setProperty('--s', '.82');
+    dedo.classList.add('dedo--toca');
+    if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+    await dorme(170);
+    dedo.style.setProperty('--s', '1');
+    await dorme(150);
+    dedo.classList.remove('dedo--toca');
+  }
+  async function bater(el, msMover) { await mover(el, msMover); await tocar(el); }
+  function sumir() { dedo.classList.remove('dedo--on'); }
+
+  /* ------------------------------------------------------------------
+     NARRAÇÃO
+     Usa a voz do próprio aparelho (Web Speech API). Não baixa nada e não
+     depende de servidor. Começa desligada porque o navegador só deixa
+     falar depois de um toque do usuário.
+  ------------------------------------------------------------------ */
+  var VOZES = [], VOZ = null, SOM = false;
+  var temVoz = ('speechSynthesis' in window);
+  var CHAVE_SOM = 'caixas.demo.som';
+
+  /* localStorage falha em janela anônima, com cookies bloqueados e dentro de
+     iframe. Nunca pode derrubar a tela por causa de uma preferência. */
+  function lembrar(v) {
+    try { localStorage.setItem(CHAVE_SOM, v ? '1' : '0'); } catch (e) {}
+  }
+  function lembrado() {
+    try { return localStorage.getItem(CHAVE_SOM) === '1'; } catch (e) { return false; }
+  }
+
+  var FEMININA = /luciana|francisca|thalita|maria|camila|fernanda|joana|leticia|vitoria|yara|brenda|elza|giovanna|female|feminin|mulher/i;
+  /* As vozes "Desktop"/SAPI do Windows e a espeak do Linux são da geração
+     difone — é delas que vem o som metálico. As Natural/Neural/Online da
+     Microsoft e as do Google são neurais e soam como gente. */
+  var BOA = /natural|neural|online|google|siri|premium|enhanced|eloquence/i;
+  var RUIM = /desktop|sapi|espeak|compact|festival|pico/i;
+
+  function pontos(v) {
+    var n = v.name || '', s = 0;
+    if (/pt[-_]?BR/i.test(v.lang)) s += 100;
+    if (BOA.test(n)) s += 45;
+    if (v.localService === false) s += 15;   /* voz de servidor: quase sempre neural */
+    if (FEMININA.test(n)) s += 60;   /* pedido: voz feminina vem antes de tudo */
+    if (RUIM.test(n)) s -= 40;
+    return s;
+  }
+  function ehRobotica(v) {
+    return !!v && RUIM.test(v.name || '') && !BOA.test(v.name || '');
+  }
+
+  function carregarVozes() {
+    if (!temVoz) return;
+    var todas = speechSynthesis.getVoices() || [];
+    VOZES = todas.filter(function (v) { return /^pt/i.test(v.lang); })
+      .sort(function (a, b) { return pontos(b) - pontos(a); });
+    VOZ = VOZES[0] || null;
+    var sel = $('vozes');
+    sel.innerHTML = VOZES.map(function (v, k) {
+      return '<option value="' + k + '">' + v.name + ' (' + v.lang + ')</option>';
+    }).join('');
+    pintarSom();
+  }
+
+  /* estado visível do botão e do que depende dele */
+  function pintarSom() {
+    var b = $('som');
+    var possivel = temVoz && VOZES.length > 0;
+    b.disabled = !possivel;
+    b.setAttribute('aria-pressed', String(SOM && possivel));
+    b.setAttribute('aria-label', SOM ? 'Desligar a narração' : 'Ligar a narração');
+    b.title = possivel
+      ? (SOM ? 'Desligar a narração' : 'Ligar a narração')
+      : 'Este aparelho não tem voz em português';
+    $('som-t').textContent = SOM && possivel ? 'Áudio ligado' : 'Áudio';
+    $('vozes').hidden = !(SOM && possivel && VOZES.length > 1);
+    var av = $('som-aviso');
+    if (!temVoz) {
+      av.hidden = false;
+      av.textContent = 'Este navegador não tem síntese de voz. As legendas continuam valendo.';
+    } else if (!VOZES.length) {
+      av.hidden = false;
+      av.textContent = 'Nenhuma voz em português instalada neste aparelho. '
+        + 'No Windows: Configurações › Hora e idioma › Voz › Adicionar vozes.';
+    } else if (SOM && ehRobotica(VOZ)) {
+      /* a voz metálica não é defeito da tela: é a voz antiga do sistema */
+      av.hidden = false;
+      av.textContent = 'A voz "' + VOZ.name + '" é da geração antiga do Windows e soa metálica. '
+        + 'Para uma voz natural: Configurações › Hora e idioma › Voz › Adicionar vozes › '
+        + 'Português (Brasil), ou abra esta página no Microsoft Edge, que traz as vozes '
+        + 'Natural da Francisca e da Thalita.';
+    } else {
+      av.hidden = true;
+    }
+  }
+  function semTags(h) {
+    var d = document.createElement('div');
+    d.innerHTML = h;
+    return d.textContent;
+  }
+  /* ------------------------------------------------------------------
+     Três defeitos conhecidos do speechSynthesis, todos tratados aqui:
+
+     1. No Chrome, cancel() seguido de speak() no mesmo tique trava a fila —
+        a voz simplesmente para de falar até recarregar a página. Por isso o
+        speak sai num setTimeout depois do cancel.
+     2. Ainda no Chrome, fala com mais de ~15 segundos é cortada no meio.
+        Um pause()+resume() a cada 9s mantém a fila viva.
+     3. Frase longa demais numa única utterance aumenta as duas chances
+        acima, então o texto é quebrado por pontuação.
+  ------------------------------------------------------------------ */
+  var FALA = 0, PULSO = null;
+
+  function pararPulso() {
+    if (PULSO) { clearInterval(PULSO); PULSO = null; }
+  }
+  function pedacos(t) {
+    var partes = t.match(/[^.!?…]+[.!?…]*\s*/g) || [t];
+    var fora = [], atual = '';
+    partes.forEach(function (p) {
+      if ((atual + p).length > 150 && atual) { fora.push(atual.trim()); atual = p; }
+      else { atual += p; }
+    });
+    if (atual.trim()) fora.push(atual.trim());
+    return fora;
+  }
+  function narrar(txt, aoFim) {
+    var pronto = false;
+    function acabou() { if (!pronto) { pronto = true; if (aoFim) aoFim(); } }
+    if (!SOM || !temVoz) { acabou(); return; }
+    var meu = ++FALA;
+    var texto = semTags(txt);
+    try { speechSynthesis.cancel(); } catch (e) {}
+    setTimeout(function () {
+      if (meu !== FALA || !SOM) { acabou(); return; }
+      try {
+        var ps = pedacos(texto);
+        ps.forEach(function (p, i) {
+          var u = new SpeechSynthesisUtterance(p);
+          u.lang = (VOZ && VOZ.lang) || 'pt-BR';
+          /* num try próprio: uma voz recusada não pode impedir a fala inteira —
+             sem a voz escolhida o navegador usa a padrão do idioma. */
+          try { if (VOZ) u.voice = VOZ; } catch (e2) {}
+          /* 0,95 e tom neutro: acima disso a voz sintética fica estridente */
+          u.rate = Math.max(.5, Math.min(2, .95 * VEL));
+          u.pitch = 1;
+          u.volume = 1;
+          if (i === ps.length - 1) {
+            /* onerror conta como fim: sem isso, uma voz que falha deixa a
+               animação parada esperando para sempre. */
+            u.onend = acabou;
+            u.onerror = acabou;
+          }
+          speechSynthesis.speak(u);
+        });
+      } catch (e) { acabou(); }
+    }, 140);
+  }
+  /* Um único pulso, vivo enquanto o som estiver ligado. Reiniciá-lo a cada
+     fala não adiantaria nada: as cenas trocam mais rápido que os 9s. */
+  function ligarPulso() {
+    pararPulso();
+    PULSO = setInterval(function () {
+      if (!SOM || PAUSA) return;                 /* não ressuscita fala pausada */
+      if (!speechSynthesis.speaking) return;
+      try { speechSynthesis.pause(); speechSynthesis.resume(); } catch (e) {}
+    }, 9000);
+  }
+  function calar() {
+    FALA++;
+    pararPulso();
+    if (temVoz) { try { speechSynthesis.cancel(); } catch (e) {} }
+  }
+
+  /* ---- legenda ---- */
+  function mostrar(txt, erro) {
+    leg.innerHTML = txt;
+    leg.classList.toggle('leg--erro', !!erro);
+  }
+  function fala(txt, erro) {
+    mostrar(txt, erro);
+    narrar(txt);
+  }
+
+  /* ------------------------------------------------------------------
+     dizer(): mostra a legenda, narra, e só devolve o controle quando a
+     voz TERMINA de falar — mais um respiro. Com o áudio desligado cai no
+     tempo fixo de sempre, que é o comportamento antigo.
+
+     A corrida com dorme(teto) é rede de segurança: se o onend não chegar
+     (voz que falha sem erro, aba em segundo plano, bug do navegador), a
+     animação segue em vez de travar para sempre.
+  ------------------------------------------------------------------ */
+  var RESPIRO = 420;
+  function dizer(txt, ms, erro) {
+    mostrar(txt, erro);
+    if (!SOM || !temVoz) { narrar(txt); return dorme(ms); }
+    var meu = TOKEN;
+    var fim = new Promise(function (ok) { narrar(txt, ok); });
+    var teto = Math.max(ms, semTags(txt).length * 150 + 4000);
+    return Promise.race([fim, dorme(teto)]).then(function () {
+      if (meu !== TOKEN) throw 'cancelado';
+      return dorme(RESPIRO);
+    });
+  }
+
+  /* ---- números ---- */
+  function num(n) { return n.toLocaleString('pt-BR'); }
+
+  /* ------------------------------------------------------------------
+     TECLADOS
+  ------------------------------------------------------------------ */
+  var NUMS = ['1','2','3','4','5','6','7','8','9','⌫','0','OK'];
+  function tecladoNum() {
+    var h = '<div class="tec tec--num" id="tec"><div class="tec__g">';
+    NUMS.forEach(function (k) {
+      h += '<button class="tec__k" type="button" id="k-' + (k === '⌫' ? 'del' : k === 'OK' ? 'ok' : k) + '">' + k + '</button>';
+    });
+    return h + '</div></div>';
+  }
+  var LINHAS_TXT = [
+    '1234567890'.split(''),
+    'qwertyuiop'.split(''),
+    'asdfghjkl'.split(''),
+    ['z','x','c','v','b','n','m',',','⌫']
+  ];
+  function tecladoTxt() {
+    var h = '<div class="tec tec--txt" id="tec">';
+    LINHAS_TXT.forEach(function (ln) {
+      h += '<div class="tec__l">';
+      ln.forEach(function (k) {
+        h += '<button class="tec__k" type="button" data-k="' + k + '">' + k + '</button>';
+      });
+      h += '</div>';
+    });
+    h += '<div class="tec__l"><button class="tec__k tec__k--w" type="button" data-k=" ">espaço</button>'
+      + '<button class="tec__k" type="button" data-k="ok">ok</button></div>';
+    return h + '</div>';
+  }
+  function sobe(px) {
+    var c = ap.querySelector('.ap__corpo');
+    if (c) c.style.transform = px ? 'translateY(-' + px + 'px)' : '';
+  }
+  async function abreTeclado(px) {
+    await dorme(60);
+    ap.classList.add('ap--tec');
+    if (px) sobe(px);
+    $('tec').classList.add('tec--on');
+    await dorme(390);
+  }
+  async function fechaTeclado() {
+    var t = $('tec');
+    if (t) t.classList.remove('tec--on');
+    ap.classList.remove('ap--tec');
+    sobe(0);
+    await dorme(390);
+  }
+
+  /* digita um número tocando as teclas de verdade */
+  async function digitar(idCampo, valor, aoMudar) {
+    var campo = $(idCampo);
+    campo.classList.add('ap__cx--foco');
+    campo.innerHTML = '<i></i>';
+    var s = '';
+    var d = String(valor).split('');
+    for (var j = 0; j < d.length; j++) {
+      await bater($('k-' + d[j]), 300);
+      s += d[j];
+      campo.innerHTML = s + '<i></i>';
+      if (aoMudar) aoMudar(parseInt(s, 10));
+      await dorme(90);
+    }
+    campo.innerHTML = s;
+    campo.classList.remove('ap__cx--foco');
+  }
+
+  /* digita texto tocando as letras */
+  async function digitarTexto(idAlvo, texto) {
+    var alvo = $(idAlvo), s = '';
+    for (var j = 0; j < texto.length; j++) {
+      var c = texto[j];
+      var k = document.querySelector('[data-k="' + (c === ' ' ? ' ' : c) + '"]');
+      if (k) { await mover(k, 150); await tocar(k); }
+      else { await dorme(90); }
+      s += c;
+      alvo.innerHTML = s + '<i></i>';
+    }
+    alvo.innerHTML = s;
+  }
+
+  /* ------------------------------------------------------------------
+     TELAS
+  ------------------------------------------------------------------ */
+  function telaInicial() {
+    ap.innerHTML =
+      '<div class="ap__cab"><b>Delícia Frutas</b><span>· Matriz São Vicente</span>' +
+        botaoSair() + '</div>' +
+      '<div class="ap__corpo">' +
+        '<p class="ap__r">O que você vai fazer?</p>' +
+        '<button class="ap__acao ap__acao--s" type="button" id="t-saida"><i>→</i>' +
+          '<span><b>Lançar saída</b><em>Caixas que estão saindo agora</em></span></button>' +
+        '<button class="ap__acao ap__acao--r" type="button" id="t-retorno"><i>←</i>' +
+          '<span><b>Lançar retorno</b><em>Caixas que voltaram do cliente</em></span></button>' +
+        '<p class="ap__r">Movimentos de hoje</p>' +
+        '<div class="ap__mini" id="mini">' +
+          '<div><span>Saída · Campina Grande</span><span class="dl-n">840</span></div>' +
+          '<div><span>Retorno · Natal</span><span class="dl-n">612</span></div>' +
+          '<div><span>Saída · Recife</span><span class="dl-n">1.204</span></div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  var TIPOS = [
+    { id: 'p',    nome: 'CX P',    saiu: 250 },
+    { id: 'g',    nome: 'CX G',    saiu: 450 },
+    { id: 'gg',   nome: 'CX GG',   saiu: 320 },
+    { id: 'ifco', nome: 'CX IFCO', saiu: 370 },
+    { id: 'div',  nome: 'CX DIVERSAS', saiu: 60 }
+  ];
+
+  /* ------------------------------------------------------------------
+     O FORMULÁRIO
+     Saída e retorno têm exatamente os mesmos campos no app: data do
+     movimento, local, destino, motorista, veículo e a contagem. Por isso
+     um construtor só, com o rótulo do primeiro campo trocando.
+  ------------------------------------------------------------------ */
+  function hoje() {
+    try {
+      return new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric'
+      }).format(new Date());
+    } catch (e) {
+      var d = new Date();
+      return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear();
+    }
+  }
+
+  function campo(id, rotulo, valor, vazio) {
+    return '<span class="ap__lab">' + rotulo + ' <i class="ob">*</i></span>' +
+           '<div class="ap__campo" id="f-' + id + '">' +
+             '<span class="ap__val' + (vazio ? ' ap__val--v' : '') + '" id="v-' + id + '">' +
+               valor + '</span><span class="ap__seta">⌄</span></div>';
+  }
+
+  /* Fecha a demonstração convidando a usar o app de verdade. O botão
+     dispara demo:iniciar — é aí que o app manda o usuário para a tela
+     real de lançamentos e marca o tutorial como visto. */
+  /* ------------------------------------------------------------------
+     O QUE A PESSOA JÁ CUMPRIU
+     Pular só libera depois de assistir ao tutorial inteiro E abrir as
+     boas-vindas. Fica guardado por aparelho; no app isso deve vir do
+     cadastro do usuário, não do navegador.
+  ------------------------------------------------------------------ */
+  var TELA = 'entrada';
+  var VIU = { video: false };
+  /* A MARCA E POR TUTORIAL, e nao uma so para os dois. Com a chave compartilhada,
+     assistir ao de saida deixava o de retorno dizendo “✓ Assistir ao tutorial de
+     retorno” — uma marca de conclusao sobre algo que ninguem viu, e o cadeado do
+     Pular abria junto. */
+  var CHAVE_VIU = 'caixas.demo.viu.' + SO;
+
+  function lerViu() {
+    try {
+      var g = JSON.parse(localStorage.getItem(CHAVE_VIU) || 'null');
+      if (g) { VIU.video = !!g.video; }
+    } catch (e) {}
+  }
+  function guardarViu() {
+    try { localStorage.setItem(CHAVE_VIU, JSON.stringify(VIU)); } catch (e) {}
+    document.dispatchEvent(new CustomEvent('demo:progresso', { detail: { video: VIU.video } }));
+  }
+  function liberado() { return VIU.video; }
+  function painel(mostra) { $('painel').hidden = !mostra; }
+
+  function botaoSair() {
+    return '<button class="ap__sair" type="button" id="t-sair">' + BOTOES.sair + '</button>';
+  }
+
+  function telaEntrada(sub) {
+    function item(ok, txt) {
+      return '<li class="' + (ok ? 'ok' : '') + '"><i>' + (ok ? '✓' : '○') + '</i>' + txt + '</li>';
+    }
+    /* sem cabeçalho: esta tela ocupa o app inteiro quando ele abre */
+    ap.innerHTML =
+      '<div class="ap__corpo ap__fim">' +
+        '<img class="ap__fim__logo" src="logo.png" alt="Delícia Frutas">' +
+        '<h2>Vamos começar a nossa jornada de <b>Controle de Caixas</b></h2>' +
+        '<p>' + sub + '</p>' +
+        '<button class="ap__grv" type="button" id="t-assistir">' + BOTOES.assistir + '</button>' +
+        '<div class="ap__fim__l">' +
+          '<button class="ap__grv ap__grv--fan' + (liberado() ? '' : ' ap__grv--bloq') +
+            '" type="button" id="t-pular">' + (liberado() ? '' : '🔒 ') + BOTOES.pular + '</button>' +
+        '</div>' +
+        '<ul class="ap__chk">' +
+          item(VIU.video, ITEM_VIDEO) +
+        '</ul>' +
+      '</div>';
+  }
+
+  /* volta para a entrada sem deixar nada rodando atrás */
+  function irEntrada(sub, fala) {
+    TOKEN++;
+    calar();
+    sumir();
+    TELA = 'entrada';
+    painel(false);
+    telaEntrada(sub);
+    mostrar(fala);
+    narrar(fala);
+  }
+  var SUB_ENTRADA, SUB_FIM, ITEM_VIDEO;
+  if (SO === 'saida') {
+    SUB_ENTRADA = 'Assista à demonstração da saída, leia o passo a passo, ou pule direto para os lançamentos.';
+    SUB_FIM     = 'Você já viu como lançar a saída. Agora é com você.';
+    ITEM_VIDEO  = 'Assistir ao tutorial de saída';
+    FALAS.entrada = 'Vamos aprender os <b>lançamentos de saída</b>. Toque em <b>Assistir Tutorial</b>.';
+    FALAS.fim     = 'Pronto. Sempre que precisar, é só voltar aqui e assistir de novo.';
+  } else if (SO === 'retorno') {
+    SUB_ENTRADA = 'Assista à demonstração do retorno, leia o passo a passo, ou pule direto para os lançamentos.';
+    SUB_FIM     = 'Você já viu como lançar o retorno. Agora é com você.';
+    ITEM_VIDEO  = 'Assistir ao tutorial de retorno';
+    FALAS.entrada = 'Vamos aprender os <b>lançamentos de retorno</b>. Toque em <b>Assistir Tutorial</b>.';
+    FALAS.fim     = 'Pronto. Sempre que precisar, é só voltar aqui e assistir de novo.';
+  } else {
+    SUB_ENTRADA = 'Assista à demonstração, leia o passo a passo, ou pule direto para os lançamentos.';
+    SUB_FIM     = 'Você já viu como lançar a saída e o retorno. Agora é com você.';
+    ITEM_VIDEO  = 'Assistir ao tutorial';
+  }
+
+  function formMov(fl) {
+    var saida = fl !== 'retorno';
+    var linhas = TIPOS.map(function (t) {
+      return '<div class="ap__ln"><span>' + t.nome + '</span>' +
+             '<span class="ap__cx" id="cx-' + t.id + '"></span></div>';
+    }).join('');
+    ap.innerHTML =
+      '<div class="ap__cab"><span class="ap__volta">←</span><b>' +
+        (saida ? 'Saída' : 'Retorno') + '</b>' + botaoSair() + '</div>' +
+      '<div class="ap__corpo">' +
+        '<div class="ap__cartao"><b>' + (saida ? 'Saída de caixas' : 'Retorno de caixas') + '</b>' +
+          '<p>' + (saida
+            ? 'Caixas saindo do galpão ou da filial. Confirmado na hora — a contagem da saída é a fonte da verdade.'
+            : 'Caixas voltando do cliente ou da filial. Confirmado na hora — a contagem do retorno é a fonte da verdade.') +
+          '</p></div>' +
+        '<span class="ap__lab">Data do movimento <i class="ob">*</i></span>' +
+        '<div class="ap__campo" id="f-data"><span class="ap__val" id="v-data">' + hoje() + '</span>' +
+          '<span class="ap__seta">▦</span></div>' +
+        campo(saida ? 'origem' : 'origem', saida ? 'Saída' : 'Retorno', 'Selecione...', true) +
+        campo('destino', 'Destino', 'Selecione...', true) +
+        campo('motorista', 'Motorista', 'Selecione...', true) +
+        campo('veiculo', 'Veículo', 'Selecione...', true) +
+        '<p class="ap__req">Campos com <i class="ob">*</i> são obrigatórios.</p>' +
+        '<p class="ap__r">Quantas caixas <i class="ob">*</i></p>' +
+        '<div class="ap__cont">' + linhas + '</div>' +
+        '<div class="ap__tot" id="tot"><span>Total</span><b id="tot-n">0</b></div>' +
+        '<button class="ap__grv" type="button" id="grv" disabled>Gravar ' +
+          (saida ? 'saída' : 'retorno') + '</button>' +
+      '</div>';
+  }
+
+  /* preenche um campo pela folha de opções, como no app */
+  async function escolher(id, titulo, opcoes, msMover) {
+    await bater($('f-' + id), msMover || 460);
+    await abreFolha(titulo, opcoes);
+    await bater($('o-0'), 460);
+    await fechaFolha();
+    var v = $('v-' + id);
+    v.textContent = opcoes[0];
+    v.classList.remove('ap__val--v');
+    $('f-' + id).classList.add('ap__campo--foco');
+    await dorme(650);
+    $('f-' + id).classList.remove('ap__campo--foco');
+  }
+
+  /* preenche a contagem e devolve o total */
+  async function contar(valores) {
+    var somas = {};
+    function total() {
+      var s = 0;
+      for (var k in somas) s += somas[k];
+      $('tot-n').textContent = num(s);
+      return s;
+    }
+    vp.insertAdjacentHTML('beforeend', tecladoNum());
+    await bater($('cx-p'), 440);
+    await abreTeclado(490);
+    for (var j = 0; j < TIPOS.length; j++) {
+      var t = TIPOS[j];
+      if (j > 0) await bater($('cx-' + t.id), 340);
+      /* jshint loopfunc:true */
+      await digitar('cx-' + t.id, valores[t.id], (function (id) {
+        return function (v) { somas[id] = v; total(); };
+      })(t.id));
+      await dorme(150);
+    }
+    $('grv').disabled = false;
+    await bater($('k-ok'), 340);
+    await fechaTeclado();
+    var el = $('tec'); if (el) el.parentNode.removeChild(el);
+    return total();
+  }
+
+  var DESTINOS  = ['João Pessoa', 'Campina Grande', 'Natal', 'Recife'];
+  var LOCAIS    = ['Matriz São Vicente', 'Filial Recife', 'Filial Campina Grande'];
+  var MOTORISTAS = ['Carlos Alberto', 'Rildo Ferreira', 'Bruno Lima', 'José Nunes'];
+  var VEICULOS  = ['RGT-8D45 · Baú 3/4', 'PEB-1C72 · Truck', 'QZA-3F09 · Toco', 'MDT-6B30 · Carreta'];
+  var SAIU  = { p: 250, g: 450, gg: 320, ifco: 370, div: 60 };
+  var VOLTOU = { p: 150, g: 300, gg: 200, ifco: 250, div: 40 };
+
+  /* ------------------------------------------------------------------
+     ROTEIRO — SAÍDA
+  ------------------------------------------------------------------ */
+  var SAIDA = [
+
+    { f: async function () {
+        telaInicial();
+        await dizer(FALAS.s01, 2600);
+        await bater($('t-saida'), 560);
+        await dorme(400);
+      } },
+
+    { f: async function () {
+        formMov('saida');
+        await dizer(FALAS.sData, 1600);
+        await bater($('f-data'), 480);
+        $('f-data').classList.add('ap__campo--foco');
+        await dorme(800);
+        $('f-data').classList.remove('ap__campo--foco');
+      } },
+
+    { f: async function () {
+        await dizer(FALAS.s02, 1400);
+        await escolher('origem', 'Saída', LOCAIS);
+      } },
+
+    { f: async function () {
+        await dizer(FALAS.s03, 1400);
+        await escolher('destino', 'Destino', DESTINOS);
+      } },
+
+    { f: async function () {
+        await dizer(FALAS.s04, 1400);
+        await escolher('motorista', 'Motorista', MOTORISTAS);
+      } },
+
+    { f: async function () {
+        await dizer(FALAS.s05, 1400);
+        await escolher('veiculo', 'Veículo', VEICULOS);
+      } },
+
+    { f: async function () {
+        await dizer(FALAS.s06, 1400);
+        await contar(SAIU);
+      } },
+
+    { f: async function () {
+        /* o formulário é mais alto que a tela: rola até o total e o botão */
+        sobe(340);
+        await dorme(380);
+        $('tot').classList.add('ap__tot--pulso');
+        await dizer(FALAS.s07, 1900);
+        $('tot').classList.remove('ap__tot--pulso');
+        await bater($('grv'), 460);
+        await dorme(300);
+        await toast('Saída gravada · Mov 1042', '1.450 caixas saíram para João Pessoa');
+        sumir();
+        await dorme(1600);
+      } },
+
+    { f: async function () {
+        telaInicial();
+        $('mini').insertAdjacentHTML('afterbegin',
+          '<div class="novo"><span>Saída · João Pessoa</span><span class="dl-n">1.450</span></div>');
+        await dizer(FALAS.s08, 2600);
+      } }
+  ];
+
+  /* ------------------------------------------------------------------
+     ROTEIRO — RETORNO
+     Mesma sequência da saída: no app os dois formulários são iguais.
+  ------------------------------------------------------------------ */
+  var RETORNO = [
+
+    { f: async function () {
+        telaInicial();
+        await dizer(EMENDOU ? FALAS.r01b : FALAS.r01, 1800);
+        EMENDOU = false;
+        await bater($('t-retorno'), 560);
+        await dorme(400);
+      } },
+
+    { f: async function () {
+        formMov('retorno');
+        await dizer(FALAS.rData, 1600);
+        await bater($('f-data'), 480);
+        $('f-data').classList.add('ap__campo--foco');
+        await dorme(800);
+        $('f-data').classList.remove('ap__campo--foco');
+      } },
+
+    { f: async function () {
+        await dizer(FALAS.r02, 1400);
+        await escolher('origem', 'Retorno', DESTINOS);
+      } },
+
+    { f: async function () {
+        await dizer(FALAS.r03, 1400);
+        await escolher('destino', 'Destino', LOCAIS);
+      } },
+
+    { f: async function () {
+        await dizer(FALAS.r04, 1400);
+        await escolher('motorista', 'Motorista', MOTORISTAS);
+      } },
+
+    { f: async function () {
+        await dizer(FALAS.r05, 1400);
+        await escolher('veiculo', 'Veículo', VEICULOS);
+      } },
+
+    { f: async function () {
+        await dizer(FALAS.r06, 1400);
+        await contar(VOLTOU);
+      } },
+
+    { f: async function () {
+        sobe(340);
+        await dorme(380);
+        $('tot').classList.add('ap__tot--pulso');
+        await dizer(FALAS.r07, 1900);
+        $('tot').classList.remove('ap__tot--pulso');
+        await bater($('grv'), 460);
+        await dorme(300);
+        await toast('Retorno gravado · Mov 1043', '940 caixas voltaram de João Pessoa');
+        sumir();
+        await dorme(1600);
+      } },
+
+    { f: async function () {
+        telaInicial();
+        $('mini').insertAdjacentHTML('afterbegin',
+          '<div class="novo"><span>Retorno · João Pessoa</span><span class="dl-n">940</span></div>');
+        await dizer(FALAS.r08, 2600);
+      } },
+
+  ];
+
+  function folha(titulo, opcoes) {
+    var h = '<div class="dl-folha" id="dl-folha"><p class="dl-folha__t">' + titulo + '</p>';
+    opcoes.forEach(function (o, k) {
+      h += '<button class="dl-folha__o" type="button" id="o-' + k + '">' + o + '<span>›</span></button>';
+    });
+    return h + '</div>';
+  }
+  async function abreFolha(titulo, opcoes) {
+    vp.insertAdjacentHTML('beforeend', folha(titulo, opcoes));
+    await dorme(60);
+    $('folha').classList.add('dl-folha--on');
+    await dorme(340);
+  }
+  async function fechaFolha() {
+    var f = $('folha');
+    if (!f) return;
+    f.classList.remove('dl-folha--on');
+    await dorme(320);
+    if (f.parentNode) f.parentNode.removeChild(f);
+  }
+
+  async function tiraToast() {
+    var t = $('toast');
+    if (!t) return;
+    t.classList.remove('toast--on');
+    await dorme(330);
+    if (t.parentNode) t.parentNode.removeChild(t);
+  }
+
+  async function toast(titulo, sub) {
+    vp.insertAdjacentHTML('beforeend',
+      '<div class="toast" id="toast"><i>✓</i><span><b>' + titulo + '</b><em>' + sub + '</em></span></div>');
+    await dorme(60);
+    $('toast').classList.add('toast--on');
+    await dorme(340);
+  }
+
+  /* ------------------------------------------------------------------
+     MOTOR
+  ------------------------------------------------------------------ */
+  var EMENDOU = false;
+
+  function roteiro() { return raiz.dataset.fluxo === 'retorno' ? RETORNO : SAIDA; }
+
+  function progresso() {
+    $('ctrl-i').style.width = (ATO / TOTAL * 100) + '%';
+  }
+
+  async function rodar() {
+    var meu = ++TOKEN;
+    calar();
+    /* teclado, folha e toast são irmãos da tela do app dentro do visor —
+       trocar o innerHTML da tela não os remove. Sem esta limpeza, o toast
+       "Saída gravada" fica pendurado por cima do fluxo de retorno. */
+    [].forEach.call(vp.querySelectorAll('.tec,.dl-folha,.toast'), function (el) {
+      el.parentNode.removeChild(el);
+    });
+    var L = roteiro();
+    TOTAL = L.length; ATO = 0; progresso();
+    dedo.classList.remove('dedo--on');
+    dedo.style.setProperty('--x', '186px');
+    dedo.style.setProperty('--y', '520px');
+    try {
+      for (var j = 0; j < L.length; j++) {
+        if (meu !== TOKEN) return;
+        await L[j].f();
+        ATO = j + 1; progresso();
+      }
+      sumir();
+      /* Na versão completa a saída emenda no retorno, que é a outra metade da
+         mesma operação. Nas versões separadas, cada uma termina em si. */
+      if (SO === 'ambos' && raiz.dataset.fluxo !== 'retorno') {
+        await dizer(FALAS.s09, 2400);
+        document.dispatchEvent(new CustomEvent('demo:fim', { detail: 'saida' }));
+        EMENDOU = true;
+        trocar('retorno');
+        return;
+      }
+      await tiraToast();
+      VIU.video = true;                          /* assistiu até o fim */
+      guardarViu();
+      TELA = 'entrada';
+      painel(false);
+      telaEntrada(SUB_FIM);
+      await dizer(FALAS.fim, 2800);
+      window.__demoFim = true;
+      document.dispatchEvent(new CustomEvent('demo:fim', { detail: raiz.dataset.fluxo }));
+    } catch (e) {
+      /* cancelado por reiniciar ou troca de fluxo: normal, não é erro */
+    }
+  }
+
+  function trocar(fl) {
+    raiz.setAttribute('data-fluxo', fl);
+    window.__demoFim = false;
+    rodar();
+  }
+
+  /* clique real do usuário no botão de encerramento */
+  /* Cliques reais na tela de entrada. Cada um avisa o app por um evento;
+     é lá que a navegação de verdade acontece. */
+  ap.addEventListener('click', function (e) {
+    if (e.target.closest('#t-sair')) {
+      /* cancelable: o app pode fechar o tutorial do seu jeito */
+      var sai = document.dispatchEvent(new CustomEvent('demo:sair', { cancelable: true }));
+      if (sai) irEntrada(SUB_ENTRADA, FALAS.entrada);
+      else { TOKEN++; calar(); }
+      return;
+    }
+    var b = e.target.closest('#t-assistir,#t-pular');
+    if (!b) return;
+    if (b.id === 't-assistir') {
+      document.dispatchEvent(new CustomEvent('demo:assistir'));
+      TELA = 'tutorial';
+      painel(true);                              /* controles só aqui dentro */
+      EMENDOU = false;
+      trocar(SO === 'retorno' ? 'retorno' : 'saida');
+      return;
+    }
+    /* trancado: não dá para pular sem ter assistido */
+    if (!liberado()) {
+      mostrar('Ainda falta <b>assistir ao tutorial</b>.');
+      return;
+    }
+    document.dispatchEvent(new CustomEvent('demo:pular'));
+    calar();
+    TOKEN++;
+    painel(false);
+    telaInicial();
+    mostrar('<b>Pular</b> leva direto para os lançamentos.');
+  });
+
+  var abas = document.querySelector('.fluxos');
+  if (abas) {
+    abas.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-fl]');
+      if (b) trocar(b.dataset.fl);
+    });
+  }
+  $('reiniciar').addEventListener('click', function () {
+    window.__demoFim = false;
+    rodar();
+  });
+  $('tocar').addEventListener('click', function () {
+    PAUSA = !PAUSA;
+    this.textContent = PAUSA ? 'Continuar' : 'Pausar';
+    if (temVoz) { try { PAUSA ? speechSynthesis.pause() : speechSynthesis.resume(); } catch (e) {} }
+  });
+
+  function ligarSom(v) {
+    SOM = !!v;
+    lembrar(SOM);
+    pintarSom();
+    if (SOM) {
+      ligarPulso();
+      /* Recomeça do início: com o som ligado cada cena passa a esperar a voz
+         terminar. Continuar do meio deixaria a cena atual no relógio antigo e
+         a primeira fala sairia cortada — que é exatamente o defeito a evitar. */
+      if (TELA === 'tutorial') rodar(); else narrar(leg.innerHTML);
+    } else {
+      calar();
+    }
+  }
+  $('som').addEventListener('click', function () { ligarSom(!SOM); });
+
+  $('vozes').addEventListener('change', function () {
+    VOZ = VOZES[parseInt(this.value, 10)] || VOZ;
+    if (SOM) narrar(leg.innerHTML);
+  });
+
+  if (temVoz) {
+    carregarVozes();
+    speechSynthesis.addEventListener('voiceschanged', carregarVozes);
+    /* A lista de vozes costuma chegar depois do load em alguns navegadores. */
+    setTimeout(carregarVozes, 900);
+    if (lembrado()) {
+      SOM = true;
+      pintarSom();
+      ligarPulso();
+      /* iOS e Safari só deixam falar depois de um toque. Se o áudio estava
+         ligado da visita anterior, espera o primeiro toque para voltar a falar
+         em vez de ficar mudo sem explicação. */
+      var destrava = function () {
+        document.removeEventListener('pointerdown', destrava);
+        if (SOM) narrar(leg.innerHTML);
+      };
+      document.addEventListener('pointerdown', destrava);
+    }
+  }
+  pintarSom();
+  $('vels').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-v]');
+    if (!b) return;
+    VEL = parseFloat(b.dataset.v);
+    [].forEach.call(this.querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x === b));
+    });
+  });
+
+
+  /* ==================================================================
+     EDITOR DE FALAS
+     Mesmo bloco FALAS acima, editável pela tela. O que for digitado aqui
+     entra na hora, é guardado neste aparelho e sai no HTML baixado.
+     ================================================================== */
+  var FALAS_ORIG = JSON.parse(JSON.stringify(FALAS));
+  var CHAVE_FALAS = 'caixas.demo.falas.' + SO;
+  var ROTULOS = [
+    ['s01', 'Abertura da saída'],
+    ['sData', 'Data do movimento (saída)'],
+    ['s02', 'Campo saída'],
+    ['s03', 'Campo destino (saída)'],
+    ['s04', 'Campo motorista (saída)'],
+    ['s05', 'Campo veículo (saída)'],
+    ['s06', 'Quantas caixas (saída)'],
+    ['s07', 'Conferir o total e gravar'],
+    ['s08', 'Saída gravada'],
+    ['s09', 'Passagem para o retorno'],
+    ['r01', 'Abertura do retorno (aberto pela aba)'],
+    ['r01b', 'Abertura do retorno (emendado na saída)'],
+    ['rData', 'Data do movimento (retorno)'],
+    ['r02', 'Campo retorno'],
+    ['r03', 'Campo destino (retorno)'],
+    ['r04', 'Campo motorista (retorno)'],
+    ['r05', 'Campo veículo (retorno)'],
+    ['r06', 'Quantas caixas (retorno)'],
+    ['r07', 'Conferir o total e gravar'],
+    ['r08', 'Retorno gravado'],
+    ['entrada', 'Tela de entrada do app'],
+    ['fim', 'Encerramento']
+  ];
+
+  /* Guarda SÓ o que foi alterado, junto com o texto de fábrica em que a
+     alteração se baseou. Sem isso, uma versão nova do arquivo chegava com
+     textos novos e o navegador os sobrescrevia em silêncio com a cópia
+     antiga — o campo mostrava uma coisa e a correção nunca aparecia. */
+  function guardarFalas() {
+    var pac = { base: {}, meu: {} };
+    ROTULOS.forEach(function (r) {
+      var k = r[0];
+      if (FALAS[k] !== FALAS_ORIG[k]) { pac.base[k] = FALAS_ORIG[k]; pac.meu[k] = FALAS[k]; }
+    });
+    try { localStorage.setItem(CHAVE_FALAS, JSON.stringify(pac)); } catch (e) {}
+  }
+  var SUBSTITUIDAS = [];
+  function lerFalas() {
+    SUBSTITUIDAS = [];
+    var g;
+    try { g = JSON.parse(localStorage.getItem(CHAVE_FALAS) || 'null'); } catch (e) { return; }
+    if (!g || !g.meu || !g.base) {
+      /* formato antigo: descarta, era ele que causava o problema */
+      try { localStorage.removeItem(CHAVE_FALAS); } catch (e2) {}
+      return;
+    }
+    ROTULOS.forEach(function (r) {
+      var k = r[0];
+      if (typeof g.meu[k] !== 'string') return;
+      if (g.base[k] === FALAS_ORIG[k]) FALAS[k] = g.meu[k];   /* texto de fábrica não mudou: sua edição vale */
+      else SUBSTITUIDAS.push(r[1]);                            /* mudou: a versão nova ganha */
+    });
+    if (SUBSTITUIDAS.length) guardarFalas();
+  }
+
+  function montarEditor() {
+    var grupo = '';
+    $('ed-campos').innerHTML = ROTULOS.map(function (r) {
+      var g = r[0].charAt(0) === 's' ? 'SAÍDA' : 'RETORNO';
+      var cab = '';
+      if (g !== grupo) { grupo = g; cab = '<p class="ed__g">' + g + '</p>'; }
+      return cab + '<div class="ed__i"><label for="f-' + r[0] + '">' + r[1] +
+             ' &nbsp;<b>' + r[0] + '</b></label>' +
+             '<textarea id="f-' + r[0] + '" data-k="' + r[0] + '" rows="3"></textarea>' +
+             '<button type="button" class="ed__ouvir" data-ouvir="' + r[0] + '">Ouvir</button>' +
+             '</div>';
+    }).join('');
+    ROTULOS.forEach(function (r) { $('f-' + r[0]).value = FALAS[r[0]]; });
+  }
+  function aviso(txt) {
+    $('ed-ok').textContent = txt;
+    clearTimeout(aviso.t);
+    aviso.t = setTimeout(function () { $('ed-ok').textContent = ''; }, 4000);
+  }
+
+  $('abrir-ed').addEventListener('click', function () {
+    var ed = $('ed');
+    ed.hidden = !ed.hidden;
+    this.setAttribute('aria-expanded', String(!ed.hidden));
+    this.textContent = ed.hidden ? 'Editar as falas' : 'Fechar o editor';
+  });
+  $('ed-campos').addEventListener('input', function (e) {
+    var t = e.target;
+    if (!t.dataset || !t.dataset.k) return;
+    FALAS[t.dataset.k] = t.value;
+    guardarFalas();
+    aviso('Texto guardado. Use o botão Ouvir para conferir a voz.');
+  });
+  /* ouvir uma fala isolada: esperar a cena chegar para saber se o texto
+     mudou é o que faz parecer que a edição não pegou */
+  $('ed-campos').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-ouvir]');
+    if (!b) return;
+    var k = b.dataset.ouvir;
+    if (!SOM) { aviso('Ligue o Áudio primeiro.'); return; }
+    calar();
+    narrar(FALAS[k]);
+    aviso('Falando: ' + k);
+  });
+  $('ed-reset').addEventListener('click', function () {
+    ROTULOS.forEach(function (r) { FALAS[r[0]] = FALAS_ORIG[r[0]]; });
+    guardarFalas();
+    montarEditor();
+    aviso('Textos originais restaurados.');
+  });
+
+  /* monta uma cópia do próprio arquivo com o bloco FALAS trocado */
+  function blocoFalas() {
+    var linhas = ROTULOS.map(function (r, i) {
+      var v = String(FALAS[r[0]]).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      return "    " + r[0] + ": '" + v + "'" + (i === ROTULOS.length - 1 ? '' : ',');
+    });
+    return '  var FALAS = {\n' + linhas.join('\n') + '\n  };';
+  }
+  $('ed-baixar').addEventListener('click', function () {
+    try {
+      var src = '<!doctype html>\n' + document.documentElement.outerHTML;
+      var re = /[ ]{2}var FALAS = \{[\s\S]*?\n[ ]{2}\};/;
+      if (!re.test(src)) { aviso('Não achei o bloco FALAS no arquivo.'); return; }
+      src = src.replace(re, blocoFalas());
+      var url = URL.createObjectURL(new Blob([src], { type: 'text/html;charset=utf-8' }));
+      var a = document.createElement('a');
+      a.href = url; a.download = 'demo-lancamento.html';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      aviso('Arquivo baixado com as suas falas.');
+    } catch (e) {
+      aviso('O navegador bloqueou o download. Copie os textos à mão.');
+    }
+  });
+
+  lerFalas();
+  montarEditor();
+  if (SUBSTITUIDAS.length) {
+    $('ed').hidden = false;
+    $('abrir-ed').setAttribute('aria-expanded', 'true');
+    $('abrir-ed').textContent = 'Fechar o editor';
+    aviso('Esta versão trouxe texto novo para: ' + SUBSTITUIDAS.join(', ') +
+          '. As suas edições anteriores nesses trechos foram descartadas.');
+  }
+
+  /* ganchos para gravação automática */
+  window.__demo = { trocar: trocar, rodar: rodar };
+  window.__demoFim = false;
+
+  if (SO === 'retorno' || location.hash === '#retorno') raiz.setAttribute('data-fluxo', 'retorno');
+  if (location.search.indexOf('gravar=1') > -1) raiz.setAttribute('data-gravar', '1');
+
+  lerViu();
+  /* O tutorial NÃO começa sozinho: ele espera o toque em Assistir. */
+  painel(false);
+  telaEntrada(SUB_ENTRADA);
+  mostrar(FALAS.entrada);
+  /* ?auto=1 dispara o tutorial sem toque — usado só para gravar o vídeo */
+  if (location.search.indexOf('auto=1') > -1) {
+    TELA = 'tutorial';
+    painel(true);
+    trocar(SO === 'retorno' ? 'retorno' : 'saida');
+  }
+})();
+</script>
+
+<script>
+/* ================= A VOLTA PARA O APP =================
+ *
+ * O demo nao navega sozinho: ele AVISA, por eventos, e quem decide para onde ir e o
+ * app. Foi assim que ele chegou escrito, e e o que permite que este arquivo continue
+ * abrindo direto no navegador sem quebrar nada.
+ *
+ * AS TRES SAIDAS MARCAM. Assistir ate o fim, ler o manual ou pular sao escolhas
+ * diferentes sobre a MESMA pergunta — "voce ja foi apresentado?" —, e a resposta das
+ * tres e sim. Marcar so o fim do video faria quem le o manual voltar a cair aqui no
+ * proximo acesso, e a terceira vez isso deixa de parecer ajuda.
+ *
+ * A MARCA LOCAL VAI NA HORA; a do servidor, sem esperar. Esperar a rede seria segurar
+ * a pessoa numa tela que ela acabou de pedir para deixar — e o pior caso da espera sao
+ * trinta segundos. Gravada a sessao, este navegador ja nao volta para ca; se o pedido
+ * se perder, o proximo acesso de OUTRO aparelho mostra o tutorial de novo, que e o
+ * lado errado menos caro. */
+(function () {
+  'use strict';
+  var Q = window.QDC;
+
+  /* EMBUTIDO NO PAINEL, ele nao navega. As saidas dele mandam para o app de campo; dentro
+     do quadro do painel isso carregaria o app de campo DENTRO da pagina do escritorio,
+     que e o oposto do que o botao promete. Aqui ele so marca e deixa o demo fazer o que
+     ja faz sozinho: voltar para a propria tela de entrada. */
+  var embutido = (function () {
+    try { return window.top !== window.self; } catch (e) { return true; }
+  })();
+
+  function marcar() {
+    try {
+      var s = Q && Q.sessao();
+      if (!s || !s.id) return;
+      s.viuTutorial = true;
+      Q.entrar(s);
+      Q.post({ acao: 'viuTutorial', usuarioId: s.id }).catch(function () {});
+    } catch (e) {}
+  }
+  function voltar() { location.href = 'index.html'; }
+
+  /* `preventDefault` no que e cancelavel: sem ele o demo redesenha a propria tela de
+     entrada no instante anterior a navegacao, e a pessoa ve um pisca sem sentido. */
+  document.addEventListener('demo:sair', function (e) {
+    marcar();
+    if (embutido) return;          /* o demo redesenha a tela de entrada sozinho */
+    e.preventDefault();
+    voltar();
+  });
+  document.addEventListener('demo:pular', function () {
+    marcar();
+    if (!embutido) voltar();
+  });
+  /* `demo:fim` dispara duas vezes — uma ao fim da saida, que EMENDA no retorno, e uma
+     ao fim do retorno, que e o fim de verdade. So a segunda encerra. */
+  document.addEventListener('demo:fim', function (e) {
+    if (e.detail === 'retorno') marcar();
+  });
+})();
+</script>
+</body>
+</html>

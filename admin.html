@@ -263,6 +263,43 @@
         </svg>
         <span class="nav-rotulo">Painel</span>
       </button>
+      <!-- INSTRUÇÕES E OS DOIS TUTORIAIS FICAM NA OPERAÇÃO, e não em Sistema.
+           Sistema é o que muda a CARA do sistema; estas três respondem "como eu faço o
+           meu trabalho", e é aqui que o trabalho está. Quem precisa delas é quem acabou
+           de chegar e vai lançar — e quem acabou de chegar procura no grupo onde
+           encontrou as telas de lançar, não num grupo de configuração.
+
+           SÃO DOIS TUTORIAIS, e não um: saída e retorno são dois gestos diferentes, e
+           quem vai fazer um deles agora não quer esperar o outro terminar para chegar
+           ao seu. O tutorial completo continua em Sistema, para quem quer os dois
+           seguidos. -->
+      <button data-grupo="Operação" style="display:none" data-pagina="pgInstrucoes" data-acima="Operação">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle>
+          <line x1="12" y1="11" x2="12" y2="16.5"></line>
+          <line x1="12" y1="7.5" x2="12" y2="7.5"></line>
+        </svg>
+        <span class="nav-rotulo">Instruções</span>
+      </button>
+      <button data-grupo="Operação" style="display:none" data-pagina="pgTutorialSaida" data-acima="Operação">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2.5" y="5" width="19" height="14" rx="2.5"></rect>
+          <path d="M10 9.2l5 2.8-5 2.8z"></path>
+          <line x1="7" y1="22" x2="17" y2="22"></line>
+        </svg>
+        <span class="nav-rotulo">Tutorial de Saída</span>
+      </button>
+      <button data-grupo="Operação" style="display:none" data-pagina="pgTutorialRetorno" data-acima="Operação">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2.5" y="5" width="19" height="14" rx="2.5"></rect>
+          <path d="M14 9.2l-5 2.8 5 2.8z"></path>
+          <line x1="7" y1="22" x2="17" y2="22"></line>
+        </svg>
+        <span class="nav-rotulo">Tutorial de Retorno</span>
+      </button>
       <div class="nav-grupo" data-grupo="Dados">Dados</div>
       <button data-grupo="Dados" style="display:none" data-pagina="pgCadastros" data-acima="Ajustes da tela">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -298,15 +335,6 @@
            saldo e baixa de perda, ou seja, MEXE NO ESTOQUE. Ficava ao
            lado das configurações por causa do nome, e o nome mudou. -->
       <div class="nav-grupo" data-grupo="Sistema">Sistema</div>
-      <button data-grupo="Sistema" style="display:none" data-pagina="pgInstrucoes" data-acima="Sistema">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9"></circle>
-          <line x1="12" y1="11" x2="12" y2="16.5"></line>
-          <line x1="12" y1="7.5" x2="12" y2="7.5"></line>
-        </svg>
-        <span class="nav-rotulo">Instruções</span>
-      </button>
       <button data-grupo="Sistema" style="display:none" data-pagina="pgVideo" data-acima="Sistema">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1079,6 +1107,33 @@
       <div class="quadro-video">
         <iframe id="quadroTutorial" title="Demonstração de lançamento"
                 src="demo-lancamento.html" loading="lazy"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- TUTORIAL DE SAÍDA ---------- -->
+  <!-- A MESMA PÁGINA que o app de campo abre, e não uma segunda cópia dela: duas
+       divergem no primeiro conserto que só uma receber, e aí o galpão e o escritório
+       passam a ver tutoriais diferentes do mesmo sistema. -->
+  <section id="pgTutorialSaida" class="pagina">
+    <div class="card">
+      <h2>Tutorial de Saída<span class="sub">A demonstração de como lançar uma saída,
+        campo por campo.</span></h2>
+      <div class="quadro-video">
+        <iframe id="quadroTutorialSaida" title="Demonstração de saída"
+                src="demo-lancamento-saida.html" loading="lazy"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- TUTORIAL DE RETORNO ---------- -->
+  <section id="pgTutorialRetorno" class="pagina">
+    <div class="card">
+      <h2>Tutorial de Retorno<span class="sub">A demonstração de como lançar um retorno,
+        campo por campo.</span></h2>
+      <div class="quadro-video">
+        <iframe id="quadroTutorialRetorno" title="Demonstração de retorno"
+                src="demo-lancamento-retorno.html" loading="lazy"></iframe>
       </div>
     </div>
   </section>

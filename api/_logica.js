@@ -143,6 +143,11 @@ var ABAS = [
      mostra dado de operacao: mostra quem entrou e o que essa pessoa pode abrir. */
   { ID: 'pgInstrucoes', Nome: 'Instruções' },
   { ID: 'pgVideo',      Nome: 'Vídeo Tutorial' },
+  /* OS DOIS TUTORIAIS SEPARADOS, um por gesto: saida e retorno sao coisas diferentes,
+     e quem vai fazer uma delas agora nao quer esperar a outra terminar. O tutorial
+     completo continua existindo para quem quer os dois seguidos. */
+  { ID: 'pgTutorialSaida',   Nome: 'Tutorial de Saída' },
+  { ID: 'pgTutorialRetorno', Nome: 'Tutorial de Retorno' },
   /* O MANUAL, pela mesma razao do video: texto que explica o sistema, sem dado nenhum
      dentro. As tres passam pela marca como qualquer outra: houve tempo em que chegavam
      a todo mundo que entrasse, e um motorista com uma aba marcada via quatro. */

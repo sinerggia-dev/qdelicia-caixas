@@ -2194,7 +2194,7 @@ console.log('\n== quais abas do painel a pessoa ve ==');
      mostram dado de operação: elas explicam o sistema. Estão aqui porque é ESTE
      catálogo que enche a lista de abas do formulário — fora dele, não haveria como
      concedê-las a ninguém, e elas nasceriam invisíveis para sempre. */
-  ok(F.ABAS.length === 11 && F.ABAS[0].ID === 'pgRetornos',
+  ok(F.ABAS.length === 13 && F.ABAS[0].ID === 'pgRetornos',
     'a lista de abas mora no servidor, uma so para o formulario e para a tela',
     F.ABAS.map((a) => a.ID));
   /* Ajustes e Cadastros vem marcadas como SENSIVEIS na propria lista. Deixar isso

@@ -8447,10 +8447,16 @@ console.log('\n== a navegação separada por módulo ==');
     'e cada botão declara o grupo sob o qual ele aparece — o atributo é o que decide se o ' +
     'título do módulo some quando não sobra item nenhum', fora);
 
+  /* AS TRÊS DE APRENDER FICAM NA OPERAÇÃO, e não em Sistema: Sistema é o que muda a
+     CARA do sistema, e Instruções e os dois tutoriais respondem "como eu faço o meu
+     trabalho" — que é o que quem acabou de chegar procura no grupo onde encontrou as
+     telas de lançar. O tutorial COMPLETO continua em Sistema, para quem quer os dois
+     gestos seguidos. */
   ok(pares === 'pgRetornos>Painel de Ativos | pgMovimentos>Movimentos | pgPainel>Painel' +
+                ' | pgInstrucoes>Instruções' +
+                ' | pgTutorialSaida>Tutorial de Saída | pgTutorialRetorno>Tutorial de Retorno' +
                 ' | pgCadastros>Cadastros | pgColunas>Colunas | pgExtrato>Extratos' +
                 ' | pgLancar>Ajuste Estoque' +
-                ' | pgInstrucoes>Instruções' +
                 ' | pgVideo>Vídeo Tutorial | pgManual>Manual de Uso' +
                 ' | pgAparencia>Aparência',
     'o menu do painel está na ordem pedida, e cada rótulo abre a página dele', pares);
@@ -11076,6 +11082,83 @@ console.log('\n== a base do usuário ==');
  * pergunta cuja resposta já se sabe — mais uma coisa para ler no galpão, antes de
  * contar caixa. Com as duas, o app pergunta.
  * ==========================================================================*/
+/* ---------------------------------------------------------------------------
+ * OS DOIS TUTORIAIS SEPARADOS
+ *
+ * Saída e retorno são dois gestos diferentes, e quem vai fazer um deles agora não quer
+ * esperar o outro terminar para chegar ao seu. Cada um ganhou a sua página, e as duas
+ * vivem na OPERAÇÃO — ao lado das telas de lançar, que é onde quem acabou de chegar
+ * procura por "como eu faço isto".
+ * ------------------------------------------------------------------------- */
+console.log('\n== os dois tutoriais separados ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var saida = fs.readFileSync(path.join(__dirname, '..', 'demo-lancamento-saida.html'), 'utf8');
+  var retorno = fs.readFileSync(path.join(__dirname, '..', 'demo-lancamento-retorno.html'), 'utf8');
+
+  /* ---- CADA UM DEMONSTRA O SEU ----
+     É UMA LINHA que separa os dois arquivos, e ela é fácil de copiar errado: dois
+     arquivos com o mesmo `SO` dariam dois itens de menu abrindo a mesma demonstração,
+     e a diferença só apareceria assistindo até o fim. */
+  function so(txt) { return (txt.match(/var SO = '(\w+)';/) || [])[1]; }
+  ok(so(saida) === 'saida' && so(retorno) === 'retorno',
+    'cada tutorial demonstra o seu gesto — os dois com o mesmo, e o menu teria dois ' +
+    'caminhos para a mesma demonstração', [so(saida), so(retorno)]);
+
+  /* ---- E GUARDA O PRÓPRIO PROGRESSO ----
+     Com a chave compartilhada, assistir ao de saída deixava o de retorno dizendo
+     "✓ Assistir ao tutorial de retorno" — marca de conclusão sobre algo que ninguém
+     viu, e o cadeado do Pular abria junto. */
+  [['saída', saida], ['retorno', retorno]].forEach(function (c) {
+    ok(/var CHAVE_VIU = 'caixas\.demo\.viu\.' \+ SO;/.test(c[1]),
+      'o tutorial de ' + c[0] + ' guarda o progresso na chave DELE — compartilhada, ' +
+      'assistir a um marcaria o outro como visto');
+  });
+
+  /* ---- AS DUAS PÁGINAS EXISTEM, E SÃO AS QUE O MENU ABRE ----
+     `src` errado num quadro dá tela branca, sem erro e sem aviso. */
+  var quadros = [];
+  var reQ = /<section id="(pgTutorial[A-Za-z]+)"[\s\S]*?src="([^"]+)"/g, m;
+  while ((m = reQ.exec(adm)) !== null) quadros.push({ pagina: m[1], arquivo: m[2] });
+  ok(quadros.length === 2,
+    'a conferência achou as duas páginas de tutorial no painel — nenhuma achada faria ' +
+    'as provas abaixo passarem sobre nada', quadros);
+  var semArquivo = quadros.filter(function (q) {
+    return !fsReal.existsSync(path.join(__dirname, '..', q.arquivo));
+  });
+  ok(semArquivo.length === 0,
+    'e cada uma abre um arquivo que existe — endereço errado num quadro dá tela em ' +
+    'branco, sem erro e sem aviso', semArquivo);
+  ok(quadros[0].arquivo !== quadros[1].arquivo,
+    'e as duas não abrem o MESMO arquivo — abririam duas portas para a mesma demonstração',
+    quadros.map(function (q) { return q.arquivo; }));
+
+  /* ---- AS TRÊS DE APRENDER FICAM NA OPERAÇÃO ----
+     Foi o pedido, e a razão é onde se procura: Sistema é o que muda a CARA do sistema;
+     estas respondem "como eu faço o meu trabalho". */
+  var nav = adm.slice(adm.indexOf('<nav class="abas"'), adm.indexOf('</nav>'));
+  ['pgInstrucoes', 'pgTutorialSaida', 'pgTutorialRetorno'].forEach(function (pg) {
+    var i = nav.indexOf('data-pagina="' + pg + '"');
+    var antes = nav.slice(0, i);
+    var grupo = (antes.match(/data-grupo="([^"]+)"[^>]*>[^<]*<\/div>/g) || []).pop() || '';
+    ok(i > 0 && /data-grupo="Opera\u00e7\u00e3o"/.test(grupo),
+      pg + ' aparece sob OPERAÇÃO — quem acabou de chegar procura "como eu faço" no ' +
+      'grupo onde encontrou as telas de lançar, e não num grupo de configuração', grupo);
+  });
+
+  /* ---- O BOTÃO "LER" NÃO VOLTOU ----
+     Ele saiu a pedido, e os arquivos novos chegaram com ele de volta — junto de um
+     cadeado no Pular que dependia dele. Mantido, a leitura teria dois lugares; tirado
+     sem tirar o cadeado, o Pular ficaria trancado por uma tarefa que não existe. */
+  [['saída', saida], ['retorno', retorno]].forEach(function (c) {
+    ok(c[1].indexOf('t-ler') < 0 && c[1].indexOf('PAGINA_LER') < 0,
+      'o tutorial de ' + c[0] + ' não tem o botão Ler — a leitura mora no Manual de Uso');
+    ok(/function liberado\(\) \{ return VIU\.video; \}/.test(c[1]),
+      'e o cadeado do Pular depende só de assistir — dependendo de uma leitura que não ' +
+      'existe mais, ele trancaria a porta pelo lado de fora');
+  });
+})();
+
 console.log('\n== a base do lançamento, no app de campo ==');
 (function () {
   var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -11770,11 +11853,33 @@ console.log('\n== o tutorial do primeiro acesso ==');
    * tutorial herdar desenho do painel em lugares que ninguém pensou em olhar — foi o
    * caso de `folha`, `folha__t` e `n`, que ganharam prefixo. */
   var semComent = css.replace(/\/\*[\s\S]*?\*\//g, '');
-  /* AS DUAS PÁGINAS PRÓPRIAS, e não só o tutorial: as Instruções trouxeram seis nomes
-     que já têm regra aqui — `btn`, `ola`, `selo`, `topo`, `sr` e `vazio` —, e cobrindo
-     só uma delas a outra passaria livre. */
-  var ins = fs.readFileSync(path.join(__dirname, '..', 'instrucoes.html'), 'utf8');
-  var folhas = estilo + ins.slice(ins.indexOf('<style>'), ins.indexOf('</style>'));
+  /* AS PÁGINAS SÃO DESCOBERTAS, e não nomeadas. A versão anterior citava duas — o
+     tutorial e as Instruções —, e a prova sobre ela mesma era: quem escrevesse a
+     terceira página com folha própria não estaria na lista, e a colisão dela passaria
+     livre. Foi o que quase aconteceu quando os tutoriais de saída e de retorno
+     entraram: dois arquivos novos, cada um com a folha inteira do demo dentro.
+     O QUE DEFINE A PÁGINA é o que ela TEM: carrega a folha do app e traz um `<style>`
+     próprio. É nessa convivência que a colisão acontece. */
+  var comFolhaPropria = fsReal.readdirSync(path.join(__dirname, '..'))
+    .filter(function (n) { return /\.html$/.test(n); })
+    .map(function (n) {
+      return { nome: n, txt: fs.readFileSync(path.join(__dirname, '..', n), 'utf8') };
+    })
+    .filter(function (a) {
+      /* A LIGACAO, e nao a palavra: o `manual.html` fala de `styles.css` num paragrafo
+         do texto — ele ENSINA a rodar o `versionar.py` —, e por essa palavra a prova o
+         media como se ele carregasse a folha do app. Quatro colisoes apareceram que nao
+         existem: aquela pagina tem folha propria e so ela. */
+      return a.txt.indexOf('rel="stylesheet" href="styles.css') > 0 &&
+             a.txt.indexOf('<style>') > 0;
+    });
+  ok(comFolhaPropria.length >= 3,
+    'a conferência achou as páginas que têm folha própria ao lado da do app — nenhuma ' +
+    'achada faria a prova abaixo aprovar qualquer coisa',
+    comFolhaPropria.map(function (a) { return a.nome; }));
+  var folhas = comFolhaPropria.map(function (a) {
+    return a.txt.slice(a.txt.indexOf('<style>'), a.txt.indexOf('</style>'));
+  }).join('\n');
   var doDemo = {}, m2, reC = /\.([a-zA-Z][\w-]*)/g;
   while ((m2 = reC.exec(folhas)) !== null) doDemo[m2[1]] = true;
   var batem = Object.keys(doDemo).filter(function (c) {
