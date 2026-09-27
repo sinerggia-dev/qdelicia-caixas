@@ -144,7 +144,8 @@ var ABAS = [
   { ID: 'pgInstrucoes', Nome: 'Instruções' },
   { ID: 'pgVideo',      Nome: 'Vídeo Tutorial' },
   /* O MANUAL, pela mesma razao do video: texto que explica o sistema, sem dado nenhum
-     dentro. Os dois vivem em `PAGINAS_SEMPRE`, na tela. */
+     dentro. As tres passam pela marca como qualquer outra: houve tempo em que chegavam
+     a todo mundo que entrasse, e um motorista com uma aba marcada via quatro. */
   { ID: 'pgManual',     Nome: 'Manual de Uso' },
   { ID: 'pgCadastros',  Nome: 'Cadastros', sensivel: true }
 ];

@@ -1497,25 +1497,24 @@
    * o menu já não oferece estas duas a mais ninguém. */
   var PAGINAS_DO_ADMIN = ['pgColunas', 'pgAparencia'];
 
-  /* ================= AS PAGINAS QUE NAO SE CONCEDEM =================
+  /* ================= NAO HA PAGINA QUE SE CONCEDA SOZINHA =================
    *
-   * O VIDEO TUTORIAL E O MANUAL NAO MOSTRAM DADO NENHUM: um e a demonstracao de como se
-   * lanca, o outro e o passo a passo escrito. A marca do cadastro responde bem a UMA
-   * pergunta — "esta pessoa pode ver ESTES dados?" — e aqui nao ha dado para ver.
-   * Marcar quem pode assistir ou ler seria decidir quem pode aprender a usar o
-   * sistema.
+   * Houve. As tres paginas de SISTEMA — Instrucoes, Video Tutorial e Manual de Uso —
+   * chegavam a todo mundo que entrava, marcadas ou nao, com o argumento de que elas nao
+   * mostram dado nenhum: uma e a demonstracao de como se lanca, a outra o passo a passo
+   * escrito. O argumento era sobre o CONTEUDO, e a regra valia sobre o ACESSO.
    *
-   * E FOI ELA QUE DEIXOU O ITEM INVISIVEL NO AR. Eu pus a pagina no menu, escrevi a
-   * secao e acrescentei ao catalogo do servidor — e ela continuou sem aparecer, porque
-   * "marcar e conceder" e PAGINA NOVA NAO ESTA NA MARCA DE NINGUEM. Quem ja tinha abas
-   * marcadas no cadastro — que e todo mundo que usa o painel ha mais de um dia — nunca
-   * a receberia, nem o administrador. E exatamente o que aconteceu com a Aparencia
-   * quando ela nasceu, e esta escrito duas telas abaixo, no caso relatado.
+   * O PEDIDO DESFEZ ISSO, e com razao: um motorista com uma aba marcada via quatro. Quem
+   * abre o cadastro dele le "Movimentos" e a tela dele mostra outra coisa — e uma lista
+   * de permissao que nao descreve a tela e pior que nenhuma, porque parece que descreve.
+   * Nenhuma pagina aparece sem estar na marca. Sem excecao.
    *
-   * E UMA TERCEIRA REGRA, e nao um caso do `PAGINAS_DO_ADMIN`: aquela diz "so o
-   * escritorio"; esta diz "todo mundo que entra". Posta la, o galpao e o conferente
-   * ficariam sem o tutorial — que e de quem esta aprendendo, e nao de quem ja sabe. */
-  var PAGINAS_SEMPRE = ['pgInstrucoes', 'pgVideo', 'pgManual'];
+   * O QUE ESTA REGRA PROTEGIA CONTINUA PROTEGIDO EM OUTRO LUGAR: pagina nova nao esta na
+   * marca de ninguem, e por isso nasce invisivel para todos. Quem impede que ela fique
+   * invisivel PARA SEMPRE e o catalogo do servidor — estando la, ela aparece na lista de
+   * abas do formulario e o administrador pode conceder. Ha um teste de duas vias que
+   * cobra que menu e catalogo nunca discordem; foi esse buraco que deixou o Video
+   * Tutorial invisivel no ar, e e ele que fica de guarda. */
 
   /* Quais abas do painel esta pessoa ve. Duas regras, e UMA peneira:
 
@@ -1550,11 +1549,7 @@
     /* As do administrador não passam pela marca: entram para ele e saem para os
        outros, que é o que o menu já fazia sozinho. */
     function comAsDoAdmin(l){
-      var v = ids(l).filter(function(x){
-        return PAGINAS_DO_ADMIN.indexOf(x) < 0 && PAGINAS_SEMPRE.indexOf(x) < 0;
-      });
-      /* O tutorial entra para todo mundo — inclusive para quem nao e admin. */
-      v = v.concat(PAGINAS_SEMPRE.filter(function(x){ return ids(base).indexOf(x) >= 0; }));
+      var v = ids(l).filter(function(x){ return PAGINAS_DO_ADMIN.indexOf(x) < 0; });
       if (!Q.ehAdmin()) return v;
       return v.concat(PAGINAS_DO_ADMIN.filter(function(x){
         return ids(base).indexOf(x) >= 0;

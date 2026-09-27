@@ -1625,7 +1625,6 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
                    .filter(function (x) { return !!x; }) : [];
   }
   var LISTA_ADMIN = listaDe('PAGINAS_DO_ADMIN');
-  var LISTA_SEMPRE = listaDe('PAGINAS_SEMPRE');
   ok(LISTA_ADMIN.length > 0,
     'a leitura achou a lista de páginas do escritório no arquivo — sem isto a bancada ' +
     'abaixo roda com lista vazia e aprova qualquer coisa', LISTA_ADMIN);
@@ -1634,9 +1633,9 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
     /* `PAGINAS_DO_ADMIN` entra na bancada porque a peneira a LÊ. Nenhuma das abas de
        teste está nela, então as contas abaixo não mudam — o que muda é que a função
        roda em vez de estourar. */
-    var fn = new Function('ABAS_PAINEL', 'Q', 'PAGINAS_DO_ADMIN', 'PAGINAS_SEMPRE',
+    var fn = new Function('ABAS_PAINEL', 'Q', 'PAGINAS_DO_ADMIN',
       fonte + ' return abasPermitidas;')(
-      ABAS, { ehAdmin: function () { return ehAdmin; } }, LISTA_ADMIN, LISTA_SEMPRE);
+      ABAS, { ehAdmin: function () { return ehAdmin; } }, LISTA_ADMIN);
     return fn({ abas: marcadas }).join(',');
   }
   ok(pode(false, []) === '',
@@ -1665,23 +1664,27 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
   ok(pode(true, ['pgPainel']).split(',').indexOf('pgColunas') >= 0,
     'e o Colunas junto, pela mesma razão', pode(true, ['pgPainel']));
 
-  /* ---- E A PÁGINA QUE NÃO SE CONCEDE CHEGA A QUEM JÁ TEM MARCAS ----
+  /* ---- NEM AS PÁGINAS SEM DADO NENHUM SE CONCEDEM SOZINHAS ----
    *
-   * FOI ISTO QUE FALHOU NO AR. Pus o Vídeo Tutorial no menu, escrevi a seção,
-   * acrescentei ao catálogo do servidor — e ele continuou invisível, porque "marcar é
-   * conceder" e página nova não está na marca de NINGUÉM. Quem já tinha abas marcadas,
-   * que é todo mundo que usa o painel há mais de um dia, nunca a receberia.
+   * Elas se concediam. Instruções, Vídeo Tutorial e Manual de Uso chegavam a todo mundo
+   * que entrava, marcadas ou não, com o argumento de que não mostram dado: uma é a
+   * demonstração de como se lança, a outra o passo a passo escrito. O argumento era
+   * sobre o CONTEÚDO e a regra valia sobre o ACESSO.
    *
-   * A asserção acima cobrava esse mesmo mal para a Aparência, mas só pela porta do
-   * `PAGINAS_DO_ADMIN` — e essa porta é do ESCRITÓRIO. Uma página que é de quem está
-   * aprendendo precisa da outra, e ninguém a cobrava.
+   * O CASO QUE DESFEZ ISSO: um motorista com UMA aba marcada via quatro. Quem abre o
+   * cadastro dele lê "Movimentos" e a tela dele mostra outra coisa — e uma lista de
+   * permissão que não descreve a tela é pior que nenhuma, porque parece que descreve.
    *
-   * A LISTA É LIDA DO ARQUIVO. Escrita aqui, a prova mediria a minha cópia. */
-  /* QUAIS PÁGINAS NÃO TÊM DADO É DERIVADO, e não lido da lista. Ler a lista para depois
-     cobrar a lista é o banco medindo a si mesmo: tirei `pgManual` de `PAGINAS_SEMPRE` e
-     esta prova passou verde, porque ela percorria a lista encolhida.
-     O que define a página é o que ela MOSTRA: seção que é só um quadro sobre outra
-     página não tem dado nenhum dentro dela. */
+   * O QUE A REGRA ANTIGA PROTEGIA continua protegido em outro lugar: página nova não
+   * está na marca de ninguém e nasce invisível, e quem impede que ela fique invisível
+   * PARA SEMPRE é o catálogo do servidor — estando lá, ela aparece na lista de abas do
+   * formulário e o administrador concede. Quem cobra isso é o guarda de duas vias
+   * menu↔catálogo, neste mesmo arquivo.
+   *
+   * QUAIS PÁGINAS NÃO TÊM DADO É DERIVADO, e não lido de uma lista: o que define a
+   * página é o que ela MOSTRA — seção que é só um quadro sobre outra página não tem
+   * dado nenhum dentro dela. Derivado, o banco continua valendo para a próxima página
+   * sem dado que alguém escrever, que não está em lista nenhuma. */
   var SOQUADRO = [];
   (function () {
     var re = /<section id="(pg[A-Za-z]+)" class="pagina">([\s\S]*?)<\/section>/g, m;
@@ -1692,39 +1695,41 @@ console.log('\n== a peneira de abas nunca devolve vazio ==');
   ok(SOQUADRO.length >= 2,
     'a conferência achou as páginas que são só um quadro sobre outra página — nenhuma ' +
     'achada faria as provas abaixo passarem sem peneirar nada', SOQUADRO);
-  var foraDaRegra = SOQUADRO.filter(function (k) { return LISTA_SEMPRE.indexOf(k) < 0; });
-  ok(foraDaRegra.length === 0,
-    'e toda página que é só um quadro está entre as que NÃO passam pela marca — ela não ' +
-    'mostra dado nenhum, e marcar quem pode aprender a usar o sistema é decidir quem ' +
-    'pode entender o que ele faz', foraDaRegra);
-  /* TODAS, e não a primeira. Provando só `LISTA_SEMPRE[0]`, tirar a segunda da lista
-     passava verde — e foi exatamente esse o buraco que deixou o Sair do tutorial sem
-     guarda, duas mudanças atrás. */
+  /* TODAS, e não a primeira. Provando só uma delas, as outras duas podiam continuar
+     furando a marca e a prova passava verde. */
   SOQUADRO.forEach(function (chave) { ABAS.push({ ID: chave, Nome: 'sem dado' }); });
-  var faltamGente = SOQUADRO.filter(function (k) {
-    return pode(false, ['pgPainel']).split(',').indexOf(k) < 0;
+  var furaramGente = SOQUADRO.filter(function (k) {
+    return pode(false, ['pgPainel']).split(',').indexOf(k) >= 0;
   });
-  var faltamAdmin = SOQUADRO.filter(function (k) {
-    return pode(true, ['pgPainel']).split(',').indexOf(k) < 0;
+  var furaramAdmin = SOQUADRO.filter(function (k) {
+    return pode(true, ['pgPainel']).split(',').indexOf(k) >= 0;
   });
-  ok(faltamGente.length === 0,
-    'quem NÃO é admin e já tem abas marcadas enxerga TODAS as páginas que não mostram ' +
-    'dado nenhum — foi por não enxergar que o Vídeo Tutorial ficou invisível no ar',
-    { faltam: faltamGente, viu: pode(false, ['pgPainel']) });
-  ok(faltamAdmin.length === 0,
-    'e o admin com marcas também', { faltam: faltamAdmin });
+  ok(furaramGente.length === 0,
+    'NENHUMA página aparece fora da marca, nem as que não mostram dado nenhum — o ' +
+    'motorista com "Movimentos" marcado via quatro abas, e o cadastro dele dizia uma',
+    { furaram: furaramGente, viu: pode(false, ['pgPainel']) });
+  ok(furaramAdmin.length === 0,
+    'e nem para o admin com abas marcadas — ele concede a si mesmo como concede a ' +
+    'qualquer um; o que ele ganha sem marcar são as páginas do escritório, e só elas',
+    { furaram: furaramAdmin });
   var SEM_DADO = SOQUADRO[0];
+  /* E O CAMINHO EXISTE: marcada, ela aparece. Sem esta prova, a de cima ficaria verde
+     com a peneira devolvendo lista vazia para tudo — e o jeito de dar o manual a alguém
+     teria sumido junto com a regra que o dava sozinho. */
+  ok(pode(false, ['pgPainel', SEM_DADO]).split(',').indexOf(SEM_DADO) >= 0,
+    'e marcada no cadastro ela aparece — a marca passou a ser o único caminho, então ' +
+    'ele tem de levar a algum lugar', pode(false, ['pgPainel', SEM_DADO]));
   /* E ELA NÃO ABRE O RESTO: a marca continua mandando nas páginas que têm dado. */
   ok(pode(false, ['pgPainel']).split(',').indexOf('pgCadastros') < 0,
     'e isso não abre o resto — Cadastros continua só por marca',
     pode(false, ['pgPainel']));
-  /* NÃO DUPLICA: marcada no cadastro E sempre concedida, ela daria dois botões para a
-     mesma página. */
+  /* NÃO DUPLICA. A peneira devolve uma lista de ids que vira uma lista de botões: um
+     id repetido daria dois botões para a mesma página. */
   var duasVezes = pode(false, [SEM_DADO, 'pgPainel']).split(',')
     .filter(function (x) { return x === SEM_DADO; });
   ok(duasVezes.length === 1,
-    'e marcá-la no cadastro não a duplica — duas entradas dariam dois botões para a ' +
-    'mesma página', duasVezes.length);
+    'e ela entra uma vez só — id repetido na peneira dá dois botões para a mesma página',
+    duasVezes.length);
   SOQUADRO.forEach(function () { ABAS.pop(); });
   /* E NÃO É "admin vê tudo": a marca continua mandando no resto. */
   ok(pode(true, ['pgPainel']).split(',').indexOf('pgCadastros') < 0,
@@ -5777,11 +5782,10 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
     var estado = { sessao: guardada, saiu: false, aviso: '' };
     var relogio = [];
     var api = new Function('EQUIPE', 'EQUIPE_CHEGOU', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN',
-      'PAGINAS_SEMPRE',
       'Q', 'setTimeout',
       'return (function(){' + fontes.join('\n') +
       '\n return { renovar: renovarSessao, abas: abasPermitidas }; })();')(
-      equipe, chegou, L.ABAS, ['pgColunas', 'pgAparencia'], [],
+      equipe, chegou, L.ABAS, ['pgColunas', 'pgAparencia'],
       { sessao: function () { return estado.sessao; },
         entrar: function (u) { estado.sessao = u; },
         sair: function () { estado.saiu = true; },
@@ -7936,8 +7940,8 @@ console.log('\n== as abas do painel obedecem ao cadastro ==');
   ];
   function monta(ehAdmin) {
     var Q = { ehAdmin: function () { return ehAdmin; } };
-    return new Function('Q', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN', 'PAGINAS_SEMPRE',
-      fonte + ' return abasPermitidas;')(Q, ABAS, ['pgColunas', 'pgAparencia'], []);
+    return new Function('Q', 'ABAS_PAINEL', 'PAGINAS_DO_ADMIN',
+      fonte + ' return abasPermitidas;')(Q, ABAS, ['pgColunas', 'pgAparencia']);
   }
 
   var admin = monta(true), gente = monta(false);
