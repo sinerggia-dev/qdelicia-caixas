@@ -154,7 +154,10 @@ var ABAS = [
      comparacao entre os dois passa a nao comparar nada.
      Por isso esta aba faz mais do que abrir uma tela: e ela que decide quem RECEBE
      declaracao, em qualquer rota. Ver `veDeclaracao`. */
-  { ID: 'pgLancamentosMotorista', Nome: 'Lançamentos Motorista' },
+  /* O ID NAO MUDA COM O NOME. Ele esta gravado na marca de abas de quem ja recebeu esta
+     tela; trocado, todo mundo perderia o acesso a ela no mesmo instante, e ninguem
+     ligaria uma coisa a outra. O nome e o que aparece; o id e o que vale. */
+  { ID: 'pgLancamentosMotorista', Nome: 'Motorista/Conferente' },
   /* O MANUAL, pela mesma razao do video: texto que explica o sistema, sem dado nenhum
      dentro. As tres passam pela marca como qualquer outra: houve tempo em que chegavam
      a todo mundo que entrasse, e um motorista com uma aba marcada via quatro. */

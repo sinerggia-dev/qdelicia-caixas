@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=b45dbea8">
+<link rel="stylesheet" href="styles.css?v=42f22037">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -291,7 +291,7 @@
           <path d="M3 16V5h11v11"></path><path d="M14 9h4l3 3v4h-7"></path>
           <circle cx="7" cy="17.5" r="1.9"></circle><circle cx="17" cy="17.5" r="1.9"></circle>
         </svg>
-        <span class="nav-rotulo">Lançamentos Motorista</span>
+        <span class="nav-rotulo">Motorista/Conferente</span>
       </button>
       <button data-grupo="Operação" style="display:none" data-pagina="pgTutorialSaida" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1131,30 +1131,41 @@
     </div>
   </section>
 
-  <!-- ---------- LANÇAMENTOS MOTORISTA ---------- -->
-  <!-- O QUE O MOTORISTA DECLAROU, e só isso. Não é um recorte do Movimentos posto em
-       outra tela: é a única porta para um dado que não chega a quem não tem esta aba.
-       Quem conta as caixas não pode ler aqui antes de contar — se lesse, copiaria o
-       número, e a comparação entre os dois deixaria de comparar. -->
+  <!-- ---------- MOTORISTA / CONFERENTE ---------- -->
+  <!-- A CONCILIAÇÃO: o que o motorista declarou que trouxe contra o que o conferente
+       contou. Cada linha é um PAR — ou a falta de um —, e não um lançamento; por isso ela
+       não cabe como coluna em Movimentos, onde cada linha é um lançamento só.
+       É TAMBÉM A ÚNICA PORTA para a declaração: quem não tem esta aba não recebe
+       declaração em rota nenhuma. Quem conta as caixas não pode ler aqui antes de contar
+       — se lesse, copiaria o número, e a comparação deixaria de comparar. -->
   <section id="pgLancamentosMotorista" class="pagina">
     <div class="card">
-      <h2>Lançamentos Motorista<span class="sub">O que o motorista informou que trouxe —
-        <b>informação</b>, não movimento: nada disto entra no estoque.</span></h2>
+      <h2>Motorista/Conferente<span class="sub">O que o motorista <b>declarou</b> contra o
+        que o conferente <b>contou</b> — por motorista e por dia.</span></h2>
 
       <div class="grid-filtros">
         <div><label for="dcDe">De</label><input id="dcDe" type="date"></div>
         <div><label for="dcAte">Até</label><input id="dcAte" type="date"></div>
         <div><label for="dcMotorista">Motorista</label>
           <select id="dcMotorista" multiple data-multi><option value="">Todos</option></select></div>
+        <div><label for="dcSituacao">Situação</label>
+          <select id="dcSituacao" multiple data-multi>
+            <option value="">Todas</option>
+            <option value="Bateu">Bateu</option>
+            <option value="Divergente">Divergente</option>
+            <option value="Sem declaração">Sem declaração</option>
+            <option value="Só declaração">Só declaração</option>
+          </select></div>
       </div>
       <div class="linha-btn">
         <button class="btn" type="button" id="btnFiltrarDecl" style="flex:0;min-width:140px">Filtrar</button>
         <button class="btn neutro" type="button" id="btnCsvDecl" style="flex:0;min-width:130px">⬇ CSV</button>
       </div>
 
-      <!-- OS TRÊS NÚMEROS ACIMA DA TABELA: "quanto foi declarado" é a pergunta que traz
-           alguém a esta tela, e ela não pode depender de somar a coluna à mão. -->
+      <!-- OS NÚMEROS ACIMA DA TABELA: "bateu?" é a pergunta que traz alguém a esta tela,
+           e ela não pode depender de somar duas colunas à mão. -->
       <div id="dcTotais" class="tot"></div>
+      <div class="linha-sit" id="dcSituacoes"></div>
       <div class="trava-colunas" data-trava-colunas></div>
       <div id="tabelaDecl"><div class="vazio">Carregando…</div></div>
     </div>
@@ -1859,19 +1870,25 @@
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', carregarDecl);
     });
+    /* A SITUAÇÃO NÃO RECARREGA NADA: ela nasce da comparação, que já está na tela. Uma
+       ida ao servidor aqui mediria de novo o que não mudou. */
+    var s = document.getElementById('dcSituacao');
+    if (s) s.addEventListener('change', desenharDecl);
     var c = document.getElementById('btnCsvDecl');
     if (c) c.addEventListener('click', function(){
-      if (!DECLS.length) return Q.toast('Nada para exportar neste período.','erro');
+      if (!PARES.length) return Q.toast('Nada para exportar neste período.','erro');
       /* O CSV É A TABELA LEVADA PARA FORA, e sai com as colunas que ela tem — uma coluna
          que existe na tela e falta no arquivo faz a conferência de escritório chegar a
          um número que a tela não explica. */
-      Q.csv('lancamentos_motorista_'+Q.hoje()+'.csv',
-        ['Lancamento','Movimento','Hora','Motorista','Quem lancou','Origem','Destino',
-         'Caixa','Qtd','Observacao'],
-        DECLS.map(function(m){
-          return [m.id, Q.dataBR(m.dataRef), Q.horaBR(m.dataHora), m.motorista||'',
-                  m.usuario||'', m.origem||'', m.destino||'', m.tipoCaixa||'',
-                  m.qtd, m.obs||''];
+      Q.csv('motorista_conferente_'+Q.hoje()+'.csv',
+        ['Data','Base','Tipo','Motorista','Rotas','Declarado','Conferido','Diferenca',
+         'Conferente','Situacao'],
+        PARES.map(function(par){
+          return [Q.dataBR(par.dataRef), par.teste ? 'Teste' : 'Producao', par.tipo,
+                  par.motorista || '(sem motorista)', par.rotasTxt,
+                  par.declarado || '', par.conferido || '',
+                  par.diferenca == null ? '' : par.diferenca,
+                  par.conferenteTxt, par.situacao];
         }));
     });
     periodoPadraoDecl();
@@ -2864,16 +2881,18 @@
    *
    * E QUEM NÃO TEM A ABA NÃO RECEBE NADA AQUI, nem montando o pedido à mão: a peneira é
    * do servidor (`veDeclaracao`). Esta tela é a porta, e não a tranca. */
-  var DECLS = [];
+  var DECLS = [];      /* os lançamentos crus, dos dois lados */
+  var PARES = [];      /* o que a tabela mostra: um par por motorista e dia */
   var ORDEM_DECL = { col: 'data', desc: true };
 
   var TAB_DECL = {
-    padrao: ['data','hora','base','motorista','quem','origem','destino','caixa','qtd','obs'],
-    larg: { data:120, hora:70, base:150, motorista:150, quem:140, origem:150,
-            destino:150, caixa:120, qtd:80, obs:240 },
-    titulos: { data:'Movimento', hora:'Hora', base:'Base', motorista:'Motorista',
-               quem:'Quem lançou', origem:'Origem', destino:'Destino', caixa:'Caixa',
-               qtd:'Qtd', obs:'Observação' },
+    padrao: ['data','base','tipo','motorista','rotas','declarado','conferido',
+             'diferenca','conferente','situacao'],
+    larg: { data:110, base:110, tipo:100, motorista:150, rotas:200, declarado:110,
+            conferido:110, diferenca:100, conferente:160, situacao:150 },
+    titulos: { data:'Data', base:'Base', tipo:'Tipo', motorista:'Motorista',
+               rotas:'Rotas', declarado:'Declarado', conferido:'Conferido',
+               diferenca:'Dif.', conferente:'Conferente', situacao:'Situação' },
     kOrdem: 'qdc_cols_decl_v1',
     kLarg: 'qdc_larg_decl_v1',
     kOcultas: 'qdc_cols_ocultas_decl_v1',
@@ -2881,43 +2900,123 @@
     redesenha: function(){ desenharDecl(); }
   };
 
+  /* ================= O PAR =================
+   *
+   * A chave é MOTORISTA + DIA + TIPO + BASE, e cada pedaço dela custou uma decisão:
+   *
+   *   · MOTORISTA e DIA são o par que você descreveu. Numa viagem o motorista traz
+   *     caixas de vários clientes, e é o CONFERENTE quem desmembra isso em vários
+   *     lançamentos, um por origem — o motorista declara um total só. Casando por rota,
+   *     cada declaração ficaria sem par e a tela inteira viraria uma coluna de
+   *     travessões. Por isso a rota deixou de ser chave e virou informação.
+   *
+   *   · TIPO porque saída e retorno são gestos diferentes. Sem ele, um motorista que
+   *     leva 400 de manhã e traz 250 à tarde apareceria com 250 declarados contra 650
+   *     contados — uma divergência de +400 que nunca existiu.
+   *
+   *   · BASE porque o ensaio não se concilia com a operação. Comparar uma declaração de
+   *     treino com uma contagem de verdade é comparar dois mundos, e o número sai
+   *     plausível — que é a pior espécie de número errado.
+   *
+   * SEM MOTORISTA, A LINHA NÃO SOME: ela vai para "(sem motorista)". Um lançamento que
+   * ninguém consegue conciliar é exatamente o que precisa aparecer; escondido, ele vira
+   * uma diferença que não fecha e não se sabe onde procurar. */
+  function chaveDoPar(m){
+    var ensaio = m.teste ? 'teste' : 'real';
+    var sentido = (m.tipo === 'DEVOLUCAO') ? 'ENTRADA' : 'SAIDA';
+    return [m.dataRef || '', (m.motorista || '').trim(), sentido, ensaio].join('|');
+  }
+
+  function montarPares(lista){
+    var mapa = {};
+    (lista || []).forEach(function(m){
+      var k = chaveDoPar(m);
+      if (!mapa[k]){
+        mapa[k] = { chave: k, dataRef: m.dataRef || '',
+                    motorista: (m.motorista || '').trim(),
+                    tipo: (m.tipo === 'DEVOLUCAO') ? 'Retorno' : 'Saída',
+                    teste: !!m.teste, declarado: 0, conferido: 0,
+                    rotas: {}, conferentes: {} };
+      }
+      var par = mapa[k];
+      var q = Number(m.qtd) || 0;
+      if (m.declaracao) par.declarado += q;
+      else {
+        par.conferido += q;
+        /* QUEM CONTOU sai dos lançamentos que contam, e não dos declarados: o motorista
+           aparece como autor da própria declaração, e listá-lo aqui faria a coluna
+           Conferente dizer o nome de quem não conferiu nada. */
+        if (m.usuario) par.conferentes[m.usuario] = 1;
+      }
+      var r = m.origem || m.rota || '';
+      if (r) par.rotas[r] = 1;
+    });
+    return Object.keys(mapa).map(function(k){
+      var par = mapa[k];
+      par.rotasTxt = Object.keys(par.rotas).sort().join(', ');
+      var nomes = Object.keys(par.conferentes).sort();
+      par.conferenteTxt = !nomes.length ? ''
+        : (nomes.length === 1 ? nomes[0] : nomes[0] + '  +' + (nomes.length - 1));
+      /* AS QUATRO SITUAÇÕES, e a que mais importa é a terceira. "Sem declaração" NÃO é
+         divergência, é ausência: virando −250 na coluna da diferença, a tela diria que o
+         motorista trouxe 250 caixas a menos — uma acusação inventada, e da pior espécie,
+         porque parece um número. */
+      if (!par.declarado && par.conferido) par.situacao = 'Sem declaração';
+      else if (par.declarado && !par.conferido) par.situacao = 'Só declaração';
+      else if (par.declarado === par.conferido) par.situacao = 'Bateu';
+      else par.situacao = 'Divergente';
+      /* A DIFERENÇA SÓ EXISTE QUANDO OS DOIS LADOS EXISTEM. `conferido − declarado`:
+         positivo quer dizer que chegou mais do que ele informou. */
+      par.diferenca = (par.declarado && par.conferido)
+        ? par.conferido - par.declarado : null;
+      return par;
+    });
+  }
+
   function defsDecl(){
     var T = TAB_DECL.titulos;
+    function sinal(n){ return (n > 0 ? '+' : n < 0 ? '−' : '') + Q.num(Math.abs(n)); }
     return {
-      data:      { t: T.data, k: function(m){ return m.dataRef || ''; },
-                   v: function(m){ return Q.dataBR(m.dataRef); } },
-      hora:      { t: T.hora, k: function(m){ return m.dataHora || ''; },
-                   v: function(m){ return Q.esc(Q.horaBR(m.dataHora) || '—'); } },
-      /* QUAL DOS DOIS LIVROS DE DECLARAÇÃO. Sem esta coluna, no dia seguinte à virada a
-         tela mostra o ensaio e a operação misturados e sem nada distinguindo os dois —
-         que é exatamente o que a quarta base existe para evitar. */
-      base:      { t: T.base, k: function(m){ return m.teste ? '1' : '0'; },
-                   v: function(m){
-                     var b = baseDaLinha(m);
-                     return '<span class="tag '+b.tag+'">'+
-                       Q.esc(b.nome.replace('Base ',''))+'</span>';
-                   } },
-      /* MOTORISTA E "QUEM LANÇOU" SÃO DUAS COLUNAS, e quase sempre o mesmo nome — o
-         motorista declara a carga dele. Quando forem diferentes, essa diferença é a
-         informação mais importante da linha: alguém declarou no lugar de outro. */
-      motorista: { t: T.motorista, k: function(m){ return m.motorista || ''; },
-                   v: function(m){ return m.motorista ? Q.esc(m.motorista)
+      data:      { t: T.data, k: function(p){ return p.dataRef; },
+                   v: function(p){ return Q.dataBR(p.dataRef); } },
+      base:      { t: T.base, k: function(p){ return p.teste ? '1' : '0'; },
+                   v: function(p){ return p.teste
+                     ? '<span class="tag amarela">Teste</span>'
+                     : '<span class="tag cinza">Produção</span>'; } },
+      tipo:      { t: T.tipo, k: function(p){ return p.tipo; },
+                   v: function(p){ return Q.esc(p.tipo); } },
+      motorista: { t: T.motorista, k: function(p){ return p.motorista; },
+                   v: function(p){ return p.motorista ? Q.esc(p.motorista)
+                     : '<span class="fraco">(sem motorista)</span>'; } },
+      rotas:     { t: T.rotas, k: function(p){ return p.rotasTxt; },
+                   v: function(p){ return p.rotasTxt
+                     ? '<span class="corta" title="'+Q.esc(p.rotasTxt)+'">'+
+                       Q.esc(p.rotasTxt)+'</span>'
                      : '<span class="fraco">—</span>'; } },
-      quem:      { t: T.quem, k: function(m){ return m.usuario || ''; },
-                   v: function(m){ return Q.esc(m.usuario || ''); } },
-      origem:    { t: T.origem, k: function(m){ return m.origem || ''; },
-                   v: function(m){ return Q.esc(m.origem || ''); } },
-      destino:   { t: T.destino, k: function(m){ return m.destino || ''; },
-                   v: function(m){ return Q.esc(m.destino || ''); } },
-      caixa:     { t: T.caixa, k: function(m){ return m.tipoCaixa || ''; },
-                   v: function(m){ return Q.esc(m.tipoCaixa || ''); } },
-      /* NÚMERO como NÚMERO: comparado como texto, "1.620" vem antes de "810". */
-      qtd:       { t: T.qtd, num: true, k: function(m){ return Number(m.qtd) || 0; },
-                   v: function(m){ return Q.num(m.qtd); } },
-      obs:       { t: T.obs, k: function(m){ return m.obs || ''; },
-                   v: function(m){ return m.obs
-                     ? '<span class="corta" title="'+Q.esc(m.obs)+'">'+Q.esc(m.obs)+'</span>'
-                     : '<span class="fraco">—</span>'; } }
+      /* O TRAVESSÃO NO LADO QUE NÃO EXISTE, e nunca um zero: zero é uma contagem que
+         deu zero, e ausência é outra coisa. */
+      declarado: { t: T.declarado, num: true, k: function(p){ return p.declarado; },
+                   v: function(p){ return p.declarado ? Q.num(p.declarado)
+                     : '<span class="fraco">—</span>'; } },
+      conferido: { t: T.conferido, num: true, k: function(p){ return p.conferido; },
+                   v: function(p){ return p.conferido ? Q.num(p.conferido)
+                     : '<span class="fraco">—</span>'; } },
+      diferenca: { t: T.diferenca, num: true,
+                   k: function(p){ return p.diferenca == null ? 0 : p.diferenca; },
+                   v: function(p){ return p.diferenca == null
+                     ? '<span class="fraco">—</span>'
+                     : (p.diferenca === 0 ? '<span class="fraco">0</span>'
+                        : '<b>'+sinal(p.diferenca)+'</b>'); } },
+      conferente:{ t: T.conferente, k: function(p){ return p.conferenteTxt; },
+                   v: function(p){ return p.conferenteTxt ? Q.esc(p.conferenteTxt)
+                     : '<span class="fraco">—</span>'; } },
+      situacao:  { t: T.situacao, k: function(p){ return p.situacao; },
+                   v: function(p){
+                     var cor = p.situacao === 'Bateu' ? 'verde'
+                             : p.situacao === 'Divergente' ? 'amarela'
+                             : p.situacao === 'Só declaração' ? 'vermelha' : 'cinza';
+                     return '<span class="tag '+cor+'">'+Q.esc(p.situacao)+'</span>';
+                   } }
     };
   }
 
@@ -2931,13 +3030,15 @@
     if (!box) return;
     box.innerHTML = '<div class="vazio">Carregando…</div>';
     var f = filtroDecl();
-    /* OS DOIS LIVROS DE DECLARAÇÃO, e não só o de verdade: durante o ensaio TUDO está
-       no de teste, e a tela abriria vazia justamente para quem está experimentando. A
-       coluna Base diz qual é qual, linha por linha.
-       E são só eles: a base não sai de um seletor aqui, senão esta página — que é a
-       porta de um dado que não chega a quem não foi habilitado — passaria a poder
-       trazer a operação inteira. */
-    Q.get(Q.lendo({ acao:'movimentos', teste:BASES_DECL.join('|'), limit:500,
+    /* OS DOIS LADOS NUM PEDIDO SÓ, e sem recorte de base: a conciliação precisa do que o
+       motorista declarou E do que o conferente contou, e o conferente lança nas bases de
+       produção. Pedindo só as de declaração, metade de cada par faltaria.
+       QUEM PENEIRA CONTINUA SENDO O SERVIDOR: para quem não tem esta aba, as
+       declarações não vêm — e sem elas esta tela não tem o que conciliar, que é o
+       desenho certo para uma contagem cega.
+       O LIMITE É MAIOR porque aqui cada linha da resposta é meia linha da tabela: um mês
+       de operação são centenas de lançamentos que viram dezenas de pares. */
+    Q.get(Q.lendo({ acao:'movimentos', limit:2000,
                     motorista:f.motorista, de:f.de, ate:f.ate }))
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
@@ -2959,32 +3060,47 @@
     if (!box) return;
     var DEFS = defsDecl();
 
-    /* OS TOTAIS FORA DO CORTE DA LISTA VAZIA: um recorte sem nenhuma linha ainda tem
-       resposta — três zeros —, e ela é diferente de a tela não ter desenhado nada.
-       Depois do `return`, ficariam com os números do filtro anterior ao lado de
-       "nenhuma declaração". */
-    var caixas = DECLS.reduce(function(a, m){ return a + (Number(m.qtd) || 0); }, 0);
-    var nomes = {};
-    DECLS.forEach(function(m){ if (m.motorista) nomes[m.motorista] = 1; });
+    PARES = montarPares(DECLS);
+    /* A SITUAÇÃO SE FILTRA DEPOIS DO PAR, e não antes: ela nasce da comparação, e
+       peneirar os lançamentos por ela seria peneirar por uma resposta que ainda não
+       existe. */
+    var quer = escolhaDe(document.getElementById('dcSituacao'));
+    var L = quer.length ? PARES.filter(function(p){ return quer.indexOf(p.situacao) >= 0; })
+                        : PARES;
+
+    /* OS NÚMEROS FORA DO CORTE DA LISTA VAZIA: um recorte sem nenhum par ainda tem
+       resposta — zeros —, e ela é diferente de a tela não ter desenhado nada. */
+    var decl = L.reduce(function(a, p){ return a + p.declarado; }, 0);
+    var conf = L.reduce(function(a, p){ return a + p.conferido; }, 0);
+    var conta = function(s){ return L.filter(function(p){ return p.situacao === s; }).length; };
     var faixa = document.getElementById('dcTotais');
     if (faixa){
-      /* O MESMO CARTÃO dos outros painéis, e não uma faixa própria: três números com
-         outro desenho na mesma tela fazem quem lê parar para descobrir se eles querem
-         dizer a mesma coisa. Sem barra de proporção — comparar contagem de linhas com
-         quantidade de caixa daria um número bonito e falso. */
       faixa.innerHTML =
-        cartaoTot(0, 3, 'var(--azul)', 'Caixas declaradas', Q.num(caixas),
-                  'somadas de todas as linhas', null) +
-        cartaoTot(1, 3, 'var(--roxo-txt)', 'Lançamentos', Q.num(DECLS.length),
-                  'linhas no período', null) +
-        cartaoTot(2, 3, 'var(--verde)', 'Motoristas', Q.num(Object.keys(nomes).length),
-                  'nomes diferentes', null);
+        cartaoTot(0, 3, 'var(--azul)', 'Declarado', Q.num(decl),
+                  'o que os motoristas informaram', null) +
+        cartaoTot(1, 3, 'var(--verde)', 'Conferido', Q.num(conf),
+                  'o que foi contado na chegada', null) +
+        cartaoTot(2, 3, 'var(--ambar)', 'Diferença',
+                  (conf - decl > 0 ? '+' : conf - decl < 0 ? '−' : '') +
+                    Q.num(Math.abs(conf - decl)),
+                  'conferido menos declarado', null);
+    }
+    var sit = document.getElementById('dcSituacoes');
+    if (sit){
+      sit.innerHTML = ['Bateu','Divergente','Sem declaração','Só declaração']
+        .map(function(s){
+          return '<span><b>'+Q.num(conta(s))+'</b> '+Q.esc(s.toLowerCase())+'</span>';
+        }).join('');
     }
 
     pintarTrava();
-    if (!DECLS.length){
-      box.innerHTML = '<div class="vazio">Nenhuma declaração no período. Elas aparecem '+
-        'aqui quando alguém lança na <b>Base Declaração</b>.</div>';
+    if (!L.length){
+      box.innerHTML = '<div class="vazio">'+
+        (PARES.length ? 'Nenhum par nesta situação. Tire o filtro de Situação para ver os '+
+                        Q.num(PARES.length)+' do período.'
+                      : 'Nada para conciliar no período. Os pares aparecem quando há '+
+                        'lançamento de motorista ou de conferente com um motorista '+
+                        'escolhido.')+'</div>';
       return;
     }
 
@@ -2995,7 +3111,7 @@
     var cs = cabem.filter(function(c){ return ocultas.indexOf(c.id) < 0; });
     if (!cs.length) cs = cabem;
 
-    var linhas = aplicarOrdem(DECLS, DEFS, ORDEM_DECL);
+    var linhas = aplicarOrdem(L, DEFS, ORDEM_DECL);
     box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
       cs.map(function(c){
         var ord = ORDEM_DECL.col === c.id;
@@ -3010,10 +3126,14 @@
           Q.esc(c.d.t)+seta+puxador()+'</th>';
       }).join('')+
       '</tr></thead><tbody>'+
-      linhas.map(function(m){
-        return '<tr>'+cs.map(function(c){
+      linhas.map(function(par){
+        /* A LINHA INTEIRA GANHA A COR DO PROBLEMA, e não só a etiqueta: numa tabela de
+           trinta pares, a etiqueta some no meio das outras nove colunas. */
+        var classe = par.situacao === 'Divergente' ? 'ruim'
+                   : par.situacao === 'Só declaração' ? 'ruim' : '';
+        return '<tr class="'+classe+'">'+cs.map(function(c){
           return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+
-                 '>'+c.d.v(m)+'</td>';
+                 '>'+c.d.v(par)+'</td>';
         }).join('')+'</tr>';
       }).join('')+'</tbody></table></div>';
 
@@ -3059,7 +3179,7 @@
       { modulo: 'Painel de Ativos',     t: TAB_ATIVOS },
       { modulo: 'Movimentos',           t: TAB_MOV },
       { modulo: 'Cadastros · Usuários', t: TAB_USUARIOS },
-      { modulo: 'Lançamentos Motorista',  t: TAB_DECL }
+      { modulo: 'Motorista/Conferente',   t: TAB_DECL }
     ];
   }
 

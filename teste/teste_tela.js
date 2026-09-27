@@ -8471,7 +8471,7 @@ console.log('\n== a navegação separada por módulo ==');
      gestos seguidos. */
   ok(pares === 'pgRetornos>Painel de Ativos | pgMovimentos>Movimentos | pgPainel>Painel' +
                 ' | pgInstrucoes>Instruções' +
-                ' | pgLancamentosMotorista>Lançamentos Motorista' +
+                ' | pgLancamentosMotorista>Motorista/Conferente' +
                 ' | pgTutorialSaida>Tutorial de Saída | pgTutorialRetorno>Tutorial de Retorno' +
                 ' | pgCadastros>Cadastros | pgColunas>Colunas | pgExtrato>Extratos' +
                 ' | pgLancar>Ajuste Estoque' +
@@ -11195,7 +11195,7 @@ console.log('\n== a base do usuário ==');
  * A tela que mostra o que o motorista declarou. Ela existe separada por uma razão que
  * não é de arrumação: quem conta as caixas não pode ler o número antes de contar.
  * ------------------------------------------------------------------------- */
-console.log('\n== Lançamentos Motorista ==');
+console.log('\n== Motorista/Conferente ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
@@ -11206,20 +11206,18 @@ console.log('\n== Lançamentos Motorista ==');
      é a porta de um dado que não chega a quem não tem a aba. */
   var pag = adm.slice(adm.indexOf('function carregarDecl()'));
   pag = pag.slice(0, pag.indexOf('\n  }') + 4);
-  /* SÓ OS LIVROS DE DECLARAÇÃO, e a lista deles sai de um lugar só. Escrito como
-     "contém declaracao", um livro a mais acrescentado ao lado passaria — e a página que
-     existe para mostrar a declaração passaria a mostrar a operação inteira a quem só foi
-     habilitado a ver aquela. */
-  ok(pag.indexOf("teste:BASES_DECL.join('|')") > 0 && pag.indexOf('Q.lendo(') > 0,
-    'a tela de Lançamentos Motorista pede só os livros de declaração, pela lista deles, ' +
-    'e diz quem está perguntando — com um livro a mais ao lado, ela traria a operação ' +
-    'inteira para dentro da porta da declaração', pag.slice(0, 200));
-  var listaDecl = (adm.match(/var BASES_DECL = \[([^\]]*)\]/) || ['', ''])[1];
-  ok(listaDecl.indexOf("'declaracao'") >= 0 && listaDecl.indexOf("'testeDecl'") >= 0 &&
-     listaDecl.indexOf("'reais'") < 0 && listaDecl.indexOf("'teste'") !== listaDecl.indexOf("'testeDecl'") - 1,
-    'e essa lista tem os DOIS livros de declaração e nenhum outro — durante o ensaio ' +
-    'tudo está no de teste, e sem ele a tela abriria vazia justamente para quem está ' +
-    'experimentando', listaDecl);
+  /* OS DOIS LADOS NUM PEDIDO SÓ, e sem recorte de base — porque a conciliação precisa do
+     que o motorista declarou E do que o conferente contou, e o conferente lança nas bases
+     de produção. Pedindo só as de declaração, metade de cada par faltaria e a tabela
+     inteira diria "só declaração".
+     QUEM PENEIRA CONTINUA SENDO O SERVIDOR: para quem não tem esta aba as declarações não
+     vêm, e sem elas esta tela não tem o que conciliar — que é o desenho certo para uma
+     contagem cega. */
+  ok(pag.indexOf('Q.lendo(') > 0 && pag.indexOf("acao:'movimentos'") > 0 &&
+     pag.indexOf('teste:') < 0,
+    'a tela pede os DOIS lados num pedido só, sem recorte de base, e diz quem está ' +
+    'perguntando — recortando por declaração, metade de cada par faltaria e a tabela ' +
+    'inteira diria "só declaração"', pag.slice(0, 160));
 
   /* ---- E A PENEIRA É DO SERVIDOR ----
      Esconder a aba é conveniência; quem filtra "Base Declaração" na lista de Movimentos
@@ -11312,6 +11310,117 @@ console.log('\n== Lançamentos Motorista ==');
   ok(comAba.hidden === false && comAba.disabled === false,
     'e continua lá para quem tem — senão quem compara não teria como separar os dois ' +
     'livros na lista', [comAba.hidden, comAba.disabled]);
+
+  /* ---- O PAR, RODADO ----
+   *
+   * É aqui que a tela vira uma resposta: dois lançamentos viram uma linha, ou a falta de
+   * um vira uma linha também. Lida no arquivo, a prova responderia "a palavra motorista
+   * está na chave?" — e estaria, mesmo somando o lado errado. */
+  var iPar = adm.indexOf('  function chaveDoPar(m){');
+  var fimPar = adm.indexOf('  function defsDecl(){');
+  var fontePar = iPar < 0 || fimPar < 0 ? '' : adm.slice(iPar, fimPar);
+  ok(fontePar.length > 400 && fontePar.indexOf('montarPares') > 0,
+    'a conferência recortou o emparelhamento — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', fontePar.length);
+  var montarPares = new Function(fontePar + '\n return montarPares;')();
+
+  function lanc(o) {
+    return Object.assign({ dataRef: '2026-09-26', motorista: 'Chico', tipo: 'DEVOLUCAO',
+                           qtd: 0, teste: false, declaracao: false, usuario: 'Melk',
+                           origem: 'João Pessoa' }, o);
+  }
+  function acha(pares, sit) {
+    return pares.filter(function (p) { return p.situacao === sit; })[0];
+  }
+
+  /* BATEU: os dois lados existem e são iguais. */
+  var bateu = montarPares([
+    lanc({ declaracao: true, qtd: 250, usuario: 'Chico' }),
+    lanc({ qtd: 250 })
+  ]);
+  ok(bateu.length === 1 && bateu[0].situacao === 'Bateu' &&
+     bateu[0].declarado === 250 && bateu[0].conferido === 250,
+    'a declaração do motorista e a contagem do conferente do MESMO dia viram UMA linha ' +
+    '— dois lançamentos, um par', bateu[0]);
+  ok(bateu[0].conferenteTxt === 'Melk',
+    'e a coluna Conferente diz quem CONTOU, não quem declarou — o motorista é o autor ' +
+    'da própria declaração, e dizer o nome dele ali seria dizer que ele conferiu a si ' +
+    'mesmo', bateu[0].conferenteTxt);
+
+  /* DIVERGENTE, e o sinal da diferença tem sentido: conferido − declarado. */
+  var div = montarPares([
+    lanc({ declaracao: true, qtd: 400, usuario: 'Arilson', motorista: 'Arilson' }),
+    lanc({ qtd: 460, motorista: 'Arilson', usuario: 'Nestor' })
+  ]);
+  ok(div[0].situacao === 'Divergente' && div[0].diferenca === 60,
+    'e quando os dois números diferem a linha diz Divergente, com a diferença no ' +
+    'sentido conferido − declarado: positivo é chegou mais do que ele informou',
+    [div[0].situacao, div[0].diferenca]);
+
+  /* SEM DECLARAÇÃO NÃO É DIVERGÊNCIA. Virando −320 na coluna da diferença, a tela diria
+     que o motorista trouxe 320 caixas a menos — uma acusação inventada. */
+  var semDecl = montarPares([lanc({ qtd: 320, motorista: 'Chico' })]);
+  ok(semDecl[0].situacao === 'Sem declaração' && semDecl[0].diferenca === null &&
+     semDecl[0].declarado === 0,
+    'o conferente contou e o motorista não declarou: isso é AUSÊNCIA, não divergência — ' +
+    'a diferença fica em travessão, senão a tela acusaria uma falta de 320 caixas que ' +
+    'ninguém viu', [semDecl[0].situacao, semDecl[0].diferenca]);
+
+  /* SÓ DECLARAÇÃO é o alerta de verdade: chegou carga e ninguém contou. */
+  var soDecl = montarPares([
+    lanc({ declaracao: true, qtd: 180, motorista: 'Isaque', usuario: 'Isaque' })
+  ]);
+  ok(soDecl[0].situacao === 'Só declaração' && soDecl[0].conferido === 0 &&
+     soDecl[0].conferenteTxt === '',
+    'e o motorista declarou e ninguém contou: carga que chegou e não foi conferida',
+    [soDecl[0].situacao, soDecl[0].conferenteTxt]);
+
+  /* AS TRÊS CHAVES QUE NÃO SE MISTURAM, e cada uma custou uma decisão. */
+  var doisDias = montarPares([
+    lanc({ declaracao: true, qtd: 100 }),
+    lanc({ qtd: 100, dataRef: '2026-09-25' })
+  ]);
+  ok(doisDias.length === 2,
+    'dias diferentes não se somam — o par é do dia, senão a conta de uma segunda-feira ' +
+    'taparia o buraco da sexta', doisDias.length);
+  var doisSentidos = montarPares([
+    lanc({ declaracao: true, qtd: 250, tipo: 'DEVOLUCAO' }),
+    lanc({ qtd: 400, tipo: 'SAIDA' })
+  ]);
+  ok(doisSentidos.length === 2,
+    'saída e retorno não se somam — sem isso, um motorista que leva 400 de manhã e traz ' +
+    '250 à tarde apareceria com uma divergência de +400 que nunca existiu',
+    doisSentidos.length);
+  var doisMundos = montarPares([
+    lanc({ declaracao: true, qtd: 250, teste: true }),
+    lanc({ qtd: 250, teste: false })
+  ]);
+  ok(doisMundos.length === 2,
+    'e o ensaio não se concilia com a operação — comparar uma declaração de treino com ' +
+    'uma contagem de verdade dá um número plausível, que é a pior espécie de número ' +
+    'errado', doisMundos.length);
+
+  /* SEM MOTORISTA A LINHA NÃO SOME: um lançamento que ninguém consegue conciliar é
+     exatamente o que precisa aparecer. */
+  var anonimo = montarPares([lanc({ qtd: 70, motorista: '' })]);
+  ok(anonimo.length === 1 && anonimo[0].motorista === '',
+    'e o lançamento sem motorista aparece num par próprio — escondido, ele vira uma ' +
+    'diferença que não fecha e não se sabe onde procurar', anonimo.length);
+
+  /* AS ROTAS SE JUNTAM, porque o conferente desmembra a viagem por cliente. */
+  var vario = montarPares([
+    lanc({ declaracao: true, qtd: 400, motorista: 'Arilson', usuario: 'Arilson' }),
+    lanc({ qtd: 250, motorista: 'Arilson', origem: 'Campina Grande', usuario: 'Nestor' }),
+    lanc({ qtd: 150, motorista: 'Arilson', origem: 'Natal', usuario: 'Nestor' })
+  ]);
+  ok(vario.length === 1 && vario[0].conferido === 400 &&
+     vario[0].rotasTxt.indexOf('Campina Grande') >= 0 &&
+     vario[0].rotasTxt.indexOf('Natal') >= 0,
+    'e as várias contagens da mesma viagem somam num par só, com as rotas ao lado — o ' +
+    'motorista declara um total, e é o conferente quem desmembra por cliente',
+    [vario.length, vario[0] && vario[0].rotasTxt]);
+  ok(vario[0].situacao === 'Bateu',
+    'e aí o total bate, que é o que a tela existe para responder');
 
   /* ---- A TELA ESTÁ EM OPERAÇÃO, e é uma aba que se concede ---- */
   var nav = adm.slice(adm.indexOf('<nav class="abas"'), adm.indexOf('</nav>'));
