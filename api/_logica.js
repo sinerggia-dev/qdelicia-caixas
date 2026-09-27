@@ -550,6 +550,47 @@ function usuariosVistosDe(u) {
   return lista.map(String);
 }
 
+/* NINGUEM: um id que cadastro nenhum tem. Ele e o jeito de dizer "esta pessoa nao ve
+   lancamento de ninguem" usando o MESMO caminho de "ela ve os destes tres" — sem ele,
+   esse caso precisaria de um `if` proprio em cada rota, e o `if` esquecido numa delas e
+   exatamente o defeito que esta mudanca veio consertar. */
+var NINGUEM = '__ninguem__';
+
+/**
+ * DE QUEM ESTA PESSOA VE OS LANCAMENTOS — decidido AQUI, a partir do cadastro.
+ *
+ * Antes quem decidia era o navegador: a tela lia a permissao da sessao, montava a lista
+ * e a mandava no pedido; o servidor obedecia. Duas consequencias, e as duas aconteceram:
+ *
+ *   1. A TELA QUE ESQUECE MOSTRA TUDO. A lista de Movimentos nao mandava recorte nenhum,
+ *      e um motorista habilitado a ver apenas os proprios lancamentos via a operacao
+ *      inteira — cinco outras telas mandavam, e por isso o defeito passou despercebido.
+ *   2. O RECORTE ERA UM PEDIDO, e nao uma regra: quem montasse o pedido a mao escolhia o
+ *      proprio recorte.
+ *
+ * Agora o pedido diz apenas QUEM esta perguntando, e o recorte sai do cadastro.
+ *
+ * SEM IDENTIDADE, NINGUEM: a rota devolve lista vazia em vez da base inteira. Esta e a
+ * unica escolha segura para o valor que falta — o contrario transforma qualquer
+ * esquecimento futuro no mesmo vazamento de novo.
+ *
+ * ISTO NAO E AUTENTICACAO, e nao adianta fingir que e: a API continua sem nenhuma, e
+ * quem souber o id de outra pessoa pode perguntar como ela. O que esta regra elimina e a
+ * classe de defeito em que a TELA decide o que pode ver.
+ */
+function idsVisiveis(usuarios, quem) {
+  var id = String(quem == null ? '' : quem).trim();
+  if (!id) return [NINGUEM];
+  var u = (usuarios || []).filter(function (x) { return String(x.ID) === id; })[0];
+  /* Cadastro apagado no meio da sessao: nao ve mais nada. Devolver tudo aqui seria
+     premiar justamente o pedido que nao corresponde a ninguem. */
+  if (!u) return [NINGUEM];
+  if (u.VerLancamentos === false) return [NINGUEM];
+  /* Lista vazia quer dizer TODOS — a convencao do projeto, e a unica segura: invertida,
+     o dia em que a coluna nascesse vazia no banco ninguem veria nada. */
+  return usuariosVistosDe(u);
+}
+
 function novoId(prefixo, existentes) {
   var largura = prefixo === 'M' ? 6 : 3;
   var max = 0;
@@ -2097,7 +2138,8 @@ module.exports = {
   montarCancelamento: montarCancelamento,
   ehPerfilTeste: ehPerfilTeste, temTeste: temTeste, pesoTeste: pesoTeste, pesoMatriz: pesoMatriz,
   lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste,
-  recorteProprios: recorteProprios, usuariosVistosDe: usuariosVistosDe, ativo: ativo, novoId: novoId, novoToken: novoToken,
+  recorteProprios: recorteProprios, usuariosVistosDe: usuariosVistosDe,
+  idsVisiveis: idsVisiveis, NINGUEM: NINGUEM, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   meuAcesso: meuAcesso,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,

@@ -1186,7 +1186,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=210eaf47"></script>
+<script src="app.js?v=43f39479"></script>
 <script>
 (function(){
   'use strict';
@@ -1390,27 +1390,13 @@
     Q.carregarDados().then(function(d){ DADOS=d; ordenarTudo(); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
   }
-  /* O id de quem esta olhando, quando o painel dela e restrito — e string vazia quando
-     nao e. Uma funcao so, e nao `s.soProprios ? s.id : ''` espalhado por quatro pedidos:
-     espalhado, o quinto pedido nasce sem o recorte e mostra a todos o que os outros
-     quatro escondem.
-
-     ISTO E A TELA, NAO A TRANCA. A API nao tem autorizacao: um GET direto sem o `so`
-     devolve tudo, como ja devolve hoje para qualquer um. O recorte serve para a pessoa
-     nao ver o que nao lhe diz respeito, e nao para guardar segredo de quem procura. */
-  function recorteProprios(){
-    var s = Q.sessao();
-    if (!s) return '';
-    /* Nao pedir recorte nenhum e pedir TODOS: e assim que a rota le um `so` vazio. Entao
-       os dois casos em que a pessoa nao ve ninguem pedem o sentinela, e nao o vazio —
-       nao ver lancamento, e nao ter ninguem marcado.
-
-       Com a convencao nova, lista vazia quer dizer NINGUEM. Mandar '' aqui entregaria a
-       operacao inteira para quem nao tem nenhuma marca. */
-    if (s.verLancamentos === false) return '__ninguem__';
-    var vistos = s.usuariosVistos || [];
-    return vistos.length ? vistos.map(String).join(',') : '__ninguem__';
-  }
+  /* A FUNCAO QUE MONTAVA O RECORTE AQUI SAIU. Ela lia a permissao da sessao, montava a
+     lista de quem a pessoa pode ver e a mandava no pedido — e o servidor obedecia. Duas
+     coisas erradas na mesma linha: a TELA decidindo o que pode ver, e cada tela tendo de
+     lembrar de decidir. A de Movimentos nao lembrava, e um motorista habilitado a ver
+     apenas os proprios lancamentos lia a operacao inteira.
+     Agora o pedido diz so QUEM esta perguntando, pelo `Q.lendo()`, e o recorte sai do
+     cadastro, no servidor. Ver `idsVisiveis`, em `api/_logica.js`. */
 
   /* A sessao guardada e uma FOTO do login. Enquanto ela for a unica fonte, mudar a
      permissao de alguem no cadastro nao chega a quem ja esta logado: a pessoa segue com o
@@ -1787,12 +1773,10 @@
   });
 
   function carregarPainel(){
-    var pedido = { acao:'painel', teste:VER_TESTE };
-    /* Painel restrito: o recorte viaja no pedido, e nao e feito aqui. Filtrar na tela
-       mostraria os cartoes somando o galpao inteiro em cima de uma tabela de tres linhas
-       — e o corte de linhas do servidor vem antes, entao nem a tabela estaria certa. */
-    var meuRecorte = recorteProprios();
-    if (meuRecorte) pedido.so = meuRecorte;
+    /* Painel restrito: o recorte acontece no SERVIDOR, e nao aqui. Filtrado na tela, os
+       cartoes somariam o galpao inteiro em cima de uma tabela de tres linhas — e o corte
+       de linhas do servidor vem antes, entao nem a tabela estaria certa. */
+    var pedido = Q.lendo({ acao:'painel', teste:VER_TESTE });
     var de = document.getElementById('rtDe'), ate = document.getElementById('rtAte');
     if (de && de.value) pedido.de = de.value;
     if (ate && ate.value) pedido.ate = ate.value;
@@ -4263,8 +4247,8 @@
     var id = document.getElementById('exLocal').value;
     if (!id) return Q.toast('Escolha o cliente.','erro');
     document.getElementById('extratoBox').innerHTML = '<div class="vazio">Carregando…</div>';
-    Q.get({acao:'extrato', local:id, de:document.getElementById('exDe').value,
-           ate:document.getElementById('exAte').value, so:recorteProprios()})
+    Q.get(Q.lendo({acao:'extrato', local:id, de:document.getElementById('exDe').value,
+           ate:document.getElementById('exAte').value}))
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
         EXTRATO = r;
@@ -4816,9 +4800,7 @@
     aviso.innerHTML = '<div class="aviso-box info">Conferindo quantos lançamentos casam…</div>';
     var f = filtroExclusao();
     // Conta na hora do clique, com o MESMO filtro que vai apagar.
-    var pedido = { acao:'movimentos', limit:100000 };
-    var meuRecorte = recorteProprios();
-    if (meuRecorte) pedido.so = meuRecorte;
+    var pedido = Q.lendo({ acao:'movimentos', limit:100000 });
     Object.keys(f).forEach(function(k){ if (f[k]) pedido[k] = f[k]; });
     Q.get(pedido).then(function(r){
       if (!r.ok) throw new Error(r.erro);
@@ -4963,10 +4945,13 @@
        o servidor sabia filtrar, a tela so nao pedia — escolher uma caixa nao mudava nada
        na tabela, e o filtro parecia quebrado. Pior, o "Apagar o que esta no filtro"
        mandava os dois, entao a tela e o apagar recortavam coisas diferentes. */
-    Q.get({acao:'movimentos', origem:f.origem, destino:f.destino,
+    /* `Q.lendo` DIZ QUEM ESTA PERGUNTANDO. Esta era a unica das cinco leituras que nao
+       mandava recorte nenhum, e por isso mostrava a operacao inteira a quem so podia ver
+       os proprios lancamentos. Agora nenhuma tela monta recorte: todas dizem quem sao. */
+    Q.get(Q.lendo({acao:'movimentos', origem:f.origem, destino:f.destino,
            tipo:f.tipo, fluxo:f.fluxo, caixa:f.caixa, usuario:f.usuario, teste:f.teste,
            situacao:f.situacao, motorista:f.motorista, trecho:f.trecho,
-           de:f.de, ate:f.ate, limit:500})
+           de:f.de, ate:f.ate, limit:500}))
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
         MOVS = r.movimentos;
@@ -5232,9 +5217,7 @@
   function carregarLixeira(){
     var box = document.getElementById('tabelaLixeira');
     box.innerHTML = '<div class="vazio">Carregando…</div>';
-    var pedido = { acao:'lixeira', limit:300 };
-    var meuRecorte = recorteProprios();
-    if (meuRecorte) pedido.so = meuRecorte;
+    var pedido = Q.lendo({ acao:'lixeira', limit:300 });
     Q.get(pedido).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       LIXO = r.movimentos || [];

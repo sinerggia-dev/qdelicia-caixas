@@ -52,9 +52,13 @@ const tabelas = {
      Escrever o seed com as listas vazias seria testar contra um banco que nao existe
      mais, e ele passaria a recusar todo lancamento por falta de permissao. */
   usuarios: [
+    /* O ADMINISTRADOR VE TODO MUNDO — lista de vistos VAZIA, que e a convencao do
+       projeto para "todos". Com a lista dos quatro semeados, cada usuario que um teste
+       criasse ficaria de fora dos numeros: os lancamentos dele sumiriam do saldo, do
+       aging e do extrato, e o teste reprovaria falando de outra coisa. */
     { id: 'U001', nome: 'Administrador', perfil: 'ADMIN', pin: '1234', telefone: '', local_padrao: 'L001', ativo: true, usuario: 'admin', email: 'admin@qdelicia.com.br', senha_hash: null, acesso_painel: true,
       operacoes: TUDO.operacoes, saidas: TUDO.locais, destinos: TUDO.locais, ajustes: TUDO.locais,
-      tipos_caixa: TUDO.tipos, motoristas: TUDO.motoristas, usuarios_vistos: TUDO.usuarios },
+      tipos_caixa: TUDO.tipos, motoristas: TUDO.motoristas, usuarios_vistos: [] },
     { id: 'U002', nome: 'Conferente Galpão', perfil: 'GALPAO', pin: '1111', telefone: '', local_padrao: 'L001', ativo: true, acesso_painel: true,
       abas: TUDO.abas, operacoes: TUDO.operacoes, saidas: TUDO.locais, destinos: TUDO.locais, ajustes: TUDO.locais,
       tipos_caixa: TUDO.tipos, motoristas: TUDO.motoristas, usuarios_vistos: TUDO.usuarios },
@@ -183,7 +187,14 @@ function chamar(metodo, dados) {
     Promise.resolve(handler(req, res)).catch(reject);
   });
 }
-const GET = (p) => chamar('GET', p);
+/* QUEM ESTA PERGUNTANDO. Desde que o recorte dos lancamentos passou a sair do CADASTRO,
+   toda leitura precisa dizer quem e — sem isso a rota devolve lista vazia, de proposito:
+   e a unica escolha segura para uma identidade que falta.
+   O padrao e o administrador, que ve todo mundo. Quem cobra o recorte em si e a secao
+   "de quem a pessoa ve os lancamentos", que passa o `quem` dela na mao. */
+const LEITOR = 'U001';
+const GET = (p) => chamar('GET',
+  p && p.quem !== undefined ? p : Object.assign({ quem: LEITOR }, p));
 const POST = (p) => chamar('POST', p);
 
 /* ---------- utilidades ---------- */
@@ -2016,17 +2027,107 @@ console.log('\n== painel restrito: so os proprios lancamentos ==');
     'e o original não é alterado — o recorte copia, senão a próxima chamada da mesma ' +
     'requisição já veria os dados mutilados');
 
-  /* O recorte tem de valer para TUDO que sai dos lançamentos. Filtrar só a lista de
-     Movimentos esconderia as linhas e deixaria os mesmos números somados nos cartões
-     logo acima — a pessoa veria o total do galpão inteiro sobre uma tabela de 3 linhas. */
-  const rota = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
-  ok(/case 'painel':[\s\S]{0,400}recorteProprios/.test(rota),
-    'o Painel e os saldos obedecem ao recorte');
-  ok(/case 'extrato':[\s\S]{0,200}recorteProprios/.test(rota),
-    'os extratos também');
-  ok(/case 'movimentos':[\s\S]{0,400}recorteProprios\(d, p\.so\)/.test(rota),
-    'e a lista de Movimentos usa o MESMO recorte das outras rotas — o filtro `usuario` ' +
-    'prenderia num usuário só, e a permissão pode citar vários');
+  /* DE QUEM A PESSOA VE OS LANCAMENTOS: decidido no CADASTRO, e nao no pedido.
+   *
+   * Antes quem montava o recorte era a tela: ela lia a permissao da sessao e a mandava
+   * junto; o servidor obedecia. Cinco telas mandavam e uma esquecia — a lista de
+   * Movimentos —, e por ela um motorista habilitado a ver apenas os proprios lancamentos
+   * lia a operacao inteira. Nenhuma prova aqui podia pegar isso: a rota estava certa.
+   *
+   * ENTAO A PERGUNTA MUDOU. Nao e mais "a rota aplica o recorte que pediram?", e sim
+   * "quem pergunta como fulano recebe o que fulano pode ver?". Rodado contra as rotas
+   * de verdade, com o banco falso. */
+  const ondeVi = (r) => (r.movimentos || []).map((m) => m.usuario).sort().join(',');
+
+  /* EM DOIS PASSOS, e nao num: "vejo so os meus" cita um id que ainda nao existe na hora
+     de criar. Quem resolve isso na tela e o marcador `__EU__`, que tem teste proprio
+     logo abaixo; aqui o que se quer e o recorte ja gravado. */
+  await POST({ acao: 'salvarUsuario',
+    registro: { Nome: 'So o Dele', Perfil: 'MOTORISTA', PIN: '778899',
+                Operacoes: ['SAIDA'] } });
+  let equipeAgora = (await GET({ acao: 'equipe' })).usuarios;
+  let soDele = equipeAgora.filter((u) => u.Nome === 'So o Dele')[0];
+  if (soDele) {
+    await POST({ acao: 'salvarUsuario', registro: { ID: soDele.ID, Nome: soDele.Nome,
+      Perfil: soDele.Perfil, Operacoes: ['SAIDA'], UsuariosVistos: [soDele.ID] } });
+    equipeAgora = (await GET({ acao: 'equipe' })).usuarios;
+    soDele = equipeAgora.filter((u) => u.Nome === 'So o Dele')[0];
+  }
+  ok(!!soDele && soDele.UsuariosVistos.length === 1 && soDele.UsuariosVistos[0] === soDele.ID,
+    'a conferência criou alguém que vê apenas os lançamentos dele mesmo — sem isso as ' +
+    'provas abaixo não teriam recorte nenhum para medir', soDele && soDele.UsuariosVistos);
+
+  await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: 'L001', destinoId: 'L003',
+    itens: [{ tipoId: 'T001', qtd: 7 }], dataRef: dia(0), usuarioId: 'U002',
+    clientKey: 'k-recorte-1' });
+  await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: 'L001', destinoId: 'L003',
+    itens: [{ tipoId: 'T001', qtd: 9 }], dataRef: dia(0), usuarioId: soDele.ID,
+    clientKey: 'k-recorte-2' });
+
+  const comoEle = await GET({ acao: 'movimentos', quem: soDele.ID, limit: 500, teste: 'todos' });
+  ok(ondeVi(comoEle) === 'So o Dele',
+    'quem só pode ver os próprios lançamentos recebe só os dele — foi exatamente isto ' +
+    'que a tela de Movimentos não fazia, e por ela um motorista lia a operação inteira',
+    ondeVi(comoEle));
+
+  const comoAdmin = await GET({ acao: 'movimentos', quem: 'U001', limit: 500, teste: 'todos' });
+  ok(comoAdmin.movimentos.length > comoEle.movimentos.length,
+    'e quem vê todo mundo continua vendo — o recorte é do cadastro dela, não um muro ' +
+    'para todos', [comoAdmin.movimentos.length, comoEle.movimentos.length]);
+
+  /* SEM IDENTIDADE, NADA. Esta é a linha que impede o defeito de voltar por outra porta:
+     enquanto "não disse quem sou" quisesse dizer "me dê tudo", bastava uma tela nova
+     esquecer de dizer — e foi assim da primeira vez. */
+  const anonimo = await GET({ acao: 'movimentos', quem: '', limit: 500, teste: 'todos' });
+  ok((anonimo.movimentos || []).length === 0,
+    'e um pedido SEM identidade não recebe lançamento nenhum — devolver tudo ali faria ' +
+    'de qualquer esquecimento futuro o mesmo vazamento', (anonimo.movimentos || []).length);
+  const fantasma = await GET({ acao: 'movimentos', quem: 'U-NAO-EXISTE', limit: 500 });
+  ok((fantasma.movimentos || []).length === 0,
+    'nem um pedido em nome de um cadastro que não existe');
+
+  /* O INTERRUPTOR DE CIMA: "ve os lancamentos?" com NAO. Ele e outra pergunta, anterior
+     a "de quem" — e sem uma linha propria cairia na convencao do vazio, que quer dizer
+     TODOS. Ou seja: desligar o interruptor mostraria a operacao inteira, que e o oposto
+     exato do que quem desliga quis dizer. */
+  await POST({ acao: 'salvarUsuario', registro: { Nome: 'Nao Ve Nada', Perfil: 'MOTORISTA',
+    PIN: '112233', VerLancamentos: 'NAO' } });
+  const mudo = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.Nome === 'Nao Ve Nada')[0];
+  ok(!!mudo && mudo.VerLancamentos === false,
+    'a conferência criou alguém com "vê os lançamentos?" em NÃO — sem isso a prova ' +
+    'abaixo mediria outra coisa', mudo && mudo.VerLancamentos);
+  const nada = await GET({ acao: 'movimentos', quem: mudo.ID, limit: 500, teste: 'todos' });
+  ok((nada.movimentos || []).length === 0,
+    'e quem não vê lançamentos não recebe nenhum — sem uma linha só para este caso ele ' +
+    'cairia na convenção do vazio, que quer dizer TODOS: desligar o interruptor ' +
+    'mostraria a operação inteira', (nada.movimentos || []).length);
+
+  /* O PEDIDO NAO OPINA. Mandar o recorte antigo junto nao alarga nada: quem decide e o
+     cadastro. Enquanto o `so` valia, a tela — ou qualquer pedido montado a mao — escolhia
+     o proprio recorte. */
+  const comSo = await GET({ acao: 'movimentos', quem: soDele.ID, so: '', limit: 500,
+    teste: 'todos' });
+  ok(ondeVi(comSo) === 'So o Dele',
+    'e o recorte que o PEDIDO mandar não vale — quem decide é o cadastro, e enquanto ' +
+    'valia bastava montar o pedido à mão para ver o que não se pode', ondeVi(comSo));
+
+  /* E VALE PARA TUDO QUE SAI DOS LANCAMENTOS, e nao so para a lista: filtrando uma tela
+     e nao as outras, a pessoa ve o total do galpao inteiro nos cartoes em cima de uma
+     tabela de tres linhas. */
+  const painelDele = await GET({ acao: 'painel', quem: soDele.ID, teste: 'todos' });
+  const painelAdmin = await GET({ acao: 'painel', quem: 'U001', teste: 'todos' });
+  ok(painelDele.painel.kpis.saidasMes < painelAdmin.painel.kpis.saidasMes,
+    'o Painel obedece ao mesmo recorte — os cartões somam os lançamentos, e somá-los ' +
+    'sem peneira contaria o que a tabela esconde',
+    [painelDele.painel.kpis.saidasMes, painelAdmin.painel.kpis.saidasMes]);
+  const painelAnonimo = await GET({ acao: 'painel', quem: '', teste: 'todos' });
+  ok(painelAnonimo.painel.kpis.saidasMes === 0,
+    'e sem identidade o Painel também não soma nada');
+  const lixoDele = await GET({ acao: 'lixeira', quem: '', limit: 300 });
+  ok((lixoDele.movimentos || []).length === 0,
+    'e a lixeira idem — ela é o avesso da lista, e uma peneira que valesse só de um ' +
+    'lado transformaria a tela que restaura num jeito de ver o que a outra esconde');
 
   /* O corte de linhas do servidor vem DEPOIS do filtro, então filtrar na tela mostraria
      só os lançamentos da pessoa que couberam nas primeiras N linhas. */

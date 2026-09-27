@@ -422,7 +422,10 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
      Pior que inofensivo: o "Apagar o que esta no filtro" mandava os dois campos, entao a
      tela e o apagar recortavam conjuntos diferentes — o que sobrava contra isso era a
      conferencia do numero esperado. */
-  var p = adm.indexOf("Q.get({acao:'movimentos'");
+  /* A ANCORA E O PEDIDO DA LISTA, que agora passa pelo `Q.lendo()` — a casca que diz
+     quem esta perguntando. Ancorada em `Q.get({acao:` ela deixou de achar o pedido e a
+     prova reprovou os doze campos de uma vez, sem nada ter piorado. */
+  var p = adm.indexOf("acao:'movimentos', origem:");
   var pedido = adm.slice(p, adm.indexOf('})', p));
   var campoDoPedido = { mvOrigem: 'origem', mvDestino: 'destino', mvFluxo: 'fluxo',
                         mvTipo: 'tipo', mvCaixa: 'caixa', mvStatus: 'situacao',
@@ -5526,38 +5529,54 @@ console.log('\n== o recorte vale no app de campo tambem ==');
   var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
 
-  /* A permissao "ve apenas os lancamentos dela" valia so no painel. No app de campo a aba
-     Lancamentos mostrava os de todo mundo. Restricao aplicada num lugar e nao no outro
-     nao restringe nada: fecha a porta da frente, deixa a de tras aberta, e ainda faz quem
-     administra acreditar que fechou as duas. */
-  var ir = idx.indexOf('function recorteProprios()');
-  var rec = idx.slice(ir, idx.indexOf('\n  }', ir));
-  ok(ir > 0 && /s\.usuariosVistos/.test(rec) && /s\.verLancamentos === false/.test(rec),
-    'o app de campo sabe quem a pessoa pode ver, e se pode ver alguém', rec);
+  /* ---- NENHUMA TELA MONTA O PRÓPRIO RECORTE ----
+   *
+   * Elas montavam. Cada uma lia a permissão da sessão, montava a lista de quem a pessoa
+   * pode ver e a mandava no pedido; o servidor obedecia. Duas coisas erradas na mesma
+   * linha: a TELA decidindo o que pode ver, e cada tela tendo de lembrar de decidir.
+   *
+   * A de Movimentos não lembrava. Cinco lembravam — e foi por isso que o defeito durou:
+   * a prova que existia aqui nomeava três telas e achava o pedido de UMA delas quando
+   * procurava o da outra, porque as duas começam por `acao:'movimentos'`.
+   *
+   * Agora o pedido diz só QUEM pergunta, e quem decide é o cadastro, no servidor. */
+  ok(idx.indexOf('function recorteProprios()') < 0 &&
+     adm.indexOf('function recorteProprios()') < 0,
+    'nenhuma das duas telas monta o próprio recorte — enquanto montavam, esquecer era ' +
+    'questão de escrever a sexta tela');
+  var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  ok(/function lendo\(pedido\)/.test(app) && /p\.quem = \(s && s\.id\)/.test(app),
+    'e há UM lugar que diz quem está perguntando, no `app.js` que as duas telas ' +
+    'carregam — dois lugares divergem no primeiro conserto que só um receber');
 
-  /* A MESMA regra dos dois lados. Escrita diferente em cada tela, elas divergem no
-     primeiro ajuste e uma passa a mostrar o que a outra esconde. */
-  var ia = adm.indexOf('function recorteProprios()');
-  var recAdm = adm.slice(ia, adm.indexOf('\n  }', ia));
-  /* As duas telas tem de decidir IGUAL. Comparar o texto inteiro seria fragil demais
-     (os comentarios diferem de proposito), entao compara o miolo: as mesmas tres linhas
-     de decisao, na mesma ordem. */
-  function miolo(t) {
-    return t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').trim();
+  /* ---- E TODA LEITURA DE LANÇAMENTO PASSA POR ELE ----
+   *
+   * A LISTA DAS LEITURAS É DERIVADA do arquivo, e não escrita aqui. Escrita, ela teria
+   * exatamente o mesmo buraco de antes: a tela nova não estaria nela, e a prova ficaria
+   * verde sobre uma tela que mostra tudo a todos. */
+  var ROTAS_DE_LANCAMENTO = ['movimentos', 'painel', 'lixeira', 'extrato', 'pendentes'];
+  function leiturasDe(txt, arq) {
+    var limpo = semComentarios(txt);
+    var achados = [];
+    ROTAS_DE_LANCAMENTO.forEach(function (rota) {
+      var re = new RegExp("acao\\s*:\\s*'" + rota + "'", 'g'), m;
+      while ((m = re.exec(limpo)) !== null) {
+        achados.push({ arq: arq, rota: rota,
+                       antes: limpo.slice(Math.max(0, m.index - 60), m.index) });
+      }
+    });
+    return achados;
   }
-  ok(miolo(rec) === miolo(recAdm),
-    'e a regra é a MESMA das duas telas, linha por linha — escrita diferente em cada ' +
-    'uma, elas divergem no primeiro ajuste e uma passa a mostrar o que a outra esconde',
-    { campo: miolo(rec), painel: miolo(recAdm) });
-
-  /* O recorte viaja no PEDIDO. Filtrando a lista depois que ela chega, o corte de 2.000
-     linhas do servidor vem antes: ela veria so os dela que couberam, e os cartoes de cima
-     somariam o que a tabela nao mostra. */
-  var iL = idx.indexOf("Q.get({ acao:'movimentos'");
-  var pedido = idx.slice(iL, iL + 260);
-  ok(iL > 0 && /so:recorteProprios\(\)/.test(pedido),
-    'a aba Lançamentos pede o recorte ao servidor — filtrando depois que a lista chega, ' +
-    'o corte de 2.000 linhas vem antes e ela veria só os dela que couberam', pedido);
+  var leituras = leiturasDe(adm, 'admin.html').concat(leiturasDe(idx, 'index.html'));
+  ok(leituras.length >= 5,
+    'a conferência achou as leituras de lançamento das duas telas — nenhuma achada ' +
+    'faria a prova abaixo aprovar qualquer coisa', leituras.length);
+  var mudas = leituras.filter(function (l) { return l.antes.indexOf('Q.lendo(') < 0; });
+  ok(mudas.length === 0,
+    'e TODA leitura de lançamento diz quem está perguntando — a que não diz recebe ' +
+    'lista vazia do servidor, e a que dizia sozinha mostrava a operação inteira a quem ' +
+    'só podia ver os próprios lançamentos',
+    mudas.map(function (l) { return l.arq + ' · ' + l.rota; }));
 
   /* --- e a EXCECAO, que fica de fora de proposito ------------------------- */
   /* O aviso de saldo do formulario de retorno nao e lista de lancamentos: e quantas
@@ -5566,7 +5585,7 @@ console.log('\n== o recorte vale no app de campo tambem ==');
      devolucao legitima — a pessoa aprenderia a ignora-lo, e ai ele nao guarda mais nada. */
   var ip = idx.indexOf('function carregarPainel()');
   var painel = idx.slice(ip, idx.indexOf('\n  }', ip));
-  ok(ip > 0 && painel.indexOf("acao:'painel'") > 0 && !/so:/.test(painel),
+  ok(ip > 0 && painel.indexOf("acao:'saldoLocais'") > 0 && !/Q\.lendo/.test(painel),
     'o saldo do formulário de retorno fica FORA do recorte — é dele que sai o alerta ' +
     '"você contou mais do que o saldo", e recortado ele dispararia em toda devolução ' +
     'legítima até a pessoa aprender a ignorá-lo', painel);
@@ -5733,32 +5752,19 @@ console.log('\n== painel restrito: a tela pede e anuncia o recorte ==');
      /UsuariosVistos:lerMarcados\('fUsuariosVistos'\)/.test(env),
     'o salvar manda os dois', env);
 
-  /* --- a tela PEDE o recorte ---------------------------------------------- */
-  var r = adm.indexOf('function recorteProprios()');
-  var rec = adm.slice(r, adm.indexOf('\n  }', r));
-  ok(r > 0 && /s\.usuariosVistos/.test(rec),
-    'o recorte sai da sessão, numa função só', rec);
-  /* "Nao ve lancamento nenhum" tem de pedir um recorte que nao casa com ninguem. Nao
-     pedir nada seria pedir TODOS, pela convencao do vazio — o contrario do pedido. */
-  ok(/s\.verLancamentos === false\) return '__ninguem__'/.test(rec),
-    'quem não vê lançamentos pede um recorte que não casa com ninguém — não pedir nada ' +
-    'pediria TODOS, pela convenção do vazio, que é o contrário do que o admin marcou');
-  /* Cada rota e conferida DENTRO do proprio pedido. A primeira versao desta afirmacao
-     procurava o texto em qualquer lugar do arquivo com um `||`, e por isso continuava
-     passando quando o recorte era tirado de um dos tres — ela achava o dos outros. */
-  [['painel', "{ acao:'painel'"],
-   ['movimentos', "{ acao:'movimentos'"],
-   ['extrato', "acao:'extrato'"]].forEach(function (par) {
-    var i = adm.indexOf(par[1]);
-    var trecho = adm.slice(i, i + 420);
-    ok(i > 0 && /(pedido\.so = meuRecorte|so:recorteProprios\(\))/.test(trecho),
-      'o pedido de ' + par[0] + ' leva o recorte — sem ele essa tela mostra a todos o ' +
-      'que as outras escondem', trecho.slice(0, 180));
-  });
-  ok((adm.match(/recorteProprios\(\)/g) || []).length >= 4,
-    'as três telas pedem pelo mesmo caminho — espalhado, o quarto pedido nasce sem o ' +
-    'recorte e mostra a todos o que os outros escondem',
-    (adm.match(/recorteProprios\(\)/g) || []).length);
+  /* --- A TELA JA NAO PEDE O RECORTE: ela diz quem esta perguntando ---------
+   *
+   * O que havia aqui cobrava a arquitetura antiga — a tela lendo a permissao da sessao,
+   * montando a lista e mandando no pedido. Ela nomeava tres telas, e a quarta nasceu sem
+   * recorte nenhum: a lista de Movimentos mostrava a operacao inteira a quem so podia ver
+   * os proprios lancamentos. Pior, a prova de "movimentos" passava verde o tempo todo,
+   * porque procurava `acao:'movimentos'` e achava o pedido da CONTAGEM do apagar, que
+   * mandava o recorte certinho.
+   *
+   * Quem cobra isso agora e a bancada "o recorte vale no app de campo tambem", com a
+   * lista de leituras DERIVADA dos dois arquivos — e o lado do servidor e rodado contra
+   * as rotas de verdade no `teste_api.js`, secao "de quem a pessoa ve os lancamentos". */
+
 
   /* --- a faixa de aviso saiu, a pedido ------------------------------------ */
   /* Ela existia e foi retirada por escolha de quem usa. O que fica testado aqui e a

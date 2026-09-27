@@ -112,16 +112,39 @@ async function rotaGet(p) {
       return { ok: true, usuario: L.meuAcesso(d.usuarios, p.id) };
     case 'painel':
       /* Os dois recortes se somam, e nesta ordem nao importa: um estreita por ensaio, o
-         outro por quem lancou. `so` vazio devolve tudo. */
-      return { ok: true, painel: L.painel(L.recorteProprios(L.recorteTeste(d, p.teste), p.so),
-                                          null, { de: p.de, ate: p.ate }) };
+         outro por quem lancou. O segundo sai do CADASTRO de quem pergunta — ver
+         `idsVisiveis`. O pedido nao opina sobre o que quem o mandou pode ver. */
+      return { ok: true, painel: L.painel(
+                 L.recorteProprios(L.recorteTeste(d, p.teste), L.idsVisiveis(d.usuarios, p.quem)),
+                 null, { de: p.de, ate: p.ate }) };
+    /* O SALDO DE UM LUGAR, e mais nada. Ele fica FORA do recorte por pessoa, e isto e
+       uma excecao pensada, nao um esquecimento:
+         · ele nao e a lista de lancamentos de ninguem — e quantas caixas estao naquele
+           lugar AGORA, somadas de todo mundo que mexeu nelas;
+         · dele sai o aviso "voce contou mais do que o saldo", no app de campo. Recortado
+           por pessoa, o saldo viria menor que a realidade e o aviso dispararia em toda
+           devolucao legitima — e um alarme que toca sem motivo e um alarme que se
+           aprende a ignorar.
+       DEVOLVE SO OS SALDOS: nada de KPIs, de fluxo ou de quem lancou o que. O app de
+       campo precisa do numero do lugar; o resto do painel continua atras do recorte. */
+    case 'saldoLocais':
+      var p2 = L.painel(L.recorteTeste(d, p.teste), null, { de: p.de, ate: p.ate });
+      return { ok: true, painel: { locais: p2.locais, rotas: p2.rotas } };
     case 'pendentes':
-      return { ok: true, movimentos: L.pendentes(d.movimentos, d.locais, d.tipos) };
+      /* PENDENTES TAMBEM E LANCAMENTO. Ela ficou de fora do recorte desde que nasceu,
+         e por sorte nenhuma tela a chama hoje — mas uma rota que devolve movimento sem
+         peneira e uma porta aberta esperando a primeira tela que a use. */
+      return { ok: true, movimentos: L.pendentes(
+                 L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)).movimentos,
+                 d.locais, d.tipos) };
     case 'movimentos':
       /* O MESMO recorte das outras rotas, e nao o filtro `usuario` — que agora seria
          apertado demais: a permissao pode citar varios usuarios, e `usuario` prende num
-         so. O filtro continua existindo para a escolha manual da tela. */
-      var mov = L.recorteProprios(d, p.so);
+         so. O filtro continua existindo para a escolha manual da tela.
+         ESTA ROTA NAO MANDAVA RECORTE NENHUM ate aqui, porque quem o mandava era a tela
+         — e esta tela esquecia. Era por ela que um motorista habilitado a ver apenas os
+         proprios lancamentos via a operacao inteira. */
+      var mov = L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem));
       return { ok: true, movimentos: L.listaMovimentos(mov.movimentos, d.locais, d.tipos,
                  d.usuarios, p) };
     /* A lixeira entende o MESMO `so` que `movimentos`, e pela mesma razão: ela é o
@@ -130,10 +153,12 @@ async function rotaGet(p) {
        aqui o mesmo `so` que manda no "Apagar o que está no filtro": quem não pôde apagar
        um lançamento não o encontra aqui para restaurar. */
     case 'lixeira':
-      return { ok: true, movimentos: L.listaLixeira(L.recorteProprios(d, p.so).movimentos,
+      return { ok: true, movimentos: L.listaLixeira(
+                 L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)).movimentos,
                  d.locais, d.tipos, d.usuarios, p) };
     case 'extrato':
-      return L.extrato(L.recorteProprios(d, p.so), p.local, p.de, p.ate);
+      return L.extrato(L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)),
+                       p.local, p.de, p.ate);
     case 'extratoToken':
       return L.extratoToken(d, p.t, p.de, p.ate);
     default:

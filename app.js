@@ -165,6 +165,29 @@
   /* ---------------- sessão ---------------- */
 
   function sessao() { try { return JSON.parse(localStorage.getItem(KEY_SESSAO) || 'null'); } catch (e) { return null; } }
+
+  /**
+   * TODO PEDIDO DE LEITURA PASSA POR AQUI.
+   *
+   * Ele acrescenta `quem` — o id de quem está logado —, e é com isso que o servidor
+   * descobre, NO CADASTRO, de quem esta pessoa pode ver lançamentos. A tela não manda
+   * mais o recorte: mandava, e a tela de Movimentos esquecia de mandar. O efeito era um
+   * motorista habilitado a ver apenas os próprios lançamentos lendo a operação inteira.
+   *
+   * EXISTE PARA QUE ESQUECER SEJA DIFÍCIL. Enquanto cada tela montava o próprio recorte,
+   * a quinta tela nasceu sem ele e ninguém notou — cinco estavam certas. Aqui há um
+   * lugar só: uma leitura nova que não passe por esta função pede sem identidade, e sem
+   * identidade o servidor não devolve lançamento nenhum.
+   *
+   * SEM SESSÃO, `quem` VAI VAZIO — e o servidor responde com lista vazia, que é o que se
+   * quer: quem ainda não entrou não vê o que os outros lançaram.
+   */
+  function lendo(pedido) {
+    var p = pedido || {};
+    var s = sessao();
+    p.quem = (s && s.id) || '';
+    return p;
+  }
   /**
    * Grava a sessão.
    *
@@ -2159,7 +2182,7 @@
 
   window.QDC = {
     get: get, post: post, enviar: enviar, sincronizar: sincronizar, fila: fila, chave: chave,
-    sessao: sessao, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
+    sessao: sessao, lendo: lendo, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
     cache: cache, carregarDados: carregarDados, semApi: semApi,
     precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,

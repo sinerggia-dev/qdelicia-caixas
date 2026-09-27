@@ -77,9 +77,13 @@ var PERMISSOES = [
   { nome: 'VerLancamentos', chave: 'VerLancamentos', campo: 'fVerLanc',
     sessao: 'verLancamentos',
     usa: [['admin.html', 'verLancamentos'], ['index.html', 'verLancamentos']] },
+  /* QUEM USA ESTA LISTA E O SERVIDOR, e nao mais a tela. Ela era lida da sessao pelo
+     `recorteProprios()` de cada tela, que montava o recorte e o mandava no pedido — e a
+     tela de Movimentos esquecia de mandar. Agora o pedido diz so QUEM pergunta, e o
+     recorte sai do cadastro em `idsVisiveis`. */
   { nome: 'UsuariosVistos', chave: 'UsuariosVistos', campo: 'fUsuariosVistos',
     sessao: 'usuariosVistos',
-    usa: [['admin.html', 'recorteProprios'], ['api/_logica.js', 'usuariosVistosDe']] },
+    usa: [['api/_logica.js', 'idsVisiveis'], ['api/_logica.js', 'usuariosVistosDe']] },
   { nome: 'Operacoes', chave: 'Operacoes', campo: 'fOperacoes', sessao: 'operacoes',
     usa: [['index.html', 'operacoes']] },
   /* Em quais locais a pessoa mexe no saldo pela aba Ajustes. Nao entra em `Operacoes`
