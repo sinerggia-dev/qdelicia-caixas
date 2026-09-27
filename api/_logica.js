@@ -424,8 +424,15 @@ function ativo(v) {
  * "local tem movimento", porque a linha continua existindo no banco e a chave estrangeira
  * continua apontando para ela.
  */
+/* O QUE VALE. Fora o cancelado e o que esta na lixeira, sai tambem a DECLARACAO: ela
+   existe como linha e nao existe como movimento — e quem chama esta funcao e todo mundo
+   que SOMA (saldo, aging, painel, extrato, fluxo por pessoa).
+   E a unica peneira desses seis: escrita em cada um deles, o setimo nasceria sem ela e
+   contaria a declaracao no estoque sem dar erro nenhum — so um numero plausivel. */
 function ativos(movimentos) {
-  return movimentos.filter(function (m) { return !m.Cancelado && !m.ExcluidoEm; });
+  return movimentos.filter(function (m) {
+    return !m.Cancelado && !m.ExcluidoEm && !ehDeclaracao(m);
+  });
 }
 
 /** O avesso: o que está na lixeira, e só. */
@@ -433,10 +440,45 @@ function naLixeira(movimentos) {
   return movimentos.filter(function (m) { return !!m.ExcluidoEm; });
 }
 
-/* `naoCancelados` é o mesmo que `ativos`. Ficou como apelido porque o ciclo da carga e a
-   lista de Movimentos o nomeiam, e o nome diz o que eles querem: a peneira do cancelado,
-   sem promessa nenhuma sobre ensaio. */
-var naoCancelados = ativos;
+/* AS LINHAS QUE EXISTEM. Era apelido de `ativos` e deixou de ser no dia em que nasceu um
+   lancamento que EXISTE e NAO VALE: a declaracao do motorista. A lista de Movimentos e o
+   ciclo da carga chamam esta — eles mostram o que aconteceu, e esconder a declaracao
+   deixaria a pessoa com uma tabela cujo total nao bate com o saldo e sem nada na tela
+   dizendo por que. */
+function naoCancelados(movimentos) {
+  return movimentos.filter(function (m) { return !m.Cancelado && !m.ExcluidoEm; });
+}
+
+/* DECLARACAO: o motorista informa o que trouxe, e quem conta e o conferente. A linha
+   existe, aparece e nao entra em conta nenhuma.
+   LIDA DA LINHA, e nao do cadastro de quem lancou: no cadastro, promover um motorista a
+   conferente faria as declaracoes dele de meses atras passarem a contar, de uma vez e em
+   silencio. E a mesma razao do nome do motorista e da placa, que o lancamento guarda
+   como texto. */
+function ehDeclaracao(m) {
+  return !!m && m.Declaracao === true;
+}
+
+/* EM QUE LIVROS ESTA LINHA ENTROU — no plural, e esse plural nao e enfeite.
+ *
+ * "E declaracao?" e "e ensaio?" sao perguntas DIFERENTES: a primeira pergunta se a linha
+ * conta no estoque, a segunda se ela e de verdade ou e treino. Uma declaracao de ensaio
+ * responde sim as duas — e e ela que permite experimentar o fluxo do motorista sem sujar
+ * o relatorio que compara declarado com conferido.
+ *
+ * Devolvendo UMA resposta so, a declaracao de ensaio se esconderia dentro de
+ * "declaracao": o filtro "Base Teste" nao a acharia, e o relatorio a somaria como se
+ * fosse carga de verdade.
+ *
+ * PRODUCAO E A AUSENCIA das outras duas, e nao uma marca propria: uma linha que nao e
+ * declaracao nem ensaio e a operacao. */
+function basesDoMovimento(m) {
+  var b = [];
+  if (ehDeclaracao(m)) b.push('declaracao');
+  if (lancamentoDeTeste(m)) b.push('teste');
+  if (!b.length) b.push('reais');
+  return b;
+}
 
 /* Lançamento de teste é o de quem tem "teste" no perfil — decisão do usuário: o perfil é
    texto livre, então "Teste", "Motorista Teste" e "Conferente de teste" entram todos, sem
@@ -492,16 +534,21 @@ function loteDo(m) {
                  m.UsuarioID, m.Motorista].join('|');
 }
 
-/* Recorte para os painéis: 'todos' (padrão), 'reais' ou 'teste'. Devolve uma cópia rasa
-   com os movimentos peneirados — assim `painel()` e companhia não precisam saber que o
-   recorte existe. */
+/* Recorte por BASE: 'todos' (padrão), ou uma lista de bases colada por "|" — 'reais',
+   'teste', 'declaracao'. Devolve uma cópia rasa com os movimentos peneirados, para que
+   `painel()` e companhia não precisem saber que o recorte existe.
+
+   A DECLARAÇÃO NÃO PRECISA SER TIRADA AQUI: quem soma passa por `ativos()`, e é lá que
+   ela fica de fora, num lugar só. Esta função é sobre o que se QUER VER. */
 function recorteTeste(dados, modo) {
-  var m = String(modo || 'todos');
-  if (m !== 'reais' && m !== 'teste') return dados;
+  var pedidas = String(modo == null ? '' : modo).split('|')
+    .map(function (x) { return String(x).trim(); })
+    .filter(function (x) { return !!x && x !== 'todos'; });
+  if (!pedidas.length) return dados;
   var copia = {};
   Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
   copia.movimentos = (dados.movimentos || []).filter(function (x) {
-    return m === 'teste' ? lancamentoDeTeste(x) : !lancamentoDeTeste(x);
+    return basesDoMovimento(x).some(function (b) { return pedidas.indexOf(b) >= 0; });
   });
   return copia;
 }
@@ -683,6 +730,7 @@ function sessaoDe(u) {
        justamente quando o galpao esta sem sinal — que e quando ele mais lanca. */
     baseTeste: u.Teste === true,
     baseProducao: u.BaseProducao === true,
+    baseDeclaracao: u.BaseDeclaracao === true,
     /* SE JA VIU A APRESENTACAO. Vai na sessao porque e ela que decide o que a tela de
        boas-vindas mostra no instante seguinte ao login — esperar a `equipe` chegar para
        descobrir faria a apresentacao piscar para quem ja a viu. */
@@ -873,7 +921,12 @@ function montarMovimento(p, ctx) {
          lançamento por real, nem por engano nem por payload adulterado. Por cima disso, o
          escritório marca um ajuste como ensaio quando quiser — é o caso de quem tem
          perfil real e está só experimentando. */
-      Teste: ctx.teste === true || p.teste === true || String(p.teste) === 'true'
+      Teste: ctx.teste === true || p.teste === true || String(p.teste) === 'true',
+      /* SÓ DO CADASTRO, e nunca do payload: "isto é declaração" não é uma escolha que se
+         faça lançamento a lançamento. Aceitar do pedido abriria o caminho para um
+         retorno de verdade entrar como informação — e sumir do estoque sem sumir da
+         tela. */
+      Declaracao: ctx.declaracao === true
     };
     linhas.push(linha);
     proximos.push(linha);
@@ -1273,13 +1326,21 @@ function cicloDaCarga(movimentos) {
   var devolvido = {};  // id da saída -> quanto já voltou
   var total = {};      // id da saída -> tamanho da remessa
 
-  /* O ensaio entra na chave: sem isso uma devolução de teste quitaria uma remessa real,
-     e a coluna Status passaria a mentir sobre carga que nunca voltou. */
+  /* A BASE ENTRA NA CHAVE: sem isso uma devolução de teste quitaria uma remessa real, e
+     a coluna Status passaria a mentir sobre carga que nunca voltou. Vale igual para a
+     declaração — ela é o mesmo perigo com outro nome: o motorista informa que trouxe, e
+     a remessa apareceria "Devolvida" sem ninguém ter contado uma caixa. */
+  /* A DECLARACAO VEM ANTES DO ENSAIO na letra: uma declaracao de ensaio nunca pode
+     quitar remessa nenhuma, nem a real nem a de treino. */
+  function letra(m) {
+    if (ehDeclaracao(m)) return 'D';
+    return lancamentoDeTeste(m) ? 'T' : 'R';
+  }
   function chaveDestino(m) {
-    return String(m.DestinoID) + '|' + String(m.TipoCaixaID) + '|' + (lancamentoDeTeste(m) ? 'T' : 'R');
+    return String(m.DestinoID) + '|' + String(m.TipoCaixaID) + '|' + letra(m);
   }
   function chaveOrigem(m) {
-    return String(m.OrigemID) + '|' + String(m.TipoCaixaID) + '|' + (lancamentoDeTeste(m) ? 'T' : 'R');
+    return String(m.OrigemID) + '|' + String(m.TipoCaixaID) + '|' + letra(m);
   }
 
   naoCancelados(movimentos).slice().sort(function (a, b) {
@@ -1354,9 +1415,12 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
   // devolvida aparecer como "Enviada" só porque o filtro cortou a devolução.
   var ciclo = cicloDaCarga(movimentos);
 
-  /* 'todos' é o padrão porque o ensaio agora conta em tudo: esconder por omissão faria a
-     tela mostrar menos do que o saldo soma. 'reais' e 'teste' separam quando se quer. */
-  var recorte = String(p.teste || 'todos');
+  /* 'todos' é o padrão porque o ensaio conta em tudo: esconder por omissão faria a tela
+     mostrar menos do que o saldo soma. As bases pedidas vêm coladas por "|", como os
+     outros filtros de várias escolhas. */
+  var basesPedidas = String(p.teste == null ? '' : p.teste).split('|')
+    .map(function (x) { return String(x).trim(); })
+    .filter(function (x) { return !!x && x !== 'todos'; });
 
   /* ============ UM FILTRO PODE TRAZER VÁRIOS VALORES ============
    *
@@ -1380,8 +1444,10 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
   }
 
   return naoCancelados(movimentos).filter(function (m) {
-    if (recorte === 'reais' && lancamentoDeTeste(m)) return false;
-    if (recorte === 'teste' && !lancamentoDeTeste(m)) return false;
+    if (basesPedidas.length &&
+        !basesDoMovimento(m).some(function (b) { return basesPedidas.indexOf(b) >= 0; })) {
+      return false;
+    }
     if (de && m.DataRef < de) return false;
     if (ate && m.DataRef > ate) return false;
     if (!casa(p.local, m.OrigemID) && !casa(p.local, m.DestinoID)) return false;
@@ -1450,6 +1516,10 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID),
       usuarioId: m.UsuarioID, perfil: m.Perfil,
       teste: lancamentoDeTeste(m),
+      /* A DECLARAÇÃO VIAJA MARCADA. Sem isto ela chega à tela igual a um retorno de
+         verdade, e a pessoa soma a coluna Qtd na mão e não entende por que o total não
+         bate com o saldo. */
+      declaracao: ehDeclaracao(m),
       situacao: rotuloCiclo(m, ciclo[m.ID]),
       devolvido: ciclo[m.ID] ? ciclo[m.ID].devolvido : null,
       /* A PLACA VIAJA JUNTO com o motorista, e pelo mesmo motivo: o movimento guarda
@@ -1524,7 +1594,7 @@ function listaLixeira(movimentos, locais, tipos, usuarios, p) {
       tipoCaixa: nome(mTipos, m.TipoCaixaID), qtd: m.Qtd,
       usuario: nome(mUsers, m.UsuarioID), motorista: m.Motorista || '',
       veiculo: m.Veiculo || '',
-      teste: lancamentoDeTeste(m), obs: m.Obs || '',
+      teste: lancamentoDeTeste(m), declaracao: ehDeclaracao(m), obs: m.Obs || '',
       excluidoEm: iso(m.ExcluidoEm), excluidoPor: nome(mUsers, m.ExcluidoPor)
     };
   });
@@ -2109,6 +2179,7 @@ function usuariosPublicos(usuarios) {
          esquecida, o formulario abriria com a Base Producao desmarcada e a gravacao
          seguinte tiraria da producao quem estava nela. */
       BaseProducao: u.BaseProducao === true,
+      BaseDeclaracao: u.BaseDeclaracao === true,
       VerLancamentos: u.VerLancamentos !== false,
       UsuariosVistos: usuariosVistosDe(u),
       /* As SEIS listas de permissão voltam para o painel. Esquecer uma aqui não dá
@@ -2143,6 +2214,7 @@ module.exports = {
   montarCancelamento: montarCancelamento,
   ehPerfilTeste: ehPerfilTeste, temTeste: temTeste, pesoTeste: pesoTeste, pesoMatriz: pesoMatriz,
   lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste,
+  ehDeclaracao: ehDeclaracao, basesDoMovimento: basesDoMovimento,
   recorteProprios: recorteProprios, usuariosVistosDe: usuariosVistosDe,
   idsVisiveis: idsVisiveis, NINGUEM: NINGUEM, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,

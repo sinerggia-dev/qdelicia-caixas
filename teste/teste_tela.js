@@ -3361,10 +3361,10 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var ip = desc.indexOf('padrao: [');
   var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
     .map(function (t) { return t.slice(1, -1); });
-  /* DEZESSETE: o Tipo entrou depois, no lugar em que o CSV já o punha. A conta é
-     escrita de propósito — ela é o tropeço que obriga quem acrescenta uma coluna a
-     passar pelas quatro provas abaixo, em vez de acrescentar e seguir. */
-  ok(cols.length === 17, 'são dezessete colunas de fábrica', cols);
+  /* DEZOITO: a Base entrou com a terceira delas, a Declaração. A conta é escrita de
+     propósito — ela é o tropeço que obriga quem acrescenta uma coluna a passar pelas
+     quatro provas abaixo, em vez de acrescentar e seguir. */
+  ok(cols.length === 18, 'são dezoito colunas de fábrica', cols);
 
   /* AS SETE QUE FORAM SENDO ACRESCENTADAS. Contar quinze não diz QUAIS são quinze:
      trocar `hora` por outra coluna qualquer manteria a conta de pé. Elas respondem
@@ -3384,7 +3384,11 @@ console.log('\n== as colunas da tabela de Movimentos ==');
            'uma linha estranha, e ela também só saía no CSV'],
    ['tipo', 'o TIPO do lançamento — sem ele, uma perda e uma transferência entre ' +
             'galpões são duas linhas idênticas na tela, e a diferença só sai abrindo ' +
-            'a linha ou exportando o CSV']].forEach(function (c) {
+            'a linha ou exportando o CSV'],
+   ['base', 'a BASE em que a linha entrou — sem ela, uma declaração do motorista chega ' +
+            'à tela idêntica a um retorno de verdade, e quem somar a coluna Qtd à mão ' +
+            'acha um total que não bate com o saldo, sem nada explicando por quê']]
+  .forEach(function (c) {
     ok(cols.indexOf(c[0]) >= 0, 'a tabela de Movimentos traz ' + c[1], cols);
   });
 
@@ -3617,11 +3621,14 @@ console.log('\n== as colunas da tabela de Movimentos ==');
     'repetem o que o cartão e a legenda já dizem');
   /* MAS NÃO DO CSV: lá não há problema de largura, e é onde a conferência de escritório
      separa uma coisa da outra. Tirá-la do arquivo junto seria perder o dado, e não o
-     ruído. */
-  ok(/'Movimento','Hora','Criado em','Teste',/.test(adm) &&
-     /m\.teste\?'SIM':''/.test(adm),
-    'mas continua no CSV: lá não há aperto de largura, e é onde a conferência separa ' +
-    'ensaio de operação');
+     ruído.
+     E ELA VIROU A BASE, com a terceira: "SIM ou vazio" dizia tudo enquanto eram duas —
+     com três, a declaração sairia com a coluna vazia, igualzinha à produção, e é no
+     arquivo que o escritório confere o que não confere na tela. */
+  ok(/'Movimento','Hora','Criado em','Base',/.test(adm) &&
+     adm.indexOf("(m.teste?'Declaracao · Teste':'Declaracao')") > 0,
+    'mas continua no CSV, e agora dizendo QUAL base — com três livros, "SIM ou vazio" ' +
+    'deixaria a declaração idêntica à produção no arquivo');
   /* E O FILTRO CONTINUA SENDO O CAMINHO para a pergunta "quais são de teste?". */
   ok(/<div><label for="mvTeste">Lançamentos<\/label>/.test(adm),
     'e o filtro "Lançamentos" continua lá — é ele que responde "quais são de teste?" ' +
@@ -8630,7 +8637,7 @@ console.log('\n== Movimentos no celular: cartão, folha de ações e filtros =='
   ok(/cx\.innerHTML = l\.map\(function\(f\)\{/.test(adm),
     'e elas saem da lista do que está aplicado, não de uma lista vazia');
   ok(/data-tirar="'\+f\.id\+'"/.test(adm) &&
-     /if \(b\.dataset\.tirar === 'mvTeste'\) el\.value = 'reais';/.test(adm) &&
+     /if \(b\.dataset\.tirar === 'mvTeste'\) porEscolha\(el, \['reais'\]\);/.test(adm) &&
      /else porEscolha\(el, \[\]\);/.test(adm),
     'cada pílula sabe qual campo ela limpa — e o recorte de ensaio volta para "só ' +
     'reais", que é o estado que aquele seletor tem, enquanto os outros são DESMARCADOS: ' +
@@ -10873,18 +10880,27 @@ console.log('\n== a base do usuário ==');
     'o formulário tem uma caixa para cada base — num seletor de escolher uma, quem ' +
     'valida uma rotina nova trocava a própria base para cá e para lá o dia inteiro');
   ok(adm.indexOf("Teste:document.getElementById('fBaseTeste').checked") > 0 &&
-     adm.indexOf("BaseProducao:document.getElementById('fBaseProd').checked") > 0,
+     adm.indexOf("BaseProducao:document.getElementById('fBaseProd').checked") > 0 &&
+     adm.indexOf("BaseDeclaracao:document.getElementById('fBaseDecl').checked") > 0,
     'e cada caixa grava a SUA coluna — trocadas, marcar Produção mandaria a pessoa ' +
-    'para o ensaio, e a tela mostraria o contrário do que o banco guardou');
+    'para o ensaio, e a tela mostraria o contrário do que o banco guardou; presa num ' +
+    'valor fixo, a caixa vira enfeite e ninguém nunca entra naquela base');
   ok(/Teste: u\.Teste === true,/.test(log) && /BaseProducao: u\.BaseProducao === true,/.test(log),
     'e as duas voltam na leitura da equipe — sem isso, abrir e salvar apagaria a base');
   /* NINGUÉM FICA SEM BASE NENHUMA. Desmarcar as duas parece "tirar das bases", e o
      efeito seria o contrário: sem piso de ensaio, o lançamento cai na produção.
      Nos DOIS lugares: a tela avisa na hora, e a rota recusa — ela atende pedido de
      qualquer origem, e a tela não é fronteira. */
-  ok(adm.indexOf('if (!reg.Teste && !reg.BaseProducao)') > 0,
-    'a tela recusa salvar sem base nenhuma — desmarcar as duas teria o efeito de ' +
+  ok(adm.indexOf('if (!reg.Teste && !reg.BaseProducao && !reg.BaseDeclaracao)') > 0,
+    'a tela recusa salvar sem base nenhuma — desmarcar todas teria o efeito de ' +
     'MARCAR Produção, que é o contrário do que quem desmarcou quis dizer');
+  /* E AS DUAS QUE NÃO CONVIVEM. Juntas, o app de campo passaria a perguntar a base a
+     cada lançamento — e uma distração no seletor mandaria para o estoque de verdade uma
+     contagem que era só informação. */
+  ok(adm.indexOf('if (reg.BaseDeclaracao && reg.BaseProducao)') > 0 &&
+     api.indexOf('if (querDecl && querProd)') > 0,
+    'e recusa Declaração junto com Produção, na tela e na rota — juntas, uma distração ' +
+    'no seletor do app mandaria para o estoque uma contagem que era só informação');
   ok(api.indexOf('!querTeste && !querProd') > 0,
     'e a rota recusa de novo — ela aceita pedido de qualquer origem');
 
@@ -10936,12 +10952,22 @@ console.log('\n== a base do usuário ==');
     'de virar uma terceira palavra, e quem procura por uma base pularia essa gente',
     [diz('baseTeste', asDuas), diz('baseProd', asDuas)]);
 
-  /* AS TRÊS OPÇÕES, nos três seletores. "As duas bases" existe porque a base de
-     validação pode ser operação de verdade — mas NÃO é a de fábrica: quem quiser somar
-     as duas escolhe, e vê o que escolheu escrito no seletor. */
-  ok((adm.match(/<option value="todos">As duas bases<\/option>/g) || []).length === 3,
-    'e os três seletores de base oferecem "As duas bases"',
+  /* "AS DUAS BASES" É COISA DOS SELETORES DO PAINEL, e não mais do filtro de Movimentos.
+     Lá eram três opções para duas bases — todas as combinações possíveis. Com a terceira
+     base seriam sete, e o filtro virou de várias escolhas, como os outros oito. Os
+     painéis continuam com o seletor de sempre: eles somam, e a declaração não entra em
+     soma nenhuma, então ali as bases continuam sendo duas. */
+  ok((adm.match(/<option value="todos">As duas bases<\/option>/g) || []).length === 2,
+    'os seletores do painel continuam oferecendo "As duas bases" — lá são dois livros, ' +
+    'porque a declaração não entra em conta nenhuma',
     (adm.match(/As duas bases/g) || []).length);
+  var filtroBase = adm.slice(adm.indexOf('<select id="mvTeste"'));
+  filtroBase = filtroBase.slice(0, filtroBase.indexOf('</select>'));
+  ok(/multiple data-multi/.test(filtroBase) &&
+     /value="declaracao"/.test(filtroBase) && /value="reais" selected/.test(filtroBase),
+    'e o filtro de Movimentos aceita várias bases, oferece a Declaração e abre na ' +
+    'Produção — abrindo em "todas", a tela somaria o ensaio e a declaração com a ' +
+    'operação para quem não escolheu nada', filtroBase.slice(0, 80));
   ok(!/<select[^>]*>\s*<option value="todos"/.test(adm),
     'e ela não é a opção de fábrica — misturar ensaio com operação numa soma só, sem ' +
     'ninguém ter pedido, dá um número que não responde nem uma pergunta nem a outra');

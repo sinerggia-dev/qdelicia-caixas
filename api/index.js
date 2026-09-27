@@ -274,6 +274,9 @@ async function gravarMovimento(p) {
        lancamento. E quem so tem Producao continua podendo marcar um lancamento avulso
        como ensaio, que e o caso do ajuste feito no escritorio. */
     teste: !!quem && quem.Teste === true && quem.BaseProducao !== true,
+    /* DECLARACAO: o que esta pessoa lanca e informacao, e nao movimento. Sai so do
+       cadastro — ver o comentario em `montarLancamento`. */
+    declaracao: !!quem && quem.BaseDeclaracao === true,
     clientKeysExistentes: existentes,
     assinaturaUrl: assinaturaUrl,
     fotoUrl: fotoUrl
@@ -468,8 +471,12 @@ async function baseUsuarios(p) {
   var producao = p.producao === undefined
     ? !teste
     : (p.producao === true || String(p.producao) === 'true');
-  if (!teste && !producao) {
-    return { ok: false, erro: 'Escolha ao menos uma base: Producao, Teste, ou as duas.' };
+  var declaracao = p.declaracao === true || String(p.declaracao) === 'true';
+  if (!teste && !producao && !declaracao) {
+    return { ok: false, erro: 'Escolha ao menos uma base: Producao, Teste ou Declaracao.' };
+  }
+  if (declaracao && producao) {
+    return { ok: false, erro: 'Base Declaracao e Base Producao nao andam juntas.' };
   }
 
   var d = await db.carregarTudo();
@@ -485,13 +492,16 @@ async function baseUsuarios(p) {
      por nada, e o numero devolvido diria "25 alterados" quando um so mudou. */
   var mexer = ids.filter(function (id) {
     return (porId[id].Teste === true) !== teste ||
-           (porId[id].BaseProducao === true) !== producao;
+           (porId[id].BaseProducao === true) !== producao ||
+           (porId[id].BaseDeclaracao === true) !== declaracao;
   });
   for (var i = 0; i < mexer.length; i++) {
-    await db.update('usuarios', mexer[i], { teste: teste, base_producao: producao });
+    await db.update('usuarios', mexer[i],
+      { teste: teste, base_producao: producao, base_declaracao: declaracao });
   }
   return { ok: true, mudados: mexer.length, jaEstavam: ids.length - mexer.length,
-           base: teste && producao ? 'as duas' : (teste ? 'teste' : 'producao') };
+           base: declaracao ? 'declaracao'
+               : (teste && producao ? 'as duas' : (teste ? 'teste' : 'producao')) };
 }
 
 async function limparMovimentos(p) {
@@ -625,9 +635,22 @@ async function salvarUsuario(p) {
      rota aceita pedido de qualquer origem. */
   var querTeste = dados.Teste === true || String(dados.Teste) === 'true';
   var querProd = dados.BaseProducao === true || String(dados.BaseProducao) === 'true';
-  if ((dados.Teste !== undefined || dados.BaseProducao !== undefined) &&
-      !querTeste && !querProd) {
-    return { ok: false, erro: 'Escolha ao menos uma base: Producao, Teste, ou as duas.' };
+  var querDecl = dados.BaseDeclaracao === true || String(dados.BaseDeclaracao) === 'true';
+  var mexeuEmBase = dados.Teste !== undefined || dados.BaseProducao !== undefined ||
+                    dados.BaseDeclaracao !== undefined;
+  if (mexeuEmBase && !querTeste && !querProd && !querDecl) {
+    return { ok: false, erro: 'Escolha ao menos uma base: Producao, Teste ou Declaracao.' };
+  }
+  /* DECLARACAO E PRODUCAO NAO CONVIVEM. Quem tem duas bases escolhe a base na hora do
+     lancamento, e e justamente isso que nao pode existir aqui: uma distracao no seletor
+     mandaria para o estoque de verdade uma contagem que so era informacao — que e o erro
+     que esta base inteira existe para impedir.
+     COM A BASE TESTE ELA CONVIVE, porque sao duas perguntas diferentes: uma e "isto conta
+     no estoque?", a outra e "isto e ensaio ou e de verdade?". Sem essa combinacao nao
+     haveria como ensaiar a declaracao sem sujar o relatorio com linhas de teste. */
+  if (querDecl && querProd) {
+    return { ok: false, erro: 'Base Declaracao e Base Producao nao andam juntas: o que ' +
+             'e declaracao nunca conta no estoque. Deixe so uma das duas.' };
   }
 
   if (dados.Perfil !== undefined) {

@@ -484,5 +484,35 @@ module.exports = [
       "   Base Teste: as duas verdadeiras querem dizer que a pessoa escolhe a base a cada",
       "   lancamento, no app de campo.';"
     ].join('\n')
+  },
+  {
+    id: '2026-09-27-base-declaracao',
+    nota: 'a terceira base: o que o motorista informa nao mexe no estoque',
+    sql: [
+      "-- O QUE O MOTORISTA LANCA E INFORMACAO, e nao movimento. Ele traz a carga e",
+      "-- declara o total — tudo como CAIXAS DIVERSAS, porque ele nao separa por tipo —,",
+      "-- e quem conta de verdade e o conferente. As duas linhas existem, e so uma vale.",
+      "--",
+      "-- UMA TERCEIRA BASE, e nao um tipo novo de lancamento: a Base ja sabe manter dois",
+      "-- livros sem um contaminar o outro, ate em cantos que ninguem lembraria — a chave",
+      "-- que casa devolucao com remessa, por exemplo, ja separa ensaio de real.",
+      "--",
+      "-- NASCE FALSA DOS DOIS LADOS. No cadastro, porque ninguem e declarante ate alguem",
+      "-- dizer que e; na linha, porque tudo o que ja foi lancado foi lancado para valer.",
+      "alter table public.usuarios",
+      "  add column if not exists base_declaracao boolean not null default false;",
+      "alter table public.movimentos",
+      "  add column if not exists declaracao boolean not null default false;",
+      "comment on column public.usuarios.base_declaracao is",
+      "  'Os lancamentos desta pessoa sao DECLARACAO: informacao do que ela trouxe, para",
+      "   ser conferida contra o lancamento de quem contou. Nao mexem no estoque. Exclui",
+      "   a Base Producao; convive com a Base Teste, que e outra pergunta.';",
+      "comment on column public.movimentos.declaracao is",
+      "  'Esta linha e declaracao: existe, aparece na lista e no CSV, e nao entra em conta",
+      "   nenhuma — nem saldo, nem aging, nem painel, nem extrato. Carimbada no momento do",
+      "   lancamento, a partir do cadastro de quem lancou: lida do cadastro na hora de",
+      "   somar, promover um motorista a conferente faria as declaracoes dele de meses",
+      "   atras passarem a contar, de uma vez e em silencio.';"
+    ].join('\n')
   }
 ];

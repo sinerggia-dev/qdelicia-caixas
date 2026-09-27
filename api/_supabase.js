@@ -228,6 +228,7 @@ var USUARIO = {
          coluna e apagar e recriar dado, e aqui so se acrescenta. */
       Teste: r.teste === true,
       BaseProducao: r.base_producao === true,
+      BaseDeclaracao: r.base_declaracao === true,
       /* O ENDEREÇO da foto, não a imagem: o byte mora no balde, e esta tabela é lida
          inteira a cada visita ao painel. */
       Foto: r.foto || '',
@@ -259,6 +260,7 @@ var USUARIO = {
     if (o.UsuariosVistos !== undefined) r.usuarios_vistos = o.UsuariosVistos || [];
     if (o.Teste !== undefined) r.teste = bool(o.Teste);
     if (o.BaseProducao !== undefined) r.base_producao = bool(o.BaseProducao);
+    if (o.BaseDeclaracao !== undefined) r.base_declaracao = bool(o.BaseDeclaracao);
     /* `nulo('')` limpa a coluna: tirar a foto é gravar vazio, e vazio aqui tem de virar
        nulo — a tela pergunta "tem foto?" e uma string vazia responderia que sim. */
     if (o.Foto !== undefined) r.foto = nulo(o.Foto);
@@ -362,6 +364,7 @@ var MOV = {
       Cancelado: r.cancelado === true, MotivoCancel: r.motivo_cancel,
       Motorista: r.motorista || '', Veiculo: r.veiculo || '',
       Rota: r.rota || '', Teste: r.teste === true,
+      Declaracao: r.declaracao === true,
       /* Date, e não o texto cru: `iso()` só sabe formatar Date, e devolve string vazia
          para qualquer outra coisa — sem estourar. A coluna "Excluído em" da lixeira
          nascia em branco por causa disto, com tudo o mais funcionando. */
@@ -400,6 +403,7 @@ var MOV = {
        quando o cadastro muda. Repintar um carro não reescreve o que já saiu. */
     pos('Veiculo', 'veiculo', nulo);
     pos('Teste', 'teste', bool);
+    pos('Declaracao', 'declaracao', bool);
     pos('Rota', 'rota', nulo);
     pos('AssinaturaURL', 'assinatura_url', nulo);
     pos('FotoURL', 'foto_url', nulo);

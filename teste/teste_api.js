@@ -3385,6 +3385,115 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'e a chamada sem o campo novo continua sendo exclusiva, como sempre foi',
     [e['Base Alfa'].Teste, e['Base Alfa'].BaseProducao]);
 
+  /* ---- A TERCEIRA BASE: O QUE O MOTORISTA INFORMA NAO MEXE NO ESTOQUE ----
+   *
+   * Ele traz a carga e declara o total — tudo como CAIXAS DIVERSAS, porque nao separa
+   * por tipo —, e quem conta de verdade e o conferente. As duas linhas existem, e so
+   * uma vale.
+   *
+   * ESTA E A PROVA QUE IMPORTA: o saldo ANTES e DEPOIS da declaracao. Lida no codigo,
+   * ela responderia "a palavra `declaracao` esta na peneira?" — e estaria, mesmo com a
+   * peneira aplicada no lugar errado. A pergunta e outra: o estoque mexeu? */
+  const saldoDe = async (local) => {
+    const r = await GET({ acao: 'painel', quem: 'U001', teste: 'todos' });
+    const l = (r.painel.locais || []).concat(r.painel.rotas || [], r.painel.galpoes || [])
+      .filter((x) => String(x.id) === local)[0];
+    return l ? Number(l.saldo || 0) : 0;
+  };
+
+  await POST({ acao: 'salvarUsuario', registro: { Nome: 'Motorista Declarante',
+    Perfil: 'MOTORISTA', PIN: '334455', Operacoes: ['SAIDA', 'RETORNO'],
+    BaseProducao: false, BaseDeclaracao: true } });
+  const declarante = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.Nome === 'Motorista Declarante')[0];
+  ok(!!declarante && declarante.BaseDeclaracao === true && declarante.BaseProducao === false,
+    'a conferência criou alguém na Base Declaração — sem isso as provas abaixo mediriam ' +
+    'um lançamento comum', declarante && [declarante.BaseDeclaracao, declarante.BaseProducao]);
+
+  const antes = await saldoDe('L003');
+  const decl = await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: 'L003',
+    destinoId: 'L001', itens: [{ tipoId: 'T001', qtd: 999 }], dataRef: dia(0),
+    usuarioId: declarante.ID, clientKey: 'k-decl-1' });
+  const depois = await saldoDe('L003');
+  ok(decl.ok === true && depois === antes,
+    'o que o motorista declara NAO mexe no estoque — 999 caixas lançadas por ele, e o ' +
+    'saldo do cliente ficou onde estava', { antes: antes, depois: depois, gravou: decl.ok });
+
+  /* E A LINHA EXISTE. Peneirada da lista tambem, a pessoa veria uma tabela cujo total
+     nao bate com o saldo e nada na tela dizendo por que — e o relatorio que compara
+     declarado com conferido nao teria o que comparar. */
+  const comDecl = await GET({ acao: 'movimentos', quem: 'U001', limit: 500,
+    teste: 'declaracao' });
+  const minha = (comDecl.movimentos || []).filter((m) => m.qtd === 999)[0];
+  ok(!!minha && minha.declaracao === true,
+    'e a linha EXISTE e chega marcada — escondida, a tabela teria um total que não bate ' +
+    'com o saldo e nada explicando por quê', minha && minha.declaracao);
+
+  const soReais = await GET({ acao: 'movimentos', quem: 'U001', limit: 500, teste: 'reais' });
+  ok((soReais.movimentos || []).filter((m) => m.qtd === 999).length === 0,
+    'e o filtro "Base Produção" não a traz — ela não é produção que não conta, é outro ' +
+    'livro');
+
+  /* A REMESSA NAO E QUITADA por uma declaracao. Esta e a armadilha mais silenciosa das
+     tres: o motorista informa que trouxe, a carga aparece "Devolvida", e ninguem contou
+     uma caixa. O mesmo perigo que o ensaio ja tinha — por isso a base entra na chave que
+     casa devolucao com remessa.
+     MEDIDO EM CIMA DE DOIS LANCAMENTOS FEITOS AQUI, e nao da base do teste: assim a
+     conta nao depende do que os outros blocos deixaram gravado. E com o CONTROLE ao
+     lado: sem ele, a prova passaria com uma funcao que nunca diz "Devolvida". */
+  const Fl = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  const remessa = () => ({ ID: 'S1', Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'L003',
+    TipoCaixaID: 'T001', Qtd: 60, Status: 'CONFIRMADO',
+    DataRef: new Date(2026, 0, 5), DataHora: new Date(2026, 0, 5) });
+  const volta = (extra) => Object.assign({ ID: 'V1', Tipo: 'DEVOLUCAO', OrigemID: 'L003',
+    DestinoID: 'L001', TipoCaixaID: 'T001', Qtd: 60, Status: 'CONFIRMADO',
+    DataRef: new Date(2026, 0, 6), DataHora: new Date(2026, 0, 6) }, extra || {});
+
+  const comReal = [remessa(), volta()];
+  const cicloReal = Fl.cicloDaCarga(comReal);
+  ok(Fl.rotuloCiclo(comReal[0], cicloReal.S1) === 'Devolvida',
+    'uma devolução de verdade quita a remessa — sem este controle, a prova abaixo ' +
+    'passaria com uma função que nunca diz "Devolvida"',
+    Fl.rotuloCiclo(comReal[0], cicloReal.S1));
+
+  const comDeclaracao = [remessa(), volta({ Declaracao: true })];
+  const cicloDecl = Fl.cicloDaCarga(comDeclaracao);
+  ok(Fl.rotuloCiclo(comDeclaracao[0], cicloDecl.S1) !== 'Devolvida',
+    'e a MESMA volta, lançada como declaração, NÃO quita — senão a carga apareceria ' +
+    'devolvida sem ninguém ter contado uma caixa',
+    Fl.rotuloCiclo(comDeclaracao[0], cicloDecl.S1));
+
+  /* AS DUAS QUE NAO CONVIVEM, recusadas na rota — a tela avisa antes, e a rota atende
+     pedido de qualquer origem. */
+  const juntas = await POST({ acao: 'salvarUsuario', registro: { ID: declarante.ID,
+    Nome: declarante.Nome, Perfil: declarante.Perfil,
+    BaseProducao: true, BaseDeclaracao: true } });
+  ok(juntas.ok === false && /Declaracao e Base Producao/.test(String(juntas.erro)),
+    'Base Declaração e Base Produção são recusadas juntas — juntas, o app perguntaria a ' +
+    'base a cada lançamento, e uma distração mandaria para o estoque o que era ' +
+    'informação', juntas.erro);
+
+  /* E A DECLARACAO DE ENSAIO existe: sao duas perguntas diferentes — "isto conta?" e
+     "isto e treino?" —, e sem a combinacao nao haveria como experimentar o fluxo do
+     motorista sem sujar o relatorio. */
+  await POST({ acao: 'salvarUsuario', registro: { ID: declarante.ID, Nome: declarante.Nome,
+    Perfil: declarante.Perfil, Operacoes: ['SAIDA', 'RETORNO'],
+    BaseProducao: false, BaseDeclaracao: true, Teste: true } });
+  await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: 'L003', destinoId: 'L001',
+    itens: [{ tipoId: 'T001', qtd: 777 }], dataRef: dia(0), usuarioId: declarante.ID,
+    clientKey: 'k-decl-2' });
+  const ensaio = (await GET({ acao: 'movimentos', quem: 'U001', limit: 500,
+    teste: 'declaracao' })).movimentos.filter((m) => m.qtd === 777)[0];
+  ok(!!ensaio && ensaio.declaracao === true && ensaio.teste === true,
+    'a declaração de ENSAIO está nos dois livros — num só, o filtro "Base Teste" não a ' +
+    'acharia e o relatório a somaria como carga de verdade',
+    ensaio && [ensaio.declaracao, ensaio.teste]);
+  const porTeste = (await GET({ acao: 'movimentos', quem: 'U001', limit: 500,
+    teste: 'teste' })).movimentos.filter((m) => m.qtd === 777).length;
+  ok(porTeste === 1,
+    'e o filtro "Base Teste" a acha — é assim que se experimenta o fluxo do motorista ' +
+    'sem sujar o que o escritório lê', porTeste);
+
   /* Deixa a casa como encontrou: os blocos seguintes contam usuarios. */
   await POST({ acao: 'baseUsuarios', ids: [alfa, beta, gama], teste: false });
 }

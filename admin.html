@@ -940,10 +940,18 @@
              funcionarem sem nenhum caso especial — um filtro guardado fora do mecanismo
              é o que faz a tela e o "apagar" recortarem coisas diferentes. -->
         <div hidden><label for="mvTrecho">Trecho</label><select id="mvTrecho"><option value=""></option></select></div>
-        <div><label for="mvTeste">Lançamentos</label><select id="mvTeste">
-          <option value="reais">Base Produção</option>
+        <!-- AGORA SÃO TRÊS BASES, e por isso este campo virou de várias escolhas como
+             os outros. Com duas, as três opções de antes já eram todas as combinações
+             possíveis; com três seriam sete, e uma lista de sete linhas para responder
+             "quais livros eu quero ver" é pior que três caixas de marcar.
+             NADA MARCADO = TODAS, a convenção dos outros oito. E a Produção nasce
+             marcada porque é a operação: quem abre a tela quer ver o que aconteceu de
+             verdade, e o ensaio e a declaração estão a um toque. -->
+        <div><label for="mvTeste">Lançamentos</label><select id="mvTeste" multiple data-multi>
+          <option value="">Todas as bases</option>
+          <option value="reais" selected>Base Produção</option>
           <option value="teste">Base Teste</option>
-          <option value="todos">As duas bases</option>
+          <option value="declaracao">Base Declaração</option>
         </select></div>
         <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
         <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
@@ -1495,6 +1503,7 @@
          pessoa voltaria a lançar sem escolher — calada. */
       baseTeste: u.Teste === true,
       baseProducao: u.BaseProducao === true,
+      baseDeclaracao: u.BaseDeclaracao === true,
       usuariosVistos: lista(u.UsuariosVistos)
     };
   }
@@ -2669,7 +2678,7 @@
        duas leituras da mesma tabela não podem pôr a mesma coluna em lugares
        diferentes. Ele responde "o que foi isto" — saída, retorno, perda —, e essa
        pergunta vem antes de "entre onde e onde". */
-    padrao: ['lancamento','data','hora','criado','status','tipo','origem','destino','rota',
+    padrao: ['lancamento','data','hora','criado','status','base','tipo','origem','destino','rota',
              'caixa','qtd','motorista','veiculo','quem','alterado','alteradoEm','obs'],
     /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
        coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
@@ -2677,12 +2686,12 @@
     /* 105 para o lancamento: `M000041` sao sete caracteres em fonte de numeros, e a
        coluna nao cresce com o tempo — o formato e fixo. */
     larg: { lancamento:105,
-            data:120, hora:70, criado:110, status:110, tipo:120, origem:150, destino:150,
+            data:120, hora:70, criado:110, status:110, base:120, tipo:120, origem:150, destino:150,
             rota:150, caixa:120, qtd:80, motorista:130, veiculo:110, quem:120,
             alterado:140, alteradoEm:150, obs:240 },
     titulos: { lancamento:'Lançamento',
                data:'Movimento', hora:'Hora', criado:'Criado em',
-               status:'Status', tipo:'Tipo',
+               status:'Status', base:'Base', tipo:'Tipo',
                origem:'Origem', destino:'Destino', rota:'Rota', caixa:'Caixa',
                qtd:'Qtd', motorista:'Motorista', veiculo:'Veículo', quem:'Quem',
                alterado:'Alterado por', alteradoEm:'Alterado em',
@@ -2714,14 +2723,15 @@
      app e no painel" nao e nome, e explicacao de cabecalho. */
   var TAB_USUARIOS = {
     padrao: ['nome','perfil','usuario','email','senha','painel','local','veiculo',
-             'telefone','baseTeste','baseProd','ativo'],
+             'telefone','baseTeste','baseProd','baseDecl','ativo'],
     larg: { nome:190, perfil:120, usuario:150, email:230, senha:190,
             painel:80, local:150, veiculo:200, telefone:130,
-            baseTeste:110, baseProd:120, ativo:80 },
+            baseTeste:110, baseProd:120, baseDecl:130, ativo:80 },
     titulos: { nome:'Nome', perfil:'Perfil', usuario:'Usuário', email:'E-mail',
                senha:'Senha', painel:'Painel', local:'Local padrão',
                veiculo:'Veículo', telefone:'Telefone',
-               baseTeste:'Base Teste', baseProd:'Base Produção', ativo:'Ativo' },
+               baseTeste:'Base Teste', baseProd:'Base Produção',
+               baseDecl:'Base Declaração', ativo:'Ativo' },
     kOrdem: 'qdc_cols_users_v1',
     kLarg: 'qdc_larg_users_v1',
     kOcultas: 'qdc_cols_ocultas_users_v1',
@@ -4948,9 +4958,9 @@
       if (!el || el.type === 'date') return;
       porEscolha(el, []);
     });
-    /* O recorte de base volta para "só produção", e não para vazio: vazio ali não é um
-       estado que o seletor tenha. */
-    document.getElementById('mvTeste').value = 'reais';
+    /* O recorte de base volta para "só produção", e não para vazio: vazio ali quer dizer
+       TODAS as bases, e o Limpar não é para mostrar mais do que se estava vendo. */
+    porEscolha(document.getElementById('mvTeste'), ['reais']);
     ligarMultis();
     periodoPadraoMov();
     carregarMovimentos();
@@ -5083,11 +5093,15 @@
       if (id === 'mvAte' && el.value === padrao.ate) return;
       l.push({ id: id, t: rotuloDoCampo(id)+': '+textoDoCampo(el) });
     });
-    /* `mvTeste` nunca fica vazio — ele é uma escolha entre dois recortes, não um filtro
-       que se liga. Entra na conta assim mesmo: ver só o ensaio esconde a operação real,
-       e é justamente o recorte que engana quem esquece dele ligado. */
+    /* `mvTeste` ENTRA NA CONTA quando sai do padrão, e não quando fica vazio: vazio ali
+       quer dizer TODAS as bases, que também é um recorte diferente do que a tela abre.
+       Ver só o ensaio — ou ver a declaração somada com a produção — é justamente o tipo
+       de recorte que engana quem esquece dele ligado. */
     var t = document.getElementById('mvTeste');
-    if (t && t.value === 'teste') l.push({ id: 'mvTeste', t: 'Só lançamentos de teste' });
+    var bases = t ? escolhaDe(t) : [];
+    if (t && !(bases.length === 1 && bases[0] === 'reais')) {
+      l.push({ id: 'mvTeste', t: rotuloDoCampo('mvTeste')+': '+textoDoCampo(t) });
+    }
     return l;
   }
 
@@ -5128,7 +5142,7 @@
         if (!el) return;
         /* O recorte de ensaio volta para "só reais", e não para vazio: vazio ali não é
            um estado que o seletor tenha. */
-        if (b.dataset.tirar === 'mvTeste') el.value = 'reais';
+        if (b.dataset.tirar === 'mvTeste') porEscolha(el, ['reais']);
         else porEscolha(el, []);
         ligarMultis();
         carregarMovimentos();
@@ -5959,6 +5973,31 @@
          ORDENA PELO RÓTULO, e não pela palavra do banco: ordenado por `DEVOLUCAO`, o
          Retorno cairia entre Ajuste e Perda, e a coluna ficaria fora de ordem para
          quem lê o que está escrito nela. */
+      /* EM QUE LIVRO A LINHA ENTROU. Sem esta coluna, uma declaração chega à tela
+         idêntica a um retorno de verdade: a pessoa soma a coluna Qtd à mão, o total não
+         bate com o saldo, e não há nada na tela explicando por quê.
+         ORDENA PELO PESO, e não pelo rótulo: Produção primeiro, depois o ensaio, depois
+         a declaração — que é a ordem de quanto cada livro pesa na operação. Por ordem
+         alfabética, a Declaração viria antes da Produção. */
+      base:      { t: TIT['base'],
+                   k: function(m){ return (m.declaracao ? '2' : '0') + (m.teste ? '1' : '0'); },
+                   /* OS DOIS SELOS quando são os dois: uma declaração de ensaio é
+                      declaração E é treino, e mostrar só o primeiro esconderia
+                      justamente a linha que ninguém deve levar a sério. */
+                   v: function(m){
+                     var s = [];
+                     if (m.declaracao) s.push('<span class="tag azul">Declaração</span>');
+                     if (m.teste) s.push('<span class="tag amarela">Teste</span>');
+                     if (!s.length) s.push('<span class="tag cinza">Produção</span>');
+                     return s.join(' ');
+                   },
+                   busca: function(m){
+                     var s = [];
+                     if (m.declaracao) s.push('base declaracao declaração');
+                     if (m.teste) s.push('base teste');
+                     if (!s.length) s.push('base producao produção');
+                     return s.join(' ');
+                   } },
       tipo:      { t: TIT['tipo'], k: function(m){ return rotuloDoTipoMov(m.tipo); },
                    v: function(m){ return Q.esc(rotuloDoTipoMov(m.tipo)); } },
       /* O carimbo de quando entrou no sistema. `Q.horaBR` e não um recorte do texto: o
@@ -6568,12 +6607,18 @@
       /* As colunas novas entram AQUI também. O CSV é a tabela levada para fora: uma
          coluna que existe na tela e falta no arquivo faz a conferência de escritório
          chegar a um número que a tela não explica. */
-      ['Lancamento','Movimento','Hora','Criado em','Teste','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Veiculo','Quem','Alterado por','Alterado em','Obs'],
+      /* `Base` no lugar de `Teste`: com duas bases, "SIM ou vazio" dizia tudo; com três,
+         uma declaração sairia com a coluna vazia, igualzinha à produção — e o arquivo é
+         o que o escritório confere fora do sistema. Mesma posição, então nada se desloca
+         para quem já tem planilha montada em cima dele. */
+      ['Lancamento','Movimento','Hora','Criado em','Base','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Veiculo','Quem','Alterado por','Alterado em','Obs'],
       MOVS.map(function(m){
         var a = m.alterado || {};
         return [m.id,
                 Q.dataBR(m.dataRef),Q.horaBR(m.dataHora),Q.dataDoCarimboBR(m.dataHora),
-                m.teste?'SIM':'',m.situacao,rotuloDoTipoMov(m.tipo),m.origem,m.destino,m.tipoCaixa,m.qtd,
+                (m.declaracao ? (m.teste?'Declaracao · Teste':'Declaracao')
+                              : (m.teste?'Teste':'Producao')),
+                m.situacao,rotuloDoTipoMov(m.tipo),m.origem,m.destino,m.tipoCaixa,m.qtd,
                 m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',
                 m.veiculo||'',
                 m.usuario,a.por||'',a.em?Q.dataHoraBR(a.em):'',m.obs];
@@ -7223,6 +7268,13 @@
                     : '<span class="tag cinza">não</span>'; },
                   busca: function(u){ return u.BaseProducao === true
                     ? 'base producao produção' : ''; } },
+      baseDecl: { t: TIT['baseDecl'],
+                  k: function(u){ return u.BaseDeclaracao === true ? '1' : '0'; },
+                  v: function(u){ return u.BaseDeclaracao === true
+                    ? '<span class="tag azul">sim</span>'
+                    : '<span class="tag cinza">não</span>'; },
+                  busca: function(u){ return u.BaseDeclaracao === true
+                    ? 'base declaracao declaração motorista' : ''; } },
       ativo:    { t: TIT['ativo'],
                   v: function(u){ return Q.ativo(u.Ativo)
                     ? '<span class="tag verde">sim</span>'
@@ -7697,6 +7749,10 @@
          uma equipe nas duas só seria possível um cadastro por vez — e é justamente a
          turma de uma validação que precisa das duas, a mesma que entra em bloco. */
       '<button class="mini acao" type="button" data-base-user="duas">as duas</button>'+
+      /* A DECLARAÇÃO É A QUARTA, e sozinha: ela não se soma à Produção. Pôr a equipe de
+         motoristas nela em bloco é o mesmo caso de uso dos outros três — a virada de um
+         dia inteiro, em que abrir trinta cadastros são trinta chances de pular um. */
+      '<button class="mini acao" type="button" data-base-user="declaracao">Base Declaração</button>'+
       '<button class="mini" type="button" data-base-user="">desmarcar</button>';
   }
 
@@ -7764,14 +7820,17 @@
            virada — o caso de uso inteiro desta barra. */
         var teste = alvo === 'teste' || alvo === 'duas';
         var producao = alvo === 'reais' || alvo === 'duas';
+        var declaracao = alvo === 'declaracao';
         var nome = alvo === 'duas' ? 'as duas bases'
-                 : 'a ' + (teste ? 'Base Teste' : 'Base Produção');
+                 : 'a ' + (declaracao ? 'Base Declaração'
+                        : (teste ? 'Base Teste' : 'Base Produção'));
         /* O SEGUNDO CLIQUE CONFIRMA, a mesma porta de desativar e excluir. Trocar a base
            não apaga nada, mas muda para onde vai TODO lançamento seguinte dessas
            pessoas — e o engano só aparece dias depois, num saldo que não fecha. */
         if (Q.precisaConfirmar(b, 'Passar '+ids.length+' para '+nome+'?')) return;
         b.disabled = true;
-        Q.post({acao:'baseUsuarios', ids:ids, teste:teste, producao:producao}).then(function(r){
+        Q.post({acao:'baseUsuarios', ids:ids, teste:teste, producao:producao,
+                declaracao:declaracao}).then(function(r){
           b.disabled = false;
           if (!r || r.ok === false) return Q.toast((r && r.erro) || 'Não consegui mudar.','erro');
           /* O QUE MUDOU E O QUE JÁ ESTAVA LÁ, separados. "12 alterados" quando oito já
@@ -8635,12 +8694,18 @@
           ((u.ID ? u.BaseProducao === true : true) ? ' checked' : '')+'> Base Produção</label>'+
         '<label class="marca"><input type="checkbox" id="fBaseTeste"'+
           (u.Teste === true ? ' checked' : '')+'> Base Teste</label>'+
+        '<label class="marca"><input type="checkbox" id="fBaseDecl"'+
+          (u.BaseDeclaracao === true ? ' checked' : '')+'> Base Declaração</label>'+
       '</div>'+
       '<p style="font-size:12.5px;color:var(--txt2);margin:8px 0 12px">'+
         'Na <b>Base Teste</b>, tudo o que a pessoa lançar fica marcado como ensaio e pode '+
         'ser separado ou apagado em bloco depois. Os números continuam somando — a '+
         'separação é de leitura, não de exclusão.<br>'+
-        'Com <b>as duas marcadas</b>, o app de campo pergunta a base em cada lançamento. '+
+        'Na <b>Base Declaração</b>, o que ela lançar é <b>informação</b>: aparece na lista '+
+        'e no CSV, e não entra em conta nenhuma — nem saldo, nem painel, nem extrato. É a '+
+        'base do motorista, que informa o que trouxe para ser conferido contra a contagem '+
+        'de quem recebeu. Por isso ela não anda junto com a Base Produção.<br>'+
+        'Com <b>duas marcadas</b>, o app de campo pergunta a base em cada lançamento. '+
         'Com uma só, ele não pergunta nada.</p>'+
       // O usuário curto deixou de ser coisa só do painel: é com ele que a pessoa entra
       // no app de lançamento. Por isso sobe para cá, junto da senha do app.
@@ -9019,6 +9084,18 @@
     document.getElementById('fVerLanc').addEventListener('change', ajustarPainel);
     ajustarPainel();
     ligarCampoFoto();
+    /* DECLARAÇÃO E PRODUÇÃO NÃO CONVIVEM, e a tela diz isso desmarcando na hora em vez de
+       recusar no fim. Recusar depois de a pessoa preencher o formulário inteiro é pedir
+       que ela descubra sozinha qual das duas escolhas estava errada.
+       A API recusa de novo: ela aceita pedido de qualquer origem, e esta trava é
+       conveniência, não fronteira. */
+    (function(){
+      var prod = document.getElementById('fBaseProd');
+      var decl = document.getElementById('fBaseDecl');
+      if (!prod || !decl) return;
+      prod.addEventListener('change', function(){ if (prod.checked) decl.checked = false; });
+      decl.addEventListener('change', function(){ if (decl.checked) prod.checked = false; });
+    })();
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:perfilDigitado(),
         Telefone:document.getElementById('fTel').value.trim(),
@@ -9030,6 +9107,7 @@
            nasceria em Producao sem ninguem ter escolhido. */
         Teste:document.getElementById('fBaseTeste').checked,
         BaseProducao:document.getElementById('fBaseProd').checked,
+        BaseDeclaracao:document.getElementById('fBaseDecl').checked,
         /* O seletor tem tres valores e a gravacao tem duas colunas. A traducao mora
            AQUI, num lugar so: espalhada, "PROPRIOS" viraria acesso desligado em algum
            caminho esquecido, e a pessoa perderia o painel sem ninguem entender. */
@@ -9057,8 +9135,12 @@
          bases", mas o efeito seria o contrário: sem piso de ensaio, o lançamento dela
          cairia na produção. A API recusa de novo — isto aqui é para a pessoa saber na
          hora, sem esperar a ida ao servidor. */
-      if (!reg.Teste && !reg.BaseProducao) {
-        return Q.toast('Marque ao menos uma base: Produção, Teste, ou as duas.','erro');
+      if (!reg.Teste && !reg.BaseProducao && !reg.BaseDeclaracao) {
+        return Q.toast('Marque ao menos uma base: Produção, Teste ou Declaração.','erro');
+      }
+      if (reg.BaseDeclaracao && reg.BaseProducao) {
+        return Q.toast('Base Declaração e Base Produção não andam juntas: o que é ' +
+          'declaração nunca conta no estoque.','erro');
       }
       if (!reg.ID && !pin) return Q.toast('Defina a senha do app de campo para o novo usuário.','erro');
       // Sem usuário a pessoa não entra em lugar nenhum: nem no app, nem no painel.
