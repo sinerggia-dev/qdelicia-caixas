@@ -3232,6 +3232,57 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
   ok(r4.ok === false && /301/.test(String(r4.erro)),
     'e um lote grande demais recusa dizendo o tamanho, antes de abrir o banco', r4);
 
+  /* ---- AS DUAS BASES AO MESMO TEMPO ----
+   *
+   * E o caso que a coluna unica nao sabia dizer, e a razao de haver duas: quem valida
+   * uma rotina nova lanca o ensaio E o dia de trabalho. Antes fazia isso trocando a
+   * propria base para ca e para la, e um esquecimento no meio do dia mandava o
+   * lancamento real para o ensaio. */
+  const r5 = await POST({ acao: 'baseUsuarios', ids: [alfa], teste: true, producao: true });
+  e = await equipe();
+  ok(r5.ok === true && e['Base Alfa'].Teste === true &&
+     e['Base Alfa'].BaseProducao === true,
+    'o lote poe uma pessoa NAS DUAS bases de uma vez — e as duas voltam na leitura',
+    [r5.ok, e['Base Alfa'].Teste, e['Base Alfa'].BaseProducao]);
+
+  /* E TIRAR DE UMA DELAS TAMBEM E UM ESTADO INTEIRO. Se o lote so acrescentasse base,
+     ninguem sairia do ensaio no dia da virada — que e o caso de uso desta rota. */
+  const r6 = await POST({ acao: 'baseUsuarios', ids: [alfa], teste: false, producao: true });
+  e = await equipe();
+  ok(r6.ok === true && e['Base Alfa'].Teste === false &&
+     e['Base Alfa'].BaseProducao === true,
+    'e o lote seguinte TIRA do ensaio quem estava nas duas — um botao que so ' +
+    'acrescentasse base nunca faria a virada',
+    [e['Base Alfa'].Teste, e['Base Alfa'].BaseProducao]);
+
+  /* NINGUEM FICA SEM BASE NENHUMA. Sem base, o lancamento cai na producao: desmarcar
+     tudo teria o efeito de MARCAR Producao, que e o contrario do que quem desmarcou
+     quis dizer. */
+  const r7 = await POST({ acao: 'baseUsuarios', ids: [alfa], teste: false, producao: false });
+  e = await equipe();
+  ok(r7.ok === false && e['Base Alfa'].BaseProducao === true,
+    'e o lote sem base nenhuma e recusado, sem gravar nada — sem base, o lancamento ' +
+    'cairia justamente na producao', [r7.erro, e['Base Alfa'].BaseProducao]);
+
+  const r8 = await POST({ acao: 'salvarUsuario',
+    registro: { ID: alfa, Nome: 'Base Alfa', Perfil: 'CONFERENTE',
+                Teste: false, BaseProducao: false } });
+  e = await equipe();
+  ok(r8.ok === false && e['Base Alfa'].BaseProducao === true,
+    'e o cadastro sem base nenhuma tambem e recusado — a tela avisa na hora, e a rota ' +
+    'recusa de novo porque atende pedido de qualquer origem', [r8.erro]);
+
+  /* E QUEM CHAMA SEM O CAMPO NOVO continua querendo dizer o que dizia quando a base era
+     uma so: `teste:true` era "para o ensaio e FORA da producao". Uma chamada velha que
+     passasse a deixar a producao ligada poria em producao gente que alguem acabou de
+     mandar para o ensaio. */
+  const r9 = await POST({ acao: 'baseUsuarios', ids: [alfa], teste: true });
+  e = await equipe();
+  ok(r9.ok === true && e['Base Alfa'].Teste === true &&
+     e['Base Alfa'].BaseProducao === false,
+    'e a chamada sem o campo novo continua sendo exclusiva, como sempre foi',
+    [e['Base Alfa'].Teste, e['Base Alfa'].BaseProducao]);
+
   /* Deixa a casa como encontrou: os blocos seguintes contam usuarios. */
   await POST({ acao: 'baseUsuarios', ids: [alfa, beta, gama], teste: false });
 }
