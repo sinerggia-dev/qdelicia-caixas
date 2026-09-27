@@ -466,17 +466,37 @@ function ehDeclaracao(m) {
   return !!m && m.Declaracao === true;
 }
 
+/* OS QUATRO LIVROS, e o nome de cada um. Escrito aqui, num lugar so: a tela, o CSV e o
+   seletor do app de campo leem daqui, e tres copias do mesmo nome divergem no dia em que
+   alguem renomeia um deles numa so.
+
+   A ORDEM E A DE QUANTO CADA LIVRO PESA NA OPERACAO, e ela e a mesma no cadastro, no
+   filtro, na coluna da tabela e no seletor do app: quatro ordens diferentes para as
+   mesmas quatro palavras fazem a pessoa reler a lista toda vez.
+
+   OS IDS NAO SAO OS NOMES. `teste` continua sendo o id do ensaio de producao porque e o
+   que esta gravado em milhares de linhas; renomea-lo seria apagar e recriar dado para
+   trocar uma palavra que so aparece na tela. */
+var BASES = [
+  { id: 'reais',      nome: 'Base Produção',         campo: 'BaseProducao' },
+  { id: 'teste',      nome: 'Base Teste Produção',   campo: 'Teste' },
+  { id: 'declaracao', nome: 'Base Declaração',       campo: 'BaseDeclaracao' },
+  { id: 'testeDecl',  nome: 'Base Teste Declaração', campo: 'BaseTesteDeclaracao' }
+];
+
+function nomeDaBase(id) {
+  var b = BASES.filter(function (x) { return x.id === String(id); })[0];
+  return b ? b.nome : '';
+}
+
 /* AS BASES QUE ESTA PESSOA TEM, na ordem em que o app as oferece.
  *
  * As tres convivem: producao, ensaio e declaracao sao livros diferentes, e o escritorio
  * decidiu que a mesma pessoa pode escrever em mais de um — os relatorios os leem
  * separados. Quando ha mais de uma, quem escolhe e ela, lancamento a lancamento. */
 function basesDoUsuario(u) {
-  var b = [];
-  if (u && u.BaseProducao === true) b.push('reais');
-  if (u && u.Teste === true) b.push('teste');
-  if (u && u.BaseDeclaracao === true) b.push('declaracao');
-  return b;
+  return BASES.filter(function (b) { return !!u && u[b.campo] === true; })
+              .map(function (b) { return b.id; });
 }
 
 /**
@@ -545,7 +565,10 @@ function veDeclaracao(u) {
 
 /* A PENEIRA DA CONTAGEM CEGA, na porta — do mesmo jeito que `recorteTeste` e
    `recorteProprios`. Aplicada em cada consumidor, o proximo nasceria sem ela e
-   entregaria a declaracao a quem nao pode ve-la, sem dar erro nenhum. */
+   entregaria a declaracao a quem nao pode ve-la, sem dar erro nenhum.
+   OS DOIS LIVROS DE DECLARACAO passam por ela: o ensaio de uma declaracao continua
+   sendo o numero que o motorista disse, e le-lo antes de contar estraga a contagem do
+   mesmo jeito — inclusive durante o ensaio, que e quando se treina o habito. */
 function recorteDeclaracao(dados, u) {
   if (veDeclaracao(u)) return dados;
   var copia = {};
@@ -556,25 +579,25 @@ function recorteDeclaracao(dados, u) {
   return copia;
 }
 
-/* EM QUE LIVROS ESTA LINHA ENTROU — no plural, e esse plural nao e enfeite.
+/* EM QUE LIVRO ESTA LINHA ENTROU — um, entre os quatro.
  *
- * "E declaracao?" e "e ensaio?" sao perguntas DIFERENTES: a primeira pergunta se a linha
- * conta no estoque, a segunda se ela e de verdade ou e treino. Uma declaracao de ensaio
- * responde sim as duas — e e ela que permite experimentar o fluxo do motorista sem sujar
- * o relatorio que compara declarado com conferido.
+ * As duas perguntas que a linha responde sao DIFERENTES — "isto conta no estoque?" e
+ * "isto e ensaio ou e de verdade?" —, e e por isso que os livros sao quatro e nao tres.
+ * A linha ja guardava as duas respostas em colunas separadas; aqui elas viram o nome do
+ * livro.
  *
- * Devolvendo UMA resposta so, a declaracao de ensaio se esconderia dentro de
- * "declaracao": o filtro "Base Teste" nao a acharia, e o relatorio a somaria como se
- * fosse carga de verdade.
+ * UM LIVRO SO, e nao uma lista: com a declaracao de ensaio em dois livros ao mesmo tempo,
+ * quem filtrasse "Base Teste Producao" receberia declaracao junto — e os dois sao coisas
+ * que nao se somam.
  *
- * PRODUCAO E A AUSENCIA das outras duas, e nao uma marca propria: uma linha que nao e
+ * PRODUCAO E A AUSENCIA das outras marcas, e nao uma marca propria: uma linha que nao e
  * declaracao nem ensaio e a operacao. */
-function basesDoMovimento(m) {
-  var b = [];
-  if (ehDeclaracao(m)) b.push('declaracao');
-  if (lancamentoDeTeste(m)) b.push('teste');
-  if (!b.length) b.push('reais');
-  return b;
+function baseDoMovimento(m) {
+  var decl = ehDeclaracao(m);
+  var ens = lancamentoDeTeste(m);
+  if (decl && ens) return 'testeDecl';
+  if (decl) return 'declaracao';
+  return ens ? 'teste' : 'reais';
 }
 
 /* Lançamento de teste é o de quem tem "teste" no perfil — decisão do usuário: o perfil é
@@ -645,7 +668,7 @@ function recorteTeste(dados, modo) {
   var copia = {};
   Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
   copia.movimentos = (dados.movimentos || []).filter(function (x) {
-    return basesDoMovimento(x).some(function (b) { return pedidas.indexOf(b) >= 0; });
+    return pedidas.indexOf(baseDoMovimento(x)) >= 0;
   });
   return copia;
 }
@@ -828,6 +851,7 @@ function sessaoDe(u) {
     baseTeste: u.Teste === true,
     baseProducao: u.BaseProducao === true,
     baseDeclaracao: u.BaseDeclaracao === true,
+    baseTesteDeclaracao: u.BaseTesteDeclaracao === true,
     /* SE JA VIU A APRESENTACAO. Vai na sessao porque e ela que decide o que a tela de
        boas-vindas mostra no instante seguinte ao login — esperar a `equipe` chegar para
        descobrir faria a apresentacao piscar para quem ja a viu. */
@@ -1429,10 +1453,7 @@ function cicloDaCarga(movimentos) {
      a remessa apareceria "Devolvida" sem ninguém ter contado uma caixa. */
   /* A DECLARACAO VEM ANTES DO ENSAIO na letra: uma declaracao de ensaio nunca pode
      quitar remessa nenhuma, nem a real nem a de treino. */
-  function letra(m) {
-    if (ehDeclaracao(m)) return 'D';
-    return lancamentoDeTeste(m) ? 'T' : 'R';
-  }
+  function letra(m) { return baseDoMovimento(m); }
   function chaveDestino(m) {
     return String(m.DestinoID) + '|' + String(m.TipoCaixaID) + '|' + letra(m);
   }
@@ -1541,10 +1562,7 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
   }
 
   return naoCancelados(movimentos).filter(function (m) {
-    if (basesPedidas.length &&
-        !basesDoMovimento(m).some(function (b) { return basesPedidas.indexOf(b) >= 0; })) {
-      return false;
-    }
+    if (basesPedidas.length && basesPedidas.indexOf(baseDoMovimento(m)) < 0) return false;
     if (de && m.DataRef < de) return false;
     if (ate && m.DataRef > ate) return false;
     if (!casa(p.local, m.OrigemID) && !casa(p.local, m.DestinoID)) return false;
@@ -2277,6 +2295,7 @@ function usuariosPublicos(usuarios) {
          seguinte tiraria da producao quem estava nela. */
       BaseProducao: u.BaseProducao === true,
       BaseDeclaracao: u.BaseDeclaracao === true,
+      BaseTesteDeclaracao: u.BaseTesteDeclaracao === true,
       VerLancamentos: u.VerLancamentos !== false,
       UsuariosVistos: usuariosVistosDe(u),
       /* As SEIS listas de permissão voltam para o painel. Esquecer uma aqui não dá
@@ -2311,7 +2330,8 @@ module.exports = {
   montarCancelamento: montarCancelamento,
   ehPerfilTeste: ehPerfilTeste, temTeste: temTeste, pesoTeste: pesoTeste, pesoMatriz: pesoMatriz,
   lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste,
-  ehDeclaracao: ehDeclaracao, basesDoMovimento: basesDoMovimento,
+  ehDeclaracao: ehDeclaracao, baseDoMovimento: baseDoMovimento,
+  BASES: BASES, nomeDaBase: nomeDaBase,
   basesDoUsuario: basesDoUsuario, baseEscolhida: baseEscolhida,
   veDeclaracao: veDeclaracao, recorteDeclaracao: recorteDeclaracao,
   acharUsuario: acharUsuario,

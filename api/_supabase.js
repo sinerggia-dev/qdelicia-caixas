@@ -229,6 +229,7 @@ var USUARIO = {
       Teste: r.teste === true,
       BaseProducao: r.base_producao === true,
       BaseDeclaracao: r.base_declaracao === true,
+      BaseTesteDeclaracao: r.base_teste_declaracao === true,
       /* O ENDEREÇO da foto, não a imagem: o byte mora no balde, e esta tabela é lida
          inteira a cada visita ao painel. */
       Foto: r.foto || '',
@@ -261,6 +262,8 @@ var USUARIO = {
     if (o.Teste !== undefined) r.teste = bool(o.Teste);
     if (o.BaseProducao !== undefined) r.base_producao = bool(o.BaseProducao);
     if (o.BaseDeclaracao !== undefined) r.base_declaracao = bool(o.BaseDeclaracao);
+    if (o.BaseTesteDeclaracao !== undefined)
+      r.base_teste_declaracao = bool(o.BaseTesteDeclaracao);
     /* `nulo('')` limpa a coluna: tirar a foto é gravar vazio, e vazio aqui tem de virar
        nulo — a tela pergunta "tem foto?" e uma string vazia responderia que sim. */
     if (o.Foto !== undefined) r.foto = nulo(o.Foto);

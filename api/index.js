@@ -289,12 +289,14 @@ async function gravarMovimento(p) {
        piso nenhum: o carimbo vem do `teste` do payload, que e o seletor da tela de
        lancamento. E quem so tem Producao continua podendo marcar um lancamento avulso
        como ensaio, que e o caso do ajuste feito no escritorio. */
-    /* AS DUAS SAEM DA BASE ESCOLHIDA, e a escolha ja foi conferida contra o cadastro.
+    /* AS DUAS COLUNAS SAEM DO LIVRO ESCOLHIDO, e a escolha ja foi conferida contra o
+       cadastro. Sao duas perguntas — conta no estoque? e ensaio? —, e os quatro livros
+       sao as quatro respostas possiveis.
        O `|| p.teste` que sobrou dentro de `montarLancamento` continua valendo e e de
        proposito: e por ele que o escritorio marca um AJUSTE como ensaio sem precisar
-       estar na Base Teste — subir para o ensaio e a direcao inofensiva. */
-    teste: base === 'teste',
-    declaracao: base === 'declaracao',
+       estar numa base de ensaio — subir para o ensaio e a direcao inofensiva. */
+    teste: base === 'teste' || base === 'testeDecl',
+    declaracao: base === 'declaracao' || base === 'testeDecl',
     clientKeysExistentes: existentes,
     assinaturaUrl: assinaturaUrl,
     fotoUrl: fotoUrl
@@ -482,16 +484,30 @@ async function baseUsuarios(p) {
   if (ids.length > 300) {
     return { ok: false, erro: 'São ' + ids.length + ' de uma vez. Faça em partes de 300.' };
   }
+  /* A VIRADA EM BLOCO PASSA A FALAR EM LIVRO, e nao em tres booleanos soltos: `base`
+     diz qual dos quatro, e a rota poe a pessoa NELE, tirando-a dos outros. E o gesto do
+     dia da virada — a equipe inteira sai do ensaio junto —, e com quatro livros um botao
+     por livro e o unico jeito que nao vira combinatoria.
+     O FORMATO ANTIGO CONTINUA ENTENDIDO: quem chama com `teste`/`producao`, que e o que
+     as telas mandavam ate ontem, continua sendo lido do mesmo jeito. */
   var teste = p.teste === true || String(p.teste) === 'true';
-  /* `producao` PODE NAO VIR. Quando a base era uma so, esta rota dizia tudo com um
-     booleano: `teste:true` queria dizer "para a Base Teste e fora da Producao". Quem
-     chama sem o campo novo continua querendo dizer isso. */
   var producao = p.producao === undefined
     ? !teste
     : (p.producao === true || String(p.producao) === 'true');
   var declaracao = p.declaracao === true || String(p.declaracao) === 'true';
-  if (!teste && !producao && !declaracao) {
-    return { ok: false, erro: 'Escolha ao menos uma base: Producao, Teste ou Declaracao.' };
+  var testeDecl = false;
+  var pedida = String(p.base || '').trim();
+  if (pedida) {
+    if (!L.BASES.some(function (b) { return b.id === pedida; })) {
+      return { ok: false, erro: 'Base desconhecida: ' + pedida };
+    }
+    producao = pedida === 'reais';
+    teste = pedida === 'teste';
+    declaracao = pedida === 'declaracao';
+    testeDecl = pedida === 'testeDecl';
+  }
+  if (!teste && !producao && !declaracao && !testeDecl) {
+    return { ok: false, erro: 'Escolha ao menos uma base para o lote.' };
   }
 
 
@@ -509,15 +525,17 @@ async function baseUsuarios(p) {
   var mexer = ids.filter(function (id) {
     return (porId[id].Teste === true) !== teste ||
            (porId[id].BaseProducao === true) !== producao ||
-           (porId[id].BaseDeclaracao === true) !== declaracao;
+           (porId[id].BaseDeclaracao === true) !== declaracao ||
+           (porId[id].BaseTesteDeclaracao === true) !== testeDecl;
   });
   for (var i = 0; i < mexer.length; i++) {
     await db.update('usuarios', mexer[i],
-      { teste: teste, base_producao: producao, base_declaracao: declaracao });
+      { teste: teste, base_producao: producao, base_declaracao: declaracao,
+        base_teste_declaracao: testeDecl });
   }
   return { ok: true, mudados: mexer.length, jaEstavam: ids.length - mexer.length,
-           base: declaracao ? 'declaracao'
-               : (teste && producao ? 'as duas' : (teste ? 'teste' : 'producao')) };
+           base: pedida || (teste && producao ? 'as duas'
+                          : (declaracao ? 'declaracao' : (teste ? 'teste' : 'producao'))) };
 }
 
 async function limparMovimentos(p) {
@@ -649,13 +667,15 @@ async function salvarUsuario(p) {
      ha piso de ensaio. Ou seja: desmarcar tudo teria o efeito de MARCAR Producao, que e
      o contrario do que quem desmarcou quis dizer. Recusado aqui, e nao so na tela: esta
      rota aceita pedido de qualquer origem. */
-  var querTeste = dados.Teste === true || String(dados.Teste) === 'true';
-  var querProd = dados.BaseProducao === true || String(dados.BaseProducao) === 'true';
-  var querDecl = dados.BaseDeclaracao === true || String(dados.BaseDeclaracao) === 'true';
-  var mexeuEmBase = dados.Teste !== undefined || dados.BaseProducao !== undefined ||
-                    dados.BaseDeclaracao !== undefined;
-  if (mexeuEmBase && !querTeste && !querProd && !querDecl) {
-    return { ok: false, erro: 'Escolha ao menos uma base: Producao, Teste ou Declaracao.' };
+  /* AO MENOS UM LIVRO. A lista sai de `L.BASES`, a mesma que nomeia os quatro: escrita
+     aqui, a quinta base nasceria fora desta conferencia e alguem ficaria sem base
+     nenhuma sem a rota reclamar. */
+  var mexeuEmBase = L.BASES.some(function (b) { return dados[b.campo] !== undefined; });
+  var temAlguma = L.BASES.some(function (b) {
+    return dados[b.campo] === true || String(dados[b.campo]) === 'true';
+  });
+  if (mexeuEmBase && !temAlguma) {
+    return { ok: false, erro: 'Escolha ao menos uma base para esta pessoa.' };
   }
   /* AS TRES CONVIVEM, a pedido do escritorio: producao e declaracao sao lidas em
      relatorios separados, e a mesma pessoa pode escrever nos dois livros. O preco e que

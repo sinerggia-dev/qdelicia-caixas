@@ -607,16 +607,23 @@
      que o login traz e a renovação atualiza — perguntar à rede na hora de gravar
      deixaria o galpão sem a pergunta justamente quando está sem sinal, que é quando ele
      mais lança. */
-  var NOME_BASE = { reais: 'Base Produção', teste: 'Base Teste',
-                    declaracao: 'Base Declaração' };
+  /* OS QUATRO LIVROS, na mesma ordem do cadastro e da tabela do painel: quatro ordens
+     diferentes para as mesmas quatro palavras fazem a pessoa reler a lista toda vez.
+     O campo da sessão vem junto do nome — assim acrescentar um livro é uma linha, e não
+     uma linha aqui, outra na lista e outra no `if`. */
+  var LIVROS = [
+    { id: 'reais',      nome: 'Base Produção',         campo: 'baseProducao' },
+    { id: 'teste',      nome: 'Base Teste Produção',   campo: 'baseTeste' },
+    { id: 'declaracao', nome: 'Base Declaração',       campo: 'baseDeclaracao' },
+    { id: 'testeDecl',  nome: 'Base Teste Declaração', campo: 'baseTesteDeclaracao' }
+  ];
+  var NOME_BASE = {};
+  LIVROS.forEach(function (l) { NOME_BASE[l.id] = l.nome; });
 
   function basesDaSessao(){
     var s = Q.sessao() || {};
-    var b = [];
-    if (s.baseProducao === true) b.push('reais');
-    if (s.baseTeste === true) b.push('teste');
-    if (s.baseDeclaracao === true) b.push('declaracao');
-    return b;
+    return LIVROS.filter(function (l) { return s[l.campo] === true; })
+                 .map(function (l) { return l.id; });
   }
 
   function escolheBase(){ return basesDaSessao().length > 1; }

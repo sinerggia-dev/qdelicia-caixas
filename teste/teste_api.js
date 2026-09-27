@@ -3568,6 +3568,41 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
   ok(temDecl(extVe) || (extVe.linhas || []).length >= 0,
     'enquanto o de quem compara continua inteiro');
 
+  /* ---- O QUARTO LIVRO: O ENSAIO DA DECLARACAO ----
+   *
+   * Ele existe para o dia da virada ser so uma troca de marca no cadastro, e nao um
+   * apagamento de meses de lancamento de ensaio. */
+  await POST({ acao: 'salvarUsuario', registro: { ID: declarante.ID, Nome: declarante.Nome,
+    Perfil: declarante.Perfil, Operacoes: ['SAIDA', 'RETORNO'],
+    BaseProducao: false, Teste: false, BaseDeclaracao: false,
+    BaseTesteDeclaracao: true } });
+  const soEnsaioDecl = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.ID === declarante.ID)[0];
+  ok(soEnsaioDecl.BaseTesteDeclaracao === true && soEnsaioDecl.BaseDeclaracao === false,
+    'o quarto livro existe no cadastro e volta na leitura — sem voltar, o formulário ' +
+    'abriria com ele desmarcado e a gravação seguinte tiraria a pessoa dele, calada',
+    [soEnsaioDecl.BaseTesteDeclaracao, soEnsaioDecl.BaseDeclaracao]);
+
+  const antesEnsaio = await saldoDe('L003');
+  await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: 'L003', destinoId: 'L001',
+    itens: [{ tipoId: 'T001', qtd: 555 }], dataRef: dia(0), usuarioId: declarante.ID,
+    clientKey: 'k-decl-ensaio' });
+  const linhaEnsaio = (await GET({ acao: 'movimentos', quem: 'U001', limit: 500,
+    teste: 'testeDecl' })).movimentos.filter((m) => m.qtd === 555)[0];
+  ok(!!linhaEnsaio && linhaEnsaio.declaracao === true && linhaEnsaio.teste === true,
+    'o que essa pessoa lança cai no LIVRO DELA — declaração e ensaio ao mesmo tempo, ' +
+    'que é o quarto livro', linhaEnsaio && [linhaEnsaio.declaracao, linhaEnsaio.teste]);
+  ok((await saldoDe('L003')) === antesEnsaio,
+    'e também não mexe no estoque — toda declaração é informação, ensaio ou não');
+
+  /* E OS DOIS LIVROS DE DECLARACAO NAO SE MISTURAM: no dia seguinte a virada, o ensaio
+     continua la e nao entra no relatorio de verdade. */
+  const soVerdade = (await GET({ acao: 'movimentos', quem: 'U001', limit: 500,
+    teste: 'declaracao' })).movimentos.filter((m) => m.qtd === 555).length;
+  ok(soVerdade === 0,
+    'e o filtro da Declaração de verdade não traz o ensaio dela — é disso que a virada ' +
+    'sem apagar é feita: os dois livros existem lado a lado e não se somam', soVerdade);
+
   /* Deixa a casa como encontrou: os blocos seguintes contam usuarios. */
   await POST({ acao: 'baseUsuarios', ids: [alfa, beta, gama], teste: false });
 }

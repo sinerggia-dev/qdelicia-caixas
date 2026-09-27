@@ -961,8 +961,9 @@
         <div><label for="mvTeste">Lançamentos</label><select id="mvTeste" multiple data-multi>
           <option value="">Todas as bases</option>
           <option value="reais" selected>Base Produção</option>
-          <option value="teste">Base Teste</option>
+          <option value="teste">Base Teste Produção</option>
           <option value="declaracao">Base Declaração</option>
+          <option value="testeDecl">Base Teste Declaração</option>
         </select></div>
         <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
         <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
@@ -1294,6 +1295,24 @@
 (function(){
   'use strict';
   var Q = window.QDC;
+  /* OS QUATRO LIVROS, com o mesmo id e o mesmo nome do servidor. Escritos de novo em
+     cada tela, o dia em que um deles fosse renomeado deixaria o cadastro dizendo uma
+     coisa e o filtro outra — sobre a mesma linha. */
+  var BASES = [
+    { id: 'reais',      nome: 'Base Produção',         campo: 'BaseProducao',        tag: 'cinza' },
+    { id: 'teste',      nome: 'Base Teste Produção',   campo: 'Teste',               tag: 'amarela' },
+    { id: 'declaracao', nome: 'Base Declaração',       campo: 'BaseDeclaracao',      tag: 'azul' },
+    { id: 'testeDecl',  nome: 'Base Teste Declaração', campo: 'BaseTesteDeclaracao', tag: 'roxa' }
+  ];
+  function baseDaLinha(m){
+    if (m.declaracao && m.teste) return BASES[3];
+    if (m.declaracao) return BASES[2];
+    return m.teste ? BASES[1] : BASES[0];
+  }
+  /* AS DUAS DA DECLARAÇÃO, que é o que a tela de Lançamentos Motorista mostra e o que a
+     contagem cega esconde de quem não foi habilitado. */
+  var BASES_DECL = ['declaracao', 'testeDecl'];
+
   var DADOS = null, EQUIPE = [], MOTORISTAS = [], VEICULOS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PAINEL = null, EXTRATO = null, MOVS = [], SITUACOES = [];
 
   /* Fica fora de montarSelects porque a lista chega pela `equipe`, que e outra ida de
@@ -1554,6 +1573,7 @@
       baseTeste: u.Teste === true,
       baseProducao: u.BaseProducao === true,
       baseDeclaracao: u.BaseDeclaracao === true,
+      baseTesteDeclaracao: u.BaseTesteDeclaracao === true,
       usuariosVistos: lista(u.UsuariosVistos)
     };
   }
@@ -1764,13 +1784,20 @@
        divergem no primeiro conserto que só uma receber, e aí a tela oferece o que a
        rota recusa. */
     (function(){
-      var opcao = document.querySelector('#mvTeste option[value="declaracao"]');
-      if (!opcao) return;
       var temAba = pode.indexOf('pgLancamentosMotorista') >= 0;
-      opcao.hidden = !temAba;
-      opcao.disabled = !temAba;
-      if (!temAba && opcao.selected) opcao.selected = false;
-      ligarMultis();
+      /* AS DUAS DE DECLARAÇÃO somem juntas: esconder só a de verdade deixaria o
+         conferente lendo o que o motorista declarou no ensaio — e é no ensaio que o
+         hábito se forma. */
+      var achou = 0;
+      BASES_DECL.forEach(function(id){
+        var opcao = document.querySelector('#mvTeste option[value="'+id+'"]');
+        if (!opcao) return;
+        achou++;
+        opcao.hidden = !temAba;
+        opcao.disabled = !temAba;
+        if (!temAba && opcao.selected) opcao.selected = false;
+      });
+      if (achou) ligarMultis();
     })();
 
     Q.gruposDaNavegacao('#abas');
@@ -2841,12 +2868,12 @@
   var ORDEM_DECL = { col: 'data', desc: true };
 
   var TAB_DECL = {
-    padrao: ['data','hora','motorista','quem','origem','destino','caixa','qtd','obs'],
-    larg: { data:120, hora:70, motorista:150, quem:140, origem:150, destino:150,
-            caixa:120, qtd:80, obs:240 },
-    titulos: { data:'Movimento', hora:'Hora', motorista:'Motorista', quem:'Quem lançou',
-               origem:'Origem', destino:'Destino', caixa:'Caixa', qtd:'Qtd',
-               obs:'Observação' },
+    padrao: ['data','hora','base','motorista','quem','origem','destino','caixa','qtd','obs'],
+    larg: { data:120, hora:70, base:150, motorista:150, quem:140, origem:150,
+            destino:150, caixa:120, qtd:80, obs:240 },
+    titulos: { data:'Movimento', hora:'Hora', base:'Base', motorista:'Motorista',
+               quem:'Quem lançou', origem:'Origem', destino:'Destino', caixa:'Caixa',
+               qtd:'Qtd', obs:'Observação' },
     kOrdem: 'qdc_cols_decl_v1',
     kLarg: 'qdc_larg_decl_v1',
     kOcultas: 'qdc_cols_ocultas_decl_v1',
@@ -2861,6 +2888,15 @@
                    v: function(m){ return Q.dataBR(m.dataRef); } },
       hora:      { t: T.hora, k: function(m){ return m.dataHora || ''; },
                    v: function(m){ return Q.esc(Q.horaBR(m.dataHora) || '—'); } },
+      /* QUAL DOS DOIS LIVROS DE DECLARAÇÃO. Sem esta coluna, no dia seguinte à virada a
+         tela mostra o ensaio e a operação misturados e sem nada distinguindo os dois —
+         que é exatamente o que a quarta base existe para evitar. */
+      base:      { t: T.base, k: function(m){ return m.teste ? '1' : '0'; },
+                   v: function(m){
+                     var b = baseDaLinha(m);
+                     return '<span class="tag '+b.tag+'">'+
+                       Q.esc(b.nome.replace('Base ',''))+'</span>';
+                   } },
       /* MOTORISTA E "QUEM LANÇOU" SÃO DUAS COLUNAS, e quase sempre o mesmo nome — o
          motorista declara a carga dele. Quando forem diferentes, essa diferença é a
          informação mais importante da linha: alguém declarou no lugar de outro. */
@@ -2895,7 +2931,13 @@
     if (!box) return;
     box.innerHTML = '<div class="vazio">Carregando…</div>';
     var f = filtroDecl();
-    Q.get(Q.lendo({ acao:'movimentos', teste:'declaracao', limit:500,
+    /* OS DOIS LIVROS DE DECLARAÇÃO, e não só o de verdade: durante o ensaio TUDO está
+       no de teste, e a tela abriria vazia justamente para quem está experimentando. A
+       coluna Base diz qual é qual, linha por linha.
+       E são só eles: a base não sai de um seletor aqui, senão esta página — que é a
+       porta de um dado que não chega a quem não foi habilitado — passaria a poder
+       trazer a operação inteira. */
+    Q.get(Q.lendo({ acao:'movimentos', teste:BASES_DECL.join('|'), limit:500,
                     motorista:f.motorista, de:f.de, ate:f.ate }))
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
@@ -2990,15 +3032,16 @@
      app e no painel" nao e nome, e explicacao de cabecalho. */
   var TAB_USUARIOS = {
     padrao: ['nome','perfil','usuario','email','senha','painel','local','veiculo',
-             'telefone','baseTeste','baseProd','baseDecl','ativo'],
+             'telefone','baseProd','baseTeste','baseDecl','baseTesteDecl','ativo'],
     larg: { nome:190, perfil:120, usuario:150, email:230, senha:190,
             painel:80, local:150, veiculo:200, telefone:130,
-            baseTeste:110, baseProd:120, baseDecl:150, ativo:80 },
+            baseProd:120, baseTeste:150, baseDecl:150, baseTesteDecl:170, ativo:80 },
     titulos: { nome:'Nome', perfil:'Perfil', usuario:'Usuário', email:'E-mail',
                senha:'Senha', painel:'Painel', local:'Local padrão',
                veiculo:'Veículo', telefone:'Telefone',
-               baseTeste:'Base Teste', baseProd:'Base Produção',
-               baseDecl:'Base Declaração', ativo:'Ativo' },
+               baseProd:'Base Produção', baseTeste:'Base Teste Produção',
+               baseDecl:'Base Declaração', baseTesteDecl:'Base Teste Declaração',
+               ativo:'Ativo' },
     kOrdem: 'qdc_cols_users_v1',
     kLarg: 'qdc_larg_users_v1',
     kOcultas: 'qdc_cols_ocultas_users_v1',
@@ -6253,25 +6296,21 @@
          ORDENA PELO PESO, e não pelo rótulo: Produção primeiro, depois o ensaio, depois
          a declaração — que é a ordem de quanto cada livro pesa na operação. Por ordem
          alfabética, a Declaração viria antes da Produção. */
+      /* EM QUE LIVRO A LINHA ENTROU — um selo, entre quatro. Dois selos numa célula
+         pediam que quem lê juntasse "Declaração" com "Teste" para chegar ao livro; o
+         nome inteiro responde sem juntar nada.
+         ORDENA PELA ORDEM DOS LIVROS, e não pelo nome: por ordem alfabética a
+         Declaração viria antes da Produção. */
       base:      { t: TIT['base'],
-                   k: function(m){ return (m.declaracao ? '2' : '0') + (m.teste ? '1' : '0'); },
-                   /* OS DOIS SELOS quando são os dois: uma declaração de ensaio é
-                      declaração E é treino, e mostrar só o primeiro esconderia
-                      justamente a linha que ninguém deve levar a sério. */
-                   v: function(m){
-                     var s = [];
-                     if (m.declaracao) s.push('<span class="tag azul">Declaração</span>');
-                     if (m.teste) s.push('<span class="tag amarela">Teste</span>');
-                     if (!s.length) s.push('<span class="tag cinza">Produção</span>');
-                     return s.join(' ');
+                   k: function(m){
+                     var b = baseDaLinha(m);
+                     return String(BASES.indexOf(b));
                    },
-                   busca: function(m){
-                     var s = [];
-                     if (m.declaracao) s.push('base declaracao declaração');
-                     if (m.teste) s.push('base teste');
-                     if (!s.length) s.push('base producao produção');
-                     return s.join(' ');
-                   } },
+                   v: function(m){
+                     var b = baseDaLinha(m);
+                     return '<span class="tag '+b.tag+'">'+Q.esc(b.nome.replace('Base ',''))+'</span>';
+                   },
+                   busca: function(m){ return baseDaLinha(m).nome.toLowerCase(); } },
       tipo:      { t: TIT['tipo'], k: function(m){ return rotuloDoTipoMov(m.tipo); },
                    v: function(m){ return Q.esc(rotuloDoTipoMov(m.tipo)); } },
       /* O carimbo de quando entrou no sistema. `Q.horaBR` e não um recorte do texto: o
@@ -6890,8 +6929,7 @@
         var a = m.alterado || {};
         return [m.id,
                 Q.dataBR(m.dataRef),Q.horaBR(m.dataHora),Q.dataDoCarimboBR(m.dataHora),
-                (m.declaracao ? (m.teste?'Declaracao · Teste':'Declaracao')
-                              : (m.teste?'Teste':'Producao')),
+                baseDaLinha(m).nome,
                 m.situacao,rotuloDoTipoMov(m.tipo),m.origem,m.destino,m.tipoCaixa,m.qtd,
                 m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',
                 m.veiculo||'',
@@ -7529,31 +7567,34 @@
          em producao passaria a ter de conhecer as tres para nao pular ninguem.
          Elas entram na BUSCA pelas palavras da base, entao digitar "base teste" na
          barra separa o grupo inteiro. */
-      baseTeste:{ t: TIT['baseTeste'],
-                  k: function(u){ return u.Teste === true ? '1' : '0'; },
-                  v: function(u){ return u.Teste === true
-                    ? '<span class="tag amarela">sim</span>'
-                    : '<span class="tag cinza">não</span>'; },
-                  busca: function(u){ return u.Teste === true ? 'base teste' : ''; } },
-      baseProd: { t: TIT['baseProd'],
-                  k: function(u){ return u.BaseProducao === true ? '1' : '0'; },
-                  v: function(u){ return u.BaseProducao === true
-                    ? '<span class="tag verde">sim</span>'
-                    : '<span class="tag cinza">não</span>'; },
-                  busca: function(u){ return u.BaseProducao === true
-                    ? 'base producao produção' : ''; } },
-      baseDecl: { t: TIT['baseDecl'],
-                  k: function(u){ return u.BaseDeclaracao === true ? '1' : '0'; },
-                  v: function(u){ return u.BaseDeclaracao === true
-                    ? '<span class="tag azul">sim</span>'
-                    : '<span class="tag cinza">não</span>'; },
-                  busca: function(u){ return u.BaseDeclaracao === true
-                    ? 'base declaracao declaração motorista' : ''; } },
+      /* UMA COLUNA POR LIVRO, e cada uma responde sim ou não. As quatro saem da MESMA
+         lista que enche o formulário: escritas uma a uma, a quinta base apareceria no
+         cadastro e não na tabela, e quem confere trinta cadastros de relance não veria
+         quem entrou nela. */
+      baseProd:      colunaDeBase('reais', 'verde', 'base producao produção'),
+      baseTeste:     colunaDeBase('teste', 'amarela', 'base teste producao produção'),
+      baseDecl:      colunaDeBase('declaracao', 'azul', 'base declaracao declaração motorista'),
+      baseTesteDecl: colunaDeBase('testeDecl', 'roxa', 'base teste declaracao declaração'),
       ativo:    { t: TIT['ativo'],
                   v: function(u){ return Q.ativo(u.Ativo)
                     ? '<span class="tag verde">sim</span>'
                     : '<span class="tag vermelha">não</span>'; } }
     };
+  }
+
+  /* A CÉLULA DE UMA COLUNA DE BASE, igual para as quatro. */
+  function colunaDeBase(id, cor, busca){
+    /* `livro`, e nao `b`: o formulario de usuarios interpola um `b` como parametro, e
+       ha uma prova que recusa qualquer nome do formulario declarado com `var` mais
+       abaixo — porque `var` e icado e o campo abriria com `undefined`, calado. */
+    var livro = BASES.filter(function(x){ return x.id === id; })[0] || {};
+    var campo = livro.campo;
+    return { t: livro.nome,
+             k: function(u){ return u[campo] === true ? '1' : '0'; },
+             v: function(u){ return u[campo] === true
+               ? '<span class="tag '+cor+'">sim</span>'
+               : '<span class="tag cinza">não</span>'; },
+             busca: function(u){ return u[campo] === true ? busca : ''; } };
   }
 
   /* AS PLACAS QUE ESTA PESSOA PODE ESCOLHER, na ordem do cadastro. Um veículo marcado
@@ -8017,16 +8058,15 @@
     if (!n) return '';
     return '<span class="sel-user__n">'+n+(n === 1 ? ' marcado' : ' marcados')+'</span>'+
       '<span class="sel-user__p">passar para</span>'+
-      '<button class="mini acao" type="button" data-base-user="reais">Base Produção</button>'+
-      '<button class="mini acao" type="button" data-base-user="teste">Base Teste</button>'+
-      /* O TERCEIRO BOTÃO EXISTE porque a base deixou de ser ou uma ou outra. Sem ele, pôr
-         uma equipe nas duas só seria possível um cadastro por vez — e é justamente a
-         turma de uma validação que precisa das duas, a mesma que entra em bloco. */
-      '<button class="mini acao" type="button" data-base-user="duas">as duas</button>'+
-      /* A DECLARAÇÃO É A QUARTA, e sozinha: ela não se soma à Produção. Pôr a equipe de
-         motoristas nela em bloco é o mesmo caso de uso dos outros três — a virada de um
-         dia inteiro, em que abrir trinta cadastros são trinta chances de pular um. */
-      '<button class="mini acao" type="button" data-base-user="declaracao">Base Declaração</button>'+
+      /* UM BOTÃO POR LIVRO, e cada um põe as pessoas NELE, tirando-as dos outros. É o
+         gesto do dia da virada — a equipe inteira sai do ensaio junto —, e com quatro
+         livros qualquer botão de combinação viraria combinatória.
+         Os botões saem da MESMA lista dos quatro: escritos um a um, a quinta base
+         entraria no cadastro e não na virada em bloco. */
+      BASES.map(function(b){
+        return '<button class="mini acao" type="button" data-base-user="'+b.id+'">'+
+          Q.esc(b.nome)+'</button>';
+      }).join('')+
       '<button class="mini" type="button" data-base-user="">desmarcar</button>';
   }
 
@@ -8088,23 +8128,19 @@
         if (!alvo){ SEL_USERS = {}; sincronizarSelecaoUser(); return; }
         var ids = idsMarcados();
         if (!ids.length) return;
-        /* OS TRÊS BOTÕES DIZEM UM ESTADO INTEIRO, e não "acrescente esta base". Quem
-           clica está dizendo onde essas pessoas passam a lançar; um botão que só
+        /* O BOTÃO DIZ UM ESTADO INTEIRO, e não "acrescente esta base". Quem clica está
+           dizendo em que livro essas pessoas passam a lançar; um botão que só
            acrescentasse nunca conseguiria TIRAR ninguém do ensaio, que é o dia da
            virada — o caso de uso inteiro desta barra. */
-        var teste = alvo === 'teste' || alvo === 'duas';
-        var producao = alvo === 'reais' || alvo === 'duas';
-        var declaracao = alvo === 'declaracao';
-        var nome = alvo === 'duas' ? 'as duas bases'
-                 : 'a ' + (declaracao ? 'Base Declaração'
-                        : (teste ? 'Base Teste' : 'Base Produção'));
+        var livro = BASES.filter(function(b){ return b.id === alvo; })[0];
+        if (!livro) return;
+        var nome = 'a ' + livro.nome;
         /* O SEGUNDO CLIQUE CONFIRMA, a mesma porta de desativar e excluir. Trocar a base
            não apaga nada, mas muda para onde vai TODO lançamento seguinte dessas
            pessoas — e o engano só aparece dias depois, num saldo que não fecha. */
         if (Q.precisaConfirmar(b, 'Passar '+ids.length+' para '+nome+'?')) return;
         b.disabled = true;
-        Q.post({acao:'baseUsuarios', ids:ids, teste:teste, producao:producao,
-                declaracao:declaracao}).then(function(r){
+        Q.post({acao:'baseUsuarios', ids:ids, base:livro.id}).then(function(r){
           b.disabled = false;
           if (!r || r.ok === false) return Q.toast((r && r.erro) || 'Não consegui mudar.','erro');
           /* O QUE MUDOU E O QUE JÁ ESTAVA LÁ, separados. "12 alterados" quando oito já
@@ -8963,22 +8999,25 @@
          coisa que um cadastro novo faria seria dar um erro. */
       '<label>Base <span style="font-weight:400;color:var(--txt3)">— onde os lançamentos '+
         'desta pessoa entram</span></label>'+
+      /* AS QUATRO SAEM DA LISTA, e não escritas uma a uma: com elas escritas, a quinta
+         base nasceria sem caixa no formulário e ninguém conseguiria concedê-la. */
       '<div class="marcalista" id="fBases">'+
-        '<label class="marca"><input type="checkbox" id="fBaseProd"'+
-          ((u.ID ? u.BaseProducao === true : true) ? ' checked' : '')+'> Base Produção</label>'+
-        '<label class="marca"><input type="checkbox" id="fBaseTeste"'+
-          (u.Teste === true ? ' checked' : '')+'> Base Teste</label>'+
-        '<label class="marca"><input type="checkbox" id="fBaseDecl"'+
-          (u.BaseDeclaracao === true ? ' checked' : '')+'> Base Declaração</label>'+
+        /* `livro`, e nao `b`: ha uma prova que recusa qualquer nome interpolado neste
+           formulario que tenha um `var` de mesmo nome mais abaixo no arquivo — `var` e
+           icado, e o campo abriria com `undefined` sem dar erro. */
+        BASES.map(function(livro){
+          var marcada = u.ID ? u[livro.campo] === true : livro.id === 'reais';
+          return '<label class="marca"><input type="checkbox" data-base="'+livro.id+'"'+
+            (marcada ? ' checked' : '')+'> '+Q.esc(livro.nome)+'</label>';
+        }).join('')+
       '</div>'+
       '<p style="font-size:12.5px;color:var(--txt2);margin:8px 0 12px">'+
-        'Na <b>Base Teste</b>, tudo o que a pessoa lançar fica marcado como ensaio e pode '+
-        'ser separado ou apagado em bloco depois. Os números continuam somando — a '+
-        'separação é de leitura, não de exclusão.<br>'+
-        'Na <b>Base Declaração</b>, o que ela lançar é <b>informação</b>: aparece na lista '+
-        'e no CSV, e não entra em conta nenhuma — nem saldo, nem painel, nem extrato. É a '+
-        'base do motorista, que informa o que trouxe para ser conferido contra a contagem '+
-        'de quem recebeu.<br>'+
+        'São quatro livros, e cada lançamento entra em um. Nas duas de <b>Declaração</b>, '+
+        'o que a pessoa lançar é <b>informação</b>: aparece na lista e no CSV, e não entra '+
+        'em conta nenhuma — nem saldo, nem painel, nem extrato. É a base do motorista, que '+
+        'informa o que trouxe para ser conferido contra a contagem de quem recebeu.<br>'+
+        'As duas de <b>Teste</b> são o ensaio das outras duas. Elas existem para o dia da '+
+        'virada ser só uma troca de marca aqui, sem precisar apagar meses de lançamento.<br>'+
         'Com <b>mais de uma marcada</b>, o app de campo pergunta a base em cada '+
         'lançamento, e é a pessoa que escolhe. Com uma só, ele não pergunta nada.</p>'+
       // O usuário curto deixou de ser coisa só do painel: é com ele que a pessoa entra
@@ -9358,6 +9397,13 @@
     document.getElementById('fVerLanc').addEventListener('change', ajustarPainel);
     ajustarPainel();
     ligarCampoFoto();
+    /* A CAIXA DE CADA LIVRO, lida pelo id dele. Pelo id do elemento, acrescentar uma
+       base pediria um `getElementById` novo escrito em dois lugares — e o segundo é o
+       que se esquece. */
+    function baseMarcada(id){
+      var c = document.querySelector('#fBases input[data-base="'+id+'"]');
+      return !!c && c.checked;
+    }
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:u.ID||'', Nome:document.getElementById('fNome').value.trim(), Perfil:perfilDigitado(),
         Telefone:document.getElementById('fTel').value.trim(),
@@ -9367,9 +9413,10 @@
            banco quem diz "Base Teste" chama-se `teste`, de quando a base era uma so.
            A traducao mora num lugar so: espalhada, um caminho esqueceria e a pessoa
            nasceria em Producao sem ninguem ter escolhido. */
-        Teste:document.getElementById('fBaseTeste').checked,
-        BaseProducao:document.getElementById('fBaseProd').checked,
-        BaseDeclaracao:document.getElementById('fBaseDecl').checked,
+        Teste:baseMarcada('teste'),
+        BaseProducao:baseMarcada('reais'),
+        BaseDeclaracao:baseMarcada('declaracao'),
+        BaseTesteDeclaracao:baseMarcada('testeDecl'),
         /* O seletor tem tres valores e a gravacao tem duas colunas. A traducao mora
            AQUI, num lugar so: espalhada, "PROPRIOS" viraria acesso desligado em algum
            caminho esquecido, e a pessoa perderia o painel sem ninguem entender. */
@@ -9397,8 +9444,8 @@
          bases", mas o efeito seria o contrário: sem piso de ensaio, o lançamento dela
          cairia na produção. A API recusa de novo — isto aqui é para a pessoa saber na
          hora, sem esperar a ida ao servidor. */
-      if (!reg.Teste && !reg.BaseProducao && !reg.BaseDeclaracao) {
-        return Q.toast('Marque ao menos uma base: Produção, Teste ou Declaração.','erro');
+      if (!BASES.some(function(b){ return reg[b.campo] === true; })) {
+        return Q.toast('Marque ao menos uma base para esta pessoa.','erro');
       }
       if (!reg.ID && !pin) return Q.toast('Defina a senha do app de campo para o novo usuário.','erro');
       // Sem usuário a pessoa não entra em lugar nenhum: nem no app, nem no painel.

@@ -514,5 +514,29 @@ module.exports = [
       "   somar, promover um motorista a conferente faria as declaracoes dele de meses",
       "   atras passarem a contar, de uma vez e em silencio.';"
     ].join('\n')
+  },
+  {
+    id: '2026-09-27-base-teste-declaracao',
+    nota: 'o ensaio da declaracao ganha livro proprio, para a virada ser so uma marca',
+    sql: [
+      "-- SAO QUATRO LIVROS, e nao tres: Producao, Teste Producao, Declaracao e Teste",
+      "-- Declaracao. As duas perguntas que a linha responde — 'isto conta no estoque?' e",
+      "-- 'isto e ensaio ou e de verdade?' — ja viviam separadas na tabela de movimentos,",
+      "-- em `teste` e `declaracao`. O que faltava era o CADASTRO saber dizer a quarta.",
+      "--",
+      "-- POR QUE ISSO IMPORTA: no dia da virada, o escritorio quer apenas TROCAR A BASE",
+      "-- das pessoas, e nao apagar meses de lancamento de ensaio. Com o ensaio da",
+      "-- declaracao dentro do mesmo livro da declaracao de verdade, apagar era o unico",
+      "-- jeito de separar os dois depois.",
+      "--",
+      "-- A TABELA DE MOVIMENTOS NAO MUDA: `teste` + `declaracao` juntos ja sao o quarto",
+      "-- livro. Coluna nova ali seria um terceiro jeito de dizer a mesma coisa.",
+      "alter table public.usuarios",
+      "  add column if not exists base_teste_declaracao boolean not null default false;",
+      "comment on column public.usuarios.base_teste_declaracao is",
+      "  'Os lancamentos desta pessoa sao declaracao DE ENSAIO: nao contam no estoque, como",
+      "   toda declaracao, e ficam separados da declaracao de verdade para a virada ser so",
+      "   uma troca de marca no cadastro.';"
+    ].join('\n')
   }
 ];

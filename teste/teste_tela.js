@@ -3627,7 +3627,7 @@ console.log('\n== as colunas da tabela de Movimentos ==');
      com três, a declaração sairia com a coluna vazia, igualzinha à produção, e é no
      arquivo que o escritório confere o que não confere na tela. */
   ok(/'Movimento','Hora','Criado em','Base',/.test(adm) &&
-     adm.indexOf("(m.teste?'Declaracao · Teste':'Declaracao')") > 0,
+     adm.indexOf('baseDaLinha(m).nome,') > 0,
     'mas continua no CSV, e agora dizendo QUAL base — com três livros, "SIM ou vazio" ' +
     'deixaria a declaração idêntica à produção no arquivo');
   /* E O FILTRO CONTINUA SENDO O CAMINHO para a pergunta "quais são de teste?". */
@@ -10906,22 +10906,29 @@ console.log('\n== a base do usuário ==');
      ensaio, calada, no meio de uma validação. */
   /* DUAS CAIXAS, E CADA UMA NA SUA COLUNA. O defeito plausível é o de copiar e colar:
      as duas lendo a mesma caixa, e a tela mostrando um estado que ninguém marcou. */
-  ok(adm.indexOf('id="fBaseProd"') > 0 && adm.indexOf('id="fBaseTeste"') > 0,
-    'o formulário tem uma caixa para cada base — num seletor de escolher uma, quem ' +
-    'valida uma rotina nova trocava a própria base para cá e para lá o dia inteiro');
-  ok(adm.indexOf("Teste:document.getElementById('fBaseTeste').checked") > 0 &&
-     adm.indexOf("BaseProducao:document.getElementById('fBaseProd').checked") > 0 &&
-     adm.indexOf("BaseDeclaracao:document.getElementById('fBaseDecl').checked") > 0,
+  /* AS CAIXAS SAEM DA LISTA DOS LIVROS, e não escritas uma a uma: escritas, a quinta
+     base apareceria no catálogo e não no formulário, e ninguém conseguiria concedê-la.
+     A PROVA É DERIVADA da mesma lista: ela cobra uma caixa e uma gravação POR LIVRO, e
+     por isso continua valendo quando o quinto entrar. */
+  var Lb2 = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  ok(adm.indexOf("BASES.map(function(livro){") > 0 &&
+     adm.indexOf("data-base=\"'+livro.id+'\"") > 0,
+    'o formulário monta uma caixa por livro, a partir da lista deles — escritas uma a ' +
+    'uma, a base nova apareceria no catálogo e não no cadastro');
+  var semGravar = Lb2.BASES.filter(function (b) {
+    return adm.indexOf(b.campo + ":baseMarcada('" + b.id + "')") < 0;
+  }).map(function (b) { return b.campo; });
+  ok(semGravar.length === 0,
     'e cada caixa grava a SUA coluna — trocadas, marcar Produção mandaria a pessoa ' +
     'para o ensaio, e a tela mostraria o contrário do que o banco guardou; presa num ' +
-    'valor fixo, a caixa vira enfeite e ninguém nunca entra naquela base');
+    'valor fixo, a caixa vira enfeite e ninguém nunca entra naquele livro', semGravar);
   ok(/Teste: u\.Teste === true,/.test(log) && /BaseProducao: u\.BaseProducao === true,/.test(log),
     'e as duas voltam na leitura da equipe — sem isso, abrir e salvar apagaria a base');
   /* NINGUÉM FICA SEM BASE NENHUMA. Desmarcar as duas parece "tirar das bases", e o
      efeito seria o contrário: sem piso de ensaio, o lançamento cai na produção.
      Nos DOIS lugares: a tela avisa na hora, e a rota recusa — ela atende pedido de
      qualquer origem, e a tela não é fronteira. */
-  ok(adm.indexOf('if (!reg.Teste && !reg.BaseProducao && !reg.BaseDeclaracao)') > 0,
+  ok(adm.indexOf('if (!BASES.some(function(b){ return reg[b.campo] === true; }))') > 0,
     'a tela recusa salvar sem base nenhuma — desmarcar todas teria o efeito de ' +
     'MARCAR Produção, que é o contrário do que quem desmarcou quis dizer');
   /* E AS TRÊS CONVIVEM, a pedido: produção e declaração são lidas em relatórios
@@ -10932,8 +10939,11 @@ console.log('\n== a base do usuário ==');
      api.indexOf('querDecl && querProd') < 0,
     'e as três bases convivem no mesmo cadastro — a trava caiu a pedido, porque os dois ' +
     'livros são lidos em relatórios separados');
-  ok(api.indexOf('!querTeste && !querProd') > 0,
-    'e a rota recusa de novo — ela aceita pedido de qualquer origem');
+  ok(api.indexOf('if (mexeuEmBase && !temAlguma)') > 0 &&
+     api.indexOf('L.BASES.some(') > 0,
+    'e a rota recusa de novo, percorrendo a mesma lista de livros — ela aceita pedido ' +
+    'de qualquer origem, e uma lista escrita à mão aqui deixaria a base nova fora da ' +
+    'conferência');
 
   /* A MIGRAÇÃO SEPARA AS DUAS COLUNAS SEM MEXER EM NINGUÉM. A coluna nova nasce
      verdadeira para todos, e a linha seguinte a tira de quem está no ensaio — são os
@@ -10957,31 +10967,48 @@ console.log('\n== a base do usuário ==');
   /* AS DUAS CÉLULAS, RODADAS. O defeito plausível é as duas lerem a mesma coluna: a
      tabela ficaria com duas colunas idênticas, e quem procurasse na tela quem lança em
      produção leria a resposta do ensaio. Lida no arquivo, a prova não veria isso. */
-  var iD = adm.indexOf("baseTeste:{ t: TIT['baseTeste']");
-  var fimD = adm.indexOf("ativo:    { t: TIT['ativo']", iD);
-  var defs = iD < 0 || fimD < 0 ? null : new Function('TIT', 'Q',
-    'return ({' + adm.slice(iD, fimD) + '});')(
-    { baseTeste: 'Base Teste', baseProd: 'Base Produção' },
-    { esc: function (s) { return String(s == null ? '' : s); } });
-  ok(!!defs && !!defs.baseTeste && !!defs.baseProd,
-    'a conferência recortou as duas células — recorte vazio faria as provas abaixo ' +
-    'passarem sem rodar nada', !!defs);
-  var soTeste = { Teste: true, BaseProducao: false };
-  var soProd = { Teste: false, BaseProducao: true };
-  var asDuas = { Teste: true, BaseProducao: true };
-  function diz(col, u) { return defs[col].v(u).indexOf('sim') > 0 ? 'sim' : 'não'; }
-  ok(diz('baseTeste', soTeste) === 'sim' && diz('baseProd', soTeste) === 'não',
-    'quem só tem a Base Teste aparece com sim numa coluna e não na outra',
-    [diz('baseTeste', soTeste), diz('baseProd', soTeste)]);
-  ok(diz('baseTeste', soProd) === 'não' && diz('baseProd', soProd) === 'sim',
-    'e quem só tem a Base Produção aparece ao contrário — as duas colunas lendo a ' +
-    'mesma coluna do cadastro dariam a mesma resposta nas duas',
-    [diz('baseTeste', soProd), diz('baseProd', soProd)]);
-  /* O CASO QUE A COLUNA ÚNICA NÃO SABIA DIZER, e que é a razão de haver duas. */
-  ok(diz('baseTeste', asDuas) === 'sim' && diz('baseProd', asDuas) === 'sim',
-    'e quem está nas duas aparece com sim nas duas — numa coluna só, este caso teria ' +
-    'de virar uma terceira palavra, e quem procura por uma base pularia essa gente',
-    [diz('baseTeste', asDuas), diz('baseProd', asDuas)]);
+  /* AS QUATRO CÉLULAS, RODADAS, e a função que as monta é UMA — o defeito plausível
+     aqui é a célula de um livro lendo a coluna de outro, e quem escreve quatro células
+     iguais à mão erra exatamente nisso. */
+  var iCel = adm.indexOf('  function colunaDeBase(id, cor, busca){');
+  var fonteCel = iCel < 0 ? '' : adm.slice(iCel, adm.indexOf('\n  }', iCel) + 4);
+  var colunaDeBase = fonteCel.length < 80 ? null : new Function('BASES', 'Q',
+    fonteCel + '\n return colunaDeBase;')(
+    Lb2.BASES, { esc: function (s) { return String(s == null ? '' : s); } });
+  ok(!!colunaDeBase,
+    'a conferência recortou a célula das bases — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', fonteCel.length);
+
+  function dizBase(id, u) {
+    return colunaDeBase(id, 'cinza', '').v(u).indexOf('sim') > 0 ? 'sim' : 'não';
+  }
+  /* CADA LIVRO LÊ A SUA COLUNA, e só a sua: a pessoa marcada num deles tem de aparecer
+     com "sim" nele e "não" nos outros três. Duas células lendo a mesma coluna dariam a
+     mesma resposta, e ninguém repara em duas colunas iguais. */
+  var trocadas = [];
+  Lb2.BASES.forEach(function (b) {
+    var so = {};
+    so[b.campo] = true;
+    Lb2.BASES.forEach(function (outro) {
+      var esperado = outro.id === b.id ? 'sim' : 'não';
+      if (dizBase(outro.id, so) !== esperado) {
+        trocadas.push(b.id + ' aparece como ' + dizBase(outro.id, so) + ' em ' + outro.id);
+      }
+    });
+  });
+  ok(trocadas.length === 0,
+    'cada coluna de base lê a SUA coluna do cadastro, e só a sua — duas lendo a mesma ' +
+    'dariam a mesma resposta, e ninguém repara em duas colunas iguais', trocadas);
+  /* E UMA COLUNA POR LIVRO NA TABELA: com três colunas para quatro livros, quem procura
+     quem está no quarto não o encontra. */
+  var semColuna = Lb2.BASES.filter(function (b) {
+    return desc.indexOf("'" + (b.id === 'reais' ? 'baseProd'
+                             : b.id === 'teste' ? 'baseTeste'
+                             : b.id === 'declaracao' ? 'baseDecl' : 'baseTesteDecl') + "'") < 0;
+  }).map(function (b) { return b.id; });
+  ok(semColuna.length === 0,
+    'e há uma coluna na tabela para cada livro — faltando uma, quem confere trinta ' +
+    'cadastros de relance não vê quem entrou naquele', semColuna);
 
   /* "AS DUAS BASES" É COISA DOS SELETORES DO PAINEL, e não mais do filtro de Movimentos.
      Lá eram três opções para duas bases — todas as combinações possíveis. Com a terceira
@@ -11061,8 +11088,10 @@ console.log('\n== a base do usuário ==');
   /* O QUE VAI PARA O SERVIDOR são os ids marcados — nem a tela inteira, nem os ativos —
      e as DUAS bases, porque desde que elas deixaram de ser uma só um booleano não
      descreve mais o estado inteiro. */
-  ok(/acao:'baseUsuarios', ids:ids, teste:teste, producao:producao/.test(adm),
-    'e o botão manda os ids marcados e as duas bases para o `baseUsuarios`');
+  ok(/acao:'baseUsuarios', ids:ids, base:livro\.id/.test(adm),
+    'e o botão manda os ids marcados e o LIVRO para o `baseUsuarios` — com quatro deles, ' +
+    'mandar três booleanos soltos seria pedir que as duas pontas montassem a mesma ' +
+    'combinação de cabeça');
   ok(/if \(Q\.precisaConfirmar\(b, 'Passar '\+ids\.length\+' para '\+nome/.test(adm),
     'e o segundo clique confirma, dizendo quantos e para qual base — trocar a base não ' +
     'apaga nada, mas desvia todo lançamento seguinte, e o engano só aparece no saldo');
@@ -11085,18 +11114,31 @@ console.log('\n== a base do usuário ==');
   ok(mapa.length > 60,
     'a conferência recortou o mapa dos botões — recorte vazio faria as provas abaixo ' +
     'passarem sem rodar nada', mapa.length);
-  var quais = new Function('alvo', mapa + ' return teste + "/" + producao;');
-  ok(quais('reais') === 'false/true',
-    'o botão "Base Produção" põe as pessoas SÓ na produção — e não só acrescenta a ' +
-    'produção, senão ninguém sairia do ensaio no dia da virada', quais('reais'));
-  ok(quais('teste') === 'true/false',
-    'o botão "Base Teste" põe as pessoas só no ensaio', quais('teste'));
-  ok(quais('duas') === 'true/true',
-    'e "as duas" põe nas duas — sem este terceiro botão, pôr uma equipe de validação ' +
-    'nas duas bases seria um cadastro por vez, e é ela justamente a que entra em bloco',
-    quais('duas'));
-  ok(adm.indexOf('data-base-user="duas"') > 0,
-    'e o terceiro botão existe na barra — o mapa sozinho não é clicável');
+  var Lb3 = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  var qual = new Function('alvo', 'BASES',
+    mapa + ' return livro ? livro.id : "(nenhum)";');
+  /* CADA BOTÃO APONTA PARA O SEU LIVRO. O defeito plausível com quatro deles é o clique
+     de um mandar o id de outro — e o resultado seria a equipe inteira mudando para a
+     base errada num clique só, que é o gesto que esta barra existe para fazer. */
+  var trocados = Lb3.BASES.filter(function (b) {
+    return qual(b.id, Lb3.BASES) !== b.id;
+  }).map(function (b) { return b.id; });
+  ok(trocados.length === 0,
+    'cada botão da virada aponta para o SEU livro — trocados, um clique mudaria a ' +
+    'equipe inteira para a base errada', trocados);
+  /* O TRECHO SAI FORA na hora, com `return`, e por isso a função montada aqui devolve
+     `undefined`: e é esse o efeito que se quer — botão de base desconhecida não manda
+     pedido nenhum, em vez de mandar um pedido sem livro. */
+  ok(qual('inventada', Lb3.BASES) === undefined,
+    'e um botão de base desconhecida não faz nada em vez de mandar um pedido sem ' +
+    'sentido', String(qual('inventada', Lb3.BASES)));
+
+  /* E HÁ UM BOTÃO POR LIVRO NA BARRA: os botões saem da mesma lista, então a base nova
+     entra na virada em bloco junto com o resto. */
+  ok(adm.indexOf("BASES.map(function(b){\n        return '<button class=\"mini acao\"") > 0 ||
+     adm.indexOf("data-base-user=\"'+b.id+'\"") > 0,
+    'e os botões saem da lista dos livros — escritos um a um, a base nova entraria no ' +
+    'cadastro e não na virada em bloco');
 
   /* A MARCAÇÃO MORRE COM A AÇÃO FEITA. Viva, o mesmo bloco ficaria armado debaixo do
      dedo para o botão vizinho, e um clique de conferência mandaria todo mundo de volta. */
@@ -11164,15 +11206,20 @@ console.log('\n== Lançamentos Motorista ==');
      é a porta de um dado que não chega a quem não tem a aba. */
   var pag = adm.slice(adm.indexOf('function carregarDecl()'));
   pag = pag.slice(0, pag.indexOf('\n  }') + 4);
-  /* UMA BASE, E É A DECLARAÇÃO. Escrito como "contém `declaracao`", um `teste:'todos'`
-     acrescentado ao lado passaria — e a página que existe para mostrar a declaração
-     passaria a mostrar a operação inteira a quem só foi habilitado a ver aquela. */
-  var basesPedidas = (pag.match(/teste: *'([^']*)'/g) || []);
-  ok(basesPedidas.length === 1 && basesPedidas[0].indexOf("'declaracao'") > 0 &&
-     pag.indexOf('Q.lendo(') > 0,
-    'a tela de Lançamentos Motorista pede UMA base, a Declaração, e diz quem está ' +
-    'perguntando — com outra ao lado, ela traria a operação inteira para dentro da ' +
-    'porta da declaração', basesPedidas);
+  /* SÓ OS LIVROS DE DECLARAÇÃO, e a lista deles sai de um lugar só. Escrito como
+     "contém declaracao", um livro a mais acrescentado ao lado passaria — e a página que
+     existe para mostrar a declaração passaria a mostrar a operação inteira a quem só foi
+     habilitado a ver aquela. */
+  ok(pag.indexOf("teste:BASES_DECL.join('|')") > 0 && pag.indexOf('Q.lendo(') > 0,
+    'a tela de Lançamentos Motorista pede só os livros de declaração, pela lista deles, ' +
+    'e diz quem está perguntando — com um livro a mais ao lado, ela traria a operação ' +
+    'inteira para dentro da porta da declaração', pag.slice(0, 200));
+  var listaDecl = (adm.match(/var BASES_DECL = \[([^\]]*)\]/) || ['', ''])[1];
+  ok(listaDecl.indexOf("'declaracao'") >= 0 && listaDecl.indexOf("'testeDecl'") >= 0 &&
+     listaDecl.indexOf("'reais'") < 0 && listaDecl.indexOf("'teste'") !== listaDecl.indexOf("'testeDecl'") - 1,
+    'e essa lista tem os DOIS livros de declaração e nenhum outro — durante o ensaio ' +
+    'tudo está no de teste, e sem ele a tela abriria vazia justamente para quem está ' +
+    'experimentando', listaDecl);
 
   /* ---- E A PENEIRA É DO SERVIDOR ----
      Esconder a aba é conveniência; quem filtra "Base Declaração" na lista de Movimentos
@@ -11227,12 +11274,34 @@ console.log('\n== Lançamentos Motorista ==');
   ok(blocoOp.length > 80 && blocoOp.indexOf('opcao') > 0,
     'a conferência recortou o trecho que esconde a opção — recorte vazio faria as duas ' +
     'provas abaixo passarem sem rodar nada', blocoOp.length);
-  function opcaoCom(abas) {
-    var op = { hidden: null, disabled: null, selected: true };
-    new Function('pode', 'document', 'ligarMultis', blocoOp)(
-      abas, { querySelector: function () { return op; } }, function () {});
-    return op;
+  /* AS DUAS OPÇÕES DE DECLARAÇÃO entram na bancada, cada uma com o seu objeto: com um
+     objeto só para as duas, esconder apenas a primeira passaria — e o conferente
+     continuaria lendo o que o motorista declarou no ensaio. */
+  function opcoesCom(abas) {
+    var ops = {};
+    ['declaracao', 'testeDecl'].forEach(function (id) {
+      ops[id] = { hidden: null, disabled: null, selected: true };
+    });
+    new Function('pode', 'document', 'ligarMultis', 'BASES_DECL', blocoOp)(
+      abas,
+      { querySelector: function (sel) {
+          var m = /value="([^"]+)"/.exec(sel);
+          return m ? ops[m[1]] || null : null;
+        } },
+      function () {}, ['declaracao', 'testeDecl']);
+    return ops;
   }
+  function opcaoCom(abas) { return opcoesCom(abas).declaracao; }
+  var todasEscondidas = (function (abas) {
+    var ops = opcoesCom(abas);
+    return Object.keys(ops).every(function (k) {
+      return ops[k].hidden === true && ops[k].disabled === true && ops[k].selected === false;
+    });
+  })(['pgMovimentos']);
+  ok(todasEscondidas,
+    'e as DUAS bases de declaração somem juntas — escondendo só a de verdade, o ' +
+    'conferente continuaria lendo o que o motorista declarou no ensaio, que é quando o ' +
+    'hábito se forma', todasEscondidas);
   var semAba = opcaoCom(['pgMovimentos']);
   ok(semAba.hidden === true && semAba.disabled === true && semAba.selected === false,
     'a opção "Base Declaração" some do filtro de quem não tem a aba, e sai de marcada ' +
@@ -11331,11 +11400,11 @@ console.log('\n== a base do lançamento, no app de campo ==');
   /* O RECORTE COMECA NA LISTA DAS BASES, e nao na primeira funcao: e dela que as tres
      saem, e comecando depois a bancada rodaria sobre um `basesDaSessao` que nao existe —
      e o erro falaria de escopo, nao do seletor. */
-  var ini = idx.indexOf('  var NOME_BASE = {');
+  var ini = idx.indexOf('  var LIVROS = [');
   var fim = idx.indexOf('  function aplicarSessao(s){');
   var fonte = ini < 0 || fim < 0 ? '' : idx.slice(ini, fim);
   ok(fonte.length > 200 && fonte.indexOf('ajustarBases') > 0 &&
-     fonte.indexOf('basesDaSessao') > 0,
+     fonte.indexOf('basesDaSessao') > 0 && fonte.indexOf('LIVROS') > 0,
     'a conferência recortou as três funções da base — recorte vazio faria as provas ' +
     'abaixo passarem sem rodar nada', fonte.length);
 
@@ -11362,15 +11431,16 @@ console.log('\n== a base do lançamento, no app de campo ==');
      de quanto cada livro pesa na operação, e ela é a mesma do cadastro e da tabela —
      três ordens diferentes para as mesmas três palavras fazem a pessoa reler o seletor
      toda vez. */
-  var tres = mundo({ baseProducao: true, baseTeste: true, baseDeclaracao: true }, 'reais');
-  ok(tres.bases().join(',') === 'reais,teste,declaracao',
-    'as três bases da pessoa saem na mesma ordem do cadastro e da tabela',
-    tres.bases());
+  var tres = mundo({ baseProducao: true, baseTeste: true, baseDeclaracao: true,
+                     baseTesteDeclaracao: true }, 'reais');
+  ok(tres.bases().join(',') === 'reais,teste,declaracao,testeDecl',
+    'os quatro livros da pessoa saem na mesma ordem do cadastro e da tabela — quatro ' +
+    'ordens diferentes para as mesmas quatro palavras fazem a pessoa reler a lista ' +
+    'toda vez', tres.bases());
   ok(tres.caixas.sdBaseBox.hidden === false &&
-     (tres.caixas.sdBase.innerHTML.match(/<option/g) || []).length === 3,
-    'quem tem as três vê o seletor com as três — é a única pessoa para quem existe uma ' +
-    'escolha a fazer, e ela tem de ser entre TODAS as que o cadastro deu',
-    tres.caixas.sdBase.innerHTML);
+     (tres.caixas.sdBase.innerHTML.match(/<option/g) || []).length === 4,
+    'quem tem os quatro vê o seletor com os quatro — a escolha tem de ser entre TODOS ' +
+    'os que o cadastro deu', tres.caixas.sdBase.innerHTML);
 
   var duas = mundo({ baseTeste: true, baseProducao: true }, 'teste');
   ok(duas.caixas.sdBaseBox.hidden === false && duas.caixas.dvBaseBox.hidden === false,
