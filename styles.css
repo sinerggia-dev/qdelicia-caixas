@@ -1374,15 +1374,12 @@ tr.ruim{background:var(--vermelho-claro)}
 .filtros-caixa .multi__p .marcalista{border:1px solid var(--linha);padding:6px 4px;
   background:var(--surface);max-height:210px}
 
-/* ---------- a fileira de acoes de um filtro ----------
- * FILTRAR E CSV NAO SAO O GESTO PRINCIPAL da pagina: o que se vem fazer aqui e LER a
- * tabela. Em tamanho de botao de formulario eles pesavam mais que os proprios numeros,
- * e encostados nos cartoes de total pareciam o cabecalho deles.
- * O piso de 44px do alvo de dedo nao se aplica: isto e teclado e mouse de escritorio —
- * a mesma excecao que o trilho de filtros ja abre, e pelo mesmo motivo. */
-.linha-btn--filtro{margin:12px 0 20px;gap:8px}
-.linha-btn--filtro .btn{flex:0 0 auto;min-width:0;min-height:34px;padding:0 16px;
-  font-size:13px}
+/* A FILEIRA DE ACOES DE UM FILTRO SAIU daqui, e nao por ter deixado de valer: os dois
+   botoes mudaram de lugar e cada lugar ja da o tamanho. O CSV foi para a barra do
+   cadeado, que tem `.barra-trava__acoes`; o Filtrar foi para dentro do trilho, onde
+   `.mov-tela .filtros-caixa .btn` ja o encolhe e empilha. Uma classe que no nenhum usa
+   e uma regra que nenhuma prova pode defender, e que se le como se estivesse decidindo
+   alguma coisa. */
 
 /* ---------- a linha de contagens da conciliacao ----------
  * Quatro numeros curtos numa linha so, abaixo dos tres cartoes: eles respondem
@@ -2494,7 +2491,7 @@ details.tipos[open] summary::before{content:"▾"}
     letter-spacing:.1em;text-transform:uppercase;color:var(--txt3)}
   /* O alfinete ACESO diz que a barra esta presa. Sem esse estado, quem prendeu por
      engano nao descobre por que ela parou de fechar. */
-  #btnFixarFiltros[aria-pressed="true"]{background:var(--verde);color:var(--sobre-verde)}
+  [data-fixar-filtros][aria-pressed="true"]{background:var(--verde);color:var(--sobre-verde)}
 
   /* Fechado, o miolo nao pode aparecer nem ser alcancado pelo Tab: um campo invisivel
      que recebe foco arrasta a tela para um lugar que nao esta na tela. */

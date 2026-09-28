@@ -2881,8 +2881,23 @@ console.log('\n== o trilho de filtros, em Movimentos ==');
     'discordariam no dia em que um campo entrasse só numa delas');
 
   /* --- o comportamento --- */
-  var it = adm.indexOf('function trilhoFiltros()');
-  var tr = it > 0 ? adm.slice(it, adm.indexOf('\n  })();', it)) : '';
+  /* O TRILHO VIROU FUNÇÃO, e é chamado DUAS vezes: a conciliação passou a ter o mesmo
+     modelo, e uma segunda cópia deste comportamento divergiria no primeiro ajuste que
+     só uma recebesse — o alfinete que solta numa tela e não na outra é a diferença que
+     ninguém reporta e todo mundo estranha. */
+  var it = adm.indexOf('function ligarTrilho(idTela, idCaixa){');
+  var tr = it > 0 ? adm.slice(it, adm.indexOf('\n  ligarTrilho(', it)) : '';
+  ok(tr.length > 1200,
+    'a conferência recortou o trilho — recorte vazio faria as provas abaixo passarem ' +
+    'sem medir nada', tr.length);
+  var chamadas = (adm.match(/ligarTrilho\('/g) || []).length;
+  ok(chamadas === 2,
+    'e ele é ligado nas DUAS telas pela MESMA função — uma segunda cópia divergiria no ' +
+    'primeiro ajuste que só uma recebesse', chamadas);
+  ok(tr.indexOf("caixa.querySelector('[data-fixar-filtros]')") > 0 &&
+     tr.indexOf("getElementById('btnFixarFiltros')") < 0,
+    'e os botões são achados DENTRO da caixa, por atributo, e não por id global — por ' +
+    'id, o segundo trilho mexeria no alfinete do primeiro');
   /* OS DOIS ATRASOS, e os dois por um motivo. 130ms para abrir: o cursor atravessa a
      borda direita dezenas de vezes por dia a caminho da barra de rolagem. 260 para
      fechar: dá tempo de voltar quando o mouse sai por um instante. */
@@ -11678,9 +11693,14 @@ console.log('\n== o painel de filtro abre por cima ==');
   /* LÊ A REGRA COMO O NAVEGADOR LÊ: o bloco de declarações de um seletor, virado em
      pares propriedade→valor. Procurar o texto `position:absolute` na folha inteira
      diria "sim" por causa de qualquer outra regra — inclusive a que empurra. */
+  /* DENTRO DE UM @media a regra vem indentada, e a busca colada no fim de linha não a
+     achava: `.mov-tela .filtros-caixa .btn` mora num bloco de largura, com dois espaços
+     na frente. A prova respondia `null` e passava a falar de uma regra que existe. */
   function regra(sel) {
     var i = css.indexOf('\n' + sel + '{');
+    if (i < 0) i = css.indexOf('\n  ' + sel + '{');
     if (i < 0) return null;
+    i = css.indexOf(sel + '{', i) - 1;
     var corpo = css.slice(i + sel.length + 2, css.indexOf('}', i));
     var d = {};
     corpo.split(';').forEach(function (par) {
@@ -11719,31 +11739,62 @@ console.log('\n== o painel de filtro abre por cima ==');
     'com a lista recuperando o contorno dela no trilho — sem ele, os campos e as ' +
     'opções ficariam soltos no mesmo fundo');
 
-  /* OS BOTÕES DE FILTRO, menores e afastados do cartão. */
-  var fil = regra('.linha-btn--filtro');
-  var filBtn = regra('.linha-btn--filtro .btn');
-  ok(filBtn && Number((filBtn['min-height'] || '').replace('px', '')) < 44,
-    'Filtrar e CSV são menores que um botão de formulário: o que se vem fazer nesta ' +
-    'tela é LER a tabela, e em tamanho cheio eles pesavam mais que os próprios números',
-    filBtn && filBtn['min-height']);
-  ok(filBtn && filBtn.flex === '0 0 auto' && filBtn['min-width'] === '0',
-    'e não esticam para ocupar a linha — esticados, dois botões viram duas metades de ' +
-    'tela', filBtn && filBtn.flex);
-  var fim = Number(((fil || {}).margin || '').split(' ').pop().replace('px', ''));
-  ok(fim >= 16,
-    'e há folga entre eles e os cartões de total: encostados, a fileira de botões ' +
-    'parecia o cabeçalho dos cartões', (fil || {}).margin);
-
-  /* E A MEDIDA NÃO VOLTA PARA O `style=`. De lá ela vence a regra de classe, e foi
-     assim que Limpar e CSV subiram para a linha do cadeado com largura de gaveta. */
+  /* ---- CADA BOTÃO NO LUGAR QUE LHE DÁ O TAMANHO ----
+     A classe `.linha-btn--filtro` saiu, e não por ter deixado de valer: os dois botões
+     mudaram de lugar, e cada lugar já tem medida. Mede-se agora ONDE eles estão, que é
+     o que decide como se leem. */
   var iSec = adm.indexOf('<section id="pgLancamentosMotorista"');
-  var secao = adm.slice(iSec, iSec + 3000);
-  ok(secao.indexOf('id="btnFiltrarDecl"') > 0 && secao.indexOf('linha-btn--filtro') > 0,
-    'a fileira de Motorista/Conferente usa a classe', secao.length);
+  var secao = adm.slice(iSec, adm.indexOf('</section>', iSec));
+  var iConteudo = secao.indexOf('<div class="mov-conteudo">');
+  var iAside = secao.indexOf('<aside class="filtros-caixa"');
+  ok(iConteudo > 0 && iAside > iConteudo,
+    'a conciliação usa o MESMO modelo de Movimentos — a tabela numa coluna e os ' +
+    'filtros num trilho que EMPURRA em vez de cobrir: filtro por cima do dado faz a ' +
+    'pessoa fechar o filtro para conferir o que acabou de filtrar', [iConteudo, iAside]);
+
+  /* O CSV FICA EM CIMA, na barra do cadeado, e o FILTRAR não sobe. O CSV leva embora o
+     que ESTÁ NA TELA e não depende de nada digitado; no pé de uma gaveta que fecha,
+     baixar o arquivo do que se está olhando exigiria reabrir a gaveta e rolar até o
+     fim. O Filtrar confirma o que foi digitado, e o lugar de confirmar é junto do
+     formulário. */
+  var barra = secao.slice(secao.indexOf('<div class="barra-trava">'),
+                          secao.indexOf('</div><!-- /mov-conteudo -->'));
+  ok(barra.indexOf('id="btnCsvDecl"') > 0 && barra.indexOf('id="btnFiltrarDecl"') < 0,
+    'o CSV fica na barra do cadeado e o Filtrar NÃO sobe: o CSV leva o que já está na ' +
+    'tela, e o Filtrar confirma o que foi digitado — confirmar longe de onde se digitou ' +
+    'faz o gesto começar num canto e terminar no outro', barra.length);
+  var trilhoDecl = secao.slice(iAside);
+  ok(trilhoDecl.indexOf('id="btnFiltrarDecl"') > 0 &&
+     trilhoDecl.indexOf('id="dcBase"') > 0 && trilhoDecl.indexOf('id="dcDe"') > 0,
+    'e os campos e o Filtrar moram dentro do trilho, num nó só — dois conjuntos dos ' +
+    'mesmos campos seriam dois ids repetidos, e a tela filtraria pelo que a outra ' +
+    'cópia tem');
+  /* E O TAMANHO VEM DE LA: a regra do trilho ja encolhe e empilha os botoes dentro
+     dele, e a barra do cadeado ja tem a dela. */
+  var noTrilhoBtn = regra('.mov-tela .filtros-caixa .btn');
+  ok(noTrilhoBtn && Number((noTrilhoBtn['min-height'] || '').replace('px', '')) < 44,
+    'e quem dá o tamanho do Filtrar é a regra do trilho, que já encolhe o botão — o ' +
+    'piso de 44px do alvo de dedo vale para o app de campo, não para teclado e mouse ' +
+    'de escritório', noTrilhoBtn && noTrilhoBtn['min-height']);
+  ok(css.indexOf('.linha-btn--filtro') < 0,
+    'e a classe antiga saiu da folha: nó nenhum a usa, e regra que não pinta nada se ' +
+    'lê como se estivesse decidindo alguma coisa');
+
+  /* A MEDIDA NAO VOLTA PARA O `style=`. De la ela vence a regra de classe, e foi assim
+     que Limpar e CSV subiram para a linha do cadeado com largura de gaveta. */
   ok(secao.indexOf('id="btnFiltrarDecl" style=') < 0 &&
      secao.indexOf('id="btnCsvDecl" style=') < 0,
     'e nenhum dos dois botões carrega medida em `style=` — inline vence a classe, e a ' +
     'regra da folha viraria enfeite');
+
+  /* O CELULAR TEM POR ONDE ABRIR A FOLHA. Sem o botão, no telefone os filtros existem
+     e são inalcançáveis — o trilho é `position:fixed` e nasce fechado. */
+  ok(barra.indexOf('id="btnAbrirFiltrosDecl"') > 0 &&
+     barra.indexOf('so-celular') > 0,
+    'e no celular há o botão que abre a folha — sem ele os filtros existiriam e seriam ' +
+    'inalcançáveis, porque lá o trilho é uma folha que nasce fechada');
+  ok((adm.match(/ligarAbreFolha\('/g) || []).length === 2,
+    'ligado pela MESMA função das duas telas');
 })();
 
 console.log('\n== os dois tutoriais separados ==');

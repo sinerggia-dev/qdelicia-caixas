@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=d0b9de75">
+<link rel="stylesheet" href="styles.css?v=e3bcef69">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -899,12 +899,12 @@
              no celular quem fecha é o cabeçalho da folha, logo abaixo. -->
         <div class="trilho__cab">
           <h3>Filtros</h3>
-          <button class="btn-icone" type="button" id="btnFixarFiltros" aria-pressed="false"
-                  title="Manter a barra aberta">
+          <button class="btn-icone" type="button" id="btnFixarFiltros" data-fixar-filtros
+                  aria-pressed="false" title="Manter a barra aberta">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l-1 6 4 3v2H6v-2l4-3z"></path><line x1="12" y1="15" x2="12" y2="21"></line></svg>
           </button>
-          <button class="btn-icone" type="button" id="btnFecharTrilho"
+          <button class="btn-icone" type="button" id="btnFecharTrilho" data-fechar-trilho
                   aria-label="Fechar filtros">✕</button>
         </div>
         <div class="folha__puxador so-celular" aria-hidden="true"></div>
@@ -1147,58 +1147,105 @@
       <h2>Motorista/Conferente<span class="sub">O que o motorista <b>declarou</b> contra o
         que o conferente <b>contou</b> — por motorista e por dia.</span></h2>
 
-      <div class="grid-filtros">
-        <div><label for="dcDe">De</label><input id="dcDe" type="date"></div>
-        <div><label for="dcAte">Até</label><input id="dcAte" type="date"></div>
-        <div><label for="dcMotorista">Motorista</label>
-          <select id="dcMotorista" multiple data-multi><option value="">Todos</option></select></div>
-        <!-- A BASE AQUI ESCOLHE UM MUNDO, e não um livro. Cada opção traz DUAS bases: a
-             que o motorista declara e a que o conferente conta. "Base Declaração"
-             sozinha traria metade de cada par, e a tabela inteira diria "Só declaração"
-             — que é como se lê uma carga que chegou e ninguém conferiu. -->
-        <!-- SEM PADRÃO, a pedido. "Todas" aqui seria permissão dada por omissão: este
-             filtro não peneira o que já veio, ele decide QUAL LIVRO é lido — e um
-             padrão que abrange tudo cresce sozinho a cada livro novo. A palavra do
-             estado vazio diz o que falta fazer, e não promete dado. -->
-        <div><label for="dcBase">Base</label>
-          <select id="dcBase" multiple data-multi>
-            <option value="">Escolha a base…</option>
-            <option value="declaracao">Base Declaração</option>
-            <option value="testeDecl">Base Teste Declaração</option>
-          </select></div>
-        <!-- NASCE EM RETORNO, a pedido: ninguém declara um carregamento, então todo par
-             de saída nasce "Sem declaração" — ruído por construção, e ruído que parece
-             problema. Fica como FILTRO e não como corte fixo: o dia em que o motorista
-             passar a declarar a saída, a tela já sabe mostrá-la. -->
-        <div><label for="dcTipo">Tipo</label>
-          <select id="dcTipo" multiple data-multi>
-            <option value="">Todos</option>
-            <option value="Retorno" selected>Retorno</option>
-            <option value="Saída">Saída</option>
-          </select></div>
-        <div><label for="dcSituacao">Situação</label>
-          <select id="dcSituacao" multiple data-multi>
-            <option value="">Todas</option>
-            <option value="Bateu">Bateu</option>
-            <option value="Divergente">Divergente</option>
-            <option value="Sem declaração">Sem declaração</option>
-            <option value="Só declaração">Só declaração</option>
-          </select></div>
-      </div>
-      <!-- A MEDIDA DOS BOTÕES SAI DA FOLHA, e não de um `style=` aqui: inline vence a
-           regra de classe, e foi assim que Limpar e CSV subiram para a linha do cadeado
-           com largura de botão de gaveta. Cada lugar dá o tamanho pela classe dele. -->
-      <div class="linha-btn linha-btn--filtro">
-        <button class="btn" type="button" id="btnFiltrarDecl">Filtrar</button>
-        <button class="btn neutro" type="button" id="btnCsvDecl">⬇ CSV</button>
-      </div>
+      <!-- O MESMO MODELO DE MOVIMENTOS, a pedido: a tabela à esquerda e os filtros num
+           trilho que abre ao encostar o mouse e EMPURRA a lista, em vez de cobri-la.
+           Filtro por cima do dado faz a pessoa fechar o filtro para conferir o que
+           acabou de filtrar.
+           É O MESMO NÓ NAS DUAS LARGURAS: no celular a folha de estilo transforma este
+           trilho na folha que sobe de baixo. Dois conjuntos dos mesmos campos seriam
+           dois ids repetidos, e `getElementById` leria sempre o primeiro — a tela
+           filtraria pelo que a outra cópia tem. -->
+      <div class="mov-tela" id="declTela">
+      <div class="mov-conteudo">
 
-      <!-- OS NÚMEROS ACIMA DA TABELA: "bateu?" é a pergunta que traz alguém a esta tela,
-           e ela não pode depender de somar duas colunas à mão. -->
-      <div id="dcTotais" class="tot"></div>
-      <div class="linha-sit" id="dcSituacoes"></div>
-      <div class="trava-colunas" data-trava-colunas></div>
-      <div id="tabelaDecl"><div class="vazio">Carregando…</div></div>
+        <!-- A BARRA DO CADEADO leva o CSV e, no celular, o botão que abre a folha. Ele
+             leva embora o que ESTÁ NA TELA e não depende de nada digitado; no pé de uma
+             gaveta que fecha, baixar o arquivo do que se está olhando exigiria reabrir a
+             gaveta e rolar até o fim.
+             FILTRAR NÃO SOBE: ele confirma o que foi digitado, e o lugar de confirmar é
+             junto do formulário. -->
+        <div class="barra-trava">
+          <div class="trava-colunas" data-trava-colunas></div>
+          <div class="barra-trava__acoes">
+            <button class="btn sec so-celular" type="button" id="btnAbrirFiltrosDecl">
+              Filtros</button>
+            <button class="btn neutro" type="button" id="btnCsvDecl">⬇ CSV</button>
+          </div>
+        </div>
+
+        <!-- OS NÚMEROS ACIMA DA TABELA: "bateu?" é a pergunta que traz alguém a esta
+             tela, e ela não pode depender de somar duas colunas à mão. -->
+        <div id="dcTotais" class="tot"></div>
+        <div class="linha-sit" id="dcSituacoes"></div>
+        <div id="tabelaDecl"><div class="vazio">Escolha a <b>Base</b> para comparar.</div></div>
+
+      </div><!-- /mov-conteudo -->
+
+      <aside class="filtros-caixa" id="caixaFiltrosDecl" aria-label="Filtros"
+             data-gaveta aria-expanded="false">
+        <!-- A FAIXA FECHADA: o funil e o rótulo em pé. É o que se vê nos 56px, e sem ela
+             o trilho seria uma tira cinza que ninguém descobre. -->
+        <div class="trilho-fechado" aria-hidden="true">
+          <span class="trilho__ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="10" y1="17" x2="14" y2="17"></line></svg></span>
+          <span class="trilho__t">Filtros</span>
+        </div>
+        <div class="trilho__cab">
+          <h3>Filtros</h3>
+          <button class="btn-icone" type="button" data-fixar-filtros aria-pressed="false"
+                  title="Manter a barra aberta"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l-1 6 4 3v2H6v-2l4-3z"></path><line x1="12" y1="15" x2="12" y2="21"></line></svg></button>
+          <button class="btn-icone" type="button" data-fechar-trilho
+                  aria-label="Fechar filtros">✕</button>
+        </div>
+        <div class="folha__puxador so-celular" aria-hidden="true"></div>
+        <div class="folha__cab so-celular">
+          <h3 class="folha__t">Filtros</h3>
+          <button class="btn-icone" type="button" data-fechar-folha aria-label="Fechar">✕</button>
+        </div>
+        <div class="filtros-caixa__corpo">
+    <div class="grid-filtros">
+            <div><label for="dcDe">De</label><input id="dcDe" type="date"></div>
+            <div><label for="dcAte">Até</label><input id="dcAte" type="date"></div>
+            <div><label for="dcMotorista">Motorista</label>
+              <select id="dcMotorista" multiple data-multi><option value="">Todos</option></select></div>
+            <!-- A BASE AQUI ESCOLHE UM MUNDO, e não um livro. Cada opção traz DUAS bases: a
+                 que o motorista declara e a que o conferente conta. "Base Declaração"
+                 sozinha traria metade de cada par, e a tabela inteira diria "Só declaração"
+                 — que é como se lê uma carga que chegou e ninguém conferiu. -->
+            <!-- SEM PADRÃO, a pedido. "Todas" aqui seria permissão dada por omissão: este
+                 filtro não peneira o que já veio, ele decide QUAL LIVRO é lido — e um
+                 padrão que abrange tudo cresce sozinho a cada livro novo. A palavra do
+                 estado vazio diz o que falta fazer, e não promete dado. -->
+            <div><label for="dcBase">Base</label>
+              <select id="dcBase" multiple data-multi>
+                <option value="">Escolha a base…</option>
+                <option value="declaracao">Base Declaração</option>
+                <option value="testeDecl">Base Teste Declaração</option>
+              </select></div>
+            <!-- NASCE EM RETORNO, a pedido: ninguém declara um carregamento, então todo par
+                 de saída nasce "Sem declaração" — ruído por construção, e ruído que parece
+                 problema. Fica como FILTRO e não como corte fixo: o dia em que o motorista
+                 passar a declarar a saída, a tela já sabe mostrá-la. -->
+            <div><label for="dcTipo">Tipo</label>
+              <select id="dcTipo" multiple data-multi>
+                <option value="">Todos</option>
+                <option value="Retorno" selected>Retorno</option>
+                <option value="Saída">Saída</option>
+              </select></div>
+            <div><label for="dcSituacao">Situação</label>
+              <select id="dcSituacao" multiple data-multi>
+                <option value="">Todas</option>
+                <option value="Bateu">Bateu</option>
+                <option value="Divergente">Divergente</option>
+                <option value="Sem declaração">Sem declaração</option>
+                <option value="Só declaração">Só declaração</option>
+              </select></div>
+          </div>
+          <div class="linha-btn">
+            <button class="btn" type="button" id="btnFiltrarDecl">Filtrar</button>
+          </div>
+        </div>
+      </aside>
+      </div><!-- /decl-tela -->
     </div>
   </section>
 
@@ -5821,9 +5868,15 @@
    * pelo botão "Filtros" — e é por isso que a largura é perguntada ao CSS, com
    * `matchMedia`, e não adivinhada: duas respostas para "estamos no computador?"
    * divergiriam no dia em que o ponto de corte mudasse. */
-  (function trilhoFiltros(){
-    var tela = document.getElementById('movTela');
-    var caixa = document.getElementById('caixaFiltrosMov');
+  /* UMA FUNCAO, e nao um bloco preso a Movimentos: a conciliacao passou a ter o mesmo
+     trilho, e uma segunda copia deste comportamento divergiria no primeiro ajuste que
+     so uma recebesse — o alfinete que solta numa tela e nao na outra e o tipo de
+     diferenca que ninguem reporta e todo mundo estranha.
+     OS BOTOES SAO ACHADOS DENTRO DA CAIXA, por atributo, e nao por id global: por id,
+     o segundo trilho mexeria no alfinete do primeiro. */
+  function ligarTrilho(idTela, idCaixa){
+    var tela = document.getElementById(idTela);
+    var caixa = document.getElementById(idCaixa);
     if (!tela || !caixa) return;
     var noComputador = window.matchMedia('(min-width:1024px)');
     var abrirT = null, fecharT = null, presa = false;
@@ -5840,7 +5893,7 @@
     }
     function prender(v){
       presa = v;
-      var bt = document.getElementById('btnFixarFiltros');
+      var bt = caixa.querySelector('[data-fixar-filtros]');
       if (bt){
         bt.setAttribute('aria-pressed', String(v));
         bt.title = v ? 'Soltar a barra' : 'Manter a barra aberta';
@@ -5866,15 +5919,16 @@
        porque com ele a barra já está aberta quando o clique chega. */
     caixa.addEventListener('click', function(e){
       if (!noComputador.matches) return;
-      if (e.target.closest('#btnFixarFiltros') || e.target.closest('#btnFecharTrilho')) return;
+      if (e.target.closest('[data-fixar-filtros]') ||
+          e.target.closest('[data-fechar-trilho]')) return;
       if (!tela.classList.contains('aberta')) prender(true);
     });
 
-    var fx = document.getElementById('btnFixarFiltros');
+    var fx = caixa.querySelector('[data-fixar-filtros]');
     if (fx) fx.addEventListener('click', function(e){
       e.stopPropagation(); prender(!presa);
     });
-    var fc = document.getElementById('btnFecharTrilho');
+    var fc = caixa.querySelector('[data-fechar-trilho]');
     if (fc) fc.addEventListener('click', function(e){
       e.stopPropagation(); prender(false); presa = false; fechar();
     });
@@ -5887,11 +5941,15 @@
       if (!ev.matches) { presa = false; tela.classList.remove('aberta');
                          caixa.setAttribute('aria-expanded', 'false'); }
     });
-  })();
+  }
 
-  (function(){
-    var b = document.getElementById('btnAbrirFiltrosMov');
-    var g = document.getElementById('caixaFiltrosMov');
+  ligarTrilho('movTela', 'caixaFiltrosMov');
+  ligarTrilho('declTela', 'caixaFiltrosDecl');
+
+  /* O BOTAO QUE ABRE A FOLHA no celular — um por tela, pelo mesmo motivo do trilho. */
+  function ligarAbreFolha(idBotao, idCaixa){
+    var b = document.getElementById(idBotao);
+    var g = document.getElementById(idCaixa);
     if (!b || !g) return;
     b.addEventListener('click', function(){
       fecharFolhas();
@@ -5899,7 +5957,10 @@
       var veu = document.getElementById('veuFolha');
       if (veu) veu.hidden = false;
     });
-  })();
+  }
+
+  ligarAbreFolha('btnAbrirFiltrosMov', 'caixaFiltrosMov');
+  ligarAbreFolha('btnAbrirFiltrosDecl', 'caixaFiltrosDecl');
 
   /* ---------- AS TRÊS ABAS DO CELULAR ----------
    *
