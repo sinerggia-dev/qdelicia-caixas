@@ -11422,6 +11422,44 @@ console.log('\n== Motorista/Conferente ==');
   ok(vario[0].situacao === 'Bateu',
     'e aí o total bate, que é o que a tela existe para responder');
 
+  /* O NÚMERO DO LANÇAMENTO, e ele vem dos DOIS lados. A linha é um par: quem chega
+     nela por causa de uma divergência precisa achar as duas pontas dela, e a declaração
+     é uma delas. */
+  var comId = montarPares([
+    lanc({ declaracao: true, qtd: 400, motorista: 'Arilson', usuario: 'Arilson',
+           id: 'M000041' }),
+    lanc({ qtd: 250, motorista: 'Arilson', usuario: 'Nestor', id: 'M000102' }),
+    lanc({ qtd: 150, motorista: 'Arilson', usuario: 'Nestor', id: 'M000039' })
+  ]);
+  ok(comId.length === 1 && comId[0].idsTxt === 'M000039 M000041 M000102',
+    'o par carrega os números dos lançamentos dos DOIS lados, ordenados — só os do ' +
+    'conferente, quem viesse conferir uma divergência não teria como achar a ' +
+    'declaração que a causou', comId[0] && comId[0].idsTxt);
+  ok(comId[0].idsCurto === 'M000039  +2',
+    'e na tela vai o primeiro com a conta dos outros, como a coluna Conferente já faz ' +
+    '— a lista inteira numa célula viraria uma linha de tabela com seis andares',
+    comId[0] && comId[0].idsCurto);
+  var umId = montarPares([lanc({ qtd: 70, id: 'M000007' })]);
+  ok(umId[0].idsCurto === 'M000007',
+    'com um só, o número aparece inteiro e sem contador', umId[0].idsCurto);
+  ok(semDecl[0].idsCurto === '' && semDecl[0].idsLista.length === 0,
+    'e sem número nenhum a célula fica vazia em vez de dizer "undefined"',
+    semDecl[0].idsCurto);
+
+  /* PRIMEIRA COLUNA, a pedido — e a ordem padrão é o que a tela mostra a quem nunca
+     mexeu nas colunas. */
+  var iTab = adm.indexOf('var TAB_DECL = {');
+  var iPad = adm.indexOf('padrao: [', iTab);
+  var ordemFab = adm.slice(iPad + 9, adm.indexOf(']', iPad))
+    .split(',').map(function (s) { return s.trim().replace(/'/g, ''); });
+  ok(ordemFab[0] === 'lancamento' && ordemFab[1] === 'data',
+    'e a coluna do número vem ANTES da data na ordem de fábrica — que é a ordem que a ' +
+    'tela mostra a quem nunca mexeu nas colunas', ordemFab.slice(0, 3));
+  ok(adm.indexOf("['Lancamento','Data','Base','Tipo'") > 0 &&
+     adm.indexOf('return [par.idsTxt,') > 0,
+    'no arquivo ela vai também, e com a lista INTEIRA em vez do resumo "+2": o CSV ' +
+    'existe para procurar o lançamento, e um resumo não se procura');
+
   /* ---- A TELA ESTÁ EM OPERAÇÃO, e é uma aba que se concede ---- */
   var nav = adm.slice(adm.indexOf('<nav class="abas"'), adm.indexOf('</nav>'));
   var i = nav.indexOf('data-pagina="pgLancamentosMotorista"');
@@ -11431,6 +11469,82 @@ console.log('\n== Motorista/Conferente ==');
   ok(log.indexOf("{ ID: 'pgLancamentosMotorista'") > 0,
     'e está no catálogo do servidor — fora dele, ela não apareceria na lista de abas do ' +
     'cadastro, e não haveria como conceder a ninguém');
+})();
+
+console.log('\n== o painel de filtro abre por cima ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* LÊ A REGRA COMO O NAVEGADOR LÊ: o bloco de declarações de um seletor, virado em
+     pares propriedade→valor. Procurar o texto `position:absolute` na folha inteira
+     diria "sim" por causa de qualquer outra regra — inclusive a que empurra. */
+  function regra(sel) {
+    var i = css.indexOf('\n' + sel + '{');
+    if (i < 0) return null;
+    var corpo = css.slice(i + sel.length + 2, css.indexOf('}', i));
+    var d = {};
+    corpo.split(';').forEach(function (par) {
+      var j = par.indexOf(':');
+      if (j > 0) d[par.slice(0, j).trim()] = par.slice(j + 1).trim();
+    });
+    return d;
+  }
+
+  var painel = regra('.multi__p');
+  ok(painel && painel.position === 'absolute',
+    'o painel de múltipla escolha abre POR CIMA e não no fluxo — empurrando, abrir um ' +
+    'filtro derrubava os cartões de total e a tabela meia tela para baixo, e é ' +
+    'justamente o recorte que a pessoa abriu o filtro para conferir',
+    painel && painel.position);
+  ok(painel && Number(painel['z-index']) > 1,
+    'e ele fica ACIMA do que cobre: sem camada, os campos e cartões escritos depois ' +
+    'dele no documento apareceriam por cima da lista aberta', painel && painel['z-index']);
+  ok(painel && (painel.top || '').indexOf('calc(100%') === 0,
+    'e nasce colado embaixo do próprio campo, e não no topo da página',
+    painel && painel.top);
+  ok(painel && (painel.background || '').indexOf('var(--surface)') === 0,
+    'com fundo sólido: translúcido, a lista e a tabela por baixo se leriam juntas',
+    painel && painel.background);
+
+  /* A EXCEÇÃO DO TRILHO, que é o motivo pelo qual ele nascia no fluxo. */
+  var noTrilho = regra('.filtros-caixa .multi__p');
+  ok(noTrilho && noTrilho.position === 'static',
+    'DENTRO do trilho de filtros ele volta ao fluxo: aquela caixa rola dentro de si, e ' +
+    'flutuando a lista seria cortada pela borda dela — trinta locais com metade fora ' +
+    'da vista e sem barra que a alcançasse', noTrilho && noTrilho.position);
+  ok(noTrilho && noTrilho.background === 'none' && noTrilho.border === '0',
+    'e lá ele não desenha caixa nenhuma — a lista é que tem contorno, e as duas juntas ' +
+    'dariam risco dentro de risco');
+  ok(css.indexOf('.filtros-caixa .multi__p .marcalista{border:1px solid') > 0,
+    'com a lista recuperando o contorno dela no trilho — sem ele, os campos e as ' +
+    'opções ficariam soltos no mesmo fundo');
+
+  /* OS BOTÕES DE FILTRO, menores e afastados do cartão. */
+  var fil = regra('.linha-btn--filtro');
+  var filBtn = regra('.linha-btn--filtro .btn');
+  ok(filBtn && Number((filBtn['min-height'] || '').replace('px', '')) < 44,
+    'Filtrar e CSV são menores que um botão de formulário: o que se vem fazer nesta ' +
+    'tela é LER a tabela, e em tamanho cheio eles pesavam mais que os próprios números',
+    filBtn && filBtn['min-height']);
+  ok(filBtn && filBtn.flex === '0 0 auto' && filBtn['min-width'] === '0',
+    'e não esticam para ocupar a linha — esticados, dois botões viram duas metades de ' +
+    'tela', filBtn && filBtn.flex);
+  var fim = Number(((fil || {}).margin || '').split(' ').pop().replace('px', ''));
+  ok(fim >= 16,
+    'e há folga entre eles e os cartões de total: encostados, a fileira de botões ' +
+    'parecia o cabeçalho dos cartões', (fil || {}).margin);
+
+  /* E A MEDIDA NÃO VOLTA PARA O `style=`. De lá ela vence a regra de classe, e foi
+     assim que Limpar e CSV subiram para a linha do cadeado com largura de gaveta. */
+  var iSec = adm.indexOf('<section id="pgLancamentosMotorista"');
+  var secao = adm.slice(iSec, iSec + 3000);
+  ok(secao.indexOf('id="btnFiltrarDecl"') > 0 && secao.indexOf('linha-btn--filtro') > 0,
+    'a fileira de Motorista/Conferente usa a classe', secao.length);
+  ok(secao.indexOf('id="btnFiltrarDecl" style=') < 0 &&
+     secao.indexOf('id="btnCsvDecl" style=') < 0,
+    'e nenhum dos dois botões carrega medida em `style=` — inline vence a classe, e a ' +
+    'regra da folha viraria enfeite');
 })();
 
 console.log('\n== os dois tutoriais separados ==');

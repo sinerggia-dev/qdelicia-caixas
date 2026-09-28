@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=42f22037">
+<link rel="stylesheet" href="styles.css?v=657b3b59">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1157,9 +1157,12 @@
             <option value="Só declaração">Só declaração</option>
           </select></div>
       </div>
-      <div class="linha-btn">
-        <button class="btn" type="button" id="btnFiltrarDecl" style="flex:0;min-width:140px">Filtrar</button>
-        <button class="btn neutro" type="button" id="btnCsvDecl" style="flex:0;min-width:130px">⬇ CSV</button>
+      <!-- A MEDIDA DOS BOTÕES SAI DA FOLHA, e não de um `style=` aqui: inline vence a
+           regra de classe, e foi assim que Limpar e CSV subiram para a linha do cadeado
+           com largura de botão de gaveta. Cada lugar dá o tamanho pela classe dele. -->
+      <div class="linha-btn linha-btn--filtro">
+        <button class="btn" type="button" id="btnFiltrarDecl">Filtrar</button>
+        <button class="btn neutro" type="button" id="btnCsvDecl">⬇ CSV</button>
       </div>
 
       <!-- OS NÚMEROS ACIMA DA TABELA: "bateu?" é a pergunta que traz alguém a esta tela,
@@ -1881,10 +1884,13 @@
          que existe na tela e falta no arquivo faz a conferência de escritório chegar a
          um número que a tela não explica. */
       Q.csv('motorista_conferente_'+Q.hoje()+'.csv',
-        ['Data','Base','Tipo','Motorista','Rotas','Declarado','Conferido','Diferenca',
-         'Conferente','Situacao'],
+        ['Lancamento','Data','Base','Tipo','Motorista','Rotas','Declarado','Conferido',
+         'Diferenca','Conferente','Situacao'],
         PARES.map(function(par){
-          return [Q.dataBR(par.dataRef), par.teste ? 'Teste' : 'Producao', par.tipo,
+          /* NO ARQUIVO VAI A LISTA INTEIRA, e não o resumo "+3": o CSV existe para
+             procurar o lançamento, e um resumo não se procura. */
+          return [par.idsTxt,
+                  Q.dataBR(par.dataRef), par.teste ? 'Teste' : 'Producao', par.tipo,
                   par.motorista || '(sem motorista)', par.rotasTxt,
                   par.declarado || '', par.conferido || '',
                   par.diferenca == null ? '' : par.diferenca,
@@ -2886,11 +2892,18 @@
   var ORDEM_DECL = { col: 'data', desc: true };
 
   var TAB_DECL = {
-    padrao: ['data','base','tipo','motorista','rotas','declarado','conferido',
+    /* O NÚMERO DO LANÇAMENTO VEM PRIMEIRO, a pedido — e aqui ele é uma LISTA, porque
+       cada linha desta tabela é um par e não um lançamento: a declaração de um lado, e
+       do outro quantos lançamentos o conferente tiver feito na mesma viagem.
+       140 e não 105 como em Movimentos: lá cabe um código, aqui cabe um código mais a
+       conta dos outros. */
+    padrao: ['lancamento','data','base','tipo','motorista','rotas','declarado','conferido',
              'diferenca','conferente','situacao'],
-    larg: { data:110, base:110, tipo:100, motorista:150, rotas:200, declarado:110,
+    larg: { lancamento:140,
+            data:110, base:110, tipo:100, motorista:150, rotas:200, declarado:110,
             conferido:110, diferenca:100, conferente:160, situacao:150 },
-    titulos: { data:'Data', base:'Base', tipo:'Tipo', motorista:'Motorista',
+    titulos: { lancamento:'Lançamento',
+               data:'Data', base:'Base', tipo:'Tipo', motorista:'Motorista',
                rotas:'Rotas', declarado:'Declarado', conferido:'Conferido',
                diferenca:'Dif.', conferente:'Conferente', situacao:'Situação' },
     kOrdem: 'qdc_cols_decl_v1',
@@ -2936,9 +2949,13 @@
                     motorista: (m.motorista || '').trim(),
                     tipo: (m.tipo === 'DEVOLUCAO') ? 'Retorno' : 'Saída',
                     teste: !!m.teste, declarado: 0, conferido: 0,
-                    rotas: {}, conferentes: {} };
+                    rotas: {}, conferentes: {}, ids: {} };
       }
       var par = mapa[k];
+      /* OS NÚMEROS DOS DOIS LADOS na mesma coluna, e não só os do conferente: quem vem
+         conferir uma divergência precisa achar as duas pontas dela, e a declaração é
+         uma delas. */
+      if (m.id) par.ids[m.id] = 1;
       var q = Number(m.qtd) || 0;
       if (m.declaracao) par.declarado += q;
       else {
@@ -2954,6 +2971,15 @@
     return Object.keys(mapa).map(function(k){
       var par = mapa[k];
       par.rotasTxt = Object.keys(par.rotas).sort().join(', ');
+      /* ORDENADOS COMO TEXTO, que é o que o formato permite: largura fixa e zeros à
+         esquerda fazem `M000041` vir antes de `M000102` sem virar número.
+         O INTEIRO E O CURTO, os dois: na tela um par de seis lançamentos viraria uma
+         célula de seis linhas, e no arquivo o resumo não serviria para procurar. */
+      par.idsLista = Object.keys(par.ids).sort();
+      par.idsTxt = par.idsLista.join(' ');
+      par.idsCurto = !par.idsLista.length ? ''
+        : (par.idsLista.length === 1 ? par.idsLista[0]
+           : par.idsLista[0] + '  +' + (par.idsLista.length - 1));
       var nomes = Object.keys(par.conferentes).sort();
       par.conferenteTxt = !nomes.length ? ''
         : (nomes.length === 1 ? nomes[0] : nomes[0] + '  +' + (nomes.length - 1));
@@ -2977,6 +3003,14 @@
     var T = TAB_DECL.titulos;
     function sinal(n){ return (n > 0 ? '+' : n < 0 ? '−' : '') + Q.num(Math.abs(n)); }
     return {
+      /* EM FONTE DE NÚMEROS, como em Movimentos: é um código que alguém vai ditar por
+         telefone, e em fonte de texto o zero e o "O" ficam iguais. O título traz a
+         lista inteira, que é o que resolve quando o resumo diz "+3". */
+      lancamento:{ t: T.lancamento, k: function(p){ return p.idsLista[0] || ''; },
+                   v: function(p){ return p.idsCurto
+                     ? '<span class="cod" title="'+Q.esc(p.idsTxt)+'">'+
+                       Q.esc(p.idsCurto)+'</span>'
+                     : '<span class="fraco">—</span>'; } },
       data:      { t: T.data, k: function(p){ return p.dataRef; },
                    v: function(p){ return Q.dataBR(p.dataRef); } },
       base:      { t: T.base, k: function(p){ return p.teste ? '1' : '0'; },

@@ -1344,16 +1344,45 @@ tr.ruim{background:var(--vermelho-claro)}
    conferir. A borda marcada responde antes da leitura. */
 .multi.tem>.multi__b{border-color:var(--marca-txt);color:var(--marca-txt);font-weight:600}
 
-/* O PAINEL ABRE NO FLUXO e empurra o resto para baixo. Flutuando, ele seria recortado
-   pelo trilho de filtros do computador, que rola: uma lista de trinta locais ficaria com
-   metade fora da vista e sem barra que a alcancasse.
+/* O PAINEL ABRE POR CIMA, a pedido — e o motivo e mais forte que o desenho anterior.
+   No fluxo, abrir um filtro empurrava para baixo tudo o que vinha depois: os cartoes de
+   total e a tabela desciam meia tela de uma vez. Quem abre um filtro abre para conferir
+   o recorte, e o recorte era justamente o que sumia da vista no gesto de abrir.
+   E o empurrao era pior com quatro filtros na mesma fileira: o painel de um empurrava a
+   fileira inteira, entao o rotulo dos outros tres descia junto e a grade parecia
+   quebrar.
+
+   DENTRO DO TRILHO DE FILTROS ele volta ao fluxo, e ali nao e capricho: aquela caixa
+   rola dentro de si, e um painel flutuante seria cortado pela borda dela — uma lista de
+   trinta locais ficaria com metade fora da vista e sem barra que a alcancasse. Rolando
+   junto, a lista inteira continua alcancavel.
+
    A LISTA E A `marcalista` DO FORMULARIO, e nao uma lista propria: e a mesma coisa —
    caixas de marcar que rolam dentro de uma altura maxima — e escrever a segunda seria
-   a garantia de que as duas divergem no primeiro ajuste que so uma receber. */
-.multi__p{margin-top:6px}
-.multi__p .marcalista{margin-bottom:0}
+   a garantia de que as duas divergem no primeiro ajuste que so uma receber. Flutuando,
+   ela perde a propria borda: quem faz o contorno agora e o painel, e as duas juntas
+   davam risco dentro de risco. */
+.multi__p{position:absolute;z-index:30;top:calc(100% + 4px);left:0;right:0;min-width:190px;
+  padding:8px;background:var(--surface);border:1px solid var(--linha);
+  border-radius:10px;box-shadow:var(--sombra,0 10px 28px rgba(0,0,0,.38))}
+.multi__p .marcalista{margin-bottom:0;border:0;padding:0;background:none;max-height:230px}
 .multi__acoes{display:flex;gap:6px;margin-bottom:6px}
 .multi__acoes .mini{flex:1 1 auto;padding:5px 8px;font-size:12px}
+/* O trilho e a folha do celular: de volta ao fluxo, e a lista recupera o contorno. */
+.filtros-caixa .multi__p{position:static;z-index:auto;min-width:0;margin-top:6px;
+  padding:0;background:none;border:0;box-shadow:none}
+.filtros-caixa .multi__p .marcalista{border:1px solid var(--linha);padding:6px 4px;
+  background:var(--surface);max-height:210px}
+
+/* ---------- a fileira de acoes de um filtro ----------
+ * FILTRAR E CSV NAO SAO O GESTO PRINCIPAL da pagina: o que se vem fazer aqui e LER a
+ * tabela. Em tamanho de botao de formulario eles pesavam mais que os proprios numeros,
+ * e encostados nos cartoes de total pareciam o cabecalho deles.
+ * O piso de 44px do alvo de dedo nao se aplica: isto e teclado e mouse de escritorio —
+ * a mesma excecao que o trilho de filtros ja abre, e pelo mesmo motivo. */
+.linha-btn--filtro{margin:12px 0 20px;gap:8px}
+.linha-btn--filtro .btn{flex:0 0 auto;min-width:0;min-height:34px;padding:0 16px;
+  font-size:13px}
 
 /* ---------- a linha de contagens da conciliacao ----------
  * Quatro numeros curtos numa linha so, abaixo dos tres cartoes: eles respondem
