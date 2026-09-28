@@ -11870,9 +11870,21 @@ console.log('\n== o REGISTRO nos cartoes de celular ==');
     'com a moldura que o separa das etiquetas de situação, que moram na mesma fileira');
 
   var iLC = app.indexOf("        (g.registro ?");
-  ok(iLC > 0 && app.indexOf("'<span class=\"cod cod--reg\">'+Q.esc(g.registro)", iLC) > 0,
+  ok(iLC > 0 && app.indexOf('Q.esc(g.registro)', iLC) > 0,
     'e o cartão do app de campo também — é ali, no telefone, que a pessoa está quando ' +
     'liga para o escritório pedindo a correção', iLC > 0);
+
+  /* O CÓDIGO VEM COM O NOME DELE, nos DOIS cartões. Na tabela quem diz o que é aquilo é
+     o cabeçalho da coluna; no cartão não há cabeçalho, e `R000047` sozinho ao lado de
+     "Retorno" e "teste" se lê como mais uma etiqueta de situação — a pessoa vê um
+     código e não sabe que é ELE que deve ditar ao pedir a correção. */
+  var comRotulo = [app, adm].filter(function (f) {
+    return f.indexOf('<i>Registro</i>' + "'+Q.esc(g.registro)") > 0;
+  });
+  ok(comRotulo.length === 2,
+    'e nos dois cartões o código vem com o nome dele — sozinho ao lado de "Retorno" e ' +
+    '"teste", ele se lê como mais uma etiqueta de situação, e quem precisa ditá-lo não ' +
+    'sabe que é aquilo', comRotulo.length);
 
   /* E NENHUM DOS DOIS MOSTRA O CODIGO DA LINHA no topo: quatro codigos num cartao de
      telefone sao ruido no lugar de resposta. */
@@ -11885,6 +11897,9 @@ console.log('\n== o REGISTRO nos cartoes de celular ==');
   /* A ETIQUETA EXISTE NA FOLHA. Sem ela, `cod--reg` e uma classe que nao pinta nada e o
      codigo da carga fica igual ao da linha. */
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  ok(css.indexOf('.cod--reg i{font-family:var(--fonte)') > 0,
+    'com o rótulo em fonte de texto e menor que o número: ele NOMEIA o código, e em ' +
+    'tamanho igual disputaria a leitura com o que se veio ler');
   ok(css.indexOf('.cod--reg{') > 0 && css.indexOf('.cod--reg{display:inline-flex') > 0,
     'e a etiqueta existe na folha — sem ela, numa tabela com os dois lado a lado, ' +
     'seriam dois textos iguais em fonte de números e a pessoa leria o prefixo letra a ' +
