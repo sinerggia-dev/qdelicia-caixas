@@ -3136,13 +3136,21 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
    campo de formulario custaria a primeira linha da lista.
    16px NA LETRA, e isso nao e escolha de estilo: abaixo disso o iOS da zoom sozinho ao
    focar e a tela inteira "pula". No computador 13px seria seguro; aqui nao e. */
-/* SEM REGRA DE `display` AQUI: a busca carrega `so-celular`, que ja declara
-   `display:none!important` no computador e `flex!important` no celular. Escrever as
-   duas de novo seria o terceiro par de regras mortas deste dia — vivas em largura
-   nenhuma, e dizendo ao proximo leitor que a visibilidade se decide aqui. */
-.busca-mov{align-items:center;gap:8px;margin:0 0 10px;padding:0 11px;
-  min-height:40px;background:var(--campo);border:1px solid var(--linha);
+/* A BUSCA VALE NAS DUAS LARGURAS, e por isso ela declara o proprio `display`: a classe
+   `so-celular` saiu daqui, e com ela a regra que a escondia no computador. A peneira
+   sempre valeu nos dois — `peneirarMov` roda antes de a tela escolher entre tabela e
+   cartao —, o que faltava era o campo por onde digitar.
+   NO CANTO DIREITO por `margin-left:auto`: ela e o ultimo item da barra do cadeado, e a
+   margem automatica empurra o resto para a esquerda sem precisar de espacador nenhum.
+   NO CELULAR ELA OCUPA A LINHA INTEIRA: espremida ao lado de Limpar e CSV, sobrariam
+   uns 90px, e um campo de busca de 90px nao mostra o que a pessoa digitou. */
+.busca-mov{display:flex;align-items:center;gap:8px;margin:0 0 0 auto;padding:0 11px;
+  min-height:34px;width:min(300px,100%);
+  background:var(--campo);border:1px solid var(--linha);
   border-radius:var(--raio)}
+@media (max-width:1023px){
+  .busca-mov{flex:1 1 100%;width:auto;margin:2px 0 0;min-height:40px}
+}
 .busca-mov svg{flex:0 0 auto;color:var(--txt3)}
 .busca-mov input{flex:1 1 auto;min-width:0;border:0;background:transparent;
   color:var(--txt);font:inherit;font-size:16px;outline:none;padding:0}
@@ -3275,7 +3283,11 @@ tr.marcada > td:first-child{box-shadow:inset 3px 0 0 var(--ambar)}
  *
  * `flex-wrap` porque a linha tem largura de tela: numa janela estreita os botões
  * descem em vez de espremer o cadeado até ele sumir. */
-.barra-trava{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+/* A FOLGA ABAIXO e o que separa a fileira dos cartoes de total. Sem ela os botoes
+   encostam na borda de cima do primeiro cartao e se leem como o cabecalho dele — e
+   para quem nao e administrador o cadeado some da esquerda, entao Limpar e CSV ficam
+   sozinhos, colados e ainda mais parecidos com um titulo. */
+.barra-trava{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}
 .barra-trava__acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 /* NO TAMANHO DO CADEADO, e não no de botão de gaveta. Na gaveta eles são a ação
    principal de uma folha inteira; aqui são vizinhos de um `mini` de 13px, e em
@@ -3283,7 +3295,7 @@ tr.marcada > td:first-child{box-shadow:inset 3px 0 0 var(--ambar)}
    `flex:0 0 auto` e não `flex:0`: o segundo vale flex-basis:0, e com `min-width:0`
    junto o botão encolheria até sumir. A base tem de ser o próprio conteúdo. */
 .barra-trava__acoes .btn{flex:0 0 auto;min-width:0;
-  min-height:30px;padding:0 12px;font-size:12.5px}
+  min-height:28px;padding:0 11px;font-size:12px}
 
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}

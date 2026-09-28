@@ -11833,6 +11833,93 @@ console.log('\n== o painel de filtro abre por cima ==');
     'ligado pela MESMA função das duas telas');
 })();
 
+console.log('\n== a busca rapida, nas duas larguras ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* ---- ELA VALE NAS DUAS LARGURAS ----
+     Era `so-celular` sem motivo: a peneira sempre valeu nos dois — `peneirarMov` roda
+     ANTES de a tela escolher entre tabela e cartão —, e no computador a única coisa que
+     faltava era o campo por onde digitar. */
+  var iB = adm.indexOf('<div class="busca-mov"');
+  var noBusca = iB < 0 ? '' : adm.slice(adm.lastIndexOf('<div', iB - 1), iB + 120);
+  ok(iB > 0 && adm.indexOf('class="busca-mov so-celular"') < 0,
+    'a busca não é mais só do celular — no computador faltava o campo, e não a peneira: ' +
+    'ela sempre rodou antes de a tela escolher entre tabela e cartão', iB > 0);
+  ok(/\n\.busca-mov\{display:flex/.test(css),
+    'e ela declara o próprio `display`: sem a classe que a escondia, uma regra sem ' +
+    '`display` deixaria o navegador decidir — e `div` nasce em bloco, não em flex');
+
+  /* ---- NO CANTO DIREITO, E DENTRO DA BARRA DO CADEADO ---- */
+  var iBarra = adm.indexOf('<div class="barra-trava">');
+  var barra = adm.slice(iBarra, adm.indexOf('</div>', adm.indexOf('id="mvBuscaX"')) + 200);
+  ok(iBarra > 0 && iB > iBarra && barra.indexOf('id="buscaMov"') > 0,
+    'ela mora DENTRO da barra do cadeado, e depois das ações — fora dela, seria mais ' +
+    'uma fileira entre os botões e os cartões', [iBarra, iB]);
+  ok(barra.indexOf('id="acoesFiltroTopo"') < barra.indexOf('id="buscaMov"'),
+    'e depois de Limpar e CSV no documento, que é o que a põe à direita deles');
+  var reg = function (sel) {
+    var i = css.indexOf('\n' + sel + '{');
+    if (i < 0) i = css.indexOf('\n  ' + sel + '{');
+    if (i < 0) return null;
+    i = css.indexOf(sel + '{', i) - 1;
+    var d = {};
+    css.slice(i + sel.length + 2, css.indexOf('}', i)).split(';').forEach(function (x) {
+      var j = x.indexOf(':');
+      if (j > 0) d[x.slice(0, j).trim()] = x.slice(j + 1).trim();
+    });
+    return d;
+  };
+  var busca = reg('.busca-mov');
+  ok(busca && /auto$/.test(busca.margin || ''),
+    'e o canto direito vem de `margin-left:auto` — ela é o último item da barra, e a ' +
+    'margem automática empurra o resto para a esquerda sem espaçador nenhum',
+    busca && busca.margin);
+  ok(css.indexOf('.busca-mov{flex:1 1 100%') > 0,
+    'no celular ela ocupa a linha inteira — espremida ao lado de Limpar e CSV sobrariam ' +
+    'uns 90px, e um campo de busca de 90px não mostra o que a pessoa digitou');
+  ok(busca && (busca['font-size'] || '') === '' &&
+     css.indexOf('.busca-mov input{') > 0 && css.indexOf('font-size:16px') > 0,
+    'e a letra do campo continua em 16px: abaixo disso o iOS dá zoom sozinho ao focar e ' +
+    'a tela inteira pula');
+
+  /* ---- E É DE TODO MUNDO ----
+     Nenhuma pergunta de permissão em volta dela: ela peneira o que a pessoa JÁ recebeu,
+     e o que cada pessoa recebe quem decide é o servidor, lá atrás. */
+  ok(adm.indexOf("getElementById('mvBusca')") > 0 &&
+     noBusca.indexOf('ehAdmin') < 0 && noBusca.indexOf('pode') < 0,
+    'e não há permissão nenhuma em volta dela — ela peneira o que a pessoa JÁ recebeu, ' +
+    'e quem decide o que cada uma recebe é o servidor, muito antes daqui', noBusca.length);
+
+  /* ---- A PENEIRA, RODADA, E ANTES DA ESCOLHA DE LARGURA ----
+     Aplicada depois, a tabela do computador mostraria tudo e só os cartões do celular
+     obedeceriam — ou o contrário. */
+  var iDes = adm.indexOf('    var L = peneirarMov(MOVS || []);');
+  var iLargura = adm.indexOf('emCartoesPainel()', iDes);
+  ok(iDes > 0 && iLargura > iDes,
+    'a busca peneira ANTES de a tela escolher entre tabela e cartão — depois, uma das ' +
+    'duas larguras obedeceria e a outra não', [iDes, iLargura]);
+  var iTot = adm.indexOf('desenharTotaisMov(L);', iDes);
+  ok(iTot > iDes && iTot - iDes < 200,
+    'e os cartões de total saem da lista JÁ peneirada — do contrário eles diriam 2.380 ' +
+    'caixas onde a lista mostra 60, que é a contradição mais cara de explicar que uma ' +
+    'tela pode mostrar', iTot - iDes);
+
+  /* ---- OS BOTÕES MENORES E AFASTADOS DO CARTÃO ---- */
+  var barraCss = reg('.barra-trava');
+  var btnCss = reg('.barra-trava__acoes .btn');
+  var folga = Number(((barraCss || {}).margin || '').split(' ').pop().replace('px', ''));
+  ok(folga >= 14,
+    'há folga entre a fileira de botões e os cartões de total — encostados, eles se ' +
+    'leem como o cabeçalho do primeiro cartão, e para quem não é administrador o ' +
+    'cadeado some da esquerda e a confusão fica pior', (barraCss || {}).margin);
+  ok(btnCss && Number((btnCss['min-height'] || '').replace('px', '')) <= 28,
+    'e Limpar e CSV são menores que um botão de formulário: ali eles são vizinhos de um ' +
+    'texto de 11,5px, e em tamanho cheio a linha vira um botão com um rótulo pendurado',
+    btnCss && btnCss['min-height']);
+})();
+
 console.log('\n== o app de campo e a propria declaracao ==');
 (function () {
   var app = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');

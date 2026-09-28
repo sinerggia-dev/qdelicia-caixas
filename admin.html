@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=e3bcef69">
+<link rel="stylesheet" href="styles.css?v=d1f823f0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -819,9 +819,27 @@
 
            A CAIXA FICA AQUI MESMO NO CELULAR, vazia: são os botões que mudam de lugar,
            e não esta caixa, para o cadeado não trocar de vizinho conforme a largura. -->
+      <!-- A BUSCA PENEIRA O QUE JA ESTA NA TELA, e nao a base inteira: o filtro de
+           verdade mora no trilho e vai ao servidor; esta aqui e um recorte rapido sobre
+           as linhas que o servidor ja mandou. Está dito no `placeholder` e no balão.
+           NO CANTO DIREITO E NAS DUAS LARGURAS, a pedido. Ela era `so-celular` sem
+           motivo: a peneira sempre valeu nas duas — `peneirarMov` roda ANTES de a tela
+           escolher entre tabela e cartão —, e no computador a única coisa que faltava
+           era o campo por onde digitar.
+           FORA DAS ABAS do celular, como a tarja: quem busca quer o resultado, e ter de
+           lembrar em que aba a busca mora seria uma pergunta a mais antes da pergunta. -->
       <div class="barra-trava">
         <div class="trava-colunas" data-trava-colunas></div>
         <div class="barra-trava__acoes" id="acoesFiltroTopo"></div>
+        <div class="busca-mov" id="buscaMov">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+          <input id="mvBusca" type="search" autocomplete="off" enterkeyhint="search"
+                 aria-label="Buscar no que está na tela"
+                 placeholder="buscar no que está na tela…">
+          <button class="busca-mov__x" type="button" id="mvBuscaX" hidden
+                  aria-label="Limpar a busca">✕</button>
+        </div>
       </div>
       <!-- A TARJA DE TRÊS, só no celular, e ACIMA das abas de propósito: por estar
            fora delas, os três números continuam na tela com a Lista aberta. Dentro de
@@ -840,20 +858,6 @@
         <button type="button" role="tab" data-aba="graficos" aria-selected="false">Gráficos</button>
       </nav>
 
-      <!-- A BUSCA PENEIRA O QUE JA ESTA NA TELA, e nao a base inteira: o filtro de
-           verdade mora na folha e vai ao servidor; esta aqui e um recorte rapido sobre
-           as linhas que o servidor ja mandou. Está dito no `placeholder` e no balão.
-           FORA DAS ABAS, como a tarja: quem busca quer o resultado, e ter de lembrar em
-           que aba a busca mora seria uma pergunta a mais antes da pergunta. -->
-      <div class="busca-mov so-celular" id="buscaMov">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
-        <input id="mvBusca" type="search" autocomplete="off" enterkeyhint="search"
-               aria-label="Buscar no que está na tela"
-               placeholder="buscar no que está na tela…">
-        <button class="busca-mov__x" type="button" id="mvBuscaX" hidden
-                aria-label="Limpar a busca">✕</button>
-      </div>
 
       <div class="tot" id="totMov"></div>
       <div id="tabelaMov"><div class="vazio">Carregando…</div></div>
