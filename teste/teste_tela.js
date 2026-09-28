@@ -11856,69 +11856,102 @@ console.log('\n== copiar um cadastro ==');
   /* ---- A REGRA, RODADA ----
      Lida no arquivo, a prova responderia "a palavra Perfil esta na lista?" — e estaria,
      inclusive numa lista que copia tambem o CPF. O que decide e o objeto que sai. */
-  var iC = adm.indexOf('  var COPIA_PERMISSOES = [');
+  var iC = adm.indexOf('  var NAO_COPIA = [');
   var fonte = iC < 0 ? '' : adm.slice(iC, adm.indexOf('\n  function formUsuario(u){', iC));
-  ok(fonte.length > 300 && fonte.indexOf('function copiaDe') > 0,
+  ok(fonte.length > 200 && fonte.indexOf('function copiaDe') > 0,
     'a conferência recortou a regra da cópia — recorte vazio faria as provas abaixo ' +
     'passarem sem rodar nada', fonte.length);
-  var copiaDe = new Function('BASES', fonte + '\nreturn copiaDe;')(L.BASES);
+  var copiaDe = new Function(fonte + '\nreturn copiaDe;')();
 
-  var molde = {
+  /* O CADASTRO DE VERDADE, e nao um objeto inventado: as chaves saem da MESMA funcao
+     que o servidor usa para devolver usuario. Inventado, a prova mediria um cadastro
+     que so existe dentro dela — e o campo novo que o servidor passasse a mandar nao
+     apareceria aqui. */
+  var modelo = L.usuariosPublicos([{
     ID: 'U007', Nome: 'Melkezedeque Soares', Usuario: 'melke',
-    Email: 'melke@empresa.com', Telefone: '81999990000', Foto: 'data:image/png;base64,xx',
-    PIN: '334455', Senha: 'segredo', Documento: '123.456.789-00', CNH: '99887766',
-    RG: '1234567',
-    Perfil: 'Conferente', LocalPadrao: 'L001', Ativo: 'SIM', AcessoPainel: 'SIM',
-    VerLancamentos: 'SIM', UsuariosVistos: ['U007', 'U009'],
-    Saidas: ['L001'], Destinos: ['L003'], TiposCaixa: ['T001', 'T002'],
-    Motoristas: ['M1'], Veiculos: ['V1'], Operacoes: ['SAIDA', 'RETORNO'],
-    Abas: ['pgMovimentos', 'pgPainel'], Ajustes: ['L001'],
-    BaseProducao: true, Teste: false, BaseDeclaracao: false, BaseTesteDeclaracao: false
-  };
-  var copia = copiaDe(molde);
+    Email: 'melke@empresa.com', Telefone: '81999990000', Foto: 'data:image/png;base64,x',
+    PIN: '334455', SenhaHash: 'xx', PinProvisorio: true, SenhaProvisoria: false,
+    ViuTutorial: true,
+    Perfil: 'Conferente', LocalPadrao: 'L001', Ativo: true, AcessoPainel: 'SIM',
+    SoProprios: true, VerLancamentos: true, UsuariosVistos: ['U007'],
+    Saidas: ['L001'], Destinos: ['L003'], TiposCaixa: ['T001'], Motoristas: ['M1'],
+    Veiculos: ['V1'], Operacoes: ['SAIDA'], Abas: ['pgMovimentos', 'pgVideo'],
+    Ajustes: ['L001'], BaseProducao: true, Teste: false,
+    BaseDeclaracao: false, BaseTesteDeclaracao: false
+  }])[0];
+  var copia = copiaDe(modelo);
 
-  /* ---- O QUE A PESSOA PODE FAZER, COPIA ---- */
-  var faltando = ['Perfil', 'LocalPadrao', 'AcessoPainel', 'VerLancamentos',
-                  'UsuariosVistos', 'Saidas', 'Destinos', 'TiposCaixa', 'Motoristas',
-                  'Veiculos', 'Operacoes', 'Abas', 'Ajustes']
-    .filter(function (k) { return JSON.stringify(copia[k]) !== JSON.stringify(molde[k]); });
-  ok(faltando.length === 0,
-    'as permissões vêm todas juntas — é para isso que a cópia existe: cadastrar dez ' +
-    'conferentes iguais era marcar as mesmas caixas dez vezes, e uma desmarcada deixava ' +
-    'a décima pessoa com uma permissão a menos que as outras nove', faltando);
+  /* ---- TODO CAMPO TEM DE ESTAR CLASSIFICADO ----
+   *
+   * Esta e a prova que faltava, e a que teria pego o defeito antes de voce: a primeira
+   * versao nomeava o que SE copia, e nasceu sem `SoProprios` — a copia de quem via so
+   * os proprios lancamentos nascia vendo os de todos. Uma permissao a MAIS, calada.
+   *
+   * Agora: ou o campo copia, ou ele esta nomeado como da pessoa. Campo novo derruba a
+   * suite ate alguem decidir de que lado ele fica — a decisao vira obrigatoria em vez
+   * de silenciosa, que e a unica defesa contra lista escrita a mao. */
+  var naoCopia = new Function(fonte + '\nreturn NAO_COPIA;')();
+  var semClasse = Object.keys(modelo).filter(function (k) {
+    return copia[k] === undefined && naoCopia.indexOf(k) < 0;
+  });
+  ok(semClasse.length === 0,
+    'todo campo que o servidor devolve está classificado: ou copia, ou está nomeado ' +
+    'como da pessoa — campo novo derruba a suíte até alguém decidir de que lado ele ' +
+    'fica, e foi a falta disto que deixou `SoProprios` de fora na primeira versão',
+    semClasse);
 
-  /* AS QUATRO BASES, e elas saem da lista `BASES` — a quinta entra sozinha no dia em
-     que nascer. */
-  var basesFora = L.BASES.map(function (b) { return b.campo; })
-    .filter(function (c) { return copia[c] !== molde[c]; });
-  ok(basesFora.length === 0,
-    'e as bases também, tiradas da MESMA lista que o cadastro usa — escritas à mão ' +
-    'aqui, a base nova entraria no formulário e não na cópia', basesFora);
+  /* ---- O QUE A PESSOA PODE FAZER, COPIA ----
+     Derivado do modelo: a permissao nova entra nesta prova sozinha. */
+  var deveCopiar = Object.keys(modelo).filter(function (k) {
+    return naoCopia.indexOf(k) < 0;
+  });
+  var faltando = deveCopiar.filter(function (k) {
+    return JSON.stringify(copia[k]) !== JSON.stringify(modelo[k]);
+  });
+  ok(faltando.length === 0 && deveCopiar.length > 15,
+    'e todas elas vêm iguais — perfil, painel, abas, operações, locais, caixas, ' +
+    'motoristas, veículos, ajustes e as quatro bases: é para isso que a cópia existe',
+    faltando);
+  /* E AS PERMISSOES ESTAO NOMEADAS AQUI, de proposito, alem da conta derivada acima.
+     A conta sozinha e CIRCULAR: ela pergunta "o que nao esta em NAO_COPIA foi copiado?",
+     entao mover uma permissao para dentro de NAO_COPIA a faria passar — e uma permissao
+     que deixa de copiar e exatamente o defeito que esta bancada nasceu para pegar.
+     Nomeadas, elas precisam vir, venha o que vier na outra lista. */
+  var devemVir = ['Perfil', 'LocalPadrao', 'Ativo', 'AcessoPainel', 'SoProprios',
+    'VerLancamentos', 'UsuariosVistos', 'Saidas', 'Destinos', 'TiposCaixa',
+    'Motoristas', 'Veiculos', 'Operacoes', 'Abas', 'Ajustes',
+    'BaseProducao', 'Teste', 'BaseDeclaracao', 'BaseTesteDeclaracao'];
+  var perdidas = devemVir.filter(function (k) {
+    return JSON.stringify(copia[k]) !== JSON.stringify(modelo[k]);
+  });
+  ok(perdidas.length === 0,
+    'e as dezenove permissões estão nomeadas na prova, além da conta derivada — a ' +
+    'conta sozinha é circular, e mover uma permissão para a lista do que não se copia ' +
+    'a faria passar', perdidas);
+  ok(copia.SoProprios === true && copia.Abas.indexOf('pgVideo') >= 0,
+    'inclusive as duas que falharam no seu teste: o painel restrito a quem vê só os ' +
+    'próprios lançamentos, e as abas — que é onde mora o acesso ao tutorial e ao vídeo',
+    [copia.SoProprios, copia.Abas]);
 
   /* ---- O QUE A PESSOA E, NAO COPIA ---- */
-  var vazou = ['ID', 'Nome', 'Usuario', 'Email', 'Telefone', 'Foto', 'PIN', 'Senha',
-               'Documento', 'CNH', 'RG']
+  var vazou = ['ID', 'Nome', 'Usuario', 'Email', 'Telefone', 'Foto', 'TemPin',
+               'TemSenha', 'PinProvisorio', 'SenhaProvisoria']
     .filter(function (k) { return copia[k] !== undefined; });
   ok(vazou.length === 0,
-    'e NADA da pessoa vem junto — nome, usuário, senha, e-mail, telefone, foto e ' +
-    'documento ficam de fora: o cadastro novo nasceria com o documento de outra pessoa ' +
-    'dentro, e ninguém iria olhar', vazou);
-
-  /* O `RG` DA PROVA ACIMA E O CERNE DA ESCOLHA: ele nao existe no cadastro hoje. A
-     lista e do que SE COPIA, e nao do que nao se copia — ao contrario, um campo novo de
-     pessoa seria copiado por padrao no dia em que nascesse. Assim o esquecimento custa
-     uma permissao que FALTA: aparece no primeiro uso e conserta-se em dois cliques. */
-  ok(copia.RG === undefined,
-    'inclusive um campo de pessoa que ainda NÃO existe: a lista diz o que se copia, e ' +
-    'não o que não se copia — ao contrário, o RG que o cadastro ganhasse amanhã seria ' +
-    'copiado por padrão, calado');
-
-  /* ---- SEM ID, senao a copia reescreve o molde ---- */
+    'e NADA da pessoa vem junto — nome, usuário, e-mail, telefone, foto e as marcas de ' +
+    'senha: o cadastro novo nasceria com os dados de outra pessoa dentro, e ninguém ' +
+    'iria olhar', vazou);
+  ok(copia.ViuTutorial === undefined,
+    'e o tutorial já visto também não — quem está chegando NÃO viu, e herdar isso ' +
+    'tiraria dela justamente a tela que existe para quem chega');
   ok(copia.ID === undefined,
     'e a cópia não leva o ID — levando, salvar reescreveria a pessoa que serviu de ' +
     'molde em vez de criar a nova, e as duas ficariam com o mesmo cadastro');
   ok(copia.copiaDe === 'Melkezedeque Soares',
     'e ela lembra de quem veio, para o formulário poder dizer isso', copia.copiaDe);
+  ok(copiaDe(copia).copiaDe === '',
+    'e copiar uma cópia não arrasta o nome do molde antigo — a etiqueta de origem não ' +
+    'é dado da pessoa', copiaDe(copia).copiaDe);
 
   /* ---- O FORMULARIO AVISA, E A PROVA RODA O AVISO ----
      A primeira versao desta prova procurava o TEXTO do aviso no arquivo. Ele continuava

@@ -9465,27 +9465,44 @@
    * desmarcada para a decima pessoa ter uma permissao a menos que as outras nove, sem
    * ninguem perceber ate ela reclamar.
    *
-   * E UMA LISTA DO QUE SE COPIA, e nao do que NAO se copia, e a escolha tem um motivo.
-   * Escrita ao contrario, o dia em que o cadastro ganhasse um campo novo de pessoa — um
-   * RG, uma data de nascimento — ele seria copiado por padrao, e o cadastro novo
-   * nasceria com o documento de outra pessoa dentro. Silencioso e grave.
-   * Do jeito certo, o esquecimento custa uma permissao que FALTA: aparece na primeira
-   * vez que a pessoa usa, e conserta-se em dois cliques.
+   * A LISTA E DO QUE **NAO** SE COPIA, e ela mudou de lado depois de falhar na primeira
+   * tentativa. Escrita ao contrario — nomeando o que SE copia —, ela nasceu incompleta:
+   * `SoProprios` ficou de fora, e a copia de quem via so os proprios lancamentos nascia
+   * vendo os de todos. Uma permissao a MAIS, calada, que e o oposto do que eu tinha
+   * argumentado que aconteceria.
    *
-   * AS BASES SAEM DA LISTA `BASES`, e nao escritas a mao: a quinta base entra na copia
-   * no dia em que nascer, sem ninguem lembrar. */
-  var COPIA_PERMISSOES = ['Perfil', 'LocalPadrao', 'Ativo', 'AcessoPainel',
-    'VerLancamentos', 'UsuariosVistos', 'Saidas', 'Destinos', 'TiposCaixa',
-    'Motoristas', 'Veiculos', 'Operacoes', 'Abas', 'Ajustes'];
+   * E ESSE E O ERRO QUE ESTE PROPRIO ARQUIVO AVISA para nao cometer, na funcao que
+   * devolve o cadastro: "esquecer uma aqui nao da erro nenhum". Lista de permissao
+   * escrita a mao esquece — foi assim com `TiposCaixa` e `Motoristas` antes, e foi assim
+   * comigo agora.
+   *
+   * O RISCO DE COPIAR DEMAIS — um RG que o cadastro ganhe amanha viajando para outra
+   * pessoa — nao some por escolher este lado: ele e travado por uma PROVA. A bancada
+   * cobra que TODO campo que o servidor devolve esteja classificado: ou ele copia, ou
+   * esta nomeado aqui. Campo novo derruba a suite ate alguem decidir de que lado ele
+   * fica, e a decisao passa a ser obrigatoria em vez de silenciosa.
+   *
+   * QUATRO FAMILIAS FICAM DE FORA:
+   *   · QUEM A PESSOA E — nome, usuario, e-mail, telefone, foto;
+   *   · COMO ELA ENTRA — senha, PIN, e as marcas de provisorio;
+   *   · O QUE ELA JA VIU — o tutorial e as boas-vindas: quem esta chegando NAO viu, e
+   *     herdar isso tiraria dela justamente a tela que existe para quem chega;
+   *   · O ID, que e o que faz o formulario gravar gente NOVA em vez de reescrever o
+   *     molde. */
+  var NAO_COPIA = ['ID', 'Nome', 'Usuario', 'Email', 'Telefone', 'Foto',
+    'Senha', 'PIN', 'TemSenha', 'TemPin', 'PinProvisorio', 'SenhaProvisoria',
+    'ViuTutorial', 'ViuBoasVindas'];
+  /* `copiaDe` NAO precisa estar na lista, e por isso nao esta: a ultima linha da funcao
+     o reescreve sempre, a partir do nome do molde. Nomeado ali, ele seria a quarta
+     guarda morta desta sessao — linha que nao muda resposta nenhuma e que se le como se
+     estivesse segurando algo. Copiar uma copia continua sem arrastar o molde antigo
+     porque a copia nao tem `Nome`, e nao porque alguem a proibiu. */
 
   function copiaDe(u){
     var c = {};
-    COPIA_PERMISSOES.concat(BASES.map(function(b){ return b.campo; }))
-      .forEach(function(campo){
-        if (u && u[campo] !== undefined) c[campo] = u[campo];
-      });
-    /* SEM ID: e o que faz o formulario gravar uma pessoa NOVA em vez de reescrever a
-       que serviu de molde. */
+    Object.keys(u || {}).forEach(function(campo){
+      if (NAO_COPIA.indexOf(campo) < 0) c[campo] = u[campo];
+    });
     c.copiaDe = (u && u.Nome) || '';
     return c;
   }
