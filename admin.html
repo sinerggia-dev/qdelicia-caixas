@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=a6697802">
+<link rel="stylesheet" href="styles.css?v=3122bcb0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -411,6 +411,22 @@
            Aparência ficava na linha do nome e o Sair sozinho embaixo — um degrau que não
            quer dizer nada. Juntos, ou cabem os dois ou descem os dois. -->
       <span class="conta__acoes">
+      <!-- VER COMO FICA NO CELULAR. É de TODO MUNDO, e não só de quem administra: quem
+           lança no galpão trabalha no telefone, e quem atende no escritório precisa
+           enxergar a mesma tela que a pessoa do outro lado da linha está vendo para
+           conseguir guiá-la.
+           ELE NÃO MUDA A TELA DE QUEM CLICA: abre a MESMA página numa moldura de
+           telefone, ao lado. Trocando o desenho da tela inteira, quem espiou por um
+           segundo teria de achar o caminho de volta — e quem esquecesse ficaria com a
+           tela de telefone no computador sem saber por quê. -->
+      <button type="button" class="btn-icone" id="chipCelular"
+              aria-label="Ver como fica no celular" title="Ver como fica no celular">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="7" y="2" width="10" height="20" rx="2.5"></rect>
+          <line x1="11" y1="18.5" x2="13" y2="18.5"></line>
+        </svg>
+      </button>
       <!-- O ATALHO DA APARÊNCIA, ao lado do sair. Ele NÃO troca a cor aqui: leva até o
            cartão, onde estão os dois eixos e as peças de exemplo. Um seletor de cor
            dentro da lateral seria decidir no escuro — a lateral não mostra o botão
@@ -1406,6 +1422,14 @@
      contagem cega esconde de quem não foi habilitado. */
   var BASES_DECL = ['declaracao', 'testeDecl'];
 
+  /* A MOLDURA DE TELEFONE SE ANUNCIA PELA URL. Dentro dela o botao que a abre some —
+     senao seria um telefone dentro do telefone — e a pagina que ela mostra vem no mesmo
+     endereco: quem esta olhando Movimentos quer ver Movimentos no aparelho, e nao a
+     tela inicial. */
+  var PARAMS = new URLSearchParams(location.search);
+  var VISTA_CELULAR = PARAMS.get('vista') === 'celular';
+  var ABA_PEDIDA = PARAMS.get('aba') || '';
+
   var DADOS = null, EQUIPE = [], MOTORISTAS = [], VEICULOS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PERFIS_DECL = [], PAINEL = null, EXTRATO = null, MOVS = [], SITUACOES = [];
 
   /* Fica fora de montarSelects porque a lista chega pela `equipe`, que e outra ida de
@@ -1599,6 +1623,13 @@
     document.getElementById('app').style.display='flex';
     aplicarSessao(s);
     Q.abas('#abas');
+    /* A ABA PEDIDA NA URL, aberta pelo CLIQUE no proprio botao — e nao trocando as
+       classes na mao. O clique e quem avisa `aoAbrirAba`, e e ele que manda a tela
+       carregar os dados dela: trocado a mao, a moldura abriria a pagina certa vazia. */
+    if (ABA_PEDIDA){
+      var alvoAba = document.querySelector('#abas button[data-pagina="'+ABA_PEDIDA+'"]');
+      if (alvoAba) alvoAba.click();
+    }
     Q.gaveta();
     ajustarAbasPainel(s);
     periodoPadraoMov();
@@ -9015,7 +9046,59 @@
     if (e.target.closest('[data-restaurar-cartoes]')) restaurarCartoes();
   });
 
-  function fecharModal(){ document.getElementById('modal').classList.remove('aberto'); }
+  function fecharModal(){
+    document.getElementById('modal').classList.remove('aberto');
+    /* A CAIXA VOLTA AO ESTADO PADRAO. A moldura do telefone troca a classe dela para
+       ficar sem recheio e do tamanho do aparelho; deixada assim, o proximo formulario a
+       abrir no mesmo lugar nasceria com a largura de um celular. */
+    var cx = document.getElementById('modalBox');
+    if (cx) cx.className = 'box';
+  }
+
+  /* ---------- VER COMO FICA NO CELULAR ----------
+   *
+   * A MESMA PAGINA, dentro de uma moldura de 390px. E um `<iframe>` de proposito, e nao
+   * uma caixa estreita com o conteudo dentro: as regras que trocam a tela para telefone
+   * olham a LARGURA DA JANELA, nao a do quadro onde o conteudo esta. Numa caixa
+   * estreita, o desenho continuaria o do computador dentro de um espaco apertado — que
+   * e o oposto do que se quer ver.
+   * Dentro do quadro a janela mede 390px de verdade, entao tudo obedece sozinho: a folha
+   * de filtros que sobe de baixo, as pecas `so-celular`, os cartoes no lugar da tabela.
+   *
+   * E NAO MUDA A TELA DE QUEM CLICA. Quem espiou por um segundo fecha e continua onde
+   * estava; nao ha estado para esquecer ligado. */
+  function verNoCelular(){
+    var ativa = document.querySelector('#abas button.ativa');
+    var aba = ativa && ativa.dataset ? ativa.dataset.pagina : '';
+    var cx = document.getElementById('modalBox');
+    if (!cx) return;
+    cx.className = 'box box--fone';
+    cx.innerHTML =
+      '<div class="fone__cab">'+
+        '<div><b>Como fica no celular</b>'+
+        '<small>a MESMA tela, na largura de um telefone — mexer aqui mexe de ' +
+        'verdade</small></div>'+
+        '<button class="btn-icone" type="button" id="foneX" aria-label="Fechar">✕</button>'+
+      '</div>'+
+      /* A PAGINA ATUAL, e nao a inicial: quem esta olhando Movimentos quer ver
+         Movimentos no telefone. Sem isto, a moldura abriria no Painel de Ativos e a
+         pessoa teria de navegar de novo lá dentro, no aparelho de brinquedo. */
+      '<div class="fone__corpo"><iframe class="fone__tela" title="A tela como aparece '+
+        'no celular" src="admin.html?vista=celular'+
+        (aba ? '&aba='+encodeURIComponent(aba) : '')+'"></iframe></div>';
+    document.getElementById('modal').classList.add('aberto');
+    var x = document.getElementById('foneX');
+    if (x) x.addEventListener('click', fecharModal);
+  }
+
+  (function(){
+    var b = document.getElementById('chipCelular');
+    if (!b) return;
+    /* DENTRO DA PROPRIA MOLDURA o botao some: clicado la, ele abriria um telefone
+       dentro do telefone, e mais um dentro daquele. */
+    if (VISTA_CELULAR) { b.hidden = true; return; }
+    b.addEventListener('click', verNoCelular);
+  })();
   document.getElementById('modal').addEventListener('click', function(e){ if (e.target === this) fecharModal(); });
 
   /* O PRECO da convencao "marcar e conceder", dito na hora de criar.

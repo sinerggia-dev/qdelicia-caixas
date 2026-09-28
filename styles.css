@@ -1473,6 +1473,36 @@ tr.par-linhas > td{background:var(--campo);padding:0}
 .modal{position:fixed;inset:0;background:rgba(16,33,43,.55);z-index:150;display:none;align-items:center;justify-content:center;padding:14px}
 .modal.aberto{display:flex}
 .modal .box{background:var(--surface);border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:88vh;overflow:auto}
+
+/* ---------- A MOLDURA DE TELEFONE ----------
+ * "Como fica no celular", sem mexer no tamanho da janela.
+ *
+ * E UM `<iframe>`, e nao uma caixa estreita com o conteudo dentro, e a razao e a regra
+ * que decide o desenho: as media queries olham a largura da JANELA, e nao a do quadro
+ * onde o conteudo esta. Numa caixa de 390px, a tela continuaria desenhada como no
+ * computador — espremida, que e o oposto do que se quer ver. Dentro do quadro a janela
+ * mede 390px de verdade, e tudo obedece sozinho.
+ *
+ * 390px E A LARGURA DE UM TELEFONE COMUM, e nao um numero redondo: e a medida em que o
+ * app ja foi conferido, e a mesma em que o corte de 1023px do resto da folha decide. */
+.modal .box--fone{max-width:none;width:auto;padding:0;background:none;overflow:visible;
+  display:flex;flex-direction:column;align-items:center;gap:10px}
+.fone__cab{display:flex;align-items:flex-start;gap:12px;width:100%;max-width:420px;
+  padding:12px 14px;border-radius:12px;background:var(--surface);
+  border:1px solid var(--linha)}
+.fone__cab b{display:block;font-size:14px}
+/* O AVISO DE QUE NAO E MAQUETE. A moldura mostra a pagina de verdade, ligada aos mesmos
+   dados: quem corrigir um lancamento la dentro corrige de verdade, e descobrir isso
+   depois seria caro. */
+.fone__cab small{display:block;margin-top:2px;font-size:12px;color:var(--txt2)}
+.fone__cab .btn-icone{margin-left:auto;flex:0 0 auto}
+.fone__corpo{width:390px;max-width:100%;height:min(760px,72vh);
+  border-radius:22px;overflow:hidden;background:var(--fundo);
+  border:8px solid #10212b;box-shadow:0 22px 60px rgba(4,14,28,.55)}
+.fone__tela{width:100%;height:100%;border:0;display:block;background:var(--fundo)}
+/* NUMA TELA BAIXA a moldura encolhe junto, em vez de a barra do topo sair da vista: a
+   altura sai de `vh`, e o minimo garante que ainda sobre tela para uma lista. */
+@media (max-height:700px){ .fone__corpo{height:66vh} }
 .modal h2{margin-top:0}
 
 /* ===================== TELA DE ENTRADA =====================

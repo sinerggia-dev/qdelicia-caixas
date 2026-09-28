@@ -11848,6 +11848,75 @@ console.log('\n== o painel de filtro abre por cima ==');
     'ligado pela MESMA função das duas telas');
 })();
 
+console.log('\n== ver como fica no celular ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* ---- E UM `<iframe>`, E ISSO E O CERNE ----
+     As regras que trocam a tela para telefone olham a largura da JANELA, nao a do quadro
+     onde o conteudo esta. Numa caixa estreita com o conteudo dentro, o desenho
+     continuaria o do computador, espremido — o oposto do que se quer ver. Dentro do
+     quadro a janela mede 390px de verdade, e tudo obedece sozinho. */
+  var iVer = adm.indexOf('  function verNoCelular(){');
+  var ver = iVer < 0 ? '' : adm.slice(iVer, adm.indexOf('\n  }', iVer) + 4);
+  ok(ver.length > 400 && ver.indexOf('<iframe') > 0,
+    'a moldura do telefone é um `<iframe>`, e não uma caixa estreita com o conteúdo ' +
+    'dentro: as regras de largura olham a JANELA, e numa caixa a tela continuaria ' +
+    'desenhada como no computador, só que espremida', ver.length);
+  ok(ver.indexOf("src=\"admin.html?vista=celular") > 0 ||
+     ver.indexOf("'admin.html?vista=celular") > 0,
+    'e ela abre a MESMA página, marcada na URL — é a tela de verdade, e não uma maquete',
+    ver.indexOf('vista=celular') > 0);
+
+  /* A PAGINA ATUAL, E ABERTA PELO CLIQUE. Trocando as classes a mao, a moldura abriria
+     a pagina certa VAZIA: quem manda a tela buscar os dados e o `aoAbrirAba`, e quem o
+     avisa e o clique. */
+  ok(ver.indexOf("#abas button.ativa") > 0 && ver.indexOf("'&aba='") > 0,
+    'e leva a página em que a pessoa está — sem isso, a moldura abriria na tela ' +
+    'inicial e ela teria de navegar de novo lá dentro, no aparelho de brinquedo');
+  ok(adm.indexOf('if (alvoAba) alvoAba.click();') > 0,
+    'e a aba pedida é aberta pelo CLIQUE no próprio botão — trocadas as classes à mão, ' +
+    'a página certa abriria vazia, porque quem manda buscar os dados é o aviso que só ' +
+    'o clique dispara');
+
+  /* NAO SE ABRE DENTRO DE SI MESMA. */
+  ok(adm.indexOf("PARAMS.get('vista') === 'celular'") > 0 &&
+     adm.indexOf('if (VISTA_CELULAR) { b.hidden = true; return; }') > 0,
+    'dentro da própria moldura o botão some — clicado lá, ele abriria um telefone ' +
+    'dentro do telefone, e mais um dentro daquele');
+
+  /* E DE TODO MUNDO: nenhuma pergunta de perfil em volta dele. Quem lanca no galpao
+     trabalha no telefone, e quem atende no escritorio precisa ver a mesma tela que a
+     pessoa do outro lado da linha esta vendo. */
+  var iBt = adm.indexOf('id="chipCelular"');
+  var perto = adm.slice(adm.lastIndexOf('<button', iBt), iBt + 60);
+  ok(iBt > 0 && perto.indexOf('hidden') < 0,
+    'e o botão é de TODO MUNDO — ao contrário do de Aparência, que nasce escondido: ' +
+    'quem lança no galpão trabalha no telefone, e quem atende precisa enxergar a mesma ' +
+    'tela que a pessoa do outro lado da linha', perto);
+
+  /* A CAIXA VOLTA AO NORMAL AO FECHAR. Deixada com a classe da moldura, o proximo
+     formulario a abrir no mesmo lugar nasceria com a largura de um celular. */
+  var iFm = adm.indexOf('  function fecharModal(){');
+  var fm = adm.slice(iFm, adm.indexOf('\n  }', iFm) + 4);
+  ok(fm.indexOf("cx.className = 'box'") > 0,
+    'e fechar devolve a caixa ao estado padrão — deixada com a classe da moldura, o ' +
+    'próximo formulário nasceria com a largura de um celular', fm.length);
+
+  /* A MOLDURA TEM LARGURA DE TELEFONE, e ela vem da folha. */
+  var i390 = css.indexOf('.fone__corpo{width:390px');
+  ok(i390 > 0,
+    'a moldura tem 390px — a largura de um telefone comum, e a mesma em que o corte de ' +
+    '1023px do resto da folha já decide', i390 > 0);
+  ok(css.indexOf('.fone__tela{width:100%;height:100%;border:0') > 0,
+    'e o quadro preenche a moldura inteira, sem borda própria: duas molduras, uma ' +
+    'dentro da outra, se leriam como defeito');
+  ok(css.indexOf('.modal .box--fone{max-width:none') > 0,
+    'e a caixa do modal solta o limite de 520px para ela — preso, o telefone apareceria ' +
+    'cortado na lateral');
+})();
+
 console.log('\n== o REGISTRO nos cartoes de celular ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
