@@ -1399,7 +1399,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=1f9063f7"></script>
+<script src="app.js?v=54ef41da"></script>
 <script>
 (function(){
   'use strict';
@@ -1425,10 +1425,12 @@
   /* A MOLDURA DE TELEFONE SE ANUNCIA PELA URL. Dentro dela o botao que a abre some —
      senao seria um telefone dentro do telefone — e a pagina que ela mostra vem no mesmo
      endereco: quem esta olhando Movimentos quer ver Movimentos no aparelho, e nao a
-     tela inicial. */
-  var PARAMS = new URLSearchParams(location.search);
-  var VISTA_CELULAR = PARAMS.get('vista') === 'celular';
-  var ABA_PEDIDA = PARAMS.get('aba') || '';
+     tela inicial.
+     LIDO PELO NUCLEO, e nao com `URLSearchParams`: ver `Q.paramUrl`. Uma API que o
+     navegador nao conhece ESTOURA, e derruba tudo o que vem depois neste script — foi
+     assim que o botao de recolher o menu ficou desenhado e sem efeito numa maquina so. */
+  var VISTA_CELULAR = Q.paramUrl('vista') === 'celular';
+  var ABA_PEDIDA = Q.paramUrl('aba');
 
   var DADOS = null, EQUIPE = [], MOTORISTAS = [], VEICULOS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PERFIS_DECL = [], PAINEL = null, EXTRATO = null, MOVS = [], SITUACOES = [];
 

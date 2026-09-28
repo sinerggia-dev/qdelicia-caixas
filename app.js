@@ -210,6 +210,29 @@
   function sair() { localStorage.removeItem(KEY_SESSAO); location.reload(); }
   /* Compara sem caixa: o perfil é escrito por gente, e a grafia gravada é a que a pessoa
      escolheu — quem decide permissão não pode depender disso. */
+  /** Um parametro da URL, lido A MAO.
+   *
+   * NAO E `URLSearchParams`, e a razao e o modo de falhar. Este app e ES5 do comeco ao
+   * fim, de proposito: ele abre em aparelho velho de galpao, em navegador de escritorio
+   * que ninguem atualiza, e — no caso do extrato — no telefone de um cliente que a
+   * gente nao escolhe. Uma API que o navegador nao conhece nao "deixa de funcionar":
+   * ela ESTOURA, e tudo o que vem depois naquele script deixa de existir. A tela nao
+   * quebra, porque o HTML ja esta pronto; ela so para de responder dali para baixo.
+   *
+   * MEDIDO DUAS VEZES. No painel, um `URLSearchParams` no alto do arquivo deixou, em
+   * UMA maquina so, o botao de recolher o menu desenhado e sem efeito — o erro
+   * acontecia trezentas linhas antes de ele ser ligado. No extrato do cliente o preco
+   * seria pior: a pagina inteira em branco, e do outro lado alguem que so recebeu um
+   * link e nao tem a quem perguntar.
+   *
+   * O NOME TEM DE VIR DEPOIS DE `?` OU `&`: sem isso, `abas=x` responderia por `aba`.
+   */
+  function paramUrl(nome, busca) {
+    var onde = busca === undefined ? (location.search || '') : String(busca);
+    var achado = new RegExp('[?&]' + nome + '=([^&#]*)').exec(onde);
+    return achado ? decodeURIComponent(achado[1].replace(/\+/g, ' ')) : '';
+  }
+
   function ehAdmin() { var s = sessao(); return !!s && String(s.perfil).toUpperCase() === 'ADMIN'; }
   /* GALPAO continua aqui de propósito: virou CONFERENTE no banco, mas a sessão guardada
      no celular só troca no próximo login, e até lá o conferente perderia a aba. */
@@ -2229,6 +2252,7 @@
     aplicarTema: aplicarTema, aplicarFundo: aplicarFundo,
     aplicarAparencia: aplicarAparencia,
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
+    paramUrl: paramUrl,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,
     definirPerfisDeclaracao: definirPerfisDeclaracao,
     podeMexerEmDeclaracao: podeMexerEmDeclaracao,

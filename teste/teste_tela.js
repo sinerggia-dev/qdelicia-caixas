@@ -11848,6 +11848,129 @@ console.log('\n== o painel de filtro abre por cima ==');
     'ligado pela MESMA função das duas telas');
 })();
 
+console.log('\n== o piso ES5 das telas que vao para o ar ==');
+(function () {
+  /* ---- POR QUE ISTO EXISTE ----
+   *
+   * Este app e ES5 do comeco ao fim, de proposito: ele abre em aparelho velho de galpao
+   * e em navegador de escritorio que ninguem atualiza.
+   *
+   * E O MODO DE FALHAR E O PIOR POSSIVEL. Uma API que o navegador nao conhece nao
+   * "deixa de funcionar": ela ESTOURA, e tudo o que vem depois naquele script deixa de
+   * existir. A tela nao quebra — o HTML ja esta pronto —, so para de responder da linha
+   * do erro para baixo.
+   *
+   * MEDIDO NA PRATICA: um `new URLSearchParams(...)` no alto de `admin.html` deixou, em
+   * UMA maquina so, o botao de recolher o menu desenhado e sem efeito. O erro acontecia
+   * trezentas linhas antes de o botao ser ligado, e nada na tela dizia isso. Achar a
+   * causa custou uma conversa inteira; esta prova custa um segundo.
+   *
+   * A LISTA DE ARQUIVOS E DESCOBERTA, e nao escrita: a tela nova entra na prova no dia
+   * em que nascer. */
+  var raiz = path.join(__dirname, '..');
+  var telas = fsReal.readdirSync(raiz).filter(function (f) {
+    return /\.(html|js)$/.test(f) && f !== 'config.js';
+  });
+  ok(telas.length >= 5 && telas.indexOf('app.js') >= 0 &&
+     telas.indexOf('admin.html') >= 0,
+    'a conferência descobriu as telas que vão para o ar — lista vazia faria esta prova ' +
+    'aprovar qualquer coisa', telas.length);
+
+  /* AS REGRAS MORAM NUM ARQUIVO PROPRIO, `_es5_regras.js`. Elas sao expressoes
+     regulares cheias de barra invertida, e este projeto escreve arquivo por script:
+     geradas assim, elas saiam mutiladas — `Object\.assign` virou `Object .assign`
+     e deixou de casar com coisa nenhuma. CINCO das sete sabotagens passaram verdes, e a
+     prova inteira parecia funcionar.
+     Prova que nao pega o que promete e pior que prova nenhuma: ela ocupa o lugar da que
+     pegaria. */
+  var ES5 = require(path.join(__dirname, '_es5_regras.js'));
+
+  /* A PROPRIA PROVA E PROVADA: um trecho com cada coisa proibida tem de ser acusado.
+     Sem isto, uma expressao quebrada devolve "nada encontrado" — que e exatamente o que
+     uma tela limpa devolve, e as duas se leem igual. */
+  var mentirinha = ES5.PROIBIDO.map(function (x) { return x.nome; });
+  var exemplos = {
+    'URLSearchParams': 'var p = new URLSearchParams(location.search);',
+    'arrow function': 'var f = function(){ return [1].map(x => x); };',
+    'const/let': 'const DOIS = 2;',
+    'Object.assign': 'var o = Object.assign({}, {});',
+    'Array.from': 'var a = Array.from([1]);',
+    '.includes(': "var v = ['a'].includes('a');",
+    '.padStart(': "var s = '1'.padStart(3, '0');",
+    'operador ??': 'var x = a ?? b;',
+    'operador ?.': 'var y = a?.b;',
+    'template literal': 'var z = `oi`;'
+  };
+  var cegas = mentirinha.filter(function (nome) {
+    var trecho = exemplos[nome];
+    return !trecho || ES5.acharProibidos('x.js', trecho).length === 0;
+  });
+  ok(cegas.length === 0,
+    'cada regra do piso ES5 acusa um exemplo do que ela proíbe — uma expressão ' +
+    'quebrada devolve "nada encontrado", que é o mesmo que uma tela limpa devolve, e as ' +
+    'duas se leem igual', cegas);
+  ok(ES5.acharProibidos('x.js', 'var i = s.indexOf("a") >= 0; // https://x.y').length === 0,
+    'e não acusa código que está dentro do piso — nem o `//` de um endereço, que não ' +
+    'abre comentário nenhum no meio da linha');
+  ok(ES5.acharProibidos('x.js', '/* exemplo do que nao fazer: .filter(id => x) */').length === 0,
+    'nem a prosa que EXPLICA por que não se usa aquilo — foi assim que a primeira ' +
+    'versão desta prova acusou o próprio comentário que a justifica');
+
+  var achados = [];
+  telas.forEach(function (f) {
+    achados = achados.concat(
+      ES5.acharProibidos(f, fsReal.readFileSync(path.join(raiz, f), 'utf8')));
+  });
+  ok(achados.length === 0,
+    'nenhuma tela que vai para o ar usa sintaxe ou API fora do piso ES5 — uma delas no ' +
+    'alto do arquivo não quebra a tela, ela CALA tudo o que vem depois, e o sintoma ' +
+    'aparece num botão qualquer lá embaixo que ninguém liga ao verdadeiro motivo',
+    achados);
+
+  /* ---- O QUE SUBSTITUIU O `URLSearchParams`, RODADO ----
+     Ele mora no NUCLEO e serve as tres telas: uma implementacao, e nao uma por pagina.
+     Escritas separadas, a do extrato — que vai para o telefone de um cliente que a
+     gente nao escolhe — seria a ultima a receber qualquer conserto. */
+  var nuc = fsReal.readFileSync(path.join(raiz, 'app.js'), 'utf8');
+  var iP = nuc.indexOf('  function paramUrl(nome, busca) {');
+  var fonteP = iP < 0 ? '' : nuc.slice(iP, nuc.indexOf('\n  }', iP) + 4);
+  ok(fonteP.length > 150 && fonteP.indexOf('RegExp') > 0,
+    'a conferência recortou o leitor de parâmetro — recorte vazio faria as provas ' +
+    'abaixo passarem sem rodar nada', fonteP.length);
+  var leu = new Function(fonteP + '\nreturn paramUrl;')();
+  ok(leu('vista', '?vista=celular&aba=pgMovimentos') === 'celular' &&
+     leu('aba', '?vista=celular&aba=pgMovimentos') === 'pgMovimentos',
+    'ele lê os parâmetros da moldura de telefone, que é para o que ele nasceu');
+  ok(leu('t', '?t=abc123') === 'abc123',
+    'e o código do extrato do cliente, que é o uso mais antigo dos três');
+  ok(leu('vista', '') === '' && leu('vista', '?aba=pgPainel') === '',
+    'e devolve vazio quando o parâmetro não está lá, em vez de estourar');
+  /* O NOME TEM DE COMECAR ONDE UM PARAMETRO COMECA, e as duas pontas importam:
+     `abas=xx` nao pode responder por `aba` (sobra do lado direito), e `xaba=zz` tampouco
+     (sobra do lado esquerdo). A segunda e a que a sabotagem pegou: sem o `[?&]`, um
+     parametro que TERMINE com o nome procurado responde por ele. */
+  ok(leu('aba', '?abas=xx') === '',
+    'e não confunde `abas` com `aba` — o que sobra à direita não é o parâmetro pedido',
+    leu('aba', '?abas=xx'));
+  ok(leu('aba', '?xaba=zz') === '' && leu('aba', '?xaba=zz&aba=certo') === 'certo',
+    'nem `xaba` com `aba`: o nome tem de vir logo depois de `?` ou `&`, senão um ' +
+    'parâmetro que TERMINE igual responde pelo outro — e a resposta errada seria um ' +
+    'valor plausível, não um vazio', [leu('aba', '?xaba=zz'), leu('aba', '?xaba=zz&aba=certo')]);
+  ok(leu('aba', '?aba=pg%20A') === 'pg A',
+    'e desfaz o que a URL codificou');
+
+  /* AS TRES TELAS CHAMAM O DO NUCLEO. Uma que volte a ler a URL por conta propria volta
+     a ter o problema inteiro, e a bancada do piso ES5 so a pegaria se ela usasse
+     `URLSearchParams` — escrita a mao de outro jeito, passaria. */
+  var usamOproprio = ['admin.html', 'extrato.html'].filter(function (f) {
+    return fsReal.readFileSync(path.join(raiz, f), 'utf8').indexOf('Q.paramUrl(') < 0;
+  });
+  ok(usamOproprio.length === 0,
+    'e as telas leem a URL pelo núcleo, e não cada uma do seu jeito — uma ' +
+    'implementação por página faz a do extrato, que vai para o telefone de um cliente ' +
+    'que a gente não escolhe, ser a última a receber qualquer conserto', usamOproprio);
+})();
+
 console.log('\n== o rodape da lateral cabe em qualquer tela ==');
 (function () {
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
@@ -12086,7 +12209,10 @@ console.log('\n== ver como fica no celular ==');
     'o clique dispara');
 
   /* NAO SE ABRE DENTRO DE SI MESMA. */
-  ok(adm.indexOf("PARAMS.get('vista') === 'celular'") > 0 &&
+  /* LIDO PELO NOME DA VARIAVEL, e nao pela forma de ler a URL: a leitura mudou de
+     `URLSearchParams` para um `RegExp` — uma API nova no alto de um arquivo ES5 derruba
+     tudo o que vem depois — e a prova nao pode se prender a COMO se le. */
+  ok(adm.indexOf("Q.paramUrl('vista') === 'celular'") > 0 &&
      adm.indexOf('if (VISTA_CELULAR) { b.hidden = true; return; }') > 0,
     'dentro da própria moldura o botão some — clicado lá, ele abriria um telefone ' +
     'dentro do telefone, e mais um dentro daquele');

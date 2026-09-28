@@ -67,12 +67,16 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=1f9063f7"></script>
+<script src="app.js?v=54ef41da"></script>
 <script>
 (function(){
   'use strict';
   var Q = window.QDC;
-  var token = new URLSearchParams(location.search).get('t') || '';
+  /* PELO NUCLEO, e nao por `URLSearchParams`. Esta pagina vai por link para o
+     telefone de um cliente que a gente nao escolhe: se a API nao existir ali, o script
+     estoura na primeira linha e o cliente recebe uma pagina em branco — sem erro, sem
+     explicacao e sem a quem perguntar. */
+  var token = Q.paramUrl('t');
   var box = document.getElementById('conteudo');
 
   if (!token){
