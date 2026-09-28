@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=0499ca7f">
+<link rel="stylesheet" href="styles.css?v=1846a40c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -241,7 +241,17 @@
          vazio: navegacao em branco parece tela quebrada, e a pessoa recarrega. -->
     <p class="abas-carregando" id="abasCarregando">Carregando suas permissões…</p>
     <nav class="abas" id="abas" aria-label="Páginas do painel">
-      <div class="nav-grupo" data-grupo="Operação">Operação</div>
+      <!-- O TITULO DO MODULO E UM BOTAO, e nao um rotulo: com quinze paginas a lista
+           passou a nascer com barra de rolagem, e quem usa duas delas rolava por treze.
+           Recolhido, o grupo vira uma linha; o que sobra na tela e o que a pessoa
+           escolheu ver.
+           CADA UM GUARDA O PROPRIO ESTADO, no aparelho de quem olha — como a ordem das
+           colunas e a lateral recolhida. Nao e permissao: e a tela de uma pessoa.
+           O `data-grupo` E O MESMO que os itens ja carregam: e por ele que o botao acha
+           o que recolher, e por ele que `gruposDaNavegacao` ja escondia o titulo de um
+           grupo vazio. Um segundo nome aqui seria uma segunda verdade sobre a mesma
+           coisa. -->
+      <button type="button" class="nav-grupo" data-grupo="Operação" aria-expanded="true"><span class="nav-grupo__t">Operação</span><svg class="nav-grupo__seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
       <button data-grupo="Operação" style="display:none" data-pagina="pgRetornos" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -311,7 +321,7 @@
         </svg>
         <span class="nav-rotulo">Tutorial de Retorno</span>
       </button>
-      <div class="nav-grupo" data-grupo="Dados">Dados</div>
+      <button type="button" class="nav-grupo" data-grupo="Dados" aria-expanded="true"><span class="nav-grupo__t">Dados</span><svg class="nav-grupo__seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
       <button data-grupo="Dados" style="display:none" data-pagina="pgCadastros" data-acima="Ajustes da tela">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -345,7 +355,7 @@
            daqui porque não era ajuste de sistema — ela lança ajuste de
            saldo e baixa de perda, ou seja, MEXE NO ESTOQUE. Ficava ao
            lado das configurações por causa do nome, e o nome mudou. -->
-      <div class="nav-grupo" data-grupo="Sistema">Sistema</div>
+      <button type="button" class="nav-grupo" data-grupo="Sistema" aria-expanded="true"><span class="nav-grupo__t">Sistema</span><svg class="nav-grupo__seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
       <button data-grupo="Sistema" style="display:none" data-pagina="pgVideo" data-acima="Sistema">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -410,6 +420,16 @@
            quebram de linha um de cada vez: medido depois de o nome crescer para 15px, a
            Aparência ficava na linha do nome e o Sair sozinho embaixo — um degrau que não
            quer dizer nada. Juntos, ou cabem os dois ou descem os dois. -->
+      <!-- A MARCA NO RODAPE, no vao que sobrava a esquerda dos botoes. Ela nao se
+           repete por enfeite: a de cima SOME quando a lateral recolhe — la o espaco e
+           de 68px e o nome da empresa nao cabe —, e o rodape e o unico lugar da tela
+           que fica a vista nos dois estados.
+           `aria-hidden` e `alt` vazio: quem usa leitor de tela ja ouviu o nome do
+           sistema no alto, e ouvir a marca de novo entre o nome da pessoa e o botao de
+           sair so atrasa quem esta indo embora. -->
+      <span class="conta__marca" aria-hidden="true">
+        <img src="logo.png" alt="" width="243" height="165">
+      </span>
       <span class="conta__acoes">
       <!-- VER COMO FICA NO CELULAR. É de TODO MUNDO, e não só de quem administra: quem
            lança no galpão trabalha no telefone, e quem atende no escritório precisa
@@ -1399,7 +1419,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=54ef41da"></script>
+<script src="app.js?v=2e42a2b4"></script>
 <script>
 (function(){
   'use strict';
@@ -1625,6 +1645,9 @@
     document.getElementById('app').style.display='flex';
     aplicarSessao(s);
     Q.abas('#abas');
+    /* DEPOIS de `Q.abas`, e nao antes: os dois mexem nos mesmos botoes, e recolher
+       precisa do menu ja ligado para o titulo poder esconder itens que existem. */
+    Q.gruposRecolhiveis('#abas');
     /* A ABA PEDIDA NA URL, aberta pelo CLIQUE no proprio botao — e nao trocando as
        classes na mao. O clique e quem avisa `aoAbrirAba`, e e ele que manda a tela
        carregar os dados dela: trocado a mao, a moldura abriria a pagina certa vazia. */

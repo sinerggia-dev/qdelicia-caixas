@@ -593,11 +593,31 @@ nav.abas{display:flex;flex-direction:column;gap:3px}
 /* VERDE, a pedido — o verde do logo, pelo token. Escrito solto aqui, ele escaparia da
    medição de contraste e chegaria ao galpão sem passar por ela. Medido: 8,13:1 sobre a
    lateral, bem acima dos 4,5:1 que este tamanho de letra exige. */
-.nav-grupo{
-  padding:14px 12px 6px;font-size:10px;font-weight:700;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--verde);white-space:nowrap
+/* ELE E UM BOTAO agora, e por isso precisa DESFAZER o que `nav.abas button` poe: la
+   sao 44px de alvo de dedo, fundo de item e letra de 14px — um titulo com aquela cara
+   vira mais um item do menu, e a pessoa clica nele esperando uma pagina.
+   A regra vem DEPOIS da dos itens de proposito: mesma especificidade, e quem vem por
+   ultimo ganha. Escrita antes, ela perdia calada e o titulo nascia parecendo item. */
+nav.abas button.nav-grupo,.nav-grupo{
+  display:flex;align-items:center;gap:6px;width:100%;
+  min-height:0;padding:14px 12px 6px;border:0;background:transparent;
+  font-family:inherit;font-size:10px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--verde);white-space:nowrap;
+  text-align:left;cursor:pointer;border-radius:var(--raio-sm)
 }
+nav.abas button.nav-grupo:hover{background:var(--surface-2);color:var(--verde)}
 .nav-grupo:first-child{padding-top:2px}
+.nav-grupo__t{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* A SETA DIZ O ESTADO, e gira em vez de trocar de desenho: duas setas diferentes
+   obrigam a lembrar qual e qual; a mesma virando de lado se le sem aprender nada. */
+.nav-grupo__seta{flex:0 0 auto;opacity:.75;transition:transform .16s ease}
+.nav-grupo[aria-expanded="false"] .nav-grupo__seta{transform:rotate(-90deg)}
+
+/* O ITEM RECOLHIDO. `data-fechado` e um interruptor SEPARADO do `style.display` que a
+   permissao escreve: sao duas perguntas sobre o mesmo item — "voce quer ver?" e "voce
+   pode ver?" —, e num interruptor so abrir um grupo devolveria a quem nao pode uma
+   pagina que ele nao tem. */
+nav.abas button[data-pagina][data-fechado="1"]{display:none}
 nav.abas button,.nav-link{
   display:flex;align-items:center;gap:11px;width:100%;
   min-height:44px;padding:10px 12px;border:0;border-radius:var(--raio-sm);
@@ -697,6 +717,24 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    debaixo do retrato, que e onde se procura o nome. */
 .conta__acoes{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;
   margin-left:auto}
+
+/* A MARCA DO RODAPE. Ela ocupa o vao a esquerda dos botoes — e `margin-right:auto` e o
+   que empurra os botoes para a borda, o mesmo papel que o `margin-left:auto` deles fazia
+   sozinho antes.
+   DISCRETA DE PROPOSITO: ela e assinatura, e nao anuncio. Em tamanho cheio disputaria a
+   leitura com o retrato de quem entrou, que e o que se procura ali. */
+.conta__marca{display:inline-flex;align-items:center;flex:0 0 auto;margin-right:auto;
+  opacity:.72}
+.conta__marca img{display:block;height:26px;width:auto}
+.conta__marca:hover{opacity:1}
+/* NO TRILHO ELA SAI. Em 52px uteis ja disputam o retrato e o botao de sair, e a marca
+   ja esta la em cima — no trilho o alto da lateral mostra so o simbolo, que e ela. */
+.shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta__marca{
+  display:none
+}
+/* E NA TELA BAIXA ela e a primeira a sair, antes do chip: assinatura cede lugar a
+   informacao. */
+@media (max-height:700px){ .conta__marca{display:none} }
 
 /* O estado da rede. Continua sendo `#chipRede`, com as mesmas classes que o `app.js`
    escreve (`off`, `alerta`) — so mudou onde ele mora e como ele se parece. */
@@ -987,6 +1025,11 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   /* Os títulos de módulo viram um RISCO FINO: mantêm o agrupamento sem deixar buracos
      de altura irregular entre os ícones. Sumindo de vez, os sete ícones voltariam a
      ser uma fila só. */
+  /* NO TRILHO O RECOLHIDO NAO VALE. La o titulo e um risco de 1px, sem palavra
+     nenhuma: um grupo fechado viraria um pedaco de coluna vazio, e nada na tela diria
+     como abrir. Os icones voltam, e o estado guardado espera a lateral abrir. */
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within)
+    nav.abas button[data-pagina][data-fechado="1"]{display:flex}
   .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .nav-grupo{
     width:auto;height:1px;margin:9px 14px;padding:0;
     background:var(--linha);font-size:0;overflow:hidden

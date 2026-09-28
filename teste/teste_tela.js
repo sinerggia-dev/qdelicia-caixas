@@ -8442,16 +8442,20 @@ console.log('\n== a navegação separada por módulo ==');
   ['index.html', 'admin.html'].forEach(function (nome) {
     var txt = fs.readFileSync(path.join(__dirname, '..', nome), 'utf8');
     var nav = txt.slice(txt.indexOf('<nav class="abas"'), txt.indexOf('</nav>'));
-    var botoes = (nav.match(/<button[^>]*data-pagina=/g) || []);
-    var comGrupo = (nav.match(/<button[^>]*data-grupo=/g) || []);
-    ok(botoes.length > 0 && botoes.length === comGrupo.length,
+    /* ITEM E O QUE TEM `data-pagina`. O titulo de modulo tambem e <button> desde que
+       passou a recolher o grupo, e contar "botoes com data-grupo" passou a incluir os
+       tres titulos — a conta batia por engano, e deixaria de bater no dia em que um
+       item nascesse sem modulo. */
+    var itens = (nav.match(/<button[^>]*data-pagina="[^"]*"[^>]*>/g) || []);
+    var semGrupo = itens.filter(function (m) { return m.indexOf('data-grupo=') < 0; });
+    ok(itens.length > 0 && semGrupo.length === 0,
       nome + ': todo item da navegação declara o módulo dele',
-      { itens: botoes.length, comGrupo: comGrupo.length });
+      { itens: itens.length, semModulo: semGrupo.length });
 
     var titulos = (nav.match(/class="nav-grupo" data-grupo="([^"]+)"/g) || [])
       .map(function (m) { return /data-grupo="([^"]+)"/.exec(m)[1]; });
     var usados = {};
-    (nav.match(/<button[^>]*data-grupo="([^"]+)"/g) || []).forEach(function (m) {
+    itens.forEach(function (m) {
       usados[/data-grupo="([^"]+)"/.exec(m)[1]] = true;
     });
     var semTitulo = Object.keys(usados).filter(function (g) { return titulos.indexOf(g) < 0; });
@@ -11728,7 +11732,10 @@ console.log('\n== Motorista/Conferente ==');
   /* ---- A TELA ESTÁ EM OPERAÇÃO, e é uma aba que se concede ---- */
   var nav = adm.slice(adm.indexOf('<nav class="abas"'), adm.indexOf('</nav>'));
   var i = nav.indexOf('data-pagina="pgLancamentosMotorista"');
-  var grupo = (nav.slice(0, i).match(/data-grupo="([^"]+)"[^>]*>[^<]*<\/div>/g) || []).pop() || '';
+  /* PELA CLASSE, e nao pela tag: o titulo de modulo virou <button> para poder
+     recolher o grupo, e a busca presa a `</div>` deixou de achar qualquer um —
+     e "nenhum titulo" se le igual a "titulo errado". */
+  var grupo = (nav.slice(0, i).match(/class="nav-grupo"[^>]*data-grupo="([^"]+)"/g) || []).pop() || '';
   ok(i > 0 && /data-grupo="Opera\u00e7\u00e3o"/.test(grupo),
     'a tela fica na OPERAÇÃO, ao lado das telas de lançar', grupo);
   ok(log.indexOf("{ ID: 'pgLancamentosMotorista'") > 0,
@@ -11846,6 +11853,142 @@ console.log('\n== o painel de filtro abre por cima ==');
     'inalcançáveis, porque lá o trilho é uma folha que nasce fechada');
   ok((adm.match(/ligarAbreFolha\('/g) || []).length === 2,
     'ligado pela MESMA função das duas telas');
+})();
+
+console.log('\n== os grupos da navegacao recolhem ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var nuc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* ---- O TITULO E UM BOTAO, E `Q.abas` NAO PODE CONFUNDI-LO COM UMA PAGINA ----
+   *
+   * Esta e a armadilha do dia. `abas()` ligava o trocador de pagina em TODO <button>
+   * dentro do menu. Com o titulo virando botao, clicar em "Operação" apagaria `.ativa`
+   * de todas as paginas e procuraria a pagina `undefined` — a tela ficaria EM BRANCO,
+   * sem erro nenhum no console. */
+  var iA = nuc.indexOf('  function abas(seletor) {');
+  var fonteA = nuc.slice(iA, nuc.indexOf('\n  }', iA) + 4);
+  ok(fonteA.indexOf("seletor + ' button[data-pagina]'") > 0,
+    'quem troca de página é só quem DIZ qual página é — ligado em todo <button>, um ' +
+    'clique no título do módulo apagaria a página aberta e não abriria nenhuma: tela ' +
+    'em branco, sem erro no console', fonteA.indexOf('data-pagina') > 0);
+
+  /* ---- RECOLHER E ESCONDER POR PERMISSAO SAO DOIS INTERRUPTORES ----
+     Num so, abrir um grupo devolveria a quem nao pode uma pagina que ele nao tem. */
+  ok(css.indexOf('nav.abas button[data-pagina][data-fechado="1"]{display:none}') > 0,
+    'o item recolhido some por um interruptor PRÓPRIO, `data-fechado` — o da permissão ' +
+    'é o `style.display`, e num interruptor só abrir um grupo devolveria a quem não ' +
+    'pode uma página que ele não tem');
+  var iAj = adm.indexOf('      b.style.display = ok ? ');
+  ok(iAj > 0,
+    'e a permissão continua escrevendo no `style.display`, que é o outro interruptor');
+
+  /* ---- O TITULO DE UM GRUPO VAZIO CONTINUA SUMINDO, e o de um grupo RECOLHIDO NAO ----
+     Lido pelo `getComputedStyle`, um grupo recolhido pareceria vazio — e o titulo
+     sumiria levando consigo o unico jeito de abrir de volta. RODADO. */
+  var iG = nuc.indexOf('  function gruposDaNavegacao(seletor) {');
+  var fonteG = nuc.slice(iG, nuc.indexOf('\n  }', iG) + 4);
+  ok(fonteG.length > 300 && fonteG.indexOf('data.fechado') < 0 &&
+     fonteG.indexOf('dataset.fechado') > 0,
+    'a conferência recortou a regra do título de grupo', fonteG.length);
+
+  function tituloSomeQuando(itens) {
+    var titulos = {};
+    var falso = {
+      querySelector: function () { return alvo; },
+      querySelectorAll: function (sel) {
+        return sel.indexOf('.nav-grupo') >= 0 ? listaTitulos : listaItens;
+      }
+    };
+    var listaItens = itens.map(function (x) {
+      return { dataset: { grupo: 'G', fechado: x.fechado }, style: { display: x.inline } };
+    });
+    var listaTitulos = [{ dataset: { grupo: 'G' }, style: titulos }];
+    var alvo = falso;
+    var fn = new Function('document', 'getComputedStyle',
+      fonteG + '\nreturn gruposDaNavegacao;')(
+        { querySelector: function () { return falso; } },
+        function (b) { return { display: b.style.display === 'none' ? 'none' : 'flex' }; });
+    fn('#abas');
+    return titulos.display === 'none';
+  }
+
+  ok(tituloSomeQuando([{ inline: 'none', fechado: undefined }]) === true,
+    'o título de um grupo sem nenhum item permitido SOME — cabeçalho anunciando uma ' +
+    'seção vazia é a forma mais crua de mentir sobre o que a pessoa pode fazer');
+  ok(tituloSomeQuando([{ inline: '', fechado: '1' }]) === false,
+    'e o título de um grupo RECOLHIDO fica — sumindo, ele levaria junto o único jeito ' +
+    'de abrir o grupo de volta, e a pessoa perderia as páginas para sempre');
+  ok(tituloSomeQuando([{ inline: 'none', fechado: '1' }]) === true,
+    'mas recolher não ressuscita o cabeçalho de uma seção que esta pessoa não tem: ' +
+    'recolhido E sem permissão continua sumindo');
+
+  /* ---- O ESTADO E DE QUEM OLHA, E SOBREVIVE AO RECARREGAR ---- */
+  ok(nuc.indexOf("var CHAVE_GRUPOS = 'qdc_grupos_v1';") > 0 &&
+     nuc.indexOf('localStorage.setItem(CHAVE_GRUPOS') > 0,
+    'o que está recolhido fica guardado no aparelho de quem olha, como a ordem das ' +
+    'colunas e a lateral — duas pessoas do mesmo cargo arrumam a tela de jeitos ' +
+    'diferentes, e guardar isso no cadastro seria uma escolher pela outra');
+  /* RODADO, com o armazenamento ESTOURANDO. A primeira versao desta prova procurava o
+     texto `catch (e) { return []; }` no arquivo inteiro — e havia um igual na fila
+     offline, trinta linhas do topo. A sabotagem tirou o desta funcao e a prova continuou
+     verde, satisfeita com o `catch` de outra. Prova que se contenta com um homonimo nao
+     prova nada. */
+  var iF = nuc.indexOf('  function gruposFechados() {');
+  var fonteF = nuc.slice(iF, nuc.indexOf('\n  }', iF) + 4);
+  ok(fonteF.length > 100 && fonteF.indexOf('catch') > 0,
+    'a conferência recortou a leitura do que está recolhido', fonteF.length);
+  /* `CHAVE_GRUPOS` VAI JUNTO no escopo. Sem ela a funcao estoura por ReferenceError e
+     cai no proprio `catch` — devolvendo `[]` pelo motivo errado, e fazendo a prova do
+     armazenamento bloqueado passar sem nunca ter chegado no `localStorage`. */
+  var lerFechados = new Function('localStorage', 'CHAVE_GRUPOS',
+    fonteF + '\nreturn gruposFechados;');
+  var explode = { getItem: function () { throw new Error('bloqueado'); } };
+  var respondeu;
+  try { respondeu = lerFechados(explode, 'k')(); } catch (e) { respondeu = 'ESTOUROU'; }
+  ok(Array.isArray(respondeu) && respondeu.length === 0,
+    'um armazenamento bloqueado — navegador anônimo, cookies recusados — devolve ' +
+    '"nenhum recolhido" em vez de derrubar o menu: é o modo de falhar certo para uma ' +
+    'preferência, e derrubando ela levaria junto a navegação inteira', respondeu);
+  ok(JSON.stringify(lerFechados({ getItem: function () { return '"nao e lista"'; } }, 'k')()) === '[]',
+    'e um valor guardado que não seja lista também não derruba nada — o armazenamento ' +
+    'é do navegador, e o que está lá não é promessa de ninguém');
+  ok(JSON.stringify(lerFechados({ getItem: function () { return '["Dados"]'; } }, 'k')()) === '["Dados"]',
+    'e o que foi guardado de verdade volta');
+
+  /* ---- NO TRILHO O RECOLHIDO NAO VALE ---- */
+  ok(css.indexOf('nav.abas button[data-pagina][data-fechado="1"]{display:flex}') > 0,
+    'no trilho os ícones voltam — lá o título é um risco de 1px, sem palavra nenhuma, ' +
+    'e um grupo fechado viraria um pedaço de coluna vazio sem nada dizendo como abrir');
+
+  /* ---- E O CLIQUE NO TITULO NAO FECHA A LATERAL ---- */
+  var iR = nuc.indexOf('  function gruposRecolhiveis(seletor) {');
+  var fonteR = nuc.slice(iR, nuc.indexOf('\n  }\n', iR) + 4);
+  ok(fonteR.indexOf('e.stopPropagation()') > 0,
+    'e o clique no título não chega na lateral — ela também ouve clique para reabrir ' +
+    'quando está recolhida, e sem isto recolher um grupo abriria o menu junto');
+
+  /* ---- OS TRES TITULOS EXISTEM COMO BOTAO ---- */
+  var comoBotao = (adm.match(/<button type="button" class="nav-grupo"/g) || []).length;
+  ok(comoBotao === 3,
+    'os três módulos — Operação, Dados e Sistema — recolhem separadamente, que é o ' +
+    'que tira a barra de rolagem de quem usa duas páginas de quinze', comoBotao);
+  ok(adm.indexOf("Q.gruposRecolhiveis('#abas');") > adm.indexOf("Q.abas('#abas');"),
+    'e isso é ligado DEPOIS do menu: os dois mexem nos mesmos botões');
+
+  /* ---- A MARCA NO RODAPE ---- */
+  ok(adm.indexOf('class="conta__marca"') > 0 &&
+     adm.indexOf('<span class="conta__marca" aria-hidden="true">') > 0,
+    'a marca aparece no rodapé da lateral, e sem voz para quem usa leitor de tela — o ' +
+    'nome do sistema já foi dito no alto, e ouvi-lo de novo entre o nome da pessoa e o ' +
+    'botão de sair só atrasa quem está indo embora');
+  ok(css.indexOf('.conta__marca{display:inline-flex') > 0 &&
+     css.indexOf('margin-right:auto') > 0,
+    'e é ela que empurra os botões para a borda, ocupando o vão que sobrava à esquerda');
+  ok(css.indexOf('.shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta__marca{') > 0,
+    'no trilho ela sai — em 52px já disputam o retrato e o botão de sair, e a marca já ' +
+    'está no alto da lateral');
 })();
 
 console.log('\n== o piso ES5 das telas que vao para o ar ==');
@@ -12504,7 +12647,7 @@ console.log('\n== os dois tutoriais separados ==');
   ['pgInstrucoes', 'pgTutorialSaida', 'pgTutorialRetorno'].forEach(function (pg) {
     var i = nav.indexOf('data-pagina="' + pg + '"');
     var antes = nav.slice(0, i);
-    var grupo = (antes.match(/data-grupo="([^"]+)"[^>]*>[^<]*<\/div>/g) || []).pop() || '';
+    var grupo = (antes.match(/class="nav-grupo"[^>]*data-grupo="([^"]+)"/g) || []).pop() || '';
     ok(i > 0 && /data-grupo="Opera\u00e7\u00e3o"/.test(grupo),
       pg + ' aparece sob OPERAÇÃO — quem acabou de chegar procura "como eu faço" no ' +
       'grupo onde encontrou as telas de lançar, e não num grupo de configuração', grupo);

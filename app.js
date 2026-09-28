@@ -1314,7 +1314,13 @@
   }
 
   function abas(seletor) {
-    document.querySelectorAll(seletor + ' button').forEach(function (b) {
+    /* `button[data-pagina]`, e nao `button`. O titulo de modulo virou um BOTAO — e sem
+       este recorte ele ganharia o mesmo tratador: apagar `.ativa` de todas as paginas e
+       procurar a pagina `undefined`, que nao existe. O efeito seria a tela ficar em
+       BRANCO ao clicar num titulo, sem erro nenhum no console.
+       E vale para qualquer botao que nasca aqui depois — um "ver mais", um atalho:
+       quem troca de pagina e quem DIZ qual pagina e. */
+    document.querySelectorAll(seletor + ' button[data-pagina]').forEach(function (b) {
       b.addEventListener('click', function () {
         document.querySelectorAll(seletor + ' button').forEach(function (x) { x.classList.remove('ativa'); });
         b.classList.add('ativa');
@@ -1901,11 +1907,75 @@
     var nav = document.querySelector(seletor || '#abas');
     if (!nav) return;
     var vivos = {};
-    nav.querySelectorAll('button[data-grupo]').forEach(function (b) {
-      if (getComputedStyle(b).display !== 'none') vivos[b.dataset.grupo] = true;
+    nav.querySelectorAll('button[data-pagina][data-grupo]').forEach(function (b) {
+      /* RECOLHIDO NAO E ESCONDIDO, e a diferenca decide se o titulo continua na tela.
+         Quem esconde por PERMISSAO e o `style.display` que `ajustarAbasPainel` escreve;
+         quem recolhe e o `data-fechado`, que e escolha de quem olha. Lidos juntos pelo
+         `getComputedStyle`, um grupo recolhido pareceria um grupo vazio — e o titulo
+         sumiria levando consigo o unico jeito de abrir de volta. */
+      var vivo = b.dataset.fechado === '1'
+        ? b.style.display !== 'none'
+        : getComputedStyle(b).display !== 'none';
+      if (vivo) vivos[b.dataset.grupo] = true;
     });
     nav.querySelectorAll('.nav-grupo').forEach(function (t) {
       t.style.display = vivos[t.dataset.grupo] ? '' : 'none';
+    });
+  }
+
+  /* ---------------- OS GRUPOS DA NAVEGACAO RECOLHEM ----------------
+   *
+   * Com quinze paginas a lista passou a nascer com barra de rolagem, e quem usa duas
+   * delas rolava por treze. Recolhido, o grupo vira uma linha.
+   *
+   * O ESTADO E DE QUEM OLHA, e mora no aparelho — como a ordem das colunas e a lateral
+   * recolhida. Nao e permissao: duas pessoas com o mesmo cargo arrumam a tela de jeitos
+   * diferentes, e guardar isso no cadastro seria uma escolher pela outra.
+   *
+   * RECOLHER NAO ESCONDE POR PERMISSAO, e por isso ele usa um interruptor SEPARADO: o
+   * `data-fechado` daqui e o `style.display` de `ajustarAbasPainel` sao duas perguntas
+   * diferentes sobre o mesmo item — "voce quer ver?" e "voce pode ver?". Num interruptor
+   * so, abrir um grupo devolveria a quem nao pode uma pagina que ele nao tem.
+   */
+  var CHAVE_GRUPOS = 'qdc_grupos_v1';
+
+  function gruposFechados() {
+    try {
+      var cru = JSON.parse(localStorage.getItem(CHAVE_GRUPOS) || '[]');
+      return Array.isArray(cru) ? cru : [];
+    } catch (e) { return []; }
+  }
+
+  function gruposRecolhiveis(seletor) {
+    var nav = document.querySelector(seletor || '#abas');
+    if (!nav) return;
+    var fechados = gruposFechados();
+
+    function pintar(titulo, fechado) {
+      var nome = titulo.dataset.grupo;
+      titulo.setAttribute('aria-expanded', fechado ? 'false' : 'true');
+      titulo.title = (fechado ? 'Abrir' : 'Recolher') + ' ' + nome;
+      nav.querySelectorAll('button[data-pagina][data-grupo="' + nome + '"]')
+        .forEach(function (b) {
+          if (fechado) b.dataset.fechado = '1';
+          else delete b.dataset.fechado;
+        });
+      /* O TITULO DE UM GRUPO VAZIO CONTINUA SUMINDO: recolher nao pode ressuscitar o
+         cabecalho de uma secao que esta pessoa nao tem. */
+      gruposDaNavegacao(seletor);
+    }
+
+    nav.querySelectorAll('.nav-grupo[data-grupo]').forEach(function (titulo) {
+      pintar(titulo, fechados.indexOf(titulo.dataset.grupo) >= 0);
+      titulo.addEventListener('click', function (e) {
+        e.stopPropagation();   // a lateral recolhida tambem ouve clique
+        var nome = titulo.dataset.grupo;
+        var agora = gruposFechados();
+        var i = agora.indexOf(nome);
+        if (i >= 0) agora.splice(i, 1); else agora.push(nome);
+        try { localStorage.setItem(CHAVE_GRUPOS, JSON.stringify(agora)); } catch (er) {}
+        pintar(titulo, i < 0);
+      });
     });
   }
 
@@ -2257,7 +2327,7 @@
     definirPerfisDeclaracao: definirPerfisDeclaracao,
     podeMexerEmDeclaracao: podeMexerEmDeclaracao,
     agruparLancamentos: agruparLancamentos, chaveDoLote: chaveDoLote,
-    gruposDaNavegacao: gruposDaNavegacao,
+    gruposDaNavegacao: gruposDaNavegacao, gruposRecolhiveis: gruposRecolhiveis,
     quemEsta: quemEsta, iniciais: iniciais, pintarCirculo: pintarCirculo,
     olhoDeSenha: olhoDeSenha, olhosDeSenha: olhosDeSenha,
     barraAging: barraAging, assinatura: assinatura,
