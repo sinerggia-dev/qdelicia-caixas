@@ -1613,8 +1613,13 @@
 
     // o resumo do que esta na tela, e nao do periodo inteiro: o rodape tem de concordar
     // com a lista que esta logo abaixo dele
-    var saiu = 0, voltou = 0;
+    /* A DECLARAÇÃO FICA DE FORA DA CONTA, e aparece na lista. Ela não é caixa que se
+       moveu — é o que a pessoa informou que trazia —, e somada aqui faria "caixas que
+       saíram" contar duas vezes a mesma carga para quem lança nos dois livros. O
+       rodapé diz quantas são, senão a lista teria linhas que nenhum número explica. */
+    var saiu = 0, voltou = 0, declarou = 0, nDecl = 0;
     lista.forEach(function(m){
+      if (m.declaracao){ declarou += Number(m.qtd) || 0; nDecl++; return; }
       if (m.tipo === 'DEVOLUCAO') voltou += Number(m.qtd) || 0;
       else saiu += Number(m.qtd) || 0;
     });
@@ -1627,7 +1632,9 @@
       tileLanc(Q.num(saiu), 'caixas que saíram',
         remessas + (remessas === 1 ? ' lançamento no filtro' : ' lançamentos no filtro'), 'aviso')+
       tileLanc(Q.num(voltou), 'caixas que voltaram', 'retornos do período', 'ok')+
-      tileLanc(Q.num(saiu + voltou), 'total de caixas', 'saídas mais retornos', '');
+      tileLanc(Q.num(saiu + voltou), 'total de caixas',
+        nDecl ? Q.num(declarou) + ' declarados, fora da conta' : 'saídas mais retornos',
+        '');
 
     // o contador de cada filtro: quantos estao marcados, sem precisar abrir
     ['lcFUsuario','lcFMotorista','lcFOrigem','lcFDestino'].forEach(function(id){
@@ -2152,7 +2159,11 @@
        linhas do servidor vem antes, entao filtrar aqui mostraria so os lancamentos dela
        que coubessem nas primeiras 2.000 — e os cartoes de cima somariam o que a tabela
        nao mostra. */
-    Q.get(Q.lendo({ acao:'movimentos', de:de, ate:ate, teste:'todos', limit:2000,
+    /* A PORTA PRÓPRIA, e não a de Movimentos: aquela deixou de devolver declaração
+       para qualquer um, e com ela quem declara não via mais o que tinha mandado — nem
+       para conferir, nem para corrigir. Esta traz as declarações DE QUEM PERGUNTA, e
+       só as dela. */
+    Q.get(Q.lendo({ acao:'meusLancamentos', de:de, ate:ate, teste:'todos', limit:2000,
             })).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       /* Ajuste e perda ficam de fora: nao sao viagem de caixa, e sim correcao de saldo

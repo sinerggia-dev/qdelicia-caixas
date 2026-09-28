@@ -160,6 +160,22 @@ async function rotaGet(p) {
         L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)), L.acharUsuario(d.usuarios, p.quem)));
       return { ok: true, movimentos: L.listaMovimentos(mov.movimentos, d.locais, d.tipos,
                  d.usuarios, p) };
+    /* OS LANCAMENTOS DE QUEM ESTA PERGUNTANDO — a lista do app de campo.
+       E uma rota propria e nao um parametro de `movimentos`: por parametro, quem
+       chamasse a de Movimentos pedindo "com as minhas" teria trazido declaracao para
+       dentro daquela tela, que e de onde ela foi tirada. Aqui a excecao e do DONO, pelo
+       id de quem lancou — a declaracao de outra pessoa nao passa por esta porta. */
+    case 'meusLancamentos':
+      /* AS DUAS PENEIRAS NAO SE EMPILHAM AQUI, e a ordem era o erro: `recorteDeclaracao`
+         tira TODA declaracao de quem nao tem a aba — inclusive a que a propria pessoa
+         mandou —, entao a excecao do dono nunca chegava a ser consultada. Quem tem a
+         aba ja podia ver; quem nao tem ve so a propria. */
+      var baseMeus = L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem));
+      var dMeus = L.veDeclaracao(L.acharUsuario(d.usuarios, p.quem))
+        ? baseMeus
+        : L.semDeclaracao(baseMeus, p.quem);
+      return { ok: true, movimentos: L.listaMovimentos(dMeus.movimentos, d.locais,
+                 d.tipos, d.usuarios, p) };
     /* A PORTA UNICA DA DECLARACAO — a tela Motorista/Conferente, e nada mais.
        Ela traz os DOIS lados do par: a declaracao do motorista e a contagem do
        conferente, que vivem em livros diferentes. Pedindo so o livro de declaracao,

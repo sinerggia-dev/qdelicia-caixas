@@ -11797,6 +11797,44 @@ console.log('\n== o painel de filtro abre por cima ==');
     'ligado pela MESMA função das duas telas');
 })();
 
+console.log('\n== o app de campo e a propria declaracao ==');
+(function () {
+  var app = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  /* A PORTA PRÓPRIA. A de Movimentos deixou de devolver declaração para qualquer um, e
+     com ela quem declara não via mais o que tinha mandado — nem para conferir, nem para
+     corrigir. Foi assim que a lista do app ficou vazia para o motorista. */
+  var iCar = app.indexOf('  function carregarLanc(){');
+  var car = app.slice(iCar, app.indexOf('\n  }', iCar) + 4);
+  ok(car.indexOf("acao:'meusLancamentos'") > 0 && car.indexOf("acao:'movimentos'") < 0,
+    'a lista do app de campo pede pela porta PRÓPRIA, e não pela de Movimentos — ' +
+    'aquela não devolve declaração para ninguém, e o motorista deixaria de ver o que ' +
+    'ele mesmo mandou', car.indexOf('meusLancamentos') > 0);
+
+  /* A DECLARAÇÃO FICA FORA DA CONTA, e aparece na lista. Rodado: lido, bastaria a
+     palavra `declaracao` estar ali para a prova passar, inclusive num `if` que soma. */
+  var iSoma = app.indexOf('    var saiu = 0, voltou = 0');
+  var soma = app.slice(iSoma, app.indexOf('    });', iSoma) + 7);
+  ok(soma.length > 150 && soma.indexOf('declarou') > 0,
+    'a conferência recortou a conta do rodapé — recorte vazio faria as provas abaixo ' +
+    'passarem sem somar nada', soma.length);
+  var conta = new Function('lista',
+    soma + '\nreturn { saiu: saiu, voltou: voltou, declarou: declarou, nDecl: nDecl };')([
+      { tipo: 'SAIDA',     qtd: 100, declaracao: false },
+      { tipo: 'DEVOLUCAO', qtd: 250, declaracao: false },
+      { tipo: 'DEVOLUCAO', qtd: 999, declaracao: true }
+    ]);
+  ok(conta.saiu === 100 && conta.voltou === 250,
+    'a declaração NÃO entra em "caixas que saíram" nem em "caixas que voltaram" — ela ' +
+    'não é caixa que se moveu, e somada aqui contaria duas vezes a mesma carga para ' +
+    'quem lança nos dois livros', [conta.saiu, conta.voltou]);
+  ok(conta.declarou === 999 && conta.nDecl === 1,
+    'mas é contada à parte, e o rodapé diz quanto — fora da conta e sem aviso, a lista ' +
+    'teria linhas que nenhum número explica', [conta.declarou, conta.nDecl]);
+  ok(app.indexOf("' declarados, fora da conta'") > 0,
+    'e o rodapé diz isso com todas as letras');
+})();
+
 console.log('\n== os dois tutoriais separados ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

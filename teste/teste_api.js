@@ -3656,6 +3656,55 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'dá um número plausível, que é a pior espécie de número errado',
     mundoEnsaio.filter((m) => m.teste !== true).length);
 
+  /* ---- QUEM DECLAROU VE A PROPRIA DECLARACAO ----
+   *
+   * A contagem cega protege o CONFERENTE de ler o numero do motorista antes de contar.
+   * Ela nao protege o motorista de si mesmo: sem esta excecao, quem digitou 450 no
+   * lugar de 540 nao tinha onde ver o erro — a lista do app de campo saia vazia para
+   * ele, e nem dava para saber que o lancamento existia.
+   *
+   * PELO ID DE QUEM LANCOU, e nunca pelo perfil: "motoristas veem declaracoes" daria a
+   * um motorista a declaracao de OUTRO, e ai a cega seria so a do conferente. */
+  const meus = async (quem) => (await GET({ acao: 'meusLancamentos', quem: quem,
+    limit: 500, teste: 'todos' })).movimentos || [];
+
+  const doDeclarante = (await meus(declarante.ID)).filter((m) => m.declaracao === true);
+  ok(doDeclarante.length > 0,
+    'quem declarou VÊ a própria declaração na lista do app de campo — sem isso, quem ' +
+    'digitou o número errado não tem nem onde olhar, muito menos onde corrigir',
+    doDeclarante.length);
+
+  ok((await GET({ acao: 'movimentos', quem: declarante.ID, limit: 500, teste: 'todos' }))
+       .movimentos.filter((m) => m.declaracao === true).length === 0,
+    'e a rota de Movimentos continua sem devolver declaração nenhuma, nem para quem a ' +
+    'lançou — a exceção é da porta do app de campo, e não um afrouxamento daquela');
+
+  const deOutro = (await meus(cego.ID)).filter((m) => m.declaracao === true);
+  ok(deOutro.length === 0,
+    'e a declaração de OUTRA pessoa não passa por essa porta — fosse pelo perfil, um ' +
+    'motorista leria o que o outro declarou, e a contagem cega valeria só para o ' +
+    'conferente', deOutro.length);
+
+  /* A REGRA RODADA, nos dois sentidos. Lida no arquivo, a prova responderia "a palavra
+     dono esta ali?" — e estaria, inclusive num `if` invertido. */
+  const Ld = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  const linhas = { movimentos: [
+    { ID: 'x', Declaracao: true,  UsuarioID: 'U9', Perfil: 'Motorista' },
+    { ID: 'y', Declaracao: true,  UsuarioID: 'U8', Perfil: 'Motorista' },
+    { ID: 'z', Declaracao: false, UsuarioID: 'U8', Perfil: 'Conferente' }
+  ] };
+  const quaisIds = (r) => r.movimentos.map((m) => m.ID).join('');
+  ok(quaisIds(Ld.semDeclaracao(linhas)) === 'z',
+    'sem dono, NENHUMA declaração passa — é assim que a rota de Movimentos a chama, e ' +
+    'é o que faz a contagem cega não depender de ninguém lembrar de nada',
+    quaisIds(Ld.semDeclaracao(linhas)));
+  ok(quaisIds(Ld.semDeclaracao(linhas, 'U8')) === 'yz',
+    'com dono, passa a DELE e mais nenhuma', quaisIds(Ld.semDeclaracao(linhas, 'U8')));
+  ok(quaisIds(Ld.semDeclaracao(linhas, '')) === 'z' &&
+     quaisIds(Ld.semDeclaracao(linhas, '   ')) === 'z',
+    'e dono vazio não vira "todas": um pedido sem quem seria a porta mais fácil de ' +
+    'todas', quaisIds(Ld.semDeclaracao(linhas, '')));
+
   /* ---- A TRANCA DE QUEM MEXE NUMA DECLARACAO ----
    *
    * VER e ALTERAR sao duas permissoes, e ate aqui havia uma so. Quem tinha a aba via a

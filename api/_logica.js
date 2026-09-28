@@ -583,11 +583,20 @@ function veDeclaracao(u) {
  * escolhesse base nenhuma continuaria trazendo tudo — e e esse o pedido que a tela faz
  * ao abrir. Sem opcao nenhuma, nao ha pedido que a traga: a contagem cega deixa de
  * depender de alguem lembrar de marcar. */
-function semDeclaracao(dados) {
+/* `dono` E A UNICA EXCECAO, e ela nao afrouxa nada: e a propria pessoa vendo o que ELA
+ * mandou. A contagem cega protege o CONFERENTE de ler o numero do motorista antes de
+ * contar — nao protege o motorista de si mesmo. Sem esta excecao, quem digitou 450 no
+ * lugar de 540 nao tinha onde ver o erro, muito menos onde conserta-lo.
+ * PELO ID DE QUEM LANCOU, e nunca pelo perfil: "motoristas veem declaracoes" daria a um
+ * motorista a declaracao de outro, e ai a cega seria so a do conferente.
+ * A rota de Movimentos chama SEM dono, e continua sem excecao nenhuma. */
+function semDeclaracao(dados, dono) {
+  var eu = String(dono == null ? '' : dono).trim();
   var copia = {};
   Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
   copia.movimentos = (dados.movimentos || []).filter(function (m) {
-    return !ehDeclaracao(m);
+    if (!ehDeclaracao(m)) return true;
+    return !!eu && String(m.UsuarioID) === eu;
   });
   return copia;
 }
