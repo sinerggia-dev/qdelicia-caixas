@@ -11630,6 +11630,7 @@ console.log('\n== Motorista/Conferente ==');
     [!!achar('M1'), !!achar('M2')]);
 
   /* ---- A FICHA DO CELULAR, e o corte que ela usa ---- */
+  var app = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   var iDes = adm.indexOf('  function desenharDecl(){');
   var corpoDes = adm.slice(iDes, adm.indexOf('  function larguras(', iDes) > 0
     ? adm.indexOf('\n  }', adm.indexOf('ligarAcoesDecl(box);', iDes)) : iDes + 6000);
@@ -11641,38 +11642,73 @@ console.log('\n== Motorista/Conferente ==');
     'e girar o aparelho a redesenha do que já está na memória — desenhada só na ' +
     'abertura, ela ficaria com a forma da largura de quando abriu');
 
-  /* ---- A LISTA DE PERFIS VEM DO SERVIDOR ---- */
-  /* ---- A LISTA DE PERFIS CHEGA MESMO ----
-     A primeira versao desta prova perguntava se o texto `DADOS.perfisDeclaracao` estava
-     no arquivo. Estava — e a lista do servidor nunca chegava, porque `DADOS` vem de uma
-     rota e aquele campo vinha de outra. A tela caia no reforco escrito nela e ninguem
-     via, porque os dois diziam a mesma coisa. Endereco conferido, efeito nenhum.
-     AGORA A CADEIA INTEIRA RODA: a resposta do cadastro entra, e a pergunta sai. */
-  var iResp = adm.indexOf('EQUIPE_CHEGOU = true;');
-  var linhaResp = adm.slice(adm.lastIndexOf('if (r && r.ok){', iResp),
-                            adm.indexOf('}', iResp) + 1);
-  var iPode = adm.indexOf('  function podeMexerNaDeclaracao(){');
-  var fontePode = adm.slice(iPode, adm.indexOf('\n  }', iPode) + 4);
-  function perguntar(resposta, perfil) {
-    return new Function('r', 'Q', 'montarStatusMov',
-      'var EQUIPE, MOTORISTAS, VEICULOS, LOCAIS_PADRAO, PEDIDOS_SENHA, PERFIS,' +
-      ' PERFIS_DECL = [], OPERACOES_APP, ABAS_PAINEL, SITUACOES, EQUIPE_CHEGOU;' +
-      linhaResp + fontePode + '\nreturn podeMexerNaDeclaracao();')(
-        resposta, { sessao: function () { return { perfil: perfil }; } },
-        function () {});
+  /* ---- A REGRA DE QUEM MEXE NUMA DECLARACAO, RODADA ----
+   *
+   * Ela vive no NUCLEO, e as duas telas delegam. Escrita nas duas, divergiria no
+   * primeiro ajuste que so uma recebesse — e a que divergisse ofereceria o conserto que
+   * a rota recusa, que e a pessoa descobrir que nao pode DEPOIS de escrever o motivo.
+   *
+   * A VERSAO ANTERIOR DESTA PROVA perguntava se o texto `DADOS.perfisDeclaracao` estava
+   * no arquivo. Estava — e a lista do servidor nunca chegava, porque `DADOS` vem de uma
+   * rota e aquele campo vinha de outra. Endereco conferido, efeito nenhum. */
+  var nuc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var iReg = nuc.indexOf('  var PERFIS_DECL = [];');
+  var fimReg = nuc.indexOf('  /** O conserto sai de graça');
+  var fonteReg = iReg < 0 || fimReg < 0 ? '' : nuc.slice(iReg, fimReg);
+  ok(fonteReg.length > 400 && fonteReg.indexOf('podeCorrigir') > 0,
+    'a conferência recortou a regra do núcleo — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', fonteReg.length);
+
+  function regraCom(lista) {
+    return new Function(fonteReg +
+      '\nreturn { definir: definirPerfisDeclaracao, pode: podeMexerEmDeclaracao,' +
+      ' corrigir: podeCorrigir };')();
   }
-  ok(perguntar({ ok: true, perfisDeclaracao: ['DIRETOR'] }, 'Diretor') === true,
-    'a lista de perfis que podem alterar CHEGA do servidor — a resposta do cadastro ' +
-    'entra e a pergunta passa a responder por ela, e não pelo reforço escrito na tela',
-    true);
-  ok(perguntar({ ok: true, perfisDeclaracao: ['DIRETOR'] }, 'Gestor') === false,
-    'e quem não está na lista do servidor é recusado, mesmo estando no reforço escrito ' +
-    'aqui — duas listas iguais hoje são duas listas diferentes no primeiro nome novo');
-  ok(perguntar({ ok: true }, 'Gestor') === true,
-    'e sem a lista — servidor antigo, resposta velha em cache — o reforço segura, em ' +
-    'vez de fechar a tela para todo mundo');
-  ok(api.indexOf('perfisDeclaracao: L.PERFIS_DECLARACAO') > 0,
-    'e ela sai da MESMA lista que a rota usa para recusar');
+  var R = regraCom();
+  ok(R.pode({ perfil: 'Gestor' }) === true && R.pode({ perfil: 'Conferente' }) === false,
+    'sem lista do servidor — resposta velha em cache — o reforço escrito no núcleo ' +
+    'segura, em vez de fechar a tela para todo mundo',
+    [R.pode({ perfil: 'Gestor' }), R.pode({ perfil: 'Conferente' })]);
+  R.definir(['DIRETOR']);
+  ok(R.pode({ perfil: 'Diretor' }) === true && R.pode({ perfil: 'Gestor' }) === false,
+    'e com a lista do servidor é ELA que responde, e não o reforço — duas listas iguais ' +
+    'hoje são duas listas diferentes no primeiro nome novo',
+    [R.pode({ perfil: 'Diretor' }), R.pode({ perfil: 'Gestor' })]);
+  var R2 = regraCom();
+  R2.definir([]);
+  ok(R2.pode({ perfil: 'Gestor' }) === true,
+    'e uma lista VAZIA não apaga o reforço: um servidor que responda sem o campo ' +
+    'deixaria o escritório sem conserto nenhum até a próxima ida de rede');
+
+  /* O CONSERTO DE UM LANCAMENTO COMUM NAO ENTRA NESTA REGRA — ela e da declaracao.
+     Estendida a tudo, tiraria do conferente o conserto do proprio engano. */
+  var R3 = regraCom();
+  ok(R3.corrigir({ perfil: 'Conferente' }, { declaracao: false }) === true,
+    'o conserto de um lançamento COMUM continua aberto a quem tem sessão — a regra é ' +
+    'da declaração, e estendida a tudo tiraria do conferente o conserto do próprio ' +
+    'engano dez minutos depois de cometê-lo');
+  ok(R3.corrigir({ perfil: 'Conferente' }, { declaracao: true }) === false &&
+     R3.corrigir({ perfil: 'Motorista' }, { declaracao: true }) === false,
+    'e a tela NÃO oferece corrigir numa declaração a quem a rota vai recusar — ' +
+    'oferecido, o motorista escreveria o motivo para levar a recusa depois',
+    R3.corrigir({ perfil: 'Motorista' }, { declaracao: true }));
+  ok(R3.corrigir({ perfil: 'Gerente' }, { declaracao: true }) === true,
+    'e oferece a quem pode');
+  ok(R3.corrigir(null, { declaracao: false }) === false &&
+     R3.corrigir({ perfil: 'Admin' }, null) === false,
+    'e sem sessão ou sem lançamento não oferece nada — sem sessão não há quem assine a ' +
+    'correção, e o histórico ficaria com um autor vazio');
+
+  /* AS DUAS TELAS DELEGAM, e nenhuma escreve a regra de novo. */
+  ok(adm.indexOf('return Q.podeMexerEmDeclaracao(Q.sessao());') > 0,
+    'o painel delega a pergunta ao núcleo, em vez de repetir a lista');
+  ok(adm.indexOf('Q.definirPerfisDeclaracao(r.perfisDeclaracao)') > 0 &&
+     app.indexOf('Q.definirPerfisDeclaracao(r.perfisDeclaracao)') > 0,
+    'e as DUAS telas guardam a lista que o servidor mandou — a que esquecesse cairia no ' +
+    'reforço e ofereceria o que a outra recusa');
+  ok(api.indexOf("perfisDeclaracao: L.PERFIS_DECLARACAO };") > 0,
+    'e a porta do app de campo manda a lista junto do acesso — sem ela, o app desenharia ' +
+    'a lista antes de saber quem pode consertar o quê');
 
   /* ---- A TELA ESTÁ EM OPERAÇÃO, e é uma aba que se concede ---- */
   var nav = adm.slice(adm.indexOf('<nav class="abas"'), adm.indexOf('</nav>'));

@@ -1460,8 +1460,34 @@
    * Uma sessão é o único requisito: sem ela não há quem assine a correção, e o
    * histórico ficaria com um autor vazio.
    */
+  /* A LISTA DE QUEM MEXE NUMA DECLARACAO vem do SERVIDOR e pousa aqui. Escrita em cada
+     tela, ela divergiria da rota no primeiro nome novo — e a tela ofereceria o que a
+     rota recusa, que e a pessoa descobrir que nao pode DEPOIS de escrever o motivo.
+     O REFORCO EXISTE para a resposta velha em cache: sem lista nenhuma, fechar tudo
+     deixaria o escritorio sem conserto ate a proxima ida de rede. */
+  var PERFIS_DECL = [];
+
+  /* GUARDA UMA SO, e ela mora em `podeMexerEmDeclaracao`: lista vazia cai no reforco
+     la. Aqui havia um `&& lista.length` a mais, e ele nao mudava resposta nenhuma —
+     duas guardas sobre a mesma coisa, e a de cima parecendo decidir algo. */
+  function definirPerfisDeclaracao(lista) {
+    PERFIS_DECL = Array.isArray(lista) ? lista : PERFIS_DECL;
+  }
+
+  function podeMexerEmDeclaracao(s) {
+    var lista = PERFIS_DECL.length ? PERFIS_DECL : ['ADMIN', 'GESTOR', 'GERENTE'];
+    return !!s && lista.indexOf(String(s.perfil || '').toUpperCase()) >= 0;
+  }
+
   function podeCorrigir(s, m) {
-    return !!s && !!m;
+    if (!s || !m) return false;
+    /* A DECLARACAO E DE OUTRA CLASSE, e a regra e decisao de quem pediu: so Admin,
+       Gestor e Gerente. O numero dela e aquele CONTRA O QUAL a conciliacao compara —
+       mudado pela mao de quem o declarou, uma divergencia pode ser apagada.
+       A TRANCA DE VERDADE E A DA ROTA, que le o perfil do cadastro. Isto aqui e so para
+       a tela nao oferecer o que a rota vai recusar. */
+    if (m.declaracao) return podeMexerEmDeclaracao(s);
+    return true;
   }
 
   /** O conserto sai de graça, ou vai pedir a senha do escritório?
@@ -2200,6 +2226,8 @@
     aplicarAparencia: aplicarAparencia,
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,
+    definirPerfisDeclaracao: definirPerfisDeclaracao,
+    podeMexerEmDeclaracao: podeMexerEmDeclaracao,
     agruparLancamentos: agruparLancamentos, chaveDoLote: chaveDoLote,
     gruposDaNavegacao: gruposDaNavegacao,
     quemEsta: quemEsta, iniciais: iniciais, pintarCirculo: pintarCirculo,

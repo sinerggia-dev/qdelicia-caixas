@@ -1379,7 +1379,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=43f39479"></script>
+<script src="app.js?v=1dd4c9d6"></script>
 <script>
 (function(){
   'use strict';
@@ -1463,7 +1463,7 @@
 
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; VEICULOS = r.veiculos || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; PERFIS_DECL = r.perfisDeclaracao || []; OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
+      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; VEICULOS = r.veiculos || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; PERFIS_DECL = r.perfisDeclaracao || []; Q.definirPerfisDeclaracao(r.perfisDeclaracao); OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
       ordenarTudo();
       montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
@@ -6991,19 +6991,13 @@
       .filter(function(x){ return String(x.id) === String(id); })[0];
   }
 
-  /* QUEM PODE MEXER NUMA DECLARAÇÃO, na tela. A tranca de verdade é a da rota, que lê o
-     perfil do cadastro; aqui é para a pessoa não descobrir que não pode depois de
-     escrever o motivo. Os três nomes saem da MESMA lista do servidor — escritos de novo
-     aqui, um dia a tela ofereceria o que a rota recusa. */
+  /* QUEM PODE MEXER NUMA DECLARAÇÃO — a MESMA função do app de campo, no núcleo.
+     Ela morava aqui, escrita de novo, e a do app tinha de nascer igual: duas leituras da
+     mesma regra divergem no primeiro ajuste que só uma recebe, e a que divergir vai
+     oferecer o conserto que a rota recusa.
+     A tranca de verdade continua sendo a da rota, que lê o perfil do CADASTRO. */
   function podeMexerNaDeclaracao(){
-    var s = Q.sessao() || {};
-    /* DE `PERFIS_DECL`, que e onde a resposta do cadastro pousa — e nao de `DADOS`,
-       que vem de outra rota. Eu tinha escrito `DADOS.perfisDeclaracao` e a lista do
-       servidor nunca chegava: a tela caia no reforco escrito aqui e ninguem via, porque
-       os dois diziam a mesma coisa. Duas listas iguais hoje sao duas listas diferentes
-       no primeiro nome novo. */
-    var lista = PERFIS_DECL.length ? PERFIS_DECL : ['ADMIN', 'GESTOR', 'GERENTE'];
-    return lista.indexOf(String(s.perfil || '').toUpperCase()) >= 0;
+    return Q.podeMexerEmDeclaracao(Q.sessao());
   }
 
   /* O QUE RECARREGAR DEPOIS DE MEXER NUMA LINHA. A declaração não está em Movimentos:

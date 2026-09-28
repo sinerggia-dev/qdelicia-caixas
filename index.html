@@ -578,7 +578,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=43f39479"></script>
+<script src="app.js?v=1dd4c9d6"></script>
 <script>
 (function(){
   'use strict';
@@ -750,6 +750,9 @@
     if (!s || !s.id) return;
     Q.get({acao:'meuAcesso', id:s.id}).then(function(r){
       if (!r || r.ok === false) return;
+      /* ANTES DE QUALQUER DESENHO: é ela que decide se o botão "corrigir" aparece numa
+         declaração, e chegando depois a lista já teria sido desenhada sem ela. */
+      Q.definirPerfisDeclaracao(r.perfisDeclaracao);
       if (!r.usuario){
         /* Cadastro apagado ou desativado. Nao ha o que renovar, e ficar dentro so adia a
            descoberta — o proximo lancamento seria recusado sem explicacao. */

@@ -114,7 +114,10 @@ async function rotaGet(p) {
       // A sessao de UMA pessoa, relida do cadastro. E o que faz a permissao mudada valer
       // sem ela sair e entrar. Devolve estritamente menos que a `equipe`: nada de e-mail,
       // telefone, documento ou senha.
-      return { ok: true, usuario: L.meuAcesso(d.usuarios, p.id) };
+      /* A LISTA DE QUEM MEXE NUMA DECLARACAO vai junto: o app de campo precisa dela
+         para nao oferecer o conserto que a rota recusa. E a MESMA lista da recusa. */
+      return { ok: true, usuario: L.meuAcesso(d.usuarios, p.id),
+               perfisDeclaracao: L.PERFIS_DECLARACAO };
     case 'painel':
       /* Os dois recortes se somam, e nesta ordem nao importa: um estreita por ensaio, o
          outro por quem lancou. O segundo sai do CADASTRO de quem pergunta — ver
