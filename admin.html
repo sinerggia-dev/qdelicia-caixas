@@ -7887,6 +7887,9 @@
           '<button class="opcao" type="button" data-editar-user="'+Q.esc(u.ID)+'">'+
             '<span>Editar cadastro<small>nome, perfil, e-mail, senha, local padrão</small>'+
             '</span></button>'+
+          '<button class="opcao" type="button" data-copiar-user="'+Q.esc(u.ID)+'">'+
+            '<span>Cadastrar outro igual a este<small>vêm as permissões; o nome, o '+
+            'usuário e a senha são da pessoa nova</small></span></button>'+
           '<button class="opcao" type="button" data-ativar="'+Q.esc(u.ID)+'" '+
             'data-para="'+(on ? 'NAO' : 'SIM')+'">'+
             '<span>'+(on ? 'Desativar' : 'Reativar')+' usuário<small>'+
@@ -7946,6 +7949,14 @@
     });
     document.querySelectorAll('[data-editar-user]').forEach(function(b){
       b.addEventListener('click', function(){ formUsuario(EQUIPE.filter(function(u){return String(u.ID)===b.dataset.editarUser;})[0]); });
+    });
+    /* COPIAR ABRE O MESMO FORMULARIO, e nao um segundo parecido com ele: duas telas
+       sobre o mesmo cadastro divergem no primeiro campo que so uma receber. */
+    document.querySelectorAll('[data-copiar-user]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var molde = EQUIPE.filter(function(u){ return String(u.ID)===b.dataset.copiarUser; })[0];
+        if (molde) formUsuario(copiaDe(molde));
+      });
     });
   }
 
@@ -8723,6 +8734,7 @@
             Q.esc(u.ID)+'"></td>'+
           cs.map(function(c){ return '<td>'+c.d.v(u)+'</td>'; }).join('')+
           '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
+              '<button class="mini" data-copiar-user="'+u.ID+'">copiar</button> '+
               '<button class="mini'+(on?' perigo':'')+'" data-ativar="'+u.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
                 (on?'desativar':'ativar')+'</button> '+
               '<button class="mini perigo" data-excluir-user="'+u.ID+'">excluir</button></td></tr>';
@@ -9444,6 +9456,40 @@
       document.querySelectorAll('#'+id+' input:checked'), function(c){ return c.value; });
   }
 
+  /* ================= COPIAR UM CADASTRO =================
+   *
+   * A LINHA E ESSA: o que a pessoa PODE FAZER copia; o que a pessoa E, nao.
+   *
+   * Cadastrar dez conferentes iguais era marcar, dez vezes, as mesmas caixas de abas,
+   * operacoes, locais, tipos de caixa, motoristas, veiculos e bases — e bastava uma
+   * desmarcada para a decima pessoa ter uma permissao a menos que as outras nove, sem
+   * ninguem perceber ate ela reclamar.
+   *
+   * E UMA LISTA DO QUE SE COPIA, e nao do que NAO se copia, e a escolha tem um motivo.
+   * Escrita ao contrario, o dia em que o cadastro ganhasse um campo novo de pessoa — um
+   * RG, uma data de nascimento — ele seria copiado por padrao, e o cadastro novo
+   * nasceria com o documento de outra pessoa dentro. Silencioso e grave.
+   * Do jeito certo, o esquecimento custa uma permissao que FALTA: aparece na primeira
+   * vez que a pessoa usa, e conserta-se em dois cliques.
+   *
+   * AS BASES SAEM DA LISTA `BASES`, e nao escritas a mao: a quinta base entra na copia
+   * no dia em que nascer, sem ninguem lembrar. */
+  var COPIA_PERMISSOES = ['Perfil', 'LocalPadrao', 'Ativo', 'AcessoPainel',
+    'VerLancamentos', 'UsuariosVistos', 'Saidas', 'Destinos', 'TiposCaixa',
+    'Motoristas', 'Veiculos', 'Operacoes', 'Abas', 'Ajustes'];
+
+  function copiaDe(u){
+    var c = {};
+    COPIA_PERMISSOES.concat(BASES.map(function(b){ return b.campo; }))
+      .forEach(function(campo){
+        if (u && u[campo] !== undefined) c[campo] = u[campo];
+      });
+    /* SEM ID: e o que faz o formulario gravar uma pessoa NOVA em vez de reescrever a
+       que serviu de molde. */
+    c.copiaDe = (u && u.Nome) || '';
+    return c;
+  }
+
   function formUsuario(u){
     // O PIN nunca volta preenchido: campo em branco quer dizer "mantenha o que está lá".
     u = u || {};
@@ -9478,6 +9524,15 @@
 
     modal('<h2>'+(u.ID?'Editar':'Novo')+' usuário</h2>'+
       avisoItemNovo(u.ID, 'esta pessoa', 'Usuários → cada colega que precisa vê-la')+
+      /* O QUE VEIO E O QUE NAO VEIO, dito na abertura. Sem isto, o formulario abre com
+         dezenas de caixas ja marcadas e sem dizer de onde elas saíram — e quem nao
+         percebeu que estava copiando salva o molde de novo achando que editou. */
+      (u.copiaDe
+        ? '<div class="aviso-trava">Copiando de <b>'+Q.esc(u.copiaDe)+'</b>: perfil, '+
+          'abas, operações, locais, caixas, motoristas, veículos e bases vieram junto. '+
+          '<b>Nome, usuário, senha, e-mail, telefone e foto não</b> — são desta pessoa, '+
+          'e é isso que falta preencher.</div>'
+        : '')+
       /* A FOTO FICA NO ALTO, junto do nome: as duas respondem "quem é esta pessoa", e
          é o retrato que a lista vai mostrar no lugar das iniciais.
 

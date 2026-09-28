@@ -11848,6 +11848,109 @@ console.log('\n== o painel de filtro abre por cima ==');
     'ligado pela MESMA função das duas telas');
 })();
 
+console.log('\n== copiar um cadastro ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var L = require(path.join(__dirname, '..', 'api', '_logica.js'));
+
+  /* ---- A REGRA, RODADA ----
+     Lida no arquivo, a prova responderia "a palavra Perfil esta na lista?" — e estaria,
+     inclusive numa lista que copia tambem o CPF. O que decide e o objeto que sai. */
+  var iC = adm.indexOf('  var COPIA_PERMISSOES = [');
+  var fonte = iC < 0 ? '' : adm.slice(iC, adm.indexOf('\n  function formUsuario(u){', iC));
+  ok(fonte.length > 300 && fonte.indexOf('function copiaDe') > 0,
+    'a conferência recortou a regra da cópia — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', fonte.length);
+  var copiaDe = new Function('BASES', fonte + '\nreturn copiaDe;')(L.BASES);
+
+  var molde = {
+    ID: 'U007', Nome: 'Melkezedeque Soares', Usuario: 'melke',
+    Email: 'melke@empresa.com', Telefone: '81999990000', Foto: 'data:image/png;base64,xx',
+    PIN: '334455', Senha: 'segredo', Documento: '123.456.789-00', CNH: '99887766',
+    RG: '1234567',
+    Perfil: 'Conferente', LocalPadrao: 'L001', Ativo: 'SIM', AcessoPainel: 'SIM',
+    VerLancamentos: 'SIM', UsuariosVistos: ['U007', 'U009'],
+    Saidas: ['L001'], Destinos: ['L003'], TiposCaixa: ['T001', 'T002'],
+    Motoristas: ['M1'], Veiculos: ['V1'], Operacoes: ['SAIDA', 'RETORNO'],
+    Abas: ['pgMovimentos', 'pgPainel'], Ajustes: ['L001'],
+    BaseProducao: true, Teste: false, BaseDeclaracao: false, BaseTesteDeclaracao: false
+  };
+  var copia = copiaDe(molde);
+
+  /* ---- O QUE A PESSOA PODE FAZER, COPIA ---- */
+  var faltando = ['Perfil', 'LocalPadrao', 'AcessoPainel', 'VerLancamentos',
+                  'UsuariosVistos', 'Saidas', 'Destinos', 'TiposCaixa', 'Motoristas',
+                  'Veiculos', 'Operacoes', 'Abas', 'Ajustes']
+    .filter(function (k) { return JSON.stringify(copia[k]) !== JSON.stringify(molde[k]); });
+  ok(faltando.length === 0,
+    'as permissões vêm todas juntas — é para isso que a cópia existe: cadastrar dez ' +
+    'conferentes iguais era marcar as mesmas caixas dez vezes, e uma desmarcada deixava ' +
+    'a décima pessoa com uma permissão a menos que as outras nove', faltando);
+
+  /* AS QUATRO BASES, e elas saem da lista `BASES` — a quinta entra sozinha no dia em
+     que nascer. */
+  var basesFora = L.BASES.map(function (b) { return b.campo; })
+    .filter(function (c) { return copia[c] !== molde[c]; });
+  ok(basesFora.length === 0,
+    'e as bases também, tiradas da MESMA lista que o cadastro usa — escritas à mão ' +
+    'aqui, a base nova entraria no formulário e não na cópia', basesFora);
+
+  /* ---- O QUE A PESSOA E, NAO COPIA ---- */
+  var vazou = ['ID', 'Nome', 'Usuario', 'Email', 'Telefone', 'Foto', 'PIN', 'Senha',
+               'Documento', 'CNH', 'RG']
+    .filter(function (k) { return copia[k] !== undefined; });
+  ok(vazou.length === 0,
+    'e NADA da pessoa vem junto — nome, usuário, senha, e-mail, telefone, foto e ' +
+    'documento ficam de fora: o cadastro novo nasceria com o documento de outra pessoa ' +
+    'dentro, e ninguém iria olhar', vazou);
+
+  /* O `RG` DA PROVA ACIMA E O CERNE DA ESCOLHA: ele nao existe no cadastro hoje. A
+     lista e do que SE COPIA, e nao do que nao se copia — ao contrario, um campo novo de
+     pessoa seria copiado por padrao no dia em que nascesse. Assim o esquecimento custa
+     uma permissao que FALTA: aparece no primeiro uso e conserta-se em dois cliques. */
+  ok(copia.RG === undefined,
+    'inclusive um campo de pessoa que ainda NÃO existe: a lista diz o que se copia, e ' +
+    'não o que não se copia — ao contrário, o RG que o cadastro ganhasse amanhã seria ' +
+    'copiado por padrão, calado');
+
+  /* ---- SEM ID, senao a copia reescreve o molde ---- */
+  ok(copia.ID === undefined,
+    'e a cópia não leva o ID — levando, salvar reescreveria a pessoa que serviu de ' +
+    'molde em vez de criar a nova, e as duas ficariam com o mesmo cadastro');
+  ok(copia.copiaDe === 'Melkezedeque Soares',
+    'e ela lembra de quem veio, para o formulário poder dizer isso', copia.copiaDe);
+
+  /* ---- O FORMULARIO AVISA, E A PROVA RODA O AVISO ----
+     A primeira versao desta prova procurava o TEXTO do aviso no arquivo. Ele continuava
+     la com a condicao trocada por `false`: a mensagem existia e nao aparecia nunca.
+     Endereco conferido, efeito nenhum — de novo. Agora o trecho e executado. */
+  var iAv = adm.indexOf('      (u.copiaDe');
+  var expr = iAv < 0 ? '' : adm.slice(iAv, adm.indexOf(": '')", iAv) + 5);
+  ok(expr.length > 150 && expr.indexOf('Copiando de') > 0,
+    'a conferência recortou o aviso da cópia — recorte vazio faria as duas provas ' +
+    'abaixo passarem sem rodar nada', expr.length);
+  var aviso = new Function('u', 'Q', 'return ' + expr + ';');
+  var Qav = { esc: function (x) { return String(x == null ? '' : x); } };
+  var comAviso = aviso({ copiaDe: 'Melkezedeque Soares' }, Qav);
+  ok(comAviso.indexOf('Melkezedeque Soares') > 0 &&
+     comAviso.indexOf('Nome, usuário, senha') > 0,
+    'copiando, o formulário diz DE QUEM veio e o que NÃO veio — sem isso ele abre com ' +
+    'dezenas de caixas marcadas sem dizer de onde saíram, e quem não percebeu que ' +
+    'estava copiando salva o molde de novo achando que editou', comAviso.slice(0, 90));
+  ok(aviso({}, Qav) === '' && aviso({ ID: 'U007', Nome: 'Fulano' }, Qav) === '',
+    'e editando um cadastro de verdade ele não aparece — um aviso de cópia sobre uma ' +
+    'edição faria a pessoa procurar um molde que não existe', aviso({}, Qav));
+
+  /* ---- O MESMO FORMULARIO, e os dois caminhos ---- */
+  ok(adm.indexOf('if (molde) formUsuario(copiaDe(molde));') > 0,
+    'e copiar abre o MESMO formulário de sempre — um segundo parecido com ele ' +
+    'divergiria no primeiro campo que só um recebesse');
+  ok(adm.indexOf("data-copiar-user=\"'+u.ID+'\"") > 0 &&
+     adm.indexOf("data-copiar-user=\"'+Q.esc(u.ID)+'\"") > 0,
+    'e o caminho existe nas duas larguras: na tabela do computador e na folha de ações ' +
+    'do celular');
+})();
+
 console.log('\n== ver como fica no celular ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
