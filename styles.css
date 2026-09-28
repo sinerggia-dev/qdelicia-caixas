@@ -1020,7 +1020,47 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta{
     flex-direction:column;gap:6px
   }
+  /* O `margin-left:auto` DAS ACOES TINHA DE SAIR AQUI, e era ele que cortava o rodape.
+     Ele existe para empurrar os botoes para a direita quando a conta esta DEITADA — e
+     numa coluna o mesmo `auto` empurra para a borda direita do eixo cruzado, vencendo o
+     `align-items:center`. Com 52px uteis no trilho, os botoes saiam pela borda e o
+     `overflow:hidden` da lateral os cortava junto com metade do retrato.
+     Ficou pior quando o terceiro botao entrou: dois ja vazavam, tres vazavam o dobro. */
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta__acoes{
+    margin-left:0;flex-wrap:wrap;justify-content:center;max-width:100%
+  }
+  /* E NO TRILHO SO FICA O SAIR. Tres botoes de 34px nao cabem em 52px de largura: em
+     coluna eles empilhariam e o rodape ganharia 100px de altura, que e o que faltava
+     justamente nas telas baixas de que voce falou.
+     SAIR FICA porque e a unica saida da tela. Os outros dois nao somem do sistema —
+     eles voltam no instante em que o mouse encosta na lateral, que e o mesmo gesto que
+     revela os rotulos do menu. */
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within)
+    .conta__acoes > :not(.perigo){display:none}
   .shell[data-nav="trilho"] .lateral-btn svg{transform:rotate(180deg)}
+}
+
+/* ---------- TELA BAIXA: O RODAPE ENCOLHE, E NAO SOME ----------
+ * Com a janela baixa — um notebook de 768px, o navegador com zoom, uma barra de
+ * favoritos a mais — a lista de navegacao rola, e ate ai tudo bem. O que nao pode e o
+ * rodape perder a vez: quem entrou precisa se reconhecer na tela, e sair precisa estar
+ * ao alcance.
+ * O RETRATO ENCOLHE ANTES DE QUALQUER COISA SUMIR, e o chip da rede e o primeiro a
+ * sair: o estado da rede continua dito pelo ponto no proprio retrato, entao nada se
+ * perde — e eram 28px de altura por uma informacao repetida. */
+@media (max-height:700px){
+  .lateral__pe{padding:8px 12px 10px}
+  .lateral__pe .chip{display:none}
+  .conta .avatar{width:36px;height:36px;font-size:13px}
+  .conta .avatar .ponto{width:11px;height:11px}
+  .conta__nome{font-size:14px}
+  .conta__meta{font-size:11.5px}
+}
+/* Mais baixa ainda: o cargo sai, e o nome fica. Entre "Natanael Silva" e "Admin", quem
+   se procura na tela e o nome. */
+@media (max-height:560px){
+  .conta__meta{display:none}
+  .conta .avatar{width:30px;height:30px;font-size:12px}
 }
 
 @media (prefers-reduced-motion:reduce){

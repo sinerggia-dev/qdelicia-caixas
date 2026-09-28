@@ -11848,6 +11848,75 @@ console.log('\n== o painel de filtro abre por cima ==');
     'ligado pela MESMA função das duas telas');
 })();
 
+console.log('\n== o rodape da lateral cabe em qualquer tela ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* ---- O `margin-left:auto` QUE CORTAVA O RODAPE ----
+   *
+   * `.conta__acoes` leva `margin-left:auto` para empurrar os botoes para a direita
+   * quando a conta esta DEITADA. No trilho ela vira COLUNA — e numa coluna o mesmo
+   * `auto` empurra para a borda direita do eixo cruzado, vencendo o `align-items`.
+   * Com 52px uteis, os botoes saiam pela borda e o `overflow:hidden` da lateral os
+   * cortava junto com metade do retrato. */
+  ok(css.indexOf('.conta__acoes{display:inline-flex') > 0 &&
+     css.indexOf('margin-left:auto}') > 0,
+    'a conferência achou a regra deitada das ações — sem ela as provas abaixo falariam ' +
+    'de um problema que não existe mais');
+  var iTr = css.indexOf('.shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta__acoes{');
+  var regraTrilho = iTr < 0 ? '' : css.slice(iTr, css.indexOf('}', iTr));
+  ok(regraTrilho.indexOf('margin-left:0') > 0,
+    'e no trilho ele é desfeito — mantido, os botões saem pela borda de 68px e o ' +
+    '`overflow:hidden` da lateral corta a conta inteira, retrato incluído',
+    regraTrilho);
+  ok(regraTrilho.indexOf('justify-content:center') > 0 &&
+     regraTrilho.indexOf('max-width:100%') > 0,
+    'e o que sobra fica centrado e preso à largura da lateral');
+
+  /* ---- NO TRILHO SO FICA O SAIR ----
+     Tres botoes de 34px nao cabem em 52px: empilhados, o rodape ganha 100px de altura
+     — justamente o que falta nas telas baixas. */
+  ok(css.indexOf('.conta__acoes > :not(.perigo){display:none}') > 0,
+    'e no trilho sobra só o Sair, que é a única saída da tela — os outros dois voltam ' +
+    'no instante em que o mouse encosta na lateral, o mesmo gesto que revela os ' +
+    'rótulos do menu');
+  var iSair = adm.indexOf('id="chipSair"');
+  ok(iSair > 0 && adm.slice(adm.lastIndexOf('<button', iSair), iSair).indexOf('perigo') > 0,
+    'e quem fica é reconhecido pela classe que ele JÁ tinha, e não por um id na folha: ' +
+    'por id, o botão novo que nascesse ao lado entraria ou sairia por acidente',
+    iSair > 0);
+
+  /* ---- TELA BAIXA: O RODAPE ENCOLHE, E NAO SOME ---- */
+  ok(css.indexOf('@media (max-height:700px){') > 0 &&
+     css.indexOf('@media (max-height:560px){') > 0,
+    'e há dois degraus para janela baixa — um notebook de 768px com barra de favoritos ' +
+    'cabe no primeiro, e o zoom alto no segundo');
+  var i700 = css.indexOf('@media (max-height:700px){');
+  var baixa = css.slice(i700, css.indexOf('\n}', css.indexOf('.conta__meta', i700)));
+  ok(baixa.indexOf('.lateral__pe .chip{display:none}') > 0,
+    'na tela baixa o primeiro a sair é o chip da rede — o estado dela continua dito ' +
+    'pelo ponto no próprio retrato, então nada se perde, e eram 28px por uma ' +
+    'informação repetida');
+  ok(baixa.indexOf('.conta .avatar{width:36px') > 0,
+    'e o retrato ENCOLHE antes de qualquer coisa sumir — quem entrou precisa se ' +
+    'reconhecer na tela', baixa.indexOf('36px') > 0);
+  var i560 = css.indexOf('@media (max-height:560px){');
+  var maisBaixa = css.slice(i560, css.indexOf('\n}', i560));
+  ok(maisBaixa.indexOf('.conta__meta{display:none}') > 0 &&
+     maisBaixa.indexOf('.conta__nome') < 0,
+    'e no degrau seguinte sai o CARGO e fica o NOME: entre "Natanael Silva" e "Admin", ' +
+    'quem se procura na tela é o nome', maisBaixa);
+
+  /* ---- E A LISTA CONTINUA SENDO QUEM CEDE ESPACO ----
+     Sem isto, a navegacao cheia empurraria o rodape para fora e nenhum dos ajustes
+     acima teria efeito. */
+  ok(css.indexOf('.lateral__rolagem{') > 0 &&
+     css.indexOf('flex:1 1 auto;min-height:0;overflow-y:auto') > 0,
+    'e quem cede espaço continua sendo a LISTA, que rola — sem isso a navegação cheia ' +
+    'empurra o rodapé para fora da lateral, e nenhum dos ajustes acima teria efeito');
+})();
+
 console.log('\n== copiar um cadastro ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
