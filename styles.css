@@ -1394,6 +1394,59 @@ tr.ruim{background:var(--vermelho-claro)}
 .linha-sit b{font-family:var(--fonte-mono);font-size:14px;color:var(--txt)}
 .linha-sit:empty{display:none}
 
+/* ---------- as linhas de um par, abertas ----------
+ * O par e a RESPOSTA — bateu ou nao bateu. As linhas sao a PROVA, e so fazem falta
+ * quando a resposta incomoda: ninguem abre um par que bateu. Por isso a gaveta nasce
+ * fechada, e nao como mais nove colunas na tabela.
+ * FUNDO PROPRIO e recuo: sem eles, a gaveta se le como mais uma linha da tabela, e a
+ * pessoa a confunde com um par. */
+.abre-par{margin-right:6px;padding:0;width:16px;border:0;background:none;
+  color:var(--txt3);cursor:pointer;font-size:11px;line-height:1}
+.abre-par:hover{color:var(--txt)}
+.abre-par.aberto{transform:rotate(90deg);color:var(--marca-txt)}
+tr.par-linhas > td{background:var(--campo);padding:0}
+.lp{display:flex;flex-direction:column;gap:1px;padding:8px 10px 8px 26px}
+.lp__l{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:6px 8px;
+  border-radius:8px;font-size:12.5px;color:var(--txt2)}
+.lp__l:hover{background:var(--surface-2)}
+/* O cancelado continua a vista, dizendo que existiu e nao vale — e some da conta. */
+.lp__l--fora{opacity:.55;text-decoration:line-through}
+.lp__l--fora .tag{text-decoration:none}
+.lp__q{font-family:var(--fonte-mono);font-size:13.5px;color:var(--txt)}
+.lp__q2{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* As acoes empurradas para a direita: elas sao o fim da linha, e no meio dela
+   disputariam a leitura com o numero, que e o que se veio conferir. */
+.lp__a{margin-left:auto;display:flex;gap:6px;flex:0 0 auto}
+
+/* ---------- o par em ficha, no celular ----------
+ * Onze colunas nao cabem num telefone: a DIFERENCA — o numero pelo qual se abre esta
+ * tela — ficava sempre fora da vista, do lado direito de um arrasto. Aqui ela fica no
+ * meio da ficha, entre os dois numeros que a produzem. */
+.pares{display:flex;flex-direction:column;gap:10px}
+.pc{border:1px solid var(--linha);border-radius:var(--raio);background:var(--surface);
+  padding:12px}
+/* SO O QUE NAO BATEU GANHA BORDA: pintar tambem o que bateu ensinaria a ignorar a cor. */
+.pc--olhar{border-color:var(--ambar)}
+.pc__c{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.pc__c b{font-size:15px}
+.pc__c small{display:block;color:var(--txt2);font-size:12px;margin-top:2px}
+.pc__n{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 8px;
+  text-align:center}
+.pc__n small{display:block;color:var(--txt3);font-size:11px;text-transform:uppercase;
+  letter-spacing:.06em}
+.pc__n b{font-family:var(--fonte-mono);font-size:18px}
+.pc__r{font-size:12.5px;color:var(--txt2);margin-bottom:10px}
+.pc__d{margin:8px -12px -12px;border-top:1px solid var(--linha);background:var(--campo);
+  border-radius:0 0 var(--raio) var(--raio)}
+/* No telefone o dedo cobre dois alvos: a linha inteira vira coluna e cada botao ganha
+   largura de toque. */
+@media (max-width:1023px){
+  .pc__d .lp{padding:8px}
+  .pc__d .lp__l{background:var(--surface);border:1px solid var(--linha);margin-bottom:4px}
+  .pc__d .lp__a{margin-left:0;width:100%}
+  .pc__d .lp__a .mini{flex:1 1 auto;min-height:36px}
+}
+
 .vazio{text-align:center;color:var(--txt3);padding:26px 10px;font-size:14px}
 .busca{position:relative;margin-bottom:10px}
 

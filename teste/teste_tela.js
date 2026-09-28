@@ -11474,6 +11474,122 @@ console.log('\n== Motorista/Conferente ==');
     'no arquivo ela vai também, e com a lista INTEIRA em vez do resumo "+2": o CSV ' +
     'existe para procurar o lançamento, e um resumo não se procura');
 
+  /* ---- O PAR GUARDA AS LINHAS DELE ----
+     As ações de corrigir, cancelar e excluir trabalham sobre um LANÇAMENTO, e um par não
+     é um lançamento: ele pode ter uma declaração de um lado e três contagens do outro.
+     Sem as linhas, "corrigir este par" não teria o que corrigir. */
+  ok(vario[0].itens.length === 3 &&
+     vario[0].itens.filter(function (m) { return m.declaracao; }).length === 1,
+    'o par carrega os lançamentos que o formaram — só as somas, não haveria o que ' +
+    'corrigir, cancelar nem excluir', vario[0].itens.length);
+
+  /* ---- AS LINHAS DESENHADAS, RODADAS ----
+     Lida no arquivo, a prova responderia "a palavra corrigir está ali?" — e estaria,
+     inclusive num botão oferecido a quem a rota vai recusar. */
+  var iLin = adm.indexOf('  function linhasDoPar(par){');
+  var fimLin = adm.indexOf('  function cartaoPar(par){');
+  var fonteLin = iLin < 0 || fimLin < 0 ? '' : adm.slice(iLin, fimLin);
+  ok(fonteLin.length > 500 && fonteLin.indexOf('data-dexcluir') > 0,
+    'a conferência recortou o desenho das linhas — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', fonteLin.length);
+  var Qfalso = { esc: function (x) { return String(x == null ? '' : x); },
+                 num: function (x) { return String(x); } };
+  function desenha(pode) {
+    return new Function('Q', 'podeMexerNaDeclaracao',
+      fonteLin + '\nreturn linhasDoPar;')(Qfalso, function () { return pode; })({
+        itens: [
+          { id: 'M000102', qtd: 250, declaracao: false, usuario: 'Nestor', origem: 'Natal' },
+          { id: 'M000041', qtd: 400, declaracao: true,  usuario: 'Arilson' },
+          { id: 'M000039', qtd: 150, declaracao: false, usuario: 'Nestor', cancelado: true }
+        ]
+      });
+  }
+  var comBotao = desenha(true), semBotao = desenha(false);
+  ok(semBotao.indexOf('data-dexcluir') < 0 && semBotao.indexOf('data-dcorrigir') < 0 &&
+     semBotao.indexOf('data-dcancelar') < 0,
+    'quem não é Admin, Gestor nem Gerente não recebe botão nenhum — oferecido, ele ' +
+    'levaria a recusa da rota DEPOIS de escrever o motivo', semBotao.length);
+  ok(semBotao.indexOf('M000041') > 0,
+    'mas continua vendo as linhas: a permissão é de ALTERAR, e não de ver — quem abre ' +
+    'esta tela abre para conferir uma divergência');
+  ok(comBotao.indexOf('data-dexcluir') > 0 && comBotao.indexOf('data-dcancelar') > 0 &&
+     comBotao.indexOf('data-dcorrigir') > 0,
+    'e quem é recebe as três ações');
+
+  /* A DECLARACAO PRIMEIRO. Ela e o numero contra o qual se compara; lida depois das
+     contagens, obriga a subir os olhos para achar a referencia. */
+  ok(comBotao.indexOf('M000041') < comBotao.indexOf('M000102'),
+    'a declaração vem antes das contagens — ela é o número contra o qual se compara, e ' +
+    'lida depois obriga a subir os olhos para achar a referência',
+    [comBotao.indexOf('M000041'), comBotao.indexOf('M000102')]);
+
+  /* O CANCELADO NAO GANHA BOTAO: ele ja nao vale, e "cancelar o cancelado" e um gesto
+     sem efeito que a tela nao deve oferecer. */
+  /* O PEDACO DELA, e nao "do numero em diante": as linhas vem em ordem, e a fatia aberta
+     engolia a linha seguinte junto com os botoes dela — a prova acusaria o vizinho. */
+  var pedacoCancelado = comBotao.split('<div class="lp__l')
+    .filter(function (b) { return b.indexOf('M000039') > 0; })[0] || '';
+  ok(pedacoCancelado.indexOf('data-dcancelar') < 0,
+    'e a linha já cancelada não recebe ações — cancelar o que já não vale é um gesto ' +
+    'sem efeito, e a tela que o oferece faz a pessoa duvidar do que está vendo');
+  ok(comBotao.indexOf('lp__l--fora') > 0,
+    'mas ela continua à vista, marcada — sumindo, o total da gaveta não bateria com a ' +
+    'soma das linhas e nada explicaria a diferença');
+
+  /* ---- AS DUAS LISTAS, E O QUE RECARREGAR ---- */
+  var iDep = adm.indexOf('  function depoisDeMexer(m){');
+  var fonteDep = adm.slice(iDep, adm.indexOf('\n  }', iDep) + 4);
+  var chamou = [];
+  new Function('carregarDecl', 'carregarPainel', 'document',
+    fonteDep + '\nreturn depoisDeMexer;')(
+      function () { chamou.push('decl'); },
+      function () { chamou.push('painel'); },
+      { getElementById: function () { return { click: function () { chamou.push('mov'); } }; } }
+    )({ declaracao: true });
+  ok(chamou.join(',') === 'decl',
+    'mexer numa DECLARAÇÃO recarrega a conciliação, e não Movimentos — a declaração não ' +
+    'está lá, e a tela de onde a pessoa mexeu ficaria com o número velho ao lado do ' +
+    'aviso de que ele mudou', chamou);
+  chamou = [];
+  new Function('carregarDecl', 'carregarPainel', 'document',
+    fonteDep + '\nreturn depoisDeMexer;')(
+      function () { chamou.push('decl'); },
+      function () { chamou.push('painel'); },
+      { getElementById: function () { return { click: function () { chamou.push('mov'); } }; } }
+    )({ declaracao: false });
+  ok(chamou.indexOf('mov') >= 0 && chamou.indexOf('painel') >= 0,
+    'e mexer num lançamento comum continua recarregando Movimentos e o painel — os ' +
+    'saldos mudaram', chamou);
+
+  var iPorId = adm.indexOf('  function movPorId(id){');
+  var fontePorId = adm.slice(iPorId, adm.indexOf('\n  }', iPorId) + 4);
+  var achar = new Function('MOVS', 'DECLS', fontePorId + '\nreturn movPorId;')(
+    [{ id: 'M1' }], [{ id: 'M2' }]);
+  ok(!!achar('M1') && !!achar('M2'),
+    'e a busca por número olha as DUAS listas: a declaração não está em Movimentos ' +
+    'desde que a rota deixou de mandá-la, e procurada só lá o botão não faria nada — ' +
+    'sem erro no console, que é o pior jeito de não funcionar',
+    [!!achar('M1'), !!achar('M2')]);
+
+  /* ---- A FICHA DO CELULAR, e o corte que ela usa ---- */
+  var iDes = adm.indexOf('  function desenharDecl(){');
+  var corpoDes = adm.slice(iDes, adm.indexOf('  function larguras(', iDes) > 0
+    ? adm.indexOf('\n  }', adm.indexOf('ligarAcoesDecl(box);', iDes)) : iDes + 6000);
+  ok(corpoDes.indexOf('emCartoesPainel()') > 0 && corpoDes.indexOf('cartaoPar') > 0,
+    'no celular a conciliação vira ficha, pelo MESMO corte do resto do painel — uma ' +
+    'medida própria faria a tela trocar de forma numa largura e a de cima em outra, e ' +
+    'quem gira o aparelho veria metade virar ficha', corpoDes.indexOf('cartaoPar') > 0);
+  ok(adm.indexOf('if (DECLS && DECLS.length) desenharDecl();') > 0,
+    'e girar o aparelho a redesenha do que já está na memória — desenhada só na ' +
+    'abertura, ela ficaria com a forma da largura de quando abriu');
+
+  /* ---- A LISTA DE PERFIS VEM DO SERVIDOR ---- */
+  ok(adm.indexOf('DADOS.perfisDeclaracao') > 0,
+    'e os perfis que podem alterar vêm do servidor, e não escritos na tela — escritos ' +
+    'nos dois lugares, um dia a tela ofereceria o que a rota recusa');
+  ok(api.indexOf('perfisDeclaracao: L.PERFIS_DECLARACAO') > 0,
+    'saindo da MESMA lista que a rota usa para recusar');
+
   /* ---- A TELA ESTÁ EM OPERAÇÃO, e é uma aba que se concede ---- */
   var nav = adm.slice(adm.indexOf('<nav class="abas"'), adm.indexOf('</nav>'));
   var i = nav.indexOf('data-pagina="pgLancamentosMotorista"');

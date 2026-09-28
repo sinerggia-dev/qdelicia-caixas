@@ -102,6 +102,11 @@ async function rotaGet(p) {
                veiculos: d.veiculos,
                locaisPadrao: d.locaisPadrao, pedidosSenha: d.pedidosSenha,
                perfis: L.perfisConhecidos(d.usuarios),
+               /* OS PERFIS QUE PODEM MEXER NUMA DECLARACAO, mandados prontos. A tela
+                  precisa deles para nao oferecer o que a rota recusa — e escritos la
+                  tambem, um dia as duas listas divergiriam e o botao apareceria para
+                  quem leva uma recusa depois de escrever o motivo. */
+               perfisDeclaracao: L.PERFIS_DECLARACAO,
                // A MESMA lista que a gravacao usa para recusar. Escrever as opcoes na tela
                // faria duas listas sobre a mesma regra, e elas divergem no primeiro nome novo.
                operacoes: L.OPERACOES, abas: L.ABAS, situacoes: L.SITUACOES };

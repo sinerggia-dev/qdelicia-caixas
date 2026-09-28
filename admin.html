@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=657b3b59">
+<link rel="stylesheet" href="styles.css?v=d0b9de75">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -2966,13 +2966,18 @@
                     motorista: (m.motorista || '').trim(),
                     tipo: (m.tipo === 'DEVOLUCAO') ? 'Retorno' : 'Saída',
                     teste: !!m.teste, declarado: 0, conferido: 0,
-                    rotas: {}, conferentes: {}, ids: {} };
+                    rotas: {}, conferentes: {}, ids: {}, itens: [] };
       }
       var par = mapa[k];
       /* OS NÚMEROS DOS DOIS LADOS na mesma coluna, e não só os do conferente: quem vem
          conferir uma divergência precisa achar as duas pontas dela, e a declaração é
          uma delas. */
       if (m.id) par.ids[m.id] = 1;
+      /* E GUARDA A LINHA INTEIRA, e nao so o numero dela: as acoes de corrigir, cancelar
+         e excluir trabalham sobre um LANCAMENTO, e um par nao e um lancamento — ele pode
+         ter uma declaração de um lado e três contagens do outro. Sem as linhas, "corrigir
+         este par" não teria o que corrigir. */
+      par.itens.push(m);
       var q = Number(m.qtd) || 0;
       if (m.declaracao) par.declarado += q;
       else {
@@ -3099,6 +3104,109 @@
       });
   }
 
+  /* ---------- AS LINHAS DE UM PAR ----------
+   *
+   * O par é a RESPOSTA — bateu ou não bateu. As linhas são a PROVA, e elas só fazem
+   * falta quando a resposta incomoda: ninguém abre um par que bateu. Por isso elas
+   * nascem fechadas, e não como mais nove colunas na tabela.
+   *
+   * O MESMO PEDAÇO SERVE À TABELA E À FICHA do celular. Escrito duas vezes, o dia em que
+   * o botão de excluir ganhasse uma confirmação ele a ganharia num dos dois lugares. */
+  function linhasDoPar(par){
+    var pode = podeMexerNaDeclaracao();
+    return '<div class="lp">'+
+      par.itens.slice().sort(function(a, b){
+        /* A DECLARAÇÃO PRIMEIRO, sempre: ela é o que se compara CONTRA, e lida depois
+           das contagens obriga a subir os olhos para achar o número de referência. */
+        if (!!a.declaracao !== !!b.declaracao) return a.declaracao ? -1 : 1;
+        return String(a.id || '').localeCompare(String(b.id || ''));
+      }).map(function(m){
+        return '<div class="lp__l'+(m.cancelado ? ' lp__l--fora' : '')+'">'+
+          '<span class="cod">'+Q.esc(m.id || '—')+'</span>'+
+          '<span class="tag '+(m.declaracao ? 'azul' : 'verde')+'">'+
+            (m.declaracao ? 'Declarou' : 'Contou')+'</span>'+
+          '<b class="lp__q">'+Q.num(Number(m.qtd) || 0)+'</b>'+
+          '<span class="lp__q2">'+Q.esc(m.tipoCaixa || '—')+'</span>'+
+          '<span class="lp__q2">'+Q.esc(m.usuario || '—')+'</span>'+
+          '<span class="lp__q2">'+Q.esc(m.origem || m.rota || '—')+'</span>'+
+          (m.cancelado ? '<span class="tag cinza">cancelado</span>' : '')+
+          (pode && !m.cancelado
+            ? '<span class="lp__a">'+
+                '<button class="mini" type="button" data-dcorrigir="'+Q.esc(m.id)+'">corrigir</button>'+
+                '<button class="mini" type="button" data-dcancelar="'+Q.esc(m.id)+'">cancelar</button>'+
+                '<button class="mini perigo" type="button" data-dexcluir="'+Q.esc(m.id)+'">excluir</button>'+
+              '</span>'
+            : '')+
+        '</div>';
+      }).join('')+
+    '</div>';
+  }
+
+  /* ---------- O PAR EM FICHA, no celular ----------
+   *
+   * Onze colunas não cabem num telefone: a diferença — que é o número pelo qual se abre
+   * esta tela — ficava sempre fora da vista, do lado direito de um arrasto. Aqui ela fica
+   * no meio da ficha, entre os dois números que a produzem.
+   * O CORTE É O DE SEMPRE, 1023px, pelo `emCartoesPainel()`: uma segunda medida faria a
+   * tela trocar de forma numa largura e a de cima em outra, e quem gira o aparelho veria
+   * metade virar ficha. */
+  function cartaoPar(par){
+    var sinal = function(n){ return (n > 0 ? '+' : n < 0 ? '−' : '') + Q.num(Math.abs(n)); };
+    var cor = par.situacao === 'Bateu' ? 'verde'
+            : par.situacao === 'Divergente' ? 'amarela'
+            : par.situacao === 'Só declaração' ? 'vermelha' : 'cinza';
+    return '<article class="pc'+(par.situacao === 'Bateu' ? '' : ' pc--olhar')+'">'+
+      '<header class="pc__c">'+
+        '<div><b>'+(par.motorista ? Q.esc(par.motorista)
+                                  : '<span class="fraco">(sem motorista)</span>')+'</b>'+
+          '<small>'+Q.esc(Q.dataBR(par.dataRef))+' · '+Q.esc(par.tipo)+' · '+
+            Q.esc(par.teste ? 'Teste' : 'Produção')+'</small></div>'+
+        '<span class="tag '+cor+'">'+Q.esc(par.situacao)+'</span>'+
+      '</header>'+
+      /* OS TRÊS NÚMEROS NA ORDEM DA CONTA: o que ele disse, o que se contou, e a
+         diferença entre os dois. A diferença no MEIO seria lida antes das parcelas. */
+      '<div class="pc__n">'+
+        '<div><small>Declarado</small><b>'+(par.declarado ? Q.num(par.declarado)
+                                                          : '<span class="fraco">—</span>')+'</b></div>'+
+        '<div><small>Conferido</small><b>'+(par.conferido ? Q.num(par.conferido)
+                                                          : '<span class="fraco">—</span>')+'</b></div>'+
+        '<div><small>Diferença</small><b>'+(par.diferenca == null
+          ? '<span class="fraco">—</span>' : sinal(par.diferenca))+'</b></div>'+
+      '</div>'+
+      '<div class="pc__r">'+Q.esc(par.rotasTxt || '—')+
+        (par.conferenteTxt ? ' · conferiu ' + Q.esc(par.conferenteTxt) : '')+'</div>'+
+      '<button class="mini" type="button" data-abrir-par="'+Q.esc(par.chave)+'">'+
+        Q.num(par.idsLista.length)+' lançamento'+(par.idsLista.length === 1 ? '' : 's')+
+        ' ▾</button>'+
+      '<div class="pc__d" hidden data-corpo-par="'+Q.esc(par.chave)+'">'+
+        linhasDoPar(par)+'</div>'+
+    '</article>';
+  }
+
+  /* ABRIR E FECHAR, e as três ações. Ligadas aqui e não junto das de Movimentos: lá o
+     alvo é `#tabelaMov`, e um seletor que pegasse as duas faria cada clique procurar a
+     linha na lista errada. */
+  function ligarAcoesDecl(box){
+    box.querySelectorAll('[data-abrir-par]').forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.stopPropagation();
+        var alvo = box.querySelector('[data-corpo-par="'+
+          String(b.dataset.abrirPar).replace(/"/g, '&quot;')+'"]');
+        if (!alvo) return;
+        alvo.hidden = !alvo.hidden;
+        b.classList.toggle('aberto', !alvo.hidden);
+      });
+    });
+    [['dcorrigir', acaoCorrigir], ['dcancelar', acaoCancelar],
+     ['dexcluir', acaoExcluir]].forEach(function(par){
+      box.querySelectorAll('[data-'+par[0]+']').forEach(function(b){
+        b.addEventListener('click', function(){
+          par[1](movPorId(b.dataset[par[0]]));
+        });
+      });
+    });
+  }
+
   function classificarDeclPor(col){
     if (ORDEM_DECL.col === col) ORDEM_DECL.desc = !ORDEM_DECL.desc;
     else { ORDEM_DECL.col = col; ORDEM_DECL.desc = true; }
@@ -3161,6 +3269,17 @@
       return;
     }
 
+    /* NO CELULAR, FICHAS — e a tabela nem chega a ser montada. Onze colunas num
+       telefone só se leem arrastando de lado, e a DIFERENÇA, que é o número pelo qual se
+       abre esta tela, ficava sempre do lado de fora. O corte é o mesmo do resto do
+       painel, e por isso girar o aparelho troca a tela inteira de forma, e não metade. */
+    if (emCartoesPainel()){
+      box.innerHTML = '<div class="pares">'+
+        aplicarOrdem(L, DEFS, ORDEM_DECL).map(cartaoPar).join('')+'</div>';
+      ligarAcoesDecl(box);
+      return;
+    }
+
     var LARG = larguras(TAB_DECL);
     var cabem = ordemColunas(TAB_DECL).map(function(id){ return { id: id, d: DEFS[id] }; })
       .filter(function(c){ return !!c.d; });
@@ -3188,15 +3307,24 @@
            trinta pares, a etiqueta some no meio das outras nove colunas. */
         var classe = par.situacao === 'Divergente' ? 'ruim'
                    : par.situacao === 'Só declaração' ? 'ruim' : '';
-        return '<tr class="'+classe+'">'+cs.map(function(c){
-          return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+
-                 '>'+c.d.v(par)+'</td>';
-        }).join('')+'</tr>';
+        /* E A LINHA DAS LINHAS, logo abaixo e fechada. `colspan` pelo número de colunas
+           que sobraram — escrito fixo, esconder uma coluna deixaria a gaveta estourando
+           a tabela para o lado. */
+        return '<tr class="'+classe+'">'+cs.map(function(c, iC){
+          return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+'>'+
+            (iC === 0 ? '<button class="abre-par" type="button" data-abrir-par="'+
+                        Q.esc(par.chave)+'" title="ver os lançamentos deste par">▸</button>'
+                      : '')+
+            c.d.v(par)+'</td>';
+        }).join('')+'</tr>'+
+        '<tr class="par-linhas" hidden data-corpo-par="'+Q.esc(par.chave)+'">'+
+          '<td colspan="'+cs.length+'">'+linhasDoPar(par)+'</td></tr>';
       }).join('')+'</tbody></table></div>';
 
     ligarArrastarColunas(TAB_DECL);
     ligarLarguraColunas(TAB_DECL);
     ligarOrdemColunas('#tabelaDecl', classificarDeclPor);
+    ligarAcoesDecl(box);
   }
 
 
@@ -4285,6 +4413,9 @@
     /* O painel INTEIRO, e não só o extrato: rotas, clientes e estoque trocam de forma
        na mesma largura, e redesenhar um só deixava a tela metade cartão, metade tabela. */
     if (PAINEL) desenharPainel();
+    /* E a conciliação junto, pelo mesmo motivo e do que já está na memória: nenhuma ida
+       de rede por girar o aparelho. */
+    if (DECLS && DECLS.length) desenharDecl();
   });
 
   document.getElementById('btnAtualizarRetornos').addEventListener('click', carregarPainel);
@@ -6732,7 +6863,7 @@
     if (motivo === null) return;
     Q.post({acao:'cancelar', id:m.id, motivo:motivo, usuarioId:Q.sessao().id}).then(function(r){
       if (!r.ok) throw new Error(r.erro);
-      Q.toast('Movimento cancelado.','ok'); carregarMovimentos(); carregarPainel();
+      Q.toast('Movimento cancelado.','ok'); depoisDeMexer(m);
     }).catch(function(e){ Q.toast(e.message,'erro'); });
   }
 
@@ -6758,12 +6889,37 @@
     Q.post({acao:'excluirMovimento', id:m.id, usuarioId:Q.sessao().id}).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       Q.toast('Lançamento excluído — está na lixeira.','ok');
-      carregarMovimentos(); carregarPainel(); atualizarLixeiraSeAberta();
+      depoisDeMexer(m); atualizarLixeiraSeAberta();
     }).catch(function(e){ Q.toast(e.message,'erro'); });
   }
 
+  /* AS DUAS LISTAS, e nao so a de Movimentos. A declaração não está lá desde que a
+     rota deixou de mandá-la; procurada só em `MOVS`, a ação da conciliação não acharia a
+     linha e o botão não faria nada — sem erro no console, que é o pior jeito de não
+     funcionar. */
   function movPorId(id){
-    return (MOVS||[]).filter(function(x){ return String(x.id) === String(id); })[0];
+    return (MOVS||[]).concat(DECLS||[])
+      .filter(function(x){ return String(x.id) === String(id); })[0];
+  }
+
+  /* QUEM PODE MEXER NUMA DECLARAÇÃO, na tela. A tranca de verdade é a da rota, que lê o
+     perfil do cadastro; aqui é para a pessoa não descobrir que não pode depois de
+     escrever o motivo. Os três nomes saem da MESMA lista do servidor — escritos de novo
+     aqui, um dia a tela ofereceria o que a rota recusa. */
+  function podeMexerNaDeclaracao(){
+    var s = Q.sessao() || {};
+    var lista = (DADOS && DADOS.perfisDeclaracao) || ['ADMIN', 'GESTOR', 'GERENTE'];
+    return lista.indexOf(String(s.perfil || '').toUpperCase()) >= 0;
+  }
+
+  /* O QUE RECARREGAR DEPOIS DE MEXER NUMA LINHA. A declaração não está em Movimentos:
+     mandar aquela tela recarregar deixaria a conciliação — que é de onde a pessoa mexeu
+     — mostrando o número velho ao lado do aviso de que ele mudou. */
+  function depoisDeMexer(m){
+    if (m && m.declaracao) { carregarDecl(); return; }
+    var b = document.getElementById('btnFiltrarMov');
+    if (b) b.click();
+    carregarPainel();
   }
 
   /* ---------- Movimentos em cartão, no celular ----------
@@ -8974,8 +9130,7 @@
           ? 'Nada mudou — registrei como consulta.'
           : 'Corrigido: '+r.alterou.map(function(x){ return x.campo; }).join(', '),
           r.consulta ? 'info' : 'ok');
-        document.getElementById('btnFiltrarMov').click();
-        carregarPainel();
+        depoisDeMexer(m);
       }).catch(function(e){ b.disabled=false; b.textContent='Gravar correção'; Q.toast(e.message,'erro'); });
     });
   }
