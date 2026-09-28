@@ -723,8 +723,12 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    sozinho antes.
    DISCRETA DE PROPOSITO: ela e assinatura, e nao anuncio. Em tamanho cheio disputaria a
    leitura com o retrato de quem entrou, que e o que se procura ali. */
-.conta__marca{display:inline-flex;align-items:center;flex:0 0 auto;margin-right:auto;
-  opacity:.72}
+/* A FILEIRA DE BAIXO E UMA LINHA PROPRIA, `flex:1 1 100%`. Antes os botoes desciam
+   quando o nome nao cabia — e descendo eles encostam a direita, com o vao da esquerda
+   sendo sobra e nao lugar. Numa linha propria a esquerda vira um lugar, e a marca se
+   apoia nela. */
+.conta__pe{display:flex;align-items:center;gap:8px;flex:1 1 100%;min-width:0}
+.conta__marca{display:inline-flex;align-items:center;flex:0 0 auto;opacity:.72}
 .conta__marca img{display:block;height:26px;width:auto}
 .conta__marca:hover{opacity:1}
 /* NO TRILHO ELA SAI. Em 52px uteis ja disputam o retrato e o botao de sair, e a marca
@@ -1060,7 +1064,8 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   /* A conta EMPILHA em vez de perder uma das duas peças. O modelo escondia o botão
      de sair no trilho; aqui ele fica: sair é a única saída da tela, e escondê-la
      atrás de "primeiro reabra o menu" é caro demais pelo espaço que se ganha. */
-  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta{
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta,
+  .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta__pe{
     flex-direction:column;gap:6px
   }
   /* O `margin-left:auto` DAS ACOES TINHA DE SAIR AQUI, e era ele que cortava o rodape.

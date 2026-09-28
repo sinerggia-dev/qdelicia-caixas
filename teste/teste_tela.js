@@ -11983,9 +11983,21 @@ console.log('\n== os grupos da navegacao recolhem ==');
     'a marca aparece no rodapé da lateral, e sem voz para quem usa leitor de tela — o ' +
     'nome do sistema já foi dito no alto, e ouvi-lo de novo entre o nome da pessoa e o ' +
     'botão de sair só atrasa quem está indo embora');
-  ok(css.indexOf('.conta__marca{display:inline-flex') > 0 &&
-     css.indexOf('margin-right:auto') > 0,
-    'e é ela que empurra os botões para a borda, ocupando o vão que sobrava à esquerda');
+  /* A FILEIRA DE BAIXO E UMA LINHA PROPRIA, e e isso que faz a esquerda ser um LUGAR.
+     Com os botoes apenas descendo quando o nome nao cabe, eles encostam a direita e o
+     vao da esquerda e sobra: a marca nao teria onde se apoiar. */
+  ok(css.indexOf('.conta__pe{display:flex') > 0 && css.indexOf('flex:1 1 100%') > 0,
+    'a fileira de baixo é uma linha própria — descendo por falta de espaço, os botões ' +
+    'encostam à direita e a esquerda vira sobra, não lugar');
+  var iPe = adm.indexOf('<span class="conta__pe">');
+  ok(iPe > 0 && adm.indexOf('class="conta__marca"', iPe) > iPe &&
+     adm.indexOf('class="conta__marca"', iPe) < adm.indexOf('class="conta__acoes"', iPe),
+    'e a marca vem ANTES dos botões dentro dela: é o que a põe na ponta esquerda, que ' +
+    'é o lugar pedido', [iPe, adm.indexOf('class="conta__marca"', iPe)]);
+  ok(adm.indexOf('src="marca-rodape.png"') > 0 &&
+     adm.indexOf('<span class="selo selo--marca"><img src="logo.png"') > 0,
+    'e o arquivo dela é PRÓPRIO, `marca-rodape.png` — a do alto continua sendo a do ' +
+    'sistema, e uma só para as duas faria trocar uma trocar a outra');
   ok(css.indexOf('.shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta__marca{') > 0,
     'no trilho ela sai — em 52px já disputam o retrato e o botão de sair, e a marca já ' +
     'está no alto da lateral');
