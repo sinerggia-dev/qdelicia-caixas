@@ -169,9 +169,20 @@ async function rotaGet(p) {
     case 'conciliacao':
       var euConc = L.acharUsuario(d.usuarios, p.quem);
       if (!L.veDeclaracao(euConc)) return { ok: true, movimentos: [] };
+      /* A BASE E OBRIGATORIA, e a rota RECUSA em vez de devolver tudo.
+         Devolver tudo por omissao e dar permissao por esquecimento: hoje sao dois
+         mundos, e no dia em que houver um terceiro quem nunca mexeu no filtro passaria
+         a ler o terceiro tambem, sem ninguem ter decidido isso.
+         RECUSA E NAO LISTA VAZIA: vazio se le como "nao houve", e quem abrisse a tela
+         concluiria que o motorista nao declarou nada. */
+      var quaisMundos = L.mundosPedidos(p.mundo);
+      if (!quaisMundos.length) {
+        return { ok: false, erro: 'Escolha a base a comparar: ' +
+                 L.MUNDOS.map(function (m) { return m.nome; }).join(' ou ') + '.' };
+      }
       var dConc = L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem));
       return { ok: true, movimentos: L.listaMovimentos(
-                 L.recorteMundos(dConc.movimentos, p.mundo),
+                 L.recorteMundos(dConc.movimentos, quaisMundos),
                  d.locais, d.tipos, d.usuarios, p) };
     /* A lixeira entende o MESMO `so` que `movimentos`, e pela mesma razão: ela é o
        avesso daquela lista, e uma peneira que valesse só de um lado transformaria a

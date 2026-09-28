@@ -1156,9 +1156,13 @@
              que o motorista declara e a que o conferente conta. "Base Declaração"
              sozinha traria metade de cada par, e a tabela inteira diria "Só declaração"
              — que é como se lê uma carga que chegou e ninguém conferiu. -->
+        <!-- SEM PADRÃO, a pedido. "Todas" aqui seria permissão dada por omissão: este
+             filtro não peneira o que já veio, ele decide QUAL LIVRO é lido — e um
+             padrão que abrange tudo cresce sozinho a cada livro novo. A palavra do
+             estado vazio diz o que falta fazer, e não promete dado. -->
         <div><label for="dcBase">Base</label>
           <select id="dcBase" multiple data-multi>
-            <option value="">Todas</option>
+            <option value="">Escolha a base…</option>
             <option value="declaracao">Base Declaração</option>
             <option value="testeDecl">Base Teste Declaração</option>
           </select></div>
@@ -3084,8 +3088,22 @@
   function carregarDecl(){
     var box = document.getElementById('tabelaDecl');
     if (!box) return;
-    box.innerHTML = '<div class="vazio">Carregando…</div>';
     var f = filtroDecl();
+    /* SEM BASE ESCOLHIDA A TELA NÃO PERGUNTA NADA. Carregar "todas" por omissão seria
+       abrir os dois livros para quem não pediu nem um — e no dia em que houver um
+       terceiro, ele abriria junto, calado.
+       O SERVIDOR TAMBÉM RECUSA; isto aqui é para a pessoa ver o que falta em vez de
+       levar uma mensagem de erro. */
+    if (!f.base){
+      DECLS = [];
+      PARES = [];
+      limparResumoDecl();
+      box.innerHTML = '<div class="vazio">Escolha a <b>Base</b> para comparar — ' +
+        'Declaração ou Teste Declaração. São livros diferentes, e somados dão um ' +
+        'número que não responde nem uma pergunta nem a outra.</div>';
+      return;
+    }
+    box.innerHTML = '<div class="vazio">Carregando…</div>';
     /* A PORTA PRÓPRIA DA CONCILIAÇÃO, e não mais a de Movimentos. Ela traz os DOIS lados
        do par — a declaração do motorista e a contagem do conferente, que vivem em livros
        diferentes — e é a única rota do sistema que devolve declaração.
@@ -3205,6 +3223,16 @@
         });
       });
     });
+  }
+
+  /* OS NÚMEROS DE CIMA SOMEM JUNTO com a tabela. Deixados de um carregamento anterior,
+     eles ficariam sobre uma tela que diz "escolha a base" — e três números sem tabela
+     se leem como o resultado do que está escolhido agora. */
+  function limparResumoDecl(){
+    var faixa = document.getElementById('dcTotais');
+    if (faixa) faixa.innerHTML = '';
+    var sit = document.getElementById('dcSituacoes');
+    if (sit) sit.innerHTML = '';
   }
 
   function classificarDeclPor(col){

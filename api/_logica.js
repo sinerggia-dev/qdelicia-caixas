@@ -608,8 +608,27 @@ var MUNDOS = [
   { id: 'testeDecl',  nome: 'Base Teste Declaração', bases: ['testeDecl', 'teste'] }
 ];
 
-/* VAZIO TRAZ OS DOIS, pela mesma convencao das outras peneiras: lista vazia quer dizer
-   "todas". O contrario deixaria a tela em branco no primeiro carregamento. */
+/* VAZIO NAO TRAZ NADA — e esta funcao e a UNICA do projeto em que "vazio" nao quer
+ * dizer "todas". A excecao e pensada, e o motivo e o que a distingue das outras
+ * peneiras:
+ *
+ *   · motorista, situacao e tipo PENEIRAM o que ja veio. Vazias, elas nao abrem porta
+ *     nenhuma: o que esta na tela ja estava autorizado a estar la.
+ *   · esta escolhe QUAL LIVRO E LIDO. Vazia com o sentido de "todos", ela e uma
+ *     permissao dada por omissao — e que cresce sozinha a cada livro novo, sem ninguem
+ *     decidir nada. Hoje sao dois mundos; no dia em que houver um terceiro, quem nunca
+ *     mexeu no filtro passaria a ler o terceiro tambem.
+ *
+ * E A MESMA REGRA QUE JA VALE PARA ESCREVER: quem tem mais de uma base para lancar
+ * escolhe na hora, e o servidor RECUSA quando vem ambiguo. Ler segue a escrita.
+ *
+ * QUEM PEDE TEM DE DIZER. A rota recusa antes de chegar aqui; esta funcao e a segunda
+ * tranca, para o dia em que alguem escrever um segundo consumidor e esquecer a
+ * primeira — e ela tranca pela UNICA condicao que existe abaixo: um mundo so entra na
+ * conta quando foi NOMEADO. Havia aqui um `if (!quais.length) return []` a mais, e ele
+ * nao defendia de nada: com a lista vazia, nenhum mundo e nomeado e a resposta ja saia
+ * vazia. Linha que nao muda resposta nenhuma e linha que nenhuma prova pode defender,
+ * e que se le como se estivesse segurando algo. */
 function recorteMundos(movimentos, pedidos) {
   var quais = (Array.isArray(pedidos) ? pedidos
                : String(pedidos == null ? '' : pedidos).split('|'))
@@ -617,13 +636,24 @@ function recorteMundos(movimentos, pedidos) {
     .filter(function (x) { return !!x; });
   var livros = {};
   MUNDOS.forEach(function (m) {
-    if (!quais.length || quais.indexOf(m.id) >= 0) {
+    if (quais.indexOf(m.id) >= 0) {
       m.bases.forEach(function (b) { livros[b] = true; });
     }
   });
   return (movimentos || []).filter(function (m) {
     return livros[baseDoMovimento(m)] === true;
   });
+}
+
+/* OS MUNDOS QUE O PEDIDO CITOU, e so os que existem. Um nome desconhecido nao vira
+   "todos" nem erro silencioso: ele simplesmente nao esta na conta, e a rota recusa
+   porque sobrou lista vazia. */
+function mundosPedidos(pedido) {
+  var quais = (Array.isArray(pedido) ? pedido
+               : String(pedido == null ? '' : pedido).split('|'))
+    .map(function (x) { return String(x).trim(); });
+  return MUNDOS.filter(function (m) { return quais.indexOf(m.id) >= 0; })
+    .map(function (m) { return m.id; });
 }
 
 /* QUEM PODE MEXER NUMA DECLARACAO — e so nela.
@@ -2421,6 +2451,7 @@ module.exports = {
   basesDoUsuario: basesDoUsuario, baseEscolhida: baseEscolhida,
   veDeclaracao: veDeclaracao, recorteDeclaracao: recorteDeclaracao,
   semDeclaracao: semDeclaracao, MUNDOS: MUNDOS, recorteMundos: recorteMundos,
+  mundosPedidos: mundosPedidos,
   PERFIS_DECLARACAO: PERFIS_DECLARACAO,
   podeAlterarDeclaracao: podeAlterarDeclaracao, barraDeclaracao: barraDeclaracao,
   acharUsuario: acharUsuario,

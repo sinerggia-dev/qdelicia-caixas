@@ -3436,12 +3436,34 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'uma rota que não devolve aquilo — escondida, bastaria alguém digitar o filtro',
     (pedindoDecl.movimentos || []).filter((m) => m.qtd === 999).length);
 
-  const naPorta = await GET({ acao: 'conciliacao', quem: 'U001', limit: 500 });
+  const naPorta = await GET({ acao: 'conciliacao', quem: 'U001', limit: 500,
+    mundo: 'declaracao|testeDecl' });
   const minha = (naPorta.movimentos || []).filter((m) => m.qtd === 999)[0];
   ok(!!minha && minha.declaracao === true,
     'e a linha EXISTE, marcada, na porta da conciliação — só escondida em todo lugar, ' +
     'o relatório que compara declarado com conferido não teria o que comparar',
     minha && minha.declaracao);
+
+  /* A BASE E OBRIGATORIA, e a rota RECUSA em vez de devolver tudo.
+     Devolver tudo por omissao e dar permissao por esquecimento: hoje sao dois mundos, e
+     no dia em que houver um terceiro quem nunca mexeu no filtro leria o terceiro
+     tambem, sem ninguem ter decidido isso. */
+  const semBase = await GET({ acao: 'conciliacao', quem: 'U001', limit: 500 });
+  ok(semBase.ok === false && /Escolha a base/.test(String(semBase.erro || '')),
+    'sem dizer a base, a conciliação é RECUSADA — devolvendo os dois livros por ' +
+    'omissão, o terceiro que existir um dia abriria junto, calado',
+    [semBase.ok, semBase.erro]);
+  ok(!semBase.movimentos || semBase.movimentos.length === 0,
+    'e a recusa não vem com dado dentro — uma resposta que diz "não pode" e manda a ' +
+    'lista assim mesmo é pior do que não ter recusa nenhuma', semBase.movimentos);
+
+  const baseInventada = await GET({ acao: 'conciliacao', quem: 'U001', limit: 500,
+    mundo: 'reais' });
+  ok(baseInventada.ok === false,
+    'e uma base que não é mundo de conciliação também é recusada, em vez de virar ' +
+    '"todos" — "Base Produção" sozinha não tem declaração nenhuma para comparar, e ' +
+    'trazer tudo seria a resposta mais errada possível para o pedido mais errado',
+    [baseInventada.ok, baseInventada.erro]);
 
   ok((naPorta.movimentos || []).some((m) => m.declaracao !== true),
     'e essa porta traz os DOIS lados: a declaração do motorista E a contagem do ' +
@@ -3561,7 +3583,8 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
   /* PELA PORTA PROPRIA, que e a unica que existe. Medido nela e nao no menu: esconder
      o botao e conveniencia — a rota e o que a pessoa alcanca com um pedido na mao. */
   const declsPara = async (quem) => ((await GET({ acao: 'conciliacao', quem: quem,
-    limit: 500 })).movimentos || []).filter((m) => m.declaracao === true);
+    limit: 500, mundo: 'declaracao|testeDecl' })).movimentos || [])
+      .filter((m) => m.declaracao === true);
 
   ok((await declsPara(compara.ID)).length > 0,
     'quem tem a aba Lançamentos Motorista recebe as declarações — sem isso a tela dela ' +
@@ -3571,8 +3594,8 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'e quem NÃO tem a aba não recebe nenhuma, mesmo batendo direto na porta dela — é ' +
     'disso que a contagem cega é feita: ele conta o que chegou, e não o que disseram ' +
     'que ia chegar', (await declsPara(cego.ID)).length);
-  ok(((await GET({ acao: 'conciliacao', quem: cego.ID, limit: 500 })).movimentos || [])
-       .length === 0,
+  ok(((await GET({ acao: 'conciliacao', quem: cego.ID, limit: 500,
+        mundo: 'declaracao|testeDecl' })).movimentos || []).length === 0,
     'e a porta devolve VAZIO para ele, e não a metade sem declaração: meia conciliação ' +
     'diria "Sem declaração" em toda linha, e ele leria como falha do motorista o que é ' +
     'só a permissão dele');
@@ -3657,8 +3680,9 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'ele a prova abaixo mediria alguém que já estava barrado por não enxergar a linha',
     !!veNaoMexe);
 
-  const umaDecl = ((await GET({ acao: 'conciliacao', quem: 'U001', limit: 500 }))
-    .movimentos || []).filter((m) => m.declaracao === true)[0];
+  const umaDecl = ((await GET({ acao: 'conciliacao', quem: 'U001', limit: 500,
+    mundo: 'declaracao|testeDecl' })).movimentos || [])
+    .filter((m) => m.declaracao === true)[0];
   ok(!!umaDecl && !!umaDecl.id,
     'e achou uma declaração para tentar mexer — sem linha, as recusas abaixo seriam ' +
     '"não encontrado" e não diriam nada sobre perfil', umaDecl && umaDecl.id);
@@ -3691,8 +3715,9 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
 
   /* E O CAMINHO INTEIRO, e nao so "excluir": posta so la, a mesma linha sairia de
      circulacao por um cancelamento sem motivo, e voltaria por uma restauracao. */
-  const aindaLa = ((await GET({ acao: 'conciliacao', quem: 'U001', limit: 500 }))
-    .movimentos || []).filter((m) => String(m.id) === String(umaDecl.id))[0];
+  const aindaLa = ((await GET({ acao: 'conciliacao', quem: 'U001', limit: 500,
+    mundo: 'declaracao|testeDecl' })).movimentos || [])
+    .filter((m) => String(m.id) === String(umaDecl.id))[0];
   ok(!!aindaLa && !aindaLa.cancelado,
     'e NADA aconteceu com a linha depois das quatro tentativas — recusa que responde ' +
     '"não pode" e grava assim mesmo é pior que não ter recusa nenhuma',

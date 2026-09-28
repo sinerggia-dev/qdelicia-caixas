@@ -11317,13 +11317,56 @@ console.log('\n== Motorista/Conferente ==');
     'e o mundo do ensaio traz os dois lados do ensaio — comparar uma declaração de ' +
     'treino com uma contagem de verdade dá um número plausível, que é a pior espécie de ' +
     'número errado', ids(Lm.recorteMundos(quatro, 'testeDecl')));
-  ok(ids(Lm.recorteMundos(quatro, '')) === 'abcd' &&
-     ids(Lm.recorteMundos(quatro, 'declaracao|testeDecl')) === 'abcd',
-    'e vazio quer dizer "todos", como nas outras peneiras — o contrário deixaria a tela ' +
-    'em branco no primeiro carregamento', ids(Lm.recorteMundos(quatro, '')));
+  ok(ids(Lm.recorteMundos(quatro, 'declaracao|testeDecl')) === 'abcd',
+    'e os dois juntos trazem os quatro — escolher os dois é um ato, e continua valendo',
+    ids(Lm.recorteMundos(quatro, 'declaracao|testeDecl')));
+
+  /* VAZIO NAO E "TODOS", e esta e a UNICA peneira do projeto em que nao e.
+     As outras — motorista, situacao, tipo — filtram o que JA VEIO: vazias, nao abrem
+     porta nenhuma. Esta escolhe QUAL LIVRO e lido, e vazia com o sentido de "todos" e
+     uma permissao dada por omissao, que cresce sozinha a cada livro novo. */
+  ok(ids(Lm.recorteMundos(quatro, '')) === '' &&
+     ids(Lm.recorteMundos(quatro, null)) === '',
+    'vazio NÃO quer dizer "todos" nesta peneira — ela escolhe qual livro é lido, e o ' +
+    'padrão que abrange tudo é uma permissão dada por omissão, que cresce sozinha a ' +
+    'cada livro novo', ids(Lm.recorteMundos(quatro, '')));
   ok(ids(Lm.recorteMundos(quatro, 'inventado')) === '',
     'e um mundo desconhecido não traz tudo por engano — trazer seria o pior padrão que ' +
     'uma peneira pode ter', ids(Lm.recorteMundos(quatro, 'inventado')));
+  ok(Lm.mundosPedidos('declaracao|inventado').join(',') === 'declaracao' &&
+     Lm.mundosPedidos('').length === 0 && Lm.mundosPedidos('reais').length === 0,
+    'e a rota só conta os mundos que EXISTEM: um nome desconhecido não vira "todos" ' +
+    'nem erro calado — sobra lista vazia, e ela é recusada',
+    Lm.mundosPedidos('declaracao|inventado'));
+
+  /* E A ROTA RECUSA, em vez de devolver tudo — a recusa e o que a tela nao pode
+     contornar esquecendo de mandar o campo. */
+  var iConc = apiLimpa.indexOf("case 'conciliacao':");
+  ok(iConc > 0 && apiLimpa.slice(iConc, iConc + 700).indexOf('mundosPedidos') > 0 &&
+     apiLimpa.slice(iConc, iConc + 700).indexOf('ok: false') > 0,
+    'a rota RECUSA o pedido sem base, e não devolve os dois livros por omissão — ' +
+    'devolver seria dar permissão por esquecimento', iConc);
+
+  /* E A TELA NEM PERGUNTA. Sem isso, quem abre a aba leva uma mensagem de erro em vez
+     de ver o que falta fazer. */
+  var iCar = adm.indexOf('  function carregarDecl(){');
+  var fonteCar = adm.slice(iCar, adm.indexOf('\n  }', iCar) + 4);
+  ok(fonteCar.indexOf('if (!f.base){') > 0 && fonteCar.indexOf('Escolha a <b>Base</b>') > 0,
+    'e a tela não carrega nada antes de a base ser escolhida — ela diz o que falta em ' +
+    'vez de abrir os dois livros para quem não pediu nem um', fonteCar.indexOf('!f.base'));
+  ok(fonteCar.indexOf('limparResumoDecl()') > 0,
+    'e os três números de cima somem junto: deixados de um carregamento anterior, eles ' +
+    'ficariam sobre uma tela que diz "escolha a base", e se leriam como o resultado do ' +
+    'que está escolhido agora');
+  var selBase = adm.slice(adm.indexOf('<select id="dcBase"'));
+  selBase = selBase.slice(0, selBase.indexOf('</select>'));
+  ok(selBase.indexOf('Todas') < 0 && selBase.indexOf('Escolha a base') > 0,
+    'e o filtro não diz "Todas" quando está vazio — a palavra promete um dado que a ' +
+    'tela não vai buscar, e quem lesse concluiria que não houve declaração nenhuma',
+    selBase.slice(0, 120));
+  ok(selBase.indexOf('selected') < 0,
+    'e nenhuma base nasce marcada: escolher por ela é decidir no lugar dela qual livro ' +
+    'ela está lendo');
 
   /* ---- O PAR, RODADO ----
    *
