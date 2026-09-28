@@ -1355,7 +1355,7 @@
      contagem cega esconde de quem não foi habilitado. */
   var BASES_DECL = ['declaracao', 'testeDecl'];
 
-  var DADOS = null, EQUIPE = [], MOTORISTAS = [], VEICULOS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PAINEL = null, EXTRATO = null, MOVS = [], SITUACOES = [];
+  var DADOS = null, EQUIPE = [], MOTORISTAS = [], VEICULOS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PERFIS_DECL = [], PAINEL = null, EXTRATO = null, MOVS = [], SITUACOES = [];
 
   /* Fica fora de montarSelects porque a lista chega pela `equipe`, que e outra ida de
      rede: montada junto com as demais, ela ainda estaria vazia. */
@@ -1416,7 +1416,7 @@
 
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; VEICULOS = r.veiculos || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
+      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; VEICULOS = r.veiculos || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; PERFIS_DECL = r.perfisDeclaracao || []; OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
       ordenarTudo();
       montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
@@ -6936,7 +6936,12 @@
      aqui, um dia a tela ofereceria o que a rota recusa. */
   function podeMexerNaDeclaracao(){
     var s = Q.sessao() || {};
-    var lista = (DADOS && DADOS.perfisDeclaracao) || ['ADMIN', 'GESTOR', 'GERENTE'];
+    /* DE `PERFIS_DECL`, que e onde a resposta do cadastro pousa — e nao de `DADOS`,
+       que vem de outra rota. Eu tinha escrito `DADOS.perfisDeclaracao` e a lista do
+       servidor nunca chegava: a tela caia no reforco escrito aqui e ninguem via, porque
+       os dois diziam a mesma coisa. Duas listas iguais hoje sao duas listas diferentes
+       no primeiro nome novo. */
+    var lista = PERFIS_DECL.length ? PERFIS_DECL : ['ADMIN', 'GESTOR', 'GERENTE'];
     return lista.indexOf(String(s.perfil || '').toUpperCase()) >= 0;
   }
 

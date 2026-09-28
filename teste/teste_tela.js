@@ -11627,11 +11627,37 @@ console.log('\n== Motorista/Conferente ==');
     'abertura, ela ficaria com a forma da largura de quando abriu');
 
   /* ---- A LISTA DE PERFIS VEM DO SERVIDOR ---- */
-  ok(adm.indexOf('DADOS.perfisDeclaracao') > 0,
-    'e os perfis que podem alterar vêm do servidor, e não escritos na tela — escritos ' +
-    'nos dois lugares, um dia a tela ofereceria o que a rota recusa');
+  /* ---- A LISTA DE PERFIS CHEGA MESMO ----
+     A primeira versao desta prova perguntava se o texto `DADOS.perfisDeclaracao` estava
+     no arquivo. Estava — e a lista do servidor nunca chegava, porque `DADOS` vem de uma
+     rota e aquele campo vinha de outra. A tela caia no reforco escrito nela e ninguem
+     via, porque os dois diziam a mesma coisa. Endereco conferido, efeito nenhum.
+     AGORA A CADEIA INTEIRA RODA: a resposta do cadastro entra, e a pergunta sai. */
+  var iResp = adm.indexOf('EQUIPE_CHEGOU = true;');
+  var linhaResp = adm.slice(adm.lastIndexOf('if (r && r.ok){', iResp),
+                            adm.indexOf('}', iResp) + 1);
+  var iPode = adm.indexOf('  function podeMexerNaDeclaracao(){');
+  var fontePode = adm.slice(iPode, adm.indexOf('\n  }', iPode) + 4);
+  function perguntar(resposta, perfil) {
+    return new Function('r', 'Q', 'montarStatusMov',
+      'var EQUIPE, MOTORISTAS, VEICULOS, LOCAIS_PADRAO, PEDIDOS_SENHA, PERFIS,' +
+      ' PERFIS_DECL = [], OPERACOES_APP, ABAS_PAINEL, SITUACOES, EQUIPE_CHEGOU;' +
+      linhaResp + fontePode + '\nreturn podeMexerNaDeclaracao();')(
+        resposta, { sessao: function () { return { perfil: perfil }; } },
+        function () {});
+  }
+  ok(perguntar({ ok: true, perfisDeclaracao: ['DIRETOR'] }, 'Diretor') === true,
+    'a lista de perfis que podem alterar CHEGA do servidor — a resposta do cadastro ' +
+    'entra e a pergunta passa a responder por ela, e não pelo reforço escrito na tela',
+    true);
+  ok(perguntar({ ok: true, perfisDeclaracao: ['DIRETOR'] }, 'Gestor') === false,
+    'e quem não está na lista do servidor é recusado, mesmo estando no reforço escrito ' +
+    'aqui — duas listas iguais hoje são duas listas diferentes no primeiro nome novo');
+  ok(perguntar({ ok: true }, 'Gestor') === true,
+    'e sem a lista — servidor antigo, resposta velha em cache — o reforço segura, em ' +
+    'vez de fechar a tela para todo mundo');
   ok(api.indexOf('perfisDeclaracao: L.PERFIS_DECLARACAO') > 0,
-    'saindo da MESMA lista que a rota usa para recusar');
+    'e ela sai da MESMA lista que a rota usa para recusar');
 
   /* ---- A TELA ESTÁ EM OPERAÇÃO, e é uma aba que se concede ---- */
   var nav = adm.slice(adm.indexOf('<nav class="abas"'), adm.indexOf('</nav>'));
