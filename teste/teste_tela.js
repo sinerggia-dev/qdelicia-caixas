@@ -11021,11 +11021,21 @@ console.log('\n== a base do usuário ==');
     (adm.match(/As duas bases/g) || []).length);
   var filtroBase = adm.slice(adm.indexOf('<select id="mvTeste"'));
   filtroBase = filtroBase.slice(0, filtroBase.indexOf('</select>'));
-  ok(/multiple data-multi/.test(filtroBase) &&
-     /value="declaracao"/.test(filtroBase) && /value="reais" selected/.test(filtroBase),
-    'e o filtro de Movimentos aceita várias bases, oferece a Declaração e abre na ' +
-    'Produção — abrindo em "todas", a tela somaria o ensaio e a declaração com a ' +
-    'operação para quem não escolheu nada', filtroBase.slice(0, 80));
+  ok(/multiple data-multi/.test(filtroBase) && /value="reais" selected/.test(filtroBase),
+    'o filtro de Movimentos aceita várias bases e abre na Produção — abrindo em ' +
+    '"todas", a tela somaria o ensaio com a operação para quem não escolheu nada',
+    filtroBase.slice(0, 80));
+  /* E NENHUMA DAS DUAS DE DECLARAÇÃO, a pedido. Não é opção escondida: o servidor não
+     as manda para esta rota, para ninguém. Ali elas entravam nos cartões de Saída,
+     Retorno e Saldo, e a mesma carga era contada duas vezes — uma pela contagem do
+     conferente, outra pela fala do motorista. */
+  var declNoFiltro = ['declaracao', 'testeDecl'].filter(function (id) {
+    return filtroBase.indexOf('value="' + id + '"') >= 0;
+  });
+  ok(declNoFiltro.length === 0,
+    'e NENHUMA base de declaração está nele: ali a declaração entrava em Saída, Retorno ' +
+    'e Saldo, e a mesma carga era contada duas vezes — pela contagem do conferente e ' +
+    'pela fala do motorista', declNoFiltro);
   ok(!/<select[^>]*>\s*<option value="todos"/.test(adm),
     'e ela não é a opção de fábrica — misturar ensaio com operação numa soma só, sem ' +
     'ninguém ter pedido, dá um número que não responde nem uma pergunta nem a outra');
@@ -11213,11 +11223,15 @@ console.log('\n== Motorista/Conferente ==');
      QUEM PENEIRA CONTINUA SENDO O SERVIDOR: para quem não tem esta aba as declarações não
      vêm, e sem elas esta tela não tem o que conciliar — que é o desenho certo para uma
      contagem cega. */
-  ok(pag.indexOf('Q.lendo(') > 0 && pag.indexOf("acao:'movimentos'") > 0 &&
-     pag.indexOf('teste:') < 0,
-    'a tela pede os DOIS lados num pedido só, sem recorte de base, e diz quem está ' +
-    'perguntando — recortando por declaração, metade de cada par faltaria e a tabela ' +
-    'inteira diria "só declaração"', pag.slice(0, 160));
+  ok(pag.indexOf('Q.lendo(') > 0 && pag.indexOf("acao:'conciliacao'") > 0 &&
+     pag.indexOf("acao:'movimentos'") < 0,
+    'a tela pede pela porta PRÓPRIA da conciliação e diz quem está perguntando — pela ' +
+    'de Movimentos ela não receberia mais declaração nenhuma, e a tabela inteira diria ' +
+    '"Só declaração"', pag.slice(0, 160));
+  ok(pag.indexOf('mundo:f.base') > 0,
+    'e manda o MUNDO escolhido, que é o que o filtro de Base desta tela significa: cada ' +
+    'opção são duas bases, a que o motorista declara e a que o conferente conta',
+    pag.indexOf('mundo:') > 0);
 
   /* ---- E A PENEIRA É DO SERVIDOR ----
      Esconder a aba é conveniência; quem filtra "Base Declaração" na lista de Movimentos
@@ -11261,55 +11275,55 @@ console.log('\n== Motorista/Conferente ==');
   ok(Lc.veDeclaracao(null) === false,
     'e cadastro que não existe não vê nada');
 
-  /* ---- A OPÇÃO SOME DO FILTRO DE QUEM NÃO PODE ----
-     O servidor já não manda nada para essa pessoa; deixar a opção na tela seria pior que
-     inútil, porque "vazio" se lê como "não houve", e não como "você não pode ver". */
-  /* RODADO, e não lido: lido, a prova responderia "a aba está citada ali?" — e estaria,
-     mesmo com o resultado jogado fora na linha seguinte. */
-  var iOp = adm.indexOf("var opcao = document.querySelector('#mvTeste option");
-  var blocoOp = iOp < 0 ? '' : adm.slice(adm.lastIndexOf('(function(){', iOp),
-                                         adm.indexOf('})();', iOp) + 5);
-  ok(blocoOp.length > 80 && blocoOp.indexOf('opcao') > 0,
-    'a conferência recortou o trecho que esconde a opção — recorte vazio faria as duas ' +
-    'provas abaixo passarem sem rodar nada', blocoOp.length);
-  /* AS DUAS OPÇÕES DE DECLARAÇÃO entram na bancada, cada uma com o seu objeto: com um
-     objeto só para as duas, esconder apenas a primeira passaria — e o conferente
-     continuaria lendo o que o motorista declarou no ensaio. */
-  function opcoesCom(abas) {
-    var ops = {};
-    ['declaracao', 'testeDecl'].forEach(function (id) {
-      ops[id] = { hidden: null, disabled: null, selected: true };
-    });
-    new Function('pode', 'document', 'ligarMultis', 'BASES_DECL', blocoOp)(
-      abas,
-      { querySelector: function (sel) {
-          var m = /value="([^"]+)"/.exec(sel);
-          return m ? ops[m[1]] || null : null;
-        } },
-      function () {}, ['declaracao', 'testeDecl']);
-    return ops;
+  /* ---- MOVIMENTOS NÃO TEM MAIS O QUE ESCONDER ----
+     Havia aqui um trecho que escondia as duas opções de declaração do filtro de quem não
+     podia vê-las. Ele saiu junto com as opções: esconder depende de alguém lembrar de
+     esconder, e a rota agora não devolve declaração nem quando alguém a pede na mão. A
+     contagem cega deixou de ser um `hidden` e virou ausência.
+     QUEM COBRA O EFEITO é o `teste_api.js`, contra a rota. Aqui se cobra que a rota
+     chame a peneira — sem ela, a lista volta a trazer tudo e nada na tela diz isso. */
+  var iMov = apiLimpa.indexOf("case 'movimentos':");
+  ok(iMov > 0 && apiLimpa.slice(iMov, iMov + 420).indexOf('semDeclaracao') > 0,
+    'a rota de Movimentos tira a declaração de TODO pedido, e não por opção de filtro — ' +
+    'por filtro, o pedido que não escolhesse base nenhuma continuaria trazendo tudo, e é ' +
+    'esse o pedido que a tela faz ao abrir', iMov);
+  ok(apiLimpa.indexOf("case 'conciliacao':") > 0 &&
+     apiLimpa.slice(apiLimpa.indexOf("case 'conciliacao':"), apiLimpa.indexOf("case 'conciliacao':") + 400)
+       .indexOf('veDeclaracao') > 0,
+    'e a porta da conciliação falha FECHADA: sem a aba, ela devolve vazio — a contagem ' +
+    'cega não pode depender de a tela lembrar de não perguntar');
+
+  /* ---- OS DOIS MUNDOS, RODADOS ----
+     Cada um tem DUAS bases. Escrito com uma só, o filtro traria metade de cada par e a
+     tela inteira diria "Só declaração" — que é como se lê uma carga que chegou e
+     ninguém conferiu. Lida no arquivo, a prova responderia "a palavra declaracao está
+     na lista?", e estaria nos dois casos. */
+  var Lm = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  function linha(o) {
+    return Object.assign({ Declaracao: false, Perfil: 'Conferente' }, o);
   }
-  function opcaoCom(abas) { return opcoesCom(abas).declaracao; }
-  var todasEscondidas = (function (abas) {
-    var ops = opcoesCom(abas);
-    return Object.keys(ops).every(function (k) {
-      return ops[k].hidden === true && ops[k].disabled === true && ops[k].selected === false;
-    });
-  })(['pgMovimentos']);
-  ok(todasEscondidas,
-    'e as DUAS bases de declaração somem juntas — escondendo só a de verdade, o ' +
-    'conferente continuaria lendo o que o motorista declarou no ensaio, que é quando o ' +
-    'hábito se forma', todasEscondidas);
-  var semAba = opcaoCom(['pgMovimentos']);
-  ok(semAba.hidden === true && semAba.disabled === true && semAba.selected === false,
-    'a opção "Base Declaração" some do filtro de quem não tem a aba, e sai de marcada ' +
-    'se estiver — deixada lá, ela filtraria e voltaria vazio sempre, e vazio se lê como ' +
-    '"não houve", não como "você não pode ver"',
-    [semAba.hidden, semAba.disabled, semAba.selected]);
-  var comAba = opcaoCom(['pgMovimentos', 'pgLancamentosMotorista']);
-  ok(comAba.hidden === false && comAba.disabled === false,
-    'e continua lá para quem tem — senão quem compara não teria como separar os dois ' +
-    'livros na lista', [comAba.hidden, comAba.disabled]);
+  var quatro = [
+    linha({ ID: 'a', Declaracao: false, Perfil: 'Conferente' }),
+    linha({ ID: 'b', Declaracao: false, Perfil: 'Conferente de teste' }),
+    linha({ ID: 'c', Declaracao: true,  Perfil: 'Motorista' }),
+    linha({ ID: 'd', Declaracao: true,  Perfil: 'Motorista teste' })
+  ];
+  var ids = function (l) { return l.map(function (m) { return m.ID; }).sort().join(''); };
+  ok(ids(Lm.recorteMundos(quatro, 'declaracao')) === 'ac',
+    'o mundo da Declaração traz a declaração de verdade E a contagem da Base Produção — ' +
+    'só a declaração, metade de cada par faltaria e a tabela inteira diria "Só ' +
+    'declaração"', ids(Lm.recorteMundos(quatro, 'declaracao')));
+  ok(ids(Lm.recorteMundos(quatro, 'testeDecl')) === 'bd',
+    'e o mundo do ensaio traz os dois lados do ensaio — comparar uma declaração de ' +
+    'treino com uma contagem de verdade dá um número plausível, que é a pior espécie de ' +
+    'número errado', ids(Lm.recorteMundos(quatro, 'testeDecl')));
+  ok(ids(Lm.recorteMundos(quatro, '')) === 'abcd' &&
+     ids(Lm.recorteMundos(quatro, 'declaracao|testeDecl')) === 'abcd',
+    'e vazio quer dizer "todos", como nas outras peneiras — o contrário deixaria a tela ' +
+    'em branco no primeiro carregamento', ids(Lm.recorteMundos(quatro, '')));
+  ok(ids(Lm.recorteMundos(quatro, 'inventado')) === '',
+    'e um mundo desconhecido não traz tudo por engano — trazer seria o pior padrão que ' +
+    'uma peneira pode ter', ids(Lm.recorteMundos(quatro, 'inventado')));
 
   /* ---- O PAR, RODADO ----
    *

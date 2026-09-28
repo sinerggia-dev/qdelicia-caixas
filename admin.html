@@ -958,12 +958,16 @@
              NADA MARCADO = TODAS, a convenção dos outros oito. E a Produção nasce
              marcada porque é a operação: quem abre a tela quer ver o que aconteceu de
              verdade, e o ensaio e a declaração estão a um toque. -->
+        <!-- AS DUAS BASES DE DECLARAÇÃO NÃO ESTÃO AQUI, e não é por estarem escondidas:
+             o servidor não as manda para esta rota, para ninguém. A declaração não é
+             movimento de caixa — é o que o motorista DISSE que trazia —, e nesta lista
+             ela entrava nos cartões de Saída, Retorno e Saldo: a mesma carga contada
+             duas vezes, uma pelo conferente e outra pela fala do motorista.
+             Ela mora em Motorista/Conferente, e só lá. -->
         <div><label for="mvTeste">Lançamentos</label><select id="mvTeste" multiple data-multi>
           <option value="">Todas as bases</option>
           <option value="reais" selected>Base Produção</option>
           <option value="teste">Base Teste Produção</option>
-          <option value="declaracao">Base Declaração</option>
-          <option value="testeDecl">Base Teste Declaração</option>
         </select></div>
         <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
         <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
@@ -1148,6 +1152,26 @@
         <div><label for="dcAte">Até</label><input id="dcAte" type="date"></div>
         <div><label for="dcMotorista">Motorista</label>
           <select id="dcMotorista" multiple data-multi><option value="">Todos</option></select></div>
+        <!-- A BASE AQUI ESCOLHE UM MUNDO, e não um livro. Cada opção traz DUAS bases: a
+             que o motorista declara e a que o conferente conta. "Base Declaração"
+             sozinha traria metade de cada par, e a tabela inteira diria "Só declaração"
+             — que é como se lê uma carga que chegou e ninguém conferiu. -->
+        <div><label for="dcBase">Base</label>
+          <select id="dcBase" multiple data-multi>
+            <option value="">Todas</option>
+            <option value="declaracao">Base Declaração</option>
+            <option value="testeDecl">Base Teste Declaração</option>
+          </select></div>
+        <!-- NASCE EM RETORNO, a pedido: ninguém declara um carregamento, então todo par
+             de saída nasce "Sem declaração" — ruído por construção, e ruído que parece
+             problema. Fica como FILTRO e não como corte fixo: o dia em que o motorista
+             passar a declarar a saída, a tela já sabe mostrá-la. -->
+        <div><label for="dcTipo">Tipo</label>
+          <select id="dcTipo" multiple data-multi>
+            <option value="">Todos</option>
+            <option value="Retorno" selected>Retorno</option>
+            <option value="Saída">Saída</option>
+          </select></div>
         <div><label for="dcSituacao">Situação</label>
           <select id="dcSituacao" multiple data-multi>
             <option value="">Todas</option>
@@ -1797,22 +1821,10 @@
        A MESMA LISTA que decide o menu decide isto, e não uma segunda pergunta: duas
        divergem no primeiro conserto que só uma receber, e aí a tela oferece o que a
        rota recusa. */
-    (function(){
-      var temAba = pode.indexOf('pgLancamentosMotorista') >= 0;
-      /* AS DUAS DE DECLARAÇÃO somem juntas: esconder só a de verdade deixaria o
-         conferente lendo o que o motorista declarou no ensaio — e é no ensaio que o
-         hábito se forma. */
-      var achou = 0;
-      BASES_DECL.forEach(function(id){
-        var opcao = document.querySelector('#mvTeste option[value="'+id+'"]');
-        if (!opcao) return;
-        achou++;
-        opcao.hidden = !temAba;
-        opcao.disabled = !temAba;
-        if (!temAba && opcao.selected) opcao.selected = false;
-      });
-      if (achou) ligarMultis();
-    })();
+    /* NÃO HÁ MAIS OPÇÃO DE DECLARAÇÃO PARA ESCONDER em Movimentos. O bloco que as
+       escondia saiu junto com elas: esconder uma opção depende de alguém lembrar de
+       escondê-la, e a rota agora não devolve declaração nem quando alguém a pede. A
+       contagem cega deixou de ser um `hidden` e virou ausência. */
 
     Q.gruposDaNavegacao('#abas');
     /* O ENDEREÇO MANDA, quando ele aponta para uma página visível. É por aqui que os
@@ -1869,10 +1881,15 @@
     /* OS CAMPOS RECARREGAM SOZINHOS, como os de Movimentos: mudar um filtro e a tabela
        continuar igual faz a pessoa concluir que o filtro não funciona. O botão fica
        como "recarregar". */
-    ['dcDe', 'dcAte', 'dcMotorista'].forEach(function(id){
+    /* A BASE ENTRA AQUI e o Tipo não: a base muda o que o servidor manda, e o tipo
+       peneira o que já chegou. Uma ida à rede para recortar o que está na tela mediria
+       de novo o que não mudou. */
+    ['dcDe', 'dcAte', 'dcMotorista', 'dcBase'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', carregarDecl);
     });
+    var tp = document.getElementById('dcTipo');
+    if (tp) tp.addEventListener('change', desenharDecl);
     /* A SITUAÇÃO NÃO RECARREGA NADA: ela nasce da comparação, que já está na tela. Uma
        ida ao servidor aqui mediria de novo o que não mudou. */
     var s = document.getElementById('dcSituacao');
@@ -3056,7 +3073,7 @@
 
   function filtroDecl(){
     return { de: valorFiltro('dcDe'), ate: valorFiltro('dcAte'),
-             motorista: valorFiltro('dcMotorista') };
+             motorista: valorFiltro('dcMotorista'), base: valorFiltro('dcBase') };
   }
 
   function carregarDecl(){
@@ -3064,15 +3081,14 @@
     if (!box) return;
     box.innerHTML = '<div class="vazio">Carregando…</div>';
     var f = filtroDecl();
-    /* OS DOIS LADOS NUM PEDIDO SÓ, e sem recorte de base: a conciliação precisa do que o
-       motorista declarou E do que o conferente contou, e o conferente lança nas bases de
-       produção. Pedindo só as de declaração, metade de cada par faltaria.
-       QUEM PENEIRA CONTINUA SENDO O SERVIDOR: para quem não tem esta aba, as
-       declarações não vêm — e sem elas esta tela não tem o que conciliar, que é o
-       desenho certo para uma contagem cega.
+    /* A PORTA PRÓPRIA DA CONCILIAÇÃO, e não mais a de Movimentos. Ela traz os DOIS lados
+       do par — a declaração do motorista e a contagem do conferente, que vivem em livros
+       diferentes — e é a única rota do sistema que devolve declaração.
+       QUEM PENEIRA É O SERVIDOR: para quem não tem esta aba ela devolve lista vazia, e
+       sem declaração não há o que conciliar. A tela não decide isso.
        O LIMITE É MAIOR porque aqui cada linha da resposta é meia linha da tabela: um mês
        de operação são centenas de lançamentos que viram dezenas de pares. */
-    Q.get(Q.lendo({ acao:'movimentos', limit:2000,
+    Q.get(Q.lendo({ acao:'conciliacao', limit:2000, mundo:f.base,
                     motorista:f.motorista, de:f.de, ate:f.ate }))
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
@@ -3098,9 +3114,16 @@
     /* A SITUAÇÃO SE FILTRA DEPOIS DO PAR, e não antes: ela nasce da comparação, e
        peneirar os lançamentos por ela seria peneirar por uma resposta que ainda não
        existe. */
+    /* O TIPO PENEIRA O PAR, e não os lançamentos antes dele: o tipo já é parte da chave
+       do par, então as duas coisas dão o mesmo resultado — e peneirar o par não custa
+       uma ida à rede a cada vez que alguém troca o filtro. */
     var quer = escolhaDe(document.getElementById('dcSituacao'));
-    var L = quer.length ? PARES.filter(function(p){ return quer.indexOf(p.situacao) >= 0; })
-                        : PARES;
+    var tipos = escolhaDe(document.getElementById('dcTipo'));
+    var L = PARES.filter(function(p){
+      if (tipos.length && tipos.indexOf(p.tipo) < 0) return false;
+      if (quer.length && quer.indexOf(p.situacao) < 0) return false;
+      return true;
+    });
 
     /* OS NÚMEROS FORA DO CORTE DA LISTA VAZIA: um recorte sem nenhum par ainda tem
        resposta — zeros —, e ela é diferente de a tela não ter desenhado nada. */

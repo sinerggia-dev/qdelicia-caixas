@@ -3419,20 +3419,34 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'o que o motorista declara NAO mexe no estoque — 999 caixas lançadas por ele, e o ' +
     'saldo do cliente ficou onde estava', { antes: antes, depois: depois, gravou: decl.ok });
 
-  /* E A LINHA EXISTE. Peneirada da lista tambem, a pessoa veria uma tabela cujo total
-     nao bate com o saldo e nada na tela dizendo por que — e o relatorio que compara
-     declarado com conferido nao teria o que comparar. */
-  const comDecl = await GET({ acao: 'movimentos', quem: 'U001', limit: 500,
-    teste: 'declaracao' });
-  const minha = (comDecl.movimentos || []).filter((m) => m.qtd === 999)[0];
-  ok(!!minha && minha.declaracao === true,
-    'e a linha EXISTE e chega marcada — escondida, a tabela teria um total que não bate ' +
-    'com o saldo e nada explicando por quê', minha && minha.declaracao);
+  /* E A LINHA EXISTE — mas NAO em Movimentos, e nem para o administrador.
+     Ali ela entrava nos cartoes de Saida, Retorno e Saldo, que somam o que chega ate
+     eles: a mesma carga contada duas vezes, uma pela contagem do conferente e outra
+     pela fala do motorista. A porta dela e uma so. */
+  const emMov = await GET({ acao: 'movimentos', quem: 'U001', limit: 500 });
+  ok((emMov.movimentos || []).filter((m) => m.qtd === 999).length === 0,
+    'a declaração NÃO aparece em Movimentos, nem para o administrador e nem pedindo ' +
+    'tudo — ali ela entrava em Saída, Retorno e Saldo, e a mesma carga era contada duas ' +
+    'vezes', (emMov.movimentos || []).filter((m) => m.qtd === 999).length);
 
-  const soReais = await GET({ acao: 'movimentos', quem: 'U001', limit: 500, teste: 'reais' });
-  ok((soReais.movimentos || []).filter((m) => m.qtd === 999).length === 0,
-    'e o filtro "Base Produção" não a traz — ela não é produção que não conta, é outro ' +
-    'livro');
+  const pedindoDecl = await GET({ acao: 'movimentos', quem: 'U001', limit: 500,
+    teste: 'declaracao' });
+  ok((pedindoDecl.movimentos || []).filter((m) => m.qtd === 999).length === 0,
+    'e nem pedindo a base de declaração na mão: não é uma opção escondida na tela, é ' +
+    'uma rota que não devolve aquilo — escondida, bastaria alguém digitar o filtro',
+    (pedindoDecl.movimentos || []).filter((m) => m.qtd === 999).length);
+
+  const naPorta = await GET({ acao: 'conciliacao', quem: 'U001', limit: 500 });
+  const minha = (naPorta.movimentos || []).filter((m) => m.qtd === 999)[0];
+  ok(!!minha && minha.declaracao === true,
+    'e a linha EXISTE, marcada, na porta da conciliação — só escondida em todo lugar, ' +
+    'o relatório que compara declarado com conferido não teria o que comparar',
+    minha && minha.declaracao);
+
+  ok((naPorta.movimentos || []).some((m) => m.declaracao !== true),
+    'e essa porta traz os DOIS lados: a declaração do motorista E a contagem do ' +
+    'conferente, que vivem em livros diferentes — só as declarações, metade de cada par ' +
+    'faltaria e a tabela inteira diria "Só declaração"');
 
   /* A REMESSA NAO E QUITADA por uma declaracao. Esta e a armadilha mais silenciosa das
      tres: o motorista informa que trouxe, a carga aparece "Devolvida", e ninguem contou
@@ -3544,17 +3558,24 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'a conferência criou os dois lados: quem conta e quem compara — sem eles as provas ' +
     'abaixo mediriam o mesmo cadastro duas vezes', [!!cego, !!compara]);
 
-  const declsPara = async (quem) => (await GET({ acao: 'movimentos', quem: quem,
-    limit: 500, teste: 'declaracao' })).movimentos || [];
+  /* PELA PORTA PROPRIA, que e a unica que existe. Medido nela e nao no menu: esconder
+     o botao e conveniencia — a rota e o que a pessoa alcanca com um pedido na mao. */
+  const declsPara = async (quem) => ((await GET({ acao: 'conciliacao', quem: quem,
+    limit: 500 })).movimentos || []).filter((m) => m.declaracao === true);
 
   ok((await declsPara(compara.ID)).length > 0,
     'quem tem a aba Lançamentos Motorista recebe as declarações — sem isso a tela dela ' +
     'abriria vazia e a comparação não teria o que comparar',
     (await declsPara(compara.ID)).length);
   ok((await declsPara(cego.ID)).length === 0,
-    'e quem NÃO tem a aba não recebe nenhuma, mesmo pedindo a base na mão — é disso ' +
-    'que a contagem cega é feita: ele conta o que chegou, e não o que disseram que ia ' +
-    'chegar', (await declsPara(cego.ID)).length);
+    'e quem NÃO tem a aba não recebe nenhuma, mesmo batendo direto na porta dela — é ' +
+    'disso que a contagem cega é feita: ele conta o que chegou, e não o que disseram ' +
+    'que ia chegar', (await declsPara(cego.ID)).length);
+  ok(((await GET({ acao: 'conciliacao', quem: cego.ID, limit: 500 })).movimentos || [])
+       .length === 0,
+    'e a porta devolve VAZIO para ele, e não a metade sem declaração: meia conciliação ' +
+    'diria "Sem declaração" em toda linha, e ele leria como falha do motorista o que é ' +
+    'só a permissão dele');
 
   /* E NAO E SO A LISTA. O extrato le os mesmos lancamentos; peneirar uma tela e nao a
      outra deixaria a porta de tras aberta e ainda faria quem administra acreditar que
@@ -3587,8 +3608,8 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
   await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: 'L003', destinoId: 'L001',
     itens: [{ tipoId: 'T001', qtd: 555 }], dataRef: dia(0), usuarioId: declarante.ID,
     clientKey: 'k-decl-ensaio' });
-  const linhaEnsaio = (await GET({ acao: 'movimentos', quem: 'U001', limit: 500,
-    teste: 'testeDecl' })).movimentos.filter((m) => m.qtd === 555)[0];
+  const linhaEnsaio = (await GET({ acao: 'conciliacao', quem: 'U001', limit: 500,
+    mundo: 'testeDecl' })).movimentos.filter((m) => m.qtd === 555)[0];
   ok(!!linhaEnsaio && linhaEnsaio.declaracao === true && linhaEnsaio.teste === true,
     'o que essa pessoa lança cai no LIVRO DELA — declaração e ensaio ao mesmo tempo, ' +
     'que é o quarto livro', linhaEnsaio && [linhaEnsaio.declaracao, linhaEnsaio.teste]);
@@ -3597,11 +3618,116 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
 
   /* E OS DOIS LIVROS DE DECLARACAO NAO SE MISTURAM: no dia seguinte a virada, o ensaio
      continua la e nao entra no relatorio de verdade. */
-  const soVerdade = (await GET({ acao: 'movimentos', quem: 'U001', limit: 500,
-    teste: 'declaracao' })).movimentos.filter((m) => m.qtd === 555).length;
+  const soVerdade = (await GET({ acao: 'conciliacao', quem: 'U001', limit: 500,
+    mundo: 'declaracao' })).movimentos.filter((m) => m.qtd === 555).length;
   ok(soVerdade === 0,
-    'e o filtro da Declaração de verdade não traz o ensaio dela — é disso que a virada ' +
+    'e o mundo da Declaração de verdade não traz o ensaio dela — é disso que a virada ' +
     'sem apagar é feita: os dois livros existem lado a lado e não se somam', soVerdade);
+
+  /* CADA MUNDO TEM DUAS BASES, e e por isso que ele se chama mundo e nao livro. */
+  const mundoEnsaio = (await GET({ acao: 'conciliacao', quem: 'U001', limit: 500,
+    mundo: 'testeDecl' })).movimentos || [];
+  ok(mundoEnsaio.every((m) => m.teste === true),
+    'o mundo do ensaio traz só ensaio — dos DOIS lados, a declaração de treino e a ' +
+    'contagem de treino: misturar uma declaração de treino com uma contagem de verdade ' +
+    'dá um número plausível, que é a pior espécie de número errado',
+    mundoEnsaio.filter((m) => m.teste !== true).length);
+
+  /* ---- A TRANCA DE QUEM MEXE NUMA DECLARACAO ----
+   *
+   * VER e ALTERAR sao duas permissoes, e ate aqui havia uma so. Quem tinha a aba via a
+   * declaracao E podia excluir a linha, porque a rota de exclusao nao perguntava quem
+   * estava mandando — `montarExclusao` so conferia se o lancamento existia.
+   *
+   * MEDIDO NA ROTA, e nao no botao. Esconder o botao e cadeado pintado na porta: o POST
+   * direto passa do mesmo jeito, e e exatamente o gesto de quem quer apagar um numero
+   * que nao lhe agrada. E o perfil e lido do CADASTRO — lido do pedido, seria escrito
+   * por quem manda o pedido, que e quem a regra pretende barrar.
+   *
+   * A REGRA NAO VALE PARA O LANCAMENTO COMUM: la continua o prazo do proprio autor mais
+   * a senha do escritorio. Trocar aquilo por esta lista tiraria do conferente o conserto
+   * do proprio engano dez minutos depois de come-lo, que nao foi o que se pediu. */
+  await POST({ acao: 'salvarUsuario', registro: { Nome: 'Confere Ve Tudo',
+    Perfil: 'CONFERENTE', PIN: '445533', AcessoPainel: 'SIM',
+    Abas: ['pgMovimentos', 'pgLancamentosMotorista'] } });
+  const veNaoMexe = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.Nome === 'Confere Ve Tudo')[0];
+  ok(!!veNaoMexe,
+    'a conferência criou quem VÊ a declaração sem ser Admin, Gestor nem Gerente — sem ' +
+    'ele a prova abaixo mediria alguém que já estava barrado por não enxergar a linha',
+    !!veNaoMexe);
+
+  const umaDecl = ((await GET({ acao: 'conciliacao', quem: 'U001', limit: 500 }))
+    .movimentos || []).filter((m) => m.declaracao === true)[0];
+  ok(!!umaDecl && !!umaDecl.id,
+    'e achou uma declaração para tentar mexer — sem linha, as recusas abaixo seriam ' +
+    '"não encontrado" e não diriam nada sobre perfil', umaDecl && umaDecl.id);
+
+  const tentar = async (acao, quem) => await POST(Object.assign(
+    { acao: acao, id: umaDecl.id, usuarioId: quem, motivo: 'teste de tranca' },
+    acao === 'corrigir' ? { campos: { qtd: 1 } } : {}));
+
+  for (const acao of ['corrigir', 'cancelar', 'excluirMovimento', 'restaurarMovimento']) {
+    const r = await tentar(acao, veNaoMexe.ID);
+    ok(r.ok === false && /Admin, Gestor ou Gerente/.test(String(r.erro || '')),
+      'quem VÊ a declaração mas não é Admin, Gestor nem Gerente é recusado em `' + acao +
+      '` — e a recusa vem da ROTA, que é por onde passa o POST direto de quem quer ' +
+      'apagar um número que não lhe agrada', [acao, r.ok, r.erro]);
+  }
+
+  /* E O PERFIL VEM DO CADASTRO, nao do pedido. Esta e a sabotagem que escapou da
+     primeira versao desta bancada: lida do pedido, a regra seria escrita por quem manda
+     o pedido — que e exatamente quem ela pretende barrar. A recusa tem de valer com o
+     cargo forjado em todo nome que alguem tentaria. */
+  for (const campo of ['perfil', 'Perfil', 'usuarioPerfil']) {
+    const forjado = await POST(Object.assign(
+      { acao: 'cancelar', id: umaDecl.id, usuarioId: veNaoMexe.ID,
+        motivo: 'teste de tranca' }, { [campo]: 'ADMIN' }));
+    ok(forjado.ok === false && /Admin, Gestor ou Gerente/.test(String(forjado.erro || '')),
+      'e dizer-se Admin no próprio pedido (`' + campo + '`) não abre a porta — o perfil ' +
+      'é lido do CADASTRO, senão a regra seria escrita por quem ela pretende barrar',
+      [campo, forjado.ok, forjado.erro]);
+  }
+
+  /* E O CAMINHO INTEIRO, e nao so "excluir": posta so la, a mesma linha sairia de
+     circulacao por um cancelamento sem motivo, e voltaria por uma restauracao. */
+  const aindaLa = ((await GET({ acao: 'conciliacao', quem: 'U001', limit: 500 }))
+    .movimentos || []).filter((m) => String(m.id) === String(umaDecl.id))[0];
+  ok(!!aindaLa && !aindaLa.cancelado,
+    'e NADA aconteceu com a linha depois das quatro tentativas — recusa que responde ' +
+    '"não pode" e grava assim mesmo é pior que não ter recusa nenhuma',
+    aindaLa && [aindaLa.id, aindaLa.cancelado]);
+
+  /* OS TRES PERFIS PASSAM. Medido um por um: escrita como "Admin ou Gerente", a lista
+     deixaria o GESTOR de fora — e ele esta ACIMA do Gerente no cadastro, entao o cargo
+     mais alto teria menos poder que o de baixo. */
+  const LT = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  const passam = ['Admin', 'Gestor', 'Gerente'].filter(
+    (perf) => LT.podeAlterarDeclaracao({ Perfil: perf }) === true);
+  ok(passam.length === 3,
+    'Admin, Gestor e Gerente passam os três — o Gestor está ACIMA do Gerente no ' +
+    'cadastro, e deixá-lo de fora faria o cargo mais alto ter menos poder que o de ' +
+    'baixo', passam);
+  const barrados = ['Conferente', 'Motorista', 'Promotor', '', 'ADMINISTRADOR'].filter(
+    (perf) => LT.podeAlterarDeclaracao({ Perfil: perf }) === false);
+  ok(barrados.length === 5,
+    'e os outros não passam, nem o perfil vazio, nem um nome PARECIDO com Admin — ' +
+    '"começa com Admin" deixaria entrar qualquer cargo batizado assim', barrados);
+  ok(LT.podeAlterarDeclaracao(null) === false,
+    'e cadastro que não existe não altera nada');
+
+  /* A LINHA COMUM NAO ENTRA NESTA REGRA. Sem esta prova, apertar a tranca de declaracao
+     poderia ter fechado a porta de todo mundo em Movimentos sem ninguem notar aqui. */
+  const comum = ((await GET({ acao: 'movimentos', quem: 'U001', limit: 500 }))
+    .movimentos || []).filter((m) => !m.declaracao && !m.cancelado)[0];
+  ok(!!comum,
+    'a conferência achou um lançamento comum para o contraste', comum && comum.id);
+  const emComum = await POST({ acao: 'cancelar', id: comum.id,
+    usuarioId: veNaoMexe.ID, motivo: 'teste de tranca' });
+  ok(!/Admin, Gestor ou Gerente/.test(String(emComum.erro || '')),
+    'e o lançamento COMUM não cai nesta regra — ela é da declaração, e estendida a tudo ' +
+    'tiraria do conferente o conserto do próprio engano dez minutos depois de cometê-lo',
+    emComum.erro);
 
   /* Deixa a casa como encontrou: os blocos seguintes contam usuarios. */
   await POST({ acao: 'baseUsuarios', ids: [alfa, beta, gama], teste: false });

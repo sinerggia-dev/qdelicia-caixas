@@ -147,10 +147,27 @@ async function rotaGet(p) {
       /* DOIS RECORTES, e a ordem nao importa: um estreita por QUEM LANCOU, o outro tira
          a declaracao de quem nao pode ve-la. O segundo e a contagem cega — ver
          `veDeclaracao`. */
-      var mov = L.recorteDeclaracao(
-        L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)), L.acharUsuario(d.usuarios, p.quem));
+      /* E A DECLARACAO NAO PASSA POR AQUI, para NINGUEM — nem para o administrador.
+         Ela nao e movimento de caixa, e nesta lista entrava nos cartoes de Saida,
+         Retorno e Saldo: a mesma carga contada duas vezes, uma pelo conferente e outra
+         pela fala do motorista. A porta dela e a rota `conciliacao`, e e uma so. */
+      var mov = L.semDeclaracao(L.recorteDeclaracao(
+        L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)), L.acharUsuario(d.usuarios, p.quem)));
       return { ok: true, movimentos: L.listaMovimentos(mov.movimentos, d.locais, d.tipos,
                  d.usuarios, p) };
+    /* A PORTA UNICA DA DECLARACAO — a tela Motorista/Conferente, e nada mais.
+       Ela traz os DOIS lados do par: a declaracao do motorista e a contagem do
+       conferente, que vivem em livros diferentes. Pedindo so o livro de declaracao,
+       metade de cada par faltaria e a tabela inteira diria "So declaracao".
+       FALHA FECHADA: quem nao tem a aba nao recebe nada. A contagem cega nao pode
+       depender de a tela lembrar de nao perguntar. */
+    case 'conciliacao':
+      var euConc = L.acharUsuario(d.usuarios, p.quem);
+      if (!L.veDeclaracao(euConc)) return { ok: true, movimentos: [] };
+      var dConc = L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem));
+      return { ok: true, movimentos: L.listaMovimentos(
+                 L.recorteMundos(dConc.movimentos, p.mundo),
+                 d.locais, d.tipos, d.usuarios, p) };
     /* A lixeira entende o MESMO `so` que `movimentos`, e pela mesma razão: ela é o
        avesso daquela lista, e uma peneira que valesse só de um lado transformaria a
        tela que restaura num jeito de ver o que a tela que lista esconde. A tela manda
@@ -401,6 +418,8 @@ async function definirPin(p) {
 async function corrigir(p) {
   var d = await db.carregarTudo();
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
+  var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
+  if (barra) return barra;
   /* Um mapa por tipo de campo: a origem se lê na lista de locais, a caixa na de tipos.
      Com um mapa só, "origem: de L001 para L016" ia para o histórico como id cru. */
   /* A SENHA só é conferida quando faz falta — o `scrypt` custa uns 50ms, e cobrá-los de
@@ -594,6 +613,8 @@ async function limparMovimentos(p) {
 async function excluirMovimento(p) {
   var d = await db.carregarTudo();
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
+  var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
+  if (barra) return barra;
   var r = L.montarExclusao(mov, p, new Date());
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);
@@ -607,6 +628,8 @@ async function excluirMovimento(p) {
 async function restaurarMovimento(p) {
   var d = await db.carregarTudo();
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
+  var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
+  if (barra) return barra;
   var r = L.montarRestauracao(mov, p, new Date());
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);
@@ -618,6 +641,8 @@ async function restaurarMovimento(p) {
 async function cancelar(p) {
   var d = await db.carregarTudo();
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
+  var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
+  if (barra) return barra;
   var r = L.montarCancelamento(mov, p, new Date());
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);

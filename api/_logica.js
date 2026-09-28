@@ -572,6 +572,89 @@ function veDeclaracao(u) {
    OS DOIS LIVROS DE DECLARACAO passam por ela: o ensaio de uma declaracao continua
    sendo o numero que o motorista disse, e le-lo antes de contar estraga a contagem do
    mesmo jeito — inclusive durante o ensaio, que e quando se treina o habito. */
+/* A DECLARACAO SAI DE MOVIMENTOS DE VEZ, e nao por filtro.
+ *
+ * Ela nao e movimento de caixa — e o que o motorista DISSE que trazia. Dentro de
+ * Movimentos ela entrava nos cartoes de Saida, Retorno e Saldo, porque aqueles cartoes
+ * somam o que chega ate eles: o estoque passava a contar duas vezes a mesma carga, uma
+ * pela contagem do conferente e outra pela fala do motorista.
+ *
+ * TIRADA AQUI E NAO POR OPCAO DE FILTRO, de proposito. Por filtro, o pedido que nao
+ * escolhesse base nenhuma continuaria trazendo tudo — e e esse o pedido que a tela faz
+ * ao abrir. Sem opcao nenhuma, nao ha pedido que a traga: a contagem cega deixa de
+ * depender de alguem lembrar de marcar. */
+function semDeclaracao(dados) {
+  var copia = {};
+  Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
+  copia.movimentos = (dados.movimentos || []).filter(function (m) {
+    return !ehDeclaracao(m);
+  });
+  return copia;
+}
+
+/* OS DOIS MUNDOS DA CONCILIACAO, e cada um tem DUAS bases.
+ *
+ * O motorista declara num livro e o conferente conta em OUTRO: a declaracao de verdade
+ * casa com a contagem da Base Producao, e o ensaio de uma declaracao casa com a
+ * contagem da Base Teste Producao. Um filtro que trouxesse literalmente "so a base de
+ * declaracao" traria metade de cada par, e a tela inteira diria "So declaracao" — que e
+ * como se le uma carga que chegou e ninguem conferiu.
+ *
+ * O ID DO MUNDO E O DA BASE DE DECLARACAO DELE, para que o rotulo na tela seja o nome
+ * que o cadastro ja usa. Quem escolhe "Base Declaracao" pede a conciliacao daquele
+ * livro, e nao as linhas dele soltas. */
+var MUNDOS = [
+  { id: 'declaracao', nome: 'Base Declaração',       bases: ['declaracao', 'reais'] },
+  { id: 'testeDecl',  nome: 'Base Teste Declaração', bases: ['testeDecl', 'teste'] }
+];
+
+/* VAZIO TRAZ OS DOIS, pela mesma convencao das outras peneiras: lista vazia quer dizer
+   "todas". O contrario deixaria a tela em branco no primeiro carregamento. */
+function recorteMundos(movimentos, pedidos) {
+  var quais = (Array.isArray(pedidos) ? pedidos
+               : String(pedidos == null ? '' : pedidos).split('|'))
+    .map(function (x) { return String(x).trim(); })
+    .filter(function (x) { return !!x; });
+  var livros = {};
+  MUNDOS.forEach(function (m) {
+    if (!quais.length || quais.indexOf(m.id) >= 0) {
+      m.bases.forEach(function (b) { livros[b] = true; });
+    }
+  });
+  return (movimentos || []).filter(function (m) {
+    return livros[baseDoMovimento(m)] === true;
+  });
+}
+
+/* QUEM PODE MEXER NUMA DECLARACAO — e so nela.
+ *
+ * A regra NAO vale para os lancamentos comuns: la continua valendo o prazo do proprio
+ * autor mais a senha do escritorio, que e o que o campo usa o dia inteiro. Trocar
+ * aquilo por esta lista tiraria do conferente o conserto do proprio engano dez minutos
+ * depois de come-lo, que nao foi o que se pediu.
+ *
+ * GESTOR ENTRA JUNTO. Ele esta ACIMA do Gerente na lista de perfis, e deixa-lo de fora
+ * faria o cargo mais alto ter menos poder que o de baixo — confirmado com quem pediu. */
+var PERFIS_DECLARACAO = ['ADMIN', 'GESTOR', 'GERENTE'];
+
+function podeAlterarDeclaracao(u) {
+  return !!u && PERFIS_DECLARACAO.indexOf(String(u.Perfil || '').toUpperCase()) >= 0;
+}
+
+/* A TRANCA MORA NA ROTA, e o perfil vem do CADASTRO.
+ *
+ * Esconder o botao na tela e cadeado pintado na porta: o POST direto passa do mesmo
+ * jeito. E lido do pedido, o perfil seria escrito por quem manda o pedido — que e
+ * justamente quem a regra pretende barrar.
+ *
+ * FECHA O CAMINHO INTEIRO: corrigir, cancelar, excluir e restaurar. Posta so em
+ * "excluir", a mesma linha sairia de circulacao por um cancelamento sem motivo. */
+function barraDeclaracao(mov, usuarios, quem) {
+  if (!mov || !ehDeclaracao(mov)) return null;
+  if (podeAlterarDeclaracao(acharUsuario(usuarios, quem))) return null;
+  return { ok: false, erro: 'Só Admin, Gestor ou Gerente pode alterar uma declaração de motorista.' };
+}
+
 function recorteDeclaracao(dados, u) {
   if (veDeclaracao(u)) return dados;
   var copia = {};
@@ -2337,6 +2420,9 @@ module.exports = {
   BASES: BASES, nomeDaBase: nomeDaBase,
   basesDoUsuario: basesDoUsuario, baseEscolhida: baseEscolhida,
   veDeclaracao: veDeclaracao, recorteDeclaracao: recorteDeclaracao,
+  semDeclaracao: semDeclaracao, MUNDOS: MUNDOS, recorteMundos: recorteMundos,
+  PERFIS_DECLARACAO: PERFIS_DECLARACAO,
+  podeAlterarDeclaracao: podeAlterarDeclaracao, barraDeclaracao: barraDeclaracao,
   acharUsuario: acharUsuario,
   recorteProprios: recorteProprios, usuariosVistosDe: usuariosVistosDe,
   idsVisiveis: idsVisiveis, NINGUEM: NINGUEM, ativo: ativo, novoId: novoId, novoToken: novoToken,
