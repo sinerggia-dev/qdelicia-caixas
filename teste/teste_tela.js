@@ -3260,12 +3260,15 @@ console.log('\n== classificar e a janela de linhas, em Movimentos ==');
   ok(pos('veiculo') >= 0 && pos('veiculo') === pos('motorista') + 1,
     'e a placa fica ao lado do motorista — as duas respondem "quem levou", e separadas ' +
     'a conferência rolaria de lado para juntar as duas metades', ordemCols);
-  /* E O NÚMERO DO LANÇAMENTO VEM PRIMEIRO: é a identidade da linha, o que se dita ao
-     telefone e o que o escritório anota para conferir depois. No meio, vira mais um
-     dado; na frente, é o endereço da linha. */
-  ok(pos('lancamento') === 0,
-    'e o número do lançamento é a PRIMEIRA coluna — é por ele que se fala de uma linha, ' +
-    'e endereço no meio da tabela não se acha', ordemCols);
+  /* O REGISTRO VEM PRIMEIRO, E O ITEM LOGO DEPOIS.
+     São códigos de coisas diferentes: o Registro é a CARGA — um toque em Enviar — e é
+     o que alguém dita por telefone; o Item é a LINHA, e é sobre ele que corrigir,
+     cancelar e excluir agem. Invertidos, a primeira coluna passaria a ser um número que
+     se repete de quatro em quatro sem explicação, e o que se procura ficaria em segundo. */
+  ok(pos('registro') === 0 && pos('item') === 1,
+    'o Registro é a PRIMEIRA coluna e o Item vem logo depois — o Registro é o que se ' +
+    'dita ao telefone, e endereço no meio da tabela não se acha',
+    [pos('registro'), pos('item')]);
   /* VAZIO É RESPOSTA: lançamento antigo, de antes de o veículo existir no cadastro, não
      tem placa. O travessão fraco diz isso; a célula em branco não se distingue de uma
      coluna que não soube responder. */
@@ -3377,10 +3380,11 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var ip = desc.indexOf('padrao: [');
   var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
     .map(function (t) { return t.slice(1, -1); });
-  /* DEZOITO: a Base entrou com a terceira delas, a Declaração. A conta é escrita de
-     propósito — ela é o tropeço que obriga quem acrescenta uma coluna a passar pelas
-     quatro provas abaixo, em vez de acrescentar e seguir. */
-  ok(cols.length === 18, 'são dezoito colunas de fábrica', cols);
+  /* DEZENOVE: o Item entrou quando o Lançamento se partiu em dois — o código da CARGA
+     e o da LINHA. A conta é escrita de propósito: ela é o tropeço que obriga quem
+     acrescenta uma coluna a passar pelas quatro provas abaixo, em vez de acrescentar e
+     seguir. */
+  ok(cols.length === 19, 'são dezenove colunas de fábrica', cols);
 
   /* AS SETE QUE FORAM SENDO ACRESCENTADAS. Contar quinze não diz QUAIS são quinze:
      trocar `hora` por outra coluna qualquer manteria a conta de pé. Elas respondem
@@ -3524,7 +3528,7 @@ console.log('\n== as colunas da tabela de Movimentos ==');
    * do título do vizinho. É o pior desfecho possível aqui, porque parece certo. */
   var iCsv = adm.indexOf("Q.csv('movimentos_'");
   var trechoCsv = iCsv < 0 ? '' : adm.slice(iCsv, adm.indexOf('}));', iCsv));
-  var cabCsv = (trechoCsv.match(/\['Lancamento'[^\]]*\]/) || [''])[0];
+  var cabCsv = (trechoCsv.match(/\['Registro'[^\]]*\]/) || [''])[0];
   var quantosCab = (cabCsv.match(/'/g) || []).length / 2;
   var iRet = trechoCsv.indexOf('return [');
   var linhaCsv = iRet < 0 ? '' : trechoCsv.slice(iRet, trechoCsv.indexOf('];', iRet));
@@ -3546,20 +3550,31 @@ console.log('\n== as colunas da tabela de Movimentos ==');
     'o CSV tem um valor para cada título — faltando um, todas as colunas seguintes ' +
     'deslizam e o escritório lê cada número debaixo do título do vizinho',
     { titulos: quantosCab, valores: quantosVal });
-  ok(/\['Lancamento'/.test(trechoCsv) && /return \[m\.id,/.test(trechoCsv),
-    'e o número do lançamento sai no CSV também — coluna que existe na tela e falta no ' +
-    'arquivo faz a conferência chegar a um número que a tela não explica');
+  ok(trechoCsv.indexOf("['Registro','Item',") > 0 &&
+     trechoCsv.indexOf('return [m.registro||\'\', m.id,') > 0,
+    'os DOIS códigos saem no CSV — sem o Registro, somar uma carga numa planilha seria ' +
+    'agrupar pelo código da linha, e cada carga viraria quatro grupos de um');
 
-  /* --- A CÉLULA DO LANÇAMENTO, RODADA --- */
-  ok(DEFS.lancamento && DEFS.lancamento.v({ id: 'M000041' }).indexOf('M000041') >= 0,
-    'a célula do lançamento mostra o número', DEFS.lancamento &&
-    DEFS.lancamento.v({ id: 'M000041' }));
-  ok(DEFS.lancamento.k({ id: 'M000041' }) === 'M000041',
-    'e ordena pelo próprio código, que já vem ordenável como texto — o formato tem ' +
-    'largura fixa e zeros à esquerda');
-  ok(DEFS.lancamento.v({}).indexOf('—') >= 0,
-    'e linha sem número mostra o travessão, em vez de uma célula vazia que parece ' +
-    'defeito', DEFS.lancamento.v({}));
+  /* --- AS DUAS CÉLULAS, RODADAS ---
+     Cada uma lê o SEU campo. Trocados, a coluna Registro mostraria o código da linha e
+     as quatro linhas de uma carga apareceriam com quatro registros diferentes — que é
+     exatamente o problema que a coluna existe para resolver. */
+  var linhaEx = { id: 'M000047', registro: 'R000047' };
+  ok(DEFS.registro && DEFS.registro.v(linhaEx).indexOf('R000047') >= 0 &&
+     DEFS.registro.v(linhaEx).indexOf('M000047') < 0,
+    'a célula do Registro mostra o código da CARGA, e não o da linha — mostrando o da ' +
+    'linha, as quatro linhas de uma carga teriam quatro registros diferentes',
+    DEFS.registro && DEFS.registro.v(linhaEx));
+  ok(DEFS.item && DEFS.item.v(linhaEx).indexOf('M000047') >= 0,
+    'e a do Item mostra o da linha, que é sobre o que corrigir e excluir agem',
+    DEFS.item && DEFS.item.v(linhaEx));
+  ok(DEFS.registro.k(linhaEx) === 'R000047' && DEFS.item.k(linhaEx) === 'M000047',
+    'e as duas ordenam pelo próprio código, que já vem ordenável como texto — o ' +
+    'formato tem largura fixa e zeros à esquerda');
+  ok(DEFS.registro.v({}).indexOf('—') >= 0 && DEFS.item.v({}).indexOf('—') >= 0,
+    'e sem número as duas mostram o travessão: há linhas gravadas antes de a coluna ' +
+    'existir, e célula em branco não se distingue de uma coluna que não soube responder',
+    DEFS.registro.v({}));
   ok(DEFS.rota.v({ rota: 'João Pessoa' }).indexOf('João Pessoa') >= 0,
     'a célula da Rota escreve a rota que recebeu');
   ok(DEFS.rota.v({}).indexOf('—') >= 0 && DEFS.obs.v({}).indexOf('—') >= 0,
@@ -11833,6 +11848,49 @@ console.log('\n== o painel de filtro abre por cima ==');
     'ligado pela MESMA função das duas telas');
 })();
 
+console.log('\n== o REGISTRO nos cartoes de celular ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var app = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var nuc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  /* A REMESSA CARREGA O CODIGO DELA. Sem isto, os cartoes leriam `g.registro` e
+     receberiam `undefined` — e o codigo simplesmente nao apareceria, sem erro nenhum. */
+  ok(nuc.indexOf("lote: chave, registro: m.registro || ''") > 0,
+    'o agrupamento leva o registro para a remessa — sem ele os cartões leriam um campo ' +
+    'que não existe, e o código sumiria sem erro nenhum');
+
+  /* SO O REGISTRO NO CARTAO, a pedido — e o motivo e bom: o cartao ja mostra a carga
+     inteira com as caixas dentro, entao o codigo da LINHA nao teria a quem se referir. */
+  var iCM = adm.indexOf('  function cartaoMov(g){');
+  var cm = adm.slice(iCM, adm.indexOf('\n  }', iCM) + 4);
+  ok(cm.indexOf('g.registro') > 0,
+    'o cartão do painel mostra o Registro', cm.indexOf('g.registro') > 0);
+  ok(cm.indexOf('cod--reg') > 0,
+    'com a moldura que o separa das etiquetas de situação, que moram na mesma fileira');
+
+  var iLC = app.indexOf("        (g.registro ?");
+  ok(iLC > 0 && app.indexOf("'<span class=\"cod cod--reg\">'+Q.esc(g.registro)", iLC) > 0,
+    'e o cartão do app de campo também — é ali, no telefone, que a pessoa está quando ' +
+    'liga para o escritório pedindo a correção', iLC > 0);
+
+  /* E NENHUM DOS DOIS MOSTRA O CODIGO DA LINHA no topo: quatro codigos num cartao de
+     telefone sao ruido no lugar de resposta. */
+  var topoApp = app.slice(iLC - 600, iLC + 300);
+  ok(topoApp.indexOf('g.id') < 0,
+    'e nenhum dos dois põe o código da LINHA no cartão — ali a carga já aparece ' +
+    'inteira, com as caixas dentro, e quatro códigos numa tela de telefone são ruído ' +
+    'no lugar de resposta');
+
+  /* A ETIQUETA EXISTE NA FOLHA. Sem ela, `cod--reg` e uma classe que nao pinta nada e o
+     codigo da carga fica igual ao da linha. */
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  ok(css.indexOf('.cod--reg{') > 0 && css.indexOf('.cod--reg{display:inline-flex') > 0,
+    'e a etiqueta existe na folha — sem ela, numa tabela com os dois lado a lado, ' +
+    'seriam dois textos iguais em fonte de números e a pessoa leria o prefixo letra a ' +
+    'letra para saber qual é qual');
+})();
+
 console.log('\n== a busca rapida, nas duas larguras ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -11905,6 +11963,29 @@ console.log('\n== a busca rapida, nas duas larguras ==');
     'e os cartões de total saem da lista JÁ peneirada — do contrário eles diriam 2.380 ' +
     'caixas onde a lista mostra 60, que é a contradição mais cara de explicar que uma ' +
     'tela pode mostrar', iTot - iDes);
+
+  /* ---- O QUE A BUSCA OLHA, RODADO ----
+     Lida no arquivo, a prova responderia "a palavra registro está na lista?" — e
+     estaria, inclusive numa linha comentada. O que decide é o texto que sai. */
+  var iAlvo = adm.indexOf('  function alvoDaBusca(m){');
+  var fonteAlvo = adm.slice(iAlvo, adm.indexOf('\n  }', iAlvo) + 4);
+  ok(fonteAlvo.length > 200 && fonteAlvo.indexOf('join') > 0,
+    'a conferência recortou o alvo da busca — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', fonteAlvo.length);
+  var alvo = new Function('chato', 'Q', fonteAlvo + '\nreturn alvoDaBusca;')(
+    function (s) { return String(s).toLowerCase(); },
+    { dataBR: function (d) { return String(d || ''); } });
+  var texto = alvo({ registro: 'R000047', id: 'M000049', origem: 'João Pessoa',
+                     motorista: 'Chico', tipoCaixa: 'CX GG', qtd: 75 });
+  ok(texto.indexOf('r000047') >= 0,
+    'a busca acha pelo REGISTRO — é o código que a pessoa acabou de receber por ' +
+    'telefone, e colá-lo é o gesto mais provável de todos: sem ele aqui, a resposta ' +
+    'seria "nada encontrado" e quem procurou concluiria que a carga não existe', texto);
+  ok(texto.indexOf('m000049') >= 0,
+    'e pelo ITEM também, que é como se aponta uma linha só', texto);
+  ok(texto.indexOf('chico') >= 0 && texto.indexOf('cx gg') >= 0,
+    'e continua achando pelo que o cartão mostra — motorista, caixa, rota: procurar ' +
+    'dentro de coisa que não está na tela devolve linha que a pessoa não reconhece');
 
   /* ---- OS BOTÕES MENORES E AFASTADOS DO CARTÃO ---- */
   var barraCss = reg('.barra-trava');

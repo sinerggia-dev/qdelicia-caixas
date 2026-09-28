@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=d1f823f0">
+<link rel="stylesheet" href="styles.css?v=18895d5d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1383,7 +1383,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=1dd4c9d6"></script>
+<script src="app.js?v=1f9063f7"></script>
 <script>
 (function(){
   'use strict';
@@ -2901,18 +2901,22 @@
        duas leituras da mesma tabela não podem pôr a mesma coluna em lugares
        diferentes. Ele responde "o que foi isto" — saída, retorno, perda —, e essa
        pergunta vem antes de "entre onde e onde". */
-    padrao: ['lancamento','data','hora','criado','status','base','tipo','origem','destino','rota',
+    /* DUAS COLUNAS, e nao uma. O REGISTRO e a carga — um toque em Enviar —, e e o que
+       alguem dita por telefone. O ITEM e a linha, e e sobre ele que corrigir, cancelar e
+       excluir agem: o caso real e "so a CX P esta errada", e nao "a carga toda".
+       O REGISTRO VEM PRIMEIRO porque e o que se procura; o item responde "qual delas". */
+    padrao: ['registro','item','data','hora','criado','status','base','tipo','origem','destino','rota',
              'caixa','qtd','motorista','veiculo','quem','alterado','alteradoEm','obs'],
     /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
        coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
        com a data mais larga do formato e a etiqueta junto. */
-    /* 105 para o lancamento: `M000041` sao sete caracteres em fonte de numeros, e a
+    /* 105 para cada codigo: `M000041` sao sete caracteres em fonte de numeros, e a
        coluna nao cresce com o tempo — o formato e fixo. */
-    larg: { lancamento:105,
+    larg: { registro:105, item:105,
             data:120, hora:70, criado:110, status:110, base:120, tipo:120, origem:150, destino:150,
             rota:150, caixa:120, qtd:80, motorista:130, veiculo:110, quem:120,
             alterado:140, alteradoEm:150, obs:240 },
-    titulos: { lancamento:'Lançamento',
+    titulos: { registro:'Registro', item:'Item',
                data:'Movimento', hora:'Hora', criado:'Criado em',
                status:'Status', base:'Base', tipo:'Tipo',
                origem:'Origem', destino:'Destino', rota:'Rota', caixa:'Caixa',
@@ -6130,7 +6134,12 @@
      do movimento: procurar dentro de coisa que não está na tela devolve linha que a
      pessoa não tem como reconhecer. */
   function alvoDaBusca(m){
-    return chato([m.dataRef, Q.dataBR(m.dataRef), m.origem, m.destino, m.rota,
+    /* OS DOIS CODIGOS ENTRAM. Quem recebe um registro por telefone digita ele e quer as
+       quatro linhas da carga; quem tem o item quer aquela linha. Sem o registro aqui, o
+       gesto mais provavel de todos — colar o codigo que acabaram de ditar — nao acharia
+       nada, e a pessoa concluiria que a carga nao existe. */
+    return chato([m.registro, m.id,
+                  m.dataRef, Q.dataBR(m.dataRef), m.origem, m.destino, m.rota,
                   m.motorista, m.veiculo, m.usuario, m.tipoCaixa, m.qtd, m.romaneio,
                   m.situacao, m.obs, (m.alterado || {}).por].join(' '));
   }
@@ -6659,7 +6668,16 @@
          A CHAVE E O PROPRIO ID, que ja vem ordenavel como texto: o formato tem largura
          fixa e zeros a esquerda, entao `M000041` vem antes de `M000102` sem precisar
          virar numero. */
-      lancamento:{ t: TIT['lancamento'], k: function(m){ return m.id || ''; },
+      /* O CODIGO DA CARGA. Ele se repete nas linhas do mesmo envio de proposito: e
+         isso que faz as quatro linhas de uma carga de quatro caixas se lerem como uma
+         coisa so, e que faz a busca por ele trazer as quatro juntas.
+         VAZIO ACONTECE nas linhas gravadas antes de a coluna existir e que o preenchimento
+         da migracao nao alcancou; o travessao diz isso sem inventar um numero. */
+      registro:  { t: TIT['registro'], k: function(m){ return m.registro || ''; },
+                   v: function(m){ return m.registro
+                     ? '<span class="cod cod--reg">' + Q.esc(m.registro) + '</span>'
+                     : '<span class="fraco">—</span>'; } },
+      item:      { t: TIT['item'], k: function(m){ return m.id || ''; },
                    v: function(m){ return m.id
                      ? '<span class="cod">' + Q.esc(m.id) + '</span>'
                      : '<span class="fraco">—</span>'; } },
@@ -7157,6 +7175,10 @@
 
     return '<article class="mov" data-lote="'+Q.esc(g.lote)+'">'+
       '<div class="mov__topo">'+
+        /* SO O REGISTRO NO CELULAR, a pedido: no cartao a carga ja aparece inteira, com
+           as caixas dentro, entao o codigo da LINHA nao teria a quem se referir — e
+           quatro codigos num cartao de telefone e ruido no lugar de resposta. */
+        (g.registro ? '<span class="cod cod--reg">'+Q.esc(g.registro)+'</span>' : '')+
         '<span class="tag '+tagCiclo(g.situacao)+'">'+Q.esc(g.situacao)+'</span>'+
         (g.teste ? '<span class="tag amarela">teste</span>' : '')+
         seloAlteracao(alt)+
@@ -7349,10 +7371,13 @@
          uma declaração sairia com a coluna vazia, igualzinha à produção — e o arquivo é
          o que o escritório confere fora do sistema. Mesma posição, então nada se desloca
          para quem já tem planilha montada em cima dele. */
-      ['Lancamento','Movimento','Hora','Criado em','Base','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Veiculo','Quem','Alterado por','Alterado em','Obs'],
+      /* OS DOIS CODIGOS NO ARQUIVO. O Registro e o que permite somar a carga inteira
+         numa planilha — agrupando pelo codigo da linha, cada carga viraria quatro
+         grupos de um. */
+      ['Registro','Item','Movimento','Hora','Criado em','Base','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Veiculo','Quem','Alterado por','Alterado em','Obs'],
       MOVS.map(function(m){
         var a = m.alterado || {};
-        return [m.id,
+        return [m.registro||'', m.id,
                 Q.dataBR(m.dataRef),Q.horaBR(m.dataHora),Q.dataDoCarimboBR(m.dataHora),
                 baseDaLinha(m).nome,
                 m.situacao,rotuloDoTipoMov(m.tipo),m.origem,m.destino,m.tipoCaixa,m.qtd,

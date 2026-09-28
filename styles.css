@@ -1270,6 +1270,13 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
    telefone. Alinhado a esquerda, porque nao e uma quantidade a somar. */
 .cod{font-family:var(--fonte-mono);font-size:12.5px;letter-spacing:.02em;
   color:var(--txt2)}
+/* O CODIGO DA CARGA se distingue do da linha a um olhar. Numa tabela com os dois lado a
+   lado, dois textos iguais em fonte de numeros obrigam a ler o prefixo letra por letra
+   para saber qual e qual — e e o da carga que a pessoa veio procurar.
+   Nos cartoes de celular ele aparece sozinho, e ali a moldura e o que o separa das
+   etiquetas de situacao que moram na mesma fileira. */
+.cod--reg{display:inline-flex;align-items:center;padding:1px 7px;border-radius:6px;
+  background:var(--campo);border:1px solid var(--linha);color:var(--txt);font-weight:600}
 tbody tr:hover{background:var(--surface-2)}
 tr.destaque{background:var(--amarelo-claro)}
 tr.ruim{background:var(--vermelho-claro)}

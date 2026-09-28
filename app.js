@@ -1557,7 +1557,11 @@
       }
       if (!g) {
         g = {
-          lote: chave, id: m.id, tipo: m.tipo, dataRef: m.dataRef, dataHora: m.dataHora,
+          /* O `lote` e a chave TECNICA que junta as linhas; o `registro` e o nome
+             legivel da mesma carga, e e o que aparece no cartao e se dita por telefone.
+             Os dois existem porque servem a leitores diferentes. */
+          lote: chave, registro: m.registro || '',
+          id: m.id, tipo: m.tipo, dataRef: m.dataRef, dataHora: m.dataHora,
           origem: m.origem, destino: m.destino, origemId: m.origemId,
           destinoId: m.destinoId, motorista: m.motorista, usuario: m.usuario,
           usuarioId: m.usuarioId, teste: m.teste, situacao: m.situacao,

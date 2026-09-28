@@ -1130,6 +1130,14 @@ function montarMovimento(p, ctx) {
 
   var linhas = [], jaExistiam = [];
   var proximos = ctx.movimentos.slice();
+  /* O REGISTRO E UM SO PARA O ENVIO INTEIRO, e sai da PRIMEIRA linha dele.
+     Por que herdado e nao uma sequencia propria: o id da linha e chave primaria, entao
+     dois envios simultaneos nao conseguem gravar o mesmo — e o registro herda essa
+     defesa de graca. Numerado a parte, com o 'maior + 1' lido antes de gravar, ele seria
+     o unico codigo do sistema sem protecao contra repeticao, e dois R000012 diferentes
+     acabam com a unica coisa que o codigo serve para fazer.
+     O preco e que os numeros pulam de quatro em quatro numa carga de quatro caixas. Ele
+     e um codigo, e nao uma contagem. */
   itens.forEach(function (item, idx) {
     var ck = base + '-' + idx;
     if (existentes[ck]) { jaExistiam.push({ id: existentes[ck], duplicado: true }); return; }
@@ -1137,6 +1145,10 @@ function montarMovimento(p, ctx) {
     var linha = {
       ID: id,
       ClientKey: ck,
+      /* Preenchido depois do laco, quando se sabe qual foi a primeira linha GRAVADA:
+         num reenvio em que parte dos itens ja existe, a primeira do laco nao e a
+         primeira do envio. */
+      Registro: '',
       DataHora: agora,
       DataRef: dataRef,
       Tipo: tipo,
@@ -1178,7 +1190,14 @@ function montarMovimento(p, ctx) {
     proximos.push(linha);
   });
 
-  return { ok: true, linhas: linhas, jaExistiam: jaExistiam, status: status };
+  /* E AQUI O ENVIO GANHA O NOME DELE. Uma volta a mais depois do laco, e nao dentro:
+     dentro, a primeira iteracao ainda nao sabe se vai gravar alguma coisa — um envio
+     inteiro pode cair no `jaExistiam` e nao ter linha nenhuma. */
+  var reg = linhas.length ? 'R' + String(linhas[0].ID).replace(/[^0-9]/g, '') : '';
+  linhas.forEach(function (l) { l.Registro = reg; });
+
+  return { ok: true, linhas: linhas, jaExistiam: jaExistiam, status: status,
+           registro: reg };
 }
 
 /** Conferência na chegada. Devolve o patch a aplicar e a divergência apurada. */
@@ -1739,6 +1758,11 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       /* De qual remessa esta linha é. A tela de celular junta as linhas por aqui em vez
          de repetir data, rota e motorista uma vez por tipo de caixa. */
       lote: loteDo(m),
+      /* O CODIGO DO ENVIO, que e o que se dita por telefone. Ele e diferente do `lote`:
+         o lote e a chave tecnica que junta as linhas ('k:K1727539383-M46'), e o registro
+         e o nome legivel da mesma coisa. Os dois existem porque servem a leitores
+         diferentes — um e para o codigo agrupar, o outro e para gente falar. */
+      registro: m.Registro || '',
       /* Até quando o autor conserta sem senha. Vazio já quer dizer "só com senha", e o
          cálculo dos dez minutos fica NUM lugar: escrito também no navegador, o dia em
          que os dois discordassem a tela ofereceria o conserto livre e o servidor

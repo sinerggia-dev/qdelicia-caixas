@@ -3656,6 +3656,53 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'dá um número plausível, que é a pior espécie de número errado',
     mundoEnsaio.filter((m) => m.teste !== true).length);
 
+  /* ---- O REGISTRO: UM CODIGO POR ENVIO ----
+   *
+   * Um toque em Enviar vira VARIAS linhas, uma por tipo de caixa. Ate aqui o unico
+   * codigo era o da LINHA: uma carga de quatro caixas era M000047..M000050, e quem
+   * ligava pedindo correcao tinha de ditar os quatro. A carga existia e nao tinha nome.
+   *
+   * HERDADO DA PRIMEIRA LINHA, e isso nao e economia: o id da linha e CHAVE PRIMARIA,
+   * entao dois envios simultaneos nao conseguem gravar o mesmo. O registro herda essa
+   * defesa. Numerado a parte, com 'maior + 1' lido antes de gravar, ele seria o unico
+   * codigo do sistema sem protecao contra repeticao — e dois R000012 diferentes acabam
+   * com a unica coisa que o codigo serve para fazer. */
+  const envio = await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: 'L003',
+    destinoId: 'L001', dataRef: dia(0), usuarioId: 'U001', clientKey: 'k-reg-1',
+    itens: [{ tipoId: 'T001', qtd: 75 }, { tipoId: 'T002', qtd: 75 },
+            { tipoId: 'T003', qtd: 75 }] });
+  ok(envio.ok === true, 'a conferência gravou uma carga de três caixas', envio);
+
+  const linhasDoEnvio = ((await GET({ acao: 'movimentos', quem: 'U001', limit: 900,
+    teste: 'todos' })).movimentos || []).filter((m) => m.qtd === 75 &&
+      String(m.dataRef || '').slice(0, 10) === dia(0));
+  ok(linhasDoEnvio.length >= 3,
+    'e as três linhas voltam na leitura', linhasDoEnvio.length);
+
+  const regs = {};
+  linhasDoEnvio.forEach((m) => { regs[m.registro || '(vazio)'] = 1; });
+  ok(Object.keys(regs).length === 1 && !regs['(vazio)'],
+    'as três linhas do MESMO envio têm o MESMO registro — é isso que dá um nome à ' +
+    'carga: sem ele, quem liga pedindo correção precisa ditar um código por tipo de ' +
+    'caixa', Object.keys(regs));
+
+  const menorId = linhasDoEnvio.map((m) => m.id).sort()[0];
+  ok(Object.keys(regs)[0] === 'R' + String(menorId).replace(/[^0-9]/g, ''),
+    'e o número dele é herdado da PRIMEIRA linha do envio — herdado, ele ganha de ' +
+    'graça a proteção da chave primária, e dois envios simultâneos não conseguem gerar ' +
+    'o mesmo registro', [Object.keys(regs)[0], menorId]);
+
+  /* E CADA ENVIO TEM O SEU. Sem isso, um registro que se repetisse entre cargas seria
+     pior que registro nenhum: as duas apareceriam juntas para quem procurasse. */
+  await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: 'L003', destinoId: 'L001',
+    dataRef: dia(0), usuarioId: 'U001', clientKey: 'k-reg-2',
+    itens: [{ tipoId: 'T001', qtd: 76 }] });
+  const outro = ((await GET({ acao: 'movimentos', quem: 'U001', limit: 900,
+    teste: 'todos' })).movimentos || []).filter((m) => m.qtd === 76)[0];
+  ok(!!outro && outro.registro && outro.registro !== Object.keys(regs)[0],
+    'e outra carga recebe outro registro — repetido, as duas apareceriam juntas para ' +
+    'quem procurasse pelo código', outro && outro.registro);
+
   /* ---- QUEM DECLAROU VE A PROPRIA DECLARACAO ----
    *
    * A contagem cega protege o CONFERENTE de ler o numero do motorista antes de contar.

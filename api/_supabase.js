@@ -354,7 +354,7 @@ function placaLimpa(v) {
 var MOV = {
   de: function (r) {
     return {
-      ID: r.id, ClientKey: r.client_key,
+      ID: r.id, ClientKey: r.client_key, Registro: r.registro || '',
       DataHora: r.data_hora ? new Date(r.data_hora) : new Date(),
       DataRef: r.data_ref ? new Date(r.data_ref + 'T00:00:00') : new Date(),
       Tipo: String(r.tipo || '').toUpperCase(),
@@ -384,6 +384,7 @@ var MOV = {
     }
     pos('ID', 'id');
     pos('ClientKey', 'client_key');
+    pos('Registro', 'registro');
     pos('DataHora', 'data_hora', function (d) { return d instanceof Date ? d.toISOString() : d; });
     pos('DataRef', 'data_ref', function (d) {
       if (!(d instanceof Date)) return String(d).slice(0, 10);
