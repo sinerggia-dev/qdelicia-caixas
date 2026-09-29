@@ -9420,13 +9420,44 @@
     var lista = Q.ordenarPorNome(MOTORISTAS||[]).map(function(x){
       return { curto: Q.comoChamar(x), inteiro: String(x.Nome||'') };
     });
-    if (atual && !lista.some(function(x){ return x.curto === atual; })) {
-      lista.unshift({ curto: atual, inteiro: '' });
-    }
-    return '<option value="" data-inteiro="">—</option>'+lista.map(function(x){
+    /* A MESMA PROTECAO DOS OUTROS SELETORES, e nao uma propria. Ela era escrita a mao
+       aqui — um `unshift` silencioso —, e a bancada que cobra a protecao de TODO seletor
+       nao a reconhecia: protegido, ele aparecia como desprotegido. Duas formas de fazer
+       a mesma coisa custam isso toda vez.
+       SEM `data-inteiro` na opcao reposta, e de proposito: o nome inteiro de quem saiu
+       do cadastro nao se sabe, e `motoristaEscolhido` cai no curto, que e o unico nome
+       que existe. */
+    var achou = lista.some(function(x){ return x.curto === String(atual||''); });
+    return '<option value="" data-inteiro="">—</option>'+
+      faltando(atual, achou, atual)+lista.map(function(x){
       return '<option value="'+Q.esc(x.curto)+'" data-inteiro="'+Q.esc(x.inteiro)+'"'+
         (x.curto===String(atual||'')?' selected':'')+'>'+Q.esc(x.curto)+'</option>';
     }).join('');
+  }
+
+  /* A PLACA, na MESMA forma em que ela e gravada: sem hifen, sem espaco, em caixa alta.
+     Duas grafias do mesmo carro fazem o relatorio por veiculo lista-lo duas vezes, com
+     metade do total em cada. O cadastro ja grava assim; o movimento tambem. */
+  function comoPlaca(v){
+    return String(v==null?'':v).replace(/[-\s]/g,'').trim().toUpperCase();
+  }
+
+  /* O QUE ESTA GRAVADO NUNCA SOME DA LISTA: carro vendido, parado ou apagado do cadastro
+     entra assim mesmo, marcado — senao o seletor abre em OUTRA placa e a primeira
+     gravacao troca o veiculo do lancamento sem ninguem pedir. E a mesma protecao do
+     seletor de motorista e do de caixa. */
+  function seletorVeiculo(atual){
+    var posta = comoPlaca(atual);
+    var placas = Q.ordenarPorNome((VEICULOS||[]).map(function(v){
+      return { Nome: comoPlaca(v.Placa), Modelo: v.Modelo||'' };
+    }));
+    var achou = placas.some(function(x){ return x.Nome === posta; });
+    return '<option value="">\u2014</option>'+
+      faltando(posta, achou, posta)+
+      placas.map(function(x){
+        return '<option value="'+Q.esc(x.Nome)+'"'+(x.Nome===posta?' selected':'')+'>'+
+          Q.esc(x.Nome)+(x.Modelo?' \u00b7 '+Q.esc(x.Modelo):'')+'</option>';
+      }).join('');
   }
 
   /* O QUE O SELETOR ESCOLHEU, nos dois nomes. Sem o `data-inteiro` — motorista que nao
@@ -9491,6 +9522,11 @@
           Q.esc(String(m.dataRef||'').slice(0,10))+'"></div>'+
         '<div><label>Motorista</label><select id="rMotorista">'+
           seletorMotorista(m.motorista)+'</select></div>'+
+        /* O VEICULO E DA CARGA, e nao da linha: a carga inteira foi no mesmo caminhao.
+           E o campo em que o conserto mais acontece — trocou de carro em cima da hora e
+           o lancamento saiu com a placa do anterior. */
+        '<div><label>Veículo</label><select id="rVeiculo">'+
+          seletorVeiculo(m.veiculo)+'</select></div>'+
         '<div><label>Origem</label><select id="rOrigem">'+
           seletorLocal(m.origemId)+'</select></div>'+
         '<div><label>Destino</label><select id="rDestino">'+
@@ -9543,6 +9579,7 @@
               OrigemID:document.getElementById('rOrigem').value,
               DestinoID:document.getElementById('rDestino').value,
               Motorista:mot.curto, MotoristaNome:mot.inteiro,
+              Veiculo:document.getElementById('rVeiculo').value,
               Romaneio:document.getElementById('rRom').value,
               Obs:document.getElementById('rObs').value,
               UsuarioID:document.getElementById('rUsuario').value}).then(function(r){
@@ -9591,6 +9628,11 @@
         '</select></div>'+
         '<div><label>Motorista</label><select id="cMotorista">'+
           seletorMotorista(m.motorista)+'</select></div>'+
+        /* A PLACA NAO SE CORRIGIA EM LUGAR NENHUM. Trocar de caminhao em cima da hora e
+           o mais comum que existe no galpao, e lancada errada ela ficava errada para
+           sempre: a unica saida era cancelar o lancamento e refaze-lo. */
+        '<div><label>Veículo</label><select id="cVeiculo">'+
+          seletorVeiculo(m.veiculo)+'</select></div>'+
         '<div><label>Romaneio</label><input type="text" id="cRom" value="'+Q.esc(m.romaneio||'')+'"></div>'+
         /* PELO ID, e não pelo nome. O lançamento guarda o id de quem o fez; casar pelo
            NOME dependia de o cadastro nunca ter sido renomeado — e num nome que já não
@@ -9643,6 +9685,7 @@
               TipoCaixaID:document.getElementById('cCaixa').value,
               Motorista:motoristaEscolhido('cMotorista').curto,
               MotoristaNome:motoristaEscolhido('cMotorista').inteiro,
+              Veiculo:document.getElementById('cVeiculo').value,
               Romaneio:document.getElementById('cRom').value,
               Obs:document.getElementById('cObs').value,
               UsuarioID:document.getElementById('cUsuario').value}).then(function(r){

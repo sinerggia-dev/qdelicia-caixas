@@ -751,7 +751,20 @@ async function main() {
       'erro que esta tela existe para evitar',
       agoraA.map((m) => m.qtd));
     ok(agoraA.every((m) => m.romaneio === 'RM-9'),
-      'e o que é da carga valeu para as três', agoraA.map((m) => m.romaneio));
+      'e o que é da carga valeu para as duas', agoraA.map((m) => m.romaneio));
+
+    /* A PLACA, PONTA A PONTA E JÁ NORMALIZADA. Trocar de caminhão em cima da hora é o
+       conserto mais comum que existe, e a placa não se corrigia em lugar nenhum — a
+       única saída era cancelar o lançamento e refazê-lo. */
+    const comPlaca = await POST({ acao: 'corrigirRegistro', registro: REG,
+      usuarioId: 'U001', senha: '123456', motivo: 'trocou de caminhão',
+      itens: [{ id: daCarga[0].id, Qtd: 11 }], Veiculo: ' son-1b00 ' });
+    ok(comPlaca.ok, 'a carga aceita a placa nova', comPlaca.erro);
+    const placas = daCarga.map((m) => tabelas.movimentos.find((x) => x.id === m.id).veiculo);
+    ok(placas.every((v) => v === 'SON1B00'),
+      'a placa da carga é corrigida nas duas linhas e entra JÁ NORMALIZADA — duas ' +
+      'grafias do mesmo carro partem o relatório por veículo em dois, com metade do ' +
+      'total em cada', placas);
 
     /* ---- O PAR DO MOTORISTA ANDA JUNTO ----
      * Trocar só o nome curto deixava a coluna Motorista dizendo o nome novo e a
@@ -3379,10 +3392,38 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
      /pos\('Veiculo', 'veiculo', nulo\);/.test(sup),
     'o movimento guarda a PLACA como texto, e não um id — o histórico não muda quando ' +
     'o cadastro muda');
-  ok(/Veiculo: String\(p\.veiculo \|\| ''\)\.replace\(/.test(log) &&
-     /\.trim\(\)\.toUpperCase\(\) \|\| null,/.test(log),
+  /* CASADA NO TEXTO, esta prova defendia a LINHA `String(p.veiculo||'').replace(` — e
+     caiu no dia em que a regra saiu dali para um lugar só, sem que nada tivesse
+     quebrado. O que importa é a FORMA em que a placa entra, então ela é rodada. */
+  const Fpl = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  ok(Fpl.placa('abc-1d23') === 'ABC1D23' && Fpl.placa('  son 1b00 ') === 'SON1B00' &&
+     Fpl.placa(null) === '',
     'e ela entra no movimento já normalizada: gravada de um jeito e cadastrada de ' +
-    'outro, o relatório por veículo listaria o mesmo carro duas vezes');
+    'outro, o relatório por veículo listaria o mesmo carro duas vezes',
+    [Fpl.placa('abc-1d23'), Fpl.placa('  son 1b00 ')]);
+  /* A MESMA FORMA NOS DOIS CAMINHOS. O lançamento já normalizava; a correção nasceu
+     depois e não normalizava. Duas grafias da mesma placa partem o carro em dois no
+     relatório, com metade do total em cada. */
+  const pedido = { tipo: 'SAIDA', origemId: 'L001', destinoId: 'L003', usuarioId: 'U001',
+    veiculo: 'abc-1d23', itens: [{ tipoCaixaId: 'T001', qtd: 3 }] };
+  const nasceu = Fpl.montarMovimento(pedido, { movimentos: [], agora: new Date() });
+  ok(nasceu.ok && nasceu.linhas[0].Veiculo === 'ABC1D23',
+    'o LANÇAMENTO grava a placa na forma única', nasceu.ok && nasceu.linhas[0].Veiculo);
+  const arrumou = Fpl.montarCorrecao(
+    { ID: 'M1', Veiculo: 'ABC1D23', DataRef: '2026-09-29' },
+    { motivo: 'trocou de carro', usuarioId: 'U001', Veiculo: ' son-1b00 ' },
+    new Date(), {}, { senhaOk: true });
+  ok(arrumou.ok && arrumou.patch.Veiculo === 'SON1B00',
+    'e a CORREÇÃO grava na mesma — escrita só no lançamento, a regra deixava a correção ' +
+    'gravar `abc-1d23` ao lado de `ABC1D23`', arrumou.ok && arrumou.patch.Veiculo);
+  const igual = Fpl.montarCorrecao(
+    { ID: 'M1', Veiculo: 'ABC1D23', DataRef: '2026-09-29' },
+    { motivo: 'conferindo', usuarioId: 'U001', Veiculo: 'abc-1d23' },
+    new Date(), {}, { senhaOk: true });
+  ok(igual.ok && igual.consulta === true,
+    'e digitar a MESMA placa com outra grafia é consulta, e não correção — comparada ' +
+    'crua, ela gravaria e o histórico registraria uma correção que não corrigiu nada',
+    igual.ok && igual.entradas);
 
   /* O MOTORISTA HABITUAL É PADRÃO, NÃO REGRA — e o banco diz isso: apagar o motorista
      desfaz o hábito, não leva o veículo junto. */

@@ -545,7 +545,7 @@ async function corrigirRegistro(p) {
       motivo: p.motivo, usuarioId: p.usuarioId,
       DataRef: p.DataRef, OrigemID: p.OrigemID, DestinoID: p.DestinoID,
       Motorista: p.Motorista, MotoristaNome: p.MotoristaNome,
-      Romaneio: p.Romaneio, Obs: p.Obs, UsuarioID: p.UsuarioID,
+      Veiculo: p.Veiculo, Romaneio: p.Romaneio, Obs: p.Obs, UsuarioID: p.UsuarioID,
       Qtd: meu.Qtd, QtdConferida: meu.QtdConferida
     };
     var livre = L.correcaoLivre(mov, p.usuarioId, agora);

@@ -1205,8 +1205,10 @@ function montarMovimento(p, ctx) {
       MotoristaNome: String(p.motoristaNome || p.motorista || '').trim() || null,
       /* A PLACA, na mesma forma do cadastro: sem hífen, sem espaço, em caixa alta.
          Se o movimento guardasse "abc-1d23" e o cadastro "ABC1D23", um relatório
-         por veículo listaria o mesmo carro duas vezes. */
-      Veiculo: String(p.veiculo || '').replace(/[-\s]/g, '').trim().toUpperCase() || null,
+         por veículo listaria o mesmo carro duas vezes.
+         A REGRA É A MESMA DA CORREÇÃO, e por isso mora fora daqui: escrita nos dois
+         lugares, ela divergiria no primeiro ajuste que só um deles recebesse. */
+      Veiculo: placa(p.veiculo) || null,
       Rota: String(p.rota || '').trim() || null,
       AssinaturaURL: ctx.assinaturaUrl || null,
       FotoURL: ctx.fotoUrl || null,
@@ -1282,6 +1284,18 @@ function montarConferencia(mov, p) {
    aí para isso: nenhum rótulo de campo se chama assim. */
 var MARCA_CONSULTA = '(consulta)';
 
+/**
+ * A FORMA DA PLACA: sem hífen, sem espaço, em caixa alta.
+ *
+ * Escrita num lugar só porque ela vale nos DOIS caminhos — o lançamento e a correção.
+ * Se o lançamento guardasse `ABC1D23` e a correção `abc-1d23`, um relatório por veículo
+ * listaria o MESMO carro duas vezes, e o total de cada um estaria certo e errado ao
+ * mesmo tempo. O lançamento já fazia isso; a correção nasceu depois e não fazia.
+ */
+function placa(v) {
+  return String(v == null ? '' : v).replace(/[-\s]/g, '').trim().toUpperCase();
+}
+
 var CORRIGIVEIS = [
   { campo: 'Qtd', rotulo: 'quantidade', numero: true },
   { campo: 'QtdConferida', rotulo: 'conferida', numero: true },
@@ -1298,6 +1312,13 @@ var CORRIGIVEIS = [
      ENTRADA PRÓPRIA NO HISTÓRICO, e não escondida: quem lê o histórico tem de ver que os
      dois campos mudaram, senão a linha muda sozinha aos olhos de quem confere. */
   { campo: 'MotoristaNome', rotulo: 'motorista (nome completo)' },
+  /* A PLACA NÃO SE CORRIGIA EM LUGAR NENHUM. Ela é gravada no lançamento, aparece na
+     coluna Veículo e no relatório por carro — e trocar de caminhôo em cima da hora é o
+     mais comum que existe no galpão. Lançada errada, ela ficava errada para sempre, e a
+     única saída era cancelar o lançamento e refazê-lo.
+     NORMALIZADA, pela mesma razão do lançamento: duas grafias da mesma placa fazem o
+     relatório por veículo listar o mesmo carro duas vezes. */
+  { campo: 'Veiculo', rotulo: 'veículo', normaliza: placa },
   { campo: 'Romaneio', rotulo: 'romaneio' },
   { campo: 'Obs', rotulo: 'observação' },
   { campo: 'UsuarioID', rotulo: 'quem lançou', mapa: 'usuarios' }
@@ -1421,8 +1442,11 @@ function montarCorrecao(mov, p, agora, nomes, guarda) {
       novo = data(novo);
       if (soData(novo) === soData(velho)) return;
     } else {
-      novo = String(novo);
-      if (String(velho || '') === novo) return;
+      /* A FORMA VEM ANTES DA COMPARAÇÃO. Comparado cru, digitar `abc-1d23` sobre
+         `ABC1D23` parecia mudança, gravava, e o histórico registrava uma correção que
+         não corrigiu nada — além de partir o carro em dois no relatório. */
+      novo = c.normaliza ? c.normaliza(novo) : String(novo);
+      if ((c.normaliza ? c.normaliza(velho) : String(velho || '')) === novo) return;
     }
     patch[c.campo] = novo;
     function legivel(v) {
@@ -2544,6 +2568,7 @@ module.exports = {
   rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,
   comoChamar: comoChamar, nomeESobrenome: nomeESobrenome,
   linhasDoRegistro: linhasDoRegistro,
+  placa: placa,
   motoristasPublicos: motoristasPublicos, veiculosPublicos: veiculosPublicos,
   cnhVencida: cnhVencida,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,

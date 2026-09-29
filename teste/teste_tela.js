@@ -9635,10 +9635,22 @@ console.log('\n== Corrigir: o que é correção e o que é só consulta ==');
     'a conferência achou os seletores dos formulários de correção — lista vazia faria a ' +
     'prova abaixo aprovar qualquer coisa',
     seletores.map(function (s) { return s.id; }));
+  /* OS AJUDANTES SAO DESCOBERTOS, e nao listados. Listados, a lista tinha dois nomes no
+     dia em que o seletor de VEICULO nasceu — e a prova acusou dois seletores
+     desprotegidos que estavam protegidos, por um ajudante que ela nao conhecia.
+     VALE COMO PROTECAO o ajudante que ele proprio chama `faltando`: um ajudante novo que
+     nao reponha o valor gravado continua caindo, que e o ponto. */
+  var ajudantes = [];
+  var reAj = /function (seletor[A-Za-z0-9]+)\(atual[^)]*\)\{([\s\S]{0,1200}?)\n  \}/g, mAj;
+  while ((mAj = reAj.exec(forma))) {
+    if (mAj[2].indexOf('faltando(') > 0) ajudantes.push(mAj[1] + '(');
+  }
+  ok(ajudantes.length >= 3,
+    'a conferência achou os ajudantes que repõem o valor gravado — lista vazia faria a ' +
+    'prova abaixo acusar todo seletor de desprotegido', ajudantes);
   var desprotegidos = seletores.filter(function (s) {
-    return s.corpo.indexOf('seletorLocal(') < 0 &&
-           s.corpo.indexOf('seletorMotorista(') < 0 &&
-           s.corpo.indexOf('faltando(') < 0;
+    if (s.corpo.indexOf('faltando(') > 0) return false;
+    return !ajudantes.some(function (a) { return s.corpo.indexOf(a) > 0; });
   });
   ok(desprotegidos.length === 0,
     'e TODO seletor de correção repõe o valor gravado quando ele sumiu do cadastro — ' +
@@ -12073,7 +12085,13 @@ console.log('\n== corrigir a carga inteira, e nao so a linha ==');
    * O QUE ELE TEM DE FAZER: oferecer o nome de TRABALHO na opção e carregar o nome
    * INTEIRO junto, para que o Gravar mande o par. */
   var iSM = admC.indexOf('  function seletorMotorista(atual){');
-  var fonteSM = iSM < 0 ? '' : admC.slice(iSM, admC.indexOf('\n  }', iSM) + 4);
+  /* O AJUDANTE VAI JUNTO. O seletor deixou de ter protecao propria e passou a usar
+     `faltando`, como os outros — recortado sozinho, ele estoura no `faltando is not
+     defined` e a prova morre em vez de medir. */
+  var iFa = admC.indexOf('  function faltando(atual, tem, rotulo){');
+  var fonteSM = iSM < 0 ? '' :
+    admC.slice(iFa, admC.indexOf('\n  }', iFa) + 4) +
+    admC.slice(iSM, admC.indexOf('\n  }', iSM) + 4);
   ok(fonteSM.length > 200, 'a confer\u00eancia recortou o seletor de motorista', fonteSM.length);
   if (fonteSM.length > 200) {
     var appSM = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
@@ -12113,6 +12131,102 @@ console.log('\n== corrigir a carga inteira, e nao so a linha ==');
       'seletor abre em outro nome e a primeira grava\u00e7\u00e3o troca o motorista sem ningu\u00e9m pedir',
       comSumido.slice(0, 200));
   }
+
+  /* ---- TODO CAMPO DESENHADO E MANDADO ----
+   *
+   * Um campo que o formulario MOSTRA e o Gravar nao le e o pior dos dois mundos: a
+   * pessoa escolhe a placa nova, ve a placa nova no lugar, clica em Gravar e o
+   * lancamento continua com a antiga — sem erro, sem aviso, e sem motivo aparente.
+   *
+   * A LISTA SAI DO PROPRIO FORMULARIO, e vale para os DOIS: o campo novo entra na prova
+   * no dia em que nascer, em qualquer um deles. Foi escrita depois de uma sabotagem
+   * escapar exatamente assim — o campo desenhado na carga e nao mandado.
+   *
+   * SO' O QUE RECEBE TEXTO: o `cSalvar` e o botao, e cobrar que o botao seja "mandado"
+   * nao quer dizer nada. A peneira e pela TAG, e nao por uma lista de excecoes. */
+  [[formU, 'da linha', 'c'], [formR, 'da carga', 'r']].forEach(function (par) {
+    var corpo = par[0];
+    var iG = corpo.indexOf('.addEventListener(');
+    var desenho = iG < 0 ? corpo : corpo.slice(0, iG);
+    var grava = iG < 0 ? '' : corpo.slice(iG);
+    /* O PREFIXO E O DO FORMULARIO — `c` na linha, `r` na carga —, entao a expressao e
+       MONTADA. Escrita como literal com o prefixo interpolado dentro, ela procurava a
+       string `' + par[2] + '` e nao achava campo nenhum: a prova aprovava os dois
+       formularios por nao ter o que reprovar. */
+    var reCampo = new RegExp('<(input|select|textarea)[^>]*id="(' + par[2] +
+      '[A-Za-z0-9]+)"', 'g');
+    var campos = (desenho.match(reCampo) || [])
+      .map(function (x) { return /id="([A-Za-z0-9]+)"/.exec(x)[1]; });
+    ok(campos.length >= 8 && grava.length > 300,
+      'a confer\u00eancia achou os campos do formul\u00e1rio ' + par[1] + ' e o Gravar dele',
+      campos);
+    var esquecidos = campos.filter(function (c) { return grava.indexOf("'" + c + "'") < 0; });
+    ok(esquecidos.length === 0,
+      'todo campo do formul\u00e1rio ' + par[1] + ' \u00e9 MANDADO no Gravar \u2014 desenhado e n\u00e3o ' +
+      'mandado, a pessoa escolhe a placa nova, v\u00ea a placa nova no lugar, grava, e o ' +
+      'lan\u00e7amento continua com a antiga, sem erro e sem aviso',
+      esquecidos);
+
+    /* E A DIRE\u00c7\u00c3O INVERSA, que \u00e9 pior. Um campo que o Gravar L\u00ca e o formul\u00e1rio n\u00e3o
+       DESENHA faz `getElementById` devolver nulo, e ler `.value` de nulo estoura ali
+       mesmo: o bot\u00e3o Gravar para de funcionar inteiro, e n\u00e3o s\u00f3 para aquele campo.
+       Uma sabotagem escapou exatamente assim \u2014 tirar o campo da tela e deixar o Gravar
+       procurando por ele. */
+    var lidos = (grava.match(/getElementById\('([A-Za-z0-9]+)'\)/g) || [])
+      .map(function (x) { return /'([A-Za-z0-9]+)'/.exec(x)[1]; })
+      .concat((grava.match(/motoristaEscolhido\('([A-Za-z0-9]+)'\)/g) || [])
+        .map(function (x) { return /'([A-Za-z0-9]+)'/.exec(x)[1]; }));
+    var fantasmas = lidos.filter(function (c) {
+      return campos.indexOf(c) < 0 && desenho.indexOf('id="' + c + '"') < 0;
+    });
+    ok(fantasmas.length === 0,
+      'e todo campo que o Gravar do formul\u00e1rio ' + par[1] + ' L\u00ca est\u00e1 DESENHADO \u2014 lido e ' +
+      'n\u00e3o desenhado, `getElementById` devolve nulo e o bot\u00e3o Gravar para de funcionar ' +
+      'inteiro, e n\u00e3o s\u00f3 para aquele campo',
+      fantasmas);
+  });
+
+  /* ---- A CARGA OFERECE TUDO O QUE A ROTA ACEITA MUDAR NA REMESSA ----
+   * A lista sai de `CORRIGIVEIS`, no servidor, menos os três que são DE CADA LINHA: a
+   * quantidade, a conferida e o tipo de caixa. Um campo acrescentado lá e esquecido aqui
+   * fica corrigível pela linha e invisível pela carga — que foi o caso do veículo, e só
+   * se descobriu porque alguém foi procurar. */
+  var Lcv = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  var logCv = fsReal.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  var iCv = logCv.indexOf('var CORRIGIVEIS = [');
+  var campoNomes = (logCv.slice(iCv, logCv.indexOf('];', iCv)).match(/campo: '([A-Za-z]+)'/g) || [])
+    .map(function (x) { return /'([A-Za-z]+)'/.exec(x)[1]; });
+  var daLinha = ['Qtd', 'QtdConferida', 'TipoCaixaID'];
+  var daRemessa = campoNomes.filter(function (c) { return daLinha.indexOf(c) < 0; });
+  ok(daRemessa.length >= 7,
+    'a confer\u00eancia achou o que a rota aceita mudar na remessa \u2014 lista vazia faria a ' +
+    'prova abaixo aprovar qualquer coisa', daRemessa);
+  var semCampo = daRemessa.filter(function (c) { return formR.indexOf(c + ':') < 0; });
+  ok(semCampo.length === 0,
+    'e o formul\u00e1rio da carga oferece TODOS eles \u2014 um campo que a rota aceita e a carga ' +
+    'n\u00e3o mostra fica corrig\u00edvel linha a linha e invis\u00edvel na carga, que foi o caso do ' +
+    've\u00edculo',
+    semCampo);
+
+  /* E O QUE A TELA MANDA, A ROTA REPASSA. O pedido da carga e remontado linha a linha
+     dentro da rota: um campo que a tela manda e a rota nao repassa morre ali, calado. */
+  var ixR = fsReal.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  var iCR = ixR.indexOf('async function corrigirRegistro(p) {');
+  var rotaR = iCR < 0 ? '' : ixR.slice(iCR, ixR.indexOf('\nasync function', iCR + 10));
+  var iPed = rotaR.indexOf('var pedido = {');
+  var pedido = iPed < 0 ? '' : rotaR.slice(iPed, rotaR.indexOf('};', iPed));
+  ok(pedido.length > 150, 'a confer\u00eancia recortou o pedido que a rota da carga monta',
+    pedido.length);
+  var mandados = (formR.match(/^ {14}([A-Za-z]+):/gm) || [])
+    .map(function (x) { return x.trim().slice(0, -1); })
+    .filter(function (c) { return ['acao', 'registro', 'usuarioId', 'senha', 'itens'].indexOf(c) < 0; });
+  ok(mandados.length >= 6,
+    'a confer\u00eancia achou o que a tela da carga manda', mandados);
+  var perdidos = mandados.filter(function (c) { return pedido.indexOf(c + ':') < 0; });
+  ok(perdidos.length === 0,
+    'e a rota da carga REPASSA tudo o que a tela manda \u2014 o pedido \u00e9 remontado linha a ' +
+    'linha l\u00e1 dentro, e o campo que ela esquecer morre ali, calado',
+    perdidos);
 
   /* ---- AS DUAS PORTAS ---- */
   ok(admC.indexOf('data-cregistro=') > 0 &&
