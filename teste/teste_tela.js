@@ -11914,6 +11914,69 @@ console.log('\n== os tutoriais nao procuram id que nao existe ==');
       { procura: procurados.length, escreve: Object.keys(fixos).length });
   });
 
+  /* ---- O CAMINHO PARA O EDITOR DE FALAS ----
+   *
+   * O editor vive atras de `?editar=1`, e isso esta certo: o mesmo tutorial abre no
+   * PRIMEIRO ACESSO, e um campo que muda o que o sistema diz nao pode ser o primeiro
+   * contato de quem acabou de chegar.
+   * O QUE FALTAVA ERA O CAMINHO. Sem link nenhum, a unica forma de achar o editor era
+   * saber de cor um parametro de URL — que e o mesmo que ele nao existir, e foi
+   * exatamente o que aconteceu. */
+  var admT = fsReal.readFileSync(path.join(raizT, 'admin.html'), 'utf8');
+  var linques = (admT.match(/href="demo-lancamento-[a-z]+\.html\?editar=1"/g) || []);
+  ok(linques.length === 2,
+    'os dois tutoriais do painel têm o caminho para o editor de falas — sem ele, achar ' +
+    'o editor exigia saber de cor um parâmetro de URL, que é o mesmo que não existir',
+    linques);
+  ok((admT.match(/target="_blank" rel="noopener"/g) || []).length >= 2,
+    'e ele abre em outra aba: o editor precisa da página inteira, e no quadro de 390px ' +
+    'do tutorial ele nasceria espremido embaixo do telefone');
+  ok(admT.indexOf('<p class="editar-falas" id="linkFalasSaida" hidden>') > 0 &&
+     admT.indexOf('<p class="editar-falas" id="linkFalasRetorno" hidden>') > 0,
+    'e nasce ESCONDIDO — quem escreve a narração do sistema é quem responde por ela');
+  var iMost = admT.indexOf('  function mostrarEditorDeFalas(){');
+  var most = iMost < 0 ? '' : admT.slice(iMost, admT.indexOf('\n  }', iMost) + 4);
+  ok(most.indexOf('p.hidden = !Q.ehAdmin();') > 0,
+    'e quem o revela é o PERFIL de administrador', most);
+  ok(admT.indexOf('    mostrarEditorDeFalas();') > 0 &&
+     admT.indexOf('mostrarEditorDeFalas();') > admT.indexOf('function mostrarEditorDeFalas'),
+    'e a revelação roda junto das outras do painel, e não dentro da página do tutorial ' +
+    '— lá ela aconteceria antes de a sessão existir, e o link nasceria escondido para ' +
+    'todo mundo, inclusive para quem administra');
+
+  /* ---- A PORTA DO EDITOR, RODADA ----
+   *
+   * O editor reescreve o que o sistema DIZ. O mesmo tutorial abre no PRIMEIRO ACESSO, e
+   * quem esta na tela e alguem que acabou de chegar: deixado a vista, o primeiro
+   * contato dela com o sistema oferece um campo que muda a narracao dele.
+   * LIDO NO ARQUIVO, isto responderia "a palavra editar esta ali?" — e estaria, ate num
+   * `if (true)`. Entao a condicao e EXECUTADA, com e sem o parametro. */
+  tutoriais.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizT, arq), 'utf8');
+    var iP = txt.indexOf('  if (/[?&]editar=1/.test(location.search)) {');
+    var porta = iP < 0 ? '' : txt.slice(iP, txt.indexOf('\n  }', iP) + 4);
+    ok(porta.length > 40 && porta.indexOf('data-editor') > 0,
+      arq + ': a conferência recortou a porta do editor — recorte vazio faria as duas ' +
+      'provas abaixo passarem sem rodar nada', porta.length);
+
+    function abriuCom(busca) {
+      var posto = {};
+      var doc = { documentElement: {
+        setAttribute: function (k, v2) { posto[k] = v2; } } };
+      new Function('location', 'document', porta)({ search: busca }, doc);
+      return posto['data-editor'] === '1';
+    }
+    ok(abriuCom('?editar=1') === true && abriuCom('?x=1&editar=1') === true,
+      arq + ': com `?editar=1` o editor aparece — é assim que quem escreve a narração ' +
+      'chega nele');
+    ok(abriuCom('') === false && abriuCom('?editar=0') === false &&
+       abriuCom('?naoeditar=1') === false,
+      arq + ': e SEM o parâmetro ele não existe — o mesmo tutorial abre no primeiro ' +
+      'acesso, e um campo que muda o que o sistema diz não pode ser o primeiro contato ' +
+      'de quem acabou de chegar',
+      [abriuCom(''), abriuCom('?editar=0'), abriuCom('?naoeditar=1')]);
+  });
+
   /* E O CASO EXATO, nomeado: a folha que abre na selecao. */
   tutoriais.forEach(function (arq) {
     var txt = fsReal.readFileSync(path.join(raizT, arq), 'utf8');

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=ce62aa15">
+<link rel="stylesheet" href="styles.css?v=3c58cfd8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1316,6 +1316,23 @@
         <iframe id="quadroTutorialSaida" title="Demonstração de saída"
                 src="demo-lancamento-saida.html" loading="lazy"></iframe>
       </div>
+      <!-- O CAMINHO PARA O EDITOR DE FALAS. Ele vive atras de `?editar=1` e nao
+           aparece no quadro aqui — de proposito: o mesmo tutorial abre no PRIMEIRO
+           ACESSO, e quem esta na tela e alguem que acabou de chegar. Um campo que muda
+           o que o sistema diz nao pode ser o primeiro contato dela com o sistema.
+           MAS O CAMINHO PRECISA EXISTIR, e ele nao existia: sem link nenhum, a unica
+           forma de achar o editor era saber de cor um parametro de URL — que e o mesmo
+           que nao existir.
+           EM ABA NOVA, e nao aqui dentro: o editor precisa da pagina INTEIRA, e no
+           quadro de 390px ele nasceria espremido embaixo do telefone.
+           SO PARA QUEM ADMINISTRA: quem escreve a narracao do sistema e quem responde
+           por ela. `hidden` de fabrica, e o mesmo JS da Aparencia o revela. -->
+      <p class="editar-falas" id="linkFalasSaida" hidden>
+        <a href="demo-lancamento-saida.html?editar=1" target="_blank" rel="noopener">
+          Editar as falas deste tutorial</a>
+        <small>abre em outra aba, com os campos de texto e o botão Ouvir</small>
+      </p>
+
     </div>
   </section>
 
@@ -1328,6 +1345,23 @@
         <iframe id="quadroTutorialRetorno" title="Demonstração de retorno"
                 src="demo-lancamento-retorno.html" loading="lazy"></iframe>
       </div>
+      <!-- O CAMINHO PARA O EDITOR DE FALAS. Ele vive atras de `?editar=1` e nao
+           aparece no quadro aqui — de proposito: o mesmo tutorial abre no PRIMEIRO
+           ACESSO, e quem esta na tela e alguem que acabou de chegar. Um campo que muda
+           o que o sistema diz nao pode ser o primeiro contato dela com o sistema.
+           MAS O CAMINHO PRECISA EXISTIR, e ele nao existia: sem link nenhum, a unica
+           forma de achar o editor era saber de cor um parametro de URL — que e o mesmo
+           que nao existir.
+           EM ABA NOVA, e nao aqui dentro: o editor precisa da pagina INTEIRA, e no
+           quadro de 390px ele nasceria espremido embaixo do telefone.
+           SO PARA QUEM ADMINISTRA: quem escreve a narracao do sistema e quem responde
+           por ela. `hidden` de fabrica, e o mesmo JS da Aparencia o revela. -->
+      <p class="editar-falas" id="linkFalasRetorno" hidden>
+        <a href="demo-lancamento-retorno.html?editar=1" target="_blank" rel="noopener">
+          Editar as falas deste tutorial</a>
+        <small>abre em outra aba, com os campos de texto e o botão Ouvir</small>
+      </p>
+
     </div>
   </section>
 
@@ -7089,6 +7123,19 @@
      mesma regra divergem no primeiro ajuste que só uma recebe, e a que divergir vai
      oferecer o conserto que a rota recusa.
      A tranca de verdade continua sendo a da rota, que lê o perfil do CADASTRO. */
+  /* O CAMINHO PARA O EDITOR DE FALAS aparece para quem ADMINISTRA, e some para o
+     resto. Quem escreve a narracao do sistema e quem responde por ela — e no tutorial
+     a narracao e o que o sistema DIZ, nao o que ele mostra.
+     Ligado aqui, junto das outras revelacoes de admin, e nao dentro da pagina do
+     tutorial: la ele rodaria antes de a sessao existir, e o link nasceria escondido
+     para todo mundo, inclusive para voce. */
+  function mostrarEditorDeFalas(){
+    ['linkFalasSaida', 'linkFalasRetorno'].forEach(function(id){
+      var p = document.getElementById(id);
+      if (p) p.hidden = !Q.ehAdmin();
+    });
+  }
+
   function podeMexerNaDeclaracao(){
     return Q.podeMexerEmDeclaracao(Q.sessao());
   }
@@ -8450,6 +8497,7 @@
     if (!cx) return;
     /* SÓ ADMIN vê o cartão e o atalho. Quem não pode trocar não precisa descobrir isso
        tentando — e o botão da lateral, visível e recusado, seria pior que ausente. */
+    mostrarEditorDeFalas();
     var pode = Q.ehAdmin();
     cx.hidden = !pode;
     var atalho = document.getElementById('chipAparencia');

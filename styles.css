@@ -2578,6 +2578,15 @@ details.tipos[open] summary::before{content:"▾"}
    realce da caixa inteira nao diz se ele cai antes ou depois dela. */
 .grid-filtros>div.alvo{box-shadow:inset 0 3px 0 var(--verde)}
 
+/* O CAMINHO PARA O EDITOR DE FALAS, abaixo do quadro do tutorial. Discreto: ele e
+   ferramenta de quem escreve, e nao o que se vem fazer nesta tela — quem chega aqui vem
+   ASSISTIR. Em tamanho de botao ele disputaria com o proprio tutorial. */
+.editar-falas{margin:10px 0 0;font-size:13px}
+.editar-falas:empty{display:none}
+.editar-falas a{color:var(--marca-txt);font-weight:600;text-decoration:none}
+.editar-falas a:hover{text-decoration:underline}
+.editar-falas small{display:block;color:var(--txt3);font-size:12px;margin-top:2px}
+
 /* ---------- o cadeado das colunas ----------
  * Discreto de proposito: ele nao e uma acao do dia, e um estado com um caminho. Um
  * botao cheio ali competiria com "Filtrar" e "CSV", que sao o que se vem fazer.
