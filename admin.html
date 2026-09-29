@@ -9446,18 +9446,60 @@
      entra assim mesmo, marcado — senao o seletor abre em OUTRA placa e a primeira
      gravacao troca o veiculo do lancamento sem ninguem pedir. E a mesma protecao do
      seletor de motorista e do de caixa. */
-  function seletorVeiculo(atual){
+  /* O CARRO DO MOTORISTA EM CIMA. O cadastro sabe de quem cada veiculo costuma ser, e
+     numa frota de onze placas a que interessa e quase sempre a dele: no fim de uma lista
+     alfabetica, ela e procurada uma a uma toda vez.
+     A PONTE ENTRE OS DOIS E O CADASTRO, e nao uma comparacao de texto: o campo guarda o
+     NOME de trabalho e o vinculo do veiculo e por ID. E a mesma regra da tela de
+     lancamento — escrita aqui de outro jeito, ela divergiria no primeiro ajuste que so
+     uma das duas recebesse.
+     SEM CARRO DELE NAO HA O QUE SEPARAR: a lista sai simples, sem rotulo de grupo para
+     ler a toa. Mesma regra da lista de motoristas. */
+  function seletorVeiculo(atual, motoristaCurto){
     var posta = comoPlaca(atual);
-    var placas = Q.ordenarPorNome((VEICULOS||[]).map(function(v){
-      return { Nome: comoPlaca(v.Placa), Modelo: v.Modelo||'' };
+    var frota = Q.ordenarPorNome((VEICULOS||[]).map(function(v){
+      return { Nome: comoPlaca(v.Placa), Modelo: v.Modelo||'',
+               MotoristaID: String(v.MotoristaID||'') };
     }));
-    var achou = placas.some(function(x){ return x.Nome === posta; });
-    return '<option value="">\u2014</option>'+
-      faltando(posta, achou, posta)+
-      placas.map(function(x){
+    var curto = String(motoristaCurto||'');
+    var dono = curto
+      ? (MOTORISTAS||[]).filter(function(x){ return Q.comoChamar(x) === curto; })[0]
+      : null;
+    var donoId = dono ? String(dono.ID) : '';
+    var dele = donoId ? frota.filter(function(v){ return v.MotoristaID === donoId; }) : [];
+    var outros = frota.filter(function(v){ return dele.indexOf(v) < 0; });
+
+    function itens(lista){
+      return lista.map(function(x){
         return '<option value="'+Q.esc(x.Nome)+'"'+(x.Nome===posta?' selected':'')+'>'+
-          Q.esc(x.Nome)+(x.Modelo?' \u00b7 '+Q.esc(x.Modelo):'')+'</option>';
+          Q.esc(x.Nome)+(x.Modelo?' · '+Q.esc(x.Modelo):'')+'</option>';
       }).join('');
+    }
+    function grupo(rotulo, lista){
+      return lista.length
+        ? '<optgroup label="'+Q.esc(rotulo)+'">'+itens(lista)+'</optgroup>' : '';
+    }
+    var achou = frota.some(function(x){ return x.Nome === posta; });
+    return '<option value="">—</option>'+
+      faltando(posta, achou, posta)+
+      (dele.length
+        ? grupo('Veículo de ' + curto, dele) + grupo('Outros veículos', outros)
+        : itens(frota));
+  }
+
+  /* TROCOU O MOTORISTA, A LISTA SE REAGRUPA. Sem isto o agrupamento valeria so' para o
+     estado em que o formulario nasceu: escolher outro motorista deixaria o carro do
+     anterior em cima, com rotulo dizendo que e dele.
+     A PLACA ESCOLHIDA SOBREVIVE. Remontar o seletor zera o `value`; reposto depois, o
+     campo nao se esvazia sozinho na cara de quem acabou de escolher. */
+  function ligarVeiculoAoMotorista(idMot, idVei){
+    var sm = document.getElementById(idMot), sv = document.getElementById(idVei);
+    if (!sm || !sv) return;
+    sm.addEventListener('change', function(){
+      var tinha = sv.value;
+      sv.innerHTML = seletorVeiculo(tinha, sm.value);
+      sv.value = tinha;
+    });
   }
 
   /* O QUE O SELETOR ESCOLHEU, nos dois nomes. Sem o `data-inteiro` — motorista que nao
@@ -9526,7 +9568,7 @@
            E o campo em que o conserto mais acontece — trocou de carro em cima da hora e
            o lancamento saiu com a placa do anterior. */
         '<div><label>Veículo</label><select id="rVeiculo">'+
-          seletorVeiculo(m.veiculo)+'</select></div>'+
+          seletorVeiculo(m.veiculo, m.motorista)+'</select></div>'+
         '<div><label>Origem</label><select id="rOrigem">'+
           seletorLocal(m.origemId)+'</select></div>'+
         '<div><label>Destino</label><select id="rDestino">'+
@@ -9561,6 +9603,7 @@
       '<div class="linha-btn"><button class="btn" id="rSalvar">Gravar correção nas '+
         linhas.length+' linhas</button></div>');
 
+    ligarVeiculoAoMotorista('rMotorista', 'rVeiculo');
     document.getElementById('rSalvar').addEventListener('click', function(){
       var b = this;
       var campoSenha = document.getElementById('rSenha');
@@ -9632,7 +9675,7 @@
            o mais comum que existe no galpao, e lancada errada ela ficava errada para
            sempre: a unica saida era cancelar o lancamento e refaze-lo. */
         '<div><label>Veículo</label><select id="cVeiculo">'+
-          seletorVeiculo(m.veiculo)+'</select></div>'+
+          seletorVeiculo(m.veiculo, m.motorista)+'</select></div>'+
         '<div><label>Romaneio</label><input type="text" id="cRom" value="'+Q.esc(m.romaneio||'')+'"></div>'+
         /* PELO ID, e não pelo nome. O lançamento guarda o id de quem o fez; casar pelo
            NOME dependia de o cadastro nunca ter sido renomeado — e num nome que já não
@@ -9669,6 +9712,7 @@
         : '')+
       '<div class="linha-btn"><button class="btn" id="cSalvar">Gravar correção</button></div>');
 
+    ligarVeiculoAoMotorista('cMotorista', 'cVeiculo');
     document.getElementById('cSalvar').addEventListener('click', function(){
       var b=this;
       var campoSenha = document.getElementById('cSenha');

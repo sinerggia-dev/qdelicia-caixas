@@ -945,7 +945,14 @@
        cadastro, e não uma comparação de texto. */
     var sm = idMotorista ? document.getElementById(idMotorista) : null;
     var nome = sm ? sm.value : '';
-    var m = nome ? meusMotoristas().filter(function(x){ return x.Nome === nome; })[0] : null;
+    /* PELO NOME DE TRABALHO, que e o que esta no campo. Comparado com `x.Nome` — o nome
+       do cadastro —, quem tem apelido nunca era achado: `motId` ficava vazio, o
+       agrupamento sumia, e o carro do motorista voltava para o meio da lista
+       alfabetica sem nada na tela dizendo por que. Foi o que aconteceu no dia em que o
+       apelido nasceu e esta linha nao acompanhou. */
+    var m = nome ? meusMotoristas().filter(function(x){
+      return Q.comoChamar(x) === nome;
+    })[0] : null;
     var motId = m ? String(m.ID) : '';
 
     var dele = frota.filter(function(v){
@@ -1977,13 +1984,33 @@
     /* O lançamento guarda o NOME do motorista, não o id. Um nome que saiu do cadastro
        entra na lista assim mesmo: sem isso o seletor abriria em outro nome, e gravar
        trocaria o motorista sem ninguém pedir. */
+    /* O APELIDO NA LISTA, E O NOME INTEIRO JUNTO. Oferecendo o nome do cadastro, esta
+       correcao gravava o nome LONGO na coluna do nome curto e deixava a coluna do nome
+       completo com o valor antigo — a mesma viagem com dois nomes, e o relatorio por
+       motorista partindo a pessoa em duas. O painel ja tinha esse defeito e ja foi
+       consertado; esta tela tinha a mesma escrita, do lado de ca. */
     function opcoesMotorista(atual){
-      var nomes = Q.ordenarPorNome(DADOS.motoristas||[]).map(function(x){ return x.Nome; });
-      if (atual && nomes.indexOf(atual) < 0) nomes.unshift(atual);
-      return '<option value="">—</option>'+nomes.map(function(n){
-        return '<option value="'+Q.esc(n)+'"'+(String(n)===String(atual||'')?' selected':'')+
-          '>'+Q.esc(n)+'</option>';
+      var lista = Q.ordenarPorNome(DADOS.motoristas||[]).map(function(x){
+        return { curto: Q.comoChamar(x), inteiro: String(x.Nome||'') };
+      });
+      if (atual && !lista.some(function(x){ return x.curto === atual; })) {
+        lista.unshift({ curto: atual, inteiro: '' });
+      }
+      return '<option value="" data-inteiro="">—</option>'+lista.map(function(x){
+        return '<option value="'+Q.esc(x.curto)+'" data-inteiro="'+Q.esc(x.inteiro)+'"'+
+          (x.curto===String(atual||'')?' selected':'')+'>'+Q.esc(x.curto)+'</option>';
       }).join('');
+    }
+
+    /* O QUE O SELETOR ESCOLHEU, nos dois nomes. Sem `data-inteiro` — motorista que saiu
+       do cadastro — o inteiro cai no curto, que e o unico nome que se sabe. */
+    function motoristaDoCampo(id){
+      var sel = document.getElementById(id);
+      if (!sel) return { curto: '', inteiro: '' };
+      var op = sel.options[sel.selectedIndex];
+      var curto = sel.value;
+      var inteiro = op ? (op.getAttribute('data-inteiro') || '') : '';
+      return { curto: curto, inteiro: curto ? (inteiro || curto) : '' };
     }
 
     caixa.innerHTML = '<div class="correcao">'+
@@ -2059,7 +2086,8 @@
         DataRef: document.getElementById('crData').value,
         OrigemID: document.getElementById('crOrigem').value,
         DestinoID: document.getElementById('crDestino').value,
-        Motorista: document.getElementById('crMotorista').value,
+        Motorista: motoristaDoCampo('crMotorista').curto,
+        MotoristaNome: motoristaDoCampo('crMotorista').inteiro,
         Obs: document.getElementById('crObs').value
       };
       var caixaNova = umaCaixa ? document.getElementById('crCaixa').value : null;

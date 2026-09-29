@@ -4765,10 +4765,17 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
   /* A PONTE ENTRE OS DOIS CAMPOS é o cadastro: o seletor de motorista guarda o NOME — é
      ele que vai para o movimento — e o vínculo do veículo é por ID. Comparar texto com
      texto faria "Chico" bater com outro Chico. */
-  ok(/meusMotoristas\(\)\.filter\(function\(x\)\{ return x\.Nome === nome; \}\)\[0\]/.test(fnMV) &&
-     /String\(v\.MotoristaID\|\|''\) === motId/.test(fnMV),
-    'e o vínculo é por ID, com o nome do campo passando pelo cadastro — o seletor ' +
-    'guarda nome, o veículo guarda id');
+  /* CASADA NO TEXTO, esta prova pregava a linha `x.Nome === nome` — e essa linha ERA
+     o defeito: o campo passou a guardar o nome de TRABALHO, e comparado com o nome do
+     cadastro quem tem apelido nunca era achado. O agrupamento sumia e o carro do
+     motorista voltava para o meio da lista alfabetica, calado.
+     A prova que roda esta na bancada do par, logo abaixo. Aqui fica so' o que ela nao
+     alcanca: que a ponte e por ID, e nao texto com texto. */
+  ok(/String\(v\.MotoristaID\|\|''\) === motId/.test(fnMV) &&
+     fnMV.indexOf('Q.comoChamar(x) === nome') > 0,
+    'o vínculo do veículo é por ID, e o nome do campo passa pelo CADASTRO para chegar ' +
+    'nele — o seletor guarda o nome de trabalho, o veículo guarda id, e comparar texto ' +
+    'com texto faria "Chico" bater com outro Chico');
   /* MOTORISTA NOVO, VEÍCULO NOVO. Trocar o motorista e deixar a placa do anterior é o
      erro mais difícil de ver: o campo fica preenchido, com jeito de conferido. */
   ok(/if \(motId !== anterior\) \{\s*\n\s*sel\.value = dele\.length === 1 \? dele\[0\]\.Placa : '';/.test(fnMV),
@@ -4945,6 +4952,28 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
     ok(c.sv.value === 'SON1B00',
       'e a placa que preencheu o motorista continua no campo — o reagrupamento não pode ' +
       'limpar a escolha que o disparou', c.sv.value);
+
+    /* ---- O CARRO DO MOTORISTA VEM EM CIMA, E PARA QUEM TEM APELIDO TAMBEM ----
+     * O cadastro sabe de quem cada veiculo costuma ser, e numa frota de onze placas a
+     * que interessa e quase sempre a dele. A ponte entre os dois campos e o CADASTRO: o
+     * seletor guarda o nome de TRABALHO e o veiculo guarda id.
+     * Comparado com o nome do cadastro, quem tem apelido nunca era achado — o
+     * agrupamento sumia e o carro dele voltava para o meio da lista alfabetica, sem
+     * nada na tela dizendo por que. */
+    var gp = bancada();
+    gp.sm.escolher('Isaque');
+    ok(/<optgroup label="Ve\u00edculo de Isaque">/.test(gp.sv.innerHTML),
+      'escolher um motorista COM APELIDO agrupa o carro dele em cima — comparado com o ' +
+      'nome do cadastro, quem tem apelido nunca era achado e o carro dele voltava para ' +
+      'o meio da lista alfab\u00e9tica, calado', gp.sv.innerHTML.slice(0, 160));
+    ok(gp.sv.innerHTML.indexOf('RTA4C55') < gp.sv.innerHTML.indexOf('Outros ve\u00edculos'),
+      'e o carro dele vem ANTES dos outros \u2014 no fim de uma lista alfab\u00e9tica, a placa que ' +
+      'interessa \u00e9 procurada uma a uma toda vez', gp.sv.innerHTML.slice(0, 200));
+    var sp = bancada();
+    sp.sm.escolher('Dinho');
+    ok(/<optgroup label="Ve\u00edculo de Dinho">/.test(sp.sv.innerHTML),
+      'e quem N\u00c3O tem apelido continua agrupando pelo nome — a mudan\u00e7a n\u00e3o pode ' +
+      'consertar um caso quebrando o outro', sp.sv.innerHTML.slice(0, 160));
 
     /* ---- O CARRO DE QUEM TEM APELIDO ----
      * O seletor oferece 'Isaque' — o nome de trabalho —, e o cadastro guarda 'Isaque
@@ -9640,10 +9669,15 @@ console.log('\n== Corrigir: o que é correção e o que é só consulta ==');
      desprotegidos que estavam protegidos, por um ajudante que ela nao conhecia.
      VALE COMO PROTECAO o ajudante que ele proprio chama `faltando`: um ajudante novo que
      nao reponha o valor gravado continua caindo, que e o ponto. */
+  /* O CORPO VAI ATE O FECHAMENTO, e nao ate um limite de caracteres. Com o limite, o
+     ajudante que crescesse passava dele e sumia da lista — foi o que aconteceu no dia
+     em que o seletor de veiculo passou a agrupar —, e a prova acusava de
+     desprotegidos os seletores que ele protegia. */
   var ajudantes = [];
-  var reAj = /function (seletor[A-Za-z0-9]+)\(atual[^)]*\)\{([\s\S]{0,1200}?)\n  \}/g, mAj;
+  var reAj = /function (seletor[A-Za-z0-9]+)\(atual[^)]*\)\{/g, mAj;
   while ((mAj = reAj.exec(forma))) {
-    if (mAj[2].indexOf('faltando(') > 0) ajudantes.push(mAj[1] + '(');
+    var corpoAj = forma.slice(mAj.index, forma.indexOf('\n  }', mAj.index));
+    if (corpoAj.indexOf('faltando(') > 0) ajudantes.push(mAj[1] + '(');
   }
   ok(ajudantes.length >= 3,
     'a conferência achou os ajudantes que repõem o valor gravado — lista vazia faria a ' +
@@ -12227,6 +12261,145 @@ console.log('\n== corrigir a carga inteira, e nao so a linha ==');
     'e a rota da carga REPASSA tudo o que a tela manda \u2014 o pedido \u00e9 remontado linha a ' +
     'linha l\u00e1 dentro, e o campo que ela esquecer morre ali, calado',
     perdidos);
+
+  /* ---- O SELETOR DE VEICULO DO PAINEL, RODADO ----
+   * O cadastro sabe de quem cada veiculo costuma ser, e numa frota de onze placas a que
+   * interessa e quase sempre a do motorista do lancamento: no fim de uma lista
+   * alfabetica, ela e procurada uma a uma toda vez.
+   * A PONTE E O CADASTRO: o campo guarda o nome de TRABALHO e o veiculo guarda id.
+   * RODADO, e nao lido: lida no arquivo, a funcao continuaria citando `MotoristaID`
+   * ainda que o agrupamento nunca acontecesse. */
+  var iSV = admC.indexOf('  function seletorVeiculo(atual, motoristaCurto){');
+  var iFa2 = admC.indexOf('  function faltando(atual, tem, rotulo){');
+  var iCP = admC.indexOf('  function comoPlaca(v){');
+  var fonteSV = iSV < 0 ? '' :
+    admC.slice(iFa2, admC.indexOf('\n  }', iFa2) + 4) +
+    admC.slice(iCP, admC.indexOf('\n  }', iCP) + 4) +
+    admC.slice(iSV, admC.indexOf('\n  }', iSV) + 4);
+  ok(fonteSV.length > 600, 'a confer\u00eancia recortou o seletor de ve\u00edculo', fonteSV.length);
+  if (fonteSV.length > 600) {
+    var appSV = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    var iCC2 = appSV.indexOf('  function comoChamar(m) {');
+    var Qsv = {
+      esc: function (s) { return String(s == null ? '' : s); },
+      ordenarPorNome: function (l) { return l; },
+      comoChamar: new Function(appSV.slice(iCC2, appSV.indexOf('\n  }', iCC2) + 4) +
+        '\n return comoChamar;')()
+    };
+    var frota = [{ Placa: 'AAA1A11', Modelo: 'Ba\u00fa', MotoristaID: 'D9' },
+                 { Placa: 'RTA4C55', Modelo: 'Ba\u00fa', MotoristaID: 'D3' },
+                 { Placa: 'ZZZ9Z99', Modelo: 'Ba\u00fa', MotoristaID: '' }];
+    var gente = [{ ID: 'D3', Nome: 'Isaque Sobrenome', Apelido: 'Isaque' },
+                 { ID: 'D9', Nome: 'Ramos' }];
+    var fazSV = new Function('VEICULOS', 'MOTORISTAS', 'Q',
+      fonteSV + '\n return seletorVeiculo;')(frota, gente, Qsv);
+
+    var comDono = fazSV('', 'Isaque');
+    ok(comDono.indexOf('<optgroup label="Ve\u00edculo de Isaque">') >= 0 &&
+       comDono.indexOf('RTA4C55') < comDono.indexOf('Outros ve\u00edculos'),
+      'o carro do motorista vem EM CIMA, num grupo com o nome dele — no fim de uma ' +
+      'lista alfab\u00e9tica a placa que interessa \u00e9 procurada uma a uma toda vez',
+      comDono.slice(0, 200));
+    /* SEM CARRO DELE NAO HA O QUE SEPARAR: a lista sai simples, sem rotulo de grupo para
+       ler a toa. E a mesma regra da lista de motoristas. */
+    var semDono = fazSV('', 'Ningu\u00e9m');
+    ok(semDono.indexOf('<optgroup') < 0 && semDono.indexOf('AAA1A11') > 0,
+      'e sem carro do motorista a lista sai SIMPLES, sem r\u00f3tulo de grupo para ler \u00e0 toa',
+      semDono.slice(0, 160));
+    var semMot = fazSV('', '');
+    ok(semMot.indexOf('<optgroup') < 0 && semMot.indexOf('ZZZ9Z99') > 0,
+      'e sem motorista escolhido tamb\u00e9m \u2014 n\u00e3o h\u00e1 de quem agrupar', semMot.slice(0, 160));
+    /* A PLACA GRAVADA NUNCA SOME, agrupada ou nao: carro vendido ou apagado do cadastro
+       entra assim mesmo, senao o seletor abre em OUTRA placa e a primeira gravacao troca
+       o veiculo do lancamento sem ninguem pedir. */
+    var sumida = fazSV('kzz-0k00', 'Isaque');
+    ok(/value="KZZ0K00"[^>]*selected/.test(sumida),
+      'e a placa GRAVADA entra na lista mesmo fora do cadastro, marcada e j\u00e1 na forma ' +
+      '\u00fanica \u2014 sen\u00e3o o seletor abre em outra placa e a primeira grava\u00e7\u00e3o troca o ' +
+      've\u00edculo sem ningu\u00e9m pedir', sumida.slice(0, 200));
+    var marcada = fazSV('rta-4c55', 'Isaque');
+    ok(/value="RTA4C55"[^>]*selected/.test(marcada),
+      'e a placa do lan\u00e7amento abre MARCADA, ainda que gravada com h\u00edfen',
+      marcada.slice(0, 200));
+  }
+
+  /* TROCOU O MOTORISTA, A LISTA SE REAGRUPA. Sem isto o agrupamento valeria so' para o
+     estado em que o formulario nasceu: escolher outro motorista deixaria o carro do
+     anterior em cima, com rotulo dizendo que e dele. */
+  ok(admC.indexOf("function ligarVeiculoAoMotorista(idMot, idVei){") > 0 &&
+     (admC.match(/ligarVeiculoAoMotorista\('/g) || []).length === 2,
+    'e trocar o motorista REAGRUPA a lista, nos dois formul\u00e1rios — sen\u00e3o o carro do ' +
+    'anterior fica em cima, com r\u00f3tulo dizendo que \u00e9 do novo',
+    (admC.match(/ligarVeiculoAoMotorista\('[a-zA-Z]+'/g) || []));
+  var iLg = admC.indexOf('  function ligarVeiculoAoMotorista(idMot, idVei){');
+  var lig = iLg < 0 ? '' : admC.slice(iLg, admC.indexOf('\n  }', iLg));
+  ok(lig.indexOf('var tinha = sv.value;') > 0 && lig.indexOf('sv.value = tinha;') > 0,
+    'e a placa escolhida SOBREVIVE ao reagrupamento — remontar o seletor zera o valor, e ' +
+    'o campo se esvaziaria sozinho na cara de quem acabou de escolher', lig.length);
+
+  /* ---- O PAR DO MOTORISTA, EM TODA TELA QUE O MANDA ----
+   *
+   * O par estava provado no painel e a mesma escrita existia, intacta, no app de campo:
+   * a correcao de la' oferecia o nome do CADASTRO e mandava so' o nome curto. Provado
+   * tela a tela, o defeito consertado num lugar sobrevive no outro — e foi o que
+   * aconteceu.
+   * A LISTA E DESCOBERTA nos dois arquivos: a tela nova entra na prova no dia em que
+   * nascer. */
+  ['admin.html', 'index.html'].forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(__dirname, '..', arq), 'utf8');
+    var mandam = [];
+    /* CHAVE DE OBJETO, e nao qualquer 'Motorista:' do arquivo. Sem a ancora de inicio
+       de linha, a prova acusava um COMENTARIO que cita "Motorista: Chico" e um rotulo
+       de tela que escreve 'Motorista: '+nome — nenhum dos dois manda nada a lugar
+       nenhum, e os dois davam falha. */
+    var reM = /^[ \t]*Motorista:[^\n]+/gm, mM;
+    while ((mM = reM.exec(txt))) {
+      /* O recorte e a VIZINHANCA da linha: o par mora junto, e uma varredura do arquivo
+         inteiro acharia o `MotoristaNome` de outro envio e daria este por bom. */
+      mandam.push({ i: mM.index, perto: txt.slice(mM.index, mM.index + 220) });
+    }
+    ok(mandam.length >= 1,
+      arq + ': a confer\u00eancia achou quem manda o motorista \u2014 lista vazia faria a prova ' +
+      'abaixo aprovar qualquer coisa', mandam.length);
+    var sozinhos = mandam.filter(function (x) { return x.perto.indexOf('MotoristaNome:') < 0; });
+    ok(sozinhos.length === 0,
+      arq + ': todo envio que manda o motorista manda TAMB\u00c9M o nome completo \u2014 s\u00f3 um ' +
+      'deles, a coluna curta passa a dizer o nome novo e a completa continua no antigo, ' +
+      'e o relat\u00f3rio por motorista parte a pessoa em duas',
+      sozinhos.map(function (x) { return x.perto.slice(0, 60); }));
+
+    /* E TODA LISTA DE MOTORISTA OFERECE O NOME DE TRABALHO. Oferecendo o do cadastro, o
+       valor escrito no campo nem existe entre as opcoes do lancamento: o campo fica em
+       branco com jeito de preenchido. */
+    var listas = [];
+    var reL = /function (seletorMotorista|opcoesMotorista|motoristas)\s*\(/g, mL;
+    while ((mL = reL.exec(txt))) {
+      var fim = txt.indexOf('\n' + (txt.slice(0, mL.index).split('\n').pop() || '') + '}', mL.index);
+      listas.push({ nome: mL[1],
+        corpo: txt.slice(mL.index, fim > 0 ? fim : mL.index + 900) });
+    }
+    ok(listas.length >= 1,
+      arq + ': a confer\u00eancia achou as listas de motorista', listas.map(function (x) { return x.nome; }));
+    var pelaFicha = listas.filter(function (x) { return x.corpo.indexOf('Q.comoChamar') < 0; });
+    ok(pelaFicha.length === 0,
+      arq + ': e toda lista de motorista oferece o nome de TRABALHO \u2014 oferecendo o do ' +
+      'cadastro, o valor escrito no campo nem existe entre as op\u00e7\u00f5es do lan\u00e7amento, e o ' +
+      'campo fica em branco com jeito de preenchido',
+      pelaFicha.map(function (x) { return x.nome; }));
+  });
+
+  /* E TODO SELETOR DE VEICULO SABE DE QUEM E' O CARRO. Chamado sem o motorista, ele
+     monta a lista alfabetica e o agrupamento nunca acontece — a funcao continua sabendo
+     agrupar, e ninguem ve agrupamento nenhum. */
+  var chamadas = (admC.match(/seletorVeiculo\(([^)]*)\)/g) || [])
+    .filter(function (x) { return x.indexOf('function') < 0; });
+  ok(chamadas.length >= 3, 'a confer\u00eancia achou as chamadas do seletor de ve\u00edculo', chamadas);
+  var cegas = chamadas.filter(function (x) { return x.indexOf(',') < 0; });
+  ok(cegas.length === 0,
+    'e toda chamada do seletor de ve\u00edculo diz QUEM \u00e9 o motorista \u2014 sem isso ele monta a ' +
+    'lista alfab\u00e9tica e o agrupamento nunca acontece: a fun\u00e7\u00e3o continua sabendo agrupar, ' +
+    'e ningu\u00e9m v\u00ea agrupamento nenhum',
+    cegas);
 
   /* ---- AS DUAS PORTAS ---- */
   ok(admC.indexOf('data-cregistro=') > 0 &&
