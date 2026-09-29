@@ -728,9 +728,25 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    sendo sobra e nao lugar. Numa linha propria a esquerda vira um lugar, e a marca se
    apoia nela. */
 .conta__pe{display:flex;align-items:center;gap:8px;flex:1 1 100%;min-width:0}
-.conta__marca{display:inline-flex;align-items:center;flex:0 0 auto;opacity:.72}
-.conta__marca img{display:block;height:26px;width:auto}
+.conta__marca{display:inline-flex;align-items:center;flex:0 0 auto;opacity:.8;
+  transition:opacity .16s ease}
+.conta__marca img{display:block;height:28px;width:auto}
 .conta__marca:hover{opacity:1}
+/* NO TEMA CLARO ELA GANHA O FUNDO PARA O QUAL FOI DESENHADA. A marca e branca com a
+   base vermelha: sobre a lateral quase branca do tema gelo, o triangulo simplesmente
+   nao existe — sobra a base vermelha flutuando, que se le como um erro de imagem.
+   UMA CHAPA ESCURA, e nao um filtro. `invert()` deixaria o triangulo preto e viraria o
+   vermelho em azul-piscina; `brightness(0)` apagaria a cor da marca. A chapa devolve o
+   contraste sem tocar em nenhuma das duas cores — e e o mesmo que se faz ao imprimir um
+   logo claro sobre papel.
+   A CHAPA E `--txt`, o token da TINTA daquele tema — e nao uma cor escrita a mao. Ela
+   e, por definicao, a cor que contrasta com aquela superficie: e ela que escreve o
+   texto ali. Escolhendo um azul-escuro a olho, a marca escaparia da medicao de
+   contraste do projeto e chegaria ao galpao sem passar por ela — e foi a bancada que
+   me lembrou disso, recusando a cor solta. */
+[data-fundo="gelo"] .conta__marca{
+  opacity:1;padding:3px 7px;border-radius:7px;background:var(--txt)
+}
 /* NO TRILHO ELA SAI. Em 52px uteis ja disputam o retrato e o botao de sair, e a marca
    ja esta la em cima — no trilho o alto da lateral mostra so o simbolo, que e ela. */
 .shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta__marca{

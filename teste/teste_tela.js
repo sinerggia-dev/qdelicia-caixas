@@ -11986,14 +11986,58 @@ console.log('\n== os grupos da navegacao recolhem ==');
   /* A FILEIRA DE BAIXO E UMA LINHA PROPRIA, e e isso que faz a esquerda ser um LUGAR.
      Com os botoes apenas descendo quando o nome nao cabe, eles encostam a direita e o
      vao da esquerda e sobra: a marca nao teria onde se apoiar. */
-  ok(css.indexOf('.conta__pe{display:flex') > 0 && css.indexOf('flex:1 1 100%') > 0,
+  /* LIDO DENTRO DA REGRA, e nao no arquivo inteiro: `flex:1 1 100%` aparece em outros
+     lugares da folha, e procurado solto ele responde "sim" mesmo depois de sair daqui.
+     Foi a sabotagem que mostrou — tirei a propriedade da regra e a prova nao piscou. */
+  var iPe2 = css.indexOf('.conta__pe{');
+  var regraPe = iPe2 < 0 ? '' : css.slice(iPe2, css.indexOf('}', iPe2));
+  ok(regraPe.indexOf('flex:1 1 100%') > 0,
     'a fileira de baixo é uma linha própria — descendo por falta de espaço, os botões ' +
-    'encostam à direita e a esquerda vira sobra, não lugar');
+    'encostam à direita e a esquerda vira sobra, não lugar', regraPe);
+
+  /* NO TEMA CLARO A MARCA GANHA A CHAPA. Ela e branca: sobre a lateral quase branca do
+     tema gelo sobra a base vermelha flutuando, que se le como erro de imagem. */
+  var iGelo = css.indexOf('[data-fundo="gelo"] .conta__marca{');
+  var regraGelo = iGelo < 0 ? '' : css.slice(iGelo, css.indexOf('}', iGelo));
+  ok(regraGelo.indexOf('background:var(--txt)') > 0,
+    'no tema claro a marca ganha a chapa escura para a qual foi desenhada — sem ela o ' +
+    'triângulo branco some na lateral quase branca e sobra a base vermelha flutuando',
+    regraGelo);
+  ok(regraGelo.indexOf('#') < 0,
+    'e a chapa sai de um TOKEN, e não de uma cor escrita à mão — escolhida a olho, ela ' +
+    'escaparia da medição de contraste do projeto', regraGelo);
+
+  /* SEM O ARQUIVO, A MARCA SOME INTEIRA. O icone de imagem que nao carregou parece
+     defeito do sistema, e aqui ele fica ao lado do botao de sair. */
+  var iImg = adm.indexOf('src="marca-rodape.png"');
+  var tagImg = iImg < 0 ? '' : adm.slice(adm.lastIndexOf('<img', iImg), adm.indexOf('>', iImg));
+  ok(tagImg.indexOf('onerror="this.parentNode.remove()"') > 0,
+    'e a marca some inteira se o arquivo faltar, em vez de virar o quadradinho de ' +
+    'imagem quebrada — ele parece defeito do sistema, e fica ao lado do botão de sair, ' +
+    'onde ninguém vai investigar', tagImg);
   var iPe = adm.indexOf('<span class="conta__pe">');
   ok(iPe > 0 && adm.indexOf('class="conta__marca"', iPe) > iPe &&
      adm.indexOf('class="conta__marca"', iPe) < adm.indexOf('class="conta__acoes"', iPe),
     'e a marca vem ANTES dos botões dentro dela: é o que a põe na ponta esquerda, que ' +
     'é o lugar pedido', [iPe, adm.indexOf('class="conta__marca"', iPe)]);
+  /* O ARQUIVO EXISTE, e tem o tamanho que a marcacao declara. `width`/`height` errados
+     no <img> nao quebram nada — a imagem aparece certa —, mas o navegador reserva o
+     espaco errado antes de carregar, e a fileira do rodape PULA quando ela chega. */
+  var marca = path.join(__dirname, '..', 'marca-rodape.png');
+  ok(fsReal.existsSync(marca),
+    'o arquivo da marca do rodapé está no projeto — sem ele a marca some inteira pelo ' +
+    '`onerror`, e o lugar fica vazio sem nada dizendo por quê');
+  var png = fsReal.readFileSync(marca);
+  ok(png.length > 8 && png[0] === 0x89 && png.toString('ascii', 1, 4) === 'PNG',
+    'e é um PNG de verdade', png.length);
+  var lg = png.readUInt32BE(16) + 'x' + png.readUInt32BE(20);
+  ok(adm.indexOf('width="' + png.readUInt32BE(16) + '" height="' + png.readUInt32BE(20) + '"') > 0,
+    'e a marcação declara o tamanho REAL dele — errado, o navegador reserva o espaço ' +
+    'errado e a fileira do rodapé pula quando a imagem chega', lg);
+  ok(png[25] === 6,
+    'e ele tem transparência — sem ela, a marca chegaria com um retângulo branco em ' +
+    'volta, sobre uma lateral escura', png[25]);
+
   ok(adm.indexOf('src="marca-rodape.png"') > 0 &&
      adm.indexOf('<span class="selo selo--marca"><img src="logo.png"') > 0,
     'e o arquivo dela é PRÓPRIO, `marca-rodape.png` — a do alto continua sendo a do ' +
