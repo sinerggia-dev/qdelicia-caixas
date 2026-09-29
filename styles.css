@@ -2581,11 +2581,22 @@ details.tipos[open] summary::before{content:"▾"}
 /* O CAMINHO PARA O EDITOR DE FALAS, abaixo do quadro do tutorial. Discreto: ele e
    ferramenta de quem escreve, e nao o que se vem fazer nesta tela — quem chega aqui vem
    ASSISTIR. Em tamanho de botao ele disputaria com o proprio tutorial. */
-.editar-falas{margin:10px 0 0;font-size:13px}
-.editar-falas:empty{display:none}
-.editar-falas a{color:var(--marca-txt);font-weight:600;text-decoration:none}
-.editar-falas a:hover{text-decoration:underline}
-.editar-falas small{display:block;color:var(--txt3);font-size:12px;margin-top:2px}
+/* O CABECALHO DO CARTAO: o titulo a esquerda, a acao a direita. O titulo tem duas
+   linhas (nome e subtitulo), entao o alinhamento e pelo TOPO — centralizado, a acao
+   flutuaria no meio do subtitulo. */
+.cab-card{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.cab-card h2{flex:1 1 220px;margin-bottom:0}
+/* O CAMINHO PARA O EDITOR DE FALAS. Discreto: ele e ferramenta de quem escreve, e nao
+   o que se vem fazer nesta tela — quem chega aqui vem ASSISTIR. Contornado e nao
+   preenchido, para nao disputar com o proprio tutorial logo abaixo. */
+.editar-falas{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;
+  padding:6px 11px;border:1px solid var(--linha);border-radius:999px;
+  color:var(--marca-txt);background:var(--campo);
+  font-size:12.5px;font-weight:600;text-decoration:none;white-space:nowrap}
+.editar-falas:hover{border-color:var(--marca-txt);background:var(--surface-2)}
+/* SEM REGRA DE `[hidden]` AQUI: o projeto ja tem UMA, com `!important`, e foi ela que
+   nasceu depois de tres pecas aparecerem onde nao deviam. Escrever a quarta seria
+   recomecar a colecao — e a bancada recusa, com razao. */
 
 /* ---------- o cadeado das colunas ----------
  * Discreto de proposito: ele nao e uma acao do dia, e um estado com um caminho. Um

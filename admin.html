@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=3c58cfd8">
+<link rel="stylesheet" href="styles.css?v=aa1d3d66">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1310,8 +1310,19 @@
        passam a ver tutoriais diferentes do mesmo sistema. -->
   <section id="pgTutorialSaida" class="pagina">
     <div class="card">
-      <h2>Tutorial de Saída<span class="sub">A demonstração de como lançar uma saída,
-        campo por campo.</span></h2>
+      <div class="cab-card">
+        <h2>Tutorial de Saída<span class="sub">A demonstração de como lançar uma saída,
+          campo por campo.</span></h2>
+        <!-- O CAMINHO FICA AO LADO DO TÍTULO, e não abaixo do quadro. O
+             quadro do tutorial tem quase 700px de altura: embaixo dele, o
+             link cai fora da vista num notebook, e um caminho que exige
+             rolar até o fim de um vídeo para ser descoberto é um caminho
+             que ninguém descobre — foi o que aconteceu. -->
+        <a class="editar-falas" id="linkFalasSaida" hidden
+           href="demo-lancamento-saida.html?editar=1" target="_blank" rel="noopener"
+           title="Abre o tutorial com os campos de texto e o botão Ouvir">
+          ✎ Editar as falas</a>
+      </div>
       <div class="quadro-video">
         <iframe id="quadroTutorialSaida" title="Demonstração de saída"
                 src="demo-lancamento-saida.html" loading="lazy"></iframe>
@@ -1327,11 +1338,6 @@
            quadro de 390px ele nasceria espremido embaixo do telefone.
            SO PARA QUEM ADMINISTRA: quem escreve a narracao do sistema e quem responde
            por ela. `hidden` de fabrica, e o mesmo JS da Aparencia o revela. -->
-      <p class="editar-falas" id="linkFalasSaida" hidden>
-        <a href="demo-lancamento-saida.html?editar=1" target="_blank" rel="noopener">
-          Editar as falas deste tutorial</a>
-        <small>abre em outra aba, com os campos de texto e o botão Ouvir</small>
-      </p>
 
     </div>
   </section>
@@ -1339,8 +1345,19 @@
   <!-- ---------- TUTORIAL DE RETORNO ---------- -->
   <section id="pgTutorialRetorno" class="pagina">
     <div class="card">
-      <h2>Tutorial de Retorno<span class="sub">A demonstração de como lançar um retorno,
-        campo por campo.</span></h2>
+      <div class="cab-card">
+        <h2>Tutorial de Retorno<span class="sub">A demonstração de como lançar um retorno,
+          campo por campo.</span></h2>
+        <!-- O CAMINHO FICA AO LADO DO TÍTULO, e não abaixo do quadro. O
+             quadro do tutorial tem quase 700px de altura: embaixo dele, o
+             link cai fora da vista num notebook, e um caminho que exige
+             rolar até o fim de um vídeo para ser descoberto é um caminho
+             que ninguém descobre — foi o que aconteceu. -->
+        <a class="editar-falas" id="linkFalasRetorno" hidden
+           href="demo-lancamento-retorno.html?editar=1" target="_blank" rel="noopener"
+           title="Abre o tutorial com os campos de texto e o botão Ouvir">
+          ✎ Editar as falas</a>
+      </div>
       <div class="quadro-video">
         <iframe id="quadroTutorialRetorno" title="Demonstração de retorno"
                 src="demo-lancamento-retorno.html" loading="lazy"></iframe>
@@ -1356,11 +1373,6 @@
            quadro de 390px ele nasceria espremido embaixo do telefone.
            SO PARA QUEM ADMINISTRA: quem escreve a narracao do sistema e quem responde
            por ela. `hidden` de fabrica, e o mesmo JS da Aparencia o revela. -->
-      <p class="editar-falas" id="linkFalasRetorno" hidden>
-        <a href="demo-lancamento-retorno.html?editar=1" target="_blank" rel="noopener">
-          Editar as falas deste tutorial</a>
-        <small>abre em outra aba, com os campos de texto e o botão Ouvir</small>
-      </p>
 
     </div>
   </section>

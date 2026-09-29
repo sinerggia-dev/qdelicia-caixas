@@ -11931,9 +11931,19 @@ console.log('\n== os tutoriais nao procuram id que nao existe ==');
   ok((admT.match(/target="_blank" rel="noopener"/g) || []).length >= 2,
     'e ele abre em outra aba: o editor precisa da página inteira, e no quadro de 390px ' +
     'do tutorial ele nasceria espremido embaixo do telefone');
-  ok(admT.indexOf('<p class="editar-falas" id="linkFalasSaida" hidden>') > 0 &&
-     admT.indexOf('<p class="editar-falas" id="linkFalasRetorno" hidden>') > 0,
+  ok(admT.indexOf('<a class="editar-falas" id="linkFalasSaida" hidden') > 0 &&
+     admT.indexOf('<a class="editar-falas" id="linkFalasRetorno" hidden') > 0,
     'e nasce ESCONDIDO — quem escreve a narração do sistema é quem responde por ela');
+  /* AO LADO DO TITULO, e nao abaixo do quadro: o quadro do tutorial tem quase 700px de
+     altura, e embaixo dele o link cai fora da vista num notebook. Um caminho que exige
+     rolar ate o fim de um video para ser descoberto e um caminho que ninguem descobre —
+     foi o que aconteceu na primeira tentativa. */
+  var iCab = admT.indexOf('<section id="pgTutorialSaida"');
+  var cabS = admT.slice(iCab, admT.indexOf('</section>', iCab));
+  ok(cabS.indexOf('linkFalasSaida') < cabS.indexOf('<iframe'),
+    'e o caminho vem ANTES do quadro do vídeo no documento — embaixo dele, num quadro ' +
+    'de quase 700px, ele cai fora da vista e ninguém o descobre',
+    [cabS.indexOf('linkFalasSaida'), cabS.indexOf('<iframe')]);
   var iMost = admT.indexOf('  function mostrarEditorDeFalas(){');
   var most = iMost < 0 ? '' : admT.slice(iMost, admT.indexOf('\n  }', iMost) + 4);
   ok(most.indexOf('p.hidden = !Q.ehAdmin();') > 0,
