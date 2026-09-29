@@ -11855,6 +11855,74 @@ console.log('\n== o painel de filtro abre por cima ==');
     'ligado pela MESMA função das duas telas');
 })();
 
+console.log('\n== os tutoriais nao procuram id que nao existe ==');
+(function () {
+  /* ---- O DEFEITO QUE ESTA PROVA NASCEU PARA PEGAR ----
+   *
+   * `abreFolha` procurava `$('folha')`, e quem escreve a folha poe `id="dl-folha"`.
+   * `getElementById` devolve `null`, `null.classList` estoura, a promessa do passo
+   * quebra — e o motor do tutorial PARA no meio, sem nada na tela dizendo isso. O visor
+   * ficava congelado com a folha aberta, na primeira selecao, como se a gravacao
+   * tivesse acabado ali. Nos DOIS tutoriais, porque os dois passam por `escolher`.
+   *
+   * UM ERRO DE DIGITACAO NUM ID NAO DA ERRO EM LUGAR NENHUM ate a linha rodar — e a
+   * linha so roda quando alguem assiste. Por isso a prova e estatica: ela le os ids que
+   * a pagina PROCURA e os que a pagina ESCREVE, e cobra que o primeiro conjunto caiba
+   * no segundo.
+   *
+   * A LISTA DE ARQUIVOS E DESCOBERTA: o tutorial novo entra na prova no dia em que
+   * nascer. */
+  var raizT = path.join(__dirname, '..');
+  var tutoriais = fsReal.readdirSync(raizT).filter(function (f) {
+    return /^demo-.*\.html$/.test(f);
+  });
+  ok(tutoriais.length >= 2,
+    'a conferência descobriu os tutoriais — lista vazia faria esta prova aprovar ' +
+    'qualquer coisa', tutoriais);
+
+  tutoriais.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizT, arq), 'utf8');
+
+    /* OS IDS QUE A PAGINA ESCREVE: os fixos do HTML e os PREFIXOS dos gerados em
+       `id="x-' + k + '"`, que nao se pode casar letra a letra. */
+    var fixos = {};
+    (txt.match(/id="([A-Za-z0-9_-]+)"/g) || []).forEach(function (m) {
+      fixos[/id="([A-Za-z0-9_-]+)"/.exec(m)[1]] = true;
+    });
+    var prefixos = (txt.match(/id="([A-Za-z0-9_-]*-)'\s*\+/g) || [])
+      .map(function (m) { return /id="([A-Za-z0-9_-]*-)'/.exec(m)[1]; });
+
+    /* OS IDS QUE A PAGINA PROCURA. So os literais: `$('f-' + id)` e montado em tempo de
+       execucao e cai nos prefixos. */
+    var procurados = (txt.match(/\$\('([A-Za-z0-9_-]+)'\)/g) || [])
+      .map(function (m) { return /'([A-Za-z0-9_-]+)'/.exec(m)[1]; });
+
+    var orfaos = procurados.filter(function (id) {
+      if (fixos[id]) return false;
+      return !prefixos.some(function (px) { return id.indexOf(px) === 0; });
+    });
+    /* SEM REPETIR na mensagem: o mesmo id procurado em tres lugares e UM defeito. */
+    var unicos = orfaos.filter(function (x, i) { return orfaos.indexOf(x) === i; });
+    ok(unicos.length === 0,
+      arq + ': todo `$(...)` aponta para um id que a própria página escreve — um erro ' +
+      'de digitação aqui não dá erro em lugar nenhum até a linha rodar, e quando roda ' +
+      'ela para o tutorial no meio, sem nada na tela dizendo por quê', unicos);
+
+    ok(procurados.length > 15 && Object.keys(fixos).length > 10,
+      arq + ': e a conferência achou ids dos dois lados — nenhum dos dois lados vazio ' +
+      'faria a comparação acima passar sem comparar nada',
+      { procura: procurados.length, escreve: Object.keys(fixos).length });
+  });
+
+  /* E O CASO EXATO, nomeado: a folha que abre na selecao. */
+  tutoriais.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizT, arq), 'utf8');
+    ok(txt.indexOf("$('dl-folha')") > 0 && txt.indexOf("$('folha')") < 0,
+      arq + ': a folha de opções é procurada pelo id que ela mesma escreve — era aqui ' +
+      'que os dois tutoriais congelavam, na primeira seleção');
+  });
+})();
+
 console.log('\n== os grupos da navegacao recolhem ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

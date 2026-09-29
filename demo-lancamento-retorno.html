@@ -1237,11 +1237,15 @@ html:not([data-editor="1"]) .ed__b{display:none}
   async function abreFolha(titulo, opcoes) {
     vp.insertAdjacentHTML('beforeend', folha(titulo, opcoes));
     await dorme(60);
-    $('folha').classList.add('dl-folha--on');
+    /* `dl-folha`, que e o id que `folha()` ESCREVE. Escrito `folha` aqui, isto era
+       `null.classList` — a promessa quebrava, o motor parava no meio do passo, e o
+       tutorial congelava na primeira selecao. Sem erro na tela: o visor ficava parado
+       com a folha aberta, como se a gravacao tivesse acabado ali. */
+    $('dl-folha').classList.add('dl-folha--on');
     await dorme(340);
   }
   async function fechaFolha() {
-    var f = $('folha');
+    var f = $('dl-folha');
     if (!f) return;
     f.classList.remove('dl-folha--on');
     await dorme(320);
