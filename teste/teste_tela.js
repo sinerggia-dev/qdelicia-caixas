@@ -11914,6 +11914,64 @@ console.log('\n== os tutoriais nao procuram id que nao existe ==');
       { procura: procurados.length, escreve: Object.keys(fixos).length });
   });
 
+  /* ---- UMA GAVETA SÓ PARA AS FALAS ----
+   *
+   * O bloco FALAS e' IGUAL nos tres arquivos: e' o mesmo texto, dito em tres telas. Mas
+   * cada pagina guardava a edicao na sua propria gaveta (`...falas.saida`, `...falas.retorno`),
+   * e entao corrigir uma frase exigia corrigi-la tres vezes: as duas esquecidas
+   * continuavam falando o texto velho, no mesmo aparelho, sem aviso nenhum.
+   * A CHAVE E' CALCULADA, e nao lida: escrita como `'x.' + SO`, ela so' se revela igual
+   * ou diferente depois de somada. */
+  var gavetas = {}, falasIguais = {};
+  tutoriais.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizT, arq), 'utf8');
+    var mC = /var CHAVE_FALAS = ([^;]+);/.exec(txt);
+    var mS = /var SO = ('[a-z]+');/.exec(txt);
+    ok(!!mC, arq + ': a conferência achou a chave onde as falas são guardadas');
+    if (!mC) return;
+    gavetas[arq] = new Function('SO', 'return (' + mC[1] + ');')(mS ? mS[1].slice(1, -1) : '');
+    var mF = /\n  var FALAS = \{[\s\S]*?\n  \};/.exec(txt);
+    falasIguais[arq] = mF ? mF[0] : '';
+  });
+  var chaves = Object.keys(gavetas).map(function (k) { return gavetas[k]; });
+  var textos = Object.keys(falasIguais).map(function (k) { return falasIguais[k]; });
+  ok(chaves.length >= 3 && textos[0] && textos[0].length > 400,
+    'a conferência leu as chaves e os textos dos três tutoriais — vazio faria as duas ' +
+    'provas abaixo aprovarem qualquer coisa', { chaves: chaves.length, texto: (textos[0] || '').length });
+  var mesmoTexto = textos.every(function (x) { return x === textos[0]; });
+  ok(mesmoTexto,
+    'os três tutoriais dizem o MESMO texto de fábrica — se um dia divergirem, a gaveta ' +
+    'única da prova seguinte deixa de fazer sentido e esta prova avisa antes',
+    textos.map(function (x) { return x.length; }));
+  if (mesmoTexto) {
+    ok(chaves.every(function (c) { return c === chaves[0]; }),
+      'e guardam a edição na MESMA gaveta — em gavetas separadas, corrigir uma frase ' +
+      'exigia corrigi-la três vezes, e as duas esquecidas seguiam falando o texto velho ' +
+      'no mesmo aparelho, sem aviso',
+      gavetas);
+  }
+
+  /* ---- O RÓTULO DO GRUPO ----
+   * `entrada` e `fim` não são de nenhum dos dois fluxos. Caiam sob o título RETORNO
+   * apenas porque não começavam com `s` — e na página de SAÍDA isso punha um título
+   * RETORNO numa tela que não tem retorno nenhum. */
+  tutoriais.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizT, arq), 'utf8');
+    var iG = txt.indexOf("      var g = r[0].charAt(0) === 's'");
+    var trecho = iG < 0 ? '' : txt.slice(iG, txt.indexOf(';', txt.indexOf("'AS DUAS TELAS'", iG) + 5) + 1);
+    ok(trecho.length > 40, arq + ': a conferência recortou a regra do rótulo', trecho.length);
+    if (!trecho.length) return;
+    var grupo = new Function('r', trecho + ' return g;');
+    ok(grupo(['s01']) === 'SAÍDA' && grupo(['sData']) === 'SAÍDA' &&
+       grupo(['r01']) === 'RETORNO' && grupo(['rData']) === 'RETORNO',
+      arq + ': cada fala de um fluxo aparece sob o título do seu fluxo');
+    ok(grupo(['entrada']) !== 'RETORNO' && grupo(['fim']) !== 'RETORNO',
+      arq + ': e a tela de entrada e o encerramento não são do retorno — eles caíam lá ' +
+      'só por não começarem com `s`, e na página de saída isso punha um título RETORNO ' +
+      'numa tela sem retorno nenhum',
+      [grupo(['entrada']), grupo(['fim'])]);
+  });
+
   /* ---- O CAMINHO PARA O EDITOR DE FALAS ----
    *
    * O editor vive atras de `?editar=1`, e isso esta certo: o mesmo tutorial abre no
@@ -11923,31 +11981,83 @@ console.log('\n== os tutoriais nao procuram id que nao existe ==');
    * saber de cor um parametro de URL — que e o mesmo que ele nao existir, e foi
    * exatamente o que aconteceu. */
   var admT = fsReal.readFileSync(path.join(raizT, 'admin.html'), 'utf8');
-  var linques = (admT.match(/href="demo-lancamento-[a-z]+\.html\?editar=1"/g) || []);
-  ok(linques.length === 2,
-    'os dois tutoriais do painel têm o caminho para o editor de falas — sem ele, achar ' +
-    'o editor exigia saber de cor um parâmetro de URL, que é o mesmo que não existir',
-    linques);
-  ok((admT.match(/target="_blank" rel="noopener"/g) || []).length >= 2,
-    'e ele abre em outra aba: o editor precisa da página inteira, e no quadro de 390px ' +
-    'do tutorial ele nasceria espremido embaixo do telefone');
-  ok(admT.indexOf('<a class="editar-falas" id="linkFalasSaida" hidden') > 0 &&
-     admT.indexOf('<a class="editar-falas" id="linkFalasRetorno" hidden') > 0,
-    'e nasce ESCONDIDO — quem escreve a narração do sistema é quem responde por ela');
-  /* AO LADO DO TITULO, e nao abaixo do quadro: o quadro do tutorial tem quase 700px de
-     altura, e embaixo dele o link cai fora da vista num notebook. Um caminho que exige
-     rolar ate o fim de um video para ser descoberto e um caminho que ninguem descobre —
-     foi o que aconteceu na primeira tentativa. */
-  var iCab = admT.indexOf('<section id="pgTutorialSaida"');
-  var cabS = admT.slice(iCab, admT.indexOf('</section>', iCab));
-  ok(cabS.indexOf('linkFalasSaida') < cabS.indexOf('<iframe'),
-    'e o caminho vem ANTES do quadro do vídeo no documento — embaixo dele, num quadro ' +
-    'de quase 700px, ele cai fora da vista e ninguém o descobre',
-    [cabS.indexOf('linkFalasSaida'), cabS.indexOf('<iframe')]);
+
+  /* A LISTA E DESCOBERTA A PARTIR DOS QUADROS, e nao escrita aqui. Escrita a mao, ela
+     tinha dois nomes no dia em que o painel passou a ter TRES tutoriais, e a pagina que
+     ficou de fora foi justamente a que o usuario foi usar. Todo cartao que MOSTRA um
+     tutorial tem de trazer o caminho para edita-lo — o cartao novo entra na prova no
+     dia em que nascer. */
+  var cartoes = [];
+  var reSec = /<section id="(pg[A-Za-z0-9]+)"[\s]/g, mSec;
+  while ((mSec = reSec.exec(admT))) {
+    var corpo = admT.slice(mSec.index, admT.indexOf('</section>', mSec.index));
+    var mQ = /<iframe[^>]*src="(demo-[a-z-]+\.html)"/.exec(corpo);
+    if (mQ) cartoes.push({ pg: mSec[1], arq: mQ[1], corpo: corpo });
+  }
+  ok(cartoes.length >= 3,
+    'a conferência achou os cartões que mostram um tutorial — lista vazia faria as ' +
+    'provas abaixo aprovarem qualquer coisa',
+    cartoes.map(function (c) { return c.pg + ' → ' + c.arq; }));
+
+  cartoes.forEach(function (c) {
+    var iL = c.corpo.indexOf('href="' + c.arq + '?editar=1"');
+    ok(iL > 0,
+      c.pg + ': o cartão que mostra ' + c.arq + ' traz o caminho para editar as falas ' +
+      'DELE — sem link nenhum, achar o editor exigia saber de cor um parâmetro de URL, ' +
+      'que é o mesmo que ele não existir');
+    if (iL < 0) return;
+    var aberto = c.corpo.lastIndexOf('<a ', iL);
+    var tag = c.corpo.slice(aberto, iL);
+    ok(tag.indexOf('class="editar-falas"') > 0 && tag.indexOf(' hidden') > 0,
+      c.pg + ': e ele nasce ESCONDIDO — quem escreve a narração do sistema é quem ' +
+      'responde por ela', tag);
+    ok(c.corpo.indexOf('target="_blank" rel="noopener"', iL) > 0 &&
+       c.corpo.indexOf('target="_blank" rel="noopener"', iL) < iL + 120,
+      c.pg + ': e abre em outra aba — o editor precisa da página inteira, e dentro do ' +
+      'quadro de 390px do tutorial ele nasceria espremido embaixo do telefone');
+    ok(aberto < c.corpo.indexOf('<iframe'),
+      c.pg + ': e o caminho vem ANTES do quadro do vídeo — embaixo dele, num quadro de ' +
+      'quase 700px, ele cai fora da vista num notebook e ninguém o descobre',
+      [aberto, c.corpo.indexOf('<iframe')]);
+  });
+
+  /* A REVELACAO, RODADA. Ela tambem era uma lista escrita a mao, e foi a lista que
+     deixou o terceiro link escondido para sempre — inclusive para quem administra.
+     LIDA NO ARQUIVO, isto responderia "ela cita ehAdmin?". Entao ela e EXECUTADA contra
+     os links que EXISTEM no HTML: se ela alcancar menos do que existe, a prova cai. */
+  var idsLink = (admT.match(/<a class="editar-falas" id="([A-Za-z0-9]+)"/g) || [])
+    .map(function (m) { return /id="([A-Za-z0-9]+)"/.exec(m)[1]; });
+  ok(idsLink.length === cartoes.length,
+    'cada cartão de tutorial tem o seu link, e nenhum a mais', idsLink);
+
   var iMost = admT.indexOf('  function mostrarEditorDeFalas(){');
   var most = iMost < 0 ? '' : admT.slice(iMost, admT.indexOf('\n  }', iMost) + 4);
-  ok(most.indexOf('p.hidden = !Q.ehAdmin();') > 0,
-    'e quem o revela é o PERFIL de administrador', most);
+  ok(most.length > 60, 'a conferência recortou a revelação — recorte vazio faria as ' +
+    'provas abaixo passarem sem rodar nada', most.length);
+
+  function revelouCom(ehAdmin) {
+    var achados = idsLink.map(function (id) { return { id: id, hidden: null }; });
+    var porId = {};
+    achados.forEach(function (a) { porId[a.id] = a; });
+    var doc = {
+      getElementById: function (id) { return porId[id] || null; },
+      querySelectorAll: function (sel) {
+        return sel === 'a.editar-falas' ? achados : [];
+      }
+    };
+    new Function('document', 'Q', most + '\nmostrarEditorDeFalas();')(
+      doc, { ehAdmin: function () { return ehAdmin; } });
+    return achados;
+  }
+  var comAdmin = revelouCom(true), semAdmin = revelouCom(false);
+  ok(comAdmin.every(function (a) { return a.hidden === false; }),
+    'e quem administra vê o caminho em TODOS os cartões de tutorial — a lista escrita ' +
+    'a mão tinha dois nomes no dia em que o painel passou a ter três, e o terceiro link ' +
+    'ficou escondido para sempre, inclusive para quem administra',
+    comAdmin);
+  ok(semAdmin.every(function (a) { return a.hidden === true; }),
+    'e para quem não administra ele some — quem escreve a narração do sistema é quem ' +
+    'responde por ela', semAdmin);
   ok(admT.indexOf('    mostrarEditorDeFalas();') > 0 &&
      admT.indexOf('mostrarEditorDeFalas();') > admT.indexOf('function mostrarEditorDeFalas'),
     'e a revelação roda junto das outras do painel, e não dentro da página do tutorial ' +

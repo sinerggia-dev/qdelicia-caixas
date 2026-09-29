@@ -1437,7 +1437,17 @@ html:not([data-editor="1"]) .ed__b{display:none}
      entra na hora, é guardado neste aparelho e sai no HTML baixado.
      ================================================================== */
   var FALAS_ORIG = JSON.parse(JSON.stringify(FALAS));
-  var CHAVE_FALAS = 'caixas.demo.falas.' + SO;
+  /* UMA CHAVE SÓ PARA OS TRÊS TUTORIAIS. O bloco FALAS e' idêntico nos três
+     arquivos — e' o mesmo texto —, mas cada página guardava a edição na sua própria
+     gaveta. Corrigir uma frase exigia corrigi-la três vezes, e as duas esquecidas
+     continuavam falando o texto velho, no mesmo aparelho, sem aviso nenhum.
+     A GAVETA ANTIGA E' ADOTADA na primeira abertura, para que o texto de quem já
+     escreveu não desapareça com esta mudança. */
+  var CHAVE_FALAS = 'caixas.demo.falas';
+  try {
+    var velha = localStorage.getItem('caixas.demo.falas.' + SO);
+    if (velha && !localStorage.getItem(CHAVE_FALAS)) localStorage.setItem(CHAVE_FALAS, velha);
+  } catch (e) {}
   var ROTULOS = [
     ['s01', 'Abertura da saída'],
     ['sData', 'Data do movimento (saída)'],
@@ -1497,7 +1507,10 @@ html:not([data-editor="1"]) .ed__b{display:none}
   function montarEditor() {
     var grupo = '';
     $('ed-campos').innerHTML = ROTULOS.map(function (r) {
-      var g = r[0].charAt(0) === 's' ? 'SAÍDA' : 'RETORNO';
+      /* `entrada` e `fim` não são de nenhum dos dois fluxos: caiam sob o título
+         RETORNO só porque não começavam com `s`. */
+      var g = r[0].charAt(0) === 's' ? 'SAÍDA'
+            : r[0].charAt(0) === 'r' ? 'RETORNO' : 'AS DUAS TELAS';
       var cab = '';
       if (g !== grupo) { grupo = g; cab = '<p class="ed__g">' + g + '</p>'; }
       return cab + '<div class="ed__i"><label for="f-' + r[0] + '">' + r[1] +

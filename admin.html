@@ -1181,8 +1181,18 @@
        trabalhando, e sair dele para assistir obrigaria a entrar de novo depois. -->
   <section id="pgVideo" class="pagina">
     <div class="card">
-      <h2>Vídeo Tutorial<span class="sub">A demonstração de como lançar saída e
-        retorno — a mesma que aparece no primeiro acesso de quem lança.</span></h2>
+      <div class="cab-card">
+        <h2>Vídeo Tutorial<span class="sub">A demonstração de como lançar saída e
+          retorno — a mesma que aparece no primeiro acesso de quem lança.</span></h2>
+        <!-- ESTA PÁGINA TAMBÉM FALA, então também se edita. Ela tinha ficado de fora
+             porque eu tinha posto o caminho card a card, à mão: quem escreve a lista
+             esquece a terceira linha. A conferiência agora parte dos QUADROS — todo
+             cartão que mostra um tutorial tem de trazer o caminho para editá-lo. -->
+        <a class="editar-falas" id="linkFalasVideo" hidden
+           href="demo-lancamento.html?editar=1" target="_blank" rel="noopener"
+           title="Abre o tutorial com os campos de texto e o botão Ouvir">
+          ✎ Editar as falas</a>
+      </div>
       <div class="quadro-video">
         <iframe id="quadroTutorial" title="Demonstração de lançamento"
                 src="demo-lancamento.html" loading="lazy"></iframe>
@@ -7142,10 +7152,12 @@
      tutorial: la ele rodaria antes de a sessao existir, e o link nasceria escondido
      para todo mundo, inclusive para voce. */
   function mostrarEditorDeFalas(){
-    ['linkFalasSaida', 'linkFalasRetorno'].forEach(function(id){
-      var p = document.getElementById(id);
-      if (p) p.hidden = !Q.ehAdmin();
-    });
+    /* SEM LISTA DE IDS. A lista tinha dois nomes e o painel tem três tutoriais: o
+       terceiro link existia no HTML e nunca era revelado — nasceria escondido para
+       sempre, inclusive para quem administra. Partindo da classe, o cartão novo
+       entra sozinho no dia em que nascer. */
+    var links = document.querySelectorAll('a.editar-falas');
+    for (var i = 0; i < links.length; i++) links[i].hidden = !Q.ehAdmin();
   }
 
   function podeMexerNaDeclaracao(){

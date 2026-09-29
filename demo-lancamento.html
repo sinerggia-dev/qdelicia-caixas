@@ -1432,7 +1432,10 @@ html:not([data-editor="1"]) .ed__b{display:none}
   function montarEditor() {
     var grupo = '';
     $('ed-campos').innerHTML = ROTULOS.map(function (r) {
-      var g = r[0].charAt(0) === 's' ? 'SAÍDA' : 'RETORNO';
+      /* `entrada` e `fim` não são de nenhum dos dois fluxos: caiam sob o título
+         RETORNO só porque não começavam com `s`. */
+      var g = r[0].charAt(0) === 's' ? 'SAÍDA'
+            : r[0].charAt(0) === 'r' ? 'RETORNO' : 'AS DUAS TELAS';
       var cab = '';
       if (g !== grupo) { grupo = g; cab = '<p class="ed__g">' + g + '</p>'; }
       return cab + '<div class="ed__i"><label for="f-' + r[0] + '">' + r[1] +
