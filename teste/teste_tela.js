@@ -3235,13 +3235,48 @@ console.log('\n== classificar e a janela de linhas, em Movimentos ==');
    * conclusão natural de quem olhasse seria que ninguém preenche o campo — um dado que
    * existe parecendo um campo abandonado. */
   var log2 = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
-  ok(/motorista: m\.Motorista \|\| '', veiculo: m\.Veiculo \|\| '', rota: m\.Rota \|\| '',/.test(log2),
+  /* LIDA NO ARQUIVO, esta prova respondia "a linha `motorista: ..., veiculo: ...` existe?"
+     — e caiu no dia em que um nome novo entrou no meio dela, sem que nada tivesse
+     quebrado. O que importa e o que CHEGA a tela, entao a lista e MONTADA. */
+  var Lv = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  var movDemo = [{
+    ID: 'M000900', Tipo: 'SAIDA', DataRef: '2026-09-29', DataHora: '2026-09-29T10:00:00.000Z',
+    OrigemID: 'L1', DestinoID: 'L2', TipoCaixaID: 'T1', Qtd: 10, Status: 'ENVIADO',
+    UsuarioID: 'U1', Motorista: 'Isaque', MotoristaNome: 'Isaque Sobrenome',
+    Veiculo: 'ABC1D23', Rota: 'Joao Pessoa'
+  }];
+  var saiuNaTela = Lv.listaMovimentos(movDemo, [{ ID: 'L1', Nome: 'Matriz' }, { ID: 'L2', Nome: 'JP' }],
+    [{ ID: 'T1', Nome: 'CX G' }], [{ ID: 'U1', Nome: 'Quem lancou' }], {})[0];
+  ok(!!saiuNaTela, 'a conferência montou a linha — lista vazia faria as provas abaixo ' +
+    'aprovarem qualquer coisa');
+  ok(saiuNaTela.veiculo === 'ABC1D23' && saiuNaTela.rota === 'Joao Pessoa',
     'a placa viaja do servidor até a tela — sem isso a coluna nasce vazia e o dado ' +
-    'gravado parece campo que ninguém preenche');
+    'gravado parece campo que ninguém preenche', saiuNaTela.veiculo);
+  /* OS DOIS NOMES CHEGAM. O curto e o de trabalho, que e por onde se procura; o completo
+     e o do documento e do relatorio. Um so na viagem faria a coluna que o usuario pediu
+     nascer vazia — que e o mesmo defeito da placa, com outro nome. */
+  ok(saiuNaTela.motorista === 'Isaque' && saiuNaTela.motoristaNome === 'Isaque Sobrenome',
+    'e os DOIS nomes do motorista também — o curto, que é por onde se procura, e o ' +
+    'completo, que é o do documento',
+    [saiuNaTela.motorista, saiuNaTela.motoristaNome]);
+  /* LINHA VELHA, GRAVADA ANTES DA COLUNA EXISTIR: o completo cai no curto em vez de
+     ficar vazio. Vazio, 24 linhas de agosto e setembro apareceriam com a coluna nova em
+     branco, e a conclusao de quem olhasse seria que o campo nao e preenchido. */
+  var velha = Lv.listaMovimentos([{
+    ID: 'M000001', Tipo: 'SAIDA', DataRef: '2026-08-01', DataHora: '2026-08-01T10:00:00.000Z',
+    OrigemID: 'L1', DestinoID: 'L2', TipoCaixaID: 'T1', Qtd: 5, Status: 'ENVIADO',
+    UsuarioID: 'U1', Motorista: 'Chico'
+  }], [{ ID: 'L1', Nome: 'Matriz' }, { ID: 'L2', Nome: 'JP' }],
+     [{ ID: 'T1', Nome: 'CX G' }], [{ ID: 'U1', Nome: 'Quem lancou' }], {})[0];
+  ok(velha && velha.motoristaNome === 'Chico',
+    'e a linha gravada ANTES da coluna existir mostra no completo o único nome que ela ' +
+    'tem, em vez de uma célula vazia que faria o campo parecer abandonado',
+    velha && velha.motoristaNome);
   /* A LIXEIRA MOSTRA OS MESMOS LANÇAMENTOS. Sem a placa lá, quem confere o que foi
      excluído perde a referência de que carro era — justamente no momento em que está
      procurando uma linha específica. */
-  ok(/usuario: nome\(mUsers, m\.UsuarioID\), motorista: m\.Motorista \|\| '',\s*\n\s*veiculo: m\.Veiculo \|\| '',/.test(log2),
+  ok(/motorista: m\.Motorista \|\| '',[\s\S]{0,200}?veiculo: m\.Veiculo \|\| '',/.test(
+       log2.slice(log2.indexOf('usuario: nome(mUsers, m.UsuarioID)'))),
     'e na lixeira também: é lá que se procura uma linha específica, e a placa é parte ' +
     'de como ela se reconhece');
   /* AO LADO DO MOTORISTA: as duas respondem "quem levou", e no dia em que a carga não
@@ -3257,9 +3292,19 @@ console.log('\n== classificar e a janela de linhas, em Movimentos ==');
     return (ordemCols.match(/'(\w+)'/g) || []).map(function (x) { return x.slice(1, -1); })
       .indexOf(c);
   };
-  ok(pos('veiculo') >= 0 && pos('veiculo') === pos('motorista') + 1,
-    'e a placa fica ao lado do motorista — as duas respondem "quem levou", e separadas ' +
-    'a conferência rolaria de lado para juntar as duas metades', ordemCols);
+  /* O BLOCO 'QUEM LEVOU' FICA JUNTO. A regra era `veiculo === motorista + 1`, um par
+     fixo, e ela caiu no dia em que o nome completo do motorista entrou no meio — sem
+     que nada tivesse se separado. O que a prova defende nao e o par: e nao ter de
+     rolar de lado para juntar as metades da resposta. */
+  var blocoLevou = ['motorista', 'motoristaNome', 'veiculo'].filter(function (c) {
+    return pos(c) >= 0;
+  });
+  ok(blocoLevou.length >= 2, 'a conferência achou as colunas de "quem levou"', blocoLevou);
+  ok(blocoLevou.every(function (c, i) {
+    return i === 0 || pos(c) === pos(blocoLevou[i - 1]) + 1;
+  }), 'e as colunas de "quem levou" ficam GRUDADAS — o nome de quem dirigiu e a ' +
+    'placa respondem a mesma pergunta, e separadas por seis colunas a conferência ' +
+    'rolaria de lado para juntar as metades', ordemCols);
   /* O REGISTRO VEM PRIMEIRO, E O ITEM LOGO DEPOIS.
      São códigos de coisas diferentes: o Registro é a CARGA — um toque em Enviar — e é
      o que alguém dita por telefone; o Item é a LINHA, e é sobre ele que corrigir,
@@ -3278,9 +3323,30 @@ console.log('\n== classificar e a janela de linhas, em Movimentos ==');
     'coluna que não soube responder');
   /* O CSV LEVA A MESMA COLUNA: tela e arquivo discordando sobre as mesmas linhas fazem
      a conferência de escritório chegar a um número que a tela não explica. */
-  ok(/'Rota','Motorista','Veiculo','Quem'/.test(adm) && /m\.veiculo\|\|'',/.test(adm),
-    'e o CSV leva a mesma coluna — arquivo e tela discordando fazem a conferência ' +
-    'chegar a um número que a tela não explica');
+  /* CASADO LETRA A LETRA, isto dizia "o cabecalho diz exatamente estas quatro palavras"
+     — e caiu quando uma coluna nova entrou no meio, sem que nada tivesse quebrado.
+     O QUE IMPORTA E QUE OS DOIS LADOS TENHAM O MESMO TAMANHO: cabecalho com 24 nomes e
+     linha com 23 valores desloca TODAS as colunas dali para a frente, e a planilha de
+     escritorio passa a ler a placa na coluna de quem lancou, sem nada na tela dizendo
+     que houve deslocamento. */
+  var iCsv = adm.indexOf("['Registro','Item','Movimento'");
+  var cabCsv = (adm.slice(iCsv, adm.indexOf(']', iCsv)).match(/'[^']*'/g) || []);
+  var iLin = adm.indexOf('return [m.registro', iCsv);
+  var linCsv = adm.slice(iLin, adm.indexOf('];', iLin));
+  var valores = linCsv.replace(/^return \[/, '').split(',')
+    .filter(function (x) { return x.trim() !== ''; });
+  ok(iCsv > 0 && cabCsv.length > 15 && valores.length > 15,
+    'a conferência achou os dois lados do CSV — recorte vazio faria as provas abaixo ' +
+    'aprovarem qualquer coisa', { cabecalho: cabCsv.length, linha: valores.length });
+  ok(cabCsv.length === valores.length,
+    'o CSV tem um valor para cada título — faltando um, TODAS as colunas dali para a ' +
+    'frente andam uma casa, e a planilha passa a ler a placa onde deveria ler quem ' +
+    'lançou', { cabecalho: cabCsv.length, linha: valores.length });
+  ok(cabCsv.indexOf("'Motorista'") >= 0 && cabCsv.indexOf("'Motorista (completo)'") >= 0 &&
+     linCsv.indexOf('m.motorista||') > 0 && linCsv.indexOf('m.motoristaNome||') > 0,
+    'e leva os DOIS nomes do motorista, como a tela — arquivo e tela discordando sobre ' +
+    'as mesmas linhas fazem a conferência chegar a um número que a tela não explica',
+    cabCsv.slice(16, 20));
 
   /* A SETA e o `aria-sort`: a coluna ordenada precisa dizer que está, e dizer também a
      quem usa leitor de tela — sem isso ela é uma coluna qualquer. */
@@ -3380,11 +3446,12 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var ip = desc.indexOf('padrao: [');
   var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
     .map(function (t) { return t.slice(1, -1); });
-  /* DEZENOVE: o Item entrou quando o Lançamento se partiu em dois — o código da CARGA
-     e o da LINHA. A conta é escrita de propósito: ela é o tropeço que obriga quem
-     acrescenta uma coluna a passar pelas quatro provas abaixo, em vez de acrescentar e
-     seguir. */
-  ok(cols.length === 19, 'são dezenove colunas de fábrica', cols);
+  /* VINTE: o Item entrou quando o Lançamento se partiu em dois — o código da CARGA e
+     o da LINHA —, e o Motorista (completo) entrou quando o apelido nasceu: a coluna
+     curta é a de trabalho e a longa é a do documento.
+     A conta é escrita de propósito: ela é o tropeço que obriga quem acrescenta uma
+     coluna a passar pelas provas abaixo, em vez de acrescentar e seguir. */
+  ok(cols.length === 20, 'são vinte colunas de fábrica', cols);
 
   /* AS SETE QUE FORAM SENDO ACRESCENTADAS. Contar quinze não diz QUAIS são quinze:
      trocar `hora` por outra coluna qualquer manteria a conta de pé. Elas respondem
@@ -4726,8 +4793,23 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
   /* ESCOLHER A PLACA PREENCHE O MOTORISTA, e o campo continua aberto. */
   var iV = idx.indexOf('function veiculoPuxaMotorista');
   var fnV = iV > 0 ? idx.slice(iV, idx.indexOf('\n  }', iV)) : '';
-  ok(iV > 0 && /sv\.addEventListener\('change'/.test(fnV) && /sm\.value = m\.Nome;/.test(fnV),
+  /* CASADA COM `sm.value = m.Nome`, esta prova defendia o NOME DO CAMPO, e caiu no dia
+     em que a lista passou a oferecer o apelido — sem que nada tivesse quebrado.
+     O QUE ELA DEFENDE de verdade: o valor que a funcao PROCURA no seletor e o valor que
+     ela ESCREVE tem de ser o mesmo. Diferentes, ela confirma que 'Isaque Sobrenome'
+     existe na lista e escreve 'Isaque' — ou o contrario —, e o campo fica em branco com
+     jeito de preenchido, que e o defeito que a prova seguinte tambem persegue. */
+  var mProcura = /o\.value === ([A-Za-z0-9_$.]+)/.exec(fnV);
+  var mEscreve = /sm\.value = ([A-Za-z0-9_$.]+);/.exec(fnV);
+  ok(iV > 0 && /sv\.addEventListener\('change'/.test(fnV) && !!mProcura && !!mEscreve,
     'escolher a placa preenche o motorista habitual', fnV.length);
+  ok(!!mProcura && !!mEscreve && mProcura[1] === mEscreve[1],
+    'e escreve EXATAMENTE o que procurou na lista — procurando um nome e escrevendo ' +
+    'outro, o campo fica em branco com jeito de preenchido',
+    [mProcura && mProcura[1], mEscreve && mEscreve[1]]);
+  ok(fnV.indexOf('Q.comoChamar(m)') > 0,
+    'e o nome sai da MESMA regra que monta a lista — duas regras para o mesmo nome ' +
+    'divergem no dia em que uma delas ganhar o apelido e a outra não', fnV.length);
   ok(!/disabled/.test(fnV) && !/readOnly/.test(fnV),
     'e NÃO trava o campo: carro quebra, alguém cobre a rota do outro, e o cadastro não ' +
     'pode mandar mais que a realidade');
@@ -4793,10 +4875,15 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
       }
     });
 
-    /* Dinho tem o KGD9976; o SON1B00 é do Chico. É o caso do relato. */
-    var MOTS = [{ ID: 'D1', Nome: 'Dinho' }, { ID: 'D2', Nome: 'Chico' }];
+    /* Dinho tem o KGD9976; o SON1B00 é do Chico. É o caso do relato.
+       O TERCEIRO TEM APELIDO: no galpão ele é 'Isaque', no cadastro é 'Isaque
+       Sobrenome'. É por ele que se ve se o preenchimento escreve o nome de TRABALHO,
+       que é o que o seletor oferece, ou o do cadastro, que não está na lista. */
+    var MOTS = [{ ID: 'D1', Nome: 'Dinho' }, { ID: 'D2', Nome: 'Chico' },
+                { ID: 'D3', Nome: 'Isaque Sobrenome', Apelido: 'Isaque' }];
     var FROTA = [{ Placa: 'KGD9976', Modelo: 'Baú', MotoristaID: 'D1' },
                  { Placa: 'SON1B00', Modelo: 'Baú', MotoristaID: 'D2' },
+                 { Placa: 'RTA4C55', Modelo: 'Baú', MotoristaID: 'D3' },
                  { Placa: 'UHP', Modelo: 'UHP', MotoristaID: '' }];
 
     function bancada() {
@@ -4804,14 +4891,23 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
       /* O seletor de motorista tem os dois nomes, porque quem lança pode escolher os
          dois — é o que o `veiculoPuxaMotorista` confere antes de preencher. */
       sm.innerHTML = '<option value=""></option><option value="Dinho"></option>' +
-                     '<option value="Chico"></option>';
+                     '<option value="Chico"></option><option value="Isaque"></option>';
       var doc = { getElementById: function (id) {
         return id === 'v' ? sv : (id === 'm' ? sm : null); } };
       var api = new Function('document', 'meusVeiculos', 'meusMotoristas', 'Q',
         fonte + '\n return { montar: montarVeiculos, ligarV: veiculoPuxaMotorista,' +
         '\n          ligarM: motoristaPuxaVeiculo };')(
         doc, function () { return FROTA; }, function () { return MOTS; },
-        { esc: function (s) { return String(s == null ? '' : s); } });
+        { esc: function (s) { return String(s == null ? '' : s); },
+          /* A REGRA VERDADEIRA, recortada do `app.js`. Reescrita aqui, ela seria um
+             duble mais fraco que o original: no dia em que alguem mudasse a regra no
+             app, esta bancada continuaria aprovando a regra antiga. */
+          comoChamar: (function () {
+            var fa = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+            var ia = fa.indexOf('  function comoChamar(m) {');
+            return new Function(fa.slice(ia, fa.indexOf('\n  }', ia) + 4) +
+              '\n return comoChamar;')();
+          })() });
       api.ligarV('v', 'm');
       api.ligarM('m', 'v');
       api.montar('v', 'm');
@@ -4849,6 +4945,21 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
     ok(c.sv.value === 'SON1B00',
       'e a placa que preencheu o motorista continua no campo — o reagrupamento não pode ' +
       'limpar a escolha que o disparou', c.sv.value);
+
+    /* ---- O CARRO DE QUEM TEM APELIDO ----
+     * O seletor oferece 'Isaque' — o nome de trabalho —, e o cadastro guarda 'Isaque
+     * Sobrenome'. Preenchido com o nome do cadastro, o valor escrito NAO existe entre as
+     * opções: o campo fica em branco com jeito de preenchido, e a pessoa lança a saida
+     * sem motorista nenhum sem nada na tela dizendo que faltou. */
+    var f = bancada();
+    f.sv.escolher('RTA4C55');
+    ok(f.sm.value === 'Isaque',
+      'a placa preenche o motorista pelo nome que o SELETOR oferece — o apelido, e não ' +
+      'o nome do cadastro', f.sm.value);
+    ok(f.sm.value !== 'Isaque Sobrenome' && f.sm.selectedIndex >= 0,
+      'e o nome escrito EXISTE entre as opções — um valor que a lista não tem deixa o ' +
+      'campo em branco com jeito de preenchido, e a saída vai lançada sem motorista',
+      [f.sm.value, f.sm.selectedIndex]);
 
     /* ---- Um carro sem dono não preenche nada, e não apaga o que havia ---- */
     var d = bancada();
@@ -11854,6 +11965,174 @@ console.log('\n== o painel de filtro abre por cima ==');
   ok((adm.match(/ligarAbreFolha\('/g) || []).length === 2,
     'ligado pela MESMA função das duas telas');
 })();
+
+console.log('\n== o apelido: o nome de trabalho e o do documento ==');
+{
+  var appA = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var logA = fsReal.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  var idxA = fsReal.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var admA = fsReal.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* ---- AS DUAS COPIAS DA MESMA REGRA ----
+   * `comoChamar` e `nomeESobrenome` existem em DOIS arquivos: o `app.js`, que o navegador
+   * carrega, e o `_logica.js`, que o servidor usa. Nao da para ter uma copia so — o
+   * celular nao carrega modulo de servidor —, entao o que se pode provar e que as duas
+   * DAO A MESMA RESPOSTA. Provado assim, o dia em que alguem consertar uma e esquecer a
+   * outra vira uma falha aqui, e nao um nome diferente em duas telas.
+   * RODADAS, e nao lidas: escrita `return m.Nome`, a funcao continua se chamando
+   * `comoChamar` e continua citando `Apelido` no comentario acima dela. */
+  function pegar(txt, nome, indent) {
+    var i = txt.indexOf(indent + 'function ' + nome + '(');
+    if (i < 0) return null;
+    var fim = txt.indexOf('\n' + indent + '}', i);
+    if (fim < 0) return null;
+    return new Function(txt.slice(i, fim + indent.length + 2) + '\n return ' + nome + ';')();
+  }
+  var chamarApp = pegar(appA, 'comoChamar', '  ');
+  var chamarSrv = pegar(logA, 'comoChamar', '');
+  var sobreApp  = pegar(appA, 'nomeESobrenome', '  ');
+  var sobreSrv  = pegar(logA, 'nomeESobrenome', '');
+  ok(!!chamarApp && !!chamarSrv && !!sobreApp && !!sobreSrv,
+    'a confer\u00eancia recortou as quatro fun\u00e7\u00f5es — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada',
+    [!!chamarApp, !!chamarSrv, !!sobreApp, !!sobreSrv]);
+
+  if (chamarApp && chamarSrv) {
+    var casos = [
+      [{ Nome: 'Isaque Sobrenome', Apelido: 'Isaque' }, 'Isaque',
+       'quem tem apelido \u00e9 chamado pelo apelido — \u00e9 por ele que quem lan\u00e7a procura'],
+      [{ Nome: 'Ramos' }, 'Ramos',
+       'quem n\u00e3o tem apelido continua pelo nome inteiro — em branco, a lista de escolha ' +
+       'ganharia linhas vazias, que \u00e9 pior do que nomes longos'],
+      [{ Nome: 'Ramos', Apelido: '   ' }, 'Ramos',
+       'e apelido que \u00e9 s\u00f3 espa\u00e7o n\u00e3o vale como apelido — ele viraria uma linha em ' +
+       'branco no seletor, que parece um cadastro corrompido'],
+      [{ Nome: '  Chico  ', Apelido: '' }, 'Chico',
+       'e o nome sai aparado — sobrando espa\u00e7o, o mesmo motorista aparece duas vezes no ' +
+       'agrupamento por nome'],
+      [{}, '', 'e cadastro sem nome nenhum devolve vazio, em vez de "undefined" na tela']
+    ];
+    casos.forEach(function (c) {
+      ok(chamarApp(c[0]) === c[1] && chamarSrv(c[0]) === c[1], c[2],
+        [chamarApp(c[0]), chamarSrv(c[0])]);
+    });
+  }
+
+  if (sobreApp && sobreSrv) {
+    /* O PRIMEIRO E O ULTIMO, e nao os dois primeiros: 'Jose Carlos da Silva Urbano' pelos
+       dois primeiros vira 'Jose Carlos', que e como ninguem o chama. */
+    var casosN = [
+      ['Jose Carlos da Silva Urbano', 'Jose Urbano',
+       'nome longo vira o PRIMEIRO e o \u00daLTIMO — pelos dois primeiros, "Jos\u00e9 Carlos da ' +
+       'Silva Urbano" virava "Jos\u00e9 Carlos", que \u00e9 como ningu\u00e9m o chama'],
+      ['Natanael Silva', 'Natanael Silva', 'nome de duas palavras fica inteiro'],
+      ['Isaque', 'Isaque', 'e um nome s\u00f3 continua sendo ele mesmo — a regra n\u00e3o inventa ' +
+       'sobrenome'],
+      ['   ', '', 'e nome vazio devolve vazio, em vez de um espa\u00e7o solto na conta']
+    ];
+    casosN.forEach(function (c) {
+      ok(sobreApp(c[0]) === c[1] && sobreSrv(c[0]) === c[1], c[2],
+        [sobreApp(c[0]), sobreSrv(c[0])]);
+    });
+  }
+
+  /* ---- TODO ENVIO QUE MANDA O MOTORISTA MANDA OS DOIS NOMES ----
+   * Sao dois envios no app de campo — a saida e a devolucao — e o defeito e esquecer um
+   * deles: a metade esquecida grava a linha com o nome completo vazio, e so' o relatorio
+   * do mes conta. A LISTA E DESCOBERTA: o terceiro envio, no dia em que nascer, entra na
+   * prova sozinho. */
+  var envios = [];
+  var reEnv = /Q\.enviar\(\{/g, mEnv;
+  while ((mEnv = reEnv.exec(idxA))) {
+    var corpoEnv = idxA.slice(mEnv.index, idxA.indexOf('})', mEnv.index));
+    if (corpoEnv.indexOf('motorista:') > 0) envios.push(corpoEnv);
+  }
+  ok(envios.length >= 2,
+    'a confer\u00eancia achou os envios que mandam motorista — lista vazia faria a prova ' +
+    'abaixo aprovar qualquer coisa', envios.length);
+  ok(envios.every(function (e) { return e.indexOf('motoristaNome:') > 0; }),
+    'todo lan\u00e7amento que manda o motorista manda TAMB\u00c9M o nome completo — faltando num ' +
+    'deles, metade das linhas nasce com a coluna do relat\u00f3rio vazia, e s\u00f3 a confer\u00eancia ' +
+    'do m\u00eas conta',
+    envios.map(function (e) { return e.indexOf('motoristaNome:') > 0; }));
+
+  /* ---- TODO CAMPO DO FORMULARIO DO MOTORISTA E SALVO ----
+   * O campo que a tela mostra e o salvar nao le e o pior dos dois mundos: a pessoa digita,
+   * ve o texto no lugar, clica em Salvar e o dado nao existe. Foi o que quase aconteceu
+   * com o apelido. A LISTA SAI DO PROPRIO FORMULARIO. */
+  var iForm = admA.indexOf('function formMotorista(m){');
+  var form = iForm < 0 ? '' : admA.slice(iForm, admA.indexOf('\n  }', iForm));
+  var iSalva = form.indexOf('var reg = {');
+  var salva = iSalva < 0 ? '' : form.slice(iSalva);
+  /* SO' O QUE RECEBE TEXTO: `id="fSalvar"` e o botao, e cobrar que o botao seja "salvo"
+     nao quer dizer nada. A peneira e pela TAG, e nao por uma lista de excecoes — a lista
+     esqueceria o proximo botao. */
+  var campos = (form.slice(0, iSalva)
+      .match(/<(input|select|textarea)[^>]*id="(f[A-Za-z0-9]+)"/g) || [])
+    .map(function (x) { return /id="(f[A-Za-z0-9]+)"/.exec(x)[1]; });
+  ok(campos.length > 8 && salva.length > 100,
+    'a confer\u00eancia achou o formul\u00e1rio do motorista e o salvar dele', campos.length);
+  var esquecidos = campos.filter(function (c) { return salva.indexOf("'" + c + "'") < 0; });
+  ok(esquecidos.length === 0,
+    'todo campo do formul\u00e1rio do motorista \u00e9 lido no Salvar — um campo que a tela mostra ' +
+    'e o salvar ignora \u00e9 o pior dos dois mundos: a pessoa digita, v\u00ea o texto no lugar, ' +
+    'clica em Salvar e o dado simplesmente n\u00e3o existe',
+    esquecidos);
+
+  /* ---- A TRAVA DO XARA, RODADA ----
+   * O lancamento guarda o nome CURTO no campo. Dois 'Isaque' na lista e quem lanca nao
+   * tem como saber qual escolheu, e o romaneio sai com o sobrenome de um na viagem do
+   * outro. LIDA NO ARQUIVO, esta prova aprovaria um `if (false)` logo abaixo dela. */
+  var iX = form.indexOf('var chamado = Q.comoChamar(reg);');
+  var trava = iX < 0 ? '' : form.slice(iX, form.indexOf('salvar(\'salvarMotorista\'', iX));
+  ok(trava.length > 100, 'a confer\u00eancia recortou a trava do xar\u00e1', trava.length);
+  if (trava.length > 100 && chamarApp) {
+    function tentou(reg, cadastro) {
+      var recusou = false;
+      var Qf = { comoChamar: chamarApp, ativo: function (a) { return a !== false; },
+                 toast: function () { recusou = true; } };
+      /* RODADA COMO ESTA. Reescrever o `return` para espiar o caminho foi a primeira
+         tentativa, e ela transformou o aviso em incondicional: a bancada passou a
+         medir a propria remenda. O `return` no topo de um `new Function` e valido. */
+      new Function('reg', 'MOTORISTAS', 'Q', trava)(reg, cadastro, Qf);
+      return recusou;
+    }
+    var cad = [{ ID: 'D1', Nome: 'Isaque Sobrenome', Apelido: 'Isaque', Ativo: true },
+               { ID: 'D2', Nome: 'Ramos', Ativo: true },
+               { ID: 'D3', Nome: 'Isaque Antigo', Apelido: 'Isaque', Ativo: false }];
+    ok(tentou({ ID: '', Nome: 'Isaque Outro', Apelido: 'Isaque' }, cad) === true,
+      'cadastrar um segundo motorista com o mesmo apelido \u00e9 RECUSADO — o lan\u00e7amento ' +
+      'guarda o nome curto, e dois iguais na lista fazem o roman\u00e9io sair com o sobrenome ' +
+      'de um na viagem do outro');
+    ok(tentou({ ID: 'D1', Nome: 'Isaque Sobrenome', Apelido: 'Isaque' }, cad) === false,
+      'e editar o pr\u00f3prio cadastro n\u00e3o esbarra nele mesmo — sen\u00e3o ningu\u00e9m conseguiria ' +
+      'corrigir o telefone de quem tem apelido');
+    ok(tentou({ ID: '', Nome: 'Isaque Novo', Apelido: 'Isaque Novo' }, cad) === false,
+      'e um apelido que ningu\u00e9m usa passa');
+    ok(tentou({ ID: '', Nome: 'Fulano', Apelido: 'ISAQUE' }, cad) === true,
+      'e a compara\u00e7\u00e3o ignora mai\u00fascula — "ISAQUE" e "Isaque" s\u00e3o a mesma linha na lista ' +
+      'para quem lan\u00e7a');
+  }
+
+  /* ---- A MIGRACAO PREENCHE AS LINHAS ANTIGAS ----
+   * Sem isto a coluna nasce vazia nas 24 linhas ja gravadas, e a conclusao de quem olhar
+   * e que ninguem preenche o campo. COMENTADO COM `--` o SQL continua no arquivo e nao
+   * faz nada — entao as linhas de comentario saem antes de procurar. */
+  var migs = require(path.join(__dirname, '..', 'api', '_migracoes.js'));
+  var mApe = migs.filter(function (m) { return m.id.indexOf('apelido') >= 0; })[0];
+  ok(!!mApe, 'a migra\u00e7\u00e3o do apelido existe', migs.map(function (m) { return m.id; }).slice(-3));
+  if (mApe) {
+    var vivo = mApe.sql.split('\n').filter(function (l) {
+      return l.trim().indexOf('--') !== 0;
+    }).join('\n');
+    ok(vivo.indexOf('add column if not exists apelido') > 0 &&
+       vivo.indexOf('add column if not exists motorista_nome') > 0,
+      'e ela cria as duas colunas', vivo.length);
+    ok(/update public\.movimentos[\s\S]*?set motorista_nome = motorista/.test(vivo),
+      'e PREENCHE as linhas antigas — sem isto a coluna nasce vazia nas linhas j\u00e1 ' +
+      'gravadas, e a conclus\u00e3o de quem olhar \u00e9 que ningu\u00e9m preenche o campo');
+  }
+}
 
 console.log('\n== os tutoriais nao procuram id que nao existe ==');
 (function () {

@@ -293,7 +293,7 @@ var LOCAL_PADRAO = {
 var MOTORISTA = {
   de: function (r) {
     return {
-      ID: r.id, Nome: r.nome, Telefone: r.telefone || '', CPF: r.cpf || '',
+      ID: r.id, Nome: r.nome, Apelido: r.apelido || '', Telefone: r.telefone || '', CPF: r.cpf || '',
       CNH: r.cnh || '', CNHCategoria: r.cnh_categoria || '', CNHValidade: r.cnh_validade || '',
       Placa: r.placa || '', Obs: r.obs || '', Empresa: r.empresa || '', Tipo: r.tipo || '',
       Ativo: r.ativo !== false,
@@ -304,6 +304,7 @@ var MOTORISTA = {
     var r = {};
     if (o.ID !== undefined) r.id = o.ID;
     if (o.Nome !== undefined) r.nome = String(o.Nome).trim();
+    if (o.Apelido !== undefined) r.apelido = nulo(String(o.Apelido || '').trim());
     if (o.Telefone !== undefined) r.telefone = o.Telefone || '';
     if (o.CPF !== undefined) r.cpf = o.CPF || '';
     if (o.CNH !== undefined) r.cnh = o.CNH || '';
@@ -365,7 +366,13 @@ var MOV = {
       AssinaturaURL: r.assinatura_url, FotoURL: r.foto_url,
       ConferidoEm: r.conferido_em, ConferidoPor: r.conferido_por,
       Cancelado: r.cancelado === true, MotivoCancel: r.motivo_cancel,
-      Motorista: r.motorista || '', Veiculo: r.veiculo || '',
+      /* DOIS NOMES, e a divisao nao e arbitraria: `Motorista` e o que se mostra
+         curto — ja era isso nas 24 linhas gravadas antes desta coluna existir —, e
+         `MotoristaNome` e o completo. Os dois sao COPIA do cadastro no momento do
+         lancamento, pela mesma razao da placa: renomear alguem no cadastro nao pode
+         reescrever o que um romaneio de agosto diz. */
+      Motorista: r.motorista || '', MotoristaNome: r.motorista_nome || '',
+      Veiculo: r.veiculo || '',
       Rota: r.rota || '', Teste: r.teste === true,
       Declaracao: r.declaracao === true,
       /* Date, e não o texto cru: `iso()` só sabe formatar Date, e devolve string vazia
@@ -403,6 +410,7 @@ var MOV = {
     pos('Perfil', 'perfil', nulo);
     pos('Obs', 'obs');
     pos('Motorista', 'motorista', nulo);
+    pos('MotoristaNome', 'motorista_nome', nulo);
     /* A PLACA COMO TEXTO, pela mesma razão do motorista: o histórico não muda
        quando o cadastro muda. Repintar um carro não reescreve o que já saiu. */
     pos('Veiculo', 'veiculo', nulo);

@@ -24,6 +24,10 @@ var fs = require('fs');
 var path = require('path');
 
 var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+/* O `app.js` entra porque a regra de COMO SE CHAMA mora la, e e compartilhada com o
+   painel. Escrita de novo aqui, ela seria um duble MAIS FRACO que o original — e a
+   prova mediria o duble. */
+var appjs = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 var falhas = 0;
 
 function ok(cond, titulo, extra) {
@@ -32,16 +36,17 @@ function ok(cond, titulo, extra) {
   console.log('  ✗ ' + titulo + (extra !== undefined ? '  ' + JSON.stringify(extra) : ''));
 }
 
-function corpo(nome) {
-  var i = html.indexOf('function ' + nome + '(');
+function corpoEm(txt, nome) {
+  var i = txt.indexOf('function ' + nome + '(');
   if (i < 0) throw new Error('não achei ' + nome);
   var d = 0, fim = -1;
-  for (var k = html.indexOf('{', i); k < html.length; k++) {
-    if (html[k] === '{') d++;
-    else if (html[k] === '}') { d--; if (!d) { fim = k + 1; break; } }
+  for (var k = txt.indexOf('{', i); k < txt.length; k++) {
+    if (txt[k] === '{') d++;
+    else if (txt[k] === '}') { d--; if (!d) { fim = k + 1; break; } }
   }
-  return html.slice(i, fim);
+  return txt.slice(i, fim);
 }
+function corpo(nome) { return corpoEm(html, nome); }
 
 /* ---- cadastro de mentira: cada motorista na sua rota ---- */
 var DADOS = { motoristas: [
@@ -54,7 +59,12 @@ var DADOS = { motoristas: [
      apagar a cláusula do VOLANTE passava, porque a cláusula do sem-rota respondia
      por ela. R-GARANHUNS não é escolhida por nenhum caso, então aqui a Val só
      pode aparecer pelo que este teste diz que ela é. */
-  { ID: 'D4', Nome: 'Val',     Rotas: ['R-GARANHUNS'], Tipo: 'VOLANTE' }
+  { ID: 'D4', Nome: 'Val',     Rotas: ['R-GARANHUNS'], Tipo: 'VOLANTE' },
+  /* O DO APELIDO. Rota so' dele e SEM ser volante: assim ele nao entra em nenhum grupo
+     dos casos 1 a 9 — nem como atribuido, nem como cobertura — e nao mexe em nenhuma
+     contagem ja escrita. Ele so' aparece no caso SEM ROTA, que e onde a lista e a equipe
+     inteira, e e la que se ve por qual nome ele e oferecido. */
+  { ID: 'D5', Nome: 'Isaque Sobrenome', Apelido: 'Isaque', Rotas: ['R-SERTAO'] }
 ]};
 
 /* A PENEIRA DE PERMISSÃO entrou entre este teste e a tela: hoje `motoristas()`
@@ -98,7 +108,11 @@ global.Q = {
       if (!m.ID) throw new Error('motorista de mentira sem ID: ' + m.Nome);
       return m.ID;
     }) };
-  }
+  },
+  /* A REGRA VERDADEIRA, lida do `app.js` e nao reescrita: e ela que decide se a lista
+     mostra 'Isaque' ou 'Isaque Sobrenome'. Copiada a mao, o dia em que alguem mudasse a
+     regra no app este teste continuaria aprovando a regra antiga. */
+  comoChamar: eval('(function(){' + corpoEm(appjs, 'comoChamar') + 'return comoChamar;})()')
 };
 global.DADOS = DADOS;
 
@@ -126,6 +140,13 @@ function escolherRotaDv(id) {
   elDvOrigem.value = id; F.montar('dvMotorista', 'dvOrigem'); return lido(elDvMotorista);
 }
 
+/* TODOS SAO QUANTOS O CADASTRO TEM, e nao um numero escrito aqui. Escrito, ele dizia
+   'quatro' — e a prova se chama "todo motorista continua alcancavel": acrescentar um
+   motorista ao cadastro de mentira fazia quatro provas cairem sem que nada tivesse
+   quebrado, e a tentacao e trocar o numero sem olhar o que ele quer dizer. */
+var TODOS = DADOS.motoristas.length;
+if (TODOS < 4) throw new Error('cadastro de mentira encolheu: ' + TODOS);
+
 console.log('\n== Motorista: rota em cima, cobertura embaixo ==');
 
 /* ---- 1. a rota decide a ordem, não quem aparece ---- */
@@ -135,7 +156,7 @@ ok(r.grupos[0].rotulo === 'Motorista da rota', '1º grupo é o da rota');
 ok(r.grupos[1].rotulo === 'Outros motoristas', '2º grupo é a cobertura');
 ok(r.grupos[0].nomes.indexOf('Ramos') === 0, 'Ramos vem primeiro, é a rota dele');
 ok(r.grupos[0].nomes.indexOf('Val') >= 0, 'o volante conta como da rota');
-ok(r.todos.length === 4, 'todo motorista continua alcançável', r.todos);
+ok(r.todos.length === TODOS, 'todo motorista continua alcançável', r.todos);
 ok(r.grupos[1].nomes.indexOf('Jorge') >= 0 && r.grupos[1].nomes.indexOf('Sebastião') >= 0,
    'os de outra rota aparecem em Outros');
 
@@ -164,11 +185,11 @@ DADOS.motoristas.pop();
 /* ---- 5. sem rota escolhida, lista simples ---- */
 r = escolherRota('');
 ok(r.grupos.length === 0, 'sem rota não inventa rótulo de grupo');
-ok(r.todos.length === 4, 'sem rota mostra todo mundo');
+ok(r.todos.length === TODOS, 'sem rota mostra todo mundo', r.todos);
 
 /* ---- 6. rota sem ninguém atribuído não trava a saída ---- */
 r = escolherRota('R-FANTASMA');
-ok(r.todos.length === 4, 'rota sem cadastro ainda oferece a lista inteira');
+ok(r.todos.length === TODOS, 'rota sem cadastro ainda oferece a lista inteira', r.todos);
 
 /* ---- 7. o nome sai escapado, NOS DOIS LUGARES ----
    O nome entra no `<option>` duas vezes: como texto entre as tags e como valor do
@@ -193,7 +214,7 @@ DADOS.motoristas.pop();
 var d = escolherRotaDv('R-PETROLINA');
 ok(d.grupos.length === 2, 'devolução também sai em dois grupos');
 ok(d.grupos[0].nomes.indexOf('Jorge') >= 0, 'devolução: motorista da rota em cima');
-ok(d.todos.length === 4, 'devolução: ninguém fica inalcançável');
+ok(d.todos.length === TODOS, 'devolução: ninguém fica inalcançável', d.todos);
 ok(d.escolhido === 'Jorge', 'devolução: motorista da rota já vem posto');
 
 /* ---- 9. as duas telas não se atrapalham ---- */
@@ -204,7 +225,23 @@ ok(lido().escolhido === 'Ramos', 'e a saída fica com o motorista dela');
 /* ---- 10. devolução sem rota volta à lista simples ---- */
 d = escolherRotaDv('');
 ok(d.grupos.length === 0, 'devolução sem rota: lista simples');
-ok(d.todos.length === 4, 'devolução sem rota: equipe inteira');
+ok(d.todos.length === TODOS, 'devolução sem rota: equipe inteira', d.todos);
+
+/* ---- 11. a lista oferece o APELIDO, e o cadastro guarda o nome inteiro ----
+ * No galpão o motorista é 'Isaque'; na CNH e no relatório ele é 'Isaque Sobrenome'.
+ * Quem lança procura numa lista de treze nomes, e procura pelo nome de trabalho.
+ * SEM APELIDO É O NOME INTEIRO: a maioria não vai ter apelido, e linha em branco na
+ * lista é pior do que nome longo. */
+ok(d.todos.indexOf('Isaque') >= 0,
+  'quem tem apelido é oferecido pelo APELIDO — é por ele que quem lança procura',
+  d.todos);
+ok(d.todos.indexOf('Isaque Sobrenome') < 0,
+  'e o nome inteiro NÃO aparece na lista: os dois lado a lado seriam duas linhas para a ' +
+  'mesma pessoa, e quem lança não teria como saber qual escolher',
+  d.todos);
+ok(d.todos.indexOf('Ramos') >= 0 && d.todos.indexOf('Val') >= 0,
+  'e quem não tem apelido continua pelo nome — a lista não pode ganhar linhas em branco',
+  d.todos);
 
 console.log('');
 if (falhas) { console.log('>>> ' + falhas + ' FALHA(S)'); process.exit(1); }

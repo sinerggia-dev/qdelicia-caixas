@@ -2650,6 +2650,33 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
       { movimentos: [], agora: D('2026-09-05'), teste: true });
     ok(r1.ok && r1.linhas[0].Teste === true,
       'vale o ctx do servidor, e o perfil do payload não muda a classificação', r1.linhas[0].Teste);
+
+    /* 8) OS DOIS NOMES DO MOTORISTA, e o que acontece quando so' vem um.
+       A tela manda o curto no `motorista` e o completo no `motoristaNome`. Uma tela
+       antiga — ou a fila offline gravada antes desta mudanca — manda so' o primeiro: o
+       completo TEM de cair no curto, e nao ficar nulo. Nulo, a coluna que o usuario
+       pediu nasce vazia em metade dos lancamentos, e a conclusao de quem olhar e que o
+       campo nao e preenchido. */
+    const comDois = F.montarMovimento(
+      { tipo: 'SAIDA', origemId: 'G1', destinoId: 'R1', usuarioId: 'U2',
+        motorista: 'Isaque', motoristaNome: 'Isaque Sobrenome',
+        itens: [{ tipoCaixaId: 'P', qtd: 5 }] },
+      { movimentos: [], agora: D('2026-09-05') });
+    ok(comDois.ok && comDois.linhas[0].Motorista === 'Isaque' &&
+       comDois.linhas[0].MotoristaNome === 'Isaque Sobrenome',
+      'a linha guarda os DOIS nomes do motorista — o curto, que \u00e9 o que a tela mostra, ' +
+      'e o completo, que \u00e9 o do documento',
+      comDois.ok && [comDois.linhas[0].Motorista, comDois.linhas[0].MotoristaNome]);
+
+    const soUm = F.montarMovimento(
+      { tipo: 'SAIDA', origemId: 'G1', destinoId: 'R1', usuarioId: 'U2',
+        motorista: 'Chico', itens: [{ tipoCaixaId: 'P', qtd: 5 }] },
+      { movimentos: [], agora: D('2026-09-05') });
+    ok(soUm.ok && soUm.linhas[0].MotoristaNome === 'Chico',
+      'e quando s\u00f3 vem um nome — tela antiga, ou a fila offline gravada antes desta ' +
+      'mudan\u00e7a — o completo cai no curto em vez de ficar nulo, sen\u00e3o a coluna nasce ' +
+      'vazia e o campo parece abandonado',
+      soUm.ok && soUm.linhas[0].MotoristaNome);
   }
 
 
@@ -2901,6 +2928,21 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
         'volta vazia e a gravação seguinte apaga o que estava salvo');
       ok(new RegExp('o\\.' + campo + ' !== undefined\\) r\\.' + coluna + ' =').test(trad),
         campo + ': e GRAVA nela — sem isto a marcação some no caminho de volta, sem erro');
+    });
+
+    /* OS DOIS SENTIDOS DAS COLUNAS NOVAS. O apelido e o nome completo atravessam o
+       tradutor como qualquer outra coluna, e o defeito e o mesmo das de cima: deixar de
+       LER faz o campo voltar vazio e a gravacao seguinte apagar o que estava salvo;
+       deixar de GRAVAR faz o que a pessoa digitou sumir no caminho de volta, sem erro. */
+    [['Apelido', 'apelido', 'MOTORISTA'],
+     ['MotoristaNome', 'motorista_nome', 'MOV']
+    ].forEach(([campo, coluna, onde]) => {
+      ok(new RegExp(campo + ": r\\." + coluna).test(sup),
+        onde + '.' + campo + ': o tradutor L\u00ca a coluna `' + coluna + '` — sem isto o ' +
+        'campo volta vazio e a grava\u00e7\u00e3o seguinte apaga o que estava salvo');
+      ok(new RegExp("(o\\." + campo + " !== undefined|pos\\('" + campo + "')").test(sup),
+        onde + '.' + campo + ': e GRAVA nela — sem isto o que a pessoa digitou some no ' +
+        'caminho de volta, sem erro nenhum');
     });
   }
 

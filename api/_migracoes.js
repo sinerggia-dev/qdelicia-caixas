@@ -586,5 +586,43 @@ module.exports = [
       "   Herdado da primeira linha do envio, que e chave primaria: por isso dois envios",
       "   simultaneos nao conseguem gerar o mesmo registro.';"
     ].join('\n')
+  },
+  {
+    id: '2026-09-29-apelido',
+    nota: 'apelido do motorista; a linha passa a guardar o nome curto E o completo',
+    sql: [
+      "-- O APELIDO E O NOME DE TRABALHO. No galpao o motorista e 'Isaque'; no cadastro,",
+      "-- na CNH e no relatorio ele e 'Isaque <sobrenome>'. Sao a mesma pessoa e os dois",
+      "-- nomes sao necessarios: um para quem lanca escolher rapido numa lista de treze,",
+      "-- outro para o documento.",
+      "alter table public.motoristas",
+      "  add column if not exists apelido text;",
+      "comment on column public.motoristas.apelido is",
+      "  'O nome de trabalho, curto, que aparece na lista de quem lanca e na coluna",
+      "   MOTORISTA. Vazio: usa-se o nome completo.';",
+      "--",
+      "-- A LINHA GUARDA OS DOIS, e a divisao entre as colunas nao e arbitraria:",
+      "--   `motorista`      continua sendo O QUE SE MOSTRA CURTO — hoje ja e 'Isaque',",
+      "--                    'Chico', 'Arilson' em 24 linhas gravadas. Mudar o sentido",
+      "--                    desta coluna faria as linhas antigas passarem a dizer outra",
+      "--                    coisa do que diziam quando foram gravadas.",
+      "--   `motorista_nome` e o NOME COMPLETO, que nasce agora.",
+      "-- GUARDADOS NA LINHA, e nao lidos do cadastro na hora de mostrar: e a mesma regra",
+      "-- que ja vale para a placa e para o proprio nome do motorista. Renomear alguem no",
+      "-- cadastro nao pode reescrever o que os romaneios de meses atras dizem.",
+      "alter table public.movimentos",
+      "  add column if not exists motorista_nome text;",
+      "-- AS LINHAS ANTIGAS recebem no completo o unico nome que existe delas. Nao e um",
+      "-- palpite: e o que estava escrito na linha no dia em que foi gravada.",
+      "update public.movimentos",
+      "   set motorista_nome = motorista",
+      " where motorista_nome is null",
+      "   and motorista is not null",
+      "   and motorista <> '';",
+      "comment on column public.movimentos.motorista_nome is",
+      "  'O nome completo de quem dirigiu, copiado no momento do lancamento. A coluna",
+      "   `motorista` guarda o nome curto (apelido). As duas sao copia, e nao vinculo:",
+      "   renomear o cadastro nao reescreve romaneio ja emitido.';"
+    ].join('\n')
   }
 ];

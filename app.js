@@ -377,6 +377,27 @@
   }
 
   /** Lista qualquer com campo Nome: ensaio no fim, alfabética dentro de cada grupo. */
+  /* COMO ESTA PESSOA E CHAMADA NA OPERACAO — a mesma regra que o servidor usa, e o
+     mesmo motivo de ela existir: no galpao o motorista e 'Isaque', e e assim que quem
+     lanca o procura numa lista de treze nomes; no cadastro, na CNH e no relatorio ele e
+     'Isaque <sobrenome>'.
+     SEM APELIDO E O NOME INTEIRO, e nao vazio — a maioria nao vai ter apelido, e uma
+     lista com linhas em branco e pior do que uma lista com nomes longos. */
+  function comoChamar(m) {
+    var ap = String((m && m.Apelido) || '').trim();
+    return ap || String((m && m.Nome) || '').trim();
+  }
+
+  /* NOME E SOBRENOME, para onde o espaco e curto: a saudacao e o rodape.
+     O PRIMEIRO E O ULTIMO, e nao os dois primeiros — 'Jose Carlos da Silva Urbano' pelos
+     dois primeiros vira 'Jose Carlos', que e como ninguem o chama.
+     UM NOME SO CONTINUA SENDO ELE MESMO: a regra nao inventa sobrenome. */
+  function nomeESobrenome(nome) {
+    var p = String(nome || '').trim().split(/\s+/).filter(function (x) { return x !== ''; });
+    if (p.length < 2) return p[0] || '';
+    return p[0] + ' ' + p[p.length - 1];
+  }
+
   function ordenarPorNome(lista) {
     return (lista || []).slice().sort(function (a, b) {
       return pesoTeste(a.Nome) - pesoTeste(b.Nome) ||
@@ -1389,7 +1410,15 @@
 
   function quemEsta(nome, perfil, foto) {
     var n = document.getElementById('cabUsuario');
-    if (n) n.textContent = nome || '—';
+    /* NOME E SOBRENOME no rodape, e o inteiro no `title`. O cadastro guarda o nome
+       completo — e ele que vai para o relatorio —, mas a caixa da conta tem a largura da
+       lateral: 'Jose Carlos da Silva Urbano' quebra em tres linhas ou some no corte.
+       PRIMEIRO E ULTIMO, que e como a pessoa assina; um nome so continua sendo ele
+       mesmo. */
+    if (n) {
+      n.textContent = nomeESobrenome(nome) || '—';
+      if (nome) n.title = nome;
+    }
     var p = document.getElementById('cabPerfil');
     if (p) p.textContent = perfil || '';
     /* Os dois circulos: o da lateral e o da barra de app. O da barra e a UNICA pista de
@@ -2323,6 +2352,7 @@
     aplicarAparencia: aplicarAparencia,
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
     paramUrl: paramUrl,
+    comoChamar: comoChamar, nomeESobrenome: nomeESobrenome,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,
     definirPerfisDeclaracao: definirPerfisDeclaracao,
     podeMexerEmDeclaracao: podeMexerEmDeclaracao,

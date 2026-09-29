@@ -578,7 +578,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=2e42a2b4"></script>
+<script src="app.js?v=e2c7ad86"></script>
 <script>
 (function(){
   'use strict';
@@ -888,8 +888,22 @@
     return permitidos((DADOS||{}).motoristas || [], 'motoristas');
   }
 
+  /* A LISTA MOSTRA O APELIDO. Quem lanca procura 'Isaque' numa lista de treze nomes, e
+     nao 'Isaque <sobrenome>' — o cadastro completo e para o documento e o relatorio. */
   function motoristas(){
-    return meusMotoristas().map(function(m){ return m.Nome; });
+    return meusMotoristas().map(Q.comoChamar);
+  }
+
+  /* O CAMINHO DE VOLTA: o campo guarda o nome curto, e o lancamento precisa gravar
+     TAMBEM o completo. A busca e pelo curto porque e ele que esta no campo.
+     DOIS COM O MESMO APELIDO devolve o curto nos dois — e a resposta honesta: sem id no
+     campo nao da para saber qual dos dois, e escolher o primeiro gravaria o sobrenome de
+     uma pessoa no romaneio da outra. O cadastro avisa quando isso acontece. */
+  function nomeCompletoDoMotorista(curto){
+    var alvo = String(curto || '').trim();
+    if (!alvo) return '';
+    var iguais = meusMotoristas().filter(function(m){ return Q.comoChamar(m) === alvo; });
+    return iguais.length === 1 ? String(iguais[0].Nome || '').trim() : alvo;
   }
 
   /* A FROTA QUE ESTA PESSOA PODE ESCOLHER, pela mesma peneira dos motoristas: nada
@@ -1008,9 +1022,10 @@
       if (!motId) return;
       var m = meusMotoristas().filter(function(x){ return String(x.ID)===String(motId); })[0];
       if (!m) return;
-      var tem = Array.prototype.some.call(sm.options, function(o){ return o.value === m.Nome; });
+      var chamado = Q.comoChamar(m);
+      var tem = Array.prototype.some.call(sm.options, function(o){ return o.value === chamado; });
       if (!tem) return;
-      sm.value = m.Nome;
+      sm.value = chamado;
       /* A LISTA SE REAGRUPA em volta do motorista que acabou de entrar no campo — senão
          ela continuaria dizendo "Outros veículos" sobre o carro que agora É o dele.
          O `data-mot-lista` é acertado ANTES da remontagem, e é o que impede a remontagem
@@ -1027,7 +1042,7 @@
      lista inteira do que travar a saída porque faltou um cadastro. */
   function motoristasDaRota(rotaId, soAtribuidos){
     var todos = meusMotoristas();
-    if (!rotaId) return soAtribuidos ? [] : todos.map(function(m){ return m.Nome; });
+    if (!rotaId) return soAtribuidos ? [] : todos.map(Q.comoChamar);
     var alvo = String(rotaId);
     var atribuidos = todos.filter(function(m){
       var r = m.Rotas || [];
@@ -1037,14 +1052,14 @@
     // rota no cadastro, sem o volante e sem quem so nao tem rota marcada. Sem isso, um
     // volante no cadastro fazia toda rota ter "dois motoristas" e o campo nunca vinha
     // posto — a pessoa tinha de escolher o obvio a cada lancamento.
-    if (soAtribuidos) return atribuidos.map(function(m){ return m.Nome; });
+    if (soAtribuidos) return atribuidos.map(Q.comoChamar);
     // Volante roda qualquer rota; quem não tem rota marcada também entra, que é a regra antiga.
     var curinga = todos.filter(function(m){
       return atribuidos.indexOf(m) < 0 &&
              (String(m.Tipo||'').toUpperCase() === 'VOLANTE' || !(m.Rotas && m.Rotas.length));
     });
-    if (!atribuidos.length && !curinga.length) return todos.map(function(m){ return m.Nome; });
-    return atribuidos.concat(curinga).map(function(m){ return m.Nome; });
+    if (!atribuidos.length && !curinga.length) return todos.map(Q.comoChamar);
+    return atribuidos.concat(curinga).map(Q.comoChamar);
   }
 
   function nomeDoLocal(id){
@@ -1385,6 +1400,7 @@
       usuarioId: s.id, perfil: s.perfil,
       base: baseSd,
       motorista: document.getElementById('sdMotorista').value.trim(),
+      motoristaNome: nomeCompletoDoMotorista(document.getElementById('sdMotorista').value),
       veiculo: document.getElementById('sdVeiculo').value.trim(),
       rota: nomeDoLocal(destino),
       foto: sdFotoData
@@ -1444,6 +1460,7 @@
       origemId: origem, destinoId: destino, itens: itens,
       dataRef: document.getElementById('dvData').value,
       motorista: document.getElementById('dvMotorista').value,
+      motoristaNome: nomeCompletoDoMotorista(document.getElementById('dvMotorista').value),
       veiculo: document.getElementById('dvVeiculo').value,
       obs: document.getElementById('dvObs').value,
       usuarioId: s.id, perfil: s.perfil,

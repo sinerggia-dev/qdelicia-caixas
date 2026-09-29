@@ -1490,7 +1490,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=2e42a2b4"></script>
+<script src="app.js?v=e2c7ad86"></script>
 <script>
 (function(){
   'use strict';
@@ -3033,7 +3033,7 @@
        excluir agem: o caso real e "so a CX P esta errada", e nao "a carga toda".
        O REGISTRO VEM PRIMEIRO porque e o que se procura; o item responde "qual delas". */
     padrao: ['registro','item','data','hora','criado','status','base','tipo','origem','destino','rota',
-             'caixa','qtd','motorista','veiculo','quem','alterado','alteradoEm','obs'],
+             'caixa','qtd','motorista','motoristaNome','veiculo','quem','alterado','alteradoEm','obs'],
     /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
        coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
        com a data mais larga do formato e a etiqueta junto. */
@@ -3041,13 +3041,14 @@
        coluna nao cresce com o tempo — o formato e fixo. */
     larg: { registro:105, item:105,
             data:120, hora:70, criado:110, status:110, base:120, tipo:120, origem:150, destino:150,
-            rota:150, caixa:120, qtd:80, motorista:130, veiculo:110, quem:120,
+            rota:150, caixa:120, qtd:80, motorista:130, motoristaNome:180, veiculo:110, quem:120,
             alterado:140, alteradoEm:150, obs:240 },
     titulos: { registro:'Registro', item:'Item',
                data:'Movimento', hora:'Hora', criado:'Criado em',
                status:'Status', base:'Base', tipo:'Tipo',
                origem:'Origem', destino:'Destino', rota:'Rota', caixa:'Caixa',
-               qtd:'Qtd', motorista:'Motorista', veiculo:'Veículo', quem:'Quem',
+               qtd:'Qtd', motorista:'Motorista', motoristaNome:'Motorista (completo)',
+               veiculo:'Veículo', quem:'Quem',
                alterado:'Alterado por', alteradoEm:'Alterado em',
                obs:'Observação' },
     kOrdem: 'qdc_cols_mov_v1',
@@ -6267,7 +6268,7 @@
        nada, e a pessoa concluiria que a carga nao existe. */
     return chato([m.registro, m.id,
                   m.dataRef, Q.dataBR(m.dataRef), m.origem, m.destino, m.rota,
-                  m.motorista, m.veiculo, m.usuario, m.tipoCaixa, m.qtd, m.romaneio,
+                  m.motorista, m.motoristaNome, m.veiculo, m.usuario, m.tipoCaixa, m.qtd, m.romaneio,
                   m.situacao, m.obs, (m.alterado || {}).por].join(' '));
   }
 
@@ -6965,6 +6966,14 @@
       motorista: { t: TIT['motorista'], k: function(m){ return m.motorista || ''; },
                    v: function(m){ return m.motorista ? Q.esc(m.motorista)
                                                       : '<span class="fraco">—</span>'; } },
+      /* O NOME COMPLETO AO LADO DO CURTO, e nao no lugar dele. A coluna Motorista e a de
+         trabalho — e por ela que se procura — e esta e a do documento e do relatorio.
+         AS DUAS NASCEM A VISTA: quem nao quiser uma delas a esconde pelo seletor de
+         colunas, e a escolha fica guardada. Nascer escondida seria decidir pela pessoa
+         que ela nao precisa do dado que ela acabou de pedir. */
+      motoristaNome: { t: TIT['motoristaNome'], k: function(m){ return m.motoristaNome || ''; },
+                   v: function(m){ return m.motoristaNome ? Q.esc(m.motoristaNome)
+                                                      : '<span class="fraco">—</span>'; } },
       quem:      { t: TIT['quem'], k: function(m){ return m.usuario || ''; },     v: function(m){ return Q.esc(m.usuario||''); } }
     };
 
@@ -7516,7 +7525,7 @@
       /* OS DOIS CODIGOS NO ARQUIVO. O Registro e o que permite somar a carga inteira
          numa planilha — agrupando pelo codigo da linha, cada carga viraria quatro
          grupos de um. */
-      ['Registro','Item','Movimento','Hora','Criado em','Base','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Veiculo','Quem','Alterado por','Alterado em','Obs'],
+      ['Registro','Item','Movimento','Hora','Criado em','Base','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Motorista (completo)','Veiculo','Quem','Alterado por','Alterado em','Obs'],
       MOVS.map(function(m){
         var a = m.alterado || {};
         return [m.registro||'', m.id,
@@ -7524,6 +7533,7 @@
                 baseDaLinha(m).nome,
                 m.situacao,rotuloDoTipoMov(m.tipo),m.origem,m.destino,m.tipoCaixa,m.qtd,
                 m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',
+                m.motoristaNome||'',
                 m.veiculo||'',
                 m.usuario,a.por||'',a.em?Q.dataHoraBR(a.em):'',m.obs];
       }));
@@ -7564,7 +7574,7 @@
     var box = document.getElementById('tabelaMotoristas');
     if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhum motorista cadastrado.</div>'; return; }
     box.innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Telefone</th><th>CPF</th>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Apelido</th><th>Telefone</th><th>CPF</th>'+
       '<th>CNH</th><th>Empresa</th><th>Tipo</th><th>Placa</th><th>Rotas</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       lista.map(function(m){
         var on = Q.ativo(m.Ativo), venc = vencida(m);
@@ -7572,6 +7582,7 @@
         // muda de lugar em vez de sumir, senão o aviso morre calado.
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(m.Nome)+'</b>'+
           (venc?' <span class="tag vermelha">CNH vencida</span>':'')+'</td>'+
+          '<td>'+(m.Apelido?Q.esc(m.Apelido):'<span class="fraco">—</span>')+'</td>'+
           '<td>'+Q.esc(m.Telefone||'')+'</td><td>'+Q.esc(m.CPF||'')+'</td>'+
           '<td>'+Q.esc(m.CNH||'')+'</td>'+
           '<td>'+(m.Empresa?Q.esc(m.Empresa):'—')+'</td>'+
@@ -7841,10 +7852,16 @@
     m = m || {};
     modal('<h2>'+(m.ID?'Editar':'Novo')+' motorista</h2>'+
       avisoItemNovo(m.ID, 'este motorista', 'Usuários')+
-      '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(m.Nome||'')+'" autocapitalize="words">'+
+      '<label>Nome completo</label><input type="text" id="fNome" value="'+Q.esc(m.Nome||'')+'" autocapitalize="words" placeholder="como está na CNH">'+
       '<div class="grid2">'+
+        '<div><label>Apelido</label><input type="text" id="fApelido" value="'+Q.esc(m.Apelido||'')+'" autocapitalize="words" placeholder="como o chamam no galpão"></div>'+
         '<div><label>Telefone</label><input type="tel" id="fTel" value="'+Q.esc(m.Telefone||'')+'" placeholder="81 98151-7703"></div>'+
         '<div><label>CPF</label><input type="text" id="fCpf" inputmode="numeric" value="'+Q.esc(m.CPF||'')+'" placeholder="000.000.000-00"></div>'+
+      '</div>'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+        'O <b>apelido</b> é o que aparece na lista de quem lança e na coluna Motorista. '+
+        'Em branco, usa-se o nome completo.</p>'+
+      '<div class="grid2">'+
         '<div><label>Empresa</label><input type="text" id="fEmpresa" value="'+Q.esc(m.Empresa||'')+'" placeholder="ex.: Qdelícia Frutas"></div>'+
         '<div><label>Tipo</label><select id="fTipoMot">'+
           ['','Fixo','Volante'].map(function(t){
@@ -7871,6 +7888,7 @@
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:m.ID||'', Nome:document.getElementById('fNome').value.trim(),
+        Apelido:document.getElementById('fApelido').value.trim(),
         Telefone:document.getElementById('fTel').value.trim(), CPF:document.getElementById('fCpf').value.trim(),
         CNH:document.getElementById('fCnh').value.trim(), CNHCategoria:document.getElementById('fCat').value.trim(),
         CNHValidade:document.getElementById('fVal').value, Placa:document.getElementById('fPlaca').value.trim(),
@@ -7879,6 +7897,17 @@
         Ativo:document.getElementById('fAtivo').value, Obs:document.getElementById('fObs').value,
         Rotas:lerMarcados('fRotas') };
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
+      /* APELIDO REPETIDO E IMPEDIMENTO, e nao aviso. O lancamento guarda o nome CURTO no
+         campo: dois 'Isaque' na lista e quem lanca nao tem como saber qual escolheu, e o
+         romaneio sai com o sobrenome de um na viagem do outro. Melhor recusar aqui, onde
+         so uma pessoa espera, do que descobrir no relatorio do mes. */
+      var chamado = Q.comoChamar(reg);
+      var xara = MOTORISTAS.filter(function(o){
+        return String(o.ID) !== String(reg.ID) && Q.ativo(o.Ativo) &&
+               Q.comoChamar(o).toLowerCase() === chamado.toLowerCase();
+      })[0];
+      if (xara) return Q.toast('Já existe um motorista ativo chamado "'+chamado+'" ('+
+        xara.Nome+'). Ponha um apelido que os diferencie.','erro');
       salvar('salvarMotorista', reg, this);
     });
   }

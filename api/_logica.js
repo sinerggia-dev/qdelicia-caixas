@@ -300,13 +300,49 @@ function veiculosPublicos(veiculos) {
     });
 }
 
+/**
+ * COMO ESTA PESSOA E CHAMADA NA OPERACAO.
+ *
+ * O apelido e o nome de trabalho: no galpao ele e 'Isaque', e e assim que quem lanca o
+ * procura numa lista de treze nomes. O nome completo e o do cadastro, da CNH e do
+ * relatorio. Os dois existem e nenhum substitui o outro.
+ *
+ * ESCRITO AQUI, NUM LUGAR SO. A lista do app, a lista do painel, o que a linha grava e o
+ * que o CSV exporta leem daqui — quatro copias de `Apelido || Nome` divergem no dia em
+ * que alguem esquecer o `.trim()` numa delas, e ai a mesma pessoa aparece com dois nomes
+ * em duas telas.
+ *
+ * SEM APELIDO E O NOME INTEIRO, e nao vazio: a maioria dos treze nao vai ter apelido
+ * nenhum, e uma lista com linhas em branco e pior do que uma lista com nomes longos.
+ */
+function comoChamar(m) {
+  var ap = String((m && m.Apelido) || '').trim();
+  return ap || String((m && m.Nome) || '').trim();
+}
+
+/**
+ * NOME E SOBRENOME, para onde o espaco e curto — a saudacao e o rodape do painel.
+ *
+ * O PRIMEIRO E O ULTIMO, e nao os dois primeiros: 'Jose Carlos da Silva Urbano' lido
+ * pelos dois primeiros vira 'Jose Carlos', que e como ninguem o chama; pelo primeiro e o
+ * ultimo vira 'Jose Urbano', que e como ele assina.
+ * UM NOME SO CONTINUA SENDO ELE MESMO — a regra nao pode inventar sobrenome.
+ */
+function nomeESobrenome(nome) {
+  var p = String(nome || '').trim().split(/\s+/).filter(function (x) { return x !== ''; });
+  if (p.length < 2) return p[0] || '';
+  return p[0] + ' ' + p[p.length - 1];
+}
+
 function motoristasPublicos(motoristas) {
   return (motoristas || [])
     .filter(function (m) { return m.Ativo !== false; })
     // A rota atendida entra: não é dado pessoal, e é o que deixa o celular filtrar a lista
     // sem uma segunda chamada. CPF, CNH e telefone continuam de fora.
     .map(function (m) {
-      return { ID: m.ID, Nome: m.Nome, Tipo: m.Tipo || '',
+      /* O APELIDO VIAJA e o nome completo tambem: o celular mostra um e grava os
+         dois. Apelido nao e dado pessoal — e como a pessoa e chamada no galpao. */
+      return { ID: m.ID, Nome: m.Nome, Apelido: m.Apelido || '', Tipo: m.Tipo || '',
                Rotas: Array.isArray(m.Rotas) ? m.Rotas : [] };
     })
     .sort(function (a, b) {
@@ -1163,6 +1199,10 @@ function montarMovimento(p, ctx) {
       Perfil: perfil || null,
       Obs: String(p.obs || ''),
       Motorista: String(p.motorista || '').trim() || null,
+      /* O COMPLETO CAI NO CURTO quando nao vier: e o que acontece com quem nao tem
+         apelido, e com qualquer tela antiga que ainda mande um nome so. Deixar nulo
+         aqui faria a coluna do relatorio nascer vazia para metade dos lancamentos. */
+      MotoristaNome: String(p.motoristaNome || p.motorista || '').trim() || null,
       /* A PLACA, na mesma forma do cadastro: sem hífen, sem espaço, em caixa alta.
          Se o movimento guardasse "abc-1d23" e o cadastro "ABC1D23", um relatório
          por veículo listaria o mesmo carro duas vezes. */
@@ -1791,7 +1831,9 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
          reescrever o que ja saiu do galpao. Ela era gravada e nao chegava a tela:
          uma coluna de Veiculo nasceria vazia em todas as linhas, e a conclusao
          natural seria que ninguem preenche o campo. */
-      motorista: m.Motorista || '', veiculo: m.Veiculo || '', rota: m.Rota || '',
+      motorista: m.Motorista || '',
+      motoristaNome: m.MotoristaNome || m.Motorista || '',
+      veiculo: m.Veiculo || '', rota: m.Rota || '',
       obs: m.Obs, assinatura: m.AssinaturaURL, foto: m.FotoURL,
       historico: m.Historico || [],
       /* Quem mexeu por último, já com NOME. O id resolvido aqui e não na tela porque a
@@ -2469,6 +2511,7 @@ module.exports = {
   localDoAjuste: localDoAjuste, podeAjustarEm: podeAjustarEm,
   TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
   rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,
+  comoChamar: comoChamar, nomeESobrenome: nomeESobrenome,
   motoristasPublicos: motoristasPublicos, veiculosPublicos: veiculosPublicos,
   cnhVencida: cnhVencida,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
