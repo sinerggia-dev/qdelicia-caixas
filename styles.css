@@ -632,7 +632,30 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 }
 /* Portas para a OUTRA tela (painel <-> campo). Ficam separadas das paginas por um
    risco: nao sao abas desta tela, sao saidas dela. */
-.nav-saida{margin-top:8px;padding-top:8px;border-top:1px solid var(--linha)}
+/* ELE NAO E UMA PAGINA DESTA TELA — e a porta para a OUTRA, o app de lancamento. Por
+   isso ganha cara de acao e nao de item de lista: com a mesma aparencia dos vizinhos, a
+   pessoa o le como "mais uma pagina do painel" e so descobre o que ele faz clicando —
+   e o que ele faz e TROCAR DE APLICATIVO, que e o tipo de gesto que nao se descobre por
+   engano.
+   CONTORNADO, E NAO PREENCHIDO: preenchido com a cor da marca ele ficaria igual ao item
+   da pagina ABERTA, e passaria a dizer "voce esta aqui" sobre um lugar onde a pessoa
+   nao esta. O contorno diz "porta", o preenchimento diz "voce esta".
+   A SETA ANDA no passar do mouse: e a unica peca do menu que leva para fora, e o
+   movimento na direcao da saida e o que confirma, antes do clique, para onde ela vai. */
+.nav-saida{
+  margin-top:12px;padding:10px 12px;border:1px solid var(--verde);
+  border-radius:var(--raio-sm);background:var(--verde-claro);color:var(--verde-esc);
+  font-weight:600
+}
+.nav-saida:hover{background:var(--verde);color:var(--sobre-verde)}
+.nav-saida svg{transition:transform .16s ease}
+.nav-saida:hover svg{transform:translateX(-3px)}
+@media (prefers-reduced-motion:reduce){ .nav-saida:hover svg{transform:none} }
+/* NO TRILHO ele volta a ser so o icone, mas guarda a moldura: e o contorno que continua
+   dizendo que aquele icone leva para fora, quando o rotulo nao cabe. */
+.shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .nav-saida{
+  padding:10px 0
+}
 
 /* ---------- quem esta logado ---------- */
 /* O risco que separa o rodapé subiu para o `.lateral__pe`: ele é que é o rodapé. */

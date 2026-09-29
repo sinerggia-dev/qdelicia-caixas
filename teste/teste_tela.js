@@ -11977,6 +11977,36 @@ console.log('\n== os grupos da navegacao recolhem ==');
   ok(adm.indexOf("Q.gruposRecolhiveis('#abas');") > adm.indexOf("Q.abas('#abas');"),
     'e isso é ligado DEPOIS do menu: os dois mexem nos mesmos botões');
 
+  /* ---- A PORTA PARA A OUTRA TELA TEM CARA DE ACAO ----
+   *
+   * `Lancamentos` nao e uma pagina DESTE painel: e a porta para o app de lancamento.
+   * Com a mesma aparencia dos vizinhos, a pessoa o le como "mais uma pagina" e so
+   * descobre o que ele faz clicando — e o que ele faz e TROCAR DE APLICATIVO. */
+  var iS = css.indexOf('.nav-saida{');
+  var regraSaida = iS < 0 ? '' : css.slice(iS, css.indexOf('}', iS));
+  ok(regraSaida.indexOf('border:1px solid') > 0 && regraSaida.indexOf('background:') > 0,
+    'a porta para o app de lançamento tem contorno e fundo próprios — igual aos ' +
+    'vizinhos, ela se lê como mais uma página do painel, e o que ela faz é trocar de ' +
+    'aplicativo', regraSaida);
+
+  /* CONTORNADO, E NAO PREENCHIDO COM A COR DA MARCA: preenchido, ele fica identico ao
+     item da pagina ABERTA — e passa a dizer "voce esta aqui" sobre um lugar onde a
+     pessoa nao esta. O contorno diz "porta"; o preenchimento diz "voce esta". */
+  ok(regraSaida.indexOf('var(--brand)') < 0,
+    'e NÃO é preenchido com a cor da marca: essa é a do item da página aberta, e ali ' +
+    'ela diria "você está aqui" sobre um lugar onde a pessoa não está', regraSaida);
+  var iAtiva = css.indexOf('nav.abas button.ativa,nav.abas button.ativa:hover{');
+  ok(iAtiva > 0 && css.slice(iAtiva, css.indexOf('}', iAtiva)).indexOf('var(--brand)') > 0,
+    'enquanto a página aberta continua sendo a preenchida — é o contraste entre as duas ' +
+    'que faz cada uma dizer uma coisa');
+
+  /* A SETA ANDA, e para quem pediu menos movimento ela nao anda. */
+  ok(css.indexOf('.nav-saida:hover svg{transform:translateX(-3px)}') > 0,
+    'a seta anda na direção da saída ao passar o mouse — é a única peça do menu que ' +
+    'leva para fora, e o movimento confirma para onde, antes do clique');
+  ok(css.indexOf('@media (prefers-reduced-motion:reduce){ .nav-saida:hover svg{transform:none} }') > 0,
+    'e quem pediu menos movimento não recebe nenhum — a porta diz a mesma coisa parada');
+
   /* ---- A MARCA NO RODAPE ---- */
   ok(adm.indexOf('class="conta__marca"') > 0 &&
      adm.indexOf('<span class="conta__marca" aria-hidden="true">') > 0,
