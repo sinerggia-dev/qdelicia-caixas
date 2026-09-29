@@ -1291,6 +1291,13 @@ var CORRIGIVEIS = [
   { campo: 'TipoCaixaID', rotulo: 'tipo de caixa', mapa: 'tipos' },
   // O motorista é gravado pelo nome, não por id: não há o que mapear.
   { campo: 'Motorista', rotulo: 'motorista' },
+  /* O NOME COMPLETO ANDA COM O CURTO. Sem ele aqui, trocar o motorista de uma linha
+     reescrevia só metade do par: a coluna Motorista passava a dizer o nome novo e a
+     Motorista (completo) continuava dizendo o antigo — a mesma viagem com dois nomes
+     diferentes, e o relatório por motorista partido em duas pessoas.
+     ENTRADA PRÓPRIA NO HISTÓRICO, e não escondida: quem lê o histórico tem de ver que os
+     dois campos mudaram, senão a linha muda sozinha aos olhos de quem confere. */
+  { campo: 'MotoristaNome', rotulo: 'motorista (nome completo)' },
   { campo: 'Romaneio', rotulo: 'romaneio' },
   { campo: 'Obs', rotulo: 'observação' },
   { campo: 'UsuarioID', rotulo: 'quem lançou', mapa: 'usuarios' }
@@ -1348,6 +1355,30 @@ function correcaoLivre(m, usuarioId, agora) {
   if (!ate) return false;
   return (agora || new Date()).getTime() <
          new Date(m.DataHora.getTime() + JANELA_CORRECAO_MIN * 60000).getTime();
+}
+
+/**
+ * AS LINHAS DE UMA CARGA, pelo código do registro.
+ *
+ * O lançamento é feito de uma vez — quatro tipos de caixa num toque em Enviar — e vira
+ * quatro linhas. Corrigir a carga uma linha de cada vez é abrir quatro formulários,
+ * digitar o mesmo motivo quatro vezes e a mesma senha quatro vezes, e basta desistir no
+ * terceiro para a carga ficar metade corrigida e metade não.
+ *
+ * CANCELADA E EXCLUÍDA FICAM DE FORA: `montarCorrecao` as recusa uma a uma de qualquer
+ * jeito, e com elas dentro a carga inteira seria recusada por causa de uma linha que
+ * ninguém queria mexer.
+ *
+ * REGISTRO VAZIO NÃO CASA COM NADA. As linhas gravadas antes de a coluna existir têm o
+ * registro em branco; sem esta recusa, um pedido sem registro juntaria TODAS elas numa
+ * carga só e uma correção de quantidade cairia sobre dezenas de lançamentos alheios.
+ */
+function linhasDoRegistro(movimentos, registro) {
+  var reg = String(registro == null ? '' : registro).trim();
+  if (!reg) return [];
+  return (movimentos || []).filter(function (m) {
+    return String(m.Registro || '').trim() === reg && !m.Cancelado && !m.ExcluidoEm;
+  });
 }
 
 function montarCorrecao(mov, p, agora, nomes, guarda) {
@@ -2512,6 +2543,7 @@ module.exports = {
   TIPOS_MOV: TIPOS_MOV, PERFIS: PERFIS, TIPOS_LOCAL: TIPOS_LOCAL,
   rotuloTipo: rotuloTipo, mapaTipos: mapaTipos,
   comoChamar: comoChamar, nomeESobrenome: nomeESobrenome,
+  linhasDoRegistro: linhasDoRegistro,
   motoristasPublicos: motoristasPublicos, veiculosPublicos: veiculosPublicos,
   cnhVencida: cnhVencida,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,

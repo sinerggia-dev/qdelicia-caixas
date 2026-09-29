@@ -7031,8 +7031,17 @@
              Cancelar e excluir continuam presos ao admin: tirar um lançamento do saldo
              ou mandá-lo para a lixeira é decisão de escritório, não conserto de quem
              digitou errado. */
+          /* DOIS CAMINHOS, e nao um. `corrigir` e a LINHA — "so a CX P esta errada" — e
+             `a carga` sao as linhas todas do registro de uma vez, que e como o
+             lancamento foi feito. O segundo so aparece quando ha o que juntar: numa
+             carga de uma linha ele seria o mesmo formulario com outro nome. */
           '<td>'+(Q.podeCorrigir(Q.sessao(), m)
-             ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> ' : '')+
+             ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> '+
+               (linhasDaCarga(m.registro) > 1
+                 ? '<button class="mini acao" data-cregistro="'+Q.esc(m.registro)+'" '+
+                   'title="Corrigir as '+linhasDaCarga(m.registro)+' linhas de '+
+                   Q.esc(m.registro)+' de uma vez">a carga</button> ' : '')
+             : '')+
             (Q.ehAdmin()
              ? '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '+
                '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>'
@@ -7144,6 +7153,16 @@
      rota deixou de mandá-la; procurada só em `MOVS`, a ação da conciliação não acharia a
      linha e o botão não faria nada — sem erro no console, que é o pior jeito de não
      funcionar. */
+  /* QUANTAS LINHAS ATIVAS TEM A CARGA. E o que decide se o caminho da carga inteira faz
+     sentido: numa carga de uma linha so, ele seria o mesmo formulario com outro nome.
+     CANCELADA FORA DA CONTA, pela mesma razao que a rota as ignora. */
+  function linhasDaCarga(reg){
+    if (!reg) return 0;
+    return (MOVS||[]).filter(function(x){
+      return String(x.registro||'') === String(reg) && x.situacao !== 'Cancelada';
+    }).length;
+  }
+
   function movPorId(id){
     return (MOVS||[]).concat(DECLS||[])
       .filter(function(x){ return String(x.id) === String(id); })[0];
@@ -7390,6 +7409,9 @@
     box.querySelectorAll('button[data-corrigir]').forEach(function(b){
       b.addEventListener('click', function(){ acaoCorrigir(movPorId(b.dataset.corrigir)); });
     });
+    box.querySelectorAll('button[data-cregistro]').forEach(function(b){
+      b.addEventListener('click', function(){ formCorrigirRegistro(b.dataset.cregistro); });
+    });
     box.querySelectorAll('button[data-cancelar]').forEach(function(b){
       b.addEventListener('click', function(){ acaoCancelar(movPorId(b.dataset.cancelar)); });
     });
@@ -7432,8 +7454,10 @@
     corpo.innerHTML =
       (Q.podeCorrigir(Q.sessao(), g)
         ? '<button class="opcao" type="button" data-acao="corrigir">'+
-          '<span>Corrigir quantidades<small>grava a correção com o seu nome e o '+
-          'motivo</small></span></button>' : '')+
+          '<span>Corrigir quantidades<small>'+
+          (g.itens.length > 1 ? 'as '+g.itens.length+' linhas da carga, de uma vez'
+                              : 'grava a correção com o seu nome e o motivo')+
+          '</small></span></button>' : '')+
       (Q.ehAdmin()
         ? '<button class="opcao" type="button" data-acao="cancelar">'+
           '<span>Cancelar movimento<small>some dos saldos, continua no histórico</small>'+
@@ -7448,8 +7472,16 @@
         var acao = b.dataset.acao;
         /* Corrigir vale para a remessa inteira; cancelar e excluir, para a linha. A
            folha diz isso em cada rótulo, e não é o código que decide calado. */
-        if (acao === 'corrigir') return acaoCorrigir(g.itens.length === 1
-          ? movPorId(g.itens[0].id) : movPorId(g.id));
+        /* ISTO NAO FUNCIONAVA. `movPorId(g.id)` procurava o id do LOTE na lista de
+           movimentos e nao achava nada: com mais de uma linha, o botao que prometia
+           "corrigir a remessa" abria coisa nenhuma, calado. Agora ele abre o formulario
+           da carga, que e o que o rotulo sempre disse. */
+        if (acao === 'corrigir') {
+          if (g.itens.length === 1) return acaoCorrigir(movPorId(g.itens[0].id));
+          var reg = (movPorId(g.itens[0].id)||{}).registro;
+          if (reg) return formCorrigirRegistro(reg);
+          return Q.toast('Esta remessa nao tem registro — corrija linha a linha.','erro');
+        }
         var alvo = movPorId(g.itens[0].id);
         if (acao === 'cancelar') return acaoCancelar(alvo);
         if (acao === 'excluir') return acaoExcluir(alvo);
@@ -9344,52 +9376,191 @@
    * Corrigir não sobrescreve em silêncio: o backend empilha valor antigo, novo, autor e motivo
    * no histórico do movimento. É o que mantém de pé a regra de que nada se apaga.
    */
+  /* "—" na frente, e nao "Selecione...": um lancamento pode legitimamente nao ter
+     origem (o ajuste) ou motorista, e "Selecione..." sugeriria que falta preencher.
+     Escolher o vazio apaga o campo, que e o conserto de quem lancou no lugar errado. */
+  /* UM SELETOR NUNCA MOSTRA VALOR DIFERENTE DO QUE ESTÁ GRAVADO. Se o que o
+     lançamento tem não estiver na lista — local desativado, tipo apagado do cadastro —
+     o navegador escolhe a PRIMEIRA opção, a tela passa a exibir outra coisa, e gravar
+     torna a mentira verdadeira: o campo é reescrito sem ninguém ter tocado nele.
+
+     Foi assim que um lançamento de CX P virou CX DIVERSAS — que é a primeira da lista
+     em ordem alfabética — numa correção em que só se queria mexer na quantidade.
+
+     `faltando` devolve a opção que repõe o valor gravado, marcada, quando ele sumiu
+     da lista. É a mesma proteção que o seletor de motorista já tinha. */
+  function faltando(atual, tem, rotulo){
+    if (!atual || tem) return '';
+    return '<option value="'+Q.esc(atual)+'" selected>'+Q.esc(rotulo)+
+      ' · fora do cadastro</option>';
+  }
+
+  function seletorLocal(atual){
+    var lista = Q.ordenarLocais((DADOS.locais||[]));
+    var achou = lista.some(function(l){ return String(l.ID)===String(atual); });
+    return '<option value="">—</option>'+
+      faltando(atual, achou, nomeDe(DADOS.locais||[], atual))+
+      lista.map(function(l){
+        return '<option value="'+Q.esc(l.ID)+'"'+
+          (String(l.ID)===String(atual)?' selected':'')+'>'+Q.esc(l.Nome)+
+          ' · '+Q.esc(String(l.Tipo||'').toLowerCase())+'</option>';
+      }).join('');
+  }
+
+  /* O movimento guarda o NOME do motorista, nao o id. Se o nome gravado nao estiver
+     mais no cadastro — motorista desligado, nome digitado a mao —, ele entra na lista
+     assim mesmo: sem isso o seletor abriria em outro nome e a primeira gravacao trocaria
+     o motorista do lancamento sem ninguem pedir. */
+  /* O APELIDO NA LISTA, E O NOME INTEIRO JUNTO. Oferecendo o nome do cadastro, a
+     correcao gravava o nome LONGO na coluna do nome curto e deixava a coluna do nome
+     completo com o valor antigo: a mesma viagem passava a ter dois nomes diferentes, e o
+     relatorio por motorista partia a pessoa em duas. Foi o que aconteceu no R000036.
+     O `data-inteiro` e o que faz o par viajar junto no Gravar. */
+  function seletorMotorista(atual){
+    var lista = Q.ordenarPorNome(MOTORISTAS||[]).map(function(x){
+      return { curto: Q.comoChamar(x), inteiro: String(x.Nome||'') };
+    });
+    if (atual && !lista.some(function(x){ return x.curto === atual; })) {
+      lista.unshift({ curto: atual, inteiro: '' });
+    }
+    return '<option value="" data-inteiro="">—</option>'+lista.map(function(x){
+      return '<option value="'+Q.esc(x.curto)+'" data-inteiro="'+Q.esc(x.inteiro)+'"'+
+        (x.curto===String(atual||'')?' selected':'')+'>'+Q.esc(x.curto)+'</option>';
+    }).join('');
+  }
+
+  /* O QUE O SELETOR ESCOLHEU, nos dois nomes. Sem o `data-inteiro` — motorista que nao
+     esta mais no cadastro — o inteiro cai no curto, que e o unico nome que se sabe. */
+  function motoristaEscolhido(id){
+    var sel = document.getElementById(id);
+    if (!sel) return { curto: '', inteiro: '' };
+    var op = sel.options[sel.selectedIndex];
+    var curto = sel.value;
+    var inteiro = op ? (op.getAttribute('data-inteiro') || '') : '';
+    return { curto: curto, inteiro: curto ? (inteiro || curto) : '' };
+  }
+
+
+  /**
+   * CORRIGIR A CARGA INTEIRA, pelo código do registro.
+   *
+   * O lançamento nasce de uma vez: quem está no galpão põe as quatro quantidades e toca
+   * em Enviar uma vez. Corrigir isso linha a linha é abrir quatro formulários, digitar o
+   * mesmo motivo quatro vezes e a mesma senha quatro vezes — e basta desistir no terceiro
+   * para a carga ficar metade corrigida, sem nada na tela dizendo que ficou.
+   *
+   * AS QUANTIDADES SÃO DE CADA LINHA; o resto É DA CARGA. É a mesma divisão do
+   * lançamento: a data, a origem, o destino, o motorista e o romaneio valem para o envio
+   * todo, e por isso aparecem uma vez só aqui.
+   *
+   * A LINHA A LINHA CONTINUA EXISTINDO, e continua sendo o caminho para "só a CX P está
+   * errada". Esta tela não a substitui.
+   */
+  function formCorrigirRegistro(reg){
+    var s = Q.sessao();
+    var linhas = (MOVS||[]).filter(function(x){
+      return String(x.registro||'') === String(reg) && x.situacao !== 'Cancelada';
+    });
+    if (!linhas.length) return Q.toast('Não achei linhas ativas neste registro.','erro');
+    var m = linhas[0];
+    /* A TRAVA É A MAIS APERTADA DA CARGA. Se uma linha só já saiu dos dez minutos, a
+       carga inteira pede senha: gravar metade sem senha e metade com seria a carga
+       ficando pela metade de novo, por outro caminho. */
+    var livre = linhas.every(function(x){ return Q.correcaoLivre(s, x); });
+
+    modal('<h2>Corrigir a carga <span class="cod cod--reg">'+Q.esc(reg)+'</span></h2>'+
+      '<p style="color:var(--txt2);font-size:13.5px;margin:0 0 10px">'+
+        Q.esc(m.tipo)+' · '+Q.dataBR(m.dataRef)+' · '+Q.esc(m.origem||'—')+' → '+
+        Q.esc(m.destino||'—')+' · '+linhas.length+' linhas</p>'+
+      '<h3>Quantidades, linha a linha</h3>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Item</th><th>Caixa</th>'+
+        '<th style="width:110px">Quantidade</th><th style="width:110px">Conferida</th>'+
+        '</tr></thead><tbody>'+
+        linhas.map(function(x){
+          return '<tr><td><span class="cod">'+Q.esc(x.id)+'</span></td>'+
+            '<td>'+Q.esc(x.tipoCaixa||'')+'</td>'+
+            '<td><input type="number" class="rq" data-id="'+Q.esc(x.id)+'" value="'+
+              Q.esc(x.qtd)+'"></td>'+
+            '<td><input type="number" class="rc" data-id="'+Q.esc(x.id)+'" value="'+
+              Q.esc(x.qtdConferida===''?'':x.qtdConferida)+'"></td></tr>';
+        }).join('')+
+      '</tbody></table></div>'+
+      '<h3 style="margin-top:18px">O que vale para a carga inteira</h3>'+
+      '<div class="grid2">'+
+        '<div><label>Data do movimento</label><input type="date" id="rData" value="'+
+          Q.esc(String(m.dataRef||'').slice(0,10))+'"></div>'+
+        '<div><label>Motorista</label><select id="rMotorista">'+
+          seletorMotorista(m.motorista)+'</select></div>'+
+        '<div><label>Origem</label><select id="rOrigem">'+
+          seletorLocal(m.origemId)+'</select></div>'+
+        '<div><label>Destino</label><select id="rDestino">'+
+          seletorLocal(m.destinoId)+'</select></div>'+
+        '<div><label>Romaneio</label><input type="text" id="rRom" value="'+
+          Q.esc(m.romaneio||'')+'"></div>'+
+        '<div><label>Quem fez o envio</label><select id="rUsuario">'+
+          faltando(m.usuarioId,
+                   (EQUIPE||[]).some(function(u){ return String(u.ID)===String(m.usuarioId); }),
+                   m.usuario || m.usuarioId)+
+          Q.ordenarPorNome(EQUIPE).map(function(u){
+            return '<option value="'+Q.esc(u.ID)+'"'+
+              (String(u.ID)===String(m.usuarioId)?' selected':'')+'>'+Q.esc(u.Nome)+'</option>';
+          }).join('')+
+        '</select></div>'+
+      '</div>'+
+      /* O TIPO DE CAIXA NAO ENTRA AQUI. Ele e o que DISTINGUE as linhas umas das outras:
+         posto como campo da carga, uma gravacao transformaria as quatro linhas em quatro
+         CX DIVERSAS e a carga perderia a discriminacao que ela existe para ter. */
+      '<p style="font-size:12.5px;color:var(--txt2);margin:2px 0 12px">'+
+        'O <b>tipo de caixa</b> não aparece aqui: é ele que distingue uma linha da outra. '+
+        'Para trocar a caixa de uma linha, use o <b>corrigir</b> dela.</p>'+
+      '<label>Observação</label><textarea id="rObs">'+Q.esc(m.obs||'')+'</textarea>'+
+      '<label>Motivo da correção <span style="font-weight:400;color:var(--txt3)">— '+
+        'obrigatório, fica no histórico de cada linha</span></label>'+
+      '<input type="text" id="rMotivo" placeholder="ex.: romaneio de papel dizia outro total">'+
+      (livre ? '' :
+        '<div class="aviso-trava" style="margin-top:12px">Alguma linha desta carga está '+
+        'fora dos 10 minutos de conserto livre. Informe a senha.</div>'+
+        '<label for="rSenha">Senha do escritório</label>'+
+        '<input type="password" id="rSenha" inputmode="numeric" autocomplete="off">')+
+      '<div class="linha-btn"><button class="btn" id="rSalvar">Gravar correção nas '+
+        linhas.length+' linhas</button></div>');
+
+    document.getElementById('rSalvar').addEventListener('click', function(){
+      var b = this;
+      var campoSenha = document.getElementById('rSenha');
+      var senhaDita = campoSenha ? campoSenha.value : '';
+      if (campoSenha && !senhaDita) return Q.toast('Informe a senha do escritório.','erro');
+      var itens = [].map.call(document.querySelectorAll('.rq'), function(i){
+        var conf = document.querySelector('.rc[data-id="'+i.dataset.id+'"]');
+        return { id: i.dataset.id, Qtd: i.value, QtdConferida: conf ? conf.value : '' };
+      });
+      b.disabled = true; b.textContent = 'Gravando…';
+      var mot = motoristaEscolhido('rMotorista');
+      Q.post({acao:'corrigirRegistro', registro:reg, usuarioId:s.id, senha:senhaDita,
+              motivo:document.getElementById('rMotivo').value.trim(),
+              itens:itens,
+              DataRef:document.getElementById('rData').value,
+              OrigemID:document.getElementById('rOrigem').value,
+              DestinoID:document.getElementById('rDestino').value,
+              Motorista:mot.curto, MotoristaNome:mot.inteiro,
+              Romaneio:document.getElementById('rRom').value,
+              Obs:document.getElementById('rObs').value,
+              UsuarioID:document.getElementById('rUsuario').value}).then(function(r){
+        b.disabled = false;
+        b.textContent = 'Gravar correção nas '+linhas.length+' linhas';
+        if (!r.ok) return Q.toast(r.erro,'erro');
+        fecharModal();
+        Q.toast(r.consulta
+          ? 'Nada mudou na carga '+reg+'.'
+          : 'Carga '+reg+' corrigida em '+r.linhas+' linha(s): '+
+            (r.alterou||[]).join(', ')+'.', 'ok');
+        depoisDeMexer(m);
+      });
+    });
+  }
+
   function formCorrigir(m){
     var s = Q.sessao();
-    /* "—" na frente, e nao "Selecione...": um lancamento pode legitimamente nao ter
-       origem (o ajuste) ou motorista, e "Selecione..." sugeriria que falta preencher.
-       Escolher o vazio apaga o campo, que e o conserto de quem lancou no lugar errado. */
-    /* UM SELETOR NUNCA MOSTRA VALOR DIFERENTE DO QUE ESTÁ GRAVADO. Se o que o
-       lançamento tem não estiver na lista — local desativado, tipo apagado do cadastro —
-       o navegador escolhe a PRIMEIRA opção, a tela passa a exibir outra coisa, e gravar
-       torna a mentira verdadeira: o campo é reescrito sem ninguém ter tocado nele.
-
-       Foi assim que um lançamento de CX P virou CX DIVERSAS — que é a primeira da lista
-       em ordem alfabética — numa correção em que só se queria mexer na quantidade.
-
-       `faltando` devolve a opção que repõe o valor gravado, marcada, quando ele sumiu
-       da lista. É a mesma proteção que o seletor de motorista já tinha. */
-    function faltando(atual, tem, rotulo){
-      if (!atual || tem) return '';
-      return '<option value="'+Q.esc(atual)+'" selected>'+Q.esc(rotulo)+
-        ' · fora do cadastro</option>';
-    }
-
-    function seletorLocal(atual){
-      var lista = Q.ordenarLocais((DADOS.locais||[]));
-      var achou = lista.some(function(l){ return String(l.ID)===String(atual); });
-      return '<option value="">—</option>'+
-        faltando(atual, achou, nomeDe(DADOS.locais||[], atual))+
-        lista.map(function(l){
-          return '<option value="'+Q.esc(l.ID)+'"'+
-            (String(l.ID)===String(atual)?' selected':'')+'>'+Q.esc(l.Nome)+
-            ' · '+Q.esc(String(l.Tipo||'').toLowerCase())+'</option>';
-        }).join('');
-    }
-
-    /* O movimento guarda o NOME do motorista, nao o id. Se o nome gravado nao estiver
-       mais no cadastro — motorista desligado, nome digitado a mao —, ele entra na lista
-       assim mesmo: sem isso o seletor abriria em outro nome e a primeira gravacao trocaria
-       o motorista do lancamento sem ninguem pedir. */
-    function seletorMotorista(atual){
-      var nomes = Q.ordenarPorNome(MOTORISTAS||[]).map(function(x){ return x.Nome; });
-      if (atual && nomes.indexOf(atual) < 0) nomes.unshift(atual);
-      return '<option value="">—</option>'+nomes.map(function(n){
-        return '<option value="'+Q.esc(n)+'"'+(String(n)===String(atual||'')?' selected':'')+'>'+
-          Q.esc(n)+'</option>';
-      }).join('');
-    }
-
     modal('<h2>Corrigir lançamento</h2>'+
       '<p style="color:var(--txt2);font-size:13.5px;margin:0 0 10px">'+
         Q.esc(m.tipo)+' · '+Q.dataBR(m.dataRef)+' · '+Q.esc(m.origem||'—')+' → '+Q.esc(m.destino||'—')+
@@ -9470,7 +9641,8 @@
               OrigemID:document.getElementById('cOrigem').value,
               DestinoID:document.getElementById('cDestino').value,
               TipoCaixaID:document.getElementById('cCaixa').value,
-              Motorista:document.getElementById('cMotorista').value,
+              Motorista:motoristaEscolhido('cMotorista').curto,
+              MotoristaNome:motoristaEscolhido('cMotorista').inteiro,
               Romaneio:document.getElementById('cRom').value,
               Obs:document.getElementById('cObs').value,
               UsuarioID:document.getElementById('cUsuario').value}).then(function(r){

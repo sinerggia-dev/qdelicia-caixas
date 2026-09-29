@@ -698,6 +698,127 @@ async function main() {
      'nem apaga o que já havia',
      { antes: vezesAntes, depois: depoisDaConsulta.alterado.vezes });
 
+  console.log('\n== corrigir a CARGA inteira, pelo registro ==');
+  {
+    /* O lançamento nasce de uma vez: quatro tipos de caixa num toque em Enviar. A tela
+       corrigia uma linha por vez, e corrigir a carga era abrir quatro formulários e
+       digitar o mesmo motivo e a mesma senha quatro vezes — bastava desistir no terceiro
+       para a carga ficar metade corrigida, sem nada dizendo que ficou. */
+    const envio = await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: R,
+      /* DUAS LINHAS, e nao tres: o cadastro de mentira tem dois tipos de caixa e o
+         mesmo tipo nao pode aparecer duas vezes no mesmo lote — regra que ja existe e
+         que a primeira versao desta bancada esbarrou. Duas bastam: o que se prova e que
+         cada linha fica com a SUA quantidade. */
+      itens: [{ tipoCaixaId: T, qtd: 10 }, { tipoCaixaId: 'T002', qtd: 20 }],
+      dataRef: dia(0), usuarioId: 'U001', perfil: 'ADMIN', motorista: 'Isaque',
+      motoristaNome: 'Isaque Sobrenome' });
+    ok(envio.ok, 'uma carga de três linhas foi lançada', envio.erro);
+    const feitos = (envio.criados || []).map((c) => c.id);
+    const daCarga = (await GET({ acao: 'movimentos', limit: 400 })).movimentos
+      .filter((m) => feitos.indexOf(m.id) >= 0);
+    const REG = daCarga[0].registro;
+    ok(daCarga.length === 2 && REG && daCarga.every((m) => m.registro === REG),
+      'as três linhas têm o MESMO registro — é ele que faz delas uma carga só',
+      daCarga.map((m) => m.id + ':' + m.registro));
+
+    /* ---- TUDO OU NADA ---- */
+    const semMotivo = await POST({ acao: 'corrigirRegistro', registro: REG,
+      usuarioId: 'U001', senha: '123456', itens: [{ id: daCarga[0].id, Qtd: 11 }] });
+    ok(semMotivo.ok === false, 'a carga sem motivo é recusada, como a linha', semMotivo);
+    ok(tabelas.movimentos.find((m) => m.id === daCarga[0].id).qtd === 10,
+      'e NADA foi gravado — recusada no meio, a carga ficaria metade corrigida e só a ' +
+      'conferência do mês encontraria',
+      tabelas.movimentos.find((m) => m.id === daCarga[0].id).qtd);
+
+    /* ---- UMA LINHA DE FORA DA CARGA ---- */
+    const deFora = await POST({ acao: 'corrigirRegistro', registro: REG, usuarioId: 'U001',
+      senha: '123456', motivo: 'x', itens: [{ id: alvoC.id, Qtd: 1 }] });
+    ok(deFora.ok === false && /não é deste registro/.test(deFora.erro || ''),
+      'uma linha de OUTRA carga é recusada — senão ela entraria de carona nesta, com o ' +
+      'motivo desta', deFora.erro);
+    ok(Number(tabelas.movimentos.find((m) => m.id === alvoC.id).qtd) === 95,
+      'e a linha de fora continua intocada', tabelas.movimentos.find((m) => m.id === alvoC.id).qtd);
+
+    /* ---- A QUANTIDADE É DE CADA LINHA; O RESTO, DA CARGA ---- */
+    const feito = await POST({ acao: 'corrigirRegistro', registro: REG, usuarioId: 'U001',
+      senha: '123456', motivo: 'romaneio de papel dizia outro total',
+      itens: [{ id: daCarga[0].id, Qtd: 11 }, { id: daCarga[1].id, Qtd: 22 }],
+      Motorista: 'Chico', MotoristaNome: 'Chico Sobrenome', Romaneio: 'RM-9' });
+    ok(feito.ok && feito.linhas === 2, 'a carga inteira foi corrigida num pedido só', feito);
+    const agoraA = daCarga.map((m) => tabelas.movimentos.find((x) => x.id === m.id));
+    ok(agoraA.map((m) => Number(m.qtd)).join(',') === '11,22',
+      'cada linha ficou com a SUA quantidade — um número só para todas seria justamente o ' +
+      'erro que esta tela existe para evitar',
+      agoraA.map((m) => m.qtd));
+    ok(agoraA.every((m) => m.romaneio === 'RM-9'),
+      'e o que é da carga valeu para as três', agoraA.map((m) => m.romaneio));
+
+    /* ---- O PAR DO MOTORISTA ANDA JUNTO ----
+     * Trocar só o nome curto deixava a coluna Motorista dizendo o nome novo e a
+     * Motorista (completo) dizendo o antigo: a mesma viagem com dois nomes, e o
+     * relatório por motorista partindo a pessoa em duas. Aconteceu no R000036. */
+    ok(agoraA.every((m) => m.motorista === 'Chico' && m.motorista_nome === 'Chico Sobrenome'),
+      'e os DOIS nomes do motorista andaram juntos — só um deles reescrito, a mesma ' +
+      'viagem passa a ter dois nomes e o relatório parte a pessoa em duas',
+      agoraA.map((m) => [m.motorista, m.motorista_nome]));
+
+    /* ---- O HISTÓRICO FICA EM CADA LINHA ---- */
+    ok(agoraA.every((m) => (m.historico || []).some((h) =>
+        h.motivo === 'romaneio de papel dizia outro total' && h.por === 'U001')),
+      'e o motivo e o autor ficam no histórico de CADA linha — guardado só numa, as ' +
+      'outras mudariam sozinhas aos olhos de quem confere',
+      agoraA.map((m) => (m.historico || []).length));
+
+    /* ---- GRAVAR SEM MUDAR NADA É CONSULTA, também na carga ---- */
+    const denovo = await POST({ acao: 'corrigirRegistro', registro: REG, usuarioId: 'U001',
+      senha: '123456', motivo: 'conferindo',
+      itens: [{ id: daCarga[0].id, Qtd: 11 }, { id: daCarga[1].id, Qtd: 22 }] });
+    ok(denovo.ok && denovo.consulta === true,
+      'e gravar a carga sem mudar nada é CONSULTA — "Corrigido:" seguido de nada é a ' +
+      'mesma mentira da etiqueta, dita em outro lugar', denovo);
+
+    /* ---- SENHA ERRADA NÃO GRAVA NADA ---- */
+    const errada = await POST({ acao: 'corrigirRegistro', registro: REG, usuarioId: 'U003',
+      senha: 'xxxxxx', motivo: 'tentando', itens: [{ id: daCarga[0].id, Qtd: 99 }] });
+    ok(errada.ok === false,
+      'senha errada recusa a carga', errada.erro);
+    ok(Number(tabelas.movimentos.find((m) => m.id === daCarga[0].id).qtd) === 11,
+      'e nenhuma linha se mexeu', tabelas.movimentos.find((m) => m.id === daCarga[0].id).qtd);
+
+    /* ---- REGISTRO VAZIO NÃO CASA COM NADA ----
+     * As linhas gravadas antes de a coluna existir têm o registro em branco. Sem esta
+     * recusa, um pedido sem registro juntaria TODAS elas numa carga só, e uma correção
+     * de quantidade cairia sobre dezenas de lançamentos alheios. */
+    /* ---- A DECLARAÇÃO DENTRO DA CARGA ----
+     * A declaração do motorista só Admin, Gestor ou Gerente altera. A carga passa por
+     * várias linhas de uma vez, e a tranca vale para CADA uma: conferida só na primeira,
+     * uma declaração no meio da carga seria alterada por quem não pode, de carona nas
+     * linhas comuns. */
+    tabelas.movimentos.find((m) => m.id === daCarga[1].id).declaracao = true;
+    const decl = await POST({ acao: 'corrigirRegistro', registro: REG, usuarioId: 'U003',
+      senha: '123456', motivo: 'tentando',
+      itens: [{ id: daCarga[0].id, Qtd: 77 }, { id: daCarga[1].id, Qtd: 88 }] });
+    ok(decl.ok === false && /declaração/.test(decl.erro || ''),
+      'uma declaração no meio da carga tranca a carga inteira para quem não pode ' +
+      'alterá-la — conferida só na primeira linha, ela seria alterada de carona nas ' +
+      'linhas comuns', decl.erro);
+    ok(Number(tabelas.movimentos.find((m) => m.id === daCarga[0].id).qtd) === 11,
+      'e a linha comum ao lado dela também não se mexeu',
+      tabelas.movimentos.find((m) => m.id === daCarga[0].id).qtd);
+    ok((await POST({ acao: 'corrigirRegistro', registro: REG, usuarioId: 'U001',
+        senha: '123456', motivo: 'quem pode, pode',
+        itens: [{ id: daCarga[0].id, Qtd: 12 }] })).ok === true,
+      'e quem PODE alterar declaração segue corrigindo a carga — a tranca é de perfil, ' +
+      'e não um muro para todo mundo');
+    tabelas.movimentos.find((m) => m.id === daCarga[1].id).declaracao = false;
+
+    const vazio = await POST({ acao: 'corrigirRegistro', registro: '', usuarioId: 'U001',
+      senha: '123456', motivo: 'x', itens: [] });
+    ok(vazio.ok === false,
+      'registro vazio não casa com nada — casando, ele juntaria todas as linhas antigas ' +
+      'numa carga só e a correção cairia sobre lançamentos alheios', vazio.erro);
+  }
+
   /* ---------------------------------------------------------------------------
    * A CORREÇÃO FEITA NO GALPÃO APARECE NO PAINEL.
    *

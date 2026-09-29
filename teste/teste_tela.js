@@ -9611,17 +9611,40 @@ console.log('\n== Corrigir: o que é correção e o que é só consulta ==');
    * a tela passa a exibir outra coisa, e gravar torna a mentira verdadeira. Foi assim
    * que um lançamento de CX P virou CX DIVERSAS — a primeira em ordem alfabética — numa
    * correção em que só se queria mexer na quantidade. */
-  var iFC = adm.indexOf('function formCorrigir(m)');
+  /* O RECORTE COMECA NAS PECAS, e nao no formulario: `faltando`, `seletorLocal` e
+     `seletorMotorista` sairam de dentro de `formCorrigir` no dia em que o formulario da
+     CARGA nasceu e passou a precisar das mesmas. Preso ao formulario, o recorte ficou sem
+     as pecas e a prova caiu sem que nada tivesse quebrado. */
+  var iFC = adm.indexOf('  function faltando(atual, tem, rotulo){');
   var forma = adm.slice(iFC, adm.indexOf('\n  /* Locais que o admin pode marcar', iFC));
   ok(iFC > 0 && forma.length > 2000, 'o recorte do formulário pegou o corpo', forma.length);
 
   ok(/function faltando\(atual, tem, rotulo\)\{[\s\S]{0,260}fora do cadastro/.test(forma),
     'o formulário repõe o valor gravado quando ele sumiu do cadastro — e diz que ele ' +
     'está fora, em vez de fingir que é outro');
-  ok((forma.match(/faltando\(/g) || []).length === 4,
-    'e usa isso nos TRÊS seletores que podiam cair na primeira opção — local (que serve ' +
-    'a origem e destino), caixa e quem lançou',
-    (forma.match(/faltando\([a-zA-Z.]*/g) || []));
+
+  /* ---- TODO SELETOR DE CORRECAO E PROTEGIDO ----
+   * Contar quatro chamadas de `faltando` defendia um NUMERO, e o numero nao diz QUAIS.
+   * O que importa e que nenhum seletor destes formularios possa cair na primeira opcao:
+   * entao a lista de seletores e DESCOBERTA, e cada um tem de usar uma das protecoes.
+   * O seletor novo — o da carga — entra na prova no dia em que nascer. */
+  var seletores = [];
+  var reSel = /<select id="([A-Za-z0-9]+)">'\+([\s\S]{0,900}?)'<\/select>/g, mSel;
+  while ((mSel = reSel.exec(forma))) seletores.push({ id: mSel[1], corpo: mSel[2] });
+  ok(seletores.length >= 8,
+    'a conferência achou os seletores dos formulários de correção — lista vazia faria a ' +
+    'prova abaixo aprovar qualquer coisa',
+    seletores.map(function (s) { return s.id; }));
+  var desprotegidos = seletores.filter(function (s) {
+    return s.corpo.indexOf('seletorLocal(') < 0 &&
+           s.corpo.indexOf('seletorMotorista(') < 0 &&
+           s.corpo.indexOf('faltando(') < 0;
+  });
+  ok(desprotegidos.length === 0,
+    'e TODO seletor de correção repõe o valor gravado quando ele sumiu do cadastro — ' +
+    'sem isso o navegador escolhe a primeira opção, a tela passa a exibir outra coisa, e ' +
+    'gravar torna a mentira verdadeira: foi assim que um CX P virou CX DIVERSAS',
+    desprotegidos.map(function (s) { return s.id; }));
   ok(/faltando\(m\.tipoCaixaId,/.test(forma),
     'a caixa em particular: sem opção vazia, ela caía em CX DIVERSAS, que é a primeira ' +
     'da lista — e gravar trocava o tipo de caixa do lançamento');
@@ -11965,6 +11988,150 @@ console.log('\n== o painel de filtro abre por cima ==');
   ok((adm.match(/ligarAbreFolha\('/g) || []).length === 2,
     'ligado pela MESMA função das duas telas');
 })();
+
+console.log('\n== corrigir a carga inteira, e nao so a linha ==');
+{
+  var admC = fsReal.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var Lc = require(path.join(__dirname, '..', 'api', '_logica.js'));
+
+  /* ---- QUAIS LINHAS SAO A CARGA, RODADO ---- */
+  var base = [
+    { ID: 'M1', Registro: 'R000041' },
+    { ID: 'M2', Registro: 'R000041' },
+    { ID: 'M3', Registro: 'R000041', Cancelado: true },
+    { ID: 'M4', Registro: 'R000041', ExcluidoEm: '2026-09-01T00:00:00' },
+    { ID: 'M5', Registro: 'R000036' },
+    { ID: 'M6', Registro: '' },
+    { ID: 'M7' }
+  ];
+  var ids = function (l) { return l.map(function (m) { return m.ID; }).join(','); };
+  ok(ids(Lc.linhasDoRegistro(base, 'R000041')) === 'M1,M2',
+    'a carga s\u00e3o as linhas ATIVAS do registro — cancelada e exclu\u00edda ficam de fora, ' +
+    'sen\u00e3o a carga inteira seria recusada por causa de uma linha que ningu\u00e9m queria mexer',
+    ids(Lc.linhasDoRegistro(base, 'R000041')));
+  ok(ids(Lc.linhasDoRegistro(base, 'R000036')) === 'M5',
+    'e outra carga traz s\u00f3 as dela');
+  /* REGISTRO VAZIO NAO CASA COM NADA. As linhas gravadas antes de a coluna existir tem o
+     registro em branco: casando, um pedido sem registro juntaria TODAS elas numa carga
+     so, e uma correcao de quantidade cairia sobre dezenas de lancamentos alheios. */
+  ok(Lc.linhasDoRegistro(base, '').length === 0 &&
+     Lc.linhasDoRegistro(base, null).length === 0 &&
+     Lc.linhasDoRegistro(base, '   ').length === 0,
+    'e registro VAZIO n\u00e3o casa com nada — casando, ele juntaria as linhas antigas de ' +
+    'registro em branco numa carga s\u00f3, e a corre\u00e7\u00e3o cairia sobre lan\u00e7amentos alheios',
+    [Lc.linhasDoRegistro(base, '').length, Lc.linhasDoRegistro(base, null).length]);
+  ok(Lc.linhasDoRegistro(base, 'R000041')[0] !== base[0] ||
+     Lc.linhasDoRegistro([], 'R1').length === 0,
+    'e lista vazia devolve vazio em vez de quebrar');
+
+  /* ---- O FORMULARIO DA CARGA ---- */
+  var iFR = admC.indexOf('  function formCorrigirRegistro(reg){');
+  var formR = iFR < 0 ? '' : admC.slice(iFR, admC.indexOf('\n  function formCorrigir(m){', iFR));
+  ok(iFR > 0 && formR.length > 1500,
+    'a confer\u00eancia recortou o formul\u00e1rio da carga — recorte vazio faria as provas abaixo ' +
+    'aprovarem qualquer coisa', formR.length);
+
+  /* UMA QUANTIDADE POR LINHA. Um campo so para a carga poria o mesmo numero nas quatro
+     linhas — que e exatamente o erro que esta tela existe para evitar. */
+  ok(formR.indexOf("class=" + '"' + "rq" + '"' + " data-id=") > 0 &&
+     formR.indexOf('linhas.map(function(x){') > 0,
+    'o formul\u00e1rio tem uma quantidade POR LINHA — um campo s\u00f3 para a carga poria o ' +
+    'mesmo n\u00famero em todas, que \u00e9 o erro que esta tela existe para evitar');
+
+  /* O TIPO DE CAIXA NAO ENTRA. Ele e o que DISTINGUE as linhas: posto como campo da
+     carga, uma gravacao transformaria as quatro linhas em quatro CX DIVERSAS e a carga
+     perderia a discriminacao que ela existe para ter. */
+  ok(formR.indexOf('cCaixa') < 0 && formR.indexOf('tipoCaixaId') < 0,
+    'e o tipo de caixa N\u00c3O \u00e9 campo da carga — \u00e9 ele que distingue uma linha da outra, e ' +
+    'como campo da carga uma grava\u00e7\u00e3o transformaria as quatro linhas na mesma caixa');
+  ok(/tipo de caixa[\s\S]{0,200}corrigir/.test(formR),
+    'e a tela DIZ onde trocar a caixa de uma linha, em vez de deixar quem procura ' +
+    'concluir que n\u00e3o d\u00e1');
+
+  /* OS DOIS NOMES DO MOTORISTA, nas DUAS correcoes. Trocar so o curto deixava a coluna
+     Motorista com o nome novo e a Motorista (completo) com o antigo. */
+  var iFU = admC.indexOf('  function formCorrigir(m){');
+  var formU = iFU < 0 ? '' : admC.slice(iFU, admC.indexOf('\n  /* Locais que o admin pode marcar', iFU));
+  [[formU, 'da linha'], [formR, 'da carga']].forEach(function (par) {
+    ok(par[0].indexOf('Motorista:') > 0 && par[0].indexOf('MotoristaNome:') > 0,
+      'a corre\u00e7\u00e3o ' + par[1] + ' manda os DOIS nomes do motorista — s\u00f3 um deles, a ' +
+      'coluna curta passa a dizer o nome novo e a completa continua no antigo, e o ' +
+      'relat\u00f3rio por motorista parte a pessoa em duas');
+  });
+
+  /* A TRAVA MAIS APERTADA DA CARGA: se uma linha so ja saiu dos dez minutos, a carga
+     inteira pede senha. Gravar metade sem senha e metade com seria a carga ficando pela
+     metade de novo, por outro caminho. */
+  ok(/linhas\.every\(function\(x\){[^}]*correcaoLivre/.test(formR),
+    'e a carga pede senha se QUALQUER linha dela j\u00e1 saiu dos dez minutos — a trava mais ' +
+    'apertada vale para todas, sen\u00e3o metade grava e metade n\u00e3o');
+
+  /* ---- O SELETOR DE MOTORISTA, RODADO ----
+   * LIDO NO ARQUIVO, isto responderia "a função cita comoChamar?" — e citaria, ainda que
+   * o valor da opção voltasse a ser o nome do cadastro. Foi exatamente essa sabotagem
+   * que escapou. Então o seletor é MONTADO e o HTML dele é lido.
+   * O QUE ELE TEM DE FAZER: oferecer o nome de TRABALHO na opção e carregar o nome
+   * INTEIRO junto, para que o Gravar mande o par. */
+  var iSM = admC.indexOf('  function seletorMotorista(atual){');
+  var fonteSM = iSM < 0 ? '' : admC.slice(iSM, admC.indexOf('\n  }', iSM) + 4);
+  ok(fonteSM.length > 200, 'a confer\u00eancia recortou o seletor de motorista', fonteSM.length);
+  if (fonteSM.length > 200) {
+    var appSM = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    var iCC = appSM.indexOf('  function comoChamar(m) {');
+    var Qsm = {
+      esc: function (s) { return String(s == null ? '' : s); },
+      ordenarPorNome: function (l) { return l; },
+      comoChamar: new Function(appSM.slice(iCC, appSM.indexOf('\n  }', iCC) + 4) +
+        '\n return comoChamar;')()
+    };
+    var elenco = [{ ID: 'D1', Nome: 'Isaque Sobrenome', Apelido: 'Isaque' },
+                  { ID: 'D2', Nome: 'Ramos' }];
+    var html = new Function('MOTORISTAS', 'Q', fonteSM + '\n return seletorMotorista;')(
+      elenco, Qsm)('Isaque');
+    var vals = (html.match(/value="([^"]*)"/g) || [])
+      .map(function (x) { return x.slice(7, -1); });
+    var inteiros = (html.match(/data-inteiro="([^"]*)"/g) || [])
+      .map(function (x) { return x.slice(14, -1); });
+    ok(vals.indexOf('Isaque') >= 0 && vals.indexOf('Isaque Sobrenome') < 0,
+      'o seletor de corre\u00e7\u00e3o oferece o APELIDO, e n\u00e3o o nome do cadastro — oferecendo o ' +
+      'do cadastro, gravar escrevia o nome longo na coluna do nome curto e deixava a do ' +
+      'completo no valor antigo: a mesma viagem com dois nomes diferentes',
+      vals);
+    ok(inteiros.indexOf('Isaque Sobrenome') >= 0,
+      'e carrega o nome INTEIRO junto, para o Gravar mandar o par', inteiros);
+    ok(vals.indexOf('Ramos') >= 0,
+      'e quem n\u00e3o tem apelido continua pelo nome — em branco, a lista ganharia uma ' +
+      'op\u00e7\u00e3o vazia', vals);
+    /* O QUE ESTA GRAVADO NUNCA SOME DA LISTA: motorista desligado do cadastro, ou nome
+       digitado a mao, entra assim mesmo — senao o seletor abre em OUTRO nome e a
+       primeira gravacao troca o motorista do lancamento sem ninguem pedir. */
+    var comSumido = new Function('MOTORISTAS', 'Q', fonteSM + '\n return seletorMotorista;')(
+      elenco, Qsm)('Fulano Desligado');
+    ok(comSumido.indexOf('value="Fulano Desligado"') > 0 &&
+       /value="Fulano Desligado"[^>]*selected/.test(comSumido),
+      'e o nome GRAVADO entra na lista mesmo fora do cadastro, marcado — sen\u00e3o o ' +
+      'seletor abre em outro nome e a primeira grava\u00e7\u00e3o troca o motorista sem ningu\u00e9m pedir',
+      comSumido.slice(0, 200));
+  }
+
+  /* ---- AS DUAS PORTAS ---- */
+  ok(admC.indexOf('data-cregistro=') > 0 &&
+     /linhasDaCarga\(m\.registro\) > 1/.test(admC),
+    'a tabela oferece o caminho da carga S\u00d3 quando h\u00e1 o que juntar — numa carga de uma ' +
+    'linha ele seria o mesmo formul\u00e1rio com outro nome');
+  ok(/button\[data-cregistro\][\s\S]{0,200}formCorrigirRegistro/.test(admC),
+    'e o bot\u00e3o est\u00e1 LIGADO — um bot\u00e3o desenhado e n\u00e3o ligado \u00e9 o que j\u00e1 havia no celular, ' +
+    'e ele n\u00e3o fazia nada');
+
+  /* A FOLHA DO CELULAR PROMETIA E NAO CUMPRIA: `movPorId(g.id)` procurava o id do LOTE
+     na lista de movimentos e nao achava nada, entao com mais de uma linha o botao que
+     dizia "corrigir a remessa" abria coisa nenhuma, calado. */
+  var iFo = admC.indexOf("if (acao === 'corrigir')");
+  var folha = iFo < 0 ? '' : admC.slice(iFo, iFo + 600);
+  ok(folha.indexOf('formCorrigirRegistro(reg)') > 0 && folha.indexOf('movPorId(g.id)') < 0,
+    'e no celular a folha abre o formul\u00e1rio da carga — antes ela procurava o id do LOTE ' +
+    'entre os movimentos, n\u00e3o achava nada, e o bot\u00e3o n\u00e3o fazia nada, calado', folha.length);
+}
 
 console.log('\n== o apelido: o nome de trabalho e o do documento ==');
 {

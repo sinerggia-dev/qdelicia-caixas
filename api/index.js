@@ -252,6 +252,7 @@ async function rotaPost(p) {
   if (acao === 'conferir') return await conferir(p);
   if (acao === 'cancelar') return await cancelar(p);
   if (acao === 'corrigir') return await corrigir(p);
+  if (acao === 'corrigirRegistro') return await corrigirRegistro(p);
   if (acao === 'salvarLocal') return await salvarRegistro('Locais', p);
   if (acao === 'salvarTipo') return await salvarRegistro('TiposCaixa', p);
   if (acao === 'salvarMotorista') return await salvarRegistro('Motoristas', p);
@@ -477,6 +478,93 @@ async function corrigir(p) {
      quantidade" depois de uma gravação que não mudou nada seria a mesma mentira da
      etiqueta, dita em outro lugar. */
   return { ok: true, alterou: r.entradas, consulta: !!r.consulta };
+}
+
+/**
+ * A CORREÇÃO DA CARGA INTEIRA.
+ *
+ * O lançamento nasce de uma vez — quatro tipos de caixa num toque em Enviar — e vira
+ * quatro linhas. Corrigi-las uma a uma é abrir quatro formulários, digitar o mesmo
+ * motivo e a mesma senha quatro vezes, e basta desistir no terceiro para a carga ficar
+ * metade corrigida.
+ *
+ * TUDO OU NADA. As correcões são TODAS montadas antes de qualquer gravação: se uma linha
+ * for recusada — senha, declaração, linha na lixeira —, nada é gravado. Gravando o que
+ * dá e avisando "3 de 4", a carga ficaria num estado que ninguém pediu e que só a
+ * conferência do mês encontraria.
+ *
+ * A LINHA TEM DE PERTENCER AO REGISTRO. O pedido traz quantidade por id; um id de fora
+ * seria uma correção em outra carga entrando de carona nesta, com o motivo desta.
+ */
+async function corrigirRegistro(p) {
+  var d = await db.carregarTudo();
+  var linhas = L.linhasDoRegistro(d.movimentos, p.registro);
+  if (!linhas.length) {
+    return { ok: false, erro: 'Não achei linhas ativas neste registro. ' +
+      'Lançamento cancelado ou na lixeira não se corrige em bloco.' };
+  }
+
+  /* A DECLARAÇÃO É CONFERIDA LINHA A LINHA, e não uma vez pela primeira: uma carga pode
+     ter linha comum e declaração, e a tranca vale para cada uma. */
+  for (var b = 0; b < linhas.length; b++) {
+    var barra = L.barraDeclaracao(linhas[b], d.usuarios, p.usuarioId);
+    if (barra) return barra;
+  }
+
+  var porId = {};
+  (Array.isArray(p.itens) ? p.itens : []).forEach(function (i) {
+    porId[String(i.id)] = i;
+  });
+  var daCarga = {};
+  linhas.forEach(function (m) { daCarga[String(m.ID)] = true; });
+  var forasteiro = Object.keys(porId).filter(function (id) { return !daCarga[id]; })[0];
+  if (forasteiro) {
+    return { ok: false, erro: 'A linha ' + forasteiro + ' não é deste registro.' };
+  }
+
+  var agora = new Date();
+  var mandou = p.senha !== undefined && p.senha !== null && String(p.senha) !== '';
+  /* A SENHA É CONFERIDA UMA VEZ SÓ, e não por linha: o `scrypt` custa uns 50ms e a
+     resposta seria a mesma quatro vezes. A JANELA LIVRE continua sendo por linha —
+     `montarCorrecao` a decide —, porque é a linha que tem autor e hora. */
+  var senhaOk = mandou && conferirSenhaCorrecao(p.senha, d.config);
+  var nomes = {
+    usuarios: L.mapaNomes(d.usuarios || []),
+    locais: L.mapaNomes(d.locais || []),
+    tipos: L.mapaTipos(d.tipos || [])
+  };
+
+  var prontos = [], alterou = [], mexeu = 0;
+  for (var k = 0; k < linhas.length; k++) {
+    var mov = linhas[k];
+    var meu = porId[String(mov.ID)] || {};
+    /* OS COMPARTILHADOS VALEM PARA TODAS; a quantidade é de cada uma. Mandar a
+       quantidade junto dos compartilhados poria o mesmo número nas quatro linhas — que
+       é exatamente o erro que esta tela existe para evitar. */
+    var pedido = {
+      motivo: p.motivo, usuarioId: p.usuarioId,
+      DataRef: p.DataRef, OrigemID: p.OrigemID, DestinoID: p.DestinoID,
+      Motorista: p.Motorista, MotoristaNome: p.MotoristaNome,
+      Romaneio: p.Romaneio, Obs: p.Obs, UsuarioID: p.UsuarioID,
+      Qtd: meu.Qtd, QtdConferida: meu.QtdConferida
+    };
+    var livre = L.correcaoLivre(mov, p.usuarioId, agora);
+    var r = L.montarCorrecao(mov, pedido, agora, nomes,
+      { senhaOk: livre || senhaOk, senhaErrada: mandou && !senhaOk });
+    if (!r.ok) return r;
+    prontos.push({ id: mov.ID, r: r });
+    if (!r.consulta) mexeu++;
+    r.entradas.forEach(function (e) {
+      if (alterou.indexOf(e.campo) < 0) alterou.push(e.campo);
+    });
+  }
+
+  for (var g = 0; g < prontos.length; g++) {
+    var patch = db.MOV.para(prontos[g].r.patch);
+    patch.historico = prontos[g].r.historico;
+    await db.update('movimentos', prontos[g].id, patch);
+  }
+  return { ok: true, linhas: prontos.length, alterou: alterou, consulta: mexeu === 0 };
 }
 
 async function conferir(p) {
