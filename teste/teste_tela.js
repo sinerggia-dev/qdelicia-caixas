@@ -12232,6 +12232,94 @@ console.log('\n== o editor de falas para a demonstracao ==');
       'da frase que se pediu para ouvir', ou.slice(0, 120));
   });
 
+  /* ---- A LISTA DO DIA ENCHE COM O QUE O TUTORIAL LANCA ----
+   *
+   * Comecar vazia so' resolve metade: se ela nunca enchesse, a lista passaria a ensinar
+   * que lancamento gravado NAO aparece em lugar nenhum — que e' pior do que as tres
+   * linhas inventadas de antes.
+   *
+   * E O LANCAMENTO ENTRA NA LISTA, e nao na tela: `telaInicial()` e' chamada de novo no
+   * meio do roteiro — a abertura do retorno passa por ela —, e o que fosse escrito
+   * direto no HTML sumiria nessa segunda passagem, sem nada dizer por que. Foi assim
+   * que a versao antiga se comportava. */
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+    var iTi = txt.indexOf('  function telaInicial() {');
+    var ti = iTi < 0 ? '' : txt.slice(iTi, txt.indexOf('\n  }', iTi) + 4);
+    ok(ti.length > 500, arq + ': a confer\u00eancia recortou a tela do aplicativo', ti.length);
+    if (ti.length < 500) return;
+
+    function comFeitos(lista) {
+      var ap = { innerHTML: '' };
+      new Function('SO', 'ap', 'botaoSair', 'FEITOS', ti + '\ntelaInicial();')(
+        'ambos', ap, function () { return ''; }, lista);
+      return ap.innerHTML;
+    }
+    var cheia = comFeitos([{ t: 'Sa\u00edda \u00b7 Jo\u00e3o Pessoa', q: '1.450' }]);
+    ok(cheia.indexOf('Jo\u00e3o Pessoa') > 0 && cheia.indexOf('1.450') > 0,
+      arq + ': o que o tutorial lan\u00e7ou APARECE na lista do dia — se ela nunca enchesse, ' +
+      'passaria a ensinar que lan\u00e7amento gravado n\u00e3o aparece em lugar nenhum',
+      cheia.slice(cheia.indexOf('ap__mini'), cheia.indexOf('ap__mini') + 160));
+    ok(cheia.indexOf('ap__mini__vazio') < 0,
+      arq + ': e o aviso de dia vazio sai quando h\u00e1 algo — "nada lan\u00e7ado hoje" acima de ' +
+      'um lan\u00e7amento \u00e9 a tela se desmentindo');
+    ok(cheia.indexOf('class="novo"') > 0,
+      arq + ': e a linha nova vem destacada — no meio de outras, o que ACABOU de ser ' +
+      'gravado \u00e9 o que se procura');
+
+    /* O LANCAMENTO ENTRA NA LISTA ANTES DE A TELA SER DESENHADA. Escrito na tela depois,
+       ele some na proxima passagem por `telaInicial()`. */
+    var roteiro = txt.slice(txt.indexOf('  var SAIDA = ['));
+    ok(roteiro.indexOf('FEITOS.unshift(') > 0 &&
+       roteiro.indexOf("$('mini').insertAdjacentHTML") < 0,
+      arq + ': e ele entra na LISTA, e n\u00e3o direto na tela — escrito no HTML, ele some na ' +
+      'pr\u00f3xima vez que a tela do aplicativo for desenhada, e a abertura do retorno passa ' +
+      'por ela');
+    /* DENTRO DO MESMO ATO. Procurando o `telaInicial()` SEGUINTE, a prova achava o do
+       ato de baixo e aprovava a ordem invertida — a sabotagem que punha o `unshift`
+       depois do desenho passou verde por causa disso. O ato e' recortado pelas duas
+       pontas dele. */
+    var iU = roteiro.indexOf('FEITOS.unshift(');
+    var iniAto = roteiro.lastIndexOf('{ f: async function () {', iU);
+    var ato = iU < 0 ? '' : roteiro.slice(iniAto, roteiro.indexOf('} },', iU));
+    ok(iU > 0 && ato.indexOf('FEITOS.unshift(') < ato.indexOf('telaInicial();'),
+      arq + ': e entra ANTES de desenhar, no MESMO ato — depois, a tela já foi ' +
+      'montada sem ele', ato.slice(0, 200));
+
+    /* RECOMECAR ZERA O DIA: sem isto, a segunda volta abre mostrando o lancamento da
+       primeira, que ninguem que esta assistindo agora fez. */
+    var iRi = txt.indexOf("  $('reiniciar').addEventListener('click', function () {");
+    var ri = iRi < 0 ? '' : txt.slice(iRi, txt.indexOf('\n  });', iRi));
+    ok(ri.indexOf('FEITOS.length = 0;') > 0,
+      arq + ': e recome\u00e7ar ZERA o dia — sen\u00e3o a segunda volta abre mostrando o ' +
+      'lan\u00e7amento da primeira, que ningu\u00e9m que est\u00e1 assistindo agora fez', ri.slice(0, 200));
+
+    /* ---- O TIQUE DO TOQUE ---- */
+    var iTq = txt.indexOf('  function tique() {');
+    var tq = iTq < 0 ? '' : txt.slice(iTq, txt.indexOf('\n  }', iTq) + 4);
+    ok(tq.length > 300, arq + ': a confer\u00eancia recortou o tique', tq.length);
+    var iTc = txt.indexOf('  async function tocar(el) {');
+    var tc = iTc < 0 ? '' : txt.slice(iTc, txt.indexOf('\n  }', iTc) + 4);
+    ok(tc.indexOf('tique();') > 0,
+      arq + ': todo toque do dedo faz TIQUE — sem som, a tela muda e n\u00e3o h\u00e1 o que ligue ' +
+      'a mudan\u00e7a ao gesto. \u00c9 o mesmo `tocar` que escolhe campo e que digita n\u00famero, ' +
+      'ent\u00e3o os dois vieram juntos', tc.slice(0, 120));
+    ok(tq.indexOf('if (!SOM) return;') > 0,
+      arq + ': e ele segue o bot\u00e3o de \u00c1udio — quem desligou a voz desligou o som da ' +
+      'demonstra\u00e7\u00e3o inteira, e um tique sobrevivente seria justamente o que ela ' +
+      'desligou o som para evitar');
+    ok(tq.indexOf('try {') > 0 && tq.indexOf('catch') > 0,
+      arq + ': e est\u00e1 protegido — um navegador sem \u00e1udio n\u00e3o pode derrubar a ' +
+      'demonstra\u00e7\u00e3o por causa de um efeito sonoro');
+    ok(tq.indexOf('createOscillator') > 0 && tq.indexOf('.mp3') < 0 && tq.indexOf('.wav') < 0,
+      arq + ': e o som \u00e9 GERADO, n\u00e3o baixado — um arquivo seria mais um pedido de rede ' +
+      'numa p\u00e1gina que roda sozinha, e um tique que chega depois do toque \u00e9 pior do que ' +
+      'nenhum');
+    ok(tq.indexOf('exponentialRampToValueAtTime(0.0001') > 0,
+      arq + ': e ele desce em rampa at\u00e9 quase zero — o corte seco estala, e o estalo \u00e9 ' +
+      'mais alto que o tique', tq.slice(0, 160));
+  });
+
   /* ---- A CAPA CHAMA PELO NOME ----
    *
    * `{nome}` no TEXTO, e nao o nome grudado no codigo: assim a fala continua inteira no
@@ -12385,14 +12473,14 @@ console.log('\n== o editor de falas para a demonstracao ==');
       /* `CustomEvent` e' do navegador e nao existe no Node: sem o duble, a funcao
          estoura na primeira linha e a prova morre antes de medir o que veio medir. */
       new Function('temVoz', 'SOM', 'escolheuSom', 'ligarSom', 'document', 'TELA',
-        'painel', 'EMENDOU', 'trocar', 'SO', 'b', 'CustomEvent',
+        'painel', 'EMENDOU', 'trocar', 'SO', 'b', 'CustomEvent', 'FEITOS',
         asst.replace("if (b.id === 't-assistir') {", 'if (true) {') + '\n}')(
         temVoz, somAtual,
         function () { return jaEscolheu; },
         function (v, semRecomecar) { ligou = !!v; recomecou = !semRecomecar; },
         { dispatchEvent: function () {} }, '', function () {}, false,
         function () {}, 'saida', { id: 't-assistir' },
-        function () { return {}; });
+        function () { return {}; }, []);
       return { ligou: ligou, recomecou: recomecou };
     }
 
@@ -12457,8 +12545,10 @@ console.log('\n== o editor de falas para a demonstracao ==');
 
     function montarCom(so) {
       var ap = { innerHTML: '' };
-      new Function('SO', 'ap', 'botaoSair',
-        ti + '\ntelaInicial();')(so, ap, function () { return ''; });
+      /* `FEITOS` e' a lista do que a demonstracao ja lancou — vazia aqui, que e' o
+         estado em que a tela ABRE, e e' esse que a prova mede. */
+      new Function('SO', 'ap', 'botaoSair', 'FEITOS',
+        ti + '\ntelaInicial();')(so, ap, function () { return ''; }, []);
       return ap.innerHTML;
     }
     var soSaida = montarCom('saida');
@@ -12475,12 +12565,22 @@ console.log('\n== o editor de falas para a demonstracao ==');
     ok(ambos.indexOf('id="t-saida"') > 0 && ambos.indexOf('id="t-retorno"') > 0,
       arq + ': e a vers\u00e3o COMPLETA continua com os dois — ela ensina os dois, e esconder ' +
       'um deles ali seria esconder metade do que ela veio mostrar', ambos.length);
-    /* A LISTA DE MOVIMENTOS DO DIA NAO E' PENEIRADA: ela e' o que a EMPRESA moveu, e nao
-       o que esta pessoa pode fazer. Some-la para quem so' devolve esconderia a operacao
-       de quem trabalha nela. */
-    ok(soSaida.indexOf('Retorno \u00b7 Natal') > 0,
-      arq + ': e a lista de "movimentos de hoje" continua inteira — ela \u00e9 o que a ' +
-      'EMPRESA moveu, e n\u00e3o o que esta pessoa pode lan\u00e7ar');
+    /* A LISTA DO DIA COMECA VAZIA.
+     * Ela abria com tres linhas inventadas — uma saida para Campina Grande, um retorno
+     * de Natal, outra saida para Recife. Quem chega pela primeira vez le' aquilo como o
+     * que EXISTE no sistema dela: o primeiro contato com o aplicativo e' com numeros que
+     * nao sao dela e que ela nao consegue explicar.
+     * ELA ENCHE COM O QUE O TUTORIAL LANCAR — e' assim que ela ensina o que existe para
+     * ensinar: e' aqui que o seu lancamento aparece depois de gravado. */
+    ok(soSaida.indexOf('Campina Grande') < 0 && soSaida.indexOf('Natal') < 0 &&
+       soSaida.indexOf('Recife') < 0,
+      arq + ': a lista de "movimentos de hoje" abre VAZIA — com linhas inventadas, o ' +
+      'primeiro contato de quem chega é com números que não são dela e que ela ' +
+      'não consegue explicar',
+      soSaida.slice(soSaida.indexOf('ap__mini'), soSaida.indexOf('ap__mini') + 140));
+    ok(soSaida.indexOf('ap__mini__vazio') > 0,
+      arq + ': e o dia vazio é DITO — a lista sem nada dentro é uma moldura de 1px ' +
+      'que não se distingue de um pedaço de tela que não carregou');
   });
 
   /* O `SO` EXISTE NAS TRES. Ele e' a unica linha que separa as versoes, e as duas

@@ -129,6 +129,9 @@ body{background:linear-gradient(180deg,var(--dl-bg) 0%,var(--dl-fim) 100%) fixed
 .ap__mini div+div{border-top:1px solid var(--dl-line)}
 .ap__mini .dl-n{font-family:var(--dl-mono);font-weight:600;color:var(--dl-text)}
 .ap__mini .novo{background:rgba(var(--dl-marca-rgb),.14)}
+/* O DIA VAZIO TEM DE SER DITO. A lista sem nada dentro e' uma moldura de 1px que
+   nao se distingue de um pedaco de tela que nao carregou. */
+.ap__mini__vazio{padding:12px 14px;font-size:12.5px;color:var(--dl-text-muted)}
 
 /* rótulo em cima e caixa embaixo, como no app */
 .ap__campo{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 11px;margin-bottom:10px;
@@ -576,7 +579,41 @@ html:not([data-editor="1"]) .ed__b{display:none}
     dedo.style.setProperty('--y', p.y + 'px');
     await dorme(ms);
   }
+  /* O TIQUE DO TOQUE.
+   *
+   * Sem som, o dedo encosta e nada responde: a tela muda e nao ha o que ligue a mudanca
+   * ao gesto. O tique e' curto e baixo de proposito — ele confirma o toque, nao anuncia.
+   *
+   * GERADO, e nao baixado: um arquivo de audio seria mais um pedido de rede numa pagina
+   * que roda sozinha, e um tique que chega depois do toque e' pior do que nenhum.
+   *
+   * SEGUE O BOTAO DE AUDIO: quem desligou a voz desligou o som da demonstracao inteira,
+   * e um tique sobrevivente seria justamente a coisa que ela desligou o som para evitar.
+   */
+  var AUDIO = null;
+  function tique() {
+    if (!SOM) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!AUDIO) AUDIO = new AC();
+      if (AUDIO.state === 'suspended') AUDIO.resume();
+      var agora = AUDIO.currentTime;
+      var o = AUDIO.createOscillator(), g = AUDIO.createGain();
+      o.type = 'square';
+      o.frequency.setValueAtTime(1700, agora);
+      /* A rampa exponencial nao aceita zero: o corte seco estala, e o estalo e' mais
+         alto que o tique. */
+      g.gain.setValueAtTime(0.0001, agora);
+      g.gain.exponentialRampToValueAtTime(0.05, agora + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, agora + 0.05);
+      o.connect(g); g.connect(AUDIO.destination);
+      o.start(agora); o.stop(agora + 0.06);
+    } catch (e) {}
+  }
+
   async function tocar(el) {
+    tique();
     dedo.style.setProperty('--s', '.82');
     dedo.classList.add('dedo--toca');
     if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
@@ -911,6 +948,21 @@ html:not([data-editor="1"]) .ed__b{display:none}
   /* ------------------------------------------------------------------
      TELAS
   ------------------------------------------------------------------ */
+
+  /* O QUE A DEMONSTRACAO JA LANCOU.
+   *
+   * A lista "Movimentos de hoje" abria com tres linhas inventadas — uma saida para
+   * Campina Grande, um retorno de Natal, outra saida para Recife. Quem chega pela
+   * primeira vez le' aquilo como o que EXISTE no sistema dela, e o primeiro contato com
+   * o aplicativo e' com numeros que nao sao dela e que ela nao consegue explicar.
+   *
+   * COMECA VAZIA, e enche com o que o proprio tutorial lancar. Assim a lista ensina o
+   * que ela existe para ensinar: e' aqui que o seu lancamento aparece depois de gravado.
+   *
+   * GUARDADO NUMA LISTA, e nao escrito na tela: `telaInicial()` e' chamada de novo no
+   * meio do roteiro — a abertura do retorno passa por ela —, e o que estivesse escrito
+   * direto no HTML sumiria nessa segunda passagem, sem nada dizer por que. */
+  var FEITOS = [];
   function telaInicial() {
     ap.innerHTML =
       '<div class="ap__cab"><b>Delícia Frutas</b><span>· Matriz São Vicente</span>' +
@@ -934,9 +986,12 @@ html:not([data-editor="1"]) .ed__b{display:none}
           : '') +
         '<p class="ap__r">Movimentos de hoje</p>' +
         '<div class="ap__mini" id="mini">' +
-          '<div><span>Saída · Campina Grande</span><span class="dl-n">840</span></div>' +
-          '<div><span>Retorno · Natal</span><span class="dl-n">612</span></div>' +
-          '<div><span>Saída · Recife</span><span class="dl-n">1.204</span></div>' +
+          (FEITOS.length
+            ? FEITOS.map(function (m) {
+                return '<div class="novo"><span>' + m.t + '</span>' +
+                       '<span class="dl-n">' + m.q + '</span></div>';
+              }).join('')
+            : '<div class="ap__mini__vazio">Nada lançado hoje ainda.</div>') +
         '</div>' +
       '</div>';
   }
@@ -1142,9 +1197,10 @@ html:not([data-editor="1"]) .ed__b{display:none}
       } },
 
     { f: async function () {
+        /* ENTRA NA LISTA ANTES de a tela ser desenhada: escrito depois, some na
+           proxima vez que `telaInicial()` passar por aqui. */
+        FEITOS.unshift({ t: 'Saída · João Pessoa', q: '1.450' });
         telaInicial();
-        $('mini').insertAdjacentHTML('afterbegin',
-          '<div class="novo"><span>Saída · João Pessoa</span><span class="dl-n">1.450</span></div>');
         await dizer(FALAS.s08, 2600);
       } }
   ];
@@ -1223,9 +1279,8 @@ html:not([data-editor="1"]) .ed__b{display:none}
       } },
 
     { f: async function () {
+        FEITOS.unshift({ t: 'Retorno · João Pessoa', q: '940' });
         telaInicial();
-        $('mini').insertAdjacentHTML('afterbegin',
-          '<div class="novo"><span>Retorno · João Pessoa</span><span class="dl-n">940</span></div>');
         await dizer(FALAS.r08, 2600);
       } },
 
@@ -1369,6 +1424,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
          achar o botao "Audio" era tarefa de quem ja sabia que ele existia.
          SO' NO PRIMEIRO ACESSO: quem desligou a voz de proposito continua sem ela. */
       if (temVoz && !SOM && !escolheuSom()) ligarSom(true, true);
+      FEITOS.length = 0;                         /* comeca o dia do zero */
       document.dispatchEvent(new CustomEvent('demo:assistir'));
       EMENDOU = false;
       trocar('saida');
@@ -1390,6 +1446,10 @@ html:not([data-editor="1"]) .ed__b{display:none}
   }
   $('reiniciar').addEventListener('click', function () {
     window.__demoFim = false;
+    /* RECOMECAR ZERA O DIA. Sem isto, a segunda volta comeca com o lancamento da
+       primeira ja na lista — e a tela abre mostrando um movimento que, do ponto de
+       vista de quem esta assistindo agora, ninguem fez. */
+    FEITOS.length = 0;
     rodar();
   });
   /* PARAR E CONTINUAR, num lugar so'. O botao Pausar fazia isto inline, e o editor
