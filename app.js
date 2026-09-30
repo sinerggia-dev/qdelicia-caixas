@@ -398,6 +398,84 @@
     return p[0] + ' ' + p[p.length - 1];
   }
 
+  /**
+   * O FILTRO RAPIDO DO DIA, ligado a um par de campos de data.
+   *
+   * "O que foi lancado hoje" e a pergunta que quem esta no patio faz mais vezes, e
+   * responde-la custava mexer nos dois campos num teclado de celular: duas roletas,
+   * quatro toques, e o risco de deixar um deles no mes errado.
+   *
+   * ELE VOLTA SOZINHO. Um botao que so' vai obriga a digitar as duas datas a mao para
+   * desfazer UM toque — que e' exatamente o custo que ele veio tirar.
+   *
+   * O DIA E' O DA OPERACAO, e nao o do aparelho: e' o mesmo dia que o servidor usa para
+   * carimbar o lancamento. Num celular com o fuso errado — e no galpao isso acontece —
+   * "hoje" pelo aparelho nao acha o que a pessoa acabou de lancar.
+   *
+   * AQUI, E NAO EM CADA TELA. Ele nasceu dentro do `index.html` e a segunda tela que
+   * precisou dele — a conciliacao, no painel — teria copiado as vinte linhas: duas
+   * copias divergem no primeiro ajuste que so' uma receber, e a terceira tela nasceria
+   * com a versao que estivesse mais a mao.
+   */
+  /* O BOTAO ESTA LIGADO? A resposta sai dos CAMPOS, e nao de uma lembranca guardada.
+     Guardada, ela mente na primeira vez que a pessoa mexe nas datas a mao: o botao fica
+     marcado sobre um periodo que ja nao e' hoje, e o unico jeito de desmarca-lo e'
+     toca-lo — o que muda as datas de novo.
+     Esta metade veio da versao de Movimentos, que ja fazia certo. */
+  function ehHoje(idDe, idAte) {
+    var de = document.getElementById(idDe), ate = document.getElementById(idAte);
+    if (!de || !ate) return false;
+    var h = hojeOperacao();
+    return de.value === h && ate.value === h;
+  }
+
+  function marcarBotaoHoje(idBotao, idDe, idAte) {
+    var b = document.getElementById(idBotao);
+    if (b) b.setAttribute('aria-pressed', ehHoje(idDe, idAte) ? 'true' : 'false');
+  }
+
+  /**
+   * O FILTRO RAPIDO DO DIA, ligado a um par de campos de data.
+   *
+   * "O que foi lancado hoje" e a pergunta que quem esta no patio faz mais vezes, e
+   * responde-la custava mexer nos dois campos num teclado de celular: duas roletas,
+   * quatro toques, e o risco de deixar um deles no mes errado.
+   *
+   * ELE VOLTA SOZINHO. Um botao que so' vai obriga a digitar as duas datas a mao para
+   * desfazer UM toque — que e' exatamente o custo que ele veio tirar. Volta para o
+   * periodo que estava ANTES; sem um anterior — a tela abriu ja' em hoje —, volta para o
+   * padrao que a tela passar.
+   *
+   * O DIA E' O DA OPERACAO, e nao o do aparelho: e' o mesmo dia que o servidor usa para
+   * carimbar o lancamento. Num celular com o fuso errado — e no galpao isso acontece —
+   * "hoje" pelo aparelho nao acha o que a pessoa acabou de lancar.
+   *
+   * AQUI, E NAO EM CADA TELA. Havia DUAS implementacoes disto quando a terceira tela foi
+   * pedida: a de Movimentos lia o estado dos campos (certo) e voltava sempre ao padrao; a
+   * do app de campo lembrava o periodo anterior (certo) e guardava o estado numa
+   * variavel, que mentia assim que alguem mexesse nas datas a mao. Cada uma tinha metade
+   * da razao, e nenhuma sabia da outra.
+   */
+  function ligarBotaoHoje(idBotao, idDe, idAte, aoMudar, padrao) {
+    var b = document.getElementById(idBotao);
+    if (!b) return;
+    var antes = null;
+    b.addEventListener('click', function () {
+      var de = document.getElementById(idDe), ate = document.getElementById(idAte);
+      if (!de || !ate) return;
+      if (ehHoje(idDe, idAte)) {
+        if (antes) { de.value = antes[0]; ate.value = antes[1]; antes = null; }
+        else if (padrao) padrao();
+      } else {
+        antes = [de.value, ate.value];
+        de.value = hojeOperacao(); ate.value = hojeOperacao();
+      }
+      marcarBotaoHoje(idBotao, idDe, idAte);
+      if (aoMudar) aoMudar();
+    });
+    marcarBotaoHoje(idBotao, idDe, idAte);
+  }
+
   function ordenarPorNome(lista) {
     return (lista || []).slice().sort(function (a, b) {
       return pesoTeste(a.Nome) - pesoTeste(b.Nome) ||
@@ -2387,6 +2465,7 @@
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
     paramUrl: paramUrl,
     comoChamar: comoChamar, nomeESobrenome: nomeESobrenome,
+    ligarBotaoHoje: ligarBotaoHoje, marcarBotaoHoje: marcarBotaoHoje,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,
     definirPerfisDeclaracao: definirPerfisDeclaracao,
     podeMexerEmDeclaracao: podeMexerEmDeclaracao,

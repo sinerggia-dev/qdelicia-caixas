@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=ddfe0996">
+<link rel="stylesheet" href="styles.css?v=5433cbcf">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1238,9 +1238,22 @@
           </div>
         </div>
 
+        <!-- O PERÍODO À VISTA, e não dentro da gaveta. É o filtro que mais se mexe
+             aqui, e o único cuja falta não aparece na tela: dois totais da mesma
+             operação que não batem, sem que se veja o período, é o defeito mais difícil
+             de achar que esta tela tem. -->
+        <div class="periodo-linha">
+          <div><label for="dcDe">De</label><input id="dcDe" type="date"></div>
+          <div><label for="dcAte">Até</label><input id="dcAte" type="date"></div>
+          <button class="chip-hoje" id="dcHoje" type="button" aria-pressed="false">Hoje</button>
+        </div>
+
         <!-- OS NÚMEROS ACIMA DA TABELA: "bateu?" é a pergunta que traz alguém a esta
-             tela, e ela não pode depender de somar duas colunas à mão. -->
-        <div id="dcTotais" class="tot"></div>
+             tela, e ela não pode depender de somar duas colunas à mão.
+             TRÊS CARTÕES, e o terceiro é a DIFERENÇA — o número pelo qual se abre esta
+             tela. No celular ele toma a linha inteira: meia largura ao lado de um vazio
+             é desenho, e não arranjo. -->
+        <div id="dcTotais" class="tot tot--tri"></div>
         <div class="linha-sit" id="dcSituacoes"></div>
         <div id="tabelaDecl"><div class="vazio">Escolha a <b>Base</b> para comparar.</div></div>
 
@@ -1268,8 +1281,12 @@
         </div>
         <div class="filtros-caixa__corpo">
     <div class="grid-filtros">
-            <div><label for="dcDe">De</label><input id="dcDe" type="date"></div>
-            <div><label for="dcAte">Até</label><input id="dcAte" type="date"></div>
+            <!-- O PERÍODO SAIU DAQUI. Ele é o filtro que MAIS se mexe nesta tela — "e
+                 ontem?", "e hoje?" — e era o único que exigia abrir a gaveta para
+                 mexer. Pior: fechado, ele não aparece em lugar nenhum, e dois totais da
+                 mesma operação que não batem sem que se veja o período é o defeito mais
+                 difícil de achar que esta tela tem. Agora ele mora acima dos números,
+                 à vista, com o dia de hoje a um toque. -->
             <div><label for="dcMotorista">Motorista</label>
               <select id="dcMotorista" multiple data-multi><option value="">Todos</option></select></div>
             <!-- A BASE AQUI ESCOLHE UM MUNDO, e não um livro. Cada opção traz DUAS bases: a
@@ -1502,7 +1519,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=16f97f40"></script>
+<script src="app.js?v=48c05593"></script>
 <script>
 (function(){
   'use strict';
@@ -2082,6 +2099,10 @@
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', carregarDecl);
     });
+    /* O FILTRO RAPIDO DO DIA, o mesmo do app de campo — a funcao mora no nucleo, e as
+       duas telas chamam a mesma. `carregarDecl` porque a data muda o que o SERVIDOR
+       manda: peneirar o que ja chegou daria a tabela de outro periodo. */
+    Q.ligarBotaoHoje('dcHoje', 'dcDe', 'dcAte', carregarDecl);
     var tp = document.getElementById('dcTipo');
     if (tp) tp.addEventListener('change', desenharDecl);
     /* A SITUAÇÃO NÃO RECARREGA NADA: ela nasce da comparação, que já está na tela. Uma
@@ -5830,26 +5851,14 @@
    * que é o contrário do que quem desliga um atalho espera. O padrão são os 30 dias com
    * que a tela abre.
    */
-  function ehHojeMov(){
-    var de = document.getElementById('mvDe'), ate = document.getElementById('mvAte');
-    if (!de || !ate) return false;
-    var h = Q.hojeOperacao();
-    return de.value === h && ate.value === h;
-  }
-  (function(){
-    var b = document.getElementById('btnHojeMov');
-    if (!b) return;
-    b.addEventListener('click', function(){
-      if (ehHojeMov()) {
-        periodoPadraoMov();
-      } else {
-        var h = Q.hojeOperacao();
-        document.getElementById('mvDe').value = h;
-        document.getElementById('mvAte').value = h;
-      }
-      carregarMovimentos();
-    });
-  })();
+  /* O ATALHO DO DIA mora no nucleo. Havia DUAS implementacoes dele — esta e a do app de
+     campo —, e cada uma tinha metade da razao: esta lia o estado dos CAMPOS, que e' o
+     certo, e voltava sempre ao padrao; a de la' lembrava o periodo anterior, que tambem
+     e' certo, e guardava o estado numa variavel que mentia na primeira vez que alguem
+     mexesse nas datas a mao. A do nucleo ficou com as duas metades.
+     `periodoPadraoMov` continua sendo a volta quando nao ha anterior: e' o caso de abrir
+     a tela ja' em hoje e tocar o botao para sair dele. */
+  Q.ligarBotaoHoje('btnHojeMov', 'mvDe', 'mvAte', carregarMovimentos, periodoPadraoMov);
   function carregarMovimentos(){
     var box = document.getElementById('tabelaMov');
     box.innerHTML = '<div class="vazio">Carregando…</div>';
@@ -5961,8 +5970,9 @@
     if (x) x.hidden = !l.length;
     var pil = document.querySelector('.pilula-filtros');
     if (pil) pil.classList.toggle('tem', !!l.length);
-    var bh = document.getElementById('btnHojeMov');
-    if (bh) bh.setAttribute('aria-pressed', ehHojeMov() ? 'true' : 'false');
+    /* A MARCA SAI DOS CAMPOS a cada redesenho: mudar as datas a mao tem de desmarcar o
+       botao, senao ele fica aceso sobre um periodo que ja nao e' hoje. */
+    Q.marcarBotaoHoje('btnHojeMov', 'mvDe', 'mvAte');
     var chip = document.getElementById('mvFiltrosQtd');
     if (chip){
       chip.style.display = l.length ? '' : 'none';

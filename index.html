@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=ddfe0996">
+<link rel="stylesheet" href="styles.css?v=5433cbcf">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -589,7 +589,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=16f97f40"></script>
+<script src="app.js?v=48c05593"></script>
 <script>
 (function(){
   'use strict';
@@ -2390,30 +2390,10 @@
     document.getElementById('lcAte').value = Q.hoje();
   }
 
-  /* O FILTRO RAPIDO DO DIA. Guarda o periodo anterior para devolve-lo no segundo toque:
-     o botao que so' vai e nao volta obriga a digitar duas datas no celular para desfazer
-     um toque. */
-  (function(){
-    var b = document.getElementById('lcHoje');
-    if (!b) return;
-    var antes = null;
-    b.addEventListener('click', function(){
-      var de = document.getElementById('lcDe'), ate = document.getElementById('lcAte');
-      if (antes) {
-        de.value = antes[0]; ate.value = antes[1];
-        antes = null;
-        b.setAttribute('aria-pressed', 'false');
-      } else {
-        antes = [de.value, ate.value];
-        /* O DIA DA OPERACAO, e nao o do aparelho: e o mesmo dia que o servidor usa para
-           carimbar o lancamento. Num celular com o fuso errado — e no galpao isso
-           acontece — "hoje" pelo aparelho nao acha o que a pessoa acabou de lancar. */
-        de.value = Q.hojeOperacao(); ate.value = Q.hojeOperacao();
-        b.setAttribute('aria-pressed', 'true');
-      }
-      desenharLanc();
-    });
-  })();
+  /* O FILTRO RAPIDO DO DIA mora no nucleo: a conciliacao do painel precisou do mesmo
+     botao, e duas copias das mesmas vinte linhas divergem no primeiro ajuste que so' uma
+     receber. */
+  Q.ligarBotaoHoje('lcHoje', 'lcDe', 'lcAte', desenharLanc);
 
   /* O painel continua sendo carregado, mas agora so alimenta o aviso de saldo que
      aparece embaixo da origem no formulario de retorno. A aba passou a buscar os

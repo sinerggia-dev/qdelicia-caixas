@@ -2664,221 +2664,84 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
     'e os dois botões chamam ELA — o "Limpar" da folha e o X da pílula',
     (adm.match(/limparFiltrosMov\b/g) || []).length);
 
-  /* O DIA DO "HOJE" VEM DO GALPÃO. Um atalho decide sozinho o que vai ser somado: com o
-     celular em outro fuso — ou com a hora errada — ele traria outro dia, e ninguém teria
-     como desconfiar. É o mesmo `Q.hojeOperacao()` do cartão "Lançados hoje"; dois
-     caminhos para a mesma pergunta divergem na virada da meia-noite.
-     TEXTUAL pela razão de sempre: numa máquina que já está em −3 os dois coincidem. */
-  var fHoje = corpoDe(adm, 'ehHojeMov');
-  ok(/Q\.hojeOperacao\(\)/.test(fHoje) && !/Q\.hoje\(\)/.test(fHoje),
-    'e o "Hoje" conta pelo dia do GALPÃO, não pelo relógio do aparelho', fHoje.slice(0, 160));
+  /* O ATALHO DO DIA VIROU UM SO'.
+   *
+   * Havia DUAS implementacoes dele — a desta tela e a do app de campo —, e cada uma
+   * tinha metade da razao: esta lia o estado dos CAMPOS, que e' o certo, e voltava
+   * sempre ao padrao; a de la' lembrava o periodo anterior, que tambem e' certo, e
+   * guardava o estado numa variavel que mentia na primeira vez que alguem mexesse nas
+   * datas a mao. Nenhuma sabia da outra.
+   * As provas abaixo rodam a do nucleo, que ficou com as duas metades, e valem para as
+   * TRES telas que a chamam. */
+  var appH = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var iLb = appH.indexOf('  function ehHoje(idDe, idAte) {');
+  var fonteH = iLb < 0 ? '' :
+    appH.slice(iLb, appH.indexOf('\n  }', appH.indexOf('  function ligarBotaoHoje(')) + 4);
+  ok(fonteH.length > 600 && fonteH.indexOf('function ligarBotaoHoje') > 0,
+    'a confer\u00eancia recortou o atalho do dia do n\u00facleo', fonteH.length);
 
-  /* DESLIGAR VOLTA AO PADRÃO, e não a um período vazio: vazio traria a base inteira,
-     que é o contrário do que quem desliga um atalho espera. */
-  var cliqueHoje = adm.slice(adm.indexOf("var b = document.getElementById('btnHojeMov')"));
-  cliqueHoje = cliqueHoje.slice(0, cliqueHoje.indexOf('})();'));
-  ok(/if \(ehHojeMov\(\)\) \{\s*periodoPadraoMov\(\);/.test(cliqueHoje),
-    'e desligá-lo volta ao período padrão, não a um período vazio — vazio traria a ' +
-    'base inteira, que é o contrário do que quem desliga um atalho espera',
-    cliqueHoje.slice(0, 200));
+  if (fonteH.length > 600) {
+    function bancadaHoje(deIni, ateIni, temPadrao) {
+      var campos = { d: { value: deIni }, a: { value: ateIni } };
+      var cliques = [], marcas = [];
+      var bt = { setAttribute: function (k, v2) { if (k === 'aria-pressed') marcas.push(v2); },
+        addEventListener: function (tp, f) { if (tp === 'click') cliques.push(f); } };
+      var doc = { getElementById: function (id) {
+        return id === 'b' ? bt : (id === 'd' ? campos.d : (id === 'a' ? campos.a : null)); } };
+      var mudou = 0, voltouAoPadrao = 0;
+      new Function('document', 'hojeOperacao', 'aoMudar', 'padrao',
+        fonteH + "\nligarBotaoHoje('b', 'd', 'a', aoMudar, padrao);")(
+        doc, function () { return '2026-09-29'; },
+        function () { mudou++; },
+        temPadrao ? function () { voltouAoPadrao++;
+          campos.d.value = '2026-08-30'; campos.a.value = '2026-09-29'; } : null);
+      return { campos: campos, tocar: cliques[0], marcas: marcas,
+        mudou: function () { return mudou; },
+        padrao: function () { return voltouAoPadrao; } };
+    }
 
-  /* OS TRÊS ESTADOS SAEM DA MESMA CONTA: o número do botão, o X e o "Hoje" aceso. Um
-     estado próprio para cada um daria três respostas para "há filtro aplicado?". */
-  var pinta = corpoDe(adm, 'pintarFiltrosMov');
-  /* COM O `if (x)` JUNTO. `x.hidden` sozinho e SUBSTRING de `cx.hidden`, e existe um
-     `cx.hidden = !l.length;` duas linhas abaixo, do bloco de pilulas — a afirmacao
-     estava sendo satisfeita pela linha do vizinho, e um defeito no X passava inteiro.
-     Pego na sabotagem; e a familia de sempre: uma ocorrencia respondendo pela outra. */
-  ok(/if \(x\) x\.hidden = !l\.length;/.test(pinta) && /ehHojeMov\(\)/.test(pinta),
-    'e o X e o "Hoje" leem da MESMA conta que o número do botão — três estados ' +
-    'próprios dariam três respostas para "há filtro aplicado?"');
+    var h1 = bancadaHoje('2026-08-30', '2026-09-29', true);
+    ok(typeof h1.tocar === 'function', 'e o bot\u00e3o do dia fica LIGADO');
+    ok(h1.marcas[0] === 'false',
+      'e nasce desmarcado quando o per\u00edodo n\u00e3o \u00e9 hoje — a marca sai dos CAMPOS j\u00e1 na ' +
+      'liga\u00e7\u00e3o, e n\u00e3o de uma lembran\u00e7a que come\u00e7a vazia', h1.marcas);
+    h1.tocar();
+    ok(h1.campos.d.value === '2026-09-29' && h1.campos.a.value === '2026-09-29',
+      'um toque p\u00f5e o dia de HOJE nos dois campos — no celular, fazer isso \u00e0 m\u00e3o s\u00e3o ' +
+      'duas roletas e quatro toques, com o risco de deixar um deles no m\u00eas errado',
+      [h1.campos.d.value, h1.campos.a.value]);
+    ok(h1.marcas[h1.marcas.length - 1] === 'true' && h1.mudou() === 1,
+      'e ele marca e redesenha no mesmo toque — sen\u00e3o as datas mudam e a tela continua ' +
+      'mostrando o per\u00edodo velho', h1.marcas);
+    h1.tocar();
+    ok(h1.campos.d.value === '2026-08-30' && h1.campos.a.value === '2026-09-29' &&
+       h1.padrao() === 0,
+      'e o segundo toque DEVOLVE o per\u00edodo que estava antes, sem passar pelo padr\u00e3o — ' +
+      'um bot\u00e3o que s\u00f3 vai obriga a digitar duas datas \u00e0 m\u00e3o para desfazer um toque',
+      [h1.campos.d.value, h1.campos.a.value]);
+    ok(h1.marcas[h1.marcas.length - 1] === 'false', 'e desmarca junto', h1.marcas);
 
-  /* A ABA QUE ABRE É A LISTA. Abrir no Resumo esconde justamente o que a pessoa veio
-     buscar, e a aba inicial tem de ser a do uso mais frequente. */
-  var nav = (adm.match(/<nav class="abas-mov[\s\S]*?<\/nav>/) || [''])[0];
-  ok(/data-aba="lista"[^>]*aria-selected="true"/.test(nav),
-    'e a aba que abre é a LISTA — abrir no Resumo esconde o que se veio buscar', nav.slice(0, 200));
-  ok(/abaMov\('lista'\)/.test(adm),
-    'e o script começa por ela também, senão a marcação diria uma coisa e a tela outra');
+    /* A TELA QUE ABRE JA' EM HOJE nao tem anterior para onde voltar: desligar tem de
+       levar ao PADRAO, e nao deixar as datas onde estao — vazio ou parado traria a base
+       inteira, ou nada mudaria, que e' o contrario do que quem desliga um atalho espera. */
+    var h2 = bancadaHoje('2026-09-29', '2026-09-29', true);
+    ok(h2.marcas[0] === 'true',
+      'e a tela que ABRE em hoje nasce com o bot\u00e3o marcado — a marca sai dos campos, e ' +
+      'n\u00e3o de quem tocou nele', h2.marcas);
+    h2.tocar();
+    ok(h2.padrao() === 1 && h2.campos.d.value === '2026-08-30',
+      'e deslig\u00e1-lo sem um per\u00edodo anterior volta ao PADR\u00c3O da tela — vazio traria a base ' +
+      'inteira, e parado n\u00e3o desligaria nada',
+      [h2.padrao(), h2.campos.d.value]);
 
-  /* QUEM MOSTRA E ESCONDE É A FOLHA DE ESTILO, dentro do bloco do telefone. Um script
-     escondendo blocos por conta própria teria de ser desfeito a cada giro do aparelho —
-     e no computador as três coisas aparecem juntas, sem aba nenhuma. */
-  ok(/html\[data-aba-mov="lista"\] #totMov/.test(semComentarios(css)),
-    'e quem esconde por aba é o CSS, no bloco do celular — no computador o atributo ' +
-    'é ignorado por inteiro e as três coisas ficam na tela');
-
-  /* AS GAVETAS DO CELULAR FECHAM POR UMA REGRA SÓ. Com o seletor pelo nome de uma
-     delas, a segunda que aparecesse ficaria fora do X, do véu e do Esc — a única que
-     não fecha, e ninguém consegue explicar por quê. */
-  var fechar = corpoDe(adm, 'fecharFolhas');
-  ok(/\[data-gaveta\]\.aberta/.test(fechar) && !/\.filtros-caixa\.aberta/.test(fechar),
-    'e as gavetas do celular fecham por `[data-gaveta]`, não pelo nome de uma delas — ' +
-    'a segunda gaveta entra sozinha no X, no véu e no Esc', fechar.slice(0, 200));
-  /* A MARCA CONTINUA NA CAIXA DE FILTROS, que é a gaveta que restou. A dos gráficos
-     deixou de existir: eles viraram uma aba, e não uma folha que sobe.
-     Isto era uma CONTAGEM — `>= 3` marcas no arquivo —, e contagem é proxy: tirar a
-     marca de uma delas deixava três e a afirmação passava, com o X e o Esc já não
-     alcançando aquela gaveta. Pego na sabotagem, e por isso é pelo nome. */
-  var tagFiltros = (adm.match(/<[^>]*id="caixaFiltrosMov"[^>]*>/) || [])[0] || '';
-  ok(/data-gaveta/.test(tagFiltros),
-    'e a caixa de filtros carrega a marca que o X, o véu e o Esc procuram — sem ela, ' +
-    'é a única que não fecha, e ninguém consegue explicar por quê', tagFiltros.slice(0, 120));
-
-  /* A GAVETA DOS GRÁFICOS FOI EMBORA INTEIRA, e o nome foi junto. Ficasse a classe
-     `gaveta-graficos` num bloco que já é aba, o próximo leitor procuraria um botão de
-     abrir que não existe mais — e um nome que mente custa mais caro que um nome feio. */
-  ['gaveta-graficos', 'btnAbrirGraficosMov', 'folhaGraficosMov'].forEach(function (morto) {
-    ok(adm.indexOf(morto) < 0 && css.indexOf(morto) < 0,
-      'e não sobrou nada chamado `' + morto + '` — os gráficos são uma aba, não uma ' +
-      'gaveta, e o nome tem de dizer isso');
-  });
-  ok(/\.painel-graficos \.graficos\{grid-template-columns:1fr\}/.test(semComentarios(css)),
-    'e na aba deles os cinco EMPILHAM — há tela inteira, e um trilho que desliza de ' +
-    'lado dentro de uma página que rola para baixo faz o dedo competir consigo mesmo');
-  /* ESTA AFIRMAÇÃO PRENDIA OS NÚMEROS — `clamp(16px,1.42vw,21px)` e
-     `clamp(10px,.82vw,11.5px)` — e reprovava a cada mexida de tamanho, que é decisão de
-     quem desenha, não regra. A garantia que ela anuncia é outra: o texto é FLUIDO, então
-     quem cede à largura é a letra e não a grade. Quem cobra a grade são as duas
-     afirmações acima. Aqui fica só a forma: piso, meio em `vw`, teto — e piso menor que
-     teto, senão o `clamp` é um tamanho fixo escrito de um jeito complicado. */
-  ['tot__v', 'tot__r', 'tot__n'].forEach(function (cl) {
-    var r = new RegExp('\\.' + cl + '\\{[\\s\\S]{0,160}?font-size:' +
-                       'clamp\\(([\\d.]+)px,([\\d.]+)vw,([\\d.]+)px\\)');
-    var m = css.match(r);
-    ok(m && parseFloat(m[1]) < parseFloat(m[3]),
-      'o texto do cartão (.' + cl + ') encolhe pelo `clamp`, com piso e teto — quem ' +
-      'cede à largura é a letra, e a grade de seis não quebra',
-      m && m.slice(1));
-  });
-
-  /* E O DETALHE NÃO É A MENOR LETRA DA TELA. Ele é quem diz o que o número grande
-     conta — "40 linhas de caixa" embaixo de um "8" que, sozinho, não diz 8 de quê.
-     Estava em 10px, menor que o rótulo e menor que a legenda dos gráficos; ninguém
-     escolheu isso, foi o que sobrou de encolher tudo para os gráficos caberem. */
-  var teto = function (cl) {
-    var m = css.match(new RegExp('\\.' + cl + '\\{[\\s\\S]{0,160}?font-size:' +
-                                 'clamp\\([\\d.]+px,[\\d.]+vw,([\\d.]+)px\\)'));
-    return m ? parseFloat(m[1]) : -1;
-  };
-  ok(teto('tot__n') >= 12,
-    'e a nota do cartão chega a 12px — é ela que diz o que o número grande conta, e ' +
-    'era a menor letra da tela inteira', teto('tot__n'));
-  /* A COR IDENTIFICA UMA VEZ SÓ: num quadradinho junto do rótulo, com o número branco.
-     Colorindo o número também, a cor dizia a mesma coisa duas vezes e os seis valores
-     deixavam de ter o mesmo peso. */
-  ok(/\.tot__v\{[^}]*color:var\(--txt\)/.test(css) &&
-     /\.tot__r i\{[^}]*background:var\(--cor/.test(css),
-    'e a cor aparece uma vez só, no quadradinho — o número fica branco, e os seis ' +
-    'valores têm o mesmo peso');
-})();
-
-/* ---------------------------------------------------------------------------
- * CLASSIFICAR E A JANELA DE LINHAS, em Movimentos.
- *
- * A tabela já arrastava, escondia e alargava colunas. Faltava o gesto que se tenta
- * primeiro em qualquer tabela: clicar no título. E faltava a lista caber na tela — com
- * quinhentas linhas no filtro, os seis totais e o rodapé da página ficavam a uma rolagem
- * de distância que ninguém faz.
- * ------------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------------
- * OS CINCO RECORTES EM GRÁFICO, em Movimentos.
- *
- * Cinco painéis do MESMO conjunto filtrado, cada barra dividida em saída e retorno — só
- * o total escondia o que interessa: motorista que leva e nunca traz aparecia igual a um
- * que fecha o ciclo.
- *
- * E a barra é um BOTÃO: clicar filtra a tela inteira. É aí que mora o risco desta peça,
- * e é o que a maior parte destas afirmações guarda.
- * ------------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------------
- * O TRILHO DE FILTROS, em Movimentos.
- *
- * No computador a caixa de filtros vira uma barra de 56px na borda direita, que abre ao
- * passar o mouse e EMPURRA a lista em vez de cobri-la.
- *
- * O RISCO DESTA PEÇA NÃO É O COMPUTADOR — é o CELULAR. A caixa mudou de lugar no
- * documento, e lá ela é a folha que sobe de baixo. Quebrada, ninguém mais filtra no
- * telefone, e a tela continua parecendo certa para quem só olha no monitor.
- * ------------------------------------------------------------------------- */
-console.log('\n== o trilho de filtros, em Movimentos ==');
-(function () {
-  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
-  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
-
-  /* UM NÓ SÓ nas duas larguras. Duas cópias dos mesmos campos seriam dois ids
-     repetidos, e `getElementById` passaria a ler sempre o primeiro: a tela filtraria
-     pelo que a outra cópia tem, e ninguém entenderia por quê. */
-  ['mvOrigem', 'mvDestino', 'mvCaixa', 'mvUsuario', 'mvDe', 'mvAte'].forEach(function (id) {
-    ok((adm.match(new RegExp('id="' + id + '"', 'g')) || []).length === 1,
-      'o campo ' + id + ' existe uma vez só — duas cópias, e `getElementById` leria ' +
-      'sempre a primeira');
-  });
-
-  /* A CAIXA FICA DEPOIS DO CONTEÚDO no documento, porque no computador ela é a segunda
-     coluna da grade. No celular ela é `position:fixed`, então a ordem não muda nada lá —
-     foi o que permitiu movê-la. */
-  ok(adm.indexOf('id="graficosMov"') < adm.indexOf('id="caixaFiltrosMov"') &&
-     /<div class="mov-tela" id="movTela">/.test(adm) &&
-     /<div class="mov-conteudo">/.test(adm),
-    'a grade existe e a caixa é a segunda coluna dela');
-  ok(/<aside class="filtros-caixa" id="caixaFiltrosMov"/.test(adm),
-    'e ela é um `aside`: a barra de filtros não é o conteúdo da página');
-
-  /* EMPURRA, NÃO COBRE. Medido no Chrome a 1440px: fechada, a tabela tem 1318px;
-     aberta, 1106 — e as duas caixas nunca se sobrepõem. Filtro por cima do dado faz a
-     pessoa fechar o filtro para conferir o que acabou de filtrar. */
-  /* O TRILHO FICA A ESQUERDA, a pedido — a coluna dele e a PRIMEIRA. Mas a caixa
-     continua DEPOIS do conteudo no documento, e as duas coisas juntas sao a afirmacao:
-     a ordem visual e escolha de leitura, e a ordem do documento e a ordem do Tab.
-     Invertidas as duas, quem navega de teclado passaria pelos dez campos do filtro
-     antes de chegar na lista — dez tabulacoes de pedagio em toda visita. */
-  ok(/\.mov-tela\{display:grid;grid-template-columns:56px minmax\(0,1fr\);/.test(css) &&
-     /\.mov-tela\.aberta\{grid-template-columns:248px minmax\(0,1fr\)\}/.test(css) &&
-     /\.mov-tela \.filtros-caixa\{grid-column:1;grid-row:1\}/.test(css),
-    'o trilho EMPURRA a lista e fica a ESQUERDA: 56px fechado, 248 aberto — e a tabela ' +
-    'encolhe junto, em vez de ficar debaixo do filtro');
-  ok(adm.indexOf('id="graficosMov"') < adm.indexOf('id="caixaFiltrosMov"'),
-    'e a caixa continua DEPOIS do conteudo no documento: a ordem do Tab e a da leitura, ' +
-    'e nao a da tela — senao sao dez campos de pedagio antes da lista');
-  /* A LARGURA É DECLARADA NOS DOIS ESTADOS, e não numa variável: propriedade
-     personalizada não anima sem `@property`, e o trilho abriria de um salto. */
-  /* A checagem é da PRÓPRIA regra, e não do arquivo: `--trilho-larg` já existe há muito
-     para o menu lateral do app, e procurar a palavra solta acusava aquele. */
-  var regraAberta = (css.match(/\.mov-tela\.aberta\{[^}]*\}/) || [''])[0];
-  ok(/transition:grid-template-columns \.22s/.test(css) &&
-     /248px/.test(regraAberta) && regraAberta.indexOf('var(') < 0,
-    'e a transição é do próprio `grid-template-columns`, com a largura escrita — por ' +
-    'variável ela não anima sem `@property`, e a barra abriria de um salto', regraAberta);
-  /* `min-width:0` na coluna do conteúdo: sem ele a tabela larga estica a coluna, a
-     grade deixa de caber e o trilho vai para fora da tela. */
-  ok(/\.mov-conteudo\{min-width:0\}/.test(css),
-    'e a coluna do conteúdo pode encolher — sem isso a tabela larga empurra o trilho ' +
-    'para fora da tela');
-  /* ACOMPANHA A ROLAGEM: com 500 linhas na tabela, um filtro preso no topo obriga a
-     subir a página inteira para mexer num campo. */
-  ok(/\.filtros-caixa\{position:sticky;top:10px/.test(css),
-    'e ele acompanha a rolagem — com 500 linhas, um filtro preso no topo obriga a ' +
-    'subir a página toda para mexer num campo');
-
-  /* FECHADO, O MIOLO NÃO EXISTE PARA O TAB. Um campo invisível que recebe foco arrasta
-     a tela para um lugar que não está na tela — e a pessoa não vê o que está editando. */
-  ok(/\.filtros-caixa \.filtros-caixa__corpo\{display:none\}/.test(css) &&
-     /\.mov-tela\.aberta \.filtros-caixa__corpo\{display:block/.test(css),
-    'fechado, os campos não são alcançáveis pelo Tab — foco numa coisa que não se vê ' +
-    'arrasta a tela para fora dela');
-  /* A FAIXA FECHADA diz que ali há filtros. Só o ícone não diz o que ele abre, e
-     "Filtros" deitado não cabe em 56px — daí o rótulo em pé. */
-  ok(/\.trilho__t\{writing-mode:vertical-rl/.test(css) &&
-     /<span class="trilho__t">Filtros<\/span>/.test(adm),
-    'e a faixa fechada leva o rótulo em pé — em 56px ele não cabe deitado, e só o ' +
-    'ícone não diz o que ele abre');
-  /* A CONTAGEM na faixa fechada é a única pista de que a lista está recortada quando o
-     trilho está encolhido. E sai do MESMO `l` da outra contagem. */
-  ok(/var chipT = document\.getElementById\('mvFiltrosQtdTrilho'\);/.test(adm) &&
-     /chipT\.hidden = !l\.length;/.test(adm),
-    'e a contagem aparece na faixa fechada, do mesmo `l` da outra — duas contagens ' +
-    'discordariam no dia em que um campo entrasse só numa delas');
+    /* O DIA VEM DO GALPAO. Um atalho decide sozinho o que vai ser somado: com o celular
+       em outro fuso — ou com a hora errada — ele traria outro dia, e ninguem teria como
+       desconfiar. */
+    ok(fonteH.indexOf('hojeOperacao()') > 0 && fonteH.indexOf('new Date()') < 0 &&
+       fonteH.indexOf('Q.hoje()') < 0,
+      'e o "Hoje" conta pelo dia do GALP\u00c3O, n\u00e3o pelo rel\u00f3gio do aparelho — com o celular ' +
+      'em outro fuso ele traria outro dia, e ningu\u00e9m teria como desconfiar');
+  }
 
   /* --- o comportamento --- */
   /* O TRILHO VIROU FUNÇÃO, e é chamado DUAS vezes: a conciliação passou a ter o mesmo
@@ -8453,64 +8316,20 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
   ok(dl.indexOf('LANC.filter(passaFiltro)') > 0 && dl.indexOf('lista.forEach') > 0,
     'os cartoes somam a lista JA filtrada — o resumo tem de concordar com a tabela',
     dl.indexOf('lista.forEach'));
-  /* ---- O FILTRO RAPIDO DO DIA, RODADO ----
-   *
-   * "O que eu lancei hoje" e a pergunta que quem esta no patio faz mais vezes, e
-   * responde-la custava mexer nos dois campos de data num teclado de celular: duas
-   * roletas, quatro toques, e o risco de deixar um deles no mes errado.
-   *
-   * ELE TEM DE VOLTAR SOZINHO. Um botao que so' vai obriga a digitar as duas datas a mao
-   * para desfazer UM toque — que e exatamente o custo que ele veio tirar.
-   *
-   * E O DIA E O DA OPERACAO, e nao o do aparelho: e o mesmo dia que o servidor usa para
-   * carimbar o lancamento. Num celular com o fuso errado — e no galpao isso acontece —
-   * "hoje" pelo aparelho nao acha o que a pessoa acabou de lancar. */
-  var iHj = html.indexOf("    var b = document.getElementById('lcHoje');");
-  var hj = iHj < 0 ? '' : html.slice(iHj, html.indexOf('\n  })();', iHj));
-  ok(hj.length > 300, 'a confer\u00eancia recortou o filtro do dia', hj.length);
-  /* E O BOTAO EXISTE NA TELA. Provado so' o ouvinte, ele podia sumir do HTML que a
-     bancada continuava verde: `getElementById` devolveria nulo, o `if (!b) return`
-     sairia calado, e nao haveria nada para tocar. */
+  /* ---- O BOTAO DO DIA EXISTE NA TELA ----
+   * O COMPORTAMENTO dele e' provado na secao do nucleo, rodando a funcao que as tres
+   * telas chamam — esta bancada tinha uma copia mais fraca da mesma prova, e duas provas
+   * do mesmo comportamento divergem como duas implementacoes divergem.
+   * O QUE SO' AQUI SE VE: que o botao EXISTE no HTML. Provado so' o ouvinte, ele podia
+   * sumir da tela e a bancada seguiria verde — `getElementById` devolveria nulo, o
+   * `if (!b) return` sairia calado, e nao haveria nada para tocar. */
   ok(/<button class="chip-hoje" id="lcHoje"[^>]*aria-pressed="false"/.test(html),
-    'e o bot\u00e3o do dia EXISTE na tela, come\u00e7ando desmarcado \u2014 provado s\u00f3 o ouvinte, ' +
-    'ele podia sumir do HTML e a bancada seguiria verde: n\u00e3o haveria nada para tocar');
-  if (hj.length > 300) {
-    var campos = { lcDe: { value: '2026-08-30' }, lcAte: { value: '2026-09-29' } };
-    var apertos = [];
-    var botao = { attrs: {},
-      setAttribute: function (k, v2) { this.attrs[k] = v2; },
-      addEventListener: function (tipo, f) { if (tipo === 'click') apertos.push(f); } };
-    var doc = { getElementById: function (id) {
-      return id === 'lcHoje' ? botao : (campos[id] || null); } };
-    var desenhou = 0;
-    new Function('document', 'Q', 'desenharLanc', hj)(
-      doc, { hojeOperacao: function () { return '2026-09-29'; } },
-      function () { desenhou++; });
-    ok(apertos.length === 1, 'e o bot\u00e3o do dia est\u00e1 LIGADO', apertos.length);
-    if (apertos.length === 1) {
-      apertos[0]();
-      ok(campos.lcDe.value === '2026-09-29' && campos.lcAte.value === '2026-09-29',
-        'um toque p\u00f5e o dia de HOJE nos dois campos — no celular, fazer isso \u00e0 m\u00e3o s\u00e3o ' +
-        'duas roletas e quatro toques, com o risco de deixar um deles no m\u00eas errado',
-        [campos.lcDe.value, campos.lcAte.value]);
-      ok(botao.attrs['aria-pressed'] === 'true',
-        'e o bot\u00e3o fica MARCADO — sem isso nada na tela diz que o per\u00edodo foi estreitado, ' +
-        'e a lista curta parece falta de lan\u00e7amento');
-      ok(desenhou === 1, 'e a lista se redesenha no mesmo toque \u2014 sen\u00e3o as datas mudam e a ' +
-        'tela continua mostrando o per\u00edodo velho', desenhou);
-      apertos[0]();
-      ok(campos.lcDe.value === '2026-08-30' && campos.lcAte.value === '2026-09-29',
-        'e o segundo toque DEVOLVE o per\u00edodo que estava antes — um bot\u00e3o que s\u00f3 vai ' +
-        'obriga a digitar duas datas \u00e0 m\u00e3o para desfazer um toque, que \u00e9 o custo que ele ' +
-        'veio tirar', [campos.lcDe.value, campos.lcAte.value]);
-      ok(botao.attrs['aria-pressed'] === 'false',
-        'e desmarca junto', botao.attrs['aria-pressed']);
-    }
-    ok(hj.indexOf('Q.hojeOperacao()') > 0 && hj.indexOf('new Date()') < 0,
-      'e o dia \u00e9 o da OPERA\u00c7\u00c3O, e n\u00e3o o do aparelho \u2014 num celular com o fuso errado, e ' +
-      'no galp\u00e3o isso acontece, "hoje" pelo aparelho n\u00e3o acha o que a pessoa acabou de ' +
-      'lan\u00e7ar', hj.slice(0, 120));
-  }
+    'o botão do dia EXISTE na tela do app de campo, começando desmarcado — provado só ' +
+    'o ouvinte, ele podia sumir do HTML e a bancada seguiria verde: não haveria nada ' +
+    'para tocar');
+  ok(html.indexOf("Q.ligarBotaoHoje('lcHoje', 'lcDe', 'lcAte'") > 0,
+    'e está ligado ao atalho do NÚCLEO, e não a uma cópia própria — havia duas ' +
+    'implementações deste botão no projeto, e cada uma tinha metade da razão');
 
   /* O PERIODO PADRAO PELO DIA LOCAL. `toISOString` e UTC: em Recife, depois das 21h, o
      UTC ja virou o dia seguinte, e a data de inicio saia um dia adiantada — cortando do
@@ -12255,11 +12074,31 @@ console.log('\n== o painel de filtro abre por cima ==');
     'tela, e o Filtrar confirma o que foi digitado — confirmar longe de onde se digitou ' +
     'faz o gesto começar num canto e terminar no outro', barra.length);
   var trilhoDecl = secao.slice(iAside);
-  ok(trilhoDecl.indexOf('id="btnFiltrarDecl"') > 0 &&
-     trilhoDecl.indexOf('id="dcBase"') > 0 && trilhoDecl.indexOf('id="dcDe"') > 0,
-    'e os campos e o Filtrar moram dentro do trilho, num nó só — dois conjuntos dos ' +
-    'mesmos campos seriam dois ids repetidos, e a tela filtraria pelo que a outra ' +
-    'cópia tem');
+  ok(trilhoDecl.indexOf('id="btnFiltrarDecl"') > 0 && trilhoDecl.indexOf('id="dcBase"') > 0,
+    'e o Filtrar e a Base moram dentro do trilho — confirmar longe de onde se digitou ' +
+    'faz o gesto começar num canto e terminar no outro');
+  /* CADA CAMPO UMA VEZ SO', e nao "todos dentro do trilho". O que a prova defende e' que
+     nao haja DOIS conjuntos dos mesmos campos: dois ids repetidos, e a tela filtra pelo
+     que a outra copia tem.
+     PRESA AO LUGAR, ela reprovava o periodo por ter saido da gaveta — e ele saiu de
+     proposito: e' o filtro que mais se mexe, e era o unico que exigia abrir a gaveta
+     para mexer, e o unico cuja falta nao aparece em lugar nenhum da tela. */
+  var idsDecl = (secao.match(/id="(dc[A-Za-z0-9]+)"/g) || [])
+    .map(function (x) { return /id="([A-Za-z0-9]+)"/.exec(x)[1]; });
+  var repetidos = idsDecl.filter(function (id, i) { return idsDecl.indexOf(id) !== i; });
+  ok(idsDecl.length >= 6 && repetidos.length === 0,
+    'e cada campo da conciliação existe UMA VEZ SÓ na tela — dois conjuntos dos mesmos ' +
+    'campos seriam dois ids repetidos, e a tela filtraria pelo que a outra cópia tem',
+    repetidos);
+  ok(idsDecl.indexOf('dcDe') >= 0 && idsDecl.indexOf('dcAte') >= 0 &&
+     idsDecl.indexOf('dcHoje') >= 0,
+    'e o período e o atalho do dia existem na tela — o período é o filtro que mais se ' +
+    'mexe aqui, e dois totais da mesma operação que não batem sem que se veja o período ' +
+    'é o defeito mais difícil de achar que esta tela tem', idsDecl);
+  var iPer = secao.indexOf('<div class="periodo-linha">');
+  ok(iPer > 0 && iPer < secao.indexOf('id="dcTotais"'),
+    'e ele fica ACIMA dos números — abaixo deles, a pessoa lê o total antes de saber de ' +
+    'que período ele é', [iPer, secao.indexOf('id="dcTotais"')]);
   /* E O TAMANHO VEM DE LA: a regra do trilho ja encolhe e empilha os botoes dentro
      dele, e a barra do cadeado ja tem a dela. */
   var noTrilhoBtn = regra('.mov-tela .filtros-caixa .btn');
@@ -12287,6 +12126,84 @@ console.log('\n== o painel de filtro abre por cima ==');
   ok((adm.match(/ligarAbreFolha\('/g) || []).length === 2,
     'ligado pela MESMA função das duas telas');
 })();
+
+console.log('\n== a fileira de totais no celular, e o Hoje das duas telas ==');
+{
+  var cssT = fsReal.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var admT2 = fsReal.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var idxT2 = fsReal.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var appT2 = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  /* ---- O CONSERTO DO CELULAR VALE PARA TODA FILEIRA ----
+   * Ele existia, e estava escrito para o ID de Movimentos. A fileira da CONCILIACAO usa
+   * a MESMA classe e nunca o recebeu: tres cartoes dentro de uma grade de SETE colunas
+   * davam 45px cada, e os rotulos saiam quebrados letra a letra — "o que os m... inf...".
+   * Era o mesmo defeito que o comentario ao lado ja descrevia, num lugar que a regra nao
+   * alcancava. */
+  var iRegT = cssT.indexOf('.tot{grid-template-columns:repeat(2,minmax(0,1fr))}');
+  ok(iRegT > 0 && cssT.indexOf('#totMov{grid-template-columns:repeat(2') < 0,
+    'o conserto do celular vale para TODA fileira de totais, e n\u00e3o s\u00f3 para a de ' +
+    'Movimentos — escrito para o id, a concilia\u00e7\u00e3o ficou com tr\u00eas cart\u00f5es numa grade de ' +
+    'sete colunas, 45px cada, e os r\u00f3tulos quebrados letra a letra',
+    iRegT);
+  var iMedT = iRegT < 0 ? -1 : cssT.lastIndexOf('@media (max-width:1023px){', iRegT);
+  ok(iMedT > 0,
+    'e ela mora no corte do celular — na folha solta, ela valeria tamb\u00e9m no computador, ' +
+    'onde as sete colunas s\u00e3o o arranjo certo');
+
+  /* ---- OS TRES DA CONCILIACAO ----
+   * Os dois primeiros dividem a linha e a DIFERENCA — o numero pelo qual se abre a tela
+   * — toma a de baixo inteira.
+   * PELA CLASSE DA FILEIRA, e nao por `:last-child` solto: em Movimentos o ultimo cartao
+   * do DOM e' o setimo, e um deles esta escondido; `:last-child` la' abriria a linha
+   * para um cartao que nao e' o ultimo que se ve. */
+  ok(cssT.indexOf('.tot--tri .tot__c:last-child{grid-column:1/-1}') > 0,
+    'na fileira de TR\u00caS o \u00faltimo toma a linha inteira — meia largura ao lado de um ' +
+    'vazio \u00e9 desenho, e n\u00e3o arranjo');
+  ok(/class="tot tot--tri"/.test(admT2),
+    'e a fileira da concilia\u00e7\u00e3o se declara como a de tr\u00eas \u2014 a regra \u00e9 da FILEIRA, e ' +
+    'n\u00e3o do \u00faltimo cart\u00e3o solto: em Movimentos o \u00faltimo do DOM \u00e9 o s\u00e9timo, e um deles ' +
+    'est\u00e1 escondido');
+  /* E ELA TEM MESMO TRES. Acrescentado um quarto cartao e esquecida a classe, o quarto
+     abriria a linha sozinho no meio da fileira. */
+  /* O RECORTE PEGA QUEM MONTA, e nao quem LIMPA: ha dois `getElementById('dcTotais')` —
+     um esvazia a fileira e o outro a desenha —, e o primeiro nao tem cartao nenhum
+     dentro. A ancora e' a chamada que constroi. */
+  var iFxT = admT2.indexOf('cartaoTot(0, 3');
+  var fxT = iFxT < 0 ? '' : admT2.slice(iFxT, admT2.indexOf('}', iFxT));
+  ok((fxT.match(/cartaoTot\(/g) || []).length === 3,
+    'e ela tem mesmo TR\u00caS cart\u00f5es — acrescentado um quarto e esquecida a classe, o ' +
+    'arranjo passa a abrir a linha no meio da fileira',
+    (fxT.match(/cartaoTot\(/g) || []).length);
+
+  /* ---- O HOJE E' UM SO', E AS DUAS TELAS O CHAMAM ----
+   * Ele nasceu dentro do `index.html`, e a conciliacao precisou do mesmo: duas copias
+   * das mesmas vinte linhas divergem no primeiro ajuste que so' uma receber.
+   * A LISTA E DESCOBERTA: todo botao `chip-hoje` de cada tela tem de estar ligado ao
+   * `ligarBotaoHoje` com o id dele. O terceiro botao entra na prova quando nascer. */
+  ok(appT2.indexOf('function ligarBotaoHoje(idBotao, idDe, idAte, aoMudar, padrao)') > 0,
+    'o atalho do dia mora no n\u00facleo, que serve as duas telas');
+  [['admin.html', admT2], ['index.html', idxT2]].forEach(function (par) {
+    var ids = (par[1].match(/class="chip-hoje" id="([A-Za-z0-9]+)"/g) || [])
+      .map(function (x) { return /id="([A-Za-z0-9]+)"/.exec(x)[1]; });
+    ok(ids.length >= 1, par[0] + ': a confer\u00eancia achou o bot\u00e3o do dia', ids);
+    /* MOVIMENTOS TINHA O SEU PROPRIO, escrito a mao, e esta prova o encontrou: duas
+       implementacoes do mesmo botao, e cada uma com metade da razao. Agora as tres telas
+       chamam a mesma. */
+    var soltos = ids.filter(function (id) {
+      return par[1].indexOf("ligarBotaoHoje('" + id + "'") < 0;
+    });
+    ok(soltos.length === 0,
+      par[0] + ': e todo bot\u00e3o do dia est\u00e1 LIGADO ao atalho do n\u00facleo — desenhado e n\u00e3o ' +
+      'ligado, ele \u00e9 um bot\u00e3o que n\u00e3o faz nada, que \u00e9 pior do que bot\u00e3o nenhum',
+      soltos);
+  });
+  /* NA CONCILIACAO ELE RECARREGA, e nao so' redesenha: a data muda o que o SERVIDOR
+     manda, e peneirar o que ja chegou daria a tabela de outro periodo. */
+  ok(admT2.indexOf("ligarBotaoHoje('dcHoje', 'dcDe', 'dcAte', carregarDecl)") > 0,
+    'e na concilia\u00e7\u00e3o ele RECARREGA do servidor — a data muda o que o servidor manda, e ' +
+    'peneirar o que j\u00e1 chegou daria a tabela de outro per\u00edodo');
+}
 
 console.log('\n== a busca de todos os cadastros, e o atualizar da pilula ==');
 {

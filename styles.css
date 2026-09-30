@@ -2835,6 +2835,15 @@ details.tipos[open] summary::before{content:"▾"}
 .legenda-g em{margin-left:auto;font-style:normal;color:var(--ambar-forte);font-size:12px}
 .legenda-g em:empty{display:none}
 
+/* A LINHA DO PERIODO, acima dos numeros da conciliacao. As duas datas e o atalho do dia
+   na mesma linha: o periodo e' o filtro que mais se mexe nesta tela, e era o unico que
+   exigia abrir a gaveta.
+   `flex-wrap` porque num telefone estreito o botao desce para a segunda linha em vez de
+   espremer as datas — campo de data espremido vira uma roleta que nao se le. */
+.periodo-linha{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin:0 0 12px}
+.periodo-linha > div{flex:1 1 150px;min-width:0}
+.periodo-linha .chip-hoje{flex:0 0 auto;margin-bottom:1px}
+
 /* ---------- os seis totais do recorte (Movimentos) ----------
  * SEIS NUMA LINHA, e a linha nao quebra por largura: quem encolhe e o TEXTO, pelo
  * clamp(), e nao a grade. Um ponto de corte em 1180px fazia 3+3 numa janela de 1100px,
@@ -3355,8 +3364,20 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   /* NA ABA RESUMO os sete cartoes voltam a ser cartoes, em DUAS colunas: sete colunas
      num telefone dariam 50px cada. E "Lancados hoje" sai, como ja tinha sido pedido —
      com ele seriam sete em duas colunas, e a ultima fileira ficaria com um sozinho. */
-  #totMov{grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* ESCRITA PARA A CLASSE, e nao para o id de Movimentos. Ela nasceu ali e ficou ali:
+     a fileira da CONCILIACAO usa a mesma `.tot` e nunca recebeu o conserto — tres
+     cartoes dentro de uma grade de SETE colunas davam 45px cada, e os rotulos saiam
+     quebrados letra a letra ("o que os m... inf..."). Era o mesmo defeito que este
+     bloco ja descrevia, num lugar que a regra nao alcancava. */
+  .tot{grid-template-columns:repeat(2,minmax(0,1fr))}
   .tot__c[data-cartao="hoje"]{display:none}
+  /* A FILEIRA DE TRES: os dois primeiros dividem a linha e a DIFERENCA — o numero pelo
+     qual se abre a tela — toma a de baixo inteira. Meia largura ao lado de um vazio e
+     desenho, e nao arranjo.
+     PELA CLASSE DA FILEIRA, e nao por `:last-child` solto: em Movimentos o ultimo
+     cartao do DOM e' o setimo, e um deles esta escondido — `:last-child` la' abriria a
+     linha para um cartao que nao e' o ultimo que se ve. */
+  .tot--tri .tot__c:last-child{grid-column:1/-1}
 
   /* OS GRAFICOS EMPILHAM na aba deles: ha tela inteira, e um trilho que desliza de lado
      dentro de uma pagina que rola para baixo faz o dedo competir consigo mesmo. */
