@@ -8393,8 +8393,166 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
   ok(dl.indexOf('LANC.filter(passaFiltro)') > 0 && dl.indexOf('lista.forEach') > 0,
     'os cartoes somam a lista JA filtrada — o resumo tem de concordar com a tabela',
     dl.indexOf('lista.forEach'));
-  ok(/saiu \+ voltou/.test(dl),
-    'e o total geral e saidas mais retornos');
+  /* ---- O FILTRO RAPIDO DO DIA, RODADO ----
+   *
+   * "O que eu lancei hoje" e a pergunta que quem esta no patio faz mais vezes, e
+   * responde-la custava mexer nos dois campos de data num teclado de celular: duas
+   * roletas, quatro toques, e o risco de deixar um deles no mes errado.
+   *
+   * ELE TEM DE VOLTAR SOZINHO. Um botao que so' vai obriga a digitar as duas datas a mao
+   * para desfazer UM toque — que e exatamente o custo que ele veio tirar.
+   *
+   * E O DIA E O DA OPERACAO, e nao o do aparelho: e o mesmo dia que o servidor usa para
+   * carimbar o lancamento. Num celular com o fuso errado — e no galpao isso acontece —
+   * "hoje" pelo aparelho nao acha o que a pessoa acabou de lancar. */
+  var iHj = html.indexOf("    var b = document.getElementById('lcHoje');");
+  var hj = iHj < 0 ? '' : html.slice(iHj, html.indexOf('\n  })();', iHj));
+  ok(hj.length > 300, 'a confer\u00eancia recortou o filtro do dia', hj.length);
+  /* E O BOTAO EXISTE NA TELA. Provado so' o ouvinte, ele podia sumir do HTML que a
+     bancada continuava verde: `getElementById` devolveria nulo, o `if (!b) return`
+     sairia calado, e nao haveria nada para tocar. */
+  ok(/<button class="chip-hoje" id="lcHoje"[^>]*aria-pressed="false"/.test(html),
+    'e o bot\u00e3o do dia EXISTE na tela, come\u00e7ando desmarcado \u2014 provado s\u00f3 o ouvinte, ' +
+    'ele podia sumir do HTML e a bancada seguiria verde: n\u00e3o haveria nada para tocar');
+  if (hj.length > 300) {
+    var campos = { lcDe: { value: '2026-08-30' }, lcAte: { value: '2026-09-29' } };
+    var apertos = [];
+    var botao = { attrs: {},
+      setAttribute: function (k, v2) { this.attrs[k] = v2; },
+      addEventListener: function (tipo, f) { if (tipo === 'click') apertos.push(f); } };
+    var doc = { getElementById: function (id) {
+      return id === 'lcHoje' ? botao : (campos[id] || null); } };
+    var desenhou = 0;
+    new Function('document', 'Q', 'desenharLanc', hj)(
+      doc, { hojeOperacao: function () { return '2026-09-29'; } },
+      function () { desenhou++; });
+    ok(apertos.length === 1, 'e o bot\u00e3o do dia est\u00e1 LIGADO', apertos.length);
+    if (apertos.length === 1) {
+      apertos[0]();
+      ok(campos.lcDe.value === '2026-09-29' && campos.lcAte.value === '2026-09-29',
+        'um toque p\u00f5e o dia de HOJE nos dois campos — no celular, fazer isso \u00e0 m\u00e3o s\u00e3o ' +
+        'duas roletas e quatro toques, com o risco de deixar um deles no m\u00eas errado',
+        [campos.lcDe.value, campos.lcAte.value]);
+      ok(botao.attrs['aria-pressed'] === 'true',
+        'e o bot\u00e3o fica MARCADO — sem isso nada na tela diz que o per\u00edodo foi estreitado, ' +
+        'e a lista curta parece falta de lan\u00e7amento');
+      ok(desenhou === 1, 'e a lista se redesenha no mesmo toque \u2014 sen\u00e3o as datas mudam e a ' +
+        'tela continua mostrando o per\u00edodo velho', desenhou);
+      apertos[0]();
+      ok(campos.lcDe.value === '2026-08-30' && campos.lcAte.value === '2026-09-29',
+        'e o segundo toque DEVOLVE o per\u00edodo que estava antes — um bot\u00e3o que s\u00f3 vai ' +
+        'obriga a digitar duas datas \u00e0 m\u00e3o para desfazer um toque, que \u00e9 o custo que ele ' +
+        'veio tirar', [campos.lcDe.value, campos.lcAte.value]);
+      ok(botao.attrs['aria-pressed'] === 'false',
+        'e desmarca junto', botao.attrs['aria-pressed']);
+    }
+    ok(hj.indexOf('Q.hojeOperacao()') > 0 && hj.indexOf('new Date()') < 0,
+      'e o dia \u00e9 o da OPERA\u00c7\u00c3O, e n\u00e3o o do aparelho \u2014 num celular com o fuso errado, e ' +
+      'no galp\u00e3o isso acontece, "hoje" pelo aparelho n\u00e3o acha o que a pessoa acabou de ' +
+      'lan\u00e7ar', hj.slice(0, 120));
+  }
+
+  /* O PERIODO PADRAO PELO DIA LOCAL. `toISOString` e UTC: em Recife, depois das 21h, o
+     UTC ja virou o dia seguinte, e a data de inicio saia um dia adiantada — cortando do
+     periodo justamente o dia mais antigo. O fim da funcao sempre leu o dia local; era a
+     primeira linha que discordava dele. */
+  var iPP = html.indexOf('  function periodoPadraoLanc(){');
+  var pp = iPP < 0 ? '' : html.slice(iPP, html.indexOf('\n  }', iPP));
+  ok(pp.length > 100 && pp.indexOf('toISOString') < 0 && pp.indexOf('getFullYear()') > 0,
+    'o per\u00edodo padr\u00e3o \u00e9 montado pelo dia LOCAL, e n\u00e3o por `toISOString`, que \u00e9 UTC \u2014 ' +
+    'depois das 21h em Recife o UTC j\u00e1 virou o dia seguinte, e a data de in\u00edcio saía um ' +
+    'dia adiantada, cortando do per\u00edodo o dia mais antigo', pp.slice(0, 160));
+
+  /* ---- OS CARTOES, RODADOS ----
+   * A conta saiu de dentro do desenho e virou `tilesLanc`, justamente para caber numa
+   * bancada: lida no arquivo, ela respondia "a expressao `saiu + voltou` esta ali?" —
+   * e a resposta continuava sim depois de a regra mudar de lugar, sem que nada tivesse
+   * quebrado. */
+  var iTL = html.indexOf('  function tileLanc(v, r, d, c){');
+  var fimTL = html.indexOf('\n  }', html.indexOf('  function tilesLanc(d){')) + 4;
+  var fonteTL = iTL < 0 ? '' : html.slice(iTL, fimTL);
+  /* E QUEM DECIDE `soRetorno` SAO AS OPERACOES, e nao o nome do perfil. Pelo perfil, um
+     promotor que so' devolve ficaria com os tres cartoes e dois deles zerados, e um
+     motorista que um dia ganhasse saida continuaria sem o cartao dela. */
+  var iSo = dl.indexOf('soRetorno:');
+  var regraCt = iSo < 0 ? '' : dl.slice(iSo, dl.indexOf('\n', iSo));
+  ok(regraCt.indexOf('operacoesDe') > 0 && regraCt.indexOf('SAIDA') > 0 &&
+     regraCt.indexOf('perfil') < 0,
+    'e quem decide os cart\u00f5es s\u00e3o as OPERA\u00c7\u00d5ES da pessoa, e n\u00e3o o nome do perfil \u2014 ' +
+    'pelo perfil, um promotor que s\u00f3 devolve ficaria com tr\u00eas cart\u00f5es e dois zerados, e ' +
+    'um motorista que ganhasse sa\u00edda continuaria sem o cart\u00e3o dela', regraCt);
+
+  ok(fonteTL.indexOf('function tilesLanc(d){') > 0 && fonteTL.length > 900,
+    'a confer\u00eancia recortou os cart\u00f5es — recorte vazio faria as provas abaixo passarem ' +
+    'sem rodar nada', fonteTL.length);
+  if (fonteTL.length > 900) {
+    var appN = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    var iN = appN.indexOf('  function num(');
+    var Qn = { num: new Function(appN.slice(iN, appN.indexOf('\n  }', iN) + 4) +
+      '\n return num;')() };
+    var fazTiles = new Function('Q', fonteTL + '\n return tilesLanc;')(Qn);
+    function rotulos(h) {
+      return (h.match(/<div class="r">([^<]*)<\/div>/g) || [])
+        .map(function (x) { return x.slice(15, -6); });
+    }
+    function valores(h) {
+      return (h.match(/<div class="v">([^<]*)<\/div>/g) || [])
+        .map(function (x) { return x.slice(15, -6); });
+    }
+
+    /* QUEM FAZ OS DOIS LADOS continua com os tres cartoes — a mudanca nao pode consertar
+       um caso quebrando o outro. */
+    var ambos = fazTiles({ saiu: 500, voltou: 300, declarou: 0, nDecl: 0, remessas: 2,
+      soRetorno: false });
+    ok(rotulos(ambos).length === 3 && rotulos(ambos)[0] === 'caixas que sa\u00edram',
+      'quem lan\u00e7a saída continua com os TR\u00caS cart\u00f5es — a mudan\u00e7a n\u00e3o pode consertar um ' +
+      'caso quebrando o outro', rotulos(ambos));
+    ok(valores(ambos)[2] === '800',
+      'e o total dele continua sendo sa\u00eddas mais retornos', valores(ambos));
+    /* COM DECLARACAO NO MEIO, o total dele NAO a soma: para quem faz os dois lados, a
+       declaracao contaria duas vezes a mesma carga — ela e o que o motorista informou, e
+       a contagem do conferente vem depois. O rodape diz quantas sao. */
+    var ambosDecl = fazTiles({ saiu: 500, voltou: 300, declarou: 1250, nDecl: 1,
+      remessas: 3, soRetorno: false });
+    ok(valores(ambosDecl)[2] === '800' &&
+       ambosDecl.indexOf('1.250 declarados, fora da conta') > 0,
+      'e a declara\u00e7\u00e3o fica FORA do total de quem faz os dois lados, com o rodap\u00e9 ' +
+      'dizendo quantas s\u00e3o \u2014 somada, ela contaria duas vezes a mesma carga: \u00e9 o que o ' +
+      'motorista informou, e a contagem do conferente vem depois', valores(ambosDecl));
+
+    /* QUEM SO' DEVOLVE: dois cartoes, e nenhum deles zerado por construcao. */
+    var so = fazTiles({ saiu: 0, voltou: 0, declarou: 1250, nDecl: 1, remessas: 1,
+      soRetorno: true });
+    ok(rotulos(so).length === 2,
+      'quem n\u00e3o lan\u00e7a sa\u00edda v\u00ea DOIS cart\u00f5es — o de sa\u00edda nunca saía do zero, e o de ' +
+      'retorno tamb\u00e9m n\u00e3o quando o retorno \u00e9 declara\u00e7\u00e3o: tr\u00eas cart\u00f5es com dois zerados ' +
+      'por constru\u00e7\u00e3o se leem como tela quebrada', rotulos(so));
+    ok(rotulos(so).join('|').indexOf('sa\u00edram') < 0,
+      'e nenhum deles fala de sa\u00edda \u2014 ele n\u00e3o pode lan\u00e7ar sa\u00edda', rotulos(so));
+    ok(rotulos(so)[0] === 'lan\u00e7amentos realizados' && valores(so)[0] === '1',
+      'o primeiro conta os LAN\u00c7AMENTOS que ele fez, e n\u00e3o caixas \u2014 \u00e9 a pergunta que ele ' +
+      'faz ao abrir a tela', [rotulos(so)[0], valores(so)[0]]);
+    ok(valores(so)[1] === '1.250',
+      'e o total soma o que ele DECLAROU \u2014 fora da conta, ele seria zero ao lado de ' +
+      '"1 lan\u00e7amento realizado", que se l\u00ea como erro', valores(so));
+
+    /* REMESSAS, E NAO LINHAS: uma carga de cinco tipos de caixa e UM lancamento para
+       quem a fez, e um cartao na tela. */
+    var varias = fazTiles({ saiu: 0, voltou: 0, declarou: 3000, nDecl: 3, remessas: 3,
+      soRetorno: true });
+    ok(valores(varias)[0] === '3' && valores(varias)[1] === '3.000',
+      'e tr\u00eas lan\u00e7amentos contam tr\u00eas, com as caixas somadas', valores(varias));
+
+    /* RETORNO QUE NAO E DECLARACAO tambem conta, e o rodape muda de frase: ele nao pode
+       dizer "contando o que voce declarou" quando nao houve declaracao nenhuma. */
+    var contado = fazTiles({ saiu: 0, voltou: 800, declarou: 0, nDecl: 0, remessas: 1,
+      soRetorno: true });
+    ok(valores(contado)[1] === '800' &&
+       contado.indexOf('contando o que voc\u00ea declarou') < 0,
+      'e um retorno que N\u00c3O \u00e9 declara\u00e7\u00e3o entra no total sem o rodap\u00e9 de declara\u00e7\u00e3o \u2014 ' +
+      'dizer "contando o que voc\u00ea declarou" sem declara\u00e7\u00e3o nenhuma \u00e9 o cart\u00e3o ' +
+      'explicando o que n\u00e3o aconteceu', contado.slice(0, 200));
+  }
 
   /* A TABELA MUDOU DE CASA. Ela saiu de dentro de `desenharLanc` para `tabelaLanc`,
      porque no celular a lista virou cartões e o desenho passou a ser dois. As

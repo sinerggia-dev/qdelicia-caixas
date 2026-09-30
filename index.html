@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=aa1d3d66">
+<link rel="stylesheet" href="styles.css?v=f0ee5bba">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -487,6 +487,17 @@
       <div class="grid2">
         <div><label for="lcDe">De</label><input id="lcDe" type="date"></div>
         <div><label for="lcAte">Até</label><input id="lcAte" type="date"></div>
+      </div>
+
+      <!-- O DIA DE HOJE, EM UM TOQUE. "O que eu lancei hoje" e a pergunta que quem esta
+           no patio faz mais vezes, e responde-la custava mexer nos dois campos de data
+           num teclado de celular — duas roletas, quatro toques, e o risco de deixar um
+           deles no mes errado.
+           ELE VOLTA SOZINHO: tocado de novo, devolve o periodo que estava antes. Sem
+           isso, o caminho de volta seria digitar as duas datas a mao, que e exatamente o
+           custo que o botao veio tirar. -->
+      <div class="linha-hoje">
+        <button class="chip-hoje" id="lcHoje" type="button" aria-pressed="false">Hoje</button>
       </div>
 
       <!-- A busca responde uma pergunta que os filtros nao respondem: "cade aquele".
@@ -1655,13 +1666,12 @@
        rodapé discordando da lista logo abaixo dele. A faixa do dia e os chips já
        contavam assim — este era o número fora de passo. */
     var remessas = Q.agruparLancamentos(lista).length;
-    document.getElementById('lcTiles').innerHTML =
-      tileLanc(Q.num(saiu), 'caixas que saíram',
-        remessas + (remessas === 1 ? ' lançamento no filtro' : ' lançamentos no filtro'), 'aviso')+
-      tileLanc(Q.num(voltou), 'caixas que voltaram', 'retornos do período', 'ok')+
-      tileLanc(Q.num(saiu + voltou), 'total de caixas',
-        nDecl ? Q.num(declarou) + ' declarados, fora da conta' : 'saídas mais retornos',
-        '');
+    document.getElementById('lcTiles').innerHTML = tilesLanc({
+      saiu: saiu, voltou: voltou, declarou: declarou, nDecl: nDecl,
+      remessas: remessas,
+      /* A REGRA É O QUE A PESSOA PODE FAZER, e não o nome do perfil. */
+      soRetorno: operacoesDe(Q.sessao()).indexOf('SAIDA') < 0
+    });
 
     // o contador de cada filtro: quantos estao marcados, sem precisar abrir
     ['lcFUsuario','lcFMotorista','lcFOrigem','lcFDestino'].forEach(function(id){
@@ -2192,6 +2202,48 @@
       '<div class="v">'+v+'</div><div class="d">'+d+'</div></div>';
   }
 
+  /**
+   * OS CARTÕES DO PERÍODO — e quais deles fazem sentido para quem está olhando.
+   *
+   * Os três nasceram para quem faz os dois lados. Para um motorista — e todos os onze só
+   * têm RETORNO liberado — "caixas que saíram" é uma linha que nunca sai do zero, e
+   * "caixas que voltaram" é zero também sempre que o retorno dele for DECLARAÇÃO, que
+   * não entra na conta do estoque. Três cartões, dois zerados por construção: a tela
+   * lia como quebrada, e o único número verdadeiro — o que ele informou — aparecia como
+   * nota de rodapé do terceiro.
+   *
+   * A REGRA É O QUE A PESSOA PODE FAZER, e não o nome do perfil. Um motorista que um dia
+   * ganhe saída recebe o cartão de volta sozinho; um promotor que só devolve ganha esta
+   * tela sem ninguém lembrar de incluí-lo. Perfil é um nome; operação é o que ele faz.
+   *
+   * E O TOTAL PASSA A SOMAR O DECLARADO. Para quem só declara, o total que exclui a
+   * declaração é zero — e um zero ao lado de "1 lançamento realizado" se lê como erro.
+   * A pergunta aqui é outra: não "quantas caixas entraram no estoque", que é conta do
+   * escritório, mas "quantas caixas eu informei", que é o que ele acabou de contar no
+   * pátio. O rodapé do cartão diz qual das duas está respondendo.
+   *
+   * FUNÇÃO, E NÃO UM TRECHO DENTRO DO DESENHO: assim a regra se roda numa bancada, com
+   * um caso de cada vez, em vez de ser lida no arquivo.
+   */
+  function tilesLanc(d){
+    var remessas = Number(d.remessas) || 0;
+    var nDecl = Number(d.nDecl) || 0;
+    var saiu = Number(d.saiu) || 0, voltou = Number(d.voltou) || 0;
+    var declarou = Number(d.declarou) || 0;
+    if (d.soRetorno) {
+      return tileLanc(Q.num(remessas), 'lançamentos realizados',
+          nDecl && nDecl === remessas ? 'declarações de retorno' : 'retornos no período', 'ok')+
+        tileLanc(Q.num(saiu + voltou + declarou), 'total de caixas',
+          nDecl ? 'contando o que você declarou' : 'caixas dos seus lançamentos', '');
+    }
+    return tileLanc(Q.num(saiu), 'caixas que saíram',
+        remessas + (remessas === 1 ? ' lançamento no filtro' : ' lançamentos no filtro'), 'aviso')+
+      tileLanc(Q.num(voltou), 'caixas que voltaram', 'retornos do período', 'ok')+
+      tileLanc(Q.num(saiu + voltou), 'total de caixas',
+        nDecl ? Q.num(declarou) + ' declarados, fora da conta' : 'saídas mais retornos',
+        '');
+  }
+
   /* O id de quem esta olhando, quando o painel dela e restrito — e string vazia quando
      nao e. A MESMA funcao existe no `admin.html`, com o mesmo nome e a mesma regra: as
      duas telas leem a mesma sessao, e a permissao e uma so.
@@ -2325,12 +2377,43 @@
     });
   })();
 
-  /* Volta ao mesmo estado da primeira abertura: os ultimos 30 dias. */
+  /* Volta ao mesmo estado da primeira abertura: os ultimos 30 dias.
+     PELO DIA LOCAL, e nao por `toISOString`, que e UTC: em Recife, depois das 21h, o
+     UTC ja virou o dia seguinte — e a data de inicio saia um dia adiantada, cortando do
+     periodo justamente o dia mais antigo. O `Q.hoje()` do fim da funcao sempre leu o dia
+     local; era a primeira linha que discordava dele. */
   function periodoPadraoLanc(){
     var d1 = new Date(); d1.setDate(d1.getDate() - 30);
-    document.getElementById('lcDe').value = d1.toISOString().slice(0, 10);
+    var mm = String(d1.getMonth() + 1), dd = String(d1.getDate());
+    document.getElementById('lcDe').value = d1.getFullYear() + '-' +
+      (mm.length < 2 ? '0' + mm : mm) + '-' + (dd.length < 2 ? '0' + dd : dd);
     document.getElementById('lcAte').value = Q.hoje();
   }
+
+  /* O FILTRO RAPIDO DO DIA. Guarda o periodo anterior para devolve-lo no segundo toque:
+     o botao que so' vai e nao volta obriga a digitar duas datas no celular para desfazer
+     um toque. */
+  (function(){
+    var b = document.getElementById('lcHoje');
+    if (!b) return;
+    var antes = null;
+    b.addEventListener('click', function(){
+      var de = document.getElementById('lcDe'), ate = document.getElementById('lcAte');
+      if (antes) {
+        de.value = antes[0]; ate.value = antes[1];
+        antes = null;
+        b.setAttribute('aria-pressed', 'false');
+      } else {
+        antes = [de.value, ate.value];
+        /* O DIA DA OPERACAO, e nao o do aparelho: e o mesmo dia que o servidor usa para
+           carimbar o lancamento. Num celular com o fuso errado — e no galpao isso
+           acontece — "hoje" pelo aparelho nao acha o que a pessoa acabou de lancar. */
+        de.value = Q.hojeOperacao(); ate.value = Q.hojeOperacao();
+        b.setAttribute('aria-pressed', 'true');
+      }
+      desenharLanc();
+    });
+  })();
 
   /* O painel continua sendo carregado, mas agora so alimenta o aviso de saldo que
      aparece embaixo da origem no formulario de retorno. A aba passou a buscar os
