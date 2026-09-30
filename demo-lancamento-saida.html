@@ -1515,6 +1515,12 @@ html:not([data-editor="1"]) .ed__b{display:none}
     if (velha && !localStorage.getItem(CHAVE_FALAS)) localStorage.setItem(CHAVE_FALAS, velha);
   } catch (e) {}
   var ROTULOS = [
+    /* A CAPA PRIMEIRO, porque ela e' a primeira cena. A lista seguia a ordem antiga do
+       roteiro, em que a demonstracao comecava DENTRO do aplicativo e a capa era um
+       cartaz parado: `entrada` ficava no fim, depois de dezoito campos, e quem procurava
+       o texto da capa concluia que ele nao existia mais. A ordem daqui e' a ordem em que
+       as falas SAEM — e' assim que se procura uma delas. */
+    ['entrada', 'Capa — boas-vindas'],
     ['s01', 'Abertura da saída'],
     ['sData', 'Data do movimento (saída)'],
     ['s02', 'Campo saída'],
@@ -1535,7 +1541,6 @@ html:not([data-editor="1"]) .ed__b{display:none}
     ['r06', 'Quantas caixas (retorno)'],
     ['r07', 'Conferir o total e gravar'],
     ['r08', 'Retorno gravado'],
-    ['entrada', 'Tela de entrada do app'],
     ['fim', 'Encerramento']
   ];
 

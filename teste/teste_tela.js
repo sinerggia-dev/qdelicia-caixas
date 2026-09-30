@@ -12450,6 +12450,21 @@ console.log('\n== o editor de falas para a demonstracao ==');
     ok(sai.indexOf('s09') < 0,
       arq + ': e sem o `s09` — ele \u00e9 a PASSAGEM para o retorno, e s\u00f3 acontece na vers\u00e3o ' +
       'completa: oferec\u00ea-lo aqui seria dar para editar um texto que n\u00e3o vai ao ar', sai);
+    /* A CAPA E' O PRIMEIRO CAMPO, porque ela e' a primeira cena. A lista seguia a ordem
+       antiga do roteiro — em que a demonstracao comecava DENTRO do aplicativo — e
+       `entrada` ficava no FIM, depois de dezoito campos: quem procurava o texto da capa
+       concluia que ele tinha sido removido. A ordem do editor e' a ordem em que as falas
+       SAEM, que e' como se procura uma delas. */
+    ['saida', 'retorno', 'ambos'].forEach(function (qual) {
+      var ks = chavesCom(qual);
+      ok(ks[0] === 'entrada',
+        arq + ' / ' + qual + ': a CAPA é o primeiro campo do editor — no fim da lista, ' +
+        'depois de dezoito campos, quem procura o texto da capa conclui que ele foi ' +
+        'removido', ks.slice(0, 3));
+      ok(ks[ks.length - 1] === 'fim',
+        arq + ' / ' + qual + ': e o encerramento é o último, pela mesma razão',
+        ks.slice(-2));
+    });
     ok(sai.indexOf('entrada') >= 0 && sai.indexOf('fim') >= 0,
       arq + ': e a abertura e o encerramento ficam — as tr\u00eas p\u00e1ginas os dizem', sai);
 
