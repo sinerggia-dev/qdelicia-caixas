@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=5433cbcf">
+<link rel="stylesheet" href="styles.css?v=05f06722">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1235,6 +1235,11 @@
             <button class="btn sec so-celular" type="button" id="btnAbrirFiltrosDecl">
               Filtros</button>
             <button class="btn neutro" type="button" id="btnCsvDecl">⬇ CSV</button>
+            <!-- O ATALHO DO DIA JUNTO DAS OUTRAS AÇÕES. Sozinho numa linha abaixo dos
+                 campos de data, ele gastava uma faixa inteira da tela do celular para
+                 um botão de 38px — e empurrava os números, que são o que se veio ver,
+                 para baixo da dobra. -->
+            <button class="chip-hoje" id="dcHoje" type="button" aria-pressed="false">Hoje</button>
           </div>
         </div>
 
@@ -1242,10 +1247,9 @@
              aqui, e o único cuja falta não aparece na tela: dois totais da mesma
              operação que não batem, sem que se veja o período, é o defeito mais difícil
              de achar que esta tela tem. -->
-        <div class="periodo-linha">
+        <div class="periodo-linha periodo-linha--miuda">
           <div><label for="dcDe">De</label><input id="dcDe" type="date"></div>
           <div><label for="dcAte">Até</label><input id="dcAte" type="date"></div>
-          <button class="chip-hoje" id="dcHoje" type="button" aria-pressed="false">Hoje</button>
         </div>
 
         <!-- OS NÚMEROS ACIMA DA TABELA: "bateu?" é a pergunta que traz alguém a esta
@@ -3384,6 +3388,55 @@
    * O CORTE É O DE SEMPRE, 1023px, pelo `emCartoesPainel()`: uma segunda medida faria a
    * tela trocar de forma numa largura e a de cima em outra, e quem gira o aparelho veria
    * metade virar ficha. */
+  /**
+   * OS PARES AGRUPADOS POR DIA, com o total DAQUELE dia na faixa.
+   *
+   * A lista vinha corrida, e a unica data estava na letra miuda de cada cartao: para
+   * responder "quanto bateu na terca" era preciso somar os cartoes com o olho, um a um,
+   * e os totais de cima somam o PERIODO inteiro — nao respondem por dia nenhum.
+   *
+   * E O MESMO MODELO DA FAIXA DE MOVIMENTOS, e de proposito: quem desce a lista ja
+   * aprendeu a ler aquela tarja, e duas formas para a mesma ideia fazem reaprender.
+   * O QUE MUDA SAO OS NUMEROS — aqui o dia responde declarado, conferido e a diferenca
+   * entre os dois, que e a pergunta desta tela.
+   *
+   * A DIFERENCA DO DIA E SOMA DAS PARCELAS, e nao soma das diferencas de cada par: as
+   * duas dao o mesmo numero, mas somar as parcelas continua certo no dia em que um par
+   * nascer sem uma das pontas — e e justamente ai que a conta importa.
+   */
+  function paresPorDia(lista){
+    var fora = [], diaAberto = null;
+    var porDia = {};
+    lista.forEach(function(p2){
+      var d = p2.dataRef || '';
+      if (!porDia[d]) porDia[d] = { decl: 0, conf: 0 };
+      porDia[d].decl += Number(p2.declarado) || 0;
+      porDia[d].conf += Number(p2.conferido) || 0;
+    });
+    lista.forEach(function(p2){
+      var d = p2.dataRef || '';
+      if (d !== diaAberto) {
+        if (diaAberto !== null) fora.push('</div></section>');
+        diaAberto = d;
+        var x = porDia[d] || { decl: 0, conf: 0 };
+        var dif = x.conf - x.decl;
+        fora.push('<section class="grupo-dia">'+
+          '<header class="dia-mov" data-dia="'+Q.esc(d)+'">'+
+            '<b>'+Q.esc(d ? Q.dataBR(d) : '\u2014')+'</b>'+
+            '<span class="dia-mov__esp"></span>'+
+            '<span class="dia-mov__s" title="Declarado no dia">D '+Q.num(x.decl)+'</span>'+
+            '<span class="dia-mov__r" title="Conferido no dia">C '+Q.num(x.conf)+'</span>'+
+            '<span class="dia-mov__b'+(dif !== 0 ? ' ruim' : '')+'" title="Diferença do dia">'+
+              (dif === 0 ? '0' : (dif < 0 ? '\u2212' : '+')+Q.num(Math.abs(dif)))+
+            '</span>'+
+          '</header><div class="pares">');
+      }
+      fora.push(cartaoPar(p2));
+    });
+    if (diaAberto !== null) fora.push('</div></section>');
+    return fora.join('');
+  }
+
   function cartaoPar(par){
     var sinal = function(n){ return (n > 0 ? '+' : n < 0 ? '−' : '') + Q.num(Math.abs(n)); };
     var cor = par.situacao === 'Bateu' ? 'verde'
@@ -3485,14 +3538,15 @@
     var faixa = document.getElementById('dcTotais');
     if (faixa){
       faixa.innerHTML =
-        cartaoTot(0, 3, 'var(--azul)', 'Declarado', Q.num(decl),
-                  'o que os motoristas informaram', null) +
-        cartaoTot(1, 3, 'var(--verde)', 'Conferido', Q.num(conf),
-                  'o que foi contado na chegada', null) +
+        /* SEM O TEXTO DE APOIO, a pedido. Ele explicava o que os três rótulos já
+           dizem — "Declarado" é o que o motorista informou —, e num telefone essas três
+           frases custavam mais altura do que os três números juntos. O `title` continua
+           levando a frase inteira para quem precisar dela. */
+        cartaoTot(0, 3, 'var(--azul)', 'Declarado', Q.num(decl), '', null) +
+        cartaoTot(1, 3, 'var(--verde)', 'Conferido', Q.num(conf), '', null) +
         cartaoTot(2, 3, 'var(--ambar)', 'Diferença',
                   (conf - decl > 0 ? '+' : conf - decl < 0 ? '−' : '') +
-                    Q.num(Math.abs(conf - decl)),
-                  'conferido menos declarado', null);
+                    Q.num(Math.abs(conf - decl)), '', null);
     }
     var sit = document.getElementById('dcSituacoes');
     if (sit){
@@ -3518,8 +3572,9 @@
        abre esta tela, ficava sempre do lado de fora. O corte é o mesmo do resto do
        painel, e por isso girar o aparelho troca a tela inteira de forma, e não metade. */
     if (emCartoesPainel()){
-      box.innerHTML = '<div class="pares">'+
-        aplicarOrdem(L, DEFS, ORDEM_DECL).map(cartaoPar).join('')+'</div>';
+      /* AGRUPADO POR DIA, e nao corrido: a data estava so' na letra miuda de cada
+         cartao, e "quanto bateu na terca" exigia somar os cartoes com o olho. */
+      box.innerHTML = paresPorDia(aplicarOrdem(L, DEFS, ORDEM_DECL));
       ligarAcoesDecl(box);
       return;
     }
@@ -6399,7 +6454,9 @@
         ';--cor:'+cor+'" title="'+Q.esc(rotulo+': '+valor+pc)+'">'+
       '<div class="tot__r"><i></i>'+Q.esc(rotulo)+'</div>'+
       '<div class="tot__v">'+Q.esc(valor)+'</div>'+barra+
-      '<div class="tot__n">'+Q.esc(nota)+'</div></div>';
+      /* RODAPÉ VAZIO NÃO NASCE. Escrito vazio, ele continuava reservando a altura de
+         uma linha em cada cartão — três linhas de nada numa fileira de três. */
+      (nota ? '<div class="tot__n">'+Q.esc(nota)+'</div>' : '')+'</div>';
   }
 
   function desenharTotaisMov(L){

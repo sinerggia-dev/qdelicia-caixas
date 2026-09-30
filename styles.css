@@ -2843,6 +2843,13 @@ details.tipos[open] summary::before{content:"▾"}
 .periodo-linha{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin:0 0 12px}
 .periodo-linha > div{flex:1 1 150px;min-width:0}
 .periodo-linha .chip-hoje{flex:0 0 auto;margin-bottom:1px}
+/* MIUDA: o periodo e' um controle de apoio, e nao o assunto da tela. No tamanho cheio,
+   os dois campos ocupavam mais altura do que os tres numeros que eles filtram — e os
+   numeros sao o que se veio ver. O rotulo encolhe junto; "De" e "Ate" nao precisam de
+   14px para serem lidos. */
+.periodo-linha--miuda{gap:8px;margin:0 0 10px}
+.periodo-linha--miuda label{font-size:11px;margin-bottom:2px}
+.periodo-linha--miuda input{min-height:36px;padding:0 10px;font-size:13.5px}
 
 /* ---------- os seis totais do recorte (Movimentos) ----------
  * SEIS NUMA LINHA, e a linha nao quebra por largura: quem encolhe e o TEXTO, pelo
@@ -3377,7 +3384,15 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
      PELA CLASSE DA FILEIRA, e nao por `:last-child` solto: em Movimentos o ultimo
      cartao do DOM e' o setimo, e um deles esta escondido — `:last-child` la' abriria a
      linha para um cartao que nao e' o ultimo que se ve. */
-  .tot--tri .tot__c:last-child{grid-column:1/-1}
+  /* OS TRES LADO A LADO, a pedido. Eles sao uma CONTA — declarado, conferido e a
+     diferenca entre os dois —, e conta que se le em duas linhas nao se le como conta: a
+     parcela de cima e a de baixo deixam de estar no mesmo olhar.
+     COUBERAM PORQUE O TEXTO DE APOIO SAIU. Com as tres frases embaixo dos numeros,
+     100px de coluna davam quatro linhas de letra quebrada — foi o que a tela mostrou. */
+  .tot--tri{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+  .tot--tri .tot__c{padding:8px 9px}
+  .tot--tri .tot__r{font-size:10.5px;gap:4px}
+  .tot--tri .tot__v{font-size:17px}
 
   /* OS GRAFICOS EMPILHAM na aba deles: ha tela inteira, e um trilho que desliza de lado
      dentro de uma pagina que rola para baixo faz o dedo competir consigo mesmo. */

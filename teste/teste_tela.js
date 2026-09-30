@@ -11905,10 +11905,14 @@ console.log('\n== Motorista/Conferente ==');
   var iDes = adm.indexOf('  function desenharDecl(){');
   var corpoDes = adm.slice(iDes, adm.indexOf('  function larguras(', iDes) > 0
     ? adm.indexOf('\n  }', adm.indexOf('ligarAcoesDecl(box);', iDes)) : iDes + 6000);
-  ok(corpoDes.indexOf('emCartoesPainel()') > 0 && corpoDes.indexOf('cartaoPar') > 0,
+  /* `paresPorDia` e' quem monta as fichas desde que a lista passou a ser agrupada por
+     dia — e e' ela que chama `cartaoPar`. Preso ao nome da ficha, o recorte reprovava
+     por nao achar a chamada que mudou de camada. */
+  ok(corpoDes.indexOf('emCartoesPainel()') > 0 && corpoDes.indexOf('paresPorDia(') > 0 &&
+     adm.indexOf('fora.push(cartaoPar(p2));') > 0,
     'no celular a conciliação vira ficha, pelo MESMO corte do resto do painel — uma ' +
     'medida própria faria a tela trocar de forma numa largura e a de cima em outra, e ' +
-    'quem gira o aparelho veria metade virar ficha', corpoDes.indexOf('cartaoPar') > 0);
+    'quem gira o aparelho veria metade virar ficha', corpoDes.indexOf('paresPorDia(') > 0);
   ok(adm.indexOf('if (DECLS && DECLS.length) desenharDecl();') > 0,
     'e girar o aparelho a redesenha do que já está na memória — desenhada só na ' +
     'abertura, ela ficaria com a forma da largura de quando abriu');
@@ -12095,7 +12099,9 @@ console.log('\n== o painel de filtro abre por cima ==');
     'e o período e o atalho do dia existem na tela — o período é o filtro que mais se ' +
     'mexe aqui, e dois totais da mesma operação que não batem sem que se veja o período ' +
     'é o defeito mais difícil de achar que esta tela tem', idsDecl);
-  var iPer = secao.indexOf('<div class="periodo-linha">');
+  /* PELO COMECO DA CLASSE, e nao pela classe inteira: ela ganhou um modificador
+     (`--miuda`) e o recorte por igualdade exata passou a nao achar nada. */
+  var iPer = secao.indexOf('<div class="periodo-linha');
   ok(iPer > 0 && iPer < secao.indexOf('id="dcTotais"'),
     'e ele fica ACIMA dos números — abaixo deles, a pessoa lê o total antes de saber de ' +
     'que período ele é', [iPer, secao.indexOf('id="dcTotais"')]);
@@ -12127,6 +12133,140 @@ console.log('\n== o painel de filtro abre por cima ==');
     'ligado pela MESMA função das duas telas');
 })();
 
+console.log('\n== a faixa do dia na conciliacao ==');
+{
+  var admF = fsReal.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* ---- A FAIXA DO DIA, RODADA ----
+   * A lista vinha corrida, e a unica data estava na letra miuda de cada ficha: para
+   * responder "quanto bateu na terca" era preciso somar as fichas com o olho, uma a uma
+   * — e os totais de cima somam o PERIODO inteiro, nao respondem por dia nenhum. */
+  var iPd = admF.indexOf('  function paresPorDia(lista){');
+  var fonteP = iPd < 0 ? '' : admF.slice(iPd, admF.indexOf('\n  }', iPd) + 4);
+  ok(fonteP.length > 700, 'a confer\u00eancia recortou a faixa do dia', fonteP.length);
+
+  if (fonteP.length > 700) {
+    var agrupar = new Function('Q', 'cartaoPar',
+      fonteP + '\n return paresPorDia;')(
+      { esc: function (s) { return String(s == null ? '' : s); },
+        num: function (n) { return String(n); },
+        dataBR: function (d) { return String(d).split('-').reverse().join('/'); } },
+      function (par) { return '<ficha>' + par.chave + '</ficha>'; });
+
+    var lista = [
+      { chave: 'a', dataRef: '2026-09-28', declarado: 300, conferido: 300 },
+      { chave: 'b', dataRef: '2026-09-28', declarado: 200, conferido: 150 },
+      { chave: 'c', dataRef: '2026-09-27', declarado: 100, conferido: 100 }
+    ];
+    var h = agrupar(lista);
+
+    ok((h.match(/<header class="dia-mov"/g) || []).length === 2,
+      'a lista sai agrupada por DIA — corrida, a data ficava s\u00f3 na letra mi\u00fada de cada ' +
+      'ficha, e "quanto bateu na ter\u00e7a" exigia somar as fichas com o olho',
+      (h.match(/<header class="dia-mov"/g) || []).length);
+    ok(h.indexOf('data-dia="2026-09-28"') < h.indexOf('data-dia="2026-09-27"'),
+      'e na ordem em que a lista j\u00e1 estava — reordenar aqui desfaria a ordena\u00e7\u00e3o que a ' +
+      'pessoa escolheu na coluna');
+    /* E QUEM CHAMA PASSA A LISTA JA ORDENADA pela coluna escolhida. Provada so' a
+       funcao, a chamada podia ordenar por conta propria — e a seta da coluna passaria a
+       mentir sobre a ordem da tela. */
+    ok(admF.indexOf('paresPorDia(aplicarOrdem(L, DEFS, ORDEM_DECL))') > 0,
+      'e quem a chama passa a lista j\u00e1 ordenada pela COLUNA escolhida \u2014 ordenando por ' +
+      'conta pr\u00f3pria, a seta da coluna passaria a mentir sobre a ordem da tela');
+
+    /* OS NUMEROS SAO DO DIA, e nao do periodo: os de cima ja respondem pelo periodo, e
+       repeti-los na faixa seria tres numeros iguais descendo a tela. */
+    var faixa28 = h.slice(h.indexOf('data-dia="2026-09-28"'), h.indexOf('</header>'));
+    ok(/D 500/.test(faixa28) && /C 450/.test(faixa28),
+      'e os n\u00fameros da faixa s\u00e3o do DIA — os de cima j\u00e1 respondem pelo per\u00edodo, e ' +
+      'repeti-los aqui seriam tr\u00eas n\u00fameros iguais descendo a tela', faixa28);
+    /* A DIFERENCA E SOMA DAS PARCELAS, e nao soma das diferencas de cada par: as duas
+       dao o mesmo numero hoje, e somar as parcelas continua certo no dia em que um par
+       nascer sem uma das pontas — que e justamente quando a conta importa. */
+    ok(/\u2212?50/.test(faixa28) && faixa28.indexOf('ruim') > 0,
+      'e a diferen\u00e7a do dia vem das PARCELAS, marcada quando n\u00e3o \u00e9 zero — somar as ' +
+      'diferen\u00e7as de cada par daria o mesmo n\u00famero hoje e o n\u00famero errado no dia em que ' +
+      'um par nascer sem uma das pontas', faixa28);
+    var faixa27 = h.slice(h.indexOf('data-dia="2026-09-27"'));
+    ok(faixa27.indexOf('ruim') < 0,
+      'e o dia que BATEU n\u00e3o fica marcado — marca em tudo n\u00e3o marca nada');
+
+    /* TODA FICHA DENTRO DO SEU DIA, e nenhuma perdida entre as secoes. */
+    ok((h.match(/<ficha>/g) || []).length === 3,
+      'e TODA ficha continua na lista — uma perdida entre as se\u00e7\u00f5es seria um lan\u00e7amento ' +
+      'que some da tela sem nada dizer', (h.match(/<ficha>/g) || []).length);
+    ok((h.match(/<section class="grupo-dia">/g) || []).length ===
+       (h.match(/<\/section>/g) || []).length,
+      'e cada dia abre e FECHA — uma se\u00e7\u00e3o sem fechamento engole as fichas do dia ' +
+      'seguinte dentro dela',
+      [(h.match(/<section class="grupo-dia">/g) || []).length,
+       (h.match(/<\/section>/g) || []).length]);
+
+    /* LISTA VAZIA NAO DEIXA SECAO ABERTA. */
+    ok(agrupar([]) === '', 'e lista vazia devolve vazio, sem se\u00e7\u00e3o pela metade',
+      agrupar([]));
+
+    /* PAR SEM DATA cai num dia proprio, e nao no do vizinho: juntado ao de cima, ele
+       somaria no total de um dia que nao e' o dele. */
+    /* DEPOIS DE UM COM DATA, que e' o caso que importa: sozinho, o par sem data cai
+       num dia vazio de qualquer jeito, e a prova aprovava a versao que o gruda no
+       vizinho de cima. */
+    var semData = agrupar([
+      { chave: 'w', dataRef: '2026-09-28', declarado: 300, conferido: 300 },
+      { chave: 'x', dataRef: '', declarado: 10, conferido: 0 }
+    ]);
+    ok((semData.match(/<header class="dia-mov"/g) || []).length === 2 &&
+       semData.indexOf('data-dia=""') > 0,
+      'e o par SEM data ganha uma faixa pr\u00f3pria, mesmo vindo LOGO DEPOIS de um com ' +
+      'data \u2014 grudado no dia de cima, ele somaria no total de um dia que n\u00e3o \u00e9 o dele',
+      (semData.match(/<header class="dia-mov"/g) || []).length);
+    var faixaW = semData.slice(semData.indexOf('data-dia="2026-09-28"'),
+                               semData.indexOf('</header>'));
+    ok(/D 300/.test(faixaW),
+      'e o dia de cima continua com o total DELE, sem o do par sem data', faixaW);
+  }
+
+  /* ---- O ATALHO DO DIA JUNTO DAS OUTRAS ACOES ----
+   * Sozinho numa linha abaixo dos campos, ele gastava uma faixa inteira da tela do
+   * celular para um botao de 38px, e empurrava os numeros para baixo da dobra. */
+  var iBt = admF.indexOf('<div class="barra-trava__acoes">');
+  var barraAcoes = iBt < 0 ? '' : admF.slice(iBt, admF.indexOf('</div>', iBt));
+  ok(barraAcoes.indexOf('id="dcHoje"') > 0 && barraAcoes.indexOf('id="btnCsvDecl"') > 0,
+    'o atalho do dia fica na MESMA barra do CSV — sozinho numa linha, ele gastava uma ' +
+    'faixa inteira da tela do celular para um bot\u00e3o de 38px e empurrava os n\u00fameros, ' +
+    'que s\u00e3o o que se veio ver, para baixo da dobra', barraAcoes.length);
+
+  /* ---- AS DATAS MIUDAS ----
+   * O periodo e' um controle de apoio, e nao o assunto da tela. No tamanho cheio, os
+   * dois campos ocupavam mais altura do que os tres numeros que eles filtram — e os
+   * numeros sao o que se veio ver. */
+  var cssF = fsReal.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  ok(/class="periodo-linha periodo-linha--miuda"/.test(admF) &&
+     cssF.indexOf('.periodo-linha--miuda input{min-height:36px') > 0,
+    'os campos de data da concilia\u00e7\u00e3o s\u00e3o os MI\u00daDOS \u2014 no tamanho cheio eles ocupavam ' +
+    'mais altura do que os tr\u00eas n\u00fameros que filtram, e os n\u00fameros s\u00e3o o que se veio ver');
+
+  /* ---- OS CARTOES SEM O TEXTO DE APOIO ----
+   * Ele explicava o que os tres rotulos ja dizem, e num telefone as tres frases custavam
+   * mais altura do que os tres numeros juntos. */
+  var iCt = admF.indexOf("cartaoTot(0, 3, 'var(--azul)'");
+  var tresCt = iCt < 0 ? '' : admF.slice(iCt, admF.indexOf(';', iCt));
+  ok(tresCt.indexOf('o que os motoristas informaram') < 0 &&
+     tresCt.indexOf('o que foi contado na chegada') < 0 &&
+     tresCt.indexOf('conferido menos declarado') < 0,
+    'os tr\u00eas cart\u00f5es saem SEM o texto de apoio — ele explicava o que os r\u00f3tulos j\u00e1 ' +
+    'dizem, e num telefone as tr\u00eas frases custavam mais altura do que os tr\u00eas n\u00fameros',
+    tresCt.slice(0, 160));
+  /* E O RODAPE VAZIO NAO NASCE: escrito vazio, ele continuava reservando a altura de uma
+     linha em cada cartao — tres linhas de nada numa fileira de tres. */
+  var iCT2 = admF.indexOf('  function cartaoTot(i, n, cor, rotulo, valor, nota, fatia, id){');
+  var fonteCT = iCT2 < 0 ? '' : admF.slice(iCT2, admF.indexOf('\n  }', iCT2) + 4);
+  ok(fonteCT.indexOf("(nota ? '<div class=\"tot__n\">'") > 0,
+    'e o rodap\u00e9 vazio n\u00e3o nasce — escrito vazio, ele continuava reservando a altura de ' +
+    'uma linha em cada cart\u00e3o, tr\u00eas linhas de nada numa fileira de tr\u00eas',
+    fonteCT.slice(-200));
+}
+
 console.log('\n== a fileira de totais no celular, e o Hoje das duas telas ==');
 {
   var cssT = fsReal.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
@@ -12157,9 +12297,13 @@ console.log('\n== a fileira de totais no celular, e o Hoje das duas telas ==');
    * PELA CLASSE DA FILEIRA, e nao por `:last-child` solto: em Movimentos o ultimo cartao
    * do DOM e' o setimo, e um deles esta escondido; `:last-child` la' abriria a linha
    * para um cartao que nao e' o ultimo que se ve. */
-  ok(cssT.indexOf('.tot--tri .tot__c:last-child{grid-column:1/-1}') > 0,
-    'na fileira de TR\u00caS o \u00faltimo toma a linha inteira — meia largura ao lado de um ' +
-    'vazio \u00e9 desenho, e n\u00e3o arranjo');
+  /* TRES COLUNAS, e nao "o ultimo abre a linha". Eles sao uma CONTA — declarado,
+     conferido e a diferenca entre os dois —, e conta que se le em duas linhas nao se le
+     como conta: a parcela de cima e a de baixo deixam de estar no mesmo olhar.
+     COUBERAM PORQUE O TEXTO DE APOIO SAIU dos cartoes. */
+  ok(cssT.indexOf('.tot--tri{grid-template-columns:repeat(3,minmax(0,1fr))') > 0,
+    'na fileira de TRÊS os tres ficam LADO A LADO — eles são uma conta, e conta que se ' +
+    'lê em duas linhas deixa a parcela e o resultado fora do mesmo olhar');
   ok(/class="tot tot--tri"/.test(admT2),
     'e a fileira da concilia\u00e7\u00e3o se declara como a de tr\u00eas \u2014 a regra \u00e9 da FILEIRA, e ' +
     'n\u00e3o do \u00faltimo cart\u00e3o solto: em Movimentos o \u00faltimo do DOM \u00e9 o s\u00e9timo, e um deles ' +
