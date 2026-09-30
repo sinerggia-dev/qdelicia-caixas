@@ -12232,6 +12232,81 @@ console.log('\n== o editor de falas para a demonstracao ==');
       'da frase que se pediu para ouvir', ou.slice(0, 120));
   });
 
+  /* ---- A CAPA CHAMA PELO NOME ----
+   *
+   * `{nome}` no TEXTO, e nao o nome grudado no codigo: assim a fala continua inteira no
+   * editor, e quem escreve decide ONDE o nome entra — ou tira o marcador e fica sem ele.
+   *
+   * SEM SESSAO, O MARCADOR SOME E A VIRGULA ORFA VAI JUNTO. E' o caso de quem abre o
+   * tutorial pelo link direto, sem ter entrado — e e' por ai que se abre o editor. "Ola,
+   * !" e' pior do que nao cumprimentar. */
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+    var iCn = txt.indexOf('  function comNome(txt) {');
+    var cn = iCn < 0 ? '' : txt.slice(iCn, txt.indexOf('\n  }', iCn) + 4);
+    ok(cn.length > 200, arq + ': a confer\u00eancia recortou a troca do nome', cn.length);
+    if (cn.length < 200) return;
+
+    function trocaCom(nome) {
+      return new Function('primeiroNome', cn + '\nreturn comNome;')(
+        function () { return nome; });
+    }
+    var com = trocaCom('Natanael');
+    ok(com('Ol\u00e1, {nome}! Seja bem-vindo.') === 'Ol\u00e1, Natanael! Seja bem-vindo.',
+      arq + ': com algu\u00e9m logado, a capa chama pelo primeiro nome',
+      com('Ol\u00e1, {nome}! Seja bem-vindo.'));
+
+    var sem = trocaCom('');
+    ok(sem('Ol\u00e1, {nome}! Seja bem-vindo.') === 'Ol\u00e1! Seja bem-vindo.',
+      arq + ': e sem ningu\u00e9m logado o marcador some, e a v\u00edrgula \u00f3rf\u00e3 vai junto — ' +
+      '"Ol\u00e1, !" \u00e9 pior do que n\u00e3o cumprimentar',
+      sem('Ol\u00e1, {nome}! Seja bem-vindo.'));
+    ok(sem('{nome}, tudo bem?') === 'tudo bem?' || sem('{nome}, tudo bem?') === 'Tudo bem?' ||
+       sem('{nome}, tudo bem?').indexOf('{nome}') < 0,
+      arq + ': e o marcador n\u00e3o sobra em lugar nenhum do texto',
+      sem('{nome}, tudo bem?'));
+    ok(com('Sem marcador nenhum.') === 'Sem marcador nenhum.' &&
+       sem('Sem marcador nenhum.') === 'Sem marcador nenhum.',
+      arq + ': e um texto SEM o marcador passa intacto — a troca n\u00e3o pode mexer no que ' +
+      'n\u00e3o foi marcado');
+    ok(com('{nome} e {nome}') === 'Natanael e Natanael',
+      arq + ': e o marcador vale em todas as vezes que aparecer', com('{nome} e {nome}'));
+
+    /* SO' O PRIMEIRO NOME: "Ola, Natanael" soa como gente falando; com o nome completo
+       vira cracha. E' a mesma regra da saudacao do painel. */
+    var iPn = txt.indexOf('  function primeiroNome() {');
+    var pn = iPn < 0 ? '' : txt.slice(iPn, txt.indexOf('\n  }', iPn) + 4);
+    ok(pn.indexOf("split(/") > 0 && pn.indexOf('[0]') > 0,
+      arq + ': e \u00e9 s\u00f3 o PRIMEIRO nome — com o nome completo a sauda\u00e7\u00e3o vira crach\u00e1',
+      pn.slice(0, 160));
+    /* DENTRO DE UM `try`: em janela anonima, com cookies bloqueados ou num iframe de
+       outro dominio, ler o armazenamento estoura — e uma saudacao nunca pode derrubar a
+       tela inteira. */
+    ok(pn.indexOf('try {') > 0 && pn.indexOf('catch') > 0,
+      arq + ': e a leitura da sess\u00e3o est\u00e1 protegida — em janela an\u00f4nima ou com cookies ' +
+      'bloqueados ela estoura, e uma sauda\u00e7\u00e3o n\u00e3o pode derrubar a tela');
+    ok(pn.indexOf("'qdc_sessao'") > 0,
+      arq + ': e ela l\u00ea a MESMA sess\u00e3o que o painel e o app de campo', pn.slice(0, 120));
+
+    /* A VOZ PASSA PELA MESMA TROCA QUE A LEGENDA: dita com `{nome}` cru, ela leria o
+       marcador em voz alta — "abre chaves nome fecha chaves". */
+    var iNr = txt.indexOf('  function narrar(txt, aoFim) {');
+    var nr = iNr < 0 ? '' : txt.slice(iNr, txt.indexOf('\n  }', iNr) + 4);
+    ok(nr.indexOf('semTags(comNome(txt))') > 0,
+      arq + ': e a VOZ passa pela mesma troca que a legenda — dita com o marcador cru, ' +
+      'ela o leria em voz alta', nr.slice(0, 200));
+    var iMs = txt.indexOf('  function mostrar(txt, erro) {');
+    var ms = iMs < 0 ? '' : txt.slice(iMs, txt.indexOf('\n  }', iMs) + 4);
+    ok(ms.indexOf('comNome(txt)') > 0,
+      arq + ': e a legenda tamb\u00e9m', ms.slice(0, 160));
+
+    /* E O EDITOR EXPLICA O MARCADOR. Sem isso ele e' um codigo secreto: quem apagar o
+       `{nome}` sem querer nao tem como saber que ele existia. */
+    ok(txt.indexOf('<code>{nome}</code>') > 0,
+      arq + ': e o editor EXPLICA o marcador — sem isso ele \u00e9 um c\u00f3digo secreto, e quem ' +
+      'o apagar sem querer n\u00e3o tem como saber que ele existia');
+  });
+
   /* ---- A CAPA E' A PRIMEIRA CENA, E ELA FALA ----
    *
    * A capa ja' estava na tela — desenhada no arranque — mas o roteiro comecava DEPOIS
@@ -12278,7 +12353,7 @@ console.log('\n== o editor de falas para a demonstracao ==');
   var falasD = fsReal.readFileSync(path.join(raizE, demos[0]), 'utf8');
   var iFd = falasD.indexOf('  var FALAS = {');
   var bloco = falasD.slice(iFd, falasD.indexOf('\n  };', iFd));
-  ok(/entrada: 'Ol\u00e1! Seja bem-vindo ao Aplicativo/.test(bloco),
+  ok(/entrada: 'Ol\u00e1, \{nome\}! Seja bem-vindo ao Aplicativo/.test(bloco),
     'a capa d\u00e1 as boas-vindas ao aplicativo', bloco.slice(bloco.indexOf('entrada:'), bloco.indexOf('entrada:') + 90));
   ok(/s01:[^']*'Neste momento, voc\u00ea aprender\u00e1/.test(bloco),
     'e o texto seguinte j\u00e1 diz o que se vai aprender, enquanto o dedo entra no aplicativo');

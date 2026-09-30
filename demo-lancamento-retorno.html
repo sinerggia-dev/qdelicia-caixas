@@ -422,7 +422,9 @@ html:not([data-editor="1"]) .ed__b{display:none}
   <div class="ed" id="ed" hidden>
     <p class="ed__t">Altere o texto de cada trecho. A mudança vale na hora, fica
     guardada neste aparelho e também muda o que a voz fala. Use
-    <code>&lt;b&gt;palavra&lt;/b&gt;</code> para negrito na legenda.</p>
+    <code>&lt;b&gt;palavra&lt;/b&gt;</code> para negrito na legenda.<br>
+    <code>{nome}</code> vira o primeiro nome de quem está usando o sistema. Sem
+    ninguêm logado, ele some junto com a vírgula: “Olá, {nome}!” fica “Olá!”.</p>
     <div id="ed-campos"></div>
     <p class="ed__ok" id="ed-ok"></p>
     <div class="ed__acoes">
@@ -522,7 +524,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
     r08:   'Pronto. O retorno entra em <b>Movimentos</b> na hora e o saldo já muda.',
 
     /* ---------- ENTRADA E ENCERRAMENTO ---------- */
-    entrada: 'Olá! Seja bem-vindo ao Aplicativo de <b>Controle de Caixas</b>. Vamos guiá-lo passo a passo no preenchimento das informações do sistema.',
+    entrada: 'Olá, {nome}! Seja bem-vindo ao Aplicativo de <b>Controle de Caixas</b>. Vamos guiá-lo passo a passo no preenchimento das informações do sistema.',
     fim:     'Pronto. Sempre que precisar, é só voltar aqui e assistir de novo. Toque em <b>Pular</b> para ir aos lançamentos.'
   };
 
@@ -717,7 +719,9 @@ html:not([data-editor="1"]) .ed__b{display:none}
     function acabou() { if (!pronto) { pronto = true; if (aoFim) aoFim(); } }
     if (!SOM || !temVoz) { acabou(); return; }
     var meu = ++FALA;
-    var texto = semTags(txt);
+    /* A VOZ PASSA PELA MESMA TROCA que a legenda: dita com `{nome}` cru, ela leria o
+       marcador em voz alta. */
+    var texto = semTags(comNome(txt));
     try { speechSynthesis.cancel(); } catch (e) {}
     setTimeout(function () {
       if (meu !== FALA || !SOM) { acabou(); return; }
@@ -761,8 +765,42 @@ html:not([data-editor="1"]) .ed__b{display:none}
   }
 
   /* ---- legenda ---- */
+  /* ================= O NOME DE QUEM ESTA OLHANDO =================
+   *
+   * A sessao mora no mesmo dominio, em `qdc_sessao` — a mesma que o painel e o app de
+   * campo leem. O demo nao carrega o nucleo (e' uma pagina solta, de proposito: ela roda
+   * sozinha, sem rede e sem cadastro), entao ele le' a chave direto, dentro de um
+   * `try`: em janela anonima, com cookies bloqueados ou dentro de um iframe de outro
+   * dominio, isto falha — e uma saudacao nunca pode derrubar a tela.
+   *
+   * SO' O PRIMEIRO NOME. "Ola, Natanael" soa como gente falando; com o nome completo
+   * vira cracha. E' a mesma regra da saudacao do painel.
+   */
+  function primeiroNome() {
+    try {
+      var s = JSON.parse(localStorage.getItem('qdc_sessao') || 'null');
+      var n = s && s.nome ? String(s.nome).trim() : '';
+      return n ? n.split(/\s+/)[0] : '';
+    } catch (e) { return ''; }
+  }
+
+  /* `{nome}` NO TEXTO, e nao o nome grudado no codigo: assim a fala continua inteira no
+     editor, e quem escreve decide ONDE o nome entra — ou tira o marcador e fica sem ele.
+     SEM SESSAO, O MARCADOR SOME e a virgula orfa vai junto: "Ola, {nome}!" vira "Ola!",
+     e nao "Ola, !". Quem abre o tutorial pelo link direto, sem ter entrado, nao tem nome
+     nenhum — e e' por ai que voce o abre para editar. */
+  function comNome(txt) {
+    var s = String(txt == null ? '' : txt);
+    if (s.indexOf('{nome}') < 0) return s;
+    var n = primeiroNome();
+    if (n) return s.replace(/\{nome\}/g, n);
+    return s.replace(/,?\s*\{nome\}\s*,?/g, ' ')
+            .replace(/\s+([!?.,;:])/g, '$1')
+            .replace(/\s{2,}/g, ' ').trim();
+  }
+
   function mostrar(txt, erro) {
-    leg.innerHTML = txt;
+    leg.innerHTML = comNome(txt);
     leg.classList.toggle('leg--erro', !!erro);
   }
   function fala(txt, erro) {
