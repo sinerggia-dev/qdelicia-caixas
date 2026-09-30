@@ -12238,6 +12238,126 @@ console.log('\n== o editor de falas para a demonstracao ==');
       'da frase que se pediu para ouvir', ou.slice(0, 120));
   });
 
+  /* ---- A VOZ MORRE COM A TELA ----
+   *
+   * Sair do tutorial deixava a voz falando por mais dois a quatro segundos, por cima da
+   * tela seguinte. A saida faz `location.href`, e a fila de fala do navegador NAO e' da
+   * pagina: ela sobrevive a navegacao e termina o pedaco que ja comecou. Quem sai tem de
+   * calar antes.
+   *
+   * E O `calar` NAO ESTAVA AO ALCANCE de quem sai: a saida mora no segundo bloco de
+   * script, e o `calar` no primeiro. E' a mesma armadilha de escopo que tinha acabado de
+   * apagar o nome da capa. Por isso a parada foi escrita no bloco que e' DONO da voz, e
+   * nao no que navega — la' ela nao dependeria de alcancar nada.
+   *
+   * SAIR E SUMIR SAO COISAS DIFERENTES. Sair encerra: cancela. Sumir — trocar de aba,
+   * travar o celular — e' para voltar: pausa, e volta de onde parou. Cancelar ao sumir
+   * seria pior do que nao fazer nada, porque o fim da fala cancelada ADIANTA a cena, e a
+   * pessoa voltaria para o meio de uma demonstracao que correu sozinha no escuro. */
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+    var iC = txt.indexOf('  function calar() {');
+    var cl = iC < 0 ? '' : txt.slice(iC, txt.indexOf('\n  }', iC) + 4);
+    var iP = txt.indexOf('  function pararAoSair(janela, doc) {');
+    var pa = iP < 0 ? '' : txt.slice(iP, txt.indexOf('\n  }', iP) + 4);
+    ok(cl.length > 60 && pa.length > 150,
+      arq + ': a confer\u00eancia recortou o calar e a parada ao sair',
+      [cl.length, pa.length]);
+    if (pa.length < 150) return;
+
+    function bancada() {
+      var ouvintes = {};
+      function pega(n, f) { (ouvintes[n] = ouvintes[n] || []).push(f); }
+      var janela = { addEventListener: pega };
+      var doc = { hidden: false, addEventListener: pega };
+      var conta = { cancelou: 0, pausas: [] };
+      var voz = { cancel: function () { conta.cancelou++; },
+                  pause: function () {}, resume: function () {} };
+      var api = new Function('janela', 'doc', 'speechSynthesis', 'temVoz', 'anota',
+        'var FALA = 0, PAUSA = false;\n' +
+        'function pararPulso() {}\n' +
+        'function pausarDemo(v) { PAUSA = !!v; anota(PAUSA); }\n' +
+        cl + '\n' + pa + '\n' +
+        'pararAoSair(janela, doc);\n' +
+        'return { pausar: pausarDemo, parado: function () { return PAUSA; } };'
+      )(janela, doc, voz, true, function (v) { conta.pausas.push(v); });
+      api.disparar = function (nome) {
+        (ouvintes[nome] || []).forEach(function (f) { f({}); });
+        return (ouvintes[nome] || []).length;
+      };
+      api.doc = doc; api.conta = conta;
+      return api;
+    }
+
+    /* SAIR CALA NA HORA. */
+    var b1 = bancada();
+    var quantos = b1.disparar('pagehide');
+    ok(quantos > 0 && b1.conta.cancelou > 0,
+      arq + ': a p\u00e1gina saindo de cena CALA a voz \u2014 a fila de fala \u00e9 do navegador e ' +
+      'sobrevive \u00e0 navega\u00e7\u00e3o, e por isso a voz continuava por cima da tela seguinte',
+      [quantos, b1.conta.cancelou]);
+
+    /* SUMIR PAUSA, E VOLTAR CONTINUA. */
+    var b2 = bancada();
+    b2.doc.hidden = true;
+    b2.disparar('visibilitychange');
+    ok(b2.parado() === true,
+      arq + ': trocar de aba para a demonstra\u00e7\u00e3o \u2014 falar para uma tela que ningu\u00e9m ' +
+      'est\u00e1 vendo \u00e9 o mesmo que falar sozinho');
+    b2.doc.hidden = false;
+    b2.disparar('visibilitychange');
+    ok(b2.parado() === false,
+      arq + ': e voltar continua de onde parou \u2014 pausar sem despausar deixaria a ' +
+      'demonstra\u00e7\u00e3o morta at\u00e9 algu\u00e9m descobrir o bot\u00e3o Continuar');
+    ok(b2.conta.cancelou === 0,
+      arq + ': e sumir N\u00c3O cancela \u2014 o fim da fala cancelada ADIANTA a cena, e a pessoa ' +
+      'voltaria para o meio de uma demonstra\u00e7\u00e3o que correu sozinha no escuro',
+      b2.conta.cancelou);
+
+    /* O PAINEL MANDA CALAR, e o tutorial obedece.
+     *
+     * Dentro do painel o tutorial e' um quadro que NUNCA e' descarregado: trocar de aba
+     * so' troca uma classe, e a pagina escondida continua viva. Nem `pagehide` nem
+     * `visibilitychange` acontecem ali — a aba do navegador nao mudou —, e a voz seguia
+     * falando por cima da tela nova, sem parar nunca. Por isso o painel avisa. */
+    var iOu = txt.indexOf('  function ouvirPedidoDeCalar(janela) {');
+    var ou = iOu < 0 ? '' : txt.slice(iOu, txt.indexOf('\n  }', iOu) + 4);
+    ok(ou.length > 80, arq + ': a confer\u00eancia recortou o ouvinte do pedido de calar',
+      ou.length);
+    if (ou.length > 80) {
+      function comRecado(dados) {
+        var ouvintes = [];
+        var janela = { addEventListener: function (n, f) {
+          if (n === 'message') ouvintes.push(f); } };
+        var n = 0;
+        var voz = { cancel: function () { n++; }, pause: function () {},
+                    resume: function () {} };
+        new Function('janela', 'speechSynthesis', 'temVoz',
+          'var FALA = 0;\nfunction pararPulso() {}\n' + cl + '\n' + ou +
+          '\nouvirPedidoDeCalar(janela);')(janela, voz, true);
+        ouvintes.forEach(function (f) { f({ data: dados }); });
+        return n;
+      }
+      ok(comRecado({ qdc: 'calar' }) > 0,
+        arq + ': o recado do painel CALA o quadro \u2014 dentro do painel o tutorial nunca ' +
+        '\u00e9 descarregado, e trocar de aba s\u00f3 troca uma classe: sem o recado a voz ' +
+        'seguiria falando por cima da tela nova, sem parar nunca');
+      ok(comRecado({ qdc: 'voz', nome: 'x' }) === 0 && comRecado(null) === 0 &&
+         comRecado('calar') === 0,
+        arq + ': e s\u00f3 esse recado cala \u2014 qualquer mensagem de qualquer p\u00e1gina chega ' +
+        'aqui, e calar por engano \u00e9 uma demonstra\u00e7\u00e3o muda sem explica\u00e7\u00e3o');
+    }
+
+    /* PARADA A MAO CONTINUA PARADA. */
+    var b3 = bancada();
+    b3.pausar(true);
+    b3.doc.hidden = true;  b3.disparar('visibilitychange');
+    b3.doc.hidden = false; b3.disparar('visibilitychange');
+    ok(b3.parado() === true,
+      arq + ': e o que a pessoa parou A M\u00c3O continua parado ao voltar \u2014 despausar por ' +
+      'conta pr\u00f3pria desfaria uma escolha dela');
+  });
+
   /* ---- A VOZ E' DA EMPRESA, E CHEGA AO TUTORIAL ----
    *
    * A escolha valia so' na aba em que alguem mexeu: recarregar ja' a perdia, e os outros
@@ -12338,6 +12458,50 @@ console.log('\n== o editor de falas para a demonstracao ==');
 
   /* ---- O PAINEL OUVE E GRAVA ---- */
   var admV = fsReal.readFileSync(path.join(raizE, 'admin.html'), 'utf8');
+
+  /* ---- O PAINEL CALA O QUE SAIU DE VISTA ----
+   *
+   * QUEM CALA E' DERIVADO DA TELA, e nao uma lista de ids escrita a mao: sao os quadros
+   * que estao numa pagina SEM a marca de ativa. Uma lista precisaria ser lembrada toda
+   * vez que nascesse um quadro novo — e o quarto quadro nasceria falando sozinho. */
+  var iCq = admV.indexOf('  function quadrosMudos(doc){');
+  var cq = iCq < 0 ? '' : admV.slice(iCq, admV.indexOf('\n  }', iCq) + 4);
+  var iCc = admV.indexOf('  function calarQuadrosEscondidos(doc){');
+  var cc = iCc < 0 ? '' : admV.slice(iCc, admV.indexOf('\n  }', iCc) + 4);
+  ok(cq.length > 100 && cc.length > 80,
+    'a confer\u00eancia recortou a parada dos quadros escondidos', [cq.length, cc.length]);
+  if (cq.length > 100) {
+    function quadro(ativa) {
+      var pg = { classList: { contains: function (c) { return c === 'ativa' && ativa; } } };
+      var f = { recados: [], closest: function () { return pg; } };
+      f.contentWindow = { postMessage: function (m) { f.recados.push(m); } };
+      return f;
+    }
+    var visivel = quadro(true), escondido = quadro(false), outro = quadro(false);
+    var solto = { recados: [], closest: function () { return null; } };
+    solto.contentWindow = { postMessage: function (m) { solto.recados.push(m); } };
+    var doc = { querySelectorAll: function () {
+      return [visivel, escondido, outro, solto]; } };
+    new Function('doc', cq + '\n' + cc + '\ncalarQuadrosEscondidos(doc);')(doc);
+
+    ok(escondido.recados.length === 1 && escondido.recados[0].qdc === 'calar' &&
+       outro.recados.length === 1,
+      'trocar de aba cala TODO quadro que saiu de vista \u2014 eram dois, e calar s\u00f3 um ' +
+      'deixaria o outro falando', [escondido.recados, outro.recados]);
+    ok(visivel.recados.length === 0,
+      'e N\u00c3O cala o quadro da aba que acabou de abrir \u2014 cal\u00e1-lo emudeceria a ' +
+      'demonstra\u00e7\u00e3o no instante em que a pessoa foi v\u00ea-la', visivel.recados);
+    ok(solto.recados.length === 0,
+      'e ignora um quadro fora de qualquer p\u00e1gina \u2014 sem p\u00e1gina n\u00e3o h\u00e1 como saber se ' +
+      'ele est\u00e1 \u00e0 vista');
+  }
+  /* E O GATILHO E' A TROCA DE ABA. Provado chamando o gancho que o nucleo chama. */
+  var iAa = admV.indexOf('  window.aoAbrirAba = function(p){');
+  var aa = iAa < 0 ? '' : admV.slice(iAa, admV.indexOf('\n  };', iAa));
+  ok(aa.indexOf('calarQuadrosEscondidos(') > 0,
+    'e quem dispara \u00e9 a troca de aba \u2014 a fun\u00e7\u00e3o existir, inteira e correta, e ' +
+    'ningu\u00e9m cham\u00e1-la foi o escape de duas sabotagens nesta mesma semana', aa.slice(0, 200));
+
   var iMs = admV.indexOf("  window.addEventListener('message', function(e){");
   var ms = iMs < 0 ? '' : admV.slice(iMs, admV.indexOf('\n  });', iMs));
   ok(ms.length > 300, 'a confer\u00eancia recortou o ouvinte do painel', ms.length);

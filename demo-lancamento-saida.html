@@ -881,6 +881,64 @@ html:not([data-editor="1"]) .ed__b{display:none}
     if (temVoz) { try { speechSynthesis.cancel(); } catch (e) {} }
   }
 
+  /* A VOZ MORRE COM A TELA.
+   *
+   * Sair do tutorial deixava a voz falando por mais dois a quatro segundos, por cima da
+   * tela seguinte. A fila de fala NAO e' da pagina: ela e' do navegador, sobrevive a
+   * navegacao e termina o pedaco que ja comecou. Quem sai tem de calar antes.
+   *
+   * ESCRITO AQUI, e nao onde se navega, porque aqui e' o dono da voz. A saida mora no
+   * outro bloco de script deste arquivo, e de la' o `calar` nao esta ao alcance — foi
+   * essa mesma armadilha de escopo que apagou o nome da capa semana passada. Um ouvinte
+   * de `pagehide` nao depende de alcancar nada: vale para a saida de hoje e para
+   * qualquer outra que alguem acrescente depois, sem precisar lembrar de calar.
+   *
+   * `pagehide`, E NAO `beforeunload`: o primeiro avisa tambem quando o celular manda a
+   * pagina para o fundo, que e' metade dos casos aqui, e nao estraga o cache de volta.
+   *
+   * SAIR E SUMIR SAO COISAS DIFERENTES. Sair encerra: cancela. Sumir — trocar de aba,
+   * travar o celular — e' para voltar: pausa, e continua de onde parou. Cancelar ao
+   * sumir seria pior do que nao fazer nada, porque o fim da fala cancelada ADIANTA a
+   * cena: a pessoa voltaria para o meio de uma demonstracao que correu sozinha no
+   * escuro.
+   *
+   * O QUE A PESSOA PAROU A MAO CONTINUA PARADO. Por isso a marca de quem pausou fica
+   * aqui dentro: so' despausa quem pausou, e voltar para a aba nao desfaz uma escolha
+   * dela. */
+  function pararAoSair(janela, doc) {
+    var porSumir = false;
+    janela.addEventListener('pagehide', calar);
+    doc.addEventListener('visibilitychange', function () {
+      if (doc.hidden) {
+        if (!PAUSA) { porSumir = true; pausarDemo(true); }
+      } else if (porSumir) {
+        porSumir = false;
+        pausarDemo(false);
+      }
+    });
+  }
+  pararAoSair(window, document);
+
+  /* O PAINEL MANDA CALAR, e aqui se obedece.
+   *
+   * DENTRO DO PAINEL ESTE QUADRO NUNCA E' DESCARREGADO: trocar de aba la' so' troca uma
+   * classe, e a pagina escondida continua viva. Nem `pagehide` nem `visibilitychange`
+   * acontecem — a aba do NAVEGADOR nao mudou —, e a voz seguia falando por cima da tela
+   * nova. Nao por dois segundos: sem parar nunca. Quem sabe que o quadro saiu de vista
+   * e' o painel, entao e' ele que avisa.
+   *
+   * CONFERINDO O RECADO, e nao a origem: qualquer pagina pode mandar mensagem para ca',
+   * e conferir origem exigiria escrever aqui o endereco do proprio site — que muda
+   * entre o Vercel, o dominio proprio e a maquina de quem desenvolve. O estrago
+   * possivel e' calar uma demonstracao, e so' cala quem diz exatamente esta palavra. */
+  function ouvirPedidoDeCalar(janela) {
+    janela.addEventListener('message', function (e) {
+      var d = e && e.data;
+      if (d && d.qdc === 'calar') calar();
+    });
+  }
+  ouvirPedidoDeCalar(window);
+
   /* ---- legenda ---- */
   /* ================= O NOME DE QUEM ESTA OLHANDO =================
    *

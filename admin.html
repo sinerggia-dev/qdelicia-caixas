@@ -2136,7 +2136,40 @@
     periodoPadraoDecl();
   })();
 
+  /* OS QUADROS QUE SAIRAM DE VISTA FICAM MUDOS.
+   *
+   * O tutorial e o manual moram em quadros que NUNCA sao descarregados: trocar de aba
+   * aqui so' troca uma classe, e a pagina escondida continua viva atras. A voz do
+   * tutorial seguia falando por cima da tela nova, sem parar nunca, porque do lado de
+   * dentro nada acontece — a aba do NAVEGADOR nao mudou. Quem sabe que o quadro saiu de
+   * vista e' esta tela, entao e' ela que avisa.
+   *
+   * QUEM CALA E' DERIVADO DA TELA, e nao uma lista de ids escrita a mao: e' todo quadro
+   * numa pagina SEM a marca de ativa. Uma lista precisaria ser lembrada toda vez que
+   * nascesse um quadro novo, e o quarto nasceria falando sozinho.
+   *
+   * SEM PAGINA, NAO SE MEXE: um quadro fora de qualquer pagina nao da' para saber se
+   * esta a' vista, e calar por desencargo emudeceria o que a pessoa esta olhando. */
+  function quadrosMudos(doc){
+    var fora = [], qs = doc.querySelectorAll('iframe');
+    for (var i=0;i<qs.length;i++){
+      var pg = qs[i].closest ? qs[i].closest('.pagina') : null;
+      if (pg && !pg.classList.contains('ativa')) fora.push(qs[i]);
+    }
+    return fora;
+  }
+  /* `try` em cada um: um quadro que ainda nao carregou nao tem para quem mandar, e um
+     que falhe nao pode impedir o recado dos outros. */
+  function calarQuadrosEscondidos(doc){
+    quadrosMudos(doc).forEach(function(f){
+      try { f.contentWindow.postMessage({ qdc:'calar' }, '*'); } catch(e){}
+    });
+  }
+
   window.aoAbrirAba = function(p){
+    /* ANTES DE QUALQUER CARGA: a tela ja trocou de pagina quando isto roda, e o que
+       ficou para tras tem de emudecer agora, nao depois de uma ida a' rede. */
+    calarQuadrosEscondidos(document);
     if (p==='pgPainel' || p==='pgRetornos') carregarPainel();
     if (p==='pgMovimentos') carregarMovimentos();
     if (p==='pgLancamentosMotorista') carregarDecl();
