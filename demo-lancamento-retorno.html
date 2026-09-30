@@ -663,17 +663,50 @@ html:not([data-editor="1"]) .ed__b{display:none}
   var BOA = /natural|neural|online|google|siri|premium|enhanced|eloquence/i;
   var RUIM = /desktop|sapi|espeak|compact|festival|pico/i;
 
+  /* A QUALIDADE VEM ANTES DO TIMBRE.
+   *
+   * O peso de "feminina" era 60 e o de "neural" era 45: no Chrome, onde as vozes sao
+   * "Microsoft Maria", "Google portugues do Brasil" e "Microsoft Daniel", a Maria
+   * ganhava — e ela e' a voz difone antiga do Windows, a do som metalico. A Google e'
+   * neural e soa como gente. O demo escolhia a pior das tres por causa do timbre.
+   *
+   * O TIMBRE CONTINUA PESANDO, como desempate: entre duas vozes da mesma geracao, a
+   * feminina vem primeiro — foi o que se pediu. O que ele nao faz mais e' passar na
+   * frente de uma voz de outra geracao. */
   function pontos(v) {
     var n = v.name || '', s = 0;
     if (/pt[-_]?BR/i.test(v.lang)) s += 100;
-    if (BOA.test(n)) s += 45;
-    if (v.localService === false) s += 15;   /* voz de servidor: quase sempre neural */
-    if (FEMININA.test(n)) s += 60;   /* pedido: voz feminina vem antes de tudo */
+    if (BOA.test(n)) s += 80;                /* neural/natural/online/google */
+    if (v.localService === false) s += 25;   /* voz de servidor: quase sempre neural */
+    if (FEMININA.test(n)) s += 30;           /* desempate entre vozes da mesma geracao */
     if (RUIM.test(n)) s -= 40;
     return s;
   }
+
+  /* ROBOTICA E' O QUE NAO TEM MARCA DE QUALIDADE E MORA NO APARELHO.
+   *
+   * A prova antiga exigia a palavra "Desktop" ou "SAPI" no nome — e no Chrome a mesma
+   * voz se chama so' "Microsoft Maria - Portuguese (Brazil)", sem sufixo nenhum. O aviso
+   * de "voz metalica" nunca aparecia justamente no navegador em que a voz metalica era a
+   * escolhida.
+   * `localService === false` e' a pista que sobra: voz que vem de servidor e' quase
+   * sempre neural. Uma voz LOCAL sem marca de qualidade e' quase sempre da geracao
+   * antiga. */
   function ehRobotica(v) {
-    return !!v && RUIM.test(v.name || '') && !BOA.test(v.name || '');
+    if (!v) return false;
+    var n = v.name || '';
+    if (BOA.test(n)) return false;
+    return RUIM.test(n) || v.localService !== false;
+  }
+
+  /* A MELHOR DA LISTA QUE NAO SEJA A ESCOLHIDA — ou nada, se a escolhida ja e' a melhor.
+     E' o que transforma o aviso de lamento em caminho: "ha uma voz melhor, e o nome dela
+     e' este". */
+  function melhorQue(v) {
+    for (var i = 0; i < VOZES.length; i++) {
+      if (VOZES[i] !== v && !ehRobotica(VOZES[i])) return VOZES[i];
+    }
+    return null;
   }
 
   function carregarVozes() {
@@ -710,12 +743,18 @@ html:not([data-editor="1"]) .ed__b{display:none}
       av.textContent = 'Nenhuma voz em português instalada neste aparelho. '
         + 'No Windows: Configurações › Hora e idioma › Voz › Adicionar vozes.';
     } else if (SOM && ehRobotica(VOZ)) {
-      /* a voz metálica não é defeito da tela: é a voz antiga do sistema */
+      /* A VOZ METALICA NAO E' DEFEITO DA TELA: e' a voz antiga do sistema. Mas o aviso
+         so' vale se disser o que FAZER — e o que fazer depende de haver, ou nao, uma voz
+         melhor ali mesmo na lista. */
       av.hidden = false;
-      av.textContent = 'A voz "' + VOZ.name + '" é da geração antiga do Windows e soa metálica. '
-        + 'Para uma voz natural: Configurações › Hora e idioma › Voz › Adicionar vozes › '
-        + 'Português (Brasil), ou abra esta página no Microsoft Edge, que traz as vozes '
-        + 'Natural da Francisca e da Thalita.';
+      var outra = melhorQue(VOZ);
+      av.textContent = outra
+        ? 'A voz "' + VOZ.name + '" é da geração antiga e soa metálica. '
+          + 'Há uma melhor neste navegador: escolha "' + outra.name + '" na lista ao lado.'
+        : 'A voz "' + VOZ.name + '" é da geração antiga e soa metálica. '
+          + 'Este navegador não tem nenhuma voz natural em português. No Microsoft Edge '
+          + 'há as vozes Natural da Francisca e da Thalita; no Windows, dá para instalar '
+          + 'mais em Configurações › Hora e idioma › Voz › Adicionar vozes.';
     } else {
       av.hidden = true;
     }

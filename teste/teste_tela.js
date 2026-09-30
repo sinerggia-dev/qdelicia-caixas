@@ -12238,6 +12238,127 @@ console.log('\n== o editor de falas para a demonstracao ==');
       'da frase que se pediu para ouvir', ou.slice(0, 120));
   });
 
+  /* ---- A ESCOLHA DA VOZ ----
+   *
+   * O peso de "feminina" era 60 e o de "neural" era 45: no Chrome, onde as vozes em
+   * portugues sao "Microsoft Maria", "Google portugues do Brasil" e "Microsoft Daniel",
+   * a Maria ganhava — e ela e' a difone antiga do Windows, a do som metalico. A Google
+   * e' neural e soa como gente. O demo escolhia a PIOR das tres por causa do timbre.
+   *
+   * RODADO CONTRA AS DUAS LISTAS REAIS: a do Chrome (relatada) e a do Edge, onde a
+   * Thalita existe. A Thalita NAO EXISTE no Chrome — e' uma voz online da Microsoft, e
+   * nenhum ajuste nosso a traz para la'. O que da' para fazer e' escolher a melhor que
+   * houver em cada navegador, e e' isso que estas provas cobram. */
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+    var iP = txt.indexOf('  var FEMININA = ');
+    var fim = txt.indexOf('\n  }', txt.indexOf('  function melhorQue(v) {')) + 4;
+    var fonteV = iP < 0 ? '' : txt.slice(iP, fim);
+    ok(fonteV.length > 800 && fonteV.indexOf('function pontos') > 0,
+      arq + ': a confer\u00eancia recortou a escolha da voz', fonteV.length);
+    if (fonteV.length < 800) return;
+
+    function bancadaVoz(lista) {
+      var api = new Function('VOZES', fonteV +
+        '\nreturn { pontos: pontos, robotica: ehRobotica, melhor: melhorQue };')(lista);
+      var ordenada = lista.slice().sort(function (a, b) {
+        return api.pontos(b) - api.pontos(a);
+      });
+      return { api: api, ordem: ordenada, escolhida: ordenada[0] };
+    }
+
+    /* O QUE O CHROME OFERECE, na ordem em que ele as devolve. */
+    var chrome = [
+      { name: 'Microsoft Maria - Portuguese (Brazil)', lang: 'pt-BR', localService: true },
+      { name: 'Google portugu\u00eas do Brasil', lang: 'pt-BR', localService: false },
+      { name: 'Microsoft Daniel - Portuguese (Brazil)', lang: 'pt-BR', localService: true }
+    ];
+    var bc = bancadaVoz(chrome);
+    ok(bc.escolhida.name.indexOf('Google') === 0,
+      arq + ': no Chrome a escolhida \u00e9 a GOOGLE, que \u00e9 neural — a Maria ganhava por ser ' +
+      'feminina, e ela \u00e9 a difone antiga do Windows: o demo escolhia a pior das tr\u00eas por ' +
+      'causa do timbre', bc.ordem.map(function (v) { return v.name; }));
+
+    /* O QUE O EDGE OFERECE: a Thalita esta la', e ela tem de continuar ganhando.
+       ANTONIO ANTES DE THALITA na lista de proposito: com a Thalita ja' na frente, a
+       ordem final seria a mesma com ou sem o desempate por timbre, e a prova aprovaria
+       um desempate que nao existe. */
+    var edge = [
+      { name: 'Microsoft Maria - Portuguese (Brazil)', lang: 'pt-BR', localService: true },
+      { name: 'Microsoft Antonio Online (Natural) - Portuguese (Brazil)', lang: 'pt-BR',
+        localService: false },
+      { name: 'Microsoft Thalita Online (Natural) - Portuguese (Brazil)', lang: 'pt-BR',
+        localService: false }
+    ];
+    var be = bancadaVoz(edge);
+    ok(be.escolhida.name.indexOf('Thalita') > 0,
+      arq + ': e no Edge continua sendo a THALITA — a mudan\u00e7a n\u00e3o pode consertar um ' +
+      'navegador quebrando o outro', be.ordem.map(function (v) { return v.name; }));
+    ok(be.ordem[1].name.indexOf('Antonio') > 0,
+      arq + ': e entre duas vozes da MESMA gera\u00e7\u00e3o a feminina vem primeiro — o timbre ' +
+      'deixou de atropelar a qualidade, mas continua desempatando',
+      be.ordem.map(function (v) { return v.name; }));
+
+    /* ---- A REGRA, E NAO SO' O VENCEDOR ----
+     * Olhar so' quem ganha nao prende a regra: mexer nos pesos sem virar o resultado
+     * passava verde, e foi o que oito sabotagens fizeram. Cada peso e' medido no par em
+     * que ELE decide. */
+    var difoneFem = { name: 'Microsoft Maria - Portuguese (Brazil)', lang: 'pt-BR',
+                      localService: true };
+    var neuralMasc = { name: 'Microsoft Antonio Online (Natural) - Portuguese (Brazil)',
+                       lang: 'pt-BR', localService: false };
+    ok(bc.api.pontos(neuralMasc) > bc.api.pontos(difoneFem),
+      arq + ': uma voz NEURAL masculina vence uma difone feminina — era o contr\u00e1rio, e ' +
+      'foi por isso que o Chrome escolhia a Maria met\u00e1lica em vez da Google neural',
+      [bc.api.pontos(neuralMasc), bc.api.pontos(difoneFem)]);
+
+    var neuralFem = { name: 'Microsoft Thalita Online (Natural) - Portuguese (Brazil)',
+                      lang: 'pt-BR', localService: false };
+    ok(bc.api.pontos(neuralFem) > bc.api.pontos(neuralMasc),
+      arq + ': e entre duas NEURAIS a feminina vem primeiro — o timbre continua ' +
+      'desempatando dentro da mesma gera\u00e7\u00e3o',
+      [bc.api.pontos(neuralFem), bc.api.pontos(neuralMasc)]);
+
+    /* O MESMO NOME, mudando so' o `localService`: e' o unico jeito de medir esse peso
+       sozinho, sem que a marca no nome responda por ele. */
+    var servidor = { name: 'Voz Qualquer', lang: 'pt-BR', localService: false };
+    var local = { name: 'Voz Qualquer', lang: 'pt-BR', localService: true };
+    ok(bc.api.pontos(servidor) > bc.api.pontos(local),
+      arq + ': e uma voz de SERVIDOR vence a mesma voz local — voz que vem de servidor ' +
+      '\u00e9 quase sempre neural, e \u00e9 a \u00fanica pista quando o nome n\u00e3o diz nada',
+      [bc.api.pontos(servidor), bc.api.pontos(local)]);
+
+    /* A MARIA DO CHROME E' ROBOTICA, mesmo sem a palavra "Desktop" no nome. A prova
+       antiga exigia "Desktop" ou "SAPI" — e no Chrome a mesma voz se chama so'
+       "Microsoft Maria": o aviso de voz metalica nunca aparecia justamente no navegador
+       em que a voz metalica era a escolhida. */
+    ok(bc.api.robotica(chrome[0]) === true,
+      arq + ': a "Microsoft Maria" \u00e9 reconhecida como da gera\u00e7\u00e3o antiga mesmo sem a ' +
+      'palavra "Desktop" no nome — no Chrome ela n\u00e3o tem sufixo, e o aviso nunca ' +
+      'aparecia justamente onde ela era a escolhida');
+    ok(bc.api.robotica(chrome[1]) === false && bc.api.robotica(neuralFem) === false,
+      arq + ': e as neurais n\u00e3o s\u00e3o marcadas como antigas');
+    /* NEURAL E LOCAL AO MESMO TEMPO existe — as vozes "Enhanced" do macOS sao um caso.
+       Sem a marca no nome vencendo a pista do `localService`, elas seriam acusadas de
+       metalicas e o aviso mandaria a pessoa consertar o que nao esta quebrado. */
+    var localBoa = { name: 'Luciana (Enhanced)', lang: 'pt-BR', localService: true };
+    ok(bc.api.robotica(localBoa) === false,
+      arq + ': e uma voz neural que mora NO APARELHO tamb\u00e9m n\u00e3o \u00e9 — as "Enhanced" do ' +
+      'macOS s\u00e3o assim, e acus\u00e1-las mandaria a pessoa consertar o que n\u00e3o est\u00e1 quebrado');
+
+    /* E O AVISO APONTA A MELHOR QUE HOUVER — pulando as outras ruins pelo caminho. */
+    var mistura = bancadaVoz([chrome[0], chrome[2], chrome[1]]);
+    var apontada = mistura.api.melhor(chrome[0]);
+    ok(!!apontada && apontada.name.indexOf('Google') === 0,
+      arq + ': e o aviso aponta a melhor da lista, pulando as outras antigas no caminho ' +
+      '— apontar para a pr\u00f3xima qualquer trocaria uma voz met\u00e1lica por outra',
+      apontada && apontada.name);
+    var so = bancadaVoz([chrome[0]]);
+    ok(so.api.melhor(chrome[0]) === null,
+      arq + ': e quando n\u00e3o h\u00e1 melhor nenhuma, ele diz isso em vez de apontar para o ' +
+      'nada');
+  });
+
   /* ---- A LISTA DO DIA ENCHE COM O QUE O TUTORIAL LANCA ----
    *
    * Comecar vazia so' resolve metade: se ela nunca enchesse, a lista passaria a ensinar
