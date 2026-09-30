@@ -12595,6 +12595,51 @@ console.log('\n== o editor de falas para a demonstracao ==');
     ok(cn.length > 200, arq + ': a confer\u00eancia recortou a troca do nome', cn.length);
     if (cn.length < 200) return;
 
+    /* A SAUDACAO E' MEDIDA, E NO ESCOPO EM QUE A PAGINA A EXECUTA.
+     *
+     * Esta bancada entregava um `nomeESobrenome` proprio e media a troca do marcador
+     * sozinha. A troca estava certa; quem estava quebrado era o leitor do nome, e ele
+     * nunca rodou aqui. A prova do leitor olhava o TEXTO dele — e texto certo dentro de
+     * um escopo onde o nome nao existe continua sendo texto certo que nao acontece.
+     *
+     * O ESCOPO E' O DEFEITO: o `Q` do demo nasce dentro de OUTRO bloco de script, e la'
+     * dentro ele e' local. Quem chama daqui nao o enxerga, estoura, e o `catch` devolve
+     * vazio — a saudacao perde o nome sem um erro na tela. Por isso o `new Function`
+     * recebe `window`, e NAO recebe `Q`: e' a condicao da pagina, e o atalho de injetar
+     * o `Q` e' exatamente o que escondeu isto. */
+    var iPr = txt.indexOf('  function nomeESobrenome() {');
+    var pr = iPr < 0 ? '' : txt.slice(iPr, txt.indexOf('\n  }', iPr) + 4);
+    var appJs = fsReal.readFileSync(path.join(raizE, 'app.js'), 'utf8');
+    var iRn = appJs.indexOf('  function nomeESobrenome(nome) {');
+    var regra = iRn < 0 ? '' : appJs.slice(iRn, appJs.indexOf('\n  }', iRn) + 4);
+    ok(pr.length > 40 && regra.length > 80,
+      arq + ': a conferência recortou o leitor do nome e a regra do núcleo',
+      [pr.length, regra.length]);
+
+    function saudacaoCom(nomeNaSessao) {
+      var nucleo = new Function(regra + '\nreturn nomeESobrenome;')();
+      var janela = { QDC: {
+        sessao: function () {
+          return nomeNaSessao === null ? null : { nome: nomeNaSessao };
+        },
+        nomeESobrenome: nucleo
+      } };
+      /* SEM `Q` NA LISTA: na pagina ele tambem nao esta ao alcance deste bloco. */
+      var troca = new Function('window', pr + '\n' + cn + '\nreturn comNome;')(janela);
+      return troca('Olá, {nome}! Seja bem-vindo.');
+    }
+
+    ok(saudacaoCom('Natanael da Costa Silva') === 'Olá, Natanael Silva! Seja bem-vindo.',
+      arq + ': a capa cumprimenta pelo nome e sobrenome de quem está logado — ela ' +
+      'chegou a perder o nome por dias, e sem erro nenhum na tela',
+      saudacaoCom('Natanael da Costa Silva'));
+    ok(saudacaoCom('Madalena') === 'Olá, Madalena! Seja bem-vindo.',
+      arq + ': e um nome só continua sendo ele mesmo — a regra não inventa sobrenome',
+      saudacaoCom('Madalena'));
+    ok(saudacaoCom(null) === 'Olá! Seja bem-vindo.',
+      arq + ': e sem ninguém logado o marcador some inteiro, com a vírgula órfã',
+      saudacaoCom(null));
+
     function trocaCom(nome) {
       return new Function('nomeESobrenome', cn + '\nreturn comNome;')(
         function () { return nome; });
@@ -12628,9 +12673,22 @@ console.log('\n== o editor de falas para a demonstracao ==');
        do nome longo, do nome de duas palavras e do nome unico. */
     var iPn = txt.indexOf('  function nomeESobrenome() {');
     var pn = iPn < 0 ? '' : txt.slice(iPn, txt.indexOf('\n  }', iPn) + 4);
-    ok(pn.indexOf('Q.nomeESobrenome(') > 0 && pn.indexOf('Q.sessao()') > 0,
-      arq + ': o nome vem da regra do NÚCLEO e da sessão dele — uma cópia da regra ' +
-      'aqui divergiria no primeiro ajuste que só uma das duas recebesse', pn);
+    /* A REGRA E' MESMO A DO NUCLEO — provado TROCANDO a regra do nucleo e vendo a capa
+       mudar junto. A prova antiga procurava o nome da chamada dentro do texto, e texto
+       certo passa verde num escopo onde a chamada estoura: foi assim que a capa ficou
+       sem o nome com a bancada inteira verde. Se houvesse uma copia aqui, a troca
+       abaixo nao apareceria na saudacao. */
+    var trocada = new Function('window',
+      pn + '\n' + cn + '\nreturn comNome;')({ QDC: {
+        sessao: function () { return { nome: 'Natanael da Costa Silva' }; },
+        nomeESobrenome: function () { return 'REGRA-DO-NUCLEO'; }
+      } })('Olá, {nome}!');
+    ok(trocada === 'Olá, REGRA-DO-NUCLEO!',
+      arq + ': trocando a regra do NÚCLEO, a capa muda junto — prova que ela usa a regra ' +
+      'de lá e não uma cópia, que divergiria no primeiro ajuste que só uma recebesse',
+      trocada);
+    ok(new Function('window', pn + '\nreturn nomeESobrenome;')({})() === '',
+      arq + ': e sem o núcleo carregado ela devolve vazio em vez de derrubar a capa');
     ok(pn.indexOf('try {') > 0 && pn.indexOf('catch') > 0,
       arq + ': e a leitura está protegida — em janela anônima ou com cookies ' +
       'bloqueados ela estoura, e uma saudação não pode derrubar a tela');

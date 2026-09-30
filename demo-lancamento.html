@@ -896,9 +896,15 @@ html:not([data-editor="1"]) .ed__b{display:none}
    * "Jose Carlos", que e' como ninguem o chama. Um nome so' continua sendo ele mesmo.
    */
   function nomeESobrenome() {
+    /* `window.QDC`, E NAO O `Q` DA OUTRA PONTA DO ARQUIVO. O atalho `Q` nasce dentro do
+       bloco de script la' embaixo, e la' dentro ele e' local: daqui ele nao existe.
+       Escrito assim, este leitor estourava, o `catch` devolvia vazio, e a capa perdia o
+       nome sem um erro na tela — a saudacao voltou a ser "Ola!" por dias. */
     try {
-      var s = Q.sessao();
-      return Q.nomeESobrenome((s && s.nome) || '');
+      var n = window.QDC;
+      if (!n) return '';
+      var s = n.sessao();
+      return n.nomeESobrenome((s && s.nome) || '');
     } catch (e) { return ''; }
   }
 
