@@ -494,7 +494,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
   var FALAS = {
 
     /* ---------- SAÍDA ---------- */
-    s01:   'Vamos aprender a preencher as informações do <b>controle de caixas</b>. Vamos começar pelos <b>lançamentos de saída</b>.',
+    s01:   'Neste momento, você aprenderá como realizar os <b>lançamentos de saída</b> de maneira rápida e fácil.',
     sData: 'Confirme a <b>data do movimento</b>. Ela já vem com o dia de hoje.',
     s02:   'Selecione o local de <b>saída</b>.',
     s03:   'Selecione o <b>destino</b>.',
@@ -509,7 +509,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
 
     /* ---------- RETORNO ---------- */
     /* r01 é falado quando alguém abre o retorno direto, pela aba */
-    r01:   'Vamos agora fazer os <b>lançamentos de retorno</b>. Toque em <b>Lançar retorno</b>.',
+    r01:   'Neste momento, você aprenderá como realizar os <b>lançamentos de retorno</b> de maneira rápida e fácil.',
     /* r01b é falado quando o retorno veio emendado no fim da saída */
     r01b:  'Estamos de volta ao início. Toque em <b>Lançar retorno</b>.',
     rData: 'Confirme a <b>data do movimento</b>. Ela já vem com o dia de hoje.',
@@ -522,7 +522,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
     r08:   'Pronto. O retorno entra em <b>Movimentos</b> na hora e o saldo já muda.',
 
     /* ---------- ENTRADA E ENCERRAMENTO ---------- */
-    entrada: 'Vamos começar a nossa jornada de <b>Controle de Caixas</b>. Toque em <b>Assistir Tutorial</b> para ver como se faz.',
+    entrada: 'Olá! Seja bem-vindo ao Aplicativo de <b>Controle de Caixas</b>. Vamos guiá-lo passo a passo no preenchimento das informações do sistema.',
     fim:     'Pronto. Sempre que precisar, é só voltar aqui e assistir de novo. Toque em <b>Pular</b> para ir aos lançamentos.'
   };
 
@@ -1012,13 +1012,11 @@ html:not([data-editor="1"]) .ed__b{display:none}
     SUB_ENTRADA = 'Assista à demonstração da saída, leia o passo a passo, ou pule direto para os lançamentos.';
     SUB_FIM     = 'Você já viu como lançar a saída. Agora é com você.';
     ITEM_VIDEO  = 'Assistir ao tutorial de saída';
-    FALAS.entrada = 'Vamos aprender os <b>lançamentos de saída</b>. Toque em <b>Assistir Tutorial</b>.';
     FALAS.fim     = 'Pronto. Sempre que precisar, é só voltar aqui e assistir de novo.';
   } else if (SO === 'retorno') {
     SUB_ENTRADA = 'Assista à demonstração do retorno, leia o passo a passo, ou pule direto para os lançamentos.';
     SUB_FIM     = 'Você já viu como lançar o retorno. Agora é com você.';
     ITEM_VIDEO  = 'Assistir ao tutorial de retorno';
-    FALAS.entrada = 'Vamos aprender os <b>lançamentos de retorno</b>. Toque em <b>Assistir Tutorial</b>.';
     FALAS.fim     = 'Pronto. Sempre que precisar, é só voltar aqui e assistir de novo.';
   } else {
     SUB_ENTRADA = 'Assista à demonstração, leia o passo a passo, ou pule direto para os lançamentos.';
@@ -1111,6 +1109,22 @@ html:not([data-editor="1"]) .ed__b{display:none}
   ------------------------------------------------------------------ */
   var SAIDA = [
 
+    /* A CAPA E' A PRIMEIRA CENA, e nao um cartaz parado antes do filme.
+       Ela ja' estava na tela — desenhada no arranque — mas o roteiro comecava DEPOIS
+       dela, e a boas-vindas nunca era dita: a demonstracao abria a boca so' quando ja
+       estava dentro do aplicativo. Agora a capa e' o ato 1, e o que ela diz e' a
+       saudacao; o ato 2 entra no aplicativo. */
+    { f: async function () {
+        telaEntrada(SUB_ENTRADA);
+        await dizer(FALAS.entrada, 2800);
+        /* O DEDO TOCA O BOTAO, e o toque e' so' visual — `tocar()` nao dispara clique
+           nenhum: ele anima o dedo e pisca o alvo. E' o mesmo gesto que a versao completa
+           ja fazia aqui, e ele mostra ONDE se toca, em vez de a tela mudar sozinha e
+           deixar a pessoa sem saber o que a fez mudar. */
+        await bater($('t-assistir'), 560);
+        await dorme(400);
+      } },
+
     { f: async function () {
         telaInicial();
         await dizer(FALAS.s01, 2600);
@@ -1179,6 +1193,20 @@ html:not([data-editor="1"]) .ed__b{display:none}
      Mesma sequência da saída: no app os dois formulários são iguais.
   ------------------------------------------------------------------ */
   var RETORNO = [
+
+    /* A CAPA SO' QUANDO O RETORNO COMECA A DEMONSTRACAO. Emendado na saida, ele entra
+       com a tela ja' andando: repor a capa ali seria voltar ao comeco no meio do filme. */
+    { f: async function () {
+        if (EMENDOU) return;
+        telaEntrada(SUB_ENTRADA);
+        await dizer(FALAS.entrada, 2800);
+        /* O DEDO TOCA O BOTAO, e o toque e' so' visual — `tocar()` nao dispara clique
+           nenhum: ele anima o dedo e pisca o alvo. E' o mesmo gesto que a versao completa
+           ja fazia aqui, e ele mostra ONDE se toca, em vez de a tela mudar sozinha e
+           deixar a pessoa sem saber o que a fez mudar. */
+        await bater($('t-assistir'), 560);
+        await dorme(400);
+      } },
 
     { f: async function () {
         telaInicial();

@@ -488,7 +488,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
   var FALAS = {
 
     /* ---------- SAÍDA ---------- */
-    s01:   'Vamos aprender a preencher as informações do <b>controle de caixas</b>. Vamos começar pelos <b>lançamentos de saída</b>.',
+    s01:   'Neste momento, você aprenderá como realizar os <b>lançamentos de saída</b> de maneira rápida e fácil.',
     sData: 'Confirme a <b>data do movimento</b>. Ela já vem com o dia de hoje.',
     s02:   'Selecione o local de <b>saída</b>.',
     s03:   'Selecione o <b>destino</b>.',
@@ -503,7 +503,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
 
     /* ---------- RETORNO ---------- */
     /* r01 é falado quando alguém abre o retorno direto, pela aba */
-    r01:   'Vamos agora fazer os <b>lançamentos de retorno</b>. Toque em <b>Lançar retorno</b>.',
+    r01:   'Neste momento, você aprenderá como realizar os <b>lançamentos de retorno</b> de maneira rápida e fácil.',
     /* r01b é falado quando o retorno veio emendado no fim da saída */
     r01b:  'Estamos de volta ao início. Toque em <b>Lançar retorno</b>.',
     rData: 'Confirme a <b>data do movimento</b>. Ela já vem com o dia de hoje.',
@@ -516,7 +516,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
     r08:   'Pronto. O retorno entra em <b>Movimentos</b> na hora e o saldo já muda.',
 
     /* ---------- ENTRADA E ENCERRAMENTO ---------- */
-    entrada: 'Vamos começar a nossa jornada de <b>Controle de Caixas</b>. Toque em <b>Assistir Tutorial</b> para ver como se faz.',
+    entrada: 'Olá! Seja bem-vindo ao Aplicativo de <b>Controle de Caixas</b>. Vamos guiá-lo passo a passo no preenchimento das informações do sistema.',
     fim:     'Pronto. Sempre que precisar, é só voltar aqui e assistir de novo. Toque em <b>Pular</b> para ir aos lançamentos.'
   };
 
@@ -1116,6 +1116,18 @@ html:not([data-editor="1"]) .ed__b{display:none}
      Mesma sequência da saída: no app os dois formulários são iguais.
   ------------------------------------------------------------------ */
   var RETORNO = [
+
+    /* A CAPA SO' QUANDO O RETORNO COMECA A DEMONSTRACAO. Emendado na saida, ele entra
+       com a tela ja' andando: repor a capa ali seria voltar ao comeco no meio do filme.
+       O SUBTITULO E' O LITERAL DESTA PAGINA. As duas separadas o guardam em
+       `SUB_ENTRADA`, que muda com o `SO`; aqui ele e' um so', e nao ha o que variar. */
+    { f: async function () {
+        if (EMENDOU) return;
+        telaEntrada('Assista à demonstração, ou pule direto para os lançamentos.');
+        await dizer(FALAS.entrada, 2800);
+        await bater($('t-assistir'), 560);
+        await dorme(400);
+      } },
 
     { f: async function () {
         telaInicial();

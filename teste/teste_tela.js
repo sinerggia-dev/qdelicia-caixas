@@ -12232,6 +12232,59 @@ console.log('\n== o editor de falas para a demonstracao ==');
       'da frase que se pediu para ouvir', ou.slice(0, 120));
   });
 
+  /* ---- A CAPA E' A PRIMEIRA CENA, E ELA FALA ----
+   *
+   * A capa ja' estava na tela — desenhada no arranque — mas o roteiro comecava DEPOIS
+   * dela: a demonstracao abria a boca so' quando ja estava dentro do aplicativo, e a
+   * saudacao nunca era dita. A versao COMPLETA ja fazia certo; as duas separadas tinham
+   * perdido esse ato, e ninguem notou porque a capa continuava aparecendo — parada.
+   *
+   * RODADO: cada roteiro e' percorrido e se pergunta o que o ato 1 mostra e diz. */
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+    [['SAIDA', 's01'], ['RETORNO', 'r01']].forEach(function (par) {
+      var iA = txt.indexOf('  var ' + par[0] + ' = [');
+      var atos = iA < 0 ? '' : txt.slice(iA, txt.indexOf(par[1], iA));
+      ok(atos.length > 100,
+        arq + ' / ' + par[0] + ': a confer\u00eancia recortou o come\u00e7o do roteiro', atos.length);
+      if (atos.length < 100) return;
+      ok(atos.indexOf('telaEntrada(') > 0,
+        arq + ' / ' + par[0] + ': o roteiro come\u00e7a pela CAPA — ela j\u00e1 estava na tela, mas ' +
+        'o roteiro come\u00e7ava depois dela, e a sauda\u00e7\u00e3o nunca era dita',
+        atos.slice(0, 160));
+      ok(atos.indexOf('dizer(FALAS.entrada') > 0,
+        arq + ' / ' + par[0] + ': e a capa DIZ a sauda\u00e7\u00e3o — capa muda \u00e9 um cartaz parado ' +
+        'antes do filme');
+      ok(atos.indexOf("bater($('t-assistir')") > 0,
+        arq + ' / ' + par[0] + ': e o dedo mostra ONDE se toca — sem o gesto, a tela muda ' +
+        'sozinha e a pessoa n\u00e3o sabe o que a fez mudar');
+      ok(atos.indexOf('telaEntrada(') < atos.indexOf('telaInicial()'),
+        arq + ' / ' + par[0] + ': e a capa vem ANTES da tela do aplicativo',
+        [atos.indexOf('telaEntrada('), atos.indexOf('telaInicial()')]);
+    });
+    /* EMENDADO NA SAIDA, O RETORNO NAO REPOE A CAPA: ele entra com a tela ja andando, e
+       voltar ao comeco no meio do filme desfaz a costura que a versao completa tem. */
+    var iR = txt.indexOf('  var RETORNO = [');
+    var capaR = txt.slice(iR, txt.indexOf('r01', iR));
+    ok(capaR.indexOf('if (EMENDOU) return;') > 0,
+      arq + ': e o retorno EMENDADO na sa\u00edda n\u00e3o rep\u00f5e a capa — ele entra com a tela j\u00e1 ' +
+      'andando, e voltar ao come\u00e7o no meio do filme desfaz a costura entre os dois',
+      capaR.slice(0, 200));
+  });
+
+  /* ---- O QUE CADA TEXTO DIZ ----
+   * A capa saudou e o `s01` ja' entra no aplicativo: a divisao foi pedida assim, e ela
+   * separa "quem e' voce" de "o que vamos fazer agora". */
+  var falasD = fsReal.readFileSync(path.join(raizE, demos[0]), 'utf8');
+  var iFd = falasD.indexOf('  var FALAS = {');
+  var bloco = falasD.slice(iFd, falasD.indexOf('\n  };', iFd));
+  ok(/entrada: 'Ol\u00e1! Seja bem-vindo ao Aplicativo/.test(bloco),
+    'a capa d\u00e1 as boas-vindas ao aplicativo', bloco.slice(bloco.indexOf('entrada:'), bloco.indexOf('entrada:') + 90));
+  ok(/s01:[^']*'Neste momento, voc\u00ea aprender\u00e1/.test(bloco),
+    'e o texto seguinte j\u00e1 diz o que se vai aprender, enquanto o dedo entra no aplicativo');
+  ok(/r01:[^']*'Neste momento, voc\u00ea aprender\u00e1/.test(bloco),
+    'e o retorno diz o mesmo, do lado dele');
+
   /* ---- O TOQUE EM ASSISTIR LIGA A VOZ ----
    *
    * A demonstracao rodava MUDA para quem chegava pela primeira vez: o audio nascia
