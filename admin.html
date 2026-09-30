@@ -1523,7 +1523,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=7bbb421d"></script>
+<script src="app.js?v=2253d6cc"></script>
 <script>
 (function(){
   'use strict';
@@ -7258,6 +7258,35 @@
      Ligado aqui, junto das outras revelacoes de admin, e nao dentro da pagina do
      tutorial: la ele rodaria antes de a sessao existir, e o link nasceria escondido
      para todo mundo, inclusive para voce. */
+  /* A VOZ ESCOLHIDA DENTRO DO TUTORIAL VIRA A VOZ DA EMPRESA.
+   *
+   * O tutorial e' uma pagina solta — ele nao fala com a API de proposito, para rodar
+   * sozinho, sem rede e sem cadastro. Entao ele AVISA, e quem grava e' o painel, que ja
+   * fala com a API. Sem o painel em volta, a escolha vale para aquele aparelho e pronto.
+   *
+   * A ORIGEM DO RECADO NAO E' CONFERIDA, e o CONTEUDO e': o painel so' aceita um objeto
+   * com a marca `qdc: 'voz'` e um nome de ate 120 letras. Conferir a origem seria
+   * escrever o endereco do proprio site dentro dele — e ele muda entre o Vercel, o
+   * dominio proprio e a maquina de quem desenvolve. O que chega aqui nao manda em nada:
+   * vira o NOME de uma voz, e nome de voz que nao existe no aparelho e' ignorado.
+   *
+   * SO' PARA QUEM ADMINISTRA. A voz e' da empresa, e trocar a voz de todo mundo e'
+   * decisao de quem responde por ela — a rota nao tem tranca, e esta nao e' a tranca:
+   * e' a tela nao oferecendo o que nao deve. */
+  window.addEventListener('message', function(e){
+    var d = e && e.data;
+    if (!d || d.qdc !== 'voz' || typeof d.nome !== 'string') return;
+    if (!Q.ehAdmin()) return;
+    var nome = d.nome.trim().slice(0, 120);
+    Q.guardarVozNarracao(nome);
+    Q.post({ acao:'salvarConfig', chave:'vozNarracao', valor:nome }).then(function(r){
+      if (!r || !r.ok) return Q.toast((r && r.erro) || 'Não consegui guardar a voz.','erro');
+      Q.toast(nome
+        ? 'Voz "' + nome + '" passa a valer para toda a equipe.'
+        : 'Voz da narração liberada: cada aparelho usa a melhor que tiver.', 'ok');
+    });
+  });
+
   function mostrarEditorDeFalas(){
     /* SEM LISTA DE IDS. A lista tinha dois nomes e o painel tem três tutoriais: o
        terceiro link existia no HTML e nunca era revelado — nasceria escondido para

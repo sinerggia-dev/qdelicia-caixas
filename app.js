@@ -292,10 +292,24 @@
      trocada a cor no escritório, a máquina do galpão acompanha sem ninguém ir até lá.
      Config sem as chaves — banco novo, ou ninguém escolheu ainda — cai no padrão, e não
      deixa a tela com o que estivesse guardado antes. */
+  /* A VOZ DA NARRACAO E' DA EMPRESA, pela mesma razao do tema e do fundo: uma escolha
+     so' para todas as telas do galpao. Ela vem da config e e' deixada no armazenamento
+     do dominio, porque quem a LE e' o tutorial — uma pagina solta, que roda sem rede e
+     sem cadastro de proposito, e que ja le' a sessao por este mesmo caminho.
+     GUARDADA PELO NOME, e nao por um numero: a lista de vozes muda de ordem entre
+     aparelhos, e o indice 2 de uma maquina e' outra voz na maquina do lado. */
+  function guardarVozNarracao(nome) {
+    try {
+      if (nome) localStorage.setItem('qdc_voz', String(nome));
+      else localStorage.removeItem('qdc_voz');
+    } catch (e) {}
+  }
+
   function aplicarAparencia(config) {
     var c = config || {};
     aplicarTema(c.tema);
     aplicarFundo(c.fundo);
+    guardarVozNarracao(c.vozNarracao);
   }
 
   /* OUTRA ABA TROCOU: esta acompanha sem F5. Sem isto, quem deixa o painel aberto numa
@@ -2468,6 +2482,7 @@
     aplicarAparencia: aplicarAparencia,
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
     paramUrl: paramUrl,
+    guardarVozNarracao: guardarVozNarracao,
     comoChamar: comoChamar, nomeESobrenome: nomeESobrenome,
     ligarBotaoHoje: ligarBotaoHoje, marcarBotaoHoje: marcarBotaoHoje,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,

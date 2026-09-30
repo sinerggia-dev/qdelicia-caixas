@@ -964,7 +964,7 @@ function ultimoAdmin(usuarios, id) {
 
 /** Só chaves conhecidas: `config` alimenta a tela, não é depósito de qualquer coisa. */
 var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas', 'senhaCorrecao',
-                     'tema', 'fundo'];
+                     'tema', 'fundo', 'vozNarracao'];
 
 /* A APARÊNCIA É DA EMPRESA, e não de cada navegador: uma cor só em todas as telas do
    galpão, a pedido. Por isso ela mora aqui, na config, e não no armazenamento local —
@@ -1016,6 +1016,14 @@ async function salvarConfig(p) {
     return { ok: false, erro: 'Não conheço "' + String(valor) + '". Os valores de ' +
                               chave + ' são: ' + permitidos.join(', ') + '.' };
   }
+  /* A VOZ E' UM NOME LIVRE — ela vem do aparelho de quem escolheu, e cada sistema chama
+     a sua de um jeito. Sem lista de valores para conferir, o que resta e' o TAMANHO:
+     esta rota nao tem autorizacao nenhuma, e um campo de texto livre sem teto e' um
+     convite a encher a tabela de config. */
+  if (chave === 'vozNarracao') {
+    valor = String(valor == null ? '' : valor).trim().slice(0, 120);
+  }
+
   /* Senha vai ao banco em HASH, como a de qualquer pessoa. Em texto, quem abre a tabela
      `config` lê a senha que destranca a correção de qualquer lançamento. */
   if (/senha/i.test(chave)) {

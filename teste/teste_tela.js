@@ -12238,6 +12238,139 @@ console.log('\n== o editor de falas para a demonstracao ==');
       'da frase que se pediu para ouvir', ou.slice(0, 120));
   });
 
+  /* ---- A VOZ E' DA EMPRESA, E CHEGA AO TUTORIAL ----
+   *
+   * A escolha valia so' na aba em que alguem mexeu: recarregar ja' a perdia, e os outros
+   * usuarios nunca souberam dela. Agora ela mora na config — pela mesma razao do tema e
+   * do fundo, que o proprio arquivo do servidor ja explica: "a aparencia e' da empresa,
+   * e nao de cada navegador".
+   *
+   * O CAMINHO E' O ARMAZENAMENTO DO DOMINIO, o mesmo por onde o nome de quem esta
+   * logado ja chega. O tutorial continua sendo uma pagina solta: ele nao pede nada a
+   * rede, so' le' o que ja esta ali. */
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+    var iCv = txt.indexOf('  function carregarVozes() {');
+    var cv = iCv < 0 ? '' : txt.slice(iCv, txt.indexOf('\n  }', iCv) + 4);
+    var iVe = txt.indexOf('  function vozDaEmpresa() {');
+    var ve = iVe < 0 ? '' : txt.slice(iVe, txt.indexOf('\n  }', iVe) + 4);
+    ok(cv.length > 400 && ve.length > 80,
+      arq + ': a confer\u00eancia recortou a escolha da voz e a leitura da config',
+      [cv.length, ve.length]);
+    if (cv.length < 400) return;
+
+    var vozesEdge = [
+      { name: 'Microsoft Maria - Portuguese (Brazil)', lang: 'pt-BR', localService: true },
+      { name: 'Microsoft Thalita Online (Natural) - Portuguese (Brazil)', lang: 'pt-BR',
+        localService: false },
+      { name: 'Microsoft Antonio Online (Natural) - Portuguese (Brazil)', lang: 'pt-BR',
+        localService: false }
+    ];
+    function escolhidaCom(guardada, disponiveis) {
+      var fonte = txt.slice(txt.indexOf('  var FEMININA = '),
+                            txt.indexOf('\n  }', txt.indexOf('  function melhorQue(v) {')) + 4) +
+                  ve + cv;
+      var sel = { innerHTML: '' };
+      var api = new Function('speechSynthesis', 'localStorage', '$', 'temVoz',
+        'pintarSom', 'VOZES', 'VOZ',
+        fonte + '\ncarregarVozes(); return VOZ;')(
+        { getVoices: function () { return disponiveis; } },
+        { getItem: function () { return guardada; } },
+        function () { return sel; }, true, function () {}, [], null);
+      return { voz: api, html: sel.innerHTML };
+    }
+
+    var pedida = escolhidaCom('Microsoft Antonio Online (Natural) - Portuguese (Brazil)',
+                              vozesEdge);
+    ok(pedida.voz && pedida.voz.name.indexOf('Antonio') > 0,
+      arq + ': a voz escolhida pela EMPRESA ganha da ordem — sen\u00e3o a escolha valeria s\u00f3 ' +
+      'na aba em que algu\u00e9m mexeu, e recarregar j\u00e1 a perderia',
+      pedida.voz && pedida.voz.name);
+    ok(/value="2" selected/.test(pedida.html) || /selected/.test(pedida.html),
+      arq + ': e o seletor ABRE nela — mostrando outra, a tela diz uma coisa e a voz diz ' +
+      'outra', pedida.html.slice(0, 200));
+
+    /* A VOZ DA EMPRESA PODE NAO EXISTIR NAQUELE APARELHO: a Thalita so' aparece no Edge.
+       Ai' vale a melhor dali — e' melhor a segunda voz falando do que a primeira em
+       silencio. */
+    var vozesChrome = [
+      { name: 'Microsoft Maria - Portuguese (Brazil)', lang: 'pt-BR', localService: true },
+      { name: 'Google portugu\u00eas do Brasil', lang: 'pt-BR', localService: false }
+    ];
+    var ausente = escolhidaCom('Microsoft Thalita Online (Natural) - Portuguese (Brazil)',
+                               vozesChrome);
+    ok(ausente.voz && ausente.voz.name.indexOf('Google') === 0,
+      arq + ': e quando a voz da empresa N\u00c3O existe naquele aparelho, vale a melhor dali ' +
+      '\u2014 a Thalita s\u00f3 aparece no Edge, e \u00e9 melhor a segunda voz falando do que a ' +
+      'primeira em sil\u00eancio', ausente.voz && ausente.voz.name);
+    var semConfig = escolhidaCom(null, vozesChrome);
+    ok(semConfig.voz && semConfig.voz.name.indexOf('Google') === 0,
+      arq + ': e sem escolha nenhuma vale a ordem de sempre');
+
+    /* A RAZAO E' PERMISSAO, e nao falta de acesso. Esta pagina FALA com a API — o
+       `marcar()` dela anota que o tutorial foi visto, e ela carrega o `app.js`. Eu
+       tinha escrito aqui que ela nao falava, e a prova cobrava a AUSENCIA de `acao:`
+       no arquivo: ela reprovava por uma premissa minha que estava errada.
+       O QUE IMPORTA: o tutorial abre no PRIMEIRO ACESSO de qualquer pessoa. Gravando
+       daqui, um motorista mexendo no seletor trocaria a voz de toda a equipe. */
+    ok(txt.indexOf("postMessage({ qdc: 'voz'") > 0 &&
+       txt.indexOf('salvarConfig') < 0,
+      arq + ': o tutorial AVISA a troca em vez de gravar — ele abre no primeiro ' +
+      'acesso de QUALQUER pessoa, e gravando daqui um motorista mexendo no seletor ' +
+      'trocaria a voz de toda a equipe');
+    var iAv = txt.indexOf('  function avisarVozEscolhida(nome) {');
+    var av = iAv < 0 ? '' : txt.slice(iAv, txt.indexOf('\n  }', iAv) + 4);
+    ok(av.indexOf('window.parent !== window') > 0,
+      arq + ': e s\u00f3 avisa quando H\u00c1 um painel em volta — aberto direto pelo link, n\u00e3o h\u00e1 ' +
+      'a quem avisar', av.slice(0, 160));
+    /* E O SELETOR CHAMA O AVISO. As duas sabotagens que escaparam eram do mesmo tipo:
+       a peca existe, inteira e correta, e ninguem a chama. Provar que ela existe nao
+       prova que ela acontece. */
+    var iSv = txt.indexOf("  $('vozes').addEventListener('change', function () {");
+    var sv = iSv < 0 ? '' : txt.slice(iSv, txt.indexOf('\n  });', iSv));
+    ok(sv.indexOf('avisarVozEscolhida(') > 0,
+      arq + ': e TROCAR no seletor chama o aviso — sem a chamada, a função fica ali ' +
+      'inteira e a escolha morre na aba em que foi feita', sv);
+    ok((av.match(/try {/g) || []).length >= 2,
+      arq + ': e as duas pontas est\u00e3o protegidas — o armazenamento estoura em janela ' +
+      'an\u00f4nima, e o `parent` de outro dom\u00ednio recusa a leitura');
+  });
+
+  /* ---- O PAINEL OUVE E GRAVA ---- */
+  var admV = fsReal.readFileSync(path.join(raizE, 'admin.html'), 'utf8');
+  var iMs = admV.indexOf("  window.addEventListener('message', function(e){");
+  var ms = iMs < 0 ? '' : admV.slice(iMs, admV.indexOf('\n  });', iMs));
+  ok(ms.length > 300, 'a confer\u00eancia recortou o ouvinte do painel', ms.length);
+  ok(ms.indexOf("d.qdc !== 'voz'") > 0 && ms.indexOf("typeof d.nome !== 'string'") > 0,
+    'o painel confere o CONTE\u00daDO do recado — origem se conferiria escrevendo o ' +
+    'endere\u00e7o do pr\u00f3prio site dentro dele, e ele muda entre o Vercel, o dom\u00ednio ' +
+    'pr\u00f3prio e a m\u00e1quina de quem desenvolve', ms.slice(0, 200));
+  ok(ms.indexOf('if (!Q.ehAdmin()) return;') > 0,
+    'e s\u00f3 quem ADMINISTRA troca a voz de todo mundo — a voz \u00e9 da empresa, e isso \u00e9 ' +
+    'decis\u00e3o de quem responde por ela');
+  ok(ms.indexOf(".slice(0, 120)") > 0,
+    'e o nome tem TETO — a rota n\u00e3o tem tranca, e texto livre sem limite enche a tabela ' +
+    'de configura\u00e7\u00e3o');
+  /* E A CONFIG ESPALHA A VOZ ao ser aplicada. Mesma historia: `guardarVozNarracao`
+     existia e ninguem a chamava, e a escolha do servidor nunca chegava ao tutorial. */
+  var appV = fsReal.readFileSync(path.join(raizE, 'app.js'), 'utf8');
+  var iAp = appV.indexOf('  function aplicarAparencia(config) {');
+  var ap = iAp < 0 ? '' : appV.slice(iAp, appV.indexOf('\n  }', iAp) + 4);
+  ok(ap.indexOf('guardarVozNarracao(c.vozNarracao)') > 0,
+    'e aplicar a aparência ESPALHA a voz pelo domínio — sem a chamada, a função fica ' +
+    'ali inteira e a escolha do servidor nunca chega ao tutorial', ap);
+  ok(ms.indexOf("chave:'vozNarracao'") > 0,
+    'e ele grava na configura\u00e7\u00e3o da empresa, que \u00e9 o que faz a escolha chegar aos ' +
+    'outros');
+  /* E O SERVIDOR TAMBEM CORTA. A tela cortar nao basta: quem manda para esta rota nao e'
+     so' a nossa tela, porque a API nao tem autorizacao nenhuma. */
+  /* `api` e' o `api/index.js`, e nesta secao ele nao existia: lido aqui, com nome
+     proprio, para a prova nao morrer antes de medir. */
+  var apiV = fsReal.readFileSync(path.join(raizE, 'api', 'index.js'), 'utf8');
+  ok(/chave === 'vozNarracao'[\s\S]{0,160}slice\(0, 120\)/.test(apiV),
+    'e o SERVIDOR corta tamb\u00e9m — a tela cortar n\u00e3o basta, porque quem manda para esta ' +
+    'rota n\u00e3o \u00e9 s\u00f3 a nossa tela');
+
   /* ---- A ESCOLHA DA VOZ ----
    *
    * O peso de "feminina" era 60 e o de "neural" era 45: no Chrome, onde as vozes em
@@ -12487,38 +12620,20 @@ console.log('\n== o editor de falas para a demonstracao ==');
     ok(com('{nome} e {nome}') === 'Natanael e Natanael',
       arq + ': e o marcador vale em todas as vezes que aparecer', com('{nome} e {nome}'));
 
-    /* NOME E SOBRENOME, e a MESMA regra do nucleo. So' o primeiro fazia a narracao
-       chamar a pessoa de um jeito e as telas do painel de outro — tres formas do mesmo
-       nome na mesma sessao e' o sistema parecendo nao saber com quem esta falando.
-       O PRIMEIRO E O ULTIMO, e nao os dois primeiros: "Jose Carlos da Silva Urbano"
-       pelos dois primeiros vira "Jose Carlos", que e' como ninguem o chama. */
+    /* A REGRA DO NOME E' A DO NUCLEO, e nao uma copia. Eu havia escrito uma copia aqui
+       achando que esta pagina nao carregava o `app.js` — ela carrega, e o `marcar()`
+       dela ja usa `Q.sessao()`. Duas copias da mesma regra divergem no primeiro ajuste
+       que so' uma receber, que e' o defeito que esta regra veio consertar.
+       O COMPORTAMENTO e' provado onde a regra mora: na secao do nucleo, com os casos
+       do nome longo, do nome de duas palavras e do nome unico. */
     var iPn = txt.indexOf('  function nomeESobrenome() {');
     var pn = iPn < 0 ? '' : txt.slice(iPn, txt.indexOf('\n  }', iPn) + 4);
-    ok(pn.length > 200, arq + ': a conferência recortou a leitura do nome', pn.length);
-    if (pn.length > 200) {
-      function leCom(json) {
-        return new Function('localStorage', pn + '\nreturn nomeESobrenome;')(
-          { getItem: function () { return json; } })();
-      }
-      ok(leCom('{"nome":"Jose Carlos da Silva Urbano"}') === 'Jose Urbano',
-        arq + ': a narração diz NOME E SOBRENOME — o primeiro e o ÚLTIMO, porque pelos ' +
-        'dois primeiros "José Carlos da Silva Urbano" vira "José Carlos", que é como ' +
-        'ninguém o chama', leCom('{"nome":"Jose Carlos da Silva Urbano"}'));
-      ok(leCom('{"nome":"Natanael Silva"}') === 'Natanael Silva',
-        arq + ': e o nome de duas palavras sai inteiro');
-      ok(leCom('{"nome":"Isaque"}') === 'Isaque',
-        arq + ': e um nome só continua sendo ele mesmo — a regra não inventa sobrenome');
-      ok(leCom(null) === '',
-        arq + ': e sem sessão devolve vazio, que é o que faz o marcador sumir da frase');
-    }
-    /* DENTRO DE UM `try`: em janela anonima, com cookies bloqueados ou num iframe de
-       outro dominio, ler o armazenamento estoura — e uma saudacao nunca pode derrubar a
-       tela inteira. */
+    ok(pn.indexOf('Q.nomeESobrenome(') > 0 && pn.indexOf('Q.sessao()') > 0,
+      arq + ': o nome vem da regra do NÚCLEO e da sessão dele — uma cópia da regra ' +
+      'aqui divergiria no primeiro ajuste que só uma das duas recebesse', pn);
     ok(pn.indexOf('try {') > 0 && pn.indexOf('catch') > 0,
-      arq + ': e a leitura da sess\u00e3o est\u00e1 protegida — em janela an\u00f4nima ou com cookies ' +
-      'bloqueados ela estoura, e uma sauda\u00e7\u00e3o n\u00e3o pode derrubar a tela');
-    ok(pn.indexOf("'qdc_sessao'") > 0,
-      arq + ': e ela l\u00ea a MESMA sess\u00e3o que o painel e o app de campo', pn.slice(0, 120));
+      arq + ': e a leitura está protegida — em janela anônima ou com cookies ' +
+      'bloqueados ela estoura, e uma saudação não pode derrubar a tela');
 
     /* A VOZ PASSA PELA MESMA TROCA QUE A LEGENDA: dita com `{nome}` cru, ela leria o
        marcador em voz alta — "abre chaves nome fecha chaves". */
@@ -15542,8 +15657,18 @@ console.log('\n== a aparência: cor da marca e fundo ==');
   });
 
   /* ---- 5. a verdade é do servidor, o local é cópia ---- */
-  ok(/CHAVES_CONFIG = \[[^\]]*'tema', 'fundo'\]/.test(api),
-    'o servidor guarda a aparência na configuração da empresa');
+  /* A LISTA CRESCEU: a VOZ DA NARRACAO entrou nela pela mesma razao do tema e do
+     fundo — uma escolha so' para todas as telas do galpao. Presa ao fim da lista, a
+     prova cobrava a ORDEM das chaves, e nao a presenca delas. */
+  ['tema', 'fundo', 'vozNarracao'].forEach(function (k) {
+    /* AS BARRAS DOBRADAS: numa string, `\[` e' so' `[`, e a classe saia quebrada.
+       A expressao virava `[[^]]*` e nao casava com nada — tres provas reprovando
+       um servidor que estava certo. */
+    ok(new RegExp("CHAVES_CONFIG = \\[[^\\]]*'" + k + "'").test(api),
+      'o servidor guarda `' + k + '` na configuração da EMPRESA — no ' +
+      'armazenamento do navegador, a escolha valeria só no aparelho em que ' +
+      'alguém clicou');
+  });
   /* A RECUSA NÃO SE LÊ, SE RODA — `teste_api.js`, seção "a aparência é da empresa".
      Escrita aqui, ela virava busca de texto: eu cobrava que a linha da comparação
      existisse, e um `var permitidos = null` — a lista esvaziada, que aceita qualquer

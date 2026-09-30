@@ -446,7 +446,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
      gravada pela empresa, a sessao de quem entrou e a rota que marca o tutorial como
      visto. Uma copia dessas coisas aqui dentro divergiria no primeiro conserto. -->
 <script src="config.js"></script>
-<script src="app.js?v=7bbb421d"></script>
+<script src="app.js?v=2253d6cc"></script>
 <script>
 (function () {
   'use strict';
@@ -709,15 +709,56 @@ html:not([data-editor="1"]) .ed__b{display:none}
     return null;
   }
 
+  /* A VOZ ESCOLHIDA PELA EMPRESA.
+   *
+   * Ela vem da configuracao — e' uma escolha so' para todas as telas do galpao, pela
+   * mesma razao do tema e do fundo — e chega aqui pelo armazenamento do dominio, onde
+   * o painel e o app de campo a deixam ao carregar os dados. Lida dali, ela ja esta
+   * pronta quando a primeira fala sai; buscada na rede, a primeira frase sairia na voz
+   * errada e trocaria no meio.
+   *
+   * PELO NOME, e nao por um numero: a lista de vozes muda de ordem entre aparelhos, e o
+   * indice 2 de uma maquina e' outra voz na maquina do lado. */
+  function vozDaEmpresa() {
+    try { return localStorage.getItem('qdc_voz') || ''; } catch (e) { return ''; }
+  }
+
+  /* ESCOLHER AQUI PASSA A VALER PARA TODO MUNDO — mas quem grava no servidor e' o
+     PAINEL, e a razao e' PERMISSAO, e nao falta de acesso: esta pagina fala com a API
+     (o `marcar()` la' embaixo anota que o tutorial foi visto). Ela abre no PRIMEIRO
+     ACESSO de qualquer pessoa, e gravando daqui um motorista mexendo no seletor
+     trocaria a voz de toda a equipe. O painel confere o perfil antes de gravar.
+     Sem o painel em volta, a escolha vale para este aparelho e pronto.
+     `try` porque o `parent` de outro dominio recusa a leitura, e `'*'` porque o painel
+     confere o conteudo do recado, nao a origem — ele so' aceita o que reconhece. */
+  function avisarVozEscolhida(nome) {
+    try { localStorage.setItem('qdc_voz', String(nome || '')); } catch (e) {}
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ qdc: 'voz', nome: String(nome || '') }, '*');
+      }
+    } catch (e) {}
+  }
+
   function carregarVozes() {
     if (!temVoz) return;
     var todas = speechSynthesis.getVoices() || [];
     VOZES = todas.filter(function (v) { return /^pt/i.test(v.lang); })
       .sort(function (a, b) { return pontos(b) - pontos(a); });
     VOZ = VOZES[0] || null;
+    /* A ESCOLHA DA EMPRESA GANHA DA ORDEM, quando a voz dela existe neste aparelho.
+       Quando nao existe — a Thalita, por exemplo, so' aparece no Edge —, fica a melhor
+       daqui: e' melhor a segunda voz falando do que a primeira em silencio. */
+    var pedida = vozDaEmpresa();
+    if (pedida) {
+      for (var q = 0; q < VOZES.length; q++) {
+        if (VOZES[q].name === pedida) { VOZ = VOZES[q]; break; }
+      }
+    }
     var sel = $('vozes');
     sel.innerHTML = VOZES.map(function (v, k) {
-      return '<option value="' + k + '">' + v.name + ' (' + v.lang + ')</option>';
+      return '<option value="' + k + '"' + (v === VOZ ? ' selected' : '') + '>' +
+             v.name + ' (' + v.lang + ')</option>';
     }).join('');
     pintarSom();
   }
@@ -849,23 +890,21 @@ html:not([data-editor="1"]) .ed__b{display:none}
    * `try`: em janela anonima, com cookies bloqueados ou dentro de um iframe de outro
    * dominio, isto falha — e uma saudacao nunca pode derrubar a tela.
    *
-   * NOME E SOBRENOME. So' o primeiro fazia a narracao chamar a pessoa de um jeito e as
-   * duas telas do painel de outro — a de cima dizia "Natanael" e o rodape dizia
-   * "Natanael Silva". Tres formas do mesmo nome na mesma sessao e' o sistema parecendo
-   * nao saber com quem esta falando.
+   * NOME E SOBRENOME, pela regra DO NUCLEO — nao por uma copia dela.
    *
-   * O PRIMEIRO E O ULTIMO, e nao os dois primeiros: "Jose Carlos da Silva Urbano" pelos
-   * dois primeiros vira "Jose Carlos", que e' como ninguem o chama. E' a MESMA regra do
-   * `nomeESobrenome` do nucleo — escrita aqui porque o demo nao carrega o nucleo de
-   * proposito: ele roda sozinho, sem rede e sem cadastro.
+   * Eu escrevi uma copia aqui achando que esta pagina nao carregava o `app.js`. Ela
+   * carrega: o proprio `marcar()`, logo abaixo, usa `Q.sessao()` e `Q.post()` para
+   * anotar que o tutorial foi visto. A copia so' existia por uma premissa minha que
+   * estava errada — e duas copias da mesma regra divergem no primeiro ajuste que so'
+   * uma receber, que e' exatamente o defeito que esta regra veio consertar.
+   *
+   * O PRIMEIRO E O ULTIMO: "Jose Carlos da Silva Urbano" pelos dois primeiros vira
+   * "Jose Carlos", que e' como ninguem o chama. Um nome so' continua sendo ele mesmo.
    */
   function nomeESobrenome() {
     try {
-      var s = JSON.parse(localStorage.getItem('qdc_sessao') || 'null');
-      var n = s && s.nome ? String(s.nome).trim() : '';
-      var p = n ? n.split(/\s+/).filter(function (x) { return x !== ''; }) : [];
-      if (!p.length) return '';
-      return p.length < 2 ? p[0] : p[0] + ' ' + p[p.length - 1];
+      var s = Q.sessao();
+      return Q.nomeESobrenome((s && s.nome) || '');
     } catch (e) { return ''; }
   }
 
@@ -1610,6 +1649,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
 
   $('vozes').addEventListener('change', function () {
     VOZ = VOZES[parseInt(this.value, 10)] || VOZ;
+    avisarVozEscolhida(VOZ && VOZ.name);
     if (SOM) narrar(leg.innerHTML);
   });
 
