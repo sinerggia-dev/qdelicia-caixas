@@ -7857,14 +7857,74 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      /\n\.ext-dia\{background/.test(css),
     'as duas continuam existindo, e são coisas diferentes');
 
-  /* --- o arranjo do celular ------------------------------------------------ */
-  ok(/@media \(max-width:1023px\)\{[\s\S]{0,900}\.ftiles\{grid-template-columns:1fr 1fr/
-    .test(css),
-    'no celular são DOIS indicadores por linha — `auto-fit` dava um só no aparelho ' +
-    'estreito, e um por linha empurra a tabela para fora da primeira dobra');
-  ok(/\.ftile:last-child\{grid-column:1\/-1\}/.test(css),
-    'e a taxa ocupa a linha toda: é a única com barra, e espremida em meia largura a ' +
-    'barra fica curta demais para se ler contra a marca da meta');
+  /* --- o arranjo do celular ------------------------------------------------
+   * A JANELA DE 900 CARACTERES entre o `@media` e a regra morreu quando o comentario
+   * que explica a regra cresceu: a prova caiu sem que nada tivesse mudado na folha. O
+   * bloco e' recortado pelo FECHAMENTO dele, e nao por um limite de letras. */
+  /* A FOLHA TEM MAIS DE UM `@media (max-width:1023px)`, e o primeiro nao e' este: o
+     recorte saiu com 240 letras de OUTRO bloco, e a prova reprovava por nao alcancar o
+     que queria medir.
+     A ANCORA E' A REGRA, e dali se anda para tras ate o `@media` que a contem — assim o
+     recorte acompanha a folha em vez de depender da ordem dela. */
+  var iReg = css.indexOf('.ftiles{grid-template-columns:1fr 1fr');
+  var iMed = iReg < 0 ? -1 : css.lastIndexOf('@media (max-width:1023px){', iReg);
+  var blocoCel = '';
+  if (iMed >= 0) {
+    var prof = 0, fimMed = iMed;
+    for (var kc = css.indexOf('{', iMed); kc < css.length; kc++) {
+      if (css[kc] === '{') prof++;
+      else if (css[kc] === '}') { prof--; if (!prof) { fimMed = kc + 1; break; } }
+    }
+    blocoCel = css.slice(iMed, fimMed);
+  }
+  ok(blocoCel.indexOf('.ftiles{grid-template-columns:1fr 1fr') > 0,
+    'no celular s\u00e3o DOIS indicadores por linha — `auto-fit` dava um s\u00f3 no aparelho ' +
+    'estreito, e um por linha empurra a tabela para fora da primeira dobra',
+    blocoCel.length);
+
+  /* ---- QUEM OCUPA A LINHA TODA, RODADO SOBRE AS CONTAGENS REAIS ----
+   *
+   * A regra era `:last-child` seco, e ela nasceu para a taxa de retorno: quinta de cinco,
+   * ela sobra sozinha na terceira linha, e espremida em meia largura a barra fica curta
+   * demais para se ler contra a marca da meta.
+   * SO' QUE ELA PEGAVA QUALQUER ULTIMO. Quando Lancamentos passou a ter DOIS cartoes — quem
+   * so' devolve nao tem cartao de saida —, o segundo virou "ultimo" e desceu para uma
+   * linha inteira so' dele, com o primeiro sozinho em cima.
+   * LIDA NO ARQUIVO, a prova antiga pregava o seletor errado. Aqui o SENTIDO dele e'
+   * executado contra o numero de cartoes que cada tela realmente monta. */
+  var mSpan = /\.ftile([^{]*)\{grid-column:1\/-1\}/.exec(blocoCel);
+  ok(!!mSpan, 'a confer\u00eancia achou a regra de ocupar a linha toda', blocoCel.slice(-200));
+  if (mSpan) {
+    var seletor = mSpan[1];
+    /* O sentido do seletor, escrito como funcao: `:last-child` vale para o ultimo
+       sempre; com `:nth-child(odd)` junto, so' quando a posicao dele e' impar. */
+    function abreALinha(n) {
+      if (seletor.indexOf(':last-child') < 0) return false;
+      if (seletor.indexOf(':nth-child(odd)') >= 0) return n % 2 === 1;
+      return true;
+    }
+    ok(abreALinha(2) === false,
+      'com DOIS cart\u00f5es eles ficam lado a lado — o segundo \u00e9 o \u00faltimo, e pela regra antiga ' +
+      'descia para uma linha inteira s\u00f3 dele, com o primeiro sozinho em cima e a faixa ' +
+      'com o dobro da altura', seletor);
+    ok(abreALinha(3) === true && abreALinha(5) === true,
+      'e com TR\u00caS ou CINCO o \u00faltimo abre — nessas contagens ele sobra sozinho, e meia ' +
+      'largura ao lado de um vazio \u00e9 desenho, e n\u00e3o arranjo', seletor);
+  }
+
+  /* E A TAXA CONTINUA SENDO A ULTIMA DE CINCO — e por isso continua abrindo. Mudada a
+     ordem dos cartoes do Painel, ou acrescentado um sexto, a barra da meta voltaria a
+     meia largura, e e' ela que a regra existe para proteger. */
+  var iFx = adm.indexOf("document.getElementById('fluxoTiles').innerHTML =");
+  var fx = iFx < 0 ? '' : adm.slice(iFx, adm.indexOf('vigiarTiles();', iFx));
+  var quantos = (fx.match(/tileCor\(/g) || []).length;
+  var iMeta = fx.lastIndexOf('<div class="meta">');
+  var iUltimo = fx.lastIndexOf('tileCor(');
+  ok(quantos === 5 && iMeta > iUltimo,
+    'e a taxa \u00e9 a QUINTA de cinco no Painel, que \u00e9 o que a faz abrir — mudada a ordem, ou ' +
+    'acrescentado um sexto cart\u00e3o, a barra da meta voltaria a meia largura, e \u00e9 ela que ' +
+    'esta regra existe para proteger', { cartoes: quantos, barraNoUltimo: iMeta > iUltimo });
+
   ok(/\.ret-nav\{scrollbar-width:none;[\s\S]{0,200}mask-image:linear-gradient/.test(css),
     'o trilho de chips esmaece na borda em vez de mostrar barra de rolagem — a barra é ' +
     'um risco branco que não se arrasta com o dedo');

@@ -2338,16 +2338,27 @@ details.tipos[open] summary::before{content:"▾"}
 .tipos__l dd{margin:2px 0 0;font-family:var(--fonte-mono);font-size:14px;font-weight:600}
 
 @media (max-width:1023px){
-  /* DOIS POR LINHA, e a taxa inteira. `auto-fit` com piso de 160px cabia dois num
-     telefone comum e UM num estreito — e um indicador por linha empurra a tabela para
-     fora da primeira dobra. Fixando em dois, a faixa tem altura previsível.
+  /* DOIS POR LINHA, e o ÚLTIMO inteiro SÓ QUANDO SOBRA SOZINHO. `auto-fit` com piso de
+     160px cabia dois num telefone comum e UM num estreito — e um indicador por linha
+     empurra a tabela para fora da primeira dobra. Fixando em dois, a faixa tem altura
+     previsível.
 
-     A taxa ocupa a linha toda porque ela é a única com barra: espremida em meia
-     largura, a barra fica curta demais para se ler contra a marca da meta. */
+     A REGRA ERA `:last-child` SECO, e ela nasceu para a taxa de retorno: quinto de cinco
+     cartões, ela sobra sozinha na terceira linha, e espremida em meia largura a barra
+     fica curta demais para se ler contra a marca da meta.
+     SÓ QUE ELA PEGAVA QUALQUER ÚLTIMO. Quando a tela de Lançamentos passou a ter DOIS
+     cartões — quem só devolve não tem cartão de saída —, o segundo virou "último" e desceu
+     para uma linha inteira só dele, com o primeiro sozinho em cima. Dois cartões que
+     cabiam lado a lado empilhados, e a faixa com o dobro da altura.
+
+     `:nth-child(odd):last-child` diz o que se quer de verdade: o último ocupa a linha
+     toda quando está numa posição ÍMPAR — que é exatamente quando ele ficaria órfão ao
+     lado de um vazio. Com dois, o último é o segundo e os dois dividem a linha; com três
+     ou cinco, o último abre. */
   .ftiles{grid-template-columns:1fr 1fr;gap:9px}
   .ftile{background:var(--surface);border:1px solid var(--linha);
     border-left:3px solid var(--cor,var(--linha));border-radius:11px;padding:10px 12px}
-  .ftile:last-child{grid-column:1/-1}
+  .ftile:nth-child(odd):last-child{grid-column:1/-1}
 
   /* O TRILHO DE CHIPS é a única coisa que rola de lado nesta tela, e ele avisa: a névoa
      na borda direita diz que há mais itens. Sem ela, o último chip visível parece o
