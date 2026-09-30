@@ -12133,6 +12133,194 @@ console.log('\n== o painel de filtro abre por cima ==');
     'ligado pela MESMA função das duas telas');
 })();
 
+console.log('\n== o editor de falas para a demonstracao ==');
+{
+  /* EDITANDO COM A DEMONSTRACAO RODANDO, a cena seguia trocando e a voz seguia narrando
+   * por cima: tocar Ouvir para conferir a frase que se acabou de escrever devolvia as
+   * duas vozes ao mesmo tempo, e em dois segundos a cena passava e falava outra coisa.
+   * Nao dava para ouvir a propria alteracao — que e' a unica razao de o botao existir.
+   *
+   * AS TRES PAGINAS, e nao uma: o editor e' o mesmo nas tres, e consertar uma deixaria
+   * as outras duas com o defeito. A LISTA E DESCOBERTA. */
+  var raizE = path.join(__dirname, '..');
+  var demos = fsReal.readdirSync(raizE).filter(function (f) {
+    return /^demo-.*\.html$/.test(f);
+  });
+  ok(demos.length >= 3, 'a conferência achou as demonstrações', demos);
+
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+
+    /* ---- ABRIR O EDITOR PARA, RODADO ---- */
+    var iAb = txt.indexOf("  $('abrir-ed').addEventListener('click', function () {");
+    var ab = iAb < 0 ? '' : txt.slice(iAb, txt.indexOf('\n  });', iAb) + 5);
+    var iPd = txt.indexOf('  function pausarDemo(v) {');
+    var pd = iPd < 0 ? '' : txt.slice(iPd, txt.indexOf('\n  }', iPd) + 4);
+    ok(ab.length > 200 && pd.length > 150,
+      arq + ': a conferência recortou o editor e o pausar — recorte vazio faria as ' +
+      'provas abaixo passarem sem rodar nada', [ab.length, pd.length]);
+    if (ab.length < 200 || pd.length < 150) return;
+
+    function bancadaEd(comecaPausada) {
+      var estado = { PAUSA: !!comecaPausada, calou: 0, texto: '', ed: { hidden: true } };
+      var botaoAbrir = { attrs: {}, textContent: '',
+        setAttribute: function (k, v) { this.attrs[k] = v; } };
+      var botaoTocar = { textContent: comecaPausada ? 'Continuar' : 'Pausar' };
+      var ouvintes = [];
+      var doc = { getElementById: function (id) {
+        return id === 'ed' ? estado.ed : (id === 'tocar' ? botaoTocar : null); } };
+      /* O ALVO DO CLIQUE e' o proprio botao: o ouvinte escreve nele o `aria-expanded` e
+         o rotulo. Um duble so' com `addEventListener` estoura no `setAttribute`, e a
+         prova morre antes de medir o que veio medir. */
+      var alvoEl = { attrs: {}, textContent: 'Editar as falas',
+        setAttribute: function (k, v) { this.attrs[k] = v; },
+        addEventListener: function (tp, f) { if (tp === 'click') ouvintes.push(f); } };
+      var fonte = 'var PAUSA = ' + (comecaPausada ? 'true' : 'false') + ';\n' +
+        'function $(id){ return id === "abrir-ed" ? ALVO : doc.getElementById(id); }\n' +
+        'var temVoz = true;\n' +
+        'function calar(){ CALOU(); }\n' + pd + '\n' + ab +
+        '\nreturn { tocar: function(){ OUVINTES[0].call(ALVO); },' +
+        ' pausa: function(){ return PAUSA; } };';
+      var api = new Function('ALVO', 'doc', 'OUVINTES', 'CALOU', 'speechSynthesis', fonte)(
+        alvoEl, doc, ouvintes, function () { estado.calou++; },
+        { pause: function () {}, resume: function () {} });
+      return { api: api, estado: estado, abrir: botaoAbrir, tocar: botaoTocar };
+    }
+
+    var b1 = bancadaEd(false);
+    b1.api.tocar();
+    ok(b1.estado.ed.hidden === false && b1.api.pausa() === true,
+      arq + ': abrir o editor PARA a demonstração — rodando, a cena troca e a voz narra ' +
+      'por cima, e ouvir a própria alteração vira impossível',
+      [b1.estado.ed.hidden, b1.api.pausa()]);
+    ok(b1.estado.calou >= 1,
+      arq + ': e cala a voz que já estava falando — pausada no meio de uma frase, ela ' +
+      'volta a falar essa frase no primeiro Ouvir', b1.estado.calou);
+    ok(b1.tocar.textContent === 'Continuar',
+      arq + ': e o botão passa a dizer Continuar — "Pausar" sobre uma demonstração ' +
+      'parada é a tela dizendo o contrário do que ela está',
+      b1.tocar.textContent);
+    b1.api.tocar();
+    ok(b1.estado.ed.hidden === true && b1.api.pausa() === false,
+      arq + ': e fechar o editor devolve a demonstração ao movimento', b1.api.pausa());
+
+    /* QUEM JA TINHA PAUSADO A MAO nao quer que fechar o editor faca a demonstracao
+       voltar a andar: a pausa era dela, e nao do editor. */
+    var b2 = bancadaEd(true);
+    b2.api.tocar();
+    b2.api.tocar();
+    ok(b2.api.pausa() === true,
+      arq + ': e quem já tinha pausado à mão continua pausado ao fechar o editor — a ' +
+      'pausa era dela, e não do editor', b2.api.pausa());
+
+    /* ---- O OUVIR FALA COM A CENA PARADA ----
+     * `PAUSA` fazia duas coisas de uma vez: segurava o relogio das cenas E punha o
+     * sintetizador em pausa. Com ele pausado, a fala pedida pelo Ouvir entrava na fila e
+     * nunca saia — o botao nao fazia som nenhum, e parecia que a edicao nao pegou. */
+    var iOu = txt.indexOf("  $('ed-campos').addEventListener('click', function (e) {");
+    var ou = iOu < 0 ? '' : txt.slice(iOu, txt.indexOf('\n  });', iOu));
+    ok(ou.length > 200, arq + ': a conferência recortou o Ouvir', ou.length);
+    var iRes = ou.indexOf('speechSynthesis.resume()');
+    var iNar = ou.indexOf('narrar(FALAS[k])');
+    ok(iRes > 0 && iNar > 0 && iRes < iNar,
+      arq + ': o Ouvir LIBERA a voz antes de falar, e com a cena parada — sem isso a ' +
+      'fala entra na fila de um sintetizador pausado e nunca sai, e o botão não faz som ' +
+      'nenhum', [iRes, iNar]);
+    ok(ou.indexOf('PAUSA = false') < 0 && ou.indexOf('pausarDemo(false)') < 0,
+      arq + ': e ele NÃO volta a rodar a demonstração — liberar a voz é uma coisa, ' +
+      'soltar o relógio das cenas é outra, e soltá-lo aqui faria a cena passar por cima ' +
+      'da frase que se pediu para ouvir', ou.slice(0, 120));
+  });
+
+  /* ---- A TELA DE ENTRADA OFERECE SO' O QUE AQUELA VERSAO ENSINA ----
+   *
+   * O tutorial de SAIDA abria oferecendo tambem "Lancar retorno" — um caminho que ele
+   * nao percorre, numa tela vista por quem talvez nem tenha permissao para ele. A pessoa
+   * aprende a saida e sai com a ideia de que ha um segundo botao esperando por ela; no
+   * aplicativo de verdade, aquele botao nao existe para quem so' devolve.
+   *
+   * RODADO CONTRA OS TRES VALORES DE `SO`, e nao lido: a funcao continuaria citando os
+   * dois botoes em qualquer um dos casos, porque ela monta os dois textos. O que muda e'
+   * o que SAI dela. */
+  var iTi = fsReal.readFileSync(path.join(raizE, demos[0]), 'utf8')
+    .indexOf('  function telaInicial() {');
+  ok(iTi > 0, 'a confer\u00eancia achou a tela de entrada do demo', iTi);
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+    var i2 = txt.indexOf('  function telaInicial() {');
+    var ti = i2 < 0 ? '' : txt.slice(i2, txt.indexOf('\n  }', i2) + 4);
+    ok(ti.length > 500, arq + ': a confer\u00eancia recortou a tela de entrada', ti.length);
+    if (ti.length < 500) return;
+
+    function montarCom(so) {
+      var ap = { innerHTML: '' };
+      new Function('SO', 'ap', 'botaoSair',
+        ti + '\ntelaInicial();')(so, ap, function () { return ''; });
+      return ap.innerHTML;
+    }
+    var soSaida = montarCom('saida');
+    ok(soSaida.indexOf('id="t-saida"') > 0 && soSaida.indexOf('id="t-retorno"') < 0,
+      arq + ': na vers\u00e3o de SA\u00cdDA a entrada oferece s\u00f3 "Lan\u00e7ar sa\u00edda" — o outro bot\u00e3o ' +
+      '\u00e9 um caminho que o tutorial n\u00e3o percorre, e que no aplicativo de verdade n\u00e3o ' +
+      'existe para quem s\u00f3 devolve',
+      [soSaida.indexOf('id="t-saida"'), soSaida.indexOf('id="t-retorno"')]);
+    var soRetorno = montarCom('retorno');
+    ok(soRetorno.indexOf('id="t-retorno"') > 0 && soRetorno.indexOf('id="t-saida"') < 0,
+      arq + ': e na vers\u00e3o de RETORNO oferece s\u00f3 "Lan\u00e7ar retorno"',
+      [soRetorno.indexOf('id="t-retorno"'), soRetorno.indexOf('id="t-saida"')]);
+    var ambos = montarCom('ambos');
+    ok(ambos.indexOf('id="t-saida"') > 0 && ambos.indexOf('id="t-retorno"') > 0,
+      arq + ': e a vers\u00e3o COMPLETA continua com os dois — ela ensina os dois, e esconder ' +
+      'um deles ali seria esconder metade do que ela veio mostrar', ambos.length);
+    /* A LISTA DE MOVIMENTOS DO DIA NAO E' PENEIRADA: ela e' o que a EMPRESA moveu, e nao
+       o que esta pessoa pode fazer. Some-la para quem so' devolve esconderia a operacao
+       de quem trabalha nela. */
+    ok(soSaida.indexOf('Retorno \u00b7 Natal') > 0,
+      arq + ': e a lista de "movimentos de hoje" continua inteira — ela \u00e9 o que a ' +
+      'EMPRESA moveu, e n\u00e3o o que esta pessoa pode lan\u00e7ar');
+  });
+
+  /* O `SO` EXISTE NAS TRES. Ele e' a unica linha que separa as versoes, e as duas
+     separadas ja liam `SO === 'ambos'` como o valor que a completa teria — sem a linha,
+     a unica versao que de fato e' 'ambos' era a que nao sabia dizer isso de si mesma. */
+  /* E CADA UMA DECLARA O QUE O NOME DELA DIZ. Cobrar so' que a linha EXISTA deixava
+     passar a linha errada: `demo-lancamento.html` com `SO = 'saida'` continuava verde,
+     e a versao completa passaria a esconder metade do que ela veio mostrar.
+     O NOME DO ARQUIVO E' A FONTE: `-saida` demonstra a saida, `-retorno` o retorno, e o
+     sem sufixo demonstra os dois. */
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+    var m = /var SO = '([a-z]+)';/.exec(txt);
+    var esperado = /-saida\.html$/.test(arq) ? 'saida'
+                 : /-retorno\.html$/.test(arq) ? 'retorno' : 'ambos';
+    ok(!!m && m[1] === esperado,
+      arq + ": declara `SO = '" + esperado + "'`, que é o que o nome do arquivo diz " +
+      '— cobrar só que a linha exista deixava passar a linha ERRADA, e a versão ' +
+      'completa com o valor de uma das metades esconderia metade do que veio mostrar',
+      m ? m[1] : 'FALTA');
+  });
+
+  /* E AS TRES PAGINAS DIZEM O MESMO — nas PECAS DO EDITOR, e nao num pedaco corrido
+     do arquivo. O recorte ia de `pausarDemo` ate o proximo `});` e varria junto o
+     `ligarSom`, que difere entre as versoes com razao: a prova acusava divergencia
+     onde nao havia, e teria calado a que houvesse de verdade.
+     O editor e' o mesmo nas tres; divergindo, o conserto de hoje vale numa e as
+     outras duas ficam com o defeito — que e' exatamente como ele chegou ate aqui. */
+  ['  function pausarDemo(v) {',
+   "  $('abrir-ed').addEventListener('click', function () {",
+   "  $('ed-campos').addEventListener('click', function (e) {"].forEach(function (marca) {
+    var iguais = demos.map(function (arq) {
+      var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+      var i2 = txt.indexOf(marca);
+      return i2 < 0 ? '' : txt.slice(i2, txt.indexOf('\n  }', i2) + 4);
+    });
+    ok(iguais[0].length > 150 && iguais.every(function (x) { return x === iguais[0]; }),
+      'as tres paginas tem a MESMA peca do editor (' + marca.trim().slice(0, 28) +
+      ') — divergindo, o conserto vale numa e as outras duas ficam com o defeito',
+      iguais.map(function (x) { return x.length; }));
+  });
+}
+
 console.log('\n== a faixa do dia na conciliacao ==');
 {
   var admF = fsReal.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

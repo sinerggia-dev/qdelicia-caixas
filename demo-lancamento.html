@@ -461,6 +461,13 @@ html:not([data-editor="1"]) .ed__b{display:none}
   function $(id) { return document.getElementById(id); }
   var vp = $('vp'), ap = $('ap'), dedo = $('dedo'), leg = $('leg');
 
+  /* O QUE ESTE ARQUIVO DEMONSTRA: 'ambos', 'saida' ou 'retorno'.
+     E' a unica linha que muda entre as tres versoes do demo.
+     ELE FALTAVA AQUI, e as outras duas ja o liam: `SO === 'ambos'` aparece no
+     roteiro delas como o valor que ESTA pagina teria. Sem a linha, a unica versao
+     que de fato e' 'ambos' era a que nao sabia dizer isso de si mesma. */
+  var SO = 'ambos';
+
   var VEL = 1, PAUSA = false, TOKEN = 0, ATO = 0, TOTAL = 1;
 
   /* ==================================================================
@@ -866,10 +873,21 @@ html:not([data-editor="1"]) .ed__b{display:none}
         botaoSair() + '</div>' +
       '<div class="ap__corpo">' +
         '<p class="ap__r">O que você vai fazer?</p>' +
-        '<button class="ap__acao ap__acao--s" type="button" id="t-saida"><i>→</i>' +
-          '<span><b>Lançar saída</b><em>Caixas que estão saindo agora</em></span></button>' +
-        '<button class="ap__acao ap__acao--r" type="button" id="t-retorno"><i>←</i>' +
-          '<span><b>Lançar retorno</b><em>Caixas que voltaram do cliente</em></span></button>' +
+        /* SO' O QUE ESTA VERSAO ENSINA. O tutorial de SAIDA abria oferecendo tambem
+           "Lancar retorno" — um caminho que ele nao percorre, numa tela vista por
+           quem talvez nem tenha permissao para ele. A pessoa aprende a saida e sai
+           com a ideia de que ha um segundo botao esperando por ela; no aplicativo de
+           verdade, aquele botao nao existe para quem so' devolve.
+           PELO `SO`, que e' a unica linha que separa as tres versoes: a tela de
+           entrada era o ultimo lugar do demo que nao o consultava. */
+        (SO !== 'retorno'
+          ? '<button class="ap__acao ap__acao--s" type="button" id="t-saida"><i>→</i>' +
+            '<span><b>Lançar saída</b><em>Caixas que estão saindo agora</em></span></button>'
+          : '') +
+        (SO !== 'saida'
+          ? '<button class="ap__acao ap__acao--r" type="button" id="t-retorno"><i>←</i>' +
+            '<span><b>Lançar retorno</b><em>Caixas que voltaram do cliente</em></span></button>'
+          : '') +
         '<p class="ap__r">Movimentos de hoje</p>' +
         '<div class="ap__mini" id="mini">' +
           '<div><span>Saída · Campina Grande</span><span class="dl-n">840</span></div>' +
@@ -1309,11 +1327,18 @@ html:not([data-editor="1"]) .ed__b{display:none}
     window.__demoFim = false;
     rodar();
   });
-  $('tocar').addEventListener('click', function () {
-    PAUSA = !PAUSA;
-    this.textContent = PAUSA ? 'Continuar' : 'Pausar';
-    if (temVoz) { try { PAUSA ? speechSynthesis.pause() : speechSynthesis.resume(); } catch (e) {} }
-  });
+  /* PARAR E CONTINUAR, num lugar so'. O botao Pausar fazia isto inline, e o editor
+     precisou do mesmo: escrito duas vezes, o dia em que um deles esquecesse de mexer no
+     texto do botao deixaria a tela dizendo "Pausar" sobre uma demonstracao parada. */
+  function pausarDemo(v) {
+    PAUSA = !!v;
+    var b = $('tocar');
+    if (b) b.textContent = PAUSA ? 'Continuar' : 'Pausar';
+    if (temVoz) {
+      try { PAUSA ? speechSynthesis.pause() : speechSynthesis.resume(); } catch (e) {}
+    }
+  }
+  $('tocar').addEventListener('click', function () { pausarDemo(!PAUSA); });
 
   function ligarSom(v) {
     SOM = !!v;
@@ -1452,18 +1477,36 @@ html:not([data-editor="1"]) .ed__b{display:none}
     aviso.t = setTimeout(function () { $('ed-ok').textContent = ''; }, 4000);
   }
 
+  /* ABRIR O EDITOR PARA A DEMONSTRACAO.
+   *
+   * Editando com ela rodando, a cena seguia trocando e a voz seguia narrando por cima:
+   * tocar Ouvir para conferir a frase que se acabou de escrever devolvia as duas vozes
+   * ao mesmo tempo, e em dois segundos a cena passava e falava outra coisa. Nao dava
+   * para ouvir a propria alteracao — que e' a unica razao de o botao Ouvir existir.
+   *
+   * SO' SE ELA ESTIVER RODANDO, e a volta e' so' se foi ELE quem parou: quem ja tinha
+   * pausado a demonstracao a mao nao quer que fechar o editor a faca voltar a andar.
+   */
+  var PAROU_PELO_EDITOR = false;
   $('abrir-ed').addEventListener('click', function () {
     var ed = $('ed');
     ed.hidden = !ed.hidden;
     this.setAttribute('aria-expanded', String(!ed.hidden));
     this.textContent = ed.hidden ? 'Editar as falas' : 'Fechar o editor';
+    if (!ed.hidden) {
+      if (!PAUSA) { PAROU_PELO_EDITOR = true; pausarDemo(true); calar(); }
+    } else if (PAROU_PELO_EDITOR) {
+      PAROU_PELO_EDITOR = false;
+      pausarDemo(false);
+    }
   });
   $('ed-campos').addEventListener('input', function (e) {
     var t = e.target;
     if (!t.dataset || !t.dataset.k) return;
     FALAS[t.dataset.k] = t.value;
     guardarFalas();
-    aviso('Texto guardado. Use o botão Ouvir para conferir a voz.');
+    aviso(PAUSA ? 'Texto guardado. Toque em Ouvir para conferir a voz.'
+               : 'Texto guardado. Pause a demonstração e toque em Ouvir.');
   });
   /* ouvir uma fala isolada: esperar a cena chegar para saber se o texto
      mudou é o que faz parecer que a edição não pegou */
@@ -1473,6 +1516,13 @@ html:not([data-editor="1"]) .ed__b{display:none}
     var k = b.dataset.ouvir;
     if (!SOM) { aviso('Ligue o Áudio primeiro.'); return; }
     calar();
+    /* A DEMONSTRACAO FICA PARADA, MAS A VOZ VOLTA. `PAUSA` fazia duas coisas de uma vez:
+       segurava o relogio das cenas E punha o sintetizador em pausa. Com ele pausado, a
+       fala pedida aqui entrava na fila e nunca saia — o botao Ouvir nao fazia som
+       nenhum, e parecia que a edicao e' que nao tinha pegado.
+       O relogio das cenas continua parado: quem o segura e' o `PAUSA`, que nao se mexe
+       aqui. So' o sintetizador e' liberado, para dizer esta frase. */
+    if (temVoz) { try { speechSynthesis.resume(); } catch (e) {} }
     narrar(FALAS[k]);
     aviso('Falando: ' + k);
   });
