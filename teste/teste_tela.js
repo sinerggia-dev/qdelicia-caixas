@@ -12232,6 +12232,81 @@ console.log('\n== o editor de falas para a demonstracao ==');
       'da frase que se pediu para ouvir', ou.slice(0, 120));
   });
 
+  /* ---- O TOQUE EM ASSISTIR LIGA A VOZ ----
+   *
+   * A demonstracao rodava MUDA para quem chegava pela primeira vez: o audio nascia
+   * desligado e ninguem o ligava — achar o botao "Audio" era tarefa de quem ja sabia
+   * que ele existia. A pessoa via os campos se preencherem sozinhos, sem uma palavra.
+   *
+   * E O TOQUE E' O UNICO INSTANTE EM QUE DA' PARA LIGAR: o navegador nao deixa uma
+   * pagina falar antes de a pessoa tocar nela. E' uma regra da plataforma, e e' por isso
+   * que o tutorial espera o toque em vez de comecar sozinho — comecando sozinho, ele
+   * navegaria em silencio, que e' pior do que esperar.
+   *
+   * SO' NO PRIMEIRO ACESSO: quem desligou a voz de proposito continua sem ela, e por
+   * isso "nunca escolheu" precisa ser diferente de "escolheu desligado". */
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+    var iAs = txt.indexOf("    if (b.id === 't-assistir') {");
+    var asst = iAs < 0 ? '' : txt.slice(iAs, txt.indexOf('\n      return;', iAs));
+    ok(asst.length > 200, arq + ': a confer\u00eancia recortou o toque em Assistir', asst.length);
+    if (asst.length < 200) return;
+
+    function tocouCom(jaEscolheu, somAtual, temVoz) {
+      var ligou = null, recomecou = false;
+      /* `CustomEvent` e' do navegador e nao existe no Node: sem o duble, a funcao
+         estoura na primeira linha e a prova morre antes de medir o que veio medir. */
+      new Function('temVoz', 'SOM', 'escolheuSom', 'ligarSom', 'document', 'TELA',
+        'painel', 'EMENDOU', 'trocar', 'SO', 'b', 'CustomEvent',
+        asst.replace("if (b.id === 't-assistir') {", 'if (true) {') + '\n}')(
+        temVoz, somAtual,
+        function () { return jaEscolheu; },
+        function (v, semRecomecar) { ligou = !!v; recomecou = !semRecomecar; },
+        { dispatchEvent: function () {} }, '', function () {}, false,
+        function () {}, 'saida', { id: 't-assistir' },
+        function () { return {}; });
+      return { ligou: ligou, recomecou: recomecou };
+    }
+
+    ok(tocouCom(false, false, true).ligou === true,
+      arq + ': no PRIMEIRO acesso o toque em Assistir liga a voz — o \u00e1udio nascia ' +
+      'desligado e ningu\u00e9m o ligava: a demonstra\u00e7\u00e3o rodava muda, e achar o bot\u00e3o ' +
+      '"\u00c1udio" era tarefa de quem j\u00e1 sabia que ele existia');
+    ok(tocouCom(true, false, true).ligou === null,
+      arq + ': e quem J\u00c1 desligou a voz de prop\u00f3sito continua sem ela — "nunca escolheu" ' +
+      'tem de ser diferente de "escolheu desligado", sen\u00e3o a escolha dela \u00e9 desfeita ' +
+      'toda vez que abrir');
+    ok(tocouCom(false, true, true).ligou === null,
+      arq + ': e com a voz J\u00c1 ligada ele n\u00e3o mexe em nada');
+    ok(tocouCom(false, false, false).ligou === null,
+      arq + ': e num navegador SEM voz ele n\u00e3o promete o que n\u00e3o pode cumprir');
+    /* SEM RECOMECAR: quem toca em Assistir comeca a cena logo em seguida, pelo
+       `trocar()`. Ligando o som do jeito comum, `rodar()` sairia de dentro do `ligarSom`
+       e `trocar()` chamaria `rodar()` de novo — a cena comecaria duas vezes, a primeira
+       se cancelaria no meio, e a primeira fala sairia cortada. */
+    ok(tocouCom(false, false, true).recomecou === false,
+      arq + ': e ele liga SEM recome\u00e7ar a cena — quem toca em Assistir j\u00e1 come\u00e7a a cena ' +
+      'logo em seguida, e come\u00e7ar duas vezes corta a primeira fala no meio');
+
+    /* E O `ligarSom` SABE NAO RECOMECAR. Sem o parametro, a chamada acima ligaria o som
+       e comecaria a cena assim mesmo, e a prova de cima mediria o duble. */
+    var iLs = txt.indexOf('  function ligarSom(v, semRecomecar) {');
+    var ls = iLs < 0 ? '' : txt.slice(iLs, txt.indexOf('\n  }', iLs) + 4);
+    ok(ls.indexOf('if (semRecomecar) return;') > 0 &&
+       ls.indexOf('if (semRecomecar) return;') < ls.indexOf('rodar()'),
+      arq + ': e o `ligarSom` sai ANTES de recome\u00e7ar quando pedem para n\u00e3o recome\u00e7ar',
+      ls.slice(0, 200));
+
+    /* "NUNCA ESCOLHEU" E' NULO, e nao `!== '1'`: com a comparacao de igualdade, quem
+       escolheu DESLIGADO seria lido como quem nunca escolheu, e a voz voltaria sozinha. */
+    var iEs = txt.indexOf('  function escolheuSom() {');
+    var es = iEs < 0 ? '' : txt.slice(iEs, txt.indexOf('\n  }', iEs) + 4);
+    ok(es.indexOf('!== null') > 0,
+      arq + ': e "nunca escolheu" \u00e9 medido por AUS\u00caNCIA — comparando com "1", quem ' +
+      'escolheu desligado seria lido como quem nunca escolheu, e a voz voltaria sozinha ' +
+      'toda vez', es.slice(0, 160));
+  });
+
   /* ---- A TELA DE ENTRADA OFERECE SO' O QUE AQUELA VERSAO ENSINA ----
    *
    * O tutorial de SAIDA abria oferecendo tambem "Lancar retorno" — um caminho que ele

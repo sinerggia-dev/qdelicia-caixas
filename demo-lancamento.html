@@ -601,6 +601,12 @@ html:not([data-editor="1"]) .ed__b{display:none}
   function lembrar(v) {
     try { localStorage.setItem(CHAVE_SOM, v ? '1' : '0'); } catch (e) {}
   }
+  /* A PESSOA JA ESCOLHEU alguma vez? E' diferente de "escolheu desligado": sem esta
+     distincao, ligar a voz sozinho no primeiro acesso passaria por cima de quem a
+     desligou de proposito, toda vez que ela abrisse o tutorial de novo. */
+  function escolheuSom() {
+    try { return localStorage.getItem(CHAVE_SOM) !== null; } catch (e) { return false; }
+  }
   function lembrado() {
     try { return localStorage.getItem(CHAVE_SOM) === '1'; } catch (e) { return false; }
   }
@@ -1304,6 +1310,15 @@ html:not([data-editor="1"]) .ed__b{display:none}
     var b = e.target.closest('#t-assistir,#t-pular');
     if (!b) return;
     if (b.id === 't-assistir') {
+      /* O TOQUE LIGA A VOZ, e este e' o unico instante em que da' para ligar.
+         O navegador nao deixa uma pagina falar antes de a pessoa tocar nela — uma
+         regra da plataforma, e nao uma escolha nossa. Por isso o tutorial espera o
+         toque em vez de comecar sozinho: comecando sozinho, ele navegaria em SILENCIO,
+         que e' pior do que esperar.
+         O AUDIO NASCIA DESLIGADO, e ninguem o ligava: a demonstracao rodava muda, e
+         achar o botao "Audio" era tarefa de quem ja sabia que ele existia.
+         SO' NO PRIMEIRO ACESSO: quem desligou a voz de proposito continua sem ela. */
+      if (temVoz && !SOM && !escolheuSom()) ligarSom(true, true);
       document.dispatchEvent(new CustomEvent('demo:assistir'));
       EMENDOU = false;
       trocar('saida');
@@ -1340,12 +1355,17 @@ html:not([data-editor="1"]) .ed__b{display:none}
   }
   $('tocar').addEventListener('click', function () { pausarDemo(!PAUSA); });
 
-  function ligarSom(v) {
+  /* `semRecomecar` e' para quem vai comecar a cena por conta propria logo em seguida —
+     o toque em Assistir faz isso. Sem ele, `rodar()` sairia daqui e `trocar()` sairia
+     de la', e a cena comecaria duas vezes: a primeira se cancela no meio, e a fala sai
+     cortada. */
+  function ligarSom(v, semRecomecar) {
     SOM = !!v;
     lembrar(SOM);
     pintarSom();
     if (SOM) {
       ligarPulso();
+      if (semRecomecar) return;
       /* Recomeça do início: com o som ligado cada cena passa a esperar a voz
          terminar. Continuar do meio deixaria a cena atual no relógio antigo e
          a primeira fala sairia cortada — que é exatamente o defeito a evitar. */
