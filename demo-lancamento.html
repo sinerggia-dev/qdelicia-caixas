@@ -437,7 +437,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
      gravada pela empresa, a sessao de quem entrou e a rota que marca o tutorial como
      visto. Uma copia dessas coisas aqui dentro divergiria no primeiro conserto. -->
 <script src="config.js"></script>
-<script src="app.js?v=48c05593"></script>
+<script src="app.js?v=7bbb421d"></script>
 <script>
 (function () {
   'use strict';
@@ -804,14 +804,23 @@ html:not([data-editor="1"]) .ed__b{display:none}
    * `try`: em janela anonima, com cookies bloqueados ou dentro de um iframe de outro
    * dominio, isto falha — e uma saudacao nunca pode derrubar a tela.
    *
-   * SO' O PRIMEIRO NOME. "Ola, Natanael" soa como gente falando; com o nome completo
-   * vira cracha. E' a mesma regra da saudacao do painel.
+   * NOME E SOBRENOME. So' o primeiro fazia a narracao chamar a pessoa de um jeito e as
+   * duas telas do painel de outro — a de cima dizia "Natanael" e o rodape dizia
+   * "Natanael Silva". Tres formas do mesmo nome na mesma sessao e' o sistema parecendo
+   * nao saber com quem esta falando.
+   *
+   * O PRIMEIRO E O ULTIMO, e nao os dois primeiros: "Jose Carlos da Silva Urbano" pelos
+   * dois primeiros vira "Jose Carlos", que e' como ninguem o chama. E' a MESMA regra do
+   * `nomeESobrenome` do nucleo — escrita aqui porque o demo nao carrega o nucleo de
+   * proposito: ele roda sozinho, sem rede e sem cadastro.
    */
-  function primeiroNome() {
+  function nomeESobrenome() {
     try {
       var s = JSON.parse(localStorage.getItem('qdc_sessao') || 'null');
       var n = s && s.nome ? String(s.nome).trim() : '';
-      return n ? n.split(/\s+/)[0] : '';
+      var p = n ? n.split(/\s+/).filter(function (x) { return x !== ''; }) : [];
+      if (!p.length) return '';
+      return p.length < 2 ? p[0] : p[0] + ' ' + p[p.length - 1];
     } catch (e) { return ''; }
   }
 
@@ -823,7 +832,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
   function comNome(txt) {
     var s = String(txt == null ? '' : txt);
     if (s.indexOf('{nome}') < 0) return s;
-    var n = primeiroNome();
+    var n = nomeESobrenome();
     if (n) return s.replace(/\{nome\}/g, n);
     return s.replace(/,?\s*\{nome\}\s*,?/g, ' ')
             .replace(/\s+([!?.,;:])/g, '$1')

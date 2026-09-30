@@ -9110,13 +9110,19 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
     'a conta');
   ok(/\.tempo\.tem-conta \.tempo__div--conta\{display:block\}/.test(css),
     'e a divisória dela acompanha — sozinha, sobraria um risco solto antes do ícone');
-  /* SÓ O PRIMEIRO NOME aqui, e o inteiro no balão: a pílula divide a largura com o
-     tempo e o relógio. Na barra do celular, que tem uma linha inteira, continua o nome
-     completo — dois lugares, dois orçamentos de largura. */
-  ok(/var primeiro = nome \? String\(nome\)\.trim\(\)\.split\([^)]*\)\[0\]/.test(js) &&
+  /* NOME E SOBRENOME, e o inteiro no balao. A pilula mostrava so' o primeiro nome
+     enquanto o rodape da lateral mostrava o nome e o sobrenome: duas caixas na mesma
+     tela dizendo nomes diferentes da MESMA pessoa, e a de cima parecendo um segundo
+     cadastro. A largura continua sendo um limite real — e quem responde por ela e' o
+     `max-width` com reticencias, nao o corte do sobrenome. */
+  ok(/var curto = nomeESobrenome\(nome\) \|\| '—';/.test(js) &&
      /cx\.title = nome \+/.test(js),
-    'e mostra o primeiro nome com o inteiro no balão — medido: "Boa noite, Natanael" ' +
-    'com as iniciais NS no círculo');
+    'e mostra NOME E SOBRENOME, com o inteiro no balão — só o primeiro fazia a ' +
+    'pílula e o rodapé da lateral dizerem nomes diferentes da mesma pessoa');
+  /* E A REGRA E' A MESMA DO RODAPE, e nao uma copia: as duas leem `nomeESobrenome`. */
+  ok(/n\.textContent = nomeESobrenome\(nome\)/.test(js),
+    'e o rodapé da lateral usa a MESMA regra — duas cópias dela divergem no primeiro ' +
+    'ajuste que só uma receber, e volta o dia em que as duas dizem nomes diferentes');
   ok(/\.tempo__conta:hover\{background:var\(--surface-2\)\}/.test(css) &&
      /\.tempo__conta\{[^}]*cursor:pointer\}/.test(css),
     'e sem borda própria ela ganha fundo ao passar o mouse: era a borda que dizia ' +
@@ -12336,7 +12342,7 @@ console.log('\n== o editor de falas para a demonstracao ==');
     if (cn.length < 200) return;
 
     function trocaCom(nome) {
-      return new Function('primeiroNome', cn + '\nreturn comNome;')(
+      return new Function('nomeESobrenome', cn + '\nreturn comNome;')(
         function () { return nome; });
     }
     var com = trocaCom('Natanael');
@@ -12360,13 +12366,30 @@ console.log('\n== o editor de falas para a demonstracao ==');
     ok(com('{nome} e {nome}') === 'Natanael e Natanael',
       arq + ': e o marcador vale em todas as vezes que aparecer', com('{nome} e {nome}'));
 
-    /* SO' O PRIMEIRO NOME: "Ola, Natanael" soa como gente falando; com o nome completo
-       vira cracha. E' a mesma regra da saudacao do painel. */
-    var iPn = txt.indexOf('  function primeiroNome() {');
+    /* NOME E SOBRENOME, e a MESMA regra do nucleo. So' o primeiro fazia a narracao
+       chamar a pessoa de um jeito e as telas do painel de outro — tres formas do mesmo
+       nome na mesma sessao e' o sistema parecendo nao saber com quem esta falando.
+       O PRIMEIRO E O ULTIMO, e nao os dois primeiros: "Jose Carlos da Silva Urbano"
+       pelos dois primeiros vira "Jose Carlos", que e' como ninguem o chama. */
+    var iPn = txt.indexOf('  function nomeESobrenome() {');
     var pn = iPn < 0 ? '' : txt.slice(iPn, txt.indexOf('\n  }', iPn) + 4);
-    ok(pn.indexOf("split(/") > 0 && pn.indexOf('[0]') > 0,
-      arq + ': e \u00e9 s\u00f3 o PRIMEIRO nome — com o nome completo a sauda\u00e7\u00e3o vira crach\u00e1',
-      pn.slice(0, 160));
+    ok(pn.length > 200, arq + ': a conferência recortou a leitura do nome', pn.length);
+    if (pn.length > 200) {
+      function leCom(json) {
+        return new Function('localStorage', pn + '\nreturn nomeESobrenome;')(
+          { getItem: function () { return json; } })();
+      }
+      ok(leCom('{"nome":"Jose Carlos da Silva Urbano"}') === 'Jose Urbano',
+        arq + ': a narração diz NOME E SOBRENOME — o primeiro e o ÚLTIMO, porque pelos ' +
+        'dois primeiros "José Carlos da Silva Urbano" vira "José Carlos", que é como ' +
+        'ninguém o chama', leCom('{"nome":"Jose Carlos da Silva Urbano"}'));
+      ok(leCom('{"nome":"Natanael Silva"}') === 'Natanael Silva',
+        arq + ': e o nome de duas palavras sai inteiro');
+      ok(leCom('{"nome":"Isaque"}') === 'Isaque',
+        arq + ': e um nome só continua sendo ele mesmo — a regra não inventa sobrenome');
+      ok(leCom(null) === '',
+        arq + ': e sem sessão devolve vazio, que é o que faz o marcador sumir da frase');
+    }
     /* DENTRO DE UM `try`: em janela anonima, com cookies bloqueados ou num iframe de
        outro dominio, ler o armazenamento estoura — e uma saudacao nunca pode derrubar a
        tela inteira. */

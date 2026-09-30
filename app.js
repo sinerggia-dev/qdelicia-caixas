@@ -797,12 +797,16 @@
     if (!cx || !faixa) return;
     var s = sessao() || {};
     var nome = s.nome || '';
-    /* SÓ O PRIMEIRO NOME aqui, e o inteiro no balão. "Boa noite, Natanael" soa como
-       gente falando; com o nome completo vira crachá — e a pílula divide ~180px com o
-       tempo e o relógio, então o sobrenome cortaria no meio de qualquer jeito. Na barra
-       do celular, que tem uma linha inteira só para ela, continua o nome completo. */
-    var primeiro = nome ? String(nome).trim().split(/\s+/)[0] : '—';
-    faixa.querySelector('.tempo__nome').textContent = primeiro;
+    /* NOME E SOBRENOME, e não só o primeiro.
+       Ele mostrava "Natanael" enquanto o rodapé da lateral mostrava "Natanael Silva" —
+       duas caixas na mesma tela dizendo nomes diferentes da MESMA pessoa, e a de cima
+       parecendo um segundo cadastro. O argumento antigo era a largura: a pílula divide
+       ~180px com o tempo e o relógio. Ele continua de pé, e é o `max-width:170px` com
+       reticências que responde por ele — cortar o sobrenome é melhor do que fingir que
+       ele não existe. Abaixo de 1180px o nome sai inteiro da pílula, e aí a barra do
+       celular é quem o mostra. */
+    var curto = nomeESobrenome(nome) || '—';
+    faixa.querySelector('.tempo__nome').textContent = curto;
     pintarCirculo(faixa.querySelector('.tempo__conta .avatar'), nome, s.foto);
     cx.title = nome + (s.perfil ? ' · ' + s.perfil : '');
     cx.setAttribute('aria-label', 'Conta de ' + nome + (s.perfil ? ' · ' + s.perfil : ''));
