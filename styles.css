@@ -920,6 +920,20 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   .tempo.tem-conta .tempo__conta{display:flex}
   .tempo.tem-conta .tempo__div--conta{display:block}
 }
+/* O ATUALIZAR FICA, mesmo no celular — ao contrário da conta ao lado.
+   A conta é repetida na barra do app, então lá ela some; o atualizar não tem outro
+   lugar, e é justamente no galpão, com a rede oscilando, que ele faz falta.
+   36px de alvo: no pátio, com uma mão, um alvo de 24px é um alvo que se erra. */
+.tempo__rec{display:inline-flex;align-items:center;justify-content:center;
+  width:36px;height:36px;flex:0 0 auto;margin:-5px -2px;border:0;border-radius:11px;
+  background:transparent;color:var(--txt2);cursor:pointer}
+.tempo__rec:hover{background:var(--surface-2);color:var(--txt)}
+/* O giro dura o tempo do recarregamento: sem ele, o toque não devolve nada e a pessoa
+   toca de novo achando que não pegou. */
+.tempo__rec.girando svg{animation:girar .8s linear infinite}
+@keyframes girar{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){ .tempo__rec.girando svg{animation:none} }
+
 /* Sem borda própria ela deixaria de parecer botão — o fundo no `hover` e o cursor de
    clique são o que devolve o "isto aqui se toca". As margens negativas comem o respiro
    que o `padding` acrescenta, para o alvo crescer sem empurrar a pílula. */
@@ -1587,6 +1601,16 @@ tr.par-linhas > td{background:var(--campo);padding:0}
 
 .vazio{text-align:center;color:var(--txt3);padding:26px 10px;font-size:14px}
 .busca{position:relative;margin-bottom:10px}
+
+/* A BUSCA DE TODOS OS CADASTROS, acima dos seis quadros. Ela nao mora dentro de nenhum
+   deles de proposito: dentro, pareceria a busca daquele quadro. */
+.busca-cad{margin:0 0 6px}
+.busca-cad input{font-size:15px}
+/* O RESULTADO EM PALAVRAS, logo abaixo do campo. So' as abas mudando de numero deixa a
+   pessoa conferindo seis titulos para saber se achou alguma coisa — e, quando nao acha
+   nada, a tela de quadros fechados nao distingue "nao existe" de "nao procurei". */
+.cad-achou{margin:0 0 12px;font-size:12.5px;color:var(--txt2)}
+.cad-achou.vazio-busca{color:var(--ambar)}
 
 /* toast */
 #toast{

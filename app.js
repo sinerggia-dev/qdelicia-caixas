@@ -609,6 +609,23 @@
         '<b class="tempo__nome" id="tempoNome">—</b>' +
       '</span>' +
     '</button>' +
+    /* ATUALIZAR A PAGINA, ao lado de quem esta logado.
+       AQUI, E NAO EM CADA TELA: a pilula nasce deste arquivo e serve o painel e o app de
+       campo — escrito nos dois HTML, seriam duas copias para divergirem, e a terceira
+       tela nasceria sem ele.
+       ELE FICA MESMO NO CELULAR, ao contrario da conta ao lado: a conta e' repetida na
+       barra do app, entao la ela some; o atualizar nao tem outro lugar, e e' justamente
+       no galpao — com a rede oscilando — que ele faz falta.
+       ICONE SO', sem palavra: a pilula divide ~380px com o tempo e a hora, e "Atualizar"
+       escrito por extenso empurraria a cidade para fora. O nome vai no `title` e no
+       `aria-label`, que e' o que o leitor de tela anuncia. */
+    '<button class="tempo__rec" id="tempoRec" type="button" ' +
+            'title="Atualizar a p\u00e1gina" aria-label="Atualizar a p\u00e1gina">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+           'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M21 12a9 9 0 1 1-2.64-6.36"></path>' +
+        '<polyline points="21 3 21 9 15 9"></polyline></svg>' +
+    '</button>' +
     '<span class="tempo__div tempo__div--conta" aria-hidden="true"></span>' +
     '<div class="tempo__t" id="tempoT">' +
       '<span class="tempo__ico" id="tempoIco" aria-hidden="true"></span>' +
@@ -1407,6 +1424,23 @@
     }
     if (img.getAttribute('src') !== foto) img.src = foto;
   }
+
+  /* O CLIQUE DO ATUALIZAR.
+     `location.reload()` e nao um "recarregar os dados": a pessoa pediu ATUALIZAR A
+     PAGINA, e meio-termo — buscar de novo e redesenhar — deixaria de fora justamente o
+     caso em que ele e' chamado, que e' a tela ter ficado num estado que ninguem sabe
+     explicar. Recarregar responde por todos.
+     A FILA OFFLINE SOBREVIVE: ela mora no armazenamento do aparelho, e nao na memoria
+     da pagina. Sem isso, um toque aqui com o galpao sem rede jogaria fora o que a pessoa
+     acabou de lancar.
+     LIGADO POR DELEGACAO, no documento: a pilula e' remontada quando a sessao muda, e um
+     ouvinte preso ao botao morreria com ele na primeira remontagem. */
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('#tempoRec');
+    if (!b) return;
+    b.classList.add('girando');
+    location.reload();
+  });
 
   function quemEsta(nome, perfil, foto) {
     var n = document.getElementById('cabUsuario');

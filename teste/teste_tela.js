@@ -10209,14 +10209,49 @@ console.log('\n== Usuários no celular: cartão, acesso à vista e folha de aç�
     'mas quem não lança fica em cinza — para ela é um campo que não usa, e âmbar ali ' +
     'seria alarme sobre coisa nenhuma');
 
-  /* --- a aba do quadro reconta ---------------------------------------------- */
-  ok(/card\.querySelectorAll\('\.corpo tbody tr'\)\.length \|\|\s*\n?\s*card\.querySelectorAll\('\.corpo \.users > \.u'\)\.length/
-    .test(adm),
-    'a aba do quadro conta linhas de tabela OU cartões — contando só `tbody tr`, ela ' +
-    'dizia "—" para treze pessoas no celular');
-  ok((adm.match(/atualizarContagens\(\);/g) || []).length === 3,
-    'e reconta nos três caminhos: ao montar as dobras, e ao redesenhar a lista em ' +
-    'cada largura — senão filtrar por perfil deixava a aba com o número de antes');
+  /* --- a aba do quadro reconta ----------------------------------------------
+   * CASADA NO TEXTO, esta prova pregava a expressao `tbody tr || .users > .u` — e caiu
+   * quando a expressao saiu para `linhasDoCard`, sem que nada tivesse quebrado. O que
+   * importa e o que ela DEVOLVE, entao ela e' rodada. */
+  var iLC = adm.indexOf('  function linhasDoCard(card){');
+  var fonteLC = iLC < 0 ? '' : adm.slice(iLC, adm.indexOf('\n  }', iLC) + 4);
+  ok(fonteLC.length > 120, 'a conferência recortou a contagem das linhas', fonteLC.length);
+  if (fonteLC.length > 120) {
+    var achaLinhas = new Function(fonteLC + '\n return linhasDoCard;')();
+    function cardFalso(trs, us) {
+      return { querySelectorAll: function (sel) {
+        return sel === '.corpo tbody tr' ? trs : (sel === '.corpo .users > .u' ? us : []);
+      } };
+    }
+    ok(achaLinhas(cardFalso([1, 2, 3], [])).length === 3,
+      'a aba do quadro acha as linhas da TABELA', achaLinhas(cardFalso([1, 2, 3], [])).length);
+    /* NO CELULAR A LISTA NAO E' TABELA: contando so' `tbody tr`, a aba dizia "—" para
+       treze pessoas — que e' exatamente o que ela existe para nao fazer, porque quadro
+       fechado e cadastro vazio ficariam iguais na tela. */
+    ok(achaLinhas(cardFalso([], [1, 2])).length === 2,
+      'e acha os CARTÕES quando não há tabela — no celular a lista de Usuários não é ' +
+      'tabela, e contando só `tbody tr` a aba dizia "—" para treze pessoas',
+      achaLinhas(cardFalso([], [1, 2])).length);
+    ok(achaLinhas(cardFalso([], [])).length === 0,
+      'e quadro sem nada devolve zero, em vez de quebrar');
+  }
+
+  /* A CONTAGEM E' DO QUE ESTA A VISTA. Com a busca ligada, contar tudo faria a aba dizer
+     "20" sobre um quadro que mostra duas linhas — o numero passaria a desmentir a tela
+     em vez de resumi-la. */
+  var iAC = adm.indexOf('  function atualizarContagens(){');
+  var ac = iAC < 0 ? '' : adm.slice(iAC, adm.indexOf('\n  }', iAC) + 4);
+  ok(ac.indexOf("l.style.display !== 'none'") > 0 && ac.indexOf('linhasDoCard(card)') > 0,
+    'e a aba conta o que está À VISTA — com a busca ligada, contar tudo faria ela dizer ' +
+    '"20" sobre um quadro que mostra duas linhas, e o número passaria a desmentir a tela',
+    ac.slice(0, 200));
+  /* RECONTA EM TODO CAMINHO QUE REDESENHA. A lista e' refeita ao montar as dobras, ao
+     trocar de largura e depois de gravar um cadastro: o caminho que esquecer deixa a aba
+     com o numero de antes. */
+  ok((adm.match(/atualizarContagens\(\);/g) || []).length >= 3,
+    'e reconta em todos os caminhos que redesenham a lista — o que esquecer deixa a aba ' +
+    'com o número de antes',
+    (adm.match(/atualizarContagens\(\);/g) || []).length);
 
   /* --- a entrada dos cartões ------------------------------------------------ */
   ok(/var atraso = Math\.min\(\(i \|\| 0\) \* 55, 440\);/.test(adm),
@@ -12192,6 +12227,204 @@ console.log('\n== o painel de filtro abre por cima ==');
   ok((adm.match(/ligarAbreFolha\('/g) || []).length === 2,
     'ligado pela MESMA função das duas telas');
 })();
+
+console.log('\n== a busca de todos os cadastros, e o atualizar da pilula ==');
+{
+  var admB = fsReal.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var appB = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  /* ---- A PENEIRA, RODADA ----
+   * Cada quadro tinha — ou nao tinha — a sua busca: Usuarios tinha, os outros cinco nao.
+   * Pior que a falta: quem procura "Chico" nao sabe de antemao se ele e' motorista,
+   * usuario ou os dois, e a busca por quadro obriga a escolher o quadro ANTES de
+   * procurar.
+   * ELA NAO CONHECE OS MODULOS: varre as linhas que cada quadro ja mostra. Escrita
+   * modulo a modulo, ela precisaria saber que motorista tem CPF e veiculo tem placa — e
+   * o modulo novo nasceria fora da busca sem ninguem perceber. */
+  var iFC2 = admB.indexOf('  function filtrarCadastros(){');
+  var fimFC = admB.indexOf('\n  }', iFC2) + 4;
+  var iLC2 = admB.indexOf('  function linhasDoCard(card){');
+  var iCh = admB.indexOf('  function chato(');
+  var fonteFC = iFC2 < 0 ? '' :
+    admB.slice(iCh, admB.indexOf('\n  }', iCh) + 4) +
+    admB.slice(iLC2, admB.indexOf('\n  }', iLC2) + 4) +
+    admB.slice(iFC2, fimFC);
+  ok(fonteFC.length > 800 && fonteFC.indexOf('function filtrarCadastros') > 0,
+    'a confer\u00eancia recortou a peneira dos cadastros — recorte vazio faria as provas ' +
+    'abaixo passarem sem rodar nada', fonteFC.length);
+
+  if (fonteFC.length > 800) {
+    function linha(txt) { return { textContent: txt, style: {} }; }
+    function quadro(cad, textos) {
+      var ls = textos.map(linha);
+      return { dataset: { cad: cad }, classes: {},
+        querySelectorAll: function (sel) {
+          return sel === '.corpo tbody tr' ? ls : [];
+        },
+        classList: { toggle: function (c, v) { this.dono.classes[c] = !!v; } },
+        linhas: ls };
+    }
+    function bancadaCad(quadros) {
+      quadros.forEach(function (q) { q.classList.dono = q; });
+      var aviso = { hidden: true, textContent: '', classList: { toggle: function () {} } };
+      var doc = {
+        querySelectorAll: function () { return quadros; },
+        getElementById: function (id) { return id === 'cadAchou' ? aviso : null; }
+      };
+      var rodar = new Function('document', 'localStorage', 'abertoPorPadrao',
+        'chaveDobra', 'atualizarContagens', 'BUSCA_CAD',
+        fonteFC + '\n return filtrarCadastros;')(
+        doc, { getItem: function () { return null; } },
+        function () { return true; }, function (c) { return 'k' + c; },
+        function () {}, '');
+      return { rodar: rodar, aviso: aviso };
+    }
+
+    var qs = [quadro('usuarios', ['Chico  chico  Motorista', 'Nestor Neto  nestor']),
+              quadro('motoristas', ['Chico  81 9999  123.456', 'Ramos  81 8888']),
+              quadro('veiculos', ['KGD9976  Ba\u00fa', 'SON1B00  Ba\u00fa'])];
+    var b = bancadaCad(qs);
+    /* O TERMO ENTRA PELA VARIAVEL do modulo, que o `new Function` recebe como argumento:
+       rodar com ela vazia mediria a limpeza, e nao a busca. */
+    var comTermo = new Function('document', 'localStorage', 'abertoPorPadrao',
+      'chaveDobra', 'atualizarContagens', 'BUSCA_CAD',
+      fonteFC + '\n return filtrarCadastros;');
+
+    /* `guardado` e' o que a pessoa tinha deixado aberto ou fechado ANTES de buscar. Com
+       ele preso em "sempre aberto", a prova de voltar ao estado guardado media o proprio
+       duble: abrir tudo passava. */
+    function buscar(termo, guardado) {
+      qs.forEach(function (q) { q.classes = {}; q.classList.dono = q; });
+      var aviso = { hidden: true, textContent: '',
+        classList: { toggle: function (c, v) { this.v = v; } } };
+      /* O SELETOR E' OBEDECIDO, como o navegador obedeceria. Devolvendo `qs` para
+         qualquer coisa, a peneira podia estreitar o seletor para um modulo so' —
+         `[data-cad="usuarios"]` — e a bancada continuava verde, medindo o duble em vez
+         do seletor. */
+      var doc = { querySelectorAll: function (sel) {
+          var m = /\[data-cad="([a-z_]+)"\]/.exec(String(sel || ''));
+          return m ? qs.filter(function (q) { return q.dataset.cad === m[1]; }) : qs;
+        },
+        getElementById: function (id) { return id === 'cadAchou' ? aviso : null; } };
+      comTermo(doc, { getItem: function (k) { return guardado ? guardado[k] : null; } },
+        function () { return true; }, function (c) { return 'k' + c; },
+        function () {}, termo)();
+      return aviso;
+    }
+
+    var av = buscar('chico');
+    ok(qs[0].linhas[0].style.display === '' && qs[0].linhas[1].style.display === 'none',
+      'a busca esconde as linhas que n\u00e3o batem, em QUALQUER quadro — era preciso abrir ' +
+      'Ve\u00edculos e correr dezessete linhas com o olho para achar uma placa',
+      qs[0].linhas.map(function (l) { return l.style.display; }));
+    ok(qs[1].linhas[0].style.display === '',
+      'e acha a MESMA palavra em outro cadastro — quem procura "Chico" n\u00e3o sabe de ' +
+      'antem\u00e3o se ele \u00e9 motorista, usu\u00e1rio ou os dois, e a busca por quadro obriga a ' +
+      'escolher o quadro antes de procurar');
+    ok(qs[0].classes.fechado === false && qs[1].classes.fechado === false &&
+       qs[2].classes.fechado === true,
+      'o quadro com resultado ABRE e o sem resultado FECHA — sen\u00e3o a resposta a "onde ' +
+      'est\u00e1 o Chico" seria abrir os seis e conferir um por um',
+      [qs[0].classes.fechado, qs[1].classes.fechado, qs[2].classes.fechado]);
+    ok(av.hidden === false,
+      'e o aviso APARECE quando se busca — escondido, s\u00f3 as abas mudando de n\u00famero ' +
+      'deixam a pessoa conferindo seis t\u00edtulos para saber se achou alguma coisa',
+      av.hidden);
+    ok(/2 encontrados em 2 cadastros/.test(av.textContent),
+      'e a tela diz QUANTOS e EM QUANTOS cadastros — s\u00f3 as abas mudando de n\u00famero deixa ' +
+      'a pessoa conferindo seis t\u00edtulos para saber se achou alguma coisa', av.textContent);
+
+    /* SEM ACENTO E SEM CAIXA: quem digita no celular do galpao nao poe acento, e a busca
+       que exige "Plinio" com acento nao acha ninguem. */
+    var qa = [quadro('motoristas', ['Pl\u00ednio  81 7777'])];
+    qs = qa;
+    var av2 = buscar('PLINIO');
+    ok(qa[0].linhas[0].style.display === '',
+      'e ela ignora acento e mai\u00fascula — quem digita no celular do galp\u00e3o n\u00e3o p\u00f5e ' +
+      'acento, e a busca que exige "Pl\u00ednio" acentuado n\u00e3o acha ningu\u00e9m',
+      qa[0].linhas[0].style.display);
+
+    /* NADA ENCONTRADO TEM DE SER DITO. Com todos os quadros fechados e nenhum aviso, a
+       tela nao distingue "nao existe" de "nao procurei". */
+    qs = [quadro('usuarios', ['Nestor'])];
+    var av3 = buscar('zzzz');
+    ok(/Nada encontrado/.test(av3.textContent),
+      'e "nada encontrado" \u00e9 DITO — com os quadros todos fechados e nenhum aviso, a tela ' +
+      'n\u00e3o distingue "n\u00e3o existe" de "n\u00e3o procurei"', av3.textContent);
+
+    /* APAGADA A BUSCA, TUDO VOLTA — inclusive as linhas escondidas. */
+    var qv = [quadro('usuarios', ['Nestor', 'Chico']), quadro('veiculos', ['KGD9976'])];
+    qs = qv;
+    buscar('chico');
+    /* O QUADRO QUE A PESSOA TINHA FECHADO DE PROPOSITO continua fechado quando a busca e'
+       apagada. Reabrindo tudo, a busca passaria a decidir como ela trabalha — e ela
+       fecharia de novo, toda vez. */
+    var avVazio = buscar('', { kveiculos: '0', kusuarios: '1' });
+    ok(qv[0].linhas.every(function (l) { return l.style.display === ''; }),
+      'e apagar a busca traz TODAS as linhas de volta — sen\u00e3o metade do cadastro some ' +
+      'sem nada na tela dizendo por qu\u00ea',
+      qv[0].linhas.map(function (l) { return l.style.display; }));
+    ok(qv[1].classes.fechado === true && qv[0].classes.fechado === false,
+      'e os quadros voltam ao que estava GUARDADO, e n\u00e3o "tudo aberto" — o que a pessoa ' +
+      'fechou de prop\u00f3sito continua fechado, sen\u00e3o a busca passa a decidir como ela ' +
+      'trabalha e ela fecha de novo toda vez',
+      [qv[0].classes.fechado, qv[1].classes.fechado]);
+    ok(avVazio.hidden === true,
+      'e o aviso SOME quando a busca \u00e9 apagada — "2 encontrados" parado na tela sobre o ' +
+      'cadastro inteiro diz um n\u00famero que j\u00e1 n\u00e3o vale', avVazio.hidden);
+  }
+
+  /* ---- O CAMPO EXISTE NA TELA ---- */
+  var iInp = admB.indexOf('<input id="buscaCadastros"');
+  var tagInp = iInp < 0 ? '' : admB.slice(iInp, admB.indexOf('>', iInp) + 1);
+  ok(tagInp.indexOf('hidden') < 0 && tagInp.indexOf('display:none') < 0,
+    'e o campo n\u00e3o nasce escondido — existir no arquivo e n\u00e3o aparecer na tela \u00e9 o ' +
+    'mesmo que n\u00e3o existir, e a bancada que s\u00f3 pergunta "est\u00e1 no HTML?" aprova os dois',
+    tagInp);
+  /* DEPOIS DE REDESENHAR, A PENEIRA VOLTA. Salvar um cadastro refaz a tabela do zero, e
+     as linhas nascem todas visiveis: sem isto, gravar no meio de uma busca fazia as
+     outras dezoito reaparecerem sem ninguem ter apagado o campo. */
+  var iMD = admB.indexOf('  function montarDobras(){');
+  var md = iMD < 0 ? '' : admB.slice(iMD, admB.indexOf('\n  }', iMD) + 4);
+  ok(md.indexOf('filtrarCadastros();') > 0,
+    'e a peneira volta depois de REDESENHAR — salvar um cadastro refaz a tabela do zero ' +
+    'e as linhas nascem todas vis\u00edveis: sem isso, gravar no meio de uma busca faz as ' +
+    'outras dezoito reaparecerem sem ningu\u00e9m ter apagado o campo', md.length);
+  ok(/<input id="buscaCadastros" type="search"/.test(admB),
+    'o campo de busca dos cadastros existe na tela — provada s\u00f3 a peneira, ela podia ' +
+    'sumir do HTML e a bancada seguiria verde: n\u00e3o haveria onde digitar');
+  var iPg = admB.indexOf('<section id="pgCadastros"');
+  var iBu = admB.indexOf('id="buscaCadastros"');
+  var iCard = admB.indexOf('<div class="card"', iPg);
+  ok(iPg > 0 && iBu > iPg && iBu < iCard,
+    'e ele vem ANTES dos quadros — dentro de um deles, pareceria a busca daquele quadro',
+    [iPg, iBu, iCard]);
+
+  /* ---- O ATUALIZAR DA PILULA ----
+   * Pedido para TODAS as telas. Escrito em cada HTML, seriam duas copias para divergirem
+   * e a terceira tela nasceria sem ele — entao ele mora no `app.js`, que monta a pilula
+   * das duas. */
+  ok(appB.indexOf("id=\"tempoRec\"") > 0 && appB.indexOf('TEMPO_HTML') > 0,
+    'o bot\u00e3o de atualizar nasce no n\u00facleo, que monta a p\u00edlula das DUAS telas — escrito ' +
+    'em cada HTML, seriam duas c\u00f3pias para divergirem, e a tela nova nasceria sem ele');
+  var iRec = appB.indexOf("closest('#tempoRec')");
+  var rec = iRec < 0 ? '' : appB.slice(iRec - 400, iRec + 300);
+  ok(rec.indexOf('location.reload()') > 0,
+    'e ele ATUALIZA A P\u00c1GINA — meio-termo, buscar de novo e redesenhar, deixaria de fora ' +
+    'justamente o caso em que ele \u00e9 chamado: a tela ter ficado num estado que ningu\u00e9m ' +
+    'sabe explicar', rec.slice(0, 120));
+  ok(rec.indexOf('addEventListener') > 0 && rec.indexOf('document') > 0,
+    'e est\u00e1 ligado por delega\u00e7\u00e3o no documento — a p\u00edlula \u00e9 remontada quando a sess\u00e3o ' +
+    'muda, e um ouvinte preso ao bot\u00e3o morreria com ele na primeira remontagem');
+  /* ELE FICA NO CELULAR, ao contrario da conta ao lado: a conta e' repetida na barra do
+     app, e o atualizar nao tem outro lugar — e e' no galpao, com a rede oscilando, que
+     ele faz falta. */
+  var cssB = fsReal.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var iEsc = cssB.indexOf('.tempo__conta,.tempo__div--conta{display:none}');
+  ok(iEsc > 0 && cssB.slice(iEsc, iEsc + 60).indexOf('tempo__rec') < 0,
+    'e ele N\u00c3O some no celular junto com a conta \u2014 a conta se repete na barra do app, o ' +
+    'atualizar n\u00e3o tem outro lugar, e \u00e9 no galp\u00e3o que ele faz falta');
+}
 
 console.log('\n== corrigir a carga inteira, e nao so a linha ==');
 {

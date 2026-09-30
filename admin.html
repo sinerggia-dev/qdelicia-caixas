@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=f0ee5bba">
+<link rel="stylesheet" href="styles.css?v=4b762ba6">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1407,6 +1407,18 @@
 
   <!-- ---------- CADASTROS ---------- -->
   <section id="pgCadastros" class="pagina">
+    <!-- A BUSCA DE TODOS OS MODULOS, antes dos quadros.
+         Cada quadro ja tinha — ou nao tinha — a sua: Usuarios tinha, os outros cinco
+         nao, e achar uma placa era abrir Veiculos e correr dezessete linhas com o olho.
+         Pior: quem procura "Chico" nao sabe de antemao se ele e' motorista, usuario ou
+         os dois, e a busca por quadro obriga a escolher o quadro ANTES de procurar.
+         UMA SO', E EM CIMA: ela varre os seis, abre o que tem resultado e fecha o que
+         nao tem. A resposta a "onde esta o Chico" vira a propria tela. -->
+    <div class="busca busca-cad">
+      <input id="buscaCadastros" type="search"
+             placeholder="🔍 Buscar em todos os cadastros — nome, usuário, placa, CPF, rota…">
+    </div>
+    <p class="cad-achou" id="cadAchou" hidden></p>
     <div class="card" id="cardPedidos" style="display:none;border-left:3px solid var(--ambar)" data-cad="pedidos">
       <h2>Pedidos de senha<span class="sub">Quem não conseguiu entrar no painel e pediu ajuda. Redefina em Usuários → editar → Senha.</span></h2>
       <div id="tabelaPedidos"></div>
@@ -1490,7 +1502,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=e2c7ad86"></script>
+<script src="app.js?v=16f97f40"></script>
 <script>
 (function(){
   'use strict';
@@ -8985,8 +8997,83 @@
         try { localStorage.setItem(chaveDobra(card.dataset.cad), fechando ? '0' : '1'); } catch(e){}
       });
     });
+    /* DEPOIS DE REDESENHAR, A PENEIRA VOLTA. Salvar um cadastro refaz a tabela do
+       zero, e as linhas nascem todas visiveis: sem isto, gravar no meio de uma busca
+       fazia as outras dezoito reaparecerem sem ninguem ter apagado o campo. */
+    filtrarCadastros();
+  }
+
+  /* ================= A BUSCA DE TODOS OS CADASTROS =================
+   *
+   * UMA PENEIRA SO', E ELA NAO CONHECE OS MODULOS. Ela varre as LINHAS de cada quadro —
+   * `tbody tr` no computador, `.users > .u` no celular — e compara o texto que elas ja
+   * mostram. Escrita modulo a modulo, ela precisaria saber que motorista tem CPF e
+   * veiculo tem placa, e o modulo novo nasceria fora da busca sem ninguem perceber.
+   *
+   * O QUADRO COM RESULTADO ABRE, o sem resultado fecha. Sem isso a resposta a "onde esta
+   * o Chico" seria abrir os seis e conferir um por um — que e' o trabalho que a busca
+   * veio tirar.
+   *
+   * E O ESTADO GUARDADO NAO E' TOCADO: abrir e fechar aqui e' consequencia da busca, e
+   * nao escolha de quem trabalha. Apagada a busca, os quadros voltam exatamente como
+   * estavam — inclusive os que a pessoa tinha fechado de proposito.
+   */
+  var BUSCA_CAD = '';
+
+  function linhasDoCard(card){
+    var linhas = [].slice.call(card.querySelectorAll('.corpo tbody tr'));
+    return linhas.length ? linhas
+      : [].slice.call(card.querySelectorAll('.corpo .users > .u'));
+  }
+
+  function filtrarCadastros(){
+    var termo = chato(BUSCA_CAD).trim();
+    var cards = document.querySelectorAll('#pgCadastros .card[data-cad]');
+    var achou = 0, quadros = 0;
+    Array.prototype.forEach.call(cards, function(card){
+      var linhas = linhasDoCard(card);
+      if (!termo){
+        linhas.forEach(function(l){ l.style.display = ''; });
+        /* VOLTA AO QUE ESTAVA GUARDADO, e nao "tudo aberto": a pessoa fechou alguns de
+           proposito, e reabri-los seria a busca decidindo como ela trabalha. */
+        var g = null;
+        try { g = localStorage.getItem(chaveDobra(card.dataset.cad)); } catch(e){}
+        var aberto = g === null ? abertoPorPadrao(card.dataset.cad) : g === '1';
+        card.classList.toggle('fechado', !aberto);
+        return;
+      }
+      var n = 0;
+      linhas.forEach(function(l){
+        var bate = chato(l.textContent || '').indexOf(termo) >= 0;
+        l.style.display = bate ? '' : 'none';
+        if (bate) n++;
+      });
+      achou += n;
+      if (n) quadros++;
+      card.classList.toggle('fechado', n === 0);
+    });
+    var aviso = document.getElementById('cadAchou');
+    if (aviso){
+      aviso.hidden = !termo;
+      /* O NUMERO E OS QUADROS. "3 encontrados" nao diz ONDE, e a pessoa ainda teria de
+         olhar os seis titulos para achar de onde vieram. */
+      aviso.textContent = !termo ? '' : (achou
+        ? achou + (achou === 1 ? ' encontrado em ' : ' encontrados em ') +
+          quadros + (quadros === 1 ? ' cadastro' : ' cadastros')
+        : 'Nada encontrado em cadastro nenhum.');
+      aviso.classList.toggle('vazio-busca', !!termo && !achou);
+    }
     atualizarContagens();
   }
+
+  (function(){
+    var b = document.getElementById('buscaCadastros');
+    if (!b) return;
+    b.addEventListener('input', function(){
+      BUSCA_CAD = b.value || '';
+      filtrarCadastros();
+    });
+  })();
 
   /* Fechado, o título precisa dizer quantos itens há dentro — senão quadro fechado e
      cadastro vazio ficam iguais na tela. */
@@ -9001,8 +9088,12 @@
       /* LINHAS DE TABELA **OU** CARTÕES. No celular a lista de Usuários não é tabela, e
          contando só `tbody tr` a aba dizia "—" para treze pessoas — que é exatamente o
          que ela existe para não fazer: quadro fechado e cadastro vazio ficarem iguais. */
-      var n = card.querySelectorAll('.corpo tbody tr').length ||
-              card.querySelectorAll('.corpo .users > .u').length;
+      /* O QUE ESTA A VISTA, e nao o que existe. Com a busca ligada, contar tudo faria
+         a aba dizer "20" sobre um quadro que mostra duas linhas — e o numero passaria a
+         desmentir a tela em vez de resumi-la. */
+      var n = linhasDoCard(card).filter(function(l){
+        return l.style.display !== 'none';
+      }).length;
       var vazio = card.querySelector('.corpo .vazio');
       alvo.textContent = n ? String(n) : (vazio ? '0' : '—');
     });
