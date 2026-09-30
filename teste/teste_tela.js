@@ -12283,6 +12283,136 @@ console.log('\n== o editor de falas para a demonstracao ==');
   /* O `SO` EXISTE NAS TRES. Ele e' a unica linha que separa as versoes, e as duas
      separadas ja liam `SO === 'ambos'` como o valor que a completa teria — sem a linha,
      a unica versao que de fato e' 'ambos' era a que nao sabia dizer isso de si mesma. */
+  /* ---- O EDITOR MOSTRA SO' AS FALAS DAQUELA VERSAO ----
+   *
+   * Ele listava as 22 nas tres paginas: quem abria o tutorial de SAIDA para ajustar uma
+   * frase rolava por oito trechos de RETORNO que aquela pagina nunca fala. E' o mesmo
+   * engano da tela de entrada, do lado de dentro.
+   *
+   * RODADO CONTRA OS TRES VALORES, porque a funcao lista os 22 de qualquer jeito — o
+   * que muda e' o que ela DEVOLVE. */
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+    var iRt = txt.indexOf('  var ROTULOS = [');
+    var rt = iRt < 0 ? '' : txt.slice(iRt, txt.indexOf('\n  ];', iRt) + 5);
+    var iFv = txt.indexOf('  function rotulosDaVersao() {');
+    var fv = iFv < 0 ? '' : txt.slice(iFv, txt.indexOf('\n  }', iFv) + 4);
+    ok(rt.length > 400 && fv.length > 200,
+      arq + ': a confer\u00eancia recortou a lista de falas e a peneira', [rt.length, fv.length]);
+    if (rt.length < 400 || fv.length < 200) return;
+
+    function chavesCom(so) {
+      return new Function('SO', rt + fv +
+        '\nreturn rotulosDaVersao().map(function (r) { return r[0]; });')(so);
+    }
+    var todas = new Function(rt + '\nreturn ROTULOS.map(function (r) { return r[0]; });')();
+    ok(todas.length === 22,
+      arq + ': a lista de f\u00e1brica tem as 22 falas — ela \u00e9 a mesma nas tr\u00eas p\u00e1ginas, e ' +
+      '\u00e9 sobre ela que a peneira trabalha', todas.length);
+
+    var sai = chavesCom('saida');
+    ok(sai.indexOf('s01') >= 0 && sai.indexOf('s08') >= 0,
+      arq + ': na vers\u00e3o de SA\u00cdDA o editor traz as falas da sa\u00edda', sai);
+    ok(!sai.some(function (k) { return k.charAt(0) === 'r'; }),
+      arq + ': e NENHUMA de retorno — quem abre o tutorial de sa\u00edda para ajustar uma ' +
+      'frase rolava por oito trechos que aquela p\u00e1gina nunca fala',
+      sai.filter(function (k) { return k.charAt(0) === 'r'; }));
+    /* `s09` E' A PASSAGEM PARA O RETORNO: so' acontece na versao completa, onde um fluxo
+       entra no outro. Na separada, oferece-se para edicao um texto que nao vai ao ar. */
+    ok(sai.indexOf('s09') < 0,
+      arq + ': e sem o `s09` — ele \u00e9 a PASSAGEM para o retorno, e s\u00f3 acontece na vers\u00e3o ' +
+      'completa: oferec\u00ea-lo aqui seria dar para editar um texto que n\u00e3o vai ao ar', sai);
+    ok(sai.indexOf('entrada') >= 0 && sai.indexOf('fim') >= 0,
+      arq + ': e a abertura e o encerramento ficam — as tr\u00eas p\u00e1ginas os dizem', sai);
+
+    var ret = chavesCom('retorno');
+    ok(!ret.some(function (k) { return k.charAt(0) === 's'; }) && ret.indexOf('r01') >= 0,
+      arq + ': na vers\u00e3o de RETORNO \u00e9 o contr\u00e1rio, e pela mesma raz\u00e3o', ret);
+    /* `r01b` E' A ABERTURA DO RETORNO EMENDADO NA SAIDA: mesma historia, do outro lado. */
+    ok(ret.indexOf('r01b') < 0 && ret.indexOf('r01') >= 0,
+      arq + ': e sem o `r01b` — ele \u00e9 a abertura do retorno EMENDADO na sa\u00edda, e s\u00f3 ' +
+      'acontece na vers\u00e3o completa', ret);
+
+    var amb = chavesCom('ambos');
+    ok(amb.length === todas.length,
+      arq + ': e a vers\u00e3o COMPLETA traz as 22 — ela diz todas, inclusive as duas da ' +
+      'emenda entre os fluxos', amb.length);
+
+    /* ---- E O EDITOR USA A PENEIRA, RODADO ----
+     * Provar que `rotulosDaVersao` peneira certo nao prova nada se quem desenha continuar
+     * lendo a lista inteira: as duas sabotagens que escaparam foram exatamente essa —
+     * trocar `rotulosDaVersao()` por `ROTULOS` no desenho e no preenchimento dos campos.
+     * Aqui o `montarEditor` e' EXECUTADO, e se le o que ele produziu. */
+    var iMe = txt.indexOf('  function montarEditor() {');
+    var me = iMe < 0 ? '' : txt.slice(iMe, txt.indexOf('\n  }', iMe) + 4);
+    ok(me.length > 300, arq + ': a confer\u00eancia recortou o montarEditor', me.length);
+    if (me.length > 300) {
+      function desenhouCom(so) {
+        var saiu = { html: '', pedidos: [] };
+        var falas = {};
+        todas.forEach(function (k) { falas[k] = 'texto de ' + k; });
+        var campos = { innerHTML: '' };
+        function $(id) {
+          if (id === 'ed-campos') return campos;
+          saiu.pedidos.push(id);
+          return { value: '' };
+        }
+        new Function('$', 'FALAS', 'ROTULOS', 'rotulosDaVersao', 'SO',
+          me + '\nmontarEditor();')(
+          $, falas,
+          new Function(rt + '\nreturn ROTULOS;')(),
+          new Function('SO', rt + fv + '\nreturn rotulosDaVersao;')(so), so);
+        saiu.html = campos.innerHTML;
+        return saiu;
+      }
+      var dSai = desenhouCom('saida');
+      var campos = (dSai.html.match(/data-k="([A-Za-z0-9]+)"/g) || [])
+        .map(function (x) { return /data-k="([A-Za-z0-9]+)"/.exec(x)[1]; });
+      ok(campos.length === sai.length &&
+         !campos.some(function (k) { return k.charAt(0) === 'r'; }),
+        arq + ': o editor DESENHA s\u00f3 as falas da vers\u00e3o — a peneira existir n\u00e3o adianta ' +
+        'se quem desenha continuar lendo a lista inteira',
+        campos.filter(function (k) { return k.charAt(0) === 'r'; }));
+      /* E OS VALORES SAO POSTOS NOS MESMOS CAMPOS. Preenchendo pela lista inteira, ele
+         procura `f-r01` — que nao existe na tela — e estoura no `.value` de nulo: o
+         editor abre em branco e nenhum campo recebe o texto guardado. */
+      var pedidosF = dSai.pedidos.filter(function (id) { return id.indexOf('f-') === 0; })
+        .map(function (id) { return id.slice(2); });
+      ok(pedidosF.length === sai.length &&
+         !pedidosF.some(function (k) { return k.charAt(0) === 'r'; }),
+        arq + ': e p\u00f5e os textos nos MESMOS campos que desenhou — pela lista inteira ele ' +
+        'procura `f-r01`, que n\u00e3o existe na tela, e estoura no `.value` de nulo: o editor ' +
+        'abre em branco e nenhum campo recebe o texto guardado',
+        pedidosF.filter(function (k) { return k.charAt(0) === 'r'; }));
+      /* O TITULO DE GRUPO SO' APARECE SE HOUVER GRUPO: "RETORNO" sobre nada seria um
+         cabecalho de uma secao vazia. */
+      ok(dSai.html.indexOf('RETORNO') < 0,
+        arq + ': e nenhum t\u00edtulo de grupo RETORNO sobra na vers\u00e3o de sa\u00edda \u2014 cabe\u00e7alho ' +
+        'sobre se\u00e7\u00e3o vazia \u00e9 a tela prometendo o que n\u00e3o tem',
+        dSai.html.slice(0, 120));
+      var dAmb = desenhouCom('ambos');
+      ok((dAmb.html.match(/data-k="/g) || []).length === todas.length,
+        arq + ': e a vers\u00e3o completa desenha as 22',
+        (dAmb.html.match(/data-k="/g) || []).length);
+    }
+
+    /* A GAVETA E' UMA SO' PARA AS TRES PAGINAS. Guardar daqui apenas o subconjunto
+       visivel apagaria, em silencio, o que foi escrito no tutorial do outro fluxo. */
+    var iGd = txt.indexOf('  function guardarFalas() {');
+    var gd = iGd < 0 ? '' : txt.slice(iGd, txt.indexOf('\n  }', iGd) + 4);
+    ok(gd.indexOf('ROTULOS.forEach') > 0 && gd.indexOf('rotulosDaVersao') < 0,
+      arq + ': mas o que se GUARDA continuam sendo as 22 — a gaveta \u00e9 uma s\u00f3 para as ' +
+      'tr\u00eas p\u00e1ginas, e gravar daqui apenas o que est\u00e1 \u00e0 vista apagaria em sil\u00eancio o ' +
+      'que foi escrito no tutorial do outro fluxo', gd.slice(0, 160));
+    /* E O RESTAURAR SO' DESFAZ O QUE ESTA A VISTA, pela mesma razao vista do outro lado:
+       restaurar as 22 daqui apagaria o texto do outro fluxo. */
+    var iRs = txt.indexOf("  $('ed-reset').addEventListener('click', function () {");
+    var rs = iRs < 0 ? '' : txt.slice(iRs, txt.indexOf('\n  });', iRs));
+    ok(rs.indexOf('rotulosDaVersao()') > 0,
+      arq + ': e o "restaurar originais" desfaz S\u00d3 o que est\u00e1 \u00e0 vista — as 22 daqui ' +
+      'apagariam o texto que algu\u00e9m escreveu no outro tutorial', rs.slice(0, 160));
+  });
+
   /* E CADA UMA DECLARA O QUE O NOME DELA DIZ. Cobrar so' que a linha EXISTA deixava
      passar a linha errada: `demo-lancamento.html` com `SO = 'saida'` continuava verde,
      e a versao completa passaria a esconder metade do que ela veio mostrar.

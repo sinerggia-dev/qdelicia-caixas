@@ -1513,6 +1513,10 @@ html:not([data-editor="1"]) .ed__b{display:none}
       try { localStorage.removeItem(CHAVE_FALAS); } catch (e2) {}
       return;
     }
+    /* A LEITURA E A GRAVACAO CONTINUAM NAS 22, e e' de proposito: a gaveta e' uma so'
+       para as tres paginas, e guardar daqui apenas o subconjunto visivel apagaria o que
+       foi escrito na outra. O que a versao filtra e' o que ela MOSTRA, e nao o que ela
+       guarda. */
     ROTULOS.forEach(function (r) {
       var k = r[0];
       if (typeof g.meu[k] !== 'string') return;
@@ -1522,9 +1526,35 @@ html:not([data-editor="1"]) .ed__b{display:none}
     if (SUBSTITUIDAS.length) guardarFalas();
   }
 
+  /**
+   * AS FALAS QUE ESTA VERSAO DIZ — e so' elas, no editor.
+   *
+   * O editor listava as 22 nas tres paginas: quem abria o tutorial de SAIDA para
+   * ajustar uma frase rolava por oito trechos de RETORNO que aquela pagina nunca fala.
+   * E' o mesmo engano da tela de entrada, do lado de dentro.
+   *
+   * DUAS EXCECOES, e as duas tem nome: `s09` e' a passagem da saida PARA o retorno, e
+   * `r01b` e' a abertura do retorno EMENDADO na saida. As duas so' acontecem na versao
+   * completa, onde um fluxo entra no outro — nas separadas, cada uma termina em si, e
+   * esses dois trechos nunca sao ditos. Mostra-los seria oferecer para edicao um texto
+   * que nao vai ao ar naquela pagina.
+   *
+   * `entrada` e `fim` ficam nas TRES: sao a abertura e o encerramento, e todas as dizem.
+   */
+  function rotulosDaVersao() {
+    return ROTULOS.filter(function (r) {
+      var k = r[0], ini = k.charAt(0);
+      if (ini !== 's' && ini !== 'r') return true;
+      if (SO === 'ambos') return true;
+      if (SO === 'saida') return ini === 's' && k !== 's09';
+      if (SO === 'retorno') return ini === 'r' && k !== 'r01b';
+      return true;
+    });
+  }
+
   function montarEditor() {
     var grupo = '';
-    $('ed-campos').innerHTML = ROTULOS.map(function (r) {
+    $('ed-campos').innerHTML = rotulosDaVersao().map(function (r) {
       /* `entrada` e `fim` não são de nenhum dos dois fluxos: caiam sob o título
          RETORNO só porque não começavam com `s`. */
       var g = r[0].charAt(0) === 's' ? 'SAÍDA'
@@ -1537,7 +1567,7 @@ html:not([data-editor="1"]) .ed__b{display:none}
              '<button type="button" class="ed__ouvir" data-ouvir="' + r[0] + '">Ouvir</button>' +
              '</div>';
     }).join('');
-    ROTULOS.forEach(function (r) { $('f-' + r[0]).value = FALAS[r[0]]; });
+    rotulosDaVersao().forEach(function (r) { $('f-' + r[0]).value = FALAS[r[0]]; });
   }
   function aviso(txt) {
     $('ed-ok').textContent = txt;
@@ -1595,7 +1625,9 @@ html:not([data-editor="1"]) .ed__b{display:none}
     aviso('Falando: ' + k);
   });
   $('ed-reset').addEventListener('click', function () {
-    ROTULOS.forEach(function (r) { FALAS[r[0]] = FALAS_ORIG[r[0]]; });
+    /* SO' O QUE ESTA A VISTA. As tres paginas guardam na MESMA gaveta: restaurar as 22
+       daqui apagaria, em silencio, o que alguem escreveu no tutorial do outro fluxo. */
+    rotulosDaVersao().forEach(function (r) { FALAS[r[0]] = FALAS_ORIG[r[0]]; });
     guardarFalas();
     montarEditor();
     aviso('Textos originais restaurados.');
