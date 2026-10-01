@@ -7486,8 +7486,8 @@
      apagada nao tinha de onde voltar. */
   function acaoTirarDaLixeira(m){
     if (!m) return;
-    var motivo = prompt('Tirar este lançamento da lixeira — ele volta a valer.
-Motivo:');
+    var motivo = prompt('Tirar este lançamento da lixeira — ele volta a valer.' +
+                        '\nMotivo:');
     if (motivo === null) return;
     Q.post({ acao:'restaurarMovimento', id:m.id, motivo:motivo, usuarioId:Q.sessao().id })
       .then(function(r){
