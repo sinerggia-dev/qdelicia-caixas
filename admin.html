@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=cc5d7c56">
+<link rel="stylesheet" href="styles.css?v=b3c72a55">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -265,12 +265,21 @@
            trocador de pagina em todo botao de pagina, e aqui isso viraria uma aba sem
            pagina. Com `data-grupo` ele acompanha o recolher do grupo como os outros. -->
       <button type="button" class="nav-grupo" data-grupo="Lançamento" aria-expanded="true"><span class="nav-grupo__t">Lançamento</span><svg class="nav-grupo__seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+      <!-- O ICONE E' DE ENVIO, e nao mais a seta de voltar.
+           A seta curva dizia "volte para a tela anterior" — era o desenho certo enquanto
+           o item se chamava "Lancamentos" e vivia no pe' da lateral, ao lado do sair.
+           Com o nome "Enviar Contagem", ela passou a contar outra historia: no trilho
+           recolhido, onde SO' o icone aparece, a unica coisa que a pessoa le' e' uma
+           seta de voltar — e voltar nao e' o que este item faz.
+           O AVIAO DE PAPEL e' o desenho que todo mundo ja le' como "enviar", e nao se
+           confunde com nenhum outro da lateral: os demais sao caixas, listas, grades,
+           pessoas e botoes de play. -->
       <a class="nav-link nav-saida" id="chipCampo" href="index.html" hidden
          data-grupo="Lançamento" title="Ir para o app de lançamento">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <polyline points="9 14 4 9 9 4"></polyline>
-          <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
+          <path d="M22 2 11 13"></path>
+          <path d="M22 2 15 22l-4-9-9-4z"></path>
         </svg>
         <span class="nav-rotulo">Enviar Contagem</span>
       </a>

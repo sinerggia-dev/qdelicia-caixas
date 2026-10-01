@@ -15723,6 +15723,24 @@ console.log('\n== os grupos da navegacao recolhem ==');
     'e o hover ESCURECE por filtro — `--verde-hover` foi calculado para clarear o tom ' +
     'claro, e sobre o forte daria um salto para longe da cor do botão');
 
+  /* ---- O ICONE DO ENVIAR NAO E' A SETA DE VOLTAR ----
+   *
+   * A seta curva dizia "volte para a tela anterior" — era o desenho certo enquanto o
+   * item se chamava "Lancamentos" e vivia no pe' da lateral, ao lado do sair. Com o nome
+   * "Enviar Contagem" ela passou a contar outra historia, e no TRILHO RECOLHIDO, onde so'
+   * o icone aparece, era a unica coisa que a pessoa lia: uma seta de voltar. */
+  var iCc = adm.indexOf('id="chipCampo"');
+  var svgCc = iCc < 0 ? '' : adm.slice(adm.indexOf('<svg', iCc), adm.indexOf('</svg>', iCc));
+  ok(svgCc.length > 60, 'a conferência recortou o ícone do enviar', svgCc.length);
+  ok(svgCc.indexOf('9 14 4 9 9 4') < 0,
+    'o ícone do "Enviar Contagem" NÃO é mais a seta de voltar — no trilho recolhido só ' +
+    'o desenho aparece, e ali ele dizia "volte", que não é o que o item faz',
+    svgCc.slice(0, 140));
+  ok(svgCc.indexOf('M22 2 15 22l-4-9-9-4z') > 0 && svgCc.indexOf('M22 2 11 13') > 0,
+    'e é o avião de papel, que todo mundo já lê como "enviar" — e não se confunde com ' +
+    'nenhum outro da lateral, que são caixas, listas, grades, pessoas e botões de play',
+    svgCc.slice(0, 140));
+
   /* ---- O GRUPO LANCAMENTO, NO TOPO ----
    *
    * Ele e' o unico item da lateral que LEVA PARA FORA do painel. No pe' da lista ficava
@@ -15795,9 +15813,12 @@ console.log('\n== os grupos da navegacao recolhem ==');
     'que faz cada uma dizer uma coisa');
 
   /* A SETA ANDA, e para quem pediu menos movimento ela nao anda. */
-  ok(css.indexOf('.nav-saida:hover svg{transform:translateX(-3px)}') > 0,
-    'a seta anda na direção da saída ao passar o mouse — é a única peça do menu que ' +
-    'leva para fora, e o movimento confirma para onde, antes do clique');
+  /* PARA CIMA E PARA A DIREITA, e nao mais para a esquerda: o desenho virou um aviao de
+     papel, e aviao de papel anda para onde a ponta aponta. Mantido o `-3px` da seta de
+     voltar, ele recuaria de bico para a frente — o unico movimento que nao faz. */
+  ok(css.indexOf('.nav-saida:hover svg{transform:translate(2px,-2px)}') > 0,
+    'o ícone anda ao passar o mouse, na direção para onde o avião aponta — é a única ' +
+    'peça do menu que leva para fora, e o movimento confirma isso antes do clique');
   ok(css.indexOf('@media (prefers-reduced-motion:reduce){ .nav-saida:hover svg{transform:none} }') > 0,
     'e quem pediu menos movimento não recebe nenhum — a porta diz a mesma coisa parada');
 

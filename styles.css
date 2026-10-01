@@ -650,8 +650,12 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    CONTORNADO, E NAO PREENCHIDO: preenchido com a cor da marca ele ficaria igual ao item
    da pagina ABERTA, e passaria a dizer "voce esta aqui" sobre um lugar onde a pessoa
    nao esta. O contorno diz "porta", o preenchimento diz "voce esta".
-   A SETA ANDA no passar do mouse: e a unica peca do menu que leva para fora, e o
-   movimento na direcao da saida e o que confirma, antes do clique, para onde ela vai. */
+   O ICONE ANDA no passar do mouse: e a unica peca do menu que leva para fora, e o
+   movimento confirma, antes do clique, que ali se SAI.
+   PARA CIMA E PARA A DIREITA, e nao mais para a esquerda. O desenho virou um aviao de
+   papel — e aviao de papel anda para onde a ponta aponta. Mantido o `-3px` da seta de
+   voltar, o aviao recuaria de bico para a frente, que e o unico movimento que ele nao
+   faz. */
 .nav-saida{
   margin-top:12px;padding:10px 12px;border:1px solid var(--verde);
   border-radius:var(--raio-sm);background:var(--verde-claro);color:var(--verde-esc);
@@ -659,7 +663,7 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 }
 .nav-saida:hover{background:var(--verde);color:var(--sobre-verde)}
 .nav-saida svg{transition:transform .16s ease}
-.nav-saida:hover svg{transform:translateX(-3px)}
+.nav-saida:hover svg{transform:translate(2px,-2px)}
 @media (prefers-reduced-motion:reduce){ .nav-saida:hover svg{transform:none} }
 /* NO TRILHO ele volta a ser so o icone, mas guarda a moldura: e o contorno que continua
    dizendo que aquele icone leva para fora, quando o rotulo nao cabe. */
