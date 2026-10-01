@@ -1718,10 +1718,38 @@
     return window.matchMedia('(max-width:1023px)').matches;
   }
 
+  /* O QUE ESTA PESSOA MOVIMENTA — e, por isso, o que ela ve' no relatorio.
+   *
+   * Quem so' faz retorno nao tem coluna de saida: ela sai vazia em TODA linha, ocupa
+   * largura numa tabela que no celular ja se le' de lado, e ainda levanta a duvida de
+   * que algo deveria estar ali. O mesmo chip, pior: "Saídas 0" afirma que existe uma
+   * conta de saida para esta pessoa, e que ela deu zero — quando a verdade e' que saida
+   * nao e' assunto dela.
+   *
+   * A MESMA REGRA VALE PARA O OUTRO LADO: quem so' faz saida nao ve' retorno.
+   *
+   * NENHUMA DAS DUAS MOSTRA AS DUAS. Sem operacao marcada a pessoa nao lanca nada e o
+   * relatorio vem vazio de qualquer jeito — e uma tabela sem a coluna do NUMERO perde a
+   * razao de existir. Errar para o lado de mostrar um cabecalho sobre uma lista vazia
+   * custa menos do que mostrar uma tabela sem valores.
+   *
+   * SO' DESENHO: quem decide o que a pessoa PODE lancar e' o cadastro, e quem recusa e'
+   * o servidor. Esconder coluna nao e' tranca. */
+  function colunasLanc(){
+    var o = operacoesDe(Q.sessao());
+    var saida = o.indexOf('SAIDA') >= 0;
+    var retorno = o.indexOf('RETORNO') >= 0;
+    if (!saida && !retorno) return { saida: true, retorno: true };
+    return { saida: saida, retorno: retorno };
+  }
+
   function tabelaLanc(lista, s){
+    var cols = colunasLanc();
     return '<div class="tabela-wrap"><table><thead><tr>'+
       '<th>Movimento</th><th>Origem</th><th>Destino</th><th>Caixa</th>'+
-      '<th class="num">Saída</th><th class="num">Retorno</th><th>Motorista</th>'+
+      (cols.saida ? '<th class="num">Saída</th>' : '')+
+      (cols.retorno ? '<th class="num">Retorno</th>' : '')+
+      '<th>Motorista</th>'+
       '<th>Quem lançou</th><th></th>'+
       '</tr></thead><tbody>'+
       lista.map(function(m){
@@ -1732,8 +1760,12 @@
           '<td>'+Q.esc(m.origem || '—')+'</td>'+
           '<td>'+Q.esc(m.destino || '—')+'</td>'+
           '<td>'+Q.esc(m.tipoCaixa || '—')+'</td>'+
-          '<td class="num">'+(ehRetorno ? '<span class="fraco">—</span>' : '<b>'+Q.num(m.qtd)+'</b>')+'</td>'+
-          '<td class="num">'+(ehRetorno ? '<b>'+Q.num(m.qtd)+'</b>' : '<span class="fraco">—</span>')+'</td>'+
+          (cols.saida
+            ? '<td class="num">'+(ehRetorno ? '<span class="fraco">—</span>' : '<b>'+Q.num(m.qtd)+'</b>')+'</td>'
+            : '')+
+          (cols.retorno
+            ? '<td class="num">'+(ehRetorno ? '<b>'+Q.num(m.qtd)+'</b>' : '<span class="fraco">—</span>')+'</td>'
+            : '')+
           '<td>'+Q.esc(m.motorista || '—')+'</td>'+
           /* A MARCA DE CORRIGIDO fica junto de quem lançou, que é a coluna que a
              correção mais desmente: o número da linha pode não ser mais o que essa
@@ -1771,6 +1803,19 @@
   var LC_CHIPS = [['todos','Todos'],['saida','Saídas'],['retorno','Retornos'],
                   ['corrigido','Corrigidos']];
 
+  /* OS CHIPS SEGUEM AS MESMAS OPERACOES DA TABELA. "Saídas 0" para quem so' faz retorno
+     afirma que existe uma conta de saida para ela, e que deu zero — quando a verdade e'
+     que saida nao e' assunto dela. E um chip que nao aparece nao pode ficar ESCOLHIDO:
+     a lista sairia recortada por algo que a pessoa nao ve' e nao tem como desfazer. */
+  function chipsLanc(){
+    var cols = colunasLanc();
+    return LC_CHIPS.filter(function(c){
+      if (c[0] === 'saida') return cols.saida;
+      if (c[0] === 'retorno') return cols.retorno;
+      return true;
+    });
+  }
+
   /* CONTA REMESSAS, e não linhas. Uma carga de cinco tipos de caixa é UM lançamento
      para quem a fez, e é um cartão na tela — contar as cinco linhas faria o chip
      prometer "Saídas 12" sobre uma lista de três cartões. É a mesma conta que a faixa
@@ -1786,7 +1831,11 @@
   function desenharChipsLanc(){
     var box = document.getElementById('lcChips');
     if (!box) return;
-    box.innerHTML = LC_CHIPS.map(function(c){
+    var disponiveis = chipsLanc();
+    /* O escolhido some junto: sem isto, trocar de operacao no cadastro deixaria a lista
+       presa num recorte invisivel. */
+    if (!disponiveis.some(function(c){ return c[0] === LC_CHIP; })) LC_CHIP = 'todos';
+    box.innerHTML = disponiveis.map(function(c){
       return '<button class="chip" type="button" data-lcchip="'+c[0]+'" aria-pressed="'+
         (LC_CHIP === c[0] ? 'true' : 'false')+'">'+c[1]+
         '<span class="chip__n">'+Q.num(contaChipLanc(c[0]))+'</span></button>';

@@ -11977,6 +11977,68 @@ console.log('\n== Motorista/Conferente ==');
     'e a coluna existe E é preenchida — a função existir sem ninguém chamá-la foi o ' +
     'escape de três sabotagens nesta semana', hist.slice(0, 160));
 
+  /* ---- QUEM SO' FAZ RETORNO NAO VE' SAIDA ----
+   *
+   * A coluna de saida sai vazia em TODA linha de quem so' faz retorno: ocupa largura
+   * numa tabela que no celular ja se le' de lado, e levanta a duvida de que algo
+   * deveria estar ali. O chip e' pior: "Saídas 0" afirma que existe uma conta de saida
+   * para essa pessoa, e que ela deu zero — quando saida nao e' assunto dela. */
+  var ixLanc = fsReal.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  function recorteIx(marca) {
+    var i = ixLanc.indexOf(marca);
+    return i < 0 ? '' : ixLanc.slice(i, ixLanc.indexOf('\n  }', i) + 4);
+  }
+  var fonteCols = recorteIx('  function operacoesDe(s){') + '\n' +
+                  recorteIx('  function colunasLanc(){') + '\n' +
+                  recorteIx('  function chipsLanc(){');
+  ok(fonteCols.length > 400, 'a conferência recortou a regra das colunas', fonteCols.length);
+  if (fonteCols.length > 400) {
+    function comOps(ops) {
+      var LC = [['todos','Todos'],['saida','Saídas'],['retorno','Retornos'],
+                ['corrigido','Corrigidos']];
+      return new Function('Q', 'LC_CHIPS',
+        fonteCols + '\nreturn { cols: colunasLanc(), chips: chipsLanc() };')(
+        { sessao: function () { return { operacoes: ops }; } }, LC);
+    }
+    var so = comOps(['RETORNO']);
+    ok(so.cols.saida === false && so.cols.retorno === true,
+      'quem só faz RETORNO não recebe a coluna de saída — ela sairia vazia em toda ' +
+      'linha e levantaria a dúvida de que algo deveria estar ali', so.cols);
+    ok(so.chips.map(function (c) { return c[0]; }).indexOf('saida') < 0,
+      'e nem o chip: "Saídas 0" afirma que existe uma conta de saída para ela, e que ' +
+      'deu zero — quando saída não é assunto dela',
+      so.chips.map(function (c) { return c[0]; }));
+    var sv = comOps(['SAIDA']);
+    ok(sv.cols.retorno === false && sv.cols.saida === true &&
+       sv.chips.map(function (c) { return c[0]; }).indexOf('retorno') < 0,
+      'e o contrário vale igual — quem só faz saída não vê retorno', sv.cols);
+    var duas = comOps(['SAIDA', 'RETORNO']);
+    ok(duas.cols.saida && duas.cols.retorno && duas.chips.length === 4,
+      'quem faz as duas vê as duas');
+    var nada = comOps([]);
+    ok(nada.cols.saida && nada.cols.retorno,
+      'e sem operação marcada aparecem as DUAS — a pessoa não lança nada e a lista vem ' +
+      'vazia de qualquer jeito, e uma tabela sem a coluna do número perde a razão de ' +
+      'existir', nada.cols);
+  }
+  /* E A TABELA USA A REGRA, em vez de escrever as colunas fixas. */
+  var iTl = ixLanc.indexOf('  function tabelaLanc(lista, s){');
+  var tl = iTl < 0 ? '' : ixLanc.slice(iTl, ixLanc.indexOf('\n  }', iTl) + 4);
+  ok(tl.indexOf('var cols = colunasLanc();') > 0 &&
+     /\(cols\.saida \?/.test(tl) && /\(cols\.retorno \?/.test(tl),
+    'e a tabela DESENHA a partir dela — o cabeçalho e a célula juntos, senão a linha ' +
+    'desalinha da coluna e cada número cai embaixo do título errado', tl.slice(0, 200));
+  /* CONTA A MENCAO, e nao a forma: a do cabecalho cabe numa linha e a da celula quebra
+     antes do `?`. Uma prova que exigisse a mesma escrita nas duas reprovaria um desenho
+     correto so' por causa da quebra de linha. */
+  ok((tl.match(/cols\.saida/g) || []).length === 2 &&
+     (tl.match(/cols\.retorno/g) || []).length === 2,
+    'e as DUAS pontas de cada coluna seguem a mesma decisão — cabeçalho sem célula, ou ' +
+    'célula sem cabeçalho, torce a tabela inteira para o lado');
+  ok(/if \(!disponiveis\.some\(function\(c\)\{ return c\[0\] === LC_CHIP; \}\)\) LC_CHIP = 'todos';/.test(ixLanc),
+    'e um chip que some não fica ESCOLHIDO — a lista ficaria recortada por algo que a ' +
+    'pessoa não vê e não tem como desfazer');
+
   /* ---- O CIRCULO E A PORTA DA PROPRIA FOTO ---- */
   var nucleoF = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
   var iPci = nucleoF.indexOf('  function pintarCirculo(el, nome, foto) {');
