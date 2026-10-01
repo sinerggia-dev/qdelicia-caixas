@@ -11977,6 +11977,38 @@ console.log('\n== Motorista/Conferente ==');
     'e a coluna existe E é preenchida — a função existir sem ninguém chamá-la foi o ' +
     'escape de três sabotagens nesta semana', hist.slice(0, 160));
 
+  /* ---- O CIRCULO E A PORTA DA PROPRIA FOTO ---- */
+  var nucleoF = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var iPci = nucleoF.indexOf('  function pintarCirculo(el, nome, foto) {');
+  var pci = iPci < 0 ? '' : nucleoF.slice(iPci, nucleoF.indexOf('\n  }', iPci) + 4);
+  ok(pci.indexOf("el.dataset.trocarFoto = '1'") > 0,
+    'TODO círculo de quem está logada vira a porta da foto — a marca nasce onde todos ' +
+    'eles passam, e uma lista de ids escrita noutro lugar deixaria o próximo de fora',
+    pci.slice(0, 160));
+  ok(pci.indexOf("role', 'button'") > 0 && pci.indexOf("aria-label'") > 0 &&
+     pci.indexOf("tabindex', '0'") > 0,
+    'e ele se anuncia como botão e alcança o teclado — um círculo que abre coisa sem ' +
+    'dizer que abre só se descobre por acidente, e quem usa leitor de tela não ouve nada');
+  ok(/closest\('\[data-trocar-foto\]'\)/.test(nucleoF) &&
+     /e\.key !== 'Enter' && e\.key !== ' '/.test(nucleoF),
+    'e o clique E o Enter abrem — `role="button"` num alvo que o Enter não aciona mente ' +
+    'sobre o que ele é');
+
+  var iTf = nucleoF.indexOf('  function trocarFoto(arquivo) {');
+  var tf = iTf < 0 ? '' : nucleoF.slice(iTf, nucleoF.indexOf('\n  }', iTf) + 4);
+  ok(tf.indexOf('comprimirFoto(arquivo, 320, 0.8)') > 0,
+    'a foto é COMPRIMIDA antes de viajar, com a mesma medida do cadastro — a foto crua ' +
+    'de um celular tem megabytes, e ela iria junto em toda leitura de equipe depois',
+    tf.slice(0, 120));
+  ok(tf.indexOf("acao: 'minhaFoto'") > 0 && tf.indexOf("acao: 'salvarUsuario'") < 0,
+    'e vai pela porta ESTREITA — `salvarUsuario` aceita o cadastro inteiro, e usá-la ' +
+    'aqui ensinaria a tela a mandar perfil e permissões num pedido que só troca um retrato');
+  ok(tf.indexOf('entrar(s)') > 0 && tf.indexOf('quemEsta(') > 0,
+    'e o retrato aparece na hora, sem esperar a rede — a pessoa já escolheu, e esperar ' +
+    'para mostrar o que ela acabou de escolher faz a tela parecer travada');
+  ok(/catch\(/.test(tf) || /\.catch\(/.test(tf),
+    'e uma falha avisa, em vez de deixar a foto nova numa tela que não a salvou');
+
   /* ---- TODA PORTA DE CORRECAO LEVA QUEM PEDIU ----
    *
    * A guarda da permissao so' roda quando a rota entrega o CADASTRO de quem pediu. Uma

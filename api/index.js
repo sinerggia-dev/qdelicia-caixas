@@ -268,6 +268,7 @@ async function rotaPost(p) {
   if (acao === 'limparMovimentos') return await limparMovimentos(p);
   if (acao === 'baseUsuarios') return await baseUsuarios(p);
   if (acao === 'viuTutorial') return await viuTutorial(p);
+  if (acao === 'minhaFoto') return await minhaFoto(p);
 
   return { ok: false, erro: 'Ação desconhecida: ' + acao };
 }
@@ -648,6 +649,26 @@ async function conferir(p) {
  * apagaria tudo o que o tutorial nao conhece — perfil, abas, senha. E esta marca e a
  * unica coisa que a PROPRIA pessoa muda no cadastro dela; todo o resto e do escritorio.
  * Rota separada e o que mantem essa fronteira visivel. */
+/**
+ * A FOTO DE PERFIL, TROCADA PELA PRÓPRIA PESSOA.
+ *
+ * PORTA ESTREITA de propósito: `salvarUsuario` aceita o cadastro inteiro, e usá-la para
+ * isto ensinaria a tela a mandar perfil, abas e permissões num pedido que só deveria
+ * trocar um retrato. Aqui só a foto passa — e mesmo ela é conferida, porque quem manda
+ * para esta rota não é só a nossa tela.
+ */
+async function minhaFoto(p) {
+  var id = String(p.usuarioId || '');
+  if (!id) return { ok: false, erro: 'Sem usuario.' };
+  var d = await db.carregarTudo();
+  var u = (d.usuarios || []).filter(function (x) { return String(x.ID) === id; })[0];
+  if (!u) return { ok: false, erro: 'Cadastro nao encontrado.' };
+  var r = L.fotoDePerfil(p.foto);
+  if (!r.ok) return r;
+  await db.update('usuarios', id, { foto: r.foto });
+  return { ok: true, foto: r.foto };
+}
+
 async function viuTutorial(p) {
   var id = String(p.usuarioId || '');
   if (!id) return { ok: false, erro: 'Sem usuario.' };

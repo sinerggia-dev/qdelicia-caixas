@@ -1503,6 +1503,16 @@
    */
   function pintarCirculo(el, nome, foto) {
     if (!el) return;
+    /* O CIRCULO DE QUEM ESTA LOGADA E' A PORTA DA FOTO. A marca fica aqui porque aqui
+       e' onde TODOS os circulos passam — o do topo, o do rodape e o da faixa do tempo —,
+       e uma lista de ids escrita noutro lugar deixaria o proximo circulo de fora.
+       `title` e `aria-label` porque um circulo que abre coisa sem dizer que abre e' uma
+       surpresa: quem usa leitor de tela nao ouve nada, e quem usa mouse nao sabe. */
+    el.dataset.trocarFoto = '1';
+    if (!el.getAttribute('title')) el.setAttribute('title', 'Alterar a foto do perfil');
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', 'Alterar a foto do perfil');
     var letras = iniciais(nome);
     /* `insertBefore` em vez de `textContent`: o ponto de estado e a própria foto moram
        dentro deste elemento, e escrever o texto por cima apagaria os dois. */
@@ -1582,6 +1592,81 @@
     alvo.click();
     return true;
   }
+
+  /* ================= A FOTO DO PROPRIO PERFIL =================
+   *
+   * Clicar no circulo — na foto ou nas iniciais — abre a escolha do arquivo. Nao ha
+   * tela intermediaria de propósito: "alterar foto" e' um gesto so', e um painel com um
+   * botao que abre outro seletor seria um passo a mais para a mesma coisa.
+   *
+   * SALVA NA HORA. A pessoa escolheu a foto: perguntar "deseja salvar?" depois disso e'
+   * perguntar de novo o que ela acabou de responder. E o retrato aparece antes da
+   * resposta do servidor — se a gravacao falhar, o aviso diz, e a proxima carga traz o
+   * que esta' gravado de verdade.
+   *
+   * O CAMPO DE ARQUIVO VIVE FORA DA TELA e e' reusado: criado a cada clique, o anterior
+   * ficaria pendurado no documento a cada troca.
+   *
+   * COMPRIME ANTES DE MANDAR, com a mesma regra do cadastro: 320px e' o tamanho em que
+   * esse retrato e' visto, e a foto crua de um celular moderno tem alguns megabytes —
+   * ela viajaria inteira em TODA leitura de equipe depois disso.
+   */
+  var campoFoto = null;
+  function abrirTrocaDeFoto() {
+    var s = sessao();
+    if (!s || !s.id) return;
+    if (!campoFoto) {
+      campoFoto = document.createElement('input');
+      campoFoto.type = 'file';
+      campoFoto.accept = 'image/png,image/jpeg,image/webp';
+      campoFoto.style.display = 'none';
+      campoFoto.addEventListener('change', function () {
+        var f = this.files && this.files[0];
+        this.value = '';
+        if (!f) return;
+        /* O `accept` e' dica, nao trava: o seletor do sistema deixa escolher "todos os
+           arquivos" em quase todo aparelho. */
+        if (!/^image\/(png|jpeg|webp)$/.test(f.type)) {
+          return toast('Escolha uma imagem PNG, JPG ou WEBP.', 'erro');
+        }
+        trocarFoto(f);
+      });
+      document.body.appendChild(campoFoto);
+    }
+    campoFoto.click();
+  }
+  function trocarFoto(arquivo) {
+    var s = sessao();
+    toast('Preparando a imagem…');
+    comprimirFoto(arquivo, 320, 0.8).then(function (dataUrl) {
+      /* O RETRATO APARECE ANTES DA RESPOSTA: a pessoa ja escolheu, e esperar a rede
+         para mostrar o que ela acabou de escolher faz a tela parecer travada. */
+      s.foto = dataUrl;
+      entrar(s);
+      quemEsta(s.nome, s.perfil, dataUrl);
+      return post({ acao: 'minhaFoto', usuarioId: s.id, foto: dataUrl });
+    }).then(function (r) {
+      if (!r || !r.ok) throw new Error((r && r.erro) || 'Não consegui salvar a foto.');
+      toast('Foto atualizada.', 'ok');
+    }).catch(function (e) {
+      toast(e.message || 'Não consegui salvar a foto.', 'erro');
+    });
+  }
+  /* DELEGADO NO DOCUMENTO: os circulos sao repintados quando a sessao muda, e um
+     ouvinte preso a cada um morreria com ele na primeira repintura. */
+  document.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest && e.target.closest('[data-trocar-foto]');
+    if (el) abrirTrocaDeFoto();
+  });
+  /* E PELO TECLADO: o circulo diz `role="button"`, e um botao que o Enter nao aciona
+     mente sobre o que e'. */
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var el = e.target && e.target.closest && e.target.closest('[data-trocar-foto]');
+    if (!el) return;
+    e.preventDefault();
+    abrirTrocaDeFoto();
+  });
 
   function quemEsta(nome, perfil, foto) {
     var n = document.getElementById('cabUsuario');
@@ -2534,6 +2619,7 @@
     paramUrl: paramUrl,
     guardarVozNarracao: guardarVozNarracao,
     abrirAbaPedida: abrirAbaPedida, recarregarNaMesmaPagina: recarregarNaMesmaPagina,
+    abrirTrocaDeFoto: abrirTrocaDeFoto,
     comoChamar: comoChamar, nomeESobrenome: nomeESobrenome,
     ligarBotaoHoje: ligarBotaoHoje, marcarBotaoHoje: marcarBotaoHoje,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,

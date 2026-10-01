@@ -1532,6 +1532,35 @@ function montarRestauro(mov, p, agora, nomes, guarda) {
  * operacao inteira, no instante do deploy, o conserto do proprio engano de dedo. Quem
  * nao deve corrigir e' marcado um a um.
  */
+/**
+ * A FOTO DE PERFIL QUE A PROPRIA PESSOA MANDA.
+ *
+ * UMA PORTA ESTREITA, e nao `salvarUsuario`: aquela aceita o cadastro inteiro, e usa-la
+ * para isto ensinaria a tela a mandar perfil, abas e permissoes num pedido que so'
+ * deveria trocar um retrato. Aqui so' a foto passa.
+ *
+ * SO' IMAGEM, E COM TETO. O que chega e' um `data:` montado pelo navegador depois de
+ * comprimir — mas quem manda para esta rota nao e' so' a nossa tela, porque a API nao
+ * tem autorizacao nenhuma. Sem conferir o tipo, um `data:text/html` viraria foto; sem
+ * teto, um arquivo de dez megabytes entraria na linha do cadastro e viajaria em TODA
+ * leitura de equipe depois disso.
+ *
+ * VAZIO APAGA, de proposito: e' como se tira a foto e se volta as iniciais.
+ */
+function fotoDePerfil(valor) {
+  var s = String(valor == null ? '' : valor).trim();
+  if (!s) return { ok: true, foto: '' };
+  if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(s)) {
+    return { ok: false, erro: 'Envie uma imagem PNG, JPG ou WEBP.' };
+  }
+  /* 400 mil caracteres sao uns 300 KB de imagem — folga larga para o retrato de 320px
+     que a tela comprime, e teto para o que nao veio dela. */
+  if (s.length > 400000) {
+    return { ok: false, erro: 'Imagem grande demais. Escolha uma menor.' };
+  }
+  return { ok: true, foto: s };
+}
+
 function corrigeLancamento(u) {
   return !!u && u.PodeCorrigir !== false;
 }
@@ -2825,7 +2854,7 @@ module.exports = {
   montarMovimento: montarMovimento, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
-  corrigeLancamento: corrigeLancamento,
+  corrigeLancamento: corrigeLancamento, fotoDePerfil: fotoDePerfil,
   montarDescancelamento: montarDescancelamento,
   JANELA_CORRECAO_MIN: JANELA_CORRECAO_MIN, diaDaOperacao: diaDaOperacao,
   livreAte: livreAte, correcaoLivre: correcaoLivre,

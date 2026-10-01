@@ -693,6 +693,11 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
  * endereço quebrar — arquivo apagado do balde, rede fora — o `onerror` tira a imagem e
  * as letras reaparecem sozinhas. Com a foto de FUNDO não haveria esse evento: o
  * círculo ficaria vazio, que diz menos do que duas letras. */
+/* O CIRCULO AVISA QUE ABRE COISA. Ele passou a ser a porta da troca de foto, e um alvo
+   que reage ao toque sem dizer nada so' se descobre por acidente. */
+[data-trocar-foto]{cursor:pointer}
+[data-trocar-foto]:hover{filter:brightness(1.12)}
+[data-trocar-foto]:focus-visible{outline:2px solid var(--verde);outline-offset:2px}
 .avatar__foto{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;
   object-fit:cover;background:var(--campo)}
 /* O ponto de estado, colado no circulo. A cor sai de `atualizarBadge()`, a MESMA

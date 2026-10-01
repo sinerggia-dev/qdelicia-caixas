@@ -536,6 +536,46 @@ async function main() {
   const admPainel = (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.ID === idAdmin)[0];
   ok(admPainel.TemSenha === true, 'admin nao perde a senha do painel', admPainel);
 
+  console.log('\n== a foto do proprio perfil ==');
+  {
+    /* UMA PORTA ESTREITA, e nao `salvarUsuario`: aquela aceita o cadastro inteiro, e
+     * usa-la para isto ensinaria a tela a mandar perfil, abas e permissoes num pedido
+     * que so' deveria trocar um retrato. */
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    ok(F.fotoDePerfil('data:image/png;base64,AAAA').ok === true, 'uma imagem passa');
+    ok(F.fotoDePerfil('data:image/jpeg;base64,AAAA').ok === true, 'jpeg tambem');
+    ok(F.fotoDePerfil('data:text/html;base64,AAAA').ok === false,
+      'e um `data:` que NAO e imagem e recusado — sem conferir o tipo, um pedaco de ' +
+      'html viraria foto, e quem manda para esta rota nao e so a nossa tela',
+      F.fotoDePerfil('data:text/html;base64,AAAA').erro);
+    ok(F.fotoDePerfil('http://algum.site/foto.png').ok === false,
+      'e um endereco de fora tambem — a foto mora na linha do cadastro, e nao num ' +
+      'servidor de terceiro que pode sair do ar ou trocar a imagem depois');
+    ok(F.fotoDePerfil('data:image/png;base64,' + 'A'.repeat(400001)).ok === false,
+      'e ha TETO: sem ele um arquivo de dez megabytes entraria na linha do cadastro e ' +
+      'viajaria em toda leitura de equipe depois disso');
+    const vazia = F.fotoDePerfil('');
+    ok(vazia.ok === true && vazia.foto === '',
+      'e vazio APAGA, de proposito: e como se tira a foto e se volta as iniciais');
+    ok(F.fotoDePerfil(null).ok === true && F.fotoDePerfil(undefined).ok === true,
+      'e ausente vale como vazio, em vez de estourar');
+
+    /* E DE PONTA A PONTA, PELA ROTA. */
+    const idF = (await GET({ acao: 'equipe' })).usuarios[0].ID;
+    const r = await POST({ acao: 'minhaFoto', usuarioId: idF,
+                           foto: 'data:image/png;base64,QUJD' });
+    ok(r.ok === true, 'a rota grava a foto', r);
+    const dep = (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.ID === idF)[0];
+    ok(String(dep.Foto).indexOf('data:image/png') === 0,
+      'e ela volta no cadastro — sem isso a tela mostraria o retrato novo ate recarregar ' +
+      'e voltaria as iniciais depois, como se nao tivesse salvo', String(dep.Foto).slice(0, 30));
+    ok((await POST({ acao: 'minhaFoto', usuarioId: idF, foto: 'data:text/html;base64,QQ' })).ok === false,
+      'e a rota recusa o que nao e imagem, e nao so a tela');
+    ok((await POST({ acao: 'minhaFoto', usuarioId: 'NAO_EXISTE',
+                     foto: 'data:image/png;base64,QUJD' })).ok === false,
+      'e um id que nao existe nao grava nada');
+  }
+
   console.log('\n== quem pode corrigir lancamento ==');
   {
     /* A TELA ESCONDER NAO BASTA, e nunca bastou: esconder botao e' conveniencia, e um
