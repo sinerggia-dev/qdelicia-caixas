@@ -10079,6 +10079,25 @@
     });
   }
 
+  /* O NOME DE QUEM MEXEU, a partir do id guardado no histórico.
+   *
+   * CAI PARA O ID quando o cadastro não está à mão — a `equipe` chega numa ida à rede
+   * separada, e quem apagou o próprio cadastro depois de corrigir não tem mais nome. Um
+   * id cru é feio e verdadeiro; um traço no lugar dele apagaria a única pista que sobrou
+   * de quem foi.
+   *
+   * NOME E SOBRENOME, como no rodapé e na saudação: a coluna é estreita, e o nome
+   * inteiro de quatro palavras empurraria o motivo para fora da tela. */
+  function quemAlterou(id){
+    var s = String(id == null ? '' : id).trim();
+    if (!s) return '—';
+    var u = (EQUIPE || []).filter(function(x){
+      return String(x.ID || x.id || '') === s;
+    })[0];
+    var nome = u ? String(u.Nome || u.nome || '') : '';
+    return nome ? (Q.nomeESobrenome(nome) || nome) : s;
+  }
+
   function formCorrigir(m){
     var s = Q.sessao();
     modal('<h2>Corrigir lançamento</h2>'+
@@ -10143,10 +10162,15 @@
         '10 minutos de conserto livre do próprio autor. Informe a senha.</div>'+
         '<label for="cSenha">Senha do escritório</label>'+
         '<input type="password" id="cSenha" inputmode="numeric" autocomplete="off">')+
+      /* QUEM MEXEU ENTRA NA TABELA. O histórico sempre guardou o autor em `por`, e a
+         tabela não o mostrava: lia-se que a quantidade foi de 255 para 75, às 11h25, por
+         ninguém. Num registro que existe para responder "quem mudou isto e por quê",
+         faltava metade da pergunta. */
       (m.historico && m.historico.length
-        ? '<h3>Correções anteriores</h3><div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Campo</th><th>De</th><th>Para</th><th>Motivo</th></tr></thead><tbody>'+
+        ? '<h3>O que já mudou neste lançamento</h3><div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Quem</th><th>Campo</th><th>De</th><th>Para</th><th>Motivo</th></tr></thead><tbody>'+
           m.historico.map(function(h){
-            return '<tr><td>'+Q.esc(String(h.em||'').slice(0,16).replace("T"," "))+'</td><td>'+Q.esc(h.campo)+'</td>'+
+            return '<tr><td>'+Q.esc(String(h.em||'').slice(0,16).replace("T"," "))+'</td>'+
+              '<td>'+Q.esc(quemAlterou(h.por))+'</td><td>'+Q.esc(h.campo)+'</td>'+
               '<td>'+Q.esc(h.de)+'</td><td>'+Q.esc(h.para)+'</td><td>'+Q.esc(h.motivo||'')+'</td></tr>';
           }).join('')+'</tbody></table></div>'
         : '')+

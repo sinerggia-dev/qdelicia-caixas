@@ -11929,6 +11929,40 @@ console.log('\n== Motorista/Conferente ==');
      saida so', que era corrigir de novo por cima e deixar duas marcas para um erro. */
   ok(comBotao.indexOf('data-dcorrigir') > 0 && comBotao.indexOf('data-drestaurar') > 0,
     'e quem é recebe corrigir e restaurar');
+  /* ---- O HISTORICO DIZ QUEM MEXEU ----
+   *
+   * Ele sempre guardou o autor em `por`, e a tabela nao o mostrava: lia-se que a
+   * quantidade foi de 255 para 75, as 11h25, por NINGUEM. Num registro que existe para
+   * responder "quem mudou isto e por que", faltava metade da pergunta. */
+  var iQa = adm.indexOf('  function quemAlterou(id){');
+  var qa = iQa < 0 ? '' : adm.slice(iQa, adm.indexOf('\n  }', iQa) + 4);
+  ok(qa.length > 120, 'a conferência recortou a leitura de quem alterou', qa.length);
+  if (qa.length > 120) {
+    function nomeDe(id, equipe) {
+      return new Function('EQUIPE', 'Q', qa + '\nreturn quemAlterou;')(
+        equipe, { nomeESobrenome: function (n) {
+          var p = String(n || '').trim().split(/\s+/).filter(Boolean);
+          return p.length < 2 ? (p[0] || '') : p[0] + ' ' + p[p.length - 1];
+        } })(id);
+    }
+    ok(nomeDe('U2', [{ ID: 'U2', Nome: 'Natanael da Costa Silva' }]) === 'Natanael Silva',
+      'o histórico mostra o NOME de quem mexeu, pela mesma regra do rodapé — a coluna é ' +
+      'estreita, e um nome de quatro palavras empurraria o motivo para fora da tela',
+      nomeDe('U2', [{ ID: 'U2', Nome: 'Natanael da Costa Silva' }]));
+    ok(nomeDe('U9', [{ ID: 'U2', Nome: 'Outro' }]) === 'U9',
+      'e cai para o ID quando o cadastro não está à mão — a equipe chega numa ida à rede ' +
+      'separada, e quem apagou o próprio cadastro depois de corrigir não tem mais nome: ' +
+      'um id cru é feio e verdadeiro, e um traço apagaria a única pista que sobrou',
+      nomeDe('U9', [{ ID: 'U2', Nome: 'Outro' }]));
+    ok(nomeDe('', []) === '—' && nomeDe(null, []) === '—',
+      'e sem autor nenhum ele diz isso, em vez de escrever "null" na tabela');
+  }
+  var iHist = adm.indexOf("'<h3>O que já mudou neste lançamento</h3>");
+  var hist = iHist < 0 ? '' : adm.slice(iHist, adm.indexOf('</tbody></table></div>', iHist));
+  ok(hist.indexOf('<th>Quem</th>') > 0 && hist.indexOf('quemAlterou(h.por)') > 0,
+    'e a coluna existe E é preenchida — a função existir sem ninguém chamá-la foi o ' +
+    'escape de três sabotagens nesta semana', hist.slice(0, 160));
+
   /* ---- E EM MOVIMENTOS, A LINHA CANCELADA TROCA DE BOTOES ----
    *
    * Ali o botao de cancelar mora ao lado do de excluir. Numa linha que JA' esta
