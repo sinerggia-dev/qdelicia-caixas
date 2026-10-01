@@ -65,6 +65,11 @@
      `--sobre-verde` existir — sem ele alguem poe branco por habito e o botao fica
      ilegivel no galpao. */
   --marca-roxo:#a46ce7; --marca-verde:#bb91ed;
+  /* AS DUAS CORES DA LOGO, fixas e fora do tema. O tema pinta o SISTEMA; a logo e' a
+     mesma em qualquer tema, e a faixa embaixo dela e' a assinatura da marca, nao um
+     enfeite do tema. Sao duas cores de verdade — nao dois tons da mesma, que lado a
+     lado se leem como degrade. */
+  --logo-verde:#00a853; --logo-roxo:#a46ce7;
   --roxo-txt:#c9a6f0;         /* o roxo como TINTA: as iniciais no circulo */
   --verde-hover:#c9a6f0;      /* o hover CLAREIA: escurecer roubava contraste */
   --sobre-verde:#1a0b2e;      /* a tinta que vai SOBRE a marca */
@@ -1732,11 +1737,20 @@ tr.par-linhas > td{background:var(--campo);padding:0}
   .login{justify-content:flex-start;padding-top:5vh}
 }
 
-/* A faixa da marca: um filete, nao um degrade decorativo. */
+/* A FAIXA DA MARCA LEVA AS DUAS CORES DA LOGO, e nao duas tonalidades do tema.
+ *
+ * Ela lia `--marca-roxo` e `--marca-verde` — nomes que mentem: em cada tema os dois sao
+ * tons da MESMA cor (no verde, `#00a853` e `#35d6a0`). Duas tonalidades vizinhas lado a
+ * lado nao se leem como duas cores: leem-se como um degrade mal feito, que e' o que
+ * aparecia embaixo do titulo.
+ *
+ * A faixa e' a assinatura da MARCA, e a marca tem duas cores de verdade — o verde e o
+ * roxo da logo logo acima dela. Por isso elas sao fixas aqui, e nao seguem o tema: o
+ * tema pinta o SISTEMA; a logo e' a mesma em qualquer tema. */
 .marca-faixa{display:flex;height:4px;width:100%;max-width:380px;border-radius:999px;overflow:hidden}
 .marca-faixa span{flex:1 1 auto}
-.marca-faixa span:first-child{background:var(--marca-roxo)}
-.marca-faixa span:last-child{background:var(--marca-verde)}
+.marca-faixa span:first-child{background:var(--logo-verde)}
+.marca-faixa span:last-child{background:var(--logo-roxo)}
 
 .login .card{
   width:100%;max-width:380px;margin:0;padding:22px 20px 24px;text-align:left;
@@ -1796,15 +1810,29 @@ input[type="password"]::-ms-clear{display:none}
 .olho[aria-pressed="true"]{color:var(--marca-txt)}
 .olho svg{pointer-events:none}
 
-/* O botao de entrar e o VERDE do logo, com tinta escura. Ver `--sobre-verde`. */
+/* O BOTAO DE ENTRAR E' A COR FORTE DO TEMA, com tinta escura. Ver `--sobre-verde`.
+ *
+ * Ele lia `--marca-verde`, que e' o tom CLARO de cada tema — no verde, `#35d6a0`: um
+ * verde-agua que nao e' o verde da logo logo acima. Duas marcas diferentes na mesma
+ * tela, a um palmo uma da outra.
+ *
+ * `--marca-roxo` E' A COR FORTE em toda combinacao de tema e fundo, apesar do nome: no
+ * verde `#00a853`, no roxo `#a46ce7`, no ambar `#ef7b2f`. Os nomes dos dois tokens
+ * mentem desde que nasceram — eles sao "cor 1" e "cor 2" da marca —, e trocar os nomes
+ * agora mexeria em dezenas de regras. O comentario fica no lugar do nome.
+ *
+ * O HOVER ESCURECE POR FILTRO, e nao pelo `--verde-hover`: aquele foi calculado para
+ * CLAREAR o tom claro, e sobre o tom forte ele daria um salto para longe da cor do
+ * botao. Um escurecimento proporcional serve aos quatro temas sem quatro valores
+ * novos. */
 .btn-entrar{
   width:100%;min-height:56px;margin-top:22px;
   display:inline-flex;align-items:center;justify-content:center;gap:9px;
   font:inherit;font-size:16px;font-weight:600;
-  color:var(--sobre-verde);background:var(--marca-verde);
+  color:var(--sobre-verde);background:var(--marca-roxo);
   border:0;border-radius:var(--raio-sm);cursor:pointer
 }
-.btn-entrar:hover{background:var(--verde-hover)}
+.btn-entrar:hover{filter:brightness(.92)}
 .btn-entrar:active{transform:translateY(1px)}
 @media (prefers-reduced-motion:reduce){ .btn-entrar:active{transform:none} }
 

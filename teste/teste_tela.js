@@ -5342,8 +5342,12 @@ console.log('\n== o contraste de cada par que a tela usa ==');
     ['--azul', '--azul-claro', 'a etiqueta azul'],
     ['--txt-fraco', '--campo', 'o texto de exemplo dentro do campo, na entrada'],
     ['--vermelho-txt', '--surface-2', 'o aviso de erro da entrada'],
-    ['--sobre-verde', '--marca-verde', 'o BOTAO ENTRAR: tinta escura sobre o verde do logo'],
-    ['--sobre-verde', '--verde-hover', 'o botão Entrar sob o mouse'],
+    /* O Entrar usa a cor FORTE do tema — `--marca-roxo` apesar do nome, que em todo tema
+       e' o tom cheio: no verde `#00a853`, que e' o da logo. O tom claro ficava a um
+       palmo da logo parecendo outra marca.
+       O HOVER SAIU DESTA CONTA porque deixou de ser um token: ele escurece por filtro,
+       proporcional ao fundo, e `--verde-hover` nao e' lido por regra nenhuma do CSS. */
+    ['--sobre-verde', '--marca-roxo', 'o BOTAO ENTRAR: tinta escura sobre a cor forte do tema'],
     ['--txt3', '--bg', 'o texto de apoio da tela de entrada'],
     ['--txt2', '--marinho', 'o rótulo no card da entrada'],
     ['--txt', '--campo', 'o que se digita na entrada'],
@@ -15667,6 +15671,58 @@ console.log('\n== os grupos da navegacao recolhem ==');
     'e o clique no título não chega na lateral — ela também ouve clique para reabrir ' +
     'quando está recolhida, e sem isto recolher um grupo abriria o menu junto');
 
+  /* ---- A MARCA DA TELA DE ENTRADA ----
+   *
+   * A faixa embaixo do titulo lia dois tokens do TEMA — e em cada tema os dois sao tons
+   * da MESMA cor (no verde, `#00a853` e `#35d6a0`). Duas tonalidades vizinhas lado a
+   * lado nao se leem como duas cores: leem-se como um degrade mal feito. E o botao
+   * Entrar usava o tom CLARO, que a um palmo da logo parecia outra marca. */
+  var cssM = fsReal.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  function regraDe(sel) {
+    var i = cssM.indexOf('\n' + sel + '{');
+    return i < 0 ? '' : cssM.slice(i, cssM.indexOf('}', i) + 1);
+  }
+  function corDe(nome) {
+    var m = cssM.slice(cssM.indexOf(':root{')).match(
+      new RegExp(nome + ':\s*(#[0-9a-fA-F]{6})'));
+    return m ? m[1].toLowerCase() : '';
+  }
+  /* O MATIZ, e nao o brilho: e' ele que separa "duas cores" de "dois tons da mesma". */
+  function matiz(hex) {
+    var r = parseInt(hex.slice(1, 3), 16) / 255,
+        g = parseInt(hex.slice(3, 5), 16) / 255,
+        b = parseInt(hex.slice(5, 7), 16) / 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (!d) return 0;
+    var h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60;
+    return h < 0 ? h + 360 : h;
+  }
+  var lv = corDe('--logo-verde'), lr = corDe('--logo-roxo');
+  ok(!!lv && !!lr, 'as duas cores da logo existem na raiz — fixas, porque a logo é a ' +
+    'mesma em qualquer tema', [lv, lr]);
+  if (lv && lr) {
+    var dif = Math.abs(matiz(lv) - matiz(lr));
+    if (dif > 180) dif = 360 - dif;
+    ok(dif > 60,
+      'e são DUAS CORES de verdade, não dois tons da mesma — vizinhas no matiz, elas se ' +
+      'leem como um degradê mal feito, que é o que aparecia embaixo do título',
+      [lv, lr, Math.round(dif) + '°']);
+  }
+  var m1 = regraDe('.marca-faixa span:first-child');
+  var m2 = regraDe('.marca-faixa span:last-child');
+  ok(m1.indexOf('--logo-verde') > 0 && m2.indexOf('--logo-roxo') > 0,
+    'a faixa usa as cores da LOGO, e não as do tema — ela é a assinatura da marca, e o ' +
+    'tema pinta o sistema', [m1, m2]);
+
+  var btn = regraDe('.btn-entrar');
+  ok(btn.indexOf('background:var(--marca-roxo)') > 0,
+    'e o Entrar usa a cor FORTE do tema (`--marca-roxo`, apesar do nome) — o tom claro ' +
+    'não é o verde da logo logo acima, e eram duas marcas na mesma tela', btn.slice(0, 200));
+  ok(cssM.indexOf('.btn-entrar:hover{filter:brightness(') > 0,
+    'e o hover ESCURECE por filtro — `--verde-hover` foi calculado para clarear o tom ' +
+    'claro, e sobre o forte daria um salto para longe da cor do botão');
+
   /* ---- O GRUPO LANCAMENTO, NO TOPO ----
    *
    * Ele e' o unico item da lateral que LEVA PARA FORA do painel. No pe' da lista ficava
@@ -16898,7 +16954,11 @@ console.log('\n== a aparência: cor da marca e fundo ==');
     /* A tinta sobre o acento: 4,5:1, que é texto. */
     [['--sobre-brand', '--brand', 'o texto do botão principal'],
      ['--sobre-brand', '--brand-hover', 'o botão principal sob o mouse'],
-     ['--sobre-verde', '--marca-verde', 'a tinta do Entrar']
+     /* O Entrar passou a usar a cor FORTE do tema (`--marca-roxo`, apesar do nome): o
+        tom claro nao e' o verde da logo logo acima, e eram duas marcas diferentes na
+        mesma tela, a um palmo uma da outra. A tinta continua sendo a mesma, e e' ela
+        que esta conta cobra. */
+     ['--sobre-verde', '--marca-roxo', 'a tinta do Entrar']
     ].forEach(function (par) {
       var v = contraste(T[par[0]], T[par[1]]);
       if (v < 4.5) ruins.push(k + ': ' + par[2] + ' = ' + v.toFixed(2) + ' (mínimo 4,5)');
