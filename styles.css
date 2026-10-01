@@ -213,7 +213,12 @@
  * E as PASTILHAS invertem junto: `--verde-claro` e companhia eram fundos escuros para
  * tinta clara; aqui viram fundos claros para tinta escura. Esquecidas, a etiqueta verde
  * ficaria verde-escuro sobre verde-escuro. */
+/* `color-scheme:light` AQUI, e não só cores: sem isto o navegador continua desenhando
+   os controles nativos — seletor de data, de hora, barra de rolagem — no modo escuro,
+   em cima de uma tela clara. É a linha que faz o tema claro ser claro para o NAVEGADOR,
+   e não só para a folha de estilo. */
 [data-fundo="gelo"]{
+  color-scheme:light;
   --marinho:#eef2f7; --marinho-esc:#e4eaf2; --marinho-claro:#d3dde9;
   --bg:#eef2f7; --surface:#ffffff; --surface-2:#e9eef6; --campo:#edf2f8;
   --neutro:#c2cedd; --linha:#d7e0ec; --linha-viva:#aebdd0;
@@ -1308,22 +1313,24 @@ input[type=search]::-webkit-search-cancel-button{
   filter:invert(1);opacity:.6;cursor:pointer
 }
 input[type=search]::-webkit-search-cancel-button:hover{opacity:1}
-/* O ÍCONE DO SELETOR DE DATA nasce preto no Chrome — some num campo escuro, e a pessoa
-   fica sem saber que dá para clicar. `invert` o vira branco sem depender de imagem.
-
-   OPACIDADE CHEIA E UM POUCO MAIOR: a .75 ele existia e não se via. Num campo de 36px
-   de altura, meio apagado e do tamanho de fábrica, ele lê como sujeira da borda e não
-   como coisa que se aperta — e sem ele a pessoa digita a data inteira a dedo.
-
-   E O INVERT NÃO PODE VALER NO FUNDO CLARO: lá o ícone já nasce escuro sobre claro, que
-   é o certo, e invertê-lo o pintava de branco sobre branco. O campo ficava sem ícone
-   nenhum, e ninguém reportou porque quase todo mundo usa o escuro. */
+/* O ÍCONE DO SELETOR DE DATA: QUEM O PINTA É O NAVEGADOR, pelo `color-scheme`.
+ *
+ * Eu tinha posto `filter:invert(1)` aqui achando que ele nascia preto. Nasce preto em
+ * página SEM `color-scheme` — e esta tem: `color-scheme:dark` em `html,body` já manda o
+ * navegador desenhá-lo CLARO. O invert pegava o ícone claro e o pintava de PRETO, que é
+ * justamente o que não se enxerga num campo escuro. No fundo claro era o espelho do
+ * mesmo erro: lá o `color-scheme` continuava dizendo "escuro", o ícone saía claro sobre
+ * branco, e o `filter:none` que eu tinha posto o deixava assim.
+ *
+ * Os dois consertos eram o mesmo: PARAR DE PINTAR e deixar o `color-scheme` de cada
+ * tema responder. Um tema claro que diz "sou claro" ganha os controles nativos certos
+ * de graça — e isso vale para o seletor de data, o de hora, a barra de rolagem e tudo
+ * o mais que o navegador desenha sozinho.
+ *
+ * O TAMANHO E A OPACIDADE FICAM: num campo de 36px, o ícone de fábrica é pequeno demais
+ * para o dedo achar. */
 input[type=date]::-webkit-calendar-picker-indicator{
-  filter:invert(1);opacity:1;cursor:pointer;padding:2px;border-radius:4px;
-  transform:scale(1.15)
-}
-[data-fundo="gelo"] input[type=date]::-webkit-calendar-picker-indicator{
-  filter:none;opacity:.85
+  opacity:1;cursor:pointer;padding:2px;border-radius:4px;transform:scale(1.15)
 }
 input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;background:var(--neutro)}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--marinho);outline-offset:-1px;border-color:var(--verde)}
@@ -3694,6 +3701,23 @@ body.sem-rolagem{overflow:hidden}
   font-size:11px;color:var(--txt3)}
 .bt-campo input{min-height:36px;padding:0 10px;font-size:13.5px;width:100%}
 .bt-campo--busca{flex:0 1 230px}
+/* NO CELULAR, AS DUAS DATAS LADO A LADO.
+ *
+ * Elas caiam uma por linha: a quebra enche cada linha com o que couber, e o "De" subia
+ * junto com os botoes deixando o "Ate" sozinho embaixo. Duas faixas para dois campos
+ * que se leem como UM PAR — e assim o "de ... ate" perde o sentido de intervalo.
+ *
+ * Os botoes tomam a linha inteira para que as datas comecem uma nova, e ai' meia linha
+ * para cada uma as mantem juntas. A busca fica sozinha embaixo, onde cabe inteira.
+ *
+ * NO MESMO CORTE DO RESTO (1023px), e nao num proprio: o painel ja troca de tabela para
+ * cartao aqui, e um segundo corte faria uma faixa de larguras onde metade da tela esta
+ * num arranjo e metade no outro — e' regra do projeto, e esta prova existe. */
+@media (max-width:1023px){
+  .barra-trava__acoes{flex:1 1 100%}
+  .bt-campo{flex:1 1 calc(50% - 6px)}
+  .bt-campo--busca{flex:1 1 100%}
+}
 .dc-busca input{min-height:36px;padding:0 10px;font-size:13.5px}
 /* NO TAMANHO DO CADEADO, e não no de botão de gaveta. Na gaveta eles são a ação
    principal de uma folha inteira; aqui são vizinhos de um `mini` de 13px, e em

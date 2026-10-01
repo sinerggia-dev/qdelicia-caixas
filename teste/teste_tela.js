@@ -16061,12 +16061,33 @@ console.log('\n== a busca rapida, nas duas larguras ==');
   ok(!!icone && /scale\(1\.\d+\)/.test(icone['transform'] || ''),
     'e um pouco maior que o de fábrica: num campo de 36px o tamanho padrão é pequeno ' +
     'demais para o dedo achar', icone && icone['transform']);
-  ok(!!icone && icone['filter'] === 'invert(1)',
-    'e ele é invertido no fundo escuro, que é onde nasceria preto sobre preto');
-  var iconeClaro = reg('[data-fundo="gelo"] input[type=date]::-webkit-calendar-picker-indicator');
-  ok(!!iconeClaro && iconeClaro['filter'] === 'none',
-    'e NÃO é invertido no fundo claro — lá ele já nasce escuro sobre claro, e inverter ' +
-    'o pintava de branco sobre branco: o campo ficava sem ícone nenhum', iconeClaro);
+  /* QUEM PINTA E' O NAVEGADOR, pelo `color-scheme`. Eu tinha posto `invert(1)` achando
+     que o icone nascia preto — nasce preto em pagina SEM `color-scheme`, e esta tem:
+     `color-scheme:dark` ja manda desenha-lo CLARO, e o invert o pintava de preto, que e'
+     justamente o que nao se enxerga num campo escuro. No fundo claro era o espelho do
+     mesmo erro. Os dois consertos eram o mesmo: parar de pintar. */
+  ok(!!icone && !icone['filter'],
+    'ninguém pinta o ícone do calendário à mão — o `color-scheme` de cada tema já manda ' +
+    'o navegador desenhá-lo na cor certa, e pintar por cima inverte o que já estava bom',
+    icone && icone['filter']);
+  /* AS DUAS DATAS LADO A LADO NO CELULAR. Elas caiam uma por linha: a quebra enche cada
+     linha com o que couber, e o "De" subia junto com os botoes deixando o "Ate" sozinho
+     embaixo — duas faixas para dois campos que se leem como UM PAR. */
+  var movel = (css.match(/@media \(max-width:1023px\)\{([\s\S]*?)\n\}/g) || []).join('\n');
+  ok(/\.barra-trava__acoes\{flex:1 1 100%\}/.test(movel),
+    'no celular os botões tomam a linha inteira — sem isso o "De" sobe junto com eles e ' +
+    'deixa o "Até" sozinho na linha de baixo', movel.length);
+  ok(/\.bt-campo\{flex:1 1 calc\(50% - 6px\)\}/.test(movel),
+    'e cada data fica com meia linha, que é o que as mantém lado a lado — separadas, o ' +
+    '"de ... até" perde o sentido de intervalo');
+  ok(/\.bt-campo--busca\{flex:1 1 100%\}/.test(movel),
+    'e a busca fica sozinha embaixo, onde cabe inteira');
+
+  var claro = reg('[data-fundo="gelo"]');
+  ok(!!claro && claro['color-scheme'] === 'light',
+    'e o tema claro DIZ ao navegador que é claro — sem isso ele continua desenhando os ' +
+    'controles nativos no modo escuro em cima de uma tela clara, e o seletor de data ' +
+    'some', claro && claro['color-scheme']);
 
   /* A TIRA VAZIA ANTES DAS DATAS sai pelo VIZINHO, e nao cortando a folga de baixo da
      barra: a folga existe para quando os CARTOES vem logo depois, e cortá-la resolveria
