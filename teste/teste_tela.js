@@ -11963,6 +11963,91 @@ console.log('\n== Motorista/Conferente ==');
     'e a coluna existe E é preenchida — a função existir sem ninguém chamá-la foi o ' +
     'escape de três sabotagens nesta semana', hist.slice(0, 160));
 
+  /* ---- TODO FILTRO DA CONCILIACAO TEM DE VIAJAR ----
+   *
+   * E' a mesma regra que Movimentos ja tinha, e que aqui faltava: um filtro desenhado
+   * que nao chega ao servidor nao filtra nada — a pessoa escolhe, a tela nao muda, e ela
+   * conclui que nao ha o que mostrar. Derivada da MARCACAO e nao de uma lista escrita
+   * aqui: o filtro seguinte entra sozinho na conta.
+   *
+   * Foi assim que o filtro de removidos escapou de uma sabotagem: ele existia na tela,
+   * era lido pelo `filtroDecl`, e ninguem cobrava que ele entrasse no pedido. */
+  var iGf = adm.indexOf('<select id="dcRemovidos"');
+  var fimGf = adm.indexOf('<div class="linha-btn">', iGf);
+  var barraDecl = adm.slice(adm.lastIndexOf('<div class="grid-filtros">', iGf),
+                            fimGf < 0 ? iGf + 4000 : fimGf);
+  var camposDecl = (barraDecl.match(/id="(dc[A-Za-z]+)"/g) || [])
+    .map(function (m) { return m.slice(4, -1); })
+    .filter(function (id) { return id !== 'dcHoje'; });
+  ok(camposDecl.length >= 3, 'a leitura achou os campos da conciliação', camposDecl);
+
+  var iFd = adm.indexOf('  function filtroDecl(){');
+  var fd = iFd < 0 ? '' : adm.slice(iFd, adm.indexOf('\n  }', iFd) + 4);
+  var iDd = adm.indexOf('  function desenharDecl(){');
+  var dd = iDd < 0 ? '' : adm.slice(iDd, adm.indexOf('\n  }', iDd) + 4);
+  /* LIDO NUM DOS DOIS LUGARES, e nao obrigatoriamente no pedido: `dcTipo` e
+     `dcSituacao` peneiram na PROPRIA TELA, de proposito — a situacao nasce da comparacao
+     entre os dois lados, entao peneirar por ela antes seria peneirar por uma resposta
+     que ainda nao existe, e o tipo ja e' parte da chave do par. Os dois dao o mesmo
+     resultado e nao custam uma ida a rede a cada troca de filtro.
+     O que a prova cobra e' que o campo seja USADO em algum lugar: desenhado e lido por
+     ninguem, ele fica na tela sem fazer nada. */
+  var semUso = camposDecl.filter(function (c) {
+    return fd.indexOf("'" + c + "'") < 0 && dd.indexOf("'" + c + "'") < 0;
+  });
+  ok(semUso.length === 0,
+    'todo campo da concilia\u00e7\u00e3o \u00e9 LIDO \u2014 pelo filtro que vai ao servidor, ou pela ' +
+    'peneira da pr\u00f3pria tela; desenhado e lido por ningu\u00e9m, ele fica ali sem fazer nada',
+    semUso);
+
+  var iPd = adm.indexOf("acao:'conciliacao'");
+  var pd = iPd < 0 ? '' : adm.slice(iPd, adm.indexOf('}))', iPd));
+  var naoViajam = Object.keys(JSON.parse('{}')).concat(
+    (fd.match(/(\w+):\s*valorFiltro\('dc\w+'\)/g) || []).map(function (par) {
+      return par.slice(0, par.indexOf(':'));
+    })).filter(function (nome) { return pd.indexOf(nome) < 0; });
+  ok(naoViajam.length === 0,
+    'e todo campo lido VIAJA no pedido — lido e não enviado, a pessoa escolhe, a tela ' +
+    'não muda, e ela conclui que não há o que mostrar', naoViajam);
+
+  /* ---- A LINHA DIZ QUE FOI MEXIDA, E OFERECE A PORTA CERTA ----
+   *
+   * O historico ja vinha na carga e ninguem o olhava: um numero corrigido ficava com a
+   * mesma cara de um numero lancado, e so' quem abrisse o formulario de correcao
+   * descobriria. E cada estado tem a SUA porta de volta — cancelado se descancela, e o
+   * que esta na lixeira volta pela lixeira: oferecer a errada leva a recusa da rota
+   * depois de a pessoa ja ter escrito o motivo. */
+  function linhaCom(extra) {
+    var it = { id: 'M1', qtd: 75, declaracao: false, usuario: 'Nestor', origem: 'Natal' };
+    Object.keys(extra || {}).forEach(function (k) { it[k] = extra[k]; });
+    return new Function('Q', 'podeMexerNaDeclaracao',
+      fonteLin + '\nreturn linhasDoPar;')(Qfalso, function () { return true; })(
+      { itens: [it] });
+  }
+  var mexida = linhaCom({ historico: [{ campo: 'quantidade' }] });
+  ok(mexida.indexOf('alterado') > 0,
+    'a linha MEXIDA se anuncia — o histórico já vinha na carga e ninguém o olhava: um ' +
+    'número corrigido ficava com a mesma cara de um número lançado', mexida.slice(0, 200));
+  ok(linhaCom({ historico: [{}, {}, {}] }).indexOf('3 alterações') > 0,
+    'e diz QUANTAS vezes: uma linha mexida três vezes conta outra história que uma ' +
+    'mexida uma');
+  ok(linhaCom({}).indexOf('alterado') < 0 &&
+     linhaCom({ historico: [] }).indexOf('alterado') < 0,
+    'e a linha intocada NÃO se anuncia — um aviso permanente deixa de ser aviso');
+
+  var naLixeira = linhaCom({ excluidoEm: '2026-09-29T12:00:00' });
+  ok(naLixeira.indexOf('na lixeira') > 0 && naLixeira.indexOf('data-dreporlixeira') > 0,
+    'a linha da LIXEIRA se anuncia e oferece a volta por ela — a declaração não passa ' +
+    'pela tela de Movimentos, para ninguém, e sem esta porta uma declaração apagada não ' +
+    'tinha de onde voltar', naLixeira.slice(0, 200));
+  ok(naLixeira.indexOf('data-ddescancelar') < 0,
+    'e NÃO oferece desfazer o cancelamento — são marcas diferentes, e a porta errada ' +
+    'leva à recusa da rota depois de a pessoa já ter escrito o motivo');
+  var cancelada = linhaCom({ cancelado: true });
+  ok(cancelada.indexOf('data-ddescancelar') > 0 &&
+     cancelada.indexOf('data-dreporlixeira') < 0,
+    'e a cancelada oferece a dela, e só a dela');
+
   /* ---- E EM MOVIMENTOS, A LINHA CANCELADA TROCA DE BOTOES ----
    *
    * Ali o botao de cancelar mora ao lado do de excluir. Numa linha que JA' esta

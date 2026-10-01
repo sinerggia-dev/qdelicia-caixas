@@ -2747,6 +2747,20 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
        ids({ cancelados: 'so' }).indexOf('LIXO') < 0,
       'e a LIXEIRA nao entra junto em nenhum dos tres — sao duas marcas diferentes, e ' +
       'quem procura o que cancelou nao esta procurando o que apagou');
+    ok(ids({ cancelados: 'lixeira' }) === 'AMBAS,LIXO',
+      'e ha um quarto estado apenas para a LIXEIRA — a declaracao nao passa pela tela de ' +
+      'Movimentos, para ninguem, nem para o administrador: sem este caminho uma ' +
+      'declaracao apagada nao tinha onde ser encontrada em lugar nenhum do sistema',
+      ids({ cancelados: 'lixeira' }));
+    ok(ids({ cancelados: 'lixeira' }).indexOf('VIVO') < 0,
+      'e a lixeira traz apenas o que esta nela, e nao o que esta valendo');
+    ok(lista({ cancelados: 'lixeira' })[0].excluidoEm !== '',
+      'e a linha chega MARCADA como apagada — sem isso a tela oferece a porta errada, e ' +
+      '"desfazer o cancelamento" numa linha da lixeira leva a recusa da rota depois de a ' +
+      'pessoa ja ter escrito o motivo', lista({ cancelados: 'lixeira' })[0].excluidoEm);
+    ok(lista({})[0].excluidoEm === '',
+      'e a linha viva chega com a marca VAZIA, e nao ausente: ausente, ela se leria como ' +
+      'falsa por acidente e nao por decisao', lista({})[0].excluidoEm);
     ok(ids({ cancelados: 'so' }).indexOf('AMBAS') < 0 &&
        ids({ cancelados: 'incluir' }).indexOf('AMBAS') < 0,
       'e o que esta nas DUAS marcas continua fora: cancelado e depois apagado e um ' +

@@ -1318,6 +1318,18 @@
                  filtro não peneira o que já veio, ele decide QUAL LIVRO é lido — e um
                  padrão que abrange tudo cresce sozinho a cada livro novo. A palavra do
                  estado vazio diz o que falta fazer, e não promete dado. -->
+            <!-- O QUE FOI REMOVIDO TAMBEM SE PROCURA AQUI. A declaracao nao passa pela
+                 tela de Movimentos — para ninguem, nem para o administrador —, entao
+                 sem este filtro uma declaracao cancelada ou apagada nao tinha onde ser
+                 encontrada em lugar nenhum do sistema: o numero some do par, o cartao
+                 marca "sem declaracao", e nada diz por que. -->
+            <div><label for="dcRemovidos">Removidos</label>
+              <select id="dcRemovidos">
+                <option value="">Sem os removidos</option>
+                <option value="incluir">Mostrar junto</option>
+                <option value="so">Só os cancelados</option>
+                <option value="lixeira">Só os da lixeira</option>
+              </select></div>
             <div><label for="dcBase">Base</label>
               <!-- ABRE COM OS DOIS LIVROS MARCADOS.
                    A tela pedia a base antes de mostrar qualquer coisa, e quem chegava
@@ -2127,7 +2139,7 @@
     /* A BASE ENTRA AQUI e o Tipo não: a base muda o que o servidor manda, e o tipo
        peneira o que já chegou. Uma ida à rede para recortar o que está na tela mediria
        de novo o que não mudou. */
-    ['dcDe', 'dcAte', 'dcMotorista', 'dcBase'].forEach(function(id){
+    ['dcDe', 'dcAte', 'dcMotorista', 'dcBase', 'dcRemovidos'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', carregarDecl);
     });
@@ -3428,7 +3440,8 @@
 
   function filtroDecl(){
     return { de: valorFiltro('dcDe'), ate: valorFiltro('dcAte'),
-             motorista: valorFiltro('dcMotorista'), base: valorFiltro('dcBase') };
+             motorista: valorFiltro('dcMotorista'), base: valorFiltro('dcBase'),
+             removidos: valorFiltro('dcRemovidos') };
   }
 
   function carregarDecl(){
@@ -3458,6 +3471,10 @@
        O LIMITE É MAIOR porque aqui cada linha da resposta é meia linha da tabela: um mês
        de operação são centenas de lançamentos que viram dezenas de pares. */
     Q.get(Q.lendo({ acao:'conciliacao', limit:2000, mundo:f.base,
+                    /* O nome do parametro e' `cancelados` porque quem o le' e'
+                       `listaMovimentos`, a mesma funcao que serve Movimentos. O rotulo
+                       da tela e' "Removidos" porque aqui a lixeira entra junto. */
+                    cancelados:f.removidos,
                     motorista:f.motorista, de:f.de, ate:f.ate }))
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
@@ -3498,9 +3515,27 @@
              apagou nada — a quantidade continua inteira ali —, mas faltava a porta de
              volta, e um toque errado tirava a carga do saldo para sempre com o numero a
              vista e inalcancavel. Foi o que aconteceu com uma carga inteira. */
+          (m.excluidoEm ? '<span class="tag cinza">na lixeira</span>' : '')+
+          /* UM INDICADOR DE QUE A LINHA FOI MEXIDA, de qualquer jeito. O historico ja
+             vinha na carga e ninguem o olhava: um numero corrigido ficava com a mesma
+             cara de um numero lancado, e so' quem abrisse o formulario de correcao
+             descobriria. O rotulo diz QUANTAS vezes — uma linha mexida tres vezes conta
+             outra historia que uma mexida uma. */
+          ((m.historico && m.historico.length)
+            ? '<span class="tag ambar" title="Abra Corrigir para ver o que mudou, quem '+
+              'mudou e por quê">'+(m.historico.length > 1
+                ? m.historico.length + ' alterações' : 'alterado')+'</span>'
+            : '')+
           (pode && m.cancelado
             ? '<span class="lp__a"><button class="mini" type="button" '+
                 'data-ddescancelar="'+Q.esc(m.id)+'">desfazer o cancelamento</button></span>'
+            : '')+
+          /* DA LIXEIRA SE VOLTA PELA PORTA DA LIXEIRA, que ja existia e e' outra marca.
+             Oferecer "desfazer o cancelamento" numa linha apagada levaria a recusa da
+             rota depois de a pessoa escrever o motivo. */
+          (pode && m.excluidoEm
+            ? '<span class="lp__a"><button class="mini" type="button" '+
+                'data-dreporlixeira="'+Q.esc(m.id)+'">tirar da lixeira</button></span>'
             : '')+
           (pode && !m.cancelado
             ? '<span class="lp__a">'+
@@ -3628,7 +3663,8 @@
       });
     });
     [['dcorrigir', acaoCorrigir], ['drestaurar', acaoRestaurar],
-     ['ddescancelar', acaoDescancelar]].forEach(function(par){
+     ['ddescancelar', acaoDescancelar],
+     ['dreporlixeira', acaoTirarDaLixeira]].forEach(function(par){
       box.querySelectorAll('[data-'+par[0]+']').forEach(function(b){
         b.addEventListener('click', function(){
           par[1](movPorId(b.dataset[par[0]]));
@@ -7438,6 +7474,22 @@
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
         Q.toast('Cancelamento desfeito — o lançamento voltou a contar.','ok');
+        depoisDeMexer(m);
+      }).catch(function(e){ Q.toast(e.message,'erro'); });
+  }
+
+  /* TIRAR DA LIXEIRA. A rota ja existia — e a mesma que a tela da lixeira usa —, mas a
+     DECLARACAO nao passa por aquela tela, para ninguem: sem este botao, uma declaracao
+     apagada nao tinha de onde voltar. */
+  function acaoTirarDaLixeira(m){
+    if (!m) return;
+    var motivo = prompt('Tirar este lançamento da lixeira — ele volta a valer.
+Motivo:');
+    if (motivo === null) return;
+    Q.post({ acao:'restaurarMovimento', id:m.id, motivo:motivo, usuarioId:Q.sessao().id })
+      .then(function(r){
+        if (!r.ok) throw new Error(r.erro);
+        Q.toast('Tirado da lixeira — o lançamento voltou a valer.','ok');
         depoisDeMexer(m);
       }).catch(function(e){ Q.toast(e.message,'erro'); });
   }

@@ -1961,11 +1961,17 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
    * Tres estados, e o padrao continua sendo o de hoje: quem nao pede nada nao passa a
    * ver cancelado nenhum. */
   var comoCancelados = String(p.cancelados || '').trim();
+  /* QUATRO ESTADOS, e a lixeira e' um deles. Ela e' outra marca — `ExcluidoEm` —, e
+     tem tela propria em Movimentos; mas a DECLARACAO nao passa por aquela tela, para
+     ninguem, nem para o administrador. Sem este caminho, uma declaracao apagada nao
+     tinha onde ser encontrada em lugar nenhum do sistema. */
   var base = comoCancelados === 'so'
     ? movimentos.filter(function (m) { return !!m.Cancelado && !m.ExcluidoEm; })
-    : comoCancelados === 'incluir'
-      ? movimentos.filter(function (m) { return !m.ExcluidoEm; })
-      : naoCancelados(movimentos);
+    : comoCancelados === 'lixeira'
+      ? movimentos.filter(function (m) { return !!m.ExcluidoEm; })
+      : comoCancelados === 'incluir'
+        ? movimentos.filter(function (m) { return !m.ExcluidoEm; })
+        : naoCancelados(movimentos);
 
   return base.filter(function (m) {
     if (basesPedidas.length && basesPedidas.indexOf(baseDoMovimento(m)) < 0) return false;
@@ -2043,6 +2049,11 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
          linha esta cancelada: ela desenharia "cancelar" em cima do que ja esta
          cancelado, e o botao de desfazer — que existe — nunca apareceria. */
       cancelado: !!m.Cancelado, motivoCancel: m.MotivoCancel || '',
+      /* E A MARCA DA LIXEIRA JUNTO, pela mesma razao: sem ela a tela nao tem como
+         distinguir uma linha apagada de uma linha viva, e oferece a porta errada —
+         "desfazer o cancelamento" numa linha que esta' na lixeira leva a recusa da rota
+         depois de a pessoa ja ter escrito o motivo. */
+      excluidoEm: m.ExcluidoEm ? iso(m.ExcluidoEm) : '',
       status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID),
       usuarioId: m.UsuarioID, perfil: m.Perfil,
       teste: lancamentoDeTeste(m),
