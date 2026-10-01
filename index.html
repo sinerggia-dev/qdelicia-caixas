@@ -730,7 +730,7 @@
      * Entao a ausencia PASSA — quem nao tem a marca e quem o servidor disser que nao
      * tem, e o servidor devolve `false` para cadastro novo. */
     if (s && s.id && s.viuTutorial !== true) {
-      location.href = 'demo-lancamento.html';
+      location.href = tutorialDe(s);
       return;
     }
 
@@ -1735,6 +1735,28 @@
    *
    * SO' DESENHO: quem decide o que a pessoa PODE lancar e' o cadastro, e quem recusa e'
    * o servidor. Esconder coluna nao e' tranca. */
+  /* QUAL TUTORIAL ABRE NO PRIMEIRO ACESSO.
+   *
+   * Era sempre o COMPLETO, que mostra saida e retorno seguidos. Para quem so' faz
+   * retorno, metade da apresentacao ensinava um gesto que a pessoa nunca vai fazer — e
+   * pior: ela abre o app logo depois procurando a tela de saida que acabou de ver, e
+   * nao acha. O primeiro contato com o sistema vira uma promessa que ele nao cumpre.
+   *
+   * SAI DAS MESMAS OPERACOES do cadastro que ja decidem as abas e as colunas: uma regra
+   * so' para "o que esta pessoa movimenta", e nao tres respostas para a mesma pergunta.
+   *
+   * O COMPLETO FICA PARA QUEM FAZ OS DOIS — e para quem nao tem operacao nenhuma
+   * marcada, que e' o caso de um cadastro recem-criado: mostrar os dois gestos e' melhor
+   * do que escolher um ao acaso. */
+  function tutorialDe(s){
+    var o = ((s && s.operacoes) || []).map(String);
+    var saida = o.indexOf('SAIDA') >= 0;
+    var retorno = o.indexOf('RETORNO') >= 0;
+    if (retorno && !saida) return 'demo-lancamento-retorno.html';
+    if (saida && !retorno) return 'demo-lancamento-saida.html';
+    return 'demo-lancamento.html';
+  }
+
   function colunasLanc(){
     var o = operacoesDe(Q.sessao());
     var saida = o.indexOf('SAIDA') >= 0;

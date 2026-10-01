@@ -17013,19 +17013,37 @@ console.log('\n== o tutorial do primeiro acesso ==');
   /* A ÂNCORA NÃO LEVA A CONDIÇÃO. Presa ao `if` inteiro, qualquer mexida nele esvaziava
      o RECORTE, e a falha saía como "recorte vazio" — que não diz o que houve. Ancorada
      no DESTINO, a mesma mexida falha pela garantia, dizendo onde a pessoa foi parar. */
-  var iDest = idx.indexOf("location.href = 'demo-lancamento.html'");
+  /* O DESTINO DEIXOU DE SER FIXO: ele agora sai de `tutorialDe(s)`, porque quem so' faz
+     retorno nao precisa ver o gesto da saida. A ancora segue a CHAMADA, e o recorte leva
+     a regra junto para poder rodar. */
+  var iDest = idx.indexOf('location.href = tutorialDe(s);');
   var iT = iDest < 0 ? -1 : idx.lastIndexOf('if (', iDest);
+  var iTut = idx.indexOf('  function tutorialDe(s){');
+  var regraTut = iTut < 0 ? '' : idx.slice(iTut, idx.indexOf('\n  }', iTut) + 4);
   var desvio = iT < 0 ? '' : idx.slice(iT, idx.indexOf('}', iDest) + 1);
   ok(desvio.length > 40 && desvio.length < 400,
     'a conferência achou o desvio do primeiro acesso — recorte vazio faria as três ' +
     'provas abaixo passarem sem rodar nada', desvio.length);
   function paraOnde(s) {
     var loc = { href: '' };
-    new Function('s', 'location', desvio)(s, loc);
+    new Function('s', 'location', regraTut + '\n' + desvio)(s, loc);
     return loc.href;
   }
   ok(paraOnde({ id: 'U1' }) === 'demo-lancamento.html',
     'quem nunca entrou cai no tutorial antes do app', paraOnde({ id: 'U1' }));
+  /* E O TUTORIAL E' O DO GESTO QUE A PESSOA FAZ. O completo mostra saida e retorno
+     seguidos: para quem so' faz retorno, metade ensinava um gesto que ela nunca vai
+     fazer — e ela abre o app logo depois procurando a tela de saida que acabou de ver,
+     e nao acha. O primeiro contato vira uma promessa que o sistema nao cumpre. */
+  ok(paraOnde({ id: 'U1', operacoes: ['RETORNO'] }) === 'demo-lancamento-retorno.html',
+    'e quem só faz RETORNO vê o tutorial de retorno, e não o completo',
+    paraOnde({ id: 'U1', operacoes: ['RETORNO'] }));
+  ok(paraOnde({ id: 'U1', operacoes: ['SAIDA'] }) === 'demo-lancamento-saida.html',
+    'e quem só faz saída vê o de saída');
+  ok(paraOnde({ id: 'U1', operacoes: ['SAIDA', 'RETORNO'] }) === 'demo-lancamento.html' &&
+     paraOnde({ id: 'U1', operacoes: [] }) === 'demo-lancamento.html',
+    'e o completo fica para quem faz os dois — e para o cadastro sem operação marcada, ' +
+    'onde mostrar os dois gestos é melhor do que escolher um ao acaso');
   ok(paraOnde({ id: 'U1', viuTutorial: true }) === '',
     'e quem já foi apresentado entra direto nos lançamentos — o tutorial é uma vez na ' +
     'vida do cadastro, não um pedágio diário',
