@@ -116,7 +116,11 @@ let cli = p.locais.find(l => l.id === C);
 ok(cli.saldo === 150, 'saldo do cliente = 150', cli.saldo);
 
 console.log('\n== devolução contada pelo promotor (não pode baixar saldo ainda) ==');
-const dev = POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: C, destinoId: G, itens: [{ tipoCaixaId: T, qtd: 80 }], dataRef: dia(-1), usuarioId: 'U004', perfil: 'PROMOTOR' });
+/* `dia(0)` E NAO `dia(-1)`: treze linhas abaixo esta prova cobra `divergenciaMes`, que
+   so' conta o MES CORRENTE. Lancando ontem, ela ficou vermelha sozinha no dia 1 de
+   outubro, sem ninguem ter tocado em nada. Uma prova de "neste mes" lanca dentro do
+   mes, e hoje esta dentro de qualquer mes. */
+const dev = POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: C, destinoId: G, itens: [{ tipoCaixaId: T, qtd: 80 }], dataRef: dia(0), usuarioId: 'U004', perfil: 'PROMOTOR' });
 ok(dev.status === 'AGUARDANDO', 'devolução do promotor fica AGUARDANDO', dev.status);
 p = GET({ acao: 'painel' }).painel; cli = p.locais.find(l => l.id === C);
 ok(cli.saldo === 150, 'saldo do cliente continua 150 antes da conferência', cli.saldo);

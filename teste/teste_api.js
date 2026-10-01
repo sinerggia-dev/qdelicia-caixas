@@ -258,7 +258,12 @@ async function main() {
   ok(cli.saldo === 150, 'saldo do cliente = 150', cli.saldo);
 
   console.log('\n== devolução contada pelo promotor (sem etapa de conferência, conta na hora) ==');
-  const dev = await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: C, destinoId: G, itens: [{ tipoCaixaId: T, qtd: 80 }], dataRef: dia(-1), usuarioId: 'U004', perfil: 'PROMOTOR' });
+  /* `dia(0)` E NAO `dia(-1)`: trinta linhas abaixo esta prova cobra `divergenciaMes`, que
+     so' conta o MES CORRENTE. Lancando ontem, ela passou todos os dias de setembro e
+     ficou vermelha sozinha no dia 1 de outubro, sem ninguem ter tocado em nada — o
+     relogio virou o mes e levou o lancamento junto. Uma prova de "neste mes" lanca
+     dentro do mes, e hoje esta dentro de qualquer mes. */
+  const dev = await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: C, destinoId: G, itens: [{ tipoCaixaId: T, qtd: 80 }], dataRef: dia(0), usuarioId: 'U004', perfil: 'PROMOTOR' });
   ok(dev.status === 'CONFIRMADO',
     'devolução nasce confirmada mesmo vinda de quem antes não podia conferir', dev.status);
   p = (await GET({ acao: 'painel' })).painel; cli = p.locais.find((l) => l.id === C);
@@ -2700,6 +2705,66 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
       r.entradas.map((e) => e.campo));
   }
 
+
+  console.log('\n== o painel abre o periodo inteiro ==');
+  {
+    /* O PADRAO ERA "DO DIA 1 DO MES ATE' AGORA", e no dia 1 a janela tinha onze horas.
+     * Todo primeiro do mes o painel abria zerado para a operacao inteira, com o estoque
+     * cheio em cima dizendo que havia movimento — e quem olhava concluia, com razao, que
+     * a tela tinha quebrado.
+     *
+     * SEM ESCOLHA, NAO HA' CORTE. Quem quer um recorte escolhe um; quem nao escolheu nada
+     * nao pediu para esconder nada. */
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const locais = [
+      { ID: 'G1', Nome: 'Galp\u00e3o', Tipo: 'GALPAO' },
+      { ID: 'R1', Nome: 'Caruaru', Tipo: 'ROTA' }
+    ];
+    const tipos = [{ ID: 'P', Nome: 'CX P' }];
+    const users = [{ ID: 'U1', Nome: 'Real', Perfil: 'Motorista' }];
+    const mv = (id, tipo, qtd, dia) => ({
+      ID: id, Tipo: tipo, OrigemID: tipo === 'SAIDA' ? 'G1' : 'R1',
+      DestinoID: tipo === 'SAIDA' ? 'R1' : 'G1', TipoCaixaID: 'P', Qtd: qtd,
+      Status: 'CONFIRMADO', UsuarioID: 'U1', DataRef: D(dia), DataHora: D(dia)
+    });
+    const movs = [mv('S1', 'SAIDA', 100, '2026-09-02'),
+                  mv('D1', 'DEVOLUCAO', 40, '2026-09-05')];
+    const base = { locais, tipos, movimentos: movs, usuarios: users, config: {} };
+
+    const tudo = F.painel(base, D('2026-10-01'));
+    ok(tudo.fluxo.totais.saida === 100 && tudo.fluxo.totais.retorno === 40,
+      'no dia 1 de outubro, sem periodo escolhido, setembro CONTINUA na conta \u2014 era ' +
+      'aqui que o painel abria zerado todo primeiro do mes',
+      [tudo.fluxo.totais.saida, tudo.fluxo.totais.retorno]);
+    ok(tudo.fluxo.linhas.length > 0,
+      'e a tabela vem com as linhas, em vez da frase de vazio', tudo.fluxo.linhas.length);
+    ok(tudo.periodo.de === '',
+      'e o painel DIZ que nao cortou \u2014 a tela escreve o r\u00f3tulo a partir disto, e um ' +
+      'in\u00edcio inventado aqui faria a legenda prometer um recorte que nao houve',
+      tudo.periodo.de);
+
+    /* ESCOLHER UM PERIODO CONTINUA CORTANDO — senao o filtro teria virado enfeite. */
+    const soOut = F.painel(base, D('2026-10-01'), { de: '2026-10-01' });
+    ok(soOut.fluxo.totais.saida === 0 && soOut.periodo.de === '2026-10-01',
+      'e quem ESCOLHE um in\u00edcio continua sendo atendido \u2014 abrir o padr\u00e3o n\u00e3o pode ' +
+      'transformar o filtro em enfeite',
+      [soOut.fluxo.totais.saida, soOut.periodo.de]);
+    const ateDia3 = F.painel(base, D('2026-10-01'), { ate: '2026-09-03' });
+    ok(ateDia3.fluxo.totais.saida === 100 && ateDia3.fluxo.totais.retorno === 0,
+      'e um fim SEM in\u00edcio pega tudo at\u00e9 ele \u2014 a sa\u00edda do dia 2 entra, a devolu\u00e7\u00e3o ' +
+      'do dia 5 fica de fora',
+      [ateDia3.fluxo.totais.saida, ateDia3.fluxo.totais.retorno]);
+
+    /* OS KPIS DO MURAL CONTINUAM SENDO DO MES. Eles tem o mes no proprio nome; abri-los
+       junto faria "perdas baixadas no mes" somar o ano inteiro sem mudar o rotulo. */
+    ok(tudo.kpis.saidasMes === 0,
+      'e os KPIs do mural continuam presos ao M\u00caS \u2014 eles t\u00eam o m\u00eas no pr\u00f3prio nome, e ' +
+      'abri-los junto faria o r\u00f3tulo mentir', tudo.kpis.saidasMes);
+    const emSet = F.painel(base, D('2026-09-20'));
+    ok(emSet.kpis.saidasMes === 100,
+      'e dentro de setembro eles contam setembro', emSet.kpis.saidasMes);
+  }
 
   console.log('\n== base de teste: perfil com "teste" no nome ==');
   {

@@ -2303,7 +2303,17 @@ function painel(dados, hoje, p) {
      escolhido na tela vale para o Painel de Ativos, que e onde se responde "quanto saiu e
      voltou neste intervalo". Misturar os dois faria o mural mudar de sentido sem aviso. */
   var ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  var fluxoIni = p.de ? data(p.de) : ini;
+  /* SEM ESCOLHA, NAO HA' CORTE — nem no inicio nem no fim.
+   *
+   * O padrao era "do dia 1 do mes ate' agora", e no dia 1 a janela tinha algumas horas:
+   * todo primeiro do mes o Painel de Ativos abria zerado para a operacao inteira, com o
+   * estoque cheio no cartao de cima dizendo que havia movimento. Quem olhava concluia,
+   * com razao, que a tela tinha quebrado — e a frase "ainda nao ha lancamento neste mes"
+   * era verdadeira e inutil ao mesmo tempo.
+   *
+   * Quem quer um recorte escolhe um. Quem nao escolheu nada nao pediu para esconder
+   * nada. */
+  var fluxoIni = p.de ? data(p.de) : null;
   var fluxoFim = p.ate ? fimDoDia(data(p.ate)) : null;
   var perdasMes = 0, saidasMes = 0, devolucoesMes = 0, divergenciaMes = 0;
   ativos(movimentos).forEach(function (m) {
@@ -2396,7 +2406,9 @@ function painel(dados, hoje, p) {
     // Mesma janela dos KPIs (do dia 1 do mês): se o painel mostrasse uma taxa de retorno
     // do mês e a tabela outra de outro período, as duas na mesma tela, quem lê escolheria
     // uma ao acaso. A meta sai da config e cai em 90 quando ninguém a definiu.
-    periodo: { de: soData(fluxoIni), ate: fluxoFim ? soData(fluxoFim) : '' },
+    /* VAZIO QUER DIZER "NAO CORTEI", e e' assim que a tela escreve o rotulo do cartao:
+       inventar aqui o dia 1 do mes faria a legenda prometer um recorte que nao houve. */
+    periodo: { de: fluxoIni ? soData(fluxoIni) : '', ate: fluxoFim ? soData(fluxoFim) : '' },
     fluxo: fluxoPorOrigem(dados, fluxoIni, Number(dados.config.metaRetorno) || 90, fluxoFim),
     fluxoPessoas: fluxoPorPessoa(dados, fluxoIni, fluxoFim)
   };

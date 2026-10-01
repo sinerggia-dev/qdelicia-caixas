@@ -4553,7 +4553,7 @@
         '<div class="desenho desenho--zero"><span class="risco"></span><span class="rot">0</span>'+
         '<span class="cai"></span><span class="cai"></span><span class="cai"></span></div>')+
 
-      tileCor(Q.num(t.saida), 'Total de Saída', 'no período filtrado', COR_TILE.saida,
+      tileCor(Q.num(t.saida), 'Total de Saída', janelaDoPainel(), COR_TILE.saida,
         '<div class="desenho desenho--pista">'+Q.caminhao(4)+'</div>')+
 
       /* O caminhão do retorno vem com a carga PROPORCIONAL ao que voltou: quatro
@@ -4565,15 +4565,15 @@
         '</div>')+
 
       tileCor(Q.num(t.deficit), 'Caixas que Saíram e Não Voltaram',
-        'no mês, somando só quem deve', COR_TILE.fora,
+        janelaDoPainel()+', somando só quem deve', COR_TILE.fora,
         '<div class="desenho desenho--fora"><span class="via"></span><span class="casa"></span>'+
         '<span class="tenta"></span><span class="la"><i></i><i></i><i></i></span></div>')+
 
       /* A BARRA DE META responde o que a porcentagem sozinha não responde: perto ou
          longe do combinado. Sem taxa não há barra — uma barra vazia diria "zero por
          cento", e zero por cento é outra coisa que "ainda não saiu nada". */
-      tileCor(t.taxaRetorno===null ? '—' : t.taxaRetorno+'%', 'Taxa de Retorno do Mês',
-        'meta '+metaFluxo()+'%'+
+      tileCor(t.taxaRetorno===null ? '—' : t.taxaRetorno+'%', 'Taxa de Retorno',
+        'meta '+metaFluxo()+'% · '+janelaDoPainel()+
         (t.taxaRetorno===null ? '' :
          ' · '+(t.taxaRetorno >= metaFluxo()
                 ? 'na meta'
@@ -4586,16 +4586,39 @@
     vigiarTiles();
   }
 
-  /* Três frases diferentes: "o mês está vazio", "ninguém informou motorista" e "este
-     filtro não achou nada" mandam a pessoa para lugares opostos. */
+  /* A JANELA QUE O SERVIDOR USOU, e nao a que a tela digitou.
+   *
+   * Os campos de data sao o que a pessoa ESCREVEU; o `periodo` que volta no painel e' o
+   * que o servidor FEZ com aquilo. Enquanto o padrao era o mes corrente os dois diziam
+   * coisas diferentes, e quem desenha a legenda precisa do segundo.
+   *
+   * UM FIM SOZINHO TAMBEM E' RECORTE: olhando so' o inicio, a tela diria "todo o
+   * periodo" sobre uma conta que parou em setembro. */
+  function temRecorte(){
+    var pr = (PAINEL && PAINEL.periodo) || {};
+    return !!(pr.de || pr.ate);
+  }
+  function janelaDoPainel(){
+    return temRecorte() ? 'no período filtrado' : 'em todo o período';
+  }
+
+  /* Três frases diferentes: "nunca houve lançamento", "ninguém informou motorista" e
+     "este filtro não achou nada" mandam a pessoa para lugares opostos. E cada uma muda
+     conforme haja ou não recorte: sem recorte, falar em período manda procurar um
+     filtro que ninguém usou. */
   function avisoVazio(){
     var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
     var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
     var houve = f.linhas.some(function(l){ return l.situacao !== 'parado'; }) ||
                 p.motoristas.length || p.usuarios.length;
-    if (!houve) return 'Ainda não há saída nem retorno lançado neste mês.';
-    if (FLUXO_FILTRO === 'MOTORISTA') return 'Nenhum lançamento do mês tem motorista informado.';
-    return 'Nenhum movimento no mês para este filtro.';
+    if (!houve) return temRecorte()
+      ? 'Nenhuma saída nem retorno lançado no período escolhido.'
+      : 'Ainda não há saída nem retorno lançado.';
+    if (FLUXO_FILTRO === 'MOTORISTA') return temRecorte()
+      ? 'Nenhum lançamento do período tem motorista informado.'
+      : 'Nenhum lançamento tem motorista informado.';
+    return temRecorte() ? 'Nenhum movimento no período para este filtro.'
+                        : 'Nenhum movimento para este filtro.';
   }
 
   /* A MESMA PERGUNTA DA PENEIRA, e não uma parecida: o número no chip é a promessa do

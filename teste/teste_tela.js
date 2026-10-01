@@ -7330,7 +7330,7 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     .filter(function (t) { return t.indexOf('<') < 0; });
   ok(rotulos.join(' | ') ===
      'Total no Estoque | Total de Saída | Total de Retorno | ' +
-     'Caixas que Saíram e Não Voltaram | Taxa de Retorno do Mês',
+     'Caixas que Saíram e Não Voltaram | Taxa de Retorno',
     'os cartões saem na ordem pedida: o estoque abre, a taxa fecha', rotulos);
 
   /* Sairam a pedido: "Em Circulação" dizia o inverso do estoque, e "Origens Abaixo da
@@ -12518,6 +12518,71 @@ console.log('\n== o editor de falas para a demonstracao ==');
 
   /* ---- O PAINEL OUVE E GRAVA ---- */
   var admV = fsReal.readFileSync(path.join(raizE, 'admin.html'), 'utf8');
+
+  /* ---- O ROTULO SEGUE A JANELA ----
+   *
+   * O painel deixou de cortar por data quando ninguem escolhe periodo. Os cartoes, que
+   * diziam "no mes" e "do Mes", passaram a mentir no instante em que o padrao mudou —
+   * eles nunca calcularam mes nenhum: liam o total do periodo e o rotulo apenas
+   * descrevia o padrao de entao.
+   *
+   * QUEM DIZ QUAL FOI A JANELA E' O SERVIDOR, no `periodo` que ele devolve. Derivar
+   * disso e nao dos campos da tela importa: os campos sao o que a pessoa DIGITOU, e o
+   * servidor e' quem decide o que fez com aquilo. */
+  var iTr = admV.indexOf('  function temRecorte(){');
+  var tr = iTr < 0 ? '' : admV.slice(iTr, admV.indexOf('\n  }', iTr) + 4);
+  var iJp = admV.indexOf('  function janelaDoPainel(){');
+  var jp = iJp < 0 ? '' : admV.slice(iJp, admV.indexOf('\n  }', iJp) + 4);
+  var iAv = admV.indexOf('  function avisoVazio(){');
+  var av = iAv < 0 ? '' : admV.slice(iAv, admV.indexOf('\n  }', iAv) + 4);
+  ok(tr.length > 40 && jp.length > 40 && av.length > 200,
+    'a confer\u00eancia recortou a leitura da janela', [tr.length, jp.length, av.length]);
+
+  if (tr.length > 40 && jp.length > 40) {
+    function janelaCom(periodo) {
+      return new Function('PAINEL',
+        tr + '\n' + jp + '\nreturn janelaDoPainel();')({ periodo: periodo });
+    }
+    var aberta = janelaCom({ de: '', ate: '' });
+    var fechada = janelaCom({ de: '2026-09-01', ate: '' });
+    ok(aberta !== fechada,
+      'o r\u00f3tulo MUDA conforme a janela \u2014 um texto fixo voltaria a dizer "do m\u00eas" sobre ' +
+      'uma conta que agora soma tudo', [aberta, fechada]);
+    ok(aberta.indexOf('m\u00eas') < 0 && fechada.indexOf('m\u00eas') < 0,
+      'e nenhum dos dois fala em M\u00caS \u2014 o painel n\u00e3o conta m\u00eas nenhum, e nunca contou',
+      [aberta, fechada]);
+    ok(janelaCom({ de: '', ate: '2026-09-30' }) === fechada,
+      'e um FIM sozinho tamb\u00e9m \u00e9 recorte \u2014 olhar s\u00f3 o in\u00edcio diria "todo o per\u00edodo" ' +
+      'sobre uma conta que parou em setembro');
+    ok(janelaCom(undefined) === aberta && janelaCom({}) === aberta,
+      'e sem `periodo` nenhum o r\u00f3tulo \u00e9 o aberto \u2014 prometer recorte sem ter cortado ' +
+      '\u00e9 pior do que n\u00e3o prometer nada');
+  }
+
+  if (av.length > 200) {
+    function vazioCom(periodo) {
+      return new Function('PAINEL', 'FLUXO_FILTRO',
+        tr + '\n' + av + '\nreturn avisoVazio();')(
+        { periodo: periodo, fluxo: { linhas: [] },
+          fluxoPessoas: { motoristas: [], usuarios: [] } }, 'ORIGEM');
+    }
+    ok(vazioCom({ de: '', ate: '' }).indexOf('m\u00eas') < 0,
+      'e a frase de tela vazia tamb\u00e9m larga o "m\u00eas" \u2014 sem recorte, dizer "neste m\u00eas" ' +
+      'manda a pessoa procurar um filtro de m\u00eas que n\u00e3o existe',
+      vazioCom({ de: '', ate: '' }));
+    ok(vazioCom({ de: '2026-09-01', ate: '' }) !== vazioCom({ de: '', ate: '' }),
+      'e ela distingue "nunca houve lan\u00e7amento" de "o seu recorte n\u00e3o achou nada" \u2014 ' +
+      'as duas mandam a pessoa para lugares opostos',
+      [vazioCom({ de: '2026-09-01', ate: '' }), vazioCom({ de: '', ate: '' })]);
+  }
+
+  /* E OS ROTULOS VELHOS NAO PODEM SOBRAR em lugar nenhum: eles afirmam um mes que a
+     conta nao faz mais. */
+  ['no m\u00eas, somando s\u00f3 quem deve', 'Taxa de Retorno do M\u00eas'].forEach(function (s) {
+    ok(admV.indexOf(s) < 0,
+      'o r\u00f3tulo fixo ' + JSON.stringify(s) + ' saiu \u2014 ele afirma um m\u00eas que a conta ' +
+      'n\u00e3o faz, e um n\u00famero com a legenda errada \u00e9 pior do que n\u00famero nenhum');
+  });
 
   /* ---- O QUADRO ABRE EM TELA CHEIA ----
    *
