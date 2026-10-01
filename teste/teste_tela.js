@@ -15713,6 +15713,38 @@ console.log('\n== a busca rapida, nas duas larguras ==');
     'e continua achando pelo que o cartão mostra — motorista, caixa, rota: procurar ' +
     'dentro de coisa que não está na tela devolve linha que a pessoa não reconhece');
 
+  /* ---- O ICONE DO CALENDARIO PRECISA SER VISTO ----
+   *
+   * Ele nasce preto no Chrome e some no campo escuro; `invert` o vira branco. A .75 de
+   * opacidade e no tamanho de fabrica, dentro de um campo de 36px, ele lia como sujeira
+   * da borda e nao como coisa que se aperta — e sem ele a pessoa digita a data a dedo.
+   *
+   * E O INVERT NAO PODE VALER NO FUNDO CLARO: la' o icone ja nasce escuro sobre claro,
+   * que e' o certo, e inverte-lo o pintava de branco sobre branco. O campo ficava sem
+   * icone nenhum, e ninguem reportou porque quase todo mundo usa o escuro. */
+  var icone = reg('input[type=date]::-webkit-calendar-picker-indicator');
+  ok(!!icone && icone['opacity'] === '1',
+    'o ícone do calendário aparece inteiro — meio apagado ele lê como sujeira da borda ' +
+    'e não como coisa que se aperta, e a pessoa digita a data a dedo', icone);
+  ok(!!icone && /scale\(1\.\d+\)/.test(icone['transform'] || ''),
+    'e um pouco maior que o de fábrica: num campo de 36px o tamanho padrão é pequeno ' +
+    'demais para o dedo achar', icone && icone['transform']);
+  ok(!!icone && icone['filter'] === 'invert(1)',
+    'e ele é invertido no fundo escuro, que é onde nasceria preto sobre preto');
+  var iconeClaro = reg('[data-fundo="gelo"] input[type=date]::-webkit-calendar-picker-indicator');
+  ok(!!iconeClaro && iconeClaro['filter'] === 'none',
+    'e NÃO é invertido no fundo claro — lá ele já nasce escuro sobre claro, e inverter ' +
+    'o pintava de branco sobre branco: o campo ficava sem ícone nenhum', iconeClaro);
+
+  /* A TIRA VAZIA ANTES DAS DATAS sai pelo VIZINHO, e nao cortando a folga de baixo da
+     barra: a folga existe para quando os CARTOES vem logo depois, e cortá-la resolveria
+     a tela da conciliacao quebrando a de Movimentos. */
+  var puxa = reg('.barra-trava + .periodo-linha');
+  ok(!!puxa && /^-\d+px$/.test(puxa['margin-top'] || ''),
+    'a linha de datas sobe para junto dos botões — um rótulo "De" não se confunde com ' +
+    'botão nenhum, e a tira vazia custava mais altura do que a própria linha de botões',
+    puxa);
+
   /* ---- OS BOTÕES MENORES E AFASTADOS DO CARTÃO ---- */
   var barraCss = reg('.barra-trava');
   var btnCss = reg('.barra-trava__acoes .btn');

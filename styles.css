@@ -1308,10 +1308,22 @@ input[type=search]::-webkit-search-cancel-button{
   filter:invert(1);opacity:.6;cursor:pointer
 }
 input[type=search]::-webkit-search-cancel-button:hover{opacity:1}
-/* O ícone do seletor de data nasce preto no Chrome — some num campo escuro, e a pessoa
-   fica sem saber que dá para clicar. `invert` o vira branco sem depender de imagem. */
+/* O ÍCONE DO SELETOR DE DATA nasce preto no Chrome — some num campo escuro, e a pessoa
+   fica sem saber que dá para clicar. `invert` o vira branco sem depender de imagem.
+
+   OPACIDADE CHEIA E UM POUCO MAIOR: a .75 ele existia e não se via. Num campo de 36px
+   de altura, meio apagado e do tamanho de fábrica, ele lê como sujeira da borda e não
+   como coisa que se aperta — e sem ele a pessoa digita a data inteira a dedo.
+
+   E O INVERT NÃO PODE VALER NO FUNDO CLARO: lá o ícone já nasce escuro sobre claro, que
+   é o certo, e invertê-lo o pintava de branco sobre branco. O campo ficava sem ícone
+   nenhum, e ninguém reportou porque quase todo mundo usa o escuro. */
 input[type=date]::-webkit-calendar-picker-indicator{
-  filter:invert(1);opacity:.75;cursor:pointer;padding:2px;border-radius:4px
+  filter:invert(1);opacity:1;cursor:pointer;padding:2px;border-radius:4px;
+  transform:scale(1.15)
+}
+[data-fundo="gelo"] input[type=date]::-webkit-calendar-picker-indicator{
+  filter:none;opacity:.85
 }
 input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;background:var(--neutro)}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--marinho);outline-offset:-1px;border-color:var(--verde)}
@@ -3601,6 +3613,17 @@ body.sem-rolagem{overflow:hidden}
    para quem nao e administrador o cadeado some da esquerda, entao Limpar e CSV ficam
    sozinhos, colados e ainda mais parecidos com um titulo. */
 .barra-trava{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}
+/* A TIRA VAZIA ANTES DAS DATAS.
+ *
+ * Os 16px de baixo da barra existem para o caso em que os CARTÕES vêm logo depois:
+ * encostados nos botões, eles se leem como o cabeçalho do primeiro cartão — e para quem
+ * não é administrador o cadeado some da esquerda, o que piora a confusão. Essa folga
+ * fica.
+ *
+ * Quando o que vem depois é a linha de DATAS, ela não faz falta: um rótulo "De" não se
+ * confunde com botão nenhum, e a tira vazia custava mais altura do que a própria linha
+ * de botões. Puxar pelo VIZINHO resolve um caso sem desfazer o outro. */
+.barra-trava + .periodo-linha{margin-top:-8px}
 /* OS BOTOES FICAM NA LINHA DO CADEADO, e nao numa faixa propria abaixo dele.
  *
  * Eles ja' estavam escritos lado a lado; no celular era o CHIP que os empurrava para
