@@ -1949,7 +1949,25 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
     return !l.length || l.indexOf(String(doMovimento)) >= 0;
   }
 
-  return naoCancelados(movimentos).filter(function (m) {
+  /* OS CANCELADOS SAO INVISIVEIS POR PADRAO, e isso esta certo: eles nao contam em nada,
+   * e deixa-los na lista de todo dia seria pedir que a pessoa os ignore uma por uma.
+   *
+   * MAS INVISIVEIS SEMPRE E' OUTRA COISA. Um lancamento cancelado por engano sumia de
+   * TODA tela do sistema — a lista, a conciliacao, os totais, e ate' a lixeira, que e'
+   * outra marca. A quantidade continuava inteira no banco, e nao havia um caminho que
+   * levasse ate' ela. O desfazer que nasceu antes desta peneira era inalcancavel: ele
+   * existia, correto, e nenhuma linha cancelada chegava nele.
+   *
+   * Tres estados, e o padrao continua sendo o de hoje: quem nao pede nada nao passa a
+   * ver cancelado nenhum. */
+  var comoCancelados = String(p.cancelados || '').trim();
+  var base = comoCancelados === 'so'
+    ? movimentos.filter(function (m) { return !!m.Cancelado && !m.ExcluidoEm; })
+    : comoCancelados === 'incluir'
+      ? movimentos.filter(function (m) { return !m.ExcluidoEm; })
+      : naoCancelados(movimentos);
+
+  return base.filter(function (m) {
     if (basesPedidas.length && basesPedidas.indexOf(baseDoMovimento(m)) < 0) return false;
     if (de && m.DataRef < de) return false;
     if (ate && m.DataRef > ate) return false;
@@ -2021,6 +2039,10 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       /* O ID de quem lançou vai junto com o NOME. O nome é para ler; o id é para a tela
          decidir se esta pessoa pode corrigir este lançamento. Por nome, dois homônimos
          no cadastro entregariam a um o lançamento do outro. */
+      /* A MARCA DO CANCELAMENTO VIAJA JUNTO. Sem ela a tela nao tem como saber que a
+         linha esta cancelada: ela desenharia "cancelar" em cima do que ja esta
+         cancelado, e o botao de desfazer — que existe — nunca apareceria. */
+      cancelado: !!m.Cancelado, motivoCancel: m.MotivoCancel || '',
       status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID),
       usuarioId: m.UsuarioID, perfil: m.Perfil,
       teste: lancamentoDeTeste(m),

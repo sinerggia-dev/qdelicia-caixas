@@ -998,6 +998,18 @@
         <!-- As opcoes vem da `equipe`, da mesma lista que o servidor usa para rotular.
              Escritas aqui, seriam duas listas sobre a mesma regra. -->
         <div><label for="mvStatus">Status</label><select id="mvStatus" multiple data-multi><option value="">Todos</option></select></div>
+        <!-- OS CANCELADOS SAO INVISIVEIS POR PADRAO, e isso esta certo: eles nao contam
+             em nada, e deixa-los na lista de todo dia seria pedir que a pessoa os
+             ignore um por um. Invisiveis SEMPRE e' outra coisa — um cancelamento por
+             engano sumia de toda tela do sistema, com a quantidade inteira no banco e
+             nenhum caminho ate' ela. Nao e' de varias escolhas porque os tres estados
+             se excluem: ou sem, ou com, ou so'. -->
+        <div><label for="mvCancelados">Cancelados</label>
+          <select id="mvCancelados">
+            <option value="">Sem os cancelados</option>
+            <option value="incluir">Mostrar junto</option>
+            <option value="so">Só os cancelados</option>
+          </select></div>
         <div><label for="mvUsuario">Quem lançou</label><select id="mvUsuario" multiple data-multi><option value="">Todos</option></select></div>
         <!-- MOTORISTA: o nome já era coluna da tabela e não dava para filtrar por ele.
              O lançamento guarda o NOME, e não um id — repintar ou apagar um cadastro não
@@ -5880,6 +5892,10 @@
       usuario: valorFiltro('mvUsuario'),
       motorista: valorFiltro('mvMotorista'),
       trecho:  valorFiltro('mvTrecho'),
+      /* ENTRA NO FILTRO QUE LISTA **E** APAGA, como todos os outros. Fora daqui, a tela
+         mostraria so' os cancelados e o "apagar o que esta no filtro" apagaria o recorte
+         inteiro, cancelados e validos — um recorte maior do que o que esta a vista. */
+      cancelados: valorFiltro('mvCancelados'),
       teste:   valorFiltro('mvTeste'),
       de:      valorFiltro('mvDe'),
       ate:     valorFiltro('mvAte')
@@ -6008,7 +6024,7 @@
      busca: a pessoa trocava o Tipo, a tabela continuava igual, e a conclusão natural era
      que o filtro não funcionava. O botão fica como recarregar. */
   ['mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa', 'mvStatus', 'mvUsuario',
-   'mvMotorista', 'mvTrecho', 'mvTeste', 'mvDe', 'mvAte'].forEach(function(id){
+   'mvMotorista', 'mvTrecho', 'mvTeste', 'mvCancelados', 'mvDe', 'mvAte'].forEach(function(id){
     document.getElementById(id).addEventListener('change', carregarMovimentos);
   });
 
@@ -6103,6 +6119,7 @@
     Q.get(Q.lendo({acao:'movimentos', origem:f.origem, destino:f.destino,
            tipo:f.tipo, fluxo:f.fluxo, caixa:f.caixa, usuario:f.usuario, teste:f.teste,
            situacao:f.situacao, motorista:f.motorista, trecho:f.trecho,
+           cancelados:valorFiltro('mvCancelados'),
            de:f.de, ate:f.ate, limit:500}))
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
@@ -6143,7 +6160,7 @@
    * o dia em que um filtro fosse renomeado a pílula continuaria com o nome antigo.
    */
   var CAMPOS_MOV = ['mvOrigem','mvDestino','mvFluxo','mvTipo','mvCaixa','mvStatus',
-                    'mvUsuario','mvMotorista','mvTrecho','mvDe','mvAte'];
+                    'mvUsuario','mvMotorista','mvTrecho','mvCancelados','mvDe','mvAte'];
 
   function rotuloDoCampo(id){
     var lab = document.querySelector('label[for="'+id+'"]');
@@ -7300,9 +7317,16 @@
                    'title="Corrigir as '+linhasDaCarga(m.registro)+' linhas de '+
                    Q.esc(m.registro)+' de uma vez">a carga</button> ' : '')
              : '')+
+            /* A LINHA CANCELADA NAO SE CANCELA DE NOVO: no lugar dos dois botoes ela
+               oferece a VOLTA. Cancelar nunca apagou nada — a quantidade continua
+               inteira ali —, e sem esta porta um toque errado tirava a carga do saldo
+               para sempre. */
             (Q.ehAdmin()
-             ? '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '+
-               '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>'
+             ? (m.cancelado
+                ? '<button class="mini acao" data-descancelar="'+m.id+'">desfazer o '+
+                  'cancelamento</button>'
+                : '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '+
+                  '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>')
              : '')+'</td></tr>';
       }).join('')+'</tbody></table></div>';
 
@@ -7751,6 +7775,9 @@
     });
     box.querySelectorAll('button[data-excluir]').forEach(function(b){
       b.addEventListener('click', function(){ acaoExcluir(movPorId(b.dataset.excluir)); });
+    });
+    box.querySelectorAll('[data-descancelar]').forEach(function(b){
+      b.addEventListener('click', function(){ acaoDescancelar(movPorId(b.dataset.descancelar)); });
     });
     /* No celular as três viram UM botão por cartão. Três alvos de toque por linha, em
        vinte linhas, são sessenta alvos numa tela onde o dedo cobre dois — e o do meio é

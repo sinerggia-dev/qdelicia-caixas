@@ -2706,6 +2706,63 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
   }
 
 
+  console.log('\n== ver os cancelados, quando se pede ==');
+  {
+    /* Invisiveis por PADRAO esta certo: eles nao contam em nada, e deixa-los na lista de
+     * todo dia seria pedir que a pessoa os ignore um por um.
+     *
+     * Invisiveis SEMPRE era outra coisa. Um cancelamento por engano sumia de TODA tela
+     * do sistema — a lista, a conciliacao, os totais, e ate' a lixeira, que e' outra
+     * marca. A quantidade continuava inteira no banco e nao havia caminho ate' ela: o
+     * desfazer que eu tinha escrito era inalcancavel, e a prova dele passou verde
+     * porque injetou uma linha cancelada direto na funcao que desenha. */
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const mk = (id, canc, lix) => ({
+      ID: id, Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'L2', TipoCaixaID: 'P', Qtd: 10,
+      Status: 'CONFIRMADO', UsuarioID: 'U1', Cancelado: canc,
+      MotivoCancel: canc ? 'engano (U1)' : null,
+      ExcluidoEm: lix ? D('2026-09-29') : null,
+      DataRef: D('2026-09-10'), DataHora: D('2026-09-10')
+    });
+    /* `AMBAS` ESTA CANCELADA **E** NA LIXEIRA, que e' um estado real: cancela-se e
+       depois apaga-se. Sem ela a guarda da lixeira podia sumir inteira sem ninguem
+       notar — foi uma sabotagem escapando que mostrou isso. */
+    const movs = [mk('VIVO', false, false), mk('CANC', true, false),
+                  mk('LIXO', false, true), mk('AMBAS', true, true)];
+    const L1 = [{ ID: 'L1', Nome: 'G' }, { ID: 'L2', Nome: 'R' }];
+    const lista = (q) => F.listaMovimentos(movs, L1, [{ ID: 'P', Nome: 'CX' }],
+      [{ ID: 'U1', Nome: 'u' }], q);
+    const ids = (q) => lista(q).map((m) => m.id).sort().join(',');
+
+    ok(ids({}) === 'VIVO',
+      'sem pedir nada, a lista continua sem os cancelados — eles nao contam em nada, e ' +
+      'na lista de todo dia seriam ruido para ignorar um por um', ids({}));
+    ok(ids({ cancelados: 'incluir' }) === 'CANC,VIVO',
+      'pedindo "junto", eles aparecem ao lado dos validos', ids({ cancelados: 'incluir' }));
+    ok(ids({ cancelados: 'so' }) === 'CANC',
+      'e pedindo "so", a lista e so deles — e por aqui que se acha um cancelamento ' +
+      'feito por engano', ids({ cancelados: 'so' }));
+    ok(ids({ cancelados: 'incluir' }).indexOf('LIXO') < 0 &&
+       ids({ cancelados: 'so' }).indexOf('LIXO') < 0,
+      'e a LIXEIRA nao entra junto em nenhum dos tres — sao duas marcas diferentes, e ' +
+      'quem procura o que cancelou nao esta procurando o que apagou');
+    ok(ids({ cancelados: 'so' }).indexOf('AMBAS') < 0 &&
+       ids({ cancelados: 'incluir' }).indexOf('AMBAS') < 0,
+      'e o que esta nas DUAS marcas continua fora: cancelado e depois apagado e um ' +
+      'estado real, e a lixeira e quem manda nele — restaura-se de la, nao daqui',
+      ids({ cancelados: 'so' }));
+
+    const soCanc = lista({ cancelados: 'so' })[0];
+    ok(soCanc.cancelado === true && String(soCanc.motivoCancel).indexOf('engano') >= 0,
+      'e a linha chega MARCADA como cancelada, com o motivo — sem isso a tela desenha ' +
+      '"cancelar" em cima do que ja esta cancelado, e o botao de desfazer nunca aparece',
+      [soCanc.cancelado, soCanc.motivoCancel]);
+    ok(lista({})[0].cancelado === false,
+      'e a linha viva chega marcada como NAO cancelada, e nao sem a marca — ausente, ' +
+      'ela se leria como falsa por acidente e nao por decisao', lista({})[0].cancelado);
+  }
+
   console.log('\n== desfazer um cancelamento ==');
   {
     /* Cancelar nunca apagou nada: poe uma marca, e a quantidade continua inteira na

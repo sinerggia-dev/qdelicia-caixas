@@ -410,7 +410,10 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
   /* A ÂNCORA É O FIM DA LISTA DE OUVINTES, e não o começo dela: pelo começo, este
      recorte passou a cair numa outra lista de campos que nasceu antes no arquivo — e a
      prova reprovou sem nada ter piorado na tela. */
-  var j = adm.lastIndexOf('[', adm.indexOf("'mvTrecho', 'mvTeste', 'mvDe', 'mvAte'"));
+  /* A ANCORA SEGUE A LISTA, e por isso ela e' procurada pelo PRIMEIRO campo dela e nao
+     por um pedaco do meio: um campo novo entrando entre `mvTeste` e `mvDe` quebrava o
+     recorte, e a prova reprovava sem nada ter piorado na tela. Foi o que aconteceu. */
+  var j = adm.lastIndexOf('[', adm.indexOf("'mvMotorista', 'mvTrecho', 'mvTeste'"));
   var ouvintes = adm.slice(j, adm.indexOf('});', j));
   ok(campos.filter(function (c) { return ouvintes.indexOf("'" + c + "'") < 0; }).length === 0,
     'e todo campo recarrega a lista sozinho ao mudar',
@@ -435,13 +438,23 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
                            tem campo a vista, e e justamente por isso que ele precisa
                            estar aqui: um filtro invisivel que nao viajasse no pedido
                            recortaria a tela sem recortar o apagar. */
-                        mvMotorista: 'motorista', mvTrecho: 'trecho' };
+                        mvMotorista: 'motorista', mvTrecho: 'trecho',
+                        /* Invisiveis por padrao esta certo; invisiveis SEMPRE era outra
+                           coisa — um cancelamento por engano sumia de toda tela do
+                           sistema, com a quantidade inteira no banco e nenhum caminho
+                           ate' ela. */
+                        mvCancelados: 'cancelados' };
   var semMapa = campos.filter(function(c){ return !campoDoPedido[c]; });
   ok(semMapa.length === 0,
     'todo campo da barra tem um nome conhecido no pedido — campo novo entra aqui também',
     semMapa);
+  /* `:f.` OU `:valorFiltro(` — as duas formas chegam ao servidor. A maioria dos campos
+     viaja pelo objeto `f`; os que nao tem lugar nele sao lidos direto da tela no mesmo
+     pedido. O que a prova cobra e' que o nome do parametro ESTEJA no pedido, e nao de
+     qual lado da linha ele foi buscado. */
   var naoViaja = campos.filter(function(c){
-    return pedido.indexOf(campoDoPedido[c] + ':f.') < 0;
+    return pedido.indexOf(campoDoPedido[c] + ':f.') < 0 &&
+           pedido.indexOf(campoDoPedido[c] + ':valorFiltro(') < 0;
   });
   ok(naoViaja.length === 0,
     'e todo campo da barra viaja no pedido: filtro que não chega ao servidor não filtra',
@@ -2392,11 +2405,14 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
      só, com cinco tipos de caixa. */
   ok(/t\.lotes\[m\.lote \|\| m\.id\] = 1;/.test(adm),
     'e "Movimentos" conta LOTES, não linhas — cinco linhas podem ser uma remessa só');
-  /* CANCELADAS NÃO TÊM CARTÃO: o servidor devolve esta lista por `naoCancelados()`, e
-     um cartão que mostra zero para sempre é pior que ausência — ele AFIRMA que não há
-     nenhuma. */
+  /* CANCELADAS NAO TEM CARTAO, e a razao mudou de lugar.
+     Era "o servidor as filtra antes, entao o cartao marcaria zero para sempre". O
+     servidor agora SABE devolve-las — tres estados, pedidos pelo filtro —, mas o padrao
+     continua sendo sem elas, e um cartao que so' sai de zero quando alguem mexe num
+     filtro escondido continua afirmando mais do que sabe. O caminho e' o filtro, que
+     diz o que esta mostrando. */
   var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
-  ok(/return naoCancelados\(movimentos\)\.filter/.test(log) &&
+  ok(/comoCancelados === 'so'/.test(log) && /naoCancelados\(movimentos\)/.test(log) &&
      !/'Canceladas'/.test(adm),
     'e não há cartão de canceladas: o servidor as filtra antes, e um zero permanente ' +
     'afirma que não existe nenhuma');
@@ -11913,6 +11929,28 @@ console.log('\n== Motorista/Conferente ==');
      saida so', que era corrigir de novo por cima e deixar duas marcas para um erro. */
   ok(comBotao.indexOf('data-dcorrigir') > 0 && comBotao.indexOf('data-drestaurar') > 0,
     'e quem é recebe corrigir e restaurar');
+  /* ---- E EM MOVIMENTOS, A LINHA CANCELADA TROCA DE BOTOES ----
+   *
+   * Ali o botao de cancelar mora ao lado do de excluir. Numa linha que JA' esta
+   * cancelada, oferecer "cancelar" e' oferecer o que a rota recusa — e deixar de
+   * oferecer a volta e' esconder a unica saida de quem cancelou por engano. */
+  var iAcc = adm.indexOf("'<td>'+(Q.podeCorrigir(Q.sessao(), m)");
+  var acc = iAcc < 0 ? '' : adm.slice(iAcc, adm.indexOf('</td></tr>', iAcc));
+  ok(acc.length > 300, 'a conferência recortou as ações da linha de Movimentos', acc.length);
+  ok(acc.indexOf('m.cancelado') > 0,
+    'a linha de Movimentos OLHA a marca de cancelada antes de escolher os botões — sem ' +
+    'isso ela oferece "cancelar" em cima do que já está cancelado, e a volta nunca ' +
+    'aparece', acc.slice(0, 200));
+  ok(acc.indexOf('data-descancelar') > 0,
+    'e oferece o desfazer — cancelar nunca apagou nada, e sem esta porta um toque ' +
+    'errado tirava a carga do saldo para sempre');
+  var iCanc = acc.indexOf('data-descancelar');
+  var iCanc2 = acc.indexOf('data-cancelar');
+  ok(iCanc > 0 && iCanc2 > 0 && iCanc < iCanc2,
+    'e os dois são EXCLUSIVOS: a volta vem no ramo da cancelada, e cancelar/excluir no ' +
+    'outro — juntos, a mesma linha ofereceria cancelar o que já está cancelado',
+    [iCanc, iCanc2]);
+
   /* A LINHA CANCELADA GANHA A VOLTA, e so' ela. Cancelar nunca apagou nada — a
      quantidade continua inteira ali —, mas faltava a porta de volta, e um toque errado
      tirava a carga do saldo para sempre com o numero a vista e inalcancavel. Aconteceu

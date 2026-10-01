@@ -730,6 +730,11 @@ async function limparMovimentos(p) {
     local: p.local, origem: p.origem, destino: p.destino,
     tipo: p.tipo, fluxo: p.fluxo, caixa: p.caixa, usuario: p.usuario, teste: p.teste,
     situacao: p.situacao, motorista: p.motorista, trecho: p.trecho,
+    /* O RECORTE DE CANCELADOS VIAJA JUNTO, como todos os outros: a tela pode estar
+       mostrando SO' os cancelados, e sem este campo o apagar leria a lista sem eles —
+       apagando um conjunto diferente do que esta a vista, que e' o pior desfecho
+       possivel para um botao com este nome. */
+    cancelados: p.cancelados,
     de: p.de, ate: p.ate, limit: 100000
   };
   var ids = L.listaMovimentos(d.movimentos, d.locais, d.tipos, d.usuarios, filtro)
