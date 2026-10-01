@@ -1552,10 +1552,16 @@ tr.ruim{background:var(--vermelho-claro)}
  * fechada, e nao como mais nove colunas na tabela.
  * FUNDO PROPRIO e recuo: sem eles, a gaveta se le como mais uma linha da tabela, e a
  * pessoa a confunde com um par. */
-.abre-par{margin-right:6px;padding:0;width:16px;border:0;background:none;
+.abre-par{margin-right:6px;padding:0 5px;min-width:16px;border:0;background:none;
   color:var(--txt3);cursor:pointer;font-size:11px;line-height:1}
 .abre-par:hover{color:var(--txt)}
-.abre-par.aberto{transform:rotate(90deg);color:var(--marca-txt)}
+.abre-par.aberto{color:var(--marca-txt)}
+/* A CONTA AO LADO DA SETA. Sozinha, ela era um triangulo de dezesseis pixels sem rotulo:
+   quem procurava onde corrigir nao a achava e concluia que no computador nao dava. Com o
+   numero, ela promete a mesma coisa que o botao escrito do celular.
+   E a seta gira SO' ELA — girando o botao inteiro, o numero virava de lado. */
+.abre-par.aberto > span{color:var(--marca-txt)}
+.abre-par__n{font-variant-numeric:tabular-nums;font-size:11.5px;margin-left:1px}
 tr.par-linhas > td{background:var(--campo);padding:0}
 .lp{display:flex;flex-direction:column;gap:1px;padding:8px 10px 8px 26px}
 .lp__l{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:6px 8px;

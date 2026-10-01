@@ -11867,7 +11867,7 @@ console.log('\n== Motorista/Conferente ==');
   var iLin = adm.indexOf('  function linhasDoPar(par){');
   var fimLin = adm.indexOf('  function cartaoPar(par){');
   var fonteLin = iLin < 0 || fimLin < 0 ? '' : adm.slice(iLin, fimLin);
-  ok(fonteLin.length > 500 && fonteLin.indexOf('data-dexcluir') > 0,
+  ok(fonteLin.length > 500 && fonteLin.indexOf('data-dcorrigir') > 0,
     'a conferência recortou o desenho das linhas — recorte vazio faria as provas abaixo ' +
     'passarem sem rodar nada', fonteLin.length);
   var Qfalso = { esc: function (x) { return String(x == null ? '' : x); },
@@ -11883,16 +11883,24 @@ console.log('\n== Motorista/Conferente ==');
       });
   }
   var comBotao = desenha(true), semBotao = desenha(false);
-  ok(semBotao.indexOf('data-dexcluir') < 0 && semBotao.indexOf('data-dcorrigir') < 0 &&
-     semBotao.indexOf('data-dcancelar') < 0,
+  ok(semBotao.indexOf('data-drestaurar') < 0 && semBotao.indexOf('data-dcorrigir') < 0,
     'quem não é Admin, Gestor nem Gerente não recebe botão nenhum — oferecido, ele ' +
     'levaria a recusa da rota DEPOIS de escrever o motivo', semBotao.length);
   ok(semBotao.indexOf('M000041') > 0,
     'mas continua vendo as linhas: a permissão é de ALTERAR, e não de ver — quem abre ' +
     'esta tela abre para conferir uma divergência');
-  ok(comBotao.indexOf('data-dexcluir') > 0 && comBotao.indexOf('data-dcancelar') > 0 &&
-     comBotao.indexOf('data-dcorrigir') > 0,
-    'e quem é recebe as três ações');
+  /* DUAS ACOES, E SO' ELAS. Cancelar e excluir saem da conciliacao: ela existe para
+     COMPARAR duas contas, e tirar uma linha daqui muda o par que se esta' lendo no
+     instante em que se olha para ele — a diferenca que trouxe a pessoa ate' aqui vira
+     outra sem que nada diga isso. As duas continuam em Movimentos.
+     RESTAURAR entra no lugar: corrigir sem volta deixava quem errou de dedo com uma
+     saida so', que era corrigir de novo por cima e deixar duas marcas para um erro. */
+  ok(comBotao.indexOf('data-dcorrigir') > 0 && comBotao.indexOf('data-drestaurar') > 0,
+    'e quem é recebe corrigir e restaurar');
+  ok(comBotao.indexOf('data-dexcluir') < 0 && comBotao.indexOf('data-dcancelar') < 0,
+    'e NÃO recebe cancelar nem excluir aqui — tirar uma linha da conciliação muda o par ' +
+    'que se está lendo no instante em que se olha para ele; as duas vivem em Movimentos',
+    comBotao.length);
 
   /* A DECLARACAO PRIMEIRO. Ela e o numero contra o qual se compara; lida depois das
      contagens, obriga a subir os olhos para achar a referencia. */

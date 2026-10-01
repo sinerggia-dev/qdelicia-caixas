@@ -2706,6 +2706,135 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
   }
 
 
+  console.log('\n== desfazer a ultima correcao ==');
+  {
+    /* Corrigir nao tinha volta. Quem errava de dedo tinha uma saida so' — corrigir de
+     * novo por cima —, e o historico ficava com duas marcas para um erro: a primeira
+     * dizendo que o numero mudou, a segunda dizendo que mudou de volta, e nenhuma das
+     * duas dizendo que a primeira foi engano.
+     *
+     * UM PASSO POR TOQUE. Tres correcoes por tres razoes nao se jogam fora juntas. */
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const nomes = { usuarios: {}, locais: { L1: 'Galpão', L2: 'Caruaru' }, tipos: { P: 'CX P' } };
+    const base = () => ({
+      ID: 'M1', Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'L2', TipoCaixaID: 'P',
+      Qtd: 100, Status: 'CONFIRMADO', UsuarioID: 'U1',
+      DataRef: D('2026-09-10'), DataHora: D('2026-09-10'), Historico: []
+    });
+    const aplicar = (mov, r) => {
+      Object.keys(r.patch).forEach((k) => { mov[k] = r.patch[k]; });
+      mov.Historico = r.historico;
+      return mov;
+    };
+    const LIVRE = { senhaOk: true };
+
+    // --- uma correcao, depois desfeita ---
+    const m = base();
+    const c1 = F.montarCorrecao(m, { Qtd: 250, motivo: 'contagem refeita', usuarioId: 'U2' },
+      D('2026-09-11'), nomes, LIVRE);
+    ok(c1.ok && c1.patch.Qtd === 250, 'a correção muda a quantidade', c1);
+    ok(c1.entradas[0].campoId === 'Qtd' && c1.entradas[0].deCru === 100,
+      'e o histórico guarda o valor CRU ao lado do legível — sem ele o restauro teria ' +
+      'de adivinhar o id a partir do nome, e dois locais de mesmo nome o mandariam ' +
+      'para o lugar errado calado', c1.entradas[0]);
+    aplicar(m, c1);
+
+    const r1 = F.montarRestauro(m, { motivo: 'foi engano', usuarioId: 'U2' },
+      D('2026-09-12'), nomes, LIVRE);
+    ok(r1.ok && r1.patch.Qtd === 100,
+      'o restauro devolve a quantidade de antes da correção', r1.patch);
+    aplicar(m, r1);
+    ok(m.Historico.length === 2 && m.Historico[1].restauro === true,
+      'e ele ENTRA no histórico — desfazer sem rastro faria do histórico um lugar onde ' +
+      'se apaga o que incomoda, que é o oposto do que ele existe para fazer',
+      m.Historico.map((h) => h.campo + ':' + h.de + '>' + h.para));
+
+    // --- desfazer duas vezes anda dois passos ---
+    const m2 = base();
+    aplicar(m2, F.montarCorrecao(m2, { Qtd: 200, motivo: 'primeira', usuarioId: 'U2' },
+      D('2026-09-11'), nomes, LIVRE));
+    aplicar(m2, F.montarCorrecao(m2, { Qtd: 300, motivo: 'segunda', usuarioId: 'U2' },
+      D('2026-09-12'), nomes, LIVRE));
+    const v1 = F.montarRestauro(m2, { motivo: 'desfaz a segunda', usuarioId: 'U2' },
+      D('2026-09-13'), nomes, LIVRE);
+    aplicar(m2, v1);
+    ok(m2.Qtd === 200, 'o primeiro desfazer volta UM passo, e não ao original — três ' +
+      'correções por três razões não se jogam fora juntas', m2.Qtd);
+    const v2 = F.montarRestauro(m2, { motivo: 'desfaz a primeira', usuarioId: 'U2' },
+      D('2026-09-14'), nomes, LIVRE);
+    aplicar(m2, v2);
+    ok(m2.Qtd === 100, 'e o segundo anda mais um — o restauro não se desfaz a si mesmo, ' +
+      'senão o par iria e voltaria para sempre no mesmo lugar', m2.Qtd);
+    const v3 = F.montarRestauro(m2, { motivo: 'não há mais', usuarioId: 'U2' },
+      D('2026-09-15'), nomes, LIVRE);
+    ok(!v3.ok && /não há correção/i.test(v3.erro || ''),
+      'e no fim ele diz que não há mais o que desfazer, em vez de gravar nada',
+      v3.erro);
+
+    // --- o grupo inteiro daquele instante ---
+    const m3 = base();
+    aplicar(m3, F.montarCorrecao(m3,
+      { Qtd: 500, OrigemID: 'L2', motivo: 'dois campos', usuarioId: 'U2' },
+      D('2026-09-11'), nomes, LIVRE));
+    ok(m3.Qtd === 500 && m3.OrigemID === 'L2', 'uma correção mexe em vários campos de uma vez');
+    const r3 = F.montarRestauro(m3, { motivo: 'desfaz tudo daquele toque', usuarioId: 'U2' },
+      D('2026-09-12'), nomes, LIVRE);
+    ok(r3.ok && r3.patch.Qtd === 100 && r3.patch.OrigemID === 'L1',
+      'e o restauro desfaz o GRUPO inteiro daquele instante — desfazendo só um campo, a ' +
+      'linha ficaria com metade de cada versão', r3.patch);
+
+    // --- o que NAO se desfaz ---
+    const m4 = base();
+    aplicar(m4, F.montarCorrecao(m4, { motivo: 'só olhei', usuarioId: 'U2' },
+      D('2026-09-11'), nomes, LIVRE));
+    ok(m4.Historico.length === 1,
+      'abrir e gravar sem mudar nada fica no histórico como consulta');
+    const r4 = F.montarRestauro(m4, { motivo: 'tentar', usuarioId: 'U2' },
+      D('2026-09-12'), nomes, LIVRE);
+    ok(!r4.ok, 'e uma CONSULTA não se desfaz — ela não mudou nada que se possa devolver',
+      r4.erro);
+
+    const m5 = base();
+    m5.Historico = [{ em: '2026-09-11T00:00:00.000Z', por: 'U2', campo: 'quantidade',
+                      motivo: 'antiga', de: '100', para: '250' }];
+    m5.Qtd = 250;
+    const r5 = F.montarRestauro(m5, { motivo: 'tentar', usuarioId: 'U2' },
+      D('2026-09-12'), nomes, LIVRE);
+    ok(!r5.ok,
+      'e uma correção ANTERIOR ao valor cru também não — reconstruir o id a partir do ' +
+      'nome acertaria quase sempre, e o "quase" aqui é mandar carga para o lugar errado ' +
+      'sem avisar ninguém', r5.erro);
+
+    // --- as mesmas trancas da correcao ---
+    const m6 = base();
+    aplicar(m6, F.montarCorrecao(m6, { Qtd: 250, motivo: 'x', usuarioId: 'U2' },
+      D('2026-09-11'), nomes, LIVRE));
+    ok(!F.montarRestauro(m6, { usuarioId: 'U2' }, D('2026-09-12'), nomes, LIVRE).ok,
+      'o restauro exige MOTIVO, como a correção — um desfazer sem razão escrita é um ' +
+      'número que mudou sozinho aos olhos de quem confere depois');
+    const semSenha = F.montarRestauro(m6, { motivo: 'sem senha', usuarioId: 'U9' },
+      D('2026-10-20'), nomes, {});
+    ok(!semSenha.ok && semSenha.precisaSenha === true,
+      'e fora da janela de conserto livre ele pede a SENHA do escritório — restaurar ' +
+      'muda o dado como corrigir muda, e uma porta mais barata para o mesmo estrago ' +
+      'seria a porta que todo mundo passaria a usar', semSenha.erro);
+    /* O CANCELADO PRECISA TER O QUE DESFAZER, senao a prova passa pela porta errada:
+       sem historico, a recusa vem do "nao ha correcao" e a guarda do cancelamento podia
+       sumir inteira sem ninguem notar — foi uma sabotagem escapando que mostrou isso. */
+    const cancelado = base();
+    aplicar(cancelado, F.montarCorrecao(cancelado,
+      { Qtd: 250, motivo: 'antes de cancelar', usuarioId: 'U2' },
+      D('2026-09-11'), nomes, LIVRE));
+    cancelado.Cancelado = true;
+    const rc = F.montarRestauro(cancelado, { motivo: 'x', usuarioId: 'U2' },
+      D('2026-09-12'), nomes, LIVRE);
+    ok(!rc.ok && /cancelado/i.test(rc.erro || ''),
+      'e um movimento CANCELADO não se restaura, mesmo tendo correção para desfazer — ' +
+      'ele já não conta no saldo, e mexer nos números de uma linha que não vale é ' +
+      'arrumar o que ninguém lê', rc.erro);
+  }
+
   console.log('\n== o painel abre o periodo inteiro ==');
   {
     /* O PADRAO ERA "DO DIA 1 DO MES ATE' AGORA", e no dia 1 a janela tinha onze horas.

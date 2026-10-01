@@ -252,6 +252,7 @@ async function rotaPost(p) {
   if (acao === 'conferir') return await conferir(p);
   if (acao === 'cancelar') return await cancelar(p);
   if (acao === 'corrigir') return await corrigir(p);
+  if (acao === 'restaurarCorrecao') return await restaurarCorrecao(p);
   if (acao === 'corrigirRegistro') return await corrigirRegistro(p);
   if (acao === 'salvarLocal') return await salvarRegistro('Locais', p);
   if (acao === 'salvarTipo') return await salvarRegistro('TiposCaixa', p);
@@ -478,6 +479,40 @@ async function corrigir(p) {
      quantidade" depois de uma gravação que não mudou nada seria a mesma mentira da
      etiqueta, dita em outro lugar. */
   return { ok: true, alterou: r.entradas, consulta: !!r.consulta };
+}
+
+/**
+ * DESFAZER A ÚLTIMA CORREÇÃO.
+ *
+ * PELA MESMA PORTA DA CORREÇÃO, e com as mesmas trancas: a barreira da declaração, a
+ * janela de conserto livre e, passada ela, a senha do escritório. Restaurar muda o dado
+ * exatamente como corrigir muda — uma porta mais barata para o mesmo estrago seria a
+ * porta que todo mundo passaria a usar.
+ *
+ * E ELE DEIXA RASTRO. O restauro entra no histórico como qualquer outra mudança: um
+ * desfazer silencioso transformaria o histórico num lugar onde se apaga o que incomoda.
+ */
+async function restaurarCorrecao(p) {
+  var d = await db.carregarTudo();
+  var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
+  var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
+  if (barra) return barra;
+
+  var agora = new Date();
+  var livre = L.correcaoLivre(mov, p.usuarioId, agora);
+  var mandou = p.senha !== undefined && p.senha !== null && String(p.senha) !== '';
+  var senhaOk = livre || (mandou && conferirSenhaCorrecao(p.senha, d.config));
+
+  var r = L.montarRestauro(mov, p, agora, {
+    usuarios: L.mapaNomes(d.usuarios || []),
+    locais: L.mapaNomes(d.locais || []),
+    tipos: L.mapaTipos(d.tipos || [])
+  }, { senhaOk: senhaOk, senhaErrada: mandou && !senhaOk });
+  if (!r.ok) return r;
+  var patch = db.MOV.para(r.patch);
+  patch.historico = r.historico;
+  await db.update('movimentos', mov.ID, patch);
+  return { ok: true, alterou: r.entradas };
 }
 
 /**

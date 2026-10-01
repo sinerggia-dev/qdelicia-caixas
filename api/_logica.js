@@ -1402,6 +1402,119 @@ function linhasDoRegistro(movimentos, registro) {
   });
 }
 
+/* COMO SE ESCREVE UM VALOR NO HISTORICO, nas duas formas, num lugar so': a correcao e o
+   restauro gravam o mesmo tipo de entrada, e escrito duas vezes o dia em que um campo
+   novo precisasse de tratamento so' um dos dois o receberia. */
+function legivelDe(c, v, nomes) {
+  if (c.data) return soData(v);
+  if (v === null || v === undefined) return '';
+  return c.mapa && nomes && nomes[c.mapa] ? nome(nomes[c.mapa], v) : String(v);
+}
+function cruDe(c, v) {
+  if (v === null || v === undefined) return '';
+  if (c.data) return iso(v);
+  if (c.numero) return Number(v);
+  return String(v);
+}
+
+/**
+ * O QUE DA' PARA DESFAZER.
+ *
+ * So' uma CORRECAO se desfaz: a consulta nao mudou nada, e um restauro ja' e' o desfazer
+ * de alguma coisa — marcar o restauro como desfazivel faria o par ir e voltar para
+ * sempre no mesmo lugar. Deixando-o de fora, apertar Restaurar de novo anda mais um
+ * passo para tras, que e' o que se espera de um desfazer.
+ *
+ * E SO' O QUE TEM O VALOR CRU. As correcoes feitas antes deste campo existir guardaram
+ * apenas o texto legivel; reconstruir o id a partir do nome acertaria quase sempre, e o
+ * "quase" aqui e' mandar carga para o lugar errado sem avisar ninguem.
+ */
+function podeRestaurar(h) {
+  return !!(h && h.campoId && h.deCru !== undefined && h.deCru !== null &&
+            !h.restauro && String(h.campo || '') !== MARCA_CONSULTA);
+}
+
+/**
+ * O RESTAURO: desfaz a ULTIMA correcao, e deixa rastro de que desfez.
+ *
+ * UMA CORRECAO DE CADA VEZ, e nao "volta ao original": a carga pode ter sido corrigida
+ * tres vezes por tres razoes, e jogar tudo fora de uma vez desfaz duas que ninguem
+ * pediu para desfazer. Um passo por toque e' previsivel, e dois toques andam dois
+ * passos.
+ *
+ * O GRUPO INTEIRO DAQUELE INSTANTE, e nao uma linha: uma correcao mexe em varios campos
+ * de uma vez — trocar o motorista reescreve o nome curto e o completo juntos —, e
+ * desfazer so' um deixaria a linha com metade de cada versao.
+ *
+ * O RESTAURO ENTRA NO HISTORICO como qualquer mudanca. Desfazer sem deixar rastro
+ * transformaria o historico num lugar onde se pode apagar o que incomoda, que e' o
+ * oposto do que ele existe para fazer.
+ */
+function montarRestauro(mov, p, agora, nomes, guarda) {
+  if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
+  if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira.' };
+  if (mov.Cancelado) return { ok: false, erro: 'Movimento cancelado não se restaura.' };
+  var motivo = String(p.motivo || '').trim();
+  if (!motivo) return { ok: false, erro: 'Descreva o motivo do restauro.' };
+
+  agora = agora || new Date();
+  guarda = guarda || {};
+  /* A MESMA TRANCA DA CORRECAO: restaurar muda o dado como corrigir muda, e uma porta
+     mais barata para o mesmo estrago seria a porta que se usa. */
+  if (!correcaoLivre(mov, p.usuarioId, agora) && guarda.senhaOk !== true) {
+    return {
+      ok: false, precisaSenha: true,
+      erro: guarda.senhaErrada
+        ? 'Senha incorreta.'
+        : 'Passaram os ' + JANELA_CORRECAO_MIN + ' minutos de conserto livre. Informe a ' +
+          'senha do escritório.'
+    };
+  }
+
+  var hist = (mov.Historico || []);
+  /* CADA RESTAURO DIZ QUAL CORRECAO DESFEZ, e e' por isso que o segundo toque anda de
+     verdade. Sem essa marca, o varredor so' pulava os restauros e caia de novo na
+     correcao que o restauro anterior ja' tinha desfeito: ele regravava o mesmo valor que
+     ja' estava la', o toque nao fazia nada visivel, e o historico ganhava uma linha
+     dizendo que mudou de 200 para 200. */
+  var desfeitos = {};
+  hist.forEach(function (h) {
+    if (h && h.restauro && h.desfez) desfeitos[String(h.desfez)] = true;
+  });
+  function aindaDesfazivel(h) {
+    return podeRestaurar(h) && !desfeitos[String(h.em)];
+  }
+  var i = hist.length - 1;
+  while (i >= 0 && !aindaDesfazivel(hist[i])) i--;
+  if (i < 0) {
+    return { ok: false, erro: 'Não há correção para restaurar neste lançamento.' };
+  }
+  var quando = hist[i].em;
+  var porCampo = {};
+  CORRIGIVEIS.forEach(function (c) { porCampo[c.campo] = c; });
+
+  var patch = {}, entradas = [];
+  hist.forEach(function (h) {
+    if (!aindaDesfazivel(h) || h.em !== quando) return;
+    var c = porCampo[h.campoId];
+    if (!c) return;
+    var valor = c.data ? data(h.deCru) : (c.numero ? Number(h.deCru) : String(h.deCru));
+    if (c.numero && isNaN(valor)) return;
+    patch[c.campo] = valor;
+    entradas.push({
+      em: iso(agora), por: String(p.usuarioId || ''), campo: c.rotulo, motivo: motivo,
+      de: legivelDe(c, mov[c.campo], nomes), para: legivelDe(c, valor, nomes),
+      campoId: c.campo, deCru: cruDe(c, mov[c.campo]), paraCru: cruDe(c, valor),
+      restauro: true, desfez: quando
+    });
+  });
+  if (!entradas.length) {
+    return { ok: false, erro: 'Não há correção para restaurar neste lançamento.' };
+  }
+  return { ok: true, patch: patch, historico: hist.concat(entradas),
+           entradas: entradas, desfez: quando };
+}
+
 function montarCorrecao(mov, p, agora, nomes, guarda) {
   if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
   if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira — restaure antes de corrigir.' };
@@ -1449,14 +1562,15 @@ function montarCorrecao(mov, p, agora, nomes, guarda) {
       if ((c.normaliza ? c.normaliza(velho) : String(velho || '')) === novo) return;
     }
     patch[c.campo] = novo;
-    function legivel(v) {
-      if (c.data) return soData(v);
-      if (v === null || v === undefined) return '';
-      return c.mapa && nomes && nomes[c.mapa] ? nome(nomes[c.mapa], v) : String(v);
-    }
+    /* O LEGIVEL E O CRU, LADO A LADO.
+       O legivel e' para quem LE o historico: "origem: de Caruaru para Joao Pessoa". O
+       cru e' para quem o DESFAZ — e' o id, a data e o numero como estao na linha. Sem
+       ele o restauro teria de adivinhar o id a partir do nome, e dois locais de mesmo
+       nome o mandariam para o lugar errado calado. */
     entradas.push({
       em: iso(agora), por: String(p.usuarioId || ''), campo: c.rotulo, motivo: motivo,
-      de: legivel(velho), para: legivel(novo)
+      de: legivelDe(c, velho, nomes), para: legivelDe(c, novo, nomes),
+      campoId: c.campo, deCru: cruDe(c, velho), paraCru: cruDe(c, novo)
     });
   });
 
@@ -2609,6 +2723,7 @@ module.exports = {
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
   montarMovimento: montarMovimento, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
+  montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
   JANELA_CORRECAO_MIN: JANELA_CORRECAO_MIN, diaDaOperacao: diaDaOperacao,
   livreAte: livreAte, correcaoLivre: correcaoLivre,
   efetiva: efetiva, saldos: saldos, emConferencia: emConferencia, aging: aging,

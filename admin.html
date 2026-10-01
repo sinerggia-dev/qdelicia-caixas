@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=c3c4a9ea">
+<link rel="stylesheet" href="styles.css?v=0183f70b">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -3471,9 +3471,18 @@
           (m.cancelado ? '<span class="tag cinza">cancelado</span>' : '')+
           (pode && !m.cancelado
             ? '<span class="lp__a">'+
+                /* SO' CORRIGIR E RESTAURAR, a pedido.
+                   Cancelar e excluir fazem o lancamento sair da conta — e esta tela
+                   existe para COMPARAR duas contas, a do motorista e a do conferente.
+                   Tirar uma linha daqui muda o par que se esta' lendo no instante em que
+                   se olha para ele, e a diferenca que levou a pessoa ate' aqui passa a
+                   ser outra sem que nada diga isso. As duas continuam em Movimentos,
+                   que e' a tela de mexer no lancamento.
+                   RESTAURAR desfaz a ultima correcao: corrigir sem volta deixava quem
+                   errou de dedo com uma unica saida, que era corrigir de novo por cima
+                   e deixar duas marcas no historico para um erro so'. */
                 '<button class="mini" type="button" data-dcorrigir="'+Q.esc(m.id)+'">corrigir</button>'+
-                '<button class="mini" type="button" data-dcancelar="'+Q.esc(m.id)+'">cancelar</button>'+
-                '<button class="mini perigo" type="button" data-dexcluir="'+Q.esc(m.id)+'">excluir</button>'+
+                '<button class="mini" type="button" data-drestaurar="'+Q.esc(m.id)+'">restaurar</button>'+
               '</span>'
             : '')+
         '</div>';
@@ -3585,8 +3594,7 @@
         b.classList.toggle('aberto', !alvo.hidden);
       });
     });
-    [['dcorrigir', acaoCorrigir], ['dcancelar', acaoCancelar],
-     ['dexcluir', acaoExcluir]].forEach(function(par){
+    [['dcorrigir', acaoCorrigir], ['drestaurar', acaoRestaurar]].forEach(function(par){
       box.querySelectorAll('[data-'+par[0]+']').forEach(function(b){
         b.addEventListener('click', function(){
           par[1](movPorId(b.dataset[par[0]]));
@@ -3712,8 +3720,15 @@
            a tabela para o lado. */
         return '<tr class="'+classe+'">'+cs.map(function(c, iC){
           return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+'>'+
+            /* A SETA SOZINHA NAO SE ACHAVA. No celular a gaveta se abre por um botao
+               escrito — "3 lançamentos" —, e no computador era um triangulo de dezesseis
+               pixels sem rotulo: quem procurava onde corrigir nao encontrava, e concluia
+               que no computador nao dava. Agora ela diz quantas linhas tem, que e' a
+               mesma promessa das duas telas. */
             (iC === 0 ? '<button class="abre-par" type="button" data-abrir-par="'+
-                        Q.esc(par.chave)+'" title="ver os lançamentos deste par">▸</button>'
+                        Q.esc(par.chave)+'" title="ver e corrigir os lançamentos deste '+
+                        'par">▸ <span class="abre-par__n">'+
+                        Q.num((par.itens || []).length)+'</span></button>'
                       : '')+
             c.d.v(par)+'</td>';
         }).join('')+'</tr>'+
@@ -7332,6 +7347,37 @@
      lugares, e o dia em que uma mudasse a outra continuaria como estava. */
   function acaoCorrigir(m){
     if (m) formCorrigir(m);
+  }
+
+  /* DESFAZER A ULTIMA CORRECAO.
+   *
+   * UM PASSO POR TOQUE, e nao "volta ao original": a carga pode ter sido corrigida tres
+   * vezes por tres razoes, e jogar tudo fora de uma vez desfaz duas que ninguem pediu.
+   * Dois toques andam dois passos.
+   *
+   * A SENHA E' PEDIDA SO' QUANDO O SERVIDOR DIZ QUE FAZ FALTA, e nao antes: dentro da
+   * janela de conserto livre nao ha' o que perguntar, e perguntar por via das duvidas
+   * ensina todo mundo a ter a senha do escritorio na ponta da lingua. */
+  function acaoRestaurar(m){
+    if (!m) return;
+    var motivo = prompt('Desfazer a ÚLTIMA correção deste lançamento — os valores ' +
+                        'voltam ao que eram antes dela.\nMotivo:');
+    if (motivo === null) return;
+    enviarRestauro(m, motivo, '');
+  }
+  function enviarRestauro(m, motivo, senha){
+    Q.post({ acao:'restaurarCorrecao', id:m.id, motivo:motivo, senha:senha,
+             usuarioId:Q.sessao().id }).then(function(r){
+      if (!r.ok && r.precisaSenha){
+        var s = prompt(r.erro + '\nSenha do escritório:');
+        if (s === null) return;
+        return enviarRestauro(m, motivo, s);
+      }
+      if (!r.ok) throw new Error(r.erro);
+      Q.toast('Restaurado: ' + (r.alterou || []).map(function(a){ return a.campo; })
+              .join(', ') + '.', 'ok');
+      depoisDeMexer(m);
+    }).catch(function(e){ Q.toast(e.message, 'erro'); });
   }
 
   function acaoCancelar(m){
