@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=7ab3335c">
+<link rel="stylesheet" href="styles.css?v=cd2e3772">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1266,9 +1266,13 @@
                E NA MESMA LINHA DO RESTO: numa tela larga, duas faixas para um cadeado,
                dois botões e dois campos era altura gasta antes do primeiro número. No
                celular elas voltam a se empilhar sozinhas, porque a linha quebra. -->
-          <div class="periodo-linha periodo-linha--miuda">
-          <div><label for="dcDe">De</label><input id="dcDe" type="date"></div>
-          <div><label for="dcAte">Até</label><input id="dcAte" type="date"></div>
+          <!-- SEM WRAPPER NO MEIO. Os campos eram filhos de um `.periodo-linha`, que e'
+               ele proprio um flex que QUEBRA, dentro desta barra, que tambem quebra:
+               dois contentores disputando a mesma linha nunca cabem numa so' de forma
+               confiavel — a busca caia para baixo das datas, e a barra virava duas
+               faixas tortas. Filhos diretos, uma regra de quebra so'. -->
+          <div class="bt-campo"><label for="dcDe">De</label><input id="dcDe" type="date"></div>
+          <div class="bt-campo"><label for="dcAte">Até</label><input id="dcAte" type="date"></div>
           <!-- A BUSCA GERAL procura no que a TELA MOSTRA — motorista, rota, conferente,
                código do lançamento, base, tipo e situação —, e não numa coluna só.
                Procurar dentro de coisa que não está na tela devolve linha que a pessoa
@@ -1276,10 +1280,9 @@
                algo que ela só saberia depois de achar.
                PENEIRA AQUI, e não no servidor: os pares já estão na mão, e uma ida à
                rede a cada letra digitada daria uma tela que pisca enquanto se escreve. -->
-          <div class="dc-busca"><label for="dcBusca">Buscar</label>
+          <div class="bt-campo bt-campo--busca"><label for="dcBusca">Buscar</label>
             <input id="dcBusca" type="search" placeholder="motorista, rota, conferente, M000123…"
                    autocomplete="off"></div>
-          </div>
         </div>
 
         <!-- OS NÚMEROS ACIMA DA TABELA: "bateu?" é a pergunta que traz alguém a esta

@@ -3682,12 +3682,18 @@ body.sem-rolagem{overflow:hidden}
 /* AS DATAS E A BUSCA NA MESMA LINHA. Numa tela larga, duas faixas para um cadeado, dois
    botoes e tres campos era altura gasta antes do primeiro numero. No celular a linha
    quebra sozinha e elas voltam a se empilhar. */
-/* OS CAMPOS TAMBEM NAO ESTICAM. Eles tomavam a largura que sobrasse e iam ate' a borda
-   do monitor: tres campos de 600px cada para escrever uma data de dez caracteres. Com
-   largura propria, tudo fica encostado a' esquerda, que e' por onde se le'. */
-.barra-trava > .periodo-linha{flex:0 1 auto;margin:0;min-width:0}
-.barra-trava > .periodo-linha > div{flex:0 1 160px}
-.dc-busca{flex:0 1 230px;min-width:0;display:flex;flex-direction:column}
+/* OS CAMPOS SAO FILHOS DIRETOS DA BARRA, e nao de um wrapper.
+   Eles moravam num `.periodo-linha`, que e' ele proprio um flex que QUEBRA, dentro desta
+   barra, que tambem quebra: dois contentores disputando a mesma linha nunca cabem numa
+   so' de forma confiavel — a busca caia para baixo das datas e a barra virava duas
+   faixas tortas. Eu tinha tentado consertar isso mexendo em `flex-grow` e `flex-basis`
+   duas vezes; o defeito era a estrutura, e so' saiu tirando o wrapper.
+   E NAO ESTICAM: tomavam a largura que sobrasse e iam ate' a borda do monitor — 600px
+   para escrever uma data de dez caracteres. */
+.bt-campo{flex:0 1 160px;min-width:0;display:flex;flex-direction:column;gap:3px;
+  font-size:11px;color:var(--txt3)}
+.bt-campo input{min-height:36px;padding:0 10px;font-size:13.5px;width:100%}
+.bt-campo--busca{flex:0 1 230px}
 .dc-busca input{min-height:36px;padding:0 10px;font-size:13.5px}
 /* NO TAMANHO DO CADEADO, e não no de botão de gaveta. Na gaveta eles são a ação
    principal de uma folha inteira; aqui são vizinhos de um `mini` de 13px, e em

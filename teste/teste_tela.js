@@ -12492,9 +12492,10 @@ console.log('\n== o painel de filtro abre por cima ==');
     'e o período e o atalho do dia existem na tela — o período é o filtro que mais se ' +
     'mexe aqui, e dois totais da mesma operação que não batem sem que se veja o período ' +
     'é o defeito mais difícil de achar que esta tela tem', idsDecl);
-  /* PELO COMECO DA CLASSE, e nao pela classe inteira: ela ganhou um modificador
-     (`--miuda`) e o recorte por igualdade exata passou a nao achar nada. */
-  var iPer = secao.indexOf('<div class="periodo-linha');
+  /* PELO CAMPO, e nao pelo wrapper: o `.periodo-linha` saiu daqui — ele era um flex que
+     quebrava dentro de outro flex que quebra, e a busca caia para baixo das datas. O que
+     esta prova quer saber continua sendo o mesmo: o periodo vem ANTES dos numeros. */
+  var iPer = secao.indexOf('id="dcDe"');
   ok(iPer > 0 && iPer < secao.indexOf('id="dcTotais"'),
     'e ele fica ACIMA dos números — abaixo deles, a pessoa lê o total antes de saber de ' +
     'que período ele é', [iPer, secao.indexOf('id="dcTotais"')]);
@@ -13120,10 +13121,22 @@ console.log('\n== o editor de falas para a demonstracao ==');
     'e a linha alinha pela BASE: os campos de data têm rótulo em cima e são mais altos ' +
     'que o cadeado e os botões — centralizados, cada peça para numa altura diferente',
     barra && barra['align-items']);
-  var campos = declara('.barra-trava > .periodo-linha > div');
+  var campos = declara('.bt-campo');
   ok(!!campos && /^0 1 /.test(campos['flex'] || ''),
     'e os campos também não esticam — eles iam até a borda do monitor: 600px de largura ' +
     'para escrever uma data de dez caracteres', campos && campos['flex']);
+  /* E SAO FILHOS DIRETOS DA BARRA. Dentro de um wrapper que tambem quebra, dois
+     contentores disputam a mesma linha e a busca cai para baixo das datas — foi o que
+     aconteceu, e so' saiu tirando o wrapper. Mexer em `flex-grow` nao resolvia. */
+  var admHtml = fsReal.readFileSync(path.join(raizE, 'admin.html'), 'utf8');
+  var barraHtml = admHtml.slice(admHtml.indexOf('<div class="barra-trava">', admHtml.indexOf('id="pgLancamentosMotorista"')));
+  barraHtml = barraHtml.slice(0, barraHtml.indexOf('id="dcTotais"'));
+  ok(barraHtml.indexOf('class="periodo-linha') < 0,
+    'e não há wrapper entre a barra e os campos — um flex que quebra dentro de outro ' +
+    'que quebra não cabe numa linha só de forma confiável', barraHtml.slice(0, 160));
+  ok((barraHtml.match(/class="bt-campo/g) || []).length === 3,
+    'os três campos — De, Até e Buscar — são filhos diretos da barra',
+    (barraHtml.match(/class="bt-campo/g) || []).length);
   ok(!!chip && chip['text-overflow'] === 'ellipsis' && chip['overflow'] === 'hidden',
     'e o que não couber dele vira reticências, em vez de vazar por cima dos botões',
     chip);
@@ -13141,15 +13154,10 @@ console.log('\n== o editor de falas para a demonstracao ==');
   ok(!acoes || acoes['margin-left'] !== 'auto',
     'e ficam ENCOSTADOS no cadeado — com as datas e a busca na mesma linha, jogá-los ' +
     'na outra ponta separava um grupo que se lê junto', acoes && acoes['margin-left']);
-  var periodoNaBarra = declara('.barra-trava > .periodo-linha');
-  ok(!!periodoNaBarra && /^0 1 /.test(periodoNaBarra['flex'] || ''),
-    'e o bloco das datas também não cresce — crescendo, ele empurra sozinho tudo o que ' +
-    'vem antes para a esquerda e tudo o que vem depois para a borda',
-    periodoNaBarra && periodoNaBarra['flex']);
-  ok(!!periodoNaBarra && periodoNaBarra['margin'] === '0',
-    'e as datas entram na MESMA linha — numa tela larga, duas faixas para um cadeado, ' +
-    'dois botões e três campos era altura gasta antes do primeiro número',
-    periodoNaBarra);
+  var busca = declara('.bt-campo--busca');
+  ok(!!busca && /^0 1 /.test(busca['flex'] || ''),
+    'e a busca também não cresce — crescendo, ela empurra tudo o que vem antes para a ' +
+    'esquerda e some com a folga da linha', busca && busca['flex']);
 
   var cheio = declara('.quadro-video--cheio');
   ok(!!cheio, 'a confer\u00eancia achou a regra do quadro cheio');
@@ -14148,8 +14156,11 @@ console.log('\n== a faixa do dia na conciliacao ==');
    * dois campos ocupavam mais altura do que os tres numeros que eles filtram — e os
    * numeros sao o que se veio ver. */
   var cssF = fsReal.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
-  ok(/class="periodo-linha periodo-linha--miuda"/.test(admF) &&
-     cssF.indexOf('.periodo-linha--miuda input{min-height:36px') > 0,
+  /* O WRAPPER `.periodo-linha--miuda` saiu: ele era um flex que QUEBRA dentro da barra,
+     que tambem quebra, e a busca caia para baixo das datas. O tamanho continua sendo o
+     miudo — e agora mora no proprio campo. */
+  ok(/class="bt-campo"/.test(admF) &&
+     cssF.indexOf('.bt-campo input{min-height:36px') > 0,
     'os campos de data da concilia\u00e7\u00e3o s\u00e3o os MI\u00daDOS \u2014 no tamanho cheio eles ocupavam ' +
     'mais altura do que os tr\u00eas n\u00fameros que filtram, e os n\u00fameros s\u00e3o o que se veio ver');
 
