@@ -251,6 +251,7 @@ async function rotaPost(p) {
   if (acao === 'movimento') return await gravarMovimento(p);
   if (acao === 'conferir') return await conferir(p);
   if (acao === 'cancelar') return await cancelar(p);
+  if (acao === 'descancelar') return await descancelar(p);
   if (acao === 'corrigir') return await corrigir(p);
   if (acao === 'restaurarCorrecao') return await restaurarCorrecao(p);
   if (acao === 'corrigirRegistro') return await corrigirRegistro(p);
@@ -794,6 +795,26 @@ async function restaurarMovimento(p) {
   patch.historico = r.historico;
   await db.update('movimentos', mov.ID, patch);
   return { ok: true, restaurado: true };
+}
+
+/**
+ * DESFAZER UM CANCELAMENTO — a porta de volta que faltava.
+ *
+ * Cancelar nunca apagou nada: a quantidade continua inteira na linha, só marcada como
+ * fora do saldo. Sem esta rota, um toque errado tirava a carga da conta para sempre,
+ * com o número à vista e inalcançável.
+ */
+async function descancelar(p) {
+  var d = await db.carregarTudo();
+  var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
+  var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
+  if (barra) return barra;
+  var r = L.montarDescancelamento(mov, p, new Date());
+  if (!r.ok) return r;
+  var patch = db.MOV.para(r.patch);
+  patch.historico = r.historico;
+  await db.update('movimentos', mov.ID, patch);
+  return { ok: true, descancelado: true };
 }
 
 async function cancelar(p) {

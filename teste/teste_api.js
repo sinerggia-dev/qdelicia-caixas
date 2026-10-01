@@ -2706,6 +2706,50 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
   }
 
 
+  console.log('\n== desfazer um cancelamento ==');
+  {
+    /* Cancelar nunca apagou nada: poe uma marca, e a quantidade continua inteira na
+     * linha. Faltava a porta de VOLTA — e sem ela um toque errado tirava a carga do
+     * saldo para sempre, com o numero a vista e inalcancavel. Foi o que aconteceu com
+     * uma carga inteira, por um "cancelar" que ficava ao lado de "corrigir" numa tela
+     * onde ninguem ia para cancelar nada. */
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const cancelado = () => ({
+      ID: 'M000046', Tipo: 'DEVOLUCAO', Qtd: 255, Cancelado: true,
+      MotivoCancel: 'engano (U1)', DataRef: D('2026-09-28'), DataHora: D('2026-09-28'),
+      Historico: [{ em: '2026-09-28T12:00:00.000Z', por: 'U1', campo: 'Cancelamento',
+                    motivo: 'engano', de: 'valendo', para: 'cancelado' }]
+    });
+
+    const r = F.montarDescancelamento(cancelado(),
+      { motivo: 'cancelei sem querer', usuarioId: 'U2' }, D('2026-10-01'));
+    ok(r.ok && r.patch.Cancelado === false,
+      'o cancelamento tem volta — a quantidade nunca saiu da linha, faltava a porta',
+      r.patch);
+    ok(r.patch.MotivoCancel === null,
+      'e o motivo do cancelamento sai junto, com `null` explícito — devolvido ausente, o ' +
+      'patch sairia sem a coluna e a linha ficaria com a razão de um cancelamento que ' +
+      'já não existe', r.patch.MotivoCancel);
+    ok(r.historico.length === 2 && /desfeito/i.test(r.historico[1].campo),
+      'e a volta entra no histórico ao lado da ida — o saldo muda duas vezes, e sem as ' +
+      'duas pontas ninguém sabe depois qual delas foi o engano',
+      r.historico.map((h) => h.campo));
+
+    ok(!F.montarDescancelamento(cancelado(), { usuarioId: 'U2' }, D('2026-10-01')).ok,
+      'o motivo é obrigatório: um número que sai e volta do saldo sem explicação é pior ' +
+      'do que um que ficou fora');
+    const vivo = cancelado(); vivo.Cancelado = false;
+    ok(!F.montarDescancelamento(vivo, { motivo: 'x', usuarioId: 'U2' }, D('2026-10-01')).ok,
+      'e o que não está cancelado não se descancela');
+    const naLixeira = cancelado(); naLixeira.ExcluidoEm = D('2026-09-29');
+    const rl = F.montarDescancelamento(naLixeira, { motivo: 'x', usuarioId: 'U2' },
+      D('2026-10-01'));
+    ok(!rl.ok && /lixeira/i.test(rl.erro || ''),
+      'e da LIXEIRA não se descancela: são duas marcas diferentes, e voltar a contar no ' +
+      'saldo estando excluído é o estado que ninguém consegue explicar depois', rl.erro);
+  }
+
   console.log('\n== desfazer a ultima correcao ==');
   {
     /* Corrigir nao tinha volta. Quem errava de dedo tinha uma saida so' — corrigir de

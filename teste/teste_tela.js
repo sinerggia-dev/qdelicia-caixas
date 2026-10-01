@@ -11699,9 +11699,23 @@ console.log('\n== Motorista/Conferente ==');
     'e o filtro não diz "Todas" quando está vazio — a palavra promete um dado que a ' +
     'tela não vai buscar, e quem lesse concluiria que não houve declaração nenhuma',
     selBase.slice(0, 120));
-  ok(selBase.indexOf('selected') < 0,
-    'e nenhuma base nasce marcada: escolher por ela é decidir no lugar dela qual livro ' +
-    'ela está lendo');
+  /* UMA BASE NASCE MARCADA, E E' A DE VERDADE.
+   *
+   * A regra anterior era "nenhuma": escolher pela pessoa seria decidir no lugar dela
+   * qual livro ela esta' lendo. Na pratica, quem chegava nesta tela via um aviso onde
+   * esperava numeros, e o aviso nao e' mais informativo do que o livro que a pessoa
+   * quase sempre quer — o de verdade. A escolha continua a um toque, escrita no filtro.
+   *
+   * O QUE NAO MUDOU: somar os dois livros continua fora. Declaracao e teste sao contas
+   * diferentes, e juntas dao um numero que nao responde nem uma pergunta nem a outra. Por
+   * isso o padrao e' UM livro, e nao "todos" — e e' a unica tela do painel onde abrir
+   * tudo seria pior do que abrir uma parte. */
+  var marcadas = (selBase.match(/<option value="([^"]*)"[^>]*selected/g) || []);
+  ok(marcadas.length === 1 && marcadas[0].indexOf('"declaracao"') > 0,
+    'a conciliação abre na Base Declaração — uma só, e a de verdade: somar os dois ' +
+    'livros daria um número que não responde nem uma pergunta nem a outra, e pedir a ' +
+    'escolha antes de mostrar qualquer coisa punha um aviso onde se espera números',
+    marcadas);
 
   /* ---- O PAR, RODADO ----
    *
@@ -11897,6 +11911,29 @@ console.log('\n== Motorista/Conferente ==');
      saida so', que era corrigir de novo por cima e deixar duas marcas para um erro. */
   ok(comBotao.indexOf('data-dcorrigir') > 0 && comBotao.indexOf('data-drestaurar') > 0,
     'e quem é recebe corrigir e restaurar');
+  /* A LINHA CANCELADA GANHA A VOLTA, e so' ela. Cancelar nunca apagou nada — a
+     quantidade continua inteira ali —, mas faltava a porta de volta, e um toque errado
+     tirava a carga do saldo para sempre com o numero a vista e inalcancavel. Aconteceu
+     com uma carga inteira, e foi o que trouxe esta prova. */
+  /* FATIADO PELA DIVISAO REAL das linhas, e nao do codigo ate' o fim do texto: a fatia
+     aberta engolia a linha seguinte, e a prova reprovava um desenho correto. */
+  function linhaDe(cod) {
+    return comBotao.split('<div class="lp__l').filter(function (p) {
+      return p.indexOf(cod) >= 0;
+    })[0] || '';
+  }
+  var lCanc = linhaDe('M000039');
+  var lViva = linhaDe('M000102');
+  ok(lCanc.indexOf('data-ddescancelar') > 0,
+    'a linha CANCELADA oferece desfazer o cancelamento — sem ela, um toque errado tira ' +
+    'a carga do saldo para sempre, com o número à vista e inalcançável',
+    lCanc.slice(0, 160));
+  ok(lViva.indexOf('data-ddescancelar') < 0 && lCanc.indexOf('data-dcorrigir') < 0,
+    'e cada linha oferece só o que cabe nela: a viva não desfaz cancelamento nenhum, e ' +
+    'a cancelada não se corrige — corrigir número de linha que não conta é arrumar o ' +
+    'que ninguém lê');
+  ok(semBotao.indexOf('data-ddescancelar') < 0,
+    'e quem não pode alterar não recebe nem essa');
   ok(comBotao.indexOf('data-dexcluir') < 0 && comBotao.indexOf('data-dcancelar') < 0,
     'e NÃO recebe cancelar nem excluir aqui — tirar uma linha da conciliação muda o par ' +
     'que se está lendo no instante em que se olha para ele; as duas vivem em Movimentos',

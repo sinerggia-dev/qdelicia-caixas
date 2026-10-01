@@ -1305,9 +1305,15 @@
                  padrão que abrange tudo cresce sozinho a cada livro novo. A palavra do
                  estado vazio diz o que falta fazer, e não promete dado. -->
             <div><label for="dcBase">Base</label>
+              <!-- ABRE NA DECLARACAO, e nao pedindo escolha. A tela pedia a base antes de
+                   mostrar qualquer coisa, e quem chegava nela via um aviso onde esperava
+                   numeros. Somar os dois livros continua FORA: declaracao e teste sao
+                   contas diferentes, e juntas dao um numero que nao responde nem uma
+                   pergunta nem a outra — por isso o padrao e' um livro, o de verdade, e
+                   nao "todos". Trocar continua a um toque. -->
               <select id="dcBase" multiple data-multi>
                 <option value="">Escolha a base…</option>
-                <option value="declaracao">Base Declaração</option>
+                <option value="declaracao" selected>Base Declaração</option>
                 <option value="testeDecl">Base Teste Declaração</option>
               </select></div>
             <!-- NASCE EM RETORNO, a pedido: ninguém declara um carregamento, então todo par
@@ -3469,6 +3475,14 @@
           '<span class="lp__q2">'+Q.esc(m.usuario || '—')+'</span>'+
           '<span class="lp__q2">'+Q.esc(m.origem || m.rota || '—')+'</span>'+
           (m.cancelado ? '<span class="tag cinza">cancelado</span>' : '')+
+          /* A VOLTA DO CANCELAMENTO fica NA LINHA CANCELADA, e so' nela: cancelar nunca
+             apagou nada — a quantidade continua inteira ali —, mas faltava a porta de
+             volta, e um toque errado tirava a carga do saldo para sempre com o numero a
+             vista e inalcancavel. Foi o que aconteceu com uma carga inteira. */
+          (pode && m.cancelado
+            ? '<span class="lp__a"><button class="mini" type="button" '+
+                'data-ddescancelar="'+Q.esc(m.id)+'">desfazer o cancelamento</button></span>'
+            : '')+
           (pode && !m.cancelado
             ? '<span class="lp__a">'+
                 /* SO' CORRIGIR E RESTAURAR, a pedido.
@@ -3594,7 +3608,8 @@
         b.classList.toggle('aberto', !alvo.hidden);
       });
     });
-    [['dcorrigir', acaoCorrigir], ['drestaurar', acaoRestaurar]].forEach(function(par){
+    [['dcorrigir', acaoCorrigir], ['drestaurar', acaoRestaurar],
+     ['ddescancelar', acaoDescancelar]].forEach(function(par){
       box.querySelectorAll('[data-'+par[0]+']').forEach(function(b){
         b.addEventListener('click', function(){
           par[1](movPorId(b.dataset[par[0]]));
@@ -7378,6 +7393,22 @@
               .join(', ') + '.', 'ok');
       depoisDeMexer(m);
     }).catch(function(e){ Q.toast(e.message, 'erro'); });
+  }
+
+  /* DESFAZER UM CANCELAMENTO. O motivo e' obrigatorio porque o saldo muda duas vezes —
+     saiu e voltou —, e um numero que vai e vem sem explicacao e' pior do que um que
+     ficou fora: quem confere o mes nao tem como saber qual das duas foi o engano. */
+  function acaoDescancelar(m){
+    if (!m) return;
+    var motivo = prompt('Desfazer o cancelamento deste lançamento — ele volta a contar ' +
+                        'no saldo.\nMotivo:');
+    if (motivo === null) return;
+    Q.post({ acao:'descancelar', id:m.id, motivo:motivo, usuarioId:Q.sessao().id })
+      .then(function(r){
+        if (!r.ok) throw new Error(r.erro);
+        Q.toast('Cancelamento desfeito — o lançamento voltou a contar.','ok');
+        depoisDeMexer(m);
+      }).catch(function(e){ Q.toast(e.message,'erro'); });
   }
 
   function acaoCancelar(m){

@@ -1657,6 +1657,41 @@ function montarCancelamento(mov, p, agora) {
   };
 }
 
+/**
+ * DESFAZER UM CANCELAMENTO.
+ *
+ * O cancelamento nao apaga nada: ele poe uma marca, e a quantidade continua inteira na
+ * linha. Faltava a porta de volta — e sem ela um toque errado tirava a carga do saldo
+ * para sempre, com o numero a vista e inalcancavel. Foi o que aconteceu: um clique em
+ * "cancelar", ao lado de "corrigir", numa tela onde ninguem ia para cancelar nada. Os
+ * dois botoes ja sairam dali; esta e' a volta para quem ja levou o tombo.
+ *
+ * A MESMA TRANCA DO CANCELAMENTO, e o mesmo rastro: quem desfaz escreve o motivo, e o
+ * historico guarda as duas pontas. Um lancamento que sai e volta do saldo sem explicacao
+ * e' pior do que um que ficou fora: o saldo muda duas vezes e ninguem sabe por que.
+ *
+ * DA LIXEIRA NAO SE DESCANCELA: sao duas marcas diferentes, e uma linha que esta nas
+ * duas precisa sair da lixeira primeiro — senao ela voltaria a contar no saldo estando
+ * excluida, que e' o estado que ninguem consegue explicar depois.
+ */
+function montarDescancelamento(mov, p, agora) {
+  if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
+  if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira — restaure antes.' };
+  if (!mov.Cancelado) return { ok: false, erro: 'Este lançamento não está cancelado.' };
+  agora = agora || new Date();
+  var motivo = String((p && p.motivo) || '').trim();
+  if (!motivo) return { ok: false, erro: 'Descreva o motivo de desfazer o cancelamento.' };
+  var entrada = entradaHistorico(agora, p && p.usuarioId, 'Cancelamento desfeito', motivo,
+    'cancelado', 'valendo');
+  /* `null` explicito, como na lixeira: devolvido ausente, o patch sairia sem a coluna e
+     a linha continuaria cancelada depois de a tela dizer que voltou. */
+  return {
+    ok: true,
+    patch: { Cancelado: false, MotivoCancel: null },
+    historico: (mov.Historico || []).concat([entrada])
+  };
+}
+
 /* ============================ saldos ============================ */
 
 /** Quantidade que conta no saldo: a conferida manda; devolução aguardando não abate nada. */
@@ -2724,6 +2759,7 @@ module.exports = {
   montarMovimento: montarMovimento, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
+  montarDescancelamento: montarDescancelamento,
   JANELA_CORRECAO_MIN: JANELA_CORRECAO_MIN, diaDaOperacao: diaDaOperacao,
   livreAte: livreAte, correcaoLivre: correcaoLivre,
   efetiva: efetiva, saldos: saldos, emConferencia: emConferencia, aging: aging,
