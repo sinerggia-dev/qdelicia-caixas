@@ -12459,6 +12459,130 @@ console.log('\n== o editor de falas para a demonstracao ==');
   /* ---- O PAINEL OUVE E GRAVA ---- */
   var admV = fsReal.readFileSync(path.join(raizE, 'admin.html'), 'utf8');
 
+  /* ---- O QUADRO ABRE EM TELA CHEIA ----
+   *
+   * No celular o quadro do tutorial e' uma janelinha: 520px de altura dentro de uma
+   * pagina que ainda tem cabecalho, titulo e cartao em volta. A moldura de celular
+   * desenhada la' dentro tem 372px por 600px FIXOS — entao o que falta nao e' zoom, e'
+   * espaco: dando a tela inteira ao quadro, a moldura cabe sem rolar por dentro.
+   *
+   * DOIS CAMINHOS PARA A MESMA COISA. A tela cheia do navegador esconde as barras dele,
+   * mas o iPhone nao a oferece para nada que nao seja video. Entao quem manda e' a
+   * CLASSE, que e' so' CSS e funciona em todo lugar; a tela cheia de verdade entra por
+   * cima quando existe. Depender so' dela deixaria metade dos celulares sem o recurso.
+   *
+   * O BOTAO NASCE DERIVADO, em todo quadro que houver — e nao numa lista de ids: o
+   * quarto quadro nasceria sem botao, e ninguem notaria ate' alguem reclamar. */
+  var iPb = admV.indexOf('  function porBotaoDeExpandir(doc){');
+  var pb = iPb < 0 ? '' : admV.slice(iPb, admV.indexOf('\n  }', iPb) + 4);
+  var iEx = admV.indexOf('  function expandirQuadro(cx, doc){');
+  var ex = iEx < 0 ? '' : admV.slice(iEx, admV.indexOf('\n  }', iEx) + 4);
+  var iEn = admV.indexOf('  function encolherQuadro(cx, doc){');
+  var en = iEn < 0 ? '' : admV.slice(iEn, admV.indexOf('\n  }', iEn) + 4);
+  ok(pb.length > 120 && ex.length > 60 && en.length > 60,
+    'a confer\u00eancia recortou a tela cheia do quadro', [pb.length, ex.length, en.length]);
+
+  /* E A CLASSE PRECISA FAZER ALGUMA COISA.
+   *
+   * Provar que ela e' POSTA nao prova que ela cobre a tela: tres sabotagens de CSS
+   * passaram verdes com o JS inteiro e correto — `position:static`, o minimo de 520px
+   * de volta, a pagina destravada. O nome da classe e' o endereco; o que vale e' a
+   * regra que ele aponta. */
+  var cssTxt = fsReal.readFileSync(path.join(raizE, 'styles.css'), 'utf8');
+  function declara(sel) {
+    var i = cssTxt.indexOf('\n' + sel + '{');
+    if (i < 0) return null;
+    var corpo = cssTxt.slice(i + sel.length + 2, cssTxt.indexOf('}', i));
+    var d = {};
+    corpo.split(';').forEach(function (par) {
+      var j = par.indexOf(':');
+      if (j > 0) d[par.slice(0, j).trim()] = par.slice(j + 1).trim();
+    });
+    return d;
+  }
+  var cheio = declara('.quadro-video--cheio');
+  ok(!!cheio, 'a confer\u00eancia achou a regra do quadro cheio');
+  if (cheio) {
+    ok(cheio['position'] === 'fixed' && cheio['inset'] === '0',
+      'o quadro cheio COBRE a tela \u2014 preso no fluxo da p\u00e1gina ele continuaria do ' +
+      'tamanho do cart\u00e3o, que \u00e9 exatamente a queixa que ele veio resolver',
+      [cheio['position'], cheio['inset']]);
+    ok(cheio['min-height'] === '0' && cheio['height'] === '100%',
+      'e o m\u00ednimo de 520px morre junto \u2014 sen\u00e3o num celular baixo o quadro passa do ' +
+      'fim da tela e os bot\u00f5es de baixo ficam fora do alcance',
+      [cheio['min-height'], cheio['height']]);
+  }
+  var trava = declara('body.sem-rolagem');
+  ok(!!trava && trava['overflow'] === 'hidden',
+    'e a p\u00e1gina de baixo trava mesmo \u2014 sem isso o dedo que rola o tutorial rola a ' +
+    'p\u00e1gina atr\u00e1s junto, e ao fechar a pessoa est\u00e1 noutro lugar', trava);
+
+  if (pb.length > 120) {
+    function elemFalso(cls) {
+      var e = { filhos: [], marcas: {}, atrib: {}, nome: '' };
+      e.className = cls || '';
+      e.classList = {
+        add: function (c) { e.marcas[c] = true; },
+        remove: function (c) { delete e.marcas[c]; },
+        contains: function (c) { return !!e.marcas[c]; }
+      };
+      e.appendChild = function (f) { e.filhos.push(f); return f; };
+      e.setAttribute = function (k, v) { e.atrib[k] = v; };
+      e.querySelector = function (s) {
+        var alvo2 = s.replace('.', '');
+        for (var i = 0; i < e.filhos.length; i++) {
+          if (String(e.filhos[i].className).indexOf(alvo2) >= 0) return e.filhos[i];
+        }
+        return null;
+      };
+      return e;
+    }
+    function docFalso(quadros) {
+      return {
+        corpo: elemFalso('body'),
+        cheio: null,
+        querySelectorAll: function () { return quadros; },
+        createElement: function (n) { var e = elemFalso(''); e.nome = n; return e; },
+        get body() { return this.corpo; }
+      };
+    }
+
+    /* UM BOTAO EM CADA QUADRO, E UM SO'. */
+    var q1 = elemFalso('quadro-video'), q2 = elemFalso('quadro-video');
+    var d1 = docFalso([q1, q2]);
+    new Function('doc', pb + '\nporBotaoDeExpandir(doc);')(d1);
+    ok(q1.filhos.length === 1 && q2.filhos.length === 1,
+      'todo quadro ganha o bot\u00e3o de tela cheia \u2014 derivado da tela e n\u00e3o de uma lista, ' +
+      'sen\u00e3o o pr\u00f3ximo quadro nasceria sem ele', [q1.filhos.length, q2.filhos.length]);
+    ok(q1.filhos[0].nome === 'button',
+      'e \u00e9 um BOT\u00c3O \u2014 quem s\u00f3 tem teclado precisa chegar nele e apert\u00e1-lo',
+      q1.filhos[0].nome);
+    ok(String(q1.filhos[0].atrib['aria-label'] || '').length > 3,
+      'e ele se anuncia \u2014 um \u00edcone sozinho n\u00e3o diz nada a quem usa leitor de tela',
+      q1.filhos[0].atrib);
+    new Function('doc', pb + '\nporBotaoDeExpandir(doc);')(d1);
+    ok(q1.filhos.length === 1,
+      'e passar de novo N\u00c3O duplica o bot\u00e3o \u2014 a fun\u00e7\u00e3o roda a cada troca de aba, e ' +
+      'sem a guarda o quadro juntaria um bot\u00e3o por visita', q1.filhos.length);
+
+    /* ABRIR E FECHAR. */
+    var q3 = elemFalso('quadro-video');
+    var d3 = docFalso([q3]);
+    var api = new Function('doc', ex + '\n' + en +
+      '\nreturn { abrir: expandirQuadro, fechar: encolherQuadro };')(d3);
+    api.abrir(q3, d3);
+    ok(q3.classList.contains('quadro-video--cheio'),
+      'abrir marca o quadro \u2014 quem d\u00e1 a tela inteira \u00e9 o CSS, porque a tela cheia do ' +
+      'navegador o iPhone n\u00e3o oferece para nada que n\u00e3o seja v\u00eddeo');
+    ok(d3.body.classList.contains('sem-rolagem'),
+      'e a p\u00e1gina atr\u00e1s trava \u2014 sem isso o dedo que rola o tutorial rola a p\u00e1gina de ' +
+      'baixo junto, e ao fechar a pessoa est\u00e1 noutro lugar');
+    api.fechar(q3, d3);
+    ok(!q3.classList.contains('quadro-video--cheio') &&
+       !d3.body.classList.contains('sem-rolagem'),
+      'e fechar desfaz as duas \u2014 destravar s\u00f3 uma deixaria a p\u00e1gina presa para sempre');
+  }
+
   /* ---- O PAINEL CALA O QUE SAIU DE VISTA ----
    *
    * QUEM CALA E' DERIVADO DA TELA, e nao uma lista de ids escrita a mao: sao os quadros

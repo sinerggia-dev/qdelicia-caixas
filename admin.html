@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=05f06722">
+<link rel="stylesheet" href="styles.css?v=c3c4a9ea">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -2135,6 +2135,76 @@
     });
     periodoPadraoDecl();
   })();
+
+  /* O QUADRO ABRE EM TELA CHEIA.
+   *
+   * No celular ele era uma janelinha: 520px de altura dentro de uma pagina que ainda tem
+   * cabecalho, titulo e cartao em volta. E a moldura de celular desenhada dentro do
+   * tutorial tem 372 por 600 FIXOS — o que faltava nao era zoom, era ESPACO.
+   *
+   * O BOTAO NASCE DERIVADO, em todo quadro que houver, e nao de uma lista de ids: o
+   * proximo quadro nasceria sem botao e ninguem notaria ate' alguem reclamar. A guarda
+   * de duplicata existe porque isto roda tambem a cada troca de aba — sem ela, o quadro
+   * juntaria um botao por visita. */
+  function porBotaoDeExpandir(doc){
+    var qs = doc.querySelectorAll('.quadro-video');
+    for (var i=0;i<qs.length;i++){
+      if (qs[i].querySelector('.quadro-video__abrir')) continue;
+      var b = doc.createElement('button');
+      b.type = 'button';
+      b.className = 'quadro-video__abrir';
+      /* Um icone sozinho nao diz nada a quem usa leitor de tela. */
+      b.setAttribute('aria-label', 'Ver em tela cheia');
+      b.setAttribute('title', 'Ver em tela cheia');
+      b.textContent = '\u26F6';
+      qs[i].appendChild(b);
+    }
+  }
+  /* QUEM DA' A TELA E' A CLASSE, que e' so' CSS e funciona em todo aparelho. A tela
+     cheia do navegador entra POR CIMA quando existe, so' para esconder as barras dele —
+     o iPhone nao a oferece para nada que nao seja video, e depender dela deixaria
+     metade dos celulares sem o recurso. */
+  function expandirQuadro(cx, doc){
+    cx.classList.add('quadro-video--cheio');
+    doc.body.classList.add('sem-rolagem');
+    var b = cx.querySelector('.quadro-video__abrir');
+    if (b) { b.setAttribute('aria-label','Sair da tela cheia'); b.textContent = '\u2715'; }
+    try { if (cx.requestFullscreen) cx.requestFullscreen(); } catch(e){}
+  }
+  function encolherQuadro(cx, doc){
+    cx.classList.remove('quadro-video--cheio');
+    doc.body.classList.remove('sem-rolagem');
+    var b = cx.querySelector('.quadro-video__abrir');
+    if (b) { b.setAttribute('aria-label','Ver em tela cheia'); b.textContent = '\u26F6'; }
+    try { if (doc.fullscreenElement && doc.exitFullscreen) doc.exitFullscreen(); } catch(e){}
+  }
+  porBotaoDeExpandir(document);
+  /* Clique DELEGADO: os botoes nascem depois, e um ouvinte por botao teria de ser
+     religado a cada vez que `porBotaoDeExpandir` rodasse. */
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest && e.target.closest('.quadro-video__abrir');
+    if (!b) return;
+    var cx = b.closest('.quadro-video');
+    if (!cx) return;
+    if (cx.classList.contains('quadro-video--cheio')) encolherQuadro(cx, document);
+    else expandirQuadro(cx, document);
+  });
+  /* ESC FECHA. Em tela cheia de verdade o navegador ja o usa para sair, e o
+     `fullscreenchange` abaixo desfaz a classe junto; sem ela, Esc e' a unica saida de
+     teclado. */
+  document.addEventListener('keydown', function(e){
+    if (e.key !== 'Escape') return;
+    var cx = document.querySelector('.quadro-video--cheio');
+    if (cx) encolherQuadro(cx, document);
+  });
+  /* SAIR PELA PORTA DO NAVEGADOR tambem fecha aqui: sem isto, quem apertasse Esc na
+     tela cheia do sistema sairia dela e ficaria com o quadro preso sobre a pagina,
+     sem barra nenhuma para entender o que aconteceu. */
+  document.addEventListener('fullscreenchange', function(){
+    if (document.fullscreenElement) return;
+    var cx = document.querySelector('.quadro-video--cheio');
+    if (cx) encolherQuadro(cx, document);
+  });
 
   /* OS QUADROS QUE SAIRAM DE VISTA FICAM MUDOS.
    *
