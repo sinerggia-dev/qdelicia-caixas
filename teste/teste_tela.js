@@ -15822,6 +15822,59 @@ console.log('\n== os grupos da navegacao recolhem ==');
   ok(css.indexOf('@media (prefers-reduced-motion:reduce){ .nav-saida:hover svg{transform:none} }') > 0,
     'e quem pediu menos movimento não recebe nenhum — a porta diz a mesma coisa parada');
 
+  /* ---- A ASSINATURA NA TELA DE ENTRADA ----
+   *
+   * No canto de cima e nao no pe': a tela de entrada centraliza tudo verticalmente e
+   * encolhe quando o teclado do celular sobe. Como item da coluna, a assinatura
+   * disputaria altura com o formulario — e perderia, ou empurraria o campo, que e' o
+   * que a pessoa veio usar. */
+  /* Um leitor proprio: `reg`/`declara` moram noutros blocos deste arquivo, e esta secao
+     so' tem o texto do CSS na mao. */
+  function regraCss(sel) {
+    var i = css.indexOf('\n' + sel + '{');
+    if (i < 0) return null;
+    var corpo = css.slice(i + sel.length + 2, css.indexOf('}', i));
+    /* OS COMENTARIOS SAEM ANTES. Dentro deles ha dois-pontos — "e' `absolute`:" —, e o
+       leitor ingenuo tomava a frase inteira por uma propriedade: a regra voltava com uma
+       chave de lixo e sem a propriedade de verdade. */
+    corpo = corpo.replace(/\/\*[\s\S]*?\*\//g, '');
+    var d = {};
+    corpo.split(';').forEach(function (par) {
+      var j = par.indexOf(':');
+      if (j > 0) d[par.slice(0, j).trim()] = par.slice(j + 1).trim();
+    });
+    return d;
+  }
+  var credito = regraCss('.login__credito');
+  ok(!!credito && credito['position'] === 'absolute',
+    'o crédito fica FORA do fluxo da tela de entrada — como item da coluna, ele ' +
+    'disputaria altura com o formulário num celular de teclado aberto', credito);
+  ok(!!credito && credito['pointer-events'] === 'none',
+    'e não engole toque — um bloco invisível comendo o canto da tela seria um defeito ' +
+    'que ninguém relacionaria com um crédito');
+  var pai = regraCss('.login');
+  ok(!!pai && pai['position'] === 'relative',
+    'e a tela de entrada é a âncora dele — sem isso ele se prende ao documento e sobe ' +
+    'embora quando a tela rola', pai && pai['position']);
+  ['index.html', 'admin.html'].forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(__dirname, '..', arq), 'utf8');
+    ok(txt.indexOf('Sinergia Consultoria&copy;, todos os direitos reservados.') > 0,
+      arq + ': o crédito está escrito por extenso, com o símbolo de direitos');
+    var i = txt.indexOf('class="login__credito"');
+    var img = i < 0 ? '' : txt.slice(txt.indexOf('<img', i), txt.indexOf('>', txt.indexOf('<img', i)));
+    ok(img.indexOf('src="marca-rodape.png"') > 0 && img.indexOf('onerror="this.remove()"') > 0,
+      arq + ': com a marca ao lado, e ela some sozinha se o arquivo faltar — o ' +
+      'quadradinho de imagem quebrada parece defeito do sistema, e aqui ficaria em cima ' +
+      'da tela de entrada', img);
+    ok(img.indexOf('alt="Alfa Sinergia"') > 0,
+      arq + ': e a marca TEM texto alternativo — ela é a única parte do crédito que um ' +
+      'leitor de tela não leria sozinho');
+  });
+  ok(/@media \(max-width:620px\)\{\s*\n\s*\.login__credito span\{display:none\}/.test(css),
+    'e no celular fica só a marca: o texto inteiro em 320px ocuparia duas linhas ' +
+    'atravessadas no alto, ao lado da logo do sistema — duas assinaturas brigando no ' +
+    'mesmo canto');
+
   /* ---- A MARCA, NA PONTA DA FAIXA DO TEMPO ----
    *
    * Ela morava no pe' da lateral do painel — um lugar que so' existe no painel, e de

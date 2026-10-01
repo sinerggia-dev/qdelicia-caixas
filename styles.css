@@ -1749,11 +1749,39 @@ tr.par-linhas > td{background:var(--campo);padding:0}
 
    Cores da marca: o roxo, o verde do logo e o marinho que ja era o fundo. */
 .login{
+  /* `relative` pelo credito do canto, que e' `absolute`: sem isto ele se prenderia ao
+     documento e, numa tela que rola, subiria embora com a rolagem. */
+  position:relative;
   min-height:100dvh;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:22px;
   max-width:none;margin:0;text-align:center;
   padding:32px 20px calc(24px + env(safe-area-inset-bottom));
   background:var(--marinho);color:#fff;color-scheme:dark;
+}
+/* A ASSINATURA DE QUEM FEZ, presa ao canto de cima.
+ *
+ * `absolute` E NAO UM ITEM DA COLUNA: a tela de entrada centraliza tudo verticalmente e
+ * encolhe quando o teclado do celular sobe. Como item, a assinatura disputaria altura
+ * com o formulario — e perderia ou empurraria o campo, que e' o que a pessoa veio usar.
+ * Fora do fluxo, ela nao custa um pixel de altura a ninguem.
+ *
+ * `pointer-events:none`: ela fica por cima do canto, e um bloco invisivel engolindo
+ * toque naquela area seria um defeito que ninguem relacionaria com um credito.
+ *
+ * APAGADA, de proposito: e' credito, nao recado. Quem abre esta tela vem entrar.
+ *
+ * NO CELULAR, SO' A MARCA. O texto inteiro em 320px ocuparia duas linhas atravessadas no
+ * alto da tela, ao lado da logo do sistema — duas assinaturas brigando no mesmo canto. */
+.login__credito{
+  position:absolute;top:14px;left:16px;
+  display:flex;align-items:center;gap:8px;
+  max-width:min(60%,340px);opacity:.55;pointer-events:none;
+  font-size:11px;line-height:1.3;text-align:left;color:#fff
+}
+.login__credito img{display:block;height:26px;width:auto;flex:0 0 auto}
+@media (max-width:620px){
+  .login__credito span{display:none}
+  .login__credito img{height:22px}
 }
 .login__topo{text-align:center;max-width:360px}
 /* A arte ja vem com borda branca e fundo transparente: assenta no marinho sem

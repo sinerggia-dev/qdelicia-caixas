@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=b3c72a55">
+<link rel="stylesheet" href="styles.css?v=31999607">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -51,6 +51,20 @@
 <body>
 
 <div id="telaLogin" class="login">
+  <!-- A ASSINATURA DE QUEM FEZ, no canto de cima.
+       NO CANTO E NAO NO PE': a tela de entrada centraliza tudo verticalmente e cresce
+       com o teclado aberto; no pe' a assinatura empurraria o formulario para cima do
+       teclado no celular, ou ficaria fora da tela. Preso ao canto ela sai do fluxo e
+       nao disputa altura com o campo, que e' o que a pessoa veio usar.
+       LEVE E PEQUENA, de proposito: e' credito, nao recado. Quem abre esta tela vem
+       entrar, e a assinatura que competisse com o botao estaria no lugar errado.
+       SEM O ARQUIVO, SO' A MARCA SOME e o texto fica — o credito continua dito. -->
+  <div class="login__credito">
+    <img src="marca-rodape.png" alt="Alfa Sinergia" width="738" height="655"
+         onerror="this.remove()">
+    <span>Sinergia Consultoria&copy;, todos os direitos reservados.</span>
+  </div>
+
   <div class="login__topo">
     <!-- A logo diz "Qdelicia Frutas" melhor do que o texto dizia, e nao empurra o
          formulario para baixo. No celular do galpao o que importa e o campo
