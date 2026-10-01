@@ -6116,8 +6116,12 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
   /* --- o registro dos modulos -------------------------------------------- */
   var tg = adm.indexOf('function tabelasGerenciaveis()');
   var reg = adm.slice(tg, adm.indexOf('\n  }', tg));
+  /* OS NOMES SAO OS DO MENU. A prova os cobra escritos porque esta lista e' um INDICE
+     para quem procura a tabela que acabou de ver: um modulo que se chama de um jeito na
+     lateral e de outro aqui manda a pessoa procurar o que nao existe. */
   ok(/modulo: 'Painel de Ativos',\s+t: TAB_ATIVOS/.test(reg) &&
-     /modulo: 'Movimentos',\s+t: TAB_MOV/.test(reg) &&
+     /modulo: 'Movimentos Gerais',\s+t: TAB_MOV/.test(reg) &&
+     /modulo: 'Movimentos Motoristas',\s+t: TAB_DECL/.test(reg) &&
      /modulo: 'Cadastros · Usuários',\s+t: TAB_USUARIOS/.test(reg),
     'os módulos com tabela de colunas-dado estão registrados — registrar o próximo é ' +
     'acrescentar um item aqui, e não escrever outra tela', reg);
@@ -8715,18 +8719,28 @@ console.log('\n== a navegação separada por módulo ==');
     'e cada botão declara o grupo sob o qual ele aparece — o atributo é o que decide se o ' +
     'título do módulo some quando não sobra item nenhum', fora);
 
-  /* AS TRÊS DE APRENDER FICAM NA OPERAÇÃO, e não em Sistema: Sistema é o que muda a
-     CARA do sistema, e Instruções e os dois tutoriais respondem "como eu faço o meu
-     trabalho" — que é o que quem acabou de chegar procura no grupo onde encontrou as
-     telas de lançar. O tutorial COMPLETO continua em Sistema, para quem quer os dois
-     gestos seguidos. */
-  ok(pares === 'pgRetornos>Painel de Ativos | pgMovimentos>Movimentos | pgPainel>Painel' +
+  /* AS QUATRO DE MOVIMENTO JUNTAS, E COM O MESMO SOBRENOME.
+   *
+   * Elas se chamavam "Movimentos", "Painel" e "Motorista/Conferente" — tres nomes sem
+   * parentesco para tres recortes da MESMA coisa, e "Painel" ainda disputava com o
+   * "Painel de Ativos" logo acima. Agora o nome diz o recorte: Gerais, Motoristas,
+   * Rotas. Quem procura "onde vejo o que o motorista lancou" le a resposta na lista.
+   *
+   * E AS QUATRO DE APRENDER FICAM NA OPERACAO, inclusive o tutorial completo, que vivia
+   * em Sistema: Sistema e o que muda a CARA do sistema, e um tutorial responde "como eu
+   * faco o meu trabalho" — que e o que quem acabou de chegar procura no grupo onde
+   * encontrou as telas de lancar. Ele desceu para o fim da fila dos tutoriais porque e'
+   * o unico que mostra os dois gestos seguidos: quem quer um so' acha antes. */
+  ok(pares === 'pgRetornos>Painel de Ativos' +
+                ' | pgMovimentos>Movimentos Gerais' +
+                ' | pgLancamentosMotorista>Movimentos Motoristas' +
+                ' | pgPainel>Movimentos Rotas' +
                 ' | pgInstrucoes>Instruções' +
-                ' | pgLancamentosMotorista>Motorista/Conferente' +
                 ' | pgTutorialSaida>Tutorial de Saída | pgTutorialRetorno>Tutorial de Retorno' +
+                ' | pgVideo>Tutorial Entrada e Saída' +
                 ' | pgCadastros>Cadastros | pgColunas>Colunas | pgExtrato>Extratos' +
                 ' | pgLancar>Ajuste Estoque' +
-                ' | pgVideo>Vídeo Tutorial | pgManual>Manual de Uso' +
+                ' | pgManual>Manual de Uso' +
                 ' | pgAparencia>Aparência',
     'o menu do painel está na ordem pedida, e cada rótulo abre a página dele', pares);
 

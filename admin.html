@@ -264,14 +264,22 @@
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>
         </svg>
-        <span class="nav-rotulo">Movimentos</span>
+        <span class="nav-rotulo">Movimentos Gerais</span>
+      </button>
+      <button data-grupo="Operação" style="display:none" data-pagina="pgLancamentosMotorista" data-acima="Operação">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 16V5h11v11"></path><path d="M14 9h4l3 3v4h-7"></path>
+          <circle cx="7" cy="17.5" r="1.9"></circle><circle cx="17" cy="17.5" r="1.9"></circle>
+        </svg>
+        <span class="nav-rotulo">Movimentos Motoristas</span>
       </button>
       <button data-grupo="Operação" style="display:none" data-pagina="pgPainel" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
         </svg>
-        <span class="nav-rotulo">Painel</span>
+        <span class="nav-rotulo">Movimentos Rotas</span>
       </button>
       <!-- INSTRUÇÕES E OS DOIS TUTORIAIS FICAM NA OPERAÇÃO, e não em Sistema.
            Sistema é o que muda a CARA do sistema; estas três respondem "como eu faço o
@@ -295,14 +303,6 @@
       <!-- OS LANÇAMENTOS DO MOTORISTA. Aba própria, e não um filtro de Movimentos: a
            contagem do conferente tem de ser CEGA. Quem não tem esta aba não recebe
            declaração em rota nenhuma — nem na lista, nem no extrato, nem no CSV. -->
-      <button data-grupo="Operação" style="display:none" data-pagina="pgLancamentosMotorista" data-acima="Operação">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 16V5h11v11"></path><path d="M14 9h4l3 3v4h-7"></path>
-          <circle cx="7" cy="17.5" r="1.9"></circle><circle cx="17" cy="17.5" r="1.9"></circle>
-        </svg>
-        <span class="nav-rotulo">Motorista/Conferente</span>
-      </button>
       <button data-grupo="Operação" style="display:none" data-pagina="pgTutorialSaida" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -320,6 +320,14 @@
           <line x1="7" y1="22" x2="17" y2="22"></line>
         </svg>
         <span class="nav-rotulo">Tutorial de Retorno</span>
+      </button>
+      <button data-grupo="Operação" style="display:none" data-pagina="pgVideo" data-acima="Operação">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2.5" y="5" width="19" height="14" rx="2.5"></rect>
+          <path d="M10 9.2l5 2.8-5 2.8z"></path>
+        </svg>
+        <span class="nav-rotulo">Tutorial Entrada e Saída</span>
       </button>
       <button type="button" class="nav-grupo" data-grupo="Dados" aria-expanded="true"><span class="nav-grupo__t">Dados</span><svg class="nav-grupo__seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
       <button data-grupo="Dados" style="display:none" data-pagina="pgCadastros" data-acima="Ajustes da tela">
@@ -356,14 +364,6 @@
            saldo e baixa de perda, ou seja, MEXE NO ESTOQUE. Ficava ao
            lado das configurações por causa do nome, e o nome mudou. -->
       <button type="button" class="nav-grupo" data-grupo="Sistema" aria-expanded="true"><span class="nav-grupo__t">Sistema</span><svg class="nav-grupo__seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
-      <button data-grupo="Sistema" style="display:none" data-pagina="pgVideo" data-acima="Sistema">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="2.5" y="5" width="19" height="14" rx="2.5"></rect>
-          <path d="M10 9.2l5 2.8-5 2.8z"></path>
-        </svg>
-        <span class="nav-rotulo">Vídeo Tutorial</span>
-      </button>
       <button data-grupo="Sistema" style="display:none" data-pagina="pgManual" data-acima="Sistema">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1033,7 +1033,7 @@
              movimento de caixa — é o que o motorista DISSE que trazia —, e nesta lista
              ela entrava nos cartões de Saída, Retorno e Saldo: a mesma carga contada
              duas vezes, uma pelo conferente e outra pela fala do motorista.
-             Ela mora em Motorista/Conferente, e só lá. -->
+             Ela mora em Movimentos Motoristas, e só lá. -->
         <div><label for="mvTeste">Lançamentos</label><select id="mvTeste" multiple data-multi>
           <option value="">Todas as bases</option>
           <option value="reais">Base Produção</option>
@@ -1197,7 +1197,7 @@
   <section id="pgVideo" class="pagina">
     <div class="card">
       <div class="cab-card">
-        <h2>Vídeo Tutorial<span class="sub">A demonstração de como lançar saída e
+        <h2>Tutorial Entrada e Saída<span class="sub">A demonstração de como lançar saída e
           retorno — a mesma que aparece no primeiro acesso de quem lança.</span></h2>
         <!-- ESTA PÁGINA TAMBÉM FALA, então também se edita. Ela tinha ficado de fora
              porque eu tinha posto o caminho card a card, à mão: quem escreve a lista
@@ -1227,7 +1227,7 @@
       <!-- SEM A LINHA DE APOIO, a pedido. Ela explicava o que os proprios rotulos da
            tela ja dizem — "Declarado", "Conferido", "Diferenca" —, e num telefone
            custava duas linhas de altura antes do primeiro numero. -->
-      <h2>Motorista/Conferente</h2>
+      <h2>Movimentos Motoristas</h2>
 
       <!-- O MESMO MODELO DE MOVIMENTOS, a pedido: a tabela à esquerda e os filtros num
            trilho que abre ao encostar o mouse e EMPURRA a lista, em vez de cobri-la.
@@ -3846,10 +3846,13 @@
      mao. A aba diz quais sao, na tela, em vez de fingir que nao existem. */
   function tabelasGerenciaveis(){
     return [
-      { modulo: 'Painel de Ativos',     t: TAB_ATIVOS },
-      { modulo: 'Movimentos',           t: TAB_MOV },
-      { modulo: 'Cadastros · Usuários', t: TAB_USUARIOS },
-      { modulo: 'Motorista/Conferente',   t: TAB_DECL }
+      /* OS NOMES SAO OS DO MENU, e nao outros: esta lista e' um indice para quem procura
+         a tabela que acabou de ver, e um modulo que se chama de um jeito na lateral e de
+         outro aqui manda a pessoa procurar o que nao existe. */
+      { modulo: 'Painel de Ativos',      t: TAB_ATIVOS },
+      { modulo: 'Movimentos Gerais',     t: TAB_MOV },
+      { modulo: 'Cadastros · Usuários',  t: TAB_USUARIOS },
+      { modulo: 'Movimentos Motoristas', t: TAB_DECL }
     ];
   }
 
