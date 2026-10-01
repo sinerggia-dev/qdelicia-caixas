@@ -347,10 +347,26 @@ body{background:linear-gradient(180deg,var(--dl-bg) 0%,var(--dl-fim) 100%) fixed
  * que acabou de chegar. Deixado a vista, o primeiro contato dela com o sistema oferece
  * um campo de texto que muda o que o sistema diz.
  *
- * Ele nao foi removido: vive em `?editar=1`, que e como voce o abre. Os controles de
- * pausa, velocidade e audio FICAM — esses sao de quem assiste. */
+ * Ele nao foi removido: vive em `?editar=1`, que e como voce o abre. Dos outros
+ * controles, quem assiste fica so' com o audio — ver `data-simples` logo abaixo. */
 html:not([data-editor="1"]) .ed,
 html:not([data-editor="1"]) .ed__b{display:none}
+
+/* ================= QUEM ASSISTE NAO CONFIGURA =================
+ *
+ * Pausa, velocidade e escolha de voz sao ferramentas de quem PREPARA o tutorial. Quem
+ * acabou de chegar ao sistema nao precisa decidir nada disso: precisa ler a legenda e
+ * poder calar a voz se estiver num lugar cheio. O resto e' ruido numa tela de celular
+ * que ja' e' pequena — e esta pagina abre no PRIMEIRO acesso de qualquer pessoa.
+ *
+ * O AVISO DE VOZ METALICA SAI JUNTO: ele existe para dizer "troque a voz", e sem o
+ * seletor ao lado vira uma queixa sobre algo que nao da' para resolver.
+ *
+ * A LEGENDA E O BOTAO DE AUDIO FICAM. Sao os dois unicos que quem assiste usa. */
+html[data-simples="1"] .ctrl,
+html[data-simples="1"] .vels,
+html[data-simples="1"] .aviso,
+html[data-simples="1"] #vozes{display:none}
 
 /* modo gravação: só o palco */
 [data-gravar="1"] .ctrl,[data-gravar="1"] .som,
@@ -447,6 +463,27 @@ html:not([data-editor="1"]) .ed__b{display:none}
      escolhido — ou ficaria no padrao, se a rede falhasse. */
   if (/[?&]editar=1/.test(location.search)) {
     document.documentElement.setAttribute('data-editor', '1');
+  }
+
+  /* QUEM ASSISTE NAO CONFIGURA.
+   *
+   * O PADRAO E' O SIMPLES, e nao o contrario: sem nucleo carregado, sem sessao, ou com
+   * a leitura do perfil estourando, quem esta' na tela e' tratado como quem assiste.
+   * Errar para o lado do simples esconde um botao de alguem que podia usa-lo; errar
+   * para o outro entrega pausa, velocidade e troca de voz a toda a operacao — e esta
+   * pagina abre no PRIMEIRO acesso de qualquer pessoa.
+   *
+   * O EDITOR E' EXCECAO, e por isso e' a primeira pergunta: quem abre com `?editar=1`
+   * esta' escrevendo o tutorial, e escrever exige ouvir, pausar e trocar a voz. */
+  function modoSimples(doc, nucleo) {
+    if (doc.documentElement.getAttribute('data-editor') === '1') return false;
+    try {
+      if (nucleo && typeof nucleo.ehAdmin === 'function' && nucleo.ehAdmin()) return false;
+    } catch (e) {}
+    return true;
+  }
+  if (modoSimples(document, window.QDC)) {
+    document.documentElement.setAttribute('data-simples', '1');
   }
   try {
     if (window.QDC) {

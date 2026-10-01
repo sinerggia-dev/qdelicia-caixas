@@ -12238,6 +12238,66 @@ console.log('\n== o editor de falas para a demonstracao ==');
       'da frase que se pediu para ouvir', ou.slice(0, 120));
   });
 
+  /* ---- QUEM ASSISTE NAO CONFIGURA ----
+   *
+   * Pausa, velocidade e escolha de voz sao ferramentas de quem PREPARA o tutorial. Quem
+   * acabou de chegar ao sistema nao precisa decidir nada disso: precisa ler a legenda e
+   * poder calar a voz se estiver num lugar cheio. O resto e' ruido numa tela de celular
+   * que ja' e' pequena.
+   *
+   * O PADRAO E' O SIMPLES, e nao o contrario: sem nucleo carregado, sem sessao ou com a
+   * leitura estourando, quem esta' olhando e' tratado como quem assiste. Errar para o
+   * lado do simples esconde um botao de quem podia usa-lo; errar para o outro entrega
+   * os controles a toda a operacao.
+   *
+   * O EDITOR E' EXCECAO: quem abre com `?editar=1` esta' escrevendo o tutorial, e
+   * escrever exige ouvir, pausar e trocar a voz. */
+  demos.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(raizE, arq), 'utf8');
+    var iMs = txt.indexOf('  function modoSimples(doc, nucleo) {');
+    var ms = iMs < 0 ? '' : txt.slice(iMs, txt.indexOf('\n  }', iMs) + 4);
+    ok(ms.length > 150, arq + ': a confer\u00eancia recortou a decis\u00e3o do modo simples',
+      ms.length);
+    if (ms.length > 150) {
+      function decide(editor, nucleo) {
+        var doc = { documentElement: {
+          getAttribute: function (k) {
+            return k === 'data-editor' && editor ? '1' : null; } } };
+        return new Function('doc', 'nucleo', ms + '\nreturn modoSimples(doc, nucleo);')(
+          doc, nucleo);
+      }
+      ok(decide(false, { ehAdmin: function () { return true; } }) === false,
+        arq + ': quem ADMINISTRA mant\u00e9m os controles \u2014 \u00e9 quem prepara o tutorial');
+      ok(decide(false, { ehAdmin: function () { return false; } }) === true,
+        arq + ': e quem s\u00f3 assiste v\u00ea a legenda e o \u00e1udio, e mais nada');
+      ok(decide(false, null) === true && decide(false, {}) === true,
+        arq + ': sem n\u00facleo carregado, o padr\u00e3o \u00e9 o simples \u2014 errar escondendo um ' +
+        'bot\u00e3o custa menos do que entregar os controles \u00e0 opera\u00e7\u00e3o inteira');
+      ok(decide(false, { ehAdmin: function () { throw new Error('x'); } }) === true,
+        arq + ': e se a leitura do perfil estourar, tamb\u00e9m \u2014 um erro n\u00e3o pode ' +
+        'promover ningu\u00e9m');
+      ok(decide(true, { ehAdmin: function () { return false; } }) === false,
+        arq + ': mas quem abre o EDITOR mant\u00e9m tudo \u2014 escrever o tutorial exige ouvir, ' +
+        'pausar e trocar a voz');
+    }
+
+    /* E A MARCA PRECISA ESCONDER O CERTO, e deixar \u00e0 vista o que foi pedido. */
+    var iR = txt.indexOf('[data-simples="1"]');
+    var reg = iR < 0 ? '' : txt.slice(iR, txt.indexOf('}', iR) + 1);
+    var alvos = (reg.match(/\[data-simples="1"\]\s\s*([.#][a-z-]+)/g) || [])
+      .map(function (s) { return s.replace(/.*\]\s*/, ''); });
+    ok(reg.indexOf('display:none') > 0,
+      arq + ': a marca do modo simples ESCONDE \u2014 uma marca que n\u00e3o esconde nada \u00e9 ' +
+      'um nome bonito sem efeito', reg.slice(0, 120));
+    ['.ctrl', '.vels', '#vozes'].forEach(function (c) {
+      ok(alvos.indexOf(c) >= 0,
+        arq + ': e ' + c + ' sai da frente de quem s\u00f3 assiste', alvos);
+    });
+    ok(alvos.indexOf('.som') < 0 && alvos.indexOf('.leg') < 0,
+      arq + ': mas a legenda e o bot\u00e3o de \u00e1udio FICAM \u2014 s\u00e3o exatamente os dois que ' +
+      'foram pedidos', alvos);
+  });
+
   /* ---- A VOZ MORRE COM A TELA ----
    *
    * Sair do tutorial deixava a voz falando por mais dois a quatro segundos, por cima da
@@ -12567,6 +12627,16 @@ console.log('\n== o editor de falas para a demonstracao ==');
 
     /* ABRIR E FECHAR. */
     var q3 = elemFalso('quadro-video');
+    /* O QUADRO SABE PEDIR A TELA CHEIA DO NAVEGADOR — e ninguem pode pedi-la.
+     *
+     * Entrar na tela cheia do navegador move o elemento para a camada de topo, e mover
+     * um elemento que contem um `<iframe>` faz o navegador RECRIAR o iframe: o tutorial
+     * recomecava do zero e tudo o que ja' tinha sido preenchido sumia. Esconder as
+     * barras do navegador nao vale uma demonstracao perdida no meio.
+     *
+     * A classe sozinha ja' cobre a tela, e nao mexe no iframe. */
+    q3.pediuCheio = 0;
+    q3.requestFullscreen = function () { q3.pediuCheio++; };
     var d3 = docFalso([q3]);
     var api = new Function('doc', ex + '\n' + en +
       '\nreturn { abrir: expandirQuadro, fechar: encolherQuadro };')(d3);
@@ -12577,6 +12647,11 @@ console.log('\n== o editor de falas para a demonstracao ==');
     ok(d3.body.classList.contains('sem-rolagem'),
       'e a p\u00e1gina atr\u00e1s trava \u2014 sem isso o dedo que rola o tutorial rola a p\u00e1gina de ' +
       'baixo junto, e ao fechar a pessoa est\u00e1 noutro lugar');
+    ok(q3.pediuCheio === 0,
+      'e abrir N\u00c3O pede a tela cheia do navegador \u2014 ela move o quadro para a camada ' +
+      'de topo, e isso RECRIA o `iframe`: o tutorial recome\u00e7ava do zero e o que j\u00e1 ' +
+      'estava preenchido sumia', q3.pediuCheio);
+
     api.fechar(q3, d3);
     ok(!q3.classList.contains('quadro-video--cheio') &&
        !d3.body.classList.contains('sem-rolagem'),

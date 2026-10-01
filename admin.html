@@ -2160,23 +2160,26 @@
       qs[i].appendChild(b);
     }
   }
-  /* QUEM DA' A TELA E' A CLASSE, que e' so' CSS e funciona em todo aparelho. A tela
-     cheia do navegador entra POR CIMA quando existe, so' para esconder as barras dele —
-     o iPhone nao a oferece para nada que nao seja video, e depender dela deixaria
-     metade dos celulares sem o recurso. */
+  /* QUEM DA' A TELA E' A CLASSE, que e' so' CSS e funciona em todo aparelho.
+
+     E E' SO' ELA. Eu tinha pedido tambem a tela cheia do NAVEGADOR, por cima, para
+     esconder as barras dele. Entrar nela move o quadro para a camada de topo — e mover
+     um elemento que contem um `<iframe>` faz o navegador RECRIAR o iframe: o tutorial
+     recomecava do zero, e tudo o que ja' tinha sido preenchido na demonstracao sumia.
+     Esconder as barras do navegador nao vale uma demonstracao perdida no meio.
+
+     A classe cobre a tela igual e nao encosta no iframe. */
   function expandirQuadro(cx, doc){
     cx.classList.add('quadro-video--cheio');
     doc.body.classList.add('sem-rolagem');
     var b = cx.querySelector('.quadro-video__abrir');
     if (b) { b.setAttribute('aria-label','Sair da tela cheia'); b.textContent = '\u2715'; }
-    try { if (cx.requestFullscreen) cx.requestFullscreen(); } catch(e){}
   }
   function encolherQuadro(cx, doc){
     cx.classList.remove('quadro-video--cheio');
     doc.body.classList.remove('sem-rolagem');
     var b = cx.querySelector('.quadro-video__abrir');
     if (b) { b.setAttribute('aria-label','Ver em tela cheia'); b.textContent = '\u26F6'; }
-    try { if (doc.fullscreenElement && doc.exitFullscreen) doc.exitFullscreen(); } catch(e){}
   }
   porBotaoDeExpandir(document);
   /* Clique DELEGADO: os botoes nascem depois, e um ouvinte por botao teria de ser
@@ -2194,14 +2197,6 @@
      teclado. */
   document.addEventListener('keydown', function(e){
     if (e.key !== 'Escape') return;
-    var cx = document.querySelector('.quadro-video--cheio');
-    if (cx) encolherQuadro(cx, document);
-  });
-  /* SAIR PELA PORTA DO NAVEGADOR tambem fecha aqui: sem isto, quem apertasse Esc na
-     tela cheia do sistema sairia dela e ficaria com o quadro preso sobre a pagina,
-     sem barra nenhuma para entender o que aconteceu. */
-  document.addEventListener('fullscreenchange', function(){
-    if (document.fullscreenElement) return;
     var cx = document.querySelector('.quadro-video--cheio');
     if (cx) encolherQuadro(cx, document);
   });
