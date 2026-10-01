@@ -15801,74 +15801,75 @@ console.log('\n== os grupos da navegacao recolhem ==');
   ok(css.indexOf('@media (prefers-reduced-motion:reduce){ .nav-saida:hover svg{transform:none} }') > 0,
     'e quem pediu menos movimento não recebe nenhum — a porta diz a mesma coisa parada');
 
-  /* ---- A MARCA NO RODAPE ---- */
-  ok(adm.indexOf('class="conta__marca"') > 0 &&
-     adm.indexOf('<span class="conta__marca" aria-hidden="true">') > 0,
-    'a marca aparece no rodapé da lateral, e sem voz para quem usa leitor de tela — o ' +
-    'nome do sistema já foi dito no alto, e ouvi-lo de novo entre o nome da pessoa e o ' +
-    'botão de sair só atrasa quem está indo embora');
-  /* A FILEIRA DE BAIXO E UMA LINHA PROPRIA, e e isso que faz a esquerda ser um LUGAR.
-     Com os botoes apenas descendo quando o nome nao cabe, eles encostam a direita e o
-     vao da esquerda e sobra: a marca nao teria onde se apoiar. */
-  /* LIDO DENTRO DA REGRA, e nao no arquivo inteiro: `flex:1 1 100%` aparece em outros
-     lugares da folha, e procurado solto ele responde "sim" mesmo depois de sair daqui.
-     Foi a sabotagem que mostrou — tirei a propriedade da regra e a prova nao piscou. */
-  var iPe2 = css.indexOf('.conta__pe{');
-  var regraPe = iPe2 < 0 ? '' : css.slice(iPe2, css.indexOf('}', iPe2));
-  ok(regraPe.indexOf('flex:1 1 100%') > 0,
-    'a fileira de baixo é uma linha própria — descendo por falta de espaço, os botões ' +
-    'encostam à direita e a esquerda vira sobra, não lugar', regraPe);
+  /* ---- A MARCA, NA PONTA DA FAIXA DO TEMPO ----
+   *
+   * Ela morava no pe' da lateral do painel — um lugar que so' existe no painel, e de
+   * onde ela sumia no trilho recolhido e na tela baixa. Mudou para a faixa que o
+   * `app.js` monta, que serve as DUAS telas, no canto onde nao disputa espaco com nada:
+   * depois da hora acaba a linha. */
+  var nucleoMarca = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var iTm = nucleoMarca.indexOf("'<span class=\"tempo__marca\" aria-hidden=\"true\">'");
+  ok(iTm > 0,
+    'a marca mora na faixa do tempo, e sem voz para quem usa leitor de tela — o nome do ' +
+    'sistema já foi dito no alto, e a assinatura de quem o fez não é informação da ' +
+    'operação', iTm);
+  var iHora = nucleoMarca.indexOf("id=\"tempoHora\"");
+  ok(iHora > 0 && iTm > iHora,
+    'e ela vem DEPOIS da hora — é a ponta da linha, o único canto onde ela não empurra ' +
+    'a cidade nem a conta para fora', [iHora, iTm]);
+  ok(nucleoMarca.indexOf("'<span class=\"tempo__div tempo__div--marca\"") > 0 &&
+     nucleoMarca.indexOf("'<span class=\"tempo__div tempo__div--marca\"") < iTm,
+    'com o risquinho separando-a da hora, como entre as outras peças da faixa');
 
-  /* NO TEMA CLARO A MARCA GANHA A CHAPA. Ela e branca: sobre a lateral quase branca do
-     tema gelo sobra a base vermelha flutuando, que se le como erro de imagem. */
-  var iGelo = css.indexOf('[data-fundo="gelo"] .conta__marca{');
-  var regraGelo = iGelo < 0 ? '' : css.slice(iGelo, css.indexOf('}', iGelo));
-  ok(regraGelo.indexOf('background:var(--txt)') > 0,
+  /* SEM O ARQUIVO, SOME INTEIRA — e o risquinho vai junto, senao sobra um traco solto no
+     fim da linha separando a hora de nada. */
+  var iImgM = nucleoMarca.indexOf("src=\"marca-rodape.png\"");
+  var tagM = iImgM < 0 ? '' : nucleoMarca.slice(nucleoMarca.lastIndexOf("'<img", iImgM),
+                                                nucleoMarca.indexOf('">', iImgM) + 2);
+  ok(tagM.indexOf('onerror=') > 0 && tagM.indexOf('p.remove()') > 0,
+    'e some inteira se o arquivo faltar, em vez de virar o quadradinho de imagem ' +
+    'quebrada — ele parece defeito do sistema', tagM.slice(0, 160));
+  ok(tagM.indexOf('previousElementSibling') > 0 && tagM.indexOf('if(d)') > 0,
+    'e leva o risquinho junto, com guarda — `previousSibling` pega nó de texto quando ' +
+    'houver, e o erro impediria a própria marca quebrada de sair', tagM.slice(0, 200));
+
+  /* NO TEMA CLARO A MARCA GANHA A CHAPA. Ela e branca com a base vermelha: sobre fundo
+     claro sobra a base flutuando, que se le como erro de imagem. */
+  var iGeloM = css.indexOf('[data-fundo="gelo"] .tempo__marca{');
+  var regraGeloM = iGeloM < 0 ? '' : css.slice(iGeloM, css.indexOf('}', iGeloM));
+  ok(regraGeloM.indexOf('background:var(--txt)') > 0,
     'no tema claro a marca ganha a chapa escura para a qual foi desenhada — sem ela o ' +
-    'triângulo branco some na lateral quase branca e sobra a base vermelha flutuando',
-    regraGelo);
-  ok(regraGelo.indexOf('#') < 0,
+    'triângulo branco some no fundo claro e sobra a base vermelha flutuando', regraGeloM);
+  ok(regraGeloM.indexOf('#') < 0,
     'e a chapa sai de um TOKEN, e não de uma cor escrita à mão — escolhida a olho, ela ' +
-    'escaparia da medição de contraste do projeto', regraGelo);
+    'escaparia da medição de contraste do projeto', regraGeloM);
 
-  /* SEM O ARQUIVO, A MARCA SOME INTEIRA. O icone de imagem que nao carregou parece
-     defeito do sistema, e aqui ele fica ao lado do botao de sair. */
-  var iImg = adm.indexOf('src="marca-rodape.png"');
-  var tagImg = iImg < 0 ? '' : adm.slice(adm.lastIndexOf('<img', iImg), adm.indexOf('>', iImg));
-  ok(tagImg.indexOf('onerror="this.parentNode.remove()"') > 0,
-    'e a marca some inteira se o arquivo faltar, em vez de virar o quadradinho de ' +
-    'imagem quebrada — ele parece defeito do sistema, e fica ao lado do botão de sair, ' +
-    'onde ninguém vai investigar', tagImg);
-  var iPe = adm.indexOf('<span class="conta__pe">');
-  ok(iPe > 0 && adm.indexOf('class="conta__marca"', iPe) > iPe &&
-     adm.indexOf('class="conta__marca"', iPe) < adm.indexOf('class="conta__acoes"', iPe),
-    'e a marca vem ANTES dos botões dentro dela: é o que a põe na ponta esquerda, que ' +
-    'é o lugar pedido', [iPe, adm.indexOf('class="conta__marca"', iPe)]);
-  /* O ARQUIVO EXISTE, e tem o tamanho que a marcacao declara. `width`/`height` errados
-     no <img> nao quebram nada — a imagem aparece certa —, mas o navegador reserva o
-     espaco errado antes de carregar, e a fileira do rodape PULA quando ela chega. */
+  /* O ARQUIVO EXISTE, e tem o tamanho que a marcacao declara: errados, o navegador
+     reserva o espaco errado e a faixa PULA quando a imagem chega. */
   var marca = path.join(__dirname, '..', 'marca-rodape.png');
   ok(fsReal.existsSync(marca),
-    'o arquivo da marca do rodapé está no projeto — sem ele a marca some inteira pelo ' +
-    '`onerror`, e o lugar fica vazio sem nada dizendo por quê');
+    'o arquivo da marca está no projeto — sem ele a marca some pelo `onerror`, e o ' +
+    'lugar fica vazio sem nada dizendo por quê');
   var png = fsReal.readFileSync(marca);
   ok(png.length > 8 && png[0] === 0x89 && png.toString('ascii', 1, 4) === 'PNG',
     'e é um PNG de verdade', png.length);
   var lg = png.readUInt32BE(16) + 'x' + png.readUInt32BE(20);
-  ok(adm.indexOf('width="' + png.readUInt32BE(16) + '" height="' + png.readUInt32BE(20) + '"') > 0,
+  ok(nucleoMarca.indexOf('width="' + png.readUInt32BE(16) +
+                         '" height="' + png.readUInt32BE(20) + '"') > 0,
     'e a marcação declara o tamanho REAL dele — errado, o navegador reserva o espaço ' +
-    'errado e a fileira do rodapé pula quando a imagem chega', lg);
+    'errado e a faixa pula quando a imagem chega', lg);
   ok(png[25] === 6,
     'e ele tem transparência — sem ela, a marca chegaria com um retângulo branco em ' +
-    'volta, sobre uma lateral escura', png[25]);
-
-  ok(adm.indexOf('src="marca-rodape.png"') > 0 &&
-     adm.indexOf('<span class="selo selo--marca"><img src="logo.png"') > 0,
-    'e o arquivo dela é PRÓPRIO, `marca-rodape.png` — a do alto continua sendo a do ' +
-    'sistema, e uma só para as duas faria trocar uma trocar a outra');
-  ok(css.indexOf('.shell[data-nav="trilho"] .lateral:not(.espiando):not(:focus-within) .conta__marca{') > 0,
-    'no trilho ela sai — em 52px já disputam o retrato e o botão de sair, e a marca já ' +
-    'está no alto da lateral');
+    'volta', png[25]);
+  ok(adm.indexOf('<span class="selo selo--marca"><img src="logo.png"') > 0,
+    'e o arquivo dela é PRÓPRIO — a do alto continua sendo a do sistema, e uma só para ' +
+    'as duas faria trocar uma trocar a outra');
+  ok(adm.indexOf('class="conta__marca"') < 0,
+    'e ela não ficou nos DOIS lugares — duplicada, trocar a marca exigiria lembrar do ' +
+    'segundo, e o segundo é o que ninguém lembra');
+  ok(/@media \(max-width:1023px\)\{\s*\n\s*\.tempo__marca,\.tempo__div--marca\{display:none\}/.test(css),
+    'e no celular ela sai: a faixa já corta a conta por falta de largura, e assinatura ' +
+    'cede lugar a informação');
 })();
 
 console.log('\n== o piso ES5 das telas que vao para o ar ==');

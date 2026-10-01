@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=193176e7">
+<link rel="stylesheet" href="styles.css?v=c9e92e59">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -440,23 +440,14 @@
            `aria-hidden` e `alt` vazio: quem usa leitor de tela ja ouviu o nome do
            sistema no alto, e ouvir a marca de novo entre o nome da pessoa e o botao de
            sair so atrasa quem esta indo embora. -->
-      <!-- A FILEIRA DE BAIXO: a marca na ponta esquerda, os botoes na direita.
-           Ela e uma linha PROPRIA, e nao os botoes descendo quando o nome nao cabe. A
-           diferenca importa: descendo, eles ficam encostados a direita e o vao da
-           esquerda e so sobra — nao ha onde a marca se apoiar. Numa linha propria, a
-           esquerda passa a ser um lugar, e e onde a marca mora. -->
+      <!-- A FILEIRA DE BAIXO. A MARCA SAIU DAQUI, a pedido, e foi para a ponta da faixa
+           do tempo, ao lado do relogio — que e' uma peca do `app.js` e serve as DUAS
+           telas. Aqui ela so' existia no painel, e ainda sumia no trilho recolhido e na
+           tela baixa, que eram as duas regras escritas logo abaixo dela no CSS.
+           A fileira continua sendo uma linha PROPRIA, e nao os botoes descendo quando o
+           nome nao cabe: descendo, eles encostam a direita e o vao da esquerda e' sobra,
+           nao lugar. -->
       <span class="conta__pe">
-      <span class="conta__marca" aria-hidden="true">
-        <!-- SEM O ARQUIVO, A MARCA SOME INTEIRA — e nao vira o quadradinho de imagem
-             quebrada. E o mesmo `onerror` do retrato de quem entrou, e pelo mesmo
-             motivo: o icone de imagem que nao carregou parece defeito do sistema, e
-             aqui ele ficaria ao lado do botao de sair, onde ninguem vai investigar.
-             O ARQUIVO E PROPRIO, e nao o `logo.png` do alto: aquele e a marca do
-             SISTEMA, no lugar onde se le o nome dele. Um arquivo so para os dois faria
-             trocar um trocar o outro. -->
-        <img src="marca-rodape.png" alt="" width="738" height="655"
-             onerror="this.parentNode.remove()">
-      </span>
       <span class="conta__acoes">
       <!-- VER COMO FICA NO CELULAR. É de TODO MUNDO, e não só de quem administra: quem
            lança no galpão trabalha no telefone, e quem atende no escritório precisa
@@ -1592,7 +1583,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=91856cf6"></script>
+<script src="app.js?v=831401ae"></script>
 <script>
 (function(){
   'use strict';

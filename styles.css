@@ -794,6 +794,32 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    informacao. */
 @media (max-height:700px){ .conta__marca{display:none} }
 
+/* A MARCA NA PONTA DA FAIXA DO TEMPO.
+ *
+ * Ela saiu do pe' da lateral — um lugar que so' existe no painel, e de onde ela sumia no
+ * trilho recolhido e na tela baixa. Aqui serve as duas telas e fica no canto onde nao
+ * disputa espaco: depois da hora acaba a linha.
+ *
+ * MENOR QUE NO RODAPE: la' eram 28px numa coluna de 220px; aqui a faixa inteira tem
+ * ~34px de altura e divide a largura com a conta, o tempo e a data. 20px e' o que cabe
+ * sem empurrar a cidade para fora.
+ *
+ * NO CELULAR ELA SAI. A faixa ja' corta a conta por falta de largura, e assinatura cede
+ * lugar a informacao — a mesma regra que valia no rodape. */
+.tempo__marca{display:inline-flex;align-items:center;flex:0 0 auto;opacity:.8;
+  transition:opacity .16s ease}
+.tempo__marca img{display:block;height:20px;width:auto}
+.tempo__marca:hover{opacity:1}
+/* NO TEMA CLARO, A CHAPA — mesma razao e mesmo token do rodape: a marca e' branca com a
+   base vermelha, e sobre fundo claro sobra a base flutuando, que se le como erro de
+   imagem. `--txt` e' a cor que, por definicao, contrasta com aquela superficie. */
+[data-fundo="gelo"] .tempo__marca{
+  opacity:1;padding:2px 5px;border-radius:6px;background:var(--txt)
+}
+@media (max-width:1023px){
+  .tempo__marca,.tempo__div--marca{display:none}
+}
+
 /* O estado da rede. Continua sendo `#chipRede`, com as mesmas classes que o `app.js`
    escreve (`off`, `alerta`) — so mudou onde ele mora e como ele se parece. */
 .chip{

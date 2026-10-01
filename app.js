@@ -744,7 +744,30 @@
     '<div class="tempo__d">' +
       '<span class="tempo__data" id="tempoData"></span>' +
       '<time class="tempo__hora" id="tempoHora"></time>' +
-    '</div>';
+    '</div>' +
+    /* A MARCA DE QUEM FEZ, NA PONTA DA FAIXA.
+     *
+     * Ela morava no pe' da lateral do painel, abaixo do nome de quem entrou — um lugar
+     * que so' existe no painel, e que no trilho recolhido e na tela baixa ela era a
+     * primeira a perder. Aqui ela fica na faixa que serve as DUAS telas, no canto que
+     * nao disputa espaco com nada: depois da hora acaba a linha.
+     *
+     * SEM O ARQUIVO, SOME INTEIRA — e nao vira o quadradinho de imagem quebrada. E' o
+     * mesmo `onerror` do retrato de quem entrou, e pelo mesmo motivo: icone de imagem
+     * que nao carregou parece defeito do sistema.
+     *
+     * `aria-hidden`: quem usa leitor de tela ja ouviu o nome do sistema no alto, e a
+     * assinatura de quem o fez nao e' informacao da operacao. */
+    '<span class="tempo__div tempo__div--marca" aria-hidden="true"></span>' +
+    '<span class="tempo__marca" aria-hidden="true">' +
+      /* O RISQUINHO SAI JUNTO: sozinho, ele viraria um traco solto no fim da linha,
+         separando a hora de nada. `previousElementSibling` e nao `previousSibling`
+         porque o segundo pega no de texto quando houver um, e `remove` nele estoura —
+         e um erro aqui impediria a propria marca quebrada de sair. */
+      '<img src="marca-rodape.png" alt="" width="738" height="655" ' +
+           'onerror="var p=this.parentNode,d=p.previousElementSibling;' +
+                    'if(d)d.remove();p.remove()">' +
+    '</span>';
 
   /* ================= A SAUDAÇÃO PELO HORÁRIO =================
    *
