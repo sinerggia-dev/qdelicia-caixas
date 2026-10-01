@@ -1579,7 +1579,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=2253d6cc"></script>
+<script src="app.js?v=5da35194"></script>
 <script>
 (function(){
   'use strict';
@@ -1808,13 +1808,10 @@
     /* DEPOIS de `Q.abas`, e nao antes: os dois mexem nos mesmos botoes, e recolher
        precisa do menu ja ligado para o titulo poder esconder itens que existem. */
     Q.gruposRecolhiveis('#abas');
-    /* A ABA PEDIDA NA URL, aberta pelo CLIQUE no proprio botao — e nao trocando as
-       classes na mao. O clique e quem avisa `aoAbrirAba`, e e ele que manda a tela
-       carregar os dados dela: trocado a mao, a moldura abriria a pagina certa vazia. */
-    if (ABA_PEDIDA){
-      var alvoAba = document.querySelector('#abas button[data-pagina="'+ABA_PEDIDA+'"]');
-      if (alvoAba) alvoAba.click();
-    }
+    /* A ABA PEDIDA NA URL — a regra mora no NUCLEO, porque o app de campo precisa da
+       mesma: o botao de atualizar volta por ela, e escrita so' aqui ele funcionava no
+       painel e nao no campo. */
+    Q.abrirAbaPedida('#abas');
     Q.gaveta();
     ajustarAbasPainel(s);
     periodoPadraoMov();

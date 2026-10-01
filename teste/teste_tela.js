@@ -11977,6 +11977,67 @@ console.log('\n== Motorista/Conferente ==');
     'e a coluna existe E é preenchida — a função existir sem ninguém chamá-la foi o ' +
     'escape de três sabotagens nesta semana', hist.slice(0, 160));
 
+  /* ---- ATUALIZAR NAO TROCA DE PAGINA ----
+   *
+   * `location.reload()` devolvia a tela que abre por padrao: quem apertava o botao
+   * estando em Movimentos Motoristas caia no Painel de Ativos. O botao diz "atualizar",
+   * e atualizar e' ver de novo o MESMO. */
+  var nucleo2 = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var iRc = nucleo2.indexOf('  function recarregarNaMesmaPagina() {');
+  var rc = iRc < 0 ? '' : nucleo2.slice(iRc, nucleo2.indexOf('\n  }', iRc) + 4);
+  ok(rc.length > 200, 'a conferência recortou o recarregar', rc.length);
+  if (rc.length > 200) {
+    function recarregouPara(pagina, busca, hash) {
+      var foi = { replace: null, reload: 0 };
+      new Function('document', 'location',
+        rc + '\nrecarregarNaMesmaPagina();')(
+        { documentElement: { dataset: { pagina: pagina } } },
+        { pathname: '/admin.html', search: busca || '', hash: hash || '',
+          replace: function (u) { foi.replace = u; },
+          reload: function () { foi.reload++; } });
+      return foi;
+    }
+    var r1 = recarregouPara('pgLancamentosMotorista', '');
+    ok(r1.replace === '/admin.html?aba=pgLancamentosMotorista',
+      'atualizar volta para a MESMA página — recarregando puro, quem está em Movimentos ' +
+      'Motoristas cai no Painel de Ativos e tem de navegar de novo', r1.replace);
+    ok(r1.reload === 0,
+      'e não recarrega por cima disso — as duas coisas juntas fariam a tela abrir ' +
+      'duas vezes');
+    var r2 = recarregouPara('pgMovimentos', '?editar=1&teste=so');
+    ok(r2.replace.indexOf('editar=1') > 0 && r2.replace.indexOf('teste=so') > 0 &&
+       r2.replace.indexOf('aba=pgMovimentos') > 0,
+      'e os outros parâmetros da URL continuam valendo — reescrever a busca inteira ' +
+      'apagaria o modo em que a página estava', r2.replace);
+    var r3 = recarregouPara('pgMovimentos', '?aba=pgPainel');
+    ok((r3.replace.match(/aba=/g) || []).length === 1 &&
+       r3.replace.indexOf('aba=pgMovimentos') > 0,
+      'e a aba antiga da URL é SUBSTITUÍDA, não acumulada — dois `aba=` na mesma ' +
+      'busca e vale o primeiro, que é a página de onde a pessoa saiu', r3.replace);
+    var r4 = recarregouPara('', '');
+    ok(r4.reload === 1 && r4.replace === null,
+      'e sem saber em que página está, recarrega como antes — inventar uma página seria ' +
+      'levar a pessoa para um lugar que ela não pediu');
+  }
+  ok(/location\.replace\(/.test(rc) && !/location\.assign\(/.test(rc),
+    'e por `replace`: atualizar não é navegar, e empilhando, cada toque poria uma ' +
+    'entrada no histórico e o Voltar passaria a desfazer atualizações');
+  /* E AS TRES LIGACOES. Tres sabotagens escaparam aqui, todas do mesmo tipo: a funcao
+     inteira e correta, e ninguem a chama. O botao voltando ao `reload` puro, e cada uma
+     das duas telas deixando de abrir a aba pedida — e aI' o botao volta a trocar de
+     pagina exatamente como antes. Pela setima vez nesta semana. */
+  ok(/b\.classList\.add\('girando'\);\s*\n\s*recarregarNaMesmaPagina\(\);/.test(nucleo2),
+    'e o botão de atualizar CHAMA essa regra — voltando ao `reload` puro, ela fica ' +
+    'inteira e correta no arquivo e a tela troca de página do mesmo jeito');
+  var idxHtml = fsReal.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var admHtml2 = fsReal.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  ok(admHtml2.indexOf("Q.abrirAbaPedida('#abas')") > 0,
+    'e o PAINEL abre a aba pedida — sem a chamada, atualizar leva de volta à tela ' +
+    'inicial, que é o defeito que isto veio consertar');
+  ok(idxHtml.indexOf("Q.abrirAbaPedida('#abas')") > 0,
+    'e o APP DE CAMPO também — a regra mudou para o núcleo justamente porque ela valia ' +
+    'só no painel, e o mesmo botão existe nas duas telas');
+
   /* ---- O PEDIDO DE MOTIVO NASCE NA LINHA ----
    *
    * Era um `prompt`, colado no alto da janela, a um palmo e meio da linha em que se
@@ -15846,7 +15907,13 @@ console.log('\n== ver como fica no celular ==');
   ok(ver.indexOf("#abas button.ativa") > 0 && ver.indexOf("'&aba='") > 0,
     'e leva a página em que a pessoa está — sem isso, a moldura abriria na tela ' +
     'inicial e ela teria de navegar de novo lá dentro, no aparelho de brinquedo');
-  ok(adm.indexOf('if (alvoAba) alvoAba.click();') > 0,
+  /* A REGRA MUDOU DE CASA, e nao de conteudo: ela mora no NUCLEO porque o app de campo
+     precisa da mesma — o botao de atualizar volta por ela, e escrita so' no painel ele
+     funcionava num e no outro nao. O que a prova cobra continua sendo o CLIQUE. */
+  var nucleoJs = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var iAb = nucleoJs.indexOf('  function abrirAbaPedida(seletor) {');
+  var ab = iAb < 0 ? '' : nucleoJs.slice(iAb, nucleoJs.indexOf('\n  }', iAb) + 4);
+  ok(ab.indexOf('alvo.click();') > 0 && ab.indexOf("paramUrl('aba')") > 0,
     'e a aba pedida é aberta pelo CLIQUE no próprio botão — trocadas as classes à mão, ' +
     'a página certa abriria vazia, porque quem manda buscar os dados é o aviso que só ' +
     'o clique dispara');

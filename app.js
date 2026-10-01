@@ -1535,8 +1535,53 @@
     var b = e.target && e.target.closest && e.target.closest('#tempoRec');
     if (!b) return;
     b.classList.add('girando');
-    location.reload();
+    recarregarNaMesmaPagina();
   });
+
+  /* ATUALIZAR NAO PODE TROCAR DE PAGINA.
+   *
+   * `location.reload()` devolvia a tela que abre por padrao: quem apertava o botao
+   * estando em Movimentos Motoristas caia no Painel de Ativos. O botao diz "atualizar",
+   * e atualizar e' ver de novo o MESMO — trocar de assunto e' outra coisa, e a pessoa
+   * ainda tem de achar o caminho de volta.
+   *
+   * PELA `?aba=`, que ja existe e ja e' usada: a moldura do celular no painel abre a
+   * pagina por ela, e o caminho e' um CLIQUE no proprio botao da navegacao — e' o clique
+   * que manda a tela carregar os dados daquela pagina. Inventar um segundo jeito de
+   * abrir pagina aqui daria duas portas para a mesma coisa, e uma delas sem os dados.
+   *
+   * `replace` E NAO `assign`: atualizar nao e' navegar. Empilhando, cada toque no botao
+   * poria mais uma entrada no historico, e o Voltar do navegador passaria a desfazer
+   * atualizacoes em vez de voltar de onde a pessoa veio.
+   *
+   * E OS OUTROS PARAMETROS FICAM: `?editar=1`, `?teste=` e o que mais houver na barra
+   * continuam valendo depois do toque. Reescrever a busca inteira apagaria o modo em que
+   * a pagina estava. */
+  function recarregarNaMesmaPagina() {
+    var pg = '';
+    try { pg = document.documentElement.dataset.pagina || ''; } catch (e) {}
+    if (!pg) { location.reload(); return; }
+    var busca = String(location.search || '').replace(/^\?/, '');
+    var partes = busca ? busca.split('&') : [];
+    partes = partes.filter(function (x) { return x.slice(0, 4) !== 'aba='; });
+    partes.push('aba=' + encodeURIComponent(pg));
+    location.replace(location.pathname + '?' + partes.join('&') + (location.hash || ''));
+  }
+
+  /* A PAGINA PEDIDA NA URL, ABERTA PELO CLIQUE no proprio botao — e nao trocando as
+     classes na mao. O clique e' quem avisa `aoAbrirAba`, e e' ele que manda a tela
+     carregar os dados dela: trocado a mao, a pagina certa abriria VAZIA.
+     NUM LUGAR SO' porque as duas telas precisam: o painel ja fazia isto escrito dentro
+     dele, e o app de campo nao fazia — entao o botao de atualizar funcionava num e no
+     outro nao. */
+  function abrirAbaPedida(seletor) {
+    var pedida = paramUrl('aba');
+    if (!pedida) return false;
+    var alvo = document.querySelector(seletor + ' button[data-pagina="' + pedida + '"]');
+    if (!alvo) return false;
+    alvo.click();
+    return true;
+  }
 
   function quemEsta(nome, perfil, foto) {
     var n = document.getElementById('cabUsuario');
@@ -2483,6 +2528,7 @@
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
     paramUrl: paramUrl,
     guardarVozNarracao: guardarVozNarracao,
+    abrirAbaPedida: abrirAbaPedida, recarregarNaMesmaPagina: recarregarNaMesmaPagina,
     comoChamar: comoChamar, nomeESobrenome: nomeESobrenome,
     ligarBotaoHoje: ligarBotaoHoje, marcarBotaoHoje: marcarBotaoHoje,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,

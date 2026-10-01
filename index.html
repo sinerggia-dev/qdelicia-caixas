@@ -589,7 +589,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=2253d6cc"></script>
+<script src="app.js?v=5da35194"></script>
 <script>
 (function(){
   'use strict';
@@ -739,6 +739,9 @@
        esqueleto — a barra lateral perdia a altura e o rodape dela subia para o meio. */
     document.getElementById('app').style.display = 'flex';
     Q.abas('#abas');
+    /* E A PAGINA PEDIDA NA URL, que e' por onde o botao de atualizar volta para a mesma
+       tela. Sem isto, atualizar no app de campo caia sempre na primeira aba. */
+    Q.abrirAbaPedida('#abas');
     Q.gaveta();
     aplicarSessao(s);
     if (String(s.perfil).toUpperCase() === 'PROMOTOR'){
