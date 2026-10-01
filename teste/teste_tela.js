@@ -11977,6 +11977,49 @@ console.log('\n== Motorista/Conferente ==');
     'e a coluna existe E é preenchida — a função existir sem ninguém chamá-la foi o ' +
     'escape de três sabotagens nesta semana', hist.slice(0, 160));
 
+  /* ---- A PRIMEIRA ABA SO' ENTRA QUANDO A ATUAL NAO VALE ----
+   *
+   * `ajustarAbas` clicava na primeira aba visivel em TODA chamada — e era isso que
+   * fazia o botao de atualizar trocar de tela: `abrirAbaPedida` abria a aba certa, e
+   * esta, rodando duas linhas depois, clicava por cima. O defeito nao estava no botao.
+   *
+   * A INTENCAO ORIGINAL FICA: ninguem pode cair numa pagina escondida e ver a tela em
+   * branco. Ela so' passou a perguntar antes se ha' o que consertar. */
+  var ixAbas = fsReal.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var iAj = ixAbas.indexOf('  function ajustarAbas(s){');
+  var aj = iAj < 0 ? '' : ixAbas.slice(iAj, ixAbas.indexOf('\n  }', iAj) + 4);
+  ok(aj.length > 400, 'a conferência recortou o ajuste das abas', aj.length);
+  if (aj.length > 400) {
+    function cliquesCom(temAtiva, ativaVisivel) {
+      var cliques = [];
+      var botao = { dataset: { operacao: 'RETORNO' }, style: { display: '' },
+                    classList: { remove: function () {} },
+                    click: function () { cliques.push('primeira'); } };
+      var ativa = temAtiva
+        ? { style: { display: ativaVisivel ? '' : 'none' },
+            click: function () { cliques.push('ativa'); } }
+        : null;
+      new Function('document', 'Q', 'operacoesDe',
+        aj + '\najustarAbas({ operacoes: ["RETORNO"] });')(
+        { querySelectorAll: function () { return [botao]; },
+          querySelector: function (s) {
+            return s.indexOf('.ativa') >= 0 ? ativa : botao;
+          } },
+        { gruposDaNavegacao: function () {} },
+        function (s) { return s.operacoes; });
+      return cliques;
+    }
+    ok(cliquesCom(true, true).length === 0,
+      'com uma aba válida já aberta, o ajuste NÃO clica em nada — clicando, ele desfaz ' +
+      'a página que o botão de atualizar acabou de abrir, e a pessoa cai noutra tela',
+      cliquesCom(true, true));
+    ok(cliquesCom(true, false).join() === 'primeira',
+      'mas se a aba aberta ficou ESCONDIDA pela permissão, ele leva para a primeira que ' +
+      'sobrou — senão a pessoa fica numa página invisível, olhando a tela em branco');
+    ok(cliquesCom(false, false).join() === 'primeira',
+      'e sem aba nenhuma aberta, idem');
+  }
+
   /* ---- QUEM SO' FAZ RETORNO NAO VE' SAIDA ----
    *
    * A coluna de saida sai vazia em TODA linha de quem so' faz retorno: ocupa largura

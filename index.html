@@ -808,8 +808,22 @@
     /* O titulo do modulo some com os itens dele: cabecalho sobre secao vazia mente
        sobre o que a pessoa pode fazer. Mora no `app.js`, e serve as duas telas. */
     Q.gruposDaNavegacao('#abas');
-    var primeira = document.querySelector('#abas button:not([style*="none"])');
-    if (primeira) primeira.click();
+    /* SO' QUANDO NAO HA ABA VALIDA ABERTA — e nao sempre.
+     *
+     * Esta linha clicava na primeira aba visivel em TODA chamada, e e' o que fazia o
+     * botao de atualizar trocar de tela: `abrirAbaPedida` abria a aba certa, e esta,
+     * rodando duas linhas depois, clicava por cima e levava a pessoa para a primeira.
+     * O defeito nao estava no botao — estava aqui.
+     *
+     * A INTENCAO ORIGINAL FICA INTEIRA: ela existe para que ninguem caia numa pagina
+     * escondida e veja a tela em branco. Isso continua valendo, so' que agora ela
+     * pergunta antes se ha' o que consertar. */
+    var ativa = document.querySelector('#abas button.ativa');
+    var valeAativa = !!ativa && ativa.style.display !== 'none';
+    if (!valeAativa) {
+      var primeira = document.querySelector('#abas button:not([style*="none"])');
+      if (primeira) primeira.click();
+    }
   }
 
   document.getElementById('chipSair').addEventListener('click', function(){
