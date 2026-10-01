@@ -12809,6 +12809,14 @@ console.log('\n== o editor de falas para a demonstracao ==');
   ok(!!chip && chip['min-width'] === '0',
     'o chip do cadeado pode ENCOLHER — sem isso ele pede a largura do texto inteiro e ' +
     'empurra os botões para uma faixa própria abaixo dele', chip);
+  /* E ENCOLHER NAO BASTAVA. Numa linha que pode quebrar, o navegador decide a QUEBRA
+     pelo tamanho que cada item PEDE, antes de encolher ninguem: com base `auto` o chip
+     pedia a largura do texto, a linha quebrava, e so' depois ele teria chance de caber —
+     que e' tarde. Com base zero ele nunca pede nada e nunca empurra a linha. */
+  ok(!!chip && /^1 1 0(px)?$/.test(chip['flex'] || ''),
+    'e ele não PEDE largura nenhuma: numa linha que pode quebrar, a quebra é decidida ' +
+    'pelo tamanho pedido, antes de qualquer encolhimento — com base no texto ele ' +
+    'quebrava a linha e só depois teria chance de caber', chip && chip['flex']);
   ok(!!chip && chip['text-overflow'] === 'ellipsis' && chip['overflow'] === 'hidden',
     'e o que não couber dele vira reticências, em vez de vazar por cima dos botões',
     chip);
