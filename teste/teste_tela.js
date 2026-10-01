@@ -11711,11 +11711,13 @@ console.log('\n== Motorista/Conferente ==');
    * isso o padrao e' UM livro, e nao "todos" — e e' a unica tela do painel onde abrir
    * tudo seria pior do que abrir uma parte. */
   var marcadas = (selBase.match(/<option value="([^"]*)"[^>]*selected/g) || []);
-  ok(marcadas.length === 1 && marcadas[0].indexOf('"declaracao"') > 0,
-    'a conciliação abre na Base Declaração — uma só, e a de verdade: somar os dois ' +
-    'livros daria um número que não responde nem uma pergunta nem a outra, e pedir a ' +
-    'escolha antes de mostrar qualquer coisa punha um aviso onde se espera números',
-    marcadas);
+  ok(marcadas.length === 2,
+    'a conciliação abre com OS DOIS livros marcados — pedir a escolha antes de mostrar ' +
+    'qualquer coisa punha um aviso onde se esperam números, e abrir só num deles deixava ' +
+    'quem opera em validação lendo zero, que é o mesmo aviso dito com números', marcadas);
+  ok(selBase.indexOf('value=""') > 0 && selBase.indexOf('value="" selected') < 0,
+    'e a opção vazia continua existindo para limpar, sem nascer marcada — marcada, ela ' +
+    'competiria com as duas e a tela abriria sem base nenhuma de novo');
 
   /* ---- O PAR, RODADO ----
    *

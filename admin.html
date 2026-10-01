@@ -1305,16 +1305,21 @@
                  padrão que abrange tudo cresce sozinho a cada livro novo. A palavra do
                  estado vazio diz o que falta fazer, e não promete dado. -->
             <div><label for="dcBase">Base</label>
-              <!-- ABRE NA DECLARACAO, e nao pedindo escolha. A tela pedia a base antes de
-                   mostrar qualquer coisa, e quem chegava nela via um aviso onde esperava
-                   numeros. Somar os dois livros continua FORA: declaracao e teste sao
-                   contas diferentes, e juntas dao um numero que nao responde nem uma
-                   pergunta nem a outra — por isso o padrao e' um livro, o de verdade, e
-                   nao "todos". Trocar continua a um toque. -->
+              <!-- ABRE COM OS DOIS LIVROS MARCADOS.
+                   A tela pedia a base antes de mostrar qualquer coisa, e quem chegava
+                   nela via um aviso onde esperava numeros. Depois passou a abrir so' na
+                   Declaracao — e quem opera hoje em validacao continuou vendo zero, que
+                   e' o mesmo aviso dito com numeros.
+                   O CUSTO ESTA' NOS TRES TOTAIS DE CIMA, e e' escolha de quem manda:
+                   cada PAR continua certo, porque o par compara a declaracao com a
+                   contagem do mesmo motorista no mesmo dia dentro do mesmo livro. O que
+                   mistura e' a soma do topo — Declarado, Conferido e Diferenca passam a
+                   somar os dois livros. Quem quiser a conta de um livro so' tira o outro
+                   do filtro, que continua a um toque. -->
               <select id="dcBase" multiple data-multi>
                 <option value="">Escolha a base…</option>
                 <option value="declaracao" selected>Base Declaração</option>
-                <option value="testeDecl">Base Teste Declaração</option>
+                <option value="testeDecl" selected>Base Teste Declaração</option>
               </select></div>
             <!-- NASCE EM RETORNO, a pedido: ninguém declara um carregamento, então todo par
                  de saída nasce "Sem declaração" — ruído por construção, e ruído que parece
