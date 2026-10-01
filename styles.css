@@ -3627,7 +3627,11 @@ body.sem-rolagem{overflow:hidden}
    encostam na borda de cima do primeiro cartao e se leem como o cabecalho dele — e
    para quem nao e administrador o cadeado some da esquerda, entao Limpar e CSV ficam
    sozinhos, colados e ainda mais parecidos com um titulo. */
-.barra-trava{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}
+/* ALINHADOS PELA BASE, e nao pelo meio. Os campos de data tem rotulo em cima e sao mais
+   altos que o cadeado e os botoes; centralizados, cada peca parava numa altura — o
+   cadeado acima da linha dos campos, os botoes no meio. Pela base todos pousam na mesma
+   linha, que e' a que o olho segue. */
+.barra-trava{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:0 0 16px}
 /* A TIRA VAZIA ANTES DAS DATAS.
  *
  * Os 16px de baixo da barra existem para o caso em que os CARTÕES vêm logo depois:
@@ -3661,7 +3665,13 @@ body.sem-rolagem{overflow:hidden}
  *
  * A FONTE DESCE UM PONTO junto, a pedido: num telefone estreito o que sobra para o chip
  * sao poucos pixels, e cada um deles e' mais uma letra antes das reticencias. */
-.barra-trava > .trava-colunas{flex:1 1 0;min-width:0;margin:0;font-size:11px;
+/* O CHIP NAO CRESCE. Ele tinha `flex-grow:1` para nunca empurrar a linha para baixo —
+   e o preco foi ele ESTICAR ate' sobrar, jogando botoes e campos para a borda direita
+   com um vao no meio. Numa tela larga o vao virou um palmo de nada.
+   `0 1 auto`: ocupa o que o texto pede, encolhe quando aperta, e nunca toma o espaco
+   dos outros. Em tela estreita a linha volta a quebrar — e esta' certo: com cinco
+   controles ela quebraria de qualquer jeito, e empilhada se le' melhor do que espremida. */
+.barra-trava > .trava-colunas{flex:0 1 auto;min-width:0;margin:0;font-size:11px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
 /* ENCOSTADOS NO CADEADO, e nao na outra ponta da linha. Eles foram para a direita
    quando a barra tinha so' eles; com as datas e a busca na mesma linha, a folga do meio
@@ -3672,8 +3682,12 @@ body.sem-rolagem{overflow:hidden}
 /* AS DATAS E A BUSCA NA MESMA LINHA. Numa tela larga, duas faixas para um cadeado, dois
    botoes e tres campos era altura gasta antes do primeiro numero. No celular a linha
    quebra sozinha e elas voltam a se empilhar. */
-.barra-trava > .periodo-linha{flex:1 1 340px;margin:0;min-width:0}
-.dc-busca{flex:1 1 200px;min-width:0;display:flex;flex-direction:column}
+/* OS CAMPOS TAMBEM NAO ESTICAM. Eles tomavam a largura que sobrasse e iam ate' a borda
+   do monitor: tres campos de 600px cada para escrever uma data de dez caracteres. Com
+   largura propria, tudo fica encostado a' esquerda, que e' por onde se le'. */
+.barra-trava > .periodo-linha{flex:0 1 auto;margin:0;min-width:0}
+.barra-trava > .periodo-linha > div{flex:0 1 160px}
+.dc-busca{flex:0 1 230px;min-width:0;display:flex;flex-direction:column}
 .dc-busca input{min-height:36px;padding:0 10px;font-size:13.5px}
 /* NO TAMANHO DO CADEADO, e não no de botão de gaveta. Na gaveta eles são a ação
    principal de uma folha inteira; aqui são vizinhos de um `mini` de 13px, e em

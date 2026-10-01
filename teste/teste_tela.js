@@ -13106,14 +13106,24 @@ console.log('\n== o editor de falas para a demonstracao ==');
   ok(!!chip && chip['min-width'] === '0',
     'o chip do cadeado pode ENCOLHER — sem isso ele pede a largura do texto inteiro e ' +
     'empurra os botões para uma faixa própria abaixo dele', chip);
-  /* E ENCOLHER NAO BASTAVA. Numa linha que pode quebrar, o navegador decide a QUEBRA
-     pelo tamanho que cada item PEDE, antes de encolher ninguem: com base `auto` o chip
-     pedia a largura do texto, a linha quebrava, e so' depois ele teria chance de caber —
-     que e' tarde. Com base zero ele nunca pede nada e nunca empurra a linha. */
-  ok(!!chip && /^1 1 0(px)?$/.test(chip['flex'] || ''),
-    'e ele não PEDE largura nenhuma: numa linha que pode quebrar, a quebra é decidida ' +
-    'pelo tamanho pedido, antes de qualquer encolhimento — com base no texto ele ' +
-    'quebrava a linha e só depois teria chance de caber', chip && chip['flex']);
+  /* E ELE NAO CRESCE. Teve `flex-grow:1` por um tempo, para nunca empurrar a linha para
+     baixo — e o preco foi ele ESTICAR ate' sobrar, jogando botoes e campos para a borda
+     direita com um vao no meio. Numa tela larga o vao virou um palmo de nada.
+     A quebra em tela estreita voltou junto, e esta' certo: com cinco controles a linha
+     quebraria de qualquer jeito, e empilhada se le' melhor do que espremida. */
+  ok(!!chip && /^0 1 /.test(chip['flex'] || ''),
+    'e ele NÃO cresce: esticando até sobrar, ele joga os botões e os campos para a ' +
+    'borda direita e abre um vão no meio — numa tela larga, um palmo de nada',
+    chip && chip['flex']);
+  var barra = declara('.barra-trava');
+  ok(!!barra && barra['align-items'] === 'flex-end',
+    'e a linha alinha pela BASE: os campos de data têm rótulo em cima e são mais altos ' +
+    'que o cadeado e os botões — centralizados, cada peça para numa altura diferente',
+    barra && barra['align-items']);
+  var campos = declara('.barra-trava > .periodo-linha > div');
+  ok(!!campos && /^0 1 /.test(campos['flex'] || ''),
+    'e os campos também não esticam — eles iam até a borda do monitor: 600px de largura ' +
+    'para escrever uma data de dez caracteres', campos && campos['flex']);
   ok(!!chip && chip['text-overflow'] === 'ellipsis' && chip['overflow'] === 'hidden',
     'e o que não couber dele vira reticências, em vez de vazar por cima dos botões',
     chip);
@@ -13132,6 +13142,10 @@ console.log('\n== o editor de falas para a demonstracao ==');
     'e ficam ENCOSTADOS no cadeado — com as datas e a busca na mesma linha, jogá-los ' +
     'na outra ponta separava um grupo que se lê junto', acoes && acoes['margin-left']);
   var periodoNaBarra = declara('.barra-trava > .periodo-linha');
+  ok(!!periodoNaBarra && /^0 1 /.test(periodoNaBarra['flex'] || ''),
+    'e o bloco das datas também não cresce — crescendo, ele empurra sozinho tudo o que ' +
+    'vem antes para a esquerda e tudo o que vem depois para a borda',
+    periodoNaBarra && periodoNaBarra['flex']);
   ok(!!periodoNaBarra && periodoNaBarra['margin'] === '0',
     'e as datas entram na MESMA linha — numa tela larga, duas faixas para um cadeado, ' +
     'dois botões e três campos era altura gasta antes do primeiro número',
