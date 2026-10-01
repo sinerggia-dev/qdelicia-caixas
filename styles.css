@@ -3601,7 +3601,23 @@ body.sem-rolagem{overflow:hidden}
    para quem nao e administrador o cadeado some da esquerda, entao Limpar e CSV ficam
    sozinhos, colados e ainda mais parecidos com um titulo. */
 .barra-trava{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}
-.barra-trava__acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* OS BOTOES FICAM NA LINHA DO CADEADO, e nao numa faixa propria abaixo dele.
+ *
+ * Eles ja' estavam escritos lado a lado; no celular era o CHIP que os empurrava para
+ * baixo — ele pedia a largura do texto inteiro, nao sobrava nada, e a linha quebrava.
+ * Gastava uma faixa da tela para tres botoes de 28px e empurrava os numeros, que sao o
+ * que se veio ver, para baixo da dobra.
+ *
+ * QUEM ENCOLHE E' O CHIP, e nao os botoes: `min-width:0` desfaz o minimo que o texto
+ * impoe, e o resto corta com reticencias. O cadeado diz uma INFORMACAO, que se le de
+ * novo abrindo as colunas; os botoes sao ACOES, e meio botao nao se aperta.
+ *
+ * O `flex-wrap` fica: encolhido ate' o fim o chip some, e se ainda assim os botoes nao
+ * couberem, quebrar e' melhor do que vazar para fora da tela. */
+.barra-trava > .trava-colunas{flex:1 1 auto;min-width:0;margin:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.barra-trava__acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  flex:0 0 auto;margin-left:auto}
 /* NO TAMANHO DO CADEADO, e não no de botão de gaveta. Na gaveta eles são a ação
    principal de uma folha inteira; aqui são vizinhos de um `mini` de 13px, e em
    tamanho grande a linha vira um botão com um texto pendurado.

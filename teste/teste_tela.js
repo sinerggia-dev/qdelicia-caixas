@@ -12796,6 +12796,32 @@ console.log('\n== o editor de falas para a demonstracao ==');
     });
     return d;
   }
+  /* ---- OS BOTOES NA LINHA DO CADEADO ----
+   *
+   * Eles ja' estavam escritos lado a lado com o chip; no celular era o CHIP que os
+   * empurrava para baixo — ele pedia a largura do texto inteiro e a linha quebrava,
+   * gastando uma faixa da tela para tres botoes de 28px e empurrando os numeros, que sao
+   * o que se veio ver, para baixo da dobra.
+   *
+   * QUEM ENCOLHE E' O CHIP: o cadeado diz uma INFORMACAO, que se le de novo abrindo as
+   * colunas; os botoes sao ACOES, e meio botao nao se aperta. */
+  var chip = declara('.barra-trava > .trava-colunas');
+  ok(!!chip && chip['min-width'] === '0',
+    'o chip do cadeado pode ENCOLHER — sem isso ele pede a largura do texto inteiro e ' +
+    'empurra os botões para uma faixa própria abaixo dele', chip);
+  ok(!!chip && chip['text-overflow'] === 'ellipsis' && chip['overflow'] === 'hidden',
+    'e o que não couber dele vira reticências, em vez de vazar por cima dos botões',
+    chip);
+  ok(!!chip && chip['margin'] === '0',
+    'e a margem de baixo dele sai — numa linha de itens centralizados ela desalinharia ' +
+    'o texto em relação aos botões ao lado', chip && chip['margin']);
+  var acoes = declara('.barra-trava__acoes');
+  ok(!!acoes && acoes['flex'] === '0 0 auto',
+    'e os botões NÃO encolhem junto — eles são ações, e meio botão não se aperta',
+    acoes);
+  ok(!!acoes && acoes['margin-left'] === 'auto',
+    'e vão para a ponta direita da linha, longe do cadeado com que não têm relação');
+
   var cheio = declara('.quadro-video--cheio');
   ok(!!cheio, 'a confer\u00eancia achou a regra do quadro cheio');
   if (cheio) {
