@@ -1587,6 +1587,21 @@ tr.par-linhas > td{background:var(--campo);padding:0}
 /* As acoes empurradas para a direita: elas sao o fim da linha, e no meio dela
    disputariam a leitura com o numero, que e o que se veio conferir. */
 .lp__a{margin-left:auto;display:flex;gap:6px;flex:0 0 auto}
+/* O PEDIDO DE MOTIVO, DEBAIXO DA PROPRIA LINHA.
+   Ele era uma caixa do navegador colada no alto da janela, a um palmo e meio da linha em
+   que se clicou — e com tres lancamentos na mesma carga, nada nela dizia QUAL deles ia
+   mudar: a pessoa confirmava de memoria. Aqui o que vai ser alterado fica na frente
+   dela enquanto escreve.
+   A BORDA MARCA de que linha ele saiu: sem ela, o bloco flutua entre duas e volta a
+   deixar a duvida que ele veio tirar. */
+.lp__form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;
+  margin:1px 0 4px;padding:10px 12px;border-radius:10px;
+  background:var(--campo);border:1px solid var(--marca-txt)}
+.lp__form__t{flex:1 1 100%;margin:0;font-size:12.5px;line-height:1.35}
+.lp__form__c{flex:1 1 190px;min-width:0;display:flex;flex-direction:column;gap:3px;
+  font-size:11px;color:var(--txt3)}
+.lp__form__c input{min-height:34px;padding:0 9px;font-size:13.5px}
+.lp__form__b{flex:0 0 auto;display:flex;gap:6px;align-items:center}
 
 /* ---------- o par em ficha, no celular ----------
  * Onze colunas nao cabem num telefone: a DIFERENCA — o numero pelo qual se abre esta

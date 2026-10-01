@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=8febf856">
+<link rel="stylesheet" href="styles.css?v=f7dafa77">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -3685,7 +3685,9 @@
      ['dreporlixeira', acaoTirarDaLixeira]].forEach(function(par){
       box.querySelectorAll('[data-'+par[0]+']').forEach(function(b){
         b.addEventListener('click', function(){
-          par[1](movPorId(b.dataset[par[0]]));
+          /* O BOTAO VAI JUNTO porque o formulario nasce ao lado dele. Sem ele, a acao
+             so' saberia QUAL lancamento mexer, e nao ONDE perguntar. */
+          par[1](movPorId(b.dataset[par[0]]), b);
         });
       });
     });
@@ -7497,6 +7499,63 @@
     if (m) formCorrigir(m);
   }
 
+  /* O PEDIDO DE MOTIVO NASCE NA LINHA, e nao numa caixa do navegador.
+   *
+   * O `prompt` abre colado no alto da janela, a um palmo e meio de distancia da linha em
+   * que se clicou — e quando ha tres lancamentos na mesma carga, nada nele diz QUAL
+   * deles vai mudar. A pessoa confirma de memoria. Aqui o formulario cresce debaixo da
+   * propria linha: o que vai ser alterado esta' na frente dele enquanto se escreve.
+   *
+   * UM DE CADA VEZ: abrir o segundo fecha o primeiro, senao dois formularios abertos
+   * sobre linhas diferentes competem pela mesma confirmacao.
+   *
+   * O ESC E O CANCELAR fecham, e o ENTER confirma — num campo de uma linha, apertar
+   * Enter e' o gesto esperado, e sem ele a pessoa procura o botao com o mouse. */
+  function fecharFormDaLinha(){
+    var velho = document.querySelector('.lp__form');
+    if (velho && velho.parentNode) velho.parentNode.removeChild(velho);
+  }
+  function formNaLinha(botao, titulo, campos, aoConfirmar){
+    var linha = botao && botao.closest ? botao.closest('.lp__l') : null;
+    /* SEM LINHA NAO HA' ONDE ANCORAR — e melhor nao fazer nada do que abrir um
+       formulario solto no meio da tela, que e' o defeito que isto veio consertar. */
+    if (!linha || !linha.parentNode) return;
+    fecharFormDaLinha();
+    var cx = document.createElement('div');
+    cx.className = 'lp__form';
+    cx.innerHTML = '<p class="lp__form__t">'+Q.esc(titulo)+'</p>'+
+      campos.map(function(c){
+        return '<label class="lp__form__c">'+Q.esc(c.rotulo)+
+          '<input type="'+(c.tipo || 'text')+'" data-campo="'+Q.esc(c.id)+'"'+
+          (c.valor ? ' value="'+Q.esc(c.valor)+'"' : '')+'></label>';
+      }).join('')+
+      '<div class="lp__form__b">'+
+        '<button type="button" class="mini acao" data-ok>Confirmar</button>'+
+        '<button type="button" class="mini" data-nao>Cancelar</button></div>';
+    linha.parentNode.insertBefore(cx, linha.nextSibling);
+
+    function valores(){
+      var v = {};
+      cx.querySelectorAll('[data-campo]').forEach(function(el){
+        v[el.dataset.campo] = el.value;
+      });
+      return v;
+    }
+    function confirmar(){
+      var v = valores();
+      fecharFormDaLinha();
+      aoConfirmar(v);
+    }
+    cx.querySelector('[data-ok]').addEventListener('click', confirmar);
+    cx.querySelector('[data-nao]').addEventListener('click', fecharFormDaLinha);
+    cx.addEventListener('keydown', function(e){
+      if (e.key === 'Enter'){ e.preventDefault(); confirmar(); }
+      if (e.key === 'Escape') fecharFormDaLinha();
+    });
+    var primeiro = cx.querySelector('input');
+    if (primeiro) primeiro.focus();
+  }
+
   /* DESFAZER A ULTIMA CORRECAO.
    *
    * UM PASSO POR TOQUE, e nao "volta ao original": a carga pode ter sido corrigida tres
@@ -7506,20 +7565,25 @@
    * A SENHA E' PEDIDA SO' QUANDO O SERVIDOR DIZ QUE FAZ FALTA, e nao antes: dentro da
    * janela de conserto livre nao ha' o que perguntar, e perguntar por via das duvidas
    * ensina todo mundo a ter a senha do escritorio na ponta da lingua. */
-  function acaoRestaurar(m){
+  function acaoRestaurar(m, botao){
     if (!m) return;
-    var motivo = prompt('Desfazer a ÚLTIMA correção deste lançamento — os valores ' +
-                        'voltam ao que eram antes dela.\nMotivo:');
-    if (motivo === null) return;
-    enviarRestauro(m, motivo, '');
+    formNaLinha(botao, 'Desfazer a última correção — os valores voltam ao que eram antes dela.',
+      [{ id:'motivo', rotulo:'Motivo' }], function(v){
+        enviarRestauro(m, v.motivo, '', botao);
+      });
   }
-  function enviarRestauro(m, motivo, senha){
+  function enviarRestauro(m, motivo, senha, botao){
     Q.post({ acao:'restaurarCorrecao', id:m.id, motivo:motivo, senha:senha,
              usuarioId:Q.sessao().id }).then(function(r){
       if (!r.ok && r.precisaSenha){
-        var s = prompt(r.erro + '\nSenha do escritório:');
-        if (s === null) return;
-        return enviarRestauro(m, motivo, s);
+        /* A SENHA VOLTA PARA A MESMA LINHA, com o motivo ja escrito: mandar a pessoa
+           digitar tudo de novo porque o servidor pediu mais uma coisa e' cobrar duas
+           vezes pelo mesmo trabalho. */
+        formNaLinha(botao, r.erro,
+          [{ id:'motivo', rotulo:'Motivo', valor: motivo },
+           { id:'senha', rotulo:'Senha do escritório', tipo:'password' }],
+          function(v){ enviarRestauro(m, v.motivo, v.senha, botao); });
+        return;
       }
       if (!r.ok) throw new Error(r.erro);
       Q.toast('Restaurado: ' + (r.alterou || []).map(function(a){ return a.campo; })
@@ -7531,11 +7595,12 @@
   /* DESFAZER UM CANCELAMENTO. O motivo e' obrigatorio porque o saldo muda duas vezes —
      saiu e voltou —, e um numero que vai e vem sem explicacao e' pior do que um que
      ficou fora: quem confere o mes nao tem como saber qual das duas foi o engano. */
-  function acaoDescancelar(m){
+  function acaoDescancelar(m, botao){
     if (!m) return;
-    var motivo = prompt('Desfazer o cancelamento deste lançamento — ele volta a contar ' +
-                        'no saldo.\nMotivo:');
-    if (motivo === null) return;
+    formNaLinha(botao, 'Desfazer o cancelamento — ele volta a contar no saldo.',
+      [{ id:'motivo', rotulo:'Motivo' }], function(v){ enviarDescancelar(m, v.motivo); });
+  }
+  function enviarDescancelar(m, motivo){
     Q.post({ acao:'descancelar', id:m.id, motivo:motivo, usuarioId:Q.sessao().id })
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
@@ -7547,11 +7612,12 @@
   /* TIRAR DA LIXEIRA. A rota ja existia — e a mesma que a tela da lixeira usa —, mas a
      DECLARACAO nao passa por aquela tela, para ninguem: sem este botao, uma declaracao
      apagada nao tinha de onde voltar. */
-  function acaoTirarDaLixeira(m){
+  function acaoTirarDaLixeira(m, botao){
     if (!m) return;
-    var motivo = prompt('Tirar este lançamento da lixeira — ele volta a valer.' +
-                        '\nMotivo:');
-    if (motivo === null) return;
+    formNaLinha(botao, 'Tirar da lixeira — o lançamento volta a valer.',
+      [{ id:'motivo', rotulo:'Motivo' }], function(v){ enviarTirarDaLixeira(m, v.motivo); });
+  }
+  function enviarTirarDaLixeira(m, motivo){
     Q.post({ acao:'restaurarMovimento', id:m.id, motivo:motivo, usuarioId:Q.sessao().id })
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);

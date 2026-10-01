@@ -11977,6 +11977,82 @@ console.log('\n== Motorista/Conferente ==');
     'e a coluna existe E é preenchida — a função existir sem ninguém chamá-la foi o ' +
     'escape de três sabotagens nesta semana', hist.slice(0, 160));
 
+  /* ---- O PEDIDO DE MOTIVO NASCE NA LINHA ----
+   *
+   * Era um `prompt`, colado no alto da janela, a um palmo e meio da linha em que se
+   * clicou — e com tres lancamentos na mesma carga, nada nele dizia QUAL deles ia mudar:
+   * a pessoa confirmava de memoria. */
+  var iFl = adm.indexOf('  function fecharFormDaLinha(){');
+  var fl = iFl < 0 ? '' : adm.slice(iFl, adm.indexOf('\n  /* DESFAZER A ULTIMA CORRECAO.', iFl));
+  ok(fl.length > 800, 'a conferência recortou o formulário da linha', fl.length);
+  if (fl.length > 800) {
+    function bancadaForm() {
+      var pai = { filhos: [], inseridos: [] };
+      function el(cls) {
+        var e = { className: cls || '', filhos: [], atrib: {}, value: '', ouvintes: {} };
+        e.innerHTML = '';
+        e.appendChild = function (f) { e.filhos.push(f); return f; };
+        e.addEventListener = function (n, f) { (e.ouvintes[n] = e.ouvintes[n] || []).push(f); };
+        /* O `querySelector` do bloco devolve um alvo de mentira para qualquer seletor:
+           o que esta' sendo medido e' ONDE o formulario nasce e o que ele pede, e nao a
+           busca de elementos, que e' do navegador. */
+        e.querySelector = function () { return el('alvo'); };
+        e.querySelectorAll = function () { return []; };
+        e.focus = function () { e.focado = true; };
+        return e;
+      }
+      var linha = el('lp__l');
+      linha.parentNode = {
+        inserir: [],
+        insertBefore: function (novo2) { pai.inseridos.push(novo2); },
+        removeChild: function (x) { pai.removidos = (pai.removidos || []).concat([x]); }
+      };
+      var botao = el('mini');
+      botao.closest = function (s) { return s === '.lp__l' ? linha : null; };
+      var criados = [];
+      var doc = {
+        createElement: function () { var e = el(''); criados.push(e); return e; },
+        querySelector: function () { return pai.aberto || null; }
+      };
+      var api = new Function('document', 'Q', fl + '\nreturn { fechar: fecharFormDaLinha, abrir: formNaLinha };')(
+        doc, { esc: function (x) { return String(x == null ? '' : x); } });
+      return { api: api, botao: botao, linha: linha, pai: pai, criados: criados, doc: doc };
+    }
+    var b = bancadaForm();
+    var recebeu = null;
+    b.api.abrir(b.botao, 'Desfazer o cancelamento', [{ id: 'motivo', rotulo: 'Motivo' }],
+      function (v) { recebeu = v; });
+    ok(b.pai.inseridos.length === 1,
+      'o formulário é inserido JUNTO da linha em que se clicou — no alto da janela, com ' +
+      'três lançamentos na mesma carga, nada diz qual deles vai mudar',
+      b.pai.inseridos.length);
+    ok(b.criados.length === 1 && /lp__form/.test(b.criados[0].className),
+      'e é o bloco do formulário, e não outra coisa qualquer', b.criados.map(function (c) { return c.className; }));
+    ok(/data-campo="motivo"/.test(b.criados[0].innerHTML) &&
+       /data-ok/.test(b.criados[0].innerHTML) && /data-nao/.test(b.criados[0].innerHTML),
+      'com o campo pedido e as duas saídas — confirmar e desistir',
+      b.criados[0].innerHTML.slice(0, 200));
+
+    var semLinha = bancadaForm();
+    semLinha.botao.closest = function () { return null; };
+    var chamou = false;
+    semLinha.api.abrir(semLinha.botao, 'x', [{ id: 'motivo', rotulo: 'M' }],
+      function () { chamou = true; });
+    ok(semLinha.pai.inseridos.length === 0 && !chamou,
+      'e SEM linha para ancorar ele não faz nada — um formulário solto no meio da tela ' +
+      'é exatamente o defeito que isto veio consertar');
+  }
+  /* E O BOTAO PRECISA CHEGAR NA ACAO. Sem ele, `formNaLinha` nao tem onde ancorar e
+     sai calado: o clique deixa de fazer qualquer coisa, e nada na tela explica. E' a
+     sexta vez nesta semana que a peca existe inteira e a ligacao falta. */
+  ok(/par\[1\]\(movPorId\(b\.dataset\[par\[0\]\]\), b\);/.test(adm),
+    'o botão clicado chega na ação — sem ele o formulário não tem onde nascer e o ' +
+    'clique passa a não fazer nada, calado');
+  ok(adm.indexOf("prompt('Desfazer o cancelamento") < 0 &&
+     adm.indexOf("prompt('Tirar este lançamento da lixeira") < 0 &&
+     adm.indexOf("prompt('Desfazer a ÚLTIMA") < 0,
+    'e nenhuma das três ações volta a abrir a caixa do navegador');
+
   /* ---- A BUSCA GERAL, RODADA ----
    *
    * Ela peneira no que a TELA MOSTRA, e nao numa coluna escolhida: procurar dentro de
