@@ -215,6 +215,9 @@ var USUARIO = {
       PinProvisorio: r.pin_provisorio === true, SenhaProvisoria: r.senha_provisoria === true,
       AcessoPainel: r.acesso_painel === true, SoProprios: r.so_proprios === true,
       VerLancamentos: r.ver_lancamentos !== false,
+      /* `!== false` e nao `=== true`: a coluna nasceu com `default true` e linha antiga
+         lida antes da migracao chegar nao pode perder o que ja fazia. */
+      PodeCorrigir: r.pode_corrigir !== false,
       /* `viu_boas_vindas` E O NOME DE NASCENCA da coluna: ela veio com a tela de
          boas-vindas, que saiu. Quem ela marca hoje e o TUTORIAL. A coluna fica como
          esta — migracao aqui e so por acrescimo, e renomear coluna e apagar e
@@ -257,6 +260,7 @@ var USUARIO = {
     if (o.AcessoPainel !== undefined) r.acesso_painel = bool(o.AcessoPainel);
     if (o.SoProprios !== undefined) r.so_proprios = bool(o.SoProprios);
     if (o.VerLancamentos !== undefined) r.ver_lancamentos = bool(o.VerLancamentos);
+    if (o.PodeCorrigir !== undefined) r.pode_corrigir = bool(o.PodeCorrigir);
     if (o.ViuTutorial !== undefined) r.viu_boas_vindas = bool(o.ViuTutorial);
     if (o.UsuariosVistos !== undefined) r.usuarios_vistos = o.UsuariosVistos || [];
     if (o.Teste !== undefined) r.teste = bool(o.Teste);

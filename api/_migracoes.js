@@ -624,5 +624,23 @@ module.exports = [
       "   `motorista` guarda o nome curto (apelido). As duas sao copia, e nao vinculo:",
       "   renomear o cadastro nao reescreve romaneio ja emitido.';"
     ].join('\n')
+  },
+  {
+    id: '2026-10-01-pode-corrigir',
+    sql: [
+      "-- QUEM PODE CORRIGIR LANCAMENTO.",
+      "--",
+      "-- NASCE LIGADA PARA TODO MUNDO (`default true`), e e' de proposito: ate' hoje",
+      "-- qualquer pessoa consertava o proprio engano de dedo dentro da janela livre, e",
+      "-- nascer desligada tiraria isso da operacao inteira no instante do deploy — uma",
+      "-- permissao nova que TIRA o que ja se fazia e' um apagao, nao um ajuste.",
+      "-- Quem nao deve corrigir passa a ser marcado um a um, que e' a excecao.",
+      "alter table public.usuarios",
+      "  add column if not exists pode_corrigir boolean not null default true;",
+      "comment on column public.usuarios.pode_corrigir is",
+      "  'Se esta pessoa pode corrigir lancamento. Desligada, a tela nao oferece e a rota",
+      "   recusa — as duas, porque esconder botao e conveniencia e um POST direto passa",
+      "   por cima dela. Nao vale para a DECLARACAO, que tem regra propria por perfil.';"
+    ].join('\n')
   }
 ];

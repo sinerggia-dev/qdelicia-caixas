@@ -1579,7 +1579,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=5da35194"></script>
+<script src="app.js?v=0f34802b"></script>
 <script>
 (function(){
   'use strict';
@@ -1868,6 +1868,11 @@
       ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
       soProprios: u.SoProprios === true,
       verLancamentos: u.VerLancamentos !== false,
+      /* A MESMA MARCA QUE O SERVIDOR MANDA. Esta sessao e' remontada aqui quando o
+         cadastro muda, e um campo que existe la' e nao aqui some no meio do caminho:
+         a pessoa perderia (ou ganharia) o botao de corrigir ao salvar o proprio
+         cadastro, sem nada explicar. */
+      podeCorrigir: u.PodeCorrigir !== false,
       /* A MARCA DO TUTORIAL acompanha a sessão renovada. Faltando aqui, a renovação a
          apagaria: a pessoa veria o tutorial, seguiria para o app, e no acesso seguinte
          cairia nele de novo — sem nada na tela explicando por quê. */
@@ -10741,6 +10746,20 @@
         '<option value="NAO"'+(u.VerLancamentos===false?' selected':'')+'>não — a aba Lançamentos some para ela</option>'+
       '</select>'+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fVerLancNota"></p>'+
+      /* CORRIGIR E' SOBRE O QUE ELA FAZ, e nao sobre o que ela ve' — mas fica neste
+         quadro porque e' o quadro do LANCAMENTO, e e' aqui que quem cadastra vem pensar
+         no assunto. Separa-lo num quadro proprio daria um quadro de uma linha.
+         NASCE LIGADO, como a coluna: ate' hoje qualquer pessoa consertava o proprio
+         engano de dedo dentro da janela livre, e nascer desligado tiraria isso da
+         operacao inteira no instante do deploy. Desligar e' a excecao, um a um. */
+      '<label for="fPodeCorrigir">Pode corrigir lançamento?</label>'+
+      '<select id="fPodeCorrigir">'+
+        '<option value="SIM"'+(u.PodeCorrigir===false?'':' selected')+'>sim</option>'+
+        '<option value="NAO"'+(u.PodeCorrigir===false?' selected':'')+'>não — o botão Corrigir some para ela</option>'+
+      '</select>'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">Vale para todos '+
+        'os tipos de correção: a linha, a carga inteira e o desfazer. A declaração '+
+        'continua tendo a regra dela, por perfil.</p>'+
       caixaLocais('fUsuariosVistos', 'De quem ela vê os lançamentos',
                   EQUIPE.filter(function(x){ return Q.ativo(x.Ativo); }),
                   u.UsuariosVistos, 'Nenhum usuário cadastrado ainda.')+
@@ -11074,6 +11093,7 @@
            caminho esquecido, e a pessoa perderia o painel sem ninguem entender. */
         AcessoPainel:(document.getElementById('fPainel').value === 'NAO' ? 'NAO' : 'SIM'),
         VerLancamentos:document.getElementById('fVerLanc').value,
+        PodeCorrigir:document.getElementById('fPodeCorrigir').value,
         UsuariosVistos:lerMarcados('fUsuariosVistos'),
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
         TiposCaixa:lerMarcados('fTiposCaixa'), Motoristas:lerMarcados('fMotoristas'),

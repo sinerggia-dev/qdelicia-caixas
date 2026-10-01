@@ -471,7 +471,10 @@ async function corrigir(p) {
     usuarios: L.mapaNomes(d.usuarios || []),
     locais: L.mapaNomes(d.locais || []),
     tipos: L.mapaTipos(d.tipos || [])
-  }, { senhaOk: senhaOk, senhaErrada: mandou && !senhaOk });
+  }, { senhaOk: senhaOk, senhaErrada: mandou && !senhaOk,
+       /* O CADASTRO de quem pediu, para a rota conferir a permissao de corrigir: a
+          tela esconder o botao e' conveniencia, e um POST direto passa por cima. */
+       quem: L.acharUsuario(d.usuarios, p.usuarioId) });
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);
   patch.historico = r.historico;
@@ -508,7 +511,8 @@ async function restaurarCorrecao(p) {
     usuarios: L.mapaNomes(d.usuarios || []),
     locais: L.mapaNomes(d.locais || []),
     tipos: L.mapaTipos(d.tipos || [])
-  }, { senhaOk: senhaOk, senhaErrada: mandou && !senhaOk });
+  }, { senhaOk: senhaOk, senhaErrada: mandou && !senhaOk,
+       quem: L.acharUsuario(d.usuarios, p.usuarioId) });
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);
   patch.historico = r.historico;
@@ -570,6 +574,9 @@ async function corrigirRegistro(p) {
     tipos: L.mapaTipos(d.tipos || [])
   };
 
+  /* O CADASTRO DE QUEM PEDIU, lido UMA vez: o laco roda por linha, e buscar o mesmo
+     cadastro a cada volta seria a mesma resposta paga quatro vezes. */
+  var quemPediu = L.acharUsuario(d.usuarios, p.usuarioId);
   var prontos = [], alterou = [], mexeu = 0;
   for (var k = 0; k < linhas.length; k++) {
     var mov = linhas[k];
@@ -586,7 +593,11 @@ async function corrigirRegistro(p) {
     };
     var livre = L.correcaoLivre(mov, p.usuarioId, agora);
     var r = L.montarCorrecao(mov, pedido, agora, nomes,
-      { senhaOk: livre || senhaOk, senhaErrada: mandou && !senhaOk });
+      { senhaOk: livre || senhaOk, senhaErrada: mandou && !senhaOk,
+        /* A MESMA PERMISSAO DA LINHA UNICA. Esquecida aqui, quem nao pode corrigir uma
+           linha corrigiria QUATRO de uma vez pela porta da carga — e a porta larga seria
+           a que todo mundo passaria a usar. */
+        quem: quemPediu });
     if (!r.ok) return r;
     prontos.push({ id: mov.ID, r: r });
     if (!r.consulta) mexeu++;

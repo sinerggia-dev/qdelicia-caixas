@@ -983,6 +983,9 @@ function sessaoDe(u) {
        concluiria que a foto não salvou. */
     foto: u.Foto || '',
     localPadrao: u.LocalPadrao, acessoPainel: podeVerPainel(u),
+    /* SE ESTA PESSOA CORRIGE LANCAMENTO. Na sessao porque quem decide se MOSTRA o botao
+       e' a tela, e ela so' tem a sessao na mao. A tranca de verdade continua na rota. */
+    podeCorrigir: u.PodeCorrigir !== false,
     saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
     destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
     // Mesma convenção das outras: lista vazia quer dizer NENHUM — marcar é conceder.
@@ -1452,6 +1455,11 @@ function podeRestaurar(h) {
  */
 function montarRestauro(mov, p, agora, nomes, guarda) {
   if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
+  /* MESMA TRANCA DA CORRECAO: desfazer uma correcao e' corrigir de volta. Uma porta
+     mais barata para o mesmo estrago seria a porta que se usa. */
+  if (guarda && guarda.quem && !corrigeLancamento(guarda.quem)) {
+    return { ok: false, erro: 'Seu cadastro não permite corrigir lançamentos.' };
+  }
   if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira.' };
   if (mov.Cancelado) return { ok: false, erro: 'Movimento cancelado não se restaura.' };
   var motivo = String(p.motivo || '').trim();
@@ -1515,8 +1523,29 @@ function montarRestauro(mov, p, agora, nomes, guarda) {
            entradas: entradas, desfez: quando };
 }
 
+/* A PESSOA PODE CORRIGIR?
+ *
+ * A TELA ESCONDER NAO BASTA, e nunca bastou: esconder botao e' conveniencia, e um POST
+ * direto passa por cima dela. A rota pergunta de novo, e e' esta a resposta que vale.
+ *
+ * AUSENTE E' SIM, como no cadastro: a coluna nasceu `default true` para nao tirar da
+ * operacao inteira, no instante do deploy, o conserto do proprio engano de dedo. Quem
+ * nao deve corrigir e' marcado um a um.
+ */
+function corrigeLancamento(u) {
+  return !!u && u.PodeCorrigir !== false;
+}
+
 function montarCorrecao(mov, p, agora, nomes, guarda) {
   if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
+  /* `guarda.quem` e' o CADASTRO de quem pediu, e nao o id: quem o busca e' a rota, que
+     tem a lista na mao. Ausente, a guarda nao roda — e quem chamar sem ela cai no lado
+     que PERMITE, porque este caminho e' o do campo, que sempre pode consertar o proprio
+     engano dentro da janela. A tranca nova e' para quem foi marcado, e marcar exige
+     cadastro: sem cadastro em maos nao ha marca para ler. */
+  if (guarda && guarda.quem && !corrigeLancamento(guarda.quem)) {
+    return { ok: false, erro: 'Seu cadastro não permite corrigir lançamentos.' };
+  }
   if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira — restaure antes de corrigir.' };
   if (mov.Cancelado) return { ok: false, erro: 'Movimento cancelado não se corrige — lance um novo.' };
   var motivo = String(p.motivo || '').trim();
@@ -2737,6 +2766,10 @@ function usuariosPublicos(usuarios) {
       BaseDeclaracao: u.BaseDeclaracao === true,
       BaseTesteDeclaracao: u.BaseTesteDeclaracao === true,
       VerLancamentos: u.VerLancamentos !== false,
+      /* VOLTA NA LEITURA porque o formulario a GRAVA: faltando aqui, o cadastro abriria
+         com ela no padrao e a gravacao seguinte apagaria o que estava salvo — sem erro
+         em lugar nenhum. */
+      PodeCorrigir: u.PodeCorrigir !== false,
       UsuariosVistos: usuariosVistosDe(u),
       /* As SEIS listas de permissão voltam para o painel. Esquecer uma aqui não dá
          erro nenhum: o formulário abre com ela desmarcada e a gravação seguinte escreve
@@ -2792,6 +2825,7 @@ module.exports = {
   montarMovimento: montarMovimento, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
+  corrigeLancamento: corrigeLancamento,
   montarDescancelamento: montarDescancelamento,
   JANELA_CORRECAO_MIN: JANELA_CORRECAO_MIN, diaDaOperacao: diaDaOperacao,
   livreAte: livreAte, correcaoLivre: correcaoLivre,

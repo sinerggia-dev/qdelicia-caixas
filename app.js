@@ -1714,6 +1714,11 @@
 
   function podeCorrigir(s, m) {
     if (!s || !m) return false;
+    /* A PERMISSAO DO CADASTRO VEM PRIMEIRO, e vale para qualquer tipo de correcao:
+       desligada, a pessoa nao ve o botao em lugar nenhum — nem no lancamento comum, nem
+       na declaracao, nem na carga inteira. Posta DEPOIS da regra da declaracao, quem
+       estivesse sem a permissao ainda veria o botao nas declaracoes se fosse Gestor. */
+    if (s.podeCorrigir === false) return false;
     /* A DECLARACAO E DE OUTRA CLASSE, e a regra e decisao de quem pediu: so Admin,
        Gestor e Gerente. O numero dela e aquele CONTRA O QUAL a conciliacao compara —
        mudado pela mao de quem o declarou, uma divergencia pode ser apagada.

@@ -536,6 +536,61 @@ async function main() {
   const admPainel = (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.ID === idAdmin)[0];
   ok(admPainel.TemSenha === true, 'admin nao perde a senha do painel', admPainel);
 
+  console.log('\n== quem pode corrigir lancamento ==');
+  {
+    /* A TELA ESCONDER NAO BASTA, e nunca bastou: esconder botao e' conveniencia, e um
+     * POST direto passa por cima dela. A rota pergunta de novo, e e' esta a resposta
+     * que vale.
+     *
+     * AUSENTE E' SIM: a coluna nasceu `default true` porque, ate' hoje, qualquer pessoa
+     * consertava o proprio engano de dedo dentro da janela livre. Nascer desligada
+     * tiraria isso da operacao inteira no instante do deploy — uma permissao nova que
+     * TIRA o que ja se fazia e' um apagao, nao um ajuste. */
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    ok(F.corrigeLancamento({ PodeCorrigir: true }) === true, 'marcado, corrige');
+    ok(F.corrigeLancamento({ PodeCorrigir: false }) === false, 'desmarcado, nao corrige');
+    ok(F.corrigeLancamento({}) === true,
+      'e cadastro SEM a marca corrige — a coluna nasceu ligada, e linha lida antes da ' +
+      'migracao chegar nao pode perder o que ja fazia');
+    ok(F.corrigeLancamento(null) === false,
+      'e sem cadastro nenhum nao corrige — um pedido sem autor nao prova nada');
+
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const mov = { ID: 'M1', Tipo: 'SAIDA', OrigemID: 'L1', DestinoID: 'L2',
+                  TipoCaixaID: 'P', Qtd: 100, Status: 'CONFIRMADO', UsuarioID: 'U1',
+                  DataRef: D('2026-09-10'), DataHora: D('2026-09-10'), Historico: [] };
+    const pedir = (quem) => F.montarCorrecao(mov,
+      { Qtd: 250, motivo: 'x', usuarioId: 'U1' }, D('2026-09-11'), {},
+      { senhaOk: true, quem: quem });
+
+    ok(pedir({ ID: 'U1', PodeCorrigir: false }).ok === false,
+      'a ROTA recusa quem nao tem a permissao, e nao so a tela esconde o botao — um ' +
+      'POST direto passa por cima do que a tela esconde',
+      pedir({ ID: 'U1', PodeCorrigir: false }).erro);
+    ok(pedir({ ID: 'U1', PodeCorrigir: true }).ok === true,
+      'e atende quem tem');
+    ok(pedir(undefined).ok === true,
+      'e sem cadastro em maos a guarda nao roda: este caminho e' + ' + ' + ' o do campo, que ' +
+      'sempre pode consertar o proprio engano dentro da janela livre');
+
+    /* DESFAZER E' CORRIGIR DE VOLTA, e passa pela mesma porta. */
+    const comHist = JSON.parse(JSON.stringify(mov));
+    comHist.DataRef = D('2026-09-10'); comHist.DataHora = D('2026-09-10');
+    comHist.Historico = [{ em: '2026-09-11T00:00:00.000Z', por: 'U1', campo: 'quantidade',
+                           motivo: 'y', de: '100', para: '250',
+                           campoId: 'Qtd', deCru: 100, paraCru: 250 }];
+    comHist.Qtd = 250;
+    const desfazer = (quem) => F.montarRestauro(comHist,
+      { motivo: 'z', usuarioId: 'U1' }, D('2026-09-12'), {},
+      { senhaOk: true, quem: quem });
+    ok(desfazer({ ID: 'U1', PodeCorrigir: false }).ok === false,
+      'e desfazer tambem e' + ' + ' + ' recusado: desfazer uma correcao E' + ' + ' + ' corrigir de volta, e ' +
+      'uma porta mais barata para o mesmo estrago seria a porta que se usa',
+      desfazer({ ID: 'U1', PodeCorrigir: false }).erro);
+    ok(desfazer({ ID: 'U1', PodeCorrigir: true }).ok === true,
+      'e atendido para quem pode');
+  }
+
   console.log('\n== senha resetada devolve o tutorial ==');
   {
     /* Quem tem a credencial redefinida por OUTRA pessoa quase nunca e' quem estava

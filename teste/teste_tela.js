@@ -11977,6 +11977,64 @@ console.log('\n== Motorista/Conferente ==');
     'e a coluna existe E é preenchida — a função existir sem ninguém chamá-la foi o ' +
     'escape de três sabotagens nesta semana', hist.slice(0, 160));
 
+  /* ---- TODA PORTA DE CORRECAO LEVA QUEM PEDIU ----
+   *
+   * A guarda da permissao so' roda quando a rota entrega o CADASTRO de quem pediu. Uma
+   * porta que esquece de entrega-lo passa a permitir tudo — e e' a porta larga que todo
+   * mundo acaba usando. Derivado das chamadas, e nao de uma lista: a quarta porta entra
+   * sozinha na conta. */
+  var apiTxt = fsReal.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  var portas = [];
+  ['L.montarCorrecao(', 'L.montarRestauro('].forEach(function (nome) {
+    var de = 0;
+    while ((de = apiTxt.indexOf(nome, de)) >= 0) {
+      /* Da chamada ate' o `});` que fecha a GUARDA, que e' o ultimo argumento. Recortar
+         ate' o primeiro `');` ia longe demais — a fatia engolia codigo seguinte e
+         achava um `quem:` que nao era deste pedido, e uma sabotagem passou verde por
+         isso. */
+      portas.push({ nome: nome, txt: apiTxt.slice(de, apiTxt.indexOf('});', de) + 3) });
+      de += nome.length;
+    }
+  });
+  ok(portas.length >= 3,
+    'a conferência achou as portas de correção', portas.length);
+  var semQuem = portas.filter(function (p2) { return p2.txt.indexOf('quem:') < 0; });
+  ok(semQuem.length === 0,
+    'toda porta de correção entrega o CADASTRO de quem pediu — sem ele a guarda da ' +
+    'permissão não roda e a porta passa a permitir tudo, inclusive a da carga inteira, ' +
+    'que corrige quatro linhas de uma vez',
+    semQuem.map(function (p2) { return p2.nome + p2.txt.slice(0, 60); }));
+
+  /* ---- A TELA NAO OFERECE O QUE A ROTA VAI RECUSAR ---- */
+  var nucleoPc = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var iPcf = nucleoPc.indexOf('  function podeCorrigir(s, m) {');
+  var pcf = iPcf < 0 ? '' : nucleoPc.slice(iPcf, nucleoPc.indexOf('\n  }', iPcf) + 4);
+  ok(pcf.length > 150, 'a conferência recortou a regra de corrigir', pcf.length);
+  if (pcf.length > 150) {
+    var decide = new Function('podeMexerEmDeclaracao',
+      pcf + '\nreturn podeCorrigir;')(function () { return true; });
+    ok(decide({ podeCorrigir: false }, { declaracao: false }) === false,
+      'sem a permissão do cadastro, o botão de corrigir não aparece em lançamento ' +
+      'nenhum', decide({ podeCorrigir: false }, { declaracao: false }));
+    ok(decide({ podeCorrigir: false }, { declaracao: true }) === false,
+      'e nem na DECLARAÇÃO — a permissão vem antes da regra por perfil, senão um Gestor ' +
+      'sem ela ainda veria o botão nas declarações');
+    ok(decide({ podeCorrigir: true }, { declaracao: false }) === true &&
+       decide({}, { declaracao: false }) === true,
+      'com a permissão, aparece; e sessão SEM a marca também — ela nasceu ligada, e ' +
+      'quem entrou antes do deploy não pode perder o conserto do próprio engano');
+  }
+  /* E O CAMPO EXISTE NO CADASTRO, com as duas pontas: o que escreve e o que le'. */
+  var admPc = fsReal.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  ok(admPc.indexOf('id="fPodeCorrigir"') > 0,
+    'e quem cadastra tem onde escolher — a permissão existir sem campo na tela seria ' +
+    'uma tranca sem chave');
+  ok(admPc.indexOf("PodeCorrigir:document.getElementById('fPodeCorrigir').value") > 0,
+    'e o campo VIAJA na gravação — desenhado e não enviado, a escolha some ao salvar');
+  ok(/podeCorrigir: u\.PodeCorrigir !== false/.test(admPc),
+    'e a sessão remontada na tela leva a marca — sem ela, a pessoa ganharia ou perderia ' +
+    'o botão ao salvar o próprio cadastro, sem nada explicar');
+
   /* ---- ATUALIZAR NAO TROCA DE PAGINA ----
    *
    * `location.reload()` devolvia a tela que abre por padrao: quem apertava o botao
