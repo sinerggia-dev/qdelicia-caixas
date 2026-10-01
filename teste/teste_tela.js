@@ -11977,6 +11977,56 @@ console.log('\n== Motorista/Conferente ==');
     'e a coluna existe E é preenchida — a função existir sem ninguém chamá-la foi o ' +
     'escape de três sabotagens nesta semana', hist.slice(0, 160));
 
+  /* ---- A BUSCA GERAL, RODADA ----
+   *
+   * Ela peneira no que a TELA MOSTRA, e nao numa coluna escolhida: procurar dentro de
+   * coisa que a pessoa nao ve devolve linha que ela nao reconhece, e pedir que ela
+   * escolha a coluna antes de digitar e' perguntar algo que ela so' saberia depois de
+   * achar. */
+  var iPc = adm.indexOf('  function semAcento(s){');
+  var pc = iPc < 0 ? '' : adm.slice(iPc, adm.indexOf('\n  function desenharDecl(){', iPc));
+  ok(pc.length > 400, 'a conferência recortou a busca da conciliação', pc.length);
+  if (pc.length > 400) {
+    var casa = new Function('document', pc + '\nreturn parCasa;')(
+      { getElementById: function () { return null; } });
+    var par = { motorista: 'Arilson Silva', rotasTxt: 'João Pessoa',
+                conferenteTxt: 'Melkezedeque Soares', idsTxt: 'M000021 M000022',
+                tipo: 'Retorno', situacao: 'Bateu', base: 'Teste',
+                dataRef: '2026-09-16' };
+    ok(casa(par, 'arilson') === true,
+      'a busca acha pelo motorista');
+    ok(casa(par, 'joao') === true,
+      'e sem acento — quem procura "joao" não digita o til, e comparar cru devolveria ' +
+      'vazio e ensinaria a não usar o campo');
+    ok(casa(par, 'MELKEZEDEQUE') === true,
+      'e sem caixa — maiúscula e minúscula são a mesma pessoa');
+    ok(casa(par, 'm000021') === true && casa(par, 'bateu') === true &&
+       casa(par, 'retorno') === true,
+      'e pelo código do lançamento, pela situação e pelo tipo — tudo que a tela mostra');
+    ok(casa(par, '16/09') === true,
+      'e pela data COMO A TELA A ESCREVE: quem vê "16/09/2026" procura por "16/09", e ' +
+      'só o formato do servidor deixaria essa busca sem resposta');
+    ok(casa(par, 'arilson 16/09') === true,
+      'e dois pedaços juntos estreitam — "arilson 16/09" é o par dele naquele dia');
+    ok(casa(par, 'arilson 17/09') === false,
+      'e TODOS têm de casar: um pedaço que não bate tira a linha, senão a busca de dois ' +
+      'termos devolveria mais do que a de um');
+    ok(casa(par, 'isaque') === false, 'e quem não está na linha não a traz');
+    ok(casa(par, '') === true, 'e busca vazia não esconde nada');
+  }
+  /* E ELA PRECISA SER CHAMADA. Duas sabotagens escaparam aqui: a peneira sumindo do
+     desenho e o ouvinte deixando de redesenhar. Nos dois casos `parCasa` continuava
+     inteira e correta, e nenhuma letra digitada chegava nela — a mesma falha que me
+     custou quatro repeticoes esta semana. */
+  var iDd2 = adm.indexOf('  function desenharDecl(){');
+  var dd2 = iDd2 < 0 ? '' : adm.slice(iDd2, adm.indexOf('\n  }', iDd2) + 4);
+  ok(/if \(busca && !parCasa\(p, busca\)\) return false;/.test(dd2),
+    'e o desenho PENEIRA por ela — sem a chamada, a busca existe inteira e correta e ' +
+    'nenhuma letra digitada chega nela', dd2.indexOf('parCasa'));
+  ok(/bq\.addEventListener\('input', desenharDecl\)/.test(adm),
+    'e digitar redesenha na hora: por `input` e não por `change`, senão o resultado só ' +
+    'apareceria quando o campo perdesse o foco');
+
   /* ---- TODO FILTRO DA CONCILIACAO TEM DE VIAJAR ----
    *
    * E' a mesma regra que Movimentos ja tinha, e que aqui faltava: um filtro desenhado
@@ -12998,8 +13048,18 @@ console.log('\n== o editor de falas para a demonstracao ==');
   ok(!!acoes && acoes['flex'] === '0 0 auto',
     'e os botões NÃO encolhem junto — eles são ações, e meio botão não se aperta',
     acoes);
-  ok(!!acoes && acoes['margin-left'] === 'auto',
-    'e vão para a ponta direita da linha, longe do cadeado com que não têm relação');
+  /* ENCOSTADOS NO CADEADO, e nao na outra ponta. Eles foram para a direita quando a
+     barra tinha so' eles; com as datas e a busca na mesma linha, a folga do meio separava
+     um grupo que se le' junto — e numa tela larga "longe" virou "do outro lado do
+     monitor". */
+  ok(!acoes || acoes['margin-left'] !== 'auto',
+    'e ficam ENCOSTADOS no cadeado — com as datas e a busca na mesma linha, jogá-los ' +
+    'na outra ponta separava um grupo que se lê junto', acoes && acoes['margin-left']);
+  var periodoNaBarra = declara('.barra-trava > .periodo-linha');
+  ok(!!periodoNaBarra && periodoNaBarra['margin'] === '0',
+    'e as datas entram na MESMA linha — numa tela larga, duas faixas para um cadeado, ' +
+    'dois botões e três campos era altura gasta antes do primeiro número',
+    periodoNaBarra);
 
   var cheio = declara('.quadro-video--cheio');
   ok(!!cheio, 'a confer\u00eancia achou a regra do quadro cheio');
@@ -17549,6 +17609,50 @@ console.log('\n== toda funcao chamada existe ==');
       'existe só aparece quando a pessoa chega naquela linha, e aparece como erro cru ' +
       'em cima do trabalho dela',
       { chamadas: Object.keys(pedidas).length, faltam: faltam });
+  });
+})();
+
+/* ================= TODA PAGINA TEM DE COMPILAR =================
+ *
+ * Esta prova nasceu de uma manha com o painel INTEIRO fora do ar.
+ *
+ * Uma quebra de linha de verdade dentro de uma string de `prompt` — `\n` que saiu
+ * como enter — deixou a string aberta. String aberta e' erro de sintaxe, e erro de
+ * sintaxe nao estraga uma funcao: ele mata o BLOCO. O script de sete mil linhas do
+ * painel nao executava uma linha sequer, nenhum ouvinte era ligado, e o botao Entrar
+ * nao fazia nada. Nem mensagem de erro havia, porque nao havia codigo rodando para
+ * produzir uma.
+ *
+ * E AS NOVE SUITES ESTAVAM VERDES. Elas leem o HTML como TEXTO: procuram trechos,
+ * contam ocorrencias, recortam funcoes e as rodam uma a uma. Nenhuma delas pedia ao
+ * motor que lesse o arquivo inteiro como programa — entao um arquivo que nem compilava
+ * passava em quase tres mil conferencias.
+ *
+ * `new Function` COMPILA SEM EXECUTAR: e' exatamente a pergunta que faltava — "isto e'
+ * JavaScript valido?" —, e sem os efeitos de rodar a tela.
+ *
+ * O SRC EXTERNO FICA DE FORA de proposito: `app.js` ja e' um arquivo que o `node`
+ * carrega nas outras suites, e um `<script src>` quebrado se anuncia la. O que nao
+ * tinha dono era o codigo escrito DENTRO das paginas. */
+(function () {
+  var paginas = fsReal.readdirSync(path.join(__dirname, '..'))
+    .filter(function (f) { return /\.html$/i.test(f); });
+  ok(paginas.length >= 5, 'a conferência achou as páginas do projeto', paginas.length);
+  paginas.forEach(function (arq) {
+    var txt = fsReal.readFileSync(path.join(__dirname, '..', arq), 'utf8');
+    /* So' os blocos SEM `src`: os com `src` nao tem corpo para compilar. */
+    var blocos = txt.match(/<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/gi) || [];
+    blocos.forEach(function (b, i) {
+      var corpo = b.slice(b.indexOf('>') + 1, b.lastIndexOf('</script'));
+      if (!corpo.trim()) return;
+      var erro = '';
+      try { new Function(corpo); } catch (e) { erro = e.message; }
+      ok(erro === '',
+        arq + ': o script embutido n\u00ba ' + (i + 1) + ' COMPILA \u2014 um erro de sintaxe ' +
+        'n\u00e3o estraga uma fun\u00e7\u00e3o, mata o bloco inteiro: nenhum ouvinte \u00e9 ligado, nem o do ' +
+        'bot\u00e3o Entrar, e n\u00e3o sobra c\u00f3digo rodando nem para dizer que deu errado',
+        erro);
+    });
   });
 })();
 

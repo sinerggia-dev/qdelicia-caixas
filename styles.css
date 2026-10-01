@@ -3648,8 +3648,18 @@ body.sem-rolagem{overflow:hidden}
  * sao poucos pixels, e cada um deles e' mais uma letra antes das reticencias. */
 .barra-trava > .trava-colunas{flex:1 1 0;min-width:0;margin:0;font-size:11px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+/* ENCOSTADOS NO CADEADO, e nao na outra ponta da linha. Eles foram para a direita
+   quando a barra tinha so' eles; com as datas e a busca na mesma linha, a folga do meio
+   separava um grupo que se le' junto — a pessoa olha o cadeado, o CSV e o Hoje de uma
+   vez. Numa tela larga, "longe" virou "do outro lado do monitor". */
 .barra-trava__acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  flex:0 0 auto;margin-left:auto}
+  flex:0 0 auto}
+/* AS DATAS E A BUSCA NA MESMA LINHA. Numa tela larga, duas faixas para um cadeado, dois
+   botoes e tres campos era altura gasta antes do primeiro numero. No celular a linha
+   quebra sozinha e elas voltam a se empilhar. */
+.barra-trava > .periodo-linha{flex:1 1 340px;margin:0;min-width:0}
+.dc-busca{flex:1 1 200px;min-width:0;display:flex;flex-direction:column}
+.dc-busca input{min-height:36px;padding:0 10px;font-size:13.5px}
 /* NO TAMANHO DO CADEADO, e não no de botão de gaveta. Na gaveta eles são a ação
    principal de uma folha inteira; aqui são vizinhos de um `mini` de 13px, e em
    tamanho grande a linha vira um botão com um texto pendurado.
