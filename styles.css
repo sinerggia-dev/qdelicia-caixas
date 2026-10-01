@@ -804,8 +804,10 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
  * ~34px de altura e divide a largura com a conta, o tempo e a data. 20px e' o que cabe
  * sem empurrar a cidade para fora.
  *
- * NO CELULAR ELA SAI. A faixa ja' corta a conta por falta de largura, e assinatura cede
- * lugar a informacao — a mesma regra que valia no rodape. */
+ * E ELA FICA NO CELULAR, a pedido. Eu a tinha escondido ali repetindo a regra do rodape
+ * — "assinatura cede lugar a informacao" —, mas a conta de espaco e' outra: no celular a
+ * CONTA sai da faixa (ela se repete na barra do app), e o lugar que ela deixa paga a
+ * marca com folga. Menor por dois pixels, que e' o que a faixa mais estreita pede. */
 .tempo__marca{display:inline-flex;align-items:center;flex:0 0 auto;opacity:.8;
   transition:opacity .16s ease}
 .tempo__marca img{display:block;height:20px;width:auto}
@@ -817,7 +819,7 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   opacity:1;padding:2px 5px;border-radius:6px;background:var(--txt)
 }
 @media (max-width:1023px){
-  .tempo__marca,.tempo__div--marca{display:none}
+  .tempo__marca img{height:18px}
 }
 
 /* O estado da rede. Continua sendo `#chipRede`, com as mesmas classes que o `app.js`

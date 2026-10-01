@@ -15867,9 +15867,16 @@ console.log('\n== os grupos da navegacao recolhem ==');
   ok(adm.indexOf('class="conta__marca"') < 0,
     'e ela não ficou nos DOIS lugares — duplicada, trocar a marca exigiria lembrar do ' +
     'segundo, e o segundo é o que ninguém lembra');
-  ok(/@media \(max-width:1023px\)\{\s*\n\s*\.tempo__marca,\.tempo__div--marca\{display:none\}/.test(css),
-    'e no celular ela sai: a faixa já corta a conta por falta de largura, e assinatura ' +
-    'cede lugar a informação');
+  /* ELA FICA NO CELULAR. Eu a tinha escondido ali repetindo a regra do rodape —
+     "assinatura cede lugar a informacao" —, mas a conta de espaco e' outra: no celular a
+     CONTA sai da faixa, porque se repete na barra do app, e o lugar que ela deixa paga a
+     marca com folga. */
+  ok(!/\.tempo__marca[^{]*\{display:none\}/.test(css) &&
+     !/\.tempo__div--marca[^{]*\{display:none\}/.test(css),
+    'a marca NÃO é escondida no celular — a conta sai da faixa ali, e o lugar que ela ' +
+    'deixa paga a marca com folga');
+  ok(/@media \(max-width:1023px\)\{\s*\n\s*\.tempo__marca img\{height:18px\}/.test(css),
+    'e ela encolhe dois pixels no celular, que é o que a faixa mais estreita pede');
 })();
 
 console.log('\n== o piso ES5 das telas que vao para o ar ==');
