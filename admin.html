@@ -545,12 +545,15 @@
            ELA SUPUNHA QUE ENSAIO E DADO DESCARTAVEL. Com a base virando campo do
            cadastro, ela deixou de ser: quem esta em validacao lanca movimento de
            verdade, com caixa de verdade, e na virada pode querer que aquilo conte.
-           Por isso ha uma terceira opcao — e ela NAO e a de fabrica. Quem quiser
-           somar as duas escolhe, e ve o que escolheu escrito no seletor. -->
+           Por isso ha uma terceira opcao — E ELA PASSOU A SER A DE FABRICA. Abrindo
+           so' na Producao, a tela escondia o que foi lancado em validacao de quem nem
+           sabe que existe uma segunda base, e o numero menor nao vinha com aviso
+           nenhum. Quem quer ler uma base so' escolhe, e ve a escolha escrita no
+           seletor. -->
       <select id="verTestePainel" class="sel-teste" data-verteste>
         <option value="reais">Base Produção</option>
         <option value="teste">Base Teste</option>
-        <option value="todos">As duas bases</option>
+        <option value="todos" selected>As duas bases</option>
       </select>
       <span class="dica">Lançamento de teste é o de quem tem <b>teste</b> no perfil. Ele conta no saldo como qualquer outro — isto aqui só separa a leitura.</span>
     </div>
@@ -674,7 +677,7 @@
               <select id="verTesteRetornos" data-verteste>
                 <option value="reais">Base Produção</option>
                 <option value="teste">Base Teste</option>
-                <option value="todos">As duas bases</option>
+                <option value="todos" selected>As duas bases</option>
               </select>
               <!-- SÓ NO CELULAR. No computador o painel fecha clicando fora, e a folha
                    cobre a tela inteira: sem um rodapé, o dedo não tem para onde ir.
@@ -1021,7 +1024,7 @@
              Ela mora em Motorista/Conferente, e só lá. -->
         <div><label for="mvTeste">Lançamentos</label><select id="mvTeste" multiple data-multi>
           <option value="">Todas as bases</option>
-          <option value="reais" selected>Base Produção</option>
+          <option value="reais">Base Produção</option>
           <option value="teste">Base Teste Produção</option>
         </select></div>
         <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
@@ -2312,7 +2315,7 @@
      qual dos dois estava olhando. */
   /* Comeca em "reais": quem abre o painel quer ver a operacao. O ensaio esta a um
      clique, e nunca somado por cima do real. */
-  var VER_TESTE = 'reais';
+  var VER_TESTE = 'todos';
   document.querySelectorAll('[data-verteste]').forEach(function(sel){
     sel.addEventListener('change', function(){
       VER_TESTE = sel.value;
@@ -5972,15 +5975,29 @@
     document.getElementById(id).addEventListener('change', carregarMovimentos);
   });
 
-  /* Volta ao mesmo estado da primeira abertura: tudo em "Todos" e os últimos 30 dias. */
-  /* Os dois valores do período padrão, num lugar só: quem os ESCREVE nos campos e quem
-     pergunta "isto ainda é o padrão?" precisam da mesma conta. Em dois lugares, o dia em
-     que o padrão mudasse de 30 para 15 dias a barra de filtros passaria a acusar um
-     recorte que ninguém escolheu. */
+  /* Volta ao mesmo estado da primeira abertura: tudo em "Todos" e o período inteiro. */
+  /* O PERIODO PADRAO E' NENHUM.
+   *
+   * Eram os ultimos 30 dias, e a tela escondia o resto antes de alguem pedir para
+   * esconder: quem procurava um lancamento de dois meses atras concluia que ele nao
+   * existia. O mesmo defeito estava no painel, onde a janela comecava no dia 1 do mes —
+   * e todo primeiro do mes a operacao inteira abria uma tela zerada.
+   *
+   * Quem quer recorte escolhe um. O recorte que importa — quem pode ver o lancamento de
+   * quem — continua no CADASTRO e no servidor, e nada disto o afrouxa: isto aqui e' o
+   * que a tela mostra por padrao, nao o que a pessoa tem direito de ver.
+   *
+   * Continua sendo UM LUGAR SO': quem escreve nos campos e quem pergunta "isto ainda e'
+   * o padrao?" leem a mesma resposta. */
   function periodoPadraoValores(){
-    var d1 = new Date(); d1.setDate(d1.getDate() - 30);
-    return { de: d1.toISOString().slice(0, 10), ate: Q.hoje() };
+    return { de: '', ate: '' };
   }
+
+  /* O PADRAO DAS BASES, tambem num lugar so'. Vazio quer dizer TODAS — e' a convencao
+     deste seletor, e o proprio `porEscolha` a impoe: ele nunca marca a opcao de valor
+     vazio. Escrito a mao em cada ponto, bastava um deles ficar para tras para a pilula
+     acusar um recorte que ninguem escolheu. */
+  var BASES_PADRAO = [];
 
   function periodoPadraoMov(){
     var p = periodoPadraoValores();
@@ -6005,7 +6022,7 @@
     });
     /* O recorte de base volta para "só produção", e não para vazio: vazio ali quer dizer
        TODAS as bases, e o Limpar não é para mostrar mais do que se estava vendo. */
-    porEscolha(document.getElementById('mvTeste'), ['reais']);
+    porEscolha(document.getElementById('mvTeste'), BASES_PADRAO);
     ligarMultis();
     periodoPadraoMov();
     carregarMovimentos();
@@ -6132,7 +6149,9 @@
        de recorte que engana quem esquece dele ligado. */
     var t = document.getElementById('mvTeste');
     var bases = t ? escolhaDe(t) : [];
-    if (t && !(bases.length === 1 && bases[0] === 'reais')) {
+    var noPadrao = bases.length === BASES_PADRAO.length &&
+                   bases.every(function(b){ return BASES_PADRAO.indexOf(b) >= 0; });
+    if (t && !noPadrao) {
       l.push({ id: 'mvTeste', t: rotuloDoCampo('mvTeste')+': '+textoDoCampo(t) });
     }
     return l;
@@ -6174,9 +6193,11 @@
       b.addEventListener('click', function(){
         var el = document.getElementById(b.dataset.tirar);
         if (!el) return;
-        /* O recorte de ensaio volta para "só reais", e não para vazio: vazio ali não é
-           um estado que o seletor tenha. */
-        if (b.dataset.tirar === 'mvTeste') porEscolha(el, ['reais']);
+        /* O recorte de ensaio volta para o MESMO padrão de quem abre a tela, lido de
+           `BASES_PADRAO` e não escrito aqui de novo: tirar a pílula tem de deixar a tela
+           onde ela teria nascido, e duas listas escritas à mão divergem na primeira que
+           alguém mudar. */
+        if (b.dataset.tirar === 'mvTeste') porEscolha(el, BASES_PADRAO);
         else porEscolha(el, []);
         ligarMultis();
         carregarMovimentos();

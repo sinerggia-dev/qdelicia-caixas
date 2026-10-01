@@ -2382,12 +2382,13 @@
      UTC ja virou o dia seguinte — e a data de inicio saia um dia adiantada, cortando do
      periodo justamente o dia mais antigo. O `Q.hoje()` do fim da funcao sempre leu o dia
      local; era a primeira linha que discordava dele. */
+  /* O PERIODO PADRAO E' NENHUM — o mesmo do painel e de Movimentos.
+     Eram os ultimos 30 dias, e o motorista que procurava o que lancou no mes passado
+     nao achava: a tela escondia antes de ele pedir para esconder, e a lista mais curta
+     nao vinha com aviso. Quem quer recorte usa os campos, ou o botao Hoje ao lado. */
   function periodoPadraoLanc(){
-    var d1 = new Date(); d1.setDate(d1.getDate() - 30);
-    var mm = String(d1.getMonth() + 1), dd = String(d1.getDate());
-    document.getElementById('lcDe').value = d1.getFullYear() + '-' +
-      (mm.length < 2 ? '0' + mm : mm) + '-' + (dd.length < 2 ? '0' + dd : dd);
-    document.getElementById('lcAte').value = Q.hoje();
+    document.getElementById('lcDe').value = '';
+    document.getElementById('lcAte').value = '';
   }
 
   /* O FILTRO RAPIDO DO DIA mora no nucleo: a conciliacao do painel precisou do mesmo

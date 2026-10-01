@@ -465,8 +465,14 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
      campo dentro dele reprovaria a versão derivada, que é a melhor das duas: ela não tem
      como esquecer um campo que entrou na barra depois.
      O que continua valendo é a GARANTIA: depois do Limpar, campo nenhum filtra. */
+  /* O PADRAO DAS BASES VEM DO ARQUIVO, e nao escrito aqui: escrito aqui, esta prova
+     continuaria exigindo "so' Producao" no dia em que a tela passasse a abrir em todas
+     — e reprovaria justamente a mudanca que alguem acabou de fazer de proposito. */
+  var basesPadrao = JSON.parse(
+    ((adm.match(/var BASES_PADRAO = (\[[^\]]*\]);/) || [])[1] || '[]')
+      .replace(/'/g, '"'));
   var limparFn = new Function('document', 'CAMPOS_MOV', 'porEscolha',
-    'ligarMultis', 'periodoPadraoMov', 'carregarMovimentos',
+    'ligarMultis', 'periodoPadraoMov', 'carregarMovimentos', 'BASES_PADRAO',
     limpar + '\n return limparFiltrosMov;');
   var mundo = {};
   campos.forEach(function (c) {
@@ -482,10 +488,13 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
     function (el, vals) { el.escolha = vals || []; el.value = (vals && vals[0]) || ''; },
     function () {},
     function () { mundo.mvDe.value = ''; mundo.mvAte.value = ''; },
-    function () {})();
+    function () {},
+    basesPadrao)();
   var sobraram = campos.filter(function (c) {
     var el = mundo[c];
-    if (c === 'mvTeste') return el.value !== 'reais';   // o recorte tem estado, e volta ao dele
+    /* O recorte de base volta ao PADRAO DA TELA, seja ele qual for — hoje "todas as
+       bases", que neste seletor se escreve como nenhuma marcada. */
+    if (c === 'mvTeste') return (el.escolha || []).join('|') !== basesPadrao.join('|');
     if (el.type === 'date') return !!el.value;
     return (el.escolha || []).length > 0;
   });
@@ -8331,16 +8340,31 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
     'e está ligado ao atalho do NÚCLEO, e não a uma cópia própria — havia duas ' +
     'implementações deste botão no projeto, e cada uma tinha metade da razão');
 
-  /* O PERIODO PADRAO PELO DIA LOCAL. `toISOString` e UTC: em Recife, depois das 21h, o
-     UTC ja virou o dia seguinte, e a data de inicio saia um dia adiantada — cortando do
-     periodo justamente o dia mais antigo. O fim da funcao sempre leu o dia local; era a
-     primeira linha que discordava dele. */
+  /* O PERIODO PADRAO E' NENHUM — e a armadilha antiga nao pode voltar junto.
+   *
+   * Ele eram os ultimos 30 dias, e a lista abria escondendo o resto antes de alguem
+   * pedir. A conta daquela data ja tinha dado defeito uma vez: montada com
+   * `toISOString`, que e' UTC, depois das 21h em Recife o dia seguinte ja tinha virado e
+   * o inicio saia adiantado, cortando justamente o dia mais antigo. Agora nao ha data
+   * para errar — e a prova continua proibindo o UTC, para o caso de alguem reintroduzir
+   * um padrao calculado e repetir o mesmo erro. */
   var iPP = html.indexOf('  function periodoPadraoLanc(){');
   var pp = iPP < 0 ? '' : html.slice(iPP, html.indexOf('\n  }', iPP));
-  ok(pp.length > 100 && pp.indexOf('toISOString') < 0 && pp.indexOf('getFullYear()') > 0,
-    'o per\u00edodo padr\u00e3o \u00e9 montado pelo dia LOCAL, e n\u00e3o por `toISOString`, que \u00e9 UTC \u2014 ' +
-    'depois das 21h em Recife o UTC j\u00e1 virou o dia seguinte, e a data de in\u00edcio saía um ' +
-    'dia adiantada, cortando do per\u00edodo o dia mais antigo', pp.slice(0, 160));
+  var campos = {};
+  if (pp.length > 20) {
+    new Function('document', 'Q', pp + '\n  }\nperiodoPadraoLanc();')(
+      { getElementById: function (id) {
+        return (campos[id] = campos[id] || { value: null }); } },
+      { hoje: function () { return '2026-10-01'; } });
+  }
+  ok(campos.lcDe && campos.lcDe.value === '' && campos.lcAte && campos.lcAte.value === '',
+    'a lista do app de campo abre com o per\u00edodo INTEIRO \u2014 abrindo em 30 dias, o ' +
+    'motorista que procura o que lan\u00e7ou no m\u00eas passado conclui que sumiu',
+    [campos.lcDe, campos.lcAte]);
+  ok(pp.indexOf('toISOString') < 0,
+    'e nenhuma data sai de `toISOString`, que \u00e9 UTC \u2014 depois das 21h em Recife o dia ' +
+    'seguinte j\u00e1 virou l\u00e1, e foi assim que o in\u00edcio saiu um dia adiantado da \u00faltima vez',
+    pp.slice(0, 160));
 
   /* ---- OS CARTOES, RODADOS ----
    * A conta saiu de dentro do desenho e virou `tilesLanc`, justamente para caber numa
@@ -8859,11 +8883,15 @@ console.log('\n== Movimentos no celular: cartão, folha de ações e filtros =='
   ok(/cx\.innerHTML = l\.map\(function\(f\)\{/.test(adm),
     'e elas saem da lista do que está aplicado, não de uma lista vazia');
   ok(/data-tirar="'\+f\.id\+'"/.test(adm) &&
-     /if \(b\.dataset\.tirar === 'mvTeste'\) porEscolha\(el, \['reais'\]\);/.test(adm) &&
+     /if \(b\.dataset\.tirar === 'mvTeste'\) porEscolha\(el, BASES_PADRAO\);/.test(adm) &&
      /else porEscolha\(el, \[\]\);/.test(adm),
-    'cada pílula sabe qual campo ela limpa — e o recorte de ensaio volta para "só ' +
-    'reais", que é o estado que aquele seletor tem, enquanto os outros são DESMARCADOS: ' +
-    'num seletor de várias, atribuir vazio escolhe a opção "Todas" em vez de desmarcar');
+    /* Tirar a pilula tem de deixar a tela onde ela teria NASCIDO, e o padrao e' lido de
+       `BASES_PADRAO` em vez de escrito aqui ao lado: duas listas a mao divergem na
+       primeira que alguem mudar, e foi o que aconteceu quando o padrao passou a ser
+       "todas as bases" e este X continuou devolvendo "so' Producao". */
+    'cada pílula sabe qual campo ela limpa — e o recorte de base volta ao MESMO padrão ' +
+    'de quem abre a tela, lido de um lugar só, enquanto os outros são DESMARCADOS: num ' +
+    'seletor de várias, atribuir vazio escolhe a opção "Todas" em vez de desmarcar');
   ok(/chip\.style\.display = l\.length \? '' : 'none'/.test(adm),
     'e o número no botão só aparece quando há filtro — um "0" pendurado promete que há ' +
     'o que ver');
@@ -8872,10 +8900,21 @@ console.log('\n== Movimentos no celular: cartão, folha de ações e filtros =='
   ok(/if \(id === 'mvDe' && el\.value === padrao\.de\) return;/.test(adm) &&
      /if \(id === 'mvAte' && el\.value === padrao\.ate\) return;/.test(adm),
     'o período padrão não conta como filtro aplicado');
-  ok(/function periodoPadraoValores\(\)/.test(adm) &&
-     (adm.match(/d1\.setDate\(d1\.getDate\(\) - 30\)/g) || []).length === 1,
-    'e a conta do padrão mora num lugar só — em dois, mudar de 30 para 15 dias faria a ' +
-    'barra acusar um recorte que ninguém escolheu');
+  /* O PADRAO MORA NUM LUGAR SO' — e hoje ele e' NENHUM RECORTE. A janela de 30 dias
+     saiu: a tela escondia o resto antes de alguem pedir, e quem procurava um lancamento
+     de dois meses atras concluia que ele nao existia. */
+  var padraoAdm = (function () {
+    var i = adm.indexOf('  function periodoPadraoValores(){');
+    var corpo = i < 0 ? '' : adm.slice(i, adm.indexOf('\n  }', i) + 4);
+    if (corpo.length < 20) return null;
+    return new Function('Q', corpo + '\nreturn periodoPadraoValores();')(
+      { hoje: function () { return '2026-10-01'; } });
+  })();
+  ok(!!padraoAdm && padraoAdm.de === '' && padraoAdm.ate === '',
+    'e o padrão é o período INTEIRO, numa conta só — em duas, mudar o padrão faria a ' +
+    'barra acusar um recorte que ninguém escolheu', padraoAdm);
+  ok((adm.match(/d1\.setDate\(d1\.getDate\(\) - 30\)/g) || []).length === 0,
+    'e a janela de 30 dias não sobrou escrita em canto nenhum da tela');
   ok(/pintarFiltrosMov\(\);/.test(adm) &&
      adm.indexOf('pintarFiltrosMov();') > adm.indexOf('desenharMovimentos();'),
     'a pintura das pílulas sai do MESMO lugar que recarrega a lista — espalhada, a ' +
@@ -11307,16 +11346,20 @@ console.log('\n== a base do usuário ==');
      base seriam sete, e o filtro virou de várias escolhas, como os outros oito. Os
      painéis continuam com o seletor de sempre: eles somam, e a declaração não entra em
      soma nenhuma, então ali as bases continuam sendo duas. */
-  ok((adm.match(/<option value="todos">As duas bases<\/option>/g) || []).length === 2,
+  ok((adm.match(/<option value="todos"[^>]*>As duas bases<\/option>/g) || []).length === 2,
     'os seletores do painel continuam oferecendo "As duas bases" — lá são dois livros, ' +
     'porque a declaração não entra em conta nenhuma',
     (adm.match(/As duas bases/g) || []).length);
   var filtroBase = adm.slice(adm.indexOf('<select id="mvTeste"'));
   filtroBase = filtroBase.slice(0, filtroBase.indexOf('</select>'));
-  ok(/multiple data-multi/.test(filtroBase) && /value="reais" selected/.test(filtroBase),
-    'o filtro de Movimentos aceita várias bases e abre na Produção — abrindo em ' +
-    '"todas", a tela somaria o ensaio com a operação para quem não escolheu nada',
-    filtroBase.slice(0, 80));
+  /* ABRE EM TODAS AS BASES, que neste seletor se escreve como NENHUMA marcada — e' a
+     convencao dele, e o proprio `porEscolha` a impoe: ele nunca marca a opcao de valor
+     vazio. Abria so' na Producao, e entao a tela escondia o que foi lancado em
+     validacao de quem nem sabe que existe uma segunda base. */
+  ok(/multiple data-multi/.test(filtroBase) && !/selected/.test(filtroBase),
+    'o filtro de Movimentos aceita várias bases e abre em TODAS — abrindo só na ' +
+    'Produção, a tela escondia o que foi lançado na outra base de quem nem sabe que ' +
+    'ela existe', filtroBase.slice(0, 80));
   /* E NENHUMA DAS DUAS DE DECLARAÇÃO, a pedido. Não é opção escondida: o servidor não
      as manda para esta rota, para ninguém. Ali elas entravam nos cartões de Saída,
      Retorno e Saldo, e a mesma carga era contada duas vezes — uma pela contagem do
@@ -12518,6 +12561,87 @@ console.log('\n== o editor de falas para a demonstracao ==');
 
   /* ---- O PAINEL OUVE E GRAVA ---- */
   var admV = fsReal.readFileSync(path.join(raizE, 'admin.html'), 'utf8');
+
+  /* ---- TODO MODULO ABRE SEM RECORTE ----
+   *
+   * O painel ja abria o periodo inteiro; Movimentos, Conciliacao e os Lancamentos do app
+   * de campo ainda abriam nos ultimos 30 dias, e as bases abriam so' na Producao. Era o
+   * mesmo defeito em quatro lugares: a tela esconde parte do que existe antes de alguem
+   * pedir para esconder, e quem nao sabe do recorte le' menos do que ha' e nao desconfia.
+   *
+   * QUEM QUER RECORTE ESCOLHE UM. O recorte que importa — quem pode ver o lancamento de
+   * quem — continua onde sempre esteve, no CADASTRO e no servidor (`idsVisiveis`), e
+   * nada disto o afrouxa: isto aqui e' o que a tela mostra por padrao, nao o que a
+   * pessoa tem direito de ver. */
+  var padraoMov = (function () {
+    var i = admV.indexOf('  function periodoPadraoValores(){');
+    var corpo = i < 0 ? '' : admV.slice(i, admV.indexOf('\n  }', i) + 4);
+    if (corpo.length < 40) return null;
+    return new Function('Q', corpo + '\nreturn periodoPadraoValores();')(
+      { hoje: function () { return '2026-10-01'; } });
+  })();
+  ok(!!padraoMov && padraoMov.de === '' && padraoMov.ate === '',
+    'Movimentos e Concilia\u00e7\u00e3o abrem com o per\u00edodo INTEIRO \u2014 abrindo em 30 dias, ' +
+    'quem procura um lan\u00e7amento de dois meses atr\u00e1s conclui que ele n\u00e3o existe',
+    padraoMov);
+
+  var idx = fsReal.readFileSync(path.join(raizE, 'index.html'), 'utf8');
+  var padraoLanc = (function () {
+    var i = idx.indexOf('  function periodoPadraoLanc(){');
+    var corpo = i < 0 ? '' : idx.slice(i, idx.indexOf('\n  }', i) + 4);
+    if (corpo.length < 40) return null;
+    var campos = {};
+    var doc = { getElementById: function (id) {
+      return (campos[id] = campos[id] || { value: null }); } };
+    new Function('document', 'Q', corpo + '\nperiodoPadraoLanc();')(
+      doc, { hoje: function () { return '2026-10-01'; } });
+    return campos;
+  })();
+  ok(!!padraoLanc && padraoLanc.lcDe && padraoLanc.lcDe.value === '' &&
+     padraoLanc.lcAte && padraoLanc.lcAte.value === '',
+    'e os Lan\u00e7amentos do app de campo tamb\u00e9m \u2014 o motorista que procura o que lan\u00e7ou ' +
+    'no m\u00eas passado precisa ach\u00e1-lo',
+    padraoLanc && { de: padraoLanc.lcDe, ate: padraoLanc.lcAte });
+
+  /* ---- E OS QUATRO LUGARES DO PADRAO DE BASE PRECISAM CONCORDAR ----
+   *
+   * O padrao das bases esta escrito na opcao MARCADA do HTML, na variavel que vai no
+   * pedido, no botao que limpa os filtros e no X da pilula. Discordando, a tela mostra
+   * uma coisa e pede outra — e a pilula acusa um recorte que ninguem escolheu, ou
+   * esconde um que esta ligado. */
+  function marcada(sel) {
+    var i = admV.indexOf('<select id="' + sel + '"');
+    if (i < 0) return null;
+    var bloco = admV.slice(i, admV.indexOf('</select>', i));
+    var m = bloco.match(/<option value="([^"]*)"[^>]*selected/);
+    return m ? m[1] : (bloco.match(/<option value="([^"]*)"/) || [])[1];
+  }
+  var noPedido = (admV.match(/var VER_TESTE = '([^']*)'/) || [])[1];
+  ['verTestePainel', 'verTesteRetornos'].forEach(function (s) {
+    ok(marcada(s) === 'todos',
+      'o seletor ' + s + ' abre em TODAS as bases', marcada(s));
+    ok(marcada(s) === noPedido,
+      'e a op\u00e7\u00e3o marcada em ' + s + ' \u00e9 a MESMA que vai no pedido \u2014 discordando, a ' +
+      'tela mostra uma base e l\u00ea outra', [marcada(s), noPedido]);
+  });
+
+  var padraoBases = (admV.match(/var BASES_PADRAO = \[([^\]]*)\]/) || [])[1];
+  ok(padraoBases !== undefined, 'o padr\u00e3o das bases de Movimentos mora num lugar s\u00f3',
+    padraoBases);
+  if (padraoBases !== undefined) {
+    var marcadaMov = marcada('mvTeste');
+    ok(padraoBases.replace(/'/g, '') === marcadaMov,
+      'e a op\u00e7\u00e3o marcada em mvTeste \u00e9 a mesma do padr\u00e3o \u2014 discordando, a p\u00edlula ' +
+      'acusa um recorte que ningu\u00e9m escolheu', [padraoBases, marcadaMov]);
+    ok(marcadaMov === '',
+      'e ela \u00e9 "Todas as bases" \u2014 abrir s\u00f3 na Produ\u00e7\u00e3o esconde o que foi lan\u00e7ado ' +
+      'em valida\u00e7\u00e3o de quem nem sabe que existe uma segunda base', marcadaMov);
+    ok((admV.match(/porEscolha\(document\.getElementById\('mvTeste'\), BASES_PADRAO\)/g) ||
+        []).length >= 1 &&
+       admV.indexOf("porEscolha(el, ['reais'])") < 0,
+      'e quem limpa os filtros volta para esse mesmo padr\u00e3o, e n\u00e3o para um escrito \u00e0 ' +
+      'm\u00e3o ao lado');
+  }
 
   /* ---- O ROTULO SEGUE A JANELA ----
    *
