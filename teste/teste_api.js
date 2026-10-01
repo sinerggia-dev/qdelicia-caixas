@@ -536,6 +536,54 @@ async function main() {
   const admPainel = (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.ID === idAdmin)[0];
   ok(admPainel.TemSenha === true, 'admin nao perde a senha do painel', admPainel);
 
+  console.log('\n== senha resetada devolve o tutorial ==');
+  {
+    /* Quem tem a credencial redefinida por OUTRA pessoa quase nunca e' quem estava
+     * usando o sistema ontem: e' gente nova, gente que voltou depois de um tempo, ou
+     * alguem que perdeu o acesso e esta recomecando. Nos tres casos o caminho do
+     * primeiro acesso e' o que faz falta — e ele ja existia, so' nao disparava, porque
+     * a marca de "ja viu o tutorial" fica para sempre. */
+    const nv = await POST({ acao: 'salvarUsuario', registro: {
+      Nome: 'Volta ao Tutorial', Perfil: 'MOTORISTA', PIN: '445566' } });
+    ok(nv.ok === true, 'cadastro de ensaio criado', nv);
+    const idT = (await GET({ acao: 'equipe' })).usuarios
+      .filter((u) => u.Nome === 'Volta ao Tutorial')[0].ID;
+    const vendo = async () => (await GET({ acao: 'equipe' })).usuarios
+      .filter((u) => u.ID === idT)[0];
+
+    ok((await vendo()).ViuTutorial === false,
+      'cadastro novo nasce sem ter visto o tutorial');
+    await POST({ acao: 'viuTutorial', usuarioId: idT });
+    ok((await vendo()).ViuTutorial === true,
+      'e assistir marca — a marca fica, para nao repetir o tutorial todo dia');
+
+    /* MEXER NO CADASTRO SEM TOCAR NA CREDENCIAL NAO DESFAZ A MARCA. */
+    await POST({ acao: 'salvarUsuario', registro: { ID: idT, Telefone: '81999990000' } });
+    ok((await vendo()).ViuTutorial === true,
+      'trocar o telefone NAO devolve o tutorial — s\u00f3 o reset da credencial devolve, e ' +
+      'qualquer grava\u00e7\u00e3o fazendo isso mandaria a pessoa ao tutorial a cada corre\u00e7\u00e3o de ' +
+      'cadastro');
+
+    /* O RESET DO PIN DEVOLVE. */
+    await POST({ acao: 'salvarUsuario', registro: { ID: idT, PIN: '778899' } });
+    const depoisPin = await vendo();
+    ok(depoisPin.ViuTutorial === false,
+      'resetar a senha do app de campo DEVOLVE o tutorial \u2014 quem recebe credencial de ' +
+      'outra pessoa est\u00e1 recome\u00e7ando, e o caminho do primeiro acesso \u00e9 o que faz falta',
+      depoisPin.ViuTutorial);
+    ok(depoisPin.PinProvisorio === true,
+      'e a marca de provis\u00f3ria \u00e9 o que diz que houve reset \u2014 \u00e9 ela que separa "algu\u00e9m ' +
+      'definiu para mim" de "eu troquei a minha"', depoisPin.PinProvisorio);
+
+    /* O RESET DA SENHA DO PAINEL TAMBEM. */
+    await POST({ acao: 'viuTutorial', usuarioId: idT });
+    ok((await vendo()).ViuTutorial === true, 'marca reposta para a segunda prova');
+    await POST({ acao: 'salvarUsuario', registro: { ID: idT, Senha: 'outrasenha123' } });
+    ok((await vendo()).ViuTutorial === false,
+      'e resetar a senha do painel devolve igual \u2014 as duas s\u00e3o credencial, e quem ' +
+      'recebe uma delas de outra pessoa est\u00e1 no mesmo caso');
+  }
+
   console.log('\n== senha do app de campo: 6 numeros ==');
   // A regra vale para DEFINIR. Barrar no login trancaria para fora quem cadastrou
   // senha antes dela existir — a equipe inteira, de uma vez, no galpao.

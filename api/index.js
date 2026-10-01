@@ -871,6 +871,26 @@ async function salvarUsuario(p) {
     dados.SenhaProvisoria = true;               // mesma razao do PIN acima
   }
 
+  /* SENHA RESETADA, TUTORIAL DE VOLTA.
+   *
+   * Quem tem a credencial redefinida por OUTRA pessoa quase nunca e' quem estava usando
+   * o sistema ontem: e' gente nova, ou gente que voltou depois de um tempo, ou alguem
+   * que perdeu o acesso e esta recomecando. Nos tres casos o caminho do primeiro acesso
+   * e o que faz falta, e ele ja existe — so' nao disparava, porque a marca de "ja viu"
+   * fica para sempre.
+   *
+   * A MARCA DO RESET E' A PROVISORIEDADE, e nao o ato de gravar: `PinProvisorio` e
+   * `SenhaProvisoria` sao postos logo acima, e so' quando a credencial vem DE FORA. Quem
+   * troca a propria senha por uma dela nao esta recomecando nada, e mandar essa pessoa
+   * ao tutorial seria castigar quem fez o certo.
+   *
+   * `ViuTutorial` e nao `viu_tutorial`: a coluna se chama `viu_boas_vindas`, de quando a
+   * marca era de outra tela, e a traducao mora no mapeador. Escrito aqui com o nome da
+   * coluna errado, o PATCH voltaria sem erro visivel e sem gravar nada. */
+  if (dados.PinProvisorio === true || dados.SenhaProvisoria === true) {
+    dados.ViuTutorial = false;
+  }
+
   /* NINGUEM FICA SEM BASE NENHUMA. Desmarcadas as duas, a pessoa continuaria
      lancando — e o lancamento cairia na producao, que e o que o codigo faz quando nao
      ha piso de ensaio. Ou seja: desmarcar tudo teria o efeito de MARCAR Producao, que e
