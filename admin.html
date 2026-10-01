@@ -251,6 +251,29 @@
            o que recolher, e por ele que `gruposDaNavegacao` ja escondia o titulo de um
            grupo vazio. Um segundo nome aqui seria uma segunda verdade sobre a mesma
            coisa. -->
+      <!-- LANCAMENTO E O PRIMEIRO GRUPO, a pedido — e faz sentido: e' o unico item que
+           LEVA PARA FORA do painel, para a tela onde se trabalha. No pe' da lateral ele
+           ficava depois de catorze paginas de consulta, abaixo da dobra num notebook, e
+           quem vinha ao painel so' para mandar a contagem tinha de rolar ate' o fim para
+           achar a saida.
+
+           "Enviar Contagem" e nao "Lancamentos": o painel inteiro e' sobre lancamentos —
+           tres paginas tem a palavra no nome —, e um item com o mesmo nome do assunto
+           nao diz o que faz. O que ele faz e' levar a pessoa para contar e mandar.
+
+           CONTINUA SENDO UM `<a>` e nao um `button[data-pagina]`: `Q.abas()` liga o
+           trocador de pagina em todo botao de pagina, e aqui isso viraria uma aba sem
+           pagina. Com `data-grupo` ele acompanha o recolher do grupo como os outros. -->
+      <button type="button" class="nav-grupo" data-grupo="Lançamento" aria-expanded="true"><span class="nav-grupo__t">Lançamento</span><svg class="nav-grupo__seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
+      <a class="nav-link nav-saida" id="chipCampo" href="index.html" hidden
+         data-grupo="Lançamento" title="Ir para o app de lançamento">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="9 14 4 9 9 4"></polyline>
+          <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
+        </svg>
+        <span class="nav-rotulo">Enviar Contagem</span>
+      </a>
       <button type="button" class="nav-grupo" data-grupo="Operação" aria-expanded="true"><span class="nav-grupo__t">Operação</span><svg class="nav-grupo__seta" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
       <button data-grupo="Operação" style="display:none" data-pagina="pgRetornos" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -391,16 +414,6 @@
 
          Fica FORA do <nav>: `Q.abas()` liga o trocador de pagina em todo botao de
          dentro, e la ela viraria uma aba sem pagina. -->
-    <a class="nav-link nav-saida" id="chipCampo" href="index.html" hidden
-       title="Voltar para o app de lançamento">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="9 14 4 9 9 4"></polyline>
-        <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path>
-      </svg>
-      <span class="nav-rotulo">Lançamentos</span>
-    </a>
-
     </div>
 
     <!-- O RODAPE FICA PRESO EMBAIXO. Antes era um `.lateral__folga` empurrando: a
@@ -1579,7 +1592,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=40afec29"></script>
+<script src="app.js?v=91856cf6"></script>
 <script>
 (function(){
   'use strict';

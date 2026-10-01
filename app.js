@@ -2201,7 +2201,10 @@
     var nav = document.querySelector(seletor || '#abas');
     if (!nav) return;
     var vivos = {};
-    nav.querySelectorAll('button[data-pagina][data-grupo]').forEach(function (b) {
+    /* TODO ITEM DO GRUPO CONTA, e nao so' os botoes de pagina: o grupo Lancamento tem
+       um `<a>` que leva para fora do painel, e contando so' botoes ele seria lido como
+       grupo VAZIO — o titulo sumiria com o item logo abaixo, a vista. */
+    nav.querySelectorAll('[data-grupo]:not(.nav-grupo)').forEach(function (b) {
       /* RECOLHIDO NAO E ESCONDIDO, e a diferenca decide se o titulo continua na tela.
          Quem esconde por PERMISSAO e o `style.display` que `ajustarAbasPainel` escreve;
          quem recolhe e o `data-fechado`, que e escolha de quem olha. Lidos juntos pelo
@@ -2249,7 +2252,10 @@
       var nome = titulo.dataset.grupo;
       titulo.setAttribute('aria-expanded', fechado ? 'false' : 'true');
       titulo.title = (fechado ? 'Abrir' : 'Recolher') + ' ' + nome;
-      nav.querySelectorAll('button[data-pagina][data-grupo="' + nome + '"]')
+      /* TODO ITEM DO GRUPO, e nao so' os botoes de pagina: o grupo Lancamento tem um
+         `<a>` que leva para fora do painel, e um recolher que deixasse esse item a vista
+         faria a seta mentir — dizendo "recolhido" sobre uma linha que continua ali. */
+      nav.querySelectorAll('[data-grupo="' + nome + '"]:not(.nav-grupo)')
         .forEach(function (b) {
           if (fechado) b.dataset.fechado = '1';
           else delete b.dataset.fechado;

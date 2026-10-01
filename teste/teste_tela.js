@@ -1585,15 +1585,33 @@ console.log('\n== o app shell: navegacao na lateral, gaveta no celular ==');
       faltando);
   });
 
-  /* As portas para a OUTRA tela ficam FORA do <nav>. `Q.abas()` liga o trocador de
-     pagina em todo botao de dentro: la dentro, a porta viraria uma aba sem pagina, e
-     clicar nela apagaria a ativa e deixaria a tela em branco. */
+  /* A PORTA PARA A OUTRA TELA NAO PODE SER UMA ABA.
+   *
+   * A regra era "fica FORA do <nav>", e a razao escrita era boa: `Q.abas()` liga o
+   * trocador de pagina em todo BOTAO DE PAGINA de dentro, e la' a porta viraria uma aba
+   * sem pagina — clicar apagaria a ativa e deixaria a tela em branco.
+   *
+   * O QUE PROTEGE NAO E' O LUGAR, E' A FORMA. `Q.abas()` nao liga em qualquer coisa:
+   * liga em `button[data-pagina]`. Um `<a href>` dentro do `<nav>` navega e pronto —
+   * nao vira aba, nao apaga a ativa. Guardar o LUGAR proibia um arranjo correto: no
+   * painel essa porta virou o primeiro grupo da lateral, que e' onde quem vem mandar a
+   * contagem a procura.
+   *
+   * A prova passou a cobrar o que de fato evita o estrago: a porta nao e' botao de
+   * pagina. */
   [['index.html', 'chipPainel'], ['admin.html', 'chipCampo']].forEach(function (par) {
     var t = telas[par[0]];
-    var fimNav = t.indexOf('</nav>', t.indexOf('<nav class="abas"'));
-    ok(fimNav > 0 && t.indexOf('id="' + par[1] + '"') > fimNav,
-      par[0] + ': a porta para a outra tela fica FORA do <nav> — dentro dela viraria uma ' +
-      'aba sem página, e clicar apagaria a ativa deixando a tela em branco');
+    var i = t.indexOf('id="' + par[1] + '"');
+    ok(i > 0, par[0] + ': a confer\u00eancia achou a porta para a outra tela', i);
+    /* A tag da porta: do `<` anterior ate' o `>` que fecha a abertura. */
+    var abre = t.slice(t.lastIndexOf('<', i), t.indexOf('>', i) + 1);
+    ok(abre.indexOf('data-pagina') < 0,
+      par[0] + ': a porta para a outra tela N\u00c3O \u00e9 bot\u00e3o de p\u00e1gina \u2014 sendo, ela ' +
+      'viraria uma aba sem p\u00e1gina, e clicar apagaria a ativa deixando a tela em ' +
+      'branco', abre.slice(0, 120));
+    ok(/^<a\b/.test(abre) && abre.indexOf('href=') > 0,
+      par[0] + ': ela \u00e9 um link com destino \u2014 \u00e9 o que a faz LEVAR para a outra tela ' +
+      'em vez de trocar de aba dentro desta', abre.slice(0, 120));
   });
 
   /* O que o `app.js` escreve continua tendo onde morar. Estes tres ids sao escritos por
@@ -8776,7 +8794,12 @@ console.log('\n== a navegação separada por módulo ==');
     });
     return {
       querySelectorAll: function (sel) {
-        var l = sel.indexOf('button') >= 0 ? botoes : titulos;
+        /* QUEM E' ITEM E QUEM E' TITULO, pela MARCA e nao pela tag: o grupo Lancamento
+           tem um `<a>` por item, e o seletor deixou de falar em `button`. Decidindo por
+           "tem a palavra button", este DOM de mentira devolvia os TITULOS no lugar dos
+           itens e a prova reprovava um desenho correto. */
+        var l = (sel.indexOf(':not(.nav-grupo)') >= 0 || sel.indexOf('button') >= 0)
+          ? botoes : titulos;
         l.forEach = Array.prototype.forEach;
         return l;
       },
@@ -15568,7 +15591,12 @@ console.log('\n== os grupos da navegacao recolhem ==');
     var falso = {
       querySelector: function () { return alvo; },
       querySelectorAll: function (sel) {
-        return sel.indexOf('.nav-grupo') >= 0 ? listaTitulos : listaItens;
+        /* `:not(.nav-grupo)` TAMBEM CONTEM `.nav-grupo`: o seletor dos ITENS passou a
+           nomear a classe dos titulos para excluir-la, e a pergunta ingenua "tem
+           `.nav-grupo`?" passou a devolver os titulos no lugar dos itens. A exclusao
+           vem primeiro. */
+        return (sel.indexOf(':not(.nav-grupo)') < 0 && sel.indexOf('.nav-grupo') >= 0)
+          ? listaTitulos : listaItens;
       }
     };
     var listaItens = itens.map(function (x) {
@@ -15639,10 +15667,50 @@ console.log('\n== os grupos da navegacao recolhem ==');
     'e o clique no título não chega na lateral — ela também ouve clique para reabrir ' +
     'quando está recolhida, e sem isto recolher um grupo abriria o menu junto');
 
+  /* ---- O GRUPO LANCAMENTO, NO TOPO ----
+   *
+   * Ele e' o unico item da lateral que LEVA PARA FORA do painel. No pe' da lista ficava
+   * depois de catorze paginas de consulta, abaixo da dobra num notebook — e quem vem ao
+   * painel so' para mandar a contagem tinha de rolar ate' o fim para achar a saida. */
+  var nav0 = adm.slice(adm.indexOf('<nav class="abas"'), adm.indexOf('</nav>'));
+  ok(nav0.indexOf('data-grupo="Lançamento"') < nav0.indexOf('data-grupo="Operação"'),
+    'o grupo Lançamento vem ANTES de Operação — ele é a porta para a tela onde se ' +
+    'trabalha, e no pé da lista ficava abaixo da dobra',
+    [nav0.indexOf('data-grupo="Lançamento"'), nav0.indexOf('data-grupo="Operação"')]);
+  ok(/<span class="nav-rotulo">Enviar Contagem<\/span>/.test(adm) &&
+     adm.indexOf('<span class="nav-rotulo">Lançamentos</span>') < 0,
+    'e o item se chama "Enviar Contagem" — o painel inteiro é sobre lançamentos, e um ' +
+    'item com o nome do assunto não diz o que faz');
+  var tagPorta = adm.slice(adm.lastIndexOf('<', adm.indexOf('id="chipCampo"')),
+                           adm.indexOf('>', adm.indexOf('id="chipCampo"')) + 1);
+  ok(tagPorta.indexOf('data-grupo="Lançamento"') > 0,
+    'e ela PERTENCE ao grupo — sem a marca ela fica solta na lateral, fora do recolher ' +
+    'e fora da conta que decide se o título do grupo aparece', tagPorta);
+
+  /* E O NUCLEO PRECISA ALCANCAR ITEM QUE NAO E' BOTAO DE PAGINA.
+     As duas regras contavam `button[data-pagina][data-grupo]`. Com um `<a>` por item, o
+     grupo seria lido como VAZIO — o titulo sumiria com o item logo abaixo, a vista — e
+     recolher deixaria a linha na tela, com a seta dizendo o contrario. */
+  var nucleoNav = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  ['  function gruposDaNavegacao(seletor) {', '  function pintar(titulo, fechado) {']
+    .forEach(function (marca) {
+      var i = nucleoNav.indexOf(marca);
+      var corpo = i < 0 ? '' : nucleoNav.slice(i, nucleoNav.indexOf('\n    }', i) + 6);
+      ok(corpo.indexOf(':not(.nav-grupo)') > 0 &&
+         corpo.indexOf("'button[data-pagina][data-grupo") < 0,
+        marca.trim() + ' alcança TODO item do grupo, e não só os botões de página — o ' +
+        'grupo Lançamento tem um link, e contando só botões ele seria lido como vazio',
+        corpo.slice(0, 200));
+    });
+
   /* ---- OS TRES TITULOS EXISTEM COMO BOTAO ---- */
+  /* QUATRO, e nao tres: "Lançamento" nasceu no topo levando a porta para o app de
+     campo — o unico item da lateral que leva para FORA do painel, e que no pe' da lista
+     ficava abaixo da dobra num notebook. */
   var comoBotao = (adm.match(/<button type="button" class="nav-grupo"/g) || []).length;
-  ok(comoBotao === 3,
-    'os três módulos — Operação, Dados e Sistema — recolhem separadamente, que é o ' +
+  ok(comoBotao === 4,
+    'os quatro módulos — Lançamento, Operação, Dados e Sistema — recolhem ' +
+    'separadamente, que é o ' +
     'que tira a barra de rolagem de quem usa duas páginas de quinze', comoBotao);
   ok(adm.indexOf("Q.gruposRecolhiveis('#abas');") > adm.indexOf("Q.abas('#abas');"),
     'e isso é ligado DEPOIS do menu: os dois mexem nos mesmos botões');
