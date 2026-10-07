@@ -2414,8 +2414,11 @@ h3.mov__rota svg{flex:0 0 auto;color:var(--txt3)}
    cartões de Lançamentos, e ele é `display:flex`. Com o mesmo nome, o cartão do extrato
    herdava o flex e saía deitado, com a rota ao lado do saldo. Foi assim que apareceu na
    primeira foto. */
-.ext-dia{background:var(--surface);border:1px solid var(--linha);
-  border-radius:var(--raio);padding:13px}
+/* O RESPIRO DO CARTAO E' UM TOKEN porque a tarja do dia, mais abaixo, precisa sair
+   dele com margem NEGATIVA do mesmo tamanho para alcancar a borda. Escrito duas vezes,
+   o dia em que um mudasse a faixa passaria a sobrar ou a faltar — e so' no celular. */
+.ext-dia{--ext-pad:13px;background:var(--surface);border:1px solid var(--linha);
+  border-radius:var(--raio);padding:var(--ext-pad)}
 .ext-dia__topo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .ext-dia__data{font-family:var(--fonte-mono);font-size:14px;font-weight:700}
 /* Empurrado para a ponta: é o dado que se confere de relance, e no meio das etiquetas
@@ -2426,6 +2429,38 @@ h3.ext-dia__rota{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0
   text-transform:none;letter-spacing:normal;color:var(--txt)}
 h3.ext-dia__rota svg{flex:0 0 auto;color:var(--txt3)}
 h3.ext-dia__rota em{font-style:normal;color:var(--txt2);font-weight:500}
+
+/* ---- A TARJA DO DIA DO PAINEL, SO' NO CELULAR ----
+   A MESMA ideia da lista de Movimentos: a data gruda no topo enquanto o cartao daquele
+   dia passa por baixo, e o dia seguinte a empurra para fora. La' a tarja e' um cabecalho
+   de grupo; aqui ela e' o proprio topo do cartao — o que ja' faz dela a peca certa, sem
+   inventar uma segunda linha de data para dizer o que a primeira ja' diz.
+
+   SO' NO CELULAR porque so' la' existe cartao: da largura do menu para cima esta tela e'
+   uma tabela de nove colunas, e o `th` dela ja' e' `sticky` por conta propria.
+
+   FUNDO SOLIDO E MARGEM NEGATIVA. Sem fundo, o corpo do cartao apareceria POR TRAS da
+   data grudada; sem a margem, a faixa pararia na borda do texto e o conteudo escorreria
+   pelos lados dela. O respiro de cima vira `padding` para que a altura continue a mesma.
+
+   `top` NAO E' ZERO: a linha "o que esta sendo contado" tambem e' `sticky` nesta tela e
+   fica acima. Com as duas em zero, a data cobriria justamente o aviso que diz qual
+   filtro esta ligado. A medida vem do JS porque a altura dela muda com as pilulas. */
+@media (max-width:1023px){
+  .ext-dia__topo{position:sticky;top:var(--grude-dia,0px);z-index:6;
+    margin:calc(var(--ext-pad) * -1) calc(var(--ext-pad) * -1) 0;
+    padding:var(--ext-pad) var(--ext-pad) 9px;
+    border-radius:var(--raio) var(--raio) 0 0;background:var(--surface);
+    transition:background-color .18s,box-shadow .18s}
+  /* A GRUDADA GANHA DESTAQUE e as outras ficam discretas, como em Movimentos: com todas
+     iguais, nenhuma diz qual e' a do cartao que se esta lendo.
+     FUNDO SOLIDO POR BAIXO do degrade: com `background` recebendo so' o gradiente, a
+     primeira parada e' transparente e o cartao volta a passar por tras da tarja. */
+  .ext-dia__topo--ativa{background-color:var(--surface-2);
+    background-image:linear-gradient(90deg,rgba(42,169,95,.20),rgba(42,169,95,0) 62%);
+    box-shadow:inset 3px 0 0 var(--verde),0 4px 14px rgba(4,14,28,.42)}
+}
+@media (prefers-reduced-motion:reduce){.ext-dia__topo{transition:none}}
 
 .ext{margin-top:11px;border-top:1px solid var(--linha);padding-top:9px}
 

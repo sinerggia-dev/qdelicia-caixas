@@ -2371,7 +2371,7 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
    * `position:sticky` encaixa a tarja NELE. Medindo contra o topo puro, a marca acendia
    * na tarja que já tinha subido além do encaixe — o dia ANTERIOR ao que estava preso.
    * Medido: com 800px de rolagem, a presa era 16/09 e a acesa continuava 17/09. */
-  var fMarcar = corpoDaFn('marcarDiaMov');
+  var fMarcar = corpoDaFn('marcarDiaGrudado');
   ok(/getComputedStyle\(caixa\)\.paddingTop/.test(fMarcar),
     'a marca da tarja conta a partir do respiro da área que rola, e não do topo puro — ' +
     'medido, com o topo puro ela acendia um dia atrás do que está preso na tela');
@@ -2381,6 +2381,72 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
   ok(/scrollTop \+ caixa\.clientHeight >= caixa\.scrollHeight/.test(fMarcar),
     'e no fim da lista a última acende mesmo sem alcançar o encaixe — com um grupo ' +
     'curto a rolagem acaba antes, e o dia que se está lendo jamais acenderia');
+
+  /* --- A MESMA TARJA NO PAINEL DE ATIVOS, SÓ NO CELULAR -------------------
+   * Em Movimentos a tarja é um cabeçalho de grupo; no Painel, no celular, ela é o topo
+   * do próprio cartão do dia. São desenhos diferentes da mesma ideia — e duas cópias
+   * desta medida divergiriam no primeiro ajuste, com as duas telas acendendo dias
+   * diferentes na mesma rolagem. */
+  ok(/var TARJAS_DIA = \[/.test(adm) &&
+     adm.indexOf("sel: '#tabelaMov .dia-mov'") > 0 &&
+     adm.indexOf("sel: '#tabelaFluxo .ext-dia__topo'") > 0,
+    'as duas listas com tarja de dia estão numa lista só, e não em duas cópias da ' +
+    'mesma conta — copiada, a segunda tela acenderia um dia diferente da primeira');
+  ok(/TARJAS_DIA\.forEach\(/.test(fMarcar),
+    'e a marca percorre essa lista em vez de repetir o cálculo por tela');
+
+  /* O DESVIO É SÓ DO PAINEL. A linha "o que está sendo contado" também é `sticky`, e
+     existe só nesta tela. Aplicado em Movimentos, onde não há nada acima da tarja, ele
+     desceria a linha de grude e acenderia o dia errado. */
+  ok(/desviar: false/.test(adm) && /desviar: true/.test(adm) &&
+     /base \+ \(g\.desviar \? desvio : 0\)/.test(fMarcar),
+    'e o desvio da linha do filtro vale só para o painel — em Movimentos não há nada ' +
+    'acima da tarja, e descer a linha de grude lá acenderia o dia de trás');
+
+  var fDesvio = corpoDaFn('desviarGrudeDia');
+  ok(/getElementById\('resumoFluxo'\)/.test(fDesvio) &&
+     /getBoundingClientRect\(\)\.height/.test(fDesvio),
+    'a altura da linha do filtro é MEDIDA, e não escrita na folha — ela muda com o ' +
+    'número de pílulas, que quebram linha no telefone', fDesvio.slice(0, 160));
+  ok(/setProperty\('--grude-dia'/.test(fDesvio),
+    'e vira a medida de onde a data encosta — encostando em zero, a data taparia ' +
+    'justamente o aviso que diz qual recorte está ligado');
+
+  /* DESENHADO NÃO É MARCADO. Sem a chamada depois do desenho, nenhuma data acende até
+     a pessoa rolar — e quem abre o painel e não rola vê a lista toda sem destaque. */
+  var iFluxo = adm.indexOf('function desenharFluxo()');
+  var trechoFluxo = adm.slice(iFluxo, adm.indexOf('function temRecorte()', iFluxo));
+  ok(/vigiarTiles\(\);[\s\S]{0,500}marcarDiaGrudado\(\);/.test(trechoFluxo),
+    'e o painel marca a tarja logo depois de desenhar os cartões — sem isso nenhum ' +
+    'dia acende enquanto a pessoa não rolar, e quem só olha não vê destaque nenhum');
+
+  /* A FOLHA. */
+  var iTarja = css.indexOf('@media (max-width:1023px){\n  .ext-dia__topo{');
+  var blocoTarja = iTarja < 0 ? '' : css.slice(iTarja, css.indexOf('\n}', iTarja));
+  ok(/\.ext-dia__topo\{[^}]*position:sticky/.test(blocoTarja),
+    'a data do dia do Painel de Ativos gruda no topo enquanto o cartão dela passa por ' +
+    'baixo, como a de Movimentos', blocoTarja.slice(0, 120));
+  ok(iTarja > 0 && !/\n\.ext-dia__topo\{[^}]*position:sticky/.test(css),
+    'e só no celular: da largura do menu para cima esta tela é uma tabela de nove ' +
+    'colunas, e o cabeçalho dela já gruda por conta própria');
+  ok(/\.ext-dia__topo\{[^}]*background:var\(--surface\)/.test(blocoTarja),
+    'e tem fundo sólido — sem ele o corpo do cartão apareceria POR TRÁS da data ' +
+    'grudada, com os dois textos um em cima do outro');
+  ok(/top:var\(--grude-dia,0px\)/.test(blocoTarja),
+    'e não encosta em zero: a linha do filtro também gruda nesta tela, e em zero a ' +
+    'data cobriria o aviso de qual recorte está ligado');
+  ok(/margin:calc\(var\(--ext-pad\) \* -1\) calc\(var\(--ext-pad\) \* -1\) 0/.test(blocoTarja) &&
+     /\.ext-dia\{--ext-pad:13px;/.test(css) && /padding:var\(--ext-pad\)\}/.test(css),
+    'e a faixa alcança a borda do cartão pela MESMA medida do respiro dele, num token ' +
+    'só — escrita duas vezes, mudar o respiro deixaria a faixa sobrando ou faltando');
+  ok(/\.ext-dia__topo--ativa\{background-color:var\(--surface-2\);\s*\n\s*background-image:linear-gradient/.test(blocoTarja),
+    'e a grudada acende com fundo SÓLIDO por baixo do degradê — só o gradiente, a ' +
+    'primeira parada é transparente e o cartão volta a passar por trás dela');
+  ok(/box-shadow:inset 3px 0 0 var\(--verde\)/.test(blocoTarja),
+    'e o destaque é o mesmo risco verde de Movimentos — dois destaques diferentes ' +
+    'para a mesma ideia fariam procurar uma diferença que não existe');
+  ok(css.indexOf('@media (prefers-reduced-motion:reduce){.ext-dia__topo{transition:none}}') > 0,
+    'e quem pediu menos movimento não recebe a transição de cor');
 
   /* OS TOTAIS DO DIA SAEM DAS LINHAS, não dos lotes: um lote tem várias linhas de
      caixa, e somar o lote uma vez perderia as outras. E pelo MESMO `sentidoDoMov` dos
@@ -7768,7 +7834,7 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      que esta afirmação cobra não é a ordem das linhas, é que as DUAS classes existam
      como donas de coisas diferentes. */
   ok(/\n\.dia\{position:sticky[\s\S]{0,120}display:flex/.test(css) &&
-     /\n\.ext-dia\{background/.test(css),
+     /\n\.ext-dia\{[^}]*background:var\(--surface\)/.test(css),
     'as duas continuam existindo, e são coisas diferentes');
 
   /* --- o arranjo do celular ------------------------------------------------

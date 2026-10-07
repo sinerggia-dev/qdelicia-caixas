@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=31999607">
+<link rel="stylesheet" href="styles.css?v=72685a88">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -4772,6 +4772,11 @@
         '<span class="alvo" style="left:'+Math.min(100, metaFluxo())+'%"></span></div>');
 
     vigiarTiles();
+    /* A TARJA DO DIA SO' EXISTE DEPOIS QUE OS CARTOES ESTAO NA TELA. Sem esta chamada,
+       nenhuma data acende ate' a pessoa rolar — e quem abre o painel e nao rola ve' a
+       lista inteira sem destaque nenhum. A mesma chamada que a lista de Movimentos faz
+       logo apos desenhar os cartoes dela. */
+    marcarDiaGrudado();
   }
 
   /* A JANELA QUE O SERVIDOR USOU, e nao a que a tela digitou.
@@ -7187,7 +7192,7 @@
       box.innerHTML = barraOrdemMov(L)+cartoesMov(L)+'<div id="correcaoBox"></div>';
       ligarAcoesMov(box);
       ligarOrdemMov();
-      marcarDiaMov();
+      marcarDiaGrudado();
       return;
     }
 
@@ -7840,16 +7845,43 @@
      rola — as seguintes ainda estão abaixo dela. Sem esta marca, três tarjas iguais na
      tela confundem em vez de ajudar: não dá para saber qual é a do que se está lendo.
      QUEM ROLA É `.corpo-pagina`, e não a janela: o painel tem altura fixa e a rolagem
-     acontece dentro dele. Ouvir a janela aqui não receberia evento nenhum. */
+     acontece dentro dele. Ouvir a janela aqui não receberia evento nenhum.
+
+     DUAS LISTAS, UMA CONTA SÓ. A tarja de Movimentos é um cabeçalho de grupo; a do
+     Painel de Ativos, no celular, é o próprio topo do cartão do dia. São desenhos
+     diferentes da mesma ideia, e duas cópias desta medida divergiriam no primeiro
+     ajuste — as duas telas passariam a acender dias diferentes na mesma rolagem. */
+  var TARJAS_DIA = [
+    { sel: '#tabelaMov .dia-mov',         cls: 'dia-mov--ativa',       desviar: false },
+    { sel: '#tabelaFluxo .ext-dia__topo', cls: 'ext-dia__topo--ativa', desviar: true  }
+  ];
+
+  /* ONDE A TARJA DO PAINEL ENCOSTA. A linha "o que está sendo contado" também é
+     `sticky` nesta tela e fica ACIMA dos cartões. Com as duas em zero, a data pararia
+     em cima dela e taparia o aviso de qual filtro está ligado — justamente o que aquela
+     linha existe para dizer.
+
+     MEDIDA, e não escrita na folha: a altura muda com o número de pílulas, que quebram
+     linha no telefone. Escondida, ela não ocupa nada e o desvio volta sozinho a zero. */
+  var grudeDia = -1;
+  function desviarGrudeDia(){
+    var a = document.getElementById('resumoFluxo');
+    var h = a ? Math.round(a.getBoundingClientRect().height) : 0;
+    if (h !== grudeDia) {
+      grudeDia = h;
+      document.documentElement.style.setProperty('--grude-dia', h + 'px');
+    }
+    return h;
+  }
+
   var marcandoDia = false;
-  function marcarDiaMov(){
+  function marcarDiaGrudado(){
     if (marcandoDia) return;
     marcandoDia = true;
     requestAnimationFrame(function(){
       marcandoDia = false;
       var caixa = document.querySelector('.corpo-pagina');
-      var tarjas = document.querySelectorAll('#tabelaMov .dia-mov');
-      if (!caixa || !tarjas.length) return;
+      if (!caixa) return;
       /* A LINHA DE GRUDE NAO E O TOPO DA CAIXA: `.corpo-pagina` tem respiro no topo, e
          `position:sticky` encaixa a tarja NELE. Medindo contra o topo puro, a marca
          acendia na tarja que JA TINHA SUBIDO alem do encaixe — ou seja, no dia
@@ -7857,26 +7889,31 @@
          presa era 16/09 e a acesa continuava 17/09. */
       var r = caixa.getBoundingClientRect();
       var respiro = parseFloat(getComputedStyle(caixa).paddingTop) || 0;
-      var linha = r.top + respiro + 2;
-      var ativa = tarjas[0];
-      Array.prototype.forEach.call(tarjas, function(t){
-        if (t.getBoundingClientRect().top <= linha) ativa = t;
-      });
+      var base = r.top + respiro + 2;
+      var desvio = desviarGrudeDia();
       /* NO FIM DA LISTA a última tarja pode nunca alcançar a linha de grude, se o grupo
          dela for curto: a rolagem acaba antes. Sem isto, o último dia jamais acende — e
          é justamente o dia que a pessoa está lendo quando chega ao fim. */
-      if (caixa.scrollTop + caixa.clientHeight >= caixa.scrollHeight - 4) {
-        ativa = tarjas[tarjas.length - 1];
-      }
-      Array.prototype.forEach.call(tarjas, function(t){
-        t.classList.toggle('dia-mov--ativa', t === ativa);
+      var noFim = caixa.scrollTop + caixa.clientHeight >= caixa.scrollHeight - 4;
+      TARJAS_DIA.forEach(function(g){
+        var tarjas = document.querySelectorAll(g.sel);
+        if (!tarjas.length) return;
+        var linha = base + (g.desviar ? desvio : 0);
+        var ativa = tarjas[0];
+        Array.prototype.forEach.call(tarjas, function(t){
+          if (t.getBoundingClientRect().top <= linha) ativa = t;
+        });
+        if (noFim) ativa = tarjas[tarjas.length - 1];
+        Array.prototype.forEach.call(tarjas, function(t){
+          t.classList.toggle(g.cls, t === ativa);
+        });
       });
     });
   }
   (function(){
     var caixa = document.querySelector('.corpo-pagina');
-    if (caixa) caixa.addEventListener('scroll', marcarDiaMov, { passive: true });
-    window.addEventListener('resize', marcarDiaMov);
+    if (caixa) caixa.addEventListener('scroll', marcarDiaGrudado, { passive: true });
+    window.addEventListener('resize', marcarDiaGrudado);
   })();
 
   /* "CORRIGIDO" É UMA AFIRMAÇÃO SOBRE O DADO: diz que o número ali não é o que foi
