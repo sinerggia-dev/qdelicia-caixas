@@ -10725,8 +10725,16 @@ console.log('\n== quem corrige o quê: uma regra, duas telas ==');
     'a senha vai em TODAS as linhas da remessa: o servidor confere uma por uma, e a ' +
     'segunda voltaria recusada com a primeira já gravada');
 
-  ok(/Q\.correcaoLivre\(s, m\) \? '' :[\s\S]{0,400}id="cSenha"/.test(adm),
+  /* O BLOCO DA SENHA NASCE SEMPRE, e ESCONDIDO quando a correção está livre: a troca
+     de BASE pede a senha ainda dentro dos dez minutos, e um campo criado só na hora
+     chegaria depois de a pessoa ter decidido gravar. A regra não mudou — mudou que o
+     bloco está pronto antes de fazer falta. */
+  ok(/blocoSenha\('cSenha', Q\.correcaoLivre\(s, m\)/.test(adm),
     'o painel tem o mesmo campo, pela mesma regra — é a mesma rota que confere os dois');
+  ok(/\(livre \? ' hidden' : ' data-sempre="1"'\)/.test(adm),
+    'e ele nasce ESCONDIDO dentro dos dez minutos livres — criado só na hora, ele ' +
+    'chegaria depois de a pessoa já ter decidido gravar, e o aviso de que a senha é ' +
+    'obrigatória viria junto com a recusa');
   ok(/Q\.post\(\{acao:'corrigir', id:m\.id, usuarioId:s\.id, senha:senhaDita,/.test(adm),
     'e o painel manda a senha junto — sem ela, toda correção de escritório volta recusada');
 
@@ -18847,6 +18855,75 @@ console.log('\n== toda funcao chamada existe ==');
     'e o item anda para dentro — sem o recuo, a filha e a carga se leem como duas ' +
     'linhas irmãs e o agrupamento vira só uma linha a mais na lista');
 })();
+
+
+console.log('\n== o seletor de base nos formularios de correcao ==');
+{
+  var admB = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var admBC = semComentarios(admB);
+
+  /* ---- O CAMPO EXISTE NOS DOIS FORMULARIOS ----
+   * Um lancamento no livro errado quase nunca e' uma linha: e' uma carga inteira, de
+   * quatro ou cinco. Posto so' na correcao da LINHA, consertar o R000079 seria abrir
+   * cinco formularios e digitar o motivo cinco vezes. */
+  ok(/campoBase\('cBase', baseDaLinha\(m\)\.id\)/.test(admBC),
+    'a correção de uma LINHA oferece o livro em que ela vive');
+  ok(/campoBase\('rBase', baseDaLinha\(m\)\.id\)/.test(admBC),
+    'e a da CARGA também — um lançamento no livro errado quase nunca é uma linha só, e ' +
+    'só na linha o conserto do R000079 seriam cinco formulários e cinco motivos');
+  ok((admBC.match(/base:baseEscolhida\('[cr]Base'\)/g) || []).length === 2,
+    'e os DOIS mandam a escolha ao servidor — desenhado e não enviado, o seletor aceita ' +
+    'a escolha, grava todo o resto e diz que gravou',
+    (admBC.match(/base:baseEscolhida\('[cr]Base'\)/g) || []).length);
+
+  /* ---- O CAMPO É DO ADMINISTRADOR ---- */
+  var fCampo = (function () {
+    var i = admB.indexOf('  function campoBase(id, baseAtual){');
+    return i < 0 ? '' : admB.slice(i, admB.indexOf('\n  }', i) + 4);
+  })();
+  ok(fCampo.length > 100 && /if \(!Q\.ehAdmin\(\)\) return '';/.test(fCampo),
+    'e ele só aparece para o administrador — oferecido aos outros, seria um campo que ' +
+    'aceita a escolha e volta recusado pela rota', fCampo.slice(0, 120));
+  ok(/BASES\.map\(/.test(fCampo),
+    'e a lista é a MESMA `BASES` do filtro e da etiqueta da linha — escrita de novo ' +
+    'aqui, o quinto livro nasceria fora deste seletor, calado');
+
+  /* ---- A SENHA APARECE QUANDO A BASE MUDA ----
+   * O bloco nasce escondido dentro dos dez minutos livres. Criado so' na hora de gravar,
+   * o aviso de que a senha e' obrigatoria chegaria junto com a recusa. */
+  var fLigar = (function () {
+    var i = admB.indexOf('  function ligarSenhaDaBase(idSel, idBloco){');
+    return i < 0 ? '' : admB.slice(i, admB.indexOf('\n  }', i) + 4);
+  })();
+  ok(fLigar.length > 150 && /bloco\.hidden = sel\.value === sel\.dataset\.baseDe;/.test(fLigar),
+    'mudar o livro revela o campo da senha, e voltar atrás o esconde — o aviso chega ' +
+    'com a escolha, e não junto com a recusa', fLigar.slice(0, 140));
+  ok(/if \(bloco\.dataset\.sempre === '1'\) return;/.test(fLigar),
+    'e fora dos dez minutos livres ele NÃO se esconde de novo — ali a senha é exigida ' +
+    'de qualquer jeito, e tirá-la da tela ao voltar a base atrás deixaria a correção ' +
+    'sem o campo de que ela precisa');
+  ok((admBC.match(/ligarSenhaDaBase\('[cr]Base', '[cr]Senha'\)/g) || []).length === 2,
+    'e os dois formulários LIGAM esse ouvinte — desenhado e não ligado, o campo da ' +
+    'senha nunca apareceria e a gravação voltaria recusada sem a tela dizer o que fazer',
+    (admBC.match(/ligarSenhaDaBase\(/g) || []).length);
+
+  /* ---- A SENHA SO' E' COBRADA QUANDO ESTA' A VISTA ----
+   * O campo agora existe SEMPRE, so' que escondido. Cobrada por ele existir, toda
+   * correcao dentro dos dez minutos passaria a pedir senha — o contrario do que a
+   * janela livre e'. */
+  var fSenha = (function () {
+    var i = admB.indexOf('  function senhaDoFormulario(idBloco){');
+    return i < 0 ? '' : admB.slice(i, admB.indexOf('\n  }', i) + 4);
+  })();
+  ok(fSenha.length > 120 && /if \(!bloco \|\| bloco\.hidden\) return \{ pede: false/.test(fSenha),
+    'a senha só é cobrada quando o bloco está À VISTA — cobrada por o campo existir, ' +
+    'toda correção dentro dos dez minutos passaria a pedi-la, que é o contrário do que ' +
+    'a janela livre significa', fSenha.slice(0, 140));
+  ok((admBC.match(/sen\.pede && !senhaDita/g) || []).length === 2,
+    'e os dois formulários perguntam a ELA, e não ao campo — um perguntando de um jeito ' +
+    'e o outro de outro é como a divergência começa',
+    (admBC.match(/sen\.pede && !senhaDita/g) || []).length);
+}
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

@@ -10625,6 +10625,70 @@
    * A LINHA A LINHA CONTINUA EXISTINDO, e continua sendo o caminho para "só a CX P está
    * errada". Esta tela não a substitui.
    */
+  /* ---------- O LIVRO DO LANÇAMENTO, no formulário de correção ----------
+   *
+   * A base era decidida no instante do lançamento e nunca mais. Lançado no livro errado,
+   * o conserto era SQL no banco — fora do app, fora do histórico e fora do alcance de
+   * quem opera.
+   *
+   * SÓ PARA O ADMINISTRADOR. Oferecido aos outros, o seletor aceitaria a escolha e
+   * voltaria recusado pela rota: um campo que existe para dizer não.
+   *
+   * A LISTA É `BASES`, a mesma do filtro e da etiqueta da linha. Escrita de novo aqui, o
+   * quinto livro nasceria fora deste seletor, calado.
+   *
+   * O VALOR DE ORIGEM FICA NO PRÓPRIO CAMPO (`data-base-de`): é por ele que a senha
+   * aparece ao mudar e some ao voltar atrás. Guardado numa variável do formulário, o
+   * segundo formulário precisaria da própria cópia — e as duas divergiriam. */
+  function campoBase(id, baseAtual){
+    if (!Q.ehAdmin()) return '';
+    return '<div><label for="'+id+'">Base <span style="font-weight:400;color:var(--txt3)">'+
+      '— o livro em que o lançamento vive</span></label>'+
+      '<select id="'+id+'" data-base-de="'+Q.esc(baseAtual)+'">'+
+      BASES.map(function(b){
+        return '<option value="'+Q.esc(b.id)+'"'+(b.id === baseAtual ? ' selected' : '')+
+          '>'+Q.esc(b.nome)+'</option>';
+      }).join('')+'</select></div>';
+  }
+  function baseEscolhida(id){
+    var el = document.getElementById(id);
+    return el ? el.value : '';
+  }
+
+  /* O BLOCO DA SENHA, nos dois formulários. Ele nasce ESCONDIDO quando a correção está
+     dentro dos dez minutos livres, e aparece no instante em que a base muda — some de
+     novo se a pessoa voltar atrás.
+     ESCONDIDO E NÃO AUSENTE: criado só na hora, o campo nasceria depois de a pessoa já
+     ter decidido gravar, e o aviso de que a senha é obrigatória chegaria junto com a
+     recusa. Escondido, ele está pronto e o aviso chega com a escolha. */
+  function blocoSenha(id, livre, aviso){
+    return '<div id="'+id+'"'+(livre ? ' hidden' : ' data-sempre="1"')+'>'+
+      '<div class="aviso-trava" style="margin-top:12px">'+Q.esc(aviso)+'</div>'+
+      '<label for="'+id+'Campo">Senha do escritório</label>'+
+      '<input type="password" id="'+id+'Campo" inputmode="numeric" autocomplete="off">'+
+      '</div>';
+  }
+  function ligarSenhaDaBase(idSel, idBloco){
+    var sel = document.getElementById(idSel), bloco = document.getElementById(idBloco);
+    if (!sel || !bloco) return;
+    /* FORA DA JANELA LIVRE o bloco já está à vista por outro motivo, e escondê-lo ao
+       voltar a base atrás tiraria da tela a senha que a correção precisa de qualquer
+       jeito. */
+    if (bloco.dataset.sempre === '1') return;
+    sel.addEventListener('change', function(){
+      bloco.hidden = sel.value === sel.dataset.baseDe;
+    });
+  }
+  /* A SENHA SÓ É COBRADA QUANDO O BLOCO ESTÁ À VISTA. Cobrada sempre que o campo
+     EXISTE, a correção de quem está dentro dos dez minutos passaria a pedir senha —
+     porque o campo agora existe sempre, só que escondido. */
+  function senhaDoFormulario(idBloco){
+    var bloco = document.getElementById(idBloco);
+    if (!bloco || bloco.hidden) return { pede: false, valor: '' };
+    var campo = document.getElementById(idBloco + 'Campo');
+    return { pede: true, valor: campo ? campo.value : '' };
+  }
+
   function formCorrigirRegistro(reg){
     var s = Q.sessao();
     var linhas = (MOVS||[]).filter(function(x){
@@ -10671,6 +10735,7 @@
           seletorLocal(m.destinoId)+'</select></div>'+
         '<div><label>Romaneio</label><input type="text" id="rRom" value="'+
           Q.esc(m.romaneio||'')+'"></div>'+
+        campoBase('rBase', baseDaLinha(m).id)+
         '<div><label>Quem fez o envio</label><select id="rUsuario">'+
           faltando(m.usuarioId,
                    (EQUIPE||[]).some(function(u){ return String(u.ID)===String(m.usuarioId); }),
@@ -10691,20 +10756,20 @@
       '<label>Motivo da correção <span style="font-weight:400;color:var(--txt3)">— '+
         'obrigatório, fica no histórico de cada linha</span></label>'+
       '<input type="text" id="rMotivo" placeholder="ex.: romaneio de papel dizia outro total">'+
-      (livre ? '' :
-        '<div class="aviso-trava" style="margin-top:12px">Alguma linha desta carga está '+
-        'fora dos 10 minutos de conserto livre. Informe a senha.</div>'+
-        '<label for="rSenha">Senha do escritório</label>'+
-        '<input type="password" id="rSenha" inputmode="numeric" autocomplete="off">')+
+      blocoSenha('rSenha', livre, livre
+        ? 'Mudar a base pede a senha do escritorio, mesmo dentro dos 10 minutos de conserto livre: o lancamento muda de livro e sai do saldo no mesmo instante.'
+        : 'Alguma linha desta carga está fora dos 10 minutos de conserto livre. '+
+          'Informe a senha.')+
       '<div class="linha-btn"><button class="btn" id="rSalvar">Gravar correção nas '+
         linhas.length+' linhas</button></div>');
 
     ligarVeiculoAoMotorista('rMotorista', 'rVeiculo');
+    ligarSenhaDaBase('rBase', 'rSenha');
     document.getElementById('rSalvar').addEventListener('click', function(){
       var b = this;
-      var campoSenha = document.getElementById('rSenha');
-      var senhaDita = campoSenha ? campoSenha.value : '';
-      if (campoSenha && !senhaDita) return Q.toast('Informe a senha do escritório.','erro');
+      var sen = senhaDoFormulario('rSenha');
+      var senhaDita = sen.valor;
+      if (sen.pede && !senhaDita) return Q.toast('Informe a senha do escritório.','erro');
       var itens = [].map.call(document.querySelectorAll('.rq'), function(i){
         var conf = document.querySelector('.rc[data-id="'+i.dataset.id+'"]');
         return { id: i.dataset.id, Qtd: i.value, QtdConferida: conf ? conf.value : '' };
@@ -10721,6 +10786,7 @@
               Veiculo:document.getElementById('rVeiculo').value,
               Romaneio:document.getElementById('rRom').value,
               Obs:document.getElementById('rObs').value,
+              base:baseEscolhida('rBase'),
               UsuarioID:document.getElementById('rUsuario').value}).then(function(r){
         b.disabled = false;
         b.textContent = 'Gravar correção nas '+linhas.length+' linhas';
@@ -10796,6 +10862,7 @@
            NOME dependia de o cadastro nunca ter sido renomeado — e num nome que já não
            bate, o seletor caía na primeira pessoa da lista e gravar reatribuía o
            lançamento a ela. */
+        campoBase('cBase', baseDaLinha(m).id)+
         '<div><label>Quem fez o envio</label><select id="cUsuario">'+
           faltando(m.usuarioId,
                    (EQUIPE||[]).some(function(u){ return String(u.ID)===String(m.usuarioId); }),
@@ -10813,11 +10880,10 @@
          escritório quase sempre corrige lançamento de outro dia ou de outra pessoa, que
          é justo o caso trancado: aqui o campo aparece quase sempre, e é assim mesmo.
          Sem ele, a correção voltaria recusada e a tela não diria o que fazer. */
-      (Q.correcaoLivre(s, m) ? '' :
-        '<div class="aviso-trava" style="margin-top:12px">Este lançamento está fora dos '+
-        '10 minutos de conserto livre do próprio autor. Informe a senha.</div>'+
-        '<label for="cSenha">Senha do escritório</label>'+
-        '<input type="password" id="cSenha" inputmode="numeric" autocomplete="off">')+
+      blocoSenha('cSenha', Q.correcaoLivre(s, m), Q.correcaoLivre(s, m)
+        ? 'Mudar a base pede a senha do escritorio, mesmo dentro dos 10 minutos de conserto livre: o lancamento muda de livro e sai do saldo no mesmo instante.'
+        : 'Este lançamento está fora dos 10 minutos de conserto livre do próprio autor. '+
+          'Informe a senha.')+
       /* QUEM MEXEU ENTRA NA TABELA. O histórico sempre guardou o autor em `por`, e a
          tabela não o mostrava: lia-se que a quantidade foi de 255 para 75, às 11h25, por
          ninguém. Num registro que existe para responder "quem mudou isto e por quê",
@@ -10833,11 +10899,12 @@
       '<div class="linha-btn"><button class="btn" id="cSalvar">Gravar correção</button></div>');
 
     ligarVeiculoAoMotorista('cMotorista', 'cVeiculo');
+    ligarSenhaDaBase('cBase', 'cSenha');
     document.getElementById('cSalvar').addEventListener('click', function(){
       var b=this;
-      var campoSenha = document.getElementById('cSenha');
-      var senhaDita = campoSenha ? campoSenha.value : '';
-      if (campoSenha && !senhaDita) return Q.toast('Informe a senha do escritório.','erro');
+      var sen = senhaDoFormulario('cSenha');
+      var senhaDita = sen.valor;
+      if (sen.pede && !senhaDita) return Q.toast('Informe a senha do escritório.','erro');
       b.disabled=true; b.textContent='Gravando…';
       Q.post({acao:'corrigir', id:m.id, usuarioId:s.id, senha:senhaDita,
               motivo:document.getElementById('cMotivo').value.trim(),
@@ -10852,6 +10919,7 @@
               Veiculo:document.getElementById('cVeiculo').value,
               Romaneio:document.getElementById('cRom').value,
               Obs:document.getElementById('cObs').value,
+              base:baseEscolhida('cBase'),
               UsuarioID:document.getElementById('cUsuario').value}).then(function(r){
         b.disabled=false; b.textContent='Gravar correção';
         if (!r.ok) return Q.toast(r.erro,'erro');

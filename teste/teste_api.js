@@ -828,6 +828,52 @@ async function main() {
      'histórico guarda o valor antigo e o novo', movC.historico);
   ok(ultC.motivo === 'romaneio dizia 95' && ultC.por === 'U001',
      'histórico guarda motivo e autor', ultC);
+
+  /* ---- A TROCA DE BASE PELA ROTA INTEIRA, e nao so pela regra ----
+   *
+   * UMA SABOTAGEM ESCAPOU AQUI. A prova lia o TEXTO da rota — "ela manda
+   * `senhaConferida`?" — e o texto continuava la' depois de eu juntar as duas respostas
+   * numa variavel so'. A rota passou a dizer que a senha foi digitada sempre que a
+   * correcao podia passar, e trocar o livro de um lancamento RECEM-FEITO deixou de pedir
+   * senha. Agora a prova CHAMA a rota: e' o efeito que importa, nao o endereco.
+   *
+   * O LANCAMENTO E' DE AGORA e do proprio autor — dentro dos dez minutos de conserto
+   * livre, que e' justamente o caso em que a senha nao seria pedida. */
+  const novoB = await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: C,
+    itens: [{ tipoCaixaId: T, qtd: 12 }], dataRef: dia(0), usuarioId: 'U001',
+    perfil: 'ADMIN' });
+  ok(novoB.ok && novoB.criados && novoB.criados.length === 1,
+    'a conferência lançou a linha que vai trocar de livro', novoB.criados);
+  const idB = novoB.criados[0].id;
+
+  const semSenhaB = await POST({ acao: 'corrigir', id: idB, usuarioId: 'U001',
+    motivo: 'foi ensaio', base: 'teste' });
+  ok(semSenhaB.ok === false && semSenhaB.precisaSenha === true,
+    'mudar a base SEM a senha é recusado mesmo dentro dos dez minutos livres — e quem ' +
+    'responde isso é a rota, com o banco na mão, e não a função sozinha',
+    semSenhaB);
+  ok(tabelas.movimentos.find((m) => m.id === idB).teste !== true,
+    'e NADA foi gravado: a linha continua no livro em que estava — recusado depois de ' +
+    'gravar seria o pior dos dois mundos');
+
+  const comSenhaB = await POST({ acao: 'corrigir', id: idB, usuarioId: 'U001',
+    motivo: 'foi ensaio', base: 'teste', senha: '123456' });
+  ok(comSenhaB.ok === true && (comSenhaB.alterou || []).some((e) => e.campo === 'base'),
+    'e com a senha ela passa, com a base entre os campos alterados', comSenhaB.alterou);
+  const movB = tabelas.movimentos.find((m) => m.id === idB);
+  ok(movB.teste === true && movB.declaracao === false,
+    'o livro novo está GRAVADO nas duas colunas do par — metade do par deixaria a linha ' +
+    'num estado que não é livro nenhum', { teste: movB.teste, declaracao: movB.declaracao });
+  const histB = movB.historico[movB.historico.length - 1];
+  ok(histB.campo === 'base' && histB.de === 'Base Produção' &&
+     histB.para === 'Base Teste Produção' && histB.motivo === 'foi ensaio',
+    'e o histórico diz de qual livro para qual, por extenso, com o motivo — era por SQL ' +
+    'no banco que isto se fazia, e SQL não deixa autor nem porquê', histB);
+  /* E A LINHA SOME DO LIVRO DE PRODUCAO, que e' o efeito que se foi buscar. */
+  const soReais = (await GET({ acao: 'movimentos', limit: 400, teste: 'reais' })).movimentos;
+  ok(!soReais.some((m) => m.id === idB),
+    'e ela deixa de aparecer no recorte da Base Produção — é esse o efeito que se foi ' +
+    'buscar, e o resto é contabilidade dele');
   /* A ROTA INTEIRA, e não só a regra: corrigir para o mesmo valor grava uma CONSULTA —
      e o `consulta: true` tem de chegar até aqui, senão a tela diz "Corrigido:" seguido
      de nada e põe a etiqueta amarela num lançamento intocado. */
@@ -2962,6 +3008,140 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     ok(!rl.ok && /lixeira/i.test(rl.erro || ''),
       'e da LIXEIRA não se descancela: são duas marcas diferentes, e voltar a contar no ' +
       'saldo estando excluído é o estado que ninguém consegue explicar depois', rl.erro);
+  }
+
+
+  console.log('\n== mudar a base de um lancamento ==');
+  {
+    /* A base era decidida no instante do lancamento e nunca mais. Lancado no livro
+     * errado, o conserto era SQL no banco — fora do app, fora do historico e fora do
+     * alcance de quem opera. Agora e' uma correcao, com autor, motivo e rastro. */
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const nomes = { usuarios: {}, locais: {}, tipos: {} };
+    const ADMIN = { ID: 'U9', Nome: 'Admin', Perfil: 'Admin' };
+    const GERENTE = { ID: 'U8', Nome: 'Wellington', Perfil: 'Gerente' };
+    const linha = (extra) => Object.assign({
+      ID: 'M1', Tipo: 'DEVOLUCAO', OrigemID: 'L1', DestinoID: 'L2', TipoCaixaID: 'P',
+      Qtd: 100, Status: 'CONFIRMADO', UsuarioID: 'U1', Perfil: 'Gerente',
+      Teste: false, Declaracao: false,
+      DataRef: D('2026-10-12'), DataHora: D('2026-10-12'), Historico: []
+    }, extra || {});
+    /* A GUARDA COMPLETA: administrador, senha conferida. E' o unico caminho que grava. */
+    const COMO_ADMIN = { senhaOk: true, senhaConferida: true, quem: ADMIN };
+
+    /* ---- AS DUAS DIRECOES SAO A MESMA FUNCAO, E UMA PROVA AS AMARRA ----
+     * `baseDoMovimento` LE em que livro a linha esta; `marcasDaBase` ESCREVE o livro
+     * nela. Soltas, bastava um livro novo entrar numa e nao na outra para a correcao
+     * mandar a linha para um lugar e a tela mostra-la noutro — e as duas estariam certas
+     * cada uma por si, que e' o jeito de o erro durar. */
+    ['reais', 'teste', 'declaracao', 'testeDecl'].forEach((id) => {
+      ok(F.baseDoMovimento(F.marcasDaBase(id)) === id,
+        'as marcas do livro ' + id + ' voltam a ser o livro ' + id + ' — ler e escrever ' +
+        'a base são a volta uma da outra, e soltas elas divergem no primeiro livro novo',
+        F.marcasDaBase(id));
+      ok(!!F.nomeDaBase(id) && F.nomeDaBase(id) !== id,
+        'e ele tem nome por extenso para o histórico — "teste: de false para true" não ' +
+        'é uma frase que alguém leia seis meses depois', F.nomeDaBase(id));
+    });
+
+    /* ---- O CASO REAL: um retorno lancado na Producao, que era para ser ensaio ---- */
+    const m = linha();
+    const r = F.montarCorrecao(m, { base: 'teste', motivo: 'lançado por engano na produção',
+      usuarioId: 'U9' }, D('2026-10-12'), nomes, COMO_ADMIN);
+    ok(r.ok && r.patch.Teste === true && r.patch.Declaracao === false,
+      'a correção muda o livro do lançamento — e mexe no PAR inteiro: metade do par ' +
+      'deixaria a linha num estado que não é livro nenhum', r.patch);
+    ok(r.entradas.length === 1 && r.entradas[0].campo === 'base' &&
+       r.entradas[0].de === 'Base Produção' && r.entradas[0].para === 'Base Teste Produção',
+      'e o histórico diz de qual livro para qual, por extenso', r.entradas[0]);
+    ok(r.entradas[0].deCru === 'reais' && r.entradas[0].paraCru === 'teste',
+      'com o id ao lado do nome, como qualquer outra correção — é o cru que o restauro ' +
+      'usa, e o legível seria uma adivinhação de volta', r.entradas[0]);
+
+    /* ---- MESMA BASE NAO E' CORRECAO ---- */
+    const igual = F.montarCorrecao(linha(), { base: 'reais', motivo: 'x', usuarioId: 'U9' },
+      D('2026-10-12'), nomes, COMO_ADMIN);
+    ok(igual.ok && igual.consulta === true && igual.patch.Teste === undefined,
+      'escolher o livro em que ele já está é consulta, e não correção — gravado assim ' +
+      'mesmo, o histórico encheria de trocas que não trocaram nada');
+
+    /* ---- SO' O ADMINISTRADOR ---- */
+    const gerente = F.montarCorrecao(linha(), { base: 'teste', motivo: 'x', usuarioId: 'U8' },
+      D('2026-10-12'), nomes, { senhaOk: true, senhaConferida: true, quem: GERENTE });
+    ok(!gerente.ok && /administrador/i.test(gerente.erro || ''),
+      'só o administrador muda de livro — a recusa é da ROTA e não da tela: esconder o ' +
+      'seletor é conveniência, e um POST direto passa por cima dele', gerente.erro);
+    const semQuem = F.montarCorrecao(linha(), { base: 'teste', motivo: 'x', usuarioId: 'U9' },
+      D('2026-10-12'), nomes, { senhaOk: true, senhaConferida: true });
+    ok(!semQuem.ok,
+      'e sem cadastro em mãos a rota RECUSA, em vez de deixar passar — um caminho novo ' +
+      'que esqueça de mandar quem pediu falha fechado', semQuem.erro);
+
+    /* ---- A SENHA E' EXIGIDA AINDA DENTRO DOS DEZ MINUTOS ----
+     * Aquela janela existe para o engano de dedo do proprio autor. Mudar o livro de uma
+     * carga tira as caixas do saldo no mesmo instante, e nao ha lixeira de onde voltar. */
+    const semSenha = F.montarCorrecao(linha(), { base: 'teste', motivo: 'x', usuarioId: 'U9' },
+      D('2026-10-12'), nomes, { senhaOk: true, senhaConferida: false, quem: ADMIN });
+    ok(!semSenha.ok && semSenha.precisaSenha === true,
+      'mudar a base pede a senha do escritório MESMO dentro dos dez minutos livres — a ' +
+      'janela livre é para o engano de dedo do autor, e não para mudar o livro de uma ' +
+      'carga', semSenha.erro);
+    /* E O RESTO DA CORRECAO CONTINUA LIVRE: a senha nova e' da BASE, e cobrada de tudo
+       ela teria trancado o conserto que ja funcionava. */
+    const soQtd = F.montarCorrecao(linha(), { Qtd: 90, motivo: 'x', usuarioId: 'U9' },
+      D('2026-10-12'), nomes, { senhaOk: true, senhaConferida: false, quem: ADMIN });
+    ok(soQtd.ok && soQtd.patch.Qtd === 90,
+      'e corrigir a quantidade continua livre dentro da janela — a senha nova é da BASE, ' +
+      'e cobrada de tudo teria trancado o conserto que já funcionava', soQtd.patch);
+
+    /* ---- LIVRO QUE NAO EXISTE ---- */
+    const mau = F.montarCorrecao(linha(), { base: 'inventada', motivo: 'x', usuarioId: 'U9' },
+      D('2026-10-12'), nomes, COMO_ADMIN);
+    ok(!mau.ok && /desconhecida/i.test(mau.erro || ''),
+      'e um livro que não existe é recusado dizendo qual era — aceito calado, a linha ' +
+      'sairia do livro atual e não chegaria a nenhum', mau.erro);
+
+    /* ---- O PERFIL DE TESTE VENCE A COLUNA ----
+     * `lancamentoDeTeste` responde sim se a COLUNA disser sim OU se quem lancou tiver
+     * "teste" no perfil. Gravando `Teste:false` numa linha dessas, a rota diria
+     * "corrigido: base" e a tela continuaria mostrando o lancamento no ensaio. */
+    const doTeste = linha({ Teste: true, Perfil: 'Conferente de teste' });
+    const tirar = F.montarCorrecao(doTeste, { base: 'reais', motivo: 'x', usuarioId: 'U9' },
+      D('2026-10-12'), nomes, COMO_ADMIN);
+    ok(!tirar.ok && /perfil/i.test(tirar.erro || ''),
+      'e o lançamento de quem tem "teste" no PERFIL não sai do ensaio pela base: a rota ' +
+      'recusa em vez de gravar em silêncio — gravado, ela diria "corrigido" e a tela ' +
+      'continuaria mostrando o lançamento no ensaio, que é a pior forma de não funcionar',
+      tirar.erro);
+    /* E O CAMINHO DE IDA CONTINUA ABERTO para a mesma linha: o impedimento e' so' na
+       saida do ensaio, porque e' so' la' que o perfil contradiz a coluna. */
+    const paraDecl = F.montarCorrecao(linha({ Perfil: 'Motorista de teste', Teste: true }),
+      { base: 'testeDecl', motivo: 'x', usuarioId: 'U9' }, D('2026-10-12'), nomes, COMO_ADMIN);
+    ok(paraDecl.ok && paraDecl.patch.Declaracao === true,
+      'e mandá-lo para um livro de ensaio continua valendo — o impedimento é só na SAÍDA ' +
+      'do ensaio, que é onde o perfil contradiz a coluna', paraDecl.patch);
+
+    /* ---- A BASE ANDA JUNTO COM OS OUTROS CAMPOS ---- */
+    const junto = F.montarCorrecao(linha(),
+      { base: 'teste', Qtd: 80, motivo: 'tudo errado', usuarioId: 'U9' },
+      D('2026-10-12'), nomes, COMO_ADMIN);
+    ok(junto.ok && junto.patch.Qtd === 80 && junto.patch.Teste === true &&
+       junto.entradas.length === 2,
+      'e ela entra na MESMA correção dos outros campos, com uma entrada própria no ' +
+      'histórico — duas gravações para um conserto só deixariam metade dele registrada ' +
+      'com um motivo e metade com outro', junto.entradas.map((e) => e.campo));
+
+    /* ---- A CARGA INTEIRA: o seletor existe na tela e tem de CHEGAR ao servidor ---- */
+    const rota = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+    ok(/base: p\.base,/.test(rota),
+      'a correção da CARGA manda a base junto dos outros campos compartilhados — sem ' +
+      'esta linha o seletor existiria na tela e não chegaria ao servidor: gravaria tudo ' +
+      'menos a base, e diria que gravou');
+    ok(/senhaConferida: conferida/.test(rota) && /senhaConferida: senhaOk/.test(rota),
+      'e as duas rotas dizem se a senha foi mesmo DIGITADA, e não só se a correção podia ' +
+      'passar — com uma resposta só, trocar o livro de um lançamento recém-feito passaria ' +
+      'sem senha nenhuma');
   }
 
   console.log('\n== desfazer a ultima correcao ==');

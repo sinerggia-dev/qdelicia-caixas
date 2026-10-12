@@ -466,13 +466,19 @@ async function corrigir(p) {
   var agora = new Date();
   var livre = L.correcaoLivre(mov, p.usuarioId, agora);
   var mandou = p.senha !== undefined && p.senha !== null && String(p.senha) !== '';
-  var senhaOk = livre || (mandou && conferirSenhaCorrecao(p.senha, d.config));
+  /* DUAS RESPOSTAS DIFERENTES, e juntas numa so' elas se confundiam. `senhaOk` quer
+     dizer "pode corrigir" — e dentro dos dez minutos isso e' verdade SEM senha
+     nenhuma. `conferida` quer dizer "alguem digitou a senha certa", que e' o que a
+     troca de BASE exige mesmo dentro da janela livre. Com uma variavel so', mudar o
+     livro de um lancamento recem-feito passaria sem senha. */
+  var conferida = mandou && conferirSenhaCorrecao(p.senha, d.config);
+  var senhaOk = livre || conferida;
 
   var r = L.montarCorrecao(mov, p, agora, {
     usuarios: L.mapaNomes(d.usuarios || []),
     locais: L.mapaNomes(d.locais || []),
     tipos: L.mapaTipos(d.tipos || [])
-  }, { senhaOk: senhaOk, senhaErrada: mandou && !senhaOk,
+  }, { senhaOk: senhaOk, senhaConferida: conferida, senhaErrada: mandou && !conferida,
        /* O CADASTRO de quem pediu, para a rota conferir a permissao de corrigir: a
           tela esconder o botao e' conveniencia, e um POST direto passa por cima. */
        quem: L.acharUsuario(d.usuarios, p.usuarioId) });
@@ -587,6 +593,11 @@ async function corrigirRegistro(p) {
        é exatamente o erro que esta tela existe para evitar. */
     var pedido = {
       motivo: p.motivo, usuarioId: p.usuarioId,
+      /* A BASE E' DA CARGA, e nao da linha: metade de um retorno na producao e metade
+         no ensaio e' exatamente o estado que esta tela existe para nao produzir.
+         SEM ESTA LINHA o seletor existiria na tela da carga e nao chegaria ao servidor —
+         gravaria tudo menos a base, e diria que gravou. */
+      base: p.base,
       DataRef: p.DataRef, OrigemID: p.OrigemID, DestinoID: p.DestinoID,
       Motorista: p.Motorista, MotoristaNome: p.MotoristaNome,
       Veiculo: p.Veiculo, Romaneio: p.Romaneio, Obs: p.Obs, UsuarioID: p.UsuarioID,
@@ -594,7 +605,8 @@ async function corrigirRegistro(p) {
     };
     var livre = L.correcaoLivre(mov, p.usuarioId, agora);
     var r = L.montarCorrecao(mov, pedido, agora, nomes,
-      { senhaOk: livre || senhaOk, senhaErrada: mandou && !senhaOk,
+      { senhaOk: livre || senhaOk, senhaConferida: senhaOk,
+        senhaErrada: mandou && !senhaOk,
         /* A MESMA PERMISSAO DA LINHA UNICA. Esquecida aqui, quem nao pode corrigir uma
            linha corrigiria QUATRO de uma vez pela porta da carga — e a porta larga seria
            a que todo mundo passaria a usar. */

@@ -598,7 +598,7 @@ function acharUsuario(usuarios, quem) {
 function veDeclaracao(u) {
   if (!u) return false;
   var abas = Array.isArray(u.Abas) ? u.Abas : [];
-  if (!abas.length) return String(u.Perfil).toUpperCase() === 'ADMIN';
+  if (!abas.length) return ehAdministrador(u);
   return abas.indexOf('pgLancamentosMotorista') >= 0;
 }
 
@@ -759,6 +759,31 @@ function baseDoMovimento(m) {
   if (decl && ens) return 'testeDecl';
   if (decl) return 'declaracao';
   return ens ? 'teste' : 'reais';
+}
+
+/**
+ * O CAMINHO DE VOLTA: dado o livro, que marcas a linha precisa ter.
+ *
+ * `baseDoMovimento` LÊ em que livro a linha está; esta ESCREVE o livro nela. A correção
+ * precisou da segunda: até aqui a base era decidida no instante do lançamento e nunca
+ * mais, e um retorno lançado por engano na Produção só saía de lá por SQL no banco.
+ *
+ * AS DUAS ANDAM AMARRADAS POR UMA PROVA: para todo livro, `baseDoMovimento` das marcas
+ * devolve o próprio livro. Escritas soltas, bastava um livro novo entrar numa e não na
+ * outra para a correção mandar a linha para um lugar e a tela mostrá-la noutro — e as
+ * duas estariam certas cada uma por si, que é o jeito de o erro durar.
+ */
+function marcasDaBase(id) {
+  return { Teste: id === 'teste' || id === 'testeDecl',
+           Declaracao: id === 'declaracao' || id === 'testeDecl' };
+}
+
+/* O NOME DO LIVRO sai de `BASES`, que é onde ele já mora: escrito de novo aqui, renomear
+   um livro no cadastro deixaria o histórico dizendo o nome antigo para sempre — e
+   histórico é justamente o que não se reescreve depois. */
+function nomeDaBase(id) {
+  var b = BASES.filter(function (x) { return x.id === id; })[0];
+  return b ? b.nome : String(id == null ? '' : id);
 }
 
 /* Lançamento de teste é o de quem tem "teste" no perfil — decisão do usuário: o perfil é
@@ -962,9 +987,16 @@ function normal(v) { return String(v == null ? '' : v).trim().toLowerCase(); }
  * pessoa. ADMIN fica sempre de fora da chave — senão dá para trancar o último
  * administrador do lado de fora, e a volta seria por SQL no banco.
  */
+/* QUEM É ADMINISTRADOR, num lugar só. A mesma pergunta era feita solta em três lugares,
+   cada um escrevendo `String(u.Perfil).toUpperCase() === 'ADMIN'` por conta própria — e
+   a quarta cópia é a que esquece o `toUpperCase`. */
+function ehAdministrador(u) {
+  return !!u && String(u.Perfil == null ? '' : u.Perfil).toUpperCase() === 'ADMIN';
+}
+
 function podeVerPainel(u) {
   if (!u || u.Ativo === false) return false;
-  if (String(u.Perfil).toUpperCase() === 'ADMIN') return true;
+  if (ehAdministrador(u)) return true;
   return u.AcessoPainel === true;
 }
 
@@ -1631,6 +1663,62 @@ function montarCorrecao(mov, p, agora, nomes, guarda) {
       campoId: c.campo, deCru: cruDe(c, velho), paraCru: cruDe(c, novo)
     });
   });
+
+  /* ---------- A BASE: O LIVRO EM QUE O LANÇAMENTO VIVE ----------
+   *
+   * ELA NÃO ESTÁ EM `CORRIGIVEIS`, e não é esquecimento: aquela lista casa UM pedido com
+   * UMA coluna, e o livro sai do PAR `Teste`/`Declaracao`. Forçada lá dentro, ou ela
+   * mexeria em metade do par — e uma carga acabaria metade na produção e metade no
+   * ensaio —, ou o histórico registraria "teste: de false para true", que não é uma
+   * frase que alguém leia seis meses depois.
+   *
+   * SÓ O ADMINISTRADOR, e SEMPRE com a senha do escritório. Mudar de livro tira as
+   * caixas do saldo de alguém no instante do clique, como o excluir — e, ao contrário
+   * dele, não há lixeira de onde voltar: a volta é outra correção. A senha é exigida
+   * AINDA DENTRO dos dez minutos de conserto livre, porque aquela janela existe para o
+   * engano de dedo do próprio autor, e não para mudar o livro de uma carga inteira.
+   *
+   * A RECUSA É DA ROTA, e não da tela: esconder o seletor é conveniência, e um POST
+   * direto passa por cima dele.
+   */
+  var baseAgora = baseDoMovimento(mov);
+  var basePedida = String(p.base == null ? '' : p.base).trim();
+  if (basePedida && basePedida !== baseAgora) {
+    if (!BASES.some(function (b) { return b.id === basePedida; })) {
+      return { ok: false, erro: 'Base desconhecida: ' + basePedida + '.' };
+    }
+    if (!ehAdministrador(guarda.quem)) {
+      return { ok: false, erro: 'Só o administrador muda a base de um lançamento.' };
+    }
+    if (guarda.senhaConferida !== true) {
+      return {
+        ok: false, precisaSenha: true,
+        erro: guarda.senhaErrada
+          ? 'Senha incorreta.'
+          : 'Mudar a base pede a senha do escritório, mesmo dentro dos ' +
+            JANELA_CORRECAO_MIN + ' minutos de conserto livre: o lançamento muda de ' +
+            'livro e sai do saldo no mesmo instante.'
+      };
+    }
+    /* O PERFIL DE TESTE VENCE A COLUNA, e por isso a saída do ensaio é RECUSADA em vez
+       de gravada em silêncio: `lancamentoDeTeste` responde sim se a coluna disser sim OU
+       se quem lançou tiver "teste" no perfil. Gravando `Teste:false` numa linha dessas, a
+       rota diria "corrigido: base" e a tela continuaria mostrando o lançamento no ensaio
+       — a pior forma de não funcionar, porque ela afirma ter funcionado. */
+    var marcas = marcasDaBase(basePedida);
+    if (!marcas.Teste && ehPerfilTeste(mov.Perfil)) {
+      return { ok: false, erro: 'Este lançamento foi feito por alguém com "teste" no ' +
+        'perfil, e por isso conta como ensaio pelo AUTOR, e não pela base — mudar a ' +
+        'base não o tiraria de lá. Troque "quem fez o envio" ou o perfil da pessoa.' };
+    }
+    patch.Teste = marcas.Teste;
+    patch.Declaracao = marcas.Declaracao;
+    entradas.push({
+      em: iso(agora), por: String(p.usuarioId || ''), campo: 'base', motivo: motivo,
+      de: nomeDaBase(baseAgora), para: nomeDaBase(basePedida),
+      campoId: 'base', deCru: baseAgora, paraCru: basePedida
+    });
+  }
 
   /* ABRIR E GRAVAR SEM MUDAR NADA É UMA CONSULTA, e não uma correção. A etiqueta
      "corrigido" é uma afirmação sobre o DADO: ela diz que o número que está ali não é o
@@ -2855,6 +2943,8 @@ module.exports = {
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
   corrigeLancamento: corrigeLancamento, fotoDePerfil: fotoDePerfil,
+  marcasDaBase: marcasDaBase, nomeDaBase: nomeDaBase,
+  ehAdministrador: ehAdministrador,
   montarDescancelamento: montarDescancelamento,
   JANELA_CORRECAO_MIN: JANELA_CORRECAO_MIN, diaDaOperacao: diaDaOperacao,
   livreAte: livreAte, correcaoLivre: correcaoLivre,
