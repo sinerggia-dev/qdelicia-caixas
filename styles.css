@@ -3886,8 +3886,13 @@ body.sem-rolagem{overflow:hidden}
 
 /* A LINHA DA CARGA pesa mais que as de dentro: ela e' a que se le' correndo a lista, e
    as filhas so' existem depois de um toque. */
-#tabelaMov tr.lin-reg > td{background:var(--surface-2);font-weight:600}
-#tabelaMov tr.lin-reg:hover > td{background:var(--campo)}
+/* SEM O `#tabelaMov` NA FRENTE, e a mudanca e' o que permitiu a segunda tela: a lista do
+   app de campo agrupa pelo mesmo registro, com as mesmas classes, e presa ao id de
+   Movimentos a regra nao a alcancava — a carga la' nasceria com cara de linha comum.
+   A classe ja' e' especifica o bastante: `lin-reg` e `lin-item` nao existem em mais
+   nenhum lugar da folha. */
+tr.lin-reg > td{background:var(--surface-2);font-weight:600}
+tr.lin-reg:hover > td{background:var(--campo)}
 /* A SETA GIRA em vez de trocar de desenho: a mesma peca apontando para outro lado diz
    "isto abre e fecha", e duas figuras diferentes fariam procurar a diferenca. */
 .reg-abrir{display:inline-flex;align-items:center;justify-content:center;
@@ -3902,7 +3907,7 @@ tr.lin-reg.aberta .reg-abrir{color:var(--marca-txt)}
 /* O ITEM ANDA PARA DENTRO. Sem o recuo, a filha e a carga se leem como duas linhas
    irmas e o agrupamento vira so' uma linha a mais na lista. O risco na borda e' o que
    as amarra a' carga de cima quando a tela rola e o cabecalho dela sai de vista. */
-#tabelaMov tr.lin-item > td:first-child{padding-left:30px;
+tr.lin-item > td:first-child{padding-left:30px;
   box-shadow:inset 3px 0 0 var(--linha-viva)}
 /* NAO HA REGRA DE `[hidden]` AQUI, e e' deliberado: o projeto tem UMA, global, com
    `!important`, escrita depois de tropecar quatro vezes no mesmo lugar. Uma segunda,

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=1adb325d">
+<link rel="stylesheet" href="styles.css?v=32c3e36b">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1737,6 +1737,9 @@
          a rolagem lateral dela e não cabia no celular. */
       '<div id="correcaoBox"></div>';
     ligarCorrigir(box);
+    /* A SETA SO' EXISTE DEPOIS QUE A TABELA ESTA' NA TELA. Desenhada e nao ligada,
+       ela seria um botao que nao faz nada, calado. */
+    ligarAberturaLanc(box);
   }
 
   /* O CORTE é o mesmo do resto do app: 1024px é onde o menu lateral vira gaveta. Uma
@@ -1793,47 +1796,201 @@
     return { saida: saida, retorno: retorno };
   }
 
+  /* ---------- A LISTA DO ESCRITÓRIO, AGRUPADA PELO REGISTRO ----------
+   *
+   * Uma carga de quatro tipos de caixa eram QUATRO linhas repetindo data, origem,
+   * destino, motorista e quem lançou — a diferença entre elas cabia em duas colunas. É a
+   * mesma repetição que o cartão do telefone já resolvia agrupando por remessa; aqui em
+   * cima a tabela continuava mostrando a carga em pedaços.
+   *
+   * SEM BOTÃO DE AGRUPAR, ao contrário do painel. Lá a tabela é a ferramenta de auditar
+   * uma LINHA, e nascer dentro de uma gaveta fechada esconderia justamente o que se foi
+   * procurar; aqui a lista é o histórico de quem lançou, a carga é a unidade em que a
+   * pessoa pensa ("mandei uma contagem"), e a visão de telefone deste mesmo app já é
+   * agrupada. Duas formas para a mesma tela em duas larguras é que seria o estranho.
+   *
+   * O AGRUPADOR É O DO NÚCLEO, o mesmo do cartão e o mesmo do painel: "o que é uma
+   * carga" tem UMA resposta neste projeto, e reescrevê-la aqui faria o computador e o
+   * telefone discordarem sobre quantos lançamentos existem.
+   *
+   * AS LINHAS VOLTAM PELO ID que o grupo guarda, e não por uma peneira pela chave do
+   * lote: o agrupador SEPARA um tipo de caixa repetido em dois grupos, e a peneira
+   * devolveria as linhas dos dois para cada um deles.
+   */
+  var LC_ABERTOS = {};
+
+  /* ONDE AS LINHAS DA CARGA CONCORDAM, a carga mostra o valor; onde discordam, ela diz
+     "vários". Dentro de uma remessa elas NASCEM iguais — mesma data, mesma rota, mesmo
+     motorista —, mas uma correção alcança UMA linha: corrigida a data de uma só, a carga
+     fechada passaria a afirmar uma data que não é a das quatro. */
+  function daCarga(filhos, ler){
+    var um = ler(filhos[0]);
+    for (var i = 1; i < filhos.length; i++) {
+      if (ler(filhos[i]) !== um) return null;
+    }
+    return um;
+  }
+  function celulaDaCarga(filhos, ler, classe){
+    var v = daCarga(filhos, ler);
+    return '<td'+(classe ? ' class="'+classe+'"' : '')+'>'+
+      (v === null ? '<span class="fraco">vários</span>' : Q.esc(v || '—'))+'</td>';
+  }
+
   function tabelaLanc(lista, s){
     var cols = colunasLanc();
+    /* O REGISTRO VEM PRIMEIRO porque é o que se procura: é ele que a pessoa dita ao
+       telefone quando pede uma correção. O ITEM responde "qual das linhas", e por isso
+       vem depois dele. É a mesma ordem das duas colunas no painel — duas ordens para o
+       mesmo par de códigos fariam reler a tabela a cada troca de tela. */
     return '<div class="tabela-wrap"><table><thead><tr>'+
+      '<th>Registro</th><th>Item</th>'+
       '<th>Movimento</th><th>Origem</th><th>Destino</th><th>Caixa</th>'+
       (cols.saida ? '<th class="num">Saída</th>' : '')+
       (cols.retorno ? '<th class="num">Retorno</th>' : '')+
       '<th>Motorista</th>'+
       '<th>Quem lançou</th><th></th>'+
       '</tr></thead><tbody>'+
-      lista.map(function(m){
-        var ehRetorno = m.tipo === 'DEVOLUCAO';
-        var alt = m.alterado || {};
-        return '<tr data-linha="'+Q.esc(m.id)+'">'+
-          '<td>'+Q.dataBR(m.dataRef)+'</td>'+
-          '<td>'+Q.esc(m.origem || '—')+'</td>'+
-          '<td>'+Q.esc(m.destino || '—')+'</td>'+
-          '<td>'+Q.esc(m.tipoCaixa || '—')+'</td>'+
-          (cols.saida
-            ? '<td class="num">'+(ehRetorno ? '<span class="fraco">—</span>' : '<b>'+Q.num(m.qtd)+'</b>')+'</td>'
-            : '')+
-          (cols.retorno
-            ? '<td class="num">'+(ehRetorno ? '<b>'+Q.num(m.qtd)+'</b>' : '<span class="fraco">—</span>')+'</td>'
-            : '')+
-          '<td>'+Q.esc(m.motorista || '—')+'</td>'+
-          /* A MARCA DE CORRIGIDO fica junto de quem lançou, que é a coluna que a
-             correção mais desmente: o número da linha pode não ser mais o que essa
-             pessoa digitou. Sem ela, um valor corrigido e um valor original são a
-             mesma célula — e é a mesma informação que o painel mostra em "Alterado
-             por", só que aqui cabe em uma etiqueta. */
-          '<td>'+Q.esc(m.usuario || '—')+
-            (alt.vezes ? ' <span class="tag amarela" title="'+
-               Q.esc((alt.campo||'alteração')+' por '+(alt.por||'—')+
-                     (alt.em ? ' em '+Q.dataHoraBR(alt.em) : '')+
-                     (alt.motivo ? ' — '+alt.motivo : ''))+
-               '">corrigido</span>' : '')+'</td>'+
-          '<td>'+(Q.podeCorrigir(s, m)
-            ? '<button class="mini acao" data-corrigir="'+Q.esc(m.id)+'">corrigir</button>'
-            : '')+'</td>'+
-        '</tr>';
-      }).join('')+'</tbody></table></div>';
+      corpoLanc(lista, cols, s)+
+      '</tbody></table></div>';
   }
+
+  /* A ETIQUETA DE CORRIGIDO, num lugar só: a linha e a carga a desenham igual, e escrita
+     duas vezes bastaria uma mudar para a mesma correção aparecer de um jeito na carga
+     fechada e de outro na linha de dentro. */
+  function seloCorrigido(alt){
+    alt = alt || {};
+    if (!alt.vezes) return '';
+    return ' <span class="tag amarela" title="'+
+      Q.esc((alt.campo||'alteração')+' por '+(alt.por||'—')+
+            (alt.em ? ' em '+Q.dataHoraBR(alt.em) : '')+
+            (alt.motivo ? ' — '+alt.motivo : ''))+'">corrigido</span>';
+  }
+
+  function linhaLanc(m, cols, s, classe, escondida){
+    var ehRetorno = m.tipo === 'DEVOLUCAO';
+    return '<tr data-linha="'+Q.esc(m.id)+'"'+
+        (classe ? ' class="'+classe+'"' : '')+(escondida ? ' hidden' : '')+'>'+
+      '<td>'+(m.registro ? '<span class="cod cod--reg">'+Q.esc(m.registro)+'</span>'
+                         : '<span class="fraco">—</span>')+'</td>'+
+      '<td>'+(m.id ? '<span class="cod">'+Q.esc(m.id)+'</span>'
+                   : '<span class="fraco">—</span>')+'</td>'+
+      '<td>'+Q.dataBR(m.dataRef)+'</td>'+
+      '<td>'+Q.esc(m.origem || '—')+'</td>'+
+      '<td>'+Q.esc(m.destino || '—')+'</td>'+
+      '<td>'+Q.esc(m.tipoCaixa || '—')+'</td>'+
+      (cols.saida
+        ? '<td class="num">'+(ehRetorno ? '<span class="fraco">—</span>' : '<b>'+Q.num(m.qtd)+'</b>')+'</td>'
+        : '')+
+      (cols.retorno
+        ? '<td class="num">'+(ehRetorno ? '<b>'+Q.num(m.qtd)+'</b>' : '<span class="fraco">—</span>')+'</td>'
+        : '')+
+      '<td>'+Q.esc(m.motorista || '—')+'</td>'+
+      /* A MARCA DE CORRIGIDO fica junto de quem lançou, que é a coluna que a
+         correção mais desmente: o número da linha pode não ser mais o que essa
+         pessoa digitou. Sem ela, um valor corrigido e um valor original são a
+         mesma célula — e é a mesma informação que o painel mostra em "Alterado
+         por", só que aqui cabe em uma etiqueta. */
+      '<td>'+Q.esc(m.usuario || '—')+seloCorrigido(m.alterado)+'</td>'+
+      '<td>'+(Q.podeCorrigir(s, m)
+        ? '<button class="mini acao" data-corrigir="'+Q.esc(m.id)+'">corrigir</button>'
+        : '')+'</td>'+
+    '</tr>';
+  }
+
+  function corpoLanc(lista, cols, s){
+    var porId = {};
+    lista.forEach(function(m){ porId[m.id] = m; });
+    var fora = [];
+    Q.agruparLancamentos(lista).forEach(function(g){
+      var filhos = g.itens.map(function(i){ return porId[i.id]; })
+                          .filter(function(m){ return !!m; });
+      if (!filhos.length) return;
+      /* CARGA DE UMA LINHA SÓ NÃO É CARGA. A seta abriria uma cópia exata da linha
+         fechada, e a tela ficaria cheia de setas que não mostram nada novo. */
+      if (filhos.length === 1) { fora.push(linhaLanc(filhos[0], cols, s, '')); return; }
+
+      var aberta = LC_ABERTOS[g.lote] === true;
+      var saida = 0, retorno = 0, mexido = null;
+      filhos.forEach(function(m){
+        var q = Number(m.qtd) || 0;
+        if (m.tipo === 'DEVOLUCAO') retorno += q; else saida += q;
+        var a = m.alterado;
+        if (a && a.vezes && (!mexido || String(a.em) > String(mexido.em))) mexido = a;
+      });
+      /* A CHAVE FICA NO ATRIBUTO e é lida de lá; ela nunca entra num seletor. Ela vem do
+         servidor e pode trazer caractere que o CSS lê como sintaxe — e aí o seletor não
+         acha nada, sem erro nenhum no console. */
+      fora.push('<tr class="lin-reg'+(aberta ? ' aberta' : '')+
+        '" data-lote="'+Q.esc(g.lote)+'">'+
+        '<td>'+
+          '<button class="reg-abrir" type="button" aria-expanded="'+
+            (aberta ? 'true' : 'false')+'" title="'+
+            Q.esc((aberta ? 'Esconder' : 'Ver')+' os '+filhos.length+' itens'+
+                  (g.registro ? ' de '+g.registro : ''))+'">'+
+            '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" '+
+            'stroke="currentColor" stroke-width="3.2" stroke-linecap="round" '+
+            'stroke-linejoin="round" aria-hidden="true">'+
+            '<polyline points="9 5 17 12 9 19"></polyline></svg></button>'+
+          (g.registro ? '<span class="cod cod--reg">'+Q.esc(g.registro)+'</span>'
+                      : '<span class="fraco">—</span>')+
+        '</td>'+
+        /* O ITEM VIRA A CONTAGEM: o código de uma linha só não existe para a carga, e
+           eleger o da primeira faria a carga se chamar pelo nome de um pedaço dela. */
+        '<td><span class="fraco">'+filhos.length+' itens</span></td>'+
+        celulaDaCarga(filhos, function(m){ return Q.dataBR(m.dataRef); })+
+        celulaDaCarga(filhos, function(m){ return m.origem || '—'; })+
+        celulaDaCarga(filhos, function(m){ return m.destino || '—'; })+
+        /* A CAIXA É O QUE DISTINGUE as linhas umas das outras: na carga ela é sempre
+           "vários", e é a seta que mostra quais. */
+        celulaDaCarga(filhos, function(m){ return m.tipoCaixa || '—'; })+
+        (cols.saida
+          ? '<td class="num">'+(saida ? '<b>'+Q.num(saida)+'</b>'
+                                      : '<span class="fraco">—</span>')+'</td>' : '')+
+        (cols.retorno
+          ? '<td class="num">'+(retorno ? '<b>'+Q.num(retorno)+'</b>'
+                                        : '<span class="fraco">—</span>')+'</td>' : '')+
+        celulaDaCarga(filhos, function(m){ return m.motorista || '—'; })+
+        '<td>'+(function(){
+          var v = daCarga(filhos, function(m){ return m.usuario || '—'; });
+          return (v === null ? '<span class="fraco">vários</span>' : Q.esc(v))+
+            seloCorrigido(mexido);
+        })()+'</td>'+
+        /* A CARGA NÃO OFERECE "CORRIGIR": aqui o conserto é de UMA linha — "só a CX P
+           está errada" —, e um botão na linha que representa quatro faria esperar que as
+           quatro mudassem. Ele continua em cada item, a uma seta de distância. */
+        '<td></td></tr>');
+      filhos.forEach(function(m){
+        fora.push(linhaLanc(m, cols, s, 'lin-item', !aberta));
+      });
+    });
+    return fora.join('');
+  }
+
+  /* ABRIR E FECHAR UMA CARGA MEXE SÓ NAS LINHAS DELA, sem redesenhar a lista: um
+     redesenho perderia a posição da rolagem — a pessoa clica na carga do meio e a lista
+     volta para o topo.
+     AS FILHAS SÃO AS IRMÃS SEGUINTES até a próxima carga, e não um `querySelector` pela
+     chave do lote: a chave vem do servidor e pode trazer caractere que o CSS lê como
+     sintaxe, e o seletor não acharia nada — sem erro nenhum no console. */
+  function ligarAberturaLanc(box){
+    box.querySelectorAll('tr.lin-reg .reg-abrir').forEach(function(b){
+      b.addEventListener('click', function(){
+        var pai = b.parentNode;
+        while (pai && pai.tagName !== 'TR') pai = pai.parentNode;
+        if (!pai) return;
+        var aberta = !(LC_ABERTOS[pai.dataset.lote || ''] === true);
+        LC_ABERTOS[pai.dataset.lote || ''] = aberta;
+        b.setAttribute('aria-expanded', aberta ? 'true' : 'false');
+        pai.classList.toggle('aberta', aberta);
+        var tr = pai.nextElementSibling;
+        while (tr && tr.classList.contains('lin-item')) {
+          tr.hidden = !aberta;
+          tr = tr.nextElementSibling;
+        }
+      });
+    });
+  }
+
 
   /* UM CARTÃO POR REMESSA. O que ele resolve é a repetição: na tabela, uma carga com
      cinco tipos de caixa ocupa cinco linhas com a mesma data, a mesma rota e o mesmo
@@ -2003,10 +2160,10 @@
         '<span class="tag '+(ehRetorno ? 'verde' : 'azul')+'">'+
           (ehRetorno ? 'Retorno' : 'Saída')+'</span>'+
         (g.teste ? '<span class="tag amarela">teste</span>' : '')+
-        (alt.vezes ? '<span class="tag amarela" title="'+
-           Q.esc((alt.campo||'alteração')+' por '+(alt.por||'—')+
-                 (alt.em ? ' em '+Q.dataHoraBR(alt.em) : '')+
-                 (alt.motivo ? ' — '+alt.motivo : ''))+'">corrigido</span>' : '')+
+        /* O MESMO SELO DA TABELA, e nao uma segunda copia: as duas telas dizem a
+           mesma coisa sobre o mesmo lancamento, e escrita duas vezes bastava uma mudar
+           para a correcao aparecer de um jeito no computador e de outro no telefone. */
+        seloCorrigido(alt)+
         /* O CÓDIGO DA CARGA, e só ele. É o que a pessoa lê para o escritório quando
            pede uma correção — e é aqui, no telefone, que ela está quando liga.
            O código da LINHA não vem junto: o cartão já mostra a carga inteira com as

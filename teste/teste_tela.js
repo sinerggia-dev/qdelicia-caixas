@@ -8586,13 +8586,37 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
      do botão de corrigir. Ela não tem título de propósito — a coluna não é um dado, é o
      caminho para consertar a linha, e um título ali seria lido como mais uma informação
      sobre o lançamento. */
+  /* TRES PONTAS, e nao mais duas. A tabela agrupa pelo registro: ha o cabecalho, a
+     linha do ITEM e a linha da CARGA fechada — e uma celula a mais ou a menos em
+     QUALQUER uma delas torce a tabela a partir dali, com cada numero caindo embaixo do
+     titulo errado. O erro so' aparece na coluna seguinte, e so' numa das duas formas de
+     linha: a que estiver fechada no momento em que alguem olhar.
+     ONZE: as dez de dado — registro, item, movimento, origem, destino, caixa, saida,
+     retorno, motorista e quem lancou — mais a das ACOES, que e' o `<th></th>` vazio no
+     fim e o `<td>` do botao de corrigir. Ela nao tem titulo de proposito: nao e' um
+     dado, e um titulo ali seria lido como mais uma informacao sobre o lancamento. */
+  var linhaL = corpo('linhaLanc');
+  var corpoL = corpo('corpoLanc');
   var nTh = (tl.match(/<th[ >]/g) || []).length;
-  var nTd = (tl.match(/<td[ >]/g) || []).length;
-  ok(nTh === nTd && nTh === 9,
-    'e cada cabeçalho tem a célula dele — um <th> sem <td> desalinha a tabela inteira a ' +
-    'partir dali, e o erro só aparece na coluna seguinte', [nTh, nTd]);
-  ok(/Q\.esc\(m\.usuario \|\| '—'\)/.test(tl),
+  var nTd = (linhaL.match(/<td[ >]/g) || []).length;
+  var nCarga = (corpoL.match(/<td[ >]/g) || []).length +
+               (corpoL.match(/celulaDaCarga\(/g) || []).length;
+  ok(nTh === 11 && nTd === 11 && nCarga === 11,
+    'e cada cabeçalho tem a célula dele NAS DUAS formas de linha — a do item e a da ' +
+    'carga fechada: uma célula a mais ou a menos em qualquer uma torce a tabela a ' +
+    'partir dali, e o erro só aparece na coluna seguinte',
+    { th: nTh, item: nTd, carga: nCarga });
+  ok(/Q\.esc\(m\.usuario \|\| '—'\)/.test(linhaL),
     'e a célula de quem lançou sai do campo que o servidor manda');
+  /* OS DOIS CODIGOS, a pedido: o REGISTRO e' o que se dita ao telefone ao pedir uma
+     correcao, e o ITEM responde "qual das linhas". Sem eles, quem recebia o codigo por
+     telefone nao tinha como achar a linha na propria tela. */
+  ok(tl.indexOf('>Registro<') > 0 && tl.indexOf('>Item<') > 0 &&
+     tl.indexOf('>Registro<') < tl.indexOf('>Item<'),
+    'a tabela traz o REGISTRO e o ITEM, nessa ordem — o registro é o que se procura, e ' +
+    'o item responde qual das linhas é');
+  ok(/Q\.esc\(m\.registro\)/.test(linhaL) && /Q\.esc\(m\.id\)/.test(linhaL),
+    'e as duas células saem dos campos que o servidor manda, e não de um palpite');
 
   /* QUATRO, e nao mais cinco: "Entrada / Saida" virou chip no trilho, porque com dois
      valores marcar os dois e o mesmo que nao marcar nenhum. A lista dele so custava
@@ -10614,7 +10638,9 @@ console.log('\n== os lançamentos em cartão, no celular ==');
   ok(/i\.tipoCaixa/.test(cartao) && /i\.qtd/.test(cartao),
     'e uma quantidade por tipo de caixa — é disso que a tabela fazia cinco linhas');
   ok(/g\.teste \?/.test(cartao), 'a etiqueta de ensaio não some no celular');
-  ok(/alt\.vezes \?/.test(cartao), 'nem a marca de corrigido');
+  ok(/seloCorrigido\(alt\)/.test(cartao),
+    'nem a marca de corrigido — e ela é a MESMA peça da tabela, para as duas telas ' +
+    'não poderem discordar sobre o mesmo lançamento');
   ok(/Q\.podeCorrigir\(s, g\)/.test(cartao),
     'e o botão de corrigir sai da MESMA regra da tabela');
   ok(/data-corrigir="'\+Q\.esc\(g\.lote\)/.test(cartao),
@@ -10761,12 +10787,19 @@ console.log('\n== quem corrige o quê: uma regra, duas telas ==');
   /* NAS DUAS FORMAS, e conferido em cada uma. Procurando no arquivo inteiro, a marca do
      CARTÃO respondia pela da TABELA: arrancada da tabela, a afirmação continuava
      passando porque a do cartão existia. */
-  var tabLanc = corpo('tabelaLanc');
+  /* O SELO VIROU UMA PECA SO'. Ele estava escrito duas vezes — uma na tabela, outra no
+     cartao — e as duas diziam a mesma coisa sobre o mesmo lancamento: bastava uma mudar
+     para a correcao aparecer de um jeito no computador e de outro no telefone. */
+  var fSelo = corpo('seloCorrigido');
+  ok(/alt\.vezes/.test(fSelo) && />corrigido<\/span>/.test(fSelo),
+    'a marca de corrigido sai do HISTÓRICO, e não de um palpite', fSelo.slice(0, 80));
+  var tabLanc = corpo('linhaLanc');
   var cartLanc = corpo('cartaoLanc');
-  [['tabelaLanc', tabLanc], ['cartaoLanc', cartLanc]].forEach(function (p) {
-    ok(/alt\.vezes \?[\s\S]{0,400}>corrigido<\/span>/.test(p[1]),
-      p[0] + ': a linha já corrigida se anuncia, e a marca sai do histórico — não de ' +
-      'um palpite', p[1].slice(0, 60));
+  [['linhaLanc', tabLanc], ['cartaoLanc', cartLanc]].forEach(function (p) {
+    ok(/seloCorrigido\(/.test(p[1]),
+      p[0] + ': a linha já corrigida se anuncia, pela MESMA peça das outras — escrita ' +
+      'duas vezes, bastaria uma mudar para a correcão aparecer de um jeito aqui e de ' +
+      'outro ali', p[1].slice(0, 60));
     ok(/data-corrigir="'\+Q\.esc\(/.test(p[1]),
       p[0] + ': e todo lançamento tem o botão de corrigir', p[1].slice(0, 60));
   });
@@ -12427,9 +12460,13 @@ console.log('\n== Motorista/Conferente ==');
   /* CONTA A MENCAO, e nao a forma: a do cabecalho cabe numa linha e a da celula quebra
      antes do `?`. Uma prova que exigisse a mesma escrita nas duas reprovaria um desenho
      correto so' por causa da quebra de linha. */
-  ok((tl.match(/cols\.saida/g) || []).length === 2 &&
-     (tl.match(/cols\.retorno/g) || []).length === 2,
-    'e as DUAS pontas de cada coluna seguem a mesma decisão — cabeçalho sem célula, ou ' +
+  /* TRES PONTAS: o cabecalho, a linha do item e a linha da carga fechada. A tabela
+     passou a agrupar pelo registro, e uma coluna que apareca em duas delas e falte na
+     terceira torce a tabela inteira na forma que estiver na tela. */
+  var tresPontas = tl + corpo('linhaLanc') + corpo('corpoLanc');
+  ok((tresPontas.match(/cols\.saida/g) || []).length === 3 &&
+     (tresPontas.match(/cols\.retorno/g) || []).length === 3,
+    'e as TRÊS pontas de cada coluna seguem a mesma decisão — cabeçalho sem célula, ou ' +
     'célula sem cabeçalho, torce a tabela inteira para o lado');
   ok(/if \(!disponiveis\.some\(function\(c\)\{ return c\[0\] === LC_CHIP; \}\)\) LC_CHIP = 'todos';/.test(ixLanc),
     'e um chip que some não fica ESCOLHIDO — a lista ficaria recortada por algo que a ' +
@@ -18851,7 +18888,14 @@ console.log('\n== toda funcao chamada existe ==');
   ok(/tr\.lin-reg\.aberta \.reg-abrir svg\{transform:rotate\(90deg\)\}/.test(css),
     'e a seta gira em vez de trocar de desenho — duas figuras diferentes fariam ' +
     'procurar a diferença entre elas');
-  ok(/#tabelaMov tr\.lin-item > td:first-child\{padding-left:30px/.test(css),
+  /* SEM O `#tabelaMov` NA FRENTE: a lista do app de campo agrupa pelo mesmo
+     registro e usa as mesmas classes, e presa ao id de Movimentos a regra nao a
+     alcancava — a carga la' nasceria com cara de linha comum. */
+  ok(/\ntr\.lin-reg > td\{background:var\(--surface-2\)/.test(css),
+    'a linha da CARGA pesa mais que as de dentro — sem o fundo próprio, a carga e as ' +
+    'filhas se leem como linhas irmãs e o agrupamento vira só mais uma linha na lista');
+  ok(/\ntr\.lin-item > td:first-child\{padding-left:30px/.test(css) &&
+     css.indexOf('#tabelaMov tr.lin-') < 0,
     'e o item anda para dentro — sem o recuo, a filha e a carga se leem como duas ' +
     'linhas irmãs e o agrupamento vira só uma linha a mais na lista');
 })();
@@ -18923,6 +18967,174 @@ console.log('\n== o seletor de base nos formularios de correcao ==');
     'e os dois formulários perguntam a ELA, e não ao campo — um perguntando de um jeito ' +
     'e o outro de outro é como a divergência começa',
     (admBC.match(/sen\.pede && !senhaDita/g) || []).length);
+}
+
+
+console.log('\n== a lista do app de campo, agrupada pelo registro ==');
+{
+  /* Procurar o texto no arquivo prova que a letra esta la', e nao que a tabela a produz.
+     O que pode dar errado aqui nao e' uma palavra faltando: e' a carga fechada afirmar
+     uma data que nao e' a das quatro linhas, a soma sair pelo lado errado, ou a filha
+     nascer visivel com a carga fechada. Entao a tabela sai do arquivo e e' EXECUTADA. */
+  var ixC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var appC = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  var iCh = appC.indexOf('  function chaveDoLote(m) {');
+  var iAg = appC.indexOf('  function agruparLancamentos(lista) {');
+  var fimAg = appC.indexOf('\n  }', iAg) + 4;
+  var agrupar = new Function(appC.slice(iCh, fimAg) + ' return agruparLancamentos;')();
+
+  var i0 = ixC.indexOf('  var LC_ABERTOS = {};');
+  var i1 = ixC.indexOf('  /* ABRIR E FECHAR UMA CARGA', i0);
+  ok(i0 > 0 && i1 > i0 && (i1 - i0) > 2000,
+    'a conferência recortou o desenho da lista do app de campo — recorte vazio faria as ' +
+    'provas abaixo passarem sem rodar nada', { ini: i0, fim: i1 });
+
+  var Qc = {
+    esc: function (s) {
+      return String(s === undefined || s === null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    },
+    num: function (n) { return String(Number(n) || 0); },
+    dataBR: function (d) { return String(d || '').split('-').reverse().join('/'); },
+    dataHoraBR: function (d) { return String(d || ''); },
+    agruparLancamentos: agrupar,
+    podeCorrigir: function () { return true; }
+  };
+  var ABERTOS = {};
+  var F = new Function('Q', 'colunasLanc', 'LC_ABERTOS',
+    ixC.slice(i0, i1).replace('var LC_ABERTOS = {};', '') +
+    ' return { corpoLanc: corpoLanc, tabelaLanc: tabelaLanc };')(
+    Qc, function () { return { saida: true, retorno: true }; }, ABERTOS);
+
+  var COLS = { saida: true, retorno: true };
+  function lin(reg, id, lote, caixa, qtd, extra) {
+    var m = { registro: reg, id: id, lote: lote, tipoCaixa: caixa, tipoCaixaId: caixa,
+              qtd: qtd, tipo: 'DEVOLUCAO', dataRef: '2026-09-28',
+              origem: 'João Pessoa', destino: 'Matriz São Vicente',
+              motorista: 'Chico', usuario: 'Melkezedeque Soares' };
+    return Object.assign(m, extra || {});
+  }
+  var lista = [
+    lin('R000047', 'M000047', 'L47', 'CX P', 75),
+    lin('R000047', 'M000048', 'L47', 'CX G', 75),
+    lin('R000047', 'M000049', 'L47', 'CX GG', 75),
+    /* UMA LINHA DA CARGA CORRIGIDA em separado: dentro de uma remessa as linhas NASCEM
+       com a mesma data, mas a correção alcança uma só — e a carga fechada não pode
+       afirmar uma data que não é a das quatro. */
+    lin('R000047', 'M000050', 'L47', 'CX IFCO', 75,
+        { dataRef: '2026-09-29', alterado: { vezes: 1, por: 'U1', em: '2026-10-01T10:00:00',
+                                             campo: 'data', motivo: 'romaneio' } }),
+    lin('R000090', 'M000090', 'L90', 'CX P', 10),
+    /* DUAS LINHAS DA MESMA CAIXA no mesmo lote. Acontece nas linhas antigas, sem
+       `ClientKey`, gravadas no mesmo segundo: o agrupador SEPARA as duas em grupos
+       diferentes, porque somadas virariam uma quantidade que ninguém lançou. Sem este
+       caso, uma peneira pela CHAVE do lote — em vez da volta pelo id — devolveria as
+       duas linhas para cada um dos dois grupos, e a lista mostraria 20 e 30 duas
+       vezes. Foi uma sabotagem que escapou. */
+    lin('R000055', 'M000055', 'L55', 'CX P', 20),
+    lin('R000055', 'M000056', 'L55', 'CX P', 30)
+  ];
+
+  function linhasDe(html) {
+    return html.split('<tr').slice(1).map(function (x) { return '<tr' + x; });
+  }
+  var h = F.corpoLanc(lista, COLS, {});
+  var trs = linhasDe(h);
+  ok(trs.length === 1 + 4 + 1 + 2,
+    'as sete linhas viram uma carga com as quatro dentro, mais três linhas soltas — ' +
+    'nenhuma some no agrupamento, e nenhuma aparece duas vezes', trs.length);
+
+  var cargas = trs.filter(function (x) { return x.indexOf('class="lin-reg') > 0; });
+  ok(cargas.length === 1 && (h.match(/reg-abrir/g) || []).length === 1,
+    'e a remessa de UMA linha não vira carga — a seta abriria uma cópia exata da linha ' +
+    'fechada, e a lista ficaria cheia de setas que não mostram nada novo',
+    cargas.length);
+  /* E O TIPO REPETIDO VIRA DUAS LINHAS SOLTAS, e não uma carga com as duas dentro
+     repetidas: as linhas voltam pelo ID que o grupo guarda, e não por uma peneira pela
+     chave do lote — a peneira devolveria as duas para cada um dos dois grupos. */
+  /* CONTA AS LINHAS que mencionam o código, e não as MENÇÕES: cada linha escreve o id
+     três vezes — no `data-linha`, na célula do item e no `data-corrigir` —, e contar
+     menções amarraria a prova ao número de vezes que o desenho repete o id. */
+  var linhasCom = function (id) {
+    return trs.filter(function (x) { return x.indexOf(id) > 0; }).length;
+  };
+  ok(linhasCom('M000055') === 1 && linhasCom('M000056') === 1,
+    'e a linha de caixa repetida aparece em UMA linha da tabela — pela peneira da chave ' +
+    'do lote ela apareceria nos dois grupos que o agrupador separou, e a quantidade ' +
+    'sairia em dobro', [linhasCom('M000055'), linhasCom('M000056')]);
+
+  var c = cargas[0];
+  /* A CÉLULA, e não o balão da seta — que também diz "4 itens". Medindo a linha
+     inteira, o balão respondia pela célula: trocado o conteúdo dela pelo código da
+     primeira linha, a prova continuava verde. Foi uma sabotagem que escapou. */
+  ok(c.indexOf('R000047') > 0 &&
+     /<td><span class="fraco">4 itens<\/span><\/td>/.test(c),
+    'a carga fechada diz o REGISTRO e, na CÉLULA do item, quantos itens tem — o código ' +
+    'da linha não existe para a carga, e eleger o da primeira faria a carga se chamar ' +
+    'pelo nome de um pedaço dela', c.slice(0, 260));
+  ok(/<b>300<\/b>/.test(c),
+    'e SOMA as quantidades: 75 em quatro caixas dão 300 — mostrando a da primeira, ela ' +
+    'diria 75 onde voltaram 300', c);
+  ok(c.indexOf('Chico') > 0 && c.indexOf('João Pessoa') > 0,
+    'e onde as linhas CONCORDAM ela mostra o valor — motorista e origem são os mesmos ' +
+    'nas quatro, e calá-los com um "vários" esconderia um dado sem conflito nenhum');
+  ok((c.match(/vários/g) || []).length === 2,
+    'e onde elas DISCORDAM ela diz "vários", em exatamente duas colunas: a CAIXA, que é ' +
+    'o que distingue uma linha da outra, e a DATA, corrigida numa linha só — mostrando ' +
+    'a da primeira, a carga afirmaria uma data que não é a das quatro',
+    (c.match(/vários/g) || []).length);
+  ok(c.indexOf('>corrigido<') > 0,
+    'e a carga avisa que alguma linha dela foi corrigida — escondido até abrir, o aviso ' +
+    'só alcançaria quem já desconfiava');
+  ok(c.indexOf('data-corrigir=') < 0,
+    'e a carga NÃO oferece corrigir: aqui o conserto é de uma linha — "só a CX P está ' +
+    'errada" —, e um botão na linha que representa quatro faria esperar que as quatro ' +
+    'mudassem');
+
+  var itens = trs.filter(function (x) { return x.indexOf('class="lin-item') > 0; });
+  ok(itens.length === 4 && itens.every(function (x) { return / hidden>/.test(x); }),
+    'com a carga fechada as filhas nascem escondidas — nascendo à vista, agrupar ' +
+    'duplicaria a lista em vez de encolhê-la', itens.length);
+  ok(itens[0].indexOf('M000047') > 0 && itens[0].indexOf('R000047') > 0 &&
+     itens[0].indexOf('data-corrigir=') > 0,
+    'e cada filha traz os DOIS códigos e o botão de corrigir — o registro é o que se ' +
+    'dita ao telefone, e o item responde qual das linhas é', itens[0].slice(0, 220));
+
+  ABERTOS['L47'] = true;
+  var abertas = linhasDe(F.corpoLanc(lista, COLS, {}));
+  ok(abertas.filter(function (x) { return x.indexOf('class="lin-item') > 0; })
+            .every(function (x) { return !/ hidden>/.test(x); }) &&
+     abertas.filter(function (x) { return x.indexOf('class="lin-reg') > 0; })[0]
+            .indexOf('aberta') > 0,
+    'aberta, a carga mostra as filhas dela', abertas.length);
+
+  /* A SETA PRECISA ESTAR LIGADA, e o ouvinte não pode montar seletor com a chave do
+     lote: ela vem do servidor e pode ter caractere que o CSS lê como sintaxe. */
+  var ixSemC = semComentarios(ixC);
+  /* E A TABELA CHAMA O CORPO AGRUPADO. A prova roda `corpoLanc` direto, e por isso ela
+     continuava verde com a tabela voltando a desenhar linha a linha: a peça existia e
+     nada chegava nela. É o defeito mais caro deste projeto, e escapou de novo aqui. */
+  /* O `<tbody>` NA FRENTE, e nao o nome solto: `function corpoLanc(lista, cols, s)`
+     tambem casa com o nome solto, entao a DEFINICAO respondia pela CHAMADA e a
+     sabotagem passou. O que se cobra aqui e' de onde sai o corpo da tabela. */
+  ok(/<tbody>'\+\s*corpoLanc\(/.test(ixSemC),
+    'e a tabela DESENHA pelo corpo agrupado — a função pode estar certa e não ser ' +
+    'chamada: a peça existe e nada chega nela, que é o defeito mais caro que este ' +
+    'projeto tem');
+  ok(/ligarAberturaLanc\(box\);/.test(ixSemC),
+    'a seta está LIGADA depois de desenhar a lista — desenhada e não ligada, ela seria ' +
+    'um botão que não faz nada, calado');
+  var iAb = ixSemC.indexOf('function ligarAberturaLanc(box)');
+  var fAb = iAb < 0 ? '' : ixSemC.slice(iAb, ixSemC.indexOf('\n  }', iAb));
+  ok(iAb > 0 && /nextElementSibling/.test(fAb) && !/querySelectorAll?\([^)]*\+/.test(fAb),
+    'e ela anda pelas IRMÃS seguintes, sem montar seletor com a chave do lote — a chave ' +
+    'vem do servidor e pode ter caractere que o CSS lê como sintaxe: o seletor não ' +
+    'acharia nada, sem erro nenhum no console', fAb.slice(0, 160));
+  ok(/Q\.agruparLancamentos\(lista\)/.test(ixSemC),
+    'e o agrupador é o do NÚCLEO, o mesmo do cartão e o mesmo do painel — reescrito ' +
+    'aqui, o computador e o telefone discordariam sobre quantos lançamentos existem');
 }
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
