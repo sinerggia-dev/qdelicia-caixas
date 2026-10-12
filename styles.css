@@ -3855,6 +3855,51 @@ body.sem-rolagem{overflow:hidden}
 .barra-trava__acoes .btn{flex:0 0 auto;min-width:0;
   min-height:28px;padding:0 9px;font-size:11.5px}
 
+/* ---------- agrupar a tabela pelo registro (so no computador) ----------
+ *
+ * O BOTAO E' UM INTERRUPTOR, e nao uma acao: ele nao faz nada que precise ser desfeito,
+ * so troca a FORMA da tabela. Por isso ele fica apagado como os vizinhos enquanto esta'
+ * desligado e acende na cor da marca quando esta' ligado — o estado se le' sem passar o
+ * mouse, que e' o que um balao sozinho nao resolve.
+ *
+ * NO CELULAR ELE NAO EXISTE. La' a lista ja' e' agrupada — cada cartao e' uma carga com
+ * as caixas dentro —, e um botao de agrupar numa tela que so' sabe agrupar ofereceria um
+ * desagrupar que nao existe. A visibilidade esta' escrita aqui, inteira, e nao com
+ * `so-celular`: aquela classe usa `!important`, que venceria esta regra. */
+.bt-agrupar{flex:0 0 auto;min-width:0;display:inline-flex;align-items:center;gap:6px;
+  min-height:28px;padding:0 9px;font-size:11.5px;
+  background:var(--surface);color:var(--txt2);border:1px solid var(--linha)}
+.bt-agrupar:hover{background:var(--surface-2);color:var(--txt)}
+.bt-agrupar svg{flex:0 0 auto}
+.bt-agrupar[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);
+  color:var(--sobre-brand)}
+.bt-agrupar[aria-pressed="true"]:hover{background:var(--brand-hover);color:var(--sobre-brand)}
+@media (max-width:1023px){ .bt-agrupar{display:none} }
+
+/* A LINHA DA CARGA pesa mais que as de dentro: ela e' a que se le' correndo a lista, e
+   as filhas so' existem depois de um toque. */
+#tabelaMov tr.lin-reg > td{background:var(--surface-2);font-weight:600}
+#tabelaMov tr.lin-reg:hover > td{background:var(--campo)}
+/* A SETA GIRA em vez de trocar de desenho: a mesma peca apontando para outro lado diz
+   "isto abre e fecha", e duas figuras diferentes fariam procurar a diferenca. */
+.reg-abrir{display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;margin-right:6px;vertical-align:middle;
+  padding:0;border:0;border-radius:6px;cursor:pointer;
+  background:transparent;color:var(--txt3)}
+.reg-abrir:hover{background:var(--linha);color:var(--txt)}
+.reg-abrir svg{transition:transform .16s ease}
+tr.lin-reg.aberta .reg-abrir svg{transform:rotate(90deg)}
+tr.lin-reg.aberta .reg-abrir{color:var(--marca-txt)}
+@media (prefers-reduced-motion:reduce){.reg-abrir svg{transition:none}}
+/* O ITEM ANDA PARA DENTRO. Sem o recuo, a filha e a carga se leem como duas linhas
+   irmas e o agrupamento vira so' uma linha a mais na lista. O risco na borda e' o que
+   as amarra a' carga de cima quando a tela rola e o cabecalho dela sai de vista. */
+#tabelaMov tr.lin-item > td:first-child{padding-left:30px;
+  box-shadow:inset 3px 0 0 var(--linha-viva)}
+/* NAO HA REGRA DE `[hidden]` AQUI, e e' deliberado: o projeto tem UMA, global, com
+   `!important`, escrita depois de tropecar quatro vezes no mesmo lugar. Uma segunda,
+   por elemento, seria a quinta — e a bancada que conta essas regras reprova. */
+
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}
   /* A coluna de marcar não se imprime: no papel não há o que marcar, e ela empurraria

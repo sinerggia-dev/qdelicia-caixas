@@ -15181,8 +15181,13 @@ console.log('\n== corrigir a carga inteira, e nao so a linha ==');
     cegas);
 
   /* ---- AS DUAS PORTAS ---- */
+  /* A CONDICAO MUDOU DE LUGAR, nao de ideia: ela morava escrita na celula de acoes e
+     passou a morar na funcao que desenha o botao, porque agora ha DUAS linhas que o
+     oferecem — a linha solta e a linha da carga fechada. Escrita nas duas, bastava uma
+     mudar para a tabela oferecer o conserto numa forma e esconde-lo na outra, para o
+     mesmo lancamento. */
   ok(admC.indexOf('data-cregistro=') > 0 &&
-     /linhasDaCarga\(m\.registro\) > 1/.test(admC),
+     /function botaoDaCarga\(reg\)\{[\s\S]{0,300}if \(n < 2\) return '';/.test(admC),
     'a tabela oferece o caminho da carga S\u00d3 quando h\u00e1 o que juntar — numa carga de uma ' +
     'linha ele seria o mesmo formul\u00e1rio com outro nome');
   ok(/button\[data-cregistro\][\s\S]{0,200}formCorrigirRegistro/.test(admC),
@@ -18332,6 +18337,253 @@ console.log('\n== toda funcao chamada existe ==');
         erro);
     });
   });
+})();
+
+/* ================= AGRUPAR A TABELA PELO REGISTRO =================
+ *
+ * Uma carga de quatro tipos de caixa são quatro linhas que repetem nove colunas. Juntas,
+ * a lista passa a ter uma linha por LANÇAMENTO, e a seta abre os itens.
+ *
+ * AS FUNÇÕES SÃO EXECUTADAS, e não procuradas no texto. O que pode dar errado aqui não é
+ * a letra estar no arquivo: é a linha fechada AFIRMAR um status que não é o das cinco,
+ * é a quantidade somar errado, é a filha nascer visível com a carga fechada. Nada disso
+ * um `indexOf` vê.
+ *
+ * O AGRUPADOR É O DE VERDADE, lido de `app.js` — o mesmo que monta os cartões do
+ * celular. Dublado aqui, a prova mediria a cópia e as duas telas poderiam divergir sobre
+ * quantos lançamentos existem sem que nada reprovasse. */
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  var iCh = app.indexOf('  function chaveDoLote(m) {');
+  var iAg = app.indexOf('  function agruparLancamentos(lista) {');
+  var fimAg = app.indexOf('\n  }', iAg) + 4;
+  ok(iCh > 0 && iAg > iCh && fimAg > iAg,
+    'a conferência achou o agrupador de verdade em `app.js` — recorte vazio faria as ' +
+    'provas abaixo rodarem sobre nada', { ch: iCh, ag: iAg, fim: fimAg });
+  var agrupar = new Function(app.slice(iCh, fimAg) + ' return agruparLancamentos;')();
+
+  var Q = {
+    esc: function (s) {
+      return String(s === undefined || s === null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    },
+    num: function (n) { return String(Number(n) || 0); },
+    agruparLancamentos: agrupar,
+    podeCorrigir: function () { return true; },
+    sessao: function () { return {}; },
+    ehAdmin: function () { return true; }
+  };
+
+  /* AS COLUNAS SÃO AS DE VERDADE EM FORMA, e não em desenho: o que o resumo da carga usa
+     delas é o `id`, o `k` de ordenar e o `v` de desenhar. */
+  var cs = [
+    { id: 'registro', d: { k: function (m) { return m.registro || ''; },
+                           v: function (m) { return '<span class="cod cod--reg">' + Q.esc(m.registro) + '</span>'; } } },
+    { id: 'item',     d: { k: function (m) { return m.id || ''; },
+                           v: function (m) { return '<span class="cod">' + Q.esc(m.id) + '</span>'; } } },
+    { id: 'status',   d: { k: function (m) { return m.situacao || ''; },
+                           v: function (m) { return '<span class="tag">' + Q.esc(m.situacao) + '</span>'; } } },
+    { id: 'origem',   d: { k: function (m) { return m.origem || ''; },
+                           v: function (m) { return Q.esc(m.origem); } } },
+    { id: 'caixa',    d: { k: function (m) { return m.tipoCaixa || ''; },
+                           v: function (m) { return Q.esc(m.tipoCaixa); } } },
+    { id: 'qtd',      d: { num: true, k: function (m) { return Number(m.qtd) || 0; },
+                           v: function (m) { return Q.num(m.qtd); } } }
+  ];
+
+  var i0 = adm.indexOf('    /* ---------- UMA LINHA DA TABELA, ESCRITA NUM LUGAR SÓ ----------');
+  var i1 = adm.indexOf('    box.innerHTML = \'<div class="tabela-wrap">', i0);
+  ok(i0 > 0 && i1 > i0 && (i1 - i0) > 2000,
+    'a conferência recortou o desenho das linhas da tabela de Movimentos — recorte ' +
+    'vazio faria tudo abaixo aprovar sem rodar nada', { ini: i0, fim: i1 });
+
+  var ABERTOS = {};
+  var F = new Function('Q', 'cs', 'linhasDaCarga', 'REG_ABERTOS',
+    adm.slice(i0, i1) +
+    ' return { corpoAgrupado: corpoAgrupado, linhaDe: linhaDe };')(
+    Q, cs,
+    function (reg) {
+      return { R000047: 4, R000026: 2, R000070: 3 }[reg] || 1;
+    },
+    ABERTOS);
+
+  function lin(reg, id, lote, caixa, qtd, sit) {
+    return { registro: reg, id: id, lote: lote, tipoCaixa: caixa, tipoCaixaId: caixa,
+             qtd: qtd, situacao: sit, origem: 'João Pessoa', dataRef: '2026-09-28' };
+  }
+  /* O CASO É O DA TELA: o R000047 com quatro linhas iguais em tudo menos caixa e
+     quantidade, e o R000026 com o status DIFERENTE entre elas — quatro "Parcial" e uma
+     "Enviada", que é o que a foto mostra. */
+  var lista = [
+    lin('R000047', 'M000047', 'L47', 'CX P', 75, 'Devolvida'),
+    lin('R000047', 'M000048', 'L47', 'CX G', 75, 'Devolvida'),
+    lin('R000047', 'M000049', 'L47', 'CX GG', 75, 'Devolvida'),
+    lin('R000047', 'M000050', 'L47', 'CX IFCO', 75, 'Devolvida'),
+    lin('R000026', 'M000026', 'L26', 'CX P', 160, 'Parcial'),
+    lin('R000026', 'M000029', 'L26', 'CX IFCO', 160, 'Enviada'),
+    lin('R000090', 'M000090', 'L90', 'CX P', 10, 'Enviada'),
+    /* E UMA CARGA DE TRÊS em que só a ÚLTIMA linha discorda. Sem ela, um leitor de
+       concordância que parasse na SEGUNDA linha passaria em tudo: as outras cargas
+       têm duas linhas, ou quatro iguais. Foi uma sabotagem que escapou. */
+    lin('R000070', 'M000070', 'L70', 'CX P', 20, 'Enviada'),
+    lin('R000070', 'M000071', 'L70', 'CX G', 20, 'Enviada'),
+    (function () {
+      var m = lin('R000070', 'M000072', 'L70', 'CX GG', 20, 'Enviada');
+      m.origem = 'Matriz São Vicente';
+      return m;
+    })()
+  ];
+
+  function linhasDo(html) {
+    return html.split('<tr').slice(1).map(function (x) { return '<tr' + x; });
+  }
+  function celula(linha, col) {
+    var i = linha.indexOf('data-col="' + col + '"');
+    if (i < 0) return '';
+    return linha.slice(linha.indexOf('>', i) + 1, linha.indexOf('</td>', i));
+  }
+
+  var html = F.corpoAgrupado(lista);
+  var trs = linhasDo(html);
+  ok(trs.length === 4 + 4 + 2 + 3,
+    'as dez linhas viram quatro blocos e as filhas deles — nenhuma linha some no ' +
+    'agrupamento, e nenhuma aparece duas vezes', trs.length);
+
+  var cargas = trs.filter(function (t) { return t.indexOf('class="lin-reg') > 0; });
+  ok(cargas.length === 3,
+    'e só as cargas com mais de uma linha viram linha de carga — com uma só, a seta ' +
+    'abriria uma cópia exata da linha fechada', cargas.length);
+  ok((html.match(/reg-abrir/g) || []).length === 3,
+    'e a seta existe só onde há o que abrir — uma seta que não mostra nada novo ensina ' +
+    'a não clicar nas que mostram');
+
+  var c47 = cargas[0];
+  ok(celula(c47, 'qtd').indexOf('300') >= 0,
+    'a carga fechada SOMA as quantidades das linhas — mostrando a da primeira, ela ' +
+    'diria 75 onde saíram 300, e esse é o número que se veio ver', celula(c47, 'qtd'));
+  ok(celula(c47, 'item').indexOf('4 itens') >= 0,
+    'e o Item vira a CONTAGEM — o código de uma linha só não existe para a carga, e ' +
+    'eleger o da primeira faria a carga se chamar pelo nome de um pedaço dela',
+    celula(c47, 'item'));
+  ok(celula(c47, 'status').indexOf('Devolvida') >= 0,
+    'e onde as linhas CONCORDAM a carga mostra o valor — as quatro estão Devolvidas, e ' +
+    'calar isso com um "vários" esconderia um dado que não tem conflito nenhum',
+    celula(c47, 'status'));
+  ok(celula(c47, 'origem').indexOf('João Pessoa') >= 0,
+    'e o mesmo vale para a origem — a regra é a concordância, e não uma lista de ' +
+    'colunas escolhidas a dedo, que a coluna nova de amanhã nasceria fora',
+    celula(c47, 'origem'));
+
+  var c26 = cargas[1];
+  ok(celula(c26, 'status').indexOf('vários') >= 0 &&
+     celula(c26, 'status').indexOf('Parcial') < 0,
+    'e onde elas DISCORDAM a carga diz "vários" — o R000026 tem Parcial e Enviada ' +
+    'juntos, e mostrar a primeira faria a linha fechada AFIRMAR um status que não é o ' +
+    'das duas', celula(c26, 'status'));
+  ok(celula(c26, 'caixa').indexOf('vários') >= 0,
+    'e a caixa segue a mesma regra — quatro tipos numa célula de 120px seriam ' +
+    'reticências, e a seta mostra os quatro inteiros');
+
+  /* E A DISCORDÂNCIA PODE ESTAR NA ÚLTIMA LINHA. Um leitor que comparasse só as duas
+     primeiras daria a carga por concorde e mostraria a origem da primeira. Numa carga
+     de quatro ou cinco linhas, que é o tamanho real delas, a chance de o desacordo
+     estar depois da segunda é a maior de todas. Escapou uma sabotagem exatamente
+     assim, porque todas as cargas da prova tinham duas linhas ou quatro iguais. */
+  var c70 = cargas[2];
+  ok(celula(c70, 'origem').indexOf('vários') >= 0,
+    'e a comparação vai até a ÚLTIMA linha — parando na segunda, uma carga em que só ' +
+    'a terceira discorda seria dada por concorde, e a linha fechada mostraria a ' +
+    'origem de uma das três como se fosse a das três', celula(c70, 'origem'));
+
+  var filhas = trs.filter(function (t) { return t.indexOf('class="lin-item') > 0; });
+  ok(filhas.length === 9 && filhas.every(function (t) { return / hidden>/.test(t); }),
+    'com a carga fechada as filhas nascem escondidas — nascendo à vista, agrupar ' +
+    'duplicaria a lista em vez de encolhê-la', filhas.length);
+  ok(filhas[0].indexOf('data-cancelar=') > 0 && filhas[0].indexOf('data-corrigir=') > 0,
+    'e a filha tem os botões de sempre — corrigir, cancelar e excluir continuam ' +
+    'agindo sobre a LINHA, que é sobre o que eles sempre agiram');
+  ok(c47.indexOf('data-cancelar=') < 0 && c47.indexOf('data-excluir=') < 0,
+    'e a carga fechada NÃO oferece cancelar nem excluir — os dois agem sobre uma linha ' +
+    'só, e numa linha que representa quatro a pessoa esperaria que as quatro saíssem do ' +
+    'saldo, ou tiraria uma sem saber qual');
+  ok(c47.indexOf('data-cregistro=') > 0,
+    'e oferece o conserto da carga inteira, que é o que ela é');
+
+  ABERTOS['L47'] = true;
+  var abertas = linhasDo(F.corpoAgrupado(lista));
+  var reg47 = abertas.filter(function (t) { return t.indexOf('class="lin-reg') > 0; })[0];
+  var itens47 = abertas.filter(function (t) { return t.indexOf('class="lin-item') > 0; })
+                       .slice(0, 4);
+  ok(reg47.indexOf('aberta') > 0 && itens47.every(function (t) { return !/ hidden>/.test(t); }),
+    'aberta, a carga mostra as filhas dela — e só as dela', itens47.length);
+  ok(abertas.filter(function (t) { return t.indexOf('class="lin-item') > 0; })
+            .slice(4).every(function (t) { return / hidden>/.test(t); }),
+    'e as da carga vizinha continuam fechadas — abrir uma e abrir todas são gestos ' +
+    'diferentes, e o segundo ninguém pediu');
+
+  /* ---- O QUE SÓ O TEXTO PODE DIZER ---- */
+  var admC = semComentarios(adm);
+  ok(/Q\.agruparLancamentos\(linhas\)/.test(admC),
+    'a tabela junta as linhas com o MESMO agrupador do celular — reescrito aqui, o ' +
+    'computador e o telefone passariam a discordar sobre quantos lançamentos existem, ' +
+    'e ninguém conseguiria dizer qual dos dois está certo');
+  ok(/porId\[i\.id\]/.test(admC),
+    'e as linhas voltam pelo ID que o grupo guarda, e não por uma segunda peneira pela ' +
+    'chave do lote — o agrupador separa um tipo de caixa repetido em dois grupos, e a ' +
+    'peneira devolveria as linhas dos dois para cada um deles');
+  ok(/ligarAberturaDeCarga\(box\);/.test(admC),
+    'e a seta está LIGADA depois de desenhar a tabela — desenhada e não ligada, ela ' +
+    'seria um botão que não faz nada, calado');
+
+  var iAb = admC.indexOf('function ligarAberturaDeCarga(box)');
+  var fAb = admC.slice(iAb, admC.indexOf('\n  }', iAb));
+  ok(iAb > 0 && /nextElementSibling/.test(fAb),
+    'abrir uma carga anda pelas IRMÃS seguintes, e não monta um seletor com a chave do ' +
+    'lote — ela vem do servidor e pode ter caractere que o CSS lê como sintaxe: o ' +
+    'seletor não acharia nada, sem erro nenhum no console', fAb.slice(0, 160));
+  /* A PENEIRA DAS SETAS É UM SELETOR FIXO, e isso não é o risco: o risco é COLAR a
+     chave dentro de um seletor. O que se cobra aqui é que nenhum seletor desta
+     função seja MONTADO por concatenação. */
+  ok(iAb > 0 && !/querySelectorAll?\([^)]*\+/.test(fAb),
+    'e nenhum seletor dela é montado juntando texto — é aí que a chave entraria');
+  ok(/ajustarJanelaMov\(\);/.test(fAb),
+    'e a janela de dez linhas é refeita ao abrir — sem isso, os itens entram numa ' +
+    'altura presa e ficam atrás de uma rolagem que ninguém pediu');
+  ok(/tbody tr:not\(\[hidden\]\)/.test(admC),
+    'e ela conta só as linhas à vista — contando as filhas escondidas, dez cargas ' +
+    'fechadas já "enchiam" a janela e prendiam a altura de uma tabela que cabia inteira');
+
+  ok(/id="btnAgruparMov"/.test(adm) && /aria-pressed/.test(adm),
+    'o botão de agrupar existe e diz o estado dele — sem `aria-pressed`, ligado e ' +
+    'desligado são o mesmo botão para quem usa leitor de tela');
+  ok(/localStorage\.setItem\(CHAVE_AGRUPAR_MOV/.test(admC) &&
+     /localStorage\.getItem\(CHAVE_AGRUPAR_MOV\)/.test(admC),
+    'e a escolha fica guardada no navegador de quem olha, como a ordem das colunas — ' +
+    'um jeito de ler que se perde a cada visita não é escolha, é tarefa');
+
+  /* O QUE ESTÁ ABERTO NÃO SE GUARDA: é o estado de uma leitura, e não uma preferência.
+     Guardado, a tela abriria amanhã com cinco cargas escancaradas de um filtro que nem
+     está mais na tela. */
+  var iReg = admC.indexOf('var REG_ABERTOS = {};');
+  ok(iReg > 0 && admC.slice(iReg, iReg + 900).indexOf('REG_ABERTOS)') < 0 &&
+     !/localStorage[^;\n]*REG_ABERTOS|REG_ABERTOS[^;\n]*localStorage/.test(admC),
+    'e o que está ABERTO não se guarda no navegador — é o estado de uma leitura, e ' +
+    'guardado a tela abriria amanhã com cargas escancaradas de um filtro que nem está ' +
+    'mais nela');
+
+  ok(/@media \(max-width:1023px\)\{ \.bt-agrupar\{display:none\} \}/.test(css),
+    'e o botão não existe no celular — lá a lista JÁ é agrupada, e um botão de agrupar ' +
+    'numa tela que só sabe agrupar ofereceria um desagrupar que não existe');
+  ok(/tr\.lin-reg\.aberta \.reg-abrir svg\{transform:rotate\(90deg\)\}/.test(css),
+    'e a seta gira em vez de trocar de desenho — duas figuras diferentes fariam ' +
+    'procurar a diferença entre elas');
+  ok(/#tabelaMov tr\.lin-item > td:first-child\{padding-left:30px/.test(css),
+    'e o item anda para dentro — sem o recuo, a filha e a carga se leem como duas ' +
+    'linhas irmãs e o agrupamento vira só uma linha a mais na lista');
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

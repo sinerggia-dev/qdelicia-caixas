@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=72685a88">
+<link rel="stylesheet" href="styles.css?v=7eb26520">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -912,6 +912,23 @@
       <div class="barra-trava">
         <div class="trava-colunas" data-trava-colunas></div>
         <div class="barra-trava__acoes" id="acoesFiltroTopo"></div>
+        <!-- JUNTAR AS LINHAS DE CADA REGISTRO, só no computador.
+             Uma carga de quatro caixas são quatro linhas que repetem data, status,
+             origem, destino, motorista e quem lançou — e a diferença entre elas cabe
+             em duas colunas. Juntas, a lista passa a ter uma linha por LANÇAMENTO, que
+             é como o lançamento foi feito, e a seta abre os itens.
+             NO CELULAR ELE NÃO EXISTE porque lá a lista JÁ é agrupada: cada cartão é
+             uma carga com as caixas dentro. Um botão de agrupar numa tela que só sabe
+             agrupar ofereceria um desagrupar que não existe.
+             AQUI E NÃO NA GAVETA DE FILTROS: ele não recorta nada e não vai ao
+             servidor — muda a FORMA da tabela, como o cadeado e as colunas ao lado. -->
+        <button class="btn bt-agrupar" id="btnAgruparMov" type="button"
+                aria-pressed="false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+               aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line></svg>
+          Agrupar por registro
+        </button>
         <div class="busca-mov" id="buscaMov">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
@@ -6711,6 +6728,93 @@
     });
   })();
 
+  /* ================= AGRUPAR PELO REGISTRO =================
+   *
+   * Uma carga de quatro tipos de caixa são quatro linhas na tabela, e elas repetem
+   * data, criação, status, base, tipo, origem, destino, motorista e quem lançou. A
+   * diferença entre elas cabe em duas colunas: o item e a quantidade. Agrupadas, a
+   * lista passa a ter uma linha por LANÇAMENTO — que é como o lançamento foi feito, e
+   * como se fala dele ao telefone —, e a seta abre os itens dentro.
+   *
+   * SÓ NO COMPUTADOR, e não por capricho de largura: no celular a lista JÁ é agrupada,
+   * cada cartão é uma carga com as caixas dentro. Um botão de agrupar lá ofereceria um
+   * desagrupar que não existe.
+   *
+   * É UMA ESCOLHA, E NÃO O PADRÃO. Quem abre esta tela para conferir uma linha — "a
+   * CX P do R000047 está com 75 e devia estar com 70" — perde a linha de vista se ela
+   * nascer dentro de uma gaveta fechada. Quem vem ler a operação do dia liga o botão
+   * uma vez e ele fica ligado.
+   */
+  var CHAVE_AGRUPAR_MOV = 'qdc_agrupar_mov_v1';
+  /* GUARDADO NO NAVEGADOR de quem olha, como a ordem e a largura das colunas: é jeito
+     de ler, e não regra da empresa. Quem agrupa hoje encontra agrupado amanhã, e isso
+     não muda nada para mais ninguém. */
+  var AGRUPAR_MOV = (function(){
+    try { return localStorage.getItem(CHAVE_AGRUPAR_MOV) === '1'; } catch (e) { return false; }
+  })();
+
+  /* QUAIS CARGAS ESTÃO ABERTAS FICA NA MEMÓRIA, e não no navegador. É o estado de uma
+     leitura — "estou olhando esta aqui" —, e não uma preferência: guardado, a tela
+     abriria amanhã com cinco cargas escancaradas de um filtro que já nem está na tela.
+     Na memória ele sobrevive ao que interessa — reordenar uma coluna, buscar, redesenhar
+     —, que é quando perder a abertura seria irritante. */
+  var REG_ABERTOS = {};
+
+  (function(){
+    var b = document.getElementById('btnAgruparMov');
+    if (!b) return;
+    /* O BOTÃO DIZ O ESTADO, e o balão diz o que o toque faz. É a mesma divisão do
+       "Mais recentes" do celular: anunciando só o que vai virar, a pessoa fica sem
+       saber como a tabela está AGORA e descobre clicando — que é o contrário de um
+       rótulo. */
+    function pintar(){
+      b.setAttribute('aria-pressed', AGRUPAR_MOV ? 'true' : 'false');
+      b.title = AGRUPAR_MOV
+        ? 'Agrupado por registro. Tocar para voltar a uma linha por item.'
+        : 'Uma linha por item. Tocar para juntar as linhas de cada registro.';
+    }
+    b.addEventListener('click', function(){
+      AGRUPAR_MOV = !AGRUPAR_MOV;
+      try { localStorage.setItem(CHAVE_AGRUPAR_MOV, AGRUPAR_MOV ? '1' : '0'); } catch (e) {}
+      pintar();
+      desenharMovimentos();
+    });
+    pintar();
+  })();
+
+  /* ABRIR E FECHAR UMA CARGA MEXE SÓ NAS LINHAS DELA, sem redesenhar a tabela.
+   *
+   * Um redesenho perderia a posição da rolagem: a pessoa clica na carga do meio da
+   * lista e a tabela volta para o topo — e ela tem de procurar de novo a linha que
+   * acabou de abrir.
+   *
+   * AS FILHAS SÃO AS IRMÃS SEGUINTES até a próxima carga, e não um `querySelector` pela
+   * chave do lote. A chave vem do servidor e pode trazer caractere que um seletor de CSS
+   * lê como sintaxe; o seletor então não acha nada, sem erro nenhum no console, e a seta
+   * vira um botão que não faz coisa alguma. */
+  function ligarAberturaDeCarga(box){
+    box.querySelectorAll('tr.lin-reg .reg-abrir').forEach(function(b){
+      b.addEventListener('click', function(){
+        var pai = b.parentNode;
+        while (pai && pai.tagName !== 'TR') pai = pai.parentNode;
+        if (!pai) return;
+        var aberta = !(REG_ABERTOS[pai.dataset.lote || ''] === true);
+        REG_ABERTOS[pai.dataset.lote || ''] = aberta;
+        b.setAttribute('aria-expanded', aberta ? 'true' : 'false');
+        pai.classList.toggle('aberta', aberta);
+        var tr = pai.nextElementSibling;
+        while (tr && tr.classList.contains('lin-item')) {
+          tr.hidden = !aberta;
+          tr = tr.nextElementSibling;
+        }
+        /* A JANELA DE DEZ LINHAS É MEDIDA, e o que ela mede acabou de mudar: sem
+           refazer a conta, abrir uma carga empurra os itens para dentro de uma altura
+           presa e eles ficam atrás de uma rolagem que ninguém pediu. */
+        ajustarJanelaMov();
+      });
+    });
+  }
+
   function sentidoDoMov(m){
     var t = String(m.tipo || '').toUpperCase();
     if (t === 'DEVOLUCAO') return 'retorno';
@@ -7409,6 +7513,166 @@
        da ordem, e recalcula-los aqui so criaria um segundo caminho para o mesmo numero. */
     var linhas = aplicarOrdem(L, DEFS, ORDEM_MOV);
 
+    /* ---------- UMA LINHA DA TABELA, ESCRITA NUM LUGAR SÓ ----------
+       Solta ou dentro de uma carga, a linha tem as MESMAS células e os MESMOS botões.
+       Escrita duas vezes, o dia em que um botão mudasse a outra forma continuaria
+       oferecendo o antigo — e ninguém repararia, porque só uma das duas está na tela de
+       cada vez. */
+    function celulasDe(m){
+      return cs.map(function(c){
+        /* O `data-col` TAMBEM NA CELULA, e nao so no cabecalho: e por ele que a
+           folha de estilo esconde uma coluna inteira no telefone. Escondendo so o
+           `<th>`, as celulas continuariam ali e a linha andaria uma casa. */
+        return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+
+               '>'+c.d.v(m)+'</td>';
+      }).join('');
+    }
+
+    /* O CONSERTO DA CARGA INTEIRA, num lugar só. Ele aparece na linha solta e na linha
+       da carga, e a CONDIÇÃO é a mesma nos dois: ter registro e ter mais de uma linha
+       ativa. Escrita duas vezes, bastava uma mudar para a tabela oferecer o botão numa
+       forma e escondê-lo na outra, para o mesmo lançamento. */
+    function botaoDaCarga(reg){
+      var n = reg ? linhasDaCarga(reg) : 0;
+      if (n < 2) return '';
+      return '<button class="mini acao" data-cregistro="'+Q.esc(reg)+'" '+
+             'title="Corrigir as '+n+' linhas de '+Q.esc(reg)+
+             ' de uma vez">a carga</button> ';
+    }
+
+    function acoesDe(m){
+      /* Corrigir sai de `Q.podeCorrigir`, a MESMA regra que o app de campo usa: as
+         duas telas oferecem o conserto, e uma regra escrita nos dois lugares diverge.
+         Para o admin não muda nada — ele corrige qualquer um, como sempre.
+
+         Cancelar e excluir continuam presos ao admin: tirar um lançamento do saldo
+         ou mandá-lo para a lixeira é decisão de escritório, não conserto de quem
+         digitou errado. */
+      /* DOIS CAMINHOS, e nao um. `corrigir` e a LINHA — "so a CX P esta errada" — e
+         `a carga` sao as linhas todas do registro de uma vez, que e como o
+         lancamento foi feito. O segundo so aparece quando ha o que juntar: numa
+         carga de uma linha ele seria o mesmo formulario com outro nome. */
+      return '<td>'+(Q.podeCorrigir(Q.sessao(), m)
+         ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> '+
+           botaoDaCarga(m.registro)
+         : '')+
+        /* A LINHA CANCELADA NAO SE CANCELA DE NOVO: no lugar dos dois botoes ela
+           oferece a VOLTA. Cancelar nunca apagou nada — a quantidade continua
+           inteira ali —, e sem esta porta um toque errado tirava a carga do saldo
+           para sempre. */
+        (Q.ehAdmin()
+         ? (m.cancelado
+            ? '<button class="mini acao" data-descancelar="'+m.id+'">desfazer o '+
+              'cancelamento</button>'
+            : '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '+
+              '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>')
+         : '')+'</td>';
+    }
+
+    function linhaDe(m, classe, escondida){
+      /* Vermelha continua valendo: o contado na chegada não bateu com o declarado, e a
+         coluna que mostrava isso saiu. O amarelo de AGUARDANDO foi embora com a etapa
+         de conferência — ele dizia "não entrou no saldo". */
+      var cl = ((classe || '')+(m.divergencia ? ' ruim' : '')).replace(/^ +/, '');
+      return '<tr'+(cl ? ' class="'+cl+'"' : '')+(escondida ? ' hidden' : '')+'>'+
+             celulasDe(m)+acoesDe(m)+'</tr>';
+    }
+
+    /* ---------- A CARGA FECHADA, COLUNA A COLUNA ----------
+     *
+     * ONDE AS LINHAS CONCORDAM a carga mostra o valor; onde discordam, ela diz "vários"
+     * em vez de eleger o da primeira. O caso não é hipótese: o R000026 tem quatro linhas
+     * "Parcial" e uma "Enviada". Mostrando a primeira, a linha fechada AFIRMARIA um
+     * status que não é o das cinco — e justamente numa tela em que a carga fechada é o
+     * que a pessoa lê sem abrir.
+     *
+     * A COMPARAÇÃO É PELA CHAVE DE ORDENAR da coluna, que já existe e é o valor cru;
+     * sem chave, pelo próprio desenho da célula. Escrever aqui uma lista de "quais
+     * colunas são iguais dentro da carga" seria uma lista para envelhecer: a coluna
+     * nova de amanhã nasceria fora dela e passaria a mentir em silêncio.
+     */
+    function cargaConcorda(c, filhos){
+      var ler = c.d.k || c.d.v;
+      var um = ler(filhos[0]);
+      for (var i = 1; i < filhos.length; i++) {
+        if (ler(filhos[i]) !== um) return false;
+      }
+      return true;
+    }
+
+    function celulaDaCarga(c, filhos, soma){
+      /* DUAS COLUNAS FALAM DA LINHA, e não da carga: o ITEM é o código de uma linha só,
+         e a QTD é a de um tipo de caixa só. A carga responde outra coisa — quantas
+         linhas tem e quanto deu no total —, que é o mesmo par que o cartão do celular
+         mostra no pé. "Vários" nas duas seria calar o número que se veio ver.
+         A QUANTIDADE PASSA PELO MESMO DESENHO da coluna, com a soma no lugar do valor:
+         escrito à mão aqui, o dia em que a célula ganhasse cor ou sinal a carga ficaria
+         com o formato antigo. */
+      if (c.id === 'item') {
+        return '<span class="fraco">'+filhos.length+' itens</span>';
+      }
+      if (c.id === 'qtd') return c.d.v({ qtd: soma });
+      return cargaConcorda(c, filhos) ? c.d.v(filhos[0])
+                                      : '<span class="fraco">vários</span>';
+    }
+
+    function setaDaCarga(quantas, reg, aberta){
+      return '<button class="reg-abrir" type="button" aria-expanded="'+
+        (aberta ? 'true' : 'false')+'" title="'+
+        Q.esc((aberta ? 'Esconder' : 'Ver')+' os '+quantas+' itens'+
+              (reg ? ' de '+reg : ''))+'">'+
+        '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
+        'stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" '+
+        'aria-hidden="true"><polyline points="9 5 17 12 9 19"></polyline></svg></button>';
+    }
+
+    /* ---------- AGRUPADO PELO REGISTRO ----------
+     *
+     * O MESMO AGRUPADOR DO CELULAR, e não um segundo. "O que é uma carga" tem UMA
+     * resposta neste projeto — a chave do lote, que o servidor calcula do envio —, e as
+     * duas telas têm de juntar as mesmas linhas. Reescrito aqui, o computador e o
+     * telefone passariam a discordar sobre quantos lançamentos existem, e ninguém
+     * conseguiria dizer qual dos dois está certo.
+     *
+     * AS LINHAS VOLTAM PELO ID que o grupo guarda, e não por uma segunda peneira pela
+     * chave: o agrupador SEPARA um tipo de caixa repetido em dois grupos, e uma peneira
+     * por chave devolveria as linhas dos dois para cada um deles — a quantidade
+     * apareceria em dobro.
+     */
+    function corpoAgrupado(linhas){
+      var porId = {};
+      linhas.forEach(function(m){ porId[m.id] = m; });
+      var fora = [];
+      Q.agruparLancamentos(linhas).forEach(function(g){
+        var filhos = g.itens.map(function(i){ return porId[i.id]; })
+                            .filter(function(m){ return !!m; });
+        if (!filhos.length) return;
+        /* CARGA DE UMA LINHA SÓ NÃO É CARGA. A seta abriria uma cópia exata da linha
+           fechada, e a tela ficaria cheia de setas que não mostram nada novo. */
+        if (filhos.length === 1) { fora.push(linhaDe(filhos[0], '')); return; }
+        var aberta = REG_ABERTOS[g.lote] === true;
+        var soma = filhos.reduce(function(s, m){ return s + (Number(m.qtd) || 0); }, 0);
+        /* A CHAVE FICA NO ATRIBUTO e é lida de lá; ela nunca entra num seletor. Ela vem
+           do servidor e pode trazer caractere que o CSS lê como sintaxe — e aí o
+           seletor não acha nada, sem erro nenhum no console. */
+        fora.push('<tr class="lin-reg'+(aberta ? ' aberta' : '')+
+          '" data-lote="'+Q.esc(g.lote)+'">'+
+          cs.map(function(c, k){
+            return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+'>'+
+              (k === 0 ? setaDaCarga(filhos.length, g.registro, aberta) : '')+
+              celulaDaCarga(c, filhos, soma)+'</td>';
+          }).join('')+
+          /* A CARGA SÓ OFERECE O QUE É DA CARGA. `cancelar` e `excluir` agem sobre UMA
+             linha, e um botão de cancelar numa linha que representa cinco faria esperar
+             que as cinco saíssem do saldo — ou tiraria uma sem dizer qual. Os dois
+             continuam existindo, a uma seta de distância, na linha de que são. */
+          '<td>'+(Q.podeCorrigir(Q.sessao(), filhos[0])
+                   ? botaoDaCarga(g.registro) : '')+'</td></tr>');
+        filhos.forEach(function(m){ fora.push(linhaDe(m, 'lin-item', !aberta)); });
+      });
+      return fora.join('');
+    }
+
     box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
       cs.map(function(c){
         var ord = ORDEM_MOV.col === c.id;
@@ -7428,48 +7692,12 @@
           Q.esc(c.d.t)+seta+puxador()+'</th>';
       }).join('')+
       '<th></th></tr></thead><tbody>'+
-      linhas.map(function(m){
-        /* Vermelha continua valendo: o contado na chegada não bateu com o declarado, e a
-           coluna que mostrava isso saiu. O amarelo de AGUARDANDO foi embora com a etapa
-           de conferência — ele dizia "não entrou no saldo". */
-        return '<tr class="'+(m.divergencia?'ruim':'')+'">'+
-          cs.map(function(c){
-            /* O `data-col` TAMBEM NA CELULA, e nao so no cabecalho: e por ele que a
-               folha de estilo esconde uma coluna inteira no telefone. Escondendo so o
-               `<th>`, as celulas continuariam ali e a linha andaria uma casa. */
-            return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+
-                   '>'+c.d.v(m)+'</td>';
-          }).join('')+
-          /* Corrigir sai de `Q.podeCorrigir`, a MESMA regra que o app de campo usa: as
-             duas telas oferecem o conserto, e uma regra escrita nos dois lugares diverge.
-             Para o admin não muda nada — ele corrige qualquer um, como sempre.
-
-             Cancelar e excluir continuam presos ao admin: tirar um lançamento do saldo
-             ou mandá-lo para a lixeira é decisão de escritório, não conserto de quem
-             digitou errado. */
-          /* DOIS CAMINHOS, e nao um. `corrigir` e a LINHA — "so a CX P esta errada" — e
-             `a carga` sao as linhas todas do registro de uma vez, que e como o
-             lancamento foi feito. O segundo so aparece quando ha o que juntar: numa
-             carga de uma linha ele seria o mesmo formulario com outro nome. */
-          '<td>'+(Q.podeCorrigir(Q.sessao(), m)
-             ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> '+
-               (linhasDaCarga(m.registro) > 1
-                 ? '<button class="mini acao" data-cregistro="'+Q.esc(m.registro)+'" '+
-                   'title="Corrigir as '+linhasDaCarga(m.registro)+' linhas de '+
-                   Q.esc(m.registro)+' de uma vez">a carga</button> ' : '')
-             : '')+
-            /* A LINHA CANCELADA NAO SE CANCELA DE NOVO: no lugar dos dois botoes ela
-               oferece a VOLTA. Cancelar nunca apagou nada — a quantidade continua
-               inteira ali —, e sem esta porta um toque errado tirava a carga do saldo
-               para sempre. */
-            (Q.ehAdmin()
-             ? (m.cancelado
-                ? '<button class="mini acao" data-descancelar="'+m.id+'">desfazer o '+
-                  'cancelamento</button>'
-                : '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '+
-                  '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>')
-             : '')+'</td></tr>';
-      }).join('')+'</tbody></table></div>';
+      /* DUAS FORMAS DA MESMA TABELA. O cabecalho, as colunas, a ordem e a janela de
+         dez linhas sao os mesmos nas duas: o que muda e' o corpo. */
+      (AGRUPAR_MOV
+        ? corpoAgrupado(linhas)
+        : linhas.map(function(m){ return linhaDe(m, ''); }).join(''))+
+      '</tbody></table></div>';
 
     ligarArrastarColunas(TAB_MOV);
     ligarLarguraColunas(TAB_MOV);
@@ -7477,6 +7705,7 @@
     pintarTrava();
 
     ligarAcoesMov(box);
+    ligarAberturaDeCarga(box);
     ajustarJanelaMov();
   }
 
@@ -7518,7 +7747,10 @@
     /* Com menos linhas que a janela, nao ha o que limitar: fixar a altura assim mesmo
        deixaria um vazio abaixo da ultima linha, dentro de uma caixa com barra de rolagem
        que nao rola. */
-    var total = wrap.querySelectorAll('tbody tr').length;
+    /* SO' AS LINHAS A VISTA. Com as cargas fechadas, os itens delas continuam no
+       `<tbody>` com `hidden` — contados junto, a janela se achava cheia com dez
+       cargas fechadas na tela e prendia a altura numa tabela que cabia inteira. */
+    var total = wrap.querySelectorAll('tbody tr:not([hidden])').length;
     if (total <= LINHAS_JANELA_MOV) { wrap.style.maxHeight = ''; return; }
     wrap.style.maxHeight = Math.round(
       cab.getBoundingClientRect().height + alt * LINHAS_JANELA_MOV + 2) + 'px';
