@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=7eb26520">
+<link rel="stylesheet" href="styles.css?v=1adb325d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1334,7 +1334,7 @@
              TRÊS CARTÕES, e o terceiro é a DIFERENÇA — o número pelo qual se abre esta
              tela. No celular ele toma a linha inteira: meia largura ao lado de um vazio
              é desenho, e não arranjo. -->
-        <div id="dcTotais" class="tot tot--tri"></div>
+        <div id="dcTotais" class="tot tot--cinco"></div>
         <div class="linha-sit" id="dcSituacoes"></div>
         <div id="tabelaDecl"><div class="vazio">Escolha a <b>Base</b> para comparar.</div></div>
 
@@ -1399,18 +1399,19 @@
                    O CUSTO ESTA' NOS TRES TOTAIS DE CIMA, e e' escolha de quem manda:
                    cada PAR continua certo, porque o par compara a declaracao com a
                    contagem do mesmo motorista no mesmo dia dentro do mesmo livro. O que
-                   mistura e' a soma do topo — Declarado, Conferido e Diferenca passam a
-                   somar os dois livros. Quem quiser a conta de um livro so' tira o outro
+                   mistura e' a soma do topo — os cinco cartoes passam a somar os
+                   dois livros. Quem quiser a conta de um livro so' tira o outro
                    do filtro, que continua a um toque. -->
               <select id="dcBase" multiple data-multi>
                 <option value="">Escolha a base…</option>
                 <option value="declaracao" selected>Base Declaração</option>
                 <option value="testeDecl" selected>Base Teste Declaração</option>
               </select></div>
-            <!-- NASCE EM RETORNO, a pedido: ninguém declara um carregamento, então todo par
-                 de saída nasce "Sem declaração" — ruído por construção, e ruído que parece
-                 problema. Fica como FILTRO e não como corte fixo: o dia em que o motorista
-                 passar a declarar a saída, a tela já sabe mostrá-la. -->
+            <!-- NASCE EM RETORNO, a pedido: ninguém declara um carregamento, então todo
+                 par de saída nasce sem a coluna Declarado — e a diferença Saída −
+                 Declarado nasce vazia. Ruído por construção, e ruído que parece problema.
+                 Fica como FILTRO e não como corte fixo: o dia em que o motorista passar
+                 a declarar a saída, a tela já sabe mostrá-la. -->
             <div><label for="dcTipo">Tipo</label>
               <select id="dcTipo" multiple data-multi>
                 <option value="">Todos</option>
@@ -1420,9 +1421,15 @@
             <div><label for="dcSituacao">Situação</label>
               <select id="dcSituacao" multiple data-multi>
                 <option value="">Todas</option>
+                <!-- A ORDEM É A DO QUE INCOMODA: primeiro o que fechou, depois o que
+                     não fechou, e por fim as três formas de a conta ainda não ter as
+                     duas pontas. Esta lista é a FONTE dos chips de contagem que ficam
+                     acima da tabela — escritos lá também, uma situação nova entraria
+                     num e não no outro. -->
                 <option value="Bateu">Bateu</option>
                 <option value="Divergente">Divergente</option>
-                <option value="Sem declaração">Sem declaração</option>
+                <option value="Sem conferência">Sem conferência</option>
+                <option value="Sem saída">Sem saída</option>
                 <option value="Só declaração">Só declaração</option>
               </select></div>
           </div>
@@ -2227,17 +2234,22 @@
          que existe na tela e falta no arquivo faz a conferência de escritório chegar a
          um número que a tela não explica. */
       Q.csv('motorista_conferente_'+Q.hoje()+'.csv',
-        ['Lancamento','Data','Base','Tipo','Motorista','Rotas','Declarado','Conferido',
-         'Diferenca','Conferente','Situacao'],
+        ['Lancamento','Data','Base','Tipo','Motorista','Origem','Destino',
+         'Saida','Declarado','Conferido','Saida-Declarado','Saida-Conferido',
+         'Informou','Conferente','Situacao'],
         PARES.map(function(par){
           /* NO ARQUIVO VAI A LISTA INTEIRA, e não o resumo "+3": o CSV existe para
              procurar o lançamento, e um resumo não se procura. */
+          /* QUEM INFORMOU SAI NO ARQUIVO como coluna própria, e não só no balão da
+             tela: a conferência de escritório não tem balão, e sem ela o arquivo traz
+             um número de saída sem dono. */
           return [par.idsTxt,
                   Q.dataBR(par.dataRef), par.teste ? 'Teste' : 'Producao', par.tipo,
-                  par.motorista || '(sem motorista)', par.rotasTxt,
-                  par.declarado || '', par.conferido || '',
-                  par.diferenca == null ? '' : par.diferenca,
-                  par.conferenteTxt, par.situacao];
+                  par.motorista || '(sem motorista)', par.origemTxt, par.destinoTxt,
+                  par.saida || '', par.declarado || '', par.conferido || '',
+                  par.difDecl == null ? '' : par.difDecl,
+                  par.difConf == null ? '' : par.difConf,
+                  par.informanteTxt, par.conferenteTxt, par.situacao];
         }));
     });
     periodoPadraoDecl();
@@ -3343,15 +3355,28 @@
        do outro quantos lançamentos o conferente tiver feito na mesma viagem.
        140 e não 105 como em Movimentos: lá cabe um código, aqui cabe um código mais a
        conta dos outros. */
-    padrao: ['lancamento','data','base','tipo','motorista','rotas','declarado','conferido',
-             'diferenca','conferente','situacao'],
+    /* ORIGEM E DESTINO NO LUGAR DE "ROTAS", a pedido — e a coluna velha não se perdeu,
+       ela estava com nome errado. `rotas` era montada de `m.origem || m.rota`: na foto
+       da tela ela dizia "Filial Maceió", que é a ORIGEM. A rota de verdade, quando vem,
+       repete o nome do destino nas saídas e não existe nos retornos — ao lado de uma
+       coluna Origem ela mostraria a mesma palavra duas vezes.
+
+       OS TRÊS NÚMEROS JUNTOS, nesta ordem: Saída, Declarado, Conferido. É a ordem do
+       que acontece — sai, o motorista diz quanto levou, alguém conta na chegada —, e
+       as duas diferenças vêm depois, na ordem em que foram pedidas. */
+    padrao: ['lancamento','data','base','tipo','motorista','origem','destino',
+             'saida','declarado','conferido','difDecl','difConf',
+             'conferente','situacao'],
     larg: { lancamento:140,
-            data:110, base:110, tipo:100, motorista:150, rotas:200, declarado:110,
-            conferido:110, diferenca:100, conferente:160, situacao:150 },
+            data:110, base:110, tipo:100, motorista:150, origem:160, destino:160,
+            saida:110, declarado:110, conferido:110, difDecl:130, difConf:130,
+            conferente:160, situacao:150 },
     titulos: { lancamento:'Lançamento',
                data:'Data', base:'Base', tipo:'Tipo', motorista:'Motorista',
-               rotas:'Rotas', declarado:'Declarado', conferido:'Conferido',
-               diferenca:'Dif.', conferente:'Conferente', situacao:'Situação' },
+               origem:'Origem', destino:'Destino',
+               saida:'Saída', declarado:'Declarado', conferido:'Conferido',
+               difDecl:'Saída − Declarado', difConf:'Saída − Conferido',
+               conferente:'Conferente', situacao:'Situação' },
     kOrdem: 'qdc_cols_decl_v1',
     kLarg: 'qdc_larg_decl_v1',
     kOcultas: 'qdc_cols_ocultas_decl_v1',
@@ -3380,6 +3405,50 @@
    * SEM MOTORISTA, A LINHA NÃO SOME: ela vai para "(sem motorista)". Um lançamento que
    * ninguém consegue conciliar é exatamente o que precisa aparecer; escondido, ele vira
    * uma diferença que não fecha e não se sabe onde procurar. */
+  /* ---------- QUEM LANÇOU, E EM QUE PAPEL ----------
+   *
+   * TRÊS NÚMEROS, e não dois. A tela comparava a declaração do motorista com "tudo o
+   * mais que foi lançado naquela viagem" — e dentro desse "tudo o mais" cabiam duas
+   * coisas que não são a mesma: o que o gerente informou que SAIU, e o que o conferente
+   * CONTOU na chegada. Somadas numa coluna só, a pergunta que esta tela existe para
+   * responder — chegou o que saiu? — não tinha como ser feita.
+   *
+   * O PAPEL SAI DO LANÇAMENTO, e não do cadastro de hoje: cada linha guarda o perfil de
+   * quem a fez no momento em que a fez. Lido do cadastro, promover alguém a Conferente
+   * reescreveria o passado — as contagens antigas dele trocariam de coluna sozinhas, e
+   * um período já fechado passaria a fechar de outro jeito.
+   *
+   * O CADASTRO É O SOCORRO, e só: para a linha gravada antes de o perfil viajar junto.
+   * Sem ele, toda linha antiga cairia em "saída" e a tela afirmaria que ninguém nunca
+   * conferiu nada — uma afirmação sobre o passado, feita por omissão. */
+  function perfilNaEquipe(usuarioId){
+    var id = String(usuarioId == null ? '' : usuarioId).trim();
+    if (!id) return '';
+    var u = (EQUIPE || []).filter(function(x){
+      return String(x.ID || x.id || '') === id;
+    })[0];
+    return u ? String(u.Perfil || u.perfil || '') : '';
+  }
+  function papelDoLancamento(m){
+    var p = String((m && m.perfil) || '').trim();
+    return p || perfilNaEquipe(m && m.usuarioId);
+  }
+  /* CONFERENTE É O ÚNICO PAPEL QUE VALE COMO CONFERÊNCIA, e a comparação vai sem acento
+     e sem caixa: o perfil é texto livre no cadastro, e "CONFERENTE" e "Conferente" são
+     a mesma função escrita por duas pessoas em dias diferentes. */
+  function contouComoConferente(m){
+    return semAcento(papelDoLancamento(m)).trim() === 'conferente';
+  }
+
+  /* O RESUMO DE UMA LISTA DE NOMES: o primeiro e a conta dos outros. Escrito duas vezes
+     — uma para quem conferiu, outra para quem informou —, bastaria um ganhar o nome
+     completo para as duas colunas vizinhas discordarem de forma. */
+  function resumoDeNomes(mapa){
+    var nomes = Object.keys(mapa || {}).sort();
+    if (!nomes.length) return '';
+    return nomes.length === 1 ? nomes[0] : nomes[0] + '  +' + (nomes.length - 1);
+  }
+
   function chaveDoPar(m){
     var ensaio = m.teste ? 'teste' : 'real';
     var sentido = (m.tipo === 'DEVOLUCAO') ? 'ENTRADA' : 'SAIDA';
@@ -3394,8 +3463,9 @@
         mapa[k] = { chave: k, dataRef: m.dataRef || '',
                     motorista: (m.motorista || '').trim(),
                     tipo: (m.tipo === 'DEVOLUCAO') ? 'Retorno' : 'Saída',
-                    teste: !!m.teste, declarado: 0, conferido: 0,
-                    rotas: {}, conferentes: {}, ids: {}, itens: [] };
+                    teste: !!m.teste, saida: 0, declarado: 0, conferido: 0,
+                    rotas: {}, origens: {}, destinos: {},
+                    conferentes: {}, informantes: {}, ids: {}, itens: [] };
       }
       var par = mapa[k];
       /* OS NÚMEROS DOS DOIS LADOS na mesma coluna, e não só os do conferente: quem vem
@@ -3408,20 +3478,36 @@
          este par" não teria o que corrigir. */
       par.itens.push(m);
       var q = Number(m.qtd) || 0;
+      /* TRÊS CAIXAS, e cada lançamento cai em UMA. A declaração é o que o motorista
+         informou; a conferência é o que alguém de perfil Conferente contou; o resto é
+         o que foi informado que saiu. O `else` final é deliberado: um lançamento de
+         perfil desconhecido não é conferência — dizer que é inventaria uma contagem que
+         ninguém fez, e é a coluna Conferido que decide se a carga fecha. */
       if (m.declaracao) par.declarado += q;
-      else {
+      else if (contouComoConferente(m)) {
         par.conferido += q;
         /* QUEM CONTOU sai dos lançamentos que contam, e não dos declarados: o motorista
            aparece como autor da própria declaração, e listá-lo aqui faria a coluna
            Conferente dizer o nome de quem não conferiu nada. */
         if (m.usuario) par.conferentes[m.usuario] = 1;
+      } else {
+        par.saida += q;
+        if (m.usuario) par.informantes[m.usuario] = 1;
       }
+      if (m.origem) par.origens[m.origem] = 1;
+      if (m.destino) par.destinos[m.destino] = 1;
       var r = m.origem || m.rota || '';
       if (r) par.rotas[r] = 1;
     });
     return Object.keys(mapa).map(function(k){
       var par = mapa[k];
       par.rotasTxt = Object.keys(par.rotas).sort().join(', ');
+      /* UM PAR É UMA VIAGEM, e uma viagem pode ter várias pontas: numa carga de vários
+         clientes é o conferente quem desmembra por origem, e o motorista declara um
+         total só. Por isso são CONJUNTOS, e não o primeiro que apareceu. */
+      par.origemTxt = Object.keys(par.origens).sort().join(', ');
+      par.destinoTxt = Object.keys(par.destinos).sort().join(', ');
+      par.informanteTxt = resumoDeNomes(par.informantes);
       /* ORDENADOS COMO TEXTO, que é o que o formato permite: largura fixa e zeros à
          esquerda fazem `M000041` vir antes de `M000102` sem virar número.
          O INTEIRO E O CURTO, os dois: na tela um par de seis lançamentos viraria uma
@@ -3431,21 +3517,29 @@
       par.idsCurto = !par.idsLista.length ? ''
         : (par.idsLista.length === 1 ? par.idsLista[0]
            : par.idsLista[0] + '  +' + (par.idsLista.length - 1));
-      var nomes = Object.keys(par.conferentes).sort();
-      par.conferenteTxt = !nomes.length ? ''
-        : (nomes.length === 1 ? nomes[0] : nomes[0] + '  +' + (nomes.length - 1));
-      /* AS QUATRO SITUAÇÕES, e a que mais importa é a terceira. "Sem declaração" NÃO é
-         divergência, é ausência: virando −250 na coluna da diferença, a tela diria que o
-         motorista trouxe 250 caixas a menos — uma acusação inventada, e da pior espécie,
+      par.conferenteTxt = resumoDeNomes(par.conferentes);
+      /* A SITUAÇÃO RESPONDE A PERGUNTA DESTA TELA, e ela mudou junto com as colunas:
+         chegou o que saiu? A comparação é SAÍDA contra CONFERIDO. Antes era declarado
+         contra conferido — e enquanto "conferido" significava "tudo o que não é
+         declaração", isso dava a resposta certa por acaso. Separada a saída da
+         conferência, a mesma conta passaria a comparar o que o motorista DISSE com uma
+         coluna quase sempre vazia, e a tela ficaria vermelha por definição.
+
+         A AUSÊNCIA TEM NOME PRÓPRIO, e nunca vira divergência: "Sem conferência" é um
+         par que saiu e ninguém contou ainda, e virando −410 na coluna da diferença a
+         tela diria que faltaram 410 caixas — uma acusação inventada, e da pior espécie,
          porque parece um número. */
-      if (!par.declarado && par.conferido) par.situacao = 'Sem declaração';
-      else if (par.declarado && !par.conferido) par.situacao = 'Só declaração';
-      else if (par.declarado === par.conferido) par.situacao = 'Bateu';
-      else par.situacao = 'Divergente';
-      /* A DIFERENÇA SÓ EXISTE QUANDO OS DOIS LADOS EXISTEM. `conferido − declarado`:
-         positivo quer dizer que chegou mais do que ele informou. */
-      par.diferenca = (par.declarado && par.conferido)
-        ? par.conferido - par.declarado : null;
+      if (par.saida && par.conferido) {
+        par.situacao = (par.saida === par.conferido) ? 'Bateu' : 'Divergente';
+      } else if (par.saida) par.situacao = 'Sem conferência';
+      else if (par.conferido) par.situacao = 'Sem saída';
+      else par.situacao = 'Só declaração';
+      /* AS DUAS DIFERENÇAS SÓ EXISTEM QUANDO OS DOIS LADOS EXISTEM, e as duas saem da
+         SAÍDA: é ela o que de fato deixou o galpão, e as outras duas colunas são o que
+         cada um diz sobre isso. Positivo quer dizer que saiu mais do que a outra ponta
+         registrou — do que o motorista declarou, ou do que o conferente contou. */
+      par.difDecl = (par.saida && par.declarado) ? par.saida - par.declarado : null;
+      par.difConf = (par.saida && par.conferido) ? par.saida - par.conferido : null;
       return par;
     });
   }
@@ -3453,6 +3547,14 @@
   function defsDecl(){
     var T = TAB_DECL.titulos;
     function sinal(n){ return (n > 0 ? '+' : n < 0 ? '−' : '') + Q.num(Math.abs(n)); }
+    function celulaDif(titulo, campo){
+      return { t: titulo, num: true,
+               k: function(p){ return p[campo] == null ? 0 : p[campo]; },
+               v: function(p){ return p[campo] == null
+                 ? '<span class="fraco">—</span>'
+                 : (p[campo] === 0 ? '<span class="fraco">0</span>'
+                    : '<b>'+sinal(p[campo])+'</b>'); } };
+    }
     return {
       /* EM FONTE DE NÚMEROS, como em Movimentos: é um código que alguém vai ditar por
          telefone, e em fonte de texto o zero e o "O" ficam iguais. O título traz a
@@ -3473,36 +3575,60 @@
       motorista: { t: T.motorista, k: function(p){ return p.motorista; },
                    v: function(p){ return p.motorista ? Q.esc(p.motorista)
                      : '<span class="fraco">(sem motorista)</span>'; } },
-      rotas:     { t: T.rotas, k: function(p){ return p.rotasTxt; },
-                   v: function(p){ return p.rotasTxt
-                     ? '<span class="corta" title="'+Q.esc(p.rotasTxt)+'">'+
-                       Q.esc(p.rotasTxt)+'</span>'
+      /* AS DUAS PONTAS DA VIAGEM, cada uma na coluna dela. São CONJUNTOS: o conferente
+         desmembra uma carga por origem, e o par é a viagem inteira. */
+      origem:    { t: T.origem, k: function(p){ return p.origemTxt; },
+                   v: function(p){ return p.origemTxt
+                     ? '<span class="corta" title="'+Q.esc(p.origemTxt)+'">'+
+                       Q.esc(p.origemTxt)+'</span>'
+                     : '<span class="fraco">—</span>'; } },
+      destino:   { t: T.destino, k: function(p){ return p.destinoTxt; },
+                   v: function(p){ return p.destinoTxt
+                     ? '<span class="corta" title="'+Q.esc(p.destinoTxt)+'">'+
+                       Q.esc(p.destinoTxt)+'</span>'
                      : '<span class="fraco">—</span>'; } },
       /* O TRAVESSÃO NO LADO QUE NÃO EXISTE, e nunca um zero: zero é uma contagem que
          deu zero, e ausência é outra coisa. */
+      /* QUEM INFORMOU A SAÍDA VAI NO BALÃO DELA. A coluna Conferente agora lista só
+         quem tem o papel de conferir — e sem isto o nome de quem informou a saída não
+         estaria em lugar nenhum da tabela, só dentro dos lançamentos do par. */
+      saida:     { t: T.saida, num: true, k: function(p){ return p.saida; },
+                   v: function(p){ return p.saida
+                     ? '<span title="'+Q.esc('Informado por '+(p.informanteTxt || '—'))+
+                       '">'+Q.num(p.saida)+'</span>'
+                     : '<span class="fraco">—</span>'; } },
       declarado: { t: T.declarado, num: true, k: function(p){ return p.declarado; },
                    v: function(p){ return p.declarado ? Q.num(p.declarado)
                      : '<span class="fraco">—</span>'; } },
       conferido: { t: T.conferido, num: true, k: function(p){ return p.conferido; },
                    v: function(p){ return p.conferido ? Q.num(p.conferido)
                      : '<span class="fraco">—</span>'; } },
-      diferenca: { t: T.diferenca, num: true,
-                   k: function(p){ return p.diferenca == null ? 0 : p.diferenca; },
-                   v: function(p){ return p.diferenca == null
-                     ? '<span class="fraco">—</span>'
-                     : (p.diferenca === 0 ? '<span class="fraco">0</span>'
-                        : '<b>'+sinal(p.diferenca)+'</b>'); } },
+      /* AS DUAS DIFERENÇAS SE DESENHAM IGUAL, e por isso saem da mesma fábrica: duas
+         cópias divergiriam no primeiro ajuste de sinal ou de cor, e as duas colunas
+         ficam uma ao lado da outra — a diferença apareceria na hora, sem se explicar. */
+      difDecl:   celulaDif(T.difDecl, 'difDecl'),
+      difConf:   celulaDif(T.difConf, 'difConf'),
       conferente:{ t: T.conferente, k: function(p){ return p.conferenteTxt; },
                    v: function(p){ return p.conferenteTxt ? Q.esc(p.conferenteTxt)
                      : '<span class="fraco">—</span>'; } },
       situacao:  { t: T.situacao, k: function(p){ return p.situacao; },
                    v: function(p){
-                     var cor = p.situacao === 'Bateu' ? 'verde'
-                             : p.situacao === 'Divergente' ? 'amarela'
-                             : p.situacao === 'Só declaração' ? 'vermelha' : 'cinza';
-                     return '<span class="tag '+cor+'">'+Q.esc(p.situacao)+'</span>';
+                     return '<span class="tag '+corDaSituacao(p.situacao)+'">'+
+                       Q.esc(p.situacao)+'</span>';
                    } }
     };
+  }
+
+  /* AS SITUAÇÕES QUE EXISTEM, lidas do seletor do filtro. Uma lista escrita de novo
+     aqui divergiria dele no dia em que uma situação entrasse ou saísse — e o sintoma
+     seria sutil: os chips somariam menos do que os pares da tabela, e nada diria por
+     quê. O seletor é a fonte porque é ele que a pessoa vê. */
+  function situacoesConhecidas(){
+    var sel = document.getElementById('dcSituacao');
+    if (!sel) return [];
+    return Array.prototype.slice.call(sel.options)
+      .map(function(o){ return o.value; })
+      .filter(function(v){ return !!v; });
   }
 
   function filtroDecl(){
@@ -3654,8 +3780,8 @@
     var porDia = {};
     lista.forEach(function(p2){
       var d = p2.dataRef || '';
-      if (!porDia[d]) porDia[d] = { decl: 0, conf: 0 };
-      porDia[d].decl += Number(p2.declarado) || 0;
+      if (!porDia[d]) porDia[d] = { said: 0, conf: 0 };
+      porDia[d].said += Number(p2.saida) || 0;
       porDia[d].conf += Number(p2.conferido) || 0;
     });
     lista.forEach(function(p2){
@@ -3663,15 +3789,19 @@
       if (d !== diaAberto) {
         if (diaAberto !== null) fora.push('</div></section>');
         diaAberto = d;
-        var x = porDia[d] || { decl: 0, conf: 0 };
-        var dif = x.conf - x.decl;
+        /* A TARJA DO DIA PASSOU A COMPARAR SAÍDA E CONFERIDO, e não declarado e
+           conferido: é a mesma pergunta das colunas e da situação — chegou o que saiu?
+           Deixada no declarado, a tarja responderia uma pergunta e as fichas logo
+           abaixo dela, outra. */
+        var x = porDia[d] || { said: 0, conf: 0 };
+        var dif = x.said - x.conf;
         fora.push('<section class="grupo-dia">'+
           '<header class="dia-mov" data-dia="'+Q.esc(d)+'">'+
             '<b>'+Q.esc(d ? Q.dataBR(d) : '\u2014')+'</b>'+
             '<span class="dia-mov__esp"></span>'+
-            '<span class="dia-mov__s" title="Declarado no dia">D '+Q.num(x.decl)+'</span>'+
+            '<span class="dia-mov__s" title="Saída no dia">S '+Q.num(x.said)+'</span>'+
             '<span class="dia-mov__r" title="Conferido no dia">C '+Q.num(x.conf)+'</span>'+
-            '<span class="dia-mov__b'+(dif !== 0 ? ' ruim' : '')+'" title="Diferença do dia">'+
+            '<span class="dia-mov__b'+(dif !== 0 ? ' ruim' : '')+'" title="Saída menos conferido, no dia">'+
               (dif === 0 ? '0' : (dif < 0 ? '\u2212' : '+')+Q.num(Math.abs(dif)))+
             '</span>'+
           '</header><div class="pares">');
@@ -3682,11 +3812,20 @@
     return fora.join('');
   }
 
+  /* A COR DA SITUAÇÃO, num lugar só. Ela era escrita na célula da tabela e de novo na
+     ficha do celular, com a mesma lista de três — e uma situação nova ganhava cor numa
+     tela e ficava cinza na outra, para o mesmo par.
+     VERMELHO É SÓ PARA O QUE NÃO FECHOU. "Sem conferência" e "Sem saída" são ausências,
+     e ausência em vermelho ensina a ignorar o vermelho. */
+  function corDaSituacao(sit){
+    return sit === 'Bateu' ? 'verde'
+         : sit === 'Divergente' ? 'vermelha'
+         : sit === 'Sem conferência' ? 'amarela' : 'cinza';
+  }
+
   function cartaoPar(par){
     var sinal = function(n){ return (n > 0 ? '+' : n < 0 ? '−' : '') + Q.num(Math.abs(n)); };
-    var cor = par.situacao === 'Bateu' ? 'verde'
-            : par.situacao === 'Divergente' ? 'amarela'
-            : par.situacao === 'Só declaração' ? 'vermelha' : 'cinza';
+    var cor = corDaSituacao(par.situacao);
     return '<article class="pc'+(par.situacao === 'Bateu' ? '' : ' pc--olhar')+'">'+
       '<header class="pc__c">'+
         '<div><b>'+(par.motorista ? Q.esc(par.motorista)
@@ -3695,17 +3834,31 @@
             Q.esc(par.teste ? 'Teste' : 'Produção')+'</small></div>'+
         '<span class="tag '+cor+'">'+Q.esc(par.situacao)+'</span>'+
       '</header>'+
-      /* OS TRÊS NÚMEROS NA ORDEM DA CONTA: o que ele disse, o que se contou, e a
-         diferença entre os dois. A diferença no MEIO seria lida antes das parcelas. */
+      /* OS TRÊS NÚMEROS NA ORDEM DO QUE ACONTECE: o que saiu, o que o motorista disse
+         que levou, o que se contou na chegada. As DIFERENÇAS vêm na linha de baixo, e
+         não entre eles: no meio, elas seriam lidas antes das parcelas que as produzem.
+         DUAS LINHAS, e não uma de cinco: cinco números numa tela de 320px dão sessenta
+         pixels cada, e um "−410" nesse tamanho é um borrão. */
       '<div class="pc__n">'+
+        '<div><small>Saída</small><b>'+(par.saida ? Q.num(par.saida)
+                                                  : '<span class="fraco">—</span>')+'</b></div>'+
         '<div><small>Declarado</small><b>'+(par.declarado ? Q.num(par.declarado)
                                                           : '<span class="fraco">—</span>')+'</b></div>'+
         '<div><small>Conferido</small><b>'+(par.conferido ? Q.num(par.conferido)
                                                           : '<span class="fraco">—</span>')+'</b></div>'+
-        '<div><small>Diferença</small><b>'+(par.diferenca == null
-          ? '<span class="fraco">—</span>' : sinal(par.diferenca))+'</b></div>'+
       '</div>'+
-      '<div class="pc__r">'+Q.esc(par.rotasTxt || '—')+
+      '<div class="pc__n pc__n--dif">'+
+        '<div><small>Saída − Declarado</small><b>'+(par.difDecl == null
+          ? '<span class="fraco">—</span>' : sinal(par.difDecl))+'</b></div>'+
+        '<div><small>Saída − Conferido</small><b>'+(par.difConf == null
+          ? '<span class="fraco">—</span>' : sinal(par.difConf))+'</b></div>'+
+      '</div>'+
+      /* AS DUAS PONTAS DA VIAGEM na linha de apoio: no celular não há coluna Origem nem
+         Destino para onde olhar, e "de onde para onde" é a primeira pergunta de quem
+         abre um par que não fechou. */
+      '<div class="pc__r">'+Q.esc(par.origemTxt || '—')+' → '+
+        Q.esc(par.destinoTxt || '—')+
+        (par.informanteTxt ? ' · saída por ' + Q.esc(par.informanteTxt) : '')+
         (par.conferenteTxt ? ' · conferiu ' + Q.esc(par.conferenteTxt) : '')+'</div>'+
       '<button class="mini" type="button" data-abrir-par="'+Q.esc(par.chave)+'">'+
         Q.num(par.idsLista.length)+' lançamento'+(par.idsLista.length === 1 ? '' : 's')+
@@ -3787,7 +3940,12 @@
        cabeca de quem escreveu, e o segundo chamador a esquece. */
     busca = semAcento(busca).trim();
     if (!busca) return true;
-    var alvo = semAcento([p.motorista, p.rotasTxt, p.conferenteTxt, p.idsTxt,
+    /* AS DUAS PONTAS E QUEM INFORMOU ENTRAM NA SACOLA. A busca olha o que a TELA
+       mostra, e a tela passou a mostrar origem, destino e — no balão da saída — o nome
+       de quem a informou. Fora daqui, procurar "maceió" não acharia o par que está
+       escrito na coluna Origem bem à frente de quem digitou. */
+    var alvo = semAcento([p.motorista, p.origemTxt, p.destinoTxt, p.rotasTxt,
+                          p.conferenteTxt, p.informanteTxt, p.idsTxt,
                           p.tipo, p.situacao, p.base, dataBRdeISO(p.dataRef),
                           p.dataRef].join(' '));
     return busca.split(/\s+/).every(function(pedaco){
@@ -3825,25 +3983,38 @@
 
     /* OS NÚMEROS FORA DO CORTE DA LISTA VAZIA: um recorte sem nenhum par ainda tem
        resposta — zeros —, e ela é diferente de a tela não ter desenhado nada. */
-    var decl = L.reduce(function(a, p){ return a + p.declarado; }, 0);
-    var conf = L.reduce(function(a, p){ return a + p.conferido; }, 0);
+    var soma = function(campo){
+      return L.reduce(function(a, p){ return a + (Number(p[campo]) || 0); }, 0);
+    };
+    var said = soma('saida'), decl = soma('declarado'), conf = soma('conferido');
     var conta = function(s){ return L.filter(function(p){ return p.situacao === s; }).length; };
     var faixa = document.getElementById('dcTotais');
     if (faixa){
+      /* SEM O TEXTO DE APOIO, a pedido. Ele explicava o que os rótulos já dizem —
+         "Declarado" é o que o motorista informou —, e num telefone essas frases
+         custavam mais altura do que os números juntos. O `title` continua levando a
+         frase inteira para quem precisar dela. */
+      /* AS DUAS DIFERENÇAS SOMAM AS PARCELAS, e não as diferenças de cada par. As duas
+         contas dão o mesmo número hoje, e só uma continua certa no dia em que um par
+         nascer sem uma das pontas — que é justamente quando a conta importa. */
+      var sinalDe = function(n){
+        return (n > 0 ? '+' : n < 0 ? '−' : '') + Q.num(Math.abs(n));
+      };
       faixa.innerHTML =
-        /* SEM O TEXTO DE APOIO, a pedido. Ele explicava o que os três rótulos já
-           dizem — "Declarado" é o que o motorista informou —, e num telefone essas três
-           frases custavam mais altura do que os três números juntos. O `title` continua
-           levando a frase inteira para quem precisar dela. */
-        cartaoTot(0, 3, 'var(--azul)', 'Declarado', Q.num(decl), '', null) +
-        cartaoTot(1, 3, 'var(--verde)', 'Conferido', Q.num(conf), '', null) +
-        cartaoTot(2, 3, 'var(--ambar)', 'Diferença',
-                  (conf - decl > 0 ? '+' : conf - decl < 0 ? '−' : '') +
-                    Q.num(Math.abs(conf - decl)), '', null);
+        cartaoTot(0, 5, 'var(--roxo-txt)', 'Saída',    Q.num(said), '', null) +
+        cartaoTot(1, 5, 'var(--azul)',  'Declarado', Q.num(decl), '', null) +
+        cartaoTot(2, 5, 'var(--verde)', 'Conferido', Q.num(conf), '', null) +
+        cartaoTot(3, 5, 'var(--ambar)', 'Saída − Declarado', sinalDe(said - decl), '', null) +
+        cartaoTot(4, 5, 'var(--ambar-forte)', 'Saída − Conferido',
+                  sinalDe(said - conf), '', null);
     }
     var sit = document.getElementById('dcSituacoes');
     if (sit){
-      sit.innerHTML = ['Bateu','Divergente','Sem declaração','Só declaração']
+      /* A LISTA DOS CHIPS É A MESMA DO FILTRO, lida do próprio seletor: escritas em
+         dois lugares, uma situação nova apareceria num e não no outro, e a soma dos
+         chips deixaria de fechar com a quantidade de pares sem que nada dissesse por
+         quê. */
+      sit.innerHTML = situacoesConhecidas()
         .map(function(s){
           return '<span><b>'+Q.num(conta(s))+'</b> '+Q.esc(s.toLowerCase())+'</span>';
         }).join('');

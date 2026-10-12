@@ -1669,6 +1669,14 @@ tr.par-linhas > td{background:var(--campo);padding:0}
 .pc__n small{display:block;color:var(--txt3);font-size:11px;text-transform:uppercase;
   letter-spacing:.06em}
 .pc__n b{font-family:var(--fonte-mono);font-size:18px}
+/* A LINHA DAS DIFERENCAS: duas celulas, e nao mais tres. Cinco numeros numa tela de
+   320px dao sessenta pixels cada, e um "-410" nesse tamanho e' um borrao. Por isso as
+   parcelas ficam numa linha e os resultados na outra — e os rotulos daqui sao frases
+   ("Saida - Declarado"), que em tres colunas quebrariam letra a letra. */
+.pc__n--dif{grid-template-columns:repeat(2,1fr);margin-top:0;
+  padding-top:8px;border-top:1px dashed var(--linha)}
+.pc__n--dif small{font-size:10px}
+.pc__n--dif b{font-size:16px}
 .pc__r{font-size:12.5px;color:var(--txt2);margin-bottom:10px}
 .pc__d{margin:8px -12px -12px;border-top:1px solid var(--linha);background:var(--campo);
   border-radius:0 0 var(--raio) var(--raio)}
@@ -3546,21 +3554,21 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
      bloco ja descrevia, num lugar que a regra nao alcancava. */
   .tot{grid-template-columns:repeat(2,minmax(0,1fr))}
   .tot__c[data-cartao="hoje"]{display:none}
-  /* A FILEIRA DE TRES: os dois primeiros dividem a linha e a DIFERENCA — o numero pelo
-     qual se abre a tela — toma a de baixo inteira. Meia largura ao lado de um vazio e
-     desenho, e nao arranjo.
+  /* A FILEIRA DE CINCO. Eram TRES — declarado, conferido e a diferenca entre os dois —,
+     e cabiam lado a lado no telefone. Com a saida separada da conferencia sao cinco:
+     tres numeros e duas diferencas. Em tres colunas, cada cartao ficava com 100px e
+     rotulos como "Saida - Conferido" saiam quebrados em quatro linhas de letra.
+     DUAS COLUNAS, E O QUINTO ABRE A LINHA: em duas colunas ele sobra sozinho, e meia
+     largura ao lado de um vazio e desenho, e nao arranjo. O quinto e' a diferenca entre
+     o que saiu e o que foi conferido, que e' o numero pelo qual se abre esta tela.
      PELA CLASSE DA FILEIRA, e nao por `:last-child` solto: em Movimentos o ultimo
      cartao do DOM e' o setimo, e um deles esta escondido — `:last-child` la' abriria a
      linha para um cartao que nao e' o ultimo que se ve. */
-  /* OS TRES LADO A LADO, a pedido. Eles sao uma CONTA — declarado, conferido e a
-     diferenca entre os dois —, e conta que se le em duas linhas nao se le como conta: a
-     parcela de cima e a de baixo deixam de estar no mesmo olhar.
-     COUBERAM PORQUE O TEXTO DE APOIO SAIU. Com as tres frases embaixo dos numeros,
-     100px de coluna davam quatro linhas de letra quebrada — foi o que a tela mostrou. */
-  .tot--tri{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
-  .tot--tri .tot__c{padding:8px 9px}
-  .tot--tri .tot__r{font-size:10.5px;gap:4px}
-  .tot--tri .tot__v{font-size:17px}
+  .tot--cinco{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .tot--cinco .tot__c{padding:8px 9px}
+  .tot--cinco .tot__r{font-size:10.5px;gap:4px}
+  .tot--cinco .tot__v{font-size:17px}
+  .tot--cinco .tot__c:nth-child(5){grid-column:1 / -1}
 
   /* OS GRAFICOS EMPILHAM na aba deles: ha tela inteira, e um trilho que desliza de lado
      dentro de uma pagina que rola para baixo faz o dedo competir consigo mesmo. */

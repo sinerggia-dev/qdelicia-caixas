@@ -11844,78 +11844,161 @@ console.log('\n== Motorista/Conferente ==');
 
   /* ---- O PAR, RODADO ----
    *
-   * É aqui que a tela vira uma resposta: dois lançamentos viram uma linha, ou a falta de
+   * É aqui que a tela vira uma resposta: três lançamentos viram uma linha, ou a falta de
    * um vira uma linha também. Lida no arquivo, a prova responderia "a palavra motorista
-   * está na chave?" — e estaria, mesmo somando o lado errado. */
-  var iPar = adm.indexOf('  function chaveDoPar(m){');
+   * está na chave?" — e estaria, mesmo somando o lado errado.
+   *
+   * TRÊS CAIXAS E NÃO DUAS, desde que a conciliação passou a separar o que SAIU do que
+   * foi CONFERIDO. Antes, "tudo o que não é declaração" caía em conferido — e o número
+   * que o gerente informava aparecia como se alguém tivesse contado a carga na chegada.
+   * É a afirmação mais cara desta tela, porque é dela que sai o "bateu". */
+  var iPar = adm.indexOf('  function perfilNaEquipe(usuarioId){');
   var fimPar = adm.indexOf('  function defsDecl(){');
   var fontePar = iPar < 0 || fimPar < 0 ? '' : adm.slice(iPar, fimPar);
-  ok(fontePar.length > 400 && fontePar.indexOf('montarPares') > 0,
-    'a conferência recortou o emparelhamento — recorte vazio faria as provas abaixo ' +
-    'passarem sem rodar nada', fontePar.length);
-  var montarPares = new Function(fontePar + '\n return montarPares;')();
+  ok(fontePar.length > 400 && fontePar.indexOf('montarPares') > 0 &&
+     fontePar.indexOf('contouComoConferente') > 0,
+    'a conferência recortou o emparelhamento, com a regra do papel junto — recorte ' +
+    'vazio faria as provas abaixo passarem sem rodar nada', fontePar.length);
+  /* O CADASTRO DE MENTIRA tem um conferente e um gerente, e é consultado só pela linha
+     que não trouxe o perfil gravado. */
+  var EQUIPE_FALSA = [{ ID: 'u-melk', Nome: 'Melk', Perfil: 'Conferente' },
+                      { ID: 'u-well', Nome: 'Wellington', Perfil: 'Gerente' }];
+  function semAcentoReal(s) {
+    var v = String(s == null ? '' : s).toLowerCase();
+    return v.normalize ? v.normalize('NFD').replace(/[̀-ͯ]/g, '') : v;
+  }
+  var montarPares = new Function('EQUIPE', 'semAcento',
+    fontePar + '\n return montarPares;')(EQUIPE_FALSA, semAcentoReal);
 
+  /* Por omissão o lançamento é uma CONTAGEM de conferente: é o lado que a maioria das
+     provas abaixo exercita, e escrever o perfil em cada chamada esconderia o que muda. */
   function lanc(o) {
     return Object.assign({ dataRef: '2026-09-26', motorista: 'Chico', tipo: 'DEVOLUCAO',
                            qtd: 0, teste: false, declaracao: false, usuario: 'Melk',
-                           origem: 'João Pessoa' }, o);
+                           perfil: 'Conferente',
+                           origem: 'João Pessoa', destino: 'Matriz São Vicente' }, o);
   }
-  function acha(pares, sit) {
-    return pares.filter(function (p) { return p.situacao === sit; })[0];
+  function saidaDe(o) {
+    return lanc(Object.assign({ usuario: 'Wellington', perfil: 'Gerente' }, o));
+  }
+  function declDe(o) {
+    return lanc(Object.assign({ declaracao: true, usuario: 'Chico', perfil: 'Motorista' }, o));
   }
 
-  /* BATEU: os dois lados existem e são iguais. */
+  /* BATEU: saiu 500 e o conferente contou 500. A declaração do motorista entra na conta
+     de ao lado, e não nesta — ela diz o que ele acha que levou, não o que chegou. */
   var bateu = montarPares([
-    lanc({ declaracao: true, qtd: 250, usuario: 'Chico' }),
-    lanc({ qtd: 250 })
+    saidaDe({ qtd: 500 }), declDe({ qtd: 410 }), lanc({ qtd: 500 })
   ]);
-  ok(bateu.length === 1 && bateu[0].situacao === 'Bateu' &&
-     bateu[0].declarado === 250 && bateu[0].conferido === 250,
-    'a declaração do motorista e a contagem do conferente do MESMO dia viram UMA linha ' +
-    '— dois lançamentos, um par', bateu[0]);
-  ok(bateu[0].conferenteTxt === 'Melk',
-    'e a coluna Conferente diz quem CONTOU, não quem declarou — o motorista é o autor ' +
-    'da própria declaração, e dizer o nome dele ali seria dizer que ele conferiu a si ' +
-    'mesmo', bateu[0].conferenteTxt);
+  ok(bateu.length === 1 && bateu[0].saida === 500 && bateu[0].declarado === 410 &&
+     bateu[0].conferido === 500,
+    'os três lançamentos da mesma viagem viram UMA linha com TRÊS números — o que o ' +
+    'gerente informou que saiu, o que o motorista declarou e o que o conferente contou',
+    bateu[0] && [bateu[0].saida, bateu[0].declarado, bateu[0].conferido]);
+  ok(bateu[0].situacao === 'Bateu',
+    'e "bateu" é SAÍDA contra CONFERIDO — é essa a pergunta da tela: chegou o que saiu?',
+    bateu[0].situacao);
+  ok(bateu[0].difDecl === 90 && bateu[0].difConf === 0,
+    'e as duas diferenças saem da saída: 500 que saíram menos 410 declarados dá +90, e ' +
+    'menos 500 conferidos dá 0 — positivo quer dizer que saiu mais do que a outra ' +
+    'ponta registrou', [bateu[0].difDecl, bateu[0].difConf]);
+  ok(bateu[0].conferenteTxt === 'Melk' && bateu[0].informanteTxt === 'Wellington',
+    'e cada nome fica do lado dele: Conferente diz quem CONTOU, e quem informou a saída ' +
+    'fica no balão dela — o motorista é autor da própria declaração, e pô-lo em ' +
+    'qualquer das duas seria dizer que ele conferiu a si mesmo',
+    [bateu[0].conferenteTxt, bateu[0].informanteTxt]);
 
-  /* DIVERGENTE, e o sinal da diferença tem sentido: conferido − declarado. */
+  /* O GERENTE NÃO É CONFERENTE, e é esta a linha que a tela errava: o 500 dele caía em
+     Conferido, a tela dizia "bateu" contra a declaração, e ninguém tinha contado nada. */
+  var soGerente = montarPares([saidaDe({ qtd: 500 }), declDe({ qtd: 410 })]);
+  ok(soGerente[0].conferido === 0 && soGerente[0].saida === 500,
+    'o que o gerente informa NÃO conta como conferência — contava, e a coluna Conferido ' +
+    'mostrava o número de quem não conferiu a carga',
+    [soGerente[0].saida, soGerente[0].conferido]);
+  ok(soGerente[0].situacao === 'Sem conferência' && soGerente[0].difConf === null,
+    'e o par fica "Sem conferência", com a diferença em travessão — virando −500, a ' +
+    'tela acusaria uma falta de quinhentas caixas que ninguém viu',
+    [soGerente[0].situacao, soGerente[0].difConf]);
+
+  /* PERFIL DESCONHECIDO NÃO É CONFERÊNCIA. Contado como tal, bastava um lançamento de
+     alguém sem perfil para a carga "fechar" sozinha. */
+  var semPapel = montarPares([
+    saidaDe({ qtd: 300 }),
+    lanc({ qtd: 300, usuario: 'Fulano', perfil: '', usuarioId: 'u-ninguem' })
+  ]);
+  ok(semPapel[0].conferido === 0 && semPapel[0].saida === 600,
+    'e lançamento de perfil desconhecido também não conta como conferência — contasse, ' +
+    'bastaria alguém sem perfil lançar para a carga fechar sozinha',
+    [semPapel[0].saida, semPapel[0].conferido]);
+
+  /* O CADASTRO SOCORRE A LINHA SEM PERFIL GRAVADO: sem isso, toda linha antiga cairia
+     em saída e a tela afirmaria que ninguém nunca conferiu nada. */
+  var antiga = montarPares([
+    saidaDe({ qtd: 200 }),
+    lanc({ qtd: 200, usuario: 'Melk', perfil: '', usuarioId: 'u-melk' })
+  ]);
+  ok(antiga[0].conferido === 200 && antiga[0].situacao === 'Bateu',
+    'a linha gravada antes de o perfil viajar junto acha o papel no cadastro — sem o ' +
+    'socorro, toda contagem antiga viraria "saída" e a tela afirmaria, por omissão, que ' +
+    'ninguém nunca conferiu nada', [antiga[0].saida, antiga[0].conferido]);
+
+  /* O PERFIL É TEXTO LIVRE no cadastro: "CONFERENTE" e "Conferente" são a mesma função
+     escrita por duas pessoas em dias diferentes. */
+  var gritado = montarPares([
+    saidaDe({ qtd: 100 }), lanc({ qtd: 100, perfil: 'CONFERENTE' })
+  ]);
+  ok(gritado[0].conferido === 100,
+    'e o papel é lido sem caixa e sem acento — o perfil é texto livre, e uma contagem ' +
+    'não pode deixar de contar por causa de como alguém digitou a palavra',
+    gritado[0].conferido);
+
+  /* DIVERGENTE: saiu 500, chegaram 460. */
   var div = montarPares([
-    lanc({ declaracao: true, qtd: 400, usuario: 'Arilson', motorista: 'Arilson' }),
+    saidaDe({ qtd: 500, motorista: 'Arilson' }),
+    declDe({ qtd: 500, motorista: 'Arilson', usuario: 'Arilson' }),
     lanc({ qtd: 460, motorista: 'Arilson', usuario: 'Nestor' })
   ]);
-  ok(div[0].situacao === 'Divergente' && div[0].diferenca === 60,
-    'e quando os dois números diferem a linha diz Divergente, com a diferença no ' +
-    'sentido conferido − declarado: positivo é chegou mais do que ele informou',
-    [div[0].situacao, div[0].diferenca]);
+  ok(div[0].situacao === 'Divergente' && div[0].difConf === 40,
+    'quando o que chegou difere do que saiu a linha diz Divergente, e a diferença é ' +
+    'saída − conferido: positivo é faltou chegar', [div[0].situacao, div[0].difConf]);
+  /* E A OUTRA DIFERENÇA CONTINUA SAINDO DA SAÍDA. Aqui saiu 500, ele declarou 500 e
+     chegaram 460: pela saída dá 0, pelo conferido daria −40. No par que BATEU as duas
+     fórmulas dariam o mesmo número — foi por isso que uma sabotagem escapou. */
+  ok(div[0].difDecl === 0,
+    'e a diferença contra o declarado também sai da SAÍDA, e não do conferido — ela responde ' +
+    '"ele declarou o que de fato saiu?", e tirada do conferido passaria a responder outra ' +
+    'pergunta com o mesmo título em cima', div[0].difDecl);
 
-  /* SEM DECLARAÇÃO NÃO É DIVERGÊNCIA. Virando −320 na coluna da diferença, a tela diria
-     que o motorista trouxe 320 caixas a menos — uma acusação inventada. */
-  var semDecl = montarPares([lanc({ qtd: 320, motorista: 'Chico' })]);
-  ok(semDecl[0].situacao === 'Sem declaração' && semDecl[0].diferenca === null &&
-     semDecl[0].declarado === 0,
-    'o conferente contou e o motorista não declarou: isso é AUSÊNCIA, não divergência — ' +
-    'a diferença fica em travessão, senão a tela acusaria uma falta de 320 caixas que ' +
-    'ninguém viu', [semDecl[0].situacao, semDecl[0].diferenca]);
+  /* SEM SAÍDA: alguém contou e ninguém informou o que saiu. */
+  var semSaida = montarPares([lanc({ qtd: 320, motorista: 'Chico' })]);
+  ok(semSaida[0].situacao === 'Sem saída' && semSaida[0].difConf === null &&
+     semSaida[0].saida === 0,
+    'o conferente contou e ninguém informou a saída: isso é AUSÊNCIA, não divergência — ' +
+    'a diferença fica em travessão, senão a tela acusaria uma sobra de 320 caixas que ' +
+    'ninguém viu', [semSaida[0].situacao, semSaida[0].difConf]);
 
-  /* SÓ DECLARAÇÃO é o alerta de verdade: chegou carga e ninguém contou. */
+  /* SÓ DECLARAÇÃO: o motorista falou e mais ninguém. */
   var soDecl = montarPares([
-    lanc({ declaracao: true, qtd: 180, motorista: 'Isaque', usuario: 'Isaque' })
+    declDe({ qtd: 180, motorista: 'Isaque', usuario: 'Isaque' })
   ]);
   ok(soDecl[0].situacao === 'Só declaração' && soDecl[0].conferido === 0 &&
-     soDecl[0].conferenteTxt === '',
-    'e o motorista declarou e ninguém contou: carga que chegou e não foi conferida',
-    [soDecl[0].situacao, soDecl[0].conferenteTxt]);
+     soDecl[0].saida === 0 && soDecl[0].conferenteTxt === '',
+    'e o motorista declarou e mais ninguém lançou nada: a fala dele sozinha, sem os ' +
+    'dois lados para comparar', [soDecl[0].situacao, soDecl[0].conferenteTxt]);
+  ok(soDecl[0].difDecl === null,
+    'e sem saída a diferença contra o declarado também fica em travessão — ela mede o ' +
+    'que saiu contra o que ele disse, e aqui não há o primeiro');
 
   /* AS TRÊS CHAVES QUE NÃO SE MISTURAM, e cada uma custou uma decisão. */
   var doisDias = montarPares([
-    lanc({ declaracao: true, qtd: 100 }),
+    declDe({ qtd: 100 }),
     lanc({ qtd: 100, dataRef: '2026-09-25' })
   ]);
   ok(doisDias.length === 2,
     'dias diferentes não se somam — o par é do dia, senão a conta de uma segunda-feira ' +
     'taparia o buraco da sexta', doisDias.length);
   var doisSentidos = montarPares([
-    lanc({ declaracao: true, qtd: 250, tipo: 'DEVOLUCAO' }),
+    declDe({ qtd: 250, tipo: 'DEVOLUCAO' }),
     lanc({ qtd: 400, tipo: 'SAIDA' })
   ]);
   ok(doisSentidos.length === 2,
@@ -11923,7 +12006,7 @@ console.log('\n== Motorista/Conferente ==');
     '250 à tarde apareceria com uma divergência de +400 que nunca existiu',
     doisSentidos.length);
   var doisMundos = montarPares([
-    lanc({ declaracao: true, qtd: 250, teste: true }),
+    declDe({ qtd: 250, teste: true }),
     lanc({ qtd: 250, teste: false })
   ]);
   ok(doisMundos.length === 2,
@@ -11938,18 +12021,26 @@ console.log('\n== Motorista/Conferente ==');
     'e o lançamento sem motorista aparece num par próprio — escondido, ele vira uma ' +
     'diferença que não fecha e não se sabe onde procurar', anonimo.length);
 
-  /* AS ROTAS SE JUNTAM, porque o conferente desmembra a viagem por cliente. */
+  /* AS PONTAS SE JUNTAM, porque o conferente desmembra a viagem por cliente. */
   var vario = montarPares([
-    lanc({ declaracao: true, qtd: 400, motorista: 'Arilson', usuario: 'Arilson' }),
+    saidaDe({ qtd: 400, motorista: 'Arilson' }),
+    declDe({ qtd: 400, motorista: 'Arilson', usuario: 'Arilson' }),
     lanc({ qtd: 250, motorista: 'Arilson', origem: 'Campina Grande', usuario: 'Nestor' }),
     lanc({ qtd: 150, motorista: 'Arilson', origem: 'Natal', usuario: 'Nestor' })
   ]);
-  ok(vario.length === 1 && vario[0].conferido === 400 &&
-     vario[0].rotasTxt.indexOf('Campina Grande') >= 0 &&
-     vario[0].rotasTxt.indexOf('Natal') >= 0,
-    'e as várias contagens da mesma viagem somam num par só, com as rotas ao lado — o ' +
-    'motorista declara um total, e é o conferente quem desmembra por cliente',
-    [vario.length, vario[0] && vario[0].rotasTxt]);
+  ok(vario.length === 1 && vario[0].conferido === 400,
+    'e as várias contagens da mesma viagem somam num par só — o motorista declara um ' +
+    'total, e é o conferente quem desmembra por cliente',
+    [vario.length, vario[0] && vario[0].conferido]);
+  ok(vario[0].origemTxt.indexOf('Campina Grande') >= 0 &&
+     vario[0].origemTxt.indexOf('Natal') >= 0 &&
+     vario[0].origemTxt.indexOf('João Pessoa') >= 0,
+    'e a coluna Origem traz as TRÊS pontas, e não a primeira que apareceu — um par é ' +
+    'uma viagem, e uma viagem pode ter vários clientes', vario[0].origemTxt);
+  ok(vario[0].destinoTxt === 'Matriz São Vicente',
+    'e o Destino aparece ao lado dela — "de onde para onde" é a primeira pergunta de ' +
+    'quem abre um par que não fechou, e a tela só dizia a metade',
+    vario[0].destinoTxt);
   ok(vario[0].situacao === 'Bateu',
     'e aí o total bate, que é o que a tela existe para responder');
 
@@ -11973,9 +12064,9 @@ console.log('\n== Motorista/Conferente ==');
   var umId = montarPares([lanc({ qtd: 70, id: 'M000007' })]);
   ok(umId[0].idsCurto === 'M000007',
     'com um só, o número aparece inteiro e sem contador', umId[0].idsCurto);
-  ok(semDecl[0].idsCurto === '' && semDecl[0].idsLista.length === 0,
+  ok(semSaida[0].idsCurto === '' && semSaida[0].idsLista.length === 0,
     'e sem número nenhum a célula fica vazia em vez de dizer "undefined"',
-    semDecl[0].idsCurto);
+    semSaida[0].idsCurto);
 
   /* PRIMEIRA COLUNA, a pedido — e a ordem padrão é o que a tela mostra a quem nunca
      mexeu nas colunas. */
@@ -11991,11 +12082,172 @@ console.log('\n== Motorista/Conferente ==');
     'no arquivo ela vai também, e com a lista INTEIRA em vez do resumo "+2": o CSV ' +
     'existe para procurar o lançamento, e um resumo não se procura');
 
+
+
+  /* ---- AS CÉLULAS DAS COLUNAS NOVAS, RODADAS ----
+   *
+   * Procurar o texto no arquivo prova que a letra está lá, e não que a célula a produz:
+   * basta a saída sair por outro ramo do `? :` para a busca continuar verde e a coluna
+   * nascer em travessão. Então a fábrica das células sai do arquivo e é EXECUTADA. */
+  var iDefsD = adm.indexOf('  function defsDecl(){');
+  var fonteDefsD = iDefsD < 0 ? '' : adm.slice(iDefsD, adm.indexOf('\n  }', iDefsD) + 4);
+  ok(fonteDefsD.length > 1000 && fonteDefsD.indexOf('celulaDif(') > 0,
+    'a conferência recortou a fábrica das células da conciliação — recorte vazio faria ' +
+    'as provas abaixo passarem sem rodar nada', fonteDefsD.length);
+  var TITD = (function () {
+    var i = adm.indexOf('    titulos: { lancamento:', adm.indexOf('var TAB_DECL = {'));
+    var bruto = adm.slice(i, adm.indexOf('},', i));
+    var m = {}, re = /(\w+):'([^']*)'/g, x;
+    while ((x = re.exec(bruto)) !== null) m[x[1]] = x[2];
+    return m;
+  })();
+  ok(TITD.saida === 'Saída' && TITD.difDecl && TITD.difConf,
+    'e leu os títulos das colunas novas do descritor', TITD);
+  var DEFSD = new Function('Q', 'TAB_DECL',
+    fonteDefsD + '\n return defsDecl();')(
+    { esc: function (s) { return String(s == null ? '' : s).replace(/"/g, '&quot;'); },
+      num: function (n) { return String(Number(n) || 0); } },
+    { titulos: TITD });
+
+  var parExemplo = { saida: 500, declarado: 410, conferido: 460,
+                     difDecl: 90, difConf: 40,
+                     informanteTxt: 'Wellington', conferenteTxt: 'Melk',
+                     origemTxt: 'Filial Maceió', destinoTxt: 'Matriz São Vicente' };
+  ok(DEFSD.saida.v(parExemplo).indexOf('Wellington') > 0,
+    'a célula da Saída leva no balão QUEM a informou — a coluna Conferente passou a ' +
+    'listar só quem tem o papel de conferir, e sem o balão o nome de quem informou a ' +
+    'saída não estaria em lugar nenhum da tabela', DEFSD.saida.v(parExemplo));
+  ok(DEFSD.saida.v(parExemplo).indexOf('500') > 0 &&
+     DEFSD.saida.v({ saida: 0 }).indexOf('—') > 0,
+    'e o travessão fica no lado que NÃO existe, nunca um zero: zero é uma contagem que ' +
+    'deu zero, e ausência é outra coisa', DEFSD.saida.v({ saida: 0 }));
+  ok(DEFSD.difDecl.v(parExemplo).indexOf('+90') > 0 &&
+     DEFSD.difConf.v(parExemplo).indexOf('+40') > 0,
+    'e as duas diferenças desenham cada uma o SEU campo — saídas da mesma fábrica, ' +
+    'trocar o campo de uma pelo da outra deixaria as duas colunas dizendo o mesmo ' +
+    'número lado a lado', [DEFSD.difDecl.v(parExemplo), DEFSD.difConf.v(parExemplo)]);
+  ok(DEFSD.difConf.v({ difConf: null }).indexOf('—') > 0 &&
+     DEFSD.difConf.v({ difConf: 0 }).indexOf('0') > 0,
+    'e ausência de diferença é travessão, enquanto diferença ZERO é um zero — são ' +
+    'respostas diferentes: "ninguém contou" e "contou e fechou"');
+  ok(DEFSD.origem.v(parExemplo).indexOf('Filial Maceió') > 0 &&
+     DEFSD.destino.v(parExemplo).indexOf('Matriz São Vicente') > 0,
+    'e Origem e Destino mostram cada um a sua ponta — trocados, a tabela diria que a ' +
+    'carga saiu de onde chegou', [DEFSD.origem.v(parExemplo), DEFSD.destino.v(parExemplo)]);
+
+  /* AS DUAS PONTAS ESTÃO NA ORDEM DE FÁBRICA. Fora dela, a coluna existe na fábrica de
+     células e não aparece na tela — e o sintoma é uma coluna que simplesmente não há. */
+  var padD = (function () {
+    var i = adm.indexOf('padrao: [', adm.indexOf('var TAB_DECL = {'));
+    return adm.slice(i + 9, adm.indexOf(']', i))
+      .split(',').map(function (x) { return x.trim().replace(/'/g, ''); });
+  })();
+  ['origem', 'destino', 'saida', 'declarado', 'conferido', 'difDecl', 'difConf']
+    .forEach(function (c) {
+      ok(padD.indexOf(c) >= 0,
+        'a coluna ' + c + ' está na ordem de fábrica — fora dela, ela existe na ' +
+        'fábrica de células e não aparece na tela, e o sintoma é uma coluna que ' +
+        'simplesmente não há', padD);
+    });
+  ok(padD.indexOf('saida') < padD.indexOf('declarado') &&
+     padD.indexOf('declarado') < padD.indexOf('conferido'),
+    'e os três números vêm nesta ordem: Saída, Declarado, Conferido — é a ordem do que ' +
+    'acontece, e foi assim que foi pedida', padD);
+
+  /* ---- A BUSCA OLHA O QUE A TELA MOSTRA, RODADA ----
+     Ela passou a mostrar origem, destino e o nome de quem informou a saída. Fora da
+     sacola, procurar "maceió" não acharia o par que está escrito na coluna Origem bem
+     à frente de quem digitou. */
+  var iCasa = adm.indexOf('  function parCasa(p, busca){');
+  var fonteCasa = iCasa < 0 ? '' : adm.slice(iCasa, adm.indexOf('\n  }', iCasa) + 4);
+  ok(fonteCasa.length > 300, 'a conferência recortou a busca da conciliação',
+    fonteCasa.length);
+  /* A DATA COMO A TELA MOSTRA entra na sacola, e por isso a função que a escreve vai
+     junto: quem vê "12/10/2026" procura por "12/10", e só o ISO na sacola deixaria
+     essa busca sem resposta. */
+  var iDataBR = adm.indexOf('  function dataBRdeISO(iso){');
+  var fonteDataBR = iDataBR < 0 ? '' : adm.slice(iDataBR, adm.indexOf('\n  }', iDataBR) + 4);
+  var parCasa = new Function('semAcento',
+    fonteDataBR + fonteCasa + '\n return parCasa;')(semAcentoReal);
+  var alvoBusca = { motorista: 'Chico', origemTxt: 'Filial Maceió',
+                    destinoTxt: 'Matriz São Vicente', rotasTxt: '',
+                    conferenteTxt: 'Melk', informanteTxt: 'Wellington',
+                    idsTxt: 'M000062', tipo: 'Retorno', situacao: 'Divergente',
+                    base: '', dataRef: '2026-10-12' };
+  ok(parCasa(alvoBusca, 'maceio') && parCasa(alvoBusca, 'vicente'),
+    'procurar pela origem ou pelo destino acha o par — eles estão escritos na tela, e ' +
+    'o que a tela mostra é o que a busca tem de olhar');
+  ok(parCasa(alvoBusca, 'wellington'),
+    'e procurar por quem informou a saída também — o nome está no balão da coluna, e ' +
+    'quem o leu ali vai digitá-lo em seguida');
+  ok(!parCasa(alvoBusca, 'recife'),
+    'e o que não está na tela não acha — uma busca que traz tudo não peneira nada');
+
+  /* ---- OS CHIPS, O FILTRO E A COR SAEM DE UM LUGAR SÓ ----
+   *
+   * A lista das situações estava escrita duas vezes — no seletor do filtro e nos chips
+   * de contagem acima da tabela — e a cor da etiqueta, outras duas: na célula da tabela
+   * e na ficha do celular. Com cinco situações no lugar de quatro, cada cópia esquecida
+   * vira um sintoma mudo: um chip que some, ou uma situação que fica cinza numa tela e
+   * colorida na outra, para o mesmo par. */
+  var opcSit = (function () {
+    var i = adm.indexOf('<select id="dcSituacao"');
+    var trecho = adm.slice(i, adm.indexOf('</select>', i));
+    var re = /<option value="([^"]*)"/g, m, fora = [];
+    while ((m = re.exec(trecho)) !== null) if (m[1]) fora.push(m[1]);
+    return fora;
+  })();
+  ok(opcSit.length === 5 && opcSit.indexOf('Sem conferência') >= 0 &&
+     opcSit.indexOf('Sem saída') >= 0,
+    'o filtro oferece as CINCO situações, com as duas ausências novas separadas — ' +
+    '"sem conferência" é um par que saiu e ninguém contou, e "sem saída" é o contrário; ' +
+    'juntas numa palavra só, procurar uma trazia a outra', opcSit);
+  ok(/sit\.innerHTML = situacoesConhecidas\(\)/.test(semComentarios(adm)),
+    'e os chips de contagem leem essa MESMA lista do seletor — escrita de novo neles, ' +
+    'uma situação entraria num e não no outro, e a soma dos chips deixaria de fechar ' +
+    'com a quantidade de pares sem que nada dissesse por quê');
+  var fCor = (function () {
+    var i = adm.indexOf('  function corDaSituacao(sit){');
+    /* O `+ 4` FECHA A FUNCAO. Sem ele o recorte para ANTES da chave, e o
+       `new Function` logo abaixo recebe um corpo aberto — o erro sai como
+       SyntaxError no meio da suite, longe daqui. */
+    return i < 0 ? '' : adm.slice(i, adm.indexOf('\n  }', i) + 4);
+  })();
+  ok(fCor.length > 80 && (semComentarios(adm).match(/corDaSituacao\(/g) || []).length === 3,
+    'e a cor da etiqueta sai de UMA função, chamada pela tabela e pela ficha — escrita ' +
+    'nos dois lugares, uma situação nova ficava colorida numa tela e cinza na outra, ' +
+    'para o mesmo par',
+    (semComentarios(adm).match(/corDaSituacao\(/g) || []).length);
+  /* VERMELHO SÓ PARA O QUE NÃO FECHOU. Ausência em vermelho ensina a ignorar o
+     vermelho, e aí o dia em que algo não fecha de verdade passa junto. */
+  var cor = new Function(fCor + '\n return corDaSituacao;')();
+  ok(cor('Divergente') === 'vermelha' && cor('Bateu') === 'verde' &&
+     cor('Sem saída') === 'cinza' && cor('Só declaração') === 'cinza',
+    'e o vermelho é só do que NÃO FECHOU — ausência em vermelho ensina a ignorar o ' +
+    'vermelho, e aí o dia em que a conta não fecha de verdade passa junto',
+    ['Divergente', 'Bateu', 'Sem saída'].map(cor));
+
+  /* ---- O ARQUIVO TEM UMA COLUNA PARA CADA TÍTULO ----
+     Um título a mais ou a menos desloca TODAS as colunas dali para a frente, e a
+     planilha fica plausível: os números continuam lá, debaixo do nome errado. */
+  var iCab = adm.indexOf("['Lancamento','Data','Base','Tipo'");
+  var cabCsv = adm.slice(iCab, adm.indexOf(']', iCab)).split(',').length;
+  var iLinCsv = adm.indexOf('return [par.idsTxt,');
+  var linCsv = adm.slice(iLinCsv, adm.indexOf('];', iLinCsv)).split(',').length;
+  ok(cabCsv === 15 && linCsv === 15,
+    'o CSV tem uma coluna para cada título — um a mais ou a menos desloca todas as ' +
+    'colunas dali para a frente, e a planilha fica plausível: os números continuam lá, ' +
+    'debaixo do nome errado', { titulos: cabCsv, valores: linCsv });
+  ok(adm.indexOf("'Saida','Declarado','Conferido','Saida-Declarado','Saida-Conferido'") > 0,
+    'e os três números e as duas diferenças vão para o arquivo — a conferência de ' +
+    'escritório não tem balão nem seta, e uma coluna que existe na tela e falta no ' +
+    'arquivo faz ela chegar a um número que a tela não explica');
+
   /* ---- O PAR GUARDA AS LINHAS DELE ----
      As ações de corrigir, cancelar e excluir trabalham sobre um LANÇAMENTO, e um par não
      é um lançamento: ele pode ter uma declaração de um lado e três contagens do outro.
      Sem as linhas, "corrigir este par" não teria o que corrigir. */
-  ok(vario[0].itens.length === 3 &&
+  ok(vario[0].itens.length === 4 &&
      vario[0].itens.filter(function (m) { return m.declaracao; }).length === 1,
     'o par carrega os lançamentos que o formaram — só as somas, não haveria o que ' +
     'corrigir, cancelar nem excluir', vario[0].itens.length);
@@ -14418,9 +14670,9 @@ console.log('\n== a faixa do dia na conciliacao ==');
       function (par) { return '<ficha>' + par.chave + '</ficha>'; });
 
     var lista = [
-      { chave: 'a', dataRef: '2026-09-28', declarado: 300, conferido: 300 },
-      { chave: 'b', dataRef: '2026-09-28', declarado: 200, conferido: 150 },
-      { chave: 'c', dataRef: '2026-09-27', declarado: 100, conferido: 100 }
+      { chave: 'a', dataRef: '2026-09-28', saida: 300, conferido: 300 },
+      { chave: 'b', dataRef: '2026-09-28', saida: 200, conferido: 150 },
+      { chave: 'c', dataRef: '2026-09-27', saida: 100, conferido: 100 }
     ];
     var h = agrupar(lista);
 
@@ -14441,7 +14693,11 @@ console.log('\n== a faixa do dia na conciliacao ==');
     /* OS NUMEROS SAO DO DIA, e nao do periodo: os de cima ja respondem pelo periodo, e
        repeti-los na faixa seria tres numeros iguais descendo a tela. */
     var faixa28 = h.slice(h.indexOf('data-dia="2026-09-28"'), h.indexOf('</header>'));
-    ok(/D 500/.test(faixa28) && /C 450/.test(faixa28),
+    /* A FAIXA PASSOU A COMPARAR SAIDA E CONFERIDO, e nao declarado e conferido: e'
+       a mesma pergunta das colunas e da situacao — chegou o que saiu? Deixada no
+       declarado, a faixa responderia uma pergunta e as fichas logo abaixo dela,
+       outra. */
+    ok(/S 500/.test(faixa28) && /C 450/.test(faixa28),
       'e os n\u00fameros da faixa s\u00e3o do DIA — os de cima j\u00e1 respondem pelo per\u00edodo, e ' +
       'repeti-los aqui seriam tr\u00eas n\u00fameros iguais descendo a tela', faixa28);
     /* A DIFERENCA E SOMA DAS PARCELAS, e nao soma das diferencas de cada par: as duas
@@ -14476,8 +14732,8 @@ console.log('\n== a faixa do dia na conciliacao ==');
        num dia vazio de qualquer jeito, e a prova aprovava a versao que o gruda no
        vizinho de cima. */
     var semData = agrupar([
-      { chave: 'w', dataRef: '2026-09-28', declarado: 300, conferido: 300 },
-      { chave: 'x', dataRef: '', declarado: 10, conferido: 0 }
+      { chave: 'w', dataRef: '2026-09-28', saida: 300, conferido: 300 },
+      { chave: 'x', dataRef: '', saida: 10, conferido: 0 }
     ]);
     ok((semData.match(/<header class="dia-mov"/g) || []).length === 2 &&
        semData.indexOf('data-dia=""') > 0,
@@ -14486,7 +14742,7 @@ console.log('\n== a faixa do dia na conciliacao ==');
       (semData.match(/<header class="dia-mov"/g) || []).length);
     var faixaW = semData.slice(semData.indexOf('data-dia="2026-09-28"'),
                                semData.indexOf('</header>'));
-    ok(/D 300/.test(faixaW),
+    ok(/S 300/.test(faixaW),
       'e o dia de cima continua com o total DELE, sem o do par sem data', faixaW);
   }
 
@@ -14568,11 +14824,17 @@ console.log('\n== a fileira de totais no celular, e o Hoje das duas telas ==');
      conferido e a diferenca entre os dois —, e conta que se le em duas linhas nao se le
      como conta: a parcela de cima e a de baixo deixam de estar no mesmo olhar.
      COUBERAM PORQUE O TEXTO DE APOIO SAIU dos cartoes. */
-  ok(cssT.indexOf('.tot--tri{grid-template-columns:repeat(3,minmax(0,1fr))') > 0,
-    'na fileira de TRÊS os tres ficam LADO A LADO — eles são uma conta, e conta que se ' +
-    'lê em duas linhas deixa a parcela e o resultado fora do mesmo olhar');
-  ok(/class="tot tot--tri"/.test(admT2),
-    'e a fileira da concilia\u00e7\u00e3o se declara como a de tr\u00eas \u2014 a regra \u00e9 da FILEIRA, e ' +
+  ok(cssT.indexOf('.tot--cinco{grid-template-columns:repeat(2,minmax(0,1fr))') > 0,
+    'no celular a fileira de CINCO vira DUAS colunas, e não três — em três, cada ' +
+    'cartão fica com cem pixels e um rótulo de duas palavras quebra letra a ' +
+    'letra');
+  /* E O QUINTO ABRE A LINHA: em duas colunas ele sobra sozinho, e meia largura ao
+     lado de um vazio e' desenho, e nao arranjo. */
+  ok(cssT.indexOf('.tot--cinco .tot__c:nth-child(5){grid-column:1 / -1}') > 0,
+    'e o QUINTO abre a linha — ele é a diferença entre o que saiu e o que foi ' +
+    'conferido, que é o número pelo qual se abre esta tela');
+  ok(/class="tot tot--cinco"/.test(admT2),
+    'e a fileira da concilia\u00e7\u00e3o se declara como a de cinco \u2014 a regra \u00e9 da FILEIRA, e ' +
     'n\u00e3o do \u00faltimo cart\u00e3o solto: em Movimentos o \u00faltimo do DOM \u00e9 o s\u00e9timo, e um deles ' +
     'est\u00e1 escondido');
   /* E ELA TEM MESMO TRES. Acrescentado um quarto cartao e esquecida a classe, o quarto
@@ -14580,10 +14842,10 @@ console.log('\n== a fileira de totais no celular, e o Hoje das duas telas ==');
   /* O RECORTE PEGA QUEM MONTA, e nao quem LIMPA: ha dois `getElementById('dcTotais')` —
      um esvazia a fileira e o outro a desenha —, e o primeiro nao tem cartao nenhum
      dentro. A ancora e' a chamada que constroi. */
-  var iFxT = admT2.indexOf('cartaoTot(0, 3');
+  var iFxT = admT2.indexOf('cartaoTot(0, 5');
   var fxT = iFxT < 0 ? '' : admT2.slice(iFxT, admT2.indexOf('}', iFxT));
-  ok((fxT.match(/cartaoTot\(/g) || []).length === 3,
-    'e ela tem mesmo TR\u00caS cart\u00f5es — acrescentado um quarto e esquecida a classe, o ' +
+  ok((fxT.match(/cartaoTot\(/g) || []).length === 5,
+    'e ela tem mesmo CINCO cart\u00f5es — acrescentado um sexto e esquecida a classe, o ' +
     'arranjo passa a abrir a linha no meio da fileira',
     (fxT.match(/cartaoTot\(/g) || []).length);
 
