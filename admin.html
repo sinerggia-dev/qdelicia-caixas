@@ -679,6 +679,16 @@
                 <button type="button" data-mov="saida" aria-pressed="false">Saída</button>
                 <button type="button" data-mov="retorno" aria-pressed="false">Retorno</button>
               </div>
+              <!-- A UNIDADE OLHA OS DOIS LADOS, e é isso que a separa de Origem e de
+                   Destino. "As movimentações da Filial Maceió" são o que saiu DELA e o
+                   que chegou NELA; pelos outros dois seriam duas passagens, uma de cada
+                   vez, e nenhuma das duas respondendo a pergunta inteira.
+                   VEM ANTES DOS OUTROS DOIS porque a pergunta é mais larga: primeiro
+                   qual casa, depois — se fizer falta — de onde para onde. -->
+              <label for="rtUnidade">Unidade</label>
+              <select id="rtUnidade"><option value="">Todas</option></select>
+              <span class="sr" id="rtUnidadeDica">Mostra o que saiu da unidade e o que
+                chegou nela, nos dois sentidos.</span>
               <label for="rtOrigem">Origem</label>
               <select id="rtOrigem"><option value="">Todas</option></select>
               <label for="rtDestino">Destino</label>
@@ -2680,12 +2690,34 @@
     return todasAsLinhas();
   }
 
+  /* O QUE E' UMA UNIDADE, num lugar so.
+   *
+   * Filial e galpao sao as duas CASAS da operacao — o lugar de onde a caixa sai e para
+   * onde ela volta —, e a Matriz e um galpao. Escrita solta, esta dupla ja estava em
+   * dois lugares: o chip "Unidades" e, agora, o seletor de unidade. O dia em que entrar
+   * um terceiro tipo de casa, ela entraria num e ficaria faltando no outro — e o chip
+   * contaria uma coisa com o seletor oferecendo outra. */
+  function ehTipoDeUnidade(tipo){
+    var t = String(tipo == null ? '' : tipo).toUpperCase();
+    return t === 'GALPAO' || t === 'FILIAL';
+  }
+
   /* Filial e galpao: as duas casas, num chip so. O tipo da linha e o de quem RECEBEU a
      carga — e ele que esta com a caixa, e e por ele que os chips separam a lista. */
   function linhasFiliais(){
-    return todasAsLinhas().filter(function(l){
-      return l.tipo === 'GALPAO' || l.tipo === 'FILIAL';
+    return todasAsLinhas().filter(function(l){ return ehTipoDeUnidade(l.tipo); });
+  }
+
+  /* OS NOMES DAS UNIDADES, lidos do CADASTRO e nao das linhas: a linha sabe o tipo de
+     quem RECEBEU, e nao o de quem mandou — uma unidade que so' aparece como origem no
+     periodo ficaria de fora do seletor, que e' justamente a que se quer olhar quando se
+     pergunta "o que saiu de la'?". */
+  function nomesDeUnidade(){
+    var fora = {};
+    ((DADOS && DADOS.locais) || []).forEach(function(l){
+      if (ehTipoDeUnidade(l.Tipo) && l.Nome) fora[l.Nome] = 1;
     });
+    return fora;
   }
 
   /* Os filtros de origem e destino ficam AQUI, na fonte, e nao em cada tela que le a
@@ -2715,7 +2747,7 @@
 
   function todasAsLinhas(){
     var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
-    var o = valor('rtOrigem'), d = valor('rtDestino');
+    var o = valor('rtOrigem'), d = valor('rtDestino'), u = valor('rtUnidade');
     var b = chato(valor('rtBusca').trim());
     return f.linhas.filter(function(l){
       if (l.situacao === 'parado' && !l.inicial) return false;
@@ -2728,6 +2760,13 @@
          faria a lista misturar o que saiu com o que já estava lá. */
       if (FLUXO_TIPO === 'saida' && !l.saida) return false;
       if (FLUXO_TIPO === 'retorno' && !l.retorno) return false;
+      /* A UNIDADE CASA NOS DOIS LADOS, e por isso ela nao precisa da excecao que o
+         filtro de destino precisou: a linha de estoque inicial nao tem destino, mas tem
+         ORIGEM — e por ela a linha de estoque da propria unidade atravessa, enquanto a
+         de outra unidade cai fora. A conta da Filial Maceio abre com o estoque dela, e
+         nao com o da Matriz junto. */
+      if (u && (l.origens || []).indexOf(u) < 0 &&
+               (l.destinos || []).indexOf(u) < 0) return false;
       if (o && (l.origens || []).indexOf(o) < 0) return false;
       /* A linha de estoque inicial nao tem destino — ela nao e um caminho, e o ponto de
          partida da conta. Por isso ela atravessa o filtro de destino em vez de cair fora:
@@ -2757,7 +2796,7 @@
      O "So reais / So de teste" fica FORA. Ele nao estreita nada — escolhe qual das duas
      operacoes se esta lendo, e nao existe estado "os dois". Zerar junto faria o ensaio
      sumir da tela de quem estava justamente olhando o ensaio. */
-  var FILTROS_FLUXO = ['rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'rtBusca'];
+  var FILTROS_FLUXO = ['rtUnidade', 'rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'rtBusca'];
 
   /* Conta, e nao so responde sim ou nao: o botao de recolher precisa DIZER quantos
      filtros ficaram escondidos, e duas contagens sobre a mesma regra divergiriam. */
@@ -3034,6 +3073,7 @@
     if (FLUXO_TIPO !== 'todos') {
       pilula('movimento', 'só '+(FLUXO_TIPO === 'saida' ? 'saídas' : 'retornos'));
     }
+    if (valor('rtUnidade')) pilula('rtUnidade', 'unidade '+valor('rtUnidade'));
     if (valor('rtOrigem')) pilula('rtOrigem', 'origem '+valor('rtOrigem'));
     if (valor('rtDestino')) {
       pilula('rtDestino', 'destino '+(valor('rtDestino') === DESTINO_ESTOQUE
@@ -3134,7 +3174,13 @@
     /* A opcao de estoque so aparece quando ha estoque no periodo, pela mesma razao que as
        outras: oferecer um filtro que nao acha nada e mandar procurar o que nao existe. */
     var temEstoque = f.linhas.some(function(l){ return l.estoqueInicial; });
-    [['rtOrigem', 'origens', 'Todas', []],
+    /* A UNIDADE OFERECE O QUE APARECE DOS DOIS LADOS, peneirado pelo cadastro: sem o
+       cruzamento, o seletor listaria clientes e rotas junto — e a pergunta dele e' sobre
+       as CASAS. Sem olhar as linhas, listaria unidades sem movimento no periodo, e o
+       filtro mandaria procurar o que nao existe. */
+    var saoUnidade = nomesDeUnidade();
+    [['rtUnidade', null, 'Todas', []],
+     ['rtOrigem', 'origens', 'Todas', []],
      ['rtDestino', 'destinos', 'Todos',
       temEstoque ? [{ v: DESTINO_ESTOQUE, r: 'Estoque Inicial' }] : []]
     ].forEach(function(c){
@@ -3143,7 +3189,25 @@
       var antes = sel.value;
       /* As opcoes proprias vem no topo, logo abaixo do "Todos": intercalada entre nomes
          de local em ordem alfabetica, "Estoque Inicial" pareceria mais um local. */
-      var opcoes = c[3].concat(nomes(c[1]).map(function(n){ return { v: n, r: n }; }));
+      /* A UNIDADE NAO TEM UM CAMPO SO' na linha — ela e' os dois. Juntar origens com
+         destinos e peneirar pelo cadastro e' o que faz o seletor oferecer a Matriz, que
+         quase sempre aparece como origem, e a filial, que quase sempre aparece como
+         destino. */
+      var crus;
+      if (c[1]) crus = nomes(c[1]);
+      else {
+        /* UM MAPA E NAO UM `concat`: um nome que aparece dos DOIS lados — e a Matriz
+           aparece — entraria duas vezes na lista, e o seletor mostraria a mesma unidade
+           em duas linhas seguidas. */
+        var vistos = {};
+        nomes('origens').concat(nomes('destinos')).forEach(function(n){
+          if (saoUnidade[n]) vistos[n] = 1;
+        });
+        crus = Object.keys(vistos).sort(function(a, b){
+          return a.localeCompare(b, 'pt-BR');
+        });
+      }
+      var opcoes = c[3].concat(crus.map(function(n){ return { v: n, r: n }; }));
       sel.innerHTML = '<option value="">'+c[2]+'</option>'+opcoes.map(function(o){
         return '<option value="'+Q.esc(o.v)+'">'+Q.esc(o.r)+'</option>';
       }).join('');
@@ -5338,7 +5402,7 @@
   })();
   /* Origem e destino nao vao ao servidor: a peneira e local, sobre o fluxo que ja veio.
      Ir ao servidor so para esconder linhas seria uma ida de rede por clique. */
-  ['rtOrigem', 'rtDestino'].forEach(function(id){
+  ['rtUnidade', 'rtOrigem', 'rtDestino'].forEach(function(id){
     document.getElementById(id).addEventListener('change', desenharFluxo);
   });
   document.getElementById('btnLimparRetornos').addEventListener('click', limparFiltrosFluxo);

@@ -607,9 +607,22 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
     corpoDe('linhasVivas').trim());
   /* Os dois tipos no MESMO chip: na operacao filial e galpao sao a casa, e separa-los
      obrigava a procurar a Filial Maceio em duas listas. */
+  /* A DUPLA GALPAO+FILIAL MORA NUMA FUNCAO SO', e o chip e o seletor de unidade
+     perguntam a ela. Escrita solta nos dois, o dia em que entrasse um terceiro tipo de
+     casa ela entraria num e ficaria faltando no outro — e o chip contaria uma coisa com
+     o seletor oferecendo outra. */
   var lfi = corpoDe('linhasFiliais');
-  ok(/tipo === 'GALPAO'/.test(lfi) && /tipo === 'FILIAL'/.test(lfi),
-    'o chip Filiais junta filial e galpao', lfi.trim());
+  ok(/ehTipoDeUnidade\(l\.tipo\)/.test(lfi),
+    'o chip Unidades pergunta a UMA regra o que é uma casa', lfi.trim());
+  var ehUni = new Function(corpoDe('ehTipoDeUnidade') + '} return ehTipoDeUnidade;')();
+  ok(ehUni('GALPAO') === true && ehUni('FILIAL') === true &&
+     ehUni('CLIENTE') === false && ehUni('ROTA') === false,
+    'e essa regra junta filial e galpão, e só os dois — na operação os dois são a casa, ' +
+    'e separá-los obrigava a procurar a Filial Maceió em duas listas',
+    ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA'].map(ehUni));
+  ok(ehUni('galpao') === true,
+    'e ela não se perde na caixa da letra — o tipo é texto, e comparar cru deixaria uma ' +
+    'casa de fora por causa de como alguém digitou');
 
   /* O CHIP CONTA E PENEIRA PELO MESMO NÚMERO QUE A TABELA MOSTRA.
    *
@@ -993,10 +1006,17 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
   /* `b` e `alvoBusca` entram como PARÂMETROS porque a regra passou a peneirar também
      pela busca: sem eles o corpo extraído estoura em `b is not defined`, e é assim que
      este teste avisa que a peneira mudou em vez de continuar medindo a de ontem. */
-  var passa = new Function('l', 'o', 'd', 'DESTINO_ESTOQUE', 'b', 'alvoBusca',
+  /* `u` ENTRA COMO PARAMETRO pela mesma razao que `b` entrou: a peneira passou a olhar
+     tambem a UNIDADE, e sem ele o corpo extraido estoura em `u is not defined` — e e'
+     assim que esta prova avisa que a regra mudou, em vez de continuar medindo a de
+     ontem. */
+  var passa = new Function('l', 'o', 'd', 'u', 'DESTINO_ESTOQUE', 'b', 'alvoBusca',
     'FLUXO_TIPO', fonte).bind(null);
   var semBusca = function (l, o, d, e) {
-    return passa(l, o, d, e, '', function () { return ''; }, 'todos');
+    return passa(l, o, d, '', e, '', function () { return ''; }, 'todos');
+  };
+  var porUnidade = function (l, u, e) {
+    return passa(l, '', '', u, e, '', function () { return ''; }, 'todos');
   };
 
   /* O RECORTE DE MOVIMENTO, exercitado rodando. A linha de estoque inicial não é saída
@@ -1009,7 +1029,7 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
   var abertura = { estoqueInicial: true, inicial: 1250, saida: 0, retorno: 0,
                    situacao: 'parado', origens: ['Matriz Fazenda'], destinos: [] };
   function mov(l, tipo) {
-    return passa(l, '', '', ESTQ, '', function () { return ''; }, tipo);
+    return passa(l, '', '', '', ESTQ, '', function () { return ''; }, tipo);
   }
   ok(mov(comSaida, 'saida') === true && mov(soVolta, 'saida') === false,
     '"só saída" fica com os dias em que saiu alguma coisa');
@@ -1031,6 +1051,42 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
     'mas filtrando por OUTRA origem ele sai: a conta e de outra unidade');
   ok(semBusca(estoque, 'Matriz Fazenda', '', ESTQ) === true,
     'e pela origem dele, fica');
+
+  /* ---- A UNIDADE OLHA OS DOIS LADOS ----
+   *
+   * E' isso que a separa de Origem e de Destino, que olham um lado cada. "As
+   * movimentacoes da Filial Maceio" sao o que saiu DELA e o que chegou NELA; pelos
+   * outros dois seriam duas passagens, uma de cada vez, e nenhuma das duas respondendo a
+   * pergunta inteira. */
+  var saiuDaFilial = { inicial: 0, situacao: 'atencao',
+                       origens: ['Filial Maceió'], destinos: ['Matriz Fazenda'] };
+  var chegouNaFilial = { inicial: 0, situacao: 'atencao',
+                         origens: ['Matriz Fazenda'], destinos: ['Filial Maceió'] };
+  var semAFilial = { inicial: 0, situacao: 'atencao',
+                     origens: ['Matriz Fazenda'], destinos: ['João Pessoa'] };
+  ok(porUnidade(saiuDaFilial, 'Filial Maceió', ESTQ) === true &&
+     porUnidade(chegouNaFilial, 'Filial Maceió', ESTQ) === true,
+    'o filtro de unidade pega os DOIS sentidos — o que saiu dela e o que chegou nela: ' +
+    'por origem ou por destino seriam duas passagens, e nenhuma das duas responderia ' +
+    '"quais são as movimentações desta unidade"');
+  ok(porUnidade(semAFilial, 'Filial Maceió', ESTQ) === false,
+    'e a linha que não a toca em nenhum dos dois lados sai — um filtro que traz tudo ' +
+    'não peneira nada');
+  /* E O ESTOQUE DA PROPRIA UNIDADE FICA, sem precisar de excecao nenhuma: a linha de
+     estoque nao tem destino, mas tem ORIGEM — e e' por ela que a conta da unidade abre
+     com o estoque dela, e nao com o da Matriz junto. */
+  var estoqueDaFilial = { estoqueInicial: true, inicial: 500, situacao: 'parado',
+                          origens: ['Filial Maceió'], destinos: [] };
+  ok(porUnidade(estoqueDaFilial, 'Filial Maceió', ESTQ) === true &&
+     porUnidade(estoque, 'Filial Maceió', ESTQ) === false,
+    'e a linha de estoque da unidade escolhida fica, enquanto a de outra sai — a conta ' +
+    'dela abre com o estoque dela, e não com o da Matriz junto',
+    [porUnidade(estoqueDaFilial, 'Filial Maceió', ESTQ),
+     porUnidade(estoque, 'Filial Maceió', ESTQ)]);
+  /* E ELE SOMA COM OS OUTROS, como todo filtro desta tela. */
+  ok(passa(chegouNaFilial, 'João Pessoa', '', 'Filial Maceió', ESTQ, '',
+           function () { return ''; }, 'todos') === false,
+    'e ele vale JUNTO com os outros: escolher a unidade não apaga a origem escolhida');
 
   /* A opcao propria: ver SO os lancamentos de estoque. Ela nao cabia no filtro de destino
      pelo nome, porque estoque nao e um lugar — a linha nem destino tem. */
@@ -1067,18 +1123,32 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
 
   /* A opcao so aparece quando ha estoque no periodo: oferecer um filtro que nao acha nada
      e mandar a pessoa procurar o que nao existe. */
-  var monta = new Function('PAINEL', 'document', 'Q', 'DESTINO_ESTOQUE',
+  /* `nomesDeUnidade` e `ehTipoDeUnidade` VAO JUNTO, e os de verdade: o seletor de
+     unidade cruza o que aparece nas linhas com o CADASTRO, e dublar essa regra aqui
+     faria a prova medir a copia — o dia em que um terceiro tipo de casa entrasse no
+     cadastro e nao na regra, ela continuaria verde. */
+  var fnUnid = corpoDe('ehTipoDeUnidade') + '}\n' + corpoDe('nomesDeUnidade') + '}\n';
+  var monta = new Function('PAINEL', 'document', 'Q', 'DESTINO_ESTOQUE', 'DADOS',
     /* corpoDe corta no fecha-chaves da funcao, entao ele volta aqui. */
-    mf + '} return montarFiltrosFluxo;');
+    fnUnid + mf + '} return montarFiltrosFluxo;');
+  /* O CADASTRO DE MENTIRA tem as duas casas e um cliente: e' o cruzamento que faz o
+     seletor de unidade oferecer a Matriz e a Filial e deixar Joao Pessoa de fora. */
+  var CADASTRO = { locais: [
+    { Nome: 'Matriz Fazenda', Tipo: 'GALPAO' },
+    { Nome: 'Filial Maceió', Tipo: 'FILIAL' },
+    { Nome: 'Filial Recife', Tipo: 'FILIAL' },
+    { Nome: 'João Pessoa', Tipo: 'CLIENTE' }
+  ] };
   function selects(){
-    var els = { rtOrigem: { value: '', innerHTML: '' },
+    var els = { rtUnidade: { value: '', innerHTML: '' },
+                rtOrigem: { value: '', innerHTML: '' },
                 rtDestino: { value: '', innerHTML: '' } };
     return { els: els, doc: { getElementById: function(id){ return els[id] || null; } } };
   }
   var Qesc = { esc: function(v){ return String(v); } };
 
   var comEstoque = selects();
-  monta({ fluxo: { linhas: [estoque, caminho] } }, comEstoque.doc, Qesc, ESTQ)();
+  monta({ fluxo: { linhas: [estoque, caminho] } }, comEstoque.doc, Qesc, ESTQ, CADASTRO)();
   ok(comEstoque.els.rtDestino.innerHTML.indexOf('>Estoque Inicial<') > 0 &&
      comEstoque.els.rtDestino.innerHTML.indexOf('value="' + ESTQ + '"') > 0,
     'havendo estoque no período, a opção entra no filtro de destino',
@@ -1091,10 +1161,56 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
     comEstoque.els.rtOrigem.innerHTML);
 
   var semEstoque = selects();
-  monta({ fluxo: { linhas: [caminho] } }, semEstoque.doc, Qesc, ESTQ)();
+  monta({ fluxo: { linhas: [caminho] } }, semEstoque.doc, Qesc, ESTQ, CADASTRO)();
   ok(semEstoque.els.rtDestino.innerHTML.indexOf('Estoque Inicial') < 0,
     'sem estoque no período, a opção não aparece — filtro que não acha nada só engana',
     semEstoque.els.rtDestino.innerHTML);
+
+  /* ---- O CAMPO EXISTE NA TELA, E ESTA' LIGADO ----
+   * As duas coisas escaparam da sabotagem: a prova montava o seletor e rodava a peneira
+   * sem nunca perguntar se havia campo na tela, nem se mexer nele redesenha a lista. O
+   * desenho sem o ouvinte e' um campo que aceita a escolha e nao muda nada. */
+  ok(/<select id="rtUnidade"><option value="">Todas<\/option><\/select>/.test(adm),
+    'o filtro de Unidade existe na tela — a peneira pode estar certa e não haver por ' +
+    'onde escolher');
+  ok(adm.indexOf('<label for="rtUnidade">Unidade</label>') <
+     adm.indexOf('<label for="rtOrigem">Origem</label>'),
+    'e vem ANTES de Origem e Destino: a pergunta dele é mais larga — primeiro qual ' +
+    'casa, depois, se fizer falta, de onde para onde');
+  ok(/\['rtUnidade', 'rtOrigem', 'rtDestino'\]\.forEach\(function\(id\)\{\s*\n\s*document\.getElementById\(id\)\.addEventListener\('change', desenharFluxo\);/
+       .test(adm),
+    'e mexer nele REDESENHA a lista — desenhado e não ligado, ele aceitaria a escolha e ' +
+    'a tabela continuaria a mesma, calada');
+
+  /* ---- O SELETOR DE UNIDADE OFERECE AS CASAS, dos dois lados ----
+   * A Matriz quase sempre aparece como ORIGEM e a filial como DESTINO: lendo um campo
+   * so', metade das unidades ficaria de fora justamente do seletor que existe para
+   * escolhe-las. E o cruzamento com o cadastro e' o que impede clientes e rotas de
+   * entrarem numa lista cuja pergunta e' sobre as casas. */
+  var unid = selects();
+  /* TRES LINHAS, e cada uma cobre um caso: a MATRIZ aparece so' como origem, a FILIAL
+     RECIFE so' como destino, e a FILIAL MACEIO dos dois lados. Sem a de Recife, ler so'
+     as origens ainda devolvia as duas unidades — e a sabotagem passava. */
+  monta({ fluxo: { linhas: [
+    { origens: ['Matriz Fazenda'], destinos: ['Filial Maceió'] },
+    { origens: ['Filial Maceió'], destinos: ['João Pessoa'] },
+    { origens: ['João Pessoa'], destinos: ['Filial Recife'] }
+  ] } }, unid.doc, Qesc, ESTQ, CADASTRO)();
+  var htmlU = unid.els.rtUnidade.innerHTML;
+  ok(htmlU.indexOf('Matriz Fazenda') > 0 && htmlU.indexOf('Filial Recife') > 0,
+    'o seletor de unidade lê os DOIS lados: a Matriz, que só aparece como origem, e a ' +
+    'Filial Recife, que só aparece como destino — lendo um campo só, metade das ' +
+    'unidades ficaria de fora justamente do seletor que existe para escolhê-las',
+    htmlU);
+  ok(htmlU.indexOf('João Pessoa') < 0,
+    'e NÃO oferece o cliente — a pergunta dele é sobre as casas, e sem o cruzamento ' +
+    'com o cadastro a lista viraria a de Origem outra vez', htmlU);
+  /* CONTA AS OPCOES, e nao as mencoes do nome: cada `<option>` escreve o nome duas
+     vezes, no `value` e no texto — contar mencoes dava dois para uma opcao so'. */
+  ok((htmlU.match(/value="Filial Maceió"/g) || []).length === 1,
+    'e a unidade que aparece dos DOIS lados entra uma vez só — por `concat` sem mapa, ' +
+    'ela sairia em duas linhas seguidas do seletor',
+    (htmlU.match(/value="Filial Maceió"/g) || []).length);
 
   // ---- largura ----
   var j = adm.indexOf('function larguras(t)');
@@ -9492,7 +9608,8 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
      fChato.indexOf("replace(/\\./g, '')") > 0,
     'achatando acento e ponto: no galpão ninguém procura acentuando, e o número na tela ' +
     'tem ponto que ninguém digita', fChato);
-  ok(/FILTROS_FLUXO = \['rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'rtBusca'\]/.test(adm),
+  ok(/FILTROS_FLUXO = \['rtUnidade', 'rtOrigem', 'rtDestino', 'rtDe', 'rtAte', 'rtBusca'\]/
+       .test(adm),
     'e ela entra na conta de "quantos filtros estão ligados" — fora dela, a tabela ' +
     'ficaria curta com o botão dizendo que não há filtro nenhum');
   ok(/espera = setTimeout\(desenharFluxo, 160\);/.test(adm),
