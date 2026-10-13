@@ -8962,10 +8962,6 @@ console.log('\n== a navegação separada por módulo ==');
   ok(pares === 'pgRetornos>Painel de Ativos' +
                 ' | pgMovimentos>Movimentos Gerais' +
                 ' | pgLancamentosMotorista>Movimentos Motoristas' +
-                /* A LISTA DO MOTORISTA FICA AO LADO DA CONCILIACAO: as duas leem a
-                   mesma porta e falam do mesmo lancamento, e separa-las no menu faria
-                   procurar uma a partir da outra. */
-                ' | pgLancMotorista>Lançamentos Motorista' +
                 ' | pgPainel>Movimentos Rotas' +
                 ' | pgInstrucoes>Instruções' +
                 ' | pgTutorialSaida>Tutorial de Saída | pgTutorialRetorno>Tutorial de Retorno' +
@@ -11870,32 +11866,10 @@ console.log('\n== Motorista/Conferente ==');
     'toda rota que devolve lançamento passa pela peneira da contagem cega — uma que ' +
     'não passe é a porta de trás, e ainda faz quem administra acreditar que fechou ' +
     'todas', semPeneira);
-  /* DUAS TELAS, UMA PORTA. A conciliacao e a lista do motorista leem a MESMA rota — a
-     unica que devolve declaracao —, entao ter qualquer uma das duas abas tem de abrir a
-     porta. E a lista das abas mora num lugar so': escrita em cada lugar que pergunta, a
-     tela nova nasceria com a rota conferindo so' a aba antiga, e quem recebesse so' ela
-     abriria uma pagina vazia, sem erro nenhum. */
   ok(/function veDeclaracao\(u\)/.test(log) &&
-     /ABAS_DECLARACAO\.some\(/.test(log),
-    'e quem decide são as MESMAS abas que abrem as telas — uma permissão nova ao lado ' +
-    'delas divergiria no primeiro cadastro em que alguém mexesse só numa');
-  var ABAS_DECL = (function () {
-    var i = log.indexOf('var ABAS_DECLARACAO = [');
-    return log.slice(i, log.indexOf('];', i)).match(/'([^']+)'/g) || [];
-  })().map(function (x) { return x.replace(/'/g, ''); });
-  ok(ABAS_DECL.length === 2 &&
-     ABAS_DECL.indexOf('pgLancamentosMotorista') >= 0 &&
-     ABAS_DECL.indexOf('pgLancMotorista') >= 0,
-    'e as DUAS telas de declaração estão nessa lista — faltando uma, quem recebesse só ' +
-    'ela abriria uma página vazia, sem erro nenhum, e ninguém ligaria uma coisa à outra',
-    ABAS_DECL);
-  /* E AS DUAS EXISTEM NO CADASTRO DE ABAS: uma aba que a lista cita e o cadastro nao
-     oferece e' uma permissao que ninguem consegue conceder. */
-  ABAS_DECL.forEach(function (id) {
-    ok(log.indexOf("{ ID: '" + id + "'") > 0,
-      'a aba ' + id + ' existe no cadastro de páginas — citada e não cadastrada, ela ' +
-      'seria uma permissão que ninguém consegue conceder');
-  });
+     log.indexOf("abas.indexOf('pgLancamentosMotorista')") > 0,
+    'e quem decide é a MESMA aba que abre a tela — uma permissão nova ao lado dela ' +
+    'divergiria no primeiro cadastro em que alguém mexesse só numa');
 
   /* A REGRA RODADA, e os quatro casos que ela decide. O que mais me preocupa é a lista
      de abas VAZIA: ela quer dizer "nenhuma" para todo mundo, menos para o admin, que é a
@@ -19278,183 +19252,6 @@ console.log('\n== a lista do app de campo, agrupada pelo registro ==');
   ok(/Q\.agruparLancamentos\(lista\)/.test(ixSemC),
     'e o agrupador é o do NÚCLEO, o mesmo do cartão e o mesmo do painel — reescrito ' +
     'aqui, o computador e o telefone discordariam sobre quantos lançamentos existem');
-}
-
-
-console.log('\n== lancamentos motorista: a lista sem o outro lado ==');
-{
-  var admL = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
-  var admLC = semComentarios(admL);
-
-  /* ---- O CORACAO DA TELA: SO' A DECLARACAO ----
-   * A rota traz os DOIS lados porque a conciliacao precisa dos dois. Esta tela fica com
-   * um — e nao por desenho, por DADO: escondido com CSS, o outro lado continuaria no
-   * CSV, na busca e no grafico. E a contagem cega e' exatamente isto: quem declara nao
-   * pode ler o que o conferente contou. */
-  ok(/LANC_MOT = \(r\.movimentos \|\| \[\]\)\.filter\(function\(m\)\{ return !!m\.declaracao; \}\)/
-       .test(admLC),
-    'a lista do motorista fica só com as DECLARAÇÕES — escondido com CSS, o outro lado ' +
-    'continuaria no CSV, na busca e no gráfico, e a contagem cega é justamente isto: ' +
-    'quem declara não pode ler o que o conferente contou');
-  ok(/acao:'conciliacao'/.test(admLC.slice(admLC.indexOf('function carregarLm()'),
-                                            admLC.indexOf('function alvoLm('))),
-    'e ela lê a MESMA porta da conciliação — a única rota que devolve declaração, e a ' +
-    'que recusa quem não tem a aba: uma rota própria seria uma segunda porta para o ' +
-    'mesmo dado, e a tranca nova entraria só numa delas');
-
-  /* ---- AS COLUNAS QUE SAIRAM, a pedido ----
-   * Saida, Conferido, as duas diferencas, Conferente e Situacao sao o OUTRO lado. Numa
-   * tela que o motorista le', elas nao sao so' desnecessarias. */
-  var iTab = admL.indexOf('  function tabelaLm(L){');
-  var fTab = iTab < 0 ? '' : admL.slice(iTab, admL.indexOf('\n  }', iTab) + 4);
-  ok(fTab.length > 400, 'a conferência recortou a tabela da tela nova', fTab.length);
-  ['Conferido', 'Situação', 'Conferente', 'Saída −'].forEach(function (c) {
-    ok(fTab.indexOf(c) < 0,
-      'a tabela do motorista NÃO tem a coluna ' + c + ' — ela é do outro lado da ' +
-      'conciliação, e quem declara não a lê');
-  });
-  ok(fTab.indexOf('>Declarado<') > 0,
-    'e tem a coluna Declarado, que é o que ele lançou');
-
-  /* ---- A TABELA, RODADA ----
-   * Procurar o texto prova que a letra esta la', e nao que a celula a produz. */
-  var i0 = admL.indexOf('  var LANC_MOT = [];');
-  var i1 = admL.indexOf('  (function(){\n    var box = document.getElementById(\'tabelaLm\');');
-  ok(i0 > 0 && i1 > i0 && (i1 - i0) > 2000,
-    'a conferência recortou o desenho da tela nova — recorte vazio faria as provas ' +
-    'abaixo passarem sem rodar nada', { ini: i0, fim: i1 });
-
-  var tipoEscolhido = [], buscaDita = '';
-  var docL = { getElementById: function (id) {
-    if (id === 'lmBusca') return { value: buscaDita };
-    if (id === 'lmTipo') return { id: 'lmTipo' };
-    return null;
-  } };
-  var Ql = {
-    esc: function (s) {
-      return String(s === undefined || s === null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    },
-    num: function (n) { return String(Number(n) || 0); },
-    dataBR: function (d) { return String(d || '').split('-').reverse().join('/'); }
-  };
-  function semAcentoL(s) {
-    var v = String(s == null ? '' : s).toLowerCase();
-    return v.normalize ? v.normalize('NFD').replace(/[̀-ͯ]/g, '') : v;
-  }
-  var FL = new Function('Q', 'document', 'escolhaDe', 'semAcento', 'dataBRdeISO',
-    admL.slice(i0, i1).replace('var LANC_MOT = [];', 'var LANC_MOT = [];') +
-    ' return { linhasLm: linhasLm, tabelaLm: tabelaLm, fichasLm: fichasLm,' +
-    ' pôr: function(l){ LANC_MOT = l; } };')(
-    Ql, docL, function () { return tipoEscolhido; }, semAcentoL,
-    function (iso) {
-      var s = String(iso || '').slice(0, 10).split('-');
-      return s.length === 3 ? s[2] + '/' + s[1] + '/' + s[0] : '';
-    });
-
-  var decl = function (o) {
-    return Object.assign({ id: 'M000036', registro: 'R000036', dataRef: '2026-09-17',
-                           tipo: 'DEVOLUCAO', qtd: 810, teste: true,
-                           origem: 'João Pessoa', destino: 'Matriz São Vicente',
-                           motorista: 'Isaque Araújo', tipoCaixa: 'CX P',
-                           declaracao: true }, o || {});
-  };
-  FL['pôr']([decl(), decl({ id: 'M000040', registro: 'R000040',
-                            qtd: 162, tipo: 'SAIDA',
-                            motorista: 'Chico', dataRef: '2026-09-18' })]);
-
-  ok(FL.linhasLm().length === 2, 'sem filtro, a lista traz as duas declarações');
-  tipoEscolhido = ['Retorno'];
-  ok(FL.linhasLm().length === 1 && FL.linhasLm()[0].id === 'M000036',
-    'o filtro de Tipo peneira pelo SENTIDO do lançamento — e "Saída" e "Retorno" são as ' +
-    'palavras que a tela mostra, não as do banco', FL.linhasLm().map(function (m) { return m.id; }));
-  tipoEscolhido = [];
-  buscaDita = 'isaque';
-  ok(FL.linhasLm().length === 1 && FL.linhasLm()[0].motorista === 'Isaque Araújo',
-    'e a busca acha pelo motorista, sem acento — no galpão ninguém procura acentuando');
-  buscaDita = '17/09';
-  ok(FL.linhasLm().length === 1,
-    'e pela data COMO A TELA MOSTRA — só o formato do banco na sacola deixaria essa ' +
-    'busca sem resposta, e é a que se digita');
-  buscaDita = 'R000036';
-  ok(FL.linhasLm().length === 1,
-    'e pelo REGISTRO, que é o código que se dita ao telefone ao pedir uma correção');
-  buscaDita = 'recife';
-  ok(FL.linhasLm().length === 0,
-    'e o que não está na tela não acha — uma busca que traz tudo não peneira nada');
-  /* CADA PEDACO TEM DE CASAR, e nao um deles. Com UM termo so', "todos casam" e "algum
-     casa" dao a mesma resposta — e foi por isso que a sabotagem que troca `every` por
-     `some` passou. "isaque recife" separa as duas: o primeiro acha, o segundo nao, e a
-     busca inteira tem de nao achar. */
-  buscaDita = 'isaque recife';
-  ok(FL.linhasLm().length === 0,
-    'e numa busca de vários pedaços TODOS têm de casar — bastando um, "isaque recife" ' +
-    'traria o lançamento do Isaque, e a pessoa concluiria que há carga dele em Recife');
-  buscaDita = 'isaque joao';
-  ok(FL.linhasLm().length === 1,
-    'e dois pedaços que casam acham a linha — é assim que se estreita sem abrir filtro ' +
-    'nenhum');
-  buscaDita = '';
-
-  var htmlL = FL.tabelaLm(FL.linhasLm());
-  var nThL = (htmlL.match(/<th[ >]/g) || []).length;
-  var nTdL = (htmlL.match(/<td[ >]/g) || []).length / 2;
-  ok(nThL === 11 && nTdL === 11,
-    'e cada cabeçalho tem a célula dele — um <th> sem <td> desalinha a tabela inteira a ' +
-    'partir dali, e o erro só aparece na coluna seguinte', { th: nThL, td: nTdL });
-  ok(htmlL.indexOf('R000036') > 0 && htmlL.indexOf('M000036') > 0,
-    'e a linha traz os dois códigos — o registro, que se dita, e o item, que diz qual ' +
-    'das linhas é');
-  ok(htmlL.indexOf('>Teste<') > 0,
-    'e a BASE fica à vista: o ensaio no meio da operação real é um número plausível, ' +
-    'que é a pior espécie de número errado');
-
-  /* ---- O CSV LEVA AS MESMAS COLUNAS ----
-     Uma coluna que existe na tela e falta no arquivo faz a conferencia de escritorio
-     chegar a um numero que a tela nao explica. */
-  var iCsvL = admL.indexOf("'lancamentos_motorista_'");
-  var cabL = admL.slice(admL.indexOf('[', iCsvL), admL.indexOf(']', iCsvL)).split(',').length;
-  var iRet = admL.indexOf('return [m.registro', iCsvL);
-  var valL = admL.slice(iRet, admL.indexOf('];', iRet)).split(',').length;
-  ok(cabL === 10 && valL === 10,
-    'o CSV tem um valor para cada título — faltando um, TODAS as colunas dali para a ' +
-    'frente andam uma casa, e a planilha passa a ler a caixa onde deveria ler o destino',
-    { titulos: cabL, valores: valL });
-  ok(admL.slice(iCsvL, iCsvL + 400).indexOf('Conferido') < 0,
-    'e o arquivo não leva o outro lado tampouco — escondido só na tela, ele sairia ' +
-    'inteiro no arquivo, que é por onde o dado atravessa a parede');
-
-  /* ---- O GRAFICO DIARIO ---- */
-  var iG = admLC.indexOf('function desenharGraficoLm(L)');
-  var fG = iG < 0 ? '' : admLC.slice(iG, admLC.indexOf('\n  }', iG));
-  ok(iG > 0 && /agruparMov\(L, function\(m\)\{/.test(fG) && /painelG\(/.test(fG),
-    'o gráfico diário usa as MESMAS peças dos de Movimentos — escrito de novo, o dia em ' +
-    'que a barra ganhasse um detalhe esta tela ficaria com o desenho antigo, e as duas ' +
-    'seriam o mesmo gráfico com duas caras', fG.slice(0, 160));
-  ok(/\.sort\(function\(a, b\)\{ return a\.v < b\.v \? -1 : 1; \}\)/.test(fG),
-    'e os dias vão em ordem de DATA, e não de tamanho — tempo tem ordem própria, e ' +
-    'embaralhar por valor destrói a leitura');
-  ok(/dias\.slice\(dias\.length - TETO_G\)/.test(fG),
-    'e havendo mais dias do que cabe ficam os MAIS RECENTES — é para onde se olha');
-  ok(/painelG\(0, 'Declarado por dia', dias,[\s\S]{0,120}''\);/.test(fG),
-    'e as barras NÃO clicam: na tela de Movimentos o clique escreve no filtro e ' +
-    'recarrega, e aqui esses campos não existem — um clique que não faz nada ensina a ' +
-    'não clicar nos que fazem', fG.slice(fG.indexOf('painelG(')));
-
-  /* ---- A TELA EXISTE, ESTA' NO MENU E CARREGA AO ABRIR ---- */
-  ok(/<section id="pgLancMotorista" class="pagina">/.test(admL),
-    'a página existe');
-  ok(/data-pagina="pgLancMotorista"/.test(admL) &&
-     admL.indexOf('<span class="nav-rotulo">Lançamentos Motorista</span>') > 0,
-    'e tem botão no menu, com o nome pedido');
-  ok(/if \(p==='pgLancMotorista'\) carregarLm\(\);/.test(admLC),
-    'e abrir a aba CARREGA a lista — a página pode estar inteira e nascer vazia: a ' +
-    'peça existe e nada chega nela');
-  ok(/\.tot--um\{grid-template-columns:minmax\(0,260px\)\}/
-       .test(fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8')),
-    'e o cartão único tem largura própria — num sétimo de fileira ele ficaria com ' +
-    'espaço vazio à direita e o número espremido à esquerda');
 }
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

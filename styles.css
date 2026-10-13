@@ -3035,11 +3035,6 @@ details.tipos[open] summary::before{content:"▾"}
 /* SETE NUMA LINHA. O número está aqui e no `cartaoTot` — se um mudar sem o outro, a
    varredura de cor perde o passo e a emenda entre os cartões aparece. */
 .tot{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin:0 0 12px}
-/* UM CARTAO SO' NAO E' UM SETIMO DE FILEIRA. Numa grade de sete, o unico cartao da tela
-   de Lancamentos Motorista ficava com 200px — espaco de sobra vazio a direita e o numero
-   espremido a esquerda. Largura propria, e teto: esticado ate' a borda, um cartao de uma
-   linha de texto vira uma faixa. */
-.tot--um{grid-template-columns:minmax(0,260px)}
 /* NAO HA MAIS CORTE NENHUM PARA A FILEIRA, e e a terceira regra morta que este bloco
    acumula. Havia um de 700px (duas colunas) e um de 1023 (seis); os dois valiam onde a
    faixa fina do modelo B ja governa — e ela e `flex`, que ignora
@@ -3574,7 +3569,6 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   .tot--cinco .tot__r{font-size:10.5px;gap:4px}
   .tot--cinco .tot__v{font-size:17px}
   .tot--cinco .tot__c:nth-child(5){grid-column:1 / -1}
-  .tot--um{grid-template-columns:1fr}
 
   /* OS GRAFICOS EMPILHAM na aba deles: ha tela inteira, e um trilho que desliza de lado
      dentro de uma pagina que rola para baixo faz o dedo competir consigo mesmo. */
