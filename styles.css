@@ -70,6 +70,45 @@
      enfeite do tema. Sao duas cores de verdade — nao dois tons da mesma, que lado a
      lado se leem como degrade. */
   --logo-verde:#00a853; --logo-roxo:#a46ce7;
+  /* ---------- A PORTA DA FRENTE ----------
+   *
+   * A TELA DE ENTRADA MOSTRA A MARCA, e nao o tema — e e' a mesma regra que ja' vale
+   * para a faixa de duas cores logo abaixo da logo, escrita ali ao lado: o tema pinta o
+   * SISTEMA, e quem abre esta tela ainda nao esta dentro dele. Nao ha nem como ele
+   * valer: a aparencia da empresa chega com a configuracao, e a configuracao chega
+   * depois de entrar. Seguindo o tema, a porta abriria na cor de fabrica e trocaria de
+   * cor na frente de quem esta digitando a senha.
+   *
+   * O VERDE E' O DA LOGO, em dois tons: o claro no meio e o escuro nas pontas. O degrade
+   * radial e' o que da' profundidade sem desenhar nada — um fundo chapado deixa o cartao
+   * boiando, e um degrade de cima para baixo puxa o olho para fora do centro, que e'
+   * onde esta' o campo.
+   *
+   * O ROSA E' O DA LOGO TAMBEM, e e' por isso que ele nao e' o `--logo-roxo`: aquele e'
+   * um roxo (#a46ce7), e a logo da Qdelicia e' rosa. Dois nomes porque sao duas cores. */
+  --login-centro:#1b6b5c; --login-borda:#0a2c27;
+  --logo-rosa:#c2457f; --logo-rosa-forte:#d1548d;
+  /* O CAMPO DA PORTA E' CLARO e a tinta dentro dele e' escura — e os dois sao TOKEN,
+     como tudo nesta folha: cor escrita solta numa regra e' a que escapa da conferencia
+     de contraste e chega ao galpao sem passar por ela. A regra existe desde que a troca
+     de tema inteira coube num bloco, e ela vale aqui tambem.
+     O AMBAR DO FOCO e' complementar do verde: azul sobre verde e' a combinacao que menos
+     se distingue, e o foco e' o unico sinal de onde o cursor esta' numa tela com dois
+     campos iguais. */
+  --login-campo:#f1f5f7; --login-campo-txt:#14202e;
+  /* #556478 E NAO #64748b, e a diferenca e' medida: o cinza de antes dava 4,34:1 sobre
+     o campo claro — abaixo dos 4,5 que a norma pede para texto normal. A dica e' quem
+     diz o que entra no campo; um borrao ali e' a instrucao que nao se le. */
+  --login-campo-fraco:#556478; --login-foco:#d8a33c;
+  /* OS VEUS DA PORTA. Branco translucido nesta folha tem de ser token, e por um motivo
+     medido: solto numa regra, ele some sobre fundo CLARO. Aqui ele nao sumiria — a porta
+     e' sempre a mesma verde escura —, mas a regra vale para a folha inteira, e abrir
+     excecao por tela e' como ela deixa de valer. */
+  --veu-porta:rgba(255,255,255,.07);
+  --veu-porta-linha:rgba(255,255,255,.10);
+  --veu-porta-borda:rgba(255,255,255,.22);
+  --veu-porta-viva:rgba(255,255,255,.45);
+  --veu-porta-txt:rgba(255,255,255,.72);
   --roxo-txt:#c9a6f0;         /* o roxo como TINTA: as iniciais no circulo */
   --verde-hover:#c9a6f0;      /* o hover CLAREIA: escurecer roubava contraste */
   --sobre-verde:#1a0b2e;      /* a tinta que vai SOBRE a marca */
@@ -1807,7 +1846,12 @@ tr.par-linhas > td{background:var(--campo);padding:0}
   align-items:center;justify-content:center;gap:22px;
   max-width:none;margin:0;text-align:center;
   padding:32px 20px calc(24px + env(safe-area-inset-bottom));
-  background:var(--marinho);color:#fff;color-scheme:dark;
+  /* ELIPSE E NAO CIRCULO: a tela e' muito mais larga que alta, e um circulo deixaria o
+     claro concentrado numa bolha no meio com as laterais pretas. A elipse acompanha o
+     formato da janela e o escuro chega so' nas bordas. */
+  background:radial-gradient(ellipse 125% 95% at 50% 42%,
+    var(--login-centro) 0%, var(--login-borda) 76%);
+  color:#fff;color-scheme:dark;
 }
 /* A ASSINATURA DE QUEM FEZ, presa ao canto de cima.
  *
@@ -1824,22 +1868,21 @@ tr.par-linhas > td{background:var(--campo);padding:0}
  * NO CELULAR, SO' A MARCA. O texto inteiro em 320px ocuparia duas linhas atravessadas no
  * alto da tela, ao lado da logo do sistema — duas assinaturas brigando no mesmo canto. */
 .login__credito{
-  position:absolute;top:14px;left:16px;
-  display:flex;align-items:center;gap:8px;
-  max-width:min(60%,340px);opacity:.55;pointer-events:none;
-  font-size:11px;line-height:1.3;text-align:left;color:#fff
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  margin:20px 0 0;padding-top:16px;border-top:1px solid var(--veu-porta-linha);
+  opacity:.75;pointer-events:none;
+  font-size:11.5px;line-height:1.3;text-align:center;color:#fff
 }
-.login__credito img{display:block;height:26px;width:auto;flex:0 0 auto}
-@media (max-width:620px){
-  .login__credito span{display:none}
-  .login__credito img{height:22px}
-}
+.login__credito img{display:block;height:30px;width:auto;flex:0 0 auto}
+/* O TEXTO FICA NO CELULAR, agora que ele tem a largura do cartao e uma linha so' para
+   ele. No canto de cima ele disputava os 320px com a logo do sistema e saia; aqui
+   nao ha com quem disputar. */
 .login__topo{text-align:center;max-width:360px}
 /* A arte ja vem com borda branca e fundo transparente: assenta no marinho sem
    cartao atras. `height:auto` com width/height no HTML reserva o espaco certo e
    evita o salto do formulario quando a imagem termina de carregar. */
 .logo-entrada{display:block;width:100%;max-width:232px;height:auto;margin:0 auto 18px}
-.login__titulo{margin:0;font-size:23px;font-weight:700;letter-spacing:-.3px;color:#fff}
+.login__titulo{margin:0;font-size:19px;font-weight:700;letter-spacing:-.2px;color:#fff}
 
 /* Tela baixa (celular deitado, ou teclado aberto): a logo encolhe antes de o
    formulario sair da vista. */
@@ -1863,26 +1906,49 @@ tr.par-linhas > td{background:var(--campo);padding:0}
 .marca-faixa span:first-child{background:var(--logo-verde)}
 .marca-faixa span:last-child{background:var(--logo-roxo)}
 
+/* O CARTAO E' UM CLARO SOBRE O DEGRADE, e nao uma cor propria: `--surface-2` e' do tema,
+   e o tema nao vale aqui. Branco a 7% deixa o degrade atravessar — o cartao pousa no
+   fundo em vez de ser colado nele, e continua sendo o mesmo cartao em qualquer tom que a
+   elipse tenha naquele ponto da tela.
+   SEM `backdrop-filter`: o efeito seria quase o mesmo e ele custa uma camada de
+   composicao em toda rolagem, num aparelho de galpao que ja' tem pouco. */
 .login .card{
-  width:100%;max-width:380px;margin:0;padding:22px 20px 24px;text-align:left;
-  background:var(--surface-2);border:1px solid var(--linha);
-  border-radius:var(--raio);box-shadow:0 10px 30px rgba(0,0,0,.28)
+  width:100%;max-width:400px;margin:0;padding:24px 22px 20px;text-align:left;
+  background:var(--veu-porta);border:1px solid var(--veu-porta-linha);
+  border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.32)
 }
+/* O CABECALHO DENTRO DO CARTAO: o titulo nomeia o que ele pede, e a frase de apoio diz
+   o que fazer. Centralizados, porque o cartao inteiro e' um pedido so'. */
+.login__cab{text-align:center;margin:0 0 20px}
+.login__sub{margin:6px 0 0;font-size:13px;color:var(--veu-porta-txt)}
 .login a{color:var(--marca-txt)}
 .login .campo + .campo{margin-top:18px}
 .login .rot{display:block;margin-bottom:7px;font-size:14px;font-weight:600;color:#fff}
 /* A REGRA DO CAMPO VEM ANTES DO CAMPO, e nao depois: lida depois, ela chega quando
    a pessoa ja digitou errado. */
 .login .dica{display:block;margin:-3px 0 7px;font-size:12px;color:var(--txt3)}
+/* O CAMPO E' CLARO, e o resto da tela e' escuro. Nao e' contraste por contraste: num
+   cartao translucido, um campo escuro some dentro dele — vira um retangulo um pouco mais
+   escuro no meio de outro. Claro, ele e' a unica coisa branca da tela, e e' exatamente
+   onde a pessoa tem de ir.
+   A TINTA DENTRO DELE E' ESCURA e fixa: o texto digitado mora no campo claro, e nao no
+   cartao. Herdando `--txt`, ele sairia branco sobre branco. */
 .login .card input{
-  width:100%;min-height:56px;padding:0 16px;
+  width:100%;min-height:52px;padding:0 16px;
   font:inherit;font-size:16px;      /* 16px evita o zoom automatico do iOS */
-  color:var(--txt);background:var(--campo);
-  border:1px solid var(--neutro);border-radius:var(--raio-sm)
+  color:var(--login-campo-txt);background:var(--login-campo);
+  border:1px solid var(--veu-porta-borda);border-radius:10px
 }
-.login .card input::placeholder{color:var(--txt-fraco)}
-.login .card input:hover{border-color:var(--linha-viva)}
-.login .card input:focus{outline:none;box-shadow:var(--foco)}
+.login .card input::placeholder{color:var(--login-campo-fraco)}
+.login .card input:hover{border-color:var(--veu-porta-viva)}
+/* O ANEL DE FOCO E' AMBAR, e nao o azul do resto do sistema: aqui ele cai sobre verde, e
+   azul sobre verde e' a combinacao que menos se distingue de todas. O ambar e' a cor
+   complementar do verde — num campo claro ele salta, e e' o unico sinal de onde o cursor
+   esta' numa tela com dois campos iguais.
+   DOIS ANEIS, e o de dentro e' escuro: sobre o campo claro, so' o ambar encostaria em
+   branco na borda e perderia a forma. */
+.login .card input:focus{outline:none;
+  box-shadow:0 0 0 2px rgba(10,27,42,.35),0 0 0 4px var(--login-foco)}
 
 /* O campo do segredo: monoespacado e espacado, porque na maior parte das vezes o
    que se digita ali sao seis numeros e conta-los tem de ser facil. */
@@ -1940,10 +2006,22 @@ input[type="password"]::-ms-clear{display:none}
   width:100%;min-height:56px;margin-top:22px;
   display:inline-flex;align-items:center;justify-content:center;gap:9px;
   font:inherit;font-size:16px;font-weight:600;
-  color:var(--sobre-verde);background:var(--marca-roxo);
-  border:0;border-radius:var(--raio-sm);cursor:pointer
+  /* O ROSA DA LOGO, e nao a cor do tema. Pela mesma razao do fundo: a configuracao da
+     empresa chega DEPOIS de entrar, entao o botao da porta nao tem tema para seguir — e
+     seguindo um, ele abriria na cor de fabrica e trocaria de cor na frente de quem esta'
+     digitando. O rosa e' a outra cor da logo que esta' logo acima dele, e e' o unico
+     ponto quente de uma tela inteira de verde: nao ha como confundir com que se entra. */
+  color:#fff;background:var(--logo-rosa);
+  /* O ANEL EXISTE PORQUE A COR NAO BASTA, e isto foi MEDIDO: o rosa da logo e o verde do
+     cartao atras dele ficam em 1,16:1 — eles se distinguem pelo MATIZ, e nao pelo
+     brilho. Em cinza, ou para quem nao distingue vermelho de verde, o botao se dissolve
+     no cartao e a unica porta de entrada do sistema perde a forma. Nenhum rosa resolve:
+     escurecendo, o branco em cima melhora e o contraste com o verde continua em 1,3.
+     Quem desenha a borda e' o anel claro — ele nao depende de matiz nenhum. */
+  border:0;border-radius:10px;cursor:pointer;
+  box-shadow:0 0 0 1px var(--veu-porta-viva),0 6px 18px rgba(0,0,0,.22)
 }
-.btn-entrar:hover{filter:brightness(.92)}
+.btn-entrar:hover{background:var(--logo-rosa-forte)}
 .btn-entrar:active{transform:translateY(1px)}
 @media (prefers-reduced-motion:reduce){ .btn-entrar:active{transform:none} }
 

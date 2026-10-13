@@ -16210,13 +16210,29 @@ console.log('\n== os grupos da navegacao recolhem ==');
     'a faixa usa as cores da LOGO, e não as do tema — ela é a assinatura da marca, e o ' +
     'tema pinta o sistema', [m1, m2]);
 
+  /* O BOTAO DA PORTA DEIXOU DE SEGUIR O TEMA, e a razao e' a mesma do fundo dela: a
+     aparencia da empresa chega com a CONFIGURACAO, e a configuracao chega depois de
+     entrar. Seguindo o tema, a porta abriria na cor de fabrica e trocaria de cor na
+     frente de quem esta' digitando a senha. Ele usa o ROSA DA LOGO — a outra cor da
+     marca que esta' logo acima dele. */
   var btn = regraDe('.btn-entrar');
-  ok(btn.indexOf('background:var(--marca-roxo)') > 0,
-    'e o Entrar usa a cor FORTE do tema (`--marca-roxo`, apesar do nome) — o tom claro ' +
-    'não é o verde da logo logo acima, e eram duas marcas na mesma tela', btn.slice(0, 200));
-  ok(cssM.indexOf('.btn-entrar:hover{filter:brightness(') > 0,
-    'e o hover ESCURECE por filtro — `--verde-hover` foi calculado para clarear o tom ' +
-    'claro, e sobre o forte daria um salto para longe da cor do botão');
+  ok(btn.indexOf('background:var(--logo-rosa)') > 0,
+    'o Entrar usa o ROSA DA LOGO, e não a cor do tema — a aparência da empresa chega ' +
+    'com a configuração, que chega depois de entrar: seguindo o tema, a porta abriria ' +
+    'na cor de fábrica e trocaria de cor na frente de quem está digitando a senha',
+    btn.slice(0, 200));
+  ok(cssM.indexOf('.btn-entrar:hover{background:var(--logo-rosa-forte)}') > 0,
+    'e o hover troca para um rosa mais forte, e não para um filtro — o filtro escurecia ' +
+    'uma cor que vinha do tema e precisava servir aos quatro; com a cor fixa, o tom de ' +
+    'cima é escolhido uma vez e medido');
+  /* AS DUAS CORES DA LOGO SAO DUAS CORES. `--logo-roxo` e' um roxo (#a46ce7), e a logo
+     da Qdelicia e' rosa — dois nomes porque sao dois tons diferentes, e usar o roxo no
+     botao poria na porta uma cor que nao esta' na marca. */
+  ok(/--logo-rosa:#[0-9a-f]{6}/i.test(cssM) &&
+     !/--logo-rosa:\s*var\(--logo-roxo\)/.test(cssM),
+    'e o rosa é uma cor PRÓPRIA, e não um apelido do roxo — `--logo-roxo` é #a46ce7, e ' +
+    'a logo da Qdelícia é rosa: usar um pelo outro põe na porta uma cor que não está ' +
+    'na marca');
 
   /* ---- O ICONE DO ENVIAR NAO E' A SETA DE VOLTAR ----
    *
@@ -16340,10 +16356,28 @@ console.log('\n== os grupos da navegacao recolhem ==');
     });
     return d;
   }
+  /* O CREDITO MUDOU DE LUGAR: do canto de cima para o PE' DO CARTAO.
+     No canto ele era `absolute` por um motivo bom — a tela centraliza tudo
+     verticalmente e encolhe com o teclado aberto, e como item da COLUNA ele disputaria
+     altura com o formulario. Dentro do cartao o risco e' outro e menor: ele e' o ULTIMO
+     elemento, entao e' ele que sai de vista quando o teclado sobe, e e' justamente o que
+     pode sair. O que nao mudou e' o resto — ele continua apagado, sem engolir toque, e
+     a marca continua sumindo sozinha se o arquivo faltar. */
   var credito = regraCss('.login__credito');
-  ok(!!credito && credito['position'] === 'absolute',
-    'o crédito fica FORA do fluxo da tela de entrada — como item da coluna, ele ' +
-    'disputaria altura com o formulário num celular de teclado aberto', credito);
+  ok(!!credito && credito['position'] === undefined,
+    'o crédito está no PÉ DO CARTÃO, no fluxo — e por isso é o último elemento: com o ' +
+    'teclado aberto, é ele que sai de vista, que é justamente o que pode sair',
+    credito);
+  var dentro = (function () {
+    var txt = fsReal.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    var iCard = txt.indexOf('<div class="card" id="cardEntrar">');
+    var iFim = txt.indexOf('<div class="card" id="cardTroca"', iCard);
+    var iCred = txt.indexOf('class="login__credito"');
+    return iCred > iCard && iCred < iFim;
+  })();
+  ok(dentro,
+    'e ele mora DENTRO do cartão de entrar — fora dele, flutuaria sobre o degradê e ' +
+    'deixaria de ser a assinatura daquele cartão');
   ok(!!credito && credito['pointer-events'] === 'none',
     'e não engole toque — um bloco invisível comendo o canto da tela seria um defeito ' +
     'que ninguém relacionaria com um crédito');
@@ -16365,10 +16399,13 @@ console.log('\n== os grupos da navegacao recolhem ==');
       arq + ': e a marca TEM texto alternativo — ela é a única parte do crédito que um ' +
       'leitor de tela não leria sozinho');
   });
-  ok(/@media \(max-width:620px\)\{\s*\n\s*\.login__credito span\{display:none\}/.test(css),
-    'e no celular fica só a marca: o texto inteiro em 320px ocuparia duas linhas ' +
-    'atravessadas no alto, ao lado da logo do sistema — duas assinaturas brigando no ' +
-    'mesmo canto');
+  /* O TEXTO VOLTOU AO CELULAR. Ele sumia la' porque, no canto de cima, disputava os
+     320px com a logo do sistema — duas assinaturas brigando no mesmo canto. No pe' do
+     cartao ele tem a largura inteira e uma linha so' para ele, e esconde-lo passaria a
+     ser esconder por esconder. */
+  ok(!/\.login__credito span\{display:none\}/.test(css),
+    'e o texto do crédito FICA no celular — ele sumia porque disputava o canto com a ' +
+    'logo do sistema, e no pé do cartão não há com quem disputar');
 
   /* ---- A MARCA, NA PONTA DA FAIXA DO TEMPO ----
    *
@@ -19889,6 +19926,151 @@ console.log('\n== o aplicador da aparencia, rodado ==');
     'e voltar tudo ao padrão APAGA o que foi escrito, em vez de escrever o valor de ' +
     'fábrica por cima — escrito, a folha deixaria de ser o 100% e passaria a ser o que ' +
     'ficou gravado ali', Object.keys(escrito));
+}
+
+
+console.log('\n== o visual da porta de entrada ==');
+{
+  var cssP = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var appP = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  function regraP(sel) {
+    var i = cssP.indexOf('\n' + sel + '{');
+    if (i < 0) return '';
+    return cssP.slice(i + sel.length + 2, cssP.indexOf('}', i))
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+  }
+  function tokenP(nome) {
+    var m = new RegExp('\\' + nome + ':\\s*(#[0-9a-fA-F]{6})').exec(cssP);
+    return m ? m[1] : '';
+  }
+
+  /* ---- O FUNDO E' UM DEGRADE RADIAL ----
+   * Um fundo chapado deixa o cartao boiando; um degrade de cima para baixo puxa o olho
+   * para fora do centro, que e' onde esta' o campo. */
+  var fundoP = regraP('.login');
+  ok(/background:radial-gradient\(ellipse/.test(fundoP),
+    'a porta de entrada tem um degradê RADIAL — chapado, o cartão fica boiando; de cima ' +
+    'para baixo, o olho é puxado para fora do centro, que é onde está o campo',
+    fundoP.slice(fundoP.indexOf('background')).slice(0, 120));
+  ok(/var\(--login-centro\)/.test(fundoP) && /var\(--login-borda\)/.test(fundoP),
+    'e as duas pontas dele são TOKEN, como tudo nesta folha — cor escrita solta numa ' +
+    'regra é a que escapa da conferência de contraste e chega ao galpão sem passar por ela');
+  ok(fundoP.indexOf('var(--marinho)') < 0 && fundoP.indexOf('var(--bg)') < 0,
+    'e ela NÃO segue o tema: a aparência da empresa chega com a configuração, e a ' +
+    'configuração chega depois de entrar — seguindo o tema, a porta abriria na cor de ' +
+    'fábrica e trocaria de cor na frente de quem está digitando a senha');
+
+  /* ---- O CARTAO E' UM CLARO SOBRE O DEGRADE ---- */
+  var cartaoP = regraP('.login .card');
+  ok(/background:var\(--veu-porta\)/.test(cartaoP),
+    'o cartão é um VÉU sobre o degradê, e não uma cor própria — assim ele pousa no ' +
+    'fundo em vez de ser colado nele, e continua o mesmo cartão em qualquer tom que a ' +
+    'elipse tenha naquele ponto', cartaoP.slice(0, 140));
+  var defVeu = /--veu-porta:\s*([^;]+);/.exec(cssP);
+  ok(!!defVeu && /^rgba\(255,\s*255,\s*255/.test(defVeu[1].trim()),
+    'e o véu é mesmo TRANSLÚCIDO — trocado por uma cor chapada, o cartão volta a ser ' +
+    'colado no fundo e deixa de acompanhar o tom que a elipse tem naquele ponto da ' +
+    'tela, e a prova do token continuaria passando', defVeu && defVeu[1]);
+  ok(cartaoP.indexOf('backdrop-filter') < 0,
+    'e sem `backdrop-filter`: o efeito seria quase o mesmo e ele custa uma camada de ' +
+    'composição em toda rolagem, num aparelho de galpão que já tem pouco');
+
+  /* ---- O CABECALHO ENTROU NO CARTAO ---- */
+  ['index.html', 'admin.html'].forEach(function (arq) {
+    var txt = fs.readFileSync(path.join(__dirname, '..', arq), 'utf8');
+    var iCard = txt.indexOf('<div class="card" id="cardEntrar">');
+    var iTit = txt.indexOf('class="login__titulo"');
+    var iSub = txt.indexOf('class="login__sub"');
+    ok(iCard > 0 && iTit > iCard && iSub > iTit,
+      arq + ': o título e a frase de apoio ficam DENTRO do cartão — soltos sobre o ' +
+      'fundo, eram uma terceira coisa a ler entre a logo e o formulário');
+  });
+  ok(/\.login__cab\{text-align:center/.test(cssP),
+    'e centralizados, porque o cartão inteiro é um pedido só');
+
+  /* ---- O CAMPO CLARO, MEDIDO ----
+   * Num cartao translucido um campo escuro some dentro dele: vira um retangulo um pouco
+   * mais escuro no meio de outro. Claro, ele e' a unica coisa branca da tela — e e'
+   * exatamente onde a pessoa tem de ir. Mas ai' a TINTA dentro dele tem de ser escura, e
+   * isso e' uma conta, nao um gosto. */
+  function corpoApp2(nome) {
+    var i = appP.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = appP.indexOf('{', i);
+    for (; k < appP.length; k++) {
+      if (appP[k] === '{') d++;
+      else if (appP[k] === '}' && --d === 0) return appP.slice(i, k + 1);
+    }
+    return '';
+  }
+  var CP = new Function(corpoApp2('hexParaHsl') + corpoApp2('luminancia') +
+    corpoApp2('contraste') + ' return contraste;')();
+  var campo = tokenP('--login-campo'), tinta = tokenP('--login-campo-txt');
+  var fraco = tokenP('--login-campo-fraco'), foco = tokenP('--login-foco');
+  ok(!!campo && !!tinta && !!fraco && !!foco,
+    'a conferência leu as quatro cores do campo da porta',
+    [campo, tinta, fraco, foco]);
+  /* E A REGRA USA ESSAS CORES. Medindo so' os tokens, trocar o par do campo pelos do
+     TEMA passava: as quatro continuavam definidas e a conta continuava fechando — sobre
+     cores que a tela ja' nao usava. */
+  var regraCampo = regraP('.login .card input');
+  ok(/background:var\(--login-campo\)/.test(regraCampo) &&
+     /color:var\(--login-campo-txt\)/.test(regraCampo),
+    'e o campo da porta USA essas cores — herdando as do tema, ele voltaria a ser ' +
+    'escuro dentro de um cartão translúcido: um retângulo um pouco mais escuro no meio ' +
+    'de outro, e a tinta sairia branca sobre branco', regraCampo.slice(0, 180));
+  ok(regraCampo.indexOf('var(--campo)') < 0 && regraCampo.indexOf('var(--txt)') < 0,
+    'e NÃO usa as do tema — que é o que esta tela não tem, porque a configuração da ' +
+    'empresa só chega depois de entrar');
+  ok(CP(tinta, campo) >= 4.5,
+    'a tinta do campo passa os 4,5:1 sobre ele — é no campo que a pessoa lê o que ' +
+    'acabou de digitar, e herdando a tinta do tema ela sairia branca sobre branco',
+    CP(tinta, campo).toFixed(2) + ':1');
+  ok(CP(fraco, campo) >= 4.5,
+    'e a dica dentro dele também — abaixo disso ela vira um borrão, e é ela que diz o ' +
+    'que entra ali', CP(fraco, campo).toFixed(2) + ':1');
+  ok(CP(foco, campo) >= 2.0 && CP(foco, tokenP('--login-centro')) >= 2.0,
+    'e o anel de foco se distingue do campo E do cartão atrás dele — 3:1 é o que a ' +
+    'WCAG pede para elemento gráfico, e um anel que só aparece sobre um dos dois deixa ' +
+    'metade da tela sem dizer onde está o cursor',
+    [CP(foco, campo).toFixed(2), CP(foco, tokenP('--login-centro')).toFixed(2)]);
+
+  /* ---- O BOTAO ROSA, MEDIDO ---- */
+  var rosa = tokenP('--logo-rosa');
+  ok(!!rosa && CP('#ffffff', rosa) >= 4.5,
+    'e o branco do Entrar passa sobre o rosa — é o único botão desta tela, e se o ' +
+    'texto nele não se lê, não há segundo caminho para dentro',
+    CP('#ffffff', rosa).toFixed(2) + ':1');
+  /* ---- O ROSA E O VERDE NAO SE DISTINGUEM PELO BRILHO, e e' por isso que o botao tem
+     ANEL. Eles ficam em 1,16:1 contra o cartao: separam-se pelo MATIZ. Em cinza, ou para
+     quem nao distingue vermelho de verde, o botao se dissolve no cartao — e ele e' a
+     unica porta de entrada do sistema. Nenhum rosa resolve: escurecendo, o branco em
+     cima melhora e o contraste com o verde continua em 1,3. Quem desenha a borda e' o
+     anel claro, que nao depende de matiz nenhum.
+     A PROVA REGISTRA O FATO e cobra o conserto: se um dia o par passar a se distinguir
+     por brilho, a primeira linha falha e alguem revisita o anel de propósito. */
+  ok(CP(rosa, tokenP('--login-centro')) < 2.0,
+    'o rosa e o verde se distinguem pelo MATIZ, e não pelo brilho — e é este fato, e ' +
+    'não um gosto, que obriga o botão a ter contorno próprio',
+    CP(rosa, tokenP('--login-centro')).toFixed(2) + ':1');
+  ok(/box-shadow:0 0 0 1px var\(--veu-porta-viva\)/.test(regraP('.btn-entrar')),
+    'e por isso ele tem um ANEL claro — em cinza, ou para quem não distingue vermelho ' +
+    'de verde, um botão sem contorno se dissolve no cartão, e ele é a única porta de ' +
+    'entrada do sistema', regraP('.btn-entrar').slice(-160));
+
+  /* ---- AS DUAS TELAS DE ENTRADA CONTINUAM IGUAIS ----
+     Ha' duas copias do mesmo formulario, uma em cada arquivo. Divergindo, metade de quem
+     entra no sistema veria uma porta e metade veria outra. */
+  function porta(arq) {
+    var txt = fs.readFileSync(path.join(__dirname, '..', arq), 'utf8');
+    var i = txt.indexOf('<div id="telaLogin" class="login">');
+    return txt.slice(i, txt.indexOf('<div class="card" id="cardTroca"', i));
+  }
+  ok(porta('index.html') === porta('admin.html'),
+    'e as duas telas de entrada continuam IGUAIS palavra por palavra — divergindo, ' +
+    'metade de quem entra no sistema veria uma porta e metade veria outra',
+    { campo: porta('index.html').length, painel: porta('admin.html').length });
 }
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
