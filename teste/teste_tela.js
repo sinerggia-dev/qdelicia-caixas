@@ -17013,10 +17013,90 @@ console.log('\n== a busca rapida, nas duas larguras ==');
     return d;
   };
   var busca = reg('.busca-mov');
-  ok(busca && /auto$/.test(busca.margin || ''),
-    'e o canto direito vem de `margin-left:auto` — ela é o último item da barra, e a ' +
-    'margem automática empurra o resto para a esquerda sem espaçador nenhum',
+  /* ELA SAIU DO CANTO DIREITO, a pedido. Morava la' por `margin-left:auto`, e o canto
+     oposto so' funciona enquanto a barra esta' cheia: com o chip do Agrupar encolhido ao
+     tamanho dele, abria-se uma faixa vazia entre as duas pontas e as duas unicas coisas
+     que mexem na FORMA da tabela ficavam uma em cada extremo da tela. */
+  ok(busca && !/auto/.test(busca.margin || ''),
+    'a busca não é mais empurrada para o canto direito — com o chip do Agrupar no ' +
+    'tamanho dele, sobrava uma faixa vazia entre os dois, e as duas únicas coisas que ' +
+    'mexem na FORMA da tabela ficavam uma em cada extremo da tela',
     busca && busca.margin);
+  /* E ELA E' VIZINHA DO AGRUPAR NA PROPRIA BARRA. Sem isto, bastaria tirar a margem e
+     deixar as duas em linhas diferentes para a prova acima continuar verde.
+     O FIM DA BARRA E' CONTADO, e nao procurado por um `</div>` qualquer: o primeiro
+     fechamento com aquele recuo pode ser o de um FILHO, e ai' o recorte engole o vizinho
+     de fora e a prova jura que ele esta' dentro. Foi exatamente uma sabotagem que
+     escapou — a busca mudada para fora da barra passou ilesa. */
+  function fimDaTag(txt, abre) {
+    var re = /<div\b|<\/div>/g, prof = 0, m;
+    re.lastIndex = abre;
+    while ((m = re.exec(txt))) {
+      prof += m[0] === '</div>' ? -1 : 1;
+      if (prof === 0) return m.index;
+    }
+    return -1;
+  }
+  var iBarra = adm.indexOf('<div class="barra-trava">');
+  var fimBarra = fimDaTag(adm, iBarra);
+  var iChip = adm.indexOf('id="btnAgruparMov"');
+  var iBusca2 = adm.indexOf('class="busca-mov"');
+  ok(iBarra > 0 && fimBarra > iBarra,
+    'a conferência achou onde a barra do cadeado começa e onde ela FECHA — sem o fim, ' +
+    'qualquer coisa da página contaria como estando dentro dela', [iBarra, fimBarra]);
+  ok(iChip > iBarra && iChip < fimBarra && iBusca2 > iChip && iBusca2 < fimBarra,
+    'e as duas moram DENTRO da mesma barra, uma ao lado da outra — em linhas diferentes ' +
+    'elas voltariam a ser duas coisas separadas, e a margem tirada não teria conserto ' +
+    'nenhum', [iBarra, iChip, iBusca2, fimBarra]);
+
+  /* ---- E O CHIP DO AGRUPAR TEM O TAMANHO QUE ELE DIZ TER ----
+   *
+   * Este foi um defeito VISIVEL na tela e invisivel para a bancada: o botao levava
+   * `class="btn bt-agrupar"`, e `button.btn` pesa mais na cascata que `.bt-agrupar` —
+   * uma classe E um elemento contra uma classe so'. Tudo o que `.bt-agrupar` dizia era
+   * ignorado: o chip de 28px com 9px de respiro saia com 44px, 18px de respiro e
+   * `flex:1`, esticado pela barra inteira de ponta a ponta.
+   *
+   * ENTAO A PROVA RESOLVE A CASCATA, e nao le' um bloco so'. Ler `.bt-agrupar` e
+   * encontrar `flex:0 0 auto` ali dentro nao prova nada sobre o que o navegador aplica —
+   * foi exatamente assim que isto passou despercebido. Ela junta TODAS as regras simples
+   * da folha que alcancam este botao, pesa cada uma, e pergunta quem ganhou. */
+  function vencedor(classes, prop) {
+    var achado = null, pesoAchado = -1;
+    var re = /\n([a-z]*(?:\.[\w-]+)+)\{([^}]*)\}/g, m;
+    while ((m = re.exec(css))) {
+      var sel = m[1];
+      var elem = /^[a-z]+/.exec(sel);
+      if (elem && elem[0] !== 'button') continue;
+      var cls = sel.match(/\.[\w-]+/g).map(function (x) { return x.slice(1); });
+      if (!cls.every(function (x) { return classes.indexOf(x) >= 0; })) continue;
+      var peso = cls.length * 10 + (elem ? 1 : 0);
+      var v = new RegExp('(?:^|;)\\s*' + prop + ':([^;]+)').exec(m[2]);
+      if (!v) continue;
+      if (peso >= pesoAchado) { pesoAchado = peso; achado = v[1].trim(); }
+    }
+    return achado;
+  }
+  var classesChip = (/<button class="([^"]*)" id="btnAgruparMov"/.exec(adm) || [, ''])[1]
+    .split(/\s+/).filter(Boolean);
+  ok(classesChip.indexOf('bt-agrupar') >= 0,
+    'a conferência leu as classes do chip do Agrupar direto do admin.html', classesChip);
+  ok(vencedor(classesChip, 'flex') === '0 0 auto',
+    'e quem vence a cascata no `flex` do chip é `.bt-agrupar` — com a classe `btn` ' +
+    'junto, `button.btn` pesava mais e o `flex:1` dele esticava o chip pela barra ' +
+    'inteira, empurrando a busca para o outro canto da tela',
+    vencedor(classesChip, 'flex'));
+  ok(vencedor(classesChip, 'min-height') === '28px' &&
+     vencedor(classesChip, 'padding') === '0 9px',
+    'e a altura e o respiro também são os do CHIP, e não os do botão de formulário — ' +
+    'ele fica na linha do cadeado, entre coisas de 28px, e com 44px vira o item mais ' +
+    'alto de uma barra que não é dele',
+    [vencedor(classesChip, 'min-height'), vencedor(classesChip, 'padding')]);
+  ok(vencedor(classesChip, 'border-radius') &&
+     vencedor(classesChip, 'cursor') === 'pointer',
+    'e o chip desenha o canto e o cursor por conta própria — sem a classe `btn` para se ' +
+    'apoiar, o que não estiver escrito aqui simplesmente não existe',
+    [vencedor(classesChip, 'border-radius'), vencedor(classesChip, 'cursor')]);
   ok(css.indexOf('.busca-mov{flex:1 1 100%') > 0,
     'no celular ela ocupa a linha inteira — espremida ao lado de Limpar e CSV sobrariam ' +
     'uns 90px, e um campo de busca de 90px não mostra o que a pessoa digitou');

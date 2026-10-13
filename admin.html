@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=74541aad">
+<link rel="stylesheet" href="styles.css?v=fe67f4ad">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -939,7 +939,16 @@
              agrupar ofereceria um desagrupar que não existe.
              AQUI E NÃO NA GAVETA DE FILTROS: ele não recorta nada e não vai ao
              servidor — muda a FORMA da tabela, como o cadeado e as colunas ao lado. -->
-        <button class="btn bt-agrupar" id="btnAgruparMov" type="button"
+        <!-- SEM A CLASSE `btn`, e isto e o conserto de um defeito que estava na tela:
+             `button.btn` pesa mais que `.bt-agrupar` na cascata (uma classe E um
+             elemento contra uma classe so), entao TUDO o que `.bt-agrupar` dizia era
+             ignorado. O chip de 28px com 9px de respiro virava o botao de formulario:
+             44px de altura, 18px de respiro e `flex:1` — que o esticava pela barra
+             inteira, de ponta a ponta, com a busca empurrada para o outro canto.
+             A classe saiu em vez de a regra ganhar peso: `.bt-agrupar` ja escreve o
+             desenho dele por inteiro, e um `button.bt-agrupar` so para vencer uma
+             briga deixaria a briga de pe para o proximo que lesse. -->
+        <button class="bt-agrupar" id="btnAgruparMov" type="button"
                 aria-pressed="false">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"

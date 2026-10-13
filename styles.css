@@ -3736,11 +3736,14 @@ h3.lanc__rota{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
    `so-celular` saiu daqui, e com ela a regra que a escondia no computador. A peneira
    sempre valeu nos dois — `peneirarMov` roda antes de a tela escolher entre tabela e
    cartao —, o que faltava era o campo por onde digitar.
-   NO CANTO DIREITO por `margin-left:auto`: ela e o ultimo item da barra do cadeado, e a
-   margem automatica empurra o resto para a esquerda sem precisar de espacador nenhum.
+   COLADA NO AGRUPAR, a pedido, e nao mais no canto direito. Ela morava la' por
+   `margin-left:auto`, e o canto oposto so' funciona enquanto a barra esta' cheia: com o
+   chip do Agrupar encolhido ao tamanho dele, sobrava uma faixa vazia de uns 800px entre
+   as duas pontas, e as duas unicas coisas que mexem na FORMA da tabela ficavam uma em
+   cada extremo da tela. Juntas, o olho as le' como um par — que e' o que elas sao.
    NO CELULAR ELA OCUPA A LINHA INTEIRA: espremida ao lado de Limpar e CSV, sobrariam
    uns 90px, e um campo de busca de 90px nao mostra o que a pessoa digitou. */
-.busca-mov{display:flex;align-items:center;gap:8px;margin:0 0 0 auto;padding:0 11px;
+.busca-mov{display:flex;align-items:center;gap:8px;margin:0;padding:0 11px;
   min-height:34px;width:min(300px,100%);
   background:var(--campo);border:1px solid var(--linha);
   border-radius:var(--raio)}
@@ -4018,8 +4021,13 @@ body.sem-rolagem{overflow:hidden}
  * as caixas dentro —, e um botao de agrupar numa tela que so' sabe agrupar ofereceria um
  * desagrupar que nao existe. A visibilidade esta' escrita aqui, inteira, e nao com
  * `so-celular`: aquela classe usa `!important`, que venceria esta regra. */
+/* O DESENHO E ESCRITO INTEIRO AQUI, e nao apoiado no `.btn` do formulario. Era: o
+   elemento levava as duas classes, `button.btn` vencia na cascata por ter um elemento a
+   mais, e este bloco nao pintava nada — o chip saia com 44px de altura, 18px de respiro
+   e `flex:1`, esticado pela barra inteira. O que falta aqui e' o que falhava la'. */
 .bt-agrupar{flex:0 0 auto;min-width:0;display:inline-flex;align-items:center;gap:6px;
-  min-height:28px;padding:0 9px;font-size:11.5px;
+  min-height:28px;padding:0 9px;font:inherit;font-size:11.5px;font-weight:600;
+  white-space:nowrap;cursor:pointer;border-radius:var(--raio-sm);
   background:var(--surface);color:var(--txt2);border:1px solid var(--linha)}
 .bt-agrupar:hover{background:var(--surface-2);color:var(--txt)}
 .bt-agrupar svg{flex:0 0 auto}
