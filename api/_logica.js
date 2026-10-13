@@ -158,6 +158,14 @@ var ABAS = [
      tela; trocado, todo mundo perderia o acesso a ela no mesmo instante, e ninguem
      ligaria uma coisa a outra. O nome e o que aparece; o id e o que vale. */
   { ID: 'pgLancamentosMotorista', Nome: 'Motorista/Conferente' },
+  /* A LISTA DO MOTORISTA, sem o outro lado. A tela acima CONCILIA: ela põe o que saiu,
+     o que o motorista declarou e o que o conferente contou lado a lado, com as duas
+     diferenças e a situação. Esta aqui mostra só o que o MOTORISTA declarou — e é para
+     ele que ela existe.
+     ABA PRÓPRIA e não um filtro da outra: quem recebe esta tela não deve receber junto a
+     saída informada pelo gerente nem a contagem do conferente. Fosse um filtro, bastaria
+     desmarcá-lo para a outra metade aparecer — e a tranca seria a memória de quem olha. */
+  { ID: 'pgLancMotorista', Nome: 'Lançamentos Motorista' },
   /* O MANUAL, pela mesma razao do video: texto que explica o sistema, sem dado nenhum
      dentro. As tres passam pela marca como qualquer outra: houve tempo em que chegavam
      a todo mundo que entrasse, e um motorista com uma aba marcada via quatro. */
@@ -595,11 +603,22 @@ function acharUsuario(usuarios, quem) {
   return (usuarios || []).filter(function (x) { return String(x.ID) === id; })[0] || null;
 }
 
+/* AS ABAS QUE CARREGAM DECLARACAO, num lugar so.
+ *
+ * Sao duas telas e uma so' porta: a conciliacao, que compara os dois lados, e a lista do
+ * motorista, que mostra so' o que ele declarou. As duas leem a MESMA rota — a unica do
+ * sistema que devolve declaracao —, entao ter qualquer uma delas tem de abrir a porta.
+ *
+ * ESCRITA AQUI, E NAO EM CADA LUGAR QUE PERGUNTA: a lista nova nasceu e a rota continuou
+ * conferindo so' a aba antiga. Quem recebesse so' a tela nova abriria uma pagina vazia,
+ * sem erro nenhum — e ninguem ligaria uma coisa a' outra. */
+var ABAS_DECLARACAO = ['pgLancamentosMotorista', 'pgLancMotorista'];
+
 function veDeclaracao(u) {
   if (!u) return false;
   var abas = Array.isArray(u.Abas) ? u.Abas : [];
   if (!abas.length) return ehAdministrador(u);
-  return abas.indexOf('pgLancamentosMotorista') >= 0;
+  return ABAS_DECLARACAO.some(function (id) { return abas.indexOf(id) >= 0; });
 }
 
 /* A PENEIRA DA CONTAGEM CEGA, na porta — do mesmo jeito que `recorteTeste` e
@@ -2944,6 +2963,7 @@ module.exports = {
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
   corrigeLancamento: corrigeLancamento, fotoDePerfil: fotoDePerfil,
   marcasDaBase: marcasDaBase, nomeDaBase: nomeDaBase,
+  ABAS_DECLARACAO: ABAS_DECLARACAO,
   ehAdministrador: ehAdministrador,
   montarDescancelamento: montarDescancelamento,
   JANELA_CORRECAO_MIN: JANELA_CORRECAO_MIN, diaDaOperacao: diaDaOperacao,
