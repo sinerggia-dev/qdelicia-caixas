@@ -108,7 +108,13 @@
   --veu-porta-linha:rgba(255,255,255,.10);
   --veu-porta-borda:rgba(255,255,255,.22);
   --veu-porta-viva:rgba(255,255,255,.45);
-  --veu-porta-txt:rgba(255,255,255,.72);
+  /* .88 E NAO .72, e o numero saiu de uma CONTA. Esta e' a tinta de apoio da porta — a
+     frase embaixo do titulo e a dica da senha. Composta sobre o cartao (um veu de 7% de
+     branco em cima do verde do degrade), a .72 dava 3,65:1: abaixo dos 4,5 da norma, e
+     num texto de 11,5px. Foi exatamente a queixa de quem usa — "os textos nao da' pra
+     enxergar". A .88 da' 4,62:1 e le-se como branco, que foi o pedido, sem apagar de
+     todo a hierarquia entre o rotulo e a dica. */
+  --veu-porta-txt:rgba(255,255,255,.88);
   --roxo-txt:#c9a6f0;         /* o roxo como TINTA: as iniciais no circulo */
   --verde-hover:#c9a6f0;      /* o hover CLAREIA: escurecer roubava contraste */
   --sobre-verde:#1a0b2e;      /* a tinta que vai SOBRE a marca */
@@ -1839,13 +1845,19 @@ tr.par-linhas > td{background:var(--campo);padding:0}
 
    Cores da marca: o roxo, o verde do logo e o marinho que ja era o fundo. */
 .login{
-  /* `relative` pelo credito do canto, que e' `absolute`: sem isto ele se prenderia ao
-     documento e, numa tela que rola, subiria embora com a rolagem. */
-  position:relative;
+  /* A COLUNA TEM DE CABER NA TELA, e isto nao e' gosto: com ela mais alta que a janela,
+     a porta de entrada abre com BARRA DE ROLAGEM — e uma tela de login que rola parece
+     meio carregada. Media no monitor que mostrou o defeito: a logo de 232px dava 157px
+     de altura, e com o cartao de antes a coluna passava de 680px num espaco util de
+     620. Os numeros abaixo somam 604px — conta refeita na bancada, somando padding,
+     logo, gap, cartao, cabecalho, os dois campos, o botao e o credito. Cabe num
+     notebook de 1366x768, que e' a tela mais apertada do escritorio.
+     `min-height` e nao `height`: com o teclado do celular aberto a coluna PRECISA poder
+     crescer e rolar — ali a rolagem e' o conserto, e nao o defeito. */
   min-height:100dvh;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:22px;
+  align-items:center;justify-content:center;gap:26px;
   max-width:none;margin:0;text-align:center;
-  padding:32px 20px calc(24px + env(safe-area-inset-bottom));
+  padding:24px 20px calc(20px + env(safe-area-inset-bottom));
   /* ELIPSE E NAO CIRCULO: a tela e' muito mais larga que alta, e um circulo deixaria o
      claro concentrado numa bolha no meio com as laterais pretas. A elipse acompanha o
      formato da janela e o escuro chega so' nas bordas. */
@@ -1853,27 +1865,31 @@ tr.par-linhas > td{background:var(--campo);padding:0}
     var(--login-centro) 0%, var(--login-borda) 76%);
   color:#fff;color-scheme:dark;
 }
-/* A ASSINATURA DE QUEM FEZ, presa ao canto de cima.
+/* A ASSINATURA DE QUEM FEZ, no PE' DO CARTAO.
  *
- * `absolute` E NAO UM ITEM DA COLUNA: a tela de entrada centraliza tudo verticalmente e
- * encolhe quando o teclado do celular sobe. Como item, a assinatura disputaria altura
- * com o formulario — e perderia ou empurraria o campo, que e' o que a pessoa veio usar.
- * Fora do fluxo, ela nao custa um pixel de altura a ninguem.
+ * ELA MOROU NO CANTO DE CIMA, `absolute`, e o motivo era bom: a tela centraliza tudo
+ * verticalmente e encolhe quando o teclado do celular sobe, e como item da COLUNA a
+ * assinatura disputaria altura com o formulario. Dentro do cartao o risco e' outro e
+ * menor — ela e' o ULTIMO elemento, entao e' ela que sai de vista quando o teclado
+ * sobe, e e' justamente o que pode sair. Foi por isso que o `position:relative` saiu
+ * de `.login`: nao ha mais nada ali fora do fluxo.
  *
- * `pointer-events:none`: ela fica por cima do canto, e um bloco invisivel engolindo
- * toque naquela area seria um defeito que ninguem relacionaria com um credito.
+ * `pointer-events:none`: ela ocupa a largura inteira do pe' do cartao, logo abaixo do
+ * botao Entrar. Um bloco invisivel engolindo toque encostado no unico botao da tela
+ * seria um defeito que ninguem relacionaria com um credito.
  *
- * APAGADA, de proposito: e' credito, nao recado. Quem abre esta tela vem entrar.
+ * LEVE E PEQUENA, de proposito: e' credito, nao recado. Quem abre esta tela vem entrar.
  *
- * NO CELULAR, SO' A MARCA. O texto inteiro em 320px ocuparia duas linhas atravessadas no
- * alto da tela, ao lado da logo do sistema — duas assinaturas brigando no mesmo canto. */
+ * O TEXTO VOLTOU AO CELULAR. No canto de cima ele disputava os 320px com a logo do
+ * sistema e saia; no pe' do cartao ele tem a largura inteira e nao ha com quem
+ * disputar. */
 .login__credito{
   display:flex;flex-direction:column;align-items:center;gap:6px;
-  margin:20px 0 0;padding-top:16px;border-top:1px solid var(--veu-porta-linha);
-  opacity:.75;pointer-events:none;
-  font-size:11.5px;line-height:1.3;text-align:center;color:#fff
+  margin:16px 0 0;padding-top:14px;border-top:1px solid var(--veu-porta-linha);
+  opacity:.8;pointer-events:none;
+  font-size:11px;line-height:1.3;text-align:center;color:#fff
 }
-.login__credito img{display:block;height:30px;width:auto;flex:0 0 auto}
+.login__credito img{display:block;height:26px;width:auto;flex:0 0 auto}
 /* O TEXTO FICA NO CELULAR, agora que ele tem a largura do cartao e uma linha so' para
    ele. No canto de cima ele disputava os 320px com a logo do sistema e saia; aqui
    nao ha com quem disputar. */
@@ -1881,30 +1897,34 @@ tr.par-linhas > td{background:var(--campo);padding:0}
 /* A arte ja vem com borda branca e fundo transparente: assenta no marinho sem
    cartao atras. `height:auto` com width/height no HTML reserva o espaco certo e
    evita o salto do formulario quando a imagem termina de carregar. */
-.logo-entrada{display:block;width:100%;max-width:232px;height:auto;margin:0 auto 18px}
-.login__titulo{margin:0;font-size:19px;font-weight:700;letter-spacing:-.2px;color:#fff}
+/* MENOR QUE ANTES, a pedido e por conta: a logo nao e' o que se veio fazer aqui, e aos
+   232px ela empurrava o cartao para fora da janela. A proporcao com o cartao ficou a
+   mesma da referencia — a logo com pouco menos de metade da largura dele.
+   SEM MARGEM EMBAIXO: quem separa a logo do cartao agora e' o `gap` da coluna, num
+   lugar so'. Com os dois, o espaco era a soma de duas regras que ninguem lia junto. */
+.logo-entrada{display:block;width:100%;max-width:168px;height:auto;margin:0 auto}
+.login__titulo{margin:0;font-size:17px;font-weight:700;letter-spacing:-.2px;color:#fff}
 
 /* Tela baixa (celular deitado, ou teclado aberto): a logo encolhe antes de o
    formulario sair da vista. */
 @media (max-height:620px){
-  .logo-entrada{max-width:150px;margin-bottom:8px}
-  .login{justify-content:flex-start;padding-top:5vh}
+  .logo-entrada{max-width:120px}
+  .login{justify-content:flex-start;padding-top:4vh;gap:16px}
 }
 
-/* A FAIXA DA MARCA LEVA AS DUAS CORES DA LOGO, e nao duas tonalidades do tema.
+/* A FAIXA DE DUAS CORES SAIU DAQUI, a pedido, e as regras dela foram junto.
  *
- * Ela lia `--marca-roxo` e `--marca-verde` — nomes que mentem: em cada tema os dois sao
- * tons da MESMA cor (no verde, `#00a853` e `#35d6a0`). Duas tonalidades vizinhas lado a
- * lado nao se leem como duas cores: leem-se como um degrade mal feito, que e' o que
- * aparecia embaixo do titulo.
+ * Ela era a assinatura da marca entre a logo e o cartao, e tinha razao: `--marca-roxo` e
+ * `--marca-verde` sao tons da MESMA cor em cada tema, e duas tonalidades vizinhas lado a
+ * lado se leem como um degrade mal feito — a faixa existia para levar as duas cores DE
+ * VERDADE da logo. O que mudou foi o entorno: a logo agora esta' logo acima do cartao, a
+ * poucos pixels, e a faixa entre as duas virava um terceiro elemento a ler num caminho
+ * que tem dois.
  *
- * A faixa e' a assinatura da MARCA, e a marca tem duas cores de verdade — o verde e o
- * roxo da logo logo acima dela. Por isso elas sao fixas aqui, e nao seguem o tema: o
- * tema pinta o SISTEMA; a logo e' a mesma em qualquer tema. */
-.marca-faixa{display:flex;height:4px;width:100%;max-width:380px;border-radius:999px;overflow:hidden}
-.marca-faixa span{flex:1 1 auto}
-.marca-faixa span:first-child{background:var(--logo-verde)}
-.marca-faixa span:last-child{background:var(--logo-roxo)}
+ * `--logo-verde` E `--logo-roxo` FICAM NO `:root`. Eles nao pintam nada hoje, e e'
+ * deliberado: sao o registro das cores da marca, e a conferencia de matiz que mede a
+ * distancia entre elas continua valendo. Apagados, a proxima peca que precisar da cor da
+ * logo nasceria com um hexadecimal escrito solto. */
 
 /* O CARTAO E' UM CLARO SOBRE O DEGRADE, e nao uma cor propria: `--surface-2` e' do tema,
    e o tema nao vale aqui. Branco a 7% deixa o degrade atravessar — o cartao pousa no
@@ -1913,20 +1933,23 @@ tr.par-linhas > td{background:var(--campo);padding:0}
    SEM `backdrop-filter`: o efeito seria quase o mesmo e ele custa uma camada de
    composicao em toda rolagem, num aparelho de galpao que ja' tem pouco. */
 .login .card{
-  width:100%;max-width:400px;margin:0;padding:24px 22px 20px;text-align:left;
+  width:100%;max-width:360px;margin:0;padding:20px 20px 16px;text-align:left;
   background:var(--veu-porta);border:1px solid var(--veu-porta-linha);
   border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.32)
 }
 /* O CABECALHO DENTRO DO CARTAO: o titulo nomeia o que ele pede, e a frase de apoio diz
    o que fazer. Centralizados, porque o cartao inteiro e' um pedido so'. */
-.login__cab{text-align:center;margin:0 0 20px}
-.login__sub{margin:6px 0 0;font-size:13px;color:var(--veu-porta-txt)}
+.login__cab{text-align:center;margin:0 0 16px}
+.login__sub{margin:5px 0 0;font-size:12.5px;color:var(--veu-porta-txt)}
 .login a{color:var(--marca-txt)}
-.login .campo + .campo{margin-top:18px}
-.login .rot{display:block;margin-bottom:7px;font-size:14px;font-weight:600;color:#fff}
+.login .campo + .campo{margin-top:14px}
+.login .rot{display:block;margin-bottom:6px;font-size:12.5px;font-weight:700;color:#fff}
 /* A REGRA DO CAMPO VEM ANTES DO CAMPO, e nao depois: lida depois, ela chega quando
-   a pessoa ja digitou errado. */
-.login .dica{display:block;margin:-3px 0 7px;font-size:12px;color:var(--txt3)}
+   a pessoa ja digitou errado.
+   EM BRANCO, e nao no cinza do tema. `--txt3` e' um cinza de apoio calculado contra o
+   fundo do SISTEMA; sobre o verde da porta ele fica ilegivel — e e' esta linha que diz
+   que servem seis numeros OU a senha do painel, que e' a duvida de quem para aqui. */
+.login .dica{display:block;margin:-2px 0 6px;font-size:11.5px;color:var(--veu-porta-txt)}
 /* O CAMPO E' CLARO, e o resto da tela e' escuro. Nao e' contraste por contraste: num
    cartao translucido, um campo escuro some dentro dele — vira um retangulo um pouco mais
    escuro no meio de outro. Claro, ele e' a unica coisa branca da tela, e e' exatamente
@@ -1934,7 +1957,7 @@ tr.par-linhas > td{background:var(--campo);padding:0}
    A TINTA DENTRO DELE E' ESCURA e fixa: o texto digitado mora no campo claro, e nao no
    cartao. Herdando `--txt`, ele sairia branco sobre branco. */
 .login .card input{
-  width:100%;min-height:52px;padding:0 16px;
+  width:100%;min-height:46px;padding:0 14px;
   font:inherit;font-size:16px;      /* 16px evita o zoom automatico do iOS */
   color:var(--login-campo-txt);background:var(--login-campo);
   border:1px solid var(--veu-porta-borda);border-radius:10px
@@ -2003,7 +2026,7 @@ input[type="password"]::-ms-clear{display:none}
  * botao. Um escurecimento proporcional serve aos quatro temas sem quatro valores
  * novos. */
 .btn-entrar{
-  width:100%;min-height:56px;margin-top:22px;
+  width:100%;min-height:48px;margin-top:18px;
   display:inline-flex;align-items:center;justify-content:center;gap:9px;
   font:inherit;font-size:16px;font-weight:600;
   /* O ROSA DA LOGO, e nao a cor do tema. Pela mesma razao do fundo: a configuracao da

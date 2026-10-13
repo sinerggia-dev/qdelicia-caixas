@@ -2555,7 +2555,16 @@
     /* ---- primeiro acesso / esqueci ----------------------------------------
        Abre NA PROPRIA TELA, e nao num modal: o modal so existia no painel, e no
        celular um bloco que desce e melhor do que uma janela por cima do teclado. */
-    $('linkPrimeiroAcesso').addEventListener('click', function (e) {
+    /* O LINK SAIU DA PORTA, a pedido, e o OUVINTE TEM DE SOBREVIVER A ISSO.
+       `addEventListener` num elemento que nao existe estoura — e um erro aqui nao
+       estraga uma funcao: ele mata o resto deste bloco, e com ele o botao Entrar. Este
+       projeto ja' pagou essa conta uma vez, com a tela inteira muda e sem mensagem de
+       erro nenhuma.
+       O CARTAO DE PRIMEIRO ACESSO CONTINUA NA PAGINA, escondido: devolver o caminho
+       para ele e' uma linha de HTML, e arrancar o cartao junto tornaria a volta uma
+       reconstrucao. */
+    var linkPrimeiro = $('linkPrimeiroAcesso');
+    if (linkPrimeiro) linkPrimeiro.addEventListener('click', function (e) {
       e.preventDefault();
       var aberto = !$('cardPrimeiro').hidden;
       $('cardPrimeiro').hidden = aberto;

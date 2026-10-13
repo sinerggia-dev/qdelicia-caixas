@@ -16168,10 +16168,14 @@ console.log('\n== os grupos da navegacao recolhem ==');
 
   /* ---- A MARCA DA TELA DE ENTRADA ----
    *
-   * A faixa embaixo do titulo lia dois tokens do TEMA — e em cada tema os dois sao tons
-   * da MESMA cor (no verde, `#00a853` e `#35d6a0`). Duas tonalidades vizinhas lado a
-   * lado nao se leem como duas cores: leem-se como um degrade mal feito. E o botao
-   * Entrar usava o tom CLARO, que a um palmo da logo parecia outra marca. */
+   * Aqui se conferem as cores da MARCA e o uso delas na porta. A faixa de duas cores
+   * que morava entre a logo e o cartao saiu a pedido, e as conferencias dela inverteram
+   * (cobram que nao sobre regra orfa); o que ela ensinou continua valendo e esta' medido
+   * logo abaixo: `--marca-roxo` e `--marca-verde` sao tons da MESMA cor em cada tema
+   * (no verde, `#00a853` e `#35d6a0`), e duas tonalidades vizinhas nao se leem como duas
+   * cores. Por isso as cores da logo sao FIXAS na raiz — e por isso o botao Entrar usa o
+   * rosa da marca, e nao o tom claro do tema, que a um palmo da logo parecia outra
+   * marca. */
   var cssM = fsReal.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
   function regraDe(sel) {
     var i = cssM.indexOf('\n' + sel + '{');
@@ -16204,11 +16208,19 @@ console.log('\n== os grupos da navegacao recolhem ==');
       'leem como um degradê mal feito, que é o que aparecia embaixo do título',
       [lv, lr, Math.round(dif) + '°']);
   }
-  var m1 = regraDe('.marca-faixa span:first-child');
-  var m2 = regraDe('.marca-faixa span:last-child');
-  ok(m1.indexOf('--logo-verde') > 0 && m2.indexOf('--logo-roxo') > 0,
-    'a faixa usa as cores da LOGO, e não as do tema — ela é a assinatura da marca, e o ' +
-    'tema pinta o sistema', [m1, m2]);
+  /* A FAIXA SAIU DA PORTA, a pedido — e com ela as regras que a pintavam. A prova
+     inverteu: o que se cobra agora e' que nao sobre CSS de uma peca que nenhuma tela
+     desenha. Regra orfa nao quebra nada; ela so' faz o proximo leitor procurar na tela
+     um elemento que nao existe mais. */
+  ok(cssM.indexOf('.marca-faixa') < 0,
+    'a faixa de duas cores saiu da porta, e as regras dela foram junto — regra órfã não ' +
+    'quebra nada, só faz o próximo leitor procurar na tela um elemento que não existe');
+  ['index.html', 'admin.html'].forEach(function (arq) {
+    ok(fs.readFileSync(path.join(__dirname, '..', arq), 'utf8')
+         .indexOf('marca-faixa') < 0,
+      arq + ': e o nó dela também saiu — deixado, ele seria uma div de 4px invisível no ' +
+      'meio do caminho entre a logo e o cartão');
+  });
 
   /* O BOTAO DA PORTA DEIXOU DE SEGUIR O TEMA, e a razao e' a mesma do fundo dela: a
      aparencia da empresa chega com a CONFIGURACAO, e a configuracao chega depois de
@@ -16381,10 +16393,23 @@ console.log('\n== os grupos da navegacao recolhem ==');
   ok(!!credito && credito['pointer-events'] === 'none',
     'e não engole toque — um bloco invisível comendo o canto da tela seria um defeito ' +
     'que ninguém relacionaria com um crédito');
+  /* E A COLUNA NAO PRECISA MAIS SER ANCORA DE NINGUEM.
+     `.login` era `position:relative` por causa do credito `absolute` do canto. Com ele
+     no fluxo, nao ha mais nada fora do fluxo ali — e um `relative` sem dono nao e'
+     inocente: ele faz da tela inteira o bloco de referencia do proximo `absolute` que
+     alguem escrever dentro dela, e o defeito aparece longe daqui.
+     O UNICO `absolute` DA PORTA e' o olho de ver a senha, e a ancora dele e' o proprio
+     campo. E' o que esta conferencia cobra — sem `.com-olho` relativo, o olho sairia
+     do campo e iria para o canto da TELA. */
   var pai = regraCss('.login');
-  ok(!!pai && pai['position'] === 'relative',
-    'e a tela de entrada é a âncora dele — sem isso ele se prende ao documento e sobe ' +
-    'embora quando a tela rola', pai && pai['position']);
+  ok(!!pai && pai['position'] === undefined,
+    'a coluna da entrada não é mais âncora de ninguém — o crédito saiu do canto e foi ' +
+    'para o fluxo, e um `relative` sem dono rouba a referência do próximo `absolute` ' +
+    'que alguém escrever aqui dentro', pai && pai['position']);
+  var olho = regraCss('.com-olho');
+  ok(!!olho && olho['position'] === 'relative',
+    'e quem ancora o olho de ver a senha é o CAMPO dele — solto, o olho iria parar no ' +
+    'canto da tela de entrada, longe da senha que ele mostra', olho);
   ['index.html', 'admin.html'].forEach(function (arq) {
     var txt = fsReal.readFileSync(path.join(__dirname, '..', arq), 'utf8');
     ok(txt.indexOf('Sinergia Consultoria&copy;, todos os direitos reservados.') > 0,
@@ -20036,6 +20061,54 @@ console.log('\n== o visual da porta de entrada ==');
     'metade da tela sem dizer onde está o cursor',
     [CP(foco, campo).toFixed(2), CP(foco, tokenP('--login-centro')).toFixed(2)]);
 
+  /* ---- A TINTA DE APOIO DA PORTA, MEDIDA SOBRE O CARTAO ----
+   *
+   * A queixa foi literal: "os textos nao da' pra enxergar". Duas linhas usam esta tinta
+   * — a frase embaixo do titulo e a DICA DA SENHA, que e' quem diz que servem seis
+   * numeros OU a senha do painel. Ela e' a duvida de quem para nesta tela; ilegivel, a
+   * pessoa tenta a senha errada e culpa o sistema.
+   *
+   * A CONTA TEM DE COMPOR, e nao medir a cor escrita: a tinta e' branco com alfa, e o
+   * cartao e' um veu de branco com alfa sobre o verde do degrade. Medindo `#ffffff`
+   * contra `--login-centro` a conta daria 5,4:1 e passaria sempre — inclusive na .72,
+   * que e' o valor que gerou a queixa. */
+  function compor(rgba, base) {
+    var m = /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/.exec(rgba);
+    if (!m) return '';
+    var a = parseFloat(m[4]);
+    var b = [parseInt(base.slice(1, 3), 16), parseInt(base.slice(3, 5), 16),
+             parseInt(base.slice(5, 7), 16)];
+    return '#' + [0, 1, 2].map(function (i) {
+      var v = Math.round(a * parseInt(m[i + 1], 10) + (1 - a) * b[i]);
+      return (v < 16 ? '0' : '') + v.toString(16);
+    }).join('');
+  }
+  function rgbaDe(nome) {
+    var m = new RegExp('\\' + nome + ':\\s*(rgba\\([^)]+\\))').exec(cssP);
+    return m ? m[1] : '';
+  }
+  var verde = tokenP('--login-centro');
+  var cartaoCor = compor(rgbaDe('--veu-porta'), verde);
+  var apoio = compor(rgbaDe('--veu-porta-txt'), cartaoCor);
+  ok(!!cartaoCor && !!apoio,
+    'a conferência compôs o cartão sobre o degradê e a tinta de apoio sobre o cartão — ' +
+    'medindo a cor escrita em vez da composta, branco daria 5,4:1 e passaria sempre, ' +
+    'inclusive no valor que gerou a queixa', [verde, cartaoCor, apoio]);
+  ok(CP(apoio, cartaoCor) >= 4.5,
+    'e a tinta de apoio passa os 4,5:1 SOBRE O CARTÃO — é ela que diz que servem seis ' +
+    'números ou a senha do painel, e ilegível a pessoa tenta a senha errada e culpa o ' +
+    'sistema', CP(apoio, cartaoCor).toFixed(2) + ':1');
+  /* E AS DUAS LINHAS USAM ESSA TINTA. Medindo so' o token, voltar a dica para o cinza do
+     tema passava: `--txt3` e' calculado contra o fundo do SISTEMA, e sobre o verde da
+     porta ele some. */
+  [['.login .dica', 'a dica da senha'], ['.login__sub', 'a frase de apoio']]
+    .forEach(function (par) {
+      var r = regraP(par[0]);
+      ok(r.indexOf('color:var(--veu-porta-txt)') >= 0 && r.indexOf('var(--txt3)') < 0,
+        par[1] + ' usa a tinta medida da porta, e não o cinza do tema — `--txt3` é ' +
+        'calculado contra o fundo do SISTEMA, e sobre o verde daqui ele some', r);
+    });
+
   /* ---- O BOTAO ROSA, MEDIDO ---- */
   var rosa = tokenP('--logo-rosa');
   ok(!!rosa && CP('#ffffff', rosa) >= 4.5,
@@ -20059,6 +20132,105 @@ console.log('\n== o visual da porta de entrada ==');
     'de verde, um botão sem contorno se dissolve no cartão, e ele é a única porta de ' +
     'entrada do sistema', regraP('.btn-entrar').slice(-160));
 
+  /* ---- A COLUNA CABE NA JANELA, E ISTO E' MEDIDO ----
+   *
+   * O defeito relatado foi BARRA DE ROLAGEM na porta de entrada. Nao da' para abrir um
+   * navegador aqui, entao a altura se SOMA a partir dos numeros que a folha declara —
+   * e e' exatamente essa soma que a pessoa ve' em pixels na tela dela.
+   *
+   * A conta NAO pode ser uma constante escrita aqui: assim ela continuaria fechando
+   * depois de alguem engordar o cartao. Cada parcela e' lida da regra que manda nela,
+   * entao inflar qualquer numero da porta move o total e derruba esta prova.
+   *
+   * O TETO E' 620px, e nao e' redondo por acaso: e' o espaco util de um 1366x768 com a
+   * barra do navegador e a do sistema — a tela mais apertada do escritorio, e a mesma
+   * altura em que a folha ja' liga o atalho de tela baixa. */
+  function num(regra, prop, qual) {
+    var m = new RegExp(prop + ':([^;}]+)').exec(regra);
+    if (!m) return NaN;
+    var n = String(m[1]).match(/-?\d+(\.\d+)?/g);
+    return n ? parseFloat(n[qual || 0]) : NaN;
+  }
+  var rLogin  = regraP('.login'),
+      rLogo   = regraP('.logo-entrada'),
+      rCard   = regraP('.login .card'),
+      rCab    = regraP('.login__cab'),
+      rTit    = regraP('.login__titulo'),
+      rSub    = regraP('.login__sub'),
+      rRot    = regraP('.login .rot'),
+      rDica   = regraP('.login .dica'),
+      rEntre  = regraP('.login .campo + .campo'),
+      rInput  = regraP('.login .card input'),
+      rBtn    = regraP('.btn-entrar'),
+      rCred   = regraP('.login__credito'),
+      rCredI  = regraP('.login__credito img');
+  /* A ENTRELINHA DO CORPO, que decide a altura de todo texto que nao tem a sua. */
+  var entreLinha = num(cssP.slice(cssP.indexOf('font-size:16px;line-height:')),
+                       'line-height');
+  /* A LOGO E' UMA IMAGEM: a altura dela nao esta' na folha, sai da PROPORCAO do arquivo
+     com a largura que a folha permite. `width`/`height` no HTML existem para reservar
+     esse espaco, e sao a mesma proporcao que o navegador usa. */
+  var imgPorta = /<img[^>]*class="logo-entrada"[^>]*>/.exec(
+    fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'));
+  var lw = imgPorta && /width="(\d+)"/.exec(imgPorta[0]),
+      lh = imgPorta && /height="(\d+)"/.exec(imgPorta[0]);
+  ok(!!lw && !!lh && entreLinha > 1,
+    'a conferência leu a proporção da logo e a entrelinha do corpo — sem elas a conta ' +
+    'da altura seria chute', [lw && lw[1], lh && lh[1], entreLinha]);
+
+  var alturaLogo = num(rLogo, 'max-width') * (lh[1] / lw[1]);
+  var linha = function (px) { return px * entreLinha; };
+  var parcelas = {
+    'padding da coluna'   : num(rLogin, 'padding', 0) + num(rLogin, 'padding', 1 + 1),
+    'logo'                : alturaLogo,
+    'gap até o cartão'    : num(rLogin, 'gap'),
+    'borda do cartão'     : num(rCard, 'border', 0) * 2,
+    'padding do cartão'   : num(rCard, 'padding', 0) + num(rCard, 'padding', 2),
+    'título'              : linha(num(rTit, 'font-size')),
+    'frase de apoio'      : num(rSub, 'margin', 0) + linha(num(rSub, 'font-size')),
+    'folga do cabeçalho'  : num(rCab, 'margin', 2),
+    'rótulo Usuário'      : linha(num(rRot, 'font-size')) + num(rRot, 'margin-bottom'),
+    'campo Usuário'       : num(rInput, 'min-height'),
+    'entre os dois campos': num(rEntre, 'margin-top'),
+    'rótulo Senha'        : linha(num(rRot, 'font-size')) + num(rRot, 'margin-bottom'),
+    'dica da senha'       : num(rDica, 'margin', 0) + linha(num(rDica, 'font-size')) +
+                            num(rDica, 'margin', 2),
+    'campo Senha'         : num(rInput, 'min-height'),
+    'botão Entrar'        : num(rBtn, 'margin-top') + num(rBtn, 'min-height'),
+    'crédito'             : num(rCred, 'margin', 0) + num(rCred, 'padding-top') +
+                            num(rCred, 'border-top') +
+                            num(rCred, 'font-size') * num(rCred, 'line-height') +
+                            num(rCred, 'gap') + num(rCredI, 'height')
+  };
+  var total = 0, faltou = [];
+  Object.keys(parcelas).forEach(function (nome) {
+    if (isNaN(parcelas[nome])) faltou.push(nome); else total += parcelas[nome];
+  });
+  ok(!faltou.length,
+    'todas as parcelas da altura foram lidas da folha — uma parcela que não se lê vira ' +
+    'zero, e a conta passaria justamente quando a regra sumisse', faltou);
+  ok(total <= 620,
+    'e a coluna da porta cabe em 620px, que é o espaço útil de um 1366x768 — mais alta ' +
+    'que a janela, a tela de entrada abre com barra de rolagem, e uma porta que rola ' +
+    'parece meio carregada',
+    { total: Math.round(total), parcelas: parcelas });
+
+  /* E O ATALHO DE TELA BAIXA ENCOLHE DE VERDADE. Ele e' o que salva o celular deitado e
+     o teclado aberto; vazio, ou mexendo so' no alinhamento, ele existiria sem fazer
+     nada — e o defeito voltaria exatamente onde e' pior. */
+  var baixa = cssP.slice(cssP.indexOf('@media (max-height:620px){'));
+  baixa = baixa.slice(0, baixa.indexOf('\n}') + 2);
+  var logoBaixa = /\.logo-entrada\{([^}]*)\}/.exec(baixa);
+  ok(!!logoBaixa &&
+     parseFloat(/max-width:(\d+)/.exec(logoBaixa[1])[1]) < num(rLogo, 'max-width'),
+    'e em tela baixa a logo encolhe ANTES de o formulário sair da vista — ela é a ' +
+    'parcela mais gorda da coluna e a única que não é o que a pessoa veio fazer aqui',
+    logoBaixa && logoBaixa[1]);
+  ok(/\.login\{[^}]*justify-content:flex-start/.test(baixa),
+    'e a coluna encosta no topo em vez de centralizar — centralizada numa janela mais ' +
+    'baixa que ela, o corte fica metade em cima e metade embaixo, e some o campo junto ' +
+    'com a logo', baixa.slice(0, 200));
+
   /* ---- AS DUAS TELAS DE ENTRADA CONTINUAM IGUAIS ----
      Ha' duas copias do mesmo formulario, uma em cada arquivo. Divergindo, metade de quem
      entra no sistema veria uma porta e metade veria outra. */
@@ -20071,6 +20243,65 @@ console.log('\n== o visual da porta de entrada ==');
     'e as duas telas de entrada continuam IGUAIS palavra por palavra — divergindo, ' +
     'metade de quem entra no sistema veria uma porta e metade veria outra',
     { campo: porta('index.html').length, painel: porta('admin.html').length });
+
+  /* ---- O FIM DA LIGACAO SOBREVIVE AO LINK QUE NAO EXISTE MAIS ----
+   *
+   * O link azul de "Primeiro acesso" saiu da porta, a pedido. O ouvinte dele ficou, com
+   * guarda — e a guarda nao e' zelo: `addEventListener` em `null` ESTOURA, e um erro
+   * aqui nao estraga uma funcao. Ele mata o resto do bloco, e depois dele ainda se ligam
+   * "Salvar senha" e "Pedir ajuda ao escritorio". A tela abriria com botoes mudos e sem
+   * mensagem de erro nenhuma — este projeto ja' pagou essa conta uma vez.
+   *
+   * A PROVA RODA O TRECHO, e nao procura o `if`. Apagar a guarda deixa
+   * `var linkPrimeiro = $('linkPrimeiroAcesso');` no lugar, entao qualquer conferencia
+   * pelo NOME continuaria passando. O que se mede e' o efeito: com o elemento ausente,
+   * os ouvintes que vem DEPOIS continuam sendo pendurados. */
+  var iFim = appP.indexOf("    var linkPrimeiro = $('linkPrimeiroAcesso');");
+  var fFim = appP.indexOf("(ultimo ? campo : $('inUsuario')).focus();", iFim);
+  var trecho = iFim < 0 || fFim < 0 ? '' : appP.slice(iFim, fFim + 42);
+  ok(trecho.indexOf('psSalvar') > 0 && trecho.indexOf('psPedir') > 0,
+    'a conferência recortou o fim da ligação da porta, com os dois botões que vêm ' +
+    'depois do ouvinte do link', trecho.length);
+
+  var pendurados = {};
+  function noFalso(id) {
+    return { id: id, hidden: true, value: '', disabled: false, textContent: '',
+             focus: function () {},
+             addEventListener: function (ev) { pendurados[id] = ev; } };
+  }
+  var $$ = function (id) {
+    /* O LINK NAO EXISTE: e' exatamente esta a tela de hoje. */
+    if (id === 'linkPrimeiroAcesso') return null;
+    return noFalso(id);
+  };
+  var estourou = '';
+  try {
+    new Function('$', 'post', 'toast', 'semApi', 'mostrarErro', 'aviso', 'campo',
+                 'localStorage', trecho)(
+      $$,
+      function () { return { then: function () { return { 'catch': function () {} }; } }; },
+      function () {}, function () { return false; }, function () {}, '',
+      noFalso('inSegredo'), { getItem: function () { return null; } });
+  } catch (e) { estourou = String(e && e.message || e); }
+
+  ok(!estourou,
+    'o fim da ligação da entrada RODA com o link ausente — sem a guarda, ' +
+    '`addEventListener` em `null` estoura e mata o resto do bloco, e a tela abre com ' +
+    'botões mudos e sem erro nenhum na cara de quem está tentando entrar', estourou);
+  ok(pendurados['psSalvar'] === 'click' && pendurados['psPedir'] === 'click',
+    'e os dois botões que vêm DEPOIS dele continuam ligados — é isso que o estouro ' +
+    'levaria junto, e é por isso que esta prova RODA o trecho em vez de procurar o `if`',
+    pendurados);
+
+  /* E O CARTAO DE PRIMEIRO ACESSO CONTINUA NA PAGINA, escondido. Arrancado junto com o
+     link, devolver o caminho para ele deixaria de ser uma linha de HTML e viraria uma
+     reconstrucao — e e' o unico caminho para quem esqueceu a senha. */
+  ['index.html', 'admin.html'].forEach(function (arq) {
+    var txt = fs.readFileSync(path.join(__dirname, '..', arq), 'utf8');
+    ok(txt.indexOf('id="cardPrimeiro"') > 0 && txt.indexOf('id="psSalvar"') > 0,
+      arq + ': o cartão de primeiro acesso continua na página, só sem caminho até ele ' +
+      '— arrancado junto com o link, devolver o acesso viraria uma reconstrução');
+  });
 }
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
