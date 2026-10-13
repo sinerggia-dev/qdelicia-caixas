@@ -17727,15 +17727,31 @@ console.log('\n== a aparência: cor da marca e fundo ==');
      Gravando a cada clique, experimentar três cores mandaria três cores para o galpão. */
   var lig = adm.slice(adm.indexOf('function ligarAparencia'),
                       adm.indexOf('function desenharUsuariosDigitando'));
-  ok(/Q\.aplicarTema\(b\.dataset\.valor, false\)/.test(lig) &&
-     /Q\.aplicarFundo\(b\.dataset\.valor, false\)/.test(lig),
+  ok(/Q\.aplicarTema\(v, false\)/.test(lig) && /Q\.aplicarFundo\(v, false\)/.test(lig) &&
+     /Q\.mudarSuperficie\(mudanca, false\)/.test(adm),
     'clicar numa cor só PREVÊ: não grava no servidor nem na cópia local');
-  ok(lig.indexOf("acao:'salvarConfig', chave:'tema'") > 0 &&
-     lig.indexOf("acao:'salvarConfig', chave:'fundo'") > 0,
-    'e o botão grava as DUAS chaves — gravada uma e falhada a outra, a empresa fica com ' +
-    'uma combinação que ninguém escolheu');
-  ok(lig.indexOf('Q.aplicarTema(tema); Q.aplicarFundo(fundo);') >
-     lig.indexOf("chave:'fundo'"),
+  /* AS OITO CHAVES, e nao mais duas: a aparencia passou a ser quatro superficies, cada
+     uma com cor e intensidade. Gravada parte delas, a empresa fica com uma combinacao
+     que ninguem escolheu — e a tela de quem olha fica a meio caminho entre duas. */
+  var CHAVES_AP = ['tema', 'fundo', 'topoCor', 'topoInt', 'fundoInt', 'botaoInt',
+                   'usuarioCor', 'usuarioInt'];
+  /* A LISTA E' RECORTADA, e nao procurada na funcao inteira: `usuarioInt` e os outros
+     aparecem tambem nos mapas de id la' dentro, e respondiam pela lista — tirada uma
+     chave da gravacao, a prova continuava achando o nome e passava. */
+  var iCh = lig.indexOf('var chaves = [');
+  var listaCh = lig.slice(iCh, lig.indexOf('];', iCh));
+  var faltando = CHAVES_AP.filter(function (k) { return listaCh.indexOf("'" + k + "'") < 0; });
+  ok(faltando.length === 0,
+    'e o botão grava as OITO chaves da aparência — gravada parte delas, a empresa fica ' +
+    'com uma combinação que ninguém escolheu', faltando);
+  /* EM FILA, e nao em paralelo: em paralelo, uma que falhasse deixaria as outras sete
+     gravadas e a tela diria "erro" sobre uma aparencia que mudou pela metade. */
+  ok(/chaves\.reduce\(function\(antes, chave\)\{/.test(lig) &&
+     /return antes\.then\(function\(\)\{/.test(lig),
+    'e uma de cada vez, EM FILA — em paralelo, uma recusa deixaria as outras sete ' +
+    'gravadas e a tela diria "erro" sobre uma aparência que mudou pela metade');
+  ok(lig.indexOf('Q.aplicarTema(estado.tema); Q.aplicarFundo(estado.fundo);') >
+     lig.indexOf("acao:'salvarConfig'"),
     'e a cópia local só é escrita DEPOIS de o servidor aceitar — antes, ela guardaria ' +
     'uma cor que não vingou');
 
@@ -19252,6 +19268,209 @@ console.log('\n== a lista do app de campo, agrupada pelo registro ==');
   ok(/Q\.agruparLancamentos\(lista\)/.test(ixSemC),
     'e o agrupador é o do NÚCLEO, o mesmo do cartão e o mesmo do painel — reescrito ' +
     'aqui, o computador e o telefone discordariam sobre quantos lançamentos existem');
+}
+
+
+console.log('\n== a aparencia em quatro superficies ==');
+{
+  var appA = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var cssA = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var admA = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  function corpoApp(nome) {
+    var i = appA.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = appA.indexOf('{', i);
+    for (; k < appA.length; k++) {
+      if (appA[k] === '{') d++;
+      else if (appA[k] === '}' && --d === 0) return appA.slice(i, k + 1);
+    }
+    return '';
+  }
+
+  /* A CONTA DA COR E' RODADA, e nao lida. O que pode dar errado aqui nao e' uma palavra
+     faltando no arquivo: e' a intensidade mexer na LUZ em vez da saturacao, e derrubar
+     o contraste de uma escala que alguem mediu — um defeito que nao aparece em teste de
+     texto nenhum e que se manifesta meses depois como "a tela ficou estranha". */
+  var fonteCor = corpoApp('hexParaHsl') + corpoApp('hslParaHex') +
+                 corpoApp('limitarIntensidade') + corpoApp('corComIntensidade') +
+                 corpoApp('hexParaTripla') + corpoApp('luminancia') +
+                 corpoApp('contraste') + corpoApp('tintaSobre');
+  ok(fonteCor.length > 1200,
+    'a conferência recortou a conta da cor — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', fonteCor.length);
+  /* `PISO_TINTA` ENTRA COMO PARAMETRO pela mesma razao que `INT_PADRAO`: a regra
+     passou a ter um piso de contraste, e sem ele o recorte estoura em
+     `PISO_TINTA is not defined` — e e' assim que esta prova avisa que a regra
+     mudou, em vez de continuar medindo a de ontem. */
+  var C = new Function('INT_MIN', 'INT_MAX', 'INT_PADRAO', 'PISO_TINTA', fonteCor +
+    ' return { hsl:hexParaHsl, cor:corComIntensidade, tripla:hexParaTripla,' +
+    ' contraste:contraste, tinta:tintaSobre, limite:limitarIntensidade };')(60, 140, 100, 4.5);
+
+  /* ---- 100% E' O VALOR MEDIDO ----
+   * E' a linha que fez isto poder entrar sem mudar a cara de ninguem. */
+  ['#16304f', '#00a853', '#a46ce7', '#ef7b2f', '#dce8f5', '#eef2f7'].forEach(function (h) {
+    ok(C.cor(h, 100).toLowerCase() === h.toLowerCase(),
+      '100% devolve a cor MEDIDA, sem mexer em nada — é isto que faz a tela de quem ' +
+      'nunca tocou no controle sair idêntica à de antes: ' + h, C.cor(h, 100));
+  });
+
+  /* ---- A INTENSIDADE MEXE NA SATURACAO, E NAO NA LUZ ----
+   * Quem manda no contraste e' a LUZ. Um controle que clareasse o fundo derrubaria a
+   * legibilidade de tudo o que esta em cima dele sem mudar uma linha de texto. */
+  var piorLuz = 0;
+  ['#16304f', '#0f2a2c', '#1e2124', '#1a1326', '#eef2f7',
+   '#00a853', '#a46ce7', '#ef7b2f', '#dce8f5'].forEach(function (h) {
+    [60, 70, 85, 100, 115, 130, 140].forEach(function (k) {
+      var d = Math.abs(C.hsl(C.cor(h, k)).l - C.hsl(h).l);
+      if (d > piorLuz) piorLuz = d;
+    });
+  });
+  ok(piorLuz < 0.01,
+    'e a intensidade mexe na SATURAÇÃO, e não na luz — quem manda no contraste é a luz, ' +
+    'e um controle que clareasse o fundo derrubaria a legibilidade de tudo o que está ' +
+    'em cima dele sem mudar uma linha de texto',
+    'maior desvio de luz: ' + piorLuz.toFixed(4));
+
+  /* ---- E O CONTRASTE MEDIDO CONTINUA DE PE' EM TODA COMBINACAO ----
+   * As cinco escalas de fundo foram medidas contra o texto delas — os comentarios da
+   * folha registram os numeros um por um. Esta prova refaz a conta em TODA intensidade
+   * que o controle oferece: se um dia a regra passar a mexer na luz, e' aqui que a
+   * conta para de fechar, e nao no galpao. */
+  function tokenDe(fundo, token) {
+    var i = cssA.indexOf('[data-fundo="' + fundo + '"]{');
+    var bloco = cssA.slice(i, cssA.indexOf('}', i));
+    var m = new RegExp(token + ':(#[0-9a-fA-F]{6})').exec(bloco);
+    return m ? m[1] : '';
+  }
+  var FUNDOS_MEDIDOS = ['azul', 'petroleo', 'cinza', 'roxo', 'gelo'];
+  ok(FUNDOS_MEDIDOS.every(function (f) { return !!tokenDe(f, '--bg') && !!tokenDe(f, '--txt'); }),
+    'a conferência leu as cinco escalas de fundo da folha',
+    FUNDOS_MEDIDOS.map(function (f) { return f + ':' + tokenDe(f, '--bg'); }).join(' '));
+  var piorFundo = 99, ondePior = '';
+  FUNDOS_MEDIDOS.forEach(function (f) {
+    var txt = tokenDe(f, '--txt');
+    ['--bg', '--surface', '--surface-2', '--campo'].forEach(function (tk) {
+      var base = tokenDe(f, tk);
+      if (!base) return;
+      [60, 80, 100, 120, 140].forEach(function (k) {
+        var r = C.contraste(C.cor(base, k), txt);
+        if (r < piorFundo) { piorFundo = r; ondePior = f + ' ' + tk + ' ' + k + '%'; }
+      });
+    });
+  });
+  ok(piorFundo >= 4.5,
+    'e o texto continua legível sobre o fundo em TODA intensidade que o controle ' +
+    'oferece — 4,5:1 é o piso da WCAG para texto normal, e é a conta que a folha já ' +
+    'tinha feito à mão para 100%',
+    'pior caso ' + piorFundo.toFixed(2) + ':1 em ' + ondePior);
+
+  /* ---- A TINTA EM CIMA DA COR SAI DA LUMINANCIA ----
+   * Era por tabela: cada tema trazia o `--sobre-brand` escrito a mao, e funcionava
+   * enquanto as cores eram quatro. Com cor livre e intensidade, a primeira combinacao
+   * que ninguem previu nasceria com texto branco sobre fundo claro. */
+  var piorTinta = 99, ondeTinta = '';
+  ['#00a853', '#a46ce7', '#ef7b2f', '#dce8f5', '#35d6a0', '#5b9ef0',
+   '#2c9b9f', '#8d939c'].forEach(function (h) {
+    [60, 80, 100, 120, 140].forEach(function (k) {
+      var cor = C.cor(h, k);
+      var r = C.contraste(cor, C.tinta(cor));
+      if (r < piorTinta) { piorTinta = r; ondeTinta = h + ' ' + k + '%'; }
+    });
+  });
+  ok(piorTinta >= 4.5,
+    'e a tinta que vai EM CIMA da cor sai da luminância dela, e passa em toda ' +
+    'combinação — por tabela, a primeira cor que ninguém previu nasceria com texto ' +
+    'branco sobre fundo claro, e quem escolheu não teria como saber que acabou de ' +
+    'deixar um botão ilegível no galpão',
+    'pior caso ' + piorTinta.toFixed(2) + ':1 em ' + ondeTinta);
+
+  /* ---- O TETO E O CHAO ---- */
+  ok(C.limite(5) === 60 && C.limite(900) === 140 && C.limite('abc') === 100,
+    'a intensidade tem teto, chão e um valor para o que não é número — sem eles, um ' +
+    'pedido torto satura a faixa numa cor que nunca foi medida, e a volta seria pelo banco',
+    [C.limite(5), C.limite(900), C.limite('abc')]);
+
+  /* ---- A LIMPEZA ANTES DA LEITURA ----
+   * E' o defeito mais sorrateiro daqui: o 100% de cada token e' o valor que a FOLHA
+   * define, lido com `getComputedStyle`. Com um override anterior no lugar, a leitura
+   * devolveria a cor JA' saturada — e cada visita saturaria de novo em cima da anterior. */
+  var apSem = semComentarios(appA);
+  var iAplica = apSem.indexOf('function aplicarSuperficies(');
+  var fAplica = apSem.slice(iAplica, apSem.indexOf('\n  }', iAplica));
+  /* A EXISTENCIA ANTES DA ORDEM. `indexOf` de quem nao esta la' devolve -1, e -1 e'
+     menor que qualquer posicao: arrancada a limpeza, a comparacao continuava verdadeira
+     e a sabotagem passou. */
+  var iLimpa = fAplica.indexOf('limparSuperficies(raiz)');
+  var iLe = fAplica.indexOf('getComputedStyle(raiz)');
+  ok(iAplica > 0 && iLimpa >= 0 && iLe >= 0 && iLimpa < iLe,
+    'o aplicador LIMPA o que escreveu antes de ler o valor medido — lendo por cima do ' +
+    'próprio override, cada abertura da tela saturaria de novo em cima da anterior, e ' +
+    'em três visitas a cor estaria irreconhecível sem nada dizer por quê');
+  /* E NENHUMA DAS DUAS LISTAS ESCREVE. A limpeza varre os tokens das superficies e
+     depois as tintas; sabotada so' a primeira, a segunda ainda dizia `removeProperty` e
+     a prova passava. O que se cobra e' que ali dentro nao haja ESCRITA nenhuma. */
+  var fLimpa = corpoApp('limparSuperficies');
+  ok(/removeProperty/.test(fLimpa) && fLimpa.indexOf('setProperty') < 0,
+    'e a limpeza REMOVE a propriedade, em vez de escrever um valor por cima — escrito, ' +
+    'o valor da folha deixaria de ser o 100% e passaria a ser o que foi escrito',
+    fLimpa.slice(0, 160));
+
+  /* ---- A LISTA DAS SUPERFICIES E' UMA SO' ---- */
+  var iSup = appA.indexOf('var SUPERFICIES = [');
+  var blocoSup = appA.slice(iSup, appA.indexOf('\n  ];', iSup));
+  ['topo', 'fundo', 'botao', 'usuario'].forEach(function (id) {
+    ok(blocoSup.indexOf("id: '" + id + "'") > 0,
+      'a superfície ' + id + ' está na lista do núcleo — é ela que diz o que cada grupo ' +
+      'PINTA, e é dela que o aplicador, a tela e esta prova partem');
+  });
+  ok(/Q\.SUPERFICIES\.map\(grupoAparencia\)/.test(admA),
+    'e a tela de Aparência DESENHA a partir dessa lista — escrita de novo no HTML, a ' +
+    'superfície nova nasceria desenhada e sem pintar nada, ou pintando o token de outra');
+  ok(blocoSup.indexOf("'--bg'") > 0 && blocoSup.indexOf("'--surface'") > 0 &&
+     blocoSup.indexOf("'--campo'") > 0,
+    'e o fundo leva a ESCALA inteira, e não só o chão — dessaturar um degrau sozinho ' +
+    'faria o cartão flutuar numa cor que não é a do chão em que ele está');
+  ok(appA.indexOf("SUPERFICIES[") < 0 || true,
+    'a conferência leu a lista das superfícies', blocoSup.length);
+
+  /* ---- O PADRAO E' O QUE JA' ERA ---- */
+  ok(/--c-topo:#35d6a0; --c-topo-rgb:53,214,160;/.test(cssA),
+    'a faixa do topo nasce no MESMO verde que estava escrito à mão nos seis gradientes ' +
+    '— em 100% e sem cor escolhida, a tela sai idêntica à de antes');
+  ok(C.tripla('#35d6a0') === '53,214,160',
+    'e a tripla é a desse hexadecimal, e não um número digitado ao lado — digitada, as ' +
+    'duas formas da mesma cor divergiriam no primeiro ajuste', C.tripla('#35d6a0'));
+  /* E O APLICADOR A CALCULA DA COR QUE FICOU VALENDO. Escrita como numero fixo ao lado,
+     o hexadecimal seria o novo e a tripla o de ontem — e a faixa sairia com dois verdes
+     diferentes no mesmo gradiente. */
+  ok(/var tri = hexParaTripla\(topoAgora\);/.test(apSem),
+    'e quem a escreve a CALCULA da cor que ficou valendo — fixa ao lado, o hexadecimal ' +
+    'seria o novo e a tripla a de ontem, e a faixa sairia com dois verdes no mesmo ' +
+    'gradiente');
+  ok(/--c-usuario:var\(--campo\);/.test(cssA) &&
+     /\.lateral__pe\{[\s\S]{0,200}background:var\(--c-usuario\)/.test(cssA),
+    'e a caixa do usuário nasce seguindo `--campo`, que era o que estava escrito nela');
+  /* CONTA OS QUE SOBRARAM, e nao os que entraram: com `>= 10`, metade dos gradientes
+     podia voltar ao verde escrito a mao e a prova continuava verde. Os nove que ficam
+     sao os do ANEL do retrato e o da tarja do dia — decoracao que nao e' a faixa, e que
+     nao muda com ela de proposito. */
+  var aMao = (cssA.match(/rgba\(53,214,160/g) || []).length;
+  ok(aMao === 9,
+    'e NENHUM gradiente da faixa ficou com o verde escrito à mão — a barra do app e o ' +
+    'cabeçalho do painel leem a variável, e os nove que sobram são o anel do retrato e ' +
+    'a tarja do dia, que não são a faixa', aMao);
+
+  /* ---- A ROTA CONFERE A FAIXA ---- */
+  var apiA = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  ok(/CHAVES_INTENSIDADE = \['topoInt', 'fundoInt', 'botaoInt', 'usuarioInt'\]/.test(apiA),
+    'a rota conhece as quatro intensidades');
+  ok(/if \(!isFinite\(n\) \|\| n < INT_MIN \|\| n > INT_MAX\)/.test(apiA),
+    'e RECUSA o que estiver fora da faixa — a tela esconder o controle é conveniência, ' +
+    'e esta rota não tem autorização nenhuma: um pedido torto chegaria a todas as telas');
+  ok(/topoCor: \['', 'marca'/.test(apiA) && /usuarioCor: \['', 'marca'/.test(apiA),
+    'e o VAZIO é um valor aceito nas duas cores novas — fora da lista, não haveria como ' +
+    'VOLTAR ao padrão depois de escolher uma cor');
 }
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

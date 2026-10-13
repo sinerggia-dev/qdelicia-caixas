@@ -1088,8 +1088,14 @@ function ultimoAdmin(usuarios, id) {
 }
 
 /** Só chaves conhecidas: `config` alimenta a tela, não é depósito de qualquer coisa. */
+/* AS SEIS CHAVES NOVAS SAO DA APARENCIA POR SUPERFICIE. `tema` e `fundo` continuam
+   sendo a COR dos botoes e a do fundo — os nomes ficaram porque estao gravados no banco,
+   e renomear coluna e' apagar e recriar dado para trocar uma palavra. O que entrou foi a
+   cor das duas superficies que nao tinham nenhuma e a INTENSIDADE das quatro. */
 var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas', 'senhaCorrecao',
-                     'tema', 'fundo', 'vozNarracao'];
+                     'tema', 'fundo', 'vozNarracao',
+                     'topoCor', 'topoInt', 'fundoInt', 'botaoInt',
+                     'usuarioCor', 'usuarioInt'];
 
 /* A APARÊNCIA É DA EMPRESA, e não de cada navegador: uma cor só em todas as telas do
    galpão, a pedido. Por isso ela mora aqui, na config, e não no armazenamento local —
@@ -1100,7 +1106,22 @@ var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas', 'senhaCorrecao'
    quem manda para esta rota não é só a nossa tela — é qualquer um, porque a API não tem
    autorização. Recusar o nome errado é mais barato que descobrir a tela apagada. */
 var VALORES_APARENCIA = { tema: ['verde', 'roxo', 'ambar', 'gelo'],
-                          fundo: ['azul', 'petroleo', 'cinza', 'roxo', 'gelo'] };
+                          fundo: ['azul', 'petroleo', 'cinza', 'roxo', 'gelo'],
+                          /* VAZIO E' UM VALOR, e e' o padrao das duas: quer dizer "segue
+                             o que ja' seguia" — a faixa continua no verde de sempre e a
+                             caixa do usuario continua com o campo. Fora da lista, nao
+                             haveria como VOLTAR ao padrao depois de escolher uma cor. */
+                          topoCor: ['', 'marca', 'verde', 'roxo', 'ambar', 'azul',
+                                    'petroleo', 'cinza', 'gelo'],
+                          usuarioCor: ['', 'marca', 'verde', 'roxo', 'ambar', 'azul',
+                                       'petroleo', 'cinza', 'gelo'] };
+
+/* AS QUATRO INTENSIDADES, com teto e chao. Elas nao sao lista de nomes: sao numero, e o
+   que se confere e' a FAIXA. Sem teto, um `topoInt=100000` passaria pela rota, chegaria
+   a todas as telas e saturaria a faixa em cores que nunca foram medidas — e a volta
+   seria pelo banco, porque a tela nem mostraria o valor. */
+var CHAVES_INTENSIDADE = ['topoInt', 'fundoInt', 'botaoInt', 'usuarioInt'];
+var INT_MIN = 60, INT_MAX = 140;
 
 /* A SENHA DO CONSERTO FORA DE PRAZO. Enquanto ninguém cadastrar outra, vale esta — é a
    que foi combinada, e está aqui em vez de no banco para o sistema funcionar num banco
@@ -1137,9 +1158,17 @@ async function salvarConfig(p) {
   if (CHAVES_CONFIG.indexOf(chave) < 0) return { ok: false, erro: 'Configuração desconhecida: ' + chave };
   var valor = p.valor;
   var permitidos = VALORES_APARENCIA[chave];
-  if (permitidos && permitidos.indexOf(String(valor)) < 0) {
+  if (permitidos && permitidos.indexOf(String(valor == null ? '' : valor)) < 0) {
     return { ok: false, erro: 'Não conheço "' + String(valor) + '". Os valores de ' +
                               chave + ' são: ' + permitidos.join(', ') + '.' };
+  }
+  if (CHAVES_INTENSIDADE.indexOf(chave) >= 0) {
+    var n = Math.round(Number(valor));
+    if (!isFinite(n) || n < INT_MIN || n > INT_MAX) {
+      return { ok: false, erro: 'A intensidade vai de ' + INT_MIN + ' a ' + INT_MAX +
+                                '%, e veio "' + String(valor) + '".' };
+    }
+    valor = String(n);
   }
   /* A VOZ E' UM NOME LIVRE — ela vem do aparelho de quem escolheu, e cada sistema chama
      a sua de um jeito. Sem lista de valores para conferir, o que resta e' o TAMANHO:

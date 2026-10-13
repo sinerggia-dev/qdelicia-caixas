@@ -98,6 +98,25 @@
      nesta mesma mudanca. */
   --lateral-larg:272px; --trilho-larg:68px; --topo-alt:75px;
   --foco:0 0 0 2px var(--bg),0 0 0 4px #5b9ef0;
+
+  /* ---------- AS DUAS SUPERFICIES QUE GANHARAM COR PROPRIA ----------
+   *
+   * A faixa do topo e a caixa do usuario pintavam-se com valores ESCRITOS NA MAO: o
+   * verde `53,214,160` aparecia solto em seis gradientes, e o rodape da lateral herdava
+   * `--campo` sem dizer que herdava. Nenhuma das duas tinha como ser trocada sem mexer
+   * na folha — e e' isso que a tela de Aparencia passou a oferecer.
+   *
+   * O PADRAO E' O QUE JA ERA. `--c-topo` nasce igual a `--verde` e `--c-topo-rgb` e' a
+   * mesma tripla que estava escrita; `--c-usuario` nasce seguindo `--campo`, que e' o
+   * que o rodape ja usava. Em 100% e sem cor escolhida, a tela sai identica a de antes.
+   *
+   * A TRIPLA EXISTE porque os gradientes precisam de ALFA, e `rgba()` nao aceita um
+   * hexadecimal dentro. `color-mix()` resolveria sem a segunda variavel, mas ele nao
+   * chega aos aparelhos de galpao — e uma faixa que nasce transparente num celular
+   * velho e' pior do que uma variavel a mais. Quem escreve as duas e' o nucleo, da mesma
+   * cor: separadas, elas divergiriam no primeiro ajuste. */
+  --c-topo:#35d6a0; --c-topo-rgb:53,214,160;
+  --c-usuario:var(--campo);
 }
 /* ================= OS DOIS EIXOS DO TEMA =================
  *
@@ -398,8 +417,8 @@ a{color:var(--marca-txt);text-decoration:none}
      da declaracao: a marca ficou nos mesmos 28px de altura ate isto entrar. */
   grid-template-rows:auto auto;
   align-items:center;column-gap:8px;row-gap:1px;padding:6px 4px 6px 12px;
-  background:linear-gradient(90deg,var(--verde-claro),rgba(53,214,160,.04) 58%,
-    rgba(53,214,160,0) 100%),var(--campo);
+  background:linear-gradient(90deg,var(--verde-claro),rgba(var(--c-topo-rgb),.04) 58%,
+    rgba(var(--c-topo-rgb),0) 100%),var(--campo);
   border-bottom:1px solid var(--linha);box-shadow:0 8px 20px rgba(4,14,28,.4)
 }
 /* A BARRA DE ACENTO na borda esquerda, como a da faixa do dia — e uma luz desce por ela.
@@ -415,8 +434,8 @@ a{color:var(--marca-txt);text-decoration:none}
    cabe inteiro na barra e a animação roda sem mover nada. */
 .topo::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
   background:linear-gradient(180deg,
-    rgba(53,214,160,.35) 0%, var(--verde) 22%,
-    rgba(53,214,160,.35) 45%, rgba(53,214,160,.35) 100%);
+    rgba(var(--c-topo-rgb),.35) 0%, var(--c-topo) 22%,
+    rgba(var(--c-topo-rgb),.35) 45%, rgba(var(--c-topo-rgb),.35) 100%);
   background-size:100% 300%;animation:descer 7s ease-in-out infinite}
 @keyframes descer{
   0%{background-position:0 -100%} 55%{background-position:0 200%}
@@ -426,8 +445,8 @@ a{color:var(--marca-txt);text-decoration:none}
    de fundo, nada de layout. Os 45% parados no fim de cada volta são de propósito — um
    movimento contínuo vira ruído, e ruído constante é o que faz ninguém reparar. */
 .topo::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
-  background:linear-gradient(90deg,rgba(53,214,160,0) 0%,
-    rgba(53,214,160,.9) 50%,rgba(53,214,160,0) 100%);
+  background:linear-gradient(90deg,rgba(var(--c-topo-rgb),0) 0%,
+    rgba(var(--c-topo-rgb),.9) 50%,rgba(var(--c-topo-rgb),0) 100%);
   background-size:42% 100%;background-repeat:no-repeat;
   animation:varrer 8s ease-in-out infinite}
 @keyframes varrer{
@@ -572,8 +591,12 @@ a{color:var(--marca-txt);text-decoration:none}
   padding:10px 12px 12px
 }
 /* O rodapé: preso embaixo, sempre à vista. */
+/* O FUNDO SAI DE `--c-usuario`, que nasce seguindo `--campo` — era o que estava escrito
+   aqui. A diferenca e' que agora ha onde trocar: a tela de Aparencia escreve a variavel,
+   e quem nao mexer continua com o campo de sempre. */
 .lateral__pe{
-  flex:0 0 auto;padding:10px 12px 14px;border-top:1px solid var(--linha);background:var(--campo)
+  flex:0 0 auto;padding:10px 12px 14px;border-top:1px solid var(--linha);
+  background:var(--c-usuario)
 }
 
 /* O botão que recolhe a lateral. É a DECISÃO de quem olha — o mouse apenas espia, e
@@ -911,20 +934,21 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   /* `position:relative` é o que ancora os dois pseudo-elementos. O `z-index:30` acima
      já valia por ser item de flex; agora vale pelos dois motivos. */
   .cab-pagina{position:relative;
-    background:linear-gradient(90deg,rgba(53,214,160,.10),rgba(53,214,160,.03) 45%,
-      rgba(53,214,160,0) 78%),var(--bg)}
+    background:linear-gradient(90deg,rgba(var(--c-topo-rgb),.10),
+      rgba(var(--c-topo-rgb),.03) 45%,
+      rgba(var(--c-topo-rgb),0) 78%),var(--bg)}
   /* MAIS FRACO que o da barra do app: ali é a moldura do celular, o único enfeite da
      tela; aqui há uma lateral inteira, uma tabela e cinco números disputando o olho. */
   .cab-pagina::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
     background:linear-gradient(180deg,
-      rgba(53,214,160,.35) 0%, var(--verde) 22%,
-      rgba(53,214,160,.35) 45%, rgba(53,214,160,.35) 100%);
+      rgba(var(--c-topo-rgb),.35) 0%, var(--c-topo) 22%,
+      rgba(var(--c-topo-rgb),.35) 45%, rgba(var(--c-topo-rgb),.35) 100%);
     background-size:100% 300%;animation:descer 7s ease-in-out infinite}
   /* 9s, e não os 8s do celular: a largura de um monitor é o triplo, e no mesmo tempo
      o brilho cruzaria rápido demais para ler como uma varredura. */
   .cab-pagina::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;
-    background:linear-gradient(90deg,rgba(53,214,160,0) 0%,
-      rgba(53,214,160,.9) 50%,rgba(53,214,160,0) 100%);
+    background:linear-gradient(90deg,rgba(var(--c-topo-rgb),0) 0%,
+      rgba(var(--c-topo-rgb),.9) 50%,rgba(var(--c-topo-rgb),0) 100%);
     background-size:28% 100%;background-repeat:no-repeat;
     animation:varrer 9s ease-in-out infinite}
 }
@@ -1451,6 +1475,23 @@ button.mini.perigo{border-color:var(--vermelho);color:var(--vermelho)}
 
 /* assinatura */
 .assinatura{border:2px dashed var(--linha);border-radius:10px;background:var(--surface);touch-action:none;width:100%;height:170px;display:block}
+
+/* ---------- os quatro grupos da aparencia ----------
+ * Cada grupo e' uma COR mais uma INTENSIDADE, e os dois moram juntos: a intensidade e'
+ * um ajuste daquela cor, e numa secao propria lа embaixo viraria um controle solto que
+ * ninguem liga ao que acabou de escolher. */
+.ap-grupo{padding:10px 0 2px;border-top:1px solid var(--linha)}
+.ap-grupo:first-child{border-top:0;padding-top:0}
+.ap-forca{display:flex;align-items:center;gap:10px;margin:8px 0 2px;flex-wrap:wrap}
+.ap-forca label{font-size:11.5px;color:var(--txt3);margin:0}
+/* `flex:1 1 180px`: o cursor cresce com a tela e nunca some. Com largura fixa ele ficava
+   do tamanho de um dedo no celular, onde e' justamente mais dificil mirar. */
+.ap-forca input[type=range]{flex:1 1 180px;min-width:0;accent-color:var(--brand)}
+/* O NUMERO EM FONTE DE NUMEROS e com largura reservada: sem ela, a linha inteira
+   tremia a cada passo do cursor, porque "95%" e "100%" tem larguras diferentes. */
+.ap-forca output{flex:0 0 auto;min-width:48px;text-align:right;
+  font-family:var(--fonte-mono);font-size:13px;font-weight:600;color:var(--txt)}
+.ap-forca .mini{flex:0 0 auto}
 
 /* ---------- tabelas ---------- */
 .tabela-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}

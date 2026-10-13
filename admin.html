@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=32c3e36b">
+<link rel="stylesheet" href="styles.css?v=85c78fce">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1188,11 +1188,11 @@
         o app de lançamento, o painel e o extrato. Troque abaixo e veja a tela mudando na hora;
         só é gravado quando você confirma.</span></h2>
 
-      <p class="ap__eixo">Cor da marca</p>
-      <div class="ap__lista" id="apTemas" role="group" aria-label="Cor da marca"></div>
-
-      <p class="ap__eixo">Fundo das telas</p>
-      <div class="ap__lista" id="apFundos" role="group" aria-label="Fundo das telas"></div>
+      <!-- OS QUATRO GRUPOS SAEM DA LISTA DO NUCLEO, e nao escritos aqui: e' ela que
+           diz o que cada superficie PINTA, e e' dela que o aplicador parte. Escritos no
+           HTML, o grupo novo nasceria desenhado e sem pintar nada — ou pintando o token
+           de outro. -->
+      <div id="apGrupos"></div>
 
       <!-- AS PEÇAS DE VERDADE, e não quadradinhos de cor. Amostra de cor não responde a
            pergunta que importa — "o texto do botão continua legível?" —, e é justamente
@@ -1640,7 +1640,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=831401ae"></script>
+<script src="app.js?v=8bbfdd14"></script>
 <script>
 (function(){
   'use strict';
@@ -9651,12 +9651,55 @@
      da mesma cor e o seletor deixaria de ser seletor.
      O ÂMBAR DA BOLINHA É O DA MARCA (laranja), e não o do aviso: a bolinha promete a cor
      que vai aparecer no botão. */
+  /* ================= A APARÊNCIA EM QUATRO GRUPOS =================
+   *
+   * Eram dois eixos — "cor da marca" e "fundo das telas" —, e cada um pintava um punhado
+   * de lugares ao mesmo tempo: a marca ia para o botão, o chip, o foco e a faixa de duas
+   * cores sob o logo, e quem queria trocar só o botão trocava os quatro.
+   *
+   * Agora a escolha é por SUPERFÍCIE, a pedido: faixa do topo, fundo da tela, botões e
+   * caixa do usuário, cada uma com a sua cor e a sua intensidade.
+   *
+   * A LISTA DAS SUPERFÍCIES É A DO NÚCLEO. Ela diz o que cada grupo pinta, e é lida pelo
+   * aplicador, por esta tela e pela bancada: escrita aqui de novo, o grupo novo nasceria
+   * desenhado e sem pintar nada — ou pintando o token errado. */
   var CORES_TEMA = { verde:'#00a853', roxo:'#a46ce7', ambar:'#ef7b2f', gelo:'#dce8f5' };
   var CORES_FUNDO = { azul:'#16304f', petroleo:'#0f2a2c', cinza:'#1e2124',
                       roxo:'#1a1326', gelo:'#eef2f7' };
   var NOME_TEMA = { verde:'Verde', roxo:'Roxo', ambar:'Âmbar', gelo:'Branco gelo' };
   var NOME_FUNDO = { azul:'Azul', petroleo:'Petróleo', cinza:'Cinza',
                      roxo:'Roxo', gelo:'Branco gelo' };
+  var NOME_LIVRE = { '':'Segue a marca', marca:'Segue a marca', verde:'Verde',
+                     roxo:'Roxo', ambar:'Âmbar', azul:'Azul', petroleo:'Petróleo',
+                     cinza:'Cinza', gelo:'Branco gelo' };
+
+  /* AS CORES QUE CADA GRUPO OFERECE. Os dois antigos continuam com as listas deles —
+     cada nome ali é uma ESCALA medida, e não uma cor solta —, e os dois novos oferecem a
+     paleta livre, com "Segue a marca" na frente para haver como voltar ao padrão. */
+  function coresDoGrupo(id){
+    if (id === 'botao') return Q.TEMAS.map(function(k){
+      return { v:k, r:NOME_TEMA[k], c:CORES_TEMA[k] }; });
+    if (id === 'fundo') return Q.FUNDOS.map(function(k){
+      return { v:k, r:NOME_FUNDO[k], c:CORES_FUNDO[k] }; });
+    return Object.keys(Q.CORES_LIVRES).map(function(k){
+      return { v:(k === 'marca' ? '' : k), r:NOME_LIVRE[k],
+               c:(Q.CORES_LIVRES[k] || 'var(--brand)') }; });
+  }
+
+  /* O VALOR ESCOLHIDO DE UM GRUPO. Os dois antigos moram no atributo do `<html>` — é de
+     lá que a folha lê —, e os dois novos, no estado da aparência. Perguntar ao lugar
+     errado faria o botão aceso ser o de outra cor que não a da tela. */
+  function corDoGrupo(id){
+    if (id === 'botao') return Q.temaAtual();
+    if (id === 'fundo') return Q.fundoAtual();
+    var a = Q.aparenciaAtual();
+    return String(a[id === 'topo' ? 'topoCor' : 'usuarioCor'] || '');
+  }
+  function intensidadeDoGrupo(id){
+    var a = Q.aparenciaAtual();
+    return Number(a[{ topo:'topoInt', fundo:'fundoInt', botao:'botaoInt',
+                      usuario:'usuarioInt' }[id]]) || Q.INT_PADRAO;
+  }
 
   function desenharAparencia(){
     var cx = document.getElementById('cardAparencia');
@@ -9670,28 +9713,52 @@
     if (atalho) atalho.hidden = !pode;
     if (!pode) return;
 
-    if (!APARENCIA_ORIGINAL) {
-      APARENCIA_ORIGINAL = { tema: Q.temaAtual(), fundo: Q.fundoAtual() };
-    }
-    document.getElementById('apTemas').innerHTML = Q.TEMAS.map(function(k){
-      return botaoAparencia('tema', k, NOME_TEMA[k], CORES_TEMA[k], Q.temaAtual() === k);
-    }).join('');
-    document.getElementById('apFundos').innerHTML = Q.FUNDOS.map(function(k){
-      return botaoAparencia('fundo', k, NOME_FUNDO[k], CORES_FUNDO[k], Q.fundoAtual() === k);
-    }).join('');
+    if (!APARENCIA_ORIGINAL) APARENCIA_ORIGINAL = estadoDaAparencia();
+
+    var alvo = document.getElementById('apGrupos');
+    if (alvo) alvo.innerHTML = Q.SUPERFICIES.map(grupoAparencia).join('');
     pintarAvisoAparencia();
   }
 
-  function botaoAparencia(eixo, valor, rotulo, cor, aceso){
-    return '<button class="ap__op" type="button" data-ap="'+eixo+'" data-valor="'+valor+'"'+
-      ' aria-pressed="'+(aceso ? 'true' : 'false')+'">'+
-      '<i style="background:'+cor+'"></i>'+Q.esc(rotulo)+'</button>';
+  function grupoAparencia(s){
+    var atual = corDoGrupo(s.id), forca = intensidadeDoGrupo(s.id);
+    return '<section class="ap-grupo" data-grupo="'+Q.esc(s.id)+'">'+
+      '<p class="ap__eixo">'+Q.esc(s.nome)+'</p>'+
+      '<div class="ap__lista" role="group" aria-label="'+Q.esc(s.nome)+'">'+
+        coresDoGrupo(s.id).map(function(o){
+          return '<button class="ap__op" type="button" data-ap="'+Q.esc(s.id)+'"'+
+            ' data-valor="'+Q.esc(o.v)+'" aria-pressed="'+
+            (String(o.v) === String(atual) ? 'true' : 'false')+'">'+
+            '<i style="background:'+o.c+'"></i>'+Q.esc(o.r)+'</button>';
+        }).join('')+
+      '</div>'+
+      /* A INTENSIDADE AO LADO DA COR, e não numa seção própria lá embaixo: ela é um
+         ajuste DAQUELA cor, e separada das cores viraria um controle solto que ninguém
+         liga ao que acabou de escolher. O número à direita porque um cursor sem número
+         não se repete: "deixei em uns 120" não é uma informação que se transmite. */
+      '<div class="ap-forca">'+
+        '<label for="apInt'+Q.esc(s.id)+'">Intensidade</label>'+
+        '<input type="range" id="apInt'+Q.esc(s.id)+'" data-forca="'+Q.esc(s.id)+'"'+
+          ' min="'+Q.INT_MIN+'" max="'+Q.INT_MAX+'" step="5" value="'+forca+'">'+
+        '<output>'+forca+'%</output>'+
+        '<button class="mini" type="button" data-zerar="'+Q.esc(s.id)+'"'+
+          ' title="Voltar a 100%, que é a cor medida">↺</button>'+
+      '</div>'+
+    '</section>';
+  }
+
+  function estadoDaAparencia(){
+    var a = Q.aparenciaAtual();
+    a.tema = Q.temaAtual(); a.fundo = Q.fundoAtual();
+    return a;
   }
 
   function aparenciaMudou(){
     if (!APARENCIA_ORIGINAL) return false;
-    return Q.temaAtual() !== APARENCIA_ORIGINAL.tema ||
-           Q.fundoAtual() !== APARENCIA_ORIGINAL.fundo;
+    var agora = estadoDaAparencia();
+    return Object.keys(agora).some(function(k){
+      return String(agora[k]) !== String(APARENCIA_ORIGINAL[k]);
+    });
   }
 
   /* O AVISO DIZ O ESTADO, e não só "salvo". Sem ele, quem clica numa cor e sai da tela
@@ -9707,39 +9774,79 @@
     if (d) d.hidden = !aparenciaMudou();
   }
 
+  /* A PRÉVIA NÃO GUARDA NADA. Guardasse, quem experimentasse e fechasse a aba voltaria
+     numa cor que nunca foi gravada — e o servidor diria outra. */
+  function previa(mudanca){
+    Q.mudarSuperficie(mudanca, false);
+  }
+
   function ligarAparencia(){
-    ['apTemas','apFundos'].forEach(function(id){
-      var cx = document.getElementById(id);
-      if (!cx) return;
+    var cx = document.getElementById('apGrupos');
+    if (cx) {
       cx.addEventListener('click', function(e){
-        var b = e.target.closest('[data-ap]');
-        if (!b) return;
-        /* `false` no segundo argumento: a prévia NÃO mexe na cópia local. Mexesse, quem
-           experimentasse e fechasse a aba voltaria na cor que nunca foi gravada — e o
-           servidor diria outra. */
-        if (b.dataset.ap === 'tema') Q.aplicarTema(b.dataset.valor, false);
-        else Q.aplicarFundo(b.dataset.valor, false);
-        desenharAparencia();
+        var b = e.target.closest ? e.target.closest('[data-ap]') : null;
+        if (b) {
+          var g = b.dataset.ap, v = b.dataset.valor;
+          if (g === 'botao') Q.aplicarTema(v, false);
+          else if (g === 'fundo') Q.aplicarFundo(v, false);
+          else previa(g === 'topo' ? { topoCor:v } : { usuarioCor:v });
+          /* AS QUATRO SÃO REAPLICADAS a cada troca, e não só a mexida: trocar o fundo
+             muda o valor medido de que a intensidade das outras parte. */
+          previa({});
+          return desenharAparencia();
+        }
+        var z = e.target.closest ? e.target.closest('[data-zerar]') : null;
+        if (z) {
+          var m = {};
+          m[{ topo:'topoInt', fundo:'fundoInt', botao:'botaoInt',
+              usuario:'usuarioInt' }[z.dataset.zerar]] = Q.INT_PADRAO;
+          previa(m);
+          return desenharAparencia();
+        }
       });
-    });
+      /* `input` E NÃO `change`: o cursor tem de pintar enquanto se arrasta, senão a
+         escolha vira tentativa e erro às cegas. E redesenhar a tela inteira a cada passo
+         tiraria o foco do cursor no meio do arrasto — por isso só o número ao lado é
+         reescrito aqui, e o resto espera o `change`. */
+      cx.addEventListener('input', function(e){
+        var r = e.target && e.target.dataset ? e.target.dataset.forca : '';
+        if (!r) return;
+        var m = {};
+        m[{ topo:'topoInt', fundo:'fundoInt', botao:'botaoInt',
+            usuario:'usuarioInt' }[r]] = e.target.value;
+        previa(m);
+        var saida = e.target.parentNode.querySelector('output');
+        if (saida) saida.textContent = e.target.value + '%';
+        pintarAvisoAparencia();
+      });
+    }
 
     var g = document.getElementById('btnGravarAparencia');
     if (g) g.addEventListener('click', function(){
       if (!aparenciaMudou()) return Q.toast('Já é esta a aparência de todas as telas.','ok');
-      var tema = Q.temaAtual(), fundo = Q.fundoAtual();
+      var estado = estadoDaAparencia();
       g.disabled = true;
-      /* AS DUAS CHAVES, e só depois o aviso. Gravada uma e falhada a outra, a empresa
-         ficaria com a cor nova e o fundo velho — uma combinação que ninguém escolheu. */
-      Q.post({ acao:'salvarConfig', chave:'tema', valor:tema }).then(function(r){
-        if (!r || r.ok === false) throw new Error((r && r.erro) || 'Não consegui gravar a cor.');
-        return Q.post({ acao:'salvarConfig', chave:'fundo', valor:fundo });
-      }).then(function(r){
-        if (!r || r.ok === false) throw new Error((r && r.erro) || 'Não consegui gravar o fundo.');
+      /* UMA CHAVE DE CADA VEZ, E EM FILA. Gravadas em paralelo, uma que falhasse
+         deixaria a empresa com metade da escolha — uma combinação que ninguém fez. Em
+         fila, a primeira recusa para tudo e a tela diz qual foi. */
+      var chaves = ['tema', 'fundo', 'topoCor', 'topoInt', 'fundoInt', 'botaoInt',
+                    'usuarioCor', 'usuarioInt'];
+      chaves.reduce(function(antes, chave){
+        return antes.then(function(){
+          return Q.post({ acao:'salvarConfig', chave:chave, valor:estado[chave] })
+            .then(function(r){
+              if (!r || r.ok === false) {
+                throw new Error((r && r.erro) || 'Não consegui gravar '+chave+'.');
+              }
+            });
+        });
+      }, Promise.resolve()).then(function(){
         g.disabled = false;
         /* Agora sim a cópia local: ela é a partida da próxima abertura, e só vale
            guardar o que o servidor aceitou. */
-        Q.aplicarTema(tema); Q.aplicarFundo(fundo);
-        APARENCIA_ORIGINAL = { tema: tema, fundo: fundo };
+        Q.aplicarTema(estado.tema); Q.aplicarFundo(estado.fundo);
+        Q.mudarSuperficie(estado);
+        APARENCIA_ORIGINAL = estadoDaAparencia();
         desenharAparencia();
         Q.toast('Aparência trocada para todas as telas.','ok');
       }).catch(function(e){ g.disabled = false; Q.toast(e.message,'erro'); });
@@ -9750,6 +9857,7 @@
       if (!APARENCIA_ORIGINAL) return;
       Q.aplicarTema(APARENCIA_ORIGINAL.tema, false);
       Q.aplicarFundo(APARENCIA_ORIGINAL.fundo, false);
+      Q.mudarSuperficie(APARENCIA_ORIGINAL, false);
       desenharAparencia();
     });
 
@@ -9757,8 +9865,8 @@
     if (atalho) atalho.addEventListener('click', function(){
       var b = document.querySelector('#abas button[data-pagina="pgAparencia"]');
       if (b) b.click();
-      var cx = document.getElementById('cardAparencia');
-      if (cx) cx.scrollIntoView({ block:'start' });
+      var cx2 = document.getElementById('cardAparencia');
+      if (cx2) cx2.scrollIntoView({ block:'start' });
     });
   }
 

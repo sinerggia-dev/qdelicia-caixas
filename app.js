@@ -288,6 +288,309 @@
     return document.documentElement.getAttribute('data-fundo') || FUNDO_PADRAO;
   }
 
+  /* ================= AS QUATRO SUPERFÍCIES DA APARÊNCIA =================
+   *
+   * Eram dois eixos — a cor da marca e o fundo —, e cada um pintava um punhado de
+   * lugares ao mesmo tempo. A pedido, a escolha passou a ser por SUPERFÍCIE: a faixa do
+   * topo, o fundo da tela, os botões e a caixa do usuário, cada uma com a sua cor e a
+   * sua intensidade.
+   *
+   * A INTENSIDADE MEXE NA SATURAÇÃO, E NÃO NA LUZ. Essa não é uma escolha de gosto: a
+   * escala de fundo deste projeto foi MEDIDA contra o texto — os comentários da folha
+   * registram os contrastes um por um —, e quem manda no contraste é a LUZ. Um controle
+   * que clareasse o fundo derrubaria a legibilidade de tudo o que está em cima dele sem
+   * mudar uma linha de texto, e o sintoma seria "a tela ficou estranha", meses depois.
+   * Mexendo só na saturação, a cor fica mais viva ou mais lavada e o contraste
+   * praticamente não anda — e há uma bancada que mede isso em toda combinação.
+   *
+   * O VALOR MEDIDO É O 100%. A intensidade não inventa uma cor nova: ela pega o token
+   * que a folha já define — aquele que alguém mediu — e o satura ou dessatura a partir
+   * dali. Em 100% a tela sai IDÊNTICA à de antes, e é por isso que ligar isto não mudou
+   * a cara de ninguém.
+   *
+   * SÓ O QUE SAI DO PADRÃO É ESCRITO. Grupo em 100% e sem cor própria não gera variável
+   * nenhuma, e a folha continua mandando. Escrever tudo sempre faria a folha deixar de
+   * ser a fonte da verdade sem que nada dissesse isso. */
+
+  var INT_MIN = 60, INT_MAX = 140, INT_PADRAO = 100;
+
+  /* OS TOKENS DE CADA SUPERFÍCIE. É a lista que diz o que cada grupo PINTA — e ela é a
+     única: a tela de Aparência, o aplicador e a bancada leem daqui. Escrita em cada um,
+     a superfície nova entraria numa e ficaria faltando na outra. */
+  var SUPERFICIES = [
+    { id: 'topo', nome: 'Faixa do topo', cor: 'topoCor', intensidade: 'topoInt',
+      tokens: ['--c-topo'] },
+    { id: 'fundo', nome: 'Fundo da tela', cor: 'fundo', intensidade: 'fundoInt',
+      /* A ESCALA INTEIRA, e não só o chão: o cartão, o degrau seguinte, o campo e a
+         lateral foram pintados como uma família, e dessaturar um deles sozinho faria o
+         cartão flutuar numa cor que não é a do chão em que ele está. */
+      tokens: ['--bg', '--surface', '--surface-2', '--campo',
+               '--marinho', '--marinho-esc', '--marinho-claro'] },
+    { id: 'botao', nome: 'Botões', cor: 'tema', intensidade: 'botaoInt',
+      tokens: ['--brand', '--brand-hover', '--marca-roxo', '--marca-verde'] },
+    { id: 'usuario', nome: 'Caixa do usuário', cor: 'usuarioCor',
+      intensidade: 'usuarioInt', tokens: ['--c-usuario'] }
+  ];
+
+  /* AS CORES QUE AS SUPERFÍCIES NOVAS OFERECEM. As duas antigas continuam com as listas
+     delas — `TEMAS` para os botões e `FUNDOS` para o fundo —, porque aquelas não são
+     cores soltas: cada uma é uma escala medida. */
+  var CORES_LIVRES = {
+    marca:     '',          /* vazio = segue a cor dos botões, que é como era antes */
+    verde:     '#35d6a0',
+    roxo:      '#a46ce7',
+    ambar:     '#ef7b2f',
+    azul:      '#5b9ef0',
+    petroleo:  '#2c9b9f',
+    cinza:     '#8d939c',
+    gelo:      '#dce8f5'
+  };
+
+  function limitarIntensidade(v) {
+    var n = Math.round(Number(v));
+    if (!isFinite(n)) return INT_PADRAO;
+    return Math.max(INT_MIN, Math.min(INT_MAX, n));
+  }
+
+  /* ---------- a conta da cor ----------
+   * Hexadecimal para HSL e de volta. Só hexadecimal: é a forma em que a folha escreve
+   * todos os tokens de cor, e uma função que aceitasse `rgb()` e nomes de cor estaria
+   * resolvendo um caso que este projeto não tem. O que não for hexadecimal volta como
+   * veio — melhor deixar a cor como está do que trocá-la por preto. */
+  function hexParaHsl(hex) {
+    var s = String(hex == null ? '' : hex).trim();
+    if (s.charAt(0) !== '#') return null;
+    if (s.length === 4) {
+      s = '#' + s.charAt(1) + s.charAt(1) + s.charAt(2) + s.charAt(2) +
+                s.charAt(3) + s.charAt(3);
+    }
+    if (s.length !== 7 || !/^#[0-9a-fA-F]{6}$/.test(s)) return null;
+    var r = parseInt(s.slice(1, 3), 16) / 255;
+    var g = parseInt(s.slice(3, 5), 16) / 255;
+    var b = parseInt(s.slice(5, 7), 16) / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var l = (max + min) / 2, h = 0, sat = 0;
+    if (max !== min) {
+      var d = max - min;
+      sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = ((g - b) / d + (g < b ? 6 : 0));
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h = h / 6;
+    }
+    return { h: h, s: sat, l: l };
+  }
+
+  function hslParaHex(c) {
+    function canal(p, q, t) {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    }
+    var r, g, b;
+    if (c.s === 0) { r = g = b = c.l; }
+    else {
+      var q = c.l < 0.5 ? c.l * (1 + c.s) : c.l + c.s - c.l * c.s;
+      var p = 2 * c.l - q;
+      r = canal(p, q, c.h + 1 / 3);
+      g = canal(p, q, c.h);
+      b = canal(p, q, c.h - 1 / 3);
+    }
+    function doisDigitos(v) {
+      var n = Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16);
+      return n.length === 1 ? '0' + n : n;
+    }
+    return '#' + doisDigitos(r) + doisDigitos(g) + doisDigitos(b);
+  }
+
+  /* A SATURAÇÃO, E SÓ ELA. A luz volta intocada de propósito — ver o bloco acima. */
+  /* O HEXADECIMAL EM TRES NUMEROS, para quem precisa de alfa. Devolve vazio para o que
+     nao for hexadecimal: melhor a folha manter a tripla que ela ja' tinha do que receber
+     "NaN,NaN,NaN" e a faixa nascer sem cor nenhuma. */
+  function hexParaTripla(hex) {
+    var s = String(hex == null ? '' : hex).trim();
+    if (s.length === 4 && s.charAt(0) === '#') {
+      s = '#' + s.charAt(1) + s.charAt(1) + s.charAt(2) + s.charAt(2) +
+                s.charAt(3) + s.charAt(3);
+    }
+    if (!/^#[0-9a-fA-F]{6}$/.test(s)) return '';
+    return parseInt(s.slice(1, 3), 16) + ',' + parseInt(s.slice(3, 5), 16) + ',' +
+           parseInt(s.slice(5, 7), 16);
+  }
+
+  function corComIntensidade(hex, intensidade) {
+    var c = hexParaHsl(hex);
+    if (!c) return hex;
+    var k = limitarIntensidade(intensidade) / 100;
+    c.s = Math.max(0, Math.min(1, c.s * k));
+    return hslParaHex(c);
+  }
+
+  /* A TINTA QUE VAI EM CIMA sai da luminância da cor, e não de uma tabela por tema. Era
+     por tabela: cada tema trazia o seu `--sobre-brand` escrito à mão, e funcionava
+     enquanto as cores eram quatro. Com cor livre e intensidade, a primeira combinação
+     que ninguém previu nasceria com texto branco sobre fundo claro — e quem escolheu não
+     teria como saber que acabou de deixar um botão ilegível no galpão. */
+  function luminancia(hex) {
+    var c = hexParaHsl(hex);
+    if (!c) return 1;
+    var s = String(hex).trim();
+    if (s.length === 4) {
+      s = '#' + s.charAt(1) + s.charAt(1) + s.charAt(2) + s.charAt(2) +
+                s.charAt(3) + s.charAt(3);
+    }
+    function canal(v) {
+      v = v / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }
+    return 0.2126 * canal(parseInt(s.slice(1, 3), 16)) +
+           0.7152 * canal(parseInt(s.slice(3, 5), 16)) +
+           0.0722 * canal(parseInt(s.slice(5, 7), 16));
+  }
+
+  function contraste(a, b) {
+    var la = luminancia(a), lb = luminancia(b);
+    var claro = Math.max(la, lb), escuro = Math.min(la, lb);
+    return (claro + 0.05) / (escuro + 0.05);
+  }
+
+  /* BRANCO OU QUASE-PRETO, o que tiver mais contraste. Não há terceira opção: um cinza
+     médio perderia dos dois em cima de qualquer cor. */
+  var PISO_TINTA = 4.5;
+  function tintaSobre(hex) {
+    var claro = contraste(hex, '#ffffff');
+    var macio = contraste(hex, '#0d1b2a');
+    if (claro >= macio) return claro >= PISO_TINTA ? '#ffffff' : '#000000';
+    /* O QUASE-PRETO DA PALETA E' O PREFERIDO enquanto ele PASSA: ele foi escolhido para
+       combinar com o resto, e trocar por preto puro onde não faz falta endureceria a
+       tela inteira. Onde ele não alcança os 4,5:1 — e há cor em que não alcança, o
+       petróleo a 60% dá 4,14 —, o preto puro entra, porque nenhum tom mais claro que ele
+       chegaria lá. Medido, e não suposto: há uma bancada que varre cada cor em cada
+       intensidade do controle. */
+    return macio >= PISO_TINTA ? '#0d1b2a' : '#000000';
+  }
+
+  /* O ESTADO DAS QUATRO SUPERFÍCIES. Espelhado no armazenamento local pela mesma razão
+     do tema e do fundo: a tela abre com a última escolha conhecida em vez de piscar na
+     cor de fábrica e trocar quando o servidor responde. */
+  var APARENCIA = { topoCor: '', topoInt: INT_PADRAO, fundoInt: INT_PADRAO,
+                    botaoInt: INT_PADRAO, usuarioCor: '', usuarioInt: INT_PADRAO };
+
+  (function () {
+    try {
+      var g = localStorage.getItem('qdc_aparencia');
+      if (g) {
+        var o = JSON.parse(g) || {};
+        Object.keys(APARENCIA).forEach(function (k) {
+          if (o[k] !== undefined) APARENCIA[k] = o[k];
+        });
+      }
+    } catch (e) {}
+  })();
+
+  function aparenciaAtual() {
+    var fora = {};
+    Object.keys(APARENCIA).forEach(function (k) { fora[k] = APARENCIA[k]; });
+    return fora;
+  }
+
+  /* TUDO O QUE FOI ESCRITO SAI ANTES. É a linha que impede o defeito mais sorrateiro
+     daqui: o 100% de cada token é o valor que a FOLHA define, e ele é lido com
+     `getComputedStyle`. Com um override anterior ainda no lugar, a leitura devolveria a
+     cor JÁ saturada — e cada visita à tela saturaria de novo em cima da anterior. Em
+     três aberturas a cor estaria irreconhecível, e nada na tela diria por quê. */
+  function limparSuperficies(raiz) {
+    SUPERFICIES.forEach(function (s) {
+      s.tokens.forEach(function (t) { raiz.style.removeProperty(t); });
+    });
+    ['--c-topo-tinta', '--c-usuario-tinta', '--sobre-brand',
+     '--c-topo-rgb'].forEach(function (t) {
+      raiz.style.removeProperty(t);
+    });
+  }
+
+  /* A COR BASE DE UMA SUPERFÍCIE: a escolhida, quando há; senão, a que a folha já traz.
+     É isso que faz "segue a marca" não ser um caso especial — é simplesmente não
+     escolher, e aí o valor medido manda. */
+  function baseDaSuperficie(s, raiz, lido) {
+    var escolhida = CORES_LIVRES[String(APARENCIA[s.cor] || '')];
+    if (s.id === 'topo' || s.id === 'usuario') {
+      if (escolhida) return escolhida;
+    }
+    return lido;
+  }
+
+  function aplicarSuperficies(guardar) {
+    if (typeof document === 'undefined') return aparenciaAtual();
+    var raiz = document.documentElement;
+    limparSuperficies(raiz);
+
+    SUPERFICIES.forEach(function (s) {
+      /* A LEITURA E' REFEITA A CADA SUPERFICIE, e a ordem da lista passa a importar: a
+         caixa do usuario nasce seguindo `--campo`, que e' do FUNDO. Lida uma vez so', no
+         comeco, ela pegaria o campo de ANTES da intensidade do fundo — e com o fundo a
+         120% e a caixa a 100% a caixa ficaria num tom que nao e' o de nenhum dos dois.
+         Por isso o fundo vem antes dela na lista. */
+      var lidos = getComputedStyle(raiz);
+      var intensidade = limitarIntensidade(APARENCIA[s.intensidade]);
+      var escolhida = CORES_LIVRES[String(APARENCIA[s.cor] || '')];
+      var trocaCor = (s.id === 'topo' || s.id === 'usuario') && !!escolhida;
+      /* NADA A FAZER é o caso mais comum, e ele não escreve nada: a folha continua
+         sendo a fonte da verdade para quem não mexeu em nada. */
+      if (intensidade === INT_PADRAO && !trocaCor) return;
+      s.tokens.forEach(function (t) {
+        var base = trocaCor ? escolhida : String(lidos.getPropertyValue(t) || '').trim();
+        if (!base) return;
+        raiz.style.setProperty(t, corComIntensidade(base, intensidade));
+      });
+    });
+
+    /* A TINTA DEPOIS DAS CORES, e lida de novo: ela tem de sair da cor que ficou
+       valendo, e não da que estava lá antes. Calculada junto, ela responderia pelo valor
+       anterior — e o botão sairia com a tinta da cor que acabou de ser trocada. */
+    var agora = getComputedStyle(raiz);
+    /* A TRIPLA ANDA COLADA NA COR. Os gradientes da faixa precisam de ALFA, e `rgba()`
+       nao aceita hexadecimal dentro — por isso a mesma cor viaja em duas formas. Escrita
+       noutro lugar, ela seria a cor de ANTES enquanto o hexadecimal ja' era o novo, e a
+       faixa sairia com dois verdes diferentes no mesmo gradiente. */
+    var topoAgora = String(agora.getPropertyValue('--c-topo') || '').trim();
+    var tri = hexParaTripla(topoAgora);
+    if (tri) raiz.style.setProperty('--c-topo-rgb', tri);
+
+    [['--c-topo', '--c-topo-tinta'], ['--c-usuario', '--c-usuario-tinta'],
+     ['--brand', '--sobre-brand']].forEach(function (par) {
+      var cor = String(agora.getPropertyValue(par[0]) || '').trim();
+      if (!cor || cor.charAt(0) !== '#') return;
+      /* O `--sobre-brand` MEDIDO FICA enquanto ninguém mexe nos botões: ele foi escolhido
+         à mão para cada tema, e trocá-lo por um cálculo mudaria a tinta de quem não
+         pediu nada. Recalculado só quando a cor de fato mudou. */
+      if (par[1] === '--sobre-brand' &&
+          limitarIntensidade(APARENCIA.botaoInt) === INT_PADRAO) return;
+      raiz.style.setProperty(par[1], tintaSobre(cor));
+    });
+
+    if (guardar !== false) {
+      try { localStorage.setItem('qdc_aparencia', JSON.stringify(APARENCIA)); } catch (e) {}
+    }
+    return aparenciaAtual();
+  }
+
+  /* MUDAR UMA SUPERFÍCIE é escrever no estado e reaplicar TODAS. Aplicar só a que mudou
+     parece mais barato e está errado: a limpeza que evita o acúmulo tira as quatro, e
+     reaplicar uma deixaria as outras três sem override até a próxima visita. */
+  function mudarSuperficie(mudanca, guardar) {
+    mudanca = mudanca || {};
+    Object.keys(APARENCIA).forEach(function (k) {
+      if (mudanca[k] === undefined || mudanca[k] === null) return;
+      APARENCIA[k] = /Int$/.test(k) ? limitarIntensidade(mudanca[k])
+                                    : String(mudanca[k]);
+    });
+    return aplicarSuperficies(guardar);
+  }
+
   /* O QUE VEIO DO SERVIDOR MANDA. Chamada a cada carga e a cada atualização dos dados:
      trocada a cor no escritório, a máquina do galpão acompanha sem ninguém ir até lá.
      Config sem as chaves — banco novo, ou ninguém escolheu ainda — cai no padrão, e não
@@ -310,6 +613,12 @@
     aplicarTema(c.tema);
     aplicarFundo(c.fundo);
     guardarVozNarracao(c.vozNarracao);
+    /* DEPOIS DOS DOIS, e a ordem é a regra inteira: a intensidade satura o valor que a
+       FOLHA define para cada token, e quem decide esse valor é o `data-tema`/`data-fundo`
+       que as duas linhas acima acabaram de escrever. Chamado antes, este leria a cor do
+       tema ANTERIOR e saturaria a cor errada — e a tela abriria num tom que ninguém
+       escolheu. */
+    mudarSuperficie(c);
   }
 
   /* OUTRA ABA TROCOU: esta acompanha sem F5. Sem isto, quem deixa o painel aberto numa
@@ -319,6 +628,9 @@
   window.addEventListener('storage', function (e) {
     if (e.key === 'qdc_tema' && e.newValue) aplicarTema(e.newValue, false);
     if (e.key === 'qdc_fundo' && e.newValue) aplicarFundo(e.newValue, false);
+    if (e.key === 'qdc_aparencia' && e.newValue) {
+      try { mudarSuperficie(JSON.parse(e.newValue), false); } catch (err) {}
+    }
   });
 
 
@@ -2645,6 +2957,11 @@
     aplicarTema: aplicarTema, aplicarFundo: aplicarFundo,
     aplicarAparencia: aplicarAparencia,
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
+    mudarSuperficie: mudarSuperficie, aparenciaAtual: aparenciaAtual,
+    SUPERFICIES: SUPERFICIES, CORES_LIVRES: CORES_LIVRES,
+    INT_MIN: INT_MIN, INT_MAX: INT_MAX, INT_PADRAO: INT_PADRAO,
+    corComIntensidade: corComIntensidade, contraste: contraste,
+    tintaSobre: tintaSobre,
     paramUrl: paramUrl,
     guardarVozNarracao: guardarVozNarracao,
     abrirAbaPedida: abrirAbaPedida, recarregarNaMesmaPagina: recarregarNaMesmaPagina,
