@@ -295,13 +295,14 @@
    * topo, o fundo da tela, os botões e a caixa do usuário, cada uma com a sua cor e a
    * sua intensidade.
    *
-   * A INTENSIDADE MEXE NA SATURAÇÃO, E NÃO NA LUZ. Essa não é uma escolha de gosto: a
-   * escala de fundo deste projeto foi MEDIDA contra o texto — os comentários da folha
+   * A INTENSIDADE MEXE NA SATURAÇÃO **E** NA LUZ, e por um tempo mexeu só na saturação:
+   * a escala de fundo deste projeto foi MEDIDA contra o texto — os comentários da folha
    * registram os contrastes um por um —, e quem manda no contraste é a LUZ. Um controle
    * que clareasse o fundo derrubaria a legibilidade de tudo o que está em cima dele sem
    * mudar uma linha de texto, e o sintoma seria "a tela ficou estranha", meses depois.
-   * Mexendo só na saturação, a cor fica mais viva ou mais lavada e o contraste
-   * praticamente não anda — e há uma bancada que mede isso em toda combinação.
+   * Só que mexer só na saturação não mexia em nada: numa escala quase neutra não há
+   * saturação para esticar. A luz entrou, e com ela a obrigação de RECALCULAR A TINTA a
+   * cada passo — é o que `ajustarTinta` faz, e o que a bancada mede em toda combinação.
    *
    * O VALOR MEDIDO É O 100%. A intensidade não inventa uma cor nova: ela pega o token
    * que a folha já define — aquele que alguém mediu — e o satura ou dessatura a partir
@@ -439,20 +440,52 @@
    * TINTA. É o que `ajustarTinta` faz logo abaixo, e o que a bancada mede em toda cor,
    * em toda intensidade.
    *
-   * MAIS INTENSO É MAIS "ELE MESMO": o escuro escurece, o claro clareia. Clarear os dois
-   * faria "intensidade" querer dizer coisas opostas em dois grupos da mesma tela.
+   * ================= O CONSERTO DE AGORA, e por que o anterior não bastou ===========
    *
-   * O TETO E O CHÃO DA LUZ não são enfeite: em 0% ou 100% a cor perde o matiz, e dali
-   * não há tinta que a traga de volta — o grupo ficaria preto ou branco e a escolha de
-   * cor deixaria de significar qualquer coisa. */
-  var PASSO_LUZ = 0.18;
+   * A REGRA ERA "MAIS INTENSO É MAIS ELE MESMO": o escuro escurecia, o claro clareava,
+   * com um passo fixo e um teto em 0,985. Parecia simétrica e não era — porque AS
+   * ESCALAS DESTE PROJETO MORAM NAS PONTAS. O branco gelo tem o `--bg` em luz 0,951 e o
+   * `--surface` em 1,0: acima deles não há nada. "Mais claro que branco" é um pedido sem
+   * resposta, e o passo fixo batia no teto antes do meio do curso.
+   *
+   * O QUE SE VIA NA TELA, e foi o que relataram: do 100% para cima o fundo parava de
+   * mudar, e o cartão — que é branco — ANDAVA PARA TRÁS, virando `#fbfbfb` quando a
+   * intensidade SUBIA, porque o teto de 0,985 puxava o branco puro para baixo. Um
+   * controle que não anda é ruim; um que anda ao contrário faz quem usa duvidar do que
+   * está vendo.
+   *
+   * ENTÃO O RUMO É UM SÓ: mais intensidade é mais COR — mais saturada e mais funda;
+   * menos intensidade é mais LAVADA, na direção do branco. Os botões já se comportavam
+   * assim (a cor deles é escura em todo tema), e foi para eles que apontaram dizendo que
+   * ali funcionava. A palavra passa a querer dizer a mesma coisa nos quatro grupos.
+   *
+   * E O PASSO ENCOLHE PERTO DA PONTA, em vez de ser cortado por um teto. O limitador é
+   * `folga / (folga + |passo|)`: com espaço de sobra ele quase não tira nada do passo, e
+   * quando a folga acaba ele o reduz na mesma proporção. Nunca chega a 0 nem a 1, então
+   * o matiz nunca se perde, e — o que importa — NUNCA EMPATA DOIS ENTALHES VIZINHOS nem
+   * inverte o sentido no meio do curso. Medido em todos os tokens das cinco escalas e
+   * dos quatro temas: zero inversões, e o único lugar em que dois entalhes dão a mesma
+   * cor é o `--surface` do gelo abaixo de 100%, que é branco puro — e acima do branco
+   * não há para onde ir.
+   *
+   * O PASSO É 0,35 E NÃO 0,18, e o número é medido: o limitador come parte dele, e com
+   * 0,18 cinco tokens do gelo andavam menos de 0,10 de luz de ponta a ponta — pouco
+   * demais para se ver num fundo. Com 0,35, o menor curso de todos passa de 0,10 e o
+   * mais escuro do 140% ainda guarda o matiz (`#010c0d`, e não preto). */
+  var PASSO_LUZ = 0.35;
   function corComIntensidade(hex, intensidade) {
     var c = hexParaHsl(hex);
     if (!c) return hex;
     var k = limitarIntensidade(intensidade) / 100;
     c.s = Math.max(0, Math.min(1, c.s * k));
-    var rumo = c.l < 0.5 ? -1 : 1;
-    c.l = Math.max(0.03, Math.min(0.985, c.l + rumo * (k - 1) * PASSO_LUZ));
+    /* `if (bruto)` NÃO É ZELO: em 100% o passo é zero, e a conta da folga seria 0/0 —
+       `NaN` na luz, e `hslParaHex` devolvendo algo que `hexParaHsl` não lê de volta. O
+       100% tem de sair IDÊNTICO ao valor medido, e sair é não fazer conta nenhuma. */
+    var bruto = (k - 1) * PASSO_LUZ;
+    if (bruto) {
+      var folga = bruto > 0 ? c.l : (1 - c.l);
+      c.l = c.l - bruto * folga / (folga + Math.abs(bruto));
+    }
     return hslParaHex(c);
   }
 

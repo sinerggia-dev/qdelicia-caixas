@@ -19367,12 +19367,21 @@ console.log('\n== a aparencia em quatro superficies ==');
      `PISO_TINTA is not defined` — e e' assim que esta prova avisa que a regra
      mudou, em vez de continuar medindo a de ontem. */
   /* `PASSO_LUZ` ENTRA COMO PARAMETRO junto com os outros: a intensidade passou a mover
-     a LUZ tambem, e sem ele o recorte estoura em `PASSO_LUZ is not defined`. */
+     a LUZ tambem, e sem ele o recorte estoura em `PASSO_LUZ is not defined`.
+     E O VALOR DELE E' LIDO DO `app.js`, e nao escrito aqui. Estava escrito: `0.18`. Ele
+     mudou para 0,35 no arquivo e a bancada continuou medindo 0,18 — rodando a conta
+     NOVA com a constante VELHA, que e' uma regra que nao existe em lugar nenhum. Esta
+     e' a forma mais discreta de uma prova mentir: ela roda, ela mede, e mede outra
+     coisa. */
+  var mPasso = /var PASSO_LUZ = ([\d.]+);/.exec(appA);
+  ok(!!mPasso, 'a conferência leu o passo da luz do app.js — escrito aqui, ela mediria ' +
+    'uma regra que o sistema não tem', mPasso && mPasso[1]);
+  var PASSO_APP = mPasso ? parseFloat(mPasso[1]) : 0;
   var C = new Function('INT_MIN', 'INT_MAX', 'INT_PADRAO', 'PISO_TINTA', 'PASSO_LUZ',
     fonteCor +
     ' return { hsl:hexParaHsl, cor:corComIntensidade, tripla:hexParaTripla,' +
     ' contraste:contraste, tinta:tintaSobre, limite:limitarIntensidade,' +
-    ' ajusta:ajustarTinta };')(60, 140, 100, 4.5, 0.18);
+    ' ajusta:ajustarTinta };')(60, 140, 100, 4.5, PASSO_APP);
 
   /* ---- 100% E' O VALOR MEDIDO ----
    * E' a linha que fez isto poder entrar sem mudar a cara de ninguem. */
@@ -19385,27 +19394,196 @@ console.log('\n== a aparencia em quatro superficies ==');
   /* ---- A INTENSIDADE MEXE NA SATURACAO, E NAO NA LUZ ----
    * Quem manda no contraste e' a LUZ. Um controle que clareasse o fundo derrubaria a
    * legibilidade de tudo o que esta em cima dele sem mudar uma linha de texto. */
-  /* ---- A INTENSIDADE TEM DE SER VISIVEL ----
-   * Ela mexia so' na saturacao, e era seguro e INVISIVEL: numa cor quase neutra nao ha
-   * saturacao para esticar. Medido no branco gelo, que era o que estava escolhido na
-   * tela: de 60% a 140% a cor ia de `#f0f2f5` a `#ecf2f9`. Um controle que nao faz nada
-   * e' pior do que controle nenhum — quem arrasta conclui que o sistema quebrou. */
-  var piorSalto = 99, ondeSalto = '';
-  ['#16304f', '#0f2a2c', '#1e2124', '#1a1326', '#eef2f7', '#dce8f5'].forEach(function (h) {
-    var d = Math.abs(C.hsl(C.cor(h, 140)).l - C.hsl(C.cor(h, 60)).l);
-    if (d < piorSalto) { piorSalto = d; ondeSalto = h; }
+  /* ---- A INTENSIDADE TEM DE SER VISIVEL EM TODO O CURSO ----
+   *
+   * Esta prova ja' existiu medindo so' as PONTAS: |luz(140%) - luz(60%)| > 0,10. Ela
+   * ficou verde enquanto metade do cursor nao fazia nada — e foi essa metade que quem
+   * usa relatou. As duas pontas podem estar longe uma da outra com tudo o que ha' entre
+   * elas empilhado num canto.
+   *
+   * ENTAO A VARREDURA E' ENTALHE POR ENTALHE, de 5 em 5 — o passo que o cursor tem — e
+   * em TODOS os tokens que os quatro grupos pintam, nas cinco escalas de fundo e nos
+   * quatro temas. Tres coisas se cobram de cada um:
+   *   · NUNCA INVERTER o sentido no meio do curso. Era o defeito mais feio: o cartao
+   *     branco virava cinza quando a intensidade SUBIA, porque o teto de 0,985 puxava o
+   *     branco puro para baixo. Um controle que anda ao contrario faz quem usa duvidar
+   *     do que esta' vendo.
+   *   · NUNCA EMPATAR dois entalhes vizinhos — arrastar e nada mudar e' o relato.
+   *   · ANDAR pelo menos 0,10 de luz de ponta a ponta, que e' o que se ve' num fundo.
+   *
+   * A UNICA EXCECAO E' O BRANCO PURO abaixo de 100%, e ela e' honesta: o `--surface` do
+   * gelo e' `#ffffff`, e acima do branco nao ha para onde ir. */
+  function tokensDoBloco(sel, lista) {
+    var i = cssA.indexOf(sel + '{');
+    if (i < 0) return [];
+    var corpo = cssA.slice(i, cssA.indexOf('}', i));
+    return lista.map(function (tk) {
+      var m = new RegExp(tk + ':(#[0-9a-fA-F]{6})').exec(corpo);
+      return m ? [sel + ' ' + tk, m[1]] : null;
+    }).filter(Boolean);
+  }
+  var ALVOS_LUZ = [];
+  ['azul', 'petroleo', 'cinza', 'roxo', 'gelo'].forEach(function (f) {
+    ALVOS_LUZ = ALVOS_LUZ.concat(tokensDoBloco('[data-fundo="' + f + '"]',
+      ['--bg', '--surface', '--surface-2', '--campo',
+       '--marinho', '--marinho-esc', '--marinho-claro']));
   });
-  ok(piorSalto > 0.10,
-    'a intensidade MUDA a cor de ponta a ponta, inclusive nas quase neutras — mexendo ' +
-    'só na saturação, o branco gelo ia de #f0f2f5 a #ecf2f9 entre 60% e 140%, e quem ' +
-    'arrastava concluía que o controle estava quebrado',
-    'menor salto de luz: ' + piorSalto.toFixed(3) + ' em ' + ondeSalto);
-  /* MAIS INTENSO E' MAIS "ELE MESMO": o escuro escurece, o claro clareia. Clareando os
-     dois, "intensidade" quereria dizer coisas opostas em dois grupos da mesma tela. */
+  ['verde', 'roxo', 'ambar', 'gelo'].forEach(function (tm) {
+    ALVOS_LUZ = ALVOS_LUZ.concat(tokensDoBloco('[data-tema="' + tm + '"]',
+      ['--brand', '--brand-hover', '--marca-roxo', '--marca-verde']));
+    ALVOS_LUZ = ALVOS_LUZ.concat(tokensDoBloco(
+      '[data-fundo="gelo"][data-tema="' + tm + '"]',
+      ['--brand', '--brand-hover', '--marca-roxo', '--marca-verde']));
+  });
+  /* AS CORES LIVRES TAMBEM, e lidas do app.js: elas sao o que a faixa do topo e a caixa
+     do usuario oferecem, e inventa-las aqui mediria uma paleta que a tela nao tem. */
+  var blocoLivres = appA.slice(appA.indexOf('var CORES_LIVRES = {'));
+  blocoLivres = blocoLivres.slice(0, blocoLivres.indexOf('};'));
+  (blocoLivres.match(/#[0-9a-fA-F]{6}/g) || []).forEach(function (h, i) {
+    ALVOS_LUZ.push(['cor livre ' + i, h]);
+  });
+  ok(ALVOS_LUZ.length >= 50,
+    'a conferência juntou os tokens de verdade que os quatro grupos pintam — lista ' +
+    'curta aqui faria a varredura passar sem olhar as escalas que o galpão usa',
+    ALVOS_LUZ.length);
+
+  /* O TOPO DA ESCALA E' A UNICA FOLGA, e ela e' uma conta, nao uma desculpa: um token
+     que ja' nasce acima de 0,95 de luz tem menos de 0,05 de espaco ate' o branco.
+     Repartido pelos oito entalhes abaixo de 100%, isso da' no maximo 0,006 de luz por
+     entalhe — e em 8 bits por canal alguns entalhes CAEM no mesmo hexadecimal, por
+     arredondamento. Acima do branco nao ha para onde ir, e nenhuma formula inventa
+     espaco que a escala nao tem.
+     SO' ABAIXO DE 100%: do 100% para cima estes mesmos tokens tem a escala inteira pela
+     frente, e ali empate nenhum se perdoa — era justamente essa metade que nao andava. */
+  function noTetoDaEscala(hex, ate) { return C.hsl(hex).l >= 0.95 && ate <= 100; }
+
+  function varrer(nome, hex, hexes, luzes, saco) {
+    var sinal = 0;
+    for (var i = 1; i < luzes.length; i++) {
+      var d = luzes[i] - luzes[i - 1];
+      var s = d > 1e-9 ? 1 : d < -1e-9 ? -1 : 0;
+      if (s && sinal && s !== sinal) saco.invertem.push(nome);
+      if (s) sinal = s;
+      var ate = 60 + i * 5;
+      if (hexes[i] === hexes[i - 1] && !noTetoDaEscala(hex, ate)) {
+        saco.empatam.push(nome + ' @' + ate + '%');
+      }
+    }
+    var curso = Math.abs(luzes[luzes.length - 1] - luzes[0]);
+    if (curso < 0.10) saco.curtos.push(nome + ' ' + curso.toFixed(3));
+  }
+
+  var saco = { invertem: [], empatam: [], curtos: [] };
+  ALVOS_LUZ.forEach(function (a) {
+    var luzes = [], hexes = [];
+    for (var k = 60; k <= 140; k += 5) {
+      var h = C.cor(a[1], k);
+      hexes.push(h); luzes.push(C.hsl(h).l);
+    }
+    varrer(a[0], a[1], hexes, luzes, saco);
+  });
+  var invertem = saco.invertem, empatam = saco.empatam, curtos = saco.curtos;
+
+  /* A VARREDURA SE CONFERE COM UMA SONDA, e isto nasceu de uma sabotagem que escapou:
+     bastou fazer o perdao do topo valer SEMPRE e as tres conferencias abaixo
+     continuaram verdes — porque hoje nenhum token de fora do topo empata, nem inverte,
+     nem anda de menos. Uma peneira de buraco aberto so' se denuncia quando alguma coisa
+     passa por ela.
+     ENTAO PASSA UMA DE PROPOSITO: uma cor ESCURA — longe do topo da escala, onde perdao
+     nenhum vale — com um degrau empatado, um sentido invertido e curso curto. A sonda
+     tem de ser reprovada nas tres. Afrouxado o perdao, ela sai ilesa e e' aqui que a
+     bancada avisa. */
+  var sonda = { invertem: [], empatam: [], curtos: [] };
+  var hSonda = '#2b3a4d';
+  varrer('sonda', hSonda,
+    ['#2b3a4d', '#2b3a4d', '#2f4055', '#2b3a4d'],
+    [0.24, 0.24, 0.26, 0.24], sonda);
+  ok(sonda.empatam.length === 1 && sonda.invertem.length === 1 &&
+     sonda.curtos.length === 1,
+    'a varredura REPROVA uma sonda com degrau empatado, sentido invertido e curso ' +
+    'curto — sem ela, afrouxar o perdão do topo deixava as três conferências verdes ' +
+    'por não haver mais nada que as acionasse',
+    [sonda.empatam, sonda.invertem, sonda.curtos]);
+  ok(C.hsl(hSonda).l < 0.95,
+    'e a sonda é ESCURA, longe do topo da escala — no topo o perdão valeria para ela e ' +
+    'a prova da prova não provaria nada', C.hsl(hSonda).l.toFixed(3));
+
+  /* E UMA SEGUNDA SONDA, CLARA, PARA A OUTRA METADE DO PERDAO. O perdao tem duas
+     condicoes — estar no topo da escala E estar abaixo de 100% —, e a sonda escura so'
+     cobra a primeira. Apagada a segunda, o perdao passava a valer para cima tambem:
+     justamente a metade do cursor que nao andava, e que foi o defeito relatado.
+     ENTAO ESTA SONDA E' CLARA e empata ACIMA do 100%, onde perdao nenhum vale: ali o
+     token tem a escala inteira pela frente, e empatar e' defeito, nao falta de espaco. */
+  var sonda2 = { invertem: [], empatam: [], curtos: [] };
+  var hSonda2 = '#f5f8fb';
+  var hxs = [], lzs = [];
+  for (var iS = 0; iS < 17; iS++) {
+    hxs.push(iS === 9 ? '#c8c8c8' : '#' + (0xc0c0c0 + iS * 0x010101).toString(16));
+    lzs.push(0.97 - iS * 0.011);
+  }
+  hxs[8] = '#c8c8c8';   /* o empate cai no entalhe de 105%, acima do 100% */
+  varrer('sonda clara', hSonda2, hxs, lzs, sonda2);
+  ok(C.hsl(hSonda2).l >= 0.95,
+    'a sonda clara está no topo da escala — fora dele, o perdão não a alcançaria e ela ' +
+    'não diria nada sobre ele', C.hsl(hSonda2).l.toFixed(3));
+  ok(sonda2.empatam.length === 1 && sonda2.empatam[0].indexOf('@105%') > 0,
+    'e o perdão do topo NÃO vale acima de 100% — ali o token tem a escala inteira pela ' +
+    'frente, e empatar é defeito e não falta de espaço: era justamente essa metade do ' +
+    'cursor que não andava', sonda2.empatam);
+  ok(!invertem.length,
+    'a intensidade NUNCA inverte o sentido no meio do curso — era o defeito relatado: ' +
+    'o cartão branco virava cinza quando a intensidade SUBIA, porque o teto de 0,985 ' +
+    'puxava o branco puro para baixo, e um controle que anda ao contrário faz quem usa ' +
+    'duvidar do que está vendo', invertem.slice(0, 8));
+  ok(!empatam.length,
+    'e nenhum entalhe do cursor dá a MESMA cor do anterior — medindo só as duas pontas, ' +
+    'esta prova ficava verde com metade do curso empilhada num canto, que foi ' +
+    'exatamente o que relataram', empatam.slice(0, 8));
+  ok(!curtos.length,
+    'e cada token anda pelo menos 0,10 de luz de ponta a ponta — abaixo disso o ' +
+    'controle existe e não se vê, que é pior do que não existir',
+    curtos.slice(0, 8));
+
+  /* MAIS INTENSO E' MAIS COR: mais saturado e mais fundo. Menos intenso e' mais LAVADO,
+     na direcao do branco. Um rumo so' nos quatro grupos — e e' o rumo que os BOTOES ja'
+     tinham, que foi para onde apontaram dizendo que ali funcionava.
+     A REGRA ANTERIOR ERA "MAIS ELE MESMO": o escuro escurecia e o claro clareava. Soava
+     simetrica e nao era, porque as escalas deste projeto moram nas PONTAS — o branco
+     gelo ja' nasce em luz 0,95, e "mais claro que branco" e' um pedido sem resposta. */
   ok(C.hsl(C.cor('#16304f', 140)).l < C.hsl('#16304f').l &&
-     C.hsl(C.cor('#eef2f7', 140)).l > C.hsl('#eef2f7').l,
-    'e mais intensidade é mais "ele mesmo" — o escuro escurece e o claro clareia: ' +
-    'clareando os dois, a palavra significaria coisas opostas em dois grupos da mesma tela');
+     C.hsl(C.cor('#eef2f7', 140)).l < C.hsl('#eef2f7').l &&
+     C.hsl(C.cor('#16304f', 60)).l > C.hsl('#16304f').l &&
+     C.hsl(C.cor('#eef2f7', 60)).l > C.hsl('#eef2f7').l,
+    'e o rumo é UM SÓ nos quatro grupos — mais intensidade é mais cor e mais funda, ' +
+    'menos é mais lavada: é como os botões já se comportavam, e foi para eles que ' +
+    'apontaram dizendo que ali funcionava',
+    [C.cor('#16304f', 60), C.cor('#16304f', 140),
+     C.cor('#eef2f7', 60), C.cor('#eef2f7', 140)]);
+  /* E A SATURACAO ANDA JUNTO COM A LUZ, que e' a outra metade de "mais cor".
+     Parada, a intensidade vira um controle de claro-e-escuro: o verde a 140% ficaria um
+     verde escuro em vez de um verde FUNDO, e a 60% um verde claro em vez de um verde
+     lavado. Medido numa cor que TEM saturacao — numa quase neutra nao ha o que medir, e
+     foi por isso que a versao que mexia so' na saturacao era invisivel. */
+  /* `#00a853` NAO SERVE DE ALVO AQUI: ele ja' esta' em saturacao 1,000, e acima de
+     cheio nao ha mais cor. As tres abaixo sobram espaco nos dois lados. */
+  [['#35d6a0', 'o verde-água'], ['#a46ce7', 'o roxo'], ['#ef7b2f', 'o âmbar']]
+    .forEach(function (par) {
+      var s60 = C.hsl(C.cor(par[0], 60)).s, s100 = C.hsl(par[0]).s,
+          s140 = C.hsl(C.cor(par[0], 140)).s;
+      ok(s60 < s100 - 0.02 && s140 > s100 + 0.02,
+        'a saturação anda junto com a luz em ' + par[1] + ' — parada, a intensidade ' +
+        'vira um controle de claro-e-escuro, e "mais intenso" deixa de querer dizer ' +
+        '"mais cor"', [s60.toFixed(3), s100.toFixed(3), s140.toFixed(3)]);
+    });
+
+  /* E O MATIZ NAO SE PERDE NA PONTA. Sem o limitador — um teto e um chao fixos — a cor
+     mais escura da folha ia a `#000303` no 140%: preto, e de preto nao se volta. */
+  var maisEscuro = ALVOS_LUZ.map(function (a) { return C.cor(a[1], 140); })
+    .reduce(function (a, b) { return C.hsl(a).l <= C.hsl(b).l ? a : b; });
+  ok(C.hsl(maisEscuro).l > 0.015,
+    'e nem a cor mais escura da folha chega ao preto no 140% — o passo encolhe junto ' +
+    'com a folga em vez de ser cortado por um chão fixo, e por isso o matiz sobrevive ' +
+    'à ponta do cursor', maisEscuro + ' luz ' + C.hsl(maisEscuro).l.toFixed(3));
 
   /* ---- E O CONTRASTE MEDIDO CONTINUA DE PE' EM TODA COMBINACAO ----
    * As cinco escalas de fundo foram medidas contra o texto delas — os comentarios da
@@ -19850,11 +20028,19 @@ console.log('\n== o aplicador da aparencia, rodado ==');
   M.mudar({ fundoInt: 60 }, false);
   var antes = M.contraste(FOLHA['--txt'], FOLHA['--bg']);
   var agora = M.contraste(escrito['--txt'], escrito['--bg']);
-  /* 0,85 E NAO 1,0, e o numero e' medido: a 60% o fundo escuro CLAREIA na direcao da
-     tinta clara, e branco e' o teto — nao ha para onde empurrar. O azul vai de
-     11,45 para 10,02, que e' 0,875. Com o alvo trocado pelos 4,5 da norma, a mesma
-     conta daria 0,39: a prova separa as duas com folga. */
-  ok(agora >= antes * 0.85,
+  /* 0,65 E NAO 1,0, e o numero e' medido: a 60% o fundo escuro CLAREIA na direcao da
+     tinta clara, e branco e' o teto — nao ha para onde empurrar. O azul vai de 11,45
+     para 8,44, que e' 0,737; a pior de todas as combinacoes e' 0,688 (o `--txt` do
+     cinza sobre o `--surface-2`, no 60%).
+     ERA 0,85 ATE' O PASSO DA LUZ VIRAR 0,35. O passo dobrou porque metade do cursor
+     nao fazia nada, e com o fundo andando mais a tinta perde mais antes de bater no
+     branco. O numero aqui acompanhou a MEDICAO, e nao o contrario.
+     E O PISO DE VERDADE E' OUTRO, logo acima: o par que passava os 4,5:1 CONTINUA
+     passando em toda intensidade — o pior de todos da' 4,56. Esta conta aqui e' sobre
+     a HIERARQUIA entre as quatro tintas; aquela e' sobre poder ler. Com o alvo trocado
+     pelos 4,5 da norma, esta mesma conta daria 0,39: as duas continuam separadas com
+     folga. */
+  ok(agora >= antes * 0.65,
     'e ela guarda o contraste que TINHA, e não os 4,5:1 da norma — as quatro forças de ' +
     'texto foram medidas uma a uma, e a distância entre elas é o que faz um rótulo ' +
     'pesar menos que um número sem sumir',
@@ -19865,6 +20051,55 @@ console.log('\n== o aplicador da aparencia, rodado ==');
       'e as quatro forças de tinta são reescritas, não só a mais forte — a mais fraca é ' +
       'a primeira a sumir e a que ninguém nota: ' + tt);
   });
+
+  /* ---- OS BOTOES ANDAM EM FAMILIA ----
+   *
+   * O grupo dos botoes pinta QUATRO tokens, e eles nao sao quatro cores: em todo tema a
+   * folha da' o MESMO valor a `--brand` e a `--marca-roxo` (no roxo, `#a46ce7` nos
+   * dois; no verde, `#00a853`). Eles sao a mesma cor com dois nomes — e os nomes mentem
+   * desde que nasceram, como o comentario da folha registra.
+   *
+   * ENTAO A PROVA NAO LISTA OS QUATRO: ela pergunta a' FOLHA quais tokens ja' sao
+   * iguais, e cobra que continuem iguais depois da intensidade. Um token que ficasse de
+   * fora da lista do grupo guardaria o valor de 100% enquanto o irmao dele andou — e o
+   * botao e o selo ao lado dele sairiam em duas cores que a folha diz serem uma so'.
+   * Foi exatamente uma sabotagem que escapou: tirar tres dos quatro tokens do grupo
+   * nao reprovava nada. */
+  M.mudar({ topoInt: 100, fundoInt: 100, botaoInt: 140, usuarioInt: 100,
+            topoCor: '', usuarioCor: '' }, false);
+  var MARCA = ['--brand', '--brand-hover', '--marca-roxo', '--marca-verde'];
+  var paresIguais = [];
+  MARCA.forEach(function (x, i) {
+    MARCA.slice(i + 1).forEach(function (y) {
+      if (FOLHA[x] && FOLHA[x] === FOLHA[y]) paresIguais.push([x, y]);
+    });
+  });
+  ok(paresIguais.length > 0,
+    'a conferência achou na folha ao menos um par de tokens de botão que já nascem com ' +
+    'a MESMA cor — sem par, esta prova não teria o que comparar',
+    paresIguais.map(function (p) { return p[0] + '=' + p[1] + ' ' + FOLHA[p[0]]; }));
+  var desgarrados = paresIguais.filter(function (p) {
+    var a = escrito[p[0]] !== undefined ? escrito[p[0]] : FOLHA[p[0]];
+    var b = escrito[p[1]] !== undefined ? escrito[p[1]] : FOLHA[p[1]];
+    return a !== b;
+  });
+  ok(!desgarrados.length,
+    'e a intensidade dos botões leva a família INTEIRA junto — deixado de fora, um ' +
+    'token guarda o valor de 100% enquanto o irmão andou, e o botão e o selo ao lado ' +
+    'dele saem em duas cores que a folha diz serem uma só',
+    desgarrados.map(function (p) {
+      return p[0] + '=' + (escrito[p[0]] || FOLHA[p[0]]) + ' / ' +
+             p[1] + '=' + (escrito[p[1]] || FOLHA[p[1]]);
+    }));
+  ok(MARCA.every(function (k) { return escrito[k] && escrito[k] !== FOLHA[k]; }),
+    'e os quatro de fato ANDARAM — iguais entre si mas parados, a família estaria ' +
+    'coerente e o controle continuaria não fazendo nada',
+    MARCA.map(function (k) { return k + ':' + (escrito[k] || '-'); }));
+  /* E O ESTADO VOLTA COMO ESTAVA, com o fundo no 140% em que as provas acima o
+     deixaram: as de baixo partem dali, e um grupo mexido e nao devolvido faria a
+     proxima medir outra tela. */
+  M.mudar({ topoInt: 100, fundoInt: 140, botaoInt: 100, usuarioInt: 100,
+            topoCor: '', usuarioCor: '' }, false);
 
   /* ---- A COR NAO SE ACUMULA ENTRE CHAMADAS ----
    * O 100% de cada token e' o valor que a FOLHA define. Lido por cima do proprio
