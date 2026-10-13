@@ -3253,12 +3253,14 @@
      ocultas do nome ('..._ativos_v1') mudaria a chave e zeraria a escolha de quem ja
      tinha escondido alguma coluna — por isso cada uma vem escrita. */
   var TAB_ATIVOS = {
-    padrao: ['data','inicial','lancado','origem','destino','quem',
+    /* UNIDADE VEM DEPOIS DE DESTINO, e e' onde ela se le': as tres respondem "entre
+       onde e onde", e a terceira resume as duas primeiras na casa que importa. */
+    padrao: ['data','inicial','lancado','origem','destino','unidade','quem',
              'saida','retorno','final'],
     /* Somadas, estas larguras cabem numa area util de ~1.050px, que e o que sobra numa
        tela de 1.400. Mais folgadas, a tabela transbordava e voltava a barra de rolagem
        horizontal. Quem quiser mais espaco numa coluna arrasta a borda. */
-    larg: { data:95, inicial:105, lancado:95, origem:150, destino:150,
+    larg: { data:95, inicial:105, lancado:95, origem:150, destino:150, unidade:170,
             quem:190, saida:160, retorno:160, final:105 },
     /* O titulo de cada coluna mora AQUI, e a celula la embaixo o le daqui. A tela de
        Colunas precisa dos nomes sem desenhar a tabela, e escreve-los duas vezes seria
@@ -3268,8 +3270,8 @@
        `quem` fica vazio de proposito: o titulo dele muda com o grupo escolhido (Motoristas
        ou Usuários), e quem o escreve e o desenho. */
     titulos: { data:'Data', inicial:'Saldo inicial', lancado:'Estoque', origem:'Origem',
-               destino:'Destino', quem:'Quem', saida:'Saída', retorno:'Retorno',
-               final:'Saldo final' },
+               destino:'Destino', unidade:'Unidade', quem:'Quem', saida:'Saída',
+               retorno:'Retorno', final:'Saldo final' },
     kOrdem: 'qdc_cols_ativos_v1',
     kLarg: 'qdc_larg_ativos_v1',
     kOcultas: 'qdc_cols_ocultas_v1',
@@ -4830,6 +4832,16 @@
                       ? '<span class="fraco">—</span>'
                       : lugares(l.destinos);
                   } },
+      /* A UNIDADE DA LINHA: a casa — ou as casas — que ela toca.
+         A MESMA REGRA DO FILTRO de Unidade, e tem de ser a mesma: lendo a coluna e
+         peneirando pelo seletor, as duas respostas precisam coincidir. Escrita de novo
+         aqui, uma linha apareceria no recorte da Filial Maceió com a coluna dizendo
+         outro nome — e as duas estariam certas cada uma por si.
+         `so: 'local'` como Origem e Destino: numa visão de motorista ou de usuário não
+         há par de pontas, e a coluna sairia vazia em toda linha. */
+      unidade:  { t: TIT['unidade'], so: 'local',
+                  k: function(l){ return unidadesDaLinha(l).join(', '); },
+                  v: function(l){ return lugares(unidadesDaLinha(l)); } },
       quem:     { t: '', so: 'gente', k: function(l){ return l.nome || ''; },
                   v: function(l){
                     return '<b>' + Q.esc(l.nome) + '</b>' +
@@ -5079,6 +5091,24 @@
      varios nomes porque as visoes de gente ainda passam por aqui.
 
      O travessao no vazio e proposital: celula em branco parece falha de carregamento. */
+  /* AS UNIDADES QUE A LINHA TOCA — a casa de onde saiu, a casa onde chegou, ou as duas.
+   *
+   * SEM REPETIR: uma transferência entre dois pontos da mesma casa mostraria o nome duas
+   * vezes, e a coluna pareceria um erro de desenho.
+   * E NA ORDEM EM QUE APARECEM, origem antes de destino: ordenada por nome, a coluna
+   * diria "Filial Maceió · Matriz" numa linha e "Filial Maceió · Matriz" na linha de
+   * volta — as duas iguais, com a carga indo em sentidos opostos. */
+  function unidadesDaLinha(l){
+    var saoUnidade = nomesDeUnidade();
+    var fora = [], visto = {};
+    (l.origens || []).concat(l.destinos || []).forEach(function(n){
+      if (!n || !saoUnidade[n] || visto[n]) return;
+      visto[n] = 1;
+      fora.push(n);
+    });
+    return fora;
+  }
+
   function lugares(nomes){
     if (!nomes || !nomes.length) return '<span class="fraco">—</span>';
     return nomes.length > 2
@@ -5444,14 +5474,17 @@
       return id !== 'quem' && ocultasCsv.indexOf(id) < 0;
     });
     var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Estoque',
-                origem:'Origem', destino:'Destino', saida:'Saída', retorno:'Retorno',
-                final:'Saldo final' };
+                origem:'Origem', destino:'Destino', unidade:'Unidade', saida:'Saída',
+                retorno:'Retorno', final:'Saldo final' };
     var VAL = {
       data:     function(l){ return l.data ? Q.dataBR(l.data) : ''; },
       inicial:  function(l){ return l.iniCorrido || 0; },
       lancado:  function(l){ return l.inicial || 0; },
       origem:   function(l){ return (l.origens||[]).join(' | '); },
       destino:  function(l){ return (l.destinos||[]).join(' | '); },
+      /* INTEIRA no arquivo, como as outras duas listas de local: aqui não há coluna
+         estreita para proteger, e quem exporta quer o dado completo. */
+      unidade:  function(l){ return unidadesDaLinha(l).join(' | '); },
       saida:    function(l){ return l.saida; },
       retorno:  function(l){ return l.retorno; },
       final:    function(l){ return l.fimCorrido; }

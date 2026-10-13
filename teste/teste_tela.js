@@ -1501,7 +1501,7 @@ console.log('\n== classificar pelo titulo da coluna ==');
   var ids = (defs.match(/^\s{6}(\w+):\s*\{/gm) || []).map(function (t) {
     return t.trim().split(':')[0];
   });
-  ok(ids.length === 9, 'a leitura achou as nove colunas', ids);
+  ok(ids.length === 10, 'a leitura achou as dez colunas', ids);
   var semChave = ids.filter(function (id) {
     var bloco = defs.slice(defs.indexOf('\n      ' + id + ':'));
     bloco = bloco.slice(0, bloco.indexOf('v: function(l){'));
@@ -19471,6 +19471,139 @@ console.log('\n== a aparencia em quatro superficies ==');
   ok(/topoCor: \['', 'marca'/.test(apiA) && /usuarioCor: \['', 'marca'/.test(apiA),
     'e o VAZIO é um valor aceito nas duas cores novas — fora da lista, não haveria como ' +
     'VOLTAR ao padrão depois de escolher uma cor');
+}
+
+
+console.log('\n== a coluna Unidade do Painel de Ativos ==');
+{
+  var admU = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  function corpoAdmU(nome) {
+    var i = admU.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = admU.indexOf('{', i);
+    for (; k < admU.length; k++) {
+      if (admU[k] === '{') d++;
+      else if (admU[k] === '}' && --d === 0) return admU.slice(i, k + 1);
+    }
+    return '';
+  }
+
+  var CAD = { locais: [
+    { Nome: 'Matriz São Vicente', Tipo: 'GALPAO' },
+    { Nome: 'Filial Maceió', Tipo: 'FILIAL' },
+    { Nome: 'João Pessoa', Tipo: 'CLIENTE' },
+    { Nome: 'Rota Norte', Tipo: 'ROTA' }
+  ] };
+  var fonteU = corpoAdmU('ehTipoDeUnidade') + corpoAdmU('nomesDeUnidade') +
+               corpoAdmU('unidadesDaLinha');
+  ok(fonteU.length > 400,
+    'a conferência recortou a regra da coluna Unidade — recorte vazio faria as provas ' +
+    'abaixo passarem sem rodar nada', fonteU.length);
+  var unidadesDaLinha = new Function('DADOS',
+    fonteU + ' return unidadesDaLinha;')(CAD);
+
+  var soOrigem  = { origens: ['Filial Maceió'], destinos: ['João Pessoa'] };
+  var soDestino = { origens: ['João Pessoa'], destinos: ['Matriz São Vicente'] };
+  var asDuas    = { origens: ['Filial Maceió'], destinos: ['Matriz São Vicente'] };
+  var mesma     = { origens: ['Matriz São Vicente'], destinos: ['Matriz São Vicente'] };
+  var nenhuma   = { origens: ['João Pessoa'], destinos: ['Rota Norte'] };
+  var estoque   = { origens: ['Filial Maceió'], destinos: [], estoqueInicial: true };
+
+  ok(unidadesDaLinha(soOrigem).join() === 'Filial Maceió' &&
+     unidadesDaLinha(soDestino).join() === 'Matriz São Vicente',
+    'a coluna traz a casa de onde saiu E a casa onde chegou — lendo um lado só, metade ' +
+    'das linhas ficaria com a coluna vazia',
+    [unidadesDaLinha(soOrigem), unidadesDaLinha(soDestino)]);
+  ok(unidadesDaLinha(asDuas).join(' · ') === 'Filial Maceió · Matriz São Vicente',
+    'e quando a linha liga duas casas, traz as duas — na ordem em que aparecem, origem ' +
+    'antes de destino', unidadesDaLinha(asDuas));
+  ok(unidadesDaLinha(mesma).length === 1,
+    'e não repete o nome quando as duas pontas são a mesma casa — repetido, a coluna ' +
+    'pareceria um erro de desenho', unidadesDaLinha(mesma));
+  ok(unidadesDaLinha(nenhuma).length === 0,
+    'e numa linha que não toca casa nenhuma ela fica vazia — cliente e rota não são ' +
+    'casas, e enfiá-los aqui faria a coluna dizer outra coisa que não o nome dela');
+  ok(unidadesDaLinha(estoque).join() === 'Filial Maceió',
+    'e a linha de estoque, que não tem destino, mostra a casa de onde ela é — é a conta ' +
+    'de abertura daquela unidade, e deixá-la vazia esconderia de quem é o saldo');
+
+  /* ---- A COLUNA E O FILTRO DIZEM A MESMA COISA ----
+   * E' a propriedade que importa: peneirar por "Filial Maceio" e LER a coluna tem de dar
+   * a mesma resposta. Escritas como duas regras, uma linha apareceria no recorte de uma
+   * unidade com a coluna dizendo outro nome — e as duas estariam certas cada uma por si,
+   * que e' o jeito de o erro durar. */
+  var iFil = admU.indexOf('  function todasAsLinhas(){');
+  var fonteFil = admU.slice(admU.indexOf('return f.linhas.filter(function(l){', iFil),
+                            admU.indexOf('\n    });', iFil));
+  fonteFil = fonteFil.slice(fonteFil.indexOf('{') + 1);
+  ok(fonteFil.length > 400 && fonteFil.indexOf('l.origens') > 0,
+    'a conferência recortou a peneira do painel', fonteFil.length);
+  var peneira = new Function('l', 'o', 'd', 'u', 'DESTINO_ESTOQUE', 'b', 'alvoBusca',
+    'FLUXO_TIPO', fonteFil);
+  function passaPor(l, u) {
+    return peneira(l, '', '', u, '::estoque', '', function () { return ''; }, 'todos');
+  }
+  var discordam = [];
+  [soOrigem, soDestino, asDuas, mesma, nenhuma, estoque].forEach(function (l, i) {
+    ['Matriz São Vicente', 'Filial Maceió'].forEach(function (u) {
+      var naColuna = unidadesDaLinha(l).indexOf(u) >= 0;
+      var noFiltro = passaPor(l, u) === true;
+      if (naColuna !== noFiltro) discordam.push('linha ' + i + ' / ' + u);
+    });
+  });
+  ok(discordam.length === 0,
+    'e a COLUNA e o FILTRO dizem a mesma coisa sobre toda linha — escritas como duas ' +
+    'regras, uma linha apareceria no recorte de uma unidade com a coluna mostrando ' +
+    'outro nome, e as duas estariam certas cada uma por si', discordam);
+
+  /* ---- A COLUNA EXISTE DE PONTA A PONTA ----
+     Largura, titulo e celula: sem largura ela nasce espremida, sem titulo o cabecalho
+     sai vazio, sem celula todas as linhas saem em branco. Nos tres casos a tabela nao
+     quebra — ela so' fica errada, calada. */
+  var descU = admU.slice(admU.indexOf('var TAB_ATIVOS = {'), admU.indexOf('kOrdem:', admU.indexOf('var TAB_ATIVOS = {')));
+  ok(/'destino','unidade'/.test(descU),
+    'a coluna está na ordem de fábrica, logo depois de Destino — é onde ela se lê: as ' +
+    'três respondem "entre onde e onde"');
+  ok(/unidade:170/.test(descU) && /unidade:'Unidade'/.test(descU),
+    'e tem largura e título — sem largura ela nasce espremida, sem título o cabeçalho ' +
+    'sai vazio, e nos dois casos a tabela não quebra: ela só fica errada, calada');
+  ok(/unidade:  \{ t: TIT\['unidade'\], so: 'local',/.test(admU),
+    'e a célula só existe nas visões de LOCAL — numa de motorista ou de usuário não há ' +
+    'par de pontas, e a coluna sairia vazia em toda linha');
+
+  /* ---- A CELULA, RODADA ----
+   * Ela era lida no arquivo, e nunca executada: trocar `lugares(...)` por um `join`
+   * cru passou pela prova sem piscar. E `lugares` nao e' enfeite — e' quem corta a
+   * lista com "+N" e quem poe o travessao no vazio. Sem ele, uma linha de tres casas
+   * transborda a coluna de 170px e uma linha sem casa nenhuma sai em BRANCO, que se le'
+   * como dado faltando e nao como "esta linha nao toca casa nenhuma". */
+  var iCel = admU.indexOf("      unidade:  { t: TIT['unidade'], so: 'local',");
+  var fonteCel = iCel < 0 ? '' : admU.slice(iCel, admU.indexOf('} },', iCel) + 4);
+  var lugaresReal = new Function('Q', corpoAdmU('lugares') + ' return lugares;')(
+    { esc: function (s) { return String(s == null ? '' : s); } });
+  var celU = iCel < 0 ? null : new Function('TIT', 'lugares', 'unidadesDaLinha',
+    'var D = {' + fonteCel + '}; return D.unidade;')(
+    { unidade: 'Unidade' }, lugaresReal, unidadesDaLinha);
+  ok(!!celU && celU.v(nenhuma).indexOf('—') >= 0,
+    'a célula põe TRAVESSÃO na linha que não toca casa nenhuma — em branco, ela se lê ' +
+    'como dado faltando, e não como "esta linha não é de casa nenhuma"',
+    celU && celU.v(nenhuma));
+  var tres = { origens: ['Filial Maceió', 'Matriz São Vicente'],
+               destinos: ['Filial Recife'] };
+  var cadTres = { locais: CAD.locais.concat([{ Nome: 'Filial Recife', Tipo: 'FILIAL' }]) };
+  var udlTres = new Function('DADOS', fonteU + ' return unidadesDaLinha;')(cadTres);
+  var celTres = new Function('TIT', 'lugares', 'unidadesDaLinha',
+    'var D = {' + fonteCel + '}; return D.unidade;')(
+    { unidade: 'Unidade' }, lugaresReal, udlTres);
+  ok(celTres.v(tres).indexOf('+1') > 0,
+    'e corta a lista com "+N" quando ela não cabe, pelo MESMO desenho de Origem e ' +
+    'Destino — crua, uma linha de três casas transborda a coluna de 170px e empurra as ' +
+    'de número para fora da tela', celTres.v(tres));
+  ok(/unidade:  function\(l\)\{ return unidadesDaLinha\(l\)\.join\(' \| '\); \}/.test(admU) &&
+     /unidade:'Unidade'/.test(admU.slice(admU.indexOf("var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Estoque',"))),
+    'e ela sai no CSV pela MESMA regra — um arquivo sem a coluna que a tela tem faz a ' +
+    'conferência de escritório chegar a um número que a tela não explica');
 }
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
