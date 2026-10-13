@@ -591,12 +591,8 @@ a{color:var(--marca-txt);text-decoration:none}
   padding:10px 12px 12px
 }
 /* O rodapé: preso embaixo, sempre à vista. */
-/* O FUNDO SAI DE `--c-usuario`, que nasce seguindo `--campo` — era o que estava escrito
-   aqui. A diferenca e' que agora ha onde trocar: a tela de Aparencia escreve a variavel,
-   e quem nao mexer continua com o campo de sempre. */
 .lateral__pe{
-  flex:0 0 auto;padding:10px 12px 14px;border-top:1px solid var(--linha);
-  background:var(--c-usuario)
+  flex:0 0 auto;padding:10px 12px 14px;border-top:1px solid var(--linha);background:var(--campo)
 }
 
 /* O botão que recolhe a lateral. É a DECISÃO de quem olha — o mouse apenas espia, e
@@ -956,8 +952,14 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 /* ---------- relógio e tempo da unidade ----------
  * A hora é a da OPERAÇÃO, não a de quem olha. O tempo fica ao lado dela porque as duas
  * respondem "como está lá agora" — e chuva na rota é atraso de retorno. */
+/* A CAIXA DO USUARIO E' ESTA, e nao o rodape da lateral: e' a pilula do canto superior
+   direito, onde moram o retrato, a saudacao, o atualizar, o tempo e a hora. Eu tinha
+   pintado o rodape — os dois sao "a caixa do usuario" quando se le' o nome sem olhar a
+   tela, e a tela desfez o empate.
+   O FUNDO SAI DE `--c-usuario`, que nasce seguindo `--campo` — era o que estava escrito
+   aqui. A diferenca e' que agora ha onde trocar. */
 .tempo{flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:8px 15px;
-  border:1px solid var(--linha);border-radius:13px;background:var(--campo)}
+  border:1px solid var(--linha);border-radius:13px;background:var(--c-usuario)}
 /* NO CELULAR ELA SOBE, para acima de "Operação".
    Ela é contexto do AMBIENTE — que horas são, como está o tempo lá fora —, e não da
    página. Entre o título e o formulário, separava duas coisas que se leem juntas. No

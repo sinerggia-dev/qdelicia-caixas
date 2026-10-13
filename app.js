@@ -317,6 +317,12 @@
   /* OS TOKENS DE CADA SUPERFÍCIE. É a lista que diz o que cada grupo PINTA — e ela é a
      única: a tela de Aparência, o aplicador e a bancada leem daqui. Escrita em cada um,
      a superfície nova entraria numa e ficaria faltando na outra. */
+  /* AS QUATRO FORCAS DE TINTA que acompanham o fundo. Lista propria, e nao dentro da
+     superficie: elas nao sao o que o grupo PINTA — sao o que precisa ser recalculado
+     quando ele muda. Postas junto dos tokens, a intensidade as saturaria como se fossem
+     fundo, e a hierarquia das quatro viraria quatro cinzas iguais. */
+  var TINTAS_DO_FUNDO = ['--txt', '--txt2', '--txt3', '--txt-fraco'];
+
   var SUPERFICIES = [
     { id: 'topo', nome: 'Faixa do topo', cor: 'topoCor', intensidade: 'topoInt',
       tokens: ['--c-topo'] },
@@ -406,7 +412,6 @@
     return '#' + doisDigitos(r) + doisDigitos(g) + doisDigitos(b);
   }
 
-  /* A SATURAÇÃO, E SÓ ELA. A luz volta intocada de propósito — ver o bloco acima. */
   /* O HEXADECIMAL EM TRES NUMEROS, para quem precisa de alfa. Devolve vazio para o que
      nao for hexadecimal: melhor a folha manter a tripla que ela ja' tinha do que receber
      "NaN,NaN,NaN" e a faixa nascer sem cor nenhuma. */
@@ -421,11 +426,61 @@
            parseInt(s.slice(5, 7), 16);
   }
 
+  /* A SATURAÇÃO **E** A LUZ, e a luz foi o conserto.
+   *
+   * Mexer só na saturação era seguro e praticamente INVISÍVEL: numa cor quase neutra não
+   * há saturação para esticar. Medido no branco gelo, que é o que estava escolhido na
+   * tela: de 60% a 140% a cor ia de `#f0f2f5` a `#ecf2f9` — três dígitos de diferença
+   * que ninguém enxerga. Um controle que não faz nada é pior do que controle nenhum:
+   * quem arrasta conclui que o sistema está quebrado.
+   *
+   * ENTÃO A LUZ ENTRA, e com ela volta o perigo que a versão anterior evitava: quem
+   * manda no contraste é a luz. A resposta não é não mexer — é mexer E RECALCULAR A
+   * TINTA. É o que `ajustarTinta` faz logo abaixo, e o que a bancada mede em toda cor,
+   * em toda intensidade.
+   *
+   * MAIS INTENSO É MAIS "ELE MESMO": o escuro escurece, o claro clareia. Clarear os dois
+   * faria "intensidade" querer dizer coisas opostas em dois grupos da mesma tela.
+   *
+   * O TETO E O CHÃO DA LUZ não são enfeite: em 0% ou 100% a cor perde o matiz, e dali
+   * não há tinta que a traga de volta — o grupo ficaria preto ou branco e a escolha de
+   * cor deixaria de significar qualquer coisa. */
+  var PASSO_LUZ = 0.18;
   function corComIntensidade(hex, intensidade) {
     var c = hexParaHsl(hex);
     if (!c) return hex;
     var k = limitarIntensidade(intensidade) / 100;
     c.s = Math.max(0, Math.min(1, c.s * k));
+    var rumo = c.l < 0.5 ? -1 : 1;
+    c.l = Math.max(0.03, Math.min(0.985, c.l + rumo * (k - 1) * PASSO_LUZ));
+    return hslParaHex(c);
+  }
+
+  /* A TINTA SEGUE O FUNDO, e guarda o contraste que ela TINHA.
+   *
+   * As quatro forças de tinta deste projeto — `--txt`, `--txt2`, `--txt3`, `--txt-fraco`
+   * — não são quatro cinzas quaisquer: cada uma foi medida contra o fundo dela, e a
+   * distância entre elas é o que faz um rótulo pesar menos que um número sem sumir. Se o
+   * fundo anda e a tinta fica, essa hierarquia inteira se desfaz — e o primeiro a sumir
+   * é o mais fraco, que é o que ninguém vai notar que sumiu.
+   *
+   * ENTÃO O ALVO NÃO É 4,5:1: é o contraste que AQUELA tinta tinha em 100%. A tinta é
+   * empurrada na direção que aumenta o contraste até reencontrá-lo. Assim o fundo muda e
+   * a leitura continua a mesma — inclusive a diferença entre as quatro.
+   *
+   * UM PASSO DE 1% e no máximo cem passos: é fino o bastante para não dar salto visível
+   * e barato o bastante para rodar nas quatro tintas a cada arrasto do cursor. */
+  function ajustarTinta(tinta, fundo, alvo) {
+    var c = hexParaHsl(tinta);
+    if (!c || !hexParaHsl(fundo)) return tinta;
+    var clarear = luminancia(fundo) < 0.5;
+    for (var i = 0; i < 100; i++) {
+      var atual = hslParaHex(c);
+      if (contraste(atual, fundo) >= alvo) return atual;
+      var proxima = clarear ? c.l + 0.01 : c.l - 0.01;
+      if (proxima > 1 || proxima < 0) return atual;
+      c.l = proxima;
+    }
     return hslParaHex(c);
   }
 
@@ -507,7 +562,7 @@
       s.tokens.forEach(function (t) { raiz.style.removeProperty(t); });
     });
     ['--c-topo-tinta', '--c-usuario-tinta', '--sobre-brand',
-     '--c-topo-rgb'].forEach(function (t) {
+     '--c-topo-rgb'].concat(TINTAS_DO_FUNDO).forEach(function (t) {
       raiz.style.removeProperty(t);
     });
   }
@@ -515,6 +570,23 @@
   /* A COR BASE DE UMA SUPERFÍCIE: a escolhida, quando há; senão, a que a folha já traz.
      É isso que faz "segue a marca" não ser um caso especial — é simplesmente não
      escolher, e aí o valor medido manda. */
+  /* A COR QUE A FOLHA DA' PARA UM TOKEN, atravessando UM `var()`.
+   *
+   * `--c-usuario` nasce como `var(--campo)` — ela SEGUE o fundo enquanto ninguem escolher
+   * outra coisa. E `getComputedStyle` devolve propriedade personalizada como ela foi
+   * ESCRITA: a leitura volta com o texto `var(--campo)`, e nao com a cor. Sem atravessar,
+   * a intensidade da caixa do usuario nao fazia nada — `corComIntensidade` recebia um
+   * texto que nao e' hexadecimal e devolvia o mesmo texto, sem erro nenhum.
+   *
+   * UM NIVEL SO', de proposito: e' o que o projeto tem, e uma cadeia de `var()` dentro de
+   * `var()` seria um problema inventado aqui para ser resolvido aqui. */
+  function corLida(lidos, token) {
+    var v = String(lidos.getPropertyValue(token) || '').trim();
+    var m = /^var\(\s*(--[\w-]+)\s*\)$/.exec(v);
+    if (m) v = String(lidos.getPropertyValue(m[1]) || '').trim();
+    return v;
+  }
+
   function baseDaSuperficie(s, raiz, lido) {
     var escolhida = CORES_LIVRES[String(APARENCIA[s.cor] || '')];
     if (s.id === 'topo' || s.id === 'usuario') {
@@ -526,6 +598,11 @@
   function aplicarSuperficies(guardar) {
     if (typeof document === 'undefined') return aparenciaAtual();
     var raiz = document.documentElement;
+    /* QUEM MEXEU, para a volta nao escrever o que ninguem pediu. A tripla da faixa e as
+       tintas que vao em cima das cores eram escritas SEMPRE, e com tudo no padrao a
+       folha deixava de ser o 100% para elas tres — foi a bancada do aplicador que
+       achou, rodando com tudo em 100% e encontrando duas variaveis escritas. */
+    var mexeu = {};
     limparSuperficies(raiz);
 
     SUPERFICIES.forEach(function (s) {
@@ -541,11 +618,30 @@
       /* NADA A FAZER é o caso mais comum, e ele não escreve nada: a folha continua
          sendo a fonte da verdade para quem não mexeu em nada. */
       if (intensidade === INT_PADRAO && !trocaCor) return;
+      mexeu[s.id] = true;
+      /* AS QUATRO TINTAS DO FUNDO SAO LIDAS ANTES de o fundo mudar, com o contraste que
+         cada uma TINHA: depois da troca, o valor de referencia ja' seria o novo, e a
+         conta mediria a distancia dela para ela mesma. */
+      var fundoAntes = '', tintasAntes = null;
+      if (s.id === 'fundo') {
+        fundoAntes = corLida(lidos, '--bg');
+        tintasAntes = TINTAS_DO_FUNDO.map(function (t) {
+          var cor = corLida(lidos, t);
+          return { token: t, cor: cor, alvo: contraste(cor, fundoAntes) };
+        });
+      }
       s.tokens.forEach(function (t) {
-        var base = trocaCor ? escolhida : String(lidos.getPropertyValue(t) || '').trim();
+        var base = trocaCor ? escolhida : corLida(lidos, t);
         if (!base) return;
         raiz.style.setProperty(t, corComIntensidade(base, intensidade));
       });
+      if (tintasAntes) {
+        var fundoAgora = corComIntensidade(fundoAntes, intensidade);
+        tintasAntes.forEach(function (x) {
+          if (!x.cor) return;
+          raiz.style.setProperty(x.token, ajustarTinta(x.cor, fundoAgora, x.alvo));
+        });
+      }
     });
 
     /* A TINTA DEPOIS DAS CORES, e lida de novo: ela tem de sair da cor que ficou
@@ -556,20 +652,21 @@
        nao aceita hexadecimal dentro — por isso a mesma cor viaja em duas formas. Escrita
        noutro lugar, ela seria a cor de ANTES enquanto o hexadecimal ja' era o novo, e a
        faixa sairia com dois verdes diferentes no mesmo gradiente. */
-    var topoAgora = String(agora.getPropertyValue('--c-topo') || '').trim();
-    var tri = hexParaTripla(topoAgora);
-    if (tri) raiz.style.setProperty('--c-topo-rgb', tri);
+    if (mexeu.topo) {
+      var tri = hexParaTripla(corLida(agora, '--c-topo'));
+      if (tri) raiz.style.setProperty('--c-topo-rgb', tri);
+    }
 
-    [['--c-topo', '--c-topo-tinta'], ['--c-usuario', '--c-usuario-tinta'],
-     ['--brand', '--sobre-brand']].forEach(function (par) {
-      var cor = String(agora.getPropertyValue(par[0]) || '').trim();
+    /* O VALOR MEDIDO FICA enquanto ninguém mexe no grupo: as tintas de fábrica foram
+       escolhidas à mão, e trocá-las por um cálculo mudaria a tela de quem não pediu
+       nada. Recalculadas só onde a cor de fato mudou. */
+    [['topo', '--c-topo', '--c-topo-tinta'],
+     ['usuario', '--c-usuario', '--c-usuario-tinta'],
+     ['botao', '--brand', '--sobre-brand']].forEach(function (par) {
+      if (!mexeu[par[0]]) return;
+      var cor = corLida(agora, par[1]);
       if (!cor || cor.charAt(0) !== '#') return;
-      /* O `--sobre-brand` MEDIDO FICA enquanto ninguém mexe nos botões: ele foi escolhido
-         à mão para cada tema, e trocá-lo por um cálculo mudaria a tinta de quem não
-         pediu nada. Recalculado só quando a cor de fato mudou. */
-      if (par[1] === '--sobre-brand' &&
-          limitarIntensidade(APARENCIA.botaoInt) === INT_PADRAO) return;
-      raiz.style.setProperty(par[1], tintaSobre(cor));
+      raiz.style.setProperty(par[2], tintaSobre(cor));
     });
 
     if (guardar !== false) {
@@ -2961,6 +3058,7 @@
     SUPERFICIES: SUPERFICIES, CORES_LIVRES: CORES_LIVRES,
     INT_MIN: INT_MIN, INT_MAX: INT_MAX, INT_PADRAO: INT_PADRAO,
     corComIntensidade: corComIntensidade, contraste: contraste,
+    ajustarTinta: ajustarTinta, TINTAS_DO_FUNDO: TINTAS_DO_FUNDO,
     tintaSobre: tintaSobre,
     paramUrl: paramUrl,
     guardarVozNarracao: guardarVozNarracao,

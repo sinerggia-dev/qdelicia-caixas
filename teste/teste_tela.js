@@ -19295,7 +19295,8 @@ console.log('\n== a aparencia em quatro superficies ==');
   var fonteCor = corpoApp('hexParaHsl') + corpoApp('hslParaHex') +
                  corpoApp('limitarIntensidade') + corpoApp('corComIntensidade') +
                  corpoApp('hexParaTripla') + corpoApp('luminancia') +
-                 corpoApp('contraste') + corpoApp('tintaSobre');
+                 corpoApp('contraste') + corpoApp('tintaSobre') +
+                 corpoApp('ajustarTinta');
   ok(fonteCor.length > 1200,
     'a conferência recortou a conta da cor — recorte vazio faria as provas abaixo ' +
     'passarem sem rodar nada', fonteCor.length);
@@ -19303,9 +19304,13 @@ console.log('\n== a aparencia em quatro superficies ==');
      passou a ter um piso de contraste, e sem ele o recorte estoura em
      `PISO_TINTA is not defined` — e e' assim que esta prova avisa que a regra
      mudou, em vez de continuar medindo a de ontem. */
-  var C = new Function('INT_MIN', 'INT_MAX', 'INT_PADRAO', 'PISO_TINTA', fonteCor +
+  /* `PASSO_LUZ` ENTRA COMO PARAMETRO junto com os outros: a intensidade passou a mover
+     a LUZ tambem, e sem ele o recorte estoura em `PASSO_LUZ is not defined`. */
+  var C = new Function('INT_MIN', 'INT_MAX', 'INT_PADRAO', 'PISO_TINTA', 'PASSO_LUZ',
+    fonteCor +
     ' return { hsl:hexParaHsl, cor:corComIntensidade, tripla:hexParaTripla,' +
-    ' contraste:contraste, tinta:tintaSobre, limite:limitarIntensidade };')(60, 140, 100, 4.5);
+    ' contraste:contraste, tinta:tintaSobre, limite:limitarIntensidade,' +
+    ' ajusta:ajustarTinta };')(60, 140, 100, 4.5, 0.18);
 
   /* ---- 100% E' O VALOR MEDIDO ----
    * E' a linha que fez isto poder entrar sem mudar a cara de ninguem. */
@@ -19318,19 +19323,27 @@ console.log('\n== a aparencia em quatro superficies ==');
   /* ---- A INTENSIDADE MEXE NA SATURACAO, E NAO NA LUZ ----
    * Quem manda no contraste e' a LUZ. Um controle que clareasse o fundo derrubaria a
    * legibilidade de tudo o que esta em cima dele sem mudar uma linha de texto. */
-  var piorLuz = 0;
-  ['#16304f', '#0f2a2c', '#1e2124', '#1a1326', '#eef2f7',
-   '#00a853', '#a46ce7', '#ef7b2f', '#dce8f5'].forEach(function (h) {
-    [60, 70, 85, 100, 115, 130, 140].forEach(function (k) {
-      var d = Math.abs(C.hsl(C.cor(h, k)).l - C.hsl(h).l);
-      if (d > piorLuz) piorLuz = d;
-    });
+  /* ---- A INTENSIDADE TEM DE SER VISIVEL ----
+   * Ela mexia so' na saturacao, e era seguro e INVISIVEL: numa cor quase neutra nao ha
+   * saturacao para esticar. Medido no branco gelo, que era o que estava escolhido na
+   * tela: de 60% a 140% a cor ia de `#f0f2f5` a `#ecf2f9`. Um controle que nao faz nada
+   * e' pior do que controle nenhum — quem arrasta conclui que o sistema quebrou. */
+  var piorSalto = 99, ondeSalto = '';
+  ['#16304f', '#0f2a2c', '#1e2124', '#1a1326', '#eef2f7', '#dce8f5'].forEach(function (h) {
+    var d = Math.abs(C.hsl(C.cor(h, 140)).l - C.hsl(C.cor(h, 60)).l);
+    if (d < piorSalto) { piorSalto = d; ondeSalto = h; }
   });
-  ok(piorLuz < 0.01,
-    'e a intensidade mexe na SATURAÇÃO, e não na luz — quem manda no contraste é a luz, ' +
-    'e um controle que clareasse o fundo derrubaria a legibilidade de tudo o que está ' +
-    'em cima dele sem mudar uma linha de texto',
-    'maior desvio de luz: ' + piorLuz.toFixed(4));
+  ok(piorSalto > 0.10,
+    'a intensidade MUDA a cor de ponta a ponta, inclusive nas quase neutras — mexendo ' +
+    'só na saturação, o branco gelo ia de #f0f2f5 a #ecf2f9 entre 60% e 140%, e quem ' +
+    'arrastava concluía que o controle estava quebrado',
+    'menor salto de luz: ' + piorSalto.toFixed(3) + ' em ' + ondeSalto);
+  /* MAIS INTENSO E' MAIS "ELE MESMO": o escuro escurece, o claro clareia. Clareando os
+     dois, "intensidade" quereria dizer coisas opostas em dois grupos da mesma tela. */
+  ok(C.hsl(C.cor('#16304f', 140)).l < C.hsl('#16304f').l &&
+     C.hsl(C.cor('#eef2f7', 140)).l > C.hsl('#eef2f7').l,
+    'e mais intensidade é mais "ele mesmo" — o escuro escurece e o claro clareia: ' +
+    'clareando os dois, a palavra significaria coisas opostas em dois grupos da mesma tela');
 
   /* ---- E O CONTRASTE MEDIDO CONTINUA DE PE' EM TODA COMBINACAO ----
    * As cinco escalas de fundo foram medidas contra o texto delas — os comentarios da
@@ -19347,36 +19360,93 @@ console.log('\n== a aparencia em quatro superficies ==');
   ok(FUNDOS_MEDIDOS.every(function (f) { return !!tokenDe(f, '--bg') && !!tokenDe(f, '--txt'); }),
     'a conferência leu as cinco escalas de fundo da folha',
     FUNDOS_MEDIDOS.map(function (f) { return f + ':' + tokenDe(f, '--bg'); }).join(' '));
-  var piorFundo = 99, ondePior = '';
+  /* ---- E A TINTA SEGUE O FUNDO ----
+   * Com a luz andando, a tinta tem de andar junto. Ela e' empurrada ate' reencontrar o
+   * contraste que TINHA em 100% — nao os 4,5:1 da norma: as quatro forcas de tinta deste
+   * projeto foram medidas uma a uma, e a distancia entre elas e' o que faz um rotulo
+   * pesar menos que um numero sem sumir. Esta prova refaz a conta nas CINCO escalas, nas
+   * QUATRO tintas, nos QUATRO degraus, em CINCO intensidades. */
+  /* ---- DUAS GARANTIAS, e elas dizem coisas diferentes ----
+   *
+   * Escrevendo esta prova apareceu um fato da folha que eu nao sabia: o `--txt-fraco`
+   * sobre o `--surface-2` do petroleo ja' da' 2,92:1 em 100%. Ele e' a tinta de APOIO,
+   * deliberadamente discreta, e cobrar 4,5:1 dela seria reprovar a folha como ela sempre
+   * foi — por um defeito que o controle novo nao causou.
+   *
+   * Entao a conta se parte em duas, e cada metade afirma uma coisa que se pode checar:
+   *   · o par que PASSAVA os 4,5:1 continua passando, em toda intensidade;
+   *   · o par de apoio, que ja' estava abaixo, nao piora de forma sensivel.
+   * Juntas numa so', qualquer uma das duas esconderia a outra. */
+  var TINTAS = ['--txt', '--txt2', '--txt3', '--txt-fraco'];
+  var DEGRAUS = ['--bg', '--surface', '--surface-2', '--campo'];
+  var piorAbs = 99, ondeAbs = '', piorQueda = 1, ondeQueda = '';
   FUNDOS_MEDIDOS.forEach(function (f) {
-    var txt = tokenDe(f, '--txt');
-    ['--bg', '--surface', '--surface-2', '--campo'].forEach(function (tk) {
-      var base = tokenDe(f, tk);
-      if (!base) return;
+    var bgBase = tokenDe(f, '--bg');
+    TINTAS.forEach(function (tt) {
+      var tintaBase = tokenDe(f, tt);
+      if (!tintaBase) return;
+      var alvo = C.contraste(tintaBase, bgBase);
       [60, 80, 100, 120, 140].forEach(function (k) {
-        var r = C.contraste(C.cor(base, k), txt);
-        if (r < piorFundo) { piorFundo = r; ondePior = f + ' ' + tk + ' ' + k + '%'; }
+        var tinta = C.ajusta(tintaBase, C.cor(bgBase, k), alvo);
+        DEGRAUS.forEach(function (tk) {
+          var sup = tokenDe(f, tk);
+          if (!sup) return;
+          var antes = C.contraste(tintaBase, sup);
+          var agora = C.contraste(tinta, C.cor(sup, k));
+          var onde = f + ' ' + tt + ' sobre ' + tk + ' ' + k + '% (' +
+                     antes.toFixed(2) + ' -> ' + agora.toFixed(2) + ')';
+          if (antes >= 4.5) {
+            if (agora < piorAbs) { piorAbs = agora; ondeAbs = onde; }
+          } else if (agora / antes < piorQueda) {
+            piorQueda = agora / antes; ondeQueda = onde;
+          }
+        });
       });
     });
   });
-  ok(piorFundo >= 4.5,
-    'e o texto continua legível sobre o fundo em TODA intensidade que o controle ' +
-    'oferece — 4,5:1 é o piso da WCAG para texto normal, e é a conta que a folha já ' +
-    'tinha feito à mão para 100%',
-    'pior caso ' + piorFundo.toFixed(2) + ':1 em ' + ondePior);
+  ok(piorAbs >= 4.5,
+    'e a TINTA segue o fundo: o texto que passava os 4,5:1 continua passando em TODA ' +
+    'intensidade que o controle oferece — parada enquanto o fundo anda, ela seria a ' +
+    'primeira coisa a sumir, e ninguém ligaria o sumiço ao cursor que arrastou',
+    'pior caso ' + piorAbs.toFixed(2) + ':1 em ' + ondeAbs);
+  ok(piorQueda >= 0.90,
+    'e a tinta de APOIO, que já nascia abaixo dos 4,5:1 de propósito, não piora de ' +
+    'forma sensível — ela é discreta por escolha, e o controle novo não pode ser o que ' +
+    'a apaga',
+    'maior queda: ' + Math.round((1 - piorQueda) * 100) + '% em ' + ondeQueda);
+  /* E A HIERARQUIA DAS QUATRO SE MANTEM: a tinta forte continua mais forte que a fraca.
+     Empurradas sem alvo proprio, as quatro convergiriam para branco e a tela perderia a
+     diferenca entre um numero e o rotulo dele. */
+  var ordemOk = FUNDOS_MEDIDOS.every(function (f) {
+    var bg = C.cor(tokenDe(f, '--bg'), 140);
+    var rs = TINTAS.map(function (tt) {
+      var base = tokenDe(f, tt);
+      return C.contraste(C.ajusta(base, bg, C.contraste(base, tokenDe(f, '--bg'))), bg);
+    });
+    return rs[0] > rs[3];
+  });
+  ok(ordemOk,
+    'e a hierarquia das quatro se mantém — a tinta forte continua mais forte que a ' +
+    'fraca: empurradas sem alvo próprio, as quatro convergiriam para branco e a tela ' +
+    'perderia a diferença entre um número e o rótulo dele');
 
   /* ---- A TINTA EM CIMA DA COR SAI DA LUMINANCIA ----
    * Era por tabela: cada tema trazia o `--sobre-brand` escrito a mao, e funcionava
    * enquanto as cores eram quatro. Com cor livre e intensidade, a primeira combinacao
    * que ninguem previu nasceria com texto branco sobre fundo claro. */
+  /* DE CINCO EM CINCO, que e' o passo do cursor na tela — e nao de vinte em vinte.
+     Pulando, a varredura nao passava pelos degraus em que o piso de contraste faz falta:
+     o verde a 130% da' 4,34:1 com branco, e o roxo a 60% da' 4,22 com o quase-preto.
+     Arrancado o piso, a prova continuava verde porque nenhum dos cinco pontos que ela
+     media caia nesses casos. Foi uma sabotagem que escapou. */
   var piorTinta = 99, ondeTinta = '';
   ['#00a853', '#a46ce7', '#ef7b2f', '#dce8f5', '#35d6a0', '#5b9ef0',
    '#2c9b9f', '#8d939c'].forEach(function (h) {
-    [60, 80, 100, 120, 140].forEach(function (k) {
+    for (var k = 60; k <= 140; k += 5) {
       var cor = C.cor(h, k);
       var r = C.contraste(cor, C.tinta(cor));
       if (r < piorTinta) { piorTinta = r; ondeTinta = h + ' ' + k + '%'; }
-    });
+    }
   });
   ok(piorTinta >= 4.5,
     'e a tinta que vai EM CIMA da cor sai da luminância dela, e passa em toda ' +
@@ -19444,13 +19514,25 @@ console.log('\n== a aparencia em quatro superficies ==');
   /* E O APLICADOR A CALCULA DA COR QUE FICOU VALENDO. Escrita como numero fixo ao lado,
      o hexadecimal seria o novo e a tripla o de ontem — e a faixa sairia com dois verdes
      diferentes no mesmo gradiente. */
-  ok(/var tri = hexParaTripla\(topoAgora\);/.test(apSem),
+  ok(/var tri = hexParaTripla\(corLida\(agora, '--c-topo'\)\);/.test(apSem),
     'e quem a escreve a CALCULA da cor que ficou valendo — fixa ao lado, o hexadecimal ' +
     'seria o novo e a tripla a de ontem, e a faixa sairia com dois verdes no mesmo ' +
     'gradiente');
+  /* A CAIXA DO USUARIO E' A PILULA DO CANTO SUPERIOR DIREITO — o retrato, a saudacao, o
+     atualizar, o tempo e a hora. Eu tinha pintado o rodape da lateral: os dois sao "a
+     caixa do usuario" quando se le' o nome sem olhar a tela. */
   ok(/--c-usuario:var\(--campo\);/.test(cssA) &&
-     /\.lateral__pe\{[\s\S]{0,200}background:var\(--c-usuario\)/.test(cssA),
-    'e a caixa do usuário nasce seguindo `--campo`, que era o que estava escrito nela');
+     /\.tempo\{[\s\S]{0,200}background:var\(--c-usuario\)\}/.test(cssA),
+    'e a caixa do usuário é a pílula do canto superior direito, e nasce seguindo ' +
+    '`--campo`, que era o que estava escrito nela');
+  /* E O MOTOR ATRAVESSA O `var()` AO LER. `getComputedStyle` devolve propriedade
+     personalizada como ela foi ESCRITA: sem atravessar, a leitura voltava com o texto
+     `var(--campo)`, `corComIntensidade` devolvia o mesmo texto e a intensidade da caixa
+     do usuario nao fazia nada — sem erro nenhum. */
+  ok(/function corLida\(lidos, token\)/.test(appA) &&
+     /\^var\\\(/.test(appA),
+    'e o motor atravessa o `var()` ao ler o token — sem isso, a caixa do usuário nasce ' +
+    'seguindo `var(--campo)` e a intensidade dela não faz nada, calada');
   /* CONTA OS QUE SOBRARAM, e nao os que entraram: com `>= 10`, metade dos gradientes
      podia voltar ao verde escrito a mao e a prova continuava verde. Os nove que ficam
      sao os do ANEL do retrato e o da tarja do dia — decoracao que nao e' a faixa, e que
@@ -19604,6 +19686,209 @@ console.log('\n== a coluna Unidade do Painel de Ativos ==');
      /unidade:'Unidade'/.test(admU.slice(admU.indexOf("var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Estoque',"))),
     'e ela sai no CSV pela MESMA regra — um arquivo sem a coluna que a tela tem faz a ' +
     'conferência de escritório chegar a um número que a tela não explica');
+}
+
+
+console.log('\n== o aplicador da aparencia, rodado ==');
+{
+  /* AS PROVAS DE CIMA MEDEM AS CONTAS; esta mede o APLICADOR. Sete sabotagens escaparam
+   * daquelas — a tinta deixando de seguir o fundo, a limpeza esquecendo as tintas, o
+   * passo da luz estourando — porque todas elas moram em `aplicarSuperficies`, e ate'
+   * aqui nada rodava essa funcao. E' o defeito mais caro deste projeto outra vez: a
+   * peca certa, e nada chegando nela.
+   *
+   * O NAVEGADOR E' DE MENTIRA, e so' precisa de duas coisas: um lugar para escrever
+   * variavel e uma leitura que devolva o que a FOLHA diz, com o que ja' foi escrito por
+   * cima. E' exatamente o par que o aplicador usa. */
+  var appB = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var i0 = appB.indexOf('  var INT_MIN = 60, INT_MAX = 140, INT_PADRAO = 100;');
+  var i1 = appB.indexOf('  function aplicarAparencia(config) {');
+  ok(i0 > 0 && i1 > i0 && (i1 - i0) > 4000,
+    'a conferência recortou o motor da aparência — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', { ini: i0, fim: i1 });
+
+  /* A FOLHA DE MENTIRA traz os valores REAIS do tema azul, lidos do arquivo: inventados
+     aqui, a prova mediria uma escala que nao existe. */
+  var cssB = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  function doFundo(tok) {
+    var i = cssB.indexOf('[data-fundo="azul"]{');
+    var m = new RegExp(tok + ':(#[0-9a-fA-F]{6})').exec(cssB.slice(i, cssB.indexOf('}', i)));
+    return m ? m[1] : '';
+  }
+  function doFundo2(fundo, tok) {
+    var i = cssB.indexOf('[data-fundo="' + fundo + '"]{');
+    var m = new RegExp(tok + ':(#[0-9a-fA-F]{6})').exec(cssB.slice(i, cssB.indexOf('}', i)));
+    return m ? m[1] : '';
+  }
+  function doTema(tok) {
+    var i = cssB.indexOf('[data-tema="roxo"]{');
+    var m = new RegExp(tok + ':(#[0-9a-fA-F]{6})').exec(cssB.slice(i, cssB.indexOf('}', i)));
+    return m ? m[1] : '';
+  }
+  var FOLHA = {
+    '--bg': doFundo('--bg'), '--surface': doFundo('--surface'),
+    '--surface-2': doFundo('--surface-2'), '--campo': doFundo('--campo'),
+    '--marinho': doFundo('--marinho'), '--marinho-esc': doFundo('--marinho-esc'),
+    '--marinho-claro': doFundo('--marinho-claro'),
+    '--txt': doFundo('--txt'), '--txt2': doFundo('--txt2'),
+    '--txt3': doFundo('--txt3'), '--txt-fraco': doFundo('--txt-fraco'),
+    '--brand': doTema('--brand'), '--brand-hover': doTema('--brand-hover'),
+    '--marca-roxo': doTema('--marca-roxo'), '--marca-verde': doTema('--marca-verde'),
+    '--c-topo': '#35d6a0', '--c-usuario': 'var(--campo)'
+  };
+  ok(!!FOLHA['--bg'] && !!FOLHA['--txt'] && !!FOLHA['--brand'],
+    'e leu a escala de verdade da folha — inventada aqui, a prova mediria uma escala ' +
+    'que não existe', [FOLHA['--bg'], FOLHA['--txt'], FOLHA['--brand']]);
+
+  var escrito = {};
+  var raizFalsa = { style: {
+    setProperty: function (k, v) { escrito[k] = String(v); },
+    removeProperty: function (k) { delete escrito[k]; }
+  } };
+  var docFalso = { documentElement: raizFalsa };
+  function lerFalso() {
+    return { getPropertyValue: function (k) {
+      return escrito[k] !== undefined ? escrito[k] : (FOLHA[k] || '');
+    } };
+  }
+  var guardado = {};
+  var lsFalso = { getItem: function (k) { return guardado[k] || null; },
+                  setItem: function (k, v) { guardado[k] = String(v); } };
+
+  var M = new Function('document', 'getComputedStyle', 'localStorage',
+    appB.slice(i0, i1) +
+    ' return { mudar: mudarSuperficie, atual: aparenciaAtual, contraste: contraste,' +
+    ' cor: corComIntensidade };')(docFalso, lerFalso, lsFalso);
+
+  /* ---- EM 100% NADA E' ESCRITO ---- */
+  M.mudar({ topoInt: 100, fundoInt: 100, botaoInt: 100, usuarioInt: 100,
+            topoCor: '', usuarioCor: '' }, false);
+  ok(Object.keys(escrito).length === 0,
+    'em 100% e sem cor escolhida o aplicador não escreve variável nenhuma — a folha ' +
+    'continua sendo a fonte da verdade para quem não mexeu em nada',
+    Object.keys(escrito));
+
+  /* ---- O FUNDO MUDA, E A TINTA VAI JUNTO ---- */
+  M.mudar({ fundoInt: 140 }, false);
+  ok(escrito['--bg'] && escrito['--bg'] !== FOLHA['--bg'],
+    'mexer na intensidade do fundo MUDA o fundo — e é isto que nenhuma prova via: as de ' +
+    'cima medem a conta da cor, e a conta pode estar certa sem ninguém chamá-la',
+    escrito['--bg']);
+  /* ESCRITA, e nao necessariamente DIFERENTE: quando o fundo se afasta da tinta — o
+     escuro escurecendo com a tinta clara em cima — o contraste SOBE sozinho, e empurrar
+     a tinta seria mexer no que nao precisa. O que se cobra e' que ela seja reescrita a
+     partir do fundo novo; se a conta devolver a mesma cor, esta' certo. */
+  ok(escrito['--txt'] !== undefined,
+    'e a TINTA é recalculada junto — parada enquanto o fundo anda, o texto some aos ' +
+    'poucos e ninguém liga o sumiço ao cursor que arrastou', escrito['--txt']);
+  /* NO 60%, que e' onde o fundo ESCURO se aproxima da tinta clara: e' o unico lado em
+     que "o contraste que ela tinha" e "os 4,5:1 da norma" dao respostas diferentes. No
+     140% o fundo se afasta, o contraste sobe sozinho e as duas regras empatam — foi por
+     medir so' esse lado que a sabotagem do alvo 4,5 escapou. */
+  M.mudar({ fundoInt: 60 }, false);
+  var antes = M.contraste(FOLHA['--txt'], FOLHA['--bg']);
+  var agora = M.contraste(escrito['--txt'], escrito['--bg']);
+  /* 0,85 E NAO 1,0, e o numero e' medido: a 60% o fundo escuro CLAREIA na direcao da
+     tinta clara, e branco e' o teto — nao ha para onde empurrar. O azul vai de
+     11,45 para 10,02, que e' 0,875. Com o alvo trocado pelos 4,5 da norma, a mesma
+     conta daria 0,39: a prova separa as duas com folga. */
+  ok(agora >= antes * 0.85,
+    'e ela guarda o contraste que TINHA, e não os 4,5:1 da norma — as quatro forças de ' +
+    'texto foram medidas uma a uma, e a distância entre elas é o que faz um rótulo ' +
+    'pesar menos que um número sem sumir',
+    antes.toFixed(2) + ' -> ' + agora.toFixed(2));
+  M.mudar({ fundoInt: 140 }, false);
+  ['--txt2', '--txt3', '--txt-fraco'].forEach(function (tt) {
+    ok(!!escrito[tt],
+      'e as quatro forças de tinta são reescritas, não só a mais forte — a mais fraca é ' +
+      'a primeira a sumir e a que ninguém nota: ' + tt);
+  });
+
+  /* ---- A COR NAO SE ACUMULA ENTRE CHAMADAS ----
+   * O 100% de cada token e' o valor que a FOLHA define. Lido por cima do proprio
+   * override, cada chamada saturaria de novo em cima da anterior. */
+  var umaVez = escrito['--bg'], tintaUmaVez = escrito['--txt'];
+  M.mudar({ fundoInt: 140 }, false);
+  M.mudar({ fundoInt: 140 }, false);
+  ok(escrito['--bg'] === umaVez && escrito['--txt'] === tintaUmaVez,
+    'e três chamadas seguidas dão a MESMA cor — lendo por cima do próprio override, ' +
+    'cada abertura da tela mudaria de novo em cima da anterior, e em três visitas a ' +
+    'cor estaria irreconhecível sem nada dizer por quê',
+    [umaVez, escrito['--bg']]);
+
+  /* ---- A LUZ TEM TETO E CHAO ----
+   * Sem eles a cor perde o matiz e vira preto ou branco, e dali nao ha tinta que a
+   * traga de volta: a escolha de cor deixa de significar coisa alguma. */
+  /* NOS DOIS FUNDOS, o escuro e o CLARO — e o claro e' o que encosta no teto. Medido so'
+     no azul, um passo de luz grande demais ou a falta de teto nao apareciam: a cor
+     escurecia muito e continuava sendo uma cor. No gelo ela vira branco puro, e dali nao
+     ha tinta que a traga de volta. Foram duas sabotagens que escaparam por isso. */
+  function extremosDe(bg) {
+    FOLHA['--bg'] = bg;
+    var fora = [];
+    [60, 140].forEach(function (k) {
+      M.mudar({ fundoInt: 100 }, false);
+      M.mudar({ fundoInt: k }, false);
+      fora.push(escrito['--bg']);
+    });
+    return fora;
+  }
+  var bgAzul = FOLHA['--bg'];
+  var extremos = extremosDe(bgAzul).concat(extremosDe(doFundo2('gelo', '--bg')));
+  FOLHA['--bg'] = bgAzul;
+  M.mudar({ fundoInt: 100 }, false);
+  ok(extremos.every(function (h) { return /^#[0-9a-f]{6}$/i.test(h); }) &&
+     extremos.every(function (h) { return h !== '#000000' && h !== '#ffffff'; }),
+    'e nos dois extremos do cursor, num fundo escuro E num claro, a cor continua sendo ' +
+    'uma COR — estourada, ela vira preto ou branco, e dali não há tinta que a traga de ' +
+    'volta: a escolha de cor deixa de significar qualquer coisa', extremos);
+  /* E O SALTO E' MODERADO: um passo grande demais leva a cor ao extremo sem chegar ao
+     branco puro, e a prova acima passaria. O que se cobra aqui e' a DISTANCIA entre as
+     duas pontas do cursor — ele ajusta uma cor, nao troca de cor. */
+  var saltoMax = 0;
+  for (var e = 0; e < extremos.length; e += 2) {
+    var r = M.contraste(extremos[e], extremos[e + 1]);
+    if (r > saltoMax) saltoMax = r;
+  }
+  ok(saltoMax <= 6,
+    'e a distância entre as duas pontas do cursor é moderada — ele AJUSTA uma cor, não ' +
+    'troca de cor: com o passo grande demais, 60% e 140% viram dois temas diferentes ' +
+    'com o mesmo nome', 'maior salto: ' + saltoMax.toFixed(2) + ':1');
+
+  /* ---- A CAIXA DO USUARIO SEGUE O CAMPO, e a intensidade dela funciona ----
+   * `--c-usuario` nasce como `var(--campo)`: sem atravessar o `var()`, a leitura volta
+   * com o texto e a intensidade nao faz nada, calada. */
+  M.mudar({ fundoInt: 100, usuarioInt: 130 }, false);
+  ok(/^#[0-9a-f]{6}$/i.test(String(escrito['--c-usuario'] || '')),
+    'a intensidade da caixa do usuário produz uma COR — sem atravessar o `var(--campo)` ' +
+    'que ela herda, a leitura volta com o texto e o controle não faz nada, calado',
+    escrito['--c-usuario']);
+  ok(escrito['--c-usuario'] !== FOLHA['--campo'],
+    'e ela é diferente do campo de onde partiu — igual, o controle teria rodado sem ' +
+    'mudar nada', [escrito['--c-usuario'], FOLHA['--campo']]);
+
+  /* ---- A FAIXA DO TOPO E A TRIPLA ANDAM COLADAS ---- */
+  M.mudar({ usuarioInt: 100, topoCor: 'roxo', topoInt: 100 }, false);
+  ok(/^#[0-9a-f]{6}$/i.test(String(escrito['--c-topo'] || '')) &&
+     /^\d+,\d+,\d+$/.test(String(escrito['--c-topo-rgb'] || '')),
+    'escolher a cor da faixa escreve a cor E a tripla — os gradientes precisam de alfa, ' +
+    'e `rgba()` não aceita hexadecimal dentro',
+    [escrito['--c-topo'], escrito['--c-topo-rgb']]);
+  var partes = String(escrito['--c-topo-rgb']).split(',').map(Number);
+  var daCor = [parseInt(escrito['--c-topo'].slice(1, 3), 16),
+               parseInt(escrito['--c-topo'].slice(3, 5), 16),
+               parseInt(escrito['--c-topo'].slice(5, 7), 16)];
+  ok(partes.join() === daCor.join(),
+    'e a tripla é a DESSA cor — fixa ao lado, a faixa sairia com dois tons no mesmo ' +
+    'gradiente', [escrito['--c-topo-rgb'], daCor.join()]);
+
+  /* ---- VOLTAR AO PADRAO LIMPA TUDO ---- */
+  M.mudar({ topoCor: '', topoInt: 100, fundoInt: 100, botaoInt: 100,
+            usuarioCor: '', usuarioInt: 100 }, false);
+  ok(Object.keys(escrito).length === 0,
+    'e voltar tudo ao padrão APAGA o que foi escrito, em vez de escrever o valor de ' +
+    'fábrica por cima — escrito, a folha deixaria de ser o 100% e passaria a ser o que ' +
+    'ficou gravado ali', Object.keys(escrito));
 }
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
