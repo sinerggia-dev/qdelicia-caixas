@@ -162,6 +162,22 @@
    * cor: separadas, elas divergiriam no primeiro ajuste. */
   --c-topo:#35d6a0; --c-topo-rgb:53,214,160;
   --c-usuario:var(--campo);
+  /* AS TINTAS DE CADA BLOCO, e elas NASCEM SEGUINDO as forcas do fundo: em "automatica"
+     — que e' o padrao — a tela sai identica a' de antes, porque `var(--txt)` e' o que
+     estas regras ja' liam.
+     ELAS EXISTIAM E NINGUEM AS LIA. `--c-topo-tinta` e `--c-usuario-tinta` eram escritas
+     pelo nucleo desde que a Aparencia virou quatro blocos, e nenhuma regra desta folha
+     as usava: a cor do texto era escolhida, gravada, e nao pintava nada. O token existir
+     nao e' a peca chegar.
+     TRES FORCAS, e nao uma: dentro destes blocos ha' texto forte e texto de apoio — o
+     "Operacao" acima do titulo, o "Bom dia" acima do nome, a cidade embaixo do grau.
+     Com uma cor so', escolher uma cor achataria a hierarquia e tudo pesaria igual. */
+  /* DUAS FORCAS NO TOPO, e nao tres: ali ha' o titulo e a linha acima dele
+     ("Operacao"), e mais nada. Uma terceira existiria sem texto para pintar — e token
+     que ninguem le' e' exatamente o defeito que esta tela acabou de ter. */
+  --c-topo-tinta:var(--txt); --c-topo-tinta3:var(--txt3);
+  --c-usuario-tinta:var(--txt); --c-usuario-tinta2:var(--txt2);
+  --c-usuario-tinta3:var(--txt3);
 }
 /* ================= OS DOIS EIXOS DO TEMA =================
  *
@@ -441,6 +457,10 @@ a{color:var(--marca-txt);text-decoration:none}
    texto encostado na borda fica apertado; o gatilho, que fechou a direita, ja tem os seus
    44px de alvo e nao precisa de margem. */
 .topo{
+  /* A COR DO TEXTO DA FAIXA DO TOPO vale aqui tambem: no celular e' esta barra que
+     ocupa o lugar do cabecalho, e um bloco que pinta so' uma das duas larguras seria
+     um controle que funciona ou nao conforme o aparelho. */
+  color:var(--c-topo-tinta);
   /* `flex:0 0 auto`: ela é item de um flex em coluna, e sem isto ENCOLHIA abaixo da
      altura declarada quando o miolo pedia espaço — medido, os 58px viravam 45, e o
      círculo de 40px ficava a dois pixels de encostar nas bordas. Altura de barra fixa
@@ -916,13 +936,16 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 /* Sem `position:sticky`: quem rola agora é o `.corpo-pagina`, e o cabeçalho é irmão
    dele, não passageiro. Grudar o que já está parado só acrescenta uma camada de
    empilhamento para os painéis suspensos dos filtros brigarem. */
+/* A COR DO TEXTO DA FAIXA DO TOPO entra aqui, no container, e desce por heranca para o
+   titulo. Sem esta linha o bloco "Faixa do topo" oferecia uma cor de texto que nao
+   pintava nada — o titulo lia `--txt` como qualquer outro texto da pagina. */
 .cab-pagina{
-  flex:0 0 auto;z-index:30;
+  flex:0 0 auto;z-index:30;color:var(--c-topo-tinta);
   display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;
   padding:18px 20px 14px;background:var(--bg);border-bottom:1px solid var(--linha)
 }
 .cab-pagina__id{min-width:0;flex:1 1 260px}
-.cab-pagina__acima{font-size:12px;color:var(--txt3);margin-bottom:5px}
+.cab-pagina__acima{font-size:12px;color:var(--c-topo-tinta3);margin-bottom:5px}
 .cab-pagina__titulo{margin:0;font-size:24px;font-weight:700;letter-spacing:-.4px;line-height:1.12}
 /* A LINHA DO TÍTULO. O título toma o que precisa e a estrada fica com a sobra: assim o
    caminhão nasce na borda da palavra e some na outra ponta, em vez de correr num quadro
@@ -1003,7 +1026,10 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    tela, e a tela desfez o empate.
    O FUNDO SAI DE `--c-usuario`, que nasce seguindo `--campo` — era o que estava escrito
    aqui. A diferenca e' que agora ha onde trocar. */
+/* E A COR DO TEXTO DELA, pelo mesmo motivo do topo: o fundo da pilula ja' era
+   escolhivel, e o que esta' escrito dentro dela nao era. */
 .tempo{flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:8px 15px;
+  color:var(--c-usuario-tinta);
   border:1px solid var(--linha);border-radius:13px;background:var(--c-usuario)}
 /* NO CELULAR ELA SOBE, para acima de "Operação".
    Ela é contexto do AMBIENTE — que horas são, como está o tempo lá fora —, e não da
@@ -1018,13 +1044,13 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .tempo__t{display:flex;align-items:center;gap:10px}
 /* Enquanto o grau não chegou, ele fica apagado — e o NOME da unidade continua legível:
    ele não depende de internet. */
-.tempo--sem .tempo__g{color:var(--txt3)}
+.tempo--sem .tempo__g{color:var(--c-usuario-tinta3)}
 .tempo--sem .tempo__ico{opacity:.55}
 .tempo__ico{flex:0 0 auto;width:28px;height:28px;display:inline-flex;align-items:center;
   justify-content:center}
 .tempo__c{display:flex;flex-direction:column;line-height:1.2}
 .tempo__g{font-size:18px;font-weight:700;letter-spacing:-.3px}
-.tempo__loc{display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--txt2);
+.tempo__loc{display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--c-usuario-tinta2);
   white-space:nowrap}
 /* ===== A CONTA DENTRO DA PÍLULA DO TEMPO (só no computador) =====
  * Uma moldura só, em vez de duas encostadas no mesmo canto. A conta, o tempo e a hora
@@ -1044,8 +1070,8 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    36px de alvo: no pátio, com uma mão, um alvo de 24px é um alvo que se erra. */
 .tempo__rec{display:inline-flex;align-items:center;justify-content:center;
   width:36px;height:36px;flex:0 0 auto;margin:-5px -2px;border:0;border-radius:11px;
-  background:transparent;color:var(--txt2);cursor:pointer}
-.tempo__rec:hover{background:var(--surface-2);color:var(--txt)}
+  background:transparent;color:var(--c-usuario-tinta2);cursor:pointer}
+.tempo__rec:hover{background:var(--surface-2);color:var(--c-usuario-tinta)}
 /* O giro dura o tempo do recarregamento: sem ele, o toque não devolve nada e a pessoa
    toca de novo achando que não pegou. */
 .tempo__rec.girando svg{animation:girar .8s linear infinite}
@@ -1057,14 +1083,14 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    que o `padding` acrescenta, para o alvo crescer sem empurrar a pílula. */
 .tempo__conta{align-items:center;gap:10px;flex:0 0 auto;
   padding:5px 8px;margin:-5px -4px -5px -6px;border:0;border-radius:11px;
-  background:transparent;color:var(--txt);font:inherit;text-align:left;cursor:pointer}
+  background:transparent;color:var(--c-usuario-tinta);font:inherit;text-align:left;cursor:pointer}
 .tempo__conta:hover{background:var(--surface-2)}
 .tempo__conta .avatar{width:34px;height:34px;font-size:12px;
   box-shadow:0 0 0 2px var(--campo),0 0 0 3px rgba(53,214,160,.45);
   animation:anel 5s ease-out infinite}
 .tempo__conta:hover .avatar{animation-play-state:paused}
 .tempo__quem{min-width:0;line-height:1.2}
-.tempo__ola{display:block;font-size:11.5px;color:var(--txt2)}
+.tempo__ola{display:block;font-size:11.5px;color:var(--c-usuario-tinta2)}
 /* O nome em 14px e cheio: é a única coisa da pílula que identifica PESSOA, e o resto
    dela é tempo e hora. `max-width` porque a pílula divide a largura com os dois. */
 .tempo__nome{display:block;font-size:14px;font-weight:700;letter-spacing:-.2px;
@@ -1082,7 +1108,7 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
 .tempo__ico .estrela{animation:cintilar 3.6s ease-in-out infinite}
 .tempo__ico .estrela.e2{animation-duration:4.8s;animation-delay:.9s}
 .tempo__ico .estrela.e3{animation-duration:4.2s;animation-delay:1.9s}
-.tempo__loc svg{flex:0 0 auto;color:var(--txt3)}
+.tempo__loc svg{flex:0 0 auto;color:var(--c-usuario-tinta3)}
 /* O CONVITE DO GPS. Enquanto a localizacao do aparelho nao esta em uso, o nome do
    local e tocavel — e precisa PARECER tocavel sem virar botao: um botao ali, do lado
    do grau, competiria com a conta e com o menu pela mesma atencao. O tracejado por
@@ -1092,16 +1118,16 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
    alvo minimo, e quem usa isso esta de luva. */
 .tempo__loc .pode-gps{position:relative;cursor:pointer;
   text-decoration:underline dotted;text-underline-offset:2px;
-  text-decoration-color:var(--txt3)}
+  text-decoration-color:var(--c-usuario-tinta3)}
 .tempo__loc .pode-gps::after{content:"";position:absolute;left:-14px;right:-4px;
   top:50%;height:24px;transform:translateY(-50%)}
-.tempo__loc .pode-gps:hover,.tempo__loc .pode-gps:focus-visible{color:var(--txt);
+.tempo__loc .pode-gps:hover,.tempo__loc .pode-gps:focus-visible{color:var(--c-usuario-tinta);
   text-decoration-color:currentColor}
 .tempo__loc .pode-gps:focus-visible{outline:2px solid var(--azul);outline-offset:3px;
   border-radius:3px}
 .tempo__div{width:1px;align-self:stretch;background:var(--linha)}
 .tempo__d{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
-.tempo__data{font-size:11.5px;color:var(--txt2);white-space:nowrap}
+.tempo__data{font-size:11.5px;color:var(--c-usuario-tinta2);white-space:nowrap}
 /* `tabular-nums`: sem isso o relógio muda de largura a cada segundo e o bloco "respira". */
 .tempo__hora{font-family:var(--fonte-mono);font-size:18px;font-weight:700;
   font-variant-numeric:tabular-nums;white-space:nowrap}

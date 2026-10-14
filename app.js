@@ -322,7 +322,10 @@
      superficie: elas nao sao o que o grupo PINTA — sao o que precisa ser recalculado
      quando ele muda. Postas junto dos tokens, a intensidade as saturaria como se fossem
      fundo, e a hierarquia das quatro viraria quatro cinzas iguais. */
-  var TINTAS_DO_FUNDO = ['--txt', '--txt2', '--txt3', '--txt-fraco'];
+  /* ERAM QUATRO. `--txt-fraco` saiu: ele era definido nas cinco escalas, repintado a
+     cada arrasto do cursor e medido pela bancada em toda combinacao — e NENHUMA regra
+     da folha o lia. */
+  var TINTAS_DO_FUNDO = ['--txt', '--txt2', '--txt3'];
 
   /* CADA SUPERFÍCIE DIZ TRÊS COISAS, e não mais só uma:
    *   `tokens`  o que ela PINTA;
@@ -333,9 +336,14 @@
    * bancada leem daqui. Enquanto `tintas` era uma lista escrita à parte dentro do
    * aplicador, acrescentar uma superfície significava lembrar de dois lugares. */
   var SUPERFICIES = [
+    /* O `sobre` DA FAIXA DO TOPO E' O FUNDO DA PAGINA, e nao a cor dela. A faixa e' um
+       degrade de 4% a 35% de alfa por cima do `--bg`: o titulo nao pousa sobre a cor da
+       faixa, pousa sobre o chao com um veu colorido em cima. Medindo contra `--c-topo`,
+       a conta responderia por uma cor que quase nao esta' ali — e um titulo preto sobre
+       um fundo escuro passaria na prova e sumiria na tela. */
     { id: 'topo', nome: 'Faixa do topo', cor: 'topoCor', intensidade: 'topoInt',
-      tinta: 'topoTinta', tokens: ['--c-topo'], sobre: '--c-topo',
-      tintas: ['--c-topo-tinta'] },
+      tinta: 'topoTinta', tokens: ['--c-topo'], sobre: '--bg',
+      tintas: ['--c-topo-tinta', '--c-topo-tinta3'] },
     { id: 'fundo', nome: 'Fundo da tela', cor: 'fundo', intensidade: 'fundoInt',
       tinta: 'fundoTinta',
       /* A ESCALA INTEIRA, e não só o chão: o cartão, o degrau seguinte, o campo e a
@@ -346,11 +354,15 @@
       sobre: '--bg', tintas: TINTAS_DO_FUNDO },
     { id: 'botao', nome: 'Botões', cor: 'tema', intensidade: 'botaoInt',
       tinta: 'botaoTinta',
-      tokens: ['--brand', '--brand-hover', '--marca-roxo', '--marca-verde'],
+      /* DOIS TOKENS, e nao quatro. `--marca-roxo` e `--marca-verde` eram lidos por uma
+         peca so' — a faixa de duas cores sob a logo da tela de entrada —, e ela saiu a
+         pedido. Desde entao o grupo dos botoes repintava dois tokens que ninguem lia. */
+      tokens: ['--brand', '--brand-hover'],
       sobre: '--brand', tintas: ['--sobre-brand'] },
     { id: 'usuario', nome: 'Caixa do usuário', cor: 'usuarioCor',
       intensidade: 'usuarioInt', tinta: 'usuarioTinta', tokens: ['--c-usuario'],
-      sobre: '--c-usuario', tintas: ['--c-usuario-tinta'] }
+      sobre: '--c-usuario',
+      tintas: ['--c-usuario-tinta', '--c-usuario-tinta2', '--c-usuario-tinta3'] }
   ];
 
   /* AS CORES DE TEXTO QUE CADA BLOCO OFERECE, a pedido.
@@ -532,8 +544,8 @@
 
   /* A TINTA SEGUE O FUNDO, e guarda o contraste que ela TINHA.
    *
-   * As quatro forças de tinta deste projeto — `--txt`, `--txt2`, `--txt3`, `--txt-fraco`
-   * — não são quatro cinzas quaisquer: cada uma foi medida contra o fundo dela, e a
+   * As três forças de tinta deste projeto — `--txt`, `--txt2` e `--txt3` — não são três
+   * cinzas quaisquer: cada uma foi medida contra o fundo dela, e a
    * distância entre elas é o que faz um rótulo pesar menos que um número sem sumir. Se o
    * fundo anda e a tinta fica, essa hierarquia inteira se desfaz — e o primeiro a sumir
    * é o mais fraco, que é o que ninguém vai notar que sumiu.
@@ -720,18 +732,22 @@
     var mexeu = {};
     limparSuperficies(raiz);
 
-    /* AS QUATRO TINTAS DO FUNDO SAO LIDAS ANTES DE QUALQUER COISA, com o contraste que
-       cada uma TINHA. Esta leitura morava DENTRO do laco, e so' acontecia quando a
-       intensidade do fundo mudava — com a COR DO TEXTO escolhida e o fundo parado nao
-       havia leitura nenhuma, logo nao havia alvo, e as quatro forcas virariam quatro
-       vezes a mesma cor: some a diferenca entre um numero e o rotulo dele.
+    /* AS TINTAS DE TODOS OS BLOCOS SAO LIDAS ANTES DE QUALQUER COISA, com o contraste
+       que cada uma TINHA contra a superficie em que ela cai.
+       ERA SO' O FUNDO, e a leitura morava DENTRO do laco das cores: so' acontecia quando
+       a intensidade do fundo mudava. Com a COR DO TEXTO escolhida e o fundo parado nao
+       havia leitura nenhuma, logo nao havia alvo, e as forcas de um bloco virariam todas
+       a mesma cor — some a diferenca entre um numero e o rotulo dele.
        E TEM DE SER AQUI, depois de `limparSuperficies` e antes de tudo: lida depois, a
        referencia ja' seria a nova, e a conta mediria a distancia dela para ela mesma. */
     var lidoAntes = getComputedStyle(raiz);
-    var fundoAntes = corLida(lidoAntes, '--bg');
-    var tintasAntes = TINTAS_DO_FUNDO.map(function (t) {
-      var cor = corLida(lidoAntes, t);
-      return { token: t, cor: cor, alvo: contraste(cor, fundoAntes) };
+    var alvos = {};
+    SUPERFICIES.forEach(function (s) {
+      var sobreAntes = corLida(lidoAntes, s.sobre);
+      alvos[s.id] = s.tintas.map(function (t) {
+        var cor = corLida(lidoAntes, t);
+        return { token: t, cor: cor, alvo: contraste(cor, sobreAntes) };
+      });
     });
 
     SUPERFICIES.forEach(function (s) {
@@ -789,22 +805,19 @@
       if (!mexeu[s.id] && !escolhidaTinta) return;
       var sobre = corLida(agora, s.sobre);
       if (!sobre || sobre.charAt(0) !== '#') return;
-      /* O FUNDO TEM QUATRO FORÇAS, e elas não podem virar quatro vezes a mesma cor: a
-         distância entre elas é o que faz um rótulo pesar menos que um número sem sumir.
-         Então a cor escolhida entra como MATIZ, e cada uma guarda o alvo de contraste
-         que tinha — é a mesma conta que o fundo já fazia quando só a intensidade
-         mudava. */
-      if (s.tintas === TINTAS_DO_FUNDO) {
-        tintasAntes.forEach(function (x) {
-          if (!x.cor) return;
-          raiz.style.setProperty(x.token,
-            ajustarTinta(escolhidaTinta || x.cor, sobre, x.alvo));
-        });
-        return;
-      }
-      var t = escolhidaTinta ? ajustarTinta(escolhidaTinta, sobre, PISO_TINTA)
-                             : tintaSobre(sobre);
-      s.tintas.forEach(function (tk) { raiz.style.setProperty(tk, t); });
+      /* CADA FORÇA GUARDA O ALVO QUE TINHA, e é isso que faz a hierarquia sobreviver:
+         a cor escolhida entra como MATIZ, e a luz dela é ajustada até reencontrar o
+         contraste daquela força em particular. Com um alvo só para todas, escolher uma
+         cor achataria o bloco e o rótulo pesaria igual ao número.
+         É O MESMO CAMINHO PARA OS QUATRO BLOCOS. Eram dois — um para o fundo, com alvo
+         próprio, e outro para os outros três, que jogavam todas as tintas do bloco na
+         mesma cor. O segundo caminho era o que não tinha o que dizer sobre hierarquia,
+         e os blocos do topo e da caixa do usuário têm três forças cada um. */
+      (alvos[s.id] || []).forEach(function (x) {
+        if (!x.cor) return;
+        raiz.style.setProperty(x.token,
+          ajustarTinta(escolhidaTinta || x.cor, sobre, x.alvo));
+      });
     });
 
     if (guardar !== false) {

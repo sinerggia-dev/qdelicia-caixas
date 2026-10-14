@@ -9284,7 +9284,10 @@ console.log('\n== Painel de Ativos: relógio, busca, atalhos e o que está sendo
   ok(!/TEMPO_FIXO/.test(js),
     'não há temperatura fixa no código — número inventado no lugar do que não carregou ' +
     'é pior que o campo vazio');
-  ok(/\.tempo--sem \.tempo__g\{color:var\(--txt3\)\}/.test(css) &&
+  /* A COR AQUI E' A TERCEIRA FORCA DA CAIXA DO USUARIO, e nao a do sistema: o bloco
+     ganhou cor de texto propria, e ela nasce seguindo `--txt3` — a tela sai igual, e
+     agora ela acompanha quando alguem escolhe outra cor para aquele bloco. */
+  ok(/\.tempo--sem \.tempo__g\{color:var\(--c-usuario-tinta3\)\}/.test(css) &&
      /elT\.classList\.add\('tempo--sem'\);/.test(js),
     'sem resposta, o grau fica apagado em "--°" e a hora continua: relógio que depende ' +
     'de internet é pior que relógio nenhum');
@@ -20092,10 +20095,14 @@ console.log('\n== o aplicador da aparencia, rodado ==');
     '--brand': doTema('--brand'), '--brand-hover': doTema('--brand-hover'),
     '--marca-roxo': doTema('--marca-roxo'), '--marca-verde': doTema('--marca-verde'),
     '--c-topo': '#35d6a0', '--c-usuario': 'var(--campo)',
-    /* AS TINTAS DE FABRICA DOS TRES BLOCOS. Sem elas na folha de mentira, "nao escreveu"
-       e "escreveu vazio" ficariam indistinguiveis, e a prova de que o automatico NAO
-       mexe em quem nao pediu nada passaria por acaso. */
-    '--c-topo-tinta': '#0d1b2a', '--c-usuario-tinta': '#e8eef5',
+    /* AS ESCALAS DE TINTA DOS BLOCOS, COMO A FOLHA DE VERDADE AS DEFINE: seguindo as
+       quatro forcas do fundo. Inventadas aqui, a prova mediria alvos que nao existem —
+       foi o que aconteceu na primeira tentativa, com um `--c-topo-tinta` escuro sobre um
+       fundo escuro dando um alvo de 1,33:1 que nenhuma tela tem. */
+    '--c-topo-tinta': 'var(--txt)', '--c-topo-tinta2': 'var(--txt2)',
+    '--c-topo-tinta3': 'var(--txt3)',
+    '--c-usuario-tinta': 'var(--txt)', '--c-usuario-tinta2': 'var(--txt2)',
+    '--c-usuario-tinta3': 'var(--txt3)',
     '--sobre-brand': doTema('--sobre-brand')
   };
   ok(!!FOLHA['--bg'] && !!FOLHA['--txt'] && !!FOLHA['--brand'],
@@ -20169,55 +20176,48 @@ console.log('\n== o aplicador da aparencia, rodado ==');
     'pesar menos que um número sem sumir',
     antes.toFixed(2) + ' -> ' + agora.toFixed(2));
   M.mudar({ fundoInt: 140 }, false);
-  ['--txt2', '--txt3', '--txt-fraco'].forEach(function (tt) {
+  /* A LISTA VEM DO NUCLEO: escrita aqui, ela seria a segunda copia da mesma verdade — e
+     quando `--txt-fraco` saiu de la', por nao ser lido por regra nenhuma, esta prova
+     continuaria cobrando um token que o motor ja' nao pinta. */
+  var FORCAS = M.superficies().filter(function (s) { return s.id === 'fundo'; })[0].tintas;
+  FORCAS.slice(1).forEach(function (tt) {
     ok(!!escrito[tt],
-      'e as quatro forças de tinta são reescritas, não só a mais forte — a mais fraca é ' +
-      'a primeira a sumir e a que ninguém nota: ' + tt);
+      'e as forças de tinta são reescritas, não só a mais forte — a mais fraca é a ' +
+      'primeira a sumir e a que ninguém nota: ' + tt);
   });
 
-  /* ---- OS BOTOES ANDAM EM FAMILIA ----
+  /* ---- CADA BLOCO LEVA A FAMILIA INTEIRA JUNTO ----
    *
-   * O grupo dos botoes pinta QUATRO tokens, e eles nao sao quatro cores: em todo tema a
-   * folha da' o MESMO valor a `--brand` e a `--marca-roxo` (no roxo, `#a46ce7` nos
-   * dois; no verde, `#00a853`). Eles sao a mesma cor com dois nomes — e os nomes mentem
-   * desde que nasceram, como o comentario da folha registra.
+   * Um token deixado de fora da lista do grupo guarda o valor de 100% enquanto os
+   * irmaos dele andam — e duas pecas que a folha pinta da mesma familia saem em cores
+   * diferentes, sem nada na tela dizendo por que. Foi uma sabotagem que escapou: tirar
+   * tres dos quatro tokens do grupo dos botoes nao reprovava nada.
    *
-   * ENTAO A PROVA NAO LISTA OS QUATRO: ela pergunta a' FOLHA quais tokens ja' sao
-   * iguais, e cobra que continuem iguais depois da intensidade. Um token que ficasse de
-   * fora da lista do grupo guardaria o valor de 100% enquanto o irmao dele andou — e o
-   * botao e o selo ao lado dele sairiam em duas cores que a folha diz serem uma so'.
-   * Foi exatamente uma sabotagem que escapou: tirar tres dos quatro tokens do grupo
-   * nao reprovava nada. */
-  M.mudar({ topoInt: 100, fundoInt: 100, botaoInt: 140, usuarioInt: 100,
-            topoCor: '', usuarioCor: '' }, false);
-  var MARCA = ['--brand', '--brand-hover', '--marca-roxo', '--marca-verde'];
-  var paresIguais = [];
-  MARCA.forEach(function (x, i) {
-    MARCA.slice(i + 1).forEach(function (y) {
-      if (FOLHA[x] && FOLHA[x] === FOLHA[y]) paresIguais.push([x, y]);
+   * A LISTA NAO E' REPETIDA AQUI. A prova pergunta a cada superficie o que ela pinta e
+   * cobra que TUDO aquilo tenha sido escrito e tenha MUDADO. Repetida, ela seria a
+   * segunda copia da mesma verdade, e as duas divergiriam no primeiro bloco novo.
+   *
+   * ELA TAMBEM E' QUEM ACHA TOKEN MORTO. Quando `--marca-roxo` e `--marca-verde` saíram
+   * do grupo dos botoes — eles eram lidos so' pela faixa de duas cores da tela de
+   * entrada, que saiu a pedido —, foi esta prova, junto com a de uso, que disse que a
+   * lista podia encolher sem perder nada. */
+  var SUPFAM = M.superficies();
+  SUPFAM.forEach(function (s) {
+    var m = { topoCor: '', usuarioCor: '' };
+    SUPFAM.forEach(function (o) { m[o.intensidade] = 100; m[o.tinta] = ''; });
+    m[s.intensidade] = 140;
+    M.mudar(m, false);
+    var parados = s.tokens.filter(function (tk) {
+      return escrito[tk] === undefined || escrito[tk] === FOLHA[tk];
     });
+    ok(!parados.length,
+      'o bloco ' + s.id + ' leva a família INTEIRA junto quando a intensidade dele ' +
+      'anda — um token deixado de fora guarda o valor de 100% enquanto os irmãos ' +
+      'andaram, e duas peças da mesma família saem em cores diferentes',
+      { pintou: s.tokens.map(function (tk) { return tk + ':' + (escrito[tk] || '-'); }),
+        parados: parados });
   });
-  ok(paresIguais.length > 0,
-    'a conferência achou na folha ao menos um par de tokens de botão que já nascem com ' +
-    'a MESMA cor — sem par, esta prova não teria o que comparar',
-    paresIguais.map(function (p) { return p[0] + '=' + p[1] + ' ' + FOLHA[p[0]]; }));
-  var desgarrados = paresIguais.filter(function (p) {
-    var a = escrito[p[0]] !== undefined ? escrito[p[0]] : FOLHA[p[0]];
-    var b = escrito[p[1]] !== undefined ? escrito[p[1]] : FOLHA[p[1]];
-    return a !== b;
-  });
-  ok(!desgarrados.length,
-    'e a intensidade dos botões leva a família INTEIRA junto — deixado de fora, um ' +
-    'token guarda o valor de 100% enquanto o irmão andou, e o botão e o selo ao lado ' +
-    'dele saem em duas cores que a folha diz serem uma só',
-    desgarrados.map(function (p) {
-      return p[0] + '=' + (escrito[p[0]] || FOLHA[p[0]]) + ' / ' +
-             p[1] + '=' + (escrito[p[1]] || FOLHA[p[1]]);
-    }));
-  ok(MARCA.every(function (k) { return escrito[k] && escrito[k] !== FOLHA[k]; }),
-    'e os quatro de fato ANDARAM — iguais entre si mas parados, a família estaria ' +
-    'coerente e o controle continuaria não fazendo nada',
-    MARCA.map(function (k) { return k + ':' + (escrito[k] || '-'); }));
+
   /* E O ESTADO VOLTA COMO ESTAVA, com o fundo no 140% em que as provas acima o
      deixaram: as de baixo partem dali, e um grupo mexido e nao devolvido faria a
      proxima medir outra tela. */
@@ -20248,6 +20248,126 @@ console.log('\n== o aplicador da aparencia, rodado ==');
     'escrita à parte, essa lista obriga quem acrescentar um bloco a lembrar de dois ' +
     'lugares, e o bloco novo nasce pintado e sem texto',
     SUP.map(function (s) { return s.id + '→' + s.sobre + ':' + s.tintas.join(','); }));
+
+  /* ---- E ALGUMA REGRA DA FOLHA LE' CADA UMA DESSAS TINTAS ----
+   *
+   * ESTE FOI O DEFEITO RELATADO, e e' o mesmo que este projeto ja' pagou mais vezes do
+   * que qualquer outro: a peca existe e nada chega nela. `--c-topo-tinta` e
+   * `--c-usuario-tinta` eram ESCRITAS pelo nucleo desde que a Aparencia virou quatro
+   * blocos, e nenhuma regra desta folha as usava. A tela oferecia a cor, aceitava o
+   * clique, gravava no servidor — e nao pintava nada. Nenhuma prova via, porque todas
+   * mediam o que era ESCRITO.
+   *
+   * A CONTA E' POR USO, e nao por definicao: `--c-topo-tinta:var(--txt)` no `:root` e'
+   * a definicao, e e' justamente ela que existia sozinha. O que se cobra e' um
+   * `var(--c-topo-tinta)` FORA do bloco que a define. */
+  var cssUso = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var iRaiz = cssUso.indexOf(':root{');
+  var foraDaRaiz = cssUso.slice(cssUso.indexOf('}', iRaiz));
+  var orfas = [];
+  M.superficies().forEach(function (s) {
+    s.tintas.forEach(function (tk) {
+      if (foraDaRaiz.indexOf('var(' + tk + ')') < 0) orfas.push(s.id + ' → ' + tk);
+    });
+  });
+  ok(!orfas.length,
+    'alguma regra da folha LÊ cada tinta que o núcleo escreve — era exatamente este o ' +
+    'defeito relatado: `--c-topo-tinta` e `--c-usuario-tinta` eram escritas e nenhuma ' +
+    'regra as usava, então a tela oferecia a cor, aceitava o clique, gravava no ' +
+    'servidor e não pintava nada', orfas);
+  /* E O MESMO VALE PARA A COR DO BLOCO: o token que o grupo pinta tem de ser lido por
+     alguem, senao o grupo inteiro e' um seletor de nada. */
+  var orfasCor = [];
+  M.superficies().forEach(function (s) {
+    s.tokens.forEach(function (tk) {
+      if (foraDaRaiz.indexOf('var(' + tk + ')') < 0 &&
+          foraDaRaiz.indexOf(tk + '-rgb') < 0) orfasCor.push(s.id + ' → ' + tk);
+    });
+  });
+  ok(!orfasCor.length,
+    'e cada cor que um bloco pinta também é lida por alguma regra — um grupo cujo token ' +
+    'ninguém usa é um seletor de nada, e a tela não tem como dizer isso', orfasCor);
+
+  /* ---- E NENHUM TEXTO DESSES BLOCOS AINDA LE' A TINTA DO SISTEMA ----
+   *
+   * "Alguma regra le' o token" nao basta, e isto saiu de SEIS sabotagens que escaparam
+   * de uma so' vez: tirar `color:var(--c-usuario-tinta)` de `.tempo` passava, porque a
+   * mesma tinta continuava sendo lida por outra regra do mesmo bloco. A prova dizia
+   * "alguem le'" e a pilula voltava a seguir o texto do sistema, calada.
+   *
+   * ENTAO A CONTA INVERTE: dentro destes blocos, NENHUMA regra pode pintar texto com
+   * `--txt`, `--txt2` ou `--txt3`. Quem manda ali e' a escala do proprio bloco — e' isso
+   * que faz a cor escolhida chegar a cada linha de texto, e nao so' a' que alguem
+   * lembrou de ligar.
+   *
+   * E' UMA VARREDURA, e nao uma lista de regras: uma regra nova nascida dentro de
+   * `.tempo` com `var(--txt2)` e' reprovada no dia em que for escrita, sem ninguem
+   * precisar voltar aqui. */
+  var BLOCOS_COM_TINTA = [
+    { pre: '.cab-pagina', escala: '--c-topo-tinta' },
+    { pre: '.topo', escala: '--c-topo-tinta' },
+    { pre: '.tempo', escala: '--c-usuario-tinta' }
+  ];
+  var reRegra = new RegExp("(^|\\n)([.][\\w-][^{\\n]*)[{]([^}]*)[}]", "g");
+  var intrusos = [], pintam = {};
+  var mR;
+  while ((mR = reRegra.exec(cssUso))) {
+    var sel = mR[2].trim(), corpo = mR[3];
+    BLOCOS_COM_TINTA.forEach(function (b) {
+      if (sel !== b.pre && sel.indexOf(b.pre + ' ') !== 0 &&
+          sel.indexOf(b.pre + '_') !== 0 && sel.indexOf(b.pre + ':') !== 0 &&
+          sel.indexOf(b.pre + '.') !== 0 && sel.indexOf(b.pre + '>') !== 0) return;
+      if (/var\(--txt[23]?\)/.test(corpo)) intrusos.push(sel);
+      /* O CONTAINER, e nao qualquer regra do bloco: os textos fortes de dentro — o
+         nome, o grau, o titulo da pagina — nao declaram cor nenhuma, eles HERDAM. E'
+         a regra do proprio bloco que tem de dizer de onde essa heranca vem. Aceitando
+         qualquer descendente, tirar o `color` de `.tempo` passava: a tinta continuava
+         lida por `.tempo__conta`, e o nome voltava a seguir o texto do sistema. */
+      if (sel === b.pre && corpo.indexOf('var(' + b.escala + ')') >= 0) pintam[b.pre] = sel;
+    });
+  }
+  ok(!intrusos.length,
+    'nenhum texto da faixa do topo, da barra do celular ou da caixa do usuário lê a ' +
+    'tinta do SISTEMA — quem manda ali é a escala do próprio bloco, e é isso que faz a ' +
+    'cor escolhida chegar a cada linha e não só à que alguém lembrou de ligar',
+    intrusos.slice(0, 8));
+  BLOCOS_COM_TINTA.forEach(function (b) {
+    ok(!!pintam[b.pre],
+      'e ' + b.pre + ' pinta texto com a escala do bloco (`' + b.escala + '`) — sem ' +
+      'isso o grupo oferece uma cor, aceita o clique, grava no servidor e não pinta nada',
+      pintam[b.pre] || '(nenhuma regra)');
+  });
+
+  /* ---- E TODA TINTA DEFINIDA NA FOLHA ESTA' NA LISTA DE ALGUM BLOCO ----
+   * A conta de cima vai num sentido: o que o nucleo escreve, alguem le'. Esta vai no
+   * outro: o que a folha define, alguem ESCREVE. Sem ela, encolher a lista de um bloco
+   * passava — a tinta sobrava no `:root`, nenhuma conta a atualizava, e o texto que a
+   * lia ficava parado na cor de fabrica enquanto o resto do bloco mudava. */
+  var pintadas = {};
+  M.superficies().forEach(function (s) {
+    s.tintas.forEach(function (tk) { pintadas[tk] = true; });
+  });
+  var raizTxt = cssUso.slice(iRaiz, cssUso.indexOf('}', iRaiz));
+  var definidas = (raizTxt.match(/--c-[\w-]*tinta\d?/g) || []);
+  var semDono = definidas.filter(function (tk) { return !pintadas[tk]; });
+  ok(definidas.length >= 4 && !semDono.length,
+    'e toda tinta de bloco definida na folha está na lista de algum bloco — sobrando no ' +
+    '`:root` sem ninguém para atualizá-la, o texto que a lê fica parado na cor de ' +
+    'fábrica enquanto o resto do bloco muda', { definidas: definidas, semDono: semDono });
+
+  /* ---- E A TINTA DE CADA BLOCO CAI SOBRE A COR QUE O BLOCO REALMENTE TEM ATRAS ----
+   * A faixa do topo e' um degrade de 4% a 35% de alfa sobre o `--bg`: o titulo pousa no
+   * chao da pagina com um veu colorido em cima, e nao na cor da faixa. Medindo contra
+   * `--c-topo`, a conta responderia por uma cor que quase nao esta' ali — e um titulo
+   * escuro sobre um fundo escuro passaria na prova e sumiria na tela. */
+  var topoSup = M.superficies().filter(function (s) { return s.id === 'topo'; })[0];
+  ok(topoSup.sobre === '--bg',
+    'a tinta da faixa do topo é medida contra o FUNDO DA PÁGINA, e não contra a cor da ' +
+    'faixa — ela é um degradê de 4% a 35% de alfa por cima do chão, e o título pousa no ' +
+    'chão com um véu colorido em cima', topoSup.sobre);
+  ok(/rgba\(var\(--c-topo-rgb\)/.test(cssUso),
+    'e a folha confirma: a faixa é desenhada com alfa sobre o que está embaixo — se um ' +
+    'dia ela virar cor chapada, é contra ela que a tinta passa a ser medida');
 
   /* ---- O AUTOMATICO NAO MEXE EM QUEM NAO PEDIU NADA ---- */
   var zerado = { topoCor: '', usuarioCor: '' };
