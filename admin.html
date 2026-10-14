@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=fe67f4ad">
+<link rel="stylesheet" href="styles.css?v=20e4b7d7">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1656,7 +1656,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=61d5be87"></script>
+<script src="app.js?v=d025ab7a"></script>
 <script>
 (function(){
   'use strict';
@@ -5040,12 +5040,17 @@
       /* A BARRA DE META responde o que a porcentagem sozinha não responde: perto ou
          longe do combinado. Sem taxa não há barra — uma barra vazia diria "zero por
          cento", e zero por cento é outra coisa que "ainda não saiu nada". */
-      tileCor(t.taxaRetorno===null ? '—' : t.taxaRetorno+'%', 'Taxa de Retorno',
+      /* OS DOIS NUMEROS PASSAM POR `Q.dec`, e nao e' enfeite: `90 - 63.2` da'
+         `26.799999999999997` em ponto flutuante, e era isso que a tela mostrava por
+         extenso — "faltam 26.799999999999997 pontos". De quebra a taxa deixa de sair com
+         PONTO decimal: ela era um `Number` concatenado direto, e o cartao tinha as duas
+         notacoes, uma em cada linha. */
+      tileCor(t.taxaRetorno===null ? '—' : Q.dec(t.taxaRetorno)+'%', 'Taxa de Retorno',
         'meta '+metaFluxo()+'% · '+janelaDoPainel()+
         (t.taxaRetorno===null ? '' :
          ' · '+(t.taxaRetorno >= metaFluxo()
                 ? 'na meta'
-                : 'faltam '+(metaFluxo() - t.taxaRetorno)+' pontos')),
+                : 'faltam '+Q.dec(metaFluxo() - t.taxaRetorno)+' pontos')),
         COR_TILE.taxa,
         t.taxaRetorno===null ? '' :
         '<div class="meta"><i style="width:'+Math.min(100, t.taxaRetorno)+'%"></i>'+
@@ -5522,7 +5527,7 @@
       (PAINEL.rotas && PAINEL.rotas.length ? kpi(Q.num(k.emRota),'caixas no caminhão (em rota)', k.emRota?'aviso':'ok') : '')+
       kpi(Q.num(k.vencidas),'caixas fora do prazo de retorno', k.vencidas?'alerta':'ok')+
       kpi(Q.num(k.perdasMes),'perdas baixadas no mês', k.perdasMes?'alerta':'ok')+
-      kpi(k.taxaRetorno===null?'—':k.taxaRetorno+'%','taxa de retorno do mês', k.taxaRetorno!==null&&k.taxaRetorno<90?'alerta':'ok')+
+      kpi(k.taxaRetorno===null?'—':Q.dec(k.taxaRetorno)+'%','taxa de retorno do mês', k.taxaRetorno!==null&&k.taxaRetorno<90?'alerta':'ok')+
       kpi(Q.num(k.divergenciaMes),'divergências de contagem no mês', k.divergenciaMes?'alerta':'ok')+
       kpi(Q.num(k.clientesComSaldo),'clientes com caixa nossa','info');
   }
@@ -9721,6 +9726,12 @@
   var NOME_LIVRE = { '':'Segue a marca', marca:'Segue a marca', verde:'Verde',
                      roxo:'Roxo', ambar:'Âmbar', azul:'Azul', petroleo:'Petróleo',
                      cinza:'Cinza', gelo:'Branco gelo' };
+  /* "AUTOMÁTICA" NÃO É UMA COR, é a ausência de escolha — e é por isso que ela vale
+     vazio, igual a "Segue a marca" nas outras listas. Nomeada assim e não "Padrão",
+     porque ela não é um valor fixo: ela é a conta que olha a cor do bloco e decide. */
+  var NOME_TINTA = { '':'Automática', automatica:'Automática', clara:'Clara',
+                     escura:'Escura', verde:'Verde', roxo:'Roxo', ambar:'Âmbar',
+                     azul:'Azul', petroleo:'Petróleo', cinza:'Cinza' };
 
   /* AS CORES QUE CADA GRUPO OFERECE. Os dois antigos continuam com as listas deles —
      cada nome ali é uma ESCALA medida, e não uma cor solta —, e os dois novos oferecem a
@@ -9743,6 +9754,20 @@
     if (id === 'fundo') return Q.fundoAtual();
     var a = Q.aparenciaAtual();
     return String(a[id === 'topo' ? 'topoCor' : 'usuarioCor'] || '');
+  }
+  /* AS CORES DE TEXTO SÃO AS MESMAS NOS QUATRO BLOCOS, e a lista vem do núcleo: escrita
+     aqui, uma cor nova apareceria na tela e o aplicador não saberia o que fazer com ela
+     — a pessoa clicaria e nada mudaria, sem erro nenhum. */
+  function tintasDoGrupo(){
+    return Object.keys(Q.TINTAS_LIVRES).map(function(k){
+      return { v:(k === 'automatica' ? '' : k), r:NOME_TINTA[k],
+               c:(Q.TINTAS_LIVRES[k] || 'var(--txt)') };
+    });
+  }
+  function tintaDoGrupo(id){
+    var a = Q.aparenciaAtual();
+    return String(a[{ topo:'topoTinta', fundo:'fundoTinta', botao:'botaoTinta',
+                      usuario:'usuarioTinta' }[id]] || '');
   }
   function intensidadeDoGrupo(id){
     var a = Q.aparenciaAtual();
@@ -9771,6 +9796,7 @@
 
   function grupoAparencia(s){
     var atual = corDoGrupo(s.id), forca = intensidadeDoGrupo(s.id);
+    var tintaAtual = tintaDoGrupo(s.id);
     return '<section class="ap-grupo" data-grupo="'+Q.esc(s.id)+'">'+
       '<p class="ap__eixo">'+Q.esc(s.nome)+'</p>'+
       '<div class="ap__lista" role="group" aria-label="'+Q.esc(s.nome)+'">'+
@@ -9792,6 +9818,19 @@
         '<output>'+forca+'%</output>'+
         '<button class="mini" type="button" data-zerar="'+Q.esc(s.id)+'"'+
           ' title="Voltar a 100%, que é a cor medida">↺</button>'+
+      '</div>'+
+      /* A COR DO TEXTO VEM DEPOIS DA INTENSIDADE, e não entre ela e as cores: a
+         intensidade é um ajuste DAQUELA cor, e separá-las faria o cursor parecer valer
+         para o texto. Aqui embaixo, a leitura do bloco é "a cor, o quanto dela, e a
+         letra em cima". */
+      '<p class="ap__eixo ap__eixo--sub">Cor do texto</p>'+
+      '<div class="ap__lista" role="group" aria-label="Cor do texto · '+Q.esc(s.nome)+'">'+
+        tintasDoGrupo().map(function(o){
+          return '<button class="ap__op" type="button" data-tinta="'+Q.esc(s.id)+'"'+
+            ' data-valor="'+Q.esc(o.v)+'" aria-pressed="'+
+            (String(o.v) === String(tintaAtual) ? 'true' : 'false')+'">'+
+            '<i style="background:'+o.c+'"></i>'+Q.esc(o.r)+'</button>';
+        }).join('')+
       '</div>'+
     '</section>';
   }
@@ -9844,6 +9883,17 @@
           previa({});
           return desenharAparencia();
         }
+        /* A COR DO TEXTO NÃO PASSA POR `aplicarTema`/`aplicarFundo`: ela não é um dos
+           dois eixos antigos, mora só no estado da aparência, e os quatro blocos a
+           tratam igual — inclusive os botões, cujo FUNDO ainda vem do tema. */
+        var tn = e.target.closest ? e.target.closest('[data-tinta]') : null;
+        if (tn) {
+          var mt = {};
+          mt[{ topo:'topoTinta', fundo:'fundoTinta', botao:'botaoTinta',
+               usuario:'usuarioTinta' }[tn.dataset.tinta]] = tn.dataset.valor;
+          previa(mt);
+          return desenharAparencia();
+        }
         var z = e.target.closest ? e.target.closest('[data-zerar]') : null;
         if (z) {
           var m = {};
@@ -9878,8 +9928,9 @@
       /* UMA CHAVE DE CADA VEZ, E EM FILA. Gravadas em paralelo, uma que falhasse
          deixaria a empresa com metade da escolha — uma combinação que ninguém fez. Em
          fila, a primeira recusa para tudo e a tela diz qual foi. */
-      var chaves = ['tema', 'fundo', 'topoCor', 'topoInt', 'fundoInt', 'botaoInt',
-                    'usuarioCor', 'usuarioInt'];
+      var chaves = ['tema', 'fundo', 'topoCor', 'topoInt', 'topoTinta',
+                    'fundoInt', 'fundoTinta', 'botaoInt', 'botaoTinta',
+                    'usuarioCor', 'usuarioInt', 'usuarioTinta'];
       chaves.reduce(function(antes, chave){
         return antes.then(function(){
           return Q.post({ acao:'salvarConfig', chave:chave, valor:estado[chave] })

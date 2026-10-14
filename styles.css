@@ -2748,6 +2748,11 @@ details.tipos[open] summary::before{content:"▾"}
 .ap__eixo{margin:14px 0 8px;font-size:10.5px;font-weight:700;letter-spacing:.08em;
   text-transform:uppercase;color:var(--txt3)}
 .ap__eixo:first-of-type{margin-top:4px}
+/* O SUBTITULO DO BLOCO — hoje so' "Cor do texto" — e' mais leve que o nome do grupo e
+   nao fica em caixa alta: ele pertence AO bloco e nao abre outro, e com o mesmo peso do
+   titulo a tela lia como oito grupos em vez de quatro. */
+.ap__eixo--sub{margin:12px 0 7px;font-size:11px;font-weight:600;letter-spacing:0;
+  text-transform:none;color:var(--txt2)}
 .ap__lista{display:flex;gap:9px;flex-wrap:wrap}
 .ap__op{display:flex;align-items:center;gap:9px;min-height:46px;padding:0 14px 0 10px;
   border:1.5px solid var(--linha);border-radius:12px;background:var(--surface-2);
@@ -2787,6 +2792,47 @@ details.tipos[open] summary::before{content:"▾"}
    fileira de cartoes: numero que se le junto com os outros nao deve morar noutro lugar
    da tela, e no rodape do trilho ele competia com a lista de grupos por atencao. */
 .ret-main{padding:16px 18px 18px;min-width:0}
+
+/* ---------- QUEM ROLA NO PAINEL DE ATIVOS E' A TABELA, e nao a pagina ----------
+ *
+ * A tela abria com DUAS barras de rolagem: a da pagina, na borda direita da janela, e a
+ * da tabela. E a de fora levava embora o que nao devia sair — rolando para ver a decima
+ * linha, iam junto o titulo, os cinco indicadores e a linha que diz o que esta' filtrado.
+ * Quem chega na decima linha ja' nao sabe de que recorte ela e'.
+ *
+ * ENTAO A PAGINA PASSA A CABER, e a rolagem fica UMA SO', dentro da tabela. O cartao
+ * ocupa a altura que sobra entre o cabecalho e o fim da janela; o trilho, o titulo, os
+ * indicadores e o resumo ficam parados; so' as linhas correm.
+ *
+ * SO' NO COMPUTADOR. Abaixo de 1024px esta tabela vira CARTOES — um por carga —, e
+ * cartao empilhado numa caixa de altura fixa seria uma janelinha de rolagem dentro de
+ * uma tela que ja' rola. No celular quem rola continua sendo a pagina.
+ *
+ * O CABECALHO DA TABELA MELHORA DE GRACA: `th` ja' e' `position:sticky` neste projeto, e
+ * ele gruda no ancestral que ROLA. Hoje esse ancestral e' o `.corpo-pagina`, que esta'
+ * longe; passando a ser a propria caixa da tabela, as colunas ficam a' vista enquanto as
+ * linhas correm por baixo. */
+@media (min-width:1024px){
+  /* A COLUNA DA PAGINA VIRA UMA PILHA, para que uma pagina possa pedir "o que sobrar".
+     As outras continuam com `flex:0 0 auto` — altura natural, pagina rolando como
+     sempre —, e so' o Painel de Ativos se estica. */
+  .corpo-pagina{display:flex;flex-direction:column}
+  .corpo-pagina > .pagina{flex:0 0 auto}
+  /* `#id.classe` pesa mais que `.pagina.ativa`, que manda `display:block`. */
+  #pgRetornos.ativa{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+  /* `min-height:0` EM TODO DEGRAU DA CORRENTE. Sem ele, um item de flex nunca encolhe
+     abaixo do conteudo dele — a caixa da tabela pediria a altura de todas as linhas, a
+     corrente inteira cresceria junto e a barra da pagina voltaria. */
+  #pgRetornos > .ret-wrap{flex:1 1 auto;min-height:0}
+  /* O trilho rola por conta: sao sete grupos mais quatro botoes, e numa janela baixa
+     eles passam da altura do cartao. */
+  .ret-rail{overflow-y:auto;overscroll-behavior:contain}
+  .ret-main{display:flex;flex-direction:column;min-height:0}
+  #tabelaFluxo{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+  /* A CAIXA DA TABELA E' A UNICA QUE ROLA, nos dois sentidos: ela ja' rolava de lado
+     (`overflow-x`), e agora rola tambem para baixo. */
+  #tabelaFluxo > .tabela-wrap{flex:1 1 auto;min-height:0;overflow:auto}
+}
 .ret-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .ret-head h2{margin:0;font-size:19px}
 .ret-head .sub{display:block;font-size:12.5px;color:var(--txt2);font-weight:400;margin-top:3px}

@@ -19665,6 +19665,43 @@ console.log('\n== a aparencia em quatro superficies ==');
     'com a folga em vez de ser cortado por um chão fixo, e por isso o matiz sobrevive ' +
     'à ponta do cursor', maisEscuro + ' luz ' + C.hsl(maisEscuro).l.toFixed(3));
 
+  /* ---- A TINTA PROCURA NOS DOIS SENTIDOS, E PREFERE O LADO QUE SE PEDIU ----
+   *
+   * A busca empurrava para um lado so' — para cima num fundo escuro, para baixo num
+   * claro —, e parava no primeiro tom que alcancasse o alvo. Dois buracos, e os dois
+   * apareceram quando a cor do texto passou a ser escolhida a' mao:
+   *   · quem JA' passa nao andava: branco sobre azul escuro ja' da' 13:1, entao as
+   *     QUATRO forcas do fundo voltavam branco e a hierarquia virava uma cor so';
+   *   · quem nao alcanca PARA O LADO NATURAL desistia: branco sobre o verde do botao da'
+   *     3,12:1, e "mais claro que branco" nao existe — voltava o branco ilegivel.
+   *
+   * O ALVO AQUI E' 3,0 E O FUNDO E' MEDIO, de proposito: e' a unica faixa em que os DOIS
+   * lados alcancam o alvo, e portanto a unica em que a preferencia de lado tem o que
+   * decidir. Com 4,5 sobre um fundo escuro so' ha um lado possivel, e a prova passaria
+   * com a preferencia apagada. */
+  var MEIO = '#6b6b6b';
+  var claroAlvo = C.ajusta('#ffffff', MEIO, 3.0);
+  var escuroAlvo = C.ajusta('#0d1b2a', MEIO, 3.0);
+  ok(C.contraste('#ffffff', MEIO) >= 3.0 && C.contraste('#000000', MEIO) >= 3.0,
+    'a conferência está medindo sobre um fundo em que os DOIS lados alcançam o alvo — ' +
+    'fora dessa faixa só há um lado possível, e a preferência não teria o que decidir',
+    [C.contraste('#ffffff', MEIO).toFixed(2), C.contraste('#000000', MEIO).toFixed(2)]);
+  ok(C.hsl(claroAlvo).l >= 0.5 && C.hsl(escuroAlvo).l < 0.5,
+    'e a tinta fica do LADO que se pediu: quem escolhe "clara" quer texto claro — sem a ' +
+    'preferência a busca pega o tom mais perto do alvo, que num fundo médio é o do lado ' +
+    'escuro, e "clara" devolve chumbo', [claroAlvo, escuroAlvo]);
+  ok(C.contraste(claroAlvo, MEIO) >= 3.0 && C.contraste(escuroAlvo, MEIO) >= 3.0,
+    'e os dois alcançam o alvo — preferir o lado pedido não pode custar a legibilidade, ' +
+    'que é a única coisa aqui que não se negocia',
+    [C.contraste(claroAlvo, MEIO).toFixed(2), C.contraste(escuroAlvo, MEIO).toFixed(2)]);
+  /* E O MAIS PERTO DO ALVO, e nao o primeiro que passa: e' o que preserva a hierarquia
+     das quatro forcas do fundo, cada uma reencontrando o contraste DELA. */
+  var perto = C.ajusta('#ffffff', '#16304f', 6.0);
+  ok(Math.abs(C.contraste(perto, '#16304f') - 6.0) < 0.35,
+    'e ela para no tom mais PRÓXIMO do alvo, e não no primeiro que o alcança — branco ' +
+    'já passa de 13:1 sobre o azul escuro, e parando no primeiro as quatro forças do ' +
+    'fundo voltariam todas brancas', C.contraste(perto, '#16304f').toFixed(2) + ':1');
+
   /* ---- E O CONTRASTE MEDIDO CONTINUA DE PE' EM TODA COMBINACAO ----
    * As cinco escalas de fundo foram medidas contra o texto delas — os comentarios da
    * folha registram os numeros um por um. Esta prova refaz a conta em TODA intensidade
@@ -20054,7 +20091,12 @@ console.log('\n== o aplicador da aparencia, rodado ==');
     '--txt3': doFundo('--txt3'), '--txt-fraco': doFundo('--txt-fraco'),
     '--brand': doTema('--brand'), '--brand-hover': doTema('--brand-hover'),
     '--marca-roxo': doTema('--marca-roxo'), '--marca-verde': doTema('--marca-verde'),
-    '--c-topo': '#35d6a0', '--c-usuario': 'var(--campo)'
+    '--c-topo': '#35d6a0', '--c-usuario': 'var(--campo)',
+    /* AS TINTAS DE FABRICA DOS TRES BLOCOS. Sem elas na folha de mentira, "nao escreveu"
+       e "escreveu vazio" ficariam indistinguiveis, e a prova de que o automatico NAO
+       mexe em quem nao pediu nada passaria por acaso. */
+    '--c-topo-tinta': '#0d1b2a', '--c-usuario-tinta': '#e8eef5',
+    '--sobre-brand': doTema('--sobre-brand')
   };
   ok(!!FOLHA['--bg'] && !!FOLHA['--txt'] && !!FOLHA['--brand'],
     'e leu a escala de verdade da folha — inventada aqui, a prova mediria uma escala ' +
@@ -20078,7 +20120,8 @@ console.log('\n== o aplicador da aparencia, rodado ==');
   var M = new Function('document', 'getComputedStyle', 'localStorage',
     appB.slice(i0, i1) +
     ' return { mudar: mudarSuperficie, atual: aparenciaAtual, contraste: contraste,' +
-    ' cor: corComIntensidade };')(docFalso, lerFalso, lsFalso);
+    ' cor: corComIntensidade, hsl: hexParaHsl,' +
+    ' superficies: function () { return SUPERFICIES; } };')(docFalso, lerFalso, lsFalso);
 
   /* ---- EM 100% NADA E' ESCRITO ---- */
   M.mudar({ topoInt: 100, fundoInt: 100, botaoInt: 100, usuarioInt: 100,
@@ -20181,6 +20224,150 @@ console.log('\n== o aplicador da aparencia, rodado ==');
   M.mudar({ topoInt: 100, fundoInt: 140, botaoInt: 100, usuarioInt: 100,
             topoCor: '', usuarioCor: '' }, false);
 
+  /* ---- A COR DO TEXTO DE CADA BLOCO ----
+   *
+   * Pedido: poder trocar a cor da fonte de cada um dos quatro blocos. O risco inteiro
+   * desta funcionalidade cabe numa frase — ela deixa escolher uma cor de TEXTO, e texto
+   * que nao se le' nao e' escolha de gosto, e' lancamento perdido no galpao. Por isso
+   * nenhuma prova aqui olha o nome do token: todas MEDEM o contraste do que foi escrito
+   * contra a cor do bloco em que ele cai. */
+  function sobreDe(s) {
+    var v = escrito[s.sobre] !== undefined ? escrito[s.sobre] : (FOLHA[s.sobre] || '');
+    var m = /^var\(\s*(--[\w-]+)\s*\)$/.exec(v);
+    if (m) v = escrito[m[1]] !== undefined ? escrito[m[1]] : (FOLHA[m[1]] || '');
+    return v;
+  }
+  function escritoOuFolha(k) {
+    return escrito[k] !== undefined ? escrito[k] : (FOLHA[k] || '');
+  }
+  var SUP = M.superficies();
+  ok(SUP.length === 4 && SUP.every(function (s) {
+      return !!s.sobre && s.tintas && s.tintas.length > 0 && !!s.tinta;
+    }),
+    'cada bloco diz sobre QUE cor a tinta dele cai e QUAIS tokens de texto ele manda — ' +
+    'escrita à parte, essa lista obriga quem acrescentar um bloco a lembrar de dois ' +
+    'lugares, e o bloco novo nasce pintado e sem texto',
+    SUP.map(function (s) { return s.id + '→' + s.sobre + ':' + s.tintas.join(','); }));
+
+  /* ---- O AUTOMATICO NAO MEXE EM QUEM NAO PEDIU NADA ---- */
+  var zerado = { topoCor: '', usuarioCor: '' };
+  SUP.forEach(function (s) { zerado[s.intensidade] = 100; zerado[s.tinta] = ''; });
+  M.mudar(zerado, false);
+  ok(Object.keys(escrito).length === 0,
+    'com tudo no padrão e a cor do texto em "automática", nada é escrito — "automática" ' +
+    'é a ausência de escolha, e escrever o valor calculado por cima faria a folha ' +
+    'deixar de ser o 100% sem que nada dissesse isso', Object.keys(escrito));
+
+  /* ---- ESCOLHER UMA COR DE TEXTO ESCREVE, E PASSA NO PISO ---- */
+  var PISO = 4.5;
+  ['clara', 'escura', 'roxo', 'ambar', 'azul', 'cinza'].forEach(function (nome) {
+    var m = { topoCor: '', usuarioCor: '' };
+    SUP.forEach(function (s) { m[s.intensidade] = 100; m[s.tinta] = nome; });
+    M.mudar(m, false);
+    SUP.forEach(function (s) {
+      var sobre = sobreDe(s);
+      s.tintas.forEach(function (tk) {
+        var tinta = escrito[tk];
+        ok(!!tinta && tinta.charAt(0) === '#',
+          'cor do texto "' + nome + '": o bloco ' + s.id + ' escreveu ' + tk + ' — ' +
+          'escolhida e não escrita, a tela aceita o clique e não muda nada', tinta);
+      });
+      /* O PISO VALE PARA A TINTA MAIS FORTE DO BLOCO. As de apoio do fundo têm alvo
+         PRÓPRIO, medido da folha, e várias já nascem abaixo de 4,5:1 de propósito —
+         cobrar o piso delas seria reprovar a folha como ela sempre foi. */
+      var forte = escritoOuFolha(s.tintas[0]);
+      var k = M.contraste(forte, sobre);
+      ok(k >= PISO - 0.02,
+        'e a tinta forte de ' + s.id + ' passa os 4,5:1 sobre a cor do bloco com a cor ' +
+        '"' + nome + '" escolhida — a cor é o PONTO DE PARTIDA, não a palavra final: ' +
+        'o matiz é respeitado, a legibilidade não é negociada',
+        [nome, forte, sobre, k.toFixed(2) + ':1']);
+    });
+  });
+
+  /* ---- E A HIERARQUIA DAS QUATRO FORCAS DO FUNDO SOBREVIVE A ESCOLHA ----
+   * Foi o primeiro defeito que a medicao achou: com "clara" sobre um fundo escuro, as
+   * QUATRO voltavam `#ffffff`. A busca antiga parava no primeiro tom que alcancasse o
+   * alvo, e branco ja' alcancava os quatro alvos de uma vez — some a diferenca entre um
+   * numero e o rotulo dele, que e' o que essas quatro forcas existem para dizer. */
+  var fundoSup = SUP.filter(function (s) { return s.id === 'fundo'; })[0];
+  ['clara', 'escura', 'roxo'].forEach(function (nome) {
+    var m = { topoCor: '', usuarioCor: '' };
+    SUP.forEach(function (s) { m[s.intensidade] = 100; m[s.tinta] = nome; });
+    M.mudar(m, false);
+    var bg = sobreDe(fundoSup);
+    var ks = fundoSup.tintas.map(function (tk) {
+      return M.contraste(escritoOuFolha(tk), bg);
+    });
+    var caindo = ks.every(function (k, i) { return i === 0 || k < ks[i - 1] - 0.05; });
+    ok(caindo,
+      'com a cor do texto "' + nome + '", as quatro forças do fundo continuam ' +
+      'DIFERENTES entre si e em ordem — achatadas numa cor só, some a diferença entre ' +
+      'um número e o rótulo dele, que é para isso que elas existem',
+      ks.map(function (k) { return k.toFixed(2); }).join(' > '));
+  });
+
+  /* ---- E A COR ESCOLHIDA FICA DO LADO QUE SE PEDIU, quando da' ----
+   * Quem escolhe "clara" quer texto claro. A busca pega o tom mais PERTO do alvo, e num
+   * fundo escuro o mais perto costuma ser o do lado escuro — "clara" devolvia chumbo. */
+  var mLado = { topoCor: '', usuarioCor: '' };
+  SUP.forEach(function (s) { mLado[s.intensidade] = 100; mLado[s.tinta] = 'clara'; });
+  M.mudar(mLado, false);
+  var bgEscuro = sobreDe(fundoSup);
+  ok(M.hsl(bgEscuro).l < 0.5,
+    'a conferência está medindo sobre um fundo ESCURO — num claro, "clara" não teria ' +
+    'lado possível e a prova não provaria nada', [bgEscuro, M.hsl(bgEscuro).l.toFixed(2)]);
+  ok(M.hsl(escritoOuFolha(fundoSup.tintas[0])).l >= 0.5,
+    'e "clara" sobre fundo escuro sai CLARA — a busca prefere o lado da escala em que a ' +
+    'cor escolhida já está, e sem isso ela pegava o tom mais perto do alvo, que num ' +
+    'fundo escuro é o do lado errado', escritoOuFolha(fundoSup.tintas[0]));
+
+  /* ---- E A LIMPEZA LEVA AS TINTAS JUNTO ----
+   * Ela era uma lista escrita a' mao; agora deriva das superficies. Se uma tinta ficar
+   * para tras, ela ACUMULA: a cada visita a tela calcularia por cima do proprio
+   * resultado anterior, e em tres aberturas o texto estaria numa cor que ninguem
+   * escolheu, sem nada na tela dizendo por que. */
+  var mSujo = { topoCor: '', usuarioCor: '' };
+  SUP.forEach(function (s) { mSujo[s.intensidade] = 100; mSujo[s.tinta] = 'roxo'; });
+  M.mudar(mSujo, false);
+  var umaVezTinta = {};
+  SUP.forEach(function (s) { s.tintas.forEach(function (tk) { umaVezTinta[tk] = escrito[tk]; }); });
+  M.mudar(mSujo, false);
+  M.mudar(mSujo, false);
+  ok(Object.keys(umaVezTinta).every(function (tk) { return escrito[tk] === umaVezTinta[tk]; }),
+    'e três chamadas seguidas dão a MESMA cor de texto — lendo por cima do próprio ' +
+    'resultado, cada abertura da tela empurraria a tinta de novo, e em três visitas o ' +
+    'texto estaria numa cor que ninguém escolheu',
+    Object.keys(umaVezTinta).map(function (tk) {
+      return tk + ': ' + umaVezTinta[tk] + ' → ' + escrito[tk]; }));
+
+  /* ---- E VOLTAR A "AUTOMATICA" APAGA O QUE FOI ESCRITO ---- */
+  M.mudar(zerado, false);
+  ok(Object.keys(escrito).length === 0,
+    'e voltar a "automática" APAGA a cor escrita, em vez de gravar o cálculo por cima — ' +
+    'gravado, não haveria como voltar ao que a folha mede', Object.keys(escrito));
+
+  /* ---- A COR DO TEXTO SOZINHA JA' MEXE, com tudo o mais no padrao ----
+   * A leitura das quatro forcas morava DENTRO do laco das cores, e so' rodava quando a
+   * intensidade do fundo mudava: com so' a cor do texto escolhida, nao havia alvo
+   * nenhum para elas. */
+  var soTinta = { topoCor: '', usuarioCor: '' };
+  SUP.forEach(function (s) { soTinta[s.intensidade] = 100; soTinta[s.tinta] = ''; });
+  soTinta[fundoSup.tinta] = 'ambar';
+  M.mudar(soTinta, false);
+  ok(fundoSup.tintas.every(function (tk) { return !!escrito[tk]; }),
+    'escolher só a cor do texto, sem tocar em intensidade nenhuma, já escreve as quatro ' +
+    'forças — a leitura dos alvos morava dentro do laço das cores e só rodava quando a ' +
+    'intensidade mudava', fundoSup.tintas.map(function (tk) { return escrito[tk]; }));
+  ok(Object.keys(escrito).every(function (k) { return k.indexOf('--txt') === 0; }),
+    'e NADA ALÉM delas — a cor do texto do fundo não é motivo para reescrever os sete ' +
+    'tokens de cor do fundo, que continuam sendo os da folha', Object.keys(escrito));
+
+  /* E O ESTADO VOLTA COMO ESTAVA, com o fundo no 140% em que as provas acima o
+     deixaram: as de baixo partem dali. */
+  M.mudar(zerado, false);
+  M.mudar({ fundoInt: 140 }, false);
+
   /* ---- A COR NAO SE ACUMULA ENTRE CHAMADAS ----
    * O 100% de cada token e' o valor que a FOLHA define. Lido por cima do proprio
    * override, cada chamada saturaria de novo em cima da anterior. */
@@ -20268,6 +20455,179 @@ console.log('\n== o aplicador da aparencia, rodado ==');
     'ficou gravado ali', Object.keys(escrito));
 }
 
+
+console.log('\n== o numero com virgula, e a rolagem do Painel de Ativos ==');
+{
+  var appN = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var admN = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var cssN = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* ---- O NUMERO COM CASA DECIMAL ----
+   *
+   * O cartao da Taxa de Retorno mostrava, por extenso, "faltam 26.799999999999997
+   * pontos". Nao e' defeito de conta: `90 - 63.2` da' isso em ponto flutuante binario,
+   * em qualquer JavaScript. O conserto nao e' na subtracao — e' na hora de virar texto,
+   * num lugar so', porque qualquer outra subtracao de numeros com virgula faria igual.
+   *
+   * A PROVA RODA `dec`, e nao procura a chamada: o que se cobra e' o que sai. */
+  var iDec = appN.indexOf('  function dec(n, casas) {');
+  var fDec = iDec < 0 ? '' : appN.slice(iDec, appN.indexOf('\n  }', iDec) + 4);
+  ok(fDec.length > 80, 'a conferência recortou a conta do número com vírgula', fDec.length);
+  var DEC = new Function(fDec + ' return dec;')();
+
+  ok(DEC(90 - 63.2) === '26,8',
+    'o caso que apareceu na tela sai inteiro: `90 - 63.2` vira "26,8" e não ' +
+    '"26.799999999999997" — era isso, por extenso, dentro do cartão da Taxa de Retorno',
+    DEC(90 - 63.2));
+  /* E NAO E' SO' AQUELE CASO. A varredura cobre toda subtracao de uma meta inteira por
+     uma taxa de uma casa — que e' a forma exata do numero que vazou. */
+  var sujos = [];
+  for (var meta = 60; meta <= 100; meta += 5) {
+    for (var dez = 0; dez <= 1000; dez++) {
+      var saida = DEC(meta - dez / 10);
+      if (/[.]/.test(saida) || (saida.split(',')[1] || '').length > 1) {
+        sujos.push(meta + ' - ' + (dez / 10) + ' = ' + saida);
+      }
+    }
+  }
+  ok(!sujos.length,
+    'e nenhuma combinação de meta e taxa produz número quebrado — a varredura refaz a ' +
+    'conta que vazou em toda meta de 60 a 100 contra toda taxa de uma casa',
+    sujos.slice(0, 5));
+  ok(DEC(90) === '90' && DEC(0) === '0',
+    'e inteiro continua inteiro, sem "90,0" — quem lê "faltam 27 pontos" não ganha nada ' +
+    'com a vírgula zero', [DEC(90), DEC(0)]);
+  ok(DEC(63.2) === '63,2',
+    'e o separador é a VÍRGULA, que é como se escreve número no Brasil — a taxa saía ' +
+    'com PONTO porque era um `Number` concatenado direto, e o cartão tinha as duas ' +
+    'notações, uma em cada linha', DEC(63.2));
+  /* UMA CASA, E O NUMERO DE CASAS E' COBRADO. A varredura acima nao distinguia uma de
+     duas: toda meta menos toda taxa de uma casa tem, no maximo, uma casa de verdade. Com
+     duas, a tela diria "faltam 26,80 pontos" — e a prova continuava verde. */
+  ok(DEC(1 / 3) === '0,3' && DEC(2 / 3) === '0,7',
+    'e o padrão é UMA casa — com duas, o cartão diria "faltam 26,80 pontos", e a ' +
+    'varredura de metas e taxas não enxerga a diferença porque nenhuma delas tem duas',
+    [DEC(1 / 3), DEC(2 / 3)]);
+  ok(DEC(1 / 3, 2) === '0,33' && DEC(1 / 3, 0) === '0',
+    'e o número de casas é um pedido que se pode fazer — o padrão serve ao cartão de ' +
+    'hoje, e quem precisar de outra precisão não vai escrever o próprio arredondamento',
+    [DEC(1 / 3, 2), DEC(1 / 3, 0)]);
+
+  /* E O CARTAO USA `dec` NOS DOIS NUMEROS. Medir so' a funcao nao prova nada sobre a
+     tela: foi assim que o numero quebrado chegou ao galpao com a conta certa do lado. */
+  var iTaxa = admN.indexOf("'Taxa de Retorno'");
+  var blocoTaxa = iTaxa < 0 ? '' : admN.slice(admN.lastIndexOf('tileCor(', iTaxa),
+                                              admN.indexOf('COR_TILE.taxa', iTaxa));
+  ok(blocoTaxa.indexOf('Q.dec(') > 0 &&
+     /Q\.dec\(metaFluxo\(\) - t\.taxaRetorno\)/.test(blocoTaxa),
+    'e o cartão passa a diferença por `Q.dec` — é a subtração que vaza, e era ela que ' +
+    'estava concatenada crua', blocoTaxa.slice(0, 200));
+  ok(!/[^c]\bt\.taxaRetorno\s*\+\s*'%'/.test(blocoTaxa),
+    'e a taxa também, para as duas linhas do mesmo cartão falarem a mesma língua',
+    blocoTaxa.slice(0, 200));
+  ok(appN.indexOf('dec: dec,') > 0,
+    'e `dec` sai do núcleo para as telas — guardado lá dentro, cada tela escreveria o ' +
+    'próprio arredondamento e a primeira que esquecesse voltaria a vazar');
+
+  /* ---- O "USAR EM TODAS AS TELAS" GRAVA TUDO O QUE A TELA DEIXA ESCOLHER ----
+   *
+   * A fila de gravacao e' uma lista escrita a' mao no `admin.html`. Toda vez que um
+   * bloco ganha um controle novo, essa lista tem de crescer junto — e esquecer dela nao
+   * quebra NADA que se veja: a previa pinta, a pessoa clica em "Usar em todas as telas",
+   * a tela diz "Aparencia trocada" e aquele controle nao vai para o servidor. Na proxima
+   * abertura ele volta ao padrao, e a conclusao razoavel e' que o sistema "nao salvou".
+   *
+   * ENTAO A LISTA E' CONFERIDA CONTRA AS SUPERFICIES, e nao contra outra lista: cada
+   * bloco ja' diz o nome das tres chaves dele (`cor`, `intensidade`, `tinta`), e e' do
+   * nucleo que essa verdade sai. */
+  var fonteSup = appN.slice(appN.indexOf('  var SUPERFICIES = ['));
+  fonteSup = fonteSup.slice(0, fonteSup.indexOf('\n  ];'));
+  var chavesDosBlocos = [];
+  ['cor', 'intensidade', 'tinta'].forEach(function (campo) {
+    var re = new RegExp(campo + ": '([\\w]+)'", 'g'), m;
+    while ((m = re.exec(fonteSup))) {
+      if (chavesDosBlocos.indexOf(m[1]) < 0) chavesDosBlocos.push(m[1]);
+    }
+  });
+  ok(chavesDosBlocos.length === 12,
+    'a conferência leu as doze chaves que os quatro blocos oferecem — três por bloco: ' +
+    'a cor, a intensidade e a cor do texto', chavesDosBlocos);
+
+  var iFila = admN.indexOf('      var chaves = [');
+  var fila = iFila < 0 ? '' : admN.slice(iFila, admN.indexOf('];', iFila));
+  var naFila = (fila.match(/'([\w]+)'/g) || []).map(function (x) { return x.slice(1, -1); });
+  var faltando = chavesDosBlocos.filter(function (k) { return naFila.indexOf(k) < 0; });
+  ok(!faltando.length,
+    'e a fila de gravação carrega todas elas — esquecer uma não quebra nada que se veja: ' +
+    'a prévia pinta, a tela diz "Aparência trocada" e aquele controle não vai para o ' +
+    'servidor, voltando ao padrão na próxima abertura', faltando);
+  /* E O SERVIDOR ACEITA CADA UMA. Uma chave fora de `CHAVES_CONFIG` e' recusada pela
+     rota, e a fila para na primeira recusa — a empresa ficaria com metade da escolha. */
+  var apiTxtAp = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  var iCc = apiTxtAp.indexOf('var CHAVES_CONFIG = [');
+  var ccTxt = iCc < 0 ? '' : apiTxtAp.slice(iCc, apiTxtAp.indexOf('];', iCc));
+  var forasteiras = chavesDosBlocos.filter(function (k) {
+    return ccTxt.indexOf("'" + k + "'") < 0;
+  });
+  ok(!forasteiras.length,
+    'e a rota conhece cada uma delas — chave desconhecida é recusada, e a fila para na ' +
+    'primeira recusa: a empresa ficaria com metade da escolha, uma combinação que ' +
+    'ninguém fez', forasteiras);
+
+  /* ---- QUEM ROLA NO PAINEL DE ATIVOS E' A TABELA ----
+   *
+   * A tela abria com DUAS barras de rolagem: a da pagina, na borda da janela, e a da
+   * tabela. E a de fora levava embora o que nao devia sair — rolando ate' a decima
+   * linha, iam junto o titulo, os cinco indicadores e a linha que diz o que esta'
+   * filtrado. Quem chega na decima linha ja' nao sabe de que recorte ela e'.
+   *
+   * A CORRENTE E' O QUE SE COBRA, elo por elo. Num `flex`, basta UM degrau sem
+   * `min-height:0` para o item nunca encolher abaixo do conteudo: a caixa da tabela
+   * pediria a altura de todas as linhas, a corrente inteira cresceria junto e a barra da
+   * pagina voltaria calada. Nao ha navegador aqui para medir o efeito; o que se mede e'
+   * que nenhum elo esteja faltando. */
+  var iMq = cssN.indexOf('@media (min-width:1024px){\n  /* A COLUNA DA PAGINA VIRA UMA PILHA');
+  var mq = iMq < 0 ? '' : cssN.slice(iMq, cssN.indexOf('\n}', iMq) + 2);
+  ok(mq.length > 400,
+    'a conferência achou o bloco que faz a página do Painel de Ativos caber na janela',
+    mq.length);
+  [['.corpo-pagina{display:flex', 'a coluna da página vira uma pilha'],
+   ['.corpo-pagina > .pagina{flex:0 0 auto}', 'e as outras páginas continuam com altura natural'],
+   ['#pgRetornos.ativa{display:flex', 'o Painel de Ativos pede o que sobra da altura'],
+   ['#pgRetornos > .ret-wrap{flex:1 1 auto;min-height:0}', 'o cartão se estica'],
+   ['.ret-main{display:flex;flex-direction:column;min-height:0}', 'o lado da tabela vira pilha'],
+   ['#tabelaFluxo{flex:1 1 auto;min-height:0', 'a caixa da tabela pede o resto'],
+   ['#tabelaFluxo > .tabela-wrap{flex:1 1 auto;min-height:0;overflow:auto}',
+    'e só ela rola, nos dois sentidos']
+  ].forEach(function (par) {
+    ok(mq.indexOf(par[0]) > 0,
+      par[1] + ' — um elo faltando e a corrente inteira cresce com o conteúdo, a barra ' +
+      'da página volta calada e o título sai de vista junto com os indicadores', par[0]);
+  });
+  /* `min-height:0` EM TODO ELO QUE ENCOLHE. E' o esquecimento classico, e ele nao
+     quebra nada visivelmente: so' faz a caixa parar de encolher. */
+  /* A REGRA INTEIRA, e nao o pedaco depois do `flex`: `[^;}]*` para no `;` seguinte e
+     nunca chegaria ao `min-height` — a prova media o nada e passava. */
+  var elos = [];
+  var reElo = new RegExp("([^{}\n]+)\{([^}]*)\}", "g"), mElo;
+  while ((mElo = reElo.exec(mq))) {
+    if (mElo[2].indexOf('flex:1 1 auto') >= 0) elos.push(mElo[1].trim() + ' {' + mElo[2] + '}');
+  }
+  ok(elos.length >= 4 && elos.every(function (e) { return e.indexOf('min-height:0') > 0; }),
+    'e todo elo que se estica tem `min-height:0` junto — sem ele um item de flex nunca ' +
+    'encolhe abaixo do conteúdo, e é o esquecimento que não quebra nada visivelmente: ' +
+    'só faz a caixa parar de encolher', elos);
+  /* ---- E SO' NO COMPUTADOR ----
+     Abaixo de 1024px esta tabela vira CARTOES, um por carga: cartao empilhado numa caixa
+     de altura fixa seria uma janelinha de rolagem dentro de uma tela que ja' rola. */
+  ok(/@media \(min-width:1024px\)\{/.test(mq.slice(0, 40)),
+    'e tudo isto vale só no computador — no celular a tabela vira cartões, e cartão ' +
+    'empilhado numa caixa de altura fixa é uma janelinha de rolagem dentro de uma tela ' +
+    'que já rola', mq.slice(0, 40));
+  ok(admN.indexOf("window.matchMedia('(max-width:1023px)')") > 0,
+    'e é essa mesma largura que a tela usa para decidir entre tabela e cartões — duas ' +
+    'larguras diferentes deixariam uma faixa em que a caixa é fixa e o conteúdo é cartão');
+}
 
 console.log('\n== o visual da porta de entrada ==');
 {

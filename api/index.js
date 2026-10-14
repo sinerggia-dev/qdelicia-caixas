@@ -1092,10 +1092,14 @@ function ultimoAdmin(usuarios, id) {
    sendo a COR dos botoes e a do fundo — os nomes ficaram porque estao gravados no banco,
    e renomear coluna e' apagar e recriar dado para trocar uma palavra. O que entrou foi a
    cor das duas superficies que nao tinham nenhuma e a INTENSIDADE das quatro. */
+/* E AS QUATRO ULTIMAS SAO A COR DO TEXTO de cada bloco, a pedido. Vazio quer dizer
+   "automatica", que e' a conta de contraste que o sistema ja' fazia sozinho. */
 var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas', 'senhaCorrecao',
                      'tema', 'fundo', 'vozNarracao',
-                     'topoCor', 'topoInt', 'fundoInt', 'botaoInt',
-                     'usuarioCor', 'usuarioInt'];
+                     'topoCor', 'topoInt', 'topoTinta',
+                     'fundoInt', 'fundoTinta',
+                     'botaoInt', 'botaoTinta',
+                     'usuarioCor', 'usuarioInt', 'usuarioTinta'];
 
 /* A APARÊNCIA É DA EMPRESA, e não de cada navegador: uma cor só em todas as telas do
    galpão, a pedido. Por isso ela mora aqui, na config, e não no armazenamento local —
@@ -1115,6 +1119,18 @@ var VALORES_APARENCIA = { tema: ['verde', 'roxo', 'ambar', 'gelo'],
                                     'petroleo', 'cinza', 'gelo'],
                           usuarioCor: ['', 'marca', 'verde', 'roxo', 'ambar', 'azul',
                                        'petroleo', 'cinza', 'gelo'] };
+
+/* AS CORES DE TEXTO. Lista propria, e nao a mesma das superficies: "segue a marca" nao
+   quer dizer nada para um texto, e "clara" e "escura" nao sao cor de fundo de nada.
+   VAZIO E' "AUTOMATICA", e e' o padrao: e' a conta de contraste que o sistema ja' fazia
+   sozinho. Fora da lista, nao haveria como voltar a ela depois de escolher uma cor.
+   AS QUATRO SAO A MESMA LISTA, entao ela e' escrita UMA VEZ e as quatro apontam para
+   ela: quatro copias divergem no primeiro acerto que so' uma recebe. */
+var TINTAS_VALIDAS = ['', 'automatica', 'clara', 'escura', 'verde', 'roxo', 'ambar',
+                      'azul', 'petroleo', 'cinza'];
+['topoTinta', 'fundoTinta', 'botaoTinta', 'usuarioTinta'].forEach(function (k) {
+  VALORES_APARENCIA[k] = TINTAS_VALIDAS;
+});
 
 /* AS QUATRO INTENSIDADES, com teto e chao. Elas nao sao lista de nomes: sao numero, e o
    que se confere e' a FAIXA. Sem teto, um `topoInt=100000` passaria pela rota, chegaria

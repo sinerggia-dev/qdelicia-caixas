@@ -324,20 +324,61 @@
      fundo, e a hierarquia das quatro viraria quatro cinzas iguais. */
   var TINTAS_DO_FUNDO = ['--txt', '--txt2', '--txt3', '--txt-fraco'];
 
+  /* CADA SUPERFÍCIE DIZ TRÊS COISAS, e não mais só uma:
+   *   `tokens`  o que ela PINTA;
+   *   `sobre`   o token cuja cor a tinta dela precisa vencer — é contra ele que o
+   *             contraste é medido, e não contra o fundo da página;
+   *   `tintas`  os tokens de TEXTO que ela manda.
+   * As três listas moram juntas de propósito: o aplicador, a tela de Aparência e a
+   * bancada leem daqui. Enquanto `tintas` era uma lista escrita à parte dentro do
+   * aplicador, acrescentar uma superfície significava lembrar de dois lugares. */
   var SUPERFICIES = [
     { id: 'topo', nome: 'Faixa do topo', cor: 'topoCor', intensidade: 'topoInt',
-      tokens: ['--c-topo'] },
+      tinta: 'topoTinta', tokens: ['--c-topo'], sobre: '--c-topo',
+      tintas: ['--c-topo-tinta'] },
     { id: 'fundo', nome: 'Fundo da tela', cor: 'fundo', intensidade: 'fundoInt',
+      tinta: 'fundoTinta',
       /* A ESCALA INTEIRA, e não só o chão: o cartão, o degrau seguinte, o campo e a
          lateral foram pintados como uma família, e dessaturar um deles sozinho faria o
          cartão flutuar numa cor que não é a do chão em que ele está. */
       tokens: ['--bg', '--surface', '--surface-2', '--campo',
-               '--marinho', '--marinho-esc', '--marinho-claro'] },
+               '--marinho', '--marinho-esc', '--marinho-claro'],
+      sobre: '--bg', tintas: TINTAS_DO_FUNDO },
     { id: 'botao', nome: 'Botões', cor: 'tema', intensidade: 'botaoInt',
-      tokens: ['--brand', '--brand-hover', '--marca-roxo', '--marca-verde'] },
+      tinta: 'botaoTinta',
+      tokens: ['--brand', '--brand-hover', '--marca-roxo', '--marca-verde'],
+      sobre: '--brand', tintas: ['--sobre-brand'] },
     { id: 'usuario', nome: 'Caixa do usuário', cor: 'usuarioCor',
-      intensidade: 'usuarioInt', tokens: ['--c-usuario'] }
+      intensidade: 'usuarioInt', tinta: 'usuarioTinta', tokens: ['--c-usuario'],
+      sobre: '--c-usuario', tintas: ['--c-usuario-tinta'] }
   ];
+
+  /* AS CORES DE TEXTO QUE CADA BLOCO OFERECE, a pedido.
+   *
+   * `automatica` É O PADRÃO E CONTINUA SENDO A CONTA: vazio quer dizer "deixa o sistema
+   * resolver", que é o que já acontecia — branco ou quase-preto no topo, nos botões e na
+   * caixa do usuário; e, no fundo, as quatro forças de texto medidas da folha.
+   *
+   * ESCOLHER UMA COR NÃO DESLIGA A CONTA DE CONTRASTE. A cor escolhida é o PONTO DE
+   * PARTIDA: ela é empurrada em luz até alcançar o contraste necessário sobre aquela
+   * superfície, e só então é escrita. Sem isso, um verde sobre o verde do topo seria
+   * uma escolha de dois cliques que deixa um texto ilegível no galpão — e quem escolheu
+   * não teria como saber. O matiz é respeitado; a legibilidade não é negociada.
+   *
+   * CLARA E ESCURA VÊM PRIMEIRO porque são as duas respostas que quase sempre servem, e
+   * o quase-preto é o da paleta, não preto puro: ele foi escolhido para combinar com o
+   * resto do sistema. */
+  var TINTAS_LIVRES = {
+    automatica: '',
+    clara:      '#ffffff',
+    escura:     '#0d1b2a',
+    verde:      '#35d6a0',
+    roxo:       '#a46ce7',
+    ambar:      '#ef7b2f',
+    azul:       '#5b9ef0',
+    petroleo:   '#2c9b9f',
+    cinza:      '#8d939c'
+  };
 
   /* AS CORES QUE AS SUPERFÍCIES NOVAS OFERECEM. As duas antigas continuam com as listas
      delas — `TEMAS` para os botões e `FUNDOS` para o fundo —, porque aquelas não são
@@ -501,20 +542,55 @@
    * empurrada na direção que aumenta o contraste até reencontrá-lo. Assim o fundo muda e
    * a leitura continua a mesma — inclusive a diferença entre as quatro.
    *
-   * UM PASSO DE 1% e no máximo cem passos: é fino o bastante para não dar salto visível
-   * e barato o bastante para rodar nas quatro tintas a cada arrasto do cursor. */
+   * A BUSCA VARRE A ESCALA INTEIRA, e não empurra para um lado só. Ela empurrava: para
+   * CIMA se o fundo era escuro, para baixo se era claro, parando no primeiro tom que
+   * alcançasse o alvo. Isso tem dois buracos, e os dois apareceram quando a cor do texto
+   * passou a ser escolhida à mão:
+   *
+   *   · QUEM JÁ PASSA NÃO ANDAVA. Branco sobre o azul escuro já dá 13,38:1, então as
+   *     QUATRO forças voltavam branco — a hierarquia inteira virava uma cor só, e some a
+   *     diferença entre um número e o rótulo dele. Era o caso mais fácil de acontecer:
+   *     basta escolher "clara" num fundo escuro.
+   *   · QUEM NÃO ALCANÇA PARA O LADO ERRADO desistia. Branco sobre o verde do botão dá
+   *     3,12:1, e "mais claro que branco" não existe — a função devolvia o branco
+   *     ilegível e o piso de 4,5:1 que esta tela promete ficava por escrever.
+   *
+   * ENTÃO ELA PROCURA O TOM MAIS PRÓXIMO DO ALVO QUE AINDA O ALCANÇA, nos dois sentidos.
+   * "Mais próximo" é o que preserva a hierarquia — cada uma das quatro reencontra o
+   * contraste DELA, em vez de todas irem para o extremo —, e "nos dois sentidos" é o que
+   * garante o piso quando o lado natural está sem espaço.
+   *
+   * SEM NENHUM QUE ALCANCE, vai o de MAIOR contraste: é o melhor que aquela cor pode
+   * fazer sobre aquele fundo, e devolver o pedido intacto seria devolver texto ilegível.
+   *
+   * 101 PASSOS, de 1% — fino o bastante para não dar salto visível, e barato o bastante
+   * para rodar nas quatro tintas a cada arrasto do cursor. */
   function ajustarTinta(tinta, fundo, alvo) {
     var c = hexParaHsl(tinta);
     if (!c || !hexParaHsl(fundo)) return tinta;
-    var clarear = luminancia(fundo) < 0.5;
-    for (var i = 0; i < 100; i++) {
-      var atual = hslParaHex(c);
-      if (contraste(atual, fundo) >= alvo) return atual;
-      var proxima = clarear ? c.l + 0.01 : c.l - 0.01;
-      if (proxima > 1 || proxima < 0) return atual;
-      c.l = proxima;
+    /* O LADO DA ESCALA EM QUE A COR ESCOLHIDA JA' ESTA' e' preferido, e isto e' o que
+       respeita a intencao: quem escolhe "clara" quer texto claro. Sem a preferencia, a
+       busca pegava o tom mais perto do alvo — que num fundo medio costuma ser o do lado
+       ESCURO —, e "clara" devolvia cinza-chumbo. Quando o lado escolhido nao alcanca o
+       piso (branco sobre o verde do botao da' 3,12:1, e nao ha nada mais claro que
+       branco), o outro lado entra: e' a mesma decisao que `tintaSobre` toma sozinha no
+       caso automatico, e preferir ilegivel seria preferir nada. */
+    var acima = c.l >= 0.5;
+    var melhor = null, sobra = Infinity;
+    var ladoCerto = null, sobraLado = Infinity;
+    var maior = null, maiorC = -1;
+    for (var i = 0; i <= 100; i++) {
+      var l = i / 100;
+      var cand = hslParaHex({ h: c.h, s: c.s, l: l });
+      var k = contraste(cand, fundo);
+      if (k > maiorC) { maiorC = k; maior = cand; }
+      if (k < alvo) continue;
+      if (k - alvo < sobra) { sobra = k - alvo; melhor = cand; }
+      if ((l >= 0.5) === acima && k - alvo < sobraLado) {
+        sobraLado = k - alvo; ladoCerto = cand;
+      }
     }
-    return hslParaHex(c);
+    return ladoCerto || melhor || maior;
   }
 
   /* A TINTA QUE VAI EM CIMA sai da luminância da cor, e não de uma tabela por tema. Era
@@ -564,8 +640,10 @@
   /* O ESTADO DAS QUATRO SUPERFÍCIES. Espelhado no armazenamento local pela mesma razão
      do tema e do fundo: a tela abre com a última escolha conhecida em vez de piscar na
      cor de fábrica e trocar quando o servidor responde. */
-  var APARENCIA = { topoCor: '', topoInt: INT_PADRAO, fundoInt: INT_PADRAO,
-                    botaoInt: INT_PADRAO, usuarioCor: '', usuarioInt: INT_PADRAO };
+  var APARENCIA = { topoCor: '', topoInt: INT_PADRAO, topoTinta: '',
+                    fundoInt: INT_PADRAO, fundoTinta: '',
+                    botaoInt: INT_PADRAO, botaoTinta: '',
+                    usuarioCor: '', usuarioInt: INT_PADRAO, usuarioTinta: '' };
 
   (function () {
     try {
@@ -590,14 +668,18 @@
      `getComputedStyle`. Com um override anterior ainda no lugar, a leitura devolveria a
      cor JÁ saturada — e cada visita à tela saturaria de novo em cima da anterior. Em
      três aberturas a cor estaria irreconhecível, e nada na tela diria por quê. */
+  /* A LISTA DO QUE SAI E' A MESMA DO QUE ENTRA, e por isso ela e' DERIVADA das
+     superficies. Era escrita a' mao aqui embaixo, e uma tinta nova so' seria apagada se
+     alguem lembrasse de vir ate' este bloco — e o que nao se apaga acumula, que e'
+     justamente o defeito que esta funcao existe para evitar.
+     `--c-topo-rgb` FICA ESCRITO: ele nao e' cor de superficie nem tinta, e' a MESMA cor
+     da faixa em outra forma (`rgba()` nao aceita hexadecimal dentro). Nao ha lista de
+     onde deriva-lo. */
   function limparSuperficies(raiz) {
     SUPERFICIES.forEach(function (s) {
-      s.tokens.forEach(function (t) { raiz.style.removeProperty(t); });
+      s.tokens.concat(s.tintas).forEach(function (t) { raiz.style.removeProperty(t); });
     });
-    ['--c-topo-tinta', '--c-usuario-tinta', '--sobre-brand',
-     '--c-topo-rgb'].concat(TINTAS_DO_FUNDO).forEach(function (t) {
-      raiz.style.removeProperty(t);
-    });
+    raiz.style.removeProperty('--c-topo-rgb');
   }
 
   /* A COR BASE DE UMA SUPERFÍCIE: a escolhida, quando há; senão, a que a folha já traz.
@@ -638,6 +720,20 @@
     var mexeu = {};
     limparSuperficies(raiz);
 
+    /* AS QUATRO TINTAS DO FUNDO SAO LIDAS ANTES DE QUALQUER COISA, com o contraste que
+       cada uma TINHA. Esta leitura morava DENTRO do laco, e so' acontecia quando a
+       intensidade do fundo mudava — com a COR DO TEXTO escolhida e o fundo parado nao
+       havia leitura nenhuma, logo nao havia alvo, e as quatro forcas virariam quatro
+       vezes a mesma cor: some a diferenca entre um numero e o rotulo dele.
+       E TEM DE SER AQUI, depois de `limparSuperficies` e antes de tudo: lida depois, a
+       referencia ja' seria a nova, e a conta mediria a distancia dela para ela mesma. */
+    var lidoAntes = getComputedStyle(raiz);
+    var fundoAntes = corLida(lidoAntes, '--bg');
+    var tintasAntes = TINTAS_DO_FUNDO.map(function (t) {
+      var cor = corLida(lidoAntes, t);
+      return { token: t, cor: cor, alvo: contraste(cor, fundoAntes) };
+    });
+
     SUPERFICIES.forEach(function (s) {
       /* A LEITURA E' REFEITA A CADA SUPERFICIE, e a ordem da lista passa a importar: a
          caixa do usuario nasce seguindo `--campo`, que e' do FUNDO. Lida uma vez so', no
@@ -652,29 +748,11 @@
          sendo a fonte da verdade para quem não mexeu em nada. */
       if (intensidade === INT_PADRAO && !trocaCor) return;
       mexeu[s.id] = true;
-      /* AS QUATRO TINTAS DO FUNDO SAO LIDAS ANTES de o fundo mudar, com o contraste que
-         cada uma TINHA: depois da troca, o valor de referencia ja' seria o novo, e a
-         conta mediria a distancia dela para ela mesma. */
-      var fundoAntes = '', tintasAntes = null;
-      if (s.id === 'fundo') {
-        fundoAntes = corLida(lidos, '--bg');
-        tintasAntes = TINTAS_DO_FUNDO.map(function (t) {
-          var cor = corLida(lidos, t);
-          return { token: t, cor: cor, alvo: contraste(cor, fundoAntes) };
-        });
-      }
       s.tokens.forEach(function (t) {
         var base = trocaCor ? escolhida : corLida(lidos, t);
         if (!base) return;
         raiz.style.setProperty(t, corComIntensidade(base, intensidade));
       });
-      if (tintasAntes) {
-        var fundoAgora = corComIntensidade(fundoAntes, intensidade);
-        tintasAntes.forEach(function (x) {
-          if (!x.cor) return;
-          raiz.style.setProperty(x.token, ajustarTinta(x.cor, fundoAgora, x.alvo));
-        });
-      }
     });
 
     /* A TINTA DEPOIS DAS CORES, e lida de novo: ela tem de sair da cor que ficou
@@ -690,16 +768,43 @@
       if (tri) raiz.style.setProperty('--c-topo-rgb', tri);
     }
 
-    /* O VALOR MEDIDO FICA enquanto ninguém mexe no grupo: as tintas de fábrica foram
-       escolhidas à mão, e trocá-las por um cálculo mudaria a tela de quem não pediu
-       nada. Recalculadas só onde a cor de fato mudou. */
-    [['topo', '--c-topo', '--c-topo-tinta'],
-     ['usuario', '--c-usuario', '--c-usuario-tinta'],
-     ['botao', '--brand', '--sobre-brand']].forEach(function (par) {
-      if (!mexeu[par[0]]) return;
-      var cor = corLida(agora, par[1]);
-      if (!cor || cor.charAt(0) !== '#') return;
-      raiz.style.setProperty(par[2], tintaSobre(cor));
+    /* ---- A COR DO TEXTO DE CADA BLOCO ----
+     *
+     * O VALOR MEDIDO FICA enquanto ninguém mexe no grupo: as tintas de fábrica foram
+     * escolhidas à mão, e trocá-las por um cálculo mudaria a tela de quem não pediu
+     * nada. Recalculadas só quando a cor do bloco mudou, ou quando alguém ESCOLHEU uma
+     * cor de texto para ele.
+     *
+     * A LISTA DE PARES SAIU DAQUI: ela repetia, escrita à mão, o que cada superfície já
+     * sabe dizer (`sobre` e `tintas`). Com ela, acrescentar um bloco significava lembrar
+     * de dois lugares, e o bloco novo nasceria pintado e sem texto.
+     *
+     * A COR ESCOLHIDA É O PONTO DE PARTIDA, E NÃO A PALAVRA FINAL. Ela é empurrada em
+     * luz até alcançar o contraste necessário, e só então escrita: o matiz é respeitado,
+     * a legibilidade não é negociada. Um verde sobre o verde do topo seria uma escolha
+     * de dois cliques que deixa texto ilegível no galpão — e quem escolheu não teria
+     * como saber. */
+    SUPERFICIES.forEach(function (s) {
+      var escolhidaTinta = TINTAS_LIVRES[String(APARENCIA[s.tinta] || '')];
+      if (!mexeu[s.id] && !escolhidaTinta) return;
+      var sobre = corLida(agora, s.sobre);
+      if (!sobre || sobre.charAt(0) !== '#') return;
+      /* O FUNDO TEM QUATRO FORÇAS, e elas não podem virar quatro vezes a mesma cor: a
+         distância entre elas é o que faz um rótulo pesar menos que um número sem sumir.
+         Então a cor escolhida entra como MATIZ, e cada uma guarda o alvo de contraste
+         que tinha — é a mesma conta que o fundo já fazia quando só a intensidade
+         mudava. */
+      if (s.tintas === TINTAS_DO_FUNDO) {
+        tintasAntes.forEach(function (x) {
+          if (!x.cor) return;
+          raiz.style.setProperty(x.token,
+            ajustarTinta(escolhidaTinta || x.cor, sobre, x.alvo));
+        });
+        return;
+      }
+      var t = escolhidaTinta ? ajustarTinta(escolhidaTinta, sobre, PISO_TINTA)
+                             : tintaSobre(sobre);
+      s.tintas.forEach(function (tk) { raiz.style.setProperty(tk, t); });
     });
 
     if (guardar !== false) {
@@ -1017,6 +1122,30 @@
   }
 
   function num(n) { return (Number(n) || 0).toLocaleString('pt-BR'); }
+  /* O NUMERO COM CASA DECIMAL, e o arredondamento ANTES do texto.
+   *
+   * `90 - 63.2` da' `26.799999999999997` em qualquer JavaScript, e foi isso que apareceu
+   * no cartao da Taxa de Retorno: "faltam 26.799999999999997 pontos". Nao e' defeito de
+   * conta — e' como ponto flutuante binario guarda um decimal —, e por isso o conserto
+   * nao e' na subtracao: e' aqui, na hora de virar texto. Qualquer outra subtracao de
+   * numeros com virgula faria o mesmo, e agora todas passam por um lugar so'.
+   *
+   * E O SEPARADOR E' A VIRGULA, que e' como se escreve numero no Brasil. A taxa saia
+   * com PONTO — `63.2%` — porque era um `Number` concatenado direto numa string, sem
+   * passar por formatacao nenhuma. Duas notacoes no mesmo cartao, uma em cada linha.
+   *
+   * SEM ZERO A' TOA: 90 sai "90", e nao "90,0". O minimo e' zero casa e o maximo e' o
+   * que se pede — quem le' "faltam 27 pontos" nao ganha nada com a virgula zero. */
+  function dec(n, casas) {
+    /* QUEM ARREDONDA E' O `toLocaleString`, e por isso nao ha um `Math.round` aqui.
+       Havia: `Math.round(n * 10) / 10` antes da formatacao. A bancada mostrou que tirar
+       aquela linha nao mudava uma unica saida — `maximumFractionDigits` ja' arredonda,
+       e e' ele que decide. Linha que nenhuma prova consegue derrubar e' linha que mente
+       sobre quem faz o trabalho. */
+    var c = casas === undefined ? 1 : casas;
+    return (Number(n) || 0).toLocaleString('pt-BR',
+      { minimumFractionDigits: 0, maximumFractionDigits: c });
+  }
   function dataBR(iso) {
     if (!iso) return '';
     var d = String(iso).slice(0, 10).split('-');
@@ -3083,7 +3212,8 @@
     cache: cache, carregarDados: carregarDados, semApi: semApi,
     precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
-    temTeste: temTeste, num: num, dataBR: dataBR, hoje: hoje, esc: esc, soDigitos: soDigitos,
+    temTeste: temTeste, num: num, dec: dec, dataBR: dataBR, hoje: hoje,
+    esc: esc, soDigitos: soDigitos,
     hojeOperacao: hojeOperacao, diaOperacao: diaOperacao,
     FUSO_OPERACAO: FUSO_OPERACAO,
     UNIDADE: UNIDADE, relogioETempo: relogioETempo, caminhao: caminhao,
@@ -3098,6 +3228,7 @@
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
     mudarSuperficie: mudarSuperficie, aparenciaAtual: aparenciaAtual,
     SUPERFICIES: SUPERFICIES, CORES_LIVRES: CORES_LIVRES,
+    TINTAS_LIVRES: TINTAS_LIVRES,
     INT_MIN: INT_MIN, INT_MAX: INT_MAX, INT_PADRAO: INT_PADRAO,
     corComIntensidade: corComIntensidade, contraste: contraste,
     ajustarTinta: ajustarTinta, TINTAS_DO_FUNDO: TINTAS_DO_FUNDO,

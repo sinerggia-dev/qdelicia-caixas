@@ -4726,6 +4726,41 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     + 'inteira ficaria sem cor de marca ate alguem editar o banco a mao',
     depois.config.tema);
 
+  /* ---- A COR DO TEXTO DE CADA BLOCO ----
+     Quatro chaves novas, a pedido. Elas valem para TODAS as telas do galpao, e um nome
+     que o aplicador nao conhece nao pinta nada: a tela fica com o texto da folha e quem
+     escolheu jura que clicou. A rota confere aqui tambem, e nao so' a tela — ela nao tem
+     autorizacao, e quem manda para ela nao e' so' a nossa pagina.
+
+     AS QUATRO SAO COBRADAS UMA A UMA. Uma lista compartilhada e' escrita num lugar so',
+     e um `forEach` que esquecesse uma deixaria a chave fora de `VALORES_APARENCIA` —
+     e chave sem lista PASSA, porque `permitidos` sai `undefined`. */
+  for (const chave of ['topoTinta', 'fundoTinta', 'botaoTinta', 'usuarioTinta']) {
+    ok((await POST({ acao: 'salvarConfig', chave, valor: 'clara' })).ok === true,
+       chave + ': um nome conhecido de cor de texto e aceito');
+    const ruim = await POST({ acao: 'salvarConfig', chave, valor: 'fosforescente' });
+    ok(ruim.ok === false && /fosforescente/.test(String(ruim.erro)),
+       chave + ': e um que o aplicador nao conhece e RECUSADO — sem lista, `permitidos` '
+       + 'sai `undefined` e QUALQUER texto passaria direto para o banco', ruim);
+    ok(/clara, escura/.test(String(ruim.erro)),
+       chave + ': e a resposta diz quais valem', ruim.erro);
+  }
+  const voltaT = await GET({ acao: 'dados' });
+  ok(['topoTinta', 'fundoTinta', 'botaoTinta', 'usuarioTinta']
+       .every((k) => voltaT.config[k] === 'clara'),
+    'e as quatro voltam na rota `dados`, que e por onde TODA tela recebe a configuracao',
+    { topo: voltaT.config.topoTinta, fundo: voltaT.config.fundoTinta,
+      botao: voltaT.config.botaoTinta, usuario: voltaT.config.usuarioTinta });
+
+  /* VAZIO E' UM VALOR, e e' o padrao: quer dizer "automatica", que e' a conta de
+     contraste que o sistema faz sozinho. Fora da lista, nao haveria como VOLTAR a ela
+     depois de escolher uma cor — e a tela ficaria presa na escolha. */
+  for (const chave of ['topoTinta', 'fundoTinta', 'botaoTinta', 'usuarioTinta']) {
+    ok((await POST({ acao: 'salvarConfig', chave, valor: '' })).ok === true,
+       chave + ': e o vazio volta, que e a "automatica" — fora da lista, nao haveria '
+       + 'como desfazer a escolha pela tela');
+  }
+
   ok((await POST({ acao: 'salvarConfig', chave: 'fundo', valor: 'azul' })).ok === true,
      'e o fundo volta ao padrao para os blocos seguintes');
   await POST({ acao: 'salvarConfig', chave: 'tema', valor: 'roxo' });
