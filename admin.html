@@ -11595,10 +11595,19 @@
         'Nada marcado = <b>nenhum</b>: marcar é conceder. É na aba <b>Ajustes</b> que se '+
         'lança saldo inicial e baixa '+
         'de perda — marque só os locais cujo saldo esta pessoa pode corrigir.</p>'+
+      /* OS DOIS ROTULOS SAO ESCRITOS DO PONTO DE VISTA DA SAIDA, e no RETORNO eles
+         valem ao contrario — a caixa volta de um dos Destinos para uma das Saidas. Sem
+         esta frase, quem marca "so' a Matriz em Saida" nao tem como prever que isso e'
+         tambem o que decide para onde a devolucao chega: foi exatamente essa surpresa
+         que chegou do galpao. */
       caixaLocais('fSaidas', 'Saída — de onde as caixas saem',
                   locaisEscolhiveis(['GALPAO','FILIAL','ROTA','FORNECEDOR'], u.Saidas), u.Saidas)+
       caixaLocais('fDestinos', 'Destino — para onde as caixas vão',
                   locaisEscolhiveis(['GALPAO','ROTA','FILIAL','CLIENTE','FORNECEDOR'], u.Destinos), u.Destinos)+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+        'No <b>Retorno</b> as duas valem ao contrário: a caixa volta de um dos '+
+        '<b>Destinos</b> para uma das <b>Saídas</b>. Marcar só a Matriz em Saída é o '+
+        'mesmo que dizer “é para a Matriz que esta pessoa devolve”.</p>'+
       caixaLocais('fTiposCaixa', 'Tipo de caixa — o que ela pode informar',
                   tiposEscolhiveis(u.TiposCaixa), u.TiposCaixa,
                   'Nenhum tipo de caixa cadastrado ainda.')+
