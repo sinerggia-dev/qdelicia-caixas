@@ -229,25 +229,27 @@ console.log('\n== cada seletor usa a lista certa de permissão ==');
     'destino da saída vem da lista de Destino', mPode && mPode[1]);
   ok(/l\.ID\) !== String\(origem\)/.test(ajuste),
     'e a própria origem sai da lista, para não oferecer origem igual a destino');
-  /* ---- O RETORNO E' A SAIDA LIDA AO CONTRARIO ----
+  /* ---- CADA PERGUNTA TEM A LISTA DELA ----
    *
-   * As duas listas do cadastro foram escritas do ponto de vista da SAIDA: "Saida — de
-   * onde as caixas saem" e' a casa da pessoa, "Destino — para onde vao" sao os lugares
-   * que ela atende. O retorno percorre o mesmo caminho de tras para a frente, entao as
-   * duas trocam de lado.
+   * Eram DUAS listas para QUATRO campos, e isso custou duas idas ao galpao:
    *
-   * LIDAS AO PE' DA LETRA elas davam o OPOSTO do uso, e foi isso que chegou do galpao:
-   * com uma unica Saida marcada (a Matriz) e todos os Destinos, o campo "Retorno"
-   * oferecia so' a Matriz — a pessoa nao tinha como dizer de onde a caixa voltava — e o
-   * campo "Destino" oferecia o galpao inteiro, quando ha' um lugar so' para onde ela
-   * devolve. A tela ficava identica a' da saida.
+   *   1. As duas pontas do retorno liam a MESMA ('destinos'), e nenhuma marcacao
+   *      conseguia separa-las — "recebo de todas as filiais e devolvo so' para a Matriz"
+   *      nao tinha como ser montado.
+   *   2. Corrigido isso, elas passaram a TROCAR DE LADO no retorno. Dava o resultado
+   *      certo e era impossivel de prever pela tela de cadastro: dois rotulos que
+   *      queriam dizer uma coisa na Saida e a oposta no Retorno.
    *
-   * E O CRUZAMENTO ANTIGO NAO VOLTA. Ja esteve assim: as duas pontas do retorno lendo
-   * 'destinos', a MESMA lista, sem marcacao capaz de separa-las. Aqui elas continuam
-   * lendo listas DIFERENTES — so' que trocadas —, e a prova logo abaixo cobra isso. */
-  ok(listaDe('minhasOrigensDv') === 'destinos',
-    'de onde a caixa volta vem da lista de DESTINO — é um dos lugares que esta pessoa '
-    + 'atende, e no retorno o caminho é o mesmo de trás para a frente',
+   * AGORA SAO TRES, e `Retorno — de onde as caixas voltam` governa UM campo so'.
+   *
+   * O QUE CONTINUA COMPARTILHADO E' A BASE, e isso nao e' inversao: o destino do retorno
+   * le' 'saidas' porque o galpao de onde a pessoa despacha e' o mesmo para onde a
+   * devolucao chega. E' a mesma frase lida nos dois formularios — e o rotulo da caixa
+   * diz as duas coisas, para ninguem ter de descobrir isso no celular. */
+  ok(listaDe('minhasOrigensDv') === 'retornos',
+    'de onde a caixa volta vem da lista de RETORNO — pergunta própria, lista própria: '
+    + 'enquanto ela dividia lista com Destino, marcar "despacho para seis lugares" era '
+    + 'o mesmo que dizer "recebo de volta dos seis"',
     listaDe('minhasOrigensDv'));
 
   /* Os tipos do retorno moram numa constante, e as DUAS pontas bebem dela.
@@ -275,38 +277,57 @@ console.log('\n== cada seletor usa a lista certa de permissão ==');
   var ajDv = corpo('ajustarDestinoRetorno');
   var mDv = ajDv.match(/todos\s*=\s*permitidos\(.*,\s*'([a-z]+)'\)/);
   ok(mDv && mDv[1] === 'saidas',
-    'e para onde ela volta vem da lista de SAÍDA — é a casa dela, e com um único local '
-    + 'marcado o campo já vem preenchido em vez de oferecer o galpão inteiro',
+    'e para onde ela volta vem da lista de SAÍDA — é a BASE dela, a mesma de onde ela '
+    + 'despacha, e com um único local marcado o campo já vem preenchido',
     mDv && mDv[1]);
-  ok(listaDe('minhasOrigensDv') !== mDv[1],
-    'e são mesmo listas diferentes: é isso que permite "recebo de todas, devolvo só para '
-    + 'a Matriz"', [listaDe('minhasOrigensDv'), mDv[1]]);
-  /* ---- E O ESPELHO E' COMPLETO: cada ponta do retorno le' a lista da ponta OPOSTA da
-     saida. Trocar uma so' das duas reproduz o defeito relatado pela metade — e foi
-     justamente meia troca que criou o estado anterior. */
-  var mSd = listaDe('minhasSaidas');
-  ok(mSd === mDv[1] && mPode[1] === listaDe('minhasOrigensDv'),
-    'e o espelho é COMPLETO: a origem da saída e o destino do retorno leem a mesma '
-    + 'lista, e o destino da saída e a origem do retorno leem a outra — meia troca '
-    + 'reproduz o defeito pela metade',
-    { 'saida origem': mSd, 'retorno destino': mDv[1],
-      'saida destino': mPode[1], 'retorno origem': listaDe('minhasOrigensDv') });
 
-  /* ---- E O CADASTRO DIZ ISSO NA TELA ----
-     Sem a frase, quem marca "so' a Matriz em Saida" nao tem como prever que isso e'
-     tambem o que decide para onde a devolucao chega. O administrador nao le' este
-     arquivo; ele le' a tela. */
+  /* ---- AS QUATRO PERGUNTAS, E QUAL LISTA RESPONDE CADA UMA ----
+   * Escrito como tabela de proposito: e' esta tabela que estava errada duas vezes, e ler
+   * as quatro linhas juntas e' o que torna um cruzamento visivel. */
+  var MAPA = [
+    ['saída · origem',   listaDe('minhasSaidas'),        'saidas'],
+    ['saída · destino',  mPode && mPode[1],              'destinos'],
+    ['retorno · origem', listaDe('minhasOrigensDv'),     'retornos'],
+    ['retorno · destino', mDv && mDv[1],                 'saidas']
+  ];
+  MAPA.forEach(function (l) {
+    ok(l[1] === l[2],
+      l[0] + ' lê a lista `' + l[2] + '` — foi esta tabela que esteve errada duas vezes, '
+      + 'e é lendo as quatro linhas juntas que um cruzamento fica visível',
+      { lê: l[1], devia: l[2] });
+  });
+  /* E AS TRES LISTAS SAO MESMO TRES, e nao duas com um apelido: se duas respostas
+     caissem na mesma lista sem ser o par da BASE, voltaria a nao haver marcacao capaz
+     de separar aquelas duas perguntas. */
+  var usadas = {};
+  MAPA.forEach(function (l) { usadas[l[1]] = (usadas[l[1]] || 0) + 1; });
+  ok(Object.keys(usadas).length === 3 && usadas.saidas === 2,
+    'e são TRÊS listas para quatro perguntas, com `saidas` respondendo exatamente duas — '
+    + 'a base é uma só, e qualquer outra repetição deixa duas perguntas sem como serem '
+    + 'separadas por marcação nenhuma', usadas);
+
+  /* ---- E O CADASTRO OFERECE A TERCEIRA CAIXA ----
+     Ela pode existir no app de campo e nao no cadastro: a lista chega vazia, "nada
+     marcado = nada liberado" vale, e o retorno fica sem origem nenhuma — uma tela morta
+     sem nada dizendo por que. */
   var admEsp = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
-  var iSai = admEsp.indexOf("caixaLocais('fSaidas'");
-  var vizinho = iSai < 0 ? '' : admEsp.slice(iSai, iSai + 1800);
-  ok(/No <b>Retorno<\/b> as duas valem ao contrário/.test(vizinho),
-    'e a tela do cadastro avisa que no Retorno as duas listas valem ao contrário — o '
-    + 'administrador não lê o código, ele lê a tela, e esta é a surpresa que chegou do '
-    + 'galpão', vizinho.slice(0, 160));
-  ok(vizinho.indexOf('fDestinos') > 0 &&
-     vizinho.indexOf('No <b>Retorno</b>') > vizinho.indexOf('fDestinos'),
-    'e o aviso vem DEPOIS das duas caixas, não entre elas — entre elas, ele se lê como '
-    + 'legenda só da primeira');
+  ok(admEsp.indexOf("caixaLocais('fRetornos', 'Retorno — de onde as caixas voltam'") > 0,
+    'o cadastro oferece a caixa de Retorno — sem ela a lista chega vazia, e "nada '
+    + 'marcado = nada liberado" deixa o retorno sem origem nenhuma, calado');
+  ok(/Retornos:lerMarcados\('fRetornos'\)/.test(admEsp),
+    'e o salvar manda a marcação dela — desenhada e não enviada, a caixa aceita o clique '
+    + 'e a gravação seguinte escreve vazio por cima');
+  ok(admEsp.indexOf("'fDestinos','fRetornos'") > 0 ||
+     /quadros = \[[^\]]*'fRetornos'/.test(admEsp),
+    'e ela trava junto com as outras quando a pessoa é desativada — fora da lista de '
+    + 'quadros, a caixa continuaria clicável num cadastro inativo');
+  /* E O ROTULO DA SAIDA DIZ QUE ELA VALE PARA OS DOIS CAMPOS. Sem isso, marcar "so' a
+     Matriz em Saida" e descobrir no celular que isso decidiu o destino da devolucao e'
+     a mesma surpresa de antes, com uma caixa a mais. */
+  ok(/'Saída — de onde as caixas saem, e para onde elas voltam'/.test(admEsp),
+    'e o rótulo da Saída diz que ela vale para os DOIS campos — é a base da pessoa, e '
+    + 'sem dizer isso marcar um local e descobrir o efeito no celular é a mesma surpresa '
+    + 'de antes, com uma caixa a mais');
 
   /* Com um unico local marcado em Destino, tirar a origem esvaziava o campo e o
      lancamento ficava impossivel, sem nada na tela dizendo por que. */

@@ -1935,6 +1935,7 @@
       foto: u.Foto || '',
       localPadrao: u.LocalPadrao, acessoPainel: podeVerPainelRegistro(u),
       saidas: lista(u.Saidas), destinos: lista(u.Destinos),
+      retornos: lista(u.Retornos),
       tiposCaixa: lista(u.TiposCaixa), motoristas: lista(u.Motoristas),
       veiculos: lista(u.Veiculos),
       operacoes: lista(u.Operacoes), abas: lista(u.Abas),
@@ -11595,19 +11596,34 @@
         'Nada marcado = <b>nenhum</b>: marcar é conceder. É na aba <b>Ajustes</b> que se '+
         'lança saldo inicial e baixa '+
         'de perda — marque só os locais cujo saldo esta pessoa pode corrigir.</p>'+
-      /* OS DOIS ROTULOS SAO ESCRITOS DO PONTO DE VISTA DA SAIDA, e no RETORNO eles
-         valem ao contrario — a caixa volta de um dos Destinos para uma das Saidas. Sem
-         esta frase, quem marca "so' a Matriz em Saida" nao tem como prever que isso e'
-         tambem o que decide para onde a devolucao chega: foi exatamente essa surpresa
-         que chegou do galpao. */
-      caixaLocais('fSaidas', 'Saída — de onde as caixas saem',
+      /* ============ TRÊS LISTAS, UMA POR PERGUNTA ============
+         Eram DUAS para QUATRO campos, e por isso elas trocavam de lado no Retorno: a
+         origem da devolução lia Destino e o destino dela lia Saída. Funcionava e era
+         impossível de prever pela tela — dois rótulos que queriam dizer uma coisa na
+         Saída e a oposta no Retorno. Quem configurou um usuário e foi conferir no
+         celular viu a tela de Retorno idêntica à de Saída e não teve como explicar.
+
+         A BASE DA PESSOA É UMA SÓ, e por isso `Saídas` governa DOIS campos: de onde ela
+         despacha e para onde a devolução chega. Isso não é inversão — é a mesma frase
+         ("onde esta pessoa fica") lida nos dois formulários. O rótulo diz as duas.
+
+         QUATRO LISTAS SERIA O EXPLÍCITO TOTAL, e foi descartado: a quarta seria "para
+         onde a devolução vai", que para toda operação real é a base — a mesma coisa que
+         Saída, preenchida duas vezes, divergindo no primeiro esquecimento. */
+      caixaLocais('fSaidas', 'Saída — de onde as caixas saem, e para onde elas voltam',
                   locaisEscolhiveis(['GALPAO','FILIAL','ROTA','FORNECEDOR'], u.Saidas), u.Saidas)+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+        'É a <b>base</b> desta pessoa: o galpão de onde ela despacha é o mesmo para onde '+
+        'a devolução chega. Marcar só a Matriz já deixa os dois campos preenchidos no '+
+        'celular.</p>'+
       caixaLocais('fDestinos', 'Destino — para onde as caixas vão',
                   locaisEscolhiveis(['GALPAO','ROTA','FILIAL','CLIENTE','FORNECEDOR'], u.Destinos), u.Destinos)+
+      caixaLocais('fRetornos', 'Retorno — de onde as caixas voltam',
+                  locaisEscolhiveis(['GALPAO','FILIAL','ROTA'], u.Retornos), u.Retornos)+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
-        'No <b>Retorno</b> as duas valem ao contrário: a caixa volta de um dos '+
-        '<b>Destinos</b> para uma das <b>Saídas</b>. Marcar só a Matriz em Saída é o '+
-        'mesmo que dizer “é para a Matriz que esta pessoa devolve”.</p>'+
+        'Separada de <b>Destino</b> de propósito: dá para despachar para seis lugares e '+
+        'receber de volta de um só. Cliente e fornecedor não entram — aquela coleta é '+
+        'lançada como saída da rota.</p>'+
       caixaLocais('fTiposCaixa', 'Tipo de caixa — o que ela pode informar',
                   tiposEscolhiveis(u.TiposCaixa), u.TiposCaixa,
                   'Nenhum tipo de caixa cadastrado ainda.')+
@@ -11738,8 +11754,8 @@
       var veLanc = ativo && verLanc.value === 'SIM';
       verLanc.disabled = !ativo;
 
-      var quadros = ['fAbas','fOperacoes','fAjustes','fSaidas','fDestinos','fTiposCaixa',
-                     'fMotoristas','fUsuariosVistos'];
+      var quadros = ['fAbas','fOperacoes','fAjustes','fSaidas','fDestinos','fRetornos',
+                     'fTiposCaixa','fMotoristas','fUsuariosVistos'];
       quadros.forEach(function(q){
         var box = document.getElementById(q);
         if (!box) return;
@@ -11912,6 +11928,7 @@
         PodeCorrigir:document.getElementById('fPodeCorrigir').value,
         UsuariosVistos:lerMarcados('fUsuariosVistos'),
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
+        Retornos:lerMarcados('fRetornos'),
         TiposCaixa:lerMarcados('fTiposCaixa'), Motoristas:lerMarcados('fMotoristas'),
         Veiculos:lerMarcados('fVeiculos'),
         Operacoes:lerMarcados('fOperacoes'), Abas:lerMarcados('fAbas'),

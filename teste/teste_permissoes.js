@@ -95,6 +95,12 @@ var PERMISSOES = [
     usa: [['index.html', 'saidas']] },
   { nome: 'Destinos', chave: 'Destinos', campo: 'fDestinos', sessao: 'destinos',
     usa: [['index.html', 'destinos']] },
+  /* DE ONDE AS CAIXAS VOLTAM. Lista propria desde 14/10/2026: antes a origem do retorno
+     lia `destinos`, e os dois rotulos do cadastro queriam dizer uma coisa na Saida e a
+     oposta no Retorno. Esta varredura foi quem cobrou o registro dela — a lista entrou
+     no formulario e a conferencia avisou no mesmo minuto. */
+  { nome: 'Retornos', chave: 'Retornos', campo: 'fRetornos', sessao: 'retornos',
+    usa: [['index.html', 'retornos']] },
   { nome: 'TiposCaixa', chave: 'TiposCaixa', campo: 'fTiposCaixa', sessao: 'tiposCaixa',
     usa: [['index.html', 'tiposCaixa']] },
   { nome: 'Motoristas', chave: 'Motoristas', campo: 'fMotoristas', sessao: 'motoristas',
@@ -145,7 +151,8 @@ PERMISSOES.forEach(function (p) {
  * As cinco listas de cadastro passam todas pela MESMA função, com a chave da
  * sessão como segundo argumento. É isso que se cobra aqui: a chamada, com a
  * chave certa, e não a palavra solta no arquivo. */
-var PENEIRADAS = ['saidas', 'destinos', 'tiposCaixa', 'motoristas', 'veiculos'];
+var PENEIRADAS = ['saidas', 'destinos', 'retornos', 'tiposCaixa', 'motoristas',
+                  'veiculos'];
 PENEIRADAS.forEach(function (k) {
   ok(new RegExp("permitidos\\([\\s\\S]{0,120}?,\\s*'" + k + "'\\)").test(telas['index.html']),
     k + ": a lista passa por `permitidos(…, '" + k + "')` — sem a peneira a pessoa " +

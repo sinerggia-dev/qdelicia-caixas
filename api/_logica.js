@@ -1020,6 +1020,10 @@ function sessaoDe(u) {
     podeCorrigir: u.PodeCorrigir !== false,
     saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
     destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
+    /* DE ONDE A CAIXA VOLTA. Lista propria desde 14/10/2026: antes a origem do retorno
+       lia `destinos`, e os dois rotulos do cadastro queriam dizer uma coisa na Saida e a
+       oposta no Retorno. */
+    retornos: Array.isArray(u.Retornos) ? u.Retornos : [],
     // Mesma convenção das outras: lista vazia quer dizer NENHUM — marcar é conceder.
     tiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
     motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
@@ -2894,6 +2898,7 @@ function usuariosPublicos(usuarios) {
          Motoristas — por isso o teste de simetria logo abaixo desta função. */
       Saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
       Destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
+      Retornos: Array.isArray(u.Retornos) ? u.Retornos : [],
       TiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
       Motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
       Veiculos: Array.isArray(u.Veiculos) ? u.Veiculos : [],

@@ -237,6 +237,7 @@ var USUARIO = {
          inteira a cada visita ao painel. */
       Foto: r.foto || '',
       Saidas: lista(r.saidas), Destinos: lista(r.destinos),
+      Retornos: lista(r.retornos),
       TiposCaixa: lista(r.tipos_caixa), Motoristas: lista(r.motoristas),
       Veiculos: lista(r.veiculos),
       Operacoes: lista(r.operacoes), Abas: lista(r.abas),
@@ -279,6 +280,7 @@ var USUARIO = {
     if (o.Abas !== undefined) r.abas = lista(o.Abas);
     if (o.Ajustes !== undefined) r.ajustes = lista(o.Ajustes);
     if (o.Destinos !== undefined) r.destinos = lista(o.Destinos);
+    if (o.Retornos !== undefined) r.retornos = lista(o.Retornos);
     return r;
   }
 };

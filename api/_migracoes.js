@@ -643,4 +643,31 @@ module.exports = [
       "   por cima dela. Nao vale para a DECLARACAO, que tem regra propria por perfil.';"
     ].join('\n')
   }
+,
+  {
+    id: '2026-10-14-retornos',
+    nota: 'de onde as caixas voltam: a terceira lista de locais da pessoa',
+    sql: [
+      "-- DE ONDE AS CAIXAS VOLTAM.",
+      "--",
+      "-- Eram duas listas para QUATRO campos, e por isso elas trocavam de lado no",
+      "-- retorno: a origem da devolucao lia `destinos` e o destino dela lia `saidas`.",
+      "-- Funcionava e era impossivel de prever pela tela — dois rotulos que queriam dizer",
+      "-- uma coisa na Saida e a oposta no Retorno. Agora cada pergunta tem a lista dela.",
+      "--",
+      "-- NASCE COPIANDO `destinos`, e isto nao e' conveniencia: e' o que a pessoa JA'",
+      "-- podia fazer ontem. Nascendo vazia, a regra da casa — nada marcado = nada",
+      "-- liberado — tiraria o retorno de TODA a operacao no instante do deploy, e a volta",
+      "-- seria o administrador reabrir usuario por usuario. Uma permissao nova que TIRA o",
+      "-- que ja' se fazia e' um apagao, nao um ajuste. Mesma decisao, pelo mesmo motivo,",
+      "-- da migracao que criou `saidas` e `destinos` e da que criou `pode_corrigir`.",
+      "alter table public.usuarios",
+      "  add column if not exists retornos jsonb not null default '[]'::jsonb;",
+      "update public.usuarios set retornos = destinos where retornos = '[]'::jsonb;",
+      "comment on column public.usuarios.retornos is",
+      "  'De onde esta pessoa pode receber caixa de volta. Governa UM campo: a origem do",
+      "   Retorno no app de campo. Nasceu copiando `destinos`, que era a lista que aquele",
+      "   campo lia antes de ela existir.';"
+    ].join('\n')
+  }
 ];

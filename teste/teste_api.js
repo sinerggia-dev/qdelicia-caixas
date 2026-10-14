@@ -3590,7 +3590,8 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
 
     const volta = F.usuariosPublicos([{
       ID: 'U1', Nome: 'A', Perfil: 'Gestor',
-      Saidas: ['a'], Destinos: ['b'], TiposCaixa: ['c'], Motoristas: ['d'],
+      Saidas: ['a'], Destinos: ['b'], Retornos: ['r'],
+      TiposCaixa: ['c'], Motoristas: ['d'],
       Veiculos: ['V1'],
       Operacoes: ['SAIDA'], Abas: ['pgPainel'], Ajustes: ['L1'], SoProprios: true
     }])[0];
@@ -3684,10 +3685,24 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
     const sup = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
     const iU = sup.indexOf('USUARIO');
     const trad = sup.slice(iU > 0 ? iU : 0);
-    [['Saidas', 'saidas'], ['Destinos', 'destinos'], ['TiposCaixa', 'tipos_caixa'],
-     ['Motoristas', 'motoristas'], ['Operacoes', 'operacoes'], ['Abas', 'abas'],
-     ['Ajustes', 'ajustes'], ['UsuariosVistos', 'usuarios_vistos']
-    ].forEach(([campo, coluna]) => {
+    /* A LISTA DOS CAMPOS E' DERIVADA, e nao escrita aqui. Estava escrita — oito pares
+       `[campo, coluna]` a mao — e por isso nao cresceu quando a lista `Retornos` nasceu:
+       a permissao nova atravessou a tela, a sessao e a rota, e o unico lugar onde ela
+       podia se perder de verdade (o tradutor do banco) ficou sem conferencia. Duas
+       sabotagens escaparam por isso de uma vez.
+       A FONTE E' `usuariosPublicos`, que e' quem decide o que volta para o painel: o que
+       estiver la' atravessa o tradutor, ou nao fica salvo. */
+    const logicaTxt = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+    const iPub = logicaTxt.indexOf('      Saidas: Array.isArray(u.Saidas)');
+    const blocoPub = logicaTxt.slice(iPub, logicaTxt.indexOf('\n    };', iPub));
+    const CAMPOS_LISTA = [...blocoPub.matchAll(/^ {6}(\w+): Array\.isArray\(u\.\1\)/gm)]
+      .map((m) => m[1]);
+    const paraColuna = (c) => c.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+    ok(CAMPOS_LISTA.length >= 8 && CAMPOS_LISTA.includes('Retornos'),
+      'a conferencia derivou de `usuariosPublicos` as listas que voltam para o painel — '
+      + 'escrita a mao, ela nao cresce com a permissao nova e deixa justamente o '
+      + 'tradutor do banco sem cobertura', CAMPOS_LISTA);
+    CAMPOS_LISTA.map((c) => [c, paraColuna(c)]).forEach(([campo, coluna]) => {
       ok(new RegExp(campo + ':\\s*(lista\\(r\\.' + coluna + '\\)|Array\\.isArray\\(r\\.' + coluna + '\\))')
         .test(trad),
         campo + ': o tradutor LÊ a coluna `' + coluna + '` do banco — sem isto a marcação ' +
@@ -3695,6 +3710,43 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
       ok(new RegExp('o\\.' + campo + ' !== undefined\\) r\\.' + coluna + ' =').test(trad),
         campo + ': e GRAVA nela — sem isto a marcação some no caminho de volta, sem erro');
     });
+
+    /* ---- UMA LISTA DE PERMISSAO NAO NASCE VAZIA ----------------------------
+       A regra da casa e' "nada marcado = nada liberado". Para uma permissao NOVA isso se
+       vira contra a operacao: a coluna nasce `'[]'`, e no instante do deploy toda a
+       equipe perde aquilo — nao porque alguem decidiu, mas porque ninguem tinha como
+       ter marcado antes de a caixa existir. Uma permissao que TIRA o que ja' se fazia e'
+       um apagao, nao um ajuste.
+       ENTAO TODA MIGRACAO QUE CRIA UMA DESSAS COLUNAS TEM DE PREENCHE-LA na mesma
+       migracao. A conta e' derivada do proprio arquivo: para cada coluna `jsonb` com
+       default `'[]'` que nasce, tem de haver um `update` dela ali. */
+    const nasce = {}, semeada = {};
+    require(path.join(__dirname, '..', 'api', '_migracoes.js')).forEach((mg, ordem) => {
+      const sql = String(mg.sql || '');
+      const re = /add column if not exists (\w+) jsonb not null default '\[\]'::jsonb/g;
+      let mm;
+      while ((mm = re.exec(sql))) {
+        /* SO' AS LISTAS DA PESSOA. Ha' colunas `jsonb` que nascem vazias com razao — o
+           `historico` de um movimento comeca sem correcao nenhuma, e as `rotas` de um
+           motorista sao vinculo, nao permissao. O que nao pode nascer vazio e' o que a
+           regra "nada marcado = nada liberado" transforma em porta fechada. */
+        const antes = sql.slice(Math.max(0, mm.index - 140), mm.index);
+        if (!/public\.usuarios/.test(antes)) continue;
+        if (nasce[mm[1]] === undefined) nasce[mm[1]] = ordem;
+      }
+      const re2 = /update public\.usuarios set (\w+) =/g;
+      while ((mm = re2.exec(sql))) {
+        if (semeada[mm[1]] === undefined) semeada[mm[1]] = ordem;
+      }
+    });
+    const semSemente = Object.keys(nasce).filter(
+      (c) => semeada[c] === undefined || semeada[c] < nasce[c]);
+    ok(!semSemente.length,
+      'toda lista de permissao criada vazia e preenchida por uma migracao posterior — '
+      + '"nada marcado = nada liberado" vira apagao quando a caixa acabou de nascer: '
+      + 'ninguem tinha como ter marcado antes dela existir, e a volta seria o '
+      + 'administrador reabrir usuario por usuario',
+      { semSemente: semSemente, nasce: nasce, semeada: semeada });
 
     /* OS DOIS SENTIDOS DAS COLUNAS NOVAS. O apelido e o nome completo atravessam o
        tradutor como qualquer outra coluna, e o defeito e o mesmo das de cima: deixar de

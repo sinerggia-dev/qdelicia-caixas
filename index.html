@@ -1151,10 +1151,9 @@
     var origem = document.getElementById('dvOrigem').value;
     var alvo = document.getElementById('dvDestino');
     var antes = alvo.value;
-    /* FILTRADO POR 'saidas', e nao por 'destinos': no retorno a caixa volta para a CASA
-       de quem lanca, e a casa dela e' o que o cadastro marcou em Saida. E' a outra metade
-       do espelho descrito em `montarFormularios` — la' a origem do retorno passou a ler
-       'destinos', e aqui o destino passa a ler 'saidas'.
+    /* FILTRADO POR 'saidas', e e' o UNICO campo que divide lista com outro formulario:
+       no retorno a caixa volta para a CASA de quem lanca, e a casa dela e' a mesma de
+       onde ela despacha. Nao e' inversao — e' a mesma frase lida duas vezes.
        O EFEITO NA TELA: quem tem um unico local em Saida ja' encontra este campo
        preenchido, e nao mais o galpao inteiro para escolher. */
     var todos = permitidos(locaisPor(TIPOS_RETORNO), 'saidas');
@@ -1283,21 +1282,21 @@
        Quem devolve nao e so a rota: filial e galpao tambem seguram caixa. Os tipos estao
        em TIPOS_RETORNO.
 
-       AS DUAS LISTAS DO CADASTRO TROCAM DE LADO AQUI, e isto e' o conserto de um defeito
-       relatado do galpao. Elas foram escritas do ponto de vista da SAIDA — "Saida: de
-       onde as caixas saem" e' a casa da pessoa, "Destino: para onde vao" sao os lugares
-       que ela atende. O retorno e' o mesmo caminho ao contrario: a caixa volta DE um dos
-       lugares atendidos PARA a casa dela.
+       DE ONDE A CAIXA VOLTA TEM LISTA PROPRIA, e isto encerra uma confusao que custou
+       duas idas ao galpao. Eram DUAS listas para QUATRO campos, e elas trocavam de lado
+       aqui: a origem do retorno lia 'destinos' e o destino dele lia 'saidas'. Dava o
+       resultado certo e era impossivel de prever pela tela de cadastro — dois rotulos
+       que queriam dizer uma coisa na Saida e a oposta no Retorno.
 
-       LIDAS AO PE' DA LETRA, elas davam o oposto do uso: com uma unica Saida marcada
-       (a Matriz) e todos os Destinos, o campo "Retorno" oferecia so' a Matriz — a pessoa
-       nao tinha como dizer de onde a caixa estava voltando — e o campo "Destino" oferecia
-       o galpao inteiro, quando ha' um lugar so' para onde ela devolve.
+       ANTES DISSO as duas pontas liam a MESMA lista ('destinos'), e nenhuma marcacao
+       conseguia separa-las: quem quisesse "recebo de todas as filiais e devolvo so' para
+       a Matriz" nao tinha como montar.
 
-       O CRUZAMENTO NAO VOLTA A SER O ANTIGO. Ja esteve assim: as duas pontas do retorno
-       lendo 'destinos', a MESMA lista, sem marcacao capaz de separa-las. Aqui elas
-       continuam lendo listas DIFERENTES — so' que trocadas. */
-    var minhasOrigensDv = permitidos(locaisPor(TIPOS_RETORNO), 'destinos');
+       AGORA CADA PERGUNTA TEM A LISTA DELA. O que sobrou de compartilhado e' a BASE: o
+       destino do retorno continua lendo 'saidas', porque o galpao de onde a pessoa
+       despacha e' o mesmo para onde a devolucao chega — a mesma frase lida nos dois
+       formularios, e nao uma inversao. */
+    var minhasOrigensDv = permitidos(locaisPor(TIPOS_RETORNO), 'retornos');
     document.getElementById('sdOrigem').innerHTML = opcoes(minhasSaidas);
     document.getElementById('dvOrigem').innerHTML = opcoes(minhasOrigensDv);
     // Um local só não é escolha: já vem posto, e a pessoa economiza um toque por lançamento.
