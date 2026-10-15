@@ -16984,6 +16984,13 @@ console.log('\n== copiar um cadastro ==');
   }])[0];
   var copia = copiaDe(modelo);
 
+  /* A LISTA DOS QUATRO LIVROS, do proprio arquivo: ela alimenta a prova das
+     permissoes que devem copiar E a das bases do formulario. Escrita aqui, ela
+     nao cresceria com a quinta base. */
+  var BASES_T = new Function(
+    adm.slice(adm.indexOf('  var BASES = ['), adm.indexOf('\n  function baseDaLinha')) +
+    '\n return BASES;')();
+
   /* ---- TODO CAMPO TEM DE ESTAR CLASSIFICADO ----
    *
    * Esta e a prova que faltava, e a que teria pego o defeito antes de voce: a primeira
@@ -17008,8 +17015,18 @@ console.log('\n== copiar um cadastro ==');
   var deveCopiar = Object.keys(modelo).filter(function (k) {
     return naoCopia.indexOf(k) < 0;
   });
+  /* `UsuariosVistos` COPIA MENOS O MOLDE, e e' a unica excecao a "vem igual".
+     A lista inteira copia, e bem — "ve' o Beltrano e o Ciclano" e' a permissao que se
+     quis repetir. Mas o MOLDE aparece nela quando ele ve' a si mesmo, e copiado isso
+     vira "o novo ve' os lancamentos do molde": permissao a MAIS, calada, que e'
+     exatamente o defeito que esta bancada nasceu para pegar — so' que pelo outro lado.
+     A conta abaixo compara contra o molde JA' SEM ele mesmo. */
+  function semOMolde(k, valor) {
+    if (k !== 'UsuariosVistos' || !Array.isArray(valor)) return valor;
+    return valor.filter(function (id) { return String(id) !== String(modelo.ID); });
+  }
   var faltando = deveCopiar.filter(function (k) {
-    return JSON.stringify(copia[k]) !== JSON.stringify(modelo[k]);
+    return JSON.stringify(copia[k]) !== JSON.stringify(semOMolde(k, modelo[k]));
   });
   ok(faltando.length === 0 && deveCopiar.length > 15,
     'e todas elas vêm iguais — perfil, painel, abas, operações, locais, caixas, ' +
@@ -17020,12 +17037,27 @@ console.log('\n== copiar um cadastro ==');
      entao mover uma permissao para dentro de NAO_COPIA a faria passar — e uma permissao
      que deixa de copiar e exatamente o defeito que esta bancada nasceu para pegar.
      Nomeadas, elas precisam vir, venha o que vier na outra lista. */
+  /* E ELA NAO E' MAIS ESCRITA A MAO. Era — dezenove nomes —, e nao cresceu quando a
+     lista `Retornos` nasceu: acrescentar a permissao nova a `NAO_COPIA` passava nas
+     DUAS provas, a derivada (porque esta' nomeada la') e a nomeada (porque nao esta'
+     nomeada aqui). Era a mesma circularidade que o comentario acima avisa, so' que por
+     fora.
+     A FONTE E' O FORMULARIO: toda permissao que ele ENVIA aparece como
+     `Nome:lerMarcados('fNome')` no salvar, e as quatro bases saem da lista `BASES`. Sao
+     duas fontes independentes de `NAO_COPIA`, que e' o que quebra a circularidade. */
+  var doSalvar = (adm.match(/(\w+):lerMarcados\(/g) || [])
+    .map(function (x) { return x.split(':')[0]; });
+  var dasBases = BASES_T.map(function (b) { return b.campo; });
   var devemVir = ['Perfil', 'LocalPadrao', 'Ativo', 'AcessoPainel', 'SoProprios',
-    'VerLancamentos', 'UsuariosVistos', 'Saidas', 'Destinos', 'TiposCaixa',
-    'Motoristas', 'Veiculos', 'Operacoes', 'Abas', 'Ajustes',
-    'BaseProducao', 'Teste', 'BaseDeclaracao', 'BaseTesteDeclaracao'];
+    'VerLancamentos'].concat(doSalvar, dasBases).filter(function (k, i, L) {
+      return L.indexOf(k) === i && modelo[k] !== undefined;
+    });
+  ok(devemVir.length >= 19 && devemVir.indexOf('Retornos') >= 0,
+    'a lista das permissões que DEVEM copiar sai do formulário e das bases, e não ' +
+    'escrita à mão — escrita, ela não cresceu quando `Retornos` nasceu, e pôr a ' +
+    'permissão nova em `NAO_COPIA` passava nas duas provas', devemVir);
   var perdidas = devemVir.filter(function (k) {
-    return JSON.stringify(copia[k]) !== JSON.stringify(modelo[k]);
+    return JSON.stringify(copia[k]) !== JSON.stringify(semOMolde(k, modelo[k]));
   });
   ok(perdidas.length === 0,
     'e as dezenove permissões estão nomeadas na prova, além da conta derivada — a ' +
@@ -17035,6 +17067,114 @@ console.log('\n== copiar um cadastro ==');
     'inclusive as duas que falharam no seu teste: o painel restrito a quem vê só os ' +
     'próprios lançamentos, e as abas — que é onde mora o acesso ao tutorial e ao vídeo',
     [copia.SoProprios, copia.Abas]);
+
+  /* ---- E O MOLDE NAO ENTRA NA LISTA DE QUEM A COPIA VE' ----
+   * Cobrado, e nao so' tolerado pela conta acima: um molde que ve' a si mesmo produzia
+   * alguem que ve' os lancamentos DO MOLDE. Vazia, a lista cai no `SoProprios` — que
+   * viaja na copia —, e "ve' so' os proprios" continua querendo dizer isso para a pessoa
+   * nova. */
+  var moldeSeVe = { ID: 'U_MOLDE', Nome: 'Molde', SoProprios: true,
+                    UsuariosVistos: ['U_MOLDE', 'U_OUTRO'] };
+  var copiaVe = copiaDe(moldeSeVe);
+  ok(copiaVe.UsuariosVistos.indexOf('U_MOLDE') < 0,
+    'o molde NÃO entra na lista de quem a cópia vê — ele aparece nela quando vê a si ' +
+    'mesmo, e copiado isso vira "o novo vê os lançamentos do molde": permissão a mais, ' +
+    'calada', copiaVe.UsuariosVistos);
+  ok(copiaVe.UsuariosVistos.indexOf('U_OUTRO') >= 0,
+    'e os outros nomes ficam — "vê o Beltrano e o Ciclano" é a permissão que se quis ' +
+    'repetir, e a tela os mostra marcados para quem copiou decidir',
+    copiaVe.UsuariosVistos);
+  var soEle = copiaDe({ ID: 'U_SO', Nome: 'So', SoProprios: true,
+                        UsuariosVistos: ['U_SO'] });
+  ok(soEle.UsuariosVistos.length === 0 && soEle.SoProprios === true,
+    'e quem via só a si mesmo produz uma cópia com a lista VAZIA e `SoProprios` ' +
+    'intacto — é assim que o servidor devolve o id de quem pergunta, e o sentido ' +
+    'sobrevive à cópia', [soEle.UsuariosVistos, soEle.SoProprios]);
+
+  /* ================= E O FORMULARIO PRECISA MOSTRAR O QUE A COPIA TRAZ =================
+   *
+   * A prova acima mede o OBJETO que `copiaDe` devolve, e ele estava certo o tempo todo.
+   * O defeito relatado estava no outro lado: o formulario recebia tudo e desenhava
+   * outra coisa, porque duas decisoes dele perguntavam `u.ID` — e a copia nao tem ID.
+   * E' justamente isso que a faz gravar gente NOVA em vez de reescrever o molde.
+   *
+   *   · as quatro bases caiam no ramo do cadastro em branco, e so' a Producao nascia
+   *     marcada: copiar alguem de Base Declaracao devolvia alguem de Base Producao;
+   *   · o acesso ao painel era forcado a "nao": copiar quem entra no painel devolvia
+   *     alguem trancado do lado de fora, calado.
+   *
+   * AS DUAS DECISOES SAO RODADAS AQUI, recortadas do arquivo. Lidas, a prova perguntaria
+   * "a palavra `temLivro` esta la'?" — e estaria, inclusive numa versao que pergunta a
+   * coisa errada. */
+  var iF = adm.indexOf('  function formUsuario(u){');
+  var fonteF = iF < 0 ? '' : adm.slice(iF, adm.indexOf('\n  function ', iF + 10));
+  /* ATE' O FIM DA LINHA, e nao `[^;]+`: a conta do `temLivro` tem um `;` DENTRO dela
+     (`function(x){ return ...; }`), e o recorte curto parava ali e devolvia meia
+     expressao — `new Function` estourava com "unexpected end of input". */
+  var mTem = /var temLivro = (.+);\s*$/m.exec(fonteF);
+  var mMarc = /var marcada = (.+);\s*$/m.exec(fonteF);
+  var mPainel = /if \(([^)]+)\) document\.getElementById\('fPainel'\)\.value = 'NAO';/
+    .exec(fonteF);
+  ok(!!mTem && !!mMarc && !!mPainel,
+    'a conferência recortou as três decisões do formulário que a cópia atravessa',
+    [!!mTem, !!mMarc, !!mPainel]);
+
+  function decide(u) {
+    var temLivro = new Function('u', 'BASES', 'return ' + mTem[1] + ';')(u, BASES_T);
+    return {
+      temLivro: temLivro,
+      marcadas: BASES_T.filter(function (livro) {
+        return new Function('u', 'livro', 'temLivro', 'return ' + mMarc[1] + ';')(
+          u, livro, temLivro);
+      }).map(function (x) { return x.id; }),
+      painelForcadoNao: new Function('u', 'return ' + mPainel[1] + ';')(u)
+    };
+  }
+
+  /* O MOLDE DO DEFEITO RELATADO: Base Declaracao marcada, Producao nao, painel proprio. */
+  var moldeDecl = L.usuariosPublicos([{
+    ID: 'U500', Nome: 'Motorista.Teste', Perfil: 'Motorista', AcessoPainel: 'SIM',
+    BaseProducao: false, Teste: false, BaseDeclaracao: true, BaseTesteDeclaracao: false
+  }])[0];
+  var dCopia = decide(copiaDe(moldeDecl));
+  ok(dCopia.marcadas.join(',') === 'declaracao',
+    'a cópia abre com as bases DO MOLDE — era `u.ID` que decidia, e a cópia não tem ID: ' +
+    'copiar alguém de Base Declaração devolvia alguém de Base Produção',
+    dCopia.marcadas);
+  ok(dCopia.painelForcadoNao === false,
+    'e com o acesso ao painel do molde — a mesma pergunta errada trancava do lado de ' +
+    'fora quem o molde deixava entrar, sem dizer nada', dCopia.painelForcadoNao);
+
+  /* E A PERGUNTA OLHA AS QUATRO BASES, e nao uma escolhida a dedo. O molde de cima vem
+     de `usuariosPublicos`, que devolve as quatro SEMPRE — entao com ele um `temLivro`
+     que olhasse so' a Producao continuaria respondendo certo. O caso que separa os dois
+     e' um registro que fala de UM livro e cala sobre os outros: e' o que chega quando
+     alguem acrescenta a quinta base e o servidor ainda nao a devolve. */
+  BASES_T.forEach(function (livro) {
+    var so = {};
+    so[livro.campo] = true;
+    ok(decide(so).temLivro === true,
+      'um registro que fala só de ' + livro.nome + ' já conta como "diz alguma coisa ' +
+      'sobre livros" — olhando um campo escolhido a dedo, a pergunta acerta por acaso ' +
+      'enquanto o servidor devolver os quatro, e erra no dia em que nascer o quinto',
+      decide(so));
+  });
+
+  /* E O CADASTRO EM BRANCO NAO MUDOU: e' ele que faz a Producao nascer marcada e o
+     painel nascer "nao". Trocar uma pergunta pela outra nao pode custar isso. */
+  var dNovo = decide({});
+  ok(dNovo.marcadas.join(',') === 'reais' && dNovo.painelForcadoNao === true,
+    'e o cadastro EM BRANCO continua nascendo em Produção e sem painel — acesso ao ' +
+    'painel é coisa que se concede, nunca que se herda por descuido, e em branco o ' +
+    'formulário recusaria salvar sem base nenhuma',
+    [dNovo.marcadas, dNovo.painelForcadoNao]);
+
+  /* E EDITAR QUEM JA' EXISTE continua mostrando o que esta' gravado. */
+  var dEdita = decide(moldeDecl);
+  ok(dEdita.marcadas.join(',') === 'declaracao' && dEdita.painelForcadoNao === false,
+    'e editar quem já existe continua mostrando o que está gravado — as três telas ' +
+    '(novo, cópia e edição) saem da mesma decisão, e é por isso que ela pode ser uma só',
+    [dEdita.marcadas, dEdita.painelForcadoNao]);
 
   /* ---- O QUE A PESSOA E, NAO COPIA ---- */
   var vazou = ['ID', 'Nome', 'Usuario', 'Email', 'Telefone', 'Foto', 'TemPin',

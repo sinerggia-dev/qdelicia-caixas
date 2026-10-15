@@ -11419,6 +11419,19 @@
     Object.keys(u || {}).forEach(function(campo){
       if (NAO_COPIA.indexOf(campo) < 0) c[campo] = u[campo];
     });
+    /* O MOLDE SAI DA LISTA DE QUEM A COPIA VE'. `UsuariosVistos` copia inteira, e bem:
+       "ve' o Beltrano e o Ciclano" e' a permissao que se quis repetir. Mas o MOLDE
+       aparece ali quando ele ve' a si mesmo — e copiado, isso vira "o novo ve' os
+       lancamentos do molde", que ninguem pediu e e' permissao a MAIS.
+       VAZIA, A LISTA CAI NO `SoProprios`, que viaja na copia: o servidor devolve o id
+       de quem pergunta, e "ve' so' os proprios" continua querendo dizer isso para a
+       pessoa nova. Sobrando outros nomes, eles ficam — e a tela os mostra marcados, para
+       quem copiou decidir. */
+    if (u && u.ID && Array.isArray(c.UsuariosVistos)) {
+      c.UsuariosVistos = c.UsuariosVistos.filter(function(id){
+        return String(id) !== String(u.ID);
+      });
+    }
     c.copiaDe = (u && u.Nome) || '';
     return c;
   }
@@ -11441,6 +11454,11 @@
        escolhe a primeira, que e "nao". Nao da erro nenhum; so mente. Foi exatamente o que
        aconteceu: a correcao foi escrita e colocada no lugar errado, e o defeito continuou
        igual. */
+    /* ESTE REGISTRO DIZ ALGUMA COISA SOBRE OS LIVROS? Um cadastro em branco nao diz, e
+       so' por isso a Producao nasce marcada. Uma copia DIZ — e dizia, e o formulario nao
+       perguntava a ela. */
+    var temLivro = BASES.some(function(x){ return u[x.campo] !== undefined; });
+
     var inicial = (function(){
       if (!u.AcessoPainel) return 'NAO';
       var vistos = (u.UsuariosVistos || []).map(String);
@@ -11522,11 +11540,21 @@
       /* AS QUATRO SAEM DA LISTA, e não escritas uma a uma: com elas escritas, a quinta
          base nasceria sem caixa no formulário e ninguém conseguiria concedê-la. */
       '<div class="marcalista" id="fBases">'+
+        /* `temLivro` e' calculado ANTES do `modal(`, junto com `inicial`, pelo mesmo
+           motivo escrito la': `var` e' icado, e declarado depois ele existiria durante o
+           HTML valendo `undefined` — nenhuma caixa nasceria marcada, sem erro nenhum. */
         /* `livro`, e nao `b`: ha uma prova que recusa qualquer nome interpolado neste
            formulario que tenha um `var` de mesmo nome mais abaixo no arquivo — `var` e
            icado, e o campo abriria com `undefined` sem dar erro. */
         BASES.map(function(livro){
-          var marcada = u.ID ? u[livro.campo] === true : livro.id === 'reais';
+          /* A PERGUNTA E' "ESTE REGISTRO DIZ ALGUMA COISA SOBRE LIVROS?", e nao "ele
+             tem ID?". Era `u.ID`, e a copia nao tem ID — e' justamente isso que faz o
+             formulario gravar gente NOVA em vez de reescrever o molde. O resultado era
+             que copiar um cadastro de Base Declaracao devolvia um de Base Producao: o
+             ternario caia no ramo do cadastro em branco.
+             A CONTA SAI DA PROPRIA LISTA, e nao de um campo escolhido a dedo: a quinta
+             base passa a contar aqui no dia em que nascer. */
+          var marcada = temLivro ? u[livro.campo] === true : livro.id === 'reais';
           return '<label class="marca"><input type="checkbox" data-base="'+livro.id+'"'+
             (marcada ? ' checked' : '')+'> '+Q.esc(livro.nome)+'</label>';
         }).join('')+
@@ -11708,8 +11736,13 @@
     /* Usuário novo nasce SEM acesso ao painel, dito aqui em voz alta. Antes isso só
        funcionava porque `u.AcessoPainel` vinha `undefined` e caía no ramo do "não" — uma
        inflexão do ternário lá em cima e o padrão viraria "sim" sem ninguém notar. Acesso
-       ao painel é coisa que se concede, nunca que se herda por descuido. */
-    if (!u.ID) document.getElementById('fPainel').value = 'NAO';
+       ao painel é coisa que se concede, nunca que se herda por descuido.
+       E "NOVO" NAO E' "SEM ID": a copia tambem nao tem ID, e levava esta linha junto —
+       copiar quem entra no painel devolvia alguem trancado do lado de fora, calado. A
+       pergunta certa e' se o registro DIZ alguma coisa sobre painel; a copia diz, porque
+       `AcessoPainel` viaja nela. Um cadastro em branco nao diz, e continua nascendo
+       "nao". */
+    if (u.AcessoPainel === undefined) document.getElementById('fPainel').value = 'NAO';
 
     /* ADMIN entra sempre: deixar desmarcar seria permitir trancar o último administrador
        do lado de fora, e a volta seria por SQL no banco. Mesma ideia do "último admin ativo". */
