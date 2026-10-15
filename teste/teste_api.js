@@ -4535,20 +4535,41 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
    *
    * QUEM CONCEDE AS BASES NAO PODE SER TRANCADO POR ELAS. A prova mede o caso exato:
    * administrador SEM a base em que os lancamentos estao. */
+  /* NAO HA' EXCECAO, NEM PARA O ADMINISTRADOR, e isto foi decidido DUAS vezes.
+   *
+   * Houve uma: quando a peneira nasceu, o painel do administrador foi a zero — o
+   * cadastro dele diz "Base Producao" e a operacao inteira esta' na Base Teste Producao.
+   * Eu abri a excecao, e ela criou uma contradicao pior: o FILTRO da gaveta le' o
+   * cadastro e mostrava so' "Base Producao", enquanto a TABELA ao lado mostrava linha
+   * atras de linha marcada "Teste Producao". A tela afirmava duas coisas opostas.
+   *
+   * A REGRA PEDIDA E' UMA SO': a base vem do cadastro, e de mais lugar nenhum. Quem
+   * precisa de outro livro marca esse livro no proprio cadastro.
+   *
+   * O PRECO ESTA' PAGO NA TELA, e nao aqui: a mensagem de lista vazia diz quais livros
+   * a pessoa tem, quando ela nao tem todos. */
   const admSemTeste = { Perfil: 'ADMIN', BaseProducao: true, Teste: false };
   const dDoisLivros = { movimentos: [
     { ID: 'MX1', Tipo: 'SAIDA', Teste: false },
     { ID: 'MX2', Tipo: 'SAIDA', Teste: true }
   ] };
-  ok(Lg.recorteBases(dDoisLivros, admSemTeste).movimentos.length === 2,
-    'o administrador atravessa a peneira de bases — o cadastro dele diz em que livro ' +
-    'ELE lança, e a operação pode estar inteira noutro: foi assim que o painel dele '
-    + 'ficou com zero linhas, sem erro e sem aviso',
+  ok(Lg.recorteBases(dDoisLivros, admSemTeste).movimentos.join(',') !== '',
+    'a conferencia tem o que medir', dDoisLivros.movimentos.length);
+  ok(Lg.recorteBases(dDoisLivros, admSemTeste).movimentos
+       .map((m) => m.ID).join(',') === 'MX1',
+    'o ADMINISTRADOR tambem e peneirado pelo cadastro dele — a excecao que ele teve por '
+    + 'um dia punha o filtro da gaveta dizendo "Base Producao" ao lado de uma tabela '
+    + 'cheia de "Teste Producao": a tela afirmando duas coisas opostas',
     Lg.recorteBases(dDoisLivros, admSemTeste).movimentos.map((m) => m.ID));
+  ok(Lg.recorteBases(dDoisLivros, { Perfil: 'ADMIN', BaseProducao: true, Teste: true })
+       .movimentos.map((m) => m.ID).join(',') === 'MX1,MX2',
+    'e marcando o livro no proprio cadastro ele passa a ver — e uma caixa de marcar, e '
+    + 'quem a marca e o administrador, que e justamente quem estava trancado',
+    Lg.recorteBases(dDoisLivros, { Perfil: 'ADMIN', BaseProducao: true, Teste: true })
+      .movimentos.map((m) => m.ID));
   ok(Lg.recorteBases(dDoisLivros, { Perfil: 'Conferente', Teste: true })
-       .movimentos.length === 1,
-    'e todo o resto da equipe continua peneirado — é lá que a peneira foi pedida, e a ' +
-    'exceção do administrador não pode virar a regra',
+       .movimentos.map((m) => m.ID).join(',') === 'MX2',
+    'e todo o resto da equipe segue a mesma regra, sem excecao nenhuma',
     Lg.recorteBases(dDoisLivros, { Perfil: 'Conferente', Teste: true })
       .movimentos.map((m) => m.ID));
 

@@ -10800,6 +10800,39 @@ console.log('\n== Usuários no celular: cartão, acesso à vista e folha de aç�
     'contas para a mesma pergunta divergiriam, e o chip diria "dá para excluir" com o ' +
     'botão cinza ao lado', fonteSemUso.slice(0, 200));
 
+  /* ---- E A LISTA VAZIA DIZ QUAIS LIVROS A PESSOA TEM ----
+   *
+   * A peneira por base vale para TODO MUNDO, administrador inclusive — e o preco e' uma
+   * tela que pode ficar vazia por um motivo que nao esta' escrito em lugar nenhum: a
+   * operacao toda num livro que o cadastro de quem olha nao marca. Ja' aconteceu, e
+   * custou um apagao: o painel do administrador foi a zero, vazio e calado.
+   *
+   * A PROVA RODA A FUNCAO, com sessoes diferentes: a frase e' condicional, e um `if`
+   * invertido deixaria o texto no arquivo e o aviso na tela de quem tem tudo. */
+  var iAv = adm.indexOf('  function avisoDasBases(){');
+  var fonteAv = iAv < 0 ? '' : adm.slice(iAv, adm.indexOf(String.fromCharCode(10) + '  }', iAv) + 4);
+  ok(fonteAv.length > 150, 'a conferência recortou o aviso das bases', fonteAv.length);
+  function avisoCom(bases) {
+    return new Function('Q', fonteAv + ' return avisoDasBases();')({
+      basesDaSessao: function () { return bases; },
+      LIVROS: [1, 2, 3, 4],
+      nomeDoLivro: function (b) { return 'Base ' + b; },
+      esc: function (x) { return String(x); }
+    });
+  }
+  ok(avisoCom(['reais']).indexOf('Base reais') > 0,
+    'quem tem um livro só lê, na lista vazia, QUAL livro o cadastro dele lê — vazio e ' +
+    'calado, não há como descobrir que a operação está noutra base', avisoCom(['reais']));
+  ok(/Cadastros/.test(avisoCom(['reais'])),
+    'e para ONDE ir — a saída é uma caixa de marcar no cadastro, e quem a marca é o ' +
+    'administrador', avisoCom(['reais']));
+  ok(avisoCom([1, 2, 3, 4]) === '',
+    'e quem tem os quatro não lê nada — a frase seria ruído embaixo de toda lista vazia ' +
+    'da tela', avisoCom([1, 2, 3, 4]));
+  ok(adm.indexOf('avisoDasBases()+') > 0,
+    'e alguém CHAMA o aviso na lista vazia — a função existe e nada chega nela é o ' +
+    'defeito mais caro deste projeto');
+
   /* ---- E OS DOIS FILTROS SE SOMAM ---- */
   ok(/if \(SITUACAO_FILTRO\) \{/.test(adm) &&
      /if \(PERFIL_FILTRO && String\(u\.Perfil \|\| ''\) !== PERFIL_FILTRO\) return false;/

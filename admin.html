@@ -5170,6 +5170,30 @@
                         : 'Nenhum movimento para este filtro.';
   }
 
+  /* TELA VAZIA TEM DE DIZER POR QUÊ, quando o motivo é o recorte por base.
+   *
+   * O servidor só manda os lançamentos dos livros que ESTA pessoa tem no cadastro — é a
+   * regra pedida, e ela vale para todo mundo, administrador inclusive. O preço é uma
+   * tela que pode ficar vazia por um motivo que não está escrito em lugar nenhum: a
+   * operação toda num livro que o cadastro de quem olha não marca.
+   *
+   * ISTO JÁ ACONTECEU, e custou um apagão: o painel do administrador foi a zero porque
+   * o cadastro dele diz "Base Produção" e a operação inteira está na Base Teste
+   * Produção. Vazio e calado, não havia como descobrir — e a saída é uma caixa de marcar
+   * no próprio cadastro.
+   *
+   * SÓ QUANDO FALTA ALGUM LIVRO: com os quatro marcados, a frase seria ruído embaixo de
+   * toda lista vazia da tela. */
+  function avisoDasBases(){
+    var tem = Q.basesDaSessao();
+    if (tem.length >= Q.LIVROS.length) return '';
+    var nomes = tem.map(function(b){ return Q.nomeDoLivro(b); }).join(' e ');
+    return '<div style="margin-top:10px;font-size:12.5px;color:var(--txt2)">'+
+      'Seu cadastro lê <b>'+Q.esc(nomes)+'</b>. Lançamento feito em outra base não '+
+      'aparece aqui — quem marca as bases de cada pessoa é o administrador, em '+
+      '<b>Cadastros → Usuários</b>.</div>';
+  }
+
   /* A MESMA PERGUNTA DA PENEIRA, e não uma parecida: o número no chip é a promessa do
      que o clique vai mostrar. Contado por uma regra e peneirado por outra, ele prometia
      duas linhas e entregava outra coisa. */
@@ -7639,7 +7663,8 @@
       box.innerHTML = '<div class="vazio">'+
         (BUSCA_MOV ? 'Nada na tela com <b>'+Q.esc(BUSCA_MOV)+'</b>. A busca olha só o '+
                      'que o filtro já trouxe — para procurar fora dele, mude o filtro.'
-                   : 'Nenhum movimento no filtro.')+'</div>';
+                   : 'Nenhum movimento no filtro.')+
+        avisoDasBases()+'</div>';
       return;
     }
 

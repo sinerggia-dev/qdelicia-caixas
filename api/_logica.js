@@ -567,17 +567,23 @@ function basesEfetivas(u) {
  * do conferente noutro — e quem governa aquela tela e' `veDeclaracao`. Peneirando por
  * base, metade de cada par sumiria e a tabela diria "So declaracao" para todo mundo. */
 function recorteBases(dados, usuario) {
-  /* O ADMINISTRADOR ATRAVESSA, e isto nao e' cortesia: e' o conserto de um apagao que eu
-     mesmo causei no dia em que esta peneira nasceu.
-     O cadastro de cada pessoa diz em que livro ELA LANCA — e o do administrador dizia
-     "Base Producao", porque e' nela que ele lanca. So' que a operacao inteira desta
-     empresa esta' hoje na Base Teste Producao, e a peneira apagou o painel e a lista de
-     Movimentos dele por completo: zero linhas, zero saida, zero retorno. Nao havia erro
-     na tela, nao havia aviso — havia uma tela vazia onde antes havia a operacao.
-     QUEM CONCEDE AS BASES NAO PODE SER TRANCADO POR ELAS. E' a mesma regra que
-     `podeVerPainel` e `veDeclaracao` ja' aplicam, pelo mesmo motivo. Para todo o resto da
-     equipe a peneira vale inteira — e e' la' que ela foi pedida. */
-  if (ehAdministrador(usuario)) return dados;
+  /* NAO HA' EXCECAO, NEM PARA O ADMINISTRADOR, e isto foi decidido duas vezes.
+   *
+   * Houve uma: quando esta peneira nasceu, o painel do administrador ficou vazio — o
+   * cadastro dele diz "Base Producao", porque e' nela que ele lanca, e a operacao inteira
+   * desta empresa esta' hoje na Base Teste Producao. Eu abri uma excecao para ele.
+   *
+   * A EXCECAO CRIOU UMA CONTRADICAO PIOR: o filtro "Lancamentos" da gaveta le' o
+   * cadastro e mostrava so' "Base Producao", enquanto a tabela ao lado mostrava linha
+   * atras de linha marcada "Teste Producao". A tela afirmava duas coisas opostas ao
+   * mesmo tempo, e quem olha nao tem como saber qual acreditar.
+   *
+   * A REGRA PEDIDA E' UMA SO': a base vem do cadastro, e de mais lugar nenhum. Quem
+   * precisa ver outro livro marca esse livro no proprio cadastro — e' uma caixa, e quem
+   * a marca e' o administrador, que e' justamente quem estava trancado.
+   *
+   * O QUE NAO PODE E' A TELA FICAR VAZIA E CALADA. Por isso a mensagem de "nenhum
+   * movimento" passa a dizer QUAIS livros esta pessoa tem, quando ela nao tem todos. */
   var tem = basesEfetivas(usuario);
   var copia = {};
   Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
