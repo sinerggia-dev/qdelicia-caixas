@@ -4419,6 +4419,34 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'conveniência, e a peneira que vale é a do servidor',
     daProducao.slice(0, 3).map((m) => m.registro || m.id));
 
+  const Lg = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  /* ---- E O ADMINISTRADOR ATRAVESSA A PENEIRA ----
+   *
+   * ESTA PROVA NASCEU DE UM APAGAO EM PRODUCAO, e o numero e' o da tela: no dia em que a
+   * peneira entrou, o painel e a lista de Movimentos do administrador ficaram com ZERO
+   * linhas. O cadastro dele diz "Base Producao", porque e' nela que ele lanca; a
+   * operacao inteira desta empresa esta' na Base Teste Producao. A peneira fez o que foi
+   * mandada fazer e apagou a tela — sem erro, sem aviso.
+   *
+   * QUEM CONCEDE AS BASES NAO PODE SER TRANCADO POR ELAS. A prova mede o caso exato:
+   * administrador SEM a base em que os lancamentos estao. */
+  const admSemTeste = { Perfil: 'ADMIN', BaseProducao: true, Teste: false };
+  const dDoisLivros = { movimentos: [
+    { ID: 'MX1', Tipo: 'SAIDA', Teste: false },
+    { ID: 'MX2', Tipo: 'SAIDA', Teste: true }
+  ] };
+  ok(Lg.recorteBases(dDoisLivros, admSemTeste).movimentos.length === 2,
+    'o administrador atravessa a peneira de bases — o cadastro dele diz em que livro ' +
+    'ELE lança, e a operação pode estar inteira noutro: foi assim que o painel dele '
+    + 'ficou com zero linhas, sem erro e sem aviso',
+    Lg.recorteBases(dDoisLivros, admSemTeste).movimentos.map((m) => m.ID));
+  ok(Lg.recorteBases(dDoisLivros, { Perfil: 'Conferente', Teste: true })
+       .movimentos.length === 1,
+    'e todo o resto da equipe continua peneirado — é lá que a peneira foi pedida, e a ' +
+    'exceção do administrador não pode virar a regra',
+    Lg.recorteBases(dDoisLivros, { Perfil: 'Conferente', Teste: true })
+      .movimentos.map((m) => m.ID));
+
   /* O PAINEL PASSA PELA MESMA PENEIRA, e isto e' uma prova separada de proposito: sao
      DUAS rotas, e consertar a que apareceu na tela deixaria a outra servindo os mesmos
      numeros por outra porta. Os cartoes do Painel de Ativos saem daqui. */
@@ -4440,7 +4468,6 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
   /* SEM NENHUM LIVRO MARCADO VALE PRODUCAO, E SO' ELA. Devolvendo os quatro, a peneira
      deixaria de peneirar justamente no cadastro mais descuidado — e seria o unico caso
      em que ela parece funcionar e nao funciona. */
-  const Lg = require(path.join(__dirname, '..', 'api', '_logica.js'));
   ok(Lg.basesEfetivas({}).join(',') === 'reais',
     'sem nenhum livro marcado vale a Produção, e só ela — devolvendo os quatro, a ' +
     'peneira deixaria de peneirar justamente no cadastro mais descuidado',

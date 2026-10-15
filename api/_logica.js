@@ -567,6 +567,17 @@ function basesEfetivas(u) {
  * do conferente noutro — e quem governa aquela tela e' `veDeclaracao`. Peneirando por
  * base, metade de cada par sumiria e a tabela diria "So declaracao" para todo mundo. */
 function recorteBases(dados, usuario) {
+  /* O ADMINISTRADOR ATRAVESSA, e isto nao e' cortesia: e' o conserto de um apagao que eu
+     mesmo causei no dia em que esta peneira nasceu.
+     O cadastro de cada pessoa diz em que livro ELA LANCA — e o do administrador dizia
+     "Base Producao", porque e' nela que ele lanca. So' que a operacao inteira desta
+     empresa esta' hoje na Base Teste Producao, e a peneira apagou o painel e a lista de
+     Movimentos dele por completo: zero linhas, zero saida, zero retorno. Nao havia erro
+     na tela, nao havia aviso — havia uma tela vazia onde antes havia a operacao.
+     QUEM CONCEDE AS BASES NAO PODE SER TRANCADO POR ELAS. E' a mesma regra que
+     `podeVerPainel` e `veDeclaracao` ja' aplicam, pelo mesmo motivo. Para todo o resto da
+     equipe a peneira vale inteira — e e' la' que ela foi pedida. */
+  if (ehAdministrador(usuario)) return dados;
   var tem = basesEfetivas(usuario);
   var copia = {};
   Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
