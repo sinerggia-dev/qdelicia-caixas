@@ -4304,21 +4304,55 @@ console.log('\n== a tabela de Usuários entrou na maquinaria de colunas ==');
     'de verdade, e trocar a palavra ali seria mentir do outro lado', limpo);
 
   var comLanc = BTN({ ID: 'U2', TemLancamentos: true });
-  ok(comLanc.indexOf('>desativar<') > 0,
-    'e quem TEM lançamento no histórico lê "desativar" — era "excluir", a pessoa ' +
-    'clicava, e a linha continuava ali: a tela oferecia o que a rota recusa', comLanc);
-  ok(/title="[^"]*órfão/.test(comLanc),
-    'e o balão diz POR QUÊ — apagá-la deixaria lançamento órfão, e o nome de quem ' +
-    'lançou sumiria de romaneio já emitido', comLanc);
-  ok(comLanc.indexOf('data-excluir-user="U2"') > 0,
-    'e o botão continua sendo o mesmo gatilho — a rota já desativa, e um segundo ' +
-    'caminho para a mesma coisa divergiria no primeiro conserto que só um recebesse',
-    comLanc);
+  ok(comLanc.indexOf('disabled') > 0 && comLanc.indexOf('data-excluir-user') < 0,
+    'quem TEM lançamento no histórico encontra o botão DESLIGADO, e sem gatilho — a ' +
+    'rota recusa, e oferecer o clique é oferecer o que a gravação não aceita', comLanc);
+  ok(comLanc.indexOf('>excluir<') > 0,
+    'e ele continua escrito "excluir" — ele já disse "desativar", e aí a coluna ficava ' +
+    'com DUAS palavras iguais, vizinhas, fazendo a mesma coisa: o botão ao lado é o ' +
+    '`ativar/desativar`', comLanc);
+  ok(/title="[^"]*órfão/.test(comLanc) && /title="[^"]*Desativar, ao lado/.test(comLanc),
+    'e o balão diz POR QUÊ e PARA ONDE IR — apagá-la deixaria lançamento órfão, e quem ' +
+    'quer tirar essa pessoa da operação tem o Desativar a um centímetro', comLanc);
 
   var comRota = BTN({ ID: 'U3', RotasSob: 2 });
-  ok(comRota.indexOf('>desativar<') > 0 && /title="[^"]*2 rotas/.test(comRota),
+  ok(comRota.indexOf('disabled') > 0 && /title="[^"]*2 rotas/.test(comRota),
     'e quem responde por rota lê o outro motivo, com o número — "tem lançamentos" e ' +
     '"responde por 2 rotas" levam a pessoa a lugares diferentes para resolver', comRota);
+
+  /* ---- E A COLUNA NAO TEM DUAS PALAVRAS IGUAIS ----
+   * E' o defeito que a troca de rotulo criou: o terceiro botao ja' e' o
+   * `ativar/desativar`, e o quarto passou a dizer a mesma coisa, do lado. Dois botoes
+   * vizinhos com o mesmo nome fazem parar para descobrir qual e' qual — e, aqui, os
+   * dois faziam MESMO a mesma coisa. */
+  var rotulos = [comLanc, comRota, limpo].map(function (h) {
+    var m = />([a-zç]+)</.exec(h);
+    return m ? m[1] : '';
+  });
+  ok(rotulos.indexOf('desativar') < 0,
+    'e nenhum deles diz "desativar" — essa palavra é do botão ao lado, e duas iguais ' +
+    'vizinhas fazem parar para descobrir qual é qual', rotulos);
+  /* A CHAMADA DA LINHA, e nao a primeira aparicao do nome: ele aparece antes, na
+     definicao da funcao e no comentario dela — e o recorte caia ali, longe da linha. */
+  var iCh = adm.indexOf("botaoExcluirUsuario(u)+'</td></tr>'");
+  var fonteLinha = iCh < 0 ? '' : adm.slice(iCh - 400, iCh + 40);
+  ok(/data-ativar="'\+u\.ID\+'"/.test(fonteLinha),
+    'e o `ativar/desativar` continua na linha, ao lado — é para ele que o balão manda ' +
+    'quem quer tirar a pessoa da operação', fonteLinha.slice(-200));
+
+  /* E O DESLIGADO PARECE DESLIGADO. Sem regra propria, o navegador desenha um botao
+     `disabled` quase igual ao vizinho vivo: a unica diferenca e' que ele nao responde ao
+     clique — e quem clica duas vezes conclui que a tela travou, nao que a acao nao
+     existe. */
+  var regraOff = (function () {
+    var folha = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+    var i = folha.indexOf('button.mini[disabled]{');
+    return i < 0 ? '' : folha.slice(i, folha.indexOf('}', i) + 1);
+  })();
+  ok(/opacity:\.\d/.test(regraOff) && /cursor:not-allowed/.test(regraOff),
+    'e o botão desligado PARECE desligado — sem regra própria o navegador o desenha ' +
+    'quase igual ao vizinho vivo, e quem clica duas vezes conclui que a tela travou',
+    regraOff);
 
   /* E A MARCA VEM DO SERVIDOR, que e' quem sabe: a tela nao tem a lista de movimentos
      para contar sozinha, e contar por aqui seria uma segunda verdade sobre o mesmo

@@ -1527,6 +1527,14 @@ label.btn-foto{
 }
 label.btn-foto:hover{border-color:var(--marca-txt);color:var(--marca-txt)}
 button.mini.perigo{border-color:var(--vermelho);color:var(--vermelho)}
+/* O MINI DESLIGADO. Ele existe na tabela de usuarios: quem tem lancamento no historico
+   nao pode ser excluido, e o botao fica a vista, cinza, com o motivo no balao.
+   `pointer-events` NAO entra aqui: o balao do `title` e' justamente o que explica a
+   recusa, e sem ponteiro ele nunca apareceria — o botao viraria um cinza mudo. */
+button.mini[disabled]{
+  opacity:.45;cursor:not-allowed;
+  border-color:var(--linha);color:var(--txt3);background:var(--surface)
+}
 
 /* contador de caixas
 

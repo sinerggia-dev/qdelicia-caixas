@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=c2a07def">
+<link rel="stylesheet" href="styles.css?v=086ce013">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -9347,13 +9347,16 @@
    * continuava ali. A explicação existia num `toast` que some em segundos, e quem clicou
    * em quatro linhas seguidas viu quatro avisos passarem e quatro linhas ficarem.
    *
-   * AGORA O BOTÃO MUDA DE NOME E DIZ POR QUÊ. "desativar" é o que o clique vai fazer de
-   * verdade, e o balão explica a troca. É a mesma regra do resto do projeto: a tela
-   * oferece o que a gravação aceita.
+   * AGORA ELE NASCE DESLIGADO, e o balão diz por quê. "excluir" continua escrito —
+   * é o que ele faria — e o cinza diz que não dá, sem fingir ser outra coisa.
    *
-   * O BOTÃO NÃO SOME, e isto é decisão: desativar é exatamente o que essa pessoa
-   * precisa, e um lugar vazio obrigaria a procurar o "desativar" ao lado — que faz a
-   * mesma coisa, sem dizer que a exclusão não era possível. */
+   * ELE JÁ DISSE "desativar", E ERA PIOR: o botão ao lado é o `ativar/desativar`, e a
+   * coluna ficava com DUAS palavras iguais, vizinhas, fazendo a mesma coisa. O
+   * argumento de então — "um lugar vazio obrigaria a procurar o desativar ao lado" —
+   * se desmentia sozinho, porque o desativar ao lado está a um centímetro.
+   *
+   * E ELE NÃO SOME, pelo motivo que sobrou de pé: a coluna tem quatro posições, e um
+   * buraco numa delas desalinha a linha inteira e faz procurar o que não está faltando. */
   function botaoExcluirUsuario(u){
     var porLanc = u.TemLancamentos === true;
     var porRota = Number(u.RotasSob) || 0;
@@ -9361,12 +9364,13 @@
       return '<button class="mini perigo" data-excluir-user="'+Q.esc(u.ID)+'">excluir</button>';
     }
     var razao = porLanc
-      ? 'Tem lançamentos no histórico — apagá-la deixaria lançamento órfão, e o nome de '+
-        'quem lançou sumiria de romaneio já emitido. O clique DESATIVA.'
-      : 'Responde por '+porRota+(porRota > 1 ? ' rotas' : ' rota')+
-        ' — troque o responsável antes. O clique DESATIVA.';
-    return '<button class="mini perigo" data-excluir-user="'+Q.esc(u.ID)+'"'+
-      ' title="'+Q.esc(razao)+'">desativar<span class="sr"> '+Q.esc(razao)+
+      ? 'Não dá para excluir: tem lançamentos no histórico, e apagá-la deixaria '+
+        'lançamento órfão — o nome de quem lançou sumiria de romaneio já emitido. '+
+        'Use Desativar, ao lado.'
+      : 'Não dá para excluir: responde por '+porRota+(porRota > 1 ? ' rotas' : ' rota')+
+        '. Troque o responsável antes, ou use Desativar, ao lado.';
+    return '<button class="mini perigo" disabled'+
+      ' title="'+Q.esc(razao)+'">excluir<span class="sr"> '+Q.esc(razao)+
       '</span></button>';
   }
 
