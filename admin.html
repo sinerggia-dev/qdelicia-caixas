@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=086ce013">
+<link rel="stylesheet" href="styles.css?v=1545a0fe">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -9524,6 +9524,31 @@
   var FLUXO_TIPO = 'todos';
 
   var PERFIL_FILTRO = '';
+  /* ================= A SITUAÇÃO, AO LADO DO PERFIL =================
+   *
+   * Os chips de cima respondem "que função esta pessoa tem". Faltava a outra pergunta,
+   * que é a que se faz na hora da faxina: quem está dentro, quem já saiu, e de quem dá
+   * para apagar o cadastro.
+   *
+   * SÃO DOIS FILTROS QUE SE SOMAM, e não um que substitui o outro: "Gerente" + "Sem uso"
+   * é uma pergunta que se faz de verdade, e um filtro só obrigaria a escolher entre as
+   * duas metades dela.
+   *
+   * "SEM USO" E NÃO "EXCLUÍDOS": quem foi excluído não está mais no cadastro — não há o
+   * que contar. O que existe é o contrário, e é o que a faxina precisa saber: quem ainda
+   * PODE ser excluído, porque nunca lançou nada e não responde por rota nenhuma. É a
+   * mesma marca que desliga o botão de excluir na linha. */
+  var SITUACAO_FILTRO = '';
+  var SITUACOES_USUARIO = [
+    { id: 'ativos',   rotulo: 'Ativos',
+      vale: function(u){ return Q.ativo(u.Ativo); } },
+    { id: 'inativos', rotulo: 'Desativados',
+      vale: function(u){ return !Q.ativo(u.Ativo); } },
+    { id: 'semuso',   rotulo: 'Sem uso',
+      vale: function(u){
+        return u.TemLancamentos !== true && !(Number(u.RotasSob) || 0);
+      } }
+  ];
 
   /* SÓ O TEXTO, e não a marcação. As células saem em HTML, e procurar em cima dele
      acharia "span", "tag" e "cinza" em toda pessoa da lista — a busca devolveria a
@@ -9544,6 +9569,11 @@
     var ids = Object.keys(DEFS);
     return EQUIPE.filter(function(u){
       if (PERFIL_FILTRO && String(u.Perfil || '') !== PERFIL_FILTRO) return false;
+      /* OS DOIS SE SOMAM: "Gerente" e "Sem uso" juntos sao uma pergunta que se faz. */
+      if (SITUACAO_FILTRO) {
+        var sit = SITUACOES_USUARIO.filter(function(s){ return s.id === SITUACAO_FILTRO; })[0];
+        if (sit && !sit.vale(u)) return false;
+      }
       if (!b) return true;
       /* TODAS AS COLUNAS, a pedido — e lidas das MESMAS definições que a tabela
          desenha, e não de uma lista de campos escrita à parte. Era essa lista à parte
@@ -9652,14 +9682,57 @@
       return (Q.temTeste(a) ? 1 : 0) - (Q.temTeste(b) ? 1 : 0) ||
              a.localeCompare(b, 'pt-BR');
     });
-    box.innerHTML = chipPerfil('', 'Todos', (EQUIPE || []).length)+
-      perfis.map(function(p){ return chipPerfil(p, p, conta[p]); }).join('');
+    /* A CONTAGEM DA SITUACAO RESPEITA O PERFIL ESCOLHIDO, e a do perfil respeita a
+       situacao: com "Gerente" aceso, "Ativos 4" quer dizer quatro gerentes ativos — e
+       nao quatro pessoas ativas na empresa inteira, que seria um numero que nao casa
+       com nenhuma lista que a tela sabe mostrar. */
+    function contaPerfil(p){
+      return (EQUIPE || []).filter(function(u){
+        if (p && String(u.Perfil || '') !== p) return false;
+        return casaSituacao(u);
+      }).length;
+    }
+    box.innerHTML = chipPerfil('', 'Todos', contaPerfil(''))+
+      perfis.map(function(p){ return chipPerfil(p, p, contaPerfil(p)); }).join('')+
+      '<span class="chip-risco" aria-hidden="true"></span>'+
+      SITUACOES_USUARIO.map(function(s){
+        var n = (EQUIPE || []).filter(function(u){
+          if (PERFIL_FILTRO && String(u.Perfil || '') !== PERFIL_FILTRO) return false;
+          return s.vale(u);
+        }).length;
+        return chipSituacao(s.id, s.rotulo, n);
+      }).join('');
     box.querySelectorAll('[data-perfil]').forEach(function(c){
       c.addEventListener('click', function(){
         PERFIL_FILTRO = c.dataset.perfil;
+        /* "TODOS" LIMPA OS DOIS, porque e' a palavra que ele usa. Limpando so' o perfil,
+           ele deixaria uma lista recortada chamada "todos" — e quem toca nele esta'
+           justamente procurando o caminho de volta. */
+        if (!PERFIL_FILTRO) SITUACAO_FILTRO = '';
         desenharUsuarios();
       });
     });
+    /* O MESMO CHIP DESLIGA O FILTRO: tocar no que ja' esta' aceso volta a "todos". Sem
+       isso, a unica saida seria o "Todos" la' na ponta esquerda — que tambem apaga o
+       perfil escolhido, e ninguem pediu as duas coisas de uma vez. */
+    box.querySelectorAll('[data-situacao]').forEach(function(c){
+      c.addEventListener('click', function(){
+        SITUACAO_FILTRO = (SITUACAO_FILTRO === c.dataset.situacao) ? '' : c.dataset.situacao;
+        desenharUsuarios();
+      });
+    });
+  }
+
+  function casaSituacao(u){
+    if (!SITUACAO_FILTRO) return true;
+    var sit = SITUACOES_USUARIO.filter(function(s){ return s.id === SITUACAO_FILTRO; })[0];
+    return !sit || sit.vale(u);
+  }
+
+  function chipSituacao(valor, rotulo, n){
+    return '<button class="chip chip--sit" type="button" data-situacao="'+Q.esc(valor)+'" '+
+      'aria-pressed="'+(SITUACAO_FILTRO === valor ? 'true' : 'false')+'">'+
+      Q.esc(rotulo)+' <span class="chip__n">'+n+'</span></button>';
   }
 
   function chipPerfil(valor, rotulo, n){

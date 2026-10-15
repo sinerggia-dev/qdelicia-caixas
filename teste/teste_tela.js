@@ -10739,8 +10739,80 @@ console.log('\n== Usuários no celular: cartão, acesso à vista e folha de aç�
        .test(adm),
     'os chips de perfil saem dos DADOS: hoje há seis perfis em uso, e uma lista escrita ' +
     'à mão esqueceria os que o escritório criar amanhã');
-  ok(/chipPerfil\(p, p, conta\[p\]\)/.test(adm),
+  ok(/chipPerfil\(p, p, contaPerfil\(p\)\)/.test(adm),
     'e cada um leva a contagem — sem ela, "Conferente" não diz se há um ou nove');
+
+  /* ---- OS CHIPS DE SITUACAO, RODADOS ----
+   *
+   * Os de perfil respondem "que funcao esta pessoa tem". Estes respondem a outra
+   * pergunta, a da faxina: quem esta' dentro, quem ja' saiu, e de quem da' para apagar o
+   * cadastro.
+   *
+   * "SEM USO" E NAO "EXCLUIDOS": quem foi excluido nao esta' mais no cadastro, e nao ha'
+   * o que contar. O que existe e' o contrario — quem AINDA pode ser excluido, porque
+   * nunca lancou nada e nao responde por rota nenhuma. E' a mesma marca que desliga o
+   * botao de excluir na linha, e a prova cobra que seja a mesma. */
+  var iSit = adm.indexOf('  var SITUACOES_USUARIO = [');
+  /* `+ 5` E NAO `+ 4`: o recorte precisa levar o `;` que fecha a declaracao. Com 4
+     ele parava no `]`, e o `new Function` estourava em "Unexpected token 'return'" —
+     o erro fala do que veio DEPOIS, e nao do ponto e virgula que faltou. */
+  var fimSit = adm.indexOf(String.fromCharCode(10) + '  ];', iSit);
+  var fonteSit = iSit < 0 || fimSit < 0 ? '' : adm.slice(iSit, fimSit + 5);
+  ok(fonteSit.indexOf('semuso') > 0,
+    'a conferência recortou a lista das situações', fonteSit.length);
+  var SITS = new Function('Q',
+    fonteSit + ' return SITUACOES_USUARIO;')(
+    { ativo: function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; } });
+
+  ok(SITS.length === 3 &&
+     SITS.map(function (s) { return s.id; }).join(',') === 'ativos,inativos,semuso',
+    'são três situações, nesta ordem — ativos, desativados e os que ainda dá para ' +
+    'excluir: é a ordem em que a pergunta se faz na faxina',
+    SITS.map(function (s) { return s.id + ':' + s.rotulo; }));
+
+  var POVO = [
+    { ID: 'A', Ativo: 'SIM', TemLancamentos: true,  RotasSob: 0 },
+    { ID: 'B', Ativo: 'SIM', TemLancamentos: false, RotasSob: 0 },
+    { ID: 'C', Ativo: 'NAO', TemLancamentos: false, RotasSob: 0 },
+    { ID: 'D', Ativo: 'NAO', TemLancamentos: false, RotasSob: 2 }
+  ];
+  function quem(id) {
+    var s = SITS.filter(function (x) { return x.id === id; })[0];
+    return POVO.filter(s.vale).map(function (u) { return u.ID; }).join(',');
+  }
+  ok(quem('ativos') === 'A,B',
+    'Ativos conta quem está dentro', quem('ativos'));
+  ok(quem('inativos') === 'C,D',
+    'Desativados conta quem já saiu — e os dois somados dão a equipe inteira, que é o ' +
+    'que faz os números fecharem com o "Todos"', quem('inativos'));
+  ok(quem('semuso') === 'B,C',
+    'e "Sem uso" conta quem AINDA dá para excluir — quem nunca lançou e não responde ' +
+    'por rota. Ele atravessa ativos e desativados de propósito: a pergunta da faxina ' +
+    'não é "está ligado?", é "dá para apagar?"', quem('semuso'));
+
+  /* E A MARCA E' A MESMA QUE DESLIGA O BOTAO DA LINHA. Duas contas para a mesma
+     pergunta divergem no primeiro acerto que so' uma recebe — e aqui a divergencia
+     seria visivel e absurda: o chip diria "da' para excluir" e o botao da linha estaria
+     cinza. */
+  var fonteSemUso = fonteSit.slice(fonteSit.indexOf("id: 'semuso'"));
+  ok(fonteSemUso.indexOf('TemLancamentos') > 0 && fonteSemUso.indexOf('RotasSob') > 0,
+    'e ela lê as MESMAS duas marcas que desligam o botão de excluir na linha — duas ' +
+    'contas para a mesma pergunta divergiriam, e o chip diria "dá para excluir" com o ' +
+    'botão cinza ao lado', fonteSemUso.slice(0, 200));
+
+  /* ---- E OS DOIS FILTROS SE SOMAM ---- */
+  ok(/if \(SITUACAO_FILTRO\) \{/.test(adm) &&
+     /if \(PERFIL_FILTRO && String\(u\.Perfil \|\| ''\) !== PERFIL_FILTRO\) return false;/
+       .test(adm),
+    'os dois filtros se somam na mesma peneira — "Gerente" + "Sem uso" é uma pergunta ' +
+    'que se faz de verdade, e um filtro só obrigaria a escolher entre as duas metades');
+  ok(/SITUACAO_FILTRO = \(SITUACAO_FILTRO === c\.dataset\.situacao\) \? '' : c\.dataset\.situacao;/
+       .test(adm),
+    'e tocar no chip aceso DESLIGA o recorte — sem isso a única saída seria o "Todos" ' +
+    'da ponta, que também apaga o perfil escolhido');
+  ok(/if \(!PERFIL_FILTRO\) SITUACAO_FILTRO = '';/.test(adm),
+    'e o "Todos" limpa os DOIS, porque é a palavra que ele usa — limpando só o perfil, ' +
+    'ele deixaria uma lista recortada chamada "todos"');
   ok(/return \(Q\.temTeste\(a\) \? 1 : 0\) - \(Q\.temTeste\(b\) \? 1 : 0\) \|\|/.test(adm),
     'os de teste vêm por último, na MESMA ordem da lista — dois critérios fariam o ' +
     'chip e a lista discordarem sobre quem vem antes');

@@ -1531,6 +1531,19 @@ button.mini.perigo{border-color:var(--vermelho);color:var(--vermelho)}
    nao pode ser excluido, e o botao fica a vista, cinza, com o motivo no balao.
    `pointer-events` NAO entra aqui: o balao do `title` e' justamente o que explica a
    recusa, e sem ponteiro ele nunca apareceria — o botao viraria um cinza mudo. */
+/* O RISCO ENTRE OS DOIS GRUPOS DE CHIP. Eles respondem perguntas diferentes — que
+   funcao a pessoa tem, e em que situacao ela esta' — e se somam em vez de se
+   substituir. Encostados, a fila de dez parecia uma lista so' e a pessoa procurava
+   "Ativos" entre os perfis. */
+.chip-risco{
+  flex:0 0 auto;align-self:center;width:1px;height:22px;margin:0 4px;
+  background:var(--linha-viva)
+}
+/* A SITUACAO E' UM RECORTE, e nao uma identidade: o chip aceso usa o tom neutro do
+   contorno, e nao a cor da marca — essa e' do perfil, que e' quem a pessoa E'. */
+.chip--sit[aria-pressed="true"]{background:var(--surface-2);color:var(--txt);
+  border-color:var(--linha-viva)}
+
 button.mini[disabled]{
   opacity:.45;cursor:not-allowed;
   border-color:var(--linha);color:var(--txt3);background:var(--surface)
