@@ -158,9 +158,17 @@ var MONTA_BASE = (function () {
       { querySelectorAll: function () {
           return Object.keys(caixas).map(function (k) { return caixas[k]; }); },
         /* A FRASE DA DECLARACAO mora num `<p>` ao lado do campo, e o montador a procura
-           pelo id. Sem este `getElementById` de mentira o recorte estoura antes de
-           escrever opcao nenhuma — e as provas de cima mediriam o nada. */
-        getElementById: function (id) { return dicas[id] || (dicas[id] = { hidden: null, innerHTML: '' }); } });
+           pelo id.
+           ELE SO' ACHA O QUE EXISTE NO ARQUIVO, e isto nao e' preciosismo: a primeira
+           versao desta mentira INVENTAVA o elemento, e por isso a prova ficou verde
+           enquanto o `<p>` nao existia no `admin.html` — o montador procurava, nao
+           achava, e seguia calado. A frase estava escrita no codigo e nunca chegava a'
+           tela: a peca existe e nada chega nela, outra vez, e desta vez foi a bancada
+           que escondeu. */
+        getElementById: function (id) {
+          if (admB.indexOf('id="' + id + '"') < 0) return null;
+          return dicas[id] || (dicas[id] = { hidden: null, innerHTML: '' });
+        } });
     var fora = { dicas: dicas };
     Object.keys(caixas).forEach(function (k) {
       var h = caixas[k].innerHTML;
@@ -656,8 +664,13 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
 
   var i = adm.indexOf('<div class="grid-filtros">', adm.indexOf('id="pgMovimentos"'));
   var barra = adm.slice(i, adm.indexOf('<div class="linha-btn">', i));
-  var campos = (barra.match(/id="(mv[A-Za-z]+)"/g) || [])
-    .map(function (m) { return m.slice(4, -1); });
+  /* SO' O QUE E' CAMPO, e nao todo `id` que comeca com `mv`: a barra tem tambem a frase
+     que explica por que a Declaracao nao entra no filtro, e ela e' um `<p>` com id. Lida
+     como campo, a prova exigia que um paragrafo fosse para o pedido e para o Limpar —
+     e a regra que ela protege continua a mesma: campo esquecido nao filtra, e no apagar
+     significa apagar mais do que se viu. */
+  var campos = (barra.match(/<(?:input|select|textarea)[^>]*id="(mv[A-Za-z]+)"/g) || [])
+    .map(function (m) { return /id="(mv[A-Za-z]+)"/.exec(m)[1]; });
 
   ok(campos.length >= 9, 'a leitura achou os campos da barra', campos);
 

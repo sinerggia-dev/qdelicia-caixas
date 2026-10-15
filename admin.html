@@ -1097,7 +1097,13 @@
              duas vezes, uma pelo conferente e outra pela fala do motorista.
              Ela mora em Movimentos Motoristas, e só lá. -->
         <div><label for="mvTeste">Lançamentos</label>
-          <select id="mvTeste" multiple data-multi data-bases="mov-multi"></select></div>
+          <select id="mvTeste" multiple data-multi data-bases="mov-multi"></select>
+          <!-- A FRASE SO' APARECE PARA QUEM TEM LIVRO DE DECLARACAO, e quem a escreve e'
+               `montarSeletoresDeBase`, pelo id `<id do campo>Dica`. Sem este `<p>` o
+               montador procura um elemento que nao existe, nao acha, e segue calado — a
+               frase fica escrita no codigo e nunca chega a' tela. Foi o que aconteceu:
+               a peca existia e nada chegava nela. -->
+          <p class="dica-base" id="mvTesteDica" hidden></p></div>
         <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
         <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
       </div>
