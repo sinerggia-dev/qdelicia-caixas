@@ -122,8 +122,12 @@ async function rotaGet(p) {
       /* Os dois recortes se somam, e nesta ordem nao importa: um estreita por ensaio, o
          outro por quem lancou. O segundo sai do CADASTRO de quem pergunta — ver
          `idsVisiveis`. O pedido nao opina sobre o que quem o mandou pode ver. */
+      /* E UM TERCEIRO: o LIVRO sai do cadastro de quem pergunta. `recorteTeste` logo
+         ao lado peneira pelo que a tela PEDIU; este peneira pelo que ela PODE. */
       return { ok: true, painel: L.painel(
-                 L.recorteProprios(L.recorteTeste(d, p.teste), L.idsVisiveis(d.usuarios, p.quem)),
+                 L.recorteBases(
+                   L.recorteProprios(L.recorteTeste(d, p.teste), L.idsVisiveis(d.usuarios, p.quem)),
+                   L.acharUsuario(d.usuarios, p.quem)),
                  null, { de: p.de, ate: p.ate }) };
     /* O SALDO DE UM LUGAR, e mais nada. Ele fica FORA do recorte por pessoa, e isto e
        uma excecao pensada, nao um esquecimento:
@@ -143,7 +147,9 @@ async function rotaGet(p) {
          e por sorte nenhuma tela a chama hoje — mas uma rota que devolve movimento sem
          peneira e uma porta aberta esperando a primeira tela que a use. */
       return { ok: true, movimentos: L.pendentes(
-                 L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)).movimentos,
+                 L.recorteBases(
+                   L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)),
+                   L.acharUsuario(d.usuarios, p.quem)).movimentos,
                  d.locais, d.tipos) };
     case 'movimentos':
       /* O MESMO recorte das outras rotas, e nao o filtro `usuario` — que agora seria
@@ -159,8 +165,14 @@ async function rotaGet(p) {
          Ela nao e movimento de caixa, e nesta lista entrava nos cartoes de Saida,
          Retorno e Saldo: a mesma carga contada duas vezes, uma pelo conferente e outra
          pela fala do motorista. A porta dela e a rota `conciliacao`, e e uma so. */
+      /* TRES RECORTES: quem lancou, se ve' declaracao, e em QUE LIVROS ela esta'. O
+         terceiro nasceu depois dos outros dois, e a falta dele era visivel na tela: quem
+         tem so' a Base Teste Producao marcada recebia as linhas da Producao e as lia na
+         tabela, nos cartoes e no saldo. */
+      var quemPede = L.acharUsuario(d.usuarios, p.quem);
       var mov = L.semDeclaracao(L.recorteDeclaracao(
-        L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)), L.acharUsuario(d.usuarios, p.quem)));
+        L.recorteBases(L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)), quemPede),
+        quemPede));
       return { ok: true, movimentos: L.listaMovimentos(mov.movimentos, d.locais, d.tipos,
                  d.usuarios, p) };
     /* OS LANCAMENTOS DE QUEM ESTA PERGUNTANDO — a lista do app de campo.
@@ -173,7 +185,9 @@ async function rotaGet(p) {
          tira TODA declaracao de quem nao tem a aba — inclusive a que a propria pessoa
          mandou —, entao a excecao do dono nunca chegava a ser consultada. Quem tem a
          aba ja podia ver; quem nao tem ve so a propria. */
-      var baseMeus = L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem));
+      var baseMeus = L.recorteBases(
+        L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)),
+        L.acharUsuario(d.usuarios, p.quem));
       var dMeus = L.veDeclaracao(L.acharUsuario(d.usuarios, p.quem))
         ? baseMeus
         : L.semDeclaracao(baseMeus, p.quem);

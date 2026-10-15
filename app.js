@@ -234,6 +234,37 @@
   }
 
   function ehAdmin() { var s = sessao(); return !!s && String(s.perfil).toUpperCase() === 'ADMIN'; }
+
+  /* ================= OS QUATRO LIVROS, E OS DESTA PESSOA =================
+   *
+   * A lista mora AQUI, no nucleo, e nao em cada tela: o app de campo tinha a dele e o
+   * painel escrevia as opcoes a mao dentro do HTML, cinco vezes. Foi assim que o filtro
+   * "Lancamentos" do painel passou a oferecer a Base Producao para quem esta' marcado
+   * so' na Base Teste — a tela nao perguntava nada a ninguem, as opcoes estavam
+   * escritas ali.
+   *
+   * OS IDS NAO SAO OS NOMES: `teste` continua sendo o id do ensaio de producao porque e'
+   * o que esta' gravado em milhares de linhas. A ordem e' a de quanto cada livro pesa na
+   * operacao, e e' a mesma do cadastro, do filtro e da coluna da tabela. */
+  var LIVROS = [
+    { id: 'reais',      nome: 'Base Produção',         campo: 'baseProducao' },
+    { id: 'teste',      nome: 'Base Teste Produção',   campo: 'baseTeste' },
+    { id: 'declaracao', nome: 'Base Declaração',       campo: 'baseDeclaracao' },
+    { id: 'testeDecl',  nome: 'Base Teste Declaração', campo: 'baseTesteDeclaracao' }
+  ];
+  function nomeDoLivro(id) {
+    var b = LIVROS.filter(function (l) { return l.id === String(id); })[0];
+    return b ? b.nome : '';
+  }
+  /* AS BASES DESTA PESSOA. Sem nenhuma marcada vale Producao — e' a MESMA resposta que
+     o servidor da' na hora de gravar (`basesEfetivas`), e separadas as duas a pessoa
+     lancaria num livro e leria outro. */
+  function basesDaSessao() {
+    var s = sessao() || {};
+    var tem = LIVROS.filter(function (l) { return s[l.campo] === true; })
+                    .map(function (l) { return l.id; });
+    return tem.length ? tem : ['reais'];
+  }
   /* GALPAO continua aqui de propósito: virou CONFERENTE no banco, mas a sessão guardada
      no celular só troca no próximo login, e até lá o conferente perderia a aba. */
   function podeConferir() {
@@ -3226,6 +3257,7 @@
     precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
     temTeste: temTeste, num: num, dec: dec, dataBR: dataBR, hoje: hoje,
+    LIVROS: LIVROS, nomeDoLivro: nomeDoLivro, basesDaSessao: basesDaSessao,
     esc: esc, soDigitos: soDigitos,
     hojeOperacao: hojeOperacao, diaOperacao: diaOperacao,
     FUSO_OPERACAO: FUSO_OPERACAO,

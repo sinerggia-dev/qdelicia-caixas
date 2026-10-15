@@ -538,6 +538,44 @@ function basesDoUsuario(u) {
               .map(function (b) { return b.id; });
 }
 
+/* AS BASES QUE VALEM DE VERDADE, com o caso de ninguem resolvido NUM LUGAR SO'.
+ *
+ * Sem nenhuma marcada, a gravacao ja' tratava a pessoa como se fosse de Producao — era
+ * um `if (!tem.length) return 'reais'` dentro de `baseEscolhida`, e so' la'. A peneira
+ * de LEITURA que nasce agora precisa da mesma resposta: dando lista vazia, a pessoa
+ * lancaria na Producao e nao enxergaria o proprio lancamento. Duas respostas diferentes
+ * para a mesma pergunta e' o tipo de divergencia que ninguem relaciona com a causa. */
+function basesEfetivas(u) {
+  var tem = basesDoUsuario(u);
+  return tem.length ? tem : ['reais'];
+}
+
+/* ================= O LIVRO E' DO CADASTRO, E NAO DO PEDIDO =================
+ *
+ * `recorteTeste` ja' existia e peneira pelo que a TELA pediu — e' o filtro "Lancamentos"
+ * da gaveta. Isto aqui e' a outra pergunta, e ela estava sem resposta: o que esta pessoa
+ * PODE ver. Sem ela, o conferente marcado so' na Base Teste Producao recebia as linhas
+ * da Producao e as via na tabela, nos cartoes e no saldo — a peneira existia e era a do
+ * pedido, que e' justamente quem nao pode decidir isso.
+ *
+ * E' O MESMO DESENHO DE `recorteProprios` e de `recorteDeclaracao`: a permissao sai do
+ * CADASTRO de quem pergunta, e o pedido nao opina. Os tres se somam, e a ordem nao
+ * importa.
+ *
+ * ELE NAO VAI NA ROTA DA CONCILIACAO, e isto e' decisao e nao esquecimento: la' cada par
+ * tem as duas metades em LIVROS diferentes — a declaracao do motorista num, a contagem
+ * do conferente noutro — e quem governa aquela tela e' `veDeclaracao`. Peneirando por
+ * base, metade de cada par sumiria e a tabela diria "So declaracao" para todo mundo. */
+function recorteBases(dados, usuario) {
+  var tem = basesEfetivas(usuario);
+  var copia = {};
+  Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
+  copia.movimentos = (dados.movimentos || []).filter(function (m) {
+    return tem.indexOf(baseDoMovimento(m)) >= 0;
+  });
+  return copia;
+}
+
 /**
  * EM QUE BASE ESTE LANCAMENTO ENTRA.
  *
@@ -557,7 +595,10 @@ function basesDoUsuario(u) {
  */
 function baseEscolhida(u, p) {
   var tem = basesDoUsuario(u);
-  if (!tem.length) return 'reais';
+  /* O CASO DE NINGUEM MORA EM `basesEfetivas`, e a resposta aqui e' a mesma que a
+     peneira de leitura da': escritas separadas, a pessoa lancaria num livro e leria
+     outro. */
+  if (!tem.length) return basesEfetivas(u)[0];
   if (tem.length === 1) return tem[0];
   var pedida = String((p && p.base) || '').trim();
   if (pedida) return tem.indexOf(pedida) >= 0 ? pedida : null;
@@ -2930,7 +2971,8 @@ module.exports = {
   lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste,
   ehDeclaracao: ehDeclaracao, baseDoMovimento: baseDoMovimento,
   BASES: BASES, nomeDaBase: nomeDaBase,
-  basesDoUsuario: basesDoUsuario, baseEscolhida: baseEscolhida,
+  basesDoUsuario: basesDoUsuario, basesEfetivas: basesEfetivas,
+  recorteBases: recorteBases, baseEscolhida: baseEscolhida,
   veDeclaracao: veDeclaracao, recorteDeclaracao: recorteDeclaracao,
   semDeclaracao: semDeclaracao, MUNDOS: MUNDOS, recorteMundos: recorteMundos,
   mundosPedidos: mundosPedidos,

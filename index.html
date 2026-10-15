@@ -610,7 +610,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=2595cd65"></script>
+<script src="app.js?v=ea6f9fe6"></script>
 <script>
 (function(){
   'use strict';
@@ -643,20 +643,12 @@
      diferentes para as mesmas quatro palavras fazem a pessoa reler a lista toda vez.
      O campo da sessão vem junto do nome — assim acrescentar um livro é uma linha, e não
      uma linha aqui, outra na lista e outra no `if`. */
-  var LIVROS = [
-    { id: 'reais',      nome: 'Base Produção',         campo: 'baseProducao' },
-    { id: 'teste',      nome: 'Base Teste Produção',   campo: 'baseTeste' },
-    { id: 'declaracao', nome: 'Base Declaração',       campo: 'baseDeclaracao' },
-    { id: 'testeDecl',  nome: 'Base Teste Declaração', campo: 'baseTesteDeclaracao' }
-  ];
+  /* A LISTA MUDOU DE CASA: ela vive no NUCLEO, e as duas telas a leem de la'. Estava
+     aqui e, escrita a mao dentro do HTML, tambem no painel — e foi assim que o filtro
+     do painel passou a oferecer um livro que a pessoa nao tem. */
   var NOME_BASE = {};
-  LIVROS.forEach(function (l) { NOME_BASE[l.id] = l.nome; });
-
-  function basesDaSessao(){
-    var s = Q.sessao() || {};
-    return LIVROS.filter(function (l) { return s[l.campo] === true; })
-                 .map(function (l) { return l.id; });
-  }
+  Q.LIVROS.forEach(function (l) { NOME_BASE[l.id] = l.nome; });
+  function basesDaSessao(){ return Q.basesDaSessao(); }
 
   function escolheBase(){ return basesDaSessao().length > 1; }
 

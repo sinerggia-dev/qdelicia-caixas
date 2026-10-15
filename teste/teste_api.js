@@ -4387,6 +4387,78 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'devolvida sem ninguém ter contado uma caixa',
     Fl.rotuloCiclo(comDeclaracao[0], cicloDecl.S1));
 
+  /* ---- O LIVRO TAMBEM PENEIRA A LEITURA, e nao so' a gravacao ----------------
+   *
+   * A gravacao ja' era conferida contra o cadastro — logo abaixo esta' a prova de que
+   * pedir uma base que o cadastro nao deu e' recusado. A LEITURA nao era: quem esta'
+   * marcado so' na Base Teste Producao recebia as linhas da Producao e as lia na tabela,
+   * nos cartoes e no saldo. A peneira que existia (`recorteTeste`) e' a do PEDIDO — o
+   * filtro "Lancamentos" da gaveta —, e o pedido e' justamente quem nao pode decidir
+   * isso.
+   *
+   * ESTA PROVA RODA A ROTA. Lida no arquivo, ela viraria busca de texto, e um recorte
+   * aplicado ao objeto errado deixaria a chamada escrita e sem efeito. */
+  await POST({ acao: 'salvarUsuario', registro: { Nome: 'So Ensaio', Perfil: 'CONFERENTE',
+    PIN: '554433', Operacoes: ['SAIDA', 'RETORNO'], BaseProducao: false, Teste: true,
+    Saidas: ['L001', 'L003'], Destinos: ['L001', 'L003'], Retornos: ['L001', 'L003'] } });
+  const soEnsaio = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.Nome === 'So Ensaio')[0];
+  ok(!!soEnsaio && soEnsaio.Teste === true && soEnsaio.BaseProducao === false,
+    'a conferência criou alguém marcado SÓ na Base Teste Produção — é o cadastro do ' +
+    'caso relatado', soEnsaio && [soEnsaio.BaseProducao, soEnsaio.Teste]);
+
+  const vistos = (await GET({ acao: 'movimentos', limit: 500, quem: soEnsaio.ID }))
+    .movimentos || [];
+  const daProducao = vistos.filter((m) => m.teste !== true);
+  ok(vistos.length > 0,
+    'e a rota devolveu alguma coisa para ela — lista vazia faria a prova abaixo passar ' +
+    'sem medir nada', vistos.length);
+  ok(daProducao.length === 0,
+    'e NENHUMA linha da Base Produção chega a quem não tem a Base Produção — o filtro ' +
+    'da tela escondia a opção, e as linhas vinham assim mesmo: esconder o botão é ' +
+    'conveniência, e a peneira que vale é a do servidor',
+    daProducao.slice(0, 3).map((m) => m.registro || m.id));
+
+  /* O PAINEL PASSA PELA MESMA PENEIRA, e isto e' uma prova separada de proposito: sao
+     DUAS rotas, e consertar a que apareceu na tela deixaria a outra servindo os mesmos
+     numeros por outra porta. Os cartoes do Painel de Ativos saem daqui. */
+  const painelEnsaio = (await GET({ acao: 'painel', quem: soEnsaio.ID })).painel || {};
+  const painelTudo = (await GET({ acao: 'painel' })).painel || {};
+  const somaDe = (p) => {
+    const tt = (p.fluxo && p.fluxo.totais) || {};
+    return Number(tt.saida || 0) + Number(tt.retorno || 0);
+  };
+  ok(somaDe(painelTudo) > 0,
+    'a conferência tem números no painel de quem vê tudo — painel vazio faria a prova ' +
+    'abaixo passar sem medir nada', somaDe(painelTudo));
+  ok(somaDe(painelEnsaio) < somaDe(painelTudo),
+    'e o painel de quem só tem a Base Teste Produção soma MENOS que o de quem vê as ' +
+    'duas — são duas rotas, e consertar só a que apareceu na tela deixaria a outra ' +
+    'servindo os mesmos números por outra porta',
+    [somaDe(painelEnsaio), somaDe(painelTudo)]);
+
+  /* SEM NENHUM LIVRO MARCADO VALE PRODUCAO, E SO' ELA. Devolvendo os quatro, a peneira
+     deixaria de peneirar justamente no cadastro mais descuidado — e seria o unico caso
+     em que ela parece funcionar e nao funciona. */
+  const Lg = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  ok(Lg.basesEfetivas({}).join(',') === 'reais',
+    'sem nenhum livro marcado vale a Produção, e só ela — devolvendo os quatro, a ' +
+    'peneira deixaria de peneirar justamente no cadastro mais descuidado',
+    Lg.basesEfetivas({}));
+  ok(Lg.basesEfetivas({ Teste: true }).join(',') === 'teste' &&
+     Lg.basesEfetivas({ BaseProducao: true, Teste: true }).join(',') === 'reais,teste',
+    'e com livro marcado vale o que o cadastro deu, na ordem de sempre',
+    [Lg.basesEfetivas({ Teste: true }),
+     Lg.basesEfetivas({ BaseProducao: true, Teste: true })]);
+
+  /* E QUEM TEM AS DUAS CONTINUA VENDO AS DUAS: a peneira nova nao pode virar uma parede
+     para quem o cadastro liberou. */
+  const admTudo = (await GET({ acao: 'movimentos', limit: 500 })).movimentos || [];
+  ok(admTudo.filter((m) => m.teste !== true).length > 0,
+    'e quem tem a Base Produção continua recebendo as linhas dela — a peneira nova não ' +
+    'pode virar parede para quem o cadastro liberou',
+    admTudo.filter((m) => m.teste !== true).length);
+
   /* ---- AS TRES CONVIVEM, E QUEM ESCOLHE E A PESSOA ----
    *
    * A pedido do escritorio: producao e declaracao sao lidas em relatorios separados, e a

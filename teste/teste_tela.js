@@ -103,6 +103,178 @@ function camposDa(secao) {
   return ids;
 }
 
+console.log('\n== os seletores de base do painel saem da sessão ==');
+var MONTA_BASE = (function () {
+  /* O MONTADOR RODA, e a bancada le' o que ele PRODUZIU. As provas daqui liam os
+     `<option>` escritos no HTML — e era justamente por estarem escritos la' que os cinco
+     seletores ofereciam os quatro livros a qualquer pessoa. Lendo o HTML, elas
+     continuariam verdes com o defeito na tela. */
+  var admB = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var nucB = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+  var iD = admB.indexOf("  var BASES_DECL_IDS = ['declaracao', 'testeDecl'];");
+  var fD = admB.indexOf('\n  }', admB.indexOf('  function montarSeletoresDeBase(){'));
+  var fonteB = iD < 0 || fD < 0 ? '' : admB.slice(iD, fD + 4);
+
+  var iN = nucB.indexOf('  var LIVROS = [');
+  var fN = nucB.indexOf('\n  }', nucB.indexOf('  function basesDaSessao() {'));
+  var fonteN = iN < 0 || fN < 0 ? '' : nucB.slice(iN, fN + 4);
+
+  ok(fonteB.indexOf('querySelectorAll') > 0 && fonteN.indexOf('LIVROS') > 0,
+    'a conferência recortou o montador dos seletores e a lista dos livros do núcleo — ' +
+    'recorte vazio faria as provas abaixo passarem sem rodar nada',
+    [fonteB.length, fonteN.length]);
+
+  /* OS SELETORES SAO OS DO ARQUIVO, e nao uma lista escrita aqui: um seletor novo que
+     nascesse sem `data-bases` nao apareceria nesta conta — e e' exatamente esse o
+     esquecimento que se quer pegar. */
+  var IDS = (admB.match(/<select id="(\w+)"[^>]*data-bases="([\w-]+)"/g) || [])
+    .map(function (s) {
+      return { id: /id="(\w+)"/.exec(s)[1], modo: /data-bases="([\w-]+)"/.exec(s)[1] };
+    });
+  ok(IDS.length >= 5,
+    'e achou os cinco seletores de base do painel, pelo `data-bases` do próprio ' +
+    'arquivo — escrita aqui, a lista não cresce com o seletor que alguém acrescentar',
+    IDS.map(function (x) { return x.id + ':' + x.modo; }));
+
+  function nodo(modo) {
+    return { dataset: { bases: modo }, value: '', innerHTML: '',
+             querySelector: function (q) {
+               var v = /value="([^"]*)"/.exec(q);
+               return v && this.innerHTML.indexOf('value="' + v[1] + '"') >= 0 ? {} : null;
+             } };
+  }
+  return function (sessao) {
+    var caixas = {};
+    IDS.forEach(function (x) { caixas[x.id] = nodo(x.modo); });
+    var N = new Function('sessao', fonteN +
+      ' return { LIVROS: LIVROS, nomeDoLivro: nomeDoLivro, basesDaSessao: basesDaSessao };'
+    )(function () { return sessao; });
+    new Function('Q', 'document', fonteB + '\n montarSeletoresDeBase();')(
+      { basesDaSessao: N.basesDaSessao, nomeDoLivro: N.nomeDoLivro,
+        esc: function (x) { return String(x); } },
+      { querySelectorAll: function () {
+          return Object.keys(caixas).map(function (k) { return caixas[k]; }); } });
+    var fora = {};
+    Object.keys(caixas).forEach(function (k) {
+      var h = caixas[k].innerHTML;
+      fora[k] = {
+        html: h,
+        valores: (h.match(/value="([^"]*)"/g) || [])
+          .map(function (v) { return /value="([^"]*)"/.exec(v)[1]; }),
+        rotulos: (h.match(/>([^<]+)<\/option>/g) || [])
+          .map(function (v) { return /> ?([^<]+)<\/option>/.exec(v)[1]; }),
+        marcadas: (h.match(/<option[^>]*selected[^>]*>/g) || []).length
+      };
+    });
+    return fora;
+  };
+})();
+
+{
+  /* ---- O DEFEITO RELATADO, MEDIDO ----
+     `conferente.teste` tem SO' a Base Teste Producao marcada no cadastro, e a gaveta de
+     Movimentos oferecia "Base Producao" na lista. */
+  var soTeste = MONTA_BASE({ baseTeste: true });
+  ok(soTeste.mvTeste.valores.indexOf('reais') < 0,
+    'quem está marcado só na Base Teste Produção NÃO vê a Base Produção no filtro de ' +
+    'Movimentos — era o defeito relatado: as opções estavam escritas no HTML e a tela ' +
+    'não perguntava nada a ninguém', soTeste.mvTeste.html);
+  ok(soTeste.mvTeste.valores.indexOf('teste') >= 0,
+    'e vê a dela — esconder a base da própria pessoa seria trocar um defeito por outro',
+    soTeste.mvTeste.html);
+  ok(soTeste.verTestePainel.valores.indexOf('reais') < 0 &&
+     soTeste.verTesteRetornos.valores.indexOf('reais') < 0 &&
+     soTeste.lcTeste.valores.indexOf('') < 0,
+    'e o mesmo vale nos outros seletores — eram CINCO listas escritas à mão, e consertar ' +
+    'só a que apareceu na tela deixaria as outras quatro oferecendo o livro errado',
+    [soTeste.verTestePainel.valores, soTeste.verTesteRetornos.valores,
+     soTeste.lcTeste.valores]);
+
+  /* ---- COM UM LIVRO SO', NAO HA' O QUE ESCOLHER ---- */
+  ok(soTeste.verTestePainel.valores.indexOf('todos') < 0,
+    'e "As duas bases" some de quem tem uma só — a opção prometeria uma soma de dois ' +
+    'livros quando há um, e o resultado seria idêntico ao de cima dela',
+    soTeste.verTestePainel.html);
+
+  /* ---- QUEM TEM AS DUAS CONTINUA COM AS DUAS, E COM A SOMA ---- */
+  var duasB = MONTA_BASE({ baseProducao: true, baseTeste: true });
+  ok(duasB.verTestePainel.valores.join(',') === 'reais,teste,todos',
+    'quem tem as duas vê as duas e a soma, nessa ordem — a ordem é a de quanto cada ' +
+    'livro pesa na operação, e é a mesma do cadastro e da tabela',
+    duasB.verTestePainel.valores);
+  ok(duasB.verTestePainel.marcadas === 1 &&
+     /value="todos"[^>]*selected/.test(duasB.verTestePainel.html),
+    'e ele abre em "As duas bases" — abrindo só na Produção, a tela esconde o que foi ' +
+    'lançado em validação de quem nem sabe que existe uma segunda base',
+    duasB.verTestePainel.html);
+  ok(duasB.mvTeste.valores[0] === '' && duasB.mvTeste.rotulos[0] === 'Todas as bases',
+    'e o filtro de Movimentos abre com "Todas as bases" na frente — ele é de várias ' +
+    'escolhas, e a primeira linha é a que limpa', duasB.mvTeste.html);
+
+  /* ---- O FORMULARIO DE LANCAMENTO MANDA O QUE A ROTA ENTENDE ----
+     Producao viaja como string vazia, e nao como `reais`: e' o que a rota le'. */
+  ok(duasB.lcTeste.valores.join(',') === ',teste',
+    'o formulário de lançamento manda `""` para Produção e `teste` para o ensaio — é o ' +
+    'que a rota entende, e não o id do livro', duasB.lcTeste.valores);
+
+  /* ---- A DECLARACAO TEM LISTA PROPRIA ---- */
+  var decl = MONTA_BASE({ baseProducao: true, baseDeclaracao: true,
+                          baseTesteDeclaracao: true });
+  ok(decl.dcBase.valores.join(',') === 'declaracao,testeDecl',
+    'a conciliação oferece só os livros de declaração — os de operação entram em Saída, ' +
+    'Retorno e Saldo, e ali a mesma carga seria contada duas vezes', decl.dcBase.valores);
+  ok(decl.dcBase.marcadas === 2,
+    'e abre com OS DOIS marcados — pedir a escolha antes de mostrar qualquer coisa punha ' +
+    'um aviso onde se esperam números', decl.dcBase.html);
+  ok(decl.mvTeste.valores.indexOf('declaracao') < 0 &&
+     decl.mvTeste.valores.indexOf('testeDecl') < 0,
+    'e nenhuma base de declaração entra no filtro de Movimentos, nem para quem as tem — ' +
+    'lá a declaração era contada junto com a contagem do conferente, a mesma carga duas ' +
+    'vezes', decl.mvTeste.valores);
+  var semDecl = MONTA_BASE({ baseProducao: true });
+  ok(semDecl.dcBase.valores.join(',') === '',
+    'e quem não tem base de declaração nenhuma vê um seletor que diz isso, e não uma ' +
+    'lista vazia — lista sem opção não se lê como "você não tem acesso", se lê como ' +
+    '"a tela quebrou"', semDecl.dcBase.html);
+
+  /* ---- E ALGUEM CHAMA O MONTADOR ----
+   * As provas acima o rodam a mao, e por isso nao viam o defeito mais caro deste
+   * projeto: a peca existe e nada chega nela. Sem a chamada, os cinco seletores ficam
+   * VAZIOS na tela — e um seletor sem opcao nenhuma nao se le' como "voce nao tem
+   * acesso", se le' como "a tela quebrou".
+   * E ELA MORA EM `aplicarSessao`, que roda a cada carga E a cada renovacao: chamada so'
+   * na abertura, o cadastro mudado no escritorio so' valeria no proximo recarregamento. */
+  var admCh = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var iAp = admCh.indexOf('  function aplicarSessao(s){');
+  var corpoAp = iAp < 0 ? '' : admCh.slice(iAp, admCh.indexOf(String.fromCharCode(10) + '  }', iAp));
+  ok(corpoAp.indexOf('montarSeletoresDeBase()') > 0,
+    'alguém CHAMA o montador, e é `aplicarSessao` — sem a chamada os cinco seletores ' +
+    'ficam vazios na tela, e um seletor sem opção nenhuma não se lê como "você não tem ' +
+    'acesso", se lê como "a tela quebrou"', corpoAp.slice(0, 200));
+
+  /* ---- QUEM SO' TEM DECLARACAO NAO FICA COM SELETOR VAZIO ----
+   * E' o unico caminho que chega ao `if (!operacao.length)`: o nucleo ja' devolve
+   * Producao para quem nao marcou nada, entao a lista so' fica vazia quando a pessoa tem
+   * livro, mas nenhum de operacao. */
+  var soDecl = MONTA_BASE({ baseDeclaracao: true, baseTesteDeclaracao: true });
+  ok(soDecl.verTestePainel.valores.join(',') === 'reais',
+    'quem só tem livro de DECLARAÇÃO ainda vê a Produção nos seletores de operação — ' +
+    'lista vazia ali não diz "você não tem acesso", diz "a tela quebrou", e é a mesma ' +
+    'resposta que o servidor dá na gravação', soDecl.verTestePainel.html);
+  ok(soDecl.dcBase.valores.join(',') === 'declaracao,testeDecl',
+    'e os livros de declaração dela aparecem onde são a pergunta', soDecl.dcBase.valores);
+
+  /* ---- SEM NENHUM LIVRO MARCADO, VALE PRODUCAO ----
+     E' a MESMA resposta que o servidor da' na hora de gravar. Separadas, a pessoa
+     lancaria num livro e leria outro. */
+  var nenhum = MONTA_BASE({});
+  ok(nenhum.verTestePainel.valores.join(',') === 'reais',
+    'sem nenhum livro marcado vale a Produção, que é a mesma resposta que o servidor dá ' +
+    'na hora de gravar — separadas, a pessoa lançaria num livro e leria outro',
+    nenhum.verTestePainel.valores);
+}
+
 console.log('\n== o botão Limpar alcança todo campo do formulário ==');
 
 [
@@ -6155,10 +6327,14 @@ console.log('\n== a porta de volta, do painel para os lancamentos ==');
        logado e remonta o seletor de Ajuste, e sem eles a funcao estoura antes de chegar
        na decisao que se quer medir. `DADOS` vai NULO de proposito — e o estado real da
        abertura, antes de os cadastros chegarem, e e por ele que o `if (DADOS)` existe. */
+    /* `montarSeletoresDeBase` TAMBEM DE MENTIRA: `aplicarSessao` passou a refazer os
+       seletores de base, e sem ele a funcao estoura antes de chegar na decisao que se
+       quer medir aqui. O que ELE faz tem bancada propria, logo abaixo. */
     return new Function('s', 'document', 'Q', 'DADOS', 'ajustarLancamento',
+      'montarSeletoresDeBase',
       fonte + '\n aplicarSessao(s); return !document.getElementById("chipCampo").hidden;')(
       s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); } },
-      { quemEsta: function () {} }, null, function () {});
+      { quemEsta: function () {} }, null, function () {}, function () {});
   }
 
   /* Quem nao tem senha de lancamento nao passa do login do app de campo: `loginPorPin`
@@ -11688,10 +11864,20 @@ console.log('\n== a base do usuário ==');
      base seriam sete, e o filtro virou de várias escolhas, como os outros oito. Os
      painéis continuam com o seletor de sempre: eles somam, e a declaração não entra em
      soma nenhuma, então ali as bases continuam sendo duas. */
-  ok((adm.match(/<option value="todos"[^>]*>As duas bases<\/option>/g) || []).length === 2,
-    'os seletores do painel continuam oferecendo "As duas bases" — lá são dois livros, ' +
-    'porque a declaração não entra em conta nenhuma',
-    (adm.match(/As duas bases/g) || []).length);
+  /* A PROVA INVERTEU: "As duas bases" era medida contando `<option>` escritos no HTML, e
+     era justamente por estarem escritos la' que os cinco seletores ofereciam os quatro
+     livros a qualquer pessoa. Agora quem monta e' `montarSeletoresDeBase`, com as bases
+     DESTA pessoa — o que ele produz esta' medido no bloco "os seletores de base do
+     painel saem da sessao". Aqui so' se cobra que nao haja mais lista escrita a mao. */
+  /* O `<script>` SAI DA VARREDURA: e' dentro dele que o montador escreve as opcoes, e
+     e' exatamente isso que se quer. O que nao pode voltar e' `<option>` de base escrito
+     na MARCACAO, onde ninguem pergunta de quem e' a tela. */
+  var admSemJs = adm.replace(/<script[\s\S]*?<\/script>/g, '');
+  var opcoesFixas = admSemJs.match(
+    /<option value="(reais|teste|declaracao|testeDecl|todos)"[^>]*>[^<]*/g) || [];
+  ok(opcoesFixas.length === 0,
+    'nenhum seletor de base tem as opções escritas na marcação — escritas ali, elas ' +
+    'oferecem os quatro livros a quem tem um, que foi o defeito relatado', opcoesFixas);
   var filtroBase = adm.slice(adm.indexOf('<select id="mvTeste"'));
   filtroBase = filtroBase.slice(0, filtroBase.indexOf('</select>'));
   /* ABRE EM TODAS AS BASES, que neste seletor se escreve como NENHUMA marcada — e' a
@@ -12035,11 +12221,15 @@ console.log('\n== Motorista/Conferente ==');
     'e os três números de cima somem junto: deixados de um carregamento anterior, eles ' +
     'ficariam sobre uma tela que diz "escolha a base", e se leriam como o resultado do ' +
     'que está escolhido agora');
+  /* O SELETOR DA BASE E' MONTADO, e o que ele produz esta' medido no bloco "os
+     seletores de base do painel saem da sessao": la' se cobra que ele traga so' os
+     livros de declaracao, que abra com os dois marcados, e que diga alguma coisa para
+     quem nao tem nenhum. Aqui fica a metade que e' deste arquivo: ele e' montado. */
   var selBase = adm.slice(adm.indexOf('<select id="dcBase"'));
   selBase = selBase.slice(0, selBase.indexOf('</select>'));
-  ok(selBase.indexOf('Todas') < 0 && selBase.indexOf('Escolha a base') > 0,
-    'e o filtro não diz "Todas" quando está vazio — a palavra promete um dado que a ' +
-    'tela não vai buscar, e quem lesse concluiria que não houve declaração nenhuma',
+  ok(selBase.indexOf('data-bases="decl"') > 0,
+    'o filtro da conciliação é montado com as bases de declaração DESTA pessoa, e não ' +
+    'escrito no HTML — escrito, ele oferecia os dois livros a quem não tem nenhum',
     selBase.slice(0, 120));
   /* UMA BASE NASCE MARCADA, E E' A DE VERDADE.
    *
@@ -12052,14 +12242,8 @@ console.log('\n== Motorista/Conferente ==');
    * diferentes, e juntas dao um numero que nao responde nem uma pergunta nem a outra. Por
    * isso o padrao e' UM livro, e nao "todos" — e e' a unica tela do painel onde abrir
    * tudo seria pior do que abrir uma parte. */
-  var marcadas = (selBase.match(/<option value="([^"]*)"[^>]*selected/g) || []);
-  ok(marcadas.length === 2,
-    'a conciliação abre com OS DOIS livros marcados — pedir a escolha antes de mostrar ' +
-    'qualquer coisa punha um aviso onde se esperam números, e abrir só num deles deixava ' +
-    'quem opera em validação lendo zero, que é o mesmo aviso dito com números', marcadas);
-  ok(selBase.indexOf('value=""') > 0 && selBase.indexOf('value="" selected') < 0,
-    'e a opção vazia continua existindo para limpar, sem nascer marcada — marcada, ela ' +
-    'competiria com as duas e a tela abriria sem base nenhuma de novo');
+  /* "abre com os dois marcados" roda no bloco do montador, com uma sessao que tem os
+     dois livros — medido no efeito, e nao no `selected` escrito a mao. */
 
   /* ---- O PAR, RODADO ----
    *
@@ -13778,33 +13962,37 @@ console.log('\n== o editor de falas para a demonstracao ==');
    * pedido, no botao que limpa os filtros e no X da pilula. Discordando, a tela mostra
    * uma coisa e pede outra — e a pilula acusa um recorte que ninguem escolheu, ou
    * esconde um que esta ligado. */
-  function marcada(sel) {
-    var i = admV.indexOf('<select id="' + sel + '"');
-    if (i < 0) return null;
-    var bloco = admV.slice(i, admV.indexOf('</select>', i));
-    var m = bloco.match(/<option value="([^"]*)"[^>]*selected/);
-    return m ? m[1] : (bloco.match(/<option value="([^"]*)"/) || [])[1];
-  }
+  /* O PADRAO DOS SELETORES E' MEDIDO RODANDO O MONTADOR, e nao lendo o `selected` do
+     arquivo: as opcoes deixaram de morar la'. O que continua valendo e' a pergunta —
+     a opcao que nasce marcada tem de ser a MESMA que vai no pedido, senao a tela mostra
+     uma base e le' outra. */
   var noPedido = (admV.match(/var VER_TESTE = '([^']*)'/) || [])[1];
+  var comAsDuas = MONTA_BASE({ baseProducao: true, baseTeste: true });
   ['verTestePainel', 'verTesteRetornos'].forEach(function (s) {
-    ok(marcada(s) === 'todos',
-      'o seletor ' + s + ' abre em TODAS as bases', marcada(s));
-    ok(marcada(s) === noPedido,
-      'e a op\u00e7\u00e3o marcada em ' + s + ' \u00e9 a MESMA que vai no pedido \u2014 discordando, a ' +
-      'tela mostra uma base e l\u00ea outra', [marcada(s), noPedido]);
+    var m = /<option value="([^"]*)"[^>]*selected/.exec(comAsDuas[s].html);
+    ok(m && m[1] === 'todos',
+      'o seletor ' + s + ' abre em TODAS as bases para quem tem as duas',
+      comAsDuas[s].html);
+    ok(m && m[1] === noPedido,
+      'e a opção marcada em ' + s + ' é a MESMA que vai no pedido — discordando, a ' +
+      'tela mostra uma base e lê outra', [m && m[1], noPedido]);
   });
 
   var padraoBases = (admV.match(/var BASES_PADRAO = \[([^\]]*)\]/) || [])[1];
   ok(padraoBases !== undefined, 'o padr\u00e3o das bases de Movimentos mora num lugar s\u00f3',
     padraoBases);
   if (padraoBases !== undefined) {
-    var marcadaMov = marcada('mvTeste');
-    ok(padraoBases.replace(/'/g, '') === marcadaMov,
-      'e a op\u00e7\u00e3o marcada em mvTeste \u00e9 a mesma do padr\u00e3o \u2014 discordando, a p\u00edlula ' +
-      'acusa um recorte que ningu\u00e9m escolheu', [padraoBases, marcadaMov]);
-    ok(marcadaMov === '',
-      'e ela \u00e9 "Todas as bases" \u2014 abrir s\u00f3 na Produ\u00e7\u00e3o esconde o que foi lan\u00e7ado ' +
-      'em valida\u00e7\u00e3o de quem nem sabe que existe uma segunda base', marcadaMov);
+    /* O FILTRO DE MOVIMENTOS e' de varias escolhas: quem marca nele e' `porEscolha`,
+       com `BASES_PADRAO`, e nao um `selected` no HTML. O que se cobra e' que a primeira
+       opcao — a que limpa — seja a mesma coisa que o padrao diz. */
+    var primeiraMov = comAsDuas.mvTeste.valores[0];
+    ok(padraoBases.replace(/'/g, '') === primeiraMov,
+      'e a primeira opção de mvTeste é a mesma do padrão — discordando, a pílula acusa ' +
+      'um recorte que ninguém escolheu', [padraoBases, primeiraMov]);
+    ok(primeiraMov === '' && comAsDuas.mvTeste.rotulos[0] === 'Todas as bases',
+      'e ela é "Todas as bases" — abrir só na Produção esconde o que foi lançado em ' +
+      'validação de quem nem sabe que existe uma segunda base',
+      comAsDuas.mvTeste.rotulos[0]);
     ok((admV.match(/porEscolha\(document\.getElementById\('mvTeste'\), BASES_PADRAO\)/g) ||
         []).length >= 1 &&
        admV.indexOf("porEscolha(el, ['reais'])") < 0,
@@ -17389,14 +17577,23 @@ console.log('\n== a base do lançamento, no app de campo ==');
 (function () {
   var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
-  /* O RECORTE COMECA NA LISTA DAS BASES, e nao na primeira funcao: e dela que as tres
-     saem, e comecando depois a bancada rodaria sobre um `basesDaSessao` que nao existe —
-     e o erro falaria de escopo, nao do seletor. */
-  var ini = idx.indexOf('  var LIVROS = [');
+  /* A LISTA DOS LIVROS MUDOU DE CASA: ela vive no NUCLEO, e as duas telas a leem de
+     la'. Estava escrita aqui no app de campo E a mao dentro do HTML do painel, cinco
+     vezes — foi assim que o filtro do painel passou a oferecer um livro que a pessoa nao
+     tem. O recorte abaixo junta as duas metades: a do nucleo e a da tela. */
+  var nucLiv = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var iL = nucLiv.indexOf('  var LIVROS = [');
+  var fL = nucLiv.indexOf('\n  }', nucLiv.indexOf('  function basesDaSessao() {'));
+  var fonteNucleo = iL < 0 || fL < 0 ? '' : nucLiv.slice(iL, fL + 4);
+  ok(fonteNucleo.indexOf('basesDaSessao') > 0 && fonteNucleo.indexOf('LIVROS') > 0,
+    'a conferência recortou a lista dos livros do NÚCLEO — é de lá que as duas telas a '
+    + 'leem agora', fonteNucleo.length);
+
+  var ini = idx.indexOf('  var NOME_BASE = {};');
   var fim = idx.indexOf('  function aplicarSessao(s){');
   var fonte = ini < 0 || fim < 0 ? '' : idx.slice(ini, fim);
   ok(fonte.length > 200 && fonte.indexOf('ajustarBases') > 0 &&
-     fonte.indexOf('basesDaSessao') > 0 && fonte.indexOf('LIVROS') > 0,
+     fonte.indexOf('basesDaSessao') > 0,
     'a conferência recortou as três funções da base — recorte vazio faria as provas ' +
     'abaixo passarem sem rodar nada', fonte.length);
 
@@ -17410,10 +17607,17 @@ console.log('\n== a base do lançamento, no app de campo ==');
     }
     var caixas = { sdBaseBox: { hidden: null }, dvBaseBox: { hidden: null },
                    sdBase: sel(valor), dvBase: sel(valor) };
+    /* O `Q` DE MENTIRA LEVA O NUCLEO DE VERDADE. Inventar aqui um `basesDaSessao`
+       proprio mediria a conta da bancada, e nao a que roda no galpao — e e' justamente
+       essa conta que decide quais livros aparecem. */
+    var N = new Function('sessao',
+      fonteNucleo + '\n return { LIVROS: LIVROS, nomeDoLivro: nomeDoLivro,' +
+                    ' basesDaSessao: basesDaSessao };')(function () { return sessao; });
     var f = new Function('Q', 'document',
       fonte + '\n return { base: baseDoLancamento, ajusta: ajustarBases,' +
               ' bases: basesDaSessao };')(
-      { sessao: function () { return sessao; } },
+      { sessao: function () { return sessao; }, LIVROS: N.LIVROS,
+        nomeDoLivro: N.nomeDoLivro, basesDaSessao: N.basesDaSessao },
       { getElementById: function (id) { return caixas[id] || null; } });
     f.ajusta();
     return { caixas: caixas, base: f.base, bases: f.bases };

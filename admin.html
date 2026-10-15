@@ -584,11 +584,10 @@
            sabe que existe uma segunda base, e o numero menor nao vinha com aviso
            nenhum. Quem quer ler uma base so' escolhe, e ve a escolha escrita no
            seletor. -->
-      <select id="verTestePainel" class="sel-teste" data-verteste>
-        <option value="reais">Base Produção</option>
-        <option value="teste">Base Teste</option>
-        <option value="todos" selected>As duas bases</option>
-      </select>
+      <!-- VAZIO DE PROPOSITO: quem escreve as opcoes e' `montarSeletoresDeBase()`, com
+           as bases DESTA pessoa. Escritas aqui, elas ofereciam a Base Producao para quem
+           esta' marcado so' na Base Teste — foi o defeito relatado. -->
+      <select id="verTestePainel" class="sel-teste" data-verteste data-bases="mov"></select>
       <span class="dica">Lançamento de teste é o de quem tem <b>teste</b> no perfil. Ele conta no saldo como qualquer outro — isto aqui só separa a leitura.</span>
     </div>
     <div class="kpis" id="kpis"></div>
@@ -718,11 +717,7 @@
               </div>
               <p class="erro-data" id="rtErroData" role="alert" hidden></p>
               <label for="verTesteRetornos">Lançamentos</label>
-              <select id="verTesteRetornos" data-verteste>
-                <option value="reais">Base Produção</option>
-                <option value="teste">Base Teste</option>
-                <option value="todos" selected>As duas bases</option>
-              </select>
+              <select id="verTesteRetornos" data-verteste data-bases="mov"></select>
               <!-- SÓ NO CELULAR. No computador o painel fecha clicando fora, e a folha
                    cobre a tela inteira: sem um rodapé, o dedo não tem para onde ir.
                    "Fechar" e não "Aplicar": os campos já valem na hora em que se mexe
@@ -820,10 +815,7 @@
           <label for="lcTeste">Lançamento</label>
           <!-- Rótulos curtos: a coluna do formulário tem ~210px e o texto longo era
                cortado no meio, o que é pior do que não explicar. -->
-          <select id="lcTeste">
-            <option value="">Real</option>
-            <option value="teste">De teste</option>
-          </select>
+          <select id="lcTeste" data-bases="lanc"></select>
         </div>
         <div><label for="lcData">Data do movimento</label><input id="lcData" type="date"></div>
         <div id="wrapOrigem"><label for="lcOrigem">Origem</label><select id="lcOrigem"></select></div>
@@ -1104,11 +1096,8 @@
              ela entrava nos cartões de Saída, Retorno e Saldo: a mesma carga contada
              duas vezes, uma pelo conferente e outra pela fala do motorista.
              Ela mora em Movimentos Motoristas, e só lá. -->
-        <div><label for="mvTeste">Lançamentos</label><select id="mvTeste" multiple data-multi>
-          <option value="">Todas as bases</option>
-          <option value="reais">Base Produção</option>
-          <option value="teste">Base Teste Produção</option>
-        </select></div>
+        <div><label for="mvTeste">Lançamentos</label>
+          <select id="mvTeste" multiple data-multi data-bases="mov-multi"></select></div>
         <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
         <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
       </div>
@@ -1428,11 +1417,7 @@
                    mistura e' a soma do topo — os cinco cartoes passam a somar os
                    dois livros. Quem quiser a conta de um livro so' tira o outro
                    do filtro, que continua a um toque. -->
-              <select id="dcBase" multiple data-multi>
-                <option value="">Escolha a base…</option>
-                <option value="declaracao" selected>Base Declaração</option>
-                <option value="testeDecl" selected>Base Teste Declaração</option>
-              </select></div>
+              <select id="dcBase" multiple data-multi data-bases="decl"></select></div>
             <!-- NASCE EM RETORNO, a pedido: ninguém declara um carregamento, então todo
                  par de saída nasce sem a coluna Declarado — e a diferença Saída −
                  Declarado nasce vazia. Ruído por construção, e ruído que parece problema.
@@ -1656,7 +1641,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=2595cd65"></script>
+<script src="app.js?v=ea6f9fe6"></script>
 <script>
 (function(){
   'use strict';
@@ -1853,6 +1838,11 @@
      dois faria a renovacao esquecer alguma coisa, calada. */
   function aplicarSessao(s){
     Q.quemEsta(s.nome, s.perfil, s.foto);
+
+    /* OS SELETORES DE BASE SE REFAZEM AQUI, e por isso vale para a renovacao tambem: o
+       cadastro muda no escritorio, a sessao chega de novo segundos depois, e um seletor
+       montado uma vez so' continuaria oferecendo o livro de ontem. */
+    montarSeletoresDeBase();
 
     /* A porta de volta para o app de lancamento, para quem consegue entrar la.
 
@@ -2450,6 +2440,71 @@
         '<input id="lc_'+t.ID+'" type="number" inputmode="numeric" placeholder="0"></div></div>';
     }).join('');
     ajustarLancamento();
+  }
+
+  /* ================= OS SELETORES DE BASE SAEM DA SESSAO =================
+   *
+   * Eram CINCO listas escritas a mao dentro do HTML — o filtro do Painel de Ativos, o da
+   * gaveta de Movimentos, o do formulario de lancamento, o da Declaracao e o do painel
+   * de retornos. Nenhuma delas perguntava nada a ninguem, e por isso todas ofereciam os
+   * quatro livros a qualquer pessoa: quem esta' marcado so' na Base Teste Producao via
+   * "Base Producao" na lista e podia escolhe-la. Foi o defeito relatado.
+   *
+   * AGORA HA' UM MONTADOR SO', e ele le' `Q.basesDaSessao()` — a mesma conta que o
+   * servidor faz para decidir o que ESTA PESSOA pode. Sao quatro formatos de lista
+   * (`data-bases`), e nao quatro listas:
+   *
+   *   mov        um livro por vez, mais "as duas" quando ha' duas  (Painel de Ativos)
+   *   mov-multi  varios de uma vez, com "todas" na frente          (Movimentos)
+   *   lanc       em que livro ESTE lancamento entra                (formulario)
+   *   decl       so' os livros de declaracao                       (Conciliacao)
+   *
+   * COM UM LIVRO SO', A LISTA TEM UMA LINHA e nao ha' o que escolher — e' a mesma regra
+   * do app de campo, que esconde o seletor quando nao ha' escolha a fazer.
+   *
+   * REFEITO A CADA CARGA DA SESSAO, e nao uma vez: o cadastro muda no escritorio, e um
+   * seletor com as opcoes de ontem ofereceria um livro que a pessoa ja' nao tem. */
+  var BASES_DECL_IDS = ['declaracao', 'testeDecl'];
+  function montarSeletoresDeBase(){
+    var tem = Q.basesDaSessao();
+    var operacao = tem.filter(function(b){ return BASES_DECL_IDS.indexOf(b) < 0; });
+    var declara  = tem.filter(function(b){ return BASES_DECL_IDS.indexOf(b) >= 0; });
+    /* SEM NENHUM LIVRO DE OPERACAO a lista nao pode ficar vazia: um seletor sem opcao
+       nenhuma nao diz "voce nao tem acesso", diz "a tela quebrou". Fica a Producao, que
+       e' o que o servidor assume na gravacao para quem nao tem nada marcado. */
+    if (!operacao.length) operacao = ['reais'];
+    function opcoes(ids, extra){
+      return (extra || []).concat(ids.map(function(b){
+        return { v: b, r: Q.nomeDoLivro(b) };
+      })).map(function(o){
+        return '<option value="'+Q.esc(o.v)+'"'+(o.sel ? ' selected' : '')+'>'+
+               Q.esc(o.r)+'</option>';
+      }).join('');
+    }
+    document.querySelectorAll('[data-bases]').forEach(function(sel){
+      var era = sel.value, modo = sel.dataset.bases, html = '';
+      if (modo === 'mov') {
+        html = opcoes(operacao) +
+          (operacao.length > 1 ? '<option value="todos" selected>As duas bases</option>' : '');
+      } else if (modo === 'mov-multi') {
+        html = opcoes(operacao, [{ v: '', r: 'Todas as bases' }]);
+      } else if (modo === 'lanc') {
+        /* O FORMULARIO MANDA `''` PARA PRODUCAO e `teste` para o ensaio — e' o que a
+           rota entende, e nao o id do livro. */
+        html = operacao.map(function(b){
+          return '<option value="'+(b === 'reais' ? '' : Q.esc(b))+'">'+
+                 Q.esc(Q.nomeDoLivro(b))+'</option>';
+        }).join('');
+      } else if (modo === 'decl') {
+        html = declara.length
+          ? opcoes(declara).replace(/<option /g, '<option selected ')
+          : '<option value="">Sem base de declaração</option>';
+      }
+      sel.innerHTML = html;
+      if (era && sel.querySelector('option[value="'+era.replace(/"/g, '')+'"]')) {
+        sel.value = era;
+      }
+    });
   }
 
   /* ---------------- painel ---------------- */
