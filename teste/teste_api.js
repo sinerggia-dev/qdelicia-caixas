@@ -3720,6 +3720,42 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
        ENTAO TODA MIGRACAO QUE CRIA UMA DESSAS COLUNAS TEM DE PREENCHE-LA na mesma
        migracao. A conta e' derivada do proprio arquivo: para cada coluna `jsonb` com
        default `'[]'` que nasce, tem de haver um `update` dela ali. */
+    /* ---- APOSTROFO DENTRO DE STRING SQL DERRUBA A MIGRACAO, E COM ELA A API ----
+     *
+     * Aconteceu: o comentario de uma coluna terminava com "quem trocou e' quem esta'
+     * dentro". Os dois apostrofos estao DENTRO de um literal de aspas simples — o
+     * primeiro FECHA a string, e o resto vira sintaxe invalida. A migracao falha, e como
+     * ela roda na primeira chamada depois do deploy, TODA rota passa a responder "Falha
+     * ao atualizar o banco": a `equipe` volta vazia, o painel abre em branco, o app de
+     * campo nao entra. Minutos de sistema fora do ar por um acento escrito a mao.
+     *
+     * A CONVENCAO DESTE PROJETO E' A ARMADILHA: escrever `e'` no lugar de `é` e' seguro
+     * em comentario de JavaScript e fatal dentro de um literal do Postgres.
+     *
+     * AS LINHAS `--` SAEM DA CONTA: ali o apostrofo e' comentario de SQL e nao machuca,
+     * e cobrar delas proibiria metade do portugues escrito nas migracoes. */
+    const tortas = [];
+    require(path.join(__dirname, '..', 'api', '_migracoes.js')).forEach((mg) => {
+      const linhasSql = String(mg.sql || '').split(String.fromCharCode(10));
+      const util = linhasSql.filter((l) => !/^\s*--/.test(l)).join(String.fromCharCode(10));
+      if (((util.match(/'/g) || []).length) % 2 !== 0) tortas.push(mg.id + ' (impar)');
+      /* E O LITERAL VAI ATE' O FIM: so' pela paridade, `'a' b 'c'` passaria. O que se
+         cobra e' que entre o `is '` e o `';` final nao exista outro apostrofo. */
+      const re = /is\s*'([^;]*)';/g;
+      let m;
+      while ((m = re.exec(util))) {
+        if (m[1].indexOf(String.fromCharCode(39)) >= 0) {
+          tortas.push(mg.id + ' (apostrofo dentro do texto)');
+        }
+      }
+    });
+    ok(!tortas.length,
+      'nenhuma migracao tem apostrofo solto dentro de string SQL — ele FECHA o literal, '
+      + 'a migracao falha, e como ela roda na primeira chamada depois do deploy TODA '
+      + 'rota passa a responder erro: painel em branco e app de campo sem entrar',
+      tortas);
+
+
     const nasce = {}, semeada = {};
     require(path.join(__dirname, '..', 'api', '_migracoes.js')).forEach((mg, ordem) => {
       const sql = String(mg.sql || '');
