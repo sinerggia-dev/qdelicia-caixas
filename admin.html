@@ -9323,6 +9323,38 @@
     });
   }
 
+  /* O BOTÃO DE EXCLUIR DIZ A VERDADE ANTES DO CLIQUE.
+   *
+   * A rota `excluir` sempre decidiu certo: com lançamento no histórico ou rota sob
+   * responsabilidade, ela DESATIVA em vez de apagar — apagar deixaria lançamento órfão,
+   * e o nome de quem lançou sumiria de romaneio já emitido. O que faltava era contar
+   * isso para quem olha: a tela oferecia "excluir", a pessoa clicava, e a linha
+   * continuava ali. A explicação existia num `toast` que some em segundos, e quem clicou
+   * em quatro linhas seguidas viu quatro avisos passarem e quatro linhas ficarem.
+   *
+   * AGORA O BOTÃO MUDA DE NOME E DIZ POR QUÊ. "desativar" é o que o clique vai fazer de
+   * verdade, e o balão explica a troca. É a mesma regra do resto do projeto: a tela
+   * oferece o que a gravação aceita.
+   *
+   * O BOTÃO NÃO SOME, e isto é decisão: desativar é exatamente o que essa pessoa
+   * precisa, e um lugar vazio obrigaria a procurar o "desativar" ao lado — que faz a
+   * mesma coisa, sem dizer que a exclusão não era possível. */
+  function botaoExcluirUsuario(u){
+    var porLanc = u.TemLancamentos === true;
+    var porRota = Number(u.RotasSob) || 0;
+    if (!porLanc && !porRota) {
+      return '<button class="mini perigo" data-excluir-user="'+Q.esc(u.ID)+'">excluir</button>';
+    }
+    var razao = porLanc
+      ? 'Tem lançamentos no histórico — apagá-la deixaria lançamento órfão, e o nome de '+
+        'quem lançou sumiria de romaneio já emitido. O clique DESATIVA.'
+      : 'Responde por '+porRota+(porRota > 1 ? ' rotas' : ' rota')+
+        ' — troque o responsável antes. O clique DESATIVA.';
+    return '<button class="mini perigo" data-excluir-user="'+Q.esc(u.ID)+'"'+
+      ' title="'+Q.esc(razao)+'">desativar<span class="sr"> '+Q.esc(razao)+
+      '</span></button>';
+  }
+
   /* ================= AS COLUNAS DE USUÁRIOS, NUM LUGAR SÓ =================
    *
    * Elas moravam DENTRO do `desenharUsuarios`, e por isso só a tabela as enxergava. A
@@ -10255,7 +10287,7 @@
               '<button class="mini" data-copiar-user="'+u.ID+'">copiar</button> '+
               '<button class="mini'+(on?' perigo':'')+'" data-ativar="'+u.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
                 (on?'desativar':'ativar')+'</button> '+
-              '<button class="mini perigo" data-excluir-user="'+u.ID+'">excluir</button></td></tr>';
+              botaoExcluirUsuario(u)+'</td></tr>';
       }).join('')+'</tbody></table></div>';
 
     ligarArrastarColunas(TAB_USUARIOS);

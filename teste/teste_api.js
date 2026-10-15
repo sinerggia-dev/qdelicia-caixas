@@ -4420,6 +4420,30 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     daProducao.slice(0, 3).map((m) => m.registro || m.id));
 
   const Lg = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  /* ---- QUEM TEM HISTORICO E' MARCADO, E OS DOIS CAMINHOS CONTAM ----
+   * A rota `excluir` recusa por DUAS razoes — lancou, ou CONFERIU —, e a marca que a
+   * tela le' tem de contar as duas. So' quem lancou, e o conferente aparece com botao de
+   * "excluir" numa linha que a rota vai desativar: volta o defeito relatado, pela
+   * metade e so' para quem confere. */
+  const marcados = Lg.marcarHistorico(
+    [{ ID: 'A' }, { ID: 'B' }, { ID: 'C' }, { ID: 'D' }],
+    [{ UsuarioID: 'A' }, { ConferidoPor: 'B' }],
+    [{ MotoristaId: 'C' }, { MotoristaId: 'C' }]);
+  const porId = {};
+  marcados.forEach((u) => { porId[u.ID] = u; });
+  ok(porId.A.TemLancamentos === true,
+    'quem LANÇOU é marcado com histórico', porId.A);
+  ok(porId.B.TemLancamentos === true,
+    'e quem CONFERIU também — a rota recusa a exclusão pelos dois caminhos, e contando ' +
+    'só um deles o conferente volta a ver "excluir" numa linha que vai ser desativada',
+    porId.B);
+  ok(porId.C.RotasSob === 2 && porId.C.TemLancamentos === false,
+    'e quem responde por rota é contado à parte, com o número — são dois motivos ' +
+    'diferentes, e eles levam a pessoa a lugares diferentes para resolver', porId.C);
+  ok(porId.D.TemLancamentos === false && porId.D.RotasSob === 0,
+    'e quem não tem nada continua sem nada — a marca não pode nascer ligada, ou o ' +
+    'botão dizia "desativar" para todo mundo', porId.D);
+
   /* ---- E O ADMINISTRADOR ATRAVESSA A PENEIRA ----
    *
    * ESTA PROVA NASCEU DE UM APAGAO EM PRODUCAO, e o numero e' o da tela: no dia em que a

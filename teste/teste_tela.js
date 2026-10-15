@@ -4273,9 +4273,66 @@ console.log('\n== a tabela de Usuários entrou na maquinaria de colunas ==');
   ok(descr.indexOf('editar') < 0 && descr.indexOf('acoes') < 0,
     'e a coluna dos botões fica FORA do sistema: escondível, alguém a esconderia sem ' +
     'querer e perderia o único jeito de mexer num cadastro');
-  ok(/data-editar-user/.test(fonte) && /data-excluir-user/.test(fonte) &&
+  /* O BOTAO DE EXCLUIR SAIU DA LINHA PARA UMA FUNCAO PROPRIA — ele mudou de nome e de
+     balao conforme a pessoa tenha ou nao historico. A prova acompanha: a linha CHAMA a
+     funcao, e a funcao produz o botao. */
+  ok(/data-editar-user/.test(fonte) && /botaoExcluirUsuario\(u\)/.test(fonte) &&
      /data-ativar/.test(fonte),
     'os três botões continuam na linha');
+
+  /* ---- E O BOTAO DE EXCLUIR DIZ A VERDADE ANTES DO CLIQUE ----
+   *
+   * A rota `excluir` sempre decidiu certo: com lancamento no historico ou rota sob
+   * responsabilidade ela DESATIVA, porque apagar deixaria lancamento orfao. O que
+   * faltava era contar isso ANTES: a tela oferecia "excluir", a pessoa clicava, e a
+   * linha continuava ali. A explicacao existia num toast que some em segundos — e quem
+   * clicou em quatro linhas seguidas viu quatro avisos passarem e quatro linhas ficarem.
+   *
+   * A PROVA RODA A FUNCAO, e nao procura o texto: o rotulo depende de dois campos, e um
+   * `if` invertido deixaria as duas palavras no arquivo e a errada na tela. */
+  var iBE = adm.indexOf('  function botaoExcluirUsuario(u){');
+  var fonteBE = iBE < 0 ? '' : adm.slice(iBE, adm.indexOf('\n  }', iBE) + 4);
+  ok(fonteBE.length > 200,
+    'a conferência recortou o botão de excluir — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', fonteBE.length);
+  var BTN = new Function('Q', fonteBE + ' return botaoExcluirUsuario;')(
+    { esc: function (x) { return String(x); } });
+
+  var limpo = BTN({ ID: 'U1' });
+  ok(limpo.indexOf('>excluir<') > 0 && limpo.indexOf('data-excluir-user="U1"') > 0,
+    'quem não tem histórico nenhum continua com o botão "excluir" — é o que o clique faz ' +
+    'de verdade, e trocar a palavra ali seria mentir do outro lado', limpo);
+
+  var comLanc = BTN({ ID: 'U2', TemLancamentos: true });
+  ok(comLanc.indexOf('>desativar<') > 0,
+    'e quem TEM lançamento no histórico lê "desativar" — era "excluir", a pessoa ' +
+    'clicava, e a linha continuava ali: a tela oferecia o que a rota recusa', comLanc);
+  ok(/title="[^"]*órfão/.test(comLanc),
+    'e o balão diz POR QUÊ — apagá-la deixaria lançamento órfão, e o nome de quem ' +
+    'lançou sumiria de romaneio já emitido', comLanc);
+  ok(comLanc.indexOf('data-excluir-user="U2"') > 0,
+    'e o botão continua sendo o mesmo gatilho — a rota já desativa, e um segundo ' +
+    'caminho para a mesma coisa divergiria no primeiro conserto que só um recebesse',
+    comLanc);
+
+  var comRota = BTN({ ID: 'U3', RotasSob: 2 });
+  ok(comRota.indexOf('>desativar<') > 0 && /title="[^"]*2 rotas/.test(comRota),
+    'e quem responde por rota lê o outro motivo, com o número — "tem lançamentos" e ' +
+    '"responde por 2 rotas" levam a pessoa a lugares diferentes para resolver', comRota);
+
+  /* E A MARCA VEM DO SERVIDOR, que e' quem sabe: a tela nao tem a lista de movimentos
+     para contar sozinha, e contar por aqui seria uma segunda verdade sobre o mesmo
+     fato. */
+  var logBE = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  ok(/TemLancamentos: u\.TemLancamentos === true/.test(logBE) &&
+     /RotasSob: Number\(u\.RotasSob\) \|\| 0/.test(logBE),
+    'e as duas marcas viajam no cadastro que o servidor devolve — a tela não tem a ' +
+    'lista de movimentos para contar sozinha, e contar por aqui seria uma segunda ' +
+    'verdade sobre o mesmo fato');
+  var apiBE = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  ok(/L\.marcarHistorico\(d\.usuarios, d\.movimentos, d\.locais\)/.test(apiBE),
+    'e a rota `equipe` as calcula — sem a chamada elas chegam sempre falsas, e o botão ' +
+    'volta a dizer "excluir" para todo mundo, calado');
 
   /* A busca e o redesenho tem de passar pelo MESMO caminho. Foi a separacao entre montar
      a tabela e religar os botoes que ja deixou a busca com editar/excluir mortos. */

@@ -2901,6 +2901,39 @@ function extratoToken(dados, token, de, ate, hoje) {
  * apagar telefone e e-mail só porque não vieram na resposta seria pior do que não listar.
  * PIN e hash de senha NUNCA saem daqui, em hipótese alguma.
  */
+/* QUEM TEM HISTORICO NAO PODE SER EXCLUIDO, e a TELA precisa saber disso ANTES do
+ * clique.
+ *
+ * A rota `excluir` ja' decidia certo: com lancamento no historico ou rota sob
+ * responsabilidade, ela DESATIVA em vez de apagar — apagar deixaria lancamento orfao,
+ * e o nome de quem lancou sumiria do romaneio ja' emitido. O que faltava era contar
+ * isso para quem olha: a tela oferecia "excluir", a pessoa clicava, e a linha continuava
+ * ali. A explicacao existia, num `toast` que some em segundos — e quem clicou em quatro
+ * linhas seguidas viu quatro avisos passarem e quatro linhas ficarem.
+ *
+ * E' A MESMA REGRA DO RESTO DO PROJETO: a tela oferece o que a gravacao aceita. Aqui ela
+ * oferecia o que a gravacao recusa, e a recusa era silenciosa por desenho.
+ *
+ * OS DOIS MOTIVOS VIAJAM SEPARADOS porque a frase muda: "tem lancamentos" e "responde
+ * por 2 rotas" levam a pessoa a lugares diferentes para resolver. */
+function marcarHistorico(usuarios, movimentos, locais) {
+  var comLancamento = {}, comRota = {};
+  (movimentos || []).forEach(function (m) {
+    if (m.UsuarioID) comLancamento[String(m.UsuarioID)] = true;
+    if (m.ConferidoPor) comLancamento[String(m.ConferidoPor)] = true;
+  });
+  (locais || []).forEach(function (x) {
+    if (x.MotoristaId) comRota[String(x.MotoristaId)] = (comRota[String(x.MotoristaId)] || 0) + 1;
+  });
+  return (usuarios || []).map(function (u) {
+    var fora = {};
+    Object.keys(u).forEach(function (k) { fora[k] = u[k]; });
+    fora.TemLancamentos = comLancamento[String(u.ID)] === true;
+    fora.RotasSob = comRota[String(u.ID)] || 0;
+    return fora;
+  });
+}
+
 function usuariosPublicos(usuarios) {
   return usuarios.map(function (u) {
     return {
@@ -2951,6 +2984,11 @@ function usuariosPublicos(usuarios) {
       Saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
       Destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
       Retornos: Array.isArray(u.Retornos) ? u.Retornos : [],
+      /* POR QUE ESTA PESSOA NAO PODE SER EXCLUIDA. Vem do `marcarHistorico`, e so' tem
+         valor quando a rota o chamou — nas outras ele fica `false`/`0`, que e' o que a
+         tela entende como "nao sei de nada que impeca". */
+      TemLancamentos: u.TemLancamentos === true,
+      RotasSob: Number(u.RotasSob) || 0,
       TiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],
       Motoristas: Array.isArray(u.Motoristas) ? u.Motoristas : [],
       Veiculos: Array.isArray(u.Veiculos) ? u.Veiculos : [],
@@ -2982,6 +3020,7 @@ module.exports = {
   lancamentoDeTeste: lancamentoDeTeste, recorteTeste: recorteTeste,
   ehDeclaracao: ehDeclaracao, baseDoMovimento: baseDoMovimento,
   BASES: BASES, nomeDaBase: nomeDaBase,
+  marcarHistorico: marcarHistorico,
   basesDoUsuario: basesDoUsuario, basesEfetivas: basesEfetivas,
   recorteBases: recorteBases, baseEscolhida: baseEscolhida,
   veDeclaracao: veDeclaracao, recorteDeclaracao: recorteDeclaracao,

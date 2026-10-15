@@ -98,7 +98,13 @@ async function rotaGet(p) {
                veiculos: L.veiculosPublicos(d.veiculos) };
     case 'equipe':
       // Aqui vai o cadastro completo, com documento — é a tela do escritório.
-      return { ok: true, usuarios: L.usuariosPublicos(d.usuarios), motoristas: d.motoristas,
+      /* MARCADOS ANTES DE SAIR: quem tem lancamento no historico ou rota sob
+         responsabilidade nao pode ser excluido, e a tela precisa saber disso ANTES do
+         clique — senao ela oferece o que a rota recusa. */
+      return { ok: true,
+               usuarios: L.usuariosPublicos(
+                 L.marcarHistorico(d.usuarios, d.movimentos, d.locais)),
+               motoristas: d.motoristas,
                veiculos: d.veiculos,
                locaisPadrao: d.locaisPadrao, pedidosSenha: d.pedidosSenha,
                perfis: L.perfisConhecidos(d.usuarios),
