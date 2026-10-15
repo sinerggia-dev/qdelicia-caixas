@@ -137,6 +137,7 @@ var MONTA_BASE = (function () {
     'arquivo — escrita aqui, a lista não cresce com o seletor que alguém acrescentar',
     IDS.map(function (x) { return x.id + ':' + x.modo; }));
 
+  var dicas = {};
   function nodo(modo) {
     return { dataset: { bases: modo }, value: '', innerHTML: '',
              querySelector: function (q) {
@@ -146,7 +147,8 @@ var MONTA_BASE = (function () {
   }
   return function (sessao) {
     var caixas = {};
-    IDS.forEach(function (x) { caixas[x.id] = nodo(x.modo); });
+    dicas = {};
+    IDS.forEach(function (x) { caixas[x.id] = nodo(x.modo); caixas[x.id].id = x.id; });
     var N = new Function('sessao', fonteN +
       ' return { LIVROS: LIVROS, nomeDoLivro: nomeDoLivro, basesDaSessao: basesDaSessao };'
     )(function () { return sessao; });
@@ -154,8 +156,12 @@ var MONTA_BASE = (function () {
       { basesDaSessao: N.basesDaSessao, nomeDoLivro: N.nomeDoLivro,
         esc: function (x) { return String(x); } },
       { querySelectorAll: function () {
-          return Object.keys(caixas).map(function (k) { return caixas[k]; }); } });
-    var fora = {};
+          return Object.keys(caixas).map(function (k) { return caixas[k]; }); },
+        /* A FRASE DA DECLARACAO mora num `<p>` ao lado do campo, e o montador a procura
+           pelo id. Sem este `getElementById` de mentira o recorte estoura antes de
+           escrever opcao nenhuma — e as provas de cima mediriam o nada. */
+        getElementById: function (id) { return dicas[id] || (dicas[id] = { hidden: null, innerHTML: '' }); } });
+    var fora = { dicas: dicas };
     Object.keys(caixas).forEach(function (k) {
       var h = caixas[k].innerHTML;
       fora[k] = {
@@ -217,6 +223,30 @@ var MONTA_BASE = (function () {
   ok(duasB.lcTeste.valores.join(',') === ',teste',
     'o formulário de lançamento manda `""` para Produção e `teste` para o ensaio — é o ' +
     'que a rota entende, e não o id do livro', duasB.lcTeste.valores);
+
+  /* ---- E A AUSENCIA DA DECLARACAO NO FILTRO DE MOVIMENTOS E' EXPLICADA ----
+   *
+   * Chegou como defeito, e nao era: o cadastro mostra DUAS bases marcadas e o filtro de
+   * Movimentos oferece UMA. Esta' certo — declaracao e' o que o motorista INFORMOU, e
+   * somada a' contagem do conferente seria a mesma carga contada duas vezes; ela mora em
+   * Movimentos Motoristas. O que faltava era a tela dizer isso: quem ve' dois e um sem
+   * explicacao conclui que a tela perdeu a outra base.
+   *
+   * SO' PARA QUEM TEM O LIVRO: para os outros a frase falaria de uma base que o cadastro
+   * deles nao menciona. */
+  var comDecl = MONTA_BASE({ baseProducao: true, baseDeclaracao: true });
+  ok(comDecl.dicas.mvTesteDica && comDecl.dicas.mvTesteDica.hidden === false,
+    'quem tem base de declaração LÊ, embaixo do filtro de Movimentos, por que ela não ' +
+    'está na lista — ver duas marcadas no cadastro e uma aqui, sem explicação, se lê ' +
+    'como tela quebrada', comDecl.dicas.mvTesteDica);
+  ok(/Movimentos Motoristas/.test((comDecl.dicas.mvTesteDica || {}).innerHTML || ''),
+    'e a frase diz ONDE ela mora — explicar a ausência sem dar o caminho deixa a pessoa ' +
+    'sabendo que falta algo e sem saber onde procurar',
+    (comDecl.dicas.mvTesteDica || {}).innerHTML);
+  var semDeclD = MONTA_BASE({ baseProducao: true, baseTeste: true });
+  ok(semDeclD.dicas.mvTesteDica && semDeclD.dicas.mvTesteDica.hidden === true,
+    'e quem NÃO tem base de declaração não lê nada — a frase falaria de uma base que o ' +
+    'cadastro dela não menciona', semDeclD.dicas.mvTesteDica);
 
   /* ---- A DECLARACAO TEM LISTA PROPRIA ---- */
   var decl = MONTA_BASE({ baseProducao: true, baseDeclaracao: true,

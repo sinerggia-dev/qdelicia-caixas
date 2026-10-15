@@ -2516,6 +2516,20 @@
           : '<option value="">Sem base de declaração</option>';
       }
       sel.innerHTML = html;
+      /* A FRASE DA DECLARACAO, so' para quem tem um desses livros: para os outros ela
+         falaria de uma base que o cadastro deles nao menciona. */
+      if (modo === 'mov-multi') {
+        var dica = document.getElementById(sel.id + 'Dica');
+        if (dica) {
+          dica.hidden = !declara.length;
+          dica.innerHTML = declara.length
+            ? 'Seu cadastro também lê <b>'+Q.esc(declara.map(Q.nomeDoLivro).join(' e '))+
+              '</b>, que não entra aqui: declaração é o que o motorista <i>informou</i>, '+
+              'e somada à contagem do conferente seria a mesma carga contada duas vezes. '+
+              'Ela mora em <b>Movimentos Motoristas</b>.'
+            : '';
+        }
+      }
       if (era && sel.querySelector('option[value="'+era.replace(/"/g, '')+'"]')) {
         sel.value = era;
       }
