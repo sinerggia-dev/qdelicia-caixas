@@ -691,7 +691,7 @@ module.exports = [
       "comment on column public.usuarios.credencial_em is",
       "  'Quando o escritorio redefiniu o PIN ou a senha desta pessoa. A sessao carrega o",
       "   carimbo que valia quando ela entrou; diferindo, a tela encerra a sessao. Trocar",
-      "   a propria senha NAO mexe aqui — quem trocou e' quem esta' dentro.';"
+      "   a propria senha NAO mexe aqui: quem trocou esta dentro.';"
     ].join('\n')
   }
 ];
