@@ -1641,7 +1641,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=ea6f9fe6"></script>
+<script src="app.js?v=9e9d95bc"></script>
 <script>
 (function(){
   'use strict';
@@ -1924,6 +1924,7 @@
          recarregamento depois de a pessoa escolher a foto. */
       foto: u.Foto || '',
       localPadrao: u.LocalPadrao, acessoPainel: podeVerPainelRegistro(u),
+      credencialEm: u.CredencialEm || '',
       saidas: lista(u.Saidas), destinos: lista(u.Destinos),
       retornos: lista(u.Retornos),
       tiposCaixa: lista(u.TiposCaixa), motoristas: lista(u.Motoristas),
@@ -1993,6 +1994,20 @@
     var nova = sessaoDoRegistro(u);
     if (!podeEntrar(nova)){
       Q.toast('Seu acesso ao painel foi retirado. Entre de novo.','erro');
+      setTimeout(Q.sair, 2500);
+      return s;
+    }
+    /* SENHA REDEFINIDA PELO ESCRITORIO = SESSAO ENCERRADA, aqui tambem. A conta mora no
+       nucleo porque as duas telas renovam de jeitos diferentes — esta le' o cadastro que
+       ja' carregou, a do campo pergunta ao servidor — e escrita duas vezes uma delas
+       esqueceria.
+       ANTES DO `Q.entrar`, e a razao NAO e' a comparacao: `s` foi lido no topo da
+       funcao, entao ela daria o mesmo resultado depois. E' a saida que fica errada —
+       `Q.entrar` grava a sessao NOVA, com o carimbo novo, e a saida so' acontece 2,5
+       segundos depois. Recarregando a pagina nesse intervalo, a pessoa volta com uma
+       sessao que ja' passa na conta, e nunca mais e' expulsa. */
+    if (Q.credencialTrocada(s, nova)){
+      Q.toast('Sua senha foi redefinida pelo escritório. Entre com a senha nova.','erro');
       setTimeout(Q.sair, 2500);
       return s;
     }

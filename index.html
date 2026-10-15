@@ -610,7 +610,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=ea6f9fe6"></script>
+<script src="app.js?v=9e9d95bc"></script>
 <script>
 (function(){
   'use strict';
@@ -784,6 +784,16 @@
         /* Cadastro apagado ou desativado. Nao ha o que renovar, e ficar dentro so adia a
            descoberta — o proximo lancamento seria recusado sem explicacao. */
         Q.toast('Seu acesso foi encerrado. Fale com o escritório.','erro');
+        setTimeout(Q.sair, 2500);
+        return;
+      }
+      /* SENHA REDEFINIDA PELO ESCRITORIO = SESSAO ENCERRADA.
+         ANTES DO `Q.entrar`, e a razao NAO e' a comparacao: `s` foi lido no topo da
+         funcao. E' a saida — `Q.entrar` grava a sessao NOVA, com o carimbo novo, e a
+         saida so' acontece 2,5 segundos depois. Recarregando nesse intervalo, a pessoa
+         volta com uma sessao que ja' passa na conta, e nunca mais e' expulsa. */
+      if (Q.credencialTrocada(s, r.usuario)){
+        Q.toast('Sua senha foi redefinida pelo escritório. Entre com a senha nova.','erro');
         setTimeout(Q.sair, 2500);
         return;
       }

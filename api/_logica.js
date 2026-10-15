@@ -1067,6 +1067,13 @@ function sessaoDe(u) {
        concluiria que a foto não salvou. */
     foto: u.Foto || '',
     localPadrao: u.LocalPadrao, acessoPainel: podeVerPainel(u),
+    /* QUANDO O ESCRITORIO REDEFINIU A CREDENCIAL. A sessao guarda o valor que valia na
+       hora em que a pessoa entrou; a renovacao compara com o de agora e, diferindo,
+       encerra a sessao. Sem isto, redefinir a senha de alguem nao tirava essa pessoa de
+       dentro — ela seguia lancando, e a senha nova so' valia no proximo login.
+       VAZIO E' "NAO SEI", e nao "nunca": sessao aberta antes desta coluna existir nao
+       tem carimbo, e expulsa-la seria deslogar a equipe inteira no deploy. */
+    credencialEm: u.CredencialEm || '',
     /* SE ESTA PESSOA CORRIGE LANCAMENTO. Na sessao porque quem decide se MOSTRA o botao
        e' a tela, e ela so' tem a sessao na mao. A tranca de verdade continua na rota. */
     podeCorrigir: u.PodeCorrigir !== false,
@@ -2987,6 +2994,11 @@ function usuariosPublicos(usuarios) {
       /* POR QUE ESTA PESSOA NAO PODE SER EXCLUIDA. Vem do `marcarHistorico`, e so' tem
          valor quando a rota o chamou — nas outras ele fica `false`/`0`, que e' o que a
          tela entende como "nao sei de nada que impeca". */
+      /* O CARIMBO DA CREDENCIAL VOLTA NO CADASTRO, e nao so' na sessao: quem compara no
+         PAINEL le' a `equipe`, nao o `meuAcesso`. Sem ele aqui, a tranca existia e nunca
+         fechava daquele lado — e foi a bancada da rota que achou, porque o carimbo nao
+         esta' na conta derivada que cobre as outras colunas. */
+      CredencialEm: u.CredencialEm || '',
       TemLancamentos: u.TemLancamentos === true,
       RotasSob: Number(u.RotasSob) || 0,
       TiposCaixa: Array.isArray(u.TiposCaixa) ? u.TiposCaixa : [],

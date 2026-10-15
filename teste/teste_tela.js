@@ -6452,6 +6452,13 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
   /* Roda as cinco funcoes de verdade, com o mundo delas de mentira: a sessao guardada, o
      relogio (a saida e ADIADA, para a pessoa ler o aviso antes de a pagina recarregar) e
      os avisos. Medir sem adiantar o relogio mede o aviso, e nao a saida. */
+  var NUCLEO_CRED = (function () {
+    var nuc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    var i = nuc.indexOf('  function credencialTrocada(');
+    return new Function(nuc.slice(i, nuc.indexOf(String.fromCharCode(10) + '  }', i) + 4) +
+      ' return credencialTrocada;')();
+  })();
+
   function roda(equipe, chegou, guardada, admin) {
     var estado = { sessao: guardada, saiu: false, aviso: '' };
     var relogio = [];
@@ -6467,6 +6474,9 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
         /* A regra do painel de VERDADE, e nao uma imitacao: e ela que o `podeEntrar`
            daqui consulta, e imita-la mediria a copia escrita no teste. */
         podePainel: REGRA_PAINEL,
+        /* A CONTA DO CARIMBO E' A DO NUCLEO, e nao uma imitacao escrita aqui: e' ela que
+           decide se a pessoa sai, e imita-la mediria a copia. */
+        credencialTrocada: NUCLEO_CRED,
         ehAdmin: function () { return !!admin; } },
       function (fn) { relogio.push(fn); });
     var nova = api.renovar();
@@ -6478,6 +6488,105 @@ console.log('\n== a permissão mudada chega a quem já está logado ==');
     ID: 'U005', Nome: 'Nestor Neto', Perfil: 'Gerente', AcessoPainel: true, Ativo: true,
     Abas: ['pgRetornos', 'pgPainel', 'pgExtrato', 'pgLancar', 'pgMovimentos']
   };
+
+  /* ================= SENHA REDEFINIDA PELO ESCRITORIO = SESSAO ENCERRADA =============
+   *
+   * Redefinir a senha de alguem NAO tirava essa pessoa de dentro: ela continuava
+   * lancando com a sessao aberta, e a senha nova so' valia no proximo login. Quem
+   * redefine uma senha quase sempre quer o contrario — alguem saiu da empresa, perdeu o
+   * aparelho, ou o acesso vazou. Era uma tranca que so' trancava a porta da frente, com
+   * a pessoa ja' dentro de casa.
+   *
+   * A PROVA RODA A RENOVACAO DO PAINEL de verdade, com o mundo de mentira que as outras
+   * ja' usam: o que se mede e' se `Q.sair` foi chamado. */
+  var COM_CARIMBO = { ID: 'U005', Nome: 'Nestor Neto', Perfil: 'Gerente',
+                      AcessoPainel: true, Ativo: true, CredencialEm: '2026-10-15T10:00:00Z',
+                      Abas: ['pgPainel'] };
+  var trocou = roda([COM_CARIMBO], true,
+    { id: 'U005', nome: 'Nestor Neto', perfil: 'Gerente', acessoPainel: true,
+      credencialEm: '2026-10-14T08:00:00Z', abas: ['pgPainel'] });
+  ok(trocou.estado.saiu === true,
+    'o painel ENCERRA a sessão quando o escritório redefiniu a credencial — antes a ' +
+    'pessoa seguia lançando com a sessão aberta, e a senha nova só valia no próximo ' +
+    'login: uma tranca que só trancava a porta da frente', trocou.estado);
+  ok(/redefinida pelo escritório/i.test(trocou.estado.aviso),
+    'e diz POR QUÊ antes de sair — "entre de novo" sem motivo faz a pessoa achar que o ' +
+    'sistema caiu, e ela tenta a senha velha', trocou.estado.aviso);
+
+  var mesmo = roda([COM_CARIMBO], true,
+    { id: 'U005', nome: 'Nestor Neto', perfil: 'Gerente', acessoPainel: true,
+      credencialEm: '2026-10-15T10:00:00Z', abas: ['pgPainel'] });
+  ok(mesmo.estado.saiu === false,
+    'e NÃO encerra quando o carimbo é o mesmo — expulsar a cada renovação seria trocar ' +
+    'um defeito por um pior', mesmo.estado);
+
+  /* SESSAO ANTIGA NAO TEM CARIMBO, e ela NAO pode ser expulsa: no instante do deploy
+     ninguem tem o campo guardado, e a equipe inteira sairia de uma vez — apagao, nao
+     ajuste. */
+  var semCarimbo = roda([COM_CARIMBO], true,
+    { id: 'U005', nome: 'Nestor Neto', perfil: 'Gerente', acessoPainel: true,
+      abas: ['pgPainel'] });
+  ok(semCarimbo.estado.saiu === false,
+    'e sessão aberta ANTES de o carimbo existir continua valendo — no instante do ' +
+    'deploy ninguém tem o campo guardado, e expulsar todo mundo de uma vez é apagão, ' +
+    'não ajuste', semCarimbo.estado);
+
+  /* ---- E A MESMA TRANCA NO APP DE CAMPO ----
+   * Sao DUAS renovacoes, uma em cada tela, e elas nao se parecem: esta pergunta ao
+   * servidor (`meuAcesso`) e a do painel le' o cadastro que ja' carregou. Consertar so'
+   * a que foi relatada deixaria a porta aberta do outro lado — e e' o lado do galpao,
+   * onde estao os aparelhos que ficam logados por semanas. */
+  var idxRen = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var iR = idxRen.indexOf('  function renovarSessao(){');
+  var fonteR = iR < 0 ? '' : idxRen.slice(iR, idxRen.indexOf(String.fromCharCode(10) + '  }', iR) + 4);
+  ok(fonteR.indexOf('meuAcesso') > 0,
+    'a conferência recortou a renovação do app de campo', fonteR.length);
+
+  function rodaCampo(guardada, doServidor) {
+    var est = { saiu: false, aviso: '', gravada: null };
+    var espera = [];
+    new Function('Q', 'aplicarSessao', 'setTimeout', fonteR + '\n renovarSessao();')(
+      { sessao: function () { return guardada; },
+        get: function () {
+          return { then: function (f) { f({ ok: true, usuario: doServidor });
+                                        return { 'catch': function () {} }; } };
+        },
+        definirPerfisDeclaracao: function () {},
+        entrar: function (u) { est.gravada = u; },
+        sair: function () { est.saiu = true; },
+        toast: function (m) { est.aviso = m; },
+        credencialTrocada: NUCLEO_CRED },
+      function () {},
+      function (fn) { espera.push(fn); });
+    espera.forEach(function (fn) { fn(); });
+    return est;
+  }
+
+  var campoTrocou = rodaCampo(
+    { id: 'U9', credencialEm: '2026-10-14T08:00:00Z' },
+    { id: 'U9', credencialEm: '2026-10-15T10:00:00Z' });
+  ok(campoTrocou.saiu === true && /redefinida pelo escritório/i.test(campoTrocou.aviso),
+    'o app de campo também encerra a sessão quando o escritório redefiniu a credencial ' +
+    '— é o lado onde os aparelhos ficam logados por semanas, e consertar só o painel ' +
+    'deixaria a porta aberta justamente ali', campoTrocou);
+  ok(campoTrocou.gravada === null,
+    'e NÃO grava a sessão nova antes de sair — gravada, a pessoa que recarregasse nos ' +
+    '2,5 segundos do aviso voltaria com um carimbo que já passa na conta, e nunca mais ' +
+    'seria expulsa', campoTrocou.gravada);
+
+  var campoIgual = rodaCampo(
+    { id: 'U9', credencialEm: '2026-10-15T10:00:00Z' },
+    { id: 'U9', credencialEm: '2026-10-15T10:00:00Z' });
+  ok(campoIgual.saiu === false && campoIgual.gravada !== null,
+    'e com o carimbo igual ela segue dentro, com a sessão renovada — é o caso de toda ' +
+    'abertura de tela, e expulsar aqui seria trocar um defeito por um pior', campoIgual);
+
+  /* E O CARIMBO CHEGA NA SESSAO QUE O PAINEL MONTA: sem isto a conta acima compara
+     `undefined` com `undefined` para sempre, e nunca expulsa ninguem. */
+  ok(trocou.nova === undefined || trocou.nova.credencialEm !== undefined ||
+     /credencialEm: u\.CredencialEm/.test(adm),
+    'e `sessaoDoRegistro` leva o carimbo — sem ele a conta compara vazio com vazio para ' +
+    'sempre, e a tranca existe sem nunca fechar');
   /* A sessao VELHA: de quando ele so tinha o Painel de Ativos marcado. E este o caso
      real — o administrador marcou mais abas, e na tela dele nao mudou nada. */
   var velha = { id: 'U005', nome: 'Nestor Neto', perfil: 'Gerente', acessoPainel: true,

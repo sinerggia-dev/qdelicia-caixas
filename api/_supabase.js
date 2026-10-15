@@ -213,6 +213,7 @@ var USUARIO = {
       Telefone: r.telefone || '', LocalPadrao: r.local_padrao, Ativo: r.ativo !== false,
       Email: r.email || '', Usuario: r.usuario || '', SenhaHash: r.senha_hash || '',
       PinProvisorio: r.pin_provisorio === true, SenhaProvisoria: r.senha_provisoria === true,
+      CredencialEm: r.credencial_em || '',
       AcessoPainel: r.acesso_painel === true, SoProprios: r.so_proprios === true,
       VerLancamentos: r.ver_lancamentos !== false,
       /* `!== false` e nao `=== true`: a coluna nasceu com `default true` e linha antiga
@@ -258,6 +259,7 @@ var USUARIO = {
     if (o.SenhaHash !== undefined) r.senha_hash = nulo(o.SenhaHash);
     if (o.PinProvisorio !== undefined) r.pin_provisorio = bool(o.PinProvisorio);
     if (o.SenhaProvisoria !== undefined) r.senha_provisoria = bool(o.SenhaProvisoria);
+    if (o.CredencialEm !== undefined) r.credencial_em = o.CredencialEm || null;
     if (o.AcessoPainel !== undefined) r.acesso_painel = bool(o.AcessoPainel);
     if (o.SoProprios !== undefined) r.so_proprios = bool(o.SoProprios);
     if (o.VerLancamentos !== undefined) r.ver_lancamentos = bool(o.VerLancamentos);

@@ -4420,6 +4420,51 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     daProducao.slice(0, 3).map((m) => m.registro || m.id));
 
   const Lg = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  /* ---- REDEFINIR A CREDENCIAL CARIMBA A HORA ----
+   * E' esse carimbo que tira a pessoa de dentro: a sessao guarda o que valia quando ela
+   * entrou, e a renovacao compara. Sem ele a tranca existe e nunca fecha. */
+  const antesDoReset = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.Nome === 'So Ensaio')[0];
+  await POST({ acao: 'salvarUsuario',
+    registro: { ID: antesDoReset.ID, Nome: antesDoReset.Nome, PIN: '998877' } });
+  const depoisDoPin = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.ID === antesDoReset.ID)[0];
+  ok(!!depoisDoPin.CredencialEm,
+    'redefinir o PIN carimba a hora no cadastro — e esse carimbo e o que tira a pessoa '
+    + 'de dentro: sem ele a tranca existe e nunca fecha', depoisDoPin.CredencialEm);
+
+  const carimboPin = depoisDoPin.CredencialEm;
+  await new Promise((r) => setTimeout(r, 5));
+  await POST({ acao: 'salvarUsuario',
+    registro: { ID: antesDoReset.ID, Nome: antesDoReset.Nome, Senha: 'trocada123' } });
+  const depoisDaSenha = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.ID === antesDoReset.ID)[0];
+  ok(!!depoisDaSenha.CredencialEm && depoisDaSenha.CredencialEm !== carimboPin,
+    'e redefinir a SENHA carimba de novo — sao dois caminhos para o mesmo gesto, o '
+    + 'escritorio cortando o acesso de quem esta com a sessao aberta',
+    [carimboPin, depoisDaSenha.CredencialEm]);
+
+  /* E SALVAR SEM MEXER NA CREDENCIAL NAO CARIMBA: trocar o telefone de alguem nao pode
+     derrubar a sessao dela. */
+  const carimboSenha = depoisDaSenha.CredencialEm;
+  await POST({ acao: 'salvarUsuario',
+    registro: { ID: antesDoReset.ID, Nome: antesDoReset.Nome, Telefone: '81988887777' } });
+  const semMexer = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.ID === antesDoReset.ID)[0];
+  ok(semMexer.CredencialEm === carimboSenha,
+    'e salvar o cadastro SEM mexer na credencial nao carimba — trocar o telefone de '
+    + 'alguem nao pode derrubar a sessao dela', [carimboSenha, semMexer.CredencialEm]);
+
+  /* E O CARIMBO ATRAVESSA O TRADUTOR DO BANCO, nos dois sentidos: ele nao esta em
+     `usuariosPublicos`, entao a conta derivada que cobre as outras colunas nao o
+     alcanca. */
+  const supCred = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
+  ok(/CredencialEm: r\.credencial_em/.test(supCred),
+    'o tradutor LE a coluna `credencial_em` — sem isto o carimbo volta vazio e a '
+    + 'comparacao nunca acusa nada, para sempre');
+  ok(/o\.CredencialEm !== undefined\) r\.credencial_em =/.test(supCred),
+    'e GRAVA nela — sem isto o reset marca a hora na memoria e a perde no caminho');
+
   /* ---- QUEM TEM HISTORICO E' MARCADO, E OS DOIS CAMINHOS CONTAM ----
    * A rota `excluir` recusa por DUAS razoes — lancou, ou CONFERIU —, e a marca que a
    * tela le' tem de contar as duas. So' quem lancou, e o conferente aparece com botao de

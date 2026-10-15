@@ -235,6 +235,33 @@
 
   function ehAdmin() { var s = sessao(); return !!s && String(s.perfil).toUpperCase() === 'ADMIN'; }
 
+  /* ================= A CREDENCIAL FOI REDEFINIDA? ENTÃO A SESSÃO ACABOU ===============
+   *
+   * Redefinir a senha de alguém NÃO tirava essa pessoa de dentro: ela continuava
+   * lançando com a sessão aberta, e a senha nova só valia no próximo login. Quem
+   * redefine uma senha quase sempre quer o contrário — alguém saiu da empresa, perdeu o
+   * aparelho, ou o acesso vazou. Era uma tranca que só trancava a porta da frente,
+   * com a pessoa já dentro de casa.
+   *
+   * A CONTA MORA NO NÚCLEO porque as DUAS telas renovam a sessão, cada uma do seu jeito:
+   * o app de campo pergunta ao servidor (`meuAcesso`), o painel lê o cadastro que já
+   * carregou. Escrita duas vezes, uma delas esqueceria — e a porta ficaria aberta
+   * justamente num dos dois lados.
+   *
+   * VAZIO É "NÃO SEI", E NÃO "NUNCA". Sessão aberta antes de a coluna existir não tem
+   * carimbo guardado: expulsá-la seria deslogar a equipe inteira no instante do deploy,
+   * que é apagão e não ajuste. Da próxima entrada em diante a conta passa a valer.
+   *
+   * E A COMPARAÇÃO É DE DESIGUALDADE, e não "o novo é mais recente": relógio de servidor
+   * que anda para trás, fuso trocado numa migração, carimbo reescrito — em qualquer
+   * desses casos o que importa é que ELE MUDOU desde que a pessoa entrou. */
+  function credencialTrocada(antiga, nova) {
+    var a = antiga && antiga.credencialEm ? String(antiga.credencialEm) : '';
+    var b = nova && nova.credencialEm ? String(nova.credencialEm) : '';
+    if (!a || !b) return false;
+    return a !== b;
+  }
+
   /* ================= OS QUATRO LIVROS, E OS DESTA PESSOA =================
    *
    * A lista mora AQUI, no nucleo, e nao em cada tela: o app de campo tinha a dele e o
@@ -3258,6 +3285,7 @@
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,
     temTeste: temTeste, num: num, dec: dec, dataBR: dataBR, hoje: hoje,
     LIVROS: LIVROS, nomeDoLivro: nomeDoLivro, basesDaSessao: basesDaSessao,
+    credencialTrocada: credencialTrocada,
     esc: esc, soDigitos: soDigitos,
     hojeOperacao: hojeOperacao, diaOperacao: diaOperacao,
     FUSO_OPERACAO: FUSO_OPERACAO,

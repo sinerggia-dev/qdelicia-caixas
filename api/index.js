@@ -924,6 +924,7 @@ async function salvarUsuario(p) {
     // Senha que o admin escolheu e provisoria por definicao: serve para o primeiro
     // acesso, e a pessoa troca por uma dela ao entrar.
     dados.PinProvisorio = true;
+    dados.CredencialEm = new Date().toISOString();
   }
 
   delete dados.SenhaHash;                       // nunca aceite hash vindo do navegador
@@ -933,6 +934,12 @@ async function salvarUsuario(p) {
     try { dados.SenhaHash = senha.gerar(nova); }
     catch (e) { return { ok: false, erro: e.message }; }
     dados.SenhaProvisoria = true;               // mesma razao do PIN acima
+    /* E O CARIMBO, que e' o que tira a pessoa de dentro. Ele mora nos DOIS caminhos —
+       PIN e senha — porque redefinir qualquer um dos dois e' o mesmo gesto: o escritorio
+       cortando o acesso de alguem que ainda esta' com a sessao aberta.
+       SO' AQUI, e nao em `definirSenha`: la' quem troca e' a propria pessoa, e expulsa-la
+       da sessao que ela acabou de usar para trocar seria castigar o gesto certo. */
+    dados.CredencialEm = new Date().toISOString();
   }
 
   /* SENHA RESETADA, TUTORIAL DE VOLTA.

@@ -670,4 +670,28 @@ module.exports = [
       "   campo lia antes de ela existir.';"
     ].join('\n')
   }
+,
+  {
+    id: '2026-10-15-credencial-em',
+    nota: 'quando a credencial foi redefinida pelo escritorio',
+    sql: [
+      "-- QUANDO O ESCRITORIO REDEFINIU A CREDENCIAL DESTA PESSOA.",
+      "--",
+      "-- Redefinir a senha de alguem nao tirava essa pessoa de dentro: ela continuava",
+      "-- lancando com a sessao aberta, e a senha nova so' valia no proximo login. Quem",
+      "-- redefine uma senha quase sempre quer o contrario — alguem saiu da empresa,",
+      "-- perdeu o aparelho, ou o acesso vazou.",
+      "--",
+      "-- NASCE NULA, e e' de proposito: sessao aberta hoje nao tem carimbo guardado, e",
+      "-- a tela so' expulsa quando TEM um e ele difere. Nascendo com `now()`, a equipe",
+      "-- inteira seria deslogada no instante do deploy — um apagao, nao um ajuste.",
+      "-- Da' proxima entrada em diante a conta passa a valer.",
+      "alter table public.usuarios",
+      "  add column if not exists credencial_em timestamptz;",
+      "comment on column public.usuarios.credencial_em is",
+      "  'Quando o escritorio redefiniu o PIN ou a senha desta pessoa. A sessao carrega o",
+      "   carimbo que valia quando ela entrou; diferindo, a tela encerra a sessao. Trocar",
+      "   a propria senha NAO mexe aqui — quem trocou e' quem esta' dentro.';"
+    ].join('\n')
+  }
 ];
