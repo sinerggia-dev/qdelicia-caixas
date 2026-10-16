@@ -1015,6 +1015,40 @@
      'Isaque <sobrenome>'.
      SEM APELIDO E O NOME INTEIRO, e nao vazio — a maioria nao vai ter apelido, e uma
      lista com linhas em branco e pior do que uma lista com nomes longos. */
+  /* ================= EM QUE SENTIDO O MOTORISTA ATENDE ESTA ROTA =================
+   *
+   * `Rotas` diz QUAIS rotas. Isto responde, para uma delas, se ele faz a saida, a
+   * entrada ou as duas.
+   *
+   * AUSENTE QUER DIZER AMBAS, e e' por isso que ninguem perde nada: a rota marcada
+   * sempre valeu para os dois sentidos, e quem nunca abrir este campo continua
+   * exatamente como estava.
+   *
+   * SO' O TIPO FORNECEDOR tem sentido por rota. Para os outros, um sentido gravado por
+   * engano — numa troca de tipo, por exemplo — nao pode passar a esconder o motorista
+   * de metade da operacao sem ninguem ter pedido.
+   *
+   * A MESMA REGRA ESTA' NO SERVIDOR (`_logica.js`), e as duas tem de concordar: esta
+   * monta a lista do celular, e a de la' responde por quem pergunta pela API. */
+  var SENTIDOS_ROTA = ['ambas', 'saida', 'entrada'];
+
+  function sentidoDaRota(motorista, rotaId) {
+    var m = motorista || {};
+    if (String(m.Tipo || '').toUpperCase() !== 'FORNECEDOR') return 'ambas';
+    var mapa = (m.RotasSentido && typeof m.RotasSentido === 'object') ? m.RotasSentido : {};
+    var v = String(mapa[String(rotaId)] || '').toLowerCase();
+    return SENTIDOS_ROTA.indexOf(v) > 0 ? v : 'ambas';
+  }
+
+  function atendeNoSentido(motorista, rotaId, sentido) {
+    var s = String(sentido || '').toLowerCase();
+    /* SEM SENTIDO PERGUNTADO, nao ha o que filtrar: responder "nao" ali esconderia o
+       motorista de uma tela que nem pergunta isso. */
+    if (s !== 'saida' && s !== 'entrada') return true;
+    var dele = sentidoDaRota(motorista, rotaId);
+    return dele === 'ambas' || dele === s;
+  }
+
   /* ================= A PLACA =================
    *
    * UMA FORMA SO', e e' esta: sem traco, sem espaco, maiuscula. E' a mesma conta que o
@@ -3336,6 +3370,7 @@
     abrirTrocaDeFoto: abrirTrocaDeFoto,
     comoChamar: comoChamar, nomeESobrenome: nomeESobrenome,
     placaLimpa: placaLimpa, placaValida: placaValida,
+    sentidoDaRota: sentidoDaRota, atendeNoSentido: atendeNoSentido,
     ligarBotaoHoje: ligarBotaoHoje, marcarBotaoHoje: marcarBotaoHoje,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,
     definirPerfisDeclaracao: definirPerfisDeclaracao,

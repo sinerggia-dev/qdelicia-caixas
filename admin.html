@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=5b20ecbd">
+<link rel="stylesheet" href="styles.css?v=8ece7fe9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1702,7 +1702,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=5e346533"></script>
+<script src="app.js?v=f7227104"></script>
 <script>
 (function(){
   'use strict';
@@ -9896,8 +9896,12 @@
         'Em branco, usa-se o nome completo.</p>'+
       '<div class="grid2">'+
         '<div><label>Empresa</label><input type="text" id="fEmpresa" value="'+Q.esc(m.Empresa||'')+'" placeholder="ex.: Qdelícia Frutas"></div>'+
+        /* FORNECEDOR E' O TERCEIRO TIPO, a pedido. Ele nao e' so' um rotulo: e' o unico
+           que escolhe o SENTIDO de cada rota, logo abaixo — o carro do fornecedor traz
+           fruta e leva vasilhame, e os dois sentidos nao sao a mesma viagem nem,
+           necessariamente, a mesma pessoa. */
         '<div><label>Tipo</label><select id="fTipoMot">'+
-          ['','Fixo','Volante'].map(function(t){
+          ['','Fixo','Volante','Fornecedor'].map(function(t){
             return '<option value="'+t+'"'+(String(m.Tipo||'')===t?' selected':'')+'>'+(t||'— não informado —')+'</option>';
           }).join('')+'</select></div>'+
       '</div>'+
@@ -9909,9 +9913,30 @@
         '<div><label>Placa habitual</label><input type="text" id="fPlaca" maxlength="8" autocapitalize="characters" value="'+Q.esc(m.Placa||'')+'" placeholder="ABC1D23"></div>'+
       '</div>'+
       '<h3 style="margin-top:20px">Rotas que atende</h3>'+
-      caixaLocais('fRotas', 'Aparece para escolha quando a saída for para estas rotas',
-                  locaisEscolhiveis(['ROTA'], m.Rotas), m.Rotas)+
-      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+      /* O ROTULO DIZ OS DOIS SENTIDOS porque e' isso que o sistema sempre fez: a rota
+         marcada ja' valia para a saida E para o retorno. Ele prometia so' a saida, e
+         uma promessa menor que a verdade faz quem le' procurar um ajuste que nao
+         existe. */
+      caixaLocais('fRotas',
+                  'Aparece primeiro na lista quando a saída for para estas rotas e ' +
+                  'quando o retorno vier delas',
+                  locaisEscolhiveis(['ROTA'], m.Rotas), m.Rotas, null, null,
+                  /* O SENTIDO DE CADA ROTA. Desenhado SEMPRE e escondido por CSS quando
+                     o tipo nao e' Fornecedor: desenhando so' para ele, trocar o tipo no
+                     formulario exigiria remontar a lista inteira — e remontar perderia
+                     o que ja' estivesse marcado. */
+                  function(l){
+                    var atual = String((m.RotasSentido || {})[String(l.ID)] || 'ambas');
+                    return '<select class="sentido-rota" data-sentido="'+Q.esc(l.ID)+'"'+
+                      ' title="Em que sentido ele atende esta rota"'+
+                      ' onclick="event.preventDefault();event.stopPropagation();">'+
+                      [['ambas','saída e entrada'],['saida','só saída'],
+                       ['entrada','só entrada']].map(function(o){
+                        return '<option value="'+o[0]+'"'+
+                          (atual === o[0] ? ' selected' : '')+'>'+o[1]+'</option>';
+                      }).join('')+'</select>';
+                  })+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fRotasNota">'+
         'Nada marcado = <b>nenhuma rota</b>: ele não aparece para escolha. Quem é '+
         '<b>Volante</b> aparece em todas, '+
         'mesmo com rotas marcadas.</p>'+
@@ -9919,6 +9944,26 @@
         '<option value="NAO"'+(Q.ativo(m.Ativo)?'':' selected')+'>não</option></select>'+
       '<label>Observação</label><textarea id="fObs">'+Q.esc(m.Obs||'')+'</textarea>'+
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
+    /* O SENTIDO POR ROTA SO' APARECE PARA O FORNECEDOR, a pedido — e some ao trocar o
+       tipo, sem remontar a lista: remontar perderia o que ja' estivesse marcado.
+       O QUE ESTA' ESCOLHIDO NELES NAO SE PERDE ao esconder: trocar o tipo por engano e
+       voltar devolve tudo como estava. */
+    function pintarSentidos(){
+      var ehForn = document.getElementById('fTipoMot').value === 'Fornecedor';
+      var caixa = document.getElementById('fRotas');
+      if (caixa) caixa.classList.toggle('com-sentido', ehForn);
+      var nota = document.getElementById('fRotasNota');
+      if (nota) {
+        nota.innerHTML = ehForn
+          ? 'Nada marcado = <b>nenhuma rota</b>: ele não aparece para escolha. Em cada '+
+            'rota marcada, escolha se ele faz a <b>saída</b>, a <b>entrada</b> ou as duas.'
+          : 'Nada marcado = <b>nenhuma rota</b>: ele não aparece para escolha. Quem é '+
+            '<b>Volante</b> aparece em todas, mesmo com rotas marcadas.';
+      }
+    }
+    document.getElementById('fTipoMot').addEventListener('change', pintarSentidos);
+    pintarSentidos();
+
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:m.ID||'', Nome:document.getElementById('fNome').value.trim(),
         Apelido:document.getElementById('fApelido').value.trim(),
@@ -9928,7 +9973,21 @@
         Empresa:document.getElementById('fEmpresa').value.trim(),
         Tipo:document.getElementById('fTipoMot').value,
         Ativo:document.getElementById('fAtivo').value, Obs:document.getElementById('fObs').value,
-        Rotas:lerMarcados('fRotas') };
+        Rotas:lerMarcados('fRotas'),
+        /* O SENTIDO SO' DAS ROTAS MARCADAS. Gravando o de todas, o cadastro carregaria
+           escolhas sobre rotas que ele nao atende — e no dia em que uma delas fosse
+           marcada, viria com um sentido que ninguem lembra de ter escolhido.
+           E' GRAVADO SEMPRE, inclusive quando o tipo nao e' Fornecedor: o campo fica
+           escondido, nao apagado, e trocar o tipo por engano e voltar devolve tudo. */
+        RotasSentido:(function(){
+          var fora = {}, marcadas = lerMarcados('fRotas');
+          document.querySelectorAll('#fRotas [data-sentido]').forEach(function(s){
+            var id = s.getAttribute('data-sentido');
+            if (marcadas.map(String).indexOf(String(id)) < 0) return;
+            if (s.value && s.value !== 'ambas') fora[id] = s.value;
+          });
+          return fora;
+        })() };
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       /* APELIDO REPETIDO E IMPEDIMENTO, e nao aviso. O lancamento guarda o nome CURTO no
          campo: dois 'Isaque' na lista e quem lanca nao tem como saber qual escolheu, e o
@@ -12366,7 +12425,11 @@
      O item continua na lista, com a marca que tiver: some-lo esconderia que ele existe, e
      desmarca-lo apagaria uma escolha que volta a valer se o perfil mudar. Ele so para de
      aceitar clique, e diz por que. */
-  function caixaLocais(id, rotulo, itens, marcados, vazio, trava){
+  /* `extra` DESENHA ALGO DEPOIS DO NOME DE CADA ITEM, e e' opcional: quem nao passa
+     nada recebe a lista de sempre. Foi por onde o sentido de cada rota entrou no
+     cadastro do motorista sem obrigar as outras seis listas de marcar — abas, locais,
+     bases — a saberem que ele existe. */
+  function caixaLocais(id, rotulo, itens, marcados, vazio, trava, extra){
     var sel = {};
     (marcados||[]).forEach(function(x){ sel[String(x)] = true; });
     if (!itens.length){
@@ -12387,7 +12450,8 @@
             (sel[String(l.ID)]?' checked':'')+(motivo?' data-trava="1"':'')+'>'+Q.esc(l.Nome)+
             (motivo?' <span class="tag cinza">'+Q.esc(motivo)+'</span>':'')+
             (l.Tipo?' <span class="tag cinza">'+Q.esc(String(l.Tipo).toLowerCase())+'</span>':'')+
-            (Q.ativo(l.Ativo)?'':' <span class="tag vermelha">inativo</span>')+'</label>';
+            (Q.ativo(l.Ativo)?'':' <span class="tag vermelha">inativo</span>')+
+            (extra ? extra(l) : '')+'</label>';
         }).join('')+
       '</div>';
   }

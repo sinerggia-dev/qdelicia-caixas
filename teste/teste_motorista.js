@@ -112,7 +112,14 @@ global.Q = {
   /* A REGRA VERDADEIRA, lida do `app.js` e nao reescrita: e ela que decide se a lista
      mostra 'Isaque' ou 'Isaque Sobrenome'. Copiada a mao, o dia em que alguem mudasse a
      regra no app este teste continuaria aprovando a regra antiga. */
-  comoChamar: eval('(function(){' + corpoEm(appjs, 'comoChamar') + 'return comoChamar;})()')
+  comoChamar: eval('(function(){' + corpoEm(appjs, 'comoChamar') + 'return comoChamar;})()'),
+  /* E A REGRA DO SENTIDO, pelo mesmo motivo: desde que o motorista do fornecedor pode
+     atender uma rota só numa direção, é ela que decide quem entra na lista de cada
+     tela. Reescrita aqui, seria um dublê mais fraco que o original. */
+  atendeNoSentido: eval('(function(){' +
+    corpoEm(appjs, 'sentidoDaRota') + corpoEm(appjs, 'atendeNoSentido') +
+    "var SENTIDOS_ROTA = ['ambas','saida','entrada'];" +
+    'return atendeNoSentido;})()')
 };
 global.DADOS = DADOS;
 

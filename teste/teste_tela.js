@@ -272,6 +272,172 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
     (admO.match(/\n\s*aplicarOrdemFiltros\(\);/g) || []).length);
 }
 
+console.log('\n== o sentido de cada rota do motorista fornecedor ==');
+{
+  var admS2 = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var idxS2 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var appS2 = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var LS2 = require(path.join(__dirname, '..', 'api', '_logica.js'));
+
+  /* ---- A REGRA, RODANDO, E IGUAL NOS DOIS LADOS ----
+   * O painel cadastra e o celular le'. As duas discordando, a lista do celular
+   * mostraria quem o cadastro exclui — e as duas estariam certas cada uma por si. */
+  var iS = appS2.indexOf('  var SENTIDOS_ROTA =');
+  var fimS = appS2.indexOf('  /* ================= A PLACA', iS);
+  var regraApp = new Function(appS2.slice(iS, fimS) +
+    ' return { sentido: sentidoDaRota, atende: atendeNoSentido };')();
+  ok(typeof regraApp.atende === 'function',
+    'a conferência recortou a regra do sentido do núcleo', typeof regraApp.atende);
+
+  var FORN_E = { Tipo: 'Fornecedor', Rotas: ['L009'], RotasSentido: { L009: 'entrada' } };
+  var FORN_S = { Tipo: 'Fornecedor', Rotas: ['L009'], RotasSentido: { L009: 'saida' } };
+  var FORN_A = { Tipo: 'Fornecedor', Rotas: ['L009'], RotasSentido: {} };
+  var FIXO   = { Tipo: 'Fixo', Rotas: ['L009'], RotasSentido: { L009: 'entrada' } };
+
+  var CASOS = [
+    [FORN_E, 'saida',   false, 'o fornecedor marcado SÓ ENTRADA não aparece na saída'],
+    [FORN_E, 'entrada', true,  'e aparece no retorno'],
+    [FORN_S, 'entrada', false, 'o marcado SÓ SAÍDA não aparece no retorno'],
+    [FORN_S, 'saida',   true,  'e aparece na saída'],
+    [FORN_A, 'saida',   true,  'o fornecedor que não escolheu sentido aparece nos dois'],
+    [FORN_A, 'entrada', true,  'idem no retorno — ausente quer dizer AMBAS, que é o que ' +
+                               'o sistema sempre fez: ninguém perde o que já tinha'],
+    [FIXO,   'saida',   true,  'e um FIXO com sentido gravado por engano não é filtrado ' +
+                               '— só o tipo Fornecedor tem sentido por rota, e um ' +
+                               'resíduo de troca de tipo não pode esconder alguém de ' +
+                               'metade da operação sem ninguém ter pedido']
+  ];
+  CASOS.forEach(function (c) {
+    ok(regraApp.atende(c[0], 'L009', c[1]) === c[2],
+      'na TELA: ' + c[3], regraApp.atende(c[0], 'L009', c[1]));
+    ok(LS2.atendeNoSentido(c[0], 'L009', c[1]) === c[2],
+      'e no SERVIDOR a mesma resposta — o painel cadastra e o celular lê, e as duas ' +
+      'discordando a lista mostraria quem o cadastro exclui',
+      LS2.atendeNoSentido(c[0], 'L009', c[1]));
+  });
+  ok(regraApp.atende(FORN_E, 'L009', '') === true,
+    'e sem sentido perguntado não há o que filtrar — responder "não" ali esconderia o ' +
+    'motorista de uma tela que nem pergunta isso');
+
+  /* ---- A LISTA DO CELULAR, MONTADA DE VERDADE ----
+   * A regra pode estar certa e ninguem a chamar: e' o defeito mais repetido deste
+   * projeto. Aqui a lista e' montada nos dois sentidos e lida. */
+  {
+    function corpoI(nome) {
+      var i = idxS2.indexOf('  function ' + nome + '(');
+      if (i < 0) return '';
+      var d = 0, k = idxS2.indexOf('{', i);
+      for (; k < idxS2.length; k++) {
+        if (idxS2[k] === '{') d++;
+        else if (idxS2[k] === '}' && --d === 0) return idxS2.slice(i, k + 1);
+      }
+      return '';
+    }
+    var MOTS2 = [
+      { ID: 'D1', Nome: 'Dinho', Apelido: '', Tipo: 'Fixo', Rotas: ['L009'],
+        RotasSentido: {} },
+      { ID: 'D2', Nome: 'Seu Zé', Apelido: '', Tipo: 'Fornecedor', Rotas: ['L009'],
+        RotasSentido: { L009: 'entrada' } }
+    ];
+    function listar(sentido) {
+      var sel = { value: '', innerHTML: '', attrs: {},
+                  getAttribute: function (k) { return this.attrs[k] || null; },
+                  setAttribute: function (k, v) { this.attrs[k] = v; } };
+      var rota = { value: 'L009' };
+      new Function('document', 'Q', 'meusMotoristas', 'motoristas',
+        corpoI('motoristasDaRota') + String.fromCharCode(10) +
+        corpoI('montarMotoristas') +
+        " montarMotoristas('m', 'r', " + JSON.stringify(sentido) + ');')(
+        { getElementById: function (id) { return id === 'm' ? sel : rota; } },
+        { esc: function (x) { return String(x); },
+          comoChamar: function (m) { return m.Apelido || m.Nome; },
+          atendeNoSentido: regraApp.atende },
+        function () { return MOTS2; },
+        function () { return MOTS2.map(function (m) { return m.Apelido || m.Nome; }); });
+      return sel.innerHTML;
+    }
+    var naSaida = listar('saida');
+    var noRetorno = listar('entrada');
+    ok(naSaida.indexOf('Seu Zé') < 0 && naSaida.indexOf('Dinho') >= 0,
+      'montada a lista da SAÍDA, o fornecedor de entrada não está nela — e o motorista ' +
+      'comum continua', naSaida);
+    ok(noRetorno.indexOf('Seu Zé') >= 0,
+      'e montada a do RETORNO, ele aparece — era o pedido: o carro do fornecedor traz ' +
+      'fruta e leva vasilhame, e os dois não são a mesma viagem', noRetorno);
+    ok(naSaida.indexOf('Seu Zé') < 0,
+      'e ele não reaparece em "Outros motoristas" — escondido do lugar certo e ' +
+      'oferecido no errado é pior que não filtrar', naSaida);
+  }
+
+  /* ---- CADA TELA PASSA O SENTIDO DELA ---- */
+  ok(/montarMotoristas\('sdMotorista', doGalpao \? 'sdRota' : 'sdOrigem', 'saida'\)/
+       .test(idxS2),
+    'a SAÍDA pergunta pelo sentido dela');
+  ok((idxS2.match(/montarMotoristas\('dvMotorista', 'dvOrigem', 'entrada'\)/g) || [])
+       .length === 3,
+    'e o RETORNO pelo dele, nas três chamadas — uma esquecida mostraria a lista do ' +
+    'outro sentido em metade dos caminhos da tela',
+    (idxS2.match(/montarMotoristas\('dvMotorista', 'dvOrigem'[^)]*\)/g) || []));
+
+  /* ---- O CADASTRO ---- */
+  ok(/\['','Fixo','Volante','Fornecedor'\]/.test(admS2),
+    'o cadastro do motorista oferece o tipo Fornecedor');
+  ok(/class="sentido-rota" data-sentido=/.test(admS2),
+    'e cada rota marcada tem o seletor de sentido');
+  ok(/RotasSentido:\(function\(\)\{/.test(admS2),
+    'e ele é GRAVADO — desenhado e não lido, seria um campo que a pessoa preenche e o ' +
+    'sistema joga fora, sem dizer nada');
+  ok(/if \(marcadas\.map\(String\)\.indexOf\(String\(id\)\) < 0\) return;/.test(admS2),
+    'e só das rotas MARCADAS: gravando o de todas, o cadastro carregaria escolhas ' +
+    'sobre rotas que ele não atende, e no dia em que uma delas fosse marcada viria com ' +
+    'um sentido que ninguém lembra de ter escolhido');
+  ok(/caixa\.classList\.toggle\('com-sentido', ehForn\)/.test(admS2),
+    'e o seletor só aparece para o tipo Fornecedor, a pedido');
+  ok(/document\.getElementById\('fTipoMot'\)\.addEventListener\('change', pintarSentidos\)/
+       .test(admS2),
+    'e trocar o tipo avisa a lista — sem o ouvinte, escolher Fornecedor não revelaria ' +
+    'nada, que é o defeito mais repetido deste projeto');
+
+  /* ---- E O SENTIDO VIAJA DO SERVIDOR PARA O CELULAR ---- */
+  var logS2 = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  ok(/RotasSentido: \(m\.RotasSentido && typeof m\.RotasSentido === 'object'\)/.test(logS2),
+    'e o sentido viaja na lista pública de motoristas — sem isso o celular receberia a ' +
+    'rota e não a direção, e filtraria por um campo que nunca chega');
+  /* O TRADUTOR RODANDO, nas duas direcoes. A prova pedia o texto `rotas_sentido`, que
+     aparece na LEITURA e na GRAVACAO — arrancando a leitura, a gravacao respondia por
+     ela e o cadastro abriria em branco toda vez, com tudo verde. Foi o que a sabotagem
+     mostrou. */
+  {
+    var supS2 = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
+    var iM = supS2.indexOf('var MOTORISTA = {');
+    var mapaMot = new Function('lista', 'nulo', 'bool',
+      supS2.slice(iM, supS2.indexOf(String.fromCharCode(10) + '};', iM) + 3) +
+      ' return MOTORISTA;')(
+      function (v) { return Array.isArray(v) ? v : []; },
+      function (v) { return v || null; },
+      function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; });
+    var lidoMot = mapaMot.de({ id: 'D1', nome: 'Seu Zé', tipo: 'Fornecedor',
+                               rotas: ['L009'], rotas_sentido: { L009: 'entrada' } });
+    ok(lidoMot.RotasSentido && lidoMot.RotasSentido.L009 === 'entrada',
+      'o banco DEVOLVE o sentido de cada rota — gravar sem ler de volta abriria o ' +
+      'cadastro em branco toda vez, e quem editasse outra coisa apagaria tudo sem ' +
+      'perceber', lidoMot.RotasSentido);
+    ok(mapaMot.de({ id: 'D2', nome: 'X' }).RotasSentido &&
+       typeof mapaMot.de({ id: 'D2', nome: 'X' }).RotasSentido === 'object',
+      'e um cadastro sem a coluna volta com um objeto vazio, e não nulo — nulo ' +
+      'obrigaria cada leitura a tratar os dois casos, e a primeira que esquecesse ' +
+      'estouraria na tela de quem está lançando',
+      mapaMot.de({ id: 'D2', nome: 'X' }).RotasSentido);
+    var guardMot = mapaMot.para({ Nome: 'Seu Zé', RotasSentido: { L009: 'saida' } });
+    ok(guardMot.rotas_sentido && guardMot.rotas_sentido.L009 === 'saida',
+      'e GRAVA o que a tela escolheu', guardMot.rotas_sentido);
+  }
+  var migS2 = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
+  ok(/rotas_sentido jsonb not null default/.test(migS2),
+    'e a coluna nasce no banco, vazia — vazio quer dizer AMBAS, que é o que o sistema ' +
+    'fazia antes dela existir: ninguém perde metade do que já fazia no dia do deploy');
+}
+
 console.log('\n== a placa digitada a mao ==');
 {
   var idxP = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -4137,8 +4303,15 @@ console.log('\n== as abas de admin travam no cadastro ==');
   /* --- a caixa sabe travar item ------------------------------------------- */
   var i = adm.indexOf('function caixaLocais(');
   var fonte = adm.slice(i, adm.indexOf('\n  }', i)) + '\n  }';
-  ok(/function caixaLocais\(id, rotulo, itens, marcados, vazio, trava\)/.test(fonte),
+  /* O `extra` E' OPCIONAL e veio depois: por ele o sentido de cada rota entrou no
+     cadastro do motorista sem obrigar as outras seis listas de marcar — abas, locais,
+     bases — a saberem que ele existe. A prova cobra a trava, que e' o que ela mede, e
+     aceita o que vier depois dela. */
+  ok(/function caixaLocais\(id, rotulo, itens, marcados, vazio, trava[,)]/.test(fonte),
     'a caixa de marcar aceita uma trava por item');
+  ok(/function caixaLocais\([^)]*, extra\)/.test(fonte),
+    'e aceita desenhar algo depois do nome de cada item, sem que as outras listas ' +
+    'precisem saber disso');
 
   /* E a CHAMADA das abas passa uma. A bancada abaixo monta a sua propria trava, entao
      sozinha ela nao veria o dia em que o argumento sumisse da chamada real — e ai a caixa

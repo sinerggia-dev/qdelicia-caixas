@@ -310,7 +310,11 @@ var MOTORISTA = {
       CNH: r.cnh || '', CNHCategoria: r.cnh_categoria || '', CNHValidade: r.cnh_validade || '',
       Placa: r.placa || '', Obs: r.obs || '', Empresa: r.empresa || '', Tipo: r.tipo || '',
       Ativo: r.ativo !== false,
-      Rotas: lista(r.rotas)
+      Rotas: lista(r.rotas),
+      /* UM OBJETO {rotaId: sentido}, e nao uma lista paralela: vazio quer dizer AMBAS,
+         que e' o que o sistema fazia antes desta coluna existir. */
+      RotasSentido: (r.rotas_sentido && typeof r.rotas_sentido === 'object')
+        ? r.rotas_sentido : {}
     };
   },
   para: function (o) {
@@ -329,6 +333,10 @@ var MOTORISTA = {
     if (o.Tipo !== undefined) r.tipo = String(o.Tipo || '').trim();
     if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
     if (o.Rotas !== undefined) r.rotas = lista(o.Rotas);
+    if (o.RotasSentido !== undefined) {
+      r.rotas_sentido = (o.RotasSentido && typeof o.RotasSentido === 'object')
+        ? o.RotasSentido : {};
+    }
     return r;
   }
 };

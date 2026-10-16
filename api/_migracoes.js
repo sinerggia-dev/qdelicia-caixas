@@ -786,4 +786,32 @@ module.exports = [
       "   lancamento continua vindo do local escolhido nele.';"
     ].join('\n')
   }
+,
+  {
+    id: '2026-10-16-motorista-rota-sentido',
+    nota: 'o sentido de cada rota que o motorista atende',
+    sql: [
+      "-- EM QUE SENTIDO O MOTORISTA ATENDE CADA ROTA.",
+      "--",
+      "-- `rotas` diz QUAIS rotas, e isso continua valendo para todo mundo. Esta coluna",
+      "-- diz, para cada uma delas, se ele faz a SAIDA, a ENTRADA ou as duas. Ela nasceu",
+      "-- do motorista do FORNECEDOR: o carro dele traz fruta e leva vasilhame, e os dois",
+      "-- sentidos nao sao a mesma viagem nem a mesma pessoa, necessariamente.",
+      "--",
+      "-- UM OBJETO, e nao uma segunda lista: a chave e o id da rota e o valor e o",
+      "-- sentido. Numa lista paralela, a ordem das duas teria de ser mantida igual a mao,",
+      "-- e a primeira rota removida de uma e nao da outra desalinharia tudo em silencio.",
+      "--",
+      "-- NASCE VAZIO, e vazio quer dizer AMBOS — que e' exatamente o que o sistema faz",
+      "-- hoje: a rota marcada ja' vale para a saida e para o retorno. Nascendo com um",
+      "-- sentido escolhido, a migracao tiraria de alguem metade do que ja' fazia, e isso",
+      "-- e' um apagao e nao um ajuste. A mesma decisao de `retornos` e de `credencial_em`.",
+      "alter table public.motoristas",
+      "  add column if not exists rotas_sentido jsonb not null default '{}'::jsonb;",
+      "comment on column public.motoristas.rotas_sentido is",
+      "  'Para cada rota de `rotas`, em que sentido este motorista atende: saida, entrada",
+      "   ou ambas. Chave e o id da rota. Ausente ou vazio quer dizer AMBAS, que e o que",
+      "   o sistema fazia antes desta coluna existir.';"
+    ].join('\n')
+  }
 ];

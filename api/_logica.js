@@ -334,6 +334,43 @@ function nomeESobrenome(nome) {
   return p[0] + ' ' + p[p.length - 1];
 }
 
+/* ================= EM QUE SENTIDO O MOTORISTA ATENDE ESTA ROTA =================
+ *
+ * `Rotas` diz QUAIS rotas. Esta funcao responde, para uma delas, se ele faz a saida, a
+ * entrada ou as duas.
+ *
+ * AUSENTE QUER DIZER AMBAS, e e' por isso que ninguem perde nada: a rota marcada sempre
+ * valeu para os dois sentidos, e quem nunca abrir este campo continua exatamente como
+ * estava. So' quem escolher um sentido passa a ser filtrado por ele.
+ *
+ * SO' O TIPO FORNECEDOR tem sentido por rota, a pedido. Ele nasceu do carro que traz
+ * fruta e leva vasilhame: os dois sentidos nao sao a mesma viagem. Para os outros
+ * tipos, um sentido gravado por engano — numa troca de tipo, por exemplo — nao pode
+ * passar a esconder o motorista de metade da operacao sem ninguem ter pedido.
+ *
+ * E' UMA FUNCAO PURA e mora aqui porque o app de campo e o painel perguntam a mesma
+ * coisa. Escrita nos dois, a primeira correcao que so' um recebesse faria a lista do
+ * celular discordar do cadastro que a gerou. */
+var SENTIDOS_ROTA = ['ambas', 'saida', 'entrada'];
+
+function sentidoDaRota(motorista, rotaId) {
+  var m = motorista || {};
+  if (String(m.Tipo || '').toUpperCase() !== 'FORNECEDOR') return 'ambas';
+  var mapa = (m.RotasSentido && typeof m.RotasSentido === 'object') ? m.RotasSentido : {};
+  var v = String(mapa[String(rotaId)] || '').toLowerCase();
+  return SENTIDOS_ROTA.indexOf(v) > 0 ? v : 'ambas';
+}
+
+function atendeNoSentido(motorista, rotaId, sentido) {
+  var s = String(sentido || '').toLowerCase();
+  /* SEM SENTIDO PERGUNTADO, nao ha o que filtrar: e' o caso de quem so' quer saber se
+     ele atende a rota, sem direcao — e responder "nao" ali esconderia o motorista de
+     uma tela que nem pergunta isso. */
+  if (s !== 'saida' && s !== 'entrada') return true;
+  var dele = sentidoDaRota(motorista, rotaId);
+  return dele === 'ambas' || dele === s;
+}
+
 function motoristasPublicos(motoristas) {
   return (motoristas || [])
     .filter(function (m) { return m.Ativo !== false; })
@@ -342,8 +379,13 @@ function motoristasPublicos(motoristas) {
     .map(function (m) {
       /* O APELIDO VIAJA e o nome completo tambem: o celular mostra um e grava os
          dois. Apelido nao e dado pessoal — e como a pessoa e chamada no galpao. */
+      /* O SENTIDO DE CADA ROTA VIAJA JUNTO, pelo mesmo motivo que a rota: e' o que
+         deixa o celular montar a lista certa sem uma segunda chamada. Nao e' dado
+         pessoal — e' escala de trabalho. */
       return { ID: m.ID, Nome: m.Nome, Apelido: m.Apelido || '', Tipo: m.Tipo || '',
-               Rotas: Array.isArray(m.Rotas) ? m.Rotas : [] };
+               Rotas: Array.isArray(m.Rotas) ? m.Rotas : [],
+               RotasSentido: (m.RotasSentido && typeof m.RotasSentido === 'object')
+                 ? m.RotasSentido : {} };
     })
     .sort(function (a, b) {
       return pesoTeste(a.Nome) - pesoTeste(b.Nome) ||
@@ -3135,7 +3177,9 @@ module.exports = {
   comoChamar: comoChamar, nomeESobrenome: nomeESobrenome,
   linhasDoRegistro: linhasDoRegistro,
   placa: placa,
-  motoristasPublicos: motoristasPublicos, veiculosPublicos: veiculosPublicos,
+  motoristasPublicos: motoristasPublicos,
+  sentidoDaRota: sentidoDaRota, atendeNoSentido: atendeNoSentido,
+  SENTIDOS_ROTA: SENTIDOS_ROTA, veiculosPublicos: veiculosPublicos,
   cnhVencida: cnhVencida,
   data: data, fimDoDia: fimDoDia, iso: iso, soData: soData,
   mapaNomes: mapaNomes, nome: nome, ativos: ativos, naoCancelados: naoCancelados,

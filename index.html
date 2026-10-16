@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=5b20ecbd">
+<link rel="stylesheet" href="styles.css?v=8ece7fe9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -644,7 +644,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=5e346533"></script>
+<script src="app.js?v=f7227104"></script>
 <script>
 (function(){
   'use strict';
@@ -1177,13 +1177,24 @@
      sem rota escolhida, todos; com rota, quem está atribuído a ela mais quem não tem
      rota nenhuma marcada. Rota sem ninguém atribuído devolve todos — melhor oferecer a
      lista inteira do que travar a saída porque faltou um cadastro. */
-  function motoristasDaRota(rotaId, soAtribuidos){
+  /* `sentido` E' 'saida' OU 'entrada', conforme a TELA que pergunta.
+   *
+   * Ele so' muda alguma coisa para o motorista do tipo FORNECEDOR que tenha escolhido
+   * um sentido para aquela rota: o carro dele traz fruta e leva vasilhame, e os dois
+   * nao sao a mesma viagem. Para todo o resto — e para o fornecedor que nao escolheu —
+   * a resposta continua sendo a de sempre, porque ausente quer dizer AMBAS.
+   *
+   * A REGRA MORA NO `app.js`, uma vez so': o painel cadastra e o celular le', e as duas
+   * telas perguntando a mesma coisa com codigos diferentes divergiriam na primeira
+   * correcao que so' uma recebesse. */
+  function motoristasDaRota(rotaId, soAtribuidos, sentido){
     var todos = meusMotoristas();
     if (!rotaId) return soAtribuidos ? [] : todos.map(Q.comoChamar);
     var alvo = String(rotaId);
     var atribuidos = todos.filter(function(m){
       var r = m.Rotas || [];
-      return r.length && r.map(String).indexOf(alvo) >= 0;
+      if (!(r.length && r.map(String).indexOf(alvo) >= 0)) return false;
+      return Q.atendeNoSentido(m, alvo, sentido);
     });
     // `soAtribuidos` e para decidir o preenchimento automatico: quem responde por esta
     // rota no cadastro, sem o volante e sem quem so nao tem rota marcada. Sem isso, um
@@ -1406,7 +1417,7 @@
        de destino; saindo da própria rota, é ela mesma que está na origem. Lista fechada
        nos dois casos — nome digitado vira grafia diferente do mesmo motorista, e o
        extrato passa a mostrar "Valcy" e "valci" como duas pessoas. */
-    montarMotoristas('sdMotorista', doGalpao ? 'sdRota' : 'sdOrigem');
+    montarMotoristas('sdMotorista', doGalpao ? 'sdRota' : 'sdOrigem', 'saida');
     /* DEPOIS do motorista, sempre: é ele que decide o agrupamento da frota. */
     montarVeiculos('sdVeiculo', 'sdMotorista');
     /* AS DUAS PONTAS: a caixa pode estar INDO para o fornecedor (ele no destino) ou
@@ -1422,15 +1433,23 @@
      Ramos, e no dia em que outro levasse aquela carga a pessoa lançava no nome do
      Ramos assim mesmo. O extrato passava a mentir sobre quem saiu com as caixas, que
      é justamente o que este app existe para não deixar acontecer. */
-  function montarMotoristas(idMotorista, idRota){
+  function montarMotoristas(idMotorista, idRota, sentido){
     var sel = document.getElementById(idMotorista || 'sdMotorista');
     var elRota = document.getElementById(idRota || 'sdRota');
     var escolhido = sel.value;
     var rota = elRota ? elRota.value : '';
     var rotaAnterior = sel.getAttribute('data-rota');
-    var daRota = motoristasDaRota(rota);
-    var atribuidos = motoristasDaRota(rota, true);
-    var outros = motoristas().filter(function(m){ return daRota.indexOf(m) < 0; });
+    /* O SENTIDO VEM DE QUEM CHAMA, e nao do id do campo: ler 'dv' no nome para deduzir
+       "entrada" amarraria a regra ao nome de um elemento da tela, e renomear o campo
+       mudaria quem aparece na lista sem ninguem relacionar as duas coisas. */
+    var daRota = motoristasDaRota(rota, false, sentido);
+    var atribuidos = motoristasDaRota(rota, true, sentido);
+    /* E "OUTROS MOTORISTAS" TAMBEM RESPEITA O SENTIDO: sem isto, o fornecedor que so'
+       faz entrada sumia do grupo da rota e reaparecia logo abaixo, no outro grupo —
+       escondido do lugar certo e oferecido no errado, que e' pior que nao filtrar. */
+    var outros = meusMotoristas().filter(function(m){
+      return Q.atendeNoSentido(m, rota, sentido);
+    }).map(Q.comoChamar).filter(function(m){ return daRota.indexOf(m) < 0; });
 
     function itens(lista){
       return lista.map(function(m){
@@ -1531,7 +1550,7 @@
     // e a resposta ficava no meio da lista.
     document.getElementById('dvOrigem').addEventListener('change', function(){
       ajustarDestinoRetorno();
-      montarMotoristas('dvMotorista', 'dvOrigem');
+      montarMotoristas('dvMotorista', 'dvOrigem', 'entrada');
       montarVeiculos('dvVeiculo', 'dvMotorista');
     });
     /* O DESTINO DO RETORNO TAMBEM E' UMA PONTA. Sem este aviso, quem escolhesse a rota
@@ -1539,7 +1558,7 @@
     document.getElementById('dvDestino')
       .addEventListener('change', atualizarFornecedorRetorno);
     // Quem trouxe a carga de volta, agrupado pela rota de onde ela vem.
-    montarMotoristas('dvMotorista', 'dvOrigem');
+    montarMotoristas('dvMotorista', 'dvOrigem', 'entrada');
     montarVeiculos('dvVeiculo', 'dvMotorista');
     /* TROCAR O SELETOR MOSTRA OU ESCONDE O CAMPO DE DIGITAR. Sem este aviso, escolher
        "Outra placa" nao abriria nada — a peca existiria e ninguem a alcancaria. */
@@ -1550,7 +1569,7 @@
     document.getElementById('sdOrigem').addEventListener('change', ajustarCamposSaida);
     // É a rota que decide quais motoristas aparecem.
     document.getElementById('sdRota').addEventListener('change', function(){
-      montarMotoristas('sdMotorista', 'sdRota');
+      montarMotoristas('sdMotorista', 'sdRota', 'saida');
       montarVeiculos('sdVeiculo', 'sdMotorista');
       /* E E' UMA PONTA: saindo do galpao, a rota E' o destino da carga. Era aqui que
          faltava — escolher "Fornecedor" no Destino nao fazia o campo nascer, que foi o
@@ -1840,7 +1859,7 @@
       document.getElementById('dvAviso').innerHTML = '';
       mostrarSaldoDoOrigem();
       // Sem rota nao ha grupo: a lista volta a ser simples, com a equipe inteira.
-      montarMotoristas('dvMotorista', 'dvOrigem');
+      montarMotoristas('dvMotorista', 'dvOrigem', 'entrada');
       montarVeiculos('dvVeiculo', 'dvMotorista');
     }
   }

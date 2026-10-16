@@ -3318,6 +3318,18 @@ details.tipos[open] summary::before{content:"▾"}
    a cor deixaria de significar alguma coisa. */
 .dif-falta{color:var(--vermelho)}
 
+/* O SENTIDO DE CADA ROTA, no cadastro do motorista.
+   Escondido por padrao e revelado pela classe que o tipo Fornecedor poe na lista: o
+   seletor continua no DOM com o valor dele, entao trocar o tipo por engano e voltar nao
+   perde o que ja' estava escolhido — remontar a lista e' que perderia. */
+.sentido-rota{display:none}
+.marcalista.com-sentido .sentido-rota{display:inline-block;margin-left:8px;
+  padding:1px 4px;font-size:11px;max-width:140px;vertical-align:middle}
+/* A LINHA DA ROTA VIRA FLEX para o seletor nao empurrar o nome: com ele embutido no
+   meio do rotulo, nomes longos quebravam a linha e a caixa de marcar subia sozinha. */
+.marcalista.com-sentido .marca{display:flex;align-items:center;gap:4px}
+.marcalista.com-sentido .marca .sentido-rota{margin-left:auto}
+
 /* ================= A GAVETA DE UMA PESSOA, no Painel de Ativos =================
    Ela e' uma tabela DENTRO de uma celula, e precisa se ler como detalhe e nao como uma
    segunda tabela independente: fundo de veu, letra menor, e um recuo a esquerda que
