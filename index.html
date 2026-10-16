@@ -1213,9 +1213,7 @@
     /* AS DUAS PONTAS: a caixa pode estar VOLTANDO do fornecedor (ele na origem) ou
        voltando PARA ele (ele no destino). Olhar so um lado foi o defeito que a saida
        pagou — e o servidor sempre olhou os dois. */
-    montarFornecedores('dvFornecedor', 'dvWrapFornecedor',
-      [document.getElementById('dvOrigem').value,
-       document.getElementById('dvDestino').value]);
+    atualizarFornecedorRetorno();
   }
 
   /* ================= O FORNECEDOR, NOS DOIS LANCAMENTOS =================
@@ -1283,6 +1281,34 @@
     else if (antes) sel.value = antes;
   }
 
+  /* QUAL CAMPO E' O DESTINO DA SAIDA depende do caminho: saindo do galpao a carga vai
+     para a ROTA, saindo da rota vai para o DESTINO. Os dois nunca aparecem juntos.
+     Escrito em cada lugar que precisa das pontas, isso seria a mesma decisao repetida —
+     e a primeira copia esquecida ja' deixaria um caminho sem o campo. */
+  function pontasDaSaida(){
+    return [document.getElementById('sdOrigem').value,
+            document.getElementById(saiDeGalpao() ? 'sdRota' : 'sdDestino').value];
+  }
+
+  /* ESTES DOIS SAO O AVISO.
+   *
+   * O campo do fornecedor so' era recalculado quando a ORIGEM mudava — e escolher o
+   * destino depois nao avisava ninguem. Quem punha a rota de fornecedor no Destino, que
+   * e' o caminho mais comum, nunca via o campo nascer: a peca existia e nada a
+   * alcancava.
+   *
+   * Por isso eles tem nome e sao chamados de TODO campo que mexe numa das pontas, em
+   * vez de a chamada ficar escondida no meio de quem ajusta os seletores. */
+  function atualizarFornecedorSaida(){
+    montarFornecedores('sdFornecedor', 'sdWrapFornecedor', pontasDaSaida());
+  }
+
+  function atualizarFornecedorRetorno(){
+    montarFornecedores('dvFornecedor', 'dvWrapFornecedor',
+      [document.getElementById('dvOrigem').value,
+       document.getElementById('dvDestino').value]);
+  }
+
   function ajustarCamposSaida(){
     var doGalpao = saiDeGalpao();
     document.getElementById('sdWrapRota').style.display      = doGalpao ? 'block' : 'none';
@@ -1311,9 +1337,9 @@
     /* DEPOIS do motorista, sempre: é ele que decide o agrupamento da frota. */
     montarVeiculos('sdVeiculo', 'sdMotorista');
     /* AS DUAS PONTAS: a caixa pode estar INDO para o fornecedor (ele no destino) ou
-       SAINDO dele (ele na origem). O destino acabou de ser remontado acima, entao a
-       pergunta usa o valor que FICOU nele — e nao o que estava ali antes da troca. */
-    montarFornecedores('sdFornecedor', 'sdWrapFornecedor', [origem, alvo.value]);
+       SAINDO dele (ele na origem). O destino acabou de ser remontado acima, e
+       `pontasDaSaida` le o mesmo campo que `alvo` — o valor que FICOU nele. */
+    atualizarFornecedorSaida();
   }
 
   /* Refeito toda vez que a rota muda. A rota decide a ORDEM, não quem pode aparecer:
@@ -1435,6 +1461,10 @@
       montarMotoristas('dvMotorista', 'dvOrigem');
       montarVeiculos('dvVeiculo', 'dvMotorista');
     });
+    /* O DESTINO DO RETORNO TAMBEM E' UMA PONTA. Sem este aviso, quem escolhesse a rota
+       de fornecedor aqui nao veria o campo — e o servidor pediria o nome assim mesmo. */
+    document.getElementById('dvDestino')
+      .addEventListener('change', atualizarFornecedorRetorno);
     // Quem trouxe a carga de volta, agrupado pela rota de onde ela vem.
     montarMotoristas('dvMotorista', 'dvOrigem');
     montarVeiculos('dvVeiculo', 'dvMotorista');
@@ -1443,7 +1473,16 @@
     document.getElementById('sdRota').addEventListener('change', function(){
       montarMotoristas('sdMotorista', 'sdRota');
       montarVeiculos('sdVeiculo', 'sdMotorista');
+      /* E E' UMA PONTA: saindo do galpao, a rota E' o destino da carga. Era aqui que
+         faltava — escolher "Fornecedor" no Destino nao fazia o campo nascer, que foi o
+         defeito relatado. */
+      atualizarFornecedorSaida();
     });
+    /* O OUTRO CAMINHO: saindo da rota, o destino mora em `sdDestino`, e ele nao tinha
+       ouvinte nenhum. Os dois campos sao a mesma pergunta em caminhos diferentes, e
+       avisar so' um deixa metade da operacao sem o campo. */
+    document.getElementById('sdDestino')
+      .addEventListener('change', atualizarFornecedorSaida);
     ajustarCamposSaida();
   }
 

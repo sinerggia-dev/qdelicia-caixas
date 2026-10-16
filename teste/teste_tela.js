@@ -407,11 +407,125 @@ console.log('\n== o fornecedor da carga, na tela ==');
     'e com nenhuma das duas pontas marcada, não nasce — basta UMA pedir, e não é ' +
     'qualquer lançamento que pede');
 
-  /* E A TELA PERGUNTA MESMO PELAS DUAS, nas duas operacoes. */
-  ok(/montarFornecedores\('sdFornecedor', 'sdWrapFornecedor', \[origem, alvo\.value\]\)/
-       .test(idxF),
-    'a SAÍDA passa as duas pontas — e o destino é lido depois de remontado, e não ' +
-    'como estava antes da troca');
+  /* ================= E ALGUEM AVISA O CAMPO =================
+   *
+   * As provas acima chamam `montarFornecedores` na mao. Nenhuma delas pergunta QUEM a
+   * chama — e foi exatamente ai que o defeito seguinte se escondeu: o campo so' era
+   * recalculado quando a ORIGEM mudava, e escolher a rota de fornecedor no DESTINO,
+   * que e' o caminho mais comum, nao avisava ninguem. A peca existia, funcionava, e
+   * nada a alcancava.
+   *
+   * ENTAO ESTA PROVA LIGA OS FORMULARIOS DE VERDADE e DISPARA o `change` de cada campo
+   * que e' uma ponta, como o navegador faria. E' a unica forma de a pergunta "quem
+   * avisa?" ter resposta medida. */
+  {
+    function bancadaLigada() {
+      var ouvintes = {}, nos = {};
+      function no(id) {
+        if (nos[id]) return nos[id];
+        nos[id] = { id: id, value: '', innerHTML: '', textContent: '',
+                    style: { display: '' }, disabled: false,
+                    classList: { add: function () {}, remove: function () {} },
+                    addEventListener: function (tp, fn) {
+                      ((ouvintes[id] = ouvintes[id] || {})[tp] =
+                        (ouvintes[id] || {})[tp] || []).push(fn);
+                    },
+                    querySelectorAll: function () { return []; } };
+        return nos[id];
+      }
+      var LOCL = [
+        { ID: 'L001', Nome: 'Matriz', Tipo: 'GALPAO' },
+        { ID: 'L005', Nome: 'Caruaru', Tipo: 'ROTA' },
+        { ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA', PedeFornecedor: true }
+      ];
+      var reais = ['saiDeGalpao', 'pedeFornecedor', 'montarFornecedores', 'pontasDaSaida',
+                   'atualizarFornecedorSaida', 'atualizarFornecedorRetorno',
+                   'ajustarCamposSaida', 'ajustarDestinoRetorno', 'montarFormularios'];
+      var fonte = reais.map(function (n) { return corpoF(idxF, n); })
+        .join(String.fromCharCode(10));
+      ok(reais.every(function (n) { return corpoF(idxF, n); }),
+        'a conferência recortou as funções que ligam os formulários — faltando uma, o ' +
+        'disparo abaixo não aconteceria e a prova passaria sem medir nada',
+        reais.filter(function (n) { return !corpoF(idxF, n); }));
+      new Function('DADOS', 'Q', 'document', 'permitidos', 'locaisPor', 'opcoes',
+                   'montarMotoristas', 'montarVeiculos', 'preencherSozinho',
+                   'ligarSteppers', 'itensHTML', 'hoje', 'periodoPadraoLanc',
+                   'TIPOS_RETORNO', 'mostrarSaldoDoOrigem', 'baseDoLancamento',
+                   'montarBases',
+        fonte + ' montarFormularios();')(
+        { locais: LOCL, fornecedores: FOR, tipos: [] },
+        { esc: function (x) { return String(x); },
+          ativo: function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; },
+          sessao: function () { return {}; },
+          hoje: function () { return '2026-10-16'; },
+          num: function (n) { return String(n); } },
+        { getElementById: no, querySelectorAll: function () { return []; } },
+        function () { return LOCL; }, function () { return LOCL; },
+        function () { return ''; },
+        function () {}, function () {}, function () {}, function () {},
+        function () { return ''; }, function () { return '2026-10-16'; },
+        function () {}, ['GALPAO', 'FILIAL', 'ROTA'],
+        function () {}, function () { return 'reais'; }, function () {});
+      return {
+        nos: nos, ouvintes: ouvintes,
+        mudar: function (id, valor) {
+          no(id).value = valor;
+          ((ouvintes[id] || {}).change || []).forEach(function (fn) { fn({}); });
+          return ((ouvintes[id] || {}).change || []).length;
+        }
+      };
+    }
+
+    /* ---- SAINDO DO GALPAO, o destino mora em `sdRota` ---- */
+    var L1 = bancadaLigada();
+    L1.mudar('sdOrigem', 'L001');
+    var ouviu = L1.mudar('sdRota', 'L009');
+    ok(ouviu > 0,
+      'o Destino da saída tem quem o escute — sem ouvinte, escolher a rota de ' +
+      'fornecedor ali não avisa ninguém, e o campo nunca nasce', ouviu);
+    ok(L1.nos.sdWrapFornecedor.style.display === 'block',
+      'e ESCOLHER a rota de fornecedor no Destino faz o campo aparecer — era o defeito ' +
+      'relatado: o campo só era recalculado quando a ORIGEM mudava, e quem escolhia o ' +
+      'destino depois ficava sem ele enquanto o servidor exigia o nome',
+      L1.nos.sdWrapFornecedor.style.display);
+    L1.mudar('sdRota', 'L005');
+    ok(L1.nos.sdWrapFornecedor.style.display === 'none',
+      'e trocando o Destino para outra rota ele some de novo — o aviso vale nos dois ' +
+      'sentidos, senão o campo fica na tela pedindo um nome que já não faz sentido');
+
+    /* ---- SAINDO DA ROTA, o destino mora em `sdDestino` ----
+     * Sao o mesmo campo em caminhos diferentes, e avisar so' um deixa metade da
+     * operacao sem o campo. */
+    var L2 = bancadaLigada();
+    L2.mudar('sdOrigem', 'L005');
+    var ouviu2 = L2.mudar('sdDestino', 'L009');
+    ok(ouviu2 > 0 && L2.nos.sdWrapFornecedor.style.display === 'block',
+      'e pelo OUTRO caminho também: saindo da rota o destino mora noutro campo, e ele ' +
+      'não tinha ouvinte nenhum — os dois são a mesma pergunta, e avisar só um deixa ' +
+      'metade da operação sem o campo',
+      { ouvintes: ouviu2, campo: L2.nos.sdWrapFornecedor.style.display });
+
+    /* ---- E NO RETORNO, o destino também é uma ponta ---- */
+    var L3 = bancadaLigada();
+    L3.mudar('dvOrigem', 'L001');
+    var ouviu3 = L3.mudar('dvDestino', 'L009');
+    ok(ouviu3 > 0 && L3.nos.dvWrapFornecedor.style.display === 'block',
+      'e no RETORNO o destino também avisa — a caixa pode estar voltando PARA o ' +
+      'fornecedor, e o servidor pede o nome igual',
+      { ouvintes: ouviu3, campo: L3.nos.dvWrapFornecedor.style.display });
+
+    /* ---- A ORIGEM CONTINUA AVISANDO, nas duas telas ---- */
+    var L4 = bancadaLigada();
+    L4.mudar('sdOrigem', 'L009');
+    ok(L4.nos.sdWrapFornecedor.style.display === 'block',
+      'e a ORIGEM da saída continua avisando — é a caixa saindo do fornecedor');
+    var L5 = bancadaLigada();
+    L5.mudar('dvOrigem', 'L009');
+    ok(L5.nos.dvWrapFornecedor.style.display === 'block',
+      'e a origem do retorno também — é a caixa voltando dele');
+  }
+
+
   /* COM OS ESPACOS ACHATADOS: a chamada ocupa tres linhas no arquivo, e um regex que
      tentasse casar a quebra de linha dentro dele mora a um escape de distancia de
      virar outra coisa — ja' aconteceu aqui. */
@@ -434,7 +548,11 @@ console.log('\n== o fornecedor da carga, na tela ==');
    * e' escolhido sozinho la' dentro — `podem.length === 1` —, entao o campo so' nasce
    * se a pergunta for feita depois disso. */
   {
-    var fonteR = corpoF(idxF, 'ajustarDestinoRetorno') + String.fromCharCode(10) + fonteF;
+    /* COM `atualizarFornecedorRetorno` JUNTO: é por ela que a função pergunta pelo
+       campo desde que o aviso ganhou nome próprio. Sem ela na fonte, o recorte estoura
+       em vez de medir. */
+    var fonteR = corpoF(idxF, 'ajustarDestinoRetorno') + String.fromCharCode(10) +
+      corpoF(idxF, 'atualizarFornecedorRetorno') + String.fromCharCode(10) + fonteF;
     var nosR = {
       dvOrigem: { value: 'L001' },
       dvDestino: { value: '', innerHTML: '' },
