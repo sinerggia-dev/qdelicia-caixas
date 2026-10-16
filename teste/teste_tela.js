@@ -272,6 +272,99 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
     (admO.match(/\n\s*aplicarOrdemFiltros\(\);/g) || []).length);
 }
 
+console.log('\n== falta e negativo, e vermelho ==');
+{
+  var admD = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoD(nome) {
+    var i = admD.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = admD.indexOf('{', i);
+    for (; k < admD.length; k++) {
+      if (admD[k] === '{') d++;
+      else if (admD[k] === '}' && --d === 0) return admD.slice(i, k + 1);
+    }
+    return '';
+  }
+
+  /* ---- A CELULA PINTA O QUE FALTA, e so' ele ----
+   * Pintar os dois lados tiraria da cor o trabalho dela: num painel que se le'
+   * varrendo, vermelho tem de querer dizer uma coisa so'. */
+  var iCel = admD.indexOf('    function celulaDif(titulo, campo){');
+  var fimCel = admD.indexOf('\n    }', iCel) + 6;
+  var fonteCel = admD.slice(admD.indexOf('    function sinal(n){', 0) >= 0
+    ? admD.indexOf('    function sinal(n){') : iCel, fimCel);
+  ok(fonteCel.indexOf('celulaDif') > 0 && fonteCel.indexOf('function sinal') >= 0,
+    'a conferência recortou a célula da diferença e o formatador do sinal', fonteCel.length);
+  var cel = new Function('Q', fonteCel + ' return celulaDif("T", "d");')(
+    { num: function (n) { return String(n); } });
+
+  ok(/class="dif-falta"/.test(cel.v({ d: -427 })),
+    'o que FALTA sai em vermelho — saíram 775 e o conferente contou 348 é um buraco de ' +
+    '427 caixas, e era isto que a tela mostrava como "+427", que se lê como sobra',
+    cel.v({ d: -427 }));
+  ok(/−427/.test(cel.v({ d: -427 })),
+    'e com o sinal de menos, que é o que carrega a direção', cel.v({ d: -427 }));
+  ok(!/dif-falta/.test(cel.v({ d: 427 })),
+    'e o que SOBRA não é pintado — pintar os dois lados tiraria da cor o trabalho ' +
+    'dela: num painel que se lê varrendo, vermelho tem de querer dizer uma coisa só',
+    cel.v({ d: 427 }));
+  ok(!/dif-falta/.test(cel.v({ d: 0 })) && /fraco/.test(cel.v({ d: 0 })),
+    'e o ZERO fica no tom de apoio — ele é a resposta boa, e não um alerta nem uma ' +
+    'comemoração', cel.v({ d: 0 }));
+  ok(/fraco/.test(cel.v({ d: null })) && !/dif-falta/.test(cel.v({ d: null })),
+    'e a diferença que NÃO EXISTE — um dos lados sem lançamento — continua um traço, e ' +
+    'não um zero vermelho: não saber não é o mesmo que faltar', cel.v({ d: null }));
+
+  /* ---- A CONTA, NO PAR E NO GRUPO, NA MESMA DIRECAO ----
+   * As duas linhas dividem a mesma COLUNA. */
+  var semCom = admD.replace(/\/\*[\s\S]*?\*\//g, '');
+  ok(semCom.indexOf('par.declarado - par.saida') > 0 &&
+     semCom.indexOf('par.conferido - par.saida') > 0,
+    'a linha da viagem compara com a saída na direção de saldo — o que falta é negativo');
+  ok(semCom.indexOf('g.declarado - g.saida') > 0 &&
+     semCom.indexOf('g.conferido - g.saida') > 0,
+    'e a linha do grupo na MESMA direção — elas dividem a mesma coluna, e uma coluna ' +
+    'só pode significar uma coisa');
+  ok(semCom.indexOf('par.saida - par.declarado') < 0 &&
+     semCom.indexOf('g.saida - g.conferido') < 0,
+    'e a direção antiga não sobrou em canto nenhum — meia virada é pior que nenhuma: ' +
+    'duas linhas da mesma tabela diriam sinais opostos sobre a mesma operação');
+
+  /* ---- OS CARTOES DO TOPO SOMAM NA MESMA DIRECAO ----
+   * Com direcoes opostas, o topo diria "+1.441" sobre a mesma operacao em que a tabela
+   * logo abaixo diz "-1.441", e as duas estariam certas cada uma por si. */
+  ok(semCom.indexOf('sinalDe(decl - said)') > 0 &&
+     semCom.indexOf('sinalDe(conf - said)') > 0,
+    'e os cartões do topo somam na mesma direção da coluna que eles resumem — com ' +
+    'direções opostas, o topo diria "+1.441" sobre a mesma operação em que a tabela diz ' +
+    '"−1.441", e as duas estariam certas cada uma por si');
+
+  /* ---- E OS NOMES ACOMPANHARAM A CONTA ----
+   * Nome velho sobre conta nova e' um nome que mente, e ninguem desconfia de um nome. */
+  ['difDecl:\'Declarado − Saída\'', 'difConf:\'Conferido − Saída\''].forEach(function (x) {
+    ok(admD.indexOf(x) > 0,
+      'e o título da coluna diz a conta que ela faz (' + x + ') — nome velho sobre ' +
+      'conta nova mostra o oposto do que promete, e ninguém desconfia de um nome');
+  });
+  ok(admD.indexOf("'Saída − Declarado'") < 0 && admD.indexOf("'Saída − Conferido'") < 0 &&
+     admD.indexOf('<small>Saída − Declarado</small>') < 0,
+    'e o nome antigo não sobrou na tabela, nos cartões nem na ficha do celular — uma ' +
+    'das três com o nome velho faria o mesmo par ser lido de dois jeitos conforme o ' +
+    'aparelho');
+
+  /* ---- A FICHA DO CELULAR PINTA IGUAL ---- */
+  ok(/par\.difConf < 0 \? ' class="dif-falta"' : ''/.test(admD) &&
+     /par\.difDecl < 0 \? ' class="dif-falta"' : ''/.test(admD),
+    'e a ficha do celular pinta pela mesma regra — a tabela nem chega a ser montada ' +
+    'no telefone, e sem isto o vermelho existiria só no computador');
+
+  /* ---- E A COR E' A VERMELHA DA CASA ---- */
+  var cssD = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  ok(cssD.indexOf('.dif-falta{color:var(--vermelho)}') > 0,
+    'e ela usa o token vermelho da casa, o mesmo do saldo e do estoque negativo — uma ' +
+    'segunda paleta para a mesma ideia divergiria na primeira que mudasse');
+}
+
 console.log('\n== o CSV de cada cadastro ==');
 {
   var admC = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -512,8 +605,10 @@ console.log('\n== juntar as viagens por localidade ==');
     'as duas dividem a mesma coluna, e com a regra dos cartões um grupo onde ninguém ' +
     'declarou mostraria "+435" na mesma coluna em que a viagem abaixo mostra um traço',
     jp && jp.difDecl);
-  ok(jp && jp.difConf === 335,
-    'e existe quando os dois lados existem: 435 que saíram menos 100 conferidos',
+  ok(jp && jp.difConf === -335,
+    'e existe quando os dois lados existem, com o sinal de SALDO: saíram 435 e o ' +
+    'conferente contou 100, então faltam 335 — negativo, porque é um buraco. "+335" ' +
+    'ali se leria como sobra, que é o contrário do que aconteceu',
     jp && jp.difConf);
 
   /* ---- O GRUPO TEM A FORMA DE UM PAR ----
@@ -14511,10 +14606,14 @@ console.log('\n== Motorista/Conferente ==');
   ok(bateu[0].situacao === 'Bateu',
     'e "bateu" é SAÍDA contra CONFERIDO — é essa a pergunta da tela: chegou o que saiu?',
     bateu[0].situacao);
-  ok(bateu[0].difDecl === 90 && bateu[0].difConf === 0,
-    'e as duas diferenças saem da saída: 500 que saíram menos 410 declarados dá +90, e ' +
-    'menos 500 conferidos dá 0 — positivo quer dizer que saiu mais do que a outra ' +
-    'ponta registrou', [bateu[0].difDecl, bateu[0].difConf]);
+  /* O SINAL E' O DE SALDO: falta e' negativo, como no cartao Saldo e nos graficos.
+     Saiu 500 e o motorista declarou 410 e' um buraco de 90, e "+90" ali se leria como
+     sobra — o contrario do que aconteceu. */
+  ok(bateu[0].difDecl === -90 && bateu[0].difConf === 0,
+    'e as duas diferenças comparam com a saída e dizem o que FALTA: 500 saíram e 410 ' +
+    'foram declarados dá −90; 500 conferidos dá 0. Negativo é buraco, e "+90" ali se ' +
+    'leria como sobra — o contrário do que aconteceu',
+    [bateu[0].difDecl, bateu[0].difConf]);
   ok(bateu[0].conferenteTxt === 'Melk' && bateu[0].informanteTxt === 'Wellington',
     'e cada nome fica do lado dele: Conferente diz quem CONTOU, e quem informou a saída ' +
     'fica no balão dela — o motorista é autor da própria declaração, e pô-lo em ' +
@@ -14571,9 +14670,11 @@ console.log('\n== Motorista/Conferente ==');
     declDe({ qtd: 500, motorista: 'Arilson', usuario: 'Arilson' }),
     lanc({ qtd: 460, motorista: 'Arilson', usuario: 'Nestor' })
   ]);
-  ok(div[0].situacao === 'Divergente' && div[0].difConf === 40,
+  ok(div[0].situacao === 'Divergente' && div[0].difConf === -40,
     'quando o que chegou difere do que saiu a linha diz Divergente, e a diferença é ' +
-    'saída − conferido: positivo é faltou chegar', [div[0].situacao, div[0].difConf]);
+    '`conferido − saída`: NEGATIVO é faltou chegar — a mesma direção do saldo em toda ' +
+    'a tela, para vermelho querer dizer uma coisa só',
+    [div[0].situacao, div[0].difConf]);
   /* E A OUTRA DIFERENÇA CONTINUA SAINDO DA SAÍDA. Aqui saiu 500, ele declarou 500 e
      chegaram 460: pela saída dá 0, pelo conferido daria −40. No par que BATEU as duas
      fórmulas dariam o mesmo número — foi por isso que uma sabotagem escapou. */
@@ -14843,15 +14944,23 @@ console.log('\n== Motorista/Conferente ==');
   /* ---- O ARQUIVO TEM UMA COLUNA PARA CADA TÍTULO ----
      Um título a mais ou a menos desloca TODAS as colunas dali para a frente, e a
      planilha fica plausível: os números continuam lá, debaixo do nome errado. */
-  var iCab = adm.indexOf("['Lancamento','Data','Base','Tipo'");
-  var cabCsv = adm.slice(iCab, adm.indexOf(']', iCab)).split(',').length;
-  var iLinCsv = adm.indexOf('return [par.idsTxt,');
-  var linCsv = adm.slice(iLinCsv, adm.indexOf('];', iLinCsv)).split(',').length;
-  ok(cabCsv === 15 && linCsv === 15,
+  /* SEM OS COMENTARIOS ANTES DE CONTAR: a conta e' de virgulas, e um comentario
+     dentro da lista — que e' onde as razoes de cada coluna moram neste arquivo —
+     acrescentava virgulas que nao sao colunas. A prova acusava um descompasso que nao
+     existia, e a verdadeira ficaria escondida atras do falso alarme. */
+  var admSC = semComentarios(adm);
+  var iCab = admSC.indexOf("['Lancamento','Data','Base','Tipo'");
+  var cabCsv = admSC.slice(iCab, admSC.indexOf(']', iCab)).split(',').length;
+  var iLinCsv = admSC.indexOf('return [par.idsTxt,');
+  var linCsv = admSC.slice(iLinCsv, admSC.indexOf('];', iLinCsv)).split(',').length;
+  /* DEZESSEIS desde que a Placa entrou. A conta e' escrita de proposito: ela e' o
+     tropeco que obriga quem acrescenta uma coluna na tela a lembrar do arquivo — e
+     foi assim que a Placa apareceu aqui, tendo nascido so' na tabela. */
+  ok(cabCsv === 16 && linCsv === 16,
     'o CSV tem uma coluna para cada título — um a mais ou a menos desloca todas as ' +
     'colunas dali para a frente, e a planilha fica plausível: os números continuam lá, ' +
     'debaixo do nome errado', { titulos: cabCsv, valores: linCsv });
-  ok(adm.indexOf("'Saida','Declarado','Conferido','Saida-Declarado','Saida-Conferido'") > 0,
+  ok(adm.indexOf("'Saida','Declarado','Conferido','Declarado-Saida','Conferido-Saida'") > 0,
     'e os três números e as duas diferenças vão para o arquivo — a conferência de ' +
     'escritório não tem balão nem seta, e uma coluna que existe na tela e falta no ' +
     'arquivo faz ela chegar a um número que a tela não explica');

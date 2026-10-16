@@ -3313,6 +3313,11 @@ details.tipos[open] summary::before{content:"▾"}
 .gb__n--r{color:var(--verde-cheio)}
 .gb__n--sa{color:var(--vermelho)}
 
+/* O QUE FALTA, EM VERMELHO. Vale para as duas diferencas de Movimentos Motoristas —
+   na tabela e na ficha do celular — e so' para o lado que falta: pintando os dois,
+   a cor deixaria de significar alguma coisa. */
+.dif-falta{color:var(--vermelho)}
+
 /* ================= A LINHA DE UMA LOCALIDADE =================
    Ela e' um RESUMO no meio de uma tabela de viagens, e precisa se separar das linhas que
    resume — senao a pessoa le' a soma como se fosse mais uma viagem, e a conta do dia

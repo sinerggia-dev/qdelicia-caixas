@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=f23e40ba">
+<link rel="stylesheet" href="styles.css?v=899d0d9f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -2328,8 +2328,14 @@
          que existe na tela e falta no arquivo faz a conferência de escritório chegar a
          um número que a tela não explica. */
       Q.csv('motorista_conferente_'+Q.hoje()+'.csv',
-        ['Lancamento','Data','Base','Tipo','Motorista','Origem','Destino',
-         'Saida','Declarado','Conferido','Saida-Declarado','Saida-Conferido',
+        /* A PLACA ENTROU AQUI JUNTO com a coluna da tela. Ela nasceu na tabela e nao
+           neste arquivo, e uma planilha a menos uma coluna e' exatamente o tipo de
+           falta que ninguem nota: o arquivo abre, os numeros estao certos, e o dado
+           que se foi buscar nao esta' la'.
+           OS DOIS NOMES DAS DIFERENCAS seguem a conta, que foi invertida: falta e'
+           negativo. O nome velho sobre a conta nova diria o oposto do que mostra. */
+        ['Lancamento','Data','Base','Tipo','Motorista','Placa','Origem','Destino',
+         'Saida','Declarado','Conferido','Declarado-Saida','Conferido-Saida',
          'Informou','Conferente','Situacao'],
         PARES.map(function(par){
           /* NO ARQUIVO VAI A LISTA INTEIRA, e não o resumo "+3": o CSV existe para
@@ -2339,8 +2345,12 @@
              um número de saída sem dono. */
           return [par.idsTxt,
                   Q.dataBR(par.dataRef), par.teste ? 'Teste' : 'Producao', par.tipo,
-                  par.motorista || '(sem motorista)', par.origemTxt, par.destinoTxt,
+                  par.motorista || '(sem motorista)', par.veiculoTxt,
+                  par.origemTxt, par.destinoTxt,
                   par.saida || '', par.declarado || '', par.conferido || '',
+                  /* O ARQUIVO LEVA O MESMO NUMERO DA TELA, com o mesmo sinal: uma
+                     planilha que discorda da tela e' a pior forma de divergencia,
+                     porque ela viaja por e-mail sem a tela do lado para conferir. */
                   par.difDecl == null ? '' : par.difDecl,
                   par.difConf == null ? '' : par.difConf,
                   par.informanteTxt, par.conferenteTxt, par.situacao];
@@ -3612,7 +3622,8 @@
                data:'Data', base:'Base', tipo:'Tipo', motorista:'Motorista',
                placa:'Placa', origem:'Origem', destino:'Destino',
                saida:'Saída', declarado:'Declarado', conferido:'Conferido',
-               difDecl:'Saída − Declarado', difConf:'Saída − Conferido',
+               /* O NOME DIZ A CONTA, e por isso ele virou junto com ela. */
+               difDecl:'Declarado − Saída', difConf:'Conferido − Saída',
                conferente:'Conferente', situacao:'Situação' },
     kOrdem: 'qdc_cols_decl_v1',
     kLarg: 'qdc_larg_decl_v1',
@@ -3782,10 +3793,17 @@
       else par.situacao = 'Só declaração';
       /* AS DUAS DIFERENÇAS SÓ EXISTEM QUANDO OS DOIS LADOS EXISTEM, e as duas saem da
          SAÍDA: é ela o que de fato deixou o galpão, e as outras duas colunas são o que
-         cada um diz sobre isso. Positivo quer dizer que saiu mais do que a outra ponta
-         registrou — do que o motorista declarou, ou do que o conferente contou. */
-      par.difDecl = (par.saida && par.declarado) ? par.saida - par.declarado : null;
-      par.difConf = (par.saida && par.conferido) ? par.saida - par.conferido : null;
+         cada um diz sobre isso.
+         O SINAL SEGUE A CONVENÇÃO DE SALDO DA CASA, a pedido: NEGATIVO quando FALTA.
+         Saiu 775 e o conferente contou 348 é um buraco de 427 caixas, e um "+427" ali
+         se lê como sobra — o contrário do que aconteceu. É a mesma direção do saldo
+         dos gráficos (`retorno − saída`) e do cartão Saldo: falta é negativo, em
+         vermelho, em toda a tela.
+         E POR ISSO O TÍTULO MUDOU JUNTO. Com a conta invertida e o nome velho, a coluna
+         chamada "Saída − Conferido" mostraria o oposto do que o nome promete — e um
+         nome que mente é pior que nome nenhum, porque ninguém desconfia dele. */
+      par.difDecl = (par.saida && par.declarado) ? par.declarado - par.saida : null;
+      par.difConf = (par.saida && par.conferido) ? par.conferido - par.saida : null;
       return par;
     });
   }
@@ -3794,12 +3812,17 @@
     var T = TAB_DECL.titulos;
     function sinal(n){ return (n > 0 ? '+' : n < 0 ? '−' : '') + Q.num(Math.abs(n)); }
     function celulaDif(titulo, campo){
+      /* VERMELHO QUANDO FALTA, a pedido — e só então. Pintar os dois lados tiraria da
+         cor o trabalho dela: num painel que se lê varrendo, vermelho tem de querer
+         dizer uma coisa só. Zero continua no tom de apoio: ele é a resposta boa, e
+         não um alerta nem uma comemoração. */
       return { t: titulo, num: true,
                k: function(p){ return p[campo] == null ? 0 : p[campo]; },
                v: function(p){ return p[campo] == null
                  ? '<span class="fraco">—</span>'
                  : (p[campo] === 0 ? '<span class="fraco">0</span>'
-                    : '<b>'+sinal(p[campo])+'</b>'); } };
+                    : '<b'+(p[campo] < 0 ? ' class="dif-falta"' : '')+'>'+
+                      sinal(p[campo])+'</b>'); } };
     }
     return {
       /* EM FONTE DE NÚMEROS, como em Movimentos: é um código que alguém vai ditar por
@@ -4103,9 +4126,14 @@
                                                           : '<span class="fraco">—</span>')+'</b></div>'+
       '</div>'+
       '<div class="pc__n pc__n--dif">'+
-        '<div><small>Saída − Declarado</small><b>'+(par.difDecl == null
+        /* A FICHA DO CELULAR LÊ O MESMO CAMPO, então ela já vem invertida; o que
+           precisa acompanhar é o NOME e a COR. Uma das duas telas com a direção antiga
+           faria o mesmo par ser lido de dois jeitos conforme o aparelho. */
+        '<div><small>Declarado − Saída</small><b'+
+          (par.difDecl < 0 ? ' class="dif-falta"' : '')+'>'+(par.difDecl == null
           ? '<span class="fraco">—</span>' : sinal(par.difDecl))+'</b></div>'+
-        '<div><small>Saída − Conferido</small><b>'+(par.difConf == null
+        '<div><small>Conferido − Saída</small><b'+
+          (par.difConf < 0 ? ' class="dif-falta"' : '')+'>'+(par.difConf == null
           ? '<span class="fraco">—</span>' : sinal(par.difConf))+'</b></div>'+
       '</div>'+
       /* AS DUAS PONTAS DA VIAGEM na linha de apoio: no celular não há coluna Origem nem
@@ -4300,8 +4328,9 @@
       .map(function(k){
         var g = mapa[k];
         g.destinoTxt = Object.keys(g.destinos).sort().join(', ');
-        g.difDecl = (g.saida && g.declarado) ? g.saida - g.declarado : null;
-        g.difConf = (g.saida && g.conferido) ? g.saida - g.conferido : null;
+        /* A MESMA DIREÇÃO DA LINHA DA VIAGEM: as duas dividem a mesma coluna. */
+        g.difDecl = (g.saida && g.declarado) ? g.declarado - g.saida : null;
+        g.difConf = (g.saida && g.conferido) ? g.conferido - g.saida : null;
         return g;
       });
   }
@@ -4382,9 +4411,13 @@
         cartaoTot(0, 5, 'var(--roxo-txt)', 'Saída',    Q.num(said), '', null) +
         cartaoTot(1, 5, 'var(--azul)',  'Declarado', Q.num(decl), '', null) +
         cartaoTot(2, 5, 'var(--verde)', 'Conferido', Q.num(conf), '', null) +
-        cartaoTot(3, 5, 'var(--ambar)', 'Saída − Declarado', sinalDe(said - decl), '', null) +
-        cartaoTot(4, 5, 'var(--ambar-forte)', 'Saída − Conferido',
-                  sinalDe(said - conf), '', null);
+        /* A MESMA DIREÇÃO DA COLUNA, e os mesmos nomes: o cartão é a soma dela. Com
+           direções opostas, o topo diria "+1.441" sobre a mesma operação em que a
+           tabela logo abaixo diz "−1.441", e as duas estariam certas cada uma por si. */
+        cartaoTot(3, 5, 'var(--ambar)', 'Declarado − Saída',
+                  sinalDe(decl - said), '', null) +
+        cartaoTot(4, 5, 'var(--ambar-forte)', 'Conferido − Saída',
+                  sinalDe(conf - said), '', null);
     }
     var sit = document.getElementById('dcSituacoes');
     if (sit){
