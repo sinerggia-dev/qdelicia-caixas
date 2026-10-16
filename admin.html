@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=b67efaa2">
+<link rel="stylesheet" href="styles.css?v=02ba1919">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -993,8 +993,14 @@
       <section class="painel-graficos" id="painelGraficosMov">
         <div>
       <div class="legenda-g">
+        <!-- TRES CORES, TRES MEDIDAS: azul é o que saiu, verde é o que voltou,
+             vermelho é a diferença entre os dois. A cor diz o que a barra MEDE, e não
+             se o número é bom ou ruim — quem carrega a direção é o sinal colado no
+             número. Sem a terceira entrada, metade dos painéis desenha numa cor que a
+             legenda não explica. -->
         <span><i style="background:var(--azul-cheio)"></i>Saída</span>
         <span><i style="background:var(--verde-cheio)"></i>Retorno</span>
+        <span><i style="background:var(--vermelho)"></i>Saldo</span>
         <em id="gNotaMov"></em>
       </div>
       <div class="graficos" id="graficosMov"></div>
@@ -7587,10 +7593,10 @@
        dos cinco painéis ganhasse um recorte próprio, o cabeçalho continuaria somando a
        lista antiga e ninguém veria — os dois números são plausíveis. */
     var soma = lista.reduce(function(a, g){ return a + (g.total || 0); }, 0);
-    /* `/ 6` e nao `/ 5`: sao SEIS paineis desde que o saldo por tipo nasceu, e o degrade
-       percorre a fila inteira. Com 5, o sexto ficaria fora da escala — e o quinto e o
-       sexto nasceriam com a mesma cor. */
-    return '<section class="g" style="--c1:'+tomDeg(i / 6)+';--c2:'+tomDeg((i + 1) / 6)+'">'+
+    /* `/ 10`: sao DEZ paineis desde que cada dimensao ganhou o saldo dela, e o degrade
+       percorre a fila inteira. Com um divisor menor, os ultimos ficariam fora da escala
+       e nasceriam com a mesma cor do penultimo. */
+    return '<section class="g" style="--c1:'+tomDeg(i / 10)+';--c2:'+tomDeg((i + 1) / 10)+'">'+
       '<div class="g__c"><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
       '<span class="g__soma" title="total de caixas neste painel">'+Q.num(soma)+'</span>'+
       '<span class="g__n">'+Q.esc(nota)+'</span></div>'+
@@ -7653,12 +7659,17 @@
               ' aria-pressed="'+(lig ? 'true' : 'false')+'"'
             : ' disabled')+'>'+
       '<span class="gb__r"><span class="gb__k">'+Q.esc(g.k)+'</span>'+
-      '<b class="gb__v '+(saldo < 0 ? 'gb__v--neg' : saldo > 0 ? 'gb__v--pos' : '')+'">'+
+      /* VERMELHO EM TODO SALDO, a pedido: as tres cores dizem o que a barra MEDE —
+         azul e saida, verde e retorno, vermelho e saldo —, e nao se o numero e bom ou
+         ruim. Quem carrega a direcao e o SINAL, que vem colado no numero.
+         O preco esta' dito: um saldo positivo (voltou mais do que saiu) tambem sai em
+         vermelho. Zero fica sem cor — ele nao e' nem uma coisa nem outra. */
+      '<b class="gb__v '+(saldo ? 'gb__v--saldo' : '')+'">'+
         (saldo > 0 ? '+' : '')+Q.num(saldo)+'</b></span>'+
       '<span class="gb__par">saída '+Q.num(g.saida)+' · retorno '+Q.num(g.retorno)+'</span>'+
       '<span class="gb__t">'+
         (saldo ? '<span class="gb__f" style="width:'+pc.toFixed(1)+'%">'+
-                 '<i class="'+(saldo < 0 ? 'gb__neg' : 'gb__pos')+'" style="flex:1"></i>'+
+                 '<i class="gb__saldo" style="flex:1"></i>'+
                  '</span>' : '')+
       '</span></button>';
   }
@@ -7670,9 +7681,9 @@
     var maior = lista.reduce(function(m, g){
       return Math.max(m, Math.abs(g.retorno - g.saida)); }, 0);
     var soma = lista.reduce(function(a2, g){ return a2 + (g.retorno - g.saida); }, 0);
-    return '<section class="g" style="--c1:'+tomDeg(i / 6)+';--c2:'+tomDeg((i + 1) / 6)+'">'+
+    return '<section class="g" style="--c1:'+tomDeg(i / 10)+';--c2:'+tomDeg((i + 1) / 10)+'">'+
       '<div class="g__c"><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
-      '<span class="g__soma '+(soma < 0 ? 'g__soma--neg' : '')+'" '+
+      '<span class="g__soma '+(soma ? 'g__soma--saldo' : '')+'" '+
         'title="saldo do recorte: retorno menos saída">'+
         (soma > 0 ? '+' : '')+Q.num(soma)+'</span>'+
       '<span class="g__n">'+Q.esc(nota)+'</span></div>'+
@@ -7704,20 +7715,41 @@
       return [m.tipoCaixa, m.tipoCaixaId]; }).sort(porTotalG));
 
     var pl = function(n, s1, s2){ return n + ' ' + (n === 1 ? s1 : s2); };
-    box.innerHTML =
-      painelG(0, 'Total por dia',     dias,   pl(dias.length, 'dia', 'dias'), 'mvData') +
-      painelG(1, 'Por trecho',        trecho, pl(trecho.length, 'trecho', 'trechos'), 'mvTrecho') +
-      painelG(2, 'Por motorista',     mot,    pl(mot.length, 'nome', 'nomes'), 'mvMotorista') +
-      painelG(3, 'Por quem lançou',   quem,   pl(quem.length, 'nome', 'nomes'), 'mvUsuario') +
-      painelG(4, 'Por tipo de caixa', caixa,  pl(caixa.length, 'tipo', 'tipos'), 'mvCaixa') +
-      /* A MESMA LISTA `caixa` dos dois painéis, e não um agrupamento novo: dois cortes
-         sobre a mesma pergunta divergiriam no primeiro filtro que só um recebesse, e as
-         duas respostas são plausíveis — ninguém veria. O que muda é a régua e a conta,
-         não o que entra nela.
-         A ORDEM TAMBÉM É A DELA, por volume: o painel de cima e o de baixo lado a lado
-         com ordens diferentes obrigariam a procurar a mesma caixa duas vezes. */
-      painelSaldoG(5, 'Saldo por tipo de caixa', caixa,
-                   pl(caixa.length, 'tipo', 'tipos'), 'mvCaixa');
+
+    /* ================= DOIS PAINEIS POR DIMENSAO =================
+     *
+     * Cada pergunta é feita duas vezes: QUANTO se mexeu (a barra é saída + retorno) e
+     * QUANTO FALTA (a barra é o saldo). Um trecho com 4.000 de movimento e saldo zero e
+     * outro com 400 de movimento e saldo −400 aparecem quase iguais no painel de
+     * volume — e o segundo é o problema.
+     *
+     * O PAR FICA JUNTO, e não todos os volumes e depois todos os saldos: a grade quebra
+     * em 2, 3 ou 5 colunas conforme a largura da janela, e só a vizinhança na ORDEM
+     * sobrevive a todas elas. Separados, o par ficaria lado a lado numa largura e em
+     * telas diferentes noutra.
+     *
+     * A MESMA LISTA ALIMENTA OS DOIS, e não um agrupamento novo para cada: dois cortes
+     * sobre a mesma pergunta divergiriam no primeiro filtro que só um recebesse, e as
+     * duas respostas são plausíveis — ninguém veria. O que muda é a régua e a conta, não
+     * o que entra nelas. A ORDEM também é a mesma, por volume: o painel de cima e o de
+     * baixo com ordens diferentes obrigariam a procurar a mesma linha duas vezes. */
+    var DIMENSOES = [
+      { t: 'dia',       lista: dias,   campo: 'mvData',      s1: 'dia',    s2: 'dias' },
+      { t: 'trecho',    lista: trecho, campo: 'mvTrecho',    s1: 'trecho', s2: 'trechos' },
+      { t: 'motorista', lista: mot,    campo: 'mvMotorista', s1: 'nome',   s2: 'nomes' },
+      { t: 'quem lançou', lista: quem, campo: 'mvUsuario',   s1: 'nome',   s2: 'nomes' },
+      { t: 'tipo de caixa', lista: caixa, campo: 'mvCaixa',  s1: 'tipo',   s2: 'tipos' }
+    ];
+    /* "Total por dia" e "Por trecho": o primeiro painel é o único que diz "Total", e é
+       de propósito — o dia é a leitura do conjunto, e os outros são recortes dele. */
+    var tituloVol = function(d, i){
+      return i === 0 ? 'Total por dia' : 'Por ' + d.t;
+    };
+    box.innerHTML = DIMENSOES.map(function(d, i){
+      var nota = pl(d.lista.length, d.s1, d.s2);
+      return painelG(i * 2, tituloVol(d, i), d.lista, nota, d.campo) +
+             painelSaldoG(i * 2 + 1, 'Saldo por ' + d.t, d.lista, nota, d.campo);
+    }).join('');
     pintarLegendaMov(L);
   }
 

@@ -3285,8 +3285,13 @@ details.tipos[open] summary::before{content:"▾"}
    |saldo|, e a cor diz o sinal — vermelho e' caixa na rua, verde e' caixa que voltou a
    mais. Os dois tons sao os VALIDADOS PARA PREENCHIMENTO, como os de cima: os claros do
    resto da tela passam como texto e reprovam como area cheia. */
-.gb__neg{background:var(--vermelho)}
-.gb__pos{background:var(--verde-cheio)}
+/* O SALDO E' VERMELHO, SEMPRE — e nao verde quando positivo.
+   As tres cores dizem o que a barra MEDE: azul e' o que saiu, verde e' o que voltou,
+   vermelho e' a diferenca entre os dois. Pintar o saldo pela direcao fazia a mesma cor
+   significar duas coisas na mesma tela — verde ora e' "retorno", ora e' "sobrou" —, e
+   num painel de dez e' a varredura de cor que orienta antes da leitura.
+   QUEM DIZ A DIRECAO E' O SINAL, colado no numero. */
+.gb__saldo{background:var(--vermelho)}
 /* AS DUAS PONTAS, embaixo do rotulo e acima da barra. Elas sao o detalhe que explica o
    numero grande: menores e no tom de apoio, para o olho pegar primeiro o saldo. */
 .gb__par{display:block;margin:-1px 0 4px;font-size:clamp(9.5px,.78vw,11px);
@@ -3295,9 +3300,8 @@ details.tipos[open] summary::before{content:"▾"}
 /* O SINAL TEM COR, e o numero nao fica so' com o `+`/`-`: num painel de seis, o olho
    varre as cores antes de ler os numeros, e e' a varredura que faz o tipo com caixa
    faltando saltar. */
-.gb__v--neg{color:var(--vermelho)}
-.gb__v--pos{color:var(--verde-cheio)}
-.g__soma--neg{color:var(--vermelho)}
+.gb__v--saldo{color:var(--vermelho)}
+.g__soma--saldo{color:var(--vermelho)}
 
 .gb__s{background:var(--azul-cheio)}
 .gb__d{background:var(--verde-cheio)}

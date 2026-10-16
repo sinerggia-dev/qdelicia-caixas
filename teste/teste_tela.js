@@ -941,14 +941,21 @@ console.log('\n== o saldo por tipo de caixa ==');
     'o saldo é `retorno − saída` — a mesma conta do cartão "Saldo" e do `fluxoPorOrigem` ' +
     'no servidor: três contas para a mesma palavra dariam três números diferentes com o ' +
     'mesmo nome', umG.slice(0, 260));
-  ok(/gb__v--neg/.test(umG) && /gb__neg/.test(umG),
-    'e negativo é VERMELHO, no número e na barra — num painel de seis o olho varre as ' +
-    'cores antes de ler os números, e é a varredura que faz o tipo com caixa faltando ' +
+  ok(/gb__v--saldo/.test(umG) && /gb__saldo/.test(umG),
+    'e o saldo é VERMELHO, no número e na barra — num painel de dez o olho varre as ' +
+    'cores antes de ler os números, e é a varredura que faz a linha com caixa faltando ' +
     'saltar', umG.slice(0, 260));
   var tresG = S.barra(CAIXAS[2], maiorS, 'mvCaixa');
-  ok(/>\+399</.test(tresG) && /gb__pos/.test(tresG),
-    'e positivo é verde e leva o sinal `+` — sem ele, "399" e "−399" se distinguem por ' +
-    'um traço fino no meio de uma coluna de números', tresG.slice(0, 260));
+  ok(/>\+399</.test(tresG),
+    'e o positivo leva o sinal `+` — sem ele, "399" e "−399" se distinguem por um ' +
+    'traço fino no meio de uma coluna de números, e é o sinal que carrega a direção ' +
+    'agora que a cor diz outra coisa', tresG.slice(0, 260));
+  /* E O POSITIVO TAMBEM E' VERMELHO, a pedido: a cor diz o que a barra MEDE, e nao se
+     o numero e' bom ou ruim. Verde ora significando "retorno" e ora "sobrou" faria a
+     mesma cor dizer duas coisas na mesma tela. */
+  ok(/gb__saldo/.test(tresG) && tresG.indexOf('gb__pos') < 0,
+    'e ele é vermelho como o negativo — a cor diz o que a barra MEDE, e verde já é o ' +
+    'retorno: a mesma cor com dois sentidos na mesma tela não se lê', tresG.slice(0, 260));
 
   /* ---- AS DUAS PONTAS FICAM NA LINHA ---- */
   /* DENTRO DO `gb__par`, e nao em qualquer canto do HTML: a mesma frase existe no
@@ -985,8 +992,9 @@ console.log('\n== o saldo por tipo de caixa ==');
     'o número do cabeçalho é o SALDO do recorte — a soma dos saldos, e não a soma dos ' +
     'movimentos: somar movimento ali repetiria o painel de cima',
     /g__soma[^>]*>[^<]*/.exec(painelS));
-  ok(/g__soma--neg/.test(painelS),
-    'e ele também pega a cor do sinal', /g__soma[^>]*/.exec(painelS));
+  ok(/g__soma--saldo/.test(painelS),
+    'e ele também é vermelho, como as barras que resume',
+    /g__soma[^>]*/.exec(painelS));
 
   /* E A REGUA DO PAINEL E' O MAIOR |SALDO|, medida numa barra que o PROPRIO painel
      desenhou. As provas de largura acima passam `maior` na mão, então nenhuma delas
@@ -1012,14 +1020,16 @@ console.log('\n== o saldo por tipo de caixa ==');
   /* ---- OS DOIS PAINEIS LEEM A MESMA LISTA ----
    * Dois cortes sobre a mesma pergunta divergiriam no primeiro filtro que so' um
    * recebesse — e as duas respostas sao plausiveis, entao ninguem veria. */
-  ok(/painelSaldoG\(5, 'Saldo por tipo de caixa', caixa,/.test(admS),
-    'e o painel do saldo lê a MESMA lista `caixa` do painel de volume — dois cortes ' +
-    'sobre a mesma pergunta divergem no primeiro filtro que só um recebe, e as duas ' +
-    'respostas são plausíveis');
-  ok((admS.match(/tomDeg\(i \/ 6\)/g) || []).length >= 2,
-    'e o degradê dos painéis passou a dividir por SEIS — com cinco, o sexto ficaria ' +
-    'fora da escala e nasceria com a cor do quinto',
-    (admS.match(/tomDeg\(i \/ \d\)/g) || []));
+  /* ---- O PAR LE' A MESMA LISTA, e isso agora se MEDE no desenho ----
+   * A prova lia a chamada escrita no arquivo. Hoje os paineis nascem de uma tabela de
+   * dimensoes, e a chamada literal nao existe mais — uma prova de texto teria morrido
+   * em silencio. Esta compara os ROTULOS dos dois paineis de uma mesma dimensao: duas
+   * listas diferentes divergem no primeiro filtro que so' uma recebe, e as duas
+   * respostas sao plausiveis. */
+  ok((admS.match(/tomDeg\(i \/ 10\)/g) || []).length >= 2,
+    'e o degradê dos painéis passou a dividir por DEZ — com um divisor menor, os ' +
+    'últimos ficariam fora da escala e nasceriam com a cor do penúltimo',
+    (admS.match(/tomDeg\(i \/ \d+\)/g) || []));
 }
 
 console.log('\n== os seletores de base do painel saem da sessão ==');
@@ -4383,12 +4393,132 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
 
   ok(/<div class="graficos" id="graficosMov"><\/div>/.test(adm) &&
      adm.indexOf('id="tabelaMov"') < adm.indexOf('id="graficosMov"'),
-    'os cinco painéis existem e ficam ABAIXO da tabela — quem chega nesta tela vem ver ' +
+    'os painéis existem e ficam ABAIXO da tabela — quem chega nesta tela vem ver ' +
     'uma linha, e o resumo é o segundo olhar');
-  ['Total por dia', 'Por trecho', 'Por motorista', 'Por quem lançou',
-   'Por tipo de caixa'].forEach(function (t) {
-    ok(adm.indexOf("'" + t + "'") > 0, 'existe o painel ' + t);
-  });
+
+  /* ---- E ELES SAO DESENHADOS, e nao procurados no arquivo ----
+   *
+   * Os titulos eram conferidos como TEXTO (`adm.indexOf("'Por trecho'")`). Isso parou de
+   * medir qualquer coisa no dia em que os paineis passaram a ser montados a partir de
+   * uma tabela de dimensoes: o titulo deixou de existir como literal, e as provas
+   * cairam — tendo sido, ate' ali, verdes sobre uma tela que elas nunca tinham visto.
+   *
+   * Agora a prova RODA `desenharGraficosMov` com movimentos de mentira e le o que
+   * aparece na caixa. */
+  {
+    function corpoP(nome) {
+      var i = adm.indexOf('  function ' + nome + '(');
+      if (i < 0) return '';
+      var d = 0, k = adm.indexOf('{', i);
+      for (; k < adm.length; k++) {
+        if (adm[k] === '{') d++;
+        else if (adm[k] === '}' && --d === 0) return adm.slice(i, k + 1);
+      }
+      return '';
+    }
+    var PECAS = ['agruparMov', 'cortarG', 'porTotalG', 'barraG', 'painelG',
+                 'barraSaldoG', 'painelSaldoG', 'desenharGraficosMov'];
+    var faltando = PECAS.filter(function (n) { return !corpoP(n); });
+    ok(!faltando.length,
+      'a conferência recortou as peças que desenham os gráficos — faltando uma, o ' +
+      'desenho abaixo não aconteceria e a prova passaria sem medir nada', faltando);
+
+    var caixaG = { innerHTML: '' };
+    var MOVS_G = [
+      { dataRef: '2026-10-14', qtd: 100, tipo: 'SAIDA', origem: 'Matriz',
+        destino: 'Recife', motorista: 'Dinho', usuario: 'Nestor', usuarioId: 'U1',
+        tipoCaixa: 'CX G', tipoCaixaId: 'T1' },
+      { dataRef: '2026-10-15', qtd: 40, tipo: 'DEVOLUCAO', origem: 'Recife',
+        destino: 'Matriz', motorista: 'Dinho', usuario: 'Nestor', usuarioId: 'U1',
+        tipoCaixa: 'CX G', tipoCaixaId: 'T1' }
+    ];
+    new Function('document', 'Q', 'TETO_G', 'trechoDo', 'sentidoDoMov', 'gLigado',
+                 'tomDeg', 'pintarLegendaMov', 'MOVS_G',
+      PECAS.map(corpoP).join(String.fromCharCode(10)) + ' desenharGraficosMov(MOVS_G);')
+      .call(null,
+        { getElementById: function (id) {
+            return id === 'graficosMov' ? caixaG : null; } },
+        { esc: function (x) { return String(x); }, num: function (n) { return String(n); },
+          dataBR: function (d) { return String(d); } },
+        6,
+        function (m) { return m.origem + ' → ' + m.destino; },
+        function (m) { return m.tipo === 'DEVOLUCAO' ? 'retorno' : 'saida'; },
+        function () { return false; },
+        function () { return 'rgb(1,2,3)'; },
+        function () {},
+        /* A LISTA ENTRA COMO ARGUMENTO: dentro do `new Function` nada do arquivo de
+           prova e' visivel, e sem isto o desenho estouraria em vez de medir. */
+        MOVS_G);
+    var titulos = (caixaG.innerHTML.match(/<h3 class="g__t">([^<]+)<\/h3>/g) || [])
+      .map(function (x) { return x.replace(/<[^>]+>/g, ''); });
+    ok(titulos.length === 10,
+      'a tela desenha DEZ painéis — cada dimensão é perguntada duas vezes: quanto se ' +
+      'mexeu, e quanto falta', titulos);
+    ['Total por dia', 'Saldo por dia', 'Por trecho', 'Saldo por trecho',
+     'Por motorista', 'Saldo por motorista', 'Por quem lançou', 'Saldo por quem lançou',
+     'Por tipo de caixa', 'Saldo por tipo de caixa'].forEach(function (nome, i) {
+      ok(titulos[i] === nome,
+        'e o painel ' + (i + 1) + ' é "' + nome + '" — o saldo vem colado na dimensão ' +
+        'dele, e não todos os saldos no fim: a grade quebra em 2, 3 ou 5 colunas ' +
+        'conforme a largura, e só a vizinhança na ORDEM sobrevive a todas elas',
+        titulos[i]);
+    });
+
+    /* ---- AS TRES CORES, MEDIDAS NO QUE FOI DESENHADO ---- */
+    ok(/gb__s/.test(caixaG.innerHTML) && /gb__d/.test(caixaG.innerHTML),
+      'e o que saiu e o que voltou continuam com as duas cores de sempre — azul e verde');
+    ok(/gb__saldo/.test(caixaG.innerHTML),
+      'e o saldo tem a cor dele, a terceira — a cor diz o que a barra MEDE, e quem diz ' +
+      'a direção é o sinal colado no número');
+    ok(caixaG.innerHTML.indexOf('gb__pos') < 0,
+      'e NENHUM saldo sai verde, nem o positivo — verde ora significando "retorno" e ' +
+      'ora "sobrou" faria a mesma cor dizer duas coisas na mesma tela, e num painel de ' +
+      'dez é a varredura de cor que orienta antes da leitura');
+
+    /* ---- O PAR LE A MESMA LISTA, NA MESMA ORDEM — medido no desenho ----
+     * Dois cortes sobre a mesma pergunta divergem no primeiro filtro que so um recebe,
+     * e as duas respostas sao plausiveis: ninguem veria. E com ordens diferentes, o
+     * painel de cima e o de baixo obrigariam a procurar a mesma linha duas vezes. */
+    var secoes = caixaG.innerHTML.split('<section class="g"').slice(1);
+    var rotulos = secoes.map(function (s) {
+      return (s.match(/<span class="gb__k">([^<]*)<\/span>/g) || [])
+        .map(function (x) { return x.replace(/<[^>]+>/g, ''); }).join('|');
+    });
+    /* ---- A LEGENDA EXPLICA TODA COR QUE A TELA DESENHA ----
+     * "Legenda que discorda da barra e' pior que legenda nenhuma: ela ensina a ler
+     * errado, e quem confere nao tem como desconfiar" — ja' estava escrito nesta tela,
+     * sobre a outra legenda. A regra nao e' "tem tres entradas": e' que a lista das
+     * cores DESENHADAS e a lista das cores EXPLICADAS sejam a mesma. Assim ela cresce
+     * sozinha com a cor que alguem acrescentar. */
+    var usadas = ['gb__s', 'gb__d', 'gb__saldo'].filter(function (cl) {
+      return caixaG.innerHTML.indexOf('"' + cl + '"') >= 0;
+    }).map(function (cl) {
+      var m = new RegExp('\\.' + cl + '\\{background:var\\((--[a-z-]+)\\)').exec(css);
+      return m ? m[1] : cl + ' (sem regra na folha)';
+    });
+    var iL = adm.indexOf('<div class="legenda-g">');
+    var legenda = iL > 0 ? adm.slice(iL, adm.indexOf('</div>', iL)) : '';
+    var semLegenda = usadas.filter(function (v) {
+      return legenda.indexOf('background:var(' + v + ')') < 0;
+    });
+    ok(usadas.length === 3 && !semLegenda.length,
+      'e a legenda explica TODA cor que os painéis desenham — a lista das cores usadas ' +
+      'e a das explicadas são a mesma, então ela cresce sozinha com a cor que alguém ' +
+      'acrescentar: metade dos painéis desenhando numa cor que a legenda não nomeia ' +
+      'ensina a ler errado', { desenhadas: usadas, sem: semLegenda });
+
+    var pares = [], desiguais = [];
+    for (var iP = 0; iP < rotulos.length; iP += 2) {
+      pares.push(rotulos[iP]);
+      if (rotulos[iP] !== rotulos[iP + 1]) {
+        desiguais.push({ painel: iP, volume: rotulos[iP], saldo: rotulos[iP + 1] });
+      }
+    }
+    ok(pares.length === 5 && !desiguais.length,
+      'e cada par de painéis desenha as MESMAS linhas, na mesma ordem — dois cortes ' +
+      'sobre a mesma pergunta divergem no primeiro filtro que só um recebe, e as duas ' +
+      'respostas são plausíveis: ninguém veria', desiguais);
+  }
 
   /* ---- O CLIQUE ESCREVE NO MESMO FILTRO QUE A PESSOA USARIA À MÃO ----------
    * Este é o ponto perigoso da peça. O "Apagar o que está no filtro" lê
