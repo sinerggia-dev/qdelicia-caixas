@@ -390,19 +390,6 @@
           <label for="sdDestino">Destino<span class="obrig">*</span></label>
           <select id="sdDestino"></select>
         </div>
-        <!-- QUAL FORNECEDOR, quando o destino escolhido pede.
-             A rota diz que a caixa foi para "Fornecedor"; sem este campo, DE QUEM ela e
-             ficava na cabeca de quem lancou, e o extrato nao tinha como dizer quantas
-             caixas estao com cada um — que e a pergunta deste sistema.
-             LOGO DEPOIS DO DESTINO, porque e o destino que o faz aparecer: um campo que
-             nasce no meio da tela, longe do que o chamou, se le como erro.
-             LISTA FECHADA: nome digitado a mao vira grafia diferente do mesmo
-             fornecedor, e o relatorio parte um em dois. Foi a licao do cadastro de
-             motoristas — Valcy e valci. -->
-        <div id="sdWrapFornecedor" style="display:none">
-          <label for="sdFornecedor">Fornecedor<span class="obrig">*</span></label>
-          <select id="sdFornecedor"></select>
-        </div>
         <div id="sdWrapMotorista">
           <label for="sdMotorista">Motorista<span class="obrig">*</span></label>
           <select id="sdMotorista"></select>
@@ -481,13 +468,6 @@
         <div>
           <label for="dvDestino">Destino<span class="obrig">*</span></label>
           <select id="dvDestino"></select>
-        </div>
-        <!-- NO RETORNO QUEM MANDA E A ORIGEM: e de la que a caixa esta voltando. A
-             mesma regra da saida lida do outro lado — e e por isso que ela mora numa
-             funcao so, e nao escrita duas vezes. -->
-        <div id="dvWrapFornecedor" style="display:none">
-          <label for="dvFornecedor">Fornecedor<span class="obrig">*</span></label>
-          <select id="dvFornecedor"></select>
         </div>
         <div>
           <label for="dvMotorista">Motorista<span class="obrig">*</span></label>
@@ -1084,7 +1064,19 @@
     var dele = frota.filter(function(v){
       return motId && String(v.MotoristaID||'') === motId;
     });
-    var outros = frota.filter(function(v){ return dele.indexOf(v) < 0; });
+    /* MOTORISTA DE FORNECEDOR SO' OFERECE OS CARROS DELE, a pedido.
+     *
+     * Para os outros, a frota inteira continua na lista: a realidade nao obedece ao
+     * cadastro, e quem leva a carga hoje pode estar noutro carro — a regra ja' escrita
+     * ali em cima. O fornecedor e' o caso contrario: o carro dele e' dele, e oferecer a
+     * frota da casa num lancamento de fornecedor e' convidar a escolher a placa errada,
+     * que e' pior que nenhuma.
+     *
+     * SEM NENHUM CARRO CADASTRADO, so' resta digitar — e e' o que a lista oferece,
+     * sozinha. */
+    var soDele = ehFornecedor(m);
+    var outros = soDele ? [] : frota.filter(function(v){ return dele.indexOf(v) < 0; });
+    if (soDele) frota = dele;
 
     function itens(lista){
       return lista.map(function(v){
@@ -1095,6 +1087,17 @@
     }
     function grupo(rotulo, lista){
       return lista.length ? '<optgroup label="'+Q.esc(rotulo)+'">'+itens(lista)+'</optgroup>' : '';
+    }
+
+    /* SEM CARRO NENHUM PARA ESTE FORNECEDOR, a lista e' so' a de digitar — e ja' vem
+       escolhida, porque nao ha o que escolher. Um "Selecione…" sozinho seria um beco. */
+    if (soDele && !dele.length) {
+      sel.innerHTML = '<option value="">— sem veículo cadastrado para este motorista —</option>' +
+        '<option value="'+OUTRA_PLACA+'" selected>✎ Outra placa — digitar</option>';
+      sel.value = OUTRA_PLACA;
+      sel.setAttribute('data-mot-lista', motId);
+      mostrarPlacaTexto(idVeiculo);
+      return;
     }
 
     /* Sem veículo do motorista não há o que separar: a lista sai simples, sem rótulo de
@@ -1312,6 +1315,12 @@
    * sem ter onde informa-lo — um lancamento recusado sem caminho para o conserto.
    *
    * Aceita um id ou uma lista deles, e basta UM pedir. */
+  /* E' ESTE MOTORISTA UM FORNECEDOR? Num lugar so': a lista de veiculos pergunta, a
+     de motoristas pergunta, e duas copias divergiriam na primeira que fosse mexida. */
+  function ehFornecedor(m){
+    return !!m && String(m.Tipo||'').toUpperCase() === 'FORNECEDOR';
+  }
+
   function pedeFornecedor(ids){
     var lista = Object.prototype.toString.call(ids) === '[object Array]' ? ids : [ids];
     return lista.some(function(id){
@@ -1322,53 +1331,13 @@
     });
   }
 
-  function montarFornecedores(idSeletor, idWrap, locais){
-    var wrap = document.getElementById(idWrap);
-    var sel = document.getElementById(idSeletor);
-    if (!wrap || !sel) return;
-    var pede = pedeFornecedor(locais);
-    wrap.style.display = pede ? 'block' : 'none';
-    if (!pede) { sel.value = ''; sel.innerHTML = ''; return; }
-    var antes = sel.value;
-    /* SO OS ATIVOS, e em ordem de nome. Um fornecedor tirado de uso continua escrito
-       nos lancamentos antigos — e historia —, mas nao se oferece para um novo. */
-    var lista = (DADOS.fornecedores||[]).filter(function(f){ return Q.ativo(f.Ativo); })
-      /* ORDENADA PELO QUE SE LE', e nao pelo nome do cadastro: a lista sai na ordem
-         do apelido porque e' ele que esta' escrito nas opcoes. Ordenando pelo outro,
-         a lista apareceria embaralhada para quem olha. */
-      .sort(function(a,b){
-        return Q.comoChamar(a).localeCompare(Q.comoChamar(b), 'pt-BR');
-      });
-    /* NENHUM CADASTRADO: a tela diz o que fazer, em vez de mostrar um campo vazio que
-       faz o lancamento ser recusado sem explicacao. */
-    if (!lista.length) {
-      sel.innerHTML = '<option value="">Nenhum fornecedor cadastrado</option>';
-      return;
-    }
-    /* O QUE SE VE E' O QUE SE GRAVA: o texto da opcao e o valor dela sao o mesmo
-       nome de trabalho — o apelido quando existe, e o nome quando nao. Oferecer um
-       nome na tela e gravar outro foi o defeito que a coluna do motorista pagou: a
-       mesma viagem passou a ter dois nomes no relatorio.
-       A LOCALIDADE ENTRA NO BALAO, e nao no rotulo: ela ajuda a escolher entre dois
-       fornecedores de nome parecido, e no meio da opcao faria a lista ficar comprida
-       demais para um seletor de celular. */
-    sel.innerHTML = '<option value="">Selecione...</option>' +
-      lista.map(function(f){
-        var chamar = Q.comoChamar(f);
-        return '<option value="'+Q.esc(chamar)+'"'+
-          (f.Localidade ? ' title="'+Q.esc(f.Nome + ' · ' + f.Localidade)+'"'
-                        : ' title="'+Q.esc(f.Nome)+'"')+'>'+
-          Q.esc(chamar)+'</option>';
-      }).join('');
-    /* UM SO NA LISTA JA VEM ESCOLHIDO, como nos outros campos desta tela. */
-    if (lista.length === 1) sel.value = Q.comoChamar(lista[0]);
-    else if (antes) sel.value = antes;
+  /* AS PONTAS DO RETORNO, como as da saida: num lugar so', porque tres chamadas
+     perguntam a mesma coisa e tres copias divergiriam na primeira que fosse mexida. */
+  function pontasDoRetorno(){
+    return [document.getElementById('dvOrigem').value,
+            document.getElementById('dvDestino').value];
   }
 
-  /* QUAL CAMPO E' O DESTINO DA SAIDA depende do caminho: saindo do galpao a carga vai
-     para a ROTA, saindo da rota vai para o DESTINO. Os dois nunca aparecem juntos.
-     Escrito em cada lugar que precisa das pontas, isso seria a mesma decisao repetida —
-     e a primeira copia esquecida ja' deixaria um caminho sem o campo. */
   function pontasDaSaida(){
     return [document.getElementById('sdOrigem').value,
             document.getElementById(saiDeGalpao() ? 'sdRota' : 'sdDestino').value];
@@ -1383,14 +1352,20 @@
    *
    * Por isso eles tem nome e sao chamados de TODO campo que mexe numa das pontas, em
    * vez de a chamada ficar escondida no meio de quem ajusta os seletores. */
+  /* MUDOU A PONTA, MUDA QUEM PODE DIRIGIR — e, por tabela, que placas aparecem.
+     Pela rota de fornecedor so' aparecem motoristas do tipo Fornecedor, e a lista de
+     veiculos passa a ser so' a do motorista escolhido. As duas listas descendem da
+     mesma pergunta, e por isso sao refeitas juntas: refazendo so' uma, a outra ficaria
+     mostrando a escolha de um lancamento que ja' nao existe. */
   function atualizarFornecedorSaida(){
-    montarFornecedores('sdFornecedor', 'sdWrapFornecedor', pontasDaSaida());
+    montarMotoristas('sdMotorista', saiDeGalpao() ? 'sdRota' : 'sdOrigem', 'saida',
+                     pontasDaSaida());
+    montarVeiculos('sdVeiculo', 'sdMotorista');
   }
 
   function atualizarFornecedorRetorno(){
-    montarFornecedores('dvFornecedor', 'dvWrapFornecedor',
-      [document.getElementById('dvOrigem').value,
-       document.getElementById('dvDestino').value]);
+    montarMotoristas('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno());
+    montarVeiculos('dvVeiculo', 'dvMotorista');
   }
 
   function ajustarCamposSaida(){
@@ -1417,7 +1392,8 @@
        de destino; saindo da própria rota, é ela mesma que está na origem. Lista fechada
        nos dois casos — nome digitado vira grafia diferente do mesmo motorista, e o
        extrato passa a mostrar "Valcy" e "valci" como duas pessoas. */
-    montarMotoristas('sdMotorista', doGalpao ? 'sdRota' : 'sdOrigem', 'saida');
+    montarMotoristas('sdMotorista', doGalpao ? 'sdRota' : 'sdOrigem', 'saida',
+                     [origem, alvo.value]);
     /* DEPOIS do motorista, sempre: é ele que decide o agrupamento da frota. */
     montarVeiculos('sdVeiculo', 'sdMotorista');
     /* AS DUAS PONTAS: a caixa pode estar INDO para o fornecedor (ele no destino) ou
@@ -1433,23 +1409,35 @@
      Ramos, e no dia em que outro levasse aquela carga a pessoa lançava no nome do
      Ramos assim mesmo. O extrato passava a mentir sobre quem saiu com as caixas, que
      é justamente o que este app existe para não deixar acontecer. */
-  function montarMotoristas(idMotorista, idRota, sentido){
+  function montarMotoristas(idMotorista, idRota, sentido, pontas){
     var sel = document.getElementById(idMotorista || 'sdMotorista');
     var elRota = document.getElementById(idRota || 'sdRota');
     var escolhido = sel.value;
     var rota = elRota ? elRota.value : '';
+    /* PELA ROTA DE FORNECEDOR, SO' MOTORISTA DE FORNECEDOR.
+       A peneira fica aqui e nao dentro de `motoristasDaRota` porque depende das PONTAS
+       do lancamento, e aquela funcao so' conhece a rota. */
+    var soForn = pedeFornecedor(pontas || []);
     var rotaAnterior = sel.getAttribute('data-rota');
     /* O SENTIDO VEM DE QUEM CHAMA, e nao do id do campo: ler 'dv' no nome para deduzir
        "entrada" amarraria a regra ao nome de um elemento da tela, e renomear o campo
        mudaria quem aparece na lista sem ninguem relacionar as duas coisas. */
-    var daRota = motoristasDaRota(rota, false, sentido);
-    var atribuidos = motoristasDaRota(rota, true, sentido);
+    function soDoTipo(nomes){
+      if (!soForn) return nomes;
+      var ehForn = {};
+      meusMotoristas().forEach(function(m){
+        if (ehFornecedor(m)) ehForn[Q.comoChamar(m)] = 1;
+      });
+      return nomes.filter(function(n){ return ehForn[n]; });
+    }
+    var daRota = soDoTipo(motoristasDaRota(rota, false, sentido));
+    var atribuidos = soDoTipo(motoristasDaRota(rota, true, sentido));
     /* E "OUTROS MOTORISTAS" TAMBEM RESPEITA O SENTIDO: sem isto, o fornecedor que so'
        faz entrada sumia do grupo da rota e reaparecia logo abaixo, no outro grupo —
        escondido do lugar certo e oferecido no errado, que e' pior que nao filtrar. */
-    var outros = meusMotoristas().filter(function(m){
+    var outros = soDoTipo(meusMotoristas().filter(function(m){
       return Q.atendeNoSentido(m, rota, sentido);
-    }).map(Q.comoChamar).filter(function(m){ return daRota.indexOf(m) < 0; });
+    }).map(Q.comoChamar)).filter(function(m){ return daRota.indexOf(m) < 0; });
 
     function itens(lista){
       return lista.map(function(m){
@@ -1462,6 +1450,14 @@
 
     // Sem ninguém de fora não há o que separar: a lista sai simples, sem rótulo de
     // grupo para ler à toa.
+    /* LISTA VAZIA DIZ POR QUE. Pela rota de fornecedor, sem nenhum motorista daquele
+       tipo cadastrado, um seletor so' com "Selecione…" se le como tela quebrada — e a
+       pessoa fica tentando. */
+    if (soForn && !daRota.length && !outros.length) {
+      sel.innerHTML = '<option value="">— nenhum motorista do tipo Fornecedor —</option>';
+      sel.setAttribute('data-rota', rota);
+      return;
+    }
     sel.innerHTML = '<option value="">Selecione…</option>' +
       (outros.length
         ? grupo('Motorista da rota', daRota) + grupo('Outros motoristas', outros)
@@ -1550,7 +1546,7 @@
     // e a resposta ficava no meio da lista.
     document.getElementById('dvOrigem').addEventListener('change', function(){
       ajustarDestinoRetorno();
-      montarMotoristas('dvMotorista', 'dvOrigem', 'entrada');
+      montarMotoristas('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno());
       montarVeiculos('dvVeiculo', 'dvMotorista');
     });
     /* O DESTINO DO RETORNO TAMBEM E' UMA PONTA. Sem este aviso, quem escolhesse a rota
@@ -1558,7 +1554,7 @@
     document.getElementById('dvDestino')
       .addEventListener('change', atualizarFornecedorRetorno);
     // Quem trouxe a carga de volta, agrupado pela rota de onde ela vem.
-    montarMotoristas('dvMotorista', 'dvOrigem', 'entrada');
+    montarMotoristas('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno());
     montarVeiculos('dvVeiculo', 'dvMotorista');
     /* TROCAR O SELETOR MOSTRA OU ESCONDE O CAMPO DE DIGITAR. Sem este aviso, escolher
        "Outra placa" nao abriria nada — a peca existiria e ninguem a alcancaria. */
@@ -1569,7 +1565,7 @@
     document.getElementById('sdOrigem').addEventListener('change', ajustarCamposSaida);
     // É a rota que decide quais motoristas aparecem.
     document.getElementById('sdRota').addEventListener('change', function(){
-      montarMotoristas('sdMotorista', 'sdRota', 'saida');
+      montarMotoristas('sdMotorista', 'sdRota', 'saida', pontasDaSaida());
       montarVeiculos('sdVeiculo', 'sdMotorista');
       /* E E' UMA PONTA: saindo do galpao, a rota E' o destino da carga. Era aqui que
          faltava — escolher "Fornecedor" no Destino nao fazia o campo nascer, que foi o
@@ -1615,7 +1611,6 @@
          quem esta' com o pai em `display:none`, que e' o estado deste campo em todo
          destino que nao pede fornecedor. Uma guarda escrita a mao no botao seria uma
          segunda regra sobre a mesma coisa — e a que nao marca o campo de vermelho. */
-      { id:'sdFornecedor', msg:'Diga de qual fornecedor é esta carga.' },
       { id:'sdMotorista', msg:'Escolha o motorista que vai levar a carga.' },
       { id:'sdVeiculo',   msg:'Escolha o veículo que vai levar a carga.' }
     ],
@@ -1623,7 +1618,6 @@
       { id:'dvData',      msg:'Informe a data do retorno.' },
       { id:'dvOrigem',    msg:'Informe quem está devolvendo.' },
       { id:'dvDestino',   msg:'Informe onde as caixas foram recebidas.' },
-      { id:'dvFornecedor', msg:'Diga de qual fornecedor é esta carga.' },
       { id:'dvMotorista', msg:'Informe quem trouxe as caixas de volta.' },
       { id:'dvVeiculo',   msg:'Informe em que veículo as caixas voltaram.' }
     ]
@@ -1725,10 +1719,6 @@
       motoristaNome: nomeCompletoDoMotorista(document.getElementById('sdMotorista').value),
       veiculo: placaEscolhida('sdVeiculo'),
       rota: nomeDoLocal(destino),
-      /* VAI O NOME, que e o que se grava. Escondido o campo, o seletor esta vazio e o
-         servidor nao pede nada: a regra de quem exige mora no cadastro do local, e e
-         conferida la tambem — esconder o campo e conveniencia da tela. */
-      fornecedor: document.getElementById('sdFornecedor').value.trim(),
       foto: sdFotoData
     }).then(function(r){
       btn.disabled = false; btn.textContent = 'Registrar saída';
@@ -1757,7 +1747,6 @@
        varias cargas seguidas para a mesma rota mantem o destino e troca o fornecedor,
        e um nome que fica no campo de um lancamento para o outro e' o erro mais facil
        de nao notar: a tela mostra o certo e o banco recebe o de antes. */
-    document.getElementById('sdFornecedor').value = '';
     /* O CAMPO DE DIGITAR A PLACA TAMBEM, e o VALOR dele sempre — nao so' quando ele
        some. Quem fica em "Outra placa" para lancar varios carros seguidos encontraria
        a placa do anterior ja' escrita, com jeito de conferida: o erro mais facil de
@@ -1827,7 +1816,6 @@
       obs: document.getElementById('dvObs').value,
       usuarioId: s.id, perfil: s.perfil,
       base: baseDv,
-      fornecedor: document.getElementById('dvFornecedor').value.trim(),
       foto: dvFotoData
     }).then(function(r){
       btn.disabled = false; btn.textContent = 'Registrar retorno';
@@ -1848,7 +1836,6 @@
     zerarItens('dv_');
     document.getElementById('dvObs').value = '';
     document.getElementById('dvMotorista').value = '';
-    document.getElementById('dvFornecedor').value = '';
     document.getElementById('dvVeiculoTexto').value = '';
     mostrarPlacaTexto('dvVeiculo');
     dvFotoData=''; document.getElementById('dvFotoOk').textContent='';
@@ -1859,7 +1846,7 @@
       document.getElementById('dvAviso').innerHTML = '';
       mostrarSaldoDoOrigem();
       // Sem rota nao ha grupo: a lista volta a ser simples, com a equipe inteira.
-      montarMotoristas('dvMotorista', 'dvOrigem', 'entrada');
+      montarMotoristas('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno());
       montarVeiculos('dvVeiculo', 'dvMotorista');
     }
   }

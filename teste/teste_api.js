@@ -253,6 +253,34 @@ async function main() {
   ok((await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: C, itens: [{ tipoCaixaId: T, qtd: 100 }], dataRef: dia(-20), usuarioId: 'U003', perfil: 'MOTORISTA' })).ok, 'saída 100 p/ cliente (20 dias atrás)');
   ok((await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: C, itens: [{ tipoCaixaId: T, qtd: 50 }], dataRef: dia(-3), usuarioId: 'U003', perfil: 'MOTORISTA' })).ok, 'saída 50 p/ cliente (3 dias atrás)');
 
+  /* ---- E A ROTA CHAMA A GUARDA DO FORNECEDOR ----
+   *
+   * A regra ja' e' provada em separado; o que ESTA prova mede e' que a rota a chama.
+   * Arrancar a chamada de `gravarMovimento` nao quebrava nada, porque nada perguntava
+   * se ela estava la' — a mesma escapada da guarda da placa.
+   *
+   * SEGURO DE RODAR AO VIVO: o esperado e' a RECUSA, entao nada e' gravado. A frase e'
+   * conferida para a prova nao passar por outro motivo de recusa. */
+  /* A ROTA DE FORNECEDOR E' CRIADA AQUI, pela propria API: o seed nao tem nenhuma, e
+     marcar o local a mao no banco de mentira provaria o cadastro do teste e nao o do
+     sistema. De quebra, isto exercita a gravacao da marca. */
+  var rotaForn = await POST({ acao: 'salvarLocal', registro: {
+    Tipo: 'ROTA', Nome: 'Rota Fornecedor (prova)', PedeFornecedor: 'SIM' } });
+  ok(rotaForn.ok && rotaForn.id, 'a rota de fornecedor foi criada pela API', rotaForn);
+  var marcada = ((await GET({ acao: 'dados' })).locais || [])
+    .filter(function (l) { return String(l.ID) === String(rotaForn.id); })[0];
+  ok(marcada && marcada.PedeFornecedor === true,
+    'e a marca VOLTA do banco — gravada e nao lida, a regra nunca ligaria e o campo ' +
+    'seria um interruptor sem fio', marcada && marcada.PedeFornecedor);
+
+  var semMot = await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G,
+    destinoId: rotaForn.id, itens: [{ tipoCaixaId: T, qtd: 1 }], dataRef: dia(-1),
+    usuarioId: 'U003', perfil: 'MOTORISTA' });
+  ok(semMot.ok === false && /motorista do tipo Fornecedor/.test(String(semMot.erro || '')),
+    'e a ROTA recusa um lancamento pela rota de fornecedor sem motorista do tipo — a ' +
+    'tela esconder a lista e conveniencia, e um POST direto passa por cima dela',
+    semMot);
+
   /* ---- A PLACA DIGITADA PASSA PELA ROTA, E E' ELA QUE RECUSA ----
    *
    * A regra do formato ja' e' provada em separado. O que ESTA prova mede e' outra
@@ -5070,7 +5098,7 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
 /* ============================================================================
    O FORNECEDOR DA CARGA
    ========================================================================= */
-console.log('\n== o fornecedor da carga ==');
+console.log('\n== o fornecedor e o motorista ==');
 {
   /* O MODULO DE VERDADE, como as outras secoes deste arquivo fazem. */
   var L = require(path.join(__dirname, '..', 'api', '_logica.js'));
@@ -5079,88 +5107,145 @@ console.log('\n== o fornecedor da carga ==');
     { ID: 'L009', Nome: 'Fornecedor',         Tipo: 'ROTA', PedeFornecedor: true },
     { ID: 'L005', Nome: 'Caruaru',            Tipo: 'ROTA' }
   ];
-  var FORN = [{ ID: 'F001', Nome: 'Sitio Boa Vista', Ativo: true },
-              { ID: 'F002', Nome: 'Chacara do Ze',   Ativo: true }];
-  function conf(p) { return L.conferirFornecedor(p, LOCAIS_F, FORN); }
+  var MOTS_F = [
+    { ID: 'D1', Nome: 'Roberto Cavalcanti', Apelido: 'Braulio', Tipo: 'Fornecedor' },
+    { ID: 'D2', Nome: 'Dinho',              Apelido: '',        Tipo: 'Fixo' }
+  ];
+  function conf(p) { return L.conferirFornecedor(p, LOCAIS_F, MOTS_F); }
+  function nomeDe(p) { return L.fornecedorDoMovimento(p, LOCAIS_F, MOTS_F); }
 
-  /* ---- A PONTA QUE CONTA MUDA COM A OPERACAO ----
-   * Na saida o fornecedor e' o DESTINO; no retorno, a ORIGEM. Uma regra que olhasse
-   * so' um lado deixaria metade da operacao sem o campo — e seria a metade que varia
+  /* ---- AS DUAS PONTAS CONTAM ----
+   * Na saida o fornecedor e' o DESTINO; no retorno, a ORIGEM. Uma regra que olhasse so'
+   * um lado deixaria metade da operacao sem conferencia — e seria a metade que varia
    * conforme a tela, que e' o pior jeito de uma regra falhar. */
   ok(conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' }),
-    'a saida PARA o local marcado exige dizer qual fornecedor — sem isso a linha guarda ' +
-    'que a caixa foi pela rota e nao de quem ela e, que e a pergunta deste sistema',
-    conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' }));
+    'a saida PARA a rota de fornecedor exige um motorista — sem ele a linha nao diz de ' +
+    'quem e a carga, que e a pergunta deste sistema');
   ok(conf({ tipo: 'DEVOLUCAO', origemId: 'L009', destinoId: 'L001' }),
-    'e o retorno VINDO dele exige a mesma coisa — as duas pontas contam, e a que conta ' +
-    'muda com a operacao');
-  ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005' }),
-    'e a rota que NAO pede continua lancando sem nada a mais — a marca e de um local, ' +
-    'e nao de todas as rotas');
+    'e o retorno VINDO dela exige a mesma coisa');
+  ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005', motorista: 'Dinho' }),
+    'e a rota que NAO pede continua lancando com o motorista de sempre');
 
-  /* ---- QUEM MANDA E' A MARCA, e nao o nome do local ----
-   * Perguntar se o local se chama "Fornecedor" prenderia a regra a uma palavra. */
-  var renomeada = [{ ID: 'L009', Nome: 'Parceiros do Agreste', Tipo: 'ROTA',
-                     PedeFornecedor: true }];
-  ok(L.conferirFornecedor({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' },
-                          renomeada, FORN),
-    'e quem manda e a MARCA do cadastro, nao o nome: renomeada a rota, o campo continua ' +
-    'sendo exigido — preso ao nome, ele sumiria no dia da renomeacao sem nada dizer');
-  var semMarca = [{ ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA' }];
-  ok(!L.conferirFornecedor({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' },
-                           semMarca, FORN),
-    'e um local CHAMADO Fornecedor sem a marca nao exige nada — a palavra nao e a regra');
+  /* ---- O TIPO DO MOTORISTA E' A REGRA ---- */
+  ok(/nao esta cadastrado|não está cadastrado/.test(
+       conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Dinho' })),
+    'e um motorista COMUM e recusado na rota de fornecedor — aceitar qualquer um faria ' +
+    'a coluna Fornecedor apontar para quem nao e',
+    conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Dinho' }));
+  ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Braulio' }),
+    'e o do tipo Fornecedor passa, pelo apelido — o nome de trabalho, que e o que a ' +
+    'linha grava');
+  ok(!conf({ tipo: 'DEVOLUCAO', origemId: 'L009', destinoId: 'L001',
+             motorista: 'Roberto Cavalcanti' }),
+    'e pelo nome do cadastro tambem — as duas portas levam ao mesmo motorista, e ' +
+    'recusar uma quebraria a correcao do que ja foi lancado');
+  ok(/fora do cadastro/.test(
+       conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Fulano' })),
+    'e quem nao esta no cadastro e recusado, com a frase dizendo o que fazer',
+    conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Fulano' }));
 
-  /* ---- A LISTA E' FECHADA ----
-   * Nome livre vira grafia diferente do mesmo fornecedor, e o relatorio parte um em
-   * dois. Foi a licao que o cadastro de motoristas pagou: Valcy e valci. */
-  ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-             fornecedor: 'Sitio Boa Vista' }),
-    'com o nome do cadastro, passa');
-  ok(/fora do cadastro/.test(conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-                                    fornecedor: 'Sitio Qualquer' }) || ''),
-    'e nome FORA do cadastro e recusado — texto livre vira grafia diferente do mesmo ' +
-    'fornecedor, e o relatorio parte um em dois',
-    conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', fornecedor: 'Sitio Qualquer' }));
-  ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-             fornecedor: '  sitio BOA vista ' }),
-    'e a conferencia nao tropeca em caixa alta nem em espaco sobrando — quem digita o ' +
-    'nome certo nao pode ser recusado por um espaco');
-
-  /* ---- A RECUSA DIZ O QUE FAZER ---- */
-  ok(/cadastr/i.test(conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-                            fornecedor: 'Sitio Qualquer' }) || ''),
-    'e a recusa diz o que fazer — cadastrar — em vez de so negar');
-  ok((conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' }) || '')
-       .indexOf('Fornecedor') >= 0,
-    'e a frase NOMEIA o local que pediu, porque e ele que explica o campo que apareceu');
-
-  /* ---- AJUSTE E PERDA FICAM DE FORA ----
-   * Nascem no escritorio, mexem no saldo de um local so' e nao sao viagem de caixa.
-   * Exigindo fornecedor neles, o administrador ficaria trancado fora do proprio ajuste. */
+  /* ---- AJUSTE E PERDA FICAM DE FORA ---- */
   ok(!conf({ tipo: 'AJUSTE', destinoId: 'L009' }),
-    'o AJUSTE no local marcado nao pede fornecedor — ele nasce no escritorio e nao e ' +
+    'o AJUSTE no local marcado nao pede motorista — ele nasce no escritorio e nao e ' +
     'viagem de caixa; exigindo, o administrador ficaria trancado fora do proprio ajuste');
-  ok(!conf({ tipo: 'PERDA', origemId: 'L009' }),
-    'e a PERDA tambem nao');
+  ok(!conf({ tipo: 'PERDA', origemId: 'L009' }), 'e a PERDA tambem nao');
 
-  /* ---- E O NOME CHEGA AO MOVIMENTO ----
-   * Guardado como TEXTO, pela mesma razao do motorista e da placa. */
-  var mont = L.montarMovimento({
-    tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', fornecedor: ' Sitio Boa Vista ',
-    itens: [{ tipoCaixaId: 'T1', qtd: 10 }], dataRef: '2026-10-16', usuarioId: 'U001'
+  /* ---- O NOME DA COLUNA E' DERIVADO, e nao recebido ----
+   * Com uma fonte so', a coluna Fornecedor nunca pode discordar da coluna Motorista da
+   * mesma linha — e um POST direto nao tem como mandar outro nome. */
+  ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+              motorista: 'Braulio' }) === 'Braulio',
+    'o nome que vai para a coluna Fornecedor e DERIVADO do motorista, no servidor');
+  ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+              motorista: 'Roberto Cavalcanti' }) === 'Braulio',
+    'e e sempre o nome de TRABALHO, venha o lancamento pelo apelido ou pelo nome do ' +
+    'cadastro — duas grafias da mesma pessoa partiriam o relatorio em dois');
+  /* COM O PROPRIO FORNECEDOR numa rota COMUM, que e' o caso que separa as duas
+     guardas. Com um motorista comum, a coluna ficaria vazia de qualquer jeito — pelo
+     TIPO dele —, e arrancar a guarda da rota nao mudava nada: foi assim que a
+     sabotagem passou por aqui. */
+  ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005',
+              motorista: 'Braulio' }) === '',
+    'e fora da rota de fornecedor a coluna fica vazia ATE para o proprio fornecedor — ' +
+    'ela responde "de qual fornecedor e esta carga", e o mesmo motorista levando uma ' +
+    'carga comum nao faz dela uma carga de fornecedor');
+  ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005',
+              motorista: 'Dinho' }) === '',
+    'e com um motorista comum tambem');
+  ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+              motorista: 'Dinho' }) === '',
+    'e um motorista que nao e do tipo nao vira fornecedor por acidente — o lancamento ' +
+    'ja foi recusado, e se passasse por outro caminho a coluna nao mentiria');
+
+  /* ---- O CONSTRUTOR IGNORA O QUE VIER NO PEDIDO ----
+   * O fornecedor e' DERIVADO do motorista, contra o cadastro, e quem deriva e' a rota.
+   * Se o construtor lesse `p.fornecedor`, um POST montado a mao escreveria o nome que
+   * quisesse na coluna — e ela passaria a discordar da coluna Motorista da mesma linha,
+   * as duas plausiveis. Ignorando o pedido, o pior caso vira uma coluna VAZIA, que se
+   * ve'. */
+  var mentiroso = L.montarMovimento({
+    tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Braulio',
+    fornecedor: 'INVENTADO PELO PEDIDO',
+    itens: [{ tipoCaixaId: 'T1', qtd: 5 }], dataRef: '2026-10-16', usuarioId: 'U001'
+  }, { movimentos: [], agora: new Date('2026-10-16T12:00:00Z'),
+       fornecedor: nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+                            motorista: 'Braulio' }) });
+  ok(mentiroso.ok && mentiroso.linhas[0].Fornecedor === 'Braulio',
+    'e o construtor IGNORA o fornecedor que vier no pedido — ele usa o que a rota ' +
+    'derivou do motorista: lendo o pedido, um POST montado a mao escreveria o nome que ' +
+    'quisesse na coluna, e ela discordaria da coluna Motorista da mesma linha',
+    mentiroso.ok ? mentiroso.linhas[0].Fornecedor : mentiroso.erro);
+  var semCtx = L.montarMovimento({
+    tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Braulio',
+    fornecedor: 'INVENTADO PELO PEDIDO',
+    itens: [{ tipoCaixaId: 'T1', qtd: 5 }], dataRef: '2026-10-16', usuarioId: 'U001'
   }, { movimentos: [], agora: new Date('2026-10-16T12:00:00Z') });
-  ok(mont.ok && mont.linhas[0].Fornecedor === 'Sitio Boa Vista',
-    'e o nome entra no movimento ja sem os espacos — gravado com espaco, o mesmo ' +
-    'fornecedor viraria dois no relatorio, que e o que a lista fechada veio evitar',
-    mont.ok ? JSON.stringify(mont.linhas[0].Fornecedor) : mont.erro);
-  var semF = L.montarMovimento({
-    tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005',
-    itens: [{ tipoCaixaId: 'T1', qtd: 10 }], dataRef: '2026-10-16', usuarioId: 'U001'
-  }, { movimentos: [], agora: new Date('2026-10-16T12:00:00Z') });
-  ok(semF.ok && semF.linhas[0].Fornecedor === null,
-    'e sem fornecedor a coluna fica NULA, e nao com texto vazio — vazio e nulo se ' +
-    'parecem na tela e se separam na hora de somar', semF.ok ? semF.linhas[0].Fornecedor : semF.erro);
+  ok(semCtx.ok && semCtx.linhas[0].Fornecedor === null,
+    'e sem a rota derivar nada a coluna fica NULA, e nao com o que o pedido mandou — ' +
+    'uma coluna vazia se ve; uma coluna com o nome errado, nao',
+    semCtx.ok ? semCtx.linhas[0].Fornecedor : semCtx.erro);
+}
+
+console.log('\n== e a rota deriva mesmo: o lancamento inteiro ==');
+{
+  /* DE PONTA A PONTA, e e' a unica forma de medir isto.
+   *
+   * As provas acima cobrem a REGRA (quem pode) e o CONSTRUTOR (de onde vem o nome). O
+   * que falta e' o fio entre os dois: a rota precisa DERIVAR o nome e passa-lo ao
+   * construtor. Arrancar essa linha nao quebrava nada — a coluna saia vazia e todas as
+   * provas continuavam verdes, porque nenhuma lancava de verdade e lia a linha gravada.
+   *
+   * FICA NO FIM DO ARQUIVO de proposito: este bloco GRAVA um movimento, e qualquer
+   * conta de saldo depois dele mudaria de valor. No meio, a prova viraria a causa do
+   * erro que ela deveria achar. */
+  var motForn = await POST({ acao: 'salvarMotorista', registro: {
+    Nome: 'Roberto Cavalcanti', Apelido: 'Braulio', Tipo: 'Fornecedor',
+    Rotas: [rotaForn.id] } });
+  ok(motForn.ok, 'o motorista do tipo Fornecedor foi cadastrado pela API', motForn);
+
+  var lanc = await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G,
+    destinoId: rotaForn.id, itens: [{ tipoCaixaId: T, qtd: 7 }], dataRef: dia(-1),
+    usuarioId: 'U001', perfil: 'ADMIN', motorista: 'Braulio',
+    /* O PEDIDO AINDA MANDA UM NOME INVENTADO, para a prova valer dos dois lados: a
+       coluna tem de sair com o nome DERIVADO, e nao com este. */
+    fornecedor: 'INVENTADO PELO PEDIDO' });
+  ok(lanc.ok, 'e o lancamento pela rota de fornecedor passa com ele', lanc);
+
+  var linhas = (await GET({ acao: 'movimentos', quem: 'U001' })).movimentos || [];
+  var gravada = linhas.filter(function (m) {
+    return String(m.destino || '').indexOf('Fornecedor (prova)') >= 0;
+  })[0];
+  ok(!!gravada, 'e a linha aparece na lista de movimentos',
+     gravada && gravada.id);
+  ok(gravada && gravada.fornecedor === 'Braulio',
+    'e a coluna Fornecedor da linha gravada traz o nome DERIVADO do motorista — nao o ' +
+    'que o pedido mandou, e nao vazio: e este fio, entre a regra e o construtor, que ' +
+    'nenhuma prova alcancava',
+    gravada && { fornecedor: gravada.fornecedor, motorista: gravada.motorista });
+  ok(gravada && gravada.motorista === 'Braulio',
+    'e as duas colunas da mesma linha dizem a mesma pessoa — e para isso que o nome e ' +
+    'derivado de uma fonte so',
+    gravada && [gravada.fornecedor, gravada.motorista]);
 }
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');

@@ -124,7 +124,8 @@ global.Q = {
 global.DADOS = DADOS;
 
 var F = eval('(function(){' + corpo('permitidos') + corpo('meusMotoristas') +
-             corpo('motoristas') + corpo('motoristasDaRota') + corpo('montarMotoristas') +
+             corpo('motoristas') + corpo('ehFornecedor') + corpo('pedeFornecedor') +
+             corpo('motoristasDaRota') + corpo('montarMotoristas') +
              'return { montar: montarMotoristas, daRota: motoristasDaRota };})()');
 
 /** Lê o HTML gerado: nomes por grupo, na ordem. */

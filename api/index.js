@@ -346,8 +346,15 @@ async function gravarMovimento(p) {
      uma carga de fornecedor sem dizer de quem, que e a linha que ninguem consegue
      cobrar depois. A lista tambem e fechada contra o CADASTRO: nome livre vira grafia
      diferente do mesmo fornecedor, e o extrato parte um em dois. */
-  var faltaForn = L.conferirFornecedor(p, d.locais, d.fornecedores);
+  /* O FORNECEDOR E' O MOTORISTA. A regra confere que quem dirigiu esta' cadastrado como
+     motorista do tipo Fornecedor, e o NOME da coluna e' derivado dele logo abaixo — a
+     tela nao manda mais esse campo, e um POST direto que mandasse seria ignorado. */
+  var faltaForn = L.conferirFornecedor(p, d.locais, d.motoristas);
   if (faltaForn) return { ok: false, erro: faltaForn };
+  /* DERIVADO, E NAO RECEBIDO: com uma fonte so', a coluna Fornecedor nunca discorda da
+     coluna Motorista da mesma linha. Vai pelo `ctx` do construtor, que NAO le' o
+     pedido — assim um POST montado a mao nao tem onde injetar outro nome. */
+  var fornDaLinha = L.fornecedorDoMovimento(p, d.locais, d.motoristas);
 
   /* A PLACA, DESDE QUE PODE SER DIGITADA. A tela ja' recusa o que nao e' placa; aqui
      e' a guarda que nao se contorna — e' esta rota que grava a coluna. */
@@ -368,6 +375,7 @@ async function gravarMovimento(p) {
   var r = L.montarMovimento(p, {
     movimentos: d.movimentos,
     agora: agora,
+    fornecedor: fornDaLinha,
     /* A BASE VEM DO CADASTRO, e nao mais do nome do perfil. Perfil e cargo; base e
        onde a pessoa lanca. Enquanto as duas coisas moravam no mesmo campo, cadastrar
        alguem como "Conferente" durante a validacao exigia escrever "Conferente de

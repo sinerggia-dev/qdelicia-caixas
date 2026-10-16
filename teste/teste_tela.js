@@ -345,6 +345,11 @@ console.log('\n== o sentido de cada rota do motorista fornecedor ==');
                   setAttribute: function (k, v) { this.attrs[k] = v; } };
       var rota = { value: 'L009' };
       new Function('document', 'Q', 'meusMotoristas', 'motoristas',
+        /* COM AS DUAS PERGUNTAS QUE A LISTA FAZ desde que o fornecedor e' o
+           motorista: se a ponta pede fornecedor, e se este motorista e' um. Sem elas
+           no recorte, a bancada estoura em vez de medir. */
+        corpoI('ehFornecedor') + String.fromCharCode(10) +
+        corpoI('pedeFornecedor') + String.fromCharCode(10) +
         corpoI('motoristasDaRota') + String.fromCharCode(10) +
         corpoI('montarMotoristas') +
         " montarMotoristas('m', 'r', " + JSON.stringify(sentido) + ');')(
@@ -370,14 +375,14 @@ console.log('\n== o sentido de cada rota do motorista fornecedor ==');
   }
 
   /* ---- CADA TELA PASSA O SENTIDO DELA ---- */
-  ok(/montarMotoristas\('sdMotorista', doGalpao \? 'sdRota' : 'sdOrigem', 'saida'\)/
+  ok(/montarMotoristas\('sdMotorista', doGalpao \? 'sdRota' : 'sdOrigem', 'saida',/
        .test(idxS2),
     'a SAÍDA pergunta pelo sentido dela');
-  ok((idxS2.match(/montarMotoristas\('dvMotorista', 'dvOrigem', 'entrada'\)/g) || [])
-       .length === 3,
-    'e o RETORNO pelo dele, nas três chamadas — uma esquecida mostraria a lista do ' +
-    'outro sentido em metade dos caminhos da tela',
-    (idxS2.match(/montarMotoristas\('dvMotorista', 'dvOrigem'[^)]*\)/g) || []));
+  ok((idxS2.match(/montarMotoristas\('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno\(\)\)/g) || [])
+       .length === 4,
+    'e o RETORNO pelo dele em TODAS as chamadas — uma esquecida mostraria a lista do ' +
+    'outro sentido em parte dos caminhos da tela',
+    (idxS2.match(/montarMotoristas\('dvMotorista'[^;]*\)/g) || []).length);
 
   /* ---- O CADASTRO ---- */
   ok(/\['','Fixo','Volante','Fornecedor'\]/.test(admS2),
@@ -1176,20 +1181,10 @@ console.log('\n== a placa do veiculo em Movimentos Motoristas ==');
     'preenche a placa; foi o que já aconteceu com ela na tela de Movimentos');
 }
 
-console.log('\n== o fornecedor da carga, na tela ==');
+console.log('\n== o fornecedor e o motorista ==');
 {
   var idxF = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  /* A REGRA VERDADEIRA DO NOME DE TRABALHO, recortada do `app.js` UMA vez e usada
-     pelas bancadas desta seção. Reescrita aqui, seria um dublê mais fraco que o
-     original: no dia em que alguém mudasse a regra no app, estas provas continuariam
-     aprovando a regra antiga. */
-  var COMO_CHAMAR = (function () {
-    var fa = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-    var ia = fa.indexOf('  function comoChamar(m) {');
-    return new Function(fa.slice(ia,
-      fa.indexOf(String.fromCharCode(10) + '  }', ia) + 4) + ' return comoChamar;')();
-  })();
-  var admF = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var LF = require(path.join(__dirname, '..', 'api', '_logica.js'));
   function corpoF(fonte, nome) {
     var i = fonte.indexOf('  function ' + nome + '(');
     if (i < 0) return '';
@@ -1201,442 +1196,191 @@ console.log('\n== o fornecedor da carga, na tela ==');
     return '';
   }
 
-  var fonteF = corpoF(idxF, 'pedeFornecedor') + '\n' + corpoF(idxF, 'montarFornecedores');
-  ok(fonteF.length > 400,
-    'a conferência recortou as funções do fornecedor do app de campo — recorte vazio ' +
-    'faria as provas abaixo passarem sem rodar nada', fonteF.length);
+  /* ---- O CAMPO SAIU DA TELA ----
+   * Ele existiu, com lista propria, e a operacao mostrou que era a mesma informacao
+   * duas vezes: quem chega com a carga do fornecedor E' o motorista dele. */
+  ok(idxF.indexOf('sdFornecedor') < 0 && idxF.indexOf('dvFornecedor') < 0 &&
+     idxF.indexOf('montarFornecedores') < 0,
+    'o campo Fornecedor saiu das duas telas de lançamento — quem responde de quem é a ' +
+    'carga passou a ser o MOTORISTA, e pedir as duas coisas era a mesma informação com ' +
+    'duas chances de divergir');
 
-  /* AS FUNCOES RODAM. Lidas no arquivo, a prova responderia "a palavra fornecedor esta
-     la?" — e estaria, inclusive numa versao que mostra o campo em toda saida. */
-  function bancadaF(locais, fornecedores) {
-    var nos = {
-      sdWrapFornecedor: { style: { display: 'none' } },
-      sdFornecedor: { value: '', innerHTML: '' }
-    };
-    var api = new Function('DADOS', 'Q', 'document', fonteF +
-      ' return { pede: pedeFornecedor, montar: montarFornecedores };')(
-      { locais: locais, fornecedores: fornecedores },
-      { esc: function (x) { return String(x); },
-        ativo: function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false;  },
-        comoChamar: COMO_CHAMAR },
-      { getElementById: function (id) { return nos[id] || null; } });
-    return { api: api, nos: nos };
-  }
-
-  var LOC = [
+  /* ---- E O SERVIDOR PASSOU A PERGUNTAR OUTRA COISA ---- */
+  var LOCF = [
     { ID: 'L001', Nome: 'Matriz', Tipo: 'GALPAO' },
     { ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA', PedeFornecedor: true },
     { ID: 'L005', Nome: 'Caruaru', Tipo: 'ROTA' }
   ];
-  var FOR = [{ ID: 'F002', Nome: 'Chácara do Zé', Ativo: true },
-             { ID: 'F001', Nome: 'Sítio Boa Vista', Ativo: true },
-             { ID: 'F003', Nome: 'Fora de uso', Ativo: false }];
-
-  /* ---- O CAMPO APARECE PELA MARCA ---- */
-  var b = bancadaF(LOC, FOR);
-  b.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
-  ok(b.nos.sdWrapFornecedor.style.display === 'block',
-    'escolhido o local marcado, o campo do fornecedor APARECE — é o pedido inteiro: ' +
-    'a rota diz por onde a caixa andou, e sem este campo de quem ela é não fica em ' +
-    'lugar nenhum', b.nos.sdWrapFornecedor.style.display);
-  b.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L005');
-  ok(b.nos.sdWrapFornecedor.style.display === 'none',
-    'e em qualquer outro local ele SOME — um campo a mais em toda saída é um campo que ' +
-    'todo mundo aprende a ignorar', b.nos.sdWrapFornecedor.style.display);
-
-  /* ---- E PELA MARCA, e nao pelo NOME ---- */
-  var b2 = bancadaF([{ ID: 'L009', Nome: 'Parceiros do Agreste', Tipo: 'ROTA',
-                       PedeFornecedor: true }], FOR);
-  b2.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
-  ok(b2.nos.sdWrapFornecedor.style.display === 'block',
-    'e quem manda é a MARCA do cadastro: renomeada a rota, o campo continua aparecendo ' +
-    '— preso ao nome, ele sumiria no dia da renomeação sem nada na tela dizendo por quê');
-  var b3 = bancadaF([{ ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA' }], FOR);
-  b3.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
-  ok(b3.nos.sdWrapFornecedor.style.display === 'none',
-    'e um local CHAMADO Fornecedor sem a marca não faz o campo nascer — a palavra não ' +
-    'é a regra, nem aqui nem no servidor');
-
-  /* ---- O CAMPO ESCONDIDO E' LIMPO ----
-   * Um fornecedor escolhido numa rota e esquecido ali depois de trocar o destino
-   * viajaria junto com o proximo lancamento: a tela mostra o certo e o banco recebe o
-   * de antes. */
-  var b4 = bancadaF(LOC, FOR);
-  b4.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
-  b4.nos.sdFornecedor.value = 'Sítio Boa Vista';
-  b4.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L005');
-  ok(b4.nos.sdFornecedor.value === '',
-    'e ao sumir o campo é LIMPO — um fornecedor escolhido e esquecido ali depois de ' +
-    'trocar o destino viajaria junto com o próximo lançamento: a tela mostra o certo e ' +
-    'o banco recebe o de antes', JSON.stringify(b4.nos.sdFornecedor.value));
-
-  /* ---- SO' OS ATIVOS, EM ORDEM ---- */
-  var b5 = bancadaF(LOC, FOR);
-  b5.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
-  var html5 = b5.nos.sdFornecedor.innerHTML;
-  ok(html5.indexOf('Fora de uso') < 0,
-    'e o fornecedor inativo não entra na escolha — ele continua escrito nos lançamentos ' +
-    'antigos, que é história, mas não se oferece para um novo', html5);
-  ok(html5.indexOf('Chácara do Zé') < html5.indexOf('Sítio Boa Vista'),
-    'e a lista sai em ordem de nome, e não na ordem em que o banco devolveu', html5);
-
-  /* ---- NENHUM CADASTRADO: a tela diz o que falta ---- */
-  var b6 = bancadaF(LOC, []);
-  b6.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
-  ok(/Nenhum fornecedor cadastrado/.test(b6.nos.sdFornecedor.innerHTML),
-    'e sem nenhum cadastrado o campo DIZ isso — vazio, ele seria um seletor que recusa ' +
-    'o lançamento sem explicar o que fazer', b6.nos.sdFornecedor.innerHTML);
-
-  /* ---- O APELIDO E' O NOME DE TRABALHO, e e' ele que se ve E que se grava ----
-   *
-   * E' a licao que a coluna do motorista pagou: oferecer um nome na tela e gravar
-   * outro fez a mesma viagem aparecer com dois nomes no relatorio. Aqui ha uma coluna
-   * so', entao o texto da opcao e o valor dela tem de ser a MESMA string. */
-  var COM_APELIDO = [
-    { ID: 'F1', Nome: 'Sítio Boa Vista Agrícola Ltda', Apelido: 'Boa Vista',
-      Localidade: 'Petrolina · PE', Ativo: true },
-    { ID: 'F2', Nome: 'Chácara do Zé', Apelido: '', Localidade: '', Ativo: true }
+  var MOTF = [
+    { ID: 'D1', Nome: 'Roberto Cavalcanti', Apelido: 'Bráulio', Tipo: 'Fornecedor' },
+    { ID: 'D2', Nome: 'Dinho', Apelido: '', Tipo: 'Fixo' }
   ];
-  var bA = bancadaF(LOC, COM_APELIDO);
-  bA.api.montar('sdFornecedor', 'sdWrapFornecedor', ['L009']);
-  var htmlA = bA.nos.sdFornecedor.innerHTML;
-  ok(/<option value="Boa Vista"[^>]*>Boa Vista<\/option>/.test(htmlA),
-    'quem tem apelido aparece pelo APELIDO, e o valor gravado é o mesmo texto — ' +
-    'oferecer um nome na tela e gravar outro foi o defeito que a coluna do motorista ' +
-    'pagou: a mesma viagem passou a ter dois nomes no relatório', htmlA);
-  ok(/<option value="Chácara do Zé"[^>]*>Chácara do Zé<\/option>/.test(htmlA),
-    'e quem não tem apelido continua pelo nome — em branco, vale o nome', htmlA);
-  ok(/title="Sítio Boa Vista Agrícola Ltda · Petrolina · PE"/.test(htmlA),
-    'e o nome inteiro e a localidade ficam no balão da opção — eles ajudam a escolher ' +
-    'entre dois parecidos, e no meio do rótulo fariam a lista ficar comprida demais ' +
-    'para um seletor de celular', htmlA);
-  ok(htmlA.indexOf('Boa Vista') < htmlA.indexOf('Chácara'),
-    'e a lista sai na ordem do que está ESCRITO nela — ordenada pelo nome do cadastro, ' +
-    'apareceria embaralhada para quem olha: "Sítio…" viria depois de "Chácara…"',
-    htmlA);
+  function conf(p) { return LF.conferirFornecedor(p, LOCF, MOTF); }
 
-  /* ---- E O SERVIDOR ACEITA AS DUAS PORTAS ----
-   * A linha grava o nome de trabalho; as linhas gravadas antes de o apelido existir
-   * trazem o nome do cadastro. Recusar uma delas quebraria a correcao do que ja' foi
-   * lancado. */
+  ok(conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' }),
+    'a saída pela rota de fornecedor exige um motorista — sem ele a linha não diz de ' +
+    'quem é a carga, que é a pergunta deste sistema');
+  ok(/não está cadastrado como motorista do tipo Fornecedor/.test(
+       conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Dinho' })),
+    'e um motorista COMUM é recusado nela — a rota de fornecedor é dele, e aceitar ' +
+    'qualquer um faria a coluna Fornecedor apontar para quem não é',
+    conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Dinho' }));
+  ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Bráulio' }),
+    'e o do tipo Fornecedor passa, pelo APELIDO — que é o nome de trabalho, e o que a ' +
+    'linha grava');
+  ok(!conf({ tipo: 'DEVOLUCAO', origemId: 'L009', destinoId: 'L001',
+             motorista: 'Roberto Cavalcanti' }),
+    'e o retorno também, pelo nome do cadastro — as duas portas levam ao mesmo ' +
+    'motorista, e recusar uma quebraria a correção do que já foi lançado');
+  ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005', motorista: 'Dinho' }),
+    'e a rota normal continua aceitando o motorista normal — a marca é de um local, e ' +
+    'não de todas as rotas');
+  ok(!conf({ tipo: 'AJUSTE', destinoId: 'L009' }),
+    'e o AJUSTE no local marcado não pede motorista — ele nasce no escritório e não é ' +
+    'viagem de caixa; exigindo, o administrador ficaria trancado fora do próprio ajuste');
+
+  /* ---- O NOME DA COLUNA E' DERIVADO, e nao recebido ----
+   * Com uma fonte so', a coluna Fornecedor nunca pode discordar da coluna Motorista da
+   * mesma linha. E a tela esconder o campo e' conveniencia: um POST direto chegaria
+   * sem ele, ou com outro nome. */
+  ok(LF.fornecedorDoMovimento({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+                                motorista: 'Bráulio' }, LOCF, MOTF) === 'Bráulio',
+    'o nome que vai para a coluna Fornecedor é DERIVADO do motorista, no servidor — ' +
+    'recebido da tela, um pedido direto poderia mandar outro, e as duas colunas da ' +
+    'mesma linha passariam a discordar');
+  ok(LF.fornecedorDoMovimento({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+                                motorista: 'Roberto Cavalcanti' }, LOCF, MOTF) === 'Bráulio',
+    'e é sempre o nome de TRABALHO, venha o lançamento pelo apelido ou pelo nome do ' +
+    'cadastro — duas grafias da mesma pessoa partiriam o relatório em dois');
+  ok(LF.fornecedorDoMovimento({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005',
+                                motorista: 'Dinho' }, LOCF, MOTF) === '',
+    'e fora da rota de fornecedor a coluna fica VAZIA — ela responde "de qual ' +
+    'fornecedor", e um nome ali numa viagem comum seria uma resposta inventada');
+
+  /* ---- A LISTA DE MOTORISTAS, MONTADA DE VERDADE ---- */
   {
-    var logA = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
-    var iA = logA.indexOf('function conferirFornecedor');
-    var corpoA = logA.slice(iA, logA.indexOf('\nfunction ', iA));
-    var conferir = new Function(corpoA + ' return conferirFornecedor;')();
-    var locA = [{ ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA', PedeFornecedor: true }];
-    ok(!conferir({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-                   fornecedor: 'Boa Vista' }, locA, COM_APELIDO),
-      'e o servidor aceita o APELIDO, que é o que a tela grava hoje');
-    ok(!conferir({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-                   fornecedor: 'Sítio Boa Vista Agrícola Ltda' }, locA, COM_APELIDO),
-      'e aceita também o NOME do cadastro — as linhas gravadas antes de o apelido ' +
-      'existir trazem ele, e recusá-las agora quebraria a correção de tudo o que já ' +
-      'foi lançado');
-    ok(conferir({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-                  fornecedor: 'Boa Vista Hortifruti' }, locA, COM_APELIDO),
-      'e continua recusando o que não está no cadastro por nenhuma das duas portas — a ' +
-      'lista é fechada, e é isso que impede o mesmo fornecedor de virar dois no relatório');
+    var MOTS_F = [
+      { ID: 'D1', Nome: 'Bráulio', Apelido: '', Tipo: 'Fornecedor', Rotas: ['L009'],
+        RotasSentido: {} },
+      { ID: 'D2', Nome: 'Dinho', Apelido: '', Tipo: 'Fixo', Rotas: ['L009'],
+        RotasSentido: {} }
+    ];
+    function listaMot(pontas) {
+      var sel = { value: '', innerHTML: '', attrs: {},
+                  getAttribute: function (k) { return this.attrs[k] || null; },
+                  setAttribute: function (k, v) { this.attrs[k] = v; } };
+      new Function('document', 'Q', 'DADOS', 'meusMotoristas', 'motoristas',
+        corpoF(idxF, 'ehFornecedor') + corpoF(idxF, 'pedeFornecedor') +
+        corpoF(idxF, 'motoristasDaRota') + corpoF(idxF, 'montarMotoristas') +
+        " montarMotoristas('m', 'r', 'saida', " + JSON.stringify(pontas) + ');')(
+        { getElementById: function (id) {
+            return id === 'm' ? sel : { value: 'L009' }; } },
+        { esc: function (x) { return String(x); },
+          comoChamar: function (m) { return m.Apelido || m.Nome; },
+          atendeNoSentido: function () { return true; } },
+        { locais: LOCF },
+        function () { return MOTS_F; },
+        function () { return MOTS_F.map(function (m) { return m.Apelido || m.Nome; }); });
+      return sel.innerHTML;
+    }
+    var pelaRotaForn = listaMot(['L001', 'L009']);
+    ok(pelaRotaForn.indexOf('Bráulio') >= 0 && pelaRotaForn.indexOf('Dinho') < 0,
+      'pela rota de fornecedor, a lista de motoristas mostra SÓ os do tipo Fornecedor ' +
+      '— era o pedido, e é o que impede a carga do fornecedor de sair no nome de quem ' +
+      'não é', pelaRotaForn);
+    var rotaComum = listaMot(['L001', 'L005']);
+    ok(rotaComum.indexOf('Dinho') >= 0 && rotaComum.indexOf('Bráulio') >= 0,
+      'e numa rota comum a lista continua inteira — a peneira é da rota marcada, e não ' +
+      'de todas', rotaComum);
+    var semNenhum = (function () {
+      var guardados = MOTS_F.slice();
+      MOTS_F.length = 0;
+      MOTS_F.push({ ID: 'D2', Nome: 'Dinho', Tipo: 'Fixo', Rotas: ['L009'],
+                    RotasSentido: {} });
+      var r = listaMot(['L001', 'L009']);
+      MOTS_F.length = 0;
+      guardados.forEach(function (x) { MOTS_F.push(x); });
+      return r;
+    })();
+    ok(/nenhum motorista do tipo Fornecedor/.test(semNenhum),
+      'e sem nenhum cadastrado a lista DIZ isso — um seletor só com "Selecione…" e nada ' +
+      'dentro se lê como tela quebrada, e a pessoa fica tentando', semNenhum);
   }
 
-  /* ---- OS CAMPOS EXISTEM NO CADASTRO ---- */
-  /* DENTRO DO FORMULARIO DO FORNECEDOR, e nao no arquivo inteiro.
-     `fApelido` e' tambem o id do apelido no cadastro de MOTORISTAS — os formularios
-     reaproveitam os mesmos ids porque so' um vive por vez no modal —, e a prova solta
-     casava com o outro: ela passava com o campo do fornecedor desligado. Foi a
-     sabotagem que mostrou. */
-  var formForn = (function () {
-    var i = admF.indexOf('  function formFornecedor(');
+  /* ---- E AS DUAS TELAS PERGUNTAM PELAS PONTAS DELAS ---- */
+  ok(/montarMotoristas\('sdMotorista', doGalpao \? 'sdRota' : 'sdOrigem', 'saida',[\s\S]{0,60}\[origem, alvo\.value\]\)/
+       .test(idxF),
+    'a SAÍDA passa as duas pontas para a lista de motoristas');
+  ok((idxF.match(/montarMotoristas\('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno\(\)\)/g) || [])
+       .length === 4,
+    'e o RETORNO passa as dele nas quatro chamadas — uma esquecida mostraria a lista ' +
+    'errada em parte dos caminhos da tela',
+    (idxF.match(/montarMotoristas\('dvMotorista'[^;]*\)/g) || []).length);
+}
+
+console.log('\n== o veiculo do motorista fornecedor ==');
+{
+  var idxV = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  function corpoV(nome) {
+    var i = idxV.indexOf('  function ' + nome + '(');
     if (i < 0) return '';
-    var d = 0, k = admF.indexOf('{', i);
-    for (; k < admF.length; k++) {
-      if (admF[k] === '{') d++;
-      else if (admF[k] === '}' && --d === 0) return admF.slice(i, k + 1);
+    var d = 0, k = idxV.indexOf('{', i);
+    for (; k < idxV.length; k++) {
+      if (idxV[k] === '{') d++;
+      else if (idxV[k] === '}' && --d === 0) return idxV.slice(i, k + 1);
     }
     return '';
-  })();
-  ok(formForn.length > 500,
-    'a conferência recortou o formulário do fornecedor — no arquivo inteiro ela casaria ' +
-    'com o cadastro de motoristas, que usa os mesmos ids', formForn.length);
-  ok(/id="fApelido"/.test(formForn) && /id="fLocal"/.test(formForn),
-    'o cadastro do fornecedor tem os campos de Apelido e Localidade');
-  ok(/Apelido:document\.getElementById\('fApelido'\)\.value\.trim\(\)/.test(formForn) &&
-     /Localidade:document\.getElementById\('fLocal'\)\.value\.trim\(\)/.test(formForn),
-    'e os dois são GRAVADOS — desenhados e não lidos, eles seriam dois campos que a ' +
-    'pessoa preenche e o sistema joga fora, sem dizer nada');
-
-  /* ---- E O BANCO DEVOLVE OS DOIS ----
-   * Gravar e nao ler de volta e' meio campo: a tela abriria o cadastro com o apelido
-   * em branco toda vez, e quem editasse qualquer outra coisa o apagaria sem perceber. */
-  {
-    var sup = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
-    var iF = sup.indexOf('var FORNECEDOR = {');
-    var mapa = new Function('bool',
-      sup.slice(iF, sup.indexOf(String.fromCharCode(10) + '};', iF) + 3) +
-        ' return FORNECEDOR;')(
-      function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; });
-    var lido = mapa.de({ id: 'F1', nome: 'Sítio Boa Vista', apelido: 'Boa Vista',
-                         localidade: 'Petrolina · PE', ativo: true });
-    ok(lido.Apelido === 'Boa Vista' && lido.Localidade === 'Petrolina · PE',
-      'e o banco devolve o apelido e a localidade — gravar e não ler de volta é meio ' +
-      'campo: a tela abriria o cadastro com eles em branco toda vez, e quem editasse ' +
-      'outra coisa os apagaria sem perceber', lido);
-    var guardado = mapa.para({ Nome: ' Sítio ', Apelido: ' Boa Vista ',
-                               Localidade: ' Petrolina ' });
-    ok(guardado.apelido === 'Boa Vista' && guardado.localidade === 'Petrolina',
-      'e vão para o banco sem os espaços das pontas — "Boa Vista " e "Boa Vista" são o ' +
-      'mesmo fornecedor para quem digitou, e dois para a lista fechada', guardado);
   }
-  ok(/apelido text not null default/.test(
-       fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8')) &&
-     /localidade text not null default/.test(
-       fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8')),
-    'e as duas colunas nascem no banco — sem a migração, o servidor recusaria a ' +
-    'gravação inteira e o cadastro pararia de salvar');
-
-  /* ---- UM SO' JA' VEM ESCOLHIDO ---- */
-  var b7 = bancadaF(LOC, [{ ID: 'F001', Nome: 'Sítio Boa Vista', Ativo: true }]);
-  b7.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
-  ok(b7.nos.sdFornecedor.value === 'Sítio Boa Vista',
-    'e havendo um só, ele já vem escolhido — como nos outros campos desta tela',
-    b7.nos.sdFornecedor.value);
-
-  /* ================= AS DUAS TELAS, E A PONTA DE CADA UMA =================
-   * Na saida manda o DESTINO; no retorno, a ORIGEM. Trocadas, o campo apareceria na
-   * tela errada — e cada uma mostraria o fornecedor do lado que nao e o dele. */
-  /* ---- AS DUAS PONTAS, NAS DUAS TELAS ----
-   * A rota de fornecedor aparece nos DOIS campos: quem manda caixa PARA ele a poe no
-   * destino, quem traz caixa DE LA' a poe na origem. Olhando um lado so', metade da
-   * operacao fica sem o campo — e e' a metade que varia conforme quem lanca.
-   *
-   * E O SERVIDOR SEMPRE OLHOU OS DOIS. O desencontro era o pior: a pessoa preencheria
-   * a tela inteira e levaria de volta um pedido de fornecedor sem ter onde informa-lo.
-   * Foi assim que chegou — "selecionei o Fornecedor e nao vejo onde escolher o nome". */
-  var b8 = bancadaF(LOC, FOR);
-  b8.api.montar('sdFornecedor', 'sdWrapFornecedor', ['L009', 'L001']);
-  ok(b8.nos.sdWrapFornecedor.style.display === 'block',
-    'na SAÍDA, o local marcado na ORIGEM faz o campo nascer — é a caixa saindo do ' +
-    'fornecedor, e era o caso que ficava sem campo nenhum enquanto o servidor exigia ' +
-    'o nome: lançamento recusado sem caminho para o conserto',
-    b8.nos.sdWrapFornecedor.style.display);
-  var b9 = bancadaF(LOC, FOR);
-  b9.api.montar('sdFornecedor', 'sdWrapFornecedor', ['L001', 'L009']);
-  ok(b9.nos.sdWrapFornecedor.style.display === 'block',
-    'e no DESTINO também — é a caixa indo para o fornecedor');
-  var b10 = bancadaF(LOC, FOR);
-  b10.api.montar('sdFornecedor', 'sdWrapFornecedor', ['L001', 'L005']);
-  ok(b10.nos.sdWrapFornecedor.style.display === 'none',
-    'e com nenhuma das duas pontas marcada, não nasce — basta UMA pedir, e não é ' +
-    'qualquer lançamento que pede');
-
-  /* ================= E ALGUEM AVISA O CAMPO =================
-   *
-   * As provas acima chamam `montarFornecedores` na mao. Nenhuma delas pergunta QUEM a
-   * chama — e foi exatamente ai que o defeito seguinte se escondeu: o campo so' era
-   * recalculado quando a ORIGEM mudava, e escolher a rota de fornecedor no DESTINO,
-   * que e' o caminho mais comum, nao avisava ninguem. A peca existia, funcionava, e
-   * nada a alcancava.
-   *
-   * ENTAO ESTA PROVA LIGA OS FORMULARIOS DE VERDADE e DISPARA o `change` de cada campo
-   * que e' uma ponta, como o navegador faria. E' a unica forma de a pergunta "quem
-   * avisa?" ter resposta medida. */
-  {
-    function bancadaLigada() {
-      var ouvintes = {}, nos = {};
-      function no(id) {
-        if (nos[id]) return nos[id];
-        nos[id] = { id: id, value: '', innerHTML: '', textContent: '',
-                    style: { display: '' }, disabled: false,
-                    classList: { add: function () {}, remove: function () {} },
-                    addEventListener: function (tp, fn) {
-                      ((ouvintes[id] = ouvintes[id] || {})[tp] =
-                        (ouvintes[id] || {})[tp] || []).push(fn);
-                    },
-                    querySelectorAll: function () { return []; } };
-        return nos[id];
-      }
-      var LOCL = [
-        { ID: 'L001', Nome: 'Matriz', Tipo: 'GALPAO' },
-        { ID: 'L005', Nome: 'Caruaru', Tipo: 'ROTA' },
-        { ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA', PedeFornecedor: true }
-      ];
-      var reais = ['saiDeGalpao', 'pedeFornecedor', 'montarFornecedores', 'pontasDaSaida',
-                   'atualizarFornecedorSaida', 'atualizarFornecedorRetorno',
-                   'ajustarCamposSaida', 'ajustarDestinoRetorno', 'montarFormularios'];
-      var fonte = reais.map(function (n) { return corpoF(idxF, n); })
-        .join(String.fromCharCode(10));
-      ok(reais.every(function (n) { return corpoF(idxF, n); }),
-        'a conferência recortou as funções que ligam os formulários — faltando uma, o ' +
-        'disparo abaixo não aconteceria e a prova passaria sem medir nada',
-        reais.filter(function (n) { return !corpoF(idxF, n); }));
-      new Function('DADOS', 'Q', 'document', 'permitidos', 'locaisPor', 'opcoes',
-                   'montarMotoristas', 'montarVeiculos', 'preencherSozinho',
-                   'ligarSteppers', 'itensHTML', 'hoje', 'periodoPadraoLanc',
-                   'TIPOS_RETORNO', 'mostrarSaldoDoOrigem', 'baseDoLancamento',
-                   'montarBases',
-        fonte + ' montarFormularios();')(
-        { locais: LOCL, fornecedores: FOR, tipos: [] },
-        { esc: function (x) { return String(x); },
-          ativo: function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; },
-          sessao: function () { return {}; },
-          hoje: function () { return '2026-10-16'; },
-          num: function (n) { return String(n); },
-          comoChamar: COMO_CHAMAR },
-        { getElementById: no, querySelectorAll: function () { return []; } },
-        function () { return LOCL; }, function () { return LOCL; },
-        function () { return ''; },
-        function () {}, function () {}, function () {}, function () {},
-        function () { return ''; }, function () { return '2026-10-16'; },
-        function () {}, ['GALPAO', 'FILIAL', 'ROTA'],
-        function () {}, function () { return 'reais'; }, function () {});
-      return {
-        nos: nos, ouvintes: ouvintes,
-        mudar: function (id, valor) {
-          no(id).value = valor;
-          ((ouvintes[id] || {}).change || []).forEach(function (fn) { fn({}); });
-          return ((ouvintes[id] || {}).change || []).length;
-        }
-      };
-    }
-
-    /* ---- SAINDO DO GALPAO, o destino mora em `sdRota` ---- */
-    var L1 = bancadaLigada();
-    L1.mudar('sdOrigem', 'L001');
-    var ouviu = L1.mudar('sdRota', 'L009');
-    ok(ouviu > 0,
-      'o Destino da saída tem quem o escute — sem ouvinte, escolher a rota de ' +
-      'fornecedor ali não avisa ninguém, e o campo nunca nasce', ouviu);
-    ok(L1.nos.sdWrapFornecedor.style.display === 'block',
-      'e ESCOLHER a rota de fornecedor no Destino faz o campo aparecer — era o defeito ' +
-      'relatado: o campo só era recalculado quando a ORIGEM mudava, e quem escolhia o ' +
-      'destino depois ficava sem ele enquanto o servidor exigia o nome',
-      L1.nos.sdWrapFornecedor.style.display);
-    L1.mudar('sdRota', 'L005');
-    ok(L1.nos.sdWrapFornecedor.style.display === 'none',
-      'e trocando o Destino para outra rota ele some de novo — o aviso vale nos dois ' +
-      'sentidos, senão o campo fica na tela pedindo um nome que já não faz sentido');
-
-    /* ---- SAINDO DA ROTA, o destino mora em `sdDestino` ----
-     * Sao o mesmo campo em caminhos diferentes, e avisar so' um deixa metade da
-     * operacao sem o campo. */
-    var L2 = bancadaLigada();
-    L2.mudar('sdOrigem', 'L005');
-    var ouviu2 = L2.mudar('sdDestino', 'L009');
-    ok(ouviu2 > 0 && L2.nos.sdWrapFornecedor.style.display === 'block',
-      'e pelo OUTRO caminho também: saindo da rota o destino mora noutro campo, e ele ' +
-      'não tinha ouvinte nenhum — os dois são a mesma pergunta, e avisar só um deixa ' +
-      'metade da operação sem o campo',
-      { ouvintes: ouviu2, campo: L2.nos.sdWrapFornecedor.style.display });
-
-    /* ---- E NO RETORNO, o destino também é uma ponta ---- */
-    var L3 = bancadaLigada();
-    L3.mudar('dvOrigem', 'L001');
-    var ouviu3 = L3.mudar('dvDestino', 'L009');
-    ok(ouviu3 > 0 && L3.nos.dvWrapFornecedor.style.display === 'block',
-      'e no RETORNO o destino também avisa — a caixa pode estar voltando PARA o ' +
-      'fornecedor, e o servidor pede o nome igual',
-      { ouvintes: ouviu3, campo: L3.nos.dvWrapFornecedor.style.display });
-
-    /* ---- A ORIGEM CONTINUA AVISANDO, nas duas telas ---- */
-    var L4 = bancadaLigada();
-    L4.mudar('sdOrigem', 'L009');
-    ok(L4.nos.sdWrapFornecedor.style.display === 'block',
-      'e a ORIGEM da saída continua avisando — é a caixa saindo do fornecedor');
-    var L5 = bancadaLigada();
-    L5.mudar('dvOrigem', 'L009');
-    ok(L5.nos.dvWrapFornecedor.style.display === 'block',
-      'e a origem do retorno também — é a caixa voltando dele');
-  }
-
-
-  /* COM OS ESPACOS ACHATADOS: a chamada ocupa tres linhas no arquivo, e um regex que
-     tentasse casar a quebra de linha dentro dele mora a um escape de distancia de
-     virar outra coisa — ja' aconteceu aqui. */
-  var idxReto = idxF.replace(/\s+/g, ' ');
-  ok(idxReto.indexOf("montarFornecedores('dvFornecedor', 'dvWrapFornecedor', " +
-       "[document.getElementById('dvOrigem').value, " +
-       "document.getElementById('dvDestino').value])") >= 0,
-    'e o RETORNO também, depois de o destino estar decidido — a escolha do destino ' +
-    'tem saídas antecipadas no meio, e perguntado lá dentro o campo ora olharia o ' +
-    'destino novo, ora o antigo, conforme o caminho que o fluxo tomasse');
-
-  /* ---- E A ORDEM DENTRO DO RETORNO E' MEDIDA, e nao lida ----
-   *
-   * Que a pergunta do fornecedor venha DEPOIS de o destino estar decidido so' se ve'
-   * rodando: o texto da chamada e' o mesmo em cima e embaixo do bloco, e uma prova que
-   * o procurasse no arquivo daria verde com ela no lugar errado. Foi o que a sabotagem
-   * mostrou.
-   *
-   * O CENARIO: a origem NAO pede fornecedor, e a unica opcao de destino pede. O destino
-   * e' escolhido sozinho la' dentro — `podem.length === 1` —, entao o campo so' nasce
-   * se a pergunta for feita depois disso. */
-  {
-    /* COM `atualizarFornecedorRetorno` JUNTO: é por ela que a função pergunta pelo
-       campo desde que o aviso ganhou nome próprio. Sem ela na fonte, o recorte estoura
-       em vez de medir. */
-    var fonteR = corpoF(idxF, 'ajustarDestinoRetorno') + String.fromCharCode(10) +
-      corpoF(idxF, 'atualizarFornecedorRetorno') + String.fromCharCode(10) + fonteF;
-    var nosR = {
-      dvOrigem: { value: 'L001' },
-      dvDestino: { value: '', innerHTML: '' },
-      dvWrapFornecedor: { style: { display: 'none' } },
-      dvFornecedor: { value: '', innerHTML: '' }
-    };
-    var LOCR = [{ ID: 'L001', Nome: 'Matriz', Tipo: 'GALPAO' },
-                { ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA', PedeFornecedor: true }];
-    new Function('DADOS', 'Q', 'document', 'permitidos', 'locaisPor', 'opcoes',
-                 'TIPOS_RETORNO', fonteR + ' ajustarDestinoRetorno();')(
-      { locais: LOCR, fornecedores: FOR },
+  var FROTA_V = [
+    { Placa: 'ABC1D23', Modelo: 'Truck', MotoristaID: 'D1' },
+    { Placa: 'KKS1330', Modelo: 'Toco',  MotoristaID: 'D2' },
+    { Placa: 'XYZ9K88', Modelo: 'Baú',   MotoristaID: '' }
+  ];
+  function listaVei(mots, nomeNoCampo) {
+    var sel = { value: '', innerHTML: '', attrs: {},
+                getAttribute: function (k) { return this.attrs[k] || null; },
+                setAttribute: function (k, v) { this.attrs[k] = v; } };
+    var txt = { value: '', hidden: true,
+                classList: { add: function () {}, remove: function () {} } };
+    var nos = { v: sel, vTexto: txt, m: { value: nomeNoCampo } };
+    var iOP = idxV.indexOf('var OUTRA_PLACA = ');
+    new Function('document', 'Q', 'meusVeiculos', 'meusMotoristas',
+      idxV.slice(iOP, idxV.indexOf(';', iOP) + 1) + String.fromCharCode(10) +
+      corpoV('ehFornecedor') + corpoV('campoTextoDaPlaca') +
+      corpoV('mostrarPlacaTexto') + corpoV('montarVeiculos') +
+      " montarVeiculos('v', 'm');")(
+      { getElementById: function (id) { return nos[id] || null; } },
       { esc: function (x) { return String(x); },
-        ativo: function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; },
-        sessao: function () { return {}; }, comoChamar: COMO_CHAMAR },
-      { getElementById: function (id) { return nosR[id] || null; } },
-      function () { return [LOCR[1]]; },   // so' a rota marcada pode receber
-      function () { return [LOCR[1]]; },
-      function () { return ''; },
-      ['GALPAO', 'FILIAL', 'ROTA']);
-    ok(nosR.dvDestino.value === 'L009' && nosR.dvWrapFornecedor.style.display === 'block',
-      'e rodando o retorno de ponta a ponta, o campo nasce para o destino que a própria ' +
-      'função acabou de escolher — perguntado antes dessa escolha, ele olharia o campo ' +
-      'ainda vazio e não apareceria, com o servidor exigindo o nome do outro lado',
-      { destino: nosR.dvDestino.value, campo: nosR.dvWrapFornecedor.style.display });
+        comoChamar: function (m) { return m.Apelido || m.Nome; } },
+      function () { return FROTA_V; },
+      function () { return mots; });
+    return { html: sel.innerHTML, valor: sel.value, texto: txt };
   }
 
-  /* ---- O VALOR VAI NOS DOIS LANCAMENTOS ----
-   * Campo preenchido que nao viaja no pedido e' o defeito que esta tela ja' pagou com
-   * a placa do veiculo: gravava e nao chegava. */
-  ok(/fornecedor: document\.getElementById\('sdFornecedor'\)\.value\.trim\(\)/.test(idxF) &&
-     /fornecedor: document\.getElementById\('dvFornecedor'\)\.value\.trim\(\)/.test(idxF),
-    'e o nome viaja no pedido das DUAS telas — preenchido e não enviado é o defeito que ' +
-    'a placa do veículo já pagou aqui: gravava e não chegava');
+  var FORN = [{ ID: 'D1', Nome: 'Bráulio', Tipo: 'Fornecedor' }];
+  var r1 = listaVei(FORN, 'Bráulio');
+  ok(r1.html.indexOf('ABC1D23') >= 0,
+    'o motorista de fornecedor vê o carro DELE', r1.html);
+  ok(r1.html.indexOf('KKS1330') < 0 && r1.html.indexOf('XYZ9K88') < 0,
+    'e NÃO vê nenhuma outra placa — a frota da casa num lançamento de fornecedor é ' +
+    'convite a escolher a placa errada, que é pior que nenhuma', r1.html);
 
-  /* ---- E E' COBRADO PELA LISTA DE OBRIGATORIOS, e nao por uma guarda propria ----
-   * `campoVisivel` ja' pula quem esta escondido; uma segunda regra no botao divergiria
-   * da primeira e nao marcaria o campo de vermelho. */
-  ok(/\{ id:'sdFornecedor',/.test(idxF) && /\{ id:'dvFornecedor',/.test(idxF),
-    'e o campo é exigido pela LISTA de obrigatórios, que já sabe pular o que está ' +
-    'escondido — uma guarda escrita à mão no botão seria uma segunda regra sobre a ' +
-    'mesma coisa, e a que não pinta o campo de vermelho');
+  var SEM_CARRO = [{ ID: 'D9', Nome: 'Seu Zé', Tipo: 'Fornecedor' }];
+  var r2 = listaVei(SEM_CARRO, 'Seu Zé');
+  ok(r2.valor === '__outra' && r2.texto.hidden === false,
+    'e sem nenhum carro cadastrado o campo de DIGITAR já abre escolhido — não há o que ' +
+    'escolher, e um "Selecione…" sozinho seria um beco sem saída',
+    { valor: r2.valor, escondido: r2.texto.hidden });
+  ok(/sem veículo cadastrado para este motorista/.test(r2.html),
+    'e a lista diz por que está assim', r2.html);
+  ok(r2.html.indexOf('KKS1330') < 0 && r2.html.indexOf('XYZ9K88') < 0,
+    'e continua sem oferecer placa de ninguém — era o pedido', r2.html);
 
-  /* ================= O PAINEL =================
-   * A marca e' do cadastro: sem o campo no formulario do local, a unica forma de
-   * ligar a exigencia seria mexer no banco a mao. */
-  ok(/<select id="fPedeForn">/.test(admF) &&
-     /PedeFornecedor: document\.getElementById\('fPedeForn'\)\.value/.test(admF),
-    'o cadastro do local tem o campo que liga a exigência, e ele é GRAVADO — desenhado ' +
-    'e não lido, a marca só se ligaria mexendo no banco à mão');
-  ok(/data-cad="fornecedores"/.test(admF) && /id="tabelaFornecedores"/.test(admF) &&
-     /id="btnNovoFornecedor"/.test(admF),
-    'e Cadastros tem a seção de Fornecedores, com a tabela e o botão de criar');
-  ok(/salvarFornecedor/.test(admF) && /aba: 'Fornecedores'|aba:'Fornecedores'/.test(admF),
-    'e ela salva e exclui pela mesma maquinaria dos outros cadastros');
-  ok(/fornecedor:'Fornecedor'/.test(admF) && /'fornecedor','caixa'/.test(admF),
-    'e a tabela de Movimentos ganhou a coluna — gravado e não mostrado é meio dado, e ' +
-    'a coluna nasceria vazia em todas as linhas como a do veículo nasceu');
-  var logF = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
-  ok(/fornecedor: m\.Fornecedor \|\| ''/.test(logF),
-    'e o servidor MANDA o campo para a tela — sem isto a coluna existiria vazia, e a ' +
-    'conclusão natural seria que ninguém preenche o campo');
+  var COMUM = [{ ID: 'D2', Nome: 'Dinho', Tipo: 'Fixo' }];
+  var r3 = listaVei(COMUM, 'Dinho');
+  ok(r3.html.indexOf('KKS1330') >= 0 && r3.html.indexOf('XYZ9K88') >= 0,
+    'e o motorista COMUM continua vendo a frota inteira — a realidade não obedece ao ' +
+    'cadastro, e quem leva a carga hoje pode estar noutro carro', r3.html);
 }
 
 console.log('\n== o administrador arrasta os filtros para a ordem que quiser ==');
@@ -7642,9 +7386,16 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
     'o veículo do motorista sai num grupo próprio, em cima, e o resto embaixo');
   /* O RESTO CONTINUA ALCANÇÁVEL: carro quebra, alguém cobre a rota do outro, e uma
      lista que só ofereça o carro de fábrica trava o lançamento no dia em que a
-     realidade não obedece ao cadastro. */
-  ok(/var outros = frota\.filter\(function\(v\)\{ return dele\.indexOf\(v\) < 0; \}\);/.test(fnMV),
-    'e todo veículo liberado continua na lista — separar não é esconder');
+     realidade não obedece ao cadastro.
+     COM UMA EXCEÇÃO, e ela é o contrário disto: o motorista de FORNECEDOR vê só os
+     carros dele. O carro do fornecedor é dele, e oferecer a frota da casa num
+     lançamento de fornecedor convida a escolher a placa errada — que é pior que
+     nenhuma. A regra geral e a exceção moram na mesma linha, de propósito: separadas,
+     a segunda vira um caso especial que alguém apaga sem perceber que existia. */
+  ok(/var outros = soDele \? \[\] : frota\.filter\(function\(v\)\{ return dele\.indexOf\(v\) < 0; \}\);/
+       .test(fnMV),
+    'e todo veículo liberado continua na lista — separar não é esconder —, MENOS para ' +
+    'o motorista de fornecedor, que vê só os dele');
   /* Sem veículo do motorista não há o que separar: rótulo de grupo sozinho é rótulo
      para ler à toa. Mesma regra da lista de motoristas. */
   ok(/\? grupo\('Veículo de[\s\S]{0,90}: itens\(frota\)\)/.test(fnMV),
@@ -7727,7 +7478,8 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
        placa pode ser escrita à mão, `montarVeiculos` acrescenta a opção "Outra placa" e
        `mostrarPlacaTexto` decide se o campo aparece. Sem elas no recorte, a bancada
        estoura em vez de medir. */
-    var fonte = ['function campoTextoDaPlaca(', 'function mostrarPlacaTexto(',
+    var fonte = ['function ehFornecedor(', 'function campoTextoDaPlaca(',
+                 'function mostrarPlacaTexto(',
                  'function placaEscolhida(', 'function montarVeiculos(',
                  'function motoristaPuxaVeiculo(', 'function veiculoPuxaMotorista(']
       .map(function (a) {

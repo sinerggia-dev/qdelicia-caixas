@@ -1264,55 +1264,93 @@ function loginUnico(usuarios, ident, segredo, conferir) {
  */
 /* ================= O FORNECEDOR DA CARGA =================
  *
- * A operacao manda e recebe caixa de fornecedor pela rota marcada no cadastro. Quando o
- * lancamento toca um local marcado, dizer QUAL fornecedor deixa de ser opcional: sem
- * isso a linha guarda que a caixa foi pela rota e nao de quem ela e, que e justamente a
- * pergunta que este sistema existe para responder.
+ * O FORNECEDOR E' O PROPRIO MOTORISTA, e essa foi a virada. A primeira versao pedia um
+ * campo a parte no lancamento, lido de um cadastro proprio de fornecedores. Na operacao
+ * de verdade quem chega com a carga do fornecedor E' o motorista dele, ja' cadastrado
+ * com nome, apelido, placa e rotas — e digitar o fornecedor de novo era a mesma
+ * informacao pedida duas vezes, com duas chances de divergir.
  *
- * AS DUAS PONTAS CONTAM. Na saida o fornecedor e o DESTINO; no retorno, a ORIGEM. Uma
- * regra que olhasse so um dos lados deixaria metade da operacao sem o campo — e seria a
- * metade que varia conforme a tela, que e o pior jeito de uma regra falhar.
+ * ENTAO A REGRA MUDOU DE PERGUNTA: quando o lancamento toca um local marcado, o que se
+ * exige nao e' mais um NOME digitado — e' que quem dirigiu seja um motorista do tipo
+ * FORNECEDOR, cadastrado. O campo saiu da tela, e a coluna `Fornecedor` do movimento
+ * passa a ser preenchida pelo servidor a partir do motorista: um dado so', uma fonte
+ * so'.
  *
- * AJUSTE E PERDA ficam de fora: nascem no escritorio, mexem no saldo de um local so e
- * nao sao viagem de caixa. Exigir fornecedor neles trancaria o administrador fora do
+ * AS DUAS PONTAS CONTAM. Na saida o fornecedor e' o DESTINO; no retorno, a ORIGEM. Uma
+ * regra que olhasse so' um lado deixaria metade da operacao sem conferencia — e seria a
+ * metade que varia conforme a tela.
+ *
+ * AJUSTE E PERDA ficam de fora: nascem no escritorio, mexem no saldo de um local so' e
+ * nao sao viagem de caixa. Exigir motorista neles trancaria o administrador fora do
  * proprio ajuste.
  *
- * A LISTA E FECHADA contra o cadastro, e por NOME porque e o nome que se grava. Fora da
- * lista a recusa diz o que fazer — cadastrar — em vez de so negar.
- *
- * Devolve a frase do erro, ou null quando esta tudo certo. */
-function conferirFornecedor(p, locais, fornecedores) {
+ * Devolve a frase do erro, ou null quando esta' tudo certo. */
+function ehMotoristaFornecedor(m) {
+  return !!m && String(m.Tipo || '').toUpperCase() === 'FORNECEDOR';
+}
+
+/* QUEM E' ESTE MOTORISTA NO CADASTRO, procurado pelo nome de TRABALHO — que e' o que o
+   movimento grava — e tambem pelo nome do cadastro, para as linhas gravadas antes de o
+   apelido existir continuarem podendo ser corrigidas. As duas portas levam ao mesmo
+   cadastro. */
+function acharMotorista(motoristas, nome) {
+  var alvo = String(nome == null ? '' : nome).trim().toLowerCase();
+  if (!alvo) return null;
+  return (motoristas || []).filter(function (m) {
+    var n = String(m.Nome || '').trim().toLowerCase();
+    var ap = String(m.Apelido || '').trim().toLowerCase();
+    return n === alvo || (ap && ap === alvo);
+  })[0] || null;
+}
+
+function pontasQuePedemFornecedor(p, locais) {
   var tipo = String(p.tipo || '').toUpperCase();
-  if (tipo === 'AJUSTE' || tipo === 'PERDA') return null;
-  locais = locais || [];
+  if (tipo === 'AJUSTE' || tipo === 'PERDA') return [];
   function local(id) {
     if (!id) return null;
-    return locais.filter(function (l) { return String(l.ID) === String(id); })[0] || null;
+    return (locais || []).filter(function (l) {
+      return String(l.ID) === String(id);
+    })[0] || null;
   }
-  var pontas = [local(p.origemId), local(p.destinoId)].filter(function (l) {
+  return [local(p.origemId), local(p.destinoId)].filter(function (l) {
     return l && l.PedeFornecedor === true;
   });
+}
+
+function conferirFornecedor(p, locais, motoristas) {
+  var pontas = pontasQuePedemFornecedor(p, locais);
   if (!pontas.length) return null;
 
-  var nome = String(p.fornecedor || '').trim();
+  var nome = String(p.motorista || '').trim();
   if (!nome) {
-    return 'Diga de qual fornecedor é esta carga: ' + pontas[0].Nome +
-      ' pede o nome do fornecedor no cadastro.';
+    return 'Escolha o motorista do fornecedor: ' + pontas[0].Nome +
+      ' só recebe lançamento com um motorista do tipo Fornecedor.';
   }
-  /* O NOME OU O APELIDO. O lancamento grava o nome de TRABALHO — o apelido, quando
-     existe —, entao e ele que chega aqui; mas as linhas gravadas antes de o apelido
-     existir trazem o nome do cadastro, e recusa-las agora seria quebrar a correcao de
-     tudo o que ja' foi lancado. As duas portas levam ao mesmo cadastro. */
-  var achou = (fornecedores || []).filter(function (f) {
-    var n = String(f.Nome || '').trim().toLowerCase();
-    var ap = String(f.Apelido || '').trim().toLowerCase();
-    return n === nome.toLowerCase() || (ap && ap === nome.toLowerCase());
-  })[0];
-  if (!achou) {
-    return 'Fornecedor fora do cadastro: ' + nome +
+  var m = acharMotorista(motoristas, nome);
+  if (!m) {
+    return 'Motorista fora do cadastro: ' + nome +
       '. Cadastre-o em Cadastros para poder lançar nele.';
   }
+  if (!ehMotoristaFornecedor(m)) {
+    return 'Este lançamento é pela rota de fornecedor, e ' + nome +
+      ' não está cadastrado como motorista do tipo Fornecedor.';
+  }
   return null;
+}
+
+/* O NOME DO FORNECEDOR QUE VAI PARA A LINHA, derivado do motorista — e nao digitado.
+ *
+ * Derivado AQUI, no servidor, e nao mandado pela tela: a tela esconder o campo e'
+ * conveniencia, e um POST direto chegaria sem ele. Com uma fonte so', a coluna
+ * `Fornecedor` de Movimentos nunca pode discordar da coluna `Motorista` da mesma linha.
+ *
+ * E' o nome de TRABALHO — o apelido quando existe —, o mesmo que a coluna Motorista
+ * guarda: duas grafias da mesma pessoa partiriam o relatorio em dois. */
+function fornecedorDoMovimento(p, locais, motoristas) {
+  if (!pontasQuePedemFornecedor(p, locais).length) return '';
+  var m = acharMotorista(motoristas, p.motorista);
+  if (!ehMotoristaFornecedor(m)) return '';
+  return String(m.Apelido || m.Nome || '').trim();
 }
 
 function montarMovimento(p, ctx) {
@@ -1410,8 +1448,13 @@ function montarMovimento(p, ctx) {
       Veiculo: placa(p.veiculo) || null,
       /* O NOME, e nao o id: a mesma decisao do motorista e da placa. O cadastro pode
          ser renomeado ou sair de uso, e o que ja saiu do galpao continua dizendo de
-         quem era a caixa. */
-      Fornecedor: String(p.fornecedor || '').trim() || null,
+         quem era a caixa.
+         VEM DO `ctx`, E NUNCA DO PEDIDO. O fornecedor e' DERIVADO do motorista, e quem
+         deriva e' a rota, contra o cadastro. Lendo `p.fornecedor`, um pedido montado a
+         mao escreveria o nome que quisesse na coluna — e ela passaria a discordar da
+         coluna Motorista da mesma linha, as duas plausiveis. Ignorando o pedido, o pior
+         caso vira uma coluna VAZIA, que se ve'. */
+      Fornecedor: String((ctx && ctx.fornecedor) || '').trim() || null,
       Rota: String(p.rota || '').trim() || null,
       AssinaturaURL: ctx.assinaturaUrl || null,
       FotoURL: ctx.fotoUrl || null,
@@ -3208,6 +3251,9 @@ module.exports = {
   cicloDaCarga: cicloDaCarga, rotuloCiclo: rotuloCiclo,
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
   montarMovimento: montarMovimento, placaAceitavel: placaAceitavel,
+  fornecedorDoMovimento: fornecedorDoMovimento,
+  ehMotoristaFornecedor: ehMotoristaFornecedor,
+  pontasQuePedemFornecedor: pontasQuePedemFornecedor,
   conferirFornecedor: conferirFornecedor, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
