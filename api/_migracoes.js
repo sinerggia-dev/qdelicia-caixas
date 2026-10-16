@@ -754,4 +754,36 @@ module.exports = [
       "  on public.movimentos (fornecedor);"
     ].join('\n')
   }
+,
+  {
+    id: '2026-10-16-fornecedor-apelido',
+    nota: 'apelido e localidade no cadastro de fornecedores',
+    sql: [
+      "-- COMO A OPERACAO CHAMA ESTE FORNECEDOR, E DE ONDE ELE E.",
+      "--",
+      "-- O APELIDO e a mesma peca que o cadastro de motoristas ja tem, e pelo mesmo",
+      "-- motivo: o nome do documento e longo, e no galpao ninguem usa ele. Sem um campo",
+      "-- para o nome de trabalho, ou a lista do lancamento fica comprida demais para",
+      "-- escolher no celular, ou alguem cadastra o apelido no lugar do nome e o cadastro",
+      "-- perde a identificacao de quem a empresa negocia.",
+      "--",
+      "-- A LOCALIDADE diz de onde vem a fruta. Ela e informacao de cadastro: o lugar de",
+      "-- um LANCAMENTO continua vindo do local escolhido nele, e nao daqui.",
+      "--",
+      "-- OS DOIS NASCEM VAZIOS, e nao nulos: sao texto que a tela mostra, e nulo",
+      "-- obrigaria cada leitura a tratar os dois casos. Vazio quer dizer a mesma coisa",
+      "-- aqui — nao foi informado — e se le sozinho.",
+      "alter table public.fornecedores",
+      "  add column if not exists apelido text not null default '';",
+      "alter table public.fornecedores",
+      "  add column if not exists localidade text not null default '';",
+      "comment on column public.fornecedores.apelido is",
+      "  'Como a operacao chama este fornecedor. E ele que aparece para escolha no",
+      "   lancamento quando existe, e e ele que fica GRAVADO na linha: o que se ve e o",
+      "   que se grava. Vazio, vale o nome.';",
+      "comment on column public.fornecedores.localidade is",
+      "  'De onde vem a fruta deste fornecedor. E informacao de cadastro: o lugar de um",
+      "   lancamento continua vindo do local escolhido nele.';"
+    ].join('\n')
+  }
 ];

@@ -343,12 +343,15 @@ var MOTORISTA = {
    sai por ela. O que a tela de lancamento precisa e so o nome. */
 var FORNECEDOR = {
   de: function (r) {
-    return { ID: r.id, Nome: r.nome || '', Ativo: r.ativo !== false };
+    return { ID: r.id, Nome: r.nome || '', Apelido: r.apelido || '',
+             Localidade: r.localidade || '', Ativo: r.ativo !== false };
   },
   para: function (o) {
     var r = {};
     if (o.ID !== undefined) r.id = o.ID;
     if (o.Nome !== undefined) r.nome = String(o.Nome || '').trim();
+    if (o.Apelido !== undefined) r.apelido = String(o.Apelido || '').trim();
+    if (o.Localidade !== undefined) r.localidade = String(o.Localidade || '').trim();
     if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
     return r;
   }

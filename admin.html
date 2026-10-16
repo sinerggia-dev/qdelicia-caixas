@@ -9425,6 +9425,7 @@
     }
     box.innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Fornecedor</th>' +
+      '<th>Apelido</th><th>Localidade</th>' +
       '<th class="num">Lançamentos</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       lista.map(function(f){
         var on = Q.ativo(f.Ativo);
@@ -9432,11 +9433,19 @@
            guarda. E' o recorte carregado, e nao a historia inteira: por isso a coluna
            diz "neste recorte" no titulo, em vez de prometer um total que ela nao tem
            como saber. */
+        /* CONTA PELAS DUAS PORTAS: a linha guarda o nome de TRABALHO, e as linhas
+           anteriores ao apelido guardam o nome do cadastro. Olhando so' uma delas, a
+           conta ficaria em zero justamente para quem ganhou um apelido. */
+        var nomes = [String(f.Nome||'').trim().toLowerCase(),
+                     String(f.Apelido||'').trim().toLowerCase()].filter(Boolean);
         var quantos = (MOVS||[]).filter(function(m){
-          return String(m.fornecedor||'').trim().toLowerCase() ===
-                 String(f.Nome||'').trim().toLowerCase();
+          return nomes.indexOf(String(m.fornecedor||'').trim().toLowerCase()) >= 0;
         }).length;
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(f.Nome)+'</b></td>'+
+          '<td>'+(f.Apelido ? Q.esc(f.Apelido)
+                            : '<span class="fraco">—</span>')+'</td>'+
+          '<td>'+(f.Localidade ? Q.esc(f.Localidade)
+                               : '<span class="fraco">—</span>')+'</td>'+
           '<td class="num" title="No recorte de Movimentos que está carregado">'+
             (quantos||'—')+'</td>'+
           '<td>'+(on?'<span class="tag verde">sim</span>'
@@ -9474,7 +9483,22 @@
       'retorno, quando o local escolhido pede o fornecedor. Ele é <b>copiado</b> para o '+
       'lançamento: renomear aqui não reescreve o que já saiu do galpão.</p>'+
       '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(f.Nome||'')+
-        '" placeholder="Ex.: Sítio Boa Vista">'+
+        '" placeholder="Ex.: Sítio Boa Vista Agrícola Ltda">'+
+      '<div class="grid2">'+
+        /* O APELIDO E O NOME DE TRABALHO, como no cadastro de motoristas: o nome do
+           documento e longo, e no galpao ninguem usa ele. E e o apelido que vai para
+           a lista do lancamento E para a linha gravada — o que se ve e o que se grava.
+           Foi a licao que a coluna do motorista pagou: oferecer um nome na tela e
+           gravar outro faz a mesma viagem ter dois nomes no relatorio. */
+        '<div><label>Apelido</label><input type="text" id="fApelido" value="'+
+          Q.esc(f.Apelido||'')+'" placeholder="Ex.: Boa Vista"></div>'+
+        '<div><label>Localidade</label><input type="text" id="fLocal" value="'+
+          Q.esc(f.Localidade||'')+'" placeholder="Ex.: Petrolina · PE"></div>'+
+      '</div>'+
+      '<p class="sub" style="margin:4px 0 0">O <b>apelido</b> é o que aparece para '+
+      'escolha no lançamento, e é ele que fica gravado na linha. Em branco, vale o '+
+      'nome. A <b>localidade</b> é informação do cadastro: o lugar de um lançamento '+
+      'continua vindo do local escolhido nele.</p>'+
       '<label>Ativo</label><select id="fAtivo">'+
         '<option value="SIM"'+(Q.ativo(f.Ativo)?' selected':'')+'>sim</option>'+
         '<option value="NAO"'+(Q.ativo(f.Ativo)?'':' selected')+'>não</option></select>'+
@@ -9483,16 +9507,29 @@
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
     document.getElementById('fSalvar').addEventListener('click', function(){
       var reg = { ID:f.ID||'', Nome:document.getElementById('fNome').value.trim(),
+                  Apelido:document.getElementById('fApelido').value.trim(),
+                  Localidade:document.getElementById('fLocal').value.trim(),
                   Ativo:document.getElementById('fAtivo').value };
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       /* NOME REPETIDO NAO ENTRA. O movimento guarda o nome, e dois cadastros com o
          mesmo nome sao indistinguiveis depois de gravados — o relatorio somaria os
          dois num so' e ninguem saberia qual apagar. */
+      /* O QUE NAO PODE REPETIR E' O NOME DE TRABALHO, e nao so' o nome do cadastro:
+         e' ele que fica gravado na linha, e dois fornecedores com o mesmo texto ali sao
+         indistinguiveis depois de gravados — o relatorio somaria os dois num so'. A
+         conferencia olha o apelido contra o apelido E contra o nome dos outros, nas
+         duas direcoes, porque qualquer cruzamento produz o mesmo texto na linha. */
+      var chamar = function(x){
+        return String((x.Apelido || x.Nome) || '').trim().toLowerCase();
+      };
+      var meu = chamar(reg);
       var igual = ((DADOS && DADOS.fornecedores) || []).filter(function(x){
-        return String(x.ID) !== String(reg.ID) &&
-               String(x.Nome||'').trim().toLowerCase() === reg.Nome.toLowerCase();
+        if (String(x.ID) === String(reg.ID)) return false;
+        return chamar(x) === meu ||
+               String(x.Nome||'').trim().toLowerCase() === meu ||
+               chamar(x) === String(reg.Nome).toLowerCase();
       })[0];
-      if (igual) return Q.toast('Já existe um fornecedor com esse nome.','erro');
+      if (igual) return Q.toast('Já existe um fornecedor com esse nome ou apelido.','erro');
       salvar('salvarFornecedor', reg, this);
     });
   }

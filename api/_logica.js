@@ -1257,8 +1257,14 @@ function conferirFornecedor(p, locais, fornecedores) {
     return 'Diga de qual fornecedor é esta carga: ' + pontas[0].Nome +
       ' pede o nome do fornecedor no cadastro.';
   }
+  /* O NOME OU O APELIDO. O lancamento grava o nome de TRABALHO — o apelido, quando
+     existe —, entao e ele que chega aqui; mas as linhas gravadas antes de o apelido
+     existir trazem o nome do cadastro, e recusa-las agora seria quebrar a correcao de
+     tudo o que ja' foi lancado. As duas portas levam ao mesmo cadastro. */
   var achou = (fornecedores || []).filter(function (f) {
-    return String(f.Nome || '').trim().toLowerCase() === nome.toLowerCase();
+    var n = String(f.Nome || '').trim().toLowerCase();
+    var ap = String(f.Apelido || '').trim().toLowerCase();
+    return n === nome.toLowerCase() || (ap && ap === nome.toLowerCase());
   })[0];
   if (!achou) {
     return 'Fornecedor fora do cadastro: ' + nome +

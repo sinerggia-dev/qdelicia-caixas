@@ -1263,8 +1263,11 @@
     /* SO OS ATIVOS, e em ordem de nome. Um fornecedor tirado de uso continua escrito
        nos lancamentos antigos — e historia —, mas nao se oferece para um novo. */
     var lista = (DADOS.fornecedores||[]).filter(function(f){ return Q.ativo(f.Ativo); })
+      /* ORDENADA PELO QUE SE LE', e nao pelo nome do cadastro: a lista sai na ordem
+         do apelido porque e' ele que esta' escrito nas opcoes. Ordenando pelo outro,
+         a lista apareceria embaralhada para quem olha. */
       .sort(function(a,b){
-        return String(a.Nome||'').localeCompare(String(b.Nome||''), 'pt-BR');
+        return Q.comoChamar(a).localeCompare(Q.comoChamar(b), 'pt-BR');
       });
     /* NENHUM CADASTRADO: a tela diz o que fazer, em vez de mostrar um campo vazio que
        faz o lancamento ser recusado sem explicacao. */
@@ -1272,12 +1275,23 @@
       sel.innerHTML = '<option value="">Nenhum fornecedor cadastrado</option>';
       return;
     }
+    /* O QUE SE VE E' O QUE SE GRAVA: o texto da opcao e o valor dela sao o mesmo
+       nome de trabalho — o apelido quando existe, e o nome quando nao. Oferecer um
+       nome na tela e gravar outro foi o defeito que a coluna do motorista pagou: a
+       mesma viagem passou a ter dois nomes no relatorio.
+       A LOCALIDADE ENTRA NO BALAO, e nao no rotulo: ela ajuda a escolher entre dois
+       fornecedores de nome parecido, e no meio da opcao faria a lista ficar comprida
+       demais para um seletor de celular. */
     sel.innerHTML = '<option value="">Selecione...</option>' +
       lista.map(function(f){
-        return '<option value="'+Q.esc(f.Nome)+'">'+Q.esc(f.Nome)+'</option>';
+        var chamar = Q.comoChamar(f);
+        return '<option value="'+Q.esc(chamar)+'"'+
+          (f.Localidade ? ' title="'+Q.esc(f.Nome + ' · ' + f.Localidade)+'"'
+                        : ' title="'+Q.esc(f.Nome)+'"')+'>'+
+          Q.esc(chamar)+'</option>';
       }).join('');
     /* UM SO NA LISTA JA VEM ESCOLHIDO, como nos outros campos desta tela. */
-    if (lista.length === 1) sel.value = lista[0].Nome;
+    if (lista.length === 1) sel.value = Q.comoChamar(lista[0]);
     else if (antes) sel.value = antes;
   }
 

@@ -468,6 +468,16 @@ console.log('\n== a placa do veiculo em Movimentos Motoristas ==');
 console.log('\n== o fornecedor da carga, na tela ==');
 {
   var idxF = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  /* A REGRA VERDADEIRA DO NOME DE TRABALHO, recortada do `app.js` UMA vez e usada
+     pelas bancadas desta seção. Reescrita aqui, seria um dublê mais fraco que o
+     original: no dia em que alguém mudasse a regra no app, estas provas continuariam
+     aprovando a regra antiga. */
+  var COMO_CHAMAR = (function () {
+    var fa = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    var ia = fa.indexOf('  function comoChamar(m) {');
+    return new Function(fa.slice(ia,
+      fa.indexOf(String.fromCharCode(10) + '  }', ia) + 4) + ' return comoChamar;')();
+  })();
   var admF = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   function corpoF(fonte, nome) {
     var i = fonte.indexOf('  function ' + nome + '(');
@@ -496,7 +506,8 @@ console.log('\n== o fornecedor da carga, na tela ==');
       ' return { pede: pedeFornecedor, montar: montarFornecedores };')(
       { locais: locais, fornecedores: fornecedores },
       { esc: function (x) { return String(x); },
-        ativo: function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; } },
+        ativo: function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false;  },
+        comoChamar: COMO_CHAMAR },
       { getElementById: function (id) { return nos[id] || null; } });
     return { api: api, nos: nos };
   }
@@ -564,6 +575,113 @@ console.log('\n== o fornecedor da carga, na tela ==');
   ok(/Nenhum fornecedor cadastrado/.test(b6.nos.sdFornecedor.innerHTML),
     'e sem nenhum cadastrado o campo DIZ isso — vazio, ele seria um seletor que recusa ' +
     'o lançamento sem explicar o que fazer', b6.nos.sdFornecedor.innerHTML);
+
+  /* ---- O APELIDO E' O NOME DE TRABALHO, e e' ele que se ve E que se grava ----
+   *
+   * E' a licao que a coluna do motorista pagou: oferecer um nome na tela e gravar
+   * outro fez a mesma viagem aparecer com dois nomes no relatorio. Aqui ha uma coluna
+   * so', entao o texto da opcao e o valor dela tem de ser a MESMA string. */
+  var COM_APELIDO = [
+    { ID: 'F1', Nome: 'Sítio Boa Vista Agrícola Ltda', Apelido: 'Boa Vista',
+      Localidade: 'Petrolina · PE', Ativo: true },
+    { ID: 'F2', Nome: 'Chácara do Zé', Apelido: '', Localidade: '', Ativo: true }
+  ];
+  var bA = bancadaF(LOC, COM_APELIDO);
+  bA.api.montar('sdFornecedor', 'sdWrapFornecedor', ['L009']);
+  var htmlA = bA.nos.sdFornecedor.innerHTML;
+  ok(/<option value="Boa Vista"[^>]*>Boa Vista<\/option>/.test(htmlA),
+    'quem tem apelido aparece pelo APELIDO, e o valor gravado é o mesmo texto — ' +
+    'oferecer um nome na tela e gravar outro foi o defeito que a coluna do motorista ' +
+    'pagou: a mesma viagem passou a ter dois nomes no relatório', htmlA);
+  ok(/<option value="Chácara do Zé"[^>]*>Chácara do Zé<\/option>/.test(htmlA),
+    'e quem não tem apelido continua pelo nome — em branco, vale o nome', htmlA);
+  ok(/title="Sítio Boa Vista Agrícola Ltda · Petrolina · PE"/.test(htmlA),
+    'e o nome inteiro e a localidade ficam no balão da opção — eles ajudam a escolher ' +
+    'entre dois parecidos, e no meio do rótulo fariam a lista ficar comprida demais ' +
+    'para um seletor de celular', htmlA);
+  ok(htmlA.indexOf('Boa Vista') < htmlA.indexOf('Chácara'),
+    'e a lista sai na ordem do que está ESCRITO nela — ordenada pelo nome do cadastro, ' +
+    'apareceria embaralhada para quem olha: "Sítio…" viria depois de "Chácara…"',
+    htmlA);
+
+  /* ---- E O SERVIDOR ACEITA AS DUAS PORTAS ----
+   * A linha grava o nome de trabalho; as linhas gravadas antes de o apelido existir
+   * trazem o nome do cadastro. Recusar uma delas quebraria a correcao do que ja' foi
+   * lancado. */
+  {
+    var logA = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+    var iA = logA.indexOf('function conferirFornecedor');
+    var corpoA = logA.slice(iA, logA.indexOf('\nfunction ', iA));
+    var conferir = new Function(corpoA + ' return conferirFornecedor;')();
+    var locA = [{ ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA', PedeFornecedor: true }];
+    ok(!conferir({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+                   fornecedor: 'Boa Vista' }, locA, COM_APELIDO),
+      'e o servidor aceita o APELIDO, que é o que a tela grava hoje');
+    ok(!conferir({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+                   fornecedor: 'Sítio Boa Vista Agrícola Ltda' }, locA, COM_APELIDO),
+      'e aceita também o NOME do cadastro — as linhas gravadas antes de o apelido ' +
+      'existir trazem ele, e recusá-las agora quebraria a correção de tudo o que já ' +
+      'foi lançado');
+    ok(conferir({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+                  fornecedor: 'Boa Vista Hortifruti' }, locA, COM_APELIDO),
+      'e continua recusando o que não está no cadastro por nenhuma das duas portas — a ' +
+      'lista é fechada, e é isso que impede o mesmo fornecedor de virar dois no relatório');
+  }
+
+  /* ---- OS CAMPOS EXISTEM NO CADASTRO ---- */
+  /* DENTRO DO FORMULARIO DO FORNECEDOR, e nao no arquivo inteiro.
+     `fApelido` e' tambem o id do apelido no cadastro de MOTORISTAS — os formularios
+     reaproveitam os mesmos ids porque so' um vive por vez no modal —, e a prova solta
+     casava com o outro: ela passava com o campo do fornecedor desligado. Foi a
+     sabotagem que mostrou. */
+  var formForn = (function () {
+    var i = admF.indexOf('  function formFornecedor(');
+    if (i < 0) return '';
+    var d = 0, k = admF.indexOf('{', i);
+    for (; k < admF.length; k++) {
+      if (admF[k] === '{') d++;
+      else if (admF[k] === '}' && --d === 0) return admF.slice(i, k + 1);
+    }
+    return '';
+  })();
+  ok(formForn.length > 500,
+    'a conferência recortou o formulário do fornecedor — no arquivo inteiro ela casaria ' +
+    'com o cadastro de motoristas, que usa os mesmos ids', formForn.length);
+  ok(/id="fApelido"/.test(formForn) && /id="fLocal"/.test(formForn),
+    'o cadastro do fornecedor tem os campos de Apelido e Localidade');
+  ok(/Apelido:document\.getElementById\('fApelido'\)\.value\.trim\(\)/.test(formForn) &&
+     /Localidade:document\.getElementById\('fLocal'\)\.value\.trim\(\)/.test(formForn),
+    'e os dois são GRAVADOS — desenhados e não lidos, eles seriam dois campos que a ' +
+    'pessoa preenche e o sistema joga fora, sem dizer nada');
+
+  /* ---- E O BANCO DEVOLVE OS DOIS ----
+   * Gravar e nao ler de volta e' meio campo: a tela abriria o cadastro com o apelido
+   * em branco toda vez, e quem editasse qualquer outra coisa o apagaria sem perceber. */
+  {
+    var sup = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
+    var iF = sup.indexOf('var FORNECEDOR = {');
+    var mapa = new Function('bool',
+      sup.slice(iF, sup.indexOf(String.fromCharCode(10) + '};', iF) + 3) +
+        ' return FORNECEDOR;')(
+      function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; });
+    var lido = mapa.de({ id: 'F1', nome: 'Sítio Boa Vista', apelido: 'Boa Vista',
+                         localidade: 'Petrolina · PE', ativo: true });
+    ok(lido.Apelido === 'Boa Vista' && lido.Localidade === 'Petrolina · PE',
+      'e o banco devolve o apelido e a localidade — gravar e não ler de volta é meio ' +
+      'campo: a tela abriria o cadastro com eles em branco toda vez, e quem editasse ' +
+      'outra coisa os apagaria sem perceber', lido);
+    var guardado = mapa.para({ Nome: ' Sítio ', Apelido: ' Boa Vista ',
+                               Localidade: ' Petrolina ' });
+    ok(guardado.apelido === 'Boa Vista' && guardado.localidade === 'Petrolina',
+      'e vão para o banco sem os espaços das pontas — "Boa Vista " e "Boa Vista" são o ' +
+      'mesmo fornecedor para quem digitou, e dois para a lista fechada', guardado);
+  }
+  ok(/apelido text not null default/.test(
+       fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8')) &&
+     /localidade text not null default/.test(
+       fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8')),
+    'e as duas colunas nascem no banco — sem a migração, o servidor recusaria a ' +
+    'gravação inteira e o cadastro pararia de salvar');
 
   /* ---- UM SO' JA' VEM ESCOLHIDO ---- */
   var b7 = bancadaF(LOC, [{ ID: 'F001', Nome: 'Sítio Boa Vista', Ativo: true }]);
@@ -651,7 +769,8 @@ console.log('\n== o fornecedor da carga, na tela ==');
           ativo: function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; },
           sessao: function () { return {}; },
           hoje: function () { return '2026-10-16'; },
-          num: function (n) { return String(n); } },
+          num: function (n) { return String(n); },
+          comoChamar: COMO_CHAMAR },
         { getElementById: no, querySelectorAll: function () { return []; } },
         function () { return LOCL; }, function () { return LOCL; },
         function () { return ''; },
@@ -759,7 +878,7 @@ console.log('\n== o fornecedor da carga, na tela ==');
       { locais: LOCR, fornecedores: FOR },
       { esc: function (x) { return String(x); },
         ativo: function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; },
-        sessao: function () { return {}; } },
+        sessao: function () { return {}; }, comoChamar: COMO_CHAMAR },
       { getElementById: function (id) { return nosR[id] || null; } },
       function () { return [LOCR[1]]; },   // so' a rota marcada pode receber
       function () { return [LOCR[1]]; },
