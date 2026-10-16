@@ -272,6 +272,171 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
     (admO.match(/\n\s*aplicarOrdemFiltros\(\);/g) || []).length);
 }
 
+console.log('\n== a gaveta de uma pessoa, no Painel de Ativos ==');
+{
+  var LG = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  var admG = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* OS DADOS DE ENSAIO: um motorista com as duas pontas e dois tipos de caixa, mais um
+     movimento de PERDA, que nao e' fluxo de ida e volta e por isso nao pode entrar nem
+     no total nem na gaveta. */
+  var dadosG = {
+    movimentos: [
+      { ID:'M1', Registro:'R000001', DataRef:new Date('2026-10-15T00:00:00'),
+        Tipo:'SAIDA', Qtd:100, OrigemID:'L1', DestinoID:'L2', TipoCaixaID:'T1',
+        Motorista:'Dinho', UsuarioID:'U1', Rota:'João Pessoa', Veiculo:'ABC1D23' },
+      { ID:'M2', Registro:'R000002', DataRef:new Date('2026-10-16T00:00:00'),
+        Tipo:'SAIDA', Qtd:60, OrigemID:'L1', DestinoID:'L2', TipoCaixaID:'T2',
+        Motorista:'Dinho', UsuarioID:'U1' },
+      { ID:'M3', Registro:'R000003', DataRef:new Date('2026-10-16T00:00:00'),
+        Tipo:'DEVOLUCAO', Qtd:40, OrigemID:'L2', DestinoID:'L1', TipoCaixaID:'T1',
+        Motorista:'Dinho', UsuarioID:'U1' },
+      { ID:'M4', Registro:'R000004', DataRef:new Date('2026-10-16T00:00:00'),
+        Tipo:'PERDA', Qtd:999, OrigemID:'L1', TipoCaixaID:'T1',
+        Motorista:'Dinho', UsuarioID:'U1' },
+      /* UM RETORNO CONFERIDO POR OUTRO NUMERO: lancaram 50 e o conferente contou 30.
+         Sem uma linha assim, `Qtd` e a quantidade EFETIVA sao o mesmo numero em todo o
+         ensaio, e trocar uma pela outra nao muda nada — foi assim que a sabotagem
+         passou por aqui. */
+      { ID:'M5', Registro:'R000005', DataRef:new Date('2026-10-16T00:00:00'),
+        Tipo:'DEVOLUCAO', Qtd:50, QtdConferida:30, OrigemID:'L2', DestinoID:'L1',
+        TipoCaixaID:'T2', Motorista:'Dinho', UsuarioID:'U1' }
+    ],
+    locais: [{ ID:'L1', Nome:'Matriz' }, { ID:'L2', Nome:'Recife' }],
+    tipos: [{ ID:'T1', Nome:'CX G' }, { ID:'T2', Nome:'CX P' }],
+    usuarios: [{ ID:'U1', Nome:'Nestor', Perfil:'GESTOR' }],
+    config: {}
+  };
+  var pessoasG = LG.fluxoPorPessoa(dadosG);
+  var dinho = pessoasG.motoristas.filter(function (x) { return x.nome === 'Dinho'; })[0];
+  ok(!!dinho, 'a conferência montou o fluxo por pessoa', pessoasG.motoristas.length);
+
+  /* ---- O QUE A GAVETA SOMA E' O QUE A LINHA DIZ ----
+   *
+   * E' a unica prova que importa de verdade nesta peca. A gaveta existe para explicar o
+   * numero de cima; divergindo dele, ela faz o contrario do que veio fazer — e as duas
+   * respostas sao plausiveis, entao quem conferir vai acreditar na que olhar primeiro.
+   * Elas nao tem como divergir porque saem do MESMO laco, e e' isso que se mede aqui. */
+  var somaSaida = dinho.linhas.filter(function (x) { return x.sentido === 'saida'; })
+    .reduce(function (a, x) { return a + x.qtd; }, 0);
+  var somaRet = dinho.linhas.filter(function (x) { return x.sentido === 'retorno'; })
+    .reduce(function (a, x) { return a + x.qtd; }, 0);
+  ok(somaSaida === dinho.saida && somaRet === dinho.retorno,
+    'as linhas da gaveta somam EXATAMENTE os dois números da linha de cima — a gaveta ' +
+    'existe para explicar o número, e divergindo dele ela faz o contrário do que veio ' +
+    'fazer: as duas respostas são plausíveis, e quem conferir acredita na que olhar ' +
+    'primeiro',
+    { gaveta: [somaSaida, somaRet], linha: [dinho.saida, dinho.retorno] });
+  /* COMPARADO COM O TEXTO QUE A LINHA MOSTRA, e nao com um campo que o servidor nao
+     manda: e' "3 lançamentos" que a pessoa le' debaixo do nome, e e' com ele que a
+     contagem da seta tem de bater. */
+  var naLinha = parseInt(String(dinho.sub).replace(/\D+/g, ''), 10);
+  ok(dinho.linhas.length === naLinha,
+    'e a contagem da seta é a mesma que a linha mostra em "N lançamentos" — dois ' +
+    'números sobre a mesma coisa, um na seta e outro ao lado do nome, se contradizem ' +
+    'na primeira vez que um filtro pegar só um deles',
+    { seta: dinho.linhas.length, linha: dinho.sub });
+
+  /* ---- PERDA E AJUSTE NAO ENTRAM, nem no total nem na gaveta ----
+   * Eles nao sao viagem de caixa. Entrando so' num dos dois, a gaveta deixaria de
+   * fechar com a linha — e pelo lado mais dificil de achar: um numero a mais, certo
+   * por si. */
+  ok(!dinho.linhas.some(function (x) { return x.tipo === 'PERDA'; }),
+    'e a PERDA não entra na gaveta, como não entra no total — ela não é viagem de ' +
+    'caixa, e entrando só num dos dois a gaveta deixaria de fechar com a linha',
+    dinho.linhas.map(function (x) { return x.tipo; }));
+
+  /* ---- A LINHA TRAZ O QUE A PESSOA PEDIU ---- */
+  var umG = dinho.linhas.filter(function (x) { return x.id === 'M1'; })[0];
+  ok(umG && umG.data === '2026-10-15' && umG.origem === 'Matriz' &&
+     umG.destino === 'Recife' && umG.caixa === 'CX G' && umG.qtd === 100,
+    'e cada linha traz a data, a origem, o destino, o tipo de caixa e a quantidade — ' +
+    'era isto que obrigava a sair do painel, abrir Movimentos e refazer o período à mão',
+    umG);
+  ok(umG && umG.origem === 'Matriz' && umG.destino === 'Recife',
+    'e os NOMES já resolvidos, e não os ids — a tela mostraria "L1", e o arquivo também');
+  ok(umG && umG.veiculo === 'ABC1D23' && umG.registro === 'R000001',
+    'e a placa e o código do lançamento, que é por onde se fala dele ao telefone', umG);
+
+  /* ---- A QUANTIDADE E' A QUE CONTA ----
+   * Lancaram 50 e o conferente contou 30: quem vale e' a contagem. Mostrando o numero
+   * lancado, a gaveta somaria 20 a mais que a linha de cima — e a prova da soma, que e'
+   * a mais forte desta peca, acusaria o erro sem dizer onde ele esta'. */
+  var confG = dinho.linhas.filter(function (x) { return x.id === 'M5'; })[0];
+  ok(confG && confG.qtd === 30,
+    'e a quantidade da linha é a EFETIVA — lançaram 50 e o conferente contou 30, e é a ' +
+    'contagem que vale: mostrando o número lançado, a gaveta somaria 20 a mais que a ' +
+    'linha de cima', confG && confG.qtd);
+
+  /* ---- MAIS RECENTE PRIMEIRO ---- */
+  ok(dinho.linhas[0].data >= dinho.linhas[dinho.linhas.length - 1].data,
+    'e a gaveta abre pelo mais recente — quem abre quer saber o que acabou de acontecer',
+    dinho.linhas.map(function (x) { return x.data; }));
+
+  /* ---- O TETO, E O AVISO DELE ----
+   *
+   * Nada exercitava o corte: o ensaio tinha quatro linhas e o teto sao trezentas, entao
+   * parar de contar o que sobra nao mudava nada. E e' justamente o caso em que a gaveta
+   * mentiria em silencio — mostrando menos sem dizer, ela faz os totais da linha
+   * parecerem errados. */
+  {
+    var muitos = [];
+    for (var iT = 0; iT < 320; iT++) {
+      muitos.push({ ID: 'X' + iT, Registro: 'R' + iT,
+        DataRef: new Date('2026-10-15T00:00:00'), Tipo: 'SAIDA', Qtd: 1,
+        OrigemID: 'L1', DestinoID: 'L2', TipoCaixaID: 'T1',
+        Motorista: 'Cheio', UsuarioID: 'U1' });
+    }
+    var cheio = LG.fluxoPorPessoa({
+      movimentos: muitos, locais: dadosG.locais, tipos: dadosG.tipos,
+      usuarios: dadosG.usuarios, config: {}
+    }).motoristas[0];
+    ok(cheio.linhas.length === 300 && cheio.corte === 20,
+      'e o teto da gaveta segura em 300 linhas e CONTA o que sobrou — sem contar, a ' +
+      'gaveta mostraria menos em silêncio e os totais da linha pareceriam errados',
+      { linhas: cheio.linhas.length, corte: cheio.corte });
+    ok(cheio.saida === 320,
+      'e o total da linha continua contando TUDO — o teto é da gaveta, e não da conta: ' +
+      'cortar os dois juntos seria esconder caixa do saldo para caber numa tela',
+      cheio.saida);
+  }
+
+  /* ---- A MESMA LINHA NAS DUAS VISOES ----
+   * E' o mesmo lancamento visto por dois angulos: quem dirigiu e quem lancou. */
+  var nestor = pessoasG.usuarios[0];
+  ok(nestor && nestor.linhas.length === dinho.linhas.length,
+    'e a visão de quem LANÇOU tem a gaveta dela também — é o mesmo lançamento visto por ' +
+    'outro ângulo, e montar duas versões dele seria duas verdades',
+    nestor && nestor.linhas.length);
+
+  /* ---- E A TELA LIGA ISSO ---- */
+  ok(admG.indexOf('function gavetaDaPessoa(') > 0,
+    'a tela tem a gaveta');
+  ok(admG.indexOf('data-abrir-pessoa=') > 0 &&
+     admG.indexOf("querySelectorAll('[data-abrir-pessoa]')") > 0,
+    'e o botão que a abre é LIGADO — desenhado e sem ouvinte, ele seria um triângulo ' +
+    'que não faz nada, que é o defeito mais repetido deste painel');
+  ok(/var abre = gente && \(l\.linhas \|\| \[\]\)\.length;/.test(admG),
+    'e a seta só nasce nas visões de GENTE e quando há o que abrir — as linhas de local ' +
+    'somam por outro caminho e não têm detalhe, e uma seta que não abre nada é pior ' +
+    'que seta nenhuma');
+  /* AS DUAS METADES DA MEMORIA, nomeadas separadamente. A prova pedia so' o texto
+     `PESSOAS_ABERTAS[chave]`, e ele aparece nas DUAS linhas — guardar e esquecer.
+     Arrancando a que GUARDA, a que esquece respondia pela prova, e a gaveta passava a
+     se fechar sozinha a cada redesenho com tudo verde. */
+  ok(admG.indexOf('else PESSOAS_ABERTAS[chave] = 1;') > 0,
+    'e abrir uma pessoa GUARDA isso na memória');
+  ok(admG.indexOf('delete PESSOAS_ABERTAS[chave];') > 0,
+    'e fechar ESQUECE — sem isto, a gaveta voltaria a abrir sozinha depois de fechada');
+  ok(admG.indexOf("PESSOAS_ABERTAS[l.tipo + '|' + l.id]") > 0,
+    'e o desenho da tabela LÊ essa memória — guardada e não lida, ela seria um registro ' +
+    'que ninguém consulta, e a gaveta se fecharia sozinha no meio da leitura toda vez ' +
+    'que alguém classificasse uma coluna');
+  ok(/Mostrando os ' \+ Q\.num\(linhas\.length\) \+ ' mais recentes/.test(admG),
+    'e quando o teto do servidor morde, a gaveta DIZ que mordeu — mostrando menos em ' +
+    'silêncio, ela faria os totais da linha parecerem errados');
+}
+
 console.log('\n== falta e negativo, e vermelho ==');
 {
   var admD = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -2473,9 +2638,12 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
   var corpo = adm.slice(i, adm.indexOf("document.querySelectorAll('[data-fchip]')", i));
 
   // uma lista so alimenta o <thead> e o <tbody>
-  ok(/cs\.map\(function\(c\)\{[\s\S]{0,200}<th/.test(corpo),
+  /* O QUE IMPORTA E' A LISTA, e nao a assinatura da funcao: a celula ganhou um indice
+     quando a seta da gaveta passou a nascer so' na primeira coluna, e um padrao preso a
+     `function(c)` reprovava uma mudanca que nao tem nada a ver com o que ele mede. */
+  ok(/cs\.map\(function\(c[^)]*\)\{[\s\S]{0,200}<th/.test(corpo),
     'o cabecalho percorre a lista de colunas');
-  ok(/cs\.map\(function\(c\)\{[\s\S]{0,120}<td/.test(corpo),
+  ok(/cs\.map\(function\(c[^)]*\)\{[\s\S]{0,400}<td/.test(corpo),
     'e as celulas percorrem a MESMA lista — nao ha duas strings para lembrar de casar');
   /* `cs.length + 1` e nao um numero escrito: o +1 e a coluna de folga, que existe para a
      largura pedida ser obedecida. Numero fixo, o aviso apareceria torto no dia em que uma

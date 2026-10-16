@@ -3318,6 +3318,21 @@ details.tipos[open] summary::before{content:"▾"}
    a cor deixaria de significar alguma coisa. */
 .dif-falta{color:var(--vermelho)}
 
+/* ================= A GAVETA DE UMA PESSOA, no Painel de Ativos =================
+   Ela e' uma tabela DENTRO de uma celula, e precisa se ler como detalhe e nao como uma
+   segunda tabela independente: fundo de veu, letra menor, e um recuo a esquerda que
+   diz de quem ela e'. Sem o recuo, aberta no meio da lista, ela parece o proximo
+   bloco de linhas da tabela de cima. */
+.pes-linhas>td{background:var(--veu);padding:0 0 0 22px}
+.pes-aberta>td{background:var(--veu)}
+.gav{font-size:12.5px}
+.gav th{font-weight:600;color:var(--txt3);text-transform:uppercase;
+  font-size:10.5px;letter-spacing:.04em;white-space:nowrap}
+.gav td{padding:5px 10px;border-top:1px solid var(--linha)}
+.gav tbody tr:first-child td{border-top:0}
+/* A mensagem de gaveta vazia ou cortada: ela e' texto de apoio, e nao um erro. */
+.gav-vazia{margin:8px 10px;font-size:12px;color:var(--txt3)}
+
 /* ================= A LINHA DE UMA LOCALIDADE =================
    Ela e' um RESUMO no meio de uma tabela de viagens, e precisa se separar das linhas que
    resume — senao a pessoa le' a soma como se fosse mais uma viagem, e a conta do dia

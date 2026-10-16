@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=899d0d9f">
+<link rel="stylesheet" href="styles.css?v=5b20ecbd">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -5104,6 +5104,55 @@
     });
   }
 
+  /* ================= A GAVETA DE UMA PESSOA =================
+   *
+   * A linha responde QUANTO: saiu 800, voltou 1.939, saldo +1.139. A gaveta responde
+   * DE ONDE ISSO VEIO — cada lancamento com a data, as duas pontas, o tipo de caixa e
+   * a quantidade. Sem ela, conferir um saldo estranho exigia sair daqui, abrir
+   * Movimentos, achar o filtro de motorista e refazer o periodo a mao.
+   *
+   * AS LINHAS VEM DO SERVIDOR, do MESMO laco que soma os totais da linha. Nao e'
+   * conveniencia: uma segunda passada com os mesmos filtros escritos de novo divergiria
+   * no primeiro deles que so' uma recebesse, e as duas respostas sao plausiveis —
+   * ninguem saberia qual esta' certa. Somadas, as linhas da gaveta dao exatamente os
+   * dois numeros da linha de cima, e a prova cobra isso.
+   *
+   * SO' NAS VISOES DE GENTE, porque so' elas tem o detalhe: as linhas de local somam
+   * por outro caminho, e uma seta que nao abre nada e' pior que seta nenhuma. */
+  var PESSOAS_ABERTAS = {};
+
+  function gavetaDaPessoa(l){
+    var linhas = l.linhas || [];
+    if (!linhas.length){
+      return '<p class="gav-vazia">Sem lançamentos no período — os números desta linha ' +
+             'vêm de fora do recorte atual.</p>';
+    }
+    var aviso = l.corte
+      ? '<p class="gav-vazia">Mostrando os ' + Q.num(linhas.length) + ' mais recentes. ' +
+        'Há ' + Q.num(l.corte) + ' a mais no período, e os totais da linha contam todos.</p>'
+      : '';
+    return aviso +
+      '<div class="tabela-wrap"><table class="gav"><thead><tr>' +
+      '<th>Data</th><th>Movimento</th><th>Origem</th><th>Destino</th>' +
+      '<th>Caixa</th><th class="num">Qtd</th><th>Veículo</th><th>Lançamento</th>' +
+      '</tr></thead><tbody>' +
+      linhas.map(function(x){
+        /* O SENTIDO PINTA A QUANTIDADE, com as cores da casa: azul o que saiu, verde o
+           que voltou. E' a mesma leitura dos graficos, e dispensa uma coluna so' para
+           dizer "saida" ou "retorno" numa gaveta ja' estreita. */
+        var cor = x.sentido === 'saida' ? 'gb__n--s' : 'gb__n--r';
+        return '<tr><td>'+Q.esc(Q.dataBR(x.data))+'</td>'+
+          '<td>'+Q.esc(rotuloDoTipoMov(x.tipo))+'</td>'+
+          '<td>'+Q.esc(x.origem || '—')+'</td>'+
+          '<td>'+Q.esc(x.destino || '—')+'</td>'+
+          '<td>'+Q.esc(x.caixa || '—')+'</td>'+
+          '<td class="num"><b class="'+cor+'">'+Q.num(x.qtd)+'</b></td>'+
+          '<td>'+(x.veiculo ? '<span class="tag cinza">'+Q.esc(x.veiculo)+'</span>'
+                            : '<span class="fraco">—</span>')+'</td>'+
+          '<td><span class="cod">'+Q.esc(x.registro || x.id || '')+'</span></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
   function desenharFluxo(){
     var f = PAINEL && PAINEL.fluxo;
     if (!f) return;
@@ -5333,9 +5382,29 @@
         (!lista.length
           ? '<tr><td colspan="'+(cs.length+1)+'"><div class="vazio">'+avisoVazio()+'</div></td></tr>'
           : lista.map(function(l){
-            return '<tr>'+cs.map(function(c){
-              return '<td'+(c.d.num ? ' class="num"' : '')+'>'+c.d.v(l)+'</td>';
-            }).join('')+'<td class="folga"></td></tr>';
+            /* A SETA SO' NAS VISOES DE GENTE, e so' quando ha' o que abrir. */
+            var abre = gente && (l.linhas || []).length;
+            var aberta = abre && PESSOAS_ABERTAS[l.tipo + '|' + l.id];
+            return '<tr'+(aberta ? ' class="pes-aberta"' : '')+'>'+
+              cs.map(function(c, iC){
+              return '<td'+(c.d.num ? ' class="num"' : '')+'>'+
+                /* A SETA DIZ QUANTAS LINHAS TEM, como a de Movimentos Motoristas: um
+                   triangulo de dezesseis pixels sem rotulo nao se acha, e quem procurava
+                   onde ver o detalhe concluia que no computador nao dava. */
+                (iC === 0 && abre
+                  ? '<button class="abre-par" type="button" data-abrir-pessoa="'+
+                    Q.esc(l.tipo + '|' + l.id)+'" title="ver os lançamentos desta pessoa '+
+                    'no período" data-n="'+Q.num(l.linhas.length)+'">'+
+                    (aberta ? '▾' : '▸')+' <span class="abre-par__n">'+
+                    Q.num(l.linhas.length)+'</span></button>'
+                  : '')+
+                c.d.v(l)+'</td>';
+            }).join('')+'<td class="folga"></td></tr>'+
+            (abre
+              ? '<tr class="pes-linhas"'+(aberta ? '' : ' hidden')+
+                ' data-corpo-pessoa="'+Q.esc(l.tipo + '|' + l.id)+'">'+
+                '<td colspan="'+(cs.length + 1)+'">'+gavetaDaPessoa(l)+'</td></tr>'
+              : '');
           }).join(''))+'</tbody></table></div>';
     ligarArrastarColunas(TAB_ATIVOS);
     ligarLarguraColunas(TAB_ATIVOS);
@@ -5345,6 +5414,29 @@
     pintarTrava();
     ligarClassificacao();
     ligarOrdemExtrato();
+
+    /* ABRIR UMA PESSOA MEXE SO' NA GAVETA DELA, sem redesenhar a tabela: um redesenho
+       perderia a posicao da rolagem, e quem clica na linha do meio volta para o topo e
+       tem de procurar de novo o que acabou de abrir. E o estado vai para a memoria
+       tambem, porque a tabela e' redesenhada por coisas que nao tem nada a ver com
+       isto — classificar uma coluna, trocar de visao, chegar dado novo. */
+    document.querySelectorAll('[data-abrir-pessoa]').forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.stopPropagation();
+        var chave = String(b.dataset.abrirPessoa);
+        var alvo = document.querySelector('[data-corpo-pessoa="'+
+          chave.replace(/"/g, '&quot;')+'"]');
+        if (!alvo) return;
+        alvo.hidden = !alvo.hidden;
+        if (alvo.hidden) delete PESSOAS_ABERTAS[chave];
+        else PESSOAS_ABERTAS[chave] = 1;
+        b.textContent = '';
+        b.insertAdjacentHTML('beforeend', (alvo.hidden ? '▸' : '▾') +
+          ' <span class="abre-par__n">' + b.getAttribute('data-n') + '</span>');
+        var linha = b.closest('tr');
+        if (linha) linha.classList.toggle('pes-aberta', !alvo.hidden);
+      });
+    });
 
     document.querySelectorAll('[data-fchip]').forEach(function(b){
       b.addEventListener('click', function(){

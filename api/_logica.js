@@ -2463,24 +2463,40 @@ function fluxoPorPessoa(dados, desde, ate) {
   var movimentos = dados.movimentos || [];
   var usuarios = dados.usuarios || [];
   var nomesUsuarios = mapaNomes(usuarios);
+  var mLocaisP = mapaNomes(dados.locais || []);
   var perfis = {};
   usuarios.forEach(function (u) { perfis[String(u.ID)] = u.Perfil || ''; });
 
   // chave -> { nome, extra:{}, saida, retorno }
   var porMot = {}, porUsu = {};
   var nomesTiposP = mapaTipos(dados.tipos || []);
-  function soma(mapa, chave, nome, q, ehSaida, extra, caixa) {
+  /* QUANTAS LINHAS DE DETALHE CADA PESSOA LEVA.
+   * Um teto existe porque a carga desta rota cresce com o periodo escolhido, e alguem
+   * vai pedir o ano inteiro um dia. Quando ele morde, a gaveta DIZ que mordeu — a conta
+   * de cima continua sendo de tudo, e uma gaveta que mostra menos sem avisar faria
+   * parecer que os totais estao errados. */
+  var TETO_DETALHE = 300;
+
+  function soma(mapa, chave, nome, q, ehSaida, extra, caixa, linha) {
     if (!chave) return;
     var k = String(chave);
     if (!mapa[k]) {
       mapa[k] = { id: k, nome: nome, saida: 0, retorno: 0, n: 0, extras: {},
-                  saidaTipo: {}, retornoTipo: {} };
+                  saidaTipo: {}, retornoTipo: {}, linhas: [], corte: 0 };
     }
     mapa[k].n++;
     var lado = ehSaida ? 'saidaTipo' : 'retornoTipo';
     if (ehSaida) mapa[k].saida += q; else mapa[k].retorno += q;
     if (caixa) mapa[k][lado][caixa] = (mapa[k][lado][caixa] || 0) + q;
     if (extra) mapa[k].extras[extra] = 1;
+    /* O DETALHE SAI DAQUI, do MESMO laco que soma o total — e nao de uma segunda
+       passada com os mesmos filtros escritos de novo. E' o unico jeito de a gaveta nao
+       poder divergir da linha: um filtro que so' uma das duas recebesse daria duas
+       respostas plausiveis, e ninguem veria qual e' a certa. */
+    if (linha) {
+      if (mapa[k].linhas.length < TETO_DETALHE) mapa[k].linhas.push(linha);
+      else mapa[k].corte++;
+    }
   }
 
   ativos(movimentos).forEach(function (m) {
@@ -2493,8 +2509,21 @@ function fluxoPorPessoa(dados, desde, ate) {
     var ehSaida = (sentido === 'SAIDA');
     var mot = String(m.Motorista || '').trim();
     var caixa = nome(nomesTiposP, m.TipoCaixaID);
-    soma(porMot, mot, mot, q, ehSaida, String(m.Rota || '').trim(), caixa);
-    soma(porUsu, m.UsuarioID, nome(nomesUsuarios, m.UsuarioID), q, ehSaida, '', caixa);
+    /* A LINHA DA GAVETA: o que aconteceu, quando, entre onde e onde, de que caixa e
+       quantas. Os nomes ja' resolvidos aqui, e nao os ids: a tela mostraria "L016", e
+       o arquivo tambem. */
+    var linha = {
+      id: m.ID, registro: m.Registro || '', data: soData(m.DataRef),
+      tipo: m.Tipo, sentido: ehSaida ? 'saida' : 'retorno',
+      origem: nome(mLocaisP, m.OrigemID), destino: nome(mLocaisP, m.DestinoID),
+      rota: String(m.Rota || '').trim(), caixa: caixa, qtd: q,
+      veiculo: m.Veiculo || '', fornecedor: m.Fornecedor || ''
+    };
+    soma(porMot, mot, mot, q, ehSaida, String(m.Rota || '').trim(), caixa, linha);
+    /* A MESMA LINHA nas duas visoes: e' o mesmo lancamento visto por dois angulos —
+       quem dirigiu e quem lancou. Montar duas versoes dele seria duas verdades. */
+    soma(porUsu, m.UsuarioID, nome(nomesUsuarios, m.UsuarioID), q, ehSaida, '', caixa,
+         linha);
   });
 
   function lista(mapa, tipo, sub) {
@@ -2516,7 +2545,13 @@ function fluxoPorPessoa(dados, desde, ate) {
         responsavel: sub === 'perfil' ? (perfis[r.id] || '') : rotas.join(', '),
         saida: r.saida, retorno: r.retorno,
         saidaTipos: detalharTipos(r.saidaTipo), retornoTipos: detalharTipos(r.retornoTipo),
-        saldo: c.saldo, desvio: c.desvio, situacao: c.situacao
+        saldo: c.saldo, desvio: c.desvio, situacao: c.situacao,
+        /* MAIS RECENTE PRIMEIRO, como toda lista de lancamento do painel: quem abre a
+           gaveta quer saber o que acabou de acontecer. */
+        linhas: r.linhas.slice().sort(function (x, y) {
+          return x.data < y.data ? 1 : x.data > y.data ? -1 : 0;
+        }),
+        corte: r.corte
       };
     }).sort(function (a, b) {
       return (a.teste ? 1 : 0) - (b.teste ? 1 : 0) ||
