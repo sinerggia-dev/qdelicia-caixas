@@ -3582,16 +3582,19 @@
        OS TRÊS NÚMEROS JUNTOS, nesta ordem: Saída, Declarado, Conferido. É a ordem do
        que acontece — sai, o motorista diz quanto levou, alguém conta na chegada —, e
        as duas diferenças vêm depois, na ordem em que foram pedidas. */
-    padrao: ['lancamento','data','base','tipo','motorista','origem','destino',
+    /* A PLACA FICA COLADA NO MOTORISTA, que e onde ela se le: as duas respondem
+       "quem levou". Entre as pontas da viagem, ela se leria como um terceiro lugar. */
+    padrao: ['lancamento','data','base','tipo','motorista','placa','origem','destino',
              'saida','declarado','conferido','difDecl','difConf',
              'conferente','situacao'],
     larg: { lancamento:140,
-            data:110, base:110, tipo:100, motorista:150, origem:160, destino:160,
+            data:110, base:110, tipo:100, motorista:150, placa:110,
+            origem:160, destino:160,
             saida:110, declarado:110, conferido:110, difDecl:130, difConf:130,
             conferente:160, situacao:150 },
     titulos: { lancamento:'Lançamento',
                data:'Data', base:'Base', tipo:'Tipo', motorista:'Motorista',
-               origem:'Origem', destino:'Destino',
+               placa:'Placa', origem:'Origem', destino:'Destino',
                saida:'Saída', declarado:'Declarado', conferido:'Conferido',
                difDecl:'Saída − Declarado', difConf:'Saída − Conferido',
                conferente:'Conferente', situacao:'Situação' },
@@ -3682,7 +3685,7 @@
                     motorista: (m.motorista || '').trim(),
                     tipo: (m.tipo === 'DEVOLUCAO') ? 'Retorno' : 'Saída',
                     teste: !!m.teste, saida: 0, declarado: 0, conferido: 0,
-                    rotas: {}, origens: {}, destinos: {},
+                    rotas: {}, origens: {}, destinos: {}, veiculos: {},
                     conferentes: {}, informantes: {}, ids: {}, itens: [] };
       }
       var par = mapa[k];
@@ -3714,6 +3717,14 @@
       }
       if (m.origem) par.origens[m.origem] = 1;
       if (m.destino) par.destinos[m.destino] = 1;
+      /* A PLACA E UM CONJUNTO, como as duas pontas da viagem — e pelo mesmo motivo:
+         um par e uma VIAGEM, e ela pode ter mais de um lancamento. O caso comum tem
+         uma placa so; guardando o primeiro que aparecesse, o dia em que a carga
+         trocasse de carro no meio do caminho a tabela mostraria metade da verdade.
+         SO QUEM TEM: a declaracao do motorista nao traz placa, e o conferente tambem
+         nao — ela vem do lancamento da saida. Sem a guarda, o conjunto ganharia uma
+         entrada vazia e a celula diria ", ABC1D23". */
+      if (m.veiculo) par.veiculos[m.veiculo] = 1;
       var r = m.origem || m.rota || '';
       if (r) par.rotas[r] = 1;
     });
@@ -3725,6 +3736,7 @@
          total só. Por isso são CONJUNTOS, e não o primeiro que apareceu. */
       par.origemTxt = Object.keys(par.origens).sort().join(', ');
       par.destinoTxt = Object.keys(par.destinos).sort().join(', ');
+      par.veiculoTxt = Object.keys(par.veiculos).sort().join(', ');
       par.informanteTxt = resumoDeNomes(par.informantes);
       /* ORDENADOS COMO TEXTO, que é o que o formato permite: largura fixa e zeros à
          esquerda fazem `M000041` vir antes de `M000102` sem virar número.
@@ -3793,6 +3805,15 @@
       motorista: { t: T.motorista, k: function(p){ return p.motorista; },
                    v: function(p){ return p.motorista ? Q.esc(p.motorista)
                      : '<span class="fraco">(sem motorista)</span>'; } },
+      /* A PLACA COMO ETIQUETA, igual a de Movimentos: ela e um codigo, e codigo no
+         meio de uma fileira de nomes some. Vazia vira traco, e nao celula em branco —
+         par que so tem declaracao nao tem placa nenhuma, e branco se le como dado que
+         faltou preencher. */
+      placa:     { t: T.placa, k: function(p){ return p.veiculoTxt; },
+                   v: function(p){ return p.veiculoTxt
+                     ? '<span class="tag cinza" title="'+Q.esc(p.veiculoTxt)+'">'+
+                       Q.esc(p.veiculoTxt)+'</span>'
+                     : '<span class="fraco">—</span>'; } },
       /* AS DUAS PONTAS DA VIAGEM, cada uma na coluna dela. São CONJUNTOS: o conferente
          desmembra uma carga por origem, e o par é a viagem inteira. */
       origem:    { t: T.origem, k: function(p){ return p.origemTxt; },

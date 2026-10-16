@@ -272,6 +272,80 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
     (admO.match(/\n\s*aplicarOrdemFiltros\(\);/g) || []).length);
 }
 
+console.log('\n== a placa do veiculo em Movimentos Motoristas ==');
+{
+  var admP = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoPl(nome) {
+    var i = admP.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = admP.indexOf('{', i);
+    for (; k < admP.length; k++) {
+      if (admP[k] === '{') d++;
+      else if (admP[k] === '}' && --d === 0) return admP.slice(i, k + 1);
+    }
+    return '';
+  }
+
+  /* A FUNCAO RODA. Lida no arquivo, a prova responderia "a palavra placa esta la'?" —
+     e estaria, inclusive numa versao que guarda o primeiro lancamento e descarta os
+     outros, ou que deixa uma entrada vazia no conjunto. */
+  var fontePl = corpoPl('montarPares');
+  ok(fontePl.length > 800,
+    'a conferência recortou o montador dos pares — recorte vazio faria as provas ' +
+    'abaixo passarem sem rodar nada', fontePl.length);
+
+  function pares(lista) {
+    return new Function('chaveDoPar', 'contouComoConferente', 'resumoDeNomes',
+                        'Q', 'MOV_P', fontePl + ' return montarPares(MOV_P);')(
+      function (m) { return m.motorista + '|' + m.dataRef; },
+      function () { return false; },
+      function (o) { return Object.keys(o).sort().join(', '); },
+      { esc: function (x) { return String(x); } },
+      lista);
+  }
+  var MOV_P = [
+    /* A SAIDA traz a placa: e' o lancamento do galpao. */
+    { id: 'M1', dataRef: '2026-10-16', motorista: 'Dinho', tipo: 'SAIDA', qtd: 100,
+      usuario: 'Nestor', origem: 'Matriz', destino: 'Recife', veiculo: 'ABC1D23' },
+    /* A DECLARACAO do motorista nao traz placa nenhuma. */
+    { id: 'M2', dataRef: '2026-10-16', motorista: 'Dinho', tipo: 'SAIDA', qtd: 98,
+      usuario: 'Dinho', declaracao: true, origem: 'Matriz', destino: 'Recife',
+      veiculo: '' },
+    /* UMA SEGUNDA SAIDA da mesma viagem, noutro carro. */
+    { id: 'M3', dataRef: '2026-10-16', motorista: 'Dinho', tipo: 'SAIDA', qtd: 40,
+      usuario: 'Nestor', origem: 'Matriz', destino: 'Recife', veiculo: 'XYZ9K88' }
+  ];
+  var todos = pares(MOV_P);
+  ok(todos.length === 1, 'os três lançamentos viram UM par — é a mesma viagem',
+     todos.length);
+  ok(todos[0].veiculoTxt === 'ABC1D23, XYZ9K88',
+    'o par guarda TODAS as placas da viagem, e não a primeira que apareceu — um par é ' +
+    'uma viagem, e ela pode ter mais de um lançamento: guardando uma só, o dia em que ' +
+    'a carga trocasse de carro no meio do caminho a tabela mostraria metade da verdade',
+    JSON.stringify(todos[0].veiculoTxt));
+  ok(todos[0].veiculoTxt.indexOf(', ,') < 0 && todos[0].veiculoTxt.charAt(0) !== ',',
+    'e o lançamento SEM placa não deixa uma entrada vazia no conjunto — a declaração ' +
+    'do motorista não traz placa, e sem a guarda a célula diria ", ABC1D23"',
+    JSON.stringify(todos[0].veiculoTxt));
+  ok(pares([MOV_P[1]])[0].veiculoTxt === '',
+    'e um par que só tem a declaração fica sem placa nenhuma — ela vem do lançamento ' +
+    'da saída, e inventar uma ali seria dizer em que carro a carga foi sem ninguém ' +
+    'ter informado', JSON.stringify(pares([MOV_P[1]])[0].veiculoTxt));
+
+  var descP = admP.slice(admP.indexOf('var TAB_DECL = {'),
+                         admP.indexOf("alvo: '#tabelaDecl'"));
+  ok(descP.indexOf("'motorista','placa','origem'") >= 0,
+    'e a coluna Placa fica colada no Motorista — as duas respondem "quem levou", e ' +
+    'entre as pontas da viagem ela se leria como um terceiro lugar');
+  ok(descP.indexOf('placa:110') >= 0 && descP.indexOf("placa:'Placa'") >= 0,
+    'e ela tem largura e título — coluna sem um dos dois nasce espremida ou sem nome');
+  ok(admP.replace(/\s+/g, ' ')
+       .indexOf('placa: { t: T.placa, k: function(p){ return p.veiculoTxt; }') >= 0,
+    'e a célula lê o campo que o par realmente guarda — lendo outro nome, a coluna ' +
+    'nasceria vazia em todas as linhas e a conclusão natural seria que ninguém ' +
+    'preenche a placa; foi o que já aconteceu com ela na tela de Movimentos');
+}
+
 console.log('\n== o fornecedor da carga, na tela ==');
 {
   var idxF = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
