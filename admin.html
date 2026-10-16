@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=2fb7d673">
+<link rel="stylesheet" href="styles.css?v=dc0da0ab">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -7615,7 +7615,27 @@
       '<span class="gb__t"><span class="gb__f" style="width:'+pc.toFixed(1)+'%">'+
         (g.saida ? '<i class="gb__s" style="flex:'+ps+' 1 0"></i>' : '')+
         (g.retorno ? '<i class="gb__d" style="flex:'+(100 - ps)+' 1 0"></i>' : '')+
-      '</span></span></button>';
+      '</span></span>'+
+      /* A TARJA DO SALDO, embaixo e na MESMA REGUA da de cima.
+       *
+       * E' a terceira medida ganhando tarja, como as outras duas ja' tinham. Sem ela, o
+       * saldo era o unico dos tres numeros que so' existia escrito — e num painel que
+       * se le' varrendo cores, o que nao tem tarja nao entra na varredura.
+       *
+       * A MESMA REGUA E' O QUE A TORNA HONESTA, e nao um enfeite: a barra de cima tem
+       * `total/maior` de largura e e' repartida entre saida e retorno na proporcao
+       * deles, entao o pedaco azul mede `saida/maior` e o verde `retorno/maior`. Uma
+       * tarja de `|saldo|/maior` tem, por construcao, EXATAMENTE o comprimento da
+       * diferenca entre os dois pedacos de cima. O olho compara sem fazer conta.
+       *
+       * ZERO NAO DESENHA NADA — zero e' a resposta boa, e uma tarja minima de 1px se
+       * leria como "um pouquinho faltando", que e' o contrario do que aconteceu. */
+      (saldoG
+        ? '<span class="gb__t gb__t--sa"><span class="gb__f" style="width:'+
+            (maior ? (Math.abs(saldoG) / maior * 100) : 0).toFixed(1)+'%">'+
+            '<i class="gb__saldo" style="flex:1"></i></span></span>'
+        : '')+
+      '</button>';
   }
 
   function painelG(i, titulo, lista, nota, campo){

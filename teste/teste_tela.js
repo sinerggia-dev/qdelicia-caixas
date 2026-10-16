@@ -4432,11 +4432,32 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
       'desenho abaixo não aconteceria e a prova passaria sem medir nada', faltando);
 
     var caixaG = { innerHTML: '' };
+    /* OS DADOS PRECISAM SEPARAR AS HIPOTESES.
+     *
+     * A primeira versao tinha duas linhas, cada uma com saida OU retorno — e nelas o
+     * total e o |saldo| sao o MESMO numero. Com isso, uma tarja que medisse o
+     * movimento em vez do saldo desenhava exatamente a mesma largura, e a sabotagem
+     * passou. Dado de ensaio pobre nao reprova nada: ele so' parece reprovar.
+     *
+     * Agora cada dia tem as duas pontas, com total diferente do |saldo|, e UM deles
+     * fecha em zero — o caso que decide se a tarja aparece quando nao devia. */
     var MOVS_G = [
+      /* 14/10: saida 100, retorno 40 -> total 140, saldo -60. Tres numeros distintos. */
       { dataRef: '2026-10-14', qtd: 100, tipo: 'SAIDA', origem: 'Matriz',
         destino: 'Recife', motorista: 'Dinho', usuario: 'Nestor', usuarioId: 'U1',
         tipoCaixa: 'CX G', tipoCaixaId: 'T1' },
-      { dataRef: '2026-10-15', qtd: 40, tipo: 'DEVOLUCAO', origem: 'Recife',
+      { dataRef: '2026-10-14', qtd: 40, tipo: 'DEVOLUCAO', origem: 'Recife',
+        destino: 'Matriz', motorista: 'Dinho', usuario: 'Nestor', usuarioId: 'U1',
+        tipoCaixa: 'CX G', tipoCaixaId: 'T1' },
+      /* 15/10: saida 50, retorno 50 -> saldo ZERO, com movimento de 100. */
+      { dataRef: '2026-10-15', qtd: 50, tipo: 'SAIDA', origem: 'Matriz',
+        destino: 'Natal', motorista: 'Ramos', usuario: 'Breno', usuarioId: 'U2',
+        tipoCaixa: 'CX P', tipoCaixaId: 'T3' },
+      { dataRef: '2026-10-15', qtd: 50, tipo: 'DEVOLUCAO', origem: 'Natal',
+        destino: 'Matriz', motorista: 'Ramos', usuario: 'Breno', usuarioId: 'U2',
+        tipoCaixa: 'CX P', tipoCaixaId: 'T3' },
+      /* 16/10: so' retorno — a ponta unica continua coberta. */
+      { dataRef: '2026-10-16', qtd: 40, tipo: 'DEVOLUCAO', origem: 'Recife',
         destino: 'Matriz', motorista: 'Dinho', usuario: 'Nestor', usuarioId: 'U1',
         tipoCaixa: 'CX G', tipoCaixaId: 'T1' }
     ];
@@ -4520,6 +4541,66 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
       'e o painel do SALDO não repete o saldo na linha — ele já é o número grande da ' +
       'direita, e o mesmo dado duas vezes com duas formatações se lê como dois dados');
 
+    /* ---- A TERCEIRA TARJA: o saldo tambem tem barra no painel de volume ----
+     *
+     * O saldo era o unico dos tres numeros que so' existia escrito, e num painel que se
+     * le' varrendo cores o que nao tem tarja nao entra na varredura.
+     *
+     * A PROVA MEDE A CONTA, e nao a presenca: a tarja vermelha tem de ter EXATAMENTE o
+     * comprimento da diferenca entre o pedaco azul e o verde da barra de cima. E' isso
+     * que a torna honesta em vez de enfeite — e e' uma relacao que se quebra sozinha no
+     * dia em que uma das duas reguas mudar, sem nada na tela parecer errado. */
+    function medirLinha(botao) {
+      var f = /<span class="gb__f" style="width:([\d.]+)%">/.exec(botao);
+      var fs = botao.match(/flex:([\d.]+) 1 0/g) || [];
+      var sa = /gb__t gb__t--sa"><span class="gb__f" style="width:([\d.]+)%/.exec(botao);
+      if (!f) return null;
+      var largura = parseFloat(f[1]);
+      var pAzul = fs.length ? parseFloat(fs[0].replace('flex:', '')) : 0;
+      var temAzul = botao.indexOf('gb__s"') >= 0;
+      var temVerde = botao.indexOf('gb__d"') >= 0;
+      /* Os dois pedacos repartem a largura na proporcao `flex`. Com um so' deles na
+         linha, ele toma a largura inteira. */
+      var azul = !temAzul ? 0 : (temVerde ? largura * pAzul / 100 : largura);
+      var verde = !temVerde ? 0 : (temAzul ? largura - azul : largura);
+      return { largura: largura, azul: azul, verde: verde,
+               vermelha: sa ? parseFloat(sa[1]) : null };
+    }
+    var botoesV = (secoesN[0].match(/<button class="gb"[\s\S]*?<\/button>/g) || []);
+    ok(botoesV.length >= 2,
+      'a conferência recortou as linhas do primeiro painel de volume', botoesV.length);
+    var foraDaConta = [], semTarja = [];
+    botoesV.forEach(function (b) {
+      var m = medirLinha(b);
+      if (!m) return;
+      var dif = Math.abs(m.azul - m.verde);
+      if (dif < 0.05) { if (m.vermelha !== null) semTarja.push(m); return; }
+      if (m.vermelha === null) { semTarja.push(m); return; }
+      if (Math.abs(m.vermelha - dif) > 0.15) foraDaConta.push({ dif: dif.toFixed(1),
+                                                                tarja: m.vermelha });
+    });
+    ok(!semTarja.length,
+      'toda linha com saldo ganha a tarja vermelha, e a de saldo zero não ganha — zero ' +
+      'é a resposta boa, e uma tarja mínima de 1px se leria como "um pouquinho ' +
+      'faltando", que é o contrário do que aconteceu', semTarja);
+    ok(!foraDaConta.length,
+      'e ela mede EXATAMENTE a diferença entre o pedaço azul e o verde da barra de ' +
+      'cima — é a mesma régua, e é isso que a torna uma medida em vez de enfeite: o ' +
+      'olho compara os dois sem fazer conta', foraDaConta);
+
+    /* ---- E O PAINEL DO SALDO NAO GANHA DUAS BARRAS ----
+     * La' a barra JA' e' o saldo; uma segunda tarja seria a mesma medida duas vezes. */
+    var tarjas = (secoesN[0].match(/gb__t gb__t--sa"><span class="gb__f"[^>]*><i class="([a-z_-]+)"/g) || [])
+      .map(function (x) { return /<i class="([a-z_-]+)"/.exec(x)[1]; });
+    ok(tarjas.length > 0 && tarjas.every(function (cl) { return cl === 'gb__saldo'; }),
+      'e ela é pintada com a cor do SALDO, e não com a de uma das pontas — vermelha ' +
+      'por ser a diferença: em verde ela se leria como mais retorno, que é o contrário ' +
+      'do que ela mede', tarjas);
+
+    ok(saldos.every(function (s) { return s.indexOf('gb__t--sa') < 0; }),
+      'e o painel do saldo continua com UMA barra — lá ela já mede o saldo, e uma ' +
+      'segunda tarja seria a mesma medida desenhada duas vezes na mesma linha');
+
     /* ---- E OS DOIS PAINEIS DO PAR DIZEM O MESMO SALDO ----
      *
      * O saldo aparece em dois lugares para a mesma linha: na linha do painel de
@@ -4538,7 +4619,10 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
     var divergentes = [];
     for (var iS = 0; iS < secoesN.length; iS += 2) {
       var naLinha = numeros(secoesN[iS], 'gb__n--sa');
-      var grandes = numeros(secoesN[iS + 1], 'gb__v--saldo');
+      /* `gb__v` E NAO `gb__v--saldo`: a linha de saldo ZERO nao recebe a classe da
+         cor, e procurando por ela aquela linha sumiria da lista — as duas listas
+         ficariam desalinhadas e a prova compararia a linha errada com a seguinte. */
+      var grandes = numeros(secoesN[iS + 1], 'gb__v');
       naLinha.forEach(function (v, j) {
         if (String(v) !== String(grandes[j])) {
           divergentes.push({ painel: iS, linha: j, volume: v, saldo: grandes[j] });

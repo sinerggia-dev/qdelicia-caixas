@@ -3276,6 +3276,12 @@ details.tipos[open] summary::before{content:"▾"}
 .gb__v{flex:0 0 auto;font-size:clamp(10.5px,.9vw,12px);font-weight:600;color:var(--txt);
   font-variant-numeric:tabular-nums;white-space:nowrap}
 .gb__t{display:block;height:7px;border-radius:999px;background:var(--veu)}
+/* A TARJA DO SALDO, no painel de volume: mais FINA e colada na de cima.
+   Da mesma altura, as duas disputariam a leitura e a linha pareceria dois registros
+   diferentes; fina e encostada, ela se le como o resto da primeira — que e' o que ela e'.
+   O trilho dela nao tem fundo proprio: o fundo cinza da barra de cima ja' marca ate'
+   onde vai a regua, e repeti-lo aqui desenharia duas reguas para a mesma medida. */
+.gb__t--sa{height:4px;margin-top:2px;background:transparent}
 .gb__f{display:flex;gap:2px;height:100%;border-radius:999px;overflow:hidden}
 .gb__f i{display:block;height:100%;min-width:0}
 /* Os dois tons sao os VALIDADOS PARA PREENCHIMENTO em fundo escuro. Os claros do resto
