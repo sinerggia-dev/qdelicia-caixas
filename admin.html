@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=f9eb55da">
+<link rel="stylesheet" href="styles.css?v=f23e40ba">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1348,6 +1348,15 @@
           <div class="barra-trava__acoes">
             <button class="btn sec so-celular" type="button" id="btnAbrirFiltrosDecl">
               Filtros</button>
+            <!-- JUNTAR POR LOCALIDADE. A tela responde "bateu?" por VIAGEM, e a
+                 pergunta que faltava e' por LUGAR: quanto saiu para Joao Pessoa no
+                 periodo e quanto voltou de la'. Somar as viagens de um lugar com o olho,
+                 numa tabela de trinta pares, e' onde a conta se perde.
+                 E' UMA ESCOLHA E NAO O PADRAO, como o agrupar de Movimentos: quem abre
+                 esta tela para conferir UMA viagem perde a linha de vista se ela nascer
+                 dentro de uma gaveta fechada. -->
+            <button class="bt-agrupar" id="btnAgruparDecl" type="button"
+                    aria-pressed="false">por local</button>
             <button class="btn neutro" type="button" id="btnCsvDecl">⬇ CSV</button>
             <!-- O ATALHO DO DIA JUNTO DAS OUTRAS AÇÕES. Sozinho numa linha abaixo dos
                  campos de data, ele gastava uma faixa inteira da tela do celular para
@@ -4111,6 +4120,47 @@
      alvo é `#tabelaMov`, e um seletor que pegasse as duas faria cada clique procurar a
      linha na lista errada. */
   function ligarAcoesDecl(box){
+    /* ABRIR UM LOCAL MOSTRA AS VIAGENS DELE, e nada mais na tabela se mexe.
+     *
+     * Sem redesenhar: um redesenho perderia a posicao da rolagem — a pessoa abre o
+     * local do meio da lista e a tabela volta para o topo, e ela tem de procurar de
+     * novo o que acabou de abrir. E' a mesma razao ja' escrita no abrir de uma carga.
+     *
+     * FECHAR LEVA AS GAVETAS DE DENTRO JUNTO: cada viagem tem a propria gaveta de
+     * lancamentos, e uma que ficasse aberta reapareceria sozinha na proxima vez que o
+     * local fosse aberto — sem ninguem ter pedido, e no meio de outras linhas.
+     *
+     * O ESTADO VAI PARA `LOCAIS_ABERTOS` tambem, e nao so' para o DOM: a tabela e'
+     * redesenhada por coisas que nao tem nada a ver com isto — classificar uma coluna,
+     * buscar, chegar dado novo —, e sem a memoria o local se fecharia sozinho no meio
+     * da leitura. */
+    box.querySelectorAll('[data-abrir-local]').forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.stopPropagation();
+        var local = String(b.dataset.abrirLocal);
+        var abre = !LOCAIS_ABERTOS[local];
+        if (abre) LOCAIS_ABERTOS[local] = 1; else delete LOCAIS_ABERTOS[local];
+        var sel = '[data-do-local="' + local.replace(/"/g, '&quot;') + '"]';
+        box.querySelectorAll(sel).forEach(function(tr){
+          /* A GAVETA DE LANCAMENTOS DE CADA VIAGEM NAO ABRE JUNTO: ela e' a terceira
+             camada, e abrir tudo de uma vez entregaria trinta linhas onde se pediu um
+             resumo. Ao fechar o local, ela fecha. */
+          if (tr.classList.contains('par-linhas')) { tr.hidden = true; return; }
+          tr.hidden = !abre;
+        });
+        if (!abre) {
+          box.querySelectorAll(sel + ' .abre-par.aberto').forEach(function(x){
+            x.classList.remove('aberto');
+          });
+        }
+        b.textContent = '';
+        b.insertAdjacentHTML('beforeend', (abre ? '▾' : '▸') +
+          ' <span class="abre-par__n">' + Q.num(
+            box.querySelectorAll(sel + ':not(.par-linhas)').length) + '</span>');
+        var linha = b.closest('tr');
+        if (linha) linha.classList.toggle('aberto', abre);
+      });
+    });
     box.querySelectorAll('[data-abrir-par]').forEach(function(b){
       b.addEventListener('click', function(e){
         e.stopPropagation();
@@ -4197,6 +4247,88 @@
     var s = String(iso || '').slice(0, 10).split('-');
     return s.length === 3 ? s[2] + '/' + s[1] + '/' + s[0] : '';
   }
+
+  /* ================= JUNTAR OS PARES POR LOCALIDADE =================
+   *
+   * A tabela responde "bateu?" por VIAGEM — motorista + dia + tipo + base. Esta funcao
+   * responde a mesma pergunta por LUGAR: de tudo o que saiu para Joao Pessoa no
+   * periodo, quanto voltou.
+   *
+   * A LOCALIDADE E' A ORIGEM, que e' o campo onde o lugar aparece nas duas direcoes:
+   * na saida ela e' de onde a carga partiu, e no retorno e' de onde a caixa esta
+   * voltando. O destino quase sempre e' a mesma casa — a Matriz —, e agrupar por ele
+   * daria um grupo so com tudo dentro.
+   *
+   * O GRUPO TEM A FORMA DE UM PAR de proposito: os mesmos nomes de campo, para que as
+   * MESMAS celulas da tabela o desenhem. Um segundo desenhador para as mesmas colunas
+   * divergiria do primeiro no dia em que uma delas mudasse de formato — e as duas
+   * linhas ficam uma embaixo da outra, onde a diferenca e' visivel.
+   *
+   * AS DIFERENCAS SEGUEM A REGRA DO PAR, e nao a dos cartoes de cima: nulas quando um
+   * dos lados nao existe. As duas linhas dividem a mesma COLUNA, e uma coluna so' pode
+   * significar uma coisa — com a regra dos cartoes, um grupo onde ninguem declarou
+   * mostraria "+1.441" na mesma coluna em que o par abaixo mostra um traco. */
+  function agruparDeclPorLocal(lista){
+    var mapa = {}, ordem = [];
+    (lista || []).forEach(function(p){
+      /* SEM INFORMACAO E' UMA CATEGORIA, e nao um buraco: par sem origem e' caso real,
+         e some-lo faria a soma dos grupos nao fechar com a dos cartoes de cima. */
+      var k = p.origemTxt || 'sem informação';
+      if (!mapa[k]){
+        mapa[k] = { ehGrupo: true, local: k, pares: [], origemTxt: k,
+                    destinos: {}, saida: 0, declarado: 0, conferido: 0 };
+        ordem.push(k);
+      }
+      var g = mapa[k];
+      g.pares.push(p);
+      g.saida += Number(p.saida) || 0;
+      g.declarado += Number(p.declarado) || 0;
+      g.conferido += Number(p.conferido) || 0;
+      (p.destinoTxt || '').split(', ').forEach(function(d){ if (d) g.destinos[d] = 1; });
+    });
+    /* EM ORDEM DE NOME, e nao por tamanho: quem abre isto esta' procurando UM lugar —
+       "e Joao Pessoa?" —, e uma ordem que muda com os numeros faz o mesmo lugar trocar
+       de posicao a cada filtro. */
+    return ordem.sort(function(x, y){ return x.localeCompare(y, 'pt-BR'); })
+      .map(function(k){
+        var g = mapa[k];
+        g.destinoTxt = Object.keys(g.destinos).sort().join(', ');
+        g.difDecl = (g.saida && g.declarado) ? g.saida - g.declarado : null;
+        g.difConf = (g.saida && g.conferido) ? g.saida - g.conferido : null;
+        return g;
+      });
+  }
+
+  /* GUARDADO NO NAVEGADOR de quem olha, como a ordem e a largura das colunas: e' jeito
+     de ler, e nao regra da empresa. */
+  var CHAVE_AGRUPAR_DECL = 'qdc_agrupar_decl_v1';
+  var AGRUPAR_DECL = (function(){
+    try { return localStorage.getItem(CHAVE_AGRUPAR_DECL) === '1'; } catch (e) { return false; }
+  })();
+  /* QUAIS GRUPOS ESTAO ABERTOS FICA NA MEMORIA, e nao no navegador: e' o estado de uma
+     leitura — "estou olhando este aqui" —, e nao uma preferencia. Guardado, a tela
+     abriria amanha com cinco lugares escancarados de um filtro que nem esta' mais la'. */
+  var LOCAIS_ABERTOS = {};
+
+  (function(){
+    var b = document.getElementById('btnAgruparDecl');
+    if (!b) return;
+    /* O BOTAO DIZ O ESTADO, e o balao diz o que o toque faz — a mesma divisao do
+       agrupar de Movimentos. */
+    function pintar(){
+      b.setAttribute('aria-pressed', AGRUPAR_DECL ? 'true' : 'false');
+      b.title = AGRUPAR_DECL
+        ? 'Juntado por localidade. Tocar para voltar a uma linha por viagem.'
+        : 'Uma linha por viagem. Tocar para juntar as viagens de cada localidade.';
+    }
+    b.addEventListener('click', function(){
+      AGRUPAR_DECL = !AGRUPAR_DECL;
+      try { localStorage.setItem(CHAVE_AGRUPAR_DECL, AGRUPAR_DECL ? '1' : '0'); } catch (e) {}
+      pintar();
+      desenharDecl();
+    });
+    pintar();
+  })();
 
   function desenharDecl(){
     var box = document.getElementById('tabelaDecl');
@@ -4304,7 +4436,47 @@
           Q.esc(c.d.t)+seta+puxador()+'</th>';
       }).join('')+
       '</tr></thead><tbody>'+
-      linhas.map(function(par){
+      (AGRUPAR_DECL ? agruparDeclPorLocal(linhas) : linhas).map(function(par){
+        /* ================= A LINHA DO GRUPO =================
+         * Desenhada pelas MESMAS celulas da linha do par, porque o grupo tem a forma de
+         * um par. O que muda e' o que NAO se aplica: um grupo nao tem lancamento, data,
+         * motorista, placa, conferente nem situacao — ele tem varios de cada. Essas
+         * celulas recebem um traco, e nao o valor do primeiro par de dentro: mostrar um
+         * nome ali faria a linha parecer uma viagem, e a soma ao lado pareceria dela. */
+        if (par.ehGrupo){
+          var abertoL = !!LOCAIS_ABERTOS[par.local];
+          var soGrupo = { origem: 1, destino: 1, saida: 1, declarado: 1,
+                          conferido: 1, difDecl: 1, difConf: 1 };
+          return '<tr class="grp-local'+(abertoL ? ' aberto' : '')+'">'+
+            cs.map(function(c, iC){
+              return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+'>'+
+                (iC === 0 ? '<button class="abre-par" type="button" data-abrir-local="'+
+                            Q.esc(par.local)+'" title="ver as viagens desta localidade">'+
+                            (abertoL ? '▾' : '▸')+' <span class="abre-par__n">'+
+                            Q.num(par.pares.length)+'</span></button>' : '')+
+                (soGrupo[c.id] ? c.d.v(par) : '<span class="fraco">—</span>')+
+              '</td>';
+            }).join('')+'</tr>'+
+            /* AS VIAGENS DO GRUPO, cada uma na linha dela e com a gaveta de lancamentos
+               que ela ja' tinha: o analitico que se pediu e' esta tabela, e nao um
+               resumo novo. Nascem escondidas; o botao acima as mostra. */
+            par.pares.map(function(p){ return linhaDePar(p, cs, !abertoL, par.local); })
+              .join('');
+        }
+        return linhaDePar(par, cs, false, '');
+      }).join('')+'</tbody></table></div>';
+
+    ligarArrastarColunas(TAB_DECL);
+    ligarLarguraColunas(TAB_DECL);
+    ligarOrdemColunas('#tabelaDecl', classificarDeclPor);
+    ligarAcoesDecl(box);
+  }
+
+  /* A LINHA DE UMA VIAGEM, e a gaveta de lancamentos dela.
+     Saiu de dentro do `desenharDecl` para ser a MESMA nos dois modos — solta e dentro
+     de um grupo. Duas copias divergiriam na primeira que fosse mexida, e elas aparecem
+     na mesma tabela, uma embaixo da outra. */
+  function linhaDePar(par, cs, escondida, local){
         /* A LINHA INTEIRA GANHA A COR DO PROBLEMA, e não só a etiqueta: numa tabela de
            trinta pares, a etiqueta some no meio das outras nove colunas. */
         var classe = par.situacao === 'Divergente' ? 'ruim'
@@ -4312,7 +4484,9 @@
         /* E A LINHA DAS LINHAS, logo abaixo e fechada. `colspan` pelo número de colunas
            que sobraram — escrito fixo, esconder uma coluna deixaria a gaveta estourando
            a tabela para o lado. */
-        return '<tr class="'+classe+'">'+cs.map(function(c, iC){
+        var marca = local ? ' data-do-local="'+Q.esc(local)+'"' : '';
+        return '<tr class="'+classe+(local ? ' par-de-local' : '')+'"'+marca+
+               (escondida ? ' hidden' : '')+'>'+cs.map(function(c, iC){
           return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+'>'+
             /* A SETA SOZINHA NAO SE ACHAVA. No celular a gaveta se abre por um botao
                escrito — "3 lançamentos" —, e no computador era um triangulo de dezesseis
@@ -4326,14 +4500,8 @@
                       : '')+
             c.d.v(par)+'</td>';
         }).join('')+'</tr>'+
-        '<tr class="par-linhas" hidden data-corpo-par="'+Q.esc(par.chave)+'">'+
+        '<tr class="par-linhas" hidden data-corpo-par="'+Q.esc(par.chave)+'"'+marca+'>'+
           '<td colspan="'+cs.length+'">'+linhasDoPar(par)+'</td></tr>';
-      }).join('')+'</tbody></table></div>';
-
-    ligarArrastarColunas(TAB_DECL);
-    ligarLarguraColunas(TAB_DECL);
-    ligarOrdemColunas('#tabelaDecl', classificarDeclPor);
-    ligarAcoesDecl(box);
   }
 
 

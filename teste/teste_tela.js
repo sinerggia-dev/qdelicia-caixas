@@ -272,6 +272,125 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
     (admO.match(/\n\s*aplicarOrdemFiltros\(\);/g) || []).length);
 }
 
+console.log('\n== juntar as viagens por localidade ==');
+{
+  var admL = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoL(nome) {
+    var i = admL.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = admL.indexOf('{', i);
+    for (; k < admL.length; k++) {
+      if (admL[k] === '{') d++;
+      else if (admL[k] === '}' && --d === 0) return admL.slice(i, k + 1);
+    }
+    return '';
+  }
+  var fonteL = corpoL('agruparDeclPorLocal');
+  ok(fonteL.length > 500,
+    'a conferência recortou o agrupador por localidade — recorte vazio faria as provas ' +
+    'abaixo passarem sem rodar nada', fonteL.length);
+
+  var agrupar = new Function(fonteL + ' return agruparDeclPorLocal;')();
+  var PARES_L = [
+    { origemTxt: 'João Pessoa', destinoTxt: 'Matriz', saida: 173, declarado: 0,
+      conferido: 0, situacao: 'Sem conferência' },
+    { origemTxt: 'João Pessoa', destinoTxt: 'Matriz', saida: 262, declarado: 0,
+      conferido: 100, situacao: 'Divergente' },
+    { origemTxt: 'Recife', destinoTxt: 'Matriz', saida: 0, declarado: 0,
+      conferido: 500, situacao: 'Sem saída' },
+    { origemTxt: '', destinoTxt: 'Matriz', saida: 10, declarado: 0, conferido: 0,
+      situacao: 'Sem conferência' }
+  ];
+  var gs = agrupar(PARES_L);
+
+  /* ---- O QUE A PESSOA PEDIU: a conta acumulada por lugar ---- */
+  var jp = gs.filter(function (g) { return g.local === 'João Pessoa'; })[0];
+  ok(jp && jp.saida === 435 && jp.conferido === 100,
+    'as viagens de uma localidade somam numa linha só — "quanto saiu para João Pessoa ' +
+    'e quanto voltou de lá" era uma conta que se fazia com o olho numa tabela de ' +
+    'trinta pares, que é onde ela se perde',
+    jp && { saida: jp.saida, conferido: jp.conferido });
+  ok(jp && jp.pares.length === 2,
+    'e o grupo guarda as viagens dele — é delas que o analítico é feito quando se ' +
+    'expande, e não de um segundo resumo', jp && jp.pares.length);
+
+  /* ---- SOMA FECHA COM O TODO ----
+   * Se um par escapasse do agrupamento, os grupos somariam menos que os cartoes de
+   * cima — e os dois numeros sao plausiveis, entao ninguem desconfiaria. */
+  var somaG = gs.reduce(function (a, g) { return a + g.saida; }, 0);
+  var somaP = PARES_L.reduce(function (a, p) { return a + p.saida; }, 0);
+  ok(somaG === somaP,
+    'e a soma dos grupos fecha com a soma dos pares — um par que escapasse faria os ' +
+    'grupos somarem menos que os cartões do topo, e os dois números são plausíveis',
+    { grupos: somaG, pares: somaP });
+  ok(gs.filter(function (g) { return g.local === 'sem informação'; }).length === 1,
+    'e o par SEM origem vira uma categoria, e não um buraco — sumi-lo é justamente o ' +
+    'que faria a soma não fechar');
+
+  /* ---- O DESTINO DO GRUPO E' O CONJUNTO DOS DESTINOS DAS VIAGENS ----
+   * A coluna Destino existe na mesma linha, e um grupo que a deixasse vazia mostraria
+   * um traco onde todas as viagens de dentro dizem "Matriz" — a linha de cima parecendo
+   * ter menos informacao que as de baixo, sem nada explicando por que. */
+  var recife = gs.filter(function (g) { return g.local === 'Recife'; })[0];
+  ok(jp && jp.destinoTxt === 'Matriz' && recife && recife.destinoTxt === 'Matriz',
+    'e o destino do grupo é o conjunto dos destinos das viagens dele — vazio, a linha ' +
+    'de cima mostraria um traço onde todas as de baixo dizem "Matriz"',
+    { jp: jp && jp.destinoTxt, recife: recife && recife.destinoTxt });
+  var doisDestinos = agrupar([
+    { origemTxt: 'Natal', destinoTxt: 'Matriz', saida: 10, declarado: 0, conferido: 0 },
+    { origemTxt: 'Natal', destinoTxt: 'Filial Maceió', saida: 5, declarado: 0,
+      conferido: 0 }
+  ])[0];
+  ok(doisDestinos.destinoTxt === 'Filial Maceió, Matriz',
+    'e com viagens para casas diferentes ele traz as DUAS, em ordem — um grupo é um ' +
+    'lugar, e de um lugar a caixa pode voltar para mais de uma casa',
+    doisDestinos.destinoTxt);
+
+  /* ---- A ORDEM E' DE NOME ---- */
+  ok(gs.map(function (g) { return g.local; }).join('|') ===
+     gs.map(function (g) { return g.local; }).sort(function (x, y) {
+       return x.localeCompare(y, 'pt-BR'); }).join('|'),
+    'e os grupos saem em ordem de nome — quem abre isto está procurando UM lugar, e ' +
+    'uma ordem que muda com os números faz o mesmo lugar trocar de posição a cada filtro',
+    gs.map(function (g) { return g.local; }));
+
+  /* ---- AS DIFERENCAS SEGUEM A REGRA DO PAR ----
+   * As duas linhas dividem a mesma COLUNA, e uma coluna so' pode significar uma coisa. */
+  ok(jp && jp.difDecl === null,
+    'e a diferença fica NULA quando um dos lados não existe, como na linha da viagem — ' +
+    'as duas dividem a mesma coluna, e com a regra dos cartões um grupo onde ninguém ' +
+    'declarou mostraria "+435" na mesma coluna em que a viagem abaixo mostra um traço',
+    jp && jp.difDecl);
+  ok(jp && jp.difConf === 335,
+    'e existe quando os dois lados existem: 435 que saíram menos 100 conferidos',
+    jp && jp.difConf);
+
+  /* ---- O GRUPO TEM A FORMA DE UM PAR ----
+   * E' isso que deixa as MESMAS celulas desenharem as duas linhas. */
+  ['origemTxt', 'destinoTxt', 'saida', 'declarado', 'conferido', 'difDecl', 'difConf']
+    .forEach(function (campo) {
+      ok(jp && campo in jp,
+        'e o grupo tem o campo `' + campo + '`, com o nome que a célula da tabela já ' +
+        'lê — um segundo desenhador para as mesmas colunas divergiria do primeiro, e ' +
+        'as duas linhas ficam uma embaixo da outra');
+    });
+
+  /* ---- E A TELA LIGA ISSO ---- */
+  ok(/id="btnAgruparDecl"/.test(admL) && /CHAVE_AGRUPAR_DECL/.test(admL),
+    'e existe o botão que liga, com a escolha guardada no navegador de quem olha — é ' +
+    'jeito de ler, e não regra da empresa');
+  ok(/data-abrir-local=/.test(admL) &&
+     /box\.querySelectorAll\('\[data-abrir-local\]'\)/.test(admL),
+    'e o botão de abrir o local é LIGADO — desenhado e sem ouvinte, ele seria um ' +
+    'triângulo que não faz nada, que é o defeito mais repetido desta tela');
+  ok(/AGRUPAR_DECL \? agruparDeclPorLocal\(linhas\) : linhas/.test(admL),
+    'e o agrupamento entra no desenho da tabela — a peça existir e ninguém a chamar é ' +
+    'como as outras passaram');
+  ok(/function linhaDePar\(par, cs, escondida, local\)/.test(admL),
+    'e a linha da viagem virou uma função só, usada solta e dentro do grupo — duas ' +
+    'cópias divergiriam na primeira que fosse mexida, e elas aparecem na mesma tabela');
+}
+
 console.log('\n== a placa do veiculo em Movimentos Motoristas ==');
 {
   var admP = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -2062,8 +2181,30 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
      redimensionar sao a mesma maquinaria para qualquer tabela do painel, e copia-la por
      tabela divergiria no primeiro conserto que so uma recebesse. A bancada monta a
      descricao da tabela de ativos e exercita a funcao com ela. */
+  /* O RECORTE E' POR PECA, e nao um INTERVALO do arquivo.
+     Ele ia de `var TAB_ATIVOS` ate' o fim de `ordemColunas` — mil e quatrocentas linhas
+     — e trazia junto tudo o que morasse no meio. No dia em que uma dessas linhas tocou
+     `document` fora de uma funcao, a bancada parou de rodar com um "document is not
+     defined" que nao tem nada a ver com o que ela mede. Peca a peca, ela so' carrega o
+     que exercita, e codigo novo entre as duas pode nascer onde fizer sentido. */
+  function pecaOrdem(nome) {
+    var i = adm.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = adm.indexOf('{', i);
+    for (; k < adm.length; k++) {
+      if (adm[k] === '{') d++;
+      else if (adm[k] === '}' && --d === 0) return adm.slice(i, k + 1) + '\n';
+    }
+    return '';
+  }
   var j = adm.indexOf('function ordemColunas(t)');
-  var fonteOrdem = adm.slice(adm.indexOf('var TAB_ATIVOS'), adm.indexOf('\n  }', j) + 4);
+  var iTab = adm.indexOf('var TAB_ATIVOS');
+  var iAte = adm.indexOf('var COLUNAS_ATE');
+  var fonteOrdem =
+    adm.slice(iTab, adm.indexOf('\n  };', iTab) + 5) +
+    adm.slice(iAte, adm.indexOf(';', iAte) + 1) + '\n' +
+    pecaOrdem('colunasDestravadas') + pecaOrdem('podeVerArranjo') +
+    pecaOrdem('podeArranjarColunas') + pecaOrdem('ordemColunas');
   ok(j > 0 && /function ordemColunas\(t\)/.test(fonteOrdem) && /kOrdem:/.test(fonteOrdem),
     'a ordem das colunas é da TABELA que se pede, e não de uma só');
   var loja = {};
@@ -2533,9 +2674,28 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
 
   // ---- largura ----
   var j = adm.indexOf('function larguras(t)');
-  /* Idem: a largura e da tabela que se pede. O recorte comeca em `TAB_ATIVOS` porque e
-     dele que saem as larguras de fabrica. */
-  var fonte = adm.slice(adm.indexOf('var TAB_ATIVOS'), adm.indexOf('\n  }', j) + 4);
+  /* Idem: a largura e da tabela que se pede, e `TAB_ATIVOS` e' de onde saem as de
+     fabrica. PECA A PECA pelo mesmo motivo da secao anterior: o intervalo de mil e
+     quatrocentas linhas trazia junto tudo o que morasse entre as duas pontas, e parou
+     de rodar no dia em que uma delas tocou `document` fora de uma funcao. */
+  function pecaLarg(nome) {
+    var i = adm.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = adm.indexOf('{', i);
+    for (; k < adm.length; k++) {
+      if (adm[k] === '{') d++;
+      else if (adm[k] === '}' && --d === 0) return adm.slice(i, k + 1) + '\n';
+    }
+    return '';
+  }
+  var iTabL = adm.indexOf('var TAB_ATIVOS');
+  var iAteL = adm.indexOf('var COLUNAS_ATE');
+  var fonte =
+    adm.slice(iTabL, adm.indexOf('\n  };', iTabL) + 5) +
+    adm.slice(iAteL, adm.indexOf(';', iAteL) + 1) + '\n' +
+    adm.slice(adm.indexOf('var LARG_MIN'), adm.indexOf(';', adm.indexOf('var LARG_MIN')) + 1) + '\n' +
+    pecaLarg('colunasDestravadas') + pecaLarg('podeVerArranjo') +
+    pecaLarg('podeArranjarColunas') + pecaLarg('larguras');
   var loja = {};
   var localStorage = {
     getItem: function (k) { return loja[k] === undefined ? null : loja[k]; },
