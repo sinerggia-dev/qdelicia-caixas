@@ -382,12 +382,84 @@ console.log('\n== o fornecedor da carga, na tela ==');
   /* ================= AS DUAS TELAS, E A PONTA DE CADA UMA =================
    * Na saida manda o DESTINO; no retorno, a ORIGEM. Trocadas, o campo apareceria na
    * tela errada — e cada uma mostraria o fornecedor do lado que nao e o dele. */
-  ok(/montarFornecedores\('sdFornecedor', 'sdWrapFornecedor', alvo\.value\)/.test(idxF),
-    'na SAÍDA quem manda é o destino — e o valor lido é o que ficou no seletor depois ' +
-    'de ele ser remontado, e não o que estava ali antes da troca');
-  ok(/montarFornecedores\('dvFornecedor', 'dvWrapFornecedor', origem\)/.test(idxF),
-    'e no RETORNO quem manda é a ORIGEM: é de lá que a caixa está voltando — a mesma ' +
-    'regra lida do outro lado, e por isso ela mora numa função só');
+  /* ---- AS DUAS PONTAS, NAS DUAS TELAS ----
+   * A rota de fornecedor aparece nos DOIS campos: quem manda caixa PARA ele a poe no
+   * destino, quem traz caixa DE LA' a poe na origem. Olhando um lado so', metade da
+   * operacao fica sem o campo — e e' a metade que varia conforme quem lanca.
+   *
+   * E O SERVIDOR SEMPRE OLHOU OS DOIS. O desencontro era o pior: a pessoa preencheria
+   * a tela inteira e levaria de volta um pedido de fornecedor sem ter onde informa-lo.
+   * Foi assim que chegou — "selecionei o Fornecedor e nao vejo onde escolher o nome". */
+  var b8 = bancadaF(LOC, FOR);
+  b8.api.montar('sdFornecedor', 'sdWrapFornecedor', ['L009', 'L001']);
+  ok(b8.nos.sdWrapFornecedor.style.display === 'block',
+    'na SAÍDA, o local marcado na ORIGEM faz o campo nascer — é a caixa saindo do ' +
+    'fornecedor, e era o caso que ficava sem campo nenhum enquanto o servidor exigia ' +
+    'o nome: lançamento recusado sem caminho para o conserto',
+    b8.nos.sdWrapFornecedor.style.display);
+  var b9 = bancadaF(LOC, FOR);
+  b9.api.montar('sdFornecedor', 'sdWrapFornecedor', ['L001', 'L009']);
+  ok(b9.nos.sdWrapFornecedor.style.display === 'block',
+    'e no DESTINO também — é a caixa indo para o fornecedor');
+  var b10 = bancadaF(LOC, FOR);
+  b10.api.montar('sdFornecedor', 'sdWrapFornecedor', ['L001', 'L005']);
+  ok(b10.nos.sdWrapFornecedor.style.display === 'none',
+    'e com nenhuma das duas pontas marcada, não nasce — basta UMA pedir, e não é ' +
+    'qualquer lançamento que pede');
+
+  /* E A TELA PERGUNTA MESMO PELAS DUAS, nas duas operacoes. */
+  ok(/montarFornecedores\('sdFornecedor', 'sdWrapFornecedor', \[origem, alvo\.value\]\)/
+       .test(idxF),
+    'a SAÍDA passa as duas pontas — e o destino é lido depois de remontado, e não ' +
+    'como estava antes da troca');
+  /* COM OS ESPACOS ACHATADOS: a chamada ocupa tres linhas no arquivo, e um regex que
+     tentasse casar a quebra de linha dentro dele mora a um escape de distancia de
+     virar outra coisa — ja' aconteceu aqui. */
+  var idxReto = idxF.replace(/\s+/g, ' ');
+  ok(idxReto.indexOf("montarFornecedores('dvFornecedor', 'dvWrapFornecedor', " +
+       "[document.getElementById('dvOrigem').value, " +
+       "document.getElementById('dvDestino').value])") >= 0,
+    'e o RETORNO também, depois de o destino estar decidido — a escolha do destino ' +
+    'tem saídas antecipadas no meio, e perguntado lá dentro o campo ora olharia o ' +
+    'destino novo, ora o antigo, conforme o caminho que o fluxo tomasse');
+
+  /* ---- E A ORDEM DENTRO DO RETORNO E' MEDIDA, e nao lida ----
+   *
+   * Que a pergunta do fornecedor venha DEPOIS de o destino estar decidido so' se ve'
+   * rodando: o texto da chamada e' o mesmo em cima e embaixo do bloco, e uma prova que
+   * o procurasse no arquivo daria verde com ela no lugar errado. Foi o que a sabotagem
+   * mostrou.
+   *
+   * O CENARIO: a origem NAO pede fornecedor, e a unica opcao de destino pede. O destino
+   * e' escolhido sozinho la' dentro — `podem.length === 1` —, entao o campo so' nasce
+   * se a pergunta for feita depois disso. */
+  {
+    var fonteR = corpoF(idxF, 'ajustarDestinoRetorno') + String.fromCharCode(10) + fonteF;
+    var nosR = {
+      dvOrigem: { value: 'L001' },
+      dvDestino: { value: '', innerHTML: '' },
+      dvWrapFornecedor: { style: { display: 'none' } },
+      dvFornecedor: { value: '', innerHTML: '' }
+    };
+    var LOCR = [{ ID: 'L001', Nome: 'Matriz', Tipo: 'GALPAO' },
+                { ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA', PedeFornecedor: true }];
+    new Function('DADOS', 'Q', 'document', 'permitidos', 'locaisPor', 'opcoes',
+                 'TIPOS_RETORNO', fonteR + ' ajustarDestinoRetorno();')(
+      { locais: LOCR, fornecedores: FOR },
+      { esc: function (x) { return String(x); },
+        ativo: function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; },
+        sessao: function () { return {}; } },
+      { getElementById: function (id) { return nosR[id] || null; } },
+      function () { return [LOCR[1]]; },   // so' a rota marcada pode receber
+      function () { return [LOCR[1]]; },
+      function () { return ''; },
+      ['GALPAO', 'FILIAL', 'ROTA']);
+    ok(nosR.dvDestino.value === 'L009' && nosR.dvWrapFornecedor.style.display === 'block',
+      'e rodando o retorno de ponta a ponta, o campo nasce para o destino que a própria ' +
+      'função acabou de escolher — perguntado antes dessa escolha, ele olharia o campo ' +
+      'ainda vazio e não apareceria, com o servidor exigindo o nome do outro lado',
+      { destino: nosR.dvDestino.value, campo: nosR.dvWrapFornecedor.style.display });
+  }
 
   /* ---- O VALOR VAI NOS DOIS LANCAMENTOS ----
    * Campo preenchido que nao viaja no pedido e' o defeito que esta tela ja' pagou com

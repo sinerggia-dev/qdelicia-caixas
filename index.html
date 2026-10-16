@@ -1170,11 +1170,20 @@
   var TIPOS_RETORNO = ['GALPAO','FILIAL','ROTA'];
 
   function ajustarDestinoRetorno(){
+    /* O DESTINO PRIMEIRO, E NUM BLOCO PROPRIO.
+     *
+     * A escolha do destino tem saidas antecipadas no meio — cada caminho termina
+     * pondo um valor diferente no campo —, e o fornecedor depende do valor FINAL.
+     * Perguntado la' dentro, ele ora olharia o destino novo, ora o antigo, conforme
+     * o caminho que o fluxo tomasse: o tipo de defeito que aparece num usuario e
+     * some no outro.
+     *
+     * O bloco fica AQUI DENTRO, e nao vira uma funcao ao lado, porque e' esta funcao
+     * que responde "de onde para onde volta a caixa" — as provas que cobram as tres
+     * listas leem o corpo dela pelo nome, e mudar o nome as faria medir outra coisa
+     * sem nada quebrar. */
+    (function escolherDestino(){
     var origem = document.getElementById('dvOrigem').value;
-    /* LOGO AQUI, e nao no fim: esta funcao tem saidas antecipadas no meio, e no fim a
-       chamada so rodaria nos casos em que o fluxo chegasse la. O campo depende da
-       ORIGEM, que acabou de ser lida, e nao do destino que o resto da funcao monta. */
-    montarFornecedores('dvFornecedor', 'dvWrapFornecedor', origem);
     var alvo = document.getElementById('dvDestino');
     var antes = alvo.value;
     /* FILTRADO POR 'saidas', e e' o UNICO campo que divide lista com outro formulario:
@@ -1199,6 +1208,14 @@
     var padrao = (Q.sessao()||{}).localPadrao;
     var temPadrao = podem.filter(function(l){ return String(l.ID) === String(padrao); })[0];
     if (temPadrao) alvo.value = padrao;
+    })();
+
+    /* AS DUAS PONTAS: a caixa pode estar VOLTANDO do fornecedor (ele na origem) ou
+       voltando PARA ele (ele no destino). Olhar so um lado foi o defeito que a saida
+       pagou — e o servidor sempre olhou os dois. */
+    montarFornecedores('dvFornecedor', 'dvWrapFornecedor',
+      [document.getElementById('dvOrigem').value,
+       document.getElementById('dvDestino').value]);
   }
 
   /* ================= O FORNECEDOR, NOS DOIS LANCAMENTOS =================
@@ -1214,17 +1231,34 @@
    * ESCONDIDO, O CAMPO E LIMPO: um fornecedor escolhido numa rota e esquecido ali
    * depois de trocar o destino viajaria junto com o proximo lancamento, que iria para
    * o banco com o nome de quem nao tem nada com a carga. */
-  function pedeFornecedor(idLocal){
-    var l = (DADOS.locais||[]).filter(function(x){
-      return String(x.ID) === String(idLocal); })[0];
-    return !!(l && l.PedeFornecedor);
+  /* AS DUAS PONTAS DO LANCAMENTO, e nao uma.
+   *
+   * Esta funcao nasceu olhando so' um lado — o destino, na saida — e isso estava
+   * errado: a rota de fornecedor aparece nos DOIS campos. Quem manda caixa PARA o
+   * fornecedor a poe no destino; quem traz caixa DE LA' a poe na origem, e o campo
+   * do fornecedor nao nascia. Foi assim que chegou: "selecionei o Fornecedor e nao
+   * estou vendo onde escolher o nome".
+   *
+   * E O SERVIDOR JA' OLHAVA OS DOIS LADOS. O desencontro era a pior parte: a pessoa
+   * preencheria a tela inteira, mandaria, e levaria de volta um pedido de fornecedor
+   * sem ter onde informa-lo — um lancamento recusado sem caminho para o conserto.
+   *
+   * Aceita um id ou uma lista deles, e basta UM pedir. */
+  function pedeFornecedor(ids){
+    var lista = Object.prototype.toString.call(ids) === '[object Array]' ? ids : [ids];
+    return lista.some(function(id){
+      if (!id) return false;
+      var l = (DADOS.locais||[]).filter(function(x){
+        return String(x.ID) === String(id); })[0];
+      return !!(l && l.PedeFornecedor);
+    });
   }
 
-  function montarFornecedores(idSeletor, idWrap, idLocal){
+  function montarFornecedores(idSeletor, idWrap, locais){
     var wrap = document.getElementById(idWrap);
     var sel = document.getElementById(idSeletor);
     if (!wrap || !sel) return;
-    var pede = pedeFornecedor(idLocal);
+    var pede = pedeFornecedor(locais);
     wrap.style.display = pede ? 'block' : 'none';
     if (!pede) { sel.value = ''; sel.innerHTML = ''; return; }
     var antes = sel.value;
@@ -1276,9 +1310,10 @@
     montarMotoristas('sdMotorista', doGalpao ? 'sdRota' : 'sdOrigem');
     /* DEPOIS do motorista, sempre: é ele que decide o agrupamento da frota. */
     montarVeiculos('sdVeiculo', 'sdMotorista');
-    /* O destino acabou de ser remontado acima, entao a pergunta e feita sobre o valor
-       que FICOU nele — e nao sobre o que estava ali antes da troca. */
-    montarFornecedores('sdFornecedor', 'sdWrapFornecedor', alvo.value);
+    /* AS DUAS PONTAS: a caixa pode estar INDO para o fornecedor (ele no destino) ou
+       SAINDO dele (ele na origem). O destino acabou de ser remontado acima, entao a
+       pergunta usa o valor que FICOU nele — e nao o que estava ali antes da troca. */
+    montarFornecedores('sdFornecedor', 'sdWrapFornecedor', [origem, alvo.value]);
   }
 
   /* Refeito toda vez que a rota muda. A rota decide a ORDEM, não quem pode aparecer:
