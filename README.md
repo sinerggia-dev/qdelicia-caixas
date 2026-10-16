@@ -9,6 +9,9 @@ Modelo de referência: **crate ledger** — o mesmo desenho usado por SpireStock
 saldo do cliente = saídas − devoluções confirmadas − perdas baixadas
 ```
 
+**Vai continuar o projeto em outra ferramenta?** `PARA-O-CLAUDE-DESKTOP.md` é o mapa de entrega:
+o que levar, o que fica de fora por segurança, e o que roda — ou não roda — de cada lado.
+
 ## Manual de operação
 
 Manual completo, por perfil (motorista, promotor, galpão, escritório):

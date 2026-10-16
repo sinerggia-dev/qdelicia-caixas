@@ -1398,4 +1398,11 @@ para a rota, entrega, retorno, e o Painel de Ativos lendo tudo isso como extrato
 - Três usuários (**Wellington Silva, Nestor Neto, Melkezedeque Soares**) têm lista de *Saída* com
   um único local, então só conseguem lançar retorno vindo daquele local. É cadastro, não código —
   falta o escritório decidir.
-- `teste_motorista.js` e `teste_saldo.js` quebrados (ver a seção de testes).
+- `Saidas`, `Destinos` e `TiposCaixa` são conferidos na tela, e não no servidor. Quem souber
+  montar a chamada à mão passa por cima.
+
+As nove suítes estão **verdes** (~4.600 conferências) — `teste_motorista.js` e `teste_saldo.js`
+foram consertados e não estão mais quebrados.
+
+Para continuar este projeto em outra ferramenta, o mapa de entrega é `PARA-O-CLAUDE-DESKTOP.md`:
+o que levar, o que fica de fora por segurança, e qual parte do ciclo de trabalho roda de cada lado.
