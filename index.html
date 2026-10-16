@@ -390,6 +390,19 @@
           <label for="sdDestino">Destino<span class="obrig">*</span></label>
           <select id="sdDestino"></select>
         </div>
+        <!-- QUAL FORNECEDOR, quando o destino escolhido pede.
+             A rota diz que a caixa foi para "Fornecedor"; sem este campo, DE QUEM ela e
+             ficava na cabeca de quem lancou, e o extrato nao tinha como dizer quantas
+             caixas estao com cada um — que e a pergunta deste sistema.
+             LOGO DEPOIS DO DESTINO, porque e o destino que o faz aparecer: um campo que
+             nasce no meio da tela, longe do que o chamou, se le como erro.
+             LISTA FECHADA: nome digitado a mao vira grafia diferente do mesmo
+             fornecedor, e o relatorio parte um em dois. Foi a licao do cadastro de
+             motoristas — Valcy e valci. -->
+        <div id="sdWrapFornecedor" style="display:none">
+          <label for="sdFornecedor">Fornecedor<span class="obrig">*</span></label>
+          <select id="sdFornecedor"></select>
+        </div>
         <div id="sdWrapMotorista">
           <label for="sdMotorista">Motorista<span class="obrig">*</span></label>
           <select id="sdMotorista"></select>
@@ -457,6 +470,13 @@
         <div>
           <label for="dvDestino">Destino<span class="obrig">*</span></label>
           <select id="dvDestino"></select>
+        </div>
+        <!-- NO RETORNO QUEM MANDA E A ORIGEM: e de la que a caixa esta voltando. A
+             mesma regra da saida lida do outro lado — e e por isso que ela mora numa
+             funcao so, e nao escrita duas vezes. -->
+        <div id="dvWrapFornecedor" style="display:none">
+          <label for="dvFornecedor">Fornecedor<span class="obrig">*</span></label>
+          <select id="dvFornecedor"></select>
         </div>
         <div>
           <label for="dvMotorista">Motorista<span class="obrig">*</span></label>
@@ -1151,6 +1171,10 @@
 
   function ajustarDestinoRetorno(){
     var origem = document.getElementById('dvOrigem').value;
+    /* LOGO AQUI, e nao no fim: esta funcao tem saidas antecipadas no meio, e no fim a
+       chamada so rodaria nos casos em que o fluxo chegasse la. O campo depende da
+       ORIGEM, que acabou de ser lida, e nao do destino que o resto da funcao monta. */
+    montarFornecedores('dvFornecedor', 'dvWrapFornecedor', origem);
     var alvo = document.getElementById('dvDestino');
     var antes = alvo.value;
     /* FILTRADO POR 'saidas', e e' o UNICO campo que divide lista com outro formulario:
@@ -1175,6 +1199,54 @@
     var padrao = (Q.sessao()||{}).localPadrao;
     var temPadrao = podem.filter(function(l){ return String(l.ID) === String(padrao); })[0];
     if (temPadrao) alvo.value = padrao;
+  }
+
+  /* ================= O FORNECEDOR, NOS DOIS LANCAMENTOS =================
+   *
+   * QUEM MANDA E O CADASTRO DO LOCAL, e nao o nome dele escrito aqui. Perguntar se o
+   * local se chama "Fornecedor" prenderia a regra a uma palavra: renomeada a rota, ou
+   * nascida uma segunda, o campo sumiria sem nada na tela dizendo por que.
+   *
+   * A PONTA QUE CONTA MUDA COM A TELA: na saida e o DESTINO, no retorno e a ORIGEM — e
+   * as duas chamam esta mesma funcao, passando o local que manda. Escrita duas vezes,
+   * ela divergiria no primeiro conserto que so uma recebesse.
+   *
+   * ESCONDIDO, O CAMPO E LIMPO: um fornecedor escolhido numa rota e esquecido ali
+   * depois de trocar o destino viajaria junto com o proximo lancamento, que iria para
+   * o banco com o nome de quem nao tem nada com a carga. */
+  function pedeFornecedor(idLocal){
+    var l = (DADOS.locais||[]).filter(function(x){
+      return String(x.ID) === String(idLocal); })[0];
+    return !!(l && l.PedeFornecedor);
+  }
+
+  function montarFornecedores(idSeletor, idWrap, idLocal){
+    var wrap = document.getElementById(idWrap);
+    var sel = document.getElementById(idSeletor);
+    if (!wrap || !sel) return;
+    var pede = pedeFornecedor(idLocal);
+    wrap.style.display = pede ? 'block' : 'none';
+    if (!pede) { sel.value = ''; sel.innerHTML = ''; return; }
+    var antes = sel.value;
+    /* SO OS ATIVOS, e em ordem de nome. Um fornecedor tirado de uso continua escrito
+       nos lancamentos antigos — e historia —, mas nao se oferece para um novo. */
+    var lista = (DADOS.fornecedores||[]).filter(function(f){ return Q.ativo(f.Ativo); })
+      .sort(function(a,b){
+        return String(a.Nome||'').localeCompare(String(b.Nome||''), 'pt-BR');
+      });
+    /* NENHUM CADASTRADO: a tela diz o que fazer, em vez de mostrar um campo vazio que
+       faz o lancamento ser recusado sem explicacao. */
+    if (!lista.length) {
+      sel.innerHTML = '<option value="">Nenhum fornecedor cadastrado</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">Selecione...</option>' +
+      lista.map(function(f){
+        return '<option value="'+Q.esc(f.Nome)+'">'+Q.esc(f.Nome)+'</option>';
+      }).join('');
+    /* UM SO NA LISTA JA VEM ESCOLHIDO, como nos outros campos desta tela. */
+    if (lista.length === 1) sel.value = lista[0].Nome;
+    else if (antes) sel.value = antes;
   }
 
   function ajustarCamposSaida(){
@@ -1204,6 +1276,9 @@
     montarMotoristas('sdMotorista', doGalpao ? 'sdRota' : 'sdOrigem');
     /* DEPOIS do motorista, sempre: é ele que decide o agrupamento da frota. */
     montarVeiculos('sdVeiculo', 'sdMotorista');
+    /* O destino acabou de ser remontado acima, entao a pergunta e feita sobre o valor
+       que FICOU nele — e nao sobre o que estava ali antes da troca. */
+    montarFornecedores('sdFornecedor', 'sdWrapFornecedor', alvo.value);
   }
 
   /* Refeito toda vez que a rota muda. A rota decide a ORDEM, não quem pode aparecer:
@@ -1364,6 +1439,11 @@
       { id:'sdOrigem',    msg:'Informe de onde as caixas estão saindo.' },
       { id:'sdRota',      msg:'Escolha a rota que vai levar a carga.' },
       { id:'sdDestino',   msg:'Informe para quem as caixas vão.' },
+      /* ESCONDIDO ELE NAO E' COBRADO, e isso vem de graca: `campoVisivel` ja' pula
+         quem esta' com o pai em `display:none`, que e' o estado deste campo em todo
+         destino que nao pede fornecedor. Uma guarda escrita a mao no botao seria uma
+         segunda regra sobre a mesma coisa — e a que nao marca o campo de vermelho. */
+      { id:'sdFornecedor', msg:'Diga de qual fornecedor é esta carga.' },
       { id:'sdMotorista', msg:'Escolha o motorista que vai levar a carga.' },
       { id:'sdVeiculo',   msg:'Escolha o veículo que vai levar a carga.' }
     ],
@@ -1371,6 +1451,7 @@
       { id:'dvData',      msg:'Informe a data do retorno.' },
       { id:'dvOrigem',    msg:'Informe quem está devolvendo.' },
       { id:'dvDestino',   msg:'Informe onde as caixas foram recebidas.' },
+      { id:'dvFornecedor', msg:'Diga de qual fornecedor é esta carga.' },
       { id:'dvMotorista', msg:'Informe quem trouxe as caixas de volta.' },
       { id:'dvVeiculo',   msg:'Informe em que veículo as caixas voltaram.' }
     ]
@@ -1471,6 +1552,10 @@
       motoristaNome: nomeCompletoDoMotorista(document.getElementById('sdMotorista').value),
       veiculo: document.getElementById('sdVeiculo').value.trim(),
       rota: nomeDoLocal(destino),
+      /* VAI O NOME, que e o que se grava. Escondido o campo, o seletor esta vazio e o
+         servidor nao pede nada: a regra de quem exige mora no cadastro do local, e e
+         conferida la tambem — esconder o campo e conveniencia da tela. */
+      fornecedor: document.getElementById('sdFornecedor').value.trim(),
       foto: sdFotoData
     }).then(function(r){
       btn.disabled = false; btn.textContent = 'Registrar saída';
@@ -1495,6 +1580,11 @@
     document.getElementById('sdObs').value = '';
     document.getElementById('sdMotorista').value = '';
     document.getElementById('sdVeiculo').value = '';
+    /* O FORNECEDOR TAMBEM, e sempre — inclusive quando os locais ficam. Quem lanca
+       varias cargas seguidas para a mesma rota mantem o destino e troca o fornecedor,
+       e um nome que fica no campo de um lancamento para o outro e' o erro mais facil
+       de nao notar: a tela mostra o certo e o banco recebe o de antes. */
+    document.getElementById('sdFornecedor').value = '';
     sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
     document.getElementById('sdFoto').value = '';
     if (!manterLocais){
@@ -1533,6 +1623,7 @@
       obs: document.getElementById('dvObs').value,
       usuarioId: s.id, perfil: s.perfil,
       base: baseDv,
+      fornecedor: document.getElementById('dvFornecedor').value.trim(),
       foto: dvFotoData
     }).then(function(r){
       btn.disabled = false; btn.textContent = 'Registrar retorno';
@@ -1553,6 +1644,7 @@
     zerarItens('dv_');
     document.getElementById('dvObs').value = '';
     document.getElementById('dvMotorista').value = '';
+    document.getElementById('dvFornecedor').value = '';
     dvFotoData=''; document.getElementById('dvFotoOk').textContent='';
     document.getElementById('dvFoto').value = '';
     if (!manter){

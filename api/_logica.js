@@ -1220,6 +1220,53 @@ function loginUnico(usuarios, ident, segredo, conferir) {
  * `ctx` = { movimentos, agora, clientKeysExistentes:{chave:id}, assinaturaUrl, fotoUrl }
  * Devolve { ok, linhas:[], jaExistiam:[], status } ou { ok:false, erro }.
  */
+/* ================= O FORNECEDOR DA CARGA =================
+ *
+ * A operacao manda e recebe caixa de fornecedor pela rota marcada no cadastro. Quando o
+ * lancamento toca um local marcado, dizer QUAL fornecedor deixa de ser opcional: sem
+ * isso a linha guarda que a caixa foi pela rota e nao de quem ela e, que e justamente a
+ * pergunta que este sistema existe para responder.
+ *
+ * AS DUAS PONTAS CONTAM. Na saida o fornecedor e o DESTINO; no retorno, a ORIGEM. Uma
+ * regra que olhasse so um dos lados deixaria metade da operacao sem o campo — e seria a
+ * metade que varia conforme a tela, que e o pior jeito de uma regra falhar.
+ *
+ * AJUSTE E PERDA ficam de fora: nascem no escritorio, mexem no saldo de um local so e
+ * nao sao viagem de caixa. Exigir fornecedor neles trancaria o administrador fora do
+ * proprio ajuste.
+ *
+ * A LISTA E FECHADA contra o cadastro, e por NOME porque e o nome que se grava. Fora da
+ * lista a recusa diz o que fazer — cadastrar — em vez de so negar.
+ *
+ * Devolve a frase do erro, ou null quando esta tudo certo. */
+function conferirFornecedor(p, locais, fornecedores) {
+  var tipo = String(p.tipo || '').toUpperCase();
+  if (tipo === 'AJUSTE' || tipo === 'PERDA') return null;
+  locais = locais || [];
+  function local(id) {
+    if (!id) return null;
+    return locais.filter(function (l) { return String(l.ID) === String(id); })[0] || null;
+  }
+  var pontas = [local(p.origemId), local(p.destinoId)].filter(function (l) {
+    return l && l.PedeFornecedor === true;
+  });
+  if (!pontas.length) return null;
+
+  var nome = String(p.fornecedor || '').trim();
+  if (!nome) {
+    return 'Diga de qual fornecedor é esta carga: ' + pontas[0].Nome +
+      ' pede o nome do fornecedor no cadastro.';
+  }
+  var achou = (fornecedores || []).filter(function (f) {
+    return String(f.Nome || '').trim().toLowerCase() === nome.toLowerCase();
+  })[0];
+  if (!achou) {
+    return 'Fornecedor fora do cadastro: ' + nome +
+      '. Cadastre-o em Cadastros para poder lançar nele.';
+  }
+  return null;
+}
+
 function montarMovimento(p, ctx) {
   var tipo = String(p.tipo || '').toUpperCase();
   if (TIPOS_MOV.indexOf(tipo) < 0) return { ok: false, erro: 'Tipo de movimento inválido: ' + tipo };
@@ -1313,6 +1360,10 @@ function montarMovimento(p, ctx) {
          A REGRA É A MESMA DA CORREÇÃO, e por isso mora fora daqui: escrita nos dois
          lugares, ela divergiria no primeiro ajuste que só um deles recebesse. */
       Veiculo: placa(p.veiculo) || null,
+      /* O NOME, e nao o id: a mesma decisao do motorista e da placa. O cadastro pode
+         ser renomeado ou sair de uso, e o que ja saiu do galpao continua dizendo de
+         quem era a caixa. */
+      Fornecedor: String(p.fornecedor || '').trim() || null,
       Rota: String(p.rota || '').trim() || null,
       AssinaturaURL: ctx.assinaturaUrl || null,
       FotoURL: ctx.fotoUrl || null,
@@ -2286,6 +2337,10 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
       motorista: m.Motorista || '',
       motoristaNome: m.MotoristaNome || m.Motorista || '',
       veiculo: m.Veiculo || '', rota: m.Rota || '',
+      /* GRAVADO E NAO MOSTRADO e' meio dado: a coluna Fornecedor nasceria vazia em
+         todas as linhas e a conclusao natural seria que ninguem preenche o campo. Foi
+         o que aconteceu com a placa do veiculo, logo acima. */
+      fornecedor: m.Fornecedor || '',
       obs: m.Obs, assinatura: m.AssinaturaURL, foto: m.FotoURL,
       historico: m.Historico || [],
       /* Quem mexeu por último, já com NOME. O id resolvido aqui e não na tela porque a
@@ -3054,7 +3109,8 @@ module.exports = {
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,
   cicloDaCarga: cicloDaCarga, rotuloCiclo: rotuloCiclo,
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
-  montarMovimento: montarMovimento, montarConferencia: montarConferencia,
+  montarMovimento: montarMovimento,
+  conferirFornecedor: conferirFornecedor, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
   corrigeLancamento: corrigeLancamento, fotoDePerfil: fotoDePerfil,

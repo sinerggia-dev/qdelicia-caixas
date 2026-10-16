@@ -17,15 +17,19 @@ var senha = require('./_senha');
 var MIGRACOES = require('./_migracoes');
 
 var TABELA = { Locais: 'locais', TiposCaixa: 'tipos_caixa', Usuarios: 'usuarios', Motoristas: 'motoristas',
-               LocaisPadrao: 'locais_padrao', Veiculos: 'veiculos' };
+               LocaisPadrao: 'locais_padrao', Veiculos: 'veiculos',
+               Fornecedores: 'fornecedores' };
 /* `V` de veículo. O prefixo é o que separa os ids de cadastros diferentes num sistema em
    que tudo é texto — `D001` é motorista, `V001` é carro, e nenhum id vira o do outro. */
+/* `F` de fornecedor, e nenhum outro cadastro usa essa letra. */
 var PREFIXO = { Locais: 'L', TiposCaixa: 'T', Usuarios: 'U', Motoristas: 'D', LocaisPadrao: 'P',
-                Veiculos: 'V' };
+                Veiculos: 'V', Fornecedores: 'F' };
 var MAPA = { Locais: db.LOCAL, TiposCaixa: db.TIPO, Usuarios: db.USUARIO, Motoristas: db.MOTORISTA,
-             LocaisPadrao: db.LOCAL_PADRAO, Veiculos: db.VEICULO };
+             LocaisPadrao: db.LOCAL_PADRAO, Veiculos: db.VEICULO,
+             Fornecedores: db.FORNECEDOR };
 var COLECAO = { Locais: 'locais', TiposCaixa: 'tipos', Usuarios: 'usuarios', Motoristas: 'motoristas',
-                LocaisPadrao: 'locaisPadrao', Veiculos: 'veiculos' };
+                LocaisPadrao: 'locaisPadrao', Veiculos: 'veiculos',
+                Fornecedores: 'fornecedores' };
 
 /* ============================ migrações ============================ */
 
@@ -93,9 +97,13 @@ async function rotaGet(p) {
     case 'dados':
       // A lista de usuários saiu daqui de propósito: era carregada na tela de login e expunha
       // o nome de todo mundo para quem só abrisse o endereço. Quem precisa dela pede `equipe`.
+      /* OS FORNECEDORES VAO INTEIROS, e podem: o cadastro tem nome e nada mais —
+         sem telefone, sem documento —, justamente porque viaja por esta rota, que e
+         publica. O que a tela de lancamento precisa e so o nome. */
       return { ok: true, locais: d.locais, tipos: d.tipos, config: configPublica(d.config),
                motoristas: L.motoristasPublicos(d.motoristas),
-               veiculos: L.veiculosPublicos(d.veiculos) };
+               veiculos: L.veiculosPublicos(d.veiculos),
+               fornecedores: d.fornecedores };
     case 'equipe':
       // Aqui vai o cadastro completo, com documento — é a tela do escritório.
       /* MARCADOS ANTES DE SAIR: quem tem lancamento no historico ou rota sob
@@ -279,6 +287,7 @@ async function rotaPost(p) {
   if (acao === 'salvarTipo') return await salvarRegistro('TiposCaixa', p);
   if (acao === 'salvarMotorista') return await salvarRegistro('Motoristas', p);
   if (acao === 'salvarVeiculo') return await salvarRegistro('Veiculos', p);
+  if (acao === 'salvarFornecedor') return await salvarRegistro('Fornecedores', p);
   if (acao === 'salvarLocalPadrao') return await salvarRegistro('LocaisPadrao', p);
   if (acao === 'salvarUsuario') return await salvarUsuario(p);
   if (acao === 'salvarConfig') return await salvarConfig(p);
@@ -332,6 +341,14 @@ async function gravarMovimento(p) {
 
      Recusado AQUI, e nao so filtrando o seletor da tela: filtrar e conveniencia, e um POST
      direto passa por cima dela. */
+  /* O FORNECEDOR E RECUSADO AQUI, e nao so escondendo o campo na tela. Esconder e
+     conveniencia; quem manda um POST direto passa por cima dela — e passaria gravando
+     uma carga de fornecedor sem dizer de quem, que e a linha que ninguem consegue
+     cobrar depois. A lista tambem e fechada contra o CADASTRO: nome livre vira grafia
+     diferente do mesmo fornecedor, e o extrato parte um em dois. */
+  var faltaForn = L.conferirFornecedor(p, d.locais, d.fornecedores);
+  if (faltaForn) return { ok: false, erro: faltaForn };
+
   var localAj = L.localDoAjuste(p.tipo, p);
   if (quem && localAj && !L.podeAjustarEm(quem, localAj)) {
     var nomeLocal = (d.locais || []).filter(function (l) {

@@ -1638,6 +1638,13 @@
       </div>
       <div id="tabelaTipos"></div>
     </div>
+    <div class="card" data-cad="fornecedores">
+      <h2>Fornecedores<span class="sub">De quem vem, e para quem volta, a caixa que anda pela rota de fornecedor. O nome aparece para escolha na saída e no retorno, quando o local escolhido pede.</span></h2>
+      <div class="linha-btn" style="margin-top:2px">
+        <button class="btn" id="btnNovoFornecedor" style="flex:0;min-width:170px">+ Novo fornecedor</button>
+      </div>
+      <div id="tabelaFornecedores"></div>
+    </div>
     <div class="card" data-cad="motoristas">
       <h2>Motoristas<span class="sub">Quem leva a carga. Aparece para escolha na saída do galpão.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
@@ -1762,6 +1769,7 @@
     if (DADOS){
       DADOS.locais = Q.ordenarLocais(DADOS.locais);
       DADOS.tipos = Q.ordenarPorNome(DADOS.tipos);
+      DADOS.fornecedores = Q.ordenarPorNome(DADOS.fornecedores || []);
     }
   }
 
@@ -3485,8 +3493,11 @@
        alguem dita por telefone. O ITEM e a linha, e e sobre ele que corrigir, cancelar e
        excluir agem: o caso real e "so a CX P esta errada", e nao "a carga toda".
        O REGISTRO VEM PRIMEIRO porque e o que se procura; o item responde "qual delas". */
+    /* FORNECEDOR FICA AO LADO DA ROTA, que e onde ele se le: a rota diz por onde a
+       caixa andou, e ele diz de quem ela e. Gravado e nao mostrado seria meio dado. */
     padrao: ['registro','item','data','hora','criado','status','base','tipo','origem','destino','rota',
-             'caixa','qtd','motorista','motoristaNome','veiculo','quem','alterado','alteradoEm','obs'],
+             'fornecedor','caixa','qtd','motorista','motoristaNome','veiculo','quem',
+             'alterado','alteradoEm','obs'],
     /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
        coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
        com a data mais larga do formato e a etiqueta junto. */
@@ -3494,12 +3505,14 @@
        coluna nao cresce com o tempo — o formato e fixo. */
     larg: { registro:105, item:105,
             data:120, hora:70, criado:110, status:110, base:120, tipo:120, origem:150, destino:150,
-            rota:150, caixa:120, qtd:80, motorista:130, motoristaNome:180, veiculo:110, quem:120,
+            rota:150, fornecedor:170,
+            caixa:120, qtd:80, motorista:130, motoristaNome:180, veiculo:110, quem:120,
             alterado:140, alteradoEm:150, obs:240 },
     titulos: { registro:'Registro', item:'Item',
                data:'Movimento', hora:'Hora', criado:'Criado em',
                status:'Status', base:'Base', tipo:'Tipo',
-               origem:'Origem', destino:'Destino', rota:'Rota', caixa:'Caixa',
+               origem:'Origem', destino:'Destino', rota:'Rota',
+               fornecedor:'Fornecedor', caixa:'Caixa',
                qtd:'Qtd', motorista:'Motorista', motoristaNome:'Motorista (completo)',
                veiculo:'Veículo', quem:'Quem',
                alterado:'Alterado por', alteradoEm:'Alterado em',
@@ -7987,6 +8000,12 @@
                    v: function(m){ return m.obs
                      ? '<span class="corta" title="'+Q.esc(m.obs)+'">'+Q.esc(m.obs)+'</span>'
                      : '<span class="fraco">—</span>'; } },
+      /* VAZIO VIRA TRACO, e nao celula em branco: a maioria das linhas nao tem
+         fornecedor — so as que passam pela rota marcada —, e branco se le como dado
+         que faltou preencher. */
+      fornecedor:{ t: TIT['fornecedor'], k: function(m){ return m.fornecedor || ''; },
+                   v: function(m){ return m.fornecedor ? Q.esc(m.fornecedor)
+                                                       : '<span class="fraco">—</span>'; } },
       veiculo:   { t: TIT['veiculo'], k: function(m){ return m.veiculo || ''; },
                    v: function(m){ return m.veiculo
                      ? '<span class="tag cinza">'+Q.esc(m.veiculo)+'</span>'
@@ -9095,6 +9114,100 @@
   }
   document.getElementById('btnNovoLocalPadrao').addEventListener('click', function(){ formLocalPadrao(null); });
 
+  /* ================= FORNECEDORES =================
+   *
+   * O cadastro mais simples da casa: nome e se esta em uso. Nada de telefone nem
+   * documento — a lista viaja na rota `dados`, que e publica, e documento pessoal nao
+   * sai por ela. O que as telas de lancamento precisam e so o nome.
+   *
+   * A CONTA DE LANCAMENTOS fica na linha porque e ela que diz se da' para excluir sem
+   * perder historia: o nome fica GRAVADO no movimento, e nao o id, entao apagar o
+   * cadastro nao apaga o passado — mas tambem nao devolve o fornecedor para a lista de
+   * escolha. Quem ja' tem carga no nome se INATIVA; e o que a contagem deixa decidir. */
+  function desenharFornecedores(){
+    var box = document.getElementById('tabelaFornecedores');
+    if (!box) return;
+    var lista = (DADOS && DADOS.fornecedores) || [];
+    if (!lista.length){
+      box.innerHTML = '<div class="vazio">Nenhum fornecedor cadastrado. ' +
+        'Enquanto não houver um, a saída e o retorno pela rota de fornecedor não ' +
+        'podem ser lançados.</div>';
+      return;
+    }
+    box.innerHTML =
+      '<div class="tabela-wrap"><table><thead><tr><th>Fornecedor</th>' +
+      '<th class="num">Lançamentos</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      lista.map(function(f){
+        var on = Q.ativo(f.Ativo);
+        /* CONTADO NO QUE A TELA JA' TEM, e pelo NOME — que e o que o movimento
+           guarda. E' o recorte carregado, e nao a historia inteira: por isso a coluna
+           diz "neste recorte" no titulo, em vez de prometer um total que ela nao tem
+           como saber. */
+        var quantos = (MOVS||[]).filter(function(m){
+          return String(m.fornecedor||'').trim().toLowerCase() ===
+                 String(f.Nome||'').trim().toLowerCase();
+        }).length;
+        return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(f.Nome)+'</b></td>'+
+          '<td class="num" title="No recorte de Movimentos que está carregado">'+
+            (quantos||'—')+'</td>'+
+          '<td>'+(on?'<span class="tag verde">sim</span>'
+                    :'<span class="tag vermelha">não</span>')+'</td>'+
+          '<td><button class="mini acao" data-editar-forn="'+Q.esc(f.ID)+'">editar</button> '+
+              '<button class="mini perigo" data-excluir-forn="'+Q.esc(f.ID)+'">excluir</button>'+
+          '</td></tr>';
+      }).join('')+'</tbody></table></div>';
+
+    document.querySelectorAll('[data-editar-forn]').forEach(function(b){
+      b.addEventListener('click', function(){
+        formFornecedor(lista.filter(function(f){
+          return String(f.ID)===b.dataset.editarForn; })[0]);
+      });
+    });
+    document.querySelectorAll('[data-excluir-forn]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var f = lista.filter(function(x){ return String(x.ID)===b.dataset.excluirForn; })[0];
+        if (!f || Q.precisaConfirmar(b, 'Excluir '+f.Nome+'?')) return;
+        b.disabled = true;
+        Q.post({acao:'excluir', aba:'Fornecedores', id:f.ID}).then(function(r){
+          b.disabled = false;
+          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          Q.toast(r.aviso || 'Excluído.', r.inativado ? 'erro' : 'ok');
+          recarregarCadastros();
+        }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
+      });
+    });
+  }
+
+  function formFornecedor(f){
+    f = f || {};
+    modal('<h2>'+(f.ID?'Editar':'Novo')+' fornecedor</h2>'+
+      '<p class="sub" style="margin:0 0 10px">O nome aparece para escolha na saída e no '+
+      'retorno, quando o local escolhido pede o fornecedor. Ele é <b>copiado</b> para o '+
+      'lançamento: renomear aqui não reescreve o que já saiu do galpão.</p>'+
+      '<label>Nome</label><input type="text" id="fNome" value="'+Q.esc(f.Nome||'')+
+        '" placeholder="Ex.: Sítio Boa Vista">'+
+      '<label>Ativo</label><select id="fAtivo">'+
+        '<option value="SIM"'+(Q.ativo(f.Ativo)?' selected':'')+'>sim</option>'+
+        '<option value="NAO"'+(Q.ativo(f.Ativo)?'':' selected')+'>não</option></select>'+
+      '<p class="sub" style="margin:8px 0 0">Inativo some da escolha nos lançamentos '+
+      'novos, e continua escrito nos antigos.</p>'+
+      '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
+    document.getElementById('fSalvar').addEventListener('click', function(){
+      var reg = { ID:f.ID||'', Nome:document.getElementById('fNome').value.trim(),
+                  Ativo:document.getElementById('fAtivo').value };
+      if (!reg.Nome) return Q.toast('Informe o nome.','erro');
+      /* NOME REPETIDO NAO ENTRA. O movimento guarda o nome, e dois cadastros com o
+         mesmo nome sao indistinguiveis depois de gravados — o relatorio somaria os
+         dois num so' e ninguem saberia qual apagar. */
+      var igual = ((DADOS && DADOS.fornecedores) || []).filter(function(x){
+        return String(x.ID) !== String(reg.ID) &&
+               String(x.Nome||'').trim().toLowerCase() === reg.Nome.toLowerCase();
+      })[0];
+      if (igual) return Q.toast('Já existe um fornecedor com esse nome.','erro');
+      salvar('salvarFornecedor', reg, this);
+    });
+  }
+
   function formLocalPadrao(l){
     l = l || {};
     modal('<h2>'+(l.ID?'Editar':'Novo')+' local padrão</h2>'+
@@ -9356,6 +9469,7 @@
 
     desenharMotoristas();
     desenharVeiculos();
+    desenharFornecedores();
     desenharLocaisPadrao();
     desenharPedidos();
     document.getElementById('tabelaTipos').innerHTML =
@@ -11131,6 +11245,18 @@
           '<div><label>Prazo de retorno (dias)</label><input type="number" id="fPrazo" value="'+Q.esc(l.DiasPrazo||'')+'" placeholder="7"></div>'+
         '</div>'+
       '</div>'+
+      /* A MARCA DO FORNECEDOR, e nao o nome do local escrito no codigo.
+         Perguntar se o local se chama "Fornecedor" prenderia a regra a uma palavra:
+         renomeada a rota, ou nascida uma segunda, o campo sumiria do lancamento sem
+         nada na tela dizendo por que. Vale para QUALQUER tipo — a operacao de hoje usa
+         uma rota, mas um local do tipo fornecedor pede a mesma coisa. */
+      '<label>Pede o nome do fornecedor</label>'+
+      '<select id="fPedeForn">'+
+        '<option value="NAO"'+(l.PedeFornecedor?'':' selected')+'>não</option>'+
+        '<option value="SIM"'+(l.PedeFornecedor?' selected':'')+'>sim</option>'+
+      '</select>'+
+      '<p class="sub" style="margin:4px 0 0">Marcado, a saída para aqui e o retorno '+
+      'daqui passam a exigir <b>qual fornecedor</b> — na tela e no servidor.</p>'+
       '<label>Ativo</label><select id="fAtivo"><option value="SIM"'+(String(l.Ativo).toUpperCase()!=='NAO'?' selected':'')+'>sim</option><option value="NAO"'+(String(l.Ativo).toUpperCase()==='NAO'?' selected':'')+'>não</option></select>'+
       '<label>Observação</label><textarea id="fObs">'+Q.esc(l.Obs||'')+'</textarea>'+
       '<div class="linha-btn"><button class="btn" id="fSalvar">Salvar</button></div>');
@@ -11154,7 +11280,8 @@
         Responsavel: ehRota ? '' : document.getElementById('fResp').value.trim(),
         Telefone: ehRota ? '' : document.getElementById('fTel').value.trim(),
         LimiteCaixas: ehRota ? '' : document.getElementById('fLimite').value,
-        DiasPrazo: ehRota ? '' : document.getElementById('fPrazo').value };
+        DiasPrazo: ehRota ? '' : document.getElementById('fPrazo').value,
+        PedeFornecedor: document.getElementById('fPedeForn').value };
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
       salvar('salvarLocal', reg, this);
     });
@@ -12518,6 +12645,8 @@
   document.getElementById('btnNovoLocal').addEventListener('click', function(){ formLocal({ Tipo:'ROTA' }); });
   document.getElementById('btnNovoPonto').addEventListener('click', function(){ formLocal({ Tipo:'GALPAO' }); });
   document.getElementById('btnNovoTipo').addEventListener('click', function(){ formTipo(null); });
+  document.getElementById('btnNovoFornecedor')
+    .addEventListener('click', function(){ formFornecedor(null); });
   document.getElementById('btnNovoUsuario').addEventListener('click', function(){ formUsuario(null); });
 
   window.addEventListener('dadosAtualizados', function(e){

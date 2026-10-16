@@ -694,4 +694,64 @@ module.exports = [
       "   a propria senha NAO mexe aqui: quem trocou esta dentro.';"
     ].join('\n')
   }
+,
+  {
+    id: '2026-10-16-fornecedores',
+    nota: 'cadastro de fornecedores, a marca no local e o nome no movimento',
+    sql: [
+      "-- O FORNECEDOR DA CARGA.",
+      "--",
+      "-- A operacao manda e recebe caixa de fornecedor por uma ROTA chamada Fornecedor,",
+      "-- e ate aqui o lancamento guardava so isso: que foi pela rota. QUAL fornecedor",
+      "-- ficava na cabeca de quem lancou, e o extrato nao tinha como responder quantas",
+      "-- caixas estao com cada um — que e exatamente a pergunta deste sistema.",
+      "--",
+      "-- TRES PECAS, e cada uma responde uma coisa:",
+      "",
+      "-- 1. O CADASTRO. Lista fechada, e nao texto digitado: nome escrito a mao vira",
+      "--    grafia diferente do mesmo fornecedor, e o relatorio parte um em dois. E a",
+      "--    mesma licao que o cadastro de motoristas pagou — Valcy e valci.",
+      "create table if not exists public.fornecedores (",
+      "  id text primary key,",
+      "  nome text not null,",
+      "  ativo boolean not null default true,",
+      "  criado_em timestamptz not null default now()",
+      ");",
+      "alter table public.fornecedores enable row level security;",
+      "comment on table public.fornecedores is",
+      "  'De quem vem, e para quem volta, a caixa que anda pela rota de fornecedor.';",
+
+      "-- 2. A MARCA NO LOCAL, e nao um nome escrito no codigo.",
+      "--    Perguntar se o local se chama Fornecedor prenderia a regra a uma palavra: o",
+      "--    dia em que a rota for renomeada, ou em que nascer uma segunda, o campo some",
+      "--    sem nada na tela dizendo por que. A marca e do cadastro, e quem manda nela e",
+      "--    o administrador.",
+      "alter table public.locais",
+      "  add column if not exists pede_fornecedor boolean not null default false;",
+      "comment on column public.locais.pede_fornecedor is",
+      "  'Marcado, o lancamento que sai para este local ou volta dele exige dizer QUAL",
+      "   fornecedor. Vale para a saida e para o retorno, e quem decide e o cadastro.';",
+
+      "-- A ROTA QUE JA EXISTE NASCE MARCADA. Nascendo desmarcada, o deploy entregaria um",
+      "-- campo que nunca aparece e a funcao pedida simplesmente nao existiria ate alguem",
+      "-- descobrir sozinho que ha uma marca para ligar num outro cadastro. A regra e a",
+      "-- mesma das migracoes de `retornos` e de `credencial_em`: a estrutura nova nao",
+      "-- muda o que as pessoas ja faziam, e aqui ela precisa valer no primeiro dia.",
+      "-- POR NOME E SO AGORA, uma vez: daqui em diante quem manda e a coluna.",
+      "update public.locais set pede_fornecedor = true",
+      "  where upper(tipo) = 'ROTA' and lower(trim(nome)) = 'fornecedor';",
+
+      "-- 3. O NOME NO MOVIMENTO, como TEXTO e nao como chave.",
+      "--    E a mesma decisao do motorista e da placa: o movimento guarda uma COPIA do",
+      "--    nome no instante do lancamento. Renomear ou apagar um cadastro nao pode",
+      "--    reescrever o que um romaneio de agosto diz.",
+      "alter table public.movimentos",
+      "  add column if not exists fornecedor text;",
+      "comment on column public.movimentos.fornecedor is",
+      "  'De qual fornecedor veio, ou para qual foi, esta carga. Copia do cadastro no",
+      "   momento do lancamento, pela mesma razao do motorista e da placa.';",
+      "create index if not exists movimentos_fornecedor_idx",
+      "  on public.movimentos (fornecedor);"
+    ].join('\n')
+  }
 ];

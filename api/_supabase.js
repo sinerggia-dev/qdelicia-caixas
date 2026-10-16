@@ -165,7 +165,11 @@ var LOCAL = {
       Responsavel: r.responsavel || '', Telefone: r.telefone || '',
       LimiteCaixas: r.limite_caixas, DiasPrazo: r.dias_prazo,
       Token: r.token, Ativo: r.ativo !== false, Obs: r.obs || '',
-      MotoristaId: r.motorista_id, RotaId: r.rota_id
+      MotoristaId: r.motorista_id, RotaId: r.rota_id,
+      /* Marcado, sair para este local — ou receber dele — exige dizer QUAL
+         fornecedor. Quem decide e o cadastro, e nao o nome do local escrito no
+         codigo: renomear a rota nao pode fazer o campo sumir da tela. */
+      PedeFornecedor: r.pede_fornecedor === true
     };
   },
   para: function (o) {
@@ -182,6 +186,7 @@ var LOCAL = {
     if (o.Obs !== undefined) r.obs = o.Obs || '';
     if (o.MotoristaId !== undefined) r.motorista_id = nulo(o.MotoristaId);
     if (o.RotaId !== undefined) r.rota_id = nulo(o.RotaId);
+    if (o.PedeFornecedor !== undefined) r.pede_fornecedor = bool(o.PedeFornecedor);
     return r;
   }
 };
@@ -333,6 +338,22 @@ var MOTORISTA = {
    criaria duas linhas para o mesmo carro, e o relatório dividiria a rota dele em duas.
    `MotoristaID` é o motorista HABITUAL, e só um padrão: a saída preenche com ele e
    deixa trocar. */
+/* O CADASTRO MAIS SIMPLES DA CASA: nome e se esta em uso. Nada de telefone nem
+   documento — a lista viaja na rota `dados`, que e publica, e documento pessoal nao
+   sai por ela. O que a tela de lancamento precisa e so o nome. */
+var FORNECEDOR = {
+  de: function (r) {
+    return { ID: r.id, Nome: r.nome || '', Ativo: r.ativo !== false };
+  },
+  para: function (o) {
+    var r = {};
+    if (o.ID !== undefined) r.id = o.ID;
+    if (o.Nome !== undefined) r.nome = String(o.Nome || '').trim();
+    if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
+    return r;
+  }
+};
+
 var VEICULO = {
   de: function (r) {
     return {
@@ -381,6 +402,9 @@ var MOV = {
          reescrever o que um romaneio de agosto diz. */
       Motorista: r.motorista || '', MotoristaNome: r.motorista_nome || '',
       Veiculo: r.veiculo || '',
+      /* COPIA do cadastro no instante do lancamento, como o motorista e a placa:
+         renomear um fornecedor nao reescreve o que um romaneio de agosto diz. */
+      Fornecedor: r.fornecedor || '',
       Rota: r.rota || '', Teste: r.teste === true,
       Declaracao: r.declaracao === true,
       /* Date, e não o texto cru: `iso()` só sabe formatar Date, e devolve string vazia
@@ -422,6 +446,7 @@ var MOV = {
     /* A PLACA COMO TEXTO, pela mesma razão do motorista: o histórico não muda
        quando o cadastro muda. Repintar um carro não reescreve o que já saiu. */
     pos('Veiculo', 'veiculo', nulo);
+    pos('Fornecedor', 'fornecedor', nulo);
     pos('Teste', 'teste', bool);
     pos('Declaracao', 'declaracao', bool);
     pos('Rota', 'rota', nulo);
@@ -454,7 +479,8 @@ async function carregarTudo() {
     selectAll('motoristas', 'nome'),
     selectAll('locais_padrao', 'nome'),
     selectAll('pedidos_senha', 'criado_em.desc'),
-    selectAll('veiculos', 'placa')
+    selectAll('veiculos', 'placa'),
+    selectAll('fornecedores', 'nome')
   ]);
   var config = {};
   (partes[4] || []).forEach(function (r) { config[r.chave] = r.valor; });
@@ -467,6 +493,7 @@ async function carregarTudo() {
     locaisPadrao: (partes[6] || []).map(LOCAL_PADRAO.de),
     pedidosSenha: (partes[7] || []).filter(function (r) { return r.atendido !== true; }),
     veiculos: (partes[8] || []).map(VEICULO.de),
+    fornecedores: (partes[9] || []).map(FORNECEDOR.de),
     config: config
   };
 }
@@ -478,6 +505,6 @@ module.exports = {
   rpc: rpc,
   subirArquivo: subirArquivo, carregarTudo: carregarTudo,
   LOCAL: LOCAL, TIPO: TIPO, USUARIO: USUARIO, MOV: MOV, MOTORISTA: MOTORISTA,
-  VEICULO: VEICULO, placaLimpa: placaLimpa,
+  VEICULO: VEICULO, FORNECEDOR: FORNECEDOR, placaLimpa: placaLimpa,
   LOCAL_PADRAO: LOCAL_PADRAO
 };

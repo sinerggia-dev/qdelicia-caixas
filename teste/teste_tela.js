@@ -272,6 +272,160 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
     (admO.match(/\n\s*aplicarOrdemFiltros\(\);/g) || []).length);
 }
 
+console.log('\n== o fornecedor da carga, na tela ==');
+{
+  var idxF = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var admF = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoF(fonte, nome) {
+    var i = fonte.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = fonte.indexOf('{', i);
+    for (; k < fonte.length; k++) {
+      if (fonte[k] === '{') d++;
+      else if (fonte[k] === '}' && --d === 0) return fonte.slice(i, k + 1);
+    }
+    return '';
+  }
+
+  var fonteF = corpoF(idxF, 'pedeFornecedor') + '\n' + corpoF(idxF, 'montarFornecedores');
+  ok(fonteF.length > 400,
+    'a conferência recortou as funções do fornecedor do app de campo — recorte vazio ' +
+    'faria as provas abaixo passarem sem rodar nada', fonteF.length);
+
+  /* AS FUNCOES RODAM. Lidas no arquivo, a prova responderia "a palavra fornecedor esta
+     la?" — e estaria, inclusive numa versao que mostra o campo em toda saida. */
+  function bancadaF(locais, fornecedores) {
+    var nos = {
+      sdWrapFornecedor: { style: { display: 'none' } },
+      sdFornecedor: { value: '', innerHTML: '' }
+    };
+    var api = new Function('DADOS', 'Q', 'document', fonteF +
+      ' return { pede: pedeFornecedor, montar: montarFornecedores };')(
+      { locais: locais, fornecedores: fornecedores },
+      { esc: function (x) { return String(x); },
+        ativo: function (v) { return String(v).toUpperCase() !== 'NAO' && v !== false; } },
+      { getElementById: function (id) { return nos[id] || null; } });
+    return { api: api, nos: nos };
+  }
+
+  var LOC = [
+    { ID: 'L001', Nome: 'Matriz', Tipo: 'GALPAO' },
+    { ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA', PedeFornecedor: true },
+    { ID: 'L005', Nome: 'Caruaru', Tipo: 'ROTA' }
+  ];
+  var FOR = [{ ID: 'F002', Nome: 'Chácara do Zé', Ativo: true },
+             { ID: 'F001', Nome: 'Sítio Boa Vista', Ativo: true },
+             { ID: 'F003', Nome: 'Fora de uso', Ativo: false }];
+
+  /* ---- O CAMPO APARECE PELA MARCA ---- */
+  var b = bancadaF(LOC, FOR);
+  b.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
+  ok(b.nos.sdWrapFornecedor.style.display === 'block',
+    'escolhido o local marcado, o campo do fornecedor APARECE — é o pedido inteiro: ' +
+    'a rota diz por onde a caixa andou, e sem este campo de quem ela é não fica em ' +
+    'lugar nenhum', b.nos.sdWrapFornecedor.style.display);
+  b.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L005');
+  ok(b.nos.sdWrapFornecedor.style.display === 'none',
+    'e em qualquer outro local ele SOME — um campo a mais em toda saída é um campo que ' +
+    'todo mundo aprende a ignorar', b.nos.sdWrapFornecedor.style.display);
+
+  /* ---- E PELA MARCA, e nao pelo NOME ---- */
+  var b2 = bancadaF([{ ID: 'L009', Nome: 'Parceiros do Agreste', Tipo: 'ROTA',
+                       PedeFornecedor: true }], FOR);
+  b2.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
+  ok(b2.nos.sdWrapFornecedor.style.display === 'block',
+    'e quem manda é a MARCA do cadastro: renomeada a rota, o campo continua aparecendo ' +
+    '— preso ao nome, ele sumiria no dia da renomeação sem nada na tela dizendo por quê');
+  var b3 = bancadaF([{ ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA' }], FOR);
+  b3.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
+  ok(b3.nos.sdWrapFornecedor.style.display === 'none',
+    'e um local CHAMADO Fornecedor sem a marca não faz o campo nascer — a palavra não ' +
+    'é a regra, nem aqui nem no servidor');
+
+  /* ---- O CAMPO ESCONDIDO E' LIMPO ----
+   * Um fornecedor escolhido numa rota e esquecido ali depois de trocar o destino
+   * viajaria junto com o proximo lancamento: a tela mostra o certo e o banco recebe o
+   * de antes. */
+  var b4 = bancadaF(LOC, FOR);
+  b4.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
+  b4.nos.sdFornecedor.value = 'Sítio Boa Vista';
+  b4.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L005');
+  ok(b4.nos.sdFornecedor.value === '',
+    'e ao sumir o campo é LIMPO — um fornecedor escolhido e esquecido ali depois de ' +
+    'trocar o destino viajaria junto com o próximo lançamento: a tela mostra o certo e ' +
+    'o banco recebe o de antes', JSON.stringify(b4.nos.sdFornecedor.value));
+
+  /* ---- SO' OS ATIVOS, EM ORDEM ---- */
+  var b5 = bancadaF(LOC, FOR);
+  b5.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
+  var html5 = b5.nos.sdFornecedor.innerHTML;
+  ok(html5.indexOf('Fora de uso') < 0,
+    'e o fornecedor inativo não entra na escolha — ele continua escrito nos lançamentos ' +
+    'antigos, que é história, mas não se oferece para um novo', html5);
+  ok(html5.indexOf('Chácara do Zé') < html5.indexOf('Sítio Boa Vista'),
+    'e a lista sai em ordem de nome, e não na ordem em que o banco devolveu', html5);
+
+  /* ---- NENHUM CADASTRADO: a tela diz o que falta ---- */
+  var b6 = bancadaF(LOC, []);
+  b6.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
+  ok(/Nenhum fornecedor cadastrado/.test(b6.nos.sdFornecedor.innerHTML),
+    'e sem nenhum cadastrado o campo DIZ isso — vazio, ele seria um seletor que recusa ' +
+    'o lançamento sem explicar o que fazer', b6.nos.sdFornecedor.innerHTML);
+
+  /* ---- UM SO' JA' VEM ESCOLHIDO ---- */
+  var b7 = bancadaF(LOC, [{ ID: 'F001', Nome: 'Sítio Boa Vista', Ativo: true }]);
+  b7.api.montar('sdFornecedor', 'sdWrapFornecedor', 'L009');
+  ok(b7.nos.sdFornecedor.value === 'Sítio Boa Vista',
+    'e havendo um só, ele já vem escolhido — como nos outros campos desta tela',
+    b7.nos.sdFornecedor.value);
+
+  /* ================= AS DUAS TELAS, E A PONTA DE CADA UMA =================
+   * Na saida manda o DESTINO; no retorno, a ORIGEM. Trocadas, o campo apareceria na
+   * tela errada — e cada uma mostraria o fornecedor do lado que nao e o dele. */
+  ok(/montarFornecedores\('sdFornecedor', 'sdWrapFornecedor', alvo\.value\)/.test(idxF),
+    'na SAÍDA quem manda é o destino — e o valor lido é o que ficou no seletor depois ' +
+    'de ele ser remontado, e não o que estava ali antes da troca');
+  ok(/montarFornecedores\('dvFornecedor', 'dvWrapFornecedor', origem\)/.test(idxF),
+    'e no RETORNO quem manda é a ORIGEM: é de lá que a caixa está voltando — a mesma ' +
+    'regra lida do outro lado, e por isso ela mora numa função só');
+
+  /* ---- O VALOR VAI NOS DOIS LANCAMENTOS ----
+   * Campo preenchido que nao viaja no pedido e' o defeito que esta tela ja' pagou com
+   * a placa do veiculo: gravava e nao chegava. */
+  ok(/fornecedor: document\.getElementById\('sdFornecedor'\)\.value\.trim\(\)/.test(idxF) &&
+     /fornecedor: document\.getElementById\('dvFornecedor'\)\.value\.trim\(\)/.test(idxF),
+    'e o nome viaja no pedido das DUAS telas — preenchido e não enviado é o defeito que ' +
+    'a placa do veículo já pagou aqui: gravava e não chegava');
+
+  /* ---- E E' COBRADO PELA LISTA DE OBRIGATORIOS, e nao por uma guarda propria ----
+   * `campoVisivel` ja' pula quem esta escondido; uma segunda regra no botao divergiria
+   * da primeira e nao marcaria o campo de vermelho. */
+  ok(/\{ id:'sdFornecedor',/.test(idxF) && /\{ id:'dvFornecedor',/.test(idxF),
+    'e o campo é exigido pela LISTA de obrigatórios, que já sabe pular o que está ' +
+    'escondido — uma guarda escrita à mão no botão seria uma segunda regra sobre a ' +
+    'mesma coisa, e a que não pinta o campo de vermelho');
+
+  /* ================= O PAINEL =================
+   * A marca e' do cadastro: sem o campo no formulario do local, a unica forma de
+   * ligar a exigencia seria mexer no banco a mao. */
+  ok(/<select id="fPedeForn">/.test(admF) &&
+     /PedeFornecedor: document\.getElementById\('fPedeForn'\)\.value/.test(admF),
+    'o cadastro do local tem o campo que liga a exigência, e ele é GRAVADO — desenhado ' +
+    'e não lido, a marca só se ligaria mexendo no banco à mão');
+  ok(/data-cad="fornecedores"/.test(admF) && /id="tabelaFornecedores"/.test(admF) &&
+     /id="btnNovoFornecedor"/.test(admF),
+    'e Cadastros tem a seção de Fornecedores, com a tabela e o botão de criar');
+  ok(/salvarFornecedor/.test(admF) && /aba: 'Fornecedores'|aba:'Fornecedores'/.test(admF),
+    'e ela salva e exclui pela mesma maquinaria dos outros cadastros');
+  ok(/fornecedor:'Fornecedor'/.test(admF) && /'fornecedor','caixa'/.test(admF),
+    'e a tabela de Movimentos ganhou a coluna — gravado e não mostrado é meio dado, e ' +
+    'a coluna nasceria vazia em todas as linhas como a do veículo nasceu');
+  var logF = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  ok(/fornecedor: m\.Fornecedor \|\| ''/.test(logF),
+    'e o servidor MANDA o campo para a tela — sem isto a coluna existiria vazia, e a ' +
+    'conclusão natural seria que ninguém preenche o campo');
+}
+
 console.log('\n== o administrador arrasta os filtros para a ordem que quiser ==');
 {
   var admA = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -4417,12 +4571,13 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var ip = desc.indexOf('padrao: [');
   var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
     .map(function (t) { return t.slice(1, -1); });
-  /* VINTE: o Item entrou quando o Lançamento se partiu em dois — o código da CARGA e
-     o da LINHA —, e o Motorista (completo) entrou quando o apelido nasceu: a coluna
-     curta é a de trabalho e a longa é a do documento.
+  /* VINTE E UMA: o Item entrou quando o Lançamento se partiu em dois — o código da
+     CARGA e o da LINHA —, o Motorista (completo) entrou quando o apelido nasceu (a
+     coluna curta é a de trabalho e a longa é a do documento), e o Fornecedor entrou
+     ao lado da Rota: a rota diz por onde a caixa andou, e ele diz de quem ela é.
      A conta é escrita de propósito: ela é o tropeço que obriga quem acrescenta uma
      coluna a passar pelas provas abaixo, em vez de acrescentar e seguir. */
-  ok(cols.length === 20, 'são vinte colunas de fábrica', cols);
+  ok(cols.length === 21, 'são vinte e uma colunas de fábrica', cols);
 
   /* AS SETE QUE FORAM SENDO ACRESCENTADAS. Contar quinze não diz QUAIS são quinze:
      trocar `hora` por outra coluna qualquer manteria a conta de pé. Elas respondem

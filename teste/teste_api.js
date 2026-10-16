@@ -5043,6 +5043,103 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
   await POST({ acao: 'salvarConfig', chave: 'tema', valor: 'roxo' });
 }
 
+
+/* ============================================================================
+   O FORNECEDOR DA CARGA
+   ========================================================================= */
+console.log('\n== o fornecedor da carga ==');
+{
+  /* O MODULO DE VERDADE, como as outras secoes deste arquivo fazem. */
+  var L = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  var LOCAIS_F = [
+    { ID: 'L001', Nome: 'Matriz Sao Vicente', Tipo: 'GALPAO' },
+    { ID: 'L009', Nome: 'Fornecedor',         Tipo: 'ROTA', PedeFornecedor: true },
+    { ID: 'L005', Nome: 'Caruaru',            Tipo: 'ROTA' }
+  ];
+  var FORN = [{ ID: 'F001', Nome: 'Sitio Boa Vista', Ativo: true },
+              { ID: 'F002', Nome: 'Chacara do Ze',   Ativo: true }];
+  function conf(p) { return L.conferirFornecedor(p, LOCAIS_F, FORN); }
+
+  /* ---- A PONTA QUE CONTA MUDA COM A OPERACAO ----
+   * Na saida o fornecedor e' o DESTINO; no retorno, a ORIGEM. Uma regra que olhasse
+   * so' um lado deixaria metade da operacao sem o campo — e seria a metade que varia
+   * conforme a tela, que e' o pior jeito de uma regra falhar. */
+  ok(conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' }),
+    'a saida PARA o local marcado exige dizer qual fornecedor — sem isso a linha guarda ' +
+    'que a caixa foi pela rota e nao de quem ela e, que e a pergunta deste sistema',
+    conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' }));
+  ok(conf({ tipo: 'DEVOLUCAO', origemId: 'L009', destinoId: 'L001' }),
+    'e o retorno VINDO dele exige a mesma coisa — as duas pontas contam, e a que conta ' +
+    'muda com a operacao');
+  ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005' }),
+    'e a rota que NAO pede continua lancando sem nada a mais — a marca e de um local, ' +
+    'e nao de todas as rotas');
+
+  /* ---- QUEM MANDA E' A MARCA, e nao o nome do local ----
+   * Perguntar se o local se chama "Fornecedor" prenderia a regra a uma palavra. */
+  var renomeada = [{ ID: 'L009', Nome: 'Parceiros do Agreste', Tipo: 'ROTA',
+                     PedeFornecedor: true }];
+  ok(L.conferirFornecedor({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' },
+                          renomeada, FORN),
+    'e quem manda e a MARCA do cadastro, nao o nome: renomeada a rota, o campo continua ' +
+    'sendo exigido — preso ao nome, ele sumiria no dia da renomeacao sem nada dizer');
+  var semMarca = [{ ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA' }];
+  ok(!L.conferirFornecedor({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' },
+                           semMarca, FORN),
+    'e um local CHAMADO Fornecedor sem a marca nao exige nada — a palavra nao e a regra');
+
+  /* ---- A LISTA E' FECHADA ----
+   * Nome livre vira grafia diferente do mesmo fornecedor, e o relatorio parte um em
+   * dois. Foi a licao que o cadastro de motoristas pagou: Valcy e valci. */
+  ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+             fornecedor: 'Sitio Boa Vista' }),
+    'com o nome do cadastro, passa');
+  ok(/fora do cadastro/.test(conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+                                    fornecedor: 'Sitio Qualquer' }) || ''),
+    'e nome FORA do cadastro e recusado — texto livre vira grafia diferente do mesmo ' +
+    'fornecedor, e o relatorio parte um em dois',
+    conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', fornecedor: 'Sitio Qualquer' }));
+  ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+             fornecedor: '  sitio BOA vista ' }),
+    'e a conferencia nao tropeca em caixa alta nem em espaco sobrando — quem digita o ' +
+    'nome certo nao pode ser recusado por um espaco');
+
+  /* ---- A RECUSA DIZ O QUE FAZER ---- */
+  ok(/cadastr/i.test(conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
+                            fornecedor: 'Sitio Qualquer' }) || ''),
+    'e a recusa diz o que fazer — cadastrar — em vez de so negar');
+  ok((conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' }) || '')
+       .indexOf('Fornecedor') >= 0,
+    'e a frase NOMEIA o local que pediu, porque e ele que explica o campo que apareceu');
+
+  /* ---- AJUSTE E PERDA FICAM DE FORA ----
+   * Nascem no escritorio, mexem no saldo de um local so' e nao sao viagem de caixa.
+   * Exigindo fornecedor neles, o administrador ficaria trancado fora do proprio ajuste. */
+  ok(!conf({ tipo: 'AJUSTE', destinoId: 'L009' }),
+    'o AJUSTE no local marcado nao pede fornecedor — ele nasce no escritorio e nao e ' +
+    'viagem de caixa; exigindo, o administrador ficaria trancado fora do proprio ajuste');
+  ok(!conf({ tipo: 'PERDA', origemId: 'L009' }),
+    'e a PERDA tambem nao');
+
+  /* ---- E O NOME CHEGA AO MOVIMENTO ----
+   * Guardado como TEXTO, pela mesma razao do motorista e da placa. */
+  var mont = L.montarMovimento({
+    tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', fornecedor: ' Sitio Boa Vista ',
+    itens: [{ tipoCaixaId: 'T1', qtd: 10 }], dataRef: '2026-10-16', usuarioId: 'U001'
+  }, { movimentos: [], agora: new Date('2026-10-16T12:00:00Z') });
+  ok(mont.ok && mont.linhas[0].Fornecedor === 'Sitio Boa Vista',
+    'e o nome entra no movimento ja sem os espacos — gravado com espaco, o mesmo ' +
+    'fornecedor viraria dois no relatorio, que e o que a lista fechada veio evitar',
+    mont.ok ? JSON.stringify(mont.linhas[0].Fornecedor) : mont.erro);
+  var semF = L.montarMovimento({
+    tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005',
+    itens: [{ tipoCaixaId: 'T1', qtd: 10 }], dataRef: '2026-10-16', usuarioId: 'U001'
+  }, { movimentos: [], agora: new Date('2026-10-16T12:00:00Z') });
+  ok(semF.ok && semF.linhas[0].Fornecedor === null,
+    'e sem fornecedor a coluna fica NULA, e nao com texto vazio — vazio e nulo se ' +
+    'parecem na tela e se separam na hora de somar', semF.ok ? semF.linhas[0].Fornecedor : semF.erro);
+}
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');
   process.exit(falhas ? 1 : 0);
 }
