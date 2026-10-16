@@ -103,6 +103,175 @@ function camposDa(secao) {
   return ids;
 }
 
+console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
+{
+  var admO = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoO(nome) {
+    var i = admO.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = admO.indexOf('{', i);
+    for (; k < admO.length; k++) {
+      if (admO[k] === '{') d++;
+      else if (admO[k] === '}' && --d === 0) return admO.slice(i, k + 1);
+    }
+    return '';
+  }
+
+  /* ---- OS FILHOS DA GAVETA, lidos do arquivo ----
+   * A lista NAO e' escrita aqui: escrita, ela nao cresce com o campo que alguem
+   * acrescentar amanha — e e' justamente o campo esquecido que esta prova existe para
+   * pegar. */
+  var iniO = admO.indexOf('<div class="grid-filtros">',
+                          admO.indexOf('id="caixaFiltrosMov"'));
+  var posO = admO.indexOf('>', iniO) + 1, nivelO = 1, deO = -1, brutosO = [];
+  while (posO < admO.length && nivelO > 0) {
+    var abreO = admO.indexOf('<div', posO), fechaO = admO.indexOf('</div>', posO);
+    if (fechaO < 0) break;
+    if (abreO >= 0 && abreO < fechaO) {
+      if (nivelO === 1) deO = abreO;
+      nivelO++; posO = abreO + 4;
+    } else {
+      nivelO--;
+      if (nivelO === 1 && deO >= 0) { brutosO.push(admO.slice(deO, fechaO + 6)); deO = -1; }
+      posO = fechaO + 6;
+    }
+  }
+  ok(brutosO.length > 10,
+    'a conferência recortou os campos da gaveta de filtros de Movimentos — recorte ' +
+    'vazio faria as provas abaixo passarem sem medir nada', brutosO.length);
+
+  function montarGradeO() {
+    var nos = brutosO.map(function (h) {
+      var c = /<(select|input)[^>]*\bid="([^"]+)"/.exec(h);
+      var b = /<button[^>]*\bid="([^"]+)"/.exec(h);
+      return { id: c ? c[2] : (b ? '[' + b[1] + ']' : '[?]'),
+               campo: !!c, escondido: /^<div[^>]*\bhidden\b/.test(h) };
+    });
+    var g = {
+      filhos: nos,
+      get children() { return this.filhos; },
+      /* `appendChild` MOVE o no', e nao copia — e' assim no navegador, e e' disso que
+         a reordenacao inteira e' feita. Copiando, a prova mediria uma grade que cresce
+         e nunca veria um campo sair do lugar. */
+      appendChild: function (n) {
+        var i = this.filhos.indexOf(n);
+        if (i >= 0) this.filhos.splice(i, 1);
+        this.filhos.push(n);
+      },
+      insertBefore: function (n, ref) {
+        var i = this.filhos.indexOf(n);
+        if (i >= 0) this.filhos.splice(i, 1);
+        var j = ref ? this.filhos.indexOf(ref) : -1;
+        if (j < 0) this.filhos.push(n); else this.filhos.splice(j, 0, n);
+      },
+      querySelector: function (sel) {
+        if (sel !== '.filtro-acao') return null;
+        for (var i = 0; i < this.filhos.length; i++) {
+          if (this.filhos[i].id === '[btnFiltrarMov]') return this.filhos[i];
+        }
+        return null;
+      }
+    };
+    nos.forEach(function (n) {
+      n.querySelector = function () { return n.campo ? { id: n.id } : null; };
+      n.hasAttribute = function (a) { return a === 'hidden' && n.escondido; };
+      /* VIVO, como no DOM: reanexado um no', o vizinho dele e' outro. Fixo, o Filtrar
+         seria posto ao lado de quem era vizinho ANTES da reordenacao. */
+      Object.defineProperty(n, 'nextSibling', { get: function () {
+        var i = g.filhos.indexOf(n);
+        return (i >= 0 && i + 1 < g.filhos.length) ? g.filhos[i + 1] : null;
+      } });
+    });
+    return g;
+  }
+
+  /* ---- E AS FUNCOES RODAM ----
+   * Esta prova existe porque a marcacao foi mudada e a tela nao mudou: `padrao` e'
+   * aplicada em toda abertura da gaveta e REANEXA os campos. Lendo o HTML, a prova
+   * teria dado verde sobre uma gaveta que a pessoa via ao contrario — foi o que
+   * aconteceu. */
+  var fonteO = admO.slice(admO.indexOf('  var FILTROS_MOV = {'),
+                          admO.indexOf('};', admO.indexOf('  var FILTROS_MOV = {')) + 2) +
+    '\n' + corpoO('gradeFiltros') + '\n' + corpoO('caixasDeFiltro') +
+    '\n' + corpoO('ordemColunas') + '\n' + corpoO('aplicarOrdemFiltros') +
+    '\n' + corpoO('recolocarAcaoFiltro') +
+    '\n return { aplicar: aplicarOrdemFiltros, padrao: FILTROS_MOV.padrao };';
+
+  function rodarOrdem(salva) {
+    var g = montarGradeO();
+    var api = new Function('document', 'localStorage', 'podeVerArranjo', fonteO)(
+      { querySelector: function () { return g; } },
+      { getItem: function () { return salva ? JSON.stringify(salva) : null; } },
+      function () { return true; });
+    api.aplicar();
+    return { vista: g.filhos.map(function (n) { return n.id; }), padrao: api.padrao };
+  }
+
+  var r = rodarOrdem(null);
+  var vistos = r.vista.filter(function (id) { return id !== 'mvTrecho'; });
+
+  /* ---- O PEDIDO: a data antes dos cancelados ---- */
+  ok(vistos.indexOf('mvAte') < vistos.indexOf('mvCancelados'),
+    'na ordem que a pessoa VÊ, o período vem antes dos Cancelados — era o pedido, e a ' +
+    'mudança anterior só mexeu na marcação: `aplicarOrdemFiltros` devolvia as datas ' +
+    'para o fim da gaveta em toda abertura', vistos.join(' '));
+  ok(vistos.indexOf('mvDe') === vistos.indexOf('mvStatus') + 1,
+    'e elas ficam logo depois do Status, onde a marcação as põe — a gaveta e o arquivo ' +
+    'contando a mesma história', vistos.join(' '));
+
+  /* ---- A REGRA GERAL, que teria pegado isto antes de chegar na tela ----
+   * Campo fora de `padrao` nao e' reanexado, e todos os outros passam para depois dele:
+   * ele SOBE SOZINHO para o topo. Era o caso dos Cancelados. */
+  var faltam = brutosO.filter(function (h) {
+      return /<(select|input)/.test(h) && !/^<div[^>]*\bhidden\b/.test(h);
+    }).map(function (h) { return /\bid="([^"]+)"/.exec(h.replace(/<label[^>]*>/, ''))[1]; })
+    .filter(function (id) { return r.padrao.indexOf(id) < 0; });
+  ok(!faltam.length,
+    'e TODO campo visível da gaveta está em `FILTROS_MOV.padrao` — o que falta ali não ' +
+    'é reanexado, e como todos os outros vão para depois dele, ele sobe sozinho para o ' +
+    'topo da gaveta e ainda deixa de se arrastar', faltam);
+  ok(r.padrao.every(function (id) { return vistos.indexOf(id) >= 0; }),
+    'e todo nome da lista existe mesmo na gaveta — um id errado ali some do arranjo sem ' +
+    'erro nenhum, e o campo volta a subir para o topo',
+    r.padrao.filter(function (id) { return vistos.indexOf(id) < 0; }));
+
+  /* ---- E A LISTA ACOMPANHA A MARCACAO ----
+   * Duas ordens para a mesma gaveta e' ter de adivinhar qual das duas a tela obedece. */
+  var doArquivo = brutosO.map(function (h) {
+      var c = /<(select|input)[^>]*\bid="([^"]+)"/.exec(h);
+      return c && !/^<div[^>]*\bhidden\b/.test(h) ? c[2] : null;
+    }).filter(Boolean);
+  ok(doArquivo.join(' ') === r.padrao.join(' '),
+    'e a ordem de fábrica é a MESMA da marcação — divergindo, o arquivo passa a mentir ' +
+    'sobre a tela, e quem for mexer vai mexer no lugar que não manda',
+    'html: ' + doArquivo.join(' ') + '  |  js: ' + r.padrao.join(' '));
+
+  /* ---- O FILTRAR ANDA COM O PERIODO ---- */
+  ok(r.vista.indexOf('[btnFiltrarMov]') === r.vista.indexOf('mvAte') + 1,
+    'o Filtrar fica logo depois do Até — ele não é campo, então ninguém o reanexava, e ' +
+    'todos os campos iam para depois dele: o botão do formulário abria a gaveta em ' +
+    'PRIMEIRO lugar, antes de haver o que confirmar', r.vista.join(' '));
+
+  /* ---- E ACOMPANHA MESMO, quando alguem arrasta o periodo ----
+   * Posicao fixa daria certo na ordem de fabrica e errado para quem arrastou — e o
+   * arranjo salvo e' por navegador, entao ninguem mais veria. */
+  var arrastado = ['mvDe', 'mvAte', 'mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo',
+                   'mvCaixa', 'mvStatus', 'mvCancelados', 'mvUsuario', 'mvMotorista',
+                   'mvTeste'];
+  var r2 = rodarOrdem(arrastado);
+  ok(r2.vista.indexOf('[btnFiltrarMov]') === r2.vista.indexOf('mvAte') + 1,
+    'e ele acompanha o período para onde o período for arrastado — numa posição fixa, ' +
+    'o botão daria certo na ordem de fábrica e ficaria longe das datas para quem as ' +
+    'moveu, que é exatamente quem não tem como perceber o erro', r2.vista.join(' '));
+
+  /* ---- A GAVETA REORDENA DE VERDADE, em toda abertura ----
+   * Sem a chamada, tudo acima e' teoria sobre uma funcao que ninguem executa. */
+  ok((admO.match(/\n\s*aplicarOrdemFiltros\(\);/g) || []).length >= 2,
+    'e `aplicarOrdemFiltros` é mesmo chamada ao montar a tela e ao arrastar — sem a ' +
+    'chamada, tudo isto seria teoria sobre uma função que ninguém executa',
+    (admO.match(/\n\s*aplicarOrdemFiltros\(\);/g) || []).length);
+}
+
 console.log('\n== o saldo por tipo de caixa ==');
 {
   var admS = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

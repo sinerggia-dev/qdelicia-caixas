@@ -10726,10 +10726,27 @@
    * repetir de cabeça.
    *
    * O TRECHO FICA DE FORA da lista: ele é um campo escondido, que só nasce do clique no
-   * gráfico. Ordenar o que não se vê não quer dizer nada. */
+   * gráfico. Ordenar o que não se vê não quer dizer nada.
+   *
+   * ESTA LISTA É A ORDEM QUE A PESSOA VÊ, e não a marcação. `aplicarOrdemFiltros` roda
+   * em toda abertura da gaveta e REANEXA os campos na ordem daqui — então mexer no HTML
+   * sem mexer aqui não muda nada na tela. Foi exatamente o que aconteceu quando o
+   * período subiu para antes dos Cancelados: a marcação mudou, o runtime devolveu as
+   * datas para o fim, e o ajuste foi dado como feito sem nunca ter aparecido.
+   *
+   * E CAMPO QUE FALTA AQUI NÃO FICA PARADO: ele não é reanexado, e todos os outros são
+   * movidos para depois dele — ou seja, um campo esquecido nesta lista SOBE SOZINHO
+   * para o topo da gaveta. Era o caso dos Cancelados, que apareciam em segundo lugar
+   * sem nunca terem sido postos ali, e que também não se deixavam arrastar: a alça
+   * existia, mas `ordemColunas` descartava o que não estivesse nesta lista.
+   *
+   * A ORDEM AQUI ACOMPANHA A DA MARCAÇÃO, e a prova cobra as duas iguais. Duas ordens
+   * para a mesma gaveta é ter de adivinhar qual das duas a tela obedece — e a resposta
+   * é sempre esta, o que torna a outra uma mentira pregada no arquivo. */
   var FILTROS_MOV = {
     padrao: ['mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa', 'mvStatus',
-             'mvUsuario', 'mvMotorista', 'mvTeste', 'mvDe', 'mvAte'],
+             'mvDe', 'mvAte', 'mvCancelados',
+             'mvUsuario', 'mvMotorista', 'mvTeste'],
     kOrdem: 'qdc_ordem_filtros_mov_v1'
   };
 
@@ -10765,6 +10782,29 @@
     ordemColunas(FILTROS_MOV).forEach(function(id){
       if (por[id]) g.appendChild(por[id]);
     });
+    recolocarAcaoFiltro(g, por);
+  }
+
+  /* O FILTRAR ANDA COM O PERÍODO.
+   *
+   * Ele não é um campo — não tem `select` nem `input` —, então `caixasDeFiltro` não o
+   * enxerga e `aplicarOrdemFiltros` não o reanexa. Resultado: todos os campos eram
+   * movidos para depois dele e o botão do formulário ficava em PRIMEIRO lugar na
+   * gaveta, antes de qualquer campo. Confirmar antes de ter o que confirmar.
+   *
+   * Ele volta para depois do Até — e não para uma posição fixa — porque é o botão
+   * daquele par: a razão de ele ter subido junto com as datas foi não obrigar a pessoa
+   * a procurar o Filtrar em outro canto da tela depois de trocar o período. Arrastado o
+   * período para outro lugar, o botão vai junto, e a razão continua valendo.
+   *
+   * Sem nenhuma das duas datas na gaveta, ele vai para o fim: é onde um botão de
+   * confirmar faz sentido quando não há par a que se colar. */
+  function recolocarAcaoFiltro(g, por){
+    var acao = g.querySelector('.filtro-acao');
+    if (!acao) return;
+    var ancora = por.mvAte || por.mvDe;
+    if (ancora) g.insertBefore(acao, ancora.nextSibling);
+    else g.appendChild(acao);
   }
 
   /* O RÓTULO É A ALÇA, e não a caixinha inteira. Com a caixinha arrastável, começar um
