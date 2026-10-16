@@ -3265,6 +3265,25 @@ details.tipos[open] summary::before{content:"▾"}
 .gb__f i{display:block;height:100%;min-width:0}
 /* Os dois tons sao os VALIDADOS PARA PREENCHIMENTO em fundo escuro. Os claros do resto
    da tela passam como TEXTO e reprovam como area cheia. */
+/* ---- O PAINEL DO SALDO POR TIPO ----
+   Os outros cinco respondem QUANTO se mexeu; este responde quanto FALTA. A barra mede o
+   |saldo|, e a cor diz o sinal — vermelho e' caixa na rua, verde e' caixa que voltou a
+   mais. Os dois tons sao os VALIDADOS PARA PREENCHIMENTO, como os de cima: os claros do
+   resto da tela passam como texto e reprovam como area cheia. */
+.gb__neg{background:var(--vermelho)}
+.gb__pos{background:var(--verde-cheio)}
+/* AS DUAS PONTAS, embaixo do rotulo e acima da barra. Elas sao o detalhe que explica o
+   numero grande: menores e no tom de apoio, para o olho pegar primeiro o saldo. */
+.gb__par{display:block;margin:-1px 0 4px;font-size:clamp(9.5px,.78vw,11px);
+  color:var(--txt3);font-variant-numeric:tabular-nums;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+/* O SINAL TEM COR, e o numero nao fica so' com o `+`/`-`: num painel de seis, o olho
+   varre as cores antes de ler os numeros, e e' a varredura que faz o tipo com caixa
+   faltando saltar. */
+.gb__v--neg{color:var(--vermelho)}
+.gb__v--pos{color:var(--verde-cheio)}
+.g__soma--neg{color:var(--vermelho)}
+
 .gb__s{background:var(--azul-cheio)}
 .gb__d{background:var(--verde-cheio)}
 .gb:hover .gb__k,.gb:hover .gb__v{color:var(--txt)}

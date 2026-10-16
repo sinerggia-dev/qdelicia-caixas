@@ -103,6 +103,128 @@ function camposDa(secao) {
   return ids;
 }
 
+console.log('\n== o saldo por tipo de caixa ==');
+{
+  var admS = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoS(nome) {
+    var i = admS.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = admS.indexOf('{', i);
+    for (; k < admS.length; k++) {
+      if (admS[k] === '{') d++;
+      else if (admS[k] === '}' && --d === 0) return admS.slice(i, k + 1);
+    }
+    return '';
+  }
+  var fonteS = corpoS('barraSaldoG') + corpoS('painelSaldoG');
+  ok(fonteS.length > 600,
+    'a conferência recortou o painel do saldo por tipo — recorte vazio faria as provas ' +
+    'abaixo passarem sem rodar nada', fonteS.length);
+
+  /* AS FUNCOES RODAM. Lidas no arquivo, a prova responderia "a palavra saldo esta' la'?"
+     — e estaria, inclusive numa versao que soma em vez de subtrair. */
+  var S = new Function('Q', 'gLigado', 'tomDeg', fonteS +
+    ' return { barra: barraSaldoG, painel: painelSaldoG };')(
+    { esc: function (x) { return String(x); }, num: function (n) { return String(n); } },
+    function () { return false; },
+    function () { return 'rgb(1,2,3)'; });
+
+  var CAIXAS = [
+    { k: 'CX G',    v: 'T1', saida: 4196, retorno: 3000, total: 7196 },
+    { k: 'CX IFCO', v: 'T2', saida: 1154, retorno: 1154, total: 2308 },
+    { k: 'CX P',    v: 'T3', saida: 900,  retorno: 1299, total: 2199 }
+  ];
+  var maiorS = 1196;
+
+  /* ---- O SALDO E' `retorno - saida`, a MESMA conta do cartao e do servidor ----
+   * Tres contas para a mesma palavra dariam tres numeros diferentes com o mesmo nome, e
+   * os tres plausiveis. Negativo quer dizer que saiu mais do que voltou: caixa na rua. */
+  var umG = S.barra(CAIXAS[0], maiorS, 'mvCaixa');
+  ok(/>-1196</.test(umG),
+    'o saldo é `retorno − saída` — a mesma conta do cartão "Saldo" e do `fluxoPorOrigem` ' +
+    'no servidor: três contas para a mesma palavra dariam três números diferentes com o ' +
+    'mesmo nome', umG.slice(0, 260));
+  ok(/gb__v--neg/.test(umG) && /gb__neg/.test(umG),
+    'e negativo é VERMELHO, no número e na barra — num painel de seis o olho varre as ' +
+    'cores antes de ler os números, e é a varredura que faz o tipo com caixa faltando ' +
+    'saltar', umG.slice(0, 260));
+  var tresG = S.barra(CAIXAS[2], maiorS, 'mvCaixa');
+  ok(/>\+399</.test(tresG) && /gb__pos/.test(tresG),
+    'e positivo é verde e leva o sinal `+` — sem ele, "399" e "−399" se distinguem por ' +
+    'um traço fino no meio de uma coluna de números', tresG.slice(0, 260));
+
+  /* ---- AS DUAS PONTAS FICAM NA LINHA ---- */
+  /* DENTRO DO `gb__par`, e nao em qualquer canto do HTML: a mesma frase existe no
+     `title` do botao, entao `/saída 4196 · retorno 3000/` solta continuava verdadeira
+     com a linha visivel apagada — foi assim que a sabotagem passou por aqui. O `title`
+     so' aparece parando o mouse em cima, e no celular nao aparece nunca. */
+  ok(/<span class="gb__par">saída 4196 · retorno 3000<\/span>/.test(umG),
+    'e as duas pontas ficam escritas NA LINHA, visíveis — o saldo sozinho não diz se ' +
+    'faltam 1.196 de um movimento de 7.196 ou de um de 1.200, e são situações ' +
+    'diferentes; no `title` isso só existe para quem tem mouse', umG.slice(0, 400));
+
+  /* ---- A BARRA MEDE O |SALDO|, e nao o movimento ----
+   * E' o que este painel pergunta. Medindo o movimento, ele viraria uma copia do painel
+   * de cima com outro titulo. */
+  ok(/width:100\.0%/.test(umG),
+    'a barra mede o |saldo| contra o maior |saldo| — medindo o movimento, este painel ' +
+    'seria uma cópia do de cima com outro título', /width:[\d.]+%/.exec(umG));
+  ok(/width:33\.4%/.test(tresG),
+    'e a proporção é a do saldo: 399 sobre 1.196', /width:[\d.]+%/.exec(tresG));
+
+  /* ---- ZERO NAO DESENHA BARRA ----
+   * Zero e' a resposta boa. Uma barra minima de 1px se leria como "um pouquinho
+   * faltando", que e' o contrario do que aconteceu. */
+  var zeroG = S.barra(CAIXAS[1], maiorS, 'mvCaixa');
+  ok(zeroG.indexOf('gb__f') < 0 && />0</.test(zeroG),
+    'e saldo ZERO não desenha barra nenhuma — zero é a resposta boa, e uma barra mínima ' +
+    'de 1px se leria como "um pouquinho faltando"', zeroG);
+  ok(zeroG.indexOf('gb__v--neg') < 0 && zeroG.indexOf('gb__v--pos') < 0,
+    'e o zero não fica colorido: ele não é nem alerta nem comemoração', zeroG);
+
+  /* ---- O CABECALHO SOMA OS SALDOS, e nao os movimentos ---- */
+  var painelS = S.painel(5, 'Saldo por tipo de caixa', CAIXAS, '3 tipos', 'mvCaixa');
+  ok(/g__soma[^>]*>-797</.test(painelS),
+    'o número do cabeçalho é o SALDO do recorte — a soma dos saldos, e não a soma dos ' +
+    'movimentos: somar movimento ali repetiria o painel de cima',
+    /g__soma[^>]*>[^<]*/.exec(painelS));
+  ok(/g__soma--neg/.test(painelS),
+    'e ele também pega a cor do sinal', /g__soma[^>]*/.exec(painelS));
+
+  /* E A REGUA DO PAINEL E' O MAIOR |SALDO|, medida numa barra que o PROPRIO painel
+     desenhou. As provas de largura acima passam `maior` na mão, então nenhuma delas
+     olhava a conta que escolhe esse número: sem o `Math.abs`, o maior de (−1196, 0,
+     +399) vira 399, o pior saldo da lista estoura para 299% e o painel inteiro fica
+     com as barras trocadas de tamanho — desenhando normalmente. */
+  var larguras = (painelS.match(/width:[\d.]+%/g) || []);
+  ok(larguras.indexOf('width:100.0%') >= 0 &&
+     !larguras.some(function (w) { return parseFloat(w.slice(6)) > 100; }),
+    'e a régua do painel é o maior |saldo| EM MÓDULO — sem o módulo, o maior de ' +
+    '(−1196, 0, +399) seria 399, o pior saldo da lista estouraria para 299% e as barras ' +
+    'sairiam todas trocadas de tamanho, desenhando normalmente', larguras);
+
+  /* ---- E A BARRA CONTINUA SENDO FILTRO ---- */
+  ok(/data-gcampo="mvCaixa"/.test(umG) && /data-gvalor="T1"/.test(umG),
+    'e clicar na barra filtra por aquele tipo, como nos outros cinco painéis — um ' +
+    'painel que não filtra, no meio de cinco que filtram, se lê como quebrado', umG);
+  var semId = S.barra({ k: 'sem informação', v: '', saida: 10, retorno: 0 }, 10, 'mvCaixa');
+  ok(/disabled/.test(semId),
+    'e "sem informação" continua desenhada e NÃO clicável — ela é informação, e o ' +
+    'servidor não tem um valor para "nenhum"', semId);
+
+  /* ---- OS DOIS PAINEIS LEEM A MESMA LISTA ----
+   * Dois cortes sobre a mesma pergunta divergiriam no primeiro filtro que so' um
+   * recebesse — e as duas respostas sao plausiveis, entao ninguem veria. */
+  ok(/painelSaldoG\(5, 'Saldo por tipo de caixa', caixa,/.test(admS),
+    'e o painel do saldo lê a MESMA lista `caixa` do painel de volume — dois cortes ' +
+    'sobre a mesma pergunta divergem no primeiro filtro que só um recebe, e as duas ' +
+    'respostas são plausíveis');
+  ok((admS.match(/tomDeg\(i \/ 6\)/g) || []).length >= 2,
+    'e o degradê dos painéis passou a dividir por SEIS — com cinco, o sexto ficaria ' +
+    'fora da escala e nasceria com a cor do quinto',
+    (admS.match(/tomDeg\(i \/ \d\)/g) || []));
+}
+
 console.log('\n== os seletores de base do painel saem da sessão ==');
 var MONTA_BASE = (function () {
   /* O MONTADOR RODA, e a bancada le' o que ele PRODUZIU. As provas daqui liam os

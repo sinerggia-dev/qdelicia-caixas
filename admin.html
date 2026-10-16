@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=441339b0">
+<link rel="stylesheet" href="styles.css?v=246a09a4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -7561,7 +7561,10 @@
        dos cinco painéis ganhasse um recorte próprio, o cabeçalho continuaria somando a
        lista antiga e ninguém veria — os dois números são plausíveis. */
     var soma = lista.reduce(function(a, g){ return a + (g.total || 0); }, 0);
-    return '<section class="g" style="--c1:'+tomDeg(i / 5)+';--c2:'+tomDeg((i + 1) / 5)+'">'+
+    /* `/ 6` e nao `/ 5`: sao SEIS paineis desde que o saldo por tipo nasceu, e o degrade
+       percorre a fila inteira. Com 5, o sexto ficaria fora da escala — e o quinto e o
+       sexto nasceriam com a mesma cor. */
+    return '<section class="g" style="--c1:'+tomDeg(i / 6)+';--c2:'+tomDeg((i + 1) / 6)+'">'+
       '<div class="g__c"><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
       '<span class="g__soma" title="total de caixas neste painel">'+Q.num(soma)+'</span>'+
       '<span class="g__n">'+Q.esc(nota)+'</span></div>'+
@@ -7585,6 +7588,72 @@
       return String(a).localeCompare(String(b), 'pt-BR'); });
     var ids = [String(m.origemId || ''), String(m.destinoId || '')].sort();
     return [nomes.join(' ↔ '), ids.join('|')];
+  }
+
+  /* ================= O SALDO POR TIPO DE CAIXA =================
+   *
+   * Os outros cinco painéis respondem QUANTO se mexeu: a barra é `saída + retorno`, e a
+   * divisão azul/verde mostra a proporção entre os dois. É a pergunta do volume.
+   *
+   * Este responde outra, e é a que decide se há caixa faltando: de cada tipo, quanto
+   * SAIU, quanto VOLTOU, e a diferença. Um tipo com 4.000 de movimento e saldo zero e
+   * outro com 400 de movimento e saldo −400 aparecem quase iguais no painel de volume —
+   * e o segundo é o problema.
+   *
+   * O SALDO É `retorno − saída`, a mesma conta do cartão "Saldo" lá em cima e do
+   * `fluxoPorOrigem` no servidor. Negativo quer dizer que saiu mais do que voltou, que é
+   * caixa na rua. Três contas para a mesma palavra seriam três números diferentes com o
+   * mesmo nome.
+   *
+   * A BARRA MEDE O |SALDO|, e não o movimento: é o que este painel pergunta. Zero não
+   * desenha barra nenhuma — e está certo, porque zero é a resposta boa, e uma barra
+   * mínima de 1px se leria como "um pouquinho faltando".
+   *
+   * AS DUAS PONTAS FICAM NO RÓTULO, e não em barras separadas: três barras por linha num
+   * painel de 200px viram três riscos que ninguém compara. Os números se leem. */
+  function barraSaldoG(g, maior, campo){
+    var saldo = g.retorno - g.saida;
+    var pc = maior ? (Math.abs(saldo) / maior * 100) : 0;
+    var pode = campo && g.v != null && g.v !== '';
+    var lig = pode && gLigado(campo, g);
+    var titulo = g.k + ' — saída ' + Q.num(g.saida) + ' · retorno ' + Q.num(g.retorno) +
+      ' · saldo ' + (saldo > 0 ? '+' : '') + Q.num(saldo) +
+      (saldo < 0 ? ' (saiu mais do que voltou)' : saldo > 0 ? ' (voltou mais do que saiu)'
+                                                            : ' (fechado)') +
+      (pode ? (lig ? ' · clique para tirar o filtro' : ' · clique para filtrar por isto')
+            : (g.v === '' ? ' · sem informação não vira filtro' : ''));
+    return '<button class="gb gb--saldo" type="button" title="'+Q.esc(titulo)+'"'+
+      (pode ? ' data-gcampo="'+Q.esc(campo)+'" data-gvalor="'+Q.esc(g.v)+'"'+
+              ' aria-pressed="'+(lig ? 'true' : 'false')+'"'
+            : ' disabled')+'>'+
+      '<span class="gb__r"><span class="gb__k">'+Q.esc(g.k)+'</span>'+
+      '<b class="gb__v '+(saldo < 0 ? 'gb__v--neg' : saldo > 0 ? 'gb__v--pos' : '')+'">'+
+        (saldo > 0 ? '+' : '')+Q.num(saldo)+'</b></span>'+
+      '<span class="gb__par">saída '+Q.num(g.saida)+' · retorno '+Q.num(g.retorno)+'</span>'+
+      '<span class="gb__t">'+
+        (saldo ? '<span class="gb__f" style="width:'+pc.toFixed(1)+'%">'+
+                 '<i class="'+(saldo < 0 ? 'gb__neg' : 'gb__pos')+'" style="flex:1"></i>'+
+                 '</span>' : '')+
+      '</span></button>';
+  }
+
+  /* O PAINEL DO SALDO. Separado do `painelG` porque a régua é outra — ali o maior é o
+     maior MOVIMENTO, aqui é o maior |saldo| —, e o cabeçalho soma coisa diferente: a
+     soma dos saldos, que é o saldo do recorte. */
+  function painelSaldoG(i, titulo, lista, nota, campo){
+    var maior = lista.reduce(function(m, g){
+      return Math.max(m, Math.abs(g.retorno - g.saida)); }, 0);
+    var soma = lista.reduce(function(a2, g){ return a2 + (g.retorno - g.saida); }, 0);
+    return '<section class="g" style="--c1:'+tomDeg(i / 6)+';--c2:'+tomDeg((i + 1) / 6)+'">'+
+      '<div class="g__c"><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
+      '<span class="g__soma '+(soma < 0 ? 'g__soma--neg' : '')+'" '+
+        'title="saldo do recorte: retorno menos saída">'+
+        (soma > 0 ? '+' : '')+Q.num(soma)+'</span>'+
+      '<span class="g__n">'+Q.esc(nota)+'</span></div>'+
+      (lista.length
+        ? lista.map(function(g){ return barraSaldoG(g, maior, campo); }).join('')
+        : '<p class="g__vazio">sem dados no recorte</p>')+
+      '</section>';
   }
 
   function desenharGraficosMov(L){
@@ -7614,7 +7683,15 @@
       painelG(1, 'Por trecho',        trecho, pl(trecho.length, 'trecho', 'trechos'), 'mvTrecho') +
       painelG(2, 'Por motorista',     mot,    pl(mot.length, 'nome', 'nomes'), 'mvMotorista') +
       painelG(3, 'Por quem lançou',   quem,   pl(quem.length, 'nome', 'nomes'), 'mvUsuario') +
-      painelG(4, 'Por tipo de caixa', caixa,  pl(caixa.length, 'tipo', 'tipos'), 'mvCaixa');
+      painelG(4, 'Por tipo de caixa', caixa,  pl(caixa.length, 'tipo', 'tipos'), 'mvCaixa') +
+      /* A MESMA LISTA `caixa` dos dois painéis, e não um agrupamento novo: dois cortes
+         sobre a mesma pergunta divergiriam no primeiro filtro que só um recebesse, e as
+         duas respostas são plausíveis — ninguém veria. O que muda é a régua e a conta,
+         não o que entra nela.
+         A ORDEM TAMBÉM É A DELA, por volume: o painel de cima e o de baixo lado a lado
+         com ordens diferentes obrigariam a procurar a mesma caixa duas vezes. */
+      painelSaldoG(5, 'Saldo por tipo de caixa', caixa,
+                   pl(caixa.length, 'tipo', 'tipos'), 'mvCaixa');
     pintarLegendaMov(L);
   }
 
