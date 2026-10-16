@@ -1028,11 +1028,19 @@
     return Q.placaLimpa(txt ? txt.value : '');
   }
 
-  function montarVeiculos(idVeiculo, idMotorista){
+  function montarVeiculos(idVeiculo, idMotorista, pontas){
     var sel = document.getElementById(idVeiculo);
     if (!sel) return;
     var escolhido = sel.value;
     var frota = meusVeiculos();
+    /* PELA ROTA DE FORNECEDOR, A FROTA DA CASA NAO ENTRA — e isso vale ANTES de alguem
+       escolher o motorista.
+       A primeira versao amarrava a restricao ao motorista ESCOLHIDO, e com o campo
+       ainda vazio ela nao ligava: a lista abria com os caminhoes do galpao inteiro num
+       lancamento de fornecedor, que e' exatamente a placa errada ao alcance de um
+       toque. Quem manda e' a PONTA do lancamento, que ja' esta' escolhida quando a
+       lista e' montada. */
+    var pelaRotaForn = pedeFornecedor(pontas || []);
     /* Sem frota liberada, o campo diz POR QUE está vazio. Um seletor só com
        "Selecione…" e nada dentro lê como tela quebrada, e a pessoa fica tentando. */
     if (!frota.length) {
@@ -1074,7 +1082,7 @@
      *
      * SEM NENHUM CARRO CADASTRADO, so' resta digitar — e e' o que a lista oferece,
      * sozinha. */
-    var soDele = ehFornecedor(m);
+    var soDele = pelaRotaForn || ehFornecedor(m);
     var outros = soDele ? [] : frota.filter(function(v){ return dele.indexOf(v) < 0; });
     if (soDele) frota = dele;
 
@@ -1092,7 +1100,9 @@
     /* SEM CARRO NENHUM PARA ESTE FORNECEDOR, a lista e' so' a de digitar — e ja' vem
        escolhida, porque nao ha o que escolher. Um "Selecione…" sozinho seria um beco. */
     if (soDele && !dele.length) {
-      sel.innerHTML = '<option value="">— sem veículo cadastrado para este motorista —</option>' +
+      sel.innerHTML = '<option value="">'+
+        (m ? '— sem veículo cadastrado para este motorista —'
+           : '— sem veículo cadastrado —')+'</option>' +
         '<option value="'+OUTRA_PLACA+'" selected>✎ Outra placa — digitar</option>';
       sel.value = OUTRA_PLACA;
       sel.setAttribute('data-mot-lista', motId);
@@ -1129,10 +1139,16 @@
   /* O MOTORISTA REAGRUPA A FROTA. É o par do `veiculoPuxaMotorista` abaixo, e sem ele o
      agrupamento só valeria para o estado em que a tela nasceu: escolher o motorista
      depois deixaria a lista agrupada em volta de quem não está mais no campo. */
-  function motoristaPuxaVeiculo(idMotorista, idVeiculo){
+  /* `pontas` E' UMA FUNCAO, e nao uma lista: estes dois ajudantes sao ligados UMA vez,
+     quando a tela nasce, e a lista muda a cada troca de origem ou destino. Guardando o
+     valor da ligacao, eles responderiam para sempre pelas pontas do primeiro desenho —
+     e a peneira do fornecedor ficaria presa ao estado inicial da tela. */
+  function motoristaPuxaVeiculo(idMotorista, idVeiculo, pontas){
     var sm = document.getElementById(idMotorista);
     if (!sm) return;
-    sm.addEventListener('change', function(){ montarVeiculos(idVeiculo, idMotorista); });
+    sm.addEventListener('change', function(){
+      montarVeiculos(idVeiculo, idMotorista, pontas ? pontas() : []);
+    });
   }
 
   /* ESCOLHER A PLACA PREENCHE O MOTORISTA **QUANDO ELE ESTÁ VAZIO**, e só isso.
@@ -1149,7 +1165,7 @@
 
      A REGRA VIROU: o que a pessoa preencheu não se sobrescreve. Preencher um campo
      vazio é ajuda; trocar o que ela escolheu é discordar dela em silêncio. */
-  function veiculoPuxaMotorista(idVeiculo, idMotorista){
+  function veiculoPuxaMotorista(idVeiculo, idMotorista, pontas){
     var sv = document.getElementById(idVeiculo), sm = document.getElementById(idMotorista);
     if (!sv || !sm) return;
     sv.addEventListener('change', function(){
@@ -1172,7 +1188,7 @@
          de limpar a placa que a pessoa acabou de escolher: aqui o motorista mudou POR
          CAUSA da escolha dela, e não apesar dela. */
       sv.setAttribute('data-mot-lista', String(m.ID));
-      montarVeiculos(idVeiculo, idMotorista);
+      montarVeiculos(idVeiculo, idMotorista, pontas ? pontas() : []);
     });
   }
 
@@ -1360,12 +1376,12 @@
   function atualizarFornecedorSaida(){
     montarMotoristas('sdMotorista', saiDeGalpao() ? 'sdRota' : 'sdOrigem', 'saida',
                      pontasDaSaida());
-    montarVeiculos('sdVeiculo', 'sdMotorista');
+    montarVeiculos('sdVeiculo', 'sdMotorista', pontasDaSaida());
   }
 
   function atualizarFornecedorRetorno(){
     montarMotoristas('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno());
-    montarVeiculos('dvVeiculo', 'dvMotorista');
+    montarVeiculos('dvVeiculo', 'dvMotorista', pontasDoRetorno());
   }
 
   function ajustarCamposSaida(){
@@ -1395,7 +1411,7 @@
     montarMotoristas('sdMotorista', doGalpao ? 'sdRota' : 'sdOrigem', 'saida',
                      [origem, alvo.value]);
     /* DEPOIS do motorista, sempre: é ele que decide o agrupamento da frota. */
-    montarVeiculos('sdVeiculo', 'sdMotorista');
+    montarVeiculos('sdVeiculo', 'sdMotorista', [origem, alvo.value]);
     /* AS DUAS PONTAS: a caixa pode estar INDO para o fornecedor (ele no destino) ou
        SAINDO dele (ele na origem). O destino acabou de ser remontado acima, e
        `pontasDaSaida` le o mesmo campo que `alvo` — o valor que FICOU nele. */
@@ -1450,14 +1466,30 @@
 
     // Sem ninguém de fora não há o que separar: a lista sai simples, sem rótulo de
     // grupo para ler à toa.
-    /* LISTA VAZIA DIZ POR QUE. Pela rota de fornecedor, sem nenhum motorista daquele
-       tipo cadastrado, um seletor so' com "Selecione…" se le como tela quebrada — e a
-       pessoa fica tentando. */
+    /* LISTA VAZIA DIZ POR QUE — E DIZ A VERDADE.
+     *
+     * Ela dizia "nenhum motorista do tipo Fornecedor" nos dois casos, e os dois casos
+     * sao diferentes: ou nao ha nenhum CADASTRADO, ou ha e nenhum esta' LIBERADO para
+     * quem esta' na tela. A frase errada manda a pessoa cadastrar o que ja' existe —
+     * foi o que aconteceu com vinte e cinco deles.
+     *
+     * O NUMERO SAI DO CADASTRO INTEIRO, e nao da lista permitida: e' justamente a
+     * diferenca entre os dois que explica o que fazer. */
     if (soForn && !daRota.length && !outros.length) {
-      sel.innerHTML = '<option value="">— nenhum motorista do tipo Fornecedor —</option>';
+      var fornCadastrados = ((DADOS||{}).motoristas || []).filter(ehFornecedor).length;
+      sel.innerHTML = '<option value="">'+
+        (fornCadastrados
+          ? '— ' + fornCadastrados + ' cadastrados, nenhum liberado para você —'
+          : '— nenhum motorista do tipo Fornecedor cadastrado —')+'</option>';
+      sel.title = fornCadastrados
+        ? 'Há ' + fornCadastrados + ' motoristas do tipo Fornecedor no cadastro, e ' +
+          'nenhum está marcado no seu usuário. Marque-os em Cadastros → Usuários.'
+        : 'Cadastre o motorista do fornecedor em Cadastros → Motoristas, com o tipo ' +
+          'Fornecedor.';
       sel.setAttribute('data-rota', rota);
       return;
     }
+    sel.title = '';
     sel.innerHTML = '<option value="">Selecione…</option>' +
       (outros.length
         ? grupo('Motorista da rota', daRota) + grupo('Outros motoristas', outros)
@@ -1547,7 +1579,7 @@
     document.getElementById('dvOrigem').addEventListener('change', function(){
       ajustarDestinoRetorno();
       montarMotoristas('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno());
-      montarVeiculos('dvVeiculo', 'dvMotorista');
+      montarVeiculos('dvVeiculo', 'dvMotorista', pontasDoRetorno());
     });
     /* O DESTINO DO RETORNO TAMBEM E' UMA PONTA. Sem este aviso, quem escolhesse a rota
        de fornecedor aqui nao veria o campo — e o servidor pediria o nome assim mesmo. */
@@ -1555,7 +1587,7 @@
       .addEventListener('change', atualizarFornecedorRetorno);
     // Quem trouxe a carga de volta, agrupado pela rota de onde ela vem.
     montarMotoristas('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno());
-    montarVeiculos('dvVeiculo', 'dvMotorista');
+    montarVeiculos('dvVeiculo', 'dvMotorista', pontasDoRetorno());
     /* TROCAR O SELETOR MOSTRA OU ESCONDE O CAMPO DE DIGITAR. Sem este aviso, escolher
        "Outra placa" nao abriria nada — a peca existiria e ninguem a alcancaria. */
     ['sdVeiculo', 'dvVeiculo'].forEach(function(id){
@@ -1566,7 +1598,7 @@
     // É a rota que decide quais motoristas aparecem.
     document.getElementById('sdRota').addEventListener('change', function(){
       montarMotoristas('sdMotorista', 'sdRota', 'saida', pontasDaSaida());
-      montarVeiculos('sdVeiculo', 'sdMotorista');
+      montarVeiculos('sdVeiculo', 'sdMotorista', pontasDaSaida());
       /* E E' UMA PONTA: saindo do galpao, a rota E' o destino da carga. Era aqui que
          faltava — escolher "Fornecedor" no Destino nao fazia o campo nascer, que foi o
          defeito relatado. */
@@ -1847,7 +1879,7 @@
       mostrarSaldoDoOrigem();
       // Sem rota nao ha grupo: a lista volta a ser simples, com a equipe inteira.
       montarMotoristas('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno());
-      montarVeiculos('dvVeiculo', 'dvMotorista');
+      montarVeiculos('dvVeiculo', 'dvMotorista', pontasDoRetorno());
     }
   }
   document.getElementById('btnLimparDevolucao').addEventListener('click', function(){ limparDevolucao(false); });
@@ -3007,11 +3039,11 @@
   /* O VÍNCULO, ligado UMA vez. Os seletores são redesenhados a cada troca de rota,
      mas o ouvinte fica no elemento, que é sempre o mesmo — pendurar um a cada
      redesenho empilharia dezenas no mesmo `change`. */
-  veiculoPuxaMotorista('sdVeiculo', 'sdMotorista');
-  veiculoPuxaMotorista('dvVeiculo', 'dvMotorista');
+  veiculoPuxaMotorista('sdVeiculo', 'sdMotorista', pontasDaSaida);
+  veiculoPuxaMotorista('dvVeiculo', 'dvMotorista', pontasDoRetorno);
   /* E o caminho de volta: escolher o motorista reagrupa a frota em torno dele. */
-  motoristaPuxaVeiculo('sdMotorista', 'sdVeiculo');
-  motoristaPuxaVeiculo('dvMotorista', 'dvVeiculo');
+  motoristaPuxaVeiculo('sdMotorista', 'sdVeiculo', pontasDaSaida);
+  motoristaPuxaVeiculo('dvMotorista', 'dvVeiculo', pontasDoRetorno);
 
   /* ---------------- arranque ---------------- */
   if (Q.sessao()) abrirApp(); else iniciarLogin();

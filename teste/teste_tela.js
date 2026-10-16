@@ -1302,9 +1302,50 @@ console.log('\n== o fornecedor e o motorista ==');
       guardados.forEach(function (x) { MOTS_F.push(x); });
       return r;
     })();
-    ok(/nenhum motorista do tipo Fornecedor/.test(semNenhum),
+    ok(/nenhum motorista do tipo Fornecedor cadastrado/.test(semNenhum),
       'e sem nenhum cadastrado a lista DIZ isso — um seletor só com "Selecione…" e nada ' +
       'dentro se lê como tela quebrada, e a pessoa fica tentando', semNenhum);
+
+    /* ---- E A FRASE SEPARA OS DOIS CASOS ----
+     *
+     * "Nenhum do tipo Fornecedor" era dito nos dois, e eles sao diferentes: ou nao ha
+     * nenhum CADASTRADO, ou ha e nenhum esta' LIBERADO para quem esta' na tela. A frase
+     * errada manda a pessoa cadastrar o que ja' existe — foi o que aconteceu com vinte
+     * e cinco deles, e a tela dizia que nao havia nenhum. */
+    var naoLiberados = (function () {
+      var sel = { value: '', innerHTML: '', title: '', attrs: {},
+                  getAttribute: function (k) { return this.attrs[k] || null; },
+                  setAttribute: function (k, v) { this.attrs[k] = v; } };
+      new Function('document', 'Q', 'DADOS', 'meusMotoristas', 'motoristas',
+        corpoF(idxF, 'ehFornecedor') + corpoF(idxF, 'pedeFornecedor') +
+        corpoF(idxF, 'motoristasDaRota') + corpoF(idxF, 'montarMotoristas') +
+        " montarMotoristas('m', 'r', 'saida', ['L001','L009']);")(
+        { getElementById: function (id) {
+            return id === 'm' ? sel : { value: 'L009' }; } },
+        { esc: function (x) { return String(x); },
+          comoChamar: function (m) { return m.Apelido || m.Nome; },
+          atendeNoSentido: function () { return true; } },
+        /* O CADASTRO TEM 25 do tipo; a lista LIBERADA para esta pessoa esta' vazia. */
+        { locais: LOCF,
+          motoristas: (function () {
+            var r = [];
+            for (var i = 0; i < 25; i++) {
+              r.push({ ID: 'F' + i, Nome: 'Forn ' + i, Tipo: 'Fornecedor', Rotas: [] });
+            }
+            return r;
+          })() },
+        function () { return []; },
+        function () { return []; });
+      return sel;
+    })();
+    ok(/25 cadastrados, nenhum liberado para você/.test(naoLiberados.innerHTML),
+      'e havendo cadastrados que não foram LIBERADOS para quem está na tela, a lista ' +
+      'diz exatamente isso, com o número — dizer "nenhum cadastrado" manda a pessoa ' +
+      'cadastrar o que já existe, e foi o que aconteceu com vinte e cinco deles',
+      naoLiberados.innerHTML);
+    ok(/Cadastros → Usuários/.test(naoLiberados.title),
+      'e o balão diz ONDE se libera — a frase que só constata deixa a pessoa parada no ' +
+      'mesmo lugar', naoLiberados.title);
   }
 
   /* ---- E AS DUAS TELAS PERGUNTAM PELAS PONTAS DELAS ---- */
@@ -1337,6 +1378,10 @@ console.log('\n== o veiculo do motorista fornecedor ==');
     { Placa: 'XYZ9K88', Modelo: 'Baú',   MotoristaID: '' }
   ];
   function listaVei(mots, nomeNoCampo) {
+    return listaVeiPonta(mots, nomeNoCampo, [], []);
+  }
+
+  function listaVeiPonta(mots, nomeNoCampo, locais, pontas) {
     var sel = { value: '', innerHTML: '', attrs: {},
                 getAttribute: function (k) { return this.attrs[k] || null; },
                 setAttribute: function (k, v) { this.attrs[k] = v; } };
@@ -1344,14 +1389,16 @@ console.log('\n== o veiculo do motorista fornecedor ==');
                 classList: { add: function () {}, remove: function () {} } };
     var nos = { v: sel, vTexto: txt, m: { value: nomeNoCampo } };
     var iOP = idxV.indexOf('var OUTRA_PLACA = ');
-    new Function('document', 'Q', 'meusVeiculos', 'meusMotoristas',
+    new Function('document', 'Q', 'DADOS', 'meusVeiculos', 'meusMotoristas',
       idxV.slice(iOP, idxV.indexOf(';', iOP) + 1) + String.fromCharCode(10) +
-      corpoV('ehFornecedor') + corpoV('campoTextoDaPlaca') +
+      corpoV('ehFornecedor') + corpoV('pedeFornecedor') +
+      corpoV('campoTextoDaPlaca') +
       corpoV('mostrarPlacaTexto') + corpoV('montarVeiculos') +
-      " montarVeiculos('v', 'm');")(
+      " montarVeiculos('v', 'm', " + JSON.stringify(pontas || []) + ');')(
       { getElementById: function (id) { return nos[id] || null; } },
       { esc: function (x) { return String(x); },
         comoChamar: function (m) { return m.Apelido || m.Nome; } },
+      { locais: locais || [] },
       function () { return FROTA_V; },
       function () { return mots; });
     return { html: sel.innerHTML, valor: sel.value, texto: txt };
@@ -1375,6 +1422,77 @@ console.log('\n== o veiculo do motorista fornecedor ==');
     'e a lista diz por que está assim', r2.html);
   ok(r2.html.indexOf('KKS1330') < 0 && r2.html.indexOf('XYZ9K88') < 0,
     'e continua sem oferecer placa de ninguém — era o pedido', r2.html);
+
+  /* ---- E A PONTA MANDA, MESMO SEM MOTORISTA ESCOLHIDO ----
+   *
+   * Era o defeito relatado: a restrição estava amarrada ao motorista ESCOLHIDO, e com o
+   * campo ainda vazio ela não ligava — a lista abria com os caminhões do galpão inteiro
+   * num lançamento de fornecedor, que é a placa errada ao alcance de um toque. Quem
+   * manda é a PONTA, e ela já está escolhida quando a lista é montada. */
+  var LOC_PEDE = [{ ID: 'L018', Nome: 'Fornecedor', PedeFornecedor: true }];
+  var semEscolha = listaVeiPonta(FORN, '', LOC_PEDE, ['L001', 'L018']);
+  ok(semEscolha.html.indexOf('KKS1330') < 0 && semEscolha.html.indexOf('XYZ9K88') < 0,
+    'pela rota de fornecedor, a frota da casa NÃO aparece nem antes de escolher o ' +
+    'motorista — era o defeito relatado: a lista abria com os caminhões do galpão ' +
+    'inteiro num lançamento de fornecedor', semEscolha.html);
+  ok(semEscolha.valor === '__outra' && semEscolha.texto.hidden === false,
+    'e o campo de DIGITAR já abre escolhido — esses motoristas não têm veículo ' +
+    'vinculado, e era isso que se pedia',
+    { valor: semEscolha.valor, escondido: semEscolha.texto.hidden });
+  var LOC_COMUM = [{ ID: 'L005', Nome: 'Caruaru' }];
+  var pontaComum = listaVeiPonta([{ ID: 'D2', Nome: 'Dinho', Tipo: 'Fixo' }], '',
+                                 LOC_COMUM, ['L001', 'L005']);
+  ok(pontaComum.html.indexOf('KKS1330') >= 0,
+    'e numa rota comum a frota continua inteira antes da escolha — a restrição é da ' +
+    'rota marcada, e não de toda tela de lançamento', pontaComum.html);
+
+  /* ---- E A PENEIRA CONTINUA VALENDO DEPOIS DE TROCAR O MOTORISTA ----
+   *
+   * Os ajudantes que religam as duas listas sao ligados UMA vez, quando a tela nasce.
+   * Guardando a LISTA de pontas naquele instante em vez da funcao que a le', eles
+   * respondem para sempre pelas pontas do primeiro desenho — e a peneira do fornecedor
+   * para de valer na primeira troca de motorista, que e' justamente quando a lista e'
+   * refeita. A prova LIGA e DISPARA, porque so' assim a diferenca aparece. */
+  {
+    var selV = { value: '', innerHTML: '', attrs: {},
+                 getAttribute: function (k) { return this.attrs[k] || null; },
+                 setAttribute: function (k, v) { this.attrs[k] = v; } };
+    /* O MOTORISTA DO ENSAIO E' COMUM, de proposito: com um FORNECEDOR no campo a
+       peneira valeria pelo outro caminho — o do tipo dele — e a prova passaria sem
+       exercitar a ponta, que e' o que ela veio medir. */
+    var selM = { value: 'Dinho', ouvintes: [],
+                 addEventListener: function (tp, fn) {
+                   if (tp === 'change') this.ouvintes.push(fn); } };
+    var txtV = { value: '', hidden: true,
+                 classList: { add: function () {}, remove: function () {} } };
+    var nosL = { v: selV, vTexto: txtV, m: selM };
+    /* AS PONTAS MUDAM DEPOIS DA LIGACAO: nascem comuns e viram a rota de fornecedor,
+       que e' o que acontece quando a pessoa escolhe o destino. */
+    var pontasAgora = ['L001', 'L005'];
+    var iOP2 = idxV.indexOf('var OUTRA_PLACA = ');
+    var apiL = new Function('document', 'Q', 'DADOS', 'meusVeiculos', 'meusMotoristas',
+      idxV.slice(iOP2, idxV.indexOf(';', iOP2) + 1) + String.fromCharCode(10) +
+      corpoV('ehFornecedor') + corpoV('pedeFornecedor') + corpoV('campoTextoDaPlaca') +
+      corpoV('mostrarPlacaTexto') + corpoV('montarVeiculos') +
+      corpoV('motoristaPuxaVeiculo') +
+      ' return { ligar: motoristaPuxaVeiculo };')(
+      { getElementById: function (id) { return nosL[id] || null; } },
+      { esc: function (x) { return String(x); },
+        comoChamar: function (m) { return m.Apelido || m.Nome; } },
+      { locais: [{ ID: 'L018', Nome: 'Fornecedor', PedeFornecedor: true }] },
+      function () { return FROTA_V; },
+      function () { return [{ ID: 'D2', Nome: 'Dinho', Tipo: 'Fixo' }]; });
+    apiL.ligar('m', 'v', function () { return pontasAgora; });
+    pontasAgora = ['L001', 'L018'];
+    selM.ouvintes.forEach(function (fn) { fn({}); });
+    /* O QUE A PENEIRA PROMETE e' que a frota DOS OUTROS nao entra. O carro do proprio
+       motorista no campo continua ali — e' dele que a lista e' feita. */
+    ok(selV.innerHTML.indexOf('XYZ9K88') < 0 && selV.innerHTML.indexOf('ABC1D23') < 0,
+      'e trocar o motorista DEPOIS de a ponta virar a rota de fornecedor mantém a ' +
+      'peneira: a frota dos OUTROS continua fora — os ajudantes são ligados uma vez, e ' +
+      'guardando a lista de pontas daquele instante eles responderiam para sempre pelo ' +
+      'primeiro desenho da tela', selV.innerHTML);
+  }
 
   var COMUM = [{ ID: 'D2', Nome: 'Dinho', Tipo: 'Fixo' }];
   var r3 = listaVei(COMUM, 'Dinho');
@@ -7425,13 +7543,40 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
   /* O PAR DO VÍNCULO. Sem ele o agrupamento só valeria para o estado em que a tela
      nasceu: escolher o motorista depois deixaria a lista agrupada em volta de quem não
      está mais no campo. */
-  ok(/function motoristaPuxaVeiculo\(idMotorista, idVeiculo\)\{/.test(idx) &&
+  /* `pontas` E' UMA FUNCAO, e nao uma lista: estes ajudantes sao ligados UMA vez,
+     quando a tela nasce, e as pontas mudam a cada troca de origem ou destino. */
+  ok(/function motoristaPuxaVeiculo\(idMotorista, idVeiculo, pontas\)\{/.test(idx) &&
      (idx.match(/motoristaPuxaVeiculo\('/g) || []).length === 2,
     'e escolher o MOTORISTA reagrupa a frota — nas duas telas, e ligado uma vez só');
+  /* ---- E TODA CHAMADA PASSA AS PONTAS ----
+   *
+   * Uma esquecida e a lista daquele caminho volta a abrir com a frota da casa num
+   * lancamento de fornecedor — e so' naquele caminho, que e' o defeito mais dificil de
+   * achar: a tela funciona em quase tudo. A prova ENUMERA as chamadas em vez de
+   * procurar uma, porque e' a que faltar que importa. */
+  var chamadasVei = (idx.match(/montarVeiculos\([^;]*?\);/g) || []);
+  var semPontas = chamadasVei.filter(function (c) {
+    return (c.match(/,/g) || []).length < 2;
+  });
+  ok(chamadasVei.length >= 8 && !semPontas.length,
+    'e TODA chamada de `montarVeiculos` passa as pontas do lançamento — uma esquecida ' +
+    'faz a lista daquele caminho voltar a abrir com a frota da casa num lançamento de ' +
+    'fornecedor, e só naquele caminho',
+    { chamadas: chamadasVei.length, sem: semPontas });
+
+  ok(/motoristaPuxaVeiculo\('sdMotorista', 'sdVeiculo', pontasDaSaida\)/.test(idx) &&
+     /motoristaPuxaVeiculo\('dvMotorista', 'dvVeiculo', pontasDoRetorno\)/.test(idx),
+    'e cada tela entrega a sua maneira de saber as pontas — guardando a LISTA na ' +
+    'ligação, eles responderiam para sempre pelas pontas do primeiro desenho, e a ' +
+    'peneira do fornecedor ficaria presa ao estado inicial da tela');
   /* E o caminho de volta reagrupa também: senão a lista continuaria dizendo "Outros
      veículos" sobre o carro que, depois do preenchimento, É o do motorista no campo. */
-  ok(/sv\.setAttribute\('data-mot-lista', String\(m\.ID\)\);\s*\n\s*montarVeiculos\(idVeiculo, idMotorista\);/
-       .test(idx),
+  /* COM OS ESPACOS ACHATADOS, e aceitando o terceiro argumento: a chamada passou a
+     levar as pontas do lancamento, e um padrao preso a dois argumentos reprovava uma
+     mudanca que nao tem nada a ver com o que ele mede. */
+  ok(idx.replace(/\s+/g, ' ').indexOf(
+       "sv.setAttribute('data-mot-lista', String(m.ID)); " +
+       'montarVeiculos(idVeiculo, idMotorista, pontas') >= 0,
     'e escolher a PLACA reagrupa a lista em volta do motorista que ela preencheu — ' +
     'acertando a lembrança ANTES, para a remontagem não limpar a placa recém-escolhida');
 
@@ -7478,8 +7623,8 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
        placa pode ser escrita à mão, `montarVeiculos` acrescenta a opção "Outra placa" e
        `mostrarPlacaTexto` decide se o campo aparece. Sem elas no recorte, a bancada
        estoura em vez de medir. */
-    var fonte = ['function ehFornecedor(', 'function campoTextoDaPlaca(',
-                 'function mostrarPlacaTexto(',
+    var fonte = ['function ehFornecedor(', 'function pedeFornecedor(',
+                 'function campoTextoDaPlaca(', 'function mostrarPlacaTexto(',
                  'function placaEscolhida(', 'function montarVeiculos(',
                  'function motoristaPuxaVeiculo(', 'function veiculoPuxaMotorista(']
       .map(function (a) {
@@ -7547,7 +7692,7 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
                      '<option value="Chico"></option><option value="Isaque"></option>';
       var doc = { getElementById: function (id) {
         return id === 'v' ? sv : (id === 'm' ? sm : null); } };
-      var api = new Function('document', 'meusVeiculos', 'meusMotoristas', 'Q',
+      var api = new Function('document', 'meusVeiculos', 'meusMotoristas', 'Q', 'DADOS',
         fonte + '\n return { montar: montarVeiculos, ligarV: veiculoPuxaMotorista,' +
         '\n          ligarM: motoristaPuxaVeiculo };')(
         doc, function () { return FROTA; }, function () { return MOTS; },
@@ -7560,10 +7705,14 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
             var ia = fa.indexOf('  function comoChamar(m) {');
             return new Function(fa.slice(ia, fa.indexOf('\n  }', ia) + 4) +
               '\n return comoChamar;')();
-          })() });
-      api.ligarV('v', 'm');
-      api.ligarM('m', 'v');
-      api.montar('v', 'm');
+          })() },
+        /* SEM NENHUM LOCAL MARCADO: esta bancada mede o agrupamento pelo MOTORISTA, e
+           um local que pedisse fornecedor trocaria a pergunta debaixo dela. */
+        { locais: [] });
+      /* PONTAS VAZIAS, pela mesma razão. */
+      api.ligarV('v', 'm', function () { return []; });
+      api.ligarM('m', 'v', function () { return []; });
+      api.montar('v', 'm', []);
       return { sv: sv, sm: sm, api: api };
     }
 
