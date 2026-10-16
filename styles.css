@@ -2884,9 +2884,25 @@ details.tipos[open] summary::before{content:"▾"}
      abaixo do conteudo dele — a caixa da tabela pediria a altura de todas as linhas, a
      corrente inteira cresceria junto e a barra da pagina voltaria. */
   #pgRetornos > .ret-wrap{flex:1 1 auto;min-height:0}
-  /* O trilho rola por conta: sao sete grupos mais quatro botoes, e numa janela baixa
-     eles passam da altura do cartao. */
-  .ret-rail{overflow-y:auto;overscroll-behavior:contain}
+  /* QUEM ROLA E' A LISTA DE GRUPOS, E NAO O TRILHO INTEIRO.
+   *
+   * Era o trilho (`.ret-rail{overflow-y:auto}`), e isso CORTAVA o painel de filtros: ele
+   * e' `position:absolute` ancorado num botao que mora dentro do trilho, e elemento
+   * posicionado e' recortado pelo primeiro ancestral que rola. O painel nascia com a
+   * altura inteira do formulario — a medicao dele olha o `.corpo-pagina`, que e' alto —,
+   * entao nao transbordava de si mesmo e nao ganhava barra de rolagem propria: ele era
+   * simplesmente cortado pela borda do trilho, sem nada na tela dizendo que havia mais
+   * campos embaixo.
+   *
+   * COM A ROLAGEM NA LISTA, o trilho deixa de recortar e o painel escapa inteiro. E a
+   * troca ainda melhora o trilho: os quatro botoes do rodape — Filtros, Limpar, CSV e
+   * Atualizar — param de rolar junto com os grupos e ficam sempre a' vista, que e' o que
+   * `margin-top:auto` em `.ret-acoes` ja' queria dizer.
+   *
+   * `min-height:0` NO ITEM QUE ENCOLHE: sem ele um item de flex nunca fica menor que o
+   * conteudo, a lista empurraria os botoes para fora e nada rolaria. */
+  .ret-rail{overflow:visible}
+  .ret-nav{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
   .ret-main{display:flex;flex-direction:column;min-height:0}
   #tabelaFluxo{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
   /* A CAIXA DA TABELA E' A UNICA QUE ROLA, nos dois sentidos: ela ja' rolava de lado

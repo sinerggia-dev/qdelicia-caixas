@@ -21522,6 +21522,69 @@ console.log('\n== o numero com virgula, e a rolagem do Painel de Ativos ==');
     'e todo elo que se estica tem `min-height:0` junto — sem ele um item de flex nunca ' +
     'encolhe abaixo do conteúdo, e é o esquecimento que não quebra nada visivelmente: ' +
     'só faz a caixa parar de encolher', elos);
+  /* ---- NENHUM ANCESTRAL DO PAINEL DE FILTROS PODE RECORTAR ----
+   *
+   * O painel e' `position:absolute`, e elemento posicionado e' recortado pelo primeiro
+   * ancestral que ROLA. Quando o trilho ganhou `overflow-y:auto` — para caber numa
+   * janela baixa —, ele virou esse ancestral e passou a cortar o painel pela metade.
+   *
+   * E NAO HAVIA BARRA DE ROLAGEM PARA AVISAR: a medicao do painel olha o
+   * `.corpo-pagina`, que e' alto, entao ele nascia com a altura inteira do formulario,
+   * nao transbordava de SI MESMO, e nao ganhava barra propria. Ficava simplesmente
+   * cortado, sem nada na tela dizendo que havia mais campos embaixo. Foi assim que
+   * chegou: "nao esta' aparecendo a barra de rolagem".
+   *
+   * A CADEIA E' A DO HTML, e a prova confere que ela continua sendo essa antes de usa-la
+   * — mudada a estrutura, a lista aqui viraria uma conta sobre elementos que nao sao
+   * mais ancestrais de nada. */
+  var CADEIA_POP = ['ret-wrap', 'ret-rail', 'ret-acoes', 'ret-menu', 'ret-pop'];
+  var ondeNoHtml = CADEIA_POP.map(function (cl) { return admN.indexOf('class="' + cl + '"'); });
+  ok(ondeNoHtml.every(function (p, i) { return p > 0 && (i === 0 || p > ondeNoHtml[i - 1]); }),
+    'a cadeia do painel de filtros continua sendo trilho → ações → menu → painel — ' +
+    'mudada a estrutura, a conta abaixo olharia elementos que já não são ancestrais',
+    CADEIA_POP.map(function (c, i) { return c + ':' + ondeNoHtml[i]; }));
+
+  function regraToda(sel) {
+    var junto = '', i = -1;
+    while ((i = cssN.indexOf('\n' + sel + '{', i + 1)) >= 0) {
+      junto += cssN.slice(i, cssN.indexOf('}', i) + 1) + ' ';
+    }
+    /* E DENTRO DAS MEDIAS TAMBEM: foi numa `@media (min-width:1024px)` que o `overflow`
+       entrou no trilho, e uma leitura so' do nivel de cima nao o veria. */
+    i = -1;
+    while ((i = cssN.indexOf('\n  ' + sel + '{', i + 1)) >= 0) {
+      junto += cssN.slice(i, cssN.indexOf('}', i) + 1) + ' ';
+    }
+    return junto;
+  }
+  var recortam = CADEIA_POP.slice(0, 4).filter(function (cl) {
+    return /overflow(-[xy])?\s*:\s*(auto|hidden|scroll)/.test(regraToda('.' + cl));
+  });
+  ok(!recortam.length,
+    'e nenhum deles RECORTA — o painel é posicionado, e o primeiro ancestral que rola o ' +
+    'corta pela metade sem barra de rolagem nenhuma: ele não transborda de si mesmo, ' +
+    'então não ganha a sua, e fica cortado em silêncio', recortam);
+
+  /* ---- E QUEM ROLA E' A LISTA DE GRUPOS ----
+     Ela precisa rolar por alguem: sao sete grupos, e numa janela baixa eles passam da
+     altura do cartao. Rolando ela, os quatro botoes do rodape — Filtros, Limpar, CSV e
+     Atualizar — param de rolar junto e ficam sempre a' vista, que e' o que o
+     `margin-top:auto` do `.ret-acoes` ja' queria dizer. */
+  var regraNav = regraToda('.ret-nav');
+  ok(/overflow-y:auto/.test(regraNav) && /min-height:0/.test(regraNav),
+    'quem rola é a LISTA DE GRUPOS, com `min-height:0` — sem ele um item de flex nunca ' +
+    'fica menor que o conteúdo, a lista empurraria os botões para fora e nada rolaria',
+    regraNav);
+  /* E OS BOTOES SAO IRMAOS DA LISTA, e nao filhos dela: dentro do que rola, eles sobem
+     junto com os grupos e some justamente o gatilho dos filtros. A conta e' no HTML, que
+     e' onde "dentro" e "ao lado" se decidem — no CSS isso nao aparece. */
+  var iNav = admN.indexOf('class="ret-nav"');
+  var iAco = admN.indexOf('class="ret-acoes"');
+  var fimNav = admN.indexOf('</div>', iNav);
+  ok(iNav > 0 && iAco > fimNav,
+    'e os botões do rodapé ficam FORA do que rola — dentro, eles sobem junto com os ' +
+    'grupos e some justamente o gatilho dos filtros', [iNav, fimNav, iAco]);
+
   /* ---- E SO' NO COMPUTADOR ----
      Abaixo de 1024px esta tabela vira CARTOES, um por carga: cartao empilhado numa caixa
      de altura fixa seria uma janelinha de rolagem dentro de uma tela que ja' rola. */
