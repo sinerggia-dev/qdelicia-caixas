@@ -674,6 +674,41 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
 
   ok(campos.length >= 9, 'a leitura achou os campos da barra', campos);
 
+  /* ---- O PERIODO FICA ANTES DE CANCELADOS, e o Filtrar com ele ----
+   * A pedido: o periodo e' o recorte que se mexe TODO dia — "o que saiu esta semana" e'
+   * a pergunta mais feita desta tela — e no pe' da gaveta ficava depois de sete campos
+   * que quase nunca mudam. Quem queria so' trocar a data rolava a gaveta inteira, duas
+   * vezes: para descer e para achar o Filtrar.
+   * O FILTRAR SOBE JUNTO pelo mesmo motivo que o prendia ao pe': ele e' o botao do
+   * formulario, e confirmar longe de onde se digitou obriga a olhar para dois cantos da
+   * tela por uma coisa so'. */
+  var pos = function (t) { return barra.indexOf(t); };
+  ok(pos('id="mvDe"') > 0 && pos('id="mvCancelados"') > 0 &&
+     pos('id="mvDe"') < pos('id="mvCancelados"') &&
+     pos('id="mvAte"') < pos('id="mvCancelados"'),
+    'o período vem ANTES de Cancelados — é o recorte que se mexe todo dia, e no pé da ' +
+    'gaveta ficava depois de sete campos que quase nunca mudam',
+    [pos('id="mvDe"'), pos('id="mvAte"'), pos('id="mvCancelados"')]);
+  ok(pos('id="btnFiltrarMov"') > pos('id="mvAte"') &&
+     pos('id="btnFiltrarMov"') < pos('id="mvCancelados"'),
+    'e o Filtrar vem colado neles — ele é o botão do formulário, e confirmar longe de ' +
+    'onde se digitou obriga a olhar para dois cantos da tela por uma coisa só',
+    pos('id="btnFiltrarMov"'));
+
+  /* E OS BOTOES DE RISCO NAO SOBEM: um apagar que some quinhentas linhas nao pode ficar
+     ao alcance do mesmo movimento distraido que troca uma data. */
+  ok(barra.indexOf('id="btnLimparTudo"') < 0 && barra.indexOf('id="btnLixeira"') < 0,
+    'e "Apagar o que está no filtro" e a Lixeira NÃO sobem — um apagar que some ' +
+    'quinhentas linhas não pode ficar ao alcance do mesmo movimento distraído que troca ' +
+    'uma data');
+  /* E O BOTAO OCUPA A LINHA INTEIRA DA GRADE: item de grade sem isto herda a largura de
+     UMA coluna e fica encolhido no meio da gaveta, parecendo um campo que nao e'. */
+  var folhaFa = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  ok(/\.filtro-acao\{[^}]*grid-column:1 \/ -1/.test(folhaFa),
+    'e ele ocupa a linha inteira da grade — sem isso herda a largura de UMA coluna e ' +
+    'fica encolhido no meio da gaveta, parecendo um campo que não é',
+    /\.filtro-acao\{[^}]*\}/.exec(folhaFa));
+
   var leitura = adm.slice(adm.indexOf('function filtroExclusao()'),
                           adm.indexOf('function descreveFiltro('));
   ok(campos.filter(function (c) { return leitura.indexOf("'" + c + "'") < 0; }).length === 0,

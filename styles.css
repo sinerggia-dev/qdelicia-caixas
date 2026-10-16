@@ -1531,6 +1531,19 @@ button.mini.perigo{border-color:var(--vermelho);color:var(--vermelho)}
    nao pode ser excluido, e o botao fica a vista, cinza, com o motivo no balao.
    `pointer-events` NAO entra aqui: o balao do `title` e' justamente o que explica a
    recusa, e sem ponteiro ele nunca apareceria — o botao viraria um cinza mudo. */
+/* A FRASE EMBAIXO DE UM CAMPO DA GAVETA. Menor que o rotulo e no tom de apoio: ela
+   explica uma AUSENCIA — o livro que o cadastro tem e que aquela lista nao oferece —, e
+   com o peso do rotulo passaria a competir com o campo que ela comenta. */
+.dica-base{margin:6px 0 0;font-size:12px;line-height:1.4;color:var(--txt2)}
+
+/* O FILTRAR DENTRO DA GRADE DE CAMPOS. Ele subiu para junto do periodo, a pedido, e ali
+   e' um item da grade como os campos — sem isto ele herdaria a largura de UMA coluna e
+   ficaria encolhido no meio da gaveta, parecendo um campo que nao e'.
+   `grid-column:1/-1` o faz ocupar a linha inteira em qualquer numero de colunas: a
+   gaveta tem uma no celular e mais no computador, e uma medida fixa serviria a uma e
+   quebraria a outra. */
+.filtro-acao{grid-column:1 / -1;display:flex;margin:2px 0 6px}
+
 /* O RISCO ENTRE OS DOIS GRUPOS DE CHIP. Eles respondem perguntas diferentes — que
    funcao a pessoa tem, e em que situacao ela esta' — e se somam em vez de se
    substituir. Encostados, a fila de dez parecia uma lista so' e a pessoa procurava

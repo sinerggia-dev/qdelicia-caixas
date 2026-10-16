@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=1545a0fe">
+<link rel="stylesheet" href="styles.css?v=b2568151">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1060,6 +1060,25 @@
         <!-- As opcoes vem da `equipe`, da mesma lista que o servidor usa para rotular.
              Escritas aqui, seriam duas listas sobre a mesma regra. -->
         <div><label for="mvStatus">Status</label><select id="mvStatus" multiple data-multi><option value="">Todos</option></select></div>
+        <!-- O PERÍODO SOBE PARA CÁ, a pedido, e com o Filtrar junto.
+             Ele é o recorte que se mexe TODO dia — "o que saiu esta semana" é a
+             pergunta mais feita desta tela —, e no pé da gaveta ele ficava depois de
+             sete campos que quase nunca mudam. Quem queria só trocar a data rolava a
+             gaveta inteira, duas vezes: para descer e para achar o Filtrar.
+             O FILTRAR VEM COM ELES pelo mesmo motivo que o prendia ao pé: ele é o botão
+             do formulário, e confirmar longe de onde se digitou obriga a olhar para dois
+             cantos da tela por uma coisa só. Aqui ele continua colado no último campo
+             que a pessoa mexeu.
+             OS BOTÕES DE RISCO NÃO SOBEM — "Apagar o que está no filtro" e a Lixeira
+             continuam no pé da gaveta, e a razão está escrita lá embaixo: um apagar que
+             some quinhentas linhas não pode ficar ao alcance do mesmo movimento
+             distraído que troca uma data. -->
+        <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
+        <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
+        <div class="filtro-acao">
+          <button class="btn" id="btnFiltrarMov" style="flex:0;min-width:140px">Filtrar</button>
+        </div>
+
         <!-- OS CANCELADOS SAO INVISIVEIS POR PADRAO, e isso esta certo: eles nao contam
              em nada, e deixa-los na lista de todo dia seria pedir que a pessoa os
              ignore um por um. Invisiveis SEMPRE e' outra coisa — um cancelamento por
@@ -1104,14 +1123,8 @@
                frase fica escrita no codigo e nunca chega a' tela. Foi o que aconteceu:
                a peca existia e nada chegava nela. -->
           <p class="dica-base" id="mvTesteDica" hidden></p></div>
-        <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
-        <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
       </div>
       <div class="linha-btn">
-        <!-- FILTRAR FICA AQUI, em qualquer largura. Ele é o botão do formulário: o
-             gesto é mexer nos campos e confirmar, e confirmar longe de onde se digitou
-             obriga a olhar para dois cantos da tela por uma coisa só. -->
-        <button class="btn" id="btnFiltrarMov" style="flex:0;min-width:140px">Filtrar</button>
         <!-- LIMPAR E CSV NÃO TÊM MEDIDA AQUI. Eles vivem em dois lugares — o pé desta
              gaveta e a linha do cadeado —, e quem dá o tamanho é o lugar. Escrita no
              `style=`, a medida da gaveta venceria a do topo (inline ganha de classe) e
