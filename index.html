@@ -414,6 +414,17 @@
         <div id="sdWrapVeiculo">
           <label for="sdVeiculo">Veículo<span class="obrig">*</span></label>
           <select id="sdVeiculo"></select>
+          <!-- A PLACA DIGITADA A MAO.
+               A frota cadastrada cobre o dia a dia, mas o carro emprestado, o fretado e
+               o que chegou hoje nao estao nela — e ate' hoje a pessoa nao tinha como
+               lancar: ou escolhia uma placa errada, que e' pior que nenhuma, ou nao
+               lancava.
+               NASCE ESCONDIDO e so' aparece quando se escolhe "Outra placa" na lista:
+               um campo de texto sempre a' vista convida a digitar o que ja' esta' na
+               lista, e placa digitada a mao erra mais que placa escolhida. -->
+          <input id="sdVeiculoTexto" type="text" hidden autocomplete="off"
+                 inputmode="text" maxlength="8" placeholder="ABC1D23"
+                 aria-label="Digite a placa">
         </div>
       </div>
 
@@ -485,6 +496,9 @@
         <div id="dvWrapVeiculo">
           <label for="dvVeiculo">Veículo<span class="obrig">*</span></label>
           <select id="dvVeiculo"></select>
+          <input id="dvVeiculoTexto" type="text" hidden autocomplete="off"
+                 inputmode="text" maxlength="8" placeholder="ABC1D23"
+                 aria-label="Digite a placa">
         </div>
       </div>
 
@@ -630,7 +644,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=9e9d95bc"></script>
+<script src="app.js?v=5e346533"></script>
 <script>
 (function(){
   'use strict';
@@ -998,6 +1012,42 @@
      E O RESTO CONTINUA ALCANÇÁVEL, embaixo: carro quebra, alguém cobre a rota do outro,
      e uma lista que só ofereça o carro de fábrica trava o lançamento no dia em que a
      realidade não obedece ao cadastro. */
+  /* O VALOR QUE DIZ "VOU DIGITAR". Uma constante, e nao a palavra solta em cada
+     lugar: ela aparece na opcao, na troca do seletor, na leitura do campo e na guarda
+     do envio, e a primeira copia esquecida deixaria um dos quatro sem entender o
+     outro. Comeca com `__` para nao poder ser confundida com uma placa de verdade. */
+  var OUTRA_PLACA = '__outra';
+
+  function campoTextoDaPlaca(idVeiculo){
+    return document.getElementById(idVeiculo + 'Texto');
+  }
+
+  /* MOSTRA OU ESCONDE O CAMPO DE DIGITAR, conforme o que esta' escolhido na lista.
+     Escondido, ele e' LIMPO: uma placa digitada e esquecida ali depois de a pessoa
+     voltar para a frota viajaria junto com o lancamento — a tela mostrando o carro
+     escolhido e o banco recebendo o digitado. */
+  function mostrarPlacaTexto(idVeiculo){
+    var sel = document.getElementById(idVeiculo);
+    var txt = campoTextoDaPlaca(idVeiculo);
+    if (!sel || !txt) return;
+    var digitando = sel.value === OUTRA_PLACA;
+    txt.hidden = !digitando;
+    if (!digitando) { txt.value = ''; txt.classList.remove('campo-erro'); }
+  }
+
+  /* A PLACA QUE VAI NO LANCAMENTO, venha da lista ou do teclado.
+     Num lugar so' porque as duas telas e a guarda do envio perguntam a mesma coisa, e
+     tres copias divergiriam na primeira que fosse mexida. */
+  function placaEscolhida(idVeiculo){
+    var sel = document.getElementById(idVeiculo);
+    if (!sel) return '';
+    if (sel.value !== OUTRA_PLACA) return String(sel.value || '').trim();
+    var txt = campoTextoDaPlaca(idVeiculo);
+    /* LIMPA NA MESMA FORMA DO CADASTRO E DO BANCO: sem traco, sem espaco, maiuscula.
+       Mandando o texto cru, "kks-1330" e "KKS1330" virariam dois carros na coluna. */
+    return Q.placaLimpa(txt ? txt.value : '');
+  }
+
   function montarVeiculos(idVeiculo, idMotorista){
     var sel = document.getElementById(idVeiculo);
     if (!sel) return;
@@ -1006,8 +1056,13 @@
     /* Sem frota liberada, o campo diz POR QUE está vazio. Um seletor só com
        "Selecione…" e nada dentro lê como tela quebrada, e a pessoa fica tentando. */
     if (!frota.length) {
-      sel.innerHTML = '<option value="">— nenhum veículo liberado para você —</option>';
+      /* SEM FROTA, DIGITAR E' O UNICO CAMINHO — e por isso ele aparece aqui tambem.
+         Antes esta tela era um beco sem saida: dizia por que estava vazia e nao
+         oferecia nada a fazer. */
+      sel.innerHTML = '<option value="">— nenhum veículo liberado para você —</option>' +
+        '<option value="'+OUTRA_PLACA+'">✎ Outra placa — digitar</option>';
       sel.setAttribute('data-mot-lista', '');
+      mostrarPlacaTexto(idVeiculo);
       return;
     }
 
@@ -1044,10 +1099,14 @@
 
     /* Sem veículo do motorista não há o que separar: a lista sai simples, sem rótulo de
        grupo para ler à toa. Mesma regra da lista de motoristas. */
+    /* A ESCOLHA DE DIGITAR FICA NO FIM DA LISTA, e nao no comeco: o caso comum e'
+       escolher um carro da frota, e um "Outra placa" em cima seria a primeira coisa a
+       ler toda vez para passar por ela. */
     sel.innerHTML = '<option value="">Selecione…</option>' +
       (dele.length
         ? grupo('Veículo de ' + nome, dele) + grupo('Outros veículos', outros)
-        : itens(frota));
+        : itens(frota)) +
+      '<option value="'+OUTRA_PLACA+'">✎ Outra placa — digitar</option>';
 
     /* MOTORISTA NOVO, VEÍCULO NOVO. Trocar o motorista e deixar a placa do anterior no
        campo é o erro que este agrupamento existe para evitar — e seria o mais difícil
@@ -1482,6 +1541,12 @@
     // Quem trouxe a carga de volta, agrupado pela rota de onde ela vem.
     montarMotoristas('dvMotorista', 'dvOrigem');
     montarVeiculos('dvVeiculo', 'dvMotorista');
+    /* TROCAR O SELETOR MOSTRA OU ESCONDE O CAMPO DE DIGITAR. Sem este aviso, escolher
+       "Outra placa" nao abriria nada — a peca existiria e ninguem a alcancaria. */
+    ['sdVeiculo', 'dvVeiculo'].forEach(function(id){
+      var s = document.getElementById(id);
+      if (s) s.addEventListener('change', function(){ mostrarPlacaTexto(id); });
+    });
     document.getElementById('sdOrigem').addEventListener('change', ajustarCamposSaida);
     // É a rota que decide quais motoristas aparecem.
     document.getElementById('sdRota').addEventListener('change', function(){
@@ -1625,6 +1690,7 @@
     if (Q.precisaConfirmarCaixa(this, 'Confirmar saída de ' + total + ' caixa(s)' +
         dizBase + '?', 'Registrar')) return;
 
+    if (!placaOk('sdVeiculo')) return;
     var destinoTipo = (DADOS.locais.filter(function(l){return String(l.ID)===destino;})[0]||{}).Tipo;
     var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
     Q.enviar({
@@ -1638,7 +1704,7 @@
       base: baseSd,
       motorista: document.getElementById('sdMotorista').value.trim(),
       motoristaNome: nomeCompletoDoMotorista(document.getElementById('sdMotorista').value),
-      veiculo: document.getElementById('sdVeiculo').value.trim(),
+      veiculo: placaEscolhida('sdVeiculo'),
       rota: nomeDoLocal(destino),
       /* VAI O NOME, que e o que se grava. Escondido o campo, o seletor esta vazio e o
          servidor nao pede nada: a regra de quem exige mora no cadastro do local, e e
@@ -1673,6 +1739,12 @@
        e um nome que fica no campo de um lancamento para o outro e' o erro mais facil
        de nao notar: a tela mostra o certo e o banco recebe o de antes. */
     document.getElementById('sdFornecedor').value = '';
+    /* O CAMPO DE DIGITAR A PLACA TAMBEM, e o VALOR dele sempre — nao so' quando ele
+       some. Quem fica em "Outra placa" para lancar varios carros seguidos encontraria
+       a placa do anterior ja' escrita, com jeito de conferida: o erro mais facil de
+       nao notar, porque o campo esta' preenchido. */
+    document.getElementById('sdVeiculoTexto').value = '';
+    mostrarPlacaTexto('sdVeiculo');
     sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
     document.getElementById('sdFoto').value = '';
     if (!manterLocais){
@@ -1684,6 +1756,30 @@
     }
   }
   document.getElementById('btnLimparSaida').addEventListener('click', function(){ limparSaida(false); });
+
+  /* A PLACA DIGITADA PRECISA SER UMA PLACA.
+     Aceitar qualquer texto faria a coluna Veiculo virar campo livre — "caminhao do ze"
+     numa planilha de placas —, e quem fosse procurar por placa nao acharia nada. A
+     mesma regra roda no SERVIDOR: a tela recusar e' conveniencia, e um POST direto
+     passa por cima dela. */
+  function placaOk(idVeiculo){
+    var sel = document.getElementById(idVeiculo);
+    if (!sel || sel.value !== OUTRA_PLACA) return true;
+    var txt = campoTextoDaPlaca(idVeiculo);
+    var v = Q.placaLimpa(txt ? txt.value : '');
+    if (!v) {
+      Q.toast('Digite a placa do veículo.','erro');
+      if (txt) { txt.classList.add('campo-erro'); txt.focus(); }
+      return false;
+    }
+    if (!Q.placaValida(v)) {
+      Q.toast('Placa inválida: use ABC1234 ou ABC1D23.','erro');
+      if (txt) { txt.classList.add('campo-erro'); txt.focus(); }
+      return false;
+    }
+    if (txt) txt.classList.remove('campo-erro');
+    return true;
+  }
 
   /* ---------------- gravar devolução ---------------- */
   document.getElementById('btnSalvarDevolucao').addEventListener('click', function(){
@@ -1700,6 +1796,7 @@
     if (Q.precisaConfirmarCaixa(this, 'Confirmar entrada de ' + total + ' caixa(s)' +
         dizBaseDv + '?', 'Registrar')) return;
 
+    if (!placaOk('dvVeiculo')) return;
     var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
     Q.enviar({
       acao:'movimento', tipo:'DEVOLUCAO',
@@ -1707,7 +1804,7 @@
       dataRef: document.getElementById('dvData').value,
       motorista: document.getElementById('dvMotorista').value,
       motoristaNome: nomeCompletoDoMotorista(document.getElementById('dvMotorista').value),
-      veiculo: document.getElementById('dvVeiculo').value,
+      veiculo: placaEscolhida('dvVeiculo'),
       obs: document.getElementById('dvObs').value,
       usuarioId: s.id, perfil: s.perfil,
       base: baseDv,
@@ -1733,6 +1830,8 @@
     document.getElementById('dvObs').value = '';
     document.getElementById('dvMotorista').value = '';
     document.getElementById('dvFornecedor').value = '';
+    document.getElementById('dvVeiculoTexto').value = '';
+    mostrarPlacaTexto('dvVeiculo');
     dvFotoData=''; document.getElementById('dvFotoOk').textContent='';
     document.getElementById('dvFoto').value = '';
     if (!manter){

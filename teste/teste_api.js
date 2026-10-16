@@ -253,6 +253,29 @@ async function main() {
   ok((await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: C, itens: [{ tipoCaixaId: T, qtd: 100 }], dataRef: dia(-20), usuarioId: 'U003', perfil: 'MOTORISTA' })).ok, 'saída 100 p/ cliente (20 dias atrás)');
   ok((await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G, destinoId: C, itens: [{ tipoCaixaId: T, qtd: 50 }], dataRef: dia(-3), usuarioId: 'U003', perfil: 'MOTORISTA' })).ok, 'saída 50 p/ cliente (3 dias atrás)');
 
+  /* ---- A PLACA DIGITADA PASSA PELA ROTA, E E' ELA QUE RECUSA ----
+   *
+   * A regra do formato ja' e' provada em separado. O que ESTA prova mede e' outra
+   * coisa: que a ROTA a chama. A tela recusar e' conveniencia, e um POST direto passa
+   * por cima dela — e foi exatamente isso que escapou da sabotagem: arrancar a guarda
+   * de `gravarMovimento` nao quebrava nada, porque nada perguntava se ela estava la'.
+   *
+   * SEGURO DE RODAR AO VIVO: o esperado e' a RECUSA, entao nada e' gravado. E a frase
+   * do erro e' conferida, senao a prova passaria por qualquer outro motivo de recusa —
+   * permissao, base, data — e estaria medindo o nada. */
+  const placaRuim = await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G,
+    destinoId: C, itens: [{ tipoCaixaId: T, qtd: 1 }], dataRef: dia(-1),
+    usuarioId: 'U003', perfil: 'MOTORISTA', veiculo: 'CARRO.TEST' });
+  ok(placaRuim.ok === false && /[Pp]laca inválida/.test(String(placaRuim.erro || '')),
+    'a rota RECUSA uma placa que não é placa — desde que ela pode ser digitada, sem ' +
+    'esta guarda a coluna Veículo viraria campo livre, e quem procurasse por placa não ' +
+    'acharia nada', placaRuim);
+  /* E SO' A RECUSA SE PROVA AQUI. O caminho que ACEITA grava um lancamento, e esta
+     suite e' uma sequencia com saldos exatos — um movimento a mais desloca todas as
+     contas seguintes, e a prova viraria a causa do erro que ela deveria achar. Que a
+     placa boa passa ja' esta' provado no `teste_tela.js`, contra a mesma funcao, sem
+     tocar no banco. */
+
   let p = (await GET({ acao: 'painel' })).painel;
   let cli = p.locais.find((l) => l.id === C);
   ok(cli.saldo === 150, 'saldo do cliente = 150', cli.saldo);

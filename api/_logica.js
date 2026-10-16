@@ -1457,6 +1457,19 @@ function placa(v) {
   return String(v == null ? '' : v).replace(/[-\s]/g, '').trim().toUpperCase();
 }
 
+/* DUAS FORMAS VALEM: a antiga, ABC1234, e a Mercosul, ABC1D23. A tela tambem confere,
+   e isso aqui nao e' repeticao: a tela e' conveniencia, e um POST direto passa por cima
+   dela. Desde que a placa pode ser DIGITADA, sem esta guarda a coluna Veiculo viraria
+   campo livre — "caminhao do ze" numa planilha de placas.
+   VAZIO CONTINUA VALENDO: ha lancamento sem veiculo, e quem decide se o campo e'
+   obrigatorio e' o formulario. */
+var PLACA_FORMATO = /^[A-Z]{3}[0-9][0-9A-Z][0-9]{2}$/;
+
+function placaAceitavel(v) {
+  var p = placa(v);
+  return !p || PLACA_FORMATO.test(p);
+}
+
 var CORRIGIVEIS = [
   { campo: 'Qtd', rotulo: 'quantidade', numero: true },
   { campo: 'QtdConferida', rotulo: 'conferida', numero: true },
@@ -3150,7 +3163,7 @@ module.exports = {
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,
   cicloDaCarga: cicloDaCarga, rotuloCiclo: rotuloCiclo,
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
-  montarMovimento: montarMovimento,
+  montarMovimento: montarMovimento, placaAceitavel: placaAceitavel,
   conferirFornecedor: conferirFornecedor, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,

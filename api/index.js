@@ -349,6 +349,13 @@ async function gravarMovimento(p) {
   var faltaForn = L.conferirFornecedor(p, d.locais, d.fornecedores);
   if (faltaForn) return { ok: false, erro: faltaForn };
 
+  /* A PLACA, DESDE QUE PODE SER DIGITADA. A tela ja' recusa o que nao e' placa; aqui
+     e' a guarda que nao se contorna — e' esta rota que grava a coluna. */
+  if (!L.placaAceitavel(p.veiculo)) {
+    return { ok: false, erro: 'Placa inválida: ' + String(p.veiculo) +
+      '. Use o formato ABC1234 ou ABC1D23.' };
+  }
+
   var localAj = L.localDoAjuste(p.tipo, p);
   if (quem && localAj && !L.podeAjustarEm(quem, localAj)) {
     var nomeLocal = (d.locais || []).filter(function (l) {

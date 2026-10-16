@@ -1015,6 +1015,30 @@
      'Isaque <sobrenome>'.
      SEM APELIDO E O NOME INTEIRO, e nao vazio — a maioria nao vai ter apelido, e uma
      lista com linhas em branco e pior do que uma lista com nomes longos. */
+  /* ================= A PLACA =================
+   *
+   * UMA FORMA SO', e e' esta: sem traco, sem espaco, maiuscula. E' a mesma conta que o
+   * servidor faz ao gravar (`placa()` no `_logica.js`) e a mesma do indice unico do
+   * banco — se a tela limpasse de um jeito e o banco de outro, "kks-1330" e "KKS1330"
+   * entrariam como dois carros que a tela mostra iguais.
+   *
+   * DOIS FORMATOS VALEM: o antigo, ABC1234, e o Mercosul, ABC1D23. Aceitar qualquer
+   * texto faria a coluna Veiculo virar campo livre — "caminhao do ze" numa planilha de
+   * placas —, e quem fosse procurar por placa nao acharia nada.
+   *
+   * VAZIO NAO E' INVALIDO: ha lancamento sem veiculo, e quem decide se o campo e'
+   * obrigatorio e' o formulario, nao esta funcao. */
+  var PLACA_RE = /^[A-Z]{3}[0-9][0-9A-Z][0-9]{2}$/;
+
+  function placaLimpa(v) {
+    return String(v == null ? '' : v).replace(/[-\s]/g, '').trim().toUpperCase();
+  }
+
+  function placaValida(v) {
+    var p = placaLimpa(v);
+    return !p || PLACA_RE.test(p);
+  }
+
   function comoChamar(m) {
     var ap = String((m && m.Apelido) || '').trim();
     return ap || String((m && m.Nome) || '').trim();
@@ -3311,6 +3335,7 @@
     abrirAbaPedida: abrirAbaPedida, recarregarNaMesmaPagina: recarregarNaMesmaPagina,
     abrirTrocaDeFoto: abrirTrocaDeFoto,
     comoChamar: comoChamar, nomeESobrenome: nomeESobrenome,
+    placaLimpa: placaLimpa, placaValida: placaValida,
     ligarBotaoHoje: ligarBotaoHoje, marcarBotaoHoje: marcarBotaoHoje,
     podeCorrigir: podeCorrigir, correcaoLivre: correcaoLivre,
     definirPerfisDeclaracao: definirPerfisDeclaracao,

@@ -272,6 +272,140 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
     (admO.match(/\n\s*aplicarOrdemFiltros\(\);/g) || []).length);
 }
 
+console.log('\n== a placa digitada a mao ==');
+{
+  var idxP = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var appP = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var LP = require(path.join(__dirname, '..', 'api', '_logica.js'));
+
+  /* ---- A REGRA DO FORMATO, RODANDO, e dos DOIS lados ----
+   * A tela recusar e' conveniencia: um POST direto passa por cima dela. As duas
+   * guardas tem de concordar, senao uma aceita o que a outra recusa e o lancamento
+   * morre no servidor depois de a pessoa ter preenchido tudo. */
+  var iPV = appP.indexOf('  function placaLimpa(v) {');
+  var fimPV = appP.indexOf(String.fromCharCode(10) + '  function comoChamar', iPV);
+  var regraTela = new Function(
+    appP.slice(appP.indexOf('  var PLACA_RE ='), fimPV) +
+    ' return { limpa: placaLimpa, valida: placaValida };')();
+  ok(typeof regraTela.valida === 'function',
+    'a conferência recortou a regra da placa do núcleo', typeof regraTela.valida);
+
+  var CASOS = [
+    ['ABC1234', true,  'o formato antigo'],
+    ['ABC1D23', true,  'o formato Mercosul'],
+    ['abc-1234', true, 'minúscula e traço, que a limpeza resolve'],
+    [' kks 1330 ', true, 'espaços, idem'],
+    ['', true,          'vazio — há lançamento sem veículo, e quem exige é o formulário'],
+    ['CARRO.TEST', false, 'texto que não é placa'],
+    ['caminhão do zé', false, 'o apelido do carro'],
+    ['ABC12345', false, 'um dígito a mais'],
+    ['AB1234', false,  'uma letra a menos']
+  ];
+  CASOS.forEach(function (c) {
+    ok(regraTela.valida(c[0]) === c[1],
+      'na TELA, ' + JSON.stringify(c[0]) + ' ' + (c[1] ? 'passa' : 'é recusada') +
+      ' — ' + c[2], regraTela.valida(c[0]));
+    ok(LP.placaAceitavel(c[0]) === c[1],
+      'e no SERVIDOR a mesma resposta — a tela recusar é conveniência, e um pedido ' +
+      'direto passa por cima dela; as duas discordando, uma aceita o que a outra ' +
+      'recusa e o lançamento morre depois de tudo preenchido', LP.placaAceitavel(c[0]));
+  });
+
+  /* ---- A LIMPEZA E' A MESMA DO CADASTRO E DO BANCO ----
+   * O indice unico do banco compara a forma limpa. Limpando de outro jeito aqui,
+   * "kks-1330" e "KKS1330" entrariam como dois carros que a tela mostra iguais. */
+  var supP = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
+  var iL = supP.indexOf('function placaLimpa(v) {');
+  var limpaBanco = new Function(
+    supP.slice(iL, supP.indexOf(String.fromCharCode(10) + '}', iL) + 2) +
+    ' return placaLimpa;')();
+  ['kks-1330', ' abc 1d23 ', 'PeE3761'].forEach(function (x) {
+    ok(regraTela.limpa(x) === limpaBanco(x),
+      'e a tela limpa a placa na MESMA forma do cadastro e do banco (' +
+      JSON.stringify(x) + ') — formas diferentes fariam o mesmo carro virar dois na ' +
+      'coluna, e o índice único do banco compara justamente a forma limpa',
+      [regraTela.limpa(x), limpaBanco(x)]);
+  });
+
+  /* ---- O CAMPO APARECE E SOME, RODANDO ---- */
+  function bancadaPlaca(valorSel) {
+    var nos = {
+      sdVeiculo: { value: valorSel },
+      sdVeiculoTexto: { value: '', hidden: true,
+                        classList: { add: function () {}, remove: function () {} } }
+    };
+    var fonteP = ['  var OUTRA_PLACA', '  function campoTextoDaPlaca(',
+                  '  function mostrarPlacaTexto(', '  function placaEscolhida(']
+      .map(function (a) {
+        var i = idxP.indexOf(a);
+        if (i < 0) return '';
+        return a.indexOf('var ') >= 0
+          ? idxP.slice(i, idxP.indexOf(';', i) + 1)
+          : idxP.slice(i, idxP.indexOf(String.fromCharCode(10) + '  }', i) + 4);
+      }).join(String.fromCharCode(10));
+    var api = new Function('document', 'Q', fonteP +
+      ' return { mostrar: mostrarPlacaTexto, escolhida: placaEscolhida,' +
+      '          OUTRA: OUTRA_PLACA };')(
+      { getElementById: function (id) { return nos[id] || null; } },
+      { placaLimpa: regraTela.limpa });
+    return { nos: nos, api: api };
+  }
+
+  var bSel = bancadaPlaca('KKS1330');
+  bSel.api.mostrar('sdVeiculo');
+  ok(bSel.nos.sdVeiculoTexto.hidden === true,
+    'com uma placa da frota escolhida, o campo de digitar fica ESCONDIDO — um campo de ' +
+    'texto sempre à vista convida a digitar o que já está na lista, e placa digitada ' +
+    'erra mais que placa escolhida');
+  ok(bSel.api.escolhida('sdVeiculo') === 'KKS1330',
+    'e o que vai no lançamento é a placa da lista', bSel.api.escolhida('sdVeiculo'));
+
+  var bOut = bancadaPlaca(bSel.api.OUTRA);
+  bOut.api.mostrar('sdVeiculo');
+  ok(bOut.nos.sdVeiculoTexto.hidden === false,
+    'escolhido "Outra placa", o campo APARECE — era a função pedida: a frota cadastrada ' +
+    'cobre o dia a dia, e o carro emprestado, o fretado e o que chegou hoje não estão ' +
+    'nela');
+  bOut.nos.sdVeiculoTexto.value = 'kks-9090';
+  ok(bOut.api.escolhida('sdVeiculo') === 'KKS9090',
+    'e o que vai no lançamento é a placa DIGITADA, já limpa — mandando o texto cru, ' +
+    '"kks-9090" e "KKS9090" virariam dois carros na coluna',
+    bOut.api.escolhida('sdVeiculo'));
+
+  /* ---- E O CAMPO ESCONDIDO E' LIMPO ----
+   * Uma placa digitada e esquecida ali, depois de a pessoa voltar para a frota,
+   * viajaria junto com o lancamento: a tela mostrando o carro escolhido e o banco
+   * recebendo o digitado. */
+  bOut.nos.sdVeiculo.value = 'KKS1330';
+  bOut.api.mostrar('sdVeiculo');
+  ok(bOut.nos.sdVeiculoTexto.value === '' && bOut.nos.sdVeiculoTexto.hidden === true,
+    'e voltando para a frota o campo some e é LIMPO — esquecida ali, a placa digitada ' +
+    'viajaria junto com o próximo lançamento: a tela mostrando o carro escolhido e o ' +
+    'banco recebendo o outro', JSON.stringify(bOut.nos.sdVeiculoTexto.value));
+  ok(bOut.api.escolhida('sdVeiculo') === 'KKS1330',
+    'e o lançamento volta a levar a placa da lista');
+
+  /* ---- O SELETOR OFERECE A ESCOLHA, E ALGUEM O ESCUTA ---- */
+  ok(idxP.indexOf("'<option value=\"'+OUTRA_PLACA+'\">✎ Outra placa — digitar</option>'") > 0,
+    'a lista oferece "Outra placa" no FIM — o caso comum é escolher um carro da frota, ' +
+    'e a opção em cima seria a primeira coisa a ler toda vez para passar por ela');
+  ok(/\['sdVeiculo', 'dvVeiculo'\]\.forEach\(function\(id\)\{[\s\S]{0,160}mostrarPlacaTexto\(id\)/
+       .test(idxP),
+    'e trocar o seletor avisa o campo — sem o ouvinte, escolher "Outra placa" não ' +
+    'abriria nada, que é o defeito mais repetido desta tela');
+  ok(/nenhum veículo liberado para você[\s\S]{0,220}OUTRA_PLACA/.test(idxP),
+    'e quem NÃO tem frota liberada também pode digitar — antes esta tela era um beco ' +
+    'sem saída: dizia por que estava vazia e não oferecia nada a fazer');
+
+  /* ---- AS DUAS TELAS ---- */
+  ok(/id="sdVeiculoTexto"/.test(idxP) && /id="dvVeiculoTexto"/.test(idxP),
+    'e o campo existe na saída E no retorno — numa só, metade da operação ficaria sem ' +
+    'a função');
+  ok(/mostrarPlacaTexto\('sdVeiculo'\)/.test(idxP) &&
+     /mostrarPlacaTexto\('dvVeiculo'\)/.test(idxP),
+    'e o Limpar alcança o campo nas duas');
+}
+
 console.log('\n== a gaveta de uma pessoa, no Painel de Ativos ==');
 {
   var LG = require(path.join(__dirname, '..', 'api', '_logica.js'));
@@ -7305,8 +7439,11 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
   ok(/\{ id:'sdVeiculo',   msg:'Escolha o veículo que vai levar a carga\.' \}/.test(idx) &&
      /\{ id:'dvVeiculo',   msg:'Informe em que veículo as caixas voltaram\.' \}/.test(idx),
     'e ele é obrigatório nos dois, como o motorista');
-  ok(/veiculo: document\.getElementById\('sdVeiculo'\)\.value\.trim\(\)/.test(idx) &&
-     /veiculo: document\.getElementById\('dvVeiculo'\)\.value/.test(idx),
+  /* PELA FUNCAO QUE SABE DE ONDE A PLACA VEM, e nao pelo campo: ela pode vir da lista
+     ou do teclado desde que digitar virou possivel, e um pedido que lesse o seletor
+     direto mandaria `__outra` para o banco. */
+  ok(/veiculo: placaEscolhida\('sdVeiculo'\)/.test(idx) &&
+     /veiculo: placaEscolhida\('dvVeiculo'\)/.test(idx),
     'e a placa VIAJA no pedido: campo que a pessoa preenche e não chega ao servidor é ' +
     'trabalho jogado fora, e ninguém descobre até o relatório');
   ok(/function meusVeiculos\(\)\s*\{\s*return permitidos\(\(DADOS\|\|\{\}\)\.veiculos \|\| \[\], 'veiculos'\);/
@@ -7337,7 +7474,7 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
     'e todo veículo liberado continua na lista — separar não é esconder');
   /* Sem veículo do motorista não há o que separar: rótulo de grupo sozinho é rótulo
      para ler à toa. Mesma regra da lista de motoristas. */
-  ok(/\? grupo\('Veículo de[\s\S]{0,90}: itens\(frota\)\);/.test(fnMV),
+  ok(/\? grupo\('Veículo de[\s\S]{0,90}: itens\(frota\)\)/.test(fnMV),
     'e sem veículo do motorista a lista sai simples, sem rótulo de grupo sozinho');
   /* A PONTE ENTRE OS DOIS CAMPOS é o cadastro: o seletor de motorista guarda o NOME — é
      ele que vai para o movimento — e o vínculo do veículo é por ID. Comparar texto com
@@ -7413,12 +7550,19 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
    * arquivo. O que a bancada precisa saber fazer é o que o código realmente usa:
    * `innerHTML` virando lista de opções, `selectedIndex` e o `change`. */
   (function () {
-    var fonte = ['function montarVeiculos(', 'function motoristaPuxaVeiculo(',
-                 'function veiculoPuxaMotorista(']
+    /* COM A CONSTANTE QUE A LISTA USA, e com as funções do campo digitado: desde que a
+       placa pode ser escrita à mão, `montarVeiculos` acrescenta a opção "Outra placa" e
+       `mostrarPlacaTexto` decide se o campo aparece. Sem elas no recorte, a bancada
+       estoura em vez de medir. */
+    var fonte = ['function campoTextoDaPlaca(', 'function mostrarPlacaTexto(',
+                 'function placaEscolhida(', 'function montarVeiculos(',
+                 'function motoristaPuxaVeiculo(', 'function veiculoPuxaMotorista(']
       .map(function (a) {
         var i = idx.indexOf('  ' + a);
         return i < 0 ? '' : idx.slice(i, idx.indexOf('\n  }', i) + 4);
       }).join('\n');
+    var iOP = idx.indexOf('var OUTRA_PLACA = ');
+    fonte = idx.slice(iOP, idx.indexOf(';', iOP) + 1) + '\n' + fonte;
     ok(/function montarVeiculos/.test(fonte) && /function veiculoPuxaMotorista/.test(fonte),
       'o recorte pegou as três peças — sem isto a bancada abaixo exercita outro código');
 
@@ -7505,6 +7649,25 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
       'escolhido o motorista, o carro dele já vem posto — ele tem um só', b.sv.value);
     ok(/Veículo de Dinho/.test(b.sv.innerHTML) && /Outros veículos/.test(b.sv.innerHTML),
       'e a lista sai agrupada: o carro dele em cima, o resto embaixo');
+
+    /* ---- E A ESCOLHA DE DIGITAR ESTA' NA LISTA DESENHADA ----
+     *
+     * MEDIDA NO `innerHTML` que a funcao produziu, e nao procurada no arquivo. A opcao
+     * e' escrita em DOIS lugares — a lista da frota e o caso de quem nao tem frota —, e
+     * uma prova que so' procurasse o texto no index.html continuava verdadeira com ela
+     * arrancada de um dos dois. Foi assim que a sabotagem passou.
+     *
+     * NO FIM DA LISTA, depois de todos os carros: o caso comum e' escolher um da frota,
+     * e a opcao em cima seria a primeira coisa a ler toda vez para passar por ela. */
+    var opsB = (b.sv.innerHTML.match(/<option value="([^"]*)"/g) || [])
+      .map(function (x) { return /value="([^"]*)"/.exec(x)[1]; });
+    ok(opsB[opsB.length - 1] === '__outra',
+      'e a última opção da lista é a de DIGITAR — a frota cadastrada cobre o dia a dia, ' +
+      'e o carro emprestado, o fretado e o que chegou hoje não estão nela',
+      opsB.join(' '));
+    ok(opsB.filter(function (v) { return v === '__outra'; }).length === 1,
+      'e ela aparece uma vez só — duas, a pessoa escolheria a de cima e o campo abriria ' +
+      'parecendo que a lista tem um carro chamado "Outra placa"', opsB);
 
     b.sv.escolher('SON1B00');
     ok(b.sm.value === 'Dinho',
