@@ -272,6 +272,157 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
     (admO.match(/\n\s*aplicarOrdemFiltros\(\);/g) || []).length);
 }
 
+console.log('\n== o CSV de cada cadastro ==');
+{
+  var admC = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoC(nome) {
+    var i = admC.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = admC.indexOf('{', i);
+    for (; k < admC.length; k++) {
+      if (admC[k] === '{') d++;
+      else if (admC[k] === '}' && --d === 0) return admC.slice(i, k + 1);
+    }
+    return '';
+  }
+  var fonteC = corpoC('csvDoCadastro');
+  ok(fonteC.length > 600,
+    'a conferência recortou o exportador — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada', fonteC.length);
+
+  /* UMA TABELA DE MENTIRA COM A FORMA DAS DE VERDADE: cabecalhos, corpo, e a coluna de
+     ACOES com cabecalho vazio, que e' como as sete tabelas a escrevem. */
+  function tabelaFalsa(cabs, linhas) {
+    function cel(txt) { return { textContent: txt }; }
+    var ths = cabs.map(cel);
+    var trs = linhas.map(function (l) {
+      var tds = l.map(cel);
+      return { querySelectorAll: function (s) { return s === 'td' ? tds : []; } };
+    });
+    var tab = {
+      querySelectorAll: function (s) {
+        if (s === 'thead th') return ths;
+        if (s === 'tbody tr') return trs;
+        return [];
+      }
+    };
+    return { querySelector: function (s) { return s === 'table' ? tab : null; } };
+  }
+
+  function exportar(box) {
+    var saida = { arquivo: null, cab: null, linhas: null, toasts: [] };
+    new Function('document', 'Q', fonteC + ' csvDoCadastro("t", "cadastro");')(
+      { getElementById: function () { return box; } },
+      { toast: function (m, tp) { saida.toasts.push((tp || '') + ':' + m); },
+        num: function (n) { return String(n); },
+        hoje: function () { return '2026-10-16'; },
+        csv: function (nome, cab, linhas) {
+          saida.arquivo = nome; saida.cab = cab; saida.linhas = linhas;
+        } });
+    return saida;
+  }
+
+  /* ---- O ARQUIVO E' O QUE ESTA' NA TELA ---- */
+  var r1 = exportar(tabelaFalsa(
+    ['Fornecedor', 'Apelido', 'Localidade', 'Lançamentos', 'Ativo', ''],
+    [['Sítio Boa Vista', 'Boa Vista', 'Petrolina', '12', 'sim', 'editar excluir'],
+     ['Chácara do Zé', '—', '—', '—', 'não', 'editar excluir']]));
+  ok(r1.cab && r1.cab.join('|') === 'Fornecedor|Apelido|Localidade|Lançamentos|Ativo',
+    'o cabeçalho do arquivo é o cabeçalho da tabela — lendo os dados por trás, a coluna ' +
+    'que alguém acrescentar na tela nasceria faltando no arquivo, e ninguém veria até ' +
+    'precisar dela', r1.cab);
+  ok(r1.linhas && r1.linhas.length === 2 &&
+     r1.linhas[0].join('|') === 'Sítio Boa Vista|Boa Vista|Petrolina|12|sim',
+    'e cada linha leva o TEXTO que se lê, inclusive o que está dentro de etiqueta — ' +
+    '"sim", "não", um traço: ler os dados por trás traria `true`, que não é o que a ' +
+    'tela diz', r1.linhas && r1.linhas[0]);
+
+  /* ---- A COLUNA DE ACOES NAO VAI ---- */
+  ok(r1.cab.indexOf('') < 0 && r1.linhas[0].indexOf('editar excluir') < 0,
+    'e a coluna de ações fica de fora — ela é feita de botões, e é reconhecida pelo ' +
+    'cabeçalho VAZIO, que é como as sete tabelas a escrevem', r1.linhas[0]);
+
+  /* ---- E PELO INDICE, e nao por "todas menos a ultima" ---- */
+  var r2 = exportar(tabelaFalsa(
+    ['Nome', '', 'Ativo', ''],
+    [['Matriz', 'editar', 'sim', 'excluir']]));
+  ok(r2.cab.join('|') === 'Nome|Ativo' && r2.linhas[0].join('|') === 'Matriz|sim',
+    'e as colunas que vão são escolhidas pelo ÍNDICE do cabeçalho — "todas menos a ' +
+    'última" quebraria numa tabela com duas colunas de ação, ou com uma no meio, e ' +
+    'quebraria em silêncio', { cab: r2.cab, linha: r2.linhas[0] });
+
+  /* ---- ESPACOS E QUEBRAS NAO VIAJAM ---- */
+  var r3 = exportar(tabelaFalsa(['Nome', ''],
+    [['  Sítio' + String.fromCharCode(10) + '   Boa   Vista  ', 'editar']]));
+  ok(r3.linhas[0][0] === 'Sítio Boa Vista',
+    'e o texto chega limpo — a célula da tela tem quebras de linha e recuo do HTML ' +
+    'dentro dela, e eles iriam inteiros para a planilha', JSON.stringify(r3.linhas[0][0]));
+
+  /* ---- TABELA QUE NAO EXISTE NAO BAIXA ARQUIVO VAZIO ---- */
+  var r4 = exportar({ querySelector: function () { return null; } });
+  ok(!r4.arquivo && r4.toasts.length === 1 && /erro/.test(r4.toasts[0]),
+    'e um cadastro sem tabela não baixa um arquivo vazio', r4.toasts);
+  var r5 = exportar(tabelaFalsa(['Nome', 'Ativo'], []));
+  ok(!r5.arquivo && /erro/.test(r5.toasts[0] || ''),
+    'e uma tabela sem nenhuma linha também não', r5.toasts);
+
+  /* ---- E AS DUAS SITUACOES DIZEM COISAS DIFERENTES ----
+   * Foi a sabotagem que mostrou isto, e nao como defeito: trocar a primeira guarda por
+   * uma tabela vazia dava o MESMO resultado, porque as duas respondiam a mesma frase.
+   * E elas nao sao a mesma coisa — sem tabela, o cadastro ainda nao chegou do servidor;
+   * com tabela e sem linha, ele esta' vazio. Dizendo "nada para exportar" nos dois
+   * casos, quem clicou cedo demais conclui que o cadastro esta' vazio e vai procurar o
+   * problema no lugar errado. */
+  ok(/ainda não carregou/.test(r4.toasts[0]),
+    'e a tabela que ainda NÃO CARREGOU diz isso, e manda atualizar — é o que a pessoa ' +
+    'precisa saber para tentar de novo', r4.toasts[0]);
+  ok(/está vazio/.test(r5.toasts[0]) && !/ainda não carregou/.test(r5.toasts[0]),
+    'e o cadastro VAZIO diz outra coisa — ele é uma resposta completa, e não um erro ' +
+    'de carregamento', r5.toasts[0]);
+
+  /* ---- TABELA SEM CABECALHO TAMBEM NAO VIRA ARQUIVO ----
+   * E' o estado de uma tabela desenhada pela metade. Sem a guarda, `Q.csv` recebe um
+   * cabecalho vazio e as linhas mapeadas para nada: o arquivo sai com o tamanho certo
+   * e as celulas em branco — o pior formato de erro, porque parece ter funcionado. */
+  var r6 = exportar(tabelaFalsa([], [['Matriz', 'sim']]));
+  ok(!r6.arquivo && /erro/.test(r6.toasts[0] || ''),
+    'e uma tabela sem cabeçalho não vira arquivo — sem a guarda, ele sairia com o ' +
+    'número de linhas certo e todas as células em branco, que é o pior formato de erro: ' +
+    'parece ter funcionado', { arquivo: r6.arquivo, toasts: r6.toasts });
+
+  /* ---- O NOME DO ARQUIVO DIZ O QUE E' E DE QUANDO ---- */
+  ok(r1.arquivo === 'cadastro-cadastro-2026-10-16.csv',
+    'e o arquivo leva o cadastro e a data no nome — sete arquivos na pasta de ' +
+    'downloads chamados "export.csv" não se distinguem', r1.arquivo);
+
+  /* ---- OS SETE CADASTROS TEM BOTAO ---- */
+  var botoes = (admC.match(/data-csv-cad="(tabela[A-Za-z]+)"/g) || [])
+    .map(function (x) { return /"(tabela[A-Za-z]+)"/.exec(x)[1]; });
+  ['tabelaUsuarios', 'tabelaLocais', 'tabelaTipos', 'tabelaFornecedores',
+   'tabelaMotoristas', 'tabelaVeiculos', 'tabelaLocaisPadrao'].forEach(function (id) {
+    ok(botoes.indexOf(id) >= 0, 'o cadastro de ' + id + ' tem botão de CSV', botoes);
+  });
+  ok(botoes.length === 7,
+    'e são SETE, um por cadastro — a conta é escrita de propósito: cadastro novo sem ' +
+    'exportação passaria despercebido', botoes.length);
+
+  /* ---- E O BOTAO E' LIGADO ---- */
+  ok(admC.indexOf("closest('[data-csv-cad]')") >= 0 &&
+     admC.indexOf("csvDoCadastro(b.getAttribute('data-csv-cad')") >= 0,
+    'e os sete passam por um ouvinte só, no documento — desenhado e sem ouvinte, o ' +
+    'botão seria mais um gesto prometido e sem efeito');
+
+  /* ---- NENHUM SEGREDO PASSA ----
+     Nao por cuidado do exportador: a coluna de senha da tabela de usuarios mostra
+     ESTADO, e o hash nunca sai do servidor. O CSV copia a tela. */
+  var logC = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  var iPub = logC.indexOf('function usuariosPublicos');
+  var pub = iPub >= 0 ? logC.slice(iPub, logC.indexOf(String.fromCharCode(10) + 'function ', iPub)) : '';
+  ok(pub.length > 100 && pub.indexOf('Senha: u.Senha') < 0 && pub.indexOf('Pin: u.Pin') < 0,
+    'e o CSV não tem como levar segredo: ele copia a tela, e a tela recebe do servidor ' +
+    'o ESTADO da senha — "definida", "provisória" —, nunca o hash', pub.length);
+}
+
 console.log('\n== juntar as viagens por localidade ==');
 {
   var admL = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

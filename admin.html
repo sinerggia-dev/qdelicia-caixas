@@ -1627,6 +1627,7 @@
         <div class="busca"><input id="buscaUsuarios" type="text"
           placeholder="🔍 Buscar em todas as colunas"></div>
         <button class="btn" id="btnNovoUsuario">+ Novo<span class="so-largo"> usuário</span></button>
+        <button class="btn neutro" type="button" data-csv-cad="tabelaUsuarios" data-csv-nome="usuarios" style="flex:0;min-width:120px">⬇ CSV</button>
       </div>
       <!-- O TRILHO DE PERFIS vale nas duas larguras: filtro que só existe numa delas
            continua peneirando quando a outra aparece, e a lista curta passa a parecer
@@ -1643,6 +1644,7 @@
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoLocal" style="flex:0;min-width:170px">+ Nova rota</button>
         <button class="btn sec" id="btnNovoPonto" style="flex:0;min-width:170px">+ Galpão, filial ou cliente</button>
+        <button class="btn neutro" type="button" data-csv-cad="tabelaLocais" data-csv-nome="locais-e-rotas" style="flex:0;min-width:120px">⬇ CSV</button>
       </div>
       <div id="tabelaLocais"></div>
     </div>
@@ -1650,6 +1652,7 @@
       <h2>Tipos de caixa<span class="sub">Os tipos que aparecem nas telas de lançamento e conferência.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoTipo" style="flex:0;min-width:170px">+ Novo tipo</button>
+        <button class="btn neutro" type="button" data-csv-cad="tabelaTipos" data-csv-nome="tipos-de-caixa" style="flex:0;min-width:120px">⬇ CSV</button>
       </div>
       <div id="tabelaTipos"></div>
     </div>
@@ -1657,6 +1660,7 @@
       <h2>Fornecedores<span class="sub">De quem vem, e para quem volta, a caixa que anda pela rota de fornecedor. O nome aparece para escolha na saída e no retorno, quando o local escolhido pede.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoFornecedor" style="flex:0;min-width:170px">+ Novo fornecedor</button>
+        <button class="btn neutro" type="button" data-csv-cad="tabelaFornecedores" data-csv-nome="fornecedores" style="flex:0;min-width:120px">⬇ CSV</button>
       </div>
       <div id="tabelaFornecedores"></div>
     </div>
@@ -1664,6 +1668,7 @@
       <h2>Motoristas<span class="sub">Quem leva a carga. Aparece para escolha na saída do galpão.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoMotorista" style="flex:0;min-width:170px">+ Novo motorista</button>
+        <button class="btn neutro" type="button" data-csv-cad="tabelaMotoristas" data-csv-nome="motoristas" style="flex:0;min-width:120px">⬇ CSV</button>
       </div>
       <div id="tabelaMotoristas"></div>
     </div>
@@ -1671,6 +1676,7 @@
       <h2>Veículos<span class="sub">A frota. A placa é escolhida no lançamento, e o motorista habitual vem preenchido junto — dá para trocar na hora.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoVeiculo" style="flex:0;min-width:170px">+ Novo veículo</button>
+        <button class="btn neutro" type="button" data-csv-cad="tabelaVeiculos" data-csv-nome="veiculos" style="flex:0;min-width:120px">⬇ CSV</button>
       </div>
       <div id="tabelaVeiculos"></div>
     </div>
@@ -1678,6 +1684,7 @@
       <h2>Locais padrão<span class="sub">Onde a pessoa trabalha. É o que aparece na coluna Local padrão dos usuários.</span></h2>
       <div class="linha-btn" style="margin-top:2px">
         <button class="btn" id="btnNovoLocalPadrao" style="flex:0;min-width:170px">+ Novo local padrão</button>
+        <button class="btn neutro" type="button" data-csv-cad="tabelaLocaisPadrao" data-csv-nome="locais-padrao" style="flex:0;min-width:120px">⬇ CSV</button>
       </div>
       <div id="tabelaLocaisPadrao"></div>
     </div>
@@ -9533,6 +9540,82 @@
       salvar('salvarFornecedor', reg, this);
     });
   }
+
+  /* ================= O CSV DE UM CADASTRO =================
+   *
+   * ELE LE' A TABELA DESENHADA, e nao os dados por tras dela.
+   *
+   * Essa escolha e' o ponto da peca. Sete cadastros, cada um com as colunas dele, e um
+   * exportador por cadastro seriam sete lugares para lembrar: a coluna que alguem
+   * acrescentar na tela nasceria faltando no arquivo, e ninguem veria ate' precisar
+   * dela. Lendo o que ESTA' na tela, o arquivo nao tem como divergir — e quando a
+   * tabela de usuarios esconde ou reordena colunas, o arquivo acompanha sozinho.
+   *
+   * A COLUNA DE ACOES SAI. Ela e' feita de botoes, e "editar excluir" repetido em vinte
+   * linhas nao e' dado — e' o resto de um desenho. Reconhecida pelo cabecalho VAZIO, que
+   * e' como ela e' escrita em todas as sete tabelas.
+   *
+   * O TEXTO E' O QUE SE LE': `textContent` traz o que a pessoa ve', inclusive o que esta
+   * dentro de etiqueta — "sim", "nao", "painel: sem acesso". Ler o HTML traria marcacao
+   * para dentro da planilha; ler os dados por tras traria `true`, que nao e' o que a
+   * tela diz.
+   *
+   * NENHUM SEGREDO PASSA POR AQUI, e nao por cuidado deste codigo: a coluna de senha da
+   * tabela de usuarios mostra ESTADO — "senha definida", "provisoria" —, e o hash nunca
+   * sai do servidor. O CSV copia a tela, entao ele so' pode levar o que a tela ja' tem. */
+  function csvDoCadastro(idTabela, nome){
+    var box = document.getElementById(idTabela);
+    var tab = box && box.querySelector('table');
+    /* DUAS RESPOSTAS DIFERENTES para duas situacoes diferentes, e nao a mesma frase
+       para as duas. Sem tabela, o cadastro ainda nao chegou do servidor — ou nao chegou
+       nunca, e e' isso que a pessoa precisa saber para tentar de novo. Com tabela e sem
+       linha, o cadastro esta' VAZIO, que e' uma resposta completa.
+       Dizendo "nada para exportar" nos dois casos, quem clicou cedo demais conclui que
+       o cadastro esta' vazio e vai procurar o problema no lugar errado. */
+    if (!tab){
+      Q.toast('Este cadastro ainda não carregou. Atualize a tela e tente de novo.',
+              'erro');
+      return;
+    }
+    function texto(c){
+      return String(c.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+    var ths = Array.prototype.slice.call(tab.querySelectorAll('thead th'));
+    /* AS COLUNAS QUE VAO: todas menos as de cabecalho vazio. O indice e' guardado para
+       as celulas seguirem exatamente as mesmas, e nao "todas menos a ultima" — uma
+       tabela com duas colunas de acao quebraria essa suposicao em silencio. */
+    var quais = [];
+    ths.forEach(function(th, i){ if (texto(th)) quais.push(i); });
+    if (!quais.length){
+      Q.toast('Este cadastro ainda não carregou. Atualize a tela e tente de novo.',
+              'erro');
+      return;
+    }
+    var cab = quais.map(function(i){ return texto(ths[i]); });
+    var linhas = [];
+    Array.prototype.forEach.call(tab.querySelectorAll('tbody tr'), function(tr){
+      var tds = tr.querySelectorAll('td');
+      if (!tds.length) return;
+      linhas.push(quais.map(function(i){ return tds[i] ? texto(tds[i]) : ''; }));
+    });
+    if (!linhas.length){
+      Q.toast('Este cadastro está vazio — não há o que exportar.', 'erro');
+      return;
+    }
+    /* O NOME DO ARQUIVO LEVA A DATA, e nao a hora: dois arquivos do mesmo cadastro no
+       mesmo dia sao a mesma foto, e o navegador ja' numera o segundo. */
+    Q.csv('cadastro-' + nome + '-' + Q.hoje() + '.csv', cab, linhas);
+    Q.toast(Q.num(linhas.length) + ' linha(s) no arquivo.', 'ok');
+  }
+
+  /* UM OUVINTE SO', no documento: os sete botoes nascem com a tela e nao sao
+     redesenhados, mas um por botao seria sete registros para manter — e a licao do
+     cadeado, escrita ali embaixo, ja' diz o que acontece quando eles se empilham. */
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest && e.target.closest('[data-csv-cad]');
+    if (!b) return;
+    csvDoCadastro(b.getAttribute('data-csv-cad'), b.getAttribute('data-csv-nome'));
+  });
 
   function formLocalPadrao(l){
     l = l || {};
