@@ -4541,65 +4541,123 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
       'e o painel do SALDO não repete o saldo na linha — ele já é o número grande da ' +
       'direita, e o mesmo dado duas vezes com duas formatações se lê como dois dados');
 
-    /* ---- A TERCEIRA TARJA: o saldo tambem tem barra no painel de volume ----
+    /* ---- AS TRES MEDIDAS NA MESMA LINHA ----
      *
-     * O saldo era o unico dos tres numeros que so' existia escrito, e num painel que se
-     * le' varrendo cores o que nao tem tarja nao entra na varredura.
+     * Azul, verde e vermelho dividem um trilho so'. A prova nao pergunta se os tres
+     * estao la': ela MEDE o comprimento de cada pedaco e refaz a conta.
      *
-     * A PROVA MEDE A CONTA, e nao a presenca: a tarja vermelha tem de ter EXATAMENTE o
-     * comprimento da diferenca entre o pedaco azul e o verde da barra de cima. E' isso
-     * que a torna honesta em vez de enfeite — e e' uma relacao que se quebra sozinha no
-     * dia em que uma das duas reguas mudar, sem nada na tela parecer errado. */
+     * A PROPRIEDADE QUE IMPORTA: numa regua unica, o pedaco vermelho tem exatamente o
+     * comprimento da DIFERENCA entre o azul e o verde — `|saida - retorno| / maior` e'
+     * a conta dos dois. E' isso que faz dele uma medida em vez de enfeite, e e' uma
+     * relacao que se quebra sozinha no dia em que uma das contas mudar, sem nada na
+     * tela parecer errado. */
     function medirLinha(botao) {
       var f = /<span class="gb__f" style="width:([\d.]+)%">/.exec(botao);
-      var fs = botao.match(/flex:([\d.]+) 1 0/g) || [];
-      var sa = /gb__t gb__t--sa"><span class="gb__f" style="width:([\d.]+)%/.exec(botao);
       if (!f) return null;
       var largura = parseFloat(f[1]);
-      var pAzul = fs.length ? parseFloat(fs[0].replace('flex:', '')) : 0;
-      var temAzul = botao.indexOf('gb__s"') >= 0;
-      var temVerde = botao.indexOf('gb__d"') >= 0;
-      /* Os dois pedacos repartem a largura na proporcao `flex`. Com um so' deles na
-         linha, ele toma a largura inteira. */
-      var azul = !temAzul ? 0 : (temVerde ? largura * pAzul / 100 : largura);
-      var verde = !temVerde ? 0 : (temAzul ? largura - azul : largura);
-      return { largura: largura, azul: azul, verde: verde,
-               vermelha: sa ? parseFloat(sa[1]) : null };
+      var pedacos = (botao.match(/<i class="(gb__[a-z]+)" style="flex:([\d.]+) 1 0">/g) || [])
+        .map(function (x) {
+          var m = /<i class="(gb__[a-z]+)" style="flex:([\d.]+) 1 0">/.exec(x);
+          return { cor: m[1], peso: parseFloat(m[2]) };
+        });
+      var somaPesos = pedacos.reduce(function (s, p) { return s + p.peso; }, 0);
+      function medida(cor) {
+        var p = pedacos.filter(function (x) { return x.cor === cor; })[0];
+        return p ? largura * p.peso / somaPesos : 0;
+      }
+      return { largura: largura, pedacos: pedacos.length,
+               azul: medida('gb__s'), verde: medida('gb__d'),
+               vermelha: pedacos.some(function (p) { return p.cor === 'gb__saldo'; })
+                 ? medida('gb__saldo') : null };
     }
     var botoesV = (secoesN[0].match(/<button class="gb"[\s\S]*?<\/button>/g) || []);
-    ok(botoesV.length >= 2,
-      'a conferência recortou as linhas do primeiro painel de volume', botoesV.length);
-    var foraDaConta = [], semTarja = [];
-    botoesV.forEach(function (b) {
+    ok(botoesV.length >= 3,
+      'a conferência recortou as linhas do primeiro painel de volume — com menos de ' +
+      'três não haveria a linha de saldo zero, que é a que decide se o pedaço aparece ' +
+      'quando não devia', botoesV.length);
+
+    var umTrilho = [], foraDaConta = [], semPedaco = [], sobrando = [];
+    botoesV.forEach(function (b, i) {
       var m = medirLinha(b);
       if (!m) return;
+      /* UM TRILHO SO': dois `gb__f` na mesma linha seriam duas barras, que e' o que
+         saiu daqui a pedido. */
+      if ((b.match(/<span class="gb__f"/g) || []).length !== 1) umTrilho.push(i);
       var dif = Math.abs(m.azul - m.verde);
-      if (dif < 0.05) { if (m.vermelha !== null) semTarja.push(m); return; }
-      if (m.vermelha === null) { semTarja.push(m); return; }
-      if (Math.abs(m.vermelha - dif) > 0.15) foraDaConta.push({ dif: dif.toFixed(1),
-                                                                tarja: m.vermelha });
+      if (dif < 0.05) { if (m.vermelha !== null) sobrando.push(m); return; }
+      if (m.vermelha === null) { semPedaco.push(m); return; }
+      if (Math.abs(m.vermelha - dif) > 0.15) {
+        foraDaConta.push({ dif: dif.toFixed(2), vermelha: m.vermelha.toFixed(2) });
+      }
     });
-    ok(!semTarja.length,
-      'toda linha com saldo ganha a tarja vermelha, e a de saldo zero não ganha — zero ' +
-      'é a resposta boa, e uma tarja mínima de 1px se leria como "um pouquinho ' +
-      'faltando", que é o contrário do que aconteceu', semTarja);
+    ok(!umTrilho.length,
+      'as três medidas dividem UM trilho — a tarja do saldo ficava numa segunda linha, ' +
+      'embaixo, e duas barras por linha se leem como dois registros diferentes',
+      umTrilho);
+    ok(!semPedaco.length,
+      'e toda linha com saldo traz o pedaço vermelho', semPedaco);
+    ok(!sobrando.length,
+      'e a linha de saldo ZERO não traz nenhum — zero é a resposta boa, e um risco ' +
+      'mínimo se leria como "um pouquinho faltando", que é o contrário do que ' +
+      'aconteceu', sobrando);
     ok(!foraDaConta.length,
-      'e ela mede EXATAMENTE a diferença entre o pedaço azul e o verde da barra de ' +
-      'cima — é a mesma régua, e é isso que a torna uma medida em vez de enfeite: o ' +
+      'e o pedaço vermelho mede EXATAMENTE a diferença entre o azul e o verde — é a ' +
+      'mesma régua para os três, e é isso que o torna uma medida em vez de enfeite: o ' +
       'olho compara os dois sem fazer conta', foraDaConta);
 
-    /* ---- E O PAINEL DO SALDO NAO GANHA DUAS BARRAS ----
-     * La' a barra JA' e' o saldo; uma segunda tarja seria a mesma medida duas vezes. */
-    var tarjas = (secoesN[0].match(/gb__t gb__t--sa"><span class="gb__f"[^>]*><i class="([a-z_-]+)"/g) || [])
-      .map(function (x) { return /<i class="([a-z_-]+)"/.exec(x)[1]; });
-    ok(tarjas.length > 0 && tarjas.every(function (cl) { return cl === 'gb__saldo'; }),
-      'e ela é pintada com a cor do SALDO, e não com a de uma das pontas — vermelha ' +
-      'por ser a diferença: em verde ela se leria como mais retorno, que é o contrário ' +
-      'do que ela mede', tarjas);
+    /* ---- E A REGUA E' A MESMA PARA TODAS AS LINHAS DO PAINEL ----
+     *
+     * As provas acima medem DENTRO de uma linha, e por isso sao cegas a um erro de
+     * escala: tirando o saldo da largura da linha, ela encolhe inteira e as proporcoes
+     * internas continuam certas — a diferenca entre azul e verde segue batendo com o
+     * vermelho. A sabotagem mostrou isso.
+     *
+     * O QUE QUEBRA E' A COMPARACAO ENTRE LINHAS, que e' para o que a barra serve: duas
+     * saidas iguais em linhas diferentes tem de ter o MESMO comprimento. A prova divide
+     * cada pedaco pelo numero que ele conta e exige a mesma constante em todas. */
+    var escalas = [];
+    botoesV.forEach(function (b) {
+      var m = medirLinha(b);
+      var par = /<span class="gb__par">saída <b[^>]*>([\d.]+)<\/b> · retorno <b[^>]*>([\d.]+)<\/b>/
+        .exec(b);
+      if (!m || !par) return;
+      var saida = parseFloat(par[1]), retorno = parseFloat(par[2]);
+      if (saida) escalas.push({ cor: 'azul', k: m.azul / saida });
+      if (retorno) escalas.push({ cor: 'verde', k: m.verde / retorno });
+      var dif = Math.abs(saida - retorno);
+      if (dif && m.vermelha !== null) escalas.push({ cor: 'vermelho', k: m.vermelha / dif });
+    });
+    var ks = escalas.map(function (e) { return e.k; });
+    var fora = ks.filter(function (k) { return Math.abs(k - ks[0]) > 0.002; });
+    ok(escalas.length >= 5 && !fora.length,
+      'e a régua é a MESMA para todas as linhas e para as três cores — duas saídas ' +
+      'iguais em linhas diferentes têm de ter o mesmo comprimento, que é para o que a ' +
+      'barra serve: medindo dentro de uma linha só, um erro de escala passa inteiro, ' +
+      'porque as proporções internas continuam certas',
+      { medidas: escalas.length, escalas: escalas.map(function (e) {
+        return e.cor + ':' + e.k.toFixed(4); }) });
 
-    ok(saldos.every(function (s) { return s.indexOf('gb__t--sa') < 0; }),
-      'e o painel do saldo continua com UMA barra — lá ela já mede o saldo, e uma ' +
-      'segunda tarja seria a mesma medida desenhada duas vezes na mesma linha');
+    var cores = (secoesN[0].match(/<i class="(gb__[a-z]+)"/g) || [])
+      .map(function (x) { return /class="(gb__[a-z]+)"/.exec(x)[1]; });
+    ok(cores.indexOf('gb__saldo') >= 0 &&
+       cores.every(function (c) {
+         return ['gb__s', 'gb__d', 'gb__saldo'].indexOf(c) >= 0; }),
+      'e cada pedaço tem a cor da medida que ele conta, e nenhuma outra entra na ' +
+      'linha — em verde, o saldo se leria como mais retorno, que é o contrário do que ' +
+      'ele mede', cores.filter(function (c, i, a) { return a.indexOf(c) === i; }));
+
+    ok(secoesN[0].indexOf('gb__t--sa') < 0 &&
+       css.indexOf('.gb__t--sa{') < 0,
+      'e a segunda barra que o saldo teve por um dia saiu da tela E da folha — regra ' +
+      'que ninguém lê é a que volta a ser aplicada por engano no próximo ajuste');
+
+    /* ---- E O PAINEL DO SALDO NAO GANHA PEDACO A MAIS ----
+     * La' a barra JA' e' o saldo; um segundo pedaco seria a mesma medida duas vezes. */
+    ok(saldos.every(function (s) {
+      return (s.match(/<i class="gb__[a-z]+"/g) || []).every(function (x) {
+        return x.indexOf('gb__saldo') >= 0; }); }),
+      'e o painel do saldo continua com um pedaço só por linha — lá ele já mede o ' +
+      'saldo, e azul ou verde ali seriam uma segunda medida sem rótulo');
 
     /* ---- E OS DOIS PAINEIS DO PAR DIZEM O MESMO SALDO ----
      *
@@ -4804,8 +4862,15 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
     'a barra é um botão de verdade — pelo teclado e para o leitor de tela');
   /* A PROPORÇÃO É DA PRÓPRIA COLUNA: cada painel responde "quem é o maior AQUI".
      Comparar entre painéis pela largura seria errado, e por isso o número está escrito. */
-  ok(/var maior = lista\.reduce\(function\(a, g\)\{ return Math\.max\(a, g\.total\); \}, 0\);/.test(adm),
-    'e a largura é proporcional ao maior da PRÓPRIA coluna — entre painéis, quem se ' +
+  /* COM OS ESPACOS ACHATADOS: a conta ocupa duas linhas no arquivo, e um padrao que
+     tentasse casar a quebra mora a um escape de distancia de virar outra coisa — esta
+     suite ja' tropecou nisso tres vezes hoje. */
+  ok(adm.replace(/\s+/g, ' ').indexOf(
+       'var maior = lista.reduce(function(a, g){ return Math.max(a, ' +
+       '(g.total || 0) + Math.abs(g.retorno - g.saida)); }, 0);') >= 0,
+    'e a largura é proporcional ao maior da PRÓPRIA coluna — e a régua conta o que a ' +
+    'linha realmente ocupa desde que o saldo entrou nela, senão a linha mais cheia ' +
+    'transbordaria da caixa. Entre painéis, quem se ' +
     'compara é o número escrito');
   ok(/var TETO_G = 6;/.test(adm) && /resto\.k = 'Outros \(' \+ resto\.n \+ '\)';/.test(adm),
     'no máximo seis categorias, e o resto vira "Outros" — barra de dois pixels não é ' +

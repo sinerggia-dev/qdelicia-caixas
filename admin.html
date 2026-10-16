@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=dc0da0ab">
+<link rel="stylesheet" href="styles.css?v=f9eb55da">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -7587,8 +7587,23 @@
   }
 
   function barraG(g, maior, campo){
-    var pc = maior ? (g.total / maior * 100) : 0;
-    var ps = g.total ? (g.saida / g.total * 100) : 0;
+    /* AS TRES MEDIDAS NA MESMA LINHA, a pedido: azul o que saiu, verde o que voltou,
+     * vermelho a diferenca entre os dois.
+     *
+     * A REGUA E' UMA SO' PARA AS TRES, e e' isso que faz os pedacos poderem ser
+     * comparados entre linhas: cada um mede `valor/maior`. Dai sai, de graca, a
+     * propriedade que a tarja separada ja' tinha — o pedaco vermelho tem exatamente o
+     * comprimento da DIFERENCA entre o azul e o verde, porque
+     * `|saida - retorno| / maior` e' a conta dos dois.
+     *
+     * O PRECO, dito em voz alta: a linha inteira passa a medir `movimento + |saldo|`,
+     * que nao e' uma quantidade que exista na operacao — o saldo e' derivado das outras
+     * duas, nao uma terceira coisa que andou. Quem compara LINHAS INTEIRAS entre si
+     * esta' comparando isso. O que continua exato, e e' o que se le', e cada pedaco. */
+    var saldoG = g.retorno - g.saida;
+    var modulo = Math.abs(saldoG);
+    var soma = g.total + modulo;
+    var pc = maior ? (soma / maior * 100) : 0;
     /* `g.v` vazio é diferente de nulo: vazio é "sem informação", que o servidor não sabe
        filtrar (ele não tem um valor para "nenhum"), e nulo é o agregado. Nos dois casos
        a barra continua sendo desenhada — ela é informação —, só não é clicável. */
@@ -7612,34 +7627,27 @@
          pergunta que falta e quanto FALTA. Sem ele, a unica forma de saber era abrir o
          painel do par e procurar a mesma linha. */
       parG(g, true)+
+      /* OS `flex` SAO OS PROPRIOS NUMEROS, e nao porcentagens calculadas a mao: o
+         navegador reparte a largura preenchida entre eles na razao exata, e a largura
+         preenchida ja' e' `soma/maior`. Cada pedaco acaba medindo `valor/maior` sem
+         nenhuma conta intermediaria para errar. */
       '<span class="gb__t"><span class="gb__f" style="width:'+pc.toFixed(1)+'%">'+
-        (g.saida ? '<i class="gb__s" style="flex:'+ps+' 1 0"></i>' : '')+
-        (g.retorno ? '<i class="gb__d" style="flex:'+(100 - ps)+' 1 0"></i>' : '')+
+        (g.saida ? '<i class="gb__s" style="flex:'+g.saida+' 1 0"></i>' : '')+
+        (g.retorno ? '<i class="gb__d" style="flex:'+g.retorno+' 1 0"></i>' : '')+
+        /* ZERO NAO DESENHA PEDACO: zero e' a resposta boa, e um risco minimo se leria
+           como "um pouquinho faltando". */
+        (modulo ? '<i class="gb__saldo" style="flex:'+modulo+' 1 0"></i>' : '')+
       '</span></span>'+
-      /* A TARJA DO SALDO, embaixo e na MESMA REGUA da de cima.
-       *
-       * E' a terceira medida ganhando tarja, como as outras duas ja' tinham. Sem ela, o
-       * saldo era o unico dos tres numeros que so' existia escrito — e num painel que
-       * se le' varrendo cores, o que nao tem tarja nao entra na varredura.
-       *
-       * A MESMA REGUA E' O QUE A TORNA HONESTA, e nao um enfeite: a barra de cima tem
-       * `total/maior` de largura e e' repartida entre saida e retorno na proporcao
-       * deles, entao o pedaco azul mede `saida/maior` e o verde `retorno/maior`. Uma
-       * tarja de `|saldo|/maior` tem, por construcao, EXATAMENTE o comprimento da
-       * diferenca entre os dois pedacos de cima. O olho compara sem fazer conta.
-       *
-       * ZERO NAO DESENHA NADA — zero e' a resposta boa, e uma tarja minima de 1px se
-       * leria como "um pouquinho faltando", que e' o contrario do que aconteceu. */
-      (saldoG
-        ? '<span class="gb__t gb__t--sa"><span class="gb__f" style="width:'+
-            (maior ? (Math.abs(saldoG) / maior * 100) : 0).toFixed(1)+'%">'+
-            '<i class="gb__saldo" style="flex:1"></i></span></span>'
-        : '')+
       '</button>';
   }
 
   function painelG(i, titulo, lista, nota, campo){
-    var maior = lista.reduce(function(a, g){ return Math.max(a, g.total); }, 0);
+    /* A REGUA E' O MAIOR `movimento + |saldo|`, porque e' isso que uma linha ocupa
+       desde que o saldo entrou nela. Medindo so' o `total`, a linha mais cheia
+       transbordaria da caixa — e as outras encolheriam para caber numa escala que
+       nenhuma delas respeita. */
+    var maior = lista.reduce(function(a, g){
+      return Math.max(a, (g.total || 0) + Math.abs(g.retorno - g.saida)); }, 0);
     /* O TOTAL DE CAIXAS NO CABEÇALHO, ao lado da contagem de linhas. Os dois números
        respondem perguntas diferentes e estavam sendo confundidos: "1 dia" diz quantas
        BARRAS o painel tem, e não quantas caixas ele soma. Num painel de uma linha só,
