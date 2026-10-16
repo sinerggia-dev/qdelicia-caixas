@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=246a09a4">
+<link rel="stylesheet" href="styles.css?v=b67efaa2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1033,6 +1033,19 @@
           <button class="btn-icone" type="button" data-fechar-folha aria-label="Fechar">✕</button>
         </div>
         <div class="filtros-caixa__corpo">
+      <!-- O CADEADO DENTRO DA GAVETA.
+           Mover filtro de lugar pede a senha do painel, e o cadeado morava só na barra
+           da tabela, do outro lado da tela — atrás da própria gaveta, quando ela está
+           aberta. Quem quisesse arrumar os filtros tinha de adivinhar que a liberação
+           existia, fechar a gaveta, achar o cadeado, destravar e voltar.
+           É A MESMA RAZÃO JÁ ESCRITA para o cadeado ter saído da aba Colunas: ele fica
+           ONDE O GESTO É TENTADO. O gesto do filtro é tentado aqui dentro.
+           É O MESMO CADEADO, e não um segundo: `pintarTrava` pinta todas as caixas
+           `[data-trava-colunas]` da página, e a liberação é uma só para colunas,
+           cartões e filtros. Duas travas sobre a mesma coisa seriam duas verdades.
+           `data-so-filtros` muda só o TEXTO: aqui dentro ele fala do que se arruma
+           aqui, em vez de oferecer a ordem dos cartões, que moram noutra tela. -->
+      <div class="trava-colunas trava-filtros" data-trava-colunas data-so-filtros></div>
       <!-- `data-multi` MARCA QUEM ACEITA VARIAS ESCOLHAS. O <select> continua sendo o
            dono das opcoes e do que esta escolhido — quem enche as listas continua
            enchendo ele, e quem le o filtro continua lendo ele. O que o `ligarMultis()`
@@ -10810,47 +10823,93 @@
   /* O RÓTULO É A ALÇA, e não a caixinha inteira. Com a caixinha arrastável, começar um
      arrasto em cima do seletor roubava o clique que abre a lista — e um seletor que não
      abre é pior que um filtro que não se move. */
+  /* OS OUVINTES FICAM NA GRADE, e são ligados UMA VEZ.
+   *
+   * Eram um conjunto por campo, postos a cada chamada — e esta função é chamada ao
+   * montar a tela, a cada virada do cadeado e, principalmente, A CADA SOLTAR. Como o
+   * `drop` era disparado em todos os ouvintes acumulados e cada um deles chamava
+   * `ligarArrastarFiltros` de novo, o número DOBRAVA por arrasto: 1, 2, 4, 8, 16. No
+   * décimo arrasto um único soltar executava 512 reordenações, e a tela do
+   * administrador congelava justamente no recurso que ele estava usando.
+   *
+   * `appendChild` MOVE o nó e não o recria, então os ouvintes antigos continuavam todos
+   * vivos — reordenar não limpava nada.
+   *
+   * A MESMA LIÇÃO que já está escrita em cima do ouvinte de clique do cadeado: "um
+   * ouvinte por desenho empilharia dezenas no mesmo botão". Ela não tinha sido aplicada
+   * aqui.
+   *
+   * A MARCA FICA NA PRÓPRIA GRADE e não numa variável do arquivo: trocada a marcação
+   * desta gaveta, o nó novo nasce sem a marca e ganha os ouvintes dele — uma variável
+   * solta diria "já liguei" sobre um nó que não existe mais, e o arrasto morreria sem
+   * erro nenhum na tela. */
   function ligarArrastarFiltros(){
     var g = gradeFiltros();
     if (!g) return;
-    var por = caixasDeFiltro(), arrastado = null;
+    /* O RÓTULO É A ALÇA, e não a caixinha inteira. Com a caixinha arrastável, começar
+       um arrasto em cima do seletor roubava o clique que abre a lista — e um seletor
+       que não abre é pior que um filtro que não se move.
+       ISTO AQUI RODA SEMPRE: é o que acende e apaga a alça quando o cadeado vira. */
+    var por = caixasDeFiltro();
     Object.keys(por).forEach(function(id){
       var div = por[id], lab = div.querySelector('label');
       if (!lab) return;
       div.setAttribute('data-filtro', id);
       lab.draggable = podeArranjarColunas();
-      if (!lab.draggable) return;
-      lab.addEventListener('dragstart', function(e){
-        arrastado = id;
-        div.classList.add('arrastando');
-        try { e.dataTransfer.setData('text/plain', id); } catch (err) {}
+    });
+    if (g.getAttribute('data-arrasto-ligado')) return;
+    g.setAttribute('data-arrasto-ligado', '1');
+
+    var arrastado = null;
+    function caixaDe(e){
+      return (e.target && e.target.closest) ? e.target.closest('[data-filtro]') : null;
+    }
+    function limpar(){
+      var marcados = g.querySelectorAll('.arrastando,.alvo');
+      Array.prototype.forEach.call(marcados, function(x){
+        x.classList.remove('arrastando'); x.classList.remove('alvo');
       });
-      lab.addEventListener('dragend', function(){
-        div.classList.remove('arrastando');
-        g.querySelectorAll('.alvo').forEach(function(x){ x.classList.remove('alvo'); });
-      });
-      div.addEventListener('dragover', function(e){
-        e.preventDefault();
-        if (id !== arrastado) div.classList.add('alvo');
-      });
-      div.addEventListener('dragleave', function(){ div.classList.remove('alvo'); });
-      div.addEventListener('drop', function(e){
-        e.preventDefault();
-        div.classList.remove('alvo');
-        if (!arrastado || id === arrastado) return;
-        /* A ORDEM SALVA É A COMPLETA, e não a que está na tela: o trecho escondido não
-           entra aqui, mas se um dia um campo for escondido por outra razão ele
-           continuará na lista, no lugar dele. Mexer só no visível embaralharia a
-           posição dos escondidos sem ninguém ver. */
-        var ordem = ordemColunas(FILTROS_MOV);
-        var de = ordem.indexOf(arrastado);
-        if (de < 0) return;
-        ordem.splice(de, 1);
-        ordem.splice(ordem.indexOf(id), 0, arrastado);
-        guardarOrdem(FILTROS_MOV, ordem);
-        aplicarOrdemFiltros();
-        ligarArrastarFiltros();
-      });
+    }
+    g.addEventListener('dragstart', function(e){
+      var div = caixaDe(e);
+      if (!div) return;
+      arrastado = div.getAttribute('data-filtro');
+      div.classList.add('arrastando');
+      try { e.dataTransfer.setData('text/plain', arrastado); } catch (err) {}
+    });
+    g.addEventListener('dragend', function(){ arrastado = null; limpar(); });
+    g.addEventListener('dragover', function(e){
+      var div = caixaDe(e);
+      if (!div || !arrastado) return;
+      /* SEM ISTO O SOLTAR NAO ACONTECE: o padrão do navegador é recusar a queda, e
+         `preventDefault` no `dragover` é o que a autoriza. */
+      e.preventDefault();
+      if (div.getAttribute('data-filtro') !== arrastado) div.classList.add('alvo');
+    });
+    g.addEventListener('dragleave', function(e){
+      var div = caixaDe(e);
+      if (div) div.classList.remove('alvo');
+    });
+    g.addEventListener('drop', function(e){
+      var div = caixaDe(e);
+      if (!div) return;
+      e.preventDefault();
+      div.classList.remove('alvo');
+      var alvo = div.getAttribute('data-filtro');
+      if (!arrastado || alvo === arrastado) return;
+      /* A ORDEM SALVA É A COMPLETA, e não a que está na tela: o trecho escondido não
+         entra aqui, mas se um dia um campo for escondido por outra razão ele
+         continuará na lista, no lugar dele. Mexer só no visível embaralharia a
+         posição dos escondidos sem ninguém ver. */
+      var ordem = ordemColunas(FILTROS_MOV);
+      var de = ordem.indexOf(arrastado);
+      if (de < 0) return;
+      ordem.splice(de, 1);
+      ordem.splice(ordem.indexOf(alvo), 0, arrastado);
+      guardarOrdem(FILTROS_MOV, ordem);
+      arrastado = null;
+      aplicarOrdemFiltros();
+      ligarArrastarFiltros();
     });
   }
 
@@ -10884,6 +10943,28 @@
   function pintarTrava(){
     document.querySelectorAll('[data-trava-colunas]').forEach(function(box){
       if (!podeVerArranjo()) { box.innerHTML = ''; return; }
+      /* A CAIXA DA GAVETA DIZ O QUE SE FAZ ALI, e o resto é igual. Destravada, ela
+         ensina o gesto — ninguém descobre sozinho que o rótulo de um filtro se arrasta
+         — e oferece a volta ao padrão. Travada, ela é o convite para destravar, com o
+         preço escrito: a senha do painel. */
+      if (box.hasAttribute('data-so-filtros')) {
+        box.innerHTML = colunasDestravadas()
+          ? '<span class="trava__on">Arraste o <b>rótulo</b> para mudar a ordem</span>'+
+            '<button class="mini" type="button" data-restaurar-filtros '+
+            'title="Devolve os filtros à ordem de fábrica">voltar ao padrão</button>'+
+            '<button class="mini" type="button" data-travar '+
+            'title="Liberado até '+Q.esc(horaDaTrava())+'">travar</button>'
+          : '<button class="mini trava__btn" type="button" data-destravar '+
+            'title="Pede sua senha do painel. A liberação vale 15 minutos e vale '+
+            'também para as colunas das tabelas.">'+
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" '+
+              'stroke="currentColor" stroke-width="2" stroke-linecap="round" '+
+              'stroke-linejoin="round" aria-hidden="true">'+
+              '<rect x="4" y="10" width="16" height="10" rx="2"></rect>'+
+              '<path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg> '+
+            'Mudar a ordem dos filtros</button>';
+        return;
+      }
       box.innerHTML = colunasDestravadas()
         ? '<span class="trava__on">Colunas e filtros liberados até <b>'+
             Q.esc(horaDaTrava())+'</b></span>'+

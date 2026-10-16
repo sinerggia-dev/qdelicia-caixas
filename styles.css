@@ -3057,6 +3057,21 @@ details.tipos[open] summary::before{content:"▾"}
  * arrasta divergem no dia em que so um mudar. */
 .grid-filtros label[draggable="true"]{cursor:grab;user-select:none}
 .grid-filtros label[draggable="true"]:active{cursor:grabbing}
+/* E A ALCA SE VE'. A mao do cursor so' aparece depois de encostar o mouse em cima, e no
+   celular nao aparece nunca: sem uma marca na tela, a unica forma de descobrir que o
+   filtro se move era tentar arrastar um por tentativa. O tracinho entra pelo mesmo
+   seletor do `draggable`, entao ele acende e apaga junto com a trava — dois lugares
+   dizendo quem arrasta divergem no dia em que so' um mudar. */
+.grid-filtros label[draggable="true"]::before{content:'\2059';margin-right:5px;
+  font-size:11px;line-height:1;letter-spacing:-1px;color:var(--txt3);vertical-align:1px}
+
+/* A CAIXA DO CADEADO DENTRO DA GAVETA. Ela e' a mesma `.trava-colunas` da barra da
+   tabela — mesmas cores, mesmos botoes pequenos —, e o que muda e' que aqui ela QUEBRA
+   em varias linhas: a gaveta tem 260px, e a mesma fileira que cabe folgada na largura
+   de uma tabela sairia pela borda. */
+.trava-filtros{flex-wrap:wrap;gap:6px;margin:0 0 10px;padding-bottom:10px;
+  border-bottom:1px solid var(--linha)}
+.trava-filtros:empty{display:none;border:0;padding:0;margin:0}
 /* O CARTAO ARRASTAVEL. A marca do alvo entra de LADO — `inset 3px 0 0` —, e nao por
    cima como na caixinha de filtro: a fileira de cartoes e horizontal, e um risco no
    topo nao diria de que lado o cartao vai cair. A mesma marca das colunas da tabela,

@@ -272,6 +272,290 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
     (admO.match(/\n\s*aplicarOrdemFiltros\(\);/g) || []).length);
 }
 
+console.log('\n== o administrador arrasta os filtros para a ordem que quiser ==');
+{
+  var admA = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoA(nome) {
+    var i = admA.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = admA.indexOf('{', i);
+    for (; k < admA.length; k++) {
+      if (admA[k] === '{') d++;
+      else if (admA[k] === '}' && --d === 0) return admA.slice(i, k + 1);
+    }
+    return '';
+  }
+  var iniA = admA.indexOf('  var FILTROS_MOV = {');
+  var descritorA = admA.slice(iniA, admA.indexOf('};', iniA) + 2);
+
+  /* Os campos da gaveta, lidos do arquivo — a mesma varredura da seção anterior. */
+  var gA = admA.indexOf('<div class="grid-filtros">', admA.indexOf('id="caixaFiltrosMov"'));
+  var pA = admA.indexOf('>', gA) + 1, nvA = 1, deA = -1, brutosA = [];
+  while (pA < admA.length && nvA > 0) {
+    var abA = admA.indexOf('<div', pA), fcA = admA.indexOf('</div>', pA);
+    if (fcA < 0) break;
+    if (abA >= 0 && abA < fcA) { if (nvA === 1) deA = abA; nvA++; pA = abA + 4; }
+    else {
+      nvA--;
+      if (nvA === 1 && deA >= 0) { brutosA.push(admA.slice(deA, fcA + 6)); deA = -1; }
+      pA = fcA + 6;
+    }
+  }
+
+  /* Monta a gaveta falsa e LIGA o arrasto de verdade. `destravado` diz se o cadeado
+     está aberto — é dele que depende haver alça. */
+  function bancadaArrasto(destravado) {
+    var nos = brutosA.map(function (h) {
+      var c = /<(select|input)[^>]*\bid="([^"]+)"/.exec(h);
+      var b = /<button[^>]*\bid="([^"]+)"/.exec(h);
+      return { id: c ? c[2] : (b ? '[' + b[1] + ']' : '[?]'),
+               campo: !!c, escondido: /^<div[^>]*\bhidden\b/.test(h), attrs: {} };
+    });
+    var guardado = { v: null, gravacoes: 0 };
+    var g = {
+      filhos: nos, ouvintes: {}, attrs: {},
+      get children() { return this.filhos; },
+      appendChild: function (n) {
+        var i = this.filhos.indexOf(n);
+        if (i >= 0) this.filhos.splice(i, 1);
+        this.filhos.push(n);
+      },
+      insertBefore: function (n, ref) {
+        var i = this.filhos.indexOf(n);
+        if (i >= 0) this.filhos.splice(i, 1);
+        var j = ref ? this.filhos.indexOf(ref) : -1;
+        if (j < 0) this.filhos.push(n); else this.filhos.splice(j, 0, n);
+      },
+      querySelector: function (sel) {
+        if (sel !== '.filtro-acao') return null;
+        for (var i = 0; i < this.filhos.length; i++) {
+          if (this.filhos[i].id === '[btnFiltrarMov]') return this.filhos[i];
+        }
+        return null;
+      },
+      querySelectorAll: function () { return []; },
+      getAttribute: function (k) { return this.attrs[k] || null; },
+      setAttribute: function (k, v) { this.attrs[k] = v; },
+      addEventListener: function (tp, f) {
+        (this.ouvintes[tp] = this.ouvintes[tp] || []).push(f);
+      }
+    };
+    nos.forEach(function (n) {
+      n.rotulo = { draggable: false };
+      n.querySelector = function (sel) {
+        if (sel === 'label') return n.campo ? n.rotulo : null;
+        return n.campo ? { id: n.id } : null;
+      };
+      n.hasAttribute = function (k) { return k === 'hidden' ? n.escondido : (k in n.attrs); };
+      n.getAttribute = function (k) { return n.attrs[k] || null; };
+      n.setAttribute = function (k, v) { n.attrs[k] = v; };
+      n.classList = { add: function () {}, remove: function () {} };
+      Object.defineProperty(n, 'nextSibling', { get: function () {
+        var i = g.filhos.indexOf(n);
+        return (i >= 0 && i + 1 < g.filhos.length) ? g.filhos[i + 1] : null;
+      } });
+    });
+    var fonte = descritorA + '\n' + corpoA('gradeFiltros') + '\n' + corpoA('caixasDeFiltro') +
+      '\n' + corpoA('ordemColunas') + '\n' + corpoA('guardarOrdem') +
+      '\n' + corpoA('aplicarOrdemFiltros') + '\n' + corpoA('recolocarAcaoFiltro') +
+      '\n' + corpoA('ligarArrastarFiltros') +
+      '\n return { ligar: ligarArrastarFiltros, aplicar: aplicarOrdemFiltros };';
+    var api = new Function('document', 'localStorage', 'podeVerArranjo',
+                           'podeArranjarColunas', fonte)(
+      { querySelector: function () { return g; } },
+      { getItem: function () { return guardado.v; },
+        setItem: function (k, v) { guardado.v = v; guardado.gravacoes++; },
+        removeItem: function () { guardado.v = null; } },
+      function () { return true; },
+      function () { return !!destravado; });
+    api.aplicar();
+    api.ligar();
+    function achar(id) {
+      for (var i = 0; i < g.filhos.length; i++) if (g.filhos[i].id === id) return g.filhos[i];
+      return null;
+    }
+    /* O EVENTO ANOTA O `preventDefault`, porque e' dele que o navegador depende. */
+    function disparar(tp, no) {
+      var e = { impedido: false,
+                preventDefault: function () { this.impedido = true; },
+                dataTransfer: { setData: function () {} },
+                target: { closest: function (s) {
+                  return s === '[data-filtro]' ? no : null; } } };
+      (g.ouvintes[tp] || []).forEach(function (f) { f(e); });
+      return e.impedido;
+    }
+    return {
+      g: g, api: api, guardado: guardado,
+      ids: function () {
+        return g.filhos.filter(function (n) { return n.id !== 'mvTrecho'; })
+          .map(function (n) { return n.id; });
+      },
+      ouvintes: function () {
+        return ['dragstart', 'dragover', 'dragleave', 'drop', 'dragend']
+          .map(function (tp) { return (g.ouvintes[tp] || []).length; });
+      },
+      alcas: function () {
+        return g.filhos.filter(function (n) { return n.campo && n.rotulo.draggable; })
+          .map(function (n) { return n.id; });
+      },
+      /* O ARRASTO SEGUE A REGRA DO NAVEGADOR: o `drop` so' acontece se algum ouvinte
+         de `dragover` tiver chamado `preventDefault`. O padrao e' RECUSAR a queda.
+         Disparando o `drop` na mao, a bancada pulava essa regra — e uma versao sem o
+         `preventDefault`, em que o administrador arrasta, solta e nada acontece,
+         passava verde. Foi o que a sabotagem mostrou. */
+      arrastar: function (a, b) {
+        disparar('dragstart', achar(a));
+        var deixou = disparar('dragover', achar(b));
+        if (deixou) disparar('drop', achar(b));
+        disparar('dragend', achar(a));
+        return deixou;
+      }
+    };
+  }
+
+  var b = bancadaArrasto(true);
+  ok(b.ids().length > 10,
+    'a conferência montou a gaveta e ligou o arrasto — bancada vazia faria as provas ' +
+    'abaixo passarem sem mexer em nada', b.ids().length);
+
+  /* ---- O GESTO FUNCIONA ---- */
+  var antes = b.ids();
+  b.arrastar('mvUsuario', 'mvOrigem');
+  var depois = b.ids();
+  ok(depois[0] === 'mvUsuario' && antes[0] === 'mvOrigem',
+    'arrastar "Quem lançou" para cima de "Origem" põe ele NO LUGAR da Origem — é a ' +
+    'função inteira: a ordem da gaveta passa a ser a que o administrador quiser',
+    antes.join(' ') + '   ->   ' + depois.join(' '));
+  ok(b.guardado.gravacoes === 1,
+    'e o soltar grava UMA vez', b.guardado.gravacoes);
+  var b0 = bancadaArrasto(true);
+  ok(b0.arrastar('mvUsuario', 'mvOrigem') === true,
+    'e o `dragover` AUTORIZA a queda — o padrão do navegador é recusá-la, e sem o ' +
+    '`preventDefault` ali o `drop` simplesmente não acontece: o administrador arrasta, ' +
+    'solta, e a gaveta fica como estava, sem erro nenhum para explicar');
+
+  /* ---- E NAO EMPILHA OUVINTES ----
+   * Era o defeito: os ouvintes eram postos um por campo a CADA chamada, e o próprio
+   * `drop` chamava a ligação de novo — o número dobrava por arrasto (1, 2, 4, 8). No
+   * décimo arrasto um soltar fazia 512 reordenações e a tela congelava.
+   * A PROVA MEDE O EFEITO, e não o número de ouvintes: contando ouvintes, ela passaria
+   * numa versão que os guarda noutro lugar e continua executando o trabalho N vezes. */
+  var b2 = bancadaArrasto(true);
+  for (var kA = 0; kA < 8; kA++) b2.api.ligar();
+  b2.arrastar('mvUsuario', 'mvOrigem');
+  ok(b2.guardado.gravacoes === 1,
+    'e ligar o arrasto nove vezes seguidas — o que a tela faz a cada virada do cadeado ' +
+    'e a cada soltar — ainda assim grava UMA vez por arrasto: os ouvintes não se ' +
+    'empilham mais', b2.guardado.gravacoes);
+  ok(b2.ouvintes().join(',') === '1,1,1,1,1',
+    'e há um ouvinte de cada tipo na grade, não um conjunto por campo por chamada',
+    b2.ouvintes().join(','));
+
+  var b3 = bancadaArrasto(true);
+  var seq = [['mvUsuario', 'mvOrigem'], ['mvMotorista', 'mvDestino'],
+             ['mvTeste', 'mvOrigem'], ['mvCancelados', 'mvOrigem']];
+  seq.forEach(function (p) { b3.arrastar(p[0], p[1]); });
+  ok(b3.guardado.gravacoes === seq.length,
+    'e quatro arrastos seguidos são quatro gravações, e não dezesseis — é o acúmulo ' +
+    'que fazia o custo de cada arrasto dobrar em cima do anterior', b3.guardado.gravacoes);
+
+  /* ---- A ORDEM GRAVADA E' A COMPLETA ---- */
+  var salvo = JSON.parse(b3.guardado.v);
+  ok(salvo.length === 12 && salvo.indexOf('mvCancelados') >= 0,
+    'e o que se grava é a ordem COMPLETA dos doze filtros — gravando só os que estão ' +
+    'à vista, o campo escondido perderia o lugar dele sem ninguém ver', salvo.length);
+
+  /* ---- A ALCA E' O ROTULO, E DEPENDE DA TRAVA ---- */
+  ok(b.alcas().length === 12 && b.alcas().indexOf('mvTrecho') < 0,
+    'com o cadeado aberto, os doze filtros visíveis ganham alça — e o campo escondido ' +
+    'não: arrastar o que não se vê não quer dizer nada', b.alcas().join(' '));
+  var trancada = bancadaArrasto(false);
+  ok(trancada.alcas().length === 0,
+    'e com o cadeado FECHADO nenhum rótulo se arrasta — o gesto prometido e sem efeito ' +
+    'é pior que gesto nenhum, e `guardarOrdem` recusaria a gravação de qualquer jeito',
+    trancada.alcas().join(' '));
+  trancada.arrastar('mvUsuario', 'mvOrigem');
+  ok(trancada.guardado.gravacoes === 0,
+    'e travado nada é gravado, nem por um evento que chegue de outro caminho',
+    trancada.guardado.gravacoes);
+
+  /* ================= O CAMINHO ATE' O GESTO =================
+   * O cadeado morava só na barra da tabela — do outro lado da tela, e atrás da própria
+   * gaveta quando ela está aberta. A função existia e não havia como chegar nela. */
+  {
+    var caixas = [{ gaveta: true }, { gaveta: false }];
+    caixas.forEach(function (c) {
+      c.innerHTML = '';
+      c.hasAttribute = function (k) { return k === 'data-so-filtros' && c.gaveta; };
+    });
+    var fontePintor = corpoA('horaDaTrava') + '\n' + corpoA('pintarTrava') +
+      '\n return pintarTrava;';
+    function pintar(ehAdmin, destravado) {
+      caixas.forEach(function (c) { c.innerHTML = ''; });
+      new Function('document', 'Q', 'podeVerArranjo', 'colunasDestravadas',
+                   'COLUNAS_ATE', fontePintor)(
+        { querySelectorAll: function () { return caixas; } },
+        { esc: function (x) { return String(x); },
+          FUSO_OPERACAO: 'America/Sao_Paulo' },
+        function () { return ehAdmin; },
+        function () { return destravado; },
+        Date.now() + 9e5)();
+      return { gaveta: caixas[0].innerHTML, tabela: caixas[1].innerHTML };
+    }
+
+    var travado = pintar(true, false);
+    ok(/data-destravar/.test(travado.gaveta),
+      'a gaveta de filtros tem o próprio cadeado — ele morava só na barra da tabela, ' +
+      'que fica do outro lado da tela e ATRÁS da gaveta aberta: a função existia e não ' +
+      'havia caminho até ela', travado.gaveta.slice(0, 200));
+    ok(/ordem dos filtros/.test(travado.gaveta),
+      'e ele diz o que destrava, em vez de falar de colunas no meio dos filtros',
+      travado.gaveta.slice(0, 200));
+
+    var aberto = pintar(true, true);
+    ok(/Arraste o <b>rótulo<\/b>/.test(aberto.gaveta),
+      'e destravado ele ENSINA O GESTO — ninguém descobre sozinho que o rótulo de um ' +
+      'filtro se arrasta, e sem isto a liberação deixa o administrador olhando para a ' +
+      'mesma gaveta de antes', aberto.gaveta.slice(0, 200));
+    ok(/data-restaurar-filtros/.test(aberto.gaveta),
+      'e oferece a volta ao padrão ali mesmo — quem embaralhou doze campos não desfaz ' +
+      'arrastando de volta um por um, porque não lembra qual era a ordem',
+      aberto.gaveta.slice(0, 260));
+    ok(aberto.gaveta.indexOf('data-restaurar-cartoes') < 0,
+      'e NÃO oferece a ordem dos cartões, que moram noutra tela', aberto.gaveta);
+    ok(/data-restaurar-cartoes/.test(aberto.tabela) && /data-travar/.test(aberto.tabela),
+      'enquanto a caixa da barra da tabela continua inteira — o ramo novo é só o da ' +
+      'gaveta, e não uma troca da caixa de todo mundo', aberto.tabela.slice(0, 200));
+
+    /* É O MESMO CADEADO: uma liberação, e não duas. */
+    ok(/data-destravar/.test(travado.tabela) && /data-destravar/.test(travado.gaveta),
+      'e as duas caixas viram juntas, porque a liberação é UMA — duas travas sobre a ' +
+      'mesma coisa seriam duas verdades sobre quem pode arrastar');
+
+    var naoAdmin = pintar(false, true);
+    ok(naoAdmin.gaveta === '' && naoAdmin.tabela === '',
+      'e quem não é administrador não vê cadeado nenhum, nem na gaveta — oferecer o ' +
+      'caminho para uma porta trancada é pior que não oferecer o caminho',
+      naoAdmin.gaveta);
+  }
+
+  /* ---- E A CAIXA EXISTE MESMO NA MARCACAO ----
+   * `pintarTrava` pinta o que encontrar; sem o nó na gaveta, tudo acima seria uma prova
+   * sobre uma caixa que não está na tela. Já aconteceu nesta tela: a dica existia no
+   * código e o <p> nunca tinha sido criado. */
+  var gavetaHtml = admA.slice(admA.indexOf('id="caixaFiltrosMov"'),
+                              admA.indexOf('<div class="grid-filtros">',
+                                           admA.indexOf('id="caixaFiltrosMov"')))
+    /* SEM OS COMENTARIOS. O comentario acima da caixa EXPLICA os dois atributos, e
+       com ele no texto a prova passava com a caixa arrancada da marcacao — ela estava
+       medindo a explicacao, e nao a tela. */
+    .replace(/<!--[\s\S]*?-->/g, '');
+  ok(/<div[^>]*data-trava-colunas[^>]*data-so-filtros[^>]*>/.test(gavetaHtml),
+    'e a caixa do cadeado está mesmo DENTRO da gaveta, antes dos campos — pintar uma ' +
+    'caixa que não existe não põe nada na tela de ninguém',
+    /<div class="trava-colunas[^>]*>/.exec(gavetaHtml));
+}
+
 console.log('\n== o saldo por tipo de caixa ==');
 {
   var admS = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
