@@ -3297,6 +3297,19 @@ details.tipos[open] summary::before{content:"▾"}
 .gb__par{display:block;margin:-1px 0 4px;font-size:clamp(9.5px,.78vw,11px);
   color:var(--txt3);font-variant-numeric:tabular-nums;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
+/* OS TRES NUMEROS COM A COR DA BARRA QUE ELES CONTAM: azul o que saiu, verde o que
+   voltou, vermelho a diferenca. E' o que dispensa legenda em cada linha — o olho liga
+   o numero ao pedaco da barra pela cor.
+   AS PALAVRAS FICAM NO TOM DE APOIO, e so' o NUMERO recebe a cor: pintando a frase
+   inteira, tres cores fortes brigariam entre si numa linha de 11px e nenhuma seria
+   lida primeiro.
+   MEDIDO: os seis pares (tres cores x dois temas) passam de 4,5:1 sobre o fundo do
+   painel. Texto pequeno tem exigencia que barra nao tem, e estes sao os mesmos tokens
+   que as barras usam — nao uma segunda paleta. */
+.gb__n{font-weight:600}
+.gb__n--s{color:var(--azul-cheio)}
+.gb__n--r{color:var(--verde-cheio)}
+.gb__n--sa{color:var(--vermelho)}
 /* O SINAL TEM COR, e o numero nao fica so' com o `+`/`-`: num painel de seis, o olho
    varre as cores antes de ler os numeros, e e' a varredura que faz o tipo com caixa
    faltando saltar. */

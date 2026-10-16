@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=02ba1919">
+<link rel="stylesheet" href="styles.css?v=2fb7d673">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -7557,6 +7557,35 @@
     return !!el && String(el.value) === String(g.v);
   }
 
+  /* ================= OS TRES NUMEROS DA LINHA =================
+   *
+   * Cada barra mostrava UM numero: o total, no painel de volume, ou o saldo, no painel
+   * do saldo. O que a barra e' feita ficava so' no desenho — e um desenho nao se
+   * confere nem se dita por telefone. "CX G 4.960" nao diz quanto saiu, quanto voltou,
+   * nem quanto falta; e e' quanto falta que decide se ha caixa na rua.
+   *
+   * AS CORES SAO AS DAS BARRAS, e isso e' a razao de elas existirem: azul e o que saiu,
+   * verde e o que voltou, vermelho e a diferenca. O olho liga o numero ao pedaco da
+   * barra sem precisar de legenda em cada linha.
+   *
+   * MEDIDO ANTES DE PINTAR: os tres tons passam de 4,5:1 sobre o fundo do painel, nos
+   * dois temas — e' texto pequeno, e texto tem exigencia que barra nao tem.
+   *
+   * O SALDO SO' ENTRA NESTA LINHA no painel de VOLUME. No painel do saldo ele ja' e o
+   * numero grande da direita, e repeti-lo aqui seria o mesmo dado duas vezes na mesma
+   * linha, com duas formatacoes diferentes. */
+  function parG(g, comSaldo){
+    var saldo = g.retorno - g.saida;
+    return '<span class="gb__par">' +
+      'saída <b class="gb__n gb__n--s">' + Q.num(g.saida) + '</b>' +
+      ' · retorno <b class="gb__n gb__n--r">' + Q.num(g.retorno) + '</b>' +
+      (comSaldo
+        ? ' · saldo <b class="gb__n gb__n--sa">' +
+          (saldo > 0 ? '+' : '') + Q.num(saldo) + '</b>'
+        : '') +
+      '</span>';
+  }
+
   function barraG(g, maior, campo){
     var pc = maior ? (g.total / maior * 100) : 0;
     var ps = g.total ? (g.saida / g.total * 100) : 0;
@@ -7565,8 +7594,12 @@
        a barra continua sendo desenhada — ela é informação —, só não é clicável. */
     var pode = campo && g.v != null && g.v !== '';
     var lig = pode && gLigado(campo, g);
+    var saldoG = g.retorno - g.saida;
     var titulo = g.k + ' — ' + Q.num(g.total) + ' caixas · saída ' + Q.num(g.saida) +
       ' · retorno ' + Q.num(g.retorno) +
+      ' · saldo ' + (saldoG > 0 ? '+' : '') + Q.num(saldoG) +
+      (saldoG < 0 ? ' (saiu mais do que voltou)'
+                  : saldoG > 0 ? ' (voltou mais do que saiu)' : ' (fechado)') +
       (pode ? (lig ? ' · clique para tirar o filtro' : ' · clique para filtrar por isto')
             : (g.v === '' ? ' · sem informação não vira filtro' : ''));
     return '<button class="gb" type="button" title="'+Q.esc(titulo)+'"'+
@@ -7575,6 +7608,10 @@
             : ' disabled')+'>'+
       '<span class="gb__r"><span class="gb__k">'+Q.esc(g.k)+'</span>'+
       '<b class="gb__v">'+Q.num(g.total)+'</b></span>'+
+      /* COM O SALDO: o numero grande desta linha e o TOTAL — quanto se mexeu —, e a
+         pergunta que falta e quanto FALTA. Sem ele, a unica forma de saber era abrir o
+         painel do par e procurar a mesma linha. */
+      parG(g, true)+
       '<span class="gb__t"><span class="gb__f" style="width:'+pc.toFixed(1)+'%">'+
         (g.saida ? '<i class="gb__s" style="flex:'+ps+' 1 0"></i>' : '')+
         (g.retorno ? '<i class="gb__d" style="flex:'+(100 - ps)+' 1 0"></i>' : '')+
@@ -7666,7 +7703,10 @@
          vermelho. Zero fica sem cor — ele nao e' nem uma coisa nem outra. */
       '<b class="gb__v '+(saldo ? 'gb__v--saldo' : '')+'">'+
         (saldo > 0 ? '+' : '')+Q.num(saldo)+'</b></span>'+
-      '<span class="gb__par">saída '+Q.num(g.saida)+' · retorno '+Q.num(g.retorno)+'</span>'+
+      /* A MESMA LINHA do painel de volume, e nao uma escrita a mao aqui: duas copias
+         divergem na primeira que for mexida, e as duas sao plausiveis. SEM o saldo,
+         porque ele ja e o numero grande desta linha. */
+      parG(g, false)+
       '<span class="gb__t">'+
         (saldo ? '<span class="gb__f" style="width:'+pc.toFixed(1)+'%">'+
                  '<i class="gb__saldo" style="flex:1"></i>'+

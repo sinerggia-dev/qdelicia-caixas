@@ -913,7 +913,9 @@ console.log('\n== o saldo por tipo de caixa ==');
     }
     return '';
   }
-  var fonteS = corpoS('barraSaldoG') + corpoS('painelSaldoG');
+  /* COM `parG` JUNTO: a linha dos tres numeros virou uma funcao compartilhada pelos
+     dois paineis, e sem ela na fonte o recorte estoura em vez de medir. */
+  var fonteS = corpoS('parG') + corpoS('barraSaldoG') + corpoS('painelSaldoG');
   ok(fonteS.length > 600,
     'a conferência recortou o painel do saldo por tipo — recorte vazio faria as provas ' +
     'abaixo passarem sem rodar nada', fonteS.length);
@@ -962,10 +964,16 @@ console.log('\n== o saldo por tipo de caixa ==');
      `title` do botao, entao `/saída 4196 · retorno 3000/` solta continuava verdadeira
      com a linha visivel apagada — foi assim que a sabotagem passou por aqui. O `title`
      so' aparece parando o mouse em cima, e no celular nao aparece nunca. */
-  ok(/<span class="gb__par">saída 4196 · retorno 3000<\/span>/.test(umG),
-    'e as duas pontas ficam escritas NA LINHA, visíveis — o saldo sozinho não diz se ' +
-    'faltam 1.196 de um movimento de 7.196 ou de um de 1.200, e são situações ' +
-    'diferentes; no `title` isso só existe para quem tem mouse', umG.slice(0, 400));
+  ok(/<span class="gb__par">saída <b class="gb__n gb__n--s">4196<\/b> · retorno <b class="gb__n gb__n--r">3000<\/b><\/span>/
+       .test(umG),
+    'e as duas pontas ficam escritas NA LINHA, visíveis e com a cor da barra que cada ' +
+    'uma conta — o saldo sozinho não diz se faltam 1.196 de um movimento de 7.196 ou ' +
+    'de um de 1.200, e são situações diferentes; no `title` isso só existe para quem ' +
+    'tem mouse', umG.slice(0, 400));
+  ok(umG.indexOf('gb__n--sa') < 0,
+    'e o SALDO não se repete nesta linha do painel do saldo — ele já é o número grande ' +
+    'da direita, e o mesmo dado duas vezes na mesma linha, com duas formatações, é ' +
+    'convite a lerem-se como coisas diferentes', umG.slice(0, 400));
 
   /* ---- A BARRA MEDE O |SALDO|, e nao o movimento ----
    * E' o que este painel pergunta. Medindo o movimento, ele viraria uma copia do painel
@@ -4416,7 +4424,7 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
       }
       return '';
     }
-    var PECAS = ['agruparMov', 'cortarG', 'porTotalG', 'barraG', 'painelG',
+    var PECAS = ['agruparMov', 'cortarG', 'porTotalG', 'parG', 'barraG', 'painelG',
                  'barraSaldoG', 'painelSaldoG', 'desenharGraficosMov'];
     var faltando = PECAS.filter(function (n) { return !corpoP(n); });
     ok(!faltando.length,
@@ -4484,6 +4492,122 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
       return (s.match(/<span class="gb__k">([^<]*)<\/span>/g) || [])
         .map(function (x) { return x.replace(/<[^>]+>/g, ''); }).join('|');
     });
+    /* ---- OS TRES NUMEROS, EM TODA LINHA DE TODO PAINEL ----
+     *
+     * Cada barra mostrava UM numero. "CX G 4.960" nao diz quanto saiu, quanto voltou,
+     * nem quanto falta — e e' quanto falta que decide se ha caixa na rua. A prova
+     * conta as linhas desenhadas e exige que TODAS tragam o par, em vez de conferir
+     * uma: um painel que ficasse de fora passaria despercebido numa grade de dez.
+     */
+    var linhas = (caixaG.innerHTML.match(/<button class="gb[^"]*"/g) || []).length;
+    var comPar = (caixaG.innerHTML.match(/<span class="gb__par">/g) || []).length;
+    ok(linhas > 0 && comPar === linhas,
+      'toda linha de todo painel traz saída e retorno escritos — o número grande ' +
+      'sozinho não diz do que a barra é feita, e desenho não se confere nem se dita ' +
+      'por telefone', { linhas: linhas, comPar: comPar });
+
+    /* ---- E O SALDO SO' NO PAINEL DE VOLUME ----
+     * No painel do saldo ele ja' e' o numero grande da direita. */
+    var secoesN = caixaG.innerHTML.split('<section class="g"').slice(1);
+    var volumes = secoesN.filter(function (s, i) { return i % 2 === 0; });
+    var saldos  = secoesN.filter(function (s, i) { return i % 2 === 1; });
+    ok(volumes.every(function (s) { return s.indexOf('gb__n--sa') >= 0; }),
+      'e o painel de VOLUME traz também o saldo na linha — o número grande dele é o ' +
+      'total, e a pergunta que faltava era quanto falta: sem isto, a única forma de ' +
+      'saber era abrir o painel do par e procurar a mesma linha',
+      volumes.filter(function (s) { return s.indexOf('gb__n--sa') < 0; }).length);
+    ok(saldos.every(function (s) { return s.indexOf('gb__n--sa') < 0; }),
+      'e o painel do SALDO não repete o saldo na linha — ele já é o número grande da ' +
+      'direita, e o mesmo dado duas vezes com duas formatações se lê como dois dados');
+
+    /* ---- E OS DOIS PAINEIS DO PAR DIZEM O MESMO SALDO ----
+     *
+     * O saldo aparece em dois lugares para a mesma linha: na linha do painel de
+     * VOLUME e como numero grande do painel do SALDO. Calculados por caminhos
+     * diferentes, eles podem divergir — e os dois sao plausiveis, entao ninguem
+     * desconfia. A sabotagem mostrou isto: com `saida - retorno` dentro da linha, o
+     * painel de cima dizia +2.742 onde o de baixo dizia -2.742, e a tela toda
+     * continuava desenhando normalmente.
+     *
+     * COMPARADOS UM A UM, na ordem — que e a mesma nos dois paineis, e isso ja foi
+     * medido acima. */
+    function numeros(secao, classe) {
+      return (secao.match(new RegExp('class="[^"]*' + classe + '[^"]*">([^<]*)<', 'g')) || [])
+        .map(function (x) { return x.replace(/.*">/, '').replace('<', ''); });
+    }
+    var divergentes = [];
+    for (var iS = 0; iS < secoesN.length; iS += 2) {
+      var naLinha = numeros(secoesN[iS], 'gb__n--sa');
+      var grandes = numeros(secoesN[iS + 1], 'gb__v--saldo');
+      naLinha.forEach(function (v, j) {
+        if (String(v) !== String(grandes[j])) {
+          divergentes.push({ painel: iS, linha: j, volume: v, saldo: grandes[j] });
+        }
+      });
+    }
+    ok(secoesN.length === 10 && !divergentes.length,
+      'e o saldo que a linha do volume mostra é o MESMO que o painel do par mostra em ' +
+      'letra grande — calculados por caminhos diferentes eles divergem, e os dois são ' +
+      'plausíveis: um diria +2.742 onde o outro diz −2.742 e a tela continuaria ' +
+      'desenhando normalmente', divergentes);
+
+    /* ---- AS CORES DOS NUMEROS SAO AS DAS BARRAS ----
+     * E' o que dispensa legenda em cada linha. Fossem outros tons, a tela teria duas
+     * paletas dizendo a mesma coisa — e elas divergiriam na primeira que mudasse. */
+    [['gb__n--s', 'gb__s'], ['gb__n--r', 'gb__d'], ['gb__n--sa', 'gb__saldo']]
+      .forEach(function (par) {
+        /* SEM REGEX: a regra é um texto fixo, e montar um padrão para ela custaria
+           três camadas de escape — exatamente onde esta suíte já se enganou hoje. */
+        function tokenDe(classe, prop) {
+          var achado = css.indexOf('.' + classe + '{' + prop + ':var(');
+          if (achado < 0) return null;
+          var de = achado + ('.' + classe + '{' + prop + ':var(').length;
+          return css.slice(de, css.indexOf(')', de));
+        }
+        var corN = tokenDe(par[0], 'color');
+        var corB = tokenDe(par[1], 'background');
+        ok(corN && corB && corN === corB,
+          'e o número de ' + par[0] + ' usa o MESMO token da barra que ele conta — ' +
+          'duas paletas para a mesma coisa divergem na primeira que mudar, e aí o ' +
+          'número passa a apontar para o pedaço errado da barra',
+          { numero: corN, barra: corB });
+      });
+
+    /* ---- E ELES SE LEEM: 4,5:1 sobre o fundo do painel, nos dois temas ----
+     * Texto pequeno tem exigencia que barra nao tem. Pintar o numero com a cor da
+     * barra so' vale se ele continuar legivel — senao a cor informa e o numero some. */
+    function hx(h) { h = h.replace('#', '');
+      return [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
+    function lum(c) { var a = c.map(function (v) { v /= 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+      return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2]; }
+    function contraste(x, y) { var l1 = lum(hx(x)), l2 = lum(hx(y));
+      var hi = Math.max(l1, l2), lo = Math.min(l1, l2); return (hi + 0.05) / (lo + 0.05); }
+    function todosTokens(nome) {
+      var re = new RegExp('--' + nome + ':\s*(#[0-9a-fA-F]{6})', 'g'), r = [], m;
+      while ((m = re.exec(css))) r.push(m[1]);
+      return r;
+    }
+    var campos = todosTokens('campo');
+    ok(campos.length >= 2, 'a conferência leu os fundos de painel dos dois temas', campos);
+    [['azul-cheio', 'saída'], ['verde-cheio', 'retorno'], ['vermelho', 'saldo']]
+      .forEach(function (par) {
+        var tons = todosTokens(par[0]);
+        var ruins = [];
+        tons.forEach(function (tom, i) {
+          /* CADA TOM CONTRA O FUNDO DO TEMA DELE: o claro contra o fundo claro, o
+             escuro contra o escuro. Cruzados, a conta compararia cores que nunca
+             aparecem juntas e reprovaria o que esta' certo. */
+          var fundo = campos[i === 0 ? 0 : campos.length - 1];
+          var r = contraste(tom, fundo);
+          if (r < 4.5) ruins.push({ tom: tom, fundo: fundo, razao: r.toFixed(2) });
+        });
+        ok(!ruins.length,
+          'e o número de ' + par[1] + ' passa dos 4,5:1 sobre o fundo do painel — é ' +
+          'texto de 11px, e texto tem exigência que barra não tem: ilegível, a cor ' +
+          'informa e o número some', ruins);
+      });
+
     /* ---- A LEGENDA EXPLICA TODA COR QUE A TELA DESENHA ----
      * "Legenda que discorda da barra e' pior que legenda nenhuma: ela ensina a ler
      * errado, e quem confere nao tem como desconfiar" — ja' estava escrito nesta tela,
