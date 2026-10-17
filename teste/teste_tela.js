@@ -2834,6 +2834,298 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
  * desalinhava a tabela inteira, e cada numero passava a ser lido na coluna do vizinho. A
  * garantia agora e estrutural: quem monta as duas percorre a MESMA lista.
  * ------------------------------------------------------------------------- */
+console.log('\n== Painel de Ativos: juntar as linhas ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoA(nome) {
+    var i = adm.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = adm.indexOf('{', i);
+    for (; k < adm.length; k++) {
+      if (adm[k] === '{') d++;
+      else if (adm[k] === '}' && --d === 0) return adm.slice(i, k + 1);
+    }
+    return '';
+  }
+  var iM = adm.indexOf('  var MODOS_GRUPO = {');
+  var fM = adm.indexOf(String.fromCharCode(10) + '  };', iM) + 5;
+  var fonteM = iM < 0 ? '' : adm.slice(iM, fM);
+  var PECAS = ['somarTipos', 'juntarNomes', 'agruparFluxo', 'celulasDoGrupo',
+               'saldoFinalDaLinha', 'linhaDeGrupo', 'linhaDeFluxo', 'corpoDaTabela'];
+  var faltando = PECAS.filter(function (n) { return !corpoA(n); });
+  ok(!faltando.length && fonteM.indexOf('MODOS_GRUPO') > 0 && fonteM.length > 300,
+    'a confer\u00eancia recortou a tabela de modos e as pe\u00e7as do agrupar \u2014 faltando uma, ' +
+    'as provas abaixo passariam sem rodar nada', faltando);
+
+  /* AS FUNCOES RODAM. Lidas no arquivo, elas responderiam "a palavra `saida` esta
+     ali?" — e estaria, inclusive numa versao que soma o retorno na coluna errada. */
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var A = new Function('Q', 'PESSOAS_ABERTAS', 'gavetaDaPessoa', 'GRUPOS_ABERTOS',
+                       'avisoVazio',
+    fonteM + ';' + PECAS.map(corpoA).join(String.fromCharCode(10)) +
+    String.fromCharCode(10) +
+    ' return { agrupa: agruparFluxo, celulas: celulasDoGrupo, saldo: saldoFinalDaLinha,' +
+    '          linhaG: linhaDeGrupo, linhaF: linhaDeFluxo, corpo: corpoDaTabela,' +
+    '          MODOS: MODOS_GRUPO };')(
+    /* O `esc` DE MENTIRA ESCAPA COMO O DE VERDADE. A chave da rota leva um `>` dentro
+       — "Matriz > Campina Grande" —, e e' ele que vai para dentro de um atributo HTML:
+       com um `esc` que nao escapa, a bancada mediria uma marcacao que o navegador leria
+       de outro jeito. Foi exatamente o que aconteceu na primeira versao desta prova. */
+    { esc: function (x) {
+        return String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      },
+      num: function (n) { return String(n); } },
+    {}, function () { return ''; },
+    /* NENHUM GRUPO ABERTO: e' o estado em que a tabela nasce, e e' o unico em que as
+       filhas tem de vir escondidas. */
+    {}, function () { return 'vazio: sem linhas no recorte'; });
+
+  /* OS NUMEROS SAO OS DA TELA DE QUEM PEDIU: Campina Grande em dois dias, com saida e
+     retorno no mesmo dia no segundo deles. Era essa a linha apontada. */
+  var LINHAS = [
+    { data: '2026-10-14', origens: ['Matriz S\u00e3o Vicente'], destinos: ['Campina Grande'],
+      saida: 215, retorno: 0, lancamentos: 2, inicial: 0, fimCorrido: -215,
+      saidaTipos: [{ caixa: 'CX G', qtd: 175 }, { caixa: 'CX P', qtd: 40 }],
+      retornoTipos: [] },
+    { data: '2026-10-15', origens: ['Matriz S\u00e3o Vicente'], destinos: ['Campina Grande'],
+      saida: 235, retorno: 325, lancamentos: 3, inicial: 0, fimCorrido: -1977,
+      saidaTipos: [{ caixa: 'CX G', qtd: 235 }],
+      retornoTipos: [{ caixa: 'CX G', qtd: 117 }, { caixa: 'CX P', qtd: 208 }] },
+    { data: '2026-10-15', origens: ['Matriz S\u00e3o Vicente'], destinos: ['Caruaru'],
+      saida: 589, retorno: 0, lancamentos: 3, inicial: 0, fimCorrido: -2566,
+      saidaTipos: [{ caixa: 'CX G', qtd: 233 }], retornoTipos: [] }
+  ];
+
+  /* ---- 1. A ROTA: duas linhas de dois dias viram uma ---- */
+  var porRota = A.agrupa(LINHAS, 'rota');
+  ok(porRota.length === 2,
+    'duas rotas saem de tr\u00eas linhas \u2014 Campina Grande em dois dias \u00e9 uma rota s\u00f3, e ' +
+    'som\u00e1-la com o olho no meio de dezenove linhas \u00e9 onde a conta se perde',
+    porRota.map(function (g) { return g.chave; }));
+  var cg = porRota[0];
+  ok(cg.saida === 450 && cg.retorno === 325,
+    'e a rota acumula as duas pontas dos dois dias: 215 + 235 de sa\u00edda, 0 + 325 de ' +
+    'retorno', { saida: cg.saida, retorno: cg.retorno });
+  ok(cg.saldo === -125,
+    'e o saldo do grupo \u00e9 o DELE \u2014 retorno menos sa\u00edda, 325 \u2212 450 \u2014, que \u00e9 o que ' +
+    'ainda falta voltar daquela rota', cg.saldo);
+  ok(cg.lancamentos === 5 && cg.sub.indexOf('5 lan\u00e7amentos') === 0 &&
+     cg.sub.indexOf('2 dias') > 0,
+    'e a linha diz de quantos lan\u00e7amentos e de quantos DIAS ela \u00e9 feita \u2014 sem os dias, ' +
+    'uma linha que junta duas semanas se l\u00ea como uma viagem', cg.sub);
+
+  /* ---- 2. O SALDO DO GRUPO NAO E' O CORRIDO ----
+   *
+   * E' a conta que mais facilmente sai errada aqui, e a errada e' PLAUSIVEL: herdando o
+   * `fimCorrido` da ultima filha, a linha de Campina Grande mostraria -1.977, que e o
+   * estoque do galpao naquele instante — um numero de verdade, no lugar errado. */
+  ok(A.saldo(cg, false) === -125 && A.saldo(cg, true) === -125,
+    'o Saldo final de um grupo \u00e9 o saldo dele, e n\u00e3o o corrido da \u00faltima filha ' +
+    '(\u22121.977) \u2014 o corrido \u00e9 a cadeia do estoque inteiro em ordem de data, e um grupo ' +
+    'n\u00e3o \u00e9 um ponto dessa cadeia', A.saldo(cg, false));
+  ok(A.saldo(LINHAS[1], false) === -1977,
+    'e a linha solta continua mostrando o corrido, como sempre mostrou \u2014 o grupo n\u00e3o ' +
+    'muda o que a linha de dentro diz', A.saldo(LINHAS[1], false));
+
+  /* ---- 3. OS TIPOS DE CAIXA SOMAM ----
+   * Pegar a lista da primeira filha mostraria os tipos de UM dia como se fossem os do
+   * periodo — e e por tipo que a caixa se cobra. */
+  ok(JSON.stringify(cg.saidaTipos) ===
+       JSON.stringify([{ caixa: 'CX G', qtd: 410 }, { caixa: 'CX P', qtd: 40 }]),
+    'e os tipos de caixa somam entre as filhas: 175 + 235 de CX G, 40 de CX P \u2014 a ' +
+    'lista da primeira filha mostraria os tipos de um dia s\u00f3, e \u00e9 por tipo que a caixa ' +
+    'se cobra', cg.saidaTipos);
+  ok(cg.saidaTipos.reduce(function (s, x) { return s + x.qtd; }, 0) === cg.saida,
+    'e a soma dos tipos fecha com o total da linha \u2014 as duas contas saem da mesma ' +
+    'lista, e discordando uma delas est\u00e1 contando duas vezes',
+    cg.saidaTipos.reduce(function (s, x) { return s + x.qtd; }, 0));
+
+  /* ---- 4. OS QUATRO MODOS, E NADA ALEM DO QUE A CHAVE MUDA ---- */
+  var SOMA = LINHAS.reduce(function (a, l) {
+    return { s: a.s + l.saida, r: a.r + l.retorno }; }, { s: 0, r: 0 });
+  var foraDaConta = [];
+  Object.keys(A.MODOS).forEach(function (m) {
+    if (!A.MODOS[m]) return;
+    var gs = A.agrupa(LINHAS, m);
+    var s = gs.reduce(function (a, g) { return a + g.saida; }, 0);
+    var r = gs.reduce(function (a, g) { return a + g.retorno; }, 0);
+    var f = gs.reduce(function (a, g) { return a + g.filhas.length; }, 0);
+    if (s !== SOMA.s || r !== SOMA.r || f !== LINHAS.length) {
+      foraDaConta.push({ modo: m, saida: s, retorno: r, filhas: f });
+    }
+  });
+  ok(!foraDaConta.length,
+    'e TODO modo reparte as mesmas linhas, sem perder nem repetir nenhuma: as sa\u00eddas, ' +
+    'os retornos e a contagem de filhas somam o mesmo em qualquer agrupamento \u2014 uma ' +
+    'chave que deixasse uma linha de fora devolveria um total menor, e o total menor ' +
+    '\u00e9 plaus\u00edvel', foraDaConta);
+  ok(A.agrupa(LINHAS, 'dia').length === 2 &&
+     A.agrupa(LINHAS, 'destino').length === 2 &&
+     A.agrupa(LINHAS, 'origem').length === 1,
+    'e cada modo junta pela chave dele: dois dias, dois destinos, uma origem',
+    { dia: A.agrupa(LINHAS, 'dia').length,
+      destino: A.agrupa(LINHAS, 'destino').length,
+      origem: A.agrupa(LINHAS, 'origem').length });
+  var porDia = A.agrupa(LINHAS, 'dia');
+  ok(porDia[0].chave < porDia[1].chave && porDia[0].data === '2026-10-14',
+    'e o grupo do DIA sai em ordem de tempo, porque a chave \u00e9 a data em ISO \u2014 em ' +
+    '"14/10/2026" a ordem seria a do dia do m\u00eas', porDia.map(function (g) { return g.data; }));
+  ok(porDia[1].destinos.join('|') === 'Campina Grande|Caruaru',
+    'e o grupo do dia traz os destinos daquele dia, sem repetir', porDia[1].destinos);
+
+  /* ---- 5. O QUE O GRUPO NAO PODE PREENCHER ---- */
+  ok(!A.celulas(cg).inicial && !A.celulas(porDia[0]).inicial,
+    'o Saldo INICIAL nunca sai numa linha de grupo \u2014 ele \u00e9 a cadeia do estoque em ' +
+    'ordem de data, e um grupo \u00e9 um recorte dela, n\u00e3o um ponto dela',
+    Object.keys(A.celulas(cg)));
+  ok(!A.celulas(cg).data && !!A.celulas(porDia[0]).data,
+    'e a Data s\u00f3 sai quando o grupo \u00c9 o dia \u2014 nos outros ele atravessa v\u00e1rios, e por ' +
+    'um deles a c\u00e9lula mostraria um dia que n\u00e3o \u00e9 o do n\u00famero ao lado',
+    { rota: !!A.celulas(cg).data, dia: !!A.celulas(porDia[0]).data });
+  ok(A.celulas(cg).saida && A.celulas(cg).retorno && A.celulas(cg).final,
+    'e sa\u00edda, retorno e saldo final saem sempre \u2014 s\u00e3o a resposta inteira do grupo');
+
+  /* ---- 6. E ISSO VIRA TABELA ----
+   *
+   * As provas acima medem as CONTAS. Esta mede o desenho, que e onde mora o defeito mais
+   * caro deste projeto: a peca existe e nada chega nela. */
+  var CS = [
+    { id: 'data',    d: { v: function (l) { return 'D:' + (l.data || ''); } } },
+    { id: 'inicial', d: { num: true, v: function (l) { return 'I'; } } },
+    { id: 'saida',   d: { num: true, v: function (l) { return 'S:' + l.saida; } } }
+  ];
+  var hFechado = A.linhaG(cg, CS, false);
+  var hAberto  = A.linhaG(cg, CS, true);
+  ok((hFechado.match(/<td/g) || []).length === CS.length + 1,
+    'a linha do grupo desenha UMA c\u00e9lula por coluna, mais a de folga \u2014 uma a menos e ' +
+    'todo n\u00famero da tabela passa a ser lido na coluna do vizinho',
+    (hFechado.match(/<td/g) || []).length);
+  ok(hFechado.indexOf('data-abrir-grupo="rota|Matriz S\u00e3o Vicente &gt; Campina Grande"') > 0 &&
+     hFechado.indexOf('<span class="abre-par__n">2</span>') > 0,
+    'e traz a seta com a contagem de linhas de dentro \u2014 um tri\u00e2ngulo de dezesseis ' +
+    'pixels sem r\u00f3tulo n\u00e3o se acha, e quem procurava o detalhe concluiu que no ' +
+    'computador n\u00e3o dava', hFechado.slice(0, 200));
+  ok(hFechado.indexOf('\u25b8') > 0 && hAberto.indexOf('\u25be') > 0 &&
+     hAberto.indexOf('grp-fx aberto') > 0,
+    'e a seta e a linha dizem se o grupo est\u00e1 aberto \u2014 sem isso, abrir e fechar n\u00e3o ' +
+    'muda nada do que se v\u00ea na pr\u00f3pria linha');
+  ok(hFechado.indexOf('I') < 0 && hFechado.indexOf('>\u2014<') > 0,
+    'e a c\u00e9lula que n\u00e3o se aplica leva um TRA\u00c7O, e n\u00e3o o valor dela \u2014 um n\u00famero ali ' +
+    'faria a linha parecer uma viagem, e a soma ao lado pareceria dela', hFechado);
+  ok(hFechado.indexOf('S:450') > 0,
+    'e a c\u00e9lula que se aplica traz o n\u00famero DO GRUPO, pela mesma fun\u00e7\u00e3o que desenha a ' +
+    'linha solta \u2014 duas c\u00e9lulas para o mesmo n\u00famero divergem na primeira mexida');
+
+  var filhaFechada = A.linhaF(LINHAS[0], CS, false, true, cg.chave);
+  var filhaSolta   = A.linhaF(LINHAS[0], CS, false, false, '');
+  ok((filhaFechada.match(/<td/g) || []).length ===
+     (filhaSolta.match(/<td/g) || []).length,
+    'e a linha de dentro do grupo tem as MESMAS c\u00e9lulas da linha solta \u2014 \u00e9 a mesma ' +
+    'fun\u00e7\u00e3o, e o anal\u00edtico que se pediu \u00e9 esta tabela, n\u00e3o um resumo novo',
+    [(filhaFechada.match(/<td/g) || []).length, (filhaSolta.match(/<td/g) || []).length]);
+  ok(filhaFechada.indexOf('data-do-grupo="rota|Matriz S\u00e3o Vicente &gt; Campina Grande"') > 0,
+    'e ela carrega a chave do grupo a que pertence \u2014 \u00e9 por ela que a seta acha o que ' +
+    'mostrar, sem redesenhar a tabela e sem perder a rolagem');
+  ok(/^<tr[^>]* hidden>/.test(filhaFechada) && !/ hidden>/.test(filhaSolta),
+    'e nasce ESCONDIDA com o grupo fechado \u2014 nascendo aberta, agrupar devolveria a ' +
+    'mesma tabela com setas, e a leitura razo\u00e1vel \u00e9 que o controle n\u00e3o funcionou',
+    filhaFechada.slice(0, 60));
+  ok(filhaFechada.indexOf('fx-de-grupo') > 0 &&
+     css.indexOf('.fx-de-grupo>td:first-child{padding-left') >= 0,
+    'e ela \u00e9 recuada na primeira coluna \u2014 aberto o grupo, sem o recuo nada diz que ' +
+    'aquelas linhas pertencem a ele');
+
+  /* ---- 6b. O CORPO DA TABELA, DESENHADO NOS DOIS MODOS ----
+   *
+   * ESTA PROVA NASCEU DE UMA ESCAPADA. A conferencia de que o desenho AGRUPA era um
+   * `indexOf('agruparFluxo(lista, FLUXO_GRUPO)')` no corpo do `desenharFluxo` — e a
+   * mesma chamada aparece ali duas vezes: uma desenha as linhas, a outra so' conta os
+   * grupos para escrever "3 grupos, 19 linhas" ao lado do seletor. Trocada a PRIMEIRA
+   * por `[]`, a tabela passava a desenhar NADA com o agrupar ligado, e a prova
+   * continuava verde, achando o texto na segunda.
+   *
+   * O CORPO VIROU PECA para poder ser RODADO. Agora a prova conta o que saiu. */
+  var semGrupo = A.corpo(LINHAS, CS, false, '');
+  var comGrupo = A.corpo(LINHAS, CS, false, 'rota');
+  function conta(html, padrao) { return (html.match(padrao) || []).length; }
+  ok(conta(semGrupo, /<tr/g) === 3 && conta(semGrupo, /grp-fx/g) === 0,
+    'sem agrupar, o corpo da tabela desenha uma linha por linha e nenhum grupo \u2014 \u00e9 a ' +
+    'tabela de sempre', conta(semGrupo, /<tr/g));
+  ok(conta(comGrupo, /<tr class="grp-fx/g) === 2 &&
+     conta(comGrupo, /data-do-grupo=/g) === 3,
+    'agrupando por rota, ele desenha DOIS grupos e as TR\u00caS linhas dentro deles \u2014 ' +
+    'nenhuma some, nenhuma se repete: o resumo \u00e9 uma leitura da mesma tabela, n\u00e3o uma ' +
+    'tabela nova',
+    { grupos: conta(comGrupo, /<tr class="grp-fx/g),
+      filhas: conta(comGrupo, /data-do-grupo=/g) });
+  ok(conta(comGrupo, / hidden>/g) === 3,
+    'e as tr\u00eas nascem escondidas \u2014 com os grupos abertos de sa\u00edda, agrupar devolveria ' +
+    'a mesma tabela com setas, e a leitura razo\u00e1vel \u00e9 que o controle n\u00e3o funcionou',
+    conta(comGrupo, / hidden>/g));
+  ok(conta(comGrupo, /S:/g) === conta(semGrupo, /S:/g) + 2,
+    'e a c\u00e9lula de sa\u00edda aparece duas vezes a mais, que \u00e9 exatamente o n\u00famero de ' +
+    'linhas de grupo \u2014 agrupar ACRESCENTA um resumo, e n\u00e3o substitui o detalhe',
+    { agrupado: conta(comGrupo, /S:/g), solto: conta(semGrupo, /S:/g) });
+  ok(A.corpo([], CS, false, 'rota').indexOf('vazio') > 0,
+    'e lista vazia continua dizendo que est\u00e1 vazia, agrupada ou n\u00e3o \u2014 uma tabela que ' +
+    'some sem explicar se l\u00ea como tela quebrada', A.corpo([], CS, false, 'rota'));
+
+  /* ---- 7. E ALGUEM CHAMA TUDO ISSO ---- */
+  var iD = adm.indexOf('function desenharFluxo()');
+  var corpoD = adm.slice(iD, adm.indexOf("document.querySelectorAll('[data-fchip]')", iD));
+  ok(/corpoDaTabela\(lista, cs, gente, agrupado \? FLUXO_GRUPO : ''\)/.test(corpoD),
+    'e o desenho da tabela CHAMA o corpo medido acima, com o modo escolhido \u2014 sem a ' +
+    'chamada, tudo o que est\u00e1 acima continua certo e a tela n\u00e3o muda',
+    corpoD.indexOf('corpoDaTabela') > 0);
+  /* E O CORPO E' O UNICO LUGAR QUE DESENHA LINHA. Uma segunda escrita dentro do desenho
+     divergiria na primeira mexida, e as duas apareceriam na mesma tabela. */
+  ok((corpoD.match(/linhaDeFluxo\(/g) || []).length === 0 &&
+     (corpoD.match(/linhaDeGrupo\(/g) || []).length === 0,
+    'e o desenho n\u00e3o escreve linha nenhuma por conta pr\u00f3pria \u2014 h\u00e1 um lugar s\u00f3 que ' +
+    'desenha, e ele foi rodado acima',
+    [(corpoD.match(/linhaDeFluxo\(/g) || []).length,
+     (corpoD.match(/linhaDeGrupo\(/g) || []).length]);
+
+  /* ---- 8. O SELETOR, E O QUE ELE OFERECE ----
+   *
+   * A LISTA DA TELA E A DO MOTOR SAO A MESMA, medida uma contra a outra: um modo novo
+   * no motor sem opcao na tela nao existe para ninguem, e uma opcao na tela sem modo no
+   * motor cai em "nenhum" silenciosamente — a pessoa escolhe e nada acontece. */
+  var iS = adm.indexOf('<select id="fxAgrupar">');
+  var selHtml = iS < 0 ? '' : adm.slice(iS, adm.indexOf('</select>', iS));
+  var opcoes = (selHtml.match(/value="(\w+)"/g) || [])
+    .map(function (x) { return /value="(\w+)"/.exec(x)[1]; });
+  ok(opcoes.length >= 5 && opcoes.join(',') === Object.keys(A.MODOS).join(','),
+    'o seletor oferece exatamente os modos que o motor conhece, na mesma ordem \u2014 um ' +
+    'modo sem op\u00e7\u00e3o n\u00e3o existe para ningu\u00e9m, e uma op\u00e7\u00e3o sem modo cai em "sem ' +
+    'agrupar" calada: a pessoa escolhe e nada acontece',
+    { tela: opcoes, motor: Object.keys(A.MODOS) });
+
+  /* O OUVINTE FICA FORA DO DESENHO. Ligado dentro dele, a tabela ganharia um ouvinte a
+     cada redesenho — e cada troca passaria a redesenhar duas, quatro, oito vezes. Foi
+     exatamente o que aconteceu com o arrastar dos filtros, medido 1-2-4-8. */
+  var iLig = adm.indexOf("var s = document.getElementById('fxAgrupar');");
+  ok(iLig > 0 && iLig < iD,
+    'e o ouvinte do seletor \u00e9 ligado UMA vez, fora do desenho \u2014 dentro dele, cada ' +
+    'redesenho empilharia mais um, e uma troca passaria a redesenhar duas, quatro, ' +
+    'oito vezes', { ouvinte: iLig, desenho: iD });
+  var lig = adm.slice(iLig, adm.indexOf('})();', iLig));
+  ok(/localStorage\.setItem\(CHAVE_GRUPO_FLUXO/.test(lig) && /GRUPOS_ABERTOS = \{\}/.test(lig) &&
+     /desenharFluxo\(\)/.test(lig),
+    'e trocar o modo guarda a escolha, FECHA o que estava aberto e redesenha \u2014 as ' +
+    'chaves de um modo n\u00e3o valem no outro, e as que sobrassem deixariam grupos abertos ' +
+    'sem bot\u00e3o que os feche', lig.length);
+
+  /* ---- 9. ONDE ELE NAO APARECE ---- */
+  ok(/var podeAgrupar = !gente && !emCartoesPainel\(\);/.test(corpoD) &&
+     /barraG\.hidden = !podeAgrupar/.test(corpoD) &&
+     /agrupado = podeAgrupar &&/.test(corpoD),
+    'e a mesma conta decide se o controle APARECE e se a tabela agrupa \u2014 nas vis\u00f5es de ' +
+    'gente a seta j\u00e1 \u00e9 a gaveta da pessoa, e no celular a tabela vira cart\u00f5es: um ' +
+    'seletor que n\u00e3o muda nada \u00e9 pior que seletor nenhum');
+})();
+
 console.log('\n== Painel de Ativos: as colunas fecham ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -2846,12 +3138,25 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
      `function(c)` reprovava uma mudanca que nao tem nada a ver com o que ele mede. */
   ok(/cs\.map\(function\(c[^)]*\)\{[\s\S]{0,200}<th/.test(corpo),
     'o cabecalho percorre a lista de colunas');
-  ok(/cs\.map\(function\(c[^)]*\)\{[\s\S]{0,400}<td/.test(corpo),
-    'e as celulas percorrem a MESMA lista — nao ha duas strings para lembrar de casar');
+  /* AS CELULAS SAIRAM DO DESENHO e viraram tres pecas — o corpo da tabela, a linha da
+     viagem e a linha do grupo —, e a mesma `cs` vai para todas. O padrao procurava o
+     `<td>` dentro do desenho, e era la' que ele estava ate' o agrupar existir;
+     procurando so' ali, ele passou a medir o nada. Agora ele cobra a PASSAGEM da lista,
+     e o `<td>` e' medido RODANDO, na bancada do agrupar. */
+  var corpoTab = adm.slice(adm.indexOf('  function corpoDaTabela(lista, cs, gente, modo){'));
+  corpoTab = corpoTab.slice(0, corpoTab.indexOf(String.fromCharCode(10) + '  }') + 4);
+  ok(corpoTab.length > 300 && /corpoDaTabela\(lista, cs, gente/.test(corpo),
+    'o desenho entrega a lista de colunas inteira ao corpo da tabela',
+    corpoTab.length);
+  ok(/linhaDeFluxo\(l, cs, gente/.test(corpoTab) &&
+     /linhaDeFluxo\(x, cs, gente/.test(corpoTab) &&
+     /linhaDeGrupo\(g, cs, aberto\)/.test(corpoTab),
+    'e as celulas percorrem a MESMA lista — ela e passada inteira para a linha da ' +
+    'viagem e para a linha do grupo, e nao ha duas strings para lembrar de casar');
   /* `cs.length + 1` e nao um numero escrito: o +1 e a coluna de folga, que existe para a
      largura pedida ser obedecida. Numero fixo, o aviso apareceria torto no dia em que uma
      coluna fosse escondida. */
-  ok(/colspan="'\+\(cs\.length\+1\)\+'"/.test(corpo),
+  ok(/colspan="'\+\(cs\.length\+1\)\+'"/.test(corpoTab),
     'o aviso de tabela vazia usa o tamanho dessa lista mais a folga, nao um numero fixo');
 
   // toda coluna declarada tem titulo e como preencher

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=88f94e01">
+<link rel="stylesheet" href="styles.css?v=cce6daed">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -772,6 +772,25 @@
              A LIBERAÇÃO É UMA SÓ, de quinze minutos, e vale para as três: o que muda de
              lugar é o botão, não o estado. -->
         <div class="trava-colunas" data-trava-colunas></div>
+        <!-- JUNTAR AS LINHAS. A tabela é um extrato: uma linha por DIA e por trajeto,
+             que é o que se precisa para conferir um lançamento. A pergunta que faltava
+             é a do período inteiro — "quanto foi para Campina Grande e quanto voltou
+             de lá" —, e somá-la com o olho, em dezenove linhas espalhadas por dias,
+             é onde a conta se perde.
+             É UMA ESCOLHA, E NÃO O PADRÃO, como o agrupar das outras duas tabelas: quem
+             abre esta tela para conferir UM dia perde a linha de vista se ela nascer
+             dentro de uma gaveta fechada. -->
+        <div class="barra-agrupar" id="barraAgruparFluxo">
+          <label for="fxAgrupar">Agrupar por</label>
+          <select id="fxAgrupar">
+            <option value="nenhum">Sem agrupar — uma linha por dia</option>
+            <option value="rota">Rota — origem e destino</option>
+            <option value="destino">Destino</option>
+            <option value="origem">Origem</option>
+            <option value="dia">Dia</option>
+          </select>
+          <span class="barra-agrupar__n" id="fxAgruparN"></span>
+        </div>
         <div id="tabelaFluxo"><div class="vazio">Carregando…</div></div>
       </div>
     </div>
@@ -2824,7 +2843,139 @@
    * Nas visões de gente não há saldo corrido: um motorista não tem estoque próprio, e o
    * que ele deve é o que levou e não trouxe. Por isso ali o saldo final É o `saldo` —
    * e é por isso que esta função pergunta a visão, em vez de escolher um campo fixo. */
+  /* ================= JUNTAR AS LINHAS DO PAINEL DE ATIVOS =================
+   *
+   * A tabela é um extrato: uma linha por DIA e por trajeto. É a forma certa para
+   * conferir um lançamento, e a errada para a pergunta do período — "quanto foi para
+   * Campina Grande e quanto voltou de lá". Esta saía em duas linhas, em dois dias, e
+   * somá-las com o olho no meio de dezenove é onde a conta se perde.
+   *
+   * O MODO É UMA ESCOLHA DE QUEM OLHA, e por isso são quatro: a rota (as duas pontas
+   * juntas), só o destino, só a origem, ou o dia. A mesma lista responde as quatro — o
+   * que muda é a CHAVE, e nada mais. Escrito um `if` por modo, o quinto nasceria
+   * esquecido em algum deles.
+   *
+   * AS FILHAS CONTINUAM SENDO AS LINHAS DE VERDADE, e não um resumo novo: o analítico
+   * que se pediu é esta tabela, desenhada pelas mesmas células. */
+  var MODOS_GRUPO = {
+    nenhum:  null,
+    rota:    function(l){ return (l.origens || []).join(', ') + ' > ' +
+                                 (l.destinos || []).join(', '); },
+    destino: function(l){ return (l.destinos || []).join(', '); },
+    origem:  function(l){ return (l.origens || []).join(', '); },
+    /* A DATA EM ISO, e nao formatada: "2026-10-14" se ordena sozinha, e a ordem do
+       texto e a ordem do tempo. Em "14/10/2026" ela seria a do dia do mes. */
+    dia:     function(l){ return String(l.data || ''); }
+  };
+
+  /* GUARDADO NO NAVEGADOR de quem olha, como a ordem e a largura das colunas: e' jeito
+     de ler, e nao regra da empresa. */
+  var CHAVE_GRUPO_FLUXO = 'qdc_grupo_fluxo_v1';
+  var FLUXO_GRUPO = (function(){
+    var v;
+    try { v = localStorage.getItem(CHAVE_GRUPO_FLUXO); } catch (e) { v = null; }
+    return MODOS_GRUPO[v] ? v : 'nenhum';
+  })();
+  /* QUAIS GRUPOS ESTAO ABERTOS FICA NA MEMORIA, e nao no navegador: e' o estado de uma
+     leitura — "estou olhando este aqui" —, e nao uma preferencia. Guardado, a tela
+     abriria amanha com cinco trajetos escancarados de um filtro que nem esta' mais la'. */
+  var GRUPOS_ABERTOS = {};
+
+  /* SOMA OS TIPOS DE CAIXA das filhas. Sem isto a linha do grupo diria "saiu 450" sem
+     dizer de que — e e' por tipo que a caixa se cobra. Pegar a lista da primeira filha
+     mostraria os tipos de UM dia como se fossem os do período. */
+  function somarTipos(filhas, campo){
+    var mapa = {}, ordem = [];
+    filhas.forEach(function(l){
+      (l[campo] || []).forEach(function(x){
+        if (!mapa[x.caixa]) { mapa[x.caixa] = { caixa: x.caixa, qtd: 0 }; ordem.push(x.caixa); }
+        mapa[x.caixa].qtd += Number(x.qtd) || 0;
+      });
+    });
+    return ordem.map(function(k){ return mapa[k]; })
+      .sort(function(a, b){ return b.qtd - a.qtd || a.caixa.localeCompare(b.caixa, 'pt-BR'); });
+  }
+
+  /* OS NOMES DAS PONTAS DO GRUPO, sem repetir: agrupando por destino, as origens sao
+     varias, e a celula ja' sabe resumir uma lista ("Matriz, Filial +2"). */
+  function juntarNomes(filhas, campo){
+    var visto = {}, fora = [];
+    filhas.forEach(function(l){
+      (l[campo] || []).forEach(function(n){
+        if (!n || visto[n]) return;
+        visto[n] = 1; fora.push(n);
+      });
+    });
+    return fora.sort(function(a, b){ return a.localeCompare(b, 'pt-BR'); });
+  }
+
+  function agruparFluxo(lista, modo){
+    var chave = MODOS_GRUPO[modo];
+    if (!chave) return [];
+    var mapa = {}, ordem = [];
+    lista.forEach(function(l){
+      var k = chave(l);
+      if (!mapa[k]) { mapa[k] = []; ordem.push(k); }
+      mapa[k].push(l);
+    });
+    /* EM ORDEM DE CHAVE, e nao por tamanho: quem agrupa esta' procurando UM lugar — "e
+       Campina Grande?" —, e uma ordem que muda com os numeros faz o mesmo nome trocar
+       de posicao a cada filtro. Por dia, a chave ISO ja' poe o tempo em ordem. */
+    return ordem.sort(function(a, b){ return a.localeCompare(b, 'pt-BR'); })
+      .map(function(k){
+        var filhas = mapa[k];
+        var dias = {};
+        var g = { ehGrupo: true, chave: modo + '|' + k, modo: modo,
+                  filhas: filhas, inicial: 0, saida: 0, retorno: 0,
+                  origens: juntarNomes(filhas, 'origens'),
+                  destinos: juntarNomes(filhas, 'destinos'),
+                  saidaTipos: somarTipos(filhas, 'saidaTipos'),
+                  retornoTipos: somarTipos(filhas, 'retornoTipos'),
+                  /* A DATA SO' EXISTE NO GRUPO QUE E' O DIA. Nos outros ele atravessa
+                     varios, e por um deles a celula mostraria um dia que nao e' o do
+                     numero ao lado. */
+                  data: modo === 'dia' ? String(filhas[0].data || '') : '' };
+        var n = 0;
+        filhas.forEach(function(l){
+          g.inicial += l.inicial || 0;
+          g.saida   += l.saida || 0;
+          g.retorno += l.retorno || 0;
+          n += l.lancamentos || 0;
+          if (l.data) dias[l.data] = 1;
+        });
+        /* O SALDO DO GRUPO E' O DELE: retorno menos saida. Ver `saldoFinalDaLinha`. */
+        g.saldo = g.retorno - g.saida;
+        g.lancamentos = n;
+        var qDias = Object.keys(dias).length;
+        g.sub = n + (n === 1 ? ' lançamento' : ' lançamentos') +
+          (modo === 'dia' ? '' :
+            ' · ' + qDias + (qDias === 1 ? ' dia' : ' dias'));
+        return g;
+      });
+  }
+
+  /* AS CELULAS QUE UM GRUPO PODE PREENCHER. As outras levam um traco, e nao o valor da
+     primeira filha: um nome ali faria a linha parecer uma viagem, e a soma ao lado
+     pareceria dela.
+     `inicial` FICA DE FORA SEMPRE — o Saldo inicial e' a cadeia do estoque em ordem de
+     data, e um grupo nao e' um ponto dessa cadeia. `data` so' entra quando o grupo E' o
+     dia. */
+  function celulasDoGrupo(g){
+    var ok = { origem: 1, destino: 1, unidade: 1, lancado: 1, saida: 1, retorno: 1,
+               final: 1 };
+    if (g.modo === 'dia') ok.data = 1;
+    return ok;
+  }
+
   function saldoFinalDaLinha(l, gente){
+    /* NUMA LINHA DE GRUPO O SALDO É O DELA, e não o corrido. O corrido é uma cadeia
+       sobre o histórico inteiro, em ordem de data: o final de uma linha é o inicial da
+       seguinte, e ele conta TUDO o que passou no meio, inclusive os outros trajetos. Um
+       grupo não é um ponto dessa cadeia — ele é um recorte dela —, e herdar o corrido
+       da última filha faria a linha "Campina Grande" mostrar um número que é do estoque
+       do galpão, não de Campina Grande.
+       O QUE O GRUPO RESPONDE É: saiu tanto, voltou tanto, falta isto. */
+    if (l.ehGrupo) return l.saldo;
     return gente ? l.saldo : l.fimCorrido;
   }
 
@@ -5153,6 +5304,112 @@
       }).join('') + '</tbody></table></div>';
   }
 
+  /* O CORPO DA TABELA, inteiro, numa peca so'.
+   *
+   * ESTAVA ESCRITO DENTRO DO DESENHO, e por isso nenhuma prova conseguia RODA-LO: media-
+   * se o texto do arquivo, e texto se acha em mais de um lugar. A sabotagem mostrou:
+   * trocado `agruparFluxo(lista, FLUXO_GRUPO)` por `[]` no ramo do grupo, a tabela
+   * passava a desenhar NADA com o agrupar ligado — e a prova continuava verde, porque a
+   * mesma chamada aparece tambem na conta que escreve "3 grupos, 19 linhas" ao lado do
+   * seletor.
+   *
+   * O MODO ENTRA COMO ARGUMENTO, e nao lido da variavel do modulo: e' o que deixa a
+   * bancada desenhar os dois casos lado a lado e comparar. Vazio quer dizer "sem
+   * agrupar". */
+  function corpoDaTabela(lista, cs, gente, modo){
+    if (!lista.length) {
+      return '<tr><td colspan="'+(cs.length+1)+'"><div class="vazio">'+
+             avisoVazio()+'</div></td></tr>';
+    }
+    if (!modo) {
+      return lista.map(function(l){
+        return linhaDeFluxo(l, cs, gente, false, '');
+      }).join('');
+    }
+    return agruparFluxo(lista, modo).map(function(g){
+      var aberto = !!GRUPOS_ABERTOS[g.chave];
+      return linhaDeGrupo(g, cs, aberto)+
+        /* AS LINHAS DE VERDADE, cada uma na sua e com tudo o que ela ja' tinha: o
+           analitico que se pediu e' esta tabela, e nao um resumo novo. Nascem
+           escondidas; o botao acima as mostra. */
+        g.filhas.map(function(x){
+          return linhaDeFluxo(x, cs, gente, !aberto, g.chave);
+        }).join('');
+    }).join('');
+  }
+
+  /* ================= A LINHA DO GRUPO ================= da linha de baixo, porque o grupo tem a forma de uma
+   * linha. O que muda e' o que NAO se aplica — ver `celulasDoGrupo`.
+   * FORA DO `desenharFluxo`, como a linha da viagem: assim as duas se medem rodando, e
+   * nao lendo o arquivo. */
+  function linhaDeGrupo(g, cs, aberto){
+    var podem = celulasDoGrupo(g);
+    return '<tr class="grp-fx'+(aberto ? ' aberto' : '')+'">'+
+      cs.map(function(c, iC){
+        return '<td'+(c.d.num ? ' class="num"' : '')+'>'+
+          (iC === 0
+            ? '<button class="abre-par" type="button" data-abrir-grupo="'+
+              Q.esc(g.chave)+'" title="ver as linhas deste grupo, uma por dia">'+
+              (aberto ? '▾' : '▸')+' <span class="abre-par__n">'+
+              Q.num(g.filhas.length)+'</span></button>'
+            : '')+
+          /* O TRACO, e nao o valor da primeira filha: um nome ali faria a linha parecer
+             uma viagem, e a soma ao lado pareceria dela. */
+          (podem[c.id] ? c.d.v(g) : '<span class="fraco">—</span>')+
+        '</td>';
+      }).join('')+'<td class="folga"></td></tr>';
+  }
+
+  /* A LINHA DE UMA VIAGEM, e a gaveta que ela ja' tinha.
+     Saiu de dentro do `desenharFluxo` para ser a MESMA nos dois modos — solta e dentro
+     de um grupo. Duas copias divergiriam na primeira que fosse mexida, e elas aparecem
+     na mesma tabela, uma embaixo da outra. */
+  function linhaDeFluxo(l, cs, gente, escondida, grupo){
+    /* A SETA SO' NAS VISOES DE GENTE, e so' quando ha' o que abrir. */
+    var abre = gente && (l.linhas || []).length;
+    var aberta = abre && PESSOAS_ABERTAS[l.tipo + '|' + l.id];
+    var classe = (aberta ? 'pes-aberta ' : '') + (grupo ? 'fx-de-grupo' : '');
+    var marca = grupo ? ' data-do-grupo="'+Q.esc(grupo)+'"' : '';
+    return '<tr'+(classe.trim() ? ' class="'+classe.trim()+'"' : '')+marca+
+      (escondida ? ' hidden' : '')+'>'+
+      cs.map(function(c, iC){
+      return '<td'+(c.d.num ? ' class="num"' : '')+'>'+
+        /* A SETA DIZ QUANTAS LINHAS TEM, como a de Movimentos Motoristas: um
+           triangulo de dezesseis pixels sem rotulo nao se acha, e quem procurava
+           onde ver o detalhe concluia que no computador nao dava. */
+        (iC === 0 && abre
+          ? '<button class="abre-par" type="button" data-abrir-pessoa="'+
+            Q.esc(l.tipo + '|' + l.id)+'" title="ver os lançamentos desta pessoa '+
+            'no período" data-n="'+Q.num(l.linhas.length)+'">'+
+            (aberta ? '▾' : '▸')+' <span class="abre-par__n">'+
+            Q.num(l.linhas.length)+'</span></button>'
+          : '')+
+        c.d.v(l)+'</td>';
+    }).join('')+'<td class="folga"></td></tr>'+
+    (abre
+      ? '<tr class="pes-linhas"'+(aberta ? '' : ' hidden')+
+        ' data-corpo-pessoa="'+Q.esc(l.tipo + '|' + l.id)+'">'+
+        '<td colspan="'+(cs.length + 1)+'">'+gavetaDaPessoa(l)+'</td></tr>'
+      : '');
+  }
+
+  /* O SELETOR E' LIGADO UMA VEZ, na abertura: ele nasce no HTML e nenhum desenho o
+     recria. Ligado dentro do `desenharFluxo`, ganharia um ouvinte a cada redesenho —
+     e cada troca passaria a redesenhar a tabela duas, quatro, oito vezes. */
+  (function(){
+    var s = document.getElementById('fxAgrupar');
+    if (!s) return;
+    s.value = FLUXO_GRUPO;
+    s.addEventListener('change', function(){
+      FLUXO_GRUPO = MODOS_GRUPO[s.value] || s.value === 'nenhum' ? s.value : 'nenhum';
+      try { localStorage.setItem(CHAVE_GRUPO_FLUXO, FLUXO_GRUPO); } catch (e) {}
+      /* TROCAR O MODO FECHA O QUE ESTAVA ABERTO: as chaves de um modo nao valem no
+         outro, e as que sobrassem deixariam grupos abertos sem botao que os feche. */
+      GRUPOS_ABERTOS = {};
+      desenharFluxo();
+    });
+  })();
+
   function desenharFluxo(){
     var f = PAINEL && PAINEL.fluxo;
     if (!f) return;
@@ -5316,6 +5573,32 @@
        recalcula-los aqui so criaria um segundo caminho para o mesmo numero. */
     lista = aplicarOrdem(lista, DEFS, ORDEM_FLUXO);
 
+    /* ================= AGRUPA OU NAO =================
+     * NAS VISOES DE GENTE, NUNCA: ali a linha ja' e' uma pessoa, e a seta ja' e' a
+     * gaveta de lancamentos dela — duas aberturas no mesmo lugar brigariam entre si.
+     * NO CELULAR, TAMBEM NAO: la' a tabela vira extrato em cartoes, que e' outro
+     * desenho. Um seletor que nao muda nada na tela e' pior que seletor nenhum.
+     * E O CONTROLE SOME JUNTO, no mesmo lugar em que a decisao e' tomada: escondido
+     * noutro ponto, as duas respostas divergem no primeiro conserto que so' uma
+     * receber. */
+    var podeAgrupar = !gente && !emCartoesPainel();
+    var agrupado = podeAgrupar && FLUXO_GRUPO !== 'nenhum' && lista.length > 0;
+    var barraG = document.getElementById('barraAgruparFluxo');
+    if (barraG) barraG.hidden = !podeAgrupar;
+    var selG = document.getElementById('fxAgrupar');
+    if (selG) selG.value = FLUXO_GRUPO;
+    var avisoG = document.getElementById('fxAgruparN');
+    if (avisoG) {
+      var qG = agrupado ? agruparFluxo(lista, FLUXO_GRUPO).length : 0;
+      /* O NUMERO DIZ NO QUE DEU. Sem ele, agrupar por uma chave que nao junta nada —
+         uma rota por dia, por exemplo — devolve a mesma tabela com setas, e a leitura
+         razoavel e' que o controle nao funcionou. */
+      avisoG.textContent = agrupado
+        ? Q.num(qG) + (qG === 1 ? ' grupo' : ' grupos') + ', ' +
+          Q.num(lista.length) + (lista.length === 1 ? ' linha' : ' linhas')
+        : '';
+    }
+
     var LARG = larguras(TAB_ATIVOS);
     /* Duas peneiras, e elas nao sao a mesma coisa. `so` diz quais colunas FAZEM SENTIDO
        nesta visao — numa visao de gente nao ha origem nem destino. As ocultas sao escolha
@@ -5379,33 +5662,8 @@
            coluna de botoes deles nao tem largura. */
         '<th class="folga"></th>'+
         '</tr></thead><tbody>'+
-        (!lista.length
-          ? '<tr><td colspan="'+(cs.length+1)+'"><div class="vazio">'+avisoVazio()+'</div></td></tr>'
-          : lista.map(function(l){
-            /* A SETA SO' NAS VISOES DE GENTE, e so' quando ha' o que abrir. */
-            var abre = gente && (l.linhas || []).length;
-            var aberta = abre && PESSOAS_ABERTAS[l.tipo + '|' + l.id];
-            return '<tr'+(aberta ? ' class="pes-aberta"' : '')+'>'+
-              cs.map(function(c, iC){
-              return '<td'+(c.d.num ? ' class="num"' : '')+'>'+
-                /* A SETA DIZ QUANTAS LINHAS TEM, como a de Movimentos Motoristas: um
-                   triangulo de dezesseis pixels sem rotulo nao se acha, e quem procurava
-                   onde ver o detalhe concluia que no computador nao dava. */
-                (iC === 0 && abre
-                  ? '<button class="abre-par" type="button" data-abrir-pessoa="'+
-                    Q.esc(l.tipo + '|' + l.id)+'" title="ver os lançamentos desta pessoa '+
-                    'no período" data-n="'+Q.num(l.linhas.length)+'">'+
-                    (aberta ? '▾' : '▸')+' <span class="abre-par__n">'+
-                    Q.num(l.linhas.length)+'</span></button>'
-                  : '')+
-                c.d.v(l)+'</td>';
-            }).join('')+'<td class="folga"></td></tr>'+
-            (abre
-              ? '<tr class="pes-linhas"'+(aberta ? '' : ' hidden')+
-                ' data-corpo-pessoa="'+Q.esc(l.tipo + '|' + l.id)+'">'+
-                '<td colspan="'+(cs.length + 1)+'">'+gavetaDaPessoa(l)+'</td></tr>'
-              : '');
-          }).join(''))+'</tbody></table></div>';
+        corpoDaTabela(lista, cs, gente, agrupado ? FLUXO_GRUPO : '')+
+        '</tbody></table></div>';
     ligarArrastarColunas(TAB_ATIVOS);
     ligarLarguraColunas(TAB_ATIVOS);
     /* O CADEADO SE PINTA QUANDO A TABELA DESENHA, como em Movimentos. Pintado so num
@@ -5435,6 +5693,26 @@
           ' <span class="abre-par__n">' + b.getAttribute('data-n') + '</span>');
         var linha = b.closest('tr');
         if (linha) linha.classList.toggle('pes-aberta', !alvo.hidden);
+      });
+    });
+
+    /* ABRIR UM GRUPO MEXE SO' NAS LINHAS DELE, sem redesenhar a tabela: um redesenho
+       perderia a posicao da rolagem, e quem clica no grupo do meio volta para o topo e
+       tem de procurar de novo o que acabou de abrir. */
+    document.querySelectorAll('[data-abrir-grupo]').forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.stopPropagation();
+        var chave = String(b.dataset.abrirGrupo);
+        var abre = !GRUPOS_ABERTOS[chave];
+        if (abre) GRUPOS_ABERTOS[chave] = 1; else delete GRUPOS_ABERTOS[chave];
+        var sel = '[data-do-grupo="' + chave.replace(/"/g, '&quot;') + '"]';
+        var filhas = document.querySelectorAll(sel);
+        filhas.forEach(function(tr){ tr.hidden = !abre; });
+        b.textContent = '';
+        b.insertAdjacentHTML('beforeend', (abre ? '▾' : '▸') +
+          ' <span class="abre-par__n">' + Q.num(filhas.length) + '</span>');
+        var linha = b.closest('tr');
+        if (linha) linha.classList.toggle('aberto', abre);
       });
     });
 

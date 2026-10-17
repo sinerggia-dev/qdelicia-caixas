@@ -3346,6 +3346,24 @@ details.tipos[open] summary::before{content:"▾"}
 /* AS VIAGENS DE DENTRO ficam levemente recuadas na primeira coluna: sem isso, aberto o
    grupo, nao ha nada dizendo que aquelas linhas pertencem a ele. */
 .par-de-local>td:first-child{padding-left:18px}
+
+/* ---------- juntar as linhas do Painel de Ativos ----------
+ * AS MESMAS DUAS REGRAS da tabela de declaracao, e de proposito: sao a mesma leitura em
+ * duas telas, e dois desenhos diferentes para "isto e um grupo" obrigariam a reaprender
+ * a tabela do lado. */
+.grp-fx>td{background:var(--veu);font-weight:600;border-top:2px solid var(--linha)}
+.grp-fx.aberto>td{border-bottom:1px solid var(--linha)}
+.fx-de-grupo>td:first-child{padding-left:18px}
+
+/* A BARRA DO SELETOR. Acima da tabela e abaixo do cadeado: ela muda a FORMA da tabela,
+   como o cadeado, e nao o que entra nela — os filtros ficam na coluna da esquerda. */
+.barra-agrupar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.barra-agrupar label{margin:0;flex:0 0 auto;font-size:12.5px;color:var(--txt2)}
+.barra-agrupar select{flex:0 1 280px;margin:0;height:34px;font-size:13px}
+/* O NUMERO DO RESULTADO em texto fraco: ele responde "deu em quanto", e nao disputa com
+   os numeros da tabela logo abaixo. */
+.barra-agrupar__n{font-size:12px;color:var(--txt2)}
+.barra-agrupar__n:empty{display:none}
 /* O SINAL TEM COR, e o numero nao fica so' com o `+`/`-`: num painel de seis, o olho
    varre as cores antes de ler os numeros, e e' a varredura que faz o tipo com caixa
    faltando saltar. */
