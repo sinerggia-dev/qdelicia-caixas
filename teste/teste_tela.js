@@ -2138,9 +2138,9 @@ var MONTA_BASE = (function () {
 console.log('\n== o botão Limpar alcança todo campo do formulário ==');
 
 [
-  { secao: 'pgSaida',     fn: 'limparSaida',     data: 'sdData', base: 'sdBase',
+  { secao: 'pgSaida',     fn: 'limparSaida',     data: 'sdData',
     botao: 'btnSalvarSaida' },
-  { secao: 'pgDevolucao', fn: 'limparDevolucao', data: 'dvData', base: 'dvBase',
+  { secao: 'pgDevolucao', fn: 'limparDevolucao', data: 'dvData',
     botao: 'btnSalvarDevolucao' }
 ].forEach(function (t) {
   var texto = corpo(t.fn);
@@ -2149,7 +2149,7 @@ console.log('\n== o botão Limpar alcança todo campo do formulário ==');
   ok(campos.length > 3, t.secao + ': achei os campos do formulário', campos);
 
   var esquecidos = campos.filter(function (id) {
-    if (id === t.data || id === t.base) return false;
+    if (id === t.data) return false;
     return texto.indexOf("'" + id + "'") < 0;
   });
   ok(esquecidos.length === 0, t.fn + ' limpa todos os campos da tela', esquecidos);
@@ -2157,25 +2157,22 @@ console.log('\n== o botão Limpar alcança todo campo do formulário ==');
   ok(texto.indexOf("'" + t.data + "'") < 0,
     t.fn + ' NÃO mexe na data — ela é uma das duas que ficam');
 
-  /* A BASE TAMBÉM FICA, e pela mesma razão da data: quem passa a tarde validando uma
-     rotina nova faz vinte lançamentos seguidos na mesma base, e reescolher a cada um é
-     onde se erra. */
-  ok(texto.indexOf("'" + t.base + "'") < 0,
-    t.fn + ' NÃO mexe na base escolhida — quem valida faz vinte lançamentos seguidos ' +
-    'na mesma base, e reescolher a cada um é onde se erra');
+  /* A BASE NÃO É MAIS CAMPO NENHUM: o seletor saiu das duas telas, e o livro sai do
+     cadastro de quem está lançando. Não há o que limpar nem o que esquecer ligado — e
+     a bancada do livro, mais abaixo, cobra que ele continue viajando no lançamento.
 
-  /* O QUE FICA TEM DE SER DITO. Este é o preço do parágrafo acima: o seletor esquecido
-     ligado manda para o ensaio o trabalho de verdade do dia seguinte, e ensaio não entra
-     no saldo real. A frase do botão é o último lugar em que isso ainda dá para ver — e
-     ela só muda quando a base é a de ensaio, porque um aviso em todo lançamento é um
+     O QUE NÃO SE ESCOLHE TEM DE SER DITO, e com mais razão do que quando havia seletor:
+     quem está marcado em ensaio ou declaração lança o dia inteiro fora do saldo da casa
+     sem nada na tela dizendo isso. A frase do botão é o único lugar que sobrou — e ela
+     só muda quando o livro não é a Produção, porque um aviso em todo lançamento é um
      aviso que ninguém lê. */
   var grava = html.slice(html.indexOf("getElementById('" + t.botao + "')"));
   grava = grava.slice(0, grava.indexOf('Q.enviar('));
   ok(grava.length > 100 && grava.indexOf('NOME_BASE[') > 0 &&
      grava.indexOf('precisaConfirmarCaixa') > 0,
-    t.botao + ': a confirmação NOMEIA a base quando ela não é a Produção — o seletor ' +
-    'fica escolhido entre um lançamento e outro, e esquecê-lo no livro errado manda o ' +
-    'trabalho de verdade para fora do saldo, ou uma informação para dentro dele',
+    t.botao + ': a confirmação NOMEIA a base quando ela não é a Produção — sem o ' +
+    'seletor na tela, é o único aviso que sobrou de que aquele lançamento não entra no ' +
+    'saldo da casa',
     grava.length);
 
   // Zerar as quantidades é o motivo principal de existir o botão.
@@ -6773,14 +6770,11 @@ console.log('\n== a porta para o painel, no app de campo ==');
        Mas o `Q.podePainel` NAO e de mentira: e a funcao de verdade, recortada do
        `app.js`. Imita-la aqui mediria a minha copia da regra, e nao a regra — que e
        exatamente o defeito que este bloco existe para pegar. */
-    /* `ajustarBases` entra aqui de mentira, como o `ajustarAbas`: ela mostra ou
-       esconde o seletor de base do lançamento, e este recorte é sobre a PORTA do
-       painel. Quem cobra o seletor é a bancada das duas bases, mais abaixo. */
-    return new Function('s', 'document', 'ajustarAbas', 'ajustarBases', 'Q',
+    return new Function('s', 'document', 'ajustarAbas', 'Q',
       fonte + '\n aplicarSessao(s); return !document.getElementById("chipPainel").hidden;')(
       s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); },
            querySelector: function () { return null; } },
-      function () {}, function () {},
+      function () {},
       { quemEsta: function () {}, podePainel: REGRA_PAINEL });
   }
 
@@ -20440,149 +20434,156 @@ console.log('\n== os dois tutoriais separados ==');
 console.log('\n== a base do lançamento, no app de campo ==');
 (function () {
   var idx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  /* O SERVIDOR DE VERDADE entra nesta bancada, e nao uma copia da regra dele: o que se
+     mede aqui e' se o que a tela manda ainda e' ACEITO la'. Imitar `baseEscolhida`
+     aqui mediria a minha copia — e e' exatamente a divergencia entre as duas pontas que
+     este bloco existe para pegar. */
+  var LB = require(path.join(__dirname, '..', 'api', '_logica.js'));
 
-  /* A LISTA DOS LIVROS MUDOU DE CASA: ela vive no NUCLEO, e as duas telas a leem de
-     la'. Estava escrita aqui no app de campo E a mao dentro do HTML do painel, cinco
-     vezes — foi assim que o filtro do painel passou a oferecer um livro que a pessoa nao
-     tem. O recorte abaixo junta as duas metades: a do nucleo e a da tela. */
-  var nucLiv = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-  var iL = nucLiv.indexOf('  var LIVROS = [');
-  var fL = nucLiv.indexOf('\n  }', nucLiv.indexOf('  function basesDaSessao() {'));
-  var fonteNucleo = iL < 0 || fL < 0 ? '' : nucLiv.slice(iL, fL + 4);
+  /* ---- 1. O CAMPO SAIU DA TELA ----
+   *
+   * Recortado por SECAO, e nao procurado no arquivo inteiro: o painel tem o seletor
+   * dele, e um dia o app de campo pode ganhar outro em outra tela. O que o escritorio
+   * pediu foi tirar o campo da Saida e do Retorno. */
+  function secao(id) {
+    var a = idx.indexOf('<section id="' + id + '"');
+    if (a < 0) return '';
+    var b = idx.indexOf('<section ', a + 12);
+    return idx.slice(a, b < 0 ? idx.length : b);
+  }
+  [['pgSaida', 'Saída'], ['pgDevolucao', 'Retorno']].forEach(function (c) {
+    var s = secao(c[0]);
+    ok(s.length > 1500 && s.indexOf('<h3>Quantas caixas') > 0,
+      c[1] + ': a conferência recortou a seção de verdade — recorte vazio faria a prova ' +
+      'abaixo passar sem olhar nada', s.length);
+    ok(s.indexOf('BaseBox') < 0 && s.indexOf('base-lanc') < 0 &&
+       s.indexOf('Base deste lançamento') < 0 && s.indexOf('Base"></select>') < 0,
+      c[1] + ': não há mais seletor de base na tela de lançamento — no galpão ele era ' +
+      'mais um campo para ler antes de contar caixa, e ficava escolhido de um ' +
+      'lançamento para o outro',
+      (s.match(/id="(sd|dv)Base[^"]*"/) || ['(nenhum)'])[0]);
+  });
+  ok(css.indexOf('.base-lanc') < 0,
+    'e a moldura dele saiu do CSS junto — regra de estilo sem dono na tela é o tipo de ' +
+    'coisa que o próximo a mexer aqui copia achando que vale para alguma coisa');
+
+  /* ---- 2. O LIVRO AINDA É ESCOLHIDO, SÓ QUE SEM PERGUNTAR ----
+   *
+   * A função RODA, com um `Q` de mentira que leva o NÚCLEO DE VERDADE dentro: a ordem
+   * dos livros é a resposta inteira desta bancada, e inventá-la aqui mediria a minha
+   * lista e não a que roda no galpão. */
+  var nuc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var iL = nuc.indexOf('  var LIVROS = [');
+  var fL = nuc.indexOf('\n  }', nuc.indexOf('  function basesDaSessao() {'));
+  var fonteNucleo = iL < 0 || fL < 0 ? '' : nuc.slice(iL, fL + 4);
   ok(fonteNucleo.indexOf('basesDaSessao') > 0 && fonteNucleo.indexOf('LIVROS') > 0,
-    'a conferência recortou a lista dos livros do NÚCLEO — é de lá que as duas telas a '
-    + 'leem agora', fonteNucleo.length);
+    'a conferência recortou a lista dos livros do NÚCLEO — é de lá que as duas telas a ' +
+    'leem', fonteNucleo.length);
 
   var ini = idx.indexOf('  var NOME_BASE = {};');
   var fim = idx.indexOf('  function aplicarSessao(s){');
   var fonte = ini < 0 || fim < 0 ? '' : idx.slice(ini, fim);
-  ok(fonte.length > 200 && fonte.indexOf('ajustarBases') > 0 &&
+  ok(fonte.length > 200 && fonte.indexOf('baseDoLancamento') > 0 &&
      fonte.indexOf('basesDaSessao') > 0,
-    'a conferência recortou as três funções da base — recorte vazio faria as provas ' +
-    'abaixo passarem sem rodar nada', fonte.length);
+    'e recortou a função que decide o livro — recorte vazio faria tudo abaixo passar ' +
+    'sem rodar nada', fonte.length);
 
-  /* AS FUNÇÕES RODAM DE VERDADE, com um documento de mentira que só guarda quem é quem.
-     Lidas no arquivo, elas responderiam "a sessão está citada ali?" — e estaria, mesmo
-     com a lista das bases montada ao contrário. */
-  function mundo(sessao, valor) {
-    function sel(v) {
-      return { value: v || '', innerHTML: '',
-               set html(x) { this.innerHTML = x; } };
-    }
-    var caixas = { sdBaseBox: { hidden: null }, dvBaseBox: { hidden: null },
-                   sdBase: sel(valor), dvBase: sel(valor) };
-    /* O `Q` DE MENTIRA LEVA O NUCLEO DE VERDADE. Inventar aqui um `basesDaSessao`
-       proprio mediria a conta da bancada, e nao a que roda no galpao — e e' justamente
-       essa conta que decide quais livros aparecem. */
+  function escolhaDaTela(sessao) {
     var N = new Function('sessao',
       fonteNucleo + '\n return { LIVROS: LIVROS, nomeDoLivro: nomeDoLivro,' +
                     ' basesDaSessao: basesDaSessao };')(function () { return sessao; });
     var f = new Function('Q', 'document',
-      fonte + '\n return { base: baseDoLancamento, ajusta: ajustarBases,' +
-              ' bases: basesDaSessao };')(
+      fonte + '\n return baseDoLancamento;')(
       { sessao: function () { return sessao; }, LIVROS: N.LIVROS,
         nomeDoLivro: N.nomeDoLivro, basesDaSessao: N.basesDaSessao },
-      { getElementById: function (id) { return caixas[id] || null; } });
-    f.ajusta();
-    return { caixas: caixas, base: f.base, bases: f.bases };
+      { getElementById: function () { return null; } });
+    return f();
   }
 
-  /* OPÇÕES NA ORDEM, e não uma lista qualquer: Produção, Teste, Declaração. A ordem é a
-     de quanto cada livro pesa na operação, e ela é a mesma do cadastro e da tabela —
-     três ordens diferentes para as mesmas três palavras fazem a pessoa reler o seletor
-     toda vez. */
-  var tres = mundo({ baseProducao: true, baseTeste: true, baseDeclaracao: true,
-                     baseTesteDeclaracao: true }, 'reais');
-  ok(tres.bases().join(',') === 'reais,teste,declaracao,testeDecl',
-    'os quatro livros da pessoa saem na mesma ordem do cadastro e da tabela — quatro ' +
-    'ordens diferentes para as mesmas quatro palavras fazem a pessoa reler a lista ' +
-    'toda vez', tres.bases());
-  ok(tres.caixas.sdBaseBox.hidden === false &&
-     (tres.caixas.sdBase.innerHTML.match(/<option/g) || []).length === 4,
-    'quem tem os quatro vê o seletor com os quatro — a escolha tem de ser entre TODOS ' +
-    'os que o cadastro deu', tres.caixas.sdBase.innerHTML);
+  /* CADA CASO TRAZ AS DUAS METADES DA MESMA PESSOA: o que a SESSÃO guarda no celular e
+     o que o CADASTRO diz no banco. São nomes de campo diferentes para a mesma marca, e
+     a bancada só vale com as duas — é entre elas que o lançamento passa. */
+  var CASOS = [
+    ['quem tem os quatro livros lança na Produção',
+     { baseProducao: true, baseTeste: true, baseDeclaracao: true,
+       baseTesteDeclaracao: true },
+     { BaseProducao: true, Teste: true, BaseDeclaracao: true,
+       BaseTesteDeclaracao: true }, 'reais'],
+    ['quem tem Produção e ensaio lança na Produção — o ensaio virou escolha do painel',
+     { baseProducao: true, baseTeste: true },
+     { BaseProducao: true, Teste: true }, 'reais'],
+    ['quem só tem o ensaio continua lançando nele',
+     { baseTeste: true }, { Teste: true }, 'teste'],
+    ['quem tem ensaio e declaração, e não tem Produção, lança no ensaio',
+     { baseTeste: true, baseDeclaracao: true },
+     { Teste: true, BaseDeclaracao: true }, 'teste'],
+    ['quem só declara lança na declaração',
+     { baseDeclaracao: true }, { BaseDeclaracao: true }, 'declaracao'],
+    ['e sessão de antes destes campos existirem cai na Produção, como sempre caiu',
+     { id: 'U1', nome: 'x' }, { BaseProducao: true }, 'reais']
+  ];
+  CASOS.forEach(function (c) {
+    var dito = escolhaDaTela(c[1]);
+    ok(dito === c[3], c[0], { tela: dito, esperado: c[3] });
+    /* E O SERVIDOR ACEITA O QUE A TELA MANDOU. Esta é a metade que nenhuma prova de
+       tela alcança: `baseEscolhida` devolvendo `null` é lançamento RECUSADO, e a
+       recusa chega depois de a pessoa ter contado as caixas. */
+    var carimbo = LB.baseEscolhida(c[2], { base: dito });
+    ok(carimbo === c[3],
+      c[0] + ' — e o servidor carimba nesse mesmo livro: a tela e o banco têm de dar a ' +
+      'mesma resposta, senão a pessoa lança num e lê outro',
+      { tela: dito, servidor: carimbo });
+  });
 
-  var duas = mundo({ baseTeste: true, baseProducao: true }, 'teste');
-  ok(duas.caixas.sdBaseBox.hidden === false && duas.caixas.dvBaseBox.hidden === false,
-    'quem está em duas bases vê o seletor nas duas telas de lançamento',
-    [duas.caixas.sdBaseBox.hidden, duas.caixas.dvBaseBox.hidden]);
-  ok(duas.base('sd') === 'teste' && duas.base('dv') === 'teste',
-    'e o que ela escolhe é o que vai no lançamento', duas.base('sd'));
+  ok(escolhaDaTela(null) !== null && escolhaDaTela(undefined) !== null,
+    'e sem sessão nenhuma a tela não estoura', escolhaDaTela(null));
 
-  var soProd = mundo({ baseTeste: false, baseProducao: true }, 'teste');
-  ok(soProd.caixas.sdBaseBox.hidden === true && soProd.caixas.dvBaseBox.hidden === true,
-    'quem tem uma base só não vê o seletor — campo de uma opção só é pergunta cuja ' +
-    'resposta já se sabe, e no galpão isso é mais uma coisa para ler antes de contar ' +
-    'caixa', [soProd.caixas.sdBaseBox.hidden, soProd.caixas.dvBaseBox.hidden]);
-  /* O CASO QUE JUSTIFICA AS DUAS PERGUNTAS SAÍREM DA MESMA LISTA: o seletor está na
-     tela com "teste" escolhido, e a pessoa acabou de perder a Base Teste no cadastro.
-     Se "o que mandar" olhasse só o campo, ela continuaria mandando uma base que já não
-     tem — e levaria uma recusa depois de ter contado as caixas. */
-  ok(soProd.base('sd') === '',
-    'e um seletor ESQUECIDO na tela numa base que a pessoa perdeu não manda nada — as ' +
-    'duas perguntas saem da mesma lista de propósito', soProd.base('sd'));
+  /* ---- 3. POR QUE A TELA AINDA MANDA A BASE ----
+   *
+   * Com o campo fora da tela, o caminho óbvio seria parar de mandar base nenhuma e
+   * deixar o servidor carimbar. ESTE É O CASO QUE PROVA QUE NÃO: com dois livros
+   * marcados e um deles a declaração, `baseEscolhida` não chuta — recusa. Apagar a
+   * linha `base:` do pedido deixaria esta pessoa sem conseguir lançar, e nenhuma prova
+   * de tela veria isso. */
+  ok(LB.baseEscolhida({ Teste: true, BaseDeclaracao: true }, {}) === null,
+    'sem base no pedido, o servidor RECUSA quem tem dois livros com declaração entre ' +
+    'eles — é por isso que a tela continua mandando o livro mesmo sem perguntar nada',
+    LB.baseEscolhida({ Teste: true, BaseDeclaracao: true }, {}));
+  ok(LB.baseEscolhida({ Teste: true, BaseDeclaracao: true },
+        { base: escolhaDaTela({ baseTeste: true, baseDeclaracao: true }) }) === 'teste',
+    'e mandando, passa — as duas pontas da mesma pessoa fecham');
 
-  /* O SELETOR PODE TER FICADO COM A ESCOLHA DE ONTEM. A pessoa tinha tres bases,
-     perdeu a Declaracao no cadastro, e a tela continua aberta com ela escolhida. Sem a
-     conferencia contra a lista, o lancamento sairia dizendo uma base que ela ja nao tem
-     — e voltaria recusado depois de ela ter contado as caixas.
-     ESTE CASO SO E ALCANCAVEL COM DUAS OU MAIS BASES: com uma so, a funcao devolve vazio
-     antes de olhar o seletor. Foi por isso que a primeira versao desta bancada deixou a
-     conferencia passar: nenhum caso chegava ate ela. */
-  var perdeu = mundo({ baseProducao: true, baseTeste: true }, 'declaracao');
-  ok(perdeu.base('sd') === '',
-    'e a base que sobrou no seletor, de quando a pessoa ainda a tinha, não viaja — o ' +
-    'lançamento voltaria recusado depois de ela ter contado as caixas',
-    perdeu.base('sd'));
-
-  var soDecl = mundo({ baseDeclaracao: true }, 'reais');
-  ok(soDecl.caixas.sdBaseBox.hidden === true && soDecl.base('sd') === '',
-    'quem só declara também não escolhe — o servidor carimba pela base do cadastro dela');
-
-  /* SESSÃO ANTIGA, de antes destes campos existirem: ninguém vê o seletor, e o servidor
-     carimba pela base do cadastro, como sempre fez. Sem este caso, a primeira pessoa a
-     abrir o app com a sessão guardada veria a tela estourar. */
-  var velha = mundo({ id: 'U1', nome: 'x' }, 'teste');
-  ok(velha.caixas.sdBaseBox.hidden === true && velha.base('sd') === '',
-    'e sessão de antes destes campos não vê o seletor nem manda base nenhuma — quem ' +
-    'carimba nesse caso é o cadastro, no servidor');
-  ok(mundo(null, 'teste').base('sd') === '',
-    'e sem sessão nenhuma a tela não estoura');
-
-  /* ---- E A ESCOLHA TEM DE CHEGAR NO ENVIO ----
+  /* ---- 4. E A ESCOLHA CHEGA NO ENVIO ----
    *
    * Este é o fio que liga tudo o que está acima a alguma consequência, e foi o defeito
-   * que ESCAPOU da primeira versão desta bancada: apagado o `teste:` do payload, as
-   * oito provas acima continuaram verdes. O seletor aparecia, a pessoa escolhia, a
-   * confirmação dizia "na Base Teste" — e o lançamento entrava na produção.
+   * que ESCAPOU da primeira versão desta bancada: apagado o `base:` do payload, as
+   * provas acima continuaram verdes.
    *
    * A PROVA NÃO ESCREVE O NOME DA VARIÁVEL: ela descobre qual recebeu a escolha e exige
    * que seja ESSA que viaja. Escrito à mão aqui, renomear a variável quebraria o teste
-   * sem nada ter quebrado na tela — e, pior, um `teste: false` fixo passaria. */
+   * sem nada ter quebrado na tela — e, pior, um valor fixo passaria. */
   [['btnSalvarSaida', 'sd'], ['btnSalvarDevolucao', 'dv']].forEach(function (c) {
     var h = idx.slice(idx.indexOf("getElementById('" + c[0] + "')"));
     h = h.slice(0, h.indexOf('}).then('));
-    var iV = h.indexOf("baseDoLancamento('" + c[1] + "')");
+    var iV = h.indexOf('baseDoLancamento()');
     var decl = iV < 0 ? -1 : h.lastIndexOf('var ', iV);
     var nome = decl < 0 ? '' : h.slice(decl + 4, h.indexOf(' =', decl)).trim();
     ok(h.length > 200 && !!nome,
-      c[0] + ': a conferência achou onde a base é escolhida — sem isso, as provas ' +
+      c[0] + ': a conferência achou onde a base é decidida — sem isso, as provas ' +
       'abaixo passariam sem olhar nada', { tamanho: h.length, variavel: nome });
     ok(!!nome && h.indexOf('base: ' + nome) > 0,
-      c[0] + ': a base escolhida VIAJA no lançamento — sem esta linha o seletor ' +
-      'aparece, a pessoa escolhe, a confirmação diz a base, e o servidor recusa o ' +
-      'lançamento por não saber em qual livro ele entra',
+      c[0] + ': o livro decidido VIAJA no lançamento — sem esta linha quem tem dois ' +
+      'livros leva recusa do servidor depois de ter contado as caixas',
       (h.match(/base: *[A-Za-z]+/) || ['(não achei)'])[0]);
-    /* E A FRASE DA CONFIRMAÇÃO DIZ A BASE quando ela não é a produção. O seletor fica
-       escolhido entre um lançamento e outro — quem passa a tarde declarando não o
-       reescolhe a cada um —, e esquecê-lo no livro errado manda o trabalho de verdade
-       para fora do saldo, ou uma informação para dentro dele. Esta frase é o último
-       lugar em que isso ainda dá para ver. */
+    /* E A FRASE DA CONFIRMAÇÃO DIZ A BASE quando ela não é a produção. Com o seletor
+       fora da tela, esta frase é O ÚNICO lugar em que se vê em que livro o lançamento
+       vai cair — e quem está marcado em ensaio ou declaração precisa ver, porque o que
+       ele lança não entra no saldo da casa. */
     ok(h.indexOf("!== 'reais' ? ' na ' + NOME_BASE[") > 0 &&
        h.indexOf('precisaConfirmarCaixa') > 0,
-      c[0] + ': a confirmação nomeia a base sempre que ela não é a Produção — um aviso ' +
-      'em todo lançamento é um aviso que ninguém lê, e nenhum aviso é o seletor ' +
-      'esquecido no livro errado');
+      c[0] + ': a confirmação nomeia a base sempre que ela não é a Produção — tirado o ' +
+      'seletor, é o único aviso que sobrou de que aquele lançamento não entra no saldo');
   });
 })();
 
