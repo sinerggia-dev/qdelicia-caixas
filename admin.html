@@ -7907,30 +7907,62 @@
       '</span>';
   }
 
-  function barraG(g, maior, campo){
-    /* AS TRES MEDIDAS NA MESMA LINHA, a pedido: azul o que saiu, verde o que voltou,
-     * vermelho a diferenca entre os dois.
-     *
-     * A REGUA E' UMA SO' PARA AS TRES, e e' isso que faz os pedacos poderem ser
-     * comparados entre linhas: cada um mede `valor/maior`. Dai sai, de graca, a
-     * propriedade que a tarja separada ja' tinha — o pedaco vermelho tem exatamente o
-     * comprimento da DIFERENCA entre o azul e o verde, porque
-     * `|saida - retorno| / maior` e' a conta dos dois.
-     *
-     * O PRECO, dito em voz alta: a linha inteira passa a medir `movimento + |saldo|`,
-     * que nao e' uma quantidade que exista na operacao — o saldo e' derivado das outras
-     * duas, nao uma terceira coisa que andou. Quem compara LINHAS INTEIRAS entre si
-     * esta' comparando isso. O que continua exato, e e' o que se le', e cada pedaco. */
-    var saldoG = g.retorno - g.saida;
-    var modulo = Math.abs(saldoG);
-    var soma = g.total + modulo;
+  /* ================= O TRILHO DE UMA LINHA =================
+   *
+   * AS TRES MEDIDAS NA MESMA LINHA, a pedido: azul o que saiu, verde o que voltou,
+   * vermelho a diferenca entre os dois.
+   *
+   * A REGUA E' UMA SO' PARA AS TRES, e e' isso que faz os pedacos poderem ser
+   * comparados entre linhas: cada um mede `valor/maior`. Dai sai, de graca, a
+   * propriedade que a tarja separada ja' tinha — o pedaco vermelho tem exatamente o
+   * comprimento da DIFERENCA entre o azul e o verde, porque `|saida - retorno| / maior`
+   * e' a conta dos dois.
+   *
+   * E E' A MESMA PECA NOS DOIS PAINEIS DO PAR. O painel do saldo desenhava um pedaco
+   * vermelho sozinho, contra uma regua propria — e o escritorio leu isso como painel
+   * pela metade: a linha nao dizia DE QUE o saldo e' feito, e era justamente o que ele
+   * queria ver ao lado da diferenca. Escrito duas vezes, o trilho divergiria na
+   * primeira mexida, e as duas versoes sao plausiveis. Escrito uma, o par so' difere no
+   * que de fato pergunta: la' em cima o numero grande e' o movimento, aqui e' o saldo.
+   *
+   * O PRECO, dito em voz alta: a linha inteira passa a medir `movimento + |saldo|`,
+   * que nao e' uma quantidade que exista na operacao — o saldo e' derivado das outras
+   * duas, nao uma terceira coisa que andou. Quem compara LINHAS INTEIRAS entre si
+   * esta' comparando isso. O que continua exato, e e' o que se le', e cada pedaco. */
+  function trilhoG(g, maior){
+    var modulo = Math.abs(g.retorno - g.saida);
+    var soma = (g.total || 0) + modulo;
     var pc = maior ? (soma / maior * 100) : 0;
+    /* OS `flex` SAO OS PROPRIOS NUMEROS, e nao porcentagens calculadas a mao: o
+       navegador reparte a largura preenchida entre eles na razao exata, e a largura
+       preenchida ja' e' `soma/maior`. Cada pedaco acaba medindo `valor/maior` sem
+       nenhuma conta intermediaria para errar. */
+    return '<span class="gb__t"><span class="gb__f" style="width:'+pc.toFixed(1)+'%">'+
+      /* ZERO NAO DESENHA PEDACO: zero e' a resposta boa, e um risco minimo se leria
+         como "um pouquinho faltando". Vale para os tres. */
+      (g.saida ? '<i class="gb__s" style="flex:'+g.saida+' 1 0"></i>' : '')+
+      (g.retorno ? '<i class="gb__d" style="flex:'+g.retorno+' 1 0"></i>' : '')+
+      (modulo ? '<i class="gb__saldo" style="flex:'+modulo+' 1 0"></i>' : '')+
+    '</span></span>';
+  }
+
+  /* A REGUA DO PAINEL, pela mesma razao: e' o maior `movimento + |saldo|`, porque e'
+     isso que uma linha ocupa. Medindo so' o `total`, a linha mais cheia transbordaria
+     da caixa — e as outras encolheriam para caber numa escala que nenhuma respeita.
+     OS DOIS PAINEIS DO PAR MEDEM PELA MESMA, e e' o que torna as duas barras a mesma
+     barra: reguas diferentes para o mesmo trilho dariam dois desenhos do mesmo dado. */
+  function reguaG(lista){
+    return lista.reduce(function(a, g){
+      return Math.max(a, (g.total || 0) + Math.abs(g.retorno - g.saida)); }, 0);
+  }
+
+  function barraG(g, maior, campo){
+    var saldoG = g.retorno - g.saida;
     /* `g.v` vazio é diferente de nulo: vazio é "sem informação", que o servidor não sabe
        filtrar (ele não tem um valor para "nenhum"), e nulo é o agregado. Nos dois casos
        a barra continua sendo desenhada — ela é informação —, só não é clicável. */
     var pode = campo && g.v != null && g.v !== '';
     var lig = pode && gLigado(campo, g);
-    var saldoG = g.retorno - g.saida;
     var titulo = g.k + ' — ' + Q.num(g.total) + ' caixas · saída ' + Q.num(g.saida) +
       ' · retorno ' + Q.num(g.retorno) +
       ' · saldo ' + (saldoG > 0 ? '+' : '') + Q.num(saldoG) +
@@ -7948,27 +7980,12 @@
          pergunta que falta e quanto FALTA. Sem ele, a unica forma de saber era abrir o
          painel do par e procurar a mesma linha. */
       parG(g, true)+
-      /* OS `flex` SAO OS PROPRIOS NUMEROS, e nao porcentagens calculadas a mao: o
-         navegador reparte a largura preenchida entre eles na razao exata, e a largura
-         preenchida ja' e' `soma/maior`. Cada pedaco acaba medindo `valor/maior` sem
-         nenhuma conta intermediaria para errar. */
-      '<span class="gb__t"><span class="gb__f" style="width:'+pc.toFixed(1)+'%">'+
-        (g.saida ? '<i class="gb__s" style="flex:'+g.saida+' 1 0"></i>' : '')+
-        (g.retorno ? '<i class="gb__d" style="flex:'+g.retorno+' 1 0"></i>' : '')+
-        /* ZERO NAO DESENHA PEDACO: zero e' a resposta boa, e um risco minimo se leria
-           como "um pouquinho faltando". */
-        (modulo ? '<i class="gb__saldo" style="flex:'+modulo+' 1 0"></i>' : '')+
-      '</span></span>'+
+      trilhoG(g, maior)+
       '</button>';
   }
 
   function painelG(i, titulo, lista, nota, campo){
-    /* A REGUA E' O MAIOR `movimento + |saldo|`, porque e' isso que uma linha ocupa
-       desde que o saldo entrou nela. Medindo so' o `total`, a linha mais cheia
-       transbordaria da caixa — e as outras encolheriam para caber numa escala que
-       nenhuma delas respeita. */
-    var maior = lista.reduce(function(a, g){
-      return Math.max(a, (g.total || 0) + Math.abs(g.retorno - g.saida)); }, 0);
+    var maior = reguaG(lista);
     /* O TOTAL DE CAIXAS NO CABEÇALHO, ao lado da contagem de linhas. Os dois números
        respondem perguntas diferentes e estavam sendo confundidos: "1 dia" diz quantas
        BARRAS o painel tem, e não quantas caixas ele soma. Num painel de uma linha só,
@@ -8023,15 +8040,17 @@
    * caixa na rua. Três contas para a mesma palavra seriam três números diferentes com o
    * mesmo nome.
    *
-   * A BARRA MEDE O |SALDO|, e não o movimento: é o que este painel pergunta. Zero não
-   * desenha barra nenhuma — e está certo, porque zero é a resposta boa, e uma barra
-   * mínima de 1px se leria como "um pouquinho faltando".
+   * A BARRA É A MESMA DO PAINEL DE CIMA: azul o que saiu, verde o que voltou, vermelho
+   * a diferença. Ela media só o |saldo|, num pedaço vermelho sozinho, e o escritório
+   * leu isso como painel pela metade — a linha dizia QUANTO falta sem dizer DE QUE:
+   * 2.361 faltando de um movimento de 4.795 e de um de 2.400 são situações diferentes.
+   * Zero não desenha o pedaço vermelho, e está certo: zero é a resposta boa, e um risco
+   * mínimo se leria como "um pouquinho faltando".
    *
-   * AS DUAS PONTAS FICAM NO RÓTULO, e não em barras separadas: três barras por linha num
-   * painel de 200px viram três riscos que ninguém compara. Os números se leem. */
+   * O QUE SEPARA OS DOIS PAINÉIS, então, é a PERGUNTA, e não o desenho: o número grande
+   * de cada linha e o do cabeçalho. Em cima, quanto se mexeu; aqui, quanto falta. */
   function barraSaldoG(g, maior, campo){
     var saldo = g.retorno - g.saida;
-    var pc = maior ? (Math.abs(saldo) / maior * 100) : 0;
     var pode = campo && g.v != null && g.v !== '';
     var lig = pode && gLigado(campo, g);
     var titulo = g.k + ' — saída ' + Q.num(g.saida) + ' · retorno ' + Q.num(g.retorno) +
@@ -8056,19 +8075,20 @@
          divergem na primeira que for mexida, e as duas sao plausiveis. SEM o saldo,
          porque ele ja e o numero grande desta linha. */
       parG(g, false)+
-      '<span class="gb__t">'+
-        (saldo ? '<span class="gb__f" style="width:'+pc.toFixed(1)+'%">'+
-                 '<i class="gb__saldo" style="flex:1"></i>'+
-                 '</span>' : '')+
-      '</span></button>';
+      /* O MESMO TRILHO do painel de volume, e pela mesma razao. Aqui havia um pedaco
+         vermelho sozinho, medido contra uma regua propria: a linha dizia QUANTO falta e
+         nao dizia DE QUE — 2.361 faltando de um movimento de 4.795 e de um de 2.400 sao
+         situacoes diferentes, e o painel nao separava as duas. */
+      trilhoG(g, maior)+
+      '</button>';
   }
 
-  /* O PAINEL DO SALDO. Separado do `painelG` porque a régua é outra — ali o maior é o
-     maior MOVIMENTO, aqui é o maior |saldo| —, e o cabeçalho soma coisa diferente: a
-     soma dos saldos, que é o saldo do recorte. */
+  /* O PAINEL DO SALDO. Separado do `painelG` pelo CABEÇALHO e pelo número grande de
+     cada linha: ali o total diz quanto se mexeu, aqui o saldo diz quanto falta. A
+     régua e o trilho são os MESMOS — o par mostra o mesmo desenho e pergunta duas
+     coisas diferentes sobre ele. */
   function painelSaldoG(i, titulo, lista, nota, campo){
-    var maior = lista.reduce(function(m, g){
-      return Math.max(m, Math.abs(g.retorno - g.saida)); }, 0);
+    var maior = reguaG(lista);
     var soma = lista.reduce(function(a2, g){ return a2 + (g.retorno - g.saida); }, 0);
     return '<section class="g" style="--c1:'+tomDeg(i / 10)+';--c2:'+tomDeg((i + 1) / 10)+'">'+
       '<div class="g__c"><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+

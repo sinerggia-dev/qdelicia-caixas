@@ -1798,9 +1798,11 @@ console.log('\n== o saldo por tipo de caixa ==');
     }
     return '';
   }
-  /* COM `parG` JUNTO: a linha dos tres numeros virou uma funcao compartilhada pelos
-     dois paineis, e sem ela na fonte o recorte estoura em vez de medir. */
-  var fonteS = corpoS('parG') + corpoS('barraSaldoG') + corpoS('painelSaldoG');
+  /* COM `parG`, `trilhoG` E `reguaG` JUNTOS: a linha dos tres numeros, o trilho e a
+     regua viraram funcoes compartilhadas pelos dois paineis do par, e sem elas na
+     fonte o recorte estoura em vez de medir. */
+  var fonteS = corpoS('parG') + corpoS('trilhoG') + corpoS('reguaG') +
+               corpoS('barraSaldoG') + corpoS('painelSaldoG');
   ok(fonteS.length > 600,
     'a conferência recortou o painel do saldo por tipo — recorte vazio faria as provas ' +
     'abaixo passarem sem rodar nada', fonteS.length);
@@ -1808,7 +1810,7 @@ console.log('\n== o saldo por tipo de caixa ==');
   /* AS FUNCOES RODAM. Lidas no arquivo, a prova responderia "a palavra saldo esta' la'?"
      — e estaria, inclusive numa versao que soma em vez de subtrair. */
   var S = new Function('Q', 'gLigado', 'tomDeg', fonteS +
-    ' return { barra: barraSaldoG, painel: painelSaldoG };')(
+    ' return { barra: barraSaldoG, painel: painelSaldoG, regua: reguaG };')(
     { esc: function (x) { return String(x); }, num: function (n) { return String(n); } },
     function () { return false; },
     function () { return 'rgb(1,2,3)'; });
@@ -1818,7 +1820,16 @@ console.log('\n== o saldo por tipo de caixa ==');
     { k: 'CX IFCO', v: 'T2', saida: 1154, retorno: 1154, total: 2308 },
     { k: 'CX P',    v: 'T3', saida: 900,  retorno: 1299, total: 2199 }
   ];
-  var maiorS = 1196;
+  /* A REGUA SAI DA FUNCAO DE VERDADE, e nao de um numero escrito aqui: ela e' a
+     metade da mudanca que o escritorio pediu. O painel do saldo media contra o maior
+     |saldo|, e por isso o pedaco vermelho sozinho enchia a linha; medindo contra o
+     maior `movimento + |saldo|`, os tres pedacos cabem e as duas barras do par passam
+     a ser a MESMA barra. */
+  var maiorS = S.regua(CAIXAS);
+  ok(maiorS === 8392,
+    'a r\u00e9gua do painel do saldo \u00e9 o maior `movimento + |saldo|` \u2014 a mesma do painel ' +
+    'de cima: 7.196 + 1.196. Com a r\u00e9gua antiga (o maior |saldo|) os tr\u00eas peda\u00e7os n\u00e3o ' +
+    'caberiam na linha, e foi por isso que ela s\u00f3 desenhava o vermelho', maiorS);
 
   /* ---- O SALDO E' `retorno - saida`, a MESMA conta do cartao e do servidor ----
    * Tres contas para a mesma palavra dariam tres numeros diferentes com o mesmo nome, e
@@ -1860,22 +1871,55 @@ console.log('\n== o saldo por tipo de caixa ==');
     'da direita, e o mesmo dado duas vezes na mesma linha, com duas formatações, é ' +
     'convite a lerem-se como coisas diferentes', umG.slice(0, 400));
 
-  /* ---- A BARRA MEDE O |SALDO|, e nao o movimento ----
-   * E' o que este painel pergunta. Medindo o movimento, ele viraria uma copia do painel
-   * de cima com outro titulo. */
+  /* ---- A BARRA MOSTRA AS TRES MEDIDAS, e nao so' o saldo ----
+   *
+   * E' a mudanca que o escritorio pediu olhando a tela: "falta a barra azul da saida e
+   * a verde do retorno". A linha dizia QUANTO falta sem dizer DE QUE, e 1.196 faltando
+   * de um movimento de 7.196 e de um de 1.200 sao situacoes diferentes. */
+  ok(/<i class="gb__s" style="flex:4196 1 0">/.test(umG) &&
+     /<i class="gb__d" style="flex:3000 1 0">/.test(umG) &&
+     /<i class="gb__saldo" style="flex:1196 1 0">/.test(umG),
+    'a linha do painel do saldo traz os TRÊS pedaços — azul o que saiu, verde o que ' +
+    'voltou, vermelho a diferença: só o vermelho dizia quanto falta sem dizer de que',
+    (umG.match(/<i class="gb__[a-z]+" style="flex:[\d.]+ 1 0">/g) || []));
   ok(/width:100\.0%/.test(umG),
-    'a barra mede o |saldo| contra o maior |saldo| — medindo o movimento, este painel ' +
-    'seria uma cópia do de cima com outro título', /width:[\d.]+%/.exec(umG));
-  ok(/width:33\.4%/.test(tresG),
-    'e a proporção é a do saldo: 399 sobre 1.196', /width:[\d.]+%/.exec(tresG));
+    'e a linha mais cheia do painel enche o trilho — 7.196 de movimento mais 1.196 de ' +
+    'saldo é a régua', /width:[\d.]+%/.exec(umG));
+  ok(/width:31\.0%/.test(tresG),
+    'e a de baixo mede contra a MESMA régua: 2.199 + 399 sobre 8.392', /width:[\d.]+%/.exec(tresG));
+
+  /* ---- O PEDACO VERMELHO MEDE A DIFERENCA ENTRE OS OUTROS DOIS ----
+   * Numa regua unica isso sai de graca, e e' o que faz dele uma medida em vez de
+   * enfeite: `|saida - retorno| / maior` e' a conta dos dois. A prova refaz a conta a
+   * partir do que foi DESENHADO, e nao dos numeros que entraram. */
+  (function () {
+    var pedacos = (umG.match(/<i class="(gb__[a-z]+)" style="flex:([\d.]+) 1 0">/g) || [])
+      .map(function (x) {
+        var m = /<i class="(gb__[a-z]+)" style="flex:([\d.]+) 1 0">/.exec(x);
+        return { cor: m[1], peso: parseFloat(m[2]) };
+      });
+    function peso(cor) {
+      var p = pedacos.filter(function (x) { return x.cor === cor; })[0];
+      return p ? p.peso : 0;
+    }
+    var dif = Math.abs(peso('gb__s') - peso('gb__d'));
+    ok(pedacos.length === 3 && Math.abs(peso('gb__saldo') - dif) < 0.001,
+      'e o pedaço vermelho tem exatamente o comprimento da DIFERENÇA entre o azul e o ' +
+      'verde — uma régua só para os três, e o olho compara sem fazer conta',
+      { vermelho: peso('gb__saldo'), diferenca: dif });
+  })();
 
   /* ---- ZERO NAO DESENHA BARRA ----
    * Zero e' a resposta boa. Uma barra minima de 1px se leria como "um pouquinho
    * faltando", que e' o contrario do que aconteceu. */
   var zeroG = S.barra(CAIXAS[1], maiorS, 'mvCaixa');
-  ok(zeroG.indexOf('gb__f') < 0 && />0</.test(zeroG),
-    'e saldo ZERO não desenha barra nenhuma — zero é a resposta boa, e uma barra mínima ' +
-    'de 1px se leria como "um pouquinho faltando"', zeroG);
+  ok(zeroG.indexOf('gb__saldo') < 0 && />0</.test(zeroG),
+    'e saldo ZERO não desenha o pedaço VERMELHO — zero é a resposta boa, e um risco ' +
+    'mínimo se leria como "um pouquinho faltando"', zeroG);
+  ok(zeroG.indexOf('gb__s') > 0 && zeroG.indexOf('gb__d') > 0,
+    'mas a linha de saldo zero continua desenhando azul e verde — ela movimentou 2.308 ' +
+    'caixas, e uma linha em branco se leria como "nada aconteceu aqui", que é o ' +
+    'contrário do que aconteceu', zeroG);
   ok(zeroG.indexOf('gb__v--neg') < 0 && zeroG.indexOf('gb__v--pos') < 0,
     'e o zero não fica colorido: ele não é nem alerta nem comemoração', zeroG);
 
@@ -1889,17 +1933,17 @@ console.log('\n== o saldo por tipo de caixa ==');
     'e ele também é vermelho, como as barras que resume',
     /g__soma[^>]*/.exec(painelS));
 
-  /* E A REGUA DO PAINEL E' O MAIOR |SALDO|, medida numa barra que o PROPRIO painel
-     desenhou. As provas de largura acima passam `maior` na mão, então nenhuma delas
-     olhava a conta que escolhe esse número: sem o `Math.abs`, o maior de (−1196, 0,
-     +399) vira 399, o pior saldo da lista estoura para 299% e o painel inteiro fica
-     com as barras trocadas de tamanho — desenhando normalmente. */
+  /* E A REGUA QUE O PAINEL USA DE VERDADE, medida numa barra que ele proprio desenhou.
+     As provas de largura acima recebem `maior` pronto, entao nenhuma delas olhava a
+     conta que escolhe esse numero. Com a regua antiga (o maior |saldo| = 1196), a
+     primeira linha mediria 8392/1196 = 701% e transbordaria da caixa — desenhando
+     normalmente, porque `width` maior que 100% nao estoura nada: so' vaza. */
   var larguras = (painelS.match(/width:[\d.]+%/g) || []);
-  ok(larguras.indexOf('width:100.0%') >= 0 &&
+  ok(larguras.length === 3 && larguras.indexOf('width:100.0%') >= 0 &&
      !larguras.some(function (w) { return parseFloat(w.slice(6)) > 100; }),
-    'e a régua do painel é o maior |saldo| EM MÓDULO — sem o módulo, o maior de ' +
-    '(−1196, 0, +399) seria 399, o pior saldo da lista estouraria para 299% e as barras ' +
-    'sairiam todas trocadas de tamanho, desenhando normalmente', larguras);
+    'e o painel do saldo mede as três linhas pela régua do movimento — pela régua ' +
+    'antiga a primeira delas daria 701% e vazaria da caixa, sem nada parecer quebrado',
+    larguras);
 
   /* ---- E A BARRA CONTINUA SENDO FILTRO ---- */
   ok(/data-gcampo="mvCaixa"/.test(umG) && /data-gvalor="T1"/.test(umG),
@@ -5357,8 +5401,9 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
       }
       return '';
     }
-    var PECAS = ['agruparMov', 'cortarG', 'porTotalG', 'parG', 'barraG', 'painelG',
-                 'barraSaldoG', 'painelSaldoG', 'desenharGraficosMov'];
+    var PECAS = ['agruparMov', 'cortarG', 'porTotalG', 'parG', 'trilhoG', 'reguaG',
+                 'barraG', 'painelG', 'barraSaldoG', 'painelSaldoG',
+                 'desenharGraficosMov'];
     var faltando = PECAS.filter(function (n) { return !corpoP(n); });
     ok(!faltando.length,
       'a conferência recortou as peças que desenham os gráficos — faltando uma, o ' +
@@ -5584,13 +5629,47 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
       'e a segunda barra que o saldo teve por um dia saiu da tela E da folha — regra ' +
       'que ninguém lê é a que volta a ser aplicada por engano no próximo ajuste');
 
-    /* ---- E O PAINEL DO SALDO NAO GANHA PEDACO A MAIS ----
-     * La' a barra JA' e' o saldo; um segundo pedaco seria a mesma medida duas vezes. */
+    /* ---- O TRILHO DO PAR É O MESMO DESENHO ----
+     *
+     * O painel do saldo desenhava um pedaço vermelho sozinho, contra uma régua
+     * própria, e o escritório leu isso como painel pela metade: a linha dizia QUANTO
+     * falta sem dizer DE QUE — 2.361 faltando de um movimento de 4.795 e de um de
+     * 2.400 são situações diferentes, e nada na tela separava as duas.
+     *
+     * A PROVA COMPARA OS TRILHOS INTEIROS, byte a byte, linha a linha do par. Exigir
+     * "tem as três cores" deixaria passar o defeito que interessa: as mesmas três
+     * cores medidas contra OUTRA régua desenham outra barra para o mesmo dado — e as
+     * duas são plausíveis vistas separadas, que é como elas aparecem na tela. */
+    function trilhos(secao) {
+      return (secao.match(/<span class="gb__t">[\s\S]*?<\/span><\/span>/g) || []);
+    }
+    var trilhoVazio = [], trilhoDiverge = [];
+    for (var iT = 0; iT < secoesN.length; iT += 2) {
+      var deCima = trilhos(secoesN[iT]), deBaixo = trilhos(secoesN[iT + 1]);
+      if (!deCima.length || deCima.length !== deBaixo.length) {
+        trilhoVazio.push({ painel: iT, cima: deCima.length, baixo: deBaixo.length });
+        continue;
+      }
+      deCima.forEach(function (x, j) {
+        if (x !== deBaixo[j]) {
+          trilhoDiverge.push({ painel: iT, linha: j, cima: x, baixo: deBaixo[j] });
+        }
+      });
+    }
+    ok(!trilhoVazio.length,
+      'a conferência achou os trilhos dos dois painéis de cada par — contagem diferente ' +
+      'faria a comparação abaixo alinhar linhas erradas', trilhoVazio);
+    ok(!trilhoDiverge.length,
+      'e o trilho do painel do SALDO é o MESMO do painel de cima, linha a linha: azul o ' +
+      'que saiu, verde o que voltou, vermelho a diferença, na mesma régua — medido ' +
+      'contra outra régua, o mesmo dado vira outro desenho, e separados os dois são ' +
+      'plausíveis', trilhoDiverge.slice(0, 2));
     ok(saldos.every(function (s) {
-      return (s.match(/<i class="gb__[a-z]+"/g) || []).every(function (x) {
-        return x.indexOf('gb__saldo') >= 0; }); }),
-      'e o painel do saldo continua com um pedaço só por linha — lá ele já mede o ' +
-      'saldo, e azul ou verde ali seriam uma segunda medida sem rótulo');
+      return s.indexOf('gb__s') > 0 && s.indexOf('gb__d') > 0 &&
+             s.indexOf('gb__saldo') > 0; }),
+      'e as três cores aparecem em TODO painel de saldo, e não só no que a prova de ' +
+      'cima olhou — um painel que ficasse de fora passaria despercebido numa grade de ' +
+      'dez', saldos.filter(function (s) { return s.indexOf('gb__s') < 0; }).length);
 
     /* ---- E OS DOIS PAINEIS DO PAR DIZEM O MESMO SALDO ----
      *
@@ -5793,18 +5872,25 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
      como botão por quem usa leitor de tela. */
   ok(/<button class="gb" type="button"/.test(adm),
     'a barra é um botão de verdade — pelo teclado e para o leitor de tela');
-  /* A PROPORÇÃO É DA PRÓPRIA COLUNA: cada painel responde "quem é o maior AQUI".
-     Comparar entre painéis pela largura seria errado, e por isso o número está escrito. */
+  /* A PROPORÇÃO É DO PAR DE PAINÉIS: cada dupla responde "quem é o maior AQUI", e as
+     duas metades respondem igual. Comparar entre pares pela largura seria errado, e por
+     isso o número está escrito. */
   /* COM OS ESPACOS ACHATADOS: a conta ocupa duas linhas no arquivo, e um padrao que
      tentasse casar a quebra mora a um escape de distancia de virar outra coisa — esta
      suite ja' tropecou nisso tres vezes hoje. */
   ok(adm.replace(/\s+/g, ' ').indexOf(
-       'var maior = lista.reduce(function(a, g){ return Math.max(a, ' +
-       '(g.total || 0) + Math.abs(g.retorno - g.saida)); }, 0);') >= 0,
-    'e a largura é proporcional ao maior da PRÓPRIA coluna — e a régua conta o que a ' +
-    'linha realmente ocupa desde que o saldo entrou nela, senão a linha mais cheia ' +
-    'transbordaria da caixa. Entre painéis, quem se ' +
-    'compara é o número escrito');
+       'function reguaG(lista){ return lista.reduce(function(a, g){ return Math.max(a, ' +
+       '(g.total || 0) + Math.abs(g.retorno - g.saida)); }, 0); }') >= 0,
+    'e a régua conta o que a linha realmente ocupa — movimento mais |saldo| —, senão a ' +
+    'linha mais cheia transbordaria da caixa. Entre painéis, quem se compara é o ' +
+    'número escrito');
+  /* E OS DOIS PAINEIS DO PAR MEDEM PELA MESMA. O painel do saldo tinha a dele — o maior
+     |saldo| —, e era por isso que um pedaco vermelho sozinho enchia a linha. Duas
+     reguas para o mesmo trilho desenham o mesmo dado de dois jeitos. */
+  ok((adm.match(/var maior = reguaG\(lista\);/g) || []).length === 2,
+    'e os DOIS painéis do par medem pela mesma régua — cada um com a sua, o mesmo dado ' +
+    'vira dois desenhos diferentes, e separados na tela os dois parecem certos',
+    (adm.match(/var maior = [^;]+;/g) || []));
   ok(/var TETO_G = 6;/.test(adm) && /resto\.k = 'Outros \(' \+ resto\.n \+ '\)';/.test(adm),
     'no máximo seis categorias, e o resto vira "Outros" — barra de dois pixels não é ' +
     'leitura, e quarenta nomes empurram a tabela para fora da tela');
@@ -21622,8 +21708,15 @@ console.log('\n== o total de caixas no cabeçalho do painel ==');
     'a conferência recortou o construtor do painel — recorte vazio faria as provas ' +
     'abaixo passarem sem rodar nada', fonte.length);
 
+  /* A REGUA ENTRA DE VERDADE, recortada do arquivo: ela saiu de dentro do `painelG`
+     para ser a MESMA do painel do saldo, e sem ela aqui o construtor estoura em vez de
+     medir o cabecalho. */
+  var iR = adm.indexOf('  function reguaG(lista){');
+  var fonteR = iR < 0 ? '' : adm.slice(iR, adm.indexOf('\n  }', iR) + 4);
+  ok(fonteR.indexOf('Math.max') > 0,
+    'e recortou a régua que os dois painéis do par dividem', fonteR.length);
   var painelG = new Function('Q', 'tomDeg', 'barraG',
-    fonte + '\n return painelG;')(
+    fonteR + fonte + '\n return painelG;')(
     { esc: function (s) { return String(s == null ? '' : s); },
       num: function (n) { return Number(n || 0).toLocaleString('pt-BR'); } },
     function () { return '#000'; },
