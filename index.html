@@ -1064,12 +1064,41 @@
       return lista.length ? '<optgroup label="'+Q.esc(rotulo)+'">'+itens(lista)+'</optgroup>' : '';
     }
 
+    /* O CARRO DO FORNECEDOR, quando ele tem um cadastrado.
+     *
+     * Ele nao mora na tabela `veiculos` — aquela amarra o carro ao MOTORISTA por id, e
+     * o fornecedor deixou de ser um —, entao vem do cadastro dele, em tres campos.
+     * SEM `data-mot`: e' o atributo pelo qual escolher uma placa preenche o motorista,
+     * e aqui nao ha motorista para preencher. Com ele vazio, nada e' puxado.
+     *
+     * JA' VEM ESCOLHIDO, como o carro unico de um motorista: nao ha o que escolher, e
+     * e' um toque a menos por lancamento. Digitar continua na lista, logo abaixo — o
+     * cadastro diz qual e' o carro de sempre, e nao qual e' o carro de hoje. */
+    var fEsc = pelaRotaForn ? fornecedorEscolhido(idMotorista) : null;
+    var placaForn = fEsc ? String(fEsc.Placa || '').trim() : '';
+    if (soDele && !dele.length && placaForn) {
+      var rotulo = Q.esc(placaForn) +
+        (fEsc.Modelo ? ' — ' + Q.esc(fEsc.Modelo) : '') +
+        (fEsc.Tipo ? ' (' + Q.esc(fEsc.Tipo) + ')' : '');
+      sel.innerHTML = '<option value="'+Q.esc(placaForn)+'" selected>'+rotulo+'</option>' +
+        '<option value="'+OUTRA_PLACA+'">✎ Outra placa — digitar</option>';
+      sel.value = placaForn;
+      sel.setAttribute('data-mot-lista', motId);
+      /* O MESMO AJUDANTE das outras saidas: ele mostra ou esconde conforme o que
+         esta escolhido, e LIMPA o que foi digitado ao esconder. Uma placa digitada e
+         esquecida ali viajaria junto com o lancamento — a tela mostrando o carro do
+         fornecedor e o banco recebendo outra coisa. */
+      mostrarPlacaTexto(idVeiculo);
+      return;
+    }
+
     /* SEM CARRO NENHUM PARA ESTE FORNECEDOR, a lista e' so' a de digitar — e ja' vem
        escolhida, porque nao ha o que escolher. Um "Selecione…" sozinho seria um beco. */
     if (soDele && !dele.length) {
       sel.innerHTML = '<option value="">'+
         (m ? '— sem veículo cadastrado para este motorista —'
-           : '— sem veículo cadastrado —')+'</option>' +
+           : fEsc ? '— ' + Q.esc(Q.comoChamar(fEsc)) + ' não tem placa cadastrada —'
+                  : '— sem veículo cadastrado —')+'</option>' +
         '<option value="'+OUTRA_PLACA+'" selected>✎ Outra placa — digitar</option>';
       sel.value = OUTRA_PLACA;
       sel.setAttribute('data-mot-lista', motId);
@@ -1403,6 +1432,18 @@
    *
    * INATIVO FICA DE FORA, como em todo cadastro daqui — e o servidor recusa de novo, que
    * e' onde a regra nao se contorna. */
+  /* O FORNECEDOR QUE ESTA NO CAMPO agora, achado pelo nome de trabalho — que e' o que
+     o campo guarda. A mesma ponte que o motorista tem com o carro dele, feita pelo
+     cadastro e nao por comparacao de texto solta. */
+  function fornecedorEscolhido(idMotorista){
+    var sm = idMotorista ? document.getElementById(idMotorista) : null;
+    var nome = sm ? String(sm.value || '').trim() : '';
+    if (!nome) return null;
+    return ((DADOS||{}).fornecedores || []).filter(function(f){
+      return Q.comoChamar(f) === nome;
+    })[0] || null;
+  }
+
   function fornecedoresParaEscolher(){
     return ((DADOS||{}).fornecedores || [])
       .filter(function(f){ return Q.ativo(f.Ativo); })

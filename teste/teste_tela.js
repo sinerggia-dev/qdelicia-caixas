@@ -1482,7 +1482,7 @@ console.log('\n== o veiculo do motorista fornecedor ==');
     return listaVeiPonta(mots, nomeNoCampo, [], []);
   }
 
-  function listaVeiPonta(mots, nomeNoCampo, locais, pontas) {
+  function listaVeiPonta(mots, nomeNoCampo, locais, pontas, fornecedores) {
     var sel = { value: '', innerHTML: '', attrs: {},
                 getAttribute: function (k) { return this.attrs[k] || null; },
                 setAttribute: function (k, v) { this.attrs[k] = v; } };
@@ -1493,13 +1493,16 @@ console.log('\n== o veiculo do motorista fornecedor ==');
     new Function('document', 'Q', 'DADOS', 'meusVeiculos', 'meusMotoristas',
       idxV.slice(iOP, idxV.indexOf(';', iOP) + 1) + String.fromCharCode(10) +
       corpoV('ehFornecedor') + corpoV('pedeFornecedor') +
+      /* O CARRO DO FORNECEDOR vem do cadastro DELE, e quem o acha e' esta funcao. Sem
+         ela no recorte, a bancada estoura em vez de medir. */
+      corpoV('fornecedorEscolhido') +
       corpoV('campoTextoDaPlaca') +
       corpoV('mostrarPlacaTexto') + corpoV('montarVeiculos') +
       " montarVeiculos('v', 'm', " + JSON.stringify(pontas || []) + ');')(
       { getElementById: function (id) { return nos[id] || null; } },
       { esc: function (x) { return String(x); },
         comoChamar: function (m) { return m.Apelido || m.Nome; } },
-      { locais: locais || [] },
+      { locais: locais || [], fornecedores: fornecedores || [] },
       function () { return FROTA_V; },
       function () { return mots; });
     return { html: sel.innerHTML, valor: sel.value, texto: txt };
@@ -1523,6 +1526,50 @@ console.log('\n== o veiculo do motorista fornecedor ==');
     'e a lista diz por que está assim', r2.html);
   ok(r2.html.indexOf('KKS1330') < 0 && r2.html.indexOf('XYZ9K88') < 0,
     'e continua sem oferecer placa de ninguém — era o pedido', r2.html);
+
+  /* ---- O CARRO DO FORNECEDOR, QUANDO ELE TEM UM ----
+   *
+   * Ele nao mora na tabela `veiculos` — aquela amarra o carro ao MOTORISTA por id, e o
+   * fornecedor deixou de ser um. Mora em tres campos do cadastro dele.
+   *
+   * SEM ELE, toda viagem de fornecedor obriga a DIGITAR a placa, e placa digitada a
+   * cada viagem sai com grafia diferente: o relatorio por veiculo lista o mesmo
+   * caminhao duas vezes, com metade do total em cada. */
+  var LOC_F = [{ ID: 'L018', Nome: 'Fornecedor', PedeFornecedor: true }];
+  var COM_CARRO = [{ ID: 'F1', Nome: 'Roberto', Apelido: 'Bráulio', Ativo: true,
+                     Placa: 'RTA7J51', Modelo: 'HR baú', Tipo: 'Baú' }];
+  var comCarro = listaVeiPonta([], 'Bráulio', LOC_F, ['L001', 'L018'], COM_CARRO);
+  ok(comCarro.valor === 'RTA7J51',
+    'o fornecedor com placa cadastrada já abre com ela escolhida — não há o que ' +
+    'escolher, e é um toque a menos por lançamento', comCarro.valor);
+  ok(comCarro.texto.hidden === true,
+    'e o campo de digitar fica escondido — aberto junto, uma placa esquecida ali ' +
+    'viajaria no lugar da que está na tela', comCarro.texto.hidden);
+  ok(comCarro.html.indexOf('HR baú') > 0 && comCarro.html.indexOf('Baú') > 0,
+    'e a opção mostra modelo e tipo junto da placa — uma placa sozinha não se confere ' +
+    'olhando o caminhão parado no pátio', comCarro.html);
+  ok(comCarro.html.indexOf('KKS1330') < 0 && comCarro.html.indexOf('XYZ9K88') < 0,
+    'e a frota da casa continua fora — a placa cadastrada do fornecedor não abriu a ' +
+    'porta para as outras', comCarro.html);
+  ok(comCarro.html.indexOf('data-mot=') < 0,
+    'e a opção dele não carrega `data-mot` — é por esse atributo que escolher uma ' +
+    'placa preenche o motorista, e aqui não há motorista para preencher: com ele, a ' +
+    'tela sobrescreveria o fornecedor escolhido', comCarro.html);
+  ok(comCarro.html.indexOf('Outra placa') > 0,
+    'e digitar continua na lista — o cadastro diz qual é o carro de SEMPRE, e não qual ' +
+    'é o carro de hoje');
+
+  var SEM_PLACA = [{ ID: 'F2', Nome: 'Sítio Novo', Apelido: 'Novo', Ativo: true,
+                     Placa: '', Modelo: '', Tipo: '' }];
+  var semPlaca = listaVeiPonta([], 'Novo', LOC_F, ['L001', 'L018'], SEM_PLACA);
+  ok(semPlaca.valor === '__outra' && semPlaca.texto.hidden === false,
+    'e o fornecedor SEM placa cadastrada continua caindo no campo de digitar, já ' +
+    'aberto — é o que a tela fazia para todos até agora, e segue valendo para quem ' +
+    'ainda não tem carro no cadastro',
+    { valor: semPlaca.valor, escondido: semPlaca.texto.hidden });
+  ok(/Novo não tem placa cadastrada/.test(semPlaca.html),
+    'e a lista diz DE QUEM é a falta, com o nome — "sem veículo cadastrado" não diz ' +
+    'onde cadastrar nem para quem', semPlaca.html);
 
   /* ---- E A PONTA MANDA, MESMO SEM MOTORISTA ESCOLHIDO ----
    *
@@ -1573,14 +1620,16 @@ console.log('\n== o veiculo do motorista fornecedor ==');
     var iOP2 = idxV.indexOf('var OUTRA_PLACA = ');
     var apiL = new Function('document', 'Q', 'DADOS', 'meusVeiculos', 'meusMotoristas',
       idxV.slice(iOP2, idxV.indexOf(';', iOP2) + 1) + String.fromCharCode(10) +
-      corpoV('ehFornecedor') + corpoV('pedeFornecedor') + corpoV('campoTextoDaPlaca') +
+      corpoV('ehFornecedor') + corpoV('pedeFornecedor') +
+      corpoV('fornecedorEscolhido') + corpoV('campoTextoDaPlaca') +
       corpoV('mostrarPlacaTexto') + corpoV('montarVeiculos') +
       corpoV('motoristaPuxaVeiculo') +
       ' return { ligar: motoristaPuxaVeiculo };')(
       { getElementById: function (id) { return nosL[id] || null; } },
       { esc: function (x) { return String(x); },
         comoChamar: function (m) { return m.Apelido || m.Nome; } },
-      { locais: [{ ID: 'L018', Nome: 'Fornecedor', PedeFornecedor: true }] },
+      { locais: [{ ID: 'L018', Nome: 'Fornecedor', PedeFornecedor: true }],
+        fornecedores: [] },
       function () { return FROTA_V; },
       function () { return [{ ID: 'D2', Nome: 'Dinho', Tipo: 'Fixo' }]; });
     apiL.ligar('m', 'v', function () { return pontasAgora; });
@@ -2935,6 +2984,141 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
  * desalinhava a tabela inteira, e cada numero passava a ser lido na coluna do vizinho. A
  * garantia agora e estrutural: quem monta as duas percorre a MESMA lista.
  * ------------------------------------------------------------------------- */
+console.log('\n== o carro do fornecedor, no cadastro ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoC(nome) {
+    var i = adm.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = adm.indexOf('{', i);
+    for (; k < adm.length; k++) {
+      if (adm[k] === '{') d++;
+      else if (adm[k] === '}' && --d === 0) return adm.slice(i, k + 1);
+    }
+    return '';
+  }
+  var iT = adm.indexOf('  var TIPOS_VEICULO = [');
+  var fonteT = iT < 0 ? '' : adm.slice(iT, adm.indexOf(';', iT) + 1);
+  var PECAS = ['opcoesTipoVeiculo', 'formFornecedor', 'formVeiculo', 'comoPlaca'];
+  var faltam = PECAS.filter(function (n) { return !corpoC(n); });
+  ok(!faltam.length && fonteT.indexOf('TIPOS_VEICULO') > 0,
+    'a confer\u00eancia recortou os dois formul\u00e1rios e a lista de tipos \u2014 faltando um, as ' +
+    'provas abaixo passariam sem rodar nada', faltam);
+
+  /* ================= OS FORMULARIOS RODAM =================
+   *
+   * E' a parte do cadastro que nenhuma prova alcancava, e a sabotagem mostrou o preco:
+   * apagada a linha que manda a Placa, o formulario gravava um fornecedor sem carro e
+   * as nove suites continuavam verdes. Lido no arquivo, o teste responderia "a palavra
+   * Placa esta' la'?" — e estaria, no rotulo do campo.
+   *
+   * ENTAO ELE E' PREENCHIDO E SALVO: os campos entram com valor, o botao Salvar e'
+   * acionado, e a prova le o REGISTRO que saiu. */
+  function abrirForm(qual, registro, valores) {
+    var campos = {}, salvo = null, erro = null, htmlModal = '';
+    var doc = {
+      getElementById: function (id) {
+        if (id === 'modalBox' || id === 'modal') {
+          return { innerHTML: '', classList: { add: function () {} },
+                   set html(x) { this.innerHTML = x; } };
+        }
+        if (!campos[id]) {
+          campos[id] = { value: valores && valores[id] !== undefined ? valores[id] : '',
+                         disabled: false, textContent: '',
+                         ouvintes: [],
+                         addEventListener: function (tp, fn) {
+                           if (tp === 'click' || tp === 'change') this.ouvintes.push(fn); } };
+        }
+        return campos[id];
+      }
+    };
+    var api = new Function('document', 'Q', 'DADOS', 'MOTORISTAS', 'modal', 'salvar',
+      'avisoItemNovo', 'ligarMarcaTudo', 'fecharModal',
+      fonteT + String.fromCharCode(10) + PECAS.map(corpoC).join(String.fromCharCode(10)) +
+      String.fromCharCode(10) +
+      ' return { forn: formFornecedor, vei: formVeiculo };')(
+      doc,
+      { esc: function (x) { return String(x == null ? '' : x); },
+        ativo: function (v) { return v !== false; },
+        toast: function (msg) { erro = msg; },
+        placaValida: new Function('v',
+          fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8')
+            .slice(fsPlaca().i, fsPlaca().f) + String.fromCharCode(10) +
+          ' return placaValida(v);'),
+        ordenarPorNome: function (l) { return l; },
+        comoChamar: function (m) { return m.Apelido || m.Nome; } },
+      { fornecedores: [], locais: [] }, [],
+      function (h) { htmlModal = h; },
+      function (acao, reg) { salvo = { acao: acao, reg: reg }; },
+      function () { return ''; }, function () {}, function () {});
+    api[qual](registro);
+    /* O BOTAO SALVAR E' ACIONADO DE VERDADE: e' o ouvinte dele que monta o registro. */
+    (campos.fSalvar ? campos.fSalvar.ouvintes : []).forEach(function (fn) {
+      fn.call(campos.fSalvar, {});
+    });
+    return { salvo: salvo, erro: erro, html: htmlModal, campos: campos };
+  }
+  function fsPlaca() {
+    var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    /* DO REGEX ATE O FIM DE placaValida: a regra mora num  acima das duas
+       funcoes, e recortando so' elas a conferencia estoura em vez de medir. */
+    var i = app.indexOf('  var PLACA_RE =');
+    var j = app.indexOf('  function placaValida(');
+    var f = app.indexOf(String.fromCharCode(10) + '  }', j) + 4;
+    return { i: i, f: f };
+  }
+
+  /* ---- O CARRO VIAJA NO REGISTRO ---- */
+  var r = abrirForm('forn', { ID: 'F1', Nome: 'S\u00edtio', Apelido: 'Sit' }, {
+    fNome: 'S\u00edtio do Carro', fApelido: 'Carrinho', fLocal: 'Vic\u00eancia',
+    fPlacaF: 'rta-7j51', fModeloF: 'HR ba\u00fa', fTipoF: 'Ba\u00fa', fAtivo: 'SIM' });
+  ok(r.salvo && r.salvo.acao === 'salvarFornecedor',
+    'preenchido e salvo, o formul\u00e1rio do fornecedor manda o cadastro dele',
+    r.salvo && r.salvo.acao);
+  ok(r.salvo && r.salvo.reg.Modelo === 'HR ba\u00fa' && r.salvo.reg.Tipo === 'Ba\u00fa',
+    'e o MODELO e o TIPO viajam no registro \u2014 o campo existir na tela e n\u00e3o chegar no ' +
+    'que se grava \u00e9 o defeito mais caro deste projeto, e ele n\u00e3o aparece em lugar nenhum',
+    r.salvo && r.salvo.reg);
+  ok(r.salvo && r.salvo.reg.Placa === 'RTA7J51',
+    'e a PLACA viaja LIMPA, como no cadastro de ve\u00edculos: "rta-7j51" vira "RTA7J51" \u2014 ' +
+    'duas grafias do mesmo carro partem o relat\u00f3rio por ve\u00edculo em dois',
+    r.salvo && r.salvo.reg.Placa);
+
+  /* ---- E PLACA TORTA NAO ENTRA ----
+   * O cadastro e' a FONTE: uma placa torta gravada aqui sai torta em toda viagem
+   * daquele fornecedor, e a tela de lancamento nem pergunta — ela so' oferece. */
+  var ruim = abrirForm('forn', {}, {
+    fNome: 'S\u00edtio Torto', fPlacaF: 'ABC', fAtivo: 'SIM' });
+  ok(!ruim.salvo && /[Pp]laca inv/.test(String(ruim.erro || '')),
+    'e placa torta N\u00c3O \u00e9 gravada, com a frase dizendo o formato \u2014 o cadastro \u00e9 a fonte, ' +
+    'e a tela de lan\u00e7amento s\u00f3 oferece o que ele guarda',
+    { salvou: !!ruim.salvo, aviso: ruim.erro });
+  var semCarro = abrirForm('forn', {}, { fNome: 'S\u00edtio Apeado', fAtivo: 'SIM' });
+  ok(semCarro.salvo && semCarro.salvo.reg.Placa === '',
+    'e sem placa nenhuma ele entra igual \u2014 vazio quer dizer "digite a cada lan\u00e7amento", ' +
+    'que \u00e9 o que a tela fazia para todos at\u00e9 agora',
+    semCarro.salvo && semCarro.salvo.reg);
+
+  /* ---- E OS DOIS CADASTROS OFERECEM OS MESMOS TIPOS ----
+   *
+   * Nao "os dois chamam a mesma funcao" — isso se le no arquivo. A prova DESENHA os
+   * dois formularios e compara as opcoes que cada um colocou na tela: e' a pergunta
+   * que importa, e ela sobrevive a qualquer jeito de escrever a chamada. */
+  var tiposDo = function (html) {
+    return (html.match(/<option value="[^"]*"[^>]*>[^<]*<\/option>/g) || [])
+      .filter(function (o) { return /Ba\u00fa|Carroceria|Furg\u00e3o|Utilit\u00e1rio|n\u00e3o informado/.test(o); })
+      .map(function (o) { return o.replace(/<[^>]*>/g, '').trim(); });
+  };
+  var htmlForn = abrirForm('forn', {}, {}).html;
+  var htmlVei = abrirForm('vei', {}, {}).html;
+  var tF = tiposDo(htmlForn), tV = tiposDo(htmlVei);
+  ok(tF.length >= 5 && tF.join('|') === tV.join('|'),
+    'e os dois cadastros oferecem exatamente os mesmos tipos de ve\u00edculo, na mesma ordem ' +
+    '\u2014 duas listas sobre a mesma coisa divergem no dia em que algu\u00e9m acrescentar um ' +
+    'tipo numa s\u00f3, e a\u00ed o mesmo carro tem tipo num cadastro e fica em branco no outro',
+    { fornecedor: tF, veiculo: tV });
+})();
+
 console.log('\n== Painel de Ativos: juntar as linhas ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

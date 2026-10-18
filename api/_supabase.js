@@ -352,7 +352,8 @@ var MOTORISTA = {
 var FORNECEDOR = {
   de: function (r) {
     return { ID: r.id, Nome: r.nome || '', Apelido: r.apelido || '',
-             Localidade: r.localidade || '', Ativo: r.ativo !== false };
+             Localidade: r.localidade || '', Placa: r.placa || '',
+             Modelo: r.modelo || '', Tipo: r.tipo || '', Ativo: r.ativo !== false };
   },
   para: function (o) {
     var r = {};
@@ -360,6 +361,13 @@ var FORNECEDOR = {
     if (o.Nome !== undefined) r.nome = String(o.Nome || '').trim();
     if (o.Apelido !== undefined) r.apelido = String(o.Apelido || '').trim();
     if (o.Localidade !== undefined) r.localidade = String(o.Localidade || '').trim();
+    /* A PLACA PELA MESMA LIMPEZA DA TABELA `veiculos`: sem hifen, sem espaco, em caixa
+       alta. Duas grafias do mesmo carro fazem o relatorio por veiculo lista-lo duas
+       vezes, com metade do total em cada — e o carro do fornecedor entra nos mesmos
+       relatorios que o da casa. */
+    if (o.Placa !== undefined) r.placa = placaLimpa(o.Placa);
+    if (o.Modelo !== undefined) r.modelo = String(o.Modelo || '').trim();
+    if (o.Tipo !== undefined) r.tipo = String(o.Tipo || '').trim();
     if (o.Ativo !== undefined) r.ativo = bool(o.Ativo);
     return r;
   }

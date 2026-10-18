@@ -813,5 +813,34 @@ module.exports = [
       "   ou ambas. Chave e o id da rota. Ausente ou vazio quer dizer AMBAS, que e o que",
       "   o sistema fazia antes desta coluna existir.';"
     ].join('\n')
+  },
+
+  {
+    id: '2026-10-17-fornecedor-veiculo',
+    nota: 'o carro do fornecedor: placa, modelo e tipo no cadastro dele',
+    sql: [
+      "-- O CARRO DO FORNECEDOR MORA NO CADASTRO DELE.",
+      "--",
+      "-- A tabela `veiculos` liga o carro ao MOTORISTA, por id. O fornecedor deixou de",
+      "-- ser um motorista — ele tem cadastro proprio —, entao nao ha por onde amarrar o",
+      "-- carro dele la. Sem estas colunas, todo lancamento pela rota de fornecedor",
+      "-- obriga a DIGITAR a placa, e placa digitada a cada viagem sai com grafia",
+      "-- diferente: o relatorio por veiculo lista o mesmo caminhao duas vezes, com",
+      "-- metade do total em cada.",
+      "--",
+      "-- TRES COLUNAS, E NAO UMA TABELA NOVA: e um carro por fornecedor, que e o que a",
+      "-- operacao tem hoje. Uma tabela de veiculos de fornecedor seria a forma certa",
+      "-- para varios carros, e nenhum deles tem dois.",
+      "--",
+      "-- NASCEM VAZIAS, e vazio continua querendo dizer 'digite a placa' — que e",
+      "-- exatamente o que a tela faz hoje. Nenhum lancamento muda por esta migracao.",
+      "alter table public.fornecedores",
+      "  add column if not exists placa  text not null default '',",
+      "  add column if not exists modelo text not null default '',",
+      "  add column if not exists tipo   text not null default '';",
+      "comment on column public.fornecedores.placa is",
+      "  'A placa do carro deste fornecedor, sem hifen e em caixa alta, como em",
+      "   `veiculos`. Vazia quer dizer que a placa e digitada a cada lancamento.';"
+    ].join('\n')
   }
 ];

@@ -9855,7 +9855,7 @@
     }
     box.innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Fornecedor</th>' +
-      '<th>Apelido</th><th>Localidade</th>' +
+      '<th>Apelido</th><th>Localidade</th><th>Placa</th><th>Modelo</th><th>Tipo</th>' +
       '<th class="num">Lançamentos</th><th>Ativo</th><th></th></tr></thead><tbody>'+
       lista.map(function(f){
         var on = Q.ativo(f.Ativo);
@@ -9876,6 +9876,14 @@
                             : '<span class="fraco">—</span>')+'</td>'+
           '<td>'+(f.Localidade ? Q.esc(f.Localidade)
                                : '<span class="fraco">—</span>')+'</td>'+
+          /* A PLACA COMO ETIQUETA, do mesmo jeito que ela aparece em Movimentos: e' um
+             codigo, nao um nome, e lida no meio de texto corrido ela se perde. */
+          '<td>'+(f.Placa ? '<span class="tag cinza">'+Q.esc(f.Placa)+'</span>'
+                          : '<span class="fraco">—</span>')+'</td>'+
+          '<td>'+(f.Modelo ? Q.esc(f.Modelo)
+                           : '<span class="fraco">—</span>')+'</td>'+
+          '<td>'+(f.Tipo ? Q.esc(f.Tipo)
+                         : '<span class="fraco">—</span>')+'</td>'+
           '<td class="num" title="No recorte de Movimentos que está carregado">'+
             (quantos||'—')+'</td>'+
           '<td>'+(on?'<span class="tag verde">sim</span>'
@@ -9929,6 +9937,24 @@
       'escolha no lançamento, e é ele que fica gravado na linha. Em branco, vale o '+
       'nome. A <b>localidade</b> é informação do cadastro: o lugar de um lançamento '+
       'continua vindo do local escolhido nele.</p>'+
+      /* O CARRO DELE. Os MESMOS tres campos do cadastro de veiculos, e com a mesma
+         lista de tipos: e' a mesma pergunta sobre a mesma coisa, e o carro do
+         fornecedor entra nos mesmos relatorios que o da casa.
+         AQUI, E NAO NA TABELA `veiculos`: aquela tabela amarra o carro ao MOTORISTA
+         por id, e o fornecedor deixou de ser um. */
+      '<h3 style="margin-top:20px">Veículo</h3>'+
+      '<div class="grid2">'+
+        '<div><label>Placa</label><input type="text" id="fPlacaF" maxlength="10" '+
+          'autocapitalize="characters" value="'+Q.esc(f.Placa||'')+'" '+
+          'placeholder="ABC1D23"></div>'+
+        '<div><label>Modelo</label><input type="text" id="fModeloF" value="'+
+          Q.esc(f.Modelo||'')+'" placeholder="ex.: HR baú"></div>'+
+        '<div><label>Tipo</label><select id="fTipoF">'+
+          opcoesTipoVeiculo(f.Tipo)+'</select></div>'+
+      '</div>'+
+      '<p class="sub" style="margin:4px 0 12px">Com a placa cadastrada, ela já vem '+
+      'escolhida no lançamento. <b>Em branco</b>, quem lança digita a placa — que é o '+
+      'que acontece hoje, e placa digitada a cada viagem sai com grafia diferente.</p>'+
       '<label>Ativo</label><select id="fAtivo">'+
         '<option value="SIM"'+(Q.ativo(f.Ativo)?' selected':'')+'>sim</option>'+
         '<option value="NAO"'+(Q.ativo(f.Ativo)?'':' selected')+'>não</option></select>'+
@@ -9939,8 +9965,18 @@
       var reg = { ID:f.ID||'', Nome:document.getElementById('fNome').value.trim(),
                   Apelido:document.getElementById('fApelido').value.trim(),
                   Localidade:document.getElementById('fLocal').value.trim(),
+                  Placa:comoPlaca(document.getElementById('fPlacaF').value),
+                  Modelo:document.getElementById('fModeloF').value.trim(),
+                  Tipo:document.getElementById('fTipoF').value,
                   Ativo:document.getElementById('fAtivo').value };
       if (!reg.Nome) return Q.toast('Informe o nome.','erro');
+      /* PLACA CONFERIDA AQUI, e nao so' no lancamento: o cadastro e' a FONTE, e uma
+         placa torta gravada nele sairia torta em toda viagem daquele fornecedor — e o
+         relatorio por veiculo listaria o mesmo caminhao duas vezes. Vazia continua
+         valendo: quer dizer "digite a cada lancamento". */
+      if (reg.Placa && !Q.placaValida(reg.Placa)) {
+        return Q.toast('Placa inválida: use o formato ABC1234 ou ABC1D23.','erro');
+      }
       /* NOME REPETIDO NAO ENTRA. O movimento guarda o nome, e dois cadastros com o
          mesmo nome sao indistinguiveis depois de gravados — o relatorio somaria os
          dois num so' e ninguem saberia qual apagar. */
@@ -10134,6 +10170,19 @@
   }
   document.getElementById('btnNovoVeiculo').addEventListener('click', function(){ formVeiculo(null); });
 
+  /* OS TIPOS DE CARRO, num lugar so'. O cadastro de veiculos tinha a lista escrita
+     dentro do formulario dele; o de fornecedores precisa da MESMA — e' a mesma
+     pergunta sobre a mesma coisa. Escritas duas vezes, elas divergem no dia em que
+     alguem acrescentar "Prancha" numa so', e aí o mesmo carro tem tipo num cadastro e
+     fica em branco no outro. */
+  var TIPOS_VEICULO = ['', 'Baú', 'Carroceria', 'Furgão', 'Utilitário'];
+  function opcoesTipoVeiculo(atual){
+    return TIPOS_VEICULO.map(function(t){
+      return '<option value="'+Q.esc(t)+'"'+(String(atual||'')===t?' selected':'')+'>'+
+        Q.esc(t || '— não informado —')+'</option>';
+    }).join('');
+  }
+
   function formVeiculo(v){
     v = v || {};
     /* SÓ OS ATIVOS na escolha do habitual, e o atual mesmo se tiver sido desativado: sem
@@ -10148,9 +10197,7 @@
           'value="'+Q.esc(v.Placa||'')+'" placeholder="ABC1D23"></div>'+
         '<div><label>Modelo</label><input type="text" id="fModelo" value="'+Q.esc(v.Modelo||'')+'" placeholder="ex.: HR baú"></div>'+
         '<div><label>Tipo</label><select id="fTipoVei">'+
-          ['','Baú','Carroceria','Furgão','Utilitário'].map(function(t){
-            return '<option value="'+t+'"'+(String(v.Tipo||'')===t?' selected':'')+'>'+(t||'— não informado —')+'</option>';
-          }).join('')+'</select></div>'+
+          opcoesTipoVeiculo(v.Tipo)+'</select></div>'+
         '<div><label>Ativo</label><select id="fAtivoV">'+
           '<option value="SIM"'+(Q.ativo(v.Ativo)?' selected':'')+'>sim</option>'+
           '<option value="NAO"'+(Q.ativo(v.Ativo)?'':' selected')+'>não</option></select></div>'+

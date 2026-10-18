@@ -5107,6 +5107,55 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
 /* ============================================================================
    O FORNECEDOR DA CARGA
    ========================================================================= */
+console.log('\n== o carro do fornecedor ==');
+{
+  /* A COLUNA EXISTE NO BANCO. A migracao e' append-only e roda sozinha na subida; sem
+     ela, o `insert` falha com "column does not exist" e o cadastro inteiro para. */
+  var migF = fs.readFileSync(path.join(__dirname, '..', 'api', '_migracoes.js'), 'utf8');
+  ok(/id: '2026-10-17-fornecedor-veiculo'/.test(migF) &&
+     /alter table public\.fornecedores/.test(migF) &&
+     /add column if not exists placa/.test(migF) &&
+     /add column if not exists modelo/.test(migF) &&
+     /add column if not exists tipo/.test(migF),
+    'a migracao acrescenta placa, modelo e tipo em `fornecedores`', migF.length);
+  /* NENHUM APOSTROFO DENTRO DO SQL: ja' derrubou este sistema uma vez — a string do
+     JavaScript fecha no meio da frase e o comando sobe partido. */
+  var iMF = migF.indexOf("id: '2026-10-17-fornecedor-veiculo'");
+  var blocoF = migF.slice(iMF, migF.indexOf('].join', iMF));
+  ok(blocoF.indexOf("\\'") < 0,
+    'e o SQL dela nao tem apostrofo escapado dentro \u2014 a string fecha no meio da frase ' +
+    'e o comando sobe partido, que ja aconteceu neste projeto');
+
+  /* ---- E O CADASTRO GRAVA E DEVOLVE OS TRES ---- */
+  var novoF = await POST({ acao: 'salvarFornecedor', registro: {
+    Nome: 'Sitio do Carro', Apelido: 'Carrinho', Localidade: 'Vicencia',
+    Placa: 'rta-7j51', Modelo: 'HR bau', Tipo: 'Bau', Ativo: 'SIM' } });
+  ok(novoF.ok, 'o fornecedor com carro foi gravado', novoF);
+  var lidosF = (await GET({ acao: 'dados' })).fornecedores || [];
+  var salvoF = lidosF.filter(function (f) { return f.Apelido === 'Carrinho'; })[0];
+  ok(!!salvoF && salvoF.Modelo === 'HR bau' && salvoF.Tipo === 'Bau',
+    'e modelo e tipo VOLTAM do banco \u2014 gravados e nao lidos, os campos seriam ' +
+    'interruptores sem fio', salvoF);
+  /* A PLACA VOLTA LIMPA, pela mesma regra da tabela `veiculos`: sem hifen, em caixa
+     alta. Duas grafias do mesmo carro fazem o relatorio por veiculo lista-lo duas
+     vezes, com metade do total em cada — e o carro do fornecedor entra nos mesmos
+     relatorios que o da casa. */
+  ok(!!salvoF && salvoF.Placa === 'RTA7J51',
+    'e a placa volta LIMPA, como no cadastro de veiculos: "rta-7j51" virou "RTA7J51" \u2014 ' +
+    'duas grafias do mesmo carro partem o relatorio por veiculo em dois',
+    salvoF && salvoF.Placa);
+  /* VAZIA CONTINUA VALENDO, e quer dizer "digite a cada lancamento" — que e o que a
+     tela fazia para todos ate' agora. */
+  var semCarroF = await POST({ acao: 'salvarFornecedor', registro: {
+    Nome: 'Sitio Sem Carro', Apelido: 'Apeado', Ativo: 'SIM' } });
+  ok(semCarroF.ok, 'e um fornecedor sem carro continua entrando', semCarroF);
+  var lidos2F = (await GET({ acao: 'dados' })).fornecedores || [];
+  var vazioF = lidos2F.filter(function (f) { return f.Apelido === 'Apeado'; })[0];
+  ok(!!vazioF && vazioF.Placa === '' && vazioF.Modelo === '' && vazioF.Tipo === '',
+    'e os tres campos dele voltam VAZIOS, e nao nulos \u2014 vazio quer dizer "digite a ' +
+    'placa", que e o que a tela faz', vazioF);
+}
+
 console.log('\n== o banco de mentira carrega o mesmo que o de verdade ==');
 {
   /* A BANCADA SO' VALE SE O BANCO DE MENTIRA TIVER O QUE O DE VERDADE TEM.
