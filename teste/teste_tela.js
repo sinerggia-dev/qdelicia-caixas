@@ -344,19 +344,28 @@ console.log('\n== o sentido de cada rota do motorista fornecedor ==');
                   getAttribute: function (k) { return this.attrs[k] || null; },
                   setAttribute: function (k, v) { this.attrs[k] = v; } };
       var rota = { value: 'L009' };
-      new Function('document', 'Q', 'meusMotoristas', 'motoristas',
-        /* COM AS DUAS PERGUNTAS QUE A LISTA FAZ desde que o fornecedor e' o
-           motorista: se a ponta pede fornecedor, e se este motorista e' um. Sem elas
-           no recorte, a bancada estoura em vez de medir. */
+      new Function('document', 'Q', 'DADOS', 'meusMotoristas', 'motoristas',
+        /* COM AS PERGUNTAS QUE A LISTA FAZ: se a ponta pede fornecedor e, quando pede,
+           quem esta' no cadastro deles. Sem elas no recorte, a bancada estoura em vez
+           de medir. */
         corpoI('ehFornecedor') + String.fromCharCode(10) +
         corpoI('pedeFornecedor') + String.fromCharCode(10) +
+        corpoI('fornecedoresParaEscolher') + String.fromCharCode(10) +
+        corpoI('pintarRotuloMotorista') + String.fromCharCode(10) +
         corpoI('motoristasDaRota') + String.fromCharCode(10) +
         corpoI('montarMotoristas') +
         " montarMotoristas('m', 'r', " + JSON.stringify(sentido) + ');')(
-        { getElementById: function (id) { return id === 'm' ? sel : rota; } },
+        /* `querySelector` DEVOLVE NULL de proposito: o rotulo nao existe neste
+           documento de mentira, e a funcao que o pinta tem de aguentar isso sem
+           estourar — e' o caso real de quem chama a lista antes de a tela existir. */
+        { getElementById: function (id) { return id === 'm' ? sel : rota; },
+          querySelector: function () { return null; } },
         { esc: function (x) { return String(x); },
+          ativo: function (v) { return v !== false; },
           comoChamar: function (m) { return m.Apelido || m.Nome; },
           atendeNoSentido: regraApp.atende },
+        /* SEM FORNECEDOR NENHUM: este recorte e' sobre a rota COMUM e o sentido. */
+        { fornecedores: [] },
         function () { return MOTS2; },
         function () { return MOTS2.map(function (m) { return m.Apelido || m.Nome; }); });
       return sel.innerHTML;
@@ -1199,11 +1208,10 @@ console.log('\n== o fornecedor e o motorista ==');
   /* ---- O CAMPO SAIU DA TELA ----
    * Ele existiu, com lista propria, e a operacao mostrou que era a mesma informacao
    * duas vezes: quem chega com a carga do fornecedor E' o motorista dele. */
-  ok(idxF.indexOf('sdFornecedor') < 0 && idxF.indexOf('dvFornecedor') < 0 &&
-     idxF.indexOf('montarFornecedores') < 0,
-    'o campo Fornecedor saiu das duas telas de lançamento — quem responde de quem é a ' +
-    'carga passou a ser o MOTORISTA, e pedir as duas coisas era a mesma informação com ' +
-    'duas chances de divergir');
+  ok(idxF.indexOf('sdFornecedor') < 0 && idxF.indexOf('dvFornecedor') < 0,
+    'o campo Fornecedor SEPARADO saiu das duas telas de lançamento — quem entrega é o ' +
+    'fornecedor, então é UM campo com a lista certa dentro, e não dois campos com a ' +
+    'mesma informação e duas chances de divergir');
 
   /* ---- E O SERVIDOR PASSOU A PERGUNTAR OUTRA COISA ---- */
   var LOCF = [
@@ -1211,27 +1219,29 @@ console.log('\n== o fornecedor e o motorista ==');
     { ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA', PedeFornecedor: true },
     { ID: 'L005', Nome: 'Caruaru', Tipo: 'ROTA' }
   ];
-  var MOTF = [
-    { ID: 'D1', Nome: 'Roberto Cavalcanti', Apelido: 'Bráulio', Tipo: 'Fornecedor' },
-    { ID: 'D2', Nome: 'Dinho', Apelido: '', Tipo: 'Fixo' }
+  /* A LISTA E' A DO CADASTRO DE FORNECEDORES. `Dinho` continua na prova, agora como
+     quem NAO esta nela — e' o caso que separa "a rota pede fornecedor" de "qualquer um
+     serve". */
+  var FORNF = [
+    { ID: 'F1', Nome: 'Roberto Cavalcanti', Apelido: 'Bráulio', Ativo: true }
   ];
-  function conf(p) { return LF.conferirFornecedor(p, LOCF, MOTF); }
+  function conf(p) { return LF.conferirFornecedor(p, LOCF, FORNF); }
 
   ok(conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' }),
-    'a saída pela rota de fornecedor exige um motorista — sem ele a linha não diz de ' +
+    'a saída pela rota de fornecedor exige um fornecedor — sem ele a linha não diz de ' +
     'quem é a carga, que é a pergunta deste sistema');
-  ok(/não está cadastrado como motorista do tipo Fornecedor/.test(
+  ok(/fora do cadastro/.test(
        conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Dinho' })),
-    'e um motorista COMUM é recusado nela — a rota de fornecedor é dele, e aceitar ' +
-    'qualquer um faria a coluna Fornecedor apontar para quem não é',
+    'e um MOTORISTA é recusado nela — ele não está no cadastro de fornecedores, e ' +
+    'aceitar qualquer um faria a coluna Fornecedor apontar para quem não é',
     conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Dinho' }));
   ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Bráulio' }),
-    'e o do tipo Fornecedor passa, pelo APELIDO — que é o nome de trabalho, e o que a ' +
-    'linha grava');
+    'e o fornecedor do cadastro passa, pelo APELIDO — que é o nome de trabalho, e o ' +
+    'que a linha grava');
   ok(!conf({ tipo: 'DEVOLUCAO', origemId: 'L009', destinoId: 'L001',
              motorista: 'Roberto Cavalcanti' }),
     'e o retorno também, pelo nome do cadastro — as duas portas levam ao mesmo ' +
-    'motorista, e recusar uma quebraria a correção do que já foi lançado');
+    'fornecedor, e recusar uma quebraria a correção do que já foi lançado');
   ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005', motorista: 'Dinho' }),
     'e a rota normal continua aceitando o motorista normal — a marca é de um local, e ' +
     'não de todas as rotas');
@@ -1244,108 +1254,199 @@ console.log('\n== o fornecedor e o motorista ==');
    * mesma linha. E a tela esconder o campo e' conveniencia: um POST direto chegaria
    * sem ele, ou com outro nome. */
   ok(LF.fornecedorDoMovimento({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-                                motorista: 'Bráulio' }, LOCF, MOTF) === 'Bráulio',
+                                motorista: 'Bráulio' }, LOCF, FORNF) === 'Bráulio',
     'o nome que vai para a coluna Fornecedor é DERIVADO do motorista, no servidor — ' +
     'recebido da tela, um pedido direto poderia mandar outro, e as duas colunas da ' +
     'mesma linha passariam a discordar');
   ok(LF.fornecedorDoMovimento({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-                                motorista: 'Roberto Cavalcanti' }, LOCF, MOTF) === 'Bráulio',
+                                motorista: 'Roberto Cavalcanti' }, LOCF, FORNF) === 'Bráulio',
     'e é sempre o nome de TRABALHO, venha o lançamento pelo apelido ou pelo nome do ' +
     'cadastro — duas grafias da mesma pessoa partiriam o relatório em dois');
   ok(LF.fornecedorDoMovimento({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005',
-                                motorista: 'Dinho' }, LOCF, MOTF) === '',
+                                motorista: 'Dinho' }, LOCF, FORNF) === '',
     'e fora da rota de fornecedor a coluna fica VAZIA — ela responde "de qual ' +
     'fornecedor", e um nome ali numa viagem comum seria uma resposta inventada');
 
   /* ---- A LISTA DE MOTORISTAS, MONTADA DE VERDADE ---- */
   {
+    /* O CADASTRO DE MOTORISTAS, e SO' motoristas: `Braulio` saiu daqui e foi para o
+       cadastro de fornecedores, que e' a mudanca que estas provas medem. Deixado nos
+       dois, a lista da rota de fornecedor acharia o nome pelo caminho antigo e a prova
+       passaria verde sem o cadastro novo existir — que e' exatamente o estado em que o
+       banco de producao esta' agora, com os vinte e oito repetidos. */
     var MOTS_F = [
-      { ID: 'D1', Nome: 'Bráulio', Apelido: '', Tipo: 'Fornecedor', Rotas: ['L009'],
-        RotasSentido: {} },
       { ID: 'D2', Nome: 'Dinho', Apelido: '', Tipo: 'Fixo', Rotas: ['L009'],
+        RotasSentido: {} },
+      { ID: 'D3', Nome: 'Ramos', Apelido: '', Tipo: 'Volante', Rotas: ['L005'],
         RotasSentido: {} }
     ];
-    function listaMot(pontas) {
-      var sel = { value: '', innerHTML: '', attrs: {},
-                  getAttribute: function (k) { return this.attrs[k] || null; },
-                  setAttribute: function (k, v) { this.attrs[k] = v; } };
-      new Function('document', 'Q', 'DADOS', 'meusMotoristas', 'motoristas',
-        corpoF(idxF, 'ehFornecedor') + corpoF(idxF, 'pedeFornecedor') +
-        corpoF(idxF, 'motoristasDaRota') + corpoF(idxF, 'montarMotoristas') +
-        " montarMotoristas('m', 'r', 'saida', " + JSON.stringify(pontas) + ');')(
-        { getElementById: function (id) {
-            return id === 'm' ? sel : { value: 'L009' }; } },
-        { esc: function (x) { return String(x); },
-          comoChamar: function (m) { return m.Apelido || m.Nome; },
-          atendeNoSentido: function () { return true; } },
-        { locais: LOCF },
-        function () { return MOTS_F; },
-        function () { return MOTS_F.map(function (m) { return m.Apelido || m.Nome; }); });
-      return sel.innerHTML;
-    }
-    var pelaRotaForn = listaMot(['L001', 'L009']);
-    ok(pelaRotaForn.indexOf('Bráulio') >= 0 && pelaRotaForn.indexOf('Dinho') < 0,
-      'pela rota de fornecedor, a lista de motoristas mostra SÓ os do tipo Fornecedor ' +
-      '— era o pedido, e é o que impede a carga do fornecedor de sair no nome de quem ' +
-      'não é', pelaRotaForn);
-    var rotaComum = listaMot(['L001', 'L005']);
-    ok(rotaComum.indexOf('Dinho') >= 0 && rotaComum.indexOf('Bráulio') >= 0,
-      'e numa rota comum a lista continua inteira — a peneira é da rota marcada, e não ' +
-      'de todas', rotaComum);
-    var semNenhum = (function () {
-      var guardados = MOTS_F.slice();
-      MOTS_F.length = 0;
-      MOTS_F.push({ ID: 'D2', Nome: 'Dinho', Tipo: 'Fixo', Rotas: ['L009'],
-                    RotasSentido: {} });
-      var r = listaMot(['L001', 'L009']);
-      MOTS_F.length = 0;
-      guardados.forEach(function (x) { MOTS_F.push(x); });
-      return r;
-    })();
-    ok(/nenhum motorista do tipo Fornecedor cadastrado/.test(semNenhum),
-      'e sem nenhum cadastrado a lista DIZ isso — um seletor só com "Selecione…" e nada ' +
-      'dentro se lê como tela quebrada, e a pessoa fica tentando', semNenhum);
-
-    /* ---- E A FRASE SEPARA OS DOIS CASOS ----
-     *
-     * "Nenhum do tipo Fornecedor" era dito nos dois, e eles sao diferentes: ou nao ha
-     * nenhum CADASTRADO, ou ha e nenhum esta' LIBERADO para quem esta' na tela. A frase
-     * errada manda a pessoa cadastrar o que ja' existe — foi o que aconteceu com vinte
-     * e cinco deles, e a tela dizia que nao havia nenhum. */
-    var naoLiberados = (function () {
+    /* O CADASTRO DE FORNECEDORES, que e' de onde a lista vem pela rota deles. `Dinho`
+       segue no cadastro de MOTORISTAS, e nao neste: e' o caso que separa as duas
+       listas — se a tela ainda peneirasse motoristas por tipo, ela acharia o `Braulio`
+       de la' e a prova passaria verde sem este cadastro existir. */
+    var FORNS_T = [{ ID: 'F1', Nome: 'Roberto Cavalcanti', Apelido: 'Bráulio',
+                     Ativo: true }];
+    function listaMot(pontas, fornecedores) {
       var sel = { value: '', innerHTML: '', title: '', attrs: {},
                   getAttribute: function (k) { return this.attrs[k] || null; },
                   setAttribute: function (k, v) { this.attrs[k] = v; } };
       new Function('document', 'Q', 'DADOS', 'meusMotoristas', 'motoristas',
         corpoF(idxF, 'ehFornecedor') + corpoF(idxF, 'pedeFornecedor') +
+        corpoF(idxF, 'fornecedoresParaEscolher') +
+        corpoF(idxF, 'pintarRotuloMotorista') +
         corpoF(idxF, 'motoristasDaRota') + corpoF(idxF, 'montarMotoristas') +
-        " montarMotoristas('m', 'r', 'saida', ['L001','L009']);")(
+        " montarMotoristas('m', 'r', 'saida', " + JSON.stringify(pontas) + ');')(
         { getElementById: function (id) {
-            return id === 'm' ? sel : { value: 'L009' }; } },
+            return id === 'm' ? sel : { value: 'L009' }; },
+          /* O ROTULO NAO EXISTE NESTE DOCUMENTO DE MENTIRA, e quem o pinta tem
+             de aguentar isso: e' o caso real de montar a lista antes de a tela
+             estar desenhada. */
+          querySelector: function () { return null; } },
         { esc: function (x) { return String(x); },
+          ativo: function (v) { return v !== false; },
           comoChamar: function (m) { return m.Apelido || m.Nome; },
           atendeNoSentido: function () { return true; } },
-        /* O CADASTRO TEM 25 do tipo; a lista LIBERADA para esta pessoa esta' vazia. */
         { locais: LOCF,
-          motoristas: (function () {
-            var r = [];
-            for (var i = 0; i < 25; i++) {
-              r.push({ ID: 'F' + i, Nome: 'Forn ' + i, Tipo: 'Fornecedor', Rotas: [] });
-            }
-            return r;
-          })() },
-        function () { return []; },
-        function () { return []; });
+          fornecedores: fornecedores === undefined ? FORNS_T : fornecedores },
+        function () { return MOTS_F; },
+        function () { return MOTS_F.map(function (m) { return m.Apelido || m.Nome; }); });
       return sel;
-    })();
-    ok(/25 cadastrados, nenhum liberado para você/.test(naoLiberados.innerHTML),
-      'e havendo cadastrados que não foram LIBERADOS para quem está na tela, a lista ' +
-      'diz exatamente isso, com o número — dizer "nenhum cadastrado" manda a pessoa ' +
-      'cadastrar o que já existe, e foi o que aconteceu com vinte e cinco deles',
-      naoLiberados.innerHTML);
-    ok(/Cadastros → Usuários/.test(naoLiberados.title),
-      'e o balão diz ONDE se libera — a frase que só constata deixa a pessoa parada no ' +
-      'mesmo lugar', naoLiberados.title);
+    }
+    var pelaRotaForn = listaMot(['L001', 'L009']).innerHTML;
+    ok(pelaRotaForn.indexOf('Bráulio') >= 0 && pelaRotaForn.indexOf('Dinho') < 0,
+      'pela rota de fornecedor, a lista vem do CADASTRO DE FORNECEDORES — e por isso o ' +
+      'motorista comum não entra nela: é o que impede a carga do fornecedor de sair no ' +
+      'nome de quem não é', pelaRotaForn);
+    var rotaComum = listaMot(['L001', 'L005']).innerHTML;
+    ok(rotaComum.indexOf('Dinho') >= 0 && rotaComum.indexOf('Bráulio') < 0,
+      'e numa rota comum a lista é a dos MOTORISTAS, e o fornecedor não aparece — são ' +
+      'dois cadastros e duas perguntas, e misturar os dois era a confusão que acabou de ' +
+      'sair da tela', rotaComum);
+    /* INATIVO NAO ENTRA, e o servidor recusa de novo: a lista e' conveniencia. */
+    var soInativo = listaMot(['L001', 'L009'],
+      [{ ID: 'F9', Nome: 'Sitio Aposentado', Apelido: 'Velho', Ativo: false }]);
+    ok(soInativo.innerHTML.indexOf('Velho') < 0 &&
+       /1 cadastrados, nenhum ativo/.test(soInativo.innerHTML),
+      'e o fornecedor INATIVO fica fora da lista, que diz quantos há e por que nenhum ' +
+      'aparece — um seletor vazio se lê como tela quebrada, e a pessoa fica tentando',
+      soInativo.innerHTML);
+    /* E O BALAO DIZ O QUE FAZER, e os DOIS casos pedem coisas diferentes: havendo
+       cadastrados, o que falta e' REATIVAR; nao havendo, e' CADASTRAR. Mandar cadastrar
+       quem ja' existe foi o erro que deixou o galpao dois dias parado — e a bancada
+       so' media o caso de lista vazia, onde as duas frases coincidem. */
+    ok(/Reative/.test(soInativo.title) && !/Cadastre/.test(soInativo.title),
+      'e o balão manda REATIVAR, e não cadastrar — mandar cadastrar quem já existe ' +
+      'deixa a pessoa criando um segundo registro do mesmo fornecedor',
+      soInativo.title);
+    var semNenhum = listaMot(['L001', 'L009'], []);
+    ok(/nenhum fornecedor cadastrado/.test(semNenhum.innerHTML) &&
+       /Cadastros → Fornecedores/.test(semNenhum.title),
+      'e sem nenhum cadastrado a lista DIZ isso, e o balão diz ONDE se cadastra — a ' +
+      'frase que só constata deixa a pessoa parada no mesmo lugar',
+      semNenhum.innerHTML + ' | ' + semNenhum.title);
+
+    /* ---- A LISTA DE FORNECEDOR NAO PASSA PELA LIBERACAO POR USUARIO ----
+     *
+     * E' uma DECISAO, e nao um esquecimento — por isso esta' medida aqui, e nao
+     * escondida num comentario. O cadastro de fornecedor nao guarda CPF, CNH nem
+     * telefone: e' nome, apelido e localidade. Quem pode lancar ja' e' decidido pela
+     * aba e pelas rotas que o Admin libera.
+     *
+     * O QUE ISTO COMPRA: a lista de motoristas vazia — "25 cadastrados, nenhum liberado
+     * para voce" — deixou o galpao dois dias sem conseguir lancar fornecedor. Com a
+     * lista vindo do cadastro proprio, marcacao nao mantida deixa de ser capaz disso.
+     *
+     * O QUE ISTO CUSTA, dito em voz alta: todo usuario que alcanca a tela ve os vinte e
+     * oito. Medido com a lista permitida VAZIA, que e' o estado em que o galpao estava. */
+    var semLiberacao = listaMot(['L001', 'L009']);
+    ok(semLiberacao.innerHTML.indexOf('Bráulio') >= 0,
+      'e o fornecedor aparece MESMO com a lista de motoristas liberados vazia — a ' +
+      'peneira por usuário é do cadastro de motoristas, e foi ela que deixou o galpão ' +
+      'dois dias sem conseguir lançar; aqui não há documento pessoal para proteger',
+      semLiberacao.innerHTML);
+  }
+
+  /* ---- E O NOME COMPLETO DO FORNECEDOR CHEGA AO LANCAMENTO ----
+   *
+   * O movimento grava DUAS colunas: o nome de trabalho (que a tela escolhe) e o nome
+   * do cadastro. A funcao que acha o segundo olhava so' o cadastro de motoristas — e
+   * pela rota de fornecedor ela nao achava nada, devolvia o proprio apelido, e a linha
+   * ficava com o apelido nas duas colunas. Ninguem via: as duas sao plausiveis. */
+  {
+    var nomeCheio = new Function('DADOS', 'Q', 'meusMotoristas',
+      corpoF(idxF, 'nomeCompletoDoMotorista') + '\n return nomeCompletoDoMotorista;')(
+      { fornecedores: [{ ID: 'F1', Nome: 'Roberto Cavalcanti', Apelido: 'Bráulio',
+                         Ativo: true }] },
+      { comoChamar: function (m) { return m.Apelido || m.Nome; } },
+      function () { return [{ ID: 'D2', Nome: 'Dinho da Silva', Apelido: 'Dinho' }]; });
+    ok(nomeCheio('Bráulio') === 'Roberto Cavalcanti',
+      'o nome do CADASTRO do fornecedor chega ao lançamento — sem isto a linha grava o ' +
+      'apelido nas duas colunas, e o romaneio sai sem o nome de quem entregou',
+      nomeCheio('Bráulio'));
+    ok(nomeCheio('Dinho') === 'Dinho da Silva',
+      'e o do motorista continua chegando pelo caminho de sempre — a lista nova não ' +
+      'pode ter tomado o lugar da antiga', nomeCheio('Dinho'));
+    ok(nomeCheio('Fulano') === 'Fulano',
+      'e um nome que não está em cadastro nenhum volta como veio, sem estourar');
+  }
+
+  /* ---- E O ROTULO DO CAMPO TROCA DE PALAVRA ----
+   *
+   * A lista certa com o nome errado em cima continua lendo errado: "Motorista: Cipó
+   * Branco" obriga quem lanca a saber de cabeca que naquela rota a palavra quer dizer
+   * outra coisa. A MESMA CONTA decide a lista e o rotulo — separadas, a tela diria uma
+   * e mostraria a outra no primeiro conserto que so' uma recebesse. */
+  {
+    /* O MESMO ELEMENTO ATRAVESSA AS DUAS CHAMADAS, e e' por isso que ele entra como
+       argumento. Com um rotulo novo a cada chamada, a bancada nunca via o estado que
+       sobrou da chamada anterior — e o defeito que escapou foi exatamente esse: pintar
+       so' quando a ponta PEDE fornecedor deixa a palavra "Fornecedor" na tela depois de
+       trocar para uma rota comum, mentindo sobre uma lista que mudou. Tela de verdade
+       tem um rotulo so', e ele carrega o que a chamada anterior escreveu. */
+    function rotuloNa(pontas, alvo) {
+      var sel = { value: '', innerHTML: '', title: '', attrs: {},
+                  getAttribute: function (k) { return this.attrs[k] || null; },
+                  setAttribute: function (k, v) { this.attrs[k] = v; } };
+      alvo = alvo || { textContent: 'Motorista' };
+      new Function('document', 'Q', 'DADOS', 'meusMotoristas', 'motoristas',
+        corpoF(idxF, 'ehFornecedor') + corpoF(idxF, 'pedeFornecedor') +
+        corpoF(idxF, 'fornecedoresParaEscolher') +
+        corpoF(idxF, 'pintarRotuloMotorista') +
+        corpoF(idxF, 'motoristasDaRota') + corpoF(idxF, 'montarMotoristas') +
+        " montarMotoristas('m', 'r', 'saida', " + JSON.stringify(pontas) + ');')(
+        { getElementById: function (id) {
+            return id === 'm' ? sel : { value: 'L009' }; },
+          querySelector: function (q) {
+            return q === '[data-rotulo="m"]' ? alvo : null; } },
+        { esc: function (x) { return String(x); },
+          ativo: function (v) { return v !== false; },
+          comoChamar: function (m) { return m.Apelido || m.Nome; },
+          atendeNoSentido: function () { return true; } },
+        { locais: LOCF, fornecedores: [{ ID: 'F1', Nome: 'Bráulio', Ativo: true }] },
+        function () { return MOTS_F; },
+        function () { return MOTS_F.map(function (m) { return m.Apelido || m.Nome; }); });
+      return alvo.textContent;
+    }
+    ok(rotuloNa(['L001', 'L009']) === 'Fornecedor',
+      'pela rota de fornecedor o campo se chama "Fornecedor" — a lista certa com o ' +
+      'nome errado em cima continua lendo errado');
+    ok(rotuloNa(['L001', 'L005']) === 'Motorista',
+      'e na rota comum ele se chama "Motorista"');
+    /* E AGORA O CAMINHO DE VOLTA, NO MESMO ELEMENTO: escolheu fornecedor, trocou a
+       ponta, o rótulo tem de voltar. */
+    var mesmo = { textContent: 'Motorista' };
+    rotuloNa(['L001', 'L009'], mesmo);
+    var depoisDeVoltar = rotuloNa(['L001', 'L005'], mesmo);
+    ok(depoisDeVoltar === 'Motorista',
+      'e trocando de volta para a rota comum ele VOLTA a "Motorista", no mesmo rótulo ' +
+      'que acabou de dizer "Fornecedor" — preso na palavra antiga, ele mente sobre uma ' +
+      'lista que já mudou, e mentir sobre o nome da lista é pior que não ter rótulo',
+      depoisDeVoltar);
+    var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    ok((html.match(/data-rotulo="(sd|dv)Motorista"/g) || []).length === 2,
+      'e as DUAS telas têm o rótulo preparado para trocar — numa só, o retorno ficaria ' +
+      'com a lista de fornecedores sob o nome "Motorista"',
+      (html.match(/data-rotulo="[^"]*"/g) || []));
   }
 
   /* ---- E AS DUAS TELAS PERGUNTAM PELAS PONTAS DELAS ---- */
@@ -18699,8 +18800,45 @@ console.log('\n== corrigir a carga inteira, e nao so a linha ==');
     };
     var elenco = [{ ID: 'D1', Nome: 'Isaque Sobrenome', Apelido: 'Isaque' },
                   { ID: 'D2', Nome: 'Ramos' }];
-    var html = new Function('MOTORISTAS', 'Q', fonteSM + '\n return seletorMotorista;')(
-      elenco, Qsm)('Isaque');
+    /* OS FORNECEDORES ENTRAM NO SELETOR DA CORRECAO, e por isso entram aqui: pela
+       rota deles e' o cadastro de Fornecedores que alimenta o campo do lancamento,
+       entao a coluna Motorista daquelas linhas guarda o nome de um fornecedor. Sem
+       eles, abrir a correcao de um lancamento de fornecedor mostraria o nome como
+       "fora do cadastro" — verdadeiro para a lista errada, e assustador para quem
+       so' queria mudar uma quantidade. */
+    var DADOS_SM = { fornecedores: [{ ID: 'F1', Nome: 'Roberto Cavalcanti',
+                                      Apelido: 'Bráulio', Ativo: true }] };
+    var seletorSM = new Function('MOTORISTAS', 'Q', 'DADOS',
+      fonteSM + '\n return seletorMotorista;')(elenco, Qsm, DADOS_SM);
+    var html = seletorSM('Isaque');
+    var comForn = seletorSM('Bráulio');
+    /* O NOME APARECER NAO BASTA, e foi assim que o defeito escapou: o seletor tem
+       uma protecao que REPOE o que esta' gravado, mesmo fora do cadastro — entao,
+       tirando os fornecedores da lista, `Braulio` continuava na tela, marcado como
+       orfao. A prova dizia "oferece os fornecedores" medindo a protecao do orfao.
+
+       O QUE SEPARA OS DOIS E' O `data-inteiro`: a opcao reposta nasce sem ele, de
+       proposito (o nome inteiro de quem saiu do cadastro nao se sabe), e a opcao
+       vinda da lista carrega o nome do cadastro. E' a diferenca entre "o seletor
+       conhece este fornecedor" e "o seletor esta' segurando um nome que nao
+       reconhece". */
+    ok(/value="Bráulio"[^>]*data-inteiro="Roberto Cavalcanti"/.test(comForn),
+      'e o seletor da correção CONHECE o fornecedor — a opção dele vem da lista, com ' +
+      'o nome do cadastro junto, e não da proteção que repõe nomes órfãos: sem os ' +
+      'fornecedores na lista, corrigir a quantidade de um lançamento deles abriria ' +
+      'com o nome marcado como fora do cadastro',
+      (comForn.match(/<option[^>]*Bráulio[^>]*>/) || ['(nao achei)'])[0]);
+    ok(comForn.indexOf('selected') > 0,
+      'e ele abre já escolhido — senão a primeira gravação troca o fornecedor do ' +
+      'lançamento sem ninguém pedir');
+    var repetido = new Function('MOTORISTAS', 'Q', 'DADOS',
+      fonteSM + '\n return seletorMotorista;')(
+      elenco.concat([{ ID: 'D9', Nome: 'Roberto Cavalcanti', Apelido: 'Bráulio' }]),
+      Qsm, DADOS_SM)('Bráulio');
+    ok((repetido.match(/value="Bráulio"/g) || []).length === 1,
+      'e o nome que está nos DOIS cadastros sai UMA vez — enquanto os vinte e oito ' +
+      'estiverem repetidos, duas opções idênticas num seletor não se distinguem',
+      (repetido.match(/value="Bráulio"/g) || []).length);
     var vals = (html.match(/value="([^"]*)"/g) || [])
       .map(function (x) { return x.slice(7, -1); });
     var inteiros = (html.match(/data-inteiro="([^"]*)"/g) || [])
@@ -18718,8 +18856,7 @@ console.log('\n== corrigir a carga inteira, e nao so a linha ==');
     /* O QUE ESTA GRAVADO NUNCA SOME DA LISTA: motorista desligado do cadastro, ou nome
        digitado a mao, entra assim mesmo — senao o seletor abre em OUTRO nome e a
        primeira gravacao troca o motorista do lancamento sem ninguem pedir. */
-    var comSumido = new Function('MOTORISTAS', 'Q', fonteSM + '\n return seletorMotorista;')(
-      elenco, Qsm)('Fulano Desligado');
+    var comSumido = seletorSM('Fulano Desligado');
     ok(comSumido.indexOf('value="Fulano Desligado"') > 0 &&
        /value="Fulano Desligado"[^>]*selected/.test(comSumido),
       'e o nome GRAVADO entra na lista mesmo fora do cadastro, marcado — sen\u00e3o o ' +

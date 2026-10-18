@@ -12239,8 +12239,24 @@
      relatorio por motorista partia a pessoa em duas. Foi o que aconteceu no R000036.
      O `data-inteiro` e o que faz o par viajar junto no Gravar. */
   function seletorMotorista(atual){
-    var lista = Q.ordenarPorNome(MOTORISTAS||[]).map(function(x){
-      return { curto: Q.comoChamar(x), inteiro: String(x.Nome||'') };
+    /* OS FORNECEDORES ENTRAM NESTA LISTA, e nao so' os motoristas.
+       Pela rota de fornecedor e' o cadastro de Fornecedores que alimenta o campo do
+       lancamento, entao a coluna Motorista daquelas linhas guarda o nome de um
+       fornecedor. Sem eles aqui, corrigir qualquer lancamento de fornecedor abriria com
+       o nome marcado como "fora do cadastro" — verdadeiro para a lista errada, e
+       assustador para quem so' queria mudar uma quantidade. */
+    var lista = Q.ordenarPorNome((MOTORISTAS||[]).concat(((DADOS&&DADOS.fornecedores)||[])))
+      .map(function(x){
+        return { curto: Q.comoChamar(x), inteiro: String(x.Nome||'') };
+      });
+    /* SEM REPETIR: enquanto os vinte e oito existirem nos dois cadastros, o mesmo nome
+       sairia duas vezes na lista — e duas opcoes identicas num seletor nao se
+       distinguem. */
+    var visto = {};
+    lista = lista.filter(function(x){
+      if (!x.curto || visto[x.curto]) return false;
+      visto[x.curto] = 1;
+      return true;
     });
     /* A MESMA PROTECAO DOS OUTROS SELETORES, e nao uma propria. Ela era escrita a mao
        aqui — um `unshift` silencioso —, e a bancada que cobra a protecao de TODO seletor

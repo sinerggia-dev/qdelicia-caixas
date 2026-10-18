@@ -89,7 +89,11 @@ var elMotorista = selFalso(), elRota = selFalso();
 var elDvMotorista = selFalso(), elDvOrigem = selFalso();
 var POR_ID = { sdMotorista: elMotorista, sdRota: elRota,
                dvMotorista: elDvMotorista, dvOrigem: elDvOrigem };
-global.document = { getElementById: function (id) { return POR_ID[id] || null; } };
+/* `querySelector` DEVOLVE NULL de proposito: o rotulo do campo — que troca de
+   palavra quando a ponta pede fornecedor — nao existe neste documento de mentira,
+   e quem o pinta tem de aguentar isso sem estourar. */
+global.document = { getElementById: function (id) { return POR_ID[id] || null; },
+                    querySelector: function () { return null; } };
 global.Q = {
   /* O MESMO `esc` do app.js, e nao uma versao curta dele. A daqui escapava so `&`
      e `<`, e a aspa passava — o dublê era mais FRACO que o original, entao o teste
@@ -125,6 +129,7 @@ global.DADOS = DADOS;
 
 var F = eval('(function(){' + corpo('permitidos') + corpo('meusMotoristas') +
              corpo('motoristas') + corpo('ehFornecedor') + corpo('pedeFornecedor') +
+             corpo('fornecedoresParaEscolher') + corpo('pintarRotuloMotorista') +
              corpo('motoristasDaRota') + corpo('montarMotoristas') +
              'return { montar: montarMotoristas, daRota: motoristasDaRota };})()');
 

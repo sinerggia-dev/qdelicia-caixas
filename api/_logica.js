@@ -1317,28 +1317,50 @@ function pontasQuePedemFornecedor(p, locais) {
   });
 }
 
-function conferirFornecedor(p, locais, motoristas) {
+/* O FORNECEDOR SAI DO CADASTRO DE FORNECEDORES, e nao mais do de motoristas.
+ *
+ * POR QUE MUDOU: os vinte e oito estavam cadastrados nos DOIS lugares, e o lado do
+ * motorista eram cascas — zero CPF, zero CNH, zero telefone, zero placa, zero rota
+ * marcada. O unico campo preenchido era `Empresa`, e o que estava escrito nele era a
+ * LOCALIDADE ("Fornecedor - Macaparana"): faltando onde por o dado, o escritorio dobrou
+ * um campo para ele caber. Campo dobrado e' sintoma de cadastro errado — e era o de
+ * motorista que estava errado para esta gente.
+ *
+ * O CADASTRO DE FORNECEDORES tem exatamente o que falta: Nome, Apelido e Localidade,
+ * preenchida nos vinte e oito.
+ *
+ * A BUSCA E' A MESMA DE MOTORISTA — nome de trabalho ou nome do cadastro —, de
+ * proposito: sao a mesma pergunta feita a outra lista, e duas formas de procurar um
+ * nome divergem no primeiro acento. */
+function acharFornecedor(fornecedores, nome) {
+  return acharMotorista(fornecedores, nome);
+}
+
+function conferirFornecedor(p, locais, fornecedores) {
   var pontas = pontasQuePedemFornecedor(p, locais);
   if (!pontas.length) return null;
 
   var nome = String(p.motorista || '').trim();
   if (!nome) {
-    return 'Escolha o motorista do fornecedor: ' + pontas[0].Nome +
-      ' só recebe lançamento com um motorista do tipo Fornecedor.';
+    return 'Escolha o fornecedor: ' + pontas[0].Nome +
+      ' só recebe lançamento com um fornecedor do cadastro.';
   }
-  var m = acharMotorista(motoristas, nome);
-  if (!m) {
-    return 'Motorista fora do cadastro: ' + nome +
-      '. Cadastre-o em Cadastros para poder lançar nele.';
+  var f = acharFornecedor(fornecedores, nome);
+  if (!f) {
+    return 'Fornecedor fora do cadastro: ' + nome +
+      '. Cadastre-o em Cadastros → Fornecedores para poder lançar nele.';
   }
-  if (!ehMotoristaFornecedor(m)) {
-    return 'Este lançamento é pela rota de fornecedor, e ' + nome +
-      ' não está cadastrado como motorista do tipo Fornecedor.';
+  /* INATIVO NAO ENTRA EM LANCAMENTO NOVO, e continua escrito nos antigos. E' a mesma
+     regra de todo cadastro daqui, e e' ela que deixa aposentar um fornecedor sem
+     reescrever o historico. */
+  if (!ativo(f.Ativo)) {
+    return 'Fornecedor inativo: ' + nome +
+      '. Reative-o em Cadastros → Fornecedores para lançar nele.';
   }
   return null;
 }
 
-/* O NOME DO FORNECEDOR QUE VAI PARA A LINHA, derivado do motorista — e nao digitado.
+/* O NOME DO FORNECEDOR QUE VAI PARA A LINHA, derivado do CADASTRO — e nao digitado.
  *
  * Derivado AQUI, no servidor, e nao mandado pela tela: a tela esconder o campo e'
  * conveniencia, e um POST direto chegaria sem ele. Com uma fonte so', a coluna
@@ -1346,11 +1368,11 @@ function conferirFornecedor(p, locais, motoristas) {
  *
  * E' o nome de TRABALHO — o apelido quando existe —, o mesmo que a coluna Motorista
  * guarda: duas grafias da mesma pessoa partiriam o relatorio em dois. */
-function fornecedorDoMovimento(p, locais, motoristas) {
+function fornecedorDoMovimento(p, locais, fornecedores) {
   if (!pontasQuePedemFornecedor(p, locais).length) return '';
-  var m = acharMotorista(motoristas, p.motorista);
-  if (!ehMotoristaFornecedor(m)) return '';
-  return String(m.Apelido || m.Nome || '').trim();
+  var f = acharFornecedor(fornecedores, p.motorista);
+  if (!f) return '';
+  return String(f.Apelido || f.Nome || '').trim();
 }
 
 function montarMovimento(p, ctx) {
@@ -3254,7 +3276,7 @@ module.exports = {
   fornecedorDoMovimento: fornecedorDoMovimento,
   ehMotoristaFornecedor: ehMotoristaFornecedor,
   pontasQuePedemFornecedor: pontasQuePedemFornecedor,
-  conferirFornecedor: conferirFornecedor, montarConferencia: montarConferencia,
+  conferirFornecedor: conferirFornecedor, acharFornecedor: acharFornecedor, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
   corrigeLancamento: corrigeLancamento, fotoDePerfil: fotoDePerfil,

@@ -380,7 +380,7 @@
           <select id="sdDestino"></select>
         </div>
         <div id="sdWrapMotorista">
-          <label for="sdMotorista">Motorista<span class="obrig">*</span></label>
+          <label for="sdMotorista"><span data-rotulo="sdMotorista">Motorista</span><span class="obrig">*</span></label>
           <select id="sdMotorista"></select>
         </div>
         <!-- O VEÍCULO DEPOIS DO MOTORISTA na marcação, mas é ele que preenche o outro:
@@ -448,7 +448,7 @@
           <select id="dvDestino"></select>
         </div>
         <div>
-          <label for="dvMotorista">Motorista<span class="obrig">*</span></label>
+          <label for="dvMotorista"><span data-rotulo="dvMotorista">Motorista</span><span class="obrig">*</span></label>
           <select id="dvMotorista"></select>
         </div>
         <div id="dvWrapVeiculo">
@@ -926,7 +926,16 @@
     var alvo = String(curto || '').trim();
     if (!alvo) return '';
     var iguais = meusMotoristas().filter(function(m){ return Q.comoChamar(m) === alvo; });
-    return iguais.length === 1 ? String(iguais[0].Nome || '').trim() : alvo;
+    if (iguais.length === 1) return String(iguais[0].Nome || '').trim();
+    /* E TAMBEM NO CADASTRO DE FORNECEDORES, que e' de onde a lista vem pela rota deles:
+       sem isto, o nome completo do fornecedor nao chegava ao lancamento e a linha
+       gravava o apelido nas duas colunas. O cadastro dele tem nome e apelido como o do
+       motorista — e' a mesma pergunta feita a outra lista. */
+    var f = ((DADOS||{}).fornecedores || []).filter(function(x){
+      return Q.comoChamar(x) === alvo;
+    });
+    if (f.length === 1) return String(f[0].Nome || '').trim();
+    return alvo;
   }
 
   /* A FROTA QUE ESTA PESSOA PODE ESCOLHER, pela mesma peneira dos motoristas: nada
@@ -1383,35 +1392,99 @@
      Ramos, e no dia em que outro levasse aquela carga a pessoa lançava no nome do
      Ramos assim mesmo. O extrato passava a mentir sobre quem saiu com as caixas, que
      é justamente o que este app existe para não deixar acontecer. */
+  /* OS FORNECEDORES QUE PODEM SER ESCOLHIDOS, do cadastro de Fornecedores.
+   *
+   * SEM A PENEIRA POR USUARIO que os motoristas tem, e isso e' uma decisao, nao um
+   * esquecimento: o cadastro de fornecedor nao guarda CPF, CNH nem telefone — e' nome,
+   * apelido e localidade —, e quem pode lancar ja' e' decidido pela aba e pelas rotas
+   * que o Admin libera. Uma segunda lista de marcacao seria mais vinte e oito caixinhas
+   * por usuario para manter, e marcacao nao mantida foi exatamente o que deixou a lista
+   * de fornecedores vazia por dois dias.
+   *
+   * INATIVO FICA DE FORA, como em todo cadastro daqui — e o servidor recusa de novo, que
+   * e' onde a regra nao se contorna. */
+  function fornecedoresParaEscolher(){
+    return ((DADOS||{}).fornecedores || [])
+      .filter(function(f){ return Q.ativo(f.Ativo); })
+      .map(Q.comoChamar)
+      .filter(function(n){ return !!n; })
+      .sort(function(a, b){ return a.localeCompare(b, 'pt-BR'); });
+  }
+
+  /* O ROTULO DIZ O QUE A LISTA TEM DENTRO. Pela rota de fornecedor o campo oferece
+     fornecedores, e continuar escrito "Motorista" obriga quem lanca a saber de cabeca
+     que ali, naquela rota, a palavra quer dizer outra coisa.
+     A MESMA CONTA decide a lista e o rotulo: separadas, a tela diria uma e mostraria a
+     outra no primeiro conserto que so' uma recebesse. */
+  function pintarRotuloMotorista(idMotorista, ehForn){
+    var r = document.querySelector('[data-rotulo="' + idMotorista + '"]');
+    if (r) r.textContent = ehForn ? 'Fornecedor' : 'Motorista';
+  }
+
   function montarMotoristas(idMotorista, idRota, sentido, pontas){
     var sel = document.getElementById(idMotorista || 'sdMotorista');
     var elRota = document.getElementById(idRota || 'sdRota');
     var escolhido = sel.value;
     var rota = elRota ? elRota.value : '';
-    /* PELA ROTA DE FORNECEDOR, SO' MOTORISTA DE FORNECEDOR.
+    /* PELA ROTA DE FORNECEDOR, A LISTA E' OUTRO CADASTRO.
        A peneira fica aqui e nao dentro de `motoristasDaRota` porque depende das PONTAS
        do lancamento, e aquela funcao so' conhece a rota. */
     var soForn = pedeFornecedor(pontas || []);
+    pintarRotuloMotorista(idMotorista || 'sdMotorista', soForn);
     var rotaAnterior = sel.getAttribute('data-rota');
+    /* ================= O FORNECEDOR E' QUEM ENTREGA =================
+     *
+     * Ele vem do cadastro de FORNECEDORES, e nao do de motoristas. Os vinte e oito
+     * estavam nos dois, e o lado do motorista eram cascas: zero CPF, zero CNH, zero
+     * telefone, zero placa, zero rota marcada. O unico campo preenchido era `Empresa`, e
+     * dentro dele estava a LOCALIDADE ("Fornecedor - Macaparana") — faltando onde por o
+     * dado, o escritorio dobrou um campo para ele caber.
+     *
+     * NAO HA ROTA NEM SENTIDO AQUI, e nao faz falta: quem decide se este lancamento pede
+     * fornecedor e' a PONTA escolhida, nao o cadastro de quem dirige. Nenhum dos vinte e
+     * oito tinha rota marcada. */
+    if (soForn) {
+      var lista = fornecedoresParaEscolher();
+      if (!lista.length) {
+        var quantos = ((DADOS||{}).fornecedores || []).length;
+        sel.innerHTML = '<option value="">'+
+          (quantos
+            ? '— ' + quantos + ' cadastrados, nenhum ativo —'
+            : '— nenhum fornecedor cadastrado —')+'</option>';
+        sel.title = quantos
+          ? 'Há ' + quantos + ' fornecedores no cadastro, e nenhum está ativo. ' +
+            'Reative-os em Cadastros → Fornecedores.'
+          : 'Cadastre o fornecedor em Cadastros → Fornecedores.';
+        sel.setAttribute('data-rota', rota);
+        return;
+      }
+      sel.title = '';
+      sel.innerHTML = '<option value="">Selecione…</option>' +
+        lista.map(function(n){
+          return '<option value="'+Q.esc(n)+'"'+(n===escolhido?' selected':'')+'>'+
+                 Q.esc(n)+'</option>';
+        }).join('');
+      /* O QUE ESTAVA ESCOLHIDO SO' FICA SE AINDA EXISTE NA LISTA: trocando a ponta, o
+         nome de antes pode nao ser mais oferecido, e um seletor que guarda um valor que
+         nao esta' na lista grava o que ninguem ve. */
+      if (lista.indexOf(escolhido) < 0) sel.value = '';
+      if (!sel.value && lista.length === 1) sel.value = lista[0];
+      sel.setAttribute('data-rota', rota);
+      return;
+    }
     /* O SENTIDO VEM DE QUEM CHAMA, e nao do id do campo: ler 'dv' no nome para deduzir
        "entrada" amarraria a regra ao nome de um elemento da tela, e renomear o campo
        mudaria quem aparece na lista sem ninguem relacionar as duas coisas. */
-    function soDoTipo(nomes){
-      if (!soForn) return nomes;
-      var ehForn = {};
-      meusMotoristas().forEach(function(m){
-        if (ehFornecedor(m)) ehForn[Q.comoChamar(m)] = 1;
-      });
-      return nomes.filter(function(n){ return ehForn[n]; });
-    }
-    var daRota = soDoTipo(motoristasDaRota(rota, false, sentido));
-    var atribuidos = soDoTipo(motoristasDaRota(rota, true, sentido));
-    /* E "OUTROS MOTORISTAS" TAMBEM RESPEITA O SENTIDO: sem isto, o fornecedor que so'
-       faz entrada sumia do grupo da rota e reaparecia logo abaixo, no outro grupo —
-       escondido do lugar certo e oferecido no errado, que e' pior que nao filtrar. */
-    var outros = soDoTipo(meusMotoristas().filter(function(m){
+    /* DAQUI PARA BAIXO E' A ROTA COMUM, e a peneira por tipo saiu junto com ela: o
+       fornecedor nao mora mais neste cadastro, entao nao ha o que peneirar. */
+    var daRota = motoristasDaRota(rota, false, sentido);
+    var atribuidos = motoristasDaRota(rota, true, sentido);
+    /* E "OUTROS MOTORISTAS" TAMBEM RESPEITA O SENTIDO: sem isto, quem so' faz entrada
+       sumia do grupo da rota e reaparecia logo abaixo, no outro grupo — escondido do
+       lugar certo e oferecido no errado, que e' pior que nao filtrar. */
+    var outros = meusMotoristas().filter(function(m){
       return Q.atendeNoSentido(m, rota, sentido);
-    }).map(Q.comoChamar)).filter(function(m){ return daRota.indexOf(m) < 0; });
+    }).map(Q.comoChamar).filter(function(m){ return daRota.indexOf(m) < 0; });
 
     function itens(lista){
       return lista.map(function(m){
@@ -1424,29 +1497,6 @@
 
     // Sem ninguém de fora não há o que separar: a lista sai simples, sem rótulo de
     // grupo para ler à toa.
-    /* LISTA VAZIA DIZ POR QUE — E DIZ A VERDADE.
-     *
-     * Ela dizia "nenhum motorista do tipo Fornecedor" nos dois casos, e os dois casos
-     * sao diferentes: ou nao ha nenhum CADASTRADO, ou ha e nenhum esta' LIBERADO para
-     * quem esta' na tela. A frase errada manda a pessoa cadastrar o que ja' existe —
-     * foi o que aconteceu com vinte e cinco deles.
-     *
-     * O NUMERO SAI DO CADASTRO INTEIRO, e nao da lista permitida: e' justamente a
-     * diferenca entre os dois que explica o que fazer. */
-    if (soForn && !daRota.length && !outros.length) {
-      var fornCadastrados = ((DADOS||{}).motoristas || []).filter(ehFornecedor).length;
-      sel.innerHTML = '<option value="">'+
-        (fornCadastrados
-          ? '— ' + fornCadastrados + ' cadastrados, nenhum liberado para você —'
-          : '— nenhum motorista do tipo Fornecedor cadastrado —')+'</option>';
-      sel.title = fornCadastrados
-        ? 'Há ' + fornCadastrados + ' motoristas do tipo Fornecedor no cadastro, e ' +
-          'nenhum está marcado no seu usuário. Marque-os em Cadastros → Usuários.'
-        : 'Cadastre o motorista do fornecedor em Cadastros → Motoristas, com o tipo ' +
-          'Fornecedor.';
-      sel.setAttribute('data-rota', rota);
-      return;
-    }
     sel.title = '';
     sel.innerHTML = '<option value="">Selecione…</option>' +
       (outros.length
@@ -1900,7 +1950,7 @@
      lembra a grafia exata. */
   function semAcento(v){
     return String(v == null ? '' : v).toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      .normalize('NFD').replace(/[̀-ͯ]/g, '');
   }
 
   function passaBusca(m){

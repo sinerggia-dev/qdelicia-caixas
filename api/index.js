@@ -349,12 +349,12 @@ async function gravarMovimento(p) {
   /* O FORNECEDOR E' O MOTORISTA. A regra confere que quem dirigiu esta' cadastrado como
      motorista do tipo Fornecedor, e o NOME da coluna e' derivado dele logo abaixo — a
      tela nao manda mais esse campo, e um POST direto que mandasse seria ignorado. */
-  var faltaForn = L.conferirFornecedor(p, d.locais, d.motoristas);
+  var faltaForn = L.conferirFornecedor(p, d.locais, d.fornecedores);
   if (faltaForn) return { ok: false, erro: faltaForn };
   /* DERIVADO, E NAO RECEBIDO: com uma fonte so', a coluna Fornecedor nunca discorda da
      coluna Motorista da mesma linha. Vai pelo `ctx` do construtor, que NAO le' o
      pedido — assim um POST montado a mao nao tem onde injetar outro nome. */
-  var fornDaLinha = L.fornecedorDoMovimento(p, d.locais, d.motoristas);
+  var fornDaLinha = L.fornecedorDoMovimento(p, d.locais, d.fornecedores);
 
   /* A PLACA, DESDE QUE PODE SER DIGITADA. A tela ja' recusa o que nao e' placa; aqui
      e' a guarda que nao se contorna — e' esta rota que grava a coluna. */

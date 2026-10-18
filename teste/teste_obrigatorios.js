@@ -175,7 +175,13 @@ ok(marcas.length === 1 && marcas[0] === 'sdData', 'aponta um campo por vez, o pr
 var naLista = [].concat(
   (html.match(/id:'(sd|dv)[A-Za-z]+'/g) || []).map(function (x) { return x.slice(4, -1); })
 );
-var comEstrela = (html.match(/<label for="([a-zA-Z]+)">[^<]*<span class="obrig">/g) || [])
+/* O ROTULO INTEIRO, e nao "texto puro seguido da estrela": o rotulo do motorista ganhou
+   um <span> dentro, porque a palavra dele troca para "Fornecedor" quando a ponta pede
+   fornecedor. O padrao antigo exigia que nada viesse antes da estrela, e reprovou uma
+   mudanca que nao tem nada a ver com o que ele mede — a estrela continuava la'.
+   O QUE IMPORTA E' A PERGUNTA: o rotulo deste campo tem a marca de obrigatorio? */
+var comEstrela = (html.match(/<label for="([a-zA-Z]+)"[^>]*>[\s\S]*?<\/label>/g) || [])
+  .filter(function (x) { return x.indexOf('class="obrig"') > 0; })
   .map(function (x) { return x.match(/for="([a-zA-Z]+)"/)[1]; });
 var faltaEstrela = naLista.filter(function (id) { return comEstrela.indexOf(id) < 0; });
 /* `crMotivo` é obrigatório por OUTRA guarda: ele não é campo de lançamento, é o motivo

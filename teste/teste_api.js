@@ -81,6 +81,13 @@ const tabelas = {
       cnh_categoria: 'E', cnh_validade: '2030-01-01', placa: 'ABC1D23', obs: '', ativo: true }
   ],
   movimentos: [],
+  /* AS DUAS TABELAS MAIS NOVAS FALTAVAM AQUI, e a falta nao reprovava nada: o
+     `carregarTudo` de mentira simplesmente nao as devolvia, entao toda regra que
+     dependesse delas rodava contra `undefined` e respondia "nao achei" — que e' uma
+     resposta plausivel. A prova logo abaixo cobra que as chaves daqui sejam as mesmas
+     do `carregarTudo` de verdade, para a proxima tabela nao nascer esquecida. */
+  veiculos: [],
+  fornecedores: [],
   pedidos_senha: [],
   config: [
     { chave: 'empresa', valor: 'Qdelícia Frutas' },
@@ -165,6 +172,8 @@ const falso = Object.assign({}, real, {
       motoristas: tabelas.motoristas.map(real.MOTORISTA.de),
       locaisPadrao: tabelas.locais_padrao.map(real.LOCAL_PADRAO.de),
       pedidosSenha: tabelas.pedidos_senha.filter((r) => r.atendido !== true),
+      veiculos: tabelas.veiculos.map(real.VEICULO.de),
+      fornecedores: tabelas.fornecedores.map(real.FORNECEDOR.de),
       config: config
     };
   }
@@ -276,8 +285,8 @@ async function main() {
   var semMot = await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G,
     destinoId: rotaForn.id, itens: [{ tipoCaixaId: T, qtd: 1 }], dataRef: dia(-1),
     usuarioId: 'U003', perfil: 'MOTORISTA' });
-  ok(semMot.ok === false && /motorista do tipo Fornecedor/.test(String(semMot.erro || '')),
-    'e a ROTA recusa um lancamento pela rota de fornecedor sem motorista do tipo — a ' +
+  ok(semMot.ok === false && /fornecedor do cadastro/.test(String(semMot.erro || '')),
+    'e a ROTA recusa um lancamento pela rota de fornecedor sem fornecedor — a ' +
     'tela esconder a lista e conveniencia, e um POST direto passa por cima dela',
     semMot);
 
@@ -5098,7 +5107,37 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
 /* ============================================================================
    O FORNECEDOR DA CARGA
    ========================================================================= */
-console.log('\n== o fornecedor e o motorista ==');
+console.log('\n== o banco de mentira carrega o mesmo que o de verdade ==');
+{
+  /* A BANCADA SO' VALE SE O BANCO DE MENTIRA TIVER O QUE O DE VERDADE TEM.
+   *
+   * `veiculos` e `fornecedores` ficaram de fora deste `carregarTudo` quando nasceram, e
+   * a falta nao reprovou nada: as regras que os leem recebiam `undefined`, respondiam
+   * "nao achei" — resposta plausivel — e as provas passavam verdes sobre um banco que
+   * nao existe. Foi assim que a troca do cadastro de fornecedor chegou ate' aqui sem
+   * ninguem perceber.
+   *
+   * AS CHAVES SAO LIDAS DO ARQUIVO DE VERDADE, e nao escritas aqui: escrita, a lista
+   * nao cresce com a tabela que alguem acrescentar — que e' exatamente o esquecimento
+   * que esta prova existe para pegar. */
+  var fonteDb = fs.readFileSync(path.join(__dirname, '..', 'api', '_supabase.js'), 'utf8');
+  var iC = fonteDb.indexOf('async function carregarTudo()');
+  var corpoC = iC < 0 ? '' : fonteDb.slice(iC, fonteDb.indexOf('\n}', iC));
+  var devolve = corpoC.slice(corpoC.indexOf('return {'));
+  var chavesReais = (devolve.match(/^\s{4}(\w+):/gm) || [])
+    .map(function (x) { return x.trim().replace(':', ''); });
+  ok(chavesReais.length >= 9,
+    'a conferencia leu as chaves do `carregarTudo` de VERDADE — lista vazia faria a ' +
+    'prova abaixo passar sem comparar nada', chavesReais);
+  var doFalso = Object.keys(await falso.carregarTudo());
+  var faltando = chavesReais.filter(function (k) { return doFalso.indexOf(k) < 0; });
+  ok(!faltando.length,
+    'e o banco de mentira devolve TODAS elas — faltando uma, as regras que a leem ' +
+    'recebem `undefined` e respondem "nao achei", que e uma resposta plausivel: a ' +
+    'suite fica verde sobre um banco que nao existe', faltando);
+}
+
+console.log('\n== o fornecedor vem do cadastro de fornecedores ==');
 {
   /* O MODULO DE VERDADE, como as outras secoes deste arquivo fazem. */
   var L = require(path.join(__dirname, '..', 'api', '_logica.js'));
@@ -5107,38 +5146,57 @@ console.log('\n== o fornecedor e o motorista ==');
     { ID: 'L009', Nome: 'Fornecedor',         Tipo: 'ROTA', PedeFornecedor: true },
     { ID: 'L005', Nome: 'Caruaru',            Tipo: 'ROTA' }
   ];
-  var MOTS_F = [
-    { ID: 'D1', Nome: 'Roberto Cavalcanti', Apelido: 'Braulio', Tipo: 'Fornecedor' },
-    { ID: 'D2', Nome: 'Dinho',              Apelido: '',        Tipo: 'Fixo' }
+  /* A LISTA E' A DO CADASTRO DE FORNECEDORES, e nao mais a de motoristas.
+   *
+   * POR QUE MUDOU: os vinte e oito estavam cadastrados nos dois lugares, e o lado do
+   * motorista eram cascas — zero CPF, zero CNH, zero telefone, zero placa, zero rota.
+   * O unico campo preenchido era `Empresa`, e dentro dele estava a LOCALIDADE
+   * ("Fornecedor - Macaparana"): faltando onde por o dado, o escritorio dobrou um campo
+   * para ele caber.
+   *
+   * `Dinho` CONTINUA NA PROVA, agora como quem NAO esta no cadastro de fornecedores —
+   * e' o caso que separa "a rota pede fornecedor" de "qualquer um serve". */
+  var FORNS_F = [
+    { ID: 'F1', Nome: 'Roberto Cavalcanti', Apelido: 'Braulio', Ativo: true },
+    { ID: 'F2', Nome: 'Sitio Aposentado',   Apelido: 'Velho',   Ativo: false }
   ];
-  function conf(p) { return L.conferirFornecedor(p, LOCAIS_F, MOTS_F); }
-  function nomeDe(p) { return L.fornecedorDoMovimento(p, LOCAIS_F, MOTS_F); }
+  function conf(p) { return L.conferirFornecedor(p, LOCAIS_F, FORNS_F); }
+  function nomeDe(p) { return L.fornecedorDoMovimento(p, LOCAIS_F, FORNS_F); }
 
   /* ---- AS DUAS PONTAS CONTAM ----
    * Na saida o fornecedor e' o DESTINO; no retorno, a ORIGEM. Uma regra que olhasse so'
    * um lado deixaria metade da operacao sem conferencia — e seria a metade que varia
    * conforme a tela, que e' o pior jeito de uma regra falhar. */
   ok(conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009' }),
-    'a saida PARA a rota de fornecedor exige um motorista — sem ele a linha nao diz de ' +
+    'a saida PARA a rota de fornecedor exige um fornecedor — sem ele a linha nao diz de ' +
     'quem e a carga, que e a pergunta deste sistema');
   ok(conf({ tipo: 'DEVOLUCAO', origemId: 'L009', destinoId: 'L001' }),
     'e o retorno VINDO dela exige a mesma coisa');
   ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005', motorista: 'Dinho' }),
     'e a rota que NAO pede continua lancando com o motorista de sempre');
 
-  /* ---- O TIPO DO MOTORISTA E' A REGRA ---- */
-  ok(/nao esta cadastrado|não está cadastrado/.test(
+  /* ---- O CADASTRO DE FORNECEDORES E' A REGRA ---- */
+  ok(/fora do cadastro/.test(
        conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Dinho' })),
-    'e um motorista COMUM e recusado na rota de fornecedor — aceitar qualquer um faria ' +
-    'a coluna Fornecedor apontar para quem nao e',
+    'e um MOTORISTA e recusado na rota de fornecedor — ele nao esta no cadastro de ' +
+    'fornecedores, e aceitar qualquer um faria a coluna Fornecedor apontar para quem ' +
+    'nao e',
     conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Dinho' }));
   ok(!conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Braulio' }),
-    'e o do tipo Fornecedor passa, pelo apelido — o nome de trabalho, que e o que a ' +
-    'linha grava');
+    'e o fornecedor do cadastro passa, pelo apelido — o nome de trabalho, que e o que ' +
+    'a linha grava');
   ok(!conf({ tipo: 'DEVOLUCAO', origemId: 'L009', destinoId: 'L001',
              motorista: 'Roberto Cavalcanti' }),
-    'e pelo nome do cadastro tambem — as duas portas levam ao mesmo motorista, e ' +
+    'e pelo nome do cadastro tambem — as duas portas levam ao mesmo fornecedor, e ' +
     'recusar uma quebraria a correcao do que ja foi lancado');
+  /* INATIVO E' RECUSADO AQUI, e nao so sumindo do seletor: sumir e conveniencia, e um
+     POST direto passa por cima dela. E' a mesma regra de todo cadastro daqui — e e ela
+     que vai deixar aposentar um fornecedor sem reescrever o historico. */
+  ok(/inativo/i.test(
+       conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Velho' })),
+    'e o fornecedor INATIVO e recusado no servidor, e nao so escondido da lista — ' +
+    'esconder e conveniencia; quem manda um POST direto passa por cima dela',
+    conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Velho' }));
   ok(/fora do cadastro/.test(
        conf({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Fulano' })),
     'e quem nao esta no cadastro e recusado, com a frase dizendo o que fazer',
@@ -5155,7 +5213,7 @@ console.log('\n== o fornecedor e o motorista ==');
    * mesma linha — e um POST direto nao tem como mandar outro nome. */
   ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
               motorista: 'Braulio' }) === 'Braulio',
-    'o nome que vai para a coluna Fornecedor e DERIVADO do motorista, no servidor');
+    'o nome que vai para a coluna Fornecedor e DERIVADO do cadastro, no servidor');
   ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
               motorista: 'Roberto Cavalcanti' }) === 'Braulio',
     'e e sempre o nome de TRABALHO, venha o lancamento pelo apelido ou pelo nome do ' +
@@ -5167,15 +5225,15 @@ console.log('\n== o fornecedor e o motorista ==');
   ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005',
               motorista: 'Braulio' }) === '',
     'e fora da rota de fornecedor a coluna fica vazia ATE para o proprio fornecedor — ' +
-    'ela responde "de qual fornecedor e esta carga", e o mesmo motorista levando uma ' +
+    'ela responde "de qual fornecedor e esta carga", e a mesma pessoa levando uma ' +
     'carga comum nao faz dela uma carga de fornecedor');
   ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005',
               motorista: 'Dinho' }) === '',
     'e com um motorista comum tambem');
   ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
               motorista: 'Dinho' }) === '',
-    'e um motorista que nao e do tipo nao vira fornecedor por acidente — o lancamento ' +
-    'ja foi recusado, e se passasse por outro caminho a coluna nao mentiria');
+    'e quem nao esta no cadastro de fornecedores nao vira fornecedor por acidente — o ' +
+    'lancamento ja foi recusado, e se passasse por outro caminho a coluna nao mentiria');
 
   /* ---- O CONSTRUTOR IGNORA O QUE VIER NO PEDIDO ----
    * O fornecedor e' DERIVADO do motorista, contra o cadastro, e quem deriva e' a rota.
@@ -5218,10 +5276,22 @@ console.log('\n== e a rota deriva mesmo: o lancamento inteiro ==');
    * FICA NO FIM DO ARQUIVO de proposito: este bloco GRAVA um movimento, e qualquer
    * conta de saldo depois dele mudaria de valor. No meio, a prova viraria a causa do
    * erro que ela deveria achar. */
-  var motForn = await POST({ acao: 'salvarMotorista', registro: {
-    Nome: 'Roberto Cavalcanti', Apelido: 'Braulio', Tipo: 'Fornecedor',
-    Rotas: [rotaForn.id] } });
-  ok(motForn.ok, 'o motorista do tipo Fornecedor foi cadastrado pela API', motForn);
+  var forn = await POST({ acao: 'salvarFornecedor', registro: {
+    Nome: 'Roberto Cavalcanti', Apelido: 'Braulio', Localidade: 'Macaparana',
+    Ativo: 'SIM' } });
+  ok(forn.ok, 'o fornecedor foi cadastrado pela API', forn);
+  /* UM MOTORISTA COM O MESMO PAPEL, cadastrado em paralelo, e' o caso que separa as
+     duas listas: se a regra ainda olhasse o cadastro de motoristas, ela passaria por
+     ele e a prova continuaria verde sem o fornecedor existir. */
+  var motComum = await POST({ acao: 'salvarMotorista', registro: {
+    Nome: 'Dinho da Silva', Apelido: 'Dinho', Tipo: 'Fixo', Rotas: [rotaForn.id] } });
+  ok(motComum.ok, 'e um motorista comum tambem, atendendo a mesma rota', motComum);
+  var recusa = await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G,
+    destinoId: rotaForn.id, itens: [{ tipoCaixaId: T, qtd: 3 }], dataRef: dia(-1),
+    usuarioId: 'U001', perfil: 'ADMIN', motorista: 'Dinho' });
+  ok(!recusa.ok && /fora do cadastro/.test(String(recusa.erro || '')),
+    'e o motorista comum e RECUSADO na rota de fornecedor, de ponta a ponta — a lista ' +
+    'da tela e conveniencia, e um POST direto passa por cima dela', recusa);
 
   var lanc = await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: G,
     destinoId: rotaForn.id, itens: [{ tipoCaixaId: T, qtd: 7 }], dataRef: dia(-1),
@@ -5238,9 +5308,9 @@ console.log('\n== e a rota deriva mesmo: o lancamento inteiro ==');
   ok(!!gravada, 'e a linha aparece na lista de movimentos',
      gravada && gravada.id);
   ok(gravada && gravada.fornecedor === 'Braulio',
-    'e a coluna Fornecedor da linha gravada traz o nome DERIVADO do motorista — nao o ' +
-    'que o pedido mandou, e nao vazio: e este fio, entre a regra e o construtor, que ' +
-    'nenhuma prova alcancava',
+    'e a coluna Fornecedor da linha gravada traz o nome DERIVADO do CADASTRO DE ' +
+    'FORNECEDORES — nao o que o pedido mandou, e nao vazio: e este fio, entre a regra ' +
+    'e o construtor, que nenhuma prova alcancava',
     gravada && { fornecedor: gravada.fornecedor, motorista: gravada.motorista });
   ok(gravada && gravada.motorista === 'Braulio',
     'e as duas colunas da mesma linha dizem a mesma pessoa — e para isso que o nome e ' +
