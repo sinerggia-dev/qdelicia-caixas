@@ -1372,7 +1372,73 @@ function fornecedorDoMovimento(p, locais, fornecedores) {
   if (!pontasQuePedemFornecedor(p, locais).length) return '';
   var f = acharFornecedor(fornecedores, p.motorista);
   if (!f) return '';
-  return String(f.Apelido || f.Nome || '').trim();
+  /* O NOME DO CADASTRO, e nao o apelido.
+     As duas colunas da linha respondem perguntas diferentes: `Motorista` diz QUEM
+     DIRIGIU, pelo nome de trabalho — e' por ele que o galpao chama a pessoa —, e
+     `Fornecedor` diz DE QUEM E A CARGA, que e' o que vai para a cobranca. Com o apelido
+     nas duas, a linha mostra "Mundinho | Mundinho": o mesmo texto repetido, e nenhuma
+     das duas perguntas respondida por inteiro. */
+  return String(f.Nome || f.Apelido || '').trim();
+}
+
+/* ================= OS DOIS NOMES, COMO A TELA OS MOSTRA =================
+ *
+ * O movimento guarda o nome COPIADO — e' isso que faz o historico sobreviver a um
+ * cadastro apagado, e nao muda. O que muda aqui e' a LEITURA: estando a pessoa no
+ * cadastro, a tela mostra o que o cadastro diz HOJE.
+ *
+ * POR QUE: o escritorio renomeia. Trocado o apelido de um fornecedor, as linhas
+ * antigas continuavam com o texto de ontem e as novas saiam com o de hoje — o mesmo
+ * sitio partido em dois no relatorio, e os dois plausiveis.
+ *
+ * O QUE CADA COLUNA RESPONDE:
+ *   Motorista  -> o APELIDO, o nome de trabalho de quem dirigiu;
+ *   Fornecedor -> o NOME do cadastro, que e' o que se cobra.
+ *
+ * SUMINDO DO CADASTRO, VALE O QUE ESTA GRAVADO. E' a garantia que o projeto sempre deu
+ * e que esta funcao nao tira: quem foi apagado continua escrito na linha, com o nome
+ * que tinha no dia. Sem este `||`, apagar um cadastro esvaziaria a coluna de todas as
+ * viagens dele — apagar o cadastro reescreveria o passado.
+ *
+ * E A COLUNA FORNECEDOR SO' E' RESOLVIDA QUANDO A LINHA JA' TEM UMA: numa viagem comum
+ * ela e' vazia, e buscar o nome no cadastro de fornecedores ali inventaria um
+ * fornecedor para uma carga que nao tinha nenhum — bastaria a mesma pessoa aparecer
+ * nos dois cadastros.
+ */
+function nomesDaLinha(m, motoristas, fornecedores) {
+  var gravado = String((m && m.Motorista) || '').trim();
+  var gravadoForn = String((m && m.Fornecedor) || '').trim();
+  /* DUAS PORTAS PARA O MESMO CADASTRO, e e' isto que faz o renome chegar nas linhas
+     ja' gravadas.
+     A linha guarda TEXTO, e nao id — e' o que a faz sobreviver a um cadastro apagado.
+     O preco e' que trocar o texto no cadastro corta o fio: gravado o apelido de ontem,
+     `acharFornecedor` nao acha mais ninguem com ele.
+     ENTAO SE PROCURA PELOS DOIS TEXTOS que a linha guarda: o da coluna Motorista e o da
+     coluna Fornecedor. Como a coluna Fornecedor passou a guardar o NOME do cadastro —
+     que e' o que menos muda —, trocar o apelido deixa de cortar o fio.
+     O LIMITE, dito em voz alta: mudando o nome E o apelido de uma vez, nenhuma das duas
+     portas acha, e a linha mostra o que esta' gravada. E' o mesmo piso de sempre. */
+  function doCadastro(txt) {
+    if (!txt) return null;
+    return acharMotorista(motoristas, txt) || acharFornecedor(fornecedores, txt);
+  }
+  /* A COLUNA MOTORISTA SO' SE RESOLVE PELO TEXTO DELA, e nunca pelo da coluna
+     Fornecedor. Achar o fornecedor por aquele outro texto nao autoriza reescrever QUEM
+     DIRIGIU: numa linha corrigida a mao, em que o motorista e' outro, a tela passaria a
+     mostrar o nome do fornecedor ao volante — e seria uma mentira sobre a pessoa, que e'
+     o tipo de erro que este sistema existe para nao cometer.
+     Foi uma prova desta bancada que pegou isso; o preco esta' logo abaixo, escrito.
+     MOTORISTAS PRIMEIRO, que e' o caso comum; o fornecedor entra depois porque ele
+     tambem dirige, e desde que saiu do cadastro de motoristas e' la' que ele esta'. */
+  var pessoa = doCadastro(gravado);
+  var apelido = pessoa ? String(pessoa.Apelido || pessoa.Nome || '').trim() : '';
+  var f = gravadoForn ? (acharFornecedor(fornecedores, gravado) ||
+                         acharFornecedor(fornecedores, gravadoForn)) : null;
+  return {
+    motorista: apelido || gravado,
+    fornecedor: f ? (String(f.Nome || f.Apelido || '').trim() || gravadoForn)
+                  : gravadoForn
+  };
 }
 
 function montarMovimento(p, ctx) {
@@ -2298,8 +2364,13 @@ function rotuloCiclo(m, e) {
   return m.Tipo === 'TRANSFERENCIA' ? 'Transferida' : 'Enviada';
 }
 
-function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
+/* `cad` SAO OS DOIS CADASTROS de gente: motoristas e fornecedores. Sem eles a lista
+   ainda sai — com o texto gravado, que e' o piso —, e por isso a bancada enumera as
+   chamadas: uma esquecida nao quebra nada, so' deixa aquela tela com os nomes de
+   ontem, o que e' exatamente o defeito que se quer evitar. */
+function listaMovimentos(movimentos, locais, tipos, usuarios, p, cad) {
   p = p || {};
+  cad = cad || {};
   var mLocais = mapaNomes(locais), mTipos = mapaTipos(tipos), mUsers = mapaNomes(usuarios);
   var de = p.de ? data(p.de) : null;
   var ate = p.ate ? fimDoDia(data(p.ate)) : null;
@@ -2413,6 +2484,7 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
     return a.DataRef > b.DataRef ? -1 : (a.DataHora > b.DataHora ? -1 : 1);
   }).slice(0, limite).map(function (m) {
     var temConf = m.QtdConferida !== null && m.QtdConferida !== undefined && m.QtdConferida !== '';
+    var nomes = nomesDaLinha(m, cad.motoristas, cad.fornecedores);
     return {
       id: m.ID, dataRef: iso(m.DataRef), dataHora: iso(m.DataHora), tipo: m.Tipo,
       /* De qual remessa esta linha é. A tela de celular junta as linhas por aqui em vez
@@ -2460,13 +2532,15 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p) {
          reescrever o que ja saiu do galpao. Ela era gravada e nao chegava a tela:
          uma coluna de Veiculo nasceria vazia em todas as linhas, e a conclusao
          natural seria que ninguem preenche o campo. */
-      motorista: m.Motorista || '',
+      /* OS DOIS NOMES SAEM DO CADASTRO DE HOJE, com o que esta' gravado como piso —
+         ver `nomesDaLinha`. O apelido na coluna Motorista, o nome na coluna Fornecedor. */
+      motorista: nomes.motorista,
       motoristaNome: m.MotoristaNome || m.Motorista || '',
       veiculo: m.Veiculo || '', rota: m.Rota || '',
       /* GRAVADO E NAO MOSTRADO e' meio dado: a coluna Fornecedor nasceria vazia em
          todas as linhas e a conclusao natural seria que ninguem preenche o campo. Foi
          o que aconteceu com a placa do veiculo, logo acima. */
-      fornecedor: m.Fornecedor || '',
+      fornecedor: nomes.fornecedor,
       obs: m.Obs, assinatura: m.AssinaturaURL, foto: m.FotoURL,
       historico: m.Historico || [],
       /* Quem mexeu por último, já com NOME. O id resolvido aqui e não na tela porque a
@@ -3276,7 +3350,8 @@ module.exports = {
   fornecedorDoMovimento: fornecedorDoMovimento,
   ehMotoristaFornecedor: ehMotoristaFornecedor,
   pontasQuePedemFornecedor: pontasQuePedemFornecedor,
-  conferirFornecedor: conferirFornecedor, acharFornecedor: acharFornecedor, montarConferencia: montarConferencia,
+  conferirFornecedor: conferirFornecedor, acharFornecedor: acharFornecedor,
+  nomesDaLinha: nomesDaLinha, montarConferencia: montarConferencia,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
   corrigeLancamento: corrigeLancamento, fotoDePerfil: fotoDePerfil,

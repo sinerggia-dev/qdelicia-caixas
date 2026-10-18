@@ -1254,13 +1254,14 @@ console.log('\n== o fornecedor e o motorista ==');
    * mesma linha. E a tela esconder o campo e' conveniencia: um POST direto chegaria
    * sem ele, ou com outro nome. */
   ok(LF.fornecedorDoMovimento({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-                                motorista: 'Bráulio' }, LOCF, FORNF) === 'Bráulio',
-    'o nome que vai para a coluna Fornecedor é DERIVADO do motorista, no servidor — ' +
-    'recebido da tela, um pedido direto poderia mandar outro, e as duas colunas da ' +
-    'mesma linha passariam a discordar');
+                                motorista: 'Bráulio' }, LOCF, FORNF) === 'Roberto Cavalcanti',
+    'o nome que vai para a coluna Fornecedor é o NOME DO CADASTRO, derivado no ' +
+    'servidor — recebido da tela, um pedido direto poderia mandar outro, e as duas ' +
+    'colunas da mesma linha passariam a discordar');
   ok(LF.fornecedorDoMovimento({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-                                motorista: 'Roberto Cavalcanti' }, LOCF, FORNF) === 'Bráulio',
-    'e é sempre o nome de TRABALHO, venha o lançamento pelo apelido ou pelo nome do ' +
+                                motorista: 'Roberto Cavalcanti' }, LOCF, FORNF) ===
+     'Roberto Cavalcanti',
+    'e é sempre o mesmo nome, venha o lançamento pelo apelido ou pelo nome do ' +
     'cadastro — duas grafias da mesma pessoa partiriam o relatório em dois');
   ok(LF.fornecedorDoMovimento({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L005',
                                 motorista: 'Dinho' }, LOCF, FORNF) === '',

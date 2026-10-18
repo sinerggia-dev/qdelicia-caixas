@@ -5107,6 +5107,180 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
 /* ============================================================================
    O FORNECEDOR DA CARGA
    ========================================================================= */
+console.log('\n== os dois nomes da linha saem do cadastro de hoje ==');
+{
+  var LN = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  /* O CASO QUE O ESCRITORIO APONTOU: o apelido foi trocado no cadastro, e a linha
+     antiga continuava com o texto de ontem. */
+  var MOTS_N = [{ ID: 'D1', Nome: 'Carlos Figueredo', Apelido: 'Dinho' }];
+  var FORNS_N = [{ ID: 'F1', Nome: 'Jose Edmundo Rodrigues', Apelido: 'Mundinho',
+                   Ativo: true }];
+  function nn(m) { return LN.nomesDaLinha(m, MOTS_N, FORNS_N); }
+
+  /* ---- A COLUNA FORNECEDOR TRAZ O NOME DO CADASTRO ---- */
+  var linhaForn = nn({ Motorista: 'Mundinho', Fornecedor: 'Mundinho' });
+  ok(linhaForn.fornecedor === 'Jose Edmundo Rodrigues',
+    'a coluna Fornecedor traz o NOME do cadastro, e nao o apelido gravado na linha \u2014 ' +
+    'a linha dizia "Mundinho | Mundinho", o mesmo texto duas vezes, e nenhuma das duas ' +
+    'perguntas respondida por inteiro', linhaForn);
+  ok(linhaForn.motorista === 'Mundinho',
+    'e a coluna Motorista traz o APELIDO \u2014 o nome de trabalho de quem dirigiu',
+    linhaForn.motorista);
+  ok(linhaForn.motorista !== linhaForn.fornecedor,
+    'e as duas dizem a mesma pessoa com textos DIFERENTES: e a isso que a tela se ' +
+    'propoe \u2014 quem dirigiu, e de quem e a carga');
+
+  /* ---- O APELIDO TROCADO NO CADASTRO CHEGA NAS LINHAS JA GRAVADAS ----
+   *
+   * E' o pedido inteiro: "atualize os lancamentos". A linha guarda o texto do dia; a
+   * tela mostra o de hoje, sem reescrever nada no banco.
+   *
+   * O FIO E O TEXTO, e nao um id — e' o que faz a linha sobreviver a um cadastro
+   * apagado. Por isso a coluna Fornecedor passou a guardar o NOME, que e o que menos
+   * muda: trocado o apelido, e o nome que segura o vinculo.
+   */
+  var gravadaHoje = { Motorista: 'Mundinho', Fornecedor: 'Jose Edmundo Rodrigues' };
+  var FORNS_RENOMEADO = [{ ID: 'F1', Nome: 'Jose Edmundo Rodrigues',
+                           Apelido: 'Mundim', Ativo: true }];
+  var depois = LN.nomesDaLinha(gravadaHoje, MOTS_N, FORNS_RENOMEADO);
+  ok(depois.fornecedor === 'Jose Edmundo Rodrigues',
+    'trocado o APELIDO no cadastro, a coluna Fornecedor da linha JA GRAVADA continua ' +
+    'certa \u2014 quem segura o vinculo e o NOME, que e o que menos muda e e o que essa ' +
+    'coluna passou a guardar', depois.fornecedor);
+  /* O PRECO, MEDIDO: a coluna MOTORISTA congela no apelido do dia.
+     Ela so' se resolve pelo texto DELA, e trocado o apelido esse texto nao acha mais
+     ninguem. Poderia ser resolvida pela outra coluna — e ai uma linha corrigida a mao,
+     em que o motorista e' outro, passaria a mostrar o fornecedor ao volante. Entre
+     congelar um apelido e mentir sobre quem dirigiu, congela. */
+  ok(depois.motorista === 'Mundinho',
+    'e a coluna Motorista CONGELA no apelido do dia \u2014 resolve-la pelo texto da outra ' +
+    'coluna faria uma linha corrigida a mao mostrar o fornecedor ao volante, e mentir ' +
+    'sobre quem dirigiu e pior do que mostrar um apelido antigo', depois.motorista);
+  ok(gravadaHoje.Motorista === 'Mundinho' &&
+     gravadaHoje.Fornecedor === 'Jose Edmundo Rodrigues',
+    'e NADA foi reescrito na linha \u2014 ela continua guardando o texto do dia, que e o ' +
+    'que faz o historico sobreviver a um cadastro apagado', gravadaHoje);
+  /* O LIMITE, MEDIDO: mudando o nome E o apelido de uma vez, as duas portas fecham e a
+     linha mostra o que esta gravada. Escrito aqui para nao ser descoberto por acidente
+     \u2014 e para a proxima pessoa saber que o piso continua sendo o texto. */
+  var tudoTrocado = LN.nomesDaLinha(gravadaHoje, MOTS_N,
+    [{ ID: 'F1', Nome: 'Outro Nome', Apelido: 'Outro', Ativo: true }]);
+  ok(tudoTrocado.motorista === 'Mundinho' &&
+     tudoTrocado.fornecedor === 'Jose Edmundo Rodrigues',
+    'e trocando o NOME e o APELIDO de uma vez, a linha mostra o que esta gravada nela \u2014 ' +
+    'as duas portas fecham, e o piso continua sendo o texto do dia', tudoTrocado);
+
+  /* ---- E QUEM SUMIU DO CADASTRO CONTINUA ESCRITO ----
+   * E' a garantia que o projeto sempre deu, e esta regra nao a tira: sem o piso,
+   * apagar um cadastro esvaziaria a coluna de TODAS as viagens daquela pessoa. */
+  var orfao = LN.nomesDaLinha({ Motorista: 'Quem Saiu', Fornecedor: 'Sitio Que Saiu' },
+                              MOTS_N, FORNS_N);
+  ok(orfao.motorista === 'Quem Saiu' && orfao.fornecedor === 'Sitio Que Saiu',
+    'e quem sumiu do cadastro continua escrito na linha, com o nome que tinha no dia \u2014 ' +
+    'sem este piso, apagar um cadastro reescreveria o passado', orfao);
+
+  /* ---- E UMA VIAGEM COMUM NAO GANHA FORNECEDOR ----
+   * A mesma pessoa pode estar nos dois cadastros. Resolvendo a coluna sempre, uma
+   * carga comum levada por quem tambem e fornecedor passaria a dizer que veio dele. */
+  var comum = LN.nomesDaLinha({ Motorista: 'Mundinho', Fornecedor: '' },
+                              MOTS_N, FORNS_N);
+  ok(comum.fornecedor === '',
+    'e uma viagem COMUM continua sem fornecedor, mesmo levada por quem e um \u2014 a ' +
+    'coluna responde "de qual fornecedor e esta carga", e inventar um ali seria uma ' +
+    'resposta sem pergunta', comum);
+
+  /* ---- A SEGUNDA PORTA DO FORNECEDOR, medida onde ela muda a resposta ----
+   *
+   * A sabotagem fechou esta porta e nada reprovou: nos casos acima o piso devolve o
+   * MESMO texto que ela acharia, entao os dois caminhos coincidem. O caso que os
+   * separa e a linha cuja coluna Motorista NAO casa com ninguem — um nome corrigido a
+   * mao, por exemplo — e cuja coluna Fornecedor ainda guarda o apelido de ontem. */
+  var soPelaColuna = LN.nomesDaLinha(
+    { Motorista: 'Quem Dirigiu Naquele Dia', Fornecedor: 'Mundinho' },
+    MOTS_N, FORNS_N);
+  ok(soPelaColuna.fornecedor === 'Jose Edmundo Rodrigues',
+    'e a coluna Fornecedor acha o cadastro pelo TEXTO DELA, quando o da coluna ' +
+    'Motorista nao casa com ninguem \u2014 sao duas portas para o mesmo cadastro, e ' +
+    'fechar a segunda deixa a linha com o apelido de ontem', soPelaColuna);
+  ok(soPelaColuna.motorista === 'Quem Dirigiu Naquele Dia',
+    'e a coluna Motorista continua dizendo quem dirigiu, com o texto do dia \u2014 achar o ' +
+    'fornecedor nao reescreve quem estava ao volante', soPelaColuna.motorista);
+
+  /* ---- E A LISTA DE VERDADE USA ISSO ----
+   * As provas acima medem a REGRA. Esta mede o fio: a lista precisa RECEBER os dois
+   * cadastros, e e uma linha que se apaga sem quebrar nada \u2014 a tela so' fica com os
+   * nomes de ontem. */
+  var idxN = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  var chamadas = (idxN.match(/L\.listaMovimentos\(/g) || []).length;
+  var comCadastro = (idxN.match(/fornecedores: d\.fornecedores \}\)/g) || []).length;
+  ok(chamadas > 0 && comCadastro >= chamadas,
+    'e TODA chamada da lista de movimentos entrega os dois cadastros \u2014 uma esquecida ' +
+    'nao quebra nada: aquela tela so passa a mostrar os nomes de ontem, e as outras os ' +
+    'de hoje', { chamadas: chamadas, comCadastro: comCadastro });
+
+  /* ---- E A LISTA DESENHA COM ELES ----
+   *
+   * As provas acima medem a REGRA, e a sabotagem mostrou o buraco: trocada a linha da
+   * lista de volta para `m.Motorista`, a regra continuava certa e a tela voltava a
+   * mostrar o texto de ontem — nenhuma prova rodava a LISTA.
+   *
+   * Esta roda. Um movimento de verdade entra, e a prova le a linha que sai. */
+  var LOC_L = [{ ID: 'L001', Nome: 'Matriz', Tipo: 'GALPAO' },
+               { ID: 'L009', Nome: 'Fornecedor', Tipo: 'ROTA', PedeFornecedor: true }];
+  var TIP_L = [{ ID: 'T1', Nome: 'CX P' }];
+  var USU_L = [{ ID: 'U001', Nome: 'Nestor Neto' }];
+  var MOV_L = [{
+    ID: 'M1', Registro: 'R000160', DataRef: '2026-10-16', DataHora: '2026-10-16T10:00:00',
+    Tipo: 'DEVOLUCAO', OrigemID: 'L009', DestinoID: 'L001', TipoCaixaID: 'T1', Qtd: 300,
+    /* O QUE A LINHA GUARDA e' o texto do dia: o apelido nas duas colunas, que e'
+       exatamente como as onze linhas de producao estao gravadas. */
+    Motorista: 'Mundinho', Fornecedor: 'Mundinho',
+    UsuarioID: 'U001', Status: 'Devolvida'
+  }, {
+    /* A SEGUNDA LINHA EXISTE PARA SEPARAR AS HIPOTESES, e nasceu de uma escapada: na
+       linha de cima o texto gravado E' o apelido de hoje, entao ler o cadastro e ler a
+       linha dao a MESMA resposta — arrancar a leitura do cadastro nao mudava nada e a
+       sabotagem passou.
+       AQUI O MOTORISTA ESTA GRAVADO PELO NOME DO CADASTRO, que e' como ficaram as
+       linhas anteriores ao apelido existir. A tela tem de mostrar o APELIDO: lendo o
+       texto gravado, sairia "Carlos Figueredo" no lugar de "Dinho". */
+    ID: 'M2', Registro: 'R000158', DataRef: '2026-10-16', DataHora: '2026-10-16T09:00:00',
+    Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'L009', TipoCaixaID: 'T1', Qtd: 120,
+    Motorista: 'Carlos Figueredo', Fornecedor: '',
+    UsuarioID: 'U001', Status: 'Enviada'
+  }];
+  var saiu = LN.listaMovimentos(MOV_L, LOC_L, TIP_L, USU_L, {},
+                                { motoristas: MOTS_N, fornecedores: FORNS_N })[0];
+  ok(!!saiu, 'a confer\u00eancia montou a linha pela lista de verdade', saiu && saiu.id);
+  ok(saiu && saiu.fornecedor === 'Jose Edmundo Rodrigues',
+    'e a coluna Fornecedor da LISTA traz o nome do cadastro \u2014 a linha est\u00e1 gravada com ' +
+    '"Mundinho" nas duas colunas, e e assim que as onze linhas de producao estao',
+    saiu && saiu.fornecedor);
+  ok(saiu && saiu.motorista === 'Mundinho',
+    'e a coluna Motorista da LISTA traz o apelido', saiu && saiu.motorista);
+  ok(saiu && saiu.motorista !== saiu.fornecedor,
+    'e as duas colunas da linha desenhada dizem textos diferentes \u2014 era "Mundinho | ' +
+    'Mundinho" na tela, o mesmo texto repetido',
+    saiu && [saiu.motorista, saiu.fornecedor]);
+  /* A LINHA GRAVADA PELO NOME DO CADASTRO — as anteriores ao apelido existir. */
+  var velha = LN.listaMovimentos(MOV_L, LOC_L, TIP_L, USU_L, {},
+                                 { motoristas: MOTS_N, fornecedores: FORNS_N })
+    .filter(function (l) { return l.id === 'M2'; })[0];
+  ok(velha && velha.motorista === 'Dinho',
+    'e a linha gravada pelo NOME do cadastro aparece com o APELIDO \u2014 e o pedido ' +
+    '("o motorista deve trazer o apelido do cadastro"), e e o caso que separa ler o ' +
+    'cadastro de ler o texto da linha: so nele as duas respostas diferem',
+    velha && velha.motorista);
+  ok(velha && velha.fornecedor === '',
+    'e ela continua sem fornecedor \u2014 e uma viagem comum', velha && velha.fornecedor);
+  /* SEM OS CADASTROS a lista ainda sai, com o texto gravado — e' o piso. Medido para
+     que a falta de um deles nao vire um erro na tela do galpao. */
+  var semCad = LN.listaMovimentos(MOV_L, LOC_L, TIP_L, USU_L, {})[0];
+  ok(semCad && semCad.motorista === 'Mundinho' && semCad.fornecedor === 'Mundinho',
+    'e sem os cadastros a lista ainda sai, com o texto gravado \u2014 a falta de um deles ' +
+    'nao pode virar erro na tela de quem esta no galpao', semCad && semCad.fornecedor);
+}
+
 console.log('\n== o carro do fornecedor ==');
 {
   /* A COLUNA EXISTE NO BANCO. A migracao e' append-only e roda sozinha na subida; sem
@@ -5261,11 +5435,14 @@ console.log('\n== o fornecedor vem do cadastro de fornecedores ==');
    * Com uma fonte so', a coluna Fornecedor nunca pode discordar da coluna Motorista da
    * mesma linha — e um POST direto nao tem como mandar outro nome. */
   ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-              motorista: 'Braulio' }) === 'Braulio',
-    'o nome que vai para a coluna Fornecedor e DERIVADO do cadastro, no servidor');
+              motorista: 'Braulio' }) === 'Roberto Cavalcanti',
+    'o nome que vai para a coluna Fornecedor e o NOME DO CADASTRO, e nao o apelido: ' +
+    'as duas colunas da linha respondem perguntas diferentes — quem dirigiu e de quem ' +
+    'e a carga —, e com o apelido nas duas a linha repete o mesmo texto',
+    nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009', motorista: 'Braulio' }));
   ok(nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
-              motorista: 'Roberto Cavalcanti' }) === 'Braulio',
-    'e e sempre o nome de TRABALHO, venha o lancamento pelo apelido ou pelo nome do ' +
+              motorista: 'Roberto Cavalcanti' }) === 'Roberto Cavalcanti',
+    'e e sempre o mesmo nome, venha o lancamento pelo apelido ou pelo nome do ' +
     'cadastro — duas grafias da mesma pessoa partiriam o relatorio em dois');
   /* COM O PROPRIO FORNECEDOR numa rota COMUM, que e' o caso que separa as duas
      guardas. Com um motorista comum, a coluna ficaria vazia de qualquer jeito — pelo
@@ -5297,7 +5474,7 @@ console.log('\n== o fornecedor vem do cadastro de fornecedores ==');
   }, { movimentos: [], agora: new Date('2026-10-16T12:00:00Z'),
        fornecedor: nomeDe({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L009',
                             motorista: 'Braulio' }) });
-  ok(mentiroso.ok && mentiroso.linhas[0].Fornecedor === 'Braulio',
+  ok(mentiroso.ok && mentiroso.linhas[0].Fornecedor === 'Roberto Cavalcanti',
     'e o construtor IGNORA o fornecedor que vier no pedido — ele usa o que a rota ' +
     'derivou do motorista: lendo o pedido, um POST montado a mao escreveria o nome que ' +
     'quisesse na coluna, e ela discordaria da coluna Motorista da mesma linha',
@@ -5356,15 +5533,21 @@ console.log('\n== e a rota deriva mesmo: o lancamento inteiro ==');
   })[0];
   ok(!!gravada, 'e a linha aparece na lista de movimentos',
      gravada && gravada.id);
-  ok(gravada && gravada.fornecedor === 'Braulio',
+  ok(gravada && gravada.fornecedor === 'Roberto Cavalcanti',
     'e a coluna Fornecedor da linha gravada traz o nome DERIVADO do CADASTRO DE ' +
     'FORNECEDORES — nao o que o pedido mandou, e nao vazio: e este fio, entre a regra ' +
     'e o construtor, que nenhuma prova alcancava',
     gravada && { fornecedor: gravada.fornecedor, motorista: gravada.motorista });
   ok(gravada && gravada.motorista === 'Braulio',
-    'e as duas colunas da mesma linha dizem a mesma pessoa — e para isso que o nome e ' +
-    'derivado de uma fonte so',
+    'e a coluna Motorista traz o APELIDO — o nome de trabalho de quem dirigiu, que e ' +
+    'por onde o galpao chama a pessoa',
     gravada && [gravada.fornecedor, gravada.motorista]);
+  /* AS DUAS COLUNAS DIZEM A MESMA PESSOA E TEXTOS DIFERENTES, e e esse o pedido:
+     "Mundinho | Mundinho" nao responde nenhuma das duas perguntas por inteiro. */
+  ok(gravada && gravada.motorista !== gravada.fornecedor,
+    'e as duas colunas da mesma linha dizem a mesma pessoa com textos DIFERENTES: o ' +
+    'apelido de quem dirigiu e o nome de quem vendeu — o mesmo texto nas duas e meia ' +
+    'resposta repetida', gravada && [gravada.motorista, gravada.fornecedor]);
 }
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TODOS OS TESTES PASSARAM\n');

@@ -187,8 +187,12 @@ async function rotaGet(p) {
       var mov = L.semDeclaracao(L.recorteDeclaracao(
         L.recorteBases(L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)), quemPede),
         quemPede));
+      /* OS DOIS CADASTROS DE GENTE VAO JUNTO: a lista mostra o APELIDO de quem
+         dirigiu e o NOME do fornecedor como o cadastro os diz HOJE, com o texto
+         gravado na linha como piso. Sem eles aqui, esta tela fica com os nomes de
+         ontem e as outras com os de hoje. */
       return { ok: true, movimentos: L.listaMovimentos(mov.movimentos, d.locais, d.tipos,
-                 d.usuarios, p) };
+                 d.usuarios, p, { motoristas: d.motoristas, fornecedores: d.fornecedores }) };
     /* OS LANCAMENTOS DE QUEM ESTA PERGUNTANDO — a lista do app de campo.
        E uma rota propria e nao um parametro de `movimentos`: por parametro, quem
        chamasse a de Movimentos pedindo "com as minhas" teria trazido declaracao para
@@ -206,7 +210,7 @@ async function rotaGet(p) {
         ? baseMeus
         : L.semDeclaracao(baseMeus, p.quem);
       return { ok: true, movimentos: L.listaMovimentos(dMeus.movimentos, d.locais,
-                 d.tipos, d.usuarios, p) };
+                 d.tipos, d.usuarios, p, { motoristas: d.motoristas, fornecedores: d.fornecedores }) };
     /* A PORTA UNICA DA DECLARACAO — a tela Motorista/Conferente, e nada mais.
        Ela traz os DOIS lados do par: a declaracao do motorista e a contagem do
        conferente, que vivem em livros diferentes. Pedindo so o livro de declaracao,
@@ -230,7 +234,7 @@ async function rotaGet(p) {
       var dConc = L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem));
       return { ok: true, movimentos: L.listaMovimentos(
                  L.recorteMundos(dConc.movimentos, quaisMundos),
-                 d.locais, d.tipos, d.usuarios, p) };
+                 d.locais, d.tipos, d.usuarios, p, { motoristas: d.motoristas, fornecedores: d.fornecedores }) };
     /* A lixeira entende o MESMO `so` que `movimentos`, e pela mesma razão: ela é o
        avesso daquela lista, e uma peneira que valesse só de um lado transformaria a
        tela que restaura num jeito de ver o que a tela que lista esconde. A tela manda
@@ -833,7 +837,11 @@ async function limparMovimentos(p) {
     cancelados: p.cancelados,
     de: p.de, ate: p.ate, limit: 100000
   };
-  var ids = L.listaMovimentos(d.movimentos, d.locais, d.tipos, d.usuarios, filtro)
+  /* AQUI SO' OS IDS INTERESSAM, mas os cadastros vao junto do mesmo jeito: uma
+     chamada que passa menos que as outras e' a que diverge no dia em que alguem
+     acrescentar algo ao que a lista devolve. */
+  var ids = L.listaMovimentos(d.movimentos, d.locais, d.tipos, d.usuarios, filtro,
+                              { motoristas: d.motoristas, fornecedores: d.fornecedores })
     .map(function (m) { return m.id; });
 
   if (!ids.length) return { ok: false, erro: 'Nenhum lançamento casa com este filtro.' };
