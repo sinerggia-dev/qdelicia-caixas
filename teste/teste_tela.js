@@ -4949,7 +4949,10 @@ console.log('\n== classificar pelo titulo da coluna ==');
      não diz nada sobre o que acontece quando a tabela é desenhada.
      `corpo` não serve aqui: ele termina no primeiro `\n  }`, e os totais ficam depois. */
   var iOrd = adm.indexOf('lista = aplicarOrdem(lista, DEFS, ORDEM_FLUXO);');
-  var iTot = adm.indexOf('var t = totaisDe(lista);');
+  /* A ANCORA E' A ESCOLHA DA CONTA, e nao mais uma chamada so': a fileira passou a ter
+     duas — `totaisDe` nas visoes de lugar, `totaisSimples` nas outras —, e procurar uma
+     delas respondia sobre metade da tela. */
+  var iTot = adm.indexOf('var t = deLugar ? totaisDe(lista) : totaisSimples(lista);');
   ok(iOrd > 0 && iTot > iOrd,
     'e os totais são somados depois, sem se importar com a ordem — somar não depende dela',
     [iOrd, iTot]);
@@ -11588,9 +11591,20 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     fileira.length);
 
   var quantos = fileira.split('tileCor(').length - 1;
-  /* OITO: o estoque, as CINCO ETAPAS do ciclo, o deficit e a taxa. */
-  ok(quantos === 8, 'a fileira tem oito cartoes \u2014 o estoque, as cinco etapas do ciclo, ' +
-    'o deficit e a taxa', quantos);
+  /* DEZ CHAMADAS NO ARQUIVO, e DUAS fileiras na tela — o ramo de cima e o de baixo do
+     mesmo `? :`:
+       visao de LUGAR: estoque + as CINCO ETAPAS + deficit + taxa  = 8 cartoes
+       as outras:      estoque + sa\u00edda e retorno + deficit + taxa = 5 cartoes
+     Uma linha de motorista ou de tipo de caixa nao e' uma viagem: ela soma varias pernas
+     num numero so', e perguntar a ela de que lado da fronteira esta' nao tem resposta.
+     Com as etapas ligadas ali, a tela anunciava "Envio 2.900 \u2014 saiu da empresa" sobre
+     um total de USUARIO. */
+  ok(quantos === 10, 'a fileira tem dez chamadas: oito cart\u00f5es na vis\u00e3o de lugar e ' +
+    'cinco nas outras, pelos dois ramos do mesmo `? :`', quantos);
+  ok(/\(deLugar\s*$/m.test(fileira) && /ehVisaoDeLugar\(FLUXO_FILTRO\)/.test(adm),
+    'e quem escolhe o ramo \u00e9 `ehVisaoDeLugar` \u2014 trocar s\u00f3 os r\u00f3tulos deixaria os ' +
+    'cinco n\u00fameros de etapa embaixo de nomes novos, que \u00e9 a mesma mentira de outra roupa',
+    fileira.indexOf('(deLugar'));
 
   /* A ORDEM e pedida, entao e conferida. Um cartao novo enfiado no meio nao quebra nada
      no codigo — so a leitura de quem abre a tela todo dia no mesmo lugar. */
@@ -11602,9 +11616,18 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      Trocada a ordem, a fileira vira uma lista de numeros soltos. */
   ok(rotulos.join(' | ') ===
      'Total no Estoque | Sa\u00edda | Entrada | Envio | Devolu\u00e7\u00e3o | Retorno | ' +
+     'Sa\u00edda | Retorno | ' +
      'Caixas que Sa\u00edram e N\u00e3o Voltaram | Taxa de Retorno',
     'os cartoes contam o ciclo na ordem em que ele acontece: saida, entrada, envio, ' +
-    'devolucao, retorno \u2014 com o estoque abrindo e a taxa fechando', rotulos);
+    'devolucao, retorno \u2014 com o estoque abrindo e a taxa fechando, e o par ' +
+    'saida/retorno das visoes que nao sao de lugar no meio', rotulos);
+  /* O ESTOQUE ABRE E A TAXA FECHA NAS DUAS, e e' o que faz as duas fileiras se
+     parecerem a mesma tela: so' o miolo troca. */
+  ok(rotulos[0] === 'Total no Estoque' &&
+     rotulos[rotulos.length - 1] === 'Taxa de Retorno' &&
+     rotulos[rotulos.length - 2] === 'Caixas que Sa\u00edram e N\u00e3o Voltaram',
+    'e as duas fileiras abrem no estoque e fecham no d\u00e9ficit e na taxa \u2014 s\u00f3 o miolo ' +
+    'troca, e \u00e9 isso que as faz parecer a mesma tela', rotulos);
 
   /* Sairam a pedido: "Em Circulação" dizia o inverso do estoque, e "Origens Abaixo da
      Meta" repetia em contagem o que a taxa de retorno ja diz em porcentagem. */
@@ -12199,8 +12222,14 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'apagá-lo tiraria a informação junto');
 
   /* --- o que segue o filtro, e o que nao segue ---------------------------- */
-  var j = adm.indexOf('var t = totaisDe(lista);');
+  var j = adm.indexOf('var t = deLugar ? totaisDe(lista) : totaisSimples(lista);');
   ok(j > 0 && j < i, 'os totais saem da lista já filtrada, e não do período inteiro');
+  /* AS DUAS CONTAS RECEBEM A MESMA LISTA. Uma delas que recebesse outra coisa — a lista
+     inteira, os totais do servidor — daria uma fileira que encolhe com o filtro numa
+     visao e fica parada na outra, e ninguem descobriria qual das duas esta' certa. */
+  ok(/deLugar \? totaisDe\(lista\) : totaisSimples\(lista\)/.test(adm),
+    'e as DUAS contas da fileira leem a MESMA lista filtrada \u2014 uma delas lendo outra ' +
+    'fonte, a fileira encolheria com o filtro numa vis\u00e3o e ficaria parada na outra');
   /* AS CINCO ETAPAS BEBEM DO MESMO `t`, e e' so' por isso que elas encolhem juntas
      quando o filtro aperta. Uma delas que fosse buscar a lista inteira por fora ficaria
      parada enquanto as outras quatro mudam — e seria a unica errada, sem dizer. */
@@ -12461,6 +12490,180 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'ela cai no ENVIO, e o d\u00e9ficit a cobra: carga que deixou a casa sem outra ponta \u00e9 ' +
     'carga que n\u00e3o tem para onde voltar \u2014 escondida no movimento interno, ela sairia da ' +
     'conta de cobran\u00e7a sem deixar rastro', umaPonta);
+})();
+
+/* ---------------------------------------------------------------------------
+ * O chip "Tipos de caixa", e a conta de quem NAO e uma perna.
+ *
+ * O detalhe por tipo ja' estava em toda linha da tabela — "CX DIVERSAS 500 · CX G 400"
+ * — e somado em lugar nenhum: para saber quantas CX G rodaram no periodo era preciso
+ * somar a coluna com o olho. E' por tipo que a caixa se cobra do fornecedor.
+ * ------------------------------------------------------------------------- */
+console.log('\n== tipos de caixa, e a fileira de quem nao e perna ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  function corpoA(nome) {
+    var i = adm.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = adm.indexOf('{', i);
+    for (; k < adm.length; k++) {
+      if (adm[k] === '{') d++;
+      else if (adm[k] === '}' && --d === 0) return adm.slice(i, k + 1);
+    }
+    return '';
+  }
+  var PECAS = ['agruparPorTipo', 'totaisSimples', 'ehVisaoDeGente', 'ehVisaoDeLugar'];
+  var faltam = PECAS.filter(function (n) { return !corpoA(n); });
+  ok(!faltam.length,
+    'a confer\u00eancia recortou a conta por tipo e a conta de quem n\u00e3o \u00e9 perna \u2014 faltando ' +
+    'uma, as provas abaixo passariam sem rodar nada', faltam);
+
+  var M = new Function('metaFluxo',
+    PECAS.map(corpoA).join(String.fromCharCode(10)) +
+    '\n return { porTipo: agruparPorTipo, simples: totaisSimples,' +
+    '          deLugar: ehVisaoDeLugar };')(function () { return 90; });
+
+  /* OS NUMEROS SAO DESIGUAIS DE PROPOSITO, em todos os eixos: tipos diferentes, ida
+     diferente da volta, e um tipo que aparece nos DOIS lados da mesma perna. Com tudo
+     igual, somar a coluna errada da' a mesma resposta. */
+  var LINHAS = [
+    { situacao: 'atencao', origens: ['Matriz'], destinos: ['Campina Grande'],
+      saida: 700, retorno: 300,
+      saidaTipos: [{ caixa: 'CX G', qtd: 500 }, { caixa: 'CX P', qtd: 200 }],
+      retornoTipos: [{ caixa: 'CX G', qtd: 300 }] },
+    /* A CX P RODA MAIS QUE A CX G, e vem DEPOIS dela no alfabeto. Enquanto a maior era
+       tambem a primeira em ordem alfabetica, as duas ordenacoes davam a mesma resposta e
+       a sabotagem que troca uma pela outra passava batida. */
+    { situacao: 'atencao', origens: ['Filial Macei\u00f3'], destinos: ['Caruaru'],
+      saida: 900, retorno: 0,
+      saidaTipos: [{ caixa: 'CX P', qtd: 900 }], retornoTipos: [] },
+    /* A linha parada nao some da lista por tipo: ela nao tem tipo nenhum para somar. */
+    { situacao: 'parado', origens: ['Matriz'], destinos: [],
+      saida: 0, retorno: 0, saidaTipos: [], retornoTipos: [] }
+  ];
+  var porTipo = M.porTipo(LINHAS);
+  function tipo(n) { return porTipo.filter(function (x) { return x.nome === n; })[0]; }
+
+  ok(porTipo.length === 2 && !!tipo('CX G') && !!tipo('CX P'),
+    'sai uma linha por tipo de caixa, e s\u00f3 os tipos que realmente rodaram \u2014 um tipo ' +
+    'cadastrado e parado no galp\u00e3o n\u00e3o \u00e9 movimento, e listado em zero ele empurra para ' +
+    'baixo os que importam', porTipo.map(function (x) { return x.nome; }));
+
+  ok(tipo('CX G').saida === 500 && tipo('CX G').retorno === 300,
+    'e cada uma soma os dois lados do tipo dela: a CX G saiu 500 e voltou 300',
+    { saida: tipo('CX G').saida, retorno: tipo('CX G').retorno });
+  ok(tipo('CX P').saida === 1100 && tipo('CX P').retorno === 0,
+    'e a CX P soma os 200 de uma perna com os 900 da outra \u2014 é esta soma que n\u00e3o ' +
+    'existia em lugar nenhum, e que se fazia com o olho na coluna', tipo('CX P'));
+
+  /* A PROVA QUE IMPORTA DE VERDADE: a soma por tipo e a soma por linha tem de fechar.
+     Divergindo, a tela mostra dois totais plausiveis para a mesma carga — e quem
+     conferir vai acreditar no que olhar primeiro. */
+  var somaLinhas = LINHAS.reduce(function (a, l) { return a + l.saida; }, 0);
+  var somaTipos = porTipo.reduce(function (a, x) { return a + x.saida; }, 0);
+  ok(somaTipos === somaLinhas && somaTipos === 1600,
+    'e a soma de TODOS os tipos fecha com a soma das linhas \u2014 cada perna conta uma ' +
+    'vez, nem duas nem nenhuma: divergindo, a tela d\u00e1 dois totais plaus\u00edveis para a ' +
+    'mesma carga', { porTipo: somaTipos, porLinha: somaLinhas });
+
+  /* O TRECHO CONTA UMA VEZ POR TIPO. A CX G esta' na ida E na volta da mesma perna: sao
+     dois lados de UMA viagem, e contada duas vezes a linha diria "2 trechos" com um
+     caminho so' por tras. */
+  ok(tipo('CX G').sub === '1 trecho' && tipo('CX P').sub === '2 trechos',
+    'e a contagem de trechos n\u00e3o dobra quando o tipo aparece na ida E na volta da mesma ' +
+    'perna \u2014 s\u00e3o dois lados de UMA viagem',
+    { g: tipo('CX G').sub, p: tipo('CX P').sub });
+
+  ok(porTipo[0].nome === 'CX P',
+    'a lista abre pelo tipo que mais rodou, e n\u00e3o em ordem alfab\u00e9tica \u2014 a pergunta ' +
+    'aqui \u00e9 "qual caixa gira", e o nome n\u00e3o responde isso. A CX P roda mais e vem ' +
+    'DEPOIS no alfabeto: \u00e9 o que separa as duas ordens',
+    porTipo.map(function (x) { return x.nome + ':' + (x.saida + x.retorno); }));
+
+  ok(tipo('CX G').saldo === -200 && tipo('CX P').saldo === -1100,
+    'e o saldo do tipo \u00e9 retorno menos sa\u00edda \u2014 é quanto daquela caixa ainda est\u00e1 fora',
+    { g: tipo('CX G').saldo, p: tipo('CX P').saldo });
+
+  ok(tipo('CX P').origens.join(' | ') === 'Filial Macei\u00f3 | Matriz' &&
+     tipo('CX P').destinos.join(' | ') === 'Campina Grande | Caruaru',
+    'e a linha do tipo diz por onde ele andou \u2014 as mesmas c\u00e9lulas de Origem e Destino ' +
+    'das outras vis\u00f5es, e n\u00e3o duas c\u00e9lulas sobre a mesma coisa',
+    { de: tipo('CX P').origens, para: tipo('CX P').destinos });
+
+  /* ================= A CONTA DE QUEM NAO E UMA PERNA ================= */
+  var ts = M.simples(LINHAS);
+  ok(ts.saida === 1600 && ts.retorno === 300,
+    'a conta simples soma as duas pontas, e s\u00f3 isso: a linha sabe QUANTO saiu e voltou, ' +
+    'e n\u00e3o sabe entre onde e onde', ts);
+  /* 300 de 1.600 da' 18,75%, e o cartao mostra UMA casa decimal: 18,8. O numero
+     quebrado nao e' acidente do cenario — ele prende de quebra o arredondamento, que ja'
+     fez a tela escrever "faltam 26.799999999999997 pontos" por extenso. */
+  ok(ts.taxaRetorno === 18.8,
+    'e a taxa \u00e9 retorno sobre SA\u00cdDA \u2014 300 de 1.600, arredondado a uma casa. A r\u00e9gua ' +
+    'das etapas \u00e9 outra (devolu\u00e7\u00e3o sobre envio), e n\u00e3o se aplica a quem n\u00e3o tem ' +
+    'fronteira para cruzar', ts.taxaRetorno);
+  ok(M.simples(LINHAS).deficit === 1300,
+    'e o d\u00e9ficit soma as duas linhas que devem: 400 de uma e 900 da outra', ts.deficit);
+
+  /* O DEFICIT E POR LINHA, e nao sobre os dois totais. Um motorista que devolveu a mais
+     nao abate o que outro deixou de devolver: sao duas cobrancas diferentes, e somadas
+     antes de comparar elas se escondem uma atras da outra. */
+  var DOIS = [
+    { situacao: 'atencao', saida: 100, retorno: 0, saidaTipos: [], retornoTipos: [] },
+    { situacao: 'ok', saida: 100, retorno: 400, saidaTipos: [], retornoTipos: [] }
+  ];
+  ok(M.simples(DOIS).deficit === 100,
+    'e o d\u00e9ficit \u00e9 somado LINHA A LINHA: quem devolveu 400 de 100 n\u00e3o apaga os 100 que ' +
+    'o outro deixou de devolver \u2014 pelos totais, 200 sa\u00edram e 400 voltaram, e a tela ' +
+    'diria que ningu\u00e9m deve nada', M.simples(DOIS).deficit);
+
+  ok(M.simples([{ situacao: 'parado', saida: 0, retorno: 0 }]).linhas === 0,
+    'e a linha parada n\u00e3o entra na contagem \u2014 o estoque inicial n\u00e3o \u00e9 movimenta\u00e7\u00e3o',
+    M.simples([{ situacao: 'parado', saida: 0, retorno: 0 }]).linhas);
+  ok(M.simples([]).taxaRetorno === null,
+    'e sem sa\u00edda nenhuma a taxa fica VAZIA, e n\u00e3o em zero \u2014 zero por cento quer dizer ' +
+    '"saiu e nada voltou", que \u00e9 outra coisa', M.simples([]).taxaRetorno);
+
+  /* ================= QUAL VISAO E DE LUGAR ================= */
+  ok(M.deLugar('todas') && M.deLugar('ROTA') && M.deLugar('FILIAL') &&
+     M.deLugar('CLIENTE') && M.deLugar('deficit'),
+    'as vis\u00f5es de lugar t\u00eam uma linha por TRECHO, e \u00e9 por isso que os cart\u00f5es de ' +
+    'etapa conseguem dizer qual perna \u00e9 qual');
+  ok(!M.deLugar('MOTORISTA') && !M.deLugar('USUARIO') && !M.deLugar('TIPOCAIXA'),
+    'e motorista, usu\u00e1rio e tipo de caixa N\u00c3O s\u00e3o \u2014 cada linha soma v\u00e1rias pernas num ' +
+    'n\u00famero s\u00f3. Com as etapas ligadas ali, a tela anunciava "Envio 2.900 \u2014 saiu da ' +
+    'empresa" sobre um total de usu\u00e1rio');
+
+  /* ================= O CHIP EXISTE, E CONTA ================= */
+  ok(/TIPOCAIXA: 'Tipos de caixa'/.test(adm),
+    'o chip tem nome na mesma tabela dos outros \u2014 em lista pr\u00f3pria, ele apareceria sem ' +
+    'r\u00f3tulo no dia em que algu\u00e9m renomeasse os demais');
+  ok(/\{ v:'TIPOCAIXA', n:linhasPorTipo\(\)\.length \}/.test(adm),
+    'e o n\u00famero dele sai da MESMA fun\u00e7\u00e3o que lista \u2014 contado por outro caminho, o chip ' +
+    'diria "5" com quatro linhas na tabela embaixo');
+  ok(/if \(FLUXO_FILTRO === 'TIPOCAIXA'\) return linhasPorTipo\(\);/.test(adm),
+    'e escolher o chip leva \u00e0 lista \u2014 um chip desenhado e sem ramo \u00e9 um bot\u00e3o que n\u00e3o ' +
+    'faz nada, que \u00e9 o defeito mais repetido deste painel');
+
+  /* E A LISTA BEBE DE `todasAsLinhas`, QUE E' ONDE OS FILTROS MORAM.
+   *
+   * As provas acima rodam `agruparPorTipo` com um cenario na mao — e' assim que elas
+   * conseguem medir a conta —, e por isso nenhuma delas toca em QUEM alimenta a conta.
+   * A sabotagem mostrou o buraco: trocado `todasAsLinhas()` por `PAINEL.fluxo.linhas`,
+   * a lista por tipo passava a ignorar periodo, busca, origem, destino e unidade, e
+   * tudo continuava verde.
+   *
+   * E O ENGANO SERIA INVISIVEL NA TELA: o numero do chip sai da MESMA funcao, entao os
+   * dois mentiriam juntos, concordando um com o outro. */
+  ok(/function linhasPorTipo\(\)\{ return agruparPorTipo\(todasAsLinhas\(\)\); \}/.test(adm),
+    'e a lista por tipo sai de `todasAsLinhas`, que \u00e9 onde per\u00edodo, busca, origem, ' +
+    'destino e unidade s\u00e3o aplicados \u2014 lendo as linhas cruas, ela ignoraria todos os ' +
+    'filtros, e como o n\u00famero do chip vem da mesma fun\u00e7\u00e3o os dois mentiriam juntos, ' +
+    'concordando um com o outro',
+    adm.indexOf('function linhasPorTipo()'));
+  ok(/TIPOCAIXA: \['Tipo de caixa'\]/.test(adm),
+    'e a primeira coluna troca de t\u00edtulo junto \u2014 "Origem / destino" n\u00e3o descreve uma ' +
+    'lista de tipos de caixa');
 })();
 
 /* ---------------------------------------------------------------------------

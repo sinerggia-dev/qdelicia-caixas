@@ -2815,7 +2815,7 @@
        O TIPO do local no cadastro segue sendo FILIAL/GALPAO — isso e o vocabulario dos
        dados, e nao muda com o rotulo. */
     FILIAL: 'Unidades', CLIENTE: 'Clientes', deficit: 'Em déficit',
-    MOTORISTA: 'Motoristas', USUARIO: 'Usuários' };
+    MOTORISTA: 'Motoristas', USUARIO: 'Usuários', TIPOCAIXA: 'Tipos de caixa' };
 
   /* O título da primeira coluna troca junto com a visão: "Origem / destino" não descreve
      uma lista de motoristas. */
@@ -2823,10 +2823,31 @@
      e nao ha coluna com titulo para trocar. */
   var FLUXO_COLUNAS = {
     MOTORISTA: ['Motorista'],
-    USUARIO:   ['Quem lançou']
+    USUARIO:   ['Quem lançou'],
+    TIPOCAIXA: ['Tipo de caixa']
   };
 
   function ehVisaoDeGente(v){ return v === 'MOTORISTA' || v === 'USUARIO'; }
+
+  /* ================= A VISAO E DE LUGAR, OU NAO E =================
+   *
+   * As de LUGAR — Todas, Rotas, Unidades, Clientes, Em deficit — tem uma linha por
+   * TRECHO: ela diz entre onde e onde a carga andou, e e' por isso que os cinco cartoes
+   * de etapa conseguem dizer qual perna e' qual.
+   *
+   * As outras — motorista, usuario, tipo de caixa — tem uma linha por NOME. Elas somam
+   * varias pernas num numero so', e nenhuma delas e' uma viagem: perguntar a uma dessas
+   * linhas "voce foi da matriz para a filial?" nao tem resposta. Dai a separacao. */
+  function ehVisaoDeLugar(v){ return !ehVisaoDeGente(v) && v !== 'TIPOCAIXA'; }
+
+  /* DE QUEM A FILEIRA ESTA FALANDO, em minuscula, para caber no meio de uma frase de
+     rodape. O MESMO nome que o cabecalho da primeira coluna usa — tirado de
+      —, e nao uma segunda lista: divergindo, o cartao diria "por
+     motorista" com a coluna ao lado intitulada outra coisa. */
+  function rotuloDaVisao(){
+    var c = FLUXO_COLUNAS[FLUXO_FILTRO];
+    return c ? String(c[0]).toLowerCase() : 'linha';
+  }
 
   /* ================= O SALDO FINAL DE UMA LINHA, NUM LUGAR SÓ =================
    *
@@ -3062,10 +3083,86 @@
     return gente ? l.saldo : l.fimCorrido;
   }
 
+  /* ================= UMA LINHA POR TIPO DE CAIXA =================
+   *
+   * O detalhe por tipo ja' estava em toda linha da tabela — "CX DIVERSAS 500 · CX G 400
+   * · CX GG 450" —, mas somado EM LUGAR NENHUM. Para saber quantas CX G rodaram no
+   * periodo era preciso somar a coluna com o olho, linha por linha, e e' por tipo que a
+   * caixa se cobra do fornecedor.
+   *
+   * SAI DAS LINHAS QUE A TELA JA PENEIROU, e nao de uma segunda viagem aos movimentos:
+   * assim o filtro de periodo, a busca e os de origem e destino valem aqui sem ser
+   * escritos de novo. Somada a parte, esta lista diria um total e a tabela outro.
+   *
+   * CADA PERNA CONTA UMA VEZ, como na tabela: a soma dos tipos fecha com a soma das
+   * linhas. Nao e' a conta dos cartoes de etapa — aquela pergunta de que LADO da
+   * fronteira a perna esta', e um tipo de caixa nao tem lado. */
+  /* A LISTA ENTRA COMO ARGUMENTO, e nao e' lida da fonte aqui dentro. E' o que deixa a
+     bancada RODAR a conta com um cenario escolhido: presa a `todasAsLinhas()`, ela so'
+     poderia ser lida, e ler o texto responde "a palavra `saida` esta ali?" — e estaria,
+     inclusive numa versao que soma o retorno na coluna errada. */
+  function agruparPorTipo(lista){
+    var mapa = {}, ordem = [];
+    function balde(nome){
+      if (!mapa[nome]) {
+        mapa[nome] = { id: nome, nome: nome, tipo: 'TIPOCAIXA', teste: false,
+                       saida: 0, retorno: 0, trechos: 0,
+                       deOnde: {}, paraOnde: {},
+                       /* SEM DETALHE POR TIPO: a linha JA E' o tipo, e repeti-lo
+                          embaixo do numero seria o nome dela escrito duas vezes. */
+                       saidaTipos: [], retornoTipos: [],
+                       /* E SEM GAVETA: o servidor monta o detalhe por pessoa, e nao por
+                          tipo. Uma seta que abre vazio e' pior que seta nenhuma. */
+                       linhas: [], corte: 0 };
+        ordem.push(nome);
+      }
+      return mapa[nome];
+    }
+    (lista || []).forEach(function(l){
+      var vistos = {};
+      [['saidaTipos', 'saida'], ['retornoTipos', 'retorno']].forEach(function(par){
+        (l[par[0]] || []).forEach(function(x){
+          if (!x || !x.caixa) return;
+          var b = balde(x.caixa);
+          b[par[1]] += Number(x.qtd) || 0;
+          /* O TRECHO CONTA UMA VEZ POR TIPO, e nao duas. Um tipo que apareceu na ida E
+             na volta da mesma perna e' UM trecho em que ele rodou — contado nos dois
+             lados, a linha diria "2 trechos" com uma viagem so' por tras. */
+          if (!vistos[x.caixa]) { vistos[x.caixa] = 1; b.trechos++; }
+          (l.origens || []).forEach(function(n){ if (n) b.deOnde[n] = 1; });
+          (l.destinos || []).forEach(function(n){ if (n) b.paraOnde[n] = 1; });
+        });
+      });
+    });
+    return ordem.map(function(k){
+      var b = mapa[k];
+      b.saldo = b.retorno - b.saida;
+      /* A MESMA REGUA DAS OUTRAS LINHAS: sem saida nao ha o que cobrar, e uma devolucao
+         solta nao vira "retorno de 0%". */
+      b.desvio = b.saida > 0 ? Math.round(((b.saida - b.retorno) / b.saida) * 100) : null;
+      b.situacao = (!b.saida && !b.retorno) ? 'parado'
+                 : (b.saldo >= 0 ? 'ok' : (b.desvio !== null && b.desvio > 40 ? 'ruim'
+                                                                              : 'atencao'));
+      b.origens = Object.keys(b.deOnde).sort(function(a, c){ return a.localeCompare(c, 'pt-BR'); });
+      b.destinos = Object.keys(b.paraOnde).sort(function(a, c){ return a.localeCompare(c, 'pt-BR'); });
+      b.fornecedores = [];
+      b.sub = b.trechos + (b.trechos === 1 ? ' trecho' : ' trechos');
+      return b;
+    }).sort(function(a, c){
+      /* DO QUE MAIS RODOU PARA O QUE MENOS, e nao em ordem alfabetica: a pergunta aqui
+         e' "qual caixa gira", e o nome nao responde isso. */
+      return (c.saida + c.retorno) - (a.saida + a.retorno) ||
+             a.nome.localeCompare(c.nome, 'pt-BR');
+    });
+  }
+
+  function linhasPorTipo(){ return agruparPorTipo(todasAsLinhas()); }
+
   function linhasFluxo(){
     var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
     if (FLUXO_FILTRO === 'MOTORISTA') return p.motoristas;
     if (FLUXO_FILTRO === 'USUARIO') return p.usuarios;
+    if (FLUXO_FILTRO === 'TIPOCAIXA') return linhasPorTipo();
     /* Filial e galpao dividem o mesmo chip, a pedido: na operacao os dois sao a casa —
        o lugar de onde a caixa sai e para onde ela volta —, e separa-los em duas abas
        obrigava a procurar a Filial Maceio em duas listas para saber onde ela estava. */
@@ -3693,6 +3790,35 @@
    * despachou primeiro. Com as filiais marcadas como GALPAO no cadastro — como estao
    * hoje —, os tipos nao distinguiriam matriz de filial, e a ida e a volta trocariam de
    * cartao. Marcadas como FILIAL, os dois caminhos dao o mesmo resultado. */
+  /* ================= A CONTA DE QUEM NAO E UMA PERNA =================
+   *
+   * Uma linha de motorista, de usuario ou de tipo de caixa soma varias pernas num numero
+   * so'. Ela sabe QUANTO saiu e quanto voltou, e nao sabe ENTRE ONDE E ONDE — e sem isso
+   * nao ha como dizer se a carga cruzou a fronteira da empresa.
+   *
+   * ENTAO ELA NAO DIZ. Saida e' o que saiu, retorno e' o que voltou, e o que falta
+   * e' o que falta. Passada pela conta das etapas, esta lista caia toda no ENVIO (a
+   * guarda da fronteira responde "nao" quando nao ha perna), e a tela anunciava
+   * "saiu da empresa" sobre um total de usuario. */
+  function totaisSimples(lista){
+    var t = { linhas: 0, saida: 0, retorno: 0, deficit: 0, foraDaMeta: 0 };
+    var meta = metaFluxo();
+    lista.forEach(function(l){
+      if (l.situacao === 'parado') return;
+      t.linhas++;
+      if (l.desvio !== null && (100 - l.desvio) < meta) t.foraDaMeta++;
+      t.saida += (l.saida || 0);
+      t.retorno += (l.retorno || 0);
+      /* POR LINHA, e nao sobre os dois totais. Um motorista que devolveu a mais nao
+         abate o que outro deixou de devolver: sao duas cobrancas diferentes, e somadas
+         antes de comparar elas se escondem uma atras da outra. */
+      if ((l.saida || 0) > (l.retorno || 0)) t.deficit += (l.saida || 0) - (l.retorno || 0);
+    });
+    t.taxaRetorno = t.saida > 0
+      ? Math.round((t.retorno / t.saida) * 1000) / 10 : null;
+    return t;
+  }
+
   function totaisDe(lista){
     var t = { linhas: 0, saida: 0, entrada: 0, envio: 0, devolucao: 0, retorno: 0,
               deficit: 0, foraDaMeta: 0 };
@@ -5621,7 +5747,8 @@
       { v:'CLIENTE',   n:conta('CLIENTE') },
       { v:'deficit',   n:linhasDeficit() },
       { v:'MOTORISTA', n:pes.motoristas.length },
-      { v:'USUARIO',   n:pes.usuarios.length }
+      { v:'USUARIO',   n:pes.usuarios.length },
+      { v:'TIPOCAIXA', n:linhasPorTipo().length }
     ].map(function(c){ c.r = NOMES_GRUPO[c.v]; return c; });
     document.getElementById('retNav').innerHTML = itens.map(function(c){
       return '<button type="button" class="ret-item'+(FLUXO_FILTRO===c.v?' ativo':'')+
@@ -5939,7 +6066,11 @@
     ajustarTrilho();
     escreverResumoFluxo(lista);
 
-    var t = totaisDe(lista);
+    /* QUAL CONTA, e nao qual rotulo: a fileira inteira muda de pergunta junto com a
+       visao. Trocar so' os textos deixaria os cinco numeros de etapa embaixo de nomes
+       novos, que e' a mesma mentira com outra roupa. */
+    var deLugar = ehVisaoDeLugar(FLUXO_FILTRO);
+    var t = deLugar ? totaisDe(lista) : totaisSimples(lista);
     /* Cinco cartoes, na ordem de quem lê: primeiro o indicador que se cobra (a taxa),
        depois o numero que dói (o que nao voltou), depois o que HA — o estoque —, e por
        fim as duas pontas do periodo.
@@ -5964,36 +6095,55 @@
         '<span class="cai"></span><span class="cai"></span><span class="cai"></span></div>')+
 
       /* ================= AS CINCO ETAPAS, NA ORDEM DA VIAGEM =================
-       * Lidas da esquerda para a direita elas contam o ciclo. Nao se somam: sao a mesma
-       * carga em momentos diferentes — ver `totaisDe`. */
-      tileCor(Q.num(t.saida), 'Saída', 'a matriz despachou para a filial',
-        COR_TILE.saida,
-        '<div class="desenho desenho--pista">'+Q.caminhao(4)+'</div>')+
+       * So' nas visoes de LUGAR, onde cada linha e' uma perna e da' para dizer qual e'
+       * qual. Lidas da esquerda para a direita elas contam o ciclo. Nao se somam: sao a
+       * mesma carga em momentos diferentes — ver `totaisDe`. */
+      (deLugar
+        ? tileCor(Q.num(t.saida), 'Saída', 'a matriz despachou para a filial',
+            COR_TILE.saida,
+            '<div class="desenho desenho--pista">'+Q.caminhao(4)+'</div>')+
 
-      /* HOJE ELA E IGUAL A SAIDA, e esta' escrito no rodape de proposito: e' a mesma
-         perna vista da outra ponta. Os dois numeros se separam no dia em que a filial
-         CONFERIR a chegada — ai a entrada passa a ser o que foi contado, e a diferenca
-         entre os dois cartoes vira a divergencia, com nome e data. */
-      tileCor(Q.num(t.entrada), 'Entrada',
-        'a filial recebeu · o mesmo lançamento, visto na chegada',
-        COR_TILE.entrada)+
+          /* HOJE ELA E IGUAL A SAIDA, e esta' escrito no rodape de proposito: e' a mesma
+             perna vista da outra ponta. Os dois numeros se separam no dia em que a filial
+             CONFERIR a chegada — ai a entrada passa a ser o que foi contado, e a diferenca
+             entre os dois cartoes vira a divergencia, com nome e data. */
+          tileCor(Q.num(t.entrada), 'Entrada',
+            'a filial recebeu · o mesmo lançamento, visto na chegada',
+            COR_TILE.entrada)+
 
-      tileCor(Q.num(t.envio), 'Envio', 'saiu da empresa — fornecedor, cliente ou rota',
-        COR_TILE.envio)+
+          tileCor(Q.num(t.envio), 'Envio', 'saiu da empresa — fornecedor, cliente ou rota',
+            COR_TILE.envio)+
 
-      tileCor(Q.num(t.devolucao), 'Devolução', 'voltou para dentro da empresa',
-        COR_TILE.devolucao,
-        '<div class="desenho desenho--pista desenho--volta">'+
-        Q.caminhao(t.envio ? Math.max(0, Math.min(4,
-          Math.round(t.devolucao / t.envio * 4))) : 0)+'</div>')+
+          tileCor(Q.num(t.devolucao), 'Devolução', 'voltou para dentro da empresa',
+            COR_TILE.devolucao,
+            '<div class="desenho desenho--pista desenho--volta">'+
+            Q.caminhao(t.envio ? Math.max(0, Math.min(4,
+              Math.round(t.devolucao / t.envio * 4))) : 0)+'</div>')+
 
-      tileCor(Q.num(t.retorno), 'Retorno', 'a filial devolveu à matriz',
-        COR_TILE.retorno)+
+          tileCor(Q.num(t.retorno), 'Retorno', 'a filial devolveu à matriz',
+            COR_TILE.retorno)
 
-      /* SO' O QUE CRUZOU A FRONTEIRA. Caixa parada na propria filial nao e' caixa na
-         rua: cobra-la seria cobrar de casa. */
+        /* ================= AS DUAS PONTAS, E SO' ELAS =================
+         * Aqui a linha nao e' uma viagem — e' um motorista, um usuario, um tipo de
+         * caixa. O rodape diz DE QUEM se esta falando, porque o mesmo "1.600" quer
+         * dizer coisas diferentes em cada uma dessas listas. */
+        : tileCor(Q.num(t.saida), 'Saída',
+            'tudo o que saiu · '+rotuloDaVisao(), COR_TILE.saida,
+            '<div class="desenho desenho--pista">'+Q.caminhao(4)+'</div>')+
+
+          tileCor(Q.num(t.retorno), 'Retorno',
+            'tudo o que voltou · '+rotuloDaVisao(), COR_TILE.retorno,
+            '<div class="desenho desenho--pista desenho--volta">'+
+            Q.caminhao(t.saida ? Math.max(0, Math.min(4,
+              Math.round(t.retorno / t.saida * 4))) : 0)+'</div>'))+
+
+      /* NA VISAO DE LUGAR, SO' O QUE CRUZOU A FRONTEIRA: caixa parada na propria
+         filial nao e' caixa na rua, e cobra-la seria cobrar de casa. Nas outras, e' o
+         que saiu e nao voltou — somado LINHA A LINHA, para que um motorista em dia nao
+         apague o atraso de outro. O rodape diz qual das duas contas esta' valendo. */
       tileCor(Q.num(t.deficit), 'Caixas que Saíram e Não Voltaram',
-        'do que foi enviado · '+janelaDoPainel(), COR_TILE.fora,
+        (deLugar ? 'do que foi enviado' : 'por '+rotuloDaVisao())+
+        ' · '+janelaDoPainel(), COR_TILE.fora,
         '<div class="desenho desenho--fora"><span class="via"></span><span class="casa"></span>'+
         '<span class="tenta"></span><span class="la"><i></i><i></i><i></i></span></div>')+
 
