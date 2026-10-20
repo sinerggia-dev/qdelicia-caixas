@@ -2985,6 +2985,107 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
  * desalinhava a tabela inteira, e cada numero passava a ser lido na coluna do vizinho. A
  * garantia agora e estrutural: quem monta as duas percorre a MESMA lista.
  * ------------------------------------------------------------------------- */
+console.log('\n== recolher e expandir a lateral ==');
+(function () {
+  var app = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  var css = fsReal.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  function corpoT(nome) {
+    var i = app.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = app.indexOf('{', i);
+    for (; k < app.length; k++) {
+      if (app[k] === '{') d++;
+      else if (app[k] === '}' && --d === 0) return app.slice(i, k + 1);
+    }
+    return '';
+  }
+  var iC = app.indexOf('  var CHAVE_TRILHO = ');
+  var fonte = (iC < 0 ? '' : app.slice(iC, app.indexOf(';', iC) + 1)) +
+              String.fromCharCode(10) + corpoT('trilho');
+  ok(fonte.indexOf('function trilho') > 0 && fonte.indexOf('CHAVE_TRILHO') >= 0,
+    'a confer\u00eancia recortou o recolhe-expande da lateral \u2014 recorte vazio faria as ' +
+    'provas abaixo passarem sem rodar nada', fonte.length);
+
+  /* A PECA RODA, com um documento de mentira. Lida no arquivo, a prova responderia "a
+     palavra `alternar` esta' la'?" — e estava, no dia em que o botao ficou mudo. */
+  function montar(guardado) {
+    function no(id) {
+      return { id: id, dataset: {}, blurs: 0, blur: function () { this.blurs++; },
+        classList: { _s: {},
+          add: function (c) { this._s[c] = 1; },
+          remove: function (c) { delete this._s[c]; },
+          toggle: function (c, v) { if (v) this.add(c); else this.remove(c); },
+          contains: function (c) { return !!this._s[c]; } },
+        ouvintes: {},
+        addEventListener: function (tp, f) {
+          (this.ouvintes[tp] = this.ouvintes[tp] || []).push(f); },
+        setAttribute: function () {}, getAttribute: function () { return null; },
+        disparar: function (tp, ev) {
+          (this.ouvintes[tp] || []).forEach(function (f) { f(ev); }); } };
+    }
+    var shell = no('app'), barra = no('lateral'), btn = no('btnLateral');
+    var nos = { app: shell, lateral: barra, btnLateral: btn };
+    var guardou = [];
+    var trilho = new Function('document', 'localStorage', 'mqLargo', 'setTimeout',
+      'clearTimeout', fonte + String.fromCharCode(10) + ' return trilho;')(
+      { getElementById: function (id) { return nos[id] || null; } },
+      { getItem: function () { return guardado === undefined ? null : guardado; },
+        setItem: function (k, v) { guardou.push(v); } },
+      { matches: true }, function () { return 0; }, function () {});
+    trilho(barra);
+    return { shell: shell, barra: barra, btn: btn, guardou: guardou };
+  }
+  function clicar(m, detail) {
+    m.btn.disparar('click', { detail: detail, stopPropagation: function () {} });
+  }
+
+  var m = montar();
+  ok(m.shell.dataset.nav === 'expandida',
+    'a lateral nasce aberta quando n\u00e3o h\u00e1 escolha guardada', m.shell.dataset.nav);
+  clicar(m, 1);
+  ok(m.shell.dataset.nav === 'trilho',
+    'um clique no bot\u00e3o RECOLHE', m.shell.dataset.nav);
+  clicar(m, 1);
+  ok(m.shell.dataset.nav === 'expandida',
+    'e o seguinte EXPANDE \u2014 \u00e9 o mesmo bot\u00e3o, e ele tem de ir e voltar',
+    m.shell.dataset.nav);
+  ok(m.guardou.join(',') === 'trilho,expandida',
+    'e cada troca fica guardada \u2014 recolher \u00e9 prefer\u00eancia de quem olha, e ela tem de ' +
+    'sobreviver a recarregar a p\u00e1gina', m.guardou);
+  ok(montar('trilho').shell.dataset.nav === 'trilho',
+    'e a escolha guardada vale na abertura seguinte');
+
+  /* ---- O DEFEITO QUE ISTO CONSERTA ----
+   *
+   * O botao que recolhe mora DENTRO da lateral, e no Chrome um clique deixa o foco
+   * nele. A folha reabre a lateral enquanto houver foco dentro dela — regra que existe
+   * para quem chega de Tab. As duas coisas se anulavam: o modo trocava, a lateral
+   * reabria no mesmo quadro, e o clique parecia nao fazer nada. Nada no console, nada
+   * quebrado: uma tela que nao obedece.
+   *
+   * A PROVA MEDE AS DUAS PORTAS, porque o conserto so vale se separar as duas. */
+  var mouse = montar();
+  clicar(mouse, 1);
+  ok(mouse.btn.blurs === 1,
+    'clicando com o MOUSE, o bot\u00e3o larga o foco \u2014 segurando-o, a regra de `focus-within` ' +
+    'reabre a lateral no mesmo quadro e o clique parece n\u00e3o fazer nada',
+    mouse.btn.blurs);
+  var teclado = montar();
+  clicar(teclado, 0);
+  ok(teclado.shell.dataset.nav === 'trilho' && teclado.btn.blurs === 0,
+    'e pelo TECLADO ele recolhe e MANT\u00c9M o foco \u2014 quem navega sem mouse ficaria numa ' +
+    'coluna de \u00edcones sem r\u00f3tulo e sem jeito de revel\u00e1-los',
+    { modo: teclado.shell.dataset.nav, soltou: teclado.btn.blurs });
+
+  /* E A REGRA QUE CAUSOU ISSO CONTINUA NA FOLHA, de proposito: ela e' o que abre a
+     lateral para o teclado. Tirando-a, a prova de cima passaria e o Tab ficaria preso
+     numa coluna muda. */
+  ok(/\.shell\[data-nav="trilho"\] \.lateral:focus-within\{width:var\(--lateral-larg\)\}/
+       .test(css),
+    'e a regra que abre a lateral com o foco dentro CONTINUA na folha \u2014 ela n\u00e3o estava ' +
+    'errada: tir\u00e1-la deixaria quem chega de Tab numa coluna de \u00edcones mudos');
+})();
+
 console.log('\n== o bot\u00e3o de editar n\u00e3o sai da vista ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');

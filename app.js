@@ -3125,6 +3125,23 @@
     if (btn) btn.addEventListener('click', function (e) {
       e.stopPropagation();
       alternar();
+      /* O CLIQUE DE MOUSE NAO PODE DEIXAR FOCO AQUI DENTRO.
+       *
+       * Era este o defeito: o botao que recolhe mora DENTRO da lateral, e no Chrome um
+       * clique deixa o foco nele. A folha tem uma regra que reabre a lateral enquanto
+       * houver foco dentro dela — ela existe para quem chega de Tab, que encararia uma
+       * coluna de icones sem rotulo e sem jeito de revelar. As duas coisas juntas se
+       * anulavam: o modo trocava, a lateral reabria no mesmo quadro, e o clique parecia
+       * nao fazer nada. Nada no console, nada quebrado — so' uma tela que nao obedece.
+       *
+       * `e.detail` SEPARA AS DUAS PORTAS: num clique de mouse ele conta os cliques e vem
+       * maior que zero; num Enter ou Espaco sobre o botao ele vem ZERO. Entao o mouse
+       * larga o foco e a lateral encolhe de verdade, e o teclado o mantem — quem navega
+       * sem mouse continua com os rotulos a vista, que e o que aquela regra promete.
+       *
+       * AQUI, e nao tirando a regra do CSS: ela nao esta' errada, e tira-la deixaria o
+       * teclado preso numa coluna de icones mudos. */
+      if (e && e.detail > 0 && btn.blur) btn.blur();
     });
 
     function espiar(ligar) {
