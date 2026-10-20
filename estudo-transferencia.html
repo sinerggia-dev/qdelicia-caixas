@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Como ficaria — os dois caminhos de volta</title>
+<!-- A FOLHA DE ESTILO É A DE VERDADE, e não uma cópia: o que esta página mostra tem de
+     ser o que a tela mostra. Com estilo próprio, o desenho ficaria parecido e as
+     decisões seriam tomadas sobre uma tela que não existe. -->
+<link rel="stylesheet" href="styles.css?v=6cfd1210">
+<style>
+  /* SÓ O QUE ESTA PÁGINA PRECISA e que a tela real não tem: ela é uma comparação, e isso
+     não existe no painel. Nenhuma regra daqui redefine classe do sistema — há bancada
+     cobrando isso, e é ela que impede uma página de estudo de mandar no desenho do app. */
+  body{margin:0}
+  .papel{max-width:1180px;margin:0 auto;padding:22px 16px 60px}
+  .cab{margin:0 0 6px;font-size:22px;font-weight:700}
+  .sub-pg{margin:0 0 22px;color:var(--txt2);font-size:14px;line-height:1.5;max-width:74ch}
+  .caixa{background:var(--surface);border:1px solid var(--linha);border-radius:12px;
+    padding:16px 16px 12px;margin:0 0 18px}
+  .caixa > h2{margin:0 0 2px;font-size:15px;letter-spacing:.02em;text-transform:uppercase}
+  .caixa > .nota{margin:0 0 14px;color:var(--txt2);font-size:13px;line-height:1.55}
+  .ok > h2{color:var(--verde)}
+  .atencao > h2{color:var(--ambar-forte)}
+  .etq{display:inline-block;margin-left:8px;font-size:10px;letter-spacing:.04em;
+    text-transform:uppercase;font-weight:700;padding:2px 6px;border-radius:999px;
+    vertical-align:middle}
+  .etq-boa{color:var(--verde-esc);background:var(--verde-claro)}
+  .etq-ruim{color:var(--ambar-forte);background:var(--ambar-claro)}
+  .passos{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 16px;
+    font-size:12.5px;color:var(--txt2)}
+  .passo{background:var(--campo);border:1px solid var(--linha);border-radius:999px;
+    padding:4px 11px;white-space:nowrap}
+  .pl-seta{color:var(--txt2)}
+  .legenda-linha{margin:8px 0 0;font-size:12.5px;color:var(--txt2);line-height:1.6}
+  .legenda-linha b{color:var(--txt)}
+  .aviso{background:var(--campo);border:1px solid var(--linha);
+    border-left:3px solid var(--ambar);border-radius:10px;padding:12px 14px;margin:0 0 20px;
+    font-size:13.5px;line-height:1.6;color:var(--txt2)}
+  .aviso b{color:var(--txt)}
+  .grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+</style>
+</head>
+<body>
+<div class="papel">
+
+  <h1 class="cab">Os dois caminhos de volta, com a regra B</h1>
+  <p class="sub-pg">
+    Desenhado com a folha de estilo do painel de verdade. Esta página <b>não mexe em nada</b>:
+    é papel para decidir. Todos os números foram calculados pelo motor do sistema, com
+    <b>500 caixas</b> e os lançamentos de cada cenário.
+  </p>
+
+  <div class="aviso">
+    <b>A regra B, em duas frases.</b>
+    Olhando <b>uma casa</b>, o cartão conta o que <b>aquela casa</b> despachou e recebeu — é o que
+    ela viveu. Olhando o <b>grupo</b>, a perna entre duas casas não é saída nem retorno: é
+    <b>transferência</b>, e por isso o consolidado nunca soma a mesma caixa duas vezes.
+  </div>
+
+  <!-- ============ CENÁRIO 1 — QUADRADO ============ -->
+  <section class="caixa ok">
+    <h2>Cenário 1 — a volta passa por Maceió<span class="etq etq-boa">90% dos casos</span></h2>
+    <p class="nota">O caminhão volta ao fornecedor pelo caminho inverso: fecha em todas as casas.</p>
+
+    <div class="passos">
+      <span class="passo">São Vicente → Maceió</span><span class="pl-seta">→</span>
+      <span class="passo">Maceió → Fornecedor</span><span class="pl-seta">→</span>
+      <span class="passo">Fornecedor → Maceió</span><span class="pl-seta">→</span>
+      <span class="passo">Maceió → São Vicente</span>
+    </div>
+
+    <div class="tabela-wrap"><table>
+      <thead><tr>
+        <th>Olhando por</th>
+        <th class="num">Saída</th>
+        <th class="num">Fornecedor<br><span class="fsub">env · dev</span></th>
+        <th class="num">Retorno</th>
+        <th class="num">Transferência<br><span class="fsub">env · rec</span></th>
+        <th class="num">Saiu e não voltou</th>
+        <th class="num">Taxa</th>
+      </tr></thead>
+      <tbody>
+        <tr><td><b>Grupo inteiro</b></td>
+          <td class="num"><b class="val">500</b></td>
+          <td class="num">500 · 500</td>
+          <td class="num"><b class="val">500</b></td>
+          <td class="num">500 · 500</td>
+          <td class="num"><b class="val val-ok">0</b></td>
+          <td class="num">100%</td></tr>
+        <tr><td><b>Matriz São Vicente</b></td>
+          <td class="num"><b class="val">500</b></td>
+          <td class="num">0 · 0</td>
+          <td class="num"><b class="val">0</b></td>
+          <td class="num">500 · 500</td>
+          <td class="num"><b class="val val-ok">0</b></td>
+          <td class="num">—</td></tr>
+        <tr><td><b>Filial Maceió</b></td>
+          <td class="num"><b class="val">1.000</b></td>
+          <td class="num">500 · 500</td>
+          <td class="num"><b class="val">500</b></td>
+          <td class="num">500 · 500</td>
+          <td class="num"><b class="val val-ok">0</b></td>
+          <td class="num">100%</td></tr>
+      </tbody>
+    </table></div>
+    <p class="legenda-linha">
+      <b>O grupo fecha em 500</b> — é o que você pediu, e é o número que estava dando 1.000.
+      <b>Tudo fecha em todas as casas:</b> o "saiu e não voltou" é zero nas três leituras.
+      <br><br>
+      <b>Mas repare no retorno de São Vicente: ele é ZERO.</b> O que voltou para ela veio da
+      <b>própria filial</b>, e por isso aparece como <b>transferência recebida 500</b>, não como
+      retorno. O ciclo dela está inteiro na tela — mandou 500, recebeu 500 —, só que sob o nome
+      certo. Neste caminho, São Vicente <b>nunca toca o fornecedor</b>: quem o faz é Maceió.
+      <br><br>
+      <b>Maceió lê 1.000 de saída</b>, e é a leitura honesta: ela <b>despachou duas vezes</b> — ao
+      fornecedor e de volta à matriz. Os cartões de transferência dizem que 500 daquilo foi
+      movimento interno.
+    </p>
+  </section>
+
+  <!-- ============ CENÁRIO 2 — TRIÂNGULO ============ -->
+  <section class="caixa atencao">
+    <h2>Cenário 2 — a volta vai direto para São Vicente<span class="etq etq-ruim">10% dos casos</span></h2>
+    <p class="nota">O caminhão não volta a Maceió. Economiza uma viagem, e deixa uma conta aberta.</p>
+
+    <div class="passos">
+      <span class="passo">São Vicente → Maceió</span><span class="pl-seta">→</span>
+      <span class="passo">Maceió → Fornecedor</span><span class="pl-seta">→</span>
+      <span class="passo">Fornecedor → São Vicente</span>
+    </div>
+
+    <div class="tabela-wrap"><table>
+      <thead><tr>
+        <th>Olhando por</th>
+        <th class="num">Saída</th>
+        <th class="num">Fornecedor<br><span class="fsub">env · dev</span></th>
+        <th class="num">Retorno</th>
+        <th class="num">Transferência<br><span class="fsub">env · rec</span></th>
+        <th class="num">Saiu e não voltou</th>
+        <th class="num">Taxa</th>
+      </tr></thead>
+      <tbody>
+        <tr class="ruim"><td><b>Grupo inteiro</b></td>
+          <td class="num"><b class="val">500</b></td>
+          <td class="num">500 · 500</td>
+          <td class="num"><b class="val">500</b></td>
+          <td class="num">500 · 0</td>
+          <td class="num"><b class="val val-ruim">500</b></td>
+          <td class="num">100%</td></tr>
+        <tr><td><b>Matriz São Vicente</b></td>
+          <td class="num"><b class="val">500</b></td>
+          <td class="num">0 · 500</td>
+          <td class="num"><b class="val">500</b></td>
+          <td class="num">500 · 0</td>
+          <td class="num"><b class="val val-ok">0</b></td>
+          <td class="num">—</td></tr>
+        <tr class="ruim"><td><b>Filial Maceió</b></td>
+          <td class="num"><b class="val">500</b></td>
+          <td class="num">500 · 0</td>
+          <td class="num"><b class="val">0</b></td>
+          <td class="num">0 · 500</td>
+          <td class="num"><b class="val val-ruim">500</b></td>
+          <td class="num">0%</td></tr>
+      </tbody>
+    </table></div>
+    <p class="legenda-linha">
+      O grupo fecha em 500 e <b>São Vicente lê 500 · 500 · 500</b> — Saída, Fornecedor, Retorno,
+      exatamente o cartão da sua imagem. Mas <b>Maceió fica com 500 que saíram e nunca voltaram
+      para ela</b>: o fornecedor devolveu em São Vicente. Não é erro de conta — é o que um
+      triângulo faz: ele fecha no conjunto e não fecha em cada ponta. O saldo de estoque dela é
+      zero; o que não zera é a narrativa de saída e retorno.
+    </p>
+  </section>
+
+  <!-- ============ OS CARTÕES DE SÃO VICENTE ============ -->
+  <section class="caixa">
+    <h2>E os cartões de São Vicente, como ficariam na tela</h2>
+    <p class="nota">
+      Filtrado em São Vicente, no cenário 2 — o da sua imagem. Entre Saída e Retorno entra o
+      cartão do <b>Fornecedor</b>, que diz por onde a caixa passou no meio do caminho.
+    </p>
+
+    <div class="ftiles">
+      <div class="ftile" style="--cor:var(--txt)">
+        <div class="r">Total no Estoque</div><div class="v">0</div>
+        <div class="d">nos galpões e unidades, fora do filtro</div>
+      </div>
+      <div class="ftile" style="--cor:var(--verde)">
+        <div class="r">Total de Saída</div><div class="v">500</div>
+        <div class="d">saiu desta casa, no período filtrado</div>
+      </div>
+      <div class="ftile" style="--cor:var(--azul)">
+        <div class="r">Fornecedor<span class="etq etq-boa">novo</span></div><div class="v">500</div>
+        <div class="d">passou pelo fornecedor no período</div>
+      </div>
+      <div class="ftile" style="--cor:var(--marca-txt)">
+        <div class="r">Total de Retorno</div><div class="v">500</div>
+        <div class="d">chegou nesta casa</div>
+      </div>
+      <div class="ftile" style="--cor:var(--ambar-forte)">
+        <div class="r">Caixas que Saíram e Não Voltaram</div><div class="v">0</div>
+        <div class="d">no período filtrado, somando só quem deve</div>
+      </div>
+      <div class="ftile" style="--cor:var(--roxo-txt)">
+        <div class="r">Taxa de Retorno</div><div class="v">100%</div>
+        <div class="d">meta 90% · agora sobre 500, e não sobre 1.000</div>
+      </div>
+    </div>
+    <p class="legenda-linha">
+      Os cartões de <b>transferência</b> ficam na faixa quando a casa tem movimento interno —
+      no cenário 2 eles diriam <b>enviada 500 · recebida 0</b>. Eles não somam com a Saída: são
+      a parte dela que foi para dentro de casa.
+    </p>
+  </section>
+
+  <!-- ============ O QUE DECIDIR ============ -->
+  <section class="caixa">
+    <h2>O que isto deixa para decidir</h2>
+    <p class="legenda-linha" style="margin-top:2px">
+      <b>1. O déficit de Maceió no cenário 2.</b> Com 10% das cargas voltando direto, ela acumula
+      um "saiu e não voltou" que nunca zera. Três saídas possíveis: aceitar e saber ler;
+      fazer o caminhão sempre voltar por Maceió; ou marcar a devolução como
+      <i>"por conta de Maceió"</i> — um campo novo, que eu só faria se o 10% incomodar de verdade.
+    </p>
+    <p class="legenda-linha">
+      <b>2. O cartão Fornecedor conta passagem, não lote.</b> Ele responde "quanto passou pelo
+      fornecedor no período". O sistema conta quantidade, não caixa identificada: que as 500 que
+      voltaram sejam <i>as mesmas</i> que saíram é uma verdade da sua operação, não do banco.
+    </p>
+    <p class="legenda-linha">
+      <b>3. Maceió precisa de usuário próprio.</b> Hoje quem lança por ela é o usuário de São
+      Vicente. Com as casas separadas, quem despacha lança — e quem recebe confere.
+    </p>
+  </section>
+
+  <p class="sub-pg" style="margin-top:26px">
+    Página de estudo. Pode ser apagada depois — ela não é lida por nada.
+  </p>
+
+</div>
+</body>
+</html>
