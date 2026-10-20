@@ -1921,7 +1921,13 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
   var antes = b.ids();
   b.arrastar('mvUsuario', 'mvOrigem');
   var depois = b.ids();
-  ok(depois[0] === 'mvUsuario' && antes[0] === 'mvOrigem',
+  /* PELA POSICAO DA ORIGEM, e nao pelo indice 0. A prova dizia `antes[0] === 'mvOrigem'`,
+     e isso so' era verdade porque a Origem era o primeiro campo da gaveta — coincidencia
+     do arranjo, e nao a regra. No dia em que um filtro novo entrou na frente dela, a
+     prova reprovou sem nada ter piorado. O que o gesto promete e' RELATIVO: o arrastado
+     ocupa o lugar do alvo, e o alvo desce um. */
+  var iAlvo = antes.indexOf('mvOrigem');
+  ok(depois[iAlvo] === 'mvUsuario' && depois.indexOf('mvOrigem') === iAlvo + 1,
     'arrastar "Quem lançou" para cima de "Origem" põe ele NO LUGAR da Origem — é a ' +
     'função inteira: a ordem da gaveta passa a ser a que o administrador quiser',
     antes.join(' ') + '   ->   ' + depois.join(' '));
@@ -1960,14 +1966,23 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
 
   /* ---- A ORDEM GRAVADA E' A COMPLETA ---- */
   var salvo = JSON.parse(b3.guardado.v);
-  ok(salvo.length === 12 && salvo.indexOf('mvCancelados') >= 0,
-    'e o que se grava é a ordem COMPLETA dos doze filtros — gravando só os que estão ' +
-    'à vista, o campo escondido perderia o lugar dele sem ninguém ver', salvo.length);
+  /* CONTADA A PARTIR DA PROPRIA GAVETA, e nao por um numero escrito aqui. O numero
+     fixo transformava "a ordem gravada e a completa" em "a gaveta tem doze campos", que
+     e' outra afirmacao — e ela reprova sozinha a cada filtro novo, sem nada ter
+     quebrado. A pergunta e' se sobrou alguem de fora. */
+  var naGaveta = b3.ids().filter(function (x) { return x.charAt(0) !== '['; });
+  var deFora = naGaveta.filter(function (x) { return salvo.indexOf(x) < 0; });
+  ok(salvo.length === naGaveta.length && !deFora.length,
+    'e o que se grava é a ordem COMPLETA da gaveta, e não só o que está à vista — de ' +
+    'fora, um campo perderia o lugar dele sem ninguém ver',
+    { gravados: salvo.length, naGaveta: naGaveta.length, deFora: deFora });
 
   /* ---- A ALCA E' O ROTULO, E DEPENDE DA TRAVA ---- */
-  ok(b.alcas().length === 12 && b.alcas().indexOf('mvTrecho') < 0,
-    'com o cadeado aberto, os doze filtros visíveis ganham alça — e o campo escondido ' +
-    'não: arrastar o que não se vê não quer dizer nada', b.alcas().join(' '));
+  var visiveis = b.ids().filter(function (x) { return x.charAt(0) !== '['; });
+  ok(b.alcas().length === visiveis.length && b.alcas().indexOf('mvTrecho') < 0,
+    'com o cadeado aberto, TODO filtro visível ganha alça — e o campo escondido não: ' +
+    'arrastar o que não se vê não quer dizer nada',
+    { alcas: b.alcas().length, visiveis: visiveis.length });
   var trancada = bancadaArrasto(false);
   ok(trancada.alcas().length === 0,
     'e com o cadeado FECHADO nenhum rótulo se arrasta — o gesto prometido e sem efeito ' +
@@ -2870,9 +2885,14 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
   /* A ANCORA E O PEDIDO DA LISTA, que agora passa pelo `Q.lendo()` — a casca que diz
      quem esta perguntando. Ancorada em `Q.get({acao:` ela deixou de achar o pedido e a
      prova reprovou os doze campos de uma vez, sem nada ter piorado. */
-  var p = adm.indexOf("acao:'movimentos', origem:");
+  var p = adm.indexOf("acao:'movimentos', local:");
   var pedido = adm.slice(p, adm.indexOf('})', p));
-  var campoDoPedido = { mvOrigem: 'origem', mvDestino: 'destino', mvFluxo: 'fluxo',
+  var campoDoPedido = { /* MATRIZ E FILIAIS JUNTAS, nas duas pontas. O nome do
+                           parametro e' `local` porque e' assim que o servidor ja
+                           chamava a peneira que casa na origem OU no destino — ela
+                           existia desde sempre e a tela nunca mandava nada nela. */
+                        mvUnidade: 'local',
+                        mvOrigem: 'origem', mvDestino: 'destino', mvFluxo: 'fluxo',
                         mvTipo: 'tipo', mvCaixa: 'caixa', mvStatus: 'situacao',
                         mvUsuario: 'usuario', mvTeste: 'teste', mvDe: 'de', mvAte: 'ate',
                         /* Os dois que nasceram do clique no grafico. O `mvTrecho` nao
@@ -2889,6 +2909,114 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
   ok(semMapa.length === 0,
     'todo campo da barra tem um nome conhecido no pedido — campo novo entra aqui também',
     semMapa);
+
+  /* ================= A UNIDADE: MATRIZ E FILIAIS JUNTAS =================
+   *
+   * O pedido foi "um filtro da matriz e filiais junto, para fazer um filtro rapido".
+   * Com Origem e Destino so', "tudo o que passou pela Filial Maceio" nao se faz:
+   * escolher a filial nos DOIS campos pede as duas condicoes ao mesmo tempo — o que
+   * saiu dela E chegou nela —, que e' quase nada.
+   *
+   * A PECA DO SERVIDOR JA EXISTIA. `p.local` casa na origem OU no destino desde sempre,
+   * e `limparMovimentos` ja' repassava o campo para a mesma funcao que monta a lista.
+   * So' a tela nunca mandou nada nele — e' o defeito mais repetido deste projeto: a
+   * peca existe e nada chega nela. */
+  {
+    var iOp = adm.indexOf("document.getElementById('mvUnidade').innerHTML =");
+    var linhaOp = iOp < 0 ? '' : adm.slice(iOp, adm.indexOf(';', iOp));
+    /* SO' AS CASAS. Com rota e cliente na lista, o campo deixa de ser "matriz e filiais"
+       e vira um segundo Origem-ou-Destino — que e' outra pergunta, e ja' tem dois
+       campos para ela. */
+    ok(/ehTipoDeUnidade\(l\.Tipo\)/.test(linhaOp),
+      'a lista do filtro traz S\u00d3 as casas, pela mesma regra do Painel \u2014 com rota e ' +
+      'cliente dentro, ele deixaria de ser "matriz e filiais" e viraria um segundo ' +
+      'Origem-ou-Destino, que j\u00e1 tem dois campos', linhaOp.trim());
+
+    /* O MESMO `ehTipoDeUnidade`, e nao uma copia. Escrita de novo aqui, o dia em que
+       entrasse um terceiro tipo de casa ele apareceria numa tela e faltaria na outra. */
+    ok(adm.indexOf('function ehTipoDeUnidade(') > 0 &&
+       (adm.match(/function ehTipoDeUnidade\(/g) || []).length === 1,
+      'e essa regra mora numa fun\u00e7\u00e3o S\u00d3 \u2014 duas c\u00f3pias divergem no primeiro tipo de ' +
+      'casa novo, e a\u00ed o filtro oferece uma lista e o chip do Painel conta outra',
+      (adm.match(/function ehTipoDeUnidade\(/g) || []).length);
+  }
+
+  /* ---- E A ESCOLHA SOBREVIVE AO CADASTRO RECARREGAR ----
+   *
+   * `montarSelects` reconstroi as opcoes destes campos toda vez que o cadastro chega ou
+   * muda — e reconstruir um `<select>` apaga o que estava escolhido nele. Por isso a
+   * funcao GUARDA a escolha antes e DEVOLVE depois.
+   *
+   * O RESGUARDO NAO TINHA PROVA NENHUMA, e foi uma sabotagem que mostrou: tirado um
+   * campo da lista que devolve, a escolha dele some sozinha no meio de uma leitura e
+   * tudo continua verde. Com um campo so' isso passa por "recarregou"; com varios
+   * escolhidos, some um recorte inteiro e a lista da tela CRESCE sem ninguem ter mexido
+   * nela — que e' o jeito mais silencioso de uma tela mentir.
+   *
+   * A PROVA SAI DO PROPRIO CODIGO: todo campo que tem as opcoes reescritas ali dentro
+   * tem de aparecer nas duas listas. Escrita como "estes quatro ids", ela reprovaria
+   * sozinha a cada campo novo sem nada ter quebrado. */
+  {
+    var iMs = adm.indexOf('  function montarSelects(){');
+    var ms = iMs < 0 ? '' : adm.slice(iMs, adm.indexOf('\n  }', iMs));
+    ok(!!ms, 'a confer\u00eancia recortou `montarSelects`', ms.length);
+
+    /* QUEM TEM AS OPCOES REESCRITAS: `getElementById('x').innerHTML =`. */
+    var refeitos = (ms.match(/getElementById\('(mv[A-Za-z]+)'\)\.innerHTML =/g) || [])
+      .map(function (s) { return /'(mv[A-Za-z]+)'/.exec(s)[1]; });
+    ok(refeitos.length >= 4,
+      'e achou os campos que t\u00eam as op\u00e7\u00f5es reescritas quando o cadastro chega', refeitos);
+
+    /* AS DUAS LISTAS: a que guarda (`dataset.eraEscolha =`) e a que devolve
+       (`porEscolha(s, era)`). Elas sao dois `forEach` sobre arrays de ids. */
+    var blocos = ms.split('.forEach(function(id){');
+    function idsDo(bloco) {
+      var i = bloco.lastIndexOf('[');
+      return i < 0 ? [] : (bloco.slice(i).match(/'(mv[A-Za-z]+)'/g) || [])
+        .map(function (s) { return s.slice(1, -1); });
+    }
+    var guarda = [], devolve = [];
+    blocos.forEach(function (b, i) {
+      if (i + 1 >= blocos.length) return;
+      var corpo = blocos[i + 1].slice(0, 200);
+      if (corpo.indexOf('eraEscolha = JSON.stringify') > 0) guarda = idsDo(b);
+      else if (corpo.indexOf('porEscolha(s, era)') > 0) devolve = idsDo(b);
+    });
+    ok(guarda.length > 0 && devolve.length > 0,
+      'e achou a lista que GUARDA a escolha e a que DEVOLVE',
+      { guarda: guarda, devolve: devolve });
+
+    var semGuarda = refeitos.filter(function (x) { return guarda.indexOf(x) < 0; });
+    var semDevolve = refeitos.filter(function (x) { return devolve.indexOf(x) < 0; });
+    ok(!semGuarda.length && !semDevolve.length,
+      'e TODO campo que tem as op\u00e7\u00f5es reescritas guarda e devolve a escolha \u2014 de ' +
+      'fora, o filtro se apaga sozinho quando o cadastro recarrega, e a lista da tela ' +
+      'cresce sem ningu\u00e9m ter mexido nela',
+      { semGuarda: semGuarda, semDevolve: semDevolve });
+    ok(guarda.slice().sort().join(',') === devolve.slice().sort().join(','),
+      'e as duas listas s\u00e3o a MESMA \u2014 guardar sem devolver \u00e9 o mesmo que n\u00e3o guardar, e ' +
+      'devolver o que n\u00e3o se guardou devolve vazio',
+      { guarda: guarda, devolve: devolve });
+  }
+
+  /* ---- E ELE ENTRA NO RECORTE QUE **APAGA**, e nao so' no que lista ----
+   *
+   * `filtroExclusao()` alimenta tres coisas: a lista, o CSV e o "Apagar o que esta no
+   * filtro". Um campo que recorta a tela e NAO entra ali e' o pior desfecho possivel
+   * para aquele botao: a pessoa ve cinco linhas, confirma, e o servidor apaga o recorte
+   * sem o filtro — um conjunto maior do que o que estava a vista.
+   *
+   * E O NOME TEM DE SER `local`, que e' como o servidor chama a peneira das duas pontas:
+   * `limparMovimentos` repassa `p.local` para `listaMovimentos`. Batizado de outra coisa
+   * aqui, o apagar receberia um campo que ele nao conhece e o ignoraria em silencio. */
+  {
+    var iFx = adm.indexOf('function filtroExclusao(){');
+    var fx = iFx < 0 ? '' : adm.slice(iFx, adm.indexOf('\n  }', iFx));
+    ok(/local:\s*valorFiltro\('mvUnidade'\)/.test(fx),
+      'a Unidade entra no recorte que o APAGAR l\u00ea, com o nome `local` que o servidor j\u00e1 ' +
+      'usa \u2014 de fora, a tela mostraria o recorte da filial e o "apagar o que est\u00e1 no ' +
+      'filtro" levaria a base inteira junto', fx.slice(0, 200));
+  }
   /* `:f.` OU `:valorFiltro(` — as duas formas chegam ao servidor. A maioria dos campos
      viaja pelo objeto `f`; os que nao tem lugar nele sao lidos direto da tela no mesmo
      pedido. O que a prova cobra e' que o nome do parametro ESTEJA no pedido, e nao de

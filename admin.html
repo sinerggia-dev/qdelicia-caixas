@@ -1080,6 +1080,17 @@
            par de pontas (escolher dois pares seria outra pergunta), e os Lancamentos,
            cujas tres opcoes JA sao todas as combinacoes possiveis de duas bases. -->
       <div class="grid-filtros">
+        <!-- A UNIDADE CASA NAS DUAS PONTAS, e e' por isso que ela existe ao lado de
+             Origem e Destino em vez de no lugar deles: "tudo o que passou pela Filial
+             Maceio" e "tudo o que SAIU da Filial Maceio" sao perguntas diferentes, e a
+             primeira nao se faz com os outros dois. Escolher a filial em Origem E em
+             Destino traz o que saiu E chegou nela — as duas condicoes ao mesmo tempo —,
+             que e' quase nada.
+             VEM PRIMEIRO porque e' o recorte mais largo dos tres: quem abre esta tela
+             procurando "o movimento da matriz hoje" resolve aqui numa escolha so'. -->
+        <div><label for="mvUnidade">Unidade</label><select id="mvUnidade" multiple data-multi></select>
+          <span class="sr" id="mvUnidadeDica">Matriz e filiais. Traz o lançamento em que
+            a unidade aparece na origem OU no destino.</span></div>
         <div><label for="mvOrigem">Origem</label><select id="mvOrigem" multiple data-multi></select></div>
         <div><label for="mvDestino">Destino</label><select id="mvDestino" multiple data-multi></select></div>
         <!-- "O que saiu" e não "Saída": o campo ao lado já tem uma opção com esse
@@ -2521,10 +2532,17 @@
        meio de uma leitura — com um campo só isso passava por "recarregou"; com vários
        escolhidos, some um recorte inteiro e a lista da tela cresce sem ninguém ter
        mexido nela. */
-    ['mvOrigem', 'mvDestino', 'mvCaixa'].forEach(function(id){
+    ['mvUnidade', 'mvOrigem', 'mvDestino', 'mvCaixa'].forEach(function(id){
       var s = document.getElementById(id);
       if (s) s.dataset.eraEscolha = JSON.stringify(escolhaDe(s));
     });
+    /* SO' AS CASAS, pela MESMA regra do Painel de Ativos — `ehTipoDeUnidade`, que junta
+       galpao e filial e tem a Matriz dentro. Escrita de novo aqui, o dia em que entrasse
+       um terceiro tipo de casa ele apareceria numa tela e faltaria na outra.
+       COM ROTA E CLIENTE NA LISTA, o filtro deixaria de ser "matriz e filiais" e viraria
+       um segundo Origem-ou-Destino — que e' outra pergunta, e ja' tem dois campos. */
+    document.getElementById('mvUnidade').innerHTML =
+      opcoes(todosLocais.filter(function(l){ return ehTipoDeUnidade(l.Tipo); }), 'Todas');
     document.getElementById('mvOrigem').innerHTML = opcoes(todosLocais, 'Todas');
     document.getElementById('mvDestino').innerHTML = opcoes(todosLocais, 'Todos');
     /* Em ordem de nome, como a coluna CAIXA da tabela: procurar "CX G" numa lista em
@@ -2534,7 +2552,7 @@
         return '<option value="'+t.ID+'">'+Q.esc(t.Nome)+'</option>';
       }).join('');
     /* E DEVOLVE. Guardar sem devolver seria o mesmo que nao guardar. */
-    ['mvOrigem', 'mvDestino', 'mvCaixa'].forEach(function(id){
+    ['mvUnidade', 'mvOrigem', 'mvDestino', 'mvCaixa'].forEach(function(id){
       var s = document.getElementById(id);
       if (!s) return;
       var era = [];
@@ -7477,6 +7495,12 @@
        e o servidor receberia um. O pior desfecho nao e a lista errada: e o "apagar o
        que esta no filtro" apagando um recorte maior do que o que esta na tela. */
     return {
+      /* `local` E O NOME QUE O SERVIDOR JA USA, e nao um batismo novo: a peneira dele
+         casa na origem OU no destino desde sempre, e o `limparMovimentos` ja' repassa
+         este campo para a MESMA funcao que monta a lista. Chamado de outra coisa aqui,
+         seria preciso traduzir em dois lugares — e um filtro que a lista entende e o
+         apagar nao e' o pior desfecho possivel para um botao com aquele nome. */
+      local:   valorFiltro('mvUnidade'),
       origem:  valorFiltro('mvOrigem'),
       destino: valorFiltro('mvDestino'),
       tipo:    valorFiltro('mvTipo'),
@@ -7617,8 +7641,9 @@
   /* Os cinco campos recarregam sozinhos ao mudar. Antes só o botão Filtrar disparava a
      busca: a pessoa trocava o Tipo, a tabela continuava igual, e a conclusão natural era
      que o filtro não funcionava. O botão fica como recarregar. */
-  ['mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa', 'mvStatus', 'mvUsuario',
-   'mvMotorista', 'mvTrecho', 'mvTeste', 'mvCancelados', 'mvDe', 'mvAte'].forEach(function(id){
+  ['mvUnidade', 'mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa', 'mvStatus',
+   'mvUsuario', 'mvMotorista', 'mvTrecho', 'mvTeste', 'mvCancelados', 'mvDe',
+   'mvAte'].forEach(function(id){
     document.getElementById(id).addEventListener('change', carregarMovimentos);
   });
 
@@ -7710,7 +7735,7 @@
     /* `Q.lendo` DIZ QUEM ESTA PERGUNTANDO. Esta era a unica das cinco leituras que nao
        mandava recorte nenhum, e por isso mostrava a operacao inteira a quem so podia ver
        os proprios lancamentos. Agora nenhuma tela monta recorte: todas dizem quem sao. */
-    Q.get(Q.lendo({acao:'movimentos', origem:f.origem, destino:f.destino,
+    Q.get(Q.lendo({acao:'movimentos', local:f.local, origem:f.origem, destino:f.destino,
            tipo:f.tipo, fluxo:f.fluxo, caixa:f.caixa, usuario:f.usuario, teste:f.teste,
            situacao:f.situacao, motorista:f.motorista, trecho:f.trecho,
            cancelados:valorFiltro('mvCancelados'),
@@ -7753,8 +7778,9 @@
    * Os rótulos saem dos MESMOS `<label>` da tela, lidos do DOM: escritos aqui de novo,
    * o dia em que um filtro fosse renomeado a pílula continuaria com o nome antigo.
    */
-  var CAMPOS_MOV = ['mvOrigem','mvDestino','mvFluxo','mvTipo','mvCaixa','mvStatus',
-                    'mvUsuario','mvMotorista','mvTrecho','mvCancelados','mvDe','mvAte'];
+  var CAMPOS_MOV = ['mvUnidade','mvOrigem','mvDestino','mvFluxo','mvTipo','mvCaixa',
+                    'mvStatus','mvUsuario','mvMotorista','mvTrecho','mvCancelados',
+                    'mvDe','mvAte'];
 
   function rotuloDoCampo(id){
     var lab = document.querySelector('label[for="'+id+'"]');
@@ -12211,8 +12237,8 @@
    * para a mesma gaveta é ter de adivinhar qual das duas a tela obedece — e a resposta
    * é sempre esta, o que torna a outra uma mentira pregada no arquivo. */
   var FILTROS_MOV = {
-    padrao: ['mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa', 'mvStatus',
-             'mvDe', 'mvAte', 'mvCancelados',
+    padrao: ['mvUnidade', 'mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa',
+             'mvStatus', 'mvDe', 'mvAte', 'mvCancelados',
              'mvUsuario', 'mvMotorista', 'mvTeste'],
     kOrdem: 'qdc_ordem_filtros_mov_v1'
   };
