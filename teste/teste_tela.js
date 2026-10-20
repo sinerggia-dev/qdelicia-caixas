@@ -11273,26 +11273,23 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     fileira.length);
 
   var quantos = fileira.split('tileCor(').length - 1;
-  /* SETE, e a contagem IMPAR nao e' detalhe: e' ela que faz o ultimo cartao ocupar a
-     linha inteira (`:nth-child(odd):last-child`), e e' na taxa que mora a barra da meta.
-     Um cartao a mais deixa a conta par e encolhe a barra pela metade. */
-  ok(quantos === 7 && quantos % 2 === 1,
-    'a fileira tem sete cartões, e a contagem é ímpar — par, o último deixa de ocupar a ' +
-    'linha inteira e a barra da meta encolhe', quantos);
+  /* OITO: o estoque, as CINCO ETAPAS do ciclo, o deficit e a taxa. */
+  ok(quantos === 8, 'a fileira tem oito cartoes \u2014 o estoque, as cinco etapas do ciclo, ' +
+    'o deficit e a taxa', quantos);
 
   /* A ORDEM e pedida, entao e conferida. Um cartao novo enfiado no meio nao quebra nada
      no codigo — so a leitura de quem abre a tela todo dia no mesmo lugar. */
   var rotulos = (fileira.match(/'([A-ZÀ-Ý][^']*)'/g) || [])
     .map(function (t) { return t.slice(1, -1); })
     .filter(function (t) { return t.indexOf('<') < 0; });
-  /* O FORNECEDOR ENTRA ENTRE A SAIDA E O RETORNO, a pedido: ele e' a parada do meio do
-     caminho, e e' nessa ordem que o ciclo se le'. A transferencia vem depois das tres,
-     porque ela nao e' uma quarta etapa: e' a explicacao do que sobrou da saida. */
+  /* AS CINCO ETAPAS NA ORDEM DA VIAGEM, e e' o que faz a fileira se ler sozinha:
+     500-500-500-500-500 e' ciclo fechado, e 500-500-500-300-0 mostra onde ele parou.
+     Trocada a ordem, a fileira vira uma lista de numeros soltos. */
   ok(rotulos.join(' | ') ===
-     'Total no Estoque | Total de Saída | Fornecedor | Total de Retorno | ' +
-     'Transferência entre casas | Caixas que Saíram e Não Voltaram | Taxa de Retorno',
-    'os cartões saem na ordem pedida: o estoque abre, o fornecedor fica ENTRE a saída e ' +
-    'o retorno, e a taxa fecha', rotulos);
+     'Total no Estoque | Sa\u00edda | Entrada | Envio | Devolu\u00e7\u00e3o | Retorno | ' +
+     'Caixas que Sa\u00edram e N\u00e3o Voltaram | Taxa de Retorno',
+    'os cartoes contam o ciclo na ordem em que ele acontece: saida, entrada, envio, ' +
+    'devolucao, retorno \u2014 com o estoque abrindo e a taxa fechando', rotulos);
 
   /* Sairam a pedido: "Em Circulação" dizia o inverso do estoque, e "Origens Abaixo da
      Meta" repetia em contagem o que a taxa de retorno ja diz em porcentagem. */
@@ -11312,7 +11309,7 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   var mapaCor = adm.slice(iCor, adm.indexOf('};', iCor));
   ok(iCor > 0, 'as cores moram num mapa só, e não espalhadas pela montagem');
   ['estoque', 'saida', 'retorno', 'fora', 'taxa',
-   'fornecedor', 'transferencia'].forEach(function (k) {
+   'entrada', 'envio', 'devolucao'].forEach(function (k) {
     /* COM DIGITO TAMBEM: `--txt2` e' um token como os outros, e a peneira o
        recusava por nao caber em [a-z-]. Ela mede se a cor VEM DE UM TOKEN — e' isso
        que a faz passar pela medicao de contraste —, e nao como o nome se escreve. */
@@ -11321,52 +11318,75 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       'contraste e chegaria ao galpão sem passar por ela', mapaCor);
   });
   var usadas = (mapaCor.match(/var\(--[a-z0-9-]+\)/g) || []);
-  ok(usadas.length === 7 && new Set(usadas).size === 7,
-    'e as sete são DIFERENTES entre si — repetida, a cor deixa de identificar o cartão',
+  ok(usadas.length === 8 && new Set(usadas).size === 8,
+    'e as oito sao DIFERENTES entre si \u2014 repetida, a cor deixa de identificar o cartao',
     usadas);
   ['COR_TILE.estoque', 'COR_TILE.saida', 'COR_TILE.retorno', 'COR_TILE.fora',
-   'COR_TILE.taxa', 'COR_TILE.fornecedor',
-   'COR_TILE.transferencia'].forEach(function (c) {
+   'COR_TILE.taxa', 'COR_TILE.entrada', 'COR_TILE.envio',
+   'COR_TILE.devolucao'].forEach(function (c) {
     ok(fileira.indexOf(c) > 0, 'o cartão usa ' + c, fileira.slice(0, 80));
   });
 
-  /* --- O RODAPE DIZ DE QUE SAIDA SE FALA ----------------------------------
+  /* --- CADA ETAPA DIZ DE QUE PERNA ELA FALA -------------------------------
    *
-   * O mesmo numero quer dizer coisas diferentes nos dois recortes: sem unidade
-   * escolhida, a saida e' o que deixou a EMPRESA; com uma unidade, e' o que aquela CASA
-   * despachou — inclusive para outra casa. Um rodape fixo mentiria em uma das duas
-   * leituras, e seria a leitura que ninguem confere porque o numero "parece certo".
+   * Num ciclo que fechou, os cinco cartoes mostram O MESMO 500 — e e' assim que tem que
+   * ser: e' a mesma carga em cinco momentos. Cinco numeros iguais lado a lado so' podem
+   * ser lidos de um jeito por quem chega sem explicacao: somando. Somados, eles dao
+   * 2.500 caixas que nunca existiram, e foi uma soma dessas que o escritorio apontou na
+   * tela quando a perna interna entrava duas vezes.
    *
-   * O MESMO VALE PARA A TRANSFERENCIA, e pelo motivo inverso: no grupo ela esta' FORA da
-   * conta de saida; numa casa ela esta' DENTRO dela.
+   * O RODAPE E O QUE IMPEDE A SOMA: ele nomeia as DUAS PONTAS de cada perna, e e' lendo
+   * as pontas que se ve' que a filial aparece como quem recebe num cartao e como quem
+   * despacha no seguinte. Sem eles, a fileira volta a ser uma lista de numeros soltos.
    *
-   * A sabotagem apagou os dois rodapes variaveis e nada reprovou — nenhuma prova olhava
-   * o texto que explica o numero. */
-  var mSaida = /tileCor\(Q\.num\(t\.saida\), 'Total de Sa\u00edda',([^,]*),/.exec(fileira);
-  ok(!!mSaida && /rtUnidade/.test(mSaida[1]) &&
-     /saiu desta casa/.test(mSaida[1]) && /saiu da empresa/.test(mSaida[1]),
-    'o rodap\u00e9 da Sa\u00edda muda com o recorte: "saiu da empresa" no grupo, "saiu desta casa" ' +
-    'com uma unidade escolhida \u2014 fixo, ele mente numa das duas leituras, e \u00e9 a leitura ' +
-    'que ningu\u00e9m confere porque o n\u00famero parece certo',
-    mSaida ? mSaida[1].trim() : fileira.slice(0, 120));
+   * A PROVA LE O RODAPE DE CADA UM, porque a sabotagem que os apaga nao muda numero
+   * nenhum: a tela fica igual, certa, e ilegivel. */
+  function cartaoDe(campo, rot) {
+    var i = fileira.indexOf("tileCor(Q.num(t." + campo + "), '" + rot + "'");
+    if (i < 0) return '';
+    var f = fileira.indexOf('COR_TILE.', i);
+    return f < 0 ? '' : fileira.slice(i, f);
+  }
+  var ETAPAS = [['saida', 'Saída'], ['entrada', 'Entrada'], ['envio', 'Envio'],
+                ['devolucao', 'Devolução'], ['retorno', 'Retorno']];
+  var semCartao = ETAPAS.filter(function (e) { return !cartaoDe(e[0], e[1]); });
+  ok(!semCartao.length,
+    'as cinco etapas do ciclo têm cartão, e cada uma lê o campo com o nome dela — ' +
+    'trocados os campos, a fileira continua somando certo e contando a viagem errada',
+    semCartao.map(function (e) { return e[1]; }));
 
-  var iTr = fileira.indexOf("'Transfer\u00eancia entre casas'");
-  var rodTr = iTr < 0 ? '' : fileira.slice(iTr, fileira.indexOf('COR_TILE.transferencia', iTr));
-  ok(rodTr.indexOf('rtUnidade') > 0 &&
-     /fora da conta de sa\u00edda/.test(rodTr) && /parte da sa\u00edda desta casa/.test(rodTr),
-    'e o da Transfer\u00eancia tamb\u00e9m: no grupo ela fica FORA da conta de sa\u00edda; numa casa ' +
-    'ela \u00e9 PARTE dela \u2014 a mesma perna, dois papeis, e o rodap\u00e9 \u00e9 o \u00fanico lugar que diz ' +
-    'qual dos dois est\u00e1 valendo', rodTr.slice(0, 160));
+  /* AS ASPAS, E NAO UMA REGEX: o rodape e' a SEGUNDA cadeia entre aspas do cartao — a
+     primeira e' o rotulo. Lido por regex de uma linha so', ele some no dia em que o
+     cartao quebrar em duas linhas, e a prova passa a medir cadeia vazia. */
+  function aspasDe(txt) {
+    var fora = [], a = txt.indexOf("'");
+    while (a >= 0) {
+      var b = txt.indexOf("'", a + 1);
+      if (b < 0) break;
+      fora.push(txt.slice(a + 1, b));
+      a = txt.indexOf("'", b + 1);
+    }
+    return fora;
+  }
+  var rodapes = ETAPAS.map(function (e) {
+    var p = aspasDe(cartaoDe(e[0], e[1]));
+    return p.length > 1 ? p[1] : '';
+  });
+  ok(rodapes.every(Boolean) && new Set(rodapes).size === 5,
+    'e as cinco trazem rodapé, DIFERENTES entre si — repetido, o rodapé deixa de dizer ' +
+    'qual perna é qual, que é a única coisa que ele existe para dizer', rodapes);
 
-  ok(/enviadas/.test(rodTr) && /recebidas/.test(rodTr),
-    'e ele d\u00e1 os dois sentidos \u2014 um total sozinho n\u00e3o distingue a casa que mandou tudo e ' +
-    'n\u00e3o recebeu nada da que fechou o ciclo');
-
-  var iFo = fileira.indexOf("'Fornecedor'");
-  var rodFo = iFo < 0 ? '' : fileira.slice(iFo, fileira.indexOf('COR_TILE.fornecedor', iFo));
-  ok(/enviadas/.test(rodFo) && /devolvidas/.test(rodFo),
-    'e o do Fornecedor diz quantas foram e quantas voltaram \u2014 \u00e9 a diferen\u00e7a entre a carga ' +
-    'que ainda est\u00e1 l\u00e1 e o ciclo que j\u00e1 fechou', rodFo.slice(0, 160));
+  /* A ENTRADA E O CARTAO QUE MAIS PEDE EXPLICACAO: hoje ela e' igual a saida, porque e'
+     a MESMA perna vista da outra ponta. Sem a frase, dois numeros iguais e vizinhos
+     convidam a soma — e e' exatamente a soma que estava errada. */
+  ok(/mesmo lançamento/.test(rodapes[1]),
+    'a Entrada diz que é o MESMO lançamento visto na chegada — sem isso, dois números ' +
+    'iguais e vizinhos pedem para ser somados, e a soma é o defeito que este modelo ' +
+    'veio corrigir', rodapes[1]);
+  ok(/empresa/.test(rodapes[2]) && /empresa/.test(rodapes[3]),
+    'e o Envio e a Devolução dizem FRONTEIRA DA EMPRESA — são os dois únicos que ' +
+    'falam de caixa fora de casa, e é por eles que a cobrança passa',
+    [rodapes[2], rodapes[3]]);
 
   /* --- os desenhos dizem o que o número diz ------------------------------- */
   ok(/desenho--zero/.test(fileira),
@@ -11374,10 +11394,35 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'não há referência para dizer se −80 é pouco, e barra proporcional a nada seria mentira');
   ok(/desenho desenho--pista">'\+Q\.caminhao\(4\)/.test(fileira),
     'a saída é um caminhão cheio indo');
-  ok(/desenho--volta[\s\S]{0,120}Q\.caminhao\(t\.saida \? Math\.max\(0, Math\.min\(4, Math\.round\(t\.retorno \/ t\.saida \* 4\)\)\) : 0\)/
-    .test(fileira),
-    'e o retorno volta com a carga PROPORCIONAL ao que voltou — cheio sempre, ele ' +
-    'desmentiria o número ao lado');
+  /* A CARGA DA VOLTA E MEDIDA RODANDO, e nao lida. A prova anterior conferia o texto
+     da expressao, e por isso ela sobreviveu inteira a troca do modelo: continuou verde
+     apontando para `t.saida` e `t.retorno`, campos que a conta nova nem calcula mais —
+     a expressao daria 0 em todo caso, o caminhao voltaria sempre vazio, e a prova nao
+     teria como perceber. Aqui ela e' EXECUTADA com numeros escolhidos. */
+  function argCaminhao(txt, de) {
+    var a = txt.indexOf('Q.caminhao(', de);
+    if (a < 0) return '';
+    var k = a + 'Q.caminhao'.length, ini = k, d = 0;
+    for (; k < txt.length; k++) {
+      if (txt[k] === '(') d++;
+      else if (txt[k] === ')' && --d === 0) return txt.slice(ini + 1, k);
+    }
+    return '';
+  }
+  var argVolta = argCaminhao(fileira, fileira.indexOf('desenho--volta'));
+  var carga = argVolta && new Function('t', 'return (' + argVolta + ');');
+  ok(!!carga && carga({ envio: 500, devolucao: 500 }) === 4 &&
+     carga({ envio: 500, devolucao: 250 }) === 2 &&
+     carga({ envio: 500, devolucao: 0 }) === 0,
+    'o caminhão da Devolução volta com a carga PROPORCIONAL ao que foi ENVIADO — cheio ' +
+    'sempre, ele desmentiria o número ao lado; medido contra a saída, ele mediria uma ' +
+    'perna que nem cruzou a fronteira',
+    argVolta && [carga({ envio: 500, devolucao: 500 }), carga({ envio: 500, devolucao: 250 }),
+                 carga({ envio: 500, devolucao: 0 })]);
+  ok(!!carga && carga({ envio: 0, devolucao: 0 }) === 0,
+    'e sem envio nenhum ele não divide por zero — `NaN` caixas desenhadas não dão erro ' +
+    'no console, dão um desenho em branco que ninguém sabe ler',
+    carga && carga({ envio: 0, devolucao: 0 }));
   ok(/desenho--fora/.test(fileira),
     'o que não voltou são caixas paradas no destino, e uma que tenta voltar e some');
   ok(fileira.indexOf('desenho') > 0 &&
@@ -11779,24 +11824,23 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       'largura ao lado de um vazio \u00e9 desenho, e n\u00e3o arranjo', seletor);
   }
 
-  /* E A TAXA CONTINUA SENDO A ULTIMA, EM POSICAO IMPAR — e por isso continua abrindo.
+  /* E A TAXA ABRE A LINHA POR CLASSE, e nao por paridade.
    *
-   * A prova dizia "a quinta de cinco", e o cinco era so' quantos cartoes havia no dia em
-   * que ela foi escrita: entrando o Fornecedor e a Transferencia, ela reprovou uma
-   * mudanca que NAO quebrou o desenho — sete tambem e' impar, e a barra continua inteira.
-   * O QUE A REGRA PROTEGE sao duas coisas, e sao estas que a prova passa a cobrar: a
-   * taxa e' a ULTIMA (e' nela que a barra mora) e a contagem e' IMPAR (e' o que faz o
-   * `:nth-child(odd):last-child` pegar). Com um cartao a mais a conta fica par, a barra
-   * volta a meia largura, e a prova diz exatamente isso. */
+   * A prova cobrava "a ultima, em contagem impar": a fileira foi de cinco para oito
+   * cartoes quando o ciclo virou cinco etapas, e a barra da meta voltaria a meia
+   * largura — curta demais para se ler contra a marca, que e' o que aquela regra
+   * existe para evitar. Dito na classe, o desenho deixa de depender de quantos
+   * cartoes ha. */
   var iFx = adm.indexOf("document.getElementById('fluxoTiles').innerHTML =");
   var fx = iFx < 0 ? '' : adm.slice(iFx, adm.indexOf('vigiarTiles();', iFx));
   var quantos = (fx.match(/tileCor\(/g) || []).length;
   var iMeta = fx.lastIndexOf('<div class="meta">');
   var iUltimo = fx.lastIndexOf('tileCor(');
-  ok(quantos >= 5 && quantos % 2 === 1 && iMeta > iUltimo,
-    'e a taxa \u00e9 a QUINTA de cinco no Painel, que \u00e9 o que a faz abrir — mudada a ordem, ou ' +
-    'acrescentado um sexto cart\u00e3o, a barra da meta voltaria a meia largura, e \u00e9 ela que ' +
-    'esta regra existe para proteger', { cartoes: quantos, barraNoUltimo: iMeta > iUltimo });
+  ok(quantos >= 5 && iMeta > iUltimo && /,\s*true\)/.test(fx.slice(iUltimo)) &&
+     /\.ftile--larga\{grid-column:1\/-1\}/.test(css),
+    'e a taxa e o ULTIMO cartao e PEDE a linha inteira pela classe \u2014 pela paridade, ' +
+    'bastava um cartao novo para a barra da meta voltar a meia largura',
+    { cartoes: quantos, barraNoUltimo: iMeta > iUltimo });
 
   ok(/\.ret-nav\{scrollbar-width:none;[\s\S]{0,200}mask-image:linear-gradient/.test(css),
     'o trilho de chips esmaece na borda em vez de mostrar barra de rolagem — a barra é ' +
@@ -11842,12 +11886,15 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   /* --- o que segue o filtro, e o que nao segue ---------------------------- */
   var j = adm.indexOf('var t = totaisDe(lista);');
   ok(j > 0 && j < i, 'os totais saem da lista já filtrada, e não do período inteiro');
-  ok(/tileCor\(Q\.num\(t\.saida\), 'Total de Saída'/.test(fileira),
-    'a saída lê esses totais, por isso acompanha o filtro', fileira);
-  ok(/tileCor\(Q\.num\(t\.retorno\), 'Total de Retorno'/.test(fileira),
-    'e o retorno também', fileira);
-  ok(/Q\.num\(t\.saida \+ t\.retorno\)/.test(fileira),
-    'a soma dos dois é o rodapé do cartão de retorno');
+  /* AS CINCO ETAPAS BEBEM DO MESMO `t`, e e' so' por isso que elas encolhem juntas
+     quando o filtro aperta. Uma delas que fosse buscar a lista inteira por fora ficaria
+     parada enquanto as outras quatro mudam — e seria a unica errada, sem dizer. */
+  var soltos = ['saida', 'entrada', 'envio', 'devolucao', 'retorno'].filter(function (c) {
+    return fileira.indexOf('Q.num(t.' + c + ')') < 0;
+  });
+  ok(!soltos.length,
+    'as cinco etapas leem esses totais, por isso acompanham o filtro todas juntas',
+    soltos);
 
   /* O estoque e o unico que NAO segue o filtro: sai do razao, e nao do fluxo do periodo.
      Sem o aviso no rodape, ele pareceria travado quando a tabela embaixo muda.
@@ -11916,8 +11963,8 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     }
     return '';
   }
-  var PECAS_T = ['ehTipoDeUnidade', 'nomesDeUnidade', 'nomesDeFornecedor',
-                 'pernaInterna', 'pernaDeFornecedor', 'totaisDe'];
+  var PECAS_T = ['ehTipoDeUnidade', 'nomesDeUnidade',
+                 'pernaInterna', 'totaisDe'];
   var faltaT = PECAS_T.filter(function (n) { return !corpoAd(n); });
   ok(!faltaT.length,
     'a confer\u00eancia recortou a conta dos cart\u00f5es e as pe\u00e7as que ela usa \u2014 faltando uma, ' +
@@ -11932,18 +11979,24 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     function () { return 90; }, { locais: LOC_T },
     function (id) { return id === 'rtUnidade' ? UNIDADE : ''; });
 
+  /* AS DUAS PONTAS EM TODA LINHA, inclusive aqui. Sem origem e destino a conta nao tem
+     como saber de que etapa a linha fala, e as provas abaixo passariam medindo o ramo
+     que trata linha sem viagem — que e' o ramo do estoque inicial, e nao o do fluxo. */
   var linhas = [
-    { situacao: 'atencao', saida: 1690, retorno: 1250, saldo: -440, desvio: 26 },
-    { situacao: 'atencao', saida: 810, retorno: 0, saldo: -810, desvio: 100 },
-    { situacao: 'parado', saida: 0, retorno: 0, saldo: 0, desvio: null }
+    { situacao: 'atencao', origens: ['Matriz'], destinos: ['Fornecedor'],
+      saida: 1690, retorno: 1250, saldo: -440, desvio: 26 },
+    { situacao: 'atencao', origens: ['Matriz'], destinos: ['Fornecedor'],
+      saida: 810, retorno: 0, saldo: -810, desvio: 100 },
+    { situacao: 'parado', origens: ['Matriz'], destinos: ['Fornecedor'],
+      saida: 0, retorno: 0, saldo: 0, desvio: null }
   ];
   var tudo = totaisDe(linhas);
-  ok(tudo.saida === 2500 && tudo.retorno === 1250,
-    'sem filtro, os cartões somam as duas linhas com movimento', tudo);
+  ok(tudo.envio === 2500 && tudo.devolucao === 1250,
+    'sem filtro, os cart\u00f5es somam as duas linhas com movimento', tudo);
 
   var so1 = totaisDe([linhas[0]]);
-  ok(so1.saida === 1690 && so1.saida < tudo.saida,
-    'filtrada uma linha, eles encolhem junto — é o que "responde ao filtro" quer dizer',
+  ok(so1.envio === 1690 && so1.envio < tudo.envio,
+    'filtrada uma linha, eles encolhem junto \u2014 \u00e9 o que "responde ao filtro" quer dizer',
     so1);
 
   /* A linha parada nao entra na conta. Conferir isso pela saida e pelo retorno nao testa
@@ -11955,89 +12008,144 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'e as duas com movimento contam — não uma lista vazia que passaria por engano',
     tudo.linhas);
 
-  /* ================= A PERNA ENTRE DUAS CASAS =================
+  /* ================= O CICLO, ETAPA POR ETAPA =================
    *
    * O caso relatado, com os nomes dele: Sao Vicente manda 500 para a Filial Maceio, que
-   * manda 500 ao fornecedor. O cartao dizia 1.000, e sao as MESMAS 500 caixas.
+   * manda 500 ao fornecedor. O cartao de saida dizia 1.000, e sao as MESMAS 500 caixas.
    *
-   * SAO TRES RECORTES E DUAS PERGUNTAS DIFERENTES, e e' isso que estas provas fixam:
-   * olhando o GRUPO, a perna interna nao cruzou fronteira e nao e' saida; olhando UMA
-   * CASA, ela e' saida daquela casa — porque a casa despachou mesmo — e o que chegou de
-   * outra casa e' transferencia, nao retorno. */
-  /* OS DOIS LADOS DO TRECHO TEM NUMEROS DIFERENTES, e isso nao e' enfeite: com 500 nos
-     dois, trocar "o que saiu" por "o que chegou" dava a mesma resposta, e a sabotagem
-     que inverte os lados passava batida. A ida leva 500 e a volta traz 300 — o que
-     sobra e' justamente o que distingue quem despachou de quem recebeu. */
+   * A CORRECAO NAO FOI TIRAR UMA PERNA DA CONTA — foi dar um cartao a cada uma. As duas
+   * pernas existem, as duas foram lancadas, e as duas tem de aparecer; o que nao pode e'
+   * as duas caírem no MESMO cartao, porque ai elas se somam. Cada etapa conta uma perna,
+   * e nenhuma conta duas.
+   *
+   * A TENTATIVA ANTERIOR tirava a perna interna da saida e a mandava para um cartao de
+   * "transferencia". A conta fechava e A TELA SE CONTRADIZIA: a tabela logo abaixo
+   * mostrava a linha com saida 500 e o cartao ao lado dizia 0. A um palmo um do outro,
+   * ganha a tabela — e quem le' conclui que o cartao quebrou. */
+  /* QUATRO NUMEROS DIFERENTES, e cada um deles paga uma divida de sabotagem.
+   *
+   * OS DOIS LADOS DE CADA TRECHO diferem porque, com 500 nos dois, trocar "o que foi"
+   * por "o que voltou" da' a mesma resposta, e a inversao passa batida.
+   *
+   * E A IDA INTERNA DIFERE DA IDA DE FORA — 600 contra 500 — porque enquanto as duas
+   * valiam 500, a taxa medida contra a SAIDA dava os mesmos 80% da taxa medida contra o
+   * ENVIO: a formula errada devolvia o numero certo, e a prova verde nao media nada.
+   * Era justamente a mistura de reguas que o cartao da taxa ja' tinha sofrido uma vez.
+   * Agora 400/500 = 80% e 400/600 = 66,7%, e as duas contas se separam. */
   var TRECHOS = [
     /* Matriz -> Filial Maceio, ida e volta: as duas pontas sao casas. */
     { situacao: 'atencao', origens: ['Matriz'], destinos: ['Filial Macei\u00f3'],
-      saida: 500, retorno: 300, saldo: -200, desvio: null },
+      saida: 600, retorno: 300, saldo: -300, desvio: null },
     /* Filial Maceio -> Fornecedor, ida e volta: esta cruza a fronteira. */
     { situacao: 'atencao', origens: ['Filial Macei\u00f3'], destinos: ['Fornecedor'],
-      saida: 500, retorno: 500, saldo: 0, desvio: null }
+      saida: 500, retorno: 400, saldo: -100, desvio: null }
   ];
 
-  UNIDADE = '';
   var gr = totaisDe(TRECHOS);
-  ok(gr.saida === 500 && gr.retorno === 500,
-    'no GRUPO, a perna entre duas casas sai da conta: sa\u00edda 500, e n\u00e3o 1.000 \u2014 era este ' +
-    'o n\u00famero que o escrit\u00f3rio apontou na tela', { saida: gr.saida, retorno: gr.retorno });
-  ok(gr.trEnviada === 500 && gr.trRecebida === 300,
-    'e ela aparece inteira no cart\u00e3o de transfer\u00eancia, nos dois sentidos \u2014 o movimento ' +
-    'interno n\u00e3o some, muda de cart\u00e3o', gr);
-  ok(gr.fornEnviada === 500 && gr.fornRecebida === 500,
-    'e o cart\u00e3o do fornecedor conta os dois sentidos dele, separados \u2014 um total sozinho ' +
-    'n\u00e3o distingue a carga que foi da que j\u00e1 voltou', gr);
+  ok(gr.saida === 600 && gr.entrada === 600,
+    'a perna entre duas casas conta UMA vez em cada ponta: 600 de sa\u00edda na matriz e ' +
+    '600 de entrada na filial. Somados, os dois cart\u00f5es diriam 1.200 \u2014 que \u00e9 o defeito ' +
+    'que o escrit\u00f3rio apontou na tela, com outros n\u00fameros: s\u00e3o as mesmas 600 caixas',
+    { saida: gr.saida, entrada: gr.entrada });
+  ok(gr.envio === 500 && gr.devolucao === 400,
+    'a perna que cruza a fronteira \u00e9 ENVIO e DEVOLU\u00c7\u00c3O, e os dois lados dela n\u00e3o se ' +
+    'confundem \u2014 trocados, a carga que voltou apareceria como carga que saiu',
+    { envio: gr.envio, devolucao: gr.devolucao });
+  ok(gr.retorno === 300,
+    'e a volta da filial para a matriz \u00e9 o RETORNO: 300, e n\u00e3o 600 \u2014 lido da mesma ponta ' +
+    'que a ida, ele traria de volta tudo o que foi despachado, e o ciclo pareceria ' +
+    'fechado com 300 caixas ainda paradas na filial', gr.retorno);
 
-  UNIDADE = 'Matriz';
-  var mz = totaisDe([TRECHOS[0]]);
-  ok(mz.saida === 500,
-    'olhando a MATRIZ, a perna interna CONTA como sa\u00edda dela \u2014 ela despachou 500, e o ' +
-    'cart\u00e3o da casa responde o que a casa viveu', mz.saida);
-  ok(mz.retorno === 0 && mz.trRecebida === 300,
-    'mas o que voltou da pr\u00f3pria filial \u00e9 transfer\u00eancia RECEBIDA, e n\u00e3o retorno \u2014 ' +
-    'contado como retorno, o ciclo que fecha dentro de casa inflaria a taxa, que \u00e9 ' +
-    'indicador de cobran\u00e7a', { retorno: mz.retorno, recebida: mz.trRecebida });
-  ok(mz.taxaRetorno === null,
-    'e sem nada ter sa\u00eddo para fora a taxa fica VAZIA, e n\u00e3o em zero \u2014 zero por cento ' +
-    'quer dizer "saiu e nada voltou", que \u00e9 outra coisa', mz.taxaRetorno);
-  ok(mz.deficit === 0,
-    'e a casa n\u00e3o fica devendo: caixa na pr\u00f3pria filial n\u00e3o \u00e9 caixa na rua', mz.deficit);
-
-  UNIDADE = 'Filial Macei\u00f3';
-  var fl = totaisDe(TRECHOS);
-  ok(fl.saida === 800,
-    'olhando a FILIAL, a sa\u00edda soma o que ELA despachou: 500 ao fornecedor mais as 300 ' +
-    'que devolveu \u00e0 matriz. Estando ela no DESTINO do trecho com a matriz, quem ela ' +
-    'despachou \u00e9 o `retorno` daquele trecho \u2014 lido sempre como `saida`, a filial ' +
-    'apareceria despachando o que recebeu', fl.saida);
-  ok(fl.retorno === 500 && fl.trRecebida === 500,
-    'e das duas chegadas, uma veio de fora (retorno) e outra da matriz (transfer\u00eancia) \u2014 ' +
-    'somadas no mesmo cart\u00e3o, a filial pareceria receber 1.000 de fora',
-    { retorno: fl.retorno, recebida: fl.trRecebida });
-  ok(fl.taxaRetorno === 100,
-    'e a taxa dela \u00e9 100%: 500 sa\u00edram para fora e 500 voltaram de fora \u2014 medida contra a ' +
-    'sa\u00edda total, daria 50% num ciclo que fechou', fl.taxaRetorno);
-
-  /* ---- UMA TRANSFERENCIA AINDA NAO DEVOLVIDA NAO E CAIXA NA RUA ----
-   * O trecho interno fecha em -200: a matriz mandou 500 e recebeu 300. Isso e' carga
+  /* ---- A COBRANCA SO' OLHA A FRONTEIRA ----
+   * O trecho interno fecha em -300: a matriz mandou 600 e recebeu 300. Isso e' carga
    * parada NA PROPRIA FILIAL, e nao caixa na mao de terceiro. Contada no deficit, o
    * cartao "saiu e nao voltou" cobraria da empresa uma caixa que esta' na casa dela. */
-  UNIDADE = '';
-  ok(gr.deficit === 0,
-    'e a transfer\u00eancia ainda n\u00e3o devolvida N\u00c3O entra no d\u00e9ficit \u2014 s\u00e3o 200 caixas ' +
-    'paradas na pr\u00f3pria filial, e cobr\u00e1-las seria cobrar da empresa o que est\u00e1 na casa ' +
-    'dela', gr.deficit);
+  ok(gr.deficit === 100,
+    'o d\u00e9ficit \u00e9 s\u00f3 o que cruzou a fronteira e n\u00e3o voltou: as 100 do fornecedor. As 300 ' +
+    'paradas na pr\u00f3pria filial ficam de fora \u2014 cobr\u00e1-las seria cobrar da empresa o que ' +
+    'est\u00e1 na casa dela', gr.deficit);
+  ok(gr.taxaRetorno === 80,
+    'e a taxa \u00e9 devolu\u00e7\u00e3o sobre ENVIO: 400 de 500 = 80%. Medida contra a SA\u00cdDA ela daria ' +
+    '400 de 600 = 66,7%, misturando a r\u00e9gua de dentro de casa com a de fora \u2014 foi assim ' +
+    'que a matriz marcou 0% num ciclo que tinha fechado inteiro', gr.taxaRetorno);
+  ok(gr.taxaRetorno !== Math.round((gr.devolucao / gr.saida) * 1000) / 10,
+    'e o cen\u00e1rio DISTINGUE as duas contas \u2014 com a ida interna e a ida de fora valendo o ' +
+    'mesmo, a f\u00f3rmula errada devolvia o n\u00famero certo, e esta prova passava verde sem ' +
+    'medir coisa nenhuma',
+    { pelaRegua: gr.taxaRetorno,
+      pelaSaida: Math.round((gr.devolucao / gr.saida) * 1000) / 10 });
 
-  /* ---- E A LINHA DE ESTOQUE INICIAL NAO E VIAGEM ----
-   * Ela tem origem e nao tem destino. Tratada como interna, o estoque posto a mao
-   * viraria transferencia e sumiria dos cartoes. */
+  /* ---- O CICLO FECHADO, COM OS NUMEROS QUE O ESCRITORIO PEDIU ----
+   * E' a prova de aceitacao, escrita com o exemplo exato: cinco etapas, 500 em cada uma.
+   * Lida da esquerda para a direita, a fileira tem de dizer "fechou" sem ninguem fazer
+   * conta — e nenhum dos cinco pode dizer 1.000. */
+  var ciclo = totaisDe([
+    { situacao: 'ok', origens: ['Matriz'], destinos: ['Filial Macei\u00f3'],
+      saida: 500, retorno: 500, saldo: 0, desvio: null },
+    { situacao: 'ok', origens: ['Filial Macei\u00f3'], destinos: ['Fornecedor'],
+      saida: 500, retorno: 500, saldo: 0, desvio: null }
+  ]);
+  ok(ciclo.saida === 500 && ciclo.entrada === 500 && ciclo.envio === 500 &&
+     ciclo.devolucao === 500 && ciclo.retorno === 500,
+    'o ciclo que o escrit\u00f3rio desenhou l\u00ea 500 em cada uma das cinco etapas: sa\u00edda da ' +
+    'matriz, entrada na filial, envio ao fornecedor, devolu\u00e7\u00e3o dele e retorno \u00e0 matriz ' +
+    '\u2014 e NENHUMA delas diz 1.000',
+    { saida: ciclo.saida, entrada: ciclo.entrada, envio: ciclo.envio,
+      devolucao: ciclo.devolucao, retorno: ciclo.retorno });
+  ok(ciclo.deficit === 0 && ciclo.taxaRetorno === 100,
+    'e fechado ele n\u00e3o deve nada e marca 100%', ciclo);
+
+  /* ---- O DE FORA NA ORIGEM ----
+   * Uma remessa lancada DO fornecedor para a casa — carga que entra — tem a ponta de
+   * fora na ORIGEM, e ai o `saida` da linha e' devolucao, nao envio. Lida sempre como
+   * envio, a carga que CHEGOU apareceria como carga na rua, e a cobranca perseguiria
+   * caixa que ja' esta em casa. Era este o defeito: a direcao vinha do destino, e com
+   * destino vazio ela se invertia. */
+  var entrando = totaisDe([
+    { situacao: 'ok', origens: ['Fornecedor'], destinos: ['Matriz'],
+      saida: 400, retorno: 0, saldo: 400, desvio: null }
+  ]);
+  ok(entrando.devolucao === 400 && entrando.envio === 0 && entrando.deficit === 0,
+    'carga vinda DE fora \u00e9 devolu\u00e7\u00e3o, e n\u00e3o envio \u2014 trocada, a tela cobraria de volta ' +
+    'uma caixa que acabou de chegar em casa', entrando);
+
+  /* ---- O FILTRO ESCOLHE AS PERNAS, E NAO O QUE ELAS SIGNIFICAM ----
+   * No modelo anterior a MESMA perna trocava de cartao conforme a unidade escolhida: era
+   * saida numa leitura e transferencia na outra. Dai vinha a contradicao entre a tabela
+   * e o cartao. Agora o recorte decide QUAIS linhas entram — a conta ja' as recebe
+   * filtradas —, e o que cada perna significa e' sempre o mesmo. */
+  UNIDADE = 'Matriz';
+  var comFiltro = totaisDe(TRECHOS);
   UNIDADE = '';
-  var est = totaisDe([{ situacao: 'atencao', origens: ['Matriz'], destinos: [],
-                        saida: 0, retorno: 0, saldo: 0, desvio: null }]);
-  ok(est.trEnviada === 0 && est.trRecebida === 0,
-    'e a linha de estoque inicial n\u00e3o vira transfer\u00eancia \u2014 ela tem origem e n\u00e3o tem ' +
-    'destino: n\u00e3o \u00e9 viagem entre casas, \u00e9 o ponto de partida da conta', est);
+  ok(JSON.stringify(comFiltro) === JSON.stringify(gr),
+    'escolher uma unidade N\u00c3O reinterpreta as pernas \u2014 ela decide quais linhas chegam ' +
+    'aqui, e era a releitura, e n\u00e3o o recorte, que fazia a tabela mostrar 500 com o ' +
+    'cart\u00e3o ao lado dizendo 0', { comFiltro: comFiltro, semFiltro: gr });
+
+  /* ---- UMA PONTA SO' NAO E VIAGEM ENTRE CASAS ----
+   *
+   * A linha de estoque inicial e' assim: tem origem e nenhum destino. Na vida real ela
+   * chega aqui `parado` e com os dois lados zerados, e a conta para na primeira guarda —
+   * mas a guarda das pontas existe para quando ela NAO chegar assim.
+   *
+   * O NUMERO AQUI E GORDO DE PROPOSITO, e foi uma fuga de sabotagem que o exigiu. Com a
+   * linha zerada, fazer `pernaInterna` dizer "sim" para uma ponta so' nao mudava total
+   * nenhum — todos continuavam zero —, e a prova verde nao media a guarda. Com 700 na
+   * ida, a troca fica visivel: a carga muda de cartao.
+   *
+   * E O LUGAR DELA E O ENVIO, e nao a saida: uma perna sem a outra ponta e' carga que
+   * deixou a casa sem ter para onde voltar. Chamada de interna, ela sumiria da fronteira
+   * e o deficit deixaria de cobra-la. */
+  var umaPonta = totaisDe([{ situacao: 'atencao', origens: ['Matriz'], destinos: [],
+                             saida: 700, retorno: 0, saldo: -700, desvio: null }]);
+  ok(umaPonta.saida === 0 && umaPonta.entrada === 0 && umaPonta.retorno === 0,
+    'uma linha com origem e SEM destino n\u00e3o \u00e9 viagem entre casas \u2014 \u00e9 por a\u00ed que a linha ' +
+    'de estoque inicial entra, e contada como interna ela viraria uma sa\u00edda que ningu\u00e9m ' +
+    'despachou', umaPonta);
+  ok(umaPonta.envio === 700 && umaPonta.deficit === 700,
+    'ela cai no ENVIO, e o d\u00e9ficit a cobra: carga que deixou a casa sem outra ponta \u00e9 ' +
+    'carga que n\u00e3o tem para onde voltar \u2014 escondida no movimento interno, ela sairia da ' +
+    'conta de cobran\u00e7a sem deixar rastro', umaPonta);
 })();
 
 /* ---------------------------------------------------------------------------

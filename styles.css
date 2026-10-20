@@ -2755,6 +2755,13 @@ details.tipos[open] summary::before{content:"▾"}
   .ftile{background:var(--surface);border:1px solid var(--linha);
     border-left:3px solid var(--cor,var(--linha));border-radius:11px;padding:10px 12px}
   .ftile:nth-child(odd):last-child{grid-column:1/-1}
+  /* E A TAXA ABRE SEMPRE, por classe e nao por paridade.
+     A regra de cima pega o ultimo QUANDO a contagem e impar — e a fileira do Painel
+     passou de cinco para oito cartoes quando o ciclo virou cinco etapas. Pela
+     paridade, a barra da meta voltaria a meia largura: curta demais para se ler
+     contra a marca, que e' exatamente o que aquela regra existe para evitar.
+     DITO NA CLASSE, o desenho deixa de depender de quantos cartoes ha. */
+  .ftile--larga{grid-column:1/-1}
 
   /* O TRILHO DE CHIPS é a única coisa que rola de lado nesta tela, e ele avisa: a névoa
      na borda direita diz que há mais itens. Sem ela, o último chip visível parece o
