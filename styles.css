@@ -1615,6 +1615,35 @@ th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--linha);whit
 #tabelaMov .tag{padding:0 6px;font-size:10.5px}
 th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--txt2);background:var(--surface-2);position:sticky;top:0}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* ---------- a coluna de acoes fica presa na borda direita ----------
+ *
+ * A tabela de Usuarios soma mais de dois mil pixels de coluna. Numa tela de mil e
+ * quatrocentos, "editar" ficava a oitocentos pixels de rolagem para a direita — existia
+ * e ninguem via. Era o unico caminho para mexer num cadastro.
+ *
+ * PRESA, e nao encolhida: esconder coluna ou apertar largura resolveria hoje e voltaria
+ * a quebrar na proxima coluna que entrasse. O que nao pode sair da vista e o caminho
+ * para agir, e ele agora acompanha a rolagem.
+ *
+ * O FUNDO E HERDADO, e nao escrito: a linha muda de cor em seis estados — passar o
+ * mouse, marcada, em correcao, divergente, destacada, linha de carga — e um fundo fixo
+ * aqui faria a celula presa discordar da linha em todos eles. Herdando, ela acompanha
+ * qualquer estado, inclusive os que ainda nao existem.
+ *
+ * E O FUNDO DA LINHA SO NASCE ONDE HA COLUNA PRESA (`:has`): dado a toda linha, ele
+ * pintaria tambem as tabelas de dentro das gavetas, que vivem sobre outro fundo. */
+tr:has(> td.col-acoes){background:var(--surface)}
+td.col-acoes,th.col-acoes{position:sticky;right:0;background:inherit}
+td.col-acoes{z-index:3}
+/* O CABECALHO VEM POR CIMA porque ele ja e preso no topo: no canto, as duas prisoes se
+   encontram, e sem isto a celula do canto passa por baixo da primeira linha. */
+th.col-acoes{z-index:6;width:270px}
+/* A SOMBRA DIZ QUE HA MAIS COISA ATRAS. Sem ela, a coluna presa parece o fim da tabela,
+   e quem procura uma coluna escondida atras dela nao desconfia que pode rolar. */
+td.col-acoes::before,th.col-acoes::before{content:'';position:absolute;top:0;bottom:0;
+  left:-10px;width:10px;pointer-events:none;
+  background:linear-gradient(to right,transparent,rgba(0,0,0,.10))}
 /* CODIGO, e nao numero: `M000041` se le caractere a caractere, e em fonte de texto
    o zero e o "O" ficam iguais justamente num campo que alguem vai ditar por
    telefone. Alinhado a esquerda, porque nao e uma quantidade a somar. */

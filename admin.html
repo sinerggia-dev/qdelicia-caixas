@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=cce6daed">
+<link rel="stylesheet" href="styles.css?v=6cfd1210">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -6331,7 +6331,7 @@
     document.getElementById('tabelaRotas').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Rota</th><th>Motorista</th>'+
       '<th class="num">No caminhão</th><th class="num">Nos clientes</th><th class="num">Clientes</th>'+
-      '<th class="num">Fora do prazo</th><th></th></tr></thead><tbody>'+
+      '<th class="num">Fora do prazo</th><th class="col-acoes"></th></tr></thead><tbody>'+
       rotas.map(function(r){
         return '<tr'+(r.vencidasClientes?' class="ruim"':'')+'><td><b>'+Q.esc(r.nome)+'</b></td>'+
           '<td>'+(r.motorista?Q.esc(r.motorista):'<span class="tag cinza">sem motorista</span>')+'</td>'+
@@ -6339,7 +6339,7 @@
           '<td class="num">'+Q.num(r.saldoClientes)+'</td>'+
           '<td class="num">'+Q.num(r.clientes)+'</td>'+
           '<td class="num">'+(r.vencidasClientes?'<b style="color:var(--vermelho)">'+Q.num(r.vencidasClientes)+'</b>':'0')+'</td>'+
-          '<td><button class="mini acao" data-rota="'+Q.esc(r.id)+'">ver clientes</button></td></tr>';
+          '<td class="col-acoes"><button class="mini acao" data-rota="'+Q.esc(r.id)+'">ver clientes</button></td></tr>';
       }).join('')+'</tbody></table></div>';
     ligarVerClientes();
   }
@@ -6431,7 +6431,7 @@
     document.getElementById('tabelaPainel').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Cliente / Filial</th><th>Rota</th><th class="num">Saldo</th>'+
       '<th class="num">≤7d</th><th class="num">8–15</th><th class="num">16–30</th><th class="num">+30</th>'+
-      '<th class="num">Mais antiga</th><th>Contato</th><th></th></tr></thead><tbody>'+
+      '<th class="num">Mais antiga</th><th>Contato</th><th class="col-acoes"></th></tr></thead><tbody>'+
       lista.map(function(l){
         var cls = l.aging.d31>0 ? 'ruim' : (l.acimaLimite?'destaque':'');
         return '<tr class="'+cls+'"><td><b>'+Q.esc(l.nome)+'</b>'+
@@ -6443,7 +6443,7 @@
           '<td class="num">'+Q.num(l.aging.d16_30)+'</td><td class="num">'+(l.aging.d31?'<b style="color:var(--vermelho)">'+Q.num(l.aging.d31)+'</b>':'0')+'</td>'+
           '<td class="num">'+(l.aging.maisAntiga===null?'—':l.aging.maisAntiga+'d')+'</td>'+
           '<td>'+Q.esc(l.responsavel||'')+(l.telefone?'<br><span style="font-size:12px;color:var(--txt2)">'+Q.esc(l.telefone)+'</span>':'')+'</td>'+
-          '<td><button class="mini acao" data-ex="'+l.id+'">extrato</button></td></tr>';
+          '<td class="col-acoes"><button class="mini acao" data-ex="'+l.id+'">extrato</button></td></tr>';
       }).join('')+'</tbody></table></div>';
     ligarExtratoDoPainel();
   }
@@ -7647,7 +7647,7 @@
       '<th style="width:110px">Caixa</th><th class="num" style="width:70px">Qtd</th>'+
       '<th style="width:110px">Quem lançou</th>'+
       '<th style="width:150px">Excluído em</th><th style="width:120px">Excluído por</th>'+
-      '<th></th></tr></thead><tbody>'+
+      '<th class="col-acoes"></th></tr></thead><tbody>'+
       LIXO.map(function(m){
         return '<tr>'+
           '<td>'+Q.dataBR(m.dataRef)+
@@ -7660,7 +7660,7 @@
           '<td>'+Q.esc(m.usuario||'')+'</td>'+
           '<td>'+Q.esc(Q.dataHoraBR(m.excluidoEm) || '—')+'</td>'+
           '<td>'+Q.esc(m.excluidoPor || '—')+'</td>'+
-          '<td>'+(Q.ehAdmin()
+          '<td class="col-acoes">'+(Q.ehAdmin()
             ? '<button class="mini acao" data-restaurar="'+Q.esc(m.id)+'">restaurar</button>'
             : '')+'</td></tr>';
       }).join('')+'</tbody></table></div>';
@@ -8798,7 +8798,7 @@
          `a carga` sao as linhas todas do registro de uma vez, que e como o
          lancamento foi feito. O segundo so aparece quando ha o que juntar: numa
          carga de uma linha ele seria o mesmo formulario com outro nome. */
-      return '<td>'+(Q.podeCorrigir(Q.sessao(), m)
+      return '<td class="folga"></td><td class="col-acoes">'+(Q.podeCorrigir(Q.sessao(), m)
          ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> '+
            botaoDaCarga(m.registro)
          : '')+
@@ -8912,7 +8912,8 @@
              linha, e um botão de cancelar numa linha que representa cinco faria esperar
              que as cinco saíssem do saldo — ou tiraria uma sem dizer qual. Os dois
              continuam existindo, a uma seta de distância, na linha de que são. */
-          '<td>'+(Q.podeCorrigir(Q.sessao(), filhos[0])
+          '<td class="folga"></td>'+
+          '<td class="col-acoes">'+(Q.podeCorrigir(Q.sessao(), filhos[0])
                    ? botaoDaCarga(g.registro) : '')+'</td></tr>');
         filhos.forEach(function(m){ fora.push(linhaDe(m, 'lin-item', !aberta)); });
       });
@@ -8937,7 +8938,13 @@
           ' title="'+Q.esc(dicaColuna(c.d.k ? 'clique para classificar; ' : ''))+'">'+
           Q.esc(c.d.t)+seta+puxador()+'</th>';
       }).join('')+
-      '<th></th></tr></thead><tbody>'+
+      /* A FOLGA E A COLUNA PRESA SAO DUAS COISAS, e por um tempo foram a mesma.
+         A folga existe para a sobra ter onde ficar: em `table-layout:fixed`, o que
+         sobra e repartido entre as colunas, e sem ela o px pedido na aba Colunas nao
+         e o px que aparece. A coluna presa precisa de LARGURA, senao os botoes nascem
+         num espaco de zero e saem da tela. Sendo a mesma coluna, uma das duas tinha
+         de ceder. Agora a folga vem antes, e a presa fica no fim, onde ela gruda. */
+      '<th class="folga"></th><th class="col-acoes"></th></tr></thead><tbody>'+
       /* DUAS FORMAS DA MESMA TABELA. O cabecalho, as colunas, a ordem e a janela de
          dez linhas sao os mesmos nas duas: o que muda e' o corpo. */
       (AGRUPAR_MOV
@@ -9699,7 +9706,7 @@
     if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhum motorista cadastrado.</div>'; return; }
     box.innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Apelido</th><th>Telefone</th><th>CPF</th>'+
-      '<th>CNH</th><th>Empresa</th><th>Tipo</th><th>Placa</th><th>Rotas</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<th>CNH</th><th>Empresa</th><th>Tipo</th><th>Placa</th><th>Rotas</th><th>Ativo</th><th class="col-acoes"></th></tr></thead><tbody>'+
       lista.map(function(m){
         var on = Q.ativo(m.Ativo), venc = vencida(m);
         // A coluna Validade saiu, mas CNH vencida é impedimento real de rodar: a etiqueta
@@ -9716,7 +9723,7 @@
           '<td>'+(m.Placa?'<span class="tag cinza">'+Q.esc(m.Placa)+'</span>':'—')+'</td>'+
           '<td>'+nomesDasRotas(m.Rotas)+'</td>'+
           '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
-          '<td><button class="mini acao" data-editar-mot="'+m.ID+'">editar</button> '+
+          '<td class="col-acoes"><button class="mini acao" data-editar-mot="'+m.ID+'">editar</button> '+
               '<button class="mini'+(on?' perigo':'')+'" data-ativar-mot="'+m.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
                 (on?'desativar':'ativar')+'</button> '+
               '<button class="mini perigo" data-excluir-mot="'+m.ID+'">excluir</button></td></tr>';
@@ -9773,7 +9780,7 @@
     card.style.display = PEDIDOS_SENHA.length ? 'block' : 'none';
     if (!PEDIDOS_SENHA.length) return;
     document.getElementById('tabelaPedidos').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Quem pediu</th><th>Quando</th><th>Usuário no sistema</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Quem pediu</th><th>Quando</th><th>Usuário no sistema</th><th class="col-acoes"></th></tr></thead><tbody>'+
       PEDIDOS_SENHA.map(function(p){
         var alvo = EQUIPE.filter(function(u){
           var i = String(p.identificador||'').trim().toLowerCase();
@@ -9783,7 +9790,7 @@
           '<td>'+Q.dataBR(p.criado_em)+'</td>'+
           '<td>'+(alvo ? Q.esc(alvo.Nome)+' <span class="tag azul">'+Q.esc(alvo.Perfil)+'</span>'
                        : '<span class="tag cinza">não encontrado</span>')+'</td>'+
-          '<td><button class="mini" data-resolver="'+Q.esc(p.id)+'">marcar resolvido</button></td></tr>';
+          '<td class="col-acoes"><button class="mini" data-resolver="'+Q.esc(p.id)+'">marcar resolvido</button></td></tr>';
       }).join('')+'</tbody></table></div>';
 
     document.querySelectorAll('[data-resolver]').forEach(function(b){
@@ -9802,14 +9809,14 @@
     var box = document.getElementById('tabelaLocaisPadrao');
     if (!LOCAIS_PADRAO.length){ box.innerHTML = '<div class="vazio">Nenhum local padrão cadastrado.</div>'; return; }
     box.innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th class="num">Pessoas</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th class="num">Pessoas</th><th>Ativo</th><th class="col-acoes"></th></tr></thead><tbody>'+
       LOCAIS_PADRAO.map(function(l){
         var on = Q.ativo(l.Ativo);
         var quantos = EQUIPE.filter(function(u){ return String(u.LocalPadrao)===String(l.ID); }).length;
         return '<tr'+(on?'':' style="opacity:.55"')+'><td><b>'+Q.esc(l.Nome)+'</b></td>'+
           '<td class="num">'+(quantos||'—')+'</td>'+
           '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
-          '<td><button class="mini acao" data-editar-lp="'+l.ID+'">editar</button> '+
+          '<td class="col-acoes"><button class="mini acao" data-editar-lp="'+l.ID+'">editar</button> '+
               '<button class="mini perigo" data-excluir-lp="'+l.ID+'">excluir</button></td></tr>';
       }).join('')+'</tbody></table></div>';
 
@@ -9856,7 +9863,7 @@
     box.innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Fornecedor</th>' +
       '<th>Apelido</th><th>Localidade</th><th>Placa</th><th>Modelo</th><th>Tipo</th>' +
-      '<th class="num">Lançamentos</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<th class="num">Lançamentos</th><th>Ativo</th><th class="col-acoes"></th></tr></thead><tbody>'+
       lista.map(function(f){
         var on = Q.ativo(f.Ativo);
         /* CONTADO NO QUE A TELA JA' TEM, e pelo NOME — que e o que o movimento
@@ -9888,7 +9895,7 @@
             (quantos||'—')+'</td>'+
           '<td>'+(on?'<span class="tag verde">sim</span>'
                     :'<span class="tag vermelha">não</span>')+'</td>'+
-          '<td><button class="mini acao" data-editar-forn="'+Q.esc(f.ID)+'">editar</button> '+
+          '<td class="col-acoes"><button class="mini acao" data-editar-forn="'+Q.esc(f.ID)+'">editar</button> '+
               '<button class="mini perigo" data-excluir-forn="'+Q.esc(f.ID)+'">excluir</button>'+
           '</td></tr>';
       }).join('')+'</tbody></table></div>';
@@ -10108,7 +10115,7 @@
     if (!lista.length){ box.innerHTML = '<div class="vazio">Nenhum veículo cadastrado.</div>'; return; }
     box.innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Placa</th><th>Modelo</th><th>Tipo</th>'+
-      '<th>Motorista habitual</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<th>Motorista habitual</th><th>Ativo</th><th class="col-acoes"></th></tr></thead><tbody>'+
       lista.map(function(v){
         var on = Q.ativo(v.Ativo);
         /* O motorista habitual pode ter sido APAGADO depois: o banco põe o vínculo em
@@ -10126,7 +10133,7 @@
                      : '<span class="tag vermelha">motorista não encontrado</span>')
               : '<span class="tag cinza">sem motorista fixo</span>')+'</td>'+
           '<td>'+(on?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
-          '<td><button class="mini acao" data-editar-vei="'+v.ID+'">editar</button> '+
+          '<td class="col-acoes"><button class="mini acao" data-editar-vei="'+v.ID+'">editar</button> '+
               '<button class="mini'+(on?' perigo':'')+'" data-ativar-vei="'+v.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
                 (on?'desativar':'ativar')+'</button> '+
               '<button class="mini perigo" data-excluir-vei="'+v.ID+'">excluir</button></td></tr>';
@@ -10356,13 +10363,13 @@
   function desenharCadastros(){
     var locais = Q.ordenarLocais(DADOS.locais||[]);
     document.getElementById('tabelaLocais').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Ativo</th><th class="col-acoes"></th></tr></thead><tbody>'+
       locais.map(function(l){
         var ehRota = String(l.Tipo).toUpperCase()==='ROTA';
         var ativo = Q.ativo(l.Ativo);
         return '<tr'+(ativo?'':' style="opacity:.55"')+'><td><b>'+Q.esc(l.Nome)+'</b></td><td><span class="tag '+(ehRota?'verde':'cinza')+'">'+(ehRota?'rota':Q.esc(String(l.Tipo).toLowerCase()))+'</span></td>'+
         '<td>'+(ativo?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
-        '<td><button class="mini acao" data-editar-local="'+l.ID+'">editar</button> '+
+        '<td class="col-acoes"><button class="mini acao" data-editar-local="'+l.ID+'">editar</button> '+
             '<button class="mini'+(ativo?' perigo':'')+'" data-ativar-local="'+l.ID+'" data-para="'+(ativo?'NAO':'SIM')+'">'+
               (ativo?'desativar':'ativar')+'</button> '+
             '<button class="mini perigo" data-excluir-local="'+l.ID+'">excluir</button></td></tr>';
@@ -10411,12 +10418,12 @@
     desenharLocaisPadrao();
     desenharPedidos();
     document.getElementById('tabelaTipos').innerHTML =
-      '<div class="tabela-wrap"><table><thead><tr><th>Tipo de caixa</th><th class="num">Peso (kg)</th><th>Ativo</th><th></th></tr></thead><tbody>'+
+      '<div class="tabela-wrap"><table><thead><tr><th>Tipo de caixa</th><th class="num">Peso (kg)</th><th>Ativo</th><th class="col-acoes"></th></tr></thead><tbody>'+
       (DADOS.tipos||[]).map(function(t){
         return '<tr><td><b>'+Q.esc(t.Nome)+'</b></td>'+
         '<td class="num">'+(t.Kg!==''&&t.Kg!==null&&t.Kg!==undefined?Q.esc(String(t.Kg).replace('.',','))+' kg':'—')+'</td>'+
         '<td>'+(Q.ativo(t.Ativo)?'<span class="tag verde">sim</span>':'<span class="tag vermelha">não</span>')+'</td>'+
-        '<td><button class="mini acao" data-editar-tipo="'+t.ID+'">editar</button></td></tr>';
+        '<td class="col-acoes"><button class="mini acao" data-editar-tipo="'+t.ID+'">editar</button></td></tr>';
       }).join('')+'</tbody></table></div>';
     document.querySelectorAll('[data-editar-tipo]').forEach(function(b){
       b.addEventListener('click', function(){ formTipo((DADOS.tipos||[]).filter(function(t){return String(t.ID)===b.dataset.editarTipo;})[0]); });
@@ -11568,14 +11575,21 @@
           (c.d.sub ? '<br><span class="sub-col">'+Q.esc(c.d.sub)+'</span>' : '')+
           puxador()+'</th>';
       }).join('')+
-      '<th></th></tr></thead><tbody>'+
+      /* A FOLGA E A COLUNA PRESA SAO DUAS COISAS, e por um tempo foram a mesma.
+         A folga existe para a sobra ter onde ficar: em `table-layout:fixed`, o que
+         sobra e repartido entre as colunas, e sem ela o px pedido na aba Colunas nao
+         e o px que aparece. A coluna presa precisa de LARGURA, senao os botoes nascem
+         num espaco de zero e saem da tela. Sendo a mesma coluna, uma das duas tinha
+         de ceder. Agora a folga vem antes, e a presa fica no fim, onde ela gruda. */
+      '<th class="folga"></th><th class="col-acoes"></th></tr></thead><tbody>'+
       lista.map(function(u){
         var on = Q.ativo(u.Ativo);
         return '<tr'+(on?'':' style="opacity:.55"')+'>'+
           '<td class="col-marcar"><input type="checkbox" data-marcar-user="'+
             Q.esc(u.ID)+'"></td>'+
           cs.map(function(c){ return '<td>'+c.d.v(u)+'</td>'; }).join('')+
-          '<td><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
+          '<td class="folga"></td>'+
+          '<td class="col-acoes"><button class="mini acao" data-editar-user="'+u.ID+'">editar</button> '+
               '<button class="mini" data-copiar-user="'+u.ID+'">copiar</button> '+
               '<button class="mini'+(on?' perigo':'')+'" data-ativar="'+u.ID+'" data-para="'+(on?'NAO':'SIM')+'">'+
                 (on?'desativar':'ativar')+'</button> '+

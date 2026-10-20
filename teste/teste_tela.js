@@ -2985,6 +2985,110 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
  * desalinhava a tabela inteira, e cada numero passava a ser lido na coluna do vizinho. A
  * garantia agora e estrutural: quem monta as duas percorre a MESMA lista.
  * ------------------------------------------------------------------------- */
+console.log('\n== o bot\u00e3o de editar n\u00e3o sai da vista ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* O DEFEITO: a tabela de Usuarios soma mais de dois mil pixels de coluna, e os botoes
+     ficam DEPOIS disso. Numa tela de mil e quatrocentos, "editar" estava a oitocentos
+     pixels de rolagem para a direita — existia e ninguem via. Era o unico caminho para
+     mexer num cadastro.
+     A CONTA SAI DO ARQUIVO, e nao escrita aqui: acrescentando uma coluna, ela cresce
+     sozinha e continua dizendo a verdade. */
+  var iL = adm.indexOf('    larg: { nome:190');
+  var bloco = iL < 0 ? '' : adm.slice(iL, adm.indexOf('}', iL));
+  var somaLarg = (bloco.match(/:\s*(\d+)/g) || [])
+    .reduce(function (s, x) { return s + parseInt(x.replace(/[^\d]/g, ''), 10); }, 0);
+  ok(somaLarg > 1500,
+    'a tabela de Usu\u00e1rios \u00e9 MAIS LARGA que a tela: ' + somaLarg + 'px de coluna, e os ' +
+    'bot\u00f5es vinham depois \u2014 \u00e9 por isso que a coluna de a\u00e7\u00f5es precisa ficar presa',
+    somaLarg);
+
+  /* ---- TODA TABELA COM BOTAO DE ACAO TEM A COLUNA PRESA ----
+   *
+   * Contado, e nao conferido numa: sao doze tabelas, e a que ficasse de fora seria
+   * justamente a que ninguem abre todo dia — e so' se descobre no dia em que precisa.
+   * O cabecalho e a celula andam JUNTOS: marcado so um dos dois, a coluna presa fica
+   * desalinhada do titulo dela. */
+  var ths = (adm.match(/<th class="col-acoes">/g) || []).length;
+  var tds = (adm.match(/<td class="col-acoes">/g) || []).length;
+  /* MAIS CELULAS QUE CABECALHOS, e esta' certo: Movimentos desenha DOIS tipos de
+     linha — a da viagem e a da carga fechada —, e as duas precisam da celula presa
+     com um cabecalho so'. O que nao pode e' faltar celula. */
+  ok(ths >= 12 && tds >= ths,
+    'toda tabela com bot\u00e3o de a\u00e7\u00e3o tem a coluna presa, e cada cabe\u00e7alho tem pelo ' +
+    'menos uma c\u00e9lula \u2014 marcado s\u00f3 o t\u00edtulo, ele escorrega para longe dos bot\u00f5es que ' +
+    'nomeia', { cabecalhos: ths, celulas: tds });
+  /* A LINHA DA CARGA FECHADA tem a celula dela, e e' a mais facil de esquecer: ela
+     e' desenhada noutro lugar, com outros botoes, e so' aparece com o agrupar
+     ligado. */
+  ok(adm.indexOf("<td class=\"col-acoes\">'+(Q.podeCorrigir(Q.sessao(), filhos[0])") > 0,
+    'e a linha da CARGA FECHADA tamb\u00e9m tem a c\u00e9lula presa — ela \u00e9 desenhada ' +
+    'noutro lugar e s\u00f3 aparece com o agrupar ligado: esquecida, a linha da carga ' +
+    'sai com uma c\u00e9lula a menos e desalinha a tabela inteira');
+
+  /* E NENHUMA CELULA DE ACAO FICOU PARA TRAS: a conta acima bate entre si mesma, e
+     continuaria batendo com as doze esquecidas. Esta procura o que ficou de fora. */
+  var soltas = (adm.match(/'<td>'\+\(Q\.(podeCorrigir|ehAdmin)/g) || []).length +
+               (adm.match(/'<td><button class="mini/g) || []).length;
+  ok(soltas === 0,
+    'e nenhuma c\u00e9lula de a\u00e7\u00e3o ficou solta \u2014 uma esquecida n\u00e3o quebra nada: aquela ' +
+    'tabela volta a esconder os bot\u00f5es, e s\u00f3 quem precisar deles descobre',
+    soltas);
+
+  /* ---- E A REGRA QUE PRENDE EXISTE NA FOLHA ---- */
+  ok(/td\.col-acoes,th\.col-acoes\{position:sticky;right:0/.test(css),
+    'a coluna de a\u00e7\u00f5es fica presa na borda direita \u2014 esconder coluna ou apertar ' +
+    'largura resolveria hoje e quebraria na pr\u00f3xima coluna que entrasse');
+  /* O FUNDO E HERDADO, e nao escrito: a linha muda de cor em seis estados, e um fundo
+     fixo aqui faria a celula presa discordar da linha em todos eles. */
+  ok(/td\.col-acoes,th\.col-acoes\{[^}]*background:inherit/.test(css),
+    'e o fundo dela \u00e9 HERDADO da linha \u2014 escrito fixo, a c\u00e9lula presa discordaria da ' +
+    'linha ao passar o mouse, na marcada, na divergente e na que est\u00e1 em corre\u00e7\u00e3o');
+  ok(/tr:has\(> td\.col-acoes\)\{background:var\(--surface\)\}/.test(css),
+    'e a linha ganha fundo S\u00d3 onde h\u00e1 coluna presa \u2014 dado a toda linha, ele pintaria ' +
+    'tamb\u00e9m as tabelas de dentro das gavetas, que vivem sobre outro fundo');
+
+  /* ---- A FOLGA E A COLUNA PRESA SAO DUAS COISAS ----
+   *
+   * Por um tempo foram a mesma, e foi o que esta mudanca teve de separar: a folga NAO
+   * pode ter largura (e nela que a sobra fica, e sem isso o px pedido na aba Colunas
+   * nao e o px que aparece), e a presa PRECISA de uma, senao os botoes nascem num
+   * espaco de zero e saem da tela do mesmo jeito. */
+  ok(/th\.col-acoes\{[^}]*width:\d+px/.test(css),
+    'a coluna presa tem largura \u2014 sem ela, em `table-layout:fixed` com a tabela j\u00e1 ' +
+    'maior que a tela, ela nasce com zero e os bot\u00f5es saem da vista de novo',
+    (css.match(/th\.col-acoes\{[^}]*\}/) || [''])[0]);
+  ok(/table\.fixa th\.folga,table\.fixa td\.folga\{[^}]*width:auto/.test(css),
+    'e a folga continua SEM largura \u2014 \u00e9 nela que a sobra fica');
+  /* E AS DUAS CONVIVEM NA MESMA LINHA, nas duas tabelas de layout fixo. */
+  ok((adm.match(/<th class="folga"><\/th><th class="col-acoes">/g) || []).length === 2,
+    'e nas duas tabelas de layout fixo a folga vem ANTES da presa, na mesma linha \u2014 ' +
+    'a presa tem de ser a \u00faltima para grudar na borda',
+    (adm.match(/<th class="folga"><\/th>/g) || []).length);
+  /* CADA LINHA DELAS GANHOU A FOLGA JUNTO: uma celula a menos numa linha desalinha a
+     tabela inteira, e todo numero passa a ser lido na coluna do vizinho. */
+  /* NAO BASTA EXISTIR: a celula de folga tem de vir COLADA ANTES da presa, em toda
+     linha dessas duas tabelas. A conta anterior era "ha pelo menos tres" — e tirando
+     uma delas ainda sobravam tres, entao a sabotagem passou: a linha de usuario saia
+     com uma celula a menos que o cabecalho, e toda a tabela escorregava uma coluna.
+     COM OS ESPACOS ACHATADOS porque o par atravessa quebra de linha em dois dos tres
+     lugares, e um padrao que tentasse casar a quebra mora a um escape de distancia de
+     virar outra coisa. */
+  var liso = adm.replace(/\s+/g, ' ');
+  var pares = (liso.match(
+    /<td class=\"folga"\><\/td>(?:'\+ ')?<td class=\"col-acoes"/g) || []).length;
+  var presas = (liso.match(/<td class=\"col-acoes"/g) || []).length;
+  var soltasFixas = (liso.match(
+    /<td class=\"col-acoes"(?![\s\S]{0,40}folga)/g) || []).length;
+  ok(pares === 3,
+    'nas tabelas de layout fixo, a c\u00e9lula de folga vem COLADA ANTES da presa em toda ' +
+    'linha — s\u00e3o tr\u00eas: a de usu\u00e1rio, a da viagem e a da carga fechada. Faltando ' +
+    'uma, aquela linha sai com uma c\u00e9lula a menos que o cabe\u00e7alho e a tabela inteira ' +
+    'escorrega uma coluna', { pares: pares, presas: presas });
+})();
+
 console.log('\n== o carro do fornecedor, no cadastro ==');
 (function () {
   var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
@@ -4097,9 +4201,13 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
 
      Toda tabela da maquinaria precisa de uma. Em Movimentos e Usuarios ela e a coluna dos
      botoes, que ja nao tem largura; no Painel de Ativos foi preciso criar. */
+  /* A FOLGA DEIXOU DE SER A COLUNA DOS BOTOES. Ela era a mesma em Movimentos e
+     Usuarios, e as duas coisas brigaram: a folga nao pode ter largura, e a coluna
+     presa na borda precisa de uma, senao os botoes nascem num espaco de zero e saem da
+     tela. Agora sao duas colunas — a folga antes, a presa no fim. */
   [['tabelaFluxo', /<th class="folga"><\/th>'\+/],
-   ['tabelaMov',   /'<th><\/th><\/tr><\/thead><tbody>'\+/],
-   ['tabelaUsuarios', /'<th><\/th><\/tr><\/thead><tbody>'\+/]].forEach(function (par) {
+   ['tabelaMov',   /<th class="folga"><\/th><th class="col-acoes">/],
+   ['tabelaUsuarios', /<th class="folga"><\/th><th class="col-acoes">/]].forEach(function (par) {
     ok(par[1].test(adm),
       par[0] + ': o cabeçalho termina numa coluna SEM largura, onde a sobra fica — sem ' +
       'ela o px pedido na aba Colunas não é o px que aparece, e esconder estica as outras');
@@ -7157,7 +7265,7 @@ console.log('\n== as colunas da tabela de Movimentos ==');
     'arrastar a borda não muda quase nada');
 
   /* --- a coluna de acoes fica FORA do sistema ----------------------------- */
-  ok(corpo.indexOf("'<th></th></tr></thead>") > 0,
+  ok(corpo.indexOf('<th class="col-acoes"></th></tr></thead>') > 0,
     'a coluna de ações é um <th> à parte, sem data-col', corpo.slice(corpo.indexOf('<th></th>') - 120, corpo.indexOf('<th></th>') + 40));
   ok(cols.indexOf('acoes') < 0,
     'e não está na lista de fábrica: escondível, alguém a esconderia sem querer e ' +
@@ -16596,7 +16704,7 @@ console.log('\n== Motorista/Conferente ==');
    * Ali o botao de cancelar mora ao lado do de excluir. Numa linha que JA' esta
    * cancelada, oferecer "cancelar" e' oferecer o que a rota recusa — e deixar de
    * oferecer a volta e' esconder a unica saida de quem cancelou por engano. */
-  var iAcc = adm.indexOf("'<td>'+(Q.podeCorrigir(Q.sessao(), m)");
+  var iAcc = adm.indexOf("(Q.podeCorrigir(Q.sessao(), m)");
   var acc = iAcc < 0 ? '' : adm.slice(iAcc, adm.indexOf('</td></tr>', iAcc));
   ok(acc.length > 300, 'a conferência recortou as ações da linha de Movimentos', acc.length);
   ok(acc.indexOf('m.cancelado') > 0,
