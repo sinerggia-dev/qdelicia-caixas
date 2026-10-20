@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=9a7ba492">
+<link rel="stylesheet" href="styles.css?v=a24b3c53">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -787,6 +787,7 @@
             <option value="rota">Rota — origem e destino</option>
             <option value="destino">Destino</option>
             <option value="origem">Origem</option>
+            <option value="unidade">Unidade — uma linha por casa</option>
             <option value="dia">Dia</option>
           </select>
           <span class="barra-agrupar__n" id="fxAgruparN"></span>
@@ -2863,10 +2864,23 @@
                                  (l.destinos || []).join(', '); },
     destino: function(l){ return (l.destinos || []).join(', '); },
     origem:  function(l){ return (l.origens || []).join(', '); },
+    /* A UNICA CHAVE QUE DEVOLVE UMA LISTA, e e' o que o modo exige: uma perna entre duas
+       casas pertence as DUAS — a Matriz despachou e a Filial recebeu —, e nos outros
+       modos cada linha tem um lugar so'.
+       A MESMA REGRA DA COLUNA UNIDADE e do filtro de unidade, de proposito: as tres
+       respondem "que casas esta linha toca", e escritas em separado uma linha cairia no
+       grupo da Filial Maceio com a coluna ao lado dizendo outro nome. */
+    unidade: function(l){ return unidadesDaLinha(l); },
     /* A DATA EM ISO, e nao formatada: "2026-10-14" se ordena sozinha, e a ordem do
        texto e a ordem do tempo. Em "14/10/2026" ela seria a do dia do mes. */
     dia:     function(l){ return String(l.data || ''); }
   };
+
+  /* A CASA NAO RECONHECIDA PRECISA DE UM LUGAR. Uma perna de rota direto para cliente
+     nao toca casa nenhuma: a chave vem vazia, e sem este balde ela nao entraria em grupo
+     algum e EVAPORARIA da tabela — menos caixas na tela do que o rodape conta, e nada
+     dizendo que algo foi escondido. */
+  var GRUPO_SEM_CASA = 'Fora das unidades';
 
   /* GUARDADO NO NAVEGADOR de quem olha, como a ordem e a largura das colunas: e' jeito
      de ler, e nao regra da empresa. */
@@ -2909,14 +2923,47 @@
     return fora.sort(function(a, b){ return a.localeCompare(b, 'pt-BR'); });
   }
 
+  /* O QUE A CASA VIVEU NESTA PERNA.
+   *
+   * Estando ela na ORIGEM, o `saida` da linha e' o que ela despachou. Estando no
+   * DESTINO, esse mesmo numero e' o que ela RECEBEU, e os dois lados trocam de lugar —
+   * junto com o detalhe por tipo de caixa, que segue o numero.
+   *
+   * Lido sempre como `saida`, o painel da Filial Maceio mostraria ela DESPACHANDO as 500
+   * que acabou de receber da Matriz. E' o mesmo engano de direcao que os cartoes ja
+   * tiveram, visto de outro angulo.
+   *
+   * NAS DUAS PONTAS — uma perna da casa para ela mesma, ou uma linha ja agrupada que
+   * abrace as duas — vale a leitura da origem, e uma so': contada dos dois lados, a casa
+   * dobraria o proprio movimento. */
+  function ladoDaCasa(l, casa){
+    var naOrigem = (l.origens || []).indexOf(casa) >= 0;
+    return naOrigem
+      ? { saida: l.saida || 0, retorno: l.retorno || 0,
+          saidaTipos: l.saidaTipos || [], retornoTipos: l.retornoTipos || [] }
+      : { saida: l.retorno || 0, retorno: l.saida || 0,
+          saidaTipos: l.retornoTipos || [], retornoTipos: l.saidaTipos || [] };
+  }
+
   function agruparFluxo(lista, modo){
     var chave = MODOS_GRUPO[modo];
     if (!chave) return [];
     var mapa = {}, ordem = [];
-    lista.forEach(function(l){
-      var k = chave(l);
+    function balde(k){
       if (!mapa[k]) { mapa[k] = []; ordem.push(k); }
-      mapa[k].push(l);
+      return mapa[k];
+    }
+    /* A CHAMADA DAS CASAS SAI DO CADASTRO, e nao das linhas do recorte. O escritorio
+       pediu para ver as unidades "uma a uma, as filiais e a matriz", e uma casa que nao
+       se mexeu e' RESPOSTA — "nada entrou nem saiu daqui" —, e nao ausencia. Montada so'
+       com o que teve movimento, a lista sumiria com a casa justamente no dia em que a
+       pergunta se faz. */
+    if (modo === 'unidade') Object.keys(nomesDeUnidade()).forEach(balde);
+    lista.forEach(function(l){
+      var ks = chave(l);
+      if (!Array.isArray(ks)) ks = [ks];
+      if (!ks.length) ks = [GRUPO_SEM_CASA];
+      ks.forEach(function(k){ balde(k).push(l); });
     });
     /* EM ORDEM DE CHAVE, e nao por tamanho: quem agrupa esta' procurando UM lugar — "e
        Campina Grande?" —, e uma ordem que muda com os numeros faz o mesmo nome trocar
@@ -2925,21 +2972,40 @@
       .map(function(k){
         var filhas = mapa[k];
         var dias = {};
+        /* O BALDE DO QUE NAO E CASA FICA DE FORA DA VIRADA. `ladoDaCasa` pergunta "a
+           casa esta' na origem desta perna?", e "Fora das unidades" nunca esta': a
+           resposta e' sempre nao, e os dois lados trocavam de lugar — a rota que
+           despachou 90 aparecia recebendo 90. O balde nao e' uma casa, e nao tem ponto
+           de vista para orientar nada. */
+        var casa = modo === 'unidade' && k !== GRUPO_SEM_CASA;
+        /* AS VISTAS, e nao as filhas, e' que somam no grupo por unidade — ver
+           `ladoDaCasa`. As FILHAS continuam intactas: abrindo a gaveta, a perna tem de
+           aparecer como ela e', "Matriz > Filial Maceio, saida 500", e nao virada do
+           avesso para caber no total de cima. */
+        var vistas = casa ? filhas.map(function(l){ return ladoDaCasa(l, k); }) : filhas;
         var g = { ehGrupo: true, chave: modo + '|' + k, modo: modo,
                   filhas: filhas, inicial: 0, saida: 0, retorno: 0,
-                  origens: juntarNomes(filhas, 'origens'),
-                  destinos: juntarNomes(filhas, 'destinos'),
-                  saidaTipos: somarTipos(filhas, 'saidaTipos'),
-                  retornoTipos: somarTipos(filhas, 'retornoTipos'),
+                  /* O NOME DO GRUPO VIAJA COM ELE, para a linha poder se apresentar
+                     mesmo com a coluna que o diria escondida. */
+                  rotulo: String(k),
+                  /* NO GRUPO POR UNIDADE AS PONTAS SAO A PROPRIA CASA. Juntando as das
+                     filhas, a linha "Filial Maceio" listaria "Matriz, Filial Maceio,
+                     Fornecedor" como origem — e o numero ao lado pareceria de uma viagem
+                     que nao existe. */
+                  origens: casa ? [k] : juntarNomes(filhas, 'origens'),
+                  destinos: casa ? [] : juntarNomes(filhas, 'destinos'),
+                  saidaTipos: somarTipos(vistas, 'saidaTipos'),
+                  retornoTipos: somarTipos(vistas, 'retornoTipos'),
                   /* A DATA SO' EXISTE NO GRUPO QUE E' O DIA. Nos outros ele atravessa
                      varios, e por um deles a celula mostraria um dia que nao e' o do
                      numero ao lado. */
                   data: modo === 'dia' ? String(filhas[0].data || '') : '' };
         var n = 0;
-        filhas.forEach(function(l){
+        filhas.forEach(function(l, iF){
+          var v = vistas[iF];
           g.inicial += l.inicial || 0;
-          g.saida   += l.saida || 0;
-          g.retorno += l.retorno || 0;
+          g.saida   += v.saida || 0;
+          g.retorno += v.retorno || 0;
           n += l.lancamentos || 0;
           if (l.data) dias[l.data] = 1;
         });
@@ -2947,9 +3013,14 @@
         g.saldo = g.retorno - g.saida;
         g.lancamentos = n;
         var qDias = Object.keys(dias).length;
-        g.sub = n + (n === 1 ? ' lançamento' : ' lançamentos') +
-          (modo === 'dia' ? '' :
-            ' · ' + qDias + (qDias === 1 ? ' dia' : ' dias'));
+        /* A CASA CHAMADA E SEM MOVIMENTO DIZ ISSO COM TODAS AS LETRAS. "0 lançamentos ·
+           0 dias" e' a mesma frase de uma linha que deu erro de carregamento, e no
+           galpao as duas se parecem demais. */
+        g.sub = (casa && !filhas.length)
+          ? 'sem movimento no recorte'
+          : n + (n === 1 ? ' lançamento' : ' lançamentos') +
+            (modo === 'dia' ? '' :
+              ' · ' + qDias + (qDias === 1 ? ' dia' : ' dias'));
         return g;
       });
   }
@@ -2964,8 +3035,20 @@
     var ok = { origem: 1, destino: 1, unidade: 1, lancado: 1, saida: 1, retorno: 1,
                final: 1 };
     if (g.modo === 'dia') ok.data = 1;
+    /* NO GRUPO POR UNIDADE, ORIGEM E DESTINO SAEM. A linha junta as duas pontas da casa
+       — o que ela despachou e o que recebeu —, e cada perna tem origem e destino
+       proprios: um nome ali faria a soma ao lado parecer de uma viagem. O nome da casa
+       entra pela coluna Unidade, e pelo rotulo quando ela estiver escondida. */
+    if (g.modo === 'unidade') { ok.origem = 0; ok.destino = 0; }
     return ok;
   }
+
+  /* QUAL COLUNA JA' DIZ O NOME DO GRUPO. Escondida ela, a linha do grupo fica sem nome
+     nenhum — so' a seta, a contagem e os numeros —, e foi assim que o Painel mostrou uma
+     linha de Unidades sem dizer de que unidade: a coluna Unidade vem no padrao, mas quem
+     a esconde fica sem saber de quem e' a soma. */
+  var COL_DO_GRUPO = { rota: 'origem', destino: 'destino', origem: 'origem',
+                       dia: 'data', unidade: 'unidade' };
 
   function saldoFinalDaLinha(l, gente){
     /* NUMA LINHA DE GRUPO O SALDO É O DELA, e não o corrido. O corrido é uma cadeia
@@ -3028,8 +3111,17 @@
 
   /* Filial e galpao: as duas casas, num chip so. O tipo da linha e o de quem RECEBEU a
      carga — e ele que esta com a caixa, e e por ele que os chips separam a lista. */
+  /* AS DUAS PONTAS, e nao so' quem recebeu.
+   *
+   * `l.tipo` e' o tipo de quem RECEBEU a carga, e peneirar por ele deixava de fora a
+   * perna em que a casa e' a ORIGEM: o chip dizia "Unidades 1" num dia em que a Matriz
+   * Sao Vicente despachou 500 para a Filial Maceio, e a Matriz nao aparecia na lista.
+   *
+   * O filtro de unidade do alto da tela ja casava nos dois lados, e a coluna Unidade
+   * tambem — era o chip o unico dos tres com regra propria. Agora os tres leem
+   * `unidadesDaLinha`, que e' a mesma pergunta feita uma vez so'. */
   function linhasFiliais(){
-    return todasAsLinhas().filter(function(l){ return ehTipoDeUnidade(l.tipo); });
+    return todasAsLinhas().filter(function(l){ return unidadesDaLinha(l).length > 0; });
   }
 
   /* OS NOMES DAS UNIDADES, lidos do CADASTRO e nao das linhas: a linha sabe o tipo de
@@ -3669,12 +3761,12 @@
     /* UNIDADE VEM DEPOIS DE DESTINO, e e' onde ela se le': as tres respondem "entre
        onde e onde", e a terceira resume as duas primeiras na casa que importa. */
     padrao: ['data','inicial','lancado','origem','destino','unidade','quem',
-             'saida','retorno','final'],
+             'fornecedor','saida','retorno','final'],
     /* Somadas, estas larguras cabem numa area util de ~1.050px, que e o que sobra numa
        tela de 1.400. Mais folgadas, a tabela transbordava e voltava a barra de rolagem
        horizontal. Quem quiser mais espaco numa coluna arrasta a borda. */
     larg: { data:95, inicial:105, lancado:95, origem:150, destino:150, unidade:170,
-            quem:190, saida:160, retorno:160, final:105 },
+            quem:190, fornecedor:170, saida:160, retorno:160, final:105 },
     /* O titulo de cada coluna mora AQUI, e a celula la embaixo o le daqui. A tela de
        Colunas precisa dos nomes sem desenhar a tabela, e escreve-los duas vezes seria
        duas listas sobre a mesma coisa — elas divergem no primeiro renome, e a tela de
@@ -3683,7 +3775,8 @@
        `quem` fica vazio de proposito: o titulo dele muda com o grupo escolhido (Motoristas
        ou Usuários), e quem o escreve e o desenho. */
     titulos: { data:'Data', inicial:'Saldo inicial', lancado:'Estoque', origem:'Origem',
-               destino:'Destino', unidade:'Unidade', quem:'Quem', saida:'Saída',
+               destino:'Destino', unidade:'Unidade', quem:'Quem',
+               fornecedor:'Fornecedor', saida:'Saída',
                retorno:'Retorno', final:'Saldo final' },
     kOrdem: 'qdc_cols_ativos_v1',
     kLarg: 'qdc_larg_ativos_v1',
@@ -5374,6 +5467,7 @@
     return aviso +
       '<div class="tabela-wrap"><table class="gav"><thead><tr>' +
       '<th>Data</th><th>Movimento</th><th>Origem</th><th>Destino</th>' +
+      '<th>Fornecedor</th>' +
       '<th>Caixa</th><th class="num">Qtd</th><th>Veículo</th><th>Lançamento</th>' +
       '</tr></thead><tbody>' +
       linhas.map(function(x){
@@ -5385,6 +5479,10 @@
           '<td>'+Q.esc(rotuloDoTipoMov(x.tipo))+'</td>'+
           '<td>'+Q.esc(x.origem || '—')+'</td>'+
           '<td>'+Q.esc(x.destino || '—')+'</td>'+
+          /* O FORNECEDOR JA VINHA DO SERVIDOR e nao era desenhado em lugar nenhum: a
+             gaveta mostrava entre onde e onde a carga andou, mas nao PARA QUEM. */
+          '<td>'+(x.fornecedor ? Q.esc(x.fornecedor)
+                               : '<span class="fraco">—</span>')+'</td>'+
           '<td>'+Q.esc(x.caixa || '—')+'</td>'+
           '<td class="num"><b class="'+cor+'">'+Q.num(x.qtd)+'</b></td>'+
           '<td>'+(x.veiculo ? '<span class="tag cinza">'+Q.esc(x.veiculo)+'</span>'
@@ -5433,15 +5531,24 @@
    * nao lendo o arquivo. */
   function linhaDeGrupo(g, cs, aberto){
     var podem = celulasDoGrupo(g);
-    return '<tr class="grp-fx'+(aberto ? ' aberto' : '')+'">'+
+    /* SEM FILHAS NAO HA SETA. Uma seta que abre o nada parece defeito, e e' pior que
+       nao te-la: quem clica duas vezes conclui que a tela travou. */
+    var abre = g.filhas.length
+      ? '<button class="abre-par" type="button" data-abrir-grupo="'+
+        Q.esc(g.chave)+'" title="ver as linhas deste grupo">'+
+        (aberto ? '▾' : '▸')+' <span class="abre-par__n">'+
+        Q.num(g.filhas.length)+'</span></button>'
+      : '<span class="abre-par__vazio" aria-hidden="true">·</span>';
+    var temCol = cs.some(function(c){ return c.id === COL_DO_GRUPO[g.modo]; });
+    var rotulo = (!temCol && g.rotulo)
+      ? '<span class="grp-fx__nome"><b>'+Q.esc(g.rotulo)+'</b>'+
+        '<span class="fsub">'+Q.esc(g.sub)+'</span></span>'
+      : '';
+    return '<tr class="grp-fx'+(aberto ? ' aberto' : '')+
+      (g.filhas.length ? '' : ' grp-fx--vazio')+'">'+
       cs.map(function(c, iC){
         return '<td'+(c.d.num ? ' class="num"' : '')+'>'+
-          (iC === 0
-            ? '<button class="abre-par" type="button" data-abrir-grupo="'+
-              Q.esc(g.chave)+'" title="ver as linhas deste grupo, uma por dia">'+
-              (aberto ? '▾' : '▸')+' <span class="abre-par__n">'+
-              Q.num(g.filhas.length)+'</span></button>'
-            : '')+
+          (iC === 0 ? abre + rotulo : '')+
           /* O TRACO, e nao o valor da primeira filha: um nome ali faria a linha parecer
              uma viagem, e a soma ao lado pareceria dela. */
           (podem[c.id] ? c.d.v(g) : '<span class="fraco">—</span>')+
@@ -5585,11 +5692,17 @@
                     var q = l.inicial || 0;
                     return q ? Q.num(q) : '<span class="fraco">0</span>';
                   } },
-      origem:   { t: TIT['origem'], so: 'local',
+      /* SEM `so`: Origem e Destino valem nas DUAS visoes.
+         Na linha de trajeto elas sao as pontas do caminho; na do motorista, todos os
+         lugares de onde ele pegou e para onde levou no periodo. E' a mesma pergunta —
+         "entre onde e onde isto andou?" — e por isso e' a mesma coluna.
+         O `sub` SO' NA VISAO DE LOCAL: nas de gente ele ja' sai embaixo do nome, na
+         primeira coluna, e repetido aqui a linha diz "5 lancamentos" duas vezes. */
+      origem:   { t: TIT['origem'],
                   k: function(l){ return (l.origens || []).join(', '); },
                   v: function(l){
                     return lugares(l.origens) +
-                      '<span class="fsub">' + Q.esc(l.sub) + '</span>';
+                      (gente ? '' : '<span class="fsub">' + Q.esc(l.sub) + '</span>');
                   } },
       /* A linha de estoque NAO TEM destino, e a coluna passa a dizer isso: travessao,
          como qualquer celula vazia do painel.
@@ -5601,7 +5714,7 @@
          A chave de classificacao acompanha — vazio, e `compararValores` manda vazio para
          o fim. Ordenar por Destino junta as linhas de estoque no fim, que e onde ficam
          as linhas sem esse dado. */
-      destino:  { t: TIT['destino'], so: 'local',
+      destino:  { t: TIT['destino'],
                   k: function(l){ return (l.destinos || []).join(', '); },
                   v: function(l){
                     return l.estoqueInicial
@@ -5618,6 +5731,11 @@
       unidade:  { t: TIT['unidade'], so: 'local',
                   k: function(l){ return unidadesDaLinha(l).join(', '); },
                   v: function(l){ return lugares(unidadesDaLinha(l)); } },
+      /* SO' NAS VISOES DE GENTE. A linha de trajeto nao carrega fornecedor — ele e' de
+         quem levou a carga, e nao do caminho —, e a coluna sairia vazia em todas elas. */
+      fornecedor: { t: TIT['fornecedor'], so: 'gente',
+                  k: function(l){ return (l.fornecedores || []).join(', '); },
+                  v: function(l){ return lugares(l.fornecedores); } },
       quem:     { t: '', so: 'gente', k: function(l){ return l.nome || ''; },
                   v: function(l){
                     return '<b>' + Q.esc(l.nome) + '</b>' +
@@ -6370,7 +6488,8 @@
       return id !== 'quem' && ocultasCsv.indexOf(id) < 0;
     });
     var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Estoque',
-                origem:'Origem', destino:'Destino', unidade:'Unidade', saida:'Saída',
+                origem:'Origem', destino:'Destino', unidade:'Unidade',
+                fornecedor:'Fornecedor', saida:'Saída',
                 retorno:'Retorno', final:'Saldo final' };
     var VAL = {
       data:     function(l){ return l.data ? Q.dataBR(l.data) : ''; },
@@ -6381,6 +6500,9 @@
       /* INTEIRA no arquivo, como as outras duas listas de local: aqui não há coluna
          estreita para proteger, e quem exporta quer o dado completo. */
       unidade:  function(l){ return unidadesDaLinha(l).join(' | '); },
+      /* INTEIRA tambem, e pelo mesmo motivo. Nas linhas de trajeto ela sai vazia: o
+         fornecedor e de quem LEVOU a carga, e nao do caminho. */
+      fornecedor: function(l){ return (l.fornecedores||[]).join(' | '); },
       saida:    function(l){ return l.saida; },
       retorno:  function(l){ return l.retorno; },
       final:    function(l){ return l.fimCorrido; }

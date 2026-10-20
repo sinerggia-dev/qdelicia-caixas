@@ -687,6 +687,29 @@ console.log('\n== a gaveta de uma pessoa, no Painel de Ativos ==');
     'e a gaveta abre pelo mais recente — quem abre quer saber o que acabou de acontecer',
     dinho.linhas.map(function (x) { return x.data; }));
 
+  /* ---- ENTRE ONDE E ONDE, E PARA QUEM ----
+   *
+   * A gaveta ja' dizia isso lancamento a lancamento, e a lista nao dizia nada: a tela do
+   * escritorio mostrava "Boanerges, 500 caixas" e mais nada — para onde, so' abrindo.
+   * Com quinze motoristas, responder "quem levou para a Filial Maceio?" obrigava a
+   * abrir quinze gavetas, e a lista deixava de ser lista.
+   *
+   * SAO OS MESMOS NOMES DE CAMPO DA LINHA DE TRAJETO — `origens`, `destinos` —, e e' o
+   * que deixa a MESMA celula de Origem desenhar as duas. */
+  ok(dinho.origens.join(' | ') === 'Matriz | Recife',
+    'a linha do motorista diz de onde ele pegou, sem repetir \u2014 ele saiu da Matriz e ' +
+    'voltou do Recife, e s\u00e3o as duas pontas que ele rodou no per\u00edodo', dinho.origens);
+  ok(dinho.destinos.join(' | ') === 'Matriz | Recife',
+    'e para onde levou \u2014 nas devolu\u00e7\u00f5es a Matriz \u00e9 o destino, e lendo s\u00f3 as sa\u00eddas a ' +
+    'volta dele sumiria da linha', dinho.destinos);
+  /* A PERDA ENTRA COM UMA PONTA SO'. Ela tem origem e nao tem destino, e e' isso que a
+     distingue de uma viagem: contada como destino vazio, a lista ganharia um nome em
+     branco, e um travessao no meio dos lugares se le' como dado faltando. */
+  ok(dinho.destinos.indexOf('') < 0,
+    'e nenhum lugar em branco entra na lista \u2014 a perda tem origem e n\u00e3o tem destino, e ' +
+    'um nome vazio no meio dos lugares se l\u00ea como dado que faltou carregar',
+    dinho.destinos);
+
   /* ---- O TETO, E O AVISO DELE ----
    *
    * Nada exercitava o corte: o ensaio tinha quatro linhas e o teto sao trezentas, entao
@@ -696,14 +719,24 @@ console.log('\n== a gaveta de uma pessoa, no Painel de Ativos ==');
   {
     var muitos = [];
     for (var iT = 0; iT < 320; iT++) {
+      /* A VIAGEM DIFERENTE VAI NO FIM, depois da tricentesima — e e' ela que prova que
+         a lista de lugares nao obedece ao teto. Recolhida junto com o detalhe, o
+         motorista que rodou o ano inteiro apareceria com os primeiros destinos dele e
+         mais nenhum, sem nada na tela dizendo que faltava. Posta no comeco, ela entraria
+         pelo caminho curto e a prova nao mediria o teto. */
+      var longe = iT === 315;
       muitos.push({ ID: 'X' + iT, Registro: 'R' + iT,
         DataRef: new Date('2026-10-15T00:00:00'), Tipo: 'SAIDA', Qtd: 1,
-        OrigemID: 'L1', DestinoID: 'L2', TipoCaixaID: 'T1',
+        OrigemID: 'L1', DestinoID: longe ? 'L3' : 'L2', TipoCaixaID: 'T1',
+        /* UM COM ESPACO, outro sem. Eles tem de cair na MESMA chave: sem aparo, a
+           celula mostra "Cipo Branco" duas vezes, uma do lado da outra. */
+        Fornecedor: longe ? '  Cip\u00f3 Branco ' : (iT === 7 ? 'Cip\u00f3 Branco' : ''),
         Motorista: 'Cheio', UsuarioID: 'U1' });
     }
     var cheio = LG.fluxoPorPessoa({
-      movimentos: muitos, locais: dadosG.locais, tipos: dadosG.tipos,
-      usuarios: dadosG.usuarios, config: {}
+      movimentos: muitos,
+      locais: dadosG.locais.concat([{ ID: 'L3', Nome: 'Campina Grande' }]),
+      tipos: dadosG.tipos, usuarios: dadosG.usuarios, config: {}
     }).motoristas[0];
     ok(cheio.linhas.length === 300 && cheio.corte === 20,
       'e o teto da gaveta segura em 300 linhas e CONTA o que sobrou — sem contar, a ' +
@@ -713,6 +746,21 @@ console.log('\n== a gaveta de uma pessoa, no Painel de Ativos ==');
       'e o total da linha continua contando TUDO — o teto é da gaveta, e não da conta: ' +
       'cortar os dois juntos seria esconder caixa do saldo para caber numa tela',
       cheio.saida);
+    /* NEM A LISTA DE LUGARES. Ela e' curta por natureza — um punhado de nomes —, e nao
+       tem por que caber num teto feito para trezentas linhas de detalhe. */
+    ok(cheio.destinos.indexOf('Campina Grande') >= 0,
+      'e a lista de destinos tamb\u00e9m conta TUDO: a viagem de n\u00famero 316 aparece, ' +
+      'embora a gaveta pare na 300 \u2014 recolhida dentro do teto, a lista mentiria ' +
+      'justamente no motorista que mais rodou', cheio.destinos);
+    ok(cheio.fornecedores.join(' | ') === 'Cip\u00f3 Branco',
+      'e o fornecedor daquela viagem tamb\u00e9m \u2014 é a pergunta que o escrit\u00f3rio fez, ' +
+      '"para quem ele levou", e ela n\u00e3o pode depender de a viagem ter sido cedo o ' +
+      'bastante no per\u00edodo', cheio.fornecedores);
+    ok(cheio.fornecedores.length === 1,
+      'e as duas grafias do mesmo nome \u2014 uma com espa\u00e7o em volta, outra sem \u2014 caem na ' +
+      'MESMA entrada: sem aparar, a c\u00e9lula mostra "Cip\u00f3 Branco" duas vezes, uma do ' +
+      'lado da outra, e n\u00e3o h\u00e1 nada na tela que explique a diferen\u00e7a',
+      cheio.fornecedores);
   }
 
   /* ---- A MESMA LINHA NAS DUAS VISOES ----
@@ -722,6 +770,77 @@ console.log('\n== a gaveta de uma pessoa, no Painel de Ativos ==');
     'e a visão de quem LANÇOU tem a gaveta dela também — é o mesmo lançamento visto por ' +
     'outro ângulo, e montar duas versões dele seria duas verdades',
     nestor && nestor.linhas.length);
+
+  /* ---- A GAVETA DIZ PARA QUEM, e nao so' entre onde e onde ----
+     O fornecedor ja' vinha do servidor em cada linha e nao era desenhado em lugar
+     nenhum: a gaveta mostrava o caminho da carga e omitia o destinatario dela, que e'
+     justamente quem fica devendo a caixa. */
+  {
+    var iGav = admG.indexOf('function gavetaDaPessoa(');
+    var gav = admG.slice(iGav, admG.indexOf('\n  }', iGav));
+    ok(gav.indexOf('<th>Fornecedor</th>') > 0,
+      'a gaveta tem coluna de Fornecedor', gav.indexOf('<th>Fornecedor</th>'));
+    ok(/x\.fornecedor \?/.test(gav),
+      'e ela LE o campo do lan\u00e7amento \u2014 um cabe\u00e7alho sem c\u00e9lula \u00e9 uma coluna de ' +
+      'travess\u00f5es, e uma c\u00e9lula sem cabe\u00e7alho \u00e9 um nome solto que ningu\u00e9m sabe ler',
+      gav.slice(gav.indexOf('fornecedor')).slice(0, 80));
+    /* O CABECALHO E AS CELULAS TEM DE CONTAR IGUAL. Posta no lugar errado, a coluna
+       empurra todas as outras e a gaveta passa a mostrar a Caixa embaixo de Veiculo —
+       sem erro nenhum, e com tudo parecendo certo de relance. */
+    /* PELAS TAGS DE FECHAMENTO: `<th` casa tambem com `<thead>`, e a primeira
+       versao desta prova contava dez cabecalhos onde havia nove. */
+    var qTh = (gav.match(/<\/th>/g) || []).length;
+    var qTd = (gav.match(/<\/td>/g) || []).length;
+    ok(qTh === qTd && qTh === 9,
+      'e o cabe\u00e7alho e a linha t\u00eam o MESMO n\u00famero de c\u00e9lulas \u2014 desencontrados, cada ' +
+      'valor aparece embaixo do t\u00edtulo do vizinho, e de relance tudo parece certo',
+      { th: qTh, td: qTd });
+  }
+
+  /* ---- AS COLUNAS DE LUGAR VALEM NAS DUAS VISOES ----
+   *
+   * Origem e Destino nasceram marcadas `so: 'local'`, e por isso a visao de motorista
+   * saia sem elas — era essa a queixa. A pergunta que elas respondem, "entre onde e
+   * onde isto andou?", e' a mesma nas duas visoes, e por isso e' a mesma coluna: uma
+   * segunda celula que fizesse o mesmo divergiria no primeiro conserto que so' uma
+   * recebesse. */
+  {
+    var iD = admG.indexOf('var DEFS = {', admG.indexOf('function desenharFluxo()'));
+    var defsG = admG.slice(iD, admG.indexOf('DEFS.quem.t', iD));
+    function soDe(id) {
+      var i = defsG.indexOf('\n      ' + id + ':');
+      if (i < 0) return 'FALTA';
+      var b = defsG.slice(i, defsG.indexOf('k: function(l){', i));
+      var m = /so: '(\w+)'/.exec(b);
+      return m ? m[1] : '';
+    }
+    ok(soDe('origem') === '' && soDe('destino') === '',
+      'Origem e Destino n\u00e3o se prendem a uma visao: marcadas `so: local`, a lista de ' +
+      'motoristas saía sem elas \u2014 e "o Boanerges levou para onde?" só se respondia ' +
+      'abrindo uma gaveta de cada vez',
+      { origem: soDe('origem'), destino: soDe('destino') });
+    ok(soDe('fornecedor') === 'gente',
+      'e Fornecedor fica S\u00d3 nas vis\u00f5es de gente \u2014 a linha de trajeto n\u00e3o carrega ' +
+      'fornecedor, porque ele \u00e9 de quem LEVOU a carga e n\u00e3o do caminho: na tabela de ' +
+      'trechos a coluna sairia vazia em toda linha', soDe('fornecedor'));
+    /* O `sub` E' DA PRIMEIRA COLUNA NAS VISOES DE GENTE: ele ja' sai embaixo do nome.
+       Repetido na celula de Origem, a linha do motorista diz "5 lancamentos" duas
+       vezes, uma do lado da outra. */
+    ok(/gente \? '' : '<span class="fsub">' \+ Q\.esc\(l\.sub\)/.test(defsG),
+      'e a contagem de lan\u00e7amentos n\u00e3o sai duas vezes na mesma linha \u2014 na vis\u00e3o de ' +
+      'gente ela j\u00e1 vem embaixo do nome, na primeira coluna', defsG.indexOf('l.sub'));
+  }
+
+  /* ---- E O CSV LEVA A COLUNA NOVA ----
+     Regra de sempre da casa: exportar e conferir na tela tem de bater. */
+  {
+    var iC = admG.indexOf("Q.csv('retornos'");
+    var csvG = admG.slice(admG.lastIndexOf('var cs =', iC), iC);
+    ok(/fornecedor:'Fornecedor'/.test(csvG.replace(/\s/g, '')) &&
+       /fornecedor:function/.test(csvG.replace(/\s/g, '')),
+      'o CSV leva Fornecedor com t\u00edtulo e valor \u2014 uma coluna que se v\u00ea na tela e ' +
+      'some no arquivo obriga a explicar para onde ela foi', csvG.indexOf('fornecedor'));
+  }
 
   /* ---- E A TELA LIGA ISSO ---- */
   ok(admG.indexOf('function gavetaDaPessoa(') > 0,
@@ -2934,8 +3053,45 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
      casa ela entraria num e ficaria faltando no outro — e o chip contaria uma coisa com
      o seletor oferecendo outra. */
   var lfi = corpoDe('linhasFiliais');
-  ok(/ehTipoDeUnidade\(l\.tipo\)/.test(lfi),
-    'o chip Unidades pergunta a UMA regra o que é uma casa', lfi.trim());
+  ok(/unidadesDaLinha\(l\)/.test(lfi),
+    'o chip Unidades pergunta a MESMA regra que a coluna Unidade e o filtro de ' +
+    'unidade já perguntavam — as três respondem "que casas esta linha toca", e ' +
+    'escritas em separado o chip conta uma coisa com a tabela listando outra',
+    lfi.trim());
+
+  /* E A REGRA RODA, nas DUAS PONTAS.
+   *
+   * O chip peneirava por `l.tipo`, que e' o tipo de quem RECEBEU. Num dia em que a
+   * Matriz Sao Vicente despachou 500 para a Filial Maceio, ele dizia "Unidades 1" e a
+   * Matriz nao aparecia na lista — e foi essa a queixa do escritorio: "tem que ter as
+   * filiais e a matriz".
+   *
+   * MEDIDO RODANDO, e nao lido. A prova anterior conferia o texto
+   * `ehTipoDeUnidade(l.tipo)`, e por isso defendia a IMPLEMENTACAO em vez da pergunta:
+   * ela ficou verde o tempo todo em que o chip escondia a matriz, porque o texto que
+   * ela cobrava estava la', certinho. */
+  var unidadesDaLinha = new Function('DADOS',
+    corpoDe('ehTipoDeUnidade') + '}\n' +
+    corpoDe('nomesDeUnidade') + '}\n' +
+    corpoDe('unidadesDaLinha') + '}\n return unidadesDaLinha;')({
+      locais: [{ Nome: 'Matriz', Tipo: 'GALPAO' },
+               { Nome: 'Filial Maceió', Tipo: 'FILIAL' },
+               { Nome: 'Fornecedor', Tipo: 'ROTA' }]
+    });
+  var pernaInterna = unidadesDaLinha({ origens: ['Matriz'],
+                                       destinos: ['Filial Maceió'] });
+  ok(pernaInterna.join(' | ') === 'Matriz | Filial Maceió',
+    'a perna entre duas casas pertence às DUAS — é por isso que a Matriz aparece no ' +
+    'chip num dia em que ela só despachou, e era ela que sumia da lista',
+    pernaInterna);
+  var pernaDeFora = unidadesDaLinha({ origens: ['Matriz'], destinos: ['Fornecedor'] });
+  ok(pernaDeFora.join(' | ') === 'Matriz',
+    'e a perna que sai para fora pertence à casa que a despachou, e só a ela — pelo ' +
+    'tipo de quem RECEBEU, esta linha ficava fora das Unidades inteira', pernaDeFora);
+  ok(unidadesDaLinha({ origens: ['Fornecedor'], destinos: ['Cliente X'] }).length === 0,
+    'e a perna que não toca casa nenhuma fica fora do chip — dentro dele, "Unidades" ' +
+    'passaria a contar o que não é unidade, que é a única coisa que ele promete',
+    unidadesDaLinha({ origens: ['Fornecedor'], destinos: ['Cliente X'] }));
   var ehUni = new Function(corpoDe('ehTipoDeUnidade') + '} return ehTipoDeUnidade;')();
   ok(ehUni('GALPAO') === true && ehUni('FILIAL') === true &&
      ehUni('CLIENTE') === false && ehUni('ROTA') === false,
@@ -3341,8 +3497,23 @@ console.log('\n== Painel de Ativos: juntar as linhas ==');
   var iM = adm.indexOf('  var MODOS_GRUPO = {');
   var fM = adm.indexOf(String.fromCharCode(10) + '  };', iM) + 5;
   var fonteM = iM < 0 ? '' : adm.slice(iM, fM);
-  var PECAS = ['somarTipos', 'juntarNomes', 'agruparFluxo', 'celulasDoGrupo',
+  /* AS DECLARACOES SOLTAS TAMBEM, e nao so' as funcoes: `GRUPO_SEM_CASA` e
+     `COL_DO_GRUPO` sao `var`, e sem elas o agrupar estoura no primeiro grupo sem casa e
+     a linha do grupo nunca se apresenta. */
+  function varA(nome) {
+    var i = adm.indexOf('  var ' + nome + ' = ');
+    if (i < 0) return '';
+    var f = adm.indexOf(';', i);
+    return f < 0 ? '' : adm.slice(i, f + 1);
+  }
+  var PECAS = ['somarTipos', 'juntarNomes', 'ehTipoDeUnidade', 'nomesDeUnidade',
+               'unidadesDaLinha', 'ladoDaCasa', 'agruparFluxo', 'celulasDoGrupo',
                'saldoFinalDaLinha', 'linhaDeGrupo', 'linhaDeFluxo', 'corpoDaTabela'];
+  var SOLTAS = ['GRUPO_SEM_CASA', 'COL_DO_GRUPO'];
+  var semSolta = SOLTAS.filter(function (n) { return !varA(n); });
+  ok(!semSolta.length,
+    'e recortou as declara\u00e7\u00f5es soltas que o agrupar usa \u2014 faltando uma, o modo por ' +
+    'unidade estouraria aqui dentro em vez de ser medido', semSolta);
   var faltando = PECAS.filter(function (n) { return !corpoA(n); });
   ok(!faltando.length && fonteM.indexOf('MODOS_GRUPO') > 0 && fonteM.length > 300,
     'a confer\u00eancia recortou a tabela de modos e as pe\u00e7as do agrupar \u2014 faltando uma, ' +
@@ -3351,9 +3522,19 @@ console.log('\n== Painel de Ativos: juntar as linhas ==');
   /* AS FUNCOES RODAM. Lidas no arquivo, elas responderiam "a palavra `saida` esta
      ali?" — e estaria, inclusive numa versao que soma o retorno na coluna errada. */
   var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  /* AS CASAS DO CADASTRO, e e' delas que a chamada do modo por unidade sai. A Unidade
+     Ceasa esta' aqui SEM NENHUMA LINHA de proposito: e' ela que prova a chamada. */
+  var LOCAIS_G = { locais: [
+    { Nome: 'Matriz S\u00e3o Vicente', Tipo: 'GALPAO' },
+    { Nome: 'Filial Macei\u00f3', Tipo: 'FILIAL' },
+    { Nome: 'Unidade Ceasa', Tipo: 'GALPAO' },
+    { Nome: 'Campina Grande', Tipo: 'ROTA' },
+    { Nome: 'Caruaru', Tipo: 'ROTA' }
+  ] };
   var A = new Function('Q', 'PESSOAS_ABERTAS', 'gavetaDaPessoa', 'GRUPOS_ABERTOS',
-                       'avisoVazio',
-    fonteM + ';' + PECAS.map(corpoA).join(String.fromCharCode(10)) +
+                       'avisoVazio', 'DADOS',
+    fonteM + ';' + SOLTAS.map(varA).join(String.fromCharCode(10)) +
+    String.fromCharCode(10) + PECAS.map(corpoA).join(String.fromCharCode(10)) +
     String.fromCharCode(10) +
     ' return { agrupa: agruparFluxo, celulas: celulasDoGrupo, saldo: saldoFinalDaLinha,' +
     '          linhaG: linhaDeGrupo, linhaF: linhaDeFluxo, corpo: corpoDaTabela,' +
@@ -3370,7 +3551,7 @@ console.log('\n== Painel de Ativos: juntar as linhas ==');
     {}, function () { return ''; },
     /* NENHUM GRUPO ABERTO: e' o estado em que a tabela nasce, e e' o unico em que as
        filhas tem de vir escondidas. */
-    {}, function () { return 'vazio: sem linhas no recorte'; });
+    {}, function () { return 'vazio: sem linhas no recorte'; }, LOCAIS_G);
 
   /* OS NUMEROS SAO OS DA TELA DE QUEM PEDIU: Campina Grande em dois dias, com saida e
      retorno no mesmo dia no segundo deles. Era essa a linha apontada. */
@@ -3387,6 +3568,140 @@ console.log('\n== Painel de Ativos: juntar as linhas ==');
       saida: 589, retorno: 0, lancamentos: 3, inicial: 0, fimCorrido: -2566,
       saidaTipos: [{ caixa: 'CX G', qtd: 233 }], retornoTipos: [] }
   ];
+
+  /* ================= O MODO UNIDADE: UMA LINHA POR CASA =================
+   *
+   * O escritorio abriu o chip Unidades e viu UMA linha — um trecho, "Matriz Sao Vicente
+   * > Filial Maceio" — onde esperava ver as casas da empresa, uma a uma, para abrir cada
+   * qual. "Tem que ter as filiais e a matriz."
+   *
+   * TRES COISAS DISTINGUEM ESTE MODO DOS OUTROS QUATRO, e cada uma tem prova aqui:
+   *   1. a chave e' uma LISTA — a perna interna pertence as duas casas;
+   *   2. os numeros sao ORIENTADOS — o que a casa despachou e o que ela recebeu;
+   *   3. a lista sai do CADASTRO — a casa parada aparece, dizendo que parou.
+   *
+   * OS NUMEROS DO CENARIO SAO DESIGUAIS DE PROPOSITO. Com a ida e a volta valendo o
+   * mesmo, orientar a perna ou nao da' o mesmo total, e a prova nao veria a diferenca —
+   * foi assim que duas sabotagens escaparam na rodada dos cartoes. */
+  var CASAS = [
+    /* A perna interna: a Matriz despacha 500 e recebe 300 de volta da Filial. */
+    { data: '2026-10-19', origens: ['Matriz S\u00e3o Vicente'], destinos: ['Filial Macei\u00f3'],
+      saida: 500, retorno: 300, lancamentos: 10, inicial: 0, fimCorrido: 0,
+      saidaTipos: [{ caixa: 'CX G', qtd: 500 }],
+      retornoTipos: [{ caixa: 'CX G', qtd: 300 }] },
+    /* A perna de fora: a Filial despacha 400 para a rota e recebe 100. */
+    { data: '2026-10-19', origens: ['Filial Macei\u00f3'], destinos: ['Campina Grande'],
+      saida: 400, retorno: 100, lancamentos: 4, inicial: 0, fimCorrido: 0,
+      saidaTipos: [{ caixa: 'CX P', qtd: 400 }],
+      retornoTipos: [{ caixa: 'CX P', qtd: 100 }] },
+    /* E uma que nao toca casa nenhuma: rota direto para rota. */
+    { data: '2026-10-19', origens: ['Campina Grande'], destinos: ['Caruaru'],
+      saida: 90, retorno: 0, lancamentos: 1, inicial: 0, fimCorrido: 0,
+      saidaTipos: [], retornoTipos: [] }
+  ];
+  var porCasa = A.agrupa(CASAS, 'unidade');
+  function casa(n) {
+    return porCasa.filter(function (g) { return g.rotulo === n; })[0];
+  }
+
+  /* ---- 1. A CHAMADA: as tres casas do cadastro, mais o balde do que nao e' casa ---- */
+  ok(porCasa.length === 4 &&
+     !!casa('Matriz S\u00e3o Vicente') && !!casa('Filial Macei\u00f3') &&
+     !!casa('Unidade Ceasa') && !!casa('Fora das unidades'),
+    'as tr\u00eas casas do cadastro aparecem, e a Matriz entre elas \u2014 era ela que sumia, ' +
+    'porque o chip lia o tipo de quem RECEBEU e ela s\u00f3 despachou',
+    porCasa.map(function (g) { return g.rotulo; }));
+
+  /* A CASA PARADA E RESPOSTA, e nao ausencia: "nada entrou nem saiu da Ceasa nesse dia"
+     e' o que se quer saber quando se abre a lista casa a casa. Montada so' com as linhas
+     do recorte, ela sumiria justamente no dia em que a pergunta se faz. */
+  var ceasa = casa('Unidade Ceasa');
+  ok(ceasa.filhas.length === 0 && ceasa.saida === 0 && ceasa.retorno === 0,
+    'a casa sem movimento no recorte aparece zerada, em vez de sumir \u2014 ausente, ela se ' +
+    'confunde com casa que n\u00e3o existe, e a lista deixa de ser a chamada que se pediu',
+    { filhas: ceasa.filhas.length, saida: ceasa.saida });
+  ok(/sem movimento/.test(ceasa.sub),
+    'e ela diz isso com todas as letras \u2014 "0 lan\u00e7amentos \u00b7 0 dias" \u00e9 a mesma frase de ' +
+    'uma linha que falhou ao carregar, e no galp\u00e3o as duas se parecem demais', ceasa.sub);
+
+  /* ---- 2. A CHAVE E UMA LISTA: a perna interna cai nas DUAS casas ---- */
+  var mz = casa('Matriz S\u00e3o Vicente'), fl = casa('Filial Macei\u00f3');
+  ok(mz.filhas.length === 1 && fl.filhas.length === 2,
+    'a perna entre duas casas entra na conta das DUAS: a Matriz tem a dela, e a Filial ' +
+    'tem essa mais a que ela mandou para a rota \u2014 presa a um lado s\u00f3, metade da ' +
+    'opera\u00e7\u00e3o da casa sumiria da linha dela',
+    { matriz: mz.filhas.length, filial: fl.filhas.length });
+
+  /* ---- 3. OS NUMEROS SAO ORIENTADOS ---- */
+  ok(mz.saida === 500 && mz.retorno === 300,
+    'a Matriz despachou 500 e recebeu 300 \u2014 ela est\u00e1 na ORIGEM da perna, e a\u00ed os dois ' +
+    'lados da linha s\u00e3o os dela', { saida: mz.saida, retorno: mz.retorno });
+  ok(fl.saida === 400 + 300 && fl.retorno === 500 + 100,
+    'e a Filial despachou 700 (300 de volta \u00e0 Matriz mais 400 \u00e0 rota) e recebeu 600 ' +
+    '(500 da Matriz mais 100 da rota). Lido sempre como `saida`, o painel dela mostraria ' +
+    'a Filial DESPACHANDO as 500 que acabou de receber',
+    { saida: fl.saida, retorno: fl.retorno });
+
+  /* O DETALHE POR TIPO VIRA JUNTO, e nao e' detalhe: e' por tipo que a caixa se cobra.
+     Orientando o numero e esquecendo os tipos, a linha diria "despachou 700" com a lista
+     embaixo somando 400 — e as duas estariam na mesma celula. */
+  function tipos(lista) {
+    return (lista || []).map(function (x) { return x.caixa + ':' + x.qtd; }).join(' ');
+  }
+  ok(tipos(fl.saidaTipos) === 'CX P:400 CX G:300',
+    'e os tipos acompanham a virada: o que a Filial despachou s\u00e3o as 400 CX P da rota ' +
+    'mais as 300 CX G que devolveu \u00e0 Matriz \u2014 esquecidos, a linha somaria 700 com o ' +
+    'detalhe embaixo dizendo 400', tipos(fl.saidaTipos));
+
+  /* ---- 4. O QUE NAO E CASA NAO EVAPORA ---- */
+  var fora = casa('Fora das unidades');
+  ok(fora.filhas.length === 1 && fora.saida === 90,
+    'a perna que n\u00e3o toca casa nenhuma cai num balde pr\u00f3prio, em vez de sumir \u2014 com a ' +
+    'chave vazia ela n\u00e3o entraria em grupo algum, e a tabela mostraria menos caixas do ' +
+    'que o rodap\u00e9 conta, sem dizer que escondeu alguma', fora);
+
+  /* ---- 5. A LINHA SE APRESENTA MESMO COM A COLUNA ESCONDIDA ---- */
+  /* Foi assim que o Painel mostrou uma linha de Unidades sem dizer de que unidade: a
+     coluna Unidade vem no padrao, mas quem a esconde fica sem saber de quem e' a soma. */
+  var CS_SEM = [{ id: 'data', d: { v: function () { return ''; } } },
+                { id: 'saida', d: { num: true, v: function (g) { return String(g.saida); } } }];
+  var CS_COM = [{ id: 'unidade', d: { v: function (g) { return 'UNI'; } } },
+                { id: 'saida', d: { num: true, v: function (g) { return String(g.saida); } } }];
+  /* DENTRO DO ROTULO, e nao em qualquer lugar da linha.
+     A primeira versao desta prova procurava o nome na linha inteira, e ele esta' la' de
+     qualquer jeito: o botao de abrir leva a chave do grupo num atributo
+     (`data-abrir-grupo="unidade|Matriz Sao Vicente"`). Ela passou verde com o rotulo
+     apagado — media uma coincidencia, e nao o nome que se le'. */
+  function rotuloDe(html) {
+    var i = html.indexOf('grp-fx__nome');
+    if (i < 0) return '';
+    var f = html.indexOf('</span></span>', i);
+    return f < 0 ? '' : html.slice(i, f);
+  }
+  ok(rotuloDe(A.linhaG(mz, CS_SEM, false)).indexOf('Matriz S\u00e3o Vicente') > 0,
+    'escondida a coluna Unidade, a linha do grupo escreve o nome da casa ela mesma \u2014 ' +
+    'sem isso ela sai s\u00f3 com a seta, a contagem e os n\u00fameros, e n\u00e3o se sabe de quem \u00e9',
+    A.linhaG(mz, CS_SEM, false).slice(0, 200));
+  ok(rotuloDe(A.linhaG(mz, CS_SEM, false)).indexOf('10 lan\u00e7amentos · 1 dia') > 0,
+    'e junto vai de quantos lan\u00e7amentos ela \u00e9 feita \u2014 esse texto vive na c\u00e9lula de ' +
+    'Origem, que esta linha n\u00e3o preenche, e sem o r\u00f3tulo ele n\u00e3o teria onde aparecer',
+    rotuloDe(A.linhaG(mz, CS_SEM, false)));
+  ok(A.linhaG(mz, CS_COM, false).indexOf('grp-fx__nome') < 0,
+    'e com a coluna \u00e0 vista ela N\u00c3O repete o nome \u2014 duas vezes o mesmo r\u00f3tulo na mesma ' +
+    'linha faz procurar a diferen\u00e7a que n\u00e3o existe',
+    A.linhaG(mz, CS_COM, false).slice(0, 160));
+
+  /* ---- 6. ORIGEM E DESTINO SAEM DA LINHA DO GRUPO ---- */
+  ok(!A.celulas(mz).origem && !A.celulas(mz).destino && A.celulas(mz).unidade,
+    'a linha por casa n\u00e3o preenche Origem nem Destino: ela junta as duas pontas da casa, ' +
+    'e as pernas t\u00eam pontas diferentes \u2014 um nome ali faria a soma ao lado parecer de ' +
+    'uma viagem que n\u00e3o existe', A.celulas(mz));
+
+  /* ---- 7. A CASA PARADA NAO OFERECE SETA ---- */
+  ok(A.linhaG(ceasa, CS_SEM, false).indexOf('data-abrir-grupo') < 0,
+    'e a casa parada n\u00e3o ganha seta \u2014 uma seta que abre o nada parece defeito, e quem ' +
+    'clica duas vezes conclui que a tela travou',
+    A.linhaG(ceasa, CS_SEM, false).slice(0, 140));
 
   /* ---- 1. A ROTA: duas linhas de dois dias viram uma ---- */
   var porRota = A.agrupa(LINHAS, 'rota');
@@ -4516,7 +4831,7 @@ console.log('\n== classificar pelo titulo da coluna ==');
   var ids = (defs.match(/^\s{6}(\w+):\s*\{/gm) || []).map(function (t) {
     return t.trim().split(':')[0];
   });
-  ok(ids.length === 10, 'a leitura achou as dez colunas', ids);
+  ok(ids.length === 11, 'a leitura achou as onze colunas', ids);
   var semChave = ids.filter(function (id) {
     var bloco = defs.slice(defs.indexOf('\n      ' + id + ':'));
     bloco = bloco.slice(0, bloco.indexOf('v: function(l){'));

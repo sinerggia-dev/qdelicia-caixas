@@ -2676,7 +2676,13 @@ function fluxoPorPessoa(dados, desde, ate) {
     var k = String(chave);
     if (!mapa[k]) {
       mapa[k] = { id: k, nome: nome, saida: 0, retorno: 0, n: 0, extras: {},
-                  saidaTipo: {}, retornoTipo: {}, linhas: [], corte: 0 };
+                  saidaTipo: {}, retornoTipo: {}, linhas: [], corte: 0,
+                  /* ONDE ELE PEGOU, ONDE ELE DEIXOU E PARA QUEM.
+                     A gaveta ja mostrava origem e destino lancamento a lancamento, mas
+                     quem olha a lista de motoristas quer saber ANTES de abrir: "o
+                     Boanerges levou 500 caixas para onde?". Abrindo uma a uma para
+                     responder isso, a lista deixa de ser lista. */
+                  ondeDe: {}, ondePara: {}, forn: {} };
     }
     mapa[k].n++;
     var lado = ehSaida ? 'saidaTipo' : 'retornoTipo';
@@ -2688,6 +2694,14 @@ function fluxoPorPessoa(dados, desde, ate) {
        poder divergir da linha: um filtro que so' uma das duas recebesse daria duas
        respostas plausiveis, e ninguem veria qual e' a certa. */
     if (linha) {
+      /* OS CONJUNTOS FICAM FORA DO TETO, de proposito. O teto corta o DETALHE — trezentas
+         linhas numa gaveta ninguem le —, mas a lista de lugares e de fornecedores e
+         curta por natureza, e cortada ela MENTIRIA: o motorista que rodou o ano inteiro
+         apareceria com os primeiros destinos dele e mais nenhum, sem nada dizendo que
+         faltava. */
+      if (linha.origem) mapa[k].ondeDe[linha.origem] = 1;
+      if (linha.destino) mapa[k].ondePara[linha.destino] = 1;
+      if (linha.fornecedor) mapa[k].forn[linha.fornecedor] = 1;
       if (mapa[k].linhas.length < TETO_DETALHE) mapa[k].linhas.push(linha);
       else mapa[k].corte++;
     }
@@ -2711,7 +2725,11 @@ function fluxoPorPessoa(dados, desde, ate) {
       tipo: m.Tipo, sentido: ehSaida ? 'saida' : 'retorno',
       origem: nome(mLocaisP, m.OrigemID), destino: nome(mLocaisP, m.DestinoID),
       rota: String(m.Rota || '').trim(), caixa: caixa, qtd: q,
-      veiculo: m.Veiculo || '', fornecedor: m.Fornecedor || ''
+      /* APARADO, como o nome do motorista e a rota logo abaixo. Ele vira CHAVE na
+         lista de fornecedores da pessoa, e com o espaco " Cipo Branco" e "Cipo
+         Branco" entram como dois, lado a lado na mesma celula — a mesma pessoa duas
+         vezes, e nada na tela explicando a diferenca. */
+      veiculo: m.Veiculo || '', fornecedor: String(m.Fornecedor || '').trim()
     };
     soma(porMot, mot, mot, q, ehSaida, String(m.Rota || '').trim(), caixa, linha);
     /* A MESMA LINHA nas duas visoes: e' o mesmo lancamento visto por dois angulos —
@@ -2719,6 +2737,15 @@ function fluxoPorPessoa(dados, desde, ate) {
     soma(porUsu, m.UsuarioID, nome(nomesUsuarios, m.UsuarioID), q, ehSaida, '', caixa,
          linha);
   });
+
+  /* O `filter` E' PISO, e nao a guarda: quem barra o vazio e' o `if` la' na entrada, e
+     e' la' que o espaco tambem e' aparado. Ele fica porque custa nada e porque o dia em
+     que alguem alimentar estes conjuntos por outro caminho, um nome em branco no meio
+     dos lugares se le' como dado que faltou carregar. */
+  function ordenados(conj) {
+    return Object.keys(conj).filter(Boolean)
+      .sort(function (a, b) { return a.localeCompare(b, 'pt-BR'); });
+  }
 
   function lista(mapa, tipo, sub) {
     return Object.keys(mapa).map(function (k) {
@@ -2737,6 +2764,13 @@ function fluxoPorPessoa(dados, desde, ate) {
         // A quinta coluna troca de sentido junto com a visão: nas rotas do motorista e no
         // perfil do usuário. Uma coluna "Responsável" com o proprio nome repetido seria ruído.
         responsavel: sub === 'perfil' ? (perfis[r.id] || '') : rotas.join(', '),
+        /* OS MESMOS NOMES DE CAMPO DA LINHA DE TRAJETO — `origens` e `destinos` —, e nao
+           nomes proprios: a celula de Origem do painel ja sabe desenhar essa lista, e
+           batizando-os de outro jeito aqui seria preciso uma segunda celula que faz o
+           mesmo. Duas celulas sobre a mesma coisa divergem no primeiro conserto que so
+           uma receber. */
+        origens: ordenados(r.ondeDe), destinos: ordenados(r.ondePara),
+        fornecedores: ordenados(r.forn),
         saida: r.saida, retorno: r.retorno,
         saidaTipos: detalharTipos(r.saidaTipo), retornoTipos: detalharTipos(r.retornoTipo),
         saldo: c.saldo, desvio: c.desvio, situacao: c.situacao,
