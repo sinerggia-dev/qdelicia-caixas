@@ -116,8 +116,11 @@ Projeto: Qdelícia Frutas — Controle de Caixas.
 A pasta está ligada pelo conector de arquivos.
 
 Antes de responder qualquer coisa sobre o projeto, leia nesta ordem:
-1. PARA-O-CLAUDE-DESKTOP.md (este arquivo: o mapa e as regras)
-2. CLAUDE.md (a nota de retomada; é longa — leia os cabeçalhos e
+1. PARA-O-CLAUDE-DESKTOP.md, SEÇÃO 11 — "Onde paramos". É o estado de
+   hoje: o que mudou nas últimas sessões, o que está em produção e as
+   duas decisões que estão esperando por mim.
+2. PARA-O-CLAUDE-DESKTOP.md, o resto (o mapa e as regras)
+3. CLAUDE.md (a nota de retomada; é longa — leia os cabeçalhos e
    depois as seções que importarem para o que eu pedir)
 
 Regras desta conversa:
@@ -300,3 +303,113 @@ Se a sessão nova precisar de um ponto de entrada, estes são os quatro que expl
    código.
 4. `CLAUDE.md`, seção **"Armadilhas já pagas"** — os erros que este projeto já cometeu, e não
    precisa cometer de novo.
+
+---
+
+## 11. Onde paramos — 20 de outubro de 2026
+
+Esta seção é o **histórico**: o que a última sessão deixou pronto, o que está em produção agora e o
+que está esperando decisão. É a primeira coisa a ler numa sessão nova. Quem a atualizar, atualize
+a data do título junto.
+
+### 11.1 O que mudou nas últimas sessões
+
+Da mais recente para a mais antiga. Toda uma delas está no ar, com as nove suítes verdes e com
+sabotagem fechada.
+
+1. **O botão que recolhe a lateral voltou a funcionar.** Ele estava ligado e a tela não obedecia:
+   o botão mora **dentro** da lateral, o clique deixava o foco nele, e a regra `:focus-within` da
+   folha reabria a lateral no mesmo quadro. O conserto separa mouse de teclado por `e.detail`
+   (clique de mouse > 0, Enter = 0) e só larga o foco no caso do mouse — o CSS não estava errado,
+   ele é o que abre a lateral para quem chega de Tab. Em `app.js`, função `trilho`.
+2. **A coluna de ações ficou presa na borda direita** nas doze tabelas do painel. A tabela de
+   Usuários soma 2.110px de coluna, e "editar" ficava a oitocentos pixels de rolagem. O fundo da
+   célula presa é **herdado** da linha (ela muda de cor em seis estados). A folga e a coluna presa
+   **eram a mesma coluna** e tiveram de se separar: a folga não pode ter largura, a presa precisa
+   de uma.
+3. **As colunas Motorista e Fornecedor passaram a sair do cadastro de hoje.** A linha mostrava
+   "Mundinho | Mundinho" — o mesmo texto duas vezes. Agora a coluna Fornecedor traz o **nome** do
+   cadastro e a Motorista o **apelido**. Nada foi reescrito no banco: a linha continua guardando o
+   texto do dia, e a LEITURA resolve contra o cadastro com esse texto como piso (`nomesDaLinha`,
+   em `api/_logica.js`). Limite escolhido e medido: a coluna Motorista só se resolve pelo texto
+   DELA — resolvê-la pela outra faria uma linha corrigida à mão mostrar o fornecedor ao volante.
+4. **O carro do fornecedor** entrou no cadastro dele: placa, modelo e tipo, com a mesma lista de
+   tipos do cadastro de veículos. Migração `2026-10-17-fornecedor-veiculo`. No lançamento, a placa
+   cadastrada já vem escolhida; sem placa, o campo de digitar abre como antes.
+5. **O fornecedor passou a vir do cadastro de Fornecedores** (era o de motoristas). Foi a mudança
+   de modelo mais importante do mês — ver 11.3.
+6. **Agrupar o Painel de Ativos** por rota, destino, origem ou dia, com o detalhe a uma seta de
+   distância. O corpo da tabela virou peça (`corpoDaTabela`) para poder ser medido rodando.
+7. **Os cinco painéis de saldo** ganharam as três barras (azul a saída, verde o retorno, vermelho
+   a diferença), no mesmo trilho e na mesma régua do painel de volume.
+8. **A base do lançamento saiu da tela de Saída e Retorno.** O livro passou a vir do cadastro de
+   quem lança — o primeiro dele, que é a Produção para quem a tem. A tela continua mandando o
+   livro no pedido, porque com mais de um marcado o servidor recusa quem não disser qual.
+
+### 11.2 O estado do cadastro em produção, medido
+
+- **20 motoristas** e **28 fornecedores**.
+- Os 28 fornecedores **foram apagados do cadastro de motoristas** (estavam nos dois). Nada se
+  perdeu: o cadastro de fornecedores tem os mesmos nomes completos, mais a localidade. Cópia de
+  segurança foi tirada antes.
+- **Nenhum fornecedor tem placa cadastrada ainda** — os três campos novos estão vazios nos 28.
+- **Filial Maceió e Unidade Ceasa estão cadastradas como GALPÃO**, não como FILIAL. É por isso que
+  a perna Matriz → Filial Maceió foi gravada como `SAIDA` e não como `TRANSFERENCIA`: a regra
+  olha se o destino é FILIAL. Ver 11.3.
+
+### 11.3 As duas conversas em aberto
+
+Não são defeitos. São decisões de produto que **o escritório ainda não tomou**, e nenhuma linha
+deve ser escrita antes da resposta.
+
+**A) A conferência na chegada (o fluxo das filiais).**
+
+O escritório perguntou como ajustar as filiais para não haver duplicidade. A resposta medida foi:
+**não criar uma operação de ENTRADA** — ela é a duplicidade. Todo movimento já tem duas pontas e é
+lançado uma vez: a transferência Matriz → Maceió já debita a Matriz e credita Maceió. Rodando os
+cinco lançamentos propostos pelo motor, a Matriz fechava em **−500** e Maceió em **+500**.
+
+O que falta não é a operação: é a **assinatura de quem recebeu**. A filial abre uma tela com o que
+está vindo para ela e digita quanto chegou — uma linha, duas assinaturas, e a diferença vira
+divergência com nome e data.
+
+**Achado que muda o tamanho do trabalho: o motor já existe inteiro no servidor.** A rota `conferir`
+e a função `montarConferencia` ("Conferência na chegada") estão escritas, e a `QtdConferida` já
+manda no saldo em todo o sistema, por `efetiva()`. **Nenhuma tela chama.** A aba saiu do app de
+campo num ajuste anterior e o motor ficou. É uma tela nova, não um motor novo.
+
+*Esperando resposta:* a carga em trânsito **entra no estoque da filial na hora, ou só quando ela
+confere?** Travar é mais rigoroso; entrar na hora não deixa ninguém esperando — e foi por isso que
+a etapa saiu antes.
+
+**B) A transferência interna contada como saída.**
+
+Quatro lançamentos de 500 (Matriz → Maceió → Fornecedor → Maceió → Matriz) fazem os cartões
+dizerem **saída 1.000 · retorno 1.000**. O escritório lê 500 e 500, e está certo para a pergunta
+que ele faz: as duas pernas internas **não saíram de casa**.
+
+A proposta é: **uma perna entre duas casas da empresa não é saída nem retorno — é transferência**,
+com cartão próprio. A regra para decidir já existe (`ehTipoDeUnidade`: galpão e filial são as duas
+casas). O ganho não é cosmético: com a carga parada em Maceió, hoje o painel diria saldo −500 como
+se houvesse caixa na rua; com o ajuste diria 0, porque a caixa está na própria filial.
+
+*Esperando resposta:* a mudança vale **só nos Movimentos Gerais** (sete cartões e dez gráficos) ou
+**também no Painel de Ativos** (Total de Saída, Caixas que Saíram e Não Voltaram, Taxa de Retorno)?
+A recomendação é **os dois** — dois lugares respondendo a mesma pergunta com contas diferentes
+brigam entre si, e as duas respostas parecem plausíveis.
+
+*Decisão menor, da mesma conversa:* arrumar o cadastro de Filial Maceió e Unidade Ceasa para
+**FILIAL**. Isso faz a tela escrever "Transferência" em vez de "Saída" nas pernas internas novas,
+mas **não** conserta os números sozinho — a conta nova olha as duas pontas, não o tipo gravado.
+
+### 11.4 O que NÃO está em aberto
+
+Para a sessão nova não reabrir o que já foi decidido:
+
+- **O fornecedor é um cadastro próprio**, e não um motorista. Os 28 já foram removidos do cadastro
+  de motoristas. A lista do lançamento, pela rota de fornecedor, vem de `DADOS.fornecedores`.
+- **A lista de fornecedores não passa pela liberação por usuário**, e isso foi decidido com o custo
+  escrito numa prova: ali não há CPF, CNH nem telefone, e quem pode lançar já é decidido pela aba e
+  pelas rotas que o Admin libera.
+- **O seletor de base saiu da tela de lançamento.** Quem escolhe livro escolhe no painel.
+- **Agrupar é escolha, não padrão**, nas três tabelas que o oferecem.
