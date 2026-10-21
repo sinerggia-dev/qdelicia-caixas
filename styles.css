@@ -3404,7 +3404,15 @@ details.tipos[open] summary::before{content:"▾"}
    como o cadeado, e nao o que entra nela — os filtros ficam na coluna da esquerda. */
 .barra-agrupar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
 .barra-agrupar label{margin:0;flex:0 0 auto;font-size:12.5px;color:var(--txt2)}
-.barra-agrupar select{flex:0 1 280px;margin:0;height:34px;font-size:13px}
+/* O TAMANHO VEM DO PADDING, E NUNCA DE UMA ALTURA FIXA.
+   Estava `height:34px`, e o seletor base tem `padding:12px` com `box-sizing:border-box`:
+   34 menos 24 de padding menos 2 de borda deixava OITO pixels para um texto de 13px, e
+   a linha saia cortada ao meio — "Sem agrupar" com a metade de baixo das letras fora.
+   Uma altura escrita a mao nao sabe quanto espaco o texto dela pede, e erra de novo no
+   dia em que o padding, a fonte ou a entrelinha mudarem. Com o padding mandando, a
+   caixa nao tem como ficar menor que o que esta dentro dela. */
+.barra-agrupar select{flex:0 1 280px;margin:0;padding:7px 10px;font-size:13px;
+  line-height:1.4}
 /* O NUMERO DO RESULTADO em texto fraco: ele responde "deu em quanto", e nao disputa com
    os numeros da tabela logo abaixo. */
 .barra-agrupar__n{font-size:12px;color:var(--txt2)}

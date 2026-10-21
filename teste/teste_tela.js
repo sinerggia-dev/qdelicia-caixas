@@ -12621,6 +12621,91 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
 })();
 
 /* ---------------------------------------------------------------------------
+ * ALTURA FIXA NUM CAMPO: a conta tem de fechar.
+ *
+ * O seletor "Agrupar por" foi ao ar com o texto cortado ao meio. O CSS dizia
+ * `height:34px`, e o campo base tem `padding:12px` com `box-sizing:border-box`:
+ *
+ *     34  −  12+12 de padding  −  1+1 de borda  =  8px para um texto de 13px.
+ *
+ * Nenhum dos numeros era absurdo sozinho, e o arquivo estava sintaticamente perfeito.
+ * So' a CONTA entre eles estava errada, e conta nao se ve lendo — se faz.
+ *
+ * A REGRA QUE ISTO FIXA: quem prende a altura de um campo assume a responsabilidade de
+ * caber o texto dele. O remedio preferido e nao prender altura nenhuma e deixar o
+ * padding mandar — uma caixa assim nao tem como ficar menor que o que esta dentro dela
+ * —, mas a prova nao proibe a altura fixa: ela cobra a conta.
+ * ------------------------------------------------------------------------- */
+console.log('\n== altura de campo: a conta entre altura, padding e texto ==');
+(function () {
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* SEM OS COMENTARIOS, pela razao de sempre nesta casa: o comentario que explica por
+     que a altura fixa saiu CITA a altura fixa, e a varredura o leria como regra. */
+  var limpo = semComentarios(css);
+
+  /* O CAMPO BASE: de onde sai o padding que vale quando a regra nao tem o dela. */
+  var iBase = limpo.indexOf('input[type=text]');
+  var base = iBase < 0 ? '' : limpo.slice(iBase, limpo.indexOf('}', iBase));
+  var padBase = /padding:\s*(\d+)px/.exec(base);
+  var bordaBase = /border:\s*(\d+)px/.exec(base);
+  ok(!!padBase && !!bordaBase,
+    'a confer\u00eancia achou o padding e a borda do campo base \u2014 sem eles a conta abaixo ' +
+    'seria chute', { padding: padBase && padBase[1], borda: bordaBase && bordaBase[1] });
+  var PAD = Number(padBase[1]), BORDA = Number(bordaBase[1]);
+
+  /* QUEM PRENDE A ALTURA. Regras com `height:<n>px` cujo seletor fala de um campo. */
+  var presas = [];
+  limpo.replace(/([^{}]+)\{([^}]*)\}/g, function (todo, sel, corpo) {
+    if (!/\b(select|input|textarea)\b/.test(sel)) return todo;
+    var h = /(?:^|;)\s*height:\s*(\d+)px/.exec(corpo);
+    if (!h) return todo;
+    /* A CAIXA DE MARCAR FICA DE FORA, e nao e' excecao de conveniencia: a regra aqui e'
+       "o texto cabe", e uma caixa de marcar nao tem texto nenhum dentro. O sinal e' ela
+       ser QUADRADA e pequena — 16x16, 18x18 —, que e' o desenho de um box e nunca o de
+       um campo de digitar. Sem isto, as duas caixas de marcar do sistema apareciam como
+       defeito com -8px e -10px "de texto cortado" que nao existe. */
+    var larg = /(?:^|;)\s*width:\s*(\d+)px/.exec(corpo);
+    if (larg && Number(larg[1]) === Number(h[1]) && Number(h[1]) <= 24) return todo;
+    var pad = /(?:^|;)\s*padding:\s*(\d+)px/.exec(corpo);
+    var fonte = /(?:^|;)\s*font-size:\s*([\d.]+)px/.exec(corpo);
+    presas.push({
+      sel: sel.trim().slice(0, 60),
+      altura: Number(h[1]),
+      padding: pad ? Number(pad[1]) : PAD,
+      /* 16px e' o tamanho que `input,select,textarea,button` fixa, e e' o que vale
+         quando a regra nao traz o dela. */
+      fonte: fonte ? Number(fonte[1]) : 16
+    });
+    return todo;
+  });
+
+  /* 1,2 e' a caixa de linha mais apertada que um texto ocupa de fato — abaixo disso as
+     descidas do "g" e do "p" comecam a ser cortadas, que foi exatamente o que apareceu
+     na tela. */
+  var apertados = presas.filter(function (r) {
+    return (r.altura - r.padding * 2 - BORDA * 2) < r.fonte * 1.2;
+  });
+  ok(!apertados.length,
+    'todo campo de altura presa cabe o pr\u00f3prio texto: altura menos padding menos borda ' +
+    'ainda d\u00e1 uma linha. Foi esta conta que falhou no "Agrupar por" \u2014 34px contra ' +
+    '12px de padding deixavam OITO pixels para um texto de 13px, e a frase saía cortada ' +
+    'ao meio, com tudo sintaticamente perfeito',
+    apertados.map(function (r) {
+      return r.sel + ' \u2192 sobram ' + (r.altura - r.padding * 2 - BORDA * 2) +
+             'px para ' + r.fonte + 'px de texto';
+    }));
+
+  /* NAO HA PROVA DIZENDO "ESTE SELETOR NAO PODE TER ALTURA PRESA".
+     Escrevi uma e a apaguei: ela reprovava uma regra com `height:34px` e
+     `padding:6px`, que CABE o texto e portanto nao tem defeito nenhum. Era a minha
+     preferencia — deixar o padding mandar — vestida de defeito, e uma prova assim
+     tranca a porta para uma solucao legitima sem nada ganhar em troca.
+     A preferencia continua escrita onde ela pertence: no comentario da propria regra,
+     em styles.css, onde quem for mexer a le'. O que a bancada cobra e' a CONTA. */
+})();
+
+/* ---------------------------------------------------------------------------
  * O chip "Tipos de caixa", e a conta de quem NAO e uma perna.
  *
  * O detalhe por tipo ja' estava em toda linha da tabela — "CX DIVERSAS 500 · CX G 400"
