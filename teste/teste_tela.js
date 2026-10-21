@@ -12769,6 +12769,69 @@ console.log('\n== o atalho de Hoje do Painel de Ativos ==');
 })();
 
 /* ---------------------------------------------------------------------------
+ * O ESTOQUE E DAS DUAS CASAS, e o texto tem de dizer isso.
+ *
+ * A conta do razao soma galpao E filial — `ehCasaNossa`. Um titulo que diga so
+ * "galpoes" nao da erro nenhum: o numero continua certo, e quem conhece o cadastro
+ * conclui que ele esta inflado, porque a tela prometeu menos do que entregou. Foi uma
+ * sabotagem que mostrou o buraco: revertido o titulo, as nove suites seguiam verdes.
+ *
+ * E ESTE E O DEFEITO DA CASA: codigo e texto dizendo coisas diferentes sobre o mesmo
+ * numero. Aqui a prova amarra os dois.
+ * ------------------------------------------------------------------------- */
+console.log('\n== o estoque e das duas casas, e o texto promete isso ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+
+  /* A REGRA, PRIMEIRO: e' ela que o texto tem de descrever. */
+  var iR = log.indexOf('function ehCasaNossa(');
+  var regra = iR < 0 ? '' : log.slice(iR, log.indexOf('\n}', iR));
+  ok(/'GALPAO'/.test(regra) && /'FILIAL'/.test(regra),
+    'a regra do que \u00e9 casa nossa junta galp\u00e3o e filial, e mora numa fun\u00e7\u00e3o s\u00f3 \u2014 ' +
+    'escrita solta nos dois lugares que a usam, um tipo novo de casa entraria num e ' +
+    'faltaria no outro, e a\u00ed uma tela conta como estoque o que a outra cobra como ' +
+    'd\u00edvida', regra.trim());
+  ok(!/'CLIENTE'/.test(regra) && !/'ROTA'/.test(regra),
+    'e o cliente e o caminh\u00e3o ficam de FORA dela \u2014 caixa l\u00e1 \u00e9 d\u00edvida de algu\u00e9m, e ' +
+    'contada como estoque ela deixa de ser cobrada de qualquer um', regra.trim());
+
+  /* O QUEM USA: as duas peneiras do painel bebem da mesma regra. */
+  ok(/locais\.filter\(function \(l\) \{ return ehCasaNossa\(l\.Tipo\); \}\)/.test(log),
+    'e o estoque do painel sai dessa regra \u2014 escrito \u00e0 m\u00e3o ali, ele divergiria dela no ' +
+    'primeiro tipo novo', log.indexOf('ehCasaNossa(l.Tipo)'));
+
+  /* O TEXTO DO CARTAO. Ele e' a unica coisa que diz a quem le' o que aquele numero
+     abrange — e, dizendo menos, faz o numero certo parecer errado. */
+  var iC = adm.indexOf('data-cad="painel_estoque"');
+  var cab = iC < 0 ? '' : adm.slice(iC, adm.indexOf('</h2>', iC));
+  ok(!!cab, 'a confer\u00eancia achou o cabe\u00e7alho do cart\u00e3o de estoque', cab.length);
+  ok(/filia/i.test(cab) || /unidade/i.test(cab),
+    'o t\u00edtulo do cart\u00e3o de estoque nomeia as DUAS casas \u2014 dizendo s\u00f3 "galp\u00f5es", o ' +
+    'n\u00famero continua certo e passa a parecer inflado para quem conhece o cadastro, que ' +
+    '\u00e9 pior do que um n\u00famero errado: ningu\u00e9m vai conferir', cab.trim());
+
+  /* E A LISTA VAZIA DIZ O QUE FALTA, e nao so' que esta vazia. Ela e' a unica tela que
+     responde "por que o Total no Estoque deu zero?" — e a resposta e' "nenhum local
+     esta' com tipo Galpao ou Filial", que e' uma coisa que se conserta no cadastro. */
+  var iV = adm.indexOf("getElementById('tabelaGalpoes').innerHTML = '<div class=\"vazio\">");
+  var vazio = iV < 0 ? '' : adm.slice(iV, adm.indexOf('\n', iV));
+  ok(/Galp/i.test(vazio) && /Filial/i.test(vazio),
+    'e a lista vazia diz QUAIS tipos ela procurou \u2014 "nenhum galp\u00e3o cadastrado" deixa ' +
+    'quem tem tudo cadastrado como filial sem entender por que o total deu zero',
+    vazio.trim());
+
+  /* O RODAPE DO CARTAO DO PAINEL promete o mesmo, e ele ja' prometia antes de a conta
+     cumprir: era o texto certo sobre o codigo errado. */
+  var iF = adm.indexOf("'Total no Estoque'");
+  var rod = iF < 0 ? '' : adm.slice(iF, adm.indexOf('COR_TILE', iF));
+  ok(/unidades/i.test(rod),
+    'e o rodap\u00e9 do cart\u00e3o do Painel tamb\u00e9m \u2014 ele j\u00e1 dizia "galp\u00f5es e unidades" quando ' +
+    'a conta somava s\u00f3 galp\u00e3o: era o texto certo sobre o c\u00f3digo errado, e foi por isso ' +
+    'que o zero passou despercebido', rod.trim().slice(0, 160));
+})();
+
+/* ---------------------------------------------------------------------------
  * ALTURA FIXA NUM CAMPO: a conta tem de fechar.
  *
  * O seletor "Agrupar por" foi ao ar com o texto cortado ao meio. O CSS dizia

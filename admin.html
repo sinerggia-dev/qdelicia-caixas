@@ -620,7 +620,7 @@
       <div id="agingGeral"></div>
     </div>
     <div class="card" data-cad="painel_estoque" data-conta="propria">
-      <h2>Estoque nos galpões<span class="sub">Precisa de um lançamento de Ajuste inicial para ficar correto.</span></h2>
+      <h2>Estoque nas unidades<span class="sub">Galpões e filiais. Precisa de um lançamento de Ajuste inicial para ficar correto.</span></h2>
       <div id="tabelaGalpoes"></div>
     </div>
   </section>
@@ -7015,7 +7015,7 @@
       Q.num(soma)+(neg ? ' · '+neg+' negativo'+(neg === 1 ? '' : 's') : ''), neg > 0);
 
     if (!g.length){
-      document.getElementById('tabelaGalpoes').innerHTML = '<div class="vazio">Nenhum galpão cadastrado.</div>';
+      document.getElementById('tabelaGalpoes').innerHTML = '<div class="vazio">Nenhuma unidade cadastrada — nenhum local com tipo Galpão ou Filial.</div>';
       return;
     }
 

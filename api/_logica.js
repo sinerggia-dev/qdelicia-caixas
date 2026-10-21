@@ -272,6 +272,25 @@ function podeConferir(perfil) {
 var TIPOS_LOCAL = ['GALPAO', 'FILIAL', 'CLIENTE', 'ROTA', 'FORNECEDOR'];
 
 /**
+ * A CASA E NOSSA: galpao e filial.
+ *
+ * Caixa parada numa casa nossa e ESTOQUE; caixa parada num cliente ou num caminhao e
+ * divida de alguem. A filial estava do lado errado dessa linha — somada com os clientes
+ * em "caixas em poder de terceiros" —, e por isso o estoque dela nunca aparecia no total
+ * e ela entrava no aging como se houvesse alguem a cobrar. Cobrar a filial e cobrar de
+ * casa.
+ *
+ * A MESMA DUPLA QUE O PAINEL JA USA (`ehTipoDeUnidade`, em admin.html), e e por isso que
+ * ela mora numa funcao: escrita solta nos dois lugares, o dia em que entrasse um terceiro
+ * tipo de casa ela entraria num e ficaria faltando no outro — e aí uma tela conta como
+ * estoque o que a outra cobra como divida.
+ */
+function ehCasaNossa(tipo) {
+  var t = String(tipo == null ? '' : tipo).toUpperCase();
+  return t === 'GALPAO' || t === 'FILIAL';
+}
+
+/**
  * Nome que a equipe lê nas listas: "Caixa Banana · 20 kg".
  * O peso entra no rótulo porque é o que separa duas caixas de mesmo nome no seletor,
  * na hora da conferência, quando a contagem precisa ser exata.
@@ -2164,8 +2183,12 @@ function efetiva(m) {
 
 /**
  * Saldo por local e tipo de caixa.
- *   Cliente/Filial: caixas em poder dele = entradas − devoluções confirmadas − perdas baixadas
- *   Galpão:         estoque físico       = ajustes + devoluções recebidas − saídas
+ *   Cliente/Rota:   caixas em poder dele = entradas − devoluções confirmadas − perdas baixadas
+ *   Galpão/Filial:  estoque físico       = ajustes + devoluções recebidas − saídas
+ *
+ * A CONTA EM SI NAO SEPARA TIPO NENHUM — ela tira da origem e poe no destino, e e a
+ * mesma linha para todo mundo. Quem decide o que e estoque e o que e divida e quem LE
+ * estes saldos, mais abaixo: `ehCasaNossa`.
  */
 function saldos(movimentos) {
   var s = {};
@@ -3051,8 +3074,12 @@ function painel(dados, hoje, p) {
   });
 
   var nomes = mapaNomes(locais);
+  /* SO' CLIENTE. Esta lista responde "quem esta com a nossa caixa", e alimenta o aging,
+     as vencidas e o KPI de caixas em poder de terceiros — tudo que existe para COBRAR.
+     Com a filial dentro, o sistema cobrava a propria empresa, e o estoque que esta la
+     aparecia como divida em vez de aparecer no total. */
   var lista = locais.filter(function (l) {
-    return l.Tipo === 'CLIENTE' || l.Tipo === 'FILIAL';
+    return l.Tipo === 'CLIENTE';
   }).map(function (l) {
     var porTipo = sal[l.ID] || {};
     var total = 0;
@@ -3072,7 +3099,10 @@ function painel(dados, hoje, p) {
     return pesoTeste(a.nome) - pesoTeste(b.nome) || b.saldo - a.saldo;
   });
 
-  var galpoes = locais.filter(function (l) { return l.Tipo === 'GALPAO'; }).map(function (l) {
+  /* AS DUAS CASAS. Era so' GALPAO, e o cartao do painel somava uma lista vazia e
+     mostrava um zero limpo — numero que parece resposta e nao e'. O rodape dele ja dizia
+     "nos galpoes e unidades"; agora a conta faz o que o texto prometia. */
+  var galpoes = locais.filter(function (l) { return ehCasaNossa(l.Tipo); }).map(function (l) {
     var porTipo = sal[l.ID] || {};
     var total = 0;
     Object.keys(porTipo).forEach(function (t) { total += porTipo[t]; });

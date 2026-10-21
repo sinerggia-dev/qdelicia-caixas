@@ -354,11 +354,85 @@ async function main() {
   ok((await POST({ acao: 'movimento', tipo: 'TRANSFERENCIA', origemId: G, destinoId: F, itens: [{ tipoCaixaId: T, qtd: 200 }], dataRef: dia(-10), usuarioId: 'U001', perfil: 'ADMIN' })).ok, 'transferência 200 p/ filial');
   ok((await POST({ acao: 'movimento', tipo: 'SAIDA', origemId: F, destinoId: C, itens: [{ tipoCaixaId: T, qtd: 30 }], dataRef: dia(-2), usuarioId: 'U003', perfil: 'MOTORISTA' })).ok, 'saída 30 da filial p/ cliente');
   p = (await GET({ acao: 'painel' })).painel;
-  const fil = p.locais.find((l) => l.id === F); cli = p.locais.find((l) => l.id === C);
-  ok(fil.saldo === 170, 'filial fica com 170', fil.saldo);
+  /* A FILIAL ESTA NO ESTOQUE, E NAO ENTRE OS TERCEIROS.
+     Caixa parada numa casa nossa e estoque; caixa parada num cliente e divida de alguem.
+     A filial estava do lado errado dessa linha — somada com os clientes em "caixas em
+     poder de terceiros" —, e por isso o estoque dela nao aparecia no total do painel e
+     ela entrava no aging como se houvesse alguem a cobrar. Cobrar a filial e cobrar de
+     casa. O SALDO DELA NAO MUDOU: mudou de balde. */
+  const fil = p.galpoes.find((g) => g.id === F); cli = p.locais.find((l) => l.id === C);
+  ok(fil && fil.saldo === 170, 'a filial fica com 170, e esse saldo conta como ESTOQUE',
+     fil && fil.saldo);
+  ok(!p.locais.some((l) => l.id === F),
+     'e ela NAO aparece entre quem esta com a nossa caixa — essa lista alimenta o aging, ' +
+     'as vencidas e a cobranca, e a empresa nao cobra de si mesma',
+     p.locais.map((l) => l.id).join(','));
   ok(cli.saldo === 100, 'cliente sobe para 100', cli.saldo);
   const galp = p.galpoes.find((g) => g.id === G);
   ok(galp.saldo === 1000 - 100 - 50 + 75 - 200, 'estoque do galpão = 725', galp.saldo);
+
+  /* ================= CADA CAIXA PARADA TEM UM BALDE, E UM SO =================
+   *
+   * Sao tres baldes, e eles existem para responder ONDE a caixa esta:
+   *   galpoes  -> nas nossas casas (galpao e filial)  = ESTOQUE
+   *   locais   -> com o cliente                        = divida de alguem
+   *   rotas    -> no caminhao                          = em transito
+   *
+   * A filial estava em `locais`, junto dos clientes. Duas consequencias, e as duas
+   * apareceram na tela do escritorio: o estoque da filial nao entrava no "Total no
+   * Estoque", e ela entrava no aging e nas vencidas como se houvesse alguem a cobrar.
+   *
+   * A PROVA QUE IMPORTA E A DA SOMA. Sem AJUSTE e sem PERDA, tirar da origem e por no
+   * destino conserva tudo: a soma dos tres baldes tem de dar ZERO. Se ela nao der, ou um
+   * local ficou de fora de todos os baldes — e sumiu da conta —, ou esta em dois, e a
+   * mesma caixa e contada duas vezes. Nenhuma das duas aparece olhando um numero
+   * sozinho: os dois erros produzem totais plausiveis. */
+  {
+    const pb = (await GET({ acao: 'painel' })).painel;
+    const soma = (l) => l.reduce((s, x) => s + (x.saldo || 0), 0);
+    const emCasa = soma(pb.galpoes), comTerceiro = soma(pb.locais), noCaminhao = soma(pb.rotas);
+
+    /* O QUE ENTROU A MAO entra na conta: o AJUSTE e a unica linha que cria caixa, e a
+       PERDA a unica que a destroi. O resto so' muda de lugar. */
+    const todos = (await GET({ acao: 'movimentos', limit: 100000 })).movimentos || [];
+    const ajustes = todos.filter((m) => m.tipo === 'AJUSTE')
+      .reduce((s, m) => s + Number(m.qtd || 0), 0);
+    const perdas = todos.filter((m) => m.tipo === 'PERDA')
+      .reduce((s, m) => s + Number(m.qtd || 0), 0);
+
+    ok(emCasa + comTerceiro + noCaminhao === ajustes - perdas,
+      'os tres baldes fecham com o que foi criado menos o que foi perdido \u2014 um local ' +
+      'fora de todos eles some da conta, e um local em dois \u00e9 contado duas vezes: os ' +
+      'dois erros d\u00e3o totais plaus\u00edveis, e nenhum aparece olhando um n\u00famero sozinho',
+      { emCasa, comTerceiro, noCaminhao, ajustes, perdas,
+        soma: emCasa + comTerceiro + noCaminhao, esperado: ajustes - perdas });
+
+    /* E NENHUM LOCAL EM DOIS BALDES. A conta acima fecharia mesmo assim se um local
+       estivesse em dois com saldo zero — e um dia ele deixa de ser zero. */
+    const ids = [].concat(pb.galpoes.map((x) => x.id), pb.locais.map((x) => x.id),
+                          pb.rotas.map((x) => x.id)).map(String);
+    const repetidos = ids.filter((x, i) => ids.indexOf(x) !== i);
+    ok(!repetidos.length,
+      'e nenhum local aparece em dois baldes \u2014 com saldo zero a soma fecharia do mesmo ' +
+      'jeito, e o defeito s\u00f3 apareceria no dia em que ele deixasse de ser zero',
+      repetidos);
+
+    /* A FILIAL E CASA, E O CLIENTE NAO. E' a linha que a conta toda depende, e ela sai do
+       CADASTRO: um tipo novo de casa que nao entrasse aqui cairia entre os terceiros,
+       e o sistema passaria a cobrar de uma casa propria. */
+    ok(pb.galpoes.some((g) => String(g.id) === String(F)) &&
+       pb.locais.some((l) => String(l.id) === String(C)),
+      'a filial conta como casa e o cliente como terceiro \u2014 \u00e9 a linha de que a conta ' +
+      'inteira depende, e cobrar a filial \u00e9 cobrar de casa',
+      { casas: pb.galpoes.map((g) => g.nome), terceiros: pb.locais.map((l) => l.nome) });
+
+    /* O AGING E AS VENCIDAS SAO DE COBRANCA, entao eles saem de `locais`. Com a filial
+       dentro, o painel mandava cobrar a propria empresa. */
+    ok(pb.kpis.emPoderTerceiros === comTerceiro,
+      'e o KPI de caixas em poder de terceiros \u00e9 a soma desse balde, e n\u00e3o de outro \u2014 ' +
+      'por outro caminho, o n\u00famero do topo e a tabela de baixo divergem',
+      { kpi: pb.kpis.emPoderTerceiros, balde: comTerceiro });
+  }
 
   console.log('\n== idempotência (reenvio da fila offline) ==');
   const ck = 'K-teste-fila';
