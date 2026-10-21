@@ -3254,12 +3254,22 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
   ok(lf.indexOf("'GALPAO'") < 0,
     'nao sobrou chip de galpao a parte — um lugar so decide onde a casa aparece', lf.trim());
 
-  /* O numero do chip sai da MESMA lista que a tabela mostra. Contar por `tipo ===
-     'FILIAL'` como os outros diria "Filiais 0" com duas filiais listadas abaixo. */
+  /* O NUMERO DO CHIP CONTA O QUE A TABELA VAI MOSTRAR — e agora ela mostra CASAS.
+   *
+   * Contar por `tipo === 'FILIAL'` como os outros dizia "Filiais 0" com duas filiais
+   * listadas abaixo. Contar LINHAS dizia "Unidades 52" ao lado de "Todas 52": desde que
+   * a peneira passou a casar nas duas pontas ela parou de peneirar, porque a Matriz e'
+   * uma das pontas de quase todo trecho. Um numero que repete o do vizinho nao ajuda
+   * ninguem a decidir se vale clicar.
+   *
+   * A CONTA E A MESMA DOS DOIS LADOS: `agruparFluxo(linhasFiliais(), 'unidade')` monta a
+   * lista que a tabela desenha, e o chip conta quantos grupos ela tem. Por caminhos
+   * diferentes, o numero e a lista divergem no primeiro conserto que so' um receber. */
   var i = adm.indexOf("{ v:'FILIAL'");
-  ok(adm.slice(i, i + 120).indexOf('linhasFiliais().length') > 0,
-    'e o numero do chip sai dessa lista, nao de uma contagem por tipo',
-    adm.slice(i, i + 90));
+  var chipFil = adm.slice(i, i + 160);
+  ok(/agruparFluxo\(linhasFiliais\(\), 'unidade'\)\.length/.test(chipFil),
+    'o n\u00famero do chip Unidades conta CASAS, pela mesma conta que monta a lista \u2014 ' +
+    'contando linhas ele repetia o n\u00famero de "Todas" e n\u00e3o dizia nada', chipFil.slice(0, 110));
 })();
 
 /* ---------------------------------------------------------------------------
@@ -4008,10 +4018,19 @@ console.log('\n== Painel de Ativos: juntar as linhas ==');
   /* ---- 7. E ALGUEM CHAMA TUDO ISSO ---- */
   var iD = adm.indexOf('function desenharFluxo()');
   var corpoD = adm.slice(iD, adm.indexOf("document.querySelectorAll('[data-fchip]')", iD));
-  ok(/corpoDaTabela\(lista, cs, gente, agrupado \? FLUXO_GRUPO : ''\)/.test(corpoD),
+  ok(/corpoDaTabela\(lista, cs, gente,\s*\n\s*porCasa \? 'unidade' : \(agrupado \? FLUXO_GRUPO : ''\)\)/
+     .test(corpoD),
     'e o desenho da tabela CHAMA o corpo medido acima, com o modo escolhido \u2014 sem a ' +
     'chamada, tudo o que est\u00e1 acima continua certo e a tela n\u00e3o muda',
     corpoD.indexOf('corpoDaTabela') > 0);
+  /* NA VISAO DE CASA O MODO NAO VEM DO SELETOR — ele E' a visao, como a linha de
+     motorista e' a pessoa. Lendo `FLUXO_GRUPO` ali, o chip Unidades abriria mostrando
+     trechos crus sempre que a ultima escolha de agrupamento fosse "Sem agrupar" — e a
+     escolha fica guardada no navegador, entao seria o caso mais comum. */
+  ok(/porCasa \? 'unidade'/.test(corpoD),
+    'e na vis\u00e3o de Unidades o modo \u00e9 a PR\u00d3PRIA vis\u00e3o, e n\u00e3o o que o seletor guardou \u2014 ' +
+    'lido do seletor, o chip abriria em trechos crus para quem deixou "Sem agrupar" ' +
+    'escolhido, que fica guardado no navegador', corpoD.indexOf('porCasa'));
   /* E O CORPO E' O UNICO LUGAR QUE DESENHA LINHA. Uma segunda escrita dentro do desenho
      divergiria na primeira mexida, e as duas apareceriam na mesma tabela. */
   ok((corpoD.match(/linhaDeFluxo\(/g) || []).length === 0 &&
@@ -4052,12 +4071,19 @@ console.log('\n== Painel de Ativos: juntar as linhas ==');
     'sem bot\u00e3o que os feche', lig.length);
 
   /* ---- 9. ONDE ELE NAO APARECE ---- */
-  ok(/var podeAgrupar = !gente && !emCartoesPainel\(\);/.test(corpoD) &&
+  ok(/var podeAgrupar = !gente && !porCasa && !emCartoesPainel\(\);/.test(corpoD) &&
      /barraG\.hidden = !podeAgrupar/.test(corpoD) &&
      /agrupado = podeAgrupar &&/.test(corpoD),
     'e a mesma conta decide se o controle APARECE e se a tabela agrupa \u2014 nas vis\u00f5es de ' +
     'gente a seta j\u00e1 \u00e9 a gaveta da pessoa, e no celular a tabela vira cart\u00f5es: um ' +
     'seletor que n\u00e3o muda nada \u00e9 pior que seletor nenhum');
+  /* E A VISAO DE CASA ENTRA NESSA MESMA CONTA. A linha ja' E' a casa: oferecer
+     "agrupar por destino" sobre uma lista de casas e' um controle que desmancha a
+     propria visao — e, pior, ele apareceria funcionando, porque a tabela obedeceria. */
+  ok(/var porCasa = FLUXO_FILTRO === 'FILIAL'/.test(corpoD),
+    'e o chip Unidades n\u00e3o oferece agrupamento, pela mesma raz\u00e3o das outras vis\u00f5es de ' +
+    'entidade: a linha j\u00e1 \u00e9 a coisa, e um seletor ali desmancharia a pr\u00f3pria vis\u00e3o',
+    corpoD.indexOf('porCasa'));
 })();
 
 console.log('\n== Painel de Ativos: as colunas fecham ==');

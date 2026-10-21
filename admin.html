@@ -5778,7 +5778,9 @@
     var itens = [
       { v:'todas',     n:vivas.length },
       { v:'ROTA',      n:conta('ROTA') },
-      { v:'FILIAL',    n:linhasFiliais().length },
+      /* CASAS, e nao linhas: o chip abre uma lista de casas, e o numero diz quantas
+         sao. Contando linhas, ele repetia o numero de "Todas" e nao dizia nada. */
+      { v:'FILIAL',    n:agruparFluxo(linhasFiliais(), 'unidade').length },
       { v:'CLIENTE',   n:conta('CLIENTE') },
       { v:'deficit',   n:linhasDeficit() },
       { v:'MOTORISTA', n:pes.motoristas.length },
@@ -5950,7 +5952,25 @@
      * E O CONTROLE SOME JUNTO, no mesmo lugar em que a decisao e' tomada: escondido
      * noutro ponto, as duas respostas divergem no primeiro conserto que so' uma
      * receber. */
-    var podeAgrupar = !gente && !emCartoesPainel();
+    /* ================= O CHIP UNIDADES E UMA VISAO DE CASA =================
+     *
+     * Ele era uma peneira de TRECHOS: trazia as linhas que tocam uma casa. Desde que a
+     * peneira passou a casar nas DUAS pontas, ela parou de peneirar — a Matriz e uma das
+     * pontas de quase todo trecho, entao o chip selecionava praticamente tudo e dizia
+     * "Unidades 52" ao lado de "Todas 52". Um numero que repete o vizinho nao ajuda
+     * ninguem a decidir se vale clicar.
+     *
+     * AGORA ELE E UMA LINHA POR CASA, como Motoristas, Usuarios e Tipos de caixa: o
+     * numero passa a ser o de casas, e e' a MESMA conta que a lista mostra. As duas
+     * regras voltam a coincidir, que e' o que o chip prometia desde o dia em que ele
+     * dizia "Filiais 0" com uma filial na tabela logo abaixo.
+     *
+     * E AQUI NAO SE ESCOLHE AGRUPAMENTO, pela mesma razao das outras visoes de
+     * entidade: a linha JA e' a coisa. Oferecer "agrupar por destino" sobre uma lista de
+     * casas seria um controle que desmancha a propria visao. Quem quer os trechos crus
+     * usa "Todas" — e la o modo Unidade continua a disposicao. */
+    var porCasa = FLUXO_FILTRO === 'FILIAL' && !emCartoesPainel();
+    var podeAgrupar = !gente && !porCasa && !emCartoesPainel();
     var agrupado = podeAgrupar && FLUXO_GRUPO !== 'nenhum' && lista.length > 0;
     var barraG = document.getElementById('barraAgruparFluxo');
     if (barraG) barraG.hidden = !podeAgrupar;
@@ -6031,7 +6051,9 @@
            coluna de botoes deles nao tem largura. */
         '<th class="folga"></th>'+
         '</tr></thead><tbody>'+
-        corpoDaTabela(lista, cs, gente, agrupado ? FLUXO_GRUPO : '')+
+        /* NA VISAO DE CASA o modo nao vem do seletor — ele E' a visao. */
+        corpoDaTabela(lista, cs, gente,
+                      porCasa ? 'unidade' : (agrupado ? FLUXO_GRUPO : ''))+
         '</tbody></table></div>';
     ligarArrastarColunas(TAB_ATIVOS);
     ligarLarguraColunas(TAB_ATIVOS);
