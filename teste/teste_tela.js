@@ -13336,7 +13336,16 @@ console.log('\n== tipos de caixa, e a fileira de quem nao e perna ==');
       saidaTipos: [{ caixa: 'CX P', qtd: 900 }], retornoTipos: [] },
     /* A linha parada nao some da lista por tipo: ela nao tem tipo nenhum para somar. */
     { situacao: 'parado', origens: ['Matriz'], destinos: [],
-      saida: 0, retorno: 0, saidaTipos: [], retornoTipos: [] }
+      saida: 0, retorno: 0, saidaTipos: [], retornoTipos: [] },
+    /* UMA LINHA COM DUAS PONTAS DE DESTINO. Ela nao vem assim do servidor — um trecho
+       tem um destino so' —, mas uma linha ja' AGRUPADA tem varios, e e' dela que a
+       guarda protege: somando nome a nome, a mesma carga entraria uma vez por ponta e o
+       total da gaveta deixaria de fechar com o da linha de cima.
+       COM UM DESTINO SO' EM TODO O CENARIO as duas formas de chavear davam a mesma
+       resposta, e a sabotagem que troca uma pela outra passava batida. */
+    { situacao: 'ok', origens: ['Matriz'], destinos: ['Natal', 'Mossor\u00f3'],
+      saida: 150, retorno: 0,
+      saidaTipos: [{ caixa: 'CX G', qtd: 150 }], retornoTipos: [] }
   ];
   var porTipo = M.porTipo(LINHAS);
   function tipo(n) { return porTipo.filter(function (x) { return x.nome === n; })[0]; }
@@ -13346,9 +13355,23 @@ console.log('\n== tipos de caixa, e a fileira de quem nao e perna ==');
     'cadastrado e parado no galp\u00e3o n\u00e3o \u00e9 movimento, e listado em zero ele empurra para ' +
     'baixo os que importam', porTipo.map(function (x) { return x.nome; }));
 
-  ok(tipo('CX G').saida === 500 && tipo('CX G').retorno === 300,
-    'e cada uma soma os dois lados do tipo dela: a CX G saiu 500 e voltou 300',
+  ok(tipo('CX G').saida === 650 && tipo('CX G').retorno === 300,
+    'e cada uma soma os dois lados do tipo dela: a CX G saiu 650 e voltou 300',
     { saida: tipo('CX G').saida, retorno: tipo('CX G').retorno });
+
+  /* AS DUAS PONTAS VIRAM UM DESTINO SO' NA GAVETA. Contadas nome a nome, as 150 da
+     linha agrupada entrariam DUAS vezes — uma por ponta —, e a soma da gaveta deixaria
+     de fechar com o total da linha de cima, que e' a unica coisa que ela promete. */
+  var gG = tipo('CX G');
+  var duplo = (gG.linhas || []).filter(function (d) { return /Natal/.test(d.nome); });
+  ok(duplo.length === 1 && duplo[0].nome === 'Natal, Mossor\u00f3' && duplo[0].saiu === 150,
+    'uma linha com duas pontas de destino conta UMA vez, sob o nome das duas \u2014 nome a ' +
+    'nome, a mesma carga entraria uma vez por ponta e a soma da gaveta deixaria de ' +
+    'fechar com a linha de cima', duplo);
+  var somaG = (gG.linhas || []).reduce(function (a, d) { return a + d.saiu; }, 0);
+  ok(somaG === gG.saida,
+    'e a soma da gaveta da CX G fecha com o total dela \u2014 \u00e9 por isso que a chave \u00e9 o ' +
+    'destino INTEIRO, e n\u00e3o cada nome', { gaveta: somaG, linha: gG.saida });
   ok(tipo('CX P').saida === 1100 && tipo('CX P').retorno === 0,
     'e a CX P soma os 200 de uma perna com os 900 da outra \u2014 é esta soma que n\u00e3o ' +
     'existia em lugar nenhum, e que se fazia com o olho na coluna', tipo('CX P'));
@@ -13358,7 +13381,7 @@ console.log('\n== tipos de caixa, e a fileira de quem nao e perna ==');
      conferir vai acreditar no que olhar primeiro. */
   var somaLinhas = LINHAS.reduce(function (a, l) { return a + l.saida; }, 0);
   var somaTipos = porTipo.reduce(function (a, x) { return a + x.saida; }, 0);
-  ok(somaTipos === somaLinhas && somaTipos === 1600,
+  ok(somaTipos === somaLinhas && somaTipos === 1750,
     'e a soma de TODOS os tipos fecha com a soma das linhas \u2014 cada perna conta uma ' +
     'vez, nem duas nem nenhuma: divergindo, a tela d\u00e1 dois totais plaus\u00edveis para a ' +
     'mesma carga', { porTipo: somaTipos, porLinha: somaLinhas });
@@ -13366,10 +13389,12 @@ console.log('\n== tipos de caixa, e a fileira de quem nao e perna ==');
   /* O TRECHO CONTA UMA VEZ POR TIPO. A CX G esta' na ida E na volta da mesma perna: sao
      dois lados de UMA viagem, e contada duas vezes a linha diria "2 trechos" com um
      caminho so' por tras. */
-  ok(tipo('CX G').sub === '1 trecho' && tipo('CX P').sub === '2 trechos',
+  ok(tipo('CX G').sub === '2 trechos' && tipo('CX P').sub === '2 trechos',
     'e a contagem de trechos n\u00e3o dobra quando o tipo aparece na ida E na volta da mesma ' +
     'perna \u2014 s\u00e3o dois lados de UMA viagem',
     { g: tipo('CX G').sub, p: tipo('CX P').sub });
+  /* A CX G APARECE NA IDA E NA VOLTA DA PRIMEIRA PERNA, e mesmo assim ela conta UM
+     trecho ali: a segunda vem da linha de duas pontas, que e outra viagem. */
 
   ok(porTipo[0].nome === 'CX P',
     'a lista abre pelo tipo que mais rodou, e n\u00e3o em ordem alfab\u00e9tica \u2014 a pergunta ' +
@@ -13377,7 +13402,7 @@ console.log('\n== tipos de caixa, e a fileira de quem nao e perna ==');
     'DEPOIS no alfabeto: \u00e9 o que separa as duas ordens',
     porTipo.map(function (x) { return x.nome + ':' + (x.saida + x.retorno); }));
 
-  ok(tipo('CX G').saldo === -200 && tipo('CX P').saldo === -1100,
+  ok(tipo('CX G').saldo === -350 && tipo('CX P').saldo === -1100,
     'e o saldo do tipo \u00e9 retorno menos sa\u00edda \u2014 é quanto daquela caixa ainda est\u00e1 fora',
     { g: tipo('CX G').saldo, p: tipo('CX P').saldo });
 
@@ -13387,15 +13412,113 @@ console.log('\n== tipos de caixa, e a fileira de quem nao e perna ==');
     'das outras vis\u00f5es, e n\u00e3o duas c\u00e9lulas sobre a mesma coisa',
     { de: tipo('CX P').origens, para: tipo('CX P').destinos });
 
+  /* ================= A LINHA DIZ QUE TIPO ELA E =================
+   *
+   * A tela de Tipos de caixa saiu ao ar com TRES LINHAS SEM NOME: nenhuma coluna dizia
+   * qual tipo era qual, e o Saldo final mostrava zero em todas.
+   *
+   * A CAUSA ERA UMA BANDEIRA SO'. O desenho escolhe as colunas e a origem do saldo por
+   * `gente` — "a linha e' um NOME, e nao uma viagem" —, e ela estava presa a
+   * `ehVisaoDeGente`, que so' conhece motorista e usuario. A coluna do nome e' marcada
+   * `so: 'gente'`, entao ela nao entrava; e o saldo caia em `fimCorrido`, que uma linha
+   * de tipo nao tem.
+   *
+   * NENHUMA PROVA PEGOU ISSO, e por um motivo que vale escrever: as provas do chip
+   * mediam a CONTA — que estava certa — e a marcacao do chip. Ninguem perguntava se a
+   * linha tinha onde dizer o nome dela. */
+  ok(M.deLugar('TIPOCAIXA') === false,
+    'a vis\u00e3o de Tipos de caixa N\u00c3O \u00e9 de lugar \u2014 a linha \u00e9 uma COISA com nome, e n\u00e3o um ' +
+    'trecho entre duas pontas', M.deLugar('TIPOCAIXA'));
+  ok(/var gente = !ehVisaoDeLugar\(FLUXO_FILTRO\);/.test(adm),
+    'e o desenho escolhe as colunas e o saldo por "a linha \u00e9 um nome", e n\u00e3o por "a ' +
+    'linha \u00e9 gente" \u2014 presa a gente, a tela de tipos saía sem coluna de nome e com ' +
+    'Saldo final zerado em todas as linhas', adm.indexOf('var gente ='));
+
+  /* O SALDO DE UMA LINHA DE NOME E O DELA. `fimCorrido` e' a cadeia do estoque em ordem
+     de data, que so' existe numa linha de trecho — numa de tipo ele vem `undefined`, e
+     `Q.num(undefined)` escreve zero sem erro nenhum. */
+  {
+    var saldoDe = new Function(corpoA('saldoFinalDaLinha') +
+                               '\n return saldoFinalDaLinha;')();
+    ok(saldoDe({ saldo: -1977, fimCorrido: undefined }, true) === -1977,
+      'e o saldo de uma linha de NOME \u00e9 o dela \u2014 pelo corrido ela mostraria zero em ' +
+      'todas as linhas, sem erro nenhum na tela',
+      saldoDe({ saldo: -1977, fimCorrido: undefined }, true));
+    ok(saldoDe({ saldo: -1977, fimCorrido: 500 }, false) === 500,
+      'e a linha de TRECHO continua no corrido \u2014 as duas leituras convivem, e \u00e9 a ' +
+      'bandeira que diz qual vale', saldoDe({ saldo: -1977, fimCorrido: 500 }, false));
+  }
+
+  /* ================= A GAVETA RESPONDE O "+8" DO DESTINO =================
+   *
+   * A celula de Destino resume: "Campina Grande, Caruaru +8". A pergunta que sobrava
+   * era quem sao os outros oito e quanto cada um levou — e nao havia onde abrir. */
+  var gCX = tipo('CX P');
+  ok((gCX.linhas || []).length === 2,
+    'a linha do tipo abre nos DESTINOS por onde ele andou \u2014 \u00e9 a resposta do "+8" da ' +
+    'c\u00e9lula, e sem ela o resumo era o fim da linha',
+    (gCX.linhas || []).map(function (d) { return d.nome; }));
+  ok(gCX.linhas[0].nome === 'Caruaru' && gCX.linhas[0].saiu === 900,
+    'e vem em ordem de MOVIMENTO, n\u00e3o alfab\u00e9tica \u2014 quem abre isto quer saber para ' +
+    'onde aquela caixa est\u00e1 indo, e o nome n\u00e3o responde isso',
+    gCX.linhas.map(function (d) { return d.nome + ':' + (d.saiu + d.voltou); }));
+  ok(gCX.linhas[1].nome === 'Campina Grande' && gCX.linhas[1].saiu === 200,
+    'e cada destino traz o que foi e o que voltou dali, separados \u2014 um total sozinho ' +
+    'n\u00e3o distingue o destino que devolveu do que ficou com a carga', gCX.linhas[1]);
+
+  /* A SOMA DA GAVETA FECHA COM A LINHA DE CIMA. Divergindo, a gaveta faz o contrario do
+     que veio fazer: ela existe para explicar o numero, e duas respostas plausiveis
+     deixam quem confere escolhendo uma ao acaso. */
+  var somaGav = gCX.linhas.reduce(function (a, d) { return a + d.saiu; }, 0);
+  ok(somaGav === gCX.saida,
+    'e a soma dos destinos fecha com o total da linha \u2014 a gaveta existe para explicar ' +
+    'o n\u00famero de cima, e divergindo ela faz o contr\u00e1rio do que veio fazer',
+    { gaveta: somaGav, linha: gCX.saida });
+
+  /* ---- E A GAVETA E DESENHADA ----
+   *
+   * A conta dos destinos estava provada; o DESENHO dela, nao. A sabotagem mostrou o
+   * buraco: `gavetaDaLinha` voltando a chamar `gavetaDaPessoa` para todo mundo — a
+   * linha do tipo abria mostrando "Sem lancamentos no periodo", porque uma linha de tipo
+   * nao tem lancamentos, so' destinos. Os dados certos, desenhados pela peca errada, e
+   * nenhuma prova de conta alcanca isso.
+   *
+   * QUEM ESCOLHE E O TIPO DA LINHA, e por isso a prova passa as DUAS por ela. */
+  {
+    var gavetas = new Function('Q',
+      corpoA('gavetaDoTipo') + '\n' +
+      'function gavetaDaPessoa(){ return "GAVETA DE PESSOA"; }\n' +
+      corpoA('gavetaDaLinha') + '\n return gavetaDaLinha;')(
+      { esc: function (x) { return String(x == null ? '' : x); },
+        num: function (n) { return String(Number(n) || 0); } });
+
+    var htmlT = gavetas(tipo('CX P'));
+    ok(htmlT.indexOf('GAVETA DE PESSOA') < 0 && /<th>Destino<\/th>/.test(htmlT),
+      'a linha de TIPO abre na tabela de destinos \u2014 pela gaveta de pessoa ela abriria ' +
+      'dizendo "sem lan\u00e7amentos no per\u00edodo", porque uma linha de tipo n\u00e3o tem ' +
+      'lan\u00e7amentos: tem destinos', htmlT.slice(0, 160));
+    ok(htmlT.indexOf('Caruaru') > 0 && htmlT.indexOf('900') > 0,
+      'e cada destino sai com o n\u00famero dele \u2014 \u00e9 a resposta do "+8" da c\u00e9lula, e um ' +
+      'desenho sem os n\u00fameros seria a mesma lista resumida de novo', htmlT.slice(0, 300));
+    ok(gavetas({ tipo: 'MOTORISTA', linhas: [] }) === 'GAVETA DE PESSOA',
+      'e a linha de GENTE continua abrindo nos lan\u00e7amentos dela \u2014 uma gaveta s\u00f3 para as ' +
+      'duas faria a de tipo mostrar lan\u00e7amento, ou a de pessoa mostrar destino',
+      gavetas({ tipo: 'MOTORISTA', linhas: [] }));
+    ok(/Sem destino no recorte/.test(gavetas({ tipo: 'TIPOCAIXA', linhas: [] })),
+      'e um tipo sem destino no recorte diz isso, em vez de abrir uma tabela vazia \u2014 ' +
+      'tabela sem linha se l\u00ea como tela que n\u00e3o carregou',
+      gavetas({ tipo: 'TIPOCAIXA', linhas: [] }));
+  }
+
   /* ================= A CONTA DE QUEM NAO E UMA PERNA ================= */
   var ts = M.simples(LINHAS);
-  ok(ts.saiu === 1600 && ts.voltou === 300,
+  ok(ts.saiu === 1750 && ts.voltou === 300,
     'a conta simples soma as duas pontas, e s\u00f3 isso: a linha sabe QUANTO saiu e voltou, ' +
     'e n\u00e3o sabe entre onde e onde', ts);
   /* 300 de 1.600 da' 18,75%, e o cartao mostra UMA casa decimal: 18,8. O numero
      quebrado nao e' acidente do cenario — ele prende de quebra o arredondamento, que ja'
      fez a tela escrever "faltam 26.799999999999997 pontos" por extenso. */
-  ok(ts.taxaRetorno === 18.8,
+  ok(ts.taxaRetorno === 17.1,
     'e a taxa \u00e9 retorno sobre SA\u00cdDA \u2014 300 de 1.600, arredondado a uma casa. A r\u00e9gua ' +
     'das etapas \u00e9 outra (devolu\u00e7\u00e3o sobre envio), e n\u00e3o se aplica a quem n\u00e3o tem ' +
     'fronteira para cruzar', ts.taxaRetorno);
@@ -13407,7 +13530,7 @@ console.log('\n== tipos de caixa, e a fileira de quem nao e perna ==');
     'e as duas contas devolvem a MESMA forma — é o que deixa a fileira ter cinco ' +
     'cartões iguais em toda visão, em vez de trocar de desenho conforme o chip',
     Object.keys(ts));
-  ok(M.simples(LINHAS).deficit === 1300,
+  ok(M.simples(LINHAS).deficit === 1450,
     'e o d\u00e9ficit soma as duas linhas que devem: 400 de uma e 900 da outra', ts.deficit);
 
   /* O DEFICIT E POR LINHA, e nao sobre os dois totais. Um motorista que devolveu a mais

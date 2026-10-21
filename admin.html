@@ -3156,9 +3156,11 @@
                        /* SEM DETALHE POR TIPO: a linha JA E' o tipo, e repeti-lo
                           embaixo do numero seria o nome dela escrito duas vezes. */
                        saidaTipos: [], retornoTipos: [],
-                       /* E SEM GAVETA: o servidor monta o detalhe por pessoa, e nao por
-                          tipo. Uma seta que abre vazio e' pior que seta nenhuma. */
-                       linhas: [], corte: 0 };
+                       /* A GAVETA DESTE TIPO E A LISTA DE DESTINOS, montada aqui: o
+                          servidor monta o detalhe por pessoa, e por tipo nao ha. E' ela
+                          que responde o "+8" da celula de Destino — quem sao os outros
+                          oito, e quanto cada um levou. */
+                       porDestino: {}, linhas: [], corte: 0 };
         ordem.push(nome);
       }
       return mapa[nome];
@@ -3176,6 +3178,17 @@
           if (!vistos[x.caixa]) { vistos[x.caixa] = 1; b.trechos++; }
           (l.origens || []).forEach(function(n){ if (n) b.deOnde[n] = 1; });
           (l.destinos || []).forEach(function(n){ if (n) b.paraOnde[n] = 1; });
+          /* O DESTINO INTEIRO COMO CHAVE, e nao cada nome por sua conta: numa linha de
+             trecho ha um destino so', e somar nome a nome numa linha ja' agrupada
+             contaria a mesma carga uma vez por ponta. */
+          var ondeVai = (l.destinos || []).filter(Boolean).join(', ');
+          if (ondeVai){
+            if (!b.porDestino[ondeVai]) {
+              b.porDestino[ondeVai] = { nome: ondeVai, saiu: 0, voltou: 0 };
+            }
+            b.porDestino[ondeVai][par[1] === 'saida' ? 'saiu' : 'voltou'] +=
+              Number(x.qtd) || 0;
+          }
         });
       });
     });
@@ -3192,6 +3205,13 @@
       b.destinos = Object.keys(b.paraOnde).sort(function(a, c){ return a.localeCompare(c, 'pt-BR'); });
       b.fornecedores = [];
       b.sub = b.trechos + (b.trechos === 1 ? ' trecho' : ' trechos');
+      /* EM ORDEM DE MOVIMENTO: quem abre a gaveta quer saber para onde aquela caixa
+         esta' indo, e o nome nao responde isso. */
+      b.linhas = Object.keys(b.porDestino).map(function(k){ return b.porDestino[k]; })
+        .sort(function(x, y){
+          return (y.saiu + y.voltou) - (x.saiu + x.voltou) ||
+                 x.nome.localeCompare(y.nome, 'pt-BR');
+        });
       return b;
     }).sort(function(a, c){
       /* DO QUE MAIS RODOU PARA O QUE MENOS, e nao em ordem alfabetica: a pergunta aqui
@@ -5611,6 +5631,37 @@
    * por outro caminho, e uma seta que nao abre nada e' pior que seta nenhuma. */
   var PESSOAS_ABERTAS = {};
 
+  /* A GAVETA DEPENDE DO QUE A LINHA E'. Numa de gente ela lista os LANCAMENTOS; numa
+     de tipo de caixa, os DESTINOS por onde aquele tipo andou — a pergunta ali e' "esse
+     '+8' do destino, quem sao eles e quanto cada um levou?", e um lancamento por linha
+     nao responde isso: sao duzentos lancamentos para dez destinos. */
+  function gavetaDaLinha(l){
+    return l.tipo === 'TIPOCAIXA' ? gavetaDoTipo(l) : gavetaDaPessoa(l);
+  }
+
+  /* OS DESTINOS DAQUELE TIPO, um por linha, com as duas pontas e o saldo.
+     EM ORDEM DE MOVIMENTO, e nao alfabetica: quem abre isto quer saber para ONDE aquela
+     caixa esta indo — e o nome nao responde isso. */
+  function gavetaDoTipo(l){
+    var ds = l.linhas || [];
+    if (!ds.length){
+      return '<p class="gav-vazia">Sem destino no recorte.</p>';
+    }
+    return '<div class="tabela-wrap"><table class="gav"><thead><tr>'+
+      '<th>Destino</th><th class="num">Saiu</th><th class="num">Voltou</th>'+
+      '<th class="num">Saldo</th></tr></thead><tbody>'+
+      ds.map(function(d){
+        var s = d.voltou - d.saiu;
+        /* A MESMA DIRECAO DA TABELA INTEIRA: falta e' negativo, em vermelho. */
+        var cor = s > 0 ? ' val-ok' : (s < 0 ? ' val-ruim' : '');
+        return '<tr><td>'+Q.esc(d.nome)+'</td>'+
+          '<td class="num"><b class="gb__n--s">'+Q.num(d.saiu)+'</b></td>'+
+          '<td class="num"><b class="gb__n--r">'+Q.num(d.voltou)+'</b></td>'+
+          '<td class="num"><b class="val'+cor+'">'+(s > 0 ? '+' : '')+Q.num(s)+
+          '</b></td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+
   function gavetaDaPessoa(l){
     var linhas = l.linhas || [];
     if (!linhas.length){
@@ -5786,7 +5837,7 @@
     (abre
       ? '<tr class="pes-linhas"'+(aberta ? '' : ' hidden')+
         ' data-corpo-pessoa="'+Q.esc(l.tipo + '|' + l.id)+'">'+
-        '<td colspan="'+(cs.length + 1)+'">'+gavetaDaPessoa(l)+'</td></tr>'
+        '<td colspan="'+(cs.length + 1)+'">'+gavetaDaLinha(l)+'</td></tr>'
       : '');
   }
 
@@ -5839,7 +5890,23 @@
         '<span class="n">'+Q.num(c.n)+'</span></button>';
     }).join('');
 
-    var gente = ehVisaoDeGente(FLUXO_FILTRO);
+    /* ================= A LINHA E UM NOME, E NAO UMA VIAGEM =================
+     *
+     * Esta bandeira chamou-se `gente` enquanto as unicas visoes assim eram motorista e
+     * usuario. "Tipos de caixa" e' igual na estrutura: uma linha por COISA, com nome
+     * proprio, e nao um trecho entre duas pontas. O que ela decide e' isso — quais
+     * colunas fazem sentido, de onde sai o saldo e se ha agrupamento a oferecer —, e
+     * nao se a coisa e' uma pessoa.
+     *
+     * PRESA A "GENTE", a tela de Tipos de caixa saia SEM COLUNA DE NOME: `quem` e'
+     * marcada `so: 'gente'`, entao as tres linhas apareciam sem dizer qual tipo era
+     * qual — tres linhas iguais, e nenhuma delas se apresentando. E o Saldo final lia
+     * `fimCorrido`, que uma linha de tipo nao tem, e mostrava ZERO em todas.
+     *
+     * O NOME DA VARIAVEL FICOU, e a divida esta escrita aqui: renomea-la mexe em
+     * quarenta e tres pontos e em tres assinaturas que as bancadas recortam por texto.
+     * O que ela QUER DIZER esta' nesta frase, que e' o que a proxima pessoa le'. */
+    var gente = !ehVisaoDeLugar(FLUXO_FILTRO);
 
     /* Era "Origem / destino", e ai estava o engano: a coluna traz UM nome, e se ele e a
        origem ou o destino depende de qual numero se esta lendo. Agora o titulo diz so o
