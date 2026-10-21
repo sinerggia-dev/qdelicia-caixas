@@ -5688,13 +5688,26 @@
         (aberto ? '▾' : '▸')+' <span class="abre-par__n">'+
         Q.num(g.filhas.length)+'</span></button>'
       : '<span class="abre-par__vazio" aria-hidden="true">·</span>';
+    /* NA VISAO DE CASA, A LINHA FILTRA PELA CASA DELA.
+       A seta ja' abre e fecha — ela e' um botao de verdade, e para o clique ali mesmo —,
+       e o resto da linha vira o atalho para "quero ver so' esta casa". Era o que faltava:
+       clicar na linha da Filial Maceio nao fazia nada, e ela e' o nome de um filtro que
+       existe logo ali em cima.
+       O BALDE DO QUE NAO E CASA FICA DE FORA: "Fora das unidades" nao e' um nome que o
+       seletor de unidade conheca, e filtrar por ele devolveria tela vazia. */
+    var casaClicavel = g.modo === 'unidade' && g.rotulo && g.rotulo !== GRUPO_SEM_CASA;
     var temCol = cs.some(function(c){ return c.id === COL_DO_GRUPO[g.modo]; });
     var rotulo = (!temCol && g.rotulo)
       ? '<span class="grp-fx__nome"><b>'+Q.esc(g.rotulo)+'</b>'+
         '<span class="fsub">'+Q.esc(g.sub)+'</span></span>'
       : '';
     return '<tr class="grp-fx'+(aberto ? ' aberto' : '')+
-      (g.filhas.length ? '' : ' grp-fx--vazio')+'">'+
+      (g.filhas.length ? '' : ' grp-fx--vazio')+
+      (casaClicavel ? ' fx-clicavel' : '')+'"'+
+      (casaClicavel
+        ? ' data-filtrar-unidade="'+Q.esc(g.rotulo)+'"'+
+          ' title="Clique para ver só esta unidade"'
+        : '')+'>'+
       cs.map(function(c, iC){
         return '<td'+(c.d.num ? ' class="num"' : '')+'>'+
           (iC === 0 ? abre + rotulo : '')+
@@ -6130,13 +6143,16 @@
        um ouvinte por linha empilharia dezenas a cada volta. */
     var tabFx = document.getElementById('tabelaFluxo');
     if (tabFx) tabFx.addEventListener('click', function(e){
-      var tr = e.target && e.target.closest && e.target.closest('[data-filtrar-linha]');
-      if (!tr) return;
+      if (!e.target || !e.target.closest) return;
+      var tr = e.target.closest('[data-filtrar-linha]');
+      var casa = tr ? null : e.target.closest('[data-filtrar-unidade]');
+      if (!tr && !casa) return;
       /* QUEM SELECIONOU TEXTO NAO QUIS FILTRAR. Soltar o mouse depois de arrastar sobre
          um numero dispara `click` na linha, e o recorte mudava debaixo de quem so'
          queria copiar o valor. */
       var sel = window.getSelection && window.getSelection();
       if (sel && String(sel).length > 0) return;
+      if (casa) return filtrarPelaUnidade(casa.getAttribute('data-filtrar-unidade'));
       var p = String(tr.getAttribute('data-filtrar-linha')).split('|');
       filtrarPelaLinha(p[0] || '', p[1] || '', p[2] || '');
     });
@@ -6170,17 +6186,43 @@
        primeiro dizia o inverso do estoque, e o segundo repetia em contagem o que a taxa
        de retorno ja diz em porcentagem. Cartao que nao acrescenta pergunta nova custa
        atencao como qualquer outro. */
-    var estoque = (PAINEL.galpoes || []).reduce(function(soma, g){ return soma + (g.saldo||0); }, 0);
+    /* ================= O ESTOQUE RESPONDE A UNIDADE =================
+     *
+     * Ele e' uma POSICAO — o que esta' nas nossas casas agora —, e por isso nao responde
+     * ao periodo: "quanto eu tinha em outubro" nao e' uma pergunta que um saldo
+     * responde. Mas ele responde a CASA, porque "quanto tem na Matriz" e' exatamente a
+     * pergunta que o comercial faz antes de emitir pedido.
+     *
+     * ELE IGNORAVA TAMBEM A CASA, e ficava parado em −12.008 com a tela filtrada na
+     * Matriz Sao Vicente. O numero estava certo para "todas as casas" e errado para o
+     * que a tela dizia estar mostrando, que e' o pior dos dois mundos.
+     *
+     * A ESCOLHA CASA PELO NOME porque e' assim que o filtro de unidade guarda o valor —
+     * o mesmo texto que `todasAsLinhas` compara com as pontas da linha. */
+    var casaDoEstoque = valor('rtUnidade');
+    var estoque = (PAINEL.galpoes || [])
+      .filter(function(g){ return !casaDoEstoque || g.nome === casaDoEstoque; })
+      .reduce(function(soma, g){ return soma + (g.saldo||0); }, 0);
     document.getElementById('fluxoTiles').innerHTML =
-      /* Verde, e o unico que NAO responde aos filtros: ele sai do razao — o que esta nas
-         nossas casas AGORA —, e nao do fluxo do periodo. Filtrar por uma origem nao o
-         estreitaria, so o deixaria parecendo travado, e por isso o rodape avisa. */
+      /* ELE SAI DO RAZAO — o que esta nas nossas casas AGORA —, e nao do fluxo do
+         periodo: "quanto eu tinha em outubro" nao e' pergunta que um saldo responda.
+         MAS RESPONDE A CASA: "quanto tem na Matriz" e' exatamente o que o comercial
+         pergunta antes de emitir pedido, e ate' aqui o cartao ficava parado no total de
+         todas enquanto a tela dizia estar mostrando uma. */
       /* ABAIXO DO ZERO, EM VERMELHO. Estoque negativo quer dizer que saiu mais do que
          havia — ou falta lançamento, ou o saldo inicial nunca foi posto. Nos dois casos
          e defeito a corrigir, e nao numero a ler de passagem: na cor do texto comum ele
          passava despercebido no meio de quatro outros numeros. */
+      /* O RODAPE DIZ AS DUAS COISAS, e nao uma OU outra.
+         Eram alternativas — "abaixo do zero" OU "fora do filtro" —, e o aviso de que o
+         cartao ignora o periodo sumia exatamente quando o saldo ficava negativo. Como
+         ele esta negativo o tempo todo ate' o Ajuste inicial entrar, o aviso tinha
+         deixado de existir na pratica: a tela mostrava um numero que nao acompanha o
+         recorte, sem nada dizendo isso. */
       tileCor(Q.num(estoque), 'Total no Estoque',
-        estoque < 0 ? 'abaixo do zero' : 'nos galpões e unidades, fora do filtro',
+        (casaDoEstoque ? 'em '+casaDoEstoque : 'em todas as nossas casas')+
+        ' · posição de agora, fora do período'+
+        (estoque < 0 ? ' · abaixo do zero' : ''),
         estoque < 0 ? 'var(--vermelho)' : COR_TILE.estoque,
         '<div class="desenho desenho--zero"><span class="risco"></span><span class="rot">0</span>'+
         '<span class="cai"></span><span class="cai"></span><span class="cai"></span></div>')+
@@ -6631,6 +6673,17 @@
     marcarAtalhoFluxo('');
     var erro = document.getElementById('rtErroData');
     if (erro) erro.hidden = true;
+    carregarPainel();
+  }
+
+  /* FILTRAR POR UMA CASA, e nada mais: a unidade casa nas DUAS pontas, entao ela
+     sozinha ja' responde "tudo o que passou por aqui". Mexer tambem em origem e destino
+     estreitaria o recorte para uma ponta so', que e' outra pergunta.
+     ALTERNA, como o clique na linha de trecho: clicada de novo, a casa sai do filtro. */
+  function filtrarPelaUnidade(nome){
+    var u = document.getElementById('rtUnidade');
+    if (!u) return;
+    u.value = (u.value === nome) ? '' : nome;
     carregarPainel();
   }
 

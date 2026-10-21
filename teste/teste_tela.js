@@ -12508,9 +12508,38 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      Ele DEIXOU DE SAIR EM VERDE. Verde ali era o mesmo verde de "tudo certo", para um
      número que pode estar negativo — e com quatro dos cinco cartões verdes a faixa virava
      uma mancha só. Agora tem cor própria, e o rodapé diz quando está abaixo do zero. */
-  ok(/tileCor\(Q\.num\(estoque\), 'Total no Estoque',\s*\n\s*estoque < 0 \? 'abaixo do zero' : '[^']*fora do filtro'/
-    .test(fileira),
-    'o estoque avisa que está fora do filtro, e diz quando passou do zero', fileira);
+  /* O RODAPE DIZ AS DUAS COISAS, e nao uma OU outra.
+   *
+   * Eram alternativas: `estoque < 0 ? 'abaixo do zero' : '... fora do filtro'`. O aviso
+   * de que o cartao nao acompanha o periodo sumia exatamente quando o saldo ficava
+   * negativo — e ele esta negativo o tempo todo ate' o Ajuste inicial entrar, entao o
+   * aviso tinha deixado de existir na pratica. A tela mostrava um numero que nao segue o
+   * recorte, com nada dizendo isso.
+   *
+   * E ELE DIZ DE QUE CASA FALA. O cartao passou a responder ao filtro de unidade, e sem
+   * o nome no rodape nao ha como saber se aquele numero e' da Matriz ou de todas. */
+  var mEst = /tileCor\(Q\.num\(estoque\), 'Total no Estoque',([\s\S]{0,260}?)COR_TILE/
+    .exec(fileira);
+  var rodEst = mEst ? mEst[1] : '';
+  ok(/casaDoEstoque \?/.test(rodEst) && /em todas as nossas casas/.test(rodEst),
+    'o rodap\u00e9 do estoque diz DE QUE CASA ele fala \u2014 o cart\u00e3o responde ao filtro de ' +
+    'unidade, e sem o nome n\u00e3o h\u00e1 como saber se aquele n\u00famero \u00e9 da Matriz ou de todas',
+    rodEst.trim());
+  ok(/fora do per\u00edodo/.test(rodEst),
+    'e avisa que \u00e9 posi\u00e7\u00e3o de AGORA, fora do per\u00edodo \u2014 ele n\u00e3o acompanha as datas, e ' +
+    'sem o aviso parece travado quando a tabela embaixo muda', rodEst.trim());
+  ok(/estoque < 0 \? ' \u00b7 abaixo do zero' : ''/.test(rodEst),
+    'e o "abaixo do zero" SOMA ao rodap\u00e9 em vez de substitu\u00ed-lo \u2014 como alternativa, o ' +
+    'aviso do per\u00edodo sumia justamente quando o saldo fica negativo, que \u00e9 o tempo ' +
+    'todo at\u00e9 o Ajuste inicial entrar', rodEst.trim());
+
+  /* E A CONTA SEGUE A CASA ESCOLHIDA. Somando todas com a tela filtrada numa, o numero
+     esta certo para outra pergunta — o pior dos dois mundos. */
+  ok(/\.filter\(function\(g\)\{ return !casaDoEstoque \|\| g\.nome === casaDoEstoque; \}\)/
+     .test(adm),
+    'e a conta peneira as casas pelo filtro de unidade \u2014 somando todas com a tela ' +
+    'filtrada numa, o n\u00famero fica certo para uma pergunta que ningu\u00e9m fez',
+    adm.indexOf('casaDoEstoque'));
   ok(/COR_TILE\.estoque/.test(fileira) && !/'Total no Estoque'[^)]*'ok'/.test(fileira),
     'e não usa mais a cor de severidade — verde ali é a cor de "tudo certo"');
   ok(/\.ftile\.ok \.v\{color:var\(--verde\)\}/.test(css),
@@ -12543,16 +12572,44 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
 
   /* Ele soma os GALPOES. Somar `locais` traria os clientes junto, e o cartao diria que
      temos em casa o que esta na rua. */
-  var k = adm.indexOf('var estoque = ');
-  var linhaEst = adm.slice(k, adm.indexOf('\n', k));
+  /* A CONTA INTEIRA, e nao ate' o fim da linha. Ela passou a ter tres linhas — a casa
+     escolhida, a peneira e a soma — e o recorte antigo cortava no primeiro `\n`,
+     entregando meio comando ao `new Function`, que estourava. O que a prova quer e' o
+     COMANDO, e ele acaba no ponto-e-virgula. */
+  var k = adm.indexOf('var casaDoEstoque = ');
+  /* O `;` QUE FECHA O COMANDO, e nao o primeiro que aparecer: dentro do `reduce` ha
+     um `return soma + (g.saldo||0);`, e cortar ali entrega meia expressao. */
+  var fimEst = adm.indexOf('}, 0);', k) + 6;
+  var linhaEst = adm.slice(k, fimEst);
   ok(/PAINEL\.galpoes/.test(linhaEst) && linhaEst.indexOf('PAINEL.locais') < 0,
-    'e soma os galpões e unidades, não os clientes', linhaEst);
-  var soma = new Function('PAINEL', linhaEst.trim() + ' return estoque;');
-  ok(soma({ galpoes: [{ saldo: 1620 }, { saldo: 0 }, { saldo: 12 }] }) === 1632,
-    'a soma roda: três unidades viram um número só');
-  ok(soma({}) === 0 && soma({ galpoes: [{}] }) === 0,
+    'e soma os galp\u00f5es e unidades, n\u00e3o os clientes', linhaEst);
+
+  /* RODANDO, COM E SEM CASA ESCOLHIDA. Lida no arquivo, a peneira responderia "a palavra
+     `filter` esta ali?" — e estaria, inclusive numa versao que peneira pelo campo
+     errado e devolve sempre zero. */
+  function somaEstoque(unidade, galpoes) {
+    return new Function('PAINEL', 'valor', linhaEst + ' return estoque;')(
+      { galpoes: galpoes }, function (id) { return id === 'rtUnidade' ? unidade : ''; });
+  }
+  var CASAS = [{ nome: 'Matriz', saldo: 1620 }, { nome: 'Filial Macei\u00f3', saldo: 0 },
+               { nome: 'Filial Ceasa', saldo: 12 }];
+  ok(somaEstoque('', CASAS) === 1632,
+    'a soma roda: sem unidade escolhida, as tr\u00eas casas viram um n\u00famero s\u00f3',
+    somaEstoque('', CASAS));
+  ok(somaEstoque('Matriz', CASAS) === 1620,
+    'e com a Matriz escolhida ele mostra S\u00d3 a Matriz \u2014 era isto que faltava: o cart\u00e3o ' +
+    'ficava parado no total de todas enquanto a tela dizia estar mostrando uma, e o ' +
+    'n\u00famero ficava certo para uma pergunta que ningu\u00e9m fez', somaEstoque('Matriz', CASAS));
+  ok(somaEstoque('Filial Ceasa', CASAS) === 12,
+    'e a escolha vale para qualquer casa, e n\u00e3o s\u00f3 para a primeira',
+    somaEstoque('Filial Ceasa', CASAS));
+  ok(somaEstoque('Casa que n\u00e3o existe', CASAS) === 0,
+    'e um nome que n\u00e3o casa com casa nenhuma d\u00e1 ZERO, e n\u00e3o o total \u2014 caindo no total, ' +
+    'a peneira que falha se esconde atr\u00e1s do n\u00famero de sempre',
+    somaEstoque('Casa que n\u00e3o existe', CASAS));
+  ok(somaEstoque('', []) === 0 && somaEstoque('', [{}]) === 0,
     'e sem galpão nenhum dá zero, não NaN — painel meio carregado não escreve "NaN" na tela',
-    [soma({}), soma({ galpoes: [{}] })]);
+    [somaEstoque('', []), somaEstoque('', [{}])]);
 
   /* --- a conta dos totais, rodando --------------------------------------- */
   /* A CONTA RODA COM AS PECAS DE VERDADE: quem decide se uma perna e interna e a lista
@@ -12914,10 +12971,13 @@ console.log('\n== o estoque e das duas casas, e o texto promete isso ==');
      cumprir: era o texto certo sobre o codigo errado. */
   var iF = adm.indexOf("'Total no Estoque'");
   var rod = iF < 0 ? '' : adm.slice(iF, adm.indexOf('COR_TILE', iF));
-  ok(/unidades/i.test(rod),
-    'e o rodap\u00e9 do cart\u00e3o do Painel tamb\u00e9m \u2014 ele j\u00e1 dizia "galp\u00f5es e unidades" quando ' +
-    'a conta somava s\u00f3 galp\u00e3o: era o texto certo sobre o c\u00f3digo errado, e foi por isso ' +
-    'que o zero passou despercebido', rod.trim().slice(0, 160));
+  /* "NOSSAS CASAS" DIZ AS DUAS, e e' o que a conta faz: galpao e filial. O rodape ja'
+     prometia "galpoes e unidades" quando a conta somava so' galpao — era o texto certo
+     sobre o codigo errado, e foi por isso que o zero passou despercebido. */
+  ok(/nossas casas/i.test(rod) || /unidades/i.test(rod),
+    'e o rodapé do cartão do Painel fala das NOSSAS CASAS, e não só dos galpões — ' +
+    'dizendo menos do que a conta entrega, o número certo passa a parecer inflado para ' +
+    'quem conhece o cadastro', rod.trim().slice(0, 160));
 })();
 
 /* ---------------------------------------------------------------------------
@@ -13007,6 +13067,107 @@ console.log('\n== clicar na linha filtra por ela ==');
     'LIGAR \u2014 quem desfaz compara os campos, e n\u00e3o um estado guardado \u00e0 parte que diria ' +
     '"ainda \u00e9 aquela linha" sobre um recorte que mudou',
     { o: campos.rtOrigem.value, d: campos.rtDestino.value });
+
+  /* ---- 3b. E A LINHA DE UMA CASA FILTRA PELA CASA ----
+   *
+   * Na visao Unidades cada linha E' uma casa, e clicar nela nao fazia nada: ela e' uma
+   * linha de GRUPO, e o clique de grupo ja' estava reservado para abrir e fechar. Mas a
+   * seta e' um botao de verdade, que para o clique ali mesmo — entao o resto da linha
+   * estava sobrando, com o nome de um filtro que existe logo acima na tela.
+   *
+   * SO' A UNIDADE, e nada mais: ela casa nas DUAS pontas, entao sozinha ja' responde
+   * "tudo o que passou por aqui". Mexer tambem em origem e destino estreitaria para uma
+   * ponta so', que e' outra pergunta. */
+  var campoU = { rtUnidade: { value: '' } };
+  var recarregouU = 0;
+  var filtrarU = new Function('document', 'carregarPainel',
+    corpoA('filtrarPelaUnidade') + '\n return filtrarPelaUnidade;')(
+    { getElementById: function (id) { return campoU[id] || null; } },
+    function () { recarregouU++; });
+
+  filtrarU('Filial Macei\u00f3');
+  ok(campoU.rtUnidade.value === 'Filial Macei\u00f3' && recarregouU === 1,
+    'clicar na linha de uma casa p\u00f5e aquela casa no filtro de unidade, e recarrega \u2014 ' +
+    'era o gesto que n\u00e3o fazia nada, com o nome de um filtro que existe logo acima',
+    { valor: campoU.rtUnidade.value, recarregou: recarregouU });
+  filtrarU('Filial Macei\u00f3');
+  ok(campoU.rtUnidade.value === '',
+    'e clicar de novo tira \u2014 a mesma volta que o clique na linha de trecho tem',
+    campoU.rtUnidade.value);
+  filtrarU('Filial Macei\u00f3');
+  filtrarU('Matriz S\u00e3o Vicente');
+  ok(campoU.rtUnidade.value === 'Matriz S\u00e3o Vicente',
+    'e clicar em OUTRA casa troca, em vez de desligar \u2014 desligar ali obrigaria a dois ' +
+    'cliques para trocar de casa, que \u00e9 o gesto mais comum desta lista',
+    campoU.rtUnidade.value);
+
+  /* A LINHA DO BALDE "Fora das unidades" NAO E CLICAVEL: aquele nome nao existe no
+     seletor de unidade, e filtrar por ele devolveria tela vazia sem explicar por que. */
+  ok(/g\.modo === 'unidade' && g\.rotulo && g\.rotulo !== GRUPO_SEM_CASA/.test(adm),
+    'e o balde "Fora das unidades" fica de fora \u2014 aquele nome n\u00e3o existe no seletor, e ' +
+    'filtrar por ele devolveria tela vazia sem explicar por qu\u00ea',
+    adm.indexOf('GRUPO_SEM_CASA'));
+  ok(/data-filtrar-unidade="/.test(adm) &&
+     /closest\('\[data-filtrar-unidade\]'\)/.test(adm),
+    'e o ouvinte acha a linha da casa pelo atributo dela, de dentro de qualquer c\u00e9lula',
+    adm.indexOf('data-filtrar-unidade'));
+  /* A SETA CONTINUA ABRINDO. Ela chama `stopPropagation`, entao o clique nela nao
+     escorrega para o filtro — dois gestos no mesmo lugar, e cada um no seu alvo. */
+  ok(/data-abrir-grupo[\s\S]{0,400}stopPropagation/.test(adm),
+    'e a seta continua abrindo sem filtrar junto \u2014 ela para o clique nela mesma, e os ' +
+    'dois gestos convivem na mesma linha', adm.indexOf('data-abrir-grupo'));
+
+  /* ---- 3c. O OUVINTE DA TABELA, RODANDO ----
+   *
+   * Uma sabotagem escapou da prova de marcacao: tirar o ramo da casa do ouvinte. O
+   * atributo continua na linha, o `title` continua prometendo, e o clique morre no
+   * caminho — e' o mesmo defeito que o escritorio relatou nos botoes de ordem, visto de
+   * outro angulo, e nenhuma prova de TEXTO o alcanca.
+   *
+   * ENTAO A PROVA EXECUTA O OUVINTE com um evento de mentira para cada alvo. */
+  {
+    var iT = adm.indexOf("    var tabFx = document.getElementById('tabelaFluxo');");
+    var fonteT = iT < 0 ? '' : adm.slice(iT, adm.indexOf('\n    });', iT) + 8);
+    ok(!!fonteT, 'a confer\u00eancia recortou o ouvinte da tabela', fonteT.length);
+
+    function disparar(seletor, valorAttr, texto) {
+      var chamou = null;
+      new Function('document', 'window', 'filtrarPelaLinha', 'filtrarPelaUnidade', fonteT)(
+        { getElementById: function () {
+            return { addEventListener: function (_, fn) {
+              fn({ target: { closest: function (s) {
+                return s === seletor
+                  ? { getAttribute: function () { return valorAttr; } } : null;
+              } } });
+            } };
+          } },
+        { getSelection: function () { return texto || ''; } },
+        function (o, d, dia) { chamou = ['linha', o, d, dia]; },
+        function (n) { chamou = ['unidade', n]; });
+      return chamou;
+    }
+
+    ok(String(disparar('[data-filtrar-unidade]', 'Filial Macei\u00f3')) ===
+       String(['unidade', 'Filial Macei\u00f3']),
+      'o clique numa linha de CASA chega em `filtrarPelaUnidade`, com o nome dela \u2014 ' +
+      'sem o ramo, o atributo e o `title` continuam prometendo e o clique morre no ' +
+      'caminho', disparar('[data-filtrar-unidade]', 'Filial Macei\u00f3'));
+
+    ok(String(disparar('[data-filtrar-linha]', 'Matriz|Natal|2026-10-20')) ===
+       String(['linha', 'Matriz', 'Natal', '2026-10-20']),
+      'e o clique numa linha de TRECHO chega em `filtrarPelaLinha`, com as tr\u00eas partes ' +
+      'separadas', disparar('[data-filtrar-linha]', 'Matriz|Natal|2026-10-20'));
+
+    ok(disparar('[data-filtrar-linha]', 'Matriz|Natal|2026-10-20', 'texto') === null,
+      'e com texto selecionado NENHUM dos dois dispara \u2014 soltar o mouse depois de ' +
+      'arrastar sobre um n\u00famero mudava o recorte debaixo de quem s\u00f3 queria copiar',
+      disparar('[data-filtrar-linha]', 'Matriz|Natal|2026-10-20', 'texto'));
+
+    ok(disparar('[data-nada-a-ver]', 'x') === null,
+      'e um clique fora das duas marcas n\u00e3o faz nada \u2014 a tabela inteira \u00e9 o alvo do ' +
+      'ouvinte, e sem a guarda qualquer clique nela recortaria a tela',
+      disparar('[data-nada-a-ver]', 'x'));
+  }
 
   /* ---- 4. A MARCA NA LINHA, E O OUVINTE ---- */
   ok(/data-filtrar-linha="/.test(adm) && /title="Clique para filtrar/.test(adm),
