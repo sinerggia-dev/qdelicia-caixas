@@ -4270,6 +4270,32 @@
     return semAcento(papelDoLancamento(m)).trim() === 'conferente';
   }
 
+  /* ================= OS PAPÉIS CUJA CONTAGEM O ESCRITÓRIO ACEITA =================
+   *
+   * NÃO É A MESMA PERGUNTA DE CIMA, e as duas precisam existir separadas.
+   *
+   * `contouComoConferente` responde "esta linha é a contagem da carga?" — e só o
+   * conferente responde sim. Isso continua inteiro: o número que o GERENTE informa é a
+   * referência, o que o escritório diz que saiu, e é CONTRA ele que se confere. Houve uma
+   * versão em que a linha dele caa em Conferido, a tela dizia "Bateu" comparando a
+   * referência com a declaração, e ninguém tinha contado uma caixa. Há bancada guardando.
+   *
+   * ESTA AQUI responde outra: "de quem o escritório aceita uma contagem?" — e a resposta
+   * é o conferente, o gerente e o admin. Ela só é usada no caso de baixo, onde não há
+   * nada contra o que ser referência.
+   *
+   * A LISTA É FECHADA E COMPARADA POR INTEIRO, como a de cima: um perfil novo chamado
+   * "Gerente de rota" não entra sozinho. Quem conta vale é decisão do escritório, e não
+   * consequência de uma palavra que alguém digitou num cargo.
+   *
+   * O MOTORISTA FICA DE FORA, e é o ponto inteiro da contagem cega: quem trouxe a carga
+   * não conta a carga. `Gestor` e `Promotor` também ficam — não foram pedidos, e abrir
+   * papel de graça aqui é abrir sem ninguém ter decidido. */
+  var PAPEIS_QUE_CONFEREM = ['conferente', 'gerente', 'admin'];
+  function papelQueConfere(m){
+    return PAPEIS_QUE_CONFEREM.indexOf(semAcento(papelDoLancamento(m)).trim()) >= 0;
+  }
+
   /* O RESUMO DE UMA LISTA DE NOMES: o primeiro e a conta dos outros. Escrito duas vezes
      — uma para quem conferiu, outra para quem informou —, bastaria um ganhar o nome
      completo para as duas colunas vizinhas discordarem de forma. */
@@ -4295,7 +4321,11 @@
                     tipo: (m.tipo === 'DEVOLUCAO') ? 'Retorno' : 'Saída',
                     teste: !!m.teste, saida: 0, declarado: 0, conferido: 0,
                     rotas: {}, origens: {}, destinos: {}, veiculos: {},
-                    conferentes: {}, informantes: {}, ids: {}, itens: [] };
+                    /* `informados` GUARDA DE QUEM E' CADA NÚMERO do balde da saída, e
+                       não só a soma: sem isso, a carga de um lado só lá embaixo não teria
+                       como saber se quem lançou era gente de quem se aceita contagem. */
+                    conferentes: {}, informantes: {}, informados: [],
+                    ids: {}, itens: [] };
       }
       var par = mapa[k];
       /* OS NÚMEROS DOS DOIS LADOS na mesma coluna, e não só os do conferente: quem vem
@@ -4323,6 +4353,8 @@
       } else {
         par.saida += q;
         if (m.usuario) par.informantes[m.usuario] = 1;
+        par.informados.push({ q: q, usuario: m.usuario || '',
+                              confere: papelQueConfere(m) });
       }
       if (m.origem) par.origens[m.origem] = 1;
       if (m.destino) par.destinos[m.destino] = 1;
@@ -4346,6 +4378,43 @@
       par.origemTxt = Object.keys(par.origens).sort().join(', ');
       par.destinoTxt = Object.keys(par.destinos).sort().join(', ');
       par.veiculoTxt = Object.keys(par.veiculos).sort().join(', ');
+      /* ============ A CARGA DE UM REGISTRO SÓ ============
+       *
+       * O GERENTE RECEBEU A CARGA E CONTOU ELE MESMO. Não houve declaração do motorista
+       * e não houve conferente: as três linhas da carga são dele, e o número dele é o
+       * único que existe. A tela mostrava esse número em Retorno Declarado, a coluna
+       * Conferente em travessão e o chip "Sem conferência" — com a contagem feita, e o
+       * nome de quem contou visível na gaveta logo abaixo.
+       *
+       * REFERÊNCIA DE QUÊ? O balde da saída existe para ser o que a contagem CHECA. Não
+       * havendo nem declaração nem contagem, não há nada contra o que ele seja referência
+       * — ele é o registro da carga, e quem o fez contou as caixas.
+       *
+       * AS TRÊS GUARDAS, e cada uma impede um jeito diferente de a carga fechar sozinha:
+       *
+       *   sem CONFERÊNCIA  — havendo uma, o número do gerente volta a ser a referência,
+       *                       que é o defeito antigo e tem bancada própria;
+       *   sem DECLARAÇÃO   — havendo uma, a carga tem dois lados e a comparação é entre
+       *                       eles: mover o do gerente faria a tela comparar a declaração
+       *                       com a referência e chamar uma das duas de contagem;
+       *   TODOS CONFEREM   — bastando um lançamento de perfil que não conta, a carga tem
+       *                       mais de uma mão e volta a não se saber qual é qual.
+       *
+       * E ELA NÃO FECHA MESMO ASSIM. Com a contagem no lugar certo e nada declarado, a
+       * situação vira "Sem saída" — pendente, como as outras cargas da tela em que só um
+       * lado existe. Dizer "Bateu" seria um número concordando consigo mesmo. */
+      if (!par.conferido && !par.declarado && par.informados.length &&
+          par.informados.every(function(x){ return x.confere; })) {
+        par.conferido = par.saida;
+        par.saida = 0;
+        /* O NOME MUDA DE COLUNA JUNTO COM O NÚMERO. Deixado em Informou, a tela diria
+           que alguém conferiu e não diria quem — que é metade do defeito que isto veio
+           consertar. */
+        par.informados.forEach(function(x){
+          if (x.usuario) par.conferentes[x.usuario] = 1;
+        });
+        par.informantes = {};
+      }
       par.informanteTxt = resumoDeNomes(par.informantes);
       /* ORDENADOS COMO TEXTO, que é o que o formato permite: largura fixa e zeros à
          esquerda fazem `M000041` vir antes de `M000102` sem virar número.

@@ -1343,9 +1343,14 @@ console.log('\n== a placa do veiculo em Movimentos Motoristas ==');
     'abaixo passarem sem rodar nada', fontePl.length);
 
   function pares(lista) {
-    return new Function('chaveDoPar', 'contouComoConferente', 'resumoDeNomes',
-                        'Q', 'MOV_P', fontePl + ' return montarPares(MOV_P);')(
+    return new Function('chaveDoPar', 'contouComoConferente', 'papelQueConfere',
+                        'resumoDeNomes', 'Q', 'MOV_P',
+                        fontePl + ' return montarPares(MOV_P);')(
       function (m) { return m.motorista + '|' + m.dataRef; },
+      function () { return false; },
+      /* NINGUÉM CONFERE, neste recorte: esta bancada é a da PLACA e das duas pontas da
+         viagem, e a carga de um registro só tem bancada própria mais abaixo. Dizendo
+         que sim, os números mudariam de balde no meio de uma prova que não fala deles. */
       function () { return false; },
       function (o) { return Object.keys(o).sort().join(', '); },
       { esc: function (x) { return String(x); } },
@@ -17886,6 +17891,111 @@ console.log('\n== Motorista/Conferente ==');
     'e o papel é lido sem caixa e sem acento — o perfil é texto livre, e uma contagem ' +
     'não pode deixar de contar por causa de como alguém digitou a palavra',
     gritado[0].conferido);
+
+  /* ================= A CARGA DE UM REGISTRO SO ================================
+   *
+   * O GALPAO MANDOU ESTA: o gerente recebeu a carga e contou as caixas ele mesmo. Nao
+   * houve declaracao do motorista e nao houve conferente — as tres linhas da carga sao
+   * dele. O numero aparecia em Retorno Declarado, a coluna Conferente em travessao e o
+   * chip "Sem conferencia", com a contagem feita e o nome de quem contou visivel na
+   * gaveta logo abaixo.
+   *
+   * O BALDE DA SAIDA EXISTE PARA SER O QUE A CONTAGEM CHECA. Nao havendo nem declaracao
+   * nem contagem, nao ha nada contra o que ele seja referencia.
+   *
+   * E A REGRA ANTIGA CONTINUA INTEIRA — as provas acima sao dela, e e' por isso que esta
+   * fica logo abaixo: havendo qualquer outro lado, o numero do gerente volta a ser a
+   * referencia que sempre foi. */
+  var soDoGerente = montarPares([
+    saidaDe({ qtd: 239, usuario: 'Nestor Neto', motorista: 'Jos\u00e9 Paulino' }),
+    saidaDe({ qtd: 254, usuario: 'Nestor Neto', motorista: 'Jos\u00e9 Paulino' }),
+    saidaDe({ qtd: 317, usuario: 'Nestor Neto', motorista: 'Jos\u00e9 Paulino' })
+  ]);
+  ok(soDoGerente.length === 1 && soDoGerente[0].conferido === 810 &&
+     soDoGerente[0].saida === 0,
+    'a carga lan\u00e7ada S\u00d3 pelo gerente \u00e9 uma CONTAGEM: 239 + 254 + 317 caem em Conferido ' +
+    '\u2014 em Retorno Declarado, a tela dizia "sem confer\u00eancia" com a contagem feita e ' +
+    'assinada', soDoGerente[0] && [soDoGerente[0].saida, soDoGerente[0].conferido]);
+
+  ok(soDoGerente[0].conferenteTxt === 'Nestor Neto' &&
+     soDoGerente[0].informanteTxt === '',
+    'e o NOME muda de coluna junto com o n\u00famero \u2014 deixado em Informou, a tela diria ' +
+    'que algu\u00e9m conferiu e n\u00e3o diria quem, que \u00e9 metade do defeito que isto conserta',
+    [soDoGerente[0].conferenteTxt, soDoGerente[0].informanteTxt]);
+
+  /* E ELA NAO FECHA. Pendente e' a resposta certa: uma pessoa so' encostou nela, e
+     "Bateu" seria um numero concordando consigo mesmo. */
+  ok(soDoGerente[0].situacao === 'Sem sa\u00edda' && soDoGerente[0].difConf === null,
+    'e mesmo assim a carga N\u00c3O fecha: fica pendente, com a diferen\u00e7a em travess\u00e3o \u2014 ' +
+    'dizer "Bateu" seria um n\u00famero concordando consigo mesmo',
+    [soDoGerente[0].situacao, soDoGerente[0].difConf]);
+
+  /* O ADMIN TAMBEM, pela mesma decisao do escritorio. */
+  var soDoAdmin = montarPares([
+    lanc({ qtd: 400, usuario: 'Natanael', perfil: 'Admin' })
+  ]);
+  ok(soDoAdmin[0].conferido === 400,
+    'e a carga lan\u00e7ada s\u00f3 pelo admin conta igual \u2014 foi a mesma decis\u00e3o do escrit\u00f3rio',
+    soDoAdmin[0].conferido);
+
+  /* ---- E AS TRES GUARDAS, uma por jeito de a carga fechar sozinha ---------------
+   *
+   * CADA UMA TEM UM CENARIO PROPRIO. Medida so' pela de cima, bastaria uma delas cair
+   * para a carga passar a fechar por um caminho que ninguem olhou. */
+
+  /* O MOTORISTA SOZINHO NAO CONTA, e e' o ponto inteiro da contagem cega: quem trouxe a
+     carga nao conta a carga. Sem esta guarda, o motorista que lancasse o proprio retorno
+     fora do livro de declaracao fecharia a conta dele mesmo. */
+  var soDoMotorista = montarPares([
+    lanc({ qtd: 700, usuario: 'Chico', perfil: 'Motorista' })
+  ]);
+  ok(soDoMotorista[0].conferido === 0 && soDoMotorista[0].saida === 700,
+    'mas a carga lan\u00e7ada s\u00f3 pelo MOTORISTA n\u00e3o vira contagem \u2014 \u00e9 a contagem cega: ' +
+    'quem trouxe a carga n\u00e3o conta a carga, e sem isto ele fecharia a pr\u00f3pria conta',
+    [soDoMotorista[0].saida, soDoMotorista[0].conferido]);
+
+  /* E O GESTOR E O PROMOTOR TAMBEM NAO, porque nao foram pedidos. Abrir papel de graca
+     aqui e' abrir sem ninguem ter decidido. */
+  var soDoGestor = montarPares([lanc({ qtd: 600, usuario: 'Ivo', perfil: 'Gestor' })]);
+  ok(soDoGestor[0].conferido === 0,
+    'nem a do gestor \u2014 a lista \u00e9 fechada, e papel que entra aqui entra por decis\u00e3o do ' +
+    'escrit\u00f3rio e n\u00e3o por parecer graduado', soDoGestor[0].conferido);
+
+  /* HAVENDO DECLARACAO, o numero do gerente volta a ser a referencia: a carga tem dois
+     lados, e mover o dele faria a tela comparar a declaracao com a referencia e chamar
+     uma das duas de contagem. */
+  var gerenteComDecl = montarPares([
+    saidaDe({ qtd: 810, usuario: 'Nestor Neto' }), declDe({ qtd: 790 })
+  ]);
+  ok(gerenteComDecl[0].conferido === 0 && gerenteComDecl[0].saida === 810,
+    'havendo DECLARA\u00c7\u00c3O, o n\u00famero do gerente volta a ser a refer\u00eancia \u2014 movendo-o, a ' +
+    'tela compararia a declara\u00e7\u00e3o com a refer\u00eancia e chamaria uma das duas de contagem',
+    [gerenteComDecl[0].saida, gerenteComDecl[0].conferido]);
+  ok(gerenteComDecl[0].situacao === 'Sem confer\u00eancia',
+    'e a carga continua cobrando a confer\u00eancia que de fato falta',
+    gerenteComDecl[0].situacao);
+
+  /* HAVENDO CONTAGEM DE CONFERENTE, idem — e este e' o defeito antigo, que tem bancada
+     propria logo acima. Aqui ele e' medido pelo caminho NOVO: a porta de baixo nao pode
+     reabrir o que a de cima fechou. */
+  var gerenteComConf = montarPares([
+    saidaDe({ qtd: 810, usuario: 'Nestor Neto' }), lanc({ qtd: 800 })
+  ]);
+  ok(gerenteComConf[0].saida === 810 && gerenteComConf[0].conferido === 800,
+    'e havendo contagem de conferente o gerente tamb\u00e9m fica na refer\u00eancia \u2014 a porta ' +
+    'nova n\u00e3o pode reabrir o defeito que a regra antiga fechou',
+    [gerenteComConf[0].saida, gerenteComConf[0].conferido]);
+
+  /* E BASTA UMA MAO DESCONHECIDA para a carga deixar de ser de um registro so': com duas
+     pessoas e um perfil que nao conta, nao se sabe qual numero e' qual. */
+  var gerenteEEstranho = montarPares([
+    saidaDe({ qtd: 500, usuario: 'Nestor Neto' }),
+    lanc({ qtd: 500, usuario: 'Fulano', perfil: '', usuarioId: 'u-ninguem' })
+  ]);
+  ok(gerenteEEstranho[0].conferido === 0 && gerenteEEstranho[0].saida === 1000,
+    'e basta UMA m\u00e3o de perfil que n\u00e3o conta para a carga deixar de ser de um registro ' +
+    's\u00f3 \u2014 com duas pessoas e um perfil desconhecido, n\u00e3o se sabe qual n\u00famero \u00e9 qual',
+    [gerenteEEstranho[0].saida, gerenteEEstranho[0].conferido]);
 
   /* DIVERGENTE: saiu 500, chegaram 460. */
   var div = montarPares([
