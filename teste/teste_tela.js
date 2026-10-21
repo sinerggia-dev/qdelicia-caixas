@@ -12621,6 +12621,128 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
 })();
 
 /* ---------------------------------------------------------------------------
+ * O "Hoje" do Painel de Ativos.
+ *
+ * O recorte mais pedido do dia a dia custava dois cliques e duas datas digitadas: os
+ * campos moram DENTRO da gaveta de Filtros. Agora ha um botao na barra de cima.
+ *
+ * ELE NAO TEM CONTA PROPRIA. E' um atalho de periodo como "7 dias" e "Este mes" —
+ * `data-dias="1"` —, e passa pela mesma funcao. Dois caminhos ate o mesmo par de campos
+ * de data divergem no primeiro conserto que so' um receber, e aí a tela mostra um
+ * recorte com o chip dizendo outro.
+ * ------------------------------------------------------------------------- */
+console.log('\n== o atalho de Hoje do Painel de Ativos ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* ---- 1. ELE EXISTE, E E' UM ATALHO COMO OS OUTROS ---- */
+  var iB = adm.indexOf('id="btnHojeFluxo"');
+  var bt = iB < 0 ? '' : adm.slice(adm.lastIndexOf('<button', iB), adm.indexOf('>', iB) + 1);
+  ok(/data-dias="1"/.test(bt),
+    'o Hoje \u00e9 um atalho de per\u00edodo como os outros \u2014 `data-dias="1"` \u2014, e n\u00e3o um ' +
+    'bot\u00e3o com conta pr\u00f3pria: dois caminhos at\u00e9 o mesmo par de datas divergem no ' +
+    'primeiro conserto que s\u00f3 um receber', bt.trim());
+  ok(/aria-pressed="false"/.test(bt),
+    'e ele nasce dizendo que est\u00e1 DESLIGADO \u2014 sem o atributo, o leitor de tela anuncia ' +
+    'um bot\u00e3o comum e quem n\u00e3o v\u00ea a tela n\u00e3o sabe que ele alterna', bt.trim());
+
+  /* ---- 2. ELE FICA NA BARRA DE CIMA, JUNTO DO CADEADO ---- */
+  var iBa = iB < 0 ? -1 : adm.lastIndexOf('<div class="barra-trava">', iB);
+  var barra = iBa < 0 ? '' : adm.slice(iBa, iB);
+  ok(iBa >= 0 && barra.indexOf('data-trava-colunas') > 0,
+    'e ele mora na mesma barra do cadeado, que \u00e9 o padr\u00e3o j\u00e1 usado nas outras duas ' +
+    'tabelas \u2014 numa linha pr\u00f3pria ele gastaria uma faixa inteira da tela do celular ' +
+    'para um bot\u00e3o de 38px', barra.slice(-120));
+
+  /* ---- 3. A CONTA DO PERIODO, RODANDO ----
+   *
+   * Lida no arquivo, ela responderia "a palavra `hoje` esta ali?" — e estaria, inclusive
+   * numa versao que devolve o mes inteiro. Aqui a funcao e' EXECUTADA, com um par de
+   * campos de mentira e um dia escolhido. */
+  function corpoA(nome) {
+    var i = adm.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = adm.indexOf('{', i);
+    for (; k < adm.length; k++) {
+      if (adm[k] === '{') d++;
+      else if (adm[k] === '}' && --d === 0) return adm.slice(i, k + 1);
+    }
+    return '';
+  }
+  var fonte = corpoA('usarAtalhoFluxo');
+  ok(!!fonte,
+    'a confer\u00eancia recortou a conta do per\u00edodo \u2014 faltando ela, as provas abaixo ' +
+    'passariam sem rodar nada', fonte.length);
+
+  var campos = { rtDe: { value: '' }, rtAte: { value: '' }, rtErroData: { hidden: false } };
+  var pintado = null, recarregou = 0;
+  var usar = new Function('document', 'Q', 'marcarAtalhoFluxo', 'carregarPainel',
+    fonte + '\n return usarAtalhoFluxo;')(
+    { getElementById: function (id) { return campos[id] || null; } },
+    { hojeOperacao: function () { return '2026-10-21'; } },
+    function (q) { pintado = q; },
+    function () { recarregou++; });
+
+  function botao(dias, ligado) {
+    return { dataset: { dias: dias },
+             getAttribute: function () { return ligado ? 'true' : 'false'; } };
+  }
+
+  usar(botao('1', false));
+  ok(campos.rtDe.value === '2026-10-21' && campos.rtAte.value === '2026-10-21',
+    'ligado, o Hoje p\u00f5e o MESMO dia nas duas pontas \u2014 um intervalo de um dia s\u00f3 \u00e9 o ' +
+    'que "apenas as movimenta\u00e7\u00f5es de hoje" quer dizer',
+    { de: campos.rtDe.value, ate: campos.rtAte.value });
+  ok(pintado === '1' && recarregou === 1,
+    'e ele acende e a tabela recarrega \u2014 sem recarregar, a pessoa clica, nada muda, e ' +
+    'conclui que o bot\u00e3o n\u00e3o funciona', { pintado: pintado, recarregou: recarregou });
+
+  /* O DIA VEM DO GALPAO, e nao do relogio de quem olha: `Q.hojeOperacao()`. Pelo
+     `new Date()` do navegador, quem abre o painel de outro fuso veria o dia errado — e
+     e' a operacao que define quando o dia virou, nao a maquina. */
+  ok(/hojeOperacao\(\)/.test(fonte) && !/new Date\(\)/.test(fonte),
+    'e o dia sai da OPERA\u00c7\u00c3O, e n\u00e3o do rel\u00f3gio de quem abre a tela \u2014 quem olha de ' +
+    'outro fuso veria um dia que n\u00e3o \u00e9 o do galp\u00e3o', fonte.indexOf('hojeOperacao'));
+
+  /* TOCAR DE NOVO DESLIGA. Botao que so' liga e' caminho sem volta: quem acionou o Hoje
+     sem querer ficaria sem saber como ver o resto do periodo. */
+  usar(botao('1', true));
+  ok(campos.rtDe.value === '' && campos.rtAte.value === '' && pintado === '',
+    'e tocar de novo DESLIGA, devolvendo o per\u00edodo inteiro \u2014 bot\u00e3o que s\u00f3 liga \u00e9 ' +
+    'caminho sem volta, e quem o acionou sem querer ficaria sem saber como ver o resto',
+    { de: campos.rtDe.value, ate: campos.rtAte.value, pintado: pintado });
+
+  /* E OS VIZINHOS CONTINUAM INTEIROS: a mesma funcao serve os tres, e um "1" que
+     quebrasse o "7" ou o "mes" seria o preco de ter juntado os caminhos. */
+  usar(botao('7', false));
+  ok(campos.rtDe.value === '2026-10-15' && campos.rtAte.value === '2026-10-21',
+    'e "7 dias" continua contando sete dias CONTANDO o de hoje \u2014 de 15 a 21 \u00e9 uma ' +
+    'semana; come\u00e7ando no 14, seriam oito', { de: campos.rtDe.value, ate: campos.rtAte.value });
+  usar(botao('mes', false));
+  ok(campos.rtDe.value === '2026-10-01' && campos.rtAte.value === '2026-10-21',
+    'e "Este m\u00eas" abre no dia 1 \u2014 a mesma fun\u00e7\u00e3o serve os tr\u00eas, e junt\u00e1-los n\u00e3o pode ' +
+    'custar nenhum deles', { de: campos.rtDe.value, ate: campos.rtAte.value });
+
+  /* ---- 4. OS DOIS ACENDEM E APAGAM JUNTOS ---- */
+  var iM = adm.indexOf('  function marcarAtalhoFluxo(');
+  var marca = iM < 0 ? '' : adm.slice(iM, adm.indexOf('\n  }', iM));
+  ok(/#rtAtalhos \[data-dias\], #btnHojeFluxo/.test(marca),
+    'quem pinta varre as DUAS portas \u2014 a gaveta e a barra de cima. Varrendo s\u00f3 a ' +
+    'gaveta, o Hoje nunca acenderia: a pessoa clica, a tabela encolhe, e nada na tela ' +
+    'diz por qu\u00ea', marca.slice(0, 200));
+  ok(!/querySelectorAll\('\[data-dias\]'\)/.test(marca),
+    'e a varredura \u00e9 ESCOPADA ao Painel \u2014 solta na p\u00e1gina, ela passaria a acender e ' +
+    'apagar os atalhos de qualquer outra tela que ganhasse per\u00edodo', marca.slice(0, 200));
+
+  /* ---- 5. AS DUAS PORTAS LEVAM A MESMA FUNCAO ---- */
+  ok((adm.match(/usarAtalhoFluxo\(/g) || []).length >= 3,
+    'e as duas portas chamam a MESMA fun\u00e7\u00e3o \u2014 a gaveta por delega\u00e7\u00e3o, o bot\u00e3o de ' +
+    'cima direto: escrita duas vezes, a conta do per\u00edodo divergiria no primeiro ' +
+    'conserto que s\u00f3 uma recebesse',
+    (adm.match(/usarAtalhoFluxo\(/g) || []).length);
+})();
+
+/* ---------------------------------------------------------------------------
  * ALTURA FIXA NUM CAMPO: a conta tem de fechar.
  *
  * O seletor "Agrupar por" foi ao ar com o texto cortado ao meio. O CSS dizia
@@ -19771,8 +19893,13 @@ console.log('\n== a faixa do dia na conciliacao ==');
   /* ---- O ATALHO DO DIA JUNTO DAS OUTRAS ACOES ----
    * Sozinho numa linha abaixo dos campos, ele gastava uma faixa inteira da tela do
    * celular para um botao de 38px, e empurrava os numeros para baixo da dobra. */
-  var iBt = admF.indexOf('<div class="barra-trava__acoes">');
-  var barraAcoes = iBt < 0 ? '' : admF.slice(iBt, admF.indexOf('</div>', iBt));
+  /* A BARRA QUE CONTEM O BOTAO, e nao a primeira do arquivo. Ancorada na primeira, esta
+     prova passou a medir a barra de OUTRA tela no dia em que o Painel de Ativos ganhou a
+     dele — e reprovou dizendo que o `dcHoje` nao estava junto do CSV, com os dois
+     lado a lado onde sempre estiveram. */
+  var iDc = admF.indexOf('id="dcHoje"');
+  var iBt = iDc < 0 ? -1 : admF.lastIndexOf('<div class="barra-trava__acoes">', iDc);
+  var barraAcoes = iBt < 0 ? '' : admF.slice(iBt, admF.indexOf('</div>', iDc));
   ok(barraAcoes.indexOf('id="dcHoje"') > 0 && barraAcoes.indexOf('id="btnCsvDecl"') > 0,
     'o atalho do dia fica na MESMA barra do CSV — sozinho numa linha, ele gastava uma ' +
     'faixa inteira da tela do celular para um bot\u00e3o de 38px e empurrava os n\u00fameros, ' +
@@ -22073,7 +22200,10 @@ console.log('\n== a busca rapida, nas duas larguras ==');
     }
     return -1;
   }
-  var iBarra = adm.indexOf('<div class="barra-trava">');
+  /* IDEM: a barra que contem o botao de agrupar, e nao a primeira `.barra-trava` que
+     aparecer no arquivo. */
+  var iAg = adm.indexOf('id="btnAgruparMov"');
+  var iBarra = iAg < 0 ? -1 : adm.lastIndexOf('<div class="barra-trava">', iAg);
   var fimBarra = fimDaTag(adm, iBarra);
   var iChip = adm.indexOf('id="btnAgruparMov"');
   var iBusca2 = adm.indexOf('class="busca-mov"');

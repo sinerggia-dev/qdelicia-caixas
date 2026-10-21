@@ -771,7 +771,24 @@
              aba Colunas. A lição não tinha sido aplicada nas outras duas tabelas.
              A LIBERAÇÃO É UMA SÓ, de quinze minutos, e vale para as três: o que muda de
              lugar é o botão, não o estado. -->
-        <div class="trava-colunas" data-trava-colunas></div>
+        <!-- E O "HOJE" AO LADO DELE, no mesmo `.barra-trava` das outras duas tabelas.
+             AQUI ELE VALE TAMBÉM NO COMPUTADOR, ao contrário do de Movimentos — e a
+             diferença não é gosto: lá os dois campos de data ficam à vista na barra
+             lateral, e um atalho para o que já está preenchido seria um botão dizendo o
+             mesmo. Aqui eles moram DENTRO da gaveta de Filtros, a dois cliques: abrir,
+             achar, digitar duas datas. O recorte mais pedido do dia a dia não pode
+             custar isso.
+             ELE É UM ATALHO DE PERÍODO COMO OS OUTROS — `data-dias="1"` —, e não um
+             botão com conta própria. Dois caminhos para o mesmo campo de data divergem
+             no primeiro conserto que só um receber, e os dois acendem e apagam juntos
+             porque quem pinta é a mesma função. -->
+        <div class="barra-trava">
+          <div class="trava-colunas" data-trava-colunas></div>
+          <div class="barra-trava__acoes">
+            <button class="chip-hoje" type="button" id="btnHojeFluxo" data-dias="1"
+                    aria-pressed="false">Hoje</button>
+          </div>
+        </div>
         <!-- JUNTAR AS LINHAS. A tabela é um extrato: uma linha por DIA e por trajeto,
              que é o que se precisa para conferir um lançamento. A pergunta que faltava
              é a do período inteiro — "quanto foi para Campina Grande e quanto voltou
@@ -6555,16 +6572,25 @@
   })();
 
   function marcarAtalhoFluxo(qual){
-    var cx = document.getElementById('rtAtalhos');
+    /* AS DUAS PORTAS DO PAINEL, e so' elas.
+       O "Hoje" vive na barra de cima, fora da gaveta: varrendo so' `rtAtalhos` ele nunca
+       acenderia — e um botao que recorta a lista sem dar sinal de estar ligado e' pior
+       que nenhum, porque a pessoa clica, a tabela encolhe, e nada na tela diz por que.
+       MAS A VARREDURA E ESCOPADA, e nao um `[data-dias]` solto na pagina: hoje os quatro
+       botoes com essa marca sao todos daqui, e no dia em que outra tela ganhar atalhos
+       de periodo esta funcao passaria a acender e apagar os botoes DELA junto. */
+    var botoes = document.querySelectorAll('#rtAtalhos [data-dias], #btnHojeFluxo');
     if (!cx) return;
-    Array.prototype.forEach.call(cx.children, function(b){
+    Array.prototype.forEach.call(botoes, function(b){
       b.setAttribute('aria-pressed', String(b.dataset.dias === qual));
     });
   }
 
-  document.getElementById('rtAtalhos').addEventListener('click', function(e){
-    var b = e.target.closest('button[data-dias]');
-    if (!b) return;
+  /* UMA FUNCAO, DUAS PORTAS: a gaveta de Filtros e a barra de cima. Escrita duas
+     vezes, a conta do periodo divergiria no primeiro conserto que so' uma recebesse — e
+     as duas mexem no MESMO par de campos, entao a tela mostraria um recorte e o chip
+     diria outro. */
+  function usarAtalhoFluxo(b){
     var de = document.getElementById('rtDe'), ate = document.getElementById('rtAte');
     var erro = document.getElementById('rtErroData');
     if (erro) erro.hidden = true;
@@ -6587,6 +6613,17 @@
     ate.value = hoje;
     marcarAtalhoFluxo(b.dataset.dias);
     carregarPainel();
+  }
+
+  document.getElementById('rtAtalhos').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-dias]');
+    if (b) usarAtalhoFluxo(b);
+  });
+  /* O MESMO CAMINHO, pelo botao da barra de cima. Tocar de novo DESLIGA e devolve o
+     periodo inteiro, como nos outros atalhos: botao que so' liga e' caminho sem volta,
+     e quem ligou o Hoje sem querer ficaria sem saber como ver o resto. */
+  document.getElementById('btnHojeFluxo').addEventListener('click', function(){
+    usarAtalhoFluxo(this);
   });
 
   /* A BUSCA ESPERA A PESSOA PARAR DE DIGITAR. Sem isso o fluxo inteiro é peneirado e a
