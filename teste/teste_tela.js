@@ -18705,8 +18705,82 @@ console.log('\n== Motorista/Conferente ==');
     'mas ela continua à vista, marcada — sumindo, o total da gaveta não bateria com a ' +
     'soma das linhas e nada explicaria a diferença');
 
+  /* ---- O CONSERTO DA CARGA INTEIRA, NA GAVETA ----
+   *
+   * A gaveta mostrava CINCO linhas com cinco botoes de `corrigir`. Trocar a data ou o
+   * veiculo da carga custava abrir o formulario cinco vezes e repetir a mesma mudanca —
+   * com a chance de a quinta sair diferente das quatro, que e' como uma carga fica
+   * gravada pela metade.
+   *
+   * E O MESMO FORMULARIO de Movimentos Gerais, e nao uma copia. Duas telas de correcao
+   * para o mesmo lancamento divergem no primeiro conserto que so' uma receber. */
+  {
+    var iLP = adm.indexOf('  function linhasDoPar(par){');
+    var fonteLP = adm.slice(iLP, adm.indexOf('\n  }', iLP) + 4);
+    var iLA = adm.indexOf('  function linhasAtivasDaCarga(reg){');
+    var fonteLA = adm.slice(iLA, adm.indexOf('\n  }', iLA) + 4);
+
+    function gaveta(itens, decls) {
+      return new Function('Q', 'podeMexerNaDeclaracao', 'DECLS',
+        fonteLA + '\n' + fonteLP + '\n return linhasDoPar;')(
+        { esc: function (x) { return String(x == null ? '' : x); },
+          num: function (n) { return String(Number(n) || 0); } },
+        function () { return true; },
+        decls)({ itens: itens });
+    }
+
+    /* DUAS LINHAS NO MESMO REGISTRO: e' o caso em que o conserto da carga faz sentido. */
+    var doisItens = [{ id: 'M1', registro: 'R9', qtd: 50, tipoCaixa: 'CX P' },
+                     { id: 'M2', registro: 'R9', qtd: 50, tipoCaixa: 'CX G' }];
+    var comCarga = gaveta(doisItens, doisItens);
+    ok(/data-dcarga="R9"/.test(comCarga),
+      'a gaveta oferece o conserto da carga inteira quando o registro tem mais de uma ' +
+      'linha \u2014 era isso que faltava: cinco bot\u00f5es de "corrigir" para uma carga s\u00f3, e ' +
+      'trocar a data dela custava abrir o formul\u00e1rio cinco vezes',
+      comCarga.slice(0, 200));
+    ok((comCarga.match(/data-dcarga=/g) || []).length === 1,
+      'e UM bot\u00e3o por registro, e n\u00e3o um por linha \u2014 a carga \u00e9 uma s\u00f3, e dois bot\u00f5es ' +
+      'iguais lado a lado fazem procurar a diferen\u00e7a que n\u00e3o existe',
+      (comCarga.match(/data-dcarga=/g) || []).length);
+
+    /* COM UMA LINHA SO' ele nao aparece: seria o `corrigir` da linha com outro nome, e
+       dois caminhos para o mesmo gesto e' um a mais do que se precisa. */
+    var um = [{ id: 'M1', registro: 'R9', qtd: 50, tipoCaixa: 'CX P' }];
+    ok(!/data-dcarga=/.test(gaveta(um, um)),
+      'e com UMA linha s\u00f3 ele n\u00e3o aparece \u2014 seria o "corrigir" da linha com outro nome',
+      gaveta(um, um).slice(0, 160));
+
+    /* A LINHA CANCELADA NAO PUXA O BOTAO: ela nao entra na correcao, e contando-a o
+       botao apareceria prometendo mexer numa linha que ja' saiu da conta. */
+    var comCancelada = [{ id: 'M1', registro: 'R9', qtd: 50, tipoCaixa: 'CX P' },
+                        { id: 'M2', registro: 'R9', qtd: 50, tipoCaixa: 'CX G',
+                          cancelado: true, situacao: 'Cancelada' }];
+    ok(!/data-dcarga=/.test(gaveta(comCancelada, comCancelada)),
+      'e a linha cancelada n\u00e3o conta \u2014 com ela, o bot\u00e3o apareceria prometendo mexer ' +
+      'numa linha que j\u00e1 saiu da conta',
+      gaveta(comCancelada, comCancelada).slice(0, 160));
+
+    /* SO' PARA QUEM PODE MEXER. Oferecer o caminho para uma porta trancada e' pior que
+       nao oferecer o caminho. */
+    var semPoder = new Function('Q', 'podeMexerNaDeclaracao', 'DECLS',
+      fonteLA + '\n' + fonteLP + '\n return linhasDoPar;')(
+      { esc: function (x) { return String(x == null ? '' : x); },
+        num: function (n) { return String(Number(n) || 0); } },
+      function () { return false; }, doisItens)({ itens: doisItens });
+    ok(!/data-dcarga=/.test(semPoder),
+      'e quem n\u00e3o pode mexer n\u00e3o v\u00ea o bot\u00e3o \u2014 oferecer o caminho para uma porta ' +
+      'trancada \u00e9 pior que n\u00e3o oferecer o caminho', semPoder.slice(0, 160));
+
+    /* E O CLIQUE LEVA A LISTA DESTA TELA. Lendo `MOVS`, o formulario abriria dizendo
+       "nao achei linhas ativas neste registro" — a carga esta' em `DECLS`. */
+    ok(/formCorrigirRegistro\(b\.dataset\.dcarga, DECLS\)/.test(adm),
+      'e o clique abre o formul\u00e1rio lendo `DECLS`, que \u00e9 a lista DESTA tela \u2014 por ' +
+      '`MOVS` ele abriria dizendo "n\u00e3o achei linhas ativas neste registro"',
+      adm.indexOf('formCorrigirRegistro(b.dataset.dcarga'));
+  }
+
   /* ---- AS DUAS LISTAS, E O QUE RECARREGAR ---- */
-  var iDep = adm.indexOf('  function depoisDeMexer(m){');
+  var iDep = adm.indexOf('  function depoisDeMexer(m, daTelaDeDeclaracao){');
   var fonteDep = adm.slice(iDep, adm.indexOf('\n  }', iDep) + 4);
   var chamou = [];
   new Function('carregarDecl', 'carregarPainel', 'document',
@@ -18729,6 +18803,25 @@ console.log('\n== Motorista/Conferente ==');
   ok(chamou.indexOf('mov') >= 0 && chamou.indexOf('painel') >= 0,
     'e mexer num lançamento comum continua recarregando Movimentos e o painel — os ' +
     'saldos mudaram', chamou);
+
+  /* ---- E A LINHA DO CONFERENTE, MEXIDA DE DENTRO DA TELA DE MOTORISTAS ----
+   *
+   * A marca `declaracao` diz que a LINHA veio do livro de declaracao, e ela basta quando
+   * se corrige uma declaracao. Mas aquela tela tambem corrige as linhas do CONFERENTE,
+   * que nao tem a marca — e sem o segundo aviso, gravar ali recarregava Movimentos
+   * Gerais e a tela de onde a pessoa clicou ficava com o numero velho ao lado do aviso
+   * de que ele mudou. */
+  chamou = [];
+  new Function('carregarDecl', 'carregarPainel', 'document',
+    fonteDep + '\nreturn depoisDeMexer;')(
+      function () { chamou.push('decl'); },
+      function () { chamou.push('painel'); },
+      { getElementById: function () { return { click: function () { chamou.push('mov'); } }; } }
+    )({ declaracao: false }, true);
+  ok(chamou.join(',') === 'decl',
+    'e uma linha SEM a marca, mexida de dentro da tela de Motoristas, recarrega ELA \u2014 ' +
+    'pela marca sozinha, corrigir a contagem do conferente ali recarregava Movimentos ' +
+    'Gerais e deixava esta tela com o n\u00famero velho', chamou);
 
   var iPorId = adm.indexOf('  function movPorId(id){');
   var fontePorId = adm.slice(iPorId, adm.indexOf('\n  }', iPorId) + 4);
@@ -20976,7 +21069,9 @@ console.log('\n== corrigir a carga inteira, e nao so a linha ==');
     'e lista vazia devolve vazio em vez de quebrar');
 
   /* ---- O FORMULARIO DA CARGA ---- */
-  var iFR = admC.indexOf('  function formCorrigirRegistro(reg){');
+  /* A ASSINATURA GANHOU A FONTE: o mesmo formulário serve Movimentos Gerais (lê
+     `MOVS`) e Movimentos Motoristas (lê `DECLS`), e quem chama diz de onde ler. */
+  var iFR = admC.indexOf('  function formCorrigirRegistro(reg, fonte){');
   var formR = iFR < 0 ? '' : admC.slice(iFR, admC.indexOf('\n  function formCorrigir(m){', iFR));
   ok(iFR > 0 && formR.length > 1500,
     'a confer\u00eancia recortou o formul\u00e1rio da carga — recorte vazio faria as provas abaixo ' +
@@ -21009,6 +21104,23 @@ console.log('\n== corrigir a carga inteira, e nao so a linha ==');
       'coluna curta passa a dizer o nome novo e a completa continua no antigo, e o ' +
       'relat\u00f3rio por motorista parte a pessoa em duas');
   });
+
+  /* A FONTE E USADA, e nao so' aceita. A assinatura ganhou o argumento e o corpo podia
+     continuar lendo `MOVS`: a tela de Motoristas abriria dizendo "nao achei linhas
+     ativas neste registro", porque a carga dela esta' em `DECLS`. Uma sabotagem
+     escapou exatamente por ai — a assinatura certa sobre o corpo errado. */
+  ok(/\(fonte \|\| MOVS \|\| \[\]\)\.filter/.test(formR),
+    'e o formulário LÊ da fonte que recebeu, e não de `MOVS` — a assinatura certa ' +
+    'sobre o corpo antigo abre a carga da outra tela dizendo que não achou linha ' +
+    'nenhuma', formR.slice(0, 400));
+
+  /* E QUEM RECARREGA SABE DE ONDE VEIO. Sem o aviso, gravar na tela de Motoristas
+     recarregava Movimentos Gerais e deixava a tela de onde a pessoa clicou com o
+     numero velho ao lado do aviso de que ele mudou. */
+  ok(/depoisDeMexer\(m, daDeclaracao\)/.test(formR),
+    'e ao gravar ele recarrega a tela DE ONDE veio — sem isso, corrigir pela tela de ' +
+    'Motoristas recarrega Movimentos Gerais e deixa esta com o número velho',
+    formR.indexOf('depoisDeMexer'));
 
   /* A TRAVA MAIS APERTADA DA CARGA: se uma linha so ja saiu dos dez minutos, a carga
      inteira pede senha. Gravar metade sem senha e metade com seria a carga ficando pela

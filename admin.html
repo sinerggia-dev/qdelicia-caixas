@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=e928bc00">
+<link rel="stylesheet" href="styles.css?v=51101696">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -4503,9 +4503,47 @@
    *
    * O MESMO PEDAÇO SERVE À TABELA E À FICHA do celular. Escrito duas vezes, o dia em que
    * o botão de excluir ganhasse uma confirmação ele a ganharia num dos dois lugares. */
+  /* QUANTAS LINHAS ATIVAS A CARGA TEM, nesta tela. Duas ou mais, e o conserto da carga
+     inteira faz sentido; com uma so', ele seria o `corrigir` da linha com outro nome. */
+  function linhasAtivasDaCarga(reg){
+    if (!reg) return 0;
+    return (DECLS||[]).filter(function(x){
+      return String(x.registro||'') === String(reg) && x.situacao !== 'Cancelada';
+    }).length;
+  }
+
   function linhasDoPar(par){
     var pode = podeMexerNaDeclaracao();
-    return '<div class="lp">'+
+    /* ================= O CONSERTO DA CARGA INTEIRA =================
+     *
+     * A gaveta mostrava CINCO linhas com cinco botoes de `corrigir`, e trocar a data ou
+     * o veiculo da carga custava abrir o formulario cinco vezes e repetir a mesma
+     * mudanca — com a chance de a quinta sair diferente das quatro, que e' como uma
+     * carga fica gravada pela metade.
+     *
+     * E' O MESMO FORMULARIO de Movimentos Gerais, e nao uma copia: ele ja' sabia fazer
+     * isto, e a unica coisa que faltava era dizer de que lista ler. Duas telas de
+     * correcao para o mesmo lancamento divergem no primeiro conserto que so' uma
+     * receber.
+     *
+     * UM BOTAO POR REGISTRO, e nao por linha: a carga e' uma so'. */
+    var regs = {}, ordem = [];
+    par.itens.forEach(function(m){
+      var r = String(m.registro || '');
+      if (!r || m.cancelado || regs[r]) return;
+      regs[r] = 1; ordem.push(r);
+    });
+    var daCarga = !pode ? '' : ordem.filter(function(r){
+        return linhasAtivasDaCarga(r) > 1;
+      }).map(function(r){
+        return '<button class="mini acao" type="button" data-dcarga="'+Q.esc(r)+'" '+
+          'title="Corrigir de uma vez as '+linhasAtivasDaCarga(r)+' linhas de '+
+          Q.esc(r)+' \u2014 data, ve\u00edculo, origem, destino e as quantidades">'+
+          'corrigir a carga '+Q.esc(r)+'</button>';
+      }).join(' ');
+
+    return (daCarga ? '<div class="lp__carga">'+daCarga+'</div>' : '')+
+      '<div class="lp">'+
       par.itens.slice().sort(function(a, b){
         /* A DECLARAÇÃO PRIMEIRO, sempre: ela é o que se compara CONTRA, e lida depois
            das contagens obriga a subir os olhos para achar o número de referência. */
@@ -4740,6 +4778,14 @@
         if (!alvo) return;
         alvo.hidden = !alvo.hidden;
         b.classList.toggle('aberto', !alvo.hidden);
+      });
+    });
+    /* O CONSERTO DA CARGA INTEIRA nao passa por `movPorId`: ele nao mexe numa linha,
+       e sim em todas as do registro. E a lista que ele le' e a DESTA tela — `DECLS` —,
+       porque e' daqui que a pessoa clicou. */
+    box.querySelectorAll('[data-dcarga]').forEach(function(b){
+      b.addEventListener('click', function(){
+        formCorrigirRegistro(b.dataset.dcarga, DECLS);
       });
     });
     [['dcorrigir', acaoCorrigir], ['drestaurar', acaoRestaurar],
@@ -9934,8 +9980,13 @@
   /* O QUE RECARREGAR DEPOIS DE MEXER NUMA LINHA. A declaração não está em Movimentos:
      mandar aquela tela recarregar deixaria a conciliação — que é de onde a pessoa mexeu
      — mostrando o número velho ao lado do aviso de que ele mudou. */
-  function depoisDeMexer(m){
-    if (m && m.declaracao) { carregarDecl(); return; }
+  /* QUEM RECARREGA DEPENDE DE ONDE SE MEXEU, e nao so' do que se mexeu.
+     A marca `declaracao` diz que a LINHA veio do livro de declaracao — e isso basta
+     quando se corrige uma declaracao. Mas a tela de Motoristas tambem corrige as linhas
+     do CONFERENTE, que nao tem essa marca: sem o segundo aviso, gravar ali recarregava
+     Movimentos Gerais e a tela de onde a pessoa clicou ficava com o numero velho. */
+  function depoisDeMexer(m, daTelaDeDeclaracao){
+    if (daTelaDeDeclaracao || (m && m.declaracao)) { carregarDecl(); return; }
     var b = document.getElementById('btnFiltrarMov');
     if (b) b.click();
     carregarPainel();
@@ -13211,9 +13262,17 @@
     return { pede: true, valor: campo ? campo.value : '' };
   }
 
-  function formCorrigirRegistro(reg){
+  /* A FONTE ENTRA COMO ARGUMENTO, e nao e' lida de `MOVS` aqui dentro.
+     O mesmo conserto serve as duas telas: Movimentos Gerais le `MOVS`, Movimentos
+     Motoristas le `DECLS`. As duas listas vem da MESMA funcao do servidor
+     (`listaMovimentos`), entao a linha tem a mesma forma nas duas — e por isso o
+     formulario nao precisa saber de qual tela veio, so' de onde ler.
+     ESCRITO DUAS VEZES, seria a mesma tela de correcao em duas copias: a primeira
+     diferenca entre elas apareceria como uma carga gravada pela metade. */
+  function formCorrigirRegistro(reg, fonte){
     var s = Q.sessao();
-    var linhas = (MOVS||[]).filter(function(x){
+    var daDeclaracao = !!fonte;
+    var linhas = (fonte || MOVS || []).filter(function(x){
       return String(x.registro||'') === String(reg) && x.situacao !== 'Cancelada';
     });
     if (!linhas.length) return Q.toast('Não achei linhas ativas neste registro.','erro');
@@ -13318,7 +13377,7 @@
           ? 'Nada mudou na carga '+reg+'.'
           : 'Carga '+reg+' corrigida em '+r.linhas+' linha(s): '+
             (r.alterou||[]).join(', ')+'.', 'ok');
-        depoisDeMexer(m);
+        depoisDeMexer(m, daDeclaracao);
       });
     });
   }

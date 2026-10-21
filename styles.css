@@ -3390,6 +3390,9 @@ details.tipos[open] summary::before{content:"▾"}
 .grp-fx>td{background:var(--veu);font-weight:600;border-top:2px solid var(--linha)}
 .grp-fx.aberto>td{border-bottom:1px solid var(--linha)}
 .fx-de-grupo>td:first-child{padding-left:18px}
+/* A FAIXA DO CONSERTO DA CARGA, acima das linhas da gaveta: ela age sobre TODAS elas, e
+   posta no meio seria lida como acao de uma. */
+.lp__carga{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
 /* A LINHA CLICAVEL AVISA QUE E CLICAVEL, e so' com o ponteiro: num toque nao ha hover, e
    no teclado esta linha nao e' alvo — o gesto e' atalho do que a gaveta de Filtros ja faz
    por inteiro. Sem o aviso, a area clicavel e' invisivel e o recorte muda "sozinho" para
