@@ -2915,7 +2915,8 @@
        O TIPO do local no cadastro segue sendo FILIAL/GALPAO — isso e o vocabulario dos
        dados, e nao muda com o rotulo. */
     FILIAL: 'Unidades', CLIENTE: 'Clientes', deficit: 'Em déficit',
-    MOTORISTA: 'Motoristas', USUARIO: 'Usuários', TIPOCAIXA: 'Tipos de caixa' };
+    MOTORISTA: 'Motoristas', USUARIO: 'Usuários', TIPOCAIXA: 'Tipos de caixa',
+    FORNECEDOR: 'Fornecedores' };
 
   /* O título da primeira coluna troca junto com a visão: "Origem / destino" não descreve
      uma lista de motoristas. */
@@ -2924,7 +2925,8 @@
   var FLUXO_COLUNAS = {
     MOTORISTA: ['Motorista'],
     USUARIO:   ['Quem lançou'],
-    TIPOCAIXA: ['Tipo de caixa']
+    TIPOCAIXA: ['Tipo de caixa'],
+    FORNECEDOR: ['Fornecedor']
   };
 
   function ehVisaoDeGente(v){ return v === 'MOTORISTA' || v === 'USUARIO'; }
@@ -2938,7 +2940,13 @@
    * As outras — motorista, usuario, tipo de caixa — tem uma linha por NOME. Elas somam
    * varias pernas num numero so', e nenhuma delas e' uma viagem: perguntar a uma dessas
    * linhas "voce foi da matriz para a filial?" nao tem resposta. Dai a separacao. */
-  function ehVisaoDeLugar(v){ return !ehVisaoDeGente(v) && v !== 'TIPOCAIXA'; }
+  /* O FORNECEDOR ENTRA AQUI PELO MESMO MOTIVO QUE O TIPO DE CAIXA: a linha dele e' um
+     NOME, e nao um trecho entre duas pontas. Fora desta conta, a tela sairia sem a
+     coluna do nome — linhas sem dizer de quem — e com o Saldo final zerado, que foi
+     exatamente o que aconteceu com os Tipos de caixa. */
+  function ehVisaoDeLugar(v){
+    return !ehVisaoDeGente(v) && v !== 'TIPOCAIXA' && v !== 'FORNECEDOR';
+  }
 
   /* DE QUEM A FILEIRA ESTA FALANDO, em minuscula, para caber no meio de uma frase de
      rodape. O MESMO nome que o cabecalho da primeira coluna usa — tirado de
@@ -3279,10 +3287,13 @@
   function linhasPorTipo(){ return agruparPorTipo(todasAsLinhas()); }
 
   function linhasFluxo(){
-    var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
+    var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [], fornecedores: [] };
     if (FLUXO_FILTRO === 'MOTORISTA') return p.motoristas;
     if (FLUXO_FILTRO === 'USUARIO') return p.usuarios;
     if (FLUXO_FILTRO === 'TIPOCAIXA') return linhasPorTipo();
+    /* VEM PRONTA DO SERVIDOR, como motorista e usuario: o fornecedor e' TEXTO no
+       lancamento, e a linha de trecho nao o carrega — nao ha de onde somar aqui. */
+    if (FLUXO_FILTRO === 'FORNECEDOR') return p.fornecedores || [];
     /* Filial e galpao dividem o mesmo chip, a pedido: na operacao os dois sao a casa —
        o lugar de onde a caixa sai e para onde ela volta —, e separa-los em duas abas
        obrigava a procurar a Filial Maceio em duas listas para saber onde ela estava. */
@@ -6054,7 +6065,7 @@
   function desenharFluxo(){
     var f = PAINEL && PAINEL.fluxo;
     if (!f) return;
-    var pes = PAINEL.fluxoPessoas || { motoristas: [], usuarios: [] };
+    var pes = PAINEL.fluxoPessoas || { motoristas: [], usuarios: [], fornecedores: [] };
 
     var vivas = linhasVivas();
     var conta = function(t){ return vivas.filter(function(l){ return l.tipo === t; }).length; };
@@ -6069,7 +6080,8 @@
       { v:'deficit',   n:linhasDeficit() },
       { v:'MOTORISTA', n:pes.motoristas.length },
       { v:'USUARIO',   n:pes.usuarios.length },
-      { v:'TIPOCAIXA', n:linhasPorTipo().length }
+      { v:'TIPOCAIXA', n:linhasPorTipo().length },
+      { v:'FORNECEDOR', n:(pes.fornecedores||[]).length }
     ].map(function(c){ c.r = NOMES_GRUPO[c.v]; return c; });
     document.getElementById('retNav').innerHTML = itens.map(function(c){
       return '<button type="button" class="ret-item'+(FLUXO_FILTRO===c.v?' ativo':'')+
@@ -6581,7 +6593,7 @@
      filtro que ninguém usou. */
   function avisoVazio(){
     var f = (PAINEL && PAINEL.fluxo) || { linhas: [] };
-    var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [] };
+    var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [], fornecedores: [] };
     var houve = f.linhas.some(function(l){ return l.situacao !== 'parado'; }) ||
                 p.motoristas.length || p.usuarios.length;
     if (!houve) return temRecorte()

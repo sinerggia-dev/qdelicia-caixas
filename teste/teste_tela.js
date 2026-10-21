@@ -614,7 +614,20 @@ console.log('\n== a gaveta de uma pessoa, no Painel de Ativos ==');
          passou por aqui. */
       { ID:'M5', Registro:'R000005', DataRef:new Date('2026-10-16T00:00:00'),
         Tipo:'DEVOLUCAO', Qtd:50, QtdConferida:30, OrigemID:'L2', DestinoID:'L1',
-        TipoCaixaID:'T2', Motorista:'Dinho', UsuarioID:'U1' }
+        TipoCaixaID:'T2', Motorista:'Dinho', UsuarioID:'U1' },
+      /* DUAS VIAGENS DE UM FORNECEDOR, uma de ida e uma de volta, com numeros
+         DIFERENTES: com 100 nos dois lados, trocar "o que saiu" por "o que voltou" da' a
+         mesma resposta e a inversao passa batida. */
+      { ID:'M6', Registro:'R000006', DataRef:new Date('2026-10-17T00:00:00'),
+        Tipo:'SAIDA', Qtd:400, OrigemID:'L1', DestinoID:'L2', TipoCaixaID:'T1',
+        Motorista:'Dinho', UsuarioID:'U1', Fornecedor:'Cip\u00f3 Branco' },
+      { ID:'M7', Registro:'R000007', DataRef:new Date('2026-10-18T00:00:00'),
+        Tipo:'DEVOLUCAO', Qtd:250, OrigemID:'L2', DestinoID:'L1', TipoCaixaID:'T1',
+        Motorista:'Dinho', UsuarioID:'U1', Fornecedor:' Cip\u00f3 Branco ' },
+      /* E UMA DE OUTRO FORNECEDOR, para a lista ter mais de um nome. */
+      { ID:'M8', Registro:'R000008', DataRef:new Date('2026-10-18T00:00:00'),
+        Tipo:'SAIDA', Qtd:90, OrigemID:'L1', DestinoID:'L2', TipoCaixaID:'T2',
+        Motorista:'Dinho', UsuarioID:'U1', Fornecedor:'Engenho Cepo' }
     ],
     locais: [{ ID:'L1', Nome:'Matriz' }, { ID:'L2', Nome:'Recife' }],
     tipos: [{ ID:'T1', Nome:'CX G' }, { ID:'T2', Nome:'CX P' }],
@@ -762,6 +775,51 @@ console.log('\n== a gaveta de uma pessoa, no Painel de Ativos ==');
       'lado da outra, e n\u00e3o h\u00e1 nada na tela que explique a diferen\u00e7a',
       cheio.fornecedores);
   }
+
+  /* ================= O TOTAL POR FORNECEDOR =================
+   *
+   * A terceira visao do MESMO laco: quem dirigiu, quem lancou, e PARA QUEM foi. Montada
+   * num laco proprio, o dia em que a quantidade efetiva mudar de regra ela ficaria com a
+   * antiga, e a tela mostraria dois totais para a mesma carga.
+   *
+   * O FORNECEDOR E TEXTO NO LANCAMENTO, e nao um id: o lancamento guarda o nome porque
+   * repintar o cadastro nao pode reescrever o que ja saiu do galpao. Entao a chave e' o
+   * nome — APARADO, senao " Cipo Branco" e "Cipo Branco" viram dois fornecedores lado a
+   * lado na mesma lista. */
+  var fornG = pessoasG.fornecedores || [];
+  ok(fornG.length === 2,
+    'a lista traz um nome por fornecedor \u2014 e as duas grafias do mesmo, uma com espa\u00e7o ' +
+    'em volta, caem na MESMA linha', fornG.map(function (f) { return f.nome; }));
+
+  var cipo = fornG.filter(function (f) { return f.nome === 'Cip\u00f3 Branco'; })[0];
+  ok(cipo && cipo.saida === 400 && cipo.retorno === 250,
+    'e cada um soma os dois lados dele: sa\u00edram 400 e voltaram 250 \u2014 trocados, a carga ' +
+    'que VOLTOU apareceria como carga que saiu, e o saldo mudaria de sinal',
+    cipo && { saida: cipo.saida, retorno: cipo.retorno });
+  ok(cipo && cipo.saldo === -150,
+    'e o saldo dele \u00e9 retorno menos sa\u00edda \u2014 \u00e9 quanto daquele fornecedor ainda est\u00e1 ' +
+    'fora', cipo && cipo.saldo);
+
+  /* AS VIAGENS SEM FORNECEDOR NAO VIRAM UMA LINHA SEM DONO. A maior parte das viagens
+     nao tem um — rota para cliente, transferencia entre casas —, e um balde de nome
+     vazio juntaria todas elas na maior linha da lista, que nao responde pergunta
+     nenhuma. */
+  ok(!fornG.filter(function (f) { return !f.nome; }).length,
+    'e as viagens SEM fornecedor n\u00e3o viram uma linha sem dono \u2014 ela seria a maior da ' +
+    'lista e n\u00e3o responderia pergunta nenhuma', fornG.map(function (f) { return f.nome; }));
+
+  /* A SOMA FECHA COM O QUE FOI LANCADO COM NOME. Divergindo, a tela daria dois totais
+     plausiveis para a mesma carga, e quem conferir escolhe um ao acaso. */
+  var somaForn = fornG.reduce(function (a, f) { return a + f.saida; }, 0);
+  ok(somaForn === 490,
+    'e a soma dos fornecedores fecha com o que foi lan\u00e7ado com nome: 400 + 90',
+    somaForn);
+
+  /* A GAVETA DELE E A MESMA DAS OUTRAS DUAS: o lancamento, nao um resumo novo. */
+  ok(cipo && (cipo.linhas || []).length === 2,
+    'e a gaveta do fornecedor abre nos lan\u00e7amentos dele \u2014 a MESMA linha das outras duas ' +
+    'vis\u00f5es, porque \u00e9 o mesmo lan\u00e7amento visto de outro \u00e2ngulo',
+    cipo && (cipo.linhas || []).length);
 
   /* ---- A MESMA LINHA NAS DUAS VISOES ----
    * E' o mesmo lancamento visto por dois angulos: quem dirigiu e quem lancou. */
@@ -13691,6 +13749,23 @@ console.log('\n== tipos de caixa, e a fileira de quem nao e perna ==');
      M.deLugar('CLIENTE') && M.deLugar('deficit'),
     'as vis\u00f5es de lugar t\u00eam uma linha por TRECHO, e \u00e9 por isso que os cart\u00f5es de ' +
     'etapa conseguem dizer qual perna \u00e9 qual');
+  /* O FORNECEDOR ENTRA NA MESMA CONTA: a linha dele e' um NOME. Fora dela, a tela
+     sairia sem a coluna do nome e com o Saldo final zerado — exatamente o que
+     aconteceu com os Tipos de caixa, e que ninguem reparou ate' alguem tentar abrir
+     uma linha que nao se apresentava. */
+  ok(!M.deLugar('FORNECEDOR'),
+    'a visão de Fornecedores NÃO é de lugar — a linha é um nome, e fora desta conta ela ' +
+    'sai sem coluna de nome e com o saldo zerado', M.deLugar('FORNECEDOR'));
+  ok(adm.indexOf("FORNECEDOR: ['Fornecedor']") > 0,
+    'e a primeira coluna troca de título junto — "Origem / destino" não descreve uma ' +
+    'lista de fornecedores');
+  ok(/if \(FLUXO_FILTRO === 'FORNECEDOR'\) return p\.fornecedores \|\| \[\];/.test(adm),
+    'e a lista vem PRONTA do servidor — o fornecedor é texto no lançamento, e a linha ' +
+    'de trecho não o carrega: não há de onde somar na tela', adm.indexOf("'FORNECEDOR'"));
+  ok(/\{ v:'FORNECEDOR', n:\(pes\.fornecedores\|\|\[\]\)\.length \}/.test(adm),
+    'e o número do chip sai da MESMA lista que ele abre — por outro caminho, o chip ' +
+    'diria "5" com quatro linhas na tabela embaixo', adm.indexOf("v:'FORNECEDOR'"));
+
   ok(!M.deLugar('MOTORISTA') && !M.deLugar('USUARIO') && !M.deLugar('TIPOCAIXA'),
     'e motorista, usu\u00e1rio e tipo de caixa N\u00c3O s\u00e3o \u2014 cada linha soma v\u00e1rias pernas num ' +
     'n\u00famero s\u00f3. Com as etapas ligadas ali, a tela anunciava "Envio 2.900 \u2014 saiu da ' +

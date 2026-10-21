@@ -2702,7 +2702,12 @@ function fluxoPorPessoa(dados, desde, ate) {
   usuarios.forEach(function (u) { perfis[String(u.ID)] = u.Perfil || ''; });
 
   // chave -> { nome, extra:{}, saida, retorno }
-  var porMot = {}, porUsu = {};
+  /* TRES BALDES, e o terceiro e o fornecedor. Ele sai do mesmo laco e da mesma funcao
+     que os outros dois: a linha e' a MESMA vista de tres angulos — quem dirigiu, quem
+     lancou e para quem foi. Montado num laco proprio, o dia em que a quantidade efetiva
+     mudar de regra ele ficaria com a antiga, e a tela mostraria dois totais para a mesma
+     carga. */
+  var porMot = {}, porUsu = {}, porForn = {};
   var nomesTiposP = mapaTipos(dados.tipos || []);
   /* QUANTAS LINHAS DE DETALHE CADA PESSOA LEVA.
    * Um teto existe porque a carga desta rota cresce com o periodo escolhido, e alguem
@@ -2776,6 +2781,20 @@ function fluxoPorPessoa(dados, desde, ate) {
        quem dirigiu e quem lancou. Montar duas versoes dele seria duas verdades. */
     soma(porUsu, m.UsuarioID, nome(nomesUsuarios, m.UsuarioID), q, ehSaida, '', caixa,
          linha);
+    /* SO' QUEM TEM NOME. A maior parte das viagens nao tem fornecedor — rota para
+       cliente, transferencia entre casas —, e um balde de nome vazio juntaria todas elas
+       numa linha sem dono, que seria a maior da lista e nao responderia pergunta
+       nenhuma.
+       O `if` AQUI E PISO, e nao a guarda: quem barra a chave vazia e' o `if (!chave)` da
+       propria `soma`, uma funcao acima. Ele fica porque custa nada e porque diz, no
+       lugar onde se le', que a ausencia de fornecedor e' o caso COMUM — e nao um
+       descuido de quem lancou.
+       A CHAVE E O NOME, e nao um id: o lancamento guarda o texto, porque repintar o
+       cadastro nao pode reescrever o que ja saiu do galpao. */
+    if (linha.fornecedor) {
+      soma(porForn, linha.fornecedor, linha.fornecedor, q, ehSaida,
+           String(m.Rota || '').trim(), caixa, linha);
+    }
   });
 
   /* O `filter` E' PISO, e nao a guarda: quem barra o vazio e' o `if` la' na entrada, e
@@ -2827,7 +2846,11 @@ function fluxoPorPessoa(dados, desde, ate) {
     });
   }
 
-  return { motoristas: lista(porMot, 'MOTORISTA', 'rotas'), usuarios: lista(porUsu, 'USUARIO', 'perfil') };
+  return { motoristas: lista(porMot, 'MOTORISTA', 'rotas'),
+           usuarios: lista(porUsu, 'USUARIO', 'perfil'),
+           /* `rotas` como sub: a coluna de apoio do fornecedor sao as rotas por onde a
+              carga dele andou, que e' a mesma pergunta que ela responde no motorista. */
+           fornecedores: lista(porForn, 'FORNECEDOR', 'rotas') };
 }
 
 /**
