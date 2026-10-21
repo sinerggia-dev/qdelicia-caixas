@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=51101696">
+<link rel="stylesheet" href="styles.css?v=6950b955">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -823,6 +823,10 @@
           <span class="barra-agrupar__n" id="fxAgruparN"></span>
         </div>
         <div id="tabelaFluxo"><div class="vazio">Carregando…</div></div>
+        <!-- O RANKING FICA ABAIXO DA TABELA, e não acima: a tabela é a resposta exata e
+             o gráfico é a leitura rápida dela. Em cima, ele empurraria as linhas para
+             baixo da dobra — e quem abre esta tela vem conferir uma linha. -->
+        <div class="graficos graficos--um" id="graficosFluxo"></div>
       </div>
     </div>
   </section>
@@ -3285,6 +3289,67 @@
   }
 
   function linhasPorTipo(){ return agruparPorTipo(todasAsLinhas()); }
+
+  /* ================= QUEM ESTA COM AS CAIXAS =================
+   *
+   * A tabela responde linha a linha; a pergunta que faltava e' a do RANKING — "quem esta
+   * com mais caixas nossas?" —, e com cinquenta e oito linhas ela so' se respondia
+   * somando com o olho.
+   *
+   * O SALDO DEVEDOR E `saida - retorno` DO DESTINO. Numa perna, a ida leva para o
+   * destino e a volta traz de la': o que sobra ficou com ele. E' a mesma conta da coluna
+   * Saldo final da tabela, com o sinal virado — aqui a pergunta e' "quanto ele tem", e
+   * la' e' "quanto falta voltar".
+   *
+   * O DESTINO INTEIRO COMO CHAVE, como na gaveta dos tipos: numa linha ja agrupada ha
+   * varios destinos, e somar nome a nome faria a mesma carga entrar uma vez por ponta.
+   *
+   * SAI DE `todasAsLinhas`, e nao da lista do chip: assim o periodo, a busca e os
+   * filtros de lugar valem aqui sem ser escritos de novo — e o ranking responde pelo
+   * MESMO recorte que a tabela mostra, em qualquer visao. */
+  function destinosComCaixa(){
+    var mapa = {}, ordem = [];
+    todasAsLinhas().forEach(function(l){
+      var k = (l.destinos || []).filter(Boolean).join(', ');
+      if (!k) return;
+      if (!mapa[k]) { mapa[k] = { k: k, v: k, saida: 0, retorno: 0, total: 0 }; ordem.push(k); }
+      mapa[k].saida += l.saida || 0;
+      mapa[k].retorno += l.retorno || 0;
+    });
+    return ordem.map(function(k){
+      var g = mapa[k];
+      g.total = g.saida + g.retorno;
+      return g;
+    }).sort(function(a, b){
+      /* QUEM DEVE MAIS PRIMEIRO. `retorno - saida` e' negativo para quem ficou com a
+         caixa, entao a ordem crescente poe o maior devedor no topo — que e' o que a
+         pergunta pede. Empate desfeito pelo nome, para a lista nao dancar a cada
+         redesenho. */
+      return (a.retorno - a.saida) - (b.retorno - b.saida) ||
+             a.k.localeCompare(b.k, 'pt-BR');
+    });
+  }
+
+  /* OITO BARRAS, e a nota diz de quantos. Barra de dois pixels nao e' leitura, e'
+     enfeite; e uma lista de quarenta nomes empurra a tabela para fora da tela. SEM um
+     balde "Outros": ele seria a maior barra do painel e a unica que nao se pode clicar
+     nem conferir. */
+  function desenharGraficosFluxo(){
+    var box = document.getElementById('graficosFluxo');
+    if (!box) return;
+    var todos = destinosComCaixa();
+    if (!todos.length) { box.innerHTML = ''; return; }
+    var lista = todos.slice(0, 8);
+    var nota = lista.length === todos.length
+      ? pl(todos.length, 'destino', 'destinos')
+      : lista.length + ' de ' + pl(todos.length, 'destino', 'destinos');
+    /* `painelSaldoG` E O MESMO DOS GRAFICOS DE MOVIMENTOS, e nao uma copia: a barra, a
+       regua e a cor saem de la'. Duas barras desenhadas em dois lugares divergem na
+       primeira que for mexida, e as duas sao plausiveis.
+       O CAMPO E `rtDestino`: clicar na barra filtra a tabela por aquele destino, e
+       clicar de novo tira — o mesmo gesto do clique na linha. */
+    box.innerHTML = painelSaldoG(3, 'Quem está com as caixas', lista, nota, 'rtDestino');
+  }
 
   function linhasFluxo(){
     var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [], fornecedores: [] };
@@ -6564,6 +6629,7 @@
         true);
 
     vigiarTiles();
+    desenharGraficosFluxo();
     /* A TARJA DO DIA SO' EXISTE DEPOIS QUE OS CARTOES ESTAO NA TELA. Sem esta chamada,
        nenhuma data acende ate' a pessoa rolar — e quem abre o painel e nao rola ve' a
        lista inteira sem destaque nenhum. A mesma chamada que a lista de Movimentos faz
@@ -9208,6 +9274,12 @@
       '</button>';
   }
 
+  /* O PLURAL DA NOTA. Mora AQUI, e nao dentro de um dos desenhos, porque os dois
+     paineis — o de Movimentos e o do Painel de Ativos — escrevem a mesma nota. Dentro
+     de um deles, o outro chamaria um nome que nao existe no escopo dele e o painel
+     inteiro sumiria da tela no primeiro desenho. */
+  function pl(n, s1, s2){ return n + ' ' + (n === 1 ? s1 : s2); }
+
   /* O PAINEL DO SALDO. Separado do `painelG` pelo CABEÇALHO e pelo número grande de
      cada linha: ali o total diz quanto se mexeu, aqui o saldo diz quanto falta. A
      régua e o trilho são os MESMOS — o par mostra o mesmo desenho e pergunta duas
@@ -9248,7 +9320,6 @@
     var caixa  = cortarG(agruparMov(L, function(m){
       return [m.tipoCaixa, m.tipoCaixaId]; }).sort(porTotalG));
 
-    var pl = function(n, s1, s2){ return n + ' ' + (n === 1 ? s1 : s2); };
 
     /* ================= DOIS PAINEIS POR DIMENSAO =================
      *
@@ -9343,6 +9414,11 @@
       }
       el.value = ligado ? '' : v;
     }
+    /* A BARRA DO PAINEL DE ATIVOS REDESENHA, e nao recarrega: origem e destino peneiram
+       o fluxo que ja veio, e uma ida a rede por clique seria uma espera por nada. Os
+       campos do Painel comecam com `rt` — e e' assim que este ouvinte, que serve as
+       duas telas, sabe qual delas redesenhar. */
+    if (String(campo).indexOf('rt') === 0) { desenharFluxo(); return; }
     carregarMovimentos();
   });
 

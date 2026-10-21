@@ -3253,6 +3253,12 @@ details.tipos[open] summary::before{content:"▾"}
   margin:12px 0 0}
 @media (max-width:520px){.graficos{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .graficos:empty{display:none}
+/* UM PAINEL SO' OCUPA A LARGURA TODA. A grade de cinco colunas serve aos cinco
+   recortes de Movimentos; com um painel so', ela o espremeria em um quinto da tela e
+   deixaria o resto vazio — que e' exatamente o vazio que este ranking veio preencher.
+   E barra comprida e' barra que se compara: a diferenca entre o primeiro e o terceiro
+   fica visivel em vez de caber em dez pixels. */
+.graficos--um{grid-template-columns:minmax(0,1fr)}
 .g{position:relative;isolation:isolate;min-width:0;background:var(--campo);
   border:1px solid var(--linha);border-radius:var(--raio);
   padding:10px clamp(7px,.72vw,11px) 18px}
