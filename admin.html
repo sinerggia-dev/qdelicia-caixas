@@ -1551,8 +1551,13 @@
                 <option value="Bateu">Bateu</option>
                 <option value="Divergente">Divergente</option>
                 <option value="Sem conferência">Sem conferência</option>
-                <option value="Sem saída">Sem saída</option>
+                <option value="Sem Retorno Motorista">Sem Retorno Motorista</option>
                 <option value="Sem quantidade">Sem quantidade</option>
+                <!-- A SAÍDA LOGÍSTICA FECHA A LISTA porque ela não incomoda: é o estado
+                     normal de uma carga que saiu, e não uma das formas de a conta estar
+                     pela metade. Entre as pendências, ela faria a fileira de chips
+                     parecer uma fila de coisas a resolver. -->
+                <option value="Saída Logística">Saída Logística</option>
               </select></div>
           </div>
           <div class="linha-btn">
@@ -4408,7 +4413,8 @@
        *                       mais de uma mão e volta a não se saber qual é qual.
        *
        * E ELA NÃO FECHA MESMO ASSIM. Com a contagem no lugar certo e nada declarado, a
-       * situação vira "Sem saída" — pendente, como as outras cargas da tela em que só um
+       * situação vira "Sem Retorno Motorista" — pendente, como as outras cargas da
+       * tela em que só um
        * lado existe. Dizer "Bateu" seria um número concordando consigo mesmo. */
       /* SÓ NO RETORNO, e isto foi o galpão que ensinou: "o gerente normalmente faz
          todas as saídas". Numa SAÍDA o número dele é o registro do que deixou o galpão
@@ -4490,8 +4496,20 @@
       par.retornoTotal = par.tipo === 'Retorno' ? par.declaradoTotal : null;
       if (par.declaradoTotal && par.conferido) {
         par.situacao = (par.declaradoTotal === par.conferido) ? 'Bateu' : 'Divergente';
-      } else if (par.declaradoTotal) par.situacao = 'Sem conferência';
-      else if (par.conferido) par.situacao = 'Sem saída';
+      } else if (par.declaradoTotal) {
+        /* A SAÍDA NÃO ESTÁ PENDENTE DE NADA, e chamá-la de "Sem conferência" dizia o
+           contrário. Não existe contagem na chegada de uma carga que está SAINDO — a
+           conferência acontece na volta —, e a tela marcava em âmbar, linha após linha,
+           uma pendência que ninguém jamais ia resolver. Âmbar que nunca fecha ensina a
+           ignorar o âmbar, e aí o retorno que está mesmo pendente passa junto.
+           "SAÍDA LOGÍSTICA" É O QUE ELA É: o registro da carga que deixou o galpão. */
+        par.situacao = par.tipo === 'Saída' ? 'Saída Logística' : 'Sem conferência';
+      }
+      /* QUEM FALTOU TEM NOME. "Sem saída" se lia como "não houve saída" — e o que falta
+         aqui é o lançamento de retorno DO MOTORISTA: alguém contou a carga na chegada, e
+         ele não declarou o que trouxe. O nome velho mandava procurar uma saída que não
+         era o problema. */
+      else if (par.conferido) par.situacao = 'Sem Retorno Motorista';
       /* O QUE SOBRA E UM PAR SEM QUANTIDADE NENHUMA dos dois lados — nao e' o caso de
          "so' declaracao", que era o nome antigo: aquele par agora tem o numero dele na
          coluna, e a situacao dele e' "Sem conferencia", que e' o que de fato falta. */
@@ -4898,8 +4916,11 @@
   /* A COR DA SITUAÇÃO, num lugar só. Ela era escrita na célula da tabela e de novo na
      ficha do celular, com a mesma lista de três — e uma situação nova ganhava cor numa
      tela e ficava cinza na outra, para o mesmo par.
-     VERMELHO É SÓ PARA O QUE NÃO FECHOU. "Sem conferência" e "Sem saída" são ausências,
-     e ausência em vermelho ensina a ignorar o vermelho. */
+     VERMELHO É SÓ PARA O QUE NÃO FECHOU. As ausências são cinza, e ausência em vermelho
+     ensina a ignorar o vermelho.
+     E O ÂMBAR É SÓ DO QUE SE RESOLVE. "Sem conferência" é um retorno esperando alguém
+     contar — isso se resolve. "Saída Logística" não espera nada, e em âmbar ela seria
+     uma pendência eterna no meio das que são de verdade. */
   function corDaSituacao(sit){
     return sit === 'Bateu' ? 'verde'
          : sit === 'Divergente' ? 'vermelha'

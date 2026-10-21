@@ -1219,7 +1219,7 @@ console.log('\n== juntar as viagens por localidade ==');
     { origemTxt: 'João Pessoa', destinoTxt: 'Matriz', saida: 262, declarado: 0,
       conferido: 100, situacao: 'Divergente' },
     { origemTxt: 'Recife', destinoTxt: 'Matriz', saida: 0, declarado: 0,
-      conferido: 500, situacao: 'Sem saída' },
+      conferido: 500, situacao: 'Sem Retorno Motorista' },
     { origemTxt: '', destinoTxt: 'Matriz', saida: 10, declarado: 0, conferido: 0,
       situacao: 'Sem conferência' }
   ];
@@ -17930,7 +17930,8 @@ console.log('\n== Motorista/Conferente ==');
 
   /* E ELA NAO FECHA. Pendente e' a resposta certa: uma pessoa so' encostou nela, e
      "Bateu" seria um numero concordando consigo mesmo. */
-  ok(soDoGerente[0].situacao === 'Sem sa\u00edda' && soDoGerente[0].difConf === null,
+  ok(soDoGerente[0].situacao === 'Sem Retorno Motorista' &&
+     soDoGerente[0].difConf === null,
     'e mesmo assim a carga N\u00c3O fecha: fica pendente, com a diferen\u00e7a em travess\u00e3o \u2014 ' +
     'dizer "Bateu" seria um n\u00famero concordando consigo mesmo',
     [soDoGerente[0].situacao, soDoGerente[0].difConf]);
@@ -18049,6 +18050,39 @@ console.log('\n== Motorista/Conferente ==');
     'e os dois campos nunca s\u00e3o o mesmo n\u00famero na mesma linha \u2014 iguais, a tabela diria ' +
     'que toda viagem saiu e voltou de uma vez', [parSai.saidaTotal, parVol.retornoTotal]);
 
+  /* ---- E A SITUACAO DE CADA SENTIDO ----
+   *
+   * A SAIDA NAO ESTA PENDENTE DE NADA. Nao existe contagem na chegada de uma carga que
+   * esta' SAINDO — a conferencia acontece na volta —, e a tela marcava em ambar, linha
+   * apos linha, uma pendencia que ninguem jamais ia resolver. Ambar que nunca fecha
+   * ensina a ignorar o ambar, e ai o retorno que esta' mesmo pendente passa junto.
+   *
+   * ESCAPOU UMA SABOTAGEM AQUI: as provas liam o nome no arquivo e mediam a cor, e
+   * NENHUMA rodava o emparelhamento para ver a situacao nascer. Devolvido o rotulo
+   * antigo, toda saida voltava a dizer "Sem conferencia" sem quebrar prova nenhuma. */
+  /* O NOME NOVO NAO ENGOLE AS CONTAS. Tendo contagem, a saida continua
+     respondendo "bateu?" como sempre — `parSai` saiu 700 e contaram 690. */
+  ok(parSai.situacao === 'Divergente',
+    'uma sa\u00edda que FOI contada continua dizendo se bateu — o nome novo ' +
+    'vale para a AUS\u00caNCIA de contagem, e n\u00e3o é um carimbo em toda linha ' +
+    'de sa\u00edda', parSai.situacao);
+  ok(parVol.situacao !== 'Sa\u00edda Log\u00edstica',
+    'e o RETORNO n\u00e3o herda esse nome \u2014 herdando, as cargas que esperam algu\u00e9m contar ' +
+    'sairiam da fila de pend\u00eancias de uma vez e em sil\u00eancio', parVol.situacao);
+
+  var saidaSemContagem = montarPares([
+    saidaDe({ qtd: 640, tipo: 'SAIDA', motorista: 'Zeca' })
+  ]);
+  ok(saidaSemContagem[0].situacao === 'Sa\u00edda Log\u00edstica',
+    'e vale tamb\u00e9m quando a sa\u00edda \u00e9 o \u00fanico lan\u00e7amento da carga \u2014 \u00e9 o caso comum da ' +
+    'tela, e era ele que enchia a coluna de \u00e2mbar', saidaSemContagem[0].situacao);
+
+  var retornoSemContagem = montarPares([declDe({ qtd: 640, motorista: 'Zeca' })]);
+  ok(retornoSemContagem[0].situacao === 'Sem confer\u00eancia',
+    'enquanto um RETORNO declarado e n\u00e3o contado segue "Sem confer\u00eancia" \u2014 sem este ' +
+    'controle, as duas provas acima passariam com uma regra que chama tudo de Sa\u00edda ' +
+    'Log\u00edstica', retornoSemContagem[0].situacao);
+
   /* E A CONTAGEM DO GERENTE PARA NO RETORNO.
    *
    * "O gerente normalmente faz todas as saidas" — e' o galpao falando. Numa SAIDA o
@@ -18091,13 +18125,15 @@ console.log('\n== Motorista/Conferente ==');
      O QUE O MOTORISTA LANCA NO RETORNO JA E A DECLARACAO DELE, e a unica conta que
      sobra e' a que importa: o que se contou na chegada contra o que ele declarou. */
 
-  /* SEM SAÍDA: alguém contou e ninguém informou o que saiu. */
+  /* SEM RETORNO MOTORISTA: alguem contou a carga na chegada e o motorista nao declarou
+     o que trouxe. O nome velho era "Sem saida", e ele mandava procurar uma saida que
+     nao era o problema — o que falta e' o lancamento DELE. */
   var semSaida = montarPares([lanc({ qtd: 320, motorista: 'Chico' })]);
-  ok(semSaida[0].situacao === 'Sem saída' && semSaida[0].difConf === null &&
+  ok(semSaida[0].situacao === 'Sem Retorno Motorista' && semSaida[0].difConf === null &&
      semSaida[0].saida === 0,
-    'o conferente contou e ninguém informou a saída: isso é AUSÊNCIA, não divergência — ' +
-    'a diferença fica em travessão, senão a tela acusaria uma sobra de 320 caixas que ' +
-    'ninguém viu', [semSaida[0].situacao, semSaida[0].difConf]);
+    'contaram a carga e o motorista n\u00e3o declarou: isso \u00e9 AUS\u00caNCIA, n\u00e3o diverg\u00eancia \u2014 ' +
+    'a diferen\u00e7a fica em travess\u00e3o, sen\u00e3o a tela acusaria uma sobra de 320 caixas que ' +
+    'ningu\u00e9m viu', [semSaida[0].situacao, semSaida[0].difConf]);
 
   /* SÓ O LIVRO DE DECLARAÇÃO: o motorista falou naquele livro e mais ninguém lançou.
      ERA ISTO QUE SUMIA DA TELA. A coluna do livro de declaração saiu, a pedido, e um
@@ -18429,11 +18465,19 @@ console.log('\n== Motorista/Conferente ==');
     while ((m = re.exec(trecho)) !== null) if (m[1]) fora.push(m[1]);
     return fora;
   })();
-  ok(opcSit.length === 5 && opcSit.indexOf('Sem conferência') >= 0 &&
-     opcSit.indexOf('Sem saída') >= 0,
-    'o filtro oferece as CINCO situações, com as duas ausências novas separadas — ' +
-    '"sem conferência" é um par que saiu e ninguém contou, e "sem saída" é o contrário; ' +
-    'juntas numa palavra só, procurar uma trazia a outra', opcSit);
+  ok(opcSit.length === 6 && opcSit.indexOf('Sem confer\u00eancia') >= 0 &&
+     opcSit.indexOf('Sem Retorno Motorista') >= 0 &&
+     opcSit.indexOf('Sa\u00edda Log\u00edstica') >= 0,
+    'o filtro oferece as SEIS situa\u00e7\u00f5es, com as aus\u00eancias separadas \u2014 "sem ' +
+    'confer\u00eancia" \u00e9 um retorno que ningu\u00e9m contou, e "sem retorno motorista" \u00e9 o ' +
+    'contr\u00e1rio; juntas numa palavra s\u00f3, procurar uma trazia a outra', opcSit);
+  /* E A SAIDA LOGISTICA FECHA A LISTA. Ela nao incomoda — e' o estado normal de uma
+     carga que saiu —, e entre as pendencias faria a fileira de chips parecer uma fila
+     de coisas a resolver. */
+  ok(opcSit[opcSit.length - 1] === 'Sa\u00edda Log\u00edstica',
+    'e a Sa\u00edda Log\u00edstica fecha a lista \u2014 a ordem \u00e9 a do que incomoda, e ela n\u00e3o ' +
+    'incomoda: no meio das pend\u00eancias, a fileira de chips pareceria uma fila de coisas ' +
+    'a resolver', opcSit);
   ok(/sit\.innerHTML = situacoesConhecidas\(\)/.test(semComentarios(adm)),
     'e os chips de contagem leem essa MESMA lista do seletor — escrita de novo neles, ' +
     'uma situação entraria num e não no outro, e a soma dos chips deixaria de fechar ' +
@@ -18454,10 +18498,19 @@ console.log('\n== Motorista/Conferente ==');
      vermelho, e aí o dia em que algo não fecha de verdade passa junto. */
   var cor = new Function(fCor + '\n return corDaSituacao;')();
   ok(cor('Divergente') === 'vermelha' && cor('Bateu') === 'verde' &&
-     cor('Sem saída') === 'cinza' && cor('Só declaração') === 'cinza',
+     cor('Sem Retorno Motorista') === 'cinza' && cor('S\u00f3 declara\u00e7\u00e3o') === 'cinza',
     'e o vermelho é só do que NÃO FECHOU — ausência em vermelho ensina a ignorar o ' +
     'vermelho, e aí o dia em que a conta não fecha de verdade passa junto',
-    ['Divergente', 'Bateu', 'Sem saída'].map(cor));
+    ['Divergente', 'Bateu', 'Sem Retorno Motorista'].map(cor));
+
+  /* O AMBAR E SO' DO QUE SE RESOLVE. "Sem conferencia" e' um retorno esperando alguem
+     contar — isso se resolve. "Saida Logistica" nao espera nada: em ambar, cada carga
+     que sai viraria uma pendencia eterna no meio das que sao de verdade, e ambar que
+     nunca fecha ensina a ignorar o ambar. */
+  ok(cor('Sa\u00edda Log\u00edstica') === 'cinza' && cor('Sem confer\u00eancia') === 'amarela',
+    'e a Sa\u00edda Log\u00edstica fica em cinza, enquanto "Sem confer\u00eancia" segue em \u00e2mbar \u2014 ' +
+    '\u00e2mbar \u00e9 do que se resolve, e toda carga que sai ficaria pendente para sempre',
+    [cor('Sa\u00edda Log\u00edstica'), cor('Sem confer\u00eancia')]);
 
   /* ---- O ARQUIVO TEM UMA COLUNA PARA CADA TÍTULO ----
      Um título a mais ou a menos desloca TODAS as colunas dali para a frente, e a
