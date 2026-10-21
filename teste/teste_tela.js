@@ -916,13 +916,13 @@ console.log('\n== falta e negativo, e vermelho ==');
   /* ---- A CONTA, NO PAR E NO GRUPO, NA MESMA DIRECAO ----
    * As duas linhas dividem a mesma COLUNA. */
   var semCom = admD.replace(/\/\*[\s\S]*?\*\//g, '');
-  ok(semCom.indexOf('par.conferido - par.saida') > 0,
+  ok(semCom.indexOf('par.conferido - par.declaradoTotal') > 0,
     'a linha da viagem compara o conferido com o que o motorista declarou, na direção ' +
     'de saldo — o que falta é negativo');
   ok(semCom.indexOf('g.conferido - g.saida') > 0,
     'e a linha do grupo na MESMA direção — elas dividem a mesma coluna, e uma coluna ' +
     'só pode significar uma coisa');
-  ok(semCom.indexOf('par.saida - par.declarado') < 0 &&
+  ok(semCom.indexOf('par.declaradoTotal - par.conferido') < 0 &&
      semCom.indexOf('g.saida - g.conferido') < 0,
     'e a direção antiga não sobrou em canto nenhum — meia virada é pior que nenhuma: ' +
     'duas linhas da mesma tabela diriam sinais opostos sobre a mesma operação');
@@ -1147,6 +1147,10 @@ console.log('\n== juntar as viagens por localidade ==');
 
   var agrupar = new Function(fonteL + ' return agruparDeclPorLocal;')();
   var PARES_L = [
+    /* `declaradoTotal` E O CAMPO QUE A COLUNA LE, e por isso e' ele que o grupo soma:
+       `montarPares` o calcula (producao, ou o livro de declaracao quando e' o unico que
+       ha), e um cenario sem ele mediria uma coluna vazia. A lista abaixo o deriva na
+       linha de baixo, para nao repeti-lo par a par. */
     { origemTxt: 'João Pessoa', destinoTxt: 'Matriz', saida: 173, declarado: 0,
       conferido: 0, situacao: 'Sem conferência' },
     { origemTxt: 'João Pessoa', destinoTxt: 'Matriz', saida: 262, declarado: 0,
@@ -1156,6 +1160,14 @@ console.log('\n== juntar as viagens por localidade ==');
     { origemTxt: '', destinoTxt: 'Matriz', saida: 10, declarado: 0, conferido: 0,
       situacao: 'Sem conferência' }
   ];
+  /* `montarPares` calcula `declaradoTotal` em cada par; um cenário montado à mão
+     precisa derivá-lo, senão o grupo soma uma coluna vazia. */
+  PARES_L.forEach(function (x) { x.declaradoTotal = x.saida || x.declarado || 0; });
+  /* UM PAR QUE VEIO SO' DO LIVRO DE DECLARACAO entra no cenario do grupo pelo mesmo
+     motivo: com `saida` igual ao total em todos os pares, somar um ou outro da' a mesma
+     resposta, e a sabotagem que troca o campo passa batida. */
+  PARES_L.push({ origemTxt: 'Natal', destinoTxt: 'Matriz', saida: 0, declarado: 180,
+                 declaradoTotal: 180, conferido: 180, situacao: 'Bateu' });
   var gs = agrupar(PARES_L);
 
   /* ---- O QUE A PESSOA PEDIU: a conta acumulada por lugar ---- */
@@ -1173,7 +1185,10 @@ console.log('\n== juntar as viagens por localidade ==');
    * Se um par escapasse do agrupamento, os grupos somariam menos que os cartoes de
    * cima — e os dois numeros sao plausiveis, entao ninguem desconfiaria. */
   var somaG = gs.reduce(function (a, g) { return a + g.saida; }, 0);
-  var somaP = PARES_L.reduce(function (a, p) { return a + p.saida; }, 0);
+  /* OS DOIS LADOS SOMAM O MESMO CAMPO — o que a coluna mostra. Comparando o total do
+     grupo com `saida`, um par vindo só do livro de declaração entrava no grupo e não
+     na soma de controle, e a prova acusava fuga onde não havia. */
+  var somaP = PARES_L.reduce(function (a, p) { return a + p.declaradoTotal; }, 0);
   ok(somaG === somaP,
     'e a soma dos grupos fecha com a soma dos pares — um par que escapasse faria os ' +
     'grupos somarem menos que os cartões do topo, e os dois números são plausíveis',
@@ -17696,14 +17711,23 @@ console.log('\n== Motorista/Conferente ==');
     'a diferença fica em travessão, senão a tela acusaria uma sobra de 320 caixas que ' +
     'ninguém viu', [semSaida[0].situacao, semSaida[0].difConf]);
 
-  /* SÓ DECLARAÇÃO: o motorista falou e mais ninguém. */
+  /* SÓ O LIVRO DE DECLARAÇÃO: o motorista falou naquele livro e mais ninguém lançou.
+     ERA ISTO QUE SUMIA DA TELA. A coluna do livro de declaração saiu, a pedido, e um
+     lançamento feito nele passou a mostrar travessão na quantidade e zero no cartão, com
+     as caixas visíveis só dentro da gaveta. Agora a coluna "Retorno Declarado" traz a
+     declaração de QUALQUER livro — é a mesma coisa dita em dois cadernos. */
   var soDecl = montarPares([
     declDe({ qtd: 180, motorista: 'Isaque', usuario: 'Isaque' })
   ]);
-  ok(soDecl[0].situacao === 'Só declaração' && soDecl[0].conferido === 0 &&
-     soDecl[0].saida === 0 && soDecl[0].conferenteTxt === '',
-    'e o motorista declarou e mais ninguém lançou nada: a fala dele sozinha, sem os ' +
-    'dois lados para comparar', [soDecl[0].situacao, soDecl[0].conferenteTxt]);
+  ok(soDecl[0].declaradoTotal === 180 && soDecl[0].saida === 0,
+    'a declaração feita no livro próprio APARECE na coluna — ela estava só na gaveta, com ' +
+    'a linha mostrando travessão e o cartão somando zero sobre 180 caixas declaradas',
+    { total: soDecl[0].declaradoTotal, saida: soDecl[0].saida });
+  ok(soDecl[0].situacao === 'Sem conferência' && soDecl[0].conferido === 0 &&
+     soDecl[0].conferenteTxt === '',
+    'e a situação dele é "Sem conferência", que é o que de fato falta — ninguém contou. ' +
+    'O nome antigo, "Só declaração", descrevia de que CADERNO ele veio, e isso deixou de ' +
+    'ser o que distingue o par', [soDecl[0].situacao, soDecl[0].conferenteTxt]);
   ok(soDecl[0].difConf === null,
     'e sem as duas pontas a diferença fica em travessão, e nunca em zero — zero é uma ' +
     'conta que deu zero, e ausência é outra coisa', soDecl[0].difConf);
@@ -17714,6 +17738,30 @@ console.log('\n== Motorista/Conferente ==');
     'e o lançamento da Base Declaração continua sendo contado no par — a coluna dele ' +
     'saiu da tabela, e é pela situação "Só declaração" que ele aparece: sem isso, um ' +
     'lançamento naquele livro sumiria da tela sem deixar rastro', soDecl[0].declarado);
+
+  /* ---- DECLARADO NO LIVRO PROPRIO, E CONFERIDO ----
+   *
+   * E' o cenario que faltava, e sem ele CINCO sabotagens escaparam de uma vez. Em todos
+   * os outros pares `saida` e o total declarado valem o MESMO — porque o lancamento veio
+   * da producao —, entao ler um ou ler o outro da' a mesma resposta, e qualquer peca que
+   * voltasse ao campo antigo passava batida.
+   *
+   * AQUI ELES SE SEPARAM: a declaracao veio do livro proprio (`saida` fica em zero) e
+   * alguem contou. Pelo campo antigo a tela diria "Sem saida" sobre um par que FECHOU —
+   * uma acusacao inventada —, e a coluna mostraria travessao com 180 caixas declaradas. */
+  var declConf = montarPares([
+    declDe({ qtd: 180, motorista: 'Isaque', usuario: 'Isaque' }),
+    lanc({ qtd: 180, motorista: 'Isaque' })
+  ]);
+  ok(declConf[0].saida === 0 && declConf[0].declaradoTotal === 180,
+    'o par declarado no livro pr\u00f3prio tem `saida` ZERO e total 180 \u2014 \u00e9 este o cen\u00e1rio ' +
+    'que separa os dois campos, e sem ele qualquer pe\u00e7a que voltasse ao antigo passava ' +
+    'batida', { saida: declConf[0].saida, total: declConf[0].declaradoTotal });
+  ok(declConf[0].situacao === 'Bateu' && declConf[0].difConf === 0,
+    'e ele BATEU: 180 declarados contra 180 contados. Pelo campo antigo a tela diria ' +
+    '"Sem sa\u00edda" sobre um par que fechou \u2014 uma acusa\u00e7\u00e3o inventada, e da pior esp\u00e9cie, ' +
+    'porque vem com um n\u00famero do lado',
+    { situacao: declConf[0].situacao, dif: declConf[0].difConf });
 
   /* AS TRÊS CHAVES QUE NÃO SE MISTURAM, e cada uma custou uma decisão. */
   var doisDias = montarPares([
@@ -17865,18 +17913,27 @@ console.log('\n== Motorista/Conferente ==');
       num: function (n) { return String(Number(n) || 0); } },
     { titulos: TITD });
 
+  /* `declaradoTotal` E O CAMPO QUE A CELULA LE. Com os DOIS livros preenchidos vale o
+     da producao: eles nao sao duas cargas, sao duas opinioes sobre a mesma. */
   var parExemplo = { saida: 500, declarado: 410, conferido: 460,
-                     difConf: 40,
+                     declaradoTotal: 500, difConf: 40,
                      informanteTxt: 'Wellington', conferenteTxt: 'Melk',
                      origemTxt: 'Filial Maceió', destinoTxt: 'Matriz São Vicente' };
   ok(DEFSD.saida.v(parExemplo).indexOf('Wellington') > 0,
     'a célula da Saída leva no balão QUEM a informou — a coluna Conferente passou a ' +
     'listar só quem tem o papel de conferir, e sem o balão o nome de quem informou a ' +
     'saída não estaria em lugar nenhum da tabela', DEFSD.saida.v(parExemplo));
+  /* E A CELULA LE O TOTAL, e nao o campo da producao: com um par que veio so' do livro
+     de declaracao, o campo antigo e' ZERO e a coluna mostraria travessao sobre 180
+     caixas declaradas. */
+  ok(DEFSD.saida.v({ declaradoTotal: 180, saida: 0 }).indexOf('180') > 0,
+    'a célula mostra a declaração de QUALQUER livro — lendo só o campo da produção, um ' +
+    'retorno declarado no livro próprio sai com travessão na quantidade',
+    DEFSD.saida.v({ declaradoTotal: 180, saida: 0 }));
   ok(DEFSD.saida.v(parExemplo).indexOf('500') > 0 &&
-     DEFSD.saida.v({ saida: 0 }).indexOf('—') > 0,
+     DEFSD.saida.v({ declaradoTotal: 0 }).indexOf('—') > 0,
     'e o travessão fica no lado que NÃO existe, nunca um zero: zero é uma contagem que ' +
-    'deu zero, e ausência é outra coisa', DEFSD.saida.v({ saida: 0 }));
+    'deu zero, e ausência é outra coisa', DEFSD.saida.v({ declaradoTotal: 0 }));
   /* SOBROU UMA DIFERENCA, e ela continua saindo da fabrica: a celula le' o campo
      pelo NOME que recebeu, e nao um campo fixo escrito a mao dentro dela. Era isso
      que a prova das duas media, e continua valendo com uma so'. */
@@ -18005,6 +18062,21 @@ console.log('\n== Motorista/Conferente ==');
     'o CSV tem uma coluna para cada título — um a mais ou a menos desloca todas as ' +
     'colunas dali para a frente, e a planilha fica plausível: os números continuam lá, ' +
     'debaixo do nome errado', { titulos: cabCsv, valores: linCsv });
+  /* O CARTAO E O CSV LEEM O MESMO CAMPO QUE A COLUNA.
+     Os dois moram dentro de funcoes que esta bancada nao consegue EXECUTAR — uma e' o
+     desenho da fileira, a outra um ouvinte de clique —, e por isso aqui a prova e' de
+     texto. Ela existe porque duas sabotagens escaparam exatamente por ali: voltando ao
+     campo da producao, o cartao soma zero e o arquivo sai com a coluna vazia sobre um
+     retorno declarado no livro proprio. */
+  ok(adm.indexOf("soma('declaradoTotal')") > 0,
+    'o cartão soma o MESMO campo que a coluna mostra — pelo campo da produção ele ' +
+    'daria zero sobre um retorno declarado no livro próprio, que é o defeito que o ' +
+    'escritório encontrou', adm.indexOf("soma('declaradoTotal')"));
+  ok(/par\.declaradoTotal \|\| '', par\.conferido \|\| ''/.test(adm),
+    'e o CSV leva o mesmo campo — uma planilha que discorda da tela é a pior forma de ' +
+    'divergência, porque ela viaja por e-mail sem a tela do lado para conferir',
+    adm.indexOf('par.declaradoTotal'));
+
   ok(adm.indexOf("'Retorno Declarado','Conferido','Conferido-Declarado'") > 0,
     'e os dois n\u00fameros e a diferen\u00e7a v\u00e3o para o arquivo com os MESMOS nomes da tela \u2014 ' +
     'a confer\u00eancia de escrit\u00f3rio n\u00e3o tem bal\u00e3o nem seta, e uma coluna que existe na ' +

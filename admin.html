@@ -1544,7 +1544,7 @@
                 <option value="Divergente">Divergente</option>
                 <option value="Sem conferência">Sem conferência</option>
                 <option value="Sem saída">Sem saída</option>
-                <option value="Só declaração">Só declaração</option>
+                <option value="Sem quantidade">Sem quantidade</option>
               </select></div>
           </div>
           <div class="linha-btn">
@@ -2403,7 +2403,7 @@
                   Q.dataBR(par.dataRef), par.teste ? 'Teste' : 'Producao', par.tipo,
                   par.motorista || '(sem motorista)', par.veiculoTxt,
                   par.origemTxt, par.destinoTxt,
-                  par.saida || '', par.conferido || '',
+                  par.declaradoTotal || '', par.conferido || '',
                   /* O ARQUIVO LEVA O MESMO NUMERO DA TELA, com o mesmo sinal: uma
                      planilha que discorda da tela e' a pior forma de divergencia,
                      porque ela viaja por e-mail sem a tela do lado para conferir.
@@ -4302,11 +4302,37 @@
          par que saiu e ninguém contou ainda, e virando −410 na coluna da diferença a
          tela diria que faltaram 410 caixas — uma acusação inventada, e da pior espécie,
          porque parece um número. */
-      if (par.saida && par.conferido) {
-        par.situacao = (par.saida === par.conferido) ? 'Bateu' : 'Divergente';
-      } else if (par.saida) par.situacao = 'Sem conferência';
+      /* ================= O RETORNO DECLARADO SOMA OS DOIS LIVROS =================
+       *
+       * `saida` e o que o motorista lancou na base de producao; `declarado`, o que veio
+       * da BASE DECLARACAO, um livro separado. Os dois sao a MESMA coisa — o motorista
+       * dizendo quanto esta trazendo —, e e' por isso que a coluna se chama "Retorno
+       * Declarado" e nao "Saida".
+       *
+       * SEPARADOS, UM DELES SUMIA DA TELA. A coluna do livro de declaracao saiu, a
+       * pedido, e um lancamento feito nele passou a nao aparecer em lugar nenhum: a
+       * linha mostrava travessao na quantidade e o cartao somava zero, com as 300 caixas
+       * visiveis so' dentro da gaveta. Foi exatamente o que o escritorio encontrou.
+       *
+       * E A SITUACAO SAI DAQUI TAMBEM, e nao do `saida` sozinho: uma declaracao feita
+       * naquele livro e conferida batia 300 contra 300 e a tela dizia "Sem saida" — uma
+       * acusacao inventada sobre um par que fechou.
+       *
+       * NAO SE SOMAM, E ESSA E A PARTE QUE EU ERREI PRIMEIRO. Quando um par tem os DOIS,
+       * eles nao sao duas cargas: sao duas OPINIOES sobre a mesma — o numero lancado na
+       * producao e o que o motorista declarou no outro livro. Somados, um retorno de 500
+       * com declaracao de 410 virava 910 e a tela acusava divergencia de uma carga que
+       * fechou. Vale o da producao quando ele existe, e o do livro de declaracao quando
+       * e' o unico que ha. */
+      par.declaradoTotal = par.saida || par.declarado || 0;
+      if (par.declaradoTotal && par.conferido) {
+        par.situacao = (par.declaradoTotal === par.conferido) ? 'Bateu' : 'Divergente';
+      } else if (par.declaradoTotal) par.situacao = 'Sem conferência';
       else if (par.conferido) par.situacao = 'Sem saída';
-      else par.situacao = 'Só declaração';
+      /* O QUE SOBRA E UM PAR SEM QUANTIDADE NENHUMA dos dois lados — nao e' o caso de
+         "so' declaracao", que era o nome antigo: aquele par agora tem o numero dele na
+         coluna, e a situacao dele e' "Sem conferencia", que e' o que de fato falta. */
+      else par.situacao = 'Sem quantidade';
       /* AS DUAS DIFERENÇAS SÓ EXISTEM QUANDO OS DOIS LADOS EXISTEM, e as duas saem da
          SAÍDA: é ela o que de fato deixou o galpão, e as outras duas colunas são o que
          cada um diz sobre isso.
@@ -4318,7 +4344,8 @@
          E POR ISSO O TÍTULO MUDOU JUNTO. Com a conta invertida e o nome velho, a coluna
          chamada "Saída − Conferido" mostraria o oposto do que o nome promete — e um
          nome que mente é pior que nome nenhum, porque ninguém desconfia dele. */
-      par.difConf = (par.saida && par.conferido) ? par.conferido - par.saida : null;
+      par.difConf = (par.declaradoTotal && par.conferido)
+        ? par.conferido - par.declaradoTotal : null;
       return par;
     });
   }
@@ -4385,10 +4412,11 @@
       /* QUEM INFORMOU A SAÍDA VAI NO BALÃO DELA. A coluna Conferente agora lista só
          quem tem o papel de conferir — e sem isto o nome de quem informou a saída não
          estaria em lugar nenhum da tabela, só dentro dos lançamentos do par. */
-      saida:     { t: T.saida, num: true, k: function(p){ return p.saida; },
-                   v: function(p){ return p.saida
+      saida:     { t: T.saida, num: true,
+                   k: function(p){ return p.declaradoTotal; },
+                   v: function(p){ return p.declaradoTotal
                      ? '<span title="'+Q.esc('Informado por '+(p.informanteTxt || '—'))+
-                       '">'+Q.num(p.saida)+'</span>'
+                       '">'+Q.num(p.declaradoTotal)+'</span>'
                      : '<span class="fraco">—</span>'; } },
       conferido: { t: T.conferido, num: true, k: function(p){ return p.conferido; },
                    v: function(p){ return p.conferido ? Q.num(p.conferido)
@@ -4630,7 +4658,8 @@
          cinco números e a tabela do computador três, o mesmo par seria lido de dois
          jeitos conforme o aparelho. */
       '<div class="pc__n">'+
-        '<div><small>Retorno Declarado</small><b>'+(par.saida ? Q.num(par.saida)
+        '<div><small>Retorno Declarado</small><b>'+(par.declaradoTotal
+                                                  ? Q.num(par.declaradoTotal)
                                                   : '<span class="fraco">—</span>')+'</b></div>'+
         '<div><small>Conferido</small><b>'+(par.conferido ? Q.num(par.conferido)
                                                           : '<span class="fraco">—</span>')+'</b></div>'+
@@ -4823,7 +4852,9 @@
       }
       var g = mapa[k];
       g.pares.push(p);
-      g.saida += Number(p.saida) || 0;
+      /* O GRUPO SOMA O MESMO CAMPO DA LINHA: os dois dividem a coluna, e uma coluna
+         so' pode significar uma coisa. */
+      g.saida += Number(p.declaradoTotal) || 0;
       g.declarado += Number(p.declarado) || 0;
       g.conferido += Number(p.conferido) || 0;
       (p.destinoTxt || '').split(', ').forEach(function(d){ if (d) g.destinos[d] = 1; });
@@ -4837,6 +4868,8 @@
         g.destinoTxt = Object.keys(g.destinos).sort().join(', ');
         /* A MESMA DIREÇÃO DA LINHA DA VIAGEM: as duas dividem a mesma coluna. */
         g.difConf = (g.saida && g.conferido) ? g.conferido - g.saida : null;
+        /* O GRUPO JA SOMOU O TOTAL NO PROPRIO `saida`, entao ele responde pelos dois. */
+        g.declaradoTotal = g.saida;
         return g;
       });
   }
@@ -4899,7 +4932,7 @@
     var soma = function(campo){
       return L.reduce(function(a, p){ return a + (Number(p[campo]) || 0); }, 0);
     };
-    var said = soma('saida'), decl = soma('declarado'), conf = soma('conferido');
+    var said = soma('declaradoTotal'), conf = soma('conferido');
     var conta = function(s){ return L.filter(function(p){ return p.situacao === s; }).length; };
     var faixa = document.getElementById('dcTotais');
     if (faixa){
@@ -5030,7 +5063,7 @@
         /* A LINHA INTEIRA GANHA A COR DO PROBLEMA, e não só a etiqueta: numa tabela de
            trinta pares, a etiqueta some no meio das outras nove colunas. */
         var classe = par.situacao === 'Divergente' ? 'ruim'
-                   : par.situacao === 'Só declaração' ? 'ruim' : '';
+                   : par.situacao === 'Sem quantidade' ? 'ruim' : '';
         /* E A LINHA DAS LINHAS, logo abaixo e fechada. `colspan` pelo número de colunas
            que sobraram — escrito fixo, esconder uma coluna deixaria a gaveta estourando
            a tabela para o lado. */
