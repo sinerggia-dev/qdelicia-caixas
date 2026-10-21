@@ -2391,7 +2391,7 @@
            OS DOIS NOMES DAS DIFERENCAS seguem a conta, que foi invertida: falta e'
            negativo. O nome velho sobre a conta nova diria o oposto do que mostra. */
         ['Lancamento','Data','Base','Tipo','Motorista','Placa','Origem','Destino',
-         'Saida','Declarado','Conferido','Declarado-Saida','Conferido-Saida',
+         'Retorno Declarado','Conferido','Conferido-Declarado',
          'Informou','Conferente','Situacao'],
         PARES.map(function(par){
           /* NO ARQUIVO VAI A LISTA INTEIRA, e não o resumo "+3": o CSV existe para
@@ -2403,11 +2403,13 @@
                   Q.dataBR(par.dataRef), par.teste ? 'Teste' : 'Producao', par.tipo,
                   par.motorista || '(sem motorista)', par.veiculoTxt,
                   par.origemTxt, par.destinoTxt,
-                  par.saida || '', par.declarado || '', par.conferido || '',
+                  par.saida || '', par.conferido || '',
                   /* O ARQUIVO LEVA O MESMO NUMERO DA TELA, com o mesmo sinal: uma
                      planilha que discorda da tela e' a pior forma de divergencia,
-                     porque ela viaja por e-mail sem a tela do lado para conferir. */
-                  par.difDecl == null ? '' : par.difDecl,
+                     porque ela viaja por e-mail sem a tela do lado para conferir.
+                     E AS MESMAS COLUNAS: o `declarado` e a diferenca contra ele sairam
+                     da tela, e um CSV com campos que a tabela nao tem so' serve para
+                     duas pessoas compararem numeros diferentes achando que sao o mesmo. */
                   par.difConf == null ? '' : par.difConf,
                   par.informanteTxt, par.conferenteTxt, par.situacao];
         }));
@@ -4075,6 +4077,14 @@
   var PARES = [];      /* o que a tabela mostra: um par por motorista e dia */
   var ORDEM_DECL = { col: 'data', desc: true };
 
+  /* `declarado` E `difDecl` SAIRAM DA TABELA. O primeiro so' enche quando o lancamento
+     vem da Base Declaracao, um livro separado que esta operacao nao usa — e o segundo
+     media contra ele, entao dava sempre "0 menos o que foi lancado": um numero que
+     parece medir divergencia e so' repete a outra coluna com o sinal trocado. O que o
+     motorista lanca no retorno JA E a declaracao dele, e e' isso que a coluna renomeada
+     diz.
+     O COMENTARIO FICA AQUI, E NAO DENTRO DA LISTA: quem le a ordem de fabrica a separa
+     por virgula, e um texto no meio dela vira meia duzia de colunas com nomes de frase. */
   var TAB_DECL = {
     /* O NÚMERO DO LANÇAMENTO VEM PRIMEIRO, a pedido — e aqui ele é uma LISTA, porque
        cada linha desta tabela é um par e não um lançamento: a declaração de um lado, e
@@ -4093,19 +4103,23 @@
     /* A PLACA FICA COLADA NO MOTORISTA, que e onde ela se le: as duas respondem
        "quem levou". Entre as pontas da viagem, ela se leria como um terceiro lugar. */
     padrao: ['lancamento','data','base','tipo','motorista','placa','origem','destino',
-             'saida','declarado','conferido','difDecl','difConf',
+             'saida','conferido','difConf',
              'conferente','situacao'],
     larg: { lancamento:140,
             data:110, base:110, tipo:100, motorista:150, placa:110,
             origem:160, destino:160,
-            saida:110, declarado:110, conferido:110, difDecl:130, difConf:130,
+            saida:150, conferido:110, difConf:170,
             conferente:160, situacao:150 },
     titulos: { lancamento:'Lançamento',
                data:'Data', base:'Base', tipo:'Tipo', motorista:'Motorista',
                placa:'Placa', origem:'Origem', destino:'Destino',
-               saida:'Saída', declarado:'Declarado', conferido:'Conferido',
+               /* O QUE O MOTORISTA LANCOU NO RETORNO E A DECLARACAO DELE. Chamar
+                  aquilo de "Saida" numa tela de retornos fazia procurar uma saida que
+                  nao existe ali, e deixava o cartao "Declarado" ao lado dizendo zero
+                  como se nada tivesse sido declarado. */
+               saida:'Retorno Declarado', conferido:'Conferido',
                /* O NOME DIZ A CONTA, e por isso ele virou junto com ela. */
-               difDecl:'Declarado − Saída', difConf:'Conferido − Saída',
+               difConf:'Conferido − Declarado',
                conferente:'Conferente', situacao:'Situação' },
     kOrdem: 'qdc_cols_decl_v1',
     kLarg: 'qdc_larg_decl_v1',
@@ -4284,7 +4298,6 @@
          E POR ISSO O TÍTULO MUDOU JUNTO. Com a conta invertida e o nome velho, a coluna
          chamada "Saída − Conferido" mostraria o oposto do que o nome promete — e um
          nome que mente é pior que nome nenhum, porque ninguém desconfia dele. */
-      par.difDecl = (par.saida && par.declarado) ? par.declarado - par.saida : null;
       par.difConf = (par.saida && par.conferido) ? par.conferido - par.saida : null;
       return par;
     });
@@ -4357,16 +4370,12 @@
                      ? '<span title="'+Q.esc('Informado por '+(p.informanteTxt || '—'))+
                        '">'+Q.num(p.saida)+'</span>'
                      : '<span class="fraco">—</span>'; } },
-      declarado: { t: T.declarado, num: true, k: function(p){ return p.declarado; },
-                   v: function(p){ return p.declarado ? Q.num(p.declarado)
-                     : '<span class="fraco">—</span>'; } },
       conferido: { t: T.conferido, num: true, k: function(p){ return p.conferido; },
                    v: function(p){ return p.conferido ? Q.num(p.conferido)
                      : '<span class="fraco">—</span>'; } },
-      /* AS DUAS DIFERENÇAS SE DESENHAM IGUAL, e por isso saem da mesma fábrica: duas
-         cópias divergiriam no primeiro ajuste de sinal ou de cor, e as duas colunas
-         ficam uma ao lado da outra — a diferença apareceria na hora, sem se explicar. */
-      difDecl:   celulaDif(T.difDecl, 'difDecl'),
+      /* A DIFERENÇA SAI DE UMA FÁBRICA, e continua saindo mesmo tendo sobrado uma só:
+         ela nasceu com duas colunas iguais lado a lado, e desfazê-la agora seria
+         espalhar o desenho de volta para o dia em que a segunda voltar. */
       difConf:   celulaDif(T.difConf, 'difConf'),
       conferente:{ t: T.conferente, k: function(p){ return p.conferenteTxt; },
                    v: function(p){ return p.conferenteTxt ? Q.esc(p.conferenteTxt)
@@ -4594,16 +4603,15 @@
             Q.esc(par.teste ? 'Teste' : 'Produção')+'</small></div>'+
         '<span class="tag '+cor+'">'+Q.esc(par.situacao)+'</span>'+
       '</header>'+
-      /* OS TRÊS NÚMEROS NA ORDEM DO QUE ACONTECE: o que saiu, o que o motorista disse
-         que levou, o que se contou na chegada. As DIFERENÇAS vêm na linha de baixo, e
-         não entre eles: no meio, elas seriam lidas antes das parcelas que as produzem.
-         DUAS LINHAS, e não uma de cinco: cinco números numa tela de 320px dão sessenta
-         pixels cada, e um "−410" nesse tamanho é um borrão. */
+      /* OS DOIS NÚMEROS NA ORDEM DO QUE ACONTECE: o que o motorista declarou ao voltar,
+         e o que se contou na chegada. A DIFERENÇA vem na linha de baixo, e não entre
+         eles: no meio, ela seria lida antes das parcelas que a produzem.
+         A FICHA ACOMPANHA A TABELA, e isso não é zelo: com a ficha do celular mostrando
+         cinco números e a tabela do computador três, o mesmo par seria lido de dois
+         jeitos conforme o aparelho. */
       '<div class="pc__n">'+
-        '<div><small>Saída</small><b>'+(par.saida ? Q.num(par.saida)
+        '<div><small>Retorno Declarado</small><b>'+(par.saida ? Q.num(par.saida)
                                                   : '<span class="fraco">—</span>')+'</b></div>'+
-        '<div><small>Declarado</small><b>'+(par.declarado ? Q.num(par.declarado)
-                                                          : '<span class="fraco">—</span>')+'</b></div>'+
         '<div><small>Conferido</small><b>'+(par.conferido ? Q.num(par.conferido)
                                                           : '<span class="fraco">—</span>')+'</b></div>'+
       '</div>'+
@@ -4611,10 +4619,7 @@
         /* A FICHA DO CELULAR LÊ O MESMO CAMPO, então ela já vem invertida; o que
            precisa acompanhar é o NOME e a COR. Uma das duas telas com a direção antiga
            faria o mesmo par ser lido de dois jeitos conforme o aparelho. */
-        '<div><small>Declarado − Saída</small><b'+
-          (par.difDecl < 0 ? ' class="dif-falta"' : '')+'>'+(par.difDecl == null
-          ? '<span class="fraco">—</span>' : sinal(par.difDecl))+'</b></div>'+
-        '<div><small>Conferido − Saída</small><b'+
+        '<div><small>Conferido − Declarado</small><b'+
           (par.difConf < 0 ? ' class="dif-falta"' : '')+'>'+(par.difConf == null
           ? '<span class="fraco">—</span>' : sinal(par.difConf))+'</b></div>'+
       '</div>'+
@@ -4811,7 +4816,6 @@
         var g = mapa[k];
         g.destinoTxt = Object.keys(g.destinos).sort().join(', ');
         /* A MESMA DIREÇÃO DA LINHA DA VIAGEM: as duas dividem a mesma coluna. */
-        g.difDecl = (g.saida && g.declarado) ? g.declarado - g.saida : null;
         g.difConf = (g.saida && g.conferido) ? g.conferido - g.saida : null;
         return g;
       });
@@ -4889,16 +4893,20 @@
       var sinalDe = function(n){
         return (n > 0 ? '+' : n < 0 ? '−' : '') + Q.num(Math.abs(n));
       };
+      /* TRÊS CARTÕES, e eram cinco. O que o motorista lança no retorno É a declaração
+         dele — o "Declarado" separado só enche a partir da Base Declaração, um livro
+         que esta operação não usa, e por isso ficava em zero para sempre. Com ele
+         zerado, "Declarado − Saída" era "0 menos o que foi lançado": um número que
+         parece medir divergência e só repete a outra coluna com o sinal trocado.
+         A CONTA QUE SOBRA É A QUE IMPORTA: o que se contou na chegada contra o que o
+         motorista declarou. */
       faixa.innerHTML =
-        cartaoTot(0, 5, 'var(--roxo-txt)', 'Saída',    Q.num(said), '', null) +
-        cartaoTot(1, 5, 'var(--azul)',  'Declarado', Q.num(decl), '', null) +
-        cartaoTot(2, 5, 'var(--verde)', 'Conferido', Q.num(conf), '', null) +
+        cartaoTot(0, 3, 'var(--roxo-txt)', 'Retorno Declarado', Q.num(said), '', null) +
+        cartaoTot(1, 3, 'var(--verde)', 'Conferido', Q.num(conf), '', null) +
         /* A MESMA DIREÇÃO DA COLUNA, e os mesmos nomes: o cartão é a soma dela. Com
            direções opostas, o topo diria "+1.441" sobre a mesma operação em que a
            tabela logo abaixo diz "−1.441", e as duas estariam certas cada uma por si. */
-        cartaoTot(3, 5, 'var(--ambar)', 'Declarado − Saída',
-                  sinalDe(decl - said), '', null) +
-        cartaoTot(4, 5, 'var(--ambar-forte)', 'Conferido − Saída',
+        cartaoTot(2, 3, 'var(--ambar-forte)', 'Conferido − Declarado',
                   sinalDe(conf - said), '', null);
     }
     var sit = document.getElementById('dcSituacoes');
@@ -4967,8 +4975,8 @@
          * nome ali faria a linha parecer uma viagem, e a soma ao lado pareceria dela. */
         if (par.ehGrupo){
           var abertoL = !!LOCAIS_ABERTOS[par.local];
-          var soGrupo = { origem: 1, destino: 1, saida: 1, declarado: 1,
-                          conferido: 1, difDecl: 1, difConf: 1 };
+          var soGrupo = { origem: 1, destino: 1, saida: 1,
+                          conferido: 1, difConf: 1 };
           return '<tr class="grp-local'+(abertoL ? ' aberto' : '')+'">'+
             cs.map(function(c, iC){
               return '<td data-col="'+Q.esc(c.id)+'"'+(c.d.num ? ' class="num"' : '')+'>'+
