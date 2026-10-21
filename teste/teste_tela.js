@@ -1997,10 +1997,22 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
    * O cadeado morava só na barra da tabela — do outro lado da tela, e atrás da própria
    * gaveta quando ela está aberta. A função existia e não havia como chegar nela. */
   {
-    var caixas = [{ gaveta: true }, { gaveta: false }];
+    /* TRES CAIXAS, e a terceira e' a do PAINEL DE ATIVOS — a que denunciou o defeito.
+       Ela nao tem filtros arrastaveis nem fileira de cartoes: so' colunas. Com duas
+       caixas apenas, a prova nao via o caso em que os botoes de OUTRA tela apareciam. */
+    var caixas = [
+      { gaveta: true,  tabela: '',       cartoes: false },
+      { gaveta: false, tabela: 'mov',    cartoes: true  },
+      { gaveta: false, tabela: 'ativos', cartoes: false }
+    ];
     caixas.forEach(function (c) {
       c.innerHTML = '';
-      c.hasAttribute = function (k) { return k === 'data-so-filtros' && c.gaveta; };
+      c.getAttribute = function (k) { return k === 'data-tabela' ? c.tabela : null; };
+      c.hasAttribute = function (k) {
+        if (k === 'data-so-filtros') return c.gaveta;
+        if (k === 'data-tem-cartoes') return c.cartoes;
+        return false;
+      };
     });
     var fontePintor = corpoA('horaDaTrava') + '\n' + corpoA('pintarTrava') +
       '\n return pintarTrava;';
@@ -2014,7 +2026,127 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
         function () { return ehAdmin; },
         function () { return destravado; },
         Date.now() + 9e5)();
-      return { gaveta: caixas[0].innerHTML, tabela: caixas[1].innerHTML };
+      return { gaveta: caixas[0].innerHTML, tabela: caixas[1].innerHTML,
+               painel: caixas[2].innerHTML };
+    }
+
+    /* ================= CADA BARRA OFERECE SO O QUE ELA COMANDA =================
+     *
+     * Os botoes "ordem dos filtros" e "ordem dos cartoes" nasciam em TODA barra da
+     * pagina, e as duas funcoes por tras deles mexem no Movimentos Gerais:
+     * `restaurarFiltros` apaga a ordem de `FILTROS_MOV`, `restaurarCartoes` a de
+     * `CARTOES_MOV`. No Painel de Ativos eles disparavam, mostravam o aviso de sucesso e
+     * nao mudavam nada ali.
+     *
+     * E UM BOTAO QUE PARECE TER FUNCIONADO E PIOR QUE UM QUE NAO EXISTE: quem clica ve'
+     * a confirmacao, acredita, e nao vai procurar defeito nenhum. Foi assim que isto
+     * ficou de pe' ate' alguem reparar que a tela nao mudava.
+     *
+     * A PROVA RODA O PINTOR com as tres barras de verdade e le' o que cada uma desenhou. */
+    var aberto = pintar(true, true);
+
+    ok(aberto.painel.indexOf('data-restaurar-colunas="ativos"') > 0,
+      'a barra do Painel de Ativos oferece a volta das COLUNAS dela \u2014 \u00e9 a \u00fanica coisa ' +
+      'que se arrasta naquela tela', aberto.painel);
+    ok(aberto.painel.indexOf('data-restaurar-filtros') < 0 &&
+       aberto.painel.indexOf('data-restaurar-cartoes') < 0,
+      'e N\u00c3O oferece a ordem dos filtros nem a dos cart\u00f5es \u2014 os dois mexem no ' +
+      'Movimentos Gerais, e ali eles disparavam, avisavam que deu certo e n\u00e3o mudavam ' +
+      'nada: bot\u00e3o que parece ter funcionado \u00e9 pior que bot\u00e3o que n\u00e3o existe, porque ' +
+      'ningu\u00e9m vai procurar o defeito', aberto.painel);
+
+    ok(aberto.tabela.indexOf('data-restaurar-colunas="mov"') > 0 &&
+       aberto.tabela.indexOf('data-restaurar-cartoes') > 0,
+      'a barra de Movimentos oferece as colunas DELA e os cart\u00f5es, que s\u00e3o daquela tela',
+      aberto.tabela);
+    ok(aberto.gaveta.indexOf('data-restaurar-filtros') > 0 &&
+       aberto.gaveta.indexOf('data-restaurar-colunas') < 0,
+      'e a gaveta de filtros oferece a ordem dos FILTROS, e n\u00e3o a das colunas \u2014 ali ' +
+      'n\u00e3o h\u00e1 tabela para arrumar', aberto.gaveta);
+
+    /* CADA CAIXA DIZ DE QUE TABELA ELA E, na marcacao. Sem o atributo, o pintor nao tem
+       como saber onde esta' e volta a oferecer o mesmo em todo lugar. */
+    var semTabela = (admA.match(/<div class="trava-colunas"[^>]*data-trava-colunas[^>]*><\/div>/g) || [])
+      .filter(function (c) {
+        return c.indexOf('data-tabela=') < 0 && c.indexOf('data-so-filtros') < 0;
+      });
+    ok(!semTabela.length,
+      'e toda caixa de cadeado diz de que tabela ela \u00e9 \u2014 sem o atributo o pintor n\u00e3o ' +
+      'sabe onde est\u00e1, e volta a oferecer o mesmo em todo lugar', semTabela);
+
+    /* E A TABELA SAI DO MESMO INDICE QUE A ABA COLUNAS USA. Numa segunda lista, o
+       primeiro modulo novo entraria num lugar e faltaria no outro, e a barra de uma tela
+       deixaria de achar a tabela que ela comanda. */
+    ok(/function tabelaDaBarra\(/.test(admA) && /tabelasGerenciaveis\(\)/.test(
+         admA.slice(admA.indexOf('function tabelaDaBarra('),
+                   admA.indexOf('function tabelaDaBarra(') + 400)),
+      'e a barra acha a tabela pelo MESMO \u00edndice da aba Colunas \u2014 numa segunda lista, o ' +
+      'primeiro m\u00f3dulo novo entraria num lugar e faltaria no outro',
+      admA.indexOf('function tabelaDaBarra('));
+
+    /* ---- E O BOTAO FAZ ALGUMA COISA, medido rodando ----
+     *
+     * Duas sabotagens escaparam da prova de marcacao e as duas eram o PROPRIO sintoma
+     * que o escritorio relatou: o botao desenhado, o aviso de sucesso, e nada mudando.
+     * Uma tirava o ramo do ouvinte; a outra fazia a funcao apagar so' a ordem e deixar
+     * a largura e as ocultas. Nenhuma das duas muda uma letra do botao.
+     *
+     * ENTAO A PROVA RODA O CAMINHO INTEIRO: o clique entra pelo ouvinte do documento,
+     * chega na funcao, e as TRES preferencias somem. */
+    {
+      var apagadas = [], redesenhou = 0;
+      var fonteBotao =
+        corpoA('tabelaDaBarra') + '\n' + corpoA('restaurarColunas') + '\n' +
+        'return { restaurar: restaurarColunas };';
+      var B = new Function('TABELA_DA_BARRA', 'tabelasGerenciaveis', 'localStorage', 'Q',
+                           fonteBotao)(
+        { ativos: 'Painel de Ativos' },
+        function () {
+          return [{ modulo: 'Painel de Ativos',
+                    t: { kOrdem: 'k-ordem', kLarg: 'k-larg', kOcultas: 'k-ocultas',
+                         redesenha: function () { redesenhou++; } } }];
+        },
+        { removeItem: function (k) { apagadas.push(k); } },
+        { toast: function () {} });
+
+      B.restaurar('ativos');
+      ok(apagadas.sort().join(',') === 'k-larg,k-ocultas,k-ordem' && redesenhou === 1,
+        'o bot\u00e3o apaga as TR\u00caS prefer\u00eancias da tabela \u2014 ordem, largura e ocultas \u2014 e ' +
+        'redesenha: restaurando s\u00f3 uma delas, a tabela fica num meio-termo que ningu\u00e9m ' +
+        'escolheu, e o aviso de sucesso diz que deu certo',
+        { apagadas: apagadas, redesenhou: redesenhou });
+
+      apagadas = []; redesenhou = 0;
+      B.restaurar('naoexiste');
+      ok(!apagadas.length && redesenhou === 0,
+        'e um nome de tabela que ningu\u00e9m registrou n\u00e3o apaga nada \u2014 apagar "as chaves de ' +
+        'undefined" varreria prefer\u00eancia alheia sem ningu\u00e9m pedir',
+        { apagadas: apagadas, redesenhou: redesenhou });
+
+      /* O OUVINTE CHEGA NO BOTAO. Sem este ramo, o botao continua desenhado e o clique
+         morre no documento — que e' exatamente o defeito relatado, visto por outro
+         angulo. */
+      /* HA TRES OUVINTES DE CLIQUE NO DOCUMENTO, e `indexOf` achava o primeiro —
+         que nao e' este. A ancora e' o seletor que SO este ouvinte conhece, e dai
+         se volta ate' o comeco dele. */
+      var iSel = admA.indexOf("closest('[data-destravar]')");
+      var iL = admA.lastIndexOf("  document.addEventListener('click', function(e){", iSel);
+      var fonteL = admA.slice(iL, admA.indexOf('\n  });', iL) + 6);
+      var chamou = null;
+      new Function('document', 'pedirSenhaDasColunas', 'travarColunas', 'restaurarFiltros',
+                   'restaurarCartoes', 'restaurarColunas', fonteL)(
+        { addEventListener: function (_, fn) {
+            fn({ target: { closest: function (sel) {
+              return sel === '[data-restaurar-colunas]'
+                ? { getAttribute: function () { return 'ativos'; } } : null;
+            } } });
+          } },
+        function () {}, function () {}, function () {}, function () {},
+        function (n) { chamou = n; });
+      ok(chamou === 'ativos',
+        'e o clique no bot\u00e3o CHEGA na fun\u00e7\u00e3o, com o nome da tabela dele \u2014 sem o ramo, ' +
+        'o bot\u00e3o fica desenhado e o clique morre no documento, que \u00e9 o defeito relatado ' +
+        'visto por outro \u00e2ngulo', chamou);
     }
 
     var travado = pintar(true, false);
@@ -10973,8 +11105,13 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
   var telas = adm.split(/(?=<section id="pg)/);
   alvos.forEach(function (id) {
     var tela = telas.filter(function (s) { return s.indexOf('id="' + id + '"') >= 0; })[0];
-    var n = (String(tela).match(/<div class="trava-colunas" data-trava-colunas><\/div>/g)
-             || []).length;
+    /* A FORMA DA CAIXA MUDA, O NUMERO DELA NAO. A prova casava a marcacao exata
+       — `<div class="trava-colunas" data-trava-colunas></div>` —, e no dia em que a
+       caixa ganhou atributos ela passou a contar ZERO cadeado em todas as quatro telas,
+       dizendo que o recurso tinha sumido. O que importa e' quantas caixas ha, e onde. */
+    var caixasDaTela = String(tela)
+      .match(/<div class="trava-colunas"[^>]*data-trava-colunas[^>]*><\/div>/g) || [];
+    var n = caixasDaTela.length;
     ok(n === 1 && tela.indexOf('data-trava-colunas') < tela.indexOf('id="' + id + '"'),
       '#' + id + ': o cadeado fica nesta tela, um só, e acima da tabela — sem ele a ' +
       'pessoa arrasta, nada acontece, e conclui que o recurso quebrou',

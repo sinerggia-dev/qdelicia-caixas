@@ -783,7 +783,12 @@
              no primeiro conserto que só um receber, e os dois acendem e apagam juntos
              porque quem pinta é a mesma função. -->
         <div class="barra-trava">
-          <div class="trava-colunas" data-trava-colunas></div>
+          <!-- A CAIXA DIZ DE QUE TABELA ELA É. Sem isso ela oferecia os mesmos
+               botões em toda a página — inclusive "ordem dos filtros" e
+               "ordem dos cartões", que mexem no Movimentos Gerais: aqui eles
+               disparavam, avisavam que deu certo e não mudavam nada, que é o
+               pior tipo de botão. -->
+          <div class="trava-colunas" data-trava-colunas data-tabela="ativos"></div>
           <div class="barra-trava__acoes">
             <button class="chip-hoje" type="button" id="btnHojeFluxo" data-dias="1"
                     aria-pressed="false">Hoje</button>
@@ -956,7 +961,10 @@
            FORA DAS ABAS do celular, como a tarja: quem busca quer o resultado, e ter de
            lembrar em que aba a busca mora seria uma pergunta a mais antes da pergunta. -->
       <div class="barra-trava">
-        <div class="trava-colunas" data-trava-colunas></div>
+        <!-- `data-tem-cartoes`: a fileira de cartões arrastáveis é desta tela, e
+             só dela. -->
+        <div class="trava-colunas" data-trava-colunas data-tabela="mov"
+             data-tem-cartoes></div>
         <div class="barra-trava__acoes" id="acoesFiltroTopo"></div>
         <!-- JUNTAR AS LINHAS DE CADA REGISTRO, só no computador.
              Uma carga de quatro caixas são quatro linhas que repetem data, status,
@@ -1392,7 +1400,7 @@
              FILTRAR NÃO SOBE: ele confirma o que foi digitado, e o lugar de confirmar é
              junto do formulário. -->
         <div class="barra-trava">
-          <div class="trava-colunas" data-trava-colunas></div>
+          <div class="trava-colunas" data-trava-colunas data-tabela="decl"></div>
           <div class="barra-trava__acoes">
             <button class="btn sec so-celular" type="button" id="btnAbrirFiltrosDecl">
               Filtros</button>
@@ -1684,7 +1692,7 @@
       <!-- Mesma razão do Painel de Ativos: o gesto é tentado aqui, e o cadeado precisa
            estar aqui. No celular esta tabela vira cartões e não há coluna para arrastar,
            mas o cadeado continua valendo — ele libera os filtros também. -->
-      <div class="trava-colunas" data-trava-colunas></div>
+      <div class="trava-colunas" data-trava-colunas data-tabela="users"></div>
       <div id="tabelaUsuarios"></div>
     </div>
     <div class="card" data-cad="locais">
@@ -12418,6 +12426,36 @@
   /* A VOLTA AO PADRÃO. Sem ela, quem embaralhou os onze campos não tem como desfazer a
      não ser arrastando de volta um por um — e nem se lembra de qual era a ordem. Ela
      aparece junto do cadeado, e só com a trava aberta: é ali que se está mexendo. */
+  /* AS TABELAS POR NOME, para a barra do cadeado achar a dela pelo atributo.
+     A lista sai do MESMO lugar que a aba Colunas usa — `tabelasGerenciaveis` —, e nao de
+     uma segunda escrita: duas listas sobre as mesmas tabelas divergem no primeiro modulo
+     novo, e ai a barra de uma tela deixa de encontrar a tabela que ela comanda. */
+  var TABELA_DA_BARRA = { ativos: 'Painel de Ativos', mov: 'Movimentos Gerais',
+                          decl: 'Movimentos Motoristas',
+                          users: 'Cadastros · Usuários' };
+
+  function tabelaDaBarra(nome){
+    var proc = TABELA_DA_BARRA[nome];
+    if (!proc) return null;
+    var achou = tabelasGerenciaveis().filter(function(x){ return x.modulo === proc; })[0];
+    return achou ? achou.t : null;
+  }
+
+  /* AS TRES PREFERENCIAS DE UMA VEZ — ordem, largura e ocultas —, como o botao da aba
+     Colunas ja fazia: restaurar so uma delas deixa a tabela num meio-termo que ninguem
+     escolheu. */
+  function restaurarColunas(nome){
+    var tab = tabelaDaBarra(nome);
+    if (!tab) return;
+    try {
+      localStorage.removeItem(tab.kOrdem);
+      localStorage.removeItem(tab.kLarg);
+      localStorage.removeItem(tab.kOcultas);
+    } catch (e) {}
+    tab.redesenha();
+    Q.toast('Colunas de volta ao padrão.');
+  }
+
   function restaurarFiltros(){
     try { localStorage.removeItem(FILTROS_MOV.kOrdem); } catch (e) {}
     aplicarOrdemFiltros();
@@ -12467,6 +12505,13 @@
             'Mudar a ordem dos filtros</button>';
         return;
       }
+      /* SÓ O QUE ESTA BARRA COMANDA.
+         Antes ela oferecia os mesmos dois botões em toda a página, e os dois mexem no
+         Movimentos Gerais: `restaurarFiltros` apaga a ordem de `FILTROS_MOV` e
+         `restaurarCartoes` a de `CARTOES_MOV`. No Painel de Ativos eles disparavam,
+         avisavam que deu certo e não mudavam nada ali — e um botão que parece ter
+         funcionado é pior que um que não existe: ninguém vai procurar o defeito. */
+      var qual = box.getAttribute('data-tabela') || '';
       box.innerHTML = colunasDestravadas()
         ? '<span class="trava__on">Colunas e filtros liberados até <b>'+
             Q.esc(horaDaTrava())+'</b></span>'+
@@ -12474,10 +12519,15 @@
           /* A VOLTA AO PADRÃO aparece só com a trava aberta: é quando se está mexendo,
              e é quando ela resolve alguma coisa. Travada, ela seria um botão que pede
              senha para desfazer algo que ninguém pode fazer. */
-          '<button class="mini" type="button" data-restaurar-filtros '+
-          'title="Devolve os filtros à ordem de fábrica">ordem dos filtros</button>'+
-          '<button class="mini" type="button" data-restaurar-cartoes '+
-          'title="Devolve os cartões à ordem de fábrica">ordem dos cartões</button>'
+          (qual
+            ? '<button class="mini" type="button" data-restaurar-colunas="'+Q.esc(qual)+'" '+
+              'title="Devolve as colunas desta tabela à ordem, à largura e à '+
+              'visibilidade de fábrica">ordem das colunas</button>'
+            : '')+
+          (box.hasAttribute('data-tem-cartoes')
+            ? '<button class="mini" type="button" data-restaurar-cartoes '+
+              'title="Devolve os cartões à ordem de fábrica">ordem dos cartões</button>'
+            : '')
         : '<button class="mini trava__btn" type="button" data-destravar '+
           'title="Mover colunas e filtros de lugar pede sua senha do painel">'+
           '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
@@ -12535,6 +12585,8 @@
     if (e.target.closest('[data-travar]')) { travarColunas(false); return; }
     if (e.target.closest('[data-restaurar-filtros]')) restaurarFiltros();
     if (e.target.closest('[data-restaurar-cartoes]')) restaurarCartoes();
+    var bc = e.target.closest('[data-restaurar-colunas]');
+    if (bc) restaurarColunas(bc.getAttribute('data-restaurar-colunas'));
   });
 
   function fecharModal(){
