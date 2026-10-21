@@ -3791,111 +3791,91 @@
      retorno de todos os locais embaixo de uma tabela que lista só motoristas faria o
      rodapé contradizer o que está logo acima dele. */
   function metaFluxo(){ return (PAINEL && PAINEL.fluxo && PAINEL.fluxo.meta) || 90; }
-  /* ================= OS CARTOES CONTAM AS ETAPAS DO CICLO =================
+  /* ================= UM CICLO: SAIU DE CASA, VOLTOU PARA CASA =================
    *
-   * O escritorio desenhou a operacao assim, e e' nesta ordem que ela acontece:
+   * O escritorio descreveu a operacao assim, e e' a leitura que o comercial precisa:
    *
-   *   SAIDA      a matriz despacha para a filial
-   *   ENTRADA    a filial recebe
-   *   ENVIO      a filial manda ao fornecedor (ou ao cliente, ou a rota)
-   *   DEVOLUCAO  o fornecedor devolve a filial
-   *   RETORNO    a filial devolve a matriz
+   *   sai da matriz para onde for — rota, filial, fornecedor, cliente
+   *   tudo volta para a matriz
+   *   entra no estoque e compoe o saldo
+   *   recomeca
    *
-   * POR QUE ETAPAS, E NAO UMA SOMA. A tentativa anterior somava: "saida" era o que
-   * cruzou a fronteira da empresa, e a perna entre duas casas virava transferencia.
-   * A conta fechava, e a TELA SE CONTRADIZIA — a tabela mostrava a linha com saida 500 e
-   * o cartao ao lado dizia 0, porque aquela perna nao tinha cruzado fronteira nenhuma.
-   * Numa tela em que os dois numeros estao a um palmo um do outro, isso nao se sustenta:
-   * quem le' acredita no que esta na tabela e conclui que o cartao quebrou.
+   * ENTAO A FILEIRA CONTA ISSO, e nao mais cinco etapas:
+   *   quanto tenho (estoque) · quanto saiu · quanto voltou · quanto falta · a taxa
    *
-   * CADA CARTAO AGORA APONTA PARA UMA LINHA QUE SE VE. Lidos da esquerda para a direita
-   * eles contam a viagem: 500 - 500 - 500 - 500 - 500 quer dizer ciclo fechado, e
-   * 500 - 500 - 500 - 300 - 0 mostra onde ele parou, sem ninguem fazer conta.
+   * POR QUE AS CINCO ETAPAS SAIRAM. Elas liam muito bem UM ciclo de 500 caixas, que e'
+   * como foram pedidas. Somadas sobre um periodo inteiro, com pernas de tamanhos
+   * diferentes, pararam de se ler: os cinco numeros eram CONJUNTOS SEPARADOS — a regra
+   * abaixo decide um ou outro, nunca os dois — e os nomes diziam o contrario, porque
+   * Saida e Envio soam a mesma coisa. A pergunta que chegou foi literalmente "a Saida
+   * esta dentro do Envio?". Estavam certos e ilegiveis.
    *
-   * ELES NAO SE SOMAM, e nao devem: sao a MESMA carga em momentos diferentes. "Saida" e
-   * "Entrada" sao ate' a mesma perna vista das duas pontas — e vao deixar de ser iguais
-   * no dia em que a filial conferir a chegada, porque ai a entrada passa a ser o que foi
-   * CONTADO, e nao o que foi declarado.
+   * A TRANSFERENCIA ENTRE CASAS NOSSAS NAO ENTRA, e e' o coracao da conta: a caixa que
+   * vai da matriz para a filial continua nossa, continua no estoque e nao e' divida de
+   * ninguem. Contada como saida, ela inflava o total — foi a primeira queixa desta tela,
+   * quando 500 caixas viravam 1.000. Quem quiser ver o que anda entre as casas abre o
+   * chip Unidades, que mostra casa a casa o que ela despachou e o que recebeu.
    *
-   * O QUE DECIDE A ETAPA E A FRONTEIRA DA EMPRESA: perna entre duas casas e' movimento
-   * interno (saida / entrada / retorno); perna com uma ponta de fora e' envio ou
-   * devolucao. A lista das casas sai do CADASTRO.
-   *
-   * O SENTIDO DA PERNA INTERNA VEM DO TRECHO, e nao do tipo do local: a ida e' quem
-   * despachou primeiro. Com as filiais marcadas como GALPAO no cadastro — como estao
-   * hoje —, os tipos nao distinguiriam matriz de filial, e a ida e a volta trocariam de
-   * cartao. Marcadas como FILIAL, os dois caminhos dao o mesmo resultado. */
+   * O QUE DECIDE E A FRONTEIRA DA EMPRESA, e a lista das casas sai do CADASTRO.
+   * O SENTIDO vem da ORIGEM: perguntando pelo destino, a linha de estoque inicial — que
+   * tem origem e nao tem destino — respondia "nao esta fora" e os dois lados saiam
+   * trocados. */
   /* ================= A CONTA DE QUEM NAO E UMA PERNA =================
    *
    * Uma linha de motorista, de usuario ou de tipo de caixa soma varias pernas num numero
    * so'. Ela sabe QUANTO saiu e quanto voltou, e nao sabe ENTRE ONDE E ONDE — e sem isso
    * nao ha como dizer se a carga cruzou a fronteira da empresa.
    *
-   * ENTAO ELA NAO DIZ. Saida e' o que saiu, retorno e' o que voltou, e o que falta
-   * e' o que falta. Passada pela conta das etapas, esta lista caia toda no ENVIO (a
-   * guarda da fronteira responde "nao" quando nao ha perna), e a tela anunciava
-   * "saiu da empresa" sobre um total de usuario. */
+   * ENTAO ELA NAO DIZ: saiu e' o que saiu, voltou e' o que voltou. Passada pela conta de
+   * lugar, esta lista caia toda no mesmo lado (a guarda da fronteira responde "nao"
+   * quando nao ha perna), e a tela anunciava fronteira sobre um total de pessoa.
+   *
+   * A FORMA DE SAIDA E A MESMA das duas contas — saiu, voltou, deficit, taxa —, e e' o
+   * que deixa a fileira ter CINCO CARTOES SO', iguais em toda visao. Com formas
+   * diferentes, a tela trocava de desenho conforme o chip, e o rodape era o unico lugar
+   * que dizia qual das duas estava valendo. */
   function totaisSimples(lista){
-    var t = { linhas: 0, saida: 0, retorno: 0, deficit: 0, foraDaMeta: 0 };
+    var t = { linhas: 0, saiu: 0, voltou: 0, deficit: 0, foraDaMeta: 0 };
     var meta = metaFluxo();
     lista.forEach(function(l){
       if (l.situacao === 'parado') return;
       t.linhas++;
       if (l.desvio !== null && (100 - l.desvio) < meta) t.foraDaMeta++;
-      t.saida += (l.saida || 0);
-      t.retorno += (l.retorno || 0);
-      /* POR LINHA, e nao sobre os dois totais. Um motorista que devolveu a mais nao
-         abate o que outro deixou de devolver: sao duas cobrancas diferentes, e somadas
-         antes de comparar elas se escondem uma atras da outra. */
+      t.saiu += (l.saida || 0);
+      t.voltou += (l.retorno || 0);
+      /* POR LINHA, como na outra conta: um motorista que devolveu a mais nao abate o que
+         outro deixou de devolver. */
       if ((l.saida || 0) > (l.retorno || 0)) t.deficit += (l.saida || 0) - (l.retorno || 0);
     });
-    t.taxaRetorno = t.saida > 0
-      ? Math.round((t.retorno / t.saida) * 1000) / 10 : null;
+    t.taxaRetorno = t.saiu > 0
+      ? Math.round((t.voltou / t.saiu) * 1000) / 10 : null;
     return t;
   }
 
   function totaisDe(lista){
-    var t = { linhas: 0, saida: 0, entrada: 0, envio: 0, devolucao: 0, retorno: 0,
-              deficit: 0, foraDaMeta: 0 };
+    var t = { linhas: 0, saiu: 0, voltou: 0, deficit: 0, foraDaMeta: 0 };
     var meta = metaFluxo();
     var casas = nomesDeUnidade();
     lista.forEach(function(l){
       if (l.situacao === 'parado') return;
       t.linhas++;
       if (l.desvio !== null && (100 - l.desvio) < meta) t.foraDaMeta++;
-
-      if (pernaInterna(l.origens, l.destinos, casas)) {
-        /* DENTRO DE CASA. A ida e' a saida da matriz e a entrada da filial — a MESMA
-           perna, nas duas pontas. A volta e' o retorno. */
-        t.saida += (l.saida || 0);
-        t.entrada += (l.saida || 0);
-        t.retorno += (l.retorno || 0);
-        return;
-      }
-
-      /* CRUZOU A FRONTEIRA. Qual sentido e' o envio depende de que ponta esta' fora: a
-         devolucao entra no trecho pela chave invertida, e o de fora quase sempre fica no
-         destino. Lendo sempre `l.saida` como envio, a carga que VOLTOU de um cliente
-         apareceria como carga que saiu para ele. */
-      /* OLHA A ORIGEM, e nao o destino: perguntando "o destino esta fora?", a linha de
-         estoque inicial — que tem origem e NAO tem destino — respondia "nao", e os dois
-         sentidos sairiam trocados. Pela origem, a ausencia de destino cai no caso certo
-         sozinha. */
+      /* DENTRO DE CASA NAO E SAIDA. A perna entre duas casas nossas muda a caixa de
+         lugar e nao muda nem o estoque total nem a divida — entao ela nao conta aqui. */
+      if (pernaInterna(l.origens, l.destinos, casas)) return;
       var foraNaOrigem = (l.origens || []).some(function(n){ return !casas[n]; });
-      var env = foraNaOrigem ? (l.retorno || 0) : (l.saida || 0);
-      var dev = foraNaOrigem ? (l.saida || 0)   : (l.retorno || 0);
-      t.envio += env;
-      t.devolucao += dev;
-      /* O QUE SAIU DA EMPRESA E NAO VOLTOU. Movimento interno fica de fora: caixa na
-         propria filial nao e' caixa na rua, e cobra-la seria cobrar de casa. */
-      if (env > dev) t.deficit += env - dev;
+      var saiu   = foraNaOrigem ? (l.retorno || 0) : (l.saida || 0);
+      var voltou = foraNaOrigem ? (l.saida || 0)   : (l.retorno || 0);
+      t.saiu += saiu;
+      t.voltou += voltou;
+      /* TRECHO A TRECHO, e nao sobre os dois totais. Uma rota que devolveu a mais nao
+         abate o atraso de outra: sao duas cobrancas diferentes, e somadas antes de
+         comparar elas se escondem uma atras da outra. E' por isso que este numero nao
+         bate com "saiu menos voltou" — e o rodape do cartao diz isso. */
+      if (saiu > voltou) t.deficit += saiu - voltou;
     });
-    /* A TAXA E DO QUE SAIU PARA FORA. Medida contra o movimento interno junto, ela
-       misturava reguas: a matriz marcava 0% num ciclo que fechou inteiro.
-       SEM ENVIO NAO HA TAXA, e o cartao diz "—": zero por cento quer dizer "saiu e nada
-       voltou", que e' outra coisa. */
-    t.taxaRetorno = t.envio > 0
-      ? Math.round((t.devolucao / t.envio) * 1000) / 10 : null;
+    t.taxaRetorno = t.saiu > 0
+      ? Math.round((t.voltou / t.saiu) * 1000) / 10 : null;
     return t;
   }
 
@@ -6151,56 +6131,39 @@
         '<div class="desenho desenho--zero"><span class="risco"></span><span class="rot">0</span>'+
         '<span class="cai"></span><span class="cai"></span><span class="cai"></span></div>')+
 
-      /* ================= AS CINCO ETAPAS, NA ORDEM DA VIAGEM =================
-       * So' nas visoes de LUGAR, onde cada linha e' uma perna e da' para dizer qual e'
-       * qual. Lidas da esquerda para a direita elas contam o ciclo. Nao se somam: sao a
-       * mesma carga em momentos diferentes — ver `totaisDe`. */
-      (deLugar
-        ? tileCor(Q.num(t.saida), 'Saída', 'a matriz despachou para a filial',
-            COR_TILE.saida,
-            '<div class="desenho desenho--pista">'+Q.caminhao(4)+'</div>')+
+      /* ================= O QUE SAIU, E O QUE VOLTOU =================
+       *
+       * Dois numeros, e a diferenca entre eles e' o cartao seguinte. Eram CINCO etapas
+       * aqui, e o escritorio leu a fileira como se um numero estivesse dentro do outro —
+       * "a Saida de 3.992 esta dentro do Envio de 27.518?". Nao estava: os conjuntos
+       * eram separados, e os NOMES e' que diziam o contrario.
+       *
+       * O RODAPE DIZ DE QUE SAIDA SE FALA, e ele muda com a visao, porque o mesmo numero
+       * responde perguntas diferentes: na de LUGAR ele conta o que cruzou a fronteira da
+       * empresa; na de motorista, de usuario ou de tipo de caixa, tudo o que aquela
+       * linha despachou. Fixo, ele mentiria numa das duas — e seria a leitura que
+       * ninguem confere, porque o numero parece certo. */
+      tileCor(Q.num(t.saiu), 'Saiu',
+        deLugar ? 'cruzou a fronteira · transferência entre casas nossas não entra'
+                : 'tudo o que saiu · por '+rotuloDaVisao(),
+        COR_TILE.saida,
+        '<div class="desenho desenho--pista">'+Q.caminhao(4)+'</div>')+
 
-          /* HOJE ELA E IGUAL A SAIDA, e esta' escrito no rodape de proposito: e' a mesma
-             perna vista da outra ponta. Os dois numeros se separam no dia em que a filial
-             CONFERIR a chegada — ai a entrada passa a ser o que foi contado, e a diferenca
-             entre os dois cartoes vira a divergencia, com nome e data. */
-          tileCor(Q.num(t.entrada), 'Entrada',
-            'a filial recebeu · o mesmo lançamento, visto na chegada',
-            COR_TILE.entrada)+
+      tileCor(Q.num(t.voltou), 'Voltou',
+        deLugar ? 'devolvido para dentro de casa'
+                : 'tudo o que voltou · por '+rotuloDaVisao(),
+        COR_TILE.retorno,
+        '<div class="desenho desenho--pista desenho--volta">'+
+        Q.caminhao(t.saiu ? Math.max(0, Math.min(4,
+          Math.round(t.voltou / t.saiu * 4))) : 0)+'</div>')+
 
-          tileCor(Q.num(t.envio), 'Envio', 'saiu da empresa — fornecedor, cliente ou rota',
-            COR_TILE.envio)+
-
-          tileCor(Q.num(t.devolucao), 'Devolução', 'voltou para dentro da empresa',
-            COR_TILE.devolucao,
-            '<div class="desenho desenho--pista desenho--volta">'+
-            Q.caminhao(t.envio ? Math.max(0, Math.min(4,
-              Math.round(t.devolucao / t.envio * 4))) : 0)+'</div>')+
-
-          tileCor(Q.num(t.retorno), 'Retorno', 'a filial devolveu à matriz',
-            COR_TILE.retorno)
-
-        /* ================= AS DUAS PONTAS, E SO' ELAS =================
-         * Aqui a linha nao e' uma viagem — e' um motorista, um usuario, um tipo de
-         * caixa. O rodape diz DE QUEM se esta falando, porque o mesmo "1.600" quer
-         * dizer coisas diferentes em cada uma dessas listas. */
-        : tileCor(Q.num(t.saida), 'Saída',
-            'tudo o que saiu · '+rotuloDaVisao(), COR_TILE.saida,
-            '<div class="desenho desenho--pista">'+Q.caminhao(4)+'</div>')+
-
-          tileCor(Q.num(t.retorno), 'Retorno',
-            'tudo o que voltou · '+rotuloDaVisao(), COR_TILE.retorno,
-            '<div class="desenho desenho--pista desenho--volta">'+
-            Q.caminhao(t.saida ? Math.max(0, Math.min(4,
-              Math.round(t.retorno / t.saida * 4))) : 0)+'</div>'))+
-
-      /* NA VISAO DE LUGAR, SO' O QUE CRUZOU A FRONTEIRA: caixa parada na propria
-         filial nao e' caixa na rua, e cobra-la seria cobrar de casa. Nas outras, e' o
-         que saiu e nao voltou — somado LINHA A LINHA, para que um motorista em dia nao
-         apague o atraso de outro. O rodape diz qual das duas contas esta' valendo. */
+      /* ESTE NUMERO NAO E "SAIU MENOS VOLTOU", e o rodape diz isso com todas as letras.
+         Ele e' somado TRECHO A TRECHO: uma rota que devolveu a mais nao abate o atraso de
+         outra, porque sao duas cobrancas diferentes. Sem o aviso, quem faz a subtracao
+         de cabeca — e todo mundo faz, com os dois numeros ali do lado — acha um terceiro
+         valor e conclui que a tela errou. */
       tileCor(Q.num(t.deficit), 'Caixas que Saíram e Não Voltaram',
-        (deLugar ? 'do que foi enviado' : 'por '+rotuloDaVisao())+
-        ' · '+janelaDoPainel(), COR_TILE.fora,
+        'somado trecho a trecho · '+janelaDoPainel(), COR_TILE.fora,
         '<div class="desenho desenho--fora"><span class="via"></span><span class="casa"></span>'+
         '<span class="tenta"></span><span class="la"><i></i><i></i><i></i></span></div>')+
 
@@ -6484,14 +6447,14 @@
    *
    * A cor sai de um TOKEN, e não escrita solta: solta, ela escaparia da conferência de
    * contraste do projeto e chegaria ao galpão sem passar por ela. */
+  /* CINCO CARTOES, CINCO TINTAS. Eram oito, com cinco etapas do ciclo — e o escritorio
+     leu a fileira inteira como se um numero estivesse dentro do outro: "a Saida de 3.992
+     esta dentro do Envio de 27.518?". Nao estava: os conjuntos eram separados, mas os
+     NOMES diziam o contrario, porque Saida/Envio soam a mesma coisa, Entrada/Devolucao
+     tambem, e Retorno/Devolucao tambem. Cinco nomes para duas familias. */
   var COR_TILE = {
     estoque: 'var(--txt)', saida: 'var(--verde)', retorno: 'var(--marca-txt)',
-    fora: 'var(--ambar-forte)', taxa: 'var(--roxo-txt)',
-    /* AS ETAPAS DO CICLO, e uma cor por etapa. As tres de DENTRO DE CASA — saida,
-       entrada e retorno — ficam na familia do verde e do azul da marca; as duas que
-       cruzam a fronteira — envio e devolucao — ganham tinta propria, porque sao elas
-       que a cobranca persegue. */
-    entrada: 'var(--azul)', envio: 'var(--txt2)', devolucao: 'var(--verde-esc)'
+    fora: 'var(--ambar-forte)', taxa: 'var(--roxo-txt)'
   };
 
   /* `larga` pede a linha inteira, e nao depende de quantos cartoes ha na fileira: e' a
