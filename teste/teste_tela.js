@@ -13220,6 +13220,125 @@ console.log('\n== clicar na linha filtra por ela ==');
 })();
 
 /* ---------------------------------------------------------------------------
+ * A tela "Lançamento Motorista".
+ *
+ * A MESMA LISTA DE PARES, com duas colunas de resposta: quanto o motorista declarou, e
+ * se já conferiram. Movimentos Motoristas existe para COMPARAR as duas contas e leva a
+ * diferença entre elas; esta responde a pergunta mais curta.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a tela Lan\u00e7amento Motorista ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var log = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+
+  /* ---- 1. AS COLUNAS: so' a quantidade declarada e o estado ---- */
+  var iT = adm.indexOf('  var TAB_LANC = {');
+  var tab = iT < 0 ? '' : adm.slice(iT, adm.indexOf('\n  };', iT));
+  ok(!!tab, 'a confer\u00eancia achou o descritor da tabela nova', tab.length);
+
+  var padrao = (/padrao: \[([\s\S]*?)\]/.exec(tab) || [])[1] || '';
+  var cols = padrao.split(',').map(function (x) { return x.trim().replace(/'/g, ''); })
+    .filter(Boolean);
+  ok(cols.indexOf('saida') >= 0 && cols.indexOf('situacao') >= 0,
+    'a tabela leva a quantidade declarada e a situa\u00e7\u00e3o \u2014 s\u00e3o as duas respostas que ' +
+    'esta tela existe para dar: quanto ele declarou, e se j\u00e1 conferiram', cols);
+  ok(cols.indexOf('conferido') < 0 && cols.indexOf('difConf') < 0,
+    'e N\u00c3O leva o conferido nem a diferen\u00e7a \u2014 essa \u00e9 a pergunta da outra tela, e ' +
+    'traz\u00ea-la de volta aqui faria duas telas iguais com nomes diferentes', cols);
+  /* SEM TIRAR OS ESPAÇOS: o próprio título tem um, e a limpeza o colava — a prova
+     procurava "RetornoDeclarado" e reprovava o texto certo. */
+  ok(/saida:\s*'Retorno Declarado'/.test(tab),
+    'e a coluna da quantidade se chama "Retorno Declarado", como na outra \u2014 o mesmo ' +
+    'n\u00famero com dois nomes faz procurar a diferen\u00e7a que n\u00e3o existe', tab);
+
+  /* AS CHAVES DE PREFERENCIA SAO PROPRIAS. Dividindo as da outra tela, esconder uma
+     coluna aqui a esconderia la', numa tela que precisa dela para existir. */
+  ok(/kOrdem: 'qdc_cols_lanc_v1'/.test(tab) && /kOcultas: 'qdc_cols_ocultas_lanc_v1'/.test(tab),
+    'e as prefer\u00eancias de coluna s\u00e3o DELA \u2014 dividindo as da outra, esconder uma coluna ' +
+    'aqui a esconderia l\u00e1, numa tela que precisa dela para existir', tab);
+
+  /* ---- 2. UM DESENHO, DUAS TELAS ---- */
+  ok(/var TELA_PARES = TELA_DECL;/.test(adm),
+    'as duas telas dividem o mesmo desenho, e o que muda cabe num descritor \u2014 escrito ' +
+    'como duas fun\u00e7\u00f5es, seria a mesma tela em duas c\u00f3pias, e a primeira diferen\u00e7a ' +
+    'entre elas apareceria como duas respostas para o mesmo lan\u00e7amento',
+    adm.indexOf('TELA_PARES'));
+  ok(/if \(p==='pgLancamentoMotorista'\)\s*\{ TELA_PARES = TELA_LANC; carregarDecl\(\); \}/
+     .test(adm),
+    'e o roteador escolhe a tela ANTES de carregar \u2014 trocado depois, o primeiro ' +
+    'desenho sairia na caixa da outra', adm.indexOf("pgLancamentoMotorista'"));
+
+  /* OS CAMPOS TEM IDS PROPRIOS. Dois conjuntos com os mesmos ids fariam
+     `getElementById` ler sempre o primeiro, e esta tela filtraria pelo que a outra tem
+     escolhido — sem nada na tela dizendo por que. */
+  ['lmDe', 'lmAte', 'lmBase', 'lmBusca', 'lmHoje', 'tabelaLanc'].forEach(function (id) {
+    ok(adm.indexOf('id="' + id + '"') > 0,
+      'a tela nova tem o campo ' + id + ', com id pr\u00f3prio \u2014 ids repetidos fariam ' +
+      '`getElementById` ler sempre o primeiro, e esta tela filtraria pelo que a outra ' +
+      'tem escolhido', id);
+  });
+  ok(/\['dcBusca', 'lmBusca'\]/.test(adm),
+    'e a busca das duas telas \u00e9 ligada pela mesma volta \u2014 ligada s\u00f3 numa, digitar na ' +
+    'outra n\u00e3o peneira nada e a conclus\u00e3o raso\u00e1vel \u00e9 que a tela travou',
+    adm.indexOf("'lmBusca'"));
+  /* E QUEM LE A BUSCA SEGUE A TELA CORRENTE, e nao um id escrito dentro da funcao.
+     Ligar o ouvinte do campo novo nao basta: preso a `dcBusca`, digitar aqui não
+     peneira nada, e a tela peneira pelo que a OUTRA tem digitado — sem nada dizendo
+     por que a lista encolheu. Uma sabotagem escapou exatamente por aí. */
+  {
+    var iB = adm.indexOf('  function textoDaBusca(){');
+    var fonteB = adm.slice(iB, adm.indexOf('\n  }', iB) + 4);
+    function buscaCom(tela, valores) {
+      return new Function('document', 'semAcento', 'TELA_PARES',
+        fonteB + '\n return textoDaBusca;')(
+        { getElementById: function (id) {
+            return valores[id] === undefined ? null : { value: valores[id] }; } },
+        function (x) { return String(x); }, tela)();
+    }
+    var TD = { campos: { busca: 'dcBusca' } }, TL = { campos: { busca: 'lmBusca' } };
+    var campos = { dcBusca: 'da outra tela', lmBusca: 'desta tela' };
+    ok(buscaCom(TL, campos) === 'desta tela' && buscaCom(TD, campos) === 'da outra tela',
+      'e a busca LÊ o campo da tela corrente — presa ao id da outra, digitar aqui não ' +
+      'peneira nada e a lista encolhe pelo que a outra tela tem escrito',
+      [buscaCom(TL, campos), buscaCom(TD, campos)]);
+  }
+
+  ok(/Q\.ligarBotaoHoje\('lmHoje', 'lmDe', 'lmAte', carregarDecl\)/.test(adm),
+    'e o "Hoje" sai da MESMA fun\u00e7\u00e3o do n\u00facleo \u2014 escrito de novo, o dia em que o ' +
+    '"tocar de novo desliga" mudasse, ele mudaria numa tela s\u00f3',
+    adm.indexOf("ligarBotaoHoje('lmHoje'"));
+
+  /* ---- 3. A CONTAGEM CEGA CONTINUA FECHADA ----
+   *
+   * A tela nova MOSTRA o numero declarado. Fora da marca, quem recebesse so' ela abriria
+   * uma pagina que o servidor recusa — e leria "sem permissao" numa aba que lhe foi
+   * concedida. Dentro, ela concede o mesmo que a outra, que e' o certo: as duas mostram
+   * a mesma coluna. */
+  ok(/var ABAS_DE_DECLARACAO = \['pgLancamentosMotorista', 'pgLancamentoMotorista'\]/
+     .test(log),
+    'as duas telas que mostram declara\u00e7\u00e3o est\u00e3o na MESMA lista \u2014 \u00e9 ela que responde ' +
+    '"quem v\u00ea declara\u00e7\u00e3o", e uma tela de fora dela seria uma porta aberta ou uma aba ' +
+    'concedida que n\u00e3o abre', log.indexOf('ABAS_DE_DECLARACAO'));
+
+  var veDecl = new Function('ehAdministrador',
+    (/var ABAS_DE_DECLARACAO[\s\S]*?\n\}/.exec(log) || [''])[0] +
+    '\n return veDeclaracao;')(function (u) { return u.Perfil === 'ADMIN'; });
+  ok(veDecl({ Abas: ['pgLancamentoMotorista'] }) === true,
+    'quem recebeu S\u00d3 a tela nova v\u00ea declara\u00e7\u00e3o \u2014 ela mostra o n\u00famero declarado, e sem ' +
+    'isso a aba concedida abriria recusada pelo servidor',
+    veDecl({ Abas: ['pgLancamentoMotorista'] }));
+  ok(veDecl({ Abas: ['pgMovimentos'] }) === false,
+    'e quem n\u00e3o recebeu nenhuma das duas N\u00c3O v\u00ea \u2014 a contagem do conferente \u00e9 cega, e ' +
+    'lendo o que o motorista declarou antes de contar ele copia o n\u00famero',
+    veDecl({ Abas: ['pgMovimentos'] }));
+  ok(veDecl({ Abas: [], Perfil: 'ADMIN' }) === true &&
+     veDecl({ Abas: [], Perfil: 'MOTORISTA' }) === false,
+    'e lista vazia quer dizer "todas" S\u00d3 para o administrador, que \u00e9 a origem da ' +
+    'concess\u00e3o \u2014 para os outros, nada marcado \u00e9 nada liberado',
+    [veDecl({ Abas: [], Perfil: 'ADMIN' }), veDecl({ Abas: [], Perfil: 'MOTORISTA' })]);
+})();
+
+/* ---------------------------------------------------------------------------
  * ALTURA FIXA NUM CAMPO: a conta tem de fechar.
  *
  * O seletor "Agrupar por" foi ao ar com o texto cortado ao meio. O CSS dizia
@@ -14418,6 +14537,9 @@ console.log('\n== a navegação separada por módulo ==');
   ok(pares === 'pgRetornos>Painel de Ativos' +
                 ' | pgMovimentos>Movimentos Gerais' +
                 ' | pgLancamentosMotorista>Movimentos Motoristas' +
+                /* A TELA CURTA LOGO DEPOIS DA LONGA: as duas leem a mesma lista, e
+                   quem procura uma esbarra na outra sem atravessar o menu. */
+                ' | pgLancamentoMotorista>Lançamento Motorista' +
                 ' | pgPainel>Movimentos Rotas' +
                 ' | pgInstrucoes>Instruções' +
                 ' | pgTutorialSaida>Tutorial de Saída | pgTutorialRetorno>Tutorial de Retorno' +
@@ -17440,8 +17562,13 @@ console.log('\n== Motorista/Conferente ==');
     'toda rota que devolve lançamento passa pela peneira da contagem cega — uma que ' +
     'não passe é a porta de trás, e ainda faz quem administra acreditar que fechou ' +
     'todas', semPeneira);
+  /* A MARCA SAO AS ABAS QUE MOSTRAM DECLARACAO, numa lista so': nasceu com uma, e
+     ganhou a segunda quando "Lancamento Motorista" apareceu mostrando a mesma
+     coluna. A LISTA e' o que impede as duas de divergirem — e' ela que responde
+     "quem ve' declaracao", e nao um `indexOf` escrito dentro da funcao. */
   ok(/function veDeclaracao\(u\)/.test(log) &&
-     log.indexOf("abas.indexOf('pgLancamentosMotorista')") > 0,
+     /var ABAS_DE_DECLARACAO = \[/.test(log) &&
+     log.indexOf('ABAS_DE_DECLARACAO.indexOf(a)') > 0,
     'e quem decide é a MESMA aba que abre a tela — uma permissão nova ao lado dela ' +
     'divergiria no primeiro cadastro em que alguém mexesse só numa');
 
@@ -18579,8 +18706,18 @@ console.log('\n== Motorista/Conferente ==');
      resultado e nao custam uma ida a rede a cada troca de filtro.
      O que a prova cobra e' que o campo seja USADO em algum lugar: desenhado e lido por
      ninguem, ele fica na tela sem fazer nada. */
+  /* OS CAMPOS SAO LIDOS PELO DESCRITOR DA TELA, e nao mais por id escrito dentro da
+     funcao: duas telas dividem o mesmo desenho — Movimentos Motoristas e Lancamento
+     Motorista —, e o que muda entre elas cabe no descritor. Entao o lugar onde o id
+     aparece passou a ser ele.
+     A PROVA CONTINUA COBRANDO A MESMA COISA: o campo e' USADO em algum lugar. Desenhado
+     e lido por ninguem, ele fica na tela sem fazer nada. */
+  var iTel = adm.indexOf('  var TELA_DECL = {');
+  var descritores = iTel < 0 ? '' : adm.slice(iTel, adm.indexOf('TELA_LANC.tab', iTel));
+  ok(!!descritores, 'a confer\u00eancia achou os descritores das duas telas', descritores.length);
   var semUso = camposDecl.filter(function (c) {
-    return fd.indexOf("'" + c + "'") < 0 && dd.indexOf("'" + c + "'") < 0;
+    return fd.indexOf("'" + c + "'") < 0 && dd.indexOf("'" + c + "'") < 0 &&
+           descritores.indexOf("'" + c + "'") < 0;
   });
   ok(semUso.length === 0,
     'todo campo da concilia\u00e7\u00e3o \u00e9 LIDO \u2014 pelo filtro que vai ao servidor, ou pela ' +

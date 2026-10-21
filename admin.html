@@ -327,6 +327,14 @@
         </svg>
         <span class="nav-rotulo">Movimentos Motoristas</span>
       </button>
+      <button data-grupo="Operação" style="display:none" data-pagina="pgLancamentoMotorista" data-acima="Operação">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 11l3 3 7-7"></path>
+          <path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"></path>
+        </svg>
+        <span class="nav-rotulo">Lançamento Motorista</span>
+      </button>
       <button data-grupo="Operação" style="display:none" data-pagina="pgPainel" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1560,6 +1568,41 @@
   <!-- A MESMA PÁGINA que o app de campo abre, e não uma segunda cópia dela: duas
        divergem no primeiro conserto que só uma receber, e aí o galpão e o escritório
        passam a ver tutoriais diferentes do mesmo sistema. -->
+  <!-- ================= LANÇAMENTO MOTORISTA =================
+       A MESMA LISTA DE PARES, com duas colunas de resposta: quanto o motorista
+       declarou, e se já conferiram. Movimentos Motoristas existe para COMPARAR as duas
+       contas e leva a diferença entre elas; esta responde a pergunta mais curta, que é a
+       que se faz no dia a dia.
+
+       OS CAMPOS TÊM IDS PRÓPRIOS, e não os da outra tela. Dois conjuntos com os mesmos
+       ids fariam `getElementById` ler sempre o primeiro, e esta tela filtraria pelo que
+       a outra tem escolhido — sem nada na tela dizendo por quê. -->
+  <section id="pgLancamentoMotorista" class="pagina">
+    <div class="card">
+      <h2>Lançamento Motorista<span class="sub">O que o motorista declarou, e se já foi
+        conferido.</span></h2>
+
+      <div class="barra-trava">
+        <div class="trava-colunas" data-trava-colunas data-tabela="lanc"></div>
+        <div class="barra-trava__acoes">
+          <button class="chip-hoje" type="button" id="lmHoje" aria-pressed="false">Hoje</button>
+          <div class="bt-campo"><label for="lmDe">De</label><input id="lmDe" type="date"></div>
+          <div class="bt-campo"><label for="lmAte">Até</label><input id="lmAte" type="date"></div>
+          <!-- A BASE É OBRIGATÓRIA, como na outra tela: carregar "todas" por omissão
+               abriria os dois livros para quem não pediu nem um. -->
+          <div class="bt-campo"><label for="lmBase">Base</label>
+            <select id="lmBase" multiple data-multi data-bases="decl"></select></div>
+          <div class="bt-campo bt-campo--busca"><label for="lmBusca">Buscar</label>
+            <input id="lmBusca" type="search" placeholder="motorista, rota, M000123…"
+                   autocomplete="off"></div>
+        </div>
+      </div>
+
+      <div class="linha-sit" id="lmSituacoes"></div>
+      <div id="tabelaLanc"><div class="vazio">Escolha a <b>Base</b>.</div></div>
+    </div>
+  </section>
+
   <section id="pgTutorialSaida" class="pagina">
     <div class="card">
       <div class="cab-card">
@@ -2358,19 +2401,28 @@
     /* A BASE ENTRA AQUI e o Tipo não: a base muda o que o servidor manda, e o tipo
        peneira o que já chegou. Uma ida à rede para recortar o que está na tela mediria
        de novo o que não mudou. */
-    ['dcDe', 'dcAte', 'dcMotorista', 'dcBase', 'dcRemovidos'].forEach(function(id){
+    /* OS CAMPOS DA TELA NOVA ENTRAM NA MESMA LISTA: eles pedem ao servidor pela mesma
+       funcao, e um campo que nao recarrega e' um filtro que a pessoa escolhe e nao ve'
+       efeito nenhum — a conclusao razoavel e' que a tela quebrou. */
+    ['dcDe', 'dcAte', 'dcMotorista', 'dcBase', 'dcRemovidos',
+     'lmDe', 'lmAte', 'lmBase'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', carregarDecl);
     });
     /* A BUSCA REDESENHA, e nao recarrega: os pares ja estao na mao, e uma ida a rede a
        cada letra daria uma tela que pisca enquanto se escreve. `input` e nao `change`
        porque o resultado tem de aparecer enquanto se digita. */
-    var bq = document.getElementById('dcBusca');
-    if (bq) bq.addEventListener('input', desenharDecl);
+    ['dcBusca', 'lmBusca'].forEach(function(id){
+      var bq = document.getElementById(id);
+      if (bq) bq.addEventListener('input', desenharDecl);
+    });
     /* O FILTRO RAPIDO DO DIA, o mesmo do app de campo — a funcao mora no nucleo, e as
        duas telas chamam a mesma. `carregarDecl` porque a data muda o que o SERVIDOR
        manda: peneirar o que ja chegou daria a tabela de outro periodo. */
     Q.ligarBotaoHoje('dcHoje', 'dcDe', 'dcAte', carregarDecl);
+    /* O MESMO ATALHO NA TELA NOVA, pela MESMA funcao do nucleo: escrito de novo, o dia
+       em que o "tocar de novo desliga" mudasse, ele mudaria numa tela so'. */
+    Q.ligarBotaoHoje('lmHoje', 'lmDe', 'lmAte', carregarDecl);
     var tp = document.getElementById('dcTipo');
     if (tp) tp.addEventListener('change', desenharDecl);
     /* A SITUAÇÃO NÃO RECARREGA NADA: ela nasce da comparação, que já está na tela. Uma
@@ -2518,7 +2570,10 @@
     calarQuadrosEscondidos(document);
     if (p==='pgPainel' || p==='pgRetornos') carregarPainel();
     if (p==='pgMovimentos') carregarMovimentos();
-    if (p==='pgLancamentosMotorista') carregarDecl();
+    /* QUAL TELA, ANTES DE CARREGAR. As duas dividem o desenho e a lista; o que muda
+       e' o descritor. Trocado DEPOIS, o primeiro desenho sairia na caixa da outra. */
+    if (p==='pgLancamentosMotorista') { TELA_PARES = TELA_DECL; carregarDecl(); }
+    if (p==='pgLancamentoMotorista')  { TELA_PARES = TELA_LANC; carregarDecl(); }
     if (p==='pgColunas') desenharColunas();
   };
 
@@ -4448,14 +4503,70 @@
       .filter(function(v){ return !!v; });
   }
 
+  /* ================= A TABELA DE LANCAMENTO MOTORISTA =================
+   *
+   * AS MESMAS CELULAS, menos colunas. Ela sai da mesma fabrica (`defsDecl`) e dos
+   * mesmos pares (`montarPares`): o que muda e' QUAIS colunas entram. Uma segunda
+   * fabrica de celulas para a mesma linha divergiria da primeira no primeiro conserto
+   * que so' uma recebesse — e as duas telas mostram o MESMO lancamento.
+   *
+   * SEM `conferido` E SEM A DIFERENCA: esta tela responde "quanto ele declarou, e ja'
+   * conferiram?". A conta de divergencia e' a pergunta da outra. */
+  var TAB_LANC = {
+    padrao: ['lancamento','data','base','tipo','motorista','placa','origem','destino',
+             'saida','situacao'],
+    larg: { lancamento:140, data:110, base:110, tipo:100, motorista:160, placa:110,
+            origem:160, destino:160, saida:160, situacao:150 },
+    titulos: { lancamento:'Lançamento', data:'Data', base:'Base', tipo:'Tipo',
+               motorista:'Motorista', placa:'Placa', origem:'Origem', destino:'Destino',
+               saida:'Retorno Declarado', situacao:'Situação' },
+    kOrdem: 'qdc_cols_lanc_v1',
+    kLarg: 'qdc_larg_lanc_v1',
+    kOcultas: 'qdc_cols_ocultas_lanc_v1',
+    alvo: '#tabelaLanc',
+    redesenha: function(){ desenharDecl(); }
+  };
+
+  /* ================= QUAL DAS DUAS TELAS ESTA ABERTA =================
+   *
+   * O desenho e' um so'. O que muda entre elas cabe neste descritor: a tabela, a caixa
+   * onde ela e' escrita, os campos do filtro e os dois quadros de apoio.
+   *
+   * ESCRITO COMO DUAS FUNCOES DE DESENHO, seria a mesma tela em duas copias — e a
+   * primeira diferenca entre elas apareceria como duas respostas para o mesmo
+   * lancamento, uma em cada aba.
+   *
+   * OS QUADROS QUE A TELA NOVA NAO TEM entram como cadeia vazia: `getElementById('')`
+   * devolve `null`, e o desenho ja' pergunta antes de escrever em cada um deles. */
+  var TELA_DECL = {
+    tab: null, box: 'tabelaDecl', totais: 'dcTotais', sits: 'dcSituacoes',
+    alvo: '#tabelaDecl', situacao: 'dcSituacao', tipo: 'dcTipo',
+    campos: { de: 'dcDe', ate: 'dcAte', motorista: 'dcMotorista', base: 'dcBase',
+              removidos: 'dcRemovidos', busca: 'dcBusca' }
+  };
+  var TELA_LANC = {
+    tab: null, box: 'tabelaLanc', totais: '', sits: 'lmSituacoes',
+    alvo: '#tabelaLanc', situacao: '', tipo: '',
+    campos: { de: 'lmDe', ate: 'lmAte', motorista: '', base: 'lmBase',
+              removidos: '', busca: 'lmBusca' }
+  };
+  var TELA_PARES = TELA_DECL;
+
+  /* OS DESCRITORES SAO LIGADOS DEPOIS, e nao na criacao: `TAB_DECL` nasce mais acima no
+     arquivo e `TAB_LANC` logo aqui, e um deles seria `undefined` no momento em que o
+     outro fosse escrito. */
+  TELA_DECL.tab = TAB_DECL;
+  TELA_LANC.tab = TAB_LANC;
+
   function filtroDecl(){
-    return { de: valorFiltro('dcDe'), ate: valorFiltro('dcAte'),
-             motorista: valorFiltro('dcMotorista'), base: valorFiltro('dcBase'),
-             removidos: valorFiltro('dcRemovidos') };
+    var c = TELA_PARES.campos;
+    return { de: valorFiltro(c.de), ate: valorFiltro(c.ate),
+             motorista: valorFiltro(c.motorista), base: valorFiltro(c.base),
+             removidos: valorFiltro(c.removidos) };
   }
 
   function carregarDecl(){
-    var box = document.getElementById('tabelaDecl');
+    var box = document.getElementById(TELA_PARES.box);
     if (!box) return;
     var f = filtroDecl();
     /* SEM BASE ESCOLHIDA A TELA NÃO PERGUNTA NADA. Carregar "todas" por omissão seria
@@ -4805,9 +4916,9 @@
      eles ficariam sobre uma tela que diz "escolha a base" — e três números sem tabela
      se leem como o resultado do que está escolhido agora. */
   function limparResumoDecl(){
-    var faixa = document.getElementById('dcTotais');
+    var faixa = document.getElementById(TELA_PARES.totais);
     if (faixa) faixa.innerHTML = '';
-    var sit = document.getElementById('dcSituacoes');
+    var sit = document.getElementById(TELA_PARES.sits);
     if (sit) sit.innerHTML = '';
   }
 
@@ -4836,8 +4947,10 @@
        escrita, que e' pior do que com acento tirado e melhor do que estourar. */
     return v.normalize ? v.normalize('NFD').replace(/[̀-ͯ]/g, '') : v;
   }
+  /* A BUSCA LE O CAMPO DA TELA CORRENTE. Preso a `dcBusca`, a tela nova peneiraria pelo
+     que a outra tem digitado — e sem nada na tela dizendo por que a lista encolheu. */
   function textoDaBusca(){
-    var el = document.getElementById('dcBusca');
+    var el = document.getElementById(TELA_PARES.campos.busca);
     return el ? semAcento(el.value).trim() : '';
   }
   function parCasa(p, busca){
@@ -4963,8 +5076,8 @@
     /* O TIPO PENEIRA O PAR, e não os lançamentos antes dele: o tipo já é parte da chave
        do par, então as duas coisas dão o mesmo resultado — e peneirar o par não custa
        uma ida à rede a cada vez que alguém troca o filtro. */
-    var quer = escolhaDe(document.getElementById('dcSituacao'));
-    var tipos = escolhaDe(document.getElementById('dcTipo'));
+    var quer = escolhaDe(document.getElementById(TELA_PARES.situacao));
+    var tipos = escolhaDe(document.getElementById(TELA_PARES.tipo));
     var busca = textoDaBusca();
     var L = PARES.filter(function(p){
       if (tipos.length && tipos.indexOf(p.tipo) < 0) return false;
@@ -4980,7 +5093,7 @@
     };
     var said = soma('declaradoTotal'), conf = soma('conferido');
     var conta = function(s){ return L.filter(function(p){ return p.situacao === s; }).length; };
-    var faixa = document.getElementById('dcTotais');
+    var faixa = document.getElementById(TELA_PARES.totais);
     if (faixa){
       /* SEM O TEXTO DE APOIO, a pedido. Ele explicava o que os rótulos já dizem —
          "Declarado" é o que o motorista informou —, e num telefone essas frases
@@ -5008,7 +5121,7 @@
         cartaoTot(2, 3, 'var(--ambar-forte)', 'Conferido − Declarado',
                   sinalDe(conf - said), '', null);
     }
-    var sit = document.getElementById('dcSituacoes');
+    var sit = document.getElementById(TELA_PARES.sits);
     if (sit){
       /* A LISTA DOS CHIPS É A MESMA DO FILTRO, lida do próprio seletor: escritas em
          dois lugares, uma situação nova apareceria num e não no outro, e a soma dos
@@ -5043,10 +5156,11 @@
       return;
     }
 
-    var LARG = larguras(TAB_DECL);
-    var cabem = ordemColunas(TAB_DECL).map(function(id){ return { id: id, d: DEFS[id] }; })
+    var TAB = TELA_PARES.tab;
+    var LARG = larguras(TAB);
+    var cabem = ordemColunas(TAB).map(function(id){ return { id: id, d: DEFS[id] }; })
       .filter(function(c){ return !!c.d; });
-    var ocultas = colunasOcultas(TAB_DECL);
+    var ocultas = colunasOcultas(TAB);
     var cs = cabem.filter(function(c){ return ocultas.indexOf(c.id) < 0; });
     if (!cs.length) cs = cabem;
 
@@ -5095,9 +5209,9 @@
         return linhaDePar(par, cs, false, '');
       }).join('')+'</tbody></table></div>';
 
-    ligarArrastarColunas(TAB_DECL);
-    ligarLarguraColunas(TAB_DECL);
-    ligarOrdemColunas('#tabelaDecl', classificarDeclPor);
+    ligarArrastarColunas(TAB);
+    ligarLarguraColunas(TAB);
+    ligarOrdemColunas(TELA_PARES.alvo, classificarDeclPor);
     ligarAcoesDecl(box);
   }
 

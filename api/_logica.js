@@ -158,6 +158,14 @@ var ABAS = [
      tela; trocado, todo mundo perderia o acesso a ela no mesmo instante, e ninguem
      ligaria uma coisa a outra. O nome e o que aparece; o id e o que vale. */
   { ID: 'pgLancamentosMotorista', Nome: 'Motorista/Conferente' },
+  /* A MESMA LISTA, COM MENOS COLUNAS. Movimentos Motoristas existe para COMPARAR duas
+     contas — o que o motorista declarou e o que o conferente contou —, e por isso leva a
+     diferenca entre elas. Esta responde outra pergunta, mais curta: quanto ele declarou,
+     e se ja' conferiram. Sao as duas unicas colunas de numero e de estado.
+     ABA PROPRIA, e nao um filtro da outra: quem abre esta nao quer a conta de
+     divergencia na tela, e uma coluna escondida continua sendo uma coluna que se pode
+     reabrir sem querer — e a contagem cega nao sobrevive a um "sem querer". */
+  { ID: 'pgLancamentoMotorista', Nome: 'Lançamento Motorista' },
   /* O MANUAL, pela mesma razao do video: texto que explica o sistema, sem dado nenhum
      dentro. As tres passam pela marca como qualquer outra: houve tempo em que chegavam
      a todo mundo que entrasse, e um motorista com uma aba marcada via quatro. */
@@ -698,9 +706,16 @@ function baseEscolhida(u, p) {
  * filtra "Base Declaracao" na lista de Movimentos passa por cima dela. E a lista, o
  * extrato, a lixeira e o CSV leem do mesmo lugar.
  *
- * A MARCA E A ABA `pgLancamentosMotorista`, e nao uma permissao nova ao lado dela: duas
- * marcas para a mesma pergunta divergem no primeiro cadastro em que alguem mexer so numa
- * — e ai a tela mostra o que a lista esconde, ou o contrario.
+ * A MARCA SAO AS ABAS QUE MOSTRAM DECLARACAO, numa lista so: `ABAS_DE_DECLARACAO`.
+ * Nao e' uma permissao nova ao lado delas — duas marcas para a mesma pergunta divergem
+ * no primeiro cadastro em que alguem mexer so' numa, e ai a tela mostra o que a lista
+ * esconde, ou o contrario.
+ *
+ * A REGRA DE QUEM ENTRA NA LISTA: toda tela que mostre o numero DECLARADO pelo
+ * motorista. Nasceu com uma; quando "Lancamento Motorista" apareceu, mostrando a mesma
+ * coluna com menos companhia, ela entrou junto — fora dali, quem recebesse so' a tela
+ * nova abriria uma pagina que o servidor recusa, e a pessoa leria "sem permissao" numa
+ * aba que lhe foi concedida.
  *
  * ADMIN SEM MARCA NENHUMA VE, pela mesma regra do painel: lista vazia quer dizer "todas"
  * so para ele, que e a origem da concessao.
@@ -714,11 +729,13 @@ function acharUsuario(usuarios, quem) {
   return (usuarios || []).filter(function (x) { return String(x.ID) === id; })[0] || null;
 }
 
+var ABAS_DE_DECLARACAO = ['pgLancamentosMotorista', 'pgLancamentoMotorista'];
+
 function veDeclaracao(u) {
   if (!u) return false;
   var abas = Array.isArray(u.Abas) ? u.Abas : [];
   if (!abas.length) return ehAdministrador(u);
-  return abas.indexOf('pgLancamentosMotorista') >= 0;
+  return abas.some(function (a) { return ABAS_DE_DECLARACAO.indexOf(a) >= 0; });
 }
 
 /* A PENEIRA DA CONTAGEM CEGA, na porta — do mesmo jeito que `recorteTeste` e

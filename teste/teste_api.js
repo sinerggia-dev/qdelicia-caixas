@@ -2652,11 +2652,11 @@ console.log('\n== quais abas do painel a pessoa ve ==');
 {
   const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
 
-  /* ONZE. As três de SISTEMA — Instruções, Vídeo Tutorial e Manual de Uso — não
+  /* QUINZE. As três de SISTEMA — Instruções, Vídeo Tutorial e Manual de Uso — não
      mostram dado de operação: elas explicam o sistema. Estão aqui porque é ESTE
      catálogo que enche a lista de abas do formulário — fora dele, não haveria como
      concedê-las a ninguém, e elas nasceriam invisíveis para sempre. */
-  ok(F.ABAS.length === 14 && F.ABAS[0].ID === 'pgRetornos',
+  ok(F.ABAS.length === 15 && F.ABAS[0].ID === 'pgRetornos',
     'a lista de abas mora no servidor, uma so para o formulario e para a tela',
     F.ABAS.map((a) => a.ID));
   /* Ajustes e Cadastros vem marcadas como SENSIVEIS na propria lista. Deixar isso
