@@ -4956,16 +4956,28 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
   loja.qdc_larg_ativos_v1 = '{lixo';
   ok(larguras().saida === d.saida, 'lixo no armazenamento cai na largura de fabrica');
 
-  /* A LARGURA SEGUE A MESMA REGRA DA ORDEM: sem permissão, a de fábrica. Uma coluna
-     que alguém deixou em 70px continuaria espremida para quem não tem como alargá-la. */
+  /* A LARGURA NAO SEGUE A REGRA DA ORDEM, e era isto que estava errado.
+   *
+   * Esta prova dizia o contrario, e a razao escrita nela ja' denunciava o defeito: "uma
+   * coluna que alguem deixou em 70px continuaria espremida para quem nao tem como
+   * alarga-la". Exatamente — e quem nao tem como alargar era TODO usuario que nao e'
+   * admin, inclusive na largura de fabrica. O escritorio mandou a tela: DESTINO e
+   * UNIDADE escritos um por cima do outro, e nenhum jeito de afastar as duas.
+   *
+   * ORDEM e COLUNA ESCONDIDA sao arranjo, e continuam atras do cadeado: uma coluna
+   * sumida nao tem como voltar para quem nao sabe onde ela foi. A LARGURA e' leitura —
+   * mora no navegador de quem olha, nao viaja para ninguem, e se desfaz arrastando de
+   * volta. */
   loja.qdc_larg_ativos_v1 = JSON.stringify({ saida: 320 });
   LARG_ADMIN = false;
-  ok(larguras().saida === d.saida,
-    'quem não é admin vê a largura de fábrica, ainda que haja uma guardada neste ' +
-    'navegador — senão uma coluna espremida fica espremida sem ter como alargar',
-    larguras().saida);
+  ok(larguras().saida === 320,
+    'quem N\u00c3O \u00e9 admin tamb\u00e9m v\u00ea a largura que guardou neste navegador \u2014 gravando ' +
+    'sem ler de volta, a coluna voltaria ao tamanho de f\u00e1brica a cada visita e o gesto ' +
+    'seria esquecido para sempre', larguras().saida);
   LARG_ADMIN = true;
-  ok(larguras().saida === 320, 'e a guardada volta a valer quando o perfil volta');
+  ok(larguras().saida === 320,
+    'e vale igual para o admin \u2014 a largura deixou de perguntar pelo perfil, ent\u00e3o os ' +
+    'dois leem a mesma coisa', larguras().saida);
 
   /* Layout fixo: em layout automatico o navegador trata `width` como sugestao, e a
      coluna volta sozinha ao soltar. */
@@ -10964,11 +10976,23 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
      /function podeArranjarColunas\(\)\{ return podeVerArranjo\(\) && colunasDestravadas\(\); \}/.test(adm),
     'são dois portões: VER o arranjo depende do perfil, ARRANJAR depende do perfil E ' +
     'da senha — com um só, o arranjo salvo sumia a cada carregamento');
+  /* E O TERCEIRO: A LARGURA NAO E ARRANJO.
+   *
+   * O escritorio mandou a tela: um usuario comum com DESTINO e UNIDADE escritos um por
+   * cima do outro, e nenhum jeito de afastar as duas. A largura estava atras do mesmo
+   * cadeado da ORDEM — que pede perfil de admin E senha.
+   *
+   * MAS AS DUAS NAO SE PARECEM. Mudar de lugar e esconder mexem no ARRANJO: uma coluna
+   * escondida some, e quem nao sabe onde ela foi nao tem como traze-la de volta. A
+   * LARGURA e' leitura: mora no navegador de quem olha, nao viaja para ninguem, nao
+   * esconde nada, e se desfaz arrastando de volta. */
+  ok(/function podeMexerLargura\(\)\{ return true; }/.test(adm),
+    'e o terceiro port\u00e3o deixa a LARGURA passar para todo mundo, sem senha \u2014 ela \u00e9 ' +
+    'leitura, n\u00e3o arranjo: mora no navegador de quem olha, n\u00e3o esconde nada e se ' +
+    'desfaz arrastando de volta');
   /* AS TRÊS LEITURAS perguntam pelo PERFIL, e nunca pelo portão inteiro. */
   [['ordemColunas',  /function ordemColunas\(t\)\{[\s\S]{0,260}?if \(!podeVerArranjo\(\)\) return t\.padrao\.slice\(\);/,
     'a ordem de fábrica'],
-   ['larguras',      /function larguras\(t\)\{[\s\S]{0,200}?if \(!podeVerArranjo\(\)\) \{/,
-    'a largura de fábrica'],
    ['colunasOcultas', /function colunasOcultas\(t\)\{[\s\S]{0,360}?if \(!podeVerArranjo\(\)\) return \[\];/,
     'nenhuma coluna escondida']].forEach(function (p) {
     ok(p[1].test(adm),
@@ -10984,9 +11008,21 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
       'e `' + f + '` não pergunta pela SENHA — pedi-la para ler o que a própria pessoa ' +
       'salvou faz o arranjo parecer que não salvou');
   });
+  /* E `larguras` NAO PERGUNTA NEM PELO PERFIL. Gravando a largura e nao a lendo de
+     volta, a coluna voltaria ao tamanho de fabrica no proximo carregamento: o gesto
+     funcionaria na hora e seria esquecido a cada visita, que e' a forma mais cansativa
+     de um recurso nao funcionar. */
+  (function () {
+    var iL = adm.indexOf('function larguras(t)');
+    var corpoL = adm.slice(iL, adm.indexOf('\n  }', iL));
+    ok(iL > 0 && corpoL.indexOf('podeVerArranjo') < 0,
+      'e `larguras` l\u00ea o que est\u00e1 guardado para QUALQUER pessoa \u2014 gravando sem ler de ' +
+      'volta, a coluna voltaria ao tamanho de f\u00e1brica a cada visita, e o gesto ' +
+      'funcionaria uma vez e seria esquecido para sempre');
+  })();
   /* A GRAVAÇÃO TAMBÉM RECUSA, embora nada devesse chegar até ela: um ouvinte que
      sobreviva a uma troca de sessão sem redesenho é o tipo de coisa que ninguém vê. */
-  ['guardarOrdem', 'guardarLargura', 'guardarOcultas'].forEach(function (f) {
+  ['guardarOrdem', 'guardarOcultas'].forEach(function (f) {
     var i = adm.indexOf('function ' + f + '(');
     ok(i > 0 && /^[\s\S]{0,120}?if \(!podeArranjarColunas\(\)\) return;/
                   .test(adm.slice(i)),
@@ -10994,20 +11030,48 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
   });
   /* OS GESTOS NÃO SÃO LIGADOS, e o cabeçalho não os PROMETE: prometer um gesto que não
      acontece é pior que não prometer nada, porque a pessoa insiste achando que errou. */
-  ['ligarArrastarColunas', 'ligarLarguraColunas'].forEach(function (f) {
+  ['ligarArrastarColunas'].forEach(function (f) {
     var i = adm.indexOf('function ' + f + '(t)');
     ok(i > 0 && /^[\s\S]{0,60}?if \(!podeArranjarColunas\(\)\) return;/.test(adm.slice(i)),
       'e `' + f + '` nem se liga');
   });
-  ok(/function arrastavel\(\)\{ return podeArranjarColunas\(\) \? ' draggable="true"' : ''; \}/.test(adm) &&
-     /function puxador\(\)\{ return podeArranjarColunas\(\) \? '<span class="puxador"><\/span>' : ''; \}/.test(adm),
-    'e o cabeçalho sai sem `draggable` e sem alcinha — prometer um gesto que não ' +
-    'acontece faz a pessoa insistir achando que errou a mão');
+  /* AS TRES PECAS DA LARGURA PEDEM O PORTAO DELA, e nao o do arranjo. Bastaria uma
+     ficar para tras: o gesto que a alcinha promete acontece e nao grava, ou grava e a
+     alcinha nao aparece para pedi-lo. */
+  ['guardarLargura', 'esquecerLargura'].forEach(function (f) {
+    var i = adm.indexOf('function ' + f + '(t');
+    ok(i > 0 && /^[\s\S]{0,140}?if \(!podeMexerLargura\(\)/.test(adm.slice(i)),
+      'e `' + f + '` pede o port\u00e3o da LARGURA \u2014 no do arranjo, o gesto acontece na ' +
+      'tela e n\u00e3o grava nada');
+  });
+  (function () {
+    var i = adm.indexOf('function ligarLarguraColunas(t)');
+    ok(i > 0 && /^[\s\S]{0,60}?if \(!podeMexerLargura\(\)\) return;/.test(adm.slice(i)),
+      'e `ligarLarguraColunas` tamb\u00e9m \u2014 preso ao cadeado, a al\u00e7a aparece para quem ' +
+      'n\u00e3o \u00e9 admin e arrast\u00e1-la n\u00e3o faz nada');
+  })();
+  ok(/function arrastavel\(\)\{ return podeArranjarColunas\(\) \? ' draggable="true"' : ''; \}/.test(adm),
+    'e o cabeçalho sai sem `draggable` — prometer um gesto que não acontece faz a ' +
+    'pessoa insistir achando que errou a mão');
+  /* MAS A ALCINHA FICA, e e' justamente a diferenca entre os dois portoes: o titulo nao
+     se arrasta sem senha, e a borda sim. */
+  ok(/function puxador\(\)\{ return podeMexerLargura\(\) \? '<span class="puxador"><\/span>' : ''; \}/.test(adm),
+    'e a al\u00e7a da largura FICA, para todo mundo \u2014 \u00e9 a diferen\u00e7a entre os dois ' +
+    'port\u00f5es: o t\u00edtulo n\u00e3o se arrasta sem senha, e a borda sim');
   /* E O CURSOR VAI JUNTO — foi a régua que achou isto, e não o código: com o JS todo
      correto, medido no Chrome com sessão de conferente, o título continuava com
      `cursor:grab`. A mão aberta é uma promessa: a pessoa arrasta, nada se move, e
      conclui que a tela travou. O seletor pergunta pelo PRÓPRIO `draggable` para não
      haver dois lugares dizendo quem arrasta. */
+  /* E A ALCINHA TEM CURSOR PROPRIO, que e' o que a salva dessa mesma regra: o `th` de
+     quem nao e admin vai com `cursor:default`, e o cursor se herda. Sem a regra propria
+     dela, a faixa de 8px na borda — que nao tem cor nenhuma, de proposito — vira um
+     pedaco de cabecalho sem nada que convide a arrastar, e o unico gesto que o usuario
+     comum tem nas colunas fica invisivel. */
+  ok(/table\.fixa th \.puxador\{[^}]*cursor:col-resize/.test(css),
+    'e a alça da largura tem cursor próprio — ela não tem cor, e o `th` de quem não ' +
+    'é admin vai com `cursor:default`: sem a regra dela, o único gesto que essa pessoa ' +
+    'tem nas colunas fica invisível');
   ok(/table\.fixa th\[data-col\]:not\(\[draggable\]\)\{cursor:default\}/.test(css),
     'e a mão aberta some junto: medido, o cursor continuava `grab` para quem não pode ' +
     'arrastar, prometendo um gesto que não acontece');

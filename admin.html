@@ -5706,6 +5706,32 @@
   function podeVerArranjo(){ return Q.ehAdmin(); }
   function podeArranjarColunas(){ return podeVerArranjo() && colunasDestravadas(); }
 
+  /* ================= E A LARGURA NÃO É ARRANJO =================
+   *
+   * SÃO TRÊS PORTÕES, e o terceiro nasceu de uma tela que o escritório mandou: um
+   * usuário comum com DESTINO e UNIDADE escritos um por cima do outro — "Campina
+   * Grande, João PessMatriz São Vicente" —, e nenhum jeito de afastar as duas. A largura
+   * estava atrás do mesmo cadeado da ORDEM, e o cadeado pede perfil de admin e senha.
+   *
+   * MAS AS DUAS COISAS NÃO SE PARECEM:
+   *
+   *   MUDAR DE LUGAR e ESCONDER mexem no ARRANJO. Uma coluna escondida some, e quem não
+   *   sabe onde ela foi parar não tem como trazê-la de volta — por isso o cadeado, que
+   *   existe para o computador do escritório com a sessão aberta e alguém sentando nele.
+   *
+   *   A LARGURA é LEITURA. Ela mora no navegador de quem olha, não viaja para ninguém,
+   *   não esconde nada e se desfaz arrastando de volta. O pior que acontece é a pessoa
+   *   deixar a própria tela feia — e é a tela dela.
+   *
+   * ENTÃO ELA SAI DE TRÁS DO CADEADO, para todo mundo, sem senha. A ordem e as colunas
+   * escondidas continuam onde estavam: este portão é só da largura.
+   *
+   * NÃO É UMA CONDIÇÃO, e por isso não finge ser: quem chegou aqui já entrou no sistema,
+   * e não há segunda pergunta a fazer. A função existe para a regra ter NOME — o dia em
+   * que o escritório quiser restringi-la, há um lugar só para mexer, em vez de quatro
+   * chamadas espalhadas que ninguém relaciona entre si. */
+  function podeMexerLargura(){ return true; }
+
   /* As tabelas precisam ser REDESENHADAS nas duas viradas: é no desenho que o <th>
      ganha ou perde o `draggable` e a alcinha. Sem isto, destravar não solta nada até a
      pessoa trocar de aba, e travar deixaria o convite na tela. */
@@ -5805,20 +5831,29 @@
      sem alcinha e sem o convite no balão — prometer um gesto que não acontece é pior
      que não prometer nada, porque a pessoa insiste achando que errou a mão. */
   function arrastavel(){ return podeArranjarColunas() ? ' draggable="true"' : ''; }
-  function puxador(){ return podeArranjarColunas() ? '<span class="puxador"></span>' : ''; }
+  function puxador(){ return podeMexerLargura() ? '<span class="puxador"></span>' : ''; }
+  /* O BALÃO PROMETE SÓ O GESTO QUE EXISTE. Prometer um que não acontece é pior que não
+     prometer nada, porque a pessoa insiste achando que errou a mão — e era assim que a
+     frase inteira sumia para quem não é admin, inclusive a parte da largura, que agora
+     vale para ela. */
   function dicaColuna(antes){
     antes = antes || '';
-    return podeArranjarColunas()
-      ? antes + 'arraste o titulo para mudar de lugar; a borda, para mudar a largura'
-      : antes.replace(/; $/, '');
+    if (podeArranjarColunas()) {
+      return antes + 'arraste o titulo para mudar de lugar; a borda, para mudar a ' +
+             'largura, e dois cliques nela devolvem o tamanho de fabrica';
+    }
+    if (podeMexerLargura()) {
+      return antes + 'arraste a borda para mudar a largura; dois cliques nela devolvem ' +
+             'o tamanho de fabrica';
+    }
+    return antes.replace(/; $/, '');
   }
 
   function larguras(t){
-    var r0 = {};
-    if (!podeVerArranjo()) {
-      Object.keys(t.larg).forEach(function(id){ r0[id] = t.larg[id]; });
-      return r0;
-    }
+    /* LIDA POR TODO MUNDO, e não só pelo admin. Gravando a largura e não a lendo de
+       volta, a coluna voltaria ao tamanho de fábrica no próximo carregamento — o gesto
+       funcionaria na hora e seria esquecido a cada visita, que é a forma mais cansativa
+       de um recurso não funcionar. */
     var salvo = {};
     try { salvo = JSON.parse(localStorage.getItem(t.kLarg) || '{}') || {}; }
     catch (e) { salvo = {}; }
@@ -5853,11 +5888,24 @@
   }
 
   function guardarLargura(t, id, px){
-    if (!podeArranjarColunas()) return;
+    if (!podeMexerLargura()) return;
     var salvo = {};
     try { salvo = JSON.parse(localStorage.getItem(t.kLarg) || '{}') || {}; }
     catch (e) { salvo = {}; }
     salvo[id] = Math.max(LARG_MIN, Math.round(px));
+    try { localStorage.setItem(t.kLarg, JSON.stringify(salvo)); } catch (e) {}
+  }
+
+  /* O AVESSO DE `guardarLargura`: tira a coluna do que esta' guardado, e nao grava um
+     numero "de fabrica" no lugar. Gravado, o dia em que a largura padrao daquela coluna
+     mudasse no codigo, a tela continuaria com a antiga — e ninguem relacionaria as duas
+     coisas. Sem a chave, ela volta a seguir o padrao, seja ele qual for. */
+  function esquecerLargura(t, id){
+    if (!podeMexerLargura() || !id) return;
+    var salvo = {};
+    try { salvo = JSON.parse(localStorage.getItem(t.kLarg) || '{}') || {}; }
+    catch (e) { salvo = {}; }
+    delete salvo[id];
     try { localStorage.setItem(t.kLarg, JSON.stringify(salvo)); } catch (e) {}
   }
 
@@ -5896,7 +5944,7 @@
   }
 
   function ligarLarguraColunas(t){
-    if (!podeArranjarColunas()) return;
+    if (!podeMexerLargura()) return;
     document.querySelectorAll(t.alvo + ' th[data-col] .puxador').forEach(function(p){
       p.addEventListener('mousedown', function(e){
         e.preventDefault();
@@ -5916,6 +5964,15 @@
         }
         document.addEventListener('mousemove', move);
         document.addEventListener('mouseup', solta);
+      });
+      /* DOIS CLIQUES DEVOLVEM O TAMANHO DE FÁBRICA, e esta é a porta de volta.
+         "Colunas de volta ao padrão" mora na aba Colunas, que é do administrador — sem
+         isto, quem não é admin podia estreitar uma coluna até o mínimo e ficar com ela
+         assim para sempre, sem nada na tela dizendo como desfazer. */
+      p.addEventListener('dblclick', function(e){
+        e.preventDefault(); e.stopPropagation();
+        esquecerLargura(t, p.parentNode.dataset.col);
+        t.redesenha();
       });
       // a alcinha nao arrasta a coluna de lugar: sao dois gestos na mesma borda
       p.addEventListener('dragstart', function(e){ e.preventDefault(); e.stopPropagation(); });
