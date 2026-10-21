@@ -4668,6 +4668,164 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'na mesma chave, e a nova n\u00e3o pode ter apagado a antiga',
     Fl.rotuloCiclo(declForn[0], Fl.cicloDaCarga(declForn)['SF-Geraldo']));
 
+  /* ================= DE QUEM E' A CARGA: UMA RESPOSTA SO' =====================
+   *
+   * O GALPAO MANDOU ESTA: "Geraldo" e "Geraldo Fonseca" lado a lado na lista de
+   * fornecedores, um com a saida de 300 e o outro com o retorno — e cada um com um
+   * deficit que ninguem conseguia cobrar. E' a MESMA pessoa: a saida foi gravada com o
+   * apelido, de antes de a regra mandar gravar o nome do cadastro.
+   *
+   * ERAM TRES LEITURAS DA MESMA COLUNA. A lista de Movimentos resolvia o nome contra o
+   * cadastro; a visao de Fornecedores, que e' a que SOMA, agrupava pelo texto cru; e o
+   * ciclo da carga casava devolucao com remessa por um terceiro criterio. Cada uma
+   * estava certa por si — e e' assim que o erro dura.
+   *
+   * O CENARIO TEM AS TRES ARMADILHAS: duas grafias do mesmo nome, uma perna com a
+   * coluna VAZIA numa ponta de fornecedor, e uma viagem comum que nao pode ganhar
+   * fornecedor nenhum. */
+  const FORNS_G = [{ ID: 'F1', Nome: 'Geraldo Fonseca', Apelido: 'Geraldo', Ativo: true }];
+  const LOCAIS_G = [
+    { ID: 'L001', Nome: 'Matriz S\u00e3o Vicente' },
+    { ID: 'LFORN', Nome: 'Fornecedor', PedeFornecedor: true },
+    { ID: 'L003', Nome: 'Recife' }
+  ];
+  const mov = (o) => Object.assign({ Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'LFORN',
+    TipoCaixaID: 'T001', Status: 'CONFIRMADO', Motorista: 'Geraldo',
+    DataRef: new Date(2026, 9, 15), DataHora: new Date(2026, 9, 15) }, o);
+  const MOVS_G = [
+    /* A SAIDA, gravada com o APELIDO — e' a linha de 15/10 que o escritório mandou. */
+    mov({ ID: 'G1', Qtd: 300, Fornecedor: 'Geraldo' }),
+    mov({ ID: 'G2', Qtd: 200, TipoCaixaID: 'T002', Fornecedor: 'Geraldo' }),
+    /* O RETORNO, gravado com o NOME DO CADASTRO: a regra mudou no meio. */
+    mov({ ID: 'G3', Tipo: 'DEVOLUCAO', OrigemID: 'LFORN', DestinoID: 'L001', Qtd: 300,
+          Fornecedor: 'Geraldo Fonseca', DataRef: new Date(2026, 9, 16),
+          DataHora: new Date(2026, 9, 16) }),
+    /* E UM RETORNO COM A COLUNA VAZIA, de antes de ela ser preenchida. A ponta e' o
+       local de fornecedor e quem dirigiu esta' no cadastro: e' a MESMA derivação que o
+       lançamento faz hoje, aplicada na leitura. */
+    mov({ ID: 'G4', Tipo: 'DEVOLUCAO', OrigemID: 'LFORN', DestinoID: 'L001', Qtd: 150,
+          TipoCaixaID: 'T002', Fornecedor: '', DataRef: new Date(2026, 9, 17),
+          DataHora: new Date(2026, 9, 17) }),
+    /* E UMA VIAGEM COMUM do mesmo motorista, sem tocar fornecedor nenhum. */
+    mov({ ID: 'G5', DestinoID: 'L003', Qtd: 70, Fornecedor: '' })
+  ];
+  const dadosG2 = { movimentos: MOVS_G, locais: LOCAIS_G, fornecedores: FORNS_G,
+    tipos: [{ ID: 'T001', Nome: 'CX P' }, { ID: 'T002', Nome: 'CX G' }],
+    usuarios: [], config: {} };
+  const fluxoG = Fl.fluxoPorPessoa(dadosG2);
+  const fornsG = fluxoG.fornecedores || [];
+
+  ok(fornsG.length === 1 && fornsG[0].nome === 'Geraldo Fonseca',
+    'as duas grafias do mesmo fornecedor viram UMA linha, com o nome do cadastro \u2014 ' +
+    '"Geraldo" com a sa\u00edda e "Geraldo Fonseca" com o retorno eram duas linhas, e ' +
+    'nenhuma das duas dava para cobrar', fornsG.map((f) => f.nome));
+
+  ok(fornsG[0].saida === 500 && fornsG[0].retorno === 450,
+    'e as duas pontas caem na mesma linha: sa\u00edram 500 e voltaram 450 \u2014 o retorno ' +
+    'gravado com a outra grafia E o retorno de coluna vazia, os dois',
+    [fornsG[0].saida, fornsG[0].retorno]);
+
+  ok(fornsG[0].saldo === -50,
+    'e o saldo vira \u221250 \u2014 era \u2212500 numa linha e +450 na outra, e o escrit\u00f3rio cobrava ' +
+    'caixas que j\u00e1 tinham voltado', fornsG[0].saldo);
+
+  /* A VIAGEM COMUM NAO GANHA FORNECEDOR. Sem este limite, bastaria a mesma pessoa estar
+     nos dois cadastros para toda rota dela virar carga de fornecedor. */
+  ok(fornsG[0].saida === 500,
+    'e a viagem comum do MESMO motorista fica de fora \u2014 a deriva\u00e7\u00e3o s\u00f3 vale quando ' +
+    'uma ponta \u00e9 local de fornecedor, sen\u00e3o toda rota dele viraria carga de fornecedor',
+    fornsG[0].saida);
+
+  /* ---- A MESMA RESPOSTA NO CICLO DA CARGA ----
+   *
+   * Nao basta a lista somar certo: a coluna Status le' a mesma pergunta por outro
+   * caminho, e divergindo ela diria "Enviada" para uma carga que a linha de cima mostra
+   * devolvida — as duas na mesma tela. */
+  const cicloG = Fl.cicloDaCarga(MOVS_G, FORNS_G, LOCAIS_G);
+  ok(Fl.rotuloCiclo(MOVS_G[0], cicloG.G1) === 'Devolvida',
+    'e no Status a remessa gravada "Geraldo" encontra a devolu\u00e7\u00e3o gravada "Geraldo ' +
+    'Fonseca" \u2014 pelo texto cru, a carga ficava "Enviada" com o retorno lan\u00e7ado',
+    Fl.rotuloCiclo(MOVS_G[0], cicloG.G1));
+  ok(Fl.rotuloCiclo(MOVS_G[1], cicloG.G2) === 'Parcial',
+    'e a de CX G fica "Parcial": sa\u00edram 200 e a perna de coluna vazia trouxe 150 \u2014 ela ' +
+    'achou o dono, e sem a deriva\u00e7\u00e3o n\u00e3o abateria nada de ningu\u00e9m',
+    Fl.rotuloCiclo(MOVS_G[1], cicloG.G2));
+
+  /* E A GUARDA DE ONTEM CONTINUA INTEIRA: outro fornecedor nao quita. */
+  const comIntruso = MOVS_G.concat([mov({ ID: 'G9', Tipo: 'DEVOLUCAO',
+    OrigemID: 'LFORN', DestinoID: 'L001', Qtd: 300, Motorista: 'Mundinho',
+    Fornecedor: 'Mundinho', DataRef: new Date(2026, 9, 18),
+    DataHora: new Date(2026, 9, 18) })]);
+  const cicloI = Fl.cicloDaCarga(comIntruso, FORNS_G, LOCAIS_G);
+  ok((cicloI.G1 || {}).devolvido === 300,
+    'e juntar a devolu\u00e7\u00e3o de OUTRO fornecedor n\u00e3o muda o do Geraldo \u2014 a guarda de ontem ' +
+    'continua inteira, e a de hoje n\u00e3o pode t\u00ea-la afrouxado', (cicloI.G1 || {}).devolvido);
+
+  /* ---- SEM O CADASTRO, VALE O QUE ESTA GRAVADO ----
+   *
+   * E' a garantia que o projeto sempre deu: apagar um cadastro nao reescreve o passado.
+   * E sem `locais` nada e' derivado — quem chama sem a lista recebe o comportamento
+   * antigo, e nao uma derivação feita as cegas. */
+  ok(Fl.fornecedorDaCarga({ Fornecedor: 'Quem Saiu', Motorista: 'Quem Saiu' },
+       FORNS_G, LOCAIS_G) === 'Quem Saiu',
+    'o fornecedor que saiu do cadastro continua escrito na linha \u2014 apagar o cadastro ' +
+    'n\u00e3o pode esvaziar a coluna de todas as viagens dele');
+
+  ok(Fl.fornecedorDaCarga(MOVS_G[3], FORNS_G, null) === '',
+    'e sem a lista de locais nada \u00e9 derivado \u2014 quem chama sem ela recebe o ' +
+    'comportamento antigo, e n\u00e3o um palpite feito \u00e0s cegas',
+    Fl.fornecedorDaCarga(MOVS_G[3], FORNS_G, null));
+
+  ok(Fl.fornecedorDaCarga(MOVS_G[4], FORNS_G, LOCAIS_G) === '',
+    'e a viagem comum de coluna vazia continua sem dono \u2014 inventar um a\u00ed seria dar ' +
+    'fornecedor a uma carga que nunca teve nenhum');
+
+  /* ---- A FIACAO, E NAO SO' A PECA -------------------------------------------
+   *
+   * TRES SABOTAGENS ESCAPARAM das provas acima, e as tres eram a MESMA: a funcao estava
+   * certa e NADA CHEGAVA NELA. Cortado o cadastro na chamada de dentro de
+   * `listaMovimentos`, `fornecedorDaCarga` seguia respondendo lindamente — para quem a
+   * chamasse direto, que e' o que as provas faziam.
+   *
+   * E' o defeito de assinatura deste projeto: a peca existe e nada chega nela. Entao
+   * estas rodam a LISTA INTEIRA, que e' o caminho que a tela percorre. */
+  const listaG = Fl.listaMovimentos(MOVS_G, LOCAIS_G, dadosG2.tipos, [], {},
+                                    { motoristas: [], fornecedores: FORNS_G });
+  const linhaDe = (id) => listaG.filter((l) => l.id === id)[0];
+
+  ok(linhaDe('G1') && linhaDe('G1').situacao === 'Devolvida',
+    'na LISTA, a remessa gravada "Geraldo" sai como Devolvida \u2014 o ciclo recebe o ' +
+    'cadastro de dentro dela, e sem isso a fun\u00e7\u00e3o estaria certa e nada chegaria nela',
+    linhaDe('G1') && linhaDe('G1').situacao);
+
+  ok(linhaDe('G4') && linhaDe('G4').fornecedor === 'Geraldo Fonseca',
+    'e a linha de coluna VAZIA sai com o dono na coluna Fornecedor \u2014 sem os locais ' +
+    'chegando em `nomesDaLinha`, a lista mostraria "\u2014" e o painel mostraria o nome: ' +
+    'as duas telas discordando sobre a mesma linha',
+    linhaDe('G4') && linhaDe('G4').fornecedor);
+
+  ok(linhaDe('G5') && linhaDe('G5').fornecedor === '',
+    'e a viagem comum continua sem fornecedor na lista tamb\u00e9m \u2014 o limite da deriva\u00e7\u00e3o ' +
+    'vale no caminho inteiro, e n\u00e3o s\u00f3 na fun\u00e7\u00e3o',
+    linhaDe('G5') && linhaDe('G5').fornecedor);
+
+  /* ---- A SEGUNDA PORTA DO CADASTRO ----
+   *
+   * A linha guarda TEXTO, e nao id — e' o que a faz sobreviver a um cadastro apagado. O
+   * preco e' que trocar o texto no cadastro corta o fio: gravada uma grafia que nao
+   * existe mais, `acharFornecedor` nao acha ninguem por ela.
+   *
+   * ENTAO SE PROCURA PELOS DOIS TEXTOS que a linha guarda: o da coluna Fornecedor e o
+   * da coluna Motorista. Com uma porta so', a sabotagem que tira a segunda passava
+   * batida — no cenario de cima, a primeira ja' resolvia tudo. */
+  ok(Fl.fornecedorDaCarga(
+       { Fornecedor: 'S\u00edtio do Geraldo', Motorista: 'Geraldo' }, FORNS_G, LOCAIS_G)
+     === 'Geraldo Fonseca',
+    'a grafia que sumiu do cadastro ainda acha o dono pela coluna MOTORISTA \u2014 com uma ' +
+    'porta s\u00f3, renomear um fornecedor partiria o hist\u00f3rico dele em dois',
+    Fl.fornecedorDaCarga({ Fornecedor: 'S\u00edtio do Geraldo', Motorista: 'Geraldo' },
+                         FORNS_G, LOCAIS_G));
+
   /* ---- O LIVRO TAMBEM PENEIRA A LEITURA, e nao so' a gravacao ----------------
    *
    * A gravacao ja' era conferida contra o cadastro — logo abaixo esta' a prova de que

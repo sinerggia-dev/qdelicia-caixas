@@ -1441,7 +1441,65 @@ function fornecedorDoMovimento(p, locais, fornecedores) {
  * fornecedor para uma carga que nao tinha nenhum — bastaria a mesma pessoa aparecer
  * nos dois cadastros.
  */
-function nomesDaLinha(m, motoristas, fornecedores) {
+/* ================= DE QUEM E' ESTA CARGA =================
+ *
+ * UMA RESPOSTA SO', e tres telas bebendo dela. Eram tres leituras da mesma coluna:
+ * a lista de Movimentos resolvia o nome contra o cadastro, a visao de Fornecedores
+ * agrupava pelo TEXTO CRU gravado, e o ciclo da carga casava devolucao com remessa por
+ * um terceiro criterio. A mesma pessoa aparecia escrita de um jeito numa tela e de
+ * outro na vizinha — e as duas estavam certas cada uma por si, que e' o jeito de o erro
+ * durar.
+ *
+ * O GALPAO MOSTROU O PRECO: "Geraldo" e "Geraldo Fonseca" lado a lado na lista de
+ * fornecedores, um com a saida e o outro com o retorno, e cada um com um deficit que
+ * ninguem conseguia cobrar.
+ *
+ * DUAS PORTAS PARA O CADASTRO, como `nomesDaLinha` ja' fazia: o texto da coluna
+ * Fornecedor e o da coluna Motorista. A linha guarda TEXTO, e nao id — e' o que a faz
+ * sobreviver a um cadastro apagado —, e o preco e' que trocar o texto no cadastro
+ * cortaria o fio se houvesse so' uma porta.
+ *
+ * E A COLUNA VAZIA NUMA PERNA QUE TOCA FORNECEDOR E' DERIVADA DO MOTORISTA. Aqui esta'
+ * a parte nova, e ela merece ser dita devagar:
+ *
+ *   A regra da casa e' "O FORNECEDOR E' O PROPRIO MOTORISTA" — quem chega com a carga
+ *   do fornecedor e' o motorista dele, cadastrado. E' assim que o servidor preenche a
+ *   coluna HOJE, em `fornecedorDoMovimento`. As linhas gravadas ANTES dessa regra
+ *   existir ficaram com a coluna vazia, e sao invisiveis na visao de fornecedores: um
+ *   retorno sem dono nao abate deficit de ninguem, e o fornecedor segue devendo caixas
+ *   que ja devolveu.
+ *
+ *   ENTAO NAO E' UM PALPITE: e' a MESMA derivacao do lancamento, aplicada na leitura
+ *   das linhas antigas. O limite esta' dito: so' vale quando uma PONTA da viagem e' um
+ *   local marcado com `PedeFornecedor`. Numa viagem comum a coluna continua vazia, e
+ *   buscar o nome no cadastro ali inventaria um fornecedor para uma carga que nao tinha
+ *   nenhum — bastaria a mesma pessoa aparecer nos dois cadastros.
+ *
+ * SEM `locais` ELA NAO DERIVA NADA, e isso e' de proposito: quem chama sem a lista
+ * recebe o comportamento antigo — texto gravado, resolvido contra o cadastro — em vez
+ * de uma derivacao feita as cegas. */
+function pontaDeFornecedor(m, locais) {
+  if (!m || !locais) return false;
+  return pontasQuePedemFornecedor(
+    { tipo: m.Tipo, origemId: m.OrigemID, destinoId: m.DestinoID }, locais).length > 0;
+}
+
+function fornecedorDaCarga(m, fornecedores, locais) {
+  var gravado = String((m && m.Fornecedor) || '').trim();
+  var doMotorista = String((m && m.Motorista) || '').trim();
+  if (gravado) {
+    var f = acharFornecedor(fornecedores, gravado) ||
+            acharFornecedor(fornecedores, doMotorista);
+    /* O NOME DO CADASTRO manda; sumindo a pessoa de la', vale o que esta' gravado. E' a
+       garantia que o projeto sempre deu: apagar o cadastro nao reescreve o passado. */
+    return f ? (String(f.Nome || f.Apelido || '').trim() || gravado) : gravado;
+  }
+  if (!pontaDeFornecedor(m, locais)) return '';
+  var fm = acharFornecedor(fornecedores, doMotorista);
+  return fm ? String(fm.Nome || fm.Apelido || '').trim() : '';
+}
+
+function nomesDaLinha(m, motoristas, fornecedores, locais) {
   var gravado = String((m && m.Motorista) || '').trim();
   var gravadoForn = String((m && m.Fornecedor) || '').trim();
   /* DUAS PORTAS PARA O MESMO CADASTRO, e e' isto que faz o renome chegar nas linhas
@@ -1468,12 +1526,11 @@ function nomesDaLinha(m, motoristas, fornecedores) {
      tambem dirige, e desde que saiu do cadastro de motoristas e' la' que ele esta'. */
   var pessoa = doCadastro(gravado);
   var apelido = pessoa ? String(pessoa.Apelido || pessoa.Nome || '').trim() : '';
-  var f = gravadoForn ? (acharFornecedor(fornecedores, gravado) ||
-                         acharFornecedor(fornecedores, gravadoForn)) : null;
   return {
     motorista: apelido || gravado,
-    fornecedor: f ? (String(f.Nome || f.Apelido || '').trim() || gravadoForn)
-                  : gravadoForn
+    /* A MESMA RESPOSTA DAS OUTRAS DUAS TELAS, e nao uma copia dela: duas leituras da
+       mesma coluna divergem na primeira que for mexida, e as duas sao plausiveis. */
+    fornecedor: fornecedorDaCarga(m, fornecedores, locais)
   };
 }
 
@@ -2328,7 +2385,10 @@ function pendentes(movimentos, locais, tipos) {
  * Devolução ainda não conferida vale 0 em `efetiva`, então não abate nada: enquanto o
  * galpão não confere, a remessa continua "Enviada". É o mesmo critério do saldo.
  */
-function cicloDaCarga(movimentos) {
+/* `locais` E `fornecedores` SAO OPCIONAIS, e sem eles a funcao responde como antes:
+   pelo texto gravado. Quem chama de uma bancada com dois lancamentos na mao nao precisa
+   montar um cadastro inteiro para medir a fila. */
+function cicloDaCarga(movimentos, fornecedores, locais) {
   var lotes = {};      // local|caixa -> [{id, resta}]
   var devolvido = {};  // id da saída -> quanto já voltou
   var total = {};      // id da saída -> tamanho da remessa
@@ -2367,7 +2427,11 @@ function cicloDaCarga(movimentos) {
    * certa do erro: "ainda nao voltou" e' uma pergunta que se vai conferir, e "voltou"
    * sem ninguem ter contado uma caixa e' uma divida que se perde. */
   function quemDeve(m) {
-    return String((m && m.Fornecedor) || '').trim().toLowerCase();
+    /* A MESMA RESPOSTA DA VISAO DE FORNECEDORES. Com o texto cru aqui e o nome resolvido
+       la', a remessa gravada "Geraldo" nunca encontrava a devolucao gravada "Geraldo
+       Fonseca": a coluna Status dizia "Enviada" e a lista mostrava as duas metades em
+       linhas separadas. */
+    return String(fornecedorDaCarga(m, fornecedores, locais)).trim().toLowerCase();
   }
   function chaveDestino(m) {
     return String(m.DestinoID) + '|' + String(m.TipoCaixaID) + '|' + letra(m) +
@@ -2453,7 +2517,7 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p, cad) {
   // Calculado sobre TODOS os movimentos, antes do filtro e do corte: uma devolução de
   // fora da janela filtrada ainda abate a remessa dela, e ignorá-la faria uma carga já
   // devolvida aparecer como "Enviada" só porque o filtro cortou a devolução.
-  var ciclo = cicloDaCarga(movimentos);
+  var ciclo = cicloDaCarga(movimentos, cad.fornecedores, locais);
 
   /* 'todos' é o padrão porque o ensaio conta em tudo: esconder por omissão faria a tela
      mostrar menos do que o saldo soma. As bases pedidas vêm coladas por "|", como os
@@ -2555,7 +2619,7 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p, cad) {
     return a.DataRef > b.DataRef ? -1 : (a.DataHora > b.DataHora ? -1 : 1);
   }).slice(0, limite).map(function (m) {
     var temConf = m.QtdConferida !== null && m.QtdConferida !== undefined && m.QtdConferida !== '';
-    var nomes = nomesDaLinha(m, cad.motoristas, cad.fornecedores);
+    var nomes = nomesDaLinha(m, cad.motoristas, cad.fornecedores, locais);
     return {
       id: m.ID, dataRef: iso(m.DataRef), dataHora: iso(m.DataHora), tipo: m.Tipo,
       /* De qual remessa esta linha é. A tela de celular junta as linhas por aqui em vez
@@ -2805,7 +2869,12 @@ function fluxoPorPessoa(dados, desde, ate) {
          lista de fornecedores da pessoa, e com o espaco " Cipo Branco" e "Cipo
          Branco" entram como dois, lado a lado na mesma celula — a mesma pessoa duas
          vezes, e nada na tela explicando a diferenca. */
-      veiculo: m.Veiculo || '', fornecedor: String(m.Fornecedor || '').trim()
+      /* O NOME RESOLVIDO NO CADASTRO, e nao o texto cru: era aqui que "Geraldo" e
+         "Geraldo Fonseca" viravam duas linhas na mesma lista, uma com a saida e a outra
+         com o retorno. A lista de Movimentos ja' mostrava o nome resolvido — eram duas
+         leituras da mesma coluna, e a tela que SOMA usava a crua. */
+      veiculo: m.Veiculo || '',
+      fornecedor: fornecedorDaCarga(m, dados.fornecedores, dados.locais)
     };
     soma(porMot, mot, mot, q, ehSaida, String(m.Rota || '').trim(), caixa, linha);
     /* A MESMA LINHA nas duas visoes: e' o mesmo lancamento visto por dois angulos —
@@ -3487,6 +3556,7 @@ module.exports = {
   pontasQuePedemFornecedor: pontasQuePedemFornecedor,
   conferirFornecedor: conferirFornecedor, acharFornecedor: acharFornecedor,
   nomesDaLinha: nomesDaLinha, montarConferencia: montarConferencia,
+  fornecedorDaCarga: fornecedorDaCarga, pontaDeFornecedor: pontaDeFornecedor,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
   corrigeLancamento: corrigeLancamento, fotoDePerfil: fotoDePerfil,
