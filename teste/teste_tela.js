@@ -3778,7 +3778,8 @@ console.log('\n== Painel de Ativos: juntar as linhas ==');
   }
   var PECAS = ['somarTipos', 'juntarNomes', 'ehTipoDeUnidade', 'nomesDeUnidade',
                'unidadesDaLinha', 'ladoDaCasa', 'agruparFluxo', 'celulasDoGrupo',
-               'saldoFinalDaLinha', 'linhaDeGrupo', 'linhaDeFluxo', 'corpoDaTabela'];
+               'saldoFinalDaLinha', 'podeFiltrarPelaLinha', 'linhaDeGrupo',
+               'linhaDeFluxo', 'corpoDaTabela'];
   var SOLTAS = ['GRUPO_SEM_CASA', 'COL_DO_GRUPO'];
   var semSolta = SOLTAS.filter(function (n) { return !varA(n); });
   ok(!semSolta.length,
@@ -12917,6 +12918,117 @@ console.log('\n== o estoque e das duas casas, e o texto promete isso ==');
     'e o rodap\u00e9 do cart\u00e3o do Painel tamb\u00e9m \u2014 ele j\u00e1 dizia "galp\u00f5es e unidades" quando ' +
     'a conta somava s\u00f3 galp\u00e3o: era o texto certo sobre o c\u00f3digo errado, e foi por isso ' +
     'que o zero passou despercebido', rod.trim().slice(0, 160));
+})();
+
+/* ---------------------------------------------------------------------------
+ * Clicar numa linha do Painel filtra por ela.
+ *
+ * A linha e' um trecho de um dia. Para olhar so' aquilo era preciso abrir a gaveta de
+ * Filtros e preencher tres campos — origem, destino e as duas datas —, copiando a mao o
+ * que ja' estava na tela.
+ * ------------------------------------------------------------------------- */
+console.log('\n== clicar na linha filtra por ela ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  function corpoA(nome) {
+    var i = adm.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = adm.indexOf('{', i);
+    for (; k < adm.length; k++) {
+      if (adm[k] === '{') d++;
+      else if (adm[k] === '}' && --d === 0) return adm.slice(i, k + 1);
+    }
+    return '';
+  }
+
+  /* ---- 1. QUEM PODE SER CLICADA ---- */
+  var pode = new Function(corpoA('podeFiltrarPelaLinha') +
+                          '\n return podeFiltrarPelaLinha;')();
+  var trecho = { origens: ['Matriz'], destinos: ['Natal'], data: '2026-10-20' };
+  ok(pode(trecho, false) === true,
+    'uma linha de trecho \u00e9 clic\u00e1vel \u2014 ela \u00e9 um caminho de um dia, e \u00e9 exatamente o ' +
+    'recorte que se quer ver', pode(trecho, false));
+  ok(pode(trecho, true) === false,
+    'e uma linha de GENTE n\u00e3o \u00e9: ela junta v\u00e1rias pernas, e filtrar por "todas as ' +
+    'origens dela" n\u00e3o \u00e9 um filtro, \u00e9 outra lista', pode(trecho, true));
+  ok(pode({ ehGrupo: true, origens: ['Matriz'], destinos: ['Natal'] }, false) === false,
+    'nem a linha de GRUPO \u2014 nela o clique j\u00e1 abre e fecha o grupo, e dois gestos no ' +
+    'mesmo lugar brigam entre si');
+  ok(pode({ origens: ['Matriz'], destinos: [], data: '2026-10-20' }, false) === false,
+    'nem a linha de estoque inicial, que tem origem e n\u00e3o tem destino \u2014 filtrar por ela ' +
+    'deixaria o destino vazio, e o recorte sairia mais largo do que a linha apontada');
+  ok(pode({ origens: ['Matriz', 'Filial'], destinos: ['Natal'] }, false) === false,
+    'nem uma linha com duas origens \u2014 "Matriz, Filial +2" numa c\u00e9lula n\u00e3o \u00e9 um valor ' +
+    'que caiba no seletor de Origem, que aceita um s\u00f3');
+
+  /* ---- 2. O QUE O CLIQUE FAZ, RODANDO ---- */
+  var campos = { rtOrigem: { value: '' }, rtDestino: { value: '' },
+                 rtDe: { value: '' }, rtAte: { value: '' },
+                 rtErroData: { hidden: false } };
+  var marcou = null, recarregou = 0;
+  var filtrar = new Function('document', 'marcarAtalhoFluxo', 'carregarPainel',
+    corpoA('filtrarPelaLinha') + '\n return filtrarPelaLinha;')(
+    { getElementById: function (id) { return campos[id] || null; } },
+    function (q) { marcou = q; },
+    function () { recarregou++; });
+
+  filtrar('Matriz', 'Natal', '2026-10-20');
+  ok(campos.rtOrigem.value === 'Matriz' && campos.rtDestino.value === 'Natal' &&
+     campos.rtDe.value === '2026-10-20' && campos.rtAte.value === '2026-10-20',
+    'o clique p\u00f5e as TR\u00caS coisas da linha nos filtros \u2014 origem, destino e o dia nas duas ' +
+    'pontas: \u00e9 o que "filtrar por esta linha" quer dizer, e era o que se copiava \u00e0 m\u00e3o',
+    { o: campos.rtOrigem.value, d: campos.rtDestino.value,
+      de: campos.rtDe.value, ate: campos.rtAte.value });
+  ok(recarregou === 1,
+    'e a tabela recarrega \u2014 sem isso a pessoa clica, nada muda, e conclui que a linha ' +
+    'n\u00e3o era clic\u00e1vel', recarregou);
+  ok(marcou === '',
+    'e o atalho de per\u00edodo APAGA junto: as datas deixaram de ser as dele, e um "7 dias" ' +
+    'aceso sobre o recorte de UM dia diria uma coisa com a tabela mostrando outra',
+    marcou);
+
+  /* ---- 3. CLICAR DE NOVO DESFAZ ---- */
+  filtrar('Matriz', 'Natal', '2026-10-20');
+  ok(campos.rtOrigem.value === '' && campos.rtDestino.value === '' &&
+     campos.rtDe.value === '' && campos.rtAte.value === '',
+    'e clicar na MESMA linha desfaz o recorte \u2014 um gesto que s\u00f3 liga \u00e9 caminho sem ' +
+    'volta, e este \u00e9 f\u00e1cil de disparar sem querer, porque a \u00e1rea clic\u00e1vel \u00e9 a linha ' +
+    'inteira', { o: campos.rtOrigem.value, de: campos.rtDe.value });
+
+  /* E SE A PESSOA MEXEU NUM FILTRO PELA GAVETA NO MEIO DO CAMINHO, a mesma linha volta a
+     LIGAR, e nao a desligar: quem desfaz compara o que esta nos CAMPOS, e nao um estado
+     guardado a parte que diria "ainda e' aquela linha" sobre um recorte que mudou. */
+  filtrar('Matriz', 'Natal', '2026-10-20');
+  campos.rtDestino.value = 'Recife';
+  filtrar('Matriz', 'Natal', '2026-10-20');
+  ok(campos.rtDestino.value === 'Natal' && campos.rtOrigem.value === 'Matriz',
+    'e se algu\u00e9m mexeu num filtro pela gaveta no meio do caminho, a mesma linha volta a ' +
+    'LIGAR \u2014 quem desfaz compara os campos, e n\u00e3o um estado guardado \u00e0 parte que diria ' +
+    '"ainda \u00e9 aquela linha" sobre um recorte que mudou',
+    { o: campos.rtOrigem.value, d: campos.rtDestino.value });
+
+  /* ---- 4. A MARCA NA LINHA, E O OUVINTE ---- */
+  ok(/data-filtrar-linha="/.test(adm) && /title="Clique para filtrar/.test(adm),
+    'a linha carrega o trecho dela num atributo, e diz no `title` o que o clique faz \u2014 ' +
+    '\u00e1rea clic\u00e1vel sem aviso \u00e9 recorte que muda "sozinho"', adm.indexOf('data-filtrar-linha'));
+  ok(/closest\('\[data-filtrar-linha\]'\)/.test(adm),
+    'e o ouvinte acha a linha pelo atributo, de dentro de qualquer c\u00e9lula \u2014 preso \u00e0 ' +
+    'c\u00e9lula clicada, clicar no n\u00famero n\u00e3o filtraria e clicar no nome sim',
+    adm.indexOf('data-filtrar-linha]'));
+  ok(/getSelection/.test(adm),
+    'e quem selecionou texto N\u00c3O filtra \u2014 soltar o mouse depois de arrastar sobre um ' +
+    'n\u00famero dispara `click` na linha, e o recorte mudava debaixo de quem s\u00f3 queria ' +
+    'copiar o valor', adm.indexOf('getSelection'));
+  /* UM OUVINTE NA TABELA, e nao um por linha: a tabela se redesenha a cada filtro. */
+  ok(/getElementById\('tabelaFluxo'\)[\s\S]{0,80}addEventListener\('click'/.test(adm),
+    'e o ouvinte \u00e9 UM, na tabela \u2014 um por linha empilharia dezenas a cada redesenho, e ' +
+    'a tabela se redesenha a cada filtro', adm.indexOf("getElementById('tabelaFluxo')"));
+
+  ok(/tr\.fx-clicavel:hover>td\{/.test(css) && /@media \(hover:hover\)/.test(css),
+    'e a linha avisa que \u00e9 clic\u00e1vel, s\u00f3 com o ponteiro \u2014 num toque n\u00e3o h\u00e1 hover, e o ' +
+    'aviso ficaria preso na \u00faltima linha tocada',
+    css.indexOf('fx-clicavel'));
 })();
 
 /* ---------------------------------------------------------------------------

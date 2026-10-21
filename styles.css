@@ -3390,6 +3390,13 @@ details.tipos[open] summary::before{content:"▾"}
 .grp-fx>td{background:var(--veu);font-weight:600;border-top:2px solid var(--linha)}
 .grp-fx.aberto>td{border-bottom:1px solid var(--linha)}
 .fx-de-grupo>td:first-child{padding-left:18px}
+/* A LINHA CLICAVEL AVISA QUE E CLICAVEL, e so' com o ponteiro: num toque nao ha hover, e
+   no teclado esta linha nao e' alvo — o gesto e' atalho do que a gaveta de Filtros ja faz
+   por inteiro. Sem o aviso, a area clicavel e' invisivel e o recorte muda "sozinho" para
+   quem clicou sem querer. */
+@media (hover:hover){
+  tr.fx-clicavel:hover>td{background:var(--veu);cursor:pointer}
+}
 /* O NOME DO GRUPO NA PRIMEIRA CELULA, para quando a coluna que o diria estiver
    escondida. Em bloco, e nao ao lado: o nome de uma casa cabe mal na largura de uma
    coluna de data, e quebrado no meio da palavra ele deixa de se achar na varredura. */

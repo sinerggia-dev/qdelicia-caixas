@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=da3c6ad9">
+<link rel="stylesheet" href="styles.css?v=e928bc00">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -5709,12 +5709,43 @@
      Saiu de dentro do `desenharFluxo` para ser a MESMA nos dois modos — solta e dentro
      de um grupo. Duas copias divergiriam na primeira que fosse mexida, e elas aparecem
      na mesma tabela, uma embaixo da outra. */
+  /* ================= CLICAR NA LINHA FILTRA POR ELA =================
+   *
+   * A linha e' um trecho de um dia: "20/10, Matriz Sao Vicente > Natal". Para olhar so'
+   * aquilo era preciso abrir a gaveta de Filtros e preencher tres campos — origem,
+   * destino e as duas datas —, copiando a mao o que ja' estava na tela.
+   *
+   * SO' NAS VISOES DE TRECHO. Uma linha de motorista nao e' uma viagem: ela junta varias
+   * pernas, e filtrar por "todas as origens dela" nao e' um filtro, e' outra lista. As
+   * linhas de GRUPO tambem ficam de fora — nelas o clique ja' abre e fecha o grupo, e
+   * dois gestos no mesmo lugar brigam entre si.
+   *
+   * E PRECISA DAS DUAS PONTAS. A linha de estoque inicial tem origem e nao tem destino:
+   * filtrar por ela deixaria o destino vazio e o recorte seria outro, mais largo do que
+   * a linha que a pessoa apontou.
+   *
+   * NAO HA CAMINHO DE TECLADO PROPRIO, e e' deliberado: este gesto e' um ATALHO para o
+   * que a gaveta de Filtros ja' faz por inteiro, campo a campo. Pondo `tabindex` nas
+   * quarenta e nove linhas, o Tab da tela inteira viraria uma travessia — e nada aqui
+   * deixaria de ser alcancavel, porque o caminho completo continua aberto na gaveta. */
+  function podeFiltrarPelaLinha(l, gente){
+    return !gente && !l.ehGrupo &&
+           (l.origens || []).length === 1 && (l.destinos || []).length === 1;
+  }
+
   function linhaDeFluxo(l, cs, gente, escondida, grupo){
     /* A SETA SO' NAS VISOES DE GENTE, e so' quando ha' o que abrir. */
     var abre = gente && (l.linhas || []).length;
     var aberta = abre && PESSOAS_ABERTAS[l.tipo + '|' + l.id];
-    var classe = (aberta ? 'pes-aberta ' : '') + (grupo ? 'fx-de-grupo' : '');
-    var marca = grupo ? ' data-do-grupo="'+Q.esc(grupo)+'"' : '';
+    var clicavel = podeFiltrarPelaLinha(l, gente);
+    var classe = (aberta ? 'pes-aberta ' : '') + (grupo ? 'fx-de-grupo ' : '') +
+                 (clicavel ? 'fx-clicavel' : '');
+    var marca = (grupo ? ' data-do-grupo="'+Q.esc(grupo)+'"' : '')+
+      (clicavel
+        ? ' data-filtrar-linha="'+Q.esc([l.origens[0], l.destinos[0],
+                                         l.data || ''].join('|'))+'"'+
+          ' title="Clique para filtrar por este trecho e este dia"'
+        : '');
     return '<tr'+(classe.trim() ? ' class="'+classe.trim()+'"' : '')+marca+
       (escondida ? ' hidden' : '')+'>'+
       cs.map(function(c, iC){
@@ -6093,6 +6124,21 @@
         var linha = b.closest('tr');
         if (linha) linha.classList.toggle('aberto', abre);
       });
+    });
+
+    /* UM OUVINTE NA TABELA, e nao um por linha: a tabela se redesenha a cada filtro, e
+       um ouvinte por linha empilharia dezenas a cada volta. */
+    var tabFx = document.getElementById('tabelaFluxo');
+    if (tabFx) tabFx.addEventListener('click', function(e){
+      var tr = e.target && e.target.closest && e.target.closest('[data-filtrar-linha]');
+      if (!tr) return;
+      /* QUEM SELECIONOU TEXTO NAO QUIS FILTRAR. Soltar o mouse depois de arrastar sobre
+         um numero dispara `click` na linha, e o recorte mudava debaixo de quem so'
+         queria copiar o valor. */
+      var sel = window.getSelection && window.getSelection();
+      if (sel && String(sel).length > 0) return;
+      var p = String(tr.getAttribute('data-filtrar-linha')).split('|');
+      filtrarPelaLinha(p[0] || '', p[1] || '', p[2] || '');
     });
 
     document.querySelectorAll('[data-fchip]').forEach(function(b){
@@ -6563,6 +6609,30 @@
       desenharFluxo();
     });
   })();
+
+  /* O CLIQUE ALTERNA, como os atalhos de periodo: clicada de novo, a mesma linha
+     DESFAZ o recorte. Um gesto que so' liga e' caminho sem volta — e aqui ele e' facil
+     de disparar sem querer, porque a area clicavel e' a linha inteira.
+     QUEM DESFAZ COMPARA O QUE ESTA NOS CAMPOS, e nao um estado guardado a parte: a
+     pessoa pode ter mexido num dos filtros pela gaveta no meio do caminho, e um estado
+     proprio diria "ainda e' aquela linha" sobre um recorte que mudou. */
+  function filtrarPelaLinha(origem, destino, dia){
+    var o = document.getElementById('rtOrigem'), d = document.getElementById('rtDestino');
+    var de = document.getElementById('rtDe'), ate = document.getElementById('rtAte');
+    if (!o || !d || !de || !ate) return;
+    var jaEsta = o.value === origem && d.value === destino &&
+                 de.value === dia && ate.value === dia;
+    o.value = jaEsta ? '' : origem;
+    d.value = jaEsta ? '' : destino;
+    de.value = jaEsta ? '' : dia;
+    ate.value = jaEsta ? '' : dia;
+    /* O ATALHO DE PERIODO APAGA JUNTO: as datas deixaram de ser as dele, e um "7 dias"
+       aceso sobre o recorte de UM dia diria uma coisa com a tabela mostrando outra. */
+    marcarAtalhoFluxo('');
+    var erro = document.getElementById('rtErroData');
+    if (erro) erro.hidden = true;
+    carregarPainel();
+  }
 
   function marcarAtalhoFluxo(qual){
     /* AS DUAS PORTAS DO PAINEL, e so' elas.
