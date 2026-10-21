@@ -2443,7 +2443,7 @@
            OS DOIS NOMES DAS DIFERENCAS seguem a conta, que foi invertida: falta e'
            negativo. O nome velho sobre a conta nova diria o oposto do que mostra. */
         ['Lancamento','Data','Base','Tipo','Motorista','Placa','Origem','Destino',
-         'Retorno Declarado','Conferido','Conferido-Declarado',
+         'Saida','Retorno Declarado','Conferido','Conferido-Declarado',
          'Informou','Conferente','Situacao'],
         PARES.map(function(par){
           /* NO ARQUIVO VAI A LISTA INTEIRA, e não o resumo "+3": o CSV existe para
@@ -2455,7 +2455,10 @@
                   Q.dataBR(par.dataRef), par.teste ? 'Teste' : 'Producao', par.tipo,
                   par.motorista || '(sem motorista)', par.veiculoTxt,
                   par.origemTxt, par.destinoTxt,
-                  par.declaradoTotal || '', par.conferido || '',
+                  /* AS MESMAS DUAS COLUNAS DA TELA. Um CSV com uma coluna a menos
+                     obriga quem abre a planilha a adivinhar de que sentido e' o
+                     numero — e o Tipo esta' tres colunas atras. */
+                  par.saidaTotal || '', par.retornoTotal || '', par.conferido || '',
                   /* O ARQUIVO LEVA O MESMO NUMERO DA TELA, com o mesmo sinal: uma
                      planilha que discorda da tela e' a pior forma de divergencia,
                      porque ela viaja por e-mail sem a tela do lado para conferir.
@@ -4189,12 +4192,12 @@
     /* A PLACA FICA COLADA NO MOTORISTA, que e onde ela se le: as duas respondem
        "quem levou". Entre as pontas da viagem, ela se leria como um terceiro lugar. */
     padrao: ['lancamento','data','base','tipo','motorista','placa','origem','destino',
-             'saida','conferido','difConf',
+             'saida','retornoDecl','conferido','difConf',
              'conferente','situacao'],
     larg: { lancamento:140,
             data:110, base:110, tipo:100, motorista:150, placa:110,
             origem:160, destino:160,
-            saida:150, conferido:110, difConf:170,
+            saida:110, retornoDecl:170, conferido:110, difConf:170,
             conferente:160, situacao:150 },
     titulos: { lancamento:'Lançamento',
                data:'Data', base:'Base', tipo:'Tipo', motorista:'Motorista',
@@ -4203,7 +4206,11 @@
                   aquilo de "Saida" numa tela de retornos fazia procurar uma saida que
                   nao existe ali, e deixava o cartao "Declarado" ao lado dizendo zero
                   como se nada tivesse sido declarado. */
-               saida:'Retorno Declarado', conferido:'Conferido',
+               /* DUAS COLUNAS, uma por sentido: a de cima leva a saída, a de baixo o
+                  que o motorista declarou no retorno. Numa coluna só, ligar o filtro de
+                  saídas punha quantidade de saída sob o título "Retorno". */
+               saida:'Saída', retornoDecl:'Retorno Declarado',
+               conferido:'Conferido',
                /* O NOME DIZ A CONTA, e por isso ele virou junto com ela. */
                difConf:'Conferido − Declarado',
                conferente:'Conferente', situacao:'Situação' },
@@ -4403,7 +4410,13 @@
        * E ELA NÃO FECHA MESMO ASSIM. Com a contagem no lugar certo e nada declarado, a
        * situação vira "Sem saída" — pendente, como as outras cargas da tela em que só um
        * lado existe. Dizer "Bateu" seria um número concordando consigo mesmo. */
-      if (!par.conferido && !par.declarado && par.informados.length &&
+      /* SÓ NO RETORNO, e isto foi o galpão que ensinou: "o gerente normalmente faz
+         todas as saídas". Numa SAÍDA o número dele é o registro do que deixou o galpão
+         — não existe contagem na chegada de uma carga que está saindo. Sem esta linha,
+         toda saída do sistema passaria a aparecer como "conferida por Nestor", e o
+         cartão Conferido somaria o que saiu junto com o que voltou. */
+      if (par.tipo === 'Retorno' &&
+          !par.conferido && !par.declarado && par.informados.length &&
           par.informados.every(function(x){ return x.confere; })) {
         par.conferido = par.saida;
         par.saida = 0;
@@ -4460,6 +4473,21 @@
        * fechou. Vale o da producao quando ele existe, e o do livro de declaracao quando
        * e' o unico que ha. */
       par.declaradoTotal = par.saida || par.declarado || 0;
+      /* ============ O MESMO NÚMERO, EM DUAS COLUNAS ============
+       *
+       * `declaradoTotal` é o que o par DECLARA, e ele continua sendo o motor da conta.
+       * O que muda é ONDE ele aparece: numa viagem de saída ele é o que deixou o
+       * galpão; numa de retorno, o que o motorista diz que trouxe.
+       *
+       * Eram a MESMA coluna, chamada "Retorno Declarado". Com o filtro em Retorno, que
+       * é o padrão, isso passava: tudo ali era retorno. Ligadas as saídas, a coluna
+       * passou a mostrar quantidade de saída sob um título que diz "Retorno" — e um
+       * título que mente é pior que título nenhum, porque ninguém desconfia dele.
+       *
+       * TRAVESSÃO, E NUNCA ZERO, no lado que não existe: zero é uma carga que deu zero,
+       * e ausência é outra coisa. É a mesma regra das outras colunas desta tabela. */
+      par.saidaTotal   = par.tipo === 'Saída'   ? par.declaradoTotal : null;
+      par.retornoTotal = par.tipo === 'Retorno' ? par.declaradoTotal : null;
       if (par.declaradoTotal && par.conferido) {
         par.situacao = (par.declaradoTotal === par.conferido) ? 'Bateu' : 'Divergente';
       } else if (par.declaradoTotal) par.situacao = 'Sem conferência';
@@ -4547,11 +4575,20 @@
       /* QUEM INFORMOU A SAÍDA VAI NO BALÃO DELA. A coluna Conferente agora lista só
          quem tem o papel de conferir — e sem isto o nome de quem informou a saída não
          estaria em lugar nenhum da tabela, só dentro dos lançamentos do par. */
+      /* AS DUAS LEEM O MESMO `declaradoTotal`, cada uma pelo campo do sentido dela:
+         escrita a regra do sentido aqui dentro, duas vezes, bastaria mexer numa para as
+         duas colunas passarem a discordar sobre a mesma linha. */
       saida:     { t: T.saida, num: true,
-                   k: function(p){ return p.declaradoTotal; },
-                   v: function(p){ return p.declaradoTotal
+                   k: function(p){ return p.saidaTotal || 0; },
+                   v: function(p){ return p.saidaTotal
                      ? '<span title="'+Q.esc('Informado por '+(p.informanteTxt || '—'))+
-                       '">'+Q.num(p.declaradoTotal)+'</span>'
+                       '">'+Q.num(p.saidaTotal)+'</span>'
+                     : '<span class="fraco">—</span>'; } },
+      retornoDecl:{ t: T.retornoDecl, num: true,
+                   k: function(p){ return p.retornoTotal || 0; },
+                   v: function(p){ return p.retornoTotal
+                     ? '<span title="'+Q.esc('Informado por '+(p.informanteTxt || '—'))+
+                       '">'+Q.num(p.retornoTotal)+'</span>'
                      : '<span class="fraco">—</span>'; } },
       conferido: { t: T.conferido, num: true, k: function(p){ return p.conferido; },
                    v: function(p){ return p.conferido ? Q.num(p.conferido)
@@ -5171,7 +5208,8 @@
     var soma = function(campo){
       return L.reduce(function(a, p){ return a + (Number(p[campo]) || 0); }, 0);
     };
-    var said = soma('declaradoTotal'), conf = soma('conferido');
+    var said = soma('saidaTotal'), decl = soma('retornoTotal'),
+        conf = soma('conferido');
     var conta = function(s){ return L.filter(function(p){ return p.situacao === s; }).length; };
     var faixa = document.getElementById(TELA_PARES.totais);
     if (faixa){
@@ -5192,14 +5230,23 @@
          parece medir divergência e só repete a outra coluna com o sinal trocado.
          A CONTA QUE SOBRA É A QUE IMPORTA: o que se contou na chegada contra o que o
          motorista declarou. */
+      /* QUATRO CARTÕES, e eram três. O de Saída nasceu com a coluna e pelo mesmo
+         motivo: com o filtro ligado nas saídas, elas apareciam na tabela e em soma
+         nenhuma — o topo dizia "Retorno Declarado 0" com a tabela cheia de linhas.
+         CADA CARTÃO É A SOMA DA COLUNA DE MESMO NOME. É a regra da casa, e é ela que
+         deixa conferir o topo somando a coluna com o olho. */
       faixa.innerHTML =
-        cartaoTot(0, 3, 'var(--roxo-txt)', 'Retorno Declarado', Q.num(said), '', null) +
-        cartaoTot(1, 3, 'var(--verde)', 'Conferido', Q.num(conf), '', null) +
+        cartaoTot(0, 4, 'var(--azul)', 'Saída', Q.num(said), '', null) +
+        cartaoTot(1, 4, 'var(--roxo-txt)', 'Retorno Declarado', Q.num(decl), '', null) +
+        cartaoTot(2, 4, 'var(--verde)', 'Conferido', Q.num(conf), '', null) +
         /* A MESMA DIREÇÃO DA COLUNA, e os mesmos nomes: o cartão é a soma dela. Com
            direções opostas, o topo diria "+1.441" sobre a mesma operação em que a
            tabela logo abaixo diz "−1.441", e as duas estariam certas cada uma por si. */
-        cartaoTot(2, 3, 'var(--ambar-forte)', 'Conferido − Declarado',
-                  sinalDe(conf - said), '', null);
+        /* A DIFERENÇA SEGUE MEDINDO O RETORNO, e não a saída: a pergunta é "chegou o
+           que o motorista disse que trazia?". Somada contra a saída, ligar o filtro de
+           saídas faria o número despencar sem nada ter acontecido na operação. */
+        cartaoTot(3, 4, 'var(--ambar-forte)', 'Conferido − Declarado',
+                  sinalDe(conf - decl), '', null);
     }
     var sit = document.getElementById(TELA_PARES.sits);
     if (sit){

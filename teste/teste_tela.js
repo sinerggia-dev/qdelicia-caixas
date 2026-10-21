@@ -992,7 +992,12 @@ console.log('\n== falta e negativo, e vermelho ==');
      que so' enche a partir da Base Declaracao, um livro que esta operacao nao usa: ela
      era "zero menos o que foi lancado", um numero que parece medir divergencia e so'
      repete a outra coluna com o sinal trocado. */
-  ok(semCom.indexOf('sinalDe(conf - said)') > 0 &&
+  /* CONTRA O DECLARADO, e nao contra a saida: a pergunta do cartao e' se
+     chegou o que o motorista disse que trazia. Medido contra a saida, ligar o
+     filtro de saidas faria o numero despencar sem nada ter acontecido na
+     operacao. */
+  ok(semCom.indexOf('sinalDe(conf - decl)') > 0 &&
+     semCom.indexOf('sinalDe(conf - said)') < 0 &&
      semCom.indexOf('sinalDe(decl - said)') < 0,
     'e o cartão do topo soma na mesma direção da coluna que ele resume — com direções ' +
     'opostas, o topo diria "+1.441" sobre a mesma operação em que a tabela diz ' +
@@ -17997,6 +18002,77 @@ console.log('\n== Motorista/Conferente ==');
     's\u00f3 \u2014 com duas pessoas e um perfil desconhecido, n\u00e3o se sabe qual n\u00famero \u00e9 qual',
     [gerenteEEstranho[0].saida, gerenteEEstranho[0].conferido]);
 
+  /* ================= O MESMO NUMERO, EM DUAS COLUNAS =========================
+   *
+   * `declaradoTotal` e' o que o par DECLARA, e continua sendo o motor da conta. O que
+   * mudou e' ONDE ele aparece: numa viagem de SAIDA ele e' o que deixou o galpao; numa
+   * de RETORNO, o que o motorista diz que trouxe.
+   *
+   * Eram a MESMA coluna, chamada "Retorno Declarado". Com o filtro em Retorno, que e' o
+   * padrao, isso passava — tudo ali era retorno. Ligadas as saidas, a coluna passou a
+   * mostrar quantidade de SAIDA sob um titulo que diz "Retorno".
+   *
+   * CINCO SABOTAGENS ESCAPARAM antes destas provas existirem, e as cinco eram a mesma:
+   * as celulas eram medidas com pares feitos a mao, e NADA rodava `montarPares` para ver
+   * os dois campos nascerem. Trocar um pelo outro, ou faze-los iguais, nao quebrava nada.
+   *
+   * UM PAR DE SAIDA E UM DE RETORNO, com numeros DIFERENTES: com o mesmo numero nos
+   * dois, trocar um campo pelo outro da' a mesma resposta e a inversao passa batida. */
+  var doisSentidos = montarPares([
+    saidaDe({ qtd: 700, tipo: 'SAIDA', motorista: 'Chico' }),
+    lanc({ qtd: 690, tipo: 'SAIDA', motorista: 'Chico' }),
+    declDe({ qtd: 430, motorista: 'Chico' }),
+    lanc({ qtd: 420, motorista: 'Chico' })
+  ]);
+  var parSai = doisSentidos.filter(function (x) { return x.tipo === 'Sa\u00edda'; })[0];
+  var parVol = doisSentidos.filter(function (x) { return x.tipo === 'Retorno'; })[0];
+  ok(!!parSai && !!parVol,
+    'a confer\u00eancia montou um par de sa\u00edda e um de retorno \u2014 num sentido s\u00f3, as provas ' +
+    'abaixo n\u00e3o teriam como se contradizer', doisSentidos.map(function (x) {
+      return x.tipo; }));
+
+  ok(parSai.saidaTotal === 700 && parSai.retornoTotal === null,
+    'num par de SA\u00cdDA o n\u00famero sai pelo campo da sa\u00edda, e o do retorno fica vazio \u2014 ' +
+    'trocados, a tabela diria que a carga voltou no dia em que ela saiu',
+    [parSai.saidaTotal, parSai.retornoTotal]);
+  ok(parVol.retornoTotal === 430 && parVol.saidaTotal === null,
+    'e num par de RETORNO \u00e9 o contr\u00e1rio \u2014 \u00e9 o mesmo `declaradoTotal`, e o que decide a ' +
+    'coluna \u00e9 o sentido da viagem', [parVol.saidaTotal, parVol.retornoTotal]);
+
+  ok(parSai.retornoTotal === null && parVol.saidaTotal === null,
+    'e o lado que n\u00e3o existe \u00e9 NULO, e nunca zero \u2014 a c\u00e9lula desenha travess\u00e3o pelo ' +
+    'nulo, e um zero ali se leria como uma carga que deu zero',
+    [parSai.retornoTotal, parVol.saidaTotal]);
+
+  ok(parSai.saidaTotal !== parSai.retornoTotal &&
+     parVol.saidaTotal !== parVol.retornoTotal,
+    'e os dois campos nunca s\u00e3o o mesmo n\u00famero na mesma linha \u2014 iguais, a tabela diria ' +
+    'que toda viagem saiu e voltou de uma vez', [parSai.saidaTotal, parVol.retornoTotal]);
+
+  /* E A CONTAGEM DO GERENTE PARA NO RETORNO.
+   *
+   * "O gerente normalmente faz todas as saidas" — e' o galpao falando. Numa SAIDA o
+   * numero dele e' o registro do que deixou o galpao: nao existe contagem na chegada de
+   * uma carga que esta' saindo. Sem o limite, toda saida do sistema passaria a aparecer
+   * como "conferida por Nestor", e o cartao Conferido somaria o que saiu junto com o
+   * que voltou. */
+  var saidaSoGerente = montarPares([
+    saidaDe({ qtd: 900, tipo: 'SAIDA', usuario: 'Nestor Neto', motorista: 'Chico' })
+  ]);
+  ok(saidaSoGerente[0].conferido === 0 && saidaSoGerente[0].saidaTotal === 900,
+    'a SA\u00cdDA lan\u00e7ada s\u00f3 pelo gerente N\u00c3O vira contagem \u2014 n\u00e3o existe contagem na ' +
+    'chegada de uma carga que est\u00e1 saindo, e ele faz quase todas as sa\u00eddas: o cart\u00e3o ' +
+    'Conferido passaria a somar o que saiu junto com o que voltou',
+    [saidaSoGerente[0].saidaTotal, saidaSoGerente[0].conferido]);
+
+  var retornoSoGerente = montarPares([
+    saidaDe({ qtd: 810, usuario: 'Nestor Neto', motorista: 'Chico' })
+  ]);
+  ok(retornoSoGerente[0].conferido === 810,
+    'e o RETORNO lan\u00e7ado s\u00f3 por ele continua valendo como contagem \u2014 sem este ' +
+    'controle, a prova de cima passaria com uma regra que nunca conta nada',
+    retornoSoGerente[0].conferido);
+
   /* DIVERGENTE: saiu 500, chegaram 460. */
   var div = montarPares([
     saidaDe({ qtd: 500, motorista: 'Arilson' }),
@@ -18201,24 +18277,28 @@ console.log('\n== Motorista/Conferente ==');
    * A PROVA AMARRA OS TRES PARES, e nao so' o que mudou agora: e' a amarra que faz o
    * proximo renome arrastar o outro lado junto. */
   {
-    var iCt = adm.indexOf("cartaoTot(0, 3");
+    /* QUATRO, desde que a sa\u00edda ganhou coluna e cart\u00e3o pr\u00f3prios. */
+    var iCt = adm.indexOf("cartaoTot(0, 4");
     var blocoCt = iCt < 0 ? '' : adm.slice(iCt, adm.indexOf('}', iCt));
-    var rotCt = (blocoCt.match(/cartaoTot\(\d+, 3, '[^']*', '([^']*)'/g) || [])
+    var rotCt = (blocoCt.match(/cartaoTot\(\d+, 4, '[^']*', '([^']*)'/g) || [])
       .map(function (x) { return /, '([^']*)'$/.exec(x)[1]; });
-    ok(rotCt.length === 3,
-      'a confer\u00eancia leu os tr\u00eas r\u00f3tulos da fileira da concilia\u00e7\u00e3o', rotCt);
-    ok(rotCt[0] === TITD.saida && rotCt[1] === TITD.conferido &&
-       rotCt[2] === TITD.difConf,
+    ok(rotCt.length === 4,
+      'a confer\u00eancia leu os quatro r\u00f3tulos da fileira da concilia\u00e7\u00e3o', rotCt);
+    var colCt = [TITD.saida, TITD.retornoDecl, TITD.conferido, TITD.difConf];
+    ok(rotCt.join('|') === colCt.join('|'),
       'e cada cart\u00e3o do topo usa a MESMA palavra da coluna que ele soma \u2014 com nomes ' +
       'diferentes, a mesma coluna \u00e9 chamada de dois jeitos a um palmo de dist\u00e2ncia, e ' +
       'quem l\u00ea conclui que s\u00e3o dois n\u00fameros que por acaso batem',
-      { cartoes: rotCt, colunas: [TITD.saida, TITD.conferido, TITD.difConf] });
+      { cartoes: rotCt, colunas: colCt });
   }
 
-  ok(TITD.saida === 'Retorno Declarado' && TITD.difConf && !TITD.difDecl,
-    'e leu os títulos do descritor — o que o motorista lança no retorno É a declaração ' +
-    'dele, e chamá-lo de "Saída" numa tela de retornos fazia procurar uma saída que não ' +
-    'existe ali', TITD);
+  /* DUAS COLUNAS, UMA POR SENTIDO. Numa coluna s\u00f3 chamada "Retorno Declarado",
+     ligar o filtro de sa\u00eddas punha quantidade de SA\u00cdDA debaixo dela \u2014 e um t\u00edtulo que
+     mente \u00e9 pior que t\u00edtulo nenhum, porque ningu\u00e9m desconfia dele. */
+  ok(TITD.saida === 'Sa\u00edda' && TITD.retornoDecl === 'Retorno Declarado' &&
+     TITD.difConf && !TITD.difDecl,
+    'cada sentido tem a sua coluna: "Sa\u00edda" e "Retorno Declarado" \u2014 numa s\u00f3, ligar o ' +
+    'filtro de sa\u00eddas mostrava quantidade de sa\u00edda sob o t\u00edtulo "Retorno"', TITD);
   var DEFSD = new Function('Q', 'TAB_DECL',
     fonteDefsD + '\n return defsDecl();')(
     { esc: function (s) { return String(s == null ? '' : s).replace(/"/g, '&quot;'); },
@@ -18227,25 +18307,48 @@ console.log('\n== Motorista/Conferente ==');
 
   /* `declaradoTotal` E O CAMPO QUE A CELULA LE. Com os DOIS livros preenchidos vale o
      da producao: eles nao sao duas cargas, sao duas opinioes sobre a mesma. */
-  var parExemplo = { saida: 500, declarado: 410, conferido: 460,
-                     declaradoTotal: 500, difConf: 40,
+  var parExemplo = { tipo: 'Sa\u00edda', saida: 500, declarado: 410, conferido: 460,
+                     declaradoTotal: 500, saidaTotal: 500, retornoTotal: null,
+                     difConf: 40,
                      informanteTxt: 'Wellington', conferenteTxt: 'Melk',
                      origemTxt: 'Filial Maceió', destinoTxt: 'Matriz São Vicente' };
   ok(DEFSD.saida.v(parExemplo).indexOf('Wellington') > 0,
     'a célula da Saída leva no balão QUEM a informou — a coluna Conferente passou a ' +
     'listar só quem tem o papel de conferir, e sem o balão o nome de quem informou a ' +
     'saída não estaria em lugar nenhum da tabela', DEFSD.saida.v(parExemplo));
-  /* E A CELULA LE O TOTAL, e nao o campo da producao: com um par que veio so' do livro
-     de declaracao, o campo antigo e' ZERO e a coluna mostraria travessao sobre 180
-     caixas declaradas. */
-  ok(DEFSD.saida.v({ declaradoTotal: 180, saida: 0 }).indexOf('180') > 0,
-    'a célula mostra a declaração de QUALQUER livro — lendo só o campo da produção, um ' +
-    'retorno declarado no livro próprio sai com travessão na quantidade',
-    DEFSD.saida.v({ declaradoTotal: 180, saida: 0 }));
+  /* CADA C\u00c9LULA L\u00ca O CAMPO DO SENTIDO DELA, e as duas s\u00e3o a mesma `declaradoTotal`
+     repartida em `montarPares`. Lendo `declaradoTotal` direto, as duas colunas
+     mostrariam o mesmo n\u00famero na mesma linha, e a tabela diria que toda viagem saiu e
+     voltou ao mesmo tempo. */
+  var parRetorno = { tipo: 'Retorno', declaradoTotal: 180, saida: 0,
+                     saidaTotal: null, retornoTotal: 180, informanteTxt: 'Nestor Neto' };
+  ok(DEFSD.retornoDecl.v(parRetorno).indexOf('180') > 0 &&
+     DEFSD.saida.v(parRetorno).indexOf('\u2014') > 0,
+    'num par de RETORNO o n\u00famero sai na coluna Retorno Declarado, e a de Sa\u00edda fica em ' +
+    'travess\u00e3o \u2014 lendo `declaradoTotal` direto, as duas colunas mostrariam o mesmo ' +
+    'n\u00famero e a linha diria que a viagem saiu e voltou ao mesmo tempo',
+    [DEFSD.saida.v(parRetorno), DEFSD.retornoDecl.v(parRetorno)]);
   ok(DEFSD.saida.v(parExemplo).indexOf('500') > 0 &&
-     DEFSD.saida.v({ declaradoTotal: 0 }).indexOf('—') > 0,
+     DEFSD.retornoDecl.v(parExemplo).indexOf('\u2014') > 0,
+    'e num par de SA\u00cdDA \u00e9 o contr\u00e1rio \u2014 \u00e9 o mesmo n\u00famero, e o que decide a coluna \u00e9 o ' +
+    'sentido da viagem', [DEFSD.saida.v(parExemplo), DEFSD.retornoDecl.v(parExemplo)]);
+  ok(DEFSD.retornoDecl.v(parRetorno).indexOf('Nestor Neto') > 0,
+    'e a coluna do retorno leva no bal\u00e3o QUEM informou, como a da sa\u00edda \u2014 nascida sem ' +
+    'o bal\u00e3o, metade das linhas perderia o nome que a outra metade mostra',
+    DEFSD.retornoDecl.v(parRetorno));
+  /* A CHAVE DE ORDENA\u00c7\u00c3O L\u00ca O MESMO CAMPO QUE O DESENHO. Ela n\u00e3o aparece na tela, e
+     por isso escapou: trocada pelo total cru, a coluna MOSTRA travess\u00e3o e ORDENA por um
+     n\u00famero que ningu\u00e9m v\u00ea \u2014 clicar no t\u00edtulo embaralha as linhas sem explica\u00e7\u00e3o. */
+  ok(DEFSD.saida.k(parRetorno) === 0 && DEFSD.retornoDecl.k(parRetorno) === 180 &&
+     DEFSD.saida.k(parExemplo) === 500 && DEFSD.retornoDecl.k(parExemplo) === 0,
+    'e a chave de ordena\u00e7\u00e3o de cada coluna l\u00ea o campo DELA \u2014 pelo total cru, a coluna ' +
+    'mostra travess\u00e3o e ordena por um n\u00famero que ningu\u00e9m v\u00ea',
+    [DEFSD.saida.k(parRetorno), DEFSD.retornoDecl.k(parRetorno),
+     DEFSD.saida.k(parExemplo), DEFSD.retornoDecl.k(parExemplo)]);
+  ok(DEFSD.saida.v({ saidaTotal: 0 }).indexOf('\u2014') > 0 &&
+     DEFSD.retornoDecl.v({ retornoTotal: 0 }).indexOf('\u2014') > 0,
     'e o travessão fica no lado que NÃO existe, nunca um zero: zero é uma contagem que ' +
-    'deu zero, e ausência é outra coisa', DEFSD.saida.v({ declaradoTotal: 0 }));
+    'deu zero, e ausência é outra coisa', DEFSD.saida.v({ saidaTotal: 0 }));
   /* SOBROU UMA DIFERENCA, e ela continua saindo da fabrica: a celula le' o campo
      pelo NOME que recebeu, e nao um campo fixo escrito a mao dentro dela. Era isso
      que a prova das duas media, e continua valendo com uma so'. */
@@ -18269,17 +18372,19 @@ console.log('\n== Motorista/Conferente ==');
     return adm.slice(i + 9, adm.indexOf(']', i))
       .split(',').map(function (x) { return x.trim().replace(/'/g, ''); });
   })();
-  ['origem', 'destino', 'saida', 'conferido', 'difConf']
+  ['origem', 'destino', 'saida', 'retornoDecl', 'conferido', 'difConf']
     .forEach(function (c) {
       ok(padD.indexOf(c) >= 0,
         'a coluna ' + c + ' está na ordem de fábrica — fora dela, ela existe na ' +
         'fábrica de células e não aparece na tela, e o sintoma é uma coluna que ' +
         'simplesmente não há', padD);
     });
-  ok(padD.indexOf('saida') < padD.indexOf('conferido') &&
+  ok(padD.indexOf('saida') < padD.indexOf('retornoDecl') &&
+     padD.indexOf('retornoDecl') < padD.indexOf('conferido') &&
      padD.indexOf('conferido') < padD.indexOf('difConf'),
-    'e os três números vêm nesta ordem: Saída, Declarado, Conferido — é a ordem do que ' +
-    'acontece, e foi assim que foi pedida', padD);
+    'e os quatro n\u00fameros v\u00eam na ordem do que ACONTECE: saiu, o motorista diz quanto ' +
+    'trouxe, algu\u00e9m conta na chegada, e a\u00ed a diferen\u00e7a \u2014 fora dela, a tabela conta a ' +
+    'opera\u00e7\u00e3o de tr\u00e1s para a frente', padD);
 
   /* ---- A BUSCA OLHA O QUE A TELA MOSTRA, RODADA ----
      Ela passou a mostrar origem, destino e o nome de quem informou a saída. Fora da
@@ -18370,7 +18475,8 @@ console.log('\n== Motorista/Conferente ==');
      dezesseis. A conta e' escrita de proposito: ela e' o
      tropeco que obriga quem acrescenta uma coluna na tela a lembrar do arquivo — e
      foi assim que a Placa apareceu aqui, tendo nascido so' na tabela. */
-  ok(cabCsv === 14 && linCsv === 14,
+  /* QUINZE desde que a sa\u00edda ganhou coluna pr\u00f3pria: eram catorze. */
+  ok(cabCsv === 15 && linCsv === 15,
     'o CSV tem uma coluna para cada título — um a mais ou a menos desloca todas as ' +
     'colunas dali para a frente, e a planilha fica plausível: os números continuam lá, ' +
     'debaixo do nome errado', { titulos: cabCsv, valores: linCsv });
@@ -18380,16 +18486,16 @@ console.log('\n== Motorista/Conferente ==');
      texto. Ela existe porque duas sabotagens escaparam exatamente por ali: voltando ao
      campo da producao, o cartao soma zero e o arquivo sai com a coluna vazia sobre um
      retorno declarado no livro proprio. */
-  ok(adm.indexOf("soma('declaradoTotal')") > 0,
-    'o cartão soma o MESMO campo que a coluna mostra — pelo campo da produção ele ' +
-    'daria zero sobre um retorno declarado no livro próprio, que é o defeito que o ' +
-    'escritório encontrou', adm.indexOf("soma('declaradoTotal')"));
-  ok(/par\.declaradoTotal \|\| '', par\.conferido \|\| ''/.test(adm),
-    'e o CSV leva o mesmo campo — uma planilha que discorda da tela é a pior forma de ' +
-    'divergência, porque ela viaja por e-mail sem a tela do lado para conferir',
-    adm.indexOf('par.declaradoTotal'));
+  ok(adm.indexOf("soma('saidaTotal')") > 0 && adm.indexOf("soma('retornoTotal')") > 0,
+    'cada cart\u00e3o soma o MESMO campo que a coluna dele mostra \u2014 somando ' +
+    '`declaradoTotal`, os dois cart\u00f5es dariam o mesmo n\u00famero e o topo diria que saiu ' +
+    'tanto quanto voltou, em toda opera\u00e7\u00e3o');
+  ok(/par\.saidaTotal \|\| '', par\.retornoTotal \|\| '', par\.conferido \|\| ''/.test(adm),
+    'e o CSV leva os mesmos dois campos — uma planilha que discorda da tela é a pior ' +
+    'forma de divergência, porque ela viaja por e-mail sem a tela do lado para ' +
+    'conferir', adm.indexOf('par.saidaTotal'));
 
-  ok(adm.indexOf("'Retorno Declarado','Conferido','Conferido-Declarado'") > 0,
+  ok(adm.indexOf("'Saida','Retorno Declarado','Conferido','Conferido-Declarado'") > 0,
     'e os dois n\u00fameros e a diferen\u00e7a v\u00e3o para o arquivo com os MESMOS nomes da tela \u2014 ' +
     'a confer\u00eancia de escrit\u00f3rio n\u00e3o tem bal\u00e3o nem seta, e uma coluna que existe na ' +
     'tela e falta no arquivo faz ela chegar a um n\u00famero que a tela n\u00e3o explica');
@@ -21114,18 +21220,21 @@ console.log('\n== a fileira de totais no celular, e o Hoje das duas telas ==');
   /* O RECORTE PEGA QUEM MONTA, e nao quem LIMPA: ha dois `getElementById('dcTotais')` —
      um esvazia a fileira e o outro a desenha —, e o primeiro nao tem cartao nenhum
      dentro. A ancora e' a chamada que constroi. */
-  var iFxT = admT2.indexOf('cartaoTot(0, 3');
+  /* QUATRO desde que a saida ganhou cartao proprio — e no celular eles caem
+     2x2, sem sobrar ninguem sozinho em meia largura, que era o caso com tres. */
+  var iFxT = admT2.indexOf('cartaoTot(0, 4');
   var fxT = iFxT < 0 ? '' : admT2.slice(iFxT, admT2.indexOf('}', iFxT));
-  ok((fxT.match(/cartaoTot\(/g) || []).length === 3,
-    'e ela tem mesmo TRÊS cart\u00f5es — acrescentado um sexto e esquecida a classe, o ' +
+  ok((fxT.match(/cartaoTot\(/g) || []).length === 4,
+    'e ela tem mesmo QUATRO cartões — acrescentado um e esquecida a classe, o ' +
     'arranjo passa a abrir a linha no meio da fileira',
     (fxT.match(/cartaoTot\(/g) || []).length);
   /* E OS TRES SE DECLARAM COMO TRES. O segundo argumento de `cartaoTot` e' QUANTOS SAO
      — e' por ele que a largura de cada um sai —, e um "de 5" com tres na tela deixa a
      fileira com dois buracos no fim. */
-  ok((fxT.match(/cartaoTot\(\d+, 3/g) || []).length === 3,
-    'e os três dizem que SÃO três — o segundo argumento é quantos são, e um "de 5" com ' +
-    'três na tela deixa a fileira com dois buracos no fim',
+  ok((fxT.match(/cartaoTot\(\d+, 4/g) || []).length === 4,
+    'e os quatro dizem que SÃO quatro — o segundo argumento é quantos são, ' +
+    'e é dele que sai a cor de cada um: um "de 3" com quatro na tela ' +
+    'reaproveita dois tons',
     fxT.match(/cartaoTot\(\d+, \d+/g));
 
   /* ---- O HOJE E' UM SO', E AS DUAS TELAS O CHAMAM ----
