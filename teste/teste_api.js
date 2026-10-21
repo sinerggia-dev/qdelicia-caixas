@@ -4557,6 +4557,117 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'devolvida sem ninguém ter contado uma caixa',
     Fl.rotuloCiclo(comDeclaracao[0], cicloDecl.S1));
 
+  /* ================= A DEVOLUCAO DE UM NAO QUITA A REMESSA DE OUTRO ============
+   *
+   * OS VINTE E OITO FORNECEDORES DIVIDEM UM LOCAL SO'. O destino da carga deles e' um
+   * local chamado "Fornecedor", e quem e' quem vive na COLUNA `Fornecedor` da linha.
+   * A fila que decide o Status casava devolucao com remessa por local, caixa e livro —
+   * e ignorava a coluna. Com isso os vinte e oito eram uma fila so': a devolucao de um
+   * quitava a remessa mais antiga, de quem quer que fosse.
+   *
+   * O ESCRITORIO VIU ISTO: saida de 300 CX P para o Geraldo, retorno ZERO, saldo -300,
+   * e a coluna Status dizendo "Devolvida". O numero e o rotulo na mesma linha,
+   * discordando um do outro.
+   *
+   * O CENARIO ABAIXO E O DA TELA, com os dois lados que a prova precisa separar. */
+  const saidaForn = (quem, dia) => ({ ID: 'SF-' + quem, Tipo: 'SAIDA', OrigemID: 'L001',
+    DestinoID: 'LFORN', TipoCaixaID: 'T001', Qtd: 300, Status: 'CONFIRMADO',
+    Fornecedor: quem, DataRef: new Date(2026, 9, dia || 15),
+    DataHora: new Date(2026, 9, dia || 15) });
+  const voltaForn = (quem, qtd, dia) => ({ ID: 'VF-' + quem + '-' + (dia || 16),
+    Tipo: 'DEVOLUCAO', OrigemID: 'LFORN', DestinoID: 'L001', TipoCaixaID: 'T001',
+    Qtd: qtd, Status: 'CONFIRMADO', Fornecedor: quem,
+    DataRef: new Date(2026, 9, dia || 16), DataHora: new Date(2026, 9, dia || 16) });
+
+  /* O CONTROLE VEM PRIMEIRO: sem ele, tudo abaixo passaria com uma funcao que nunca
+     diz "Devolvida" para fornecedor nenhum. */
+  const soGeraldo = [saidaForn('Geraldo'), voltaForn('Geraldo', 300)];
+  ok(Fl.rotuloCiclo(soGeraldo[0], Fl.cicloDaCarga(soGeraldo)['SF-Geraldo']) === 'Devolvida',
+    'a devolu\u00e7\u00e3o DO MESMO fornecedor quita a remessa dele \u2014 sem este controle, as ' +
+    'provas abaixo passariam com uma fun\u00e7\u00e3o que nunca diz "Devolvida"',
+    Fl.rotuloCiclo(soGeraldo[0], Fl.cicloDaCarga(soGeraldo)['SF-Geraldo']));
+
+  const outroVolta = [saidaForn('Geraldo'), voltaForn('Mundinho', 300)];
+  const cicloOutro = Fl.cicloDaCarga(outroVolta);
+  ok(Fl.rotuloCiclo(outroVolta[0], cicloOutro['SF-Geraldo']) === 'Enviada',
+    'mas a devolu\u00e7\u00e3o de OUTRO fornecedor n\u00e3o quita a dele \u2014 os dois saem para o ' +
+    'mesmo local, e sem o nome na chave a carga do Geraldo aparecia "Devolvida" com ' +
+    'retorno zero e saldo -300 na mesma linha',
+    Fl.rotuloCiclo(outroVolta[0], cicloOutro['SF-Geraldo']));
+
+  /* E A DIVIDA DE CADA UM FICA INTEIRA. Nao basta o rotulo mudar: o que a cobranca le'
+     e' o quanto voltou, e misturado ele some. */
+  ok((cicloOutro['SF-Geraldo'] || {}).devolvido === 0,
+    'e nada do Geraldo consta como devolvido \u2014 \u00e9 esse n\u00famero que a cobran\u00e7a l\u00ea, e ' +
+    'misturado ele perdoaria uma d\u00edvida que ningu\u00e9m pagou',
+    (cicloOutro['SF-Geraldo'] || {}).devolvido);
+
+  /* DOIS FORNECEDORES, CADA UM COM A SUA — e nenhum empresta ao outro. Com um
+     fornecedor so' no cenario, chavear pelo nome e nao chavear davam a mesma resposta. */
+  /* A DO GERALDO E A MAIS ANTIGA, de proposito: e' ela que a fila pooled pegaria
+     primeiro. Com as duas no mesmo dia, a ordem do empate decidia, e a prova passava
+     sem o conserto por pura sorte do desempate. */
+  const dois = [saidaForn('Geraldo', 15), saidaForn('Mundinho', 16),
+                voltaForn('Mundinho', 300, 17)];
+  const cDois = Fl.cicloDaCarga(dois);
+  ok(Fl.rotuloCiclo(dois[0], cDois['SF-Geraldo']) === 'Enviada' &&
+     Fl.rotuloCiclo(dois[1], cDois['SF-Mundinho']) === 'Devolvida',
+    'e com dois fornecedores em pé, cada devolução acha a SUA remessa — pela ' +
+    'fila antiga, a volta do Mundinho quitaria a saída do Geraldo só por ela ser a ' +
+    'mais velha do local',
+    [Fl.rotuloCiclo(dois[0], cDois['SF-Geraldo']),
+     Fl.rotuloCiclo(dois[1], cDois['SF-Mundinho'])]);
+
+  /* O PARCIAL CONTINUA SENDO PARCIAL dentro do nome certo. */
+  const meio = [saidaForn('Geraldo'), voltaForn('Geraldo', 120)];
+  ok(Fl.rotuloCiclo(meio[0], Fl.cicloDaCarga(meio)['SF-Geraldo']) === 'Parcial',
+    'e voltando parte, a remessa do fornecedor fica "Parcial" \u2014 o nome na chave ' +
+    'separa as filas, n\u00e3o troca a regra que l\u00ea cada uma',
+    Fl.rotuloCiclo(meio[0], Fl.cicloDaCarga(meio)['SF-Geraldo']));
+
+  /* DUAS GRAFIAS DO MESMO NOME SAO A MESMA DIVIDA. Partidas em duas filas, cada metade
+     quitaria a outra pela metade — e o defeito voltaria com outra cara. */
+  const grafia = [saidaForn('Geraldo'), voltaForn('  geraldo  ', 300)];
+  ok(Fl.rotuloCiclo(grafia[0], Fl.cicloDaCarga(grafia)['SF-Geraldo']) === 'Devolvida',
+    'e " geraldo " com espa\u00e7o e em caixa baixa quita a remessa de "Geraldo" \u2014 duas ' +
+    'grafias partiriam a fila em duas, e o defeito voltaria com outra cara',
+    Fl.rotuloCiclo(grafia[0], Fl.cicloDaCarga(grafia)['SF-Geraldo']));
+
+  /* E A VIAGEM COMUM, SEM FORNECEDOR NENHUM, CONTINUA COMO ERA. A maior parte da
+     operacao e' esta — rota para cliente, transferencia entre casas —, e um nome vazio
+     dos dois lados tem de seguir casando. */
+  const viagemComum = [{ ID: 'SC1', Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'L003',
+      TipoCaixaID: 'T001', Qtd: 60, Status: 'CONFIRMADO',
+      DataRef: new Date(2026, 0, 5), DataHora: new Date(2026, 0, 5) },
+    { ID: 'VC1', Tipo: 'DEVOLUCAO', OrigemID: 'L003', DestinoID: 'L001',
+      TipoCaixaID: 'T001', Qtd: 60, Status: 'CONFIRMADO',
+      DataRef: new Date(2026, 0, 6), DataHora: new Date(2026, 0, 6) }];
+  ok(Fl.rotuloCiclo(viagemComum[0], Fl.cicloDaCarga(viagemComum).SC1) === 'Devolvida',
+    'e a viagem comum, sem fornecedor em ponta nenhuma, continua sendo quitada \u2014 \u00e9 a ' +
+    'maior parte da opera\u00e7\u00e3o, e o nome na chave n\u00e3o pode travar a conta dela',
+    Fl.rotuloCiclo(viagemComum[0], Fl.cicloDaCarga(viagemComum).SC1));
+
+  /* E A CAIXA TAMBEM SEPARA AS FILAS. Nenhuma prova cobrava isto, e a sabotagem que
+     tirou `TipoCaixaID` da chave passou batida: uma devolucao de CX G quitava uma
+     remessa de CX P, e a cobranca por tipo — que e' como a caixa se cobra do
+     fornecedor — perdoava a divida de um tipo com a devolucao de outro. */
+  const outraCaixa = [saidaForn('Geraldo'),
+    Object.assign(voltaForn('Geraldo', 300), { TipoCaixaID: 'T002' })];
+  ok(Fl.rotuloCiclo(outraCaixa[0], Fl.cicloDaCarga(outraCaixa)['SF-Geraldo']) === 'Enviada',
+    'e a devolução de OUTRO tipo de caixa também não quita — 300 CX G voltando não ' +
+    'pagam 300 CX P, e é por tipo que a caixa se cobra do fornecedor',
+    Fl.rotuloCiclo(outraCaixa[0], Fl.cicloDaCarga(outraCaixa)['SF-Geraldo']));
+
+  /* O LIVRO CONTINUA MANDANDO, com o nome ao lado: uma declaracao do MESMO fornecedor
+     tambem nao quita. As duas guardas moram na mesma chave, e uma nao pode ter
+     apagado a outra. */
+  const declForn = [saidaForn('Geraldo'), voltaForn('Geraldo', 300)];
+  declForn[1].Declaracao = true;
+  ok(Fl.rotuloCiclo(declForn[0], Fl.cicloDaCarga(declForn)['SF-Geraldo']) !== 'Devolvida',
+    'e a declara\u00e7\u00e3o do PR\u00d3PRIO fornecedor segue sem quitar \u2014 as duas guardas moram ' +
+    'na mesma chave, e a nova n\u00e3o pode ter apagado a antiga',
+    Fl.rotuloCiclo(declForn[0], Fl.cicloDaCarga(declForn)['SF-Geraldo']));
+
   /* ---- O LIVRO TAMBEM PENEIRA A LEITURA, e nao so' a gravacao ----------------
    *
    * A gravacao ja' era conferida contra o cadastro — logo abaixo esta' a prova de que

@@ -2340,11 +2340,42 @@ function cicloDaCarga(movimentos) {
   /* A DECLARACAO VEM ANTES DO ENSAIO na letra: uma declaracao de ensaio nunca pode
      quitar remessa nenhuma, nem a real nem a de treino. */
   function letra(m) { return baseDoMovimento(m); }
+
+  /* ================= E O FORNECEDOR ENTRA NA CHAVE TAMBEM =================
+   *
+   * OS VINTE E OITO FORNECEDORES DIVIDEM UM LOCAL SO'. O cadastro tem um local chamado
+   * "Fornecedor", marcado com `PedeFornecedor`, e e' para ele que toda carga de
+   * fornecedor sai — quem e' quem nao esta' no `DestinoID`, esta' na coluna
+   * `Fornecedor` da linha, que o servidor preenche a partir do motorista.
+   *
+   * SEM O NOME NA CHAVE, OS VINTE E OITO VIRAVAM UMA FILA SO'. A devolucao de um
+   * fornecedor quitava a remessa MAIS ANTIGA daquele local — que podia ser de outro
+   * fornecedor inteiramente. O escritorio via o que nos mandaram: uma saida de 300 CX P
+   * para o Geraldo, retorno ZERO, saldo -300, e a coluna Status dizendo "Devolvida".
+   * O numero e o rotulo na mesma linha, discordando um do outro, e os dois plausiveis.
+   *
+   * AS DUAS PONTAS GRAVAM O MESMO NOME, e e' isso que faz a chave casar: na saida o
+   * fornecedor e' o destino, no retorno e' a origem, e nos dois casos o servidor
+   * escreve o NOME DO CADASTRO — nao o apelido, nao o que a tela mandou.
+   *
+   * APARADO E EM CAIXA BAIXA, como toda chave daqui: " Geraldo " e "geraldo" sao a
+   * mesma divida, e duas grafias partiriam a fila em duas — cada metade quitando a
+   * outra pela metade.
+   *
+   * O PRECO, DITO EM VOZ ALTA: uma remessa gravada ANTES de a coluna existir tem o nome
+   * vazio, e uma devolucao de hoje nao a quita mais — ela fica "Enviada". E' a direcao
+   * certa do erro: "ainda nao voltou" e' uma pergunta que se vai conferir, e "voltou"
+   * sem ninguem ter contado uma caixa e' uma divida que se perde. */
+  function quemDeve(m) {
+    return String((m && m.Fornecedor) || '').trim().toLowerCase();
+  }
   function chaveDestino(m) {
-    return String(m.DestinoID) + '|' + String(m.TipoCaixaID) + '|' + letra(m);
+    return String(m.DestinoID) + '|' + String(m.TipoCaixaID) + '|' + letra(m) +
+           '|' + quemDeve(m);
   }
   function chaveOrigem(m) {
-    return String(m.OrigemID) + '|' + String(m.TipoCaixaID) + '|' + letra(m);
+    return String(m.OrigemID) + '|' + String(m.TipoCaixaID) + '|' + letra(m) +
+           '|' + quemDeve(m);
   }
 
   naoCancelados(movimentos).slice().sort(function (a, b) {
