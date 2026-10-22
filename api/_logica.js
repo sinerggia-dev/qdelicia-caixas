@@ -1484,8 +1484,45 @@ function conferirFornecedor(p, locais, fornecedores) {
  *
  * E' o nome de TRABALHO — o apelido quando existe —, o mesmo que a coluna Motorista
  * guarda: duas grafias da mesma pessoa partiriam o relatorio em dois. */
+/* A CARGA QUE TOCA UMA FILIAL TEM DONO, e ate aqui nao havia onde dizer de quem.
+ *
+ * SAO DOIS CAMINHOS PARA A MESMA COLUNA, e e' de proposito que ela e' UMA so':
+ *
+ *   DERIVADO — a perna toca o local marcado `PedeFornecedor`, e entao o fornecedor E' o
+ *   motorista, lido do cadastro. A tela nem mostra o campo. E' o caminho de sempre.
+ *
+ *   ESCOLHIDO — a perna toca uma FILIAL, e o escritorio diz de quem e' a carga. Aqui o
+ *   motorista nao responde a pergunta: quem leva as caixas do Geraldo para Maceio e' um
+ *   motorista da casa.
+ *
+ * A LISTA E FECHADA CONTRA O CADASTRO nos dois casos, e e' isso que faz os dois
+ * caminhos darem o mesmo tipo de valor: nome livre vira grafia diferente do mesmo
+ * fornecedor, e o extrato parte um em dois.
+ *
+ * O PEDIDO SO' E LIDO ONDE ELE PODE FALAR. Numa viagem que nao toca filial nenhuma, um
+ * POST montado a mao nao tem onde injetar um nome — a funcao nem chega a olhar o campo.
+ * E' a mesma guarda do caminho derivado, dita para o caminho novo. */
+function pontaDeFilial(p, locais) {
+  function tipoDe(id) {
+    if (!id) return '';
+    var l = (locais || []).filter(function (x) {
+      return String(x.ID) === String(id);
+    })[0];
+    return l ? String(l.Tipo || '').toUpperCase() : '';
+  }
+  return tipoDe(p && p.origemId) === 'FILIAL' || tipoDe(p && p.destinoId) === 'FILIAL';
+}
+
 function fornecedorDoMovimento(p, locais, fornecedores) {
-  if (!pontasQuePedemFornecedor(p, locais).length) return '';
+  if (!pontasQuePedemFornecedor(p, locais).length) {
+    /* O CAMINHO NOVO, e so' ele: nome escolhido, perna de filial, cadastro conferido.
+       Faltando qualquer um dos tres, a coluna fica VAZIA — que e' o pior caso aceitavel,
+       porque vazio se ve'. */
+    var pedido = String((p && p.fornecedorFilial) || '').trim();
+    if (!pedido || !pontaDeFilial(p, locais)) return '';
+    var fil = acharFornecedor(fornecedores, pedido);
+    return fil ? String(fil.Nome || fil.Apelido || '').trim() : '';
+  }
   var f = acharFornecedor(fornecedores, p.motorista);
   if (!f) return '';
   /* O NOME DO CADASTRO, e nao o apelido.
@@ -2894,6 +2931,14 @@ function classificaFluxo(saida, retorno, RUIM) {
   return { saldo: saldo, desvio: desvio, situacao: situacao };
 }
 
+/* O TIPO DE UM LOCAL, pelo id. Escrito solto nos dois lugares que perguntam, ele
+   divergiria no primeiro que ganhasse um `trim` ou um `toUpperCase` a mais. */
+function tipoDoLocal(locais, id) {
+  if (!id) return '';
+  var l = (locais || []).filter(function (x) { return String(x.ID) === String(id); })[0];
+  return l ? String(l.Tipo || '').toUpperCase() : '';
+}
+
 function fluxoPorPessoa(dados, desde, ate) {
   var movimentos = dados.movimentos || [];
   var usuarios = dados.usuarios || [];
@@ -2997,7 +3042,23 @@ function fluxoPorPessoa(dados, desde, ate) {
        descuido de quem lancou.
        A CHAVE E O NOME, e nao um id: o lancamento guarda o texto, porque repintar o
        cadastro nao pode reescrever o que ja saiu do galpao. */
-    if (linha.fornecedor) {
+    /* E A PERNA INTERNA NAO ENTRA NA CONTA DELE.
+     *
+     * Matriz -> Filial Maceio e' transferencia entre casas NOSSAS: as caixas continuam
+     * em casa, e ninguem passou a dever nada. Com o campo "Fornecedor Filial" a linha
+     * agora DIZ de quem elas sao — e sem esta guarda esse registro viraria uma saida na
+     * conta do fornecedor, inventando uma divida de caixas que ele nunca recebeu.
+     *
+     * QUANDO A FILIAL ENTREGAR A ELE, a perna cruza a fronteira da empresa e ai' sim
+     * conta — e' a mesma regra que o Painel ja usa para decidir o que saiu.
+     *
+     * HOJE ISTO NAO MUDA NUMERO NENHUM: nenhuma perna entre duas casas nossas tem nome
+     * de fornecedor, porque o unico caminho que preenchia a coluna exigia tocar o local
+     * de fornecedor, que nao e' casa nossa. A guarda nasce junto com o campo que a
+     * tornaria necessaria. */
+    if (linha.fornecedor &&
+        !(ehCasaNossa(tipoDoLocal(dados.locais, m.OrigemID)) &&
+          ehCasaNossa(tipoDoLocal(dados.locais, m.DestinoID)))) {
       soma(porForn, linha.fornecedor, linha.fornecedor, q, ehSaida,
            String(m.Rota || '').trim(), caixa, linha);
     }
@@ -3665,6 +3726,7 @@ module.exports = {
   conferirFornecedor: conferirFornecedor, acharFornecedor: acharFornecedor,
   nomesDaLinha: nomesDaLinha, montarConferencia: montarConferencia,
   fornecedorDaCarga: fornecedorDaCarga, pontaDeFornecedor: pontaDeFornecedor,
+  pontaDeFilial: pontaDeFilial, tipoDoLocal: tipoDoLocal,
   montarCorrecao: montarCorrecao, CORRIGIVEIS: CORRIGIVEIS,
   montarRestauro: montarRestauro, podeRestaurar: podeRestaurar,
   corrigeLancamento: corrigeLancamento, fotoDePerfil: fotoDePerfil,

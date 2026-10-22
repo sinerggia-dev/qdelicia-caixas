@@ -396,6 +396,21 @@
           <label for="sdDestino">Destino<span class="obrig">*</span></label>
           <select id="sdDestino"></select>
         </div>
+        <!-- QUANDO A CARGA TOCA UMA FILIAL, DE QUEM ELA E'.
+             A filial recebe caixa que tem dono, e ate aqui nao havia onde dizer de quem:
+             a coluna `Fornecedor` so' era preenchida DERIVADA do motorista, nas pernas
+             que tocam o local de fornecedor. Para a filial nao havia caminho nenhum.
+             ENTRE O DESTINO E O MOTORISTA porque e' do destino que ele nasce: a ordem da
+             tela e' a ordem em que a pessoa preenche.
+             ESCONDIDO ATE LA. Um campo a vista em toda saida seria uma pergunta a
+             ignorar nove vezes em dez — e campo que se aprende a ignorar e' campo que um
+             dia se preenche errado.
+             OPCIONAL: a maior parte das transferencias entre casas nossas nao e' de
+             fornecedor nenhum, e exigi-lo trancaria a transferencia comum. -->
+        <div id="sdWrapFornFilial" style="display:none">
+          <label for="sdFornFilial">Fornecedor Filial</label>
+          <select id="sdFornFilial"></select>
+        </div>
         <div id="sdWrapMotorista">
           <label for="sdMotorista"><span data-rotulo="sdMotorista">Motorista</span><span class="obrig">*</span></label>
           <select id="sdMotorista"></select>
@@ -463,6 +478,13 @@
         <div>
           <label for="dvDestino">Destino<span class="obrig">*</span></label>
           <select id="dvDestino"></select>
+        </div>
+        <!-- A MESMA PERGUNTA NA VOLTA, e pelo mesmo motivo: a carga que sai de uma
+             filial tambem tem dono, e sem o campo aqui metade do ciclo ficaria sem ele.
+             AS DUAS PONTAS CONTAM: no retorno a filial e' a ORIGEM. -->
+        <div id="dvWrapFornFilial" style="display:none">
+          <label for="dvFornFilial">Fornecedor Filial</label>
+          <select id="dvFornFilial"></select>
         </div>
         <div>
           <label for="dvMotorista"><span data-rotulo="dvMotorista">Motorista</span><span class="obrig">*</span></label>
@@ -1533,15 +1555,21 @@
      veiculos passa a ser so' a do motorista escolhido. As duas listas descendem da
      mesma pergunta, e por isso sao refeitas juntas: refazendo so' uma, a outra ficaria
      mostrando a escolha de um lancamento que ja' nao existe. */
+  /* O CAMPO DA FILIAL ENTRA NOS GANCHOS QUE JA EXISTEM, e nao num ouvinte proprio:
+     estes dois sao chamados de toda parte que mexe nas pontas — trocar a origem, o
+     destino, a rota, abrir a tela. Um ouvinte novo cobriria so' o caminho em que eu
+     pensasse, e os outros deixariam o campo para tras. */
   function atualizarFornecedorSaida(){
     montarMotoristas('sdMotorista', saiDeGalpao() ? 'sdRota' : 'sdOrigem', 'saida',
                      pontasDaSaida());
     montarVeiculos('sdVeiculo', 'sdMotorista', pontasDaSaida());
+    montarFornFilial('sdWrapFornFilial', 'sdFornFilial', pontasDaSaida());
   }
 
   function atualizarFornecedorRetorno(){
     montarMotoristas('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno());
     montarVeiculos('dvVeiculo', 'dvMotorista', pontasDoRetorno());
+    montarFornFilial('dvWrapFornFilial', 'dvFornFilial', pontasDoRetorno());
   }
 
   function ajustarCamposSaida(){
@@ -1606,6 +1634,60 @@
     return ((DADOS||{}).fornecedores || []).filter(function(f){
       return Q.comoChamar(f) === nome;
     })[0] || null;
+  }
+
+  /* ================= A PONTA E' UMA FILIAL? =================
+   *
+   * A IRMA DE `pedeFornecedor`, e nao a mesma: aquela pergunta pelo local marcado com
+   * `PedeFornecedor` — o local "Fornecedor", por onde a carga dele entra e sai. Esta
+   * pergunta pelo TIPO do local, e por isso vale para toda filial sem ninguem ter de
+   * marcar nada: filial nova nasce com o campo funcionando.
+   *
+   * AS DUAS PONTAS, como em todo lugar deste projeto: a carga VAI para a filial (ela no
+   * destino) e SAI dela (ela na origem). Olhando so' um lado, metade do ciclo ficaria
+   * sem o campo. */
+  function pontaDeFilial(ids){
+    var lista = Object.prototype.toString.call(ids) === '[object Array]' ? ids : [ids];
+    return lista.some(function(id){
+      if (!id) return false;
+      var l = ((DADOS||{}).locais || []).filter(function(x){
+        return String(x.ID) === String(id);
+      })[0];
+      return !!l && String(l.Tipo || '').toUpperCase() === 'FILIAL';
+    });
+  }
+
+  /* O CAMPO APARECE, SE ENCHE E SE LIMPA — os tres na mesma funcao.
+   *
+   * LIMPAR AO ESCONDER nao e' detalhe: escolhido um fornecedor e trocado o destino para
+   * uma rota, o valor ficaria no campo invisivel e viajaria junto com o lancamento. A
+   * tela mostrando uma coisa e o banco recebendo outra e' o defeito mais caro desta
+   * casa, e e' a terceira vez que ele aparece aqui — a placa digitada e o trecho do
+   * grafico sao os outros dois.
+   *
+   * A ESCOLHA DE ANTES FICA quando o campo continua a vista: trocar a filial de Maceio
+   * para Joao Pessoa nao apaga de quem e' a carga. */
+  function montarFornFilial(idWrap, idSel, pontas){
+    var wrap = document.getElementById(idWrap);
+    var sel = document.getElementById(idSel);
+    if (!wrap || !sel) return;
+    if (!pontaDeFilial(pontas || [])) {
+      wrap.style.display = 'none';
+      sel.innerHTML = '';
+      sel.value = '';
+      return;
+    }
+    var antes = sel.value;
+    var lista = fornecedoresParaEscolher();
+    /* SEM FORNECEDOR CADASTRADO O CAMPO DIZ POR QUE ESTA VAZIO. Um seletor com
+       "Selecione..." e nada dentro le-se como tela quebrada, e a pessoa fica tentando. */
+    sel.innerHTML = lista.length
+      ? '<option value="">\u2014 nenhum \u2014</option>' + lista.map(function(n){
+          return '<option value="' + Q.esc(n) + '">' + Q.esc(n) + '</option>';
+        }).join('')
+      : '<option value="">\u2014 nenhum fornecedor cadastrado \u2014</option>';
+    sel.value = lista.indexOf(antes) >= 0 ? antes : '';
+    wrap.style.display = 'block';
   }
 
   function fornecedoresParaEscolher(){
@@ -1997,6 +2079,10 @@
       motoristaNome: nomeCompletoDoMotorista(document.getElementById('sdMotorista').value),
       veiculo: placaEscolhida('sdVeiculo'),
       rota: nomeDoLocal(destino),
+      /* DE QUEM E' A CARGA QUE VAI PARA A FILIAL. Vazio na maioria das viagens, e o
+         servidor so' o aceita quando uma ponta e' filial — e so' se o nome estiver no
+         cadastro. Esconder o campo e' conveniencia; a guarda e' la'. */
+      fornecedorFilial: document.getElementById('sdFornFilial').value,
       foto: sdFotoData
     }).then(function(r){
       btn.disabled = false; btn.textContent = 'Registrar saída';
@@ -2031,6 +2117,10 @@
        nao notar, porque o campo esta' preenchido. */
     document.getElementById('sdVeiculoTexto').value = '';
     mostrarPlacaTexto('sdVeiculo');
+    /* O CAMPO DA FILIAL ZERA SEMPRE, e nao so' quando ele esta' a vista: escolhido e
+       deixado para tras, o nome viajaria no proximo lancamento com a tela mostrando
+       outra coisa. */
+    document.getElementById('sdFornFilial').value = '';
     sdFotoData=''; document.getElementById('sdFotoOk').textContent='';
     document.getElementById('sdFoto').value = '';
     if (!manterLocais){
@@ -2169,6 +2259,7 @@
       obs: document.getElementById('dvObs').value,
       usuarioId: s.id, perfil: s.perfil,
       base: baseDv,
+      fornecedorFilial: document.getElementById('dvFornFilial').value,
       foto: dvFotoData
     }).then(function(r){
       btn.disabled = false; btn.textContent = 'Registrar retorno';
@@ -2191,6 +2282,7 @@
     document.getElementById('dvMotorista').value = '';
     document.getElementById('dvVeiculoTexto').value = '';
     mostrarPlacaTexto('dvVeiculo');
+    document.getElementById('dvFornFilial').value = '';
     dvFotoData=''; document.getElementById('dvFotoOk').textContent='';
     document.getElementById('dvFoto').value = '';
     if (!manter){

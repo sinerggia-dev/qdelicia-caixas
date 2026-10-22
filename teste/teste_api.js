@@ -4834,6 +4834,97 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'na mesma chave, e a nova n\u00e3o pode ter apagado a antiga',
     Fl.rotuloCiclo(declForn[0], Fl.cicloDaCarga(declForn)['SF-Geraldo']));
 
+  /* ================= O FORNECEDOR DA CARGA QUE TOCA UMA FILIAL ===============
+   *
+   * O escritorio pediu: escolhendo uma filial no destino, abrir uma caixa com os
+   * fornecedores do cadastro. A filial recebe caixa que TEM DONO, e ate aqui nao havia
+   * onde dizer de quem — a coluna `Fornecedor` so' era preenchida DERIVADA do motorista,
+   * nas pernas que tocam o local de fornecedor.
+   *
+   * SAO DOIS CAMINHOS PARA UMA COLUNA SO', e e' de proposito que ela seja uma:
+   *   DERIVADO  — a perna toca `PedeFornecedor`: o fornecedor E' o motorista.
+   *   ESCOLHIDO — a perna toca uma FILIAL: quem leva as caixas do Geraldo para Maceio e'
+   *               um motorista da casa, e o motorista nao responde a pergunta. */
+  const LOC_FF = [
+    { ID: 'L001', Nome: 'Matriz', Tipo: 'GALPAO' },
+    { ID: 'L002', Nome: 'Filial Maceio', Tipo: 'FILIAL' },
+    { ID: 'L003', Nome: 'Recife', Tipo: 'CLIENTE' },
+    { ID: 'LFORN', Nome: 'Fornecedor', Tipo: 'FORNECEDOR', PedeFornecedor: true }
+  ];
+  const FORNS_FF = [{ ID: 'F1', Nome: 'Geraldo Fonseca', Apelido: 'Geraldo', Ativo: true }];
+  const deriva = (p) => Fl.fornecedorDoMovimento(p, LOC_FF, FORNS_FF);
+
+  ok(deriva({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L002',
+              fornecedorFilial: 'Geraldo' }) === 'Geraldo Fonseca',
+    'indo para uma FILIAL, o fornecedor escolhido vira o nome do cadastro — era o ' +
+    'pedido, e o motorista não responde essa pergunta: quem leva as caixas do Geraldo ' +
+    'para Maceió é um motorista da casa',
+    deriva({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L002',
+             fornecedorFilial: 'Geraldo' }));
+
+  ok(deriva({ tipo: 'DEVOLUCAO', origemId: 'L002', destinoId: 'L001',
+              fornecedorFilial: 'Geraldo' }) === 'Geraldo Fonseca',
+    'e vale na VOLTA também, com a filial na origem — olhando só o destino, metade do ' +
+    'ciclo ficaria sem dono');
+
+  /* FORA DA FILIAL O PEDIDO NAO E LIDO. Esconder o campo na tela e' conveniencia; um
+     POST montado a mao passa por cima dela, e a guarda tem de estar aqui. */
+  ok(deriva({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L003',
+              fornecedorFilial: 'Geraldo' }) === '',
+    'numa viagem que NÃO toca filial, o nome pedido é ignorado — esconder o campo na ' +
+    'tela é conveniência, e um POST montado à mão passa por cima dela',
+    deriva({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L003',
+             fornecedorFilial: 'Geraldo' }));
+
+  /* E A LISTA E FECHADA CONTRA O CADASTRO. Nome livre vira grafia diferente do mesmo
+     fornecedor, e o extrato parte um em dois. */
+  ok(deriva({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L002',
+              fornecedorFilial: 'Quem Eu Quiser' }) === '',
+    'e um nome fora do cadastro não entra — nome livre vira grafia diferente do mesmo ' +
+    'fornecedor, e o extrato parte um em dois');
+
+  ok(deriva({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L002' }) === '',
+    'e sem escolher nada a coluna fica vazia — a maior parte das transferências entre ' +
+    'casas nossas não é de fornecedor nenhum');
+
+  /* O CAMINHO ANTIGO CONTINUA INTEIRO: tocando o local de fornecedor, o nome sai do
+     MOTORISTA e o pedido nao opina. */
+  ok(deriva({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'LFORN',
+              motorista: 'Geraldo', fornecedorFilial: 'Quem Eu Quiser' })
+     === 'Geraldo Fonseca',
+    'e na perna que toca o local de fornecedor o nome continua saindo do MOTORISTA, e o ' +
+    'pedido não opina — o caminho novo não pode ter aberto uma porta no antigo');
+
+  /* ---- E A PERNA INTERNA NAO INVENTA DIVIDA ----
+   *
+   * Matriz -> Filial Maceio e' transferencia entre casas NOSSAS: as caixas continuam em
+   * casa, e ninguem passou a dever nada. Com o campo novo a linha agora DIZ de quem elas
+   * sao — e sem a guarda esse registro viraria uma saida na conta do fornecedor,
+   * inventando uma divida de caixas que ele nunca recebeu. */
+  const MOV_FF = [
+    { ID: 'FF1', Tipo: 'TRANSFERENCIA', OrigemID: 'L001', DestinoID: 'L002',
+      TipoCaixaID: 'T1', Qtd: 300, Fornecedor: 'Geraldo Fonseca',
+      DataRef: new Date(2026, 9, 20), DataHora: new Date(2026, 9, 20) },
+    { ID: 'FF2', Tipo: 'SAIDA', OrigemID: 'L002', DestinoID: 'LFORN',
+      TipoCaixaID: 'T1', Qtd: 300, Fornecedor: 'Geraldo Fonseca',
+      DataRef: new Date(2026, 9, 21), DataHora: new Date(2026, 9, 21) }
+  ];
+  const fluxoFF = Fl.fluxoPorPessoa({ movimentos: MOV_FF, locais: LOC_FF,
+    fornecedores: FORNS_FF, tipos: [{ ID: 'T1', Nome: 'CX P' }], usuarios: [],
+    config: {} });
+  const geraldoFF = (fluxoFF.fornecedores || [])[0];
+
+  ok(geraldoFF && geraldoFF.saida === 300,
+    'a conta do fornecedor soma SÓ a perna que cruza a fronteira da empresa: 300, e não ' +
+    '600 — a transferência Matriz → Filial diz de quem são as caixas, mas elas ' +
+    'continuam em casa e ninguém passou a dever nada',
+    geraldoFF && geraldoFF.saida);
+
+  ok(geraldoFF && (geraldoFF.linhas || []).length === 1,
+    'e a gaveta dele mostra UMA linha, a que saiu de verdade — contando as duas, quem ' +
+    'conferisse veria a mesma carga duas vezes com dois donos do mesmo nome',
+    geraldoFF && (geraldoFF.linhas || []).length);
+
   /* ================= O REGISTRO E A CARGA INTEIRA ============================
    *
    * O escritorio pediu: "quando precisar excluir, excluir todo o registro". Um registro

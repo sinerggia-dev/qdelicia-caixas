@@ -28021,5 +28021,92 @@ console.log('\n== a tela de Entrada ==');
     'forma, e ler o prefixo errado gravaria o que foi digitado na outra', fnG.length);
 })();
 
+/* ---------------------------------------------------------------------------
+ * O CAMPO "Fornecedor Filial", na tela.
+ *
+ * Escolhendo uma filial, a caixa aparece com os fornecedores do cadastro. Escolhendo
+ * outra coisa, ela some — E SE LIMPA, que e' a metade que ninguem ve: um nome deixado
+ * num campo invisivel viaja junto com o lancamento, e a tela mostra uma coisa enquanto
+ * o banco recebe outra. E' a terceira vez que esse defeito aparece neste arquivo.
+ * ------------------------------------------------------------------------- */
+console.log('\n== o campo Fornecedor Filial ==');
+(function () {
+  var idxF = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  function corpoF(nome) {
+    var i = idxF.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = idxF.indexOf('{', i);
+    for (; k < idxF.length; k++) {
+      if (idxF[k] === '{') d++;
+      else if (idxF[k] === '}' && --d === 0) return idxF.slice(i, k + 1);
+    }
+    return '';
+  }
+  ok(!!corpoF('pontaDeFilial') && !!corpoF('montarFornFilial'),
+    'a conferência recortou as duas peças do campo — recorte vazio faria as provas ' +
+    'abaixo passarem sem rodar nada');
+
+  var LOCS = [{ ID: 'L001', Nome: 'Matriz', Tipo: 'GALPAO' },
+              { ID: 'L002', Nome: 'Filial Maceio', Tipo: 'FILIAL' },
+              { ID: 'L003', Nome: 'Recife', Tipo: 'CLIENTE' }];
+  var wrap = { style: { display: '' } };
+  var sel = { innerHTML: '', value: '' };
+  var api = new Function('document', 'DADOS', 'Q', 'fornecedoresParaEscolher',
+    corpoF('pontaDeFilial') + '\n' + corpoF('montarFornFilial') +
+    '\n return { ponta: pontaDeFilial, montar: montarFornFilial };')(
+    { getElementById: function (id) {
+        return id === 'w' ? wrap : (id === 's' ? sel : null); } },
+    { locais: LOCS },
+    { esc: function (x) { return String(x); } },
+    function () { return ['Geraldo Fonseca', 'Mundinho']; });
+
+  /* AS DUAS PONTAS: a carga VAI para a filial e SAI dela. Olhando so' um lado, metade
+     do ciclo ficaria sem o campo. */
+  ok(api.ponta(['L001', 'L002']) === true && api.ponta(['L002', 'L001']) === true,
+    'a filial conta nas DUAS pontas — a carga vai para ela e sai dela, e olhando só um ' +
+    'lado metade do ciclo ficaria sem o campo');
+  ok(api.ponta(['L001', 'L003']) === false,
+    'e uma viagem que não toca filial nenhuma não acende o campo — à vista em toda ' +
+    'saída, ele seria uma pergunta a ignorar nove vezes em dez');
+
+  api.montar('w', 's', ['L001', 'L002']);
+  ok(wrap.style.display === 'block' && sel.innerHTML.indexOf('Geraldo Fonseca') > 0,
+    'escolhida a filial, a caixa APARECE com os fornecedores do cadastro — era o pedido',
+    sel.innerHTML.slice(0, 90));
+
+  /* E SE LIMPA AO ESCONDER. Esta e' a metade que ninguem ve: escolhido um fornecedor e
+     trocado o destino para um cliente, o valor ficaria no campo invisivel e viajaria
+     junto com o lancamento. */
+  sel.value = 'Geraldo Fonseca';
+  api.montar('w', 's', ['L001', 'L003']);
+  ok(wrap.style.display === 'none' && sel.value === '' && sel.innerHTML === '',
+    'e trocando o destino para fora da filial ela some E SE LIMPA — deixado para trás, o ' +
+    'nome viajaria junto com o lançamento, com a tela mostrando uma coisa e o banco ' +
+    'recebendo outra', { mostra: wrap.style.display, valor: sel.value });
+
+  /* A ESCOLHA FICA quando o campo continua a vista: trocar de Maceio para Joao Pessoa
+     nao apaga de quem e' a carga. */
+  api.montar('w', 's', ['L001', 'L002']);
+  sel.value = 'Mundinho';
+  api.montar('w', 's', ['L002', 'L001']);
+  ok(sel.value === 'Mundinho',
+    'mas trocando de uma filial para outra a escolha FICA — a carga continua sendo do ' +
+    'mesmo dono, e reescolher a cada toque é um campo que se aprende a ignorar',
+    sel.value);
+
+  /* E UM NOME QUE SAIU DO CADASTRO NAO FICA PENDURADO. */
+  sel.value = 'Quem Saiu';
+  api.montar('w', 's', ['L001', 'L002']);
+  ok(sel.value === '',
+    'e um nome que não está mais no cadastro não fica pendurado no campo — ele seguiria ' +
+    'a vista, escolhido, e o servidor o recusaria calado', sel.value);
+
+  /* E ELE VIAJA NO LANCAMENTO, nas DUAS telas. */
+  ok(/fornecedorFilial: document\.getElementById\('sdFornFilial'\)\.value/.test(idxF) &&
+     /fornecedorFilial: document\.getElementById\('dvFornFilial'\)\.value/.test(idxF),
+    'e o campo viaja no lançamento das duas telas — a peça existiria e nada chegaria ' +
+    'nela, que é o defeito de assinatura desta casa');
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);
