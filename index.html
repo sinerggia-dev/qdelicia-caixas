@@ -266,13 +266,17 @@
       </button>
       <!-- ENTRADA FICA ENTRE SAIDA E RETORNO, e nao por ordem alfabetica: a lista do
            menu e' a ordem do CICLO, e a carga entra em casa antes de o caminhao voltar.
-           `data-operacao="RETORNO"` DE PROPOSITO, e nao uma operacao nova. Entrada e
-           Retorno gravam a MESMA coisa — caixa entrando numa casa nossa —, e o que as
-           separa e' de ONDE ela vem. Uma operacao propria seria uma segunda permissao
-           sobre o mesmo ato, e o dia em que alguem concedesse uma e nao a outra teria
-           metade da porta aberta sem saber por que. Quem decide quais origens cada
-           pessoa alcanca ja e' a lista `Retornos` do cadastro dela. -->
-      <button data-grupo="Operação" data-pagina="pgEntrada" data-operacao="RETORNO" data-acima="Operação">
+           E ELA NAO PEDE A OPERACAO `RETORNO`, e esse foi um erro meu que foi ao ar: o
+           raciocinio era "Entrada e Retorno gravam a mesma coisa". Nao gravam. O Retorno
+           LANCA uma carga; a Entrada REESCREVE a quantidade de uma carga que ja existe —
+           ela diz quanto vale o que chegou, e essa contagem vira o numero do estoque.
+           O escritorio viu o efeito: um motorista habilitado so' a Retorno abriu a
+           Entrada e tinha diante de si o botao de conferir as cargas da matriz.
+           QUEM CONFERE E DECISAO DE CARGO, e nao de operacao concedida: conferente,
+           gerente e admin. A marca vem do servidor ja mastigada — ver
+           `podeConferirChegada`. E A ABA SUMIR E CONVENIENCIA: as duas rotas recusam
+           sozinhas, porque um GET direto passa por cima de qualquer aba escondida. -->
+      <button data-grupo="Operação" data-pagina="pgEntrada" data-confere="1" data-acima="Operação">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 12h12"></path>
@@ -545,6 +549,18 @@
         <div>
           <label for="enCasa">Conferindo em<span class="obrig">*</span></label>
           <select id="enCasa"></select>
+        </div>
+        <!-- DE ONDE VEIO, e nao "todos os destinos de uma vez".
+             Maceio recebe de Sao Vicente, e so'. Sao Vicente recebe de todo mundo,
+             porque e' matriz. Abrindo a fila inteira para os dois, quem confere em
+             Maceio rola uma lista que nao e' dele para achar as tres cargas que sao —
+             e a chance de contar a carga errada nasce ai.
+             AS OPCOES SAEM DA PROPRIA FILA, e nao de uma lista de locais: assim nunca
+             ha uma origem escrita no campo sem nada atras dela, e o numero ao lado diz
+             quantas cargas esperam de cada uma. -->
+        <div>
+          <label for="enDeOnde">Entrada de</label>
+          <select id="enDeOnde"></select>
         </div>
       </div>
       <div id="enFila"><div class="vazio">Carregando…</div></div>
@@ -861,6 +877,9 @@
       var op = b.dataset.operacao;
       // Saldo não tem operação: é consulta, e fica para todo mundo.
       var liberada = !op || pode.indexOf(op) >= 0;
+      /* E A CONFERENCIA DA CHEGADA TEM PORTA PROPRIA. Ela nao e' uma operacao concedida
+         — e' cargo: quem diz quanto vale o que chegou nao pode ser quem trouxe. */
+      if (b.dataset.confere === '1') liberada = !!(s && s.confereChegada);
       b.style.display = liberada ? '' : 'none';
       if (!liberada) b.classList.remove('ativa');
     });
@@ -1815,6 +1834,9 @@
        `DADOS`, e um bloco a parte ficaria para tras no dia em que a montagem mudasse. */
     montarCasasDaConferencia();
     document.getElementById('enCasa').addEventListener('change', carregarFilaChegada);
+    /* TROCAR A ORIGEM SO' REDESENHA: a fila inteira ja veio do servidor, e uma ida a
+       rede por troca de peneira seria uma espera por nada. */
+    document.getElementById('enDeOnde').addEventListener('change', desenharFilaChegada);
     document.getElementById('dvOrigem').addEventListener('change', function(){
       mostrarSaldoDoOrigem('dv');
     });
@@ -2095,7 +2117,7 @@
    *
    * E NAO CRIA MOVIMENTO NENHUM: grava a contagem NA carga que existe. Um movimento novo
    * creditaria a filial duas vezes com as mesmas caixas. */
-  var FILA_CHEGADA = [];
+  var FILA_CHEGADA = [], FILA_MOSTRADA = [];
 
   function casaDaConferencia(){
     var sel = document.getElementById('enCasa');
@@ -2126,10 +2148,50 @@
     Q.get(Q.lendo({ acao:'aConferir', local: casa })).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       FILA_CHEGADA = r.cargas || [];
+      montarOrigensDaFila();
       desenharFilaChegada();
     }).catch(function(e){
       box.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
     });
+  }
+
+  /* AS ORIGENS QUE DE FATO TEM CARGA ESPERANDO, com a conta de cada uma.
+     Montadas da FILA e nao do cadastro de locais: uma lista de locais poria no campo
+     origens sem nada atras delas, e escolher uma delas daria uma tela vazia que se le
+     como tela quebrada.
+     A ESCOLHA DE ANTES FICA, se ainda houver carga daquela origem: a pessoa confere
+     varias cargas de Sao Vicente em seguida, e reescolher a cada uma seria um toque a
+     mais por carga. */
+  function montarOrigensDaFila(){
+    var sel = document.getElementById('enDeOnde');
+    if (!sel) return;
+    var antes = sel.value;
+    var conta = {}, ordem = [];
+    FILA_CHEGADA.forEach(function(c){
+      var k = String(c.origemId || '');
+      if (!conta[k]) { conta[k] = { nome: c.origem || '\u2014', n: 0 }; ordem.push(k); }
+      conta[k].n++;
+    });
+    ordem.sort(function(a, b){
+      return conta[a].nome.localeCompare(conta[b].nome, 'pt-BR');
+    });
+    /* "TODAS" PRIMEIRO, e e' o padrao: esconder carga por omissao e' o jeito de uma
+       chegada ficar para tras sem ninguem ver. Quem quiser estreitar, estreita. */
+    sel.innerHTML = '<option value="">Todas \u2014 ' +
+        (FILA_CHEGADA.length === 1 ? '1 carga' : FILA_CHEGADA.length + ' cargas') +
+        '</option>' +
+      ordem.map(function(k){
+        return '<option value="' + Q.esc(k) + '">' + Q.esc(conta[k].nome) +
+          ' \u00b7 ' + conta[k].n + '</option>';
+      }).join('');
+    sel.value = conta[antes] ? antes : '';
+  }
+
+  function filaPeneirada(){
+    var de = document.getElementById('enDeOnde');
+    var k = de ? String(de.value || '') : '';
+    if (!k) return FILA_CHEGADA;
+    return FILA_CHEGADA.filter(function(c){ return String(c.origemId || '') === k; });
   }
 
   function desenharFilaChegada(){
@@ -2142,7 +2204,15 @@
         'tudo que chegou j\u00e1 foi contado.</div>';
       return;
     }
-    box.innerHTML = FILA_CHEGADA.map(function(c, i){
+    var mostrando = filaPeneirada();
+    if (!mostrando.length){
+      /* A FILA TEM CARGA, SO' NAO DESTA ORIGEM. O texto diz isso, e diz como voltar:
+         um "nada aqui" seco faria a pessoa concluir que a chegada sumiu. */
+      box.innerHTML = '<div class="vazio">Nada desta origem esperando confer\u00eancia. '+
+        'Escolha <b>Todas</b> em "Entrada de" para ver as outras cargas.</div>';
+      return;
+    }
+    box.innerHTML = mostrando.map(function(c, i){
       /* O QUE A CARGA E, em uma linha: quando, de onde e com quem. E' o que a pessoa
          confere contra o papel na mao antes de contar caixa. */
       var cab = '<b>'+Q.esc(c.registro)+'</b> \u00b7 '+Q.dataBR(c.dataRef)+
@@ -2165,11 +2235,15 @@
           '<button class="btn" data-conferir="'+i+'">Confirmar contagem</button>'+
         '</div></div>';
     }).join('');
-    FILA_CHEGADA.forEach(function(c, i){ pintarDifChegada(i); });
+    /* OS INDICES SAO OS DA LISTA MOSTRADA, e por isso a peneirada e' guardada: com os
+       da fila inteira, estreitar por origem faria o botao da primeira carga confirmar a
+       contagem de outra — o defeito mais caro que esta tela poderia ter. */
+    FILA_MOSTRADA = mostrando;
+    mostrando.forEach(function(c, i){ pintarDifChegada(i); });
   }
 
   function contagemDaCarga(i){
-    var c = FILA_CHEGADA[i];
+    var c = FILA_MOSTRADA[i];
     if (!c) return [];
     return c.linhas.map(function(l, j){
       var el = document.getElementById('cf_'+i+'_'+j);
@@ -2183,7 +2257,7 @@
      minuto. Depois de gravada, ela vira um telefonema para o escritorio. */
   function pintarDifChegada(i){
     var el = document.getElementById('cfDif_'+i);
-    var c = FILA_CHEGADA[i];
+    var c = FILA_MOSTRADA[i];
     if (!el || !c) return;
     var somou = contagemDaCarga(i).reduce(function(a, x){ return a + x.qtd; }, 0);
     var dif = somou - c.declarado;
@@ -2203,7 +2277,7 @@
     var b = e.target && e.target.closest && e.target.closest('[data-conferir]');
     if (!b) return;
     var i = Number(b.getAttribute('data-conferir'));
-    var c = FILA_CHEGADA[i];
+    var c = FILA_MOSTRADA[i];
     if (!c) return;
     var contagens = contagemDaCarga(i);
     var somou = contagens.reduce(function(a, x){ return a + x.qtd; }, 0);

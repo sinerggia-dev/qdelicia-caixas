@@ -168,7 +168,15 @@ async function rotaGet(p) {
        duas perguntas, e a primeira a mudar levaria a outra junto.
        PASSA PELO MESMO RECORTE das outras listagens: quem so' ve' a unidade dele nao
        passa a contar a carga da unidade do vizinho por esta porta. */
+    /* FALHA FECHADA: quem nao confere nao recebe fila nenhuma. A tela esconder o botao
+       e' conveniencia, e um GET direto passa por cima dela.
+       LISTA VAZIA, e nao recusa: esta rota tambem e' chamada quando a tela abre sozinha,
+       e um erro ali apareceria como falha do sistema para quem simplesmente nao tem a
+       funcao. */
     case 'aConferir':
+      if (!L.podeConferirChegada(L.acharUsuario(d.usuarios, p.quem))) {
+        return { ok: true, cargas: [] };
+      }
       return { ok: true, cargas: L.aConferirNaChegada(
                  L.recorteLancamentos(d, d.usuarios, p.quem).movimentos,
                  d.locais, d.tipos, d.usuarios, p) };
@@ -729,6 +737,13 @@ async function conferir(p) {
  * primeiras ja terem ido para o banco. */
 async function conferirChegada(p) {
   var d = await db.carregarTudo();
+  /* AQUI A RECUSA E EXPLICITA, e nao uma lista vazia: esta rota REESCREVE o numero que
+     vira estoque, e quem a chamou sem poder precisa saber que nao passou. Calada, a
+     tela diria "conferida" sobre uma carga que ninguem mexeu. */
+  if (!L.podeConferirChegada(L.acharUsuario(d.usuarios, p.quem))) {
+    return { ok: false, erro: 'Seu perfil n\u00e3o confere chegada de carga. ' +
+                              'Fale com o escrit\u00f3rio.' };
+  }
   var contagens = Array.isArray(p.contagens) ? p.contagens : [];
   if (!contagens.length) return { ok: false, erro: 'Informe o que foi contado.' };
   var r = L.montarConferenciaChegada(d.movimentos, contagens, p);

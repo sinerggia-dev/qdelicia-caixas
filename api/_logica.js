@@ -27,6 +27,36 @@ var PERFIS = ['Admin', 'Gestor', 'Gerente', 'Conferente', 'Motorista', 'Promotor
    que se mostra na tela. Quem lê perfil escrito nunca compara direto: usa podeConferir(). */
 var CONFEREM = ['ADMIN', 'CONFERENTE', 'GALPAO'];
 
+/* ================= QUEM CONFERE A CHEGADA =================
+ *
+ * NAO E QUEM LANCA RETORNO, e essa confusao foi minha. A tela de Entrada nasceu pedindo
+ * a operacao RETORNO, com o raciocinio de que "Entrada e Retorno gravam a mesma coisa".
+ * Nao gravam: o Retorno LANCA uma carga, e a Entrada REESCREVE a quantidade de uma carga
+ * que ja existe. O escritorio viu o efeito na tela — um motorista habilitado so' a
+ * Retorno abriu a Entrada e tinha diante de si o botao de conferir as cargas da matriz.
+ *
+ * CONFERIR E DIZER QUANTO VALE o que chegou: a contagem vira o numero do estoque, e
+ * quem conta nao pode ser quem trouxe. E' a mesma contagem cega que governa a
+ * conciliacao, dita para a outra ponta do ciclo.
+ *
+ * A LISTA E A MESMA QUE O ESCRITORIO JA ESCOLHEU para "de quem o escritorio aceita uma
+ * contagem", na tela de Movimentos Motoristas: conferente, gerente e admin. Uma segunda
+ * lista sobre a mesma pergunta divergiria no primeiro papel novo.
+ *
+ * E O PERFIL AQUI E CARGO MESMO, e nao uma permissao disfarcada: a pergunta nao e' "em
+ * que locais ela mexe" nem "que abas ela ve" — e' quem, na operacao, tem autoridade
+ * para dizer quantas caixas chegaram. */
+var PERFIS_QUE_CONFEREM = ['ADMIN', 'GERENTE', 'CONFERENTE'];
+
+function podeConferirChegada(u) {
+  /* APARADO E EM CAIXA ALTA: o perfil e' texto livre no cadastro, e " Gerente " com
+     espaco em volta e' a mesma funcao que "GERENTE". Sem o `trim`, uma pessoa perderia a
+     funcao por causa de como alguem digitou a palavra — e isso nao se descobre olhando a
+     tela, so' reparando que a aba sumiu para uma pessoa so'. */
+  var papel = String((u && u.Perfil) || '').trim().toUpperCase();
+  return PERFIS_QUE_CONFEREM.indexOf(papel) >= 0;
+}
+
 /**
  * Perfil escrito à mão vira MAIÚSCULA sem espaço sobrando — "Supervisor " e "supervisor"
  * precisam ser a mesma coisa, senão a lista de sugestões se enche de gráfias do mesmo cargo.
@@ -1257,6 +1287,10 @@ function sessaoDe(u) {
        levar um nao no fim. */
     ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
     unidades: Array.isArray(u.Unidades) ? u.Unidades : [],
+    /* A TELA PRECISA SABER DISTO PARA ESCONDER A ABA. Ela nao decide nada — quem decide
+       sao as duas rotas —, mas um botao que leva a uma tela vazia e' um convite ao
+       clique que nao vai a lugar nenhum. */
+    confereChegada: podeConferirChegada(u),
     // As abas do painel do escritorio, mesma convencao.
     abas: Array.isArray(u.Abas) ? u.Abas : [],
     /* Painel restrito: entra no painel, mas so enxerga o que ela mesma lancou. Mantido
@@ -3718,6 +3752,11 @@ function usuariosPublicos(usuarios) {
   return usuarios.map(function (u) {
     return {
       ID: u.ID, Nome: u.Nome, Perfil: normalizarPerfil(u.Perfil),
+      /* A RESPOSTA JA MASTIGADA, e nao a lista de perfis para a tela repetir. Escrita
+         nos dois lugares, ela divergiria no primeiro papel que entrasse so' num — e o
+         sintoma seria a aba aparecendo para quem o servidor recusa, ou sumindo para
+         quem ele aceita. */
+      ConfereChegada: podeConferirChegada(u),
       LocalPadrao: u.LocalPadrao, Telefone: u.Telefone || '',
       Email: u.Email || '', Usuario: u.Usuario || '',
       Ativo: u.Ativo !== false, TemSenha: !!u.SenhaHash,
@@ -3824,6 +3863,8 @@ module.exports = {
   meuAcesso: meuAcesso,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,
   cicloDaCarga: cicloDaCarga, rotuloCiclo: rotuloCiclo,
+  PERFIS_QUE_CONFEREM: PERFIS_QUE_CONFEREM,
+  podeConferirChegada: podeConferirChegada,
   aConferirNaChegada: aConferirNaChegada,
   montarConferenciaChegada: montarConferenciaChegada,
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,

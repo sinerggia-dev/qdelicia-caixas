@@ -4970,6 +4970,65 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'conferisse veria a mesma carga duas vezes com dois donos do mesmo nome',
     geraldoFF && (geraldoFF.linhas || []).length);
 
+  /* ================= QUEM CONFERE A CHEGADA ==================================
+   *
+   * NAO E QUEM LANCA RETORNO, e essa confusao foi minha. A tela de Entrada nasceu
+   * pedindo a operacao RETORNO, com o raciocinio de que "Entrada e Retorno gravam a
+   * mesma coisa". Nao gravam: o Retorno LANCA uma carga, e a Entrada REESCREVE a
+   * quantidade de uma carga que ja existe — ela diz quanto vale o que chegou, e essa
+   * contagem vira o numero do estoque.
+   *
+   * O ESCRITORIO VIU O EFEITO NA TELA: um motorista habilitado so' a Retorno abriu a
+   * Entrada e tinha diante de si o botao de conferir as cargas da matriz. */
+  const quemConfere = (perfil) => Fl.podeConferirChegada({ Perfil: perfil });
+
+  ok(quemConfere('GERENTE') && quemConfere('ADMIN') && quemConfere('CONFERENTE'),
+    'conferente, gerente e admin conferem a chegada — é a mesma lista que o escritório ' +
+    'já escolheu para "de quem o escritório aceita uma contagem"',
+    ['GERENTE', 'ADMIN', 'CONFERENTE'].map(quemConfere));
+
+  ok(!quemConfere('MOTORISTA') && !quemConfere('PROMOTOR') && !quemConfere(''),
+    'e o MOTORISTA não — quem diz quanto vale o que chegou não pode ser quem trouxe: ' +
+    'é a mesma contagem cega que governa a conciliação, dita para a outra ponta do ciclo',
+    ['MOTORISTA', 'PROMOTOR', ''].map(quemConfere));
+
+  ok(quemConfere('gerente') && quemConfere(' Gerente '),
+    'e o cargo é lido sem caixa e sem espaço — o perfil é texto livre no cadastro, e ' +
+    'uma pessoa não perde a função por causa de como alguém digitou a palavra');
+
+  /* A RESPOSTA VAI MASTIGADA PARA A TELA, e nao a lista de perfis: escrita nos dois
+     lugares, ela divergiria no primeiro papel que entrasse so' num — e o sintoma seria
+     a aba aparecendo para quem o servidor recusa. */
+  const pubConf = Fl.usuariosPublicos([{ ID: 'U1', Nome: 'A', Perfil: 'Gerente' },
+                                       { ID: 'U2', Nome: 'B', Perfil: 'Motorista' }]);
+  ok(pubConf[0].ConfereChegada === true && pubConf[1].ConfereChegada === false,
+    'e a resposta vai MASTIGADA para a tela, e não a lista de perfis — repetida lá, ela ' +
+    'divergiria no primeiro papel novo e a aba apareceria para quem o servidor recusa',
+    [pubConf[0].ConfereChegada, pubConf[1].ConfereChegada]);
+
+  /* ---- E AS DUAS ROTAS RECUSAM SOZINHAS ----
+   * Esconder a aba e' conveniencia; um GET direto passa por cima dela. */
+  (function () {
+    var rotaC = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+    var iL = rotaC.indexOf("case 'aConferir':");
+    var trechoL = iL > 0 ? rotaC.slice(iL, iL + 420) : '';
+    ok(/podeConferirChegada\(L\.acharUsuario\(d\.usuarios, p\.quem\)\)/.test(trechoL) &&
+       /cargas: \[\]/.test(trechoL),
+      'a rota que LISTA recusa com fila vazia — falha fechada, e vazia em vez de erro ' +
+      'porque a tela a chama sozinha ao abrir: um erro ali pareceria falha do sistema ' +
+      'para quem simplesmente não tem a função', trechoL.slice(0, 160));
+
+    var iG = rotaC.indexOf('async function conferirChegada(p)');
+    var corpoG = iG > 0 ? rotaC.slice(iG, rotaC.indexOf('\n}', iG)) : '';
+    var iGuarda = corpoG.indexOf('podeConferirChegada');
+    var iGrava = corpoG.indexOf("db.update('movimentos'");
+    ok(iGuarda > 0 && iGrava > iGuarda,
+      'e a rota que GRAVA recusa ANTES de tocar no banco — ela reescreve o número que ' +
+      'vira estoque, e a recusa dela é explicada em vez de calada: muda, a tela diria ' +
+      '"conferida" sobre uma carga que ninguém mexeu',
+      { guarda: iGuarda, grava: iGrava });
+  })();
+
   /* ================= A FILA DA DOCA: O QUE CHEGOU E NINGUEM CONTOU ==========
    *
    * O escritorio nunca conferiu uma chegada. Quando a matriz manda 500 para Maceio, o

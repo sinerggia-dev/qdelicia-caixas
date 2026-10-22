@@ -2145,6 +2145,11 @@
          passaria a ver tudo no primeiro recarregamento — calada. */
       ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
       unidades: Array.isArray(u.Unidades) ? u.Unidades : [],
+      /* A MESMA MARCA QUE O SERVIDOR MANDA, copiada e nao recalculada: a lista de
+         perfis que conferem mora no servidor, e repeti-la aqui faria as duas divergirem
+         no primeiro papel que entrasse so' numa. Faltando o campo, a sessao renovada o
+         PERDERIA e a aba sumiria no primeiro recarregamento, calada. */
+      confereChegada: u.ConfereChegada === true,
       soProprios: u.SoProprios === true,
       verLancamentos: u.VerLancamentos !== false,
       /* A MESMA MARCA QUE O SERVIDOR MANDA. Esta sessao e' remontada aqui quando o

@@ -11094,6 +11094,15 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
     'e o terceiro port\u00e3o deixa a LARGURA passar para todo mundo, sem senha \u2014 ela \u00e9 ' +
     'leitura, n\u00e3o arranjo: mora no navegador de quem olha, n\u00e3o esconde nada e se ' +
     'desfaz arrastando de volta');
+
+  /* A MARCA DE QUEM CONFERE A CHEGADA E COPIADA, e nao recalculada. A lista de
+     perfis mora no servidor; repetida aqui, as duas divergiriam no primeiro papel
+     que entrasse so' numa — e o sintoma seria a aba aparecendo para quem o servidor
+     recusa, ou sumindo para quem ele aceita. Escapou uma sabotagem por aqui. */
+  ok(/confereChegada: u\.ConfereChegada === true,/.test(adm) &&
+     !/confereChegada:[^,]*indexOf/.test(adm),
+    'a sess\u00e3o da tela COPIA a marca de quem confere, e n\u00e3o recalcula a lista de ' +
+    'perfis \u2014 repetida aqui, ela divergiria do servidor no primeiro papel novo');
   /* AS TRÊS LEITURAS perguntam pelo PERFIL, e nunca pelo portão inteiro. */
   [['ordemColunas',  /function ordemColunas\(t\)\{[\s\S]{0,260}?if \(!podeVerArranjo\(\)\) return t\.padrao\.slice\(\);/,
     'a ordem de fábrica'],
@@ -27959,6 +27968,157 @@ console.log('\n== a Entrada: conferencia na chegada ==');
     'e NÃO cria movimento nenhum — um movimento novo creditaria a filial duas vezes ' +
     'com as mesmas caixas, que é o defeito que esta tela existe para não cometer',
     secaoJs.length);
+
+  var selDe = { value: '', innerHTML: '' };
+  function corpoF(nome) {
+    var i = idxF.indexOf('  function ' + nome + '(');
+    if (i < 0) return '';
+    var d = 0, k = idxF.indexOf('{', i);
+    for (; k < idxF.length; k++) {
+      if (idxF[k] === '{') d++;
+      else if (idxF[k] === '}' && --d === 0) return idxF.slice(i, k + 1);
+    }
+    return '';
+  }
+  ok(!!corpoF('montarOrigensDaFila') && !!corpoF('filaPeneirada'),
+    'a conferência recortou a peneira por origem — recorte vazio faria as provas ' +
+    'abaixo passarem sem rodar nada');
+
+  /* ---- E A FILA SE PENEIRA POR QUEM MANDOU ----
+   *
+   * Maceio recebe de Sao Vicente, e so'. Sao Vicente recebe de todo mundo, porque e'
+   * matriz. Abrindo a fila inteira para os dois, quem confere em Maceio rola uma lista
+   * que nao e' dele para achar as tres cargas que sao — e a chance de contar a carga
+   * errada nasce ai.
+   *
+   * AS OPCOES SAEM DA PROPRIA FILA, e nao do cadastro de locais: uma lista de locais
+   * poria no campo origens sem nada atras delas, e escolher uma daria uma tela vazia que
+   * se le como tela quebrada. */
+  var api = new Function('document', 'Q',
+    'FILA_CHEGADA', 'FILA_MOSTRADA',
+    corpoF('montarOrigensDaFila') + '\n' + corpoF('filaPeneirada') +
+    '\n return { montar: montarOrigensDaFila, peneirar: filaPeneirada,' +
+    '\n          fila: function(f){ FILA_CHEGADA = f; } };')(
+    { getElementById: function (id) { return id === 'enDeOnde' ? selDe : null; } },
+    { esc: function (x) { return String(x); } },
+    [], []);
+
+  var FILA_F = [
+    { registro: 'R1', origemId: 'L001', origem: 'Matriz São Vicente' },
+    { registro: 'R2', origemId: 'L001', origem: 'Matriz São Vicente' },
+    { registro: 'R3', origemId: 'L009', origem: 'Filial Natal' }
+  ];
+  api.fila(FILA_F);
+  api.montar();
+
+  ok(/Todas — 3 cargas/.test(selDe.innerHTML),
+    'o campo abre em TODAS, com a conta — esconder carga por omissão é o jeito de uma ' +
+    'chegada ficar para trás sem ninguém ver', selDe.innerHTML.slice(0, 70));
+  ok(/Matriz São Vicente · 2/.test(selDe.innerHTML) &&
+     /Filial Natal · 1/.test(selDe.innerHTML),
+    'e cada origem traz quantas cargas esperam dela — é o que diz onde começar',
+    selDe.innerHTML);
+  ok(selDe.innerHTML.indexOf('Filial Macei') < 0,
+    'e nenhuma origem SEM carga entra na lista — escolhê-la daria uma tela vazia que se ' +
+    'lê como tela quebrada');
+
+  selDe.value = '';
+  ok(api.peneirar().length === 3, 'em "Todas", a fila sai inteira');
+  selDe.value = 'L001';
+  ok(api.peneirar().map(function (c) { return c.registro; }).join() === 'R1,R2',
+    'e escolhida uma origem, só as cargas dela — era o pedido: Maceió carrega apenas o ' +
+    'que veio de São Vicente', api.peneirar().map(function (c) { return c.registro; }));
+
+  /* A ESCOLHA DE ANTES FICA, se ainda houver carga daquela origem: a pessoa confere
+     varias de Sao Vicente em seguida, e reescolher a cada uma seria um toque a mais por
+     carga. Sumindo a origem da fila, ela volta para "Todas" — presa num valor que nao
+     existe mais, a tela abriria vazia sem dizer por que. */
+  api.montar();
+  ok(selDe.value === 'L001',
+    'e a origem escolhida FICA entre uma conferência e a seguinte — reescolher a cada ' +
+    'carga seria um toque a mais por carga', selDe.value);
+  api.fila([{ registro: 'R9', origemId: 'L009', origem: 'Filial Natal' }]);
+  api.montar();
+  ok(selDe.value === '',
+    'mas se a última carga daquela origem for conferida, o campo volta para Todas — ' +
+    'preso num valor que não existe mais, a tela abriria vazia sem dizer por quê',
+    selDe.value);
+
+  /* ---- E O INDICE E O DA LISTA MOSTRADA ----
+   *
+   * E' o defeito mais caro que esta tela poderia ter. Os botoes e os campos sao
+   * numerados pela posicao na lista DESENHADA; lendo a fila INTEIRA na hora de gravar,
+   * estreitar por origem faria o botao da primeira carga confirmar a contagem de outra
+   * — com a tela mostrando os numeros certos e o banco recebendo os de outra viagem.
+   *
+   * SEM BARULHO NENHUM: as duas cargas existem, as duas tem linhas, e a gravacao
+   * funciona. So' o numero vai para a carga errada.
+   *
+   * ENTAO NENHUM LEITOR DE INDICE PODE OLHAR `FILA_CHEGADA`. A prova e' de texto porque
+   * o desenho precisa do DOM inteiro, e o que ela cobra e' exatamente o que separa as
+   * duas listas: quem le' por posicao le' a MOSTRADA. */
+  (function () {
+    var leemPorIndice = ['contagemDaCarga', 'pintarDifChegada'];
+    var erradas = leemPorIndice.filter(function (nome) {
+      var c = corpoF(nome);
+      return !c || c.indexOf('FILA_CHEGADA[') >= 0 || c.indexOf('FILA_MOSTRADA[') < 0;
+    });
+    ok(!erradas.length,
+      'quem lê a carga por POSIÇÃO lê a lista mostrada, e nunca a fila inteira — ' +
+      'estreitada por origem, o botão da primeira carga confirmaria a contagem de ' +
+      'outra, com a tela certa e o banco errado', erradas);
+
+    var iCli = idxF.indexOf("closest('[data-conferir]')");
+    var trechoCli = iCli > 0 ? idxF.slice(iCli, iCli + 320) : '';
+    ok(/FILA_MOSTRADA\[i\]/.test(trechoCli) && !/FILA_CHEGADA\[i\]/.test(trechoCli),
+      'e o clique no botão também — é ele que manda a contagem para o servidor',
+      trechoCli.slice(0, 120));
+
+    /* E A LISTA MOSTRADA E GRAVADA NO DESENHO, e nao em outro lugar: gravada antes de
+       peneirar, ela seria a fila inteira e as duas voltariam a ser a mesma coisa. */
+    var cd = corpoF('desenharFilaChegada');
+    ok(cd.indexOf('FILA_MOSTRADA = mostrando') > 0 &&
+       cd.indexOf('var mostrando = filaPeneirada()') <
+       cd.indexOf('FILA_MOSTRADA = mostrando'),
+      'e ela é gravada DEPOIS de peneirar, no próprio desenho — antes, seria a fila ' +
+      'inteira e as duas voltariam a ser a mesma coisa', cd.length);
+  })();
+
+  /* ---- E A FIACAO DA TELA: CINCO SABOTAGENS ESCAPARAM POR AQUI ----
+   *
+   * As cinco eram a mesma: a regra certa escrita, e nada ligando ela ao que a pessoa
+   * ve'. A fila peneirada montada e o desenho lendo a inteira; o campo trocado e nada
+   * redesenhando; a aba com porta propria e o botao pedindo outra coisa. */
+  (function () {
+    var cd = corpoF('desenharFilaChegada');
+    ok(/box\.innerHTML = mostrando\.map/.test(cd) &&
+       !/box\.innerHTML = FILA_CHEGADA\.map/.test(cd),
+      'o desenho sai da lista PENEIRADA, e não da fila inteira — peneirada a origem e ' +
+      'desenhada a fila toda, os botões passam a apontar para cargas que não estão na ' +
+      'tela', cd.slice(0, 120));
+
+    ok(/getElementById\('enDeOnde'\)\.addEventListener\('change', desenharFilaChegada\)/
+         .test(idxF),
+      'e trocar a origem REDESENHA — sem o ouvinte, o campo existe, a pessoa escolhe, e ' +
+      'a tela não se mexe: a conclusão natural é que o filtro não funciona');
+
+    /* A ABA TEM PORTA PROPRIA, e nao a do Retorno. Foi o defeito que o escritorio
+       encontrou: um motorista habilitado so' a Retorno abriu a Entrada e tinha diante de
+       si o botao de conferir as cargas da matriz. */
+    var botao = idxF.slice(idxF.lastIndexOf('<button', idxF.indexOf('data-pagina="pgEntrada"')),
+                           idxF.indexOf('>', idxF.indexOf('data-pagina="pgEntrada"')) + 1);
+    ok(/data-confere="1"/.test(botao) && !/data-operacao/.test(botao),
+      'a aba da Entrada pede a marca de QUEM CONFERE, e não a operação Retorno — foi ' +
+      'esse o defeito que foi ao ar: o Retorno LANÇA uma carga, e a Entrada REESCREVE a ' +
+      'quantidade de uma que já existe', botao);
+
+    var ia = idxF.indexOf('function ajustarAbas(s)');
+    var fa = ia > 0 ? idxF.slice(ia, idxF.indexOf('\n  }', ia)) : '';
+    ok(/dataset\.confere === '1'/.test(fa) && /s\.confereChegada/.test(fa),
+      'e quem esconde a aba PERGUNTA por essa marca — a marca no botão sem ninguém ' +
+      'lendo-a é a peça existindo e nada chegando nela, e a aba volta a aparecer para ' +
+      'todo mundo', fa.length);
+  })();
 
   /* A FILA E LIDA DO SERVIDOR A CADA ABERTURA: ela muda sozinha quando a matriz
      despacha, e uma lista montada uma vez mostraria a doca de ontem. */
