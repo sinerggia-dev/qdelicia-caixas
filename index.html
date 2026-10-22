@@ -2724,7 +2724,17 @@
        mesmo par de códigos fariam reler a tabela a cada troca de tela. */
     return '<div class="tabela-wrap"><table><thead><tr>'+
       '<th>Registro</th><th>Item</th>'+
-      '<th>Movimento</th><th>Origem</th><th>Destino</th><th>Caixa</th>'+
+      /* A HORA EM COLUNA PROPRIA, ao lado da data e nao dentro dela: sao duas
+         perguntas, e juntas numa celula a data mais larga do formato empurra a hora
+         para fora da coluna. E' a mesma separacao que o painel ja' faz.
+         ELA E A HORA DO LANCAMENTO, e nao a do movimento: o romaneio tem data e nao
+         tem hora. Uma carga de ontem lancada agora tem as duas respostas distantes, e
+         e' justamente por isso que ela foi pedida. */
+      '<th>Movimento</th><th>Hora</th><th>Origem</th><th>Destino</th>'+
+      /* O FORNECEDOR ESTAVA GRAVADO E NAO CHEGAVA AQUI. A mesma ponta que o painel
+         mostra ha' tempo: e' de quem e' a caixa que andou, e sem ela a linha diz para
+         onde foi sem dizer de quem era. */
+      '<th>Fornecedor</th><th>Caixa</th>'+
       (cols.saida ? '<th class="num">Saída</th>' : '')+
       (cols.retorno ? '<th class="num">Retorno</th>' : '')+
       '<th>Motorista</th>'+
@@ -2755,8 +2765,10 @@
       '<td>'+(m.id ? '<span class="cod">'+Q.esc(m.id)+'</span>'
                    : '<span class="fraco">—</span>')+'</td>'+
       '<td>'+Q.dataBR(m.dataRef)+'</td>'+
+      '<td>'+Q.esc(Q.horaBR(m.dataHora) || '—')+'</td>'+
       '<td>'+Q.esc(m.origem || '—')+'</td>'+
       '<td>'+Q.esc(m.destino || '—')+'</td>'+
+      '<td>'+Q.esc(m.fornecedor || '—')+'</td>'+
       '<td>'+Q.esc(m.tipoCaixa || '—')+'</td>'+
       (cols.saida
         ? '<td class="num">'+(ehRetorno ? '<span class="fraco">—</span>' : '<b>'+Q.num(m.qtd)+'</b>')+'</td>'
@@ -2818,8 +2830,14 @@
            eleger o da primeira faria a carga se chamar pelo nome de um pedaço dela. */
         '<td><span class="fraco">'+filhos.length+' itens</span></td>'+
         celulaDaCarga(filhos, function(m){ return Q.dataBR(m.dataRef); })+
+        /* A CARGA DIZ "varios" QUANDO AS LINHAS DISCORDAM, e aqui isto importa mais do
+           que parece: as quatro linhas de uma remessa nascem no mesmo segundo, mas uma
+           correcao alcanca UMA — e uma carga que mostrasse a hora da primeira afirmaria
+           uma hora que nao e' a das quatro. */
+        celulaDaCarga(filhos, function(m){ return Q.horaBR(m.dataHora) || '—'; })+
         celulaDaCarga(filhos, function(m){ return m.origem || '—'; })+
         celulaDaCarga(filhos, function(m){ return m.destino || '—'; })+
+        celulaDaCarga(filhos, function(m){ return m.fornecedor || '—'; })+
         /* A CAIXA É O QUE DISTINGUE as linhas umas das outras: na carga ela é sempre
            "vários", e é a seta que mostra quais. */
         celulaDaCarga(filhos, function(m){ return m.tipoCaixa || '—'; })+

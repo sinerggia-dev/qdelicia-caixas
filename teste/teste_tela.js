@@ -10315,6 +10315,14 @@ console.log('\n== o recorte vale no app de campo tambem ==');
    * exatamente o mesmo buraco de antes: a tela nova não estaria nela, e a prova ficaria
    * verde sobre uma tela que mostra tudo a todos. */
   var ROTAS_DE_LANCAMENTO = ['movimentos', 'painel', 'lixeira', 'extrato', 'pendentes'];
+  /* A PORTA DE CONTAR ENTRA NA MESMA PERGUNTA, por outro caminho. `limparMovimentos`
+     com `contar` le' lancamento como as de cima — devolve um numero, mas o numero e'
+     o tamanho de uma lista recortada, e uma contagem que nao diz quem pergunta conta
+     a operacao inteira para quem so' ve' a propria unidade.
+     ELA E POST E NAO GET, entao nao passa por `Q.lendo`: quem diz o nome ali e'
+     `usuarioId`, escrito no corpo. Duas formas de perguntar a mesma coisa, e a
+     varredura cobra as duas. */
+  var ROTAS_QUE_CONTAM = ['limparMovimentos'];
   function leiturasDe(txt, arq) {
     var limpo = semComentarios(txt);
     var achados = [];
@@ -10327,8 +10335,123 @@ console.log('\n== o recorte vale no app de campo tambem ==');
     });
     return achados;
   }
+  function contagensDe(txt, arq) {
+    var limpo = semComentarios(txt);
+    var achados = [];
+    ROTAS_QUE_CONTAM.forEach(function (rota) {
+      var re = new RegExp("acao\\s*:\\s*'" + rota + "'", 'g'), m;
+      while ((m = re.exec(limpo)) !== null) {
+        achados.push({ arq: arq, rota: rota,
+                       depois: limpo.slice(m.index, m.index + 220) });
+      }
+    });
+    return achados;
+  }
+  var contagens = contagensDe(adm, 'admin.html').concat(contagensDe(idx, 'index.html'));
+  ok(contagens.length >= 2,
+    'a conferência achou as chamadas da porta que CONTA e APAGA \u2014 nenhuma achada ' +
+    'faria a prova seguinte aprovar qualquer coisa', contagens.length);
+  var contagensMudas = contagens.filter(function (c) {
+    return c.depois.indexOf('usuarioId') < 0;
+  });
+  ok(contagensMudas.length === 0,
+    'e toda chamada a ela diz quem est\u00e1 perguntando \u2014 sem isso a conta sai do ' +
+    'recorte de "ningu\u00e9m" e responde zero, ou pior: responde pela opera\u00e7\u00e3o inteira a ' +
+    'quem s\u00f3 enxerga a pr\u00f3pria unidade',
+    contagensMudas.map(function (c) { return c.arq + ' \u00b7 ' + c.rota; }));
+
+  /* ---- A CAIXA DE "INCLUIR AS DECLARACOES" ----
+   *
+   * O escritorio apagou o periodo e duas linhas ficaram na tela: eram declaracoes. Elas
+   * nao aparecem em Movimentos para ninguem, e o apagar deixou de alcanca-las quando
+   * passou a ler a mesma base da tela. A caixa e' o "de proposito" que faltava.
+   *
+   * ELA E UMA PORTA PARA A CONTAGEM CEGA, e por isso tem prova de tela ALEM da do
+   * servidor: a tranca e' do servidor, mas um botao oferecido a quem conta a carga ja'
+   * lhe diz que existe um numero declarado em algum lugar — e e' exatamente isso que a
+   * contagem cega existe para nao dizer. */
+  {
+    var admLimpo = semComentarios(adm);
+    ok(/id="limparComDecl"/.test(adm) && /id="marcaLimparDecl"/.test(adm),
+      'a tela tem onde pedir que as declara\u00e7\u00f5es entrem \u2014 sem isso elas s\u00f3 sairiam ' +
+      'uma a uma, e o pedido era apagar o per\u00edodo inteiro');
+    ok(/id="marcaLimparDecl"[\s\S]{0,120}hidden/.test(adm),
+      'e ela nasce ESCONDIDA \u2014 revelada por padr\u00e3o, apareceria por um instante a quem ' +
+      'n\u00e3o pode v\u00ea-la, que \u00e9 o bastante para contar o que a contagem cega esconde');
+    ok(/<input type="checkbox" id="limparComDecl">/.test(adm),
+      'e DESMARCADA \u2014 o caso comum \u00e9 limpar movimento, e marcada por padr\u00e3o ela ' +
+      'levaria declara\u00e7\u00e3o embora de quem s\u00f3 queria limpar o per\u00edodo');
+
+    var iAbas = admLimpo.indexOf('function ajustarAbasPainel(s){');
+    var corpoAbas = admLimpo.slice(iAbas, admLimpo.indexOf(String.fromCharCode(10) + '  }', iAbas));
+    ok(/marcaDecl\.hidden = !veDecl/.test(corpoAbas),
+      'e quem N\u00c3O v\u00ea declara\u00e7\u00e3o n\u00e3o recebe a caixa \u2014 mostrada a todos, ela diria a ' +
+      'quem conta a carga que h\u00e1 um n\u00famero declarado em algum lugar', corpoAbas.length);
+    ok(/cxDecl\.checked = false/.test(corpoAbas),
+      'e perdendo o direito ela se DESMARCA \u2014 escondida e marcada, continuaria viajando ' +
+      'no pedido de quem deixou de poder, e a recusa viria calada do servidor');
+    /* AS DUAS LISTAS DE ABAS TEM DE SER A MESMA. A da tela decide quem ve' a caixa; a do
+       servidor decide quem tem o direito. Divergindo, a tela oferece o que o servidor
+       recusa — ou esconde o que ele aceitaria. */
+    var logAbas = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+    function listaDe(txt, nome) {
+      var i = txt.indexOf('var ' + nome + ' = [');
+      return i < 0 ? null : txt.slice(txt.indexOf('[', i), txt.indexOf(']', i) + 1);
+    }
+    var daTela = listaDe(admLimpo, 'ABAS_DE_DECLARACAO_PAINEL');
+    var doServidor = listaDe(semComentarios(logAbas), 'ABAS_DE_DECLARACAO');
+    ok(!!daTela && !!doServidor && daTela === doServidor,
+      'e a lista de abas da TELA \u00e9 a mesma do SERVIDOR \u2014 divergindo, a tela oferece a ' +
+      'caixa a quem o servidor recusa, ou a esconde de quem ele aceitaria, e nos dois ' +
+      'casos sem erro nenhum', [daTela, doServidor]);
+
+    /* ---- AS DUAS TRANCAS DA DECLARACAO, as duas medidas ----
+     *
+     * DESCOBRI SABOTANDO que a segunda e' redundante: quem nao ve' declaracao ja' perdeu
+     * as suas em `recorteDeclaracao`, antes de o `if` do `comDeclaracao` ser alcancado —
+     * tirar a segunda nao abre buraco nenhum, e por isso a prova que roda nao a pegava.
+     * ENTAO AS DUAS SAO COBRADAS AQUI, pelo texto. A primeira e' a que guarda de
+     * verdade; a segunda e' a que diz, na mesma linha do `comDeclaracao`, que nao basta
+     * pedir. Cobrada so' a que guarda, a outra seria removida por "limpeza" no dia em
+     * que alguem a achasse inutil — e a cadeia de recortes ja' mudou de ordem antes. */
+    var apiB = semComentarios(
+      fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8'));
+    var iBase = apiB.indexOf('function baseDeMovimentos(');
+    var corpoBase = apiB.slice(iBase, apiB.indexOf(String.fromCharCode(10) + '}', iBase));
+    ok(iBase > 0 && /recorteDeclaracao\(/.test(corpoBase),
+      'a base passa pela peneira que tira a declara\u00e7\u00e3o de quem n\u00e3o pode v\u00ea-la \u2014 \u00e9 ' +
+      'esta que guarda de verdade, e sem ela o pedido com o campo ligado entregaria a ' +
+      'declara\u00e7\u00e3o a quem conta a carga', corpoBase);
+    ok(/comDeclaracao && L\.veDeclaracao\(eu\)/.test(corpoBase),
+      'e a inclus\u00e3o pede o DIREITO al\u00e9m do pedido \u2014 esta segunda tranca \u00e9 redundante ' +
+      'hoje, e fica: a cadeia de recortes j\u00e1 mudou de ordem antes, e \u00e9 ela que diz, na ' +
+      'mesma linha do `comDeclaracao`, que n\u00e3o basta pedir', corpoBase);
+    ok(/semDeclaracao\(base\)/.test(corpoBase),
+      'e sem pedido nenhum a declara\u00e7\u00e3o sai \u2014 \u00e9 o padr\u00e3o, e a rota de Movimentos ' +
+      'depende dele: l\u00e1 a declara\u00e7\u00e3o contava a mesma carga duas vezes nos cart\u00f5es');
+
+    /* ---- E A CONFIRMACAO DIZ A VERDADE SOBRE O NUMERO ---- */
+    var iBtn = admLimpo.indexOf("acao:'limparMovimentos', contar:true");
+    var corpoBtn = admLimpo.slice(iBtn - 400, iBtn + 900);
+    ok(/mostrarConfirmLimpar\(n, f, r\.comDeclaracao === true\)/.test(corpoBtn),
+      'a confirma\u00e7\u00e3o acredita no SERVIDOR e n\u00e3o na caixa \u2014 o pedido pode ter sido ' +
+      'recusado pela permiss\u00e3o sem erro nenhum, e a tela anunciaria "com as ' +
+      'declara\u00e7\u00f5es" sobre um apagar que n\u00e3o as leva', corpoBtn.slice(-200));
+    ok(/As declara\u00e7\u00f5es entram neste n\u00famero/.test(adm),
+      'e a frase avisa que elas entram \u2014 sem isso a confirma\u00e7\u00e3o mostra um n\u00famero ' +
+      'maior do que tudo o que a pessoa consegue ver na tabela ao lado, e n\u00e3o h\u00e1 como ' +
+      'ela entender a diferen\u00e7a');
+    ok(/senha:senhaOp, comDeclaracao:limparComDecl/.test(admLimpo),
+      'e a escolha viaja no apagar \u2014 contada com as declara\u00e7\u00f5es e apagada sem elas, o ' +
+      '`esperado` deixa de bater e a resposta \u00e9 "a lista mudou", que foi o relato de hoje');
+    ok(/comDeclaracao:limparComDecl/.test(admLimpo) &&
+       !/comDeclaracao: ?!!\(cx && cx\.checked\)[\s\S]{0,200}esperado/.test(admLimpo),
+      'e ela vem GUARDADA, n\u00e3o lida do campo de novo \u2014 desmarcado entre contar e ' +
+      'confirmar, o n\u00famero combinado deixaria de bater sem ningu\u00e9m ter mexido no filtro');
+  }
+
   var leituras = leiturasDe(adm, 'admin.html').concat(leiturasDe(idx, 'index.html'));
-  ok(leituras.length >= 5,
+  ok(leituras.length >= 4,
     'a conferência achou as leituras de lançamento das duas telas — nenhuma achada ' +
     'faria a prova abaixo aprovar qualquer coisa', leituras.length);
   var mudas = leituras.filter(function (l) { return l.antes.indexOf('Q.lendo(') < 0; });
@@ -14612,8 +14735,11 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
   /* "Data do movimento", e não "Data": é a mesma data que o formulário pede e que a
      consulta do escritório mostra, e um nome por tela faria a pessoa achar que são
      coisas diferentes. */
-  ['Movimento', 'Origem', 'Destino', 'Caixa', 'Saída', 'Retorno', 'Motorista',
-   'Quem lançou'].forEach(function (c) {
+  /* HORA E FORNECEDOR ENTRARAM A PEDIDO, e entram tambem nesta lista: cobrada so' a
+     contagem de celulas la' embaixo, uma coluna poderia ser trocada por outra sem a
+     prova notar — o total continuaria batendo. */
+  ['Movimento', 'Hora', 'Origem', 'Destino', 'Fornecedor', 'Caixa', 'Saída',
+   'Retorno', 'Motorista', 'Quem lançou'].forEach(function (c) {
     ok(tl.indexOf('>' + c + '<') > 0, 'a tabela tem a coluna ' + c, c);
   });
   /* Cabecalho e celula andam juntos: um <th> sem <td> desalinha a tabela inteira a
@@ -14629,17 +14755,22 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
      QUALQUER uma delas torce a tabela a partir dali, com cada numero caindo embaixo do
      titulo errado. O erro so' aparece na coluna seguinte, e so' numa das duas formas de
      linha: a que estiver fechada no momento em que alguem olhar.
-     ONZE: as dez de dado — registro, item, movimento, origem, destino, caixa, saida,
-     retorno, motorista e quem lancou — mais a das ACOES, que e' o `<th></th>` vazio no
-     fim e o `<td>` do botao de corrigir. Ela nao tem titulo de proposito: nao e' um
-     dado, e um titulo ali seria lido como mais uma informacao sobre o lancamento. */
+     TREZE: as doze de dado — registro, item, movimento, HORA, origem, destino,
+     FORNECEDOR, caixa, saida, retorno, motorista e quem lancou — mais a das ACOES, que
+     e' o `<th></th>` vazio no fim e o `<td>` do botao de corrigir. Ela nao tem titulo de
+     proposito: nao e' um dado, e um titulo ali seria lido como mais uma informacao sobre
+     o lancamento.
+     O NUMERO E ESCRITO A MAO E TEM DE SER: ele e' a unica coisa que separa "a tabela
+     ganhou uma coluna" de "uma das tres pontas ficou para tras". Contado das proprias
+     pontas, bastaria que as tres errassem junto — que e' exatamente como este erro
+     acontece, acrescentando a coluna so' no cabecalho. */
   var linhaL = corpo('linhaLanc');
   var corpoL = corpo('corpoLanc');
   var nTh = (tl.match(/<th[ >]/g) || []).length;
   var nTd = (linhaL.match(/<td[ >]/g) || []).length;
   var nCarga = (corpoL.match(/<td[ >]/g) || []).length +
                (corpoL.match(/celulaDaCarga\(/g) || []).length;
-  ok(nTh === 11 && nTd === 11 && nCarga === 11,
+  ok(nTh === 13 && nTd === 13 && nCarga === 13,
     'e cada cabeçalho tem a célula dele NAS DUAS formas de linha — a do item e a da ' +
     'carga fechada: uma célula a mais ou a menos em qualquer uma torce a tabela a ' +
     'partir dali, e o erro só aparece na coluna seguinte',
@@ -26066,6 +26197,10 @@ console.log('\n== a lista do app de campo, agrupada pelo registro ==');
     num: function (n) { return String(Number(n) || 0); },
     dataBR: function (d) { return String(d || '').split('-').reverse().join('/'); },
     dataHoraBR: function (d) { return String(d || ''); },
+    /* A HORA SAI DO CARIMBO, e este `Q` de mentira a devolve de verdade: devolvendo
+       sempre o mesmo texto, a celula "varios" da carga nunca apareceria e a prova
+       aprovaria uma tabela que afirma a hora da primeira linha para as quatro. */
+    horaBR: function (c) { return String(c || '').slice(11, 16); },
     agruparLancamentos: agrupar,
     podeCorrigir: function () { return true; }
   };
@@ -26077,8 +26212,12 @@ console.log('\n== a lista do app de campo, agrupada pelo registro ==');
 
   var COLS = { saida: true, retorno: true };
   function lin(reg, id, lote, caixa, qtd, extra) {
+    /* HORA E FORNECEDOR NO CENARIO, porque sao colunas: um cenario sem eles faria as
+       celulas novas nascerem com travessao em toda linha, e a prova aprovaria uma
+       tabela que nunca mostra o dado. */
     var m = { registro: reg, id: id, lote: lote, tipoCaixa: caixa, tipoCaixaId: caixa,
               qtd: qtd, tipo: 'DEVOLUCAO', dataRef: '2026-09-28',
+              dataHora: '2026-09-28T08:15:00', fornecedor: 'Frutas Boa Vista',
               origem: 'João Pessoa', destino: 'Matriz São Vicente',
               motorista: 'Chico', usuario: 'Melkezedeque Soares' };
     return Object.assign(m, extra || {});
@@ -26090,9 +26229,14 @@ console.log('\n== a lista do app de campo, agrupada pelo registro ==');
     /* UMA LINHA DA CARGA CORRIGIDA em separado: dentro de uma remessa as linhas NASCEM
        com a mesma data, mas a correção alcança uma só — e a carga fechada não pode
        afirmar uma data que não é a das quatro. */
+    /* E A HORA DESTA LINHA TAMBEM DISCORDA das outras tres, pela mesma razao da data:
+       as quatro nascem no mesmo segundo, e uma correcao alcanca uma so'. Com as quatro
+       na mesma hora, a carga fechada mostraria a hora certa por COINCIDENCIA, e um
+       desenho que lesse a hora da primeira linha passaria verde. */
     lin('R000047', 'M000050', 'L47', 'CX IFCO', 75,
-        { dataRef: '2026-09-29', alterado: { vezes: 1, por: 'U1', em: '2026-10-01T10:00:00',
-                                             campo: 'data', motivo: 'romaneio' } }),
+        { dataRef: '2026-09-29', dataHora: '2026-09-29T16:40:00',
+          alterado: { vezes: 1, por: 'U1', em: '2026-10-01T10:00:00',
+                      campo: 'data', motivo: 'romaneio' } }),
     lin('R000090', 'M000090', 'L90', 'CX P', 10),
     /* DUAS LINHAS DA MESMA CAIXA no mesmo lote. Acontece nas linhas antigas, sem
        `ClientKey`, gravadas no mesmo segundo: o agrupador SEPARA as duas em grupos
@@ -26112,6 +26256,25 @@ console.log('\n== a lista do app de campo, agrupada pelo registro ==');
   ok(trs.length === 1 + 4 + 1 + 2,
     'as sete linhas viram uma carga com as quatro dentro, mais três linhas soltas — ' +
     'nenhuma some no agrupamento, e nenhuma aparece duas vezes', trs.length);
+
+  /* ---- A HORA E O FORNECEDOR, NA CARGA E NA LINHA ----
+   * ESCAPOU UMA SABOTAGEM AQUI: troquei a celula da hora da carga por uma que le' a
+   * PRIMEIRA linha, e tudo passou verde — as quatro linhas do cenario tinham a mesma
+   * hora, e a coincidencia respondia certo. Agora uma delas discorda. */
+  var cargaTr = trs.filter(function (x) { return x.indexOf('class="lin-reg') > 0; })[0];
+  ok(cargaTr && cargaTr.indexOf('v\u00e1rios') > 0,
+    'a carga fechada diz "v\u00e1rios" onde as linhas discordam \u2014 lendo a primeira, ela ' +
+    'afirmaria uma hora que n\u00e3o \u00e9 a das quatro, e quem confere o romaneio leria a ' +
+    'hora de um peda\u00e7o como a da carga inteira', cargaTr && cargaTr.slice(0, 300));
+  ok(cargaTr && cargaTr.indexOf('Frutas Boa Vista') > 0,
+    'e mostra o FORNECEDOR, que nas quatro \u00e9 o mesmo \u2014 gravado e n\u00e3o mostrado, a ' +
+    'linha diz para onde a caixa foi sem dizer de quem ela era', cargaTr);
+  var itemTr = trs.filter(function (x) { return x.indexOf('M000047') > 0; })[0];
+  ok(itemTr && itemTr.indexOf('08:15') > 0 &&
+     itemTr.indexOf('Frutas Boa Vista') > 0,
+    'e a linha do item traz a hora e o fornecedor dela \u2014 as duas colunas foram ' +
+    'pedidas para a LINHA, e desenhadas s\u00f3 na carga fechada ficariam a uma seta de ' +
+    'dist\u00e2ncia de quem precisa delas', itemTr);
 
   var cargas = trs.filter(function (x) { return x.indexOf('class="lin-reg') > 0; });
   ok(cargas.length === 1 && (h.match(/reg-abrir/g) || []).length === 1,
@@ -26147,10 +26310,15 @@ console.log('\n== a lista do app de campo, agrupada pelo registro ==');
   ok(c.indexOf('Chico') > 0 && c.indexOf('João Pessoa') > 0,
     'e onde as linhas CONCORDAM ela mostra o valor — motorista e origem são os mesmos ' +
     'nas quatro, e calá-los com um "vários" esconderia um dado sem conflito nenhum');
-  ok((c.match(/vários/g) || []).length === 2,
-    'e onde elas DISCORDAM ela diz "vários", em exatamente duas colunas: a CAIXA, que é ' +
-    'o que distingue uma linha da outra, e a DATA, corrigida numa linha só — mostrando ' +
-    'a da primeira, a carga afirmaria uma data que não é a das quatro',
+  /* TRES, e nao mais duas: a HORA entrou como coluna, e no cenario ela discorda pela
+     mesma razao que a data — a correcao alcancou uma linha so'. O numero e' escrito a
+     mao de proposito: e' ele que separa "a tabela ganhou uma coluna" de "uma celula
+     passou a dizer 'varios' onde as linhas concordam", que e' o defeito oposto e tao
+     ruim quanto — ele cala um dado sem conflito nenhum. */
+  ok((c.match(/vários/g) || []).length === 3,
+    'e onde elas DISCORDAM ela diz "vários", em exatamente três colunas: a CAIXA, que é ' +
+    'o que distingue uma linha da outra, e a DATA e a HORA, corrigidas numa linha só — ' +
+    'mostrando as da primeira, a carga afirmaria um romaneio que não é o das quatro',
     (c.match(/vários/g) || []).length);
   ok(c.indexOf('>corrigido<') > 0,
     'e a carga avisa que alguma linha dela foi corrigida — escondido até abrir, o aviso ' +

@@ -4464,6 +4464,22 @@ console.log('\n== o que a tela lista e o que o apagar leva sao o mesmo conjunto 
 
   const admin = tabelas.usuarios.find((u) => String(u.perfil).toUpperCase() === 'ADMIN');
   ok(!!admin, 'ha um administrador no cen\u00e1rio \u2014 \u00e9 ele que usa este bot\u00e3o');
+  /* O LIVRO DA DECLARACAO ENTRA NO CADASTRO DELE, e isto nao e' afrouxar a prova: a
+     base vem do cadastro e nao ha excecao nem para o administrador — escrito assim de
+     proposito em `recorteBases`, depois de uma excecao que fez a tela afirmar duas
+     coisas opostas ao mesmo tempo. O admin de VERDADE deste escritorio tem o livro
+     marcado, e e' por isso que ele enxerga as declaracoes no app de campo. Sem marcar
+     aqui, as provas abaixo passariam verdes medindo um recorte que apagou tudo antes
+     de chegar na pergunta. */
+  const basesAntes = { d: admin.base_declaracao, p: admin.base_producao,
+                       t: admin.teste };
+  /* OS TRES LIVROS JUNTOS, e nao so' o da declaracao: marcar um SO' deixa a pessoa com
+     aquele — `basesEfetivas` devolve os marcados, e o padrao `['reais']` vale apenas
+     para quem nao marcou nenhum. Marcando so' a declaracao, o administrador deixaria de
+     ver o movimento comum, e a prova mediria uma tela vazia. */
+  admin.base_declaracao = true;
+  admin.base_producao = true;
+  admin.teste = true;
 
   const naTela = await GET({ acao: 'movimentos', quem: admin.id, limit: 100000 });
   const idsTela = (naTela.movimentos || []).map((m) => m.id);
@@ -4492,12 +4508,104 @@ console.log('\n== o que a tela lista e o que o apagar leva sao o mesmo conjunto 
     'apagada junto sumiria de uma concilia\u00e7\u00e3o que ningu\u00e9m mandou mexer',
     declDepois && declDepois.excluido_em);
 
-  /* De volta ao que estava: o cenario continua depois daqui. */
+  /* ---- E A DECLARACAO PODE SAIR, MAS SO DE PROPOSITO ----
+   *
+   * O escritorio apagou o periodo inteiro e duas linhas ficaram na tela: eram
+   * declaracoes, e o apagar deixou de alcanca-las no dia em que passou a ler a mesma
+   * base da tela. Estava certo nao alcanca-las por ACIDENTE; faltava poder alcanca-las
+   * de proposito.
+   *
+   * A TRANCA NAO E O PEDIDO, E O DIREITO. `comDeclaracao` diz a INTENCAO de quem clicou;
+   * `veDeclaracao` diz se aquela pessoa pode. Sem a segunda pergunta, a contagem cega
+   * cairia por um campo no corpo do POST — e nenhuma tela precisaria estar errada para
+   * isso acontecer: bastaria alguem montar o pedido a mao. */
   (naTela.movimentos || []).forEach((m) => {
     const linha = tabelas.movimentos.find((x) => x.id === m.id);
     if (linha) { linha.excluido_em = null; linha.excluido_por = null; }
   });
+
+  const semDirteito = tabelas.usuarios.find((u) =>
+    String(u.perfil).toUpperCase() !== 'ADMIN' &&
+    !(u.abas || []).some((a) => String(a).indexOf('ancamentoMotorista') > 0 ||
+                                String(a).indexOf('ancamentosMotorista') > 0));
+  ok(!!semDirteito,
+    'h\u00e1 no cen\u00e1rio algu\u00e9m SEM a aba de declara\u00e7\u00e3o \u2014 sem ele a prova mais ' +
+    'importante deste bloco n\u00e3o teria em quem medir',
+    semDirteito && semDirteito.usuario);
+
+  /* ---- 1. CONTAR NAO PEDE SENHA, e devolve so' o NUMERO ---- */
+  const contou = await POST({ acao: 'limparMovimentos', contar: true,
+                              usuarioId: admin.id });
+  ok(contou.ok === true && typeof contou.quantos === 'number',
+    'contar responde o n\u00famero sem pedir senha \u2014 contar n\u00e3o muda nada, e exigir a ' +
+    'senha para saber quantos s\u00e3o faria a tela n\u00e3o conseguir montar a confirma\u00e7\u00e3o que ' +
+    'a pr\u00f3pria senha vai proteger', contou.erro);
+  ok(contou.movimentos === undefined && contou.ids === undefined,
+    'e devolve s\u00f3 o n\u00famero, nunca as linhas \u2014 devolvendo-as, esta porta sem senha ' +
+    'viraria a leitura que a rota de Movimentos recusa, inclusive das declara\u00e7\u00f5es',
+    Object.keys(contou));
+
+  /* ---- 2. O PADRAO E SEM DECLARACAO ---- */
+  const semPedir = await POST({ acao: 'limparMovimentos', contar: true,
+                                usuarioId: admin.id });
+  const comPedir = await POST({ acao: 'limparMovimentos', contar: true,
+                                usuarioId: admin.id, comDeclaracao: true });
+  ok(comPedir.quantos === semPedir.quantos + 1,
+    'pedindo as declara\u00e7\u00f5es, a conta sobe exatamente pela declara\u00e7\u00e3o plantada \u2014 e ' +
+    'sem pedir ela fica de fora: o caso comum \u00e9 limpar movimento, e inclu\u00ed-las por ' +
+    'padr\u00e3o levaria embora o que ningu\u00e9m mandou tocar',
+    [semPedir.quantos, comPedir.quantos]);
+  ok(comPedir.comDeclaracao === true,
+    'e a resposta CONFIRMA que elas entraram \u2014 respondida s\u00f3 com o n\u00famero, a tela ' +
+    'anunciaria "com as declara\u00e7\u00f5es" sobre um apagar que n\u00e3o as leva');
+
+  /* ---- 3. E O PEDIDO SO VALE PARA QUEM TEM O DIREITO ----
+     Esta e' a prova que guarda a contagem cega. O conferente conta a carga SEM saber o
+     numero que o motorista declarou; um pedido que ele mesmo montasse, com o campo
+     ligado, nao pode lhe dizer sequer QUANTAS declaracoes existem. */
+  const alheio = await POST({ acao: 'limparMovimentos', contar: true,
+                              usuarioId: semDirteito.id, comDeclaracao: true });
+  ok(alheio.comDeclaracao === false,
+    'quem N\u00c3O v\u00ea declara\u00e7\u00e3o pede e n\u00e3o recebe \u2014 a tranca \u00e9 o DIREITO no cadastro, e ' +
+    'n\u00e3o o pedido: fosse o pedido, a contagem cega cairia por um campo no corpo do ' +
+    'POST, sem nenhuma tela precisar estar errada', alheio.comDeclaracao);
+
+  const idsDele = (await GET({ acao: 'movimentos', quem: semDirteito.id,
+                               limit: 100000 })).movimentos || [];
+  ok(alheio.quantos === idsDele.length,
+    'e a conta dele continua sendo a do que ELE v\u00ea \u2014 um n\u00famero maior j\u00e1 contaria ' +
+    'quantas declara\u00e7\u00f5es existem, que \u00e9 metade do que a contagem cega esconde',
+    [alheio.quantos, idsDele.length]);
+
+  /* ---- 4. E A ROTA DE MOVIMENTOS NUNCA ACEITA O PEDIDO ----
+     Ela e' a leitura, e la' a declaracao nao e' questao de permissao: ela nao e'
+     movimento de caixa, e contava a mesma carga duas vezes nos cartoes. */
+  const forcado = await GET({ acao: 'movimentos', quem: admin.id, limit: 100000,
+                              comDeclaracao: true });
+  ok(((forcado.movimentos || []).filter((m) => m.id === 'M-decl-comparar')).length === 0,
+    'e a rota de Movimentos n\u00e3o traz declara\u00e7\u00e3o nem pedida na m\u00e3o \u2014 l\u00e1 ela n\u00e3o \u00e9 ' +
+    'permiss\u00e3o, \u00e9 aus\u00eancia: ela contava a mesma carga duas vezes nos cart\u00f5es de Sa\u00edda, ' +
+    'Retorno e Saldo', (forcado.movimentos || []).length);
+
+  /* ---- 5. E APAGANDO DE VERDADE, ELA SAI ---- */
+  const levou = await POST({ acao: 'limparMovimentos', usuarioId: admin.id,
+                             esperado: comPedir.quantos, comDeclaracao: true,
+                             senha: '123456' });
+  ok(levou.ok === true && levou.apagados === comPedir.quantos,
+    'e o apagar leva o n\u00famero que ele mesmo contou \u2014 contado por uma porta e apagado ' +
+    'por outra, as duas divergem: foi assim que a tela mostrou 47 e o servidor achou 353',
+    levou.erro || levou.apagados);
+  const declFim = tabelas.movimentos.find((m) => m.id === 'M-decl-comparar');
+  ok(declFim && declFim.excluido_em,
+    'e a declara\u00e7\u00e3o foi junto desta vez \u2014 era o pedido: apagar tudo e n\u00e3o sobrar ' +
+    'linha nenhuma na tela do app de campo', declFim && declFim.excluido_em);
+
+  /* De volta ao que estava: o cenario continua depois daqui. */
+  tabelas.movimentos.forEach((m) => { m.excluido_em = null; m.excluido_por = null; });
   tabelas.movimentos = tabelas.movimentos.filter((m) => m.id !== 'M-decl-comparar');
+  admin.base_declaracao = basesAntes.d;
+  admin.base_producao = basesAntes.p;
+  admin.teste = basesAntes.t;
   void umDia;
 }
 /* ---------------------------------------------------------------------------

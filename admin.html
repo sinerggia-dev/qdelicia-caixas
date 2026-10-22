@@ -1232,6 +1232,24 @@
                 style="flex:0 0 auto;white-space:nowrap;border-color:var(--vermelho);color:var(--vermelho)">
           Apagar o que está no filtro
         </button>
+        <!-- INCLUIR AS DECLARACOES, e so' para quem ja' as ve'.
+             O escritorio apagou o periodo inteiro e duas linhas ficaram na tela: eram
+             declaracoes. Elas nao aparecem em Movimentos para ninguem — nem para o
+             administrador —, e desde que o apagar passou a ler a MESMA base da tela,
+             deixou de alcanca-las. Estava certo nao alcanca-las por acidente; faltava
+             poder alcanca-las de proposito.
+             FICA AQUI E NAO NA CONFIRMACAO porque e' ANTES que ela muda a conta: posta
+             na janela de confirmar, o numero ja' estaria fechado e a caixa mudaria o que
+             sai sem mudar o que foi lido.
+             NASCE DESMARCADA, e isso nao e' detalhe: o caso comum e' apagar movimento, e
+             uma caixa marcada por padrao levaria declaracao embora de quem so' queria
+             limpar o periodo.
+             ESCONDIDA DE QUEM NAO VE DECLARACAO — e o servidor repete a pergunta ao
+             cadastro, porque esconder e' conveniencia e nao tranca. -->
+        <label class="marca" id="marcaLimparDecl" hidden
+               style="flex:0 0 auto;white-space:nowrap">
+          <input type="checkbox" id="limparComDecl"> incluir as declarações
+        </label>
         <!-- O botão de VOLTA, ao lado do de ida. Ele fica aqui de propósito: quem acabou
              de apagar o que não devia procura o conserto no mesmo lugar onde errou, e
              não numa aba que teria de descobrir que existe. -->
@@ -2341,6 +2359,12 @@
 
   /* A aba some, e a pagina dela deixa de ser a ativa. A primeira que sobrou vira a
      aberta — senao o painel abriria numa pagina escondida e mostraria tela em branco. */
+  /* AS ABAS QUE MOSTRAM DECLARACAO, numa lista so' — a mesma pergunta que o servidor
+     faz em `veDeclaracao`, e a mesma lista que o `_logica.js` guarda. Duas listas
+     divergem no dia em que uma terceira aba nascer, e divergir aqui quer dizer oferecer
+     uma caixa que o servidor recusa, ou esconder uma que ele aceitaria. */
+  var ABAS_DE_DECLARACAO_PAINEL = ['pgLancamentosMotorista', 'pgLancamentoMotorista'];
+
   function ajustarAbasPainel(s){
     /* Sem o catalogo nao da para saber o que esta pessoa pode: ele diz quais abas
        existem e quais sao sensiveis. Entao NAO mostra nada — as abas ja nasceram
@@ -2350,6 +2374,25 @@
        deixava as sete a vista por segundos, clicaveis, para quem nao as tinha. */
     if (!ABAS_PAINEL.length) return;
     var pode = abasPermitidas(s);
+    /* A CAIXA DE "INCLUIR AS DECLARACOES" APARECE COM AS ABAS, e pela mesma lista: quem
+       nao tem onde VER declaracao nao tem por que ter um botao que as apaga — ele diria
+       a quem conta a carga que ha um numero declarado em algum lugar, e e' justamente
+       isso que a contagem cega existe para nao dizer.
+       ESCONDER E CONVENIENCIA, E NAO TRANCA: o servidor repete a pergunta ao cadastro
+       antes de incluir uma declaracao. Esta tela e' a porta, nao a fechadura. */
+    var marcaDecl = document.getElementById('marcaLimparDecl');
+    if (marcaDecl) {
+      var veDecl = ABAS_DE_DECLARACAO_PAINEL.some(function(a){
+        return pode.indexOf(a) >= 0;
+      });
+      marcaDecl.hidden = !veDecl;
+      /* DESMARCADA AO PERDER O DIREITO: escondida e marcada, ela continuaria viajando
+         no pedido de quem deixou de poder — e a recusa viria calada do servidor. */
+      if (!veDecl) {
+        var cxDecl = document.getElementById('limparComDecl');
+        if (cxDecl) cxDecl.checked = false;
+      }
+    }
     var botoes = document.querySelectorAll('#abas button[data-pagina]');
     Array.prototype.forEach.call(botoes, function(b){
       var ok = pode.indexOf(b.dataset.pagina) >= 0;
@@ -7987,9 +8030,9 @@
      são, e não sobra onde dizer qual era o número certo quando ela erra. Aqui o número
      fica ao lado do campo o tempo todo. É a mesma razão que já tinha tirado o confirm()
      do navegador deste projeto. */
-  var limparN = 0, limparFiltro = null;
-  function mostrarConfirmLimpar(n, f){
-    limparN = n; limparFiltro = f || {};
+  var limparN = 0, limparFiltro = null, limparComDecl = false;
+  function mostrarConfirmLimpar(n, f, comDecl){
+    limparN = n; limparFiltro = f || {}; limparComDecl = !!comDecl;
     document.getElementById('limparAviso').innerHTML =
       '<div class="aviso-box erro" style="margin-bottom:0">' +
         '<b>Apagar ' + Q.num(n) + ' lançamento(s)?</b> Vão sair os ' + descreveFiltro(limparFiltro) +
@@ -8000,6 +8043,13 @@
            "vi 500, então são 500". */
         (n > 500 ? ' <b>Atenção:</b> a tabela mostra só os 500 mais recentes — o filtro '+
                    'casa com ' + Q.num(n) + ', e todos eles saem.' : '') +
+        /* E A FRASE DIZ SE AS DECLARACOES VAO JUNTO. Elas nao aparecem na tabela ao
+           lado, para ninguem: sem esta linha, a confirmacao mostraria um numero maior
+           do que tudo o que a pessoa consegue ver, e nao haveria como ela entender a
+           diferenca. */
+        (limparComDecl ? ' <b>As declarações entram neste número</b> — elas não aparecem ' +
+                         'na tabela ao lado, e por isso ele é maior do que o que está à vista.'
+                       : '') +
       '</div>' +
       /* DOIS PORTOES, e eles respondem a coisas diferentes. O NUMERO defende do
          engano: quem escreve 412 leu que sao 412, e nao apertou um botao vermelho de
@@ -8119,8 +8169,11 @@
   function apagarDeVerdade(senhaOp){
     var res = document.getElementById('limparResultado');
     var b = document.getElementById('limparConfirmar');
+    /* A MESMA ESCOLHA DA CONTAGEM, e guardada: lida do checkbox de novo aqui, bastaria
+       alguem desmarca-lo entre contar e confirmar para o `esperado` deixar de bater — e
+       a resposta seria "a lista mudou", que foi o relato de hoje de novo. */
     var envio = { acao:'limparMovimentos', esperado:limparN, usuarioId:Q.sessao().id,
-                  senha:senhaOp };
+                  senha:senhaOp, comDeclaracao:limparComDecl };
     Object.keys(limparFiltro||{}).forEach(function(k){ if (limparFiltro[k]) envio[k] = limparFiltro[k]; });
     Q.post(envio).then(function(r){
       /* A SENHA DA OPERACAO ERRADA VOLTA PARA O CAMPO DELA, e nao para o aviso de cima:
@@ -8436,14 +8489,24 @@
     var aviso = document.getElementById('limparAviso');
     aviso.innerHTML = '<div class="aviso-box info">Conferindo quantos lançamentos casam…</div>';
     var f = filtroExclusao();
-    // Conta na hora do clique, com o MESMO filtro que vai apagar.
-    var pedido = Q.lendo({ acao:'movimentos', limit:100000 });
+    /* CONTA PELA PORTA DO APAGAR, e nao pela de listar. Eram duas contas para a mesma
+       pergunta, e elas divergiram em 306 linhas: a lista da tela tira declaracao, base
+       de outro livro e unidade alheia, e o apagar nao tirava nada disso. Agora a conta
+       sai do MESMO `ids` que seria apagado — dois caminhos divergem, um so' nao.
+       `contar` NAO PEDE SENHA: nao muda nada e nao devolve linha nenhuma, so' o numero
+       que esta pessoa ja' poderia contar na tela. */
+    var cx = document.getElementById('limparComDecl');
+    var pedido = { acao:'limparMovimentos', contar:true, usuarioId:Q.sessao().id,
+                   comDeclaracao: !!(cx && cx.checked) };
     Object.keys(f).forEach(function(k){ if (f[k]) pedido[k] = f[k]; });
-    Q.get(pedido).then(function(r){
+    Q.post(pedido).then(function(r){
       if (!r.ok) throw new Error(r.erro);
-      var n = (r.movimentos||[]).length;
+      var n = r.quantos || 0;
       if (!n){ aviso.innerHTML = '<div class="aviso-box ok">Nenhum lançamento casa com este filtro.</div>'; return; }
-      mostrarConfirmLimpar(n, f);
+      /* O QUE O SERVIDOR RESPONDEU, e nao o que a caixa esta' marcando: o pedido pode
+         ter sido recusado pela permissao sem erro nenhum, e a confirmacao diria
+         "com as declaracoes" sobre um apagar que nao as leva. */
+      mostrarConfirmLimpar(n, f, r.comDeclaracao === true);
     }).catch(function(e){
       aviso.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
     });

@@ -313,10 +313,35 @@ async function rotaGet(p) {
  * NAO BASTAVA ACRESCENTAR OS QUATRO LA: duas listas de recortes divergem no dia em que
  * o quinto nascer, exatamente como estas duas divergiram. Agora a pergunta "o que esta
  * pessoa ve' em Movimentos" tem UMA resposta. */
-function baseDeMovimentos(d, quem) {
+function baseDeMovimentos(d, quem, opcoes) {
   var eu = L.acharUsuario(d.usuarios, quem);
-  return L.semDeclaracao(L.recorteDeclaracao(
-    L.recorteBases(L.recorteLancamentos(d, d.usuarios, quem), eu), eu));
+  var base = L.recorteDeclaracao(
+    L.recorteBases(L.recorteLancamentos(d, d.usuarios, quem), eu), eu);
+  /* A DECLARACAO SO ENTRA SE PEDIREM, E SO PARA QUEM JA A VE.
+   *
+   * O ESCRITORIO APAGOU O PERIODO INTEIRO E DUAS LINHAS FICARAM NA TELA: eram
+   * declaracoes, e este botao deixou de alcanca-las no dia em que ele passou a ler a
+   * mesma base da tela. Estava certo nao alcanca-las por acidente — e' preciso poder
+   * alcanca-las de proposito.
+   *
+   * O PEDIDO DIZ A INTENCAO, E O CADASTRO DIZ O DIREITO: `comDeclaracao` e' o que a
+   * pessoa clicou, e `veDeclaracao` e' se ela pode. Se fosse so' o pedido, a contagem
+   * cega cairia por um campo no corpo do POST, sem nenhuma tela precisar estar errada.
+   *
+   * E ESTA SEGUNDA PERGUNTA E REDUNDANTE — dito aqui porque descobri sabotando. Quem nao
+   * ve' declaracao ja' perdeu as suas em `recorteDeclaracao`, duas linhas acima: quando
+   * o `if` abaixo e' alcancado, `base` nao tem declaracao nenhuma para devolver. Tirar
+   * esta linha nao abre buraco.
+   * ELA FICA ASSIM MESMO, e por duas razoes. A primeira e' que `recorteDeclaracao` pode
+   * mudar de lugar nesta cadeia — ela ja' mudou — e esta linha e' a que diz, aqui, que a
+   * inclusao depende do direito. A segunda e' que ela responde a pergunta que o nome da
+   * opcao faz: quem le' `comDeclaracao` precisa ver, na mesma linha, que nao basta
+   * pedir. Uma tranca a mais numa porta que guarda a contagem cega e' barata.
+   *
+   * E A ROTA DE MOVIMENTOS NUNCA PASSA ESTA OPCAO: a declaracao nao e' movimento de
+   * caixa, e la' ela contava a mesma carga duas vezes. */
+  if (opcoes && opcoes.comDeclaracao && L.veDeclaracao(eu)) return base;
+  return L.semDeclaracao(base);
 }
 
 /* ============================ POST ============================ */
@@ -949,11 +974,17 @@ async function baseUsuarios(p) {
 
 async function limparMovimentos(p) {
   var d = await db.carregarTudo();
+  /* CONTAR E APAGAR PELA MESMA PORTA, e esta e' a licao do defeito de hoje: a tela
+     contava por `movimentos` e apagava por aqui, e as duas contas divergiram em 306
+     linhas sem ninguem notar. Dois caminhos para a mesma pergunta divergem; um so', nao.
+     CONTAR NAO PEDE SENHA, porque nao muda nada e nao revela linha nenhuma — devolve um
+     NUMERO, ja' recortado pelo que esta pessoa pode ver. */
+  var contando = p.contar === true || String(p.contar) === 'true';
   /* A SENHA VEM ANTES DA CONTA, e nao depois: este botao leva centenas de linhas de uma
      vez, e conferir o numero esperado de um recorte que a pessoa nao pode apagar e'
      trabalho a toa. O `esperado` continua, e ele responde outra pergunta — se a lista
      mudou entre abrir a tela e confirmar. */
-  if (!conferirSenhaDe('apagarFiltro', p.senha, d.config)) {
+  if (!contando && !conferirSenhaDe('apagarFiltro', p.senha, d.config)) {
     return { ok: false, erro: 'Senha incorreta.', senhaErrada: true };
   }
 
@@ -990,10 +1021,23 @@ async function limparMovimentos(p) {
      QUEM PEDE VEM POR `usuarioId`, que e' o que esta tela manda; `quem` fica como
      segunda leitura porque e' o nome que as rotas de leitura usam, e uma chamada que
      mandasse so' esse nome cairia no recorte de "ninguem" e apagaria nada. */
-  var base = baseDeMovimentos(d, p.usuarioId || p.quem);
+  var quemPede = p.usuarioId || p.quem;
+  var comDecl = p.comDeclaracao === true || String(p.comDeclaracao) === 'true';
+  var base = baseDeMovimentos(d, quemPede, { comDeclaracao: comDecl });
   var ids = L.listaMovimentos(base.movimentos, d.locais, d.tipos, d.usuarios, filtro,
                               { motoristas: d.motoristas, fornecedores: d.fornecedores })
     .map(function (m) { return m.id; });
+
+  /* A CONTA SAI AQUI, do mesmo `ids` que seria apagado logo abaixo. Contada antes do
+     filtro ou por outra funcao, ela voltaria a ser uma segunda resposta para a mesma
+     pergunta — que e' o defeito que esta rota acabou de ter.
+     E ELA DIZ SE A DECLARACAO ENTROU, porque o pedido pode ter sido recusado pela
+     permissao sem nenhum erro: respondida so' com o numero, a tela ofereceria a caixa
+     marcada e apagaria sem as declaracoes, calada. */
+  if (contando) {
+    return { ok: true, quantos: ids.length,
+             comDeclaracao: comDecl && L.veDeclaracao(L.acharUsuario(d.usuarios, quemPede)) };
+  }
 
   if (!ids.length) return { ok: false, erro: 'Nenhum lançamento casa com este filtro.' };
 
