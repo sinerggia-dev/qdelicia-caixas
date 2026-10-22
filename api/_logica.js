@@ -1026,6 +1026,62 @@ function recorteProprios(dados, quem) {
   return copia;
 }
 
+/* ================= POR ONDE A CARGA PASSOU =================
+ *
+ * A IRMA DE `recorteProprios`, e nao a substituta dela. As duas peneiram a mesma lista
+ * por perguntas diferentes:
+ *
+ *   `recorteProprios`  — QUEM LANCOU. "Vejo os lancamentos do Nestor."
+ *   `recorteLocais`    — POR ONDE PASSOU. "Vejo o que toca a Filial Maceio."
+ *
+ * O ESCRITORIO MANDOU O CASO: o gerente da matriz manda caixas para a Filial Maceio, e o
+ * gerente de Maceio precisa ver o que chegou para ELE. Marcando o gerente da matriz em
+ * "de quem ela ve os lancamentos", ele passava a ver TUDO o que aquela pessoa lanca —
+ * Joao Pessoa, Ceasa, Recife, Caruaru. A peneira que existia nao fazia a pergunta certa.
+ *
+ * AS DUAS PONTAS CONTAM, e isto e' decisao e nao comodidade: o gerente de Maceio recebe
+ * a carga (Maceio e' o DESTINO) e devolve a carga (Maceio e' a ORIGEM). Peneirando so'
+ * pelo destino, ele veria o que chegou e nao veria o proprio retorno — metade da
+ * operacao dele, e a metade que ele precisa conferir.
+ *
+ * VAZIA LIBERA, como toda lista de permissao deste projeto. Invertida, o dia do deploy
+ * deixaria todo usuario com a tela vazia e ninguem relacionaria isso com uma coluna
+ * nova.
+ *
+ * AS DUAS SE SOMAM, e a ordem nao importa: quem tiver as duas marcadas ve' os
+ * lancamentos DAQUELAS pessoas que passaram por AQUELES locais. */
+function recorteLocais(dados, usuario) {
+  var lista = Array.isArray(usuario && usuario.Unidades) ? usuario.Unidades : [];
+  if (!lista.length) return dados;
+  var querida = {};
+  lista.forEach(function (x) { querida[String(x)] = true; });
+  var copia = {};
+  Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
+  copia.movimentos = (dados.movimentos || []).filter(function (m) {
+    return querida[String(m.OrigemID)] || querida[String(m.DestinoID)];
+  });
+  return copia;
+}
+
+/* OS DOIS RECORTES DE LANCAMENTO, NUMA CHAMADA SO'.
+ *
+ * Eram duas peneiras para lembrar de por em sete rotas, e a esquecida numa delas e'
+ * exatamente o defeito que este projeto ja' cometeu: a rota `movimentos` passou meses
+ * sem recorte nenhum porque quem o mandava era a TELA, e a tela esquecia. Um motorista
+ * habilitado a ver so' os proprios lancamentos via a operacao inteira.
+ *
+ * Com uma chamada so', a rota nova nasce com as duas ou com nenhuma — e nenhuma se ve'
+ * na primeira olhada. Uma delas faltando nao se ve' nunca.
+ *
+ * A EXCECAO ESTA' DITA ONDE ELA MORA: `meusLancamentos` nao passa por aqui, porque
+ * aquela lista e' a da PROPRIA pessoa. Peneirada por unidade, um lancamento que ela
+ * mesma fez fora da unidade dela sumiria da tela dela. */
+function recorteLancamentos(dados, usuarios, quem) {
+  return recorteLocais(
+    recorteProprios(dados, idsVisiveis(usuarios, quem)),
+    acharUsuario(usuarios, quem));
+}
+
 /**
  * De quem esta pessoa vê os lançamentos — a lista pronta para o recorte.
  *
@@ -1177,6 +1233,7 @@ function sessaoDe(u) {
        os locais e a gravacao recusaria — a pessoa preenche o formulario inteiro para
        levar um nao no fim. */
     ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
+    unidades: Array.isArray(u.Unidades) ? u.Unidades : [],
     // As abas do painel do escritorio, mesma convencao.
     abas: Array.isArray(u.Abas) ? u.Abas : [],
     /* Painel restrito: entra no painel, mas so enxerga o que ela mesma lancou. Mantido
@@ -3506,6 +3563,7 @@ function usuariosPublicos(usuarios) {
       Veiculos: Array.isArray(u.Veiculos) ? u.Veiculos : [],
       Operacoes: Array.isArray(u.Operacoes) ? u.Operacoes : [],
       Ajustes: Array.isArray(u.Ajustes) ? u.Ajustes : [],
+      Unidades: Array.isArray(u.Unidades) ? u.Unidades : [],
       Abas: Array.isArray(u.Abas) ? u.Abas : []
     };
   });
@@ -3543,7 +3601,8 @@ module.exports = {
   PERFIS_DECLARACAO: PERFIS_DECLARACAO,
   podeAlterarDeclaracao: podeAlterarDeclaracao, barraDeclaracao: barraDeclaracao,
   acharUsuario: acharUsuario,
-  recorteProprios: recorteProprios, usuariosVistosDe: usuariosVistosDe,
+  recorteProprios: recorteProprios, recorteLocais: recorteLocais,
+  recorteLancamentos: recorteLancamentos, usuariosVistosDe: usuariosVistosDe,
   idsVisiveis: idsVisiveis, NINGUEM: NINGUEM, ativo: ativo, novoId: novoId, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   meuAcesso: meuAcesso,

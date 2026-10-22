@@ -247,7 +247,7 @@ var USUARIO = {
       TiposCaixa: lista(r.tipos_caixa), Motoristas: lista(r.motoristas),
       Veiculos: lista(r.veiculos),
       Operacoes: lista(r.operacoes), Abas: lista(r.abas),
-      Ajustes: lista(r.ajustes)
+      Ajustes: lista(r.ajustes), Unidades: lista(r.unidades)
     };
   },
   para: function (o) {
@@ -286,6 +286,7 @@ var USUARIO = {
     if (o.Operacoes !== undefined) r.operacoes = lista(o.Operacoes);
     if (o.Abas !== undefined) r.abas = lista(o.Abas);
     if (o.Ajustes !== undefined) r.ajustes = lista(o.Ajustes);
+    if (o.Unidades !== undefined) r.unidades = lista(o.Unidades);
     if (o.Destinos !== undefined) r.destinos = lista(o.Destinos);
     if (o.Retornos !== undefined) r.retornos = lista(o.Retornos);
     return r;

@@ -627,6 +627,7 @@ module.exports = [
   },
   {
     id: '2026-10-01-pode-corrigir',
+    nota: 'quem pode corrigir lancamento: a marca que faz o botao Corrigir sumir',
     sql: [
       "-- QUEM PODE CORRIGIR LANCAMENTO.",
       "--",
@@ -841,6 +842,31 @@ module.exports = [
       "comment on column public.fornecedores.placa is",
       "  'A placa do carro deste fornecedor, sem hifen e em caixa alta, como em",
       "   `veiculos`. Vazia quer dizer que a placa e digitada a cada lancamento.';"
+    ].join('\n')
+  },
+  {
+    id: '2026-10-21-usuarios-unidades',
+    nota: 'de que unidades esta pessoa ve os lancamentos: a peneira de POR ONDE a carga passou',
+    sql: [
+      "-- O GERENTE DA FILIAL VE A OPERACAO INTEIRA, e nao devia.",
+      "--",
+      "-- O caso que o escritorio mandou: o gerente da matriz manda caixas para a Filial",
+      "-- Maceio, e o gerente de Maceio precisa ver o que chegou para ELE. Marcando o",
+      "-- gerente da matriz em 'de quem ela ve os lancamentos', ele passava a ver TUDO o",
+      "-- que aquela pessoa lanca — Joao Pessoa, Ceasa, Recife, Caruaru. A peneira que",
+      "-- existia era de QUEM LANCOU, e a pergunta da filial e outra: POR ONDE PASSOU.",
+      "--",
+      "-- VAZIA LIBERA, como `abas`, `ajustes`, `saidas` e `destinos`: a convencao do",
+      "-- projeto, e a unica segura aqui. Invertida — vazia nao casando com nada —, esta",
+      "-- migracao deixaria TODO usuario sem lancamento nenhum na tela no instante em que",
+      "-- rodasse, e ninguem relacionaria a tela vazia com uma coluna nova.",
+      "alter table public.usuarios",
+      "  add column if not exists unidades text[] not null default '{}';",
+      "comment on column public.usuarios.unidades is",
+      "  'De que unidades esta pessoa ve os lancamentos: os ids dos locais cujo",
+      "   movimento ela enxerga, casando em QUALQUER das duas pontas. Vazia quer dizer",
+      "   todas. E a peneira de POR ONDE PASSOU, irma e nao substituta de",
+      "   `usuarios_vistos`, que e a de QUEM LANCOU.';"
     ].join('\n')
   }
 ];

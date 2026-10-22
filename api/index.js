@@ -137,10 +137,12 @@ async function rotaGet(p) {
          outro por quem lancou. O segundo sai do CADASTRO de quem pergunta — ver
          `idsVisiveis`. O pedido nao opina sobre o que quem o mandou pode ver. */
       /* E UM TERCEIRO: o LIVRO sai do cadastro de quem pergunta. `recorteTeste` logo
-         ao lado peneira pelo que a tela PEDIU; este peneira pelo que ela PODE. */
+         ao lado peneira pelo que a tela PEDIU; este peneira pelo que ela PODE.
+         E UM QUARTO, dentro de `recorteLancamentos`: POR ONDE A CARGA PASSOU. O gerente
+         da filial ve' so' o que toca a filial dele — ver `recorteLocais`. */
       return { ok: true, painel: L.painel(
                  L.recorteBases(
-                   L.recorteProprios(L.recorteTeste(d, p.teste), L.idsVisiveis(d.usuarios, p.quem)),
+                   L.recorteLancamentos(L.recorteTeste(d, p.teste), d.usuarios, p.quem),
                    L.acharUsuario(d.usuarios, p.quem)),
                  null, { de: p.de, ate: p.ate }) };
     /* O SALDO DE UM LUGAR, e mais nada. Ele fica FORA do recorte por pessoa, e isto e
@@ -162,7 +164,7 @@ async function rotaGet(p) {
          peneira e uma porta aberta esperando a primeira tela que a use. */
       return { ok: true, movimentos: L.pendentes(
                  L.recorteBases(
-                   L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)),
+                   L.recorteLancamentos(d, d.usuarios, p.quem),
                    L.acharUsuario(d.usuarios, p.quem)).movimentos,
                  d.locais, d.tipos) };
     case 'movimentos':
@@ -185,7 +187,7 @@ async function rotaGet(p) {
          tabela, nos cartoes e no saldo. */
       var quemPede = L.acharUsuario(d.usuarios, p.quem);
       var mov = L.semDeclaracao(L.recorteDeclaracao(
-        L.recorteBases(L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)), quemPede),
+        L.recorteBases(L.recorteLancamentos(d, d.usuarios, p.quem), quemPede),
         quemPede));
       /* OS DOIS CADASTROS DE GENTE VAO JUNTO: a lista mostra o APELIDO de quem
          dirigiu e o NOME do fornecedor como o cadastro os diz HOJE, com o texto
@@ -203,6 +205,9 @@ async function rotaGet(p) {
          tira TODA declaracao de quem nao tem a aba — inclusive a que a propria pessoa
          mandou —, entao a excecao do dono nunca chegava a ser consultada. Quem tem a
          aba ja podia ver; quem nao tem ve so a propria. */
+      /* E O RECORTE POR UNIDADE NAO ENTRA AQUI, de proposito: esta lista e' a da
+         PROPRIA pessoa. Peneirada por unidade, um lancamento que ela mesma fez fora da
+         unidade dela sumiria da tela dela — e ela nao teria onde procura-lo. */
       var baseMeus = L.recorteBases(
         L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)),
         L.acharUsuario(d.usuarios, p.quem));
@@ -231,7 +236,7 @@ async function rotaGet(p) {
         return { ok: false, erro: 'Escolha a base a comparar: ' +
                  L.MUNDOS.map(function (m) { return m.nome; }).join(' ou ') + '.' };
       }
-      var dConc = L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem));
+      var dConc = L.recorteLancamentos(d, d.usuarios, p.quem);
       return { ok: true, movimentos: L.listaMovimentos(
                  L.recorteMundos(dConc.movimentos, quaisMundos),
                  d.locais, d.tipos, d.usuarios, p, { motoristas: d.motoristas, fornecedores: d.fornecedores }) };
@@ -243,12 +248,12 @@ async function rotaGet(p) {
     case 'lixeira':
       return { ok: true, movimentos: L.listaLixeira(
                  L.recorteDeclaracao(
-                   L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)),
+                   L.recorteLancamentos(d, d.usuarios, p.quem),
                    L.acharUsuario(d.usuarios, p.quem)).movimentos,
                  d.locais, d.tipos, d.usuarios, p) };
     case 'extrato':
       return L.extrato(
-        L.recorteDeclaracao(L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)),
+        L.recorteDeclaracao(L.recorteLancamentos(d, d.usuarios, p.quem),
                             L.acharUsuario(d.usuarios, p.quem)),
         p.local, p.de, p.ate);
     case 'extratoToken':

@@ -84,6 +84,15 @@ var PERMISSOES = [
   { nome: 'UsuariosVistos', chave: 'UsuariosVistos', campo: 'fUsuariosVistos',
     sessao: 'usuariosVistos',
     usa: [['api/_logica.js', 'idsVisiveis'], ['api/_logica.js', 'usuariosVistosDe']] },
+  /* A IRMA DELA, e nao a substituta. `UsuariosVistos` pergunta QUEM LANCOU; esta
+     pergunta POR ONDE A CARGA PASSOU. O gerente da filial precisava da segunda:
+     marcando o gerente da matriz na primeira, ele passava a ver TUDO o que aquela
+     pessoa lanca, e nao so' o que veio para a filial dele.
+     QUEM USA E O SERVIDOR, como a de cima: o recorte sai do cadastro, e o pedido so'
+     diz QUEM pergunta. */
+  { nome: 'Unidades', chave: 'Unidades', campo: 'fUnidades', sessao: 'unidades',
+    usa: [['api/_logica.js', 'recorteLocais'],
+          ['api/_logica.js', 'recorteLancamentos']] },
   { nome: 'Operacoes', chave: 'Operacoes', campo: 'fOperacoes', sessao: 'operacoes',
     usa: [['index.html', 'operacoes']] },
   /* Em quais locais a pessoa mexe no saldo pela aba Ajustes. Nao entra em `Operacoes`

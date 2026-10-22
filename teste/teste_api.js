@@ -239,6 +239,18 @@ async function main() {
   ok(tabelas.migracoes.map((m) => m.id).join('|') === previstas.map((m) => m.id).join('|'),
     'aplicadas na ordem em que estão declaradas');
 
+  /* E TODA ENTRADA TEM AS TRES CHAVES. A `nota` e' a unica coisa que aparece no log da
+     Vercel quando uma migracao roda, e `nome` em vez de `nota` nao quebra nada: a
+     migracao aplica, e a linha do log sai "migracao aplicada: <id> — undefined". O
+     unico registro do que aconteceu com o banco fica ilegivel, e so' se descobre no dia
+     em que alguem for ler o log atras de um estrago. Eu escrevi `nome` e nenhuma prova
+     reclamou. */
+  const semChave = previstas.filter((m) => !m.id || !m.nota || !m.sql);
+  ok(!semChave.length,
+    'e toda migração declara `id`, `nota` e `sql` — sem a `nota`, a linha do log sai ' +
+    '"aplicada: <id> — undefined", e o único registro do que aconteceu com o banco ' +
+    'fica ilegível', semChave.map((m) => m.id || JSON.stringify(Object.keys(m))));
+
   const antes = tabelas.migracoes.length;
   await GET({ acao: 'ping' });
   await GET({ acao: 'dados' });
@@ -2489,6 +2501,106 @@ console.log('\n== painel restrito: so os proprios lancamentos ==');
     'e o original não é alterado — o recorte copia, senão a próxima chamada da mesma ' +
     'requisição já veria os dados mutilados');
 
+  /* ================= POR ONDE A CARGA PASSOU =================
+   *
+   * O ESCRITORIO MANDOU O CASO: o gerente da matriz manda caixas para a Filial Maceio, e
+   * o gerente de Maceio precisa ver o que chegou para ELE. Marcando o gerente da matriz
+   * em "de quem ela ve os lancamentos", ele passava a ver TUDO o que aquela pessoa
+   * lanca — Joao Pessoa, Ceasa, Recife, Caruaru. A peneira que existia era de QUEM
+   * LANCOU, e a pergunta da filial e outra.
+   *
+   * O CENARIO E O DA TELA, com as quatro linhas que separam as hipoteses: uma carga do
+   * Nestor para Maceio, uma do Nestor para OUTRA filial, o retorno do proprio
+   * Wellington, e uma viagem de terceiro que nao toca nenhum dos dois. */
+  const MOV_U = [
+    { ID: 'U-m1', UsuarioID: 'U-nestor', OrigemID: 'L-matriz', DestinoID: 'L-maceio' },
+    { ID: 'U-m2', UsuarioID: 'U-nestor', OrigemID: 'L-matriz', DestinoID: 'L-jp' },
+    { ID: 'U-m3', UsuarioID: 'U-well', OrigemID: 'L-maceio', DestinoID: 'L-matriz' },
+    { ID: 'U-m4', UsuarioID: 'U-outro', OrigemID: 'L-matriz', DestinoID: 'L-caruaru' }
+  ];
+  const dadosU = { movimentos: MOV_U, locais: [{ ID: 'L-matriz' }, { ID: 'L-maceio' }],
+                   tipos: [{ ID: 'T1' }] };
+  const ids = (d) => d.movimentos.map((m) => m.ID).join(',');
+
+  ok(ids(F.recorteLocais(dadosU, { Unidades: ['L-maceio'] })) === 'U-m1,U-m3',
+    'o gerente da filial v\u00ea s\u00f3 o que TOCA a filial dele \u2014 a carga que veio para ele e ' +
+    'o retorno que ele mandou, e nem uma linha de Jo\u00e3o Pessoa ou de Caruaru',
+    ids(F.recorteLocais(dadosU, { Unidades: ['L-maceio'] })));
+
+  /* AS DUAS PONTAS CONTAM, e esta e' a linha que prova: `U-m3` tem Maceio na ORIGEM.
+     Peneirando so' pelo destino, o gerente veria o que chegou e nao veria o proprio
+     retorno — metade da operacao dele, e a metade que ele precisa conferir. */
+  ok(ids(F.recorteLocais(dadosU, { Unidades: ['L-maceio'] })).indexOf('U-m3') >= 0,
+    'e as DUAS pontas contam: o retorno que SAIU de Macei\u00f3 tamb\u00e9m \u00e9 dele \u2014 s\u00f3 pelo ' +
+    'destino, ele veria o que chegou e n\u00e3o veria o pr\u00f3prio retorno');
+
+  /* DUAS UNIDADES na lista: quem cuida de duas casas ve' as duas. Com uma so' no
+     cenario, somar e sobrescrever a lista davam a mesma resposta. */
+  ok(ids(F.recorteLocais(dadosU, { Unidades: ['L-maceio', 'L-jp'] })) === 'U-m1,U-m2,U-m3',
+    'e quem cuida de DUAS casas v\u00ea as duas \u2014 a lista soma, n\u00e3o escolhe uma',
+    ids(F.recorteLocais(dadosU, { Unidades: ['L-maceio', 'L-jp'] })));
+
+  /* VAZIA LIBERA, como toda lista de permissao daqui. Invertida, o dia do deploy
+     deixaria TODO usuario com a tela vazia, e ninguem relacionaria isso com a coluna
+     nova. */
+  ok(F.recorteLocais(dadosU, { Unidades: [] }).movimentos.length === 4 &&
+     F.recorteLocais(dadosU, {}).movimentos.length === 4 &&
+     F.recorteLocais(dadosU, null).movimentos.length === 4,
+    'e sem unidade marcada ela v\u00ea a opera\u00e7\u00e3o inteira \u2014 invertido, o deploy esvaziaria ' +
+    'a tela de todo mundo e ningu\u00e9m ligaria isso a uma coluna nova');
+
+  ok(F.recorteLocais(dadosU, { Unidades: ['L-maceio'] }).locais.length === 2 &&
+     dadosU.movimentos.length === 4,
+    'o cadastro segue inteiro e o original n\u00e3o \u00e9 alterado \u2014 o recorte \u00e9 dos ' +
+    'LAN\u00c7AMENTOS, e copia em vez de mutilar o que a pr\u00f3xima chamada vai ler');
+
+  /* ---- AS DUAS PENEIRAS SE SOMAM ----
+   *
+   * E' por isso que elas viraram UMA chamada: eram duas para lembrar de por em sete
+   * rotas, e a esquecida numa delas e' o defeito que este projeto ja' cometeu — a rota
+   * `movimentos` passou meses sem recorte porque quem o mandava era a tela, e a tela
+   * esquecia. */
+  const USERS_U = [
+    { ID: 'U-well', Nome: 'Wellington', UsuariosVistos: ['U-nestor', 'U-well'],
+      Unidades: ['L-maceio'] },
+    { ID: 'U-nestor', Nome: 'Nestor' },
+    { ID: 'U-outro', Nome: 'Outro' }
+  ];
+  ok(ids(F.recorteLancamentos(dadosU, USERS_U, 'U-well')) === 'U-m1,U-m3',
+    'as duas peneiras se somam: Wellington v\u00ea os lan\u00e7amentos do Nestor QUE PASSARAM ' +
+    'por Macei\u00f3 \u2014 s\u00f3 pela de quem lan\u00e7ou, a de Jo\u00e3o Pessoa vinha junto',
+    ids(F.recorteLancamentos(dadosU, USERS_U, 'U-well')));
+
+  ok(ids(F.recorteLancamentos(dadosU, USERS_U, 'U-nestor')) === 'U-m1,U-m2,U-m3,U-m4',
+    'e quem n\u00e3o tem nenhuma das duas marcadas continua vendo a opera\u00e7\u00e3o inteira \u2014 ' +
+    'sem este controle, as provas acima passariam com uma fun\u00e7\u00e3o que esconde tudo de ' +
+    'todo mundo', ids(F.recorteLancamentos(dadosU, USERS_U, 'U-nestor')));
+
+  /* ---- E A FIACAO: A PECA EXISTE E ALGO CHEGA NELA ----
+   *
+   * E' a assinatura deste projeto. A funcao certa e nenhuma rota chamando-a nao quebra
+   * prova nenhuma que a chame direto. */
+  (function () {
+    var rotaU = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+    var sobrou = (rotaU.match(/L\.recorteProprios\(/g) || []).length;
+    /* SEIS: painel, pendentes, movimentos, conciliacao, lixeira e extrato. A conta e'
+       escrita de proposito — ela e' o tropeco que obriga quem acrescenta uma rota de
+       listagem a lembrar do recorte. */
+    ok((rotaU.match(/L\.recorteLancamentos\(/g) || []).length === 6,
+      'as rotas que listam lan\u00e7amento chamam `recorteLancamentos` \u2014 a pe\u00e7a existiria ' +
+      'e nada chegaria nela, e a filial seguiria vendo a opera\u00e7\u00e3o inteira',
+      (rotaU.match(/L\.recorteLancamentos\(/g) || []).length);
+    /* E SOBROU EXATAMENTE UMA, a de `meusLancamentos`, que fica de fora de proposito:
+       aquela lista e' a da PROPRIA pessoa, e peneirada por unidade um lancamento que ela
+       mesma fez fora da unidade dela sumiria da tela dela. */
+    ok(sobrou === 1 &&
+       rotaU.indexOf('L.recorteProprios(') > rotaU.indexOf("case 'meusLancamentos':") &&
+       rotaU.indexOf('L.recorteProprios(') < rotaU.indexOf("case 'conciliacao':"),
+      'e a \u00fanica que ficou com o recorte antigo \u00e9 a dos lan\u00e7amentos da PR\u00d3PRIA pessoa ' +
+      '\u2014 peneirada por unidade, um lan\u00e7amento que ela mesma fez fora da unidade dela ' +
+      'sumiria da tela dela, e ela n\u00e3o teria onde procur\u00e1-lo', sobrou);
+  })();
+
   /* DE QUEM A PESSOA VE OS LANCAMENTOS: decidido no CADASTRO, e nao no pedido.
    *
    * Antes quem montava o recorte era a tela: ela lia a permissao da sessao e a mandava
@@ -3727,7 +3839,8 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
       Saidas: ['a'], Destinos: ['b'], Retornos: ['r'],
       TiposCaixa: ['c'], Motoristas: ['d'],
       Veiculos: ['V1'],
-      Operacoes: ['SAIDA'], Abas: ['pgPainel'], Ajustes: ['L1'], SoProprios: true
+      Operacoes: ['SAIDA'], Abas: ['pgPainel'], Ajustes: ['L1'], Unidades: ['L1'],
+      SoProprios: true
     }])[0];
 
     ok(volta.SoProprios === true,
