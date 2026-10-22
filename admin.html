@@ -1168,6 +1168,16 @@
              engano sumia de toda tela do sistema, com a quantidade inteira no banco e
              nenhum caminho ate' ela. Nao e' de varias escolhas porque os tres estados
              se excluem: ou sem, ou com, ou so'. -->
+        <!-- O REGISTRO E A CARGA INTEIRA: R000349 sao as tres linhas daquela viagem,
+             uma por tipo de caixa. Ele nasceu do pedido "quando precisar excluir,
+             excluir todo o registro" — e por isso e um campo da GAVETA, e nao da busca
+             de cima: a busca peneira o que ja veio e nao chega ao "Apagar o que esta no
+             filtro"; este chega, porque e o mesmo filtro que lista.
+             TEXTO E NAO SELETOR: sao milhares de registros, e uma lista com todos nao se
+             rola. `escolhaDe` ja le input como le seletor de uma escolha so. -->
+        <div><label for="mvRegistro">Registro</label>
+          <input id="mvRegistro" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="R000349" aria-label="Registro da carga"></div>
         <div><label for="mvCancelados">Cancelados</label>
           <select id="mvCancelados">
             <option value="">Sem os cancelados</option>
@@ -8139,6 +8149,10 @@
       usuario: valorFiltro('mvUsuario'),
       motorista: valorFiltro('mvMotorista'),
       trecho:  valorFiltro('mvTrecho'),
+      /* ENTRA NO FILTRO QUE LISTA **E** APAGA. Era o pedido inteiro: achar a carga para
+         apagar a carga. Fora daqui, a tela mostraria as tres linhas de R000349 e o
+         apagar levaria o periodo inteiro. */
+      registro: valorFiltro('mvRegistro'),
       /* ENTRA NO FILTRO QUE LISTA **E** APAGA, como todos os outros. Fora daqui, a tela
          mostraria so' os cancelados e o "apagar o que esta no filtro" apagaria o recorte
          inteiro, cancelados e validos — um recorte maior do que o que esta a vista. */
@@ -8184,6 +8198,12 @@
       return partes(v).map(como).join(' ou ');
     }
     var p = [];
+    /* O REGISTRO ABRE A FRASE porque e' o recorte mais estreito de todos: quando ele
+       esta' posto, e' DELE que a pessoa esta' falando. E ele estar aqui nao e' enfeite —
+       o pedido foi "quando precisar excluir, excluir todo o registro", entao e' esta
+       frase que alguem le' antes de apagar uma carga inteira. */
+    if (f.registro) p.push('do registro <b>'+Q.esc(nomes(f.registro, function(x){
+      return String(x).toUpperCase(); }))+'</b>');
     if (f.usuario) p.push('lançados por <b>'+Q.esc(nomes(f.usuario, nomeUser))+'</b>');
     if (f.origem)  p.push('com origem <b>'+Q.esc(nomes(f.origem, nomeLocal))+'</b>');
     if (f.destino) p.push('com destino <b>'+Q.esc(nomes(f.destino, nomeLocal))+'</b>');
@@ -8272,7 +8292,7 @@
      que o filtro não funcionava. O botão fica como recarregar. */
   ['mvUnidade', 'mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa', 'mvStatus',
    'mvUsuario', 'mvMotorista', 'mvTrecho', 'mvTeste', 'mvCancelados', 'mvDe',
-   'mvAte'].forEach(function(id){
+   'mvAte', 'mvRegistro'].forEach(function(id){
     document.getElementById(id).addEventListener('change', carregarMovimentos);
   });
 
@@ -8367,6 +8387,7 @@
     Q.get(Q.lendo({acao:'movimentos', local:f.local, origem:f.origem, destino:f.destino,
            tipo:f.tipo, fluxo:f.fluxo, caixa:f.caixa, usuario:f.usuario, teste:f.teste,
            situacao:f.situacao, motorista:f.motorista, trecho:f.trecho,
+           registro:f.registro,
            cancelados:valorFiltro('mvCancelados'),
            de:f.de, ate:f.ate, limit:500}))
       .then(function(r){
@@ -8409,7 +8430,7 @@
    */
   var CAMPOS_MOV = ['mvUnidade','mvOrigem','mvDestino','mvFluxo','mvTipo','mvCaixa',
                     'mvStatus','mvUsuario','mvMotorista','mvTrecho','mvCancelados',
-                    'mvDe','mvAte'];
+                    'mvRegistro','mvDe','mvAte'];
 
   function rotuloDoCampo(id){
     var lab = document.querySelector('label[for="'+id+'"]');
@@ -12872,7 +12893,7 @@
    * é sempre esta, o que torna a outra uma mentira pregada no arquivo. */
   var FILTROS_MOV = {
     padrao: ['mvUnidade', 'mvOrigem', 'mvDestino', 'mvFluxo', 'mvTipo', 'mvCaixa',
-             'mvStatus', 'mvDe', 'mvAte', 'mvCancelados',
+             'mvStatus', 'mvDe', 'mvAte', 'mvRegistro', 'mvCancelados',
              'mvUsuario', 'mvMotorista', 'mvTeste'],
     kOrdem: 'qdc_ordem_filtros_mov_v1'
   };

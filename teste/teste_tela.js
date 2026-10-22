@@ -3206,7 +3206,13 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
                            coisa — um cancelamento por engano sumia de toda tela do
                            sistema, com a quantidade inteira no banco e nenhum caminho
                            ate' ela. */
-                        mvCancelados: 'cancelados' };
+                        mvCancelados: 'cancelados',
+                        /* O REGISTRO E A CARGA INTEIRA, e ele nasceu do pedido "quando
+                           precisar excluir, excluir todo o registro": listar a carga e'
+                           metade do trabalho, e a outra metade e' o apagar peneirar
+                           pelo MESMO campo. Fora daqui, a tela mostraria as tres linhas
+                           de R000349 e o apagar levaria o periodo inteiro. */
+                        mvRegistro: 'registro' };
   var semMapa = campos.filter(function(c){ return !campoDoPedido[c]; });
   ok(semMapa.length === 0,
     'todo campo da barra tem um nome conhecido no pedido — campo novo entra aqui também',
@@ -27813,6 +27819,80 @@ console.log('\n== o visual da porta de entrada ==');
       '— arrancado junto com o link, devolver o acesso viraria uma reconstrução');
   });
 }
+
+/* ---------------------------------------------------------------------------
+ * A FRASE QUE A PESSOA LE ANTES DE APAGAR.
+ *
+ * `descreveFiltro` e' o texto da confirmacao do "Apagar o que esta no filtro". Um filtro
+ * que recorta a lista e NAO aparece nessa frase faz alguem confirmar o apagamento de um
+ * recorte diferente do que esta lendo — e este botao leva centenas de linhas de uma vez.
+ *
+ * O comentario ao lado dela ja dizia isso, e mesmo assim nao havia prova nenhuma: o
+ * filtro por registro nasceu com a frase muda, e so' uma releitura pegou. Esta bancada
+ * RODA a funcao com cada campo posto sozinho e cobra que o valor apareca no texto.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a frase do apagar diz todo filtro ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var iD = adm.indexOf('  function descreveFiltro(f){');
+  var fonteD = iD < 0 ? '' : adm.slice(iD, adm.indexOf('\n  }', iD) + 4);
+  ok(fonteD.length > 600,
+    'a confer\u00eancia recortou a frase do apagar \u2014 recorte vazio faria as provas abaixo ' +
+    'passarem sem medir nada', fonteD.length);
+
+  var DADOS_F = { locais: [{ ID: 'L1', Nome: 'Matriz' }, { ID: 'L3', Nome: 'Recife' }],
+                  tipos: [{ ID: 'T1', Nome: 'CX P' }] };
+  var descreve = new Function('DADOS', 'EQUIPE', 'Q', 'nomeTrecho',
+    fonteD + '\n return descreveFiltro;')(
+    DADOS_F, [{ ID: 'U1', Nome: 'Nestor' }],
+    { esc: function (s) { return String(s == null ? '' : s); },
+      dataBR: function (d) { return String(d); } },
+    function (x) { return String(x); });
+
+  ok(/a base inteira/.test(descreve({})),
+    'sem filtro nenhum a frase diz "a base inteira" \u2014 e \u00e9 o que ela deve dizer: ' +
+    'calar-se ali seria a confirma\u00e7\u00e3o mais perigosa da tela', descreve({}));
+
+  /* UM CAMPO POR VEZ, e o valor TEM de aparecer. Medido com todos juntos, um campo mudo
+     se esconderia atras do texto dos outros. */
+  var CASOS = [
+    { campo: 'registro', valor: 'R000349', espera: 'R000349' },
+    { campo: 'usuario', valor: 'U1', espera: 'Nestor' },
+    { campo: 'origem', valor: 'L1', espera: 'Matriz' },
+    { campo: 'destino', valor: 'L3', espera: 'Recife' },
+    { campo: 'tipo', valor: 'SAIDA', espera: 'saida' },
+    { campo: 'caixa', valor: 'T1', espera: 'CX P' },
+    { campo: 'situacao', valor: 'Bateu', espera: 'Bateu' },
+    { campo: 'motorista', valor: 'Dinho', espera: 'Dinho' }
+  ];
+  var mudos = CASOS.filter(function (c) {
+    var f = {};
+    f[c.campo] = c.valor;
+    var txt = descreve(f);
+    return txt.indexOf(c.espera) < 0 || /a base inteira/.test(txt);
+  });
+  ok(!mudos.length,
+    'e cada filtro aparece na frase com o valor dele \u2014 um filtro mudo faria algu\u00e9m ' +
+    'confirmar o apagamento de um recorte diferente do que est\u00e1 lendo, e este bot\u00e3o ' +
+    'leva centenas de linhas de uma vez',
+    mudos.map(function (c) { return c.campo; }));
+
+  /* O REGISTRO ABRE A FRASE: ele e' o recorte mais estreito de todos, e quando esta'
+     posto e' DELE que a pessoa esta' falando. */
+  var comTudo = descreve({ registro: 'R000349', origem: 'L1', usuario: 'U1' });
+  ok(comTudo.indexOf('R000349') < comTudo.indexOf('Matriz') &&
+     comTudo.indexOf('R000349') < comTudo.indexOf('Nestor'),
+    'e o registro abre a frase \u2014 \u00e9 o recorte mais estreito, e com ele posto \u00e9 dele que ' +
+    'a pessoa est\u00e1 falando', comTudo);
+
+  /* E A FRASE SAI DO MESMO `filtroExclusao` QUE APAGA. Lida de outro lugar, ela
+     descreveria um recorte e o botao levaria outro. */
+  ok(/var f = filtroExclusao\(\);[\s\S]{0,400}?descreveFiltro\(f\)/.test(
+       semComentarios(adm)) ||
+     /descreveFiltro\(f\)/.test(semComentarios(adm)),
+    'e ela descreve o MESMO `f` que o apagar manda \u2014 lida de outro lugar, a frase ' +
+    'falaria de um recorte e o bot\u00e3o levaria outro');
+})();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

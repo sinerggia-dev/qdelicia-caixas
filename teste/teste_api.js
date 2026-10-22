@@ -4834,6 +4834,62 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'na mesma chave, e a nova n\u00e3o pode ter apagado a antiga',
     Fl.rotuloCiclo(declForn[0], Fl.cicloDaCarga(declForn)['SF-Geraldo']));
 
+  /* ================= O REGISTRO E A CARGA INTEIRA ============================
+   *
+   * O escritorio pediu: "quando precisar excluir, excluir todo o registro". Um registro
+   * e' a CARGA — R000349 sao as tres linhas daquela viagem, uma por tipo de caixa —, e
+   * ate aqui nao havia como peneirar por ele: quem precisava apagar uma carga achava as
+   * linhas dela no meio de centenas e apagava uma a uma, com a chance de levar a de
+   * outra viagem junto.
+   *
+   * O CENARIO TEM DUAS CARGAS E UMA LINHA SOLTA, de proposito: com uma carga so', filtrar
+   * e nao filtrar dao a mesma resposta. */
+  const MOV_R = [
+    { ID: 'R-a1', Registro: 'R000349', Tipo: 'SAIDA', OrigemID: 'L001',
+      DestinoID: 'L003', TipoCaixaID: 'T001', Qtd: 10, DataRef: new Date(2026, 9, 20),
+      DataHora: new Date(2026, 9, 20) },
+    { ID: 'R-a2', Registro: 'R000349', Tipo: 'SAIDA', OrigemID: 'L001',
+      DestinoID: 'L003', TipoCaixaID: 'T002', Qtd: 20, DataRef: new Date(2026, 9, 20),
+      DataHora: new Date(2026, 9, 20) },
+    { ID: 'R-b1', Registro: 'R000350', Tipo: 'SAIDA', OrigemID: 'L001',
+      DestinoID: 'L003', TipoCaixaID: 'T001', Qtd: 30, DataRef: new Date(2026, 9, 20),
+      DataHora: new Date(2026, 9, 20) },
+    { ID: 'R-c1', Registro: '', Tipo: 'SAIDA', OrigemID: 'L001', DestinoID: 'L003',
+      TipoCaixaID: 'T001', Qtd: 40, DataRef: new Date(2026, 9, 20),
+      DataHora: new Date(2026, 9, 20) }
+  ];
+  const LOC_R = [{ ID: 'L001', Nome: 'Matriz' }, { ID: 'L003', Nome: 'Recife' }];
+  const TIP_R = [{ ID: 'T001', Nome: 'CX P' }, { ID: 'T002', Nome: 'CX G' }];
+  const porReg = (r) => Fl.listaMovimentos(MOV_R, LOC_R, TIP_R, [], { registro: r },
+    { motoristas: [], fornecedores: [] }).map((m) => m.id).sort().join(',');
+
+  ok(porReg('R000349') === 'R-a1,R-a2',
+    'o filtro por registro traz a CARGA inteira, e s\u00f3 ela \u2014 as duas linhas de R000349, ' +
+    'sem a de R000350 nem a que n\u00e3o tem registro', porReg('R000349'));
+
+  ok(porReg('') === 'R-a1,R-a2,R-b1,R-c1',
+    'e vazio n\u00e3o filtra nada \u2014 a conven\u00e7\u00e3o da casa, e a \u00fanica segura: invertida, abrir ' +
+    'a tela sem digitar nada devolveria zero linhas', porReg(''));
+
+  ok(porReg('r000349') === 'R-a1,R-a2',
+    'e em caixa baixa acha a mesma carga \u2014 o registro se escreve com R mai\u00fasculo, e ' +
+    'quem digita "r000349" quer a mesma coisa: sem isto a tela devolveria vazio e a ' +
+    'pessoa concluiria que a carga n\u00e3o existe', porReg('r000349'));
+
+  ok(porReg('  R000349  ') === 'R-a1,R-a2',
+    'e com espa\u00e7o em volta tamb\u00e9m \u2014 um registro copiado de outra tela vem com eles',
+    porReg('  R000349  '));
+
+  ok(porReg('R000349|R000350') === 'R-a1,R-a2,R-b1',
+    'e aceita v\u00e1rios colados por "|", como todo filtro desta tela',
+    porReg('R000349|R000350'));
+
+  /* POR INTEIRO, E NAO POR PEDACO. Quem digita o registro sabe qual quer, e uma busca
+     por pedaco aqui poria dez viagens na mira de um botao que APAGA. */
+  ok(porReg('R0003') === '',
+    'e "R0003" n\u00e3o casa com nada \u2014 a compara\u00e7\u00e3o \u00e9 por INTEIRO: por peda\u00e7o, um registro ' +
+    'pela metade poria dez cargas na mira de um bot\u00e3o que apaga', porReg('R0003'));
+
   /* ================= DE QUEM E' A CARGA: UMA RESPOSTA SO' =====================
    *
    * O GALPAO MANDOU ESTA: "Geraldo" e "Geraldo Fonseca" lado a lado na lista de

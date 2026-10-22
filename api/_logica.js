@@ -2679,6 +2679,32 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p, cad) {
        a comparacao e de texto mesmo — e por isso ela e exata, e nao "contem": "Chico"
        nao pode trazer "Francisco Chico" junto sem ninguem ter pedido. */
     if (!casa(p.motorista, m.Motorista || '')) return false;
+    /* ================= O REGISTRO E A CARGA INTEIRA =================
+     *
+     * O escritorio pediu: "quando precisar excluir, excluir todo o registro". Um
+     * registro e' a CARGA — R000349 sao as tres linhas daquela viagem, uma por tipo de
+     * caixa —, e ate aqui nao havia como peneirar por ele. Quem precisava apagar uma
+     * carga tinha de achar as linhas dela no meio de centenas e apagar uma a uma, com a
+     * chance de levar a de outra viagem junto.
+     *
+     * ENTRA NA MESMA FUNCAO QUE LISTA, e e' isso que faz o "apagar o que esta no filtro"
+     * apagar exatamente o que a tela mostra. Escrito so' na tela, ele peneiraria a
+     * lista e NAO o apagar — e o pior desfecho possivel para aquele botao e' apagar um
+     * recorte maior do que o que esta a vista.
+     *
+     * COMPARADO POR INTEIRO, e nao por pedaco: "R0003" nao pode casar com dez cargas.
+     * Quem digita o registro sabe qual quer, e uma busca por pedaco aqui poria dez
+     * viagens na mira de um botao que apaga.
+     *
+     * EM CAIXA ALTA dos dois lados: o registro e' escrito com R maiusculo, e quem
+     * digita "r000349" quer a mesma carga. Sem isto a tela devolveria vazio e a pessoa
+     * concluiria que a carga nao existe.
+     *
+     * E ACEITA VARIOS, colados por "|", como todo filtro desta tela. */
+    if (String(p.registro == null ? '' : p.registro).trim()) {
+      var regs = escolhidos(String(p.registro).toUpperCase());
+      if (regs.indexOf(String(m.Registro || '').trim().toUpperCase()) < 0) return false;
+    }
     /* O TRECHO e o par de pontas SEM direcao: "Matriz -> Joao Pessoa" e "Joao Pessoa ->
        Matriz" sao a mesma perna da operacao vista dos dois lados, e e assim que o
        grafico agrupa. Vem como dois ids separados por "|", em qualquer ordem — ordenar

@@ -838,6 +838,11 @@ async function limparMovimentos(p) {
     local: p.local, origem: p.origem, destino: p.destino,
     tipo: p.tipo, fluxo: p.fluxo, caixa: p.caixa, usuario: p.usuario, teste: p.teste,
     situacao: p.situacao, motorista: p.motorista, trecho: p.trecho,
+    /* O REGISTRO VIAJA JUNTO, e ele e' justamente o motivo de este filtro existir: o
+       pedido foi "quando precisar excluir, excluir todo o registro". Esquecido aqui, a
+       tela mostraria as tres linhas de uma carga e o apagar levaria as quinhentas do
+       periodo — o recorte maior do que o que esta a vista. */
+    registro: p.registro,
     /* O RECORTE DE CANCELADOS VIAJA JUNTO, como todos os outros: a tela pode estar
        mostrando SO' os cancelados, e sem este campo o apagar leria a lista sem eles —
        apagando um conjunto diferente do que esta a vista, que e' o pior desfecho
