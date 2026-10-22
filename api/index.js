@@ -101,6 +101,12 @@ async function rotaGet(p) {
          sem telefone, sem documento —, justamente porque viaja por esta rota, que e
          publica. O que a tela de lancamento precisa e so o nome. */
       return { ok: true, locais: d.locais, tipos: d.tipos, config: configPublica(d.config),
+               /* O SINAL, E NAO O SEGREDO: um sim ou nao sobre a senha ter sido
+                  trocada. `configPublica` tira toda chave que parece segredo, e e' por
+                  isso que a resposta vem por fora dela — pela config, ou a senha
+                  vazaria junto, ou a tela nao teria como avisar que a de fabrica
+                  continua valendo. */
+               senhaOperacoesTrocada: senhaDeOperacoesTrocada(d.config),
                motoristas: L.motoristasPublicos(d.motoristas),
                veiculos: L.veiculosPublicos(d.veiculos),
                fornecedores: d.fornecedores };
@@ -1274,6 +1280,21 @@ function conferirSenhaCorrecao(digitada, config) {
 /* NADA QUE PAREÇA SEGREDO SAI NA ROTA `dados`, que é pública e sem autorização nenhuma.
    A peneira é pelo NOME e não por uma lista: chave de segredo criada amanhã sai por
    omissão, em vez de vazar até alguém lembrar de acrescentá-la aqui. */
+/* A SENHA DAS OPERACOES PROTEGIDAS JA FOI TROCADA?
+ *
+ * UM SIM OU NAO, e nunca a senha nem o hash dela. A tela precisa saber isto por uma
+ * razao so': enquanto ninguem trocar, vale a senha de fabrica — que esta' escrita neste
+ * arquivo, em texto, e e' publica para quem abrir o repositorio. Quem administra tem de
+ * VER isso na tela, e nao descobrir lendo codigo.
+ *
+ * E A RESPOSTA E DERIVADA DO HASH, e nao de uma marca propria: uma marca a parte
+ * divergiria do estado real no dia em que a senha fosse gravada por outro caminho — e a
+ * tela diria "trocada" com a de fabrica ainda valendo, que e' a mentira mais cara que
+ * esta tela poderia contar. */
+function senhaDeOperacoesTrocada(config) {
+  return senha.temHash((config || {}).senhaCorrecao);
+}
+
 function configPublica(config) {
   var fora = {};
   Object.keys(config || {}).forEach(function (k) {
@@ -1312,6 +1333,10 @@ async function salvarConfig(p) {
      `config` lê a senha que destranca a correção de qualquer lançamento. */
   if (/senha/i.test(chave)) {
     var nova = String(valor == null ? '' : valor);
+    /* A GUARDA E REDUNDANTE, e fica. `senha.gerar` ja estoura com menos de seis — o que
+       esta linha acrescenta e' a FRASE: sem ela, quem troca a senha recebe "Falha no
+       servidor" no lugar de "precisa de pelo menos 6 caracteres", e nao tem como saber
+       o que fazer. Ha bancada medindo a MENSAGEM, e nao so' a recusa. */
     if (nova.length < 6) return { ok: false, erro: 'A senha precisa de pelo menos 6 caracteres.' };
     valor = senha.gerar(nova);
   }

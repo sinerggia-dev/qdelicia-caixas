@@ -1276,8 +1276,18 @@ async function main() {
       'porque o dia da operação conta no fuso do Nordeste, e não no do servidor',
       F.diaDaOperacao(new Date('2026-09-18T01:30:00Z')));
 
-    ok((await POST({ acao: 'salvarConfig', chave: 'senhaCorrecao', valor: 'curta' })).ok === false,
-      'senha curta é recusada, como a de qualquer pessoa');
+    /* A MENSAGEM, E NAO SO O `ok === false`. `senha.gerar` ja ESTOURA com menos de seis
+       caracteres, entao a recusa acontece com ou sem a guarda da rota — e esta prova
+       passava pelos dois caminhos. O que a guarda acrescenta e' a FRASE: sem ela, quem
+       troca a senha recebe um erro de sistema no lugar de "precisa de pelo menos 6
+       caracteres", e nao tem como saber o que fazer.
+       Medido: tirei a guarda e esta prova continuou verde. */
+    const curta = await POST({ acao: 'salvarConfig', chave: 'senhaCorrecao',
+                               valor: 'curta' });
+    ok(curta.ok === false && /pelo menos 6/.test(curta.erro || ''),
+      'senha curta é recusada COM a frase que diz o que fazer — `senha.gerar` já ' +
+      'estoura sozinha, e sem a guarda da rota quem troca recebe um erro de sistema no ' +
+      'lugar da instrução', curta.erro);
     ok((await POST({ acao: 'salvarConfig', chave: 'senhaCorrecao', valor: 'trocada9' })).ok,
       'e a senha do conserto se troca pela configuração');
 
@@ -1287,6 +1297,20 @@ async function main() {
        A conferência vem DEPOIS de cadastrar a senha, de propósito: antes disso não havia
        chave nenhuma com esse nome no `config`, e a afirmação passava sem medir nada. */
     const dd = await GET({ acao: 'dados' });
+    /* E O SINAL CHEGA NA TELA. A peça existia e nada chegava nela: uma sabotagem que
+       tirou o campo da resposta passou batida, e o efeito seria o aviso de "a senha
+       ainda é a de fábrica" mudo para sempre — justamente o aviso que existe para
+       dizer que a senha atual é pública.
+       MEDIDO DEPOIS DE TROCAR, que é quando ele tem de dizer `true`: antes disso um
+       campo ausente e um `false` dão a mesma resposta, e a prova não separaria as
+       duas. */
+    ok(dd.senhaOperacoesTrocada === true,
+      'e a resposta pública diz SE a senha já foi trocada — sem esse sinal, o aviso de ' +
+      'que a senha ainda é a de fábrica fica mudo para sempre, e ele é o único lugar ' +
+      'que conta que a senha atual é pública', dd.senhaOperacoesTrocada);
+    ok(JSON.stringify(dd).indexOf('s1$') < 0,
+      'e o HASH dela não vai junto — a rota `dados` é pública e sem autorização ' +
+      'nenhuma, e mandar o hash seria entregar a fechadura a quem perguntasse as horas');
     ok(tabelas.config.some((r) => r.chave === 'senhaCorrecao'),
       'a senha está mesmo guardada — senão a conferência abaixo não mede nada');
     ok(JSON.stringify(dd.config || {}).toLowerCase().indexOf('senha') < 0,

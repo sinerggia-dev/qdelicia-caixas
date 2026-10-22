@@ -28084,5 +28084,80 @@ console.log('\n== o campo Fornecedor Filial ==');
 })();
 
 
+/* ---------------------------------------------------------------------------
+ * A SENHA DAS OPERACOES PROTEGIDAS, e o lugar onde ela se troca.
+ *
+ * Ela existia desde sempre e NAO HAVIA ONDE TROCA-LA: a rota `salvarConfig` aceitava a
+ * chave, e nenhuma tela a chamava. Enquanto ninguem trocasse, valia a de fabrica —
+ * escrita no codigo, em texto, publica para quem abrisse o repositorio. Nao ha como
+ * "ter controle" sobre uma senha que nao se pode ver nem mudar.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a senha das operacoes protegidas ==');
+(function () {
+  var admS = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* O CAMINHO EXISTE, E E O DA ROTA QUE JA GUARDAVA A CHAVE. Uma rota propria seria uma
+     segunda forma de gravar a mesma coisa, e a primeira a mudar levaria a outra junto. */
+  ok(/acao:'salvarConfig', chave:'senhaCorrecao', valor:v/.test(admS),
+    'a tela troca a senha pela MESMA rota que já guardava a chave — uma rota própria ' +
+    'seria uma segunda forma de gravar a mesma coisa');
+
+  /* OS DOIS CAMPOS, e a conferencia da repeticao mora na TELA: o servidor recebe uma
+     senha so', e nao tem como saber se quem digitou errou duas vezes igual ou uma vez
+     diferente. */
+  var iT = admS.indexOf('function trocarSenhaDasOperacoes()');
+  var fnT = iT > 0 ? admS.slice(iT, admS.indexOf('\n  }', iT)) : '';
+  ok(fnT.length > 400 && /senhaOpNova/.test(fnT) && /senhaOpRepete/.test(fnT),
+    'a conferência recortou a troca, com os dois campos — recorte vazio faria as provas ' +
+    'abaixo passarem sem medir nada', fnT.length);
+  ok(/v !== String\(rep\.value/.test(fnT),
+    'e as duas digitações têm de bater — o servidor recebe UMA senha, e não tem como ' +
+    'saber se quem digitou errou duas vezes igual ou uma vez diferente');
+  ok(/v\.length < 6/.test(fnT),
+    'e o tamanho mínimo é conferido aqui também — não para substituir a guarda do ' +
+    'servidor, mas para a pessoa descobrir o problema antes de mandar');
+
+  /* OS CAMPOS SAO LIMPOS, certa ou errada a tentativa: uma senha esquecida num campo de
+     uma tela que fica aberta o dia inteiro e' a mesma senha num bilhete na mesa. */
+  ok(/nova\.value = ''; rep\.value = '';/.test(fnT),
+    'e os dois campos são limpos depois de trocar — uma senha esquecida num campo de ' +
+    'uma tela que fica aberta o dia inteiro é a mesma senha num bilhete em cima da mesa');
+
+  /* O AVISO E O MAIS IMPORTANTE DO BLOCO, e nao o campo: um campo de troca nao diz que
+     a senha ATUAL e' publica. */
+  var iA = admS.indexOf('function pintarAvisoSenhaOp()');
+  var fnA = iA > 0 ? admS.slice(iA, admS.indexOf('\n  }', iA)) : '';
+  ok(/p\\u00fablica|pública/.test(fnA) && /f\\u00e1brica|fábrica/.test(fnA),
+    'e enquanto a senha for a de fábrica a tela diz que ela é PÚBLICA — um campo de ' +
+    'troca sozinho não conta isso, e quem administra descobriria lendo código', fnA.length);
+  ok(/DADOS && DADOS\.senhaOperacoesTrocada/.test(fnA),
+    'e o aviso sai do que o SERVIDOR respondeu, e não de uma marca da tela — a tela não ' +
+    'tem como saber se alguém trocou a senha por outro caminho');
+
+  /* E A LISTA DO QUE ELA PROTEGE FICA A VISTA: controlar uma senha sem saber o que ela
+     destranca e' decidir no escuro. */
+  var bloco = admS.slice(admS.indexOf('data-cad="senhaOperacoes"'),
+                         admS.indexOf('data-cad="usuarios"'));
+  ok(/corrigir/i.test(bloco) && /restaurar/i.test(bloco) && /carga/i.test(bloco),
+    'e o bloco diz QUAIS operações a senha destranca — controlá-la sem saber o que ela ' +
+    'abre é decidir no escuro', bloco.length);
+
+  /* ---- E O SEGREDO NUNCA SAI DO SERVIDOR ----
+   *
+   * E a afirmacao mais cara deste bloco: a rota `dados` e' publica e sem autorizacao
+   * nenhuma. Mandar o hash junto com o sinal seria entregar a fechadura para quem
+   * perguntasse as horas. */
+  var idxApi = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  var iS = idxApi.indexOf('function senhaDeOperacoesTrocada(config)');
+  var fnS = iS > 0 ? idxApi.slice(iS, idxApi.indexOf('\n}', iS)) : '';
+  ok(/return senha\.temHash\(/.test(fnS),
+    'o sinal é derivado do HASH, e não de uma marca própria — uma marca à parte ' +
+    'divergiria do estado real, e a tela diria "trocada" com a de fábrica ainda valendo',
+    fnS);
+  ok(fnS.indexOf('senhaCorrecao') > 0 && !/return .*config.*senhaCorrecao *;/.test(fnS),
+    'e ele devolve um SIM ou NÃO, e nunca a senha nem o hash dela — a rota `dados` é ' +
+    'pública e sem autorização nenhuma', fnS);
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

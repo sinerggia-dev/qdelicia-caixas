@@ -1723,6 +1723,39 @@
       <h2>Pedidos de senha<span class="sub">Quem não conseguiu entrar no painel e pediu ajuda. Redefina em Usuários → editar → Senha.</span></h2>
       <div id="tabelaPedidos"></div>
     </div>
+    <!-- A SENHA DAS OPERACOES PROTEGIDAS.
+         Ela existe desde sempre e NAO HAVIA ONDE TROCA-LA: a rota aceitava, e nenhuma
+         tela chamava. Enquanto ninguem trocasse, valia a de fabrica — escrita no codigo,
+         em texto, publica para quem abrisse o repositorio. Quem administra tinha de
+         descobrir isso lendo codigo.
+         FICA EM CADASTROS porque e' aqui que mora o "quem pode o que": usuarios, perfis,
+         abas e locais. Uma pagina propria para um campo so' seria uma pagina que ninguem
+         encontra.
+         E A LISTA DO QUE ELA PROTEGE FICA A VISTA: controlar uma senha sem saber o que
+         ela destranca e' decidir no escuro. -->
+    <div class="card" data-cad="senhaOperacoes" style="border-left:3px solid var(--ambar)">
+      <h2>Senha das opera\u00e7\u00f5es protegidas<span class="sub">Uma senha s\u00f3, do
+        escrit\u00f3rio, pedida nas tr\u00eas opera\u00e7\u00f5es que reescrevem o que j\u00e1 foi lan\u00e7ado:
+        <b>corrigir</b> um lan\u00e7amento fora da janela livre, <b>corrigir a carga
+        inteira</b>, e <b>restaurar</b> o que foi cancelado ou exclu\u00eddo.</span></h2>
+      <div id="avisoSenhaOp"></div>
+      <div class="grid2">
+        <div>
+          <label for="senhaOpNova">Senha nova</label>
+          <input id="senhaOpNova" type="password" autocomplete="new-password"
+                 minlength="6" placeholder="pelo menos 6 caracteres">
+        </div>
+        <div>
+          <label for="senhaOpRepete">Repita a senha nova</label>
+          <input id="senhaOpRepete" type="password" autocomplete="new-password"
+                 minlength="6">
+        </div>
+      </div>
+      <div class="linha-btn">
+        <button class="btn" id="btnSenhaOp" style="flex:0;min-width:180px">Trocar a senha</button>
+      </div>
+      <div id="erroSenhaOp"></div>
+    </div>
     <div class="card" data-cad="usuarios">
       <!-- A EXPLICAÇÃO SÓ NO COMPUTADOR. No celular ela são quatro linhas antes da
            lista, e o que ela ensina — "a pessoa entra com o usuário" — cada cartão já
@@ -11430,6 +11463,10 @@
     return x ? x.Nome : String(id||'');
   }
   function desenharCadastros(){
+    /* O AVISO DA SENHA SE REPINTA JUNTO COM O RESTO DA TELA, e nao num ouvinte proprio:
+       e' daqui que os cadastros nascem, e um ouvinte a parte ficaria para tras no dia em
+       que a montagem mudasse. */
+    pintarAvisoSenhaOp();
     var locais = Q.ordenarLocais(DADOS.locais||[]);
     document.getElementById('tabelaLocais').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Ativo</th><th class="col-acoes"></th></tr></thead><tbody>'+
@@ -12570,6 +12607,84 @@
       });
     });
   }
+
+  /* ================= A SENHA DAS OPERACOES PROTEGIDAS =================
+   *
+   * ELA EXISTIA E NAO HAVIA ONDE TROCA-LA. A rota `salvarConfig` aceitava a chave desde
+   * sempre, e nenhuma tela a chamava: enquanto ninguem trocasse, valia a de fabrica —
+   * escrita no codigo, em texto, publica para quem abrisse o repositorio. Quem
+   * administra tinha de descobrir isso lendo codigo, e nao ha como "ter controle" sobre
+   * uma senha que nao se pode ver nem mudar.
+   *
+   * O AVISO E O MAIS IMPORTANTE DESTE BLOCO, e nao o campo: um campo de troca nao diz
+   * que a senha atual e' publica. O aviso diz, em ambar, toda vez que a tela abre, ate'
+   * alguem trocar. */
+  function pintarAvisoSenhaOp(){
+    var box = document.getElementById('avisoSenhaOp');
+    if (!box) return;
+    var trocada = !!(DADOS && DADOS.senhaOperacoesTrocada);
+    box.innerHTML = trocada
+      ? '<div class="aviso-box ok">\u2713 A senha j\u00e1 foi trocada. Ela \u00e9 guardada em ' +
+        'c\u00f3digo embaralhado \u2014 nem o escrit\u00f3rio consegue l\u00ea-la de volta, s\u00f3 definir ' +
+        'outra.</div>'
+      : '<div class="aviso-box atencao">\u26a0 Esta senha ainda \u00e9 a de f\u00e1brica, e ela \u00e9 ' +
+        '<b>p\u00fablica</b>: est\u00e1 escrita no c\u00f3digo do sistema. Enquanto n\u00e3o for trocada, ' +
+        'qualquer pessoa que a conhe\u00e7a corrige e restaura lan\u00e7amento de qualquer dia.' +
+        '</div>';
+  }
+
+  function trocarSenhaDasOperacoes(){
+    var nova = document.getElementById('senhaOpNova');
+    var rep = document.getElementById('senhaOpRepete');
+    var erro = document.getElementById('erroSenhaOp');
+    var bt = document.getElementById('btnSenhaOp');
+    function dizer(m){
+      erro.innerHTML = m ? '<div class="aviso-box erro">'+Q.esc(m)+'</div>' : '';
+    }
+    var v = String(nova.value || '');
+    /* AS DUAS CONFERENCIAS SAO DA TELA, e o servidor repete a do tamanho. Aqui elas
+       existem para a pessoa descobrir o problema ANTES de mandar — e a da repeticao so'
+       pode morar aqui: o servidor recebe uma senha so', e nao tem como saber se quem
+       digitou errou duas vezes igual ou uma vez diferente. */
+    if (v.length < 6) { dizer('A senha precisa de pelo menos 6 caracteres.'); nova.focus(); return; }
+    if (v !== String(rep.value || '')) {
+      dizer('As duas n\u00e3o batem. Digite a mesma senha nos dois campos.');
+      rep.focus(); return;
+    }
+    dizer('');
+    bt.disabled = true; bt.textContent = 'Trocando\u2026';
+    Q.post({ acao:'salvarConfig', chave:'senhaCorrecao', valor:v }).then(function(r){
+      bt.disabled = false; bt.textContent = 'Trocar a senha';
+      if (!r.ok) { dizer(r.erro); return; }
+      /* OS DOIS CAMPOS SAO LIMPOS, certa ou errada a tentativa: uma senha esquecida num
+         campo de uma tela que fica aberta o dia inteiro e' a mesma senha num bilhete em
+         cima da mesa. */
+      nova.value = ''; rep.value = '';
+      /* E A MARCA LOCAL ACOMPANHA, para o aviso virar na hora. Sem isto a tela
+         continuaria dizendo "ainda e' a de fabrica" ate' alguem recarregar — e quem
+         trocou concluiria que a troca nao pegou. */
+      if (DADOS) DADOS.senhaOperacoesTrocada = true;
+      pintarAvisoSenhaOp();
+      Q.toast('Senha trocada. Ela vale a partir de agora.','ok');
+    }).catch(function(e){
+      bt.disabled = false; bt.textContent = 'Trocar a senha';
+      dizer('N\u00e3o deu para trocar agora: '+(e && e.message ? e.message : 'sem conex\u00e3o')+'.');
+    });
+  }
+
+  (function(){
+    var bt = document.getElementById('btnSenhaOp');
+    if (!bt) return;
+    bt.addEventListener('click', trocarSenhaDasOperacoes);
+    /* ENTER MANDA, nos dois campos: um formulario de dois campos em que so' o botao
+       funciona e' um formulario que se usa errado uma vez por pessoa. */
+    ['senhaOpNova','senhaOpRepete'].forEach(function(id){
+      document.getElementById(id).addEventListener('keydown', function(e){
+        if (e.key === 'Enter') trocarSenhaDasOperacoes();
+      });
+    });
+    Q.olhosDeSenha(document.getElementById('avisoSenhaOp').parentNode);
+  })();
 
   function desenharUsuarios(digitando){
     var box = document.getElementById('tabelaUsuarios');
