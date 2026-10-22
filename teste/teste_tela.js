@@ -28531,7 +28531,7 @@ console.log('\n== a senha das operacoes protegidas ==');
        objeto reprovaria essa e aprovaria as outras duas por sorte. */
     var pedidosNaTela = (admS.match(/pedirSenhaDe\('([a-zA-Z]+)'/g) || [])
       .map(function (s) { return s.slice(14, -1); });
-    ['excluir', 'apagarFiltro', 'excluirCadastro'].forEach(function (idOp) {
+    ['excluir', 'excluirCadastro'].forEach(function (idOp) {
       ok(pedidosNaTela.indexOf(idOp) >= 0,
         'e a opera\u00e7\u00e3o `' + idOp + '` \u2014 que n\u00e3o pedia senha nenhuma at\u00e9 agora \u2014 tem ' +
         'onde digitar na tela: foi uma destas tr\u00eas que o escrit\u00f3rio apontou, e a rota ' +
@@ -28542,6 +28542,55 @@ console.log('\n== a senha das operacoes protegidas ==');
       'e a tela pede por ids que existem \u2014 um id torto aqui n\u00e3o estoura: a janela abre ' +
       'com o id cru no lugar do nome da opera\u00e7\u00e3o, e quem digita n\u00e3o sabe qual senha ' +
       'est\u00e1 sendo pedida', pedidoTorto);
+    /* ---- E `apagarFiltro` PEDE A DELA NO PROPRIO FORMULARIO ----
+     *
+     * ELA ESTAVA NUMA JANELA QUE SO ABRIA DEPOIS DO BOTAO, e esta e' a tela que ja'
+     * tinha um campo de senha a vista — o do LOGIN. Quem acabou de cadastrar a senha da
+     * opera\u00e7\u00e3o digitava a nova no campo que estava vendo e levava "Usu\u00e1rio ou senha
+     * incorretos", que e' a resposta da rota do login: a senha certa, no campo errado,
+     * com uma mensagem que acusa a pessoa. Duas senhas escondendo uma delas e' pior do
+     * que duas senhas.
+     * MEDIDO EM TRES PONTOS, porque o defeito pode voltar por qualquer um: o campo
+     * existe, ele e' lido, e o que foi lido chega no pedido. */
+    var iLimpa2 = admS.indexOf("function montarAvisoLimpar");
+    var formLimpar = admS.slice(admS.indexOf("id=\"limparDito\"") - 400,
+                                admS.indexOf("id=\"limparConfirmar\""));
+    ok(/id="limparSenhaOp"/.test(formLimpar) && /id="limparSenha"/.test(formLimpar),
+      'e o formul\u00e1rio de apagar o filtro mostra AS DUAS senhas \u2014 a do painel e a da ' +
+      'opera\u00e7\u00e3o: com uma s\u00f3 \u00e0 vista, a outra \u00e9 digitada no campo errado e a resposta ' +
+      'acusa a senha que estava certa', formLimpar.slice(-200));
+    ok(/rotuloSenhaDe\('apagarFiltro'\)/.test(formLimpar),
+      'e o campo novo diz o NOME da opera\u00e7\u00e3o, tirado da lista do servidor \u2014 s\u00e3o sete ' +
+      'senhas agora, e "a senha das opera\u00e7\u00f5es" deixou de responder qual delas');
+    var iConf = admS.indexOf('  function confirmarLimpeza(){');
+    var corpoConf = admS.slice(iConf, admS.indexOf(String.fromCharCode(10) + '  }', iConf));
+    ok(/limparSenhaOp'\)\.value/.test(corpoConf) && /apagarDeVerdade\(senhaOp\)/.test(corpoConf),
+      'e o que foi digitado nele \u00e9 LIDO e passado adiante \u2014 o campo pode estar na tela ' +
+      'e ningu\u00e9m ler: \u00e9 a mesma pe\u00e7a existindo sem nada chegar nela', corpoConf.length);
+    var iVerd = admS.indexOf('  function apagarDeVerdade(senhaOp){');
+    var corpoVerd = admS.slice(iVerd, admS.indexOf(String.fromCharCode(10) + '  }', iVerd));
+    ok(iVerd > 0 && /senha ?: ?senhaOp/.test(corpoVerd),
+      'e chega no pedido ao servidor \u2014 lido e n\u00e3o enviado, a senha certa responde ' +
+      '"Senha incorreta." para sempre, que \u00e9 o pior jeito de n\u00e3o funcionar',
+      corpoVerd.slice(0, 200));
+    ok(/senhaErrada/.test(corpoVerd) && /limparSenhaOp'\)\.focus/.test(corpoVerd),
+      'e a recusa dela volta apontando o campo DELA \u2014 com dois campos de senha na ' +
+      'tela, um "Senha incorreta." solto manda conferir a outra', corpoVerd.length);
+
+    /* ---- E O ERRO DIZ QUAL DAS DUAS SENHAS FALHOU ----
+     *
+     * ESCAPOU UMA SABOTAGEM AQUI, e ela e' o relato do escritorio inteiro. Com dois
+     * campos de senha na mesma tela, a rota do login responde "Usu\u00e1rio ou senha
+     * incorretos" — uma frase que, solta, manda conferir a senha errada. Foi assim que
+     * uma senha rec\u00e9m-cadastrada, digitada no campo do login, virou "a senha n\u00e3o
+     * funciona".
+     * A PROVA OLHA O `throw`, que e' de onde a frase sai: as duas recusas desta tela
+     * terminam na mesma caixa vermelha, e so' o prefixo as separa. */
+    ok(/throw new Error\('Sua senha do painel: ' \+ c\.erro\)/.test(corpoConf),
+      'e a recusa da senha do PAINEL se identifica \u2014 numa tela com duas senhas, ' +
+      '"Usu\u00e1rio ou senha incorretos" solto manda conferir a outra, e foi assim que uma ' +
+      'senha rec\u00e9m-cadastrada virou "a senha n\u00e3o funciona"', corpoConf.slice(-260));
+
     var seisCadastros = (admS.match(/pedirSenhaDe\('excluirCadastro'/g) || []).length;
     ok(seisCadastros === 6,
       'e os SEIS cadastros com bot\u00e3o de excluir passam todos por ele \u2014 um s\u00f3 de fora e ' +
@@ -28568,9 +28617,10 @@ console.log('\n== a senha das operacoes protegidas ==');
       }
       corpos.push(admS.slice(mp.index, j));
     }
-    ok(corpos.length === 8,
-      'os OITO pedidos de senha da tela foram lidos \u2014 excluir lan\u00e7amento, apagar o ' +
-      'filtro e os seis cadastros: lendo menos, a prova abaixo cala sobre o resto',
+    ok(corpos.length === 7,
+      'os SETE pedidos de senha em janela foram lidos \u2014 excluir lan\u00e7amento e os seis ' +
+      'cadastros: lendo menos, a prova abaixo cala sobre o resto. Apagar o filtro ficou ' +
+      'de fora porque l\u00e1 a senha \u00e9 um campo do pr\u00f3prio formul\u00e1rio, medido adiante',
       corpos.length);
     var semS = corpos.filter(function (c) {
       return !/senha ?: ?s\b/.test(c) && !/\.senha ?= ?s\b/.test(c);

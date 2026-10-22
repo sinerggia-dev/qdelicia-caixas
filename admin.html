@@ -8013,7 +8013,23 @@
         'placeholder="' + n + '"></div>' +
         '<div><label for="limparSenha">Sua senha do painel</label>' +
         '<input type="password" id="limparSenha" autocomplete="current-password" ' +
-        'placeholder="a mesma do cadeado das colunas"></div>' +
+        'placeholder="a de entrar no sistema"></div>' +
+      '</div>' +
+      /* A TERCEIRA PERGUNTA FICA A VISTA, e nao num segundo passo.
+         ELA ESTAVA NUM MODAL QUE SO APARECIA DEPOIS, e o resultado foi o esperado: a
+         tela mostrava UM campo de senha, quem acabara de cadastrar a senha da operacao
+         digitava a nova ali — e levava "Usuario ou senha incorretos", que e' a resposta
+         do LOGIN. A senha certa, no campo errado, com uma mensagem que acusa a pessoa.
+         Duas senhas escondendo uma delas e' pior do que duas senhas.
+         O NOME DA OPERACAO VEM DA LISTA DO SERVIDOR, e nao escrito aqui: sao sete
+         agora, e "senha das operacoes" nao diz qual das sete. */
+      '<div style="margin-top:10px">' +
+        '<label for="limparSenhaOp">' + Q.esc(rotuloSenhaDe('apagarFiltro')) + '</label>' +
+        '<input type="password" id="limparSenhaOp" autocomplete="off" ' +
+        'placeholder="' + Q.esc(dicaSenhaDe('apagarFiltro')) + '">' +
+        '<div class="sub" style="margin-top:4px">Esta \u00e9 outra senha, e n\u00e3o a de ' +
+        'entrar: ela \u00e9 cadastrada em <b>Cadastros \u2192 Senhas das opera\u00e7\u00f5es ' +
+        'protegidas</b>.</div>' +
       '</div>' +
       '<div class="linha-btn">' +
         '<button class="btn" id="limparConfirmar" type="button" style="flex:0;min-width:200px;' +
@@ -8032,6 +8048,24 @@
     });
   }
 
+  /* COMO CHAMAR A SENHA DE UMA OPERACAO, num lugar so'. A pergunta "qual senha e' esta"
+     passou a ter sete respostas, e um rotulo generico — "a senha das operacoes" — deixou
+     de responder. */
+  function rotuloSenhaDe(idOp){
+    var ops = (DADOS && DADOS.operacoesComSenha) || [];
+    var op = ops.filter(function(o){ return o.id === idOp; })[0];
+    return op ? ('Senha de \u201c' + op.nome + '\u201d') : 'Senha da opera\u00e7\u00e3o';
+  }
+  function dicaSenhaDe(idOp){
+    var ops = (DADOS && DADOS.operacoesComSenha) || [];
+    var op = ops.filter(function(o){ return o.id === idOp; })[0];
+    /* A DICA DIZ QUAL DAS DUAS CADASTRADAS E', e esta e' a diferenca que confunde: uma
+       operacao sem senha propria pede a GERAL, e quem acabou de cadastrar a propria de
+       OUTRA operacao digitaria essa aqui e levaria "Senha incorreta". */
+    return (op && op.propria) ? 'a senha desta opera\u00e7\u00e3o'
+                              : 'a senha geral das opera\u00e7\u00f5es protegidas';
+  }
+
   function confirmarLimpeza(){
     var res = document.getElementById('limparResultado');
     var dito = String(document.getElementById('limparDito').value || '').trim();
@@ -8047,6 +8081,13 @@
         'Nada foi apagado.</div>';
       return;
     }
+    var senhaOp = String(document.getElementById('limparSenhaOp').value || '');
+    if (!senhaOp){
+      res.innerHTML = '<div class="aviso-box erro">Digite a ' +
+        Q.esc(rotuloSenhaDe('apagarFiltro').toLowerCase()) + '. Nada foi apagado.</div>';
+      document.getElementById('limparSenhaOp').focus();
+      return;
+    }
     var b = document.getElementById('limparConfirmar');
     b.disabled = true; b.textContent = 'Conferindo a senha…';
     /* A CONFERENCIA MORA NO `app.js`, junto da entrada: e a MESMA rota do login, e uma
@@ -8054,9 +8095,12 @@
        recusa a senha certa de OUTRA conta com o mesmo nome — o que aqui importa, porque
        o que se autoriza e apagar em bloco. */
     Q.conferirSenha(senha).then(function(c){
-      if (!c.ok) throw new Error(c.erro);
+      /* O ERRO DIZ QUAL DAS DUAS FALHOU. "Usuario ou senha incorretos" vindo da rota do
+         login, sozinho, numa tela com dois campos de senha, manda a pessoa conferir a
+         senha errada — foi exatamente o que aconteceu. */
+      if (!c.ok) throw new Error('Sua senha do painel: ' + c.erro);
       b.textContent = 'Apagando…';
-      return apagarDeVerdade();
+      return apagarDeVerdade(senhaOp);
     }).catch(function(e){
       b.disabled = false; b.textContent = 'Apagar os ' + Q.num(limparN);
       res.innerHTML = '<div class="aviso-box erro">' + Q.esc(e.message) +
@@ -8064,22 +8108,30 @@
     });
   }
 
-  function apagarDeVerdade(){
+  /* DUAS SENHAS AQUI, E DE PROPOSITO. A primeira, ja' conferida, e' a da PESSOA: ela
+     responde "quem esta' no teclado" e recusa ate' a senha certa de outra conta de mesmo
+     nome. Esta responde outra coisa — "esta conta tem autorizacao para apagar em
+     bloco" —, e foi o que o escritorio pediu ao separar as senhas. Uma nao substitui
+     a outra, e este botao leva centenas de linhas de uma vez.
+     ELA CHEGA AQUI COMO ARGUMENTO, do campo que esta' no formulario. Pedida num modal
+     depois do botao, ela era uma segunda senha que a tela nao mostrava — e quem
+     cadastrou a senha da operacao a digitava no campo do login, que estava a vista. */
+  function apagarDeVerdade(senhaOp){
     var res = document.getElementById('limparResultado');
     var b = document.getElementById('limparConfirmar');
-    var envio = { acao:'limparMovimentos', esperado:limparN, usuarioId:Q.sessao().id };
+    var envio = { acao:'limparMovimentos', esperado:limparN, usuarioId:Q.sessao().id,
+                  senha:senhaOp };
     Object.keys(limparFiltro||{}).forEach(function(k){ if (limparFiltro[k]) envio[k] = limparFiltro[k]; });
-    /* DUAS SENHAS AQUI, E DE PROPOSITO. A de cima, ja' conferida, e' a da PESSOA: ela
-       responde "quem esta' no teclado" e recusa ate' a senha certa de outra conta de
-       mesmo nome. Esta responde outra coisa — "esta conta tem autorizacao para apagar
-       em bloco" —, e foi o que o escritorio pediu ao separar as senhas. Uma nao
-       substitui a outra, e este botao leva centenas de linhas de uma vez. */
-    pedirSenhaDe('apagarFiltro', function(s){
-      envio.senha = s;
-      return Q.post(envio);
-    }).then(function(r){
-      if (!r) {
+    Q.post(envio).then(function(r){
+      /* A SENHA DA OPERACAO ERRADA VOLTA PARA O CAMPO DELA, e nao para o aviso de cima:
+         com dois campos de senha na tela, "Senha incorreta." solto manda conferir a
+         outra. */
+      if (r && r.ok === false && r.senhaErrada) {
         b.disabled = false; b.textContent = 'Apagar os ' + Q.num(limparN);
+        res.innerHTML = '<div class="aviso-box erro">' +
+          Q.esc(rotuloSenhaDe('apagarFiltro')) + ': ' + Q.esc(r.erro) +
+          ' Nada foi apagado.</div>';
+        document.getElementById('limparSenhaOp').focus();
         return;
       }
       if (!r.ok) throw new Error(r.erro);
