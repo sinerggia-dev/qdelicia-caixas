@@ -4883,6 +4883,26 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'e um nome fora do cadastro não entra — nome livre vira grafia diferente do mesmo ' +
     'fornecedor, e o extrato parte um em dois');
 
+  /* A PONTA DE LONGE, E NAO AS DUAS. A Matriz Sao Vicente esta' cadastrada como tipo
+     FILIAL — foi a tela que mostrou. Olhando as duas pontas, uma saida DA matriz para um
+     CLIENTE aceitaria o nome de um fornecedor; e essa perna CRUZA a fronteira, entao ela
+     contaria como divida dele. O campo nao aparece ali na tela, e esta guarda e' o que
+     impede que ele apareca pela porta dos fundos. */
+  ok(deriva({ tipo: 'SAIDA', origemId: 'L002', destinoId: 'L003',
+              fornecedorFilial: 'Geraldo' }) === '',
+    'saindo DE uma filial para um cliente, o nome pedido é ignorado — a pergunta é ' +
+    'sobre a ponta de LONGE, e aceitar pela origem poria o nome do fornecedor numa ' +
+    'entrega a cliente, que conta como dívida dele',
+    deriva({ tipo: 'SAIDA', origemId: 'L002', destinoId: 'L003',
+             fornecedorFilial: 'Geraldo' }));
+
+  ok(deriva({ tipo: 'DEVOLUCAO', origemId: 'L003', destinoId: 'L002',
+              fornecedorFilial: 'Geraldo' }) === '',
+    'e voltando de um cliente PARA a filial também — no retorno a ponta de longe é a ' +
+    'origem, e a nossa casa no destino não responde de quem é a carga',
+    deriva({ tipo: 'DEVOLUCAO', origemId: 'L003', destinoId: 'L002',
+             fornecedorFilial: 'Geraldo' }));
+
   ok(deriva({ tipo: 'SAIDA', origemId: 'L001', destinoId: 'L002' }) === '',
     'e sem escolher nada a coluna fica vazia — a maior parte das transferências entre ' +
     'casas nossas não é de fornecedor nenhum');

@@ -1502,15 +1502,18 @@ function conferirFornecedor(p, locais, fornecedores) {
  * O PEDIDO SO' E LIDO ONDE ELE PODE FALAR. Numa viagem que nao toca filial nenhuma, um
  * POST montado a mao nao tem onde injetar um nome — a funcao nem chega a olhar o campo.
  * E' a mesma guarda do caminho derivado, dita para o caminho novo. */
+/* A PONTA DE LONGE, e nao as duas — a mesma regra da tela, dita de novo aqui porque
+   esconder o campo e' conveniencia e um POST montado a mao passa por cima dela.
+   NA SAIDA E O DESTINO; NO RETORNO, A ORIGEM. A pergunta "de quem e' esta carga" e'
+   sobre O OUTRO LADO da viagem, e nao sobre a casa que esta' lancando.
+   MEDIDO NA TELA: a Matriz Sao Vicente esta' cadastrada como tipo FILIAL. Olhando as
+   duas pontas, uma saida da Matriz para um CLIENTE aceitaria o nome de um fornecedor —
+   e essa perna CRUZA a fronteira, entao ela contaria como divida dele. O campo nao
+   aparece ali na tela; a guarda e' o que impede que apareca pela porta dos fundos. */
 function pontaDeFilial(p, locais) {
-  function tipoDe(id) {
-    if (!id) return '';
-    var l = (locais || []).filter(function (x) {
-      return String(x.ID) === String(id);
-    })[0];
-    return l ? String(l.Tipo || '').toUpperCase() : '';
-  }
-  return tipoDe(p && p.origemId) === 'FILIAL' || tipoDe(p && p.destinoId) === 'FILIAL';
+  var tipo = String((p && p.tipo) || '').toUpperCase();
+  var longe = tipo === 'DEVOLUCAO' ? (p && p.origemId) : (p && p.destinoId);
+  return tipoDoLocal(locais, longe) === 'FILIAL';
 }
 
 function fornecedorDoMovimento(p, locais, fornecedores) {

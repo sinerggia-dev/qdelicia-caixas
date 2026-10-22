@@ -28042,9 +28042,10 @@ console.log('\n== o campo Fornecedor Filial ==');
     }
     return '';
   }
-  ok(!!corpoF('pontaDeFilial') && !!corpoF('montarFornFilial'),
-    'a conferência recortou as duas peças do campo — recorte vazio faria as provas ' +
-    'abaixo passarem sem rodar nada');
+  ok(!!corpoF('ehFilial') && !!corpoF('montarFornFilial') &&
+     !!corpoF('pontaLongeDaSaida') && !!corpoF('pontaLongeDoRetorno'),
+    'a conferência recortou as peças do campo — recorte vazio faria as provas abaixo ' +
+    'passarem sem rodar nada');
 
   var LOCS = [{ ID: 'L001', Nome: 'Matriz', Tipo: 'GALPAO' },
               { ID: 'L002', Nome: 'Filial Maceio', Tipo: 'FILIAL' },
@@ -28052,43 +28053,70 @@ console.log('\n== o campo Fornecedor Filial ==');
   var wrap = { style: { display: '' } };
   var sel = { innerHTML: '', value: '' };
   var api = new Function('document', 'DADOS', 'Q', 'fornecedoresParaEscolher',
-    corpoF('pontaDeFilial') + '\n' + corpoF('montarFornFilial') +
-    '\n return { ponta: pontaDeFilial, montar: montarFornFilial };')(
+    corpoF('ehFilial') + '\n' + corpoF('montarFornFilial') +
+    '\n return { filial: ehFilial, montar: montarFornFilial };')(
     { getElementById: function (id) {
         return id === 'w' ? wrap : (id === 's' ? sel : null); } },
     { locais: LOCS },
     { esc: function (x) { return String(x); } },
     function () { return ['Geraldo Fonseca', 'Mundinho']; });
 
-  /* AS DUAS PONTAS: a carga VAI para a filial e SAI dela. Olhando so' um lado, metade
-     do ciclo ficaria sem o campo. */
-  ok(api.ponta(['L001', 'L002']) === true && api.ponta(['L002', 'L001']) === true,
-    'a filial conta nas DUAS pontas — a carga vai para ela e sai dela, e olhando só um ' +
-    'lado metade do ciclo ficaria sem o campo');
-  ok(api.ponta(['L001', 'L003']) === false,
-    'e uma viagem que não toca filial nenhuma não acende o campo — à vista em toda ' +
-    'saída, ele seria uma pergunta a ignorar nove vezes em dez');
+  ok(api.filial('L002') === true && api.filial('L001') === false &&
+     api.filial('L003') === false && api.filial('') === false,
+    'a pergunta é sobre UM local: ele é filial?', [api.filial('L002'), api.filial('L001')]);
 
-  api.montar('w', 's', ['L001', 'L002']);
+  /* ================= E ELA E FEITA SOBRE A PONTA DE LONGE =================
+   *
+   * A pergunta "de quem e' esta carga" e' sobre O OUTRO LADO da viagem, e nao sobre a
+   * casa que esta' lancando. Na SAIDA e' o destino; no RETORNO, a origem.
+   *
+   * MEDIDO NA TELA pelo escritorio: a Matriz Sao Vicente esta' cadastrada como tipo
+   * FILIAL. Olhando as DUAS pontas, o campo abria em TODA saida, porque a origem dela e'
+   * quase sempre a Matriz — e um campo a vista em toda saida e' uma pergunta a ignorar
+   * nove vezes em dez, que e' exatamente o que ele veio evitar. */
+  var fonteSd = corpoF('pontaLongeDaSaida');
+  ok(/sdRota/.test(fonteSd) && /sdDestino/.test(fonteSd) && !/sdOrigem/.test(fonteSd),
+    'na SAÍDA a ponta de longe é o DESTINO — nunca a origem: a Matriz é cadastrada como ' +
+    'filial, e olhando a origem o campo abriria em toda saída', fonteSd);
+  var fonteDv = corpoF('pontaLongeDoRetorno');
+  ok(/dvOrigem/.test(fonteDv) && !/dvDestino/.test(fonteDv),
+    'e no RETORNO é a ORIGEM — a carga vem DE lá, e o destino dele é a nossa casa, que ' +
+    'também é filial: pelo destino, o campo abriria em todo retorno', fonteDv);
+
+  /* E OS GANCHOS CHAMAM A FUNCAO, e nao um indice escrito a mao: `pontasDaSaida()[1]`
+     daria o mesmo resultado hoje e a proxima tela copiaria o indice sem o motivo — e o
+     indice de uma e' o da outra trocado. */
+  ok(/montarFornFilial\('sdWrapFornFilial', 'sdFornFilial', pontaLongeDaSaida\(\)\)/
+       .test(idxF) &&
+     /montarFornFilial\('dvWrapFornFilial', 'dvFornFilial', pontaLongeDoRetorno\(\)\)/
+       .test(idxF),
+    'e cada tela passa a ponta de longe DELA — por um índice escrito à mão, a próxima ' +
+    'tela copiaria o número sem o motivo, e o índice de uma é o da outra trocado');
+
+  api.montar('w', 's', 'L002');
   ok(wrap.style.display === 'block' && sel.innerHTML.indexOf('Geraldo Fonseca') > 0,
-    'escolhida a filial, a caixa APARECE com os fornecedores do cadastro — era o pedido',
+    'sendo filial, a caixa APARECE com os fornecedores do cadastro — era o pedido',
     sel.innerHTML.slice(0, 90));
 
   /* E SE LIMPA AO ESCONDER. Esta e' a metade que ninguem ve: escolhido um fornecedor e
      trocado o destino para um cliente, o valor ficaria no campo invisivel e viajaria
      junto com o lancamento. */
   sel.value = 'Geraldo Fonseca';
-  api.montar('w', 's', ['L001', 'L003']);
+  api.montar('w', 's', 'L003');
   ok(wrap.style.display === 'none' && sel.value === '' && sel.innerHTML === '',
     'e trocando o destino para fora da filial ela some E SE LIMPA — deixado para trás, o ' +
     'nome viajaria junto com o lançamento, com a tela mostrando uma coisa e o banco ' +
     'recebendo outra', { mostra: wrap.style.display, valor: sel.value });
 
+  ok((api.montar('w', 's', 'L001'), wrap.style.display) === 'none',
+    'e a MATRIZ não acende o campo — ela é a casa que lança, e a pergunta é sobre o ' +
+    'outro lado da viagem', wrap.style.display);
+
   /* A ESCOLHA FICA quando o campo continua a vista: trocar de Maceio para Joao Pessoa
      nao apaga de quem e' a carga. */
-  api.montar('w', 's', ['L001', 'L002']);
+  api.montar('w', 's', 'L002');
   sel.value = 'Mundinho';
-  api.montar('w', 's', ['L002', 'L001']);
+  api.montar('w', 's', 'L002');
   ok(sel.value === 'Mundinho',
     'mas trocando de uma filial para outra a escolha FICA — a carga continua sendo do ' +
     'mesmo dono, e reescolher a cada toque é um campo que se aprende a ignorar',
@@ -28096,7 +28124,7 @@ console.log('\n== o campo Fornecedor Filial ==');
 
   /* E UM NOME QUE SAIU DO CADASTRO NAO FICA PENDURADO. */
   sel.value = 'Quem Saiu';
-  api.montar('w', 's', ['L001', 'L002']);
+  api.montar('w', 's', 'L002');
   ok(sel.value === '',
     'e um nome que não está mais no cadastro não fica pendurado no campo — ele seguiria ' +
     'a vista, escolhido, e o servidor o recusaria calado', sel.value);
@@ -28107,6 +28135,7 @@ console.log('\n== o campo Fornecedor Filial ==');
     'e o campo viaja no lançamento das duas telas — a peça existiria e nada chegaria ' +
     'nela, que é o defeito de assinatura desta casa');
 })();
+
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

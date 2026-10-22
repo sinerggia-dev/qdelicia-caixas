@@ -1563,13 +1563,13 @@
     montarMotoristas('sdMotorista', saiDeGalpao() ? 'sdRota' : 'sdOrigem', 'saida',
                      pontasDaSaida());
     montarVeiculos('sdVeiculo', 'sdMotorista', pontasDaSaida());
-    montarFornFilial('sdWrapFornFilial', 'sdFornFilial', pontasDaSaida());
+    montarFornFilial('sdWrapFornFilial', 'sdFornFilial', pontaLongeDaSaida());
   }
 
   function atualizarFornecedorRetorno(){
     montarMotoristas('dvMotorista', 'dvOrigem', 'entrada', pontasDoRetorno());
     montarVeiculos('dvVeiculo', 'dvMotorista', pontasDoRetorno());
-    montarFornFilial('dvWrapFornFilial', 'dvFornFilial', pontasDoRetorno());
+    montarFornFilial('dvWrapFornFilial', 'dvFornFilial', pontaLongeDoRetorno());
   }
 
   function ajustarCamposSaida(){
@@ -1646,15 +1646,33 @@
    * AS DUAS PONTAS, como em todo lugar deste projeto: a carga VAI para a filial (ela no
    * destino) e SAI dela (ela na origem). Olhando so' um lado, metade do ciclo ficaria
    * sem o campo. */
-  function pontaDeFilial(ids){
-    var lista = Object.prototype.toString.call(ids) === '[object Array]' ? ids : [ids];
-    return lista.some(function(id){
-      if (!id) return false;
-      var l = ((DADOS||{}).locais || []).filter(function(x){
-        return String(x.ID) === String(id);
-      })[0];
-      return !!l && String(l.Tipo || '').toUpperCase() === 'FILIAL';
-    });
+  function ehFilial(id){
+    if (!id) return false;
+    var l = ((DADOS||{}).locais || []).filter(function(x){
+      return String(x.ID) === String(id);
+    })[0];
+    return !!l && String(l.Tipo || '').toUpperCase() === 'FILIAL';
+  }
+
+  /* ================= A PONTA DE LONGE =================
+   *
+   * A pergunta "de quem e' esta carga" e' sobre O OUTRO LADO da viagem, e nao sobre a
+   * casa que esta' lancando. Na SAIDA e' o destino; no RETORNO, a origem.
+   *
+   * MEDIDO NA TELA, e e' por isso que esta funcao existe: a Matriz Sao Vicente esta'
+   * cadastrada como tipo FILIAL. Olhando as DUAS pontas, o campo abria em TODA saida,
+   * porque a origem dela e' quase sempre a Matriz. Um campo a vista em toda saida e' uma
+   * pergunta a ignorar nove vezes em dez — e campo que se aprende a ignorar e' campo que
+   * um dia se preenche errado. Era exatamente o que ele veio evitar.
+   *
+   * O NOME DIZ A REGRA. Escrito como `pontasDaSaida()[1]` em cada chamada, a proxima
+   * tela copiaria o indice sem copiar o motivo — e o indice de uma e' o da outra
+   * trocado. */
+  function pontaLongeDaSaida(){
+    return document.getElementById(saiDeGalpao() ? 'sdRota' : 'sdDestino').value;
+  }
+  function pontaLongeDoRetorno(){
+    return document.getElementById('dvOrigem').value;
   }
 
   /* O CAMPO APARECE, SE ENCHE E SE LIMPA — os tres na mesma funcao.
@@ -1667,11 +1685,11 @@
    *
    * A ESCOLHA DE ANTES FICA quando o campo continua a vista: trocar a filial de Maceio
    * para Joao Pessoa nao apaga de quem e' a carga. */
-  function montarFornFilial(idWrap, idSel, pontas){
+  function montarFornFilial(idWrap, idSel, ponta){
     var wrap = document.getElementById(idWrap);
     var sel = document.getElementById(idSel);
     if (!wrap || !sel) return;
-    if (!pontaDeFilial(pontas || [])) {
+    if (!ehFilial(ponta)) {
       wrap.style.display = 'none';
       sel.innerHTML = '';
       sel.value = '';
