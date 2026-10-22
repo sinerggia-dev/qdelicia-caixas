@@ -28422,5 +28422,61 @@ console.log('\n== a senha das operacoes protegidas ==');
     'pública e sem autorização nenhuma', fnS);
 })();
 
+/* ---------------------------------------------------------------------------
+ * O DOCUMENTO DA CARGA, e a porta com senha.
+ *
+ * O canhoto e a foto moram num balde PUBLICO. Ate aqui o Extrato imprimia o endereco
+ * deles em `<a href>` na tabela — e com ele ia embora em todo HTML salvo.
+ * A SENHA TRANCA A ENTREGA DO ENDERECO, e nao o arquivo: quem ja tem o link continua
+ * abrindo. Esta' dito assim nas provas para nao se prometer o que nao se faz.
+ * ------------------------------------------------------------------------- */
+console.log('\n== o documento da carga ==');
+(function () {
+  var admD = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  ok(!/<a href="'\+Q\.esc\(x\.(assinatura|foto)\)/.test(admD),
+    'o extrato não imprime mais o endereço do documento — um `<a href>` na tabela o ' +
+    'punha em toda tela aberta e em todo HTML salvo, e o arquivo abre sem senha para ' +
+    'quem tiver o link');
+
+  var iB = admD.indexOf('  function botaoDocumento(');
+  var fnB = iB > 0 ? admD.slice(iB, admD.indexOf('\n  }', iB)) : '';
+  ok(/if \(!tem\) return '';/.test(fnB),
+    'e sem documento não há botão — um botão que responde "este lançamento não tem ' +
+    'foto" DEPOIS de pedir a senha é um pedido de senha desperdiçado', fnB);
+
+  var iP = admD.indexOf('  function pedirSenhaDoDocumento(');
+  var fnP = iP > 0 ? admD.slice(iP, admD.indexOf('\n  }\n', iP)) : '';
+  ok(/acao:'documento'/.test(fnP) && /senha:v/.test(fnP),
+    'o botão pede o endereço pela rota `documento`, com a senha — é o servidor que ' +
+    'decide entregar, e não a tela que decide mostrar', fnP.length);
+  /* A SENHA SAI DO CAMPO NOS DOIS CAMINHOS: no que deu certo e no que estourou. Medir
+     so' que a linha existe nao bastava — ela existe no `catch` tambem, e a sabotagem que
+     tirou a do caminho de sucesso passou batida. */
+  (function () {
+    var iOk = fnP.indexOf("bt.textContent = 'Baixar';");
+    var ate = fnP.indexOf('.catch(');
+    var noSucesso = iOk > 0 && ate > iOk ? fnP.slice(iOk, ate) : '';
+    ok(/campo\.value = '';/.test(noSucesso),
+      'a senha sai do campo DEPOIS de baixar, e não só quando dá erro — numa tela que ' +
+      'fica aberta o dia inteiro, uma senha esquecida ali é a mesma senha num bilhete ' +
+      'em cima da mesa', noSucesso.slice(0, 120));
+    ok((fnP.match(/campo\.value = '';/g) || []).length >= 2,
+      'e sai no caminho do erro também — tentativa errada deixa a senha digitada à ' +
+      'vista, e a próxima pessoa que passar lê', (fnP.match(/campo\.value = '';/g) || []).length);
+  })();
+
+  /* O NOME DO ARQUIVO SAI DO REGISTRO. Baixado com o nome do armazenamento, ele vira
+     "foto-1a2b3c.jpg" na pasta de quem salvou, e dois canhotos ali nao se distinguem. */
+  var iA = admD.indexOf('  function abrirDocumento(');
+  var fnA = iA > 0 ? admD.slice(iA, admD.indexOf('\n  }', iA)) : '';
+  ok(/a\.download = \(r\.registro \|\| r\.id\)/.test(fnA),
+    'e o arquivo baixa com o nome do REGISTRO — com o nome do armazenamento, dois ' +
+    'canhotos na mesma pasta não se distinguem', fnA);
+  ok(/target = '_blank'/.test(fnA),
+    'e abre em aba nova — quem montou um recorte no extrato não pode perdê-lo para ' +
+    'ver uma foto');
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

@@ -2629,7 +2629,8 @@ function pendentes(movimentos, locais, tipos) {
         destinoId: m.DestinoID, destino: nome(mLocais, m.DestinoID),
         tipoCaixaId: m.TipoCaixaID, tipoCaixa: nome(mTipos, m.TipoCaixaID),
         romaneio: m.Romaneio, obs: m.Obs, perfil: m.Perfil,
-        usuario: m.UsuarioID, assinatura: m.AssinaturaURL, foto: m.FotoURL
+        usuario: m.UsuarioID,
+        temAssinatura: !!m.AssinaturaURL, temFoto: !!m.FotoURL
       };
     })
     .sort(function (a, b) { return a.dataRef < b.dataRef ? -1 : 1; });
@@ -2965,7 +2966,15 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p, cad) {
          todas as linhas e a conclusao natural seria que ninguem preenche o campo. Foi
          o que aconteceu com a placa do veiculo, logo acima. */
       fornecedor: nomes.fornecedor,
-      obs: m.Obs, assinatura: m.AssinaturaURL, foto: m.FotoURL,
+      /* O ENDERECO DO DOCUMENTO NAO VIAJA NA LISTA — so' o SIM ou NAO de haver
+         um. O arquivo mora num balde PUBLICO: quem tem o endereco abre o arquivo,
+         sem senha, para sempre. Impresso na tabela, esse endereco ia para toda
+         tela que listasse movimento e para o HTML que qualquer um salva.
+         ENTAO A LISTA DIZ QUE EXISTE, e quem quiser o arquivo pede pela rota
+         `documento`, que confere a senha das operacoes protegidas. A senha nao
+         tranca o arquivo — ela tranca a ENTREGA do endereco, que e' o que
+         estava solto. */
+      obs: m.Obs, temAssinatura: !!m.AssinaturaURL, temFoto: !!m.FotoURL,
       historico: m.Historico || [],
       /* Quem mexeu por último, já com NOME. O id resolvido aqui e não na tela porque a
          tabela de usuários mora no servidor: a tela mostraria "u014" e o CSV também. */
@@ -3677,7 +3686,7 @@ function extrato(dados, localId, de, ate, hoje) {
       divergencia: (m.Tipo === 'DEVOLUCAO' && temConf && Number(m.QtdConferida) !== Number(m.Qtd))
         ? Number(m.QtdConferida) - Number(m.Qtd) : '',
       status: m.Status, romaneio: m.Romaneio, usuario: nome(mUsers, m.UsuarioID),
-      obs: m.Obs, assinatura: m.AssinaturaURL, foto: m.FotoURL, saldo: saldo
+      obs: m.Obs, temAssinatura: !!m.AssinaturaURL, temFoto: !!m.FotoURL, saldo: saldo
     });
   });
 

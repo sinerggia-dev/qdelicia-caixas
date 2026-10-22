@@ -7688,6 +7688,90 @@
   }
 
   /* ---------------- extrato ---------------- */
+  /* ================= O DOCUMENTO DA CARGA =================
+   *
+   * O canhoto assinado e a foto moram num balde PUBLICO do armazenamento: quem tem o
+   * endereco abre o arquivo, sem senha, para sempre. Ate aqui o Extrato imprimia esse
+   * endereco direto na tabela, e com ele ia embora em todo HTML salvo.
+   *
+   * O QUE A SENHA TRANCA, DITO SEM EXAGERO: a ENTREGA do endereco, e nao o arquivo. E'
+   * a diferenca entre o endereco estar na tela de todo mundo e ser pedido por quem sabe
+   * a senha. O arquivo continua aberto a quem JA tiver o link — fechar isso pede balde
+   * privado e link assinado, e esta' escrito aqui para nao se prometer o que nao se faz.
+   *
+   * SEM DOCUMENTO, SEM BOTAO: um botao que responde "este lancamento nao tem foto"
+   * depois de pedir a senha e' um pedido de senha desperdicado. A lista ja diz quais
+   * tem — e' o `temFoto`/`temAssinatura` que o servidor manda no lugar do endereco. */
+  function botaoDocumento(id, qual, tem){
+    if (!tem) return '';
+    return '<button class="mini acao" type="button" data-doc="'+Q.esc(id)+'" '+
+      'data-doc-qual="'+Q.esc(qual)+'" '+
+      'title="Pede a senha das opera\u00e7\u00f5es protegidas">'+
+      (qual === 'assinatura' ? 'canhoto' : 'foto')+'</button> ';
+  }
+
+  function pedirSenhaDoDocumento(id, qual){
+    var nome = qual === 'assinatura' ? 'canhoto' : 'foto';
+    modal('<h3 style="margin:0 0 4px">Baixar o '+Q.esc(nome)+'</h3>'+
+      '<div class="sub" style="margin-bottom:12px">Pede a <b>senha das opera\u00e7\u00f5es '+
+      'protegidas</b> \u2014 a mesma de corrigir e restaurar. Ela \u00e9 trocada em '+
+      '<b>Cadastros</b>.</div>'+
+      '<div><label for="senhaDoc">Senha</label>'+
+        '<input type="password" id="senhaDoc" autocomplete="current-password"></div>'+
+      '<p class="erro-destrava" id="erroDoc" hidden></p>'+
+      '<div class="linha-btn" style="margin-top:10px">'+
+        '<button class="btn" type="button" id="btnOkDoc">Baixar</button></div>');
+    var campo = document.getElementById('senhaDoc');
+    var erro = document.getElementById('erroDoc');
+    var bt = document.getElementById('btnOkDoc');
+    function dizer(m){ erro.textContent = m || ''; erro.hidden = !m; }
+    function tentar(){
+      var v = campo.value;
+      if (!v) { dizer('Digite a senha.'); campo.focus(); return; }
+      bt.disabled = true; bt.textContent = 'Conferindo\u2026';
+      dizer('');
+      Q.post({ acao:'documento', id:id, qual:qual, senha:v }).then(function(r){
+        bt.disabled = false; bt.textContent = 'Baixar';
+        /* A SENHA NAO FICA NO CAMPO, certa ou errada — a mesma regra do cadeado das
+           colunas. */
+        campo.value = '';
+        if (!r.ok) { dizer(r.erro); campo.focus(); return; }
+        abrirDocumento(r);
+        fecharModal();
+      }).catch(function(e){
+        bt.disabled = false; bt.textContent = 'Baixar';
+        campo.value = '';
+        dizer('N\u00e3o deu para conferir agora: '+
+              (e && e.message ? e.message : 'sem conex\u00e3o')+'.');
+      });
+    }
+    bt.addEventListener('click', tentar);
+    campo.addEventListener('keydown', function(e){ if (e.key === 'Enter') tentar(); });
+    Q.olhosDeSenha(document.getElementById('modalBox'));
+    campo.focus();
+  }
+
+  /* ABRE EM ABA NOVA, e nao troca a tela: quem montou um recorte no extrato nao pode
+     perde-lo para ver uma foto. O `download` da ao arquivo o nome do REGISTRO — baixado
+     com o nome do armazenamento, ele vira "foto-1a2b3c.jpg" na pasta de quem salvou, e
+     dois canhotos ali nao se distinguem. */
+  function abrirDocumento(r){
+    var a = document.createElement('a');
+    a.href = r.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.download = (r.registro || r.id) + '-' + r.qual + '.jpg';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest && e.target.closest('[data-doc]');
+    if (!b) return;
+    pedirSenhaDoDocumento(b.getAttribute('data-doc'), b.getAttribute('data-doc-qual'));
+  });
+
   function gerarExtrato(){
     var id = document.getElementById('exLocal').value;
     if (!id) return Q.toast('Escolha o cliente.','erro');
@@ -7719,8 +7803,13 @@
               '<td class="num">'+(x.divergencia?'<b style="color:var(--vermelho)">'+x.divergencia+'</b>':'')+'</td>'+
               '<td class="num"><b>'+Q.num(x.saldo)+'</b></td>'+
               '<td>'+Q.esc(x.romaneio||'')+'</td><td>'+Q.esc(x.usuario||'')+'</td>'+
-              '<td>'+(x.assinatura?'<a href="'+Q.esc(x.assinatura)+'" target="_blank">canhoto</a> ':'')+
-                     (x.foto?'<a href="'+Q.esc(x.foto)+'" target="_blank">foto</a>':'')+'</td></tr>';
+              /* O ENDERECO NAO E MAIS IMPRESSO AQUI. O arquivo mora num balde PUBLICO,
+                 e um `<a href>` na tabela punha esse endereco em toda tela aberta e em
+                 todo HTML salvo — aberto depois por quem quer que tivesse o link, sem
+                 senha e para sempre. Agora o botao PEDE o endereco, com a senha, e o
+                 servidor o entrega uma vez. */
+              '<td>'+botaoDocumento(x.id, 'assinatura', x.temAssinatura)+
+                     botaoDocumento(x.id, 'foto', x.temFoto)+'</td></tr>';
           }).join('') : '<tr><td colspan="10" class="vazio">Sem movimentos no período.</td></tr>')+
           '</tbody></table></div>';
       }).catch(function(e){ document.getElementById('extratoBox').innerHTML='<div class="aviso-box erro">'+Q.esc(e.message)+'</div>'; });

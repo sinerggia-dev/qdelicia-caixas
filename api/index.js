@@ -316,6 +316,7 @@ async function rotaPost(p) {
   if (acao === 'movimento') return await gravarMovimento(p);
   if (acao === 'conferir') return await conferir(p);
   if (acao === 'conferirChegada') return await conferirChegada(p);
+  if (acao === 'documento') return await documento(p);
   if (acao === 'cancelar') return await cancelar(p);
   if (acao === 'descancelar') return await descancelar(p);
   if (acao === 'corrigir') return await corrigir(p);
@@ -724,6 +725,45 @@ async function conferir(p) {
   if (!r.ok) return r;
   await db.update('movimentos', mov.ID, db.MOV.para(r.patch));
   return { ok: true, divergencia: r.divergencia, declarada: r.declarada, conferida: r.conferida };
+}
+
+/* O DOCUMENTO DE UM LANCAMENTO: o canhoto assinado e a foto da carga.
+ *
+ * O QUE ESTA ROTA PROTEGE, dito sem exagero: o arquivo mora num balde PUBLICO do
+ * armazenamento. Quem tiver o endereco abre o arquivo, sem senha, para sempre. Esta
+ * rota NAO TRANCA O ARQUIVO — ela tranca a ENTREGA do endereco.
+ *
+ * E ERA O ENDERECO QUE ESTAVA SOLTO: o Extrato imprimia `<a href>` na tabela, para todo
+ * mundo que abrisse a tela e para qualquer um que salvasse o HTML. Agora a lista diz
+ * apenas que HA um documento, e o endereco sai por aqui, uma vez, para quem digitou a
+ * senha.
+ *
+ * DUAS GUARDAS, e nao uma: a senha das operacoes protegidas, e o MESMO recorte das
+ * listagens. Sem o recorte, um id adivinhado entregaria o canhoto de uma unidade que
+ * aquela pessoa nao pode nem ver na tabela.
+ *
+ * O ENDERECO, E NAO OS BYTES: devolver o arquivo faria esta rota carregar cada foto na
+ * memoria do servidor para repassa-la, e o navegador ja sabe buscar um endereco. */
+async function documento(p) {
+  var d = await db.carregarTudo();
+  if (!conferirSenhaCorrecao(p.senha, d.config)) {
+    return { ok: false, erro: 'Senha incorreta.' };
+  }
+  /* O MESMO RECORTE DAS LISTAGENS, e nao uma busca solta em `d.movimentos`: quem so' ve'
+     a propria unidade nao baixa o canhoto da unidade do vizinho por um id adivinhado. */
+  var visiveis = L.recorteLancamentos(d, d.usuarios, p.quem).movimentos;
+  var mov = visiveis.filter(function (m) {
+    return String(m.ID) === String(p.id || '');
+  })[0];
+  if (!mov) return { ok: false, erro: 'Lan\u00e7amento n\u00e3o encontrado.' };
+  var qual = String(p.qual || 'foto') === 'assinatura' ? 'assinatura' : 'foto';
+  var url = qual === 'assinatura' ? mov.AssinaturaURL : mov.FotoURL;
+  if (!url) {
+    return { ok: false, erro: 'Este lan\u00e7amento n\u00e3o tem ' +
+             (qual === 'assinatura' ? 'canhoto' : 'foto') + '.' };
+  }
+  return { ok: true, url: url, qual: qual, id: mov.ID,
+           registro: mov.Registro || '' };
 }
 
 /* A CONTAGEM DA CHEGADA, DA CARGA INTEIRA.

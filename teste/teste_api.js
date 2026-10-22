@@ -1291,6 +1291,74 @@ async function main() {
     ok((await POST({ acao: 'salvarConfig', chave: 'senhaCorrecao', valor: 'trocada9' })).ok,
       'e a senha do conserto se troca pela configuração');
 
+    /* ---- E A PORTA DO DOCUMENTO, RODADA ----
+     *
+     * E' aqui que a senha serve para alguma coisa. O canhoto e a foto moram num balde
+     * PUBLICO: quem tem o endereco abre o arquivo, sem senha, para sempre. Esta rota nao
+     * tranca o arquivo — tranca a ENTREGA do endereco, que e' o que estava impresso na
+     * tabela do Extrato.
+     *
+     * ESCAPOU UMA SABOTAGEM AQUI: tirei a conferência da senha da rota e NENHUMA prova
+     * reclamou — as que havia liam o texto do arquivo, e o texto continuava plausivel.
+     * Esta chama a rota de verdade, com a senha certa, com a errada e sem nenhuma. */
+    (function () {
+      var alvo = tabelas.movimentos[0];
+      if (!alvo) return;
+      alvo.assinatura_url = 'https://balde/canhotos/canhoto-zz.jpg';
+      alvo.foto_url = 'https://balde/canhotos/foto-zz.jpg';
+    })();
+    var idDoc = tabelas.movimentos[0] && tabelas.movimentos[0].id;
+    /* QUEM PERGUNTA E OBRIGATORIO, e e' o recorte que o exige: sem `quem`,
+       `idsVisiveis` devolve NINGUEM e a rota nao acha o lancamento. E' falha FECHADA, e
+       esta linha existe para a prova nao passar por esse caminho achando que mediu a
+       senha. */
+    var quemDoc = (tabelas.usuarios[0] || {}).id;
+
+    var semQuem = await POST({ acao: 'documento', id: idDoc, qual: 'foto',
+                               senha: 'trocada9' });
+    ok(semQuem.ok === false,
+      'sem dizer QUEM pergunta, a rota não entrega — o recorte devolve NINGUÉM, e é a ' +
+      'direção certa do erro: um pedido anônimo com a senha certa não vale mais que um ' +
+      'pedido anônimo', semQuem.erro);
+
+    var semSenha = await POST({ acao: 'documento', id: idDoc, qual: 'foto', quem: quemDoc });
+    ok(semSenha.ok === false && /[Ss]enha/.test(semSenha.erro || ''),
+      'sem senha, a rota do documento N\u00c3O entrega o endere\u00e7o \u2014 \u00e9 a \u00fanica coisa que ' +
+      'esta porta protege, e sem ela o endere\u00e7o volta a andar solto', semSenha.erro);
+
+    var senhaErrada = await POST({ acao: 'documento', id: idDoc, qual: 'foto',
+                                   senha: 'outra123', quem: quemDoc });
+    ok(senhaErrada.ok === false,
+      'e com a senha errada tamb\u00e9m n\u00e3o \u2014 sem este controle, a prova acima passaria com ' +
+      'uma rota que recusa tudo', senhaErrada.erro);
+
+    var comSenha = await POST({ acao: 'documento', id: idDoc, qual: 'foto',
+                               senha: 'trocada9', quem: quemDoc });
+    ok(comSenha.ok === true && comSenha.url === 'https://balde/canhotos/foto-zz.jpg',
+      'e com a senha certa ela entrega o endere\u00e7o \u2014 sem este controle, as duas provas ' +
+      'acima passariam com uma rota que nunca entrega nada', comSenha.url);
+
+    var canhoto = await POST({ acao: 'documento', id: idDoc, qual: 'assinatura',
+                               senha: 'trocada9', quem: quemDoc });
+    ok(canhoto.ok === true && canhoto.url.indexOf('canhoto-zz') > 0,
+      'e o canhoto \u00e9 outro arquivo que a foto \u2014 lendo sempre o mesmo campo, pedir o ' +
+      'canhoto traria a foto e ningu\u00e9m notaria at\u00e9 precisar da assinatura', canhoto.url);
+
+    /* O `qual` E UMA LISTA FECHADA, e nao o nome de uma coluna. Lido direto do pedido,
+       `qual=SenhaHash` leria qualquer campo da linha e devolveria o que achasse —
+       inclusive o que nenhuma tela mostra. */
+    var inventado = await POST({ acao: 'documento', id: idDoc, qual: 'Registro',
+                                 senha: 'trocada9', quem: quemDoc });
+    ok(inventado.ok === false || inventado.url === 'https://balde/canhotos/foto-zz.jpg',
+      'e um `qual` inventado n\u00e3o vira nome de coluna \u2014 lido direto do pedido, ele leria ' +
+      'qualquer campo da linha e devolveria o que achasse', inventado.url || inventado.erro);
+
+    var semTal = await POST({ acao: 'documento', id: 'M-nao-existe', qual: 'foto',
+                              senha: 'trocada9', quem: quemDoc });
+    ok(semTal.ok === false,
+      'e um id que n\u00e3o existe \u00e9 recusado depois da senha, e n\u00e3o antes \u2014 recusar antes ' +
+      'diria a quem adivinha ids quais existem', semTal.erro);
+
     /* A SENHA NÃO SAI NA ROTA PÚBLICA. `dados` não tem autorização nenhuma, e é ela que
        a tela de login chama antes de qualquer pessoa entrar.
 
@@ -2607,15 +2675,19 @@ console.log('\n== painel restrito: so os proprios lancamentos ==');
   (function () {
     var rotaU = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
     var sobrou = (rotaU.match(/L\.recorteProprios\(/g) || []).length;
-    /* OITO: painel, pendentes, movimentos, meusLancamentos, conciliacao, lixeira,
-       extrato e aConferir — esta ultima e a fila da doca, e sem o recorte quem so' ve'
+    /* NOVE: painel, pendentes, movimentos, meusLancamentos, conciliacao, lixeira,
+       extrato, aConferir e documento — esta ultima entrega o endereco do canhoto, e
+       sem o recorte um id adivinhado traria o documento de uma unidade que aquela
+       pessoa nao pode nem ver na tabela.
+       As sete primeiras sao: painel, pendentes, movimentos, meusLancamentos,
+       conciliacao, lixeira e extrato — esta ultima e a fila da doca, e sem o recorte quem so' ve'
        a unidade dele passaria a contar a carga da unidade do vizinho. Eram seis, e a de fora era `meusLancamentos` — o nome dela me enganou:
        ela nao e' "so' os meus", honra `UsuariosVistos` como as outras, e e' por ela que
        a tela Lancamentos do app de campo le'. O gerente de Maceio continuava vendo
        Natal, Caruaru e Recife ali, com a permissao marcada.
        A CONTA E ESCRITA DE PROPOSITO: ela e' o tropeco que obriga quem acrescenta uma
        rota de listagem a lembrar do recorte. */
-    ok((rotaU.match(/L\.recorteLancamentos\(/g) || []).length === 8,
+    ok((rotaU.match(/L\.recorteLancamentos\(/g) || []).length === 9,
       'as rotas que listam lan\u00e7amento chamam `recorteLancamentos` \u2014 a pe\u00e7a existiria ' +
       'e nada chegaria nela, e a filial seguiria vendo a opera\u00e7\u00e3o inteira',
       (rotaU.match(/L\.recorteLancamentos\(/g) || []).length);
@@ -4969,6 +5041,56 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'e a gaveta dele mostra UMA linha, a que saiu de verdade — contando as duas, quem ' +
     'conferisse veria a mesma carga duas vezes com dois donos do mesmo nome',
     geraldoFF && (geraldoFF.linhas || []).length);
+
+  /* ================= O DOCUMENTO DA CARGA ====================================
+   *
+   * O canhoto assinado e a foto moram num balde PUBLICO do armazenamento: quem tem o
+   * endereco abre o arquivo, sem senha, para sempre. Ate aqui o Extrato imprimia esse
+   * endereco direto na tabela — e com ele ia embora em todo HTML salvo, para ser aberto
+   * depois por quem quer que tivesse o link.
+   *
+   * O QUE A SENHA TRANCA, DITO SEM EXAGERO: a ENTREGA do endereco, e nao o arquivo. O
+   * arquivo continua aberto a quem JA tiver o link — fechar isso pede balde privado e
+   * link assinado. Esta' escrito assim para que a prova nao prometa o que o codigo nao
+   * faz. */
+  const MOV_DOC = [{ ID: 'D1', Registro: 'R000500', Tipo: 'SAIDA', OrigemID: 'L001',
+    DestinoID: 'L003', TipoCaixaID: 'T001', Qtd: 10,
+    AssinaturaURL: 'https://balde/canhotos/canhoto-abc.jpg',
+    FotoURL: 'https://balde/canhotos/foto-abc.jpg',
+    DataRef: new Date(2026, 9, 20), DataHora: new Date(2026, 9, 20) },
+    { ID: 'D2', Registro: 'R000501', Tipo: 'SAIDA', OrigemID: 'L001',
+      DestinoID: 'L003', TipoCaixaID: 'T001', Qtd: 20,
+      DataRef: new Date(2026, 9, 20), DataHora: new Date(2026, 9, 20) }];
+  const LOC_DOC = [{ ID: 'L001', Nome: 'Matriz' }, { ID: 'L003', Nome: 'Recife' }];
+  const linhasDoc = Fl.listaMovimentos(MOV_DOC, LOC_DOC, [{ ID: 'T001', Nome: 'CX P' }],
+    [], {}, { motoristas: [], fornecedores: [] });
+
+  ok(JSON.stringify(linhasDoc).indexOf('balde/canhotos') < 0,
+    'o ENDEREÇO do documento não viaja mais na lista — impresso na tabela, ele ia para ' +
+    'toda tela aberta e para todo HTML salvo, e o arquivo abre sem senha para quem ' +
+    'tiver o link', JSON.stringify(linhasDoc).slice(0, 120));
+
+  const comDoc = linhasDoc.filter((l) => l.id === 'D1')[0];
+  const semDoc = linhasDoc.filter((l) => l.id === 'D2')[0];
+  ok(comDoc.temAssinatura === true && comDoc.temFoto === true &&
+     semDoc.temAssinatura === false && semDoc.temFoto === false,
+    'e no lugar dele vai um SIM ou NÃO — é o que deixa a tela não oferecer um botão que ' +
+    'pediria a senha para depois responder "este lançamento não tem foto"',
+    [comDoc.temFoto, semDoc.temFoto]);
+
+  ok(comDoc.assinatura === undefined && comDoc.foto === undefined,
+    'e os campos antigos sumiram de vez — deixados ao lado dos novos, a tela velha ' +
+    'continuaria lendo o endereço e a porta com senha seria enfeite',
+    Object.keys(comDoc).filter((k) => k === 'foto' || k === 'assinatura'));
+
+  /* E O EXTRATO SEGUE A MESMA REGRA. Ele era o UNICO lugar que imprimia o endereco, e
+     deixa-lo de fora faria a porta nova conviver com a porta velha aberta ao lado. */
+  const extDoc = Fl.extrato({ movimentos: MOV_DOC, locais: LOC_DOC,
+    tipos: [{ ID: 'T001', Nome: 'CX P' }], usuarios: [], config: {} }, 'L003');
+  ok(JSON.stringify(extDoc).indexOf('balde/canhotos') < 0,
+    'e o extrato também não leva o endereço — era ele o único lugar que o imprimia, e ' +
+    'deixá-lo de fora faria a porta nova conviver com a velha aberta ao lado',
+    JSON.stringify(extDoc).slice(0, 120));
 
   /* ================= QUEM CONFERE A CHEGADA ==================================
    *
