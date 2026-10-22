@@ -1879,7 +1879,18 @@
     /* A CASA DA CONFERENCIA se liga aqui, junto com as outras: ela nasce do mesmo
        `DADOS`, e um bloco a parte ficaria para tras no dia em que a montagem mudasse. */
     montarCasasDaConferencia();
-    document.getElementById('enCasa').addEventListener('change', carregarFilaChegada);
+    /* AS ORIGENS SAO MONTADAS AO ABRIR, e nao so' depois que a fila chega: este campo e'
+       o PRIMEIRO da tela agora, e nascer vazio nao se le como "ainda nao ha dados" —
+       se le' como campo quebrado. */
+    montarOrigensDaFila();
+    document.getElementById('enCasa').addEventListener('change', function(){
+      /* TROCAR A CASA REFAZ AS ORIGENS, duas vezes: aqui, para tirar da lista a casa
+         recem-escolhida, e de novo quando a fila chegar, para trazer as contas. Sem a
+         primeira, a casa onde a pessoa esta' continua oferecida como origem dela
+         mesma ate' a rede responder. */
+      montarOrigensDaFila();
+      carregarFilaChegada();
+    });
     /* TROCAR A ORIGEM SO' REDESENHA: a fila inteira ja veio do servidor, e uma ida a
        rede por troca de peneira seria uma espera por nada. */
     document.getElementById('enDeOnde').addEventListener('change', desenharFilaChegada);
@@ -2206,36 +2217,65 @@
     });
   }
 
-  /* AS ORIGENS QUE DE FATO TEM CARGA ESPERANDO, com a conta de cada uma.
-     Montadas da FILA e nao do cadastro de locais: uma lista de locais poria no campo
-     origens sem nada atras delas, e escolher uma delas daria uma tela vazia que se le
-     como tela quebrada.
-     A ESCOLHA DE ANTES FICA, se ainda houver carga daquela origem: a pessoa confere
-     varias cargas de Sao Vicente em seguida, e reescolher a cada uma seria um toque a
-     mais por carga. */
+  /* AS UNIDADES QUE PODEM TER MANDADO, e nao so' as que ja' estao na fila.
+   *
+   * ELA NASCIA DA FILA, e a fila so' chega depois de escolher a casa — entao este
+   * campo, que agora e' o PRIMEIRO da tela, abria VAZIO. O escritorio apontou: "quando
+   * pedi para inverter nao foi apenas os nomes, mas tambem as funcoes". Um campo vazio
+   * no comeco de um formulario nao se le como "ainda nao ha dados"; se le como campo
+   * quebrado, e quem o ve' para de tentar.
+   *
+   * O QUE SE PERDE, E E REAL: nascendo do cadastro, o campo passa a oferecer unidade
+   * sem carga nenhuma esperando. A objecao de antes era que escolher uma dessas daria
+   * uma tela vazia que se le' como tela quebrada — e a resposta agora nao e' esconder a
+   * opcao, e' CONTAR: cada unidade traz quantas cargas esperam dela, inclusive zero. A
+   * pessoa ve' antes de clicar, e o vazio continua explicado.
+   *
+   * A CONTA SO APARECE DEPOIS DE ESCOLHER A CASA. Antes disso a fila nao foi pedida, e
+   * um "0" em todas as linhas diria que nao ha carga nenhuma em lugar nenhum — que e'
+   * diferente de "ainda nao perguntei".
+   *
+   * E A CASA ONDE SE CONFERE SAI DA LISTA: carga nao viaja de um lugar para ele mesmo,
+   * e a rota ja' ignora essa perna. Oferecida, ela seria a unica opcao garantidamente
+   * vazia do campo.
+   *
+   * A ESCOLHA DE ANTES FICA: a pessoa confere varias cargas de Sao Vicente em seguida,
+   * e reescolher a cada uma seria um toque a mais por carga. */
   function montarOrigensDaFila(){
     var sel = document.getElementById('enDeOnde');
     if (!sel) return;
     var antes = sel.value;
-    var conta = {}, ordem = [];
+    var casa = String(casaDaConferencia() || '');
+    var conta = {};
     FILA_CHEGADA.forEach(function(c){
       var k = String(c.origemId || '');
-      if (!conta[k]) { conta[k] = { nome: c.origem || '\u2014', n: 0 }; ordem.push(k); }
-      conta[k].n++;
+      conta[k] = (conta[k] || 0) + 1;
     });
-    ordem.sort(function(a, b){
-      return conta[a].nome.localeCompare(conta[b].nome, 'pt-BR');
+    /* A MESMA LISTA DO "CONFERINDO EM", menos a permissao: `saidas` responde "em que
+       casa esta pessoa trabalha", e quem MANDOU a carga nao e' escolha dela — e' um
+       fato da carga. Peneirar por permissao aqui esconderia a origem de uma carga que
+       esta' na fila, e a linha ficaria inalcancavel pelo filtro. */
+    var unidades = locaisPor(['GALPAO','FILIAL']).filter(function(l){
+      return String(l.ID) !== casa;
     });
+    unidades.sort(function(a, b){
+      return String(a.Nome || '').localeCompare(String(b.Nome || ''), 'pt-BR');
+    });
+    var temFila = !!casa;
     /* "TODAS" PRIMEIRO, e e' o padrao: esconder carga por omissao e' o jeito de uma
        chegada ficar para tras sem ninguem ver. Quem quiser estreitar, estreita. */
-    sel.innerHTML = '<option value="">Todas \u2014 ' +
-        (FILA_CHEGADA.length === 1 ? '1 carga' : FILA_CHEGADA.length + ' cargas') +
+    sel.innerHTML = '<option value="">Todas' +
+        (temFila ? ' \u2014 ' + (FILA_CHEGADA.length === 1 ? '1 carga'
+                                                          : FILA_CHEGADA.length + ' cargas')
+                 : '') +
         '</option>' +
-      ordem.map(function(k){
-        return '<option value="' + Q.esc(k) + '">' + Q.esc(conta[k].nome) +
-          ' \u00b7 ' + conta[k].n + '</option>';
+      unidades.map(function(l){
+        var k = String(l.ID);
+        return '<option value="' + Q.esc(k) + '">' + Q.esc(l.Nome || '\u2014') +
+          (temFila ? ' \u00b7 ' + (conta[k] || 0) : '') + '</option>';
       }).join('');
-    sel.value = conta[antes] ? antes : '';
+    sel.value = unidades.some(function(l){ return String(l.ID) === String(antes); })
+      ? antes : '';
   }
 
   /* OS CINCO CAMPOS QUE O `placeholder` PROMETE, e so' eles. Buscar em campo que a

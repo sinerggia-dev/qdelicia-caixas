@@ -28374,15 +28374,26 @@ console.log('\n== a Entrada: conferencia na chegada ==');
      Sem o campo, `filaPeneirada` chamaria uma funcao que nao existe e a bancada estoura
      em vez de medir — foi o que aconteceu quando a busca nasceu. */
   var cxBusca = { value: '' };
-  var api = new Function('document', 'Q',
+  var selCasa = { value: '' };
+  /* AS UNIDADES DO CADASTRO, que e' de onde o campo de origem passou a nascer. */
+  var UNIDADES = [
+    { ID: 'L001', Nome: 'Matriz São Vicente' },
+    { ID: 'L009', Nome: 'Filial Natal' },
+    { ID: 'L014', Nome: 'Filial Maceió' }
+  ];
+  var api = new Function('document', 'Q', 'locaisPor',
     'FILA_CHEGADA', 'FILA_MOSTRADA',
-    corpoF('montarOrigensDaFila') + '\n' + corpoF('semAcento') + '\n' +
+    corpoF('casaDaConferencia') + '\n' + corpoF('montarOrigensDaFila') + '\n' +
+    corpoF('semAcento') + '\n' +
     corpoF('passaBuscaDaFila') + '\n' + corpoF('filaPeneirada') +
     '\n return { montar: montarOrigensDaFila, peneirar: filaPeneirada,' +
     '\n          fila: function(f){ FILA_CHEGADA = f; } };')(
     { getElementById: function (id) {
-        return id === 'enDeOnde' ? selDe : (id === 'enBusca' ? cxBusca : null); } },
+        return id === 'enDeOnde' ? selDe
+             : (id === 'enBusca' ? cxBusca
+             : (id === 'enCasa' ? selCasa : null)); } },
     { esc: function (x) { return String(x); } },
+    function () { return UNIDADES.slice(); },
     [], []);
 
   var FILA_F = [
@@ -28390,19 +28401,76 @@ console.log('\n== a Entrada: conferencia na chegada ==');
     { registro: 'R2', origemId: 'L001', origem: 'Matriz São Vicente' },
     { registro: 'R3', origemId: 'L009', origem: 'Filial Natal' }
   ];
+  /* ---- E ALGUEM CHAMA A MONTAGEM, nas duas horas que importam ----
+   *
+   * A PECA PODE ESTAR PERFEITA E NINGUEM CHAMA-LA: e' o defeito mais repetido deste
+   * projeto, e as duas sabotagens que escaparam aqui foram exatamente isso — apaguei a
+   * chamada da abertura e a chamada da troca de casa, e as provas que RODAM a funcao
+   * continuaram verdes, porque elas a chamam por conta propria.
+   *
+   * SAO DUAS HORAS, e cada uma conserta um estrago diferente: ao ABRIR, para o campo
+   * nao nascer vazio sendo o primeiro da tela; ao TROCAR A CASA, para a casa
+   * recem-escolhida sair da propria lista de origens antes de a rede responder. */
+  {
+    var iLig = idxF.indexOf('montarCasasDaConferencia();');
+    var janelaLig = idxF.slice(iLig, iLig + 900);
+    ok(iLig > 0 && /montarCasasDaConferencia\(\);[\s\S]{0,400}?montarOrigensDaFila\(\);/
+        .test(janelaLig),
+      'o campo de origem \u00e9 montado AO ABRIR a tela \u2014 montado s\u00f3 quando a fila chega, ' +
+      'ele nasce vazio sendo o PRIMEIRO campo do formul\u00e1rio, e campo vazio no come\u00e7o ' +
+      'se l\u00ea como campo quebrado', janelaLig.slice(0, 200));
+    ok(/addEventListener\('change', function\(\)\{[\s\S]{0,600}?montarOrigensDaFila\(\);[\s\S]{0,200}?carregarFilaChegada\(\);/
+        .test(janelaLig),
+      'e trocar a CASA refaz as origens antes de ir \u00e0 rede \u2014 sem isso a casa onde a ' +
+      'pessoa est\u00e1 continua oferecida como origem dela mesma at\u00e9 a resposta chegar',
+      janelaLig.slice(0, 300));
+    /* E DE NOVO QUANDO A FILA CHEGA, para trazer as contas: sem esta terceira chamada o
+       campo fica sem o numero ao lado de cada unidade, que e' o que diz onde comecar. */
+    var iFila = idxF.indexOf('FILA_CHEGADA = r.cargas || [];');
+    ok(iFila > 0 &&
+       /FILA_CHEGADA = r\.cargas \|\| \[\];[\s\S]{0,120}?montarOrigensDaFila\(\);/
+         .test(idxF.slice(iFila, iFila + 300)),
+      'e de novo quando a fila CHEGA, para trazer as contas \u2014 sem isto cada unidade ' +
+      'fica sem o n\u00famero ao lado, que \u00e9 o que diz de onde come\u00e7ar a conferir',
+      idxF.slice(iFila, iFila + 160));
+  }
+
+  /* ---- O CAMPO DE ORIGEM NASCE CHEIO, ANTES DA FILA ----
+   *
+   * ELE NASCIA DA FILA, e a fila so' chega depois de escolher a casa — entao este campo,
+   * que agora e' o PRIMEIRO da tela, abria VAZIO. O escritorio apontou: "quando pedi
+   * para inverter nao foi apenas os nomes, mas tambem as funcoes". Um campo vazio no
+   * comeco de um formulario nao se le' como "ainda nao ha dados"; se le' como campo
+   * quebrado, e quem o ve' para de tentar. */
+  selCasa.value = '';
+  api.fila([]);
+  api.montar();
+  ok(/Matriz São Vicente/.test(selDe.innerHTML) &&
+     /Filial Natal/.test(selDe.innerHTML) && /Filial Macei/.test(selDe.innerHTML),
+    'sem casa escolhida e sem fila, o campo de origem já traz as UNIDADES — nascendo da ' +
+    'fila ele abria vazio, e um campo vazio no começo do formulário se lê como campo ' +
+    'quebrado', selDe.innerHTML);
+  ok(selDe.innerHTML.indexOf('· 0') < 0 && !/Todas —/.test(selDe.innerHTML),
+    'e AINDA SEM contagem nenhuma — a fila não foi pedida, e um "0" em todas as linhas ' +
+    'diria que não há carga em lugar nenhum, que é diferente de "ainda não perguntei"',
+    selDe.innerHTML);
+
+  selCasa.value = 'L014';
   api.fila(FILA_F);
   api.montar();
 
   ok(/Todas — 3 cargas/.test(selDe.innerHTML),
-    'o campo abre em TODAS, com a conta — esconder carga por omissão é o jeito de uma ' +
-    'chegada ficar para trás sem ninguém ver', selDe.innerHTML.slice(0, 70));
+    'escolhida a casa, o campo abre em TODAS com a conta — esconder carga por omissão ' +
+    'é o jeito de uma chegada ficar para trás sem ninguém ver',
+    selDe.innerHTML.slice(0, 70));
   ok(/Matriz São Vicente · 2/.test(selDe.innerHTML) &&
      /Filial Natal · 1/.test(selDe.innerHTML),
     'e cada origem traz quantas cargas esperam dela — é o que diz onde começar',
     selDe.innerHTML);
   ok(selDe.innerHTML.indexOf('Filial Macei') < 0,
-    'e nenhuma origem SEM carga entra na lista — escolhê-la daria uma tela vazia que se ' +
-    'lê como tela quebrada');
+    'e a CASA onde se confere sai da lista — carga não viaja de um lugar para ele ' +
+    'mesmo, e oferecida ela seria a única opção garantidamente vazia do campo',
+    selDe.innerHTML);
 
   selDe.value = '';
   ok(api.peneirar().length === 3, 'em "Todas", a fila sai inteira');
@@ -28515,20 +28583,27 @@ console.log('\n== a Entrada: conferencia na chegada ==');
   selDe.value = 'L001';
   api.fila(FILA_F);
 
-  /* A ESCOLHA DE ANTES FICA, se ainda houver carga daquela origem: a pessoa confere
-     varias de Sao Vicente em seguida, e reescolher a cada uma seria um toque a mais por
-     carga. Sumindo a origem da fila, ela volta para "Todas" — presa num valor que nao
-     existe mais, a tela abriria vazia sem dizer por que. */
+  /* A ESCOLHA DE ANTES FICA: a pessoa confere varias cargas de Sao Vicente em seguida, e
+     reescolher a cada uma seria um toque a mais por carga.
+     E ELA FICA MESMO DEPOIS DA ULTIMA, agora — era o contrario, e mudou junto com a
+     origem do campo. Antes as opcoes nasciam da FILA, e conferida a ultima carga de Sao
+     Vicente a opcao SUMIA: o campo tinha de voltar para "Todas", porque ficaria preso
+     num valor que nao existe mais. Agora as opcoes sao as UNIDADES, e Sao Vicente
+     continua existindo tendo ou nao carga esperando.
+     O QUE SEGURA O ESTRAGO QUE AQUELE RESET EVITAVA e' o texto do vazio: ele diz que a
+     fila tem carga, so' nao desta origem, e manda escolher "Todas". Um reset calado
+     trocava o filtro da pessoa sem avisar, que e' a outra metade do mesmo problema. */
   api.montar();
   ok(selDe.value === 'L001',
     'e a origem escolhida FICA entre uma conferência e a seguinte — reescolher a cada ' +
     'carga seria um toque a mais por carga', selDe.value);
   api.fila([{ registro: 'R9', origemId: 'L009', origem: 'Filial Natal' }]);
   api.montar();
-  ok(selDe.value === '',
-    'mas se a última carga daquela origem for conferida, o campo volta para Todas — ' +
-    'preso num valor que não existe mais, a tela abriria vazia sem dizer por quê',
-    selDe.value);
+  ok(selDe.value === 'L001' && / · 0/.test(selDe.innerHTML),
+    'e CONTINUA escolhida depois da última carga daquela origem, agora com <b>0</b> ao ' +
+    'lado — a unidade não deixou de existir, e o texto do vazio diz que a fila tem ' +
+    'carga de outra origem: um reset calado trocaria o filtro da pessoa sem avisar',
+    selDe.value + ' | ' + selDe.innerHTML);
 
   /* ---- E O INDICE E O DA LISTA MOSTRADA ----
    *
