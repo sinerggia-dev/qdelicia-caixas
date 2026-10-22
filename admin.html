@@ -14444,9 +14444,19 @@
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
         'É a <b>base</b> desta pessoa: o galpão de onde ela despacha é o mesmo para onde '+
         'a devolução chega. Marcar só a Matriz já deixa os dois campos preenchidos no '+
-        'celular.</p>'+
+        'celular — e marcar a base em <b>Destino</b> dá no mesmo, porque o Retorno '+
+        'aceita as duas.</p>'+
       caixaLocais('fDestinos', 'Destino — para onde as caixas vão',
                   locaisEscolhiveis(['GALPAO','ROTA','FILIAL','CLIENTE','FORNECEDOR'], u.Destinos), u.Destinos)+
+      /* A FRASE NASCEU DE UMA TELA QUE O ESCRITORIO MANDOU: o motorista tinha a Matriz
+         marcada AQUI, e o campo Destino do Retorno abria vazio — ele nao conseguia
+         lancar. Com `vazio = nada`, marcar na caixa errada nao confunde: trava.
+         Agora as duas servem, e a frase diz isso onde a decisao e' tomada. Dita so' no
+         comentario do codigo, ela nao chega a quem cadastra. */
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+
+        'Vale tamb\u00e9m como <b>onde a devolu\u00e7\u00e3o chega</b>: o campo Destino do '+
+        'Retorno aceita o que estiver marcado aqui <b>ou</b> em Sa\u00edda. Marcar numa das '+
+        'duas basta.</p>'+
       caixaLocais('fRetornos', 'Retorno — de onde as caixas voltam',
                   locaisEscolhiveis(['GALPAO','FILIAL','ROTA'], u.Retornos), u.Retornos)+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">'+

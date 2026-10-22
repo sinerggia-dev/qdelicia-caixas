@@ -2935,42 +2935,127 @@ console.log('\n== cada seletor usa a lista certa de permissão ==');
      depende da origem escolhida: com galpao nas duas pontas, a Matriz podia devolver para
      a Matriz. */
   var ajDv = corpo('ajustarDestinoRetorno');
-  var mDv = ajDv.match(/todos\s*=\s*permitidos\(.*,\s*'([a-z]+)'\)/);
-  ok(mDv && mDv[1] === 'saidas',
-    'e para onde ela volta vem da lista de SAÍDA — é a BASE dela, a mesma de onde ela '
-    + 'despacha, e com um único local marcado o campo já vem preenchido',
-    mDv && mDv[1]);
+  /* O DESTINO DO RETORNO LE DUAS LISTAS, e isso nasceu de uma tela que o escritorio
+     mandou: o motorista tinha a Matriz marcada em **Destino** e o campo abria VAZIO —
+     ele nao conseguia lancar. A decisao antiga estava certa (a casa de onde ela despacha
+     e' a mesma para onde a devolucao chega), e a TELA mentia: a caixa chamada "Destino —
+     para onde as caixas vao" e' onde alguem procura para dizer para onde a caixa volta.
+     COM `vazio = nada`, marcar na caixa errada nao confunde: trava.
+     AS DUAS, E NAO UMA PELA OUTRA: quem marcou so' em Saida continua como estava. */
+  var mDv = ajDv.match(/todos\s*=\s*permitidosEm\([^,]*,\s*\[([^\]]*)\]\)/);
+  var listasDv = !mDv ? [] : mDv[1].split(',')
+    .map(function (x) { return x.trim().replace(/'/g, ''); })
+    .filter(function (x) { return !!x; });
+  ok(listasDv.indexOf('saidas') >= 0 && listasDv.indexOf('destinos') >= 0 &&
+     listasDv.length === 2,
+    'para onde ela volta vem das listas de SA\u00cdDA e de DESTINO \u2014 marcar a base em ' +
+    'qualquer uma das duas basta, e com `vazio = nada` marcar na errada n\u00e3o confunde: ' +
+    'trava o formul\u00e1rio sem dizer por qu\u00ea', listasDv);
+
+  /* ---- E A UNIAO DAS DUAS LISTAS, RODADA ----
+   *
+   * A prova acima le' QUAIS listas o campo consulta; esta roda a funcao que as junta. Sem
+   * ela, uma versao que recebesse as duas e devolvesse so' a primeira passaria batida —
+   * e seria exatamente o defeito de hoje, com outra cara. */
+  (function () {
+    var SESSAO = { saidas: ['L1'], destinos: ['L2', 'L1'] };
+    var LOCS = [{ ID: 'L1', Nome: 'Matriz' }, { ID: 'L2', Nome: 'Filial Natal' },
+                { ID: 'L3', Nome: 'Caruaru' }];
+    var iu = html.indexOf('  function permitidosEm(');
+    var ip = html.indexOf('  function permitidos(lista, quais)');
+    var fimP = html.indexOf('\n  }', ip) + 4;
+    var api = new Function('Q',
+      html.slice(iu, html.indexOf('\n  }', iu) + 4) + html.slice(ip, fimP) +
+      ' return permitidosEm;')({ sessao: function () { return SESSAO; } });
+
+    var nomes = function (l) { return l.map(function (x) { return x.Nome; }).join(','); };
+    ok(nomes(api(LOCS, ['saidas', 'destinos'])) === 'Matriz,Filial Natal',
+      'a união traz o que QUALQUER das duas listas libera — era o defeito que o ' +
+      'escritório mandou: com a Matriz marcada só em Destino, o campo abria vazio e o ' +
+      'motorista não conseguia lançar', nomes(api(LOCS, ['saidas', 'destinos'])));
+
+    ok(api(LOCS, ['saidas', 'destinos']).filter(function (x) {
+         return x.ID === 'L1'; }).length === 1,
+      'e o que está nas DUAS entra uma vez só — repetido, o seletor mostraria a Matriz ' +
+      'duas vezes e quem olha concluiria que são dois lugares com o mesmo nome');
+
+    ok(nomes(api(LOCS, ['saidas'])) === 'Matriz',
+      'e com uma lista só ela responde como antes — sem este controle, a prova acima ' +
+      'passaria com uma função que devolve tudo');
+
+    /* A ORDEM E A DOS LOCAIS, e nao a das listas pedidas — eu tinha escrito o
+       contrario nesta prova, e o codigo estava certo: `permitidos` peneira a lista de
+       locais preservando a ordem DELA. E' o que mantem o seletor estavel, porque a ordem
+       dos locais ja vem ordenada e nao muda com a marcacao do cadastro. */
+    ok(nomes(api(LOCS, ['destinos', 'saidas'])) === 'Matriz,Filial Natal' &&
+       nomes(api(LOCS, ['saidas', 'destinos'])) === 'Matriz,Filial Natal',
+      'e a ordem é a dos LOCAIS, e não a das listas pedidas — é o que mantém o ' +
+      'seletor igual nos dois desenhos, qualquer que seja a ordem em que as permissões ' +
+      'forem consultadas', nomes(api(LOCS, ['destinos', 'saidas'])));
+
+    SESSAO = { saidas: [], destinos: [] };
+    ok(api(LOCS, ['saidas', 'destinos']).length === 0,
+      'e nada marcado continua sendo NADA — a união junta duas listas, e não afrouxa ' +
+      'a regra de nenhuma delas');
+  })();
 
   /* ---- AS QUATRO PERGUNTAS, E QUAL LISTA RESPONDE CADA UMA ----
    * Escrito como tabela de proposito: e' esta tabela que estava errada duas vezes, e ler
    * as quatro linhas juntas e' o que torna um cruzamento visivel. */
   var MAPA = [
-    ['saída · origem',   listaDe('minhasSaidas'),        'saidas'],
-    ['saída · destino',  mPode && mPode[1],              'destinos'],
-    ['retorno · origem', listaDe('minhasOrigensDv'),     'retornos'],
-    ['retorno · destino', mDv && mDv[1],                 'saidas']
+    ['saída · origem',   [listaDe('minhasSaidas')],      ['saidas']],
+    ['saída · destino',  [mPode && mPode[1]],            ['destinos']],
+    ['retorno · origem', [listaDe('minhasOrigensDv')],   ['retornos']],
+    ['retorno · destino', listasDv.slice().sort(),        ['destinos', 'saidas']]
   ];
   MAPA.forEach(function (l) {
-    ok(l[1] === l[2],
-      l[0] + ' lê a lista `' + l[2] + '` — foi esta tabela que esteve errada duas vezes, '
-      + 'e é lendo as quatro linhas juntas que um cruzamento fica visível',
-      { lê: l[1], devia: l[2] });
+    ok(l[1].join('|') === l[2].join('|'),
+      l[0] + ' lê a lista `' + l[2].join('` e `') + '` — foi esta tabela que esteve '
+      + 'errada duas vezes, e é lendo as quatro linhas juntas que um cruzamento fica '
+      + 'visível', { lê: l[1], devia: l[2] });
   });
   /* E AS TRES LISTAS SAO MESMO TRES, e nao duas com um apelido: se duas respostas
      caissem na mesma lista sem ser o par da BASE, voltaria a nao haver marcacao capaz
      de separar aquelas duas perguntas. */
   var usadas = {};
-  MAPA.forEach(function (l) { usadas[l[1]] = (usadas[l[1]] || 0) + 1; });
-  ok(Object.keys(usadas).length === 3 && usadas.saidas === 2,
-    'e são TRÊS listas para quatro perguntas, com `saidas` respondendo exatamente duas — '
-    + 'a base é uma só, e qualquer outra repetição deixa duas perguntas sem como serem '
-    + 'separadas por marcação nenhuma', usadas);
+  MAPA.forEach(function (l) {
+    l[1].forEach(function (k) { usadas[k] = (usadas[k] || 0) + 1; });
+  });
+  /* TRES LISTAS PARA QUATRO PERGUNTAS, e `retornos` respondendo UMA SO'. E' ela que
+     separa "de onde recebo" de "para onde despacho" — se ela aparecesse numa segunda
+     linha, voltaria a nao haver marcacao capaz de separar aquelas duas perguntas.
+     `saidas` e `destinos` aparecem duas vezes cada, e e' de proposito: a base e' uma so',
+     e o destino do retorno aceita as duas para a caixa certa do cadastro nunca ser a
+     errada. */
+  ok(Object.keys(usadas).length === 3 && usadas.retornos === 1 &&
+     usadas.saidas === 2 && usadas.destinos === 2,
+    'e são TRÊS listas para quatro perguntas, com `retornos` respondendo exatamente uma — '
+    + 'é ela que separa "de onde recebo" de "para onde despacho", e numa segunda linha '
+    + 'as duas perguntas deixariam de ter como ser separadas', usadas);
 
   /* ---- E O CADASTRO OFERECE A TERCEIRA CAIXA ----
      Ela pode existir no app de campo e nao no cadastro: a lista chega vazia, "nada
      marcado = nada liberado" vale, e o retorno fica sem origem nenhuma — uma tela morta
      sem nada dizendo por que. */
   var admEsp = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  /* E O CADASTRO DIZ QUE DESTINO TAMBEM SERVE PARA A DEVOLUCAO.
+   *
+   * E' a metade da correcao que fica na TELA de quem cadastra, e sem ela a outra metade
+   * nao resolve nada: o escritorio marcou a Matriz em "Destino", o campo do Retorno
+   * abriu vazio, e nao havia nada na tela dizendo que a caixa certa era a de cima.
+   * A frase mora SOB A CAIXA DE DESTINO, que e' onde a decisao e' tomada — dita so' no
+   * comentario do codigo, ela nao chega a quem cadastra. */
+  (function () {
+    var iD = admEsp.indexOf("caixaLocais('fDestinos'");
+    var iR = admEsp.indexOf("caixaLocais('fRetornos'", iD);
+    var entre = iD > 0 && iR > iD ? admEsp.slice(iD, iR) : '';
+    /* PADRAO SEM ACENTO: o `admin.html` guarda alguns acentos como `\uXXXX` e
+       outros como letra, e um padrao acentuado casa com um e nao com o outro. */
+    ok(/onde a devolu[^<]*chega/.test(entre) && /em Sa[^.]*\. Marcar numa das/.test(entre),
+      'o cadastro diz, SOB a caixa de Destino, que ela também vale como onde a ' +
+      'devolução chega — sem a frase, quem cadastra marca ali, o campo do Retorno abre ' +
+      'vazio, e nada na tela explica por quê', entre.length);
+  })();
   ok(admEsp.indexOf("caixaLocais('fRetornos', 'Retorno — de onde as caixas voltam'") > 0,
     'o cadastro oferece a caixa de Retorno — sem ela a lista chega vazia, e "nada '
     + 'marcado = nada liberado" deixa o retorno sem origem nenhuma, calado');

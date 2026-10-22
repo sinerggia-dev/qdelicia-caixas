@@ -930,6 +930,36 @@
 
      Isto é a tela, não a tranca. A API continua sem autorização — está escrito no
      CLAUDE.md, e vale para este filtro como vale para as abas do painel. */
+  /* O QUE DUAS LISTAS DO CADASTRO LIBERAM, JUNTAS.
+   *
+   * Nasceu de uma tela que o escritorio mandou: o motorista tinha "Matriz Sao Vicente"
+   * marcado em **Destino**, e o campo Destino do Retorno abria VAZIO — ele nao conseguia
+   * lancar. A causa: aquele campo lia so' `saidas`, por uma decisao antiga e bem
+   * escrita ("a casa de onde ela despacha e' a mesma para onde a devolucao chega").
+   *
+   * A DECISAO ESTAVA CERTA E A TELA MENTIA. Uma caixa chamada "Destino — para onde as
+   * caixas vao" e' exatamente onde alguem procura para dizer para onde a caixa volta, e
+   * marcar ali nao fazia nada. Com `vazio = nada`, o resultado nao e' confusao: e' um
+   * formulario que nao se consegue enviar, sem nada na tela dizendo por que.
+   *
+   * ENTAO O CAMPO ACEITA AS DUAS, e nao troca uma pela outra: quem marcou so' em Saida
+   * continua exatamente como estava — nenhum cadastro de hoje perde nada — e quem marcou
+   * em Destino passa a funcionar. O preco esta' dito: uma casa marcada SO' em Destino
+   * passa a servir tambem de lugar onde a devolucao chega. Sao as duas casas nossas que
+   * o escritorio ja' concedeu aquela pessoa, e o tipo continua peneirado por
+   * `TIPOS_RETORNO`. */
+  function permitidosEm(lista, quaisVarias){
+    var vistos = {}, fora = [];
+    quaisVarias.forEach(function(quais){
+      permitidos(lista, quais).forEach(function(l){
+        if (vistos[String(l.ID)]) return;
+        vistos[String(l.ID)] = true;
+        fora.push(l);
+      });
+    });
+    return fora;
+  }
+
   function permitidos(lista, quais){
     var s = Q.sessao() || {};
     var ids = s[quais];
@@ -1407,7 +1437,7 @@
        onde ela despacha. Nao e' inversao — e' a mesma frase lida duas vezes.
        O EFEITO NA TELA: quem tem um unico local em Saida ja' encontra este campo
        preenchido, e nao mais o galpao inteiro para escolher. */
-    var todos = permitidos(locaisPor(TIPOS_RETORNO), 'saidas');
+    var todos = permitidosEm(locaisPor(TIPOS_RETORNO), ['saidas', 'destinos']);
     /* A propria origem sai da lista — mas so se sobrar alguem. Com um unico local marcado
        em Destino, tirar a origem esvaziava o campo e o lancamento ficava impossivel, sem
        nada na tela dizendo por que. Oferecer origem igual a destino e um erro que o
