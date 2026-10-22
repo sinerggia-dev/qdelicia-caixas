@@ -211,8 +211,11 @@ var marcas = Object.keys(campos).filter(marcado);
 ok(marcas.length === 1 && marcas[0] === 'sdData', 'aponta um campo por vez, o primeiro', marcas);
 
 /* ---- 10. HTML e lista dizem a mesma coisa ---- */
+/* AS TRES TELAS DE LANCAMENTO: Saida, Entrada e Retorno. A varredura le os prefixos
+   dos ids, e uma tela nova fora deles passaria inteira por fora desta conferencia —
+   com estrelas na tela e nenhuma guarda atras delas. */
 var naLista = [].concat(
-  (html.match(/id:'(sd|dv)[A-Za-z]+'/g) || []).map(function (x) { return x.slice(4, -1); })
+  (html.match(/id:'(sd|en|dv)[A-Za-z]+'/g) || []).map(function (x) { return x.slice(4, -1); })
 );
 /* O ROTULO INTEIRO, e nao "texto puro seguido da estrela": o rotulo do motorista ganhou
    um <span> dentro, porque a palavra dele troca para "Fornecedor" quando a ponta pede
