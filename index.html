@@ -995,6 +995,28 @@
     return Q.placaLimpa(txt ? txt.value : '');
   }
 
+  /* ================= O VEÍCULO SÓ É OBRIGATÓRIO QUANDO HÁ CARRO =================
+   *
+   * O escritório mandou o caso: os vinte e oito fornecedores não têm placa no cadastro,
+   * e o campo era obrigatório mesmo assim. A lista deles abre com uma opção só —
+   * "✎ Outra placa — digitar" —, e a pessoa ficava presa pedindo uma placa que ela não
+   * tem como saber. Campo obrigatório que ninguém consegue preencher não é validação, é
+   * um beco: o lançamento não acontece, ou acontece com uma placa inventada, que é pior.
+   *
+   * QUEM DECIDE É QUEM MONTA A LISTA, e não o botão de salvar. É `montarVeiculos` que
+   * sabe se há carro vinculado — ela acabou de peneirar a frota por motorista e por
+   * fornecedor. Escrita de novo na validação, a regra divergiria da lista no primeiro
+   * ajuste que só um dos dois recebesse, e o sintoma seria um campo exigido com a lista
+   * vazia, de novo.
+   *
+   * A MARCA É GENÉRICA — `data-opcional` —, e não um `if` sobre o id do veículo dentro
+   * do laço: o laço confere os campos todos pela mesma régua, e uma exceção escrita
+   * dentro dele é a primeira de uma fila. */
+  function marcarOpcional(sel, semVinculo){
+    if (semVinculo) sel.setAttribute('data-opcional', '1');
+    else sel.removeAttribute('data-opcional');
+  }
+
   function montarVeiculos(idVeiculo, idMotorista, pontas){
     var sel = document.getElementById(idVeiculo);
     if (!sel) return;
@@ -1017,6 +1039,7 @@
       sel.innerHTML = '<option value="">— nenhum veículo liberado para você —</option>' +
         '<option value="'+OUTRA_PLACA+'">✎ Outra placa — digitar</option>';
       sel.setAttribute('data-mot-lista', '');
+      marcarOpcional(sel, true);
       mostrarPlacaTexto(idVeiculo);
       return;
     }
@@ -1084,6 +1107,8 @@
         '<option value="'+OUTRA_PLACA+'">✎ Outra placa — digitar</option>';
       sel.value = placaForn;
       sel.setAttribute('data-mot-lista', motId);
+      /* AQUI HÁ CARRO, e o cadastro diz qual: a placa do fornecedor já vem escolhida. */
+      marcarOpcional(sel, false);
       /* O MESMO AJUDANTE das outras saidas: ele mostra ou esconde conforme o que
          esta escolhido, e LIMPA o que foi digitado ao esconder. Uma placa digitada e
          esquecida ali viajaria junto com o lancamento — a tela mostrando o carro do
@@ -1102,6 +1127,9 @@
         '<option value="'+OUTRA_PLACA+'" selected>✎ Outra placa — digitar</option>';
       sel.value = OUTRA_PLACA;
       sel.setAttribute('data-mot-lista', motId);
+      /* É ESTE O CASO DOS VINTE E OITO: fornecedor sem placa no cadastro. Digitar
+         continua à mão de quem souber a placa, e quem não souber passa. */
+      marcarOpcional(sel, true);
       mostrarPlacaTexto(idVeiculo);
       return;
     }
@@ -1116,6 +1144,9 @@
         ? grupo('Veículo de ' + nome, dele) + grupo('Outros veículos', outros)
         : itens(frota)) +
       '<option value="'+OUTRA_PLACA+'">✎ Outra placa — digitar</option>';
+    /* COM A FROTA NA LISTA O CAMPO VOLTA A SER EXIGIDO: há o que escolher, e deixar em
+       branco aqui é esquecimento, não impossibilidade. */
+    marcarOpcional(sel, false);
 
     /* MOTORISTA NOVO, VEÍCULO NOVO. Trocar o motorista e deixar a placa do anterior no
        campo é o erro que este agrupamento existe para evitar — e seria o mais difícil
@@ -1747,6 +1778,9 @@
     for (var i = 0; i < lista.length; i++){
       var el = document.getElementById(lista[i].id);
       if (!el || !campoVisivel(el)) continue;
+      /* CAMPO QUE SE DECLAROU OPCIONAL NÃO É COBRADO. Quem põe a marca é quem monta o
+         campo e sabe se há o que escolher — ver `marcarOpcional`. */
+      if (el.getAttribute('data-opcional') === '1') continue;
       if (String(el.value == null ? '' : el.value).trim()) continue;
       // Sem motorista ativo cadastrado ninguém consegue lançar: a mensagem diz onde
       // se resolve, senão a pessoa fica tentando escolher de uma lista vazia.
@@ -1857,6 +1891,12 @@
     var txt = campoTextoDaPlaca(idVeiculo);
     var v = Q.placaLimpa(txt ? txt.value : '');
     if (!v) {
+      /* EM BRANCO PASSA QUANDO NÃO HÁ CARRO VINCULADO, e é a outra metade da mesma
+         regra: sem vínculo a lista já vem em "digitar", e cobrar a placa aqui devolveria
+         o beco que o campo opcional acabou de abrir — a pessoa escolhe nada, o botão não
+         reclama do seletor, e reclama do texto.
+         A PLACA ERRADA CONTINUA RECUSADA: campo opcional não é campo sem regra. */
+      if (sel.getAttribute('data-opcional') === '1') return true;
       Q.toast('Digite a placa do veículo.','erro');
       if (txt) { txt.classList.add('campo-erro'); txt.focus(); }
       return false;

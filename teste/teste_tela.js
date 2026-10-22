@@ -1700,7 +1700,8 @@ console.log('\n== o veiculo do motorista fornecedor ==');
   function listaVeiPonta(mots, nomeNoCampo, locais, pontas, fornecedores) {
     var sel = { value: '', innerHTML: '', attrs: {},
                 getAttribute: function (k) { return this.attrs[k] || null; },
-                setAttribute: function (k, v) { this.attrs[k] = v; } };
+                setAttribute: function (k, v) { this.attrs[k] = v; },
+                removeAttribute: function (k) { delete this.attrs[k]; } };
     var txt = { value: '', hidden: true,
                 classList: { add: function () {}, remove: function () {} } };
     var nos = { v: sel, vTexto: txt, m: { value: nomeNoCampo } };
@@ -1712,6 +1713,10 @@ console.log('\n== o veiculo do motorista fornecedor ==');
          ela no recorte, a bancada estoura em vez de medir. */
       corpoV('fornecedorEscolhido') +
       corpoV('campoTextoDaPlaca') +
+      /* `marcarOpcional` E' QUEM DIZ SE O CAMPO SERA COBRADO, e por isso entra no
+         recorte: sem ela, a bancada estoura em vez de medir — e, pior, uma versao que
+         a tirasse do caminho passaria por aqui sem ninguem ver. */
+      corpoV('marcarOpcional') +
       corpoV('mostrarPlacaTexto') + corpoV('montarVeiculos') +
       " montarVeiculos('v', 'm', " + JSON.stringify(pontas || []) + ');')(
       { getElementById: function (id) { return nos[id] || null; } },
@@ -1720,7 +1725,8 @@ console.log('\n== o veiculo do motorista fornecedor ==');
       { locais: locais || [], fornecedores: fornecedores || [] },
       function () { return FROTA_V; },
       function () { return mots; });
-    return { html: sel.innerHTML, valor: sel.value, texto: txt };
+    return { html: sel.innerHTML, valor: sel.value, texto: txt,
+             opcional: sel.getAttribute('data-opcional') };
   }
 
   var FORN = [{ ID: 'D1', Nome: 'Bráulio', Tipo: 'Fornecedor' }];
@@ -1742,6 +1748,65 @@ console.log('\n== o veiculo do motorista fornecedor ==');
   ok(r2.html.indexOf('KKS1330') < 0 && r2.html.indexOf('XYZ9K88') < 0,
     'e continua sem oferecer placa de ninguém — era o pedido', r2.html);
 
+  /* ================= SEM CARRO VINCULADO, O CAMPO DEIXA DE SER COBRADO ==========
+   *
+   * O escritorio mandou o caso: os vinte e oito fornecedores nao tem placa no cadastro,
+   * e o campo era obrigatorio mesmo assim. A lista deles abre com uma opcao so' —
+   * "digitar" —, e a pessoa ficava presa pedindo uma placa que ela nao tem como saber.
+   * Campo obrigatorio que ninguem consegue preencher nao e' validacao, e' um beco: ou o
+   * lancamento nao acontece, ou acontece com uma placa inventada, que e' pior.
+   *
+   * QUEM POE A MARCA E QUEM MONTA A LISTA. Ela acabou de peneirar a frota por motorista
+   * e por fornecedor — e' a unica que sabe se ha' o que escolher. Escrita de novo na
+   * validacao, a regra divergiria da lista no primeiro ajuste que so' um dos dois
+   * recebesse, e o sintoma seria um campo exigido com a lista vazia, de novo. */
+  ok(r2.opcional === '1',
+    'o fornecedor SEM placa no cadastro deixa o ve\u00edculo opcional \u2014 a lista dele tem ' +
+    'uma op\u00e7\u00e3o s\u00f3, "digitar", e cobrar uma placa que ele n\u00e3o tem como saber \u00e9 um beco',
+    r2.opcional);
+  ok(r1.opcional === null,
+    'e o que TEM carro continua sendo cobrado \u2014 sem este controle, a prova acima ' +
+    'passaria com uma regra que nunca cobra o ve\u00edculo de ningu\u00e9m', r1.opcional);
+
+  /* A MARCA TEM DE SAIR, e nao so' entrar. Ela mora no ELEMENTO, e o elemento sobrevive
+     a troca de motorista: posta uma vez e nunca tirada, o campo fica opcional para
+     sempre — escolhe-se o fornecedor sem placa, depois um motorista com carro, e o
+     veiculo deixa de ser cobrado numa saida comum.
+     ESCAPOU UMA SABOTAGEM AQUI porque cada prova usava um seletor NOVO: com o elemento
+     recem-nascido, "nunca tirar" e "tirar" dao a mesma resposta. Esta reaproveita o
+     MESMO seletor, que e' o que a tela faz. */
+  (function () {
+    var sel = { value: '', innerHTML: '', attrs: {},
+                getAttribute: function (k) { return this.attrs[k] || null; },
+                setAttribute: function (k, v) { this.attrs[k] = v; },
+                removeAttribute: function (k) { delete this.attrs[k]; } };
+    function montar(mots, nome) {
+      var txt = { value: '', hidden: true,
+                  classList: { add: function () {}, remove: function () {} } };
+      var nos = { v: sel, vTexto: txt, m: { value: nome } };
+      var iOP = idxV.indexOf('var OUTRA_PLACA = ');
+      new Function('document', 'Q', 'DADOS', 'meusVeiculos', 'meusMotoristas',
+        idxV.slice(iOP, idxV.indexOf(';', iOP) + 1) + String.fromCharCode(10) +
+        corpoV('ehFornecedor') + corpoV('pedeFornecedor') +
+        corpoV('fornecedorEscolhido') + corpoV('campoTextoDaPlaca') +
+        corpoV('marcarOpcional') + corpoV('mostrarPlacaTexto') +
+        corpoV('montarVeiculos') + " montarVeiculos('v', 'm', []);")(
+        { getElementById: function (id) { return nos[id] || null; } },
+        { esc: function (x) { return String(x); },
+          comoChamar: function (m) { return m.Apelido || m.Nome; } },
+        { locais: [], fornecedores: [] },
+        function () { return FROTA_V; },
+        function () { return mots; });
+      return sel.getAttribute('data-opcional');
+    }
+    var antes = montar([{ ID: 'D9', Nome: 'Seu Z\u00e9', Tipo: 'Fornecedor' }], 'Seu Z\u00e9');
+    var depois = montar([{ ID: 'D1', Nome: 'Br\u00e1ulio', Tipo: 'Fornecedor' }], 'Br\u00e1ulio');
+    ok(antes === '1' && depois === null,
+      'e a marca SAI quando o motorista troca por um que tem carro \u2014 no mesmo campo: ' +
+      'posta e nunca tirada, ela ficaria colada ali e uma sa\u00edda comum deixaria de ' +
+      'cobrar o ve\u00edculo para sempre', { antes: antes, depois: depois });
+  })();
+
   /* ---- O CARRO DO FORNECEDOR, QUANDO ELE TEM UM ----
    *
    * Ele nao mora na tabela `veiculos` — aquela amarra o carro ao MOTORISTA por id, e o
@@ -1757,6 +1822,14 @@ console.log('\n== o veiculo do motorista fornecedor ==');
   ok(comCarro.valor === 'RTA7J51',
     'o fornecedor com placa cadastrada já abre com ela escolhida — não há o que ' +
     'escolher, e é um toque a menos por lançamento', comCarro.valor);
+  /* E ELE CONTINUA SENDO COBRADO: ter placa no cadastro é ter carro vinculado, e a
+     marca de opcional ali tiraria a conferência justamente de quem tem o que
+     conferir. Escapou uma sabotagem por aqui: nenhuma prova olhava a marca neste
+     caminho. */
+  ok(comCarro.opcional === null,
+    'e o veículo dele continua sendo cobrado — ter placa no cadastro é ter carro ' +
+    'vinculado, e marcá-lo opcional tiraria a conferência de quem tem o que conferir',
+    comCarro.opcional);
   ok(comCarro.texto.hidden === true,
     'e o campo de digitar fica escondido — aberto junto, uma placa esquecida ali ' +
     'viajaria no lugar da que está na tela', comCarro.texto.hidden);
@@ -1819,7 +1892,8 @@ console.log('\n== o veiculo do motorista fornecedor ==');
   {
     var selV = { value: '', innerHTML: '', attrs: {},
                  getAttribute: function (k) { return this.attrs[k] || null; },
-                 setAttribute: function (k, v) { this.attrs[k] = v; } };
+                 setAttribute: function (k, v) { this.attrs[k] = v; },
+                 removeAttribute: function (k) { delete this.attrs[k]; } };
     /* O MOTORISTA DO ENSAIO E' COMUM, de proposito: com um FORNECEDOR no campo a
        peneira valeria pelo outro caminho — o do tipo dele — e a prova passaria sem
        exercitar a ponta, que e' o que ela veio medir. */
@@ -1837,6 +1911,7 @@ console.log('\n== o veiculo do motorista fornecedor ==');
       idxV.slice(iOP2, idxV.indexOf(';', iOP2) + 1) + String.fromCharCode(10) +
       corpoV('ehFornecedor') + corpoV('pedeFornecedor') +
       corpoV('fornecedorEscolhido') + corpoV('campoTextoDaPlaca') +
+      corpoV('marcarOpcional') +
       corpoV('mostrarPlacaTexto') + corpoV('montarVeiculos') +
       corpoV('motoristaPuxaVeiculo') +
       ' return { ligar: motoristaPuxaVeiculo };')(
@@ -9217,6 +9292,7 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
        estoura em vez de medir. */
     var fonte = ['function ehFornecedor(', 'function pedeFornecedor(',
                  'function campoTextoDaPlaca(', 'function mostrarPlacaTexto(',
+                 'function marcarOpcional(',
                  'function placaEscolhida(', 'function montarVeiculos(',
                  'function motoristaPuxaVeiculo(', 'function veiculoPuxaMotorista(']
       .map(function (a) {
@@ -9231,6 +9307,7 @@ console.log('\n== a frota: cadastro no painel, e a placa no lançamento ==');
     function Sel() { this._a = {}; this._h = ''; this.value = ''; this._ouve = []; }
     Sel.prototype.setAttribute = function (k, v) { this._a[k] = String(v); };
     Sel.prototype.getAttribute = function (k) { return k in this._a ? this._a[k] : null; };
+    Sel.prototype.removeAttribute = function (k) { delete this._a[k]; };
     Sel.prototype.addEventListener = function (tipo, f) {
       if (tipo === 'change') this._ouve.push(f);
     };
