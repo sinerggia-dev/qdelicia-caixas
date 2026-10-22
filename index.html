@@ -564,8 +564,17 @@
           <label for="enDeOnde">Entrada de</label>
           <select id="enDeOnde"></select>
         </div>
+        <!-- O ASTERISCO SAIU, e ele defendia uma afirmacao que nao e' verdade.
+             A contagem NAO e' gravada "neste lugar": ela e' gravada NA CARGA, pelo id
+             dela — a rota `conferirChegada` nem recebe a casa. Este campo sempre foi um
+             FILTRO DE DESTINO, e obriga-lo fazia quem ve' a operacao inteira adivinhar
+             para onde a carga foi antes de poder olhar para ela.
+             VAZIO = TODAS AS CASAS que esta pessoa alcanca. Quem trabalha numa casa so'
+             continua caindo nela sozinho — `preencherSozinho` escolhe quando ha uma
+             opcao unica —, entao a doca nao muda de comportamento; quem muda e' quem
+             tem varias. -->
         <div>
-          <label for="enCasa">Conferindo em<span class="obrig">*</span></label>
+          <label for="enCasa">Conferindo em</label>
           <select id="enCasa"></select>
         </div>
       </div>
@@ -2207,8 +2216,16 @@
        destino dele — e' a mesma pergunta: em que casa esta pessoa trabalha. */
     var casas = permitidos(locaisPor(['GALPAO','FILIAL']), 'saidas');
     var antes = sel.value;
-    sel.innerHTML = opcoes(casas);
+    /* "TODAS AS CASAS" E A PRIMEIRA, e nao "Selecione...": o campo deixou de ser
+       obrigatorio, e "Selecione..." num campo que nao exige escolha pede uma coisa que
+       nao e' pedida. O texto diz o que o vazio FAZ. */
+    sel.innerHTML = '<option value="">Todas as casas</option>' +
+      casas.map(function(l){
+        return '<option value="' + Q.esc(l.ID) + '">' + Q.esc(l.Nome) + '</option>';
+      }).join('');
     if (casas.some(function(l){ return String(l.ID) === String(antes); })) sel.value = antes;
+    /* QUEM TEM UMA CASA SO' CAI NELA SOZINHO, e e' o que mantem a doca como era: o
+       conferente de Maceio abre a tela ja' em Maceio, e nunca ve' a fila das outras. */
     else preencherSozinho('enCasa', casas);
   }
 
@@ -2216,16 +2233,18 @@
     var box = document.getElementById('enFila');
     if (!box) return;
     var casa = casaDaConferencia();
-    if (!casa){
-      /* O TEXTO MORA NUM LUGAR SO'. Escrito aqui tambem, as duas versoes divergiriam —
-         e divergiram: esta dizia "escolha a casa" e a outra, pelo mesmo estado, dizia
-         "tudo que chegou ja' foi contado". */
-      FILA_CHEGADA = [];
-      desenharFilaChegada();
-      return;
-    }
     box.innerHTML = '<div class="vazio">Carregando\u2026</div>';
-    Q.get(Q.lendo({ acao:'aConferir', local: casa })).then(function(r){
+    /* SEM CASA, A FILA VEM INTEIRA — de todas as casas que esta pessoa alcanca. A rota
+       ja' fazia isso: `if (casa && destino !== casa)` deixa passar tudo quando a casa
+       nao vem. Quem obrigava a escolher era so' esta tela, e o escritorio bateu nisso
+       tres vezes: ele pensa "o que Sao Vicente mandou", e a tela perguntava "onde voce
+       esta" — uma pergunta que quem ve' a operacao inteira nao tem como responder sem
+       antes olhar para a carga.
+       O CAMPO SO VIAJA QUANDO HA ESCOLHA: mandado vazio, ele e' um filtro por um id que
+       nao existe em lugar nenhum. */
+    var pedido = { acao:'aConferir' };
+    if (casa) pedido.local = casa;
+    Q.get(Q.lendo(pedido)).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       FILA_CHEGADA = r.cargas || [];
       montarOrigensDaFila();
@@ -2361,31 +2380,19 @@
     mostrarLimparEntrada();
     var box = document.getElementById('enFila');
     if (!box) return;
-    /* SEM CASA ESCOLHIDA, A FILA NEM FOI PEDIDA — e dizer "nada esperando conferencia
-       nesta casa" seria uma afirmacao sobre uma casa que ninguem escolheu.
-       FOI O QUE ACONTECEU: o escritorio escolheu a origem, que agora e' o primeiro
-       campo da tela, e esta funcao rodou com a fila vazia e respondeu "tudo que chegou
-       ja' foi contado". A carga existia e estava a uma escolha de distancia.
-       E O TEXTO DIZ DE ONDE ELE ESTA' ESPERANDO VER, quando ja' escolheu a origem: sem
-       isso a frase manda escolher a casa sem lembrar que o recorte de origem continua
-       ligado, e a pessoa escolhe a casa certa e continua sem ver a carga. */
-    if (!casaDaConferencia()){
-      var selDeVazio = document.getElementById('enDeOnde');
-      var nomeDe = '';
-      if (selDeVazio && selDeVazio.value && selDeVazio.selectedIndex > 0) {
-        nomeDe = String((selDeVazio.options[selDeVazio.selectedIndex] || {}).text || '')
-          .split(' \u00b7 ')[0];
-      }
-      box.innerHTML = '<div class="vazio">Escolha a casa em que voc\u00ea est\u00e1 conferindo' +
-        (nomeDe ? ', para ver o que veio de <b>' + Q.esc(nomeDe) + '</b>' : '') +
-        '.</div>';
-      return;
-    }
+    /* O DESVIO DE "SEM CASA" SAIU DAQUI, e com ele a pergunta que travava a tela.
+       Ele existia porque a fila so' era pedida com a casa escolhida; agora ela vem
+       inteira — de todas as casas que esta pessoa alcanca — e "sem casa" deixou de ser
+       um estado de espera para virar o estado NORMAL de quem ve' mais de uma. */
     if (!FILA_CHEGADA.length){
       /* O VAZIO AQUI E BOA NOTICIA, e o texto diz isso: um "nenhum resultado" seco se le
-         como tela quebrada, e a pessoa fica recarregando. */
-      box.innerHTML = '<div class="vazio">Nada esperando confer\u00eancia nesta casa \u2014 '+
-        'tudo que chegou j\u00e1 foi contado.</div>';
+         como tela quebrada, e a pessoa fica recarregando.
+         E ELE SO DIZ "NESTA CASA" QUANDO HA UMA: com o campo vazio a fila e' de todas, e
+         "nesta casa" seria uma afirmacao sobre uma casa que ninguem escolheu — foi
+         exatamente essa frase que o escritorio leu tres vezes enquanto a carga existia. */
+      box.innerHTML = '<div class="vazio">Nada esperando confer\u00eancia' +
+        (casaDaConferencia() ? ' nesta casa' : '') +
+        ' \u2014 tudo que chegou j\u00e1 foi contado.</div>';
       return;
     }
     var mostrando = filaPeneirada();
@@ -2414,8 +2421,13 @@
          A DATA DO MOVIMENTO FICA EM CIMA, com a carga, porque e' a do romaneio. A hora
          do LANCAMENTO fica embaixo, com quem o fez: sao perguntas diferentes, e uma
          carga de ontem lancada agora tem as duas respostas distantes. */
+      /* E PARA ONDE ELA VAI, agora que a fila pode juntar varias casas. Com a casa
+         fixa no campo acima, o destino era obvio e repeti-lo em toda linha era ruido;
+         com o campo vazio, a mesma lista traz carga de Maceio e de Natal, e sem o
+         destino nao ha como saber qual e' qual — e quem confere conta a errada. */
       var cab = '<b>'+Q.esc(c.registro)+'</b> \u00b7 '+Q.dataBR(c.dataRef)+
         ' \u00b7 de <b>'+Q.esc(c.origem || '\u2014')+'</b>'+
+        ' \u00b7 para <b>'+Q.esc(c.destino || '\u2014')+'</b>'+
         (c.motorista ? ' \u00b7 '+Q.esc(c.motorista) : '')+
         (c.veiculo ? ' \u00b7 '+Q.esc(c.veiculo) : '');
       /* SO' QUANDO HA O QUE DIZER: lancamento antigo pode nao ter o usuario gravado, e

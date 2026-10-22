@@ -28563,58 +28563,37 @@ console.log('\n== a Entrada: conferencia na chegada ==');
       { esc: function (x) { return String(x); } }, [], []);
 
     desenhar();
-    ok(/Escolha a casa/.test(boxEn.innerHTML) &&
-       !/j\u00e1 foi contado/.test(boxEn.innerHTML),
-      'sem casa escolhida, a tela manda ESCOLHER A CASA \u2014 e n\u00e3o afirma que tudo que ' +
-      'chegou j\u00e1 foi contado: a fila nem foi pedida, e a carga fica a uma escolha de ' +
-      'dist\u00e2ncia de quem acabou de ler que n\u00e3o h\u00e1 nada', boxEn.innerHTML);
+    ok(!/Escolha a casa/.test(boxEn.innerHTML),
+      'sem casa escolhida a tela NÃO manda mais escolher uma — a fila vem de todas as ' +
+      'casas que esta pessoa alcança: o escritório pensa "o que São Vicente mandou", e ' +
+      'perguntar "onde você está" era pedir que ele adivinhasse o destino da carga ' +
+      'antes de poder olhar para ela', boxEn.innerHTML);
+    ok(/já foi contado/.test(boxEn.innerHTML) &&
+       !/nesta casa/.test(boxEn.innerHTML),
+      'e com a fila vazia ela diz que tudo foi contado SEM dizer "nesta casa" — ' +
+      'nenhuma foi escolhida, e afirmar sobre uma casa que ninguém escolheu foi ' +
+      'exatamente a frase que o escritório leu três vezes com a carga existindo',
+      boxEn.innerHTML);
 
-    /* E DIZ DE ONDE ELE ESTA ESPERANDO VER, quando a origem ja' foi escolhida: sem
-       isso a frase manda escolher a casa sem lembrar que o recorte de origem continua
-       ligado, e a pessoa escolhe a casa certa e continua sem ver a carga. */
-    selDeTxt.value = 'L001';
-    selDeTxt.selectedIndex = 1;
-    selDeTxt.options = [{ text: 'Todas' }, { text: 'Matriz S\u00e3o Vicente \u00b7 3' }];
-    desenhar();
-    ok(/Matriz S\u00e3o Vicente/.test(boxEn.innerHTML) &&
-       !/\u00b7 3/.test(boxEn.innerHTML),
-      'e diz de ONDE ela espera ver, sem a contagem colada no nome \u2014 o recorte de ' +
-      'origem continua ligado, e lembr\u00e1-lo evita escolher a casa certa e continuar sem ' +
-      'ver a carga', boxEn.innerHTML);
-
-    /* E COM CASA ESCOLHIDA E FILA VAZIA, a frase volta a ser a de antes: ai' ela e'
-       verdade, e e' boa noticia. */
     selCasaTxt.value = 'L014';
     desenhar();
-    /* AS DUAS METADES DA FRASE, e nao so' a segunda: escapou uma sabotagem que trocou
-       o COMECO — "Nada esperando conferencia nesta casa" virou "Escolha a casa" — e
-       deixou o fim intacto. A prova olhava so' o fim, e a tela passou a mandar escolher
-       uma casa que ja' estava escolhida. */
-    ok(/j\u00e1 foi contado/.test(boxEn.innerHTML) &&
-       !/Escolha a casa/.test(boxEn.innerHTML),
-      'e com a casa escolhida e a fila vazia, a\u00ed sim: "tudo que chegou j\u00e1 foi contado" ' +
-      '\u2014 e N\u00c3O a frase do outro estado: trocada, a tela manda escolher uma casa que ' +
-      'j\u00e1 est\u00e1 escolhida', boxEn.innerHTML);
+    ok(/nesta casa/.test(boxEn.innerHTML),
+      'e escolhida UMA casa, aí sim "nesta casa" — a frase passa a ser verdade, e ' +
+      'tirá-la também daqui apagaria a única pista de que a tela está recortada',
+      boxEn.innerHTML);
 
-    /* E O TEXTO MORA NUM LUGAR SO'. `carregarFilaChegada` tambem encontra o estado "sem
-       casa", e escrevendo o proprio texto as duas versoes divergem — foi o que havia
-       aqui: uma dizia "escolha a casa" e a outra, pelo mesmo estado, dizia "tudo que
-       chegou ja' foi contado". */
-    /* SEM OS COMENTARIOS: a janela media caracteres, e a PROSA que explica a
-       delegacao a estourava antes de chegar na chamada — a prova reprovava o codigo
-       certo por causa do comentario que o defende. */
+    /* E A FILA E PEDIDA MESMO SEM CASA. E' a metade da mudanca que nenhuma prova de
+       desenho alcanca: a tela podia parar de mandar escolher e continuar sem pedir
+       nada, e o resultado seria a mesma tela vazia com outra frase. */
     var corpoCar = semComentarios(corpoF('carregarFilaChegada'));
-    /* E A JANELA TERMINA NO FECHA-CHAVES DO PROPRIO `if`, e nao N caracteres adiante:
-       a linha seguinte e' o "Carregando..." que esta funcao escreve de proposito, e
-       medindo alem do bloco a prova acusava justamente o codigo certo. */
-    var iSC = corpoCar.indexOf('if (!casa)');
-    var semCasa = corpoCar.slice(iSC, corpoCar.indexOf(String.fromCharCode(10) + '    }',
-                                                       iSC));
-    ok(corpoCar.indexOf('if (!casa)') > 0 &&
-       semCasa.indexOf('desenharFilaChegada()') > 0 &&
-       semCasa.indexOf('innerHTML') < 0,
-      'e quem carrega N\u00c3O escreve o pr\u00f3prio texto para "sem casa" \u2014 ele delega ao ' +
-      'desenho: duas vers\u00f5es do mesmo aviso divergem, e divergiram', semCasa.slice(0, 260));
+    ok(corpoCar.indexOf('if (!casa)') < 0,
+      'e quem carrega NÃO desiste quando a casa está vazia — era esse desvio que ' +
+      'travava a tela: a rota sempre soube devolver a fila inteira, e quem exigia a ' +
+      'escolha era só esta tela', corpoCar.slice(0, 200));
+    ok(/if \(casa\) pedido\.local = casa;/.test(corpoCar),
+      'e a casa só viaja no pedido quando foi escolhida — mandada vazia, ela é um ' +
+      'filtro por um id que não existe em lugar nenhum, e a fila volta vazia sempre',
+      corpoCar.slice(0, 260));
   }
 
   /* ---- O CAMPO DE ORIGEM NASCE CHEIO, ANTES DA FILA ----
@@ -28677,20 +28656,52 @@ console.log('\n== a Entrada: conferencia na chegada ==');
       'na tela de Entrada, "Entrada de" vem ANTES de "Conferindo em" \u2014 foi o pedido, e ' +
       '\u00e9 a ordem da viagem: de onde veio, e s\u00f3 depois onde se confere',
       { de: iDe, casa: iCasa });
-    /* E O `*` NAO MUDOU DE CAMPO. Obrigatorio e' o lugar onde a contagem vai ser
-       GRAVADA; o filtro de origem nao e'. Arrastado junto na troca, a tela passaria a
-       exigir um filtro e a aceitar gravar sem destino. */
-    /* O ASTERISCO E COBRADO DENTRO DA ETIQUETA do "Conferindo em", e nao por estar
-       depois de um indice e antes de outro: medido por posicao solta, ele passaria
-       estando na etiqueta errada desde que caisse no intervalo certo. */
-    var iLabCasa = secEn.indexOf('for="enCasa"');
-    /* A CLASSE INTEIRA, e nao o pedaco `obrig`: a palavra "obrigatorio" aparece num
-       COMENTARIO desta mesma secao, bem antes das duas etiquetas, e era ela que a
-       prova estava achando — reprovando o arranjo certo. */
-    var iObrig = secEn.indexOf('class="obrig"');
-    ok(iLabCasa > 0 && iObrig > iLabCasa && iObrig < iCasa,
-      'e o asterisco continua no "Conferindo em" \u2014 obrigat\u00f3rio \u00e9 o lugar onde a ' +
-      'contagem vai ser gravada, e n\u00e3o o filtro de origem', secEn.indexOf('obrig'));
+    /* O ASTERISCO SAIU DOS DOIS CAMPOS, e esta prova afirmava o contrario — defendendo
+       uma frase que nao era verdade. Ela dizia "obrigatorio e' o lugar onde a contagem
+       vai ser GRAVADA"; a contagem nunca foi gravada num lugar. Ela e' gravada NA CARGA,
+       pelo id dela, e a rota `conferirChegada` nem recebe a casa. "Conferindo em" sempre
+       foi um FILTRO DE DESTINO, e exigi-lo fazia quem ve' a operacao inteira adivinhar
+       para onde a carga foi antes de poder olhar para ela. */
+    /* E A OPCAO VAZIA DIZ O QUE ELA FAZ. "Selecione..." num campo que nao exige
+       escolha pede uma coisa que nao e' pedida — e foi exatamente assim que a tela
+       travou o escritorio por tres rodadas: ele leu "Selecione..." e concluiu que
+       tinha de escolher antes de ver qualquer coisa. */
+    /* O CORPO VEM DO `corpoF`, que CONTA AS CHAVES. Cortado num `
+  }` qualquer, o
+       recorte parava dentro do comentario de abertura da funcao e a prova reprovava o
+       codigo certo — pela terceira vez hoje, sempre pelo mesmo motivo: medir texto por
+       distancia em vez de por estrutura. */
+    /* E SEM OS COMENTARIOS. A palavra "Selecione" aparece no comentario que explica
+       por que ela NAO e' usada — e a prova a achava ali e reprovava o codigo certo.
+       E' a terceira vez hoje que uma prova minha le' a prosa que defende o codigo como
+       se fosse o codigo: antes foram "obrigatorio" e a janela por distancia. A regra
+       que fica: `semComentarios` em toda prova que procura PALAVRA. */
+    var corpoMont = semComentarios(corpoF('montarCasasDaConferencia'));
+    ok(!!corpoMont && /Todas as casas/.test(corpoMont) && !/Selecione/.test(corpoMont),
+      'e a opção vazia do "Conferindo em" diz o que ela FAZ — "Selecione..." num campo ' +
+      'que não exige escolha pede uma coisa que não é pedida, e foi essa palavra que ' +
+      'fez o escritório concluir que precisava escolher antes de ver qualquer coisa',
+      corpoMont.slice(0, 260));
+    ok(secEn.indexOf('class="obrig"') < 0,
+      'nenhum dos dois campos da Entrada é obrigatório — a contagem é gravada NA ' +
+      'CARGA, pelo id dela, e a rota nem recebe a casa: os dois são filtros, e exigir ' +
+      'um filtro faz quem vê a operação inteira adivinhar para onde a carga foi',
+      secEn.indexOf('class="obrig"'));
+
+    /* ---- E A CARGA DIZ PARA ONDE VAI ----
+     *
+     * COM A CASA FIXA NO CAMPO ACIMA o destino era obvio, e repeti-lo em toda linha
+     * seria ruido. Com o campo vazio — que agora e' o estado normal de quem ve' mais de
+     * uma casa — a MESMA lista traz carga de Maceio e de Natal, e sem o destino nao ha
+     * como saber qual e' qual. Quem confere conta a errada, e a conta fecha nos dois
+     * lugares errados de uma vez. */
+    var cabeca = idxF.slice(idxF.indexOf("var cab = '<b>'+Q.esc(c.registro)"),
+                            idxF.indexOf("var cab = '<b>'+Q.esc(c.registro)") + 400);
+    ok(/de <b>'\+Q\.esc\(c\.origem/.test(cabeca) &&
+       /para <b>'\+Q\.esc\(c\.destino/.test(cabeca),
+      'cada carga da fila diz de ONDE veio e PARA ONDE vai \u2014 com a casa livre, a mesma ' +
+      'lista junta Macei\u00f3 e Natal, e sem o destino quem confere conta a carga errada e ' +
+      'a conta fecha nos dois lugares errados de uma vez', cabeca.slice(0, 200));
 
     /* E A BUSCA REDESENHA. A peca pode existir e nada chegar nela: sem o ouvinte, o
        campo aceita o que se digita e a fila nao mexe — a busca "nao funciona" sem

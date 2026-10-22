@@ -5436,6 +5436,37 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'divergiria no primeiro papel novo e a aba apareceria para quem o servidor recusa',
     [pubConf[0].ConfereChegada, pubConf[1].ConfereChegada]);
 
+  /* ---- A CARGA TRAZ O DESTINO, e a fila inteira vem sem casa escolhida ----
+   *
+   * "Conferindo em" deixou de ser exigencia e virou FILTRO: vazio, a fila vem de todas
+   * as casas que a pessoa alcanca. Era o pedido do escritorio, que pensa "o que Sao
+   * Vicente mandou" e nao "onde eu estou" — e a rota sempre soube fazer isso, porque
+   * `if (casa && destino !== casa)` deixa tudo passar quando a casa nao vem.
+   * E COM A FILA JUNTANDO CASAS, O DESTINO VIRA DADO OBRIGATORIO na resposta: sem ele a
+   * tela imprime um travessao onde deveria dizer para onde a carga vai, e quem confere
+   * conta a errada. */
+  {
+    const quemT = tabelas.usuarios.find((u) => String(u.perfil).toUpperCase() === 'ADMIN');
+    const semCasa = (await GET({ acao: 'aConferir', quem: quemT.id })).cargas || [];
+    ok(semCasa.length > 0,
+      'sem casa escolhida, a fila vem com carga \u2014 vazia, a prova abaixo aprovaria uma ' +
+      'rota que nunca devolve nada', semCasa.length);
+    const semDestino = semCasa.filter((c) => !c.destino || !c.destinoId);
+    ok(semDestino.length === 0,
+      'e TODA carga diz para onde vai \u2014 juntando casas na mesma lista, uma carga sem ' +
+      'destino \u00e9 uma linha que ningu\u00e9m consegue situar, e quem confere conta a errada',
+      semDestino.slice(0, 3));
+    /* E COM A CASA ESCOLHIDA, so' as dela: o filtro continua existindo e continua
+       valendo — e' ele que a doca usa. */
+    const umaCasa = semCasa[0].destinoId;
+    const soDela = (await GET({ acao: 'aConferir', quem: quemT.id, local: umaCasa }))
+      .cargas || [];
+    ok(soDela.length > 0 && soDela.every((c) => String(c.destinoId) === String(umaCasa)),
+      'e escolhida uma casa, s\u00f3 as dela \u2014 o campo deixou de ser exig\u00eancia, e n\u00e3o de ' +
+      'funcionar: \u00e9 ele que a doca usa para ver s\u00f3 o que chegou ali',
+      soDela.map((c) => c.destino).slice(0, 4));
+  }
+
   /* ---- E A FILA RESPEITA O LIVRO DO CADASTRO, RODADA ----
    *
    * RELATO DO ESCRITORIO: entrou com o cadastro marcado em Base Teste Produ\u00e7\u00e3o e Base
