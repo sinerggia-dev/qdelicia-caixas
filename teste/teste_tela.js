@@ -8028,10 +8028,11 @@ console.log('\n== as colunas da tabela de Movimentos ==');
      pergunta ter dois nomes — e os quatro campos de formulário continuam iguais entre
      si, que é o que esta afirmação guarda. */
   var campo = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  /* TRES no app de campo desde que a Entrada nasceu: Saida, Entrada e Retorno. A conta
-     e' escrita de proposito — ela e' o tropeco que obriga quem acrescenta uma tela de
-     lancamento a dar ao campo o MESMO nome que as outras tres tem. */
-  ok((campo.match(/>Data do movimento<span class="obrig">/g) || []).length === 3 &&
+  /* DOIS no app de campo: Saida e Retorno. A Entrada deixou de ser um formulario — ela
+     conta o que JA chegou, e a data ja' esta na carga. A conta e' escrita de proposito:
+     ela e' o tropeco que obriga quem acrescenta uma tela de lancamento a dar ao campo o
+     MESMO nome que as outras tem. */
+  ok((campo.match(/>Data do movimento<span class="obrig">/g) || []).length === 2 &&
      /<label for="crData">Data do movimento<\/label>/.test(campo) &&
      /<label>Data do movimento<\/label><input type="date" id="cData"/.test(adm) &&
      /<label for="lcData">Data do movimento<\/label>/.test(adm),
@@ -10311,30 +10312,19 @@ console.log('\n== o recorte vale no app de campo tambem ==');
     'e nem aí a caixa azul volta: o número entra na pergunta, e não como informação de ' +
     'rodapé', passou.slice(0, 80));
 
-  /* ---- E A GUARDA ALCANCA AS DUAS TELAS QUE RECEBEM CAIXA ----
+  /* ---- E ELA SERVE SO' A TELA ONDE A PERGUNTA FAZ SENTIDO ----
    *
-   * A Entrada nasceu com a caixa do aviso na marcacao, e a funcao que a enche estava
-   * presa ao `dv`. O defeito teria esta cara: a guarda inteira no arquivo, a caixa
-   * inteira na tela, e nada entre as duas — e ela so' apareceria no dia em que faltasse
-   * um lancamento, que e' justamente o dia em que ela serve. */
-  var naEntrada = saldoNaTela(100, 2340, 'en');
-  ok(/contou/.test(naEntrada) && /sa\u00edda n\u00e3o lan\u00e7ada/.test(naEntrada),
-    'e o alerta acende tamb\u00e9m na ENTRADA \u2014 preso ao retorno, a tela nova nasceria com ' +
-    'a caixa do aviso e ningu\u00e9m para ench\u00ea-la: a guarda existiria no c\u00f3digo e nunca ' +
-    'apareceria para quem conta', naEntrada.slice(0, 80));
-  ok(saldoNaTela(2340, 100, 'en') === '',
-    'e l\u00e1 tamb\u00e9m fica calada quando a contagem cabe no saldo \u2014 sem este controle, a ' +
-    'prova acima passaria com uma fun\u00e7\u00e3o que acende sempre',
-    JSON.stringify(saldoNaTela(2340, 100, 'en')));
-
-  /* AS DUAS CAIXAS DE CONTAGEM ALIMENTAM O AVISO. Escrito so' para `dvItens`, o aviso da
-     Entrada so' apareceria ao trocar a origem — e nao enquanto a pessoa conta, que e'
-     quando ele serve. */
+   * A Entrada deixou de ser um formulario em branco: ela conta o que chegou CONTRA o que
+   * foi declarado, e a divergencia aparece na propria linha. O saldo do LUGAR nao
+   * responde essa pergunta, e o aviso voltou a servir so' o Retorno — que e' onde
+   * "voltou mais do que saiu?" se pergunta.
+   * A ASSINATURA CONTINUA COM PREFIXO de proposito: a proxima tela que receba caixa pede
+   * o aviso por nome, em vez de herdar o `dv` por acidente. */
   var iLS = idx.indexOf('function ligarSteppers(container)');
   var fnLS = iLS > 0 ? idx.slice(iLS, idx.indexOf('\n  }', iLS)) : '';
-  ok(fnLS.indexOf('enItens') > 0 && fnLS.indexOf('dvItens') > 0,
-    'e as duas caixas de contagem reacendem o aviso enquanto a pessoa digita \u2014 ligada ' +
-    's\u00f3 \u00e0 do retorno, a da entrada s\u00f3 avisaria ao trocar a origem, e n\u00e3o enquanto conta',
+  ok(fnLS.indexOf('dvItens') > 0 && fnLS.indexOf('enItens') < 0,
+    'a contagem do RETORNO reacende o aviso enquanto a pessoa digita, e s\u00f3 ela \u2014 a ' +
+    'Entrada conta contra o DECLARADO, e o saldo do lugar n\u00e3o responde essa pergunta',
     fnLS.length);
 
   /* --- a aba SOME para quem nao ve lancamento ----------------------------- */
@@ -27926,100 +27916,57 @@ console.log('\n== a frase do apagar diz todo filtro ==');
 })();
 
 /* ---------------------------------------------------------------------------
- * A ENTRADA: o espelho da Saida, e o vao que faltava.
+ * A ENTRADA: a conferencia na chegada.
  *
- * O Retorno so' aceita origem GALPAO, FILIAL ou ROTA — e' o caminhao voltando. Mas a
- * SAIDA pode ir para CLIENTE e para FORNECEDOR, e a volta desses dois nao tinha porta
- * nenhuma no app: o vasilhame que o fornecedor traz, ou as caixas que o cliente devolve
- * no balcao, eram lancados em "Retorno" com a origem errada, ou nao eram lancados.
+ * NINGUEM CONFERIA O QUE CHEGA. Quando a matriz manda 500 para Maceio, o estoque da
+ * filial sobe 500 — o numero que a MATRIZ disse. Chegando 480, ninguem pegava: a filial
+ * ficava 20 acima para sempre, e nao havia tela que perguntasse. O Retorno tem
+ * conferencia; a chegada nao tinha.
+ *
+ * A PRIMEIRA VERSAO DESTA TELA ERA UM FORMULARIO, e nasceu de uma premissa minha que o
+ * cadastro desmentiu: eu li `TIPOS_ENTRADA` no codigo e supus que havia locais de tipo
+ * CLIENTE e FORNECEDOR para receber deles. Nao ha nenhum — a tela abria com a origem
+ * vazia e nao tinha como ser usada.
  * ------------------------------------------------------------------------- */
-console.log('\n== a tela de Entrada ==');
+console.log('\n== a Entrada: conferencia na chegada ==');
 (function () {
-  var idxE = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  function lista(nome) {
-    var i = idxE.indexOf('var ' + nome + ' = [');
-    if (i < 0) return [];
-    /* DEPOIS do colchete, e nao uma conta de letras: `'var ' + nome + ' = ['` tem
-       nove caracteres alem do nome, e eu contei dez — o primeiro tipo saia sem a
-       primeira letra, "LIENTE". Procurar o colchete nao erra. */
-    return idxE.slice(idxE.indexOf('[', i) + 1, idxE.indexOf(']', i))
-      .split(',').map(function (x) { return x.trim().replace(/'/g, ''); })
-      .filter(function (x) { return !!x; });
-  }
-  var tiposEn = lista('TIPOS_ENTRADA');
-  var tiposDv = lista('TIPOS_RETORNO');
+  var idxF = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
-  ok(tiposEn.length === 2 && tiposEn.indexOf('CLIENTE') >= 0 &&
-     tiposEn.indexOf('FORNECEDOR') >= 0,
-    'a Entrada recebe de CLIENTE e de FORNECEDOR — são os dois tipos para onde a Saída ' +
-    'pode ir e de onde a volta não tinha caminho nenhum no app', tiposEn);
+  /* ELA NAO PEDE O QUE JA SABE. Origem, destino, motorista e data estao na carga que
+     chegou; pedi-los de novo seria pedir que a pessoa copie o que esta' na frente
+     dela — e cada campo a mais e' uma chance de copiar errado. */
+  var secao = idxF.slice(idxF.indexOf('<section id="pgEntrada"'),
+                         idxF.indexOf('</section>', idxF.indexOf('<section id="pgEntrada"')));
+  ok(secao.indexOf('enOrigem') < 0 && secao.indexOf('enDestino') < 0 &&
+     secao.indexOf('enMotorista') < 0 && secao.indexOf('enData') < 0,
+    'a tela não pede origem, destino, motorista nem data — os quatro já estão na carga ' +
+    'que chegou, e pedi-los de novo é pedir que a pessoa copie o que está na frente dela',
+    secao.length);
+  ok(secao.indexOf('enCasa') > 0 && secao.indexOf('enFila') > 0,
+    'e pede UMA coisa: em que casa você está conferindo — o resto é a fila',
+    secao.length);
 
-  /* OS DOIS CONJUNTOS NAO SE TOCAM, e isso e' a regra inteira. Com CLIENTE tambem no
-     Retorno, a mesma carga teria duas portas e ninguem saberia qual usar — e as duas
-     estariam certas, que e' o jeito de o erro durar. */
-  var cruza = tiposEn.filter(function (x) { return tiposDv.indexOf(x) >= 0; });
-  ok(!cruza.length,
-    'e nenhum tipo está nas duas listas — cruzando, a mesma carga teria duas portas e ' +
-    'ninguém saberia qual usar: as duas estariam certas, que é o jeito de o erro durar',
-    cruza);
+  /* E NAO GRAVA MOVIMENTO NENHUM: a contagem vai PARA a carga que existe. Um movimento
+     novo creditaria a filial duas vezes com as mesmas caixas, que e' o defeito que esta
+     tela existe para nao cometer. */
+  var iCf = idxF.indexOf("acao:'conferirChegada'");
+  ok(iCf > 0,
+    'e grava pela rota `conferirChegada` — a contagem vai PARA a carga que existe',
+    iCf);
+  var secaoJs = idxF.slice(idxF.indexOf('function carregarFilaChegada'),
+                           idxF.indexOf('/* ---------------- gravar devolu'));
+  ok(secaoJs.indexOf("acao:'movimento'") < 0 && secaoJs.indexOf("tipo:'DEVOLUCAO'") < 0,
+    'e NÃO cria movimento nenhum — um movimento novo creditaria a filial duas vezes ' +
+    'com as mesmas caixas, que é o defeito que esta tela existe para não cometer',
+    secaoJs.length);
 
-  /* ONDE A CARGA E' RECEBIDA: as casas nossas, e so' elas. Receber "no cliente" nao
-     seria entrada, seria outra saida com o nome trocado. */
-  var iD = idxE.indexOf('function ajustarDestinoEntrada()');
-  var fnD = iD > 0 ? idxE.slice(iD, idxE.indexOf('\n  }', iD)) : '';
-  ok(/locaisPor\(\['GALPAO','FILIAL'\]\)/.test(fnD),
-    'e ela é recebida só em casa nossa — galpão ou filial: receber "no cliente" não ' +
-    'seria entrada, seria outra saída com o nome trocado', fnD.slice(0, 200));
-  ok(/String\(l\.ID\) !== String\(origem\)/.test(fnD),
-    'e a própria origem sai da lista de destino — o servidor já recusa origem igual a ' +
-    'destino, e oferecer a opção é convidar ao erro');
-
-  /* O BOTAO FICA ENTRE SAIDA E RETORNO: a lista do menu e' a ordem do CICLO, e a carga
-     entra em casa antes de o caminhao voltar. */
-  var iSd = idxE.indexOf('data-pagina="pgSaida"');
-  var iEn = idxE.indexOf('data-pagina="pgEntrada"');
-  var iDv = idxE.indexOf('data-pagina="pgDevolucao"');
-  ok(iSd > 0 && iEn > iSd && iDv > iEn,
-    'o botão fica entre Saída e Retorno — a lista do menu é a ordem do ciclo, e a carga ' +
-    'entra em casa antes de o caminhão voltar', { sd: iSd, en: iEn, dv: iDv });
-
-  /* E ELE PEDE A MESMA PERMISSAO DO RETORNO, de proposito: Entrada e Retorno gravam a
-     MESMA coisa, e uma operacao propria seria uma segunda permissao sobre o mesmo ato —
-     o dia em que alguem concedesse uma e nao a outra teria metade da porta aberta sem
-     saber por que. */
-  /* A ETIQUETA INTEIRA, achada de tras para a frente: contando caracteres para tras eu
-     caia dentro do comentario que explica o botao, e a prova media o texto errado. */
-  var btnEn = idxE.slice(idxE.lastIndexOf('<button', iEn),
-                         idxE.indexOf('>', iEn) + 1);
-  /* E NO GRUPO "OPERACAO", que e' onde se LANCA. Em "Consulta" ela ficaria debaixo do
-     titulo errado, entre telas que so' mostram — e a ordem no arquivo continuaria certa,
-     que foi como uma sabotagem passou por aqui: a posicao estava provada e o GRUPO nao. */
-  ok(/data-grupo="Operação"/.test(btnEn) && /data-acima="Operação"/.test(btnEn),
-    'e fica no grupo Operação, que é onde se LANÇA — em Consulta ela apareceria ' +
-    'debaixo do título errado, entre telas que só mostram', btnEn.slice(0, 90));
-  ok(/data-operacao="RETORNO"/.test(btnEn),
-    'e pede a MESMA permissão do Retorno — as duas gravam a mesma coisa, e uma operação ' +
-    'própria seria uma segunda permissão sobre o mesmo ato', btnEn.slice(-80));
-
-  /* E GRAVA `DEVOLUCAO`: caixa entrando numa casa nossa. Um tipo novo obrigaria toda
-     soma do sistema a aprender a palavra, e nenhuma delas pergunta por onde a caixa
-     entrou. */
-  var iG = idxE.indexOf("document.getElementById('btnSalvarEntrada')");
-  var fnG = iG > 0 ? idxE.slice(iG, idxE.indexOf('\n  });', iG)) : '';
-  ok(/tipo:'DEVOLUCAO'/.test(fnG),
-    'e grava DEVOLUÇÃO, como o Retorno — é a mesma coisa acontecendo, e um tipo novo ' +
-    'obrigaria toda soma do sistema a aprender uma palavra que nenhuma delas usa',
-    fnG.slice(0, 120));
-  ok(/podeEnviar\('en', 'enItens'/.test(fnG) && /placaOk\('enVeiculo'\)/.test(fnG),
-    'e passa pelas MESMAS duas guardas das outras telas antes de enviar — campos ' +
-    'obrigatórios e placa', fnG.length);
-
-  /* AS QUANTIDADES SAO AS DELA. Lendo `dv_`, a tela gravaria o que foi digitado na
-     outra — e as duas parecem iguais. */
-  ok(/coletarItens\('en_'\)/.test(fnG) && !/coletarItens\('dv_'\)/.test(fnG),
-    'e conta as caixas DELA, e não as do retorno — as duas telas são idênticas na ' +
-    'forma, e ler o prefixo errado gravaria o que foi digitado na outra', fnG.length);
+  /* A FILA E LIDA DO SERVIDOR A CADA ABERTURA: ela muda sozinha quando a matriz
+     despacha, e uma lista montada uma vez mostraria a doca de ontem. */
+  ok(/if \(pagina === 'pgEntrada'\) carregarFilaChegada\(\);/.test(idxF),
+    'e a fila é relida toda vez que a tela abre — ela muda sozinha quando a matriz ' +
+    'despacha, e uma lista montada uma vez mostraria a doca de ontem');
 })();
+
 
 /* ---------------------------------------------------------------------------
  * O CAMPO "Fornecedor Filial", na tela.

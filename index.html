@@ -527,71 +527,27 @@
     </div>
   </section>
 
-  <!-- ---------- ENTRADA ----------
-       O ESPELHO DA SAIDA, e o vao que faltava. O Retorno so' aceita origem GALPAO,
-       FILIAL ou ROTA — e' o caminhao voltando —, mas a SAIDA pode ir para CLIENTE e
-       para FORNECEDOR. A volta desses dois nao tinha porta nenhuma no app: o vasilhame
-       que o fornecedor traz de volta, ou as caixas que o cliente devolve no balcao,
-       eram lancadas em "Retorno" com a origem errada, ou nao eram lancadas.
-       GRAVA DEVOLUCAO, como o Retorno: e' a mesma coisa acontecendo — caixa entrando
-       numa casa nossa. Duas telas para dois caminhos, UM tipo de movimento: um tipo
-       novo obrigaria toda soma do sistema a aprender a palavra, e nenhuma delas pergunta
-       por onde a caixa entrou. -->
+  <!-- ---------- ENTRADA: A CONFERENCIA NA CHEGADA ----------
+       NINGUEM CONFERIA O QUE CHEGA. Quando a matriz manda 500 para Maceio, o estoque da
+       filial sobe 500 — o numero que a MATRIZ disse. Chegando 480, ninguem pegava: a
+       filial ficava 20 acima para sempre, e nao havia tela que perguntasse. O Retorno
+       tem conferencia; a chegada nao tinha.
+       NAO E UM FORMULARIO EM BRANCO, e por isso ela nao tem origem nem destino: as duas
+       ja estao na carga que chegou. A tela mostra a FILA — o que veio para esta casa e
+       ainda nao foi contado — e a pessoa digita o que encontrou.
+       NAO CRIA MOVIMENTO NENHUM: grava a contagem NA carga que ja existe. Um movimento
+       novo creditaria a filial duas vezes, com a mesma carga. -->
   <section id="pgEntrada" class="pagina">
     <div class="card">
-      <h2>Entrada de caixas<span class="sub">Caixas chegando no galpão ou na filial,
-        vindas de cliente ou fornecedor. Para o caminhão voltando da rota, use
-        <b>Retorno</b>.</span></h2>
+      <h2>Entrada de caixas<span class="sub">O que chegou nesta casa e ainda não foi
+        contado. Confira a carga e registre quantas caixas você encontrou.</span></h2>
       <div class="grid2">
         <div>
-          <label for="enData">Data do movimento<span class="obrig">*</span></label>
-          <input id="enData" type="date">
-        </div>
-        <div>
-          <label for="enOrigem">Entrada de<span class="obrig">*</span></label>
-          <select id="enOrigem"></select>
-        </div>
-        <div>
-          <label for="enDestino">Recebido em<span class="obrig">*</span></label>
-          <select id="enDestino"></select>
-        </div>
-        <div>
-          <label for="enMotorista"><span data-rotulo="enMotorista">Motorista</span><span class="obrig">*</span></label>
-          <select id="enMotorista"></select>
-        </div>
-        <div id="enWrapVeiculo">
-          <label for="enVeiculo">Veículo<span class="obrig">*</span></label>
-          <select id="enVeiculo"></select>
-          <input id="enVeiculoTexto" type="text" hidden autocomplete="off"
-                 inputmode="text" maxlength="8" placeholder="ABC1D23"
-                 aria-label="Digite a placa">
+          <label for="enCasa">Conferindo em<span class="obrig">*</span></label>
+          <select id="enCasa"></select>
         </div>
       </div>
-
-      <!-- O MESMO AVISO DO RETORNO, e pelo mesmo motivo: ele diz que a contagem passou
-           do saldo ANTES de a pessoa somar tudo e mandar. -->
-      <div id="enSaldoAtual"></div>
-
-      <p class="legenda-obrig">Campos com <span class="obrig">*</span> são obrigatórios.</p>
-
-      <h3>Quantas caixas<span class="obrig">*</span></h3>
-      <div class="itens" id="enItens"></div>
-
-      <label for="enObs">Observação (opcional)</label>
-      <textarea id="enObs"></textarea>
-
-      <div class="linha-btn" style="margin-top:8px">
-        <label class="btn-foto">
-          📷 Foto das caixas
-          <input id="enFoto" type="file" accept="image/*" capture="environment" style="display:none">
-        </label>
-        <span id="enFotoOk" style="font-size:13px;color:var(--verde);align-self:center"></span>
-      </div>
-
-      <div class="linha-btn">
-        <button class="btn" id="btnSalvarEntrada">Registrar entrada</button>
-        <button class="btn neutro" id="btnLimparEntrada" style="flex:0;min-width:110px">Limpar</button>
-      </div>
+      <div id="enFila"><div class="vazio">Carregando…</div></div>
       <div id="enAviso"></div>
     </div>
   </section>
@@ -715,7 +671,7 @@
 (function(){
   'use strict';
   var Q = window.QDC;
-  var DADOS = null, PAINEL = null, sdFotoData = '', dvFotoData = '', enFotoData = '';
+  var DADOS = null, PAINEL = null, sdFotoData = '', dvFotoData = '';
 
   /* ---------------- entrada ----------------
      Uma tela so para os dois apps, e ela mora no `app.js`. Ver `portaUnica()`:
@@ -937,7 +893,9 @@
   window.aoAbrirAba = function(pagina){
     if (pagina === 'pgSaldo') carregarLanc();
     if (pagina === 'pgDevolucao') mostrarSaldoDoOrigem('dv');
-    if (pagina === 'pgEntrada') mostrarSaldoDoOrigem('en');
+    /* A FILA DA DOCA E' LIDA DO SERVIDOR a cada vez que a tela abre: ela muda sozinha
+       quando a matriz despacha, e uma lista montada uma vez mostraria a doca de ontem. */
+    if (pagina === 'pgEntrada') carregarFilaChegada();
   };
 
   /* ---------------- formulários ---------------- */
@@ -992,15 +950,14 @@
   /* Os botões −10/+10 saíram a pedido: a quantidade agora é só digitada. A função
      continua existindo por causa da linha abaixo — é ela que atualiza o aviso de saldo
      enquanto a pessoa digita a devolução. */
-  /* AS DUAS CAIXAS DE CONTAGEM que alimentam o aviso. Escrito so' para `dvItens`, o
-     aviso da Entrada so' apareceria ao trocar a origem — e nao enquanto a pessoa conta,
-     que e' justamente quando ele serve. */
+  /* SO' A CONTAGEM DO RETORNO alimenta o aviso de saldo. A Entrada deixou de ser um
+     formulario em branco: ela conta o que chegou CONTRA o que foi declarado, e a
+     divergencia aparece na propria linha — o saldo do lugar nao responde essa
+     pergunta. */
   function ligarSteppers(container){
-    var pre = container.id === 'dvItens' ? 'dv'
-            : container.id === 'enItens' ? 'en' : '';
-    if (!pre) return;
+    if (container.id !== 'dvItens') return;
     container.querySelectorAll('input').forEach(function(i){
-      i.addEventListener('input', function(){ mostrarSaldoDoOrigem(pre); });
+      i.addEventListener('input', function(){ mostrarSaldoDoOrigem('dv'); });
     });
   }
   function coletarItens(prefixo){
@@ -1409,37 +1366,6 @@
    * Retorno, a mesma carga teria duas portas e ninguem saberia qual usar — e as duas
    * estariam certas. A SAIDA ja' pode ir para estes dois tipos; era a volta deles que
    * nao tinha caminho. */
-  var TIPOS_ENTRADA = ['CLIENTE','FORNECEDOR'];
-
-  function pontasDaEntrada(){
-    return [document.getElementById('enOrigem').value,
-            document.getElementById('enDestino').value];
-  }
-
-  /* ONDE A CARGA E' RECEBIDA: as casas nossas, e so' elas. A caixa que entra tem de
-     entrar em algum lugar que seja estoque — recebe-la "no cliente" nao seria entrada,
-     seria outra saida com o nome trocado.
-     LE A LISTA `saidas` DO CADASTRO, como o destino do Retorno, e pela mesma razao
-     escrita la': o galpao de onde a pessoa despacha e' o mesmo para onde a carga chega.
-     A ORIGEM SAI DA LISTA: o servidor ja' recusa origem igual a destino, e oferecer a
-     opcao e' convidar ao erro. */
-  function ajustarDestinoEntrada(){
-    var origem = document.getElementById('enOrigem').value;
-    var podem = permitidos(locaisPor(['GALPAO','FILIAL']), 'saidas')
-      .filter(function(l){ return String(l.ID) !== String(origem); });
-    var sel = document.getElementById('enDestino');
-    var antes = sel.value;
-    sel.innerHTML = opcoes(podem);
-    if (podem.some(function(l){ return String(l.ID) === String(antes); })) sel.value = antes;
-    preencherSozinho('enDestino', podem);
-  }
-
-  function atualizarEntrada(){
-    ajustarDestinoEntrada();
-    montarMotoristas('enMotorista', 'enOrigem', 'entrada', pontasDaEntrada());
-    montarVeiculos('enVeiculo', 'enMotorista', pontasDaEntrada());
-  }
-
   function ajustarDestinoRetorno(){
     /* O DESTINO PRIMEIRO, E NUM BLOCO PROPRIO.
      *
@@ -1885,26 +1811,12 @@
     document.getElementById('dvItens').innerHTML = itensHTML('dv_');
     ligarSteppers(document.getElementById('sdItens'));
     ligarSteppers(document.getElementById('dvItens'));
-    /* A ENTRADA SE LIGA AQUI, junto com as outras duas, e nao num bloco proprio: as
-       tres nascem do mesmo `DADOS`, e um bloco a parte ficaria para tras no dia em que
-       a montagem mudasse. */
-    document.getElementById('enOrigem').innerHTML =
-      opcoes(permitidos(locaisPor(TIPOS_ENTRADA), 'retornos'));
-    preencherSozinho('enOrigem', permitidos(locaisPor(TIPOS_ENTRADA), 'retornos'));
-    document.getElementById('enData').value = Q.hoje();
-    document.getElementById('enItens').innerHTML = itensHTML('en_');
-    ligarSteppers(document.getElementById('enItens'));
-    document.getElementById('enOrigem').addEventListener('change', atualizarEntrada);
-    document.getElementById('enDestino').addEventListener('change', function(){
-      montarMotoristas('enMotorista', 'enOrigem', 'entrada', pontasDaEntrada());
-      montarVeiculos('enVeiculo', 'enMotorista', pontasDaEntrada());
-    });
-    atualizarEntrada();
+    /* A CASA DA CONFERENCIA se liga aqui, junto com as outras: ela nasce do mesmo
+       `DADOS`, e um bloco a parte ficaria para tras no dia em que a montagem mudasse. */
+    montarCasasDaConferencia();
+    document.getElementById('enCasa').addEventListener('change', carregarFilaChegada);
     document.getElementById('dvOrigem').addEventListener('change', function(){
       mostrarSaldoDoOrigem('dv');
-    });
-    document.getElementById('enOrigem').addEventListener('change', function(){
-      mostrarSaldoDoOrigem('en');
     });
     // A devolucao parte do caminhao, entao ela TEM rota: o motorista dela vem em cima,
     // como na saida. Antes era a equipe inteira em ordem alfabetica, e quem quase sempre
@@ -1959,7 +1871,6 @@
   }
   ligarFoto('sdFoto','sdFotoOk',function(d){ sdFotoData=d; });
   ligarFoto('dvFoto','dvFotoOk',function(d){ dvFotoData=d; });
-  ligarFoto('enFoto','enFotoOk',function(d){ enFotoData=d; });
 
   /* ---------------- campos obrigatórios ----------------
      A regra mora numa lista por tela, e a mesma lista serve para marcar o campo com *
@@ -1979,15 +1890,6 @@
          segunda regra sobre a mesma coisa — e a que nao marca o campo de vermelho. */
       { id:'sdMotorista', msg:'Escolha o motorista que vai levar a carga.' },
       { id:'sdVeiculo',   msg:'Escolha o veículo que vai levar a carga.' }
-    ],
-    /* A ENTRADA PEDE OS MESMOS CINCO, com as palavras dela: a mensagem que nao fala a
-       lingua da tela manda a pessoa procurar um campo que nao existe ali. */
-    en: [
-      { id:'enData',      msg:'Informe a data da entrada.' },
-      { id:'enOrigem',    msg:'Informe de quem vieram as caixas.' },
-      { id:'enDestino',   msg:'Informe onde as caixas foram recebidas.' },
-      { id:'enMotorista', msg:'Informe quem trouxe as caixas.' },
-      { id:'enVeiculo',   msg:'Informe em que ve\u00edculo as caixas chegaram.' }
     ],
     dv: [
       { id:'dvData',      msg:'Informe a data do retorno.' },
@@ -2181,76 +2083,158 @@
     return true;
   }
 
-  /* ---------------- gravar devolução ---------------- */
-  /* ---------------- gravar entrada ----------------
+  /* ================= A FILA DA DOCA =================
    *
-   * O MESMO `DEVOLUCAO` DO RETORNO, e nao um tipo novo: e' a mesma coisa acontecendo —
-   * caixa entrando numa casa nossa. Um tipo proprio obrigaria toda soma do sistema a
-   * aprender a palavra, e nenhuma delas pergunta por onde a caixa entrou.
-   * DUAS TELAS, UM MOVIMENTO: o que separa as duas e' a lista de origens, e e' la' que
-   * a separacao mora — ver `TIPOS_ENTRADA`. */
-  document.getElementById('btnSalvarEntrada').addEventListener('click', function(){
-    var s = Q.sessao();
-    var origem = document.getElementById('enOrigem').value;
-    var destino = document.getElementById('enDestino').value;
-    var itens = coletarItens('en_');
-    if (!podeEnviar('en', 'enItens', itens)) return;
-    var total = itens.reduce(function(a,i){return a+i.qtd;},0);
+   * NINGUEM CONFERIA O QUE CHEGA. Quando a matriz manda 500 para Maceio, o estoque da
+   * filial sobe 500 — o numero que a MATRIZ disse. Chegando 480, ninguem pegava: a
+   * filial ficava 20 acima para sempre, e nao havia tela que perguntasse.
+   *
+   * NAO E UM FORMULARIO: a tela mostra o que ja' aconteceu e pergunta UMA coisa — quanto
+   * voce encontrou. Origem, destino, motorista e data ja' estao na carga; pedi-los de
+   * novo seria pedir que a pessoa copie o que esta' na frente dela.
+   *
+   * E NAO CRIA MOVIMENTO NENHUM: grava a contagem NA carga que existe. Um movimento novo
+   * creditaria a filial duas vezes com as mesmas caixas. */
+  var FILA_CHEGADA = [];
 
-    var baseEn = baseDoLancamento();
-    var dizBaseEn = baseEn && baseEn !== 'reais' ? ' na ' + NOME_BASE[baseEn] : '';
-    if (Q.precisaConfirmarCaixa(this, 'Confirmar entrada de ' + total + ' caixa(s)' +
-        dizBaseEn + '?', 'Registrar')) return;
+  function casaDaConferencia(){
+    var sel = document.getElementById('enCasa');
+    return sel ? sel.value : '';
+  }
 
-    if (!placaOk('enVeiculo')) return;
-    var btnEn = this; btnEn.disabled = true; btnEn.textContent = 'Salvando\u2026';
-    Q.enviar({
-      acao:'movimento', tipo:'DEVOLUCAO',
-      origemId: origem, destinoId: destino, itens: itens,
-      dataRef: document.getElementById('enData').value,
-      motorista: document.getElementById('enMotorista').value,
-      motoristaNome: nomeCompletoDoMotorista(document.getElementById('enMotorista').value),
-      veiculo: placaEscolhida('enVeiculo'),
-      obs: document.getElementById('enObs').value,
-      usuarioId: s.id, perfil: s.perfil,
-      base: baseEn,
-      foto: enFotoData
-    }).then(function(r){
-      btnEn.disabled = false; btnEn.textContent = 'Registrar entrada';
-      var txtEn = r.offline
-        ? '\u23f3 Sem conex\u00e3o \u2014 <b>'+total+' caixa(s)</b> na fila. Envia sozinho quando a internet voltar.'
-        : '\u2713 Entrada de <b>'+total+' caixa(s)</b> registrada.';
-      document.getElementById('enAviso').innerHTML =
-        '<div class="aviso-box '+(r.offline?'atencao':'ok')+'">'+txtEn+'</div>';
-      Q.toast(r.offline ? 'Guardado na fila (offline).' : 'Entrada registrada!','ok');
-      limparEntrada(true);
-      if (!r.offline) carregarPainel();
+  function montarCasasDaConferencia(){
+    var sel = document.getElementById('enCasa');
+    if (!sel) return;
+    /* AS CASAS QUE ELA PODE RECEBER, da mesma lista `saidas` que o Retorno usa para o
+       destino dele — e' a mesma pergunta: em que casa esta pessoa trabalha. */
+    var casas = permitidos(locaisPor(['GALPAO','FILIAL']), 'saidas');
+    var antes = sel.value;
+    sel.innerHTML = opcoes(casas);
+    if (casas.some(function(l){ return String(l.ID) === String(antes); })) sel.value = antes;
+    else preencherSozinho('enCasa', casas);
+  }
+
+  function carregarFilaChegada(){
+    var box = document.getElementById('enFila');
+    if (!box) return;
+    var casa = casaDaConferencia();
+    if (!casa){
+      box.innerHTML = '<div class="vazio">Escolha a casa em que voc\u00ea est\u00e1 conferindo.</div>';
+      return;
+    }
+    box.innerHTML = '<div class="vazio">Carregando\u2026</div>';
+    Q.get(Q.lendo({ acao:'aConferir', local: casa })).then(function(r){
+      if (!r.ok) throw new Error(r.erro);
+      FILA_CHEGADA = r.cargas || [];
+      desenharFilaChegada();
     }).catch(function(e){
-      btnEn.disabled = false; btnEn.textContent = 'Registrar entrada';
-      Q.toast(e.message,'erro');
+      box.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
     });
+  }
+
+  function desenharFilaChegada(){
+    var box = document.getElementById('enFila');
+    if (!box) return;
+    if (!FILA_CHEGADA.length){
+      /* O VAZIO AQUI E BOA NOTICIA, e o texto diz isso: um "nenhum resultado" seco se le
+         como tela quebrada, e a pessoa fica recarregando. */
+      box.innerHTML = '<div class="vazio">Nada esperando confer\u00eancia nesta casa \u2014 '+
+        'tudo que chegou j\u00e1 foi contado.</div>';
+      return;
+    }
+    box.innerHTML = FILA_CHEGADA.map(function(c, i){
+      /* O QUE A CARGA E, em uma linha: quando, de onde e com quem. E' o que a pessoa
+         confere contra o papel na mao antes de contar caixa. */
+      var cab = '<b>'+Q.esc(c.registro)+'</b> \u00b7 '+Q.dataBR(c.dataRef)+
+        ' \u00b7 de <b>'+Q.esc(c.origem || '\u2014')+'</b>'+
+        (c.motorista ? ' \u00b7 '+Q.esc(c.motorista) : '')+
+        (c.veiculo ? ' \u00b7 '+Q.esc(c.veiculo) : '');
+      var linhas = c.linhas.map(function(l, j){
+        return '<div class="item">'+
+          '<span>'+Q.esc(l.caixa)+' <small>declarado '+Q.num(l.declarado)+'</small></span>'+
+          '<input type="number" inputmode="numeric" min="0" step="1" '+
+            'id="cf_'+i+'_'+j+'" value="'+Q.num(l.declarado)+'" '+
+            'aria-label="Contado de '+Q.esc(l.caixa)+'">'+
+          '</div>';
+      }).join('');
+      return '<div class="card" style="margin-bottom:12px">'+
+        '<p style="margin:0 0 8px">'+cab+'</p>'+
+        '<div class="itens">'+linhas+'</div>'+
+        '<div id="cfDif_'+i+'" style="font-size:13px;margin-top:6px"></div>'+
+        '<div class="linha-btn">'+
+          '<button class="btn" data-conferir="'+i+'">Confirmar contagem</button>'+
+        '</div></div>';
+    }).join('');
+    FILA_CHEGADA.forEach(function(c, i){ pintarDifChegada(i); });
+  }
+
+  function contagemDaCarga(i){
+    var c = FILA_CHEGADA[i];
+    if (!c) return [];
+    return c.linhas.map(function(l, j){
+      var el = document.getElementById('cf_'+i+'_'+j);
+      var v = el ? Number(el.value) : NaN;
+      return { id: l.id, qtd: (isNaN(v) || v < 0) ? 0 : Math.round(v) };
+    });
+  }
+
+  /* A DIFERENCA APARECE ENQUANTO SE CONTA, e nao depois de gravar: e' nesse instante
+     que ela ainda se resolve — a carga esta' na frente da pessoa, e recontar custa um
+     minuto. Depois de gravada, ela vira um telefonema para o escritorio. */
+  function pintarDifChegada(i){
+    var el = document.getElementById('cfDif_'+i);
+    var c = FILA_CHEGADA[i];
+    if (!el || !c) return;
+    var somou = contagemDaCarga(i).reduce(function(a, x){ return a + x.qtd; }, 0);
+    var dif = somou - c.declarado;
+    el.innerHTML = dif === 0
+      ? '<span style="color:var(--verde)">\u2713 Bate com o declarado: '+Q.num(c.declarado)+'</span>'
+      : '<span class="dif-falta">Declarado '+Q.num(c.declarado)+' \u00b7 contado '+
+        Q.num(somou)+' \u00b7 diferen\u00e7a '+(dif > 0 ? '+' : '\u2212')+Q.num(Math.abs(dif))+'</span>';
+  }
+
+  document.addEventListener('input', function(e){
+    var alvo = e.target;
+    if (!alvo || !alvo.id || alvo.id.indexOf('cf_') !== 0) return;
+    pintarDifChegada(Number(alvo.id.split('_')[1]));
   });
 
-  function limparEntrada(manter){
-    limparErros('en');
-    zerarItens('en_');
-    document.getElementById('enObs').value = '';
-    document.getElementById('enMotorista').value = '';
-    document.getElementById('enVeiculoTexto').value = '';
-    mostrarPlacaTexto('enVeiculo');
-    enFotoData=''; document.getElementById('enFotoOk').textContent='';
-    document.getElementById('enFoto').value = '';
-    document.getElementById('enAviso').innerHTML = '';
-    if (!manter){
-      document.getElementById('enData').value = Q.hoje();
-      document.getElementById('enOrigem').value = '';
-      mostrarSaldoDoOrigem('en');
-      atualizarEntrada();
-    }
-  }
-  document.getElementById('btnLimparEntrada')
-    .addEventListener('click', function(){ limparEntrada(false); });
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest && e.target.closest('[data-conferir]');
+    if (!b) return;
+    var i = Number(b.getAttribute('data-conferir'));
+    var c = FILA_CHEGADA[i];
+    if (!c) return;
+    var contagens = contagemDaCarga(i);
+    var somou = contagens.reduce(function(a, x){ return a + x.qtd; }, 0);
+    /* A CONFIRMACAO DIZ A DIFERENCA, e nao so' o total: gravar uma divergencia e' o que
+       esta tela existe para fazer, e e' a ultima vez que alguem pode olhar a carga antes
+       de ela virar numero. */
+    var aviso = somou === c.declarado
+      ? 'Confirmar ' + Q.num(somou) + ' caixa(s) \u2014 bate com o declarado?'
+      : 'Declarado ' + Q.num(c.declarado) + ', contado ' + Q.num(somou) +
+        '. Confirmar a DIFEREN\u00c7A de ' + Q.num(Math.abs(somou - c.declarado)) + '?';
+    if (Q.precisaConfirmarCaixa(b, aviso, 'Confirmar')) return;
+    var s = Q.sessao();
+    b.disabled = true; b.textContent = 'Salvando\u2026';
+    Q.enviar({ acao:'conferirChegada', contagens: contagens, usuarioId: s.id })
+      .then(function(r){
+        if (!r.ok) throw new Error(r.erro);
+        document.getElementById('enAviso').innerHTML =
+          '<div class="aviso-box ok">\u2713 '+Q.esc(c.registro)+' conferida: '+
+          Q.num(r.conferido)+' caixa(s)'+
+          (r.divergencia ? ', com diferen\u00e7a de '+Q.num(Math.abs(r.divergencia)) : '')+
+          '.</div>';
+        Q.toast('Confer\u00eancia registrada!','ok');
+        carregarFilaChegada();
+        carregarPainel();
+      }).catch(function(err){
+        b.disabled = false; b.textContent = 'Confirmar contagem';
+        Q.toast(err.message,'erro');
+      });
+  });
 
+  /* ---------------- gravar devolução ---------------- */
   document.getElementById('btnSalvarDevolucao').addEventListener('click', function(){
     var s = Q.sessao();
     var origem = document.getElementById('dvOrigem').value;
@@ -3451,14 +3435,10 @@
       if (!r.ok) throw new Error(r.erro);
       PAINEL = r.painel;
       Q.cache('painel', PAINEL);
-      /* AS DUAS TELAS, e nao a que estiver aberta: o painel chega depois que elas ja
-         foram montadas, e a que estiver no fundo mostraria o aviso de ontem ate' alguem
-         mexer nela. */
       mostrarSaldoDoOrigem('dv');
-      mostrarSaldoDoOrigem('en');
     }).catch(function(){
       PAINEL = Q.cache('painel');
-      if (PAINEL) { mostrarSaldoDoOrigem('dv'); mostrarSaldoDoOrigem('en'); }
+      if (PAINEL) mostrarSaldoDoOrigem('dv');
     });
   }
 

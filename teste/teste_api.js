@@ -2583,14 +2583,15 @@ console.log('\n== painel restrito: so os proprios lancamentos ==');
   (function () {
     var rotaU = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
     var sobrou = (rotaU.match(/L\.recorteProprios\(/g) || []).length;
-    /* SETE: painel, pendentes, movimentos, meusLancamentos, conciliacao, lixeira e
-       extrato. Eram seis, e a de fora era `meusLancamentos` — o nome dela me enganou:
+    /* OITO: painel, pendentes, movimentos, meusLancamentos, conciliacao, lixeira,
+       extrato e aConferir — esta ultima e a fila da doca, e sem o recorte quem so' ve'
+       a unidade dele passaria a contar a carga da unidade do vizinho. Eram seis, e a de fora era `meusLancamentos` — o nome dela me enganou:
        ela nao e' "so' os meus", honra `UsuariosVistos` como as outras, e e' por ela que
        a tela Lancamentos do app de campo le'. O gerente de Maceio continuava vendo
        Natal, Caruaru e Recife ali, com a permissao marcada.
        A CONTA E ESCRITA DE PROPOSITO: ela e' o tropeco que obriga quem acrescenta uma
        rota de listagem a lembrar do recorte. */
-    ok((rotaU.match(/L\.recorteLancamentos\(/g) || []).length === 7,
+    ok((rotaU.match(/L\.recorteLancamentos\(/g) || []).length === 8,
       'as rotas que listam lan\u00e7amento chamam `recorteLancamentos` \u2014 a pe\u00e7a existiria ' +
       'e nada chegaria nela, e a filial seguiria vendo a opera\u00e7\u00e3o inteira',
       (rotaU.match(/L\.recorteLancamentos\(/g) || []).length);
@@ -4944,6 +4945,137 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'e a gaveta dele mostra UMA linha, a que saiu de verdade — contando as duas, quem ' +
     'conferisse veria a mesma carga duas vezes com dois donos do mesmo nome',
     geraldoFF && (geraldoFF.linhas || []).length);
+
+  /* ================= A FILA DA DOCA: O QUE CHEGOU E NINGUEM CONTOU ==========
+   *
+   * O escritorio nunca conferiu uma chegada. Quando a matriz manda 500 para Maceio, o
+   * estoque da filial sobe 500 — o numero que a MATRIZ disse. Chegando 480, ninguem
+   * pega: a filial fica 20 acima para sempre, e nao havia tela que perguntasse.
+   *
+   * O CENARIO TEM UMA LINHA PARA CADA JEITO DE A CARGA NAO ENTRAR NA FILA. Com uma
+   * carga so', "filtra" e "nao filtra" dao a mesma resposta. */
+  const LOC_CH = [
+    { ID: 'L001', Nome: 'Matriz', Tipo: 'GALPAO' },
+    { ID: 'L002', Nome: 'Filial Maceio', Tipo: 'FILIAL' },
+    { ID: 'L009', Nome: 'Filial Natal', Tipo: 'FILIAL' },
+    { ID: 'L003', Nome: 'Recife', Tipo: 'ROTA' }
+  ];
+  const TIP_CH = [{ ID: 'T001', Nome: 'CX P' }, { ID: 'T002', Nome: 'CX G' }];
+  const ch = (o) => Object.assign({ Tipo: 'TRANSFERENCIA', OrigemID: 'L001',
+    DestinoID: 'L002', TipoCaixaID: 'T001', Qtd: 100, Motorista: 'Dinho',
+    DataRef: new Date(2026, 9, 20), DataHora: new Date(2026, 9, 20) }, o);
+
+  const MOV_CH = [
+    /* A CARGA QUE ESPERA: duas linhas, um registro. */
+    ch({ ID: 'C1', Registro: 'R000900', Qtd: 300 }),
+    ch({ ID: 'C2', Registro: 'R000900', Qtd: 200, TipoCaixaID: 'T002' }),
+    /* JA CONTADA: sai da fila pela marca PROPRIA da chegada. */
+    ch({ ID: 'C3', Registro: 'R000901', ChegadaConferidaEm: new Date(2026, 9, 21) }),
+    /* PARA OUTRA CASA: nao e' desta doca. */
+    ch({ ID: 'C4', Registro: 'R000902', DestinoID: 'L009' }),
+    /* PARA UMA ROTA: nao chegou em casa nossa — o caminhao ainda esta' na rua. */
+    ch({ ID: 'C5', Registro: 'R000903', DestinoID: 'L003' }),
+    /* DECLARACAO: existe como linha e nao existe como movimento. Conta-la seria
+       conferir a carga contra a palavra do motorista. */
+    ch({ ID: 'C6', Registro: 'R000904', Declaracao: true }),
+    /* CANCELADA: nao conta em nada. */
+    ch({ ID: 'C7', Registro: 'R000905', Cancelado: true }),
+    /* AJUSTE: nasce no escritorio e nao tem carga para contar. */
+    ch({ ID: 'C8', Registro: 'R000906', Tipo: 'AJUSTE' }),
+    /* A PERNA QUE NAO SAI DO LUGAR: nao chegou de parte nenhuma. */
+    ch({ ID: 'C9', Registro: 'R000907', OrigemID: 'L002' }),
+    /* E UMA MAIS VELHA, para a ordem ter o que provar. */
+    ch({ ID: 'C0', Registro: 'R000899', Qtd: 50,
+         DataRef: new Date(2026, 9, 18), DataHora: new Date(2026, 9, 18) })
+  ];
+  const fila = Fl.aConferirNaChegada(MOV_CH, LOC_CH, TIP_CH, [], { local: 'L002' });
+  const regsCh = fila.map((c) => c.registro).join(',');
+
+  ok(regsCh === 'R000899,R000900',
+    'a fila traz só o que chegou nesta casa e ninguém contou — fora dela: a já contada, ' +
+    'a de outra filial, a que ainda está na rota, a declaração, a cancelada, o ajuste e ' +
+    'a perna que não saiu do lugar', regsCh);
+
+  /* A MAIS VELHA PRIMEIRO: e' a que espera ha mais tempo, e a fila da doca e' essa. Pela
+     mais nova, a carga antiga desceria para o fim toda vez que uma nova chegasse, e
+     nunca seria contada. */
+  ok(fila[0].registro === 'R000899',
+    'e a mais VELHA abre a fila — pela mais nova, a carga antiga desceria para o fim ' +
+    'toda vez que uma nova chegasse, e nunca seria contada', regsCh);
+
+  /* A CARGA, E NAO A LINHA. Um registro sao tres ou quatro linhas, uma por tipo de
+     caixa, e quem esta na doca conta a viagem inteira de uma vez. */
+  const cargaCh = fila.filter((c) => c.registro === 'R000900')[0];
+  ok(cargaCh.linhas.length === 2 && cargaCh.declarado === 500,
+    'e a carga vem INTEIRA, com as linhas dentro e o declarado somado — linha a linha, ' +
+    'a mesma viagem viraria quatro perguntas iguais e a quarta seria respondida no ' +
+    'automático', { linhas: cargaCh.linhas.length, declarado: cargaCh.declarado });
+  ok(cargaCh.linhas[0].caixa === 'CX P' && cargaCh.linhas[1].caixa === 'CX G',
+    'e cada linha diz de que caixa é — um id ali não se confere olhando o palete',
+    cargaCh.linhas.map((l) => l.caixa));
+
+  /* SEM `local`, A FILA E DE TODAS AS CASAS. E' a convencao da casa, e e' o que deixa o
+     escritorio ver a doca inteira. */
+  ok(Fl.aConferirNaChegada(MOV_CH, LOC_CH, TIP_CH, [], {}).length === 3,
+    'e sem dizer a casa a fila traz as de TODAS — a convenção daqui, e é o que deixa o ' +
+    'escritório ver a doca inteira',
+    Fl.aConferirNaChegada(MOV_CH, LOC_CH, TIP_CH, [], {}).map((c) => c.registro));
+
+  /* ---- E A CONTAGEM GRAVA NA CARGA QUE EXISTE ---- */
+  const gravou = Fl.montarConferenciaChegada(MOV_CH,
+    [{ id: 'C1', qtd: 280 }, { id: 'C2', qtd: 200 }],
+    { usuarioId: 'U1', agora: new Date(2026, 9, 22) });
+
+  ok(gravou.ok && gravou.patches.length === 2,
+    'a contagem monta um patch por linha da carga — uma chamada para a viagem inteira, ' +
+    'e não uma por tipo de caixa', gravou.ok && gravou.patches.length);
+  ok(gravou.declarado === 500 && gravou.conferido === 480 && gravou.divergencia === -20,
+    'e devolve os três números: 500 declarados, 480 contados, 20 a menos — é essa ' +
+    'diferença que ninguém pegava',
+    [gravou.declarado, gravou.conferido, gravou.divergencia]);
+  ok(gravou.patches[0].patch.QtdConferida === 280 &&
+     !!gravou.patches[0].patch.ChegadaConferidaEm &&
+     gravou.patches[0].patch.ChegadaConferidaPor === 'U1',
+    'e grava o contado na carga que EXISTE, com a marca da chegada — é ela que tira a ' +
+    'carga da fila, e `qtd_conferida` sozinha não serve: ela já nasce preenchida',
+    gravou.patches[0].patch);
+
+  /* NADA E GRAVADO SE UMA LINHA FOR RECUSADA. Gravando o que da', a carga ficaria meio
+     contada: metade com o numero novo, metade com o velho, e a marca da chegada
+     decidindo por sorte se ela some da fila. */
+  const meiaCarga = Fl.montarConferenciaChegada(MOV_CH,
+    [{ id: 'C1', qtd: 280 }, { id: 'C2', qtd: -5 }], { usuarioId: 'U1' });
+  ok(meiaCarga.ok === false && /inválida/i.test(meiaCarga.erro || ''),
+    'e uma linha recusada recusa a carga INTEIRA — gravando o que dá, metade ficaria ' +
+    'com o número novo e metade com o velho, e a marca da chegada decidiria por sorte ' +
+    'se ela some da fila', meiaCarga.erro);
+
+  /* E A ROTA MONTA TUDO ANTES DE GRAVAR QUALQUER COISA.
+     O montador acima recusa a carga inteira quando uma linha nao presta — mas isso so'
+     vale se a rota PARAR ali. Gravando no mesmo laco em que monta, o erro da ultima
+     linha chegaria depois de as primeiras ja terem ido para o banco, e a carga ficaria
+     meio contada com a marca da chegada decidindo por sorte se ela some da fila.
+     PROVA DE TEXTO porque esta rota fala com o banco, e a bancada nao o tem. Ela existe
+     porque uma sabotagem escapou exatamente por aqui: tirado o `return`, nenhuma prova
+     reclamou. */
+  (function () {
+    var rotaCh = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+    var i = rotaCh.indexOf('async function conferirChegada(p)');
+    var corpo = i < 0 ? '' : rotaCh.slice(i, rotaCh.indexOf('\n}', i));
+    var iMonta = corpo.indexOf('L.montarConferenciaChegada(');
+    var iPara = corpo.indexOf('if (!r.ok) return r;');
+    var iGrava = corpo.indexOf("db.update('movimentos'");
+    ok(iMonta > 0 && iPara > iMonta && iGrava > iPara,
+      'a rota MONTA, confere o resultado e só então grava — nesta ordem: gravando no ' +
+      'mesmo laço em que monta, o erro da última linha chegaria depois de as primeiras ' +
+      'já terem ido para o banco, e a carga ficaria meio contada',
+      { monta: iMonta, para: iPara, grava: iGrava });
+  })();
+
+  const vazia = Fl.montarConferenciaChegada(MOV_CH, [], { usuarioId: 'U1' });
+  ok(vazia.ok === false,
+    'e sem contagem nenhuma não há o que gravar — aceitar vazio marcaria a carga como ' +
+    'conferida sem ninguém ter contado uma caixa', vazia.erro);
 
   /* ================= O REGISTRO E A CARGA INTEIRA ============================
    *

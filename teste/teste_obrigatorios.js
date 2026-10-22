@@ -230,7 +230,11 @@ var faltaEstrela = naLista.filter(function (id) { return comEstrela.indexOf(id) 
    da correção, e quem o exige é o botão de gravar mais a regra do servidor. Entra aqui
    nomeado, e não por um filtro esperto — e as duas guardas dele são conferidas logo
    abaixo. Sem isso, a estrela seria uma promessa que ninguém cumpre. */
-var FORA_DO_ENVIO = ['crMotivo', 'crSenha'];
+/* `enCasa` e' obrigatorio por OUTRA guarda, como o motivo da correcao: ele nao e campo
+   de lancamento — e a casa em que a pessoa esta' conferindo —, e quem o exige e' a
+   propria fila, que nao carrega sem ele e diz isso na tela. Entra aqui NOMEADO, e nao
+   por um filtro esperto. */
+var FORA_DO_ENVIO = ['crMotivo', 'crSenha', 'enCasa'];
 var estrelaSobrando = comEstrela.filter(function (id) {
   return naLista.indexOf(id) < 0 && FORA_DO_ENVIO.indexOf(id) < 0;
 });

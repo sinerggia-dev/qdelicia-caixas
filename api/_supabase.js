@@ -414,6 +414,11 @@ var MOV = {
       Romaneio: r.romaneio || '', UsuarioID: r.usuario_id, Perfil: r.perfil, Obs: r.obs || '',
       AssinaturaURL: r.assinatura_url, FotoURL: r.foto_url,
       ConferidoEm: r.conferido_em, ConferidoPor: r.conferido_por,
+      /* A MARCA DA CHEGADA, e nao a do lancamento: `conferido_por` nasce apontando para
+         quem LANCOU, e estas duas nascem nulas — nulo quer dizer que a casa que recebeu
+         ainda nao contou. */
+      ChegadaConferidaEm: r.chegada_conferida_em,
+      ChegadaConferidaPor: r.chegada_conferida_por,
       Cancelado: r.cancelado === true, MotivoCancel: r.motivo_cancel,
       /* DOIS NOMES, e a divisao nao e arbitraria: `Motorista` e o que se mostra
          curto — ja era isso nas 24 linhas gravadas antes desta coluna existir —, e
@@ -474,6 +479,10 @@ var MOV = {
     pos('FotoURL', 'foto_url', nulo);
     pos('ConferidoEm', 'conferido_em', function (d) { return d instanceof Date ? d.toISOString() : nulo(d); });
     pos('ConferidoPor', 'conferido_por', nulo);
+    pos('ChegadaConferidaEm', 'chegada_conferida_em', function (d) {
+      return d instanceof Date ? d.toISOString() : nulo(d);
+    });
+    pos('ChegadaConferidaPor', 'chegada_conferida_por', nulo);
     pos('Cancelado', 'cancelado', function (v) { return v === true; });
     pos('MotivoCancel', 'motivo_cancel', nulo);
     /* `nulo` e não `undefined`: restaurar PRECISA escrever null na coluna, e um campo que

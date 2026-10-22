@@ -868,5 +868,32 @@ module.exports = [
       "   todas. E a peneira de POR ONDE PASSOU, irma e nao substituta de",
       "   `usuarios_vistos`, que e a de QUEM LANCOU.';"
     ].join('\n')
+  },
+  {
+    id: '2026-10-22-conferencia-na-chegada',
+    nota: 'a casa que recebeu contou a carga: quando, e quem contou',
+    sql: [
+      "-- NINGUEM CONFERE O QUE CHEGA, e nao havia onde registrar que alguem conferiu.",
+      "--",
+      "-- Quando a matriz manda 500 para Maceio, o estoque da filial sobe 500 -- o numero",
+      "-- que a MATRIZ disse. Chegando 480, ninguem pega: a filial fica 20 acima para",
+      "-- sempre, e nao ha tela que pergunte. O Retorno tem conferencia; a chegada nao",
+      "-- tinha.",
+      "--",
+      "-- POR QUE UMA COLUNA NOVA, e nao uma deduzida das que ha: todo lancamento nasce",
+      "-- com qtd_conferida preenchida e conferido_por apontando para QUEM LANCOU -- as",
+      "-- duas ja vem cheias no instante do lancamento. Deduzir que a casa contou, a",
+      "-- partir delas, seria ler uma coincidencia -- e coincidencia lida como regra e o",
+      "-- jeito de o erro durar.",
+      "--",
+      "-- NASCEM NULAS, e nulo quer dizer que ainda nao contaram. Nenhum lancamento muda",
+      "-- de valor por esta migracao: ela so abre onde a resposta vai caber.",
+      "alter table public.movimentos",
+      "  add column if not exists chegada_conferida_em  timestamptz,",
+      "  add column if not exists chegada_conferida_por text;",
+      "comment on column public.movimentos.chegada_conferida_em is",
+      "  'Quando a casa que RECEBEU contou esta carga. Nulo quer dizer que ainda nao",
+      "   contaram, e e por este campo que a tela de Entrada sabe o que falta.';"
+    ].join('\n')
   }
 ];

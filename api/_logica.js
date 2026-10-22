@@ -1789,6 +1789,109 @@ function montarMovimento(p, ctx) {
            registro: reg };
 }
 
+/* ================= O QUE CHEGOU E NINGUEM CONTOU =================
+ *
+ * O ESCRITORIO NUNCA CONFERIU UMA CHEGADA. Quando a matriz manda 500 para Maceio, o
+ * estoque da filial sobe 500 — o numero que a MATRIZ disse. Chegando 480, ninguem pega:
+ * a filial fica 20 acima para sempre, e nao havia tela que perguntasse.
+ *
+ * A CARGA, E NAO A LINHA. Um registro sao tres ou quatro linhas, uma por tipo de caixa,
+ * e quem esta' na doca conta a carga inteira de uma vez. Linha a linha, a mesma viagem
+ * viraria quatro perguntas iguais e a quarta seria respondida no automatico.
+ *
+ * SO' O QUE CHEGOU EM CASA NOSSA, e so' o que veio de FORA dela: uma perna que comeca e
+ * termina na mesma casa nao chegou em lugar nenhum.
+ *
+ * A DECLARACAO FICA DE FORA: ela existe como linha e nao existe como movimento — contar
+ * a palavra do motorista seria conferir a carga contra ela mesma.
+ *
+ * E O QUE JA FOI CONTADO SAI DA LISTA, pela marca propria da chegada. `qtd_conferida` e
+ * `conferido_por` nascem preenchidas no lancamento, e deduzir "a casa contou" delas
+ * seria ler uma coincidencia. */
+function aConferirNaChegada(movimentos, locais, tipos, usuarios, p) {
+  p = p || {};
+  var casa = String(p.local == null ? '' : p.local).trim();
+  var mLocais = mapaNomes(locais), mTipos = mapaTipos(tipos);
+  var mUsers = mapaNomes(usuarios);
+  var porReg = {}, ordem = [];
+
+  naoCancelados(movimentos).forEach(function (m) {
+    if (ehDeclaracao(m)) return;
+    if (m.ChegadaConferidaEm) return;
+    var destino = String(m.DestinoID || '');
+    if (!destino) return;
+    if (casa && destino !== casa) return;
+    if (!ehCasaNossa(tipoDoLocal(locais, destino))) return;
+    /* NEM TODO MOVIMENTO E UMA CHEGADA. Perda e ajuste nascem no escritorio e nao tem
+       carga para contar; e a perna que nao sai do lugar nao chegou de parte nenhuma. */
+    if (m.Tipo === 'PERDA' || m.Tipo === 'AJUSTE') return;
+    if (String(m.OrigemID || '') === destino) return;
+
+    var reg = String(m.Registro || '') || ('#' + String(m.ID));
+    if (!porReg[reg]) {
+      porReg[reg] = {
+        registro: reg,
+        dataRef: iso(m.DataRef),
+        tipo: m.Tipo,
+        origemId: String(m.OrigemID || ''), origem: nome(mLocais, m.OrigemID),
+        destinoId: destino, destino: nome(mLocais, destino),
+        motorista: String(m.Motorista || '').trim(),
+        veiculo: String(m.Veiculo || '').trim(),
+        fornecedor: String(m.Fornecedor || '').trim(),
+        lancadoPor: nome(mUsers, m.UsuarioID),
+        declarado: 0, linhas: []
+      };
+      ordem.push(reg);
+    }
+    var carga = porReg[reg];
+    var q = Number(m.Qtd) || 0;
+    carga.declarado += q;
+    carga.linhas.push({ id: m.ID, caixa: nome(mTipos, m.TipoCaixaID),
+                        tipoCaixaId: String(m.TipoCaixaID || ''), declarado: q });
+  });
+
+  /* A MAIS VELHA PRIMEIRO: e' a que esta' esperando ha mais tempo, e a fila da doca e'
+     essa. Pela mais nova, a carga antiga desceria para o fim da lista toda vez que uma
+     nova chegasse, e nunca seria contada. */
+  return ordem.map(function (r) { return porReg[r]; }).sort(function (a, b) {
+    return a.dataRef < b.dataRef ? -1 : (a.dataRef > b.dataRef ? 1 : 0);
+  });
+}
+
+/* A CONTAGEM DA CHEGADA, LINHA A LINHA DE UMA CARGA.
+ *
+ * Reaproveita `montarConferencia` — e' a mesma gravacao, e duas copias dela divergiriam
+ * na primeira que fosse mexida. O que ela acrescenta e' a MARCA DA CHEGADA, que e' o
+ * que tira a carga da fila.
+ *
+ * NADA E GRAVADO SE UMA LINHA FOR RECUSADA. Gravando o que da', a carga ficaria meio
+ * contada: metade com o numero novo, metade com o velho, e a marca da chegada decidindo
+ * por sorte se ela some da fila. */
+function montarConferenciaChegada(movs, contagens, p) {
+  p = p || {};
+  var agora = p.agora || new Date();
+  var porId = {};
+  (movs || []).forEach(function (m) { porId[String(m.ID)] = m; });
+
+  var patches = [], erro = null, declarado = 0, conferido = 0;
+  (contagens || []).forEach(function (c) {
+    if (erro) return;
+    var mov = porId[String(c.id)];
+    var r = montarConferencia(mov, { id: c.id, qtdConferida: c.qtd, obs: p.obs,
+                                     usuarioId: p.usuarioId, agora: agora });
+    if (!r.ok) { erro = r.erro; return; }
+    r.patch.ChegadaConferidaEm = agora;
+    r.patch.ChegadaConferidaPor = String(p.usuarioId || '') || null;
+    patches.push({ id: mov.ID, patch: r.patch });
+    declarado += r.declarada;
+    conferido += r.conferida;
+  });
+  if (erro) return { ok: false, erro: erro };
+  if (!patches.length) return { ok: false, erro: 'Nenhuma linha para conferir.' };
+  return { ok: true, patches: patches, declarado: declarado, conferido: conferido,
+           divergencia: conferido - declarado };
+}
+
 /** Conferência na chegada. Devolve o patch a aplicar e a divergência apurada. */
 function montarConferencia(mov, p) {
   if (!mov) return { ok: false, erro: 'Movimento não encontrado: ' + String(p.id || '') };
@@ -3721,6 +3824,8 @@ module.exports = {
   meuAcesso: meuAcesso,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,
   cicloDaCarga: cicloDaCarga, rotuloCiclo: rotuloCiclo,
+  aConferirNaChegada: aConferirNaChegada,
+  montarConferenciaChegada: montarConferenciaChegada,
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
   montarMovimento: montarMovimento, placaAceitavel: placaAceitavel,
   fornecedorDoMovimento: fornecedorDoMovimento,

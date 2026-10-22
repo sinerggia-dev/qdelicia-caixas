@@ -155,6 +155,17 @@ async function rotaGet(p) {
            aprende a ignorar.
        DEVOLVE SO OS SALDOS: nada de KPIs, de fluxo ou de quem lancou o que. O app de
        campo precisa do numero do lugar; o resto do painel continua atras do recorte. */
+    /* O QUE CHEGOU NESTA CASA E NINGUEM CONTOU.
+       ROTA PROPRIA, e nao um filtro de `movimentos`: a resposta aqui e' a CARGA — o
+       registro inteiro, com as linhas dentro —, e nao a lista de linhas que aquela
+       rota devolve. Por parametro, as duas telas dividiriam uma funcao que responde
+       duas perguntas, e a primeira a mudar levaria a outra junto.
+       PASSA PELO MESMO RECORTE das outras listagens: quem so' ve' a unidade dele nao
+       passa a contar a carga da unidade do vizinho por esta porta. */
+    case 'aConferir':
+      return { ok: true, cargas: L.aConferirNaChegada(
+                 L.recorteLancamentos(d, d.usuarios, p.quem).movimentos,
+                 d.locais, d.tipos, d.usuarios, p) };
     case 'saldoLocais':
       var p2 = L.painel(L.recorteTeste(d, p.teste), null, { de: p.de, ate: p.ate });
       return { ok: true, painel: { locais: p2.locais, rotas: p2.rotas } };
@@ -290,6 +301,7 @@ async function rotaPost(p) {
 
   if (acao === 'movimento') return await gravarMovimento(p);
   if (acao === 'conferir') return await conferir(p);
+  if (acao === 'conferirChegada') return await conferirChegada(p);
   if (acao === 'cancelar') return await cancelar(p);
   if (acao === 'descancelar') return await descancelar(p);
   if (acao === 'corrigir') return await corrigir(p);
@@ -698,6 +710,28 @@ async function conferir(p) {
   if (!r.ok) return r;
   await db.update('movimentos', mov.ID, db.MOV.para(r.patch));
   return { ok: true, divergencia: r.divergencia, declarada: r.declarada, conferida: r.conferida };
+}
+
+/* A CONTAGEM DA CHEGADA, DA CARGA INTEIRA.
+ *
+ * UMA CHAMADA PARA A CARGA, e nao uma por linha: quem esta' na doca conta a viagem
+ * inteira de uma vez, e quatro chamadas deixariam a carga meio contada se a terceira
+ * falhasse — metade com o numero novo, metade com o velho.
+ *
+ * O MONTADOR RECUSA TUDO OU ACEITA TUDO, e so' depois disso alguma coisa e' gravada.
+ * Montar e gravar no mesmo laco faria o erro da ultima linha chegar depois de as
+ * primeiras ja terem ido para o banco. */
+async function conferirChegada(p) {
+  var d = await db.carregarTudo();
+  var contagens = Array.isArray(p.contagens) ? p.contagens : [];
+  if (!contagens.length) return { ok: false, erro: 'Informe o que foi contado.' };
+  var r = L.montarConferenciaChegada(d.movimentos, contagens, p);
+  if (!r.ok) return r;
+  for (var i = 0; i < r.patches.length; i++) {
+    await db.update('movimentos', r.patches[i].id, db.MOV.para(r.patches[i].patch));
+  }
+  return { ok: true, declarado: r.declarado, conferido: r.conferido,
+           divergencia: r.divergencia, linhas: r.patches.length };
 }
 
 /* Apaga TODOS os lançamentos. Existe para zerar a base de testes antes de a operação
