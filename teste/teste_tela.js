@@ -28355,9 +28355,10 @@ console.log('\n== a Entrada: conferencia na chegada ==');
     }
     return '';
   }
-  ok(!!corpoF('montarOrigensDaFila') && !!corpoF('filaPeneirada'),
-    'a conferência recortou a peneira por origem — recorte vazio faria as provas ' +
-    'abaixo passarem sem rodar nada');
+  ok(!!corpoF('montarOrigensDaFila') && !!corpoF('filaPeneirada') &&
+     !!corpoF('passaBuscaDaFila') && !!corpoF('semAcento'),
+    'a conferência recortou a peneira por origem E a busca — recorte vazio faria as ' +
+    'provas abaixo passarem sem rodar nada');
 
   /* ---- E A FILA SE PENEIRA POR QUEM MANDOU ----
    *
@@ -28369,12 +28370,18 @@ console.log('\n== a Entrada: conferencia na chegada ==');
    * AS OPCOES SAEM DA PROPRIA FILA, e nao do cadastro de locais: uma lista de locais
    * poria no campo origens sem nada atras delas, e escolher uma daria uma tela vazia que
    * se le como tela quebrada. */
+  /* O CAMPO DE BUSCA ENTRA NO DOCUMENTO DE MENTIRA, e as duas funcoes dela no recorte.
+     Sem o campo, `filaPeneirada` chamaria uma funcao que nao existe e a bancada estoura
+     em vez de medir — foi o que aconteceu quando a busca nasceu. */
+  var cxBusca = { value: '' };
   var api = new Function('document', 'Q',
     'FILA_CHEGADA', 'FILA_MOSTRADA',
-    corpoF('montarOrigensDaFila') + '\n' + corpoF('filaPeneirada') +
+    corpoF('montarOrigensDaFila') + '\n' + corpoF('semAcento') + '\n' +
+    corpoF('passaBuscaDaFila') + '\n' + corpoF('filaPeneirada') +
     '\n return { montar: montarOrigensDaFila, peneirar: filaPeneirada,' +
     '\n          fila: function(f){ FILA_CHEGADA = f; } };')(
-    { getElementById: function (id) { return id === 'enDeOnde' ? selDe : null; } },
+    { getElementById: function (id) {
+        return id === 'enDeOnde' ? selDe : (id === 'enBusca' ? cxBusca : null); } },
     { esc: function (x) { return String(x); } },
     [], []);
 
@@ -28403,6 +28410,110 @@ console.log('\n== a Entrada: conferencia na chegada ==');
   ok(api.peneirar().map(function (c) { return c.registro; }).join() === 'R1,R2',
     'e escolhida uma origem, só as cargas dela — era o pedido: Maceió carrega apenas o ' +
     'que veio de São Vicente', api.peneirar().map(function (c) { return c.registro; }));
+
+  /* ---- A ORDEM DOS DOIS CAMPOS, E A FIACAO DA BUSCA ----
+   *
+   * A ORDEM E A DA VIAGEM, a pedido: DE ONDE veio, e so' depois ONDE se confere. A
+   * frase que a pessoa tem na cabeca ao chegar no galpao e' "chegou carga de Sao
+   * Vicente", e nao "estou em Maceio" — o lugar onde ela esta' ela ja' sabe.
+   * MEDIDA PELA POSICAO NO ARQUIVO, que e' o que decide a ordem na tela: nada mais
+   * acusaria a volta ao arranjo antigo, e ela voltaria na primeira mexida na secao. */
+  {
+    var iSec = idxF.indexOf('<section id="pgEntrada"');
+    var secEn = idxF.slice(iSec, idxF.indexOf('</section>', iSec));
+    var iDe = secEn.indexOf('id="enDeOnde"');
+    var iCasa = secEn.indexOf('id="enCasa"');
+    ok(iSec > 0 && iDe > 0 && iCasa > 0 && iDe < iCasa,
+      'na tela de Entrada, "Entrada de" vem ANTES de "Conferindo em" \u2014 foi o pedido, e ' +
+      '\u00e9 a ordem da viagem: de onde veio, e s\u00f3 depois onde se confere',
+      { de: iDe, casa: iCasa });
+    /* E O `*` NAO MUDOU DE CAMPO. Obrigatorio e' o lugar onde a contagem vai ser
+       GRAVADA; o filtro de origem nao e'. Arrastado junto na troca, a tela passaria a
+       exigir um filtro e a aceitar gravar sem destino. */
+    /* O ASTERISCO E COBRADO DENTRO DA ETIQUETA do "Conferindo em", e nao por estar
+       depois de um indice e antes de outro: medido por posicao solta, ele passaria
+       estando na etiqueta errada desde que caisse no intervalo certo. */
+    var iLabCasa = secEn.indexOf('for="enCasa"');
+    /* A CLASSE INTEIRA, e nao o pedaco `obrig`: a palavra "obrigatorio" aparece num
+       COMENTARIO desta mesma secao, bem antes das duas etiquetas, e era ela que a
+       prova estava achando — reprovando o arranjo certo. */
+    var iObrig = secEn.indexOf('class="obrig"');
+    ok(iLabCasa > 0 && iObrig > iLabCasa && iObrig < iCasa,
+      'e o asterisco continua no "Conferindo em" \u2014 obrigat\u00f3rio \u00e9 o lugar onde a ' +
+      'contagem vai ser gravada, e n\u00e3o o filtro de origem', secEn.indexOf('obrig'));
+
+    /* E A BUSCA REDESENHA. A peca pode existir e nada chegar nela: sem o ouvinte, o
+       campo aceita o que se digita e a fila nao mexe — a busca "nao funciona" sem
+       nenhum erro para explicar. */
+    ok(/getElementById\('enBusca'\)\.addEventListener\('input', desenharFilaChegada\)/
+        .test(idxF),
+      'e digitar na busca REDESENHA a fila \u2014 sem o ouvinte o campo aceita o texto e ' +
+      'nada acontece, que \u00e9 o pior jeito de n\u00e3o funcionar: parece que a fila n\u00e3o tem ' +
+      'a carga');
+    ok(/id="enBusca"/.test(secEn),
+      'e o campo mora na pr\u00f3pria tela de Entrada \u2014 fora dela, o ouvinte acima estoura ' +
+      'ao abrir o app e leva a tela inteira junto');
+  }
+
+  /* ---- E A BUSCA GERAL, RODADA ----
+   *
+   * O campo "Entrada de" responde UMA pergunta — de que lugar veio —, e ela nem sempre
+   * e' a que a pessoa tem. No patio ela tem o PAPEL na mao: um registro, uma placa, um
+   * nome. Sem a busca, achar a R000433 numa fila de cinquenta e' rolar a tela lendo
+   * codigo por codigo. */
+  selDe.value = '';
+  var FILA_B = [
+    { registro: 'R000433', origemId: 'L001', origem: 'Matriz São Vicente',
+      motorista: 'Alcimar Silva', veiculo: 'PCK1470', lancadoPor: 'Natanael Silva' },
+    { registro: 'R000105', origemId: 'L007', origem: 'Campina Grande',
+      motorista: 'Valcy Silva Filho', veiculo: 'KKS1330', lancadoPor: 'Breno Marciel' },
+    /* UMA TERCEIRA COM O MESMO MOTORISTA DA PRIMEIRA e origem diferente: sem ela, uma
+       busca que casasse a linha INTEIRA em vez de campo a campo passaria igual. */
+    { registro: 'R000107', origemId: 'L007', origem: 'Campina Grande',
+      motorista: 'Alcimar Silva', veiculo: 'QYP7H94', lancadoPor: 'Nestor Neto' }
+  ];
+  api.fila(FILA_B);
+  function achou(q) {
+    cxBusca.value = q;
+    return api.peneirar().map(function (c) { return c.registro; }).join();
+  }
+  ok(achou('') === 'R000433,R000105,R000107',
+    'busca vazia não peneira nada — lida como "nenhum resultado", a tela abriria vazia ' +
+    'antes de a pessoa digitar qualquer coisa', achou(''));
+  ok(achou('R000433') === 'R000433',
+    'e o REGISTRO acha a carga — é o número que está no papel na mão de quem confere, ' +
+    'e era por ele que se rolava a tela lendo código por código', achou('R000433'));
+  ok(achou('pck1470') === 'R000433',
+    'e a PLACA também, sem caixa alta — quem digita no pátio digita como der',
+    achou('pck1470'));
+  ok(achou('alcimar') === 'R000433,R000107',
+    'e o MOTORISTA traz as cargas dele, de origens diferentes — é a pergunta que o ' +
+    'campo "Entrada de" não responde', achou('alcimar'));
+  ok(achou('nestor') === 'R000107',
+    'e QUEM LANÇOU também — o `placeholder` promete cinco campos, e buscar em menos do ' +
+    'que ele promete é prometer o que a tela não faz', achou('nestor'));
+  ok(achou('sao vicente') === 'R000433' && achou('são vicente') === 'R000433',
+    'e o acento não conta — quem procura "sao" tem de achar "São Vicente", senão a ' +
+    'busca só serve a quem lembra a grafia exata', achou('sao vicente'));
+  ok(achou('alcimar campina') === 'R000107',
+    'e cada palavra pode cair num campo DIFERENTE — "alcimar campina" acha a carga do ' +
+    'Alcimar vinda de Campina, que é como a pergunta se faz; casando a linha inteira, ' +
+    'essa busca não acharia nada', achou('alcimar campina'));
+
+  /* E AS DUAS PENEIRAS SE SOMAM, e nao se substituem: escolhida a origem E digitada a
+     busca, sobra o que passa nas duas. Substituindo-se, a ultima mexida apagaria a
+     outra em silencio e a tela mostraria mais do que a pessoa pediu. */
+  selDe.value = 'L007';
+  ok(achou('alcimar') === 'R000107',
+    'e a origem e a busca se SOMAM — uma substituindo a outra, a última mexida apagaria ' +
+    'a primeira em silêncio e a tela mostraria mais do que a pessoa pediu',
+    achou('alcimar'));
+  /* E O CENARIO VOLTA AO QUE ESTAVA, inclusive a origem escolhida: a prova logo abaixo
+     mede que ela FICA entre uma conferencia e a seguinte, e um bloco no meio que a
+     limpasse faria aquela prova medir a limpeza deste, e nao a regra. */
+  cxBusca.value = '';
+  selDe.value = 'L001';
+  api.fila(FILA_F);
 
   /* A ESCOLHA DE ANTES FICA, se ainda houver carga daquela origem: a pessoa confere
      varias de Sao Vicente em seguida, e reescolher a cada uma seria um toque a mais por

@@ -545,11 +545,13 @@
     <div class="card">
       <h2>Entrada de caixas<span class="sub">O que chegou nesta casa e ainda não foi
         contado. Confira a carga e registre quantas caixas você encontrou.</span></h2>
+      <!-- A ORDEM E A DA VIAGEM, a pedido: DE ONDE veio, e so' depois ONDE se confere.
+           Era o contrario, e o contrario tambem tinha logica — o obrigatorio primeiro.
+           Mas a frase que a pessoa tem na cabeca ao chegar no galpao e' "chegou carga de
+           Sao Vicente", e nao "estou em Maceio": o lugar onde ela esta' ela ja' sabe.
+           O `*` CONTINUA NO SEGUNDO, e nao mudou de campo: obrigatorio e' o lugar onde a
+           contagem vai ser gravada, nao o filtro. -->
       <div class="grid2">
-        <div>
-          <label for="enCasa">Conferindo em<span class="obrig">*</span></label>
-          <select id="enCasa"></select>
-        </div>
         <!-- DE ONDE VEIO, e nao "todos os destinos de uma vez".
              Maceio recebe de Sao Vicente, e so'. Sao Vicente recebe de todo mundo,
              porque e' matriz. Abrindo a fila inteira para os dois, quem confere em
@@ -562,7 +564,21 @@
           <label for="enDeOnde">Entrada de</label>
           <select id="enDeOnde"></select>
         </div>
+        <div>
+          <label for="enCasa">Conferindo em<span class="obrig">*</span></label>
+          <select id="enCasa"></select>
+        </div>
       </div>
+      <!-- A BUSCA GERAL SOBRE A FILA, a pedido.
+           O campo "Entrada de" responde UMA pergunta — de que lugar veio —, e ela nem
+           sempre e' a que a pessoa tem. No patio ela tem o PAPEL na mao: um numero de
+           registro, uma placa, o nome do motorista. Sem a busca, achar a carga R000433
+           numa fila de cinquenta e' rolar a tela lendo codigo por codigo.
+           ELA PENEIRA O QUE JA ESTA NA TELA, e nao vai ao servidor: a fila inteira desta
+           casa ja' veio na primeira chamada, e uma ida de rede por tecla digitada num
+           galpao com sinal ruim e' uma busca que trava. -->
+      <div class="busca"><input id="enBusca" type="search"
+        placeholder="🔍 Buscar por registro, origem, motorista, placa ou quem lançou"></div>
       <div id="enFila"><div class="vazio">Carregando…</div></div>
       <div id="enAviso"></div>
     </div>
@@ -1867,6 +1883,11 @@
     /* TROCAR A ORIGEM SO' REDESENHA: a fila inteira ja veio do servidor, e uma ida a
        rede por troca de peneira seria uma espera por nada. */
     document.getElementById('enDeOnde').addEventListener('change', desenharFilaChegada);
+    /* A BUSCA REDESENHA A CADA TECLA, e sem esperar: a fila ja' esta' na tela e a
+       peneira e' uma varredura de uma lista curta. O atraso que a busca de Lancamentos
+       tem existe porque aquela mexe em centenas de linhas com colunas arrastaveis;
+       copia-lo aqui seria uma espera inventada. */
+    document.getElementById('enBusca').addEventListener('input', desenharFilaChegada);
     document.getElementById('dvOrigem').addEventListener('change', function(){
       mostrarSaldoDoOrigem('dv');
     });
@@ -2217,11 +2238,31 @@
     sel.value = conta[antes] ? antes : '';
   }
 
+  /* OS CINCO CAMPOS QUE O `placeholder` PROMETE, e so' eles. Buscar em campo que a
+     etiqueta nao promete devolve resultado que a pessoa nao entende de onde veio.
+     ACENTO E CAIXA NAO CONTAM, pela mesma razao da busca de Lancamentos: quem procura
+     "joao" tem de achar "Joao Pessoa", senao a busca so' serve a quem lembra a grafia.
+     E A FUNCAO DE TIRAR ACENTO E A MESMA — `semAcento`, que ja' existia neste arquivo.
+     Uma segunda, escrita aqui, divergiria da primeira no dia em que uma delas ganhasse
+     um caso novo, e as duas buscas da mesma tela passariam a achar coisas diferentes. */
+  function passaBuscaDaFila(c){
+    var cx = document.getElementById('enBusca');
+    var q = semAcento(cx ? cx.value : '').trim();
+    if (!q) return true;
+    var alvo = [c.registro, c.origem, c.motorista, c.veiculo, c.lancadoPor]
+      .map(semAcento).join(' ');
+    /* CADA PALAVRA EM ALGUM CAMPO, e nao todas no mesmo: "alcimar sao vicente" acha a
+       carga do Alcimar vinda de Sao Vicente, que e' como a pergunta se faz. */
+    return q.split(/\s+/).every(function(w){ return alvo.indexOf(w) >= 0; });
+  }
+
   function filaPeneirada(){
     var de = document.getElementById('enDeOnde');
     var k = de ? String(de.value || '') : '';
-    if (!k) return FILA_CHEGADA;
-    return FILA_CHEGADA.filter(function(c){ return String(c.origemId || '') === k; });
+    return FILA_CHEGADA.filter(function(c){
+      if (k && String(c.origemId || '') !== k) return false;
+      return passaBuscaDaFila(c);
+    });
   }
 
   function desenharFilaChegada(){
@@ -2238,8 +2279,16 @@
     if (!mostrando.length){
       /* A FILA TEM CARGA, SO' NAO DESTA ORIGEM. O texto diz isso, e diz como voltar:
          um "nada aqui" seco faria a pessoa concluir que a chegada sumiu. */
-      box.innerHTML = '<div class="vazio">Nada desta origem esperando confer\u00eancia. '+
-        'Escolha <b>Todas</b> em "Entrada de" para ver as outras cargas.</div>';
+      /* O VAZIO DIZ QUAL DAS DUAS PENEIRAS escondeu a carga, e nao um "nada aqui" seco:
+         sao duas agora, e mandar limpar a errada deixa a pessoa olhando para uma tela
+         que continua vazia sem entender por que. */
+      var cxB = document.getElementById('enBusca');
+      var temBusca = !!(cxB && String(cxB.value || '').trim());
+      box.innerHTML = '<div class="vazio">' + (temBusca
+        ? 'Nada na fila bate com <b>' + Q.esc(String(cxB.value).trim()) + '</b>. ' +
+          'Apague a busca para ver as outras cargas.'
+        : 'Nada desta origem esperando confer\u00eancia. ' +
+          'Escolha <b>Todas</b> em "Entrada de" para ver as outras cargas.') + '</div>';
       return;
     }
     box.innerHTML = mostrando.map(function(c, i){
