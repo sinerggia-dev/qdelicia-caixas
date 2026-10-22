@@ -1035,8 +1035,42 @@ async function limparMovimentos(p) {
      permissao sem nenhum erro: respondida so' com o numero, a tela ofereceria a caixa
      marcada e apagaria sem as declaracoes, calada. */
   if (contando) {
-    return { ok: true, quantos: ids.length,
-             comDeclaracao: comDecl && L.veDeclaracao(L.acharUsuario(d.usuarios, quemPede)) };
+    /* E QUANTAS DECLARACOES O FILTRO ALCANCA, para a tela poder DIZER que elas existem.
+     *
+     * O ESCRITORIO APAGOU TUDO TRES VEZES e as mesmas duas linhas continuaram na tela.
+     * O caminho existia — uma caixa "incluir as declaracoes" —, mas ela mora dentro da
+     * gaveta de filtros, fechada, ao lado do botao. Um caminho que a pessoa nao acha e'
+     * um caminho que nao existe, e a tela respondia "nenhum lancamento casa com este
+     * filtro" enquanto duas linhas casavam.
+     *
+     * A CONTA E A DIFERENCA ENTRE AS DUAS BASES, e nao uma peneira por marca: entre
+     * incluir e nao incluir a declaracao, a unica coisa que muda e' a declaracao. Uma
+     * segunda maneira de responder "isto e' declaracao?" divergiria da primeira no dia
+     * em que uma das duas mudasse.
+     *
+     * E SO PARA QUEM PODE VE-LAS: o numero de declaracoes de um periodo ja' e' parte do
+     * que a contagem cega esconde. Quem nao as ve' recebe zero, e a tela nao diz nada.
+     * ESTE `podeVer` TAMBEM E REDUNDANTE — medido, nao deduzido: para quem nao tem o
+     * direito, `recorteDeclaracao` ja' zerou as declaracoes nas DUAS bases, e a
+     * diferenca sai zero sozinha. E' a terceira tranca na mesma porta, e fica pela
+     * mesma razao das outras duas: ela e' a linha que diz, aqui, que este numero nao
+     * sai para qualquer um. A contagem cega e' barata de guardar e cara de perder. */
+    /* O CAMPO RESPONDE "QUANTAS FICAM DE FORA", e o nome diz isso. Nomeado so'
+       `declaracoes`, ele era a DIFERENCA entre as duas bases — e a diferenca e' a mesma
+       nos dois sentidos: com a caixa marcada ele continuava dizendo 1, e a confirmacao
+       mandaria somar duas vezes a mesma declaracao. Pedidas, nenhuma fica de fora, e a
+       resposta e' zero. */
+    var podeVer = L.veDeclaracao(L.acharUsuario(d.usuarios, quemPede));
+    var deFora = 0;
+    if (podeVer && !comDecl) {
+      var comTudo = baseDeMovimentos(d, quemPede, { comDeclaracao: true });
+      deFora = L.listaMovimentos(comTudo.movimentos, d.locais, d.tipos, d.usuarios,
+                                 filtro, { motoristas: d.motoristas,
+                                           fornecedores: d.fornecedores }).length -
+               ids.length;
+    }
+    return { ok: true, quantos: ids.length, declaracoesDeFora: deFora,
+             comDeclaracao: comDecl && podeVer };
   }
 
   if (!ids.length) return { ok: false, erro: 'Nenhum lançamento casa com este filtro.' };

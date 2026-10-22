@@ -10430,10 +10430,50 @@ console.log('\n== o recorte vale no app de campo tambem ==');
       'e sem pedido nenhum a declara\u00e7\u00e3o sai \u2014 \u00e9 o padr\u00e3o, e a rota de Movimentos ' +
       'depende dele: l\u00e1 a declara\u00e7\u00e3o contava a mesma carga duas vezes nos cart\u00f5es');
 
+    /* ---- E A TELA AVISA O QUE FICA DE FORA ----
+     *
+     * E' O CONSERTO DO RELATO, e nao um enfeite: o escritorio apagou "tudo" tres vezes e
+     * as mesmas duas linhas continuaram no app de campo. A caixa existia, dentro da
+     * gaveta de filtros, fechada. Um caminho que a pessoa nao acha e' um caminho que nao
+     * existe — e a tela ainda respondia "nenhum lancamento casa com este filtro" com
+     * duas linhas casando, que e' pior do que nao responder nada. */
+    /* MEDIDA A FIACAO, E NAO A FRASE. Escaparam duas sabotagens aqui: uma trocou o
+       campo lido da resposta e a outra prendeu o aviso num `false`. Nos dois casos a
+       frase continuava escrita no arquivo, e provas que a procuravam passaram verdes
+       sobre uma tela que nunca a mostra. Uma frase no arquivo nao e' uma frase na tela. */
+    var admFio = semComentarios(adm);
+    ok(/var nDecl = r\.declaracoesDeFora \|\| 0;/.test(admFio),
+      'o aviso l\u00ea o campo que o servidor manda \u2014 lendo outro nome, ele \u00e9 sempre zero e ' +
+      'a tela nunca avisa, com a frase inteira escrita no arquivo', admFio.length);
+    ok(/aviso\.innerHTML = nDecl\s*\?\s*'<div class="aviso-box atencao">Nenhum <b>movimento<\/b>/
+        .test(admFio),
+      'e o "nada casa" s\u00f3 vira "nenhum MOVIMENTO" quando h\u00e1 declara\u00e7\u00e3o no filtro \u2014 ' +
+      'preso num valor fixo ele mente dos dois jeitos: ou esconde as duas linhas que ' +
+      'casavam, ou anuncia declara\u00e7\u00e3o onde n\u00e3o h\u00e1 nenhuma', admFio.length);
+    ok(/\(limparDeclFora \? ' <b>' \+ Q\.num\(limparDeclFora\)/.test(admFio),
+      'e a confirma\u00e7\u00e3o diz quantas N\u00c3O saem, a partir do n\u00famero guardado \u2014 era este o ' +
+      'aviso que faltava: confirmando um n\u00famero que n\u00e3o inclui tudo, ningu\u00e9m descobre ' +
+      'o que ficou at\u00e9 abrir a outra tela', admFio.length);
+    ok(/limparDeclFora = limparComDecl \? 0 :/.test(semComentarios(adm)),
+      'e ele s\u00f3 aparece quando elas N\u00c3O entram \u2014 marcada a caixa, elas j\u00e1 est\u00e3o no ' +
+      'n\u00famero, e repetir "e mais N" faria somar duas vezes a mesma declara\u00e7\u00e3o');
+
+    /* E A GUARDA DA CONTAGEM FICA, pela mesma razao das outras duas. Ela tambem e'
+       redundante — `recorteDeclaracao` zera as duas bases antes, e a diferenca sai zero
+       sozinha —, e e' por isso que a prova e' de TEXTO: nenhuma prova que roda pode
+       pegar a queda de uma tranca que nao tem o que barrar. Sem esta linha, ela sairia
+       por "limpeza" no dia em que alguem a achasse inutil, e a ordem dos recortes ja'
+       mudou antes. */
+    var iCont = apiB.indexOf('if (contando) {');
+    var corpoCont = apiB.slice(iCont, iCont + 900);
+    ok(iCont > 0 && /podeVer && !comDecl/.test(corpoCont),
+      'e a contagem s\u00f3 conta as declara\u00e7\u00f5es para quem pode v\u00ea-las \u2014 quantas existem ' +
+      'num per\u00edodo j\u00e1 \u00e9 parte do que a contagem cega esconde', corpoCont.slice(0, 200));
+
     /* ---- E A CONFIRMACAO DIZ A VERDADE SOBRE O NUMERO ---- */
     var iBtn = admLimpo.indexOf("acao:'limparMovimentos', contar:true");
     var corpoBtn = admLimpo.slice(iBtn - 400, iBtn + 900);
-    ok(/mostrarConfirmLimpar\(n, f, r\.comDeclaracao === true\)/.test(corpoBtn),
+    ok(/mostrarConfirmLimpar\(n, f, r\.comDeclaracao === true, nDecl\)/.test(corpoBtn),
       'a confirma\u00e7\u00e3o acredita no SERVIDOR e n\u00e3o na caixa \u2014 o pedido pode ter sido ' +
       'recusado pela permiss\u00e3o sem erro nenhum, e a tela anunciaria "com as ' +
       'declara\u00e7\u00f5es" sobre um apagar que n\u00e3o as leva', corpoBtn.slice(-200));

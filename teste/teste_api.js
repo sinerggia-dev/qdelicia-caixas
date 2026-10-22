@@ -4559,6 +4559,25 @@ console.log('\n== o que a tela lista e o que o apagar leva sao o mesmo conjunto 
     'e a resposta CONFIRMA que elas entraram \u2014 respondida s\u00f3 com o n\u00famero, a tela ' +
     'anunciaria "com as declara\u00e7\u00f5es" sobre um apagar que n\u00e3o as leva');
 
+  /* ---- 2b. E A CONTA DIZ QUANTAS DECLARACOES O FILTRO ALCANCA ----
+   *
+   * O ESCRITORIO APAGOU "TUDO" TRES VEZES e as mesmas duas linhas continuaram no app de
+   * campo. O caminho para leva-las existia — a caixa "incluir as declaracoes" —, mas ela
+   * mora dentro da gaveta de filtros, fechada, ao lado do botao. Um caminho que a pessoa
+   * nao acha e' um caminho que nao existe.
+   * ENTAO A CONTA PASSOU A DIZER QUANTAS FICAM, e a tela avisa. Sem este numero o aviso
+   * nao tem o que dizer, e a tela volta a responder "nenhum lancamento casa com este
+   * filtro" com duas linhas casando. */
+  ok(semPedir.declaracoesDeFora === 1,
+    'contando SEM as declara\u00e7\u00f5es, a resposta diz quantas ficaram de fora \u2014 sem este ' +
+    'n\u00famero a tela n\u00e3o tem como avisar, e foi a falta do aviso que fez o escrit\u00f3rio ' +
+    'apagar "tudo" tr\u00eas vezes com as mesmas duas linhas de p\u00e9',
+    semPedir.declaracoesDeFora);
+  ok(comPedir.declaracoesDeFora === 0,
+    'e pedindo-as, n\u00e3o fica nenhuma de fora \u2014 repetido o n\u00famero com a caixa marcada, ' +
+    'a confirma\u00e7\u00e3o mandaria somar duas vezes a mesma declara\u00e7\u00e3o',
+    comPedir.declaracoesDeFora);
+
   /* ---- 3. E O PEDIDO SO VALE PARA QUEM TEM O DIREITO ----
      Esta e' a prova que guarda a contagem cega. O conferente conta a carga SEM saber o
      numero que o motorista declarou; um pedido que ele mesmo montasse, com o campo
@@ -4572,6 +4591,20 @@ console.log('\n== o que a tela lista e o que o apagar leva sao o mesmo conjunto 
 
   const idsDele = (await GET({ acao: 'movimentos', quem: semDirteito.id,
                                limit: 100000 })).movimentos || [];
+  /* E SEM PEDIR NADA TAMBEM NAO: era este o caso que vazava. Medido so' com o pedido
+     ligado, a guarda `podeVer` podia cair inteira sem a prova notar — com o pedido
+     ligado a conta da' zero de qualquer jeito, e a prova media uma coincidencia. */
+  const alheioCalado = await POST({ acao: 'limparMovimentos', contar: true,
+                                    usuarioId: semDirteito.id });
+  ok(alheioCalado.declaracoesDeFora === 0,
+    'e a quem N\u00c3O v\u00ea declara\u00e7\u00e3o a conta n\u00e3o diz quantas existem nem quando ele n\u00e3o ' +
+    'pergunta \u2014 o n\u00famero de declara\u00e7\u00f5es de um per\u00edodo j\u00e1 \u00e9 parte do que a contagem ' +
+    'cega esconde: quem conta a carga saberia que h\u00e1 falas de motorista guardadas ' +
+    'naquele dia', alheioCalado.declaracoesDeFora);
+  ok(alheio.declaracoesDeFora === 0,
+    'e a ele a resposta n\u00e3o conta nem QUANTAS existem \u2014 o n\u00famero de declara\u00e7\u00f5es de ' +
+    'um per\u00edodo j\u00e1 \u00e9 parte do que a contagem cega esconde: quem conta a carga saberia ' +
+    'que h\u00e1 duas falas de motorista guardadas naquele dia', alheio.declaracoesDeFora);
   ok(alheio.quantos === idsDele.length,
     'e a conta dele continua sendo a do que ELE v\u00ea \u2014 um n\u00famero maior j\u00e1 contaria ' +
     'quantas declara\u00e7\u00f5es existem, que \u00e9 metade do que a contagem cega esconde',
