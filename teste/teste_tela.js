@@ -28512,6 +28512,111 @@ console.log('\n== a Entrada: conferencia na chegada ==');
       idxF.slice(iFila, iFila + 160));
   }
 
+  /* ---- A MATRIZ ABRE A LISTA, E A ORDEM NAO E REESCRITA AQUI ----
+   *
+   * `ordenarLocais` ja' poe a matriz na frente — "a matriz abre a lista, a pedido",
+   * esta' escrito la' —, porque e' de onde a carga sai quase sempre e no alfabeto ela
+   * cai em quarto ("Filial ..." vem antes de "Matriz ..."). Eu tinha posto um `sort`
+   * alfabetico dentro da montagem do campo e ele APAGOU essa regra no mesmo dia em que
+   * o campo nasceu.
+   * MEDIDO RODANDO, com as unidades na ordem que `locaisPor` entrega: lido no texto, o
+   * `sort` volta na primeira vez que alguem achar a lista "desordenada". */
+  ok(!/\.sort\(/.test(corpoF('montarOrigensDaFila')),
+    'a montagem do campo de origem N\u00c3O reordena a lista \u2014 quem ordena \u00e9 ' +
+    '`ordenarLocais`, num lugar s\u00f3, e uma segunda resposta para a mesma pergunta acaba ' +
+    'brigando com a primeira', corpoF('montarOrigensDaFila').length);
+
+  selCasa.value = '';
+  api.fila([]);
+  api.montar();
+  (function () {
+    var nomes = (selDe.innerHTML.match(/>([^<]+)<\/option>/g) || [])
+      .map(function (s) { return s.slice(1, -'</option>'.length); });
+    ok(nomes[0] === 'Todas' && nomes[1] === 'Matriz S\u00e3o Vicente',
+      'e a Matriz vem logo depois de "Todas" \u2014 \u00e9 de onde a carga sai quase sempre, e ' +
+      'no alfabeto ela cai em quarto, atr\u00e1s das Filiais', nomes);
+  })();
+
+  /* ---- E O VAZIO NAO AFIRMA NADA SOBRE UMA CASA QUE NINGUEM ESCOLHEU ----
+   *
+   * FOI O RELATO: o escritorio escolheu a ORIGEM — que agora e' o primeiro campo da
+   * tela — e a tela respondeu "Nada esperando conferencia nesta casa: tudo que chegou
+   * ja' foi contado". A fila nem tinha sido pedida, porque a casa nao fora escolhida, e
+   * a carga existia a uma escolha de distancia. */
+  {
+    var boxEn = { innerHTML: '' };
+    var btEn = { hidden: false };
+    var selDeTxt = { value: '', selectedIndex: 0, options: [{ text: 'Todas' }] };
+    var selCasaTxt = { value: '' };
+    var desenhar = new Function('document', 'Q', 'FILA_CHEGADA', 'FILA_MOSTRADA',
+      corpoF('casaDaConferencia') + '\n' + corpoF('filtroLigadoNaEntrada') + '\n' +
+      corpoF('mostrarLimparEntrada') + '\n' + corpoF('semAcento') + '\n' +
+      corpoF('passaBuscaDaFila') + '\n' + corpoF('filaPeneirada') + '\n' +
+      corpoF('desenharFilaChegada') +
+      '\n return desenharFilaChegada;')(
+      { getElementById: function (id) {
+          return id === 'enFila' ? boxEn
+               : (id === 'enCasa' ? selCasaTxt
+               : (id === 'enDeOnde' ? selDeTxt
+               : (id === 'btnLimparEntrada' ? btEn
+               : (id === 'enBusca' ? { value: '' } : null)))); } },
+      { esc: function (x) { return String(x); } }, [], []);
+
+    desenhar();
+    ok(/Escolha a casa/.test(boxEn.innerHTML) &&
+       !/j\u00e1 foi contado/.test(boxEn.innerHTML),
+      'sem casa escolhida, a tela manda ESCOLHER A CASA \u2014 e n\u00e3o afirma que tudo que ' +
+      'chegou j\u00e1 foi contado: a fila nem foi pedida, e a carga fica a uma escolha de ' +
+      'dist\u00e2ncia de quem acabou de ler que n\u00e3o h\u00e1 nada', boxEn.innerHTML);
+
+    /* E DIZ DE ONDE ELE ESTA ESPERANDO VER, quando a origem ja' foi escolhida: sem
+       isso a frase manda escolher a casa sem lembrar que o recorte de origem continua
+       ligado, e a pessoa escolhe a casa certa e continua sem ver a carga. */
+    selDeTxt.value = 'L001';
+    selDeTxt.selectedIndex = 1;
+    selDeTxt.options = [{ text: 'Todas' }, { text: 'Matriz S\u00e3o Vicente \u00b7 3' }];
+    desenhar();
+    ok(/Matriz S\u00e3o Vicente/.test(boxEn.innerHTML) &&
+       !/\u00b7 3/.test(boxEn.innerHTML),
+      'e diz de ONDE ela espera ver, sem a contagem colada no nome \u2014 o recorte de ' +
+      'origem continua ligado, e lembr\u00e1-lo evita escolher a casa certa e continuar sem ' +
+      'ver a carga', boxEn.innerHTML);
+
+    /* E COM CASA ESCOLHIDA E FILA VAZIA, a frase volta a ser a de antes: ai' ela e'
+       verdade, e e' boa noticia. */
+    selCasaTxt.value = 'L014';
+    desenhar();
+    /* AS DUAS METADES DA FRASE, e nao so' a segunda: escapou uma sabotagem que trocou
+       o COMECO — "Nada esperando conferencia nesta casa" virou "Escolha a casa" — e
+       deixou o fim intacto. A prova olhava so' o fim, e a tela passou a mandar escolher
+       uma casa que ja' estava escolhida. */
+    ok(/j\u00e1 foi contado/.test(boxEn.innerHTML) &&
+       !/Escolha a casa/.test(boxEn.innerHTML),
+      'e com a casa escolhida e a fila vazia, a\u00ed sim: "tudo que chegou j\u00e1 foi contado" ' +
+      '\u2014 e N\u00c3O a frase do outro estado: trocada, a tela manda escolher uma casa que ' +
+      'j\u00e1 est\u00e1 escolhida', boxEn.innerHTML);
+
+    /* E O TEXTO MORA NUM LUGAR SO'. `carregarFilaChegada` tambem encontra o estado "sem
+       casa", e escrevendo o proprio texto as duas versoes divergem — foi o que havia
+       aqui: uma dizia "escolha a casa" e a outra, pelo mesmo estado, dizia "tudo que
+       chegou ja' foi contado". */
+    /* SEM OS COMENTARIOS: a janela media caracteres, e a PROSA que explica a
+       delegacao a estourava antes de chegar na chamada — a prova reprovava o codigo
+       certo por causa do comentario que o defende. */
+    var corpoCar = semComentarios(corpoF('carregarFilaChegada'));
+    /* E A JANELA TERMINA NO FECHA-CHAVES DO PROPRIO `if`, e nao N caracteres adiante:
+       a linha seguinte e' o "Carregando..." que esta funcao escreve de proposito, e
+       medindo alem do bloco a prova acusava justamente o codigo certo. */
+    var iSC = corpoCar.indexOf('if (!casa)');
+    var semCasa = corpoCar.slice(iSC, corpoCar.indexOf(String.fromCharCode(10) + '    }',
+                                                       iSC));
+    ok(corpoCar.indexOf('if (!casa)') > 0 &&
+       semCasa.indexOf('desenharFilaChegada()') > 0 &&
+       semCasa.indexOf('innerHTML') < 0,
+      'e quem carrega N\u00c3O escreve o pr\u00f3prio texto para "sem casa" \u2014 ele delega ao ' +
+      'desenho: duas vers\u00f5es do mesmo aviso divergem, e divergiram', semCasa.slice(0, 260));
+  }
+
   /* ---- O CAMPO DE ORIGEM NASCE CHEIO, ANTES DA FILA ----
    *
    * ELE NASCIA DA FILA, e a fila so' chega depois de escolher a casa — entao este campo,

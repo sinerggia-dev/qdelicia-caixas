@@ -2217,7 +2217,11 @@
     if (!box) return;
     var casa = casaDaConferencia();
     if (!casa){
-      box.innerHTML = '<div class="vazio">Escolha a casa em que voc\u00ea est\u00e1 conferindo.</div>';
+      /* O TEXTO MORA NUM LUGAR SO'. Escrito aqui tambem, as duas versoes divergiriam —
+         e divergiram: esta dizia "escolha a casa" e a outra, pelo mesmo estado, dizia
+         "tudo que chegou ja' foi contado". */
+      FILA_CHEGADA = [];
+      desenharFilaChegada();
       return;
     }
     box.innerHTML = '<div class="vazio">Carregando\u2026</div>';
@@ -2269,11 +2273,14 @@
        casa esta pessoa trabalha", e quem MANDOU a carga nao e' escolha dela — e' um
        fato da carga. Peneirar por permissao aqui esconderia a origem de uma carga que
        esta' na fila, e a linha ficaria inalcancavel pelo filtro. */
+    /* A ORDEM E A DE `locaisPor`, e nao uma minha. Eu tinha posto um `sort` alfabetico
+       aqui e ele APAGOU a regra da casa: `ordenarLocais` ja' poe a matriz na frente —
+       "a matriz abre a lista, a pedido", esta' escrito la' — porque e' de onde a carga
+       sai quase sempre, e no alfabeto ela cai em quarto ("Filial ..." vem antes de
+       "Matriz ..."). Uma segunda resposta para a mesma pergunta sempre acaba brigando
+       com a primeira; esta brigou no mesmo dia. */
     var unidades = locaisPor(['GALPAO','FILIAL']).filter(function(l){
       return String(l.ID) !== casa;
-    });
-    unidades.sort(function(a, b){
-      return String(a.Nome || '').localeCompare(String(b.Nome || ''), 'pt-BR');
     });
     var temFila = !!casa;
     /* "TODAS" PRIMEIRO, e e' o padrao: esconder carga por omissao e' o jeito de uma
@@ -2354,6 +2361,26 @@
     mostrarLimparEntrada();
     var box = document.getElementById('enFila');
     if (!box) return;
+    /* SEM CASA ESCOLHIDA, A FILA NEM FOI PEDIDA — e dizer "nada esperando conferencia
+       nesta casa" seria uma afirmacao sobre uma casa que ninguem escolheu.
+       FOI O QUE ACONTECEU: o escritorio escolheu a origem, que agora e' o primeiro
+       campo da tela, e esta funcao rodou com a fila vazia e respondeu "tudo que chegou
+       ja' foi contado". A carga existia e estava a uma escolha de distancia.
+       E O TEXTO DIZ DE ONDE ELE ESTA' ESPERANDO VER, quando ja' escolheu a origem: sem
+       isso a frase manda escolher a casa sem lembrar que o recorte de origem continua
+       ligado, e a pessoa escolhe a casa certa e continua sem ver a carga. */
+    if (!casaDaConferencia()){
+      var selDeVazio = document.getElementById('enDeOnde');
+      var nomeDe = '';
+      if (selDeVazio && selDeVazio.value && selDeVazio.selectedIndex > 0) {
+        nomeDe = String((selDeVazio.options[selDeVazio.selectedIndex] || {}).text || '')
+          .split(' \u00b7 ')[0];
+      }
+      box.innerHTML = '<div class="vazio">Escolha a casa em que voc\u00ea est\u00e1 conferindo' +
+        (nomeDe ? ', para ver o que veio de <b>' + Q.esc(nomeDe) + '</b>' : '') +
+        '.</div>';
+      return;
+    }
     if (!FILA_CHEGADA.length){
       /* O VAZIO AQUI E BOA NOTICIA, e o texto diz isso: um "nenhum resultado" seco se le
          como tela quebrada, e a pessoa fica recarregando. */
