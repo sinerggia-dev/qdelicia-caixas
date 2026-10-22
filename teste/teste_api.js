@@ -4429,12 +4429,77 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
   }
 
   /* ---------------------------------------------------------------------------
- * O que a tela LISTA e o que o servidor APAGA tem de nascer do mesmo filtro.
+ * O que a tela LISTA e o que o servidor APAGA tem de nascer da mesma base.
  *
- * A funcao ja e a mesma (listaMovimentos). O que pode divergir e o objeto passado a ela:
- * limparMovimentos monta o filtro campo a campo, e um campo esquecido nao da erro — a
- * tela mostra cinco linhas e o servidor acha quinhentas. Aqui se compara as duas listas.
+ * ESTE CABECALHO ESTAVA AQUI SOZINHO. Ele terminava em "aqui se compara as duas listas"
+ * e nao havia nenhuma comparacao abaixo dele — uma promessa sem prova atras. Foi por
+ * esse buraco que o defeito passou: `limparMovimentos` copiava com cuidado a lista de
+ * FILTROS, campo a campo, e nao copiava RECORTE nenhum.
+ *
+ * O ESCRITORIO VIU O EFEITO: a tela mostrava 47 lancamentos do periodo e o servidor
+ * respondia "agora sao 353". Os 306 a mais eram declaracao e o que estava fora da
+ * unidade e da base de quem pediu — linhas que aquela tela nunca mostrou. A unica
+ * coisa que impedia o apagar de leva-las era a conferencia do numero esperado, que e'
+ * uma rede de seguranca e nao a regra: bastava a conta bater por coincidencia.
+ *
+ * AS DUAS LISTAS SAO COMPARADAS RODANDO, e nao lendo o codigo: a leitura ja' dizia que
+ * os filtros batiam — e batiam mesmo.
  * ------------------------------------------------------------------------- */
+console.log('\n== o que a tela lista e o que o apagar leva sao o mesmo conjunto ==');
+{
+  /* UMA DECLARACAO DENTRO DO PERIODO, que e' o caso que separa as duas contas.
+     Declaracao nao e' movimento de caixa e NAO aparece em Movimentos para ninguem —
+     nem para o administrador. Contada pelo apagar, ela some sem nunca ter estado a
+     vista. */
+  const umDia = tabelas.movimentos[0] && tabelas.movimentos[0].data_ref;
+  const vivos = tabelas.movimentos.filter((m) => !m.excluido_em && !m.cancelado_em);
+  const molde = vivos[0];
+  ok(!!molde, 'ha lan\u00e7amento para o cen\u00e1rio desta compara\u00e7\u00e3o');
+
+  const DECL = Object.assign({}, molde, {
+    id: 'M-decl-comparar', registro: 'R-decl-comparar', declaracao: true,
+    base: 'declaracao', historico: [], excluido_em: null, cancelado_em: null
+  });
+  tabelas.movimentos.push(DECL);
+
+  const admin = tabelas.usuarios.find((u) => String(u.perfil).toUpperCase() === 'ADMIN');
+  ok(!!admin, 'ha um administrador no cen\u00e1rio \u2014 \u00e9 ele que usa este bot\u00e3o');
+
+  const naTela = await GET({ acao: 'movimentos', quem: admin.id, limit: 100000 });
+  const idsTela = (naTela.movimentos || []).map((m) => m.id);
+  ok(idsTela.indexOf('M-decl-comparar') < 0,
+    'a declara\u00e7\u00e3o n\u00e3o aparece em Movimentos nem para o administrador \u2014 ela n\u00e3o \u00e9 ' +
+    'movimento de caixa, e sem este ponto de partida a compara\u00e7\u00e3o abaixo n\u00e3o mede nada',
+    idsTela.length);
+
+  /* E O APAGAR CONTA O MESMO. Mandando o numero que a TELA contou, o servidor so'
+     concorda se a base dele for a mesma: contando a declaracao a mais, ele responde "a
+     lista mudou: agora sao N+1" — que foi exatamente o que o escritorio leu. */
+  const mandado = await POST({ acao: 'limparMovimentos', usuarioId: admin.id,
+                               esperado: idsTela.length, senha: '123456' });
+  ok(mandado.ok === true,
+    'e o apagar conta o MESMO n\u00famero que a tela \u2014 contando linhas que aquela tela ' +
+    'nunca mostrou, ele responde "a lista mudou: agora s\u00e3o N", e o bot\u00e3o fica ' +
+    'impass\u00e1vel para sempre: foi esse o relato do escrit\u00f3rio', mandado.erro);
+  ok(mandado.apagados === idsTela.length,
+    'e leva exatamente os que ela mostrava \u2014 um a mais \u00e9 uma linha que some sem ' +
+    'ningu\u00e9m a ter visto, e este bot\u00e3o leva centenas de uma vez',
+    [mandado.apagados, idsTela.length]);
+
+  const declDepois = tabelas.movimentos.find((m) => m.id === 'M-decl-comparar');
+  ok(declDepois && !declDepois.excluido_em,
+    'e a declara\u00e7\u00e3o continua l\u00e1 \u2014 era ela a diferen\u00e7a entre as duas contas, e ' +
+    'apagada junto sumiria de uma concilia\u00e7\u00e3o que ningu\u00e9m mandou mexer',
+    declDepois && declDepois.excluido_em);
+
+  /* De volta ao que estava: o cenario continua depois daqui. */
+  (naTela.movimentos || []).forEach((m) => {
+    const linha = tabelas.movimentos.find((x) => x.id === m.id);
+    if (linha) { linha.excluido_em = null; linha.excluido_por = null; }
+  });
+  tabelas.movimentos = tabelas.movimentos.filter((m) => m.id !== 'M-decl-comparar');
+  void umDia;
+}
 /* ---------------------------------------------------------------------------
  * Quem chama a correcao entrega todo mapa de nome que ela usa.
  *

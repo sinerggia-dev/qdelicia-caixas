@@ -17900,10 +17900,25 @@ console.log('\n== Motorista/Conferente ==');
      e a primeira instrução, e por elas a janela deste recorte terminava antes do código.
      A prova falhava falando de peneira sobre um trecho que só tinha texto. */
   var apiLimpa = semComentarios(api);
+  /* A VARREDURA SEGUE A INDIRECAO, e nao se cega com ela. A rota de Movimentos passou a
+     montar a base numa funcao — `baseDeMovimentos` —, e esta prova, que lia o texto
+     logo abaixo do `case`, reprovou a rota certa por nao achar ali a palavra que agora
+     mora uma linha adiante. Reprovar o codigo certo custa caro de outro jeito: a saida
+     facil e' afrouxar a prova, e uma prova afrouxada nao acusa mais o codigo errado.
+     ENTAO A AJUDANTE E COLADA NO LUGAR DA CHAMADA, e a pergunta continua a mesma: esta
+     rota passa pela peneira? */
+  function comAjudantes(trecho) {
+    return trecho.replace(/baseDeMovimentos\(/g, function () {
+      var i = apiLimpa.indexOf('function baseDeMovimentos(');
+      return i < 0 ? 'baseDeMovimentos(' :
+        apiLimpa.slice(i, apiLimpa.indexOf('\n}', i)) + ' ';
+    });
+  }
   var rotas = ['movimentos', 'lixeira', 'extrato'];
   var semPeneira = rotas.filter(function (r) {
     var i = apiLimpa.indexOf("case '" + r + "':");
-    return i < 0 || apiLimpa.slice(i, i + 320).indexOf('recorteDeclaracao') < 0;
+    return i < 0 || comAjudantes(apiLimpa.slice(i, i + 320))
+                      .indexOf('recorteDeclaracao') < 0;
   });
   ok(semPeneira.length === 0,
     'toda rota que devolve lançamento passa pela peneira da contagem cega — uma que ' +
@@ -17947,7 +17962,8 @@ console.log('\n== Motorista/Conferente ==');
      QUEM COBRA O EFEITO é o `teste_api.js`, contra a rota. Aqui se cobra que a rota
      chame a peneira — sem ela, a lista volta a trazer tudo e nada na tela diz isso. */
   var iMov = apiLimpa.indexOf("case 'movimentos':");
-  ok(iMov > 0 && apiLimpa.slice(iMov, iMov + 420).indexOf('semDeclaracao') > 0,
+  ok(iMov > 0 && comAjudantes(apiLimpa.slice(iMov, iMov + 420))
+                   .indexOf('semDeclaracao') > 0,
     'a rota de Movimentos tira a declaração de TODO pedido, e não por opção de filtro — ' +
     'por filtro, o pedido que não escolhesse base nenhuma continuaria trazendo tudo, e é ' +
     'esse o pedido que a tela faz ao abrir', iMov);

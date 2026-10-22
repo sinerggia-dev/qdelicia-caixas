@@ -215,10 +215,7 @@ async function rotaGet(p) {
          terceiro nasceu depois dos outros dois, e a falta dele era visivel na tela: quem
          tem so' a Base Teste Producao marcada recebia as linhas da Producao e as lia na
          tabela, nos cartoes e no saldo. */
-      var quemPede = L.acharUsuario(d.usuarios, p.quem);
-      var mov = L.semDeclaracao(L.recorteDeclaracao(
-        L.recorteBases(L.recorteLancamentos(d, d.usuarios, p.quem), quemPede),
-        quemPede));
+      var mov = baseDeMovimentos(d, p.quem);
       /* OS DOIS CADASTROS DE GENTE VAO JUNTO: a lista mostra o APELIDO de quem
          dirigiu e o NOME do fornecedor como o cadastro os diz HOJE, com o texto
          gravado na linha como piso. Sem eles aqui, esta tela fica com os nomes de
@@ -294,6 +291,32 @@ async function rotaGet(p) {
     default:
       return { ok: false, erro: 'Ação desconhecida: ' + acao };
   }
+}
+
+/* ================= A BASE DA TELA DE MOVIMENTOS =================
+ *
+ * QUATRO RECORTES, E ELES NAO SAO FILTRO: filtro e' o que a pessoa escolhe na tela,
+ * recorte e' o que ela nao pode ver. Quem lancou (`recorteLancamentos`), em que livro
+ * esta' (`recorteBases`), se ve' declaracao (`recorteDeclaracao`) e, por fim,
+ * `semDeclaracao` — que tira TODA declaracao desta lista, para ninguem, nem para o
+ * administrador: declaracao nao e' movimento de caixa, e aqui ela contava a mesma carga
+ * duas vezes.
+ *
+ * POR QUE VIROU FUNCAO: o `limparMovimentos` copiava com cuidado a lista de FILTROS —
+ * ha ate' um comentario la' dizendo "todo filtro que a lista entende tem de vir para
+ * ca" — e nao copiava recorte NENHUM. O escritorio viu o efeito: a tela mostrava 47
+ * lancamentos do periodo e o servidor achava 353, porque contava as declaracoes e o que
+ * estava fora da unidade e da base de quem pediu. A unica coisa que impedia o apagar de
+ * levar as 306 linhas que ninguem viu era a conferencia do numero esperado — que e' uma
+ * rede de seguranca, e nao a regra.
+ *
+ * NAO BASTAVA ACRESCENTAR OS QUATRO LA: duas listas de recortes divergem no dia em que
+ * o quinto nascer, exatamente como estas duas divergiram. Agora a pergunta "o que esta
+ * pessoa ve' em Movimentos" tem UMA resposta. */
+function baseDeMovimentos(d, quem) {
+  var eu = L.acharUsuario(d.usuarios, quem);
+  return L.semDeclaracao(L.recorteDeclaracao(
+    L.recorteBases(L.recorteLancamentos(d, d.usuarios, quem), eu), eu));
 }
 
 /* ============================ POST ============================ */
@@ -960,7 +983,15 @@ async function limparMovimentos(p) {
   /* AQUI SO' OS IDS INTERESSAM, mas os cadastros vao junto do mesmo jeito: uma
      chamada que passa menos que as outras e' a que diverge no dia em que alguem
      acrescentar algo ao que a lista devolve. */
-  var ids = L.listaMovimentos(d.movimentos, d.locais, d.tipos, d.usuarios, filtro,
+  /* E A BASE E A MESMA DA TELA, e nao `d.movimentos` cru. Era aqui o buraco: o filtro
+     vinha copiado campo a campo com cuidado, e os quatro RECORTES nao vinham nenhum —
+     a conta do servidor incluia declaracao, outra unidade e outra base. O botao se
+     chama "apagar o que esta no filtro", e o filtro mora numa tela que ja' recortou.
+     QUEM PEDE VEM POR `usuarioId`, que e' o que esta tela manda; `quem` fica como
+     segunda leitura porque e' o nome que as rotas de leitura usam, e uma chamada que
+     mandasse so' esse nome cairia no recorte de "ninguem" e apagaria nada. */
+  var base = baseDeMovimentos(d, p.usuarioId || p.quem);
+  var ids = L.listaMovimentos(base.movimentos, d.locais, d.tipos, d.usuarios, filtro,
                               { motoristas: d.motoristas, fornecedores: d.fornecedores })
     .map(function (m) { return m.id; });
 
