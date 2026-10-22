@@ -2245,10 +2245,23 @@
     box.innerHTML = mostrando.map(function(c, i){
       /* O QUE A CARGA E, em uma linha: quando, de onde e com quem. E' o que a pessoa
          confere contra o papel na mao antes de contar caixa. */
+      /* DUAS LINHAS, e nao uma fileira de sete pontinhos: a de cima e' a CARGA — o que
+         a pessoa confere contra o papel na mao —, e a de baixo e' o RASTRO: quem
+         digitou e quando. Numa linha so', o nome de quem lancou fica do lado do nome do
+         motorista e os dois se leem como a mesma pessoa.
+         A DATA DO MOVIMENTO FICA EM CIMA, com a carga, porque e' a do romaneio. A hora
+         do LANCAMENTO fica embaixo, com quem o fez: sao perguntas diferentes, e uma
+         carga de ontem lancada agora tem as duas respostas distantes. */
       var cab = '<b>'+Q.esc(c.registro)+'</b> \u00b7 '+Q.dataBR(c.dataRef)+
         ' \u00b7 de <b>'+Q.esc(c.origem || '\u2014')+'</b>'+
         (c.motorista ? ' \u00b7 '+Q.esc(c.motorista) : '')+
         (c.veiculo ? ' \u00b7 '+Q.esc(c.veiculo) : '');
+      /* SO' QUANDO HA O QUE DIZER: lancamento antigo pode nao ter o usuario gravado, e
+         "lancado por \u2014" e' pior que nada — ele promete uma resposta e entrega um
+         travessao. */
+      var rastro = [];
+      if (c.lancadoPor) rastro.push('lan\u00e7ado por <b>'+Q.esc(c.lancadoPor)+'</b>');
+      if (c.lancadoEm) rastro.push('em '+Q.dataHoraBR(c.lancadoEm));
       var linhas = c.linhas.map(function(l, j){
         return '<div class="item">'+
           '<span>'+Q.esc(l.caixa)+' <small>declarado '+Q.num(l.declarado)+'</small></span>'+
@@ -2258,7 +2271,11 @@
           '</div>';
       }).join('');
       return '<div class="card" style="margin-bottom:12px">'+
-        '<p style="margin:0 0 8px">'+cab+'</p>'+
+        '<p style="margin:0">'+cab+'</p>'+
+        (rastro.length
+          ? '<p style="margin:2px 0 8px;font-size:12.5px;color:var(--txt2)">'+
+            rastro.join(' \u00b7 ')+'</p>'
+          : '<div style="height:8px"></div>')+
         '<div class="itens">'+linhas+'</div>'+
         '<div id="cfDif_'+i+'" style="font-size:13px;margin-top:6px"></div>'+
         '<div class="linha-btn">'+

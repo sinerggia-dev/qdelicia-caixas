@@ -1873,6 +1873,12 @@ function aConferirNaChegada(movimentos, locais, tipos, usuarios, p) {
         veiculo: String(m.Veiculo || '').trim(),
         fornecedor: String(m.Fornecedor || '').trim(),
         lancadoPor: nome(mUsers, m.UsuarioID),
+        /* QUANDO FOI DIGITADA, e nao a data do movimento: `dataRef` e' a data da
+           VIAGEM — a do romaneio —, e `DataHora` e' o instante em que alguem lancou. As
+           duas quase sempre diferem, e e' justamente a diferenca que interessa a quem
+           esta' na doca: uma carga de ontem lancada agora chegou antes de existir no
+           sistema. `iso` ja' carrega a hora; quem a corta e' o `soData`. */
+        lancadoEm: iso(m.DataHora),
         declarado: 0, linhas: []
       };
       ordem.push(reg);

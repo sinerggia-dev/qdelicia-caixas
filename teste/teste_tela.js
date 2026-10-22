@@ -28207,6 +28207,24 @@ console.log('\n== a Entrada: conferencia na chegada ==');
 
   /* A FILA E LIDA DO SERVIDOR A CADA ABERTURA: ela muda sozinha quando a matriz
      despacha, e uma lista montada uma vez mostraria a doca de ontem. */
+  /* E O RASTRO DA CARGA: quem digitou e quando. A pedido do escritorio.
+     EM LINHA PROPRIA, e nao emendado na primeira: ali o nome de quem lancou ficaria do
+     lado do nome do motorista, e os dois se leriam como a mesma pessoa.
+     E SO' QUANDO HA O QUE DIZER — lancamento antigo pode nao ter o usuario gravado, e
+     "lancado por —" promete uma resposta e entrega um travessao. */
+  (function () {
+    var cd2 = corpoF('desenharFilaChegada');
+    /* PADRAO SEM ACENTO: o `index.html` guarda este texto como `\uXXXX`, e um
+       padrao acentuado nao casaria com ele. */
+    ok(/lan[^ ]*ado por/.test(cd2) && /c\.lancadoPor/.test(cd2) &&
+       /Q\.dataHoraBR\(c\.lancadoEm\)/.test(cd2),
+      'o cabeçalho da carga diz quem lançou e QUANDO, com hora — pela `dataBR`, ' +
+      'sairia a data da viagem de novo, que a linha de cima já mostra', cd2.length);
+    ok(/if \(c\.lancadoPor\)/.test(cd2) && /if \(c\.lancadoEm\)/.test(cd2),
+      'e cada um só aparece quando existe — lançamento antigo pode não ter o usuário ' +
+      'gravado, e "lançado por —" promete uma resposta e entrega um travessão');
+  })();
+
   ok(/if \(pagina === 'pgEntrada'\) carregarFilaChegada\(\);/.test(idxF),
     'e a fila é relida toda vez que a tela abre — ela muda sozinha quando a matriz ' +
     'despacha, e uma lista montada uma vez mostraria a doca de ontem');

@@ -5044,9 +5044,14 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     { ID: 'L003', Nome: 'Recife', Tipo: 'ROTA' }
   ];
   const TIP_CH = [{ ID: 'T001', Nome: 'CX P' }, { ID: 'T002', Nome: 'CX G' }];
+  /* A VIAGEM E DE UM DIA E O LANCAMENTO E DE OUTRO, de proposito. Com os dois iguais,
+     trocar `DataHora` por `DataRef` da' a mesma resposta e a troca passa batida — foi
+     assim que uma sabotagem escapou daqui. E' tambem o caso real: carga de ontem
+     lancada hoje de manha. */
   const ch = (o) => Object.assign({ Tipo: 'TRANSFERENCIA', OrigemID: 'L001',
     DestinoID: 'L002', TipoCaixaID: 'T001', Qtd: 100, Motorista: 'Dinho',
-    DataRef: new Date(2026, 9, 20), DataHora: new Date(2026, 9, 20) }, o);
+    UsuarioID: 'U-nestor',
+    DataRef: new Date(2026, 9, 20), DataHora: new Date(2026, 9, 21, 14, 35) }, o);
 
   const MOV_CH = [
     /* A CARGA QUE ESPERA: duas linhas, um registro. */
@@ -5071,7 +5076,8 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     ch({ ID: 'C0', Registro: 'R000899', Qtd: 50,
          DataRef: new Date(2026, 9, 18), DataHora: new Date(2026, 9, 18) })
   ];
-  const fila = Fl.aConferirNaChegada(MOV_CH, LOC_CH, TIP_CH, [], { local: 'L002' });
+  const USERS_CH = [{ ID: 'U-nestor', Nome: 'Nestor Neto' }];
+  const fila = Fl.aConferirNaChegada(MOV_CH, LOC_CH, TIP_CH, USERS_CH, { local: 'L002' });
   const regsCh = fila.map((c) => c.registro).join(',');
 
   ok(regsCh === 'R000899,R000900',
@@ -5093,6 +5099,25 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'e a carga vem INTEIRA, com as linhas dentro e o declarado somado — linha a linha, ' +
     'a mesma viagem viraria quatro perguntas iguais e a quarta seria respondida no ' +
     'automático', { linhas: cargaCh.linhas.length, declarado: cargaCh.declarado });
+  /* QUEM LANCOU E QUANDO DIGITOU. A pedido do escritorio, e as duas sao perguntas
+     diferentes da data da viagem: `dataRef` e' a do romaneio, e `DataHora` e' o instante
+     em que alguem lancou. Uma carga de ontem lancada agora tem as duas respostas
+     distantes, e e' a distancia que interessa a quem esta' na doca. */
+  ok(cargaCh.lancadoPor === 'Nestor Neto',
+    'a carga diz QUEM a lançou, pelo nome — um id ali não se confere com ninguém, e ' +
+    'é esse nome que quem está na doca procura quando a conta não fecha',
+    cargaCh.lancadoPor);
+  ok(cargaCh.lancadoEm.indexOf('2026-10-21T14:35') === 0 &&
+     cargaCh.dataRef.indexOf('2026-10-20') === 0,
+    'a carga diz QUANDO foi digitada, com a hora — cortada em data, "lançado às 7h" e ' +
+    '"lançado às 23h" viram a mesma resposta, e a segunda é a que explica a carga que ' +
+    'chegou antes de existir no sistema', cargaCh.lancadoEm);
+  ok(cargaCh.lancadoEm.slice(0, 10) !== cargaCh.dataRef.slice(0, 10),
+    'e ela é o carimbo do LANÇAMENTO, e não a data da viagem repetida — a carga é de ' +
+    '20/10 e foi digitada em 21/10 às 14h35, e é a distância entre as duas que explica ' +
+    'a carga que chegou antes de existir no sistema',
+    [cargaCh.dataRef, cargaCh.lancadoEm]);
+
   ok(cargaCh.linhas[0].caixa === 'CX P' && cargaCh.linhas[1].caixa === 'CX G',
     'e cada linha diz de que caixa é — um id ali não se confere olhando o palete',
     cargaCh.linhas.map((l) => l.caixa));
