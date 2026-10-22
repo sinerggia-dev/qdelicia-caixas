@@ -182,8 +182,15 @@ async function rotaGet(p) {
       if (!L.podeConferirChegada(L.acharUsuario(d.usuarios, p.quem))) {
         return { ok: true, cargas: [] };
       }
+      /* O LIVRO DO CADASTRO VALE AQUI TAMBEM. Esta rota lia so' `recorteLancamentos`, e
+         o escritorio viu o efeito: entrou com o cadastro marcado em Base Teste Producao
+         e Base Teste Declaracao — sem lancamento nenhum — e a fila de Entrada ofereceu
+         55 cargas da Producao para conferir. Conferida uma delas, a contagem seria
+         gravada num livro que aquela pessoa nem le'. */
       return { ok: true, cargas: L.aConferirNaChegada(
-                 L.recorteLancamentos(d, d.usuarios, p.quem).movimentos,
+                 L.recorteBases(
+                   L.recorteLancamentos(d, d.usuarios, p.quem),
+                   L.acharUsuario(d.usuarios, p.quem)).movimentos,
                  d.locais, d.tipos, d.usuarios, p) };
     case 'saldoLocais':
       var p2 = L.painel(L.recorteTeste(d, p.teste), null, { de: p.de, ate: p.ate });
@@ -266,6 +273,15 @@ async function rotaGet(p) {
         return { ok: false, erro: 'Escolha a base a comparar: ' +
                  L.MUNDOS.map(function (m) { return m.nome; }).join(' ou ') + '.' };
       }
+      /* AQUI O LIVRO DO CADASTRO NAO ENTRA, E E DE PROPOSITO — tentei e as bancadas
+         reprovaram, com razao. O par desta tela MORA EM DOIS LIVROS: o motorista declara
+         num e o conferente conta no outro, e e' comparando os dois que ela existe.
+         Peneirada pelo cadastro, quem conta na Producao perderia a declaracao do lado
+         de la' e a tabela inteira diria "So declaracao" — que e' como se le' uma carga
+         que chegou e ninguem conferiu.
+         QUEM PENEIRA AQUI SAO OUTROS DOIS: `recorteMundos`, logo abaixo, pelo par que a
+         tela pediu, e `veDeclaracao`, acima, pelo direito de ver declaracao. O livro do
+         cadastro vale em todas as outras rotas; esta e' a excecao, e esta' escrita. */
       var dConc = L.recorteLancamentos(d, d.usuarios, p.quem);
       return { ok: true, movimentos: L.listaMovimentos(
                  L.recorteMundos(dConc.movimentos, quaisMundos),
@@ -276,15 +292,25 @@ async function rotaGet(p) {
        aqui o mesmo `so` que manda no "Apagar o que está no filtro": quem não pôde apagar
        um lançamento não o encontra aqui para restaurar. */
     case 'lixeira':
+      /* E O LIVRO TAMBEM, pela razao que o comentario acima ja' diz: ela e' o avesso da
+         lista de Movimentos, e um recorte que valesse so' de um lado transformaria a
+         tela que restaura num jeito de ver o que a tela que lista esconde. */
       return { ok: true, movimentos: L.listaLixeira(
                  L.recorteDeclaracao(
-                   L.recorteLancamentos(d, d.usuarios, p.quem),
+                   L.recorteBases(
+                     L.recorteLancamentos(d, d.usuarios, p.quem),
+                     L.acharUsuario(d.usuarios, p.quem)),
                    L.acharUsuario(d.usuarios, p.quem)).movimentos,
                  d.locais, d.tipos, d.usuarios, p) };
     case 'extrato':
+      /* O EXTRATO E O DOCUMENTO DE FORA — o que se manda ao cliente. Somando livros que
+         quem o gerou nem le', ele vira um papel com um numero que ninguem na empresa
+         consegue conferir de volta. */
       return L.extrato(
-        L.recorteDeclaracao(L.recorteLancamentos(d, d.usuarios, p.quem),
-                            L.acharUsuario(d.usuarios, p.quem)),
+        L.recorteDeclaracao(
+          L.recorteBases(L.recorteLancamentos(d, d.usuarios, p.quem),
+                         L.acharUsuario(d.usuarios, p.quem)),
+          L.acharUsuario(d.usuarios, p.quem)),
         p.local, p.de, p.ate);
     case 'extratoToken':
       return L.extratoToken(d, p.t, p.de, p.ate);
@@ -804,7 +830,12 @@ async function documento(p) {
   }
   /* O MESMO RECORTE DAS LISTAGENS, e nao uma busca solta em `d.movimentos`: quem so' ve'
      a propria unidade nao baixa o canhoto da unidade do vizinho por um id adivinhado. */
-  var visiveis = L.recorteLancamentos(d, d.usuarios, p.quem).movimentos;
+  /* O LIVRO VALE PARA O DOCUMENTO TAMBEM. Sem ele, um id adivinhado entregava o
+     endereco do canhoto de uma carga de um livro que esta pessoa nem le' — e o arquivo
+     mora num balde publico: entregue o endereco, ele abre sem senha para sempre. */
+  var visiveis = L.recorteBases(
+    L.recorteLancamentos(d, d.usuarios, p.quem),
+    L.acharUsuario(d.usuarios, p.quem)).movimentos;
   var mov = visiveis.filter(function (m) {
     return String(m.ID) === String(p.id || '');
   })[0];

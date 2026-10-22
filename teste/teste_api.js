@@ -5436,6 +5436,47 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'divergiria no primeiro papel novo e a aba apareceria para quem o servidor recusa',
     [pubConf[0].ConfereChegada, pubConf[1].ConfereChegada]);
 
+  /* ---- E A FILA RESPEITA O LIVRO DO CADASTRO, RODADA ----
+   *
+   * RELATO DO ESCRITORIO: entrou com o cadastro marcado em Base Teste Produ\u00e7\u00e3o e Base
+   * Teste Declara\u00e7\u00e3o — que n\u00e3o t\u00eam lan\u00e7amento nenhum — e a tela de Entrada ofereceu
+   * 55 cargas da Produ\u00e7\u00e3o para conferir. Conferida uma delas, a contagem seria gravada
+   * num livro que aquela pessoa nem l\u00ea.
+   *
+   * A ROTA LIA SO' `recorteLancamentos`, sem `recorteBases` — a mesma corrente copiada
+   * pela metade que o "apagar o que est\u00e1 no filtro" tinha. Medido aqui RODANDO, com o
+   * mesmo cadastro trocando de livro entre as duas chamadas: lido no texto, o defeito
+   * volta na pr\u00f3xima rota que nascer. */
+  {
+    const quem = tabelas.usuarios.find((u) => String(u.perfil).toUpperCase() === 'ADMIN');
+    const antes = { p: quem.base_producao, t: quem.teste,
+                    d: quem.base_declaracao, td: quem.base_teste_declaracao };
+
+    quem.base_producao = true;
+    quem.teste = false; quem.base_declaracao = false; quem.base_teste_declaracao = false;
+    const comProducao = ((await GET({ acao: 'aConferir', quem: quem.id })).cargas || [])
+      .map((c) => c.registro);
+
+    /* O CADASTRO DO RELATO: so' os livros de TESTE, nenhum lancamento neles. */
+    quem.base_producao = false;
+    quem.teste = true; quem.base_teste_declaracao = true;
+    const soTeste = ((await GET({ acao: 'aConferir', quem: quem.id })).cargas || [])
+      .map((c) => c.registro);
+
+    ok(comProducao.length > 0,
+      'com a Base Produ\u00e7\u00e3o marcada, a fila de Entrada tem carga \u2014 vazia nos dois ' +
+      'lados, a compara\u00e7\u00e3o abaixo aprovaria uma rota que nunca devolve nada',
+      comProducao.length);
+    const vazaram = soTeste.filter((r) => comProducao.indexOf(r) >= 0);
+    ok(vazaram.length === 0,
+      'e trocando o cadastro para os livros de TESTE, nenhuma carga da Produ\u00e7\u00e3o sobra ' +
+      'na fila \u2014 foi este o relato: cadastro em Base Teste, sem lan\u00e7amento nenhum, e a ' +
+      'tela oferecendo 55 cargas de outro livro para conferir', vazaram.slice(0, 5));
+
+    quem.base_producao = antes.p; quem.teste = antes.t;
+    quem.base_declaracao = antes.d; quem.base_teste_declaracao = antes.td;
+  }
+
   /* ---- E AS DUAS ROTAS RECUSAM SOZINHAS ----
    * Esconder a aba e' conveniencia; um GET direto passa por cima dela. */
   (function () {

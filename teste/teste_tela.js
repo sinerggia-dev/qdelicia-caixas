@@ -18102,6 +18102,55 @@ console.log('\n== Motorista/Conferente ==');
         apiLimpa.slice(i, apiLimpa.indexOf('\n}', i)) + ' ';
     });
   }
+  /* ---- O LIVRO DO CADASTRO VALE EM TODA ROTA QUE DEVOLVE LANCAMENTO ----
+   *
+   * QUATRO ROTAS ESTAVAM SEM ELE, e so' se descobriu uma de cada vez: ontem foi o
+   * "apagar o que esta no filtro", hoje foi a fila de ENTRADA — o escritorio entrou com
+   * o cadastro marcado em Base Teste Producao, que nao tem lancamento nenhum, e a tela
+   * ofereceu 55 cargas da Producao para conferir. Faltavam ainda a lixeira, o extrato e
+   * a entrega do documento.
+   *
+   * A CORRENTE E COPIADA A MAO EM CADA ROTA, e e' por isso que ela se parte: `peneirar
+   * por quem lancou` e `peneirar por livro` sao duas chamadas aninhadas, e escrever so'
+   * a primeira nao da erro nenhum — da' uma tela cheia do que nao devia estar la'.
+   *
+   * ENTAO A VARREDURA E DERIVADA DO ARQUIVO: toda chamada de `recorteLancamentos` tem de
+   * ter `recorteBases` por perto. A rota que nascer amanha entra nesta conta sozinha. */
+  {
+    /* A JANELA E A INSTRUCAO, e nao um punhado de caracteres em volta. Medida por
+       distancia, ela via o `recorteBases` da ROTA VIZINHA — as rotas moram a poucas
+       linhas umas das outras — e aprovava quem nao tinha nenhum. A conta deu zero
+       quando a resposta certa era um. */
+    var semLivro = [];
+    var reRL = /L\.recorteLancamentos\(/g, mRL;
+    while ((mRL = reRL.exec(apiLimpa))) {
+      var antesRL = apiLimpa.slice(0, mRL.index);
+      var corte = Math.max(antesRL.lastIndexOf(';'), antesRL.lastIndexOf('{'),
+                           antesRL.lastIndexOf("case '"));
+      var fim = apiLimpa.indexOf(';', mRL.index);
+      var instr = apiLimpa.slice(corte + 1, fim < 0 ? mRL.index + 400 : fim);
+      if (!/recorteBases/.test(instr)) {
+        semLivro.push(instr.replace(/\s+/g, ' ').slice(0, 90));
+      }
+    }
+    /* UMA EXCECAO, E SO UMA: a conciliacao. O par dela MORA EM DOIS LIVROS — o motorista
+       declara num e o conferente conta no outro —, e peneirada pelo cadastro a tabela
+       inteira diria "So declaracao". Tentei peneirar e as bancadas reprovaram, com
+       razao. A excecao e' contada aqui para que a SEGUNDA, se aparecer, repro' ve. */
+    ok(semLivro.length === 1,
+      'e s\u00f3 UMA leitura de lan\u00e7amento fica fora do recorte por livro \u2014 a concilia\u00e7\u00e3o, ' +
+      'cujo par mora em dois livros. Qualquer outra \u00e9 uma tela mostrando o que o ' +
+      'cadastro daquela pessoa n\u00e3o l\u00ea: foi assim que a fila de Entrada ofereceu 55 ' +
+      'cargas da Produ\u00e7\u00e3o a quem s\u00f3 tem a Base Teste', semLivro);
+    var iExc = apiLimpa.indexOf('var dConc = L.recorteLancamentos(');
+    var iExcRaw = api.indexOf('var dConc = L.recorteLancamentos(');
+    ok(iExc > 0 && iExcRaw > 0 &&
+       /DOIS LIVROS/.test(api.slice(Math.max(0, iExcRaw - 1200), iExcRaw)),
+      'e a exce\u00e7\u00e3o est\u00e1 EXPLICADA no c\u00f3digo \u2014 sem o porqu\u00ea escrito, o pr\u00f3ximo leitor ' +
+      'a "conserta" e a tela de concilia\u00e7\u00e3o passa a dizer "S\u00f3 declara\u00e7\u00e3o" em toda ' +
+      'linha');
+  }
+
   var rotas = ['movimentos', 'lixeira', 'extrato'];
   var semPeneira = rotas.filter(function (r) {
     var i = apiLimpa.indexOf("case '" + r + "':");
