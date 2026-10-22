@@ -17873,9 +17873,26 @@ console.log('\n== a base do usuário ==');
   /* APAGAR EM BLOCO PEDE DUAS COISAS, e elas respondem a perguntas diferentes: o NÚMERO
      defende do engano (quem escreve 412 leu que são 412), a SENHA defende do computador
      do escritório com a sessão aberta. O número não pergunta QUEM é; a senha não
-     pergunta se a pessoa LEU. */
-  ok(/id="limparSenha"/.test(adm) && /Q\.conferirSenha\(senha\)/.test(adm),
-    'e apagar em bloco pede a senha do painel, além de escrever o número');
+     pergunta se a pessoa LEU.
+     A SENHA AQUI ERA A DE ENTRAR, E PASSOU A SER A DA OPERACAO. O escritorio pediu a
+     troca, e a razao e' boa: foi para ter controle sobre esta operacao que ele separou
+     as senhas. Esta prova afirmava a de entrar, e passa a afirmar a que ficou — trocar
+     a afirmacao sem trocar a prova deixaria a tela sem senha nenhuma com tudo verde. */
+  ok(/id="limparSenhaOp"/.test(adm) && /apagarDeVerdade\(senhaOp\)/.test(adm),
+    'e apagar em bloco pede a senha da OPERAÇÃO, além de escrever o número — sem ela ' +
+    'o botão vermelho fica a um clique de distância de quem sentar na mesa');
+  ok(!/id="limparSenha"/.test(adm.replace(/id="limparSenhaOp"/g, '')),
+    'e NÃO pede mais a de entrar no sistema — era o pedido do escritório, e as duas ' +
+    'juntas já tinham feito uma senha certa ser digitada no campo errado: duas ' +
+    'perguntas quase iguais na mesma tela cobram duas vezes pelo mesmo trabalho');
+  /* E O QUE SE PERDEU FICA ESCRITO, aqui e no codigo. A de entrar respondia "quem esta
+     no teclado" e recusava ate' a senha certa de outra conta de mesmo nome; esta rota
+     nao olha perfil, entao quem souber a senha da operacao apaga em bloco, seja quem
+     for. Sem esta linha, o proximo leitor conclui que nada se perdeu na troca. */
+  ok(/esta rota nao olha|nao olha perfil/.test(adm),
+    'e o código diz o que se perdeu na troca — "quem está no teclado" deixou de ser ' +
+    'perguntado nesta tela, e sem registro disso o próximo leitor conclui que a troca ' +
+    'não custou nada');
   ok(/id="limparDito"/.test(adm) && /dito !== String\(limparN\)/.test(adm),
     'e continua pedindo o número exato — a senha diz quem é, não que a pessoa leu');
 
@@ -28779,10 +28796,15 @@ console.log('\n== a senha das operacoes protegidas ==');
     var iLimpa2 = admS.indexOf("function montarAvisoLimpar");
     var formLimpar = admS.slice(admS.indexOf("id=\"limparDito\"") - 400,
                                 admS.indexOf("id=\"limparConfirmar\""));
-    ok(/id="limparSenhaOp"/.test(formLimpar) && /id="limparSenha"/.test(formLimpar),
-      'e o formul\u00e1rio de apagar o filtro mostra AS DUAS senhas \u2014 a do painel e a da ' +
-      'opera\u00e7\u00e3o: com uma s\u00f3 \u00e0 vista, a outra \u00e9 digitada no campo errado e a resposta ' +
-      'acusa a senha que estava certa', formLimpar.slice(-200));
+    ok(/id="limparSenhaOp"/.test(formLimpar),
+      'e o formul\u00e1rio de apagar o filtro mostra a senha da opera\u00e7\u00e3o \u2014 escondida num ' +
+      'passo seguinte, ela j\u00e1 fez quem a cadastrou digit\u00e1-la no campo do login e ' +
+      'receber "Usu\u00e1rio ou senha incorretos" com a senha certa na m\u00e3o',
+      formLimpar.slice(-200));
+    ok(!/id="limparSenha"/.test(formLimpar.replace(/id="limparSenhaOp"/g, '')),
+      'e s\u00f3 ELA \u2014 a de entrar no sistema saiu a pedido do escrit\u00f3rio: duas perguntas ' +
+      'quase iguais na mesma tela cobram duas vezes pelo mesmo trabalho',
+      formLimpar.slice(-200));
     ok(/rotuloSenhaDe\('apagarFiltro'\)/.test(formLimpar),
       'e o campo novo diz o NOME da opera\u00e7\u00e3o, tirado da lista do servidor \u2014 s\u00e3o sete ' +
       'senhas agora, e "a senha das opera\u00e7\u00f5es" deixou de responder qual delas');
@@ -28810,10 +28832,26 @@ console.log('\n== a senha das operacoes protegidas ==');
      * funciona".
      * A PROVA OLHA O `throw`, que e' de onde a frase sai: as duas recusas desta tela
      * terminam na mesma caixa vermelha, e so' o prefixo as separa. */
-    ok(/throw new Error\('Sua senha do painel: ' \+ c\.erro\)/.test(corpoConf),
-      'e a recusa da senha do PAINEL se identifica \u2014 numa tela com duas senhas, ' +
-      '"Usu\u00e1rio ou senha incorretos" solto manda conferir a outra, e foi assim que uma ' +
-      'senha rec\u00e9m-cadastrada virou "a senha n\u00e3o funciona"', corpoConf.slice(-260));
+    /* A RECUSA NAO PRECISA MAIS SE IDENTIFICAR, porque so' ha' uma senha na tela. O que
+       precisa ficar e' que a conferencia da senha de ENTRAR saiu INTEIRA: deixada pela
+       metade — o campo fora e a chamada dentro — ela conferiria uma senha vazia e
+       recusaria tudo, com a tela sem ter onde digitar. */
+    ok(!/Q\.conferirSenha\(/.test(corpoConf),
+      'e a confer\u00eancia da senha de ENTRAR saiu inteira \u2014 deixada pela metade, ela ' +
+      'conferiria uma senha vazia e recusaria tudo, com a tela sem ter onde digitar',
+      corpoConf.slice(-260));
+    /* E O CAMPO VAZIO E BARRADO AQUI, antes da ida de rede. Sem esta guarda o pedido
+       vai com a senha em branco, a rota responde "Senha incorreta." e a pessoa olha
+       para um campo que ela nem percebeu que deixou vazio — a resposta culpa a senha
+       quando o que faltou foi digitar. Escapou uma sabotagem que tirou esta guarda. */
+    ok(/if \(!senhaOp\)\{/.test(corpoConf) && /limparSenhaOp'\)\.focus/.test(corpoConf),
+      'e o campo VAZIO é barrado antes de ir ao servidor, apontando o campo — ' +
+      'mandado em branco, a resposta é "Senha incorreta." sobre uma senha que ninguém ' +
+      'chegou a digitar', corpoConf.slice(0, 260));
+    ok(/Promise\.resolve\(apagarDeVerdade\(senhaOp\)\)/.test(corpoConf),
+      'e o apagar \u00e9 chamado direto, numa ida s\u00f3 \u2014 eram duas: a primeira podia passar ' +
+      'e a segunda falhar, e a pessoa via "conferindo a senha" e depois um erro de ' +
+      'senha sem saber qual das duas', corpoConf.slice(-200));
 
     var seisCadastros = (admS.match(/pedirSenhaDe\('excluirCadastro'/g) || []).length;
     ok(seisCadastros === 6,

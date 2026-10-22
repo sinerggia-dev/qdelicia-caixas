@@ -8064,33 +8064,37 @@
       /* DOIS PORTOES, e eles respondem a coisas diferentes. O NUMERO defende do
          engano: quem escreve 412 leu que sao 412, e nao apertou um botao vermelho de
          passagem. A SENHA defende do computador do escritorio com a sessao aberta e
-         alguem sentando nele — e e a mesma senha do cadeado das colunas, pelo mesmo
-         motivo. Um so nao bastava: o numero nao pergunta QUEM e, e a senha nao pergunta
-         se a pessoa LEU. */
+         alguem sentando nele. Um so nao bastava: o numero nao pergunta QUEM e, e a
+         senha nao pergunta se a pessoa LEU.
+
+         A SENHA AQUI E A DA OPERACAO, E UMA SO. Houve um dia em que foram duas: a de
+         ENTRAR no sistema, que estava aqui desde sempre, e a de "apagar o que esta no
+         filtro", que nasceu com as senhas separadas. O escritorio pediu para tirar a de
+         entrar, e a razao e' boa — foi para TER CONTROLE sobre esta operacao que ele
+         separou as senhas, e a senha da operacao e' exatamente esse controle. Duas
+         perguntas quase iguais na mesma tela cobram duas vezes pelo mesmo trabalho, e
+         ja' tinham feito uma senha certa ser digitada no campo errado.
+
+         O QUE SE PERDEU, ESCRITO PARA NAO SE PERDER DE NOVO: a de entrar respondia
+         "quem esta no teclado", e recusava ate' a senha certa de outra conta de mesmo
+         nome. Essa pergunta nao tem mais quem a faca nesta tela, e esta rota nao olha
+         perfil — quem souber a senha da operacao apaga em bloco, seja quem for. O
+         caminho de volta, se um dia isto incomodar, e' a guarda de perfil na rota, e
+         nao o campo de novo aqui. */
       '<div class="grid2" style="margin-top:10px">' +
         '<div><label for="limparDito">Escreva <b>' + n + '</b> para confirmar</label>' +
         '<input type="text" id="limparDito" inputmode="numeric" autocomplete="off" ' +
         'placeholder="' + n + '"></div>' +
-        '<div><label for="limparSenha">Sua senha do painel</label>' +
-        '<input type="password" id="limparSenha" autocomplete="current-password" ' +
-        'placeholder="a de entrar no sistema"></div>' +
-      '</div>' +
-      /* A TERCEIRA PERGUNTA FICA A VISTA, e nao num segundo passo.
-         ELA ESTAVA NUM MODAL QUE SO APARECIA DEPOIS, e o resultado foi o esperado: a
-         tela mostrava UM campo de senha, quem acabara de cadastrar a senha da operacao
-         digitava a nova ali — e levava "Usuario ou senha incorretos", que e' a resposta
-         do LOGIN. A senha certa, no campo errado, com uma mensagem que acusa a pessoa.
-         Duas senhas escondendo uma delas e' pior do que duas senhas.
-         O NOME DA OPERACAO VEM DA LISTA DO SERVIDOR, e nao escrito aqui: sao sete
-         agora, e "senha das operacoes" nao diz qual das sete. */
-      '<div style="margin-top:10px">' +
-        '<label for="limparSenhaOp">' + Q.esc(rotuloSenhaDe('apagarFiltro')) + '</label>' +
+        /* O NOME DA OPERACAO VEM DA LISTA DO SERVIDOR, e nao escrito aqui: sao sete
+           senhas agora, e "a senha das operacoes" nao diz qual das sete. */
+        '<div><label for="limparSenhaOp">' + Q.esc(rotuloSenhaDe('apagarFiltro')) +
+        '</label>' +
         '<input type="password" id="limparSenhaOp" autocomplete="off" ' +
-        'placeholder="' + Q.esc(dicaSenhaDe('apagarFiltro')) + '">' +
-        '<div class="sub" style="margin-top:4px">Esta \u00e9 outra senha, e n\u00e3o a de ' +
-        'entrar: ela \u00e9 cadastrada em <b>Cadastros \u2192 Senhas das opera\u00e7\u00f5es ' +
-        'protegidas</b>.</div>' +
+        'placeholder="' + Q.esc(dicaSenhaDe('apagarFiltro')) + '"></div>' +
       '</div>' +
+      '<div class="sub" style="margin-top:4px">Ela \u00e9 cadastrada em ' +
+      '<b>Cadastros \u2192 Senhas das opera\u00e7\u00f5es protegidas</b>, e n\u00e3o \u00e9 a de entrar ' +
+      'no sistema.</div>' +
       '<div class="linha-btn">' +
         '<button class="btn" id="limparConfirmar" type="button" style="flex:0;min-width:200px;' +
         'background:var(--vermelho);color:#2a0f0d">Apagar os ' + Q.num(n) + '</button>' +
@@ -8135,12 +8139,6 @@
         '". O número é <b>' + limparN + '</b>. Nada foi apagado.</div>';
       return;
     }
-    var senha = String(document.getElementById('limparSenha').value || '');
-    if (!senha){
-      res.innerHTML = '<div class="aviso-box erro">Digite sua senha do painel. ' +
-        'Nada foi apagado.</div>';
-      return;
-    }
     var senhaOp = String(document.getElementById('limparSenhaOp').value || '');
     if (!senhaOp){
       res.innerHTML = '<div class="aviso-box erro">Digite a ' +
@@ -8149,19 +8147,16 @@
       return;
     }
     var b = document.getElementById('limparConfirmar');
-    b.disabled = true; b.textContent = 'Conferindo a senha…';
-    /* A CONFERENCIA MORA NO `app.js`, junto da entrada: e a MESMA rota do login, e uma
-       segunda maneira de conferir senha seria uma segunda maneira de errar. Ela tambem
-       recusa a senha certa de OUTRA conta com o mesmo nome — o que aqui importa, porque
-       o que se autoriza e apagar em bloco. */
-    Q.conferirSenha(senha).then(function(c){
-      /* O ERRO DIZ QUAL DAS DUAS FALHOU. "Usuario ou senha incorretos" vindo da rota do
-         login, sozinho, numa tela com dois campos de senha, manda a pessoa conferir a
-         senha errada — foi exatamente o que aconteceu. */
-      if (!c.ok) throw new Error('Sua senha do painel: ' + c.erro);
-      b.textContent = 'Apagando…';
-      return apagarDeVerdade(senhaOp);
-    }).catch(function(e){
+    b.disabled = true; b.textContent = 'Apagando\u2026';
+    /* UMA IDA SO' AO SERVIDOR, e ela e' a que apaga. Havia aqui uma conferencia da senha
+       de ENTRAR, pela rota do login, antes de mandar o apagar. O escritorio pediu para
+       tirar o campo dela, e sem o campo nao sobra o que conferir de antemao: a senha da
+       OPERACAO e' conferida pela mesma rota que faz o trabalho, e e' de la' que a recusa
+       volta.
+       E E MELHOR ASSIM NUM PONTO: eram duas idas de rede, e a primeira podia passar e a
+       segunda falhar — a pessoa via "conferindo a senha", depois um erro de senha, e
+       nao tinha como saber qual das duas. */
+    Promise.resolve(apagarDeVerdade(senhaOp)).catch(function(e){
       b.disabled = false; b.textContent = 'Apagar os ' + Q.num(limparN);
       res.innerHTML = '<div class="aviso-box erro">' + Q.esc(e.message) +
         ' Nada foi apagado.</div>';
