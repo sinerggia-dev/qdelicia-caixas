@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=6c73ec4e">
+<link rel="stylesheet" href="styles.css?v=380ce313">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -577,8 +577,20 @@
            ELA PENEIRA O QUE JA ESTA NA TELA, e nao vai ao servidor: a fila inteira desta
            casa ja' veio na primeira chamada, e uma ida de rede por tecla digitada num
            galpao com sinal ruim e' uma busca que trava. -->
-      <div class="busca"><input id="enBusca" type="search"
-        placeholder="🔍 Buscar por registro, origem, motorista, placa ou quem lançou"></div>
+      <!-- A BUSCA E O LIMPAR NA MESMA LINHA. Numa barra propria, o botao comia uma
+           faixa inteira da tela do celular para uma acao que se usa de vez em quando, e
+           empurrava a fila — que e' o motivo de a pessoa ter aberto a tela — para baixo
+           da dobra. -->
+      <div class="linha-busca-en">
+        <div class="busca"><input id="enBusca" type="search"
+          placeholder="🔍 Buscar por registro, origem, motorista, placa ou quem lançou"></div>
+        <!-- ELE NASCE ESCONDIDO e so' aparece quando ha' o que limpar.
+             Um botao sempre a vista que na maioria das vezes nao faz nada ensina errado
+             o que os outros botoes desta tela fazem — e, pior, faz duvidar se a tela
+             estava filtrada quando ela nao estava. -->
+        <button class="btn sec" id="btnLimparEntrada" type="button" hidden
+                style="flex:0 0 auto;min-width:150px;white-space:nowrap">Limpar filtros</button>
+      </div>
       <div id="enFila"><div class="vazio">Carregando…</div></div>
       <div id="enAviso"></div>
     </div>
@@ -1899,6 +1911,8 @@
        tem existe porque aquela mexe em centenas de linhas com colunas arrastaveis;
        copia-lo aqui seria uma espera inventada. */
     document.getElementById('enBusca').addEventListener('input', desenharFilaChegada);
+    document.getElementById('btnLimparEntrada')
+      .addEventListener('click', limparFiltrosDaEntrada);
     document.getElementById('dvOrigem').addEventListener('change', function(){
       mostrarSaldoDoOrigem('dv');
     });
@@ -2305,7 +2319,39 @@
     });
   }
 
+  /* HA FILTRO LIGADO? Duas perguntas numa: a origem escolhida e o texto da busca.
+     "CONFERINDO EM" NAO ENTRA, e e' a decisao que importa aqui: ele nao e' filtro, e'
+     ONDE A PESSOA ESTA. Limpa-lo esvaziaria a tela inteira e pediria para ela dizer de
+     novo o que ja' tinha dito — um "limpar filtros" que apaga o trabalho em vez do
+     recorte. */
+  function filtroLigadoNaEntrada(){
+    var de = document.getElementById('enDeOnde');
+    var bu = document.getElementById('enBusca');
+    return !!((de && de.value) || (bu && String(bu.value || '').trim()));
+  }
+
+  function mostrarLimparEntrada(){
+    var bt = document.getElementById('btnLimparEntrada');
+    if (bt) bt.hidden = !filtroLigadoNaEntrada();
+  }
+
+  function limparFiltrosDaEntrada(){
+    var de = document.getElementById('enDeOnde');
+    var bu = document.getElementById('enBusca');
+    if (de) de.value = '';
+    if (bu) bu.value = '';
+    /* REDESENHA, e nao recarrega: nada do que este botao limpa foi pedido ao servidor —
+       a fila desta casa ja' esta' na tela, e ir a' rede para desfazer uma peneira local
+       seria uma espera por nada. */
+    desenharFilaChegada();
+  }
+
   function desenharFilaChegada(){
+    /* O BOTAO ACOMPANHA O DESENHO, e nao tem ouvinte proprio: esta funcao roda a cada
+       troca de origem, a cada tecla da busca e a cada fila que chega. Um ouvinte a parte
+       ficaria para tras no primeiro caminho novo que mexesse num filtro sem passar por
+       aqui, e o botao sumiria com a tela filtrada. */
+    mostrarLimparEntrada();
     var box = document.getElementById('enFila');
     if (!box) return;
     if (!FILA_CHEGADA.length){

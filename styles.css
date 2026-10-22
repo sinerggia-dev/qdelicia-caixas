@@ -4371,6 +4371,15 @@ tr.lin-item > td:first-child{padding-left:30px;
   .linha-senha-op-btn{justify-content:flex-end}
 }
 
+/* A BUSCA E O "LIMPAR" NA MESMA LINHA, na tela de Entrada. A busca ocupa o que sobra e
+   o botao fica do tamanho do texto dele; no CELULAR os dois empilham, porque lado a
+   lado em 334px o campo de busca ficaria com espaco para quatro letras. */
+.linha-busca-en{display:flex;gap:8px;align-items:center}
+.linha-busca-en .busca{flex:1 1 auto;min-width:0}
+@media (max-width:560px){
+  .linha-busca-en{flex-direction:column;align-items:stretch}
+}
+
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}
   /* A coluna de marcar não se imprime: no papel não há o que marcar, e ela empurraria

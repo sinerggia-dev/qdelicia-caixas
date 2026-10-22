@@ -28401,6 +28401,83 @@ console.log('\n== a Entrada: conferencia na chegada ==');
     { registro: 'R2', origemId: 'L001', origem: 'Matriz São Vicente' },
     { registro: 'R3', origemId: 'L009', origem: 'Filial Natal' }
   ];
+  /* ---- LIMPAR FILTROS, E O QUE ELE NAO LIMPA ----
+   *
+   * SAO DOIS FILTROS NESTA TELA agora — a origem e a busca —, e um botao que desfaz os
+   * dois. O QUE ELE NAO PODE TOCAR E O "CONFERINDO EM": aquele nao e' filtro, e' ONDE A
+   * PESSOA ESTA. Limpa-lo esvaziaria a tela inteira e pediria que ela dissesse de novo
+   * o que ja' tinha dito — um "limpar filtros" que apaga o trabalho em vez do recorte.
+   *
+   * RODADO, e nao lido: as tres funcoes saem do arquivo e mexem em campos de mentira. */
+  {
+    var selDeL = { value: 'L001' };
+    var cxBuscaL = { value: 'alcimar' };
+    var selCasaL = { value: 'L014' };
+    var btL = { hidden: false };
+    var redesenhou = 0;
+    var apiL = new Function('document', 'desenharFilaChegada',
+      corpoF('filtroLigadoNaEntrada') + '\n' + corpoF('mostrarLimparEntrada') + '\n' +
+      corpoF('limparFiltrosDaEntrada') +
+      '\n return { ligado: filtroLigadoNaEntrada, mostrar: mostrarLimparEntrada,' +
+      '\n          limpar: limparFiltrosDaEntrada };')(
+      { getElementById: function (id) {
+          return id === 'enDeOnde' ? selDeL
+               : (id === 'enBusca' ? cxBuscaL
+               : (id === 'enCasa' ? selCasaL
+               : (id === 'btnLimparEntrada' ? btL : null))); } },
+      function () { redesenhou++; });
+
+    ok(apiL.ligado() === true,
+      'com origem escolhida e busca digitada, a tela SABE que est\u00e1 filtrada \u2014 sem essa ' +
+      'resposta o bot\u00e3o n\u00e3o tem como aparecer na hora certa');
+    apiL.mostrar();
+    ok(btL.hidden === false,
+      'e o bot\u00e3o aparece \u2014 escondido com filtro ligado, a pessoa desfaz o recorte ' +
+      'campo a campo sem saber que havia um caminho', btL.hidden);
+
+    apiL.limpar();
+    ok(selDeL.value === '' && cxBuscaL.value === '',
+      'limpando, a origem volta para Todas E a busca esvazia \u2014 deixando uma das duas, ' +
+      'o bot\u00e3o diz que limpou com a fila ainda recortada, que \u00e9 pior do que n\u00e3o ter ' +
+      'bot\u00e3o', [selDeL.value, cxBuscaL.value]);
+    ok(selCasaL.value === 'L014',
+      'e o "Conferindo em" N\u00c3O \u00e9 tocado \u2014 ele n\u00e3o \u00e9 filtro, \u00e9 onde a pessoa est\u00e1: ' +
+      'limp\u00e1-lo esvaziaria a tela e pediria que ela dissesse de novo o que j\u00e1 disse',
+      selCasaL.value);
+    ok(redesenhou === 1,
+      'e ele REDESENHA, sem ir \u00e0 rede \u2014 nada do que este bot\u00e3o limpa foi pedido ao ' +
+      'servidor: a fila desta casa j\u00e1 est\u00e1 na tela, e recarregar seria uma espera por ' +
+      'nada', redesenhou);
+
+    apiL.mostrar();
+    ok(btL.hidden === true,
+      'e depois de limpar ele SOME \u2014 um bot\u00e3o sempre \u00e0 vista que na maioria das vezes ' +
+      'n\u00e3o faz nada ensina errado o que os outros fazem, e faz duvidar se a tela estava ' +
+      'filtrada quando ela n\u00e3o estava', btL.hidden);
+
+    /* E CADA FILTRO SOZINHO JA O ACENDE: medido so' com os dois ligados, um `&&` no
+       lugar do `||` passaria verde e o botao nunca apareceria para quem usou um so'. */
+    selDeL.value = 'L001'; cxBuscaL.value = '';
+    ok(apiL.ligado() === true, 'a origem sozinha j\u00e1 acende o bot\u00e3o');
+    selDeL.value = ''; cxBuscaL.value = 'alcimar';
+    ok(apiL.ligado() === true, 'e a busca sozinha tamb\u00e9m \u2014 com um `&&` no lugar do ' +
+      '`||`, ele s\u00f3 apareceria para quem tivesse usado os dois');
+    cxBuscaL.value = '   ';
+    ok(apiL.ligado() === false,
+      'e um campo de busca com s\u00f3 espa\u00e7os n\u00e3o conta \u2014 ele n\u00e3o recorta nada, e o ' +
+      'bot\u00e3o aceso sobre uma tela inteira \u00e9 a mesma mentira ao contr\u00e1rio');
+
+    /* E O BOTAO E LIGADO DE VERDADE. A peca pode estar perfeita e ninguem chama-la. */
+    ok(/getElementById\('btnLimparEntrada'\)[\s\S]{0,80}addEventListener\('click', limparFiltrosDaEntrada\)/
+        .test(idxF),
+      'e o bot\u00e3o da tela chama a fun\u00e7\u00e3o \u2014 sem o ouvinte ele fica l\u00e1, vis\u00edvel e ' +
+      'in\u00fatil, e quem clicar conclui que a tela travou');
+    ok(/mostrarLimparEntrada\(\);/.test(corpoF('desenharFilaChegada')),
+      'e quem o mostra ou esconde \u00e9 o pr\u00f3prio desenho da fila \u2014 num ouvinte \u00e0 parte, ' +
+      'o primeiro caminho novo que mexesse num filtro sem passar por aqui deixaria o ' +
+      'bot\u00e3o sumido com a tela filtrada');
+  }
+
   /* ---- E ALGUEM CHAMA A MONTAGEM, nas duas horas que importam ----
    *
    * A PECA PODE ESTAR PERFEITA E NINGUEM CHAMA-LA: e' o defeito mais repetido deste
