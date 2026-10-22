@@ -107,6 +107,11 @@ async function rotaGet(p) {
                   vazaria junto, ou a tela nao teria como avisar que a de fabrica
                   continua valendo. */
                senhaOperacoesTrocada: senhaDeOperacoesTrocada(d.config),
+               /* A LISTA DAS OPERACOES VAI DAQUI, e a tela nao a reescreve. Copiada la',
+                  uma operacao nova apareceria no servidor e nao no formulario — ou pior,
+                  apareceria no formulario com uma chave que `salvarConfig` nao aceita. O
+                  que viaja e' nome, explicacao e um SIM OU NAO por operacao; o hash fica. */
+               operacoesComSenha: operacoesComSenha(d.config),
                motoristas: L.motoristasPublicos(d.motoristas),
                veiculos: L.veiculosPublicos(d.veiculos),
                fornecedores: d.fornecedores };
@@ -330,7 +335,7 @@ async function rotaPost(p) {
   if (acao === 'salvarLocalPadrao') return await salvarRegistro('LocaisPadrao', p);
   if (acao === 'salvarUsuario') return await salvarUsuario(p);
   if (acao === 'salvarConfig') return await salvarConfig(p);
-  if (acao === 'excluir') return await excluir(p.aba, p.id);
+  if (acao === 'excluir') return await excluir(p.aba, p.id, p);
   if (acao === 'excluirMovimento') return await excluirMovimento(p);
   if (acao === 'restaurarMovimento') return await restaurarMovimento(p);
   if (acao === 'limparMovimentos') return await limparMovimentos(p);
@@ -562,7 +567,7 @@ async function corrigir(p) {
      nenhuma. `conferida` quer dizer "alguem digitou a senha certa", que e' o que a
      troca de BASE exige mesmo dentro da janela livre. Com uma variavel so', mudar o
      livro de um lancamento recem-feito passaria sem senha. */
-  var conferida = mandou && conferirSenhaCorrecao(p.senha, d.config);
+  var conferida = mandou && conferirSenhaDe('corrigir', p.senha, d.config);
   var senhaOk = livre || conferida;
 
   var r = L.montarCorrecao(mov, p, agora, {
@@ -603,7 +608,7 @@ async function restaurarCorrecao(p) {
   var agora = new Date();
   var livre = L.correcaoLivre(mov, p.usuarioId, agora);
   var mandou = p.senha !== undefined && p.senha !== null && String(p.senha) !== '';
-  var senhaOk = livre || (mandou && conferirSenhaCorrecao(p.senha, d.config));
+  var senhaOk = livre || (mandou && conferirSenhaDe('restaurar', p.senha, d.config));
 
   var r = L.montarRestauro(mov, p, agora, {
     usuarios: L.mapaNomes(d.usuarios || []),
@@ -665,7 +670,7 @@ async function corrigirRegistro(p) {
   /* A SENHA É CONFERIDA UMA VEZ SÓ, e não por linha: o `scrypt` custa uns 50ms e a
      resposta seria a mesma quatro vezes. A JANELA LIVRE continua sendo por linha —
      `montarCorrecao` a decide —, porque é a linha que tem autor e hora. */
-  var senhaOk = mandou && conferirSenhaCorrecao(p.senha, d.config);
+  var senhaOk = mandou && conferirSenhaDe('corrigirCarga', p.senha, d.config);
   var nomes = {
     usuarios: L.mapaNomes(d.usuarios || []),
     locais: L.mapaNomes(d.locais || []),
@@ -746,7 +751,7 @@ async function conferir(p) {
  * memoria do servidor para repassa-la, e o navegador ja sabe buscar um endereco. */
 async function documento(p) {
   var d = await db.carregarTudo();
-  if (!conferirSenhaCorrecao(p.senha, d.config)) {
+  if (!conferirSenhaDe('documento', p.senha, d.config)) {
     return { ok: false, erro: 'Senha incorreta.' };
   }
   /* O MESMO RECORTE DAS LISTAGENS, e nao uma busca solta em `d.movimentos`: quem so' ve'
@@ -921,6 +926,13 @@ async function baseUsuarios(p) {
 
 async function limparMovimentos(p) {
   var d = await db.carregarTudo();
+  /* A SENHA VEM ANTES DA CONTA, e nao depois: este botao leva centenas de linhas de uma
+     vez, e conferir o numero esperado de um recorte que a pessoa nao pode apagar e'
+     trabalho a toa. O `esperado` continua, e ele responde outra pergunta — se a lista
+     mudou entre abrir a tela e confirmar. */
+  if (!conferirSenhaDe('apagarFiltro', p.senha, d.config)) {
+    return { ok: false, erro: 'Senha incorreta.', senhaErrada: true };
+  }
 
   /* Os ids saem da MESMA função que monta a lista da tela. Reescrever o filtro aqui era o
      caminho curto para apagar coisa diferente da que a pessoa viu — bastava um critério
@@ -989,8 +1001,20 @@ async function limparMovimentos(p) {
 async function excluirMovimento(p) {
   var d = await db.carregarTudo();
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
+  /* A BARREIRA DA DECLARACAO VEM PRIMEIRO, e a senha depois. Sao perguntas diferentes:
+     a barreira diz QUEM PODE encostar numa declaracao, e a senha so' CONFIRMA o gesto de
+     quem pode. Invertidas, alguem sem direito nenhum receberia "Senha incorreta" — uma
+     resposta que convida a procurar a senha, em vez de dizer que aquela porta nao e'
+     dele. */
   var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
   if (barra) return barra;
+  /* ATE AQUI NAO PEDIA SENHA NENHUMA. Ele manda para a LIXEIRA, e foi por isso que
+     nasceu aberto: nada se perde, e restaurar e' uma porta ao lado. Mas o escritorio
+     pediu as senhas separadas, e uma linha que some da tabela some do olho de quem
+     confere — a volta existe, e ninguem a procura se nao souber que a linha saiu. */
+  if (!conferirSenhaDe('excluir', p.senha, d.config)) {
+    return { ok: false, erro: 'Senha incorreta.', senhaErrada: true };
+  }
   var r = L.montarExclusao(mov, p, new Date());
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);
@@ -1269,12 +1293,103 @@ function ultimoAdmin(usuarios, id) {
    cor das duas superficies que nao tinham nenhuma e a INTENSIDADE das quatro. */
 /* E AS QUATRO ULTIMAS SAO A COR DO TEXTO de cada bloco, a pedido. Vazio quer dizer
    "automatica", que e' a conta de contraste que o sistema ja' fazia sozinho. */
+/* ================= UMA SENHA POR OPERACAO =================
+ *
+ * Era UMA senha para tudo o que reescreve lancamento. O escritorio pediu separadas: quem
+ * corrige um numero errado nao e' necessariamente quem apaga um cadastro de gente, e com
+ * uma senha so' conceder a primeira e' conceder as duas.
+ *
+ * A LISTA E FECHADA e mora aqui, num lugar so': o formulario do cadastro, a gravacao e
+ * cada porta leem daqui. Tres copias divergem no dia em que uma operacao nova entrar
+ * numa so'.
+ *
+ * TRES SAO NOVAS — excluir lancamento, apagar o que esta no filtro e excluir cadastro.
+ * As tres nao pediam senha nenhuma ate aqui, e e' justamente a terceira que o escritorio
+ * apontou: apagar o usuario e' o gesto com menos volta de todos.
+ *
+ * E A GERAL E O DEGRAU, e nao uma quarta senha. Enquanto a especifica nao for cadastrada,
+ * vale a geral; enquanto a geral nao for cadastrada, vale a de fabrica. Sem o degrau, o
+ * deploy desta mudanca trancaria as sete portas de uma vez, porque nenhuma senha
+ * especifica existe ainda — e o escritorio descobriria isso tentando corrigir um
+ * lancamento. */
+var SENHAS_OPERACAO = [
+  { id: 'corrigir', nome: 'Corrigir lan\u00e7amento', chave: 'senhaCorrigir',
+    diz: 'fora da janela livre, e trocar o livro de um lan\u00e7amento' },
+  { id: 'corrigirCarga', nome: 'Corrigir a carga inteira', chave: 'senhaCorrigirCarga',
+    diz: 'as linhas todas de um registro de uma vez' },
+  /* O ROTULO DIZIA "tirar da lixeira e desfazer um cancelamento", E NAO E' ISSO QUE
+     ele tranca: `restaurarMovimento` e `descancelar` nunca pediram senha, e continuam
+     sem pedir de proposito — sao os caminhos de VOLTA, e trancar a volta e' deixar quem
+     percebeu um engano sem como desfaze-lo. O que esta' aqui e' `restaurarCorrecao`:
+     desfazer a ultima correcao reescreve o numero do lancamento, do mesmo jeito que
+     corrigir. Um rotulo que promete mais do que a porta tranca e' pior do que nenhum:
+     quem administra cadastra esta senha achando que fechou a lixeira. */
+  { id: 'restaurar', nome: 'Desfazer a \u00faltima corre\u00e7\u00e3o',
+    chave: 'senhaRestaurar',
+    diz: 'devolver um lan\u00e7amento aos valores anteriores \u00e0 corre\u00e7\u00e3o' },
+  { id: 'excluir', nome: 'Excluir lan\u00e7amento', chave: 'senhaExcluir',
+    diz: 'mandar um lan\u00e7amento para a lixeira' },
+  { id: 'apagarFiltro', nome: 'Apagar o que est\u00e1 no filtro',
+    chave: 'senhaApagarFiltro', diz: 'leva centenas de linhas de uma vez' },
+  { id: 'excluirCadastro', nome: 'Excluir cadastro',
+    chave: 'senhaExcluirCadastro',
+    diz: 'usu\u00e1rio, local, ve\u00edculo, motorista, fornecedor ou tipo de caixa' },
+  { id: 'documento', nome: 'Baixar canhoto ou foto', chave: 'senhaDocumento',
+    diz: 'entrega o endere\u00e7o do arquivo, que abre sem senha depois' }
+];
+
+function senhaDaOperacao(id) {
+  return SENHAS_OPERACAO.filter(function (s) { return s.id === String(id || ''); })[0];
+}
+
+/* O DEGRAU, numa funcao so'. Escrito em cada porta, bastaria uma esquecer de descer para
+   a geral e aquela operacao ficaria trancada sem ninguem entender por que. */
+function conferirSenhaDe(idOperacao, digitada, config) {
+  var op = senhaDaOperacao(idOperacao);
+  var propria = op ? (config || {})[op.chave] : null;
+  if (senha.temHash(propria)) return senha.conferir(digitada, propria);
+  return conferirSenhaCorrecao(digitada, config);
+}
+
+/* QUAIS JA TEM SENHA PROPRIA — um sim ou nao por operacao, e nunca o hash. A tela
+   precisa disto para dizer quais ainda andam na geral, e a rota `dados` e' publica. */
+function senhasDefinidas(config) {
+  var fora = {};
+  SENHAS_OPERACAO.forEach(function (s) {
+    fora[s.id] = senha.temHash((config || {})[s.chave]);
+  });
+  return fora;
+}
+
+/* O MESMO SIM OU NAO, com o nome e a explicacao junto — e' o que a tela desenha. */
+function operacoesComSenha(config) {
+  var tem = senhasDefinidas(config);
+  return SENHAS_OPERACAO.map(function (s) {
+    return { id: s.id, nome: s.nome, diz: s.diz, propria: tem[s.id] };
+  });
+}
+
+/* UMA OPERACAO PODE VOLTAR PARA A SENHA GERAL, e por isso o vazio e' aceito nas chaves
+   dela. Sem esta porta, uma senha especifica cadastrada por engano so' poderia ser
+   TROCADA por outra, nunca desfeita — e quem administra ficaria com uma operacao presa
+   a uma senha que talvez ninguem lembre.
+   E `senhaCorrecao` FICA DE FORA de proposito: limpar a geral nao volta para outra
+   senha, volta para a DE FABRICA, que esta' escrita no codigo. Essa e' a unica que nao
+   tem como ser desfeita. */
+function chaveDeOperacaoLimpavel(chave) {
+  return SENHAS_OPERACAO.some(function (s) { return s.chave === chave; });
+}
+
+/* AS CHAVES DAS SENHAS POR OPERACAO entram DERIVADAS da lista, e nao escritas de novo:
+   escritas aqui a mao, uma operacao nova nasceria sem poder ser gravada, e o erro seria
+   "Configuracao desconhecida" numa tela que acabou de oferecer o campo. */
 var CHAVES_CONFIG = ['empresa', 'diasPrazoPadrao', 'motoristas', 'senhaCorrecao',
                      'tema', 'fundo', 'vozNarracao',
                      'topoCor', 'topoInt', 'topoTinta',
                      'fundoInt', 'fundoTinta',
                      'botaoInt', 'botaoTinta',
-                     'usuarioCor', 'usuarioInt', 'usuarioTinta'];
+                     'usuarioCor', 'usuarioInt', 'usuarioTinta']
+  .concat(SENHAS_OPERACAO.map(function (s) { return s.chave; }));
 
 /* A APARÊNCIA É DA EMPRESA, e não de cada navegador: uma cor só em todas as telas do
    galpão, a pedido. Por isso ela mora aqui, na config, e não no armazenamento local —
@@ -1319,6 +1434,7 @@ var INT_MIN = 60, INT_MAX = 140;
    recém-criado. Trocada pela tela, vai para `config` em HASH, e daí em diante é a
    cadastrada que vale. */
 var SENHA_CORRECAO_PADRAO = '123456';
+
 
 /* `digitada`, e não `senha`: o módulo de hash se chama `senha` neste arquivo, e um
    parâmetro com esse nome o encobre — `senha.temHash` passa a procurar o método num
@@ -1388,6 +1504,14 @@ async function salvarConfig(p) {
      `config` lê a senha que destranca a correção de qualquer lançamento. */
   if (/senha/i.test(chave)) {
     var nova = String(valor == null ? '' : valor);
+    /* VAZIO NUMA CHAVE DE OPERACAO E' O PEDIDO DE VOLTAR PARA A GERAL, e nao uma senha
+       curta. Sem este desvio, o vazio cairia na guarda do tamanho logo abaixo e a
+       resposta seria "precisa de pelo menos 6 caracteres" para quem nao estava
+       cadastrando senha nenhuma. */
+    if (!nova && chaveDeOperacaoLimpavel(chave)) {
+      await db.salvarConfig(chave, '');
+      return { ok: true, limpou: true };
+    }
     /* A GUARDA E REDUNDANTE, e fica. `senha.gerar` ja estoura com menos de seis — o que
        esta linha acrescenta e' a FRASE: sem ela, quem troca a senha recebe "Falha no
        servidor" no lugar de "precisa de pelo menos 6 caracteres", e nao tem como saber
@@ -1399,9 +1523,14 @@ async function salvarConfig(p) {
   return { ok: true };
 }
 
-async function excluir(aba, id) {
+async function excluir(aba, id, p) {
   if (!TABELA[aba]) return { ok: false, erro: 'Cadastro inválido.' };
   var d = await db.carregarTudo();
+  /* ESTE E O GESTO COM MENOS VOLTA DE TODOS, e era o unico sem senha: apagar um usuario
+     nao vai para lixeira nenhuma. Foi ele que o escritorio apontou. */
+  if (!conferirSenhaDe('excluirCadastro', (p || {}).senha, d.config)) {
+    return { ok: false, erro: 'Senha incorreta.', senhaErrada: true };
+  }
   var colecao = d[COLECAO[aba]];
   var alvo = colecao.filter(function (x) { return String(x.ID) === String(id || ''); })[0];
   if (!alvo) return { ok: false, erro: 'Registro não encontrado.' };

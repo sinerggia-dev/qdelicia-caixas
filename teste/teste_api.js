@@ -505,7 +505,7 @@ async function main() {
     ok((await GET({ acao: 'lixeira' })).movimentos.length === 0,
       'a lixeira começa vazia');
 
-    const rEx = await POST({ acao: 'excluirMovimento', id: alvoLix.id, usuarioId: 'U001' });
+    const rEx = await POST({ acao: 'excluirMovimento', senha: '123456', id: alvoLix.id, usuarioId: 'U001' });
     ok(rEx.ok, 'o lançamento vai para a lixeira', rEx.erro);
 
     const depois = (await GET({ acao: 'movimentos', limit: 200 })).movimentos;
@@ -526,7 +526,7 @@ async function main() {
 
     /* Na lixeira ele não se mexe. Corrigir um lançamento invisível mudaria um número que
        ninguém vê, e a correção sumiria junto com ele. */
-    ok((await POST({ acao: 'excluirMovimento', id: alvoLix.id, usuarioId: 'U001' })).ok === false,
+    ok((await POST({ acao: 'excluirMovimento', senha: '123456', id: alvoLix.id, usuarioId: 'U001' })).ok === false,
       'excluir de novo é recusado — ele já está lá');
     /* COM A SENHA, de propósito. Sem ela a recusa viria do prazo de conserto livre —
        este lançamento é de outro dia —, e a afirmação passaria com a trava da lixeira
@@ -572,7 +572,7 @@ async function main() {
     /* Este é o botão que leva centenas de uma vez, e era o que menos podia ser
        definitivo: errar o filtro custava um dia inteiro de galpão. */
     const todos = (await GET({ acao: 'movimentos', limit: 100000, teste: 'todos' })).movimentos;
-    const r = await POST({ acao: 'limparMovimentos', esperado: todos.length,
+    const r = await POST({ acao: 'limparMovimentos', senha: '123456', esperado: todos.length,
                            teste: 'todos', usuarioId: 'U001' });
     ok(r.ok && r.apagados === todos.length, 'o filtro inteiro vai de uma vez', r);
     ok((await GET({ acao: 'movimentos', limit: 200, teste: 'todos' })).movimentos.length === 0,
@@ -919,8 +919,8 @@ async function main() {
   const locaisAgora = (await GET({ acao: 'dados' })).locais;
   const criado = locaisAgora.find((l) => l.ID === novo.id);
   ok(criado && criado.Token && criado.Token.length === 10, 'cliente novo recebe token de 10 caracteres', criado && criado.Token);
-  ok((await POST({ acao: 'excluir', aba: 'Locais', id: novo.id })).excluido === true, 'cliente sem movimento é excluído');
-  const comMov = await POST({ acao: 'excluir', aba: 'Locais', id: C });
+  ok((await POST({ acao: 'excluir', senha: '123456', aba: 'Locais', id: novo.id })).excluido === true, 'cliente sem movimento é excluído');
+  const comMov = await POST({ acao: 'excluir', senha: '123456', aba: 'Locais', id: C });
   ok(comMov.inativado === true, 'cliente com movimento é inativado, não excluído', comMov);
 
   console.log('\n== rotas ==');
@@ -1395,8 +1395,110 @@ async function main() {
                      senha: '123456' })).ok === false,
       'a de fábrica para de valer assim que existe uma cadastrada');
 
-    /* De volta à de fábrica, porque o cenário continua depois daqui. */
-    tabelas.config = tabelas.config.filter((r) => r.chave !== 'senhaCorrecao');
+    /* ---- E AGORA UMA SENHA SO' PARA UMA OPERACAO ----
+     *
+     * E' o pedido do escritorio, e a afirmacao inteira esta' em duas palavras: SO'
+     * AQUELA. Quem corrige um numero errado no lancamento de ontem nao e'
+     * necessariamente quem apaga o cadastro de uma pessoa, e com uma senha so' conceder
+     * a primeira era conceder as duas.
+     *
+     * AS DUAS METADES SAO MEDIDAS JUNTAS, e tem de ser: a especifica passa a valer NA
+     * SUA operacao, e as OUTRAS continuam na geral. Medida so' a primeira, uma
+     * implementacao que trocasse a senha de todas passaria verde — e o escritorio
+     * descobriria no dia em que a senha de "excluir cadastro" tambem corrigisse
+     * lancamento, que e' exatamente o que ele pediu para acabar. */
+    ok((await POST({ acao: 'salvarConfig', chave: 'senhaCorrigir',
+                     valor: 'soCorrige9' })).ok,
+      'a senha de UMA opera\u00e7\u00e3o \u00e9 gravada \u2014 sem isto n\u00e3o h\u00e1 o que separar');
+    const chCorrigir = tabelas.config.find((r) => r.chave === 'senhaCorrigir');
+    ok(chCorrigir && /^s1\$/.test(String(chCorrigir.valor)),
+      'e ela tamb\u00e9m vai ao banco em HASH \u2014 em texto, quem abre a tabela l\u00ea a senha de ' +
+      'cada porta separada, que \u00e9 pior do que uma s\u00f3 vazada',
+      chCorrigir && String(chCorrigir.valor).slice(0, 12));
+
+    ok((await POST({ acao: 'corrigir', id: velho.id, usuarioId: velho.usuarioId,
+                     motivo: 'com a da opera\u00e7\u00e3o', Qtd: Number(velho.qtd) + 3,
+                     senha: 'soCorrige9' })).ok,
+      'corrigir passa a aceitar a senha DELA');
+    ok((await POST({ acao: 'corrigir', id: velho.id, usuarioId: velho.usuarioId,
+                     motivo: 'com a geral', Qtd: Number(velho.qtd) + 4,
+                     senha: 'trocada9' })).ok === false,
+      'e deixa de aceitar a GERAL \u2014 continuando a aceit\u00e1-la, a senha espec\u00edfica seria ' +
+      'enfeite: quem tem a geral faria tudo do mesmo jeito');
+
+    /* A OUTRA METADE, E AS DUAS NA ORDEM QUE DEIXA O CENARIO DE PE: a senha de corrigir
+       NAO abre o excluir, a geral abre, e o restaurar — que tambem nao tem senha propria
+       — desfaz a exclusao com a geral. A ultima e' prova e limpeza ao mesmo tempo: sem
+       ela o lancamento fica na lixeira e tudo o que vem depois neste arquivo bate em
+       "este lancamento esta' na lixeira". */
+    ok((await POST({ acao: 'excluirMovimento', id: velho.id, usuarioId: velho.usuarioId,
+                     senha: 'soCorrige9' })).erro === 'Senha incorreta.',
+      'a senha de CORRIGIR n\u00e3o abre o excluir \u2014 \u00e9 a separa\u00e7\u00e3o inteira: sem isto as ' +
+      'sete senhas seriam sete nomes para a mesma chave');
+    const exGeral = await POST({ acao: 'excluirMovimento', id: velho.id,
+                                 usuarioId: velho.usuarioId, senha: 'trocada9' });
+    ok(exGeral.ok === true,
+      'e quem N\u00c3O ganhou senha pr\u00f3pria continua na GERAL \u2014 sem o degrau, o dia desta ' +
+      'mudan\u00e7a trancaria as sete portas de uma vez, porque nenhuma espec\u00edfica existe ' +
+      'ainda, e o escrit\u00f3rio descobriria tentando corrigir um lan\u00e7amento', exGeral.erro);
+    /* E O CAMINHO DE VOLTA FICA ABERTO, de proposito — com a senha ERRADA, para a
+       bancada medir isso e nao uma coincidencia. Escrita com a senha certa, ela passaria
+       verde tanto com a porta aberta quanto trancada, e nao diria nada.
+       TRANCAR A VOLTA e' o erro que esta prova existe para impedir: quem percebe que uma
+       linha sumiu por engano raramente e' quem a mandou sumir, e seria justamente essa
+       pessoa a ficar sem a senha. O rotulo da senha de restaurar foi corrigido para nao
+       prometer que fecha esta porta. */
+    const voltaLixo = await POST({ acao: 'restaurarMovimento', id: velho.id,
+                                   usuarioId: velho.usuarioId, senha: 'senha-errada-9' });
+    ok(voltaLixo.ok === true,
+      'e tirar da LIXEIRA continua sem senha, mesmo com uma errada na m\u00e3o \u2014 \u00e9 o ' +
+      'caminho de volta do excluir, e quem percebe o engano raramente \u00e9 quem o cometeu: ' +
+      'trancado, seria justamente essa pessoa a ficar sem a chave', voltaLixo.erro);
+
+    /* ---- E DA' PARA VOLTAR ATRAS ----
+     * Sem esta porta, uma senha especifica cadastrada errada so' poderia ser TROCADA
+     * por outra, nunca desfeita — e quem administra ficaria com uma operacao presa a uma
+     * senha que talvez ninguem lembre. */
+    const limpou = await POST({ acao: 'salvarConfig', chave: 'senhaCorrigir', valor: '' });
+    ok(limpou.ok === true,
+      'a senha de uma opera\u00e7\u00e3o pode ser TIRADA \u2014 recusado o vazio, uma senha cadastrada ' +
+      'com um erro de digita\u00e7\u00e3o trancaria aquela porta para sempre', limpou.erro);
+    const voltou = await POST({ acao: 'corrigir', id: velho.id,
+                     usuarioId: velho.usuarioId,
+                     motivo: 'de volta \u00e0 geral', Qtd: Number(velho.qtd) + 5,
+                     senha: 'trocada9' });
+    ok(voltou.ok,
+      'e a opera\u00e7\u00e3o volta mesmo a pedir a GERAL \u2014 gravado o vazio sem efeito, a tela ' +
+      'diria "voltou \u00e0 geral" com a senha antiga ainda valendo, que \u00e9 a mentira mais ' +
+      'cara que esta tela poderia contar', voltou.erro);
+    ok((await POST({ acao: 'salvarConfig', chave: 'senhaCorrecao', valor: '' })).ok === false,
+      'mas a GERAL n\u00e3o pode ser esvaziada \u2014 limpar a geral n\u00e3o volta para outra senha, ' +
+      'volta para a DE F\u00c1BRICA, que est\u00e1 escrita no c\u00f3digo em texto');
+
+    /* ---- E A TELA SABE EM QUE PE CADA UMA ESTA, SEM O SEGREDO ---- */
+    await POST({ acao: 'salvarConfig', chave: 'senhaExcluirCadastro', valor: 'soApaga9' });
+    const dOps = await GET({ acao: 'dados' });
+    const lista = dOps.operacoesComSenha || [];
+    ok(lista.length === 7,
+      'a rota manda as SETE opera\u00e7\u00f5es \u2014 escrita na tela, a lista divergiria no dia em ' +
+      'que uma operacao nova entrasse s\u00f3 no servidor', lista.length);
+    const umCad = lista.find((o) => o.id === 'excluirCadastro');
+    const umCor = lista.find((o) => o.id === 'corrigir');
+    ok(umCad && umCad.propria === true && umCor && umCor.propria === false,
+      'e diz QUAIS j\u00e1 t\u00eam senha pr\u00f3pria e quais ainda usam a geral \u2014 \u00e9 a pergunta que ' +
+      'quem administra vem fazer, j\u00e1 que a senha em si ningu\u00e9m consegue ler de volta',
+      [umCad && umCad.propria, umCor && umCor.propria]);
+    ok(umCad && umCad.nome && umCad.diz,
+      'e manda o nome e o que a opera\u00e7\u00e3o destranca \u2014 sete senhas sem dizer o que cada ' +
+      'uma abre s\u00e3o sete decis\u00f5es no escuro', umCad);
+    ok(JSON.stringify(lista).indexOf('s1$') < 0 &&
+       JSON.stringify(lista).indexOf('senhaExcluirCadastro') < 0,
+      'e nem o hash nem o nome da coluna v\u00e3o junto \u2014 `dados` \u00e9 p\u00fablica e sem ' +
+      'autoriza\u00e7\u00e3o nenhuma, e ela \u00e9 chamada antes de qualquer pessoa entrar',
+      JSON.stringify(lista).slice(0, 140));
+
+    /* De volta \u00e0 de f\u00e1brica, porque o cen\u00e1rio continua depois daqui. */
+    tabelas.config = tabelas.config.filter((r) => !/^senha/.test(String(r.chave)));
   }
 
   console.log('\n== o lote: as linhas de um envio só se reconhecem ==');
@@ -1576,13 +1678,13 @@ async function main() {
   ok((await POST({ acao: 'salvarLocal', registro: { ID: rNova.id, Ativo: 'SIM' } })).ok, 'rota reativada');
 
   // Rota sem uso nenhum pode sumir de verdade.
-  ok((await POST({ acao: 'excluir', aba: 'Locais', id: rNova.id })).excluido === true,
+  ok((await POST({ acao: 'excluir', senha: '123456', aba: 'Locais', id: rNova.id })).excluido === true,
     'rota sem vínculo e sem movimento é excluída');
 
   // Com cliente apontando para ela, apagar quebraria a chave estrangeira: o servidor inativa.
   const rUsada = await POST({ acao: 'salvarLocal', registro: { Tipo: 'ROTA', Nome: 'Rota Litoral' } });
   await POST({ acao: 'salvarLocal', registro: { Tipo: 'CLIENTE', Nome: 'Ponto do Litoral', RotaId: rUsada.id } });
-  const tentou = await POST({ acao: 'excluir', aba: 'Locais', id: rUsada.id });
+  const tentou = await POST({ acao: 'excluir', senha: '123456', aba: 'Locais', id: rUsada.id });
   ok(tentou.inativado === true, 'rota com cliente vinculado é inativada, não apagada', tentou);
   ok(/atende 1 ponto/.test(tentou.aviso || ''), 'o aviso diz quantos pontos dependem dela', tentou.aviso);
   const aindaLa = (await GET({ acao: 'dados' })).locais.find((l) => l.ID === rUsada.id);
@@ -1629,17 +1731,17 @@ async function main() {
   ok(((await GET({ acao: 'dados' })).motoristas || []).some((m) => m.ID === novoM.id),
     'e ele volta para a lista de escolha do celular');
 
-  ok((await POST({ acao: 'excluir', aba: 'Motoristas', id: novoM.id })).excluido === true,
+  ok((await POST({ acao: 'excluir', senha: '123456', aba: 'Motoristas', id: novoM.id })).excluido === true,
     'motorista pode ser excluído');
 
   console.log('\n== excluir usuário ==');
   const novoU = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Ajudante Temporário', Perfil: 'PROMOTOR', PIN: '444444' } });
   ok(novoU.ok, 'usuário criado', novoU);
-  ok((await POST({ acao: 'excluir', aba: 'Usuarios', id: novoU.id })).excluido === true,
+  ok((await POST({ acao: 'excluir', senha: '123456', aba: 'Usuarios', id: novoU.id })).excluido === true,
     'usuário que nunca lançou nada é excluído');
 
   // Quem já lançou fica: o nome dele é o que dá peso à divergência no histórico.
-  const comHist = await POST({ acao: 'excluir', aba: 'Usuarios', id: 'U003' });
+  const comHist = await POST({ acao: 'excluir', senha: '123456', aba: 'Usuarios', id: 'U003' });
   ok(comHist.inativado === true, 'usuário com lançamento é desativado, não apagado', comHist);
   const u3 = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U003');
   ok(u3 && u3.Ativo === false && u3.Nome === 'Motorista Exemplo', 'ele continua no banco, inativo', u3);
@@ -1648,7 +1750,7 @@ async function main() {
   const offAdmin = await POST({ acao: 'salvarUsuario', registro: { ID: 'U001', Ativo: 'NAO' } });
   ok(offAdmin.ok === false && /último administrador/.test(offAdmin.erro || ''),
     'desativar o último admin é recusado', offAdmin);
-  const del = await POST({ acao: 'excluir', aba: 'Usuarios', id: 'U001' });
+  const del = await POST({ acao: 'excluir', senha: '123456', aba: 'Usuarios', id: 'U001' });
   ok(del.ok === false && /último administrador/.test(del.erro || ''),
     'excluir o último admin é recusado', del);
   ok((await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U001').Ativo === true,
@@ -1672,12 +1774,12 @@ async function main() {
   const lpGrav = (await GET({ acao: 'equipe' })).locaisPadrao.find((x) => x.ID === lp.id);
   ok(lpGrav && lpGrav.Nome === 'Base Recife', 'nome vem sem espaço sobrando', lpGrav && lpGrav.Nome);
 
-  ok((await POST({ acao: 'excluir', aba: 'LocaisPadrao', id: lp.id })).excluido === true,
+  ok((await POST({ acao: 'excluir', senha: '123456', aba: 'LocaisPadrao', id: lp.id })).excluido === true,
     'local padrão sem ninguém dentro é excluído');
 
   // Em uso, apagar deixaria o usuário apontando para o vazio.
   await POST({ acao: 'salvarUsuario', registro: { ID: 'U002', LocalPadrao: 'P001' } });
-  const emUso = await POST({ acao: 'excluir', aba: 'LocaisPadrao', id: 'P001' });
+  const emUso = await POST({ acao: 'excluir', senha: '123456', aba: 'LocaisPadrao', id: 'P001' });
   ok(emUso.ok === false && /em uso por 1 usuário/.test(emUso.erro || ''),
     'local padrão em uso é recusado, dizendo quantos dependem dele', emUso);
 
@@ -1928,7 +2030,7 @@ async function main() {
   ok(sugestoes.indexOf('Supervisor de Área') >= 5,
     'e o escrito à mão entra na sugestão para não virar três grafias', sugestoes);
 
-  await POST({ acao: 'excluir', aba: 'Usuarios', id: novoPf.id });
+  await POST({ acao: 'excluir', senha: '123456', aba: 'Usuarios', id: novoPf.id });
 
   console.log('== motorista fixo ou volante ==');
 
@@ -5995,7 +6097,11 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     '"não encontrado" e não diriam nada sobre perfil', umaDecl && umaDecl.id);
 
   const tentar = async (acao, quem) => await POST(Object.assign(
-    { acao: acao, id: umaDecl.id, usuarioId: quem, motivo: 'teste de tranca' },
+    /* A SENHA VAI JUNTA, e certa: o que esta bancada mede e' a barreira do PERFIL, e
+       sem a senha a recusa viria da outra guarda — a prova passaria verde medindo a
+       tranca errada. */
+    { acao: acao, id: umaDecl.id, usuarioId: quem, motivo: 'teste de tranca',
+      senha: '123456' },
     acao === 'corrigir' ? { campos: { qtd: 1 } } : {}));
 
   for (const acao of ['corrigir', 'cancelar', 'excluirMovimento', 'restaurarMovimento']) {

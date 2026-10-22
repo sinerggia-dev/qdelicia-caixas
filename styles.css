@@ -4355,6 +4355,22 @@ tr.lin-item > td:first-child{padding-left:30px;
    `!important`, escrita depois de tropecar quatro vezes no mesmo lugar. Uma segunda,
    por elemento, seria a quinta — e a bancada que conta essas regras reprova. */
 
+/* ================= UMA LINHA POR OPERACAO COM SENHA =================
+   Nome e explicacao de um lado, os botoes do outro. No CELULAR ela quebra em duas
+   faixas: lado a lado em 334px, o nome da operacao sobraria em duas palavras por linha
+   e os botoes ficariam espremidos num canto — e e' o nome que diz qual porta se esta'
+   mexendo. */
+.linha-senha-op{display:flex;gap:10px;align-items:center;justify-content:space-between;
+  padding:10px 0;border-top:1px solid var(--linha)}
+.linha-senha-op:first-child{border-top:0}
+.linha-senha-op-txt{min-width:0}
+.linha-senha-op-txt .sub{margin-top:2px}
+.linha-senha-op-btn{display:flex;gap:6px;flex:0 0 auto}
+@media (max-width:560px){
+  .linha-senha-op{flex-direction:column;align-items:stretch}
+  .linha-senha-op-btn{justify-content:flex-end}
+}
+
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}
   /* A coluna de marcar não se imprime: no papel não há o que marcar, e ela empurraria

@@ -28397,13 +28397,278 @@ console.log('\n== a senha das operacoes protegidas ==');
     'e o aviso sai do que o SERVIDOR respondeu, e não de uma marca da tela — a tela não ' +
     'tem como saber se alguém trocou a senha por outro caminho');
 
-  /* E A LISTA DO QUE ELA PROTEGE FICA A VISTA: controlar uma senha sem saber o que ela
-     destranca e' decidir no escuro. */
+  /* ---- UMA SENHA POR OPERACAO ----
+   *
+   * O escritorio pediu separadas. A LISTA DO QUE CADA UMA DESTRANCA CONTINUA A VISTA —
+   * controlar uma senha sem saber o que ela abre e' decidir no escuro —, mas ela deixou
+   * de estar escrita na marcacao: agora vem do servidor e e' desenhada. Esta bancada
+   * seguia a lista na marcacao, e foi reescrita para seguir onde a resposta mora. */
   var bloco = admS.slice(admS.indexOf('data-cad="senhaOperacoes"'),
                          admS.indexOf('data-cad="usuarios"'));
-  ok(/corrigir/i.test(bloco) && /restaurar/i.test(bloco) && /carga/i.test(bloco),
-    'e o bloco diz QUAIS operações a senha destranca — controlá-la sem saber o que ela ' +
-    'abre é decidir no escuro', bloco.length);
+  ok(bloco.indexOf('id="listaSenhasOp"') > 0,
+    'o bloco tem ONDE a lista das opera\u00e7\u00f5es \u00e9 desenhada \u2014 sem o lugar, a fun\u00e7\u00e3o ' +
+    'que desenha sai cedo e o cart\u00e3o fica s\u00f3 com a senha geral, calado sobre as outras',
+    bloco.length);
+  ok(/senhaOpNova/.test(bloco) && /senhaOpRepete/.test(bloco),
+    'e a senha GERAL continua no bloco \u2014 ela \u00e9 o degrau: opera\u00e7\u00e3o sem senha pr\u00f3pria ' +
+    'cai nela, e sem o degrau o dia desta mudan\u00e7a trancaria as sete portas de uma vez');
+
+  /* A ARMADILHA DESTE PEDACO, e por isso ela e' medida de ponta a ponta: a TELA deriva
+     a chave de config por uma REGRA (`senha` + Id), e o SERVIDOR a guarda numa LISTA.
+     Duas fontes para o mesmo nome. Divergindo numa operacao so', gravar a senha daquela
+     operacao responde "Configuracao desconhecida" num formulario que a propria tela
+     acabou de oferecer — e nada mais no sistema acusaria. */
+  var iCh = admS.indexOf('function chaveDaOperacao(id)');
+  var fnCh = iCh > 0 ? admS.slice(iCh, admS.indexOf(String.fromCharCode(10) + '  }', iCh)) : '';
+  var chaveDaOperacao = new Function('return (' +
+    fnCh.replace('function chaveDaOperacao', 'function') + '})')();
+  var apiSenhas = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  var iLst = apiSenhas.indexOf('var SENHAS_OPERACAO = [');
+  var LISTA = new Function('return ' +
+    apiSenhas.slice(apiSenhas.indexOf('[', iLst),
+                    apiSenhas.indexOf('];', iLst) + 1))();
+  ok(LISTA.length === 7,
+    'o servidor conhece as SETE opera\u00e7\u00f5es \u2014 corrigir, corrigir a carga, restaurar, ' +
+    'excluir, apagar o filtro, excluir cadastro e baixar documento', LISTA.length);
+  var divergem = LISTA.filter(function (s) { return chaveDaOperacao(s.id) !== s.chave; });
+  ok(divergem.length === 0,
+    'e a chave que a TELA deriva bate com a que o SERVIDOR guarda, em todas as sete \u2014 ' +
+    'divergindo numa s\u00f3, gravar aquela senha responde "Configura\u00e7\u00e3o desconhecida" num ' +
+    'campo que a tela acabou de oferecer, e nada mais acusaria',
+    divergem.map(function (s) { return s.id + ': ' + chaveDaOperacao(s.id) + ' != ' + s.chave; }));
+  /* E A CHAVE DERIVADA TEM DE SER ACEITA NA GRAVACAO. Bater com a lista nao basta: se
+     `CHAVES_CONFIG` nao a incluir, a recusa e' a mesma. */
+  var iCC = apiSenhas.indexOf('var CHAVES_CONFIG = [');
+  var txtCC = apiSenhas.slice(iCC, apiSenhas.indexOf(';', iCC));
+  ok(/SENHAS_OPERACAO\.map/.test(txtCC),
+    'e as chaves entram em CHAVES_CONFIG DERIVADAS da lista \u2014 escritas \u00e0 m\u00e3o, uma ' +
+    'opera\u00e7\u00e3o nova nasceria com campo na tela e sem permiss\u00e3o de grava\u00e7\u00e3o', txtCC);
+
+  /* ---- A VARREDURA: TODA PORTA COM SENHA TEM CAMPO PARA DIGITA-LA ----
+   *
+   * E' O DEFEITO ASSINATURA DESTE PROJETO, e ele agora tem sete chances de acontecer de
+   * uma vez: a peca existe no servidor e nada chega nela. Uma rota que passa a pedir
+   * senha e uma tela que continua chamando sem mandar nenhuma nao da erro de programa —
+   * da' "Senha incorreta." num botao que nao tem onde digitar. A porta trancada, e a
+   * chave sem fechadura.
+   *
+   * O CONJUNTO E DERIVADO DO SERVIDOR, e nao escrito aqui: a rota que ganhar senha
+   * amanha entra nesta varredura sozinha. Escrito a mao, este bloco mediria a lista de
+   * ontem — que e' a maneira mais silenciosa de uma varredura parar de varrer. */
+  {
+    var apiV = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+    /* DA FUNCAO QUE CONFERE A SENHA ATE O NOME DA ACAO, em dois saltos: quem chama
+       `conferirSenhaDe` esta' dentro de alguma `async function X`, e alguma linha do
+       roteador diz `acao === 'y'` para essa X. */
+    var comSenha = {};
+    /* COM O ID ENTRE ASPAS NO PADRAO, de proposito: sem isso a propria DEFINICAO de
+       `conferirSenhaDe(idOperacao, ...)` casava, e o salto para tras achava a funcao
+       anterior no arquivo — a varredura passou a jurar que `salvarLocal` pedia senha. */
+    var re = /conferirSenhaDe\('([a-zA-Z]+)'/g, mm;
+    var ids = [];
+    while ((mm = re.exec(apiV))) {
+      var antes = apiV.slice(0, mm.index);
+      var iFn = antes.lastIndexOf('async function ');
+      if (iFn < 0) continue;
+      var nomeFn = antes.slice(iFn + 15, antes.indexOf('(', iFn));
+      var rot = new RegExp("acao === '([a-zA-Z]+)'\\) return await " + nomeFn + "\\(");
+      var achou = rot.exec(apiV);
+      if (achou) comSenha[achou[1]] = nomeFn;
+      ids.push(mm[1]);
+    }
+    var acoes = Object.keys(comSenha).sort();
+
+    /* ---- E TODO ID PEDIDO EXISTE NA LISTA ----
+     *
+     * ESTA E A FALHA MAIS SILENCIOSA DESTE PEDACO. `conferirSenhaDe` nao estoura com um
+     * id que nao conhece: ele nao acha a operacao, nao acha senha propria, e DESCE PARA
+     * A GERAL. Um `'excluirCadstro'` escrito com um dedo a menos deixaria aquela porta
+     * aceitando a senha geral para sempre — com a tela mostrando "senha propria" na
+     * linha, porque a gravacao da chave continua funcionando. O escritorio cadastraria
+     * uma senha que nunca e' pedida, e nada no sistema acusaria. */
+    var LISTA_IDS = LISTA.map(function (s) { return s.id; });
+    var forasteiros = ids.filter(function (i) { return LISTA_IDS.indexOf(i) < 0; });
+    ok(forasteiros.length === 0,
+      'e todo id pedido ao conferir existe na lista \u2014 um id com um dedo a menos n\u00e3o ' +
+      'estoura: ele desce para a senha geral, e aquela porta passa a aceitar a geral ' +
+      'para sempre com a tela mostrando "senha pr\u00f3pria" na linha', forasteiros);
+    var naoUsados = LISTA_IDS.filter(function (i) { return ids.indexOf(i) < 0; });
+    ok(naoUsados.length === 0,
+      'e toda opera\u00e7\u00e3o da lista \u00e9 mesmo conferida em algum lugar \u2014 uma que ningu\u00e9m ' +
+      'confere ganha campo em Cadastros, aceita a senha e n\u00e3o tranca nada: o pior ' +
+      'estado poss\u00edvel, porque parece que trancou', naoUsados);
+    ok(acoes.length === 7,
+      'o servidor tem SETE rotas pedindo senha, e a varredura as achou \u2014 achando ' +
+      'menos, ela varreria um pedaço e diria "tudo certo" sobre o resto', acoes);
+
+    var telas = [['admin.html', admS],
+                 ['index.html', fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8')]];
+    var mudos = [];
+    acoes.forEach(function (acao) {
+      telas.forEach(function (par) {
+        var reA = new RegExp("acao: ?'" + acao + "'", 'g'), m2;
+        while ((m2 = reA.exec(par[1]))) {
+          /* A JANELA E' FOLGADA DE PROPOSITO, e a bancada diz isso em voz alta: a senha
+             nem sempre esta' dentro do mesmo `{}` — ha' chamada que a acrescenta depois
+             (`envio.senha = s`) e ha' chamada embrulhada no pedido de senha. Apertada no
+             objeto, esta varredura acusaria as duas e seria desligada por barulho. O que
+             ela pega de verdade e' a chamada que nao tem senha em lugar NENHUM por
+             perto — foi assim que os dois bot\u00f5es de tirar da lixeira apareceram. */
+          var janela = par[1].slice(Math.max(0, m2.index - 400), m2.index + 500);
+          if (!/senha/i.test(janela)) mudos.push(par[0] + ' ~' + acao);
+        }
+      });
+    });
+    ok(mudos.length === 0,
+      'e toda chamada a elas, nas duas telas, tem senha por perto \u2014 chamando sem ' +
+      'mandar nenhuma, o bot\u00e3o responde "Senha incorreta." sem ter onde digitar: a ' +
+      'porta trancada e a chave sem fechadura', mudos);
+
+    /* E AS TRES QUE NASCERAM AGORA TEM MESMO POR ONDE PEDIR. A varredura acima aceita a
+       palavra "senha" por perto; esta aponta o ajudante, que e' o que abre o campo.
+       MEDIDO PELO ID DA OPERACAO, e nao pelo formato da chamada: uma delas monta o
+       pedido numa variavel (`Q.post(envio)`), e um padrao preso ao `acao:` dentro do
+       objeto reprovaria essa e aprovaria as outras duas por sorte. */
+    var pedidosNaTela = (admS.match(/pedirSenhaDe\('([a-zA-Z]+)'/g) || [])
+      .map(function (s) { return s.slice(14, -1); });
+    ['excluir', 'apagarFiltro', 'excluirCadastro'].forEach(function (idOp) {
+      ok(pedidosNaTela.indexOf(idOp) >= 0,
+        'e a opera\u00e7\u00e3o `' + idOp + '` \u2014 que n\u00e3o pedia senha nenhuma at\u00e9 agora \u2014 tem ' +
+        'onde digitar na tela: foi uma destas tr\u00eas que o escrit\u00f3rio apontou, e a rota ' +
+        'sozinha s\u00f3 sabe recusar', pedidosNaTela);
+    });
+    var pedidoTorto = pedidosNaTela.filter(function (i) { return LISTA_IDS.indexOf(i) < 0; });
+    ok(pedidoTorto.length === 0,
+      'e a tela pede por ids que existem \u2014 um id torto aqui n\u00e3o estoura: a janela abre ' +
+      'com o id cru no lugar do nome da opera\u00e7\u00e3o, e quem digita n\u00e3o sabe qual senha ' +
+      'est\u00e1 sendo pedida', pedidoTorto);
+    var seisCadastros = (admS.match(/pedirSenhaDe\('excluirCadastro'/g) || []).length;
+    ok(seisCadastros === 6,
+      'e os SEIS cadastros com bot\u00e3o de excluir passam todos por ele \u2014 um s\u00f3 de fora e ' +
+      'aquele bot\u00e3o responde "Senha incorreta." sem ter onde digitar, e \u00e9 o \u00fanico ' +
+      'cadastro que ningu\u00e9m mais consegue apagar', seisCadastros);
+
+    /* ---- E A SENHA DIGITADA CHEGA NO PEDIDO ----
+     *
+     * ESCAPOU UMA SABOTAGEM AQUI: tirei o `senha:s` de um dos seis bot\u00f5es de excluir
+     * cadastro e TUDO passou verde. A varredura de cima procura a palavra "senha" numa
+     * janela folgada, e `pedirSenhaDe` e `function(s)` j\u00e1 a p\u00f5em ali \u2014 ela media a
+     * vizinhan\u00e7a, n\u00e3o o pedido. O efeito seria o pior poss\u00edvel: a janela abre, a pessoa
+     * digita a senha certa, e o servidor responde "Senha incorreta." para sempre.
+     *
+     * AQUI O CORPO DA CHAMADA E LIDO INTEIRO, ate' o `})` que o fecha, e a pergunta e'
+     * direta: o que sai daqui leva o `s`? */
+    var corpos = [];
+    var reP = /pedirSenhaDe\('[a-zA-Z]+', function\(s\)\{/g, mp;
+    while ((mp = reP.exec(admS))) {
+      var j = mp.index + mp[0].length, prof = 1;
+      for (; j < admS.length && prof > 0; j++) {
+        if (admS[j] === '{') prof++;
+        else if (admS[j] === '}') prof--;
+      }
+      corpos.push(admS.slice(mp.index, j));
+    }
+    ok(corpos.length === 8,
+      'os OITO pedidos de senha da tela foram lidos \u2014 excluir lan\u00e7amento, apagar o ' +
+      'filtro e os seis cadastros: lendo menos, a prova abaixo cala sobre o resto',
+      corpos.length);
+    var semS = corpos.filter(function (c) {
+      return !/senha ?: ?s\b/.test(c) && !/\.senha ?= ?s\b/.test(c);
+    });
+    ok(semS.length === 0,
+      'e todos mandam ao servidor a senha que a pessoa digitou \u2014 sem ela no pedido, a ' +
+      'janela abre, a senha certa \u00e9 digitada, e a resposta \u00e9 "Senha incorreta." para ' +
+      'sempre: o pior jeito de n\u00e3o funcionar, porque parece que a senha \u00e9 que est\u00e1 errada',
+      semS.map(function (c) { return c.slice(0, 90); }));
+
+    /* ---- E A LISTA E MESMO DESENHADA ----
+     * ESCAPOU OUTRA: apaguei a chamada e nada reclamou. A funcao estava certa, bem
+     * medida logo abaixo, e ninguem a chamava — "a peca existe e nada chega nela", que
+     * e' o defeito mais repetido deste projeto. O efeito e' o cartao abrir so' com a
+     * senha geral, calado sobre as outras sete, e quem administra concluir que a tela
+     * nao faz o que o escritorio pediu. */
+    var iDC = admS.indexOf('  function desenharCadastros(){');
+    var fimDC = admS.indexOf(String.fromCharCode(10) + '  }', iDC);
+    ok(iDC > 0 && admS.slice(iDC, fimDC).indexOf('desenharSenhasPorOperacao()') > 0,
+      'e a lista \u00e9 desenhada junto com o resto dos cadastros \u2014 a fun\u00e7\u00e3o pode estar ' +
+      'perfeita e ningu\u00e9m cham\u00e1-la: o cart\u00e3o abre s\u00f3 com a senha geral, calado sobre ' +
+      'as outras sete');
+
+    /* ---- E A SENHA NAO FICA ESQUECIDA NO CAMPO ----
+     * ESCAPOU A TERCEIRA. Esta tela fica aberta o dia inteiro num computador do
+     * escritorio, e uma senha parada num campo e' a mesma senha num bilhete em cima da
+     * mesa — pior depois de ERRAR, porque e' quando a pessoa sai para ir perguntar qual
+     * era. A limpeza tem de vir ANTES do desvio da senha errada; depois dele, e' o
+     * unico caso em que ela nao acontece. */
+    var iAj = admS.indexOf('  function pedirSenhaDe(idOp, enviar){');
+    var fimAj = admS.indexOf(String.fromCharCode(10) + '  }', iAj);
+    var ajud = admS.slice(iAj, fimAj);
+    var iLimpa = ajud.indexOf("campo.value = ''");
+    var iErrada = ajud.indexOf('r.senhaErrada');
+    ok(iLimpa > 0 && iErrada > 0 && iLimpa < iErrada,
+      'e o campo \u00e9 limpo ANTES do desvio da senha errada \u2014 depois dele, errar \u00e9 ' +
+      'justamente o \u00fanico caso em que a senha fica parada na tela, e errar \u00e9 quando a ' +
+      'pessoa sai da mesa para ir perguntar qual era', [iLimpa, iErrada]);
+
+    /* E O AJUDANTE RESOLVE QUANDO FECHAM O PEDIDO POR FORA. O botao ja' esta'
+       desabilitado quando o pedido abre; sem isto ele fica desabilitado para sempre, e
+       a tela parece travada sem nenhum erro para explicar. */
+    ok(/dispatchEvent\(new CustomEvent\('qFechou'\)\)/.test(admS) &&
+       /addEventListener\('qFechou'[\s\S]{0,80}once: true/.test(admS),
+      'e fechar o pedido pelo X ou pelo Esc tamb\u00e9m responde \u2014 sem isso o bot\u00e3o que ' +
+      'ficou desabilitado esperando a senha nunca volta, e a tela parece travada');
+  }
+
+  /* ---- E A LISTA, DESENHADA DE VERDADE ----
+   * A regra pode estar certa e ninguem a chamar: e' o defeito mais repetido deste
+   * projeto. Aqui as linhas sao montadas e lidas. */
+  {
+    var iDes = admS.indexOf('  function desenharSenhasPorOperacao(){');
+    var dd = 0, kk = admS.indexOf('{', iDes), fimDes = -1;
+    for (; kk < admS.length; kk++) {
+      if (admS[kk] === '{') dd++;
+      else if (admS[kk] === '}' && --dd === 0) { fimDes = kk + 1; break; }
+    }
+    var caixa = { innerHTML: '' };
+    /* DUAS OPERACOES COM ESTADOS DIFERENTES, e nao duas iguais: com as duas no mesmo
+       estado, a bancada passaria com uma funcao que escreve sempre a mesma etiqueta. */
+    var OPS = [{ id: 'corrigir', nome: 'Corrigir lan\u00e7amento', diz: 'fora da janela',
+                 propria: true },
+               { id: 'excluirCadastro', nome: 'Excluir cadastro', diz: 'usu\u00e1rio ou local',
+                 propria: false }];
+    new Function('document', 'Q', 'DADOS',
+      admS.slice(iDes, fimDes) + ' desenharSenhasPorOperacao();')(
+      { getElementById: function (id) { return id === 'listaSenhasOp' ? caixa : null; } },
+      { esc: function (x) { return String(x); } },
+      { operacoesComSenha: OPS });
+    var html = caixa.innerHTML;
+    ok(html.indexOf('Corrigir lan\u00e7amento') > 0 &&
+       html.indexOf('Excluir cadastro') > 0 && html.indexOf('fora da janela') > 0,
+      'desenhada, a lista mostra o NOME e o que cada opera\u00e7\u00e3o destranca \u2014 uma lista de ' +
+      'sete senhas sem dizer o que cada uma abre \u00e9 sete decis\u00f5es no escuro', html);
+    ok(html.indexOf('senha pr\u00f3pria') > 0 && html.indexOf('usa a geral') > 0,
+      'e cada linha diz em que p\u00e9 est\u00e1 \u2014 \u00e9 a pergunta que quem administra vem fazer ' +
+      'aqui, j\u00e1 que a senha em si ningu\u00e9m consegue ler de volta', html);
+    var dep = html.slice(html.indexOf('Excluir cadastro'));
+    ok(dep.indexOf('data-senha-op-limpar') < 0 &&
+       html.indexOf('data-senha-op-limpar="corrigir"') > 0,
+      'e o "voltar \u00e0 geral" s\u00f3 aparece em quem TEM senha pr\u00f3pria \u2014 numa linha que j\u00e1 ' +
+      'usa a geral ele n\u00e3o faz nada, e bot\u00e3o que n\u00e3o faz nada ensina errado o que os ' +
+      'outros fazem', dep.slice(0, 200));
+    ok(html.indexOf('data-senha-op="excluirCadastro"') > 0,
+      'e TODA linha tem por onde definir a sua \u2014 desenhado s\u00f3 em quem j\u00e1 tem, nenhuma ' +
+      'senha pr\u00f3pria poderia ser cadastrada a primeira vez', html);
+    /* E SEM A LISTA, NENHUMA LINHA. Desenhadas de um palpite, elas ofereceriam campos
+       para chaves que o servidor talvez nao aceite. */
+    var vazia = { innerHTML: '' };
+    new Function('document', 'Q', 'DADOS',
+      admS.slice(iDes, fimDes) + ' desenharSenhasPorOperacao();')(
+      { getElementById: function () { return vazia; } },
+      { esc: function (x) { return String(x); } }, {});
+    ok(vazia.innerHTML.indexOf('data-senha-op=') < 0 && vazia.innerHTML.length > 0,
+      'e sem a lista do servidor ela n\u00e3o inventa linha nenhuma, e diz isso \u2014 inventadas, ' +
+      'ofereceriam campo para chave que a grava\u00e7\u00e3o recusa', vazia.innerHTML);
+  }
 
   /* ---- E O SEGREDO NUNCA SAI DO SERVIDOR ----
    *

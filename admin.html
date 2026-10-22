@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=51101696">
+<link rel="stylesheet" href="styles.css?v=6c73ec4e">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1723,22 +1723,27 @@
       <h2>Pedidos de senha<span class="sub">Quem não conseguiu entrar no painel e pediu ajuda. Redefina em Usuários → editar → Senha.</span></h2>
       <div id="tabelaPedidos"></div>
     </div>
-    <!-- A SENHA DAS OPERACOES PROTEGIDAS.
-         Ela existe desde sempre e NAO HAVIA ONDE TROCA-LA: a rota aceitava, e nenhuma
-         tela chamava. Enquanto ninguem trocasse, valia a de fabrica — escrita no codigo,
-         em texto, publica para quem abrisse o repositorio. Quem administra tinha de
-         descobrir isso lendo codigo.
+    <!-- AS SENHAS DAS OPERACOES PROTEGIDAS.
+         Era UMA senha para tudo, e o escritorio pediu separadas: quem corrige um numero
+         errado nao e' necessariamente quem apaga o cadastro de uma pessoa, e com uma
+         senha so' conceder a primeira e' conceder as duas.
          FICA EM CADASTROS porque e' aqui que mora o "quem pode o que": usuarios, perfis,
-         abas e locais. Uma pagina propria para um campo so' seria uma pagina que ninguem
+         abas e locais. Uma pagina propria para isto seria uma pagina que ninguem
          encontra.
-         E A LISTA DO QUE ELA PROTEGE FICA A VISTA: controlar uma senha sem saber o que
-         ela destranca e' decidir no escuro. -->
+         A GERAL FICA EM CIMA, e nao e' uma oitava senha: e' o DEGRAU. Operacao sem senha
+         propria usa a geral; sem a geral, vale a de fabrica. Sem o degrau, o dia em que
+         esta tela nasceu trancaria as sete portas de uma vez, porque nenhuma senha
+         especifica existe ainda.
+         E A LISTA DO QUE CADA UMA DESTRANCA FICA A VISTA: controlar uma senha sem saber
+         o que ela abre e' decidir no escuro. -->
     <div class="card" data-cad="senhaOperacoes" style="border-left:3px solid var(--ambar)">
-      <h2>Senha das opera\u00e7\u00f5es protegidas<span class="sub">Uma senha s\u00f3, do
-        escrit\u00f3rio, pedida nas tr\u00eas opera\u00e7\u00f5es que reescrevem o que j\u00e1 foi lan\u00e7ado:
-        <b>corrigir</b> um lan\u00e7amento fora da janela livre, <b>corrigir a carga
-        inteira</b>, e <b>restaurar</b> o que foi cancelado ou exclu\u00eddo.</span></h2>
+      <h2>Senhas das operações protegidas<span class="sub">Cada operação que reescreve
+        ou apaga o que já foi lançado pede uma senha. Abaixo, a <b>senha geral</b> — e
+        depois cada operação, que pode ter a <b>sua própria</b>.</span></h2>
       <div id="avisoSenhaOp"></div>
+      <h3 style="margin:14px 0 2px;font-size:15px">Senha geral</h3>
+      <div class="sub" style="margin-bottom:8px">Vale em toda operação que não tiver uma
+        senha própria cadastrada.</div>
       <div class="grid2">
         <div>
           <label for="senhaOpNova">Senha nova</label>
@@ -1755,6 +1760,14 @@
         <button class="btn" id="btnSenhaOp" style="flex:0;min-width:180px">Trocar a senha</button>
       </div>
       <div id="erroSenhaOp"></div>
+      <h3 style="margin:18px 0 2px;font-size:15px">Senha por operação</h3>
+      <div class="sub" style="margin-bottom:8px">Uma senha só para aquela operação. Quem
+        a tiver faz só aquilo — e quem não tiver continua barrado nela, mesmo sabendo
+        a geral.</div>
+      <!-- A LISTA E' DESENHADA PELO JS a partir do que o servidor manda, e nao escrita
+           aqui: escrita aqui, uma operacao nova nasceria no servidor sem campo na tela,
+           ou com uma chave que a gravacao recusa. -->
+      <div id="listaSenhasOp"></div>
     </div>
     <div class="card" data-cad="usuarios">
       <!-- A EXPLICAÇÃO SÓ NO COMPUTADOR. No celular ela são quatro linhas antes da
@@ -8056,7 +8069,19 @@
     var b = document.getElementById('limparConfirmar');
     var envio = { acao:'limparMovimentos', esperado:limparN, usuarioId:Q.sessao().id };
     Object.keys(limparFiltro||{}).forEach(function(k){ if (limparFiltro[k]) envio[k] = limparFiltro[k]; });
-    Q.post(envio).then(function(r){
+    /* DUAS SENHAS AQUI, E DE PROPOSITO. A de cima, ja' conferida, e' a da PESSOA: ela
+       responde "quem esta' no teclado" e recusa ate' a senha certa de outra conta de
+       mesmo nome. Esta responde outra coisa — "esta conta tem autorizacao para apagar
+       em bloco" —, e foi o que o escritorio pediu ao separar as senhas. Uma nao
+       substitui a outra, e este botao leva centenas de linhas de uma vez. */
+    pedirSenhaDe('apagarFiltro', function(s){
+      envio.senha = s;
+      return Q.post(envio);
+    }).then(function(r){
+      if (!r) {
+        b.disabled = false; b.textContent = 'Apagar os ' + Q.num(limparN);
+        return;
+      }
       if (!r.ok) throw new Error(r.erro);
       document.getElementById('limparAviso').innerHTML =
         '<div class="aviso-box ok">' + Q.num(r.apagados) +
@@ -10368,7 +10393,13 @@
     if (String(dito).trim().toUpperCase() !== alvo.toUpperCase()) {
       return Q.toast('Não confere — nada foi excluído.','erro');
     }
-    Q.post({acao:'excluirMovimento', id:m.id, usuarioId:Q.sessao().id}).then(function(r){
+    /* E DEPOIS DE ESCREVER O TIPO DA CAIXA, A SENHA. As duas perguntas sao diferentes:
+       a primeira confere que a pessoa esta' olhando para a linha certa, e a segunda, que
+       ela tem autorizacao para tirar linha da tabela. */
+    pedirSenhaDe('excluir', function(s){
+      return Q.post({acao:'excluirMovimento', id:m.id, usuarioId:Q.sessao().id, senha:s});
+    }).then(function(r){
+      if (!r) return;
       if (!r.ok) throw new Error(r.erro);
       Q.toast('Lançamento excluído — está na lixeira.','ok');
       depoisDeMexer(m); atualizarLixeiraSeAberta();
@@ -10957,9 +10988,12 @@
         var m = lista.filter(function(x){ return String(x.ID)===b.dataset.excluirMot; })[0];
         if (!m || Q.precisaConfirmar(b, 'Excluir '+m.Nome+'?')) return;
         b.disabled = true;
-        Q.post({acao:'excluir', aba:'Motoristas', id:m.ID}).then(function(r){
+        pedirSenhaDe('excluirCadastro', function(s){
+          return Q.post({acao:'excluir', aba:'Motoristas', id:m.ID, senha:s});
+        }).then(function(r){
           b.disabled = false;
-          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          if (!r) return;
+          if (r.ok===false) return Q.toast(r.erro||'Não consegui excluir.','erro');
           Q.toast('Excluído.','ok'); carregarEquipe(); recarregarCadastros();
         }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
       });
@@ -11026,9 +11060,12 @@
         var l = LOCAIS_PADRAO.filter(function(x){ return String(x.ID)===b.dataset.excluirLp; })[0];
         if (!l || Q.precisaConfirmar(b, 'Excluir '+l.Nome+'?')) return;
         b.disabled = true;
-        Q.post({acao:'excluir', aba:'LocaisPadrao', id:l.ID}).then(function(r){
+        pedirSenhaDe('excluirCadastro', function(s){
+          return Q.post({acao:'excluir', aba:'LocaisPadrao', id:l.ID, senha:s});
+        }).then(function(r){
           b.disabled = false;
-          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          if (!r) return;
+          if (r.ok===false) return Q.toast(r.erro||'Não consegui excluir.','erro');
           Q.toast('Excluído.','ok'); carregarEquipe();
         }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
       });
@@ -11107,9 +11144,12 @@
         var f = lista.filter(function(x){ return String(x.ID)===b.dataset.excluirForn; })[0];
         if (!f || Q.precisaConfirmar(b, 'Excluir '+f.Nome+'?')) return;
         b.disabled = true;
-        Q.post({acao:'excluir', aba:'Fornecedores', id:f.ID}).then(function(r){
+        pedirSenhaDe('excluirCadastro', function(s){
+          return Q.post({acao:'excluir', aba:'Fornecedores', id:f.ID, senha:s});
+        }).then(function(r){
           b.disabled = false;
-          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          if (!r) return;
+          if (r.ok===false) return Q.toast(r.erro||'Não consegui excluir.','erro');
           Q.toast(r.aviso || 'Excluído.', r.inativado ? 'erro' : 'ok');
           recarregarCadastros();
         }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
@@ -11363,9 +11403,12 @@
         var v = lista.filter(function(x){ return String(x.ID)===b.dataset.excluirVei; })[0];
         if (!v || Q.precisaConfirmar(b, 'Excluir '+v.Placa+'? Os lançamentos que ele levou guardam a placa como texto e continuam legíveis.')) return;
         b.disabled = true;
-        Q.post({acao:'excluir', aba:'Veiculos', id:v.ID}).then(function(r){
+        pedirSenhaDe('excluirCadastro', function(s){
+          return Q.post({acao:'excluir', aba:'Veiculos', id:v.ID, senha:s});
+        }).then(function(r){
           b.disabled = false;
-          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          if (!r) return;
+          if (r.ok===false) return Q.toast(r.erro||'Não consegui excluir.','erro');
           Q.toast('Excluído.','ok'); carregarEquipe(); recarregarCadastros();
         }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
       });
@@ -11561,6 +11604,7 @@
        e' daqui que os cadastros nascem, e um ouvinte a parte ficaria para tras no dia em
        que a montagem mudasse. */
     pintarAvisoSenhaOp();
+    desenharSenhasPorOperacao();
     var locais = Q.ordenarLocais(DADOS.locais||[]);
     document.getElementById('tabelaLocais').innerHTML =
       '<div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>Tipo</th><th>Ativo</th><th class="col-acoes"></th></tr></thead><tbody>'+
@@ -11603,9 +11647,12 @@
         if (!l) return;
         if (Q.precisaConfirmar(b, 'Excluir '+l.Nome+'?')) return;
         b.disabled = true;
-        Q.post({acao:'excluir', aba:'Locais', id:l.ID}).then(function(r){
+        pedirSenhaDe('excluirCadastro', function(s){
+          return Q.post({acao:'excluir', aba:'Locais', id:l.ID, senha:s});
+        }).then(function(r){
           b.disabled = false;
-          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          if (!r) return;
+          if (r.ok===false) return Q.toast(r.erro||'Não consegui excluir.','erro');
           Q.toast(r.aviso || 'Excluído.', r.inativado ? 'erro' : 'ok');
           recarregarCadastros();
         }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
@@ -11708,9 +11755,12 @@
         if (!u) return;
         if (Q.precisaConfirmar(b, 'Excluir '+u.Nome+'?')) return;
         b.disabled = true;
-        Q.post({acao:'excluir', aba:'Usuarios', id:u.ID}).then(function(r){
+        pedirSenhaDe('excluirCadastro', function(s){
+          return Q.post({acao:'excluir', aba:'Usuarios', id:u.ID, senha:s});
+        }).then(function(r){
           b.disabled = false;
-          if (!r || r.ok===false) return Q.toast((r&&r.erro)||'Não consegui excluir.','erro');
+          if (!r) return;
+          if (r.ok===false) return Q.toast(r.erro||'Não consegui excluir.','erro');
           Q.toast(r.aviso || 'Excluído.', r.inativado ? 'erro' : 'ok');
           carregarEquipe();
         }).catch(function(e){ b.disabled=false; Q.toast(e.message,'erro'); });
@@ -12727,6 +12777,230 @@
         '</div>';
   }
 
+  /* ================= UMA SENHA POR OPERACAO =================
+   *
+   * O ESCRITORIO PEDIU SEPARADAS, e a razao e' de controle e nao de forca: quem corrige
+   * um numero errado no lancamento de ontem nao e' necessariamente quem apaga o cadastro
+   * de uma pessoa. Com uma senha so', conceder a primeira era conceder as duas.
+   *
+   * A LISTA VEM DO SERVIDOR, e nao esta' escrita aqui. Escrita aqui, uma operacao nova
+   * nasceria no servidor sem campo nesta tela - ou, pior, com uma chave que
+   * `salvarConfig` recusa, e o erro seria "Configuracao desconhecida" num formulario que
+   * a propria tela acabou de oferecer.
+   *
+   * CADA LINHA DIZ EM QUE PE ESTA: senha propria, ou a geral. E' a resposta que quem
+   * administra vem buscar aqui - nao "qual e' a senha", que ninguem consegue ler de
+   * volta, mas "esta porta ja' tem a sua?". */
+  function desenharSenhasPorOperacao(){
+    var box = document.getElementById('listaSenhasOp');
+    if (!box) return;
+    var ops = (DADOS && DADOS.operacoesComSenha) || [];
+    if (!ops.length) {
+      /* SEM A LISTA, NENHUMA LINHA - e o aviso diz por que. Desenhadas de um palpite,
+         elas ofereceriam campos para chaves que o servidor talvez nao aceite. */
+      box.innerHTML = '<div class="vazio">N\u00e3o deu para carregar as opera\u00e7\u00f5es. ' +
+        'Recarregue a p\u00e1gina.</div>';
+      return;
+    }
+    box.innerHTML = ops.map(function(o){
+      return '<div class="linha-senha-op">' +
+        '<div class="linha-senha-op-txt">' +
+          '<b>' + Q.esc(o.nome) + '</b> ' +
+          (o.propria ? '<span class="tag verde">senha pr\u00f3pria</span>'
+                     : '<span class="tag amarela">usa a geral</span>') +
+          '<div class="sub">' + Q.esc(o.diz) + '</div>' +
+        '</div>' +
+        '<div class="linha-senha-op-btn">' +
+          '<button class="mini acao" type="button" data-senha-op="' + Q.esc(o.id) + '">' +
+            (o.propria ? 'Trocar' : 'Definir') + '</button>' +
+          /* O "VOLTAR A GERAL" SO APARECE EM QUEM TEM SENHA PROPRIA: numa linha que ja'
+             usa a geral ele nao faz nada, e um botao que nao faz nada ensina errado o
+             que os outros fazem. */
+          (o.propria ? '<button class="mini" type="button" data-senha-op-limpar="' +
+                        Q.esc(o.id) + '">Voltar \u00e0 geral</button>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  /* A MARCA LOCAL ACOMPANHA A GRAVACAO. Sem ela a etiqueta continuaria dizendo "usa a
+     geral" depois de a senha propria ter sido cadastrada, ate' alguem recarregar - e
+     quem acabou de cadastrar concluiria que nao pegou, e cadastraria de novo. */
+  function marcarOperacao(id, propria){
+    ((DADOS && DADOS.operacoesComSenha) || []).forEach(function(o){
+      if (o.id === id) o.propria = propria;
+    });
+    desenharSenhasPorOperacao();
+  }
+
+  /* A CHAVE DE CONFIG DE CADA OPERACAO. O servidor manda a lista com `id`, e e' por `id`
+     que a tela fala; a chave e' derivada por uma regra so', aqui, em vez de viajar na
+     rota publica - um nome de coluna da tabela `config` nao acrescenta nada a quem
+     administra, e acrescenta a quem bisbilhota. */
+  function chaveDaOperacao(id){
+    return 'senha' + String(id || '').charAt(0).toUpperCase() + String(id || '').slice(1);
+  }
+
+  /* ================= PEDIR A SENHA DE UMA OPERACAO =================
+   *
+   * UM AJUDANTE SO, e nao um pedido escrito em cada botao. Sao oito lugares: excluir um
+   * lancamento, apagar o que esta' no filtro e excluir cada um dos seis cadastros.
+   * Escrito oito vezes, bastaria um deles esquecer de mandar a senha para aquele botao
+   * responder "Senha incorreta." sem campo nenhum para digitar — a porta trancada e a
+   * chave sem fechadura.
+   *
+   * ELE DIZ QUAL SENHA PEDE, e isto nao e' enfeite: agora ha sete. Sem dizer, quem
+   * administra digita a geral numa operacao que ganhou a sua e conclui que a senha
+   * "parou de funcionar".
+   *
+   * E A SENHA ERRADA NAO FECHA O PEDIDO, mas qualquer outra recusa fecha: a primeira e'
+   * para tentar de novo, e a segunda — "este cadastro tem lancamento no historico" —
+   * nao melhora com outra senha, e um campo insistindo faria parecer que melhora.
+   *
+   * CANCELADO, ELE RESOLVE COM `null`. Sem resolver nada, o botao que ficou desabilitado
+   * antes do pedido ficaria desabilitado para sempre, e a pessoa concluiria que a tela
+   * travou. */
+  function pedirSenhaDe(idOp, enviar){
+    var ops = (DADOS && DADOS.operacoesComSenha) || [];
+    var op = ops.filter(function(o){ return o.id === idOp; })[0];
+    var nome = op ? op.nome : idOp;
+    return new Promise(function(resolve){
+      modal('<h3 style="margin:0 0 4px">' + Q.esc(nome) + '</h3>' +
+        '<div class="sub" style="margin-bottom:12px">' + (op && op.propria
+          ? 'Pede a senha pr\u00f3pria desta opera\u00e7\u00e3o.'
+          : 'Pede a <b>senha geral</b> das opera\u00e7\u00f5es protegidas \u2014 esta opera\u00e7\u00e3o ' +
+            'ainda n\u00e3o tem a sua.') +
+        ' Trocada em <b>Cadastros</b>.</div>' +
+        '<div><label for="senhaOpPede">Senha</label>' +
+          '<input type="password" id="senhaOpPede" autocomplete="current-password"></div>' +
+        '<p class="erro-destrava" id="erroOpPede" hidden></p>' +
+        '<div class="linha-btn" style="margin-top:10px">' +
+          '<button class="btn" type="button" id="btnOpPede">Confirmar</button></div>');
+      var campo = document.getElementById('senhaOpPede');
+      var erro = document.getElementById('erroOpPede');
+      var bt = document.getElementById('btnOpPede');
+      var respondeu = false;
+      function dizer(m){ erro.textContent = m || ''; erro.hidden = !m; }
+      function fechar(r){
+        if (respondeu) return;
+        respondeu = true;
+        fecharModal();
+        resolve(r || null);
+      }
+      /* FECHADO POR FORA TAMBEM RESOLVE. O modal tem o X e o Esc, e so' o botao
+         resolvendo, sair por eles deixaria a promessa pendurada — e com ela o botao
+         desabilitado la' atras. */
+      var cxModal = document.getElementById('modal');
+      /* UMA VEZ SO: o ouvinte e' posto quando ESTE pedido abre, e o proximo fechamento
+         e' o dele. Deixado pendurado, cada pedido de senha somaria um ouvinte, e o
+         decimo fechamento chamaria dez promessas ja' resolvidas. */
+      if (cxModal) cxModal.addEventListener('qFechou', function(){ fechar(null); },
+                                            { once: true });
+      function tentar(){
+        var v = campo.value;
+        if (!v) { dizer('Digite a senha.'); campo.focus(); return; }
+        bt.disabled = true; bt.textContent = 'Conferindo\u2026';
+        dizer('');
+        Promise.resolve(enviar(v)).then(function(r){
+          bt.disabled = false; bt.textContent = 'Confirmar';
+          /* A SENHA NAO FICA NO CAMPO, certa ou errada: a mesma regra do cadeado das
+             colunas e da porta do documento. */
+          campo.value = '';
+          if (r && r.ok === false && r.senhaErrada) { dizer(r.erro); campo.focus(); return; }
+          fechar(r || { ok: false, erro: 'Sem resposta do servidor.' });
+        }).catch(function(e){
+          bt.disabled = false; bt.textContent = 'Confirmar';
+          campo.value = '';
+          dizer('N\u00e3o deu para conferir agora: ' +
+                (e && e.message ? e.message : 'sem conex\u00e3o') + '.');
+        });
+      }
+      bt.addEventListener('click', tentar);
+      campo.addEventListener('keydown', function(e){ if (e.key === 'Enter') tentar(); });
+      Q.olhosDeSenha(document.getElementById('modalBox'));
+      campo.focus();
+    });
+  }
+
+  function trocarSenhaDeUmaOperacao(id){
+    var ops = (DADOS && DADOS.operacoesComSenha) || [];
+    var op = ops.filter(function(o){ return o.id === id; })[0];
+    if (!op) return;
+    modal('<h3 style="margin:0 0 4px">Senha de \u201c' + Q.esc(op.nome) + '\u201d</h3>' +
+      '<div class="sub" style="margin-bottom:12px">Vale s\u00f3 para esta opera\u00e7\u00e3o: ' +
+      Q.esc(op.diz) + '. ' + (op.propria
+        ? 'Ela j\u00e1 tem senha pr\u00f3pria \u2014 esta troca substitui a anterior.'
+        : 'Hoje ela usa a senha geral; a partir daqui vai pedir esta.') + '</div>' +
+      '<div><label for="senhaOp1">Senha nova</label>' +
+        '<input type="password" id="senhaOp1" autocomplete="new-password" minlength="6" ' +
+        'placeholder="pelo menos 6 caracteres"></div>' +
+      '<div style="margin-top:8px"><label for="senhaOp2">Repita a senha nova</label>' +
+        '<input type="password" id="senhaOp2" autocomplete="new-password" minlength="6"></div>' +
+      '<p class="erro-destrava" id="erroOpUma" hidden></p>' +
+      '<div class="linha-btn" style="margin-top:10px">' +
+        '<button class="btn" type="button" id="btnOpUma">Gravar</button></div>');
+    var c1 = document.getElementById('senhaOp1');
+    var c2 = document.getElementById('senhaOp2');
+    var erro = document.getElementById('erroOpUma');
+    var bt = document.getElementById('btnOpUma');
+    function dizer(m){ erro.textContent = m || ''; erro.hidden = !m; }
+    function gravar(){
+      var v = String(c1.value || '');
+      if (v.length < 6) { dizer('A senha precisa de pelo menos 6 caracteres.'); c1.focus(); return; }
+      /* A REPETICAO SO PODE SER CONFERIDA AQUI: o servidor recebe uma senha so', e nao
+         tem como saber se quem digitou errou duas vezes igual ou uma vez diferente. E
+         aqui ela importa mais do que na geral - errada, esta tranca a operacao com uma
+         senha que ninguem sabe, e o jeito de sair e' voltar a geral. */
+      if (v !== String(c2.value || '')) {
+        dizer('As duas n\u00e3o batem. Digite a mesma senha nos dois campos.');
+        c2.focus(); return;
+      }
+      dizer(''); bt.disabled = true; bt.textContent = 'Gravando\u2026';
+      Q.post({ acao:'salvarConfig', chave:chaveDaOperacao(id), valor:v })
+        .then(function(r){
+          bt.disabled = false; bt.textContent = 'Gravar';
+          c1.value = ''; c2.value = '';
+          if (!r.ok) { dizer(r.erro); return; }
+          marcarOperacao(id, true);
+          fecharModal();
+          Q.toast('Senha de \u201c' + op.nome + '\u201d gravada.','ok');
+        }).catch(function(e){
+          bt.disabled = false; bt.textContent = 'Gravar';
+          c1.value = ''; c2.value = '';
+          dizer('N\u00e3o deu para gravar agora: ' +
+                (e && e.message ? e.message : 'sem conex\u00e3o') + '.');
+        });
+    }
+    bt.addEventListener('click', gravar);
+    [c1, c2].forEach(function(c){
+      c.addEventListener('keydown', function(e){ if (e.key === 'Enter') gravar(); });
+    });
+    Q.olhosDeSenha(document.getElementById('modalBox'));
+    c1.focus();
+  }
+
+  function voltarOperacaoAGeral(id){
+    var ops = (DADOS && DADOS.operacoesComSenha) || [];
+    var op = ops.filter(function(o){ return o.id === id; })[0];
+    if (!op) return;
+    if (!confirm('Tirar a senha pr\u00f3pria de \u201c' + op.nome + '\u201d?\n\n' +
+                 'A opera\u00e7\u00e3o volta a pedir a senha geral.')) return;
+    Q.post({ acao:'salvarConfig', chave:chaveDaOperacao(id), valor:'' }).then(function(r){
+      if (!r.ok) return Q.toast(r.erro,'erro');
+      marcarOperacao(id, false);
+      Q.toast('\u201c' + op.nome + '\u201d voltou a pedir a senha geral.','ok');
+    }).catch(function(e){ Q.toast(e.message,'erro'); });
+  }
+
+  document.addEventListener('click', function(e){
+    var t = e.target && e.target.closest ? e.target : null;
+    if (!t) return;
+    var d = t.closest('[data-senha-op]');
+    if (d) return trocarSenhaDeUmaOperacao(d.getAttribute('data-senha-op'));
+    var l = t.closest('[data-senha-op-limpar]');
+    if (l) return voltarOperacaoAGeral(l.getAttribute('data-senha-op-limpar'));
+  });
+
   function trocarSenhaDasOperacoes(){
     var nova = document.getElementById('senhaOpNova');
     var rep = document.getElementById('senhaOpRepete');
@@ -13424,7 +13698,17 @@
   });
 
   function fecharModal(){
-    document.getElementById('modal').classList.remove('aberto');
+    var m = document.getElementById('modal');
+    m.classList.remove('aberto');
+    /* FECHAR AVISA. Ate aqui ninguem precisava saber: todo formulario deste modal
+       terminava no proprio botao. O pedido de SENHA nao — ele e' meio de uma acao que
+       comecou la' fora, com um botao ja' desabilitado esperando resposta, e fechado
+       pelo X, pelo Esc ou pelo fundo esse botao ficaria desabilitado para sempre e a
+       tela pareceria travada.
+       O AVISO VAI NO `#modal`, e nao no `#modalBox`: a linha abaixo reescreve a classe
+       da caixa a cada fechamento, e um ouvinte pendurado nela some junto no dia em que
+       ela for trocada por uma nova. */
+    try { m.dispatchEvent(new CustomEvent('qFechou')); } catch (e) {}
     /* A CAIXA VOLTA AO ESTADO PADRAO. A moldura do telefone troca a classe dela para
        ficar sem recheio e do tamanho do aparelho; deixada assim, o proximo formulario a
        abrir no mesmo lugar nasceria com a largura de um celular. */
