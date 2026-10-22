@@ -2583,23 +2583,76 @@ console.log('\n== painel restrito: so os proprios lancamentos ==');
   (function () {
     var rotaU = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
     var sobrou = (rotaU.match(/L\.recorteProprios\(/g) || []).length;
-    /* SEIS: painel, pendentes, movimentos, conciliacao, lixeira e extrato. A conta e'
-       escrita de proposito — ela e' o tropeco que obriga quem acrescenta uma rota de
-       listagem a lembrar do recorte. */
-    ok((rotaU.match(/L\.recorteLancamentos\(/g) || []).length === 6,
+    /* SETE: painel, pendentes, movimentos, meusLancamentos, conciliacao, lixeira e
+       extrato. Eram seis, e a de fora era `meusLancamentos` — o nome dela me enganou:
+       ela nao e' "so' os meus", honra `UsuariosVistos` como as outras, e e' por ela que
+       a tela Lancamentos do app de campo le'. O gerente de Maceio continuava vendo
+       Natal, Caruaru e Recife ali, com a permissao marcada.
+       A CONTA E ESCRITA DE PROPOSITO: ela e' o tropeco que obriga quem acrescenta uma
+       rota de listagem a lembrar do recorte. */
+    ok((rotaU.match(/L\.recorteLancamentos\(/g) || []).length === 7,
       'as rotas que listam lan\u00e7amento chamam `recorteLancamentos` \u2014 a pe\u00e7a existiria ' +
       'e nada chegaria nela, e a filial seguiria vendo a opera\u00e7\u00e3o inteira',
       (rotaU.match(/L\.recorteLancamentos\(/g) || []).length);
-    /* E SOBROU EXATAMENTE UMA, a de `meusLancamentos`, que fica de fora de proposito:
-       aquela lista e' a da PROPRIA pessoa, e peneirada por unidade um lancamento que ela
-       mesma fez fora da unidade dela sumiria da tela dela. */
-    ok(sobrou === 1 &&
-       rotaU.indexOf('L.recorteProprios(') > rotaU.indexOf("case 'meusLancamentos':") &&
-       rotaU.indexOf('L.recorteProprios(') < rotaU.indexOf("case 'conciliacao':"),
-      'e a \u00fanica que ficou com o recorte antigo \u00e9 a dos lan\u00e7amentos da PR\u00d3PRIA pessoa ' +
-      '\u2014 peneirada por unidade, um lan\u00e7amento que ela mesma fez fora da unidade dela ' +
-      'sumiria da tela dela, e ela n\u00e3o teria onde procur\u00e1-lo', sobrou);
+    /* E NAO SOBROU NENHUMA. A excecao de rota virou uma regra dentro do recorte — o
+       que a PROPRIA pessoa lancou passa sempre —, e com isso `recorteProprios` nao e'
+       mais chamada por rota nenhuma. E' a forma mais forte desta prova: a rota que
+       nascer amanha nao tem como usar a peneira fraca por descuido, porque ela nao
+       esta' mais ao alcance de um copiar-e-colar da rota vizinha. */
+    ok(sobrou === 0,
+      'e NENHUMA rota ficou com o recorte antigo \u2014 a prote\u00e7\u00e3o do que a pr\u00f3pria ' +
+      'pessoa lan\u00e7ou mudou de lugar: ela \u00e9 do LAN\u00c7AMENTO, dentro de `recorteLocais`, e ' +
+      'vale em toda tela sem ningu\u00e9m ter de lembrar', sobrou);
   })();
+
+  /* ---- E O QUE A PROPRIA PESSOA LANCOU NUNCA SOME DA TELA DELA ----
+   *
+   * A primeira versao protegia isso tirando a rota `meusLancamentos` do recorte. Estava
+   * errado por dois motivos, os dois vistos na tela:
+   *
+   *   O NOME DA ROTA ENGANA — ela honra `UsuariosVistos` como as outras, e e' por ela
+   *   que a tela Lancamentos do app de campo le'. Fora do recorte, aquela tela inteira
+   *   passava por fora da permissao.
+   *
+   *   E EXCECAO DE ROTA E' A FORMA ERRADA DE DIZER ISSO. O que se protege nao e' uma
+   *   TELA, e' um LANCAMENTO. Dito como excecao de rota, vale demais numa e de menos
+   *   nas outras — e some no dia em que alguem escrever a oitava.
+   *
+   * O CENARIO: `U-m4` foi lancado por `U-outro` e nao toca Maceio; aqui ele e' lancado
+   * pelo PROPRIO Wellington, e tem de passar. */
+  const MOV_D = MOV_U.slice(0, 3).concat([
+    { ID: 'U-m5', UsuarioID: 'U-well', OrigemID: 'L-matriz', DestinoID: 'L-caruaru' }
+  ]);
+  const dadosD = { movimentos: MOV_D, locais: dadosU.locais, tipos: dadosU.tipos };
+
+  ok(ids(F.recorteLocais(dadosD, { Unidades: ['L-maceio'] })) === 'U-m1,U-m3',
+    'sem dizer de quem \u00e9 a tela, o recorte peneira tudo \u2014 \u00e9 assim que as contas do ' +
+    'painel o chamam: l\u00e1 n\u00e3o h\u00e1 "quem lan\u00e7ou" a proteger, h\u00e1 um recorte a aplicar',
+    ids(F.recorteLocais(dadosD, { Unidades: ['L-maceio'] })));
+
+  ok(ids(F.recorteLocais(dadosD, { Unidades: ['L-maceio'] }, 'U-well')) === 'U-m1,U-m3,U-m5',
+    'e o que a PR\u00d3PRIA pessoa lan\u00e7ou passa sempre, mesmo fora da unidade dela \u2014 ' +
+    'ela fez aquele lan\u00e7amento, e sem isto ele sumiria da tela dela sem ela ter onde ' +
+    'procur\u00e1-lo',
+    ids(F.recorteLocais(dadosD, { Unidades: ['L-maceio'] }, 'U-well')));
+
+  ok(ids(F.recorteLocais(dadosD, { Unidades: ['L-maceio'] }, 'U-nestor')) === 'U-m1,U-m2,U-m3',
+    'e o dono \u00e9 UM s\u00f3: dizendo que a tela \u00e9 do Nestor, \u00e9 o Natal dele que entra e o ' +
+    'Caruaru do Wellington que fica de fora \u2014 a guarda \u00e9 por autor, e n\u00e3o um passe ' +
+    'livre para todo mundo',
+    ids(F.recorteLocais(dadosD, { Unidades: ['L-maceio'] }, 'U-nestor')));
+
+  /* E A CHAMADA UNICA JA' PASSA O DONO. Sem isso, a funcao estaria certa e a rota
+     continuaria peneirando o lancamento da propria pessoa. */
+  const USERS_D = [
+    { ID: 'U-well', Nome: 'Wellington', UsuariosVistos: ['U-nestor', 'U-well'],
+      Unidades: ['L-maceio'] },
+    { ID: 'U-nestor', Nome: 'Nestor' }, { ID: 'U-outro', Nome: 'Outro' }
+  ];
+  ok(ids(F.recorteLancamentos(dadosD, USERS_D, 'U-well')) === 'U-m1,U-m3,U-m5',
+    'e a chamada \u00fanica j\u00e1 passa o dono \u2014 sem isso a fun\u00e7\u00e3o estaria certa e a rota ' +
+    'continuaria sumindo com o lan\u00e7amento da pr\u00f3pria pessoa',
+    ids(F.recorteLancamentos(dadosD, USERS_D, 'U-well')));
 
   /* DE QUEM A PESSOA VE OS LANCAMENTOS: decidido no CADASTRO, e nao no pedido.
    *

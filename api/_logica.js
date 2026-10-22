@@ -1049,15 +1049,34 @@ function recorteProprios(dados, quem) {
  * nova.
  *
  * AS DUAS SE SOMAM, e a ordem nao importa: quem tiver as duas marcadas ve' os
- * lancamentos DAQUELAS pessoas que passaram por AQUELES locais. */
-function recorteLocais(dados, usuario) {
+ * lancamentos DAQUELAS pessoas que passaram por AQUELES locais.
+ *
+ * E O QUE A PROPRIA PESSOA LANCOU NUNCA SOME DA TELA DELA. A primeira versao tirava a
+ * rota `meusLancamentos` do recorte inteiro, para proteger esse caso — e isso estava
+ * errado por dois motivos, os dois descobertos na tela:
+ *
+ *   O NOME DA ROTA ENGANA. Ela nao e' "so' os meus": ela honra `UsuariosVistos` como as
+ *   outras, e e' por ela que a tela Lancamentos do app de campo le'. Fora do recorte, o
+ *   gerente de Maceio continuava vendo Natal, Caruaru, Recife e Joao Pessoa ali — a
+ *   permissao existia e aquela tela passava por fora dela.
+ *
+ *   E EXCECAO DE ROTA E' A FORMA ERRADA DE DIZER ISSO. O que se quer proteger nao e' uma
+ *   TELA, e' um LANCAMENTO: o que a pessoa fez. Dito como excecao de rota, a protecao
+ *   vale demais numa tela e de menos nas outras — e some no dia em que alguem escrever a
+ *   oitava rota. Dito aqui, vale em toda tela, sem ninguem ter de lembrar.
+ *
+ * SEM `dono` ELA PENEIRA TUDO, e e' assim que as contas do painel a chamam: la' nao ha
+ * "quem lancou" a proteger, ha' um recorte a aplicar. */
+function recorteLocais(dados, usuario, dono) {
   var lista = Array.isArray(usuario && usuario.Unidades) ? usuario.Unidades : [];
   if (!lista.length) return dados;
   var querida = {};
   lista.forEach(function (x) { querida[String(x)] = true; });
+  var meu = String(dono == null ? '' : dono).trim();
   var copia = {};
   Object.keys(dados).forEach(function (k) { copia[k] = dados[k]; });
   copia.movimentos = (dados.movimentos || []).filter(function (m) {
+    if (meu && String(m.UsuarioID) === meu) return true;
     return querida[String(m.OrigemID)] || querida[String(m.DestinoID)];
   });
   return copia;
@@ -1073,13 +1092,17 @@ function recorteLocais(dados, usuario) {
  * Com uma chamada so', a rota nova nasce com as duas ou com nenhuma — e nenhuma se ve'
  * na primeira olhada. Uma delas faltando nao se ve' nunca.
  *
- * A EXCECAO ESTA' DITA ONDE ELA MORA: `meusLancamentos` nao passa por aqui, porque
- * aquela lista e' a da PROPRIA pessoa. Peneirada por unidade, um lancamento que ela
- * mesma fez fora da unidade dela sumiria da tela dela. */
+ * NAO HA EXCECAO DE ROTA, e isso foi uma correcao. A primeira versao tirava
+ * `meusLancamentos` daqui para proteger o que a propria pessoa lancou — e com isso a
+ * tela Lancamentos do app de campo ficou inteira fora da permissao: o gerente de Maceio
+ * seguia vendo Natal, Caruaru e Recife ali. A protecao mudou de lugar: ela e' do
+ * LANCAMENTO, dentro de `recorteLocais`, e por isso vale em toda rota sem ninguem ter
+ * de lembrar. */
 function recorteLancamentos(dados, usuarios, quem) {
   return recorteLocais(
     recorteProprios(dados, idsVisiveis(usuarios, quem)),
-    acharUsuario(usuarios, quem));
+    acharUsuario(usuarios, quem),
+    quem);
 }
 
 /**

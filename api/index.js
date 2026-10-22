@@ -205,11 +205,14 @@ async function rotaGet(p) {
          tira TODA declaracao de quem nao tem a aba — inclusive a que a propria pessoa
          mandou —, entao a excecao do dono nunca chegava a ser consultada. Quem tem a
          aba ja podia ver; quem nao tem ve so a propria. */
-      /* E O RECORTE POR UNIDADE NAO ENTRA AQUI, de proposito: esta lista e' a da
-         PROPRIA pessoa. Peneirada por unidade, um lancamento que ela mesma fez fora da
-         unidade dela sumiria da tela dela — e ela nao teria onde procura-lo. */
+      /* ESTA ROTA ESTAVA FORA DO RECORTE POR UNIDADE, e o nome dela foi o que me
+         enganou: ela nao e' "so' os meus" — honra `UsuariosVistos` como as outras,
+         e e' por ela que a tela Lancamentos do app de campo le'. O gerente de Maceio
+         continuava vendo Natal, Caruaru e Recife ali.
+         O QUE ELA PROTEGIA continua protegido, e num lugar melhor: o que a PROPRIA
+         pessoa lancou passa sempre, dentro de `recorteLocais`. */
       var baseMeus = L.recorteBases(
-        L.recorteProprios(d, L.idsVisiveis(d.usuarios, p.quem)),
+        L.recorteLancamentos(d, d.usuarios, p.quem),
         L.acharUsuario(d.usuarios, p.quem));
       var dMeus = L.veDeclaracao(L.acharUsuario(d.usuarios, p.quem))
         ? baseMeus
