@@ -2874,6 +2874,45 @@ details.tipos[open] summary::before{content:"▾"}
 .ap__sig i{width:10px;height:10px;border-radius:3px}
 .ap__sig em{font-style:normal;color:var(--txt3);font-size:12px}
 .ret-nav{display:flex;flex-direction:column;gap:2px}
+
+/* ---------- a tabela de CONFERENCIA, no trilho ----------
+ *
+ * NOVE ABAS, LADO A LADO, com quanto saiu e quanto voltou em cada uma. Ela responde a
+ * pergunta que o escritorio vinha repetindo — "por que ao clicar em cada filtro os
+ * valores dao diferentes?" —, e para responde-la era preciso abrir as nove, anotar e
+ * comparar.
+ *
+ * NO TRILHO, e nao num cartao no meio da tela: ela e' a legenda das abas que estao logo
+ * acima, e longe delas o olho perde a correspondencia entre a linha e o chip.
+ *
+ * NUMEROS TABULARES e alinhados a direita: conferir e' comparar coluna com coluna, e
+ * com digitos de larguras diferentes as casas nao se empilham. */
+.ret-conf{margin-top:14px;padding-top:12px;border-top:1px solid var(--linha)}
+.conf{width:100%;border-collapse:collapse;font-size:11.5px;table-layout:fixed}
+.conf caption{text-align:left;font-size:10px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--txt-fraco);padding-bottom:6px}
+.conf th,.conf td{padding:3px 0;color:var(--txt2);font-weight:400;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conf thead th{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--txt-fraco);border-bottom:1px solid var(--linha);padding-bottom:5px}
+.conf tbody th{text-align:left;padding-right:4px}
+.conf .num{text-align:right;font-variant-numeric:tabular-nums;
+  padding-left:6px;width:52px}
+.conf tbody td{color:var(--txt);font-weight:600}
+/* A LINHA DA ABA ABERTA, para o olho achar onde ele esta' sem contar linhas. */
+.conf tr.conf-aqui th,.conf tr.conf-aqui td{color:#fff;font-weight:700}
+/* A MARCA: `=` quando a lente fecha com Todas, `·` quando e' um recorte. Ela e' o que
+   torna a tabela conferivel de relance — comparar seis digitos linha a linha e' o
+   trabalho que ela existe para poupar. */
+.conf i{font-style:normal;display:inline-block;width:10px;font-weight:700}
+.conf i.conf-ok{color:var(--verde)}
+.conf i.conf-parte{color:var(--txt-fraco)}
+
+/* NO CELULAR O TRILHO VIRA UMA FAIXA DEITADA de chips, e uma tabela de tres colunas
+   nao cabe nela: ali a conferencia sai, e o lugar dela e' o computador, que e' onde o
+   escritorio confere. Escondida e nao encolhida: espremida em 90px ela mostraria
+   numeros cortados, que e' pior do que nao mostrar. */
+@media (max-width:860px){ .ret-conf{display:none} }
 .ret-item{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;
   color:var(--txt2);font-family:inherit;font-size:13px;font-weight:600;text-align:left;
   padding:9px 10px;border-radius:8px;cursor:pointer}

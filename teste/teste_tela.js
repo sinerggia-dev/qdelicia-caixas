@@ -3814,9 +3814,12 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
        medir o uso dela deixa a porta aberta para a lista voltar a `l.tipo` com a prova
        continuando verde — foi o que aconteceu na primeira rodada da sabotagem. */
     var admSC = semComentarios(adm);
-    var corpoLF = fonteDaFuncao(admSC, 'linhasFluxo');
-    ok(corpoLF.indexOf('linhasDoLugar(FLUXO_FILTRO)') > 0 &&
-       corpoLF.indexOf('l.tipo === FLUXO_FILTRO') < 0,
+    /* `linhasDaLente` E NAO `linhasFluxo`: a decisao de cada chip mudou de casa quando
+       a lente virou parametro — foi preciso para a tabela de conferencia perguntar o
+       mesmo das nove abas sem abrir nenhuma. */
+    var corpoLF = fonteDaFuncao(admSC, 'linhasDaLente');
+    ok(corpoLF.indexOf('linhasDoLugar(lente)') > 0 &&
+       corpoLF.indexOf('l.tipo === lente') < 0,
       'a lista do chip sai da regra das duas pontas \u2014 voltando a `l.tipo`, Rotas ' +
       'mostra s\u00f3 o que foi PARA a rota e a perna de volta sai da tela',
       corpoLF.slice(-220));
@@ -3905,15 +3908,25 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
   ok(/saldoFinalDaLinha\(l, false\) < 0/.test(def),
     'o chip "Em déficit" conta pelo Saldo final, que é o número que a tabela mostra',
     def.trim());
-  var peneira = adm.slice(adm.indexOf("if (FLUXO_FILTRO === 'deficit')"),
-                          adm.indexOf("if (FLUXO_FILTRO === 'deficit')") + 220);
+  /* A LENTE VIROU PARAMETRO: a decisao de cada chip mora em `linhasDaLente`, para a
+     tabela de conferencia poder perguntar o mesmo das nove sem abrir nenhuma. */
+  var peneira = adm.slice(adm.indexOf("if (lente === 'deficit')"),
+                          adm.indexOf("if (lente === 'deficit')") + 220);
   ok(/saldoFinalDaLinha\(l, false\) < 0/.test(peneira),
     'e peneira pelo mesmo — contado por uma regra e peneirado por outra, o número no ' +
     'chip promete uma coisa e o clique entrega outra', peneira.slice(0, 90));
 
-  var lf = corpoDe('linhasFluxo');
-  ok(/FLUXO_FILTRO === 'FILIAL'/.test(lf) && lf.indexOf('linhasFiliais') >= 0,
+  /* `linhasDaLente` E NAO `linhasFluxo`: a segunda virou uma linha que delega para a
+     primeira com a aba aberta. A decisao de cada chip mora na que recebe a lente — e'
+     ela que a tabela de conferencia chama nove vezes, uma por aba. */
+  var lf = fonteDaFuncao(adm, 'linhasDaLente');
+  ok(/lente === 'FILIAL'/.test(lf) && lf.indexOf('linhasFiliais') >= 0,
     'e o chip Filiais tem a sua propria lista na tabela', lf.trim());
+  ok(/function linhasFluxo\(\)\{ return linhasDaLente\(FLUXO_FILTRO\); \}/
+       .test(semComentarios(adm).replace(/\s+/g, ' ').replace(/\( \)/g, '()')),
+    'e a aba ABERTA \u00e9 um caso particular da mesma fun\u00e7\u00e3o \u2014 escrita por fora, a tabela ' +
+    'de confer\u00eancia e a tabela de verdade poderiam divergir, e seria a de confer\u00eancia ' +
+    'a mentir');
   ok(lf.indexOf("'GALPAO'") < 0,
     'nao sobrou chip de galpao a parte — um lugar so decide onde a casa aparece', lf.trim());
 
@@ -13817,6 +13830,109 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       { inicial: marcada('inicial'), final: marcada('final') });
   })();
 
+  /* ================= A TABELA DE CONFERENCIA =================
+   *
+   * NOVE ABAS, LADO A LADO, com quanto saiu e quanto voltou em cada uma. Pedida pelo
+   * escritorio depois de uma semana perguntando "por que ao clicar em cada filtro os
+   * valores dao diferentes?" — para responder era preciso abrir as nove, anotar e so'
+   * entao descobrir qual estava errada.
+   *
+   * RODADA, com as lentes de verdade. Lida, a prova nao distinguiria uma tabela que
+   * soma cada lente de uma que repete o total de "Todas" em nove linhas — que e'
+   * exatamente a tabela que sempre fecha, e a unica coisa pior que nao ter conferencia. */
+  (function () {
+    var fonteT = fonteDaFuncao(adm, 'tabelaConferencia');
+    ok(!!fonteT, 'a confer\u00eancia recortou a tabela de confer\u00eancia \u2014 recorte vazio faria ' +
+      'as provas abaixo aprovarem qualquer coisa', fonteT.length);
+
+    /* AS LENTES SAO DE MENTIRA AQUI, mas o que elas devolvem nao: duas que fecham com
+       Todas e uma que e' recorte. Sem a terceira, uma tabela que repetisse o total em
+       todas as linhas passaria. */
+    /* QUATRO LENTES, e cada uma cobre um caso que as outras nao cobrem:
+         `todas` e' a referencia; `ROTA` e' um recorte; `MOTORISTA` fecha por OUTRO
+         caminho — 90+70 e 35+25 —, que e' o que a marca tem de reconhecer; e `USUARIO`
+         acerta a SAIDA e erra o RETORNO, que e' o caso que separa uma marca honesta de
+         uma que olha so' metade da pergunta. Sem ele, `bate = tt.saiu === tTodas.saiu`
+         passa verde. */
+    var LENTES = {
+      todas:      [{ saida: 100, retorno: 40 }, { saida: 60, retorno: 20 }],
+      ROTA:       [{ saida: 100, retorno: 40 }],
+      MOTORISTA:  [{ saida: 90,  retorno: 35 }, { saida: 70, retorno: 25 }],
+      USUARIO:    [{ saida: 160, retorno: 99 }]
+    };
+    var faz = new Function('Q', 'FLUXO_FILTRO', 'linhasDaLente', 'totaisSimples',
+      fonteT + ' return tabelaConferencia;')(
+      { esc: function (x) { return String(x); },
+        num: function (n) { return String(n); } },
+      'ROTA',
+      function (lente) { return LENTES[lente] || []; },
+      function (ls) {
+        return ls.reduce(function (a, l) {
+          return { saiu: a.saiu + l.saida, voltou: a.voltou + l.retorno };
+        }, { saiu: 0, voltou: 0 });
+      });
+
+    var html = faz([{ v: 'todas', r: 'Todas' },
+                    { v: 'ROTA', r: 'Rotas' },
+                    { v: 'MOTORISTA', r: 'Motoristas' },
+                    { v: 'USUARIO', r: 'Usu\u00e1rios' }]);
+
+    ok(html.indexOf('>160<') > 0 && html.indexOf('>60<') > 0,
+      'a linha de Todas traz os dois n\u00fameros da opera\u00e7\u00e3o: 160 que sa\u00edram e 60 que ' +
+      'voltaram', html);
+    ok(html.indexOf('>100<') > 0 && html.indexOf('>40<') > 0,
+      'e cada lente traz os DELA \u2014 repetindo o total de Todas em nove linhas, a tabela ' +
+      'sempre fecharia, e uma confer\u00eancia que sempre fecha \u00e9 pior que nenhuma', html);
+
+    /* A MARCA E DOS DOIS NUMEROS JUNTOS. Motoristas soma 90+70=160 e 35+25=60: fecha
+       com Todas por outro caminho, que e' exatamente o que a marca tem de dizer. */
+    var linhaMot = html.slice(html.indexOf('Motoristas') - 120, html.indexOf('Motoristas'));
+    ok(linhaMot.indexOf('conf-ok') > 0,
+      'Motoristas fecha com Todas por outro caminho \u2014 90+70 e 35+25 \u2014 e ganha a marca: ' +
+      'comparar seis d\u00edgitos linha a linha \u00e9 o trabalho que ela existe para poupar',
+      linhaMot);
+    var linhaRota = html.slice(html.indexOf('Rotas') - 120, html.indexOf('Rotas'));
+    ok(linhaRota.indexOf('conf-parte') > 0 && linhaRota.indexOf('conf-ok') < 0,
+      'e Rotas N\u00c3O ganha \u2014 ela \u00e9 um recorte, e marc\u00e1-la igual ensinaria a ignorar a ' +
+      'marca', linhaRota);
+    var linhaUsu = html.slice(html.indexOf('Usu') - 120, html.indexOf('Usu'));
+    ok(linhaUsu.indexOf('conf-parte') > 0 && linhaUsu.indexOf('conf-ok') < 0,
+      'e quem acerta a Sa\u00edda e erra o Retorno tamb\u00e9m n\u00e3o \u2014 160 iguais e 99 contra 60: ' +
+      'uma marca que olhasse s\u00f3 metade da pergunta diria que fecha o que n\u00e3o fecha, e ' +
+      'essa \u00e9 a mentira mais cara que uma confer\u00eancia pode contar', linhaUsu);
+
+    /* E AS DUAS COLUNAS NA ORDEM. Trocadas, os mesmos digitos continuam na tela e a
+       tabela inteira fica plausivel: cada numero debaixo do titulo do vizinho. */
+    var linTodas = html.slice(html.indexOf('Todas'), html.indexOf('Todas') + 160);
+    ok(linTodas.indexOf('>160<') > 0 &&
+       linTodas.indexOf('>160<') < linTodas.indexOf('>60<'),
+      'e a Sa\u00edda vem ANTES do Retorno em cada linha \u2014 trocadas, os mesmos d\u00edgitos ' +
+      'continuam na tela e a tabela fica plaus\u00edvel, com cada n\u00famero debaixo do t\u00edtulo ' +
+      'do vizinho', linTodas);
+    ok(html.indexOf('>Saiu<') < html.indexOf('>Voltou<'),
+      'e o cabe\u00e7alho diz na mesma ordem', [html.indexOf('>Saiu<'), html.indexOf('>Voltou<')]);
+
+    /* A ABA ABERTA se destaca, para o olho achar onde esta' sem contar linhas. */
+    ok(html.indexOf('conf-aqui') > 0,
+      'e a aba aberta aparece marcada na tabela \u2014 sem isso, quem clicou num chip tem ' +
+      'de contar linhas para achar a dele', html.indexOf('conf-aqui'));
+
+    /* E A TABELA SAI DA MESMA LISTA QUE OS CHIPS, e e' SO' por isso que ela e' uma
+       conferencia: membros e ordem nao podem divergir do que esta' logo acima dela. */
+    var admSC = semComentarios(adm);
+    /* O CHAMADO, e nao a declaracao: `function tabelaConferencia(itens){` contem a
+       MESMA string, e procurar solto fazia a prova achar a assinatura e aprovar uma
+       tela que nunca chama a funcao. Duas sabotagens escaparam por aqui — a que trocava
+       a lista por uma propria e a que apagava o desenho inteiro. */
+    ok(admSC.indexOf('innerHTML = tabelaConferencia(itens)') > 0,
+      'e ela sai da MESMA lista que desenha os chips \u2014 montada sobre uma segunda lista, ' +
+      'ela conferiria a si mesma, e seria ela a mentir');
+    ok(admSC.indexOf("getElementById('retConf')") > 0 &&
+       admSC.indexOf('id="retConf"') > 0,
+      'e tem onde ser desenhada \u2014 uma pe\u00e7a perfeita que ningu\u00e9m chama \u00e9 o defeito ' +
+      'mais repetido deste projeto');
+  })();
+
   var j = adm.indexOf('var t = totaisSimples(linhasVivas());');
   ok(j > 0 && j < i,
     'os totais saem da OPERA\u00c7\u00c3O do per\u00edodo, e n\u00e3o da lista desenhada \u2014 clicar em ' +
@@ -15556,7 +15672,7 @@ console.log('\n== tipos de caixa, e a fileira de quem nao e perna ==');
   ok(adm.indexOf("FORNECEDOR: ['Fornecedor']") > 0,
     'e a primeira coluna troca de título junto — "Origem / destino" não descreve uma ' +
     'lista de fornecedores');
-  ok(/if \(FLUXO_FILTRO === 'FORNECEDOR'\) return p\.fornecedores \|\| \[\];/.test(adm),
+  ok(/if \(lente === 'FORNECEDOR'\) return p\.fornecedores \|\| \[\];/.test(adm),
     'e a lista vem PRONTA do servidor — o fornecedor é texto no lançamento, e a linha ' +
     'de trecho não o carrega: não há de onde somar na tela', adm.indexOf("'FORNECEDOR'"));
   ok(/\{ v:'FORNECEDOR', n:\(pes\.fornecedores\|\|\[\]\)\.length \}/.test(adm),
@@ -15575,7 +15691,7 @@ console.log('\n== tipos de caixa, e a fileira de quem nao e perna ==');
   ok(/\{ v:'TIPOCAIXA', n:linhasPorTipo\(\)\.length \}/.test(adm),
     'e o n\u00famero dele sai da MESMA fun\u00e7\u00e3o que lista \u2014 contado por outro caminho, o chip ' +
     'diria "5" com quatro linhas na tabela embaixo');
-  ok(/if \(FLUXO_FILTRO === 'TIPOCAIXA'\) return linhasPorTipo\(\);/.test(adm),
+  ok(/if \(lente === 'TIPOCAIXA'\) return linhasPorTipo\(\);/.test(adm),
     'e escolher o chip leva \u00e0 lista \u2014 um chip desenhado e sem ramo \u00e9 um bot\u00e3o que n\u00e3o ' +
     'faz nada, que \u00e9 o defeito mais repetido deste painel');
 
@@ -26038,10 +26154,13 @@ console.log('\n== "Em déficit" peneira pelo número que está na tela ==');
    *
    * Este bloco RODA a peneira. Lido no arquivo, o teste não responderia a pergunta que
    * importa — "quais linhas aparecem?" —, e é ela que a pessoa faz olhando a tabela. */
-  var iLF = adm.indexOf('  function linhasFluxo(){');
+  /* `linhasDaLente` E NAO `linhasFluxo`: a lente virou parametro para a tabela de
+     conferencia poder perguntar o mesmo das nove abas sem abrir nenhuma, e a decisao
+     de cada chip mudou de casa junto. O que este bloco mede nao mudou. */
+  var iLF = adm.indexOf('  function linhasDaLente(lente){');
   var fonte = adm.slice(adm.indexOf('  function saldoFinalDaLinha('),
                         adm.indexOf('\n  }', adm.indexOf('  function saldoFinalDaLinha(')) + 4) +
-              adm.slice(iLF, adm.indexOf('\n  }', iLF) + 4);
+              fonteDaFuncao(adm, 'linhasDaLente');
   ok(iLF > 0 && /saldoFinalDaLinha/.test(fonte),
     'o recorte pegou a peneira e a função do saldo final — sem isto o bloco abaixo ' +
     'exercitaria outro código');
@@ -26054,10 +26173,10 @@ console.log('\n== "Em déficit" peneira pelo número que está na tela ==');
   ];
 
   function comFiltro(qual) {
-    return new Function('FLUXO_FILTRO', 'PAINEL', 'linhasVivas', 'linhasFiliais',
-      fonte + '\n return linhasFluxo();')(
-      qual, { fluxoPessoas: { motoristas: [], usuarios: [] } },
-      function () { return DIAS; }, function () { return []; });
+    return new Function('PAINEL', 'linhasVivas', 'linhasFiliais',
+      fonte + '\n return linhasDaLente;')(
+      { fluxoPessoas: { motoristas: [], usuarios: [] } },
+      function () { return DIAS; }, function () { return []; })(qual);
   }
 
   var todas = comFiltro('todas');

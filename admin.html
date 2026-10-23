@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=a0592d52">
+<link rel="stylesheet" href="styles.css?v=a1db9abe">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -645,6 +645,11 @@
              a letra antiga. -->
         <img class="ret-marca" src="logo.png" alt="Qdelícia Frutas" width="243" height="165">
         <div class="ret-nav" id="retNav"></div>
+        <!-- A CONFERENCIA, logo abaixo das abas e na mesma ordem delas: a pergunta que
+             ela responde e' "estes numeros batem?", e para responde-la era preciso abrir
+             as nove, anotar e comparar. Posta aqui, o olho faz a conferencia sem sair
+             da tela e sem perder o lugar. -->
+        <div class="ret-conf" id="retConf"></div>
         <!-- Os botoes ficam no trilho, abaixo dos grupos e colados no rodape dele. Os
              dois primeiros mexem no recorte, os dois ultimos levam a tela embora — a
              linha entre eles separa "mudar o que vejo" de "fazer algo com isto".
@@ -3504,32 +3509,46 @@
 
   function linhasPorTipo(){ return agruparPorTipo(todasAsLinhas()); }
 
-  function linhasFluxo(){
+  /* ================= AS LINHAS DE UMA LENTE QUALQUER =================
+   *
+   * A lente virou PARAMETRO. Ela era lida da global `FLUXO_FILTRO` aqui dentro, e com
+   * isso so' havia como perguntar "o que a aba ABERTA mostra" — a tabela de conferencia
+   * precisa perguntar o mesmo das NOVE, sem abrir nenhuma.
+   *
+   * E PRECISA SER ESTA FUNCAO, e nao uma parecida escrita ao lado: a tabela de
+   * conferencia existe justamente para que o escritorio confira os numeros das abas.
+   * Montada sobre uma segunda regra, ela conferiria a si mesma. */
+  function linhasDaLente(lente){
     var p = (PAINEL && PAINEL.fluxoPessoas) || { motoristas: [], usuarios: [], fornecedores: [] };
-    if (FLUXO_FILTRO === 'MOTORISTA') return p.motoristas;
-    if (FLUXO_FILTRO === 'USUARIO') return p.usuarios;
-    if (FLUXO_FILTRO === 'TIPOCAIXA') return linhasPorTipo();
+    if (lente === 'MOTORISTA') return p.motoristas;
+    if (lente === 'USUARIO') return p.usuarios;
+    if (lente === 'TIPOCAIXA') return linhasPorTipo();
     /* VEM PRONTA DO SERVIDOR, como motorista e usuario: o fornecedor e' TEXTO no
        lancamento, e a linha de trecho nao o carrega — nao ha de onde somar aqui. */
-    if (FLUXO_FILTRO === 'FORNECEDOR') return p.fornecedores || [];
+    if (lente === 'FORNECEDOR') return p.fornecedores || [];
     /* Filial e galpao dividem o mesmo chip, a pedido: na operacao os dois sao a casa —
        o lugar de onde a caixa sai e para onde ela volta —, e separa-los em duas abas
        obrigava a procurar a Filial Maceio em duas listas para saber onde ela estava. */
-    if (FLUXO_FILTRO === 'FILIAL') return linhasFiliais();
+    if (lente === 'FILIAL') return linhasFiliais();
     var vivas = linhasVivas();
-    if (FLUXO_FILTRO === 'todas') return vivas;
+    if (lente === 'todas') return vivas;
     /* PELO NÚMERO QUE ESTÁ NA TELA. Peneirando pelo `saldo`, o filtro trazia linhas com
        Saldo final positivo — certas pela regra dele e impossíveis de conferir olhando.
        A visão de déficit é sempre de locais (ela sai de `linhasVivas`), e por isso o
        `false`: aqui o saldo final é o corrido, o mesmo da coluna. */
-    if (FLUXO_FILTRO === 'deficit') {
+    if (lente === 'deficit') {
       return vivas.filter(function(l){ return saldoFinalDaLinha(l, false) < 0; });
     }
     /* PELAS DUAS PONTAS, e nao por `l.tipo`: ver `TIPOS_DO_CHIP`. Peneirando pelo
        tipo de quem recebeu, a perna de VOLTA de uma rota sumia deste chip e aparecia
        em Unidades — o chip dizia "Rotas" e mostrava metade do que passou por elas. */
-    return linhasDoLugar(FLUXO_FILTRO);
+    return linhasDoLugar(lente);
   }
+
+  /* A ABA ABERTA e' um caso particular: a mesma pergunta, feita da lente que esta' na
+     tela. Escrita por fora, a tabela de conferencia e a tabela de verdade poderiam
+     divergir — e seria a de conferencia a mentir. */
+  function linhasFluxo(){ return linhasDaLente(FLUXO_FILTRO); }
 
   /* Quem não teve nem saída nem retorno no mês fica fora: com a carteira inteira listada
      em zero, as linhas que importam sumiriam no meio. Com uma excecao — quem tem saldo
@@ -4194,6 +4213,49 @@
    * que deixa a fileira ter CINCO CARTOES SO', iguais em toda visao. Com formas
    * diferentes, a tela trocava de desenho conforme o chip, e o rodape era o unico lugar
    * que dizia qual das duas estava valendo. */
+  /* ================= A TABELA DE CONFERENCIA =================
+   *
+   * NOVE ABAS, LADO A LADO, com quanto saiu e quanto voltou em cada uma. Pedida pelo
+   * escritorio, e a razao esta' na pergunta que ele vinha repetindo: "por que ao clicar
+   * em cada um desses filtros os valores dao diferentes?". Para responder era preciso
+   * abrir as nove, anotar e comparar — e so' depois de anotar e' que se descobria qual
+   * delas estava errada.
+   *
+   * AGORA ESTA TUDO NUMA TELA SO. As quatro que sao a operacao inteira — Todas,
+   * Motoristas, Usuarios e Tipos de caixa — tem de mostrar os MESMOS dois numeros. As
+   * outras sao recortes, e mostram menos: e' a resposta delas.
+   *
+   * ELA SAI DA MESMA FUNCAO QUE AS ABAS, `linhasDaLente`, e da mesma `totaisSimples`.
+   * Montada sobre uma segunda regra, ela conferiria a si mesma — e a unica coisa pior
+   * que nao ter conferencia e' ter uma que sempre fecha. */
+  function tabelaConferencia(itens){
+    var tTodas = totaisSimples(linhasDaLente('todas'));
+    var corpo = itens.map(function(c){
+      var tt = totaisSimples(linhasDaLente(c.v));
+      /* IGUAL A "TODAS" GANHA MARCA, e nao cor: a pergunta que esta tabela responde e'
+         "estes batem?", e o olho acha um simbolo repetido numa coluna estreita mais
+         rapido do que compara seis digitos linha a linha.
+         A MARCA E' DOS DOIS NUMEROS JUNTOS: uma lente que acertasse a saida e errasse o
+         retorno nao esta' batendo, e meia marca seria pior do que nenhuma. */
+      var bate = tt.saiu === tTodas.saiu && tt.voltou === tTodas.voltou;
+      var marca = bate
+        ? '<i class="conf-ok" title="' +
+          Q.esc('Igual a Todas: é a operação inteira, vista de outro jeito') +
+          '" aria-label="igual a Todas">=</i>'
+        : '<i class="conf-parte" title="' +
+          Q.esc('Menor que Todas: esta lente é um recorte da operação') +
+          '" aria-label="recorte">·</i>';
+      return '<tr' + (FLUXO_FILTRO === c.v ? ' class="conf-aqui"' : '') + '>' +
+        '<th scope="row">' + marca + Q.esc(c.r) + '</th>' +
+        '<td class="num">' + Q.num(tt.saiu) + '</td>' +
+        '<td class="num">' + Q.num(tt.voltou) + '</td></tr>';
+    }).join('');
+    return '<table class="conf"><caption>Confer\u00eancia</caption><thead><tr>' +
+      '<th scope="col">Lente</th><th scope="col" class="num">Saiu</th>' +
+      '<th scope="col" class="num">Voltou</th></tr></thead>' +
+      '<tbody>' + corpo + '</tbody></table>';
+  }
+
   function totaisSimples(lista){
     var t = { linhas: 0, saiu: 0, voltou: 0, deficit: 0, foraDaMeta: 0 };
     var meta = metaFluxo();
@@ -6806,6 +6868,10 @@
       { v:'TIPOCAIXA', n:linhasPorTipo().length },
       { v:'FORNECEDOR', n:(pes.fornecedores||[]).length }
     ].map(function(c){ c.r = NOMES_GRUPO[c.v]; return c; });
+    /* A CONFERENCIA SAI DA MESMA LISTA QUE OS CHIPS, e e' por isso que ela e' uma
+       conferencia: membros e ordem nao tem como divergir do que esta' logo acima. */
+    var caixaConf = document.getElementById('retConf');
+    if (caixaConf) caixaConf.innerHTML = tabelaConferencia(itens);
     document.getElementById('retNav').innerHTML = itens.map(function(c){
       return '<button type="button" class="ret-item'+(FLUXO_FILTRO===c.v?' ativo':'')+
         '" data-fchip="'+c.v+'"'+
