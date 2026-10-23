@@ -12594,10 +12594,14 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
   var rotulos = (fileira.match(/'([A-Z\u00c0-\u00dd][^']*)'/g) || [])
     .map(function (x) { return x.slice(1, -1); })
     .filter(function (x) { return x.length > 3 && x.indexOf('<') < 0; });
-  ok(rotulos.join(' | ') ===
-     'Total no Estoque | Saiu | Voltou | Caixas que Sa\u00edram e N\u00e3o Voltaram | Taxa de Retorno',
+  /* O QUARTO ROTULO MUDOU com o cartao: "Caixas que Sairam e Nao Voltaram" virou
+     "Saldo", a pedido. A ordem continua sendo a do ciclo. */
+  ok(rotulos.slice(0, 3).join(' | ') === 'Total no Estoque | Saiu | Voltou' &&
+     rotulos[3] === 'Saldo' &&
+     rotulos.indexOf('Taxa de Retorno') > 3,
     'e eles contam o ciclo na ordem em que ele acontece: quanto eu tenho, quanto saiu, ' +
-    'quanto voltou, quanto falta, e a taxa que mede isso contra a meta', rotulos);
+    'quanto voltou, o saldo entre os dois, e a taxa que mede isso contra a meta',
+    rotulos);
 
   /* --- uma cor por indicador ----------------------------------------------
      Pintados por SEVERIDADE, quatro dos cinco ficavam verdes e a faixa virava uma
@@ -12668,17 +12672,102 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'e a nota explica POR QUE os dois diferem \u2014 a transfer\u00eancia entre casas nossas de ' +
     'um lado, a lente que alcan\u00e7a s\u00f3 parte do outro: sem o porqu\u00ea, a diferen\u00e7a parece ' +
     'defeito e algu\u00e9m vai "consertar" o n\u00famero certo', corpoNota.slice(0, 200));
-  /* O RODAPE DO DEFICIT E O UNICO LUGAR QUE EXPLICA POR QUE A SUBTRACAO NAO FECHA.
-     Com 'saiu' e 'voltou' um ao lado do outro, toda gente faz a conta de cabeca — e
-     acha um terceiro numero. O deficit e somado TRECHO A TRECHO: uma rota que devolveu
-     a mais nao abate o atraso de outra. Sem a frase, o numero certo parece defeito, e
-     o escritorio ja apontou exatamente isso: 21.549 contra 27.518 menos 15.510. */
-  var cDef = fileira.slice(fileira.indexOf("'Caixas que Saíram e Não Voltaram'"));
-  cDef = cDef.slice(0, cDef.indexOf('COR_TILE.'));
-  ok(/trecho a trecho/.test(cDef),
-    'e o rodapé do déficit diz que ele é somado TRECHO A TRECHO — com "saiu" e "voltou" ' +
-    'ao lado, todo mundo faz a subtração de cabeça e acha um terceiro número; sem a ' +
-    'frase, o valor certo parece defeito', cDef.trim());
+  /* O CARTAO DO DEFICIT VIROU SALDO, a pedido, e esta prova cobrava o rodape dele.
+     O deficit era somado TRECHO A TRECHO — so' os caminhos com atraso, sem deixar que um
+     com sobra abatesse o de outro — e tinha uma logica de COBRANCA. Mas ele nao fechava
+     com nada na tela: nem com a subtracao dos dois cartoes ao lado, nem com a coluna
+     Saldo Final logo abaixo. O rodape existia para DEFENDER a diferenca, e um paragrafo
+     defendendo um numero e' um numero que ja' perdeu.
+     AGORA O CARTAO E RETORNO MENOS SAIDA, e ele FECHA pelos dois caminhos. */
+  var cSaldo = fileira.slice(fileira.indexOf("'Saldo'"));
+  cSaldo = cSaldo.slice(0, cSaldo.indexOf('COR_TILE.') + 40);
+  ok(fileira.indexOf("'Saldo'") > 0 &&
+     cSaldo.indexOf('Retorno menos Sa') > 0,
+    'o cartão diz que é Retorno menos Saída — era "Caixas que Saíram e Não Voltaram", ' +
+    'somado trecho a trecho, e não fechava nem com a subtração dos dois cartões ao ' +
+    'lado nem com a coluna Saldo Final logo abaixo', cSaldo.slice(0, 200));
+  ok(cSaldo.indexOf('a soma da coluna Saldo Final') > 0,
+    'e diz que é a soma da coluna Saldo Final — quem confere chega nele por dois ' +
+    'caminhos, e era de um terceiro número sem caminho nenhum que a tela sofria',
+    cSaldo.slice(0, 200));
+  /* SEM OS COMENTARIOS. O rotulo antigo aparece no COMENTARIO que explica a troca, e a
+     prova o achava ali e reprovava o codigo certo. E' a quinta vez nesta semana que uma
+     prova minha le' a prosa que defende o codigo como se fosse o codigo — a regra ja'
+     esta escrita noutra bancada, e agora vale aqui tambem. */
+  ok(semComentarios(fileira).indexOf('Caixas que Sa') < 0,
+    'e o rótulo antigo saiu junto — mantido sobre uma subtração, ele seria o nome de uma ' +
+    'conta sobre o resultado de outra');
+
+  /* ---- O CARTAO RODADO, E NAO LIDO ----
+   *
+   * TRES SABOTAGENS ESCAPARAM DAQUI: o cartao voltando a mostrar o deficit, o sinal
+   * invertido, e o zero ganhando sinal. As provas acima liam o ROTULO e o RODAPE — o
+   * texto que explica o numero — e nenhuma tocava no numero. Trocado o calculo e
+   * mantido o texto, a bancada inteira passava.
+   *
+   * ENTAO ESTA EXECUTA A EXPRESSAO DO CARTAO, com `tileCor` de mentira para apanhar o
+   * que ela entrega, e faz a conta na mao do outro lado. E a mesma tecnica da prova da
+   * calculadora, logo abaixo, pelo mesmo motivo. */
+  (function () {
+    var marca = 'tileCor((t.voltou - t.saiu === 0';
+    var iC = adm.indexOf(marca);
+    var prof = 0, k = adm.indexOf('(', iC), fim = -1;
+    for (; k < adm.length && iC > 0; k++) {
+      if (adm[k] === '(') prof++;
+      else if (adm[k] === ')' && --prof === 0) { fim = k + 1; break; }
+    }
+    ok(iC > 0 && fim > 0, 'o cart\u00e3o do Saldo continua sendo uma express\u00e3o que d\u00e1 para rodar ' +
+      '\u2014 sem isto n\u00e3o h\u00e1 como medir o n\u00famero dele, s\u00f3 o texto ao redor', { iC: iC, fim: fim });
+    if (iC < 0 || fim < 0) return;
+    var f = new Function('t', 'Q', 'COR_TILE', 'tileCor', 'janelaDoPainel',
+      'return ' + adm.slice(iC, fim) + ';');
+    function roda(saiu, voltou) {
+      var pego = null;
+      f({ saiu: saiu, voltou: voltou, deficit: 999999 },
+        { num: function (n) { return String(n); } },
+        { fora: 'COR_FORA' },
+        function (valor, rotulo, pe, cor) {
+          pego = { valor: String(valor), rotulo: rotulo, pe: String(pe), cor: cor };
+        },
+        function () { return 'janela'; });
+      return pego;
+    }
+    var MENOS = String.fromCharCode(0x2212);
+
+    /* VOLTOU MENOS QUE SAIU: o caso que o escritorio olha primeiro. */
+    var neg = roda(100, 40);
+    ok(neg && neg.valor === MENOS + '60',
+      'voltaram 40 das 100 que sa\u00edram e o cart\u00e3o diz \u2212\u00a060 \u2014 \u00e9 Retorno menos Sa\u00edda, ' +
+      'a conta que qualquer um refaz de cabe\u00e7a com os dois n\u00fameros ao lado', neg);
+    ok(neg && neg.valor.indexOf('999999') < 0,
+      'e N\u00c3O \u00e9 mais o d\u00e9ficit somado trecho a trecho \u2014 aquele n\u00famero n\u00e3o fechava nem ' +
+      'com a subtra\u00e7\u00e3o dos cart\u00f5es ao lado nem com a coluna Saldo Final', neg);
+    ok(neg && neg.cor === 'var(--vermelho)',
+      'e falta caixa, ent\u00e3o ele est\u00e1 vermelho', neg);
+
+    /* VOLTOU MAIS DO QUE SAIU: acontece quando a devolucao de um periodo anterior cai
+       dentro da janela. O sinal tem de dizer SOBRA, e nao falta. */
+    var pos = roda(40, 100);
+    ok(pos && pos.valor === '+60',
+      'voltaram 100 das 40 que sa\u00edram e o cart\u00e3o diz +\u00a060 \u2014 com o sinal trocado, uma ' +
+      'sobra apareceria como d\u00edvida e algu\u00e9m sairia cobrando caixa que j\u00e1 voltou', pos);
+    ok(pos && pos.cor === 'COR_FORA',
+      'e sobra n\u00e3o \u00e9 vermelho \u2014 pintar de vermelho um saldo positivo ensina a ignorar ' +
+      'a cor, e ela precisa querer dizer uma coisa s\u00f3: h\u00e1 caixa fora', pos);
+
+    /* FECHOU: o unico caso em que o numero nao leva sinal nenhum. */
+    var zero = roda(50, 50);
+    ok(zero && zero.valor === '0',
+      'saiu 50 e voltou 50, e o cart\u00e3o diz 0 \u2014 sem sinal: "\u22120" se l\u00ea como ' +
+      'd\u00edvida de zero, e fechar a conta \u00e9 justamente a resposta boa', zero);
+    ok(zero && zero.cor === 'COR_FORA', 'e fechado n\u00e3o \u00e9 vermelho', zero);
+
+    /* O RODAPE SO AVISA QUANDO HA O QUE AVISAR. */
+    ok(neg && neg.pe.indexOf('saiu mais do que voltou') > 0 &&
+       pos.pe.indexOf('saiu mais do que voltou') < 0,
+      'e o rodap\u00e9 diz "saiu mais do que voltou" s\u00f3 quando saiu \u2014 dito sempre, ele deixa ' +
+      'de ser aviso e vira enfeite', { neg: neg && neg.pe, pos: pos && pos.pe });
+  })();
 
   /* ESTA PROVA DIZIA QUE O RODAPE TROCAVA DE DONO com a aba — "por motorista", "por
      tipo de caixa" — e isso valia enquanto o NUMERO tambem trocava. Era o defeito: a
@@ -13301,7 +13390,12 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      ficaria parado enquanto os outros mudam — e seria o unico errado, sem dizer.
      O ESTOQUE FICA DE FORA de proposito: ele sai do razao, e nao do fluxo do periodo —
      e o rodape dele avisa. */
-  var soltos = ['saiu', 'voltou', 'deficit'].filter(function (c) {
+  /* `deficit` SAIU DESTA CONTA porque saiu da fileira: o cartao dele virou SALDO, a
+     pedido. O deficit continua calculado e continua sendo o chip "Em deficit" da lista
+     lateral, que e' onde ele responde a pergunta dele — QUAIS caminhos devem.
+     E O SALDO NAO ENTRA AQUI PELO MESMO MOTIVO QUE OS OUTROS: ele nao e' um campo de
+     `t`, e' a subtracao dos dois que estao. Quem o cobra e' a prova logo acima. */
+  var soltos = ['saiu', 'voltou'].filter(function (c) {
     return fileira.indexOf('Q.num(t.' + c + ')') < 0;
   });
   ok(!soltos.length,

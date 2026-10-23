@@ -7248,13 +7248,35 @@
         Q.caminhao(t.saiu ? Math.max(0, Math.min(4,
           Math.round(t.voltou / t.saiu * 4))) : 0)+'</div>')+
 
-      /* ESTE NUMERO NAO E "SAIU MENOS VOLTOU", e o rodape diz isso com todas as letras.
-         Ele e' somado TRECHO A TRECHO: uma rota que devolveu a mais nao abate o atraso de
-         outra, porque sao duas cobrancas diferentes. Sem o aviso, quem faz a subtracao
-         de cabeca — e todo mundo faz, com os dois numeros ali do lado — acha um terceiro
-         valor e conclui que a tela errou. */
-      tileCor(Q.num(t.deficit), 'Caixas que Saíram e Não Voltaram',
-        'somado trecho a trecho · '+janelaDoPainel(), COR_TILE.fora,
+      /* ================= O SALDO, E NAO MAIS O DEFICIT =================
+       *
+       * ERA "Caixas que Sairam e Nao Voltaram", somado TRECHO A TRECHO: so' os caminhos
+       * com atraso, sem deixar que um caminho com sobra abatesse o de outro. A conta
+       * tinha uma logica de COBRANCA — sao dividas diferentes, e somadas antes de
+       * comparar elas se escondem uma atras da outra.
+       *
+       * MAS ELA NAO FECHAVA COM NADA NA TELA. Com "Saiu" e "Voltou" um ao lado do outro,
+       * todo mundo faz a subtracao de cabeca e acha outro numero; e a coluna Saldo Final
+       * da tabela, logo abaixo, somava um terceiro. Tres numeros para a mesma pergunta,
+       * e o rodape explicando por que o do meio era diferente — um paragrafo defendendo
+       * um numero e' um numero que ja' perdeu.
+       *
+       * AGORA E RETORNO MENOS SAIDA, a pedido, e ele FECHA: e' a soma da coluna Saldo
+       * Final da tabela, e e' a subtracao dos dois cartoes ao lado. Quem confere com a
+       * calculadora chega nele por dois caminhos.
+       *
+       * O DEFICIT NAO SE PERDEU: ele continua sendo calculado e e' o chip "Em deficit"
+       * da lista lateral, que e' onde ele responde a pergunta dele — QUAIS caminhos
+       * devem —, em vez de um total que ninguem consegue reproduzir. */
+      tileCor((t.voltou - t.saiu === 0 ? '0'
+               : (t.voltou > t.saiu ? '+' : '\u2212') + Q.num(Math.abs(t.voltou - t.saiu))),
+        'Saldo',
+        'Retorno menos Sa\u00edda \u00b7 a soma da coluna Saldo Final' +
+        (t.voltou < t.saiu ? ' \u00b7 saiu mais do que voltou' : ''),
+        /* VERMELHO SO NO NEGATIVO, como no estoque: pintar de vermelho um saldo positivo
+           ensinaria a ignorar a cor, e ela tem de querer dizer uma coisa so' — ha' caixa
+           fora. */
+        t.voltou < t.saiu ? 'var(--vermelho)' : COR_TILE.fora,
         '<div class="desenho desenho--fora"><span class="via"></span><span class="casa"></span>'+
         '<span class="tenta"></span><span class="la"><i></i><i></i><i></i></span></div>')+
 
