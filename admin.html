@@ -3525,7 +3525,10 @@
     if (FLUXO_FILTRO === 'deficit') {
       return vivas.filter(function(l){ return saldoFinalDaLinha(l, false) < 0; });
     }
-    return vivas.filter(function(l){ return l.tipo === FLUXO_FILTRO; });
+    /* PELAS DUAS PONTAS, e nao por `l.tipo`: ver `TIPOS_DO_CHIP`. Peneirando pelo
+       tipo de quem recebeu, a perna de VOLTA de uma rota sumia deste chip e aparecia
+       em Unidades — o chip dizia "Rotas" e mostrava metade do que passou por elas. */
+    return linhasDoLugar(FLUXO_FILTRO);
   }
 
   /* Quem não teve nem saída nem retorno no mês fica fora: com a carteira inteira listada
@@ -3550,9 +3553,60 @@
    * dois lugares: o chip "Unidades" e, agora, o seletor de unidade. O dia em que entrar
    * um terceiro tipo de casa, ela entraria num e ficaria faltando no outro — e o chip
    * contaria uma coisa com o seletor oferecendo outra. */
+  /* ================= QUE LOCAIS CADA CHIP DE LUGAR JUNTA =================
+   *
+   * Escrito uma vez, e lido pelos tres. Antes so' Unidades tinha regra propria — e era
+   * a unica CERTA: Rotas e Clientes peneiravam por `l.tipo`, que e' o tipo de quem
+   * RECEBEU a carga. Com isso a perna de VOLTA sumia deles: a devolucao da Rota Norte
+   * para a Matriz tem `tipo` = GALPAO, entao ela aparecia em Unidades e NAO em Rotas.
+   * O chip dizia "Rotas" e mostrava so' metade do que passou pelas rotas.
+   *
+   * MEDIDO, com um local de cada tipo: das 630 caixas que sairam, 480 nao apareciam em
+   * recorte nenhum — nem Rotas, nem Unidades, nem Clientes. Eram as pernas que saem de
+   * uma rota e as que vao para um local que nao e' casa nossa. Estavam em "Todas" e em
+   * mais lugar nenhum, e e' por isso que os numeros dos chips nao se explicavam.
+   *
+   * A MESMA DECISAO JA ESTAVA ESCRITA aqui ao lado, quando Unidades foi consertada:
+   * "AS DUAS PONTAS, e nao so' quem recebeu". Ela valia para os tres e foi aplicada a
+   * um. Agora os tres leem o mesmo mapa. */
+  var TIPOS_DO_CHIP = { ROTA: ['ROTA'], CLIENTE: ['CLIENTE'], FILIAL: ['GALPAO', 'FILIAL'] };
+
   function ehTipoDeUnidade(tipo){
     var t = String(tipo == null ? '' : tipo).toUpperCase();
-    return t === 'GALPAO' || t === 'FILIAL';
+    return TIPOS_DO_CHIP.FILIAL.indexOf(t) >= 0;
+  }
+
+  /* OS NOMES DE UM TIPO DE LOCAL, lidos do CADASTRO e nao das linhas — ver a razao
+     escrita em `nomesDeUnidade`, logo abaixo, que agora e' um caso particular deste. */
+  function nomesDoTipo(quais){
+    var fora = {};
+    ((DADOS && DADOS.locais) || []).forEach(function(l){
+      if (!l.Nome) return;
+      if (quais.indexOf(String(l.Tipo == null ? '' : l.Tipo).toUpperCase()) >= 0) {
+        fora[l.Nome] = 1;
+      }
+    });
+    return fora;
+  }
+
+  /* AS PONTAS DA LINHA QUE SAO DAQUELE TIPO — origem E destino, nas duas direcoes. */
+  function pontasDoTipo(l, quais){
+    var sao = nomesDoTipo(quais);
+    var fora = [], visto = {};
+    (l.origens || []).concat(l.destinos || []).forEach(function(n){
+      if (!n || !sao[n] || visto[n]) return;
+      visto[n] = 1;
+      fora.push(n);
+    });
+    return fora;
+  }
+
+  /* AS LINHAS DE UM CHIP DE LUGAR. Uma funcao para os tres: escritas separadas, elas ja'
+     tinham divergido uma vez, e o conserto alcancou so' a que alguem estava olhando. */
+  function linhasDoLugar(chip){
+    var quais = TIPOS_DO_CHIP[chip];
+    if (!quais) return [];
+    return todasAsLinhas().filter(function(l){ return pontasDoTipo(l, quais).length > 0; });
   }
 
   /* Filial e galpao: as duas casas, num chip so. O tipo da linha e o de quem RECEBEU a
@@ -3566,21 +3620,13 @@
    * O filtro de unidade do alto da tela ja casava nos dois lados, e a coluna Unidade
    * tambem — era o chip o unico dos tres com regra propria. Agora os tres leem
    * `unidadesDaLinha`, que e' a mesma pergunta feita uma vez so'. */
-  function linhasFiliais(){
-    return todasAsLinhas().filter(function(l){ return unidadesDaLinha(l).length > 0; });
-  }
+  function linhasFiliais(){ return linhasDoLugar('FILIAL'); }
 
   /* OS NOMES DAS UNIDADES, lidos do CADASTRO e nao das linhas: a linha sabe o tipo de
      quem RECEBEU, e nao o de quem mandou — uma unidade que so' aparece como origem no
      periodo ficaria de fora do seletor, que e' justamente a que se quer olhar quando se
      pergunta "o que saiu de la'?". */
-  function nomesDeUnidade(){
-    var fora = {};
-    ((DADOS && DADOS.locais) || []).forEach(function(l){
-      if (ehTipoDeUnidade(l.Tipo) && l.Nome) fora[l.Nome] = 1;
-    });
-    return fora;
-  }
+  function nomesDeUnidade(){ return nomesDoTipo(TIPOS_DO_CHIP.FILIAL); }
 
   /* ================= A PERNA E INTERNA, OU CRUZOU A FRONTEIRA =================
    *
@@ -6713,11 +6759,13 @@
     /* Os rotulos saem de NOMES_GRUPO — a mesma lista que o botao de recolher le. */
     var itens = [
       { v:'todas',     n:vivas.length },
-      { v:'ROTA',      n:conta('ROTA') },
+      /* PELA MESMA REGRA DA LISTA. Quem conta e quem lista tem de ser a mesma
+         pergunta — contadas de outro jeito, o chip diz um numero e abre outro. */
+      { v:'ROTA',      n:linhasDoLugar('ROTA').length },
       /* CASAS, e nao linhas: o chip abre uma lista de casas, e o numero diz quantas
          sao. Contando linhas, ele repetia o numero de "Todas" e nao dizia nada. */
       { v:'FILIAL',    n:agruparFluxo(linhasFiliais(), 'unidade').length },
-      { v:'CLIENTE',   n:conta('CLIENTE') },
+      { v:'CLIENTE',   n:linhasDoLugar('CLIENTE').length },
       { v:'deficit',   n:linhasDeficit() },
       { v:'MOTORISTA', n:pes.motoristas.length },
       { v:'USUARIO',   n:pes.usuarios.length },
@@ -7399,16 +7447,7 @@
    * E NA ORDEM EM QUE APARECEM, origem antes de destino: ordenada por nome, a coluna
    * diria "Filial Maceió · Matriz" numa linha e "Filial Maceió · Matriz" na linha de
    * volta — as duas iguais, com a carga indo em sentidos opostos. */
-  function unidadesDaLinha(l){
-    var saoUnidade = nomesDeUnidade();
-    var fora = [], visto = {};
-    (l.origens || []).concat(l.destinos || []).forEach(function(n){
-      if (!n || !saoUnidade[n] || visto[n]) return;
-      visto[n] = 1;
-      fora.push(n);
-    });
-    return fora;
-  }
+  function unidadesDaLinha(l){ return pontasDoTipo(l, TIPOS_DO_CHIP.FILIAL); }
 
   function lugares(nomes){
     if (!nomes || !nomes.length) return '<span class="fraco">—</span>';

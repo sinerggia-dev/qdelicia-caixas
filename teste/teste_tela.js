@@ -3711,12 +3711,133 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
      perguntam a ela. Escrita solta nos dois, o dia em que entrasse um terceiro tipo de
      casa ela entraria num e ficaria faltando no outro — e o chip contaria uma coisa com
      o seletor oferecendo outra. */
-  var lfi = corpoDe('linhasFiliais');
-  ok(/unidadesDaLinha\(l\)/.test(lfi),
-    'o chip Unidades pergunta a MESMA regra que a coluna Unidade e o filtro de ' +
-    'unidade já perguntavam — as três respondem "que casas esta linha toca", e ' +
-    'escritas em separado o chip conta uma coisa com a tabela listando outra',
-    lfi.trim());
+  /* ================= OS TRES CHIPS DE LUGAR, RODADOS =================
+   *
+   * ESTA PROVA LIA O NOME DA CHAMADA: exigia que `linhasFiliais` citasse
+   * `unidadesDaLinha(l)`. Ela defendia a regra certa — "o chip pergunta o mesmo que a
+   * coluna e o filtro" — mas cobrava a GRAFIA dela, e por isso nao tinha nada a dizer
+   * sobre os outros dois chips, que perguntavam outra coisa.
+   *
+   * O ESCRITORIO PEDIU PARA CONFERIR AS ROTAS. Rotas e Clientes peneiravam por
+   * `l.tipo`, que e' o tipo de quem RECEBEU a carga: a perna de VOLTA de uma rota tem
+   * tipo GALPAO, entao ela aparecia em Unidades e NAO em Rotas. O chip dizia "Rotas" e
+   * mostrava metade do que passou por elas.
+   *
+   * E HAVIA LINHA EM RECORTE NENHUM. Medido com um local de cada tipo: das 630 caixas
+   * que sairam, 480 nao estavam em Rotas, nem em Unidades, nem em Clientes. Estavam em
+   * "Todas" e em mais lugar nenhum — e era por isso que os numeros dos chips nao se
+   * explicavam uns contra os outros. */
+  (function () {
+    var fonteChip = (adm.match(/var TIPOS_DO_CHIP = \{[^}]*\};/) || [''])[0];
+    ok(!!fonteChip, 'a confer\u00eancia achou o mapa de tipos dos chips \u2014 sem ele as provas ' +
+      'abaixo passariam sem rodar nada', fonteChip);
+
+    var LOCAIS = [
+      { Nome: 'Matriz',  Tipo: 'GALPAO' },
+      { Nome: 'Filial',  Tipo: 'FILIAL' },
+      { Nome: 'Cliente', Tipo: 'CLIENTE' },
+      { Nome: 'Rota',    Tipo: 'ROTA' },
+      { Nome: 'Fornec',  Tipo: 'FORNECEDOR' },
+      { Nome: 'SemTipo', Tipo: '' }
+    ];
+    /* UM TRECHO PARA CADA TIPO DE DESTINO, e dois que saem de uma rota: sao justamente
+       as pernas que nenhum chip alcancava. */
+    var LINHAS = [
+      { id: 'A', origens: ['Matriz'], destinos: ['Rota'],    tipo: 'ROTA',       saida: 10 },
+      { id: 'B', origens: ['Matriz'], destinos: ['Cliente'], tipo: 'CLIENTE',    saida: 20 },
+      { id: 'C', origens: ['Matriz'], destinos: ['Filial'],  tipo: 'FILIAL',     saida: 40 },
+      { id: 'D', origens: ['Matriz'], destinos: ['Fornec'],  tipo: 'FORNECEDOR', saida: 80 },
+      { id: 'E', origens: ['Rota'],   destinos: ['Fornec'],  tipo: 'FORNECEDOR', saida: 160 },
+      { id: 'F', origens: ['Rota'],   destinos: ['Matriz'],  tipo: 'GALPAO',     saida: 320 }
+    ];
+    var api = new Function('DADOS', 'todasAsLinhas',
+      fonteChip + String.fromCharCode(10) +
+      fonteDaFuncao(adm, 'ehTipoDeUnidade') + String.fromCharCode(10) +
+      fonteDaFuncao(adm, 'nomesDoTipo') + String.fromCharCode(10) +
+      fonteDaFuncao(adm, 'pontasDoTipo') + String.fromCharCode(10) +
+      fonteDaFuncao(adm, 'linhasDoLugar') + String.fromCharCode(10) +
+      fonteDaFuncao(adm, 'unidadesDaLinha') + String.fromCharCode(10) +
+      fonteDaFuncao(adm, 'linhasFiliais') + String.fromCharCode(10) +
+      ' return { doLugar: linhasDoLugar, filiais: linhasFiliais,' +
+      '          unidades: unidadesDaLinha };')(
+      { locais: LOCAIS }, function () { return LINHAS; });
+
+    function ids(ls) { return ls.map(function (l) { return l.id; }).sort().join(''); }
+
+    /* 1. A PERNA DE VOLTA DE UMA ROTA ESTA EM ROTAS. Era esta que sumia. */
+    ok(ids(api.doLugar('ROTA')) === 'AEF',
+      'o chip Rotas pega as DUAS pontas \u2014 o que foi PARA a rota e o que saiu DELA. ' +
+      'Peneirando pelo tipo de quem recebeu, a devolu\u00e7\u00e3o da rota para a Matriz tem tipo ' +
+      'GALP\u00c3O: ela aparecia em Unidades e n\u00e3o em Rotas, e o chip mostrava metade do que ' +
+      'passou pelas rotas', ids(api.doLugar('ROTA')));
+
+    ok(ids(api.doLugar('CLIENTE')) === 'B',
+      'e Clientes segue a mesma regra \u2014 escrita s\u00f3 num dos tr\u00eas, ela j\u00e1 tinha ' +
+      'divergido uma vez', ids(api.doLugar('CLIENTE')));
+
+    ok(ids(api.doLugar('FILIAL')) === 'ABCDF',
+      'e Unidades continua como estava \u2014 ela j\u00e1 era a \u00fanica certa, e o conserto n\u00e3o ' +
+      'pode cobrar o pre\u00e7o dela', ids(api.doLugar('FILIAL')));
+
+    /* 2. OS TRES SAO A MESMA FUNCAO. Separadas, elas divergem — foi o que aconteceu. */
+    ok(ids(api.filiais()) === ids(api.doLugar('FILIAL')),
+      'o chip Unidades pergunta a MESMA regra que os outros dois e que o filtro de ' +
+      'unidade \u2014 escritas em separado, o chip conta uma coisa com a tabela listando outra',
+      ids(api.filiais()));
+    ok(api.unidades(LINHAS[5]).join(',') === 'Matriz',
+      'e a coluna Unidade l\u00ea a mesma pergunta, nas duas pontas', api.unidades(LINHAS[5]));
+
+    /* 3. NADA FICA EM "TODAS" E EM RECORTE NENHUM. E' a conta que o escritorio fez com
+       os chips na mao, e a que nao fechava. */
+    var cobertas = {};
+    ['ROTA', 'CLIENTE', 'FILIAL'].forEach(function (c) {
+      api.doLugar(c).forEach(function (l) { cobertas[l.id] = 1; });
+    });
+    /* 4. A CAIXA DA LETRA NAO DECIDE NADA. O tipo e' texto digitado no cadastro, e
+       comparar cru deixaria uma rota gravada como "Rota" fora do chip Rotas — fora de
+       TODOS os chips, porque nenhum outro a reclamaria. */
+    var apiMinusculo = new Function('DADOS', 'todasAsLinhas',
+      fonteChip + String.fromCharCode(10) +
+      fonteDaFuncao(adm, 'nomesDoTipo') + String.fromCharCode(10) +
+      fonteDaFuncao(adm, 'pontasDoTipo') + String.fromCharCode(10) +
+      fonteDaFuncao(adm, 'linhasDoLugar') + String.fromCharCode(10) +
+      ' return linhasDoLugar;')(
+      { locais: [{ Nome: 'Rota', Tipo: 'rota' }] },
+      function () { return [LINHAS[0]]; });
+    ok(apiMinusculo('ROTA').length === 1,
+      'e a caixa da letra do cadastro n\u00e3o decide nada \u2014 uma rota gravada como "rota" ' +
+      'ficaria fora do chip Rotas, e fora de TODOS, porque nenhum outro a reclamaria',
+      apiMinusculo('ROTA').length);
+
+    /* 5. E A TELA CHAMA ESTA REGRA, nos tres lugares em que ela decide alguma coisa:
+       a lista do chip e as duas contas que aparecem no proprio chip. Medir a regra sem
+       medir o uso dela deixa a porta aberta para a lista voltar a `l.tipo` com a prova
+       continuando verde — foi o que aconteceu na primeira rodada da sabotagem. */
+    var admSC = semComentarios(adm);
+    var corpoLF = fonteDaFuncao(admSC, 'linhasFluxo');
+    ok(corpoLF.indexOf('linhasDoLugar(FLUXO_FILTRO)') > 0 &&
+       corpoLF.indexOf('l.tipo === FLUXO_FILTRO') < 0,
+      'a lista do chip sai da regra das duas pontas \u2014 voltando a `l.tipo`, Rotas ' +
+      'mostra s\u00f3 o que foi PARA a rota e a perna de volta sai da tela',
+      corpoLF.slice(-220));
+    ok(admSC.indexOf("n:linhasDoLugar('ROTA').length") > 0 &&
+       admSC.indexOf("n:linhasDoLugar('CLIENTE').length") > 0,
+      'e a conta que aparece NO chip sai da mesma fun\u00e7\u00e3o que a lista \u2014 contadas de ' +
+      'outro jeito, o chip diz um n\u00famero e abre outro, que \u00e9 a forma mais cara de ' +
+      'errar: ningu\u00e9m desconfia de um n\u00famero pequeno');
+    ok(admSC.indexOf("conta('ROTA')") < 0 && admSC.indexOf("conta('CLIENTE')") < 0,
+      'e a conta antiga por `l.tipo` saiu junto \u2014 deixada ali, ela volta sozinha no ' +
+      'pr\u00f3ximo chip que algu\u00e9m acrescentar copiando o vizinho');
+
+    var orfas = LINHAS.filter(function (l) { return !cobertas[l.id]; });
+    ok(!orfas.length,
+      'e toda linha de "Todas" cai em pelo menos UM recorte \u2014 480 das 630 caixas ficavam ' +
+      'fora dos tr\u00eas, e um n\u00famero que existe no total e n\u00e3o aparece em recorte nenhum \u00e9 ' +
+      'exatamente o que faz os chips n\u00e3o se explicarem uns contra os outros',
+      orfas.map(function (l) {
+        return l.origens + '>' + l.destinos + ' (' + (l.tipo || 'sem tipo') + ')';
+      }));
+  })();
 
   /* E A REGRA RODA, nas DUAS PONTAS.
    *
@@ -3729,8 +3850,14 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
    * `ehTipoDeUnidade(l.tipo)`, e por isso defendia a IMPLEMENTACAO em vez da pergunta:
    * ela ficou verde o tempo todo em que o chip escondia a matriz, porque o texto que
    * ela cobrava estava la', certinho. */
+  /* AS PECAS QUE A REGRA PASSOU A USAR entram no recorte: `unidadesDaLinha` virou
+     um caso particular de `pontasDoTipo`, que os tres chips de lugar dividem. Sem
+     elas o sandbox estoura em vez de medir. */
   var unidadesDaLinha = new Function('DADOS',
+    (adm.match(/var TIPOS_DO_CHIP = \{[^}]*\};/) || [''])[0] + '\n' +
     corpoDe('ehTipoDeUnidade') + '}\n' +
+    corpoDe('nomesDoTipo') + '}\n' +
+    corpoDe('pontasDoTipo') + '}\n' +
     corpoDe('nomesDeUnidade') + '}\n' +
     corpoDe('unidadesDaLinha') + '}\n return unidadesDaLinha;')({
       locais: [{ Nome: 'Matriz', Tipo: 'GALPAO' },
@@ -3751,7 +3878,12 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
     'e a perna que não toca casa nenhuma fica fora do chip — dentro dele, "Unidades" ' +
     'passaria a contar o que não é unidade, que é a única coisa que ele promete',
     unidadesDaLinha({ origens: ['Fornecedor'], destinos: ['Cliente X'] }));
-  var ehUni = new Function(corpoDe('ehTipoDeUnidade') + '} return ehTipoDeUnidade;')();
+  /* O MAPA VAI JUNTO: a dupla galpao+filial deixou de ser escrita dentro desta
+     funcao e passou a ser uma entrada de `TIPOS_DO_CHIP`, que os tres chips de
+     lugar dividem. A pergunta que esta prova faz nao mudou. */
+  var ehUni = new Function(
+    (adm.match(/var TIPOS_DO_CHIP = \{[^}]*\};/) || [''])[0] + '\n' +
+    corpoDe('ehTipoDeUnidade') + '} return ehTipoDeUnidade;')();
   ok(ehUni('GALPAO') === true && ehUni('FILIAL') === true &&
      ehUni('CLIENTE') === false && ehUni('ROTA') === false,
     'e essa regra junta filial e galpão, e só os dois — na operação os dois são a casa, ' +
@@ -4175,11 +4307,15 @@ console.log('\n== Painel de Ativos: juntar as linhas ==');
     var f = adm.indexOf(';', i);
     return f < 0 ? '' : adm.slice(i, f + 1);
   }
-  var PECAS = ['somarTipos', 'juntarNomes', 'ehTipoDeUnidade', 'nomesDeUnidade',
+  /* `nomesDoTipo` e `pontasDoTipo` entram porque a regra de lugar deixou de ser
+     tres funcoes separadas e virou uma: `unidadesDaLinha` passou a ser um caso
+     particular dela, e os chips Rotas e Clientes passaram a ler a MESMA. */
+  var PECAS = ['somarTipos', 'juntarNomes', 'ehTipoDeUnidade',
+               'nomesDoTipo', 'pontasDoTipo', 'nomesDeUnidade',
                'unidadesDaLinha', 'ladoDaCasa', 'agruparFluxo', 'celulasDoGrupo',
                'saldoFinalDaLinha', 'podeFiltrarPelaLinha', 'linhaDeGrupo',
                'linhaDeFluxo', 'corpoDaTabela'];
-  var SOLTAS = ['GRUPO_SEM_CASA', 'COL_DO_GRUPO'];
+  var SOLTAS = ['GRUPO_SEM_CASA', 'COL_DO_GRUPO', 'TIPOS_DO_CHIP'];
   var semSolta = SOLTAS.filter(function (n) { return !varA(n); });
   ok(!semSolta.length,
     'e recortou as declara\u00e7\u00f5es soltas que o agrupar usa \u2014 faltando uma, o modo por ' +
@@ -5120,7 +5256,11 @@ console.log('\n== filtros de origem e destino, e largura das colunas ==');
      unidade cruza o que aparece nas linhas com o CADASTRO, e dublar essa regra aqui
      faria a prova medir a copia — o dia em que um terceiro tipo de casa entrasse no
      cadastro e nao na regra, ela continuaria verde. */
-  var fnUnid = corpoDe('ehTipoDeUnidade') + '}\n' + corpoDe('nomesDeUnidade') + '}\n';
+  /* COM O MAPA DOS CHIPS JUNTO: a dupla galpao+filial mora nele desde que os tres
+     chips de lugar passaram a dividir a mesma regra. */
+  var fnUnid = (adm.match(/var TIPOS_DO_CHIP = \{[^}]*\};/) || [''])[0] + '\n' +
+    corpoDe('ehTipoDeUnidade') + '}\n' + corpoDe('nomesDoTipo') + '}\n' +
+    corpoDe('nomesDeUnidade') + '}\n';
   var monta = new Function('PAINEL', 'document', 'Q', 'DESTINO_ESTOQUE', 'DADOS',
     /* corpoDe corta no fecha-chaves da funcao, entao ele volta aqui. */
     fnUnid + mf + '} return montarFiltrosFluxo;');
@@ -13736,7 +13876,7 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     }
     return '';
   }
-  var PECAS_T = ['ehTipoDeUnidade', 'nomesDeUnidade',
+  var PECAS_T = ['ehTipoDeUnidade', 'nomesDoTipo', 'pontasDoTipo', 'nomesDeUnidade',
                  'pernaInterna', 'totaisDe'];
   var faltaT = PECAS_T.filter(function (n) { return !corpoAd(n); });
   ok(!faltaT.length,
@@ -13747,7 +13887,11 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     { ID: 'G2', Nome: 'Filial Macei\u00f3', Tipo: 'FILIAL' },
     { ID: 'R1', Nome: 'Fornecedor', Tipo: 'ROTA', PedeFornecedor: true }
   ];
+  /* O MAPA DOS CHIPS VAI JUNTO: a dupla galpao+filial mora nele desde que os tres
+     chips de lugar passaram a dividir a mesma regra, e `pernaInterna` a consulta
+     por `nomesDeUnidade`. */
   var totaisDe = new Function('metaFluxo', 'DADOS', 'valor',
+    (adm.match(/var TIPOS_DO_CHIP = \{[^}]*\};/) || [''])[0] + String.fromCharCode(10) +
     PECAS_T.map(corpoAd).join(String.fromCharCode(10)) + '\n return totaisDe;')(
     function () { return 90; }, { locais: LOC_T },
     function (id) { return id === 'rtUnidade' ? UNIDADE : ''; });
@@ -28271,7 +28415,15 @@ console.log('\n== a coluna Unidade do Painel de Ativos ==');
     { Nome: 'João Pessoa', Tipo: 'CLIENTE' },
     { Nome: 'Rota Norte', Tipo: 'ROTA' }
   ] };
-  var fonteU = corpoAdmU('ehTipoDeUnidade') + corpoAdmU('nomesDeUnidade') +
+  /* O MAPA DOS CHIPS E AS PECAS QUE A REGRA PASSOU A USAR. `unidadesDaLinha` virou
+     um caso particular de `pontasDoTipo`, que os tres chips de lugar dividem.
+     `admU` E NAO `adm`: neste escopo o arquivo tem outro nome, e `adm` aqui e' um
+     nome que nao existe — exatamente a forma do defeito que matou os filtros do
+     Painel esta semana. */
+  var fonteU = (admU.match(/var TIPOS_DO_CHIP = \{[^}]*\};/) || [''])[0] +
+               String.fromCharCode(10) +
+               corpoAdmU('ehTipoDeUnidade') + corpoAdmU('nomesDoTipo') +
+               corpoAdmU('pontasDoTipo') + corpoAdmU('nomesDeUnidade') +
                corpoAdmU('unidadesDaLinha');
   ok(fonteU.length > 400,
     'a conferência recortou a regra da coluna Unidade — recorte vazio faria as provas ' +
