@@ -13380,6 +13380,28 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'conta errada devolveria a resposta certa e esta prova passaria verde sem medir nada',
     { certa: gr.taxaRetorno, comInterna: Math.round((700 / 1100) * 1000) / 10 });
 
+  /* ---- AS DATAS DO PAINEL REAGEM A QUEM DIGITA ----
+   *
+   * Num `input[type=date]` o `change` so' dispara quando o campo PERDE O FOCO ou quando
+   * a data sai do calendario. Quem DIGITA "22/10/2026" e fica olhando a tela ve' o campo
+   * preenchido e a tabela intacta — foi o relato do escritorio, e o pior formato de
+   * defeito: a tela parece ter aceitado o filtro.
+   * O CORTE EM SI ESTA CERTO, e foi medido: `painel` com `de` e `ate` devolve so' as
+   * linhas do periodo. O que faltava era alguem avisar a tela. */
+  var admDt = semComentarios(adm);
+  ok(/el\.addEventListener\('input', function\(\)\{[\s\S]{0,160}?esperaData/.test(admDt),
+    'os campos de período do painel reagem também enquanto se DIGITA — só com ' +
+    '`change`, quem digita a data e não sai do campo vê o filtro preenchido e a tabela ' +
+    'intacta, sem nenhuma pista do que falta fazer');
+  ok(/clearTimeout\(esperaData\)/.test(admDt),
+    'e esperam a pessoa parar — o `value` de um campo de data fica VAZIO enquanto a ' +
+    'data está pela metade, e sem a espera cada tecla mandaria um pedido com o período ' +
+    'em branco');
+  ok(/if \(par === ultimoPeriodo\) return;/.test(admDt),
+    'e só recarregam quando o par de datas MUDA — sem isso a tela recarrega duas vezes ' +
+    'por data escolhida, uma no vazio e outra no valor, e a primeira traz a base inteira ' +
+    'de volta por um instante');
+
   /* ---- O RODAPE DO ESTOQUE DIZ O QUE ELE IGNORA ----
    * Ele avisava que o cartao ignora o PERIODO e calava que ignora tambem o RECORTE DA
    * ABA: com a tela em "Rotas - 47 de 61 linhas", o numero continua sendo o da casa

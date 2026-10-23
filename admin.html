@@ -7281,9 +7281,40 @@
 
   document.getElementById('btnAtualizarRetornos').addEventListener('click', carregarPainel);
   /* Recarrega sozinho ao trocar a data. O botao Atualizar continua existindo, mas quem
-     escolhe um periodo e nao ve a tabela mudar conclui que o filtro nao funciona. */
+     escolhe um periodo e nao ve a tabela mudar conclui que o filtro nao funciona.
+     E NAO BASTA O `change`. Num `input[type=date]` ele so' dispara quando o campo PERDE
+     O FOCO ou quando a data sai do calendario — quem DIGITA "22/10/2026" e fica olhando
+     a tela ve' o campo preenchido e a tabela intacta. Foi exatamente esse o relato: as
+     datas no lugar certo, a tabela mostrando o periodo inteiro, e nenhuma pista de que
+     faltava sair do campo.
+     ENTAO O `input` TAMBEM DISPARA, com espera: `value` de um campo de data fica VAZIO
+     enquanto a data esta' pela metade, e sem a espera cada tecla mandaria um pedido com
+     o periodo em branco. */
+  var esperaData, ultimoPeriodo = '';
+  function periodoAgora(){
+    return (valor('rtDe') || '') + '|' + (valor('rtAte') || '');
+  }
+  /* E SO' QUANDO O PAR MUDA DE VERDADE. Digitando, o campo passa por vazio no meio do
+     caminho; sem esta comparacao a tela recarregaria duas vezes por data escolhida — uma
+     no vazio e outra no valor —, e a primeira traria a base inteira de volta por um
+     instante, piscando. */
+  function seMudouODataFluxo(){
+    var par = periodoAgora();
+    if (par === ultimoPeriodo) return;
+    ultimoPeriodo = par;
+    lerDatasFluxo();
+  }
   ['rtDe', 'rtAte'].forEach(function(id){
-    document.getElementById(id).addEventListener('change', lerDatasFluxo);
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', function(){
+      ultimoPeriodo = periodoAgora();
+      lerDatasFluxo();
+    });
+    el.addEventListener('input', function(){
+      clearTimeout(esperaData);
+      esperaData = setTimeout(seMudouODataFluxo, 400);
+    });
   });
 
   /* DATA INICIAL MAIOR QUE A FINAL devolve lista vazia e não explica nada — a pessoa
