@@ -5558,10 +5558,11 @@ console.log('\n== classificar pelo titulo da coluna ==');
      não diz nada sobre o que acontece quando a tabela é desenhada.
      `corpo` não serve aqui: ele termina no primeiro `\n  }`, e os totais ficam depois. */
   var iOrd = adm.indexOf('lista = aplicarOrdem(lista, DEFS, ORDEM_FLUXO);');
-  /* A ANCORA E' A ESCOLHA DA CONTA, e nao mais uma chamada so': a fileira passou a ter
-     duas — `totaisDe` nas visoes de lugar, `totaisSimples` nas outras —, e procurar uma
-     delas respondia sobre metade da tela. */
-  var iTot = adm.indexOf('var t = deLugar ? totaisDe(lista) : totaisSimples(lista);');
+  /* A ANCORA VOLTOU A SER UMA CHAMADA SO', e dessa vez por uma razao melhor: a fileira
+     deixou de ter duas contas. Ela tinha — `totaisDe` nas visoes de lugar,
+     `totaisSimples` nas outras —, e era isso que fazia a mesma operacao somar 6.644 numa
+     aba e 36.520 na outra. Agora ha uma regua so', e a ancora e' ela. */
+  var iTot = adm.indexOf('var t = totaisDe(linhasVivas());');
   ok(iOrd > 0 && iTot > iOrd,
     'e os totais são somados depois, sem se importar com a ordem — somar não depende dela',
     [iOrd, iTot]);
@@ -12555,10 +12556,25 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'e n\u00e3o h\u00e1 mais dois ramos de cart\u00e3o \u2014 com dois, a tela trocava de desenho conforme ' +
     'o chip, e o rodap\u00e9 era o \u00fanico lugar que dizia qual dos dois estava valendo',
     fileira.indexOf('(deLugar'));
-  ok(/deLugar \?/.test(fileira),
-    'e o que muda com a vis\u00e3o \u00e9 o RODAP\u00c9, e n\u00e3o o conjunto de cart\u00f5es \u2014 o mesmo ' +
-    'n\u00famero responde perguntas diferentes em cada lente, e fixo ele mentiria numa delas',
-    fileira.indexOf('deLugar ?'));
+  /* E NEM O RODAPE MUDA MAIS A REGUA, e esta prova dizia o contrario.
+   *
+   * Ela cobrava um `deLugar ?` no rodape: na visao de lugar "cruzou a fronteira", nas
+   * outras "tudo o que saiu, por fornecedor". Fazia sentido enquanto o NUMERO tambem
+   * mudava com a aba — e era isso que o escritorio nao conseguia apresentar: 6.644 numa
+   * aba, 36.520 na outra, mesma operacao.
+   * AGORA O NUMERO E UM SO, e o rodape dele tambem tem de ser: mantido o "por
+   * fornecedor", ele prometeria um recorte que o numero nao tem mais.
+   * O QUE A ABA ACRESCENTA e' outra frase, e ela nao troca a regua: quanto da operacao
+   * a tabela de baixo cobre. */
+  ok(!/deLugar \? 'cruzou a fronteira/.test(fileira),
+    'e o rodap\u00e9 n\u00e3o troca mais de r\u00e9gua com a aba \u2014 o n\u00famero \u00e9 um s\u00f3, e dizer ' +
+    '"por fornecedor" sobre ele prometeria um recorte que ele n\u00e3o tem',
+    fileira.indexOf("deLugar ? 'cruzou"));
+  ok(/cruzou a fronteira/.test(fileira) &&
+     /tLente \? ' \u00b7 a tabela abaixo cobre '/.test(fileira),
+    'e o que a aba acrescenta \u00e9 quanto a TABELA cobre do total \u2014 sem essa frase, a ' +
+    'tabela de baixo parece desmentir o cart\u00e3o de cima, e troca-se um "n\u00e3o bate" por ' +
+    'outro', fileira.indexOf('a tabela abaixo cobre'));
 
   /* A ORDEM e pedida, entao e conferida. */
   var rotulos = (fileira.match(/'([A-Z\u00c0-\u00dd][^']*)'/g) || [])
@@ -12633,10 +12649,23 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'ao lado, todo mundo faz a subtração de cabeça e acha um terceiro número; sem a ' +
     'frase, o valor certo parece defeito', cDef.trim());
 
-  ok(/rotuloDaVisao\(\)/.test(cSaiu) && /rotuloDaVisao\(\)/.test(cVoltou),
-    'e nas outras vis\u00f5es o rodap\u00e9 diz DE QUEM \u00e9 o n\u00famero \u2014 por motorista, por usu\u00e1rio, ' +
-    'por tipo de caixa: ali n\u00e3o h\u00e1 fronteira a cruzar, e repetir a frase de lugar seria ' +
-    'a tela afirmando o que n\u00e3o mediu', [cSaiu.slice(-90), cVoltou.slice(-90)]);
+  /* ESTA PROVA DIZIA QUE O RODAPE TROCAVA DE DONO com a aba — "por motorista", "por
+     tipo de caixa" — e isso valia enquanto o NUMERO tambem trocava. Era o defeito: a
+     mesma operacao somava 6.644 na aba Fornecedores e 36.520 na de Tipos de caixa, e o
+     escritorio nao tinha como apresentar nenhum dos dois.
+     AGORA O NUMERO E UM SO, da operacao, e o rodape diz a regua dele em toda aba. O que
+     a aba acrescenta e' quanto a TABELA de baixo cobre desse total — que e' a pergunta
+     que sobra quando o cartao para de mudar. */
+  ok(cSaiu.indexOf('rotuloDaVisao()') < 0 && cVoltou.indexOf('rotuloDaVisao()') < 0,
+    'e o rodap\u00e9 n\u00e3o diz mais "por motorista" nem "por tipo de caixa" \u2014 o n\u00famero ' +
+    'deixou de ser daquela lente, e a frase antiga prometeria um recorte que ele n\u00e3o ' +
+    'tem', [cSaiu.slice(-90), cVoltou.slice(-90)]);
+  ok(cSaiu.indexOf('a tabela abaixo cobre') > 0 &&
+     cVoltou.indexOf('a tabela abaixo cobre') > 0,
+    'e diz quanto a TABELA cobre do total \u2014 \u00e9 a pergunta que sobra quando o cart\u00e3o ' +
+    'para de mudar com a aba: na de Fornecedores a tabela soma 6.644 contra 36.520 ali ' +
+    'em cima, e sem a frase troca-se um "n\u00e3o bate" por outro',
+    [cSaiu.slice(-90), cVoltou.slice(-90)]);
 
   /* --- os desenhos dizem o que o número diz ------------------------------- */
   ok(/desenho--zero/.test(fileira),
@@ -13133,14 +13162,60 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'apagá-lo tiraria a informação junto');
 
   /* --- o que segue o filtro, e o que nao segue ---------------------------- */
-  var j = adm.indexOf('var t = deLugar ? totaisDe(lista) : totaisSimples(lista);');
-  ok(j > 0 && j < i, 'os totais saem da lista já filtrada, e não do período inteiro');
-  /* AS DUAS CONTAS RECEBEM A MESMA LISTA. Uma delas que recebesse outra coisa — a lista
-     inteira, os totais do servidor — daria uma fileira que encolhe com o filtro numa
-     visao e fica parada na outra, e ninguem descobriria qual das duas esta' certa. */
-  ok(/deLugar \? totaisDe\(lista\) : totaisSimples\(lista\)/.test(adm),
-    'e as DUAS contas da fileira leem a MESMA lista filtrada \u2014 uma delas lendo outra ' +
-    'fonte, a fileira encolheria com o filtro numa vis\u00e3o e ficaria parada na outra');
+  /* OS CARTOES SEGUEM OS FILTROS, E NAO A ABA — e esta prova afirmava o contrario.
+   *
+   * ELA COBRAVA `deLugar ? totaisDe(lista) : totaisSimples(lista)`: cada visao somando
+   * SO AS LINHAS DELA. O escritorio leu o resultado e nao conseguiu apresentar — na aba
+   * Fornecedores a tela dizia "Saiu 6.644"; na de Tipos de caixa, "Saiu 36.520". Mesmo
+   * periodo, mesma operacao, dois numeros, porque as visoes cobrem conjuntos diferentes
+   * do mesmo universo: quase nada passa por fornecedor, e todo lancamento tem um tipo.
+   * "QUANTO SAIU E QUANTO VOLTOU" E UM FATO DA OPERACAO, e nao da pergunta que se faz
+   * sobre ela. A aba e' uma LENTE: o detalhe muda, o total nao. */
+  /* ---- E O TOTAL NAO MUDA COM A ABA, RODADO ----
+   *
+   * E' a afirmacao inteira, e so' rodando ela se mede: a fonte dos totais e' agora
+   * `linhasVivas()`, que NAO depende de `FLUXO_FILTRO`. Lida no texto, bastaria alguem
+   * repor um `deLugar ?` ali para a tela voltar a dar dois numeros para a mesma
+   * operacao — e foi assim que o escritorio ficou sem como apresentar o painel. */
+  (function () {
+    var iLV = adm.indexOf('  function linhasVivas(){');
+    var corpoLV = adm.slice(iLV, adm.indexOf(String.fromCharCode(10) + '  }', iLV));
+    ok(iLV > 0 && corpoLV.indexOf('FLUXO_FILTRO') < 0,
+      'a fonte dos totais NÃO olha a aba — olhando, o mesmo período volta a dar 6.644 ' +
+      'numa lente e 36.520 na outra, e não há como apresentar nenhum dos dois',
+      corpoLV.trim());
+    var iTV = adm.indexOf('var t = totaisDe(linhasVivas());');
+    ok(adm.slice(iTV, iTV + 200).indexOf('FLUXO_FILTRO') < 0 &&
+       adm.slice(iTV, iTV + 200).indexOf('deLugar ?') < 0,
+      'e a escolha da conta também não — um `deLugar ?` de volta ali seria o mesmo ' +
+      'defeito com outro nome', adm.slice(iTV, iTV + 120));
+    /* E A LENTE CONTINUA EXISTINDO, para a frase da cobertura: tirando-a, o cartao
+       passa a calar sobre a diferenca entre ele e a tabela logo abaixo. */
+    ok(/var tLente = deLugar \? null : totaisSimples\(lista\);/.test(adm),
+      'e a conta da LENTE continua existindo — é dela que sai "a tabela abaixo cobre N ' +
+      'deles", a frase que explica por que o cartão e a tabela trazem números diferentes');
+  })();
+
+  var j = adm.indexOf('var t = totaisDe(linhasVivas());');
+  ok(j > 0 && j < i,
+    'os totais saem da lista j\u00e1 filtrada, e n\u00e3o do per\u00edodo inteiro \u2014 per\u00edodo, ' +
+    'origem, destino, unidade e busca estreitam a opera\u00e7\u00e3o, e por isso mexem no total');
+  ok(!/deLugar \? totaisDe\(lista\) : totaisSimples\(lista\)/.test(adm),
+    'e a ABA deixou de mexer neles \u2014 somando s\u00f3 as linhas da visao, a mesma opera\u00e7\u00e3o ' +
+    'dava 6.644 numa aba e 36.520 na outra, e n\u00e3o havia como apresentar isso');
+  /* A REGUA E A DE LUGAR, para todas: ela conta o que CRUZOU A FRONTEIRA e deixa de
+     fora a perna entre duas casas nossas. A outra somava a mesma caixa cada vez que ela
+     trocava de galpao — um total que cresce quando nada entra nem sai da empresa. */
+  ok(/var t = totaisDe\(linhasVivas\(\)\);/.test(adm),
+    'e a r\u00e9gua \u00e9 a de LUGAR em todas as abas \u2014 ela deixa de fora a perna entre duas ' +
+    'casas nossas, que muda a caixa de lugar sem mudar nem o estoque nem a d\u00edvida');
+  /* E A LENTE DIZ O QUE COBRE. Sem isso a tabela de baixo parece desmentir o cartao de
+     cima, e troca-se um "nao bate" por outro. */
+  ok(/var tLente = deLugar \? null : totaisSimples\(lista\);/.test(adm) &&
+     /a tabela abaixo cobre/.test(adm),
+    'e nas abas de lente o cart\u00e3o diz quanto a tabela abaixo cobre do total \u2014 sem ' +
+    'isso ela soma 6.644 contra 36.520 ali em cima, e quem olha troca um "n\u00e3o bate" ' +
+    'por outro');
   /* OS TRES NUMEROS DO PERIODO BEBEM DO MESMO `t`, e e' so' por isso que eles encolhem
      juntos quando o filtro aperta. Um deles que fosse buscar a lista inteira por fora
      ficaria parado enquanto os outros mudam — e seria o unico errado, sem dizer.
