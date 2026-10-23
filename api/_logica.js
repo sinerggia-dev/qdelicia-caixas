@@ -2929,6 +2929,28 @@ function listaMovimentos(movimentos, locais, tipos, usuarios, p, cad) {
       origemId: m.OrigemID, destinoId: m.DestinoID,
       // o nome para a tabela; o id para o seletor da correção abrir no valor certo
       tipoCaixa: nome(mTipos, m.TipoCaixaID), tipoCaixaId: m.TipoCaixaID, qtd: m.Qtd,
+      /* ============ A QUANTIDADE QUE CONTA VIAJA JUNTO ============
+       *
+       * `qtd` E O QUE FOI DECLARADO, e e' por isso que ele fica: e' o valor que a
+       * correcao edita e o que a conciliacao compara CONTRA. Mas nao e' o que conta
+       * no saldo: numa devolucao conferida, quem manda e' a QUANTIDADE CONTADA —
+       * e' ela que entra no estoque, no aging e no Painel de Ativos, pela regra
+       * `efetiva` logo acima.
+       *
+       * O ESCRITORIO VIU O EFEITO: Painel de Ativos 25.367 de Retorno e Movimentos
+       * Gerais 27.256, com a Saida batendo nos dois. As 1.889 de diferenca eram
+       * exatamente isto — as telas somavam `qtd` cru, a declarada, enquanto todo o
+       * resto do sistema ja' somava a contada. Dois numeros para "quanto voltou",
+       * e nenhum deles dizia qual era.
+       *
+       * UMA REGUA SO, E ELA E DAQUI. As telas nao recalculam a regra — recalculada
+       * no navegador, ela seria uma SEGUNDA implementacao de `efetiva`, e duas
+       * implementacoes do mesmo numero divergem no primeiro caso de borda.
+       *
+       * E A DECLARADA CONTINUA A VISTA, na coluna Declarada e no CSV: quem precisa
+       * da diferenca entre o que o motorista disse e o que chegou tem as duas, mais
+       * a coluna Divergencia que ja' existia. */
+      qtdEfetiva: efetiva(m),
       qtdConferida: temConf ? m.QtdConferida : '',
       divergencia: (m.Status === 'CONFIRMADO' && temConf) ? Number(m.QtdConferida) - Number(m.Qtd) : '',
       /* O ID de quem lançou vai junto com o NOME. O nome é para ler; o id é para a tela

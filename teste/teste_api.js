@@ -2310,6 +2310,72 @@ async function main() {
     ok(f3.totais.linhas === 2,
       'e a linha de estoque inicial fica fora da conta de caminhos', f3.totais.linhas);
   }
+  console.log('\n== a quantidade que conta viaja para a tela ==');
+  {
+    /* ================= UM NUMERO SO PARA "QUANTO VOLTOU" =================
+     *
+     * O ESCRITORIO ABRIU OS DOIS RELATORIOS: Painel de Ativos dizia 25.367 de Retorno
+     * e Movimentos Gerais dizia 27.256, com a Saida batendo nos dois. "Precisa ser
+     * igual, veja qual e' o valor correto."
+     *
+     * ERA A REGRA DA QUANTIDADE. Numa devolucao conferida ha' dois numeros: o que o
+     * motorista DECLAROU (`Qtd`) e o que o conferente CONTOU na chegada
+     * (`QtdConferida`). `efetiva` escolhe a contada quando ela existe, e e' por ela
+     * que o estoque, o aging e o Painel de Ativos somam — e' o que entrou no galpao.
+     * A lista de Movimentos mandava `Qtd` cru, e as telas somavam a declarada.
+     *
+     * A DECISAO E DAQUI, E DE UM LUGAR SO. A tela nao refaz a regra: refeita la, seria
+     * uma segunda implementacao do mesmo numero, e duas divergem no primeiro caso de
+     * borda. Entao ela VIAJA, em `qtdEfetiva`.
+     *
+     * E A DECLARADA CONTINUA VIAJANDO, em `qtd`: e' ela que a correcao edita e que a
+     * conciliacao compara CONTRA. Trocar uma pela outra faria a tela de correcao abrir
+     * com o numero do conferente no campo do motorista e grava-lo por cima. */
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const locais = [{ ID: 'L1', Nome: 'Galp\u00e3o' }, { ID: 'L2', Nome: 'Caruaru' }];
+    const tipos = [{ ID: 'T1', Nome: 'CX G' }];
+    const users = [{ ID: 'U1', Nome: 'Nestor' }];
+    const base = {
+      Tipo: 'DEVOLUCAO', OrigemID: 'L2', DestinoID: 'L1', TipoCaixaID: 'T1',
+      Status: 'CONFIRMADO', UsuarioID: 'U1', DataRef: D('2026-09-10'),
+      DataHora: D('2026-09-10')
+    };
+    const movs = [
+      Object.assign({}, base, { ID: 'M1', Qtd: 500, QtdConferida: 480 }),
+      Object.assign({}, base, { ID: 'M2', Qtd: 300, QtdConferida: null }),
+      Object.assign({}, base, { ID: 'M3', Qtd: 200, QtdConferida: 0 })
+    ];
+    const lista = F.listaMovimentos(movs, locais, tipos, users, {});
+    const porId = {};
+    lista.forEach((m) => { porId[m.id] = m; });
+
+    ok(porId.M1.qtdEfetiva === 480,
+      'a carga declarada como 500 e contada como 480 viaja com 480 na quantidade que ' +
+      'conta \u2014 era isto que fazia o Painel de Ativos e Movimentos Gerais discordarem ' +
+      'em 1.889 no Retorno, sem nada na tela dizendo qual estava certo', porId.M1.qtdEfetiva);
+    ok(Number(porId.M1.qtd) === 500,
+      'e a declarada continua viajando ao lado \u2014 \u00e9 ela que a corre\u00e7\u00e3o edita e que a ' +
+      'concilia\u00e7\u00e3o compara CONTRA; trocada, a tela de corre\u00e7\u00e3o abriria com o n\u00famero do ' +
+      'conferente no campo do motorista e o gravaria por cima', porId.M1.qtd);
+    ok(porId.M2.qtdEfetiva === 300,
+      'sem confer\u00eancia, a declarada \u00e9 a que conta \u2014 valendo zero at\u00e9 algu\u00e9m contar, ' +
+      'uma devolu\u00e7\u00e3o leg\u00edtima sumiria do retorno at\u00e9 o galp\u00e3o abrir a carga',
+      porId.M2.qtdEfetiva);
+    ok(porId.M3.qtdEfetiva === 0,
+      'e CONTADO ZERO \u00e9 uma contagem, e n\u00e3o a aus\u00eancia de uma: a carga que chegou vazia ' +
+      'vale zero, e n\u00e3o as 200 que o motorista disse que trazia', porId.M3.qtdEfetiva);
+
+    /* A MESMA REGUA DOS SALDOS, e nao uma parecida: esta prova e' o que impede a copia
+       de nascer. `saldos` e' quem responde "quanto tem no lugar", e o que entrou no
+       galpao por estas tres linhas tem de ser o mesmo que a lista soma. */
+    const soma = lista.reduce((s, m) => s + m.qtdEfetiva, 0);
+    const noGalpao = F.saldos(movs).L1.T1;
+    ok(soma === noGalpao && soma === 780,
+      'e a soma da lista d\u00e1 o mesmo que entrou no estoque \u2014 \u00e9 o mesmo `efetiva`, e n\u00e3o ' +
+      'uma segunda regra parecida que diverge no primeiro caso de borda',
+      { lista: soma, estoque: noGalpao });
+  }
   console.log('\n== filtro por quem lançou (Movimentos) ==');
   {
     const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
@@ -4487,6 +4553,112 @@ console.log('\n== o que a tela lista e o que o apagar leva sao o mesmo conjunto 
     'a declara\u00e7\u00e3o n\u00e3o aparece em Movimentos nem para o administrador \u2014 ela n\u00e3o \u00e9 ' +
     'movimento de caixa, e sem este ponto de partida a compara\u00e7\u00e3o abaixo n\u00e3o mede nada',
     idsTela.length);
+
+  /* ---- E O PAINEL TAMBEM NAO A CONTA. RODADO, pela rota de verdade. ----
+   *
+   * UMA DECLARACAO NAO E UMA CAIXA QUE ANDOU: e' o motorista dizendo o que traz, e a
+   * caixa so' entra quando o conferente conta. Contada no painel, cada carga entraria
+   * DUAS vezes — no Retorno, no estoque e no aging — para quem tem a Base Declaracao
+   * no cadastro, que e' justamente quem apresenta o painel ao cliente.
+   *
+   * QUEM PROTEGE ISSO E `ativos`, e nao a rota: a funcao que separa "as linhas que
+   * VALEM" de "as linhas que EXISTEM" ja' tira a declaracao, e o painel, os saldos e o
+   * aging passam todos por ela. A lista de Movimentos usa a outra — ela MOSTRA o que
+   * aconteceu, com a declaracao marcada — e por isso ha' duas funcoes com uma
+   * diferenca de uma condicao, que e' o tipo de par que se desfaz sem ninguem notar.
+   *
+   * EU FUI ATRAS DESTA HIPOTESE achando que era a causa das 1.889, e nao era: cheguei a
+   * acrescentar `semDeclaracao` na rota do painel, medi, e a peneira nao mudava numero
+   * nenhum — porque `ativos` ja' tinha feito o trabalho. Tirei o recorte: um recorte
+   * que nao faz nada, com um comentario dizendo que conserta uma contagem dobrada, e'
+   * uma historia falsa escrita dentro do codigo, e a proxima pessoa acredita nela.
+   * O QUE FICOU FOI A PROVA, porque a garantia e' de verdade e nao tinha nenhuma.
+   *
+   * ================= O CENARIO PRECISOU DE UM CONTROLE =================
+   *
+   * A PRIMEIRA VERSAO DESTA PROVA passou verde com a protecao DESFEITA, duas vezes
+   * seguidas e por dois motivos diferentes: primeiro porque clonou `vivos[0]`, que era
+   * um AJUSTE sem origem e nao entra no fluxo por caminho nenhum; depois porque a copia
+   * herdava o PERFIL de quem lancou e caia num livro que o cadastro do administrador
+   * nao tinha marcado. Nos dois casos a linha sumia ANTES da pergunta, e a prova
+   * afirmava uma regra tendo medido uma peneira errada.
+   *
+   * ENTAO O CENARIO VEM COM UM CONTROLE: a MESMA linha, com a unica diferenca de nao
+   * ser declaracao, TEM de mexer no total. Sem ele nao ha como distinguir "a declaracao
+   * foi ignorada" de "este cenario nao e' capaz de mudar numero nenhum". */
+  const comPontas = tabelas.movimentos.filter((m) => !m.excluido_em && !m.cancelado_em &&
+    m.origem_id && m.destino_id && !m.declaracao);
+  const molde2 = comPontas[0];
+  ok(!!molde2,
+    'o cen\u00e1rio tem um lan\u00e7amento com as DUAS pontas \u2014 um ajuste sem origem n\u00e3o entra ' +
+    'no fluxo por caminho nenhum, e clonar um faria esta prova medir uma coincid\u00eancia',
+    molde2 && molde2.id);
+
+  /* O QUARTO LIVRO TAMBEM. A linha clonada herda o PERFIL de quem lancou, e
+     `lancamentoDeTeste` le' esse perfil: a copia marcada como declaracao cai em
+     "Base Teste Declaracao", e nao em "Base Declaracao". Sem este livro no cadastro,
+     `recorteBases` derrubava a linha ANTES de a pergunta ser feita — e a prova passava
+     verde com a correcao desfeita, medindo a peneira errada.
+     FOI A SEGUNDA VEZ NESTE MESMO CENARIO: antes era o molde, que era um AJUSTE sem
+     origem. Um cenario que nao consegue mudar o numero aprova qualquer regra, e o
+     CONTROLE logo abaixo e' o que obriga ele a provar que consegue. */
+  const livroAntes = admin.base_teste_declaracao;
+  admin.base_teste_declaracao = true;
+
+  const QTD_DECL = 777;
+  const linhaNova = (id, ehDecl) => Object.assign({}, molde2, {
+    id: id, registro: 'R' + id, tipo: 'DEVOLUCAO',
+    qtd: QTD_DECL, qtd_conferida: null,
+    declaracao: ehDecl, base: ehDecl ? 'declaracao' : 'reais',
+    historico: [], excluido_em: null, cancelado_em: null
+  });
+
+  const totaisDoPainel = async () => {
+    const r = await GET({ acao: 'painel', quem: admin.id });
+    return r.painel && r.painel.fluxo && r.painel.fluxo.totais;
+  };
+  const estoqueDoPainel = async () => {
+    const r = await GET({ acao: 'painel', quem: admin.id });
+    return (r.painel.locais || []).reduce((s, l) => s + (Number(l.saldo) || 0), 0);
+  };
+
+  const tSem = await totaisDoPainel();
+  const eSem = await estoqueDoPainel();
+  ok(!!tSem && (tSem.saida + tSem.retorno) > 0,
+    'o painel respondeu e h\u00e1 movimento nele \u2014 recorte vazio faria as provas abaixo ' +
+    'aprovarem qualquer coisa', tSem && tSem.retorno);
+
+  /* O CONTROLE PRIMEIRO: a linha comum MEXE no total. */
+  const COMUM = linhaNova('M-fluxo-comum', false);
+  tabelas.movimentos.push(COMUM);
+  const tComum = await totaisDoPainel();
+  tabelas.movimentos.splice(tabelas.movimentos.indexOf(COMUM), 1);
+  ok(tComum.retorno === tSem.retorno + QTD_DECL,
+    'uma devolu\u00e7\u00e3o comum de 777 MEXE no Retorno do painel \u2014 sem este controle, a ' +
+    'prova abaixo n\u00e3o distingue "a declara\u00e7\u00e3o foi ignorada" de "este cen\u00e1rio n\u00e3o ' +
+    'muda n\u00famero nenhum", que foi exatamente como ela passou verde com a corre\u00e7\u00e3o ' +
+    'desfeita', { sem: tSem.retorno, com: tComum.retorno });
+
+  /* E AGORA A MESMA LINHA, so' que declaracao. */
+  const DECL_FLUXO = linhaNova('M-fluxo-decl', true);
+  tabelas.movimentos.push(DECL_FLUXO);
+  const tCom = await totaisDoPainel();
+  const eCom = await estoqueDoPainel();
+  tabelas.movimentos.splice(tabelas.movimentos.indexOf(DECL_FLUXO), 1);
+
+  ok(tCom.retorno === tSem.retorno,
+    'e a MESMA linha, sendo declara\u00e7\u00e3o, n\u00e3o mexe em nada \u2014 contada, cada carga ' +
+    'entraria duas vezes no Retorno para quem tem a Base Declara\u00e7\u00e3o no cadastro, e o ' +
+    'painel de quem apresenta ao cliente diria outro n\u00famero que o do gerente de ' +
+    'filial sobre a mesma opera\u00e7\u00e3o', { sem: tSem.retorno, com: tCom.retorno });
+  ok(tCom.saida === tSem.saida && tCom.saldo === tSem.saldo,
+    'e a Sa\u00edda e o Saldo tamb\u00e9m n\u00e3o \u2014 a declara\u00e7\u00e3o some da conta inteira, e n\u00e3o s\u00f3 ' +
+    'de um lado dela', { sem: [tSem.saida, tSem.saldo], com: [tCom.saida, tCom.saldo] });
+  ok(eCom === eSem,
+    'e o estoque dos locais fica igual \u2014 ele sai do mesmo recorte, e uma declara\u00e7\u00e3o ' +
+    'contada ali enchia o galp\u00e3o de caixa que ningu\u00e9m conferiu',
+    { sem: eSem, com: eCom });
+  admin.base_teste_declaracao = livroAntes;
 
   /* E O APAGAR CONTA O MESMO. Mandando o numero que a TELA contou, o servidor so'
      concorda se a base dele for a mesma: contando a declaracao a mais, ele responde "a

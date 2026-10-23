@@ -2731,6 +2731,38 @@
     });
   }
 
+  /* ============ A QUANTIDADE QUE CONTA ============
+   *
+   * Numa devolucao conferida ha' dois numeros: o que o motorista DECLAROU e o que o
+   * conferente CONTOU na chegada. O estoque, o aging e o Painel de Ativos sempre
+   * somaram a CONTADA — e' ela que entrou no galpao. Estas telas somavam a declarada,
+   * e os dois relatorios da mesma operacao davam numeros diferentes no Retorno.
+   *
+   * QUEM DECIDE E O SERVIDOR, e esta funcao so' LE a decisao dele: refeita aqui, seria
+   * uma segunda implementacao da mesma regra, e duas implementacoes do mesmo numero
+   * divergem no primeiro caso de borda.
+   *
+   * O `||` NO FIM CUIDA DO APARELHO COM A PAGINA VELHA EM CACHE — e no app de campo
+   * isto nao e' hipotese, e' rotina: celular de motorista guarda a pagina por dias.
+   * Payload sem o campo novo cai na declarada, que e' o que aquela tela ja' mostrava;
+   * zerar a coluna trocaria um numero discutivel por um numero falso. */
+  function qtdQueConta(m){
+    if (!m) return 0;
+    var q = (m.qtdEfetiva !== undefined && m.qtdEfetiva !== null && m.qtdEfetiva !== '')
+      ? m.qtdEfetiva : m.qtd;
+    return Number(q) || 0;
+  }
+
+  /* O BALAO DA CELULA, e so' quando ha' o que dizer. Vazio quando os dois numeros
+     batem — que e' a maioria das linhas —, porque um balao que aparece sempre deixa
+     de ser aviso: ninguem passa o dedo numa coluna inteira. */
+  function tituloDaQtd(m){
+    var conta = qtdQueConta(m), dec = Number(m.qtd) || 0;
+    if (conta === dec) return '';
+    return ' title="'+Q.esc('Declarado '+Q.num(dec)+' \u00b7 contado '+Q.num(conta)+
+      ' \u00b7 divergência '+(conta > dec ? '+' : '')+Q.num(conta - dec))+'"';
+  }
+
   function desenharLanc(){
     var lista = LANC.filter(passaFiltro);
 
@@ -2742,9 +2774,12 @@
        rodapé diz quantas são, senão a lista teria linhas que nenhum número explica. */
     var saiu = 0, voltou = 0, declarou = 0, nDecl = 0;
     lista.forEach(function(m){
+      /* A DECLARACAO SOMA A DECLARADA, e nao a contada, de proposito: ela E' o
+         que a pessoa informou, e o cartao dela responde "quanto eu declarei".
+         Uma declaracao nem chega a ter contagem — quem conta e' o outro lado. */
       if (m.declaracao){ declarou += Number(m.qtd) || 0; nDecl++; return; }
-      if (m.tipo === 'DEVOLUCAO') voltou += Number(m.qtd) || 0;
-      else saiu += Number(m.qtd) || 0;
+      if (m.tipo === 'DEVOLUCAO') voltou += qtdQueConta(m);
+      else saiu += qtdQueConta(m);
     });
     /* REMESSAS, e não linhas. Uma carga de cinco tipos de caixa é UM lançamento para
        quem a fez, e um cartão na tela; dizer "10 lançamentos" sobre dois cartões é o
@@ -2944,11 +2979,16 @@
       '<td>'+Q.esc(m.destino || '—')+'</td>'+
       '<td>'+Q.esc(m.fornecedor || '—')+'</td>'+
       '<td>'+Q.esc(m.tipoCaixa || '—')+'</td>'+
+      /* AS COLUNAS MOSTRAM O QUE OS CARTOES SOMAM. Somada com o dedo, a coluna
+         tem de dar o numero do topo — se ela mostra a declarada e o cartao soma
+         a contada, quem confere acha outro valor e para de confiar na tela.
+         O BALAO DIZ OS DOIS quando eles diferem: numa devolucao conferida, ver
+         480 onde se digitou 500 sem nada explicando parece erro da tela. */
       (cols.saida
-        ? '<td class="num">'+(ehRetorno ? '<span class="fraco">—</span>' : '<b>'+Q.num(m.qtd)+'</b>')+'</td>'
+        ? '<td class="num">'+(ehRetorno ? '<span class="fraco">—</span>' : '<b'+tituloDaQtd(m)+'>'+Q.num(qtdQueConta(m))+'</b>')+'</td>'
         : '')+
       (cols.retorno
-        ? '<td class="num">'+(ehRetorno ? '<b>'+Q.num(m.qtd)+'</b>' : '<span class="fraco">—</span>')+'</td>'
+        ? '<td class="num">'+(ehRetorno ? '<b'+tituloDaQtd(m)+'>'+Q.num(qtdQueConta(m))+'</b>' : '<span class="fraco">—</span>')+'</td>'
         : '')+
       '<td>'+Q.esc(m.motorista || '—')+'</td>'+
       /* A MARCA DE CORRIGIDO fica junto de quem lançou, que é a coluna que a
@@ -2978,7 +3018,7 @@
       var aberta = LC_ABERTOS[g.lote] === true;
       var saida = 0, retorno = 0, mexido = null;
       filhos.forEach(function(m){
-        var q = Number(m.qtd) || 0;
+        var q = qtdQueConta(m);
         if (m.tipo === 'DEVOLUCAO') retorno += q; else saida += q;
         var a = m.alterado;
         if (a && a.vezes && (!mexido || String(a.em) > String(mexido.em))) mexido = a;

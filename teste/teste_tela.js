@@ -58,6 +58,95 @@ function semComentarios(txt) {
     .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
+/* O CORPO DE UMA FUNCAO INTEIRA, contado pelas chaves e nao por indentacao.
+   Varias bancadas EXECUTAM pedacos do arquivo em vez de ler o texto deles, e
+   cada uma recortava do seu jeito: uma parava na primeira linha que comecasse
+   com `  }`, outra contava chaves. A que parava pela indentacao devolvia meia
+   funcao quando o codigo ganhava um bloco aninhado, e o sandbox estourava com
+   erro de sintaxe — que a sabotagem registra como defeito PEGO sem que nenhuma
+   afirmacao tenha medido nada. Quebrar nao e' reprovar. */
+/* ============ A VARREDURA DA QUANTIDADE ============
+ *
+ * Esta prova mora no topo, fora de qualquer bancada, porque ela nao e' sobre UMA tela:
+ * e' sobre as duas, inteiras.
+ *
+ * O DEFEITO: `m.qtd` e' o que o motorista DECLAROU. `m.qtdEfetiva` e' o que CONTA — a
+ * contagem do conferente quando ela existe, a declarada quando nao. O estoque, o aging
+ * e o Painel de Ativos sempre somaram a segunda; as telas somavam a primeira. Dois
+ * relatorios da mesma operacao davam 25.367 e 27.256 no Retorno, a Saida batia nos
+ * dois, e nao havia como apresentar nenhum deles ao cliente.
+ *
+ * CORRIGIDO SITE A SITE, o defeito volta na proxima soma que alguem escrever: `m.qtd`
+ * e' o nome obvio, esta' em toda linha vizinha, e a tela continua desenhando. Nada
+ * quebra — so' o numero fica errado, que e' o jeito mais caro de errar.
+ *
+ * ENTAO A CONTA E ESCRITA AQUI, de proposito, com o motivo de cada sobrevivente. Ela e'
+ * o tropeco: quem acrescentar uma leitura da declarada crua passa por esta prova e tem
+ * de dizer por que aquela e' a certa. As que ficaram sao as tres perguntas em que a
+ * DECLARADA e' mesmo a resposta — a conciliacao, que compara uma contra a outra; o
+ * cartao de quem declarou, que responde "quanto eu informei"; e a coluna Declarada,
+ * que existe para mostrar a diferenca.
+ *
+ * SEM OS COMENTARIOS ANTES DE CONTAR: as razoes deste projeto moram em prosa junto do
+ * codigo, e `m.qtd` aparece citado nelas. Contar a prosa seria reprovar o codigo certo
+ * — foi o que aconteceu seis vezes nesta semana, e a regra ja' esta escrita noutras
+ * bancadas. */
+(function () {
+  var admQ = semComentarios(
+    fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8'));
+  var ixQ = semComentarios(
+    fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'));
+
+  function quantas(txt) { return (txt.match(/Number\(m\.qtd\)/g) || []).length; }
+
+  ok(quantas(admQ) === 5,
+    'no painel, s\u00f3 CINCO lugares leem a quantidade declarada crua \u2014 os dois da ' +
+    'concilia\u00e7\u00e3o (que compara a declarada CONTRA a contada, e para quem as duas s\u00e3o a ' +
+    'pergunta), o bal\u00e3o que mostra a diferen\u00e7a, e a coluna Declarada com a soma dela ' +
+    'na carga. Todo o resto soma `qtdQueConta`, que \u00e9 a mesma r\u00e9gua do estoque: ' +
+    'somando a declarada, o Retorno do painel e o de Movimentos Gerais voltam a ' +
+    'discordar, e a Sa\u00edda continua batendo \u2014 que \u00e9 o que faz ningu\u00e9m desconfiar',
+    quantas(admQ));
+
+  ok(quantas(ixQ) === 2,
+    'e no app de campo, s\u00f3 DOIS: o bal\u00e3o da diferen\u00e7a e o cart\u00e3o de quem declarou \u2014 ' +
+    'esse \u00e9 o \u00fanico em que a declarada \u00e9 mesmo a resposta, porque ele responde ' +
+    '"quanto eu informei", e uma declara\u00e7\u00e3o nem chega a ter contagem: quem conta \u00e9 o ' +
+    'outro lado do par', quantas(ixQ));
+
+  /* E A REGUA EXISTE NOS DOIS, com o MESMO nome. Nomes diferentes nos dois arquivos
+     fariam a proxima correcao alcancar um e esquecer o outro. */
+  ok(/function qtdQueConta\(m\)/.test(admQ) && /function qtdQueConta\(m\)/.test(ixQ),
+    'e as duas telas t\u00eam a mesma r\u00e9gua com o mesmo nome \u2014 com nomes diferentes, a ' +
+    'pr\u00f3xima corre\u00e7\u00e3o alcan\u00e7a uma e esquece a outra');
+
+  /* E ELA SO LE: refeita no navegador — "se tem conferida usa a conferida" —, seria uma
+     segunda implementacao de `efetiva`, e duas implementacoes do mesmo numero divergem
+     no primeiro caso de borda. */
+  var corpoA = fonteDaFuncao(admQ, 'qtdQueConta');
+  var corpoI = fonteDaFuncao(ixQ, 'qtdQueConta');
+  ok(corpoA.indexOf('qtdConferida') < 0 && corpoI.indexOf('qtdConferida') < 0,
+    'e nenhuma das duas REFAZ a regra \u2014 elas leem a decis\u00e3o do servidor; refeita no ' +
+    'navegador, seria uma segunda implementa\u00e7\u00e3o do mesmo n\u00famero, e duas divergem no ' +
+    'primeiro caso de borda', [corpoA.slice(0, 160), corpoI.slice(0, 160)]);
+  ok(corpoA.indexOf('qtdEfetiva') > 0 && corpoA.indexOf('m.qtd') > 0 &&
+     corpoI.indexOf('qtdEfetiva') > 0 && corpoI.indexOf('m.qtd') > 0,
+    'e as duas caem na declarada quando o campo novo n\u00e3o vem \u2014 aparelho com a p\u00e1gina ' +
+    'velha em cache \u00e9 rotina no app de campo, e zerar a coluna trocaria um n\u00famero ' +
+    'discut\u00edvel por um n\u00famero falso');
+})();
+
+function fonteDaFuncao(txt, nome) {
+  var i = String(txt).indexOf('function ' + nome + '(');
+  if (i < 0) return '';
+  var d = 0, k = txt.indexOf('{', i);
+  for (; k < txt.length; k++) {
+    if (txt[k] === '{') d++;
+    else if (txt[k] === '}' && --d === 0) return txt.slice(i, k + 1);
+  }
+  return '';
+}
+
 var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 var falhas = 0;
 
@@ -6788,8 +6877,54 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
     corpoDe(nucleo, 'hoje') +
     ' return {diaOperacao: diaOperacao, hojeOperacao: hojeOperacao, hoje: hoje};')(
       fuso, pad2, { Intl: global.Intl });
-  var totaisMov = new Function('Q', 'sentidoDoMov', fonteTot + ' return totaisMov;')(
-    Qdia, function (m) { return m.sentido; });
+  /* O `qtdQueConta` DE VERDADE, tirado do arquivo, e nao um duble. Ele e' a regra da
+     QUANTIDADE — declarada ou contada —, e foi a divergencia dela que fez o Painel de
+     Ativos dizer 25.367 de Retorno e esta tela dizer 27.256. Escrito aqui a mao, a
+     bancada aprovaria a regra que eu escrevi na bancada, e nao a que roda na tela. */
+  var fonteQtd = fonteDaFuncao(adm, 'qtdQueConta');
+  ok(!!fonteQtd, 'a tela tem UMA fun\u00e7\u00e3o que diz qual quantidade conta \u2014 espalhada por ' +
+    'cada soma, ela divergiria de si mesma na pr\u00f3xima que algu\u00e9m escrevesse');
+  var totaisMov = new Function('Q', 'sentidoDoMov', 'qtdQueConta',
+      fonteTot + ' return totaisMov;')(
+      Qdia, function (m) { return m.sentido; },
+      new Function(fonteQtd + ' return qtdQueConta;')());
+
+  /* ---- A QUANTIDADE QUE CONTA, RODADA ----
+   *
+   * O escritorio abriu os dois relatorios: Painel de Ativos 25.367 de Retorno,
+   * Movimentos Gerais 27.256, Saida batendo nos dois. "Precisa ser igual."
+   * A diferenca era a REGRA DA QUANTIDADE: numa devolucao conferida ha' o que o
+   * motorista DECLAROU e o que o conferente CONTOU, e esta tela somava a declarada
+   * enquanto o estoque, o aging e o painel somavam a contada.
+   * O CENARIO TEM DE TER DIVERGENCIA, senao as duas regras dao o mesmo numero e a
+   * prova aprovaria as duas. */
+  (function () {
+    var r = totaisMov([
+      { id: 'd1', lote: 'LD', qtd: 500, qtdEfetiva: 480, sentido: 'retorno',
+        dataRef: '2020-01-01', dataHora: '' },
+      { id: 'd2', lote: 'LD2', qtd: 300, qtdEfetiva: 300, sentido: 'retorno',
+        dataRef: '2020-01-01', dataHora: '' },
+      { id: 's1', lote: 'LS', qtd: 900, qtdEfetiva: 900, sentido: 'saida',
+        dataRef: '2020-01-01', dataHora: '' }
+    ]);
+    ok(r.retorno === 780,
+      'o Retorno soma o que foi CONTADO na chegada \u2014 480 de uma carga declarada como ' +
+      '500, mais 300 \u2014, que \u00e9 o mesmo n\u00famero do Painel de Ativos: somando a ' +
+      'declarada, os dois relat\u00f3rios da mesma opera\u00e7\u00e3o davam 1.889 de diferen\u00e7a e ' +
+      'n\u00e3o havia como apresentar nenhum dos dois', r.retorno);
+    ok(r.saida === 900, 'e a Sa\u00edda n\u00e3o muda \u2014 ela j\u00e1 batia nos dois relat\u00f3rios, e era ' +
+      'isso que apontava o dedo para a regra do retorno', r.saida);
+
+    /* O APARELHO COM A PAGINA VELHA: payload sem o campo novo tem de cair na declarada,
+       e nao em zero. Uma coluna zerada e' pior do que uma coluna discutivel. */
+    var v = totaisMov([
+      { id: 'x1', lote: 'LX', qtd: 250, sentido: 'retorno', dataRef: '2020-01-01',
+        dataHora: '' }
+    ]);
+    ok(v.retorno === 250,
+      'e um aparelho com a p\u00e1gina velha em cache, sem o campo novo, cai na declarada \u2014 ' +
+      'zerar a coluna trocaria um n\u00famero discut\u00edvel por um n\u00famero falso', v.retorno);
+  })();
 
   var carimbo = function (diasAtras) {
     var d = new Date(); d.setUTCDate(d.getUTCDate() - diasAtras);
@@ -7211,7 +7346,11 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
       }
       return '';
     }
-    var PECAS = ['agruparMov', 'cortarG', 'porTotalG', 'parG', 'trilhoG', 'reguaG',
+    /* `qtdQueConta` ENTRA NO RECORTE porque `agruparMov` a chama: e' a regra da
+       QUANTIDADE, e sem ela aqui o sandbox estoura em vez de medir. Entra a DE
+       VERDADE, tirada do arquivo, e nao um duble — um duble mediria a regra que
+       eu escrevi na bancada. */
+    var PECAS = ['qtdQueConta', 'agruparMov', 'cortarG', 'porTotalG', 'parG', 'trilhoG', 'reguaG',
                  'barraG', 'painelG', 'barraSaldoG', 'painelSaldoG',
                  'desenharGraficosMov'];
     var faltando = PECAS.filter(function (n) { return !corpoP(n); });
@@ -7876,10 +8015,16 @@ console.log('\n== classificar e a janela de linhas, em Movimentos ==');
      linha com 23 valores desloca TODAS as colunas dali para a frente, e a planilha de
      escritorio passa a ler a placa na coluna de quem lancou, sem nada na tela dizendo
      que houve deslocamento. */
-  var iCsv = adm.indexOf("['Registro','Item','Movimento'");
-  var cabCsv = (adm.slice(iCsv, adm.indexOf(']', iCsv)).match(/'[^']*'/g) || []);
-  var iLin = adm.indexOf('return [m.registro', iCsv);
-  var linCsv = adm.slice(iLin, adm.indexOf('];', iLin));
+  /* SEM OS COMENTARIOS ANTES DE CONTAR. A conta e' de virgulas, e as razoes de
+     cada coluna moram DENTRO da lista neste arquivo — e' o costume do projeto.
+     Uma virgula na prosa virava uma coluna a mais, e a prova acusava um
+     descompasso que nao existia: alarme falso esconde o alarme verdadeiro.
+     E' a mesma regra que a prova irma, mais abaixo, ja' aplicava. */
+  var admCsv = semComentarios(adm);
+  var iCsv = admCsv.indexOf("['Registro','Item','Movimento'");
+  var cabCsv = (admCsv.slice(iCsv, admCsv.indexOf(']', iCsv)).match(/'[^']*'/g) || []);
+  var iLin = admCsv.indexOf('return [m.registro', iCsv);
+  var linCsv = admCsv.slice(iLin, admCsv.indexOf('];', iLin));
   var valores = linCsv.replace(/^return \[/, '').split(',')
     .filter(function (x) { return x.trim() !== ''; });
   ok(iCsv > 0 && cabCsv.length > 15 && valores.length > 15,
@@ -7993,13 +8138,17 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var ip = desc.indexOf('padrao: [');
   var cols = (desc.slice(ip, desc.indexOf(']', ip)).match(/'(\w+)'/g) || [])
     .map(function (t) { return t.slice(1, -1); });
-  /* VINTE E UMA: o Item entrou quando o Lançamento se partiu em dois — o código da
+  /* VINTE E DUAS: o Item entrou quando o Lançamento se partiu em dois — o código da
      CARGA e o da LINHA —, o Motorista (completo) entrou quando o apelido nasceu (a
      coluna curta é a de trabalho e a longa é a do documento), e o Fornecedor entrou
-     ao lado da Rota: a rota diz por onde a caixa andou, e ele diz de quem ela é.
+     ao lado da Rota: a rota diz por onde a caixa andou, e ele diz de quem ela é,
+     e a DECLARADA entrou ao lado da Qtd quando a Qtd passou a mostrar o que foi
+     CONTADO na chegada: as duas lado a lado sao o que torna a divergência legível
+     sem abrir a correção, e era por somá-las misturadas que dois relatórios da
+     mesma operação davam 1.889 de diferença no Retorno.
      A conta é escrita de propósito: ela é o tropeço que obriga quem acrescenta uma
      coluna a passar pelas provas abaixo, em vez de acrescentar e seguir. */
-  ok(cols.length === 21, 'são vinte e uma colunas de fábrica', cols);
+  ok(cols.length === 22, 'são vinte e duas colunas de fábrica', cols);
 
   /* AS SETE QUE FORAM SENDO ACRESCENTADAS. Contar quinze não diz QUAIS são quinze:
      trocar `hora` por outra coluna qualquer manteria a conta de pé. Elas respondem
@@ -8145,8 +8294,11 @@ console.log('\n== as colunas da tabela de Movimentos ==');
   var trechoCsv = iCsv < 0 ? '' : adm.slice(iCsv, adm.indexOf('}));', iCsv));
   var cabCsv = (trechoCsv.match(/\['Registro'[^\]]*\]/) || [''])[0];
   var quantosCab = (cabCsv.match(/'/g) || []).length / 2;
-  var iRet = trechoCsv.indexOf('return [');
-  var linhaCsv = iRet < 0 ? '' : trechoCsv.slice(iRet, trechoCsv.indexOf('];', iRet));
+  /* SEM OS COMENTARIOS, pelo mesmo motivo da prova irma: a prosa que explica as
+     colunas mora dentro da lista, e uma virgula nela contava como coluna. */
+  var trechoCsvSC = semComentarios(trechoCsv);
+  var iRet = trechoCsvSC.indexOf('return [');
+  var linhaCsv = iRet < 0 ? '' : trechoCsvSC.slice(iRet, trechoCsvSC.indexOf('];', iRet));
   /* Vírgulas do nível de cima: as de dentro de uma chamada não separam colunas. */
   var quantosVal = (function () {
     var n = 0, fundo = 0;
@@ -25133,19 +25285,35 @@ console.log('\n== o app de campo e a propria declaracao ==');
   ok(soma.length > 150 && soma.indexOf('declarou') > 0,
     'a conferência recortou a conta do rodapé — recorte vazio faria as provas abaixo ' +
     'passarem sem somar nada', soma.length);
+  /* A REGRA DA QUANTIDADE ENTRA DE VERDADE no recorte: a conta a chama, e sem ela
+     aqui o sandbox estoura em vez de medir. */
+  /* O CENARIO TEM UMA DEVOLUCAO COM DIVERGENCIA — declarada 500, contada 480 —, e e'
+     ela que distingue as duas regras. Sem nenhuma divergencia no cenario, somar a
+     declarada e somar a contada dao o mesmo numero, e a prova aprovaria as duas. */
   var conta = new Function('lista',
+    fonteDaFuncao(app, 'qtdQueConta') + '\n' +
     soma + '\nreturn { saiu: saiu, voltou: voltou, declarou: declarou, nDecl: nDecl };')([
-      { tipo: 'SAIDA',     qtd: 100, declaracao: false },
-      { tipo: 'DEVOLUCAO', qtd: 250, declaracao: false },
-      { tipo: 'DEVOLUCAO', qtd: 999, declaracao: true }
+      { tipo: 'SAIDA',     qtd: 100, qtdEfetiva: 100, declaracao: false },
+      { tipo: 'DEVOLUCAO', qtd: 250, qtdEfetiva: 250, declaracao: false },
+      { tipo: 'DEVOLUCAO', qtd: 500, qtdEfetiva: 480, declaracao: false },
+      { tipo: 'DEVOLUCAO', qtd: 999, qtdEfetiva: 900, declaracao: true }
     ]);
-  ok(conta.saiu === 100 && conta.voltou === 250,
-    'a declaração NÃO entra em "caixas que saíram" nem em "caixas que voltaram" — ela ' +
-    'não é caixa que se moveu, e somada aqui contaria duas vezes a mesma carga para ' +
-    'quem lança nos dois livros', [conta.saiu, conta.voltou]);
+  ok(conta.saiu === 100 && conta.voltou === 730,
+    'a declara\u00e7\u00e3o N\u00c3O entra em "caixas que sa\u00edram" nem em "caixas que voltaram" \u2014 ela ' +
+    'n\u00e3o \u00e9 caixa que se moveu, e somada aqui contaria duas vezes a mesma carga para ' +
+    'quem lan\u00e7a nos dois livros', [conta.saiu, conta.voltou]);
+  ok(conta.voltou === 250 + 480,
+    'e o que voltou \u00e9 o que o conferente CONTOU, e n\u00e3o o que o motorista declarou \u2014 ' +
+    '480 de uma carga declarada como 500: \u00e9 a mesma r\u00e9gua do estoque e do Painel de ' +
+    'Ativos, e som\u00e1-la diferente aqui fazia dois relat\u00f3rios da mesma opera\u00e7\u00e3o ' +
+    'discordarem em 1.889 sem nada dizendo qual estava certo', conta.voltou);
   ok(conta.declarou === 999 && conta.nDecl === 1,
-    'mas é contada à parte, e o rodapé diz quanto — fora da conta e sem aviso, a lista ' +
-    'teria linhas que nenhum número explica', [conta.declarou, conta.nDecl]);
+    'mas \u00e9 contada \u00e0 parte, e o rodap\u00e9 diz quanto \u2014 fora da conta e sem aviso, a lista ' +
+    'teria linhas que nenhum n\u00famero explica', [conta.declarou, conta.nDecl]);
+  ok(conta.declarou === 999,
+    'e a DECLARA\u00c7\u00c3O soma a declarada, e n\u00e3o a contada \u2014 ela \u00e9 o que a pessoa informou, ' +
+    'e esse cart\u00e3o responde "quanto eu declarei"; quem conta \u00e9 o outro lado do par',
+    conta.declarou);
   ok(app.indexOf("' declarados, fora da conta'") > 0,
     'e o rodapé diz isso com todas as letras');
 })();
@@ -26916,7 +27084,11 @@ console.log('\n== toda funcao chamada existe ==');
     'vazio faria tudo abaixo aprovar sem rodar nada', { ini: i0, fim: i1 });
 
   var ABERTOS = {};
+  /* A REGRA DA QUANTIDADE ENTRA NO SANDBOX, de verdade: a soma da carga a chama,
+     e sem ela aqui o recorte estoura em vez de medir. E' a mesma regra que fez o
+     Painel de Ativos e Movimentos Gerais discordarem em 1.889 no Retorno. */
   var F = new Function('Q', 'cs', 'linhasDaCarga', 'REG_ABERTOS',
+    fonteDaFuncao(adm, 'qtdQueConta') + String.fromCharCode(10) +
     adm.slice(i0, i1) +
     ' return { corpoAgrupado: corpoAgrupado, linhaDe: linhaDe };')(
     Q, cs,
@@ -27214,7 +27386,12 @@ console.log('\n== a lista do app de campo, agrupada pelo registro ==');
     podeCorrigir: function () { return true; }
   };
   var ABERTOS = {};
+  /* A REGRA DA QUANTIDADE E O BALAO DELA ENTRAM NO RECORTE, de verdade: a soma
+     da carga e as duas celulas de numero as chamam, e sem elas aqui o sandbox
+     estoura em vez de medir. */
   var F = new Function('Q', 'colunasLanc', 'LC_ABERTOS',
+    fonteDaFuncao(ixC, 'qtdQueConta') + String.fromCharCode(10) +
+    fonteDaFuncao(ixC, 'tituloDaQtd') + String.fromCharCode(10) +
     ixC.slice(i0, i1).replace('var LC_ABERTOS = {};', '') +
     ' return { corpoLanc: corpoLanc, tabelaLanc: tabelaLanc };')(
     Qc, function () { return { saida: true, retorno: true }; }, ABERTOS);

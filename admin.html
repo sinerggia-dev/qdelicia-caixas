@@ -4352,7 +4352,7 @@
     /* FORNECEDOR FICA AO LADO DA ROTA, que e onde ele se le: a rota diz por onde a
        caixa andou, e ele diz de quem ela e. Gravado e nao mostrado seria meio dado. */
     padrao: ['registro','item','data','hora','criado','status','base','tipo','origem','destino','rota',
-             'fornecedor','caixa','qtd','motorista','motoristaNome','veiculo','quem',
+             'fornecedor','caixa','qtd','declarada','motorista','motoristaNome','veiculo','quem',
              'alterado','alteradoEm','obs'],
     /* `data` tem 150 e não 110: a etiqueta "teste" mora DENTRO desta célula, e com a
        coluna Hora encostada nela a etiqueta passava por cima da hora. Medido na tela,
@@ -4362,14 +4362,15 @@
     larg: { registro:105, item:105,
             data:120, hora:70, criado:110, status:110, base:120, tipo:120, origem:150, destino:150,
             rota:150, fornecedor:170,
-            caixa:120, qtd:80, motorista:130, motoristaNome:180, veiculo:110, quem:120,
+            caixa:120, qtd:80, declarada:95, motorista:130, motoristaNome:180, veiculo:110, quem:120,
             alterado:140, alteradoEm:150, obs:240 },
     titulos: { registro:'Registro', item:'Item',
                data:'Movimento', hora:'Hora', criado:'Criado em',
                status:'Status', base:'Base', tipo:'Tipo',
                origem:'Origem', destino:'Destino', rota:'Rota',
                fornecedor:'Fornecedor', caixa:'Caixa',
-               qtd:'Qtd', motorista:'Motorista', motoristaNome:'Motorista (completo)',
+               qtd:'Qtd', declarada:'Declarada',
+               motorista:'Motorista', motoristaNome:'Motorista (completo)',
                veiculo:'Veículo', quem:'Quem',
                alterado:'Alterado por', alteradoEm:'Alterado em',
                obs:'Observação' },
@@ -9682,6 +9683,36 @@
     });
   }
 
+  /* ============ A QUANTIDADE QUE CONTA ============
+   *
+   * O ESCRITORIO ABRIU OS DOIS RELATORIOS: Painel de Ativos dizia 25.367 de Retorno e
+   * Movimentos Gerais dizia 27.256, com a Saida batendo nos dois. "Precisa ser igual."
+   *
+   * AS 1.889 DE DIFERENCA ERAM A REGRA DA QUANTIDADE. Numa devolucao conferida ha' dois
+   * numeros: o que o motorista DECLAROU e o que o conferente CONTOU. O estoque, o aging
+   * e o Painel de Ativos sempre somaram a contada — e' ela que entrou no galpao. Esta
+   * tela somava a declarada. Os dois estavam certos cada um por si, e e' exatamente por
+   * isso que ninguem conseguia dizer qual apresentar ao cliente.
+   *
+   * QUEM DECIDE E O SERVIDOR, e esta funcao so' LE a decisao dele. Refeita aqui — "se
+   * tem conferida usa a conferida" —, ela seria uma segunda implementacao da mesma
+   * regra, e duas implementacoes do mesmo numero divergem no primeiro caso de borda.
+   * E' a mesma razao pela qual `sentidoDoMov`, logo abaixo, copia a classificacao do
+   * servidor em vez de inventar a propria.
+   *
+   * A DECLARADA NAO CAI NO CHAO: ela continua na coluna Declarada, no CSV e na tela de
+   * correcao, que e' onde ela responde a pergunta dela — "o que foi informado?".
+   *
+   * O `||` NO FIM CUIDA DO APARELHO COM A PAGINA VELHA EM CACHE: payload sem o campo
+   * novo cai na declarada, que e' o que aquela tela ja' mostrava. Zerar a coluna seria
+   * trocar um numero discutivel por um numero falso. */
+  function qtdQueConta(m){
+    if (!m) return 0;
+    var q = (m.qtdEfetiva !== undefined && m.qtdEfetiva !== null && m.qtdEfetiva !== '')
+      ? m.qtdEfetiva : m.qtd;
+    return Number(q) || 0;
+  }
+
   function sentidoDoMov(m){
     var t = String(m.tipo || '').toUpperCase();
     if (t === 'DEVOLUCAO') return 'retorno';
@@ -9704,7 +9735,7 @@
       /* O LOTE é quem diz quantos MOVIMENTOS existem. Sem ele só daria para contar
          linhas — e cinco linhas podem ser um movimento só, com cinco tipos de caixa. */
       t.lotes[m.lote || m.id] = 1;
-      var q = Number(m.qtd) || 0;
+      var q = qtdQueConta(m);
       var s = sentidoDoMov(m);
       if (s === 'saida') t.saida += q;
       else if (s === 'retorno') t.retorno += q;
@@ -9933,7 +9964,7 @@
          na operação, e some-la faria o painel somar menos que o cartão. */
       if (k == null || k === '') { k = 'sem informação'; r[1] = ''; }
       if (!mapa[k]) { mapa[k] = { k:k, v:r[1], saida:0, retorno:0, total:0 }; ordem.push(k); }
-      var g = mapa[k], q = Number(m.qtd) || 0, s = sentidoDoMov(m);
+      var g = mapa[k], q = qtdQueConta(m), s = sentidoDoMov(m);
       if (s === 'saida') g.saida += q; else if (s === 'retorno') g.retorno += q;
       g.total += q;
     });
@@ -10511,7 +10542,29 @@
       caixa:     { t: TIT['caixa'], k: function(m){ return m.tipoCaixa || ''; },    v: function(m){ return Q.esc(m.tipoCaixa); } },
       /* NUMERO como NUMERO. Comparado como texto, "1.620" vem antes de "810" — e
          e o tipo de erro que ninguem confere, porque a coluna "parece ordenada". */
-      qtd:       { t: TIT['qtd'], num: true, k: function(m){ return Number(m.qtd) || 0; },
+      /* A COLUNA MOSTRA O QUE O CARTAO SOMA, e nao o que foi declarado: somada com
+         o dedo, ela tem de dar o numero de cima. Era a queixa de ontem, no cartao do
+         fluxo — "e um erro basico de matematica" —, e a mesma regra vale aqui.
+         A DIVERGENCIA FICA A VISTA no balao, em vez de virar um numero que some: quem
+         ve 480 numa linha que o motorista declarou como 500 precisa saber disso ali,
+         sem abrir a correcao. A linha ja' vem com a classe `ruim`, que a pinta. */
+      qtd:       { t: TIT['qtd'], num: true, k: function(m){ return qtdQueConta(m); },
+                   v: function(m){
+                     var conta = qtdQueConta(m);
+                     var dec = Number(m.qtd) || 0;
+                     if (conta === dec) return Q.num(conta);
+                     return '<b title="'+Q.esc('Declarado '+Q.num(dec)+' \u00b7 contado '+
+                       Q.num(conta)+' \u00b7 divergência '+(conta > dec ? '+' : '')+
+                       Q.num(conta - dec))+'">'+Q.num(conta)+'</b>';
+                   } },
+      /* O QUE O MOTORISTA DISSE, ao lado do que chegou. Ela NASCE A VISTA, como o nome
+         completo do motorista nasceu: esconde-la seria decidir pela pessoa que ela nao
+         precisa do dado que ela acabou de reclamar que faltava. Quem nao quiser as duas
+         tira esta pelo seletor de colunas, e a escolha fica guardada.
+         NA MAIORIA DAS LINHAS AS DUAS SAO IGUAIS, e isso e' resposta: diz que a carga
+         chegou como foi declarada. Onde elas diferem, a diferenca e' a conferencia
+         fazendo o trabalho dela. */
+      declarada: { t: TIT['declarada'], num: true, k: function(m){ return Number(m.qtd) || 0; },
                    v: function(m){ return Q.num(m.qtd); } },
       /* A PLACA AO LADO DO MOTORISTA, porque as duas respondem "quem levou": no dia em
          que a carga nao bate, e o par que se procura. Separadas por seis colunas, a
@@ -10666,7 +10719,13 @@
       if (c.id === 'item') {
         return '<span class="fraco">'+filhos.length+' itens</span>';
       }
-      if (c.id === 'qtd') return c.d.v({ qtd: soma });
+      if (c.id === 'qtd') return c.d.v({ qtd: soma, qtdEfetiva: soma });
+      /* A DECLARADA DA CARGA TAMBEM SOMA, pelo mesmo motivo que a Qtd: "varios" numa
+         coluna de numero cala justamente o numero que se veio ver. E as duas somas
+         juntas sao o que torna a divergencia da carga legivel sem abrir os itens. */
+      if (c.id === 'declarada') {
+        return c.d.v({ qtd: filhos.reduce(function(s, m){ return s + (Number(m.qtd) || 0); }, 0) });
+      }
       return cargaConcorda(c, filhos) ? c.d.v(filhos[0])
                                       : '<span class="fraco">vários</span>';
     }
@@ -10706,7 +10765,7 @@
            fechada, e a tela ficaria cheia de setas que não mostram nada novo. */
         if (filhos.length === 1) { fora.push(linhaDe(filhos[0], '')); return; }
         var aberta = REG_ABERTOS[g.lote] === true;
-        var soma = filhos.reduce(function(s, m){ return s + (Number(m.qtd) || 0); }, 0);
+        var soma = filhos.reduce(function(s, m){ return s + qtdQueConta(m); }, 0);
         /* A CHAVE FICA NO ATRIBUTO e é lida de lá; ela nunca entra num seletor. Ela vem
            do servidor e pode trazer caractere que o CSS lê como sintaxe — e aí o
            seletor não acha nada, sem erro nenhum no console. */
@@ -11115,7 +11174,7 @@
     lista.forEach(function(m){
       var d = m.dataRef || '';
       if (!porDia[d]) { porDia[d] = { saida: 0, retorno: 0 }; }
-      var q = Number(m.qtd) || 0;
+      var q = qtdQueConta(m);
       var s = sentidoDoMov(m);
       if (s === 'saida') porDia[d].saida += q;
       else if (s === 'retorno') porDia[d].retorno += q;
@@ -11476,17 +11535,24 @@
       /* OS DOIS CODIGOS NO ARQUIVO. O Registro e o que permite somar a carga inteira
          numa planilha — agrupando pelo codigo da linha, cada carga viraria quatro
          grupos de um. */
-      ['Registro','Item','Movimento','Hora','Criado em','Base','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Motorista (completo)','Veiculo','Quem','Alterado por','Alterado em','Obs'],
+      ['Registro','Item','Movimento','Hora','Criado em','Base','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Motorista (completo)','Veiculo','Quem','Alterado por','Alterado em','Obs','Declarada'],
       MOVS.map(function(m){
         var a = m.alterado || {};
         return [m.registro||'', m.id,
                 Q.dataBR(m.dataRef),Q.horaBR(m.dataHora),Q.dataDoCarimboBR(m.dataHora),
                 baseDaLinha(m).nome,
-                m.situacao,rotuloDoTipoMov(m.tipo),m.origem,m.destino,m.tipoCaixa,m.qtd,
+                /* `Qtd` E A QUE CONTA, igual a coluna da tela: o arquivo que o
+                   escritorio abre no Excel e sobre o qual monta planilha nao pode somar
+                   diferente do que a tela mostrou.
+                   `Declarada` VAI NO FIM, e nao no lugar da antiga: ha' planilha montada
+                   em cima desta ordem de colunas, e mexer nela quebraria o trabalho de
+                   quem ja' usa o arquivo. Coluna nova no fim nao quebra nenhuma. */
+                m.situacao,rotuloDoTipoMov(m.tipo),m.origem,m.destino,m.tipoCaixa,
+                qtdQueConta(m),
                 m.qtdConferida,m.divergencia,m.status,m.romaneio,m.rota||'',m.motorista||'',
                 m.motoristaNome||'',
                 m.veiculo||'',
-                m.usuario,a.por||'',a.em?Q.dataHoraBR(a.em):'',m.obs];
+                m.usuario,a.por||'',a.em?Q.dataHoraBR(a.em):'',m.obs,m.qtd];
       }));
   });
 
