@@ -13380,6 +13380,136 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'conta errada devolveria a resposta certa e esta prova passaria verde sem medir nada',
     { certa: gr.taxaRetorno, comInterna: Math.round((700 / 1100) * 1000) / 10 });
 
+  /* ---- LIMPAR FILTROS NAS TELAS DE MOTORISTA, E O QUE ELE NAO LIMPA ----
+   *
+   * A BASE FICA, e e' a decisao do pedaco. Sem ela a tela nao carrega NADA — diz
+   * "Escolha a Base para comparar" e fica assim. Limpa-la nao desfaz um recorte: apaga o
+   * trabalho e devolve a pessoa ao comeco. E' a mesma razao pela qual o "Conferindo em"
+   * da Entrada nao entra no limpar de la'.
+   * RODADO, e nao lido: as funcoes saem do arquivo e mexem em campos de mentira. */
+  {
+    var admLP = semComentarios(adm);
+    var campos = {
+      dcDe: { value: '2026-10-22' }, dcAte: { value: '2026-10-22' },
+      dcMotorista: { multiple: true, value: 'Chico' },
+      dcBase: { multiple: true, value: 'declaracao' },
+      dcRemovidos: { value: 'incluir' },
+      dcBusca: { value: 'arilson' },
+      dcSituacao: { multiple: true, value: 'Sem conferência' },
+      dcTipo: { multiple: true, value: 'Retorno' },
+      dcHoje: { attrs: {}, setAttribute: function (k, v) { this.attrs[k] = v; } },
+      btnLimparDecl: { hidden: true }, btnLimparLancMot: { hidden: true }
+    };
+    var recarregou = 0, redesenhou = 0, limpos = [];
+    function corpoLP(nome) {
+      var i = admLP.indexOf('  function ' + nome + '(');
+      if (i < 0) return '';
+      var d = 0, k = admLP.indexOf('{', i);
+      for (; k < admLP.length; k++) {
+        if (admLP[k] === '{') d++;
+        else if (admLP[k] === '}' && --d === 0) return admLP.slice(i, k + 1);
+      }
+      return '';
+    }
+    var apiLP = new Function('document', 'TELA_PARES', 'TELA_DECL', 'TELA_LANC',
+      'valorFiltro', 'porEscolha', 'pintarMulti', 'carregarDecl', 'desenharDecl',
+      corpoLP('camposDoFiltroPares') + '\n' + corpoLP('algumFiltroPares') + '\n' +
+      corpoLP('mostrarLimparPares') + '\n' + corpoLP('limparFiltrosPares') +
+      '\n return { campos: camposDoFiltroPares, algum: algumFiltroPares,' +
+      '\n          mostrar: mostrarLimparPares, limpar: limparFiltrosPares };');
+
+    var DECL = { box: 'tabelaDecl', situacao: 'dcSituacao', tipo: 'dcTipo',
+      campos: { de: 'dcDe', ate: 'dcAte', motorista: 'dcMotorista', base: 'dcBase',
+                removidos: 'dcRemovidos', busca: 'dcBusca' } };
+    var LANC = { box: 'tabelaLanc', situacao: '', tipo: '',
+      campos: { de: 'lmDe', ate: 'lmAte', motorista: '', base: 'lmBase',
+                removidos: '', busca: 'lmBusca' } };
+    var api = apiLP(
+      { getElementById: function (id) { return campos[id] || null; } },
+      DECL, DECL, LANC,
+      function (id) { var e = campos[id]; return e ? (e.value || '') : ''; },
+      /* O `porEscolha` DE MENTIRA REGISTRA A CHAMADA e deixa o estado coerente. Os dois
+         importam: o estado, para o botao poder sumir depois de limpar; e o REGISTRO,
+         porque e' ele que distingue "passou por `porEscolha`" de "levou `value = ''`".
+         Um `select multiple` nao se limpa com `value` — e e' essa a sabotagem que a
+         lista `limpos` existe para pegar. */
+      function (sel) { limpos.push(sel); sel.value = ''; },
+      function () {},
+      function () { recarregou++; },
+      function () { redesenhou++; });
+
+    /* A BASE NAO ESTA NA LISTA DO QUE SE LIMPA. E' a afirmacao mais importante daqui. */
+    ok(api.campos().indexOf('dcBase') < 0,
+      'a BASE fica fora do que o bot\u00e3o limpa \u2014 sem ela a tela n\u00e3o carrega nada e fica ' +
+      'em "Escolha a Base": limp\u00e1-la apaga o trabalho em vez do recorte',
+      api.campos());
+    ok(api.campos().indexOf('dcSituacao') >= 0 && api.campos().indexOf('dcTipo') >= 0 &&
+       api.campos().indexOf('dcBusca') >= 0,
+      'e a situa\u00e7\u00e3o, o tipo e a busca est\u00e3o nela \u2014 deixar um para tr\u00e1s faz o bot\u00e3o ' +
+      'dizer que limpou com a tabela ainda recortada, que \u00e9 pior do que n\u00e3o ter bot\u00e3o',
+      api.campos());
+
+    ok(api.algum() === true, 'com filtro ligado, a tela sabe que est\u00e1 recortada');
+    api.mostrar();
+    ok(campos.btnLimparDecl.hidden === false,
+      'e o bot\u00e3o aparece \u2014 escondido com filtro ligado, a pessoa desfaz o recorte campo ' +
+      'a campo sem saber que havia um caminho', campos.btnLimparDecl.hidden);
+
+    api.limpar();
+    ok(campos.dcDe.value === '' && campos.dcBusca.value === '' &&
+       campos.dcRemovidos.value === '',
+      'limpando, os campos simples do recorte esvaziam',
+      [campos.dcDe.value, campos.dcBusca.value]);
+    /* E OS DE MULTIPLA ESCOLHA PASSAM POR `porEscolha`, que e' o unico jeito de
+       limpa-los: `value = ''` num `select multiple` nao apaga o `selected` das opcoes, e
+       o filtro continua valendo com o campo parecendo vazio. */
+    ok(limpos.length === 3 &&
+       limpos.indexOf(campos.dcMotorista) >= 0 &&
+       limpos.indexOf(campos.dcSituacao) >= 0 &&
+       limpos.indexOf(campos.dcTipo) >= 0,
+      'e os TR\u00caS campos de m\u00faltipla escolha passam por `porEscolha` \u2014 `value = \"\"` ' +
+      'num `select multiple` n\u00e3o apaga o `selected` das op\u00e7\u00f5es, e o filtro continua ' +
+      'valendo com o campo parecendo vazio', limpos.length);
+    ok(campos.dcBase.value === 'declaracao',
+      'e a BASE continua escolhida \u2014 era a decis\u00e3o: ela n\u00e3o \u00e9 recorte, \u00e9 o que faz a ' +
+      'tela existir', campos.dcBase.value);
+    ok(campos.dcHoje.attrs['aria-pressed'] === 'false',
+      'e o atalho "Hoje" apaga junto \u2014 aceso sobre um per\u00edodo vazio, ele diz uma coisa ' +
+      'com a tabela mostrando outra', campos.dcHoje.attrs);
+    ok(recarregou === 1 && redesenhou === 0,
+      'e como HAVIA data, ele recarrega \u2014 o per\u00edodo \u00e9 o \u00fanico que vai ao servidor, e ' +
+      'redesenhar s\u00f3 devolveria a mesma lista recortada', [recarregou, redesenhou]);
+
+    api.mostrar();
+    ok(campos.btnLimparDecl.hidden === true,
+      'e depois de limpar o bot\u00e3o SOME \u2014 um bot\u00e3o sempre \u00e0 vista que na maioria das ' +
+      'vezes n\u00e3o faz nada ensina errado o que os outros da barra fazem',
+      campos.btnLimparDecl.hidden);
+
+    /* E SEM DATA ELE REDESENHA, sem ir a' rede: os pares ja' estao na mao. */
+    campos.dcBusca.value = 'arilson';
+    recarregou = 0; redesenhou = 0;
+    api.limpar();
+    ok(redesenhou === 1 && recarregou === 0,
+      'e sem data ele REDESENHA, sem ir \u00e0 rede \u2014 os pares j\u00e1 est\u00e3o na m\u00e3o, e ' +
+      'recarregar para redesenhar a mesma lista \u00e9 uma espera por nada',
+      [recarregou, redesenhou]);
+
+    /* E OS DOIS BOTOES EXISTEM E SAO LIGADOS. A peca pode estar perfeita e ninguem
+       chama-la — e aqui sao dois, em duas telas que dividem a mesma funcao. */
+    ok(/id="btnLimparDecl"/.test(adm) && /id="btnLimparLancMot"/.test(adm),
+      'as duas telas de motorista t\u00eam o bot\u00e3o \u2014 posto s\u00f3 numa, a diferen\u00e7a entre elas ' +
+      'vira a pr\u00f3xima pergunta');
+    ok(/btnLimparDecl', 'btnLimparLancMot'\]\.forEach[\s\S]{0,160}?addEventListener\('click', limparFiltrosPares\)/
+        .test(admLP),
+      'e os dois chamam a MESMA fun\u00e7\u00e3o \u2014 um corpo por tela divergiria no primeiro ' +
+      'filtro novo');
+    ok(/mostrarLimparPares\(\);/.test(corpoLP('desenharDecl')),
+      'e quem os mostra ou esconde \u00e9 o pr\u00f3prio desenho da lista \u2014 num ouvinte \u00e0 parte, ' +
+      'o primeiro caminho novo que mexesse num filtro deixaria o bot\u00e3o sumido com a ' +
+      'tela filtrada');
+  }
+
   /* ---- AS DATAS DO PAINEL REAGEM A QUEM DIGITA ----
    *
    * Num `input[type=date]` o `change` so' dispara quando o campo PERDE O FOCO ou quando

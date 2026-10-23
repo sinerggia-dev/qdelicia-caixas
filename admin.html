@@ -1481,6 +1481,12 @@
           <div class="bt-campo bt-campo--busca"><label for="dcBusca">Buscar</label>
             <input id="dcBusca" type="search" placeholder="motorista, rota, conferente, M000123…"
                    autocomplete="off"></div>
+          <!-- ELE NASCE ESCONDIDO e so' aparece quando ha' o que limpar. Um botao sempre
+               a vista que na maioria das vezes nao faz nada ensina errado o que os
+               outros desta barra fazem — e faz duvidar se a tela estava filtrada quando
+               ela nao estava. -->
+          <button class="btn sec" id="btnLimparDecl" type="button" hidden
+                  style="flex:0 0 auto;white-space:nowrap">Limpar filtros</button>
         </div>
 
         <!-- OS NÚMEROS ACIMA DA TABELA: "bateu?" é a pergunta que traz alguém a esta
@@ -1628,6 +1634,11 @@
           <div class="bt-campo bt-campo--busca"><label for="lmBusca">Buscar</label>
             <input id="lmBusca" type="search" placeholder="motorista, rota, M000123…"
                    autocomplete="off"></div>
+          <!-- O MESMO BOTAO NA OUTRA TELA. As duas dividem os filtros e a funcao que os
+               limpa; posto so' numa delas, a diferenca entre as duas viraria a proxima
+               pergunta. -->
+          <button class="btn sec" id="btnLimparLancMot" type="button" hidden
+                  style="flex:0 0 auto;white-space:nowrap">Limpar filtros</button>
         </div>
       </div>
 
@@ -2534,6 +2545,12 @@
     /* O MESMO ATALHO NA TELA NOVA, pela MESMA funcao do nucleo: escrito de novo, o dia
        em que o "tocar de novo desliga" mudasse, ele mudaria numa tela so'. */
     Q.ligarBotaoHoje('lmHoje', 'lmDe', 'lmAte', carregarDecl);
+    /* OS DOIS BOTOES CHAMAM A MESMA FUNCAO, e ela se orienta pelo `TELA_PARES` ativo:
+       um por tela com corpo proprio divergiria no primeiro filtro novo. */
+    ['btnLimparDecl', 'btnLimparLancMot'].forEach(function(id){
+      var b = document.getElementById(id);
+      if (b) b.addEventListener('click', limparFiltrosPares);
+    });
     var tp = document.getElementById('dcTipo');
     if (tp) tp.addEventListener('change', desenharDecl);
     /* A SITUAÇÃO NÃO RECARREGA NADA: ela nasce da comparação, que já está na tela. Uma
@@ -4897,6 +4914,66 @@
              removidos: valorFiltro(c.removidos) };
   }
 
+  /* ================= LIMPAR OS FILTROS DAS TELAS DE MOTORISTA =================
+   *
+   * OS CAMPOS SAO OS DO DESCRITOR, e nao uma lista escrita aqui: as duas telas tem
+   * conjuntos diferentes — a de Lancamento nao tem motorista nem situacao —, e uma lista
+   * fixa apagaria campo que nao existe numa e esqueceria o que so' existe na outra.
+   *
+   * A BASE NAO E LIMPA, e e' a decisao do pedaco. Sem ela a tela nao carrega NADA — ela
+   * diz "Escolha a Base para comparar" e fica assim. Limpa-la nao desfaz um recorte:
+   * apaga o trabalho e devolve a pessoa ao comeco. E' a mesma razao pela qual o
+   * "Conferindo em" da Entrada nao entra no limpar de la'.
+   *
+   * O PERIODO VAI AO SERVIDOR, os outros peneiram o que ja veio — por isso a volta e'
+   * `carregarDecl` quando havia data e `desenharDecl` quando nao havia: recarregar para
+   * redesenhar a mesma lista e' uma ida de rede por nada. */
+  function camposDoFiltroPares(){
+    var c = TELA_PARES.campos;
+    return [c.de, c.ate, c.motorista, c.removidos, c.busca,
+            TELA_PARES.situacao, TELA_PARES.tipo].filter(function(id){ return !!id; });
+  }
+
+  function algumFiltroPares(){
+    return camposDoFiltroPares().some(function(id){ return !!valorFiltro(id); });
+  }
+
+  function mostrarLimparPares(){
+    [['btnLimparDecl', TELA_DECL], ['btnLimparLancMot', TELA_LANC]].forEach(function(par){
+      var bt = document.getElementById(par[0]);
+      if (!bt) return;
+      /* CADA BOTAO OLHA A PROPRIA TELA, e nao a ativa: os dois existem na pagina ao
+         mesmo tempo, e lendo `TELA_PARES` o botao da tela escondida acenderia junto. */
+      var antes = TELA_PARES;
+      TELA_PARES = par[1];
+      bt.hidden = !algumFiltroPares();
+      TELA_PARES = antes;
+    });
+  }
+
+  function limparFiltrosPares(){
+    var tinhaData = !!(valorFiltro(TELA_PARES.campos.de) ||
+                       valorFiltro(TELA_PARES.campos.ate));
+    camposDoFiltroPares().forEach(function(id){
+      var e = document.getElementById(id);
+      if (!e) return;
+      if (e.multiple) porEscolha(e, []);
+      else e.value = '';
+      /* O BOTAO DO MULTI MOSTRA O QUE ESTA ESCOLHIDO, e ele nao se repinta sozinho:
+         deixado para tras, a tela ficaria com "Retorno" escrito num filtro ja' vazio. */
+      var cx = e.parentNode;
+      if (cx && cx.classList && cx.classList.contains('multi')) pintarMulti(cx);
+    });
+    /* O ATALHO DO DIA APAGA JUNTO: as datas deixaram de ser as dele, e um "Hoje" aceso
+       sobre um periodo vazio diz uma coisa com a tabela mostrando outra. */
+    [TELA_DECL === TELA_PARES ? 'dcHoje' : 'lmHoje'].forEach(function(id){
+      var h = document.getElementById(id);
+      if (h) h.setAttribute('aria-pressed', 'false');
+    });
+    mostrarLimparPares();
+    if (tinhaData) carregarDecl(); else desenharDecl();
+  }
+
   function carregarDecl(){
     var box = document.getElementById(TELA_PARES.box);
     if (!box) return;
@@ -5400,6 +5477,11 @@
   })();
 
   function desenharDecl(){
+    /* O BOTAO ACOMPANHA O DESENHO, e nao tem ouvinte proprio: esta funcao roda a cada
+       troca de filtro, a cada tecla da busca e a cada lista que chega. Num ouvinte a
+       parte, o primeiro caminho novo que mexesse num filtro sem passar por aqui deixaria
+       o botao sumido com a tela filtrada. */
+    mostrarLimparPares();
     /* A CAIXA VEM DO DESCRITOR, e nao escrita a mao.
      *
      * ERA `'tabelaDecl'` FIXO, e por isso a tela "Lancamento Motorista" nao carregava
