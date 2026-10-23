@@ -5436,6 +5436,60 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
     'divergiria no primeiro papel novo e a aba apareceria para quem o servidor recusa',
     [pubConf[0].ConfereChegada, pubConf[1].ConfereChegada]);
 
+  /* ---- E A ROTA QUE GRAVA E CHAMADA DE VERDADE, com o pedido QUE A TELA MANDA ----
+   *
+   * ELA NUNCA FUNCIONOU PARA NINGUEM, e nenhuma prova notou. A rota procurava quem
+   * pergunta em `p.quem` — o nome que `Q.lendo` acrescenta nas LEITURAS — e a tela
+   * manda `usuarioId`, porque `Q.enviar` nao acrescenta nada. `acharUsuario` devolvia
+   * nada, e a resposta era "seu perfil nao confere chegada de carga", dita ao
+   * ADMINISTRADOR, que confere.
+   *
+   * O DEFEITO FICOU ESCONDIDO PORQUE A LISTA E UM GET e funcionava: a tela abria cheia,
+   * e so' quem clicasse em "Confirmar contagem" descobria. E as provas que havia liam a
+   * rota pelo TEXTO — nenhuma a CHAMAVA. Esta chama, e com o payload exato da tela:
+   * `{ acao, contagens, usuarioId }`, sem `quem`. Escrito com `quem`, ela passaria
+   * verde sobre a rota quebrada, que foi o que aconteceu por um dia inteiro. */
+  {
+    const quemG = tabelas.usuarios.find((u) => String(u.perfil).toUpperCase() === 'ADMIN');
+    const fila = (await GET({ acao: 'aConferir', quem: quemG.id })).cargas || [];
+    ok(fila.length > 0,
+      'ha carga esperando confer\u00eancia para o cen\u00e1rio \u2014 sem ela esta prova mediria o ' +
+      'nada', fila.length);
+
+    const carga = fila[0];
+    /* O MESMO FORMATO DE `contagemDaCarga`: um id e uma quantidade por linha. */
+    const contagens = carga.linhas.map((l) => ({ id: l.id, qtd: Number(l.declarado) }));
+    const gravou = await POST({ acao: 'conferirChegada', contagens: contagens,
+                                usuarioId: quemG.id });
+    ok(gravou.ok === true,
+      'o administrador CONFERE a chegada \u2014 mandando `usuarioId`, que \u00e9 o que a tela ' +
+      'manda: lido s\u00f3 `quem`, a rota responde "seu perfil n\u00e3o confere chegada de carga" ' +
+      'para quem confere, e foi isso por um dia inteiro', gravou.erro);
+    ok(gravou.conferido === carga.declarado && gravou.divergencia === 0,
+      'e grava o que foi contado \u2014 a resposta devolve o conferido e a diferen\u00e7a: sem ' +
+      'isso a tela diria "conferida" sem ter como mostrar o que mudou',
+      [gravou.conferido, carga.declarado, gravou.divergencia]);
+
+    /* E A CARGA SAI DA FILA. E' a prova de que a gravacao chegou ao banco: respondendo
+       ok sem gravar, ela continuaria la' e a proxima pessoa contaria de novo. */
+    const depois = (await GET({ acao: 'aConferir', quem: quemG.id })).cargas || [];
+    ok(!depois.some((c) => c.registro === carga.registro),
+      'e a carga SAI da fila \u2014 respondendo ok sem gravar, ela continuaria esperando e a ' +
+      'pr\u00f3xima pessoa contaria a mesma carga de novo', depois.length);
+
+    /* E QUEM NAO CONFERE CONTINUA RECUSADO, pelo mesmo caminho: sem esta metade, a
+       prova acima passaria com uma rota que aceita qualquer um. */
+    const motorista = tabelas.usuarios.find((u) =>
+      String(u.perfil).toUpperCase() === 'MOTORISTA');
+    if (motorista) {
+      const negado = await POST({ acao: 'conferirChegada', contagens: contagens,
+                                  usuarioId: motorista.id });
+      ok(negado.ok === false && /n\u00e3o confere chegada/.test(negado.erro || ''),
+        'e quem N\u00c3O confere continua recusado \u2014 sem esta metade, a prova acima passaria ' +
+        'com uma rota que aceita qualquer um', negado.erro);
+    }
+  }
+
   /* ---- A CARGA TRAZ O DESTINO, e a fila inteira vem sem casa escolhida ----
    *
    * "Conferindo em" deixou de ser exigencia e virou FILTRO: vazio, a fila vem de todas

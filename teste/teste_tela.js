@@ -18102,6 +18102,82 @@ console.log('\n== Motorista/Conferente ==');
         apiLimpa.slice(i, apiLimpa.indexOf('\n}', i)) + ' ';
     });
   }
+  /* ---- OS DOIS NOMES DE QUEM PERGUNTA, E QUEM LE CADA UM ----
+   *
+   * HA DOIS, e cada um pertence a um lado: `Q.lendo` acrescenta `quem` nas LEITURAS, e
+   * `Q.enviar` nao acrescenta nada — quem GRAVA manda `usuarioId` escrito no pedido.
+   *
+   * DUAS ROTAS DE GRAVACAO LIAM SO `quem`, e nenhuma das duas funcionou um dia sequer:
+   * `conferirChegada` respondia "seu perfil nao confere chegada de carga" ao
+   * administrador, e `documento` respondia "nao encontrado" para um lancamento que
+   * estava na tela — essa, pior, porque `recorteLancamentos` falha FECHADA e devolve a
+   * lista de NINGUEM quando nao sabe quem pergunta.
+   *
+   * POR QUE NENHUMA PROVA PEGOU: as duas tinham bancada, e as duas bancadas LIAM a rota
+   * pelo texto. Nenhuma a chamava. Uma peca pode estar perfeita, ser bem descrita, e
+   * nunca ter sido ligada.
+   *
+   * ENTAO A VARREDURA E DO ARQUIVO: toda funcao `async function X(p)` que procura quem
+   * pergunta tem de aceitar `usuarioId`. O roteador dos GET fica de fora — e' ele quem
+   * recebe `quem` de verdade. */
+  {
+    var semId = [];
+    var reFn = /async function (\w+)\(p\)/g, mFn;
+    while ((mFn = reFn.exec(api))) {
+      if (mFn[1] === 'rotaGet') continue;
+      var prof = 0, pos = api.indexOf('{', mFn.index), fimFn = -1;
+      for (; pos < api.length; pos++) {
+        if (api[pos] === '{') prof++;
+        else if (api[pos] === '}' && --prof === 0) { fimFn = pos + 1; break; }
+      }
+      var corpoFn = semComentarios(api.slice(mFn.index, fimFn));
+      if (!/p\.quem/.test(corpoFn)) continue;
+      if (!/p\.usuarioId/.test(corpoFn)) semId.push(mFn[1]);
+    }
+    ok(semId.length === 0,
+      'toda rota que GRAVA e pergunta quem est\u00e1 pedindo aceita `usuarioId` \u2014 lendo s\u00f3 ' +
+      '`quem`, ela nunca descobre quem \u00e9: `Q.enviar` n\u00e3o manda esse nome, e o resultado ' +
+      '\u00e9 uma recusa dita a quem tinha o direito, ou uma lista vazia por falha fechada',
+      semId);
+
+    /* E DO LADO DA TELA: toda chamada de POST a uma rota que pergunta quem e' tem de
+       mandar o nome. Medido so' no servidor, a rota aceitaria os dois e a tela
+       continuaria sem mandar nenhum — que e' metade do defeito do `documento`. */
+    var rotasComDono = ['conferirChegada', 'documento'];
+    var mudas = [];
+    /* OS DOIS ARQUIVOS SAO LIDOS AQUI, e nao tomados de uma variavel do bloco: `idx`
+       neste arquivo aponta para TRES coisas diferentes em escopos diferentes — uma
+       delas e' o `api/index.js` —, e a varredura pegou a errada, nao achou a chamada
+       que procurava e aprovou calada. Uma varredura que nao acha nada e' indistinguivel
+       de uma que acha tudo certo. */
+    var telaAdm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+    var telaIdx = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    var achouAlguma = 0;
+    [['admin.html', telaAdm], ['index.html', telaIdx]].forEach(function (par) {
+      var limpo = semComentarios(par[1]);
+      rotasComDono.forEach(function (acao) {
+        var reA = new RegExp("acao: ?'" + acao + "'", 'g'), mA;
+        while ((mA = reA.exec(limpo))) {
+          achouAlguma++;
+          if (limpo.slice(mA.index, mA.index + 260).indexOf('usuarioId') < 0) {
+            mudas.push(par[0] + ' · ' + acao);
+          }
+        }
+      });
+    });
+    ok(mudas.length === 0,
+      'e toda chamada da TELA a elas diz quem est\u00e1 pedindo \u2014 a rota pode aceitar os ' +
+      'dois nomes e a tela n\u00e3o mandar nenhum: foi metade do defeito do documento, que ' +
+      'respondia "n\u00e3o encontrado" para um lan\u00e7amento vis\u00edvel na tela', mudas);
+    /* E A VARREDURA ACHOU ALGUMA COISA. Sem esta linha ela pode varrer o arquivo errado
+       e aprovar calada — foi o que fez, lendo `idx` quando `idx` era outro arquivo.
+       UMA VARREDURA QUE NAO ACHA NADA E INDISTINGUIVEL DE UMA QUE ACHA TUDO CERTO. */
+    ok(achouAlguma >= 2,
+      'e ela achou as chamadas que diz varrer — varrendo o arquivo errado, ela aprova ' +
+      'em silêncio: uma varredura que não acha nada é indistinguível de uma que acha ' +
+      'tudo certo', achouAlguma);
+  }
+
   /* ---- O LIVRO DO CADASTRO VALE EM TODA ROTA QUE DEVOLVE LANCAMENTO ----
    *
    * QUATRO ROTAS ESTAVAM SEM ELE, e so' se descobriu uma de cada vez: ontem foi o

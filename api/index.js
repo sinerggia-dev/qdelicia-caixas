@@ -833,9 +833,14 @@ async function documento(p) {
   /* O LIVRO VALE PARA O DOCUMENTO TAMBEM. Sem ele, um id adivinhado entregava o
      endereco do canhoto de uma carga de um livro que esta pessoa nem le' — e o arquivo
      mora num balde publico: entregue o endereco, ele abre sem senha para sempre. */
+  /* O MESMO PAR DE NOMES, e aqui a falha era mais silenciosa ainda: `recorteLancamentos`
+     falha FECHADA — sem saber quem pergunta, ela devolve a lista de NINGUEM. A rota
+     respondia "lancamento nao encontrado" para um id que existe, e nada no sistema
+     dizia que o problema era o nome do campo. */
+  var quemDoc = p.usuarioId || p.quem;
   var visiveis = L.recorteBases(
-    L.recorteLancamentos(d, d.usuarios, p.quem),
-    L.acharUsuario(d.usuarios, p.quem)).movimentos;
+    L.recorteLancamentos(d, d.usuarios, quemDoc),
+    L.acharUsuario(d.usuarios, quemDoc)).movimentos;
   var mov = visiveis.filter(function (m) {
     return String(m.ID) === String(p.id || '');
   })[0];
@@ -864,7 +869,16 @@ async function conferirChegada(p) {
   /* AQUI A RECUSA E EXPLICITA, e nao uma lista vazia: esta rota REESCREVE o numero que
      vira estoque, e quem a chamou sem poder precisa saber que nao passou. Calada, a
      tela diria "conferida" sobre uma carga que ninguem mexeu. */
-  if (!L.podeConferirChegada(L.acharUsuario(d.usuarios, p.quem))) {
+  /* `usuarioId` PRIMEIRO, e `quem` como segunda leitura. OS DOIS NOMES EXISTEM e cada
+     um pertence a um lado: `Q.lendo` acrescenta `quem` nas leituras, e `Q.enviar` nao
+     acrescenta nada — quem grava manda `usuarioId` escrito no proprio pedido.
+     ESTA ROTA LIA SO `quem`, E NUNCA FUNCIONOU PARA NINGUEM. A tela mandava `usuarioId`,
+     a rota procurava `quem`, `acharUsuario` devolvia nada, e a resposta era "seu perfil
+     nao confere chegada de carga" — dita ao ADMINISTRADOR, que confere. O defeito ficou
+     escondido porque a LISTA e' um GET e funcionava: a tela abria cheia, e so' quem
+     clicasse em "Confirmar contagem" descobria. */
+  var euConf = L.acharUsuario(d.usuarios, p.usuarioId || p.quem);
+  if (!L.podeConferirChegada(euConf)) {
     return { ok: false, erro: 'Seu perfil n\u00e3o confere chegada de carga. ' +
                               'Fale com o escrit\u00f3rio.' };
   }

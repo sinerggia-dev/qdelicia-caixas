@@ -7786,7 +7786,10 @@
       if (!v) { dizer('Digite a senha.'); campo.focus(); return; }
       bt.disabled = true; bt.textContent = 'Conferindo\u2026';
       dizer('');
-      Q.post({ acao:'documento', id:id, qual:qual, senha:v }).then(function(r){
+      /* QUEM PEDE VAI JUNTO. Sem isto a rota nao sabe de quem e' o pedido e, por falhar
+         fechada, responde "não encontrado" para um lançamento que está na tela. */
+      Q.post({ acao:'documento', id:id, qual:qual, senha:v,
+               usuarioId:(Q.sessao()||{}).id }).then(function(r){
         bt.disabled = false; bt.textContent = 'Baixar';
         /* A SENHA NAO FICA NO CAMPO, certa ou errada — a mesma regra do cadeado das
            colunas. */
