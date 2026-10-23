@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=88df1139">
+<link rel="stylesheet" href="styles.css?v=4fe22a5a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1621,20 +1621,53 @@
       <h2>Lançamento Motorista<span class="sub">O que o motorista declarou, e se já foi
         conferido.</span></h2>
 
+      <!-- A GAVETA DE FILTROS, como a das outras telas de consulta. Eram quatro campos
+           soltos numa barra, e os que faltavam — motorista, tipo, situacao, removidos —
+           nao tinham onde morar: quem precisava deles tinha de ir ate' Movimentos
+           Motoristas, que e' outra pergunta. -->
+      <div class="gaveta-filtros" id="gvLancMot" hidden>
+        <div class="gaveta-filtros__topo">
+          <span>FILTROS</span>
+          <button class="mini" type="button" id="btnFecharGvLanc" aria-label="Fechar">✕</button>
+        </div>
+        <div class="bt-campo"><label for="lmMotorista">Motorista</label>
+          <select id="lmMotorista" multiple data-multi><option value="">Todos</option></select></div>
+        <div class="bt-campo"><label for="lmTipo">Tipo</label>
+          <select id="lmTipo" multiple data-multi>
+            <option value="Saída">Saída</option>
+            <option value="Retorno">Retorno</option></select></div>
+        <div class="bt-campo"><label for="lmSituacao">Situação</label>
+          <select id="lmSituacao" multiple data-multi></select></div>
+        <div class="bt-campo"><label for="lmRemovidos">Removidos</label>
+          <select id="lmRemovidos">
+            <option value="">Sem os removidos</option>
+            <option value="incluir">Mostrar junto</option>
+            <option value="so">Só os cancelados</option>
+            <option value="lixeira">Só os da lixeira</option>
+          </select></div>
+      </div>
+
       <div class="barra-trava">
         <div class="trava-colunas" data-trava-colunas data-tabela="lanc"></div>
         <div class="barra-trava__acoes">
+          <!-- O GATILHO DA GAVETA CARREGA A CONTAGEM dos filtros ligados: fechada, ela
+               esconde o recorte o tempo todo, e quem chega depois conclui que faltam
+               lancamentos. Com a conta, ela deixa de ser um controle e vira aviso. -->
+          <button class="btn sec" type="button" id="btnFiltrosLancMot"
+                  style="flex:0 0 auto;white-space:nowrap">⚙ Filtros</button>
+          <!-- O AGRUPAMENTO, a pedido — e e' o MESMO estado da outra tela, porque e' a
+               mesma pergunta: "uma linha por viagem, ou uma por localidade?". Dois
+               estados separados fariam a mesma pessoa responder duas vezes. -->
+          <button class="bt-agrupar" id="btnAgruparLanc" type="button"
+                  aria-pressed="false">por local</button>
+          <button class="btn neutro" type="button" id="btnCsvLanc">⬇ CSV</button>
           <button class="chip-hoje" type="button" id="lmHoje" aria-pressed="false">Hoje</button>
           <div class="bt-campo"><label for="lmDe">De</label><input id="lmDe" type="date"></div>
           <div class="bt-campo"><label for="lmAte">Até</label><input id="lmAte" type="date"></div>
-          <!-- A BASE É OBRIGATÓRIA, como na outra tela: carregar "todas" por omissão
-               abriria os dois livros para quem não pediu nem um. -->
-          <div class="bt-campo"><label for="lmBase">Base</label>
-            <select id="lmBase" multiple data-multi data-bases="decl"></select></div>
           <div class="bt-campo bt-campo--busca"><label for="lmBusca">Buscar</label>
             <input id="lmBusca" type="search" placeholder="motorista, rota, M000123…"
                    autocomplete="off"></div>
-          <!-- O MESMO BOTAO NA OUTRA TELA. As duas dividem os filtros e a funcao que os
+          <!-- O MESMO BOTAO DA OUTRA TELA. As duas dividem os filtros e a funcao que os
                limpa; posto so' numa delas, a diferenca entre as duas viraria a proxima
                pergunta. -->
           <button class="btn sec" id="btnLimparLancMot" type="button" hidden
@@ -2066,6 +2099,25 @@
       var eraD = escolhaDe(sd);
       sd.innerHTML = sm ? sm.innerHTML : '<option value="">Todos</option>';
       porEscolha(sd, eraD);
+    }
+    /* A TERCEIRA LISTA DE MOTORISTAS, da tela de Lancamento Motorista. As tres saem da
+       MESMA fonte: tres listas montadas em lugares diferentes divergem no primeiro
+       motorista novo, e a pessoa acharia o nome numa tela e nao na outra. */
+    var sl = document.getElementById('lmMotorista');
+    if (sl) {
+      var eraL = escolhaDe(sl);
+      sl.innerHTML = sm ? sm.innerHTML : '<option value="">Todos</option>';
+      porEscolha(sl, eraL);
+    }
+    /* E A LISTA DE SITUACOES, pela mesma razao: ela nasce da comparacao, e e' o seletor
+       da outra tela que a conhece. Escrita de novo aqui, as duas divergiriam no
+       primeiro rotulo novo — e o filtro ofereceria algo que nao existe. */
+    var ss = document.getElementById('lmSituacao');
+    var sRef = document.getElementById('dcSituacao');
+    if (ss && sRef) {
+      var eraS = escolhaDe(ss);
+      ss.innerHTML = sRef.innerHTML;
+      porEscolha(ss, eraS);
     }
     ligarMultis();
   }
@@ -2526,8 +2578,11 @@
     /* OS CAMPOS DA TELA NOVA ENTRAM NA MESMA LISTA: eles pedem ao servidor pela mesma
        funcao, e um campo que nao recarrega e' um filtro que a pessoa escolhe e nao ve'
        efeito nenhum — a conclusao razoavel e' que a tela quebrou. */
+    /* OS CAMPOS NOVOS ENTRAM NA MESMA LISTA. Um filtro que nao recarrega e' um filtro
+       que a pessoa escolhe e nao ve' efeito nenhum — e a conclusao razoavel e' que a
+       tela quebrou. `lmBase` saiu porque o campo saiu. */
     ['dcDe', 'dcAte', 'dcMotorista', 'dcBase', 'dcRemovidos',
-     'lmDe', 'lmAte', 'lmBase'].forEach(function(id){
+     'lmDe', 'lmAte', 'lmMotorista', 'lmRemovidos'].forEach(function(id){
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', carregarDecl);
     });
@@ -2547,9 +2602,41 @@
     Q.ligarBotaoHoje('lmHoje', 'lmDe', 'lmAte', carregarDecl);
     /* OS DOIS BOTOES CHAMAM A MESMA FUNCAO, e ela se orienta pelo `TELA_PARES` ativo:
        um por tela com corpo proprio divergiria no primeiro filtro novo. */
+    /* A GAVETA ABRE E FECHA, e o gatilho carrega a conta dos filtros ligados: fechada,
+       ela esconde o recorte o tempo todo, e quem chega depois conclui que faltam
+       lancamentos. */
+    (function(){
+      var gv = document.getElementById('gvLancMot');
+      var bt = document.getElementById('btnFiltrosLancMot');
+      var fe = document.getElementById('btnFecharGvLanc');
+      if (!gv || !bt) return;
+      bt.addEventListener('click', function(){ gv.hidden = !gv.hidden; });
+      if (fe) fe.addEventListener('click', function(){ gv.hidden = true; });
+    })();
+    /* O AGRUPAMENTO E O MESMO ESTADO DA OUTRA TELA, porque e' a mesma pergunta: "uma
+       linha por viagem, ou uma por localidade?". Dois estados separados fariam a mesma
+       pessoa responder duas vezes, e a tela trocaria de forma ao trocar de aba. */
+    (function(){
+      var b = document.getElementById('btnAgruparLanc');
+      var ref = document.getElementById('btnAgruparDecl');
+      if (!b || !ref) return;
+      b.addEventListener('click', function(){ ref.click(); });
+    })();
+    (function(){
+      var b = document.getElementById('btnCsvLanc');
+      var ref = document.getElementById('btnCsvDecl');
+      if (!b || !ref) return;
+      b.addEventListener('click', function(){ ref.click(); });
+    })();
     ['btnLimparDecl', 'btnLimparLancMot'].forEach(function(id){
       var b = document.getElementById(id);
       if (b) b.addEventListener('click', limparFiltrosPares);
+    });
+    /* TIPO E SITUACAO NAO RECARREGAM NADA: os dois peneiram o par, que ja' esta na
+       tela. Uma ida ao servidor aqui mediria de novo o que nao mudou. */
+    ['dcTipo', 'lmTipo', 'lmSituacao'].forEach(function(id){
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('change', desenharDecl);
     });
     var tp = document.getElementById('dcTipo');
     if (tp) tp.addEventListener('change', desenharDecl);
@@ -4360,11 +4447,12 @@
        formato empurra a hora para fora da coluna — e' a mesma separacao que Movimentos
        e a lixeira ja' fazem. */
     padrao: ['lancamento','data','hora','base','tipo','motorista','placa','origem',
-             'destino','saida','retornoDecl','conferido','conferidoEm','difConf',
-             'conferente','situacao'],
+             'destino','caixas','saida','retornoDecl','conferido','conferidoEm',
+             'difConf','conferente','situacao'],
     larg: { lancamento:140,
             data:110, hora:90, base:110, tipo:100, motorista:150, placa:110,
             origem:160, destino:160,
+            caixas:100,
             saida:110, retornoDecl:170, conferido:110, conferidoEm:150, difConf:170,
             conferente:160, situacao:150 },
     titulos: { lancamento:'Lançamento',
@@ -4377,7 +4465,7 @@
                /* DUAS COLUNAS, uma por sentido: a de cima leva a saída, a de baixo o
                   que o motorista declarou no retorno. Numa coluna só, ligar o filtro de
                   saídas punha quantidade de saída sob o título "Retorno". */
-               hora:'Hora',
+               hora:'Hora', caixas:'Caixas', declarado:'Declarado',
                saida:'Saída', retornoDecl:'Retorno Declarado',
                conferido:'Conferido', conferidoEm:'Conferido em',
                /* O NOME DIZ A CONTA, e por isso ele virou junto com ela. */
@@ -4767,6 +4855,31 @@
                      ? '<span class="corta" title="'+Q.esc(p.conferidoEmTxt)+'">'+
                        Q.esc(p.conferidoEmTxt)+'</span>'
                      : '<span class="fraco">\u2014</span>'; } },
+      /* O TOTAL DE CAIXAS DA LINHA, a pedido. As outras colunas numericas desta tabela
+         sao PONTAS da comparacao — o que foi declarado de um lado, o que foi contado do
+         outro — e nenhuma responde "quantas caixas tem esta linha" quando so' um dos
+         lados existe. Numa carga sem conferencia, "Conferido" e' travessao e "Declarado"
+         e' o unico numero; numa sem declaracao, o contrario. Este pega o que houver.
+         O MAIOR DOS DOIS, e nao a soma: declarado e conferido sao a MESMA carga contada
+         duas vezes, uma por quem levou e outra por quem recebeu. Somados, uma carga de
+         500 que bateu apareceria como 1.000. */
+      caixas:    { t: T.caixas, num: true,
+                   k: function(p){ return Math.max(p.declaradoTotal || 0,
+                                                   p.conferido || 0); },
+                   v: function(p){
+                     var n = Math.max(p.declaradoTotal || 0, p.conferido || 0);
+                     return n ? '<b>'+Q.num(n)+'</b>'
+                              : '<span class="fraco">\u2014</span>'; } },
+      /* O QUE O MOTORISTA DECLAROU, seja na saida ou no retorno. A tabela de Lancamento
+         Motorista mostrava a coluna da SAIDA com o titulo "Retorno Declarado" — e como
+         ali quase tudo e' retorno, `saidaTotal` vinha nulo e a coluna inteira era uma
+         fileira de travessoes. O numero existia; a coluna e' que olhava para o lado
+         errado. */
+      declarado: { t: T.declarado, num: true,
+                   k: function(p){ return p.declaradoTotal || 0; },
+                   v: function(p){ return p.declaradoTotal
+                     ? Q.num(p.declaradoTotal)
+                     : '<span class="fraco">\u2014</span>'; } },
       hora:      { t: T.hora, k: function(p){ return p.horaTxt; },
                    v: function(p){ return p.horaTxt
                      ? '<span class="corta" title="'+Q.esc(p.horaTxt)+'">'+
@@ -4862,13 +4975,27 @@
    * SEM `conferido` E SEM A DIFERENCA: esta tela responde "quanto ele declarou, e ja'
    * conferiram?". A conta de divergencia e' a pergunta da outra. */
   var TAB_LANC = {
-    padrao: ['lancamento','data','hora','base','tipo','motorista','placa','origem',
-             'destino','saida','situacao'],
-    larg: { lancamento:140, data:110, hora:90, base:110, tipo:100, motorista:160,
-            placa:110, origem:160, destino:160, saida:160, situacao:150 },
+    /* AS COLUNAS QUE RESPONDEM A PERGUNTA DESTA TELA — "o que o motorista declarou, e
+       se ja' foi conferido". Eram outras, e uma delas estava simplesmente errada: a
+       coluna da SAIDA com o titulo "Retorno Declarado", numa tela onde quase tudo e'
+       retorno. `saidaTotal` vinha nulo e a coluna inteira era travessao.
+       A BASE SAIU junto com o filtro dela: esta tela le' um livro so', e uma coluna que
+       repete o mesmo valor em toda linha gasta largura sem responder nada. */
+    /* E O CONFERIDO FICA DE FORA, de proposito. Esta tela responde "o que o motorista
+       declarou, e SE ja' foi conferido" — o SE esta' na coluna Situacao. QUANTO foi
+       conferido e a diferenca sao a pergunta de Movimentos Motoristas, e traze-las para
+       ca' faria duas telas iguais com nomes diferentes. Ha bancada cobrando isso, e ela
+       me pegou tentando. */
+    padrao: ['lancamento','data','hora','tipo','motorista','placa','origem',
+             'destino','caixas','declarado','situacao'],
+    larg: { lancamento:140, data:110, hora:90, tipo:100, motorista:160,
+            placa:110, origem:160, destino:160, caixas:100, declarado:120,
+            situacao:150 },
     titulos: { lancamento:'Lançamento', data:'Data', hora:'Hora', base:'Base',
                tipo:'Tipo', motorista:'Motorista', placa:'Placa', origem:'Origem',
-               destino:'Destino', saida:'Retorno Declarado', situacao:'Situação' },
+               destino:'Destino', caixas:'Caixas', declarado:'Declarado',
+               conferido:'Conferido', conferidoEm:'Conferido em',
+               saida:'Retorno Declarado', situacao:'Situação' },
     kOrdem: 'qdc_cols_lanc_v1',
     kLarg: 'qdc_larg_lanc_v1',
     kOcultas: 'qdc_cols_ocultas_lanc_v1',
@@ -4893,11 +5020,17 @@
     campos: { de: 'dcDe', ate: 'dcAte', motorista: 'dcMotorista', base: 'dcBase',
               removidos: 'dcRemovidos', busca: 'dcBusca' }
   };
+  /* A BASE SAIU DO DESCRITOR, e com ela o campo da tela. Esta tela le' UM livro — o da
+     declaracao —, e perguntar qual a cada visita era pedir uma escolha que nunca teve
+     duas respostas. Sem o campo, `filtroDecl` usa as bases de declaracao que o cadastro
+     da pessoa tem: quem nao tem nenhuma ja' recebe lista vazia do servidor.
+     E OS OUTROS CAMPOS ENTRARAM: motorista, tipo, situacao e removidos moram na gaveta,
+     como nas outras telas de consulta. */
   var TELA_LANC = {
     tab: null, box: 'tabelaLanc', totais: '', sits: 'lmSituacoes',
-    alvo: '#tabelaLanc', situacao: '', tipo: '',
-    campos: { de: 'lmDe', ate: 'lmAte', motorista: '', base: 'lmBase',
-              removidos: '', busca: 'lmBusca' }
+    alvo: '#tabelaLanc', situacao: 'lmSituacao', tipo: 'lmTipo',
+    campos: { de: 'lmDe', ate: 'lmAte', motorista: 'lmMotorista', base: '',
+              removidos: 'lmRemovidos', busca: 'lmBusca' }
   };
   var TELA_PARES = TELA_DECL;
 
@@ -4907,10 +5040,27 @@
   TELA_DECL.tab = TAB_DECL;
   TELA_LANC.tab = TAB_LANC;
 
+  /* OS LIVROS DE DECLARACAO QUE O CADASTRO DESTA PESSOA TEM, para a tela que nao
+     pergunta qual. Sao os mesmos que alimentavam o campo `data-bases="decl"` — e' a
+     mesma fonte, so' que sem a pergunta no meio.
+     SEM NENHUM, A RESPOSTA E VAZIA e nao "todos": a base vem do cadastro, e abrir todos
+     os livros para quem nao tem nenhum seria dar permissao por omissao. O servidor
+     recusa do mesmo jeito; isto aqui so' evita a ida de rede. */
+  function basesDeDeclaracao(){
+    var ref = document.getElementById('dcBase');
+    if (!ref) return '';
+    return opcoesDe(ref).map(function(o){ return o.value; })
+      .filter(function(v){ return !!v; }).join('|');
+  }
+
   function filtroDecl(){
     var c = TELA_PARES.campos;
+    /* A BASE SAI DO CAMPO QUANDO HA CAMPO, e do cadastro quando nao ha. A tela de
+       Lancamento Motorista perdeu o campo a pedido: ela le' um livro so', e perguntar
+       qual a cada visita era pedir uma escolha que nunca teve duas respostas. */
+    var base = c.base ? valorFiltro(c.base) : basesDeDeclaracao();
     return { de: valorFiltro(c.de), ate: valorFiltro(c.ate),
-             motorista: valorFiltro(c.motorista), base: valorFiltro(c.base),
+             motorista: valorFiltro(c.motorista), base: base,
              removidos: valorFiltro(c.removidos) };
   }
 
@@ -4987,7 +5137,14 @@
       DECLS = [];
       PARES = [];
       limparResumoDecl();
-      box.innerHTML = '<div class="vazio">Escolha a <b>Base</b> para comparar — ' +
+      /* SEM CAMPO DE BASE, A FRASE MUDA DE DONO. Em Lancamento Motorista nao ha o que
+         escolher: a base vem do cadastro, e mandar "escolher a Base" ali seria mandar
+         mexer num controle que nao existe mais na tela. */
+      box.innerHTML = !TELA_PARES.campos.base
+        ? '<div class="vazio">Seu cadastro n\u00e3o l\u00ea nenhuma base de declara\u00e7\u00e3o \u2014 ' +
+          'quem marca as bases de cada pessoa \u00e9 o administrador, em ' +
+          '<b>Cadastros \u2192 Usu\u00e1rios</b>.</div>'
+        : '<div class="vazio">Escolha a <b>Base</b> para comparar — ' +
         'Declaração ou Teste Declaração. São livros diferentes, e somados dão um ' +
         'número que não responde nem uma pergunta nem a outra.</div>';
       return;

@@ -4382,6 +4382,19 @@ tr.lin-item > td:first-child{padding-left:30px;
   .linha-busca-en{flex-direction:column;align-items:stretch}
 }
 
+/* ================= A GAVETA DE FILTROS DE LANCAMENTO MOTORISTA =================
+   Os campos que nao cabem na barra moram aqui. Ela nasce FECHADA: aberta por padrao,
+   gastaria uma faixa inteira antes da tabela — que e' o motivo de a pessoa ter aberto
+   a tela — para controles que se usam de vez em quando. */
+.gaveta-filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;
+  background:var(--surface-2);border:1px solid var(--linha);border-radius:10px;
+  padding:10px 12px;margin:0 0 10px}
+.gaveta-filtros__topo{flex:1 1 100%;display:flex;align-items:center;
+  justify-content:space-between;font-size:11.5px;font-weight:700;
+  letter-spacing:.06em;color:var(--txt2)}
+.gaveta-filtros .bt-campo{flex:1 1 180px;min-width:0}
+@media (max-width:560px){ .gaveta-filtros .bt-campo{flex:1 1 100%} }
+
 @media print{
   header,nav.abas,.linha-btn,button{display:none!important}
   /* A coluna de marcar não se imprime: no papel não há o que marcar, e ela empurraria

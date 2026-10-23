@@ -14154,9 +14154,23 @@ console.log('\n== a tela Lan\u00e7amento Motorista ==');
   var padrao = (/padrao: \[([\s\S]*?)\]/.exec(tab) || [])[1] || '';
   var cols = padrao.split(',').map(function (x) { return x.trim().replace(/'/g, ''); })
     .filter(Boolean);
-  ok(cols.indexOf('saida') >= 0 && cols.indexOf('situacao') >= 0,
-    'a tabela leva a quantidade declarada e a situa\u00e7\u00e3o \u2014 s\u00e3o as duas respostas que ' +
+  /* A COLUNA DA QUANTIDADE ERA `saida`, E ESTAVA ERRADA. Ela le' `saidaTotal`, que e'
+     NULO quando o par e' de retorno — e nesta tela quase tudo e' retorno. O titulo dizia
+     "Retorno Declarado" e a coluna inteira era uma fileira de travessoes: o numero
+     existia, a coluna e' que olhava para o lado errado.
+     AGORA SAO DUAS: `declarado`, que le' `declaradoTotal` e vale nos dois sentidos, e
+     `caixas`, o total da linha, que o escritorio pediu. */
+  ok(cols.indexOf('declarado') >= 0 && cols.indexOf('situacao') >= 0,
+    'a tabela leva a quantidade DECLARADA e a situa\u00e7\u00e3o \u2014 s\u00e3o as duas respostas que ' +
     'esta tela existe para dar: quanto ele declarou, e se j\u00e1 conferiram', cols);
+  ok(cols.indexOf('saida') < 0,
+    'e n\u00e3o leva mais a coluna da SA\u00cdDA com o t\u00edtulo de retorno \u2014 `saidaTotal` \u00e9 nulo ' +
+    'num par de retorno, e nesta tela quase tudo \u00e9 retorno: a coluna inteira era ' +
+    'travess\u00e3o sobre um n\u00famero que existia', cols);
+  ok(cols.indexOf('caixas') >= 0,
+    'e leva o TOTAL de caixas da linha, a pedido \u2014 as outras colunas num\u00e9ricas s\u00e3o ' +
+    'pontas da compara\u00e7\u00e3o, e nenhuma responde "quantas caixas tem esta linha" quando ' +
+    'um dos lados ainda n\u00e3o existe', cols);
   ok(cols.indexOf('conferido') < 0 && cols.indexOf('difConf') < 0,
     'e N\u00c3O leva o conferido nem a diferen\u00e7a \u2014 essa \u00e9 a pergunta da outra tela, e ' +
     'traz\u00ea-la de volta aqui faria duas telas iguais com nomes diferentes', cols);
@@ -14186,7 +14200,130 @@ console.log('\n== a tela Lan\u00e7amento Motorista ==');
   /* OS CAMPOS TEM IDS PROPRIOS. Dois conjuntos com os mesmos ids fariam
      `getElementById` ler sempre o primeiro, e esta tela filtraria pelo que a outra tem
      escolhido — sem nada na tela dizendo por que. */
-  ['lmDe', 'lmAte', 'lmBase', 'lmBusca', 'lmHoje', 'tabelaLanc'].forEach(function (id) {
+  /* ---- AS DUAS COLUNAS NOVAS, RODADAS ----
+   *
+   * Lidas no arquivo, a prova responderia "a palavra `caixas` esta' la'?" — e estaria,
+   * inclusive numa versao que SOMA as duas pontas, ou que le' o lado errado do par.
+   * ERA ESSE O DEFEITO QUE O ESCRITORIO VIU: a coluna da quantidade lia `saidaTotal`
+   * num par de RETORNO, onde ele e' nulo, e a tabela inteira era uma fileira de
+   * travessoes sobre um numero que existia. */
+  (function () {
+    var iD = adm.indexOf('  function defsDecl(){');
+    var prof = 0, k = adm.indexOf('{', iD), fimD = -1;
+    for (; k < adm.length; k++) {
+      if (adm[k] === '{') prof++;
+      else if (adm[k] === '}' && --prof === 0) { fimD = k + 1; break; }
+    }
+    var defs = new Function('TAB_DECL', 'Q',
+      adm.slice(iD, fimD) + ' return defsDecl();')(
+      { titulos: { caixas: 'Caixas', declarado: 'Declarado' } },
+      { esc: function (x) { return String(x); },
+        num: function (n) { return String(n); } });
+
+    /* UM RETORNO DECLARADO E NAO CONFERIDO: e' a linha mais comum desta tela, e a que
+       a coluna antiga mostrava como travessao. */
+    var soDecl = { tipo: 'Retorno', declaradoTotal: 169, conferido: 0, saidaTotal: null };
+    ok(defs.declarado.v(soDecl).indexOf('169') >= 0,
+      'num retorno declarado, a coluna Declarado mostra o n\u00famero \u2014 a antiga lia o lado ' +
+      'da SA\u00cdDA, nulo num par de retorno, e a tabela inteira era travess\u00e3o sobre um ' +
+      'n\u00famero que existia', defs.declarado.v(soDecl));
+    /* E A CHAVE DE ORDENACAO LE O MESMO CAMPO QUE A CELULA. Sao duas funcoes por coluna
+       — `v` desenha e `k` ordena —, e uma sabotagem que trocou so' a `k` escapou: a
+       coluna mostrava 169 e se ordenava por um nulo, entao classificar por ela punha
+       tudo na mesma posicao sem nada na tela dizendo. */
+    ok(defs.declarado.k(soDecl) === 169,
+      'e a coluna se ORDENA pelo mesmo número que mostra — lendo o lado da saída, ela ' +
+      'desenha 169 e se ordena por um nulo: classificar por ela põe tudo na mesma ' +
+      'posição, e nada na tela diz por quê', defs.declarado.k(soDecl));
+    ok(defs.caixas.k(soDecl) === 169,
+      'e o total da linha \u00e9 169 \u2014 com s\u00f3 um dos lados preenchido, ele \u00e9 o \u00fanico ' +
+      'n\u00famero que responde "quantas caixas tem esta linha"', defs.caixas.k(soDecl));
+
+    /* E UMA CARGA QUE BATEU: declarado 500, conferido 500. E' a MESMA carga contada
+       duas vezes — uma por quem levou, outra por quem recebeu. */
+    var bateu = { tipo: 'Retorno', declaradoTotal: 500, conferido: 500, saidaTotal: null };
+    ok(defs.caixas.k(bateu) === 500,
+      'e numa carga que BATEU o total \u00e9 500, e n\u00e3o 1.000 \u2014 declarado e conferido s\u00e3o a ' +
+      'mesma carga contada duas vezes, e somados ela dobraria de tamanho na tela',
+      defs.caixas.k(bateu));
+
+    /* E UMA CONTADA SEM DECLARACAO: o conferente contou, o motorista nao declarou. */
+    var soConf = { tipo: 'Retorno', declaradoTotal: 0, conferido: 270, saidaTotal: null };
+    ok(defs.caixas.k(soConf) === 270,
+      'e numa contada sem declara\u00e7\u00e3o o total \u00e9 o contado \u2014 lendo s\u00f3 o declarado, a ' +
+      'linha apareceria com zero caixas tendo 270 na doca', defs.caixas.k(soConf));
+    var vazio = { tipo: 'Retorno', declaradoTotal: 0, conferido: 0, saidaTotal: null };
+    ok(defs.caixas.v(vazio).indexOf('\u2014') >= 0,
+      'e sem n\u00famero nenhum ela mostra travess\u00e3o, e n\u00e3o zero \u2014 zero \u00e9 uma carga que deu ' +
+      'zero, e aus\u00eancia \u00e9 outra coisa', defs.caixas.v(vazio));
+  })();
+
+  /* ---- E A FIACAO DOS CONTROLES NOVOS ---- */
+  var admFio2 = semComentarios(adm);
+  ok(/'lmDe', 'lmAte', 'lmMotorista', 'lmRemovidos'\]/.test(admFio2),
+    'os filtros novos recarregam a lista \u2014 um filtro que a pessoa escolhe e n\u00e3o v\u00ea ' +
+    'efeito nenhum se l\u00ea como tela quebrada, e a conclus\u00e3o razo\u00e1vel \u00e9 abandonar o ' +
+    'campo');
+  ok(/\['dcTipo', 'lmTipo', 'lmSituacao'\]/.test(admFio2),
+    'e o tipo e a situa\u00e7\u00e3o REDESENHAM, sem ir \u00e0 rede \u2014 os dois peneiram o par, que j\u00e1 ' +
+    'est\u00e1 na tela: recarregar mediria de novo o que n\u00e3o mudou');
+  ok(/basesDeDeclaracao[\s\S]{0,400}?opcoesDe\(ref\)/.test(admFio2),
+    'e as bases saem das op\u00e7\u00f5es do campo da OUTRA tela, e n\u00e3o de uma lista escrita \u00e0 ' +
+    'm\u00e3o \u2014 escrita, ela abriria livros que o cadastro da pessoa n\u00e3o tem, que \u00e9 dar ' +
+    'permiss\u00e3o por omiss\u00e3o');
+
+  /* ---- A BASE SAIU DA TELA, E A FONTE DELA FICOU ----
+   * Sem o campo, `filtroDecl` usa os livros de declaracao do CADASTRO — a mesma fonte
+   * que alimentava o campo. Sem essa parte, a tela perderia o campo E a base: a rota
+   * recusa sem `mundo`, e Lancamento Motorista abriria vazia para sempre. */
+  ok(adm.indexOf('id="lmBase"') < 0,
+    'o campo Base saiu da tela de Lançamento Motorista — ela lê um livro só, e ' +
+    'perguntar qual a cada visita era pedir uma escolha que nunca teve duas respostas');
+  ok(/function basesDeDeclaracao\(\)/.test(adm) &&
+     /c\.base \? valorFiltro\(c\.base\) : basesDeDeclaracao\(\)/.test(semComentarios(adm)),
+    'e a base passou a vir do CADASTRO quando não há campo — sem isso a tela perde o ' +
+    'campo e a base junto, e a rota recusa sem `mundo`: ela abriria vazia para sempre');
+  /* O TEXTO ESTA ESCAPADO NO ARQUIVO (`\u00e3o`), e a busca tem de ser pelo que la'
+     esta': procurando o acento de verdade, a prova nao acha a frase certa. */
+  ok(adm.indexOf('nenhuma base de declara') > 0,
+    'e quem não tem livro de declaração no cadastro lê isso, e não "escolha a Base" ' +
+    '— mandar escolher num controle que não existe mais na tela é mandar procurar o ' +
+    'que não há');
+
+  /* ---- A GAVETA, O AGRUPAMENTO E O CSV ---- */
+  ok(/id="gvLancMot"/.test(adm) && /id="btnFiltrosLancMot"/.test(adm),
+    'a tela ganhou a gaveta de filtros das outras telas de consulta — eram quatro ' +
+    'campos soltos, e os que faltavam não tinham onde morar');
+  ok(/id="btnAgruparLanc"/.test(adm) && /id="btnCsvLanc"/.test(adm),
+    'e o agrupamento e o CSV, que ela não tinha — a pergunta "uma linha por viagem ou ' +
+    'uma por localidade?" é a mesma das outras telas');
+  /* E O AGRUPAMENTO E O MESMO ESTADO DA OUTRA TELA. Dois estados separados fariam a
+     mesma pessoa responder duas vezes, e a tela trocaria de forma ao trocar de aba. */
+  /* O BOTAO DELEGA O CLIQUE ao da outra tela, e nao mexe no estado por conta propria:
+     um `AGRUPAR_DECL = !AGRUPAR_DECL` aqui trocaria o estado sem repintar o outro botao
+     nem gravar a escolha, e as duas telas passariam a discordar sobre a propria forma. */
+  ok(/btnAgruparLanc'\);[\s\S]{0,260}?ref\.click\(\);/.test(semComentarios(adm)) &&
+     !/btnAgruparLanc'\);[\s\S]{0,260}?AGRUPAR_DECL = !AGRUPAR_DECL/.test(semComentarios(adm)),
+    'e o agrupamento das duas telas é o MESMO estado — dois separados fariam a mesma ' +
+    'pessoa responder duas vezes, e a tela trocaria de forma ao trocar de aba');
+
+  /* ---- E AS LISTAS DOS FILTROS NOVOS SAEM DA MESMA FONTE DAS OUTRAS ---- */
+  var admFonte = semComentarios(adm);
+  ok(/sl\.innerHTML = sm \? sm\.innerHTML/.test(admFonte),
+    'a lista de motoristas da tela nova sai da MESMA fonte das outras duas — três ' +
+    'listas montadas em lugares diferentes divergem no primeiro motorista novo, e o ' +
+    'nome apareceria numa tela e não na outra');
+  ok(/ss\.innerHTML = sRef\.innerHTML/.test(admFonte),
+    'e a de situações também — ela nasce da comparação, e escrita de novo aqui as ' +
+    'duas divergiriam no primeiro rótulo novo: o filtro ofereceria algo que não existe');
+
+  /* `lmBase` SAIU DA LISTA porque o campo saiu da tela, a pedido: ela le' um livro so'
+     — o da declaracao —, e perguntar qual a cada visita era pedir uma escolha que nunca
+     teve duas respostas. A base passou a vir do cadastro.
+     OS CAMPOS NOVOS ENTRARAM NA MESMA CONTA: motorista, tipo, situacao e removidos, que
+     moram na gaveta como nas outras telas de consulta. */
+  ['lmDe', 'lmAte', 'lmBusca', 'lmHoje', 'tabelaLanc',
+   'lmMotorista', 'lmTipo', 'lmSituacao', 'lmRemovidos'].forEach(function (id) {
     ok(adm.indexOf('id="' + id + '"') > 0,
       'a tela nova tem o campo ' + id + ', com id pr\u00f3prio \u2014 ids repetidos fariam ' +
       '`getElementById` ler sempre o primeiro, e esta tela filtraria pelo que a outra ' +
