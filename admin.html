@@ -4302,11 +4302,15 @@
        as duas diferenças vêm depois, na ordem em que foram pedidas. */
     /* A PLACA FICA COLADA NO MOTORISTA, que e onde ela se le: as duas respondem
        "quem levou". Entre as pontas da viagem, ela se leria como um terceiro lugar. */
-    padrao: ['lancamento','data','base','tipo','motorista','placa','origem','destino',
-             'saida','retornoDecl','conferido','difConf',
+    /* A HORA DO ENVIO AO LADO DA DATA, a pedido. Sao duas perguntas: a data e' a do
+       ROMANEIO e a hora e' a do LANCAMENTO. Juntas numa celula, a data mais larga do
+       formato empurra a hora para fora da coluna — e' a mesma separacao que Movimentos
+       e a lixeira ja' fazem. */
+    padrao: ['lancamento','data','hora','base','tipo','motorista','placa','origem',
+             'destino','saida','retornoDecl','conferido','difConf',
              'conferente','situacao'],
     larg: { lancamento:140,
-            data:110, base:110, tipo:100, motorista:150, placa:110,
+            data:110, hora:90, base:110, tipo:100, motorista:150, placa:110,
             origem:160, destino:160,
             saida:110, retornoDecl:170, conferido:110, difConf:170,
             conferente:160, situacao:150 },
@@ -4320,6 +4324,7 @@
                /* DUAS COLUNAS, uma por sentido: a de cima leva a saída, a de baixo o
                   que o motorista declarou no retorno. Numa coluna só, ligar o filtro de
                   saídas punha quantidade de saída sob o título "Retorno". */
+               hora:'Hora',
                saida:'Saída', retornoDecl:'Retorno Declarado',
                conferido:'Conferido',
                /* O NOME DIZ A CONTA, e por isso ele virou junto com ela. */
@@ -4438,6 +4443,12 @@
                     motorista: (m.motorista || '').trim(),
                     tipo: (m.tipo === 'DEVOLUCAO') ? 'Retorno' : 'Saída',
                     teste: !!m.teste, saida: 0, declarado: 0, conferido: 0,
+                    /* AS HORAS SAO UM CONJUNTO, como as origens e os veiculos, pela
+                       mesma razao: um par pode juntar a declaracao do motorista e tres
+                       contagens do conferente, feitas em momentos diferentes. Guardar a
+                       primeira faria a coluna afirmar uma hora que nao e' a das
+                       quatro. */
+                    horas: {},
                     rotas: {}, origens: {}, destinos: {}, veiculos: {},
                     /* `informados` GUARDA DE QUEM E' CADA NÚMERO do balde da saída, e
                        não só a soma: sem isso, a carga de um lado só lá embaixo não teria
@@ -4484,6 +4495,11 @@
          nao — ela vem do lancamento da saida. Sem a guarda, o conjunto ganharia uma
          entrada vazia e a celula diria ", ABC1D23". */
       if (m.veiculo) par.veiculos[m.veiculo] = 1;
+      /* A HORA ENTRA COM A MESMA GUARDA DO VEICULO: lancamento antigo pode nao ter o
+         carimbo, e sem o `if` o conjunto ganharia uma entrada vazia e a celula diria
+         ", 21:04". */
+      var hm = Q.horaBR(m.dataHora);
+      if (hm) par.horas[hm] = 1;
       var r = m.origem || m.rota || '';
       if (r) par.rotas[r] = 1;
     });
@@ -4493,6 +4509,11 @@
       /* UM PAR É UMA VIAGEM, e uma viagem pode ter várias pontas: numa carga de vários
          clientes é o conferente quem desmembra por origem, e o motorista declara um
          total só. Por isso são CONJUNTOS, e não o primeiro que apareceu. */
+      /* A HORA DO ENVIO, a pedido: e' o instante em que a linha foi LANCADA, e nao a
+         data do romaneio — o romaneio tem data e nao tem hora, e e' justamente a
+         diferenca entre as duas que interessa a quem confere uma carga de ontem lancada
+         agora. */
+      par.horaTxt = Object.keys(par.horas).sort().join(', ');
       par.origemTxt = Object.keys(par.origens).sort().join(', ');
       par.destinoTxt = Object.keys(par.destinos).sort().join(', ');
       par.veiculoTxt = Object.keys(par.veiculos).sort().join(', ');
@@ -4664,6 +4685,17 @@
                      : '<span class="fraco">—</span>'; } },
       data:      { t: T.data, k: function(p){ return p.dataRef; },
                    v: function(p){ return Q.dataBR(p.dataRef); } },
+      /* A HORA EM COLUNA PROPRIA, ao lado da data e nao dentro dela: sao duas perguntas
+         — a data e' a do ROMANEIO e a hora e' a do LANCAMENTO —, e juntas numa celula a
+         data mais larga do formato empurra a hora para fora da coluna.
+         VARIAS HORAS VIRAM VARIAS, separadas por virgula, como as origens e os veiculos:
+         um par junta a declaracao do motorista e as contagens do conferente, e elas nao
+         acontecem no mesmo minuto. */
+      hora:      { t: T.hora, k: function(p){ return p.horaTxt; },
+                   v: function(p){ return p.horaTxt
+                     ? '<span class="corta" title="'+Q.esc(p.horaTxt)+'">'+
+                       Q.esc(p.horaTxt)+'</span>'
+                     : '<span class="fraco">\u2014</span>'; } },
       base:      { t: T.base, k: function(p){ return p.teste ? '1' : '0'; },
                    v: function(p){ return p.teste
                      ? '<span class="tag amarela">Teste</span>'
@@ -4754,13 +4786,13 @@
    * SEM `conferido` E SEM A DIFERENCA: esta tela responde "quanto ele declarou, e ja'
    * conferiram?". A conta de divergencia e' a pergunta da outra. */
   var TAB_LANC = {
-    padrao: ['lancamento','data','base','tipo','motorista','placa','origem','destino',
-             'saida','situacao'],
-    larg: { lancamento:140, data:110, base:110, tipo:100, motorista:160, placa:110,
-            origem:160, destino:160, saida:160, situacao:150 },
-    titulos: { lancamento:'Lançamento', data:'Data', base:'Base', tipo:'Tipo',
-               motorista:'Motorista', placa:'Placa', origem:'Origem', destino:'Destino',
-               saida:'Retorno Declarado', situacao:'Situação' },
+    padrao: ['lancamento','data','hora','base','tipo','motorista','placa','origem',
+             'destino','saida','situacao'],
+    larg: { lancamento:140, data:110, hora:90, base:110, tipo:100, motorista:160,
+            placa:110, origem:160, destino:160, saida:160, situacao:150 },
+    titulos: { lancamento:'Lançamento', data:'Data', hora:'Hora', base:'Base',
+               tipo:'Tipo', motorista:'Motorista', placa:'Placa', origem:'Origem',
+               destino:'Destino', saida:'Retorno Declarado', situacao:'Situação' },
     kOrdem: 'qdc_cols_lanc_v1',
     kLarg: 'qdc_larg_lanc_v1',
     kOcultas: 'qdc_cols_ocultas_lanc_v1',
@@ -5309,7 +5341,17 @@
   })();
 
   function desenharDecl(){
-    var box = document.getElementById('tabelaDecl');
+    /* A CAIXA VEM DO DESCRITOR, e nao escrita a mao.
+     *
+     * ERA `'tabelaDecl'` FIXO, e por isso a tela "Lancamento Motorista" nao carregava
+     * NADA: o descritor existia, o `TELA_PARES` trocava certo, a rota respondia, os
+     * pares eram montados — e o desenho ia todo para a caixa da OUTRA pagina, que
+     * estava escondida. A tela nova ficava com o texto que nasceu nela, "Escolha a
+     * Base", para sempre.
+     * E' a mesma peca existindo sem nada chegar nela, de novo: quem escreveu o descritor
+     * nao foi quem escreveu esta linha, e nada liga as duas coisas alem de alguem
+     * lembrar. */
+    var box = document.getElementById(TELA_PARES.box);
     if (!box) return;
     var DEFS = defsDecl();
 

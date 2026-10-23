@@ -1358,24 +1358,53 @@ console.log('\n== a placa do veiculo em Movimentos Motoristas ==');
          que sim, os números mudariam de balde no meio de uma prova que não fala deles. */
       function () { return false; },
       function (o) { return Object.keys(o).sort().join(', '); },
-      { esc: function (x) { return String(x); } },
+      /* `horaBR` DE VERDADE, e nao um texto fixo: devolvendo sempre o mesmo, o
+         conjunto de horas teria sempre um elemento so' e a prova do "varias" la'
+         embaixo aprovaria uma versao que guarda a primeira e descarta as outras. */
+      { esc: function (x) { return String(x); },
+        horaBR: function (c) { return String(c || '').slice(11, 16); } },
       lista);
   }
   var MOV_P = [
     /* A SAIDA traz a placa: e' o lancamento do galpao. */
     { id: 'M1', dataRef: '2026-10-16', motorista: 'Dinho', tipo: 'SAIDA', qtd: 100,
+      dataHora: '2026-10-16T07:20:00',
       usuario: 'Nestor', origem: 'Matriz', destino: 'Recife', veiculo: 'ABC1D23' },
     /* A DECLARACAO do motorista nao traz placa nenhuma. */
+    /* A DECLARACAO vem NOUTRA HORA — o motorista a manda do patio, depois que o galpao
+       lancou. E' a diferenca que a coluna Hora existe para mostrar. */
     { id: 'M2', dataRef: '2026-10-16', motorista: 'Dinho', tipo: 'SAIDA', qtd: 98,
+      dataHora: '2026-10-16T09:45:00',
       usuario: 'Dinho', declaracao: true, origem: 'Matriz', destino: 'Recife',
       veiculo: '' },
     /* UMA SEGUNDA SAIDA da mesma viagem, noutro carro. */
+    /* E A TERCEIRA NA MESMA HORA DA PRIMEIRA, de proposito: sem uma repetida, a prova
+       nao distingue "guarda todas" de "guarda uma por lancamento". */
     { id: 'M3', dataRef: '2026-10-16', motorista: 'Dinho', tipo: 'SAIDA', qtd: 40,
-      usuario: 'Nestor', origem: 'Matriz', destino: 'Recife', veiculo: 'XYZ9K88' }
+      dataHora: '2026-10-16T07:20:00',
+      usuario: 'Nestor', origem: 'Matriz', destino: 'Recife', veiculo: 'XYZ9K88' },
+    /* E UMA QUARTA SEM CARIMBO NENHUM: lancamento antigo pode nao ter `dataHora`, e sem
+       a guarda o conjunto ganha uma entrada VAZIA — a celula passa a comecar com uma
+       virgula solta. Sem esta linha no cenario, a prova da guarda nao mede nada. */
+    { id: 'M4', dataRef: '2026-10-16', motorista: 'Dinho', tipo: 'SAIDA', qtd: 10,
+      usuario: 'Nestor', origem: 'Matriz', destino: 'Recife', veiculo: 'ABC1D23' }
   ];
   var todos = pares(MOV_P);
   ok(todos.length === 1, 'os três lançamentos viram UM par — é a mesma viagem',
      todos.length);
+  /* ---- A HORA DO ENVIO, a pedido ----
+   * O par junta o lancamento do galpao e a declaracao do motorista, feitos em momentos
+   * diferentes. Guardar a PRIMEIRA faria a coluna afirmar uma hora que nao e' a das
+   * duas — e a hora e' justamente o que separa "saiu as 7" de "o motorista avisou as
+   * 9h45". */
+  ok(todos[0].horaTxt === '07:20, 09:45',
+    'o par guarda TODAS as horas da viagem, sem repetir \u2014 guardando a primeira, a ' +
+    'coluna afirmaria uma hora que n\u00e3o \u00e9 a dos lan\u00e7amentos que ela resume',
+    todos[0].horaTxt);
+  ok(todos[0].horaTxt.indexOf(', ,') < 0 && todos[0].horaTxt[0] !== ',',
+    'e um lan\u00e7amento sem carimbo n\u00e3o deixa entrada vazia no conjunto \u2014 sem a guarda, ' +
+    'a c\u00e9lula come\u00e7aria com uma v\u00edrgula solta', todos[0].horaTxt);
+
   ok(todos[0].veiculoTxt === 'ABC1D23, XYZ9K88',
     'o par guarda TODAS as placas da viagem, e não a primeira que apareceu — um par é ' +
     'uma viagem, e ela pode ter mais de um lançamento: guardando uma só, o dia em que ' +
@@ -18102,6 +18131,59 @@ console.log('\n== Motorista/Conferente ==');
         apiLimpa.slice(i, apiLimpa.indexOf('\n}', i)) + ' ';
     });
   }
+  /* ---- AS DUAS TELAS DE MOTORISTA DESENHAM CADA UMA NA SUA CAIXA ----
+   *
+   * ELAS DIVIDEM TUDO: a mesma rota, o mesmo montador de pares, a mesma funcao de
+   * desenho. O que muda e' um DESCRITOR — `TELA_DECL` e `TELA_LANC` —, e e' ele que diz
+   * em que caixa o resultado vai.
+   *
+   * `desenharDecl` LIA `'tabelaDecl'` ESCRITO A MAO, e por isso a tela "Lancamento
+   * Motorista" nao carregava NADA: o descritor existia, a troca acontecia, a rota
+   * respondia, os pares eram montados — e o desenho ia todo para a caixa da OUTRA
+   * pagina, escondida. A tela nova ficava com o texto que nasceu nela, "Escolha a Base",
+   * para sempre, e nada no console dizia por que.
+   *
+   * A PROVA OLHA O DESCRITOR, e nao o nome da caixa: cobrar `TELA_PARES.box` e' cobrar
+   * que a funcao pergunte em que tela esta', que e' a unica coisa que a faz servir as
+   * duas. */
+  {
+    var admD = semComentarios(adm);
+    var iDes = admD.indexOf('function desenharDecl()');
+    var corpoDes = admD.slice(iDes, iDes + 400);
+    ok(iDes > 0 && /getElementById\(TELA_PARES\.box\)/.test(corpoDes),
+      'o desenho dos pares vai para a caixa DA TELA ATIVA \u2014 escrita \u00e0 m\u00e3o, a tela ' +
+      '"Lan\u00e7amento Motorista" desenha na caixa da outra p\u00e1gina e fica vazia para ' +
+      'sempre, sem erro nenhum para explicar', corpoDes.slice(0, 200));
+    ok(!/getElementById\('tabelaDecl'\)/.test(admD),
+      'e nenhuma caixa dessas duas telas \u00e9 escrita \u00e0 m\u00e3o em lugar nenhum \u2014 basta uma ' +
+      'para a tela nova voltar a desenhar na p\u00e1gina errada',
+      (admD.match(/getElementById\('tabelaDecl'\)/g) || []).length);
+
+    /* E AS DUAS TELAS SAO TROCADAS ANTES DE CARREGAR, e nao depois: trocado depois, o
+       primeiro desenho sai na caixa da outra — que e' o mesmo defeito por outro
+       caminho. */
+    ok(/TELA_PARES = TELA_DECL; carregarDecl\(\);/.test(admD) &&
+       /TELA_PARES = TELA_LANC; carregarDecl\(\);/.test(admD),
+      'e o descritor \u00e9 trocado ANTES de carregar, nas duas \u2014 trocado depois, o ' +
+      'primeiro desenho sai na caixa da outra');
+
+    /* ---- E A COLUNA HORA, nas duas tabelas ---- */
+    ['TAB_DECL', 'TAB_LANC'].forEach(function (nome) {
+      var iT = admD.indexOf('var ' + nome + ' = {');
+      var corpoT = admD.slice(iT, admD.indexOf('kOrdem:', iT));
+      ok(iT > 0 && /'data','hora'/.test(corpoT.replace(/\s+/g, '')),
+        'em `' + nome + '` a coluna Hora vem logo ao lado da Data \u2014 foi o pedido, e ' +
+        's\u00e3o duas perguntas: a data \u00e9 a do romaneio e a hora \u00e9 a do lan\u00e7amento',
+        corpoT.slice(0, 180));
+      ok(/hora:\s*'Hora'/.test(corpoT) && /hora:\s*\d+/.test(corpoT),
+        'e ela tem t\u00edtulo e largura \u2014 sem o t\u00edtulo a coluna nasce sem cabe\u00e7alho, e sem ' +
+        'a largura a tabela de largura fixa a espreme at\u00e9 sumir', corpoT.slice(0, 180));
+    });
+    ok(/hora:\s*\{ t: T\.hora/.test(admD),
+      'e a c\u00e9lula dela existe nas defini\u00e7\u00f5es \u2014 sem isso a coluna \u00e9 filtrada fora na ' +
+      'montagem e some da tabela sem nenhum aviso');
+  }
+
   /* ---- OS DOIS NOMES DE QUEM PERGUNTA, E QUEM LE CADA UM ----
    *
    * HA DOIS, e cada um pertence a um lado: `Q.lendo` acrescenta `quem` nas LEITURAS, e
@@ -18400,8 +18482,14 @@ console.log('\n== Motorista/Conferente ==');
     var v = String(s == null ? '' : s).toLowerCase();
     return v.normalize ? v.normalize('NFD').replace(/[̀-ͯ]/g, '') : v;
   }
-  var montarPares = new Function('EQUIPE', 'semAcento',
-    fontePar + '\n return montarPares;')(EQUIPE_FALSA, semAcentoReal);
+  /* O `Q` ENTRA COMO ARGUMENTO, e nao vem de um global. Esta bancada contava com um `Q`
+     ambiente, e no dia em que `montarPares` passou a usar `Q.horaBR` ela estourou com
+     "nao e' uma funcao" — um erro sobre o TESTE, e nao sobre o codigo. O outro recorte
+     da mesma funcao, mais acima neste arquivo, ja' passava o seu. */
+  var montarPares = new Function('EQUIPE', 'semAcento', 'Q',
+    fontePar + '\n return montarPares;')(EQUIPE_FALSA, semAcentoReal,
+    { esc: function (x) { return String(x); },
+      horaBR: function (c) { return String(c || '').slice(11, 16); } });
 
   /* Por omissão o lançamento é uma CONTAGEM de conferente: é o lado que a maioria das
      provas abaixo exercita, e escrever o perfil em cada chamada esconderia o que muda. */
