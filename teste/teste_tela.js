@@ -13380,16 +13380,80 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'conta errada devolveria a resposta certa e esta prova passaria verde sem medir nada',
     { certa: gr.taxaRetorno, comInterna: Math.round((700 / 1100) * 1000) / 10 });
 
+  /* ---- O RODAPE DO ESTOQUE DIZ O QUE ELE IGNORA ----
+   * Ele avisava que o cartao ignora o PERIODO e calava que ignora tambem o RECORTE DA
+   * ABA: com a tela em "Rotas - 47 de 61 linhas", o numero continua sendo o da casa
+   * INTEIRA. Um cartao que desobedece ao recorte que o topo da tela anuncia precisa
+   * dizer isso onde e' lido, e nao so' no codigo. */
+  ok(/fora do período e do recorte/.test(adm),
+    'o rodapé do "Total no Estoque" avisa que ele fica fora do período E do recorte — ' +
+    'calando o segundo, a tela anuncia "só rotas" no topo e mostra o saldo da casa ' +
+    'inteira num dos cinco cartões, sem nada dizendo isso');
+
   /* ---- O DEFICIT NAO E "SAIU MENOS VOLTOU" ----
    * Ele e' somado trecho a trecho: uma rota que devolveu a mais nao abate o atraso de
    * outra, porque sao duas cobrancas diferentes. Somadas antes de comparar, elas se
    * escondem uma atras da outra — e a tela diria que ninguem deve nada. */
+  /* COM O `id` QUE O SERVIDOR MANDA — `origem>destino|dia` —, porque e' por ele que o
+     deficit agrupa. Sem id, as duas linhas cairiam no mesmo caminho e o superavit de uma
+     apagaria o atraso da outra: a prova mediria o contrario do que afirma. */
   var DUAS = [
+    { id: 'L1>A|2026-10-14', situacao: 'atencao', origens: ['Matriz'],
+      destinos: ['Rota A'], saida: 100, retorno: 0, saldo: -100, desvio: null },
+    { id: 'L1>B|2026-10-14', situacao: 'ok', origens: ['Matriz'],
+      destinos: ['Rota B'], saida: 100, retorno: 400, saldo: 300, desvio: null }
+  ];
+  /* ---- E O MESMO TRECHO EM DIAS DIFERENTES E UM TRECHO SO ----
+   *
+   * FOI O DEFEITO QUE O ESCRITORIO VIU: 30.364 sairam, 23.738 voltaram — 6.626 de
+   * diferenca — e o cartao dizia 19.497. Cada linha desta lista e' `origem>destino|DIA`,
+   * e o deficit era somado LINHA A LINHA: o dia da remessa entrava inteiro e o dia da
+   * devolucao nao abatia nada. O cartao contava como "nao voltou" a caixa que voltou
+   * tres dias depois.
+   * O SERVIDOR JA SOMAVA POR CAMINHO, com um comentario explicando este erro. Eram duas
+   * contas para o mesmo numero, e a da tela era a que o proprio servidor documentava
+   * como errada. */
+  var MESMO_TRECHO = [
+    { id: 'L1>A|2026-10-14', situacao: 'atencao', origens: ['Matriz'],
+      destinos: ['Rota A'], saida: 500, retorno: 0, saldo: -500, desvio: null },
+    { id: 'L1>A|2026-10-17', situacao: 'ok', origens: ['Matriz'],
+      destinos: ['Rota A'], saida: 0, retorno: 450, saldo: 450, desvio: null }
+  ];
+  var dT = totaisDe(MESMO_TRECHO);
+  /* E AS DUAS CONTAS DIZEM O MESMO. O servidor soma o deficit por caminho em
+     `_logica.js`, e a tela em `totaisDe`: duas implementacoes do mesmo numero, e foi a
+     divergencia entre elas que o escritorio leu na tela. A prova cobra que as duas
+     agrupem pela MESMA chave — o `id` sem o dia. */
+  var logDef = fs.readFileSync(path.join(__dirname, '..', 'api', '_logica.js'), 'utf8');
+  ok(/l\.id\.split\('\|'\)\[0\]/.test(semComentarios(logDef)) &&
+     /String\(l\.id \|\| ''\)\.split\('\|'\)\[0\]/.test(semComentarios(adm)),
+    'e as duas contas do déficit — a do servidor e a da tela — agrupam pela MESMA ' +
+    'chave, o caminho sem o dia: foi a divergência entre elas que pôs 19.497 na tela ' +
+    'onde cabiam 6.626');
+  ok(dT.deficit === 50,
+    'a remessa de um dia e a devolução de outro são o MESMO trecho — saiu 500 no dia ' +
+    '14 e voltaram 450 no dia 17: devem 50, e não 500. Somado linha a linha, o cartão ' +
+    'conta como "não voltou" a caixa que voltou três dias depois', dT.deficit);
+  ok(dT.saiu - dT.voltou === 50 && dT.deficit === 50,
+    'e aqui ele BATE com "saiu menos voltou", porque há um trecho só — a diferença ' +
+    'entre os dois números nasce de vários trechos, e não de vários dias',
+    { deficit: dT.deficit, subtracao: dT.saiu - dT.voltou });
+
+  /* E A CHAVE TEM PISO. Sem ele, LINHA SEM `id` da' chave vazia — e todas as linhas sem
+     id caem no mesmo caminho, somando o deficit de uma com o superavit de outra ate'
+     zerar. E' um colapso silencioso: o cartao diria que ninguem deve nada. */
+  var SEM_ID = [
     { situacao: 'atencao', origens: ['Matriz'], destinos: ['Rota A'],
       saida: 100, retorno: 0, saldo: -100, desvio: null },
     { situacao: 'ok', origens: ['Matriz'], destinos: ['Rota B'],
       saida: 100, retorno: 400, saldo: 300, desvio: null }
   ];
+  var dSem = totaisDe(SEM_ID);
+  ok(dSem.deficit === 100,
+    'e linha SEM `id` cai nas pontas dela, e não numa chave vazia — sem esse piso, ' +
+    'todas as linhas sem id viram o mesmo caminho e o superávit de uma apaga o atraso ' +
+    'de outra: o cartão diz que ninguém deve nada', dSem.deficit);
+
   var d2 = totaisDe(DUAS);
   ok(d2.deficit === 100 && (d2.saiu - d2.voltou) === -200,
     'o d\u00e9ficit \u00e9 somado TRECHO A TRECHO, e por isso n\u00e3o \u00e9 "saiu menos voltou": a rota ' +

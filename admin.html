@@ -4066,6 +4066,9 @@
     var t = { linhas: 0, saiu: 0, voltou: 0, deficit: 0, foraDaMeta: 0 };
     var meta = metaFluxo();
     var casas = nomesDeUnidade();
+    /* O SALDO DE CADA CAMINHO, somando os dias dele. A chave e' a mesma que o servidor
+       usa — `origem>destino`, sem o dia —, e nao uma regra escrita de novo aqui. */
+    var porCaminho = {};
     lista.forEach(function(l){
       if (l.situacao === 'parado') return;
       t.linhas++;
@@ -4081,8 +4084,27 @@
       /* TRECHO A TRECHO, e nao sobre os dois totais. Uma rota que devolveu a mais nao
          abate o atraso de outra: sao duas cobrancas diferentes, e somadas antes de
          comparar elas se escondem uma atras da outra. E' por isso que este numero nao
-         bate com "saiu menos voltou" — e o rodape do cartao diz isso. */
-      if (saiu > voltou) t.deficit += saiu - voltou;
+         bate com "saiu menos voltou" — e o rodape do cartao diz isso.
+         MAS O TRECHO E O CAMINHO, E NAO O CAMINHO-NO-DIA. Cada linha desta lista e'
+         `origem>destino|dia`, e somando os negativos LINHA A LINHA o dia da remessa
+         entrava inteiro no deficit e o dia da devolucao nao abatia nada: o cartao
+         contava como "nao voltou" caixa que voltou tres dias depois.
+         O ESCRITORIO VIU: 30.364 sairam, 23.738 voltaram — 6.626 de diferenca — e o
+         cartao dizia 19.497. O servidor ja' somava por caminho, com um comentario
+         explicando exatamente este erro; eram duas contas para o mesmo numero, e a da
+         tela era a que o proprio servidor documentava como errada. */
+      /* O ID E A CHAVE, E AS PONTAS SAO O PISO. Sem o piso, uma linha sem `id` daria
+         chave VAZIA — e todas as linhas sem id cairiam no mesmo caminho, somando o
+         deficit de uma com o superavit de outra ate' zerar. E' um colapso silencioso:
+         o cartao diria que ninguem deve nada. */
+      var kCaminho = String(l.id || '').split('|')[0] ||
+        ((l.origens || []).join(',') + '>' + (l.destinos || []).join(','));
+      porCaminho[kCaminho] = (porCaminho[kCaminho] || 0) + (voltou - saiu);
+    });
+    /* E SO OS NEGATIVOS ENTRAM. O caminho que devolveu a mais nao vira credito contra o
+       atraso de outro — e' isso que separa este numero de "saiu menos voltou". */
+    Object.keys(porCaminho).forEach(function(k){
+      if (porCaminho[k] < 0) t.deficit += -porCaminho[k];
     });
     t.taxaRetorno = t.saiu > 0
       ? Math.round((t.voltou / t.saiu) * 1000) / 10 : null;
@@ -6878,9 +6900,14 @@
          ele esta negativo o tempo todo ate' o Ajuste inicial entrar, o aviso tinha
          deixado de existir na pratica: a tela mostrava um numero que nao acompanha o
          recorte, sem nada dizendo isso. */
+      /* E O RODAPE DIZ AS TRES COISAS. Ele avisava que o cartao ignora o PERIODO e
+         calava que ignora tambem o RECORTE DA ABA: com a tela em "Rotas · 47 de 61
+         linhas", este numero continua sendo o da casa inteira. Um cartao que desobedece
+         ao recorte que o topo da tela anuncia precisa dizer isso onde e' lido, e nao
+         so' no codigo. */
       tileCor(Q.num(estoque), 'Total no Estoque',
         (casaDoEstoque ? 'em '+casaDoEstoque : 'em todas as nossas casas')+
-        ' · posição de agora, fora do período'+
+        ' · posição de agora, fora do período e do recorte'+
         (estoque < 0 ? ' · abaixo do zero' : ''),
         estoque < 0 ? 'var(--vermelho)' : COR_TILE.estoque,
         '<div class="desenho desenho--zero"><span class="risco"></span><span class="rot">0</span>'+
