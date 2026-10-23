@@ -14116,11 +14116,52 @@ console.log('\n== o atalho de Hoje do Painel de Ativos ==');
 
   var campos = { rtDe: { value: '' }, rtAte: { value: '' }, rtErroData: { hidden: false } };
   var pintado = null, recarregou = 0;
+
+  /* ================= O MARCADOR ENTRA DE VERDADE, E NAO COMO DUBLE =================
+   *
+   * ESTA BANCADA PASSOU VERDE SOBRE UM PAINEL COM TODOS OS FILTROS DE PERIODO MORTOS.
+   *
+   * `marcarAtalhoFluxo` tinha uma guarda `if (!cx) return;` com um `cx` que nao existia
+   * em escopo nenhum: toda chamada dela estourava `ReferenceError`. Ela e' a PRIMEIRA
+   * linha de cinco caminhos — o filtro de data, os atalhos 7/30/mes, o botao Hoje, o
+   * Limpar filtros e o clique numa linha da tabela —, e o `carregarPainel()` de cada um
+   * vinha depois dela. Nenhum chegava a rodar. Os campos preenchiam, a tabela ficava
+   * inteira, e nada na tela dizia nada.
+   *
+   * TRES BANCADAS EXERCITAVAM ESSES CAMINHOS, e as tres injetavam `marcarAtalhoFluxo`
+   * como `function (q) { pintado = q; }`. O duble nunca quebra: ele anota o argumento e
+   * devolve. Cada uma media com cuidado tudo o que vinha DEPOIS de uma funcao que, na
+   * tela, nunca deixava a vez chegar la'.
+   *
+   * A REGRA JA ESTAVA ESCRITA noutras bancadas deste arquivo — "o `diaOperacao` DE
+   * VERDADE, tirado do `app.js`; um duble aqui responderia pelo que eu escrevi em vez
+   * de pelo que roda no painel". Ela vale para toda peca que esta' no CAMINHO do que se
+   * mede, e nao so' para as que fazem conta.
+   *
+   * O DUBLE NAO SUMIU DE TODO: ele ENVOLVE a peca de verdade, para as afirmacoes
+   * continuarem podendo perguntar "com que argumento ela foi chamada?". O que mudou e'
+   * que agora ela roda antes. */
+  var botoesDoPainel = ['1', '7', '30', 'mes'].map(function (d) {
+    return { dataset: { dias: d }, marca: null,
+             setAttribute: function (a, v) { if (a === 'aria-pressed') this.marca = v; } };
+  });
+  var doc = {
+    getElementById: function (id) { return campos[id] || null; },
+    querySelectorAll: function (sel) {
+      /* A VARREDURA DA PECA E ESCOPADA, e este duble de documento respeita o escopo:
+         devolvendo os botoes para qualquer seletor, a prova que cobra o escopo logo
+         abaixo passaria a aprovar uma varredura solta na pagina. */
+      return (sel.indexOf('#rtAtalhos') >= 0 && sel.indexOf('#btnHojeFluxo') >= 0)
+        ? botoesDoPainel : [];
+    }
+  };
+  var marcarReal = new Function('document',
+    fonteDaFuncao(adm, 'marcarAtalhoFluxo') + ' return marcarAtalhoFluxo;')(doc);
   var usar = new Function('document', 'Q', 'marcarAtalhoFluxo', 'carregarPainel',
     fonte + '\n return usarAtalhoFluxo;')(
-    { getElementById: function (id) { return campos[id] || null; } },
+    doc,
     { hojeOperacao: function () { return '2026-10-21'; } },
-    function (q) { pintado = q; },
+    function (q) { marcarReal(q); pintado = q; },
     function () { recarregou++; });
 
   function botao(dias, ligado) {
@@ -14136,6 +14177,15 @@ console.log('\n== o atalho de Hoje do Painel de Ativos ==');
   ok(pintado === '1' && recarregou === 1,
     'e ele acende e a tabela recarrega \u2014 sem recarregar, a pessoa clica, nada muda, e ' +
     'conclui que o bot\u00e3o n\u00e3o funciona', { pintado: pintado, recarregou: recarregou });
+  /* E O ACENDER ACONTECEU DE VERDADE, nos botoes. Isto e' o que nenhuma prova cobrava:
+     a anterior perguntava com que argumento o marcador FOI CHAMADO — e ele era chamado
+     mesmo, so' que estourava na primeira linha. */
+  ok(botoesDoPainel[0].marca === 'true' &&
+     botoesDoPainel[1].marca === 'false' && botoesDoPainel[3].marca === 'false',
+    'e o bot\u00e3o do dia acende e os vizinhos apagam \u2014 medido nos bot\u00f5es, e n\u00e3o no ' +
+    'argumento com que o marcador foi chamado: ele era chamado, e estourava na primeira ' +
+    'linha, levando junto o recarregar que vinha depois',
+    botoesDoPainel.map(function (b) { return b.dataset.dias + '=' + b.marca; }));
 
   /* O DIA VEM DO GALPAO, e nao do relogio de quem olha: `Q.hojeOperacao()`. Pelo
      `new Date()` do navegador, quem abre o painel de outro fuso veria o dia errado — e
@@ -14180,6 +14230,74 @@ console.log('\n== o atalho de Hoje do Painel de Ativos ==');
     'cima direto: escrita duas vezes, a conta do per\u00edodo divergiria no primeiro ' +
     'conserto que s\u00f3 uma recebesse',
     (adm.match(/usarAtalhoFluxo\(/g) || []).length);
+
+  /* ---- 6. O FILTRO DE DATA, RODADO ----
+   *
+   * ELE FOI RELATADO QUEBRADO TRES VEZES e eu nao achava a causa: medi o corte no
+   * servidor e o pedido da tela, e os dois passavam. Passavam mesmo — o pedido nunca
+   * era feito. `lerDatasFluxo` chama `marcarAtalhoFluxo('')` ANTES de `carregarPainel()`,
+   * e o marcador estourava na primeira linha.
+   *
+   * NADA NESTE ARQUIVO RODAVA `lerDatasFluxo`. Era a ponta solta: a bancada media os
+   * atalhos, media o clique na linha, media o limpar — e a porta mais usada das cinco,
+   * digitar uma data, nao tinha prova nenhuma. */
+  (function () {
+    var dCampos = { rtDe: { value: '' }, rtAte: { value: '' },
+                    rtErroData: { hidden: true, textContent: '' } };
+    var dDoc = {
+      getElementById: function (id) { return dCampos[id] || null; },
+      querySelectorAll: function () { return []; }
+    };
+    var dRecarregou = 0, dMarcou = null;
+    var ler = new Function('document', 'marcarAtalhoFluxo', 'carregarPainel',
+      fonteDaFuncao(adm, 'lerDatasFluxo') + ' return lerDatasFluxo;')(
+      dDoc,
+      /* A PECA DE VERDADE, envolvida: e' ela que estourava, e e' por ela que o
+         `carregarPainel()` da linha seguinte nunca chegava a rodar. */
+      new Function('document', 'anota',
+        fonteDaFuncao(adm, 'marcarAtalhoFluxo') +
+        ' return function(q){ marcarAtalhoFluxo(q); anota(q); };')(
+        dDoc, function (q) { dMarcou = q; }),
+      function () { dRecarregou++; });
+
+    dCampos.rtDe.value = '2026-10-21';
+    dCampos.rtAte.value = '2026-10-21';
+    ler();
+    ok(dRecarregou === 1,
+      'escolher uma data RECARREGA a tabela \u2014 o corte do per\u00edodo \u00e9 do servidor, ent\u00e3o ' +
+      'sem este pedido os campos ficam preenchidos, a tabela fica inteira e nada na tela ' +
+      'diz nada: foi exatamente isso tr\u00eas vezes seguidas, e o que faltava era esta prova',
+      dRecarregou);
+    ok(dMarcou === '',
+      'e o atalho de per\u00edodo apaga \u2014 "7 dias" aceso sobre uma data escolhida \u00e0 m\u00e3o ' +
+      'diria uma coisa com a tabela mostrando outra', dMarcou);
+
+    /* DATA INICIAL MAIOR QUE A FINAL devolve lista vazia e nao explica nada. */
+    dCampos.rtDe.value = '2026-10-25';
+    dCampos.rtAte.value = '2026-10-20';
+    ler();
+    ok(dCampos.rtDe.value === '2026-10-20' && dCampos.rtAte.value === '2026-10-25',
+      'e a data inicial maior que a final INVERTE as duas \u2014 o que a pessoa queria era o ' +
+      'intervalo entre elas, e a ordem em que digitou \u00e9 acidente; sem isto a tabela volta ' +
+      'vazia e parece que o per\u00edodo n\u00e3o tem movimento',
+      { de: dCampos.rtDe.value, ate: dCampos.rtAte.value });
+    ok(dCampos.rtErroData.hidden === false &&
+       dCampos.rtErroData.textContent.indexOf('inverti') > 0,
+      'e a tela DIZ que inverteu \u2014 invertido em sil\u00eancio, o painel mostra um per\u00edodo ' +
+      'que ningu\u00e9m pediu', dCampos.rtErroData);
+    ok(dRecarregou === 2, 'e recarrega tamb\u00e9m nesse caminho', dRecarregou);
+
+    /* LIMPAR AS DUAS DATAS tambem e' uma escolha de periodo, e tambem precisa ir ao
+       servidor: o recorte esta' la', e sem o pedido a tabela fica com o periodo antigo. */
+    dCampos.rtDe.value = '';
+    dCampos.rtAte.value = '';
+    dCampos.rtErroData.hidden = true;
+    ler();
+    ok(dRecarregou === 3,
+      'e apagar as duas datas tamb\u00e9m vai ao servidor \u2014 o recorte \u00e9 de l\u00e1, e sem o ' +
+      'pedido a tabela continuaria mostrando o per\u00edodo que a pessoa acabou de apagar',
+      dRecarregou);
+  })();
 })();
 
 /* ---------------------------------------------------------------------------
@@ -14295,10 +14413,20 @@ console.log('\n== clicar na linha filtra por ela ==');
                  rtDe: { value: '' }, rtAte: { value: '' },
                  rtErroData: { hidden: false } };
   var marcou = null, recarregou = 0;
+  /* O MARCADOR DE VERDADE, e nao um duble: era por um duble aqui que esta prova
+     aprovava um clique que, na tela, nao filtrava nada — `marcarAtalhoFluxo` estourava
+     antes do `carregarPainel()` da linha de baixo. Ver a bancada dos atalhos. */
+  var docL = {
+    getElementById: function (id) { return campos[id] || null; },
+    querySelectorAll: function () { return []; }
+  };
   var filtrar = new Function('document', 'marcarAtalhoFluxo', 'carregarPainel',
     corpoA('filtrarPelaLinha') + '\n return filtrarPelaLinha;')(
-    { getElementById: function (id) { return campos[id] || null; } },
-    function (q) { marcou = q; },
+    docL,
+    new Function('document', 'anota',
+      fonteDaFuncao(adm, 'marcarAtalhoFluxo') +
+      ' return function(q){ marcarAtalhoFluxo(q); anota(q); };')(
+      docL, function (q) { marcou = q; }),
     function () { recarregou++; });
 
   filtrar('Matriz', 'Natal', '2026-10-20');
@@ -15159,7 +15287,7 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
     var botao = { disabled: false };
     var doc = { getElementById: function (id) {
       return id === 'btnLimparRetornos' ? botao : (campos[id] || null);
-    } };
+    }, querySelectorAll: function () { return []; } };
     var faz = new Function('document', 'FLUXO_FILTRO', 'chamou', 'FLUXO_TIPO',
       fonte +
       '\n return { ativo: algumFiltroFluxo, limpar: limparFiltrosFluxo,' +
@@ -15170,7 +15298,12 @@ console.log('\n== limpar filtros do Controle de Caixas ==');
       /* O atalho de período aceso é enfeite que ACOMPANHA o campo de data: limpo o
          campo e deixado o botão marcado, o painel mostraria "7 dias" ligado sobre um
          período vazio. Aqui ele é anotado para a afirmação abaixo poder cobrá-lo. */
-      '\n function marcarAtalhoFluxo(q){ chamou.atalho = q; }' +
+      /* O MARCADOR DE VERDADE ENVOLVIDO PELO DUBLE. Era um duble puro, e com ele
+         esta prova media o Limpar filtros inteiro por cima de uma funcao que, na
+         tela, estourava na primeira linha e nunca deixava chegar no recarregar.
+         Ver a bancada dos atalhos de periodo. */
+      '\n ' + fonteDaFuncao(adm, 'marcarAtalhoFluxo').replace(/^function marcarAtalhoFluxo/, 'function marcarAtalhoReal') +
+      '\n function marcarAtalhoFluxo(q){ marcarAtalhoReal(q); chamou.atalho = q; }' +
       /* O recorte de MOVIMENTO volta junto: deixado como estava, limpar devolvia a
          lista inteira com "Saída" ainda apertado na folha. */
       '\n function marcarMovimentoFluxo(q){ FLUXO_TIPO = q; chamou.mov = q; }');

@@ -7745,7 +7745,18 @@
        botoes com essa marca sao todos daqui, e no dia em que outra tela ganhar atalhos
        de periodo esta funcao passaria a acender e apagar os botoes DELA junto. */
     var botoes = document.querySelectorAll('#rtAtalhos [data-dias], #btnHojeFluxo');
-    if (!cx) return;
+    /* AQUI MORAVA UM `if (!cx) return;`, e `cx` nao existia neste escopo.
+       Toda chamada desta funcao estourava `ReferenceError`, e ela e' a PRIMEIRA
+       linha de cinco caminhos — o filtro de data, os atalhos 7/30/mes, o botao
+       Hoje, o Limpar filtros e o clique numa linha da tabela. O `carregarPainel()`
+       de cada um vinha DEPOIS dela e nunca chegava a rodar: os campos ficavam
+       preenchidos, a tabela ficava inteira, e nada na tela dizia nada.
+       O escritorio relatou isso tres vezes, com tres nomes diferentes — "o
+       limpar filtro nao funciona", "ao clicar na linha nao filtra", "o filtro de
+       data continua sem funcionar" —, e eram todos este unico `cx`.
+       NAO HA GUARDA NO LUGAR porque nao falta nenhuma: `querySelectorAll` devolve
+       uma lista vazia quando nao acha nada, e varrer uma lista vazia nao faz
+       nada. A guarda nao protegia de coisa alguma — so' quebrava. */
     Array.prototype.forEach.call(botoes, function(b){
       b.setAttribute('aria-pressed', String(b.dataset.dias === qual));
     });
