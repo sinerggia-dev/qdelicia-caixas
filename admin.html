@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=4fe22a5a">
+<link rel="stylesheet" href="styles.css?v=a0592d52">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -6602,6 +6602,40 @@
    * O MODO ENTRA COMO ARGUMENTO, e nao lido da variavel do modulo: e' o que deixa a
    * bancada desenhar os dois casos lado a lado e comparar. Vazio quer dizer "sem
    * agrupar". */
+  /* ================= O TOTAL DESTA LISTA, NO PE DA TABELA =================
+   *
+   * OS CARTOES DE CIMA SAO DA MATRIZ: quanto saiu e quanto voltou no periodo, e a aba
+   * escolhida nao mexe neles — "tudo e' saida e tudo e' retorno", e olhar a operacao
+   * por motorista nao muda quantas caixas sairam do galpao.
+   *
+   * MAS A TABELA, EM ALGUMAS ABAS, MOSTRA UM PEDACO: "Em deficit" lista so' as linhas
+   * com saldo negativo, "Rotas" so' as que tocam uma rota. Sem este rodape, quem soma
+   * a coluna com o dedo acha um numero menor que o cartao e conclui que a tela errou —
+   * foi exatamente o que aconteceu, e com razao: o numero existia e nao tinha nome.
+   *
+   * AGORA CADA UM TEM O SEU LUGAR E O SEU NOME. O cartao, em cima, e' a operacao; o
+   * rodape, colado na coluna, e' a lista. Uma tabela de contabilidade tem a linha de
+   * total no pe, e ninguem se confunde com ela.
+   *
+   * PELA MESMA CHAVE QUE ORDENA A COLUNA, e nao por um campo escrito de novo aqui: sao
+   * a mesma resposta, e duas leituras da mesma coluna divergem no primeiro conserto que
+   * so' uma receber. */
+  function rodapeDaTabela(lista, cs){
+    if (!lista.length) return '';
+    var temSoma = cs.some(function(c){ return c.d && c.d.soma; });
+    if (!temSoma) return '';
+    var celulas = cs.map(function(c, i){
+      if (c.d && c.d.soma) {
+        var s = lista.reduce(function(a, l){ return a + (Number(c.d.k(l)) || 0); }, 0);
+        return '<td class="num"><b>' + Q.num(s) + '</b></td>';
+      }
+      /* O ROTULO NA PRIMEIRA CELULA. Um rodape de numeros sem dizer de que lista ele
+         fala seria um terceiro numero solto — que e' o problema que ele vem resolver. */
+      return '<td>' + (i === 0 ? '<span class="fsub">total desta lista</span>' : '') + '</td>';
+    }).join('');
+    return '<tfoot><tr class="lin-total">' + celulas + '<td class="folga"></td></tr></tfoot>';
+  }
+
   function corpoDaTabela(lista, cs, gente, modo){
     if (!lista.length) {
       return '<tr><td colspan="'+(cs.length+1)+'"><div class="vazio">'+
@@ -6851,7 +6885,7 @@
          Texto comum, sem cor nem negrito: o destaque e do Saldo inicial, ao lado. Dia sem
          lancamento nenhum mostra o zero em cinza — o numero fica, honesto, mas nao disputa
          a atencao com os dias que de fato tiveram entrada. */
-      lancado:  { t: TIT['lancado'], num: true, so: 'local',
+      lancado:  { t: TIT['lancado'], num: true, soma: true, so: 'local',
                   k: function(l){ return l.inicial || 0; },
                   v: function(l){
                     var q = l.inicial || 0;
@@ -6906,9 +6940,13 @@
                     return '<b>' + Q.esc(l.nome) + '</b>' +
                       '<span class="fsub">' + Q.esc(l.sub) + '</span>';
                   } },
-      saida:    { t: TIT['saida'], num: true, k: function(l){ return l.saida || 0; },
+      /* `soma: true` MARCA AS COLUNAS QUE O RODAPE DA TABELA SOMA. Sao tres, e
+         nao todas as numericas: Saldo inicial e Saldo final sao o ACUMULADO —
+         cada linha ja' carrega o que veio antes dela, e somar uma coluna de
+         acumulado da um numero que nao quer dizer nada. */
+      saida:    { t: TIT['saida'], num: true, soma: true, k: function(l){ return l.saida || 0; },
                   v: function(l){ return Q.num(l.saida) + detalheCaixas(l.saidaTipos); } },
-      retorno:  { t: TIT['retorno'], num: true, k: function(l){ return l.retorno || 0; },
+      retorno:  { t: TIT['retorno'], num: true, soma: true, k: function(l){ return l.retorno || 0; },
                   v: function(l){ return Q.num(l.retorno) + detalheCaixas(l.retornoTipos); } },
       /* Saldo final = SALDO INICIAL − saida + retorno. A formula e do usuario, escrita
          duas vezes: "1.250 − 1.690 + 1.250" da 810, e nao os −440 de retorno menos saida.
@@ -7055,7 +7093,7 @@
         /* NA VISAO DE CASA o modo nao vem do seletor — ele E' a visao. */
         corpoDaTabela(lista, cs, gente,
                       porCasa ? 'unidade' : (agrupado ? FLUXO_GRUPO : ''))+
-        '</tbody></table></div>';
+        '</tbody>'+rodapeDaTabela(lista, cs)+'</table></div>';
     ligarArrastarColunas(TAB_ATIVOS);
     ligarLarguraColunas(TAB_ATIVOS);
     /* O CADEADO SE PINTA QUANDO A TABELA DESENHA, como em Movimentos. Pintado so num
@@ -7185,7 +7223,28 @@
      * E O TOTAL DA OPERACAO NAO SE PERDE: ele vai no rodape, quando difere. Foi o
      * pedido de ontem — "o total que saiu e retornou e' comum a todos" —, e os dois
      * cabem juntos desde que cada um diga o que e'. */
-    var t = totaisSimples(lista);
+    /* ================= O NUMERO E DA MATRIZ, E NAO DA ABA =================
+     *
+     * "Esse aplicativo e' da matriz. O que importa e' quanto saiu e quanto retornou,
+     * independente de rota, de unidade, de motorista. Tudo e' saida e tudo e' retorno."
+     *
+     * ENTAO O CARTAO NAO OLHA A ABA. `linhasVivas()` e' a operacao do periodo com os
+     * filtros da GAVETA aplicados — unidade, origem, destino, busca — e SEM o recorte
+     * do chip. Clicar em Motoristas, Rotas ou Em deficit troca o que a TABELA mostra, e
+     * nao quantas caixas sairam do galpao.
+     *
+     * ISSO DESFAZ UMA DECISAO MINHA. O cartao vinha somando a lista desenhada, porque o
+     * escritorio tinha somado a coluna na calculadora e achado outro numero. A queixa
+     * era legitima e a correcao estava no lugar errado: o que faltava nao era o cartao
+     * encolher junto com a aba, era a COLUNA ter um total com nome. Ele esta' no pe da
+     * tabela agora — `rodapeDaTabela` —, e os dois numeros deixam de disputar.
+     *
+     * A GAVETA CONTINUA VALENDO, e a diferenca entre ela e os chips nao e' de gosto:
+     * escolher "Origem: Matriz" e' dizer "quero so' o que saiu da Matriz", um pedido
+     * explicito de recorte; clicar em "Motoristas" e' dizer "me mostre isto por
+     * motorista", que e' um pedido de ARRANJO. O periodo, idem — "quanto saiu em
+     * outubro" e' a pergunta inteira. */
+    var t = totaisSimples(linhasVivas());
     /* A REGUA DE LUGAR CONTINUA SENDO CALCULADA, para o rodape: ela e' a que responde
        "quanto saiu da EMPRESA", sem contar a perna entre duas casas nossas. */
     var tOperacao = totaisDe(linhasVivas());
@@ -7297,12 +7356,12 @@
         /* O RODAPE DIZ O QUE O NUMERO E: a soma da coluna logo abaixo. Ele dizia
            "cruzou a fronteira", que era a regua do numero antigo — mantido, prometeria
            um recorte que este numero nao tem. */
-        'a soma da coluna Sa\u00edda, nesta tabela' + notaDoTotal('saiu'),
+        'tudo que saiu no per\u00edodo \u2014 a aba n\u00e3o muda este n\u00famero' + notaDoTotal('saiu'),
         COR_TILE.saida,
         '<div class="desenho desenho--pista">'+Q.caminhao(4)+'</div>')+
 
       tileCor(Q.num(t.voltou), 'Voltou',
-        'a soma da coluna Retorno, nesta tabela' + notaDoTotal('voltou'),
+        'tudo que voltou no per\u00edodo \u2014 a aba n\u00e3o muda este n\u00famero' + notaDoTotal('voltou'),
         COR_TILE.retorno,
         '<div class="desenho desenho--pista desenho--volta">'+
         Q.caminhao(t.saiu ? Math.max(0, Math.min(4,
@@ -7331,7 +7390,15 @@
       tileCor((t.voltou - t.saiu === 0 ? '0'
                : (t.voltou > t.saiu ? '+' : '\u2212') + Q.num(Math.abs(t.voltou - t.saiu))),
         'Saldo',
-        'Retorno menos Sa\u00edda \u00b7 a soma da coluna Saldo Final' +
+        /* ELE PROMETIA "a soma da coluna Saldo Final", e isso parou de ser verdade
+           duas vezes. Primeiro porque a coluna de uma visao de lugar e' o saldo
+           CORRIDO — cada linha ja' carrega o que veio antes dela, e somar uma
+           coluna dessas da um numero que nao quer dizer nada; o que fecha ali e' a
+           ULTIMA linha, e nao a soma. Depois porque o cartao passou a ser da
+           operacao, e a coluna continua sendo da lista.
+           AGORA ELE PROMETE O QUE FAZ: a subtracao dos dois cartoes ao lado, que e'
+           a conta que qualquer um refaz de cabeca com os dois numeros a vista. */
+        'Retorno menos Sa\u00edda no per\u00edodo \u00b7 a subtra\u00e7\u00e3o dos dois cart\u00f5es ao lado' +
         (t.voltou < t.saiu ? ' \u00b7 saiu mais do que voltou' : ''),
         /* VERMELHO SO NO NEGATIVO, como no estoque: pintar de vermelho um saldo positivo
            ensinaria a ignorar a cor, e ela tem de querer dizer uma coisa so' — ha' caixa

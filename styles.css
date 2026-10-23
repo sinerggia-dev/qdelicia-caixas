@@ -1667,6 +1667,19 @@ tbody tr:hover{background:var(--surface-2)}
 tr.destaque{background:var(--amarelo-claro)}
 tr.ruim{background:var(--vermelho-claro)}
 
+/* ---------- a linha de TOTAL, no pe da tabela ----------
+   Os cartoes de cima sao a operacao do periodo e nao mudam com a aba; esta linha
+   e' o total da LISTA que esta na tela, que em algumas abas e' um pedaco dela.
+   Sem o traco em cima ela se le' como mais uma linha de dados, e ai' volta a ser
+   um numero solto — que e' justamente o problema que ela vem resolver.
+   PRESA NO PE ao rolar, como o cabecalho fica preso no topo: numa tabela de
+   sessenta linhas, um total que so' aparece no fim da rolagem nao e' conferido
+   por ninguem. */
+tfoot tr.lin-total td{position:sticky;bottom:0;z-index:2;
+  background:var(--surface-2);border-top:2px solid var(--linha-viva);
+  font-variant-numeric:tabular-nums;padding-top:9px;padding-bottom:9px}
+tfoot tr.lin-total:hover td{background:var(--surface-2)}
+
 /* ---------- confirmação dentro da página ---------- */
 .confirmando{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--vermelho)}
 .confirma-fundo{

@@ -5791,7 +5791,7 @@ console.log('\n== classificar pelo titulo da coluna ==');
      deixou de ter duas contas. Ela tinha — `totaisDe` nas visoes de lugar,
      `totaisSimples` nas outras —, e era isso que fazia a mesma operacao somar 6.644 numa
      aba e 36.520 na outra. Agora ha uma regua so', e a ancora e' ela. */
-  var iTot = adm.indexOf('var t = totaisSimples(lista);');
+  var iTot = adm.indexOf('var t = totaisSimples(linhasVivas());');
   ok(iOrd > 0 && iTot > iOrd,
     'e os totais são somados depois, sem se importar com a ordem — somar não depende dela',
     [iOrd, iTot]);
@@ -12873,10 +12873,36 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      de confiar na tela inteira. */
   /* O TEXTO ESTA ESCAPADO NO ARQUIVO (`Sa\\u00edda`), e uma regex com o acento de verdade
      nao o acha: procurar o pedaco sem acento e' o que mede o que esta' la'. */
-  ok(fileira.indexOf('a soma da coluna') > 0,
-    'o rodap\u00e9 diz que o n\u00famero \u00e9 a SOMA DA COLUNA logo abaixo \u2014 somar na calculadora ' +
-    'tem de dar o n\u00famero do cart\u00e3o, e dizia "cruzou a fronteira" sobre um total que a ' +
-    'coluna n\u00e3o reproduzia', fileira.indexOf('a soma da coluna'));
+  /* ================= O NUMERO E DA MATRIZ, E NAO DA ABA =================
+   *
+   * ESTA PROVA COBRAVA "a soma da coluna", e defendia a decisao anterior: o cartao
+   * encolhia junto com a aba. O escritorio voltou com a regra do negocio, que vale
+   * mais: "esse aplicativo e' da matriz. O que importa e' quanto saiu e quanto
+   * retornou, independente de rota, de unidade, de motorista. Tudo e' saida e tudo e'
+   * retorno."
+   *
+   * ENTAO O CARTAO NAO SEGUE A ABA. Olhar a operacao por motorista nao muda quantas
+   * caixas sairam do galpao, e um numero que muda ao trocar de lente nao se apresenta
+   * a cliente nenhum.
+   *
+   * A QUEIXA ANTIGA CONTINUA ATENDIDA, e por outro caminho: o que faltava nao era o
+   * cartao encolher, era a COLUNA ter um total com nome. Ele esta' no pe da tabela
+   * agora, em `rodapeDaTabela`. Cada numero tem o seu lugar — o cartao em cima diz a
+   * operacao, o rodape colado na coluna diz a lista —, e nenhum dos dois finge ser o
+   * outro. */
+  ok(fileira.indexOf('a aba n') > 0,
+    'o rodap\u00e9 diz que a ABA N\u00c3O MUDA o n\u00famero \u2014 ele \u00e9 da matriz: quanto saiu e quanto ' +
+    'voltou no per\u00edodo, independente de rota, de unidade ou de motorista. Prometendo ' +
+    '"a soma da coluna", ele voltaria a encolher a cada lente, e um n\u00famero que muda ao ' +
+    'trocar de aba n\u00e3o se apresenta a cliente nenhum',
+    fileira.indexOf('a aba n'));
+  /* SEM OS COMENTARIOS. A promessa antiga aparece na PROSA que explica por que ela
+     saiu, e a prova a achava ali e reprovava o codigo certo. E' a setima vez nesta
+     semana que uma prova minha le' a defesa do codigo como se fosse o codigo: a regra
+     vale para toda prova que procura uma PALAVRA, e nao so' para as que eu lembro. */
+  ok(semComentarios(fileira).indexOf('a soma da coluna') < 0,
+    'e a promessa antiga saiu junto \u2014 um rodap\u00e9 que descreve outra conta \u00e9 pior do ' +
+    'que rodap\u00e9 nenhum', semComentarios(fileira).indexOf('a soma da coluna'));
   ok(/notaDoTotal\('saiu'\)/.test(fileira) && /notaDoTotal\('voltou'\)/.test(fileira),
     'e diz quanto \u00e9 a OPERA\u00c7\u00c3O INTEIRA quando os dois diferem \u2014 foi o pedido de ' +
     'ontem, "o total que saiu e retornou \u00e9 comum a todos", e os dois cabem juntos ' +
@@ -12944,10 +12970,9 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      mudou de lugar: ela agora mora na nota, ao lado do total da operacao, que e' onde
      ela faz sentido. No rodape do numero ela descrevia uma regua que o numero deixou de
      usar, e um rodape que descreve outra conta e' pior do que rodape nenhum. */
-  ok(cSaiu.indexOf('a soma da coluna') > 0 &&
-     cVoltou.indexOf('a soma da coluna') > 0,
-    'os dois rodap\u00e9s dizem que o n\u00famero \u00e9 a SOMA DA COLUNA logo abaixo \u2014 somar na ' +
-    'calculadora tem de dar o n\u00famero do cart\u00e3o, e era isso que n\u00e3o fechava',
+  ok(cSaiu.indexOf('a aba n') > 0 && cVoltou.indexOf('a aba n') > 0,
+    'os DOIS rodap\u00e9s dizem que a aba n\u00e3o muda o n\u00famero \u2014 escrito num s\u00f3, a Sa\u00edda ' +
+    'prometeria uma coisa e o Retorno outra, sobre a mesma tabela',
     [cSaiu.slice(0, 90), cVoltou.slice(0, 90)]);
   ok(cSaiu.indexOf("notaDoTotal('saiu')") > 0 &&
      cVoltou.indexOf("notaDoTotal('voltou')") > 0,
@@ -13036,10 +13061,21 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'o cartão diz que é Retorno menos Saída — era "Caixas que Saíram e Não Voltaram", ' +
     'somado trecho a trecho, e não fechava nem com a subtração dos dois cartões ao ' +
     'lado nem com a coluna Saldo Final logo abaixo', cSaldo.slice(0, 200));
-  ok(cSaldo.indexOf('a soma da coluna Saldo Final') > 0,
-    'e diz que é a soma da coluna Saldo Final — quem confere chega nele por dois ' +
-    'caminhos, e era de um terceiro número sem caminho nenhum que a tela sofria',
-    cSaldo.slice(0, 200));
+  /* ELE PROMETIA "a soma da coluna Saldo Final". Parou de ser verdade: a coluna de
+     uma visao de lugar e' o saldo CORRIDO — quem fecha ali e' a ULTIMA linha, e nao a
+     soma —, e o cartao passou a ser da operacao enquanto a coluna continua sendo da
+     lista. Promessa que nao se cumpre e' pior que promessa nenhuma: quem tenta conferir
+     por ela acha outro numero e para de confiar na tela.
+     O CAMINHO QUE SOBRA E O BOM: a subtracao dos dois cartoes ao lado, que qualquer um
+     refaz de cabeca com os dois numeros a vista. */
+  ok(cSaldo.indexOf('a subtra') > 0,
+    'e diz que \u00e9 a subtra\u00e7\u00e3o dos dois cart\u00f5es ao lado \u2014 quem confere refaz a conta de ' +
+    'cabe\u00e7a com os dois n\u00fameros \u00e0 vista, e era de um n\u00famero sem caminho nenhum que a ' +
+    'tela sofria', cSaldo.slice(0, 200));
+  /* SEM OS COMENTARIOS, pela mesma razao da prova irma. */
+  ok(semComentarios(cSaldo).indexOf('soma da coluna') < 0,
+    'e n\u00e3o promete mais a soma de uma coluna de saldo CORRIDO \u2014 nela quem fecha \u00e9 a ' +
+    '\u00faltima linha, e n\u00e3o a soma', semComentarios(cSaldo).slice(0, 200));
   /* SEM OS COMENTARIOS. O rotulo antigo aparece no COMENTARIO que explica a troca, e a
      prova o achava ali e reprovava o codigo certo. E' a quinta vez nesta semana que uma
      prova minha le' a prosa que defende o codigo como se fosse o codigo — a regra ja'
@@ -13674,10 +13710,121 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       'o cart\u00e3o e a opera\u00e7\u00e3o some, e com ela some a r\u00e9gua que o cliente cobra');
   })();
 
-  var j = adm.indexOf('var t = totaisSimples(lista);');
+  /* A FONTE DOS TOTAIS E A OPERACAO, e nao a lista desenhada. Ver a razao escrita por
+     extenso na prova do rodape do cartao, acima: o numero e' da matriz, e a aba nao
+     mexe nele. `linhasVivas()` traz o periodo com os filtros da GAVETA aplicados e SEM
+     o recorte do chip — e' essa a diferenca entre pedir um recorte e pedir um arranjo. */
+  /* ================= O TOTAL DESTA LISTA, NO PE DA TABELA =================
+   *
+   * ELE E A OUTRA METADE da decisao de cima. O cartao virou o numero da matriz e parou
+   * de encolher com a aba — mas a queixa que tinha levado ao desenho anterior era real:
+   * "quando eu somar a coluna de saida tem que ta igual ao cartao". Em "Em deficit" ou
+   * em "Rotas" a tabela mostra um pedaco, e sem este rodape quem soma a coluna com o
+   * dedo acha um numero menor que o cartao e conclui que a tela errou.
+   *
+   * AGORA CADA NUMERO TEM LUGAR E NOME: o cartao em cima e' a operacao, o rodape colado
+   * na coluna e' a lista. E' a forma de qualquer tabela de contabilidade, e ninguem se
+   * confunde com ela.
+   *
+   * RODADO, com colunas de verdade. Lido, a prova nao distinguiria um rodape que soma
+   * a coluna certa de um que soma a do lado. */
+  (function () {
+    var fonteR = fonteDaFuncao(adm, 'rodapeDaTabela');
+    ok(!!fonteR, 'a confer\u00eancia recortou o rodap\u00e9 da tabela \u2014 recorte vazio faria as ' +
+      'provas abaixo aprovarem qualquer coisa', fonteR.length);
+    var faz = new Function('Q', fonteR + ' return rodapeDaTabela;')(
+      { num: function (n) { return String(n); } });
+
+    var CS = [
+      { id: 'quem',    d: { t: 'Local' } },
+      { id: 'inicial', d: { t: 'Saldo inicial', num: true,
+                            k: function (l) { return l.iniCorrido; } } },
+      { id: 'saida',   d: { t: 'Sa\u00edda', num: true, soma: true,
+                            k: function (l) { return l.saida || 0; } } },
+      { id: 'retorno', d: { t: 'Retorno', num: true, soma: true,
+                            k: function (l) { return l.retorno || 0; } } }
+    ];
+    var LS = [
+      { iniCorrido: 1000, saida: 14152, retorno: 9271 },
+      { iniCorrido: 2000, saida: 13079, retorno: 8702 },
+      { iniCorrido: 3000, saida: 9289,  retorno: 7394 }
+    ];
+    var pe = faz(LS, CS);
+
+    ok(pe.indexOf('36520') > 0,
+      'o rodap\u00e9 soma a coluna Sa\u00edda: 14.152 + 13.079 + 9.289 = 36.520 \u2014 \u00e9 a conta que o ' +
+      'escrit\u00f3rio fez na calculadora, e agora ela tem onde dar certo', pe);
+    ok(pe.indexOf('25367') > 0,
+      'e a coluna Retorno tamb\u00e9m \u2014 9.271 + 8.702 + 7.394 = 25.367', pe);
+    ok(pe.indexOf('total desta lista') > 0,
+      'e ele DIZ de que lista fala \u2014 um rodap\u00e9 de n\u00fameros sem nome seria um terceiro ' +
+      'n\u00famero solto, que \u00e9 o problema que ele vem resolver', pe);
+
+    /* O SALDO CORRIDO NAO SE SOMA. Cada linha ja' carrega o que veio antes dela: a
+       soma de uma coluna de acumulado — 1.000 + 2.000 + 3.000 = 6.000 — nao e' o saldo
+       de ninguem. Quem fecha ali e' a ULTIMA linha. */
+    ok(pe.indexOf('6000') < 0,
+      'e N\u00c3O soma a coluna de saldo CORRIDO \u2014 cada linha dela j\u00e1 carrega o que veio ' +
+      'antes, e a soma de um acumulado n\u00e3o \u00e9 o saldo de ningu\u00e9m: quem fecha ali \u00e9 a ' +
+      '\u00faltima linha', pe);
+
+    /* LISTA VAZIA NAO TEM TOTAL. Um "0" no pe de uma tabela que diz "nenhum movimento"
+       e' um numero a mais para ler e nenhuma resposta a mais. */
+    ok(faz([], CS) === '', 'e lista vazia n\u00e3o ganha rodap\u00e9 \u2014 um zero no p\u00e9 de uma tabela ' +
+      'vazia \u00e9 um n\u00famero a mais para ler e nenhuma resposta a mais', faz([], CS));
+    /* E UMA TABELA SEM COLUNA SOMAVEL TAMBEM NAO. */
+    ok(faz(LS, [CS[0], CS[1]]) === '',
+      'nem uma tabela sem coluna que se some \u2014 um rodap\u00e9 todo em branco parece defeito',
+      faz(LS, [CS[0], CS[1]]));
+
+    /* E A TABELA O USA. Medida sozinha, a funcao pode estar perfeita e nao ser chamada
+       — e' o defeito mais comum deste projeto. */
+    ok(semComentarios(adm).indexOf("'</tbody>'+rodapeDaTabela(lista, cs)+'</table>") > 0,
+      'e a tabela o desenha \u2014 uma pe\u00e7a perfeita que ningu\u00e9m chama \u00e9 o defeito mais ' +
+      'comum deste projeto');
+
+    /* E AS COLUNAS DE VERDADE CARREGAM A MARCA. O cen\u00e1rio acima roda com colunas de
+       mentira, e com elas a prova mede a FUNCAO — nao mede quais colunas da tela
+       entram nela. Tirada a marca de `saida`, o rodape continua perfeito e a coluna
+       que o escritorio soma com o dedo sai dele. */
+    /* O RECORTE E DAS COLUNAS DESTA TABELA, e nao do arquivo inteiro: `saida:` e
+       `retorno:` existem em mais de um objeto aqui dentro — ha' outra tela com colunas
+       de mesmo nome —, e a primeira ocorrencia e' de outra. Buscando solto, a prova
+       mediria o descritor errado e responderia com confianca sobre uma tabela que nao
+       e' esta. */
+    var defsTodo = semComentarios(adm);
+    var iDefs = defsTodo.indexOf("inicial:  { t: TIT['inicial']");
+    var fimDefs = defsTodo.indexOf('DEFS.quem.t = cols[0];', iDefs);
+    var defsSC = (iDefs > 0 && fimDefs > iDefs) ? defsTodo.slice(iDefs, fimDefs) : '';
+    ok(!!defsSC, 'a confer\u00eancia recortou as colunas do Painel de Ativos \u2014 recorte vazio ' +
+      'faria as provas abaixo aprovarem qualquer coisa', defsSC.length);
+    function marcada(id) {
+      var i = defsSC.indexOf(id + ':');
+      if (i < 0) return null;
+      var fim = defsSC.indexOf('k: function', i);
+      return fim > i && defsSC.slice(i, fim).indexOf('soma: true') > 0;
+    }
+    ok(marcada('saida') === true && marcada('retorno') === true,
+      'e as colunas Sa\u00edda e Retorno est\u00e3o marcadas como som\u00e1veis \u2014 s\u00e3o justamente as ' +
+      'duas que o escrit\u00f3rio soma com o dedo para conferir contra o cart\u00e3o',
+      { saida: marcada('saida'), retorno: marcada('retorno') });
+    ok(marcada('lancado') === true,
+      'e "Lan\u00e7ado no dia" tamb\u00e9m \u2014 ela \u00e9 o que entrou naquele dia, e somar os dias d\u00e1 ' +
+      'o que entrou no per\u00edodo', marcada('lancado'));
+    ok(marcada('inicial') === false && marcada('final') === false,
+      'e as duas colunas de saldo CORRIDO n\u00e3o \u2014 cada linha delas j\u00e1 carrega o que veio ' +
+      'antes, e a soma de um acumulado n\u00e3o \u00e9 o saldo de ningu\u00e9m',
+      { inicial: marcada('inicial'), final: marcada('final') });
+  })();
+
+  var j = adm.indexOf('var t = totaisSimples(linhasVivas());');
   ok(j > 0 && j < i,
-    'os totais saem da lista já DESENHADA — eles são a soma das colunas que ' +
-    'estão na tela, e somar na calculadora tem de dar o mesmo número');
+    'os totais saem da OPERA\u00c7\u00c3O do per\u00edodo, e n\u00e3o da lista desenhada \u2014 clicar em ' +
+    'Motoristas ou em Em d\u00e9ficit troca o que a TABELA mostra, e n\u00e3o quantas caixas ' +
+    'sa\u00edram do galp\u00e3o');
+  ok(adm.indexOf('var t = totaisSimples(lista);') < 0,
+    'e a fonte antiga saiu \u2014 deixada ali, ela volta sozinha no pr\u00f3ximo conserto que ' +
+    'copiar a linha de cima');
   ok(!/deLugar \? totaisDe\(lista\) : totaisSimples\(lista\)/.test(adm),
     'e a escolha entre duas contas sumiu — ha uma só, e ela soma o que está na ' +
     'tela: era a escolha que fazia a mesma operação dar dois números');
