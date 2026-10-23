@@ -7116,11 +7116,54 @@
      * E OS FILTROS CONTINUAM VALENDO. O que deixou de mexer no total e' a ABA; periodo,
      * origem, destino, unidade e busca mexem, porque eles estreitam a OPERACAO, e nao a
      * lente sobre ela. */
-    var t = totaisDe(linhasVivas());
+    /* ================= O CARTAO SOMA A COLUNA. PONTO. =================
+     *
+     * O ESCRITORIO SOMOU NA CALCULADORA: 14.152 + 13.079 + 9.289 = 36.520, e o cartao
+     * dizia 32.170. "Isso e' muito basico." E e'.
+     *
+     * A DIFERENCA ERAM AS 4.350 DA PERNA INTERNA — a carga que vai de uma casa nossa
+     * para outra. A regua de LUGAR a exclui, com razao: ela muda a caixa de lugar sem
+     * mudar nem o estoque nem a divida. Mas a LINHA dela continua na tabela, com a
+     * quantidade na coluna Saida — entao a coluna somava uma coisa e o cartao outra.
+     *
+     * UM NUMERO QUE NAO FECHA COM A COLUNA LOGO ABAIXO NAO SE DEFENDE, por mais certa
+     * que seja a regua por tras dele. Quem confere soma com o dedo, acha outro valor, e
+     * para de confiar na tela inteira — nao so' naquele cartao.
+     *
+     * ENTAO O CARTAO PASSA A SOMAR O QUE A TABELA MOSTRA, em toda aba e todo filtro:
+     * `totaisSimples` percorre as MESMAS linhas desenhadas e soma as MESMAS colunas.
+     * Somar na calculadora passa a dar o numero do cartao, sempre.
+     *
+     * E O TOTAL DA OPERACAO NAO SE PERDE: ele vai no rodape, quando difere. Foi o
+     * pedido de ontem — "o total que saiu e retornou e' comum a todos" —, e os dois
+     * cabem juntos desde que cada um diga o que e'. */
+    var t = totaisSimples(lista);
+    /* A REGUA DE LUGAR CONTINUA SENDO CALCULADA, para o rodape: ela e' a que responde
+       "quanto saiu da EMPRESA", sem contar a perna entre duas casas nossas. */
+    var tOperacao = totaisDe(linhasVivas());
     /* O QUE A LENTE COBRE, para a tabela de baixo nao parecer desmentir o cartao de
        cima. Na aba Fornecedores a tabela soma 6.644 e o cartao diz 36.520, e sem uma
        frase dizendo isso troca-se um "nao bate" por outro. */
-    var tLente = deLugar ? null : totaisSimples(lista);
+    /* O QUE DIZER NO RODAPE, quando o numero da tabela nao e' o da operacao inteira.
+       Sao duas razoes diferentes para a diferenca, e a frase diz qual:
+         · nas abas de LUGAR, a perna entre casas nossas, que esta' na tabela e nao conta
+           como saida da empresa;
+         · nas abas de LENTE, as linhas que aquela lente nao alcanca — quase nada passa
+           por fornecedor, e a tabela cobre so' um pedaco. */
+    function notaDoTotal(campo){
+      if (t[campo] === tOperacao[campo]) return '';
+      /* E A NOTA DIZ POR QUE OS DOIS DIFEREM, que e' a unica coisa que faz a diferenca
+         deixar de parecer defeito. Sao duas razoes, e cada aba tem a sua:
+           · nas de LUGAR, a transferencia entre duas casas nossas esta' na tabela e nao
+             conta como saida da empresa — ela muda a caixa de lugar sem mudar nem o
+             estoque nem a divida;
+           · nas de LENTE, as linhas que aquela lente nao alcanca: quase nada passa por
+             fornecedor, e a tabela cobre so' um pedaco. */
+      return ' · ' + Q.num(tOperacao[campo]) + ' na operação inteira' +
+        (deLugar
+          ? ' — a transferência entre casas nossas não entra lá, mas está na tabela'
+          : ' — o que cruzou a fronteira da empresa; esta lente alcança só parte');
+    }
     /* Cinco cartoes, na ordem de quem lê: primeiro o indicador que se cobra (a taxa),
        depois o numero que dói (o que nao voltou), depois o que HA — o estoque —, e por
        fim as duas pontas do periodo.
@@ -7191,17 +7234,15 @@
          fornecedor" / "por tipo de caixa" quando o total era da lente; mantido agora,
          prometeria um recorte que o numero nao tem mais. */
       tileCor(Q.num(t.saiu), 'Saiu',
-        'cruzou a fronteira · transferência entre casas nossas não entra' +
-        /* E QUANTO A ABA COBRE DESTE TOTAL. Sem esta frase a tabela de baixo parece
-           desmentir o cartao de cima: na aba Fornecedores ela soma 6.644 contra 36.520
-           aqui, e quem olha troca um "nao bate" por outro. */
-        (tLente ? ' · a tabela abaixo cobre ' + Q.num(tLente.saiu) + ' deles' : ''),
+        /* O RODAPE DIZ O QUE O NUMERO E: a soma da coluna logo abaixo. Ele dizia
+           "cruzou a fronteira", que era a regua do numero antigo — mantido, prometeria
+           um recorte que este numero nao tem. */
+        'a soma da coluna Sa\u00edda, nesta tabela' + notaDoTotal('saiu'),
         COR_TILE.saida,
         '<div class="desenho desenho--pista">'+Q.caminhao(4)+'</div>')+
 
       tileCor(Q.num(t.voltou), 'Voltou',
-        'devolvido para dentro de casa' +
-        (tLente ? ' · a tabela abaixo cobre ' + Q.num(tLente.voltou) + ' deles' : ''),
+        'a soma da coluna Retorno, nesta tabela' + notaDoTotal('voltou'),
         COR_TILE.retorno,
         '<div class="desenho desenho--pista desenho--volta">'+
         Q.caminhao(t.saiu ? Math.max(0, Math.min(4,

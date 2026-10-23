@@ -5562,7 +5562,7 @@ console.log('\n== classificar pelo titulo da coluna ==');
      deixou de ter duas contas. Ela tinha — `totaisDe` nas visoes de lugar,
      `totaisSimples` nas outras —, e era isso que fazia a mesma operacao somar 6.644 numa
      aba e 36.520 na outra. Agora ha uma regua so', e a ancora e' ela. */
-  var iTot = adm.indexOf('var t = totaisDe(linhasVivas());');
+  var iTot = adm.indexOf('var t = totaisSimples(lista);');
   ok(iOrd > 0 && iTot > iOrd,
     'e os totais são somados depois, sem se importar com a ordem — somar não depende dela',
     [iOrd, iTot]);
@@ -12570,11 +12570,25 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'e o rodap\u00e9 n\u00e3o troca mais de r\u00e9gua com a aba \u2014 o n\u00famero \u00e9 um s\u00f3, e dizer ' +
     '"por fornecedor" sobre ele prometeria um recorte que ele n\u00e3o tem',
     fileira.indexOf("deLugar ? 'cruzou"));
-  ok(/cruzou a fronteira/.test(fileira) &&
-     /tLente \? ' \u00b7 a tabela abaixo cobre '/.test(fileira),
-    'e o que a aba acrescenta \u00e9 quanto a TABELA cobre do total \u2014 sem essa frase, a ' +
-    'tabela de baixo parece desmentir o cart\u00e3o de cima, e troca-se um "n\u00e3o bate" por ' +
-    'outro', fileira.indexOf('a tabela abaixo cobre'));
+  /* O RODAPE DIZ O QUE O NUMERO E — a soma da coluna logo abaixo — e, quando ele
+     difere, quanto e' a operacao inteira.
+     ELE DIZIA "cruzou a fronteira", e essa era a regua do numero ANTIGO. O escritorio
+     somou na calculadora: 14.152 + 13.079 + 9.289 = 36.520, e o cartao dizia 32.170. As
+     4.350 de diferenca eram a perna entre duas casas nossas — que a regua exclui com
+     razao, mas cuja LINHA continua na tabela, com a quantidade na coluna.
+     UM NUMERO QUE NAO FECHA COM A COLUNA LOGO ABAIXO NAO SE DEFENDE, por mais certa que
+     seja a regua por tras dele: quem confere soma com o dedo, acha outro valor, e para
+     de confiar na tela inteira. */
+  /* O TEXTO ESTA ESCAPADO NO ARQUIVO (`Sa\\u00edda`), e uma regex com o acento de verdade
+     nao o acha: procurar o pedaco sem acento e' o que mede o que esta' la'. */
+  ok(fileira.indexOf('a soma da coluna') > 0,
+    'o rodap\u00e9 diz que o n\u00famero \u00e9 a SOMA DA COLUNA logo abaixo \u2014 somar na calculadora ' +
+    'tem de dar o n\u00famero do cart\u00e3o, e dizia "cruzou a fronteira" sobre um total que a ' +
+    'coluna n\u00e3o reproduzia', fileira.indexOf('a soma da coluna'));
+  ok(/notaDoTotal\('saiu'\)/.test(fileira) && /notaDoTotal\('voltou'\)/.test(fileira),
+    'e diz quanto \u00e9 a OPERA\u00c7\u00c3O INTEIRA quando os dois diferem \u2014 foi o pedido de ' +
+    'ontem, "o total que saiu e retornou \u00e9 comum a todos", e os dois cabem juntos ' +
+    'desde que cada um diga o que \u00e9', fileira.indexOf('notaDoTotal'));
 
   /* A ORDEM e pedida, entao e conferida. */
   var rotulos = (fileira.match(/'([A-Z\u00c0-\u00dd][^']*)'/g) || [])
@@ -12630,13 +12644,30 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'os dois cart\u00f5es do movimento leem o campo com o nome deles \u2014 trocados, a fileira ' +
     'continua somando certo e contando a viagem errada', { saiu: !!cSaiu, voltou: !!cVoltou });
 
-  ok(/transfer\u00eancia entre casas nossas n\u00e3o entra/.test(cSaiu),
-    'e o de "Saiu" diz que a transfer\u00eancia entre casas nossas N\u00c3O entra \u2014 sem isso, ' +
-    'quem conhece a opera\u00e7\u00e3o procura a carga que foi para a filial, n\u00e3o acha, e conclui ' +
-    'que a tela perdeu lan\u00e7amento', cSaiu.slice(0, 200));
-  ok(/fronteira/.test(cSaiu) && /dentro de casa/.test(cVoltou),
-    'e os dois falam da FRONTEIRA da empresa, que \u00e9 a linha de que a conta inteira ' +
-    'depende', [cSaiu.slice(0, 90), cVoltou.slice(0, 90)]);
+  /* O RODAPE DIZ O QUE O NUMERO E — a soma da coluna —, e a EXPLICACAO da fronteira
+     mudou de lugar: ela agora mora na nota, ao lado do total da operacao, que e' onde
+     ela faz sentido. No rodape do numero ela descrevia uma regua que o numero deixou de
+     usar, e um rodape que descreve outra conta e' pior do que rodape nenhum. */
+  ok(cSaiu.indexOf('a soma da coluna') > 0 &&
+     cVoltou.indexOf('a soma da coluna') > 0,
+    'os dois rodap\u00e9s dizem que o n\u00famero \u00e9 a SOMA DA COLUNA logo abaixo \u2014 somar na ' +
+    'calculadora tem de dar o n\u00famero do cart\u00e3o, e era isso que n\u00e3o fechava',
+    [cSaiu.slice(0, 90), cVoltou.slice(0, 90)]);
+  ok(cSaiu.indexOf("notaDoTotal('saiu')") > 0 &&
+     cVoltou.indexOf("notaDoTotal('voltou')") > 0,
+    'e os dois chamam a nota que diz o total da OPERA\u00c7\u00c3O quando ele difere \u2014 sem ela ' +
+    'a r\u00e9gua da fronteira some da tela, e com ela a resposta de "quanto saiu da empresa"',
+    [cSaiu.slice(-80), cVoltou.slice(-80)]);
+  /* E A FRONTEIRA CONTINUA ESCRITA, na nota: sem ela, quem conhece a operacao procura a
+     carga que foi para a filial, nao acha no total da empresa, e conclui que a tela
+     perdeu lancamento. */
+  var iNota = adm.indexOf('function notaDoTotal(campo)');
+  var corpoNota = adm.slice(iNota, adm.indexOf(String.fromCharCode(10) + '    }', iNota));
+  ok(iNota > 0 && corpoNota.indexOf('casas nossas') > 0 &&
+     corpoNota.indexOf('fronteira') > 0,
+    'e a nota explica POR QUE os dois diferem \u2014 a transfer\u00eancia entre casas nossas de ' +
+    'um lado, a lente que alcan\u00e7a s\u00f3 parte do outro: sem o porqu\u00ea, a diferen\u00e7a parece ' +
+    'defeito e algu\u00e9m vai "consertar" o n\u00famero certo', corpoNota.slice(0, 200));
   /* O RODAPE DO DEFICIT E O UNICO LUGAR QUE EXPLICA POR QUE A SUBTRACAO NAO FECHA.
      Com 'saiu' e 'voltou' um ao lado do outro, toda gente faz a conta de cabeca — e
      acha um terceiro numero. O deficit e somado TRECHO A TRECHO: uma rota que devolveu
@@ -12660,12 +12691,14 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'e o rodap\u00e9 n\u00e3o diz mais "por motorista" nem "por tipo de caixa" \u2014 o n\u00famero ' +
     'deixou de ser daquela lente, e a frase antiga prometeria um recorte que ele n\u00e3o ' +
     'tem', [cSaiu.slice(-90), cVoltou.slice(-90)]);
-  ok(cSaiu.indexOf('a tabela abaixo cobre') > 0 &&
-     cVoltou.indexOf('a tabela abaixo cobre') > 0,
-    'e diz quanto a TABELA cobre do total \u2014 \u00e9 a pergunta que sobra quando o cart\u00e3o ' +
-    'para de mudar com a aba: na de Fornecedores a tabela soma 6.644 contra 36.520 ali ' +
-    'em cima, e sem a frase troca-se um "n\u00e3o bate" por outro',
-    [cSaiu.slice(-90), cVoltou.slice(-90)]);
+  /* A FRASE DA COBERTURA SAIU com o desenho dela: ela existia porque o cartao era o
+     total da operacao e a tabela somava outra coisa. Agora o cartao E a soma da
+     tabela, e o que sobra dizer e' o contrario — quanto e' a operacao inteira. */
+  ok(cSaiu.indexOf('a tabela abaixo cobre') < 0 &&
+     cVoltou.indexOf('a tabela abaixo cobre') < 0,
+    'e a frase "a tabela abaixo cobre N" saiu — ela dizia que o cartão era maior ' +
+    'que a tabela, e agora ele É a tabela: mantida, descreveria uma diferença que ' +
+    'deixou de existir', [cSaiu.slice(-90), cVoltou.slice(-90)]);
 
   /* --- os desenhos dizem o que o número diz ------------------------------- */
   ok(/desenho--zero/.test(fileira),
@@ -13184,38 +13217,85 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       'a fonte dos totais NÃO olha a aba — olhando, o mesmo período volta a dar 6.644 ' +
       'numa lente e 36.520 na outra, e não há como apresentar nenhum dos dois',
       corpoLV.trim());
-    var iTV = adm.indexOf('var t = totaisDe(linhasVivas());');
+    var iTV = adm.indexOf('var t = totaisSimples(lista);');
     ok(adm.slice(iTV, iTV + 200).indexOf('FLUXO_FILTRO') < 0 &&
        adm.slice(iTV, iTV + 200).indexOf('deLugar ?') < 0,
       'e a escolha da conta também não — um `deLugar ?` de volta ali seria o mesmo ' +
       'defeito com outro nome', adm.slice(iTV, iTV + 120));
-    /* E A LENTE CONTINUA EXISTINDO, para a frase da cobertura: tirando-a, o cartao
-       passa a calar sobre a diferenca entre ele e a tabela logo abaixo. */
-    ok(/var tLente = deLugar \? null : totaisSimples\(lista\);/.test(adm),
-      'e a conta da LENTE continua existindo — é dela que sai "a tabela abaixo cobre N ' +
-      'deles", a frase que explica por que o cartão e a tabela trazem números diferentes');
+    /* E O TOTAL DA OPERACAO CONTINUA SENDO CALCULADO, para a nota do rodape. Ele
+       deixou de ser o NUMERO do cartao — que agora soma a coluna, a pedido —, mas sem
+       ele a tela perde a resposta de "quanto saiu da empresa", que foi o pedido da
+       semana passada. Os dois cabem juntos desde que cada um diga o que e'. */
+    ok(/var tOperacao = totaisDe\(linhasVivas\(\)\);/.test(adm),
+      'e o total da OPERA\u00c7\u00c3O continua sendo calculado \u2014 ele saiu do n\u00famero grande e ' +
+      'foi para a nota: sem ele, a tela perde a resposta de "quanto saiu da empresa"');
+    ok(/function notaDoTotal\(campo\)/.test(adm) &&
+       adm.indexOf('na opera') > 0,
+      'e ela diz quanto \u00e9, quando difere da soma da coluna \u2014 calada, a diferen\u00e7a entre ' +
+      'o cart\u00e3o e a opera\u00e7\u00e3o some, e com ela some a r\u00e9gua que o cliente cobra');
   })();
 
-  var j = adm.indexOf('var t = totaisDe(linhasVivas());');
+  var j = adm.indexOf('var t = totaisSimples(lista);');
   ok(j > 0 && j < i,
-    'os totais saem da lista j\u00e1 filtrada, e n\u00e3o do per\u00edodo inteiro \u2014 per\u00edodo, ' +
-    'origem, destino, unidade e busca estreitam a opera\u00e7\u00e3o, e por isso mexem no total');
+    'os totais saem da lista já DESENHADA — eles são a soma das colunas que ' +
+    'estão na tela, e somar na calculadora tem de dar o mesmo número');
   ok(!/deLugar \? totaisDe\(lista\) : totaisSimples\(lista\)/.test(adm),
-    'e a ABA deixou de mexer neles \u2014 somando s\u00f3 as linhas da visao, a mesma opera\u00e7\u00e3o ' +
-    'dava 6.644 numa aba e 36.520 na outra, e n\u00e3o havia como apresentar isso');
-  /* A REGUA E A DE LUGAR, para todas: ela conta o que CRUZOU A FRONTEIRA e deixa de
-     fora a perna entre duas casas nossas. A outra somava a mesma caixa cada vez que ela
-     trocava de galpao — um total que cresce quando nada entra nem sai da empresa. */
-  ok(/var t = totaisDe\(linhasVivas\(\)\);/.test(adm),
-    'e a r\u00e9gua \u00e9 a de LUGAR em todas as abas \u2014 ela deixa de fora a perna entre duas ' +
-    'casas nossas, que muda a caixa de lugar sem mudar nem o estoque nem a d\u00edvida');
-  /* E A LENTE DIZ O QUE COBRE. Sem isso a tabela de baixo parece desmentir o cartao de
-     cima, e troca-se um "nao bate" por outro. */
-  ok(/var tLente = deLugar \? null : totaisSimples\(lista\);/.test(adm) &&
-     /a tabela abaixo cobre/.test(adm),
-    'e nas abas de lente o cart\u00e3o diz quanto a tabela abaixo cobre do total \u2014 sem ' +
-    'isso ela soma 6.644 contra 36.520 ali em cima, e quem olha troca um "n\u00e3o bate" ' +
-    'por outro');
+    'e a escolha entre duas contas sumiu — ha uma só, e ela soma o que está na ' +
+    'tela: era a escolha que fazia a mesma operação dar dois números');
+  /* ---- A SOMA DA COLUNA DA O NUMERO DO CARTAO. RODADO. ----
+   *
+   * O escritorio abriu a calculadora: 14.152 + 13.079 + 9.289 = 36.520, e o cartao
+   * dizia 32.170. "Isso e' muito basico." E e'. A prova agora faz a mesma conta.
+   * COM UMA PERNA INTERNA NO CENARIO, que era a causa: a carga entre duas casas nossas
+   * esta' na tabela e nao contava no cartao. Sem ela, `totaisSimples` e `totaisDe` dao
+   * o mesmo numero e a prova aprovaria os dois. */
+  (function () {
+    var iTS = adm.indexOf('  function totaisSimples(lista){');
+    var prof = 0, k = adm.indexOf('{', iTS), fimTS = -1;
+    for (; k < adm.length; k++) {
+      if (adm[k] === '{') prof++;
+      else if (adm[k] === '}' && --prof === 0) { fimTS = k + 1; break; }
+    }
+    var somar = new Function('metaFluxo',
+      adm.slice(iTS, fimTS) + ' return totaisSimples;')(function () { return 90; });
+    var LINHAS = [
+      { situacao: 'atencao', origens: ['Matriz'], destinos: ['Rota A'],
+        saida: 14152, retorno: 9271, desvio: null },
+      { situacao: 'atencao', origens: ['Matriz'], destinos: ['Caruaru'],
+        saida: 13079, retorno: 8702, desvio: null },
+      /* A PERNA INTERNA: Matriz para Filial Ceasa, duas casas nossas. */
+      { situacao: 'atencao', origens: ['Matriz'], destinos: ['Filial Ceasa'],
+        saida: 9289, retorno: 7394, desvio: null }
+    ];
+    var somaMao = LINHAS.reduce(function (a, l) { return a + l.saida; }, 0);
+    var r = somar(LINHAS);
+    ok(r.saiu === somaMao && r.saiu === 36520,
+      'o cartão soma EXATAMENTE a coluna: 14.152 + 13.079 + 9.289 = 36.520 — era isso ' +
+      'que não fechava, e quem confere soma com o dedo, acha outro valor e para de ' +
+      'confiar na tela inteira', { cartao: r.saiu, naMao: somaMao });
+    ok(r.voltou === 9271 + 8702 + 7394,
+      'e o Retorno também — o escritório disse "provavelmente o retorno deve tá tudo ' +
+      'errado", e estava pelo mesmo motivo', r.voltou);
+    ok(r.taxaRetorno === Math.round((r.voltou / r.saiu) * 1000) / 10,
+      'e a taxa sai dos MESMOS dois números — de outra fonte, ela contradiria a divisão ' +
+      'que qualquer um faz com os dois valores ali do lado', r.taxaRetorno);
+  })();
+
+  /* A REGUA DE LUGAR NAO SUMIU — ela deixou de ser o NUMERO e virou a NOTA. Era o
+     numero ate' o escritorio somar a coluna na calculadora: 14.152 + 13.079 + 9.289 =
+     36.520, e o cartao dizia 32.170. As 4.350 de diferenca eram a perna entre duas
+     casas nossas, que a regua exclui com razao — mas cuja LINHA continua na tabela.
+     UMA REGUA CERTA QUE NAO FECHA COM A COLUNA AO LADO NAO SE DEFENDE. */
+  ok(adm.indexOf('var tOperacao = totaisDe(linhasVivas());') > 0,
+    'e a régua de LUGAR continua calculada, agora como NOTA — ela deixa de fora a ' +
+    'perna entre duas casas nossas, e é ela que responde "quanto saiu da empresa"');
+  /* E A FRASE DA COBERTURA SAIU com o desenho dela: ela existia porque o cartao era o
+     total da operacao e a tabela somava outra coisa. Agora o cartao E a soma da tabela,
+     e o que sobra dizer e' o contrario — quanto e' a operacao inteira. */
+  ok(adm.indexOf('var tLente') < 0 && adm.indexOf('a tabela abaixo cobre') < 0,
+    'e a frase "a tabela abaixo cobre N" saiu — ela existia porque o cartão era o ' +
+    'total da operação e a tabela somava outra coisa; agora o cartão É a soma da ' +
+    'tabela, e o que sobra dizer é o contrário');
   /* OS TRES NUMEROS DO PERIODO BEBEM DO MESMO `t`, e e' so' por isso que eles encolhem
      juntos quando o filtro aperta. Um deles que fosse buscar a lista inteira por fora
      ficaria parado enquanto os outros mudam — e seria o unico errado, sem dizer.
