@@ -1362,7 +1362,12 @@ console.log('\n== a placa do veiculo em Movimentos Motoristas ==');
          conjunto de horas teria sempre um elemento so' e a prova do "varias" la'
          embaixo aprovaria uma versao que guarda a primeira e descarta as outras. */
       { esc: function (x) { return String(x); },
-        horaBR: function (c) { return String(c || '').slice(11, 16); } },
+        horaBR: function (c) { return String(c || '').slice(11, 16); },
+        dataHoraBR: function (c) {
+          var s = String(c || '');
+          return s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) +
+                     ' ' + s.slice(11, 16) : '';
+        } },
       lista);
   }
   var MOV_P = [
@@ -1404,6 +1409,21 @@ console.log('\n== a placa do veiculo em Movimentos Motoristas ==');
   ok(todos[0].horaTxt.indexOf(', ,') < 0 && todos[0].horaTxt[0] !== ',',
     'e um lan\u00e7amento sem carimbo n\u00e3o deixa entrada vazia no conjunto \u2014 sem a guarda, ' +
     'a c\u00e9lula come\u00e7aria com uma v\u00edrgula solta', todos[0].horaTxt);
+
+  /* ---- QUANDO O CONFERENTE MANDOU, a pedido ----
+   *
+   * E OUTRA PERGUNTA QUE A COLUNA HORA. `horaTxt` junta os DOIS lados do par — a
+   * declaracao do motorista e as contagens —, e e' o rastro da viagem inteira. Esta
+   * responde "quando a CONTAGEM foi lancada", que e' o que se pergunta antes de ligar
+   * para a filial sobre uma divergencia: a contagem e' de hoje ou de uma semana atras?
+   * NESTE CENARIO NINGUEM CONFERE — `contouComoConferente` devolve `false` de
+   * proposito, porque esta bancada e' a da placa —, entao o conjunto sai VAZIO. E' o
+   * caso que separa as duas colunas: a Hora tem tres momentos e esta nao tem nenhum. */
+  ok(todos[0].conferidoEmTxt === '',
+    'sem ninguém conferindo, "Conferido em" fica vazio enquanto a Hora tem os três ' +
+    'momentos — são perguntas diferentes, e lendo o mesmo conjunto a coluna diria que ' +
+    'o conferente mandou antes de a carga chegar',
+    [todos[0].conferidoEmTxt, todos[0].horaTxt]);
 
   ok(todos[0].veiculoTxt === 'ABC1D23, XYZ9K88',
     'o par guarda TODAS as placas da viagem, e não a primeira que apareceu — um par é ' +
@@ -6574,7 +6594,7 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
      que separa "um cartao foi removido" de "a grade ficou com uma coluna sobrando", e a
      coluna sobrando termina a fileira num vazio que se le' como cartao que nao
      carregou. */
-  ok(colsTot === '6', 'os seis ficam numa linha só', colsTot);
+  ok(colsTot === '5', 'os cinco ficam numa linha só', colsTot);
 
   /* A GRADE E A VARREDURA DE COR CONTAM A MESMA FILEIRA. `cartaoTot(i, n, ...)` recebe
      `n` para saber que fatia do degradê é a dele; com `n` menor que a grade, o último
@@ -6639,6 +6659,54 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
     'o cartão "De teste" saiu da fileira — ele repetia parte dos outros números com ' +
     'outro rótulo, e num painel que se lê varrendo isso custa a atenção que os seis ' +
     'restantes precisam', idsPadrao);
+  /* ---- E A COLUNA "CONFERIDO EM", ao lado de CONFERIDO ----
+     Sem ela, uma divergencia achada hoje nao diz se a contagem e' de hoje ou de uma
+     semana atras — e e' a primeira coisa que se pergunta antes de ligar para a filial.
+     AO LADO DO NUMERO QUE ELA DATA, e nao no fim da tabela: separada dele por seis
+     colunas, as duas se leem como dados de assuntos diferentes. */
+  (function () {
+    var admC = semComentarios(adm);
+    var iTD = admC.indexOf('var TAB_DECL = {');
+    var corpoTD = admC.slice(iTD, admC.indexOf('kOrdem:', iTD));
+    ok(/'conferido','conferidoEm'/.test(corpoTD.replace(/\s+/g, '')),
+      'a coluna "Conferido em" vem logo ao lado de "Conferido" — separada dele por ' +
+      'seis colunas, as duas se leem como dados de assuntos diferentes', corpoTD.slice(0, 200));
+    /* O TITULO E PROCURADO NO TEXTO CRU. Tirando os espacos para achar a chave, some
+       tambem o espaco DENTRO da string — "Conferido em" vira "Conferidoem" — e a prova
+       reprova o codigo certo por causa da propria limpeza. So' a largura, que e' um
+       numero, aguenta a versao sem espacos. */
+    ok(/conferidoEm: ?'Conferido em'/.test(corpoTD) &&
+       /conferidoEm:\d+/.test(corpoTD.replace(/\s+/g, '')),
+      'e ela tem título e largura — sem o título nasce sem cabeçalho, e sem a largura ' +
+      'a tabela de largura fixa a espreme até sumir');
+    ok(/conferidoEm:\{t:T\.conferidoEm/.test(admC.replace(/\s+/g, '')),
+      'e a célula dela existe nas definições — sem isso a coluna é filtrada fora na ' +
+      'montagem e some da tabela sem nenhum aviso');
+    /* E ELA E ALIMENTADA NO MESMO LUGAR EM QUE O NOME DE QUEM CONTOU, e nao noutro
+       `if`: as duas respondem a mesma pergunta — quem contou, e quando —, e separadas
+       uma delas sobreviveria a uma mudanca na regra de quem conta com a outra ficando
+       para tras. */
+    var iCC = admC.indexOf('par.conferentes[m.usuario] = 1;');
+    ok(iCC > 0 && admC.slice(iCC, iCC + 200).indexOf('par.conferidoEm[') > 0,
+      'e ela é preenchida junto do nome de quem contou — em outro `if`, uma das duas ' +
+      'sobreviveria a uma mudança na regra de quem conta e a outra ficaria para trás',
+      admC.slice(iCC, iCC + 160));
+  })();
+
+  /* E O "AJUSTE E PERDA" SAIU NO MESMO PEDIDO. Ele quase sempre marcava zero — ajuste
+     e perda nascem no escritorio e sao raros —, e um cartao que diz zero quase todo dia
+     deixa de ser lido antes de ter alguma coisa para dizer. */
+  ok(idsPadrao.indexOf('acerto') < 0 && idsFicha.indexOf('acerto') < 0,
+    'e o cartão "Ajuste e perda" saiu da fileira e a ficha dele junto — um cartão que ' +
+    'marca zero quase todo dia deixa de ser lido antes de ter o que dizer',
+    [idsPadrao, idsFicha]);
+  /* A CONDICAO, e nao a frase. Escapou uma sabotagem que trocou `if (acerto)` por
+     `if (false)`: o texto continuava escrito no arquivo e a prova o achava ali. E' a
+     quarta vez nesta semana que uma prova minha le' a letra em vez da fiacao. */
+  ok(/if \(acerto\) av\.push\(acerto/.test(semComentarios(adm)),
+    'mas o aviso "N linhas de ajuste ou perda fora da divisão saída/retorno" continua ' +
+    'sendo MOSTRADO quando há alguma — é ele que explica por que a soma de saída e ' +
+    'retorno não fecha com o total de linhas, e sem o cartão ele passou a ser o único');
   ok(idsFicha.indexOf('teste') < 0,
     'e a ficha dele saiu junto — deixada, ela é um cálculo que roda a cada redesenho ' +
     'para ninguém ver, e há afirmação aqui cobrando que as duas listas coincidam',
@@ -14782,14 +14850,40 @@ console.log('\n== a aba Lancamentos filtra e soma ==');
     ok(rotulos(ambos).length === 3 && rotulos(ambos)[0] === 'caixas que sa\u00edram',
       'quem lan\u00e7a saída continua com os TR\u00caS cart\u00f5es — a mudan\u00e7a n\u00e3o pode consertar um ' +
       'caso quebrando o outro', rotulos(ambos));
-    ok(valores(ambos)[2] === '800',
-      'e o total dele continua sendo sa\u00eddas mais retornos', valores(ambos));
+    /* O TERCEIRO CARTAO E O SALDO, e nao mais o total. A soma nao respondia pergunta
+       nenhuma: crescia quando a caixa saia e crescia de novo quando a mesma caixa
+       voltava, entao o numero subia enquanto a operacao se resolvia.
+       300 DE RETORNO CONTRA 500 DE SAIDA dao -200: saiu mais do que voltou, ha' caixa
+       na rua. E' o caso que custa dinheiro, e e' por isso que ele e' o do cenario. */
+    ok(valores(ambos)[2] === '\u2212200',
+      'e o terceiro \u00e9 o SALDO \u2014 retorno menos sa\u00edda, com o sinal: 300 que voltaram ' +
+      'contra 500 que sa\u00edram s\u00e3o 200 caixas na rua, e a soma dos dois (800) n\u00e3o ' +
+      'responderia pergunta nenhuma', valores(ambos));
+    ok(rotulos(ambos)[2] === 'saldo',
+      'e o r\u00f3tulo diz isso \u2014 "total de caixas" sobre uma subtra\u00e7\u00e3o seria o nome de ' +
+      'uma conta sobre o resultado de outra', rotulos(ambos));
+    ok(ambos.indexOf('saiu mais do que voltou') > 0,
+      'e o rodap\u00e9 l\u00ea o sinal em palavras \u2014 quem varre a tela n\u00e3o p\u00e1ra para ' +
+      'interpretar um menos antes de um n\u00famero', ambos.slice(-220));
+
+    /* O ZERO VAI SEM SINAL, e o positivo com ele: "+0" e "-0" nao querem dizer nada, e
+       o zero aqui e' a resposta BOA — tudo o que saiu voltou. */
+    var fechou = fazTiles({ saiu: 500, voltou: 500, declarou: 0, nDecl: 0, remessas: 2,
+      soRetorno: false });
+    ok(valores(fechou)[2] === '0' && fechou.indexOf('retorno menos sa\u00edda') > 0,
+      'e o saldo ZERO vai sem sinal \u2014 "+0" n\u00e3o quer dizer nada, e o zero aqui \u00e9 a ' +
+      'resposta boa: tudo o que saiu voltou', valores(fechou));
+    var sobrou = fazTiles({ saiu: 300, voltou: 500, declarou: 0, nDecl: 0, remessas: 2,
+      soRetorno: false });
+    ok(valores(sobrou)[2] === '+200',
+      'e o positivo leva o seu \u2014 sem o sinal, 200 que sobraram e 200 na rua s\u00e3o o ' +
+      'mesmo n\u00famero na tela', valores(sobrou));
     /* COM DECLARACAO NO MEIO, o total dele NAO a soma: para quem faz os dois lados, a
        declaracao contaria duas vezes a mesma carga — ela e o que o motorista informou, e
        a contagem do conferente vem depois. O rodape diz quantas sao. */
     var ambosDecl = fazTiles({ saiu: 500, voltou: 300, declarou: 1250, nDecl: 1,
       remessas: 3, soRetorno: false });
-    ok(valores(ambosDecl)[2] === '800' &&
+    ok(valores(ambosDecl)[2] === '\u2212200' &&
        ambosDecl.indexOf('1.250 declarados, fora da conta') > 0,
       'e a declara\u00e7\u00e3o fica FORA do total de quem faz os dois lados, com o rodap\u00e9 ' +
       'dizendo quantas s\u00e3o \u2014 somada, ela contaria duas vezes a mesma carga: \u00e9 o que o ' +
@@ -18523,7 +18617,16 @@ console.log('\n== Motorista/Conferente ==');
   var montarPares = new Function('EQUIPE', 'semAcento', 'Q',
     fontePar + '\n return montarPares;')(EQUIPE_FALSA, semAcentoReal,
     { esc: function (x) { return String(x); },
-      horaBR: function (c) { return String(c || '').slice(11, 16); } });
+      horaBR: function (c) { return String(c || '').slice(11, 16); },
+      /* `dataHoraBR` DE VERDADE tambem, e nao um texto fixo: o par guarda um CONJUNTO
+         de momentos de conferencia, e devolvendo sempre o mesmo ele teria um elemento
+         so' — a prova do "varias contagens" aprovaria uma versao que guarda a
+         primeira. */
+      dataHoraBR: function (c) {
+        var s = String(c || '');
+        return s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) +
+                   ' ' + s.slice(11, 16) : '';
+      } });
 
   /* Por omissão o lançamento é uma CONTAGEM de conferente: é o lado que a maioria das
      provas abaixo exercita, e escrever o perfil em cada chamada esconderia o que muda. */

@@ -3470,7 +3470,7 @@ details.tipos[open] summary::before{content:"▾"}
    aqui e no `cartaoTot`: se um mudar sem o outro, a varredura de cor perde o passo e a
    emenda entre os cartões aparece. E se a grade ficar com uma coluna a mais do que há
    cartão, a fileira termina num vazio que se lê como cartão que não carregou. */
-.tot{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:0 0 12px}
+.tot{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:0 0 12px}
 /* NAO HA MAIS CORTE NENHUM PARA A FILEIRA, e e a terceira regra morta que este bloco
    acumula. Havia um de 700px (duas colunas) e um de 1023 (seis); os dois valiam onde a
    faixa fina do modelo B ja governa — e ela e `flex`, que ignora

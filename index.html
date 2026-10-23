@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=1525df55">
+<link rel="stylesheet" href="styles.css?v=88df1139">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -3567,12 +3567,27 @@
         tileLanc(Q.num(saiu + voltou + declarou), 'total de caixas',
           nDecl ? 'contando o que você declarou' : 'caixas dos seus lançamentos', '');
     }
+    /* O TERCEIRO CARTAO E O SALDO, a pedido — e era "total de caixas", a SOMA dos dois
+       primeiros. A soma nao respondia pergunta nenhuma: ela crescia quando a caixa saia
+       e crescia de novo quando a mesma caixa voltava, entao o numero subia enquanto a
+       operacao se resolvia. O SALDO responde a pergunta que se faz no patio: sobrou
+       caixa na rua, ou voltou mais do que saiu?
+       RETORNO MENOS SAIDA, nesta ordem: negativo quer dizer caixa fora, que e' o estado
+       que custa dinheiro. Invertida a conta, o sinal diria o contrario com o mesmo
+       numero — e ninguem confere o sinal de um cartao que esta' sempre ali. */
+    var saldo = voltou - saiu;
     return tileLanc(Q.num(saiu), 'caixas que saíram',
         remessas + (remessas === 1 ? ' lançamento no filtro' : ' lançamentos no filtro'), 'aviso')+
       tileLanc(Q.num(voltou), 'caixas que voltaram', 'retornos do período', 'ok')+
-      tileLanc(Q.num(saiu + voltou), 'total de caixas',
-        nDecl ? Q.num(declarou) + ' declarados, fora da conta' : 'saídas mais retornos',
-        '');
+      /* O SINAL VAI NO NUMERO, e o zero vai sem ele: "+0" e "−0" nao querem dizer nada,
+         e o zero aqui e' a resposta boa — tudo o que saiu voltou. */
+      tileLanc((saldo === 0 ? '0' : (saldo > 0 ? '+' : '−') + Q.num(Math.abs(saldo))),
+        'saldo',
+        nDecl ? Q.num(declarou) + ' declarados, fora da conta'
+              : (saldo < 0 ? 'saiu mais do que voltou' : 'retorno menos saída'),
+        /* AMBAR SO NO NEGATIVO. Pintar de verde um saldo positivo ensinaria a ignorar a
+           cor, e ela tem de querer dizer uma coisa so': ha' caixa fora. */
+        saldo < 0 ? 'aviso' : '');
   }
 
   /* O id de quem esta olhando, quando o painel dela e restrito — e string vazia quando

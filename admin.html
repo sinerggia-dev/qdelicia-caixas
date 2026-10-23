@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=1525df55">
+<link rel="stylesheet" href="styles.css?v=88df1139">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -4185,6 +4185,9 @@
      contadas acima" —, entao ele nao somava nada ao recorte, so' repetia parte dele com
      outro rotulo. Num painel que se le varrendo, um numero que nao responde a uma
      pergunta propria custa a atencao que os outros seis precisam.
+     E O "AJUSTE E PERDA" SAIU JUNTO, no mesmo pedido. Ele quase sempre marcava zero —
+     ajuste e perda nascem no escritorio e sao raros —, e um cartao que diz zero quase
+     todo dia deixa de ser lido antes de ter alguma coisa para dizer.
      O AVISO DE BAIXO FICA, e agora e' o unico: "N linhas de teste dentro dos numeros",
      ao pe' da legenda. Ele diz a MESMA coisa no lugar certo — junto dos numeros que a
      contem — e sem ocupar uma vaga na fileira.
@@ -4192,7 +4195,7 @@
      que nao esta' no `padrao`, e a ordem guardada no aparelho continua valendo para os
      seis que ficaram. */
   var CARTOES_MOV = {
-    padrao: ['movimentos', 'hoje', 'saida', 'retorno', 'saldo', 'acerto'],
+    padrao: ['movimentos', 'hoje', 'saida', 'retorno', 'saldo'],
     kOrdem: 'qdc_ordem_cartoes_mov_v1'
   };
 
@@ -4318,12 +4321,12 @@
        formato empurra a hora para fora da coluna — e' a mesma separacao que Movimentos
        e a lixeira ja' fazem. */
     padrao: ['lancamento','data','hora','base','tipo','motorista','placa','origem',
-             'destino','saida','retornoDecl','conferido','difConf',
+             'destino','saida','retornoDecl','conferido','conferidoEm','difConf',
              'conferente','situacao'],
     larg: { lancamento:140,
             data:110, hora:90, base:110, tipo:100, motorista:150, placa:110,
             origem:160, destino:160,
-            saida:110, retornoDecl:170, conferido:110, difConf:170,
+            saida:110, retornoDecl:170, conferido:110, conferidoEm:150, difConf:170,
             conferente:160, situacao:150 },
     titulos: { lancamento:'Lançamento',
                data:'Data', base:'Base', tipo:'Tipo', motorista:'Motorista',
@@ -4337,7 +4340,7 @@
                   saídas punha quantidade de saída sob o título "Retorno". */
                hora:'Hora',
                saida:'Saída', retornoDecl:'Retorno Declarado',
-               conferido:'Conferido',
+               conferido:'Conferido', conferidoEm:'Conferido em',
                /* O NOME DIZ A CONTA, e por isso ele virou junto com ela. */
                difConf:'Conferido − Declarado',
                conferente:'Conferente', situacao:'Situação' },
@@ -4464,6 +4467,13 @@
                     /* `informados` GUARDA DE QUEM E' CADA NÚMERO do balde da saída, e
                        não só a soma: sem isso, a carga de um lado só lá embaixo não teria
                        como saber se quem lançou era gente de quem se aceita contagem. */
+                    /* QUANDO A CONTAGEM FOI LANCADA — so' dos lancamentos que contam
+                       como conferencia, e nao de todos. A coluna Hora, ao lado da Data,
+                       junta os dois lados do par: a declaracao do motorista e as
+                       contagens. Esta responde outra pergunta, a pedido — "quando o
+                       CONFERENTE mandou" —, e misturar a hora da declaracao nela faria
+                       a coluna dizer que ele conferiu antes de a carga chegar. */
+                    conferidoEm: {},
                     conferentes: {}, informantes: {}, informados: [],
                     ids: {}, itens: [] };
       }
@@ -4490,6 +4500,11 @@
            aparece como autor da própria declaração, e listá-lo aqui faria a coluna
            Conferente dizer o nome de quem não conferiu nada. */
         if (m.usuario) par.conferentes[m.usuario] = 1;
+        /* NO MESMO LUGAR EM QUE O NOME E GUARDADO, e nao noutro `if`: as duas respondem
+           a mesma pergunta — quem contou, e quando — e separadas uma delas sobreviveria
+           a uma mudanca na regra de quem conta, com a outra ficando para tras. */
+        var qc = Q.dataHoraBR(m.dataHora);
+        if (qc) par.conferidoEm[qc] = 1;
       } else {
         par.saida += q;
         if (m.usuario) par.informantes[m.usuario] = 1;
@@ -4525,6 +4540,9 @@
          diferenca entre as duas que interessa a quem confere uma carga de ontem lancada
          agora. */
       par.horaTxt = Object.keys(par.horas).sort().join(', ');
+      /* VARIAS CONTAGENS, VARIAS HORAS: numa carga de varios clientes o conferente
+         desmembra em varios lancamentos, e eles nao saem no mesmo minuto. */
+      par.conferidoEmTxt = Object.keys(par.conferidoEm).sort().join(', ');
       par.origemTxt = Object.keys(par.origens).sort().join(', ');
       par.destinoTxt = Object.keys(par.destinos).sort().join(', ');
       par.veiculoTxt = Object.keys(par.veiculos).sort().join(', ');
@@ -4702,6 +4720,14 @@
          VARIAS HORAS VIRAM VARIAS, separadas por virgula, como as origens e os veiculos:
          um par junta a declaracao do motorista e as contagens do conferente, e elas nao
          acontecem no mesmo minuto. */
+      /* QUANDO A CONTAGEM FOI MANDADA, ao lado do numero contado — a pedido. Sem ela,
+         uma divergencia achada hoje nao diz se a contagem e' de hoje ou de uma semana
+         atras, e e' a primeira coisa que se pergunta antes de ligar para a filial. */
+      conferidoEm:{ t: T.conferidoEm, k: function(p){ return p.conferidoEmTxt; },
+                   v: function(p){ return p.conferidoEmTxt
+                     ? '<span class="corta" title="'+Q.esc(p.conferidoEmTxt)+'">'+
+                       Q.esc(p.conferidoEmTxt)+'</span>'
+                     : '<span class="fraco">\u2014</span>'; } },
       hora:      { t: T.hora, k: function(p){ return p.horaTxt; },
                    v: function(p){ return p.horaTxt
                      ? '<span class="corta" title="'+Q.esc(p.horaTxt)+'">'+
@@ -9395,12 +9421,7 @@
       saldo: { cor: t.saldo < 0 ? 'var(--vermelho)' : 'var(--verde)', rotulo: 'Saldo',
         valor: (t.saldo === 0 ? '0' : sinal(t.saldo)),
         nota: t.saldo < 0 ? 'saiu mais do que voltou' : 'voltou mais do que saiu',
-        fatia: fat(Math.abs(t.saldo)) },
-      acerto: { cor: 'var(--txt3)', rotulo: 'Ajuste e perda', valor: Q.num(t.acerto),
-        nota: t.acertoN ? t.acertoN + (t.acertoN === 1 ? ' linha · não é viagem de caixa'
-                                                       : ' linhas · não são viagem de caixa')
-                        : 'nenhum acerto',
-        fatia: fat(t.acerto) }
+        fatia: fat(Math.abs(t.saldo)) }
     };
 
     /* NÃO HÁ FILTRO AQUI, e a ausência é deliberada. Havia um `.filter(id => FICHAS[id])`
