@@ -6568,7 +6568,13 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
      no navegador: uma fileira só de 1280 a 2560px, com o cartão indo de 156 a 339px, e
      nenhum rótulo cortado em largura nenhuma. */
   var colsTot = (css.match(/\.tot\{display:grid;grid-template-columns:repeat\((\d+),minmax\(0,1fr\)\)/) || [])[1];
-  ok(colsTot === '7', 'os sete ficam numa linha só', colsTot);
+  /* SEIS, e eram sete: o cartao "De teste" saiu a pedido — ele contava uma coisa que
+     ja' estava dita, porque as linhas de ensaio ENTRAM nos outros numeros, e a nota
+     dele dizia isso em letra miuda. O numero fica escrito a mao de proposito: e' ele
+     que separa "um cartao foi removido" de "a grade ficou com uma coluna sobrando", e a
+     coluna sobrando termina a fileira num vazio que se le' como cartao que nao
+     carregou. */
+  ok(colsTot === '6', 'os seis ficam numa linha só', colsTot);
 
   /* A GRADE E A VARREDURA DE COR CONTAM A MESMA FILEIRA. `cartaoTot(i, n, ...)` recebe
      `n` para saber que fatia do degradê é a dele; com `n` menor que a grade, o último
@@ -6620,6 +6626,34 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
     .map(function (s) { return s.trim().replace(':', '').replace('{', '').trim(); });
   ok(idsPadrao.length === Number(colsTot),
     'há um cartão de fábrica para cada coluna da grade', [idsPadrao.length, colsTot]);
+
+  /* ---- O CARTAO "DE TESTE" SAIU, e nao deve voltar por descuido ----
+   *
+   * Ele contava uma coisa que ja' estava dita: as linhas de ensaio ENTRAM nos outros
+   * numeros — era o que a nota dele explicava, "ja' contadas acima" —, entao ele nao
+   * somava nada ao recorte, so' repetia parte dele com outro rotulo.
+   * A PROVA COBRA OS DOIS LADOS, porque meio cartao e' pior que um cartao inteiro: um
+   * id no `padrao` sem ficha ESTOURA o desenho da fileira, e uma ficha sem id e' um
+   * calculo que roda a cada redesenho para ninguem ver. */
+  ok(idsPadrao.indexOf('teste') < 0,
+    'o cartão "De teste" saiu da fileira — ele repetia parte dos outros números com ' +
+    'outro rótulo, e num painel que se lê varrendo isso custa a atenção que os seis ' +
+    'restantes precisam', idsPadrao);
+  ok(idsFicha.indexOf('teste') < 0,
+    'e a ficha dele saiu junto — deixada, ela é um cálculo que roda a cada redesenho ' +
+    'para ninguém ver, e há afirmação aqui cobrando que as duas listas coincidam',
+    idsFicha);
+
+  /* E O AVISO DE BAIXO FICA, e agora e' o unico lugar que conta as linhas de ensaio.
+     Ele diz a MESMA coisa no lugar certo — junto dos numeros que a contem — e sem
+     ocupar uma vaga na fileira. Removido junto "por limpeza", o recorte passaria a
+     somar ensaio com operacao sem nada na tela dizendo isso. */
+  ok(/' dentro dos n\u00fameros'/.test(adm) || /dentro dos números/.test(adm),
+    'e o aviso "N linhas de teste dentro dos números" continua — sem ele e sem o ' +
+    'cartão, o recorte soma ensaio com operação e nada na tela diz isso');
+  ok(/if \(m\.teste\) teste\+\+;/.test(semComentarios(adm)),
+    'e ele conta por conta própria, sem depender da ficha removida — lendo o cartão ' +
+    'que saiu, o aviso teria saído junto e em silêncio');
   ok(idsPadrao.slice().sort().join() === idsFicha.slice().sort().join(),
     'e a lista de fábrica e as fichas que desenham falam dos MESMOS sete cartões — ' +
     'um id só de um lado é um buraco na fileira ou um cartão que nunca aparece',

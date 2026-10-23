@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=380ce313">
+<link rel="stylesheet" href="styles.css?v=1525df55">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -4180,8 +4180,19 @@
      `desenharTotaisMov` le este descritor, e `var` ica a declaracao sem o valor — um
      descritor declarado depois de quem o le da `undefined.padrao` e para o arquivo
      inteiro. Foi assim que o painel foi ao ar sem login. */
+  /* O CARTAO "DE TESTE" SAIU, a pedido. Ele contava uma coisa que ja' estava dita: as
+     linhas de ensaio ENTRAM nos outros numeros — era o que a nota dele explicava, "ja'
+     contadas acima" —, entao ele nao somava nada ao recorte, so' repetia parte dele com
+     outro rotulo. Num painel que se le varrendo, um numero que nao responde a uma
+     pergunta propria custa a atencao que os outros seis precisam.
+     O AVISO DE BAIXO FICA, e agora e' o unico: "N linhas de teste dentro dos numeros",
+     ao pe' da legenda. Ele diz a MESMA coisa no lugar certo — junto dos numeros que a
+     contem — e sem ocupar uma vaga na fileira.
+     E QUEM JA ARRASTOU OS CARTOES NAO PRECISA FAZER NADA: `ordemColunas` descarta o id
+     que nao esta' no `padrao`, e a ordem guardada no aparelho continua valendo para os
+     seis que ficaram. */
   var CARTOES_MOV = {
-    padrao: ['movimentos', 'hoje', 'saida', 'retorno', 'saldo', 'teste', 'acerto'],
+    padrao: ['movimentos', 'hoje', 'saida', 'retorno', 'saldo', 'acerto'],
     kOrdem: 'qdc_ordem_cartoes_mov_v1'
   };
 
@@ -9385,11 +9396,6 @@
         valor: (t.saldo === 0 ? '0' : sinal(t.saldo)),
         nota: t.saldo < 0 ? 'saiu mais do que voltou' : 'voltou mais do que saiu',
         fatia: fat(Math.abs(t.saldo)) },
-      teste: { cor: 'var(--amarelo)', rotulo: 'De teste', valor: Q.num(t.testeQtd),
-        nota: t.teste ? t.teste + (t.teste === 1 ? ' linha · já contada acima'
-                                                 : ' linhas · já contadas acima')
-                      : 'nenhum de teste',
-        fatia: fat(t.testeQtd) },
       acerto: { cor: 'var(--txt3)', rotulo: 'Ajuste e perda', valor: Q.num(t.acerto),
         nota: t.acertoN ? t.acertoN + (t.acertoN === 1 ? ' linha · não é viagem de caixa'
                                                        : ' linhas · não são viagem de caixa')
