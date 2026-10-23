@@ -2310,6 +2310,120 @@ async function main() {
     ok(f3.totais.linhas === 2,
       'e a linha de estoque inicial fica fora da conta de caminhos', f3.totais.linhas);
   }
+  console.log('\n== as duas lentes fecham: o trecho e a pessoa ==');
+  {
+    /* ================= UM LANCAMENTO INCOMPLETO E UMA PENDENCIA =================
+     *
+     * O ESCRITORIO VIU NA TELA: cartao "Voltou" 28.221 e a tabela de Motoristas somando
+     * 28.491, com a Saida batendo nos dois. 270 de diferenca.
+     *
+     * ERAM AS DEVOLUCOES LANCADAS SEM UMA DAS PONTAS. `fluxoPorOrigem` desenha TRAJETOS
+     * e exigia origem E destino; `fluxoPorPessoa` so' precisa saber quem levou. A linha
+     * sumia de "Todas" e continuava na conta do motorista, do usuario e do ESTOQUE —
+     * porque `saldos` nunca exigiu as duas pontas. O numero da matriz vinha 270 MENOR
+     * que a realidade, e calado: a linha nao estava em lugar nenhum da tela principal.
+     *
+     * ESCONDIDO, UM LANCAMENTO INCOMPLETO NUNCA E CORRIGIDO: ninguem vai atras do que
+     * nao ve. A ponta que falta virou a categoria "sem informacao" — a mesma palavra do
+     * motorista sem nome e do tipo de caixa sem nome.
+     *
+     * A PROVA COMPARA AS DUAS LENTES LANCAMENTO A LANCAMENTO, e nao so' no total: um
+     * total igual por compensacao — uma linha a mais de um lado e uma a menos do outro
+     * — passaria num total e esconderia dois defeitos. */
+    const F = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    const D = (iso) => new Date(iso + 'T00:00:00');
+    const locais = [{ ID: 'G1', Nome: 'Galp\u00e3o', Tipo: 'GALPAO' },
+                    { ID: 'F1', Nome: 'Filial', Tipo: 'FILIAL' }];
+    const base = { Status: 'CONFIRMADO', TipoCaixaID: 'T1', UsuarioID: 'U1',
+                   Motorista: 'Valcy', DataRef: D('2026-10-20'), DataHora: D('2026-10-20') };
+    const dadosDe = (movs) => ({
+      movimentos: movs, locais: locais, tipos: [{ ID: 'T1', Nome: 'CX G' }],
+      usuarios: [{ ID: 'U1', Nome: 'Nestor' }], fornecedores: [], config: {} });
+    const somar = (ls) => ls.reduce((a, l) => ({
+      s: a.s + (l.saida || 0), r: a.r + (l.retorno || 0) }), { s: 0, r: 0 });
+    function duasLentes(movs) {
+      const d = dadosDe(movs);
+      return { trecho: somar(F.fluxoPorOrigem(d, null, 90, null).linhas),
+               pessoa: somar(F.fluxoPorPessoa(d, null, null).motoristas) };
+    }
+
+    const CASOS = [
+      ['sa\u00edda com as duas pontas',
+       { ...base, ID: 'A', Tipo: 'SAIDA', OrigemID: 'G1', DestinoID: 'F1', Qtd: 100 }],
+      ['devolu\u00e7\u00e3o com as duas pontas',
+       { ...base, ID: 'B', Tipo: 'DEVOLUCAO', OrigemID: 'F1', DestinoID: 'G1', Qtd: 100 }],
+      ['devolu\u00e7\u00e3o SEM origem',
+       { ...base, ID: 'C', Tipo: 'DEVOLUCAO', OrigemID: '', DestinoID: 'G1', Qtd: 270 }],
+      ['devolu\u00e7\u00e3o SEM destino',
+       { ...base, ID: 'D', Tipo: 'DEVOLUCAO', OrigemID: 'F1', DestinoID: '', Qtd: 270 }],
+      ['sa\u00edda SEM destino',
+       { ...base, ID: 'E', Tipo: 'SAIDA', OrigemID: 'G1', DestinoID: '', Qtd: 270 }],
+      ['transfer\u00eancia SEM origem',
+       { ...base, ID: 'F', Tipo: 'TRANSFERENCIA', OrigemID: '', DestinoID: 'F1', Qtd: 55 }]
+    ];
+
+    CASOS.forEach(([nome, m]) => {
+      const r = duasLentes([m]);
+      ok(r.trecho.s === r.pessoa.s && r.trecho.r === r.pessoa.r,
+        'as duas lentes fecham com "' + nome + '" \u2014 uma ponta que falta n\u00e3o pode ' +
+        'apagar a linha de "Todas" e deix\u00e1-la na conta do motorista: era essa a ' +
+        'diferen\u00e7a de 270 no Retorno, e ela saía do n\u00famero da matriz sem nada dizer',
+        { caso: nome, trecho: r.trecho, pessoa: r.pessoa });
+    });
+
+    /* E JUNTAS, porque uma compensacao entre casos daria totais iguais por acaso. */
+    const tudo = duasLentes(CASOS.map(([, m]) => m));
+    ok(tudo.trecho.s === tudo.pessoa.s && tudo.trecho.r === tudo.pessoa.r &&
+       tudo.trecho.r === 640,
+      'e fecham com os seis casos juntos \u2014 100 + 270 + 270 de retorno = 640 nas duas',
+      tudo);
+
+    /* A PONTA QUE FALTA TEM NOME NA TELA. Sem nome, a linha aparece com uma c\u00e9lula em
+       branco, que se l\u00ea como dado que faltou carregar — e n\u00e3o como a pend\u00eancia que ela
+       \u00e9. */
+    const semOrigem = F.fluxoPorOrigem(dadosDe([CASOS[2][1]]), null, 90, null)
+      .linhas.filter((l) => !l.estoqueInicial)[0];
+    ok(!!semOrigem && (semOrigem.destinos || []).join(',') === 'sem informa\u00e7\u00e3o',
+      'e a ponta que falta aparece como "sem informa\u00e7\u00e3o" \u2014 a mesma palavra do ' +
+      'motorista sem nome e do tipo sem nome: uma c\u00e9lula em branco se l\u00ea como dado que ' +
+      'faltou carregar, e n\u00e3o como a pend\u00eancia que algu\u00e9m tem de corrigir no cadastro',
+      semOrigem && semOrigem.destinos);
+    ok(!!semOrigem && (semOrigem.origens || []).join(',') === 'Galp\u00e3o' &&
+       semOrigem.retorno === 270,
+      'e a ponta que EXISTE continua dizendo quem \u00e9: 270 voltaram para o Galp\u00e3o, e n\u00e3o ' +
+      'se sabe de onde \u2014 \u00e9 isso que a pessoa precisa ler para ir corrigir',
+      semOrigem && { origens: semOrigem.origens, retorno: semOrigem.retorno });
+
+    /* A PERDA CONTINUA FORA, e isto e' o que a guarda antiga fazia de CERTO. Ela nao e'
+       viagem: a caixa nao foi para lugar nenhum, ela deixou de existir. Removida a
+       guarda sem pensar, a perda entraria como saida e inflaria o cartao. */
+    const perda = F.fluxoPorOrigem(dadosDe([
+      { ...base, ID: 'P', Tipo: 'PERDA', OrigemID: 'G1', DestinoID: '', Qtd: 999 }
+    ]), null, 90, null);
+    ok(perda.totais.saida === 0 && perda.totais.retorno === 0,
+      'e a PERDA continua fora do fluxo \u2014 ela n\u00e3o \u00e9 viagem: a caixa n\u00e3o foi para ' +
+      'lugar nenhum, deixou de existir. Era isto que a guarda antiga fazia de certo, e ' +
+      'tirada sem pensar ela entraria como sa\u00edda e inflaria o cart\u00e3o', perda.totais);
+
+    /* E A CHAVE DA PONTA QUE FALTA NAO E UM NOME. Ela e' um id — `::sem` —, e os dois
+       pontos na frente nao sao digitaveis num cadastro: e' a mesma protecao que
+       `::estoque` usa no filtro de destino da tela.
+       SE ELA FOSSE A PALAVRA "sem informacao", um local cadastrado com esse ID cairia
+       no mesmo balde da ponta que falta, e as duas coisas somariam juntas numa linha
+       so' — o movimento de um lugar de verdade contado como pendencia, e a pendencia
+       escondida dentro de um lugar de verdade. */
+    const comHomonimo = F.fluxoPorOrigem({
+      ...dadosDe([{ ...base, ID: 'H', Tipo: 'SAIDA',
+                    OrigemID: 'sem informa\u00e7\u00e3o', DestinoID: 'G1', Qtd: 42 }]),
+      locais: locais.concat([{ ID: 'sem informa\u00e7\u00e3o', Nome: 'Dep\u00f3sito X', Tipo: 'GALPAO' }])
+    }, null, 90, null).linhas.filter((l) => !l.estoqueInicial)[0];
+    ok(!!comHomonimo && (comHomonimo.origens || []).join(',') === 'Dep\u00f3sito X',
+      'e um local cujo ID seja a palavra "sem informa\u00e7\u00e3o" continua sendo ELE mesmo \u2014 ' +
+      'a chave da ponta que falta \u00e9 um id que nenhum cadastro produz; fosse a palavra, ' +
+      'o movimento de um lugar de verdade entraria na linha das pend\u00eancias e a ' +
+      'pend\u00eancia ficaria escondida dentro de um lugar de verdade',
+      comHomonimo && comHomonimo.origens);
+  }
   console.log('\n== a quantidade que conta viaja para a tela ==');
   {
     /* ================= UM NUMERO SO PARA "QUANTO VOLTOU" =================

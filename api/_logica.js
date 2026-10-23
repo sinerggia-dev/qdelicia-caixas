@@ -3100,6 +3100,11 @@ var DESVIO_RUIM = 40;   // acima disso a linha fica vermelha: falta mais de 40% 
  * e' onde esta regra nasceu escrita. */
 var SEM_INFO = 'sem informação';
 
+/* A CHAVE DA PONTA QUE FALTA no trajeto. Ela precisa ser um id, porque o trajeto e'
+   identificado por ids — por nome, uma correcao de grafia no cadastro quebraria a
+   chave no dia seguinte. */
+var SEM_PONTA = '::sem';
+
 /**
  * Mesma aritmética do fluxo, mas agrupada por GENTE em vez de por local.
  *
@@ -3369,6 +3374,11 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
   meta = Number(meta) || 90;
 
   var nomesLocais = mapaNomes(locais);
+  /* A PONTA QUE FALTA TEM NOME, e o nome e' o mesmo que as outras lentes ja usam para
+     "sem informacao". A CHAVE nao e' o nome: os dois pontos na frente nao sao
+     digitaveis num cadastro, entao nenhum local de verdade cai nela — e' a mesma
+     protecao de `::estoque`, no filtro de destino da tela. */
+  nomesLocais[SEM_PONTA] = SEM_INFO;
   var nomesTipos = mapaTipos(dados.tipos || []);
   var porId = {};
   locais.forEach(function (l) { porId[String(l.ID)] = l; });
@@ -3415,16 +3425,41 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
        O recorte acontece depois, na hora de escolher o que se MOSTRA. */
     var q = efetiva(m);          // devolução não confirmada vale 0, e vale a contada
     if (!q) return;
-    if (!m.OrigemID || !m.DestinoID) return;   // perda nao e viagem: nao tem as duas pontas
 
     var caixa = nome(nomesTipos, m.TipoCaixaID);
     var sentido = sentidoDoMovimento(m.Tipo);
+    /* ================= A PONTA QUE FALTA NAO APAGA A LINHA =================
+     *
+     * AQUI MORAVA `if (!m.OrigemID || !m.DestinoID) return;`, e ele fazia duas coisas
+     * ao mesmo tempo — uma certa e uma errada.
+     *
+     * A CERTA: tirar a PERDA, que nao e' viagem. A caixa nao foi para lugar nenhum,
+     * ela deixou de existir, e um trajeto exige duas pontas. Isso agora e' dito pelo
+     * `if (!sentido)` logo abaixo, que e' onde a pergunta e' feita de verdade — e e' a
+     * MESMA pergunta que `fluxoPorPessoa` ja fazia.
+     *
+     * A ERRADA: apagar da tela toda DEVOLUCAO lancada sem uma das pontas. Ela sumia de
+     * "Todas" e continuava na conta do motorista, do usuario e do estoque — porque
+     * `saldos` nunca exigiu as duas pontas. O escritorio viu o efeito: cartao Voltou
+     * 28.221 e a tabela de Motoristas somando 28.491, a Saida batendo nos dois. As 270
+     * de diferenca eram exatamente estas linhas, e elas nao estavam em lugar nenhum da
+     * tela principal — o numero da matriz vinha 270 MENOR que a realidade, calado.
+     *
+     * UM LANCAMENTO INCOMPLETO E UMA PENDENCIA, e nao um nao-lancamento. Escondido, ele
+     * nunca e' corrigido: ninguem vai atras do que nao ve. Agora a ponta que falta vira
+     * a categoria "sem informacao" — a mesma palavra do motorista sem nome e do tipo de
+     * caixa sem nome —, a linha aparece em "Todas" e o total fecha com as outras
+     * lentes. Quem olhar ve "Matriz Sao Vicente > sem informacao, 270 de retorno" e
+     * tem o que consertar no cadastro. */
+    if (!sentido) return;
+    var pontaDe = String(m.OrigemID || '').trim() || SEM_PONTA;
+    var pontaPara = String(m.DestinoID || '').trim() || SEM_PONTA;
     /* A remessa define a direcao do trajeto; a devolucao fecha o mesmo caminho, por isso
        entra na chave invertida. Uma devolucao sem remessa nenhuma abre um trajeto no
        sentido da ida que ela esta desfazendo. */
     var dia = soData(m.DataRef);
-    var t = (sentido === 'ENTRADA') ? trajeto(m.DestinoID, m.OrigemID, dia)
-                                    : trajeto(m.OrigemID, m.DestinoID, dia);
+    var t = (sentido === 'ENTRADA') ? trajeto(pontaPara, pontaDe, dia)
+                                    : trajeto(pontaDe, pontaPara, dia);
     var lado = (sentido === 'ENTRADA') ? 'retorno' : 'saida';
     t[lado] += q;
     t.n++;
