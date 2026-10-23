@@ -2475,12 +2475,94 @@ async function main() {
     ok(mot.Ramos.saidaTipos.reduce((a, t) => a + t.qtd, 0) === mot.Ramos.saida,
       'o detalhe nunca contradiz o total: somar os tipos dá a coluna', mot.Ramos);
 
-    // motorista em branco no movimento nao pode virar uma linha "sem nome"
+    /* ================= SEM NOME NAO E SEM LINHA =================
+     *
+     * ESTA PROVA DIZIA `length === 0`, e com isso ela TRANCOU UM BURACO como se fosse
+     * regra. A intencao escrita nela estava certa — "nao pode virar uma linha sem
+     * nome" —, mas a afirmacao cobrava outra coisa: que a linha nao existisse.
+     *
+     * O PRECO APARECEU NA TELA. O escritorio clicou nos chips do Painel e perguntou por
+     * que o cartao muda de valor em cada um. Em "Motoristas" ele mudava porque toda
+     * saida lancada sem motorista — a que o gerente faz direto — sumia da lente inteira,
+     * sem linha e sem aviso. Medido: 350 de saida e 70 de retorno na operacao viravam
+     * 150 e ZERO naquela aba.
+     *
+     * A REGRA DE VERDADE E' A DO AGRUPAMENTO da outra tela, que ja estava escrita:
+     * "SEM INFORMACAO E UMA CATEGORIA, e nao um buraco". Uma linha chamada
+     * "sem informacao" nao e' uma linha sem nome — e' a resposta a uma pergunta
+     * operacional real: quem fez estas saidas?
+     *
+     * ENTAO A PROVA COBRA AS DUAS COISAS que a intencao original queria: a linha
+     * EXISTE, e ela tem NOME. */
     const semMot = F.fluxoPorPessoa({
       usuarios: [{ ID: 'U1', Nome: 'A' }],
-      movimentos: [{ Tipo: 'SAIDA', Qtd: 10, Motorista: '', UsuarioID: 'U1', DataRef: D('2026-09-05') }]
+      movimentos: [
+        { Tipo: 'SAIDA', Qtd: 10, Motorista: '', UsuarioID: 'U1', DataRef: D('2026-09-05') },
+        { Tipo: 'SAIDA', Qtd: 40, Motorista: 'Dinho', UsuarioID: 'U1', DataRef: D('2026-09-05') },
+        { Tipo: 'DEVOLUCAO', Qtd: 25, Motorista: '', UsuarioID: 'U1', DataRef: D('2026-09-05') }
+      ]
     }, DESDE);
-    ok(semMot.motoristas.length === 0, 'movimento sem motorista não cria linha vazia', semMot.motoristas);
+    const semNome = semMot.motoristas.filter((l) => !String(l.nome || '').trim());
+    ok(!semNome.length,
+      'movimento sem motorista n\u00e3o cria linha SEM NOME \u2014 uma c\u00e9lula em branco no meio ' +
+      'da lista se l\u00ea como dado que faltou carregar', semNome);
+
+    const catMot = semMot.motoristas.filter((l) => l.nome === 'sem informa\u00e7\u00e3o')[0];
+    ok(!!catMot && catMot.saida === 10 && catMot.retorno === 25,
+      'ele cria uma CATEGORIA, com as duas pontas: 10 que sa\u00edram e 25 que voltaram sem ' +
+      'motorista anotado \u2014 a sa\u00edda que o gerente faz direto \u00e9 caso real na opera\u00e7\u00e3o, e ' +
+      'som\u00ea-la fazia a aba Motoristas somar menos que "Todas" sem nada dizer quanto',
+      catMot);
+
+    /* E O TOTAL DA LENTE E O TOTAL DA OPERACAO. E' esta a afirmacao que o escritorio
+       cobra: as abas que cortam a MESMA operacao de outro jeito — motorista, usuario,
+       tipo de caixa — tem de dar o MESMO numero. As que recortam um pedaco — rota,
+       unidade, cliente, fornecedor — dao menos, e isso e' a pergunta delas. */
+    const somaLente = (ls) => ls.reduce((a, l) => a + l.saida + l.retorno, 0);
+    ok(somaLente(semMot.motoristas) === 75 && somaLente(semMot.usuarios) === 75,
+      'e a lente FECHA com a opera\u00e7\u00e3o: 10 + 40 + 25 = 75 em Motoristas e os mesmos 75 ' +
+      'em Usu\u00e1rios \u2014 duas leituras do mesmo per\u00edodo com n\u00fameros diferentes \u00e9 o que ' +
+      'deixa o escrit\u00f3rio sem saber qual apresentar ao cliente',
+      { motoristas: somaLente(semMot.motoristas), usuarios: somaLente(semMot.usuarios) });
+
+    /* O TIPO DE CAIXA TINHA O MESMO BURACO, no detalhe: sem nome no cadastro, a
+       quantidade sumia do `saidaTipos` e continuava no total da linha — a gaveta
+       mostrava menos que o proprio cabecalho dela. */
+    const tiposDaCat = (catMot.saidaTipos || []).concat(catMot.retornoTipos || []);
+    ok(tiposDaCat.reduce((a, x) => a + x.qtd, 0) === catMot.saida + catMot.retorno,
+      'e o detalhe por tipo nunca contradiz o total, nem quando o tipo tamb\u00e9m n\u00e3o tem ' +
+      'nome \u2014 somar os tipos d\u00e1 a coluna', tiposDaCat);
+
+    /* E A LINHA DE TRECHO TEM O MESMO DETALHE, e tinha o mesmo buraco. A aba "Tipos de
+       caixa" e' montada na tela somando os `saidaTipos` das linhas de trecho: um tipo
+       que nao resolve nome no cadastro — apagado, renomeado, ou um id que ficou orfao —
+       sumia dali e continuava no total da linha. A aba somava menos que "Todas", e as
+       duas leituras do mesmo periodo discordavam sem nada dizer que faltava algo.
+       O CASO E O TIPO AUSENTE, e nao o id orfao: `nome()` cai no proprio id quando nao
+       acha no cadastro, entao um id apagado continua sendo um nome — feio, mas presente.
+       Quem some e' a linha SEM TipoCaixaID nenhum, que e' o que uma importacao antiga
+       deixa para tras.
+       MEDIDO NOS DOIS LADOS: o que a linha diz na coluna e o que ela abre no detalhe. */
+    const semTipo = F.fluxoPorOrigem({
+      locais: [{ ID: 'G1', Nome: 'Galp\u00e3o', Tipo: 'GALPAO' },
+               { ID: 'R1', Nome: 'Rota', Tipo: 'ROTA' }],
+      tipos: [],
+      movimentos: [{ ID: 'X1', Tipo: 'SAIDA', OrigemID: 'G1', DestinoID: 'R1',
+                     TipoCaixaID: '', Qtd: 90, Status: 'CONFIRMADO',
+                     DataRef: D('2026-09-05'), DataHora: D('2026-09-05') }]
+    }, null, 90, null);
+    const lt = (semTipo.linhas || []).filter((l) => !l.estoqueInicial)[0];
+    ok(!!lt && lt.saida === 90,
+      'a linha de trecho soma 90 na coluna \u2014 sem isto a prova abaixo n\u00e3o mede nada',
+      lt && lt.saida);
+    ok(!!lt && (lt.saidaTipos || []).reduce((a, x) => a + x.qtd, 0) === lt.saida,
+      'e o detalhe por tipo soma os MESMOS 90, mesmo com o tipo sem nome no cadastro \u2014 ' +
+      'a aba "Tipos de caixa" \u00e9 montada somando estes detalhes, e o que cai fora daqui ' +
+      'faz aquela aba somar menos que "Todas" sem nada dizer que faltou',
+      lt && lt.saidaTipos);
+    ok(!!lt && (lt.saidaTipos || []).every((x) => String(x.caixa || '').trim()),
+      'e nenhum pedacinho do detalhe fica sem nome \u2014 uma c\u00e9lula em branco na gaveta se ' +
+      'l\u00ea como dado que faltou carregar', lt && lt.saidaTipos);
     ok(semMot.usuarios.length === 1, 'mas continua contando para quem lançou');
   }
 

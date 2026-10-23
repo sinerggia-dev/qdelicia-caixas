@@ -7097,7 +7097,6 @@
     /* QUAL CONTA, e nao qual rotulo: a fileira inteira muda de pergunta junto com a
        visao. Trocar so' os textos deixaria os cinco numeros de etapa embaixo de nomes
        novos, que e' a mesma mentira com outra roupa. */
-    var deLugar = ehVisaoDeLugar(FLUXO_FILTRO);
     /* ================= OS CARTOES SAO DA OPERACAO, E NAO DA LENTE =================
      *
      * ERAM DA LENTE, E O ESCRITORIO NAO CONSEGUIA APRESENTAR: na aba Fornecedores a
@@ -7142,28 +7141,40 @@
     /* A REGUA DE LUGAR CONTINUA SENDO CALCULADA, para o rodape: ela e' a que responde
        "quanto saiu da EMPRESA", sem contar a perna entre duas casas nossas. */
     var tOperacao = totaisDe(linhasVivas());
-    /* O QUE A LENTE COBRE, para a tabela de baixo nao parecer desmentir o cartao de
-       cima. Na aba Fornecedores a tabela soma 6.644 e o cartao diz 36.520, e sem uma
-       frase dizendo isso troca-se um "nao bate" por outro. */
-    /* O QUE DIZER NO RODAPE, quando o numero da tabela nao e' o da operacao inteira.
-       Sao duas razoes diferentes para a diferenca, e a frase diz qual:
-         · nas abas de LUGAR, a perna entre casas nossas, que esta' na tabela e nao conta
-           como saida da empresa;
-         · nas abas de LENTE, as linhas que aquela lente nao alcanca — quase nada passa
-           por fornecedor, e a tabela cobre so' um pedaco. */
+    /* ================= POR QUE O CARTAO MUDA DE ABA PARA ABA =================
+     *
+     * O escritorio clicou nos nove chips e perguntou isso. A resposta e' que eles nao
+     * sao a mesma coisa, e ate' aqui a tela nao dizia qual era qual:
+     *
+     *   . TODAS, MOTORISTAS, USUARIOS e TIPOS DE CAIXA sao a MESMA operacao cortada de
+     *     quatro jeitos. Toda caixa que andou tem um motorista — ou a falta dele, que
+     *     agora e' uma linha com nome —, tem quem lancou e tem um tipo. Os quatro TEM
+     *     de dar o mesmo numero, e desde que o buraco do "sem nome" foi fechado no
+     *     servidor, dao. Quando dao, esta nota fica CALADA: um rodape que aparece
+     *     sempre deixa de ser aviso.
+     *
+     *   . ROTAS, UNIDADES, CLIENTES, EM DEFICIT e FORNECEDORES sao RECORTES: um pedaco
+     *     da operacao. Menor e' a resposta certa deles — e a nota diz quanto e' o todo,
+     *     para a diferenca deixar de parecer defeito.
+     *
+     * A REFERENCIA E "TODAS", E NAO UM TERCEIRO NUMERO. Ela e' a unica que a pessoa
+     * CONFERE com um clique: bate no chip Todas e o numero tem de ser aquele. A nota
+     * dizia antes "o que cruzou a fronteira da empresa", que e' verdade mas e' uma
+     * TERCEIRA regua — e um terceiro numero numa tela que ja tinha dois foi justamente
+     * o que trouxe a pergunta.
+     *
+     * A REGUA DE LUGAR SO FALA ONDE ELA E A RAZAO: na aba Todas, onde a unica diferenca
+     * possivel e' a perna entre duas casas nossas. Dita nas outras, ela explicaria com
+     * um motivo verdadeiro uma diferenca que tem outro. */
+    var tTodas = totaisSimples(linhasVivas());
     function notaDoTotal(campo){
+      if (FLUXO_FILTRO !== 'todas') {
+        if (t[campo] === tTodas[campo]) return '';
+        return ' \u00b7 ' + Q.num(tTodas[campo]) + ' em Todas \u2014 esta lista \u00e9 um recorte dela';
+      }
       if (t[campo] === tOperacao[campo]) return '';
-      /* E A NOTA DIZ POR QUE OS DOIS DIFEREM, que e' a unica coisa que faz a diferenca
-         deixar de parecer defeito. Sao duas razoes, e cada aba tem a sua:
-           · nas de LUGAR, a transferencia entre duas casas nossas esta' na tabela e nao
-             conta como saida da empresa — ela muda a caixa de lugar sem mudar nem o
-             estoque nem a divida;
-           · nas de LENTE, as linhas que aquela lente nao alcanca: quase nada passa por
-             fornecedor, e a tabela cobre so' um pedaco. */
-      return ' · ' + Q.num(tOperacao[campo]) + ' na operação inteira' +
-        (deLugar
-          ? ' — a transferência entre casas nossas não entra lá, mas está na tabela'
-          : ' — o que cruzou a fronteira da empresa; esta lente alcança só parte');
+      return ' \u00b7 ' + Q.num(tOperacao[campo]) + ' na opera\u00e7\u00e3o inteira' +
+        ' \u2014 a transfer\u00eancia entre casas nossas n\u00e3o entra l\u00e1, mas est\u00e1 na tabela';
     }
     /* Cinco cartoes, na ordem de quem lê: primeiro o indicador que se cobra (a taxa),
        depois o numero que dói (o que nao voltou), depois o que HA — o estoque —, e por

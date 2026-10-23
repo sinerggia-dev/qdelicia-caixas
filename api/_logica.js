@@ -3085,6 +3085,21 @@ function listaLixeira(movimentos, locais, tipos, usuarios, p) {
  */
 var DESVIO_RUIM = 40;   // acima disso a linha fica vermelha: falta mais de 40% do que saiu
 
+/* ================= SEM INFORMACAO E UMA CATEGORIA =================
+ *
+ * O rotulo de quem nao tem nome, escrito UMA VEZ. Ele e' usado por tres baldes — o
+ * motorista, o usuario e o tipo de caixa — e e' isso que faz as lentes do Painel
+ * FECHAREM com "Todas": uma linha que cai fora de um balde some de uma aba e continua
+ * na outra, e ai o mesmo periodo da dois totais e ninguem sabe qual apresentar.
+ *
+ * ESCRITO TRES VEZES, as tres divergiriam: a primeira renomeada deixaria a aba
+ * Motoristas dizendo "sem informacao" e a de Tipos dizendo "sem nome", como se fossem
+ * duas coisas diferentes.
+ *
+ * E O TEXTO E O MESMO QUE A OUTRA TELA JA USA no agrupamento de Movimentos Gerais, que
+ * e' onde esta regra nasceu escrita. */
+var SEM_INFO = 'sem informação';
+
 /**
  * Mesma aritmética do fluxo, mas agrupada por GENTE em vez de por local.
  *
@@ -3139,9 +3154,30 @@ function fluxoPorPessoa(dados, desde, ate) {
    * parecer que os totais estao errados. */
   var TETO_DETALHE = 300;
 
+  /* ================= SEM NOME NAO E SEM LINHA =================
+   *
+   * AQUI MORAVA `if (!chave) return;`, e ele era um BURACO: todo lancamento sem
+   * motorista — a saida que o gerente faz sem passar por motorista, a devolucao que
+   * chega sem ninguem anotar quem trouxe — sumia da lente de Motoristas sem deixar
+   * linha nenhuma. O cartao somava a tabela, a tabela nao tinha aquelas linhas, e a
+   * aba Motoristas mostrava menos que "Todas" sem nada na tela dizendo quanto nem por
+   * que. Medido: num cenario de 350 de saida e 70 de retorno, a lente de Motoristas
+   * respondia 150 e ZERO.
+   *
+   * A REGRA JA ESTAVA ESCRITA NESTE PROJETO, na outra tela que agrupa: "SEM INFORMACAO
+   * E UMA CATEGORIA, e nao um buraco: rota sem motorista e caso real na operacao, e
+   * some-la faria o painel somar menos que o cartao." Era a mesma pergunta respondida
+   * de dois jeitos em duas telas — e a do Painel era a errada.
+   *
+   * ENTAO ESTA FUNCAO NAO PERDE MAIS NADA, por construcao: chave vazia vira a categoria
+   * do balde. Quem quer recortar recorta ANTES de chamar — e' o que o fornecedor faz,
+   * logo abaixo, onde a ausencia e' o caso COMUM e um balde sem dono seria a maior
+   * linha da lista. A diferenca entre os dois nao e' de gosto: "quem fez esta saida?"
+   * e' pergunta operacional de verdade, e "de que fornecedor nao era esta carga?" nao
+   * e' pergunta nenhuma. */
   function soma(mapa, chave, nome, q, ehSaida, extra, caixa, linha) {
-    if (!chave) return;
-    var k = String(chave);
+    var k = String(chave == null ? '' : chave).trim();
+    if (!k) { k = SEM_INFO; nome = nome || SEM_INFO; }
     if (!mapa[k]) {
       mapa[k] = { id: k, nome: nome, saida: 0, retorno: 0, n: 0, extras: {},
                   saidaTipo: {}, retornoTipo: {}, linhas: [], corte: 0,
@@ -3155,7 +3191,11 @@ function fluxoPorPessoa(dados, desde, ate) {
     mapa[k].n++;
     var lado = ehSaida ? 'saidaTipo' : 'retornoTipo';
     if (ehSaida) mapa[k].saida += q; else mapa[k].retorno += q;
-    if (caixa) mapa[k][lado][caixa] = (mapa[k][lado][caixa] || 0) + q;
+    /* O MESMO BURACO QUE O MOTORISTA TINHA, e no detalhe por tipo: um lancamento
+       cujo tipo de caixa nao resolve nome no cadastro — apagado, renomeado, ou um id
+       que ficou orfao — sumia da soma por tipo e continuava no total da linha. A gaveta
+       mostrava menos que o proprio cabecalho dela. */
+    mapa[k][lado][caixa || SEM_INFO] = (mapa[k][lado][caixa || SEM_INFO] || 0) + q;
     if (extra) mapa[k].extras[extra] = 1;
     /* O DETALHE SAI DAQUI, do MESMO laco que soma o total — e nao de uma segunda
        passada com os mesmos filtros escritos de novo. E' o unico jeito de a gaveta nao
@@ -3204,9 +3244,15 @@ function fluxoPorPessoa(dados, desde, ate) {
       veiculo: m.Veiculo || '',
       fornecedor: fornecedorDaCarga(m, dados.fornecedores, dados.locais)
     };
+    /* VAZIO PASSA, e cai na categoria: e' a saida que o gerente fez sem motorista,
+       e ela precisa aparecer em algum lugar desta lista — senao a aba Motoristas soma
+       menos que "Todas" e ninguem consegue dizer quanto faltou. */
     soma(porMot, mot, mot, q, ehSaida, String(m.Rota || '').trim(), caixa, linha);
     /* A MESMA LINHA nas duas visoes: e' o mesmo lancamento visto por dois angulos —
        quem dirigiu e quem lancou. Montar duas versoes dele seria duas verdades. */
+    /* O MESMO para quem lancou. Hoje todo movimento tem usuario e esta linha nunca
+       cai na categoria — mas ela era barrada pela MESMA guarda, e deixa-la depender de
+       uma coluna nunca vir vazia e' depender de sorte. */
     soma(porUsu, m.UsuarioID, nome(nomesUsuarios, m.UsuarioID), q, ehSaida, '', caixa,
          linha);
     /* SO' QUEM TEM NOME. A maior parte das viagens nao tem fornecedor — rota para
@@ -3385,7 +3431,11 @@ function fluxoPorOrigem(dados, desde, meta, ate) {
     // a data do primeiro lancamento do caminho: e por ela que a lista se ordena
     if (!t.desde || m.DataRef < t.desde) t.desde = m.DataRef;
     var mapa = (sentido === 'ENTRADA') ? t.retornoTipo : t.saidaTipo;
-    if (caixa) mapa[caixa] = (mapa[caixa] || 0) + q;
+    /* SEM `if`, pela mesma razao: a aba "Tipos de caixa" e' montada somando ESTES
+       mapas, e um tipo sem nome no cadastro fazia aquela aba somar menos que "Todas" —
+       duas leituras do mesmo periodo com numeros diferentes, e nenhuma das duas
+       dizendo que faltava alguma coisa. */
+    mapa[caixa || SEM_INFO] = (mapa[caixa || SEM_INFO] || 0) + q;
   });
 
   function tipoDe(id) { return (porId[String(id)] || {}).Tipo || ''; }
