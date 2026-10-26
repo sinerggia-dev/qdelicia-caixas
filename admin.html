@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=539d5f82">
+<link rel="stylesheet" href="styles.css?v=1bfc8b0c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -6299,27 +6299,39 @@
   }
 
 
-  function ordemColunas(t){
-    /* Sem PERFIL, a ordem de fábrica — e não a guardada. A senha não entra aqui:
-       ver o que se salvou não é mexer nele. Ver o portão acima. */
-    if (!podeVerArranjo()) return t.padrao.slice();
+  /* ================= A ORDEM GUARDADA, JUNTADA COM A DE FABRICA =================
+   *
+   * Vale para as COLUNAS e para os CHIPS do Painel, que sao as duas coisas que se
+   * arrastam nesta tela. Escrita duas vezes, a segunda nao receberia o conserto da
+   * primeira — e o conserto aqui e' sutil: o que entrar DEPOIS de alguem ja ter
+   * arrastado.
+   *
+   * O QUE A ORDEM SALVA NAO CITA ENTRA AO LADO DO VIZINHO DE FABRICA, e nao no fim.
+   * Jogada no fim, uma coluna nova aparecia depois do Saldo final para quem ja tinha
+   * arrastado — longe de onde ela faz sentido, e sem explicacao. Um chip novo teria o
+   * mesmo destino: nascer no rodape da lista, onde ninguem procura. */
+  function juntarOrdem(padrao, chave){
     var salva = [];
-    try { salva = JSON.parse(localStorage.getItem(t.kOrdem) || '[]') || []; }
+    try { salva = JSON.parse(localStorage.getItem(chave) || '[]') || []; }
     catch (e) { salva = []; }
-    var vale = salva.filter(function(id){ return t.padrao.indexOf(id) >= 0; });
-    /* Coluna que a ordem salva nao cita entra ao lado do vizinho de fabrica dela, e nao
-       no fim. Jogada no fim, uma coluna nova aparecia depois do Saldo final para quem ja
-       tinha arrastado — longe de onde ela faz sentido, e sem explicacao. */
-    t.padrao.forEach(function(id, i){
+    var vale = salva.filter(function(id){ return padrao.indexOf(id) >= 0; });
+    padrao.forEach(function(id, i){
       if (vale.indexOf(id) >= 0) return;
       var pos = 0;
       for (var k = i - 1; k >= 0; k--) {
-        var p = vale.indexOf(t.padrao[k]);
+        var p = vale.indexOf(padrao[k]);
         if (p >= 0) { pos = p + 1; break; }
       }
       vale.splice(pos, 0, id);
     });
     return vale;
+  }
+
+  function ordemColunas(t){
+    /* Sem PERFIL, a ordem de fábrica — e não a guardada. A senha não entra aqui:
+       ver o que se salvou não é mexer nele. Ver o portão acima. */
+    if (!podeVerArranjo()) return t.padrao.slice();
+    return juntarOrdem(t.padrao, t.kOrdem);
   }
 
   function guardarOrdem(t, ordem){
@@ -6490,6 +6502,79 @@
       p.addEventListener('dragstart', function(e){ e.preventDefault(); e.stopPropagation(); });
       // nem classifica: soltar a borda dispara um `click` no <th> logo depois
       p.addEventListener('click', function(e){ e.stopPropagation(); });
+    });
+  }
+
+  /* ================= A ORDEM DOS CHIPS DO PAINEL =================
+   *
+   * A pedido do escritorio: a lista da esquerda e' por onde a tela se navega o dia
+   * inteiro, e a ordem util muda com quem usa. Quem vive em Rotas quer Rotas no alto;
+   * quem confere fornecedor, Fornecedores.
+   *
+   * SEM CADEADO E SEM SENHA, ao contrario das colunas, e a diferenca nao e' de gosto:
+   * esconder uma coluna tira um dado da tela e quem nao sabe onde ela foi parar nao
+   * tem como traze-la de volta — dai o cadeado. Aqui NADA SOME: os nove chips
+   * continuam todos la', so' que noutra ordem, e a volta e' um arrasto ou um clique no
+   * "ordem original". Pedir senha para um gesto que se desfaz sozinho e' ensinar que a
+   * senha nao quer dizer nada.
+   *
+   * E A ORDEM E DE QUEM OLHA, nao do cadastro: fica no navegador, como a das colunas.
+   * Guardada no servidor, o arranjo de um mudaria a tela do outro. */
+  var CHIPS_PADRAO = ['todas', 'ROTA', 'FILIAL', 'CLIENTE', 'deficit',
+                      'MOTORISTA', 'USUARIO', 'TIPOCAIXA', 'FORNECEDOR'];
+  var K_ORDEM_CHIPS = 'qdc_ordem_chips_v1';
+
+  function ordemDosChips(){ return juntarOrdem(CHIPS_PADRAO, K_ORDEM_CHIPS); }
+
+  function guardarOrdemDosChips(ordem){
+    try { localStorage.setItem(K_ORDEM_CHIPS, JSON.stringify(ordem)); } catch (e) {}
+  }
+
+  function chipsForaDaFabrica(){
+    return ordemDosChips().join(',') !== CHIPS_PADRAO.join(',');
+  }
+
+  function voltarOrdemDosChips(){
+    try { localStorage.removeItem(K_ORDEM_CHIPS); } catch (e) {}
+    desenharFluxo();
+  }
+
+  /* AS LINHAS SE REORDENAM PELA LISTA, e nao pelo DOM. Mexer no DOM direto deixaria a
+     tela certa e a memoria errada: no proximo desenho tudo voltaria, e o gesto
+     pareceria nao ter pegado. */
+  function ligarArrastarChips(){
+    var nav = document.getElementById('retNav');
+    if (!nav) return;
+    var arrastado = null;
+    Array.prototype.forEach.call(nav.querySelectorAll('[data-fchip]'), function(b){
+      b.setAttribute('draggable', 'true');
+      b.addEventListener('dragstart', function(e){
+        arrastado = b.dataset.fchip;
+        b.classList.add('arrastando');
+        try { e.dataTransfer.setData('text/plain', arrastado); } catch (err) {}
+      });
+      b.addEventListener('dragend', function(){
+        b.classList.remove('arrastando');
+        Array.prototype.forEach.call(nav.querySelectorAll('[data-fchip]'), function(o){
+          o.classList.remove('alvo');
+        });
+      });
+      b.addEventListener('dragover', function(e){
+        e.preventDefault();
+        if (b.dataset.fchip !== arrastado) b.classList.add('alvo');
+      });
+      b.addEventListener('dragleave', function(){ b.classList.remove('alvo'); });
+      b.addEventListener('drop', function(e){
+        e.preventDefault();
+        b.classList.remove('alvo');
+        var solto = b.dataset.fchip;
+        if (!arrastado || solto === arrastado) return;
+        var ordem = ordemDosChips();
+        ordem.splice(ordem.indexOf(arrastado), 1);
+        ordem.splice(ordem.indexOf(solto), 0, arrastado);
+        guardarOrdemDosChips(ordem);
+        desenharFluxo();
+      });
     });
   }
 
@@ -6882,9 +6967,22 @@
       { v:'TIPOCAIXA', n:linhasPorTipo().length },
       { v:'FORNECEDOR', n:(pes.fornecedores||[]).length }
     ].map(function(c){ c.r = NOMES_GRUPO[c.v]; return c; });
+    /* ================= NA ORDEM DE QUEM OLHA =================
+     *
+     * A lista acima e' a ordem de FABRICA — ela segue o ciclo da operacao, do todo
+     * para o detalhe. A de quem olha vem de `ordemDosChips`, que a junta com o que
+     * ficou guardado do ultimo arrasto.
+     *
+     * A ORDENACAO E A ULTIMA COISA, depois de os numeros estarem todos calculados:
+     * feita antes, cada conta teria de saber em que posicao caiu, e a posicao nao
+     * muda conta nenhuma. */
+    var posDoChip = ordemDosChips();
+    itens.sort(function(a, b){
+      return posDoChip.indexOf(a.v) - posDoChip.indexOf(b.v);
+    });
     document.getElementById('retNav').innerHTML = itens.map(function(c){
       return '<button type="button" class="ret-item'+(FLUXO_FILTRO===c.v?' ativo':'')+
-        '" data-fchip="'+c.v+'"'+
+        '" draggable="true" data-fchip="'+c.v+'"'+
         /* O QUE ELE PENEIRA, escrito. "Em déficit" é a única linha da lista que não
            nomeia um campo, e por isso é a única em que a pessoa precisa adivinhar o
            critério — foi adivinhando errado que o "+810" pareceu defeito. */
@@ -6892,7 +6990,22 @@
           ? ' title="Mostra as linhas em que o Saldo final ficou negativo"' : '')+
         '><span class="pt"></span>'+c.r+
         '<span class="n">'+Q.num(c.n)+'</span></button>';
-    }).join('');
+    }).join('')+
+      /* A VOLTA SO APARECE QUANDO HA O QUE DESFAZER. Sempre a vista, ela seria um
+         botao que na maioria das vezes nao faz nada — e, ao lado de uma lista que a
+         pessoa nunca arrastou, uma pergunta: "voltar de onde?".
+         Ela tambem e' a unica pista de que a lista se arrasta, para quem chegou com a
+         ordem ja mexida noutro dia. */
+      (chipsForaDaFabrica()
+        ? '<button type="button" class="ret-ordem" id="btnOrdemChips" ' +
+          'title="Devolve a lista \u00e0 ordem de f\u00e1brica">\u21ba ordem original</button>'
+        : '');
+
+    /* O ARRASTO SE LIGA A CADA DESENHO, e nao uma vez so': os botoes sao refeitos
+       inteiros acima, e os ouvintes do desenho anterior foram embora com eles. */
+    ligarArrastarChips();
+    var btnOrd = document.getElementById('btnOrdemChips');
+    if (btnOrd) btnOrd.addEventListener('click', voltarOrdemDosChips);
 
     /* ================= A LINHA E UM NOME, E NAO UMA VIAGEM =================
      *

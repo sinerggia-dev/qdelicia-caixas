@@ -2893,6 +2893,42 @@ details.tipos[open] summary::before{content:"▾"}
 .ap__sig i{width:10px;height:10px;border-radius:3px}
 .ap__sig em{font-style:normal;color:var(--txt3);font-size:12px}
 .ret-nav{display:flex;flex-direction:column;gap:2px}
+
+/* ---------- arrastar os chips para mudar a ordem ----------
+ *
+ * A pedido: a lista da esquerda e' por onde a tela se navega o dia inteiro, e a ordem
+ * util muda com quem usa. Quem vive em Rotas quer Rotas no alto.
+ *
+ * O CURSOR E A UNICA PISTA PERMANENTE de que a lista se arrasta. Um icone de alcinha
+ * em nove botoes ja' carregados de nome e numero so' acrescentaria ruido — e o gesto
+ * se descobre tentando, que e' como se descobre arrastar em qualquer lista.
+ *
+ * O QUE ESTA SENDO ARRASTADO DESBOTA, e o ALVO ganha uma barra no alto: sao os dois
+ * lados da pergunta "de onde para onde", e sem o segundo o gesto vira adivinhacao —
+ * solta-se no escuro e confere-se depois. */
+.ret-item{cursor:grab}
+.ret-item:active{cursor:grabbing}
+.ret-item.arrastando{opacity:.4}
+.ret-item.alvo{box-shadow:inset 0 3px 0 0 var(--verde)}
+
+/* A VOLTA A ORDEM DE FABRICA. Ela so' existe quando ha' o que desfazer — ver o
+   comentario no `admin.html` —, e por isso pode ser discreta: quem a ve' ja' arrastou
+   alguma coisa, e esta' procurando exatamente por ela. */
+.ret-ordem{display:block;width:100%;margin-top:8px;padding:5px 8px;
+  border:0;border-radius:var(--raio-sm);background:transparent;
+  color:var(--txt-fraco);font:inherit;font-size:11px;text-align:left;cursor:pointer}
+.ret-ordem:hover,.ret-ordem:focus-visible{background:var(--neutro);color:#fff;
+  outline:none}
+
+/* NO CELULAR O TRILHO VIRA UMA FAIXA DEITADA. Quem impede o arrasto ali nao e' esta
+   regra — e' o proprio HTML5 drag-and-drop, que o toque nao dispara. O que esta regra
+   faz e' parar de PROMETER o gesto: a mao em forma de garra num aparelho onde ele nao
+   acontece e' uma promessa que a tela nao cumpre. E a volta a ordem de fabrica sai
+   junto, porque sem o arrasto ela nao tem o que desfazer. */
+@media (max-width:860px){
+  .ret-item{cursor:pointer}
+  .ret-ordem{display:none}
+}
 .ret-item{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;
   color:var(--txt2);font-family:inherit;font-size:13px;font-weight:600;text-align:left;
   padding:9px 10px;border-radius:8px;cursor:pointer}

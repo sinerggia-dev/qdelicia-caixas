@@ -282,6 +282,10 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
   var fonteO = admO.slice(admO.indexOf('  var FILTROS_MOV = {'),
                           admO.indexOf('};', admO.indexOf('  var FILTROS_MOV = {')) + 2) +
     '\n' + corpoO('gradeFiltros') + '\n' + corpoO('caixasDeFiltro') +
+    /* `juntarOrdem` ENTRA NO RECORTE: a juncao da ordem guardada com a de fabrica
+       saiu de dentro de `ordemColunas` e virou funcao propria, para os CHIPS do
+       Painel usarem a mesma. Sem ela aqui o sandbox estoura em vez de medir. */
+    '\n' + corpoO('juntarOrdem') +
     '\n' + corpoO('ordemColunas') + '\n' + corpoO('aplicarOrdemFiltros') +
     '\n' + corpoO('recolocarAcaoFiltro') +
     '\n return { aplicar: aplicarOrdemFiltros, padrao: FILTROS_MOV.padrao };';
@@ -2163,6 +2167,7 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
       } });
     });
     var fonte = descritorA + '\n' + corpoA('gradeFiltros') + '\n' + corpoA('caixasDeFiltro') +
+      '\n' + corpoA('juntarOrdem') +
       '\n' + corpoA('ordemColunas') + '\n' + corpoA('guardarOrdem') +
       '\n' + corpoA('aplicarOrdemFiltros') + '\n' + corpoA('recolocarAcaoFiltro') +
       '\n' + corpoA('ligarArrastarFiltros') +
@@ -4873,7 +4878,8 @@ console.log('\n== Painel de Ativos: as colunas fecham ==');
     adm.slice(iTab, adm.indexOf('\n  };', iTab) + 5) +
     adm.slice(iAte, adm.indexOf(';', iAte) + 1) + '\n' +
     pecaOrdem('colunasDestravadas') + pecaOrdem('podeVerArranjo') +
-    pecaOrdem('podeArranjarColunas') + pecaOrdem('ordemColunas');
+    pecaOrdem('podeArranjarColunas') + pecaOrdem('juntarOrdem') +
+    pecaOrdem('ordemColunas');
   ok(j > 0 && /function ordemColunas\(t\)/.test(fonteOrdem) && /kOrdem:/.test(fonteOrdem),
     'a ordem das colunas é da TABELA que se pede, e não de uma só');
   var loja = {};
@@ -13912,6 +13918,152 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
         'p\u00e1gina e um "Carregando..." no resto',
         antes.map(function (i) { return corpo.slice(Math.max(0, i - 60), i + 40); }));
     });
+  })();
+
+  /* ================= A ORDEM DOS CHIPS, ARRASTADA =================
+   *
+   * A pedido do escritorio: a lista da esquerda e' por onde a tela se navega o dia
+   * inteiro, e a ordem util muda com quem usa.
+   *
+   * RODADO: a juncao da ordem guardada com a de fabrica, o arrasto e a volta. Lida, a
+   * prova nao distinguiria uma lista que REORDENA de uma que guarda e ignora. */
+  (function () {
+    var guardado = {};
+    var api = new Function('localStorage', 'desenharFluxo',
+      (adm.match(/var CHIPS_PADRAO = \[[\s\S]*?\];/) || [''])[0] +
+      (adm.match(/var K_ORDEM_CHIPS = '[^']*';/) || [''])[0] +
+      fonteDaFuncao(adm, 'juntarOrdem') +
+      fonteDaFuncao(adm, 'ordemDosChips') +
+      fonteDaFuncao(adm, 'guardarOrdemDosChips') +
+      fonteDaFuncao(adm, 'chipsForaDaFabrica') +
+      fonteDaFuncao(adm, 'voltarOrdemDosChips') +
+      ' return { ordem: ordemDosChips, guardar: guardarOrdemDosChips,' +
+      '          mexida: chipsForaDaFabrica, voltar: voltarOrdemDosChips,' +
+      '          padrao: CHIPS_PADRAO };')(
+      { getItem: function (k) { return guardado[k] === undefined ? null : guardado[k]; },
+        setItem: function (k, v) { guardado[k] = v; },
+        removeItem: function (k) { delete guardado[k]; } },
+      function () {});
+
+    ok(api.padrao.length === 9 && api.padrao[0] === 'todas',
+      'os nove chips t\u00eam uma ordem de f\u00e1brica, e "Todas" abre a lista \u2014 ela segue o ' +
+      'ciclo da opera\u00e7\u00e3o, do todo para o detalhe', api.padrao);
+
+    /* 1. SEM NADA GUARDADO, a ordem e' a de fabrica. */
+    ok(api.ordem().join(',') === api.padrao.join(','),
+      'sem nada guardado, a ordem \u00e9 a de f\u00e1brica \u2014 quem nunca arrastou n\u00e3o pode ' +
+      'receber a lista remexida', api.ordem());
+    ok(api.mexida() === false,
+      'e a volta \u00e0 ordem original n\u00e3o aparece \u2014 um bot\u00e3o que na maioria das vezes n\u00e3o ' +
+      'faz nada, ao lado de uma lista que ningu\u00e9m arrastou, \u00e9 uma pergunta: "voltar de ' +
+      'onde?"', api.mexida());
+
+    /* 2. ARRASTADO, ele vai para onde foi solto. */
+    var ordem = api.ordem();
+    ordem.splice(ordem.indexOf('FORNECEDOR'), 1);
+    ordem.splice(ordem.indexOf('todas'), 0, 'FORNECEDOR');
+    api.guardar(ordem);
+    ok(api.ordem()[0] === 'FORNECEDOR' && api.ordem()[1] === 'todas',
+      'arrastado para o topo, o chip FICA no topo \u2014 guardada e ignorada, a ordem ' +
+      'voltaria no pr\u00f3ximo desenho e o gesto pareceria n\u00e3o ter pegado', api.ordem());
+    ok(api.ordem().length === 9,
+      'e nenhum se perde no caminho \u2014 nove antes, nove depois', api.ordem().length);
+    ok(api.mexida() === true, 'e a volta \u00e0 ordem original aparece', api.mexida());
+
+    /* 3. UM CHIP NOVO entra ao lado do vizinho de FABRICA dele, e nao no fim. Jogado
+       no fim, ele nasceria no rodape da lista para quem ja arrastou — longe de onde
+       faz sentido, e sem explicacao. */
+    guardado[Object.keys(guardado)[0]] =
+      JSON.stringify(['todas', 'FILIAL', 'CLIENTE', 'deficit',
+                      'MOTORISTA', 'USUARIO', 'TIPOCAIXA', 'FORNECEDOR']);
+    var comNovo = api.ordem();
+    ok(comNovo.length === 9 && comNovo.indexOf('ROTA') === 1,
+      'um chip que a ordem guardada n\u00e3o cita entra ao lado do vizinho de F\u00c1BRICA dele \u2014 ' +
+      'jogado no fim, um chip novo nasceria no rodap\u00e9 da lista para quem j\u00e1 arrastou, ' +
+      'longe de onde faz sentido e sem explica\u00e7\u00e3o', comNovo);
+
+    /* 4. LIXO GUARDADO NAO DERRUBA A TELA. O que esta' no navegador foi escrito por
+       uma versao anterior, ou a mao por alguem com o console aberto. */
+    guardado[Object.keys(guardado)[0]] = '{nao e json';
+    ok(api.ordem().join(',') === api.padrao.join(','),
+      'e ordem guardada ileg\u00edvel cai na de f\u00e1brica \u2014 o que est\u00e1 no navegador foi ' +
+      'escrito por outra vers\u00e3o, ou \u00e0 m\u00e3o com o console aberto, e uma lista de chips ' +
+      'vazia deixaria a tela sem navega\u00e7\u00e3o nenhuma', api.ordem());
+    guardado[Object.keys(guardado)[0]] = JSON.stringify(['chip-que-nao-existe']);
+    ok(api.ordem().join(',') === api.padrao.join(','),
+      'e nome que n\u00e3o existe mais \u00e9 ignorado, sem levar os outros junto', api.ordem());
+
+    /* 5. A VOLTA APAGA O QUE FOI GUARDADO, e nao escreve a ordem de fabrica por cima:
+       escrita, um chip novo passaria a entrar no fim para quem clicou na volta — ela
+       deixaria de ser "como veio de fabrica" e viraria "como era de fabrica naquele
+       dia". */
+    api.guardar(['FORNECEDOR', 'todas', 'ROTA', 'FILIAL', 'CLIENTE',
+                 'deficit', 'MOTORISTA', 'USUARIO', 'TIPOCAIXA']);
+    ok(api.mexida() === true, 'o cen\u00e1rio tem a ordem mexida antes da volta', api.ordem());
+    api.voltar();
+    ok(api.ordem().join(',') === api.padrao.join(',') && api.mexida() === false,
+      'a volta devolve a ordem de f\u00e1brica', api.ordem());
+    ok(Object.keys(guardado).length === 0,
+      'e ela APAGA o que estava guardado, em vez de escrever a de f\u00e1brica por cima \u2014 ' +
+      'escrita, um chip novo passaria a entrar no fim para quem clicou na volta, e ela ' +
+      'deixaria de ser "como veio de f\u00e1brica"', guardado);
+  })();
+
+  /* ---- E A LISTA DESENHADA SAI NESSA ORDEM. RODADO. ----
+   *
+   * A ordem guardada pode estar certa e a fileira sair na de fabrica — basta a
+   * ordenacao nao acontecer, ou acontecer ao contrario. `desenharFluxo` nao cabe num
+   * sandbox, mas a ordenacao dela e' uma expressao de tres linhas: ela sai do arquivo
+   * e e' EXECUTADA aqui, que e' o que distingue "ordena" de "ordena invertido". */
+  (function () {
+    var m = /itens\.sort\(function\(a, b\)\{[\s\S]*?\}\);/.exec(semComentarios(adm));
+    ok(!!m, 'a fileira de chips \u00e9 ORDENADA antes de desenhar \u2014 sem isso a ordem ' +
+      'guardada fica no navegador e a tela sai na de f\u00e1brica, e o arrasto parece ' +
+      'n\u00e3o ter pegado', m && m[0].slice(0, 120));
+    if (m) {
+      var ordenar = new Function('posDoChip', 'itens', m[0] + ' return itens;');
+      var saida = ordenar(['C', 'A', 'B'],
+        [{ v: 'A' }, { v: 'B' }, { v: 'C' }]).map(function (x) { return x.v; });
+      ok(saida.join('') === 'CAB',
+        'e ela segue a ordem guardada, e n\u00e3o o contr\u00e1rio \u2014 invertida, a lista sai de ' +
+        'cabe\u00e7a para baixo e o chip arrastado para o topo aparece no fim', saida);
+    }
+  })();
+
+  /* ---- A VOLTA SO NASCE QUANDO HA O QUE DESFAZER ----
+     Sempre a vista, ela e' um botao que na maioria das vezes nao faz nada — e, ao lado
+     de uma lista que ninguem arrastou, uma pergunta: "voltar de onde?". */
+  ok(/\(chipsForaDaFabrica\(\)\s*\?/.test(semComentarios(adm)),
+    'a volta \u00e0 ordem original s\u00f3 \u00e9 desenhada quando a ordem foi mexida \u2014 sempre \u00e0 ' +
+    'vista, ela \u00e9 um bot\u00e3o que na maioria das vezes n\u00e3o faz nada, e ao lado de uma ' +
+    'lista nunca arrastada vira uma pergunta: "voltar de onde?"');
+
+  /* E O ARRASTO CHEGA AOS BOTOES. A ordem pode estar perfeita e o gesto nao existir:
+     e' o defeito mais repetido deste projeto. */
+  (function () {
+    var admSC = semComentarios(adm);
+    ok(admSC.indexOf('ligarArrastarChips();') > 0,
+      'o arrasto \u00e9 ligado quando os chips s\u00e3o desenhados \u2014 uma ordem perfeita que ' +
+      'nenhum gesto alcan\u00e7a \u00e9 o defeito mais repetido deste projeto');
+    ok(/draggable="true" data-fchip=/.test(admSC),
+      'e os bot\u00f5es se declaram arrast\u00e1veis \u2014 sem isto o navegador n\u00e3o inicia o gesto, ' +
+      'e os ouvintes esperam por um evento que nunca vem');
+    var corpoLig = fonteDaFuncao(admSC, 'ligarArrastarChips');
+    ['dragstart', 'dragover', 'drop'].forEach(function (ev) {
+      ok(corpoLig.indexOf("'" + ev + "'") > 0,
+        'e ele escuta `' + ev + '`', corpoLig.indexOf(ev));
+    });
+    /* O `preventDefault` NO `dragover` E O QUE AUTORIZA O SOLTO. Sem ele o navegador
+       recusa a area, o `drop` nunca dispara, e o gesto termina em nada — com todos os
+       ouvintes no lugar e o cursor prometendo que ia dar certo. */
+    var iDov = corpoLig.indexOf("'dragover'");
+    ok(iDov > 0 && corpoLig.slice(iDov, iDov + 120).indexOf('preventDefault') > 0,
+      'e o `dragover` recusa o comportamento padr\u00e3o do navegador \u2014 sem isso ele n\u00e3o ' +
+      'autoriza a \u00e1rea, o `drop` nunca dispara, e o gesto termina em nada com todos os ' +
+      'ouvintes no lugar', corpoLig.slice(iDov, iDov + 120));
+    ok(corpoLig.indexOf('desenharFluxo();') > 0,
+      'e redesenha depois de guardar \u2014 guardado e n\u00e3o redesenhado, o chip volta para o ' +
+      'lugar de onde saiu e o gesto parece n\u00e3o ter pegado', corpoLig.slice(-200));
   })();
 
   var j = adm.indexOf('var t = totaisSimples(linhasVivas());');
