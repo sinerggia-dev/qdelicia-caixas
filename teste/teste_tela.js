@@ -5605,7 +5605,80 @@ console.log('\n== a coluna "Estoque", e o peso visual das duas ==');
   ok(cols.indexOf('lancado') > 0, 'a coluna esta na lista de fabrica', cols);
   var titAtivos = adm.slice(adm.indexOf('titulos: {', adm.indexOf('var TAB_ATIVOS')),
                             adm.indexOf('}', adm.indexOf('titulos: {', adm.indexOf('var TAB_ATIVOS'))));
-  ok(/lancado:'Estoque'/.test(titAtivos), 'e o titulo dela é "Estoque"', titAtivos);
+  /* O NOME MUDOU, e o motivo e' o que esta prova passa a guardar. A coluna se chamava
+     "Estoque" e nao e' estoque: ela e' o que foi LANCADO de saldo inicial naquele dia.
+     Ao lado de um cartao chamado "Total no Estoque", ela prometia ser o mesmo numero —
+     e a prova de que nao era estava na propria tela, a coluna somando 0 no rodape
+     enquanto o cartao dizia -10.484. O escritorio parou nela e perguntou qual das duas
+     era qual. */
+  ok(/lancado:'Lan\u00e7ado no dia'/.test(titAtivos),
+    'o t\u00edtulo dela diz o que ela \u00e9 \u2014 "Lan\u00e7ado no dia", e n\u00e3o "Estoque": ela \u00e9 um ' +
+    'INGREDIENTE do cart\u00e3o "Total no Estoque", e n\u00e3o o cart\u00e3o, e com o mesmo nome os ' +
+    'dois na mesma tela a leitura razo\u00e1vel era que fossem o mesmo n\u00famero', titAtivos);
+  ok(!/lancado:'Estoque'/.test(titAtivos),
+    'e o nome antigo saiu \u2014 mantido em qualquer um dos dois lugares, a colis\u00e3o volta ' +
+    'por ele', titAtivos);
+
+  /* ---- A TELA E O ARQUIVO CHAMAM A COLUNA PELO MESMO NOME ----
+   *
+   * Sao duas leituras das MESMAS linhas, e uma coluna com dois nomes faz quem confere
+   * achar que sao dados diferentes — vai procurar na tela a coluna que o arquivo tem, e
+   * nao acha. A sabotagem mostrou o buraco: devolvido o nome antigo so' no CSV, a
+   * bancada inteira seguiu verde.
+   * TODOS OS TITULOS, e nao so' o que acabou de mudar: a regra nao e' sobre `lancado`. */
+  (function () {
+    var iCsv = adm.indexOf("var TIT = { data:'Data',");
+    var titCsv = adm.slice(iCsv, adm.indexOf('};', iCsv));
+    ok(iCsv > 0 && titCsv.length > 80,
+      'a confer\u00eancia achou os t\u00edtulos do CSV \u2014 recorte vazio faria a prova abaixo ' +
+      'aprovar qualquer coisa', titCsv.length);
+    function pares(txt) {
+      var m = {}, re = /(\w+):'([^']*)'/g, x;
+      while ((x = re.exec(txt))) m[x[1]] = x[2];
+      return m;
+    }
+    var naTela = pares(titAtivos), noCsv = pares(titCsv);
+    var briga = Object.keys(noCsv).filter(function (id) {
+      return naTela[id] !== undefined && naTela[id] !== noCsv[id];
+    });
+    ok(!briga.length,
+      'a tela e o arquivo chamam cada coluna pelo MESMO nome \u2014 com dois nomes, quem ' +
+      'confere procura na tela a coluna que o arquivo tem e n\u00e3o acha',
+      briga.map(function (id) { return id + ': tela="' + naTela[id] + '" csv="' + noCsv[id] + '"'; }));
+    ok(noCsv.lancado === 'Lan\u00e7ado no dia',
+      'e o arquivo traz o nome novo tamb\u00e9m \u2014 "Estoque" l\u00e1 e "Lan\u00e7ado no dia" aqui ' +
+      'desfaria metade do conserto, e seria a metade que o escrit\u00f3rio abre no Excel',
+      noCsv.lancado);
+  })();
+
+  /* ---- E A COLUNA SOMA O QUE O NOME PROMETE. RODADO. ----
+   *
+   * "Lan\u00e7ado no dia" e "Saldo inicial" sao duas perguntas diferentes sobre a mesma
+   * linha: uma e' o que ENTROU naquele dia, a outra e' o ACUMULADO ate' ali. Trocadas,
+   * as duas colunas continuam cheias de numeros plaus\u00edveis e a tabela inteira mente —
+   * e o rodape passaria a somar uma coluna de acumulado, que nao se soma.
+   * LIDO, nao da' para distinguir `l.inicial` de `l.iniCorrido`: sao duas palavras
+   * parecidas. Rodado, da'. */
+  (function () {
+    function kDe(id) {
+      var i = adm.indexOf('      ' + id + ':  { t: TIT');
+      if (i < 0) i = adm.indexOf('      ' + id + ': { t: TIT');
+      var m = /k: function\(l\)\{ return ([^;]+); \}/.exec(adm.slice(i, i + 400));
+      return m ? new Function('l', 'return ' + m[1] + ';') : null;
+    }
+    var kLanc = kDe('lancado'), kIni = kDe('inicial');
+    ok(!!kLanc && !!kIni, 'a confer\u00eancia achou as duas contas', [!!kLanc, !!kIni]);
+    if (kLanc && kIni) {
+      var linha = { inicial: 5, iniCorrido: 99 };
+      ok(kLanc(linha) === 5,
+        '"Lan\u00e7ado no dia" traz o que entrou NAQUELE dia \u2014 lendo o acumulado, ela ' +
+        'repetiria a coluna ao lado com outro nome, e o rodap\u00e9 somaria uma coluna de ' +
+        'acumulado, que n\u00e3o se soma', kLanc(linha));
+      ok(kIni(linha) === 99,
+        'e "Saldo inicial" traz o ACUMULADO at\u00e9 ali \u2014 \u00e9 ele que explica cada salto de ' +
+        'uma linha para a outra', kIni(linha));
+    }
+  })();
 
   var semDef = cols.filter(function (id) { return defs.indexOf('\n      ' + id + ':') < 0; });
   ok(semDef.length === 0, 'toda coluna de fábrica tem definição — sem ela o <td> sai vazio',
@@ -28915,7 +28988,11 @@ console.log('\n== a coluna Unidade do Painel de Ativos ==');
     'Destino — crua, uma linha de três casas transborda a coluna de 170px e empurra as ' +
     'de número para fora da tela', celTres.v(tres));
   ok(/unidade:  function\(l\)\{ return unidadesDaLinha\(l\)\.join\(' \| '\); \}/.test(admU) &&
-     /unidade:'Unidade'/.test(admU.slice(admU.indexOf("var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Estoque',"))),
+     /* A ANCORA DEIXA DE CITAR O NOME DA COLUNA VIZINHA. Ela apontava para o
+        bloco de titulos do CSV copiando a linha inteira, e `lancado` mudou de nome
+        — a prova caiu sem que nada do que ela mede tivesse mexido. O que importa
+        aqui e' a UNIDADE sair no arquivo, e e' so' isso que a ancora precisa dizer. */
+     /unidade:'Unidade'/.test(admU.slice(admU.indexOf("var TIT = { data:'Data',"))),
     'e ela sai no CSV pela MESMA regra — um arquivo sem a coluna que a tela tem faz a ' +
     'conferência de escritório chegar a um número que a tela não explica');
 }

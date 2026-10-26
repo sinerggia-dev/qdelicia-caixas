@@ -4307,7 +4307,9 @@
     /* Somadas, estas larguras cabem numa area util de ~1.050px, que e o que sobra numa
        tela de 1.400. Mais folgadas, a tabela transbordava e voltava a barra de rolagem
        horizontal. Quem quiser mais espaco numa coluna arrasta a borda. */
-    larg: { data:95, inicial:105, lancado:95, origem:150, destino:150, unidade:170,
+    /* `lancado` foi de 95 para 130 com o nome novo: "Lançado no dia" nao cabia em
+       95px e quebrava em duas linhas, empurrando o cabecalho inteiro para baixo. */
+    larg: { data:95, inicial:105, lancado:130, origem:150, destino:150, unidade:170,
             quem:190, fornecedor:170, saida:160, retorno:160, final:105 },
     /* O titulo de cada coluna mora AQUI, e a celula la embaixo o le daqui. A tela de
        Colunas precisa dos nomes sem desenhar a tabela, e escreve-los duas vezes seria
@@ -4316,7 +4318,24 @@
 
        `quem` fica vazio de proposito: o titulo dele muda com o grupo escolhido (Motoristas
        ou Usuários), e quem o escreve e o desenho. */
-    titulos: { data:'Data', inicial:'Saldo inicial', lancado:'Estoque', origem:'Origem',
+    /* ================= ELA NUNCA FOI "ESTOQUE" =================
+     *
+     * O escritorio parou nesta coluna e perguntou: "ela e' a mesma do cartao, ou sao
+     * coisas diferentes?". Sao diferentes, e o nome e' que dizia o contrario.
+     *
+     * ESTA COLUNA E O QUE FOI LANCADO DE SALDO INICIAL NAQUELE DIA — os lancamentos de
+     * Ajuste, e mais nada. O CARTAO "Total no Estoque" e' a posicao de AGORA das casas:
+     * tudo que entrou menos tudo que saiu, desde sempre, somando saidas e retornos que
+     * esta coluna nunca viu.
+     *
+     * OS DOIS SE TOCAM NUM PONTO SO: todo ajuste que aparece aqui entra la'. Esta
+     * coluna e' um INGREDIENTE do cartao, e nao o cartao — e com os dois chamados
+     * "Estoque", lado a lado na mesma tela, a leitura razoavel era que fossem o mesmo
+     * numero. A prova estava na propria tela: a coluna somava 0 no rodape enquanto o
+     * cartao dizia -10.484.
+     *
+     * O NOME NOVO DIZ O QUE ELA FAZ, e nenhum numero mudou. */
+    titulos: { data:'Data', inicial:'Saldo inicial', lancado:'Lançado no dia', origem:'Origem',
                destino:'Destino', unidade:'Unidade', quem:'Quem',
                fornecedor:'Fornecedor', saida:'Saída',
                retorno:'Retorno', final:'Saldo final' },
@@ -8170,7 +8189,10 @@
     var cs = ordemColunas(TAB_ATIVOS).filter(function(id){
       return id !== 'quem' && ocultasCsv.indexOf(id) < 0;
     });
-    var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Estoque',
+    /* O MESMO NOME DA TELA. O arquivo e a tabela sao duas leituras das mesmas
+       linhas, e uma coluna com dois nomes faz quem confere achar que sao dados
+       diferentes. */
+    var TIT = { data:'Data', inicial:'Saldo inicial', lancado:'Lançado no dia',
                 origem:'Origem', destino:'Destino', unidade:'Unidade',
                 fornecedor:'Fornecedor', saida:'Saída',
                 retorno:'Retorno', final:'Saldo final' };
