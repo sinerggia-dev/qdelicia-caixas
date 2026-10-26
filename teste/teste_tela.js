@@ -5787,14 +5787,20 @@ console.log('\n== classificar pelo titulo da coluna ==');
      não diz nada sobre o que acontece quando a tabela é desenhada.
      `corpo` não serve aqui: ele termina no primeiro `\n  }`, e os totais ficam depois. */
   var iOrd = adm.indexOf('lista = aplicarOrdem(lista, DEFS, ORDEM_FLUXO);');
-  /* A ANCORA VOLTOU A SER UMA CHAMADA SO', e dessa vez por uma razao melhor: a fileira
-     deixou de ter duas contas. Ela tinha — `totaisDe` nas visoes de lugar,
-     `totaisSimples` nas outras —, e era isso que fazia a mesma operacao somar 6.644 numa
-     aba e 36.520 na outra. Agora ha uma regua so', e a ancora e' ela. */
-  var iTot = adm.indexOf('var t = totaisSimples(linhasVivas());');
-  ok(iOrd > 0 && iTot > iOrd,
-    'e os totais são somados depois, sem se importar com a ordem — somar não depende dela',
-    [iOrd, iTot]);
+  ok(iOrd > 0, 'a confer\u00eancia achou onde a lista \u00e9 ordenada', iOrd);
+  /* ESTA PROVA COBRAVA QUE OS TOTAIS FOSSEM SOMADOS DEPOIS DA ORDENACAO, e a razao
+     escrita nela era "somar nao depende da ordem" — verdadeira, e que por isso mesmo
+     nao precisa de ordem nenhuma. Era uma coincidencia do arranjo do arquivo, e ela
+     caiu no dia em que o total subiu de lugar: o rodape da tabela passou a le-lo, e a
+     tabela desenha ANTES dos cartoes.
+     O QUE IMPORTA DE VERDADE e' que o total nao saia da lista ORDENADA: ele sai de
+     `linhasVivas()`, que e' a operacao do periodo, e nao de `lista`, que e' a aba
+     escolhida e ja' passou pelo classificador. Assim a ordem nao pode alcanca-lo,
+     esteja ele acima ou abaixo. */
+  ok(/var t = totaisSimples\(linhasVivas\(\)\);/.test(semComentarios(adm)) &&
+     !/var t = totaisSimples\(lista\);/.test(semComentarios(adm)),
+    'e o total sai da OPERA\u00c7\u00c3O, e n\u00e3o da lista ordenada \u2014 assim classificar a tabela ' +
+    'n\u00e3o pode alcan\u00e7ar o n\u00famero do cart\u00e3o, esteja a conta acima ou abaixo da ordena\u00e7\u00e3o');
 
   /* Nao se guarda: e um recorte para responder uma pergunta, nao um jeito de trabalhar.
      A busca deixou de ser pela palavra `qdc_ordem` solta: a ordem dos FILTROS na barra
@@ -13870,6 +13876,56 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       'e as duas colunas de saldo CORRIDO n\u00e3o \u2014 cada linha delas j\u00e1 carrega o que veio ' +
       'antes, e a soma de um acumulado n\u00e3o \u00e9 o saldo de ningu\u00e9m',
       { inicial: marcada('inicial'), final: marcada('final') });
+  })();
+
+  /* ================= NINGUEM LE UM TOTAL ANTES DE ELE EXISTIR =================
+   *
+   * O PAINEL FICOU EM "Carregando..." EM PRODUCAO, com os chips ja desenhados ao lado.
+   *
+   * `t` — o total da operacao — era declarado la' embaixo, junto dos cartoes, porque
+   * eram eles o unico leitor. Quando o rodape da tabela passou a explicar o recorte,
+   * ganhou um SEGUNDO leitor, e esse desenha ANTES. `var` nao avisa: a declaracao sobe
+   * sozinha para o topo da funcao e o VALOR fica onde estava. `t` existia, valia
+   * `undefined`, e `daOperacao.saiu` estourava no meio do desenho.
+   *
+   * NENHUMA BANCADA PEGOU, e a razao e' simples: nenhuma EXECUTA `desenharFluxo`. Ela
+   * depende de DOM demais para caber num sandbox, e por isso as provas medem as pecas
+   * dela uma a uma — cada peca estava certa. O que faltava era a ORDEM entre elas, que
+   * nenhuma peca sozinha pode garantir.
+   *
+   * ENTAO A ORDEM E COBRADA AQUI, no texto, que e' onde ela existe. Nao e' a melhor
+   * prova possivel — a melhor rodaria a funcao —, e' a que alcanca o defeito que
+   * aconteceu. */
+  (function () {
+    var corpo = fonteDaFuncao(semComentarios(adm), 'desenharFluxo');
+    ok(corpo.length > 2000,
+      'a confer\u00eancia recortou o desenho do fluxo \u2014 recorte vazio faria as provas ' +
+      'abaixo aprovarem qualquer coisa', corpo.length);
+
+    [['t', 'var t = totaisSimples(linhasVivas());'],
+     ['tOperacao', 'var tOperacao = totaisDe(linhasVivas());']].forEach(function (par) {
+      var nome = par[0], decl = par[1];
+      var iDecl = corpo.indexOf(decl);
+      ok(iDecl > 0, 'o total `' + nome + '` \u00e9 declarado dentro do desenho', iDecl);
+      /* O PRIMEIRO USO, e nao um uso qualquer: basta UM leitor antes da declaracao
+         para a tela estourar no meio. */
+      /* O USO E UMA LEITURA DE CAMPO — `t.saiu`, `tOperacao[campo]` —, e nao o nome
+         solto. Solto, o padrao achava o PARAMETRO `t` de `conta = function(t){...}`,
+         que e' outra variavel com o mesmo nome e vive dentro da propria funcao dela.
+         E e' a leitura de campo que estoura: `undefined.saiu`. O nome solto, num
+         `===`, nao quebra nada — devolve falso e segue. */
+      var usos = [];
+      var re = new RegExp('[^A-Za-z0-9_$.]' + nome + '\\s*[.\\[]', 'g');
+      var m;
+      while ((m = re.exec(corpo))) { usos.push(m.index); }
+      var antes = usos.filter(function (i) { return i < iDecl; });
+      ok(!antes.length,
+        'e ningu\u00e9m l\u00ea `' + nome + '` antes disso \u2014 `var` n\u00e3o avisa: a declara\u00e7\u00e3o sobe ' +
+        'sozinha e o valor fica onde estava, ent\u00e3o o leitor adiantado recebe ' +
+        '`undefined` e a tela estoura no meio do desenho, com metade dela j\u00e1 na ' +
+        'p\u00e1gina e um "Carregando..." no resto',
+        antes.map(function (i) { return corpo.slice(Math.max(0, i - 60), i + 40); }));
+    });
   })();
 
   var j = adm.indexOf('var t = totaisSimples(linhasVivas());');

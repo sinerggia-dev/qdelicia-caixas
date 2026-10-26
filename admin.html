@@ -6906,6 +6906,38 @@
     /* O saldo corrido vem PRONTO do servidor, e nao se recalcula aqui. Ele ja foi feito
        la sobre o historico inteiro: refaze-lo sobre a lista filtrada era o que fazia a
        linha de 17/09 abrir no saldo de 15/09 quando o filtro escondia o dia 16. */
+    /* ================= O TOTAL DA OPERACAO VEM ANTES DE QUEM O LE =================
+     *
+     * ELE ESTAVA LA EMBAIXO, junto dos cartoes, e era de la' que fazia sentido: os
+     * cartoes sao o primeiro leitor dele. Quando o rodape da tabela passou a explicar
+     * o recorte, ganhou um SEGUNDO leitor — e esse desenha ANTES.
+     *
+     * `var` NAO AVISA. A declaracao sobe sozinha para o topo da funcao e o VALOR fica
+     * onde estava: `t` existia, valia `undefined`, e `daOperacao.saiu` estourava. O
+     * painel ficava em "Carregando..." com os chips ja desenhados, porque eles vem
+     * antes na mesma funcao. Nenhuma bancada pegou: nenhuma EXECUTA `desenharFluxo`.
+     *
+     * AGORA ELE E CALCULADO ONDE A LISTA E ESCOLHIDA, que e' antes dos dois leitores.
+     * A prova que cobra esta ordem esta' em `teste_tela.js`. */
+    /* ================= O NUMERO E DA MATRIZ, E NAO DA ABA =================
+     *
+     * "Esse aplicativo e' da matriz. O que importa e' quanto saiu e quanto retornou,
+     * independente de rota, de unidade, de motorista. Tudo e' saida e tudo e' retorno."
+     *
+     * ENTAO O CARTAO NAO OLHA A ABA. `linhasVivas()` e' a operacao do periodo com os
+     * filtros da GAVETA aplicados — unidade, origem, destino, busca — e SEM o recorte
+     * do chip. Clicar em Motoristas, Rotas ou Em deficit troca o que a TABELA mostra, e
+     * nao quantas caixas sairam do galpao.
+     *
+     * A GAVETA CONTINUA VALENDO, e a diferenca entre ela e os chips nao e' de gosto:
+     * escolher "Origem: Matriz" e' dizer "quero so' o que saiu da Matriz", um pedido
+     * explicito de recorte; clicar em "Motoristas" e' dizer "me mostre isto por
+     * motorista", que e' um pedido de ARRANJO. O periodo, idem — "quanto saiu em
+     * outubro" e' a pergunta inteira. */
+    var t = totaisSimples(linhasVivas());
+    /* A REGUA DE LUGAR CONTINUA SENDO CALCULADA, para o rodape do cartao: ela e' a que
+       responde "quanto saiu da EMPRESA", sem contar a perna entre duas casas nossas. */
+    var tOperacao = totaisDe(linhasVivas());
     var lista = linhasFluxo();
     /* Os titulos vem do descritor da tabela — ver `titulos` la em cima. */
     var TIT = TAB_ATIVOS.titulos;
@@ -7303,10 +7335,6 @@
      * explicito de recorte; clicar em "Motoristas" e' dizer "me mostre isto por
      * motorista", que e' um pedido de ARRANJO. O periodo, idem — "quanto saiu em
      * outubro" e' a pergunta inteira. */
-    var t = totaisSimples(linhasVivas());
-    /* A REGUA DE LUGAR CONTINUA SENDO CALCULADA, para o rodape: ela e' a que responde
-       "quanto saiu da EMPRESA", sem contar a perna entre duas casas nossas. */
-    var tOperacao = totaisDe(linhasVivas());
     /* ================= POR QUE O CARTAO MUDA DE ABA PARA ABA =================
      *
      * O escritorio clicou nos nove chips e perguntou isso. A resposta e' que eles nao
