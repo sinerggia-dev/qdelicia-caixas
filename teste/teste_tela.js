@@ -12979,73 +12979,101 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'e os dois chamam a nota que diz o total da OPERA\u00c7\u00c3O quando ele difere \u2014 sem ela ' +
     'a r\u00e9gua da fronteira some da tela, e com ela a resposta de "quanto saiu da empresa"',
     [cSaiu.slice(-80), cVoltou.slice(-80)]);
-  /* ================= A NOTA DIZ A RAZAO CERTA DE CADA ABA =================
+  /* ================= O CRITERIO DO RECORTE, ESCRITO =================
    *
-   * O escritorio clicou nos nove chips e perguntou por que o cartao muda em cada um.
-   * A nota existia e dava a razao ERRADA em cinco deles: ela dizia "a transferencia
-   * entre casas nossas nao entra la" em cima de uma aba — Rotas, Clientes — cuja
-   * diferenca nao e' essa, e' ser um RECORTE. Explicar uma diferenca com um motivo
-   * verdadeiro que nao e' o dela e' pior do que nao explicar: quem conhece a operacao
-   * vai procurar a perna interna que nao esta la'.
+   * ESTA PROVA COBRAVA UM RAMO DE `notaDoTotal` que comparava o cartao com "Todas" e
+   * dizia "esta lista e' um recorte dela". Ele fazia sentido enquanto o cartao somava a
+   * lista desenhada; quando o cartao virou o numero da MATRIZ, os dois passaram a ser o
+   * mesmo valor por construcao e a frase nunca mais apareceu. O ramo saiu, e com ele
+   * esta parte da prova — nao por estar errada, mas por defender codigo que nao roda.
    *
-   * E A REFERENCIA MUDOU para "Todas", que e' a unica que a pessoa confere com UM
-   * CLIQUE. A anterior era a regua de LUGAR — "o que cruzou a fronteira da empresa" —,
-   * verdadeira e impossivel de reproduzir na tela: um terceiro numero numa tela que ja
-   * tinha dois foi justamente o que trouxe a pergunta.
+   * O TRABALHO FOI PARA `explicarRecorte`, no rodape da tabela, colado no numero que de
+   * fato diverge do cartao. E ele ganhou o que faltava: nao basta dizer "e' um
+   * recorte", quem apresenta ao cliente precisa saber O QUE ficou de fora.
    *
-   * RODADA, e nao lida. A versao anterior desta prova procurava as palavras "casas
-   * nossas" e "fronteira" no texto da funcao — e teria aprovado qualquer das duas
-   * frases dita em qualquer das abas. */
-  /* E A REFERENCIA SAI DA LISTA SEM O CHIP. `linhasVivas()` e' a operacao do periodo
-     com os filtros da gaveta e SEM o recorte do chip; `lista` e' o que esta' desenhado.
-     Trocando uma pela outra, os dois numeros ficam iguais por construcao e a nota nunca
-     aparece — o recorte volta a parecer o todo, calado. A prova logo abaixo RODA a nota
-     com os numeros ja' separados, entao ela nao alcanca a troca: esta alcanca. */
-  ok(/var tTodas = totaisSimples\(linhasVivas\(\)\);/.test(semComentarios(adm)),
-    'a refer\u00eancia da nota \u00e9 a lista SEM o chip \u2014 tirada da lista j\u00e1 recortada, os dois ' +
-    'n\u00fameros ficam iguais por constru\u00e7\u00e3o e a nota nunca aparece: o recorte volta a ' +
-    'parecer o todo, e calado');
+   * RODADO. Lida, a prova nao distinguiria um criterio certo de um texto generico. */
   (function () {
-    var fazNota = new Function('t', 'tTodas', 'tOperacao', 'FLUXO_FILTRO', 'Q',
+    var faz = new Function('Q', 'MOTIVO_DO_RECORTE',
+      fonteDaFuncao(adm, 'explicarRecorte') + ' return explicarRecorte;')(
+      { num: function (n) { return String(n); } },
+      new Function((adm.match(/var MOTIVO_DO_RECORTE = \{[\s\S]*?\n  \};/) || [''])[0] +
+        ' return MOTIVO_DO_RECORTE;')());
+
+    var OPER = { saiu: 50927, voltou: 32218 };
+
+    /* 1. SEM DIFERENCA, SEM AVISO. Motoristas, Usuarios e Tipos de caixa recortam a
+       operacao INTEIRA e fecham com o cartao: um aviso que aparece quando nao ha
+       diferenca nenhuma ensina a ignorar o aviso. */
+    ok(faz('MOTORISTA', { saiu: 50927, voltou: 32218 }, OPER) === '',
+      'a aba que fecha com o cart\u00e3o n\u00e3o explica nada \u2014 todo movimento tem quem levou, ' +
+      'quem lan\u00e7ou e um tipo de caixa, nem que seja "sem informa\u00e7\u00e3o", e um aviso que ' +
+      'aparece sem haver diferen\u00e7a ensina a ignorar o aviso',
+      faz('MOTORISTA', { saiu: 50927, voltou: 32218 }, OPER));
+
+    /* 2. ROTAS: os numeros da tela do escritorio, 35.978 contra 50.927. */
+    var r = faz('ROTA', { saiu: 35978, voltou: 27686 }, OPER);
+    ok(r.indexOf('35978') > 0 && r.indexOf('50927') > 0,
+      'o criterio traz os DOIS n\u00fameros \u2014 o desta lista e o do cart\u00e3o: sem os dois lado ' +
+      'a lado, a pessoa tem de procurar o outro na tela para entender a frase', r);
+    ok(r.indexOf(' 14949 de sa\u00edda e 4532 de retorno') > 0,
+      'e a DIFEREN\u00c7A j\u00e1 calculada, em caixas \u2014 50.927 menos 35.978 d\u00e1 14.949: fazer ' +
+      'essa subtra\u00e7\u00e3o de cabe\u00e7a \u00e9 o trabalho que a frase existe para poupar', r);
+    /* O SENTIDO DA SUBTRACAO, e nao so' os digitos. Invertida, ela diz "\u221214.949 de
+       sa\u00edda est\u00e1 em..." — os mesmos algarismos, com a frase afirmando o contr\u00e1rio do que
+       aconteceu. Procurar "14949" solto aprova as duas. */
+    ok(r.indexOf('-14949') < 0 && r.indexOf('\u221214949') < 0,
+      'e ela sai no sentido certo \u2014 o que FALTA nesta lista, e n\u00e3o o que sobra: ' +
+      'invertida, a frase mostra os mesmos algarismos afirmando o contr\u00e1rio', r);
+    ok(r.indexOf('rota nenhuma') > 0 && r.indexOf('casas') > 0,
+      'e diz O QUE ficou de fora \u2014 "\u00e9 um recorte" n\u00e3o responde nada a quem vai ' +
+      'apresentar isso a um cliente; a resposta \u00e9 quais linhas, e por qu\u00ea', r);
+
+    /* 3. FORNECEDORES: o criterio dele e OUTRO, e dizer o da rota ali seria explicar
+       com um motivo verdadeiro uma diferenca que tem outro. */
+    var f = faz('FORNECEDOR', { saiu: 9439, voltou: 7322 }, OPER);
+    ok(f.indexOf('Fornecedor') > 0 && f.indexOf('rota nenhuma') < 0,
+      'e cada aba tem o SEU crit\u00e9rio \u2014 o de Fornecedores \u00e9 o campo em branco no ' +
+      'lan\u00e7amento, e dizer ali o motivo das rotas explicaria com uma raz\u00e3o verdadeira ' +
+      'uma diferen\u00e7a que tem outra', f);
+    ok(f.indexOf('ainda n\u00e3o sa\u00edram da empresa') > 0,
+      'e o de Fornecedores diz tamb\u00e9m a regra da perna interna \u2014 ela \u00e9 a parte que ' +
+      'ningu\u00e9m adivinha: o lan\u00e7amento NOMEIA um fornecedor e mesmo assim n\u00e3o conta para ' +
+      'ele, porque as caixas n\u00e3o sa\u00edram da empresa', f);
+
+    /* 4. EM DEFICIT nao e uma lente, e uma pergunta — e o criterio dele diz isso. */
+    var d = faz('deficit', { saiu: 1000, voltou: 100 }, OPER);
+    ok(d.indexOf('Saldo final') > 0,
+      '"Em d\u00e9ficit" diz que peneira pelo Saldo final \u2014 \u00e9 a lista do que falta voltar, ' +
+      'e n\u00e3o a opera\u00e7\u00e3o', d);
+
+    /* 5. UMA ABA NOVA SEM CRITERIO ESCRITO nao fica muda: ela diz o que sabe. Mudo, o
+       dia em que alguem acrescentar um chip a tabela mostraria um numero menor sem
+       nada ao lado — que e' exatamente o estado de onde se saiu. */
+    var x = faz('ABA_QUE_NAO_EXISTE', { saiu: 10, voltou: 5 }, OPER);
+    ok(x.indexOf('n\u00e3o alcan\u00e7a') > 0,
+      'e uma aba nova, sem crit\u00e9rio escrito, n\u00e3o fica muda \u2014 muda, o dia em que ' +
+      'algu\u00e9m acrescentar um chip a tabela mostraria um n\u00famero menor sem nada ao lado, ' +
+      'que \u00e9 exatamente o estado de onde se saiu', x);
+  })();
+
+  /* E A NOTA DO CARTAO ficou com UM caso: a aba Todas, onde a unica diferenca possivel
+     e' a perna entre duas casas nossas — ela esta' na tabela e nao conta como saida da
+     empresa. Sem a frase, quem conhece a operacao conclui que sumiu lancamento. */
+  (function () {
+    var fazNota = new Function('t', 'tOperacao', 'FLUXO_FILTRO', 'Q',
       fonteDaFuncao(adm, 'notaDoTotal') + ' return notaDoTotal;');
     var Qn = { num: function (n) { return String(n); } };
-    function nota(aba, naTela, emTodas, naOperacao) {
-      return fazNota({ saiu: naTela }, { saiu: emTodas }, { saiu: naOperacao }, aba, Qn)('saiu');
-    }
-
-    /* 1. UMA LENTE QUE COBRE TUDO fica calada. Motoristas, Usuarios e Tipos de caixa
-       sao a mesma operacao cortada de outro jeito, e depois que o buraco do "sem nome"
-       foi fechado no servidor eles FECHAM com Todas. */
-    ok(nota('MOTORISTA', 36520, 36520, 32170) === '',
-      'a aba que cobre a opera\u00e7\u00e3o inteira n\u00e3o diz nada \u2014 Motoristas, Usu\u00e1rios e Tipos ' +
-      'de caixa s\u00e3o a MESMA opera\u00e7\u00e3o cortada de outro jeito, e um rodap\u00e9 que aparece ' +
-      'quando n\u00e3o h\u00e1 diferen\u00e7a nenhuma deixa de ser aviso',
-      nota('MOTORISTA', 36520, 36520, 32170));
-
-    /* 2. UM RECORTE DIZ QUANTO E O TODO, e diz que e' recorte. */
-    var r = nota('ROTA', 6644, 36520, 32170);
-    ok(r.indexOf('36520') > 0 && r.indexOf('em Todas') > 0,
-      'o recorte aponta para TODAS, que \u00e9 o n\u00famero que a pessoa confere com um clique \u2014 ' +
-      'apontar para uma terceira r\u00e9gua, imposs\u00edvel de reproduzir na tela, foi o que ' +
-      'trouxe a pergunta', r);
-    ok(r.indexOf('recorte') > 0,
-      'e diz que \u00e9 um recorte \u2014 sem o porqu\u00ea, a diferen\u00e7a parece defeito e algu\u00e9m vai ' +
-      '"consertar" o n\u00famero certo', r);
-    ok(r.indexOf('casas nossas') < 0,
-      'e N\u00c3O culpa a transfer\u00eancia entre casas nossas \u2014 essa \u00e9 a raz\u00e3o da aba Todas, e ' +
-      'dita aqui explicaria com um motivo verdadeiro uma diferen\u00e7a que tem outro: quem ' +
-      'conhece a opera\u00e7\u00e3o vai procurar a perna interna que n\u00e3o est\u00e1 l\u00e1', r);
-
-    /* 3. NA ABA TODAS, a unica diferenca possivel e' a perna entre duas casas nossas —
-       ela esta' na tabela e nao conta como saida da empresa. La' a frase e' a certa, e
-       sem ela quem conhece a operacao conclui que a tela perdeu lancamento. */
-    var a = nota('todas', 36520, 36520, 32170);
+    var a = fazNota({ saiu: 36520 }, { saiu: 32170 }, 'todas', Qn)('saiu');
     ok(a.indexOf('casas nossas') > 0 && a.indexOf('32170') > 0,
-      'e na aba Todas a nota continua dando a r\u00e9gua da fronteira \u2014 l\u00e1 ela \u00e9 a raz\u00e3o: a ' +
-      'perna entre duas casas nossas est\u00e1 na tabela e n\u00e3o conta como sa\u00edda da empresa, e ' +
-      'sem a frase quem conhece a opera\u00e7\u00e3o conclui que sumiu lan\u00e7amento', a);
-    ok(nota('todas', 36520, 36520, 36520) === '',
-      'e cala quando nem isso difere', nota('todas', 36520, 36520, 36520));
+      'na aba Todas a nota d\u00e1 a r\u00e9gua da fronteira \u2014 a perna entre duas casas nossas ' +
+      'est\u00e1 na tabela e n\u00e3o conta como sa\u00edda da empresa, e sem a frase quem conhece a ' +
+      'opera\u00e7\u00e3o conclui que sumiu lan\u00e7amento', a);
+    ok(fazNota({ saiu: 36520 }, { saiu: 36520 }, 'todas', Qn)('saiu') === '',
+      'e cala quando nem isso difere');
+    ok(!/FLUXO_FILTRO !== 'todas'/.test(fonteDaFuncao(semComentarios(adm), 'notaDoTotal')),
+      'e o ramo do recorte saiu daqui \u2014 ele comparava o cart\u00e3o com "Todas", que viraram ' +
+      'o mesmo valor por constru\u00e7\u00e3o quando o cart\u00e3o passou a ser o n\u00famero da matriz: ' +
+      'c\u00f3digo que n\u00e3o pode rodar responde na leitura e n\u00e3o responde na tela');
   })();
   /* O CARTAO DO DEFICIT VIROU SALDO, a pedido, e esta prova cobrava o rodape dele.
      O deficit era somado TRECHO A TRECHO — so' os caminhos com atraso, sem deixar que um
@@ -13732,8 +13760,12 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     var fonteR = fonteDaFuncao(adm, 'rodapeDaTabela');
     ok(!!fonteR, 'a confer\u00eancia recortou o rodap\u00e9 da tabela \u2014 recorte vazio faria as ' +
       'provas abaixo aprovarem qualquer coisa', fonteR.length);
+    /* `esc` ENTRA NO DUBLE porque o rodape passou a escapar a explicacao para dentro
+       de um atributo. Sem ele o sandbox estoura em vez de medir. */
     var faz = new Function('Q', fonteR + ' return rodapeDaTabela;')(
-      { num: function (n) { return String(n); } });
+      { num: function (n) { return String(n); },
+        esc: function (x) { return String(x).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+          .replace(/</g, '&lt;').replace(/>/g, '&gt;'); } });
 
     var CS = [
       { id: 'quem',    d: { t: 'Local' } },
@@ -13777,11 +13809,34 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       'nem uma tabela sem coluna que se some \u2014 um rodap\u00e9 todo em branco parece defeito',
       faz(LS, [CS[0], CS[1]]));
 
+    /* ---- E O PORQUE DO RECORTE, DENTRO DELE ----
+       O criterio pode estar perfeito e nao chegar a tela: e' o defeito mais repetido
+       deste projeto, e foi o que a sabotagem mostrou aqui — apagado o `<span class=
+       "pq">`, o rodape continuava perfeito e a explicacao nao existia para ninguem. */
+    var comPq = faz(LS, CS, 'porque sim, e assim e assado');
+    ok(comPq.indexOf('class="pq"') > 0 &&
+       comPq.indexOf('title="porque sim, e assim e assado"') > 0,
+      'o crit\u00e9rio chega at\u00e9 a tela, no bal\u00e3o do marcador \u2014 uma explica\u00e7\u00e3o perfeita que ' +
+      'ningu\u00e9m desenha \u00e9 o defeito mais repetido deste projeto', comPq);
+    ok(comPq.indexOf('aria-label="porque sim, e assim e assado"') > 0 &&
+       comPq.indexOf('tabindex="0"') > 0,
+      'e quem navega pelo teclado alcan\u00e7a a mesma explica\u00e7\u00e3o \u2014 num `title` puro ela ' +
+      'ficaria s\u00f3 para quem tem mouse', comPq);
+    ok(faz(LS, CS).indexOf('class="pq"') < 0,
+      'e sem crit\u00e9rio n\u00e3o nasce marcador \u2014 um "?" que n\u00e3o explica nada ensina a n\u00e3o ' +
+      'parar o mouse nos que explicam', faz(LS, CS));
+    ok(comPq.indexOf('total desta lista') > 0,
+      'e o r\u00f3tulo continua l\u00e1 \u2014 o marcador acompanha o nome do n\u00famero, e n\u00e3o o ' +
+      'substitui', comPq);
+
     /* E A TABELA O USA. Medida sozinha, a funcao pode estar perfeita e nao ser chamada
        — e' o defeito mais comum deste projeto. */
-    ok(semComentarios(adm).indexOf("'</tbody>'+rodapeDaTabela(lista, cs)+'</table>") > 0,
+    ok(semComentarios(adm).indexOf("'</tbody>'+rodapeDaTabela(lista, cs,") > 0,
       'e a tabela o desenha \u2014 uma pe\u00e7a perfeita que ningu\u00e9m chama \u00e9 o defeito mais ' +
       'comum deste projeto');
+    ok(semComentarios(adm).indexOf('explicarRecorte(FLUXO_FILTRO, totaisSimples(lista), t)') > 0,
+      'e o crit\u00e9rio do recorte chega at\u00e9 ele, com os totais DESTA lista e os da ' +
+      'opera\u00e7\u00e3o \u2014 sem os dois, n\u00e3o h\u00e1 diferen\u00e7a a explicar nem n\u00famero a citar');
 
     /* E AS COLUNAS DE VERDADE CARREGAM A MARCA. O cen\u00e1rio acima roda com colunas de
        mentira, e com elas a prova mede a FUNCAO — nao mede quais colunas da tela

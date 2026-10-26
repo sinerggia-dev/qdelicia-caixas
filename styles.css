@@ -1680,6 +1680,25 @@ tfoot tr.lin-total td{position:sticky;bottom:0;z-index:2;
   font-variant-numeric:tabular-nums;padding-top:9px;padding-bottom:9px}
 tfoot tr.lin-total:hover td{background:var(--surface-2)}
 
+/* ---------- o PORQUE do recorte, colado no total da lista ----------
+ *
+ * O escritorio perguntou tres vezes, com tres abas diferentes, por que a tabela soma
+ * menos que o cartao. A resposta sempre esteve certa e em lugar nenhum.
+ *
+ * ELE PRECISA SER VISTO PARA SER USADO: um `title` num texto comum nao se anuncia, e
+ * ninguem para o mouse em cima do que nao parece ter nada embaixo. O circulo com a
+ * interrogacao e o `help` no cursor sao o convite.
+ *
+ * E ALCANCAVEL PELO TECLADO (`tabindex` no HTML): quem navega por tab ve a mesma
+ * explicacao, que num `title` puro ficaria so para quem tem mouse. */
+.pq{display:inline-flex;align-items:center;justify-content:center;
+  width:14px;height:14px;margin-left:6px;border-radius:50%;
+  border:1px solid var(--linha-viva);background:transparent;
+  font-size:9.5px;font-weight:700;line-height:1;color:var(--txt3);
+  cursor:help;vertical-align:1px}
+.pq:hover,.pq:focus-visible{background:var(--neutro);color:#fff;
+  border-color:var(--neutro);outline:none}
+
 /* ---------- confirmação dentro da página ---------- */
 .confirmando{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--vermelho)}
 .confirma-fundo{

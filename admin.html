@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=a0592d52">
+<link rel="stylesheet" href="styles.css?v=539d5f82">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -6620,7 +6620,56 @@
    * PELA MESMA CHAVE QUE ORDENA A COLUNA, e nao por um campo escrito de novo aqui: sao
    * a mesma resposta, e duas leituras da mesma coluna divergem no primeiro conserto que
    * so' uma receber. */
-  function rodapeDaTabela(lista, cs){
+  /* ================= POR QUE ESTA LISTA SOMA MENOS QUE O CARTAO =================
+   *
+   * O escritorio perguntou tres vezes, com tres abas diferentes, e a resposta sempre
+   * esteve certa e em lugar nenhum: o cartao de cima e' a operacao da matriz e nao muda
+   * com a aba; a tabela, em algumas abas, mostra um PEDACO dela.
+   *
+   * O CRITERIO DE CADA PEDACO AGORA ESTA ESCRITO, e colado no numero que diverge. Nao
+   * basta dizer "e' um recorte": quem apresenta ao cliente precisa saber O QUE ficou de
+   * fora, senao a unica resposta possivel e' "o sistema faz assim".
+   *
+   * AS TRES QUE NAO APARECEM AQUI sao Motoristas, Usuarios e Tipos de caixa, e e' de
+   * proposito: todo movimento tem quem levou, quem lancou e um tipo de caixa — nem que
+   * seja "sem informacao" —, entao essas tres recortam a operacao INTEIRA e fecham com
+   * o cartao. Elas nao tem o que explicar, e um aviso que aparece quando nao ha
+   * diferenca ensina a ignorar o aviso. */
+  var MOTIVO_DO_RECORTE = {
+    ROTA: 'as linhas que n\u00e3o passam por rota nenhuma \u2014 transfer\u00eancia entre duas casas ' +
+          'nossas, ida ao fornecedor e volta dele, e lan\u00e7amentos sem uma das pontas. ' +
+          'Elas n\u00e3o t\u00eam rota a que pertencer, e continuam em Todas.',
+    CLIENTE: 'as linhas que n\u00e3o tocam nenhum cliente \u2014 elas continuam em Todas.',
+    FILIAL: 'as linhas que n\u00e3o tocam nenhuma casa nossa, matriz ou filial \u2014 elas ' +
+            'continuam em Todas.',
+    deficit: 'as linhas cujo Saldo final N\u00c3O ficou negativo: as que fecharam ou ' +
+             'sobraram. Esta aba \u00e9 a lista do que falta voltar, e n\u00e3o a opera\u00e7\u00e3o.',
+    FORNECEDOR: 'os lan\u00e7amentos em que ningu\u00e9m preencheu o campo Fornecedor \u2014 rota ' +
+                'para cliente e transfer\u00eancia entre casas s\u00e3o a maior parte da opera\u00e7\u00e3o. ' +
+                'A perna entre duas casas nossas tamb\u00e9m n\u00e3o conta para o fornecedor: as ' +
+                'caixas ainda n\u00e3o sa\u00edram da empresa.'
+  };
+
+  /* A FRASE SO EXISTE QUANDO HA DIFERENCA, e ela diz a diferenca em CAIXAS — que e' a
+     unica unidade comparavel entre as abas. O numero de LINHAS nao serve: nas abas de
+     pessoa uma linha e' um motorista, e nas de lugar e' um trecho, entao "18 de 83"
+     compara fornecedores com trechos e nao quer dizer nada. */
+  function explicarRecorte(lente, daLista, daOperacao){
+    var dSaiu = daOperacao.saiu - daLista.saiu;
+    var dVoltou = daOperacao.voltou - daLista.voltou;
+    if (!dSaiu && !dVoltou) return '';
+    var motivo = MOTIVO_DO_RECORTE[lente] ||
+      'as linhas que esta aba n\u00e3o alcan\u00e7a \u2014 elas continuam em Todas.';
+    return 'Esta lista soma ' + Q.num(daLista.saiu) + ' de sa\u00edda e ' +
+      Q.num(daLista.voltou) + ' de retorno.' + String.fromCharCode(10) +
+      'A opera\u00e7\u00e3o do per\u00edodo soma ' + Q.num(daOperacao.saiu) + ' e ' +
+      Q.num(daOperacao.voltou) + ', que \u00e9 o n\u00famero dos cart\u00f5es l\u00e1 em cima \u2014 ele n\u00e3o ' +
+      'muda com a aba.' + String.fromCharCode(10) +
+      'A diferen\u00e7a, ' + Q.num(dSaiu) + ' de sa\u00edda e ' + Q.num(dVoltou) +
+      ' de retorno, est\u00e1 em ' + motivo;
+  }
+
+  function rodapeDaTabela(lista, cs, explicacao){
     if (!lista.length) return '';
     var temSoma = cs.some(function(c){ return c.d && c.d.soma; });
     if (!temSoma) return '';
@@ -6630,8 +6679,16 @@
         return '<td class="num"><b>' + Q.num(s) + '</b></td>';
       }
       /* O ROTULO NA PRIMEIRA CELULA. Um rodape de numeros sem dizer de que lista ele
-         fala seria um terceiro numero solto — que e' o problema que ele vem resolver. */
-      return '<td>' + (i === 0 ? '<span class="fsub">total desta lista</span>' : '') + '</td>';
+         fala seria um terceiro numero solto — que e' o problema que ele vem resolver.
+         E O PORQUE JUNTO DELE, quando ha um: o criterio do recorte colado no numero que
+         diverge do cartao. Escrito noutro canto da tela, ele e' uma nota de rodape que
+         ninguem liga ao numero. */
+      if (i !== 0) return '<td></td>';
+      return '<td><span class="fsub">total desta lista</span>' +
+        (explicacao
+          ? '<span class="pq" tabindex="0" role="note" title="' + Q.esc(explicacao) +
+            '" aria-label="' + Q.esc(explicacao) + '">?</span>'
+          : '') + '</td>';
     }).join('');
     return '<tfoot><tr class="lin-total">' + celulas + '<td class="folga"></td></tr></tfoot>';
   }
@@ -7093,7 +7150,9 @@
         /* NA VISAO DE CASA o modo nao vem do seletor — ele E' a visao. */
         corpoDaTabela(lista, cs, gente,
                       porCasa ? 'unidade' : (agrupado ? FLUXO_GRUPO : ''))+
-        '</tbody>'+rodapeDaTabela(lista, cs)+'</table></div>';
+        '</tbody>'+rodapeDaTabela(lista, cs,
+                                  explicarRecorte(FLUXO_FILTRO, totaisSimples(lista), t))+
+        '</table></div>';
     ligarArrastarColunas(TAB_ATIVOS);
     ligarLarguraColunas(TAB_ATIVOS);
     /* O CADEADO SE PINTA QUANDO A TABELA DESENHA, como em Movimentos. Pintado so num
@@ -7273,12 +7332,15 @@
      * A REGUA DE LUGAR SO FALA ONDE ELA E A RAZAO: na aba Todas, onde a unica diferenca
      * possivel e' a perna entre duas casas nossas. Dita nas outras, ela explicaria com
      * um motivo verdadeiro uma diferenca que tem outro. */
-    var tTodas = totaisSimples(linhasVivas());
+    /* AQUI HAVIA UM RAMO MORTO. Ele comparava o cartao com "Todas" e dizia "esta
+       lista e' um recorte dela" — e fazia sentido enquanto o cartao somava a lista
+       desenhada. Quando o cartao virou o numero da MATRIZ, os dois passaram a ser o
+       mesmo valor por construcao, e a frase nunca mais apareceu.
+       CODIGO QUE NAO PODE RODAR E PIOR QUE CODIGO ERRADO: ele responde perguntas na
+       leitura e nao responde nenhuma na tela, e a proxima pessoa conta com ele.
+       O TRABALHO DELE NAO SE PERDEU: foi para `explicarRecorte`, no rodape da tabela,
+       que e' onde o numero divergente de fato esta'. */
     function notaDoTotal(campo){
-      if (FLUXO_FILTRO !== 'todas') {
-        if (t[campo] === tTodas[campo]) return '';
-        return ' \u00b7 ' + Q.num(tTodas[campo]) + ' em Todas \u2014 esta lista \u00e9 um recorte dela';
-      }
       if (t[campo] === tOperacao[campo]) return '';
       return ' \u00b7 ' + Q.num(tOperacao[campo]) + ' na opera\u00e7\u00e3o inteira' +
         ' \u2014 a transfer\u00eancia entre casas nossas n\u00e3o entra l\u00e1, mas est\u00e1 na tabela';
