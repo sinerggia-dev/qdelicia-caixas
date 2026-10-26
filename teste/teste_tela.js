@@ -12879,40 +12879,60 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      de confiar na tela inteira. */
   /* O TEXTO ESTA ESCAPADO NO ARQUIVO (`Sa\\u00edda`), e uma regex com o acento de verdade
      nao o acha: procurar o pedaco sem acento e' o que mede o que esta' la'. */
-  /* ================= O NUMERO E DA MATRIZ, E NAO DA ABA =================
+  /* ================= OS CARTOES NAO TEM MAIS OBSERVACAO =================
    *
-   * ESTA PROVA COBRAVA "a soma da coluna", e defendia a decisao anterior: o cartao
-   * encolhia junto com a aba. O escritorio voltou com a regra do negocio, que vale
-   * mais: "esse aplicativo e' da matriz. O que importa e' quanto saiu e quanto
-   * retornou, independente de rota, de unidade, de motorista. Tudo e' saida e tudo e'
-   * retorno."
+   * AQUI MORAVAM TRES PROVAS, e cada uma defendeu uma versao diferente da mesma linha
+   * de rodape: primeiro "a soma da coluna", depois "a aba nao muda este numero", mais
+   * a nota com o total da operacao. Todas saíram a pedido do escritorio: os cinco
+   * cartoes tinham, cada um, uma frase embaixo, e as cinco juntas viraram um paragrafo
+   * no alto da tela que ninguem le' depois da primeira vez.
    *
-   * ENTAO O CARTAO NAO SEGUE A ABA. Olhar a operacao por motorista nao muda quantas
-   * caixas sairam do galpao, e um numero que muda ao trocar de lente nao se apresenta
-   * a cliente nenhum.
+   * O QUE AS FRASES DIZIAM NAO SE PERDEU TODO. O criterio do recorte — que era o unico
+   * conteudo que respondia a uma pergunta repetida — foi para o "?" do rodape da
+   * TABELA, colado no numero que diverge, e tem prova propria mais abaixo.
    *
-   * A QUEIXA ANTIGA CONTINUA ATENDIDA, e por outro caminho: o que faltava nao era o
-   * cartao encolher, era a COLUNA ter um total com nome. Ele esta' no pe da tabela
-   * agora, em `rodapeDaTabela`. Cada numero tem o seu lugar — o cartao em cima diz a
-   * operacao, o rodape colado na coluna diz a lista —, e nenhum dos dois finge ser o
-   * outro. */
-  ok(fileira.indexOf('a aba n') > 0,
-    'o rodap\u00e9 diz que a ABA N\u00c3O MUDA o n\u00famero \u2014 ele \u00e9 da matriz: quanto saiu e quanto ' +
-    'voltou no per\u00edodo, independente de rota, de unidade ou de motorista. Prometendo ' +
-    '"a soma da coluna", ele voltaria a encolher a cada lente, e um n\u00famero que muda ao ' +
-    'trocar de aba n\u00e3o se apresenta a cliente nenhum',
-    fileira.indexOf('a aba n'));
-  /* SEM OS COMENTARIOS. A promessa antiga aparece na PROSA que explica por que ela
-     saiu, e a prova a achava ali e reprovava o codigo certo. E' a setima vez nesta
-     semana que uma prova minha le' a defesa do codigo como se fosse o codigo: a regra
-     vale para toda prova que procura uma PALAVRA, e nao so' para as que eu lembro. */
-  ok(semComentarios(fileira).indexOf('a soma da coluna') < 0,
-    'e a promessa antiga saiu junto \u2014 um rodap\u00e9 que descreve outra conta \u00e9 pior do ' +
-    'que rodap\u00e9 nenhum', semComentarios(fileira).indexOf('a soma da coluna'));
-  ok(/notaDoTotal\('saiu'\)/.test(fileira) && /notaDoTotal\('voltou'\)/.test(fileira),
-    'e diz quanto \u00e9 a OPERA\u00c7\u00c3O INTEIRA quando os dois diferem \u2014 foi o pedido de ' +
-    'ontem, "o total que saiu e retornou \u00e9 comum a todos", e os dois cabem juntos ' +
-    'desde que cada um diga o que \u00e9', fileira.indexOf('notaDoTotal'));
+   * A PROVA AGORA E A AUSENCIA, e ela tem de ser medida: uma linha vazia continua
+   * ocupando a altura dela em todo cartao, e cinco espacos reservados para texto que
+   * nao existe desalinham a fileira. */
+  (function () {
+    var semCom = semComentarios(fileira);
+    ['a soma da coluna', 'a aba n\u00e3o muda', 'notaDoTotal', 'janelaDoPainel',
+     'posi\u00e7\u00e3o de agora', 'subtra\u00e7\u00e3o dos dois cart\u00f5es'].forEach(function (frase) {
+      ok(semCom.indexOf(frase) < 0,
+        'os cart\u00f5es n\u00e3o dizem mais "' + frase + '" \u2014 as cinco frases de rodap\u00e9 juntas ' +
+        'viraram um par\u00e1grafo no alto da tela, lido por ningu\u00e9m depois da primeira vez',
+        semCom.indexOf(frase));
+    });
+    /* CARTAO A CARTAO, PELO NOME DE CADA UM. Procurar frases que sairam pega quem
+       repoe A MESMA frase, e deixa passar quem repoe outra — foi o que a sabotagem
+       mostrou: devolvida uma observacao ao cartao da Taxa, com um texto que nunca
+       existiu ali, a bancada inteira continuou verde.
+       A FORMA E O QUE SE COBRA, e nao o conteudo: o terceiro argumento de `tileCor`
+       e' a observacao, e nos cinco ele e' a string vazia. Assim um texto novo, que
+       ninguem imaginou, tambem reprova. */
+    ['Total no Estoque', 'Saiu', 'Voltou', 'Saldo', 'Taxa de Retorno'].forEach(function (nome) {
+      var re = new RegExp("'" + nome + "',\\s*(/\\*[\\s\\S]*?\\*/\\s*)?''");
+      ok(re.test(fileira),
+        'o cart\u00e3o "' + nome + '" fica sem observa\u00e7\u00e3o \u2014 removida de alguns e mantida ' +
+        'noutros, a fileira sai com cart\u00f5es de alturas diferentes e a diferen\u00e7a parece ' +
+        'defeito', fileira.slice(Math.max(0, fileira.indexOf("'" + nome + "'") - 30),
+                                 fileira.indexOf("'" + nome + "'") + 90));
+    });
+    /* E SAO CINCO, e nao quatro nem seis: um cartao novo entra por aqui e tem de
+       passar pela lista acima, em vez de nascer com uma frase embaixo. */
+    ok((fileira.match(/tileCor\(/g) || []).length === 5,
+      'e a fileira tem CINCO cart\u00f5es \u2014 um sexto entra pela lista acima, em vez de ' +
+      'nascer com uma frase embaixo que ningu\u00e9m cobrou',
+      (fileira.match(/tileCor\(/g) || []).length);
+
+    /* E A LINHA SO NASCE SE HOUVER TEXTO. Mantida vazia, ela reserva a altura dela em
+       todo cartao e a fileira sai desalinhada. */
+    var iTc = adm.indexOf('  function tileCor(');
+    var corpoTc = adm.slice(iTc, adm.indexOf(String.fromCharCode(10) + '  }', iTc));
+    ok(/\(d \? '<div class="d">'\+d\+'<\/div>' : ''\)/.test(corpoTc),
+      'e a linha de baixo s\u00f3 nasce quando h\u00e1 o que dizer \u2014 vazia, ela reserva a altura ' +
+      'dela em todo cart\u00e3o e os cinco saem desalinhados entre si', corpoTc.slice(-220));
+  })();
 
   /* A ORDEM e pedida, entao e conferida. */
   var rotulos = (fileira.match(/'([A-Z\u00c0-\u00dd][^']*)'/g) || [])
@@ -12972,19 +12992,13 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'os dois cart\u00f5es do movimento leem o campo com o nome deles \u2014 trocados, a fileira ' +
     'continua somando certo e contando a viagem errada', { saiu: !!cSaiu, voltou: !!cVoltou });
 
-  /* O RODAPE DIZ O QUE O NUMERO E — a soma da coluna —, e a EXPLICACAO da fronteira
-     mudou de lugar: ela agora mora na nota, ao lado do total da operacao, que e' onde
-     ela faz sentido. No rodape do numero ela descrevia uma regua que o numero deixou de
-     usar, e um rodape que descreve outra conta e' pior do que rodape nenhum. */
-  ok(cSaiu.indexOf('a aba n') > 0 && cVoltou.indexOf('a aba n') > 0,
-    'os DOIS rodap\u00e9s dizem que a aba n\u00e3o muda o n\u00famero \u2014 escrito num s\u00f3, a Sa\u00edda ' +
-    'prometeria uma coisa e o Retorno outra, sobre a mesma tabela',
-    [cSaiu.slice(0, 90), cVoltou.slice(0, 90)]);
-  ok(cSaiu.indexOf("notaDoTotal('saiu')") > 0 &&
-     cVoltou.indexOf("notaDoTotal('voltou')") > 0,
-    'e os dois chamam a nota que diz o total da OPERA\u00c7\u00c3O quando ele difere \u2014 sem ela ' +
-    'a r\u00e9gua da fronteira some da tela, e com ela a resposta de "quanto saiu da empresa"',
-    [cSaiu.slice(-80), cVoltou.slice(-80)]);
+  /* OS DOIS SEM OBSERVACAO, e isto e' meia prova: a outra metade e' que eles continuam
+     lendo o campo com o NOME deles, que e' a afirmacao logo acima. Sem observacao e com
+     os campos trocados, a fileira sai limpa e errada. */
+  ok(/'Saiu', ''/.test(cSaiu) && /'Voltou', ''/.test(cVoltou),
+    'os dois cart\u00f5es ficam sem a linha de observa\u00e7\u00e3o \u2014 removida de um s\u00f3, a fileira ' +
+    'sai com um cart\u00e3o mais alto que o vizinho e a diferen\u00e7a parece defeito',
+    [cSaiu.slice(0, 60), cVoltou.slice(0, 60)]);
   /* ================= O CRITERIO DO RECORTE, ESCRITO =================
    *
    * ESTA PROVA COBRAVA UM RAMO DE `notaDoTotal` que comparava o cartao com "Todas" e
@@ -13062,25 +13076,15 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       'que \u00e9 exatamente o estado de onde se saiu', x);
   })();
 
-  /* E A NOTA DO CARTAO ficou com UM caso: a aba Todas, onde a unica diferenca possivel
-     e' a perna entre duas casas nossas — ela esta' na tabela e nao conta como saida da
-     empresa. Sem a frase, quem conhece a operacao conclui que sumiu lancamento. */
-  (function () {
-    var fazNota = new Function('t', 'tOperacao', 'FLUXO_FILTRO', 'Q',
-      fonteDaFuncao(adm, 'notaDoTotal') + ' return notaDoTotal;');
-    var Qn = { num: function (n) { return String(n); } };
-    var a = fazNota({ saiu: 36520 }, { saiu: 32170 }, 'todas', Qn)('saiu');
-    ok(a.indexOf('casas nossas') > 0 && a.indexOf('32170') > 0,
-      'na aba Todas a nota d\u00e1 a r\u00e9gua da fronteira \u2014 a perna entre duas casas nossas ' +
-      'est\u00e1 na tabela e n\u00e3o conta como sa\u00edda da empresa, e sem a frase quem conhece a ' +
-      'opera\u00e7\u00e3o conclui que sumiu lan\u00e7amento', a);
-    ok(fazNota({ saiu: 36520 }, { saiu: 36520 }, 'todas', Qn)('saiu') === '',
-      'e cala quando nem isso difere');
-    ok(!/FLUXO_FILTRO !== 'todas'/.test(fonteDaFuncao(semComentarios(adm), 'notaDoTotal')),
-      'e o ramo do recorte saiu daqui \u2014 ele comparava o cart\u00e3o com "Todas", que viraram ' +
-      'o mesmo valor por constru\u00e7\u00e3o quando o cart\u00e3o passou a ser o n\u00famero da matriz: ' +
-      'c\u00f3digo que n\u00e3o pode rodar responde na leitura e n\u00e3o responde na tela');
-  })();
+  /* A PROVA DE `notaDoTotal` SAIU com a funcao que ela media. A nota era a linha de
+     observacao dos cartoes — "32.170 na operacao inteira, a transferencia entre
+     casas nossas nao entra la" —, e as observacoes foram removidas a pedido do
+     escritorio: cinco frases de rodape, uma por cartao, viraram um paragrafo no
+     alto da tela que ninguem le' depois da primeira vez.
+     A REGUA DE LUGAR CONTINUA MEDIDA, em `totaisDe`, que tem bancada propria: o
+     que saiu foi o texto que a anunciava, e nao a conta.
+     E O CRITERIO DO RECORTE — o unico conteudo daquelas frases que respondia a uma
+     pergunta repetida — foi para o "?" do rodape da TABELA, e tem prova acima. */
   /* O CARTAO DO DEFICIT VIROU SALDO, a pedido, e esta prova cobrava o rodape dele.
      O deficit era somado TRECHO A TRECHO — so' os caminhos com atraso, sem deixar que um
      com sobra abatesse o de outro — e tinha uma logica de COBRANCA. Mas ele nao fechava
@@ -13088,35 +13092,22 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      Saldo Final logo abaixo. O rodape existia para DEFENDER a diferenca, e um paragrafo
      defendendo um numero e' um numero que ja' perdeu.
      AGORA O CARTAO E RETORNO MENOS SAIDA, e ele FECHA pelos dois caminhos. */
+  /* O CARTAO SALDO TAMBEM FICOU SEM OBSERVACAO, com os outros quatro. Ele dizia
+     "Retorno menos Saida no periodo, a subtracao dos dois cartoes ao lado" — verdade, e
+     a frase mais util das cinco, porque nomeava uma conta que da' para refazer olhando.
+     SAIU PORQUE O CARTAO JA A DIZ SEM TEXTO: o valor E' a subtracao, com `+` quando
+     sobra, `\u2212` quando falta e `0` limpo quando fecha, e a cor acompanha. A prova que
+     RODA o cartao, logo abaixo, cobra exatamente isso — e e' ela que defende a conta,
+     enquanto esta defendia o anuncio dela. */
   var cSaldo = fileira.slice(fileira.indexOf("'Saldo'"));
   cSaldo = cSaldo.slice(0, cSaldo.indexOf('COR_TILE.') + 40);
-  ok(fileira.indexOf("'Saldo'") > 0 &&
-     cSaldo.indexOf('Retorno menos Sa') > 0,
-    'o cartão diz que é Retorno menos Saída — era "Caixas que Saíram e Não Voltaram", ' +
-    'somado trecho a trecho, e não fechava nem com a subtração dos dois cartões ao ' +
-    'lado nem com a coluna Saldo Final logo abaixo', cSaldo.slice(0, 200));
-  /* ELE PROMETIA "a soma da coluna Saldo Final". Parou de ser verdade: a coluna de
-     uma visao de lugar e' o saldo CORRIDO — quem fecha ali e' a ULTIMA linha, e nao a
-     soma —, e o cartao passou a ser da operacao enquanto a coluna continua sendo da
-     lista. Promessa que nao se cumpre e' pior que promessa nenhuma: quem tenta conferir
-     por ela acha outro numero e para de confiar na tela.
-     O CAMINHO QUE SOBRA E O BOM: a subtracao dos dois cartoes ao lado, que qualquer um
-     refaz de cabeca com os dois numeros a vista. */
-  ok(cSaldo.indexOf('a subtra') > 0,
-    'e diz que \u00e9 a subtra\u00e7\u00e3o dos dois cart\u00f5es ao lado \u2014 quem confere refaz a conta de ' +
-    'cabe\u00e7a com os dois n\u00fameros \u00e0 vista, e era de um n\u00famero sem caminho nenhum que a ' +
-    'tela sofria', cSaldo.slice(0, 200));
-  /* SEM OS COMENTARIOS, pela mesma razao da prova irma. */
-  ok(semComentarios(cSaldo).indexOf('soma da coluna') < 0,
-    'e n\u00e3o promete mais a soma de uma coluna de saldo CORRIDO \u2014 nela quem fecha \u00e9 a ' +
-    '\u00faltima linha, e n\u00e3o a soma', semComentarios(cSaldo).slice(0, 200));
-  /* SEM OS COMENTARIOS. O rotulo antigo aparece no COMENTARIO que explica a troca, e a
-     prova o achava ali e reprovava o codigo certo. E' a quinta vez nesta semana que uma
-     prova minha le' a prosa que defende o codigo como se fosse o codigo — a regra ja'
-     esta escrita noutra bancada, e agora vale aqui tambem. */
-  ok(semComentarios(fileira).indexOf('Caixas que Sa') < 0,
-    'e o rótulo antigo saiu junto — mantido sobre uma subtração, ele seria o nome de uma ' +
-    'conta sobre o resultado de outra');
+  ok(fileira.indexOf("'Saldo'") > 0 && /'Saldo',[\s\S]{0,400}?'',/.test(cSaldo),
+    'o cart\u00e3o Saldo fica sem a linha de observa\u00e7\u00e3o, como os outros quatro \u2014 o que ela ' +
+    'dizia o pr\u00f3prio n\u00famero diz: o sinal \u00e9 a conta, e a cor acompanha',
+    cSaldo.slice(0, 200));
+  ok(semComentarios(cSaldo).indexOf('Caixas que Sa') < 0,
+    'e o r\u00f3tulo antigo continua fora \u2014 "Caixas que Sa\u00edram e N\u00e3o Voltaram" sobre uma ' +
+    'subtra\u00e7\u00e3o seria o nome de uma conta sobre o resultado de outra');
 
   /* ---- O CARTAO RODADO, E NAO LIDO ----
    *
@@ -13183,10 +13174,14 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     ok(zero && zero.cor === 'COR_FORA', 'e fechado n\u00e3o \u00e9 vermelho', zero);
 
     /* O RODAPE SO AVISA QUANDO HA O QUE AVISAR. */
-    ok(neg && neg.pe.indexOf('saiu mais do que voltou') > 0 &&
-       pos.pe.indexOf('saiu mais do que voltou') < 0,
-      'e o rodap\u00e9 diz "saiu mais do que voltou" s\u00f3 quando saiu \u2014 dito sempre, ele deixa ' +
-      'de ser aviso e vira enfeite', { neg: neg && neg.pe, pos: pos && pos.pe });
+    /* O RODAPE DO CARTAO SAIU, a pedido, e com ele o aviso "saiu mais do que voltou".
+       A INFORMACAO NAO SE PERDEU: ela esta' no SINAL e na COR, que esta mesma prova
+       cobra acima — `\u2212` e vermelho quando falta, `+` e cor normal quando sobra. Era
+       o texto que repetia em palavras o que o numero ja' mostrava. */
+    ok(neg && neg.pe === '' && pos.pe === '',
+      'e o cart\u00e3o n\u00e3o tem mais linha de observa\u00e7\u00e3o em caso nenhum \u2014 o sinal e a cor j\u00e1 ' +
+      'dizem se falta ou sobra, e o texto repetia em palavras o que o n\u00famero mostra',
+      { neg: neg && neg.pe, pos: pos && pos.pe });
   })();
 
   /* ESTA PROVA DIZIA QUE O RODAPE TROCAVA DE DONO com a aba — "por motorista", "por
@@ -13731,17 +13726,9 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
        adm.slice(iTV, iTV + 200).indexOf('deLugar ?') < 0,
       'e a escolha da conta também não — um `deLugar ?` de volta ali seria o mesmo ' +
       'defeito com outro nome', adm.slice(iTV, iTV + 120));
-    /* E O TOTAL DA OPERACAO CONTINUA SENDO CALCULADO, para a nota do rodape. Ele
-       deixou de ser o NUMERO do cartao — que agora soma a coluna, a pedido —, mas sem
-       ele a tela perde a resposta de "quanto saiu da empresa", que foi o pedido da
-       semana passada. Os dois cabem juntos desde que cada um diga o que e'. */
-    ok(/var tOperacao = totaisDe\(linhasVivas\(\)\);/.test(adm),
-      'e o total da OPERA\u00c7\u00c3O continua sendo calculado \u2014 ele saiu do n\u00famero grande e ' +
-      'foi para a nota: sem ele, a tela perde a resposta de "quanto saiu da empresa"');
-    ok(/function notaDoTotal\(campo\)/.test(adm) &&
-       adm.indexOf('na opera') > 0,
-      'e ela diz quanto \u00e9, quando difere da soma da coluna \u2014 calada, a diferen\u00e7a entre ' +
-      'o cart\u00e3o e a opera\u00e7\u00e3o some, e com ela some a r\u00e9gua que o cliente cobra');
+    /* A NOTA QUE LIA O TOTAL DA OPERACAO SAIU com as observacoes dos cartoes. A conta
+       ficou, com prova propria — ver `totaisDe` e o comentario em cima dela. */
+    ok(/function totaisDe\(lista\)/.test(adm), 'a r\u00e9gua de LUGAR continua CALCULADA e com prova \u2014 ela deixa de fora a perna entre duas casas nossas e responde "quanto saiu da empresa". Hoje nada na tela a chama: quem a lia era a linha de observa\u00e7\u00e3o dos cart\u00f5es, removida a pedido. Ela fica porque \u00e9 a \u00fanica defini\u00e7\u00e3o execut\u00e1vel dessa regra no navegador');
   })();
 
   /* A FONTE DOS TOTAIS E A OPERACAO, e nao a lista desenhada. Ver a razao escrita por
@@ -13902,8 +13889,7 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       'a confer\u00eancia recortou o desenho do fluxo \u2014 recorte vazio faria as provas ' +
       'abaixo aprovarem qualquer coisa', corpo.length);
 
-    [['t', 'var t = totaisSimples(linhasVivas());'],
-     ['tOperacao', 'var tOperacao = totaisDe(linhasVivas());']].forEach(function (par) {
+    [['t', 'var t = totaisSimples(linhasVivas());']].forEach(function (par) {
       var nome = par[0], decl = par[1];
       var iDecl = corpo.indexOf(decl);
       ok(iDecl > 0, 'o total `' + nome + '` \u00e9 declarado dentro do desenho', iDecl);
@@ -13978,14 +13964,9 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       'que qualquer um faz com os dois valores ali do lado', r.taxaRetorno);
   })();
 
-  /* A REGUA DE LUGAR NAO SUMIU — ela deixou de ser o NUMERO e virou a NOTA. Era o
-     numero ate' o escritorio somar a coluna na calculadora: 14.152 + 13.079 + 9.289 =
-     36.520, e o cartao dizia 32.170. As 4.350 de diferenca eram a perna entre duas
-     casas nossas, que a regua exclui com razao — mas cuja LINHA continua na tabela.
-     UMA REGUA CERTA QUE NAO FECHA COM A COLUNA AO LADO NAO SE DEFENDE. */
-  ok(adm.indexOf('var tOperacao = totaisDe(linhasVivas());') > 0,
-    'e a régua de LUGAR continua calculada, agora como NOTA — ela deixa de fora a ' +
-    'perna entre duas casas nossas, e é ela que responde "quanto saiu da empresa"');
+  /* A REGUA DE LUGAR deixou de ser o NUMERO do cartao, virou a NOTA, e a nota saiu
+     com as observacoes. A conta ficou — ver o comentario em cima de `totaisDe`. */
+  ok(adm.indexOf('function totaisDe(lista)') > 0, 'a r\u00e9gua de LUGAR continua CALCULADA e com prova \u2014 ela deixa de fora a perna entre duas casas nossas e responde "quanto saiu da empresa". Hoje nada na tela a chama: quem a lia era a linha de observa\u00e7\u00e3o dos cart\u00f5es, removida a pedido. Ela fica porque \u00e9 a \u00fanica defini\u00e7\u00e3o execut\u00e1vel dessa regra no navegador');
   /* E A FRASE DA COBERTURA SAIU com o desenho dela: ela existia porque o cartao era o
      total da operacao e a tabela somava outra coisa. Agora o cartao E a soma da tabela,
      e o que sobra dizer e' o contrario — quanto e' a operacao inteira. */
@@ -14016,30 +13997,22 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
      Ele DEIXOU DE SAIR EM VERDE. Verde ali era o mesmo verde de "tudo certo", para um
      número que pode estar negativo — e com quatro dos cinco cartões verdes a faixa virava
      uma mancha só. Agora tem cor própria, e o rodapé diz quando está abaixo do zero. */
-  /* O RODAPE DIZ AS DUAS COISAS, e nao uma OU outra.
-   *
-   * Eram alternativas: `estoque < 0 ? 'abaixo do zero' : '... fora do filtro'`. O aviso
-   * de que o cartao nao acompanha o periodo sumia exatamente quando o saldo ficava
-   * negativo — e ele esta negativo o tempo todo ate' o Ajuste inicial entrar, entao o
-   * aviso tinha deixado de existir na pratica. A tela mostrava um numero que nao segue o
-   * recorte, com nada dizendo isso.
-   *
-   * E ELE DIZ DE QUE CASA FALA. O cartao passou a responder ao filtro de unidade, e sem
-   * o nome no rodape nao ha como saber se aquele numero e' da Matriz ou de todas. */
-  var mEst = /tileCor\(Q\.num\(estoque\), 'Total no Estoque',([\s\S]{0,260}?)COR_TILE/
-    .exec(fileira);
-  var rodEst = mEst ? mEst[1] : '';
-  ok(/casaDoEstoque \?/.test(rodEst) && /em todas as nossas casas/.test(rodEst),
-    'o rodap\u00e9 do estoque diz DE QUE CASA ele fala \u2014 o cart\u00e3o responde ao filtro de ' +
-    'unidade, e sem o nome n\u00e3o h\u00e1 como saber se aquele n\u00famero \u00e9 da Matriz ou de todas',
-    rodEst.trim());
-  ok(/fora do per\u00edodo/.test(rodEst),
-    'e avisa que \u00e9 posi\u00e7\u00e3o de AGORA, fora do per\u00edodo \u2014 ele n\u00e3o acompanha as datas, e ' +
-    'sem o aviso parece travado quando a tabela embaixo muda', rodEst.trim());
-  ok(/estoque < 0 \? ' \u00b7 abaixo do zero' : ''/.test(rodEst),
-    'e o "abaixo do zero" SOMA ao rodap\u00e9 em vez de substitu\u00ed-lo \u2014 como alternativa, o ' +
-    'aviso do per\u00edodo sumia justamente quando o saldo fica negativo, que \u00e9 o tempo ' +
-    'todo at\u00e9 o Ajuste inicial entrar', rodEst.trim());
+  /* O RODAPE DO ESTOQUE SAIU, com os outros quatro. Ele dizia tres coisas — de que
+     casa o numero fala, que e' posicao de AGORA fora do periodo, e quando esta abaixo
+     do zero — e as tres eram verdade. Saiu porque as cinco frases juntas viraram um
+     paragrafo no alto da tela.
+     DUAS DELAS O PROPRIO CARTAO CONTINUA DIZENDO sem texto: o vermelho diz "abaixo do
+     zero", e o filtro de unidade aceso ao lado diz de que casa se fala.
+     A TERCEIRA — "posicao de agora, fora do periodo" — e' a unica que o numero nao
+     carrega sozinho, e ela esta' registrada no comentario em cima do cartao, em
+     `admin.html`. Se ela fizer falta na tela, o lugar dela e' um "?" como o do rodape
+     da tabela, e nao a linha fixa que acabou de sair. */
+  var mEst = /tileCor\(Q\.num\(estoque\), 'Total no Estoque', ''/.exec(fileira);
+  ok(!!mEst,
+    'o cart\u00e3o do estoque fica sem a linha de observa\u00e7\u00e3o, como os outros quatro \u2014 ' +
+    'removida de alguns e mantida noutros, a fileira sai com cart\u00f5es de alturas ' +
+    'diferentes e a diferen\u00e7a parece defeito',
+    fileira.slice(fileira.indexOf("'Total no Estoque'"), fileira.indexOf("'Total no Estoque'") + 80));
 
   /* E A CONTA SEGUE A CASA ESCOLHIDA. Somando todas com a tela filtrada numa, o numero
      esta certo para outra pergunta — o pior dos dois mundos. */
@@ -14393,15 +14366,18 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     'por data escolhida, uma no vazio e outra no valor, e a primeira traz a base inteira ' +
     'de volta por um instante');
 
-  /* ---- O RODAPE DO ESTOQUE DIZ O QUE ELE IGNORA ----
-   * Ele avisava que o cartao ignora o PERIODO e calava que ignora tambem o RECORTE DA
-   * ABA: com a tela em "Rotas - 47 de 61 linhas", o numero continua sendo o da casa
-   * INTEIRA. Um cartao que desobedece ao recorte que o topo da tela anuncia precisa
-   * dizer isso onde e' lido, e nao so' no codigo. */
-  ok(/fora do período e do recorte/.test(adm),
-    'o rodapé do "Total no Estoque" avisa que ele fica fora do período E do recorte — ' +
-    'calando o segundo, a tela anuncia "só rotas" no topo e mostra o saldo da casa ' +
-    'inteira num dos cinco cartões, sem nada dizendo isso');
+  /* ---- O QUE O ESTOQUE IGNORA ----
+   * O rodape dizia isso em texto e saiu com as observacoes, a pedido. O CAVEAT
+   * CONTINUA VERDADEIRO e e' o unico dos cinco que o numero nao carrega sozinho: este
+   * cartao e' a POSICAO DE AGORA — nao responde ao periodo nem ao recorte da aba.
+   * ELE FICA REGISTRADO NO CODIGO, em cima do proprio cartao, e e' isso que esta prova
+   * cobra: apagada tambem a explicacao escrita, a proxima pessoa a mexer aqui nao tem
+   * como saber que o desvio e' deliberado, e "conserta" o cartao para seguir o filtro. */
+  ok(/posi\u00e7\u00e3o de agora[\s\S]{0,40}fora do per\u00edodo/i.test(adm) ||
+     /POSICAO DE AGORA/.test(adm),
+    'o porqu\u00ea de o "Total no Estoque" ficar fora do per\u00edodo e do recorte continua ' +
+    'escrito no c\u00f3digo, em cima do cart\u00e3o \u2014 sem ele, quem mexer aqui depois n\u00e3o tem ' +
+    'como saber que o desvio \u00e9 deliberado e "conserta" o cart\u00e3o para seguir o filtro');
 
   /* ---- O DEFICIT NAO E "SAIU MENOS VOLTOU" ----
    * Ele e' somado trecho a trecho: uma rota que devolveu a mais nao abate o atraso de
@@ -14815,15 +14791,16 @@ console.log('\n== o estoque e das duas casas, e o texto promete isso ==');
 
   /* O RODAPE DO CARTAO DO PAINEL promete o mesmo, e ele ja' prometia antes de a conta
      cumprir: era o texto certo sobre o codigo errado. */
-  var iF = adm.indexOf("'Total no Estoque'");
-  var rod = iF < 0 ? '' : adm.slice(iF, adm.indexOf('COR_TILE', iF));
-  /* "NOSSAS CASAS" DIZ AS DUAS, e e' o que a conta faz: galpao e filial. O rodape ja'
-     prometia "galpoes e unidades" quando a conta somava so' galpao — era o texto certo
-     sobre o codigo errado, e foi por isso que o zero passou despercebido. */
-  ok(/nossas casas/i.test(rod) || /unidades/i.test(rod),
-    'e o rodapé do cartão do Painel fala das NOSSAS CASAS, e não só dos galpões — ' +
-    'dizendo menos do que a conta entrega, o número certo passa a parecer inflado para ' +
-    'quem conhece o cadastro', rod.trim().slice(0, 160));
+  /* O RODAPE DO CARTAO SAIU, e com ele a promessa em texto. O que importava nela
+     continua cobrado onde ele sempre esteve: na CONTA. `galpoes` soma galpao E filial —
+     as duas casas —, e e' isso que a prova logo acima mede, rodando. O texto era a
+     parte fragil do par: ele ja' prometia "galpoes e unidades" quando a conta somava
+     so' galpao, e foi por isso que o zero passou despercebido. */
+  ok(/\.filter\(function\(g\)\{ return !casaDoEstoque \|\| g\.nome === casaDoEstoque; \}\)/
+     .test(adm),
+    'e a conta do cart\u00e3o do Painel continua somando as NOSSAS CASAS, peneiradas pelo ' +
+    'filtro de unidade \u2014 \u00e9 a conta que responde, e o texto que prometia isso era ' +
+    'justamente a metade que mentia quando as duas discordavam');
 })();
 
 /* ---------------------------------------------------------------------------
@@ -22188,26 +22165,25 @@ console.log('\n== o editor de falas para a demonstracao ==');
    * servidor e' quem decide o que fez com aquilo. */
   var iTr = admV.indexOf('  function temRecorte(){');
   var tr = iTr < 0 ? '' : admV.slice(iTr, admV.indexOf('\n  }', iTr) + 4);
-  var iJp = admV.indexOf('  function janelaDoPainel(){');
-  var jp = iJp < 0 ? '' : admV.slice(iJp, admV.indexOf('\n  }', iJp) + 4);
   var iAv = admV.indexOf('  function avisoVazio(){');
   var av = iAv < 0 ? '' : admV.slice(iAv, admV.indexOf('\n  }', iAv) + 4);
-  ok(tr.length > 40 && jp.length > 40 && av.length > 200,
-    'a confer\u00eancia recortou a leitura da janela', [tr.length, jp.length, av.length]);
+  ok(tr.length > 40 && av.length > 200,
+    'a confer\u00eancia recortou a leitura da janela', [tr.length, av.length]);
 
-  if (tr.length > 40 && jp.length > 40) {
+  /* `janelaDoPainel` SAIU com a linha de observacao dos cartoes, que era a unica que a
+     lia. A REGRA que ela embrulhava continua aqui, em `temRecorte`, e continua sendo
+     lida por `avisoVazio` — entao e' ela que estas provas passam a rodar. O que se
+     media nao mudou: o que conta como recorte. */
+  if (tr.length > 40) {
     function janelaCom(periodo) {
       return new Function('PAINEL',
-        tr + '\n' + jp + '\nreturn janelaDoPainel();')({ periodo: periodo });
+        tr + '\nreturn temRecorte();')({ periodo: periodo });
     }
     var aberta = janelaCom({ de: '', ate: '' });
     var fechada = janelaCom({ de: '2026-09-01', ate: '' });
     ok(aberta !== fechada,
-      'o r\u00f3tulo MUDA conforme a janela \u2014 um texto fixo voltaria a dizer "do m\u00eas" sobre ' +
+      'a resposta MUDA conforme a janela \u2014 fixa, a tela voltaria a dizer "do m\u00eas" sobre ' +
       'uma conta que agora soma tudo', [aberta, fechada]);
-    ok(aberta.indexOf('m\u00eas') < 0 && fechada.indexOf('m\u00eas') < 0,
-      'e nenhum dos dois fala em M\u00caS \u2014 o painel n\u00e3o conta m\u00eas nenhum, e nunca contou',
-      [aberta, fechada]);
     ok(janelaCom({ de: '', ate: '2026-09-30' }) === fechada,
       'e um FIM sozinho tamb\u00e9m \u00e9 recorte \u2014 olhar s\u00f3 o in\u00edcio diria "todo o per\u00edodo" ' +
       'sobre uma conta que parou em setembro');
@@ -29382,10 +29358,14 @@ console.log('\n== o numero com virgula, e a rolagem do Painel de Ativos ==');
   var iTaxa = admN.indexOf("'Taxa de Retorno'");
   var blocoTaxa = iTaxa < 0 ? '' : admN.slice(admN.lastIndexOf('tileCor(', iTaxa),
                                               admN.indexOf('COR_TILE.taxa', iTaxa));
-  ok(blocoTaxa.indexOf('Q.dec(') > 0 &&
-     /Q\.dec\(metaFluxo\(\) - t\.taxaRetorno\)/.test(blocoTaxa),
-    'e o cartão passa a diferença por `Q.dec` — é a subtração que vaza, e era ela que ' +
-    'estava concatenada crua', blocoTaxa.slice(0, 200));
+  /* A SUBTRACAO QUE VAZAVA ERA A DO RODAPE — "faltam 25,333333 pontos" —, e o rodape
+     saiu com as observacoes dos cartoes. O NUMERO DO CARTAO continua passando por
+     `dec`, e e' o que sobrou para cobrar aqui: ele e' uma divisao, e divisao vaza
+     casa decimal com a mesma facilidade. */
+  ok(blocoTaxa.indexOf('Q.dec(t.taxaRetorno)') > 0,
+    'o cart\u00e3o passa a taxa por `Q.dec` \u2014 ela \u00e9 uma divis\u00e3o, e divis\u00e3o vaza casa ' +
+    'decimal: foi assim que um n\u00famero quebrado chegou ao galp\u00e3o com a conta certa do ' +
+    'lado', blocoTaxa.slice(0, 200));
   ok(!/[^c]\bt\.taxaRetorno\s*\+\s*'%'/.test(blocoTaxa),
     'e a taxa também, para as duas linhas do mesmo cartão falarem a mesma língua',
     blocoTaxa.slice(0, 200));

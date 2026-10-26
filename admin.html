@@ -4212,6 +4212,25 @@
     return t;
   }
 
+  /* ================= SEM LEITOR HOJE, E DE PROPOSITO =================
+   *
+   * Esta conta e' a REGUA DE LUGAR: ela responde "quanto saiu da EMPRESA", deixando
+   * de fora a perna entre duas casas nossas — Matriz para Filial nao e' saida, e'
+   * transferencia; as caixas continuam em casa e ninguem passou a dever nada.
+   *
+   * QUEM A LIA ERA A LINHA DE OBSERVACAO dos cartoes, removida a pedido do
+   * escritorio. Hoje nada na tela a chama.
+   *
+   * ELA FICA, e isto e' escolha, nao esquecimento: e' a unica definicao EXECUTAVEL
+   * desta regra no navegador, as bancadas a exercitam a fundo — a perna interna, o
+   * trecho repetido, o agrupamento — e foi uma regra que o escritorio descobriu
+   * olhando a tela e pediu. Apagada, volta a ser conhecimento que mora na cabeca
+   * de alguem.
+   *
+   * NAO CONFUNDIR com o ramo morto que saiu de `notaDoTotal` na semana passada:
+   * aquele era um `if` DENTRO de uma funcao viva, e fazia quem lia o codigo contar
+   * com uma frase que a tela nunca mostrava. Esta e' uma funcao inteira, com nome,
+   * comentario e prova — ela nao engana quem passa por ela. */
   function totaisDe(lista){
     var t = { linhas: 0, saiu: 0, voltou: 0, deficit: 0, foraDaMeta: 0 };
     var meta = metaFluxo();
@@ -6935,9 +6954,6 @@
      * motorista", que e' um pedido de ARRANJO. O periodo, idem — "quanto saiu em
      * outubro" e' a pergunta inteira. */
     var t = totaisSimples(linhasVivas());
-    /* A REGUA DE LUGAR CONTINUA SENDO CALCULADA, para o rodape do cartao: ela e' a que
-       responde "quanto saiu da EMPRESA", sem contar a perna entre duas casas nossas. */
-    var tOperacao = totaisDe(linhasVivas());
     var lista = linhasFluxo();
     /* Os titulos vem do descritor da tabela — ver `titulos` la em cima. */
     var TIT = TAB_ATIVOS.titulos;
@@ -7335,44 +7351,6 @@
      * explicito de recorte; clicar em "Motoristas" e' dizer "me mostre isto por
      * motorista", que e' um pedido de ARRANJO. O periodo, idem — "quanto saiu em
      * outubro" e' a pergunta inteira. */
-    /* ================= POR QUE O CARTAO MUDA DE ABA PARA ABA =================
-     *
-     * O escritorio clicou nos nove chips e perguntou isso. A resposta e' que eles nao
-     * sao a mesma coisa, e ate' aqui a tela nao dizia qual era qual:
-     *
-     *   . TODAS, MOTORISTAS, USUARIOS e TIPOS DE CAIXA sao a MESMA operacao cortada de
-     *     quatro jeitos. Toda caixa que andou tem um motorista — ou a falta dele, que
-     *     agora e' uma linha com nome —, tem quem lancou e tem um tipo. Os quatro TEM
-     *     de dar o mesmo numero, e desde que o buraco do "sem nome" foi fechado no
-     *     servidor, dao. Quando dao, esta nota fica CALADA: um rodape que aparece
-     *     sempre deixa de ser aviso.
-     *
-     *   . ROTAS, UNIDADES, CLIENTES, EM DEFICIT e FORNECEDORES sao RECORTES: um pedaco
-     *     da operacao. Menor e' a resposta certa deles — e a nota diz quanto e' o todo,
-     *     para a diferenca deixar de parecer defeito.
-     *
-     * A REFERENCIA E "TODAS", E NAO UM TERCEIRO NUMERO. Ela e' a unica que a pessoa
-     * CONFERE com um clique: bate no chip Todas e o numero tem de ser aquele. A nota
-     * dizia antes "o que cruzou a fronteira da empresa", que e' verdade mas e' uma
-     * TERCEIRA regua — e um terceiro numero numa tela que ja tinha dois foi justamente
-     * o que trouxe a pergunta.
-     *
-     * A REGUA DE LUGAR SO FALA ONDE ELA E A RAZAO: na aba Todas, onde a unica diferenca
-     * possivel e' a perna entre duas casas nossas. Dita nas outras, ela explicaria com
-     * um motivo verdadeiro uma diferenca que tem outro. */
-    /* AQUI HAVIA UM RAMO MORTO. Ele comparava o cartao com "Todas" e dizia "esta
-       lista e' um recorte dela" — e fazia sentido enquanto o cartao somava a lista
-       desenhada. Quando o cartao virou o numero da MATRIZ, os dois passaram a ser o
-       mesmo valor por construcao, e a frase nunca mais apareceu.
-       CODIGO QUE NAO PODE RODAR E PIOR QUE CODIGO ERRADO: ele responde perguntas na
-       leitura e nao responde nenhuma na tela, e a proxima pessoa conta com ele.
-       O TRABALHO DELE NAO SE PERDEU: foi para `explicarRecorte`, no rodape da tabela,
-       que e' onde o numero divergente de fato esta'. */
-    function notaDoTotal(campo){
-      if (t[campo] === tOperacao[campo]) return '';
-      return ' \u00b7 ' + Q.num(tOperacao[campo]) + ' na opera\u00e7\u00e3o inteira' +
-        ' \u2014 a transfer\u00eancia entre casas nossas n\u00e3o entra l\u00e1, mas est\u00e1 na tabela';
-    }
     /* Cinco cartoes, na ordem de quem lê: primeiro o indicador que se cobra (a taxa),
        depois o numero que dói (o que nao voltou), depois o que HA — o estoque —, e por
        fim as duas pontas do periodo.
@@ -7419,10 +7397,22 @@
          linhas", este numero continua sendo o da casa inteira. Um cartao que desobedece
          ao recorte que o topo da tela anuncia precisa dizer isso onde e' lido, e nao
          so' no codigo. */
-      tileCor(Q.num(estoque), 'Total no Estoque',
-        (casaDoEstoque ? 'em '+casaDoEstoque : 'em todas as nossas casas')+
-        ' · posição de agora, fora do período e do recorte'+
-        (estoque < 0 ? ' · abaixo do zero' : ''),
+      /* ================= OS CARTOES FICARAM SEM OBSERVACAO =================
+       *
+       * A pedido do escritorio. Eles tinham, cada um, uma linha de rodape explicando
+       * o numero — e as cinco juntas viraram um paragrafo no alto da tela, lido por
+       * ninguem depois da primeira vez.
+       *
+       * O QUE A DO ESTOQUE DIZIA FICA REGISTRADO AQUI, porque e' o unico caveat que o
+       * numero nao carrega sozinho: este cartao e' a POSICAO DE AGORA. Ele nao responde
+       * ao periodo escolhido — "quanto eu tinha em outubro" nao e' pergunta que um saldo
+       * responda — e nao responde ao recorte do chip. Ele responde a UNIDADE, essa sim,
+       * porque "quanto tem na Matriz" e' o que o comercial pergunta antes de emitir
+       * pedido.
+       *
+       * QUEM PRECISAR DA EXPLICACAO DE VOLTA: o lugar dela e' um "?" como o do rodape
+       * da tabela, e nao a linha fixa que acabou de sair. */
+      tileCor(Q.num(estoque), 'Total no Estoque', '',
         estoque < 0 ? 'var(--vermelho)' : COR_TILE.estoque,
         '<div class="desenho desenho--zero"><span class="risco"></span><span class="rot">0</span>'+
         '<span class="cai"></span><span class="cai"></span><span class="cai"></span></div>')+
@@ -7442,16 +7432,11 @@
       /* O RODAPE E O MESMO EM TODAS AS ABAS, porque o numero e' o mesmo. Ele dizia "por
          fornecedor" / "por tipo de caixa" quando o total era da lente; mantido agora,
          prometeria um recorte que o numero nao tem mais. */
-      tileCor(Q.num(t.saiu), 'Saiu',
-        /* O RODAPE DIZ O QUE O NUMERO E: a soma da coluna logo abaixo. Ele dizia
-           "cruzou a fronteira", que era a regua do numero antigo — mantido, prometeria
-           um recorte que este numero nao tem. */
-        'tudo que saiu no per\u00edodo \u2014 a aba n\u00e3o muda este n\u00famero' + notaDoTotal('saiu'),
+      tileCor(Q.num(t.saiu), 'Saiu', '',
         COR_TILE.saida,
         '<div class="desenho desenho--pista">'+Q.caminhao(4)+'</div>')+
 
-      tileCor(Q.num(t.voltou), 'Voltou',
-        'tudo que voltou no per\u00edodo \u2014 a aba n\u00e3o muda este n\u00famero' + notaDoTotal('voltou'),
+      tileCor(Q.num(t.voltou), 'Voltou', '',
         COR_TILE.retorno,
         '<div class="desenho desenho--pista desenho--volta">'+
         Q.caminhao(t.saiu ? Math.max(0, Math.min(4,
@@ -7480,16 +7465,9 @@
       tileCor((t.voltou - t.saiu === 0 ? '0'
                : (t.voltou > t.saiu ? '+' : '\u2212') + Q.num(Math.abs(t.voltou - t.saiu))),
         'Saldo',
-        /* ELE PROMETIA "a soma da coluna Saldo Final", e isso parou de ser verdade
-           duas vezes. Primeiro porque a coluna de uma visao de lugar e' o saldo
-           CORRIDO — cada linha ja' carrega o que veio antes dela, e somar uma
-           coluna dessas da um numero que nao quer dizer nada; o que fecha ali e' a
-           ULTIMA linha, e nao a soma. Depois porque o cartao passou a ser da
-           operacao, e a coluna continua sendo da lista.
-           AGORA ELE PROMETE O QUE FAZ: a subtracao dos dois cartoes ao lado, que e'
-           a conta que qualquer um refaz de cabeca com os dois numeros a vista. */
-        'Retorno menos Sa\u00edda no per\u00edodo \u00b7 a subtra\u00e7\u00e3o dos dois cart\u00f5es ao lado' +
-        (t.voltou < t.saiu ? ' \u00b7 saiu mais do que voltou' : ''),
+        /* SEM OBSERVACAO, como os outros. O SINAL continua dizendo o essencial dela:
+           `\u2212` e' falta, `+` e' sobra, `0` e' conta fechada — e a cor acompanha. */
+        '',
         /* VERMELHO SO NO NEGATIVO, como no estoque: pintar de vermelho um saldo positivo
            ensinaria a ignorar a cor, e ela tem de querer dizer uma coisa so' — ha' caixa
            fora. */
@@ -7505,12 +7483,10 @@
          extenso — "faltam 26.799999999999997 pontos". De quebra a taxa deixa de sair com
          PONTO decimal: ela era um `Number` concatenado direto, e o cartao tinha as duas
          notacoes, uma em cada linha. */
-      tileCor(t.taxaRetorno===null ? '—' : Q.dec(t.taxaRetorno)+'%', 'Taxa de Retorno',
-        'meta '+metaFluxo()+'% · '+janelaDoPainel()+
-        (t.taxaRetorno===null ? '' :
-         ' · '+(t.taxaRetorno >= metaFluxo()
-                ? 'na meta'
-                : 'faltam '+Q.dec(metaFluxo() - t.taxaRetorno)+' pontos')),
+      /* A META NAO SE PERDE SEM A LINHA DE TEXTO: ela e' o risco no trilho do
+         desenho, logo abaixo, e a barra que o alcanca ou nao. Era isso que o texto
+         repetia em palavras. */
+      tileCor(t.taxaRetorno===null ? '—' : Q.dec(t.taxaRetorno)+'%', 'Taxa de Retorno', '',
         COR_TILE.taxa,
         t.taxaRetorno===null ? '' :
         '<div class="meta"><i style="width:'+Math.min(100, t.taxaRetorno)+'%"></i>'+
@@ -7537,9 +7513,10 @@
     var pr = (PAINEL && PAINEL.periodo) || {};
     return !!(pr.de || pr.ate);
   }
-  function janelaDoPainel(){
-    return temRecorte() ? 'no período filtrado' : 'em todo o período';
-  }
+  /* `janelaDoPainel` SAIU DAQUI. Ela devolvia "no periodo filtrado" / "em todo o
+     periodo" para a linha de observacao dos cartoes, que foi removida a pedido —
+     e ficou sem nenhum leitor. `temRecorte`, que e' a regra por tras dela, fica:
+     `avisoVazio` continua perguntando a ela se houve recorte. */
 
   /* Três frases diferentes: "nunca houve lançamento", "ninguém informou motorista" e
      "este filtro não achou nada" mandam a pessoa para lugares opostos. E cada uma muda
@@ -7780,10 +7757,15 @@
 
   /* `larga` pede a linha inteira, e nao depende de quantos cartoes ha na fileira: e' a
      barra da meta que precisa dela, e ela mora no cartao da taxa. */
+  /* A LINHA DE BAIXO SO NASCE SE HOUVER O QUE DIZER. Vazia, ela ocupava a altura
+     dela em todo cartao — e um espaco reservado para texto que nao existe desalinha os
+     cinco entre si. O argumento continua na assinatura: os cartoes desta tela ficaram
+     sem observacao a pedido, e outros podem precisar. */
   function tileCor(v, r, d, cor, desenho, larga){
     return '<div class="ftile'+(larga ? ' ftile--larga' : '')+
       '" style="--cor:'+cor+'"><div class="r">'+r+'</div>'+
-      '<div class="v">'+v+'</div><div class="d">'+d+'</div>'+(desenho||'')+'</div>';
+      '<div class="v">'+v+'</div>'+
+      (d ? '<div class="d">'+d+'</div>' : '')+(desenho||'')+'</div>';
   }
 
   /* O CAMINHÃO MORA NO `app.js`. Ele nasceu aqui, e o app de campo precisou do mesmo
