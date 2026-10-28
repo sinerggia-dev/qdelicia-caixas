@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Como ficaria — a tabela primeiro, o rank em blocos</title>
+<!-- A FOLHA DE ESTILO É A DE VERDADE, e não uma cópia: o que esta página mostra tem de
+     ser o que a tela vai mostrar. Com estilo próprio, o desenho ficaria parecido e a
+     decisão seria tomada sobre uma tela que não existe. -->
+<link rel="stylesheet" href="styles.css?v=f1055835">
+<style>
+  /* SÓ O QUE ESTA PÁGINA PRECISA. As regras do rank estão aqui para serem vistas e
+     decididas; aprovadas, elas vão para o `styles.css` com este mesmo texto. */
+  body{margin:0}
+  .papel{max-width:1320px;margin:0 auto;padding:22px 16px 60px}
+  .cab{margin:0 0 6px;font-size:22px;font-weight:700}
+  .sub-pg{margin:0 0 22px;color:var(--txt2);font-size:14px;line-height:1.5;max-width:78ch}
+  .aviso-estudo{background:var(--ambar-claro);border:1px solid var(--ambar);
+    border-radius:10px;padding:10px 14px;margin:0 0 22px;font-size:13px;line-height:1.6}
+  .passo{margin:28px 0 10px;font-size:12px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--txt3)}
+  .porque{margin:0 0 14px;color:var(--txt2);font-size:13px;line-height:1.6;max-width:84ch}
+
+  /* ---------- A JANELA DA TABELA: 16 linhas, e o resto rola ----------
+     Com trinta e cinco pares, a tabela empurrava tudo o que vem depois dela para fora
+     da tela — foi o que aconteceu com o rank. A janela prende a altura: o cabeçalho
+     fica grudado no topo e as linhas correm por baixo dele. */
+  .janela16{max-height:calc(16 * 41px + 42px);overflow:auto;
+    border:1px solid var(--linha);border-radius:10px}
+  .janela16 table{margin:0}
+  .janela16 thead th{position:sticky;top:0;z-index:2;background:var(--surface-2)}
+
+  /* ---------- O RANK EM BLOCOS ----------
+     O mesmo desenho dos painéis de Movimentos Gerais — `.graficos` e `.g` —, porque é
+     o desenho que o escritório apontou e porque ele já existe: inventar um segundo
+     bloco parecido daria duas coisas para manter e duas para divergirem.
+     TRÊS COLUNAS, e não cinco: cada bloco aqui tem nome de gente, que é mais largo que
+     uma data ou um trecho. Em cinco, o nome cortaria. */
+  .rank-blocos{grid-template-columns:repeat(3,minmax(0,1fr))}
+  /* CADA BLOCO ROLA SOZINHO, a pedido. A altura é a de seis linhas: o suficiente para
+     o pódio caber sem rolar, e pouco o bastante para os três blocos viverem na mesma
+     dobra da tela. */
+  .rank-blocos .g__corpo{max-height:252px;overflow-y:auto;overscroll-behavior:contain;
+    padding-right:4px}
+  /* OS NOMES DAQUI SÃO `es--`, E NÃO `rk--`: a folha do app já tem `.rk--ok` e
+     `.rk--falta`, do rank que está na tela. Com o mesmo nome, esta página de estudo
+     herdaria o desenho de lá — ou, pior, mandaria nele. Há bancada cobrando isso.
+     A BARRA DO RANK é de UMA cor, e não dividida: aqui não há "saída e retorno" dentro
+     da mesma linha — há um número só, e a divisão sugeriria uma composição que não
+     existe. */
+  .es-barra{display:block;height:7px;border-radius:999px;background:var(--veu)}
+  .es-barra i{display:block;height:100%;border-radius:999px}
+  .es--ok i{background:var(--verde-cheio)}
+  .es--falta i{background:var(--ambar)}
+  .es--taxa i{background:var(--azul-cheio)}
+
+  .nota-rodape{margin:18px 0 0;color:var(--txt3);font-size:12px;line-height:1.6}
+  .op{background:var(--surface-2);border-left:3px solid var(--azul);padding:10px 14px;
+    border-radius:0 8px 8px 0;margin:14px 0;font-size:13px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="papel">
+
+  <h1 class="cab">Como ficaria</h1>
+  <p class="sub-pg">A tabela volta para o primeiro lugar e ganha uma janela de 16 linhas;
+    o rank desce para baixo dela, no formato de blocos dos painéis de Movimentos Gerais,
+    cada um com a sua rolagem.</p>
+
+  <p class="aviso-estudo"><b>Isto é um estudo, e não a tela.</b> Os números são os da sua
+    captura, copiados à mão para o desenho ficar realista. Nada aqui está ligado ao
+    sistema — decida primeiro, e eu executo na tela de verdade.</p>
+
+  <p class="passo">1 · a tabela, primeiro, com janela de 16 linhas</p>
+  <p class="porque">É o que você vê ao abrir a página. O cabeçalho fica grudado no topo
+    da janela; da décima sexta linha em diante, a tabela rola por dentro dela em vez de
+    empurrar o resto da página para baixo.</p>
+
+  <div class="janela16">
+    <table class="tbl">
+      <thead><tr>
+        <th>Lançamento</th><th>Data</th><th>Hora</th><th>Tipo</th><th>Motorista</th>
+        <th class="num">Caixas</th><th class="num">Declarado</th><th>Situação</th>
+      </tr></thead>
+      <tbody id="corpoTabela"></tbody>
+    </table>
+  </div>
+
+  <p class="passo">2 · o rank, logo abaixo, em blocos</p>
+  <p class="porque">Três blocos lado a lado, cada um com a sua rolagem. O cabeçalho de
+    cada um traz o total e quantos nomes entraram, como nos painéis de Movimentos
+    Gerais.</p>
+
+  <div class="graficos rank-blocos" id="blocos"></div>
+
+  <div class="op">
+    <b>O terceiro bloco é uma sugestão minha, e você pode recusá-lo.</b>
+    Os dois primeiros são o que você pediu. O terceiro — <b>% que ele declarou</b> —
+    divide o que ele informou pelo que passou por ele, e responde "posso contar com este
+    motorista?" numa escala comparável: 1.919 caixas declaradas não dizem o mesmo vindas
+    de quem teve 599 sem declarar ou de quem teve 7.685. Ele vem ordenado do PIOR para o
+    melhor, porque é a lista de quem cobrar.
+  </div>
+
+  <p class="nota-rodape">Os filtros da tela (período, busca, tipo, situação) continuam
+    valendo para os três blocos e para a tabela — são a mesma lista.</p>
+</div>
+
+<script>
+/* OS DADOS SÃO OS DA CAPTURA, copiados à mão. Esta página não fala com o servidor:
+   ela existe para o desenho ser decidido, e um estudo que depende da rede não abre
+   quando se precisa dele. */
+var MOTS = [
+  { nome: 'Isaque Araújo',  decl: 1919, nD: 6, falta:  599, nF: 4 },
+  { nome: 'Welison Santana',decl:  980, nD: 5, falta: 1492, nF: 5 },
+  { nome: 'Luciano',        decl:  911, nD: 3, falta:  884, nF: 4 },
+  { nome: 'Arilson Silva',  decl:  738, nD: 3, falta: 1542, nF: 7 },
+  { nome: 'Alcimar Silva',  decl:    0, nD: 0, falta: 7685, nF: 6 },
+  { nome: 'Dinho',          decl:    0, nD: 0, falta: 3415, nF: 6 },
+  { nome: 'Fernando Silva', decl:    0, nD: 0, falta: 3405, nF: 2 },
+  { nome: 'Engenho Cepo',   decl:    0, nD: 0, falta: 1530, nF: 4 },
+  { nome: 'Diego/Hodir',    decl:    0, nD: 0, falta:  937, nF: 2 },
+  { nome: 'Fausto - RN',    decl:    0, nD: 0, falta:  900, nF: 1 },
+  { nome: 'Diassis 2 - RN', decl:    0, nD: 0, falta:  856, nF: 1 },
+  { nome: 'Arthur',         decl:    0, nD: 0, falta:  225, nF: 1 }
+];
+
+var LINHAS = [
+  ['M000663','28/10/2026','10:40','Retorno','Isaque Araújo',385,385,'Sem conferência'],
+  ['M000664','28/10/2026','12:32','Retorno','Luciano',230,230,'Sem conferência'],
+  ['M000665','28/10/2026','13:20','Retorno','Ricardo - RN',565,null,'Sem Retorno Motorista'],
+  ['M000667','28/10/2026','13:21','Retorno','Diassis 2 - RN',856,null,'Sem Retorno Motorista'],
+  ['M000669','28/10/2026','13:21','Retorno','Arilson Silva',183,183,'Sem conferência'],
+  ['M000670','28/10/2026','13:30','Retorno','Montreal - Sr. Urbano',653,null,'Sem Retorno Motorista'],
+  ['M000626','27/10/2026','17:02','Retorno','Frutacor - CE',653,null,'Sem Retorno Motorista'],
+  ['M000628','27/10/2026','17:06','Retorno','Francisco - RN',827,null,'Sem Retorno Motorista'],
+  ['M000631','27/10/2026','17:07','Retorno','Marcos Gomes',258,null,'Sem Retorno Motorista'],
+  ['M000632','27/10/2026','17:08','Retorno','Gustavo Cesar',72,null,'Sem Retorno Motorista'],
+  ['M000633','27/10/2026','17:08','Retorno','Mario Domingos',200,null,'Sem Retorno Motorista'],
+  ['M000634','27/10/2026','17:08','Retorno','Mundinho',231,null,'Sem Retorno Motorista'],
+  ['M000635','27/10/2026','18:54','Retorno','Engenho Cepo',299,null,'Sem Retorno Motorista'],
+  ['M000637','27/10/2026','19:01','Retorno','Valcy Silva Filho',85,null,'Sem Retorno Motorista'],
+  ['M000639','27/10/2026','19:13','Saída','Francivan - CE',870,870,'Saída Logística'],
+  ['M000624','27/10/2026','15:49','Retorno','Luciano',400,400,'Sem conferência'],
+  ['M000644','27/10/2026','20:22','Retorno','Plínio Roberto',406,null,'Sem Retorno Motorista'],
+  ['M000645','27/10/2026','20:24','Retorno','Alcimar Silva',1240,null,'Sem Retorno Motorista'],
+  ['M000646','26/10/2026','09:11','Retorno','Isaque Araújo',512,512,'Bateu'],
+  ['M000647','26/10/2026','09:40','Retorno','Dinho',980,null,'Sem Retorno Motorista']
+];
+
+function num(n){ return Number(n||0).toLocaleString('pt-BR'); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+var COR_SIT = { 'Sem conferência':'destaque', 'Sem Retorno Motorista':'',
+                'Bateu':'', 'Saída Logística':'' };
+
+document.getElementById('corpoTabela').innerHTML = LINHAS.map(function(l){
+  return '<tr><td><span class="cod">'+l[0]+'</span></td><td>'+l[1]+'</td><td>'+l[2]+
+    '</td><td>'+l[3]+'</td><td>'+esc(l[4])+'</td>'+
+    '<td class="num"><b>'+num(l[5])+'</b></td>'+
+    '<td class="num">'+(l[6]==null?'<span class="fraco">—</span>':num(l[6]))+'</td>'+
+    '<td><span class="tag '+(l[7]==='Sem conferência'?'amarela':'cinza')+'">'+l[7]+
+    '</span></td></tr>';
+}).join('');
+
+/* UM BLOCO. É `painelG` do sistema, com a barra de UMA cor: aqui cada linha tem um
+   número só, e a barra dividida do painel de Movimentos sugeriria uma composição que
+   não existe. */
+function bloco(titulo, nota, lista, classe, fmt){
+  var maior = lista.reduce(function(m,l){ return Math.max(m, l.v); }, 0);
+  var soma  = lista.reduce(function(a,l){ return a + l.v; }, 0);
+  return '<section class="g">'+
+    '<div class="g__c"><h3 class="g__t">'+titulo+'</h3>'+
+    '<span class="g__soma">'+(fmt?fmt(soma,lista):num(soma))+'</span>'+
+    '<span class="g__n">'+lista.length+' nomes</span></div>'+
+    '<div class="g__corpo">'+
+    lista.map(function(l){
+      return '<div class="gb" style="cursor:default">'+
+        '<span class="gb__r"><span class="gb__k">'+esc(l.nome)+'</span>'+
+        '<span class="gb__v">'+l.rot+'</span></span>'+
+        '<span class="gb__par">'+l.sub+'</span>'+
+        '<span class="es-barra '+classe+'"><i style="width:'+
+          (maior? Math.max(2, l.v/maior*100):0).toFixed(1)+'%"></i></span></div>';
+    }).join('')+'</div></section>';
+}
+
+var declarou = MOTS.filter(function(m){ return m.decl; })
+  .sort(function(a,b){ return b.decl - a.decl; })
+  .map(function(m){ return { nome:m.nome, v:m.decl, rot:num(m.decl),
+    sub:m.nD+(m.nD===1?' carga':' cargas') }; });
+
+var faltou = MOTS.filter(function(m){ return m.falta; })
+  .sort(function(a,b){ return b.falta - a.falta; })
+  .map(function(m){ return { nome:m.nome, v:m.falta, rot:num(m.falta),
+    sub:m.nF+(m.nF===1?' carga':' cargas') }; });
+
+var taxa = MOTS.filter(function(m){ return (m.decl+m.falta) > 0; })
+  .map(function(m){
+    var pc = Math.round(m.decl/(m.decl+m.falta)*1000)/10;
+    return { nome:m.nome, v:pc, rot:String(pc).replace('.',',')+'%',
+      sub:'declarou '+num(m.decl)+' de '+num(m.decl+m.falta) };
+  }).sort(function(a,b){ return a.v - b.v; });
+
+document.getElementById('blocos').innerHTML =
+  bloco('Declarou o retorno', '', declarou, 'es--ok') +
+  bloco('Chegou sem ele declarar', '', faltou, 'es--falta') +
+  bloco('% que ele declarou', '', taxa, 'es--taxa', function(s,l){
+    var tD = MOTS.reduce(function(a,m){ return a+m.decl; },0);
+    var tT = MOTS.reduce(function(a,m){ return a+m.decl+m.falta; },0);
+    return (Math.round(tD/tT*1000)/10).toString().replace('.',',')+'%';
+  });
+</script>
+</body>
+</html>
