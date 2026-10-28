@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=1bfc8b0c">
+<link rel="stylesheet" href="styles.css?v=f1055835">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1496,6 +1496,14 @@
              é desenho, e não arranjo. -->
         <div id="dcTotais" class="tot tot--cinco"></div>
         <div class="linha-sit" id="dcSituacoes"></div>
+        <!-- O RANK FICA ENTRE OS NUMEROS E A TABELA, porque e um resumo DELA: as
+             duas leem a mesma lista filtrada, e o rank responde "quem" enquanto a
+             tabela responde "quais lancamentos". Posto depois da tabela, ele ficaria
+             abaixo de dezenas de linhas, onde ninguem rola para ver um resumo.
+             ELE NASCE VAZIO e so aparece quando ha motorista com numero: num recorte
+             onde ninguem declarou nem deixou de declarar, uma tabela de zeros ocupa
+             a tela sem responder nada. -->
+        <div class="rk-caixa" id="dcRank"></div>
         <div id="tabelaDecl"><div class="vazio">Escolha a <b>Base</b> para comparar.</div></div>
 
       </div><!-- /mov-conteudo -->
@@ -1689,6 +1697,7 @@
       </div>
 
       <div class="linha-sit" id="lmSituacoes"></div>
+      <div class="rk-caixa" id="lmRank"></div>
       <div id="tabelaLanc"><div class="vazio">Escolha a <b>Base</b>.</div></div>
     </div>
   </section>
@@ -5113,7 +5122,7 @@
    * OS QUADROS QUE A TELA NOVA NAO TEM entram como cadeia vazia: `getElementById('')`
    * devolve `null`, e o desenho ja' pergunta antes de escrever em cada um deles. */
   var TELA_DECL = {
-    tab: null, box: 'tabelaDecl', totais: 'dcTotais', sits: 'dcSituacoes',
+    tab: null, box: 'tabelaDecl', totais: 'dcTotais', sits: 'dcSituacoes', rank: 'dcRank',
     alvo: '#tabelaDecl', situacao: 'dcSituacao', tipo: 'dcTipo',
     campos: { de: 'dcDe', ate: 'dcAte', motorista: 'dcMotorista', base: 'dcBase',
               removidos: 'dcRemovidos', busca: 'dcBusca' }
@@ -5124,8 +5133,12 @@
      da pessoa tem: quem nao tem nenhuma ja' recebe lista vazia do servidor.
      E OS OUTROS CAMPOS ENTRARAM: motorista, tipo, situacao e removidos moram na gaveta,
      como nas outras telas de consulta. */
+  /* `rank` ENTRA NO DESCRITOR, e nao escrito a mao no desenho. Esta tela ja' custou
+     esse erro uma vez: o desenho ia para `'tabelaDecl'` fixo e a pagina inteira ficava
+     vazia, porque o conteudo caia na caixa da OUTRA tela. Uma caixa nova escrita a mao
+     repetiria o mesmo, e ninguem veria — a tela so' ficaria sem o rank. */
   var TELA_LANC = {
-    tab: null, box: 'tabelaLanc', totais: '', sits: 'lmSituacoes',
+    tab: null, box: 'tabelaLanc', totais: '', sits: 'lmSituacoes', rank: 'lmRank',
     alvo: '#tabelaLanc', situacao: 'lmSituacao', tipo: 'lmTipo',
     campos: { de: 'lmDe', ate: 'lmAte', motorista: 'lmMotorista', base: '',
               removidos: 'lmRemovidos', busca: 'lmBusca' }
@@ -5731,6 +5744,114 @@
     pintar();
   })();
 
+  /* ================= O RANK DOS MOTORISTAS =================
+   *
+   * Pedido pelo escritorio: quem mais DECLAROU o retorno das caixas, e quem deixou
+   * carga voltar SEM declarar. Sao as duas pontas da mesma pergunta — "posso contar com
+   * o que este motorista informa?" —, e ate' aqui so' davam para ser respondidas
+   * contando linha a linha na tabela.
+   *
+   * SAI DA MESMA LISTA QUE A TABELA DESENHA, e por isso obedece a todos os filtros da
+   * tela — periodo, busca, tipo, situacao, motorista. Montado sobre a lista inteira, o
+   * rank diria uma coisa com a tabela logo abaixo mostrando outra, e seria o rank a
+   * mentir: ele e' o resumo dela.
+   *
+   * AS DUAS COLUNAS NAO SOMAM A MESMA COISA, e e' de proposito:
+   *
+   *   · DECLAROU e' o que ele informou que trazia, nas viagens de RETORNO. Saida nao
+   *     entra: numa saida o motorista nao declara volta nenhuma, e conta-la premiaria
+   *     quem so' leva.
+   *
+   *   · SEM DECLARAR e' o que CHEGOU e ele nao informou — a carga que alguem contou na
+   *     chegada sem o retorno do motorista. O numero e' o CONFERIDO, porque e' o unico
+   *     que existe nesse par: o lado dele esta' vazio, que e' o problema.
+   *
+   * UM MOTORISTA PODE ESTAR NAS DUAS, e quase todos estao. Nao sao dois grupos de
+   * gente: sao duas contas sobre o mesmo trabalho. */
+  function rankDeMotoristas(L){
+    var mapa = {}, ordem = [];
+    function balde(nome){
+      var k = String(nome || '').trim() || 'sem motorista';
+      if (!mapa[k]) {
+        mapa[k] = { nome: k, declarou: 0, nDeclarou: 0, semDeclarar: 0, nSemDeclarar: 0 };
+        ordem.push(k);
+      }
+      return mapa[k];
+    }
+    L.forEach(function(p){
+      var b = balde(p.motorista);
+      /* SO' O RETORNO, e so' quando ha numero declarado. */
+      if (p.tipo === 'Retorno' && (Number(p.retornoTotal) || 0) > 0) {
+        b.declarou += Number(p.retornoTotal) || 0;
+        b.nDeclarou++;
+      }
+      if (p.situacao === 'Sem Retorno Motorista') {
+        b.semDeclarar += Number(p.conferido) || 0;
+        b.nSemDeclarar++;
+      }
+    });
+    /* QUEM NAO APARECE EM NENHUMA DAS DUAS CONTAS SAI DA LISTA: o motorista que so' fez
+       saida no periodo nao tem o que responder aqui, e uma linha de zeros no meio do
+       rank so' empurra para baixo quem tem numero. */
+    return ordem.map(function(k){ return mapa[k]; })
+      .filter(function(b){ return b.declarou || b.semDeclarar; });
+  }
+
+  /* POR QUAL COLUNA O RANK ESTA ORDENADO. Comeca pela que foi pedida primeiro — quem
+     mais declarou —, e o clique no cabecalho troca. */
+  var RANK_POR = 'declarou';
+
+  function desenharRank(L){
+    var box = document.getElementById(TELA_PARES.rank || '');
+    if (!box) return;
+    var linhas = rankDeMotoristas(L);
+    if (!linhas.length) {
+      box.innerHTML = '';
+      return;
+    }
+    linhas.sort(function(a, b){
+      return (b[RANK_POR] - a[RANK_POR]) || a.nome.localeCompare(b.nome, 'pt-BR');
+    });
+    /* O TOPO DE CADA COLUNA DA A ESCALA DA BARRA. Por um maximo comum, a coluna menor
+       nasceria toda rasteira e nao se leria — e as duas colunas nao se comparam entre
+       si: uma e' caixa declarada, a outra e' caixa que chegou sem declaracao. */
+    var topoD = linhas.reduce(function(m, l){ return Math.max(m, l.declarou); }, 0);
+    var topoS = linhas.reduce(function(m, l){ return Math.max(m, l.semDeclarar); }, 0);
+    function cel(v, n, topo, classe){
+      if (!v) return '<td class="num"><span class="fraco">\u2014</span></td>';
+      return '<td class="num"><div class="rk-barra ' + classe + '" style="--p:' +
+        (topo ? Math.round(v / topo * 100) : 0) + '%"></div>' +
+        '<b>' + Q.num(v) + '</b><span class="fsub">' + n +
+        (n === 1 ? ' carga' : ' cargas') + '</span></td>';
+    }
+    function cab(id, rot, dica){
+      return '<th class="num"><button type="button" class="rk-ord' +
+        (RANK_POR === id ? ' ativo' : '') + '" data-rank="' + id + '" title="' +
+        Q.esc(dica) + '">' + rot + (RANK_POR === id ? ' \u25be' : '') + '</button></th>';
+    }
+    box.innerHTML =
+      '<table class="rk"><caption>Rank dos motoristas<span class="fsub">' +
+      'o que est\u00e1 na tabela abaixo, por motorista \u2014 os filtros valem aqui tamb\u00e9m' +
+      '</span></caption><thead><tr><th>Motorista</th>' +
+      cab('declarou', 'Declarou o retorno',
+          'Caixas que ele informou que trazia, nas viagens de retorno') +
+      cab('semDeclarar', 'Chegou sem ele declarar',
+          'Caixas que algu\u00e9m contou na chegada sem o retorno do motorista') +
+      '</tr></thead><tbody>' +
+      linhas.map(function(l){
+        return '<tr><th scope="row">' + Q.esc(l.nome) + '</th>' +
+          cel(l.declarou, l.nDeclarou, topoD, 'rk--ok') +
+          cel(l.semDeclarar, l.nSemDeclarar, topoS, 'rk--falta') + '</tr>';
+      }).join('') + '</tbody></table>';
+
+    Array.prototype.forEach.call(box.querySelectorAll('[data-rank]'), function(b){
+      b.addEventListener('click', function(){
+        RANK_POR = b.dataset.rank;
+        desenharRank(L);
+      });
+    });
+  }
+
   function desenharDecl(){
     /* O BOTAO ACOMPANHA O DESENHO, e nao tem ouvinte proprio: esta funcao roda a cada
        troca de filtro, a cada tecla da busca e a cada lista que chega. Num ouvinte a
@@ -5767,6 +5888,10 @@
       if (busca && !parCasa(p, busca)) return false;
       return true;
     });
+
+    /* O RANK SAI DA MESMA `L` QUE A TABELA, e desenha antes dela: ele e' o resumo do
+       que vem abaixo, e um resumo montado sobre outra lista nao e' resumo de nada. */
+    desenharRank(L);
 
     /* OS NÚMEROS FORA DO CORTE DA LISTA VAZIA: um recorte sem nenhum par ainda tem
        resposta — zeros —, e ela é diferente de a tela não ter desenhado nada. */

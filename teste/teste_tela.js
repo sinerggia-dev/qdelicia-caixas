@@ -3977,6 +3977,108 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
  * COBRADA NAS DUAS TELAS, e nao so' na que quebrou: a outra e' a referencia, e uma
  * referencia sem prova e' so' um exemplo que alguem pode mexer sem perceber.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * O RANK DOS MOTORISTAS: quem declarou o retorno, e quem deixou chegar sem declarar.
+ *
+ * Pedido pelo escritorio. Sao as duas pontas da mesma pergunta — "posso contar com o
+ * que este motorista informa?" —, e as duas contas NAO somam a mesma coisa:
+ *
+ *   . DECLAROU e' o que ele informou nas viagens de RETORNO. Saida nao entra: numa
+ *     saida ele nao declara volta nenhuma, e conta-la premiaria quem so' leva.
+ *   . SEM DECLARAR e' o CONFERIDO dos pares em que alguem contou a chegada e o retorno
+ *     dele nao veio. E' o conferido porque e' o unico numero que existe ali — o lado
+ *     dele esta' vazio, que e' o problema.
+ *
+ * RODADO. Lida, a prova nao distinguiria uma conta da outra: sao duas somas sobre o
+ * mesmo array, e trocar `retornoTotal` por `conferido` deixa as duas colunas cheias de
+ * numeros plausiveis.
+ * ------------------------------------------------------------------------- */
+console.log('\n== o rank dos motoristas ==');
+(function () {
+  var admR = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var rank = new Function(fonteDaFuncao(admR, 'rankDeMotoristas') +
+    ' return rankDeMotoristas;')();
+  ok(typeof rank === 'function', 'a confer\u00eancia recortou o rank', typeof rank);
+
+  /* O CENARIO SEPARA AS DUAS CONTAS: o mesmo motorista com uma viagem de cada tipo,
+     um que so' declarou, um que so' faltou, e uma SAIDA declarada — que nao entra. */
+  var L = [
+    { motorista: 'Dinho', tipo: 'Retorno', retornoTotal: 400, conferido: 400,
+      situacao: 'Bateu' },
+    { motorista: 'Dinho', tipo: 'Retorno', retornoTotal: 100, conferido: 0,
+      situacao: 'Sem confer\u00eancia' },
+    { motorista: 'Dinho', tipo: 'Retorno', retornoTotal: 0, conferido: 70,
+      situacao: 'Sem Retorno Motorista' },
+    { motorista: 'Ramos', tipo: 'Retorno', retornoTotal: 900, conferido: 880,
+      situacao: 'Divergente' },
+    { motorista: 'Valcy', tipo: 'Retorno', retornoTotal: 0, conferido: 250,
+      situacao: 'Sem Retorno Motorista' },
+    { motorista: 'Breno', tipo: 'Sa\u00edda', retornoTotal: null, saidaTotal: 5000,
+      conferido: 0, situacao: 'Sa\u00edda Log\u00edstica' },
+    { motorista: '', tipo: 'Retorno', retornoTotal: 0, conferido: 33,
+      situacao: 'Sem Retorno Motorista' }
+  ];
+  var r = rank(L);
+  var por = {};
+  r.forEach(function (l) { por[l.nome] = l; });
+
+  ok(por.Dinho && por.Dinho.declarou === 500 && por.Dinho.nDeclarou === 2,
+    'declarou soma as viagens de RETORNO com n\u00famero informado: 400 + 100 = 500, em ' +
+    'duas cargas \u2014 e a terceira viagem dele, sem declara\u00e7\u00e3o, n\u00e3o entra nesta coluna',
+    por.Dinho);
+  ok(por.Dinho && por.Dinho.semDeclarar === 70 && por.Dinho.nSemDeclarar === 1,
+    'e o mesmo motorista aparece nas DUAS contas \u2014 n\u00e3o s\u00e3o dois grupos de gente, s\u00e3o ' +
+    'duas contas sobre o mesmo trabalho', por.Dinho);
+
+  ok(por.Valcy && por.Valcy.semDeclarar === 250 && por.Valcy.declarou === 0,
+    'quem s\u00f3 deixou chegar sem declarar aparece com a coluna da esquerda zerada \u2014 ' +
+    'a pend\u00eancia \u00e9 dele, e esconder a linha esconderia exatamente o que se veio ver',
+    por.Valcy);
+
+  /* A SAIDA NAO ENTRA. Premiada, a lista poria no topo quem so' leva caixa. */
+  ok(!por['Breno'],
+    'a viagem de SA\u00cdDA n\u00e3o entra no rank \u2014 numa sa\u00edda o motorista n\u00e3o declara volta ' +
+    'nenhuma, e cont\u00e1-la poria no topo quem s\u00f3 leva caixa', r.map(function (l) { return l.nome; }));
+
+  /* SEM MOTORISTA E UMA CATEGORIA, pela regra que ja vale no resto do projeto. */
+  ok(por['sem motorista'] && por['sem motorista'].semDeclarar === 33,
+    'e a carga sem motorista anotado vira uma linha com NOME \u2014 somada \u00e0 de algu\u00e9m ou ' +
+    'escondida, ela cobraria a pessoa errada ou ningu\u00e9m',
+    por['sem motorista']);
+
+  /* QUEM NAO TEM NUMERO NENHUM SAI: uma linha de zeros so' empurra para baixo quem
+     tem numero. */
+  ok(r.length === 4,
+    'e quem n\u00e3o aparece em nenhuma das duas contas fica fora \u2014 uma linha de zeros no ' +
+    'meio do rank s\u00f3 empurra para baixo quem tem n\u00famero',
+    r.map(function (l) { return l.nome; }));
+
+  /* ---- O DESENHO USA AS DUAS COLUNAS, E A TELA O CHAMA ---- */
+  var admSC = semComentarios(admR);
+  /* A CHAMADA E PROCURADA DENTRO DE `desenharDecl`, e nao no arquivo inteiro. Solta,
+     ela era achada DUAS vezes: a de verdade e a que o proprio `desenharRank` faz quando
+     alguem clica no cabecalho para reordenar. Com isso, apagar a chamada de verdade
+     deixava a prova verde — o rank sumia da tela e a bancada nao via.
+     E A MESMA ARMADILHA da tabela de conferencia, duas semanas atras: a DECLARACAO da
+     funcao continha a mesma string que a chamada. */
+  var corpoDesenha = fonteDaFuncao(admSC, 'desenharDecl');
+  ok(corpoDesenha.indexOf('desenharRank(L);') > 0,
+    'e a tela desenha o rank a partir da MESMA lista filtrada que a tabela \u2014 montado ' +
+    'sobre outra lista, ele diria uma coisa com a tabela logo abaixo mostrando outra, e ' +
+    'seria ele a mentir: ele \u00e9 o resumo dela', corpoDesenha.slice(0, 160));
+  ok(corpoDesenha.indexOf('desenharRank(PARES)') < 0,
+    'e n\u00e3o da lista inteira \u2014 `PARES` ignora o per\u00edodo, a busca e os chips, e o rank ' +
+    'passaria a responder sobre lan\u00e7amentos que a tela n\u00e3o mostra', corpoDesenha.slice(0, 160));
+  ok(/rank: 'dcRank'/.test(admSC) && /rank: 'lmRank'/.test(admSC) &&
+     /id="dcRank"/.test(admSC) && /id="lmRank"/.test(admSC),
+    'e cada tela tem a SUA caixa, vinda do descritor \u2014 escrita a m\u00e3o, esta tela j\u00e1 ' +
+    'custou esse erro uma vez: o desenho ia para a caixa da outra p\u00e1gina e a tela ' +
+    'inteira ficava vazia');
+  var corpoD = fonteDaFuncao(admSC, 'desenharRank');
+  ok(corpoD.indexOf("TELA_PARES.rank") > 0,
+    'e a caixa sai do descritor da tela ABERTA, e n\u00e3o de um id fixo', corpoD.slice(0, 200));
+})();
+
 console.log('\n== a barra de filtros, nas duas telas ==');
 (function () {
   var admB = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
