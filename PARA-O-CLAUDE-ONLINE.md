@@ -228,36 +228,45 @@ Duas regras do domínio que mudam número na tela:
 
 ---
 
-## 6. O trabalho pendente — o que foi pedido
+## 6. O rank dos motoristas — já está no ar
 
-Há um rank de motoristas na tela de conciliação, e ele precisa ser redesenhado.
+Esta seção pedia um rank. **Ele foi construído e está publicado.** O que vem abaixo é o
+que existe hoje na tela, com o porquê de cada escolha. **O pedido agora é de revisão de
+desenho, não de construção** — leia o código (seção 8) antes de propor mudança.
 
-### O problema
+### O que está no ar
 
-O rank foi posto **acima** da tabela e empurrou a tabela para fora da tela. Com 35
-linhas, quem abre a página não vê os dados — vê o resumo.
+1. **A tabela é o primeiro lugar**, com uma **janela de 16 linhas**, o resto em rolagem
+   interna e o cabeçalho fixo no topo da janela.
+2. **O rank vem depois dela**, em **três blocos lado a lado**, cada um com a sua rolagem
+   vertical — o mesmo desenho dos painéis `.graficos`/`.g` de Movimentos Gerais, com o
+   modificador `.g--rank`.
+3. **No celular o rank sobe para antes dos cartões**, em carrossel horizontal, com alvo
+   de toque de 44px. No telefone ninguém rola 16 linhas de tabela para achar um resumo.
+4. **Cada linha é um botão**: clicar filtra a tela por aquele motorista, e o botão diz
+   que está ligado. `sem motorista` é categoria, não vira filtro.
 
-### O que foi pedido
+### Os três blocos, e o critério de cada um
 
-1. **A tabela volta para o primeiro lugar.**
-2. Ela ganha uma **janela de 16 linhas**, com o resto em rolagem interna e o cabeçalho
-   fixo no topo da janela.
-3. O rank desce para **depois** da tabela.
-4. O rank passa ao formato de **blocos lado a lado**, cada um com a sua **rolagem
-   vertical** — o mesmo desenho dos painéis `.graficos`/`.g` que a tela de Movimentos
-   Gerais já usa.
+| Bloco | O que soma | Ordem |
+|---|---|---|
+| **Declarou o retorno** | caixas que ele informou que trazia, nas viagens de retorno. Saída não entra | do maior para o menor |
+| **Chegou sem ele declarar** | caixas que alguém contou na chegada sem o retorno dele | do maior para o menor |
+| **% declarado** | das cargas de retorno dele, quantas ele declarou | **do pior para o melhor** — é a lista de quem cobrar |
 
-### Os dados do rank
+As quatro perguntas que esta seção deixava em aberto foram respondidas assim:
 
-Por motorista, dentro do período e dos filtros ativos:
+- **Três blocos**, não dois. 1.919 caixas declaradas não dizem o mesmo vindas de quem
+  teve 599 sem declarar ou de quem teve 7.685; a porcentagem põe os dois na mesma escala.
+- **A barra tem uma cor só.** Nos painéis de Movimentos ela é dividida em saída/retorno
+  porque cada linha tem os dois números. Aqui cada linha tem **um**, e dividi-la
+  inventaria uma segunda grandeza.
+- **Verde para o declarado, âmbar para o que faltou** — não vermelho: declaração que
+  faltou é pendência a cobrar, não caixa perdida.
+- **Quem não declarou nada fica fora do primeiro bloco** e aparece no terceiro com 0%,
+  que é onde a ausência dele responde alguma coisa.
 
-| Campo | O que é |
-|---|---|
-| **Declarou o retorno** | caixas que ele informou que trazia, nas viagens de retorno. Saída não entra |
-| **Chegou sem ele declarar** | caixas que alguém contou na chegada sem o retorno dele |
-| cargas | quantos lançamentos em cada conta |
-
-Números reais de uma captura, para o desenho ficar realista:
+### Os números reais, para julgar o desenho com carga de verdade
 
 ```
 Isaque Araújo    declarou 1.919 (6 cargas)   sem declarar   599 (4 cargas)
@@ -276,20 +285,12 @@ Arthur           declarou     —              sem declarar   225 (1 carga)
 
 São 36 motoristas no total; a maioria só aparece na segunda coluna.
 
-### Perguntas em aberto, que o desenho precisa responder
+### O que ainda vale olhar
 
-- **Quantos blocos?** Dois (o que foi pedido) ou três, incluindo a **porcentagem que
-  cada um declarou**? 1.919 caixas declaradas não dizem o mesmo vindas de quem teve 599
-  sem declarar ou de quem teve 7.685 — a porcentagem põe os dois na mesma escala. Se
-  entrar, deve vir ordenada do pior para o melhor: é a lista de quem cobrar.
-- **Quantas colunas na fileira?** O painel de Movimentos usa cinco, mas lá cada linha é
-  uma data ou um trecho. Aqui é **nome de gente**, mais largo.
-- **Que altura para a rolagem de cada bloco?** O pódio precisa caber sem rolar.
-- **A barra é de uma cor ou dividida?** Nos painéis de Movimentos ela é dividida em
-  saída/retorno porque cada linha tem os dois. Aqui cada linha tem **um número só**.
-
-Há um estudo já feito com uma proposta, em `estudo-rank.html` no repositório. Peça-o se
-quiser partir dele — mas não se prenda a ele.
+A função é `desenharRank` em `admin.html`, e as classes começam em `.rk-` e `.g--rank`
+no `styles.css`. O estudo que precedeu a implementação continua no repositório como
+`estudo-rank.html` — ele é **histórico, não o estado atual**; onde os dois discordarem,
+quem manda é o `admin.html`.
 
 ---
 
