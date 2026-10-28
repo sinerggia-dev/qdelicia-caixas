@@ -4077,6 +4077,34 @@ console.log('\n== o rank dos motoristas ==');
   var corpoD = fonteDaFuncao(admSC, 'desenharRank');
   ok(corpoD.indexOf("TELA_PARES.rank") > 0,
     'e a caixa sai do descritor da tela ABERTA, e n\u00e3o de um id fixo', corpoD.slice(0, 200));
+
+  /* O RANK EM BLOCOS AO PE' DA TABELA. Ele ficava ACIMA dela, e com 35 motoristas a
+     tabela saia da tela: quem abria a pagina via o resumo e nao os dados. */
+  ['dc', 'lm'].forEach(function (t) {
+    var caixa = t === 'dc' ? 'tabelaDecl' : 'tabelaLanc';
+    var iT = admSC.indexOf('id="' + caixa + '"'), iR = admSC.indexOf('id="' + t + 'Rank"');
+    var area = admSC.lastIndexOf('<div class="dc-area">', iT);
+    ok(iT > 0 && iR > iT && area > 0 && admSC.indexOf('</div>', iT) < iR,
+      'a tabela vem ANTES do rank (' + t + '), os dois dentro da mesma \u00e1rea \u2014 com o ' +
+      'rank em cima, 35 motoristas empurravam a tabela para fora da tela', [iT, iR, area]);
+  });
+  ok(corpoD.indexOf('class="g g--rank"') > 0 && corpoD.indexOf('class="gb') > 0 &&
+     corpoD.indexOf('<table') < 0,
+    'o rank usa os pain\u00e9is de Movimentos (`.g`, `.gb`) por modificador, e n\u00e3o uma ' +
+    'tabela pr\u00f3pria \u2014 dois desenhos da mesma barra divergem no primeiro ajuste');
+  /* QUEM FILTRA E' O CAMPO DA GAVETA, e a decisao e' no clique. Decidida no desenho, a
+     lista de motoristas (que chega depois, pela `equipe`) ainda nao existia, e o rank
+     nascia com as 76 linhas desligadas \u2014 medido no navegador. */
+  ok(corpoD.indexOf('TELA_PARES.campos.motorista') > 0 && corpoD.indexOf('mudouMulti(') > 0,
+    'clicar num motorista do rank filtra pelo MESMO campo Motorista da gaveta, pelo ' +
+    'mesmo caminho dela \u2014 um filtro s\u00f3 do rank seria um recorte que o Limpar n\u00e3o conhece');
+  ok(corpoD.indexOf("addEventListener('click'") > 0 &&
+     corpoD.slice(0, corpoD.indexOf("addEventListener('click'")).indexOf('opcoesDe(') < 0,
+    'e o rank N\u00c3O decide quem \u00e9 clic\u00e1vel pela lista do campo na hora do desenho \u2014 ' +
+    'ela chega depois dos pares, e as linhas nasciam todas desligadas');
+  ok(corpoD.indexOf("(fora do cadastro)") > 0,
+    'nome fora do cadastro entra no campo com a mesma etiqueta de `montarSelects`, para ' +
+    'a escolha sobreviver quando a lista for refeita');
 })();
 
 console.log('\n== a barra de filtros, nas duas telas ==');

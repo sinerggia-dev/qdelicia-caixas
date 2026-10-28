@@ -2892,49 +2892,6 @@ details.tipos[open] summary::before{content:"▾"}
 .ap__sig span{display:inline-flex;align-items:center;gap:6px}
 .ap__sig i{width:10px;height:10px;border-radius:3px}
 .ap__sig em{font-style:normal;color:var(--txt3);font-size:12px}
-/* ---------- o RANK dos motoristas ----------
- *
- * Pedido pelo escritorio: quem mais declarou o retorno, e quem deixou carga chegar sem
- * declarar. Ele fica entre os numeros e a tabela, porque e' o resumo dela.
- *
- * A BARRA E O QUE SE LE PRIMEIRO. Numa lista de vinte motoristas, comparar seis digitos
- * linha a linha e' trabalho; o comprimento da barra responde "quem puxa a fila" antes
- * de o olho chegar no numero. O numero fica, porque e' ele que se anota.
- *
- * CADA COLUNA TEM A SUA ESCALA, e nao uma comum: sao duas contas diferentes — caixa
- * declarada de um lado, caixa que chegou sem declaracao do outro — e uma escala
- * compartilhada faria a coluna menor nascer toda rasteira, ilegivel, sugerindo uma
- * comparacao entre as duas que nao existe.
- *
- * VERDE PARA O QUE FOI DECLARADO E AMBAR PARA O QUE FALTOU. Nao e' vermelho: faltar a
- * declaracao do motorista e' pendencia a resolver, e nao erro cometido — o vermelho
- * desta tela e' da divergencia, onde os dois numeros existem e brigam. */
-.rk-caixa{margin:0 0 16px}
-.rk-caixa:empty{display:none}
-.rk{width:100%;border-collapse:collapse;font-size:12.5px}
-.rk caption{text-align:left;padding:0 0 8px;font-weight:700;color:var(--txt)}
-.rk caption .fsub{display:block;font-weight:400;font-size:11.5px;color:var(--txt3);
-  margin-top:2px}
-.rk th,.rk td{padding:7px 10px;border-bottom:1px solid var(--linha);vertical-align:bottom}
-.rk thead th{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
-  color:var(--txt3);font-weight:700;border-bottom:1px solid var(--linha-viva)}
-.rk tbody th{text-align:left;font-weight:600;color:var(--txt);white-space:nowrap}
-.rk .num{text-align:right;font-variant-numeric:tabular-nums;width:34%}
-.rk tbody tr:hover{background:var(--surface-2)}
-.rk .fsub{display:block;font-size:10.5px;color:var(--txt3);font-weight:400}
-/* A BARRA MORA ATRAS DO NUMERO, encostada na direita como ele: alinhadas pela mesma
-   borda, as barras se comparam de relance. */
-.rk-barra{height:4px;border-radius:2px;margin:0 0 3px auto;width:var(--p);min-width:2px}
-.rk--ok{background:var(--verde)}
-.rk--falta{background:var(--ambar)}
-/* O CABECALHO QUE ORDENA. Ele e' um botao de verdade — alcancavel pelo teclado —, e a
-   coluna ativa diz que esta' ativa: sem a marca, quem chega na tela nao sabe por qual
-   das duas a lista esta ordenada, e le' o topo como se fosse o maior dos dois. */
-.rk-ord{border:0;background:transparent;font:inherit;color:inherit;cursor:pointer;
-  padding:0;text-transform:inherit;letter-spacing:inherit}
-.rk-ord:hover,.rk-ord:focus-visible{color:var(--txt);outline:none;text-decoration:underline}
-.rk-ord.ativo{color:var(--txt)}
-
 .ret-nav{display:flex;flex-direction:column;gap:2px}
 
 /* ---------- arrastar os chips para mudar a ordem ----------
@@ -3547,6 +3504,105 @@ details.tipos[open] summary::before{content:"▾"}
 .gb__s{background:var(--azul-cheio)}
 .gb__d{background:var(--verde-cheio)}
 .gb:hover .gb__k,.gb:hover .gb__v{color:var(--txt)}
+
+/* ---------- o RANK dos motoristas: tres blocos embaixo da tabela ----------
+ *
+ * O MESMO DESENHO DOS PAINEIS DE MOVIMENTOS (`.g`, `.gb`), por modificador e sem
+ * redefinir nenhum dos dois: um rank com componente proprio seria a segunda barra de
+ * motorista do painel, e as duas divergiriam no primeiro ajuste.
+ *
+ * TRES COLUNAS, E NAO CINCO. La' cada linha e' uma data ou um trecho; aqui e' NOME DE
+ * GENTE, mais largo. Em um quinto da largura, "Welison Santana" truncaria antes de o
+ * numero aparecer.
+ *
+ * VERDE PARA O QUE FOI DECLARADO E AMBAR PARA O QUE FALTOU, como era na tabela que
+ * isto substitui. Nao e' vermelho: faltar a declaracao e' pendencia a resolver, e nao
+ * caixa faltando — o vermelho desta tela e' da divergencia. */
+.rk-caixa{margin:0 0 16px;min-width:0}
+.rk-caixa:empty{display:none}
+.rk-cab{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 8px;
+  font-size:12.5px;font-weight:700;color:var(--txt)}
+.rk-cab .fsub{font-weight:400;font-size:11.5px;color:var(--txt3)}
+/* 220px E' O PISO DE UM BLOCO: abaixo disso o nome some em reticencias antes de dizer
+   de quem e'. Quando a soma nao cabe, os blocos rolam DE LADO em vez de espremer. */
+.graficos--rank{grid-template-columns:repeat(3,minmax(220px,1fr));margin:0;
+  overflow-x:auto}
+.g--rank{display:flex;flex-direction:column;min-height:0;padding-bottom:10px}
+/* CADA BLOCO ROLA POR CONTA PROPRIA, com o cabecalho parado. Fora da tela que cabe
+   (celular, ou a pagina sem a corrente de altura), a lista para em ~nove motoristas:
+   o podio e os seguintes a' vista, e os 36 sem empurrar a tabela.
+   `scrollbar-gutter` reserva o lugar da barra: sem ele, os numeros andam 8px para o
+   lado no instante em que a lista passa a rolar. */
+.g__lista{max-height:440px;overflow-y:auto;scrollbar-gutter:stable;
+  margin:0 -4px;padding:0 4px}
+/* "sem motorista" e' linha, e nao buraco — mas nao e' gente: em italico e no tom de
+   apoio, para nao ser lido como o nome de alguem. */
+.gb--sem-info .gb__k{font-style:italic;color:var(--txt3)}
+/* AS CARGAS ENTRE O NOME E O NUMERO, na mesma linha (ver o desenho em `desenharRank`). */
+.g--rank .gb__par{display:inline;flex:0 0 auto;margin:0}
+/* O TITULO DO BLOCO NAO ENCOLHE: com total e contagem ao lado, "Chegou sem ele
+   declarar" virava "CHEGOU SEM EL…". Faltando largura, quem desce para a linha de baixo
+   e' o total — o numero continua a' direita, e o titulo continua inteiro. */
+.g--rank .g__c{flex-wrap:wrap;row-gap:2px}
+.g--rank .g__t{flex:1 0 auto}
+.gb__falta{background:var(--ambar)}
+@media (max-width:700px){
+  .graficos--rank{grid-template-columns:1fr;overflow-x:visible}
+}
+
+/* ---------- a TABELA E O RANK CABEM NA TELA (as duas telas de conciliacao) ----------
+ *
+ * A MESMA CORRENTE DO PAINEL DE ATIVOS: a pagina pede "o que sobrar" da altura, e quem
+ * rola sao as caixas de dentro — a tabela e cada bloco do rank —, nunca a pagina. Antes
+ * o rank ficava acima da tabela e, com 35 motoristas, empurrava a tabela inteira para
+ * fora da tela.
+ *
+ * `min-height:0` EM TODO DEGRAU, pela mesma razao de la': sem ele um item de flex nao
+ * encolhe abaixo do conteudo, a corrente cresceria ate a altura de todas as linhas e a
+ * barra da pagina voltaria.
+ *
+ * SO' NO COMPUTADOR. Abaixo de 1024px a tabela vira cartoes, e cartao numa caixa de
+ * altura fixa seria uma janelinha de rolagem dentro de uma tela que ja' rola. */
+@media (min-width:1024px){
+  #pgLancamentosMotorista.ativa,#pgLancamentoMotorista.ativa{display:flex;
+    flex-direction:column;flex:1 1 auto;min-height:0}
+  #pgLancamentosMotorista > .card,#pgLancamentoMotorista > .card{flex:1 1 auto;
+    min-height:0;display:flex;flex-direction:column}
+  /* A GRADE DO TRILHO DE FILTROS ganha uma linha que estica; o trilho continua no
+     topo dele (`align-self:start` e' dele), so' o conteudo desce ate o fim. */
+  #declTela{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr);
+    align-items:stretch}
+  #declTela > .mov-conteudo{display:flex;flex-direction:column;min-height:0}
+  .dc-area{flex:1 1 auto;min-height:0;display:flex}
+  /* EMPILHADOS, E NAO LADO A LADO. Medido a 2540px: com o rank ao lado, a tabela
+     ficava com 3/5 da largura e as colunas que respondem "bateu?" — Conferido, a
+     diferenca, Situacao — saiam da vista, atras de rolagem lateral. A tabela precisa da
+     largura inteira; o rank, de altura para o podio. */
+  .dc-area{flex-direction:column;gap:12px}
+  .dc-tabela{flex:1 1 0;min-width:0;min-height:0;display:flex;flex-direction:column}
+  .dc-tabela > .tabela-wrap{flex:1 1 auto;min-height:0;overflow:auto}
+  /* A ALTURA DO RANK: 40% do que sobra, entre um piso que ainda mostra o podio
+     (cabecalho + tres motoristas) e um teto que nao deixa o rank tomar a tabela num
+     monitor alto. O resto e' da tabela. Vazio, o rank some e a tabela fica com tudo. */
+  .dc-area > .rk-caixa{flex:0 0 clamp(228px,40%,340px);margin:0;display:flex;
+    flex-direction:column;min-height:0}
+  .dc-area .graficos--rank{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr)}
+  .dc-area .g__lista{flex:1 1 auto;min-height:0;max-height:none}
+}
+/* TELA BAIXA (notebook): NAO HA ALTURA PARA OS DOIS, e a pagina volta a rolar.
+   Medido a 1456x800: a barra de filtros quebra em duas linhas, os cartoes e a linha de
+   situacoes levam o resto, e espremida a tabela ficava com DUAS linhas — e o rank
+   vazava pela borda do cartao. Duas fechaduras numa tela so' nao e' "tudo a' vista".
+   Aqui a tabela tem uma janela fixa (rola por dentro, com o cabecalho grudado) e o
+   rank vem logo embaixo, com o podio inteiro. */
+@media (min-width:1024px) and (max-height:860px){
+  #pgLancamentosMotorista.ativa,#pgLancamentoMotorista.ativa{flex:0 0 auto}
+  .dc-area,.dc-tabela{flex:0 0 auto}
+  .dc-tabela > .tabela-wrap{max-height:460px}
+  .dc-area > .rk-caixa{flex:0 0 auto}
+  .dc-area .graficos--rank{flex:0 0 auto}
+  .dc-area .g__lista{max-height:260px}
+}
 .legenda-g{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:14px 0 0;
   font-size:12.5px;color:var(--txt2)}
 .legenda-g span{display:inline-flex;align-items:center;gap:6px}

@@ -1496,15 +1496,23 @@
              é desenho, e não arranjo. -->
         <div id="dcTotais" class="tot tot--cinco"></div>
         <div class="linha-sit" id="dcSituacoes"></div>
-        <!-- O RANK FICA ENTRE OS NUMEROS E A TABELA, porque e um resumo DELA: as
-             duas leem a mesma lista filtrada, e o rank responde "quem" enquanto a
-             tabela responde "quais lancamentos". Posto depois da tabela, ele ficaria
-             abaixo de dezenas de linhas, onde ninguem rola para ver um resumo.
-             ELE NASCE VAZIO e so aparece quando ha motorista com numero: num recorte
-             onde ninguem declarou nem deixou de declarar, uma tabela de zeros ocupa
-             a tela sem responder nada. -->
-        <div class="rk-caixa" id="dcRank"></div>
-        <div id="tabelaDecl"><div class="vazio">Escolha a <b>Base</b> para comparar.</div></div>
+        <!-- A TABELA E O RANK DIVIDEM O QUE SOBRA DA TELA, e nenhum dos dois empurra o
+             outro para fora dela. O rank ficava ENTRE os numeros e a tabela, e com 35
+             motoristas ele tomava a tela inteira: quem abria a pagina via o resumo e nao
+             os dados. Posto embaixo, como uma pilha, ele caia abaixo da dobra e ninguem
+             rolava ate ele.
+             TABELA EM CIMA, NA LARGURA INTEIRA, rank embaixo, os dois dentro da mesma
+             altura. Lado a lado foi tentado e medido: a tabela tem dezessete colunas, e
+             com o rank ao lado Conferido, a diferenca e Situacao — as colunas que
+             respondem "bateu?" — saiam da vista, atras de rolagem lateral.
+             A TABELA VEM PRIMEIRO no documento: e' o que a pessoa veio ver, e e' a ordem
+             do Tab e do leitor de tela.
+             O RANK NASCE VAZIO e so aparece quando ha motorista com numero; vazio, a
+             tabela toma a largura inteira. -->
+        <div class="dc-area">
+          <div id="tabelaDecl" class="dc-tabela"><div class="vazio">Escolha a <b>Base</b> para comparar.</div></div>
+          <div class="rk-caixa" id="dcRank"></div>
+        </div>
 
       </div><!-- /mov-conteudo -->
 
@@ -1697,8 +1705,13 @@
       </div>
 
       <div class="linha-sit" id="lmSituacoes"></div>
-      <div class="rk-caixa" id="lmRank"></div>
-      <div id="tabelaLanc"><div class="vazio">Escolha a <b>Base</b>.</div></div>
+      <!-- O MESMO ARRANJO DA OUTRA TELA: as duas desenham pela mesma funcao, e um
+           rank em blocos numa e em pilha na outra seria a primeira diferenca que alguem
+           perguntaria por que existe. -->
+      <div class="dc-area">
+        <div id="tabelaLanc" class="dc-tabela"><div class="vazio">Escolha a <b>Base</b>.</div></div>
+        <div class="rk-caixa" id="lmRank"></div>
+      </div>
     </div>
   </section>
 
@@ -5797,9 +5810,40 @@
       .filter(function(b){ return b.declarou || b.semDeclarar; });
   }
 
-  /* POR QUAL COLUNA O RANK ESTA ORDENADO. Comeca pela que foi pedida primeiro — quem
-     mais declarou —, e o clique no cabecalho troca. */
-  var RANK_POR = 'declarou';
+  /* O RANK EM TRES BLOCOS, o mesmo desenho dos paineis de Movimentos (`.g` e `.gb`).
+   *
+   * ERA UMA TABELA DE DUAS COLUNAS ordenada por clique no cabecalho, e cada coluna
+   * respondia uma pergunta diferente sobre a mesma lista: ordenada por "declarou", quem
+   * deixou 7.685 caixas chegar sem declarar ficava la' embaixo, depois de quem declarou
+   * 738. Cada bloco agora tem a SUA ordem, e as tres respostas ficam a' vista ao mesmo
+   * tempo, sem clique.
+   *
+   * O TERCEIRO BLOCO E' A PORCENTAGEM, e e' ele que diz de quem cobrar. 1.919 caixas
+   * declaradas nao dizem o mesmo vindas de quem deixou 599 sem declarar ou de quem
+   * deixou 7.685: a porcentagem poe os dois na mesma escala. Vem DO PIOR PARA O MELHOR.
+   *
+   * A PORCENTAGEM E' POR CARGA, e nao por caixa. Por caixa, o numerador seria o que o
+   * motorista DECLAROU e o denominador somaria isso ao que o conferente CONTOU — duas
+   * grandezas diferentes na mesma conta, e declaracao nao entra em total de caixa.
+   * Por carga, os dois lados contam lancamentos. E' o mesmo `nDeclarou`/`nSemDeclarar`
+   * que ja' aparece escrito embaixo de cada numero, e por isso a conta se confere com
+   * o olho: "6 de 10 cargas" esta' na propria linha.
+   *
+   * CADA TOTAL E' A SOMA DAS LINHAS DO BLOCO, somada aqui, das mesmas linhas que viram
+   * barra. O primeiro bloco fecha com o cartao "Retorno Declarado" acima; o segundo, com
+   * a soma do Conferido nas linhas "Sem Retorno Motorista" da tabela ao lado.
+   *
+   * A LINHA E' UM BOTAO que filtra a tela por aquele motorista — pelo MESMO campo
+   * Motorista da gaveta, e nao por um filtro novo. Um segundo filtro de motorista
+   * escondido no rank seria um recorte que o Limpar, o trilho e o pedido ao servidor
+   * nao conhecem. "sem motorista" nao vira filtro, como nos paineis de Movimentos.
+   *
+   * QUEM PODE FILTRAR SE DECIDE NO CLIQUE, e nao no desenho. A lista do campo chega do
+   * servidor por outra ida de rede (`equipe`), e quase sempre DEPOIS dos pares: decidido
+   * no desenho, o rank nascia com todas as linhas desligadas e nao se religava — medido
+   * na bancada, 76 de 76. Nome que nao esta' no cadastro entra no campo como "(fora do
+   * cadastro)", a mesma convencao que `montarSelects` ja' usa para nao perder a escolha. */
+  var RANK_SEM_MOTORISTA = 'sem motorista';
 
   function desenharRank(L){
     var box = document.getElementById(TELA_PARES.rank || '');
@@ -5809,45 +5853,148 @@
       box.innerHTML = '';
       return;
     }
-    linhas.sort(function(a, b){
-      return (b[RANK_POR] - a[RANK_POR]) || a.nome.localeCompare(b.nome, 'pt-BR');
-    });
-    /* O TOPO DE CADA COLUNA DA A ESCALA DA BARRA. Por um maximo comum, a coluna menor
-       nasceria toda rasteira e nao se leria — e as duas colunas nao se comparam entre
-       si: uma e' caixa declarada, a outra e' caixa que chegou sem declaracao. */
-    var topoD = linhas.reduce(function(m, l){ return Math.max(m, l.declarou); }, 0);
-    var topoS = linhas.reduce(function(m, l){ return Math.max(m, l.semDeclarar); }, 0);
-    function cel(v, n, topo, classe){
-      if (!v) return '<td class="num"><span class="fraco">\u2014</span></td>';
-      return '<td class="num"><div class="rk-barra ' + classe + '" style="--p:' +
-        (topo ? Math.round(v / topo * 100) : 0) + '%"></div>' +
-        '<b>' + Q.num(v) + '</b><span class="fsub">' + n +
-        (n === 1 ? ' carga' : ' cargas') + '</span></td>';
-    }
-    function cab(id, rot, dica){
-      return '<th class="num"><button type="button" class="rk-ord' +
-        (RANK_POR === id ? ' ativo' : '') + '" data-rank="' + id + '" title="' +
-        Q.esc(dica) + '">' + rot + (RANK_POR === id ? ' \u25be' : '') + '</button></th>';
-    }
-    box.innerHTML =
-      '<table class="rk"><caption>Rank dos motoristas<span class="fsub">' +
-      'o que est\u00e1 na tabela abaixo, por motorista \u2014 os filtros valem aqui tamb\u00e9m' +
-      '</span></caption><thead><tr><th>Motorista</th>' +
-      cab('declarou', 'Declarou o retorno',
-          'Caixas que ele informou que trazia, nas viagens de retorno') +
-      cab('semDeclarar', 'Chegou sem ele declarar',
-          'Caixas que algu\u00e9m contou na chegada sem o retorno do motorista') +
-      '</tr></thead><tbody>' +
-      linhas.map(function(l){
-        return '<tr><th scope="row">' + Q.esc(l.nome) + '</th>' +
-          cel(l.declarou, l.nDeclarou, topoD, 'rk--ok') +
-          cel(l.semDeclarar, l.nSemDeclarar, topoS, 'rk--falta') + '</tr>';
-      }).join('') + '</tbody></table>';
+    var sel = document.getElementById(TELA_PARES.campos.motorista || '');
+    var escolhidos = escolhaDe(sel);
 
-    Array.prototype.forEach.call(box.querySelectorAll('[data-rank]'), function(b){
+    function porNome(a, b){ return a.nome.localeCompare(b.nome, 'pt-BR'); }
+    function cargas(n){ return Q.num(n) + (n === 1 ? ' carga' : ' cargas'); }
+    function soma(lista, campo){
+      return lista.reduce(function(a, l){ return a + (l[campo] || 0); }, 0);
+    }
+
+    /* UMA LINHA DE BLOCO. A barra tem UMA cor so': cada linha tem um numero so', e
+       dividi-la inventaria uma segunda grandeza. Verde e' o que o motorista declarou —
+       a mesma cor do retorno nos paineis de Movimentos —, ambar e' o que ficou por
+       declarar, que e' pendencia a cobrar e nao caixa faltando (vermelho). */
+    function linha(l, valor, par, pc, cor, dica){
+      var pode = !!sel && l.nome !== RANK_SEM_MOTORISTA;
+      var lig = pode && escolhidos.length === 1 && escolhidos[0] === l.nome;
+      var titulo = l.nome + ' — ' + dica +
+        (pode ? (lig ? ' · clique para tirar o filtro'
+                     : ' · clique para ver só as viagens dele')
+              : ' · sem motorista não vira filtro');
+      return '<button class="gb' + (l.nome === RANK_SEM_MOTORISTA ? ' gb--sem-info' : '') +
+        '" type="button" title="' + Q.esc(titulo) + '"' +
+        (pode ? ' data-rank-mot="' + Q.esc(l.nome) + '" aria-pressed="' +
+                (lig ? 'true' : 'false') + '"'
+              : ' disabled') + '>' +
+        /* AS CARGAS NA MESMA LINHA DO NOME, e nao embaixo: a altura do rank e' dividida
+           com a tabela, e uma linha de texto por motorista a menos e' o que faz o podio
+           caber sem rolar. */
+        '<span class="gb__r"><span class="gb__k">' + Q.esc(l.nome) + '</span>' +
+        '<span class="gb__par">' + par + '</span>' +
+        '<b class="gb__v">' + valor + '</b></span>' +
+        '<span class="gb__t"><span class="gb__f" style="width:' + pc.toFixed(1) + '%">' +
+        '<i class="' + cor + '" style="flex:1 1 0"></i></span></span>' +
+        '</button>';
+    }
+
+    /* UM BLOCO. O cabecalho e' o dos paineis de Movimentos: titulo, total e contagem. O
+       criterio de cada bloco vai no `title` do titulo, e nao numa linha embaixo dele: a
+       altura aqui e' dividida com a tabela, e cada linha de texto fixo e' uma linha de
+       motorista a menos a' vista. */
+    function bloco(i, titulo, criterio, total, nota, corpo){
+      return '<section class="g g--rank" style="--c1:' + tomDeg(i / 10) + ';--c2:' +
+        tomDeg((i + 1) / 10) + '">' +
+        '<div class="g__c"><h3 class="g__t" title="' + Q.esc(criterio) + '">' +
+        Q.esc(titulo) + '</h3>' +
+        '<span class="g__soma">' + total + '</span>' +
+        '<span class="g__n">' + nota + '</span></div>' +
+        '<div class="g__lista">' + corpo + '</div></section>';
+    }
+
+    /* 1 · QUEM DECLAROU. So' quem declarou alguma coisa: os outros estao no terceiro
+       bloco, com 0%, que e' onde a ausencia deles responde alguma coisa. */
+    var dec = linhas.filter(function(l){ return l.declarou > 0; })
+      .sort(function(a, b){ return (b.declarou - a.declarou) || porNome(a, b); });
+    var topoD = dec.length ? dec[0].declarou : 0;
+
+    /* 2 · O QUE CHEGOU SEM ELE DECLARAR. "sem motorista" entra aqui como linha, e nao
+       some: e' carga contada de verdade, e sem ela o total do bloco nao fecharia com a
+       tabela. */
+    var sem = linhas.filter(function(l){ return l.semDeclarar > 0; })
+      .sort(function(a, b){ return (b.semDeclarar - a.semDeclarar) || porNome(a, b); });
+    var topoS = sem.length ? sem[0].semDeclarar : 0;
+
+    /* 3 · A PORCENTAGEM, do pior para o melhor. "sem motorista" fica FORA: nao ha' de
+       quem cobrar, e um 0% sem nome no topo da lista de cobranca seria ruido.
+       NO EMPATE, quem deixou MAIS caixa sem declarar vem antes — 0 de 6 cargas e 0 de 1
+       empatam em 0%, e o primeiro pesa mais na conta do mes. */
+    var pct = linhas.filter(function(l){
+      return l.nome !== RANK_SEM_MOTORISTA && (l.nDeclarou + l.nSemDeclarar) > 0;
+    }).map(function(l){
+      var n = l.nDeclarou + l.nSemDeclarar;
+      return { l: l, n: n, p: l.nDeclarou / n };
+    }).sort(function(a, b){
+      return (a.p - b.p) || (b.l.semDeclarar - a.l.semDeclarar) || porNome(a.l, b.l);
+    });
+    var pDec = pct.reduce(function(a, x){ return a + x.l.nDeclarou; }, 0);
+    var pTot = pct.reduce(function(a, x){ return a + x.n; }, 0);
+
+    function pc100(p){ return Math.round(p * 100) + '%'; }
+
+    box.innerHTML =
+      '<div class="rk-cab">Rank dos motoristas<span class="fsub">' +
+      'o que está na tabela, por motorista — os filtros valem aqui também' +
+      '</span></div>' +
+      '<div class="graficos graficos--rank">' +
+      bloco(0, 'Declarou o retorno',
+        'Caixas que ele informou que trazia, nas viagens de retorno. Saída não entra.',
+        Q.num(soma(dec, 'declarou')),
+        cargas(soma(dec, 'nDeclarou')),
+        dec.length
+          ? dec.map(function(l){
+              return linha(l, Q.num(l.declarou), cargas(l.nDeclarou),
+                topoD ? l.declarou / topoD * 100 : 0, 'gb__d',
+                Q.num(l.declarou) + ' caixas declaradas em ' + cargas(l.nDeclarou));
+            }).join('')
+          : '<p class="g__vazio">ninguém declarou retorno no recorte</p>') +
+      bloco(3, 'Chegou sem ele declarar',
+        'Caixas que alguém contou na chegada sem o retorno do motorista.',
+        Q.num(soma(sem, 'semDeclarar')),
+        cargas(soma(sem, 'nSemDeclarar')),
+        sem.length
+          ? sem.map(function(l){
+              return linha(l, Q.num(l.semDeclarar), cargas(l.nSemDeclarar),
+                topoS ? l.semDeclarar / topoS * 100 : 0, 'gb__falta',
+                Q.num(l.semDeclarar) + ' caixas contadas sem declaração em ' +
+                cargas(l.nSemDeclarar));
+            }).join('')
+          : '<p class="g__vazio">toda carga contada teve o retorno declarado</p>') +
+      bloco(6, '% declarado',
+        'Das cargas de retorno de cada motorista, quantas ele declarou. ' +
+        'Do pior para o melhor. Lançamento sem motorista fica de fora.',
+        pTot ? pc100(pDec / pTot) : '—',
+        Q.num(pDec) + ' de ' + cargas(pTot),
+        pct.length
+          ? pct.map(function(x){
+              return linha(x.l, pc100(x.p),
+                Q.num(x.l.nDeclarou) + ' de ' + cargas(x.n) + ' declaradas',
+                x.p * 100, 'gb__d',
+                'declarou ' + Q.num(x.l.nDeclarou) + ' de ' + cargas(x.n));
+            }).join('')
+          : '<p class="g__vazio">sem carga de retorno no recorte</p>') +
+      '</div>';
+
+    Array.prototype.forEach.call(box.querySelectorAll('[data-rank-mot]'), function(b){
       b.addEventListener('click', function(){
-        RANK_POR = b.dataset.rank;
-        desenharRank(L);
+        if (!sel) return;
+        var nome = b.getAttribute('data-rank-mot');
+        var ligado = b.getAttribute('aria-pressed') === 'true';
+        var existe = opcoesDe(sel).some(function(o){ return o.value === nome; });
+        if (!ligado && !existe) {
+          var op = document.createElement('option');
+          op.value = nome;
+          op.textContent = nome + ' (fora do cadastro)';
+          sel.appendChild(op);
+        }
+        porEscolha(sel, ligado ? [] : [nome]);
+        /* PELO MESMO CAMINHO DA GAVETA: o `mudouMulti` repinta o resumo do campo e
+           dispara o `change` que recarrega — o rank nao chama o servidor por conta
+           propria. */
+        var cx = sel.parentNode;
+        if (cx && cx.classList && cx.classList.contains('multi')) mudouMulti(cx, sel);
+        else sel.dispatchEvent(new Event('change', { bubbles: true }));
       });
     });
   }
