@@ -153,6 +153,34 @@ Cada uma destas nasceu de um defeito real.
 | **Lançamento Motorista** | a mesma conciliação noutro recorte |
 | Movimentos Rotas, Extratos, Cadastros, Colunas, Ajuste Estoque | apoio |
 
+### As colunas das duas telas de conciliação — as de verdade
+
+Não invente coluna. **São duas telas parecidas e diferentes de propósito**, e a
+diferença entre elas é o ponto: há teste cobrando que não virem a mesma.
+
+**Lançamento Motorista — 11 colunas.** A pergunta é *"o que o motorista declarou, e SE
+já foi conferido"*. O **se** está na coluna Situação.
+
+```
+Lançamento · Data · Hora · Tipo · Motorista · Placa · Origem · Destino ·
+Caixas · Declarado · Situação
+```
+
+**Movimentos Motoristas — 17 colunas.** A pergunta é *"bateu?"* — e por isso ela tem o
+**quanto** foi conferido e a diferença.
+
+```
+Lançamento · Data · Hora · Base · Tipo · Motorista · Placa · Origem · Destino ·
+Caixas · Retorno Declarado · Retorno Decl. · Conferido · Conferido em ·
+Conferido − Declarado · Conferente · Situação
+```
+
+Trazer as colunas de conferência para a primeira tela faria duas telas iguais com nomes
+diferentes. Já foi tentado, e a bancada pegou.
+
+Os valores de **Situação** são: `Bateu` · `Divergente` · `Sem conferência` ·
+`Sem Retorno Motorista` · `Saída Logística` · `Sem quantidade`.
+
 ### O Painel de Ativos em detalhe — é onde o desenho mais importa
 
 **Cinco cartões no topo** (`.ftile`): Total no Estoque · Saiu · Voltou · Saldo · Taxa de
@@ -295,7 +323,29 @@ aplicar sem adivinhar, entregue:
 
 ---
 
-## 8. Se precisar de mais contexto
+## 8. O código é a verdade — peça por ele
+
+Este documento descreve o sistema; **ele não o substitui**. Se você puder ler o
+repositório, leia — a prévia que você montar sai igual ao que está no ar, em vez de
+aproximada.
+
+| Arquivo | Por que importa para o desenho |
+|---|---|
+| `styles.css` | **os tokens e as classes de verdade**, 4.500 linhas. É a diferença entre usar a paleta e imitá-la |
+| `admin.html` | as telas do painel. Os descritores de tabela (`TAB_LANC`, `TAB_DECL`, `TAB_ATIVOS`) dizem as colunas exatas, as larguras e os títulos |
+| `index.html` | o app de campo, celular |
+| `CLAUDE.md` | 86 KB do porquê de cada decisão, com uma seção de armadilhas já pagas |
+
+Duas formas de chegar nele, as duas na mão de quem te mandou este arquivo:
+
+- **o repositório:** `sinerggia-dev/qdelicia-caixas`
+- **a pasta local:** `C:\Users\natan_cou1nrv\OneDrive\Documentos\claude\qdelicia-caixas`
+
+**Sem acesso, trabalhe com o que está aqui e diga o que você assumiu.** Uma prévia com
+as suposições declaradas é útil; uma prévia que parece exata e não é custa uma rodada
+inteira para descobrir.
+
+## 9. Se precisar de mais contexto
 
 O repositório tem três documentos maiores, e quem está do outro lado pode colar trechos
 sob demanda:
