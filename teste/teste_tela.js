@@ -4102,6 +4102,16 @@ console.log('\n== o rank dos motoristas ==');
      corpoD.slice(0, corpoD.indexOf("addEventListener('click'")).indexOf('opcoesDe(') < 0,
     'e o rank N\u00c3O decide quem \u00e9 clic\u00e1vel pela lista do campo na hora do desenho \u2014 ' +
     'ela chega depois dos pares, e as linhas nasciam todas desligadas');
+  /* NO CELULAR O RANK SOBE e as linhas ganham o piso de toque. Medido a 390px: depois
+     dos 116 cartoes ele ficava a ~35.600px, e cada linha media 31px. */
+  var cssR = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+  var iCel = cssR.indexOf('@media (max-width:1023.98px){\n  .dc-area{');
+  var blocoCel = iCel < 0 ? '' : cssR.slice(iCel, cssR.indexOf('\n}', iCel));
+  ok(/\.dc-area > \.rk-caixa\{order:-1\}/.test(blocoCel),
+    'abaixo de 1024px o rank vem ANTES dos cart\u00f5es \u2014 depois deles, a ~35 mil pixels, ' +
+    'ningu\u00e9m chega', blocoCel.slice(0, 120));
+  ok(/\.g--rank \.gb\{min-height:44px\}/.test(blocoCel),
+    'e a linha do rank, que \u00e9 bot\u00e3o, tem o piso de toque de 44px \u2014 media 31');
   ok(corpoD.indexOf("(fora do cadastro)") > 0,
     'nome fora do cadastro entra no campo com a mesma etiqueta de `montarSelects`, para ' +
     'a escolha sobreviver quando a lista for refeita');

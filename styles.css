@@ -3546,8 +3546,32 @@ details.tipos[open] summary::before{content:"▾"}
 .g--rank .g__c{flex-wrap:wrap;row-gap:2px}
 .g--rank .g__t{flex:1 0 auto}
 .gb__falta{background:var(--ambar)}
+/* ---- O RANK NO CELULAR E NO TABLET (abaixo de 1024px) ----
+ *
+ * AQUI O RANK VEM ANTES DOS CARTOES, ao contrario do computador. Abaixo de 1024px a
+ * tabela vira um cartao por carga — medido a 390px, 116 cartoes e ~35.600px de altura —,
+ * e depois deles o rank nao e' alcancado por ninguem. `order` muda so' o desenho: no
+ * documento a tabela continua primeiro.
+ *
+ * E ELE VIRA UM CARROSSEL, um bloco por vez, com a borda do proximo a' vista para dizer
+ * que ha' mais de lado. Empilhados, os tres blocos mediam 1.338px e empurravam os
+ * cartoes — o mesmo defeito que o rank tinha no computador, agora no telefone.
+ *
+ * 44px POR LINHA, o piso de toque da casa (ver "44px e' piso" no CLAUDE.md): a linha do
+ * rank e' botao que filtra, e media 31px — de luva, no galpao, o dedo acerta o vizinho. */
+@media (max-width:1023.98px){
+  .dc-area{display:flex;flex-direction:column}
+  .dc-area > .rk-caixa{order:-1}
+  .graficos--rank{grid-template-columns:none;grid-auto-flow:column;
+    grid-auto-columns:max(260px,calc((100% - 20px) / 3));
+    scroll-snap-type:x mandatory;overscroll-behavior-x:contain;padding-bottom:6px}
+  .g--rank{scroll-snap-align:start}
+  .g--rank .gb{min-height:44px}
+  /* cinco linhas a' vista por bloco: o podio e mais dois, sem o bloco tomar a tela */
+  .g__lista{max-height:calc(5 * 50px)}
+}
 @media (max-width:700px){
-  .graficos--rank{grid-template-columns:1fr;overflow-x:visible}
+  .graficos--rank{grid-auto-columns:86%}
 }
 
 /* ---------- a TABELA E O RANK CABEM NA TELA (as duas telas de conciliacao) ----------
