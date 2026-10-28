@@ -65,8 +65,14 @@ trocar a paleta por conta própria quebraria a bancada.
 
 ### Tema
 
-Azul-marinho escuro em todas as telas, com acento **roxo** `#a46ce7`. O âmbar é
-**aviso**, nunca ação. Há tema claro também, pelos mesmos tokens.
+**O que está no ar é o tema claro**: fundo `gelo`, tema `gelo`, topo verde. A escolha
+mora em Sistema → Aparência e é gravada na configuração do servidor, então vale para
+todas as máquinas. O tema escuro — azul-marinho com acento **roxo** `#a46ce7` — também
+existe, pelos mesmos tokens, e é o que a tela mostra sem configuração. O âmbar é
+**aviso**, nunca ação, nos dois.
+
+**Desenhe no claro.** Uma prévia no escuro parece outro sistema para quem usa o painel
+todo dia, e a primeira prévia do rank foi recusada exatamente por isso.
 
 ### Tokens — use estes nomes, nunca cor solta
 
@@ -171,7 +177,7 @@ Caixas · Declarado · Situação
 
 ```
 Lançamento · Data · Hora · Base · Tipo · Motorista · Placa · Origem · Destino ·
-Caixas · Retorno Declarado · Retorno Decl. · Conferido · Conferido em ·
+Caixas · Saída · Retorno Declarado · Conferido · Conferido em ·
 Conferido − Declarado · Conferente · Situação
 ```
 
@@ -236,14 +242,23 @@ desenho, não de construção** — leia o código (seção 8) antes de propor m
 
 ### O que está no ar
 
-1. **A tabela é o primeiro lugar**, com uma **janela de 16 linhas**, o resto em rolagem
-   interna e o cabeçalho fixo no topo da janela.
-2. **O rank vem depois dela**, em **três blocos lado a lado**, cada um com a sua rolagem
-   vertical — o mesmo desenho dos painéis `.graficos`/`.g` de Movimentos Gerais, com o
-   modificador `.g--rank`.
-3. **No celular o rank sobe para antes dos cartões**, em carrossel horizontal, com alvo
-   de toque de 44px. No telefone ninguém rola 16 linhas de tabela para achar um resumo.
-4. **Cada linha é um botão**: clicar filtra a tela por aquele motorista, e o botão diz
+1. **A tabela é o primeiro lugar, e a tela cabe na janela** (computador, 1024px ou
+   mais). Tabela e rank dividem a altura que sobra abaixo dos cartões; quem rola é a
+   tabela, por dentro, com o cabeçalho fixo — a página não rola. **Não há janela de 16
+   linhas**: ela foi pedida, mas 16 linhas e o rank não cabem juntos numa tela. No
+   monitor do escritório (2540×915) a tabela mostra umas 5 ou 6 linhas; num 1920×950,
+   umas 6.
+2. **O rank vem embaixo dela, na largura inteira**, em **três blocos lado a lado**, cada
+   um com a sua rolagem vertical — o mesmo desenho dos painéis `.graficos`/`.g` de
+   Movimentos Gerais, com o modificador `.g--rank`. Ao lado da tabela foi tentado e
+   medido: com 17 colunas, Conferido, a diferença e Situação saíam da vista.
+3. **Tela baixa (menos de 860px de altura, notebook)**: aí a página volta a rolar, com a
+   tabela numa janela de 460px (umas 10 linhas) e o rank logo abaixo. Espremida, a
+   tabela ficava com duas linhas.
+4. **No celular o rank sobe para antes dos cartões**, em carrossel horizontal, com alvo
+   de toque de 44px. Abaixo de 1024px a tabela vira um cartão por par — 116 cartões,
+   ~35.600px na captura —, e depois deles o rank não era alcançado.
+5. **Cada linha é um botão**: clicar filtra a tela por aquele motorista, e o botão diz
    que está ligado. `sem motorista` é categoria, não vira filtro.
 
 ### Os três blocos, e o critério de cada um
@@ -252,7 +267,17 @@ desenho, não de construção** — leia o código (seção 8) antes de propor m
 |---|---|---|
 | **Declarou o retorno** | caixas que ele informou que trazia, nas viagens de retorno. Saída não entra | do maior para o menor |
 | **Chegou sem ele declarar** | caixas que alguém contou na chegada sem o retorno dele | do maior para o menor |
-| **% declarado** | das cargas de retorno dele, quantas ele declarou | **do pior para o melhor** — é a lista de quem cobrar |
+| **% declarado** | dos dias em que ele voltou, em quantos declarou | **do pior para o melhor** — é a lista de quem cobrar |
+
+**O rank conta DIAS, não viagens.** Cada linha da conciliação é um *par*, e a chave do par
+é `dia + motorista + sentido` (`chaveDoPar`): duas viagens de retorno do mesmo motorista
+no mesmo dia viram um par só. O rótulo dizia "cargas", e "6 cargas" podia ser nove
+viagens. Contar viagem de verdade é outra regra, que o par não tem.
+
+**O total do segundo bloco não fecha com o cartão Conferido, de propósito**: o cartão soma
+também o que se contou nos pares Divergente, onde o motorista declarou. Para conferir,
+filtre a Situação por "Sem Retorno Motorista" — o cartão passa a mostrar o mesmo número.
+O título do bloco diz isso ao passar o mouse.
 
 As quatro perguntas que esta seção deixava em aberto foram respondidas assim:
 
@@ -268,19 +293,21 @@ As quatro perguntas que esta seção deixava em aberto foram respondidas assim:
 
 ### Os números reais, para julgar o desenho com carga de verdade
 
+(Capturados quando o rótulo ainda dizia "cargas"; o número é o mesmo, contado em dias.)
+
 ```
-Isaque Araújo    declarou 1.919 (6 cargas)   sem declarar   599 (4 cargas)
-Welison Santana  declarou   980 (5 cargas)   sem declarar 1.492 (5 cargas)
-Luciano          declarou   911 (3 cargas)   sem declarar   884 (4 cargas)
-Arilson Silva    declarou   738 (3 cargas)   sem declarar 1.542 (7 cargas)
-Alcimar Silva    declarou     —              sem declarar 7.685 (6 cargas)
-Dinho            declarou     —              sem declarar 3.415 (6 cargas)
-Fernando Silva   declarou     —              sem declarar 3.405 (2 cargas)
-Engenho Cepo     declarou     —              sem declarar 1.530 (4 cargas)
-Diego/Hodir      declarou     —              sem declarar   937 (2 cargas)
-Fausto - RN      declarou     —              sem declarar   900 (1 carga)
-Diassis 2 - RN   declarou     —              sem declarar   856 (1 carga)
-Arthur           declarou     —              sem declarar   225 (1 carga)
+Isaque Araújo    declarou 1.919 (6 dias)    sem declarar   599 (4 dias)
+Welison Santana  declarou   980 (5 dias)    sem declarar 1.492 (5 dias)
+Luciano          declarou   911 (3 dias)    sem declarar   884 (4 dias)
+Arilson Silva    declarou   738 (3 dias)    sem declarar 1.542 (7 dias)
+Alcimar Silva    declarou     —              sem declarar 7.685 (6 dias)
+Dinho            declarou     —              sem declarar 3.415 (6 dias)
+Fernando Silva   declarou     —              sem declarar 3.405 (2 dias)
+Engenho Cepo     declarou     —              sem declarar 1.530 (4 dias)
+Diego/Hodir      declarou     —              sem declarar   937 (2 dias)
+Fausto - RN      declarou     —              sem declarar   900 (1 dia)
+Diassis 2 - RN   declarou     —              sem declarar   856 (1 dia)
+Arthur           declarou     —              sem declarar   225 (1 dia)
 ```
 
 São 36 motoristas no total; a maioria só aparece na segunda coluna.

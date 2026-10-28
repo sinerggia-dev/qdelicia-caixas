@@ -5822,16 +5822,26 @@
    * declaradas nao dizem o mesmo vindas de quem deixou 599 sem declarar ou de quem
    * deixou 7.685: a porcentagem poe os dois na mesma escala. Vem DO PIOR PARA O MELHOR.
    *
-   * A PORCENTAGEM E' POR CARGA, e nao por caixa. Por caixa, o numerador seria o que o
+   * A PORCENTAGEM E' POR DIA, e nao por caixa. Por caixa, o numerador seria o que o
    * motorista DECLAROU e o denominador somaria isso ao que o conferente CONTOU — duas
    * grandezas diferentes na mesma conta, e declaracao nao entra em total de caixa.
-   * Por carga, os dois lados contam lancamentos. E' o mesmo `nDeclarou`/`nSemDeclarar`
-   * que ja' aparece escrito embaixo de cada numero, e por isso a conta se confere com
-   * o olho: "6 de 10 cargas" esta' na propria linha.
+   * Por dia, os dois lados contam a mesma coisa. E' o mesmo `nDeclarou`/`nSemDeclarar`
+   * que ja' aparece escrito ao lado de cada numero, e por isso a conta se confere com
+   * o olho: "6 de 10 dias" esta' na propria linha.
+   *
+   * "DIAS", E NAO "CARGAS", e a diferenca nao e' de gosto. O rank conta PARES, e o par
+   * e' a chave `dia + motorista + sentido` (`chaveDoPar`): duas viagens de retorno do
+   * mesmo motorista no mesmo dia viram UM par. O rotulo dizia "cargas", e "6 cargas"
+   * podia ser nove viagens — o numero estava certo e o nome mentia sobre o que ele
+   * conta. Contar viagem de verdade e' outra regra, e ela nao existe no par.
    *
    * CADA TOTAL E' A SOMA DAS LINHAS DO BLOCO, somada aqui, das mesmas linhas que viram
    * barra. O primeiro bloco fecha com o cartao "Retorno Declarado" acima; o segundo, com
    * a soma do Conferido nas linhas "Sem Retorno Motorista" da tabela ao lado.
+   * O SEGUNDO NAO FECHA COM O CARTAO "Conferido", e e' de proposito: o cartao soma
+   * tambem o que se contou nos pares Divergente, onde o motorista DECLAROU. O caminho
+   * para conferir esta' escrito no titulo do bloco (filtrar a Situacao), porque sem ele
+   * a tela mostraria dois numeros do mesmo nome que nao batem e nao diria por que.
    *
    * A LINHA E' UM BOTAO que filtra a tela por aquele motorista — pelo MESMO campo
    * Motorista da gaveta, e nao por um filtro novo. Um segundo filtro de motorista
@@ -5857,7 +5867,7 @@
     var escolhidos = escolhaDe(sel);
 
     function porNome(a, b){ return a.nome.localeCompare(b.nome, 'pt-BR'); }
-    function cargas(n){ return Q.num(n) + (n === 1 ? ' carga' : ' cargas'); }
+    function dias(n){ return Q.num(n) + (n === 1 ? ' dia' : ' dias'); }
     function soma(lista, campo){
       return lista.reduce(function(a, l){ return a + (l[campo] || 0); }, 0);
     }
@@ -5918,7 +5928,7 @@
 
     /* 3 · A PORCENTAGEM, do pior para o melhor. "sem motorista" fica FORA: nao ha' de
        quem cobrar, e um 0% sem nome no topo da lista de cobranca seria ruido.
-       NO EMPATE, quem deixou MAIS caixa sem declarar vem antes — 0 de 6 cargas e 0 de 1
+       NO EMPATE, quem deixou MAIS caixa sem declarar vem antes — 0 de 6 dias e 0 de 1
        empatam em 0%, e o primeiro pesa mais na conta do mes. */
     var pct = linhas.filter(function(l){
       return l.nome !== RANK_SEM_MOTORISTA && (l.nDeclarou + l.nSemDeclarar) > 0;
@@ -5939,41 +5949,47 @@
       '</span></div>' +
       '<div class="graficos graficos--rank">' +
       bloco(0, 'Declarou o retorno',
-        'Caixas que ele informou que trazia, nas viagens de retorno. Saída não entra.',
+        'Caixas que ele informou que trazia, nas viagens de retorno. Saída não entra. ' +
+        'O total é o mesmo do cartão Retorno Declarado. "Dias" são os dias de romaneio ' +
+        'em que ele voltou: duas viagens no mesmo dia contam como um.',
         Q.num(soma(dec, 'declarou')),
-        cargas(soma(dec, 'nDeclarou')),
+        dias(soma(dec, 'nDeclarou')),
         dec.length
           ? dec.map(function(l){
-              return linha(l, Q.num(l.declarou), cargas(l.nDeclarou),
+              return linha(l, Q.num(l.declarou), dias(l.nDeclarou),
                 topoD ? l.declarou / topoD * 100 : 0, 'gb__d',
-                Q.num(l.declarou) + ' caixas declaradas em ' + cargas(l.nDeclarou));
+                Q.num(l.declarou) + ' caixas declaradas em ' + dias(l.nDeclarou));
             }).join('')
           : '<p class="g__vazio">ninguém declarou retorno no recorte</p>') +
       bloco(3, 'Chegou sem ele declarar',
-        'Caixas que alguém contou na chegada sem o retorno do motorista.',
+        'Caixas que alguém contou na chegada sem o retorno do motorista. ' +
+        'Para conferir o total: filtre a Situação por "Sem Retorno Motorista" — o ' +
+        'cartão Conferido mostra o mesmo número. Ele é menor que o Conferido sem filtro ' +
+        'porque não inclui o que foi contado nas viagens Divergentes, onde o motorista ' +
+        'declarou.',
         Q.num(soma(sem, 'semDeclarar')),
-        cargas(soma(sem, 'nSemDeclarar')),
+        dias(soma(sem, 'nSemDeclarar')),
         sem.length
           ? sem.map(function(l){
-              return linha(l, Q.num(l.semDeclarar), cargas(l.nSemDeclarar),
+              return linha(l, Q.num(l.semDeclarar), dias(l.nSemDeclarar),
                 topoS ? l.semDeclarar / topoS * 100 : 0, 'gb__falta',
                 Q.num(l.semDeclarar) + ' caixas contadas sem declaração em ' +
-                cargas(l.nSemDeclarar));
+                dias(l.nSemDeclarar));
             }).join('')
-          : '<p class="g__vazio">toda carga contada teve o retorno declarado</p>') +
+          : '<p class="g__vazio">todo retorno contado foi declarado</p>') +
       bloco(6, '% declarado',
-        'Das cargas de retorno de cada motorista, quantas ele declarou. ' +
+        'Dos dias em que cada motorista voltou, em quantos ele declarou o retorno. ' +
         'Do pior para o melhor. Lançamento sem motorista fica de fora.',
         pTot ? pc100(pDec / pTot) : '—',
-        Q.num(pDec) + ' de ' + cargas(pTot),
+        Q.num(pDec) + ' de ' + dias(pTot),
         pct.length
           ? pct.map(function(x){
               return linha(x.l, pc100(x.p),
-                Q.num(x.l.nDeclarou) + ' de ' + cargas(x.n) + ' declaradas',
+                Q.num(x.l.nDeclarou) + ' de ' + dias(x.n) + ' declarados',
                 x.p * 100, 'gb__d',
-                'declarou ' + Q.num(x.l.nDeclarou) + ' de ' + cargas(x.n));
+                'declarou em ' + Q.num(x.l.nDeclarou) + ' de ' + dias(x.n));
             }).join('')
-          : '<p class="g__vazio">sem carga de retorno no recorte</p>') +
+          : '<p class="g__vazio">sem retorno no recorte</p>') +
       '</div>';
 
     Array.prototype.forEach.call(box.querySelectorAll('[data-rank-mot]'), function(b){
