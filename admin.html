@@ -1662,17 +1662,30 @@
                   aria-pressed="false">por local</button>
           <button class="btn neutro" type="button" id="btnCsvLanc">⬇ CSV</button>
           <button class="chip-hoje" type="button" id="lmHoje" aria-pressed="false">Hoje</button>
-          <div class="bt-campo"><label for="lmDe">De</label><input id="lmDe" type="date"></div>
-          <div class="bt-campo"><label for="lmAte">Até</label><input id="lmAte" type="date"></div>
-          <div class="bt-campo bt-campo--busca"><label for="lmBusca">Buscar</label>
-            <input id="lmBusca" type="search" placeholder="motorista, rota, M000123…"
-                   autocomplete="off"></div>
-          <!-- O MESMO BOTAO DA OUTRA TELA. As duas dividem os filtros e a funcao que os
-               limpa; posto so' numa delas, a diferenca entre as duas viraria a proxima
-               pergunta. -->
-          <button class="btn sec" id="btnLimparLancMot" type="button" hidden
-                  style="flex:0 0 auto;white-space:nowrap">Limpar filtros</button>
         </div>
+
+        <!-- SEM WRAPPER NO MEIO, como na tela de Movimentos. Os tres campos moravam
+             DENTRO de `.barra-trava__acoes`, que e o bloco dos botoes, e dai vinha o
+             desalinho que o escritorio apontou: a barra alinha os filhos pelo PE
+             (`align-items:flex-end`), para o input de data ficar na mesma linha do
+             botao; o bloco dos botoes alinha pelo MEIO. Dentro dele, os campos
+             passavam a obedecer o alinhamento do meio — rotulo e caixa subiam, os
+             botoes flutuavam na altura do rotulo, e a busca caia para a linha de
+             baixo, ao lado do cadeado.
+             E SAO DOIS FLEX QUE QUEBRAM, um dentro do outro: a regra ja estava
+             escrita no CSS e na tela vizinha — "dois contentores disputando a mesma
+             linha nunca cabem numa so de forma confiavel". Esta tela nasceu com a
+             estrutura errada e ficou. -->
+        <div class="bt-campo"><label for="lmDe">De</label><input id="lmDe" type="date"></div>
+        <div class="bt-campo"><label for="lmAte">Até</label><input id="lmAte" type="date"></div>
+        <div class="bt-campo bt-campo--busca"><label for="lmBusca">Buscar</label>
+          <input id="lmBusca" type="search" placeholder="motorista, rota, M000123…"
+                 autocomplete="off"></div>
+        <!-- O MESMO BOTAO DA OUTRA TELA. As duas dividem os filtros e a funcao que os
+             limpa; posto so' numa delas, a diferenca entre as duas viraria a proxima
+             pergunta. -->
+        <button class="btn sec" id="btnLimparLancMot" type="button" hidden
+                style="flex:0 0 auto;white-space:nowrap">Limpar filtros</button>
       </div>
 
       <div class="linha-sit" id="lmSituacoes"></div>

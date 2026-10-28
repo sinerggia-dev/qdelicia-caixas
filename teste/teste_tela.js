@@ -52,6 +52,16 @@ var fs = {
  * O `[^:]` antes do `//` é para não decepar `https://` dentro de uma string. É um corte
  * grosseiro e sabe-se disso: serve para cobrar que uma linha EXISTA viva, não para
  * analisar o arquivo. */
+/* O MESMO SERVICO PARA O HTML. `semComentarios` tira os de JavaScript; os de marcacao
+   sao `<!-- -->`, e as razoes deste projeto moram neles tambem — a barra de filtros
+   carrega um paragrafo explicando por que os campos sao filhos diretos dela, e a
+   palavra que ele cita fazia a prova contar um bloco que nao existe.
+   E' a oitava vez nesta semana que uma prova minha le' a prosa que defende o codigo
+   como se fosse o codigo. */
+function semComentariosHtml(txt) {
+  return String(txt).replace(/<!--[\s\S]*?-->/g, ' ');
+}
+
 function semComentarios(txt) {
   return String(txt)
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
@@ -3947,6 +3957,81 @@ console.log('\n== filial e galpao dividem um chip, fora de Todas ==');
  * desalinhava a tabela inteira, e cada numero passava a ser lido na coluna do vizinho. A
  * garantia agora e estrutural: quem monta as duas percorre a MESMA lista.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * A BARRA DE FILTROS: OS CAMPOS SAO FILHOS DIRETOS DELA.
+ *
+ * O escritorio apontou a barra de "Lancamento Motorista" torta: os botoes flutuando na
+ * altura dos rotulos, um vazio a esquerda e a busca caida para a linha de baixo, ao
+ * lado do cadeado.
+ *
+ * A CAUSA ERA ESTRUTURAL, e nao de estilo. `.barra-trava` alinha os filhos pelo PE
+ * (`align-items:flex-end`), que e' o que poe a CAIXA da data na mesma linha do botao —
+ * o rotulo fica por cima, fora da conta. `.barra-trava__acoes`, o bloco dos botoes,
+ * alinha pelo MEIO. Os campos desta tela moravam DENTRO dele e passavam a obedecer o
+ * alinhamento do meio.
+ *
+ * E SAO DOIS FLEX QUE QUEBRAM, um dentro do outro: dois contentores disputando a mesma
+ * linha nunca cabem numa so' de forma confiavel. A regra ja' estava escrita no CSS e
+ * na tela vizinha, que nasceu certa — esta nasceu errada e ficou.
+ *
+ * COBRADA NAS DUAS TELAS, e nao so' na que quebrou: a outra e' a referencia, e uma
+ * referencia sem prova e' so' um exemplo que alguem pode mexer sem perceber.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a barra de filtros, nas duas telas ==');
+(function () {
+  var admB = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+
+  /* O RECORTE E DE UMA BARRA SO', achada pela tabela que ela governa. */
+  /* O FIM DA BARRA E CONTADO, e nao procurado por um texto de fecha-tag com a
+     indentacao certa: a indentacao muda, e um recorte que passa do fim engole a barra
+     SEGUINTE — foi o que aconteceu na primeira versao desta prova, e ela acusou dois
+     blocos de botoes numa barra que tem um. */
+  function barraDe(tabela) {
+    var i = admB.indexOf('data-tabela="' + tabela + '"');
+    if (i < 0) return '';
+    var ini = admB.lastIndexOf('<div class="barra-trava">', i);
+    if (ini < 0) return '';
+    var prof = 0, re = /<div\b|<\/div>/g, m;
+    re.lastIndex = ini;
+    while ((m = re.exec(admB))) {
+      prof += (m[0] === '</div>') ? -1 : 1;
+      if (prof === 0) return admB.slice(ini, m.index + 6);
+    }
+    return '';
+  }
+
+  [['decl', 'dc', 'Movimentos Motoristas'],
+   ['lanc', 'lm', 'Lan\u00e7amento Motorista']].forEach(function (par) {
+    var tabela = par[0], pre = par[1], nome = par[2];
+    var barra = barraDe(tabela);
+    ok(barra.length > 400,
+      'a confer\u00eancia recortou a barra de ' + nome + ' \u2014 recorte vazio faria as provas ' +
+      'abaixo aprovarem qualquer coisa', barra.length);
+    if (!barra.length) return;
+
+    /* O BLOCO DOS BOTOES FECHA ANTES DOS CAMPOS. Esta e' a afirmacao inteira: tudo o
+       que vier depois do `</div>` dele e' filho direto da barra. */
+    var fimAcoes = barra.indexOf('</div>', barra.indexOf('barra-trava__acoes'));
+    ['De', 'Ate', 'Busca'].forEach(function (campo) {
+      var i = barra.indexOf('id="' + pre + campo.replace('Ate', 'Ate') + '"');
+      if (i < 0) i = barra.indexOf('id="' + pre + campo + '"');
+      ok(i > fimAcoes,
+        'em ' + nome + ', o campo `' + pre + campo + '` fica FORA do bloco de bot\u00f5es \u2014 ' +
+        'dentro dele os campos obedecem o alinhamento do MEIO, e a barra alinha pelo ' +
+        'P\u00c9: o bot\u00e3o flutua na altura do r\u00f3tulo e a busca cai para a linha de baixo',
+        { campo: i, fimDoBlocoDeBotoes: fimAcoes });
+    });
+
+    /* E O BLOCO DOS BOTOES E UM SO, na barra toda. Dois deles — um antes e um depois
+       dos campos — devolveriam o mesmo defeito pela outra ponta. */
+    var barraSC = semComentariosHtml(barra);
+    ok((barraSC.match(/barra-trava__acoes/g) || []).length === 1,
+      'e h\u00e1 UM bloco de bot\u00f5es nessa barra \u2014 dois, um de cada lado dos campos, ' +
+      'devolveriam o mesmo desalinho pela outra ponta',
+      (barraSC.match(/barra-trava__acoes/g) || []).length);
+  });
+})();
+
 console.log('\n== recolher e expandir a lateral ==');
 (function () {
   var app = fsReal.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
