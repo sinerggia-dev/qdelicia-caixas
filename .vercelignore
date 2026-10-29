@@ -2,3 +2,10 @@ teste/
 apps-script/
 supabase/
 .gitignore
+# A DOCUMENTACAO NAO VAI PARA O AR. O Vercel serve como arquivo estatico tudo o que
+# nao esta aqui, e o `CLAUDE.md` sao 86 KB descrevendo o mapa interno do sistema, o
+# modelo de permissoes e o endereco do Supabase -- medido no ar, 200 e 85.900 bytes
+# em `qdelicia-caixas.vercel.app/CLAUDE.md`, sem pedir login.
+# O MANUAL CONTINUA PUBLICO porque e `manual.html`, e nenhuma tela busca `.md` em
+# tempo de execucao: conferido com uma varredura por `.md` em todo html e js.
+*.md
