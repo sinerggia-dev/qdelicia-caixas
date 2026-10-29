@@ -259,9 +259,11 @@ desenho, não de construção** — leia o código (seção 8) antes de propor m
    de toque de 44px. Abaixo de 1024px a tabela vira um cartão por par — 116 cartões,
    ~35.600px na captura —, e depois deles o rank não era alcançado.
 5. **Cada linha é um botão**: clicar filtra a tela por aquele motorista, e o botão diz
-   que está ligado. `sem motorista` é categoria, não vira filtro.
+   que está ligado. `sem informação` é categoria, não vira filtro — o mesmo nome que o
+   resto do painel usa para a ausência.
+6. **Na tela Lançamento Motorista o rank tem DOIS blocos**, e não três. Ver abaixo.
 
-### Os três blocos, e o critério de cada um
+### Os blocos, e o critério de cada um
 
 | Bloco | O que soma | Ordem |
 |---|---|---|
@@ -277,7 +279,26 @@ viagens. Contar viagem de verdade é outra regra, que o par não tem.
 **O total do segundo bloco não fecha com o cartão Conferido, de propósito**: o cartão soma
 também o que se contou nos pares Divergente, onde o motorista declarou. Para conferir,
 filtre a Situação por "Sem Retorno Motorista" — o cartão passa a mostrar o mesmo número.
-O título do bloco diz isso ao passar o mouse.
+O título do bloco diz isso ao passar o mouse — **só na tela que tem cartões**.
+
+### O segundo bloco não existe na tela Lançamento Motorista
+
+**As duas abas têm permissão independente** (`pgLancamentosMotorista` e
+`pgLancamentoMotorista`), e o Admin pode dar uma sem dar a outra. Quem recebeu só a de
+lançamento vê **se** uma carga foi conferida — é a coluna Situação — e nunca **quanto**.
+
+A quantidade conferida vazava por **sete portas** nessa tela: o rank, a coluna Caixas, o
+par aberto, o formulário de corrigir, a ficha e o cabeçalho do dia no celular, e o CSV.
+Hoje há **um interruptor só**, `veConferencia` no descritor de cada tela, e cada porta
+pergunta a ele. Uma porta nova que esqueça de perguntar é pega pela prova, que desenha a
+tela inteira com uma contagem que não existe em mais lugar nenhum e procura por ela.
+
+Então: **Movimentos Motoristas mostra três blocos; Lançamento Motorista mostra dois** —
+"Declarou o retorno" e "% declarado", numa grade de dois (`.graficos--rank-2`). O "%
+declarado" fica porque conta **dias**, e só diz *se* houve conferência.
+
+Fica registrado, porque não foi resolvido: **esconder é a porta, não a fechadura.** A
+rota `conciliacao` continua entregando os lançamentos do conferente a essa tela.
 
 As quatro perguntas que esta seção deixava em aberto foram respondidas assim:
 
