@@ -913,5 +913,31 @@ module.exports = [
       "  'Se esta pessoa pode cancelar (e desfazer o cancelamento de) um lancamento. O",
       "   ADMIN pode sempre, ligada ou nao. A rota confere, lendo o cadastro.';"
     ].join('\n')
+  },
+  {
+    id: '2026-10-29-acoes-por-usuario',
+    nota: 'o que cada pessoa pode alterar nos lancamentos: uma marca por acao',
+    sql: [
+      "-- O QUE CADA PESSOA PODE ALTERAR NOS LANCAMENTOS, marcado pelo administrador.",
+      "--",
+      "-- Uma lista de acoes: corrigir, corrigirCarga, restaurar, cancelar, excluir,",
+      "-- apagarFiltro, excluirCadastro, documento. Marcar e' conceder; o ADMIN pode",
+      "-- tudo sempre, pela regra e nao pela lista.",
+      "--",
+      "-- NASCE COM O QUE A PESSOA JA' FAZIA: quem corrigia (`pode_corrigir`) ganha as",
+      "-- tres de correcao, que eram governadas por aquela marca; quem cancelava",
+      "-- (`pode_cancelar`) ganha cancelar. O resto nasce desmarcado, por decisao de",
+      "-- quem pediu. `pode_corrigir` e `pode_cancelar` ficam, sem uso.",
+      "alter table public.usuarios",
+      "  add column if not exists acoes jsonb not null default '[]'::jsonb;",
+      "update public.usuarios set acoes =",
+      "    (case when pode_corrigir then '[\"corrigir\",\"corrigirCarga\",\"restaurar\"]'::jsonb",
+      "          else '[]'::jsonb end)",
+      "  || (case when pode_cancelar then '[\"cancelar\"]'::jsonb else '[]'::jsonb end)",
+      "  where acoes = '[]'::jsonb;",
+      "comment on column public.usuarios.acoes is",
+      "  'O que esta pessoa pode alterar nos lancamentos. Marcar e conceder; o ADMIN pode",
+      "   tudo sempre. A rota confere lendo esta lista, e a senha da operacao vale por cima.';"
+    ].join('\n')
   }
 ];

@@ -11528,8 +11528,10 @@ console.log('\n== a porta de volta, do painel para os lancamentos ==');
     return new Function('s', 'document', 'Q', 'DADOS', 'ajustarLancamento',
       'montarSeletoresDeBase',
       fonte + '\n aplicarSessao(s); return !document.getElementById("chipCampo").hidden;')(
-      s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); } },
-      { quemEsta: function () {} }, null, function () {}, function () {});
+      s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); },
+           body: { classList: { toggle: function () {} } } },
+      { quemEsta: function () {}, podeAcao: function () { return true; } },
+      null, function () {}, function () {});
   }
 
   /* Quem nao tem senha de lancamento nao passa do login do app de campo: `loginPorPin`
@@ -18962,7 +18964,7 @@ console.log('\n== quem corrige o quê: uma regra, duas telas ==');
     if (k < 0) throw new Error('não achei: ' + nome);
     return js.slice(k, js.indexOf('\n  }', k) + 4);
   }
-  var corpoPode = fn('podeCorrigir', 'podeCorrigir(s, m) {');
+  var corpoPode = fn('podeAcao', 'podeAcao(s, id) {') + fn('podeCorrigir', 'podeCorrigir(s, m) {');
   var corpoLivre = fn('correcaoLivre', 'correcaoLivre(s, m, agora) {');
   var corpoUTC = fn('comoUTC', 'comoUTC(carimbo) {');
   var podeCorrigir = new Function(corpoPode + '\n return podeCorrigir;')();
@@ -21304,6 +21306,7 @@ console.log('\n== Motorista/Conferente ==');
   var Qfalso = { esc: function (x) { return String(x == null ? '' : x); },
                  num: function (x) { return String(x); },
                  sessao: function () { return {}; },
+                 podeAcao: function () { return true; },
                  podeCancelar: function () { return CANCELA; } };
   /* A TELA QUE MOSTRA A CONFERENCIA (Movimentos Motoristas): e' a de sempre. A outra
      tem provas proprias, logo abaixo, na secao da conferencia escondida. */
@@ -21550,8 +21553,14 @@ console.log('\n== Motorista/Conferente ==');
   var pcf = iPcf < 0 ? '' : nucleoPc.slice(iPcf, nucleoPc.indexOf('\n  }', iPcf) + 4);
   ok(pcf.length > 150, 'a conferência recortou a regra de corrigir', pcf.length);
   if (pcf.length > 150) {
+    var iPa = nucleoPc.indexOf('  function podeAcao(s, id) {');
+    var pa = iPa < 0 ? '' : nucleoPc.slice(iPa, nucleoPc.indexOf('\n  }', iPa) + 4);
     var decide = new Function('podeMexerEmDeclaracao',
-      pcf + '\nreturn podeCorrigir;')(function () { return true; });
+      pa + pcf + '\nreturn podeCorrigir;')(function () { return true; });
+    ok(decide({ acoes: [] }, { declaracao: false }) === false &&
+       decide({ acoes: ['corrigir'] }, { declaracao: false }) === true &&
+       decide({ perfil: 'Admin', acoes: [] }, { declaracao: false }) === true,
+      'com a LISTA de acoes, corrigir segue a marca — e o Admin corrige sempre');
     ok(decide({ podeCorrigir: false }, { declaracao: false }) === false,
       'sem a permissão do cadastro, o botão de corrigir não aparece em lançamento ' +
       'nenhum', decide({ podeCorrigir: false }, { declaracao: false }));
@@ -21565,12 +21574,12 @@ console.log('\n== Motorista/Conferente ==');
   }
   /* E O CAMPO EXISTE NO CADASTRO, com as duas pontas: o que escreve e o que le'. */
   var admPc = fsReal.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
-  ok(admPc.indexOf('id="fPodeCorrigir"') > 0,
+  ok(admPc.indexOf("caixaLocais('fAcoes'") > 0,
     'e quem cadastra tem onde escolher — a permissão existir sem campo na tela seria ' +
     'uma tranca sem chave');
-  ok(admPc.indexOf("PodeCorrigir:document.getElementById('fPodeCorrigir').value") > 0,
+  ok(admPc.indexOf("Acoes:lerMarcados('fAcoes')") > 0,
     'e o campo VIAJA na gravação — desenhado e não enviado, a escolha some ao salvar');
-  ok(/podeCorrigir: u\.PodeCorrigir !== false/.test(admPc),
+  ok(/podeCorrigir: \(u\.Acoes \|\| \[\]\)\.indexOf\('corrigir'\) >= 0/.test(admPc),
     'e a sessão remontada na tela leva a marca — sem ela, a pessoa ganharia ou perderia ' +
     'o botão ao salvar o próprio cadastro, sem nada explicar');
 
@@ -21864,14 +21873,25 @@ console.log('\n== Motorista/Conferente ==');
    * num ramo que nunca roda. */
   (function () {
     var appC = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    var fonteAcao = fonteDaFuncao(appC, 'podeAcao');
     var fonteRegra = fonteDaFuncao(appC, 'podeCancelar');
-    ok(fonteRegra.length > 60, 'a conferencia recortou a regra `podeCancelar` do app.js', fonteRegra.length);
-    var regra = new Function(fonteRegra + '\nreturn podeCancelar;')();
-    ok(regra({ perfil: 'Admin' }) && regra({ perfil: 'ADMIN', podeCancelar: false }),
+    ok(fonteRegra.length > 30 && fonteAcao.length > 200,
+      'a conferencia recortou as regras `podeAcao` e `podeCancelar` do app.js', fonteRegra.length);
+    var acao = new Function(fonteAcao + '\nreturn podeAcao;')();
+    var regra = new Function(fonteAcao + fonteRegra + '\nreturn podeCancelar;')();
+    ok(acao({ perfil: 'Gerente', acoes: ['excluir'] }, 'excluir') &&
+       !acao({ perfil: 'Gerente', acoes: ['excluir'] }, 'cancelar') &&
+       acao({ perfil: 'ADMIN', acoes: [] }, 'apagarFiltro'),
+      'cada acao segue a SUA marca — marcar excluir nao da cancelar — e o Admin pode todas');
+    ok(acao({ perfil: 'Motorista' }, 'corrigir') && !acao({ perfil: 'Motorista' }, 'excluir') &&
+       !acao({ perfil: 'Motorista', podeCorrigir: false }, 'corrigir'),
+      'e sessao de antes da lista le as marcas antigas: o corrigir de quem corrigia, e nada ' +
+      'alem — senao a tela velha em cache tiraria o conserto de todo mundo');
+    ok(regra({ perfil: 'Admin' }) && regra({ perfil: 'ADMIN', acoes: [] }),
       'o Admin cancela sem marca — ele e quem concede, e nao pode se trancar fora');
-    ok(!regra({ perfil: 'Gestor' }) && !regra({ perfil: 'Gerente' }) && !regra({ perfil: 'Administrador' }),
+    ok(!regra({ perfil: 'Gestor', acoes: [] }) && !regra({ perfil: 'Gerente', acoes: [] }) && !regra({ perfil: 'Administrador', acoes: [] }),
       'nenhum outro perfil cancela sozinho — o poder e a marca, nao o cargo');
-    ok(regra({ perfil: 'Motorista', podeCancelar: true }) && !regra(null),
+    ok(regra({ perfil: 'Motorista', acoes: ['cancelar'] }) && !regra(null),
       'e qualquer um cancela se o admin liberar');
 
     var i = adm.indexOf("return '<td class=\"folga\"></td><td class=\"col-acoes\">'+(Q.podeCorrigir(Q.sessao(), m)");
@@ -21884,14 +21904,15 @@ console.log('\n== Motorista/Conferente ==');
         sessao: function () { return sessao; },
         ehAdmin: function () { return String(sessao.perfil).toUpperCase() === 'ADMIN'; },
         podeCancelar: regra,
+        podeAcao: acao,
         podeCorrigir: function () { return true; }
       };
       return new Function('Q', 'm', 'botaoDaCarga', trecho)(Q, m, function () { return ''; });
     }
     var viva = { id: 'M1' }, cancelada = { id: 'M2', cancelado: true };
     var adm1 = acoes({ perfil: 'Admin' }, viva);
-    var lib = acoes({ perfil: 'Gerente', podeCancelar: true }, viva);
-    var sem = acoes({ perfil: 'Gestor' }, viva);
+    var lib = acoes({ perfil: 'Gerente', acoes: ['cancelar'] }, viva);
+    var sem = acoes({ perfil: 'Gestor', acoes: [] }, viva);
     ok(adm1.indexOf('data-cancelar') > 0 && adm1.indexOf('data-excluir') > 0,
       'o Admin cancela e exclui', adm1);
     ok(lib.indexOf('data-cancelar') > 0 && lib.indexOf('data-excluir') < 0,
@@ -21900,27 +21921,64 @@ console.log('\n== Motorista/Conferente ==');
     ok(sem.indexOf('data-cancelar') < 0 && sem.indexOf('data-excluir') < 0,
       'sem a marca, nem o Gestor recebe o botao — botao que a rota recusa e pior que ' +
       'botao nenhum', sem);
-    ok(acoes({ perfil: 'Gerente', podeCancelar: true }, cancelada).indexOf('data-descancelar') > 0 &&
-       acoes({ perfil: 'Gestor' }, cancelada).indexOf('data-descancelar') < 0,
+    ok(acoes({ perfil: 'Gerente', acoes: ['cancelar'] }, cancelada).indexOf('data-descancelar') > 0 &&
+       acoes({ perfil: 'Gestor', acoes: [] }, cancelada).indexOf('data-descancelar') < 0,
       'e a volta segue a mesma marca: quem foi liberado desfaz, quem nao foi nao');
   })();
 
-  /* O CADASTRO OFERECE A MARCA, ela nasce em "nao", abre como esta gravada e vai no
-     salvar. Os quatro, porque cada um sozinho e o jeito de a liberacao "nao ficar
-     salva" — o defeito que este projeto ja viu no seletor do painel. */
+  /* O CADASTRO OFERECE AS OITO ACOES, uma caixa cada, desenhadas da lista do SERVIDOR,
+     abrindo como estao gravadas e indo no salvar. E o Admin le' que pode todas. */
   (function () {
     var form = fonteDaFuncao(adm, 'formUsuario');
-    ok(form.indexOf('id="fPodeCancelar"') > 0, 'o cadastro de usuario tem "Pode cancelar lancamento?"');
-    ok(/PodeCancelar:document\.getElementById\('fPodeCancelar'\)\.value/.test(form),
-      'e o salvar ENVIA a marca — sem isto, mexer no campo nao sai da tela');
-    ok(/value="NAO"'\+\(u\.PodeCancelar===true\?'':' selected'\)/.test(form) &&
-       /value="SIM"'\+\(u\.PodeCancelar===true\?' selected':''\)/.test(form),
-      'e abre como esta gravada, nascendo em "nao" — abrir em "sim" para quem nao tem ' +
-      'faria o salvar seguinte conceder o poder sem ninguem pedir');
-    ok(/O Admin pode sempre/.test(form),
-      'e diz que o Admin pode sempre — senao o "nao" no cadastro dele pareceria trancar');
-    ok(/podeCancelar: u\.PodeCancelar === true/.test(adm),
-      'e a sessao remontada no painel carrega a marca, como a do servidor');
+    ok(/caixaLocais\('fAcoes', 'Ações', ACOES_LANC\.map/.test(form),
+      'o quadro de acoes e desenhado da lista que o servidor manda (ACOES_LANC) — escrita ' +
+      'aqui tambem, uma acao nova apareceria na rota e nao no cadastro');
+    ok(/ACOES_LANC = r\.acoesLancamento \|\| \[\];/.test(adm),
+      'e a lista e guardada quando a equipe chega');
+    ok(/caixaLocais\('fAcoes',[\s\S]{0,200}u\.Acoes,/.test(form),
+      'e abre com o que esta gravado — abrindo vazio, o salvar seguinte apagaria o que o ' +
+      'admin concedeu');
+    ok(/Acoes:lerMarcados\('fAcoes'\)/.test(form) && !/fPodeCorrigir|fPodeCancelar/.test(form),
+      'o salvar ENVIA a lista, e os dois seletores antigos sairam — dois lugares para a ' +
+      'mesma permissao discordariam no primeiro clique');
+    ok(/Admin pode todas, sempre/.test(adm),
+      'e o Admin le que pode todas — senao uma caixa desmarcada no cadastro dele pareceria ' +
+      'trancar o que nao tranca');
+    ok(/var quadros = \['fAbas','fOperacoes','fAcoes',/.test(adm),
+      'e o quadro trava junto com os outros quando a pessoa esta inativa');
+    var api = fs.readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+    ok(/acoesLancamento: L\.ACOES_LANCAMENTO/.test(api), 'e o servidor manda a lista na equipe');
+  })();
+
+  /* CADA BOTAO SEGUE A SUA MARCA. Uma afirmacao por botao, porque cada um e' um lugar
+     diferente do arquivo — e e' exatamente o botao esquecido que oferece o que a rota
+     recusa. */
+  (function () {
+    var casos = [
+      ["(Q.podeAcao(Q.sessao(), 'corrigirCarga') ? botaoDaCarga(m.registro) : '')", 'a carga inteira, na linha de Movimentos'],
+      ["(Q.podeAcao(Q.sessao(), 'excluir')\n            ? '<button class=\"mini perigo\" data-excluir=", 'excluir, na linha de Movimentos'],
+      ["(Q.podeAcao(Q.sessao(), 'excluir')\n        ? '<button class=\"opcao perigo\" type=\"button\" data-acao=\"excluir\">", 'excluir, na folha de acoes do celular'],
+      ["(Q.podeAcao(Q.sessao(), 'excluir')\n            ? '<button class=\"mini acao\" data-restaurar=", 'tirar da lixeira'],
+      ["!pode || !Q.podeAcao(Q.sessao(), 'corrigirCarga') ? '' : ordem.filter(", 'a carga, no par da conciliacao'],
+      ["(Q.podeAcao(Q.sessao(), 'restaurar')", 'desfazer a correcao, no par'],
+      ["if (!Q.podeAcao(Q.sessao(), 'documento')) return '';", 'baixar canhoto ou foto'],
+      ["apagar.hidden = !Q.podeAcao(s, 'apagarFiltro');", 'apagar o que esta no filtro'],
+      ["document.body.classList.toggle('sem-excluir-cadastro', !Q.podeAcao(s, 'excluirCadastro'));", 'excluir cadastro']
+    ];
+    casos.forEach(function (c) {
+      ok(adm.indexOf(c[0]) > 0, 'o botao de ' + c[1] + ' so aparece com a marca', c[0].slice(0, 60));
+    });
+    var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+    ['mot', 'lp', 'forn', 'vei', 'local', 'user'].forEach(function (k) {
+      ok(css.indexOf('.sem-excluir-cadastro [data-excluir-' + k + ']') >= 0 &&
+         new RegExp('data-excluir-' + k + '="').test(adm),
+        'o excluir de cadastro (' + k + ') some pela classe — botao novo de excluir que ' +
+        'nao entrar na regra ficaria a vista para quem nao pode');
+    });
+    var semQuem = (adm.match(/acao:'excluir', aba:'\w+', id:\w\.ID, senha:s\}\)/g) || []);
+    ok(semQuem.length === 0,
+      'e todo excluir de cadastro diz QUEM pede — sem isso a rota, que confere a marca, ' +
+      'recusaria ate o Admin', semQuem);
   })();
 
   (function () {
@@ -22025,7 +22083,8 @@ console.log('\n== Motorista/Conferente ==');
         VE_CONF + fonteLA + '\n' + fonteLP + '\n return linhasDoPar;')(
         { esc: function (x) { return String(x == null ? '' : x); },
           num: function (n) { return String(Number(n) || 0); },
-          sessao: function () { return {}; }, podeCancelar: function () { return true; } },
+          sessao: function () { return {}; }, podeCancelar: function () { return true; },
+          podeAcao: function () { return true; } },
         function () { return true; },
         decls)({ itens: itens });
     }
@@ -28307,7 +28366,8 @@ console.log('\n== toda funcao chamada existe ==');
     podeCorrigir: function () { return true; },
     sessao: function () { return {}; },
     ehAdmin: function () { return true; },
-    podeCancelar: function () { return true; }
+    podeCancelar: function () { return true; },
+    podeAcao: function () { return true; }
   };
 
   /* AS COLUNAS SÃO AS DE VERDADE EM FORMA, e não em desenho: o que o resumo da carga usa
@@ -31859,7 +31919,8 @@ console.log('\n== a tela de lancamento nao mostra quanto foi conferido ==');
     'faria as provas abaixo passarem sem desenhar nada', faltam);
   if (faltam.length) return;
 
-  var Q = { esc: function (x) { return String(x == null ? '' : x); },
+  var Q = { sessao: function () { return {}; }, podeAcao: function () { return true; },
+            podeCancelar: function () { return true; }, esc: function (x) { return String(x == null ? '' : x); },
             num: function (n) { return String(n); },
             dataBR: function (d) { return String(d || ''); } };
   var contada = { id: 'M000901', registro: 'M000901', qtd: 4321, declaracao: false,

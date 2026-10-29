@@ -485,13 +485,13 @@ async function main() {
     ok(r.ok === true, 'cadastro de ' + nome + ' gravado', r.erro);
     return (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.Nome === nome)[0];
   };
-  const liberado = await criaC('Gerente Liberada', 'Gerente', { PodeCancelar: 'SIM' });
-  const gestorSem = await criaC('Gestor Sem Marca', 'Gestor');
-  const confSem = await criaC('Conferente Sem Marca', 'Conferente', { PodeCancelar: 'NAO' });
-  ok(liberado.PodeCancelar === true && gestorSem.PodeCancelar === false && confSem.PodeCancelar === false,
+  const liberado = await criaC('Gerente Liberada', 'Gerente', { Acoes: ['corrigir', 'cancelar'] });
+  const gestorSem = await criaC('Gestor Sem Marca', 'Gestor', { Acoes: ['corrigir'] });
+  const confSem = await criaC('Conferente Sem Marca', 'Conferente', { Acoes: [] });
+  ok(liberado.Acoes.indexOf('cancelar') >= 0 && gestorSem.Acoes.indexOf('cancelar') < 0 && confSem.Acoes.length === 0,
     'a marca do cadastro VOLTA na leitura como gravada — faltando la, o formulario abriria ' +
     'em "nao" e a proxima gravacao apagaria a liberacao, calada',
-    [liberado.PodeCancelar, gestorSem.PodeCancelar, confSem.PodeCancelar]);
+    [liberado.Acoes, gestorSem.Acoes, confSem.Acoes]);
   const sesLib = (await GET({ acao: 'meuAcesso', id: liberado.ID })).usuario;
   ok(sesLib && sesLib.podeCancelar === true,
     'e chega na SESSAO de quem esta logado — e' + "'" + ' de la que a tela decide mostrar o botao', sesLib);
@@ -506,7 +506,7 @@ async function main() {
     ok(r.ok === false && /administrador/.test(String(r.erro || '')),
       'o ' + rotulo + ' e recusado pela ROTA — o perfil nao da o poder, so a marca', [r.ok, r.erro]);
   }
-  for (const forja of [{ perfil: 'ADMIN' }, { Perfil: 'ADMIN' }, { PodeCancelar: true }, { podeCancelar: true }]) {
+  for (const forja of [{ perfil: 'ADMIN' }, { Perfil: 'ADMIN' }, { PodeCancelar: true }, { Acoes: ['cancelar'] }, { acoes: ['cancelar'] }]) {
     const r = await POST(Object.assign({ acao: 'cancelar', id: vivoC.id, motivo: 'forjado',
       usuarioId: confSem.ID }, forja));
     ok(r.ok === false, 'e dizer no pedido ' + JSON.stringify(forja) + ' nao abre — vale o cadastro', r.erro);
@@ -547,10 +547,77 @@ async function main() {
     'e o saldo volta ao que era');
 
   /* TIRAR A MARCA TIRA O PODER na hora — a rota relê o cadastro a cada pedido. */
-  await POST({ acao: 'salvarUsuario', registro: { ID: liberado.ID, Nome: liberado.Nome, PodeCancelar: 'NAO' } });
+  await POST({ acao: 'salvarUsuario', registro: { ID: liberado.ID, Nome: liberado.Nome, Acoes: ['corrigir'] } });
   const depoisDeTirar = await POST({ acao: 'cancelar', id: vivoC.id, motivo: 'de novo', usuarioId: liberado.ID });
   ok(depoisDeTirar.ok === false,
     'e o admin tirando a marca, a pessoa deixa de cancelar no pedido seguinte', depoisDeTirar.erro);
+
+  /* ---------------------------------------------------------------------------
+   * AS OITO ACOES, CADA UMA COM A SUA MARCA.
+   *
+   * Uma pessoa SEM marca nenhuma bate em cada rota com a senha certa na mao, e todas
+   * recusam pela MARCA (`semPermissao`), antes de olhar a senha — senao a resposta seria
+   * "senha incorreta", que convida a procurar a senha em vez de dizer que a porta nao e'
+   * dela. Depois, marcada so' em `excluir`, ela exclui e continua sem cancelar.
+   * ------------------------------------------------------------------------- */
+  console.log('\n== as oito acoes: cada rota confere a sua marca ==');
+  const nada = await criaC('Sem Acao Nenhuma', 'Gerente', { Acoes: [] });
+  ok(Array.isArray(nada.Acoes) && nada.Acoes.length === 0,
+    'cadastro com a lista vazia volta vazio — e nao com o padrao antigo', nada.Acoes);
+  /* O ULTIMO da lista, e nao o primeiro: o primeiro e' o que a bancada da lixeira usa
+     logo abaixo, e ela conta as passagens do historico dele. */
+  const umMov = (await GET({ acao: 'movimentos', limit: 100 })).movimentos
+    .filter((m) => !m.cancelado && !m.declaracao).pop();
+  const tentativas = [
+    ['corrigir', { acao: 'corrigir', id: umMov.id, Qtd: 1, motivo: 'x', senha: '123456' }],
+    ['corrigirCarga', { acao: 'corrigirRegistro', registro: umMov.registro || umMov.id, itens: [], motivo: 'x', senha: '123456' }],
+    ['restaurar', { acao: 'restaurarCorrecao', id: umMov.id, motivo: 'x', senha: '123456' }],
+    ['cancelar', { acao: 'cancelar', id: umMov.id, motivo: 'x' }],
+    ['excluir', { acao: 'excluirMovimento', id: umMov.id, senha: '123456' }],
+    ['excluir (tirar da lixeira)', { acao: 'restaurarMovimento', id: umMov.id }],
+    ['apagarFiltro', { acao: 'limparMovimentos', senha: '123456', esperado: 0 }],
+    ['excluirCadastro', { acao: 'excluir', aba: 'Usuarios', id: nada.ID, senha: '123456' }],
+    ['documento', { acao: 'documento', id: umMov.id, qual: 'foto', senha: '123456' }]
+  ];
+  for (const [nome, pedido] of tentativas) {
+    const r = await POST(Object.assign({ usuarioId: nada.ID }, pedido));
+    ok(r.ok === false && r.semPermissao === true && /administrador/.test(String(r.erro || '')),
+      nome + ': sem a marca, a rota recusa pela MARCA, mesmo com a senha certa', [r.ok, r.erro]);
+  }
+  ok(!!(await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === nada.ID),
+    'e o cadastro que ela tentou excluir continua la');
+  ok((await GET({ acao: 'movimentos', limit: 500 })).movimentos.some((m) => m.id === umMov.id),
+    'e o lancamento que ela tentou cancelar e excluir continua valendo');
+
+  await POST({ acao: 'salvarUsuario', registro: { ID: nada.ID, Nome: nada.Nome, Acoes: ['excluir'] } });
+  const exMarcado = await POST({ acao: 'excluirMovimento', id: umMov.id, usuarioId: nada.ID, senha: '123456' });
+  ok(exMarcado.ok === true, 'marcada em excluir, ela exclui (com a senha)', exMarcado.erro);
+  const senhaErr = await POST({ acao: 'excluirMovimento', id: umMov.id, usuarioId: nada.ID, senha: 'errada' });
+  ok(senhaErr.ok === false, 'e a senha continua valendo por cima da marca', senhaErr.erro);
+  const voltou = await POST({ acao: 'restaurarMovimento', id: umMov.id, usuarioId: nada.ID });
+  ok(voltou.ok === true, 'e tira da lixeira, que e a volta do excluir', voltou.erro);
+  const aindaNao = await POST({ acao: 'cancelar', id: umMov.id, motivo: 'x', usuarioId: nada.ID });
+  ok(aindaNao.ok === false && aindaNao.semPermissao === true,
+    'mas continua sem cancelar — marcar excluir nao da cancelar', aindaNao.erro);
+
+  /* ANTES DA COLUNA EXISTIR, vale o que valia: e' o que impede o deploy de tirar o
+     conserto de todo mundo ate' a migracao rodar. */
+  const La = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  ok(La.acoesDe({ PodeCorrigir: true }).join() === 'corrigir,corrigirCarga,restaurar' &&
+     La.acoesDe({ PodeCorrigir: false }).length === 0 &&
+     La.acoesDe({ PodeCancelar: true }).indexOf('cancelar') >= 0,
+    'sem a lista no cadastro, as marcas antigas valem — corrigir para quem corrigia');
+  ok(La.acoesDe({ Acoes: [], PodeCorrigir: true }).length === 0,
+    'e com a lista, ela manda — vazia e vazia, mesmo com a marca antiga ligada');
+  ok(La.ACOES_LANCAMENTO.map((a) => a.id).join() ===
+     'corrigir,corrigirCarga,restaurar,cancelar,excluir,apagarFiltro,excluirCadastro,documento',
+    'sao as oito acoes, na ordem do cadastro');
+  const idx = require('fs').readFileSync(path.join(__dirname, '..', 'api', 'index.js'), 'utf8');
+  const comSenhaR = (idx.match(/conferirSenhaDe\('(\w+)'/g) || []).map((x) => x.split("'")[1]);
+  const semMarcaNaRota = comSenhaR.filter((id) => !new RegExp("barraAcao\\([^)]*'" + id + "'\\)").test(idx));
+  ok(comSenhaR.length === 7 && semMarcaNaRota.length === 0,
+    'TODA operacao que pede senha tambem confere a marca — a proxima senha nova que ' +
+    'entrar sem a marca seria a porta dos fundos', semMarcaNaRota);
 
   const Lc = require(path.join(__dirname, '..', 'api', '_logica.js'));
   ok(Lc.podeCancelarLancamento({ Perfil: 'Admin' }) && Lc.podeCancelarLancamento({ Perfil: 'ADMIN', PodeCancelar: false }),
@@ -558,12 +625,12 @@ async function main() {
   const semPoder = ['Gestor', 'Gerente', 'Conferente', 'Motorista', 'Administrador', '']
     .filter((x) => !Lc.podeCancelarLancamento({ Perfil: x }));
   ok(semPoder.length === 6, 'nenhum outro perfil cancela sozinho, nem nome parecido com Admin', semPoder);
-  ok(Lc.podeCancelarLancamento({ Perfil: 'Motorista', PodeCancelar: true }),
+  ok(Lc.podeCancelarLancamento({ Perfil: 'Motorista', Acoes: ['cancelar'] }),
     'e qualquer perfil cancela se o admin liberar');
-  ok(!Lc.podeCancelarLancamento({ Perfil: 'Motorista', PodeCancelar: 'SIM' }),
-    'a marca vale so como booleano do cadastro — texto solto nao conta como sim');
+  ok(!Lc.podeCancelarLancamento({ Perfil: 'Motorista', Acoes: ['excluir'] }),
+    'e a marca de outra acao nao vale para esta');
   ok(!Lc.podeCancelarLancamento({ Perfil: 'Admin', Ativo: false }) &&
-     !Lc.podeCancelarLancamento({ Perfil: 'Gerente', PodeCancelar: true, Ativo: false }),
+     !Lc.podeCancelarLancamento({ Perfil: 'Gerente', Acoes: ['cancelar'], Ativo: false }),
     'e quem esta desativado nao cancela, nem Admin, nem liberado');
 
   /* ---------------------------------------------------------------------------
@@ -1014,8 +1081,8 @@ async function main() {
   const locaisAgora = (await GET({ acao: 'dados' })).locais;
   const criado = locaisAgora.find((l) => l.ID === novo.id);
   ok(criado && criado.Token && criado.Token.length === 10, 'cliente novo recebe token de 10 caracteres', criado && criado.Token);
-  ok((await POST({ acao: 'excluir', senha: '123456', aba: 'Locais', id: novo.id })).excluido === true, 'cliente sem movimento é excluído');
-  const comMov = await POST({ acao: 'excluir', senha: '123456', aba: 'Locais', id: C });
+  ok((await POST({ acao: 'excluir', usuarioId: 'U001', senha: '123456', aba: 'Locais', id: novo.id })).excluido === true, 'cliente sem movimento é excluído');
+  const comMov = await POST({ acao: 'excluir', usuarioId: 'U001', senha: '123456', aba: 'Locais', id: C });
   ok(comMov.inativado === true, 'cliente com movimento é inativado, não excluído', comMov);
 
   console.log('\n== rotas ==');
@@ -1120,7 +1187,7 @@ async function main() {
      de nada e põe a etiqueta amarela num lançamento intocado. */
   const vezesAntes = (await GET({ acao: 'movimentos', limit: 200 })).movimentos
     .filter((m) => m.id === alvoC.id)[0].alterado.vezes;
-  const rIgual = await POST({ acao: 'corrigir', id: alvoC.id, Qtd: 95, motivo: 'de novo', senha: '123456' });
+  const rIgual = await POST({ acao: 'corrigir', id: alvoC.id, usuarioId: 'U001', Qtd: 95, motivo: 'de novo', senha: '123456' });
   ok(rIgual.ok === true && rIgual.consulta === true && (rIgual.alterou || []).length === 0,
      'corrigir para o mesmo valor vira consulta, e a rota diz isso', rIgual);
   const depoisDaConsulta = (await GET({ acao: 'movimentos', limit: 200 })).movimentos
@@ -1526,12 +1593,15 @@ async function main() {
        — desfaz a exclusao com a geral. A ultima e' prova e limpeza ao mesmo tempo: sem
        ela o lancamento fica na lixeira e tudo o que vem depois neste arquivo bate em
        "este lancamento esta' na lixeira". */
-    ok((await POST({ acao: 'excluirMovimento', id: velho.id, usuarioId: velho.usuarioId,
+    /* QUEM EXCLUI E' O ADMIN: desde 29/10/2026 excluir pede a MARCA do cadastro antes
+       da senha, e o autor do lancamento nao a tem. O que esta bancada mede e' a SENHA,
+       entao quem pede tem de passar pela marca — senao a recusa viria da outra tranca. */
+    ok((await POST({ acao: 'excluirMovimento', id: velho.id, usuarioId: 'U001',
                      senha: 'soCorrige9' })).erro === 'Senha incorreta.',
       'a senha de CORRIGIR n\u00e3o abre o excluir \u2014 \u00e9 a separa\u00e7\u00e3o inteira: sem isto as ' +
       'sete senhas seriam sete nomes para a mesma chave');
     const exGeral = await POST({ acao: 'excluirMovimento', id: velho.id,
-                                 usuarioId: velho.usuarioId, senha: 'trocada9' });
+                                 usuarioId: 'U001', senha: 'trocada9' });
     ok(exGeral.ok === true,
       'e quem N\u00c3O ganhou senha pr\u00f3pria continua na GERAL \u2014 sem o degrau, o dia desta ' +
       'mudan\u00e7a trancaria as sete portas de uma vez, porque nenhuma espec\u00edfica existe ' +
@@ -1543,8 +1613,15 @@ async function main() {
        linha sumiu por engano raramente e' quem a mandou sumir, e seria justamente essa
        pessoa a ficar sem a senha. O rotulo da senha de restaurar foi corrigido para nao
        prometer que fecha esta porta. */
+    /* SEM SENHA continua; SEM MARCA, nao: tirar da lixeira anda com a marca de excluir,
+       que o admin da' a quem cuida da lixeira. Medido logo abaixo, com o autor. */
+    const voltaNega = await POST({ acao: 'restaurarMovimento', id: velho.id,
+                                   usuarioId: velho.usuarioId });
+    ok(voltaNega.ok === false && voltaNega.semPermissao === true,
+      'e quem nao tem a marca de excluir tambem nao tira da lixeira — devolveria ao saldo ' +
+      'o que o admin decidiu tirar', voltaNega.erro);
     const voltaLixo = await POST({ acao: 'restaurarMovimento', id: velho.id,
-                                   usuarioId: velho.usuarioId, senha: 'senha-errada-9' });
+                                   usuarioId: 'U001', senha: 'senha-errada-9' });
     ok(voltaLixo.ok === true,
       'e tirar da LIXEIRA continua sem senha, mesmo com uma errada na m\u00e3o \u2014 \u00e9 o ' +
       'caminho de volta do excluir, e quem percebe o engano raramente \u00e9 quem o cometeu: ' +
@@ -1773,13 +1850,13 @@ async function main() {
   ok((await POST({ acao: 'salvarLocal', registro: { ID: rNova.id, Ativo: 'SIM' } })).ok, 'rota reativada');
 
   // Rota sem uso nenhum pode sumir de verdade.
-  ok((await POST({ acao: 'excluir', senha: '123456', aba: 'Locais', id: rNova.id })).excluido === true,
+  ok((await POST({ acao: 'excluir', usuarioId: 'U001', senha: '123456', aba: 'Locais', id: rNova.id })).excluido === true,
     'rota sem vínculo e sem movimento é excluída');
 
   // Com cliente apontando para ela, apagar quebraria a chave estrangeira: o servidor inativa.
   const rUsada = await POST({ acao: 'salvarLocal', registro: { Tipo: 'ROTA', Nome: 'Rota Litoral' } });
   await POST({ acao: 'salvarLocal', registro: { Tipo: 'CLIENTE', Nome: 'Ponto do Litoral', RotaId: rUsada.id } });
-  const tentou = await POST({ acao: 'excluir', senha: '123456', aba: 'Locais', id: rUsada.id });
+  const tentou = await POST({ acao: 'excluir', usuarioId: 'U001', senha: '123456', aba: 'Locais', id: rUsada.id });
   ok(tentou.inativado === true, 'rota com cliente vinculado é inativada, não apagada', tentou);
   ok(/atende 1 ponto/.test(tentou.aviso || ''), 'o aviso diz quantos pontos dependem dela', tentou.aviso);
   const aindaLa = (await GET({ acao: 'dados' })).locais.find((l) => l.ID === rUsada.id);
@@ -1826,17 +1903,17 @@ async function main() {
   ok(((await GET({ acao: 'dados' })).motoristas || []).some((m) => m.ID === novoM.id),
     'e ele volta para a lista de escolha do celular');
 
-  ok((await POST({ acao: 'excluir', senha: '123456', aba: 'Motoristas', id: novoM.id })).excluido === true,
+  ok((await POST({ acao: 'excluir', usuarioId: 'U001', senha: '123456', aba: 'Motoristas', id: novoM.id })).excluido === true,
     'motorista pode ser excluído');
 
   console.log('\n== excluir usuário ==');
   const novoU = await POST({ acao: 'salvarUsuario', registro: { Nome: 'Ajudante Temporário', Perfil: 'PROMOTOR', PIN: '444444' } });
   ok(novoU.ok, 'usuário criado', novoU);
-  ok((await POST({ acao: 'excluir', senha: '123456', aba: 'Usuarios', id: novoU.id })).excluido === true,
+  ok((await POST({ acao: 'excluir', usuarioId: 'U001', senha: '123456', aba: 'Usuarios', id: novoU.id })).excluido === true,
     'usuário que nunca lançou nada é excluído');
 
   // Quem já lançou fica: o nome dele é o que dá peso à divergência no histórico.
-  const comHist = await POST({ acao: 'excluir', senha: '123456', aba: 'Usuarios', id: 'U003' });
+  const comHist = await POST({ acao: 'excluir', usuarioId: 'U001', senha: '123456', aba: 'Usuarios', id: 'U003' });
   ok(comHist.inativado === true, 'usuário com lançamento é desativado, não apagado', comHist);
   const u3 = (await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U003');
   ok(u3 && u3.Ativo === false && u3.Nome === 'Motorista Exemplo', 'ele continua no banco, inativo', u3);
@@ -1845,7 +1922,7 @@ async function main() {
   const offAdmin = await POST({ acao: 'salvarUsuario', registro: { ID: 'U001', Ativo: 'NAO' } });
   ok(offAdmin.ok === false && /último administrador/.test(offAdmin.erro || ''),
     'desativar o último admin é recusado', offAdmin);
-  const del = await POST({ acao: 'excluir', senha: '123456', aba: 'Usuarios', id: 'U001' });
+  const del = await POST({ acao: 'excluir', usuarioId: 'U001', senha: '123456', aba: 'Usuarios', id: 'U001' });
   ok(del.ok === false && /último administrador/.test(del.erro || ''),
     'excluir o último admin é recusado', del);
   ok((await GET({ acao: 'equipe' })).usuarios.find((u) => u.ID === 'U001').Ativo === true,
@@ -1869,12 +1946,12 @@ async function main() {
   const lpGrav = (await GET({ acao: 'equipe' })).locaisPadrao.find((x) => x.ID === lp.id);
   ok(lpGrav && lpGrav.Nome === 'Base Recife', 'nome vem sem espaço sobrando', lpGrav && lpGrav.Nome);
 
-  ok((await POST({ acao: 'excluir', senha: '123456', aba: 'LocaisPadrao', id: lp.id })).excluido === true,
+  ok((await POST({ acao: 'excluir', usuarioId: 'U001', senha: '123456', aba: 'LocaisPadrao', id: lp.id })).excluido === true,
     'local padrão sem ninguém dentro é excluído');
 
   // Em uso, apagar deixaria o usuário apontando para o vazio.
   await POST({ acao: 'salvarUsuario', registro: { ID: 'U002', LocalPadrao: 'P001' } });
-  const emUso = await POST({ acao: 'excluir', senha: '123456', aba: 'LocaisPadrao', id: 'P001' });
+  const emUso = await POST({ acao: 'excluir', usuarioId: 'U001', senha: '123456', aba: 'LocaisPadrao', id: 'P001' });
   ok(emUso.ok === false && /em uso por 1 usuário/.test(emUso.erro || ''),
     'local padrão em uso é recusado, dizendo quantos dependem dele', emUso);
 
@@ -2125,7 +2202,7 @@ async function main() {
   ok(sugestoes.indexOf('Supervisor de Área') >= 5,
     'e o escrito à mão entra na sugestão para não virar três grafias', sugestoes);
 
-  await POST({ acao: 'excluir', senha: '123456', aba: 'Usuarios', id: novoPf.id });
+  await POST({ acao: 'excluir', usuarioId: 'U001', senha: '123456', aba: 'Usuarios', id: novoPf.id });
 
   console.log('== motorista fixo ou volante ==');
 
@@ -4449,6 +4526,7 @@ console.log('\n== ciclo da carga: Enviada, Parcial, Devolvida ==');
       TiposCaixa: ['c'], Motoristas: ['d'],
       Veiculos: ['V1'],
       Operacoes: ['SAIDA'], Abas: ['pgPainel'], Ajustes: ['L1'], Unidades: ['L1'],
+      Acoes: ['corrigir'],
       SoProprios: true
     }])[0];
 

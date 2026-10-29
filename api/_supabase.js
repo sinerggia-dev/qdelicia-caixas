@@ -226,6 +226,9 @@ var USUARIO = {
       PodeCorrigir: r.pode_corrigir !== false,
       /* `=== true`: nasce desligada, e so' o admin liga. */
       PodeCancelar: r.pode_cancelar === true,
+      /* AUSENTE (coluna ainda nao criada) fica `undefined`, e nao `[]`: e' o que deixa
+         `acoesDe` cair no que valia antes, em vez de tirar tudo de todo mundo. */
+      Acoes: r.acoes == null ? undefined : lista(r.acoes),
       /* `viu_boas_vindas` E O NOME DE NASCENCA da coluna: ela veio com a tela de
          boas-vindas, que saiu. Quem ela marca hoje e o TUTORIAL. A coluna fica como
          esta — migracao aqui e so por acrescimo, e renomear coluna e apagar e
@@ -272,6 +275,7 @@ var USUARIO = {
     if (o.VerLancamentos !== undefined) r.ver_lancamentos = bool(o.VerLancamentos);
     if (o.PodeCorrigir !== undefined) r.pode_corrigir = bool(o.PodeCorrigir);
     if (o.PodeCancelar !== undefined) r.pode_cancelar = bool(o.PodeCancelar);
+    if (o.Acoes !== undefined) r.acoes = lista(o.Acoes);
     if (o.ViuTutorial !== undefined) r.viu_boas_vindas = bool(o.ViuTutorial);
     if (o.UsuariosVistos !== undefined) r.usuarios_vistos = o.UsuariosVistos || [];
     if (o.Teste !== undefined) r.teste = bool(o.Teste);

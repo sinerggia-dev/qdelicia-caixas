@@ -2520,12 +2520,24 @@
     return !!s && lista.indexOf(String(s.perfil || '').toUpperCase()) >= 0;
   }
 
-  /* QUEM CANCELA UM LANCAMENTO: o ADMIN sempre, e quem o admin liberou no cadastro.
-     A TRANCA E' A ROTA — isto so' evita oferecer o botao a quem vai levar a recusa. */
-  function podeCancelar(s) {
+  /* O QUE ESTA SESSAO PODE ALTERAR NOS LANCAMENTOS: o ADMIN tudo, sempre; os demais,
+     o que o admin marcou no cadastro (`acoes`). A TRANCA E' A ROTA — isto so' evita
+     oferecer o botao a quem vai levar a recusa.
+     SESSAO DE ANTES DA LISTA (`acoes` ausente) le as duas marcas antigas, do mesmo jeito
+     que o servidor: senao a tela velha em cache esconderia o corrigir de todo mundo ate'
+     a renovacao chegar. */
+  function podeAcao(s, id) {
     if (!s) return false;
-    return String(s.perfil || '').toUpperCase() === 'ADMIN' || s.podeCancelar === true;
+    if (String(s.perfil || '').toUpperCase() === 'ADMIN') return true;
+    var l = s.acoes;
+    if (!Array.isArray(l)) {
+      l = [];
+      if (s.podeCorrigir !== false) l.push('corrigir', 'corrigirCarga', 'restaurar');
+      if (s.podeCancelar === true) l.push('cancelar');
+    }
+    return l.map(String).indexOf(String(id)) >= 0;
   }
+  function podeCancelar(s) { return podeAcao(s, 'cancelar'); }
 
   function podeCorrigir(s, m) {
     if (!s || !m) return false;
@@ -2533,7 +2545,7 @@
        desligada, a pessoa nao ve o botao em lugar nenhum — nem no lancamento comum, nem
        na declaracao, nem na carga inteira. Posta DEPOIS da regra da declaracao, quem
        estivesse sem a permissao ainda veria o botao nas declaracoes se fosse Gestor. */
-    if (s.podeCorrigir === false) return false;
+    if (!podeAcao(s, 'corrigir')) return false;
     /* A DECLARACAO E DE OUTRA CLASSE, e a regra e decisao de quem pediu: so Admin,
        Gestor e Gerente. O numero dela e aquele CONTRA O QUAL a conciliacao compara —
        mudado pela mao de quem o declarou, uma divergencia pode ser apagada.
@@ -3362,7 +3374,7 @@
   window.QDC = {
     get: get, post: post, enviar: enviar, sincronizar: sincronizar, fila: fila, chave: chave,
     sessao: sessao, lendo: lendo, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
-    podeCancelar: podeCancelar,
+    podeCancelar: podeCancelar, podeAcao: podeAcao,
     cache: cache, carregarDados: carregarDados, semApi: semApi,
     precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,

@@ -132,6 +132,10 @@ async function rotaGet(p) {
                   tambem, um dia as duas listas divergiriam e o botao apareceria para
                   quem leva uma recusa depois de escrever o motivo. */
                perfisDeclaracao: L.PERFIS_DECLARACAO,
+               /* AS ACOES QUE O ADMIN CONCEDE, a mesma lista que as rotas conferem. O
+                  formulario desenha a partir dela: escrita la' tambem, uma acao nova
+                  apareceria numa e nao na outra. */
+               acoesLancamento: L.ACOES_LANCAMENTO,
                // A MESMA lista que a gravacao usa para recusar. Escrever as opcoes na tela
                // faria duas listas sobre a mesma regra, e elas divergem no primeiro nome novo.
                operacoes: L.OPERACOES, abas: L.ABAS, situacoes: L.SITUACOES };
@@ -639,6 +643,9 @@ async function corrigir(p) {
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
   var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
   if (barra) return barra;
+  /* A MARCA DO CADASTRO antes da senha: sem ela, a senha nao abre. */
+  var semMarca = L.barraAcao(d.usuarios, p.usuarioId, 'corrigir');
+  if (semMarca) return semMarca;
   /* Um mapa por tipo de campo: a origem se lê na lista de locais, a caixa na de tipos.
      Com um mapa só, "origem: de L001 para L016" ia para o histórico como id cru. */
   /* A SENHA só é conferida quando faz falta — o `scrypt` custa uns 50ms, e cobrá-los de
@@ -688,6 +695,9 @@ async function restaurarCorrecao(p) {
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
   var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
   if (barra) return barra;
+  /* A MARCA DO CADASTRO antes da senha: sem ela, a senha nao abre. */
+  var semMarca = L.barraAcao(d.usuarios, p.usuarioId, 'restaurar');
+  if (semMarca) return semMarca;
 
   var agora = new Date();
   var livre = L.correcaoLivre(mov, p.usuarioId, agora);
@@ -737,6 +747,9 @@ async function corrigirRegistro(p) {
     var barra = L.barraDeclaracao(linhas[b], d.usuarios, p.usuarioId);
     if (barra) return barra;
   }
+  /* A MARCA DO CADASTRO antes da senha: sem ela, a senha nao abre. */
+  var semMarca = L.barraAcao(d.usuarios, p.usuarioId, 'corrigirCarga');
+  if (semMarca) return semMarca;
 
   var porId = {};
   (Array.isArray(p.itens) ? p.itens : []).forEach(function (i) {
@@ -790,7 +803,7 @@ async function corrigirRegistro(p) {
         /* A MESMA PERMISSAO DA LINHA UNICA. Esquecida aqui, quem nao pode corrigir uma
            linha corrigiria QUATRO de uma vez pela porta da carga — e a porta larga seria
            a que todo mundo passaria a usar. */
-        quem: quemPediu });
+        quem: quemPediu, acao: 'corrigirCarga' });
     if (!r.ok) return r;
     prontos.push({ id: mov.ID, r: r });
     if (!r.consulta) mexeu++;
@@ -835,6 +848,9 @@ async function conferir(p) {
  * memoria do servidor para repassa-la, e o navegador ja sabe buscar um endereco. */
 async function documento(p) {
   var d = await db.carregarTudo();
+  /* A MARCA DO CADASTRO antes da senha: sem ela, a senha nao abre. */
+  var semMarca = L.barraAcao(d.usuarios, p.usuarioId || p.quem, 'documento');
+  if (semMarca) return semMarca;
   if (!conferirSenhaDe('documento', p.senha, d.config)) {
     return { ok: false, erro: 'Senha incorreta.' };
   }
@@ -1035,6 +1051,13 @@ async function limparMovimentos(p) {
      CONTAR NAO PEDE SENHA, porque nao muda nada e nao revela linha nenhuma — devolve um
      NUMERO, ja' recortado pelo que esta pessoa pode ver. */
   var contando = p.contar === true || String(p.contar) === 'true';
+  /* A MARCA DO CADASTRO, so' para APAGAR. Contar continua livre pelo mesmo motivo de
+     nao pedir senha: nao muda nada e devolve um numero ja' recortado pelo que a pessoa
+     ve' — e o botao nem aparece para quem nao tem a marca. */
+  if (!contando) {
+    var semMarca = L.barraAcao(d.usuarios, p.usuarioId, 'apagarFiltro');
+    if (semMarca) return semMarca;
+  }
   /* A SENHA VEM ANTES DA CONTA, e nao depois: este botao leva centenas de linhas de uma
      vez, e conferir o numero esperado de um recorte que a pessoa nao pode apagar e'
      trabalho a toa. O `esperado` continua, e ele responde outra pergunta — se a lista
@@ -1172,6 +1195,9 @@ async function excluirMovimento(p) {
      dele. */
   var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
   if (barra) return barra;
+  /* A MARCA DO CADASTRO antes da senha: sem ela, a senha nao abre. */
+  var semMarca = L.barraAcao(d.usuarios, p.usuarioId, 'excluir');
+  if (semMarca) return semMarca;
   /* ATE AQUI NAO PEDIA SENHA NENHUMA. Ele manda para a LIXEIRA, e foi por isso que
      nasceu aberto: nada se perde, e restaurar e' uma porta ao lado. Mas o escritorio
      pediu as senhas separadas, e uma linha que some da tabela some do olho de quem
@@ -1194,6 +1220,11 @@ async function restaurarMovimento(p) {
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
   var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
   if (barra) return barra;
+  /* TIRAR DA LIXEIRA E' A VOLTA DO EXCLUIR, e anda com a mesma marca: quem nao manda
+     para a lixeira tambem nao tira de la' — senao devolveria ao saldo o que o admin
+     decidiu tirar. */
+  var semMarca = L.barraAcao(d.usuarios, p.usuarioId, 'excluir');
+  if (semMarca) return semMarca;
   var r = L.montarRestauracao(mov, p, new Date());
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);
@@ -1700,6 +1731,9 @@ async function excluir(aba, id, p) {
   var d = await db.carregarTudo();
   /* ESTE E O GESTO COM MENOS VOLTA DE TODOS, e era o unico sem senha: apagar um usuario
      nao vai para lixeira nenhuma. Foi ele que o escritorio apontou. */
+  var quemExclui = (p || {}).usuarioId;
+  var semMarca = L.barraAcao(d.usuarios, quemExclui, 'excluirCadastro');
+  if (semMarca) return semMarca;
   if (!conferirSenhaDe('excluirCadastro', (p || {}).senha, d.config)) {
     return { ok: false, erro: 'Senha incorreta.', senhaErrada: true };
   }

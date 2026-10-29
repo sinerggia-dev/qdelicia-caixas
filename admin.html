@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=a009f218">
+<link rel="stylesheet" href="styles.css?v=df22e57d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -1961,7 +1961,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=8ca767cb"></script>
+<script src="app.js?v=c6aa3ec6"></script>
 <script>
 (function(){
   'use strict';
@@ -1994,6 +1994,7 @@
   var VISTA_CELULAR = Q.paramUrl('vista') === 'celular';
   var ABA_PEDIDA = Q.paramUrl('aba');
 
+  var ACOES_LANC = [];
   var DADOS = null, EQUIPE = [], MOTORISTAS = [], VEICULOS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PERFIS_DECL = [], PAINEL = null, EXTRATO = null, MOVS = [], SITUACOES = [];
 
   /* Fica fora de montarSelects porque a lista chega pela `equipe`, que e outra ida de
@@ -2056,7 +2057,7 @@
 
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; VEICULOS = r.veiculos || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; PERFIS_DECL = r.perfisDeclaracao || []; Q.definirPerfisDeclaracao(r.perfisDeclaracao); OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
+      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; VEICULOS = r.veiculos || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; PERFIS_DECL = r.perfisDeclaracao || []; Q.definirPerfisDeclaracao(r.perfisDeclaracao); OPERACOES_APP = r.operacoes || []; ACOES_LANC = r.acoesLancamento || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
       ordenarTudo();
       montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
@@ -2203,6 +2204,14 @@
     var podeCampo = s.temPin === undefined || s.temPin === true;
     document.getElementById('chipCampo').hidden = !podeCampo;
 
+    /* AS ACOES DESTA PESSOA: o que o admin nao marcou, ela nao ve. Aqui, e nao na hora
+       de desenhar, porque a renovacao passa por aqui — a marca tirada no cadastro some
+       da tela sem precisar sair e entrar. "Apagar o que esta no filtro" e' um botao so';
+       os de excluir cadastro sao muitos, em tabelas diferentes, e saem por uma classe. */
+    var apagar = document.getElementById('btnLimparTudo');
+    if (apagar) apagar.hidden = !Q.podeAcao(s, 'apagarFiltro');
+    document.body.classList.toggle('sem-excluir-cadastro', !Q.podeAcao(s, 'excluirCadastro'));
+
     /* O seletor de Ajuste segue a lista de locais DESTA sessao, e por isso e remontado
        aqui: a renovacao chega depois do primeiro desenho, e sem isto a permissao mudada
        no cadastro so valeria no proximo recarregamento — a pessoa continuaria vendo os
@@ -2298,8 +2307,11 @@
          cadastro muda, e um campo que existe la' e nao aqui some no meio do caminho:
          a pessoa perderia (ou ganharia) o botao de corrigir ao salvar o proprio
          cadastro, sem nada explicar. */
-      podeCorrigir: u.PodeCorrigir !== false,
-      podeCancelar: u.PodeCancelar === true,
+      /* AS ACOES vem prontas da `equipe` (o servidor ja' aplicou o que valia antes da
+         lista existir), e as duas marcas antigas saem DELAS — como no `sessaoDe`. */
+      podeCorrigir: (u.Acoes || []).indexOf('corrigir') >= 0,
+      podeCancelar: (u.Acoes || []).indexOf('cancelar') >= 0,
+      acoes: Array.isArray(u.Acoes) ? u.Acoes : [],
       /* A MARCA DO TUTORIAL acompanha a sessão renovada. Faltando aqui, a renovação a
          apagaria: a pessoa veria o tutorial, seguiria para o app, e no acesso seguinte
          cairia nele de novo — sem nada na tela explicando por quê. */
@@ -5441,7 +5453,7 @@
       if (!r || m.cancelado || regs[r] || comOculta[r]) return;
       regs[r] = 1; ordem.push(r);
     });
-    var daCarga = !pode ? '' : ordem.filter(function(r){
+    var daCarga = !pode || !Q.podeAcao(Q.sessao(), 'corrigirCarga') ? '' : ordem.filter(function(r){
         return linhasAtivasDaCarga(r) > 1;
       }).map(function(r){
         return '<button class="mini acao" type="button" data-dcarga="'+Q.esc(r)+'" '+
@@ -5494,7 +5506,7 @@
           /* DA LIXEIRA SE VOLTA PELA PORTA DA LIXEIRA, que ja existia e e' outra marca.
              Oferecer "desfazer o cancelamento" numa linha apagada levaria a recusa da
              rota depois de a pessoa escrever o motivo. */
-          (podeL && m.excluidoEm
+          (podeL && m.excluidoEm && Q.podeAcao(Q.sessao(), 'excluir')
             ? '<span class="lp__a"><button class="mini" type="button" '+
                 'data-dreporlixeira="'+Q.esc(m.id)+'">tirar da lixeira</button></span>'
             : '')+
@@ -5510,8 +5522,10 @@
                    RESTAURAR desfaz a ultima correcao: corrigir sem volta deixava quem
                    errou de dedo com uma unica saida, que era corrigir de novo por cima
                    e deixar duas marcas no historico para um erro so'. */
-                '<button class="mini" type="button" data-dcorrigir="'+Q.esc(m.id)+'">corrigir</button>'+
-                '<button class="mini" type="button" data-drestaurar="'+Q.esc(m.id)+'">restaurar</button>'+
+                (Q.podeAcao(Q.sessao(), 'corrigir')
+                  ? '<button class="mini" type="button" data-dcorrigir="'+Q.esc(m.id)+'">corrigir</button>' : '')+
+                (Q.podeAcao(Q.sessao(), 'restaurar')
+                  ? '<button class="mini" type="button" data-drestaurar="'+Q.esc(m.id)+'">restaurar</button>' : '')+
               '</span>'
             : '')+
         '</div>';
@@ -9057,6 +9071,8 @@
    * tem — e' o `temFoto`/`temAssinatura` que o servidor manda no lugar do endereco. */
   function botaoDocumento(id, qual, tem){
     if (!tem) return '';
+    /* SEM A MARCA, SEM BOTAO: a rota recusaria depois de a pessoa digitar a senha. */
+    if (!Q.podeAcao(Q.sessao(), 'documento')) return '';
     return '<button class="mini acao" type="button" data-doc="'+Q.esc(id)+'" '+
       'data-doc-qual="'+Q.esc(qual)+'" '+
       'title="Pede a senha das opera\u00e7\u00f5es protegidas">'+
@@ -10308,7 +10324,7 @@
           '<td>'+Q.esc(m.usuario||'')+'</td>'+
           '<td>'+Q.esc(Q.dataHoraBR(m.excluidoEm) || '—')+'</td>'+
           '<td>'+Q.esc(m.excluidoPor || '—')+'</td>'+
-          '<td class="col-acoes">'+(Q.ehAdmin()
+          '<td class="col-acoes">'+(Q.podeAcao(Q.sessao(), 'excluir')
             ? '<button class="mini acao" data-restaurar="'+Q.esc(m.id)+'">restaurar</button>'
             : '')+'</td></tr>';
       }).join('')+'</tbody></table></div>';
@@ -11490,7 +11506,7 @@
          carga de uma linha ele seria o mesmo formulario com outro nome. */
       return '<td class="folga"></td><td class="col-acoes">'+(Q.podeCorrigir(Q.sessao(), m)
          ? '<button class="mini acao" data-corrigir="'+m.id+'">corrigir</button> '+
-           botaoDaCarga(m.registro)
+           (Q.podeAcao(Q.sessao(), 'corrigirCarga') ? botaoDaCarga(m.registro) : '')
          : '')+
         /* A LINHA CANCELADA NAO SE CANCELA DE NOVO: no lugar dos dois botoes ela
            oferece a VOLTA. Cancelar nunca apagou nada — a quantidade continua
@@ -11506,7 +11522,7 @@
          : (Q.podeCancelar(Q.sessao())
             ? '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '
             : '')+
-           (Q.ehAdmin()
+           (Q.podeAcao(Q.sessao(), 'excluir')
             ? '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>'
             : ''))+'</td>';
     }
@@ -12180,7 +12196,7 @@
       }).join('')+'</div>'+
       '<div class="mov__pe">'+
         '<span class="mov__total">Total <b>'+Q.num(g.total)+'</b></span>'+
-        (Q.ehAdmin() || Q.podeCancelar(Q.sessao()) || Q.podeCorrigir(Q.sessao(), g)
+        (Q.podeAcao(Q.sessao(), 'excluir') || Q.podeCancelar(Q.sessao()) || Q.podeCorrigir(Q.sessao(), g)
           ? '<button class="acoes-btn" type="button" data-acoes="'+Q.esc(g.lote)+'">'+
             '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
             'stroke-width="2.6" stroke-linecap="round" aria-hidden="true">'+
@@ -12277,7 +12293,7 @@
         ? '<button class="opcao" type="button" data-acao="cancelar">'+
           '<span>Cancelar movimento<small>some dos saldos, continua no histórico</small>'+
           '</span></button>' : '')+
-      (Q.ehAdmin()
+      (Q.podeAcao(Q.sessao(), 'excluir')
         ? '<button class="opcao perigo" type="button" data-acao="excluir">'+
           '<span>Excluir<small>vai para a lixeira, dá para restaurar</small></span>'+
           '</button>' : '');
@@ -12486,7 +12502,7 @@
         if (!m || Q.precisaConfirmar(b, 'Excluir '+m.Nome+'?')) return;
         b.disabled = true;
         pedirSenhaDe('excluirCadastro', function(s){
-          return Q.post({acao:'excluir', aba:'Motoristas', id:m.ID, senha:s});
+          return Q.post({acao:'excluir', aba:'Motoristas', id:m.ID, senha:s, usuarioId:Q.sessao().id});
         }).then(function(r){
           b.disabled = false;
           if (!r) return;
@@ -12558,7 +12574,7 @@
         if (!l || Q.precisaConfirmar(b, 'Excluir '+l.Nome+'?')) return;
         b.disabled = true;
         pedirSenhaDe('excluirCadastro', function(s){
-          return Q.post({acao:'excluir', aba:'LocaisPadrao', id:l.ID, senha:s});
+          return Q.post({acao:'excluir', aba:'LocaisPadrao', id:l.ID, senha:s, usuarioId:Q.sessao().id});
         }).then(function(r){
           b.disabled = false;
           if (!r) return;
@@ -12642,7 +12658,7 @@
         if (!f || Q.precisaConfirmar(b, 'Excluir '+f.Nome+'?')) return;
         b.disabled = true;
         pedirSenhaDe('excluirCadastro', function(s){
-          return Q.post({acao:'excluir', aba:'Fornecedores', id:f.ID, senha:s});
+          return Q.post({acao:'excluir', aba:'Fornecedores', id:f.ID, senha:s, usuarioId:Q.sessao().id});
         }).then(function(r){
           b.disabled = false;
           if (!r) return;
@@ -12901,7 +12917,7 @@
         if (!v || Q.precisaConfirmar(b, 'Excluir '+v.Placa+'? Os lançamentos que ele levou guardam a placa como texto e continuam legíveis.')) return;
         b.disabled = true;
         pedirSenhaDe('excluirCadastro', function(s){
-          return Q.post({acao:'excluir', aba:'Veiculos', id:v.ID, senha:s});
+          return Q.post({acao:'excluir', aba:'Veiculos', id:v.ID, senha:s, usuarioId:Q.sessao().id});
         }).then(function(r){
           b.disabled = false;
           if (!r) return;
@@ -13145,7 +13161,7 @@
         if (Q.precisaConfirmar(b, 'Excluir '+l.Nome+'?')) return;
         b.disabled = true;
         pedirSenhaDe('excluirCadastro', function(s){
-          return Q.post({acao:'excluir', aba:'Locais', id:l.ID, senha:s});
+          return Q.post({acao:'excluir', aba:'Locais', id:l.ID, senha:s, usuarioId:Q.sessao().id});
         }).then(function(r){
           b.disabled = false;
           if (!r) return;
@@ -13253,7 +13269,7 @@
         if (Q.precisaConfirmar(b, 'Excluir '+u.Nome+'?')) return;
         b.disabled = true;
         pedirSenhaDe('excluirCadastro', function(s){
-          return Q.post({acao:'excluir', aba:'Usuarios', id:u.ID, senha:s});
+          return Q.post({acao:'excluir', aba:'Usuarios', id:u.ID, senha:s, usuarioId:Q.sessao().id});
         }).then(function(r){
           b.disabled = false;
           if (!r) return;
@@ -16228,31 +16244,19 @@
         '<option value="NAO"'+(u.VerLancamentos===false?' selected':'')+'>não — a aba Lançamentos some para ela</option>'+
       '</select>'+
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fVerLancNota"></p>'+
-      /* CORRIGIR E' SOBRE O QUE ELA FAZ, e nao sobre o que ela ve' — mas fica neste
-         quadro porque e' o quadro do LANCAMENTO, e e' aqui que quem cadastra vem pensar
-         no assunto. Separa-lo num quadro proprio daria um quadro de uma linha.
-         NASCE LIGADO, como a coluna: ate' hoje qualquer pessoa consertava o proprio
-         engano de dedo dentro da janela livre, e nascer desligado tiraria isso da
-         operacao inteira no instante do deploy. Desligar e' a excecao, um a um. */
-      '<label for="fPodeCorrigir">Pode corrigir lançamento?</label>'+
-      '<select id="fPodeCorrigir">'+
-        '<option value="SIM"'+(u.PodeCorrigir===false?'':' selected')+'>sim</option>'+
-        '<option value="NAO"'+(u.PodeCorrigir===false?' selected':'')+'>não — o botão Corrigir some para ela</option>'+
-      '</select>'+
-      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">Vale para todos '+
-        'os tipos de correção: a linha, a carga inteira e o desfazer. A declaração '+
-        'continua tendo a regra dela, por perfil.</p>'+
-      /* CANCELAR, LIBERADO PELO ADMIN, UM A UM. Nasce em "não", como a coluna: ate'
-         hoje so' o Admin cancelava. O Admin pode sempre, e a nota diz isso — senao o
-         "não" no cadastro dele pareceria trancar o que nao tranca. */
-      '<label for="fPodeCancelar">Pode cancelar lançamento?</label>'+
-      '<select id="fPodeCancelar">'+
-        '<option value="NAO"'+(u.PodeCancelar===true?'':' selected')+'>não</option>'+
-        '<option value="SIM"'+(u.PodeCancelar===true?' selected':'')+'>sim — cancela e desfaz o cancelamento</option>'+
-      '</select>'+
-      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">Cancelar tira o '+
-        'lançamento do saldo, do painel e do extrato, e o deixa no histórico com o motivo '+
-        '— não apaga. O Admin pode sempre. Excluir continua só do Admin.</p>'+
+      '<h3 style="margin-top:20px">O que ele pode alterar nos lançamentos</h3>'+
+      /* UMA MARCA POR ACAO, e a lista sai do servidor — a mesma que as rotas conferem.
+         Escrita aqui tambem, uma acao nova apareceria numa lista e nao na outra.
+         MARCAR E' CONCEDER, como nas outras listas: desmarcada, o botao some e a rota
+         recusa. A SENHA de cada uma continua valendo por cima — sao duas chaves. */
+      caixaLocais('fAcoes', 'Ações', ACOES_LANC.map(function(a){
+          return { ID: a.id, Nome: a.nome, Ativo: true, diz: a.diz };
+        }), u.Acoes, 'O servidor não mandou a lista de ações — recarregue a página.',
+        null, function(a){ return '<small class="marca__diz">'+Q.esc(a.diz)+'</small>'; })+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px" id="fAcoesNota">'+
+        'Nada marcado = <b>nenhuma</b>: ela só lança. Marcar libera o botão; a <b>senha</b> '+
+        'de cada operação continua sendo pedida por cima. Cancelar tira do saldo e deixa '+
+        'no histórico; excluir manda para a lixeira.</p>'+
       caixaLocais('fUsuariosVistos', 'De quem ela vê os lançamentos',
                   EQUIPE.filter(function(x){ return Q.ativo(x.Ativo); }),
                   u.UsuariosVistos, 'Nenhum usuário cadastrado ainda.')+
@@ -16479,7 +16483,7 @@
       var veLanc = ativo && verLanc.value === 'SIM';
       verLanc.disabled = !ativo;
 
-      var quadros = ['fAbas','fOperacoes','fAjustes','fSaidas','fDestinos','fRetornos',
+      var quadros = ['fAbas','fOperacoes','fAcoes','fAjustes','fSaidas','fDestinos','fRetornos',
                      'fTiposCaixa','fMotoristas','fUsuariosVistos','fUnidades'];
       quadros.forEach(function(q){
         var box = document.getElementById(q);
@@ -16493,6 +16497,14 @@
       document.querySelectorAll('[data-marcatudo]').forEach(function(b){
         b.disabled = !ativo;
       });
+      /* O ADMIN PODE TUDO, marcado ou nao — e o quadro tem de dizer isso, senao uma
+         caixa desmarcada no cadastro dele pareceria trancar o que nao tranca. */
+      var notaAcoes = document.getElementById('fAcoesNota');
+      if (notaAcoes) notaAcoes.innerHTML = ehAdmin
+        ? '<b>Admin pode todas, sempre</b> — as marcas acima não valem para ele.'
+        : 'Nada marcado = <b>nenhuma</b>: ela só lança. Marcar libera o botão; a <b>senha</b> '+
+          'de cada operação continua sendo pedida por cima. Cancelar tira do saldo e deixa '+
+          'no histórico; excluir manda para a lixeira.';
       var notaAtivo = document.getElementById('fAtivoNota');
       if (notaAtivo) notaAtivo.textContent = ativo ? ''
         : 'Inativo: a pessoa não entra em lugar nenhum, e nenhuma permissão abaixo vale. '
@@ -16650,8 +16662,7 @@
            caminho esquecido, e a pessoa perderia o painel sem ninguem entender. */
         AcessoPainel:(document.getElementById('fPainel').value === 'NAO' ? 'NAO' : 'SIM'),
         VerLancamentos:document.getElementById('fVerLanc').value,
-        PodeCorrigir:document.getElementById('fPodeCorrigir').value,
-        PodeCancelar:document.getElementById('fPodeCancelar').value,
+        Acoes:lerMarcados('fAcoes'),
         UsuariosVistos:lerMarcados('fUsuariosVistos'),
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
         Retornos:lerMarcados('fRetornos'),

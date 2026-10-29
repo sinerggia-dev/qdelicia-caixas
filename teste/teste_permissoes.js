@@ -122,13 +122,13 @@ var PERMISSOES = [
     usa: [['index.html', 'localPadrao']] },
   /* `Ativo` não viaja na sessão de propósito: quem está inativo não recebe sessão
      nenhuma. `podeVerPainel()` e `loginPorPin()` recusam antes disso. */
-  /* CANCELAR LANCAMENTO, liberado pelo admin pessoa por pessoa (29/10/2026). Quem usa
-     e' a ROTA, por `podeCancelarLancamento`, e a tela, pelo `Q.podeCancelar` — o botao
-     e a tranca leem a mesma marca. */
-  { nome: 'PodeCancelar', chave: 'PodeCancelar', campo: 'fPodeCancelar',
-    sessao: 'podeCancelar',
-    usa: [['api/_logica.js', 'podeCancelarLancamento(acharUsuario'],
-          ['admin.html', 'Q.podeCancelar(Q.sessao())']] },
+  /* O QUE ELE PODE ALTERAR NOS LANCAMENTOS (29/10/2026): corrigir, corrigir a carga,
+     desfazer correcao, cancelar, excluir, apagar o filtro, excluir cadastro e baixar
+     documento — uma marca por acao. Quem usa e' a ROTA, por `barraAcao`, e a tela, pelo
+     `Q.podeAcao`: o botao e a tranca leem a mesma lista. */
+  { nome: 'Acoes', chave: 'Acoes', campo: 'fAcoes', sessao: 'acoes',
+    usa: [['api/_logica.js', 'podeAcao(acharUsuario(usuarios, quem), id)'],
+          ['admin.html', "Q.podeAcao(Q.sessao(), 'excluir')"]] },
   { nome: 'Ativo', chave: 'Ativo', campo: 'fAtivo', sessao: null,
     usa: [['api/_logica.js', 'Ativo === false']] }
 ];

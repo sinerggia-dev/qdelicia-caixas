@@ -966,30 +966,74 @@ function barraDeclaracao(mov, usuarios, quem) {
   return { ok: false, erro: 'Só Admin, Gestor ou Gerente pode alterar uma declaração de motorista.' };
 }
 
-/* QUEM CANCELA UM LANCAMENTO: o ADMIN sempre; os demais, so' quem o admin liberou no
- * cadastro (`PodeCancelar`), pessoa por pessoa. A pedido (29/10/2026).
+/* O QUE CADA PESSOA PODE ALTERAR NOS LANCAMENTOS — uma marca por acao, no cadastro,
+ * dada pelo administrador (29/10/2026, a pedido).
  *
- * Cancelar tira a linha de TODA conta — saldo, painel, extrato, aging — e deixa a linha
- * inteira no historico, com a quantidade, o motivo e quem cancelou. Nao e' excluir: nada
- * vai para a lixeira, a linha continua a vista no filtro "cancelados" e volta pelo
- * "desfazer o cancelamento".
+ * As oito acoes sao as mesmas oito que pedem senha (`SENHAS_OPERACAO` em index.js), mais
+ * CANCELAR, que nao pede senha. Sao DUAS chaves e as duas valem: a marca diz QUEM pode;
+ * a senha CONFIRMA o gesto. Marcado sem a senha nao faz; com a senha e sem a marca,
+ * tambem nao.
  *
- * POR PESSOA, E NAO POR PERFIL: o perfil e' texto livre, e permissao por digitacao seria
- * permissao por engano de digitacao. O ADMIN nao depende da marca pelo mesmo motivo das
- * outras excecoes dele: e' quem concede, e nao pode se trancar fora.
+ * UMA LISTA, e nao oito colunas: e' a convencao das outras listas do cadastro (marcar e'
+ * conceder, nada marcado e' nada), e a proxima acao entra aqui sem migracao nova.
  *
- * A TRANCA E' A ROTA, lendo o CADASTRO — nunca o pedido. A tela so' esconde o botao de
- * quem vai levar a recusa. E A MESMA REGRA VALE PARA DESFAZER: quem nao pode tirar da
- * conta tambem nao devolve a ela. Desativado nao cancela, nem sendo Admin. */
-function podeCancelarLancamento(u) {
-  if (!u || !ativo(u.Ativo)) return false;
-  return String(u.Perfil || '').toUpperCase() === 'ADMIN' || u.PodeCancelar === true;
+ * O ADMIN PODE TUDO, SEMPRE, marcado ou nao: e' quem concede, e um admin sem marca
+ * perderia ate' o excluir cadastro — a volta seria por SQL. Desativado nao pode nada.
+ *
+ * A TRANCA E' A ROTA, que le o CADASTRO — nunca o pedido. A tela so' esconde o botao de
+ * quem vai levar a recusa. */
+var ACOES_LANCAMENTO = [
+  { id: 'corrigir', nome: 'Corrigir lançamento',
+    diz: 'muda quantidade, data, local ou caixa de uma linha' },
+  { id: 'corrigirCarga', nome: 'Corrigir a carga inteira',
+    diz: 'as linhas todas de um registro de uma vez' },
+  { id: 'restaurar', nome: 'Desfazer a última correção',
+    diz: 'devolve a linha aos valores de antes da correção' },
+  { id: 'cancelar', nome: 'Cancelar lançamento',
+    diz: 'sai do saldo e fica no histórico, com o motivo — não apaga' },
+  { id: 'excluir', nome: 'Excluir lançamento',
+    diz: 'manda para a lixeira, e tira de lá' },
+  { id: 'apagarFiltro', nome: 'Apagar o que está no filtro',
+    diz: 'manda para a lixeira centenas de linhas de uma vez' },
+  { id: 'excluirCadastro', nome: 'Excluir cadastro',
+    diz: 'usuário, local, veículo, motorista, fornecedor ou tipo de caixa' },
+  { id: 'documento', nome: 'Baixar canhoto ou foto',
+    diz: 'entrega o endereço do arquivo' }
+];
+
+/* A LISTA DA PESSOA. Antes da coluna existir (`Acoes` ausente), vale o que valia: as
+   tres de correcao para quem corrigia, e cancelar para quem cancelava — senao o deploy
+   tiraria o conserto da operacao inteira ate' a migracao rodar. */
+function acoesDe(u) {
+  if (!u) return [];
+  if (Array.isArray(u.Acoes)) return u.Acoes.map(String);
+  var l = [];
+  if (u.PodeCorrigir !== false) l.push('corrigir', 'corrigirCarga', 'restaurar');
+  if (u.PodeCancelar === true) l.push('cancelar');
+  return l;
 }
 
-function barraCancelamento(usuarios, quem) {
-  if (podeCancelarLancamento(acharUsuario(usuarios, quem))) return null;
-  return { ok: false, erro: 'Você não tem permissão para cancelar lançamento. Quem libera é o administrador, no seu cadastro.' };
+function podeAcao(u, id) {
+  if (!u || !ativo(u.Ativo)) return false;
+  if (String(u.Perfil || '').toUpperCase() === 'ADMIN') return true;
+  return podeItem(acoesDe(u), id);
 }
+
+function nomeDaAcao(id) {
+  var a = ACOES_LANCAMENTO.filter(function (x) { return x.id === id; })[0];
+  return a ? a.nome : id;
+}
+
+function barraAcao(usuarios, quem, id) {
+  if (podeAcao(acharUsuario(usuarios, quem), id)) return null;
+  return { ok: false, semPermissao: true,
+    erro: 'Você não tem permissão para "' + nomeDaAcao(id) + '". Quem libera é o ' +
+      'administrador, no seu cadastro.' };
+}
+
+/* Os dois nomes de antes, que o resto do codigo e os testes ja' usam. */
+function podeCancelarLancamento(u) { return podeAcao(u, 'cancelar'); }
+function barraCancelamento(usuarios, quem) { return barraAcao(usuarios, quem, 'cancelar'); }
 
 function recorteDeclaracao(dados, u) {
   if (veDeclaracao(u)) return dados;
@@ -1364,10 +1408,12 @@ function sessaoDe(u) {
     credencialEm: u.CredencialEm || '',
     /* SE ESTA PESSOA CORRIGE LANCAMENTO. Na sessao porque quem decide se MOSTRA o botao
        e' a tela, e ela so' tem a sessao na mao. A tranca de verdade continua na rota. */
-    podeCorrigir: u.PodeCorrigir !== false,
-    /* SE ESTA PESSOA CANCELA LANCAMENTO: a marca crua do cadastro. O ADMIN pode sempre,
-       e quem soma as duas coisas e' o `Q.podeCancelar` da tela. */
-    podeCancelar: u.PodeCancelar === true,
+    podeCorrigir: podeItem(acoesDe(u), 'corrigir'),
+    /* O QUE ELA PODE ALTERAR, a lista crua do cadastro. O ADMIN pode tudo sempre, e
+       quem soma as duas coisas e' o `Q.podeAcao` da tela. `podeCorrigir` e
+       `podeCancelar` continuam, derivados da lista, para a tela velha em cache. */
+    podeCancelar: podeItem(acoesDe(u), 'cancelar'),
+    acoes: acoesDe(u),
     saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
     destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
     /* DE ONDE A CAIXA VOLTA. Lista propria desde 14/10/2026: antes a origem do retorno
@@ -2255,8 +2301,8 @@ function montarRestauro(mov, p, agora, nomes, guarda) {
   if (!mov) return { ok: false, erro: 'Movimento não encontrado.' };
   /* MESMA TRANCA DA CORRECAO: desfazer uma correcao e' corrigir de volta. Uma porta
      mais barata para o mesmo estrago seria a porta que se usa. */
-  if (guarda && guarda.quem && !corrigeLancamento(guarda.quem)) {
-    return { ok: false, erro: 'Seu cadastro não permite corrigir lançamentos.' };
+  if (guarda && guarda.quem && !corrigeLancamento(guarda.quem, 'restaurar')) {
+    return { ok: false, erro: 'Seu cadastro não permite desfazer correção.' };
   }
   if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira.' };
   if (mov.Cancelado) return { ok: false, erro: 'Movimento cancelado não se restaura.' };
@@ -2359,8 +2405,8 @@ function fotoDePerfil(valor) {
   return { ok: true, foto: s };
 }
 
-function corrigeLancamento(u) {
-  return !!u && u.PodeCorrigir !== false;
+function corrigeLancamento(u, acao) {
+  return podeAcao(u, acao || 'corrigir');
 }
 
 function montarCorrecao(mov, p, agora, nomes, guarda) {
@@ -2370,8 +2416,10 @@ function montarCorrecao(mov, p, agora, nomes, guarda) {
      que PERMITE, porque este caminho e' o do campo, que sempre pode consertar o proprio
      engano dentro da janela. A tranca nova e' para quem foi marcado, e marcar exige
      cadastro: sem cadastro em maos nao ha marca para ler. */
-  if (guarda && guarda.quem && !corrigeLancamento(guarda.quem)) {
-    return { ok: false, erro: 'Seu cadastro não permite corrigir lançamentos.' };
+  if (guarda && guarda.quem && !corrigeLancamento(guarda.quem, guarda.acao)) {
+    return { ok: false, erro: guarda.acao === 'corrigirCarga'
+      ? 'Seu cadastro não permite corrigir a carga inteira.'
+      : 'Seu cadastro não permite corrigir lançamentos.' };
   }
   if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira — restaure antes de corrigir.' };
   if (mov.Cancelado) return { ok: false, erro: 'Movimento cancelado não se corrige — lance um novo.' };
@@ -4020,6 +4068,9 @@ function usuariosPublicos(usuarios) {
          em lugar nenhum. */
       PodeCorrigir: u.PodeCorrigir !== false,
       PodeCancelar: u.PodeCancelar === true,
+      /* VOLTA NA LEITURA porque o formulario a GRAVA — faltando aqui, o cadastro abriria
+         desmarcado e o salvar seguinte apagaria o que o admin concedeu, calado. */
+      Acoes: acoesDe(u),
       UsuariosVistos: usuariosVistosDe(u),
       /* As SEIS listas de permissão voltam para o painel. Esquecer uma aqui não dá
          erro nenhum: o formulário abre com ela desmarcada e a gravação seguinte escreve
@@ -4083,6 +4134,7 @@ module.exports = {
   PERFIS_DECLARACAO: PERFIS_DECLARACAO,
   podeAlterarDeclaracao: podeAlterarDeclaracao, barraDeclaracao: barraDeclaracao,
   podeCancelarLancamento: podeCancelarLancamento, barraCancelamento: barraCancelamento,
+  ACOES_LANCAMENTO: ACOES_LANCAMENTO, acoesDe: acoesDe, podeAcao: podeAcao, barraAcao: barraAcao,
   acharUsuario: acharUsuario,
   recorteProprios: recorteProprios, recorteLocais: recorteLocais,
   recorteLancamentos: recorteLancamentos, usuariosVistosDe: usuariosVistosDe,

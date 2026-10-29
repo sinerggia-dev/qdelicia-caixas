@@ -95,11 +95,24 @@ volta seria por SQL. Desativado não entra em hipótese alguma. A migração nas
 `default false` e ligou a chave para quem já entrava, então ninguém perdeu acesso no deploy.
 
 Dentro do painel, **Lançar** e **Cadastros** continuam escondidos para quem não é `ADMIN`, e o
-botão de **excluir** movimento também. **Cancelar** (29/10/2026, a pedido) é do `ADMIN` sempre e
-de quem o admin liberar no cadastro — **"Pode cancelar lançamento?"**, coluna `pode_cancelar`, que
-nasce `false`. Por pessoa, não por perfil. Cancelar tira o lançamento de toda conta e o deixa no
-histórico, com motivo obrigatório — não vai para a lixeira. A tranca é a rota
-(`L.barraCancelamento`, marca lida do cadastro), e a mesma regra vale para desfazer o cancelamento. O motivo não é hierarquia — é que o conferente é
+botão de excluir movimento passou a seguir a lista de ações (abaixo).
+
+### O que cada um pode alterar nos lançamentos (29/10/2026, a pedido)
+
+O cadastro de usuário tem o quadro **"O que ele pode alterar nos lançamentos"** — coluna `acoes`
+(jsonb), uma marca por ação: `corrigir`, `corrigirCarga`, `restaurar` (desfazer correção),
+`cancelar`, `excluir` (lixeira, e tirar dela), `apagarFiltro`, `excluirCadastro`, `documento`. São
+as sete que pedem senha mais cancelar. **Duas chaves, e as duas valem**: a marca diz quem pode, a
+senha da operação confirma o gesto. **O ADMIN pode todas, sempre** (`L.podeAcao`). A lista é
+`L.ACOES_LANCAMENTO`, vai para a tela na `equipe`, e um teste exige que **toda** rota com
+`conferirSenhaDe` tenha também `L.barraAcao` — a próxima senha nova sem marca seria porta dos fundos.
+A migração `2026-10-29-acoes-por-usuario` deu a quem corrigia as três de correção e a quem cancelava o
+cancelar; o resto nasceu desmarcado. `pode_corrigir` e `pode_cancelar` ficam sem uso, e `acoesDe()`
+as lê só quando a lista não existe (banco antes da migração, sessão velha em cache).
+Cancelar tira de toda conta e deixa no histórico, com motivo obrigatório. Os botões de excluir
+cadastro somem por uma classe no body (`.sem-excluir-cadastro`).
+
+O motivo não é hierarquia — é que o conferente é
 justamente quem gera a divergência na chegada. Dar a ele um *Ajuste de saldo* seria deixá-lo
 apagar o próprio erro, e o cadastro de usuários deixaria ele trocar o PIN do admin.
 

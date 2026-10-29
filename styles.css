@@ -1373,6 +1373,14 @@ nav.abas button.ativa,nav.abas button.ativa:hover{
   font-weight:400;font-size:14px;border-radius:6px;cursor:pointer}
 .marcalista .marca:hover{background:var(--surface-2)}
 .marcalista .marca input{width:auto;margin:0;flex:0 0 auto}
+/* A EXPLICACAO DA MARCA, embaixo do nome e nao ao lado: lado a lado, nome e explicacao
+   disputavam a largura e os dois quebravam em duas linhas cada. So' as listas que tem
+   explicacao (o quadro de acoes do cadastro) ganham a quebra. */
+.marcalista .marca:has(.marca__diz){flex-wrap:wrap;row-gap:0}
+.marca__diz{flex:0 0 100%;padding-left:24px;font-size:12px;line-height:1.35;color:var(--txt2)}
+/* E A LISTA INTEIRA A VISTA: sao oito poderes, e quem concede tem de ver todos sem rolar
+   — uma acao escondida embaixo da dobra e' a que fica marcada sem ninguem ver. */
+.marcalista:has(.marca__diz){max-height:none}
 
 /* ---------- quadro que abre e fecha ---------- */
 /* Seis cadastros abertos ao mesmo tempo enchem a página: o que a pessoa quer fica a
@@ -4621,3 +4629,13 @@ tr.lin-item > td:first-child{padding-left:30px;
   .card{box-shadow:none;border:1px solid #ccc;break-inside:avoid}
   th,td{white-space:normal}
 }
+
+/* EXCLUIR CADASTRO SEM A MARCA: os botoes moram em seis tabelas e numa folha de acoes, e
+   uma classe no body os tira todos de uma vez. A tranca e' a rota; isto so' nao oferece o
+   que ela vai recusar. */
+.sem-excluir-cadastro [data-excluir-mot],
+.sem-excluir-cadastro [data-excluir-lp],
+.sem-excluir-cadastro [data-excluir-forn],
+.sem-excluir-cadastro [data-excluir-vei],
+.sem-excluir-cadastro [data-excluir-local],
+.sem-excluir-cadastro [data-excluir-user]{display:none!important}
