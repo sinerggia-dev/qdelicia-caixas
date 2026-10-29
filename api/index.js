@@ -132,6 +132,9 @@ async function rotaGet(p) {
                   tambem, um dia as duas listas divergiriam e o botao apareceria para
                   quem leva uma recusa depois de escrever o motivo. */
                perfisDeclaracao: L.PERFIS_DECLARACAO,
+               /* E OS QUE PODEM CANCELAR, pelo mesmo motivo: a tela nao oferece o que a
+                  rota recusa. */
+               perfisCancelamento: L.PERFIS_CANCELAMENTO,
                // A MESMA lista que a gravacao usa para recusar. Escrever as opcoes na tela
                // faria duas listas sobre a mesma regra, e elas divergem no primeiro nome novo.
                operacoes: L.OPERACOES, abas: L.ABAS, situacoes: L.SITUACOES };
@@ -142,7 +145,8 @@ async function rotaGet(p) {
       /* A LISTA DE QUEM MEXE NUMA DECLARACAO vai junto: o app de campo precisa dela
          para nao oferecer o conserto que a rota recusa. E a MESMA lista da recusa. */
       return { ok: true, usuario: L.meuAcesso(d.usuarios, p.id),
-               perfisDeclaracao: L.PERFIS_DECLARACAO };
+               perfisDeclaracao: L.PERFIS_DECLARACAO,
+               perfisCancelamento: L.PERFIS_CANCELAMENTO };
     case 'painel':
       /* Os dois recortes se somam, e nesta ordem nao importa: um estreita por ensaio, o
          outro por quem lancou. O segundo sai do CADASTRO de quem pergunta — ver
@@ -1214,6 +1218,10 @@ async function descancelar(p) {
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
   var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
   if (barra) return barra;
+  /* E SO' ADMIN OU GESTOR, lido do cadastro. A declaracao vem antes porque a recusa
+     dela e' a mais especifica; as duas valem juntas. */
+  var barraC = L.barraCancelamento(d.usuarios, p.usuarioId);
+  if (barraC) return barraC;
   var r = L.montarDescancelamento(mov, p, new Date());
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);
@@ -1227,6 +1235,10 @@ async function cancelar(p) {
   var mov = d.movimentos.filter(function (m) { return String(m.ID) === String(p.id || ''); })[0];
   var barra = L.barraDeclaracao(mov, d.usuarios, p.usuarioId);
   if (barra) return barra;
+  /* E SO' ADMIN OU GESTOR, lido do cadastro. A declaracao vem antes porque a recusa
+     dela e' a mais especifica; as duas valem juntas. */
+  var barraC = L.barraCancelamento(d.usuarios, p.usuarioId);
+  if (barraC) return barraC;
   var r = L.montarCancelamento(mov, p, new Date());
   if (!r.ok) return r;
   var patch = db.MOV.para(r.patch);

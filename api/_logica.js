@@ -966,6 +966,32 @@ function barraDeclaracao(mov, usuarios, quem) {
   return { ok: false, erro: 'Só Admin, Gestor ou Gerente pode alterar uma declaração de motorista.' };
 }
 
+/* QUEM CANCELA UM LANCAMENTO: Admin e Gestor, a pedido (29/10/2026).
+ *
+ * Cancelar tira a linha de TODA conta — saldo, painel, extrato, aging — e deixa a linha
+ * inteira no historico, com a quantidade, o motivo e quem cancelou. Nao e' excluir: nada
+ * vai para a lixeira, a linha continua a vista no filtro "cancelados" e volta pelo
+ * "desfazer o cancelamento".
+ *
+ * GERENTE FICA DE FORA, e isso e' diferente da declaracao: ali ele corrige o numero de
+ * quem declarou; aqui ele tiraria um lancamento inteiro da conta. Pedido assim.
+ *
+ * A TRANCA E' A ROTA, lendo o perfil do CADASTRO — nunca do pedido. A tela so' esconde o
+ * botao de quem vai levar a recusa. E A MESMA REGRA VALE PARA DESFAZER: quem nao pode
+ * tirar da conta tambem nao pode devolver a ela, senao o saldo mudaria pela mao de quem a
+ * regra quis deixar de fora. */
+var PERFIS_CANCELAMENTO = ['ADMIN', 'GESTOR'];
+
+function podeCancelarLancamento(u) {
+  return !!u && ativo(u.Ativo) &&
+    PERFIS_CANCELAMENTO.indexOf(String(u.Perfil || '').toUpperCase()) >= 0;
+}
+
+function barraCancelamento(usuarios, quem) {
+  if (podeCancelarLancamento(acharUsuario(usuarios, quem))) return null;
+  return { ok: false, erro: 'Só Admin ou Gestor pode cancelar um lançamento.' };
+}
+
 function recorteDeclaracao(dados, u) {
   if (veDeclaracao(u)) return dados;
   var copia = {};
@@ -2528,7 +2554,11 @@ function montarCancelamento(mov, p, agora) {
   if (mov.ExcluidoEm) return { ok: false, erro: 'Este lançamento está na lixeira — restaure antes.' };
   if (mov.Cancelado) return { ok: false, erro: 'Este lançamento já está cancelado.' };
   agora = agora || new Date();
-  var motivo = String((p && p.motivo) || '');
+  /* O MOTIVO E' OBRIGATORIO: o cancelamento fica no historico para sempre, e um
+     lancamento fora da conta sem explicacao e' justamente o que o historico existe para
+     nao deixar acontecer. Mesma regra do desfazer. */
+  var motivo = String((p && p.motivo) || '').trim();
+  if (!motivo) return { ok: false, erro: 'Descreva o motivo do cancelamento.' };
   var entrada = entradaHistorico(agora, p && p.usuarioId, 'Cancelamento', motivo,
     'valendo', 'cancelado');
   return {
@@ -4049,6 +4079,8 @@ module.exports = {
   mundosPedidos: mundosPedidos,
   PERFIS_DECLARACAO: PERFIS_DECLARACAO,
   podeAlterarDeclaracao: podeAlterarDeclaracao, barraDeclaracao: barraDeclaracao,
+  PERFIS_CANCELAMENTO: PERFIS_CANCELAMENTO,
+  podeCancelarLancamento: podeCancelarLancamento, barraCancelamento: barraCancelamento,
   acharUsuario: acharUsuario,
   recorteProprios: recorteProprios, recorteLocais: recorteLocais,
   recorteLancamentos: recorteLancamentos, usuariosVistosDe: usuariosVistosDe,

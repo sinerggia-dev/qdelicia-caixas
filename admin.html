@@ -1961,7 +1961,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=9a04f66f"></script>
+<script src="app.js?v=78e7d9e1"></script>
 <script>
 (function(){
   'use strict';
@@ -2056,7 +2056,7 @@
 
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; VEICULOS = r.veiculos || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; PERFIS_DECL = r.perfisDeclaracao || []; Q.definirPerfisDeclaracao(r.perfisDeclaracao); OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
+      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; VEICULOS = r.veiculos || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; PERFIS_DECL = r.perfisDeclaracao || []; Q.definirPerfisDeclaracao(r.perfisDeclaracao); Q.definirPerfisCancelamento(r.perfisCancelamento); OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
       ordenarTudo();
       montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
@@ -5486,7 +5486,7 @@
               'mudou e por quê">'+(m.historico.length > 1
                 ? m.historico.length + ' alterações' : 'alterado')+'</span>'
             : '')+
-          (podeL && m.cancelado
+          (podeL && m.cancelado && Q.podeCancelar(Q.sessao())
             ? '<span class="lp__a"><button class="mini" type="button" '+
                 'data-ddescancelar="'+Q.esc(m.id)+'">desfazer o cancelamento</button></span>'
             : '')+
@@ -11495,13 +11495,19 @@
            oferece a VOLTA. Cancelar nunca apagou nada — a quantidade continua
            inteira ali —, e sem esta porta um toque errado tirava a carga do saldo
            para sempre. */
-        (Q.ehAdmin()
-         ? (m.cancelado
+        /* CANCELAR E' DE ADMIN E GESTOR; EXCLUIR CONTINUA SO' DO ADMIN. Sao duas
+           regras: cancelar deixa a linha no historico, excluir manda para a lixeira. */
+        (m.cancelado
+         ? (Q.podeCancelar(Q.sessao())
             ? '<button class="mini acao" data-descancelar="'+m.id+'">desfazer o '+
               'cancelamento</button>'
-            : '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '+
-              '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>')
-         : '')+'</td>';
+            : '')
+         : (Q.podeCancelar(Q.sessao())
+            ? '<button class="mini perigo" data-cancelar="'+m.id+'">cancelar</button> '
+            : '')+
+           (Q.ehAdmin()
+            ? '<button class="mini perigo" data-excluir="'+m.id+'">excluir</button>'
+            : ''))+'</td>';
     }
 
     function linhaDe(m, classe, escondida){
@@ -11845,8 +11851,11 @@
 
   function acaoCancelar(m){
     if (!m) return;
-    var motivo = prompt('Cancelar este movimento (ele deixa de contar no saldo).\nMotivo:');
+    var motivo = prompt('Cancelar este movimento.\n\nEle sai do saldo, do painel e do ' +
+      'extrato, mas NÃO é apagado: fica no histórico, com o motivo e o seu nome, e dá ' +
+      'para desfazer.\n\nMotivo:');
     if (motivo === null) return;
+    if (!String(motivo).trim()) { Q.toast('Escreva o motivo do cancelamento.', 'erro'); return; }
     Q.post({acao:'cancelar', id:m.id, motivo:motivo, usuarioId:Q.sessao().id}).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       Q.toast('Movimento cancelado.','ok'); depoisDeMexer(m);
@@ -12170,7 +12179,7 @@
       }).join('')+'</div>'+
       '<div class="mov__pe">'+
         '<span class="mov__total">Total <b>'+Q.num(g.total)+'</b></span>'+
-        (Q.ehAdmin() || Q.podeCorrigir(Q.sessao(), g)
+        (Q.ehAdmin() || Q.podeCancelar(Q.sessao()) || Q.podeCorrigir(Q.sessao(), g)
           ? '<button class="acoes-btn" type="button" data-acoes="'+Q.esc(g.lote)+'">'+
             '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" '+
             'stroke-width="2.6" stroke-linecap="round" aria-hidden="true">'+
@@ -12263,11 +12272,12 @@
           (g.itens.length > 1 ? 'as '+g.itens.length+' linhas da carga, de uma vez'
                               : 'grava a correção com o seu nome e o motivo')+
           '</small></span></button>' : '')+
-      (Q.ehAdmin()
+      (Q.podeCancelar(Q.sessao())
         ? '<button class="opcao" type="button" data-acao="cancelar">'+
           '<span>Cancelar movimento<small>some dos saldos, continua no histórico</small>'+
-          '</span></button>'+
-          '<button class="opcao perigo" type="button" data-acao="excluir">'+
+          '</span></button>' : '')+
+      (Q.ehAdmin()
+        ? '<button class="opcao perigo" type="button" data-acao="excluir">'+
           '<span>Excluir<small>vai para a lixeira, dá para restaurar</small></span>'+
           '</button>' : '');
 

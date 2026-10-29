@@ -472,6 +472,81 @@ async function main() {
   ok(cli.saldo === 100, 'saldo volta para 100 após cancelar', cli.saldo);
 
   /* ---------------------------------------------------------------------------
+   * QUEM CANCELA: ADMIN E GESTOR (29/10/2026).
+   *
+   * Cancelar tira da conta e NAO apaga: a linha fica no historico, com o motivo. A
+   * tranca e' a rota, e o perfil vem do CADASTRO. Gerente e Conferente levam a recusa,
+   * inclusive dizendo-se Admin no proprio pedido.
+   * ------------------------------------------------------------------------- */
+  console.log('\n== cancelar e de Admin e Gestor, e nao apaga ==');
+  const criaC = async (nome, perfil) => {
+    await POST({ acao: 'salvarUsuario', registro: { Nome: nome, Perfil: perfil, PIN: '445566' } });
+    return (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.Nome === nome)[0].ID;
+  };
+  const idGestor = await criaC('Gestora Cancela', 'Gestor');
+  const idGerente = await criaC('Gerente Cancela', 'Gerente');
+  const idConf = await criaC('Conferente Cancela', 'Conferente');
+  const vivoC = (await GET({ acao: 'movimentos', limit: 100 })).movimentos
+    .find((m) => !m.cancelado && m.tipo === 'SAIDA' && m.destinoId === C && m.qtd === 50);
+  ok(!!vivoC, 'a conferencia achou um lancamento vivo para cancelar', vivoC && vivoC.id);
+  const saldoAntesC = (await GET({ acao: 'painel' })).painel.locais.find((l) => l.id === C).saldo;
+
+  for (const [quem, rotulo] of [[idGerente, 'Gerente'], [idConf, 'Conferente']]) {
+    const r = await POST({ acao: 'cancelar', id: vivoC.id, motivo: 'tentativa', usuarioId: quem });
+    ok(r.ok === false && /Admin ou Gestor/.test(String(r.erro || '')),
+      'o ' + rotulo + ' e recusado pela ROTA ao cancelar', [r.ok, r.erro]);
+  }
+  for (const campo of ['perfil', 'Perfil']) {
+    const r = await POST(Object.assign({ acao: 'cancelar', id: vivoC.id, motivo: 'forjado',
+      usuarioId: idGerente }, { [campo]: 'ADMIN' }));
+    ok(r.ok === false, 'e dizer-se Admin no pedido (`' + campo + '`) nao abre — o perfil e do cadastro', r.erro);
+  }
+  ok((await POST({ acao: 'cancelar', id: vivoC.id, motivo: 'x' })).ok === false,
+    'e sem dizer quem e, ninguem cancela');
+  const semMotivo = await POST({ acao: 'cancelar', id: vivoC.id, motivo: '   ', usuarioId: idGestor });
+  ok(semMotivo.ok === false && /motivo/i.test(String(semMotivo.erro || '')),
+    'sem motivo nao cancela — a linha fica no historico, e fora da conta sem explicacao nao', semMotivo.erro);
+  ok((await GET({ acao: 'painel' })).painel.locais.find((l) => l.id === C).saldo === saldoAntesC,
+    'e NADA mudou no saldo depois das recusas — recusar e gravar mesmo assim seria pior que nao recusar');
+
+  const rGestor = await POST({ acao: 'cancelar', id: vivoC.id, motivo: 'entrega lancada errada', usuarioId: idGestor });
+  ok(rGestor.ok === true, 'o Gestor cancela', rGestor);
+  const saldoDepoisC = (await GET({ acao: 'painel' })).painel.locais.find((l) => l.id === C).saldo;
+  ok(saldoDepoisC === saldoAntesC - vivoC.qtd,
+    'e o lancamento SAI DA CONTA: o saldo do cliente perde exatamente a quantidade dele',
+    [saldoAntesC, vivoC.qtd, saldoDepoisC]);
+  const listaNormal = (await GET({ acao: 'movimentos', limit: 500 })).movimentos;
+  ok(!listaNormal.some((m) => m.id === vivoC.id),
+    'sai tambem da lista do dia a dia — quem olha Movimentos ve o que vale');
+  const soCanc = (await GET({ acao: 'movimentos', limit: 500, cancelados: 'so' })).movimentos;
+  const noHist = soCanc.find((m) => m.id === vivoC.id);
+  ok(!!noHist && noHist.cancelado === true && noHist.qtd === vivoC.qtd,
+    'mas NAO foi apagado: continua inteiro no filtro de cancelados, com a mesma quantidade',
+    noHist);
+  ok(!!noHist && /entrega lancada errada/.test(String(noHist.motivoCancel || '')),
+    'e com o motivo de quem cancelou', noHist && noHist.motivoCancel);
+  const lixo = (await GET({ acao: 'movimentos', limit: 500, cancelados: 'lixeira' })).movimentos;
+  ok(!lixo.some((m) => m.id === vivoC.id),
+    'e NAO foi para a lixeira — cancelar e excluir sao coisas diferentes');
+
+  const voltaGer = await POST({ acao: 'descancelar', id: vivoC.id, motivo: 'volta', usuarioId: idGerente });
+  ok(voltaGer.ok === false && /Admin ou Gestor/.test(String(voltaGer.erro || '')),
+    'desfazer segue a mesma regra: o Gerente nao devolve a linha ao saldo', voltaGer.erro);
+  ok((await POST({ acao: 'descancelar', id: vivoC.id, motivo: 'era certo afinal', usuarioId: idGestor })).ok,
+    'o Gestor desfaz');
+  ok((await GET({ acao: 'painel' })).painel.locais.find((l) => l.id === C).saldo === saldoAntesC,
+    'e o saldo volta ao que era');
+
+  const Lc = require(path.join(__dirname, '..', 'api', '_logica.js'));
+  const passamC = ['Admin', 'ADMIN', 'Gestor', 'gestor'].filter((x) => Lc.podeCancelarLancamento({ Perfil: x }));
+  ok(passamC.length === 4, 'Admin e Gestor passam, em qualquer caixa de letra', passamC);
+  const barradosC = ['Gerente', 'Conferente', 'Motorista', 'Promotor', '', 'Administrador', 'Gestor de Área']
+    .filter((x) => !Lc.podeCancelarLancamento({ Perfil: x }));
+  ok(barradosC.length === 7, 'e os outros nao, nem nome parecido', barradosC);
+  ok(!Lc.podeCancelarLancamento({ Perfil: 'Admin', Ativo: false }),
+    'e quem esta desativado nao cancela, mesmo sendo Admin');
+
+  /* ---------------------------------------------------------------------------
    * A LIXEIRA.
    *
    * Excluir apagava a linha. O que se testa aqui não é que o botão funciona — é que a

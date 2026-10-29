@@ -21298,8 +21298,13 @@ console.log('\n== Motorista/Conferente ==');
   ok(fonteLin.length > 500 && fonteLin.indexOf('data-dcorrigir') > 0,
     'a conferência recortou o desenho das linhas — recorte vazio faria as provas abaixo ' +
     'passarem sem rodar nada', fonteLin.length);
+  /* QUEM CANCELA E' OUTRA PERGUNTA, e por isso outra chave: mexer na declaracao e' de
+     Admin, Gestor e Gerente; desfazer um cancelamento e' so' de Admin e Gestor. */
+  var CANCELA = true;
   var Qfalso = { esc: function (x) { return String(x == null ? '' : x); },
-                 num: function (x) { return String(x); } };
+                 num: function (x) { return String(x); },
+                 sessao: function () { return {}; },
+                 podeCancelar: function () { return CANCELA; } };
   /* A TELA QUE MOSTRA A CONFERENCIA (Movimentos Motoristas): e' a de sempre. A outra
      tem provas proprias, logo abaixo, na secao da conferencia escondida. */
   function desenha(pode) {
@@ -21314,6 +21319,14 @@ console.log('\n== Motorista/Conferente ==');
       });
   }
   var comBotao = desenha(true), semBotao = desenha(false);
+  CANCELA = false;
+  var gerenteNoPar = desenha(true);
+  CANCELA = true;
+  ok(gerenteNoPar.indexOf('data-ddescancelar') < 0 &&
+     gerenteNoPar.indexOf('data-dcorrigir') > 0,
+    'o Gerente corrige a declaracao mas NAO desfaz cancelamento: devolver uma linha ao ' +
+    'saldo e o espelho de tira-la, e as duas sao so de Admin e Gestor',
+    gerenteNoPar.length);
   ok(semBotao.indexOf('data-drestaurar') < 0 && semBotao.indexOf('data-dcorrigir') < 0,
     'quem não é Admin, Gestor nem Gerente não recebe botão nenhum — oferecido, ele ' +
     'levaria a recusa da rota DEPOIS de escrever o motivo', semBotao.length);
@@ -21843,6 +21856,53 @@ console.log('\n== Motorista/Conferente ==');
      cancelada.indexOf('data-dreporlixeira') < 0,
     'e a cancelada oferece a dela, e só a dela');
 
+  /* ---- CANCELAR E' DE ADMIN E GESTOR; EXCLUIR, SO' DO ADMIN (29/10/2026) ----
+   *
+   * RODADO, e nao lido: a fatia das acoes da linha de Movimentos e' executada com tres
+   * sessoes, e a prova olha o HTML que sai. Ler o arquivo responderia "a palavra
+   * podeCancelar esta' ali?" — e estaria, mesmo num ramo que nunca roda. */
+  (function () {
+    var i = adm.indexOf("return '<td class=\"folga\"></td><td class=\"col-acoes\">'+(Q.podeCorrigir(Q.sessao(), m)");
+    var f = i < 0 ? -1 : adm.indexOf("+'</td>';", i);
+    var trecho = i < 0 || f < 0 ? '' : adm.slice(i, f + 9);
+    ok(trecho.length > 300 && trecho.indexOf('data-excluir') > 0,
+      'a conferencia recortou as acoes da linha de Movimentos', trecho.length);
+    function acoes(perfil, m) {
+      var Q = {
+        sessao: function () { return { perfil: perfil }; },
+        ehAdmin: function () { return perfil === 'ADMIN'; },
+        podeCancelar: function () { return perfil === 'ADMIN' || perfil === 'GESTOR'; },
+        podeCorrigir: function () { return true; }
+      };
+      return new Function('Q', 'm', 'botaoDaCarga', trecho)(Q, m, function () { return ''; });
+    }
+    var viva = { id: 'M1' }, cancelada = { id: 'M2', cancelado: true };
+    var adm1 = acoes('ADMIN', viva), ges = acoes('GESTOR', viva), ger = acoes('GERENTE', viva);
+    ok(adm1.indexOf('data-cancelar') > 0 && adm1.indexOf('data-excluir') > 0,
+      'o Admin cancela e exclui', adm1);
+    ok(ges.indexOf('data-cancelar') > 0 && ges.indexOf('data-excluir') < 0,
+      'o Gestor CANCELA e nao exclui — cancelar deixa a linha no historico; excluir manda ' +
+      'para a lixeira, e isso continua so do Admin', ges);
+    ok(ger.indexOf('data-cancelar') < 0 && ger.indexOf('data-excluir') < 0,
+      'o Gerente nao recebe nenhum dos dois — botao que a rota recusa e pior que botao ' +
+      'nenhum', ger);
+    ok(acoes('GESTOR', cancelada).indexOf('data-descancelar') > 0 &&
+       acoes('GERENTE', cancelada).indexOf('data-descancelar') < 0,
+      'e a volta segue a mesma regra: o Gestor desfaz o cancelamento, o Gerente nao');
+  })();
+
+  (function () {
+    var i = adm.indexOf('  function acaoCancelar(m){');
+    var corpo = i < 0 ? '' : adm.slice(i, adm.indexOf('\n  }\n', i));
+    ok(/if \(!String\(motivo\)\.trim\(\)\)/.test(corpo),
+      'cancelar sem motivo e recusado na tela, antes de ir ao servidor — a linha fica no ' +
+      'historico para sempre, e fora da conta sem explicacao e o que o historico existe ' +
+      'para nao deixar', corpo.length);
+    ok(/NÃO é apagado/.test(corpo),
+      'e a pergunta diz que NAO apaga: quem cancela precisa saber que a linha continua ' +
+      'no historico, senao vai procurar o excluir achando que cancelar nao basta');
+  })();
+
   /* ---- E EM MOVIMENTOS, A LINHA CANCELADA TROCA DE BOTOES ----
    *
    * Ali o botao de cancelar mora ao lado do de excluir. Numa linha que JA' esta
@@ -21932,7 +21992,8 @@ console.log('\n== Motorista/Conferente ==');
       return new Function('Q', 'podeMexerNaDeclaracao', 'DECLS',
         VE_CONF + fonteLA + '\n' + fonteLP + '\n return linhasDoPar;')(
         { esc: function (x) { return String(x == null ? '' : x); },
-          num: function (n) { return String(Number(n) || 0); } },
+          num: function (n) { return String(Number(n) || 0); },
+          sessao: function () { return {}; }, podeCancelar: function () { return true; } },
         function () { return true; },
         decls)({ itens: itens });
     }
@@ -22122,7 +22183,7 @@ console.log('\n== Motorista/Conferente ==');
      app.indexOf('Q.definirPerfisDeclaracao(r.perfisDeclaracao)') > 0,
     'e as DUAS telas guardam a lista que o servidor mandou — a que esquecesse cairia no ' +
     'reforço e ofereceria o que a outra recusa');
-  ok(api.indexOf("perfisDeclaracao: L.PERFIS_DECLARACAO };") > 0,
+  ok(api.indexOf("perfisDeclaracao: L.PERFIS_DECLARACAO,\n               perfisCancelamento: L.PERFIS_CANCELAMENTO };") > 0,
     'e a porta do app de campo manda a lista junto do acesso — sem ela, o app desenharia ' +
     'a lista antes de saber quem pode consertar o quê');
 
@@ -28213,7 +28274,8 @@ console.log('\n== toda funcao chamada existe ==');
     agruparLancamentos: agrupar,
     podeCorrigir: function () { return true; },
     sessao: function () { return {}; },
-    ehAdmin: function () { return true; }
+    ehAdmin: function () { return true; },
+    podeCancelar: function () { return true; }
   };
 
   /* AS COLUNAS SÃO AS DE VERDADE EM FORMA, e não em desenho: o que o resumo da carga usa
