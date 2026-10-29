@@ -21856,39 +21856,71 @@ console.log('\n== Motorista/Conferente ==');
      cancelada.indexOf('data-dreporlixeira') < 0,
     'e a cancelada oferece a dela, e só a dela');
 
-  /* ---- CANCELAR E' DE ADMIN E GESTOR; EXCLUIR, SO' DO ADMIN (29/10/2026) ----
+  /* ---- CANCELAR: O ADMIN SEMPRE, E QUEM O ADMIN LIBEROU; EXCLUIR, SO' O ADMIN ----
    *
-   * RODADO, e nao lido: a fatia das acoes da linha de Movimentos e' executada com tres
-   * sessoes, e a prova olha o HTML que sai. Ler o arquivo responderia "a palavra
-   * podeCancelar esta' ali?" — e estaria, mesmo num ramo que nunca roda. */
+   * RODADO, e nao lido: a regra de verdade do `app.js` (`podeCancelar`) e a fatia das
+   * acoes da linha de Movimentos sao executadas juntas, e a prova olha o HTML que sai.
+   * Ler o arquivo responderia "a palavra podeCancelar esta' ali?" — e estaria, mesmo
+   * num ramo que nunca roda. */
   (function () {
+    var appC = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    var fonteRegra = fonteDaFuncao(appC, 'podeCancelar');
+    ok(fonteRegra.length > 60, 'a conferencia recortou a regra `podeCancelar` do app.js', fonteRegra.length);
+    var regra = new Function(fonteRegra + '\nreturn podeCancelar;')();
+    ok(regra({ perfil: 'Admin' }) && regra({ perfil: 'ADMIN', podeCancelar: false }),
+      'o Admin cancela sem marca — ele e quem concede, e nao pode se trancar fora');
+    ok(!regra({ perfil: 'Gestor' }) && !regra({ perfil: 'Gerente' }) && !regra({ perfil: 'Administrador' }),
+      'nenhum outro perfil cancela sozinho — o poder e a marca, nao o cargo');
+    ok(regra({ perfil: 'Motorista', podeCancelar: true }) && !regra(null),
+      'e qualquer um cancela se o admin liberar');
+
     var i = adm.indexOf("return '<td class=\"folga\"></td><td class=\"col-acoes\">'+(Q.podeCorrigir(Q.sessao(), m)");
     var f = i < 0 ? -1 : adm.indexOf("+'</td>';", i);
     var trecho = i < 0 || f < 0 ? '' : adm.slice(i, f + 9);
     ok(trecho.length > 300 && trecho.indexOf('data-excluir') > 0,
       'a conferencia recortou as acoes da linha de Movimentos', trecho.length);
-    function acoes(perfil, m) {
+    function acoes(sessao, m) {
       var Q = {
-        sessao: function () { return { perfil: perfil }; },
-        ehAdmin: function () { return perfil === 'ADMIN'; },
-        podeCancelar: function () { return perfil === 'ADMIN' || perfil === 'GESTOR'; },
+        sessao: function () { return sessao; },
+        ehAdmin: function () { return String(sessao.perfil).toUpperCase() === 'ADMIN'; },
+        podeCancelar: regra,
         podeCorrigir: function () { return true; }
       };
       return new Function('Q', 'm', 'botaoDaCarga', trecho)(Q, m, function () { return ''; });
     }
     var viva = { id: 'M1' }, cancelada = { id: 'M2', cancelado: true };
-    var adm1 = acoes('ADMIN', viva), ges = acoes('GESTOR', viva), ger = acoes('GERENTE', viva);
+    var adm1 = acoes({ perfil: 'Admin' }, viva);
+    var lib = acoes({ perfil: 'Gerente', podeCancelar: true }, viva);
+    var sem = acoes({ perfil: 'Gestor' }, viva);
     ok(adm1.indexOf('data-cancelar') > 0 && adm1.indexOf('data-excluir') > 0,
       'o Admin cancela e exclui', adm1);
-    ok(ges.indexOf('data-cancelar') > 0 && ges.indexOf('data-excluir') < 0,
-      'o Gestor CANCELA e nao exclui — cancelar deixa a linha no historico; excluir manda ' +
-      'para a lixeira, e isso continua so do Admin', ges);
-    ok(ger.indexOf('data-cancelar') < 0 && ger.indexOf('data-excluir') < 0,
-      'o Gerente nao recebe nenhum dos dois — botao que a rota recusa e pior que botao ' +
-      'nenhum', ger);
-    ok(acoes('GESTOR', cancelada).indexOf('data-descancelar') > 0 &&
-       acoes('GERENTE', cancelada).indexOf('data-descancelar') < 0,
-      'e a volta segue a mesma regra: o Gestor desfaz o cancelamento, o Gerente nao');
+    ok(lib.indexOf('data-cancelar') > 0 && lib.indexOf('data-excluir') < 0,
+      'quem o admin liberou CANCELA e nao exclui — cancelar deixa a linha no historico; ' +
+      'excluir manda para a lixeira, e isso continua so do Admin', lib);
+    ok(sem.indexOf('data-cancelar') < 0 && sem.indexOf('data-excluir') < 0,
+      'sem a marca, nem o Gestor recebe o botao — botao que a rota recusa e pior que ' +
+      'botao nenhum', sem);
+    ok(acoes({ perfil: 'Gerente', podeCancelar: true }, cancelada).indexOf('data-descancelar') > 0 &&
+       acoes({ perfil: 'Gestor' }, cancelada).indexOf('data-descancelar') < 0,
+      'e a volta segue a mesma marca: quem foi liberado desfaz, quem nao foi nao');
+  })();
+
+  /* O CADASTRO OFERECE A MARCA, ela nasce em "nao", abre como esta gravada e vai no
+     salvar. Os quatro, porque cada um sozinho e o jeito de a liberacao "nao ficar
+     salva" — o defeito que este projeto ja viu no seletor do painel. */
+  (function () {
+    var form = fonteDaFuncao(adm, 'formUsuario');
+    ok(form.indexOf('id="fPodeCancelar"') > 0, 'o cadastro de usuario tem "Pode cancelar lancamento?"');
+    ok(/PodeCancelar:document\.getElementById\('fPodeCancelar'\)\.value/.test(form),
+      'e o salvar ENVIA a marca — sem isto, mexer no campo nao sai da tela');
+    ok(/value="NAO"'\+\(u\.PodeCancelar===true\?'':' selected'\)/.test(form) &&
+       /value="SIM"'\+\(u\.PodeCancelar===true\?' selected':''\)/.test(form),
+      'e abre como esta gravada, nascendo em "nao" — abrir em "sim" para quem nao tem ' +
+      'faria o salvar seguinte conceder o poder sem ninguem pedir');
+    ok(/O Admin pode sempre/.test(form),
+      'e diz que o Admin pode sempre — senao o "nao" no cadastro dele pareceria trancar');
+    ok(/podeCancelar: u\.PodeCancelar === true/.test(adm),
+      'e a sessao remontada no painel carrega a marca, como a do servidor');
   })();
 
   (function () {
@@ -22183,7 +22215,7 @@ console.log('\n== Motorista/Conferente ==');
      app.indexOf('Q.definirPerfisDeclaracao(r.perfisDeclaracao)') > 0,
     'e as DUAS telas guardam a lista que o servidor mandou — a que esquecesse cairia no ' +
     'reforço e ofereceria o que a outra recusa');
-  ok(api.indexOf("perfisDeclaracao: L.PERFIS_DECLARACAO,\n               perfisCancelamento: L.PERFIS_CANCELAMENTO };") > 0,
+  ok(api.indexOf("perfisDeclaracao: L.PERFIS_DECLARACAO };") > 0,
     'e a porta do app de campo manda a lista junto do acesso — sem ela, o app desenharia ' +
     'a lista antes de saber quem pode consertar o quê');
 

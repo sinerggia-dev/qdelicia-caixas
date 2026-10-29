@@ -895,5 +895,23 @@ module.exports = [
       "  'Quando a casa que RECEBEU contou esta carga. Nulo quer dizer que ainda nao",
       "   contaram, e e por este campo que a tela de Entrada sabe o que falta.';"
     ].join('\n')
+  },
+  {
+    id: '2026-10-29-pode-cancelar',
+    nota: 'quem pode cancelar lancamento: o admin libera pessoa por pessoa',
+    sql: [
+      "-- QUEM PODE CANCELAR LANCAMENTO, liberado pelo administrador, um a um.",
+      "--",
+      "-- Cancelar tira o lancamento de toda conta e o deixa no historico, com o motivo.",
+      "-- NASCE DESLIGADA (`default false`), ao contrario de `pode_corrigir`, e e' de",
+      "-- proposito: ate' hoje so' o ADMIN via o botao de cancelar, e o ADMIN continua",
+      "-- podendo sempre, pela regra e nao pela coluna. Ninguem perde nada no deploy, e",
+      "-- ninguem ganha um poder que o administrador nao deu.",
+      "alter table public.usuarios",
+      "  add column if not exists pode_cancelar boolean not null default false;",
+      "comment on column public.usuarios.pode_cancelar is",
+      "  'Se esta pessoa pode cancelar (e desfazer o cancelamento de) um lancamento. O",
+      "   ADMIN pode sempre, ligada ou nao. A rota confere, lendo o cadastro.';"
+    ].join('\n')
   }
 ];

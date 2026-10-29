@@ -472,45 +472,55 @@ async function main() {
   ok(cli.saldo === 100, 'saldo volta para 100 após cancelar', cli.saldo);
 
   /* ---------------------------------------------------------------------------
-   * QUEM CANCELA: ADMIN E GESTOR (29/10/2026).
+   * QUEM CANCELA: O ADMIN SEMPRE, E QUEM O ADMIN LIBEROU (29/10/2026).
    *
    * Cancelar tira da conta e NAO apaga: a linha fica no historico, com o motivo. A
-   * tranca e' a rota, e o perfil vem do CADASTRO. Gerente e Conferente levam a recusa,
-   * inclusive dizendo-se Admin no proprio pedido.
+   * permissao e' por pessoa (`PodeCancelar`), nao por perfil. A tranca e' a rota, e ela
+   * le o CADASTRO — dizer-se Admin, ou dizer-se liberado, no proprio pedido nao abre.
    * ------------------------------------------------------------------------- */
-  console.log('\n== cancelar e de Admin e Gestor, e nao apaga ==');
-  const criaC = async (nome, perfil) => {
-    await POST({ acao: 'salvarUsuario', registro: { Nome: nome, Perfil: perfil, PIN: '445566' } });
-    return (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.Nome === nome)[0].ID;
+  console.log('\n== cancelar: o Admin sempre, os outros so liberados, e nao apaga ==');
+  const criaC = async (nome, perfil, extra) => {
+    const r = await POST({ acao: 'salvarUsuario', registro: Object.assign(
+      { Nome: nome, Perfil: perfil, PIN: '445566' }, extra || {}) });
+    ok(r.ok === true, 'cadastro de ' + nome + ' gravado', r.erro);
+    return (await GET({ acao: 'equipe' })).usuarios.filter((u) => u.Nome === nome)[0];
   };
-  const idGestor = await criaC('Gestora Cancela', 'Gestor');
-  const idGerente = await criaC('Gerente Cancela', 'Gerente');
-  const idConf = await criaC('Conferente Cancela', 'Conferente');
+  const liberado = await criaC('Gerente Liberada', 'Gerente', { PodeCancelar: 'SIM' });
+  const gestorSem = await criaC('Gestor Sem Marca', 'Gestor');
+  const confSem = await criaC('Conferente Sem Marca', 'Conferente', { PodeCancelar: 'NAO' });
+  ok(liberado.PodeCancelar === true && gestorSem.PodeCancelar === false && confSem.PodeCancelar === false,
+    'a marca do cadastro VOLTA na leitura como gravada — faltando la, o formulario abriria ' +
+    'em "nao" e a proxima gravacao apagaria a liberacao, calada',
+    [liberado.PodeCancelar, gestorSem.PodeCancelar, confSem.PodeCancelar]);
+  const sesLib = (await GET({ acao: 'meuAcesso', id: liberado.ID })).usuario;
+  ok(sesLib && sesLib.podeCancelar === true,
+    'e chega na SESSAO de quem esta logado — e' + "'" + ' de la que a tela decide mostrar o botao', sesLib);
+
   const vivoC = (await GET({ acao: 'movimentos', limit: 100 })).movimentos
     .find((m) => !m.cancelado && m.tipo === 'SAIDA' && m.destinoId === C && m.qtd === 50);
   ok(!!vivoC, 'a conferencia achou um lancamento vivo para cancelar', vivoC && vivoC.id);
   const saldoAntesC = (await GET({ acao: 'painel' })).painel.locais.find((l) => l.id === C).saldo;
 
-  for (const [quem, rotulo] of [[idGerente, 'Gerente'], [idConf, 'Conferente']]) {
+  for (const [quem, rotulo] of [[gestorSem.ID, 'Gestor sem a marca'], [confSem.ID, 'Conferente sem a marca']]) {
     const r = await POST({ acao: 'cancelar', id: vivoC.id, motivo: 'tentativa', usuarioId: quem });
-    ok(r.ok === false && /Admin ou Gestor/.test(String(r.erro || '')),
-      'o ' + rotulo + ' e recusado pela ROTA ao cancelar', [r.ok, r.erro]);
+    ok(r.ok === false && /administrador/.test(String(r.erro || '')),
+      'o ' + rotulo + ' e recusado pela ROTA — o perfil nao da o poder, so a marca', [r.ok, r.erro]);
   }
-  for (const campo of ['perfil', 'Perfil']) {
+  for (const forja of [{ perfil: 'ADMIN' }, { Perfil: 'ADMIN' }, { PodeCancelar: true }, { podeCancelar: true }]) {
     const r = await POST(Object.assign({ acao: 'cancelar', id: vivoC.id, motivo: 'forjado',
-      usuarioId: idGerente }, { [campo]: 'ADMIN' }));
-    ok(r.ok === false, 'e dizer-se Admin no pedido (`' + campo + '`) nao abre — o perfil e do cadastro', r.erro);
+      usuarioId: confSem.ID }, forja));
+    ok(r.ok === false, 'e dizer no pedido ' + JSON.stringify(forja) + ' nao abre — vale o cadastro', r.erro);
   }
   ok((await POST({ acao: 'cancelar', id: vivoC.id, motivo: 'x' })).ok === false,
     'e sem dizer quem e, ninguem cancela');
-  const semMotivo = await POST({ acao: 'cancelar', id: vivoC.id, motivo: '   ', usuarioId: idGestor });
+  const semMotivo = await POST({ acao: 'cancelar', id: vivoC.id, motivo: '   ', usuarioId: liberado.ID });
   ok(semMotivo.ok === false && /motivo/i.test(String(semMotivo.erro || '')),
     'sem motivo nao cancela — a linha fica no historico, e fora da conta sem explicacao nao', semMotivo.erro);
   ok((await GET({ acao: 'painel' })).painel.locais.find((l) => l.id === C).saldo === saldoAntesC,
     'e NADA mudou no saldo depois das recusas — recusar e gravar mesmo assim seria pior que nao recusar');
 
-  const rGestor = await POST({ acao: 'cancelar', id: vivoC.id, motivo: 'entrega lancada errada', usuarioId: idGestor });
-  ok(rGestor.ok === true, 'o Gestor cancela', rGestor);
+  const rLib = await POST({ acao: 'cancelar', id: vivoC.id, motivo: 'entrega lancada errada', usuarioId: liberado.ID });
+  ok(rLib.ok === true, 'quem o admin liberou cancela — mesmo sendo Gerente', rLib);
   const saldoDepoisC = (await GET({ acao: 'painel' })).painel.locais.find((l) => l.id === C).saldo;
   ok(saldoDepoisC === saldoAntesC - vivoC.qtd,
     'e o lancamento SAI DA CONTA: o saldo do cliente perde exatamente a quantidade dele',
@@ -521,30 +531,40 @@ async function main() {
   const soCanc = (await GET({ acao: 'movimentos', limit: 500, cancelados: 'so' })).movimentos;
   const noHist = soCanc.find((m) => m.id === vivoC.id);
   ok(!!noHist && noHist.cancelado === true && noHist.qtd === vivoC.qtd,
-    'mas NAO foi apagado: continua inteiro no filtro de cancelados, com a mesma quantidade',
-    noHist);
+    'mas NAO foi apagado: continua inteiro no filtro de cancelados, com a mesma quantidade', noHist);
   ok(!!noHist && /entrega lancada errada/.test(String(noHist.motivoCancel || '')),
     'e com o motivo de quem cancelou', noHist && noHist.motivoCancel);
   const lixo = (await GET({ acao: 'movimentos', limit: 500, cancelados: 'lixeira' })).movimentos;
   ok(!lixo.some((m) => m.id === vivoC.id),
     'e NAO foi para a lixeira — cancelar e excluir sao coisas diferentes');
 
-  const voltaGer = await POST({ acao: 'descancelar', id: vivoC.id, motivo: 'volta', usuarioId: idGerente });
-  ok(voltaGer.ok === false && /Admin ou Gestor/.test(String(voltaGer.erro || '')),
-    'desfazer segue a mesma regra: o Gerente nao devolve a linha ao saldo', voltaGer.erro);
-  ok((await POST({ acao: 'descancelar', id: vivoC.id, motivo: 'era certo afinal', usuarioId: idGestor })).ok,
-    'o Gestor desfaz');
+  const voltaSem = await POST({ acao: 'descancelar', id: vivoC.id, motivo: 'volta', usuarioId: gestorSem.ID });
+  ok(voltaSem.ok === false && /administrador/.test(String(voltaSem.erro || '')),
+    'desfazer segue a mesma regra: sem a marca, nao devolve a linha ao saldo', voltaSem.erro);
+  ok((await POST({ acao: 'descancelar', id: vivoC.id, motivo: 'era certo afinal', usuarioId: 'U001' })).ok,
+    'o Admin desfaz — sem marca nenhuma, porque o Admin pode sempre');
   ok((await GET({ acao: 'painel' })).painel.locais.find((l) => l.id === C).saldo === saldoAntesC,
     'e o saldo volta ao que era');
 
+  /* TIRAR A MARCA TIRA O PODER na hora — a rota relê o cadastro a cada pedido. */
+  await POST({ acao: 'salvarUsuario', registro: { ID: liberado.ID, Nome: liberado.Nome, PodeCancelar: 'NAO' } });
+  const depoisDeTirar = await POST({ acao: 'cancelar', id: vivoC.id, motivo: 'de novo', usuarioId: liberado.ID });
+  ok(depoisDeTirar.ok === false,
+    'e o admin tirando a marca, a pessoa deixa de cancelar no pedido seguinte', depoisDeTirar.erro);
+
   const Lc = require(path.join(__dirname, '..', 'api', '_logica.js'));
-  const passamC = ['Admin', 'ADMIN', 'Gestor', 'gestor'].filter((x) => Lc.podeCancelarLancamento({ Perfil: x }));
-  ok(passamC.length === 4, 'Admin e Gestor passam, em qualquer caixa de letra', passamC);
-  const barradosC = ['Gerente', 'Conferente', 'Motorista', 'Promotor', '', 'Administrador', 'Gestor de Área']
+  ok(Lc.podeCancelarLancamento({ Perfil: 'Admin' }) && Lc.podeCancelarLancamento({ Perfil: 'ADMIN', PodeCancelar: false }),
+    'o Admin cancela com a marca desligada — e quem concede, e nao pode se trancar fora');
+  const semPoder = ['Gestor', 'Gerente', 'Conferente', 'Motorista', 'Administrador', '']
     .filter((x) => !Lc.podeCancelarLancamento({ Perfil: x }));
-  ok(barradosC.length === 7, 'e os outros nao, nem nome parecido', barradosC);
-  ok(!Lc.podeCancelarLancamento({ Perfil: 'Admin', Ativo: false }),
-    'e quem esta desativado nao cancela, mesmo sendo Admin');
+  ok(semPoder.length === 6, 'nenhum outro perfil cancela sozinho, nem nome parecido com Admin', semPoder);
+  ok(Lc.podeCancelarLancamento({ Perfil: 'Motorista', PodeCancelar: true }),
+    'e qualquer perfil cancela se o admin liberar');
+  ok(!Lc.podeCancelarLancamento({ Perfil: 'Motorista', PodeCancelar: 'SIM' }),
+    'a marca vale so como booleano do cadastro — texto solto nao conta como sim');
+  ok(!Lc.podeCancelarLancamento({ Perfil: 'Admin', Ativo: false }) &&
+     !Lc.podeCancelarLancamento({ Perfil: 'Gerente', PodeCancelar: true, Ativo: false }),
+    'e quem esta desativado nao cancela, nem Admin, nem liberado');
 
   /* ---------------------------------------------------------------------------
    * A LIXEIRA.

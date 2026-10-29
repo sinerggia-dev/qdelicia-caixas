@@ -2520,16 +2520,11 @@
     return !!s && lista.indexOf(String(s.perfil || '').toUpperCase()) >= 0;
   }
 
-  /* QUEM CANCELA UM LANCAMENTO: Admin e Gestor. A lista vem da rota (`perfisCancelamento`),
-     que e' a mesma da recusa; o reforco cobre a resposta velha em cache. A TRANCA E' A
-     ROTA — isto so' evita oferecer o botao a quem vai levar a recusa. */
-  var PERFIS_CANCEL = [];
-  function definirPerfisCancelamento(lista) {
-    PERFIS_CANCEL = Array.isArray(lista) ? lista : PERFIS_CANCEL;
-  }
+  /* QUEM CANCELA UM LANCAMENTO: o ADMIN sempre, e quem o admin liberou no cadastro.
+     A TRANCA E' A ROTA — isto so' evita oferecer o botao a quem vai levar a recusa. */
   function podeCancelar(s) {
-    var lista = PERFIS_CANCEL.length ? PERFIS_CANCEL : ['ADMIN', 'GESTOR'];
-    return !!s && lista.indexOf(String(s.perfil || '').toUpperCase()) >= 0;
+    if (!s) return false;
+    return String(s.perfil || '').toUpperCase() === 'ADMIN' || s.podeCancelar === true;
   }
 
   function podeCorrigir(s, m) {
@@ -3367,7 +3362,7 @@
   window.QDC = {
     get: get, post: post, enviar: enviar, sincronizar: sincronizar, fila: fila, chave: chave,
     sessao: sessao, lendo: lendo, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
-    podeCancelar: podeCancelar, definirPerfisCancelamento: definirPerfisCancelamento,
+    podeCancelar: podeCancelar,
     cache: cache, carregarDados: carregarDados, semApi: semApi,
     precisaConfirmar: precisaConfirmar, precisaConfirmarCaixa: precisaConfirmarCaixa,
     ativo: ativo, ordenarLocais: ordenarLocais, ordenarPorNome: ordenarPorNome,

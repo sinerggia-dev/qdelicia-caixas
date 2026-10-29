@@ -966,30 +966,29 @@ function barraDeclaracao(mov, usuarios, quem) {
   return { ok: false, erro: 'Só Admin, Gestor ou Gerente pode alterar uma declaração de motorista.' };
 }
 
-/* QUEM CANCELA UM LANCAMENTO: Admin e Gestor, a pedido (29/10/2026).
+/* QUEM CANCELA UM LANCAMENTO: o ADMIN sempre; os demais, so' quem o admin liberou no
+ * cadastro (`PodeCancelar`), pessoa por pessoa. A pedido (29/10/2026).
  *
  * Cancelar tira a linha de TODA conta — saldo, painel, extrato, aging — e deixa a linha
  * inteira no historico, com a quantidade, o motivo e quem cancelou. Nao e' excluir: nada
  * vai para a lixeira, a linha continua a vista no filtro "cancelados" e volta pelo
  * "desfazer o cancelamento".
  *
- * GERENTE FICA DE FORA, e isso e' diferente da declaracao: ali ele corrige o numero de
- * quem declarou; aqui ele tiraria um lancamento inteiro da conta. Pedido assim.
+ * POR PESSOA, E NAO POR PERFIL: o perfil e' texto livre, e permissao por digitacao seria
+ * permissao por engano de digitacao. O ADMIN nao depende da marca pelo mesmo motivo das
+ * outras excecoes dele: e' quem concede, e nao pode se trancar fora.
  *
- * A TRANCA E' A ROTA, lendo o perfil do CADASTRO — nunca do pedido. A tela so' esconde o
- * botao de quem vai levar a recusa. E A MESMA REGRA VALE PARA DESFAZER: quem nao pode
- * tirar da conta tambem nao pode devolver a ela, senao o saldo mudaria pela mao de quem a
- * regra quis deixar de fora. */
-var PERFIS_CANCELAMENTO = ['ADMIN', 'GESTOR'];
-
+ * A TRANCA E' A ROTA, lendo o CADASTRO — nunca o pedido. A tela so' esconde o botao de
+ * quem vai levar a recusa. E A MESMA REGRA VALE PARA DESFAZER: quem nao pode tirar da
+ * conta tambem nao devolve a ela. Desativado nao cancela, nem sendo Admin. */
 function podeCancelarLancamento(u) {
-  return !!u && ativo(u.Ativo) &&
-    PERFIS_CANCELAMENTO.indexOf(String(u.Perfil || '').toUpperCase()) >= 0;
+  if (!u || !ativo(u.Ativo)) return false;
+  return String(u.Perfil || '').toUpperCase() === 'ADMIN' || u.PodeCancelar === true;
 }
 
 function barraCancelamento(usuarios, quem) {
   if (podeCancelarLancamento(acharUsuario(usuarios, quem))) return null;
-  return { ok: false, erro: 'Só Admin ou Gestor pode cancelar um lançamento.' };
+  return { ok: false, erro: 'Você não tem permissão para cancelar lançamento. Quem libera é o administrador, no seu cadastro.' };
 }
 
 function recorteDeclaracao(dados, u) {
@@ -1366,6 +1365,9 @@ function sessaoDe(u) {
     /* SE ESTA PESSOA CORRIGE LANCAMENTO. Na sessao porque quem decide se MOSTRA o botao
        e' a tela, e ela so' tem a sessao na mao. A tranca de verdade continua na rota. */
     podeCorrigir: u.PodeCorrigir !== false,
+    /* SE ESTA PESSOA CANCELA LANCAMENTO: a marca crua do cadastro. O ADMIN pode sempre,
+       e quem soma as duas coisas e' o `Q.podeCancelar` da tela. */
+    podeCancelar: u.PodeCancelar === true,
     saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
     destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
     /* DE ONDE A CAIXA VOLTA. Lista propria desde 14/10/2026: antes a origem do retorno
@@ -4017,6 +4019,7 @@ function usuariosPublicos(usuarios) {
          com ela no padrao e a gravacao seguinte apagaria o que estava salvo — sem erro
          em lugar nenhum. */
       PodeCorrigir: u.PodeCorrigir !== false,
+      PodeCancelar: u.PodeCancelar === true,
       UsuariosVistos: usuariosVistosDe(u),
       /* As SEIS listas de permissão voltam para o painel. Esquecer uma aqui não dá
          erro nenhum: o formulário abre com ela desmarcada e a gravação seguinte escreve
@@ -4079,7 +4082,6 @@ module.exports = {
   mundosPedidos: mundosPedidos,
   PERFIS_DECLARACAO: PERFIS_DECLARACAO,
   podeAlterarDeclaracao: podeAlterarDeclaracao, barraDeclaracao: barraDeclaracao,
-  PERFIS_CANCELAMENTO: PERFIS_CANCELAMENTO,
   podeCancelarLancamento: podeCancelarLancamento, barraCancelamento: barraCancelamento,
   acharUsuario: acharUsuario,
   recorteProprios: recorteProprios, recorteLocais: recorteLocais,

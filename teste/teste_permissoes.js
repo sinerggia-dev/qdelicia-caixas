@@ -122,6 +122,13 @@ var PERMISSOES = [
     usa: [['index.html', 'localPadrao']] },
   /* `Ativo` não viaja na sessão de propósito: quem está inativo não recebe sessão
      nenhuma. `podeVerPainel()` e `loginPorPin()` recusam antes disso. */
+  /* CANCELAR LANCAMENTO, liberado pelo admin pessoa por pessoa (29/10/2026). Quem usa
+     e' a ROTA, por `podeCancelarLancamento`, e a tela, pelo `Q.podeCancelar` — o botao
+     e a tranca leem a mesma marca. */
+  { nome: 'PodeCancelar', chave: 'PodeCancelar', campo: 'fPodeCancelar',
+    sessao: 'podeCancelar',
+    usa: [['api/_logica.js', 'podeCancelarLancamento(acharUsuario'],
+          ['admin.html', 'Q.podeCancelar(Q.sessao())']] },
   { nome: 'Ativo', chave: 'Ativo', campo: 'fAtivo', sessao: null,
     usa: [['api/_logica.js', 'Ativo === false']] }
 ];

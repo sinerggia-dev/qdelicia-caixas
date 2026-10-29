@@ -1961,7 +1961,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=78e7d9e1"></script>
+<script src="app.js?v=8ca767cb"></script>
 <script>
 (function(){
   'use strict';
@@ -2056,7 +2056,7 @@
 
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
-      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; VEICULOS = r.veiculos || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; PERFIS_DECL = r.perfisDeclaracao || []; Q.definirPerfisDeclaracao(r.perfisDeclaracao); Q.definirPerfisCancelamento(r.perfisCancelamento); OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
+      if (r && r.ok){ EQUIPE_CHEGOU = true; EQUIPE = r.usuarios || []; MOTORISTAS = r.motoristas || []; VEICULOS = r.veiculos || []; LOCAIS_PADRAO = r.locaisPadrao || []; PEDIDOS_SENHA = r.pedidosSenha || []; PERFIS = r.perfis || []; PERFIS_DECL = r.perfisDeclaracao || []; Q.definirPerfisDeclaracao(r.perfisDeclaracao); OPERACOES_APP = r.operacoes || []; ABAS_PAINEL = r.abas || []; SITUACOES = r.situacoes || []; montarStatusMov(); }
       ordenarTudo();
       montarSelectUsuarios();
       if (DADOS){ desenharCadastros(); montarSelects(); }
@@ -2299,6 +2299,7 @@
          a pessoa perderia (ou ganharia) o botao de corrigir ao salvar o proprio
          cadastro, sem nada explicar. */
       podeCorrigir: u.PodeCorrigir !== false,
+      podeCancelar: u.PodeCancelar === true,
       /* A MARCA DO TUTORIAL acompanha a sessão renovada. Faltando aqui, a renovação a
          apagaria: a pessoa veria o tutorial, seguiria para o app, e no acesso seguinte
          cairia nele de novo — sem nada na tela explicando por quê. */
@@ -16241,6 +16242,17 @@
       '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">Vale para todos '+
         'os tipos de correção: a linha, a carga inteira e o desfazer. A declaração '+
         'continua tendo a regra dela, por perfil.</p>'+
+      /* CANCELAR, LIBERADO PELO ADMIN, UM A UM. Nasce em "não", como a coluna: ate'
+         hoje so' o Admin cancelava. O Admin pode sempre, e a nota diz isso — senao o
+         "não" no cadastro dele pareceria trancar o que nao tranca. */
+      '<label for="fPodeCancelar">Pode cancelar lançamento?</label>'+
+      '<select id="fPodeCancelar">'+
+        '<option value="NAO"'+(u.PodeCancelar===true?'':' selected')+'>não</option>'+
+        '<option value="SIM"'+(u.PodeCancelar===true?' selected':'')+'>sim — cancela e desfaz o cancelamento</option>'+
+      '</select>'+
+      '<p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 12px">Cancelar tira o '+
+        'lançamento do saldo, do painel e do extrato, e o deixa no histórico com o motivo '+
+        '— não apaga. O Admin pode sempre. Excluir continua só do Admin.</p>'+
       caixaLocais('fUsuariosVistos', 'De quem ela vê os lançamentos',
                   EQUIPE.filter(function(x){ return Q.ativo(x.Ativo); }),
                   u.UsuariosVistos, 'Nenhum usuário cadastrado ainda.')+
@@ -16639,6 +16651,7 @@
         AcessoPainel:(document.getElementById('fPainel').value === 'NAO' ? 'NAO' : 'SIM'),
         VerLancamentos:document.getElementById('fVerLanc').value,
         PodeCorrigir:document.getElementById('fPodeCorrigir').value,
+        PodeCancelar:document.getElementById('fPodeCancelar').value,
         UsuariosVistos:lerMarcados('fUsuariosVistos'),
         Saidas:lerMarcados('fSaidas'), Destinos:lerMarcados('fDestinos'),
         Retornos:lerMarcados('fRetornos'),

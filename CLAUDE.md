@@ -95,10 +95,11 @@ volta seria por SQL. Desativado não entra em hipótese alguma. A migração nas
 `default false` e ligou a chave para quem já entrava, então ninguém perdeu acesso no deploy.
 
 Dentro do painel, **Lançar** e **Cadastros** continuam escondidos para quem não é `ADMIN`, e o
-botão de **excluir** movimento também. **Cancelar** é de `ADMIN` e `GESTOR` (29/10/2026, a pedido):
-tira o lançamento de toda conta e o deixa no histórico, com motivo obrigatório — não vai para a
-lixeira. Gerente fica de fora. A tranca é a rota (`L.barraCancelamento`, perfil lido do cadastro),
-e a mesma regra vale para desfazer o cancelamento. O motivo não é hierarquia — é que o conferente é
+botão de **excluir** movimento também. **Cancelar** (29/10/2026, a pedido) é do `ADMIN` sempre e
+de quem o admin liberar no cadastro — **"Pode cancelar lançamento?"**, coluna `pode_cancelar`, que
+nasce `false`. Por pessoa, não por perfil. Cancelar tira o lançamento de toda conta e o deixa no
+histórico, com motivo obrigatório — não vai para a lixeira. A tranca é a rota
+(`L.barraCancelamento`, marca lida do cadastro), e a mesma regra vale para desfazer o cancelamento. O motivo não é hierarquia — é que o conferente é
 justamente quem gera a divergência na chegada. Dar a ele um *Ajuste de saldo* seria deixá-lo
 apagar o próprio erro, e o cadastro de usuários deixaria ele trocar o PIN do admin.
 
