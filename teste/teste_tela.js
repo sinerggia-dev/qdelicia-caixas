@@ -31831,17 +31831,30 @@ console.log('\n== a tela de lancamento nao mostra quanto foi conferido ==');
     [csvNao.cabecalho.length, csvNao.linhas[0].length]);
 
   /* --- o rank --- */
-  function rank(ve, totais) {
+  /* `aberto` E' A PREFERENCIA DE QUEM OLHA (rank recolhido ou aberto). A sonda roda nos
+     dois: recolhido, a barra de totais tambem nao pode trazer a contagem. */
+  function rank(ve, totais, aberto) {
     var box = { innerHTML: '', querySelectorAll: function () { return []; } };
     var TELA = { rank: 'r', totais: totais, campos: { motorista: '' } };
     rodar(ve, 'var RANK_SEM_MOTORISTA = "sem informação";\n' + fontes.rankDeMotoristas +
       fontes.desenharRank + '\n return desenharRank;',
-      ['document', 'TELA_PARES', 'escolhaDe', 'opcoesDe', 'tomDeg'],
+      ['document', 'TELA_PARES', 'escolhaDe', 'opcoesDe', 'tomDeg', 'rankAberto'],
       [{ getElementById: function (id) { return id === 'r' ? box : null; } }, TELA,
        function () { return []; }, function () { return []; },
-       function () { return 'rgb(0,0,0)'; }])([parSoContado]);
+       function () { return 'rgb(0,0,0)'; },
+       function () { return aberto !== false; }])([parSoContado]);
     return box.innerHTML;
   }
+  /* RECOLHIDO, NA TELA DE LANCAMENTO: a barra de totais e' uma oitava porta. */
+  var barraNao = rank(false, '', false);
+  ok(barraNao.indexOf(SONDA) < 0 && /hidden/.test(barraNao),
+    'recolhido, o rank da tela de lan\u00e7amento tamb\u00e9m n\u00e3o traz a contagem \u2014 a barra ' +
+    'de totais \u00e9 mais uma porta, e "Chegou sem declarar" n\u00e3o entra nela',
+    barraNao.slice(0, 300));
+  var barraVe = rank(true, 'dcTotais', false);
+  ok(/class="rk-resumo">[^]*4321/.test(barraVe),
+    'e a sonda enxerga a barra: na tela que v\u00ea, recolhido, o total "Chegou sem declarar" ' +
+    'est\u00e1 nela', barraVe.slice(0, 300));
   var rankVe = rank(true, 'dcTotais'), rankNao = rank(false, '');
   ok(rankVe.indexOf(SONDA) >= 0 && (rankVe.match(/class="g g--rank"/g) || []).length === 3,
     'a sonda enxerga: na tela que mostra, o rank tem os três blocos e a contagem',
@@ -31863,6 +31876,100 @@ console.log('\n== a tela de lancamento nao mostra quanto foi conferido ==');
                                             adm.indexOf('var TELA_PARES ='))),
     'o interruptor está nos dois descritores: Movimentos Motoristas vê a conferência, ' +
     'Lançamento Motorista não');
+})();
+
+/* ---------------------------------------------------------------------------
+ * A ALTURA DAS TELAS DE CONCILIACAO, E A COR DE "CONFERIDO".
+ *
+ * Medido a 2540x915 (o monitor do escritorio): a tabela tinha 5,5 linhas, e o rank
+ * levava 228px — quase o mesmo que ela. O rank passou a nascer recolhido numa barra com
+ * os totais, e o titulo repetido saiu do cartao. A tabela vai a ~11 linhas.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a altura da conciliacao, e "Conferido" ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+
+  /* --- a preferencia: recolhido por padrao, e sem armazenamento tambem --- */
+  var fAb = fonteDaFuncao(adm, 'rankAberto');
+  function aberto(storage) {
+    return new Function('localStorage', 'var CHAVE_RANK_ABERTO = "qdc_rank_aberto";\n' + fAb +
+      '\n return rankAberto();')(storage);
+  }
+  ok(fAb.length > 40 && aberto({ getItem: function () { return null; } }) === false,
+    'o rank nasce RECOLHIDO — aberto, ele levava 228px de uma tela em que a tabela tinha ' +
+    '258 (5,5 linhas no monitor do escritório)');
+  ok(aberto({ getItem: function () { throw new Error('bloqueado'); } }) === false &&
+     aberto({ getItem: function () { return '1'; } }) === true,
+    'e sem armazenamento (janela anônima) continua recolhido, sem quebrar; quem abriu, ' +
+    'encontra aberto na próxima visita');
+
+  /* --- recolhido: blocos escondidos, totais na barra iguais aos dos blocos --- */
+  var fontes = {};
+  ['rankDeMotoristas', 'desenharRank'].forEach(function (n) { fontes[n] = fonteDaFuncao(adm, n); });
+  var L = [
+    { motorista: 'Isaque', tipo: 'Retorno', retornoTotal: 1919, situacao: 'Divergente', conferido: 1900 },
+    { motorista: 'Alcimar', tipo: 'Retorno', retornoTotal: 0, situacao: 'Sem Retorno Motorista', conferido: 7685 },
+    { motorista: 'Luciano', tipo: 'Retorno', retornoTotal: 911, situacao: 'Bateu', conferido: 911 }
+  ];
+  function rank(aberto, ve) {
+    var classes = {};
+    var box = { innerHTML: '', querySelectorAll: function () { return []; },
+                classList: { toggle: function (c, v) { classes[c] = !!v; } } };
+    new Function('Q', 'document', 'TELA_PARES', 'escolhaDe', 'opcoesDe', 'tomDeg', 'rankAberto',
+      'veConferencia', 'var RANK_SEM_MOTORISTA = "sem informação";\n' + fontes.rankDeMotoristas +
+      fontes.desenharRank + '\n return desenharRank;')(
+      { esc: function (x) { return String(x == null ? '' : x); }, num: function (n) { return String(n); } },
+      { getElementById: function (id) { return id === 'r' ? box : null; } },
+      { rank: 'r', totais: 'dcTotais', campos: { motorista: '' } },
+      function () { return []; }, function () { return []; },
+      function () { return 'rgb(0,0,0)'; }, function () { return aberto; },
+      function () { return ve !== false; })(L);
+    return { html: box.innerHTML, classes: classes };
+  }
+  var fech = rank(false), abre = rank(true);
+  ok(/id="rBlocos" hidden/.test(fech.html) && fech.classes['rk-caixa--fechado'] === true,
+    'recolhido, os blocos ficam escondidos e a caixa marca que está fechada — é a marca ' +
+    'que solta a altura para a tabela', fech.classes);
+  ok(!/id="rBlocos" hidden/.test(abre.html) && abre.classes['rk-caixa--fechado'] === false &&
+     /aria-expanded="true"/.test(abre.html) && /aria-expanded="false"/.test(fech.html),
+    'aberto, eles aparecem, e o botão diz o estado a quem usa leitor de tela');
+  var resumo = (/class="rk-resumo">([\s\S]*?)<\/span>/.exec(fech.html) || [])[1] || '';
+  var somas = (fech.html.match(/class="g__soma">([^<]*)</g) || [])
+    .map(function (x) { return x.replace(/.*>/, '').replace(/<$/, ''); });
+  ok(resumo.indexOf('<b>2830</b>') >= 0 && resumo.indexOf('<b>7685</b>') >= 0 &&
+     somas.indexOf('2830') >= 0 && somas.indexOf('7685') >= 0,
+    'recolhido não é escondido: a barra traz os totais, e são OS MESMOS dos blocos — ' +
+    'escritos à parte, discordariam no primeiro recorte novo', { resumo: resumo, somas: somas });
+  ok(/\.dc-area > \.rk-caixa\.rk-caixa--fechado\{flex:0 0 auto\}/.test(css),
+    'e a folha solta a altura do rank recolhido — sem isso, a barra continuaria ' +
+    'reservando os 228px dele, vazios');
+
+  /* --- o titulo repetido saiu dos dois cartoes --- */
+  ['pgLancamentosMotorista', 'pgLancamentoMotorista'].forEach(function (id) {
+    var i = adm.indexOf('<section id="' + id + '"');
+    var trecho = semComentarios(adm.slice(i, adm.indexOf('<div class="mov-tela"', i) > 0 &&
+      id === 'pgLancamentosMotorista' ? adm.indexOf('<div class="mov-tela"', i) : i + 1500));
+    ok(i > 0 && trecho.indexOf('<h2') < 0,
+      'o cartão de ' + id + ' não repete o título — o cabeçalho da página já o diz, e ' +
+      'aqui ele custava altura de tabela', trecho.slice(0, 160));
+  });
+  ok(/data-pagina="pgLancamentoMotorista"[^>]*title="O que o motorista declarou, e se já foi conferido"/.test(adm),
+    'e a frase que distingue a tela de lançamento foi para o menu, onde se escolhe qual ' +
+    'das duas abrir');
+
+  /* --- "Conferido" contornado --- */
+  var cor = new Function(fonteDaFuncao(adm, 'corDaSituacao') + '\n return corDaSituacao;')();
+  ok(cor('Conferido') === 'contorno',
+    '"Conferido" tem forma própria, contornada — não é verde (o mesmo par pode ser ' +
+    'Divergente na outra aba), nem âmbar (não espera nada desta tela), nem o cinza das ' +
+    'ausências', cor('Conferido'));
+  ok(cor('Sem Retorno Motorista') === 'cinza' && cor('Bateu') === 'verde',
+    'e as outras situações continuam como estavam');
+  var regra = (/\.tag\.contorno\{([^}]*)\}/.exec(css) || [])[1] || '';
+  ok(/background:transparent/.test(regra) && /var\(--linha-viva\)/.test(regra) &&
+     /color:var\(--txt2\)/.test(regra) && !/#[0-9a-f]{3,6}|rgba?\(/i.test(regra),
+    'e a etiqueta contornada usa tokens já medidos, sem cor nova', regra);
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');

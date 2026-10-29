@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=bb82cf2f">
+<link rel="stylesheet" href="styles.css?v=a009f218">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -327,7 +327,8 @@
         </svg>
         <span class="nav-rotulo">Movimentos Motoristas</span>
       </button>
-      <button data-grupo="Operação" style="display:none" data-pagina="pgLancamentoMotorista" data-acima="Operação">
+      <button data-grupo="Operação" style="display:none" data-pagina="pgLancamentoMotorista" data-acima="Operação"
+              title="O que o motorista declarou, e se já foi conferido">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M9 11l3 3 7-7"></path>
@@ -1413,10 +1414,10 @@
        — se lesse, copiaria o número, e a comparação deixaria de comparar. -->
   <section id="pgLancamentosMotorista" class="pagina">
     <div class="card">
-      <!-- SEM A LINHA DE APOIO, a pedido. Ela explicava o que os proprios rotulos da
-           tela ja dizem — "Declarado", "Conferido", "Diferenca" —, e num telefone
-           custava duas linhas de altura antes do primeiro numero. -->
-      <h2>Movimentos Motoristas</h2>
+      <!-- SEM TITULO NO CARTAO: o cabecalho da pagina ja' diz "Movimentos Motoristas"
+           tres centimetros acima, e o celular tambem o mostra. Repetido aqui, ele gastava
+           29px de uma tela em que a tabela tinha 5,5 linhas no monitor do escritorio —
+           o mesmo corte que devolveu altura a Movimentos Gerais. -->
 
       <!-- O MESMO MODELO DE MOVIMENTOS, a pedido: a tabela à esquerda e os filtros num
            trilho que abre ao encostar o mouse e EMPURRA a lista, em vez de cobri-la.
@@ -1634,8 +1635,9 @@
        a outra tem escolhido — sem nada na tela dizendo por quê. -->
   <section id="pgLancamentoMotorista" class="pagina">
     <div class="card">
-      <h2>Lançamento Motorista<span class="sub">O que o motorista declarou, e se já foi
-        conferido.</span></h2>
+      <!-- SEM TITULO NO CARTAO, como em Movimentos Motoristas: o cabecalho da pagina ja'
+           o diz. A frase de apoio — o que distingue esta tela da outra — foi para o
+           `title` do botao dela no menu, onde se pergunta "qual das duas eu abro". -->
 
       <!-- A GAVETA DE FILTROS, como a das outras telas de consulta. Eram quatro campos
            soltos numa barra, e os que faltavam — motorista, tipo, situacao, removidos —
@@ -5589,11 +5591,18 @@
      ensina a ignorar o vermelho.
      E O ÂMBAR É SÓ DO QUE SE RESOLVE. "Sem conferência" é um retorno esperando alguém
      contar — isso se resolve. "Saída Logística" não espera nada, e em âmbar ela seria
-     uma pendência eterna no meio das que são de verdade. */
+     uma pendência eterna no meio das que são de verdade.
+     "CONFERIDO" É CONTORNADO, e não cinza nem cor de veredito. Ele só existe na aba que
+     não vê a contagem: aconteceu, e o resultado mora na outra aba. Verde afirmaria que
+     fechou — e o mesmo par pode ser "Divergente" lá; âmbar chamaria de pendência o que não
+     espera nada desta tela. Cinza o punha no balde das AUSÊNCIAS, e nessa tela quatro das
+     cinco situações eram cinza: a cor deixava de dizer qualquer coisa. O contorno é a
+     família neutra com outra FORMA — "registrado, sem veredito" —, sem cor nova. */
   function corDaSituacao(sit){
     return sit === 'Bateu' ? 'verde'
          : sit === 'Divergente' ? 'vermelha'
-         : sit === 'Sem conferência' ? 'amarela' : 'cinza';
+         : sit === 'Sem conferência' ? 'amarela'
+         : sit === 'Conferido' ? 'contorno' : 'cinza';
   }
 
   function cartaoPar(par){
@@ -5983,6 +5992,26 @@
      CSV destas telas dizem o mesmo. */
   var RANK_SEM_MOTORISTA = 'sem informação';
 
+  /* O RANK NASCE RECOLHIDO, numa barra com os totais, e abre num clique.
+   *
+   * ELE DIVIDIA A ALTURA COM A TABELA, e levava quase o mesmo: medido a 2540x915, 228px
+   * de rank contra 258 de tabela — 5,5 linhas para quem passa o dia conferindo. Recolhido,
+   * ele ocupa uma barra, e a tabela vai a ~11 linhas (13 na tela de lancamento).
+   *
+   * RECOLHIDO NAO E' ESCONDIDO: a barra traz os totais dos blocos, somados das MESMAS
+   * linhas que os blocos desenham. O que fica a um clique sao as listas por motorista,
+   * que sao revisao de fim de periodo, e nao o trabalho de cada linha.
+   *
+   * A ESCOLHA E' DE QUEM OLHA, guardada no navegador como a lateral recolhida:
+   * preferencia, e nao permissao. Sem armazenamento (janela anonima), nasce recolhido. */
+  var CHAVE_RANK_ABERTO = 'qdc_rank_aberto';
+  function rankAberto(){
+    try { return localStorage.getItem(CHAVE_RANK_ABERTO) === '1'; } catch (e) { return false; }
+  }
+  function guardarRankAberto(v){
+    try { localStorage.setItem(CHAVE_RANK_ABERTO, v ? '1' : '0'); } catch (e) {}
+  }
+
   function desenharRank(L){
     var box = document.getElementById(TELA_PARES.rank || '');
     if (!box) return;
@@ -6075,11 +6104,30 @@
 
     function pc100(p){ return Math.round(p * 100) + '%'; }
 
+    var aberto = rankAberto();
+    var idBlocos = (TELA_PARES.rank || 'rank') + 'Blocos';
+    /* OS TOTAIS DA BARRA SAO OS DOS BLOCOS, das mesmas listas: escritos a' parte,
+       discordariam no primeiro recorte novo. Sem a conferencia, o do meio nao entra —
+       e' a contagem. */
+    var resumo = [
+      'Declarou <b>' + Q.num(soma(dec, 'declarou')) + '</b>',
+      veConf ? 'Chegou sem declarar <b>' + Q.num(soma(sem, 'semDeclarar')) + '</b>' : '',
+      '<b>' + (pTot ? pc100(pDec / pTot) : '\u2014') + '</b> declarado'
+    ].filter(Boolean).join(' \u00b7 ');
+    if (box.classList) box.classList.toggle('rk-caixa--fechado', !aberto);
     box.innerHTML =
-      '<div class="rk-cab">Rank dos motoristas<span class="fsub">' +
-      'o que está na tabela, por motorista — os filtros valem aqui também' +
-      '</span></div>' +
-      '<div class="graficos graficos--rank' + (veConf ? '' : ' graficos--rank-2') + '">' +
+      '<div class="rk-cab">' +
+      '<button type="button" class="rk-alterna" data-rank-alterna aria-expanded="' +
+        (aberto ? 'true' : 'false') + '" aria-controls="' + idBlocos + '" title="' +
+        (aberto ? 'Recolher o rank' : 'Abrir o rank por motorista') + '">' +
+        '<span class="rk-alterna__seta" aria-hidden="true">' + (aberto ? '\u25be' : '\u25b8') +
+        '</span>Rank dos motoristas</button>' +
+      '<span class="rk-resumo">' + resumo + '</span>' +
+      (aberto ? '<span class="fsub">o que está na tabela, por motorista — os filtros ' +
+                'valem aqui também</span>' : '') +
+      '</div>' +
+      '<div class="graficos graficos--rank' + (veConf ? '' : ' graficos--rank-2') + '" id="' +
+        idBlocos + '"' + (aberto ? '' : ' hidden') + '>' +
       bloco(0, 'Declarou o retorno',
         'Caixas que ele informou que trazia, nas viagens de retorno. Saída não entra. ' +
         /* O CAMINHO DE CONFERENCIA E' O QUE A TELA TEM: nesta sem cartoes, a dica
@@ -6129,6 +6177,12 @@
           : '<p class="g__vazio">sem retorno no recorte</p>') +
       '</div>';
 
+    Array.prototype.forEach.call(box.querySelectorAll('[data-rank-alterna]'), function(b){
+      b.addEventListener('click', function(){
+        guardarRankAberto(!rankAberto());
+        desenharRank(L);
+      });
+    });
     Array.prototype.forEach.call(box.querySelectorAll('[data-rank-mot]'), function(b){
       b.addEventListener('click', function(){
         if (!sel) return;

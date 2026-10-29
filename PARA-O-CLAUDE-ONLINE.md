@@ -194,10 +194,12 @@ dois foi medido. Na aba Movimentos Motoristas ele nunca aparece, e o filtro de l
 oferece. Pelo mesmo motivo, o filtro da tela de lançamento **não** oferece `Bateu` nem
 `Divergente`: ali as duas nunca casariam com linha nenhuma.
 
-Hoje `Conferido` cai no cinza, por ausência de caso em `corDaSituacao` — **isso não
-passou por desenho**, e é uma pergunta em aberto. Verde seria afirmar que fechou; âmbar
-seria chamar de pendência o que já foi resolvido. A regra do âmbar está escrita no
-comentário acima daquela função.
+**`Conferido` é uma etiqueta contornada** (`.tag.contorno`): a família neutra, sem
+fundo, com borda. Verde afirmaria que fechou — e o mesmo par pode ser `Divergente` na
+outra aba; âmbar chamaria de pendência o que não espera nada desta tela. E o cinza
+preenchido é o das **ausências**: na tela de lançamento, quatro das cinco situações eram
+cinza, e a cor deixava de dizer qualquer coisa. O contorno diz "registrado, sem
+veredito", sem cor nova. A regra completa está no comentário acima de `corDaSituacao`.
 
 ### O Painel de Ativos em detalhe — é onde o desenho mais importa
 
@@ -257,13 +259,18 @@ desenho, não de construção** — leia o código (seção 8) antes de propor m
 1. **A tabela é o primeiro lugar, e a tela cabe na janela** (computador, 1024px ou
    mais). Tabela e rank dividem a altura que sobra abaixo dos cartões; quem rola é a
    tabela, por dentro, com o cabeçalho fixo — a página não rola. **Não há janela de 16
-   linhas**: ela foi pedida, mas 16 linhas e o rank não cabem juntos numa tela. No
-   monitor do escritório (2540×915) a tabela mostra umas 5 ou 6 linhas; num 1920×950,
-   umas 6.
+   linhas**: ela foi pedida, mas 16 linhas e o rank aberto não cabem juntos numa tela.
+   Com o rank recolhido (o padrão, item 2), o monitor do escritório (2540×915) mostra
+   11,1 linhas; um 1920×1080, 15,2.
 2. **O rank vem embaixo dela, na largura inteira**, em **três blocos lado a lado**, cada
    um com a sua rolagem vertical — o mesmo desenho dos painéis `.graficos`/`.g` de
    Movimentos Gerais, com o modificador `.g--rank`. Ao lado da tabela foi tentado e
    medido: com 17 colunas, Conferido, a diferença e Situação saíam da vista.
+   **Ele nasce recolhido**, numa barra com os totais dos blocos ("Declarou 4.548 ·
+   Chegou sem declarar 46.420 · 15% declarado"), e abre num clique. Aberto, ele levava
+   228px — quase o mesmo que a tabela — e o monitor do escritório (2540×915) mostrava
+   5,5 linhas. Recolhido, e sem o título repetido dentro do cartão, são **11,1 linhas**
+   (13,3 na tela de lançamento). A escolha fica no navegador de quem olha.
 3. **Tela baixa (menos de 860px de altura, notebook)**: aí a página volta a rolar, com a
    tabela numa janela de 460px (umas 10 linhas) e o rank logo abaixo. Espremida, a
    tabela ficava com duas linhas.

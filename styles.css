@@ -1718,6 +1718,11 @@ tfoot tr.lin-total:hover td{background:var(--surface-2)}
 .tag.vermelha{background:var(--vermelho-claro);color:var(--vermelho)}
 .tag.azul{background:var(--azul-claro);color:var(--azul)}
 .tag.cinza{background:var(--neutro);color:var(--txt2)}
+/* "CONFERIDO": a família neutra com outra forma. Sem fundo e com contorno, ela diz
+   "registrado, sem veredito" — distinta das ausências cinza preenchidas, e sem cor de
+   juízo. `box-shadow` e não `border`, para a etiqueta ter a mesma altura das outras.
+   Tinta e contorno são tokens já medidos sobre a superfície. */
+.tag.contorno{background:transparent;color:var(--txt2);box-shadow:inset 0 0 0 1px var(--linha-viva)}
 /* O roxo da marca como etiqueta — hoje só o perfil Admin. Ele não é severidade: é
    identidade, e usa o MESMO par de tokens das iniciais no círculo. */
 .tag.roxa{background:var(--brand-soft);color:var(--roxo-txt)}
@@ -3523,6 +3528,18 @@ details.tipos[open] summary::before{content:"▾"}
 .rk-cab{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 8px;
   font-size:12.5px;font-weight:700;color:var(--txt)}
 .rk-cab .fsub{font-weight:400;font-size:11.5px;color:var(--txt3)}
+/* A BARRA DO RANK RECOLHIDO: o botão que abre e os totais dos blocos ao lado. O botão
+   tem cara de controle (seta, sublinhado no foco) porque é ele que devolve as listas. */
+.rk-alterna{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;
+  padding:4px 6px;margin:0 0 0 -6px;border-radius:var(--raio-sm);font:inherit;font-weight:700;
+  color:var(--txt);cursor:pointer}
+.rk-alterna:hover{background:var(--surface-2)}
+.rk-alterna:focus-visible{outline:2px solid var(--azul);outline-offset:1px}
+.rk-alterna__seta{font-size:11px;color:var(--txt3);width:1em}
+.rk-resumo{font-weight:400;font-size:12.5px;color:var(--txt2);font-variant-numeric:tabular-nums}
+.rk-resumo b{font-family:var(--fonte-mono);font-weight:700;color:var(--txt)}
+/* Recolhido, ele não pede altura: a tabela fica com o resto. */
+.rk-caixa--fechado .rk-cab{margin:0}
 /* 220px E' O PISO DE UM BLOCO: abaixo disso o nome some em reticencias antes de dizer
    de quem e'. Quando a soma nao cabe, os blocos rolam DE LADO em vez de espremer. */
 .graficos--rank{grid-template-columns:repeat(3,minmax(220px,1fr));margin:0;
@@ -3571,6 +3588,8 @@ details.tipos[open] summary::before{content:"▾"}
     scroll-snap-type:x mandatory;overscroll-behavior-x:contain;padding-bottom:6px}
   .g--rank{scroll-snap-align:start}
   .g--rank .gb{min-height:44px}
+  /* O botão que abre o rank é alvo de dedo como as linhas: 44px é piso. */
+  .rk-alterna{min-height:44px}
   /* cinco linhas a' vista por bloco: o podio e mais dois, sem o bloco tomar a tela */
   .g__lista{max-height:calc(5 * 50px)}
 }
@@ -3615,6 +3634,9 @@ details.tipos[open] summary::before{content:"▾"}
   .dc-area > .rk-caixa{flex:0 0 clamp(228px,40%,340px);margin:0;display:flex;
     flex-direction:column;min-height:0}
   .dc-area .graficos--rank{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr)}
+  /* RECOLHIDO, o rank deixa de reservar a altura: vira a barra, e a tabela fica com o
+     resto. Mais especifico que a regra de cima de proposito — vem depois e vence. */
+  .dc-area > .rk-caixa.rk-caixa--fechado{flex:0 0 auto}
   .dc-area .g__lista{flex:1 1 auto;min-height:0;max-height:none}
 }
 /* TELA BAIXA (notebook): NAO HA ALTURA PARA OS DOIS, e a pagina volta a rolar.
