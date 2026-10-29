@@ -184,8 +184,20 @@ Conferido − Declarado · Conferente · Situação
 Trazer as colunas de conferência para a primeira tela faria duas telas iguais com nomes
 diferentes. Já foi tentado, e a bancada pegou.
 
-Os valores de **Situação** são: `Bateu` · `Divergente` · `Sem conferência` ·
-`Sem Retorno Motorista` · `Saída Logística` · `Sem quantidade`.
+Os valores de **Situação** são **sete**: `Bateu` · `Divergente` · `Sem conferência` ·
+`Sem Retorno Motorista` · `Saída Logística` · `Sem quantidade` · `Conferido`.
+
+**O sétimo só existe numa das duas telas.** `Conferido` é o que se sabe quando falta um
+dos dois números: na aba Lançamento Motorista a contagem do conferente chega sem a
+quantidade, e aí dizer "Bateu" seria otimismo e "Divergente", pessimismo — nenhum dos
+dois foi medido. Na aba Movimentos Motoristas ele nunca aparece, e o filtro de lá nem o
+oferece. Pelo mesmo motivo, o filtro da tela de lançamento **não** oferece `Bateu` nem
+`Divergente`: ali as duas nunca casariam com linha nenhuma.
+
+Hoje `Conferido` cai no cinza, por ausência de caso em `corDaSituacao` — **isso não
+passou por desenho**, e é uma pergunta em aberto. Verde seria afirmar que fechou; âmbar
+seria chamar de pendência o que já foi resolvido. A regra do âmbar está escrita no
+comentário acima daquela função.
 
 ### O Painel de Ativos em detalhe — é onde o desenho mais importa
 
