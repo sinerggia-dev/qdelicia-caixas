@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=c7701fac">
+<link rel="stylesheet" href="styles.css?v=bb82cf2f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -2685,39 +2685,12 @@
       /* O CSV É A TABELA LEVADA PARA FORA, e sai com as colunas que ela tem — uma coluna
          que existe na tela e falta no arquivo faz a conferência de escritório chegar a
          um número que a tela não explica. */
-      Q.csv('motorista_conferente_'+Q.hoje()+'.csv',
-        /* A PLACA ENTROU AQUI JUNTO com a coluna da tela. Ela nasceu na tabela e nao
-           neste arquivo, e uma planilha a menos uma coluna e' exatamente o tipo de
-           falta que ninguem nota: o arquivo abre, os numeros estao certos, e o dado
-           que se foi buscar nao esta' la'.
-           OS DOIS NOMES DAS DIFERENCAS seguem a conta, que foi invertida: falta e'
-           negativo. O nome velho sobre a conta nova diria o oposto do que mostra. */
-        ['Lancamento','Data','Base','Tipo','Motorista','Placa','Origem','Destino',
-         'Saida','Retorno Declarado','Conferido','Conferido-Declarado',
-         'Informou','Conferente','Situacao'],
-        PARES.map(function(par){
-          /* NO ARQUIVO VAI A LISTA INTEIRA, e não o resumo "+3": o CSV existe para
-             procurar o lançamento, e um resumo não se procura. */
-          /* QUEM INFORMOU SAI NO ARQUIVO como coluna própria, e não só no balão da
-             tela: a conferência de escritório não tem balão, e sem ela o arquivo traz
-             um número de saída sem dono. */
-          return [par.idsTxt,
-                  Q.dataBR(par.dataRef), par.teste ? 'Teste' : 'Producao', par.tipo,
-                  par.motorista || '(sem motorista)', par.veiculoTxt,
-                  par.origemTxt, par.destinoTxt,
-                  /* AS MESMAS DUAS COLUNAS DA TELA. Um CSV com uma coluna a menos
-                     obriga quem abre a planilha a adivinhar de que sentido e' o
-                     numero — e o Tipo esta' tres colunas atras. */
-                  par.saidaTotal || '', par.retornoTotal || '', par.conferido || '',
-                  /* O ARQUIVO LEVA O MESMO NUMERO DA TELA, com o mesmo sinal: uma
-                     planilha que discorda da tela e' a pior forma de divergencia,
-                     porque ela viaja por e-mail sem a tela do lado para conferir.
-                     E AS MESMAS COLUNAS: o `declarado` e a diferenca contra ele sairam
-                     da tela, e um CSV com campos que a tabela nao tem so' serve para
-                     duas pessoas compararem numeros diferentes achando que sao o mesmo. */
-                  par.difConf == null ? '' : par.difConf,
-                  par.informanteTxt, par.conferenteTxt, par.situacao];
-        }));
+      /* O NOME DO ARQUIVO SEGUE A TELA: o botão de Lançamento Motorista aciona este, e
+         um "motorista_conferente" baixado da tela que não mostra conferência diria que
+         o arquivo traz o que ele não traz. */
+      var csv = csvDosPares(PARES);
+      Q.csv((veConferencia() ? 'motorista_conferente_' : 'lancamento_motorista_') +
+            Q.hoje()+'.csv', csv.cabecalho, csv.linhas);
     });
     periodoPadraoDecl();
   })();
@@ -4983,11 +4956,18 @@
          O MAIOR DOS DOIS, e nao a soma: declarado e conferido sao a MESMA carga contada
          duas vezes, uma por quem levou e outra por quem recebeu. Somados, uma carga de
          500 que bateu apareceria como 1.000. */
+      /* SEM A CONFERENCIA, A COLUNA E' SO' O LADO DE QUEM LEVOU. O maior dos dois punha a
+         contagem do conferente nesta coluna em todo par "Sem Retorno Motorista" — e na
+         tela que nao pode mostra-la, era a porta mais a' vista das sete. O `k` muda junto:
+         ordenar por um numero escondido revelaria a ordem dele. */
       caixas:    { t: T.caixas, num: true,
-                   k: function(p){ return Math.max(p.declaradoTotal || 0,
-                                                   p.conferido || 0); },
+                   k: function(p){ return veConferencia()
+                     ? Math.max(p.declaradoTotal || 0, p.conferido || 0)
+                     : (p.declaradoTotal || 0); },
                    v: function(p){
-                     var n = Math.max(p.declaradoTotal || 0, p.conferido || 0);
+                     var n = veConferencia()
+                       ? Math.max(p.declaradoTotal || 0, p.conferido || 0)
+                       : (p.declaradoTotal || 0);
                      return n ? '<b>'+Q.num(n)+'</b>'
                               : '<span class="fraco">\u2014</span>'; } },
       /* O QUE O MOTORISTA DECLAROU, seja na saida ou no retorno. A tabela de Lancamento
@@ -5013,7 +4993,7 @@
                    v: function(p){ return Q.esc(p.tipo); } },
       motorista: { t: T.motorista, k: function(p){ return p.motorista; },
                    v: function(p){ return p.motorista ? Q.esc(p.motorista)
-                     : '<span class="fraco">(sem motorista)</span>'; } },
+                     : '<span class="fraco">sem informação</span>'; } },
       /* A PLACA COMO ETIQUETA, igual a de Movimentos: ela e um codigo, e codigo no
          meio de uma fileira de nomes some. Vazia vira traco, e nao celula em branco —
          par que so tem declaracao nao tem placa nenhuma, e branco se le como dado que
@@ -5136,6 +5116,8 @@
    * devolve `null`, e o desenho ja' pergunta antes de escrever em cada um deles. */
   var TELA_DECL = {
     tab: null, box: 'tabelaDecl', totais: 'dcTotais', sits: 'dcSituacoes', rank: 'dcRank',
+    /* VE A CONFERENCIA: esta aba mostra QUANTO foi conferido. Ver `veConferencia()`. */
+    veConferencia: true,
     alvo: '#tabelaDecl', situacao: 'dcSituacao', tipo: 'dcTipo',
     campos: { de: 'dcDe', ate: 'dcAte', motorista: 'dcMotorista', base: 'dcBase',
               removidos: 'dcRemovidos', busca: 'dcBusca' }
@@ -5152,11 +5134,94 @@
      repetiria o mesmo, e ninguem veria — a tela so' ficaria sem o rank. */
   var TELA_LANC = {
     tab: null, box: 'tabelaLanc', totais: '', sits: 'lmSituacoes', rank: 'lmRank',
+    /* NAO VE A CONFERENCIA. Ver `veConferencia()`. */
+    veConferencia: false,
     alvo: '#tabelaLanc', situacao: 'lmSituacao', tipo: 'lmTipo',
     campos: { de: 'lmDe', ate: 'lmAte', motorista: 'lmMotorista', base: '',
               removidos: 'lmRemovidos', busca: 'lmBusca' }
   };
   var TELA_PARES = TELA_DECL;
+
+  /* A TELA ABERTA PODE MOSTRAR QUANTO FOI CONFERIDO?
+   *
+   * As duas abas tem PERMISSAO INDEPENDENTE (`pgLancamentosMotorista` e
+   * `pgLancamentoMotorista`), e o Admin pode dar uma sem dar a outra. Quem recebeu so' a
+   * de lancamento ve SE uma carga foi conferida — e' a coluna Situacao — e nunca QUANTO:
+   * a quantidade conferida mora na aba que ele nao recebeu.
+   *
+   * UM INTERRUPTOR SO', no descritor, e nao um `if` em cada desenho. A quantidade vazava
+   * por SETE portas nesta tela — o rank, a coluna Caixas, o par aberto, a ficha e o
+   * cabecalho do dia no celular, o CSV e o formulario de corrigir —, e a bancada so'
+   * vigiava os nomes das colunas. Cada porta pergunta aqui; uma porta nova que esqueca de
+   * perguntar e' pega pela prova que desenha a tela inteira com uma quantidade conferida
+   * que nao existe em mais lugar nenhum e procura por ela (`teste_tela.js`).
+   *
+   * ESCONDER E' A PORTA, NAO A FECHADURA: a rota `conciliacao` continua entregando os
+   * lancamentos do conferente a esta tela. Recortar por aba no servidor e' o conserto de
+   * verdade, e fica junto da API sem autorizacao (CLAUDE.md, "Estado atual"). */
+  function veConferencia(){
+    return !TELA_PARES || TELA_PARES.veConferencia !== false;
+  }
+
+  /* AS LINHAS DO CSV DAS DUAS TELAS DE CONCILIACAO.
+   *
+   * ERA UM SO' ARQUIVO PARA AS DUAS, e o botao de Lancamento Motorista apenas clicava o
+   * da outra tela: quem tinha so' a aba de lancamento baixava Conferido, a diferenca e o
+   * nome do conferente de todos os pares — a quantidade que a tela dele nao mostra, numa
+   * planilha que viaja por e-mail.
+   *
+   * SEM A CONFERENCIA, O ARQUIVO E' A TABELA DELA: as mesmas colunas, na mesma ordem, e
+   * "Caixas" com o mesmo numero da tela (so' o lado de quem levou).
+   *
+   * E' UMA FUNCAO COM NOME, e nao o corpo do ouvinte, para a bancada poder chama-la e
+   * procurar a quantidade conferida no que ela devolve. */
+  function csvDosPares(lista){
+    if (!veConferencia()) {
+      return {
+        cabecalho: ['Lancamento','Data','Hora','Tipo','Motorista','Placa','Origem',
+                    'Destino','Caixas','Declarado','Situacao'],
+        /* UMA COLUNA PARA CADA TITULO, onze e onze — a mesma conta que a bancada ja'
+           cobra do arquivo da outra tela. */
+        linhas: (lista || []).map(function(par){
+          var linha = [par.idsTxt, Q.dataBR(par.dataRef), par.horaTxt || '', par.tipo,
+                  par.motorista || 'sem informação', par.veiculoTxt,
+                  par.origemTxt, par.destinoTxt,
+                  par.declaradoTotal || '', par.declaradoTotal || '',
+                  par.situacao];
+          return linha;
+        })
+      };
+    }
+    return {
+      cabecalho:
+        ['Lancamento','Data','Base','Tipo','Motorista','Placa','Origem','Destino',
+         'Saida','Retorno Declarado','Conferido','Conferido-Declarado',
+         'Informou','Conferente','Situacao'],
+      linhas: (lista || []).map(function(par){
+          /* NO ARQUIVO VAI A LISTA INTEIRA, e não o resumo "+3": o CSV existe para
+             procurar o lançamento, e um resumo não se procura. */
+          /* QUEM INFORMOU SAI NO ARQUIVO como coluna própria, e não só no balão da
+             tela: a conferência de escritório não tem balão, e sem ela o arquivo traz
+             um número de saída sem dono. */
+          return [par.idsTxt,
+                  Q.dataBR(par.dataRef), par.teste ? 'Teste' : 'Producao', par.tipo,
+                  par.motorista || 'sem informação', par.veiculoTxt,
+                  par.origemTxt, par.destinoTxt,
+                  /* AS MESMAS DUAS COLUNAS DA TELA. Um CSV com uma coluna a menos
+                     obriga quem abre a planilha a adivinhar de que sentido e' o
+                     numero — e o Tipo esta' tres colunas atras. */
+                  par.saidaTotal || '', par.retornoTotal || '', par.conferido || '',
+                  /* O ARQUIVO LEVA O MESMO NUMERO DA TELA, com o mesmo sinal: uma
+                     planilha que discorda da tela e' a pior forma de divergencia,
+                     porque ela viaja por e-mail sem a tela do lado para conferir.
+                     E AS MESMAS COLUNAS: o `declarado` e a diferenca contra ele sairam
+                     da tela, e um CSV com campos que a tabela nao tem so' serve para
+                     duas pessoas compararem numeros diferentes achando que sao o mesmo. */
+                  par.difConf == null ? '' : par.difConf,
+                  par.informanteTxt, par.conferenteTxt, par.situacao];
+        })
+    };
+  }
 
   /* OS DESCRITORES SAO LIGADOS DEPOIS, e nao na criacao: `TAB_DECL` nasce mais acima no
      arquivo e `TAB_LANC` logo aqui, e um deles seria `undefined` no momento em que o
@@ -5315,6 +5380,16 @@
 
   function linhasDoPar(par){
     var pode = podeMexerNaDeclaracao();
+    /* NA TELA SEM A CONFERENCIA, A LINHA DE QUEM CONTOU FICA SO' PARA LEITURA, e sem o
+       numero. Ela continua aparecendo — dizer QUE alguem contou, e quem, e' o "se" que
+       esta tela responde —, mas a quantidade e os botoes saem: o "corrigir" abria o
+       formulario com a contagem e deixava altera-la, e quem nao pode ver a conferencia
+       nao pode reescreve-la. SO' NO RETORNO: numa saida nao ha' contagem de chegada, e o
+       numero informado ja' esta' na coluna Caixas. */
+    var escondida = function(m){
+      return !veConferencia() && par.tipo === 'Retorno' && !m.declaracao &&
+             (contouComoConferente(m) || papelQueConfere(m));
+    };
     /* ================= O CONSERTO DA CARGA INTEIRA =================
      *
      * A gaveta mostrava CINCO linhas com cinco botoes de `corrigir`, e trocar a data ou
@@ -5329,9 +5404,15 @@
      *
      * UM BOTAO POR REGISTRO, e nao por linha: a carga e' uma so'. */
     var regs = {}, ordem = [];
+    /* A CARGA QUE TEM UMA LINHA OCULTA NAO GANHA "corrigir a carga": o formulario da
+       carga mostra e altera as quantidades de TODAS as linhas dela. */
+    var comOculta = {};
+    par.itens.forEach(function(m){
+      if (escondida(m)) comOculta[String(m.registro || '')] = 1;
+    });
     par.itens.forEach(function(m){
       var r = String(m.registro || '');
-      if (!r || m.cancelado || regs[r]) return;
+      if (!r || m.cancelado || regs[r] || comOculta[r]) return;
       regs[r] = 1; ordem.push(r);
     });
     var daCarga = !pode ? '' : ordem.filter(function(r){
@@ -5351,11 +5432,16 @@
         if (!!a.declaracao !== !!b.declaracao) return a.declaracao ? -1 : 1;
         return String(a.id || '').localeCompare(String(b.id || ''));
       }).map(function(m){
+        var oculta = escondida(m);
+        var podeL = pode && !oculta;
         return '<div class="lp__l'+(m.cancelado ? ' lp__l--fora' : '')+'">'+
           '<span class="cod">'+Q.esc(m.id || '—')+'</span>'+
           '<span class="tag '+(m.declaracao ? 'azul' : 'verde')+'">'+
             (m.declaracao ? 'Declarou' : 'Contou')+'</span>'+
-          '<b class="lp__q">'+Q.num(Number(m.qtd) || 0)+'</b>'+
+          (oculta
+            ? '<b class="lp__q"><span class="fraco" title="A quantidade conferida fica na ' +
+              'aba Movimentos Motoristas">conferido</span></b>'
+            : '<b class="lp__q">'+Q.num(Number(m.qtd) || 0)+'</b>')+
           '<span class="lp__q2">'+Q.esc(m.tipoCaixa || '—')+'</span>'+
           '<span class="lp__q2">'+Q.esc(m.usuario || '—')+'</span>'+
           '<span class="lp__q2">'+Q.esc(m.origem || m.rota || '—')+'</span>'+
@@ -5375,18 +5461,18 @@
               'mudou e por quê">'+(m.historico.length > 1
                 ? m.historico.length + ' alterações' : 'alterado')+'</span>'
             : '')+
-          (pode && m.cancelado
+          (podeL && m.cancelado
             ? '<span class="lp__a"><button class="mini" type="button" '+
                 'data-ddescancelar="'+Q.esc(m.id)+'">desfazer o cancelamento</button></span>'
             : '')+
           /* DA LIXEIRA SE VOLTA PELA PORTA DA LIXEIRA, que ja existia e e' outra marca.
              Oferecer "desfazer o cancelamento" numa linha apagada levaria a recusa da
              rota depois de a pessoa escrever o motivo. */
-          (pode && m.excluidoEm
+          (podeL && m.excluidoEm
             ? '<span class="lp__a"><button class="mini" type="button" '+
                 'data-dreporlixeira="'+Q.esc(m.id)+'">tirar da lixeira</button></span>'
             : '')+
-          (pode && !m.cancelado
+          (podeL && !m.cancelado
             ? '<span class="lp__a">'+
                 /* SO' CORRIGIR E RESTAURAR, a pedido.
                    Cancelar e excluir fazem o lancamento sair da conta — e esta tela
@@ -5436,7 +5522,8 @@
     var porDia = {};
     lista.forEach(function(p2){
       var d = p2.dataRef || '';
-      if (!porDia[d]) porDia[d] = { said: 0, conf: 0 };
+      if (!porDia[d]) porDia[d] = { said: 0, conf: 0, decl: 0 };
+      porDia[d].decl += Number(p2.declaradoTotal) || 0;
       porDia[d].said += Number(p2.saida) || 0;
       porDia[d].conf += Number(p2.conferido) || 0;
     });
@@ -5455,11 +5542,15 @@
           '<header class="dia-mov" data-dia="'+Q.esc(d)+'">'+
             '<b>'+Q.esc(d ? Q.dataBR(d) : '—')+'</b>'+
             '<span class="dia-mov__esp"></span>'+
-            '<span class="dia-mov__s" title="Saída no dia">S '+Q.num(x.said)+'</span>'+
+            /* SEM A CONFERENCIA, O DIA DIZ SO' O QUE FOI DECLARADO: o "C" e a diferenca
+               sao a soma do que o conferente contou. */
+            (!veConferencia()
+              ? '<span class="dia-mov__s" title="Declarado no dia">D '+Q.num(x.decl)+'</span>'
+              : '<span class="dia-mov__s" title="Saída no dia">S '+Q.num(x.said)+'</span>'+
             '<span class="dia-mov__r" title="Conferido no dia">C '+Q.num(x.conf)+'</span>'+
             '<span class="dia-mov__b'+(dif !== 0 ? ' ruim' : '')+'" title="Saída menos conferido, no dia">'+
               (dif === 0 ? '0' : (dif < 0 ? '−' : '+')+Q.num(Math.abs(dif)))+
-            '</span>'+
+            '</span>')+
           '</header><div class="pares">');
       }
       fora.push(cartaoPar(p2));
@@ -5488,7 +5579,7 @@
     return '<article class="pc'+(par.situacao === 'Bateu' ? '' : ' pc--olhar')+'">'+
       '<header class="pc__c">'+
         '<div><b>'+(par.motorista ? Q.esc(par.motorista)
-                                  : '<span class="fraco">(sem motorista)</span>')+'</b>'+
+                                  : '<span class="fraco">sem informação</span>')+'</b>'+
           '<small>'+Q.esc(Q.dataBR(par.dataRef))+' · '+Q.esc(par.tipo)+' · '+
             Q.esc(par.teste ? 'Teste' : 'Produção')+'</small></div>'+
         '<span class="tag '+cor+'">'+Q.esc(par.situacao)+'</span>'+
@@ -5503,9 +5594,13 @@
         '<div><small>Retorno Declarado</small><b>'+(par.declaradoTotal
                                                   ? Q.num(par.declaradoTotal)
                                                   : '<span class="fraco">—</span>')+'</b></div>'+
+        /* SEM A CONFERENCIA, A FICHA FICA COM O DECLARADO: o Conferido e a diferenca
+           contra ele sao exatamente o que esta aba nao mostra. */
+        (!veConferencia() ? '' :
         '<div><small>Conferido</small><b>'+(par.conferido ? Q.num(par.conferido)
-                                                          : '<span class="fraco">—</span>')+'</b></div>'+
+                                                          : '<span class="fraco">—</span>')+'</b></div>')+
       '</div>'+
+      (!veConferencia() ? '' :
       '<div class="pc__n pc__n--dif">'+
         /* A FICHA DO CELULAR LÊ O MESMO CAMPO, então ela já vem invertida; o que
            precisa acompanhar é o NOME e a COR. Uma das duas telas com a direção antiga
@@ -5513,7 +5608,7 @@
         '<div><small>Conferido − Declarado</small><b'+
           (par.difConf < 0 ? ' class="dif-falta"' : '')+'>'+(par.difConf == null
           ? '<span class="fraco">—</span>' : sinal(par.difConf))+'</b></div>'+
-      '</div>'+
+      '</div>')+
       /* AS DUAS PONTAS DA VIAGEM na linha de apoio: no celular não há coluna Origem nem
          Destino para onde olhar, e "de onde para onde" é a primeira pergunta de quem
          abre um par que não fechou. */
@@ -5784,7 +5879,9 @@
   function rankDeMotoristas(L){
     var mapa = {}, ordem = [];
     function balde(nome){
-      var k = String(nome || '').trim() || 'sem motorista';
+      /* O MESMO TEXTO DE `RANK_SEM_MOTORISTA`, escrito aqui porque esta funcao roda
+         sozinha na bancada, recortada do arquivo, sem a constante ao lado. */
+      var k = String(nome || '').trim() || 'sem informação';
       if (!mapa[k]) {
         mapa[k] = { nome: k, declarou: 0, nDeclarou: 0, semDeclarar: 0, nSemDeclarar: 0 };
         ordem.push(k);
@@ -5853,7 +5950,11 @@
    * no desenho, o rank nascia com todas as linhas desligadas e nao se religava — medido
    * na bancada, 76 de 76. Nome que nao esta' no cadastro entra no campo como "(fora do
    * cadastro)", a mesma convencao que `montarSelects` ja' usa para nao perder a escolha. */
-  var RANK_SEM_MOTORISTA = 'sem motorista';
+  /* "SEM INFORMACAO", e nao "sem motorista": e' o nome que o resto do painel ja' da' a
+     esta categoria (graficos de Movimentos, Painel de Ativos, regra 3 do briefing). Dois
+     nomes para a mesma ausencia fazem perguntar se sao duas coisas. A tabela, a ficha e o
+     CSV destas telas dizem o mesmo. */
+  var RANK_SEM_MOTORISTA = 'sem informação';
 
   function desenharRank(L){
     var box = document.getElementById(TELA_PARES.rank || '');
@@ -5865,6 +5966,10 @@
     }
     var sel = document.getElementById(TELA_PARES.campos.motorista || '');
     var escolhidos = escolhaDe(sel);
+    /* SEM A CONFERENCIA, DOIS BLOCOS: sai "Chegou sem ele declarar", que e' a quantidade
+       que o conferente contou. O "% declarado" fica — ele conta DIAS, e so' diz SE houve
+       conferencia, que a coluna Situacao desta tela ja' diz. */
+    var veConf = veConferencia();
 
     function porNome(a, b){ return a.nome.localeCompare(b.nome, 'pt-BR'); }
     function dias(n){ return Q.num(n) + (n === 1 ? ' dia' : ' dias'); }
@@ -5882,7 +5987,7 @@
       var titulo = l.nome + ' — ' + dica +
         (pode ? (lig ? ' · clique para tirar o filtro'
                      : ' · clique para ver só as viagens dele')
-              : ' · sem motorista não vira filtro');
+              : ' · sem informação não vira filtro');
       return '<button class="gb' + (l.nome === RANK_SEM_MOTORISTA ? ' gb--sem-info' : '') +
         '" type="button" title="' + Q.esc(titulo) + '"' +
         (pode ? ' data-rank-mot="' + Q.esc(l.nome) + '" aria-pressed="' +
@@ -5947,11 +6052,15 @@
       '<div class="rk-cab">Rank dos motoristas<span class="fsub">' +
       'o que está na tabela, por motorista — os filtros valem aqui também' +
       '</span></div>' +
-      '<div class="graficos graficos--rank">' +
+      '<div class="graficos graficos--rank' + (veConf ? '' : ' graficos--rank-2') + '">' +
       bloco(0, 'Declarou o retorno',
         'Caixas que ele informou que trazia, nas viagens de retorno. Saída não entra. ' +
-        'O total é o mesmo do cartão Retorno Declarado. "Dias" são os dias de romaneio ' +
-        'em que ele voltou: duas viagens no mesmo dia contam como um.',
+        /* O CAMINHO DE CONFERENCIA E' O QUE A TELA TEM: nesta sem cartoes, a dica
+           mandava procurar um cartao que nao existe. */
+        (TELA_PARES.totais ? 'O total é o mesmo do cartão Retorno Declarado. '
+                           : 'O total é a soma da coluna Declarado nas linhas de Retorno. ') +
+        '"Dias" são os dias de romaneio em que ele voltou: duas viagens no mesmo dia ' +
+        'contam como um.',
         Q.num(soma(dec, 'declarou')),
         dias(soma(dec, 'nDeclarou')),
         dec.length
@@ -5961,6 +6070,7 @@
                 Q.num(l.declarou) + ' caixas declaradas em ' + dias(l.nDeclarou));
             }).join('')
           : '<p class="g__vazio">ninguém declarou retorno no recorte</p>') +
+      (!veConf ? '' :
       bloco(3, 'Chegou sem ele declarar',
         'Caixas que alguém contou na chegada sem o retorno do motorista. ' +
         'Para conferir o total: filtre a Situação por "Sem Retorno Motorista" — o ' +
@@ -5976,7 +6086,7 @@
                 Q.num(l.semDeclarar) + ' caixas contadas sem declaração em ' +
                 dias(l.nSemDeclarar));
             }).join('')
-          : '<p class="g__vazio">todo retorno contado foi declarado</p>') +
+          : '<p class="g__vazio">todo retorno contado foi declarado</p>')) +
       bloco(6, '% declarado',
         'Dos dias em que cada motorista voltou, em quantos ele declarou o retorno. ' +
         'Do pior para o melhor. Lançamento sem motorista fica de fora.',

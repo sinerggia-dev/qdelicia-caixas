@@ -146,6 +146,11 @@ function semComentarios(txt) {
     'discut\u00edvel por um n\u00famero falso');
 })();
 
+/* AS FUNCOES DE DESENHO DAS DUAS TELAS DE CONCILIACAO perguntam `veConferencia()` — a
+   tela aberta pode mostrar QUANTO foi conferido? As provas que recortam uma delas rodam,
+   por padrao, na tela que mostra (Movimentos Motoristas); a outra tem provas proprias. */
+var VE_CONF = 'function veConferencia(){ return true; }\n';
+
 function fonteDaFuncao(txt, nome) {
   var i = String(txt).indexOf('function ' + nome + '(');
   if (i < 0) return '';
@@ -4041,10 +4046,10 @@ console.log('\n== o rank dos motoristas ==');
     'nenhuma, e cont\u00e1-la poria no topo quem s\u00f3 leva caixa', r.map(function (l) { return l.nome; }));
 
   /* SEM MOTORISTA E UMA CATEGORIA, pela regra que ja vale no resto do projeto. */
-  ok(por['sem motorista'] && por['sem motorista'].semDeclarar === 33,
+  ok(por['sem informa\u00e7\u00e3o'] && por['sem informa\u00e7\u00e3o'].semDeclarar === 33,
     'e a carga sem motorista anotado vira uma linha com NOME \u2014 somada \u00e0 de algu\u00e9m ou ' +
     'escondida, ela cobraria a pessoa errada ou ningu\u00e9m',
-    por['sem motorista']);
+    por['sem informa\u00e7\u00e3o']);
 
   /* QUEM NAO TEM NUMERO NENHUM SAI: uma linha de zeros so' empurra para baixo quem
      tem numero. */
@@ -15555,11 +15560,18 @@ console.log('\n== a tela Lan\u00e7amento Motorista ==');
       if (adm[k] === '{') prof++;
       else if (adm[k] === '}' && --prof === 0) { fimD = k + 1; break; }
     }
-    var defs = new Function('TAB_DECL', 'Q',
-      adm.slice(iD, fimD) + ' return defsDecl();')(
-      { titulos: { caixas: 'Caixas', declarado: 'Declarado' } },
-      { esc: function (x) { return String(x); },
-        num: function (n) { return String(n); } });
+    /* A TELA ENTRA COMO PARAMETRO: a coluna Caixas responde diferente conforme a aba
+       mostre ou nao a conferencia (`veConferencia()`). As provas de baixo sao da tela que
+       mostra; as da que nao mostra vem logo depois. */
+    function defsDaTela(ve) {
+      return new Function('TAB_DECL', 'Q', 'veConferencia',
+        adm.slice(iD, fimD) + ' return defsDecl();')(
+        { titulos: { caixas: 'Caixas', declarado: 'Declarado' } },
+        { esc: function (x) { return String(x); },
+          num: function (n) { return String(n); } },
+        function () { return ve; });
+    }
+    var defs = defsDaTela(true);
 
     /* UM RETORNO DECLARADO E NAO CONFERIDO: e' a linha mais comum desta tela, e a que
        a coluna antiga mostrava como travessao. */
@@ -15597,6 +15609,24 @@ console.log('\n== a tela Lan\u00e7amento Motorista ==');
     ok(defs.caixas.v(vazio).indexOf('\u2014') >= 0,
       'e sem n\u00famero nenhum ela mostra travess\u00e3o, e n\u00e3o zero \u2014 zero \u00e9 uma carga que deu ' +
       'zero, e aus\u00eancia \u00e9 outra coisa', defs.caixas.v(vazio));
+
+    /* NA TELA QUE NAO MOSTRA A CONFERENCIA, A COLUNA NAO PODE TRAZER A CONTAGEM. Era a
+       porta mais a' vista das sete: em todo par "Sem Retorno Motorista" o numero da
+       coluna Caixas ERA o que o conferente contou, na aba de quem nao pode ve-lo. */
+    var semConf = defsDaTela(false);
+    ok(semConf.caixas.v(soConf).indexOf('270') < 0 &&
+       semConf.caixas.v(soConf).indexOf('\u2014') >= 0,
+      'na tela sem a confer\u00eancia, uma carga contada e n\u00e3o declarada mostra travess\u00e3o em ' +
+      'Caixas \u2014 o 270 \u00e9 a contagem do conferente, e mora na aba que esta pessoa pode ' +
+      'n\u00e3o ter', semConf.caixas.v(soConf));
+    ok(semConf.caixas.k(soConf) === 0,
+      'e ela tamb\u00e9m n\u00e3o se ORDENA pela contagem \u2014 classificar por um n\u00famero escondido ' +
+      'revelaria a ordem dele', semConf.caixas.k(soConf));
+    var contouMais = { tipo: 'Retorno', declaradoTotal: 400, conferido: 437, saidaTotal: null };
+    ok(semConf.caixas.k(contouMais) === 400 && defs.caixas.k(contouMais) === 437,
+      'e num par em que se contou MAIS do que se declarou, ela mostra o declarado \u2014 o ' +
+      'maior dos dois seria a contagem outra vez', [semConf.caixas.k(contouMais),
+                                                  defs.caixas.k(contouMais)]);
   })();
 
   /* ---- E A FIACAO DOS CONTROLES NOVOS ---- */
@@ -20926,7 +20956,7 @@ console.log('\n== Motorista/Conferente ==');
     'cada sentido tem a sua coluna: "Sa\u00edda" e "Retorno Declarado" \u2014 numa s\u00f3, ligar o ' +
     'filtro de sa\u00eddas mostrava quantidade de sa\u00edda sob o t\u00edtulo "Retorno"', TITD);
   var DEFSD = new Function('Q', 'TAB_DECL',
-    fonteDefsD + '\n return defsDecl();')(
+    VE_CONF + fonteDefsD + '\n return defsDecl();')(
     { esc: function (s) { return String(s == null ? '' : s).replace(/"/g, '&quot;'); },
       num: function (n) { return String(Number(n) || 0); } },
     { titulos: TITD });
@@ -21166,9 +21196,12 @@ console.log('\n== Motorista/Conferente ==');
     'passarem sem rodar nada', fonteLin.length);
   var Qfalso = { esc: function (x) { return String(x == null ? '' : x); },
                  num: function (x) { return String(x); } };
+  /* A TELA QUE MOSTRA A CONFERENCIA (Movimentos Motoristas): e' a de sempre. A outra
+     tem provas proprias, logo abaixo, na secao da conferencia escondida. */
   function desenha(pode) {
-    return new Function('Q', 'podeMexerNaDeclaracao',
-      fonteLin + '\nreturn linhasDoPar;')(Qfalso, function () { return pode; })({
+    return new Function('Q', 'podeMexerNaDeclaracao', 'veConferencia',
+      fonteLin + '\nreturn linhasDoPar;')(Qfalso, function () { return pode; },
+                                           function () { return true; })({
         itens: [
           { id: 'M000102', qtd: 250, declaracao: false, usuario: 'Nestor', origem: 'Natal' },
           { id: 'M000041', qtd: 400, declaracao: true,  usuario: 'Arilson' },
@@ -21679,7 +21712,7 @@ console.log('\n== Motorista/Conferente ==');
     var it = { id: 'M1', qtd: 75, declaracao: false, usuario: 'Nestor', origem: 'Natal' };
     Object.keys(extra || {}).forEach(function (k) { it[k] = extra[k]; });
     return new Function('Q', 'podeMexerNaDeclaracao',
-      fonteLin + '\nreturn linhasDoPar;')(Qfalso, function () { return true; })(
+      VE_CONF + fonteLin + '\nreturn linhasDoPar;')(Qfalso, function () { return true; })(
       { itens: [it] });
   }
   var mexida = linhaCom({ historico: [{ campo: 'quantidade' }] });
@@ -21793,7 +21826,7 @@ console.log('\n== Motorista/Conferente ==');
 
     function gaveta(itens, decls) {
       return new Function('Q', 'podeMexerNaDeclaracao', 'DECLS',
-        fonteLA + '\n' + fonteLP + '\n return linhasDoPar;')(
+        VE_CONF + fonteLA + '\n' + fonteLP + '\n return linhasDoPar;')(
         { esc: function (x) { return String(x == null ? '' : x); },
           num: function (n) { return String(Number(n) || 0); } },
         function () { return true; },
@@ -21834,7 +21867,7 @@ console.log('\n== Motorista/Conferente ==');
     /* SO' PARA QUEM PODE MEXER. Oferecer o caminho para uma porta trancada e' pior que
        nao oferecer o caminho. */
     var semPoder = new Function('Q', 'podeMexerNaDeclaracao', 'DECLS',
-      fonteLA + '\n' + fonteLP + '\n return linhasDoPar;')(
+      VE_CONF + fonteLA + '\n' + fonteLP + '\n return linhasDoPar;')(
       { esc: function (x) { return String(x == null ? '' : x); },
         num: function (n) { return String(Number(n) || 0); } },
       function () { return false; }, doisItens)({ itens: doisItens });
@@ -23676,7 +23709,7 @@ console.log('\n== a faixa do dia na conciliacao ==');
 
   if (fonteP.length > 700) {
     var agrupar = new Function('Q', 'cartaoPar',
-      fonteP + '\n return paresPorDia;')(
+      VE_CONF + fonteP + '\n return paresPorDia;')(
       { esc: function (s) { return String(s == null ? '' : s); },
         num: function (n) { return String(n); },
         dataBR: function (d) { return String(d).split('-').reverse().join('/'); } },
@@ -31596,6 +31629,136 @@ console.log('\n== o documento da carga ==');
   ok(/target = '_blank'/.test(fnA),
     'e abre em aba nova — quem montou um recorte no extrato não pode perdê-lo para ' +
     'ver uma foto');
+})();
+
+/* ---------------------------------------------------------------------------
+ * QUEM SO' TEM A ABA DE LANCAMENTO NAO VE QUANTO FOI CONFERIDO.
+ *
+ * As abas Movimentos Motoristas e Lancamento Motorista tem permissao independente. A
+ * segunda responde SE uma carga foi conferida (coluna Situacao), nunca QUANTO.
+ *
+ * A PROVA E' PELO PRINCIPIO, E NAO POR COMPONENTE. A que existia comparava os NOMES das
+ * colunas das duas telas, e a quantidade conferida passou por SETE portas que nao sao
+ * nome de coluna: o rank, o calculo da coluna Caixas, o par aberto, a ficha e o
+ * cabecalho do dia no celular, o CSV e o formulario de corrigir. Uma prova so' do rank
+ * teria o mesmo ponto cego, um degrau acima.
+ *
+ * O METODO: um par contado SO' pelo conferente, com uma quantidade que nao aparece em
+ * mais lugar nenhum — 4321 — e cada pedaco da tela desenhado nos dois modos. Na tela que
+ * ve a conferencia o numero TEM de aparecer (senao a sonda nao enxerga nada e a prova
+ * passa por vazio); na que nao ve, NAO pode.
+ * ------------------------------------------------------------------------- */
+console.log('\n== a tela de lancamento nao mostra quanto foi conferido ==');
+(function () {
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var SONDA = '4321';
+  var fontes = {};
+  ['contouComoConferente', 'linhasAtivasDaCarga', 'linhasDoPar', 'corDaSituacao',
+   'cartaoPar', 'paresPorDia', 'csvDosPares', 'rankDeMotoristas', 'desenharRank']
+    .forEach(function (n) { fontes[n] = fonteDaFuncao(adm, n); });
+  var faltam = Object.keys(fontes).filter(function (n) { return fontes[n].length < 80; });
+  ok(!faltam.length, 'a conferência recortou as nove funções da tela — recorte vazio ' +
+    'faria as provas abaixo passarem sem desenhar nada', faltam);
+  if (faltam.length) return;
+
+  var Q = { esc: function (x) { return String(x == null ? '' : x); },
+            num: function (n) { return String(n); },
+            dataBR: function (d) { return String(d || ''); } };
+  var contada = { id: 'M000901', registro: 'M000901', qtd: 4321, declaracao: false,
+                  perfil: 'Conferente', usuario: 'Melkezedeque', origem: 'Natal' };
+  var parSoContado = {
+    chave: '2026-10-28|Josivan|ENTRADA|real', dataRef: '2026-10-28', motorista: 'Josivan',
+    tipo: 'Retorno', teste: false, saida: 0, declarado: 0, conferido: 4321,
+    declaradoTotal: 0, saidaTotal: null, retornoTotal: 0, difConf: 4321,
+    situacao: 'Sem Retorno Motorista', idsTxt: 'M000901', idsLista: ['M000901'],
+    horaTxt: '10:19', conferidoEmTxt: '28/10/2026 10:19', origemTxt: 'Natal',
+    destinoTxt: 'Matriz', veiculoTxt: 'ABC1D23', informanteTxt: '',
+    conferenteTxt: 'Melkezedeque', itens: [contada] };
+
+  function rodar(ve, corpo, nomes, args) {
+    return new Function(['Q', 'DECLS', 'podeMexerNaDeclaracao', 'papelQueConfere',
+                         'semAcento', 'papelDoLancamento'].concat(nomes || []).join(','),
+      'function veConferencia(){ return ' + (ve ? 'true' : 'false') + '; }\n' + corpo)
+      .apply(null, [Q, [contada], function () { return true; },
+                    function () { return true; },
+                    function (s) { return String(s || '').toLowerCase(); },
+                    function (m) { return m.perfil; }].concat(args || []));
+  }
+
+  /* --- o par aberto: a linha de quem contou, sem o numero e sem os botoes --- */
+  var corpoLin = fontes.contouComoConferente + fontes.linhasAtivasDaCarga +
+                 fontes.linhasDoPar + '\n return linhasDoPar;';
+  var linVe = rodar(true, corpoLin)(parSoContado);
+  var linNao = rodar(false, corpoLin)(parSoContado);
+  ok(linVe.indexOf(SONDA) >= 0,
+    'a sonda enxerga: na tela que mostra a conferência, o par aberto traz a contagem',
+    linVe.slice(0, 160));
+  ok(linNao.indexOf(SONDA) < 0,
+    'na tela de lançamento, o par aberto NÃO traz a contagem — era o "Contou 4321", com ' +
+    'o nome de quem contou', linNao.slice(0, 240));
+  ok(linNao.indexOf('data-dcorrigir') < 0 && linNao.indexOf('data-drestaurar') < 0 &&
+     linNao.indexOf('data-dcarga') < 0 && linVe.indexOf('data-dcorrigir') > 0,
+    'e a linha de quem contou fica só para leitura — o "corrigir" abria o formulário com ' +
+    'a contagem e deixava alterá-la, na aba de quem não pode nem vê-la');
+
+  /* --- a ficha e o cabecalho do dia, no celular --- */
+  var corpoCel = fontes.contouComoConferente + fontes.linhasAtivasDaCarga +
+                 fontes.linhasDoPar + fontes.corDaSituacao + fontes.cartaoPar +
+                 fontes.paresPorDia + '\n return paresPorDia;';
+  var celVe = rodar(true, corpoCel)([parSoContado]);
+  var celNao = rodar(false, corpoCel)([parSoContado]);
+  ok(celVe.indexOf(SONDA) >= 0,
+    'a sonda enxerga: na tela que mostra, a ficha e o dia trazem a contagem');
+  ok(celNao.indexOf(SONDA) < 0,
+    'no celular, a ficha e o cabeçalho do dia NÃO trazem a contagem — eram o ' +
+    '"Conferido", a diferença e o "C" do dia', celNao.slice(0, 300));
+
+  /* --- o CSV --- */
+  var corpoCsv = fontes.csvDosPares + '\n return csvDosPares;';
+  var csvVe = JSON.stringify(rodar(true, corpoCsv)([parSoContado]));
+  var csvNao = rodar(false, corpoCsv)([parSoContado]);
+  ok(csvVe.indexOf(SONDA) >= 0, 'a sonda enxerga: o CSV da tela que mostra traz a contagem');
+  ok(JSON.stringify(csvNao).indexOf(SONDA) < 0 &&
+     csvNao.cabecalho.indexOf('Conferido') < 0 && csvNao.cabecalho.indexOf('Conferente') < 0,
+    'o CSV da tela de lançamento NÃO traz a contagem — o botão dela clicava o da outra ' +
+    'tela, e a planilha saía com Conferido e Conferente de todos os pares', csvNao.cabecalho);
+  ok(csvNao.cabecalho.length === 11 && csvNao.linhas[0].length === 11,
+    'e o CSV dela tem uma coluna para cada título, as onze da tabela',
+    [csvNao.cabecalho.length, csvNao.linhas[0].length]);
+
+  /* --- o rank --- */
+  function rank(ve, totais) {
+    var box = { innerHTML: '', querySelectorAll: function () { return []; } };
+    var TELA = { rank: 'r', totais: totais, campos: { motorista: '' } };
+    rodar(ve, 'var RANK_SEM_MOTORISTA = "sem informação";\n' + fontes.rankDeMotoristas +
+      fontes.desenharRank + '\n return desenharRank;',
+      ['document', 'TELA_PARES', 'escolhaDe', 'opcoesDe', 'tomDeg'],
+      [{ getElementById: function (id) { return id === 'r' ? box : null; } }, TELA,
+       function () { return []; }, function () { return []; },
+       function () { return 'rgb(0,0,0)'; }])([parSoContado]);
+    return box.innerHTML;
+  }
+  var rankVe = rank(true, 'dcTotais'), rankNao = rank(false, '');
+  ok(rankVe.indexOf(SONDA) >= 0 && (rankVe.match(/class="g g--rank"/g) || []).length === 3,
+    'a sonda enxerga: na tela que mostra, o rank tem os três blocos e a contagem',
+    (rankVe.match(/class="g g--rank"/g) || []).length);
+  ok(rankNao.indexOf(SONDA) < 0,
+    'o rank da tela de lançamento NÃO traz a contagem — "Chegou sem ele declarar" era ' +
+    'ela, por motorista');
+  ok((rankNao.match(/class="g g--rank"/g) || []).length === 2 &&
+     rankNao.indexOf('graficos--rank-2') > 0,
+    'e fica com dois blocos, numa grade de dois — na de três, o terceiro terço ficaria ' +
+    'vazio, e um buraco no fim da fileira se lê como bloco que não carregou');
+  ok(rankNao.indexOf('cartão') < 0 && rankVe.indexOf('cartão') > 0,
+    'e as dicas do rank não mandam procurar cartão na tela que não tem cartões');
+
+  /* --- O INTERRUPTOR MORA NOS DESCRITORES, um em cada tela --- */
+  ok(/veConferencia: true,/.test(adm.slice(adm.indexOf('var TELA_DECL = {'),
+                                           adm.indexOf('var TELA_LANC = {'))) &&
+     /veConferencia: false,/.test(adm.slice(adm.indexOf('var TELA_LANC = {'),
+                                            adm.indexOf('var TELA_PARES ='))),
+    'o interruptor está nos dois descritores: Movimentos Motoristas vê a conferência, ' +
+    'Lançamento Motorista não');
 })();
 
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
