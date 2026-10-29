@@ -4003,6 +4003,22 @@ console.log('\n== o rank dos motoristas ==');
   var admR = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
   var rank = new Function(fonteDaFuncao(admR, 'rankDeMotoristas') +
     ' return rankDeMotoristas;')();
+
+  /* ---- O MOTORISTA NAO SOME QUANDO O NUMERO NAO VEM ----
+   *
+   * O rank descartava quem tivesse zero nas duas SOMAS. Na aba que nao ve a contagem o
+   * numero chega nulo, entao quem so' aparece em "Sem Retorno Motorista" ficava com zero
+   * dos dois lados e caia fora da lista inteira — levando junto a linha dele no bloco de
+   * porcentagem, que e' exatamente onde ele e' cobrado. Quem mais deve sumia da lista de
+   * cobranca por nao se poder ver quanto ele deixou de declarar. */
+  var soCargas = rank([{ motorista: 'Chico', tipo: 'Retorno', retornoTotal: 0,
+                         conferido: 0, situacao: 'Sem Retorno Motorista' }]);
+  ok(soCargas.length === 1 && soCargas[0].nSemDeclarar === 1 &&
+     soCargas[0].semDeclarar === 0,
+    'o motorista fica no rank com a CARGA contada e a caixa em zero — contado só pelas ' +
+    'caixas, ele sumia da lista na tela que não vê a contagem, que é a tela onde o ' +
+    'bloco de porcentagem é a única cobrança que sobra',
+    soCargas.map(function (b) { return [b.nome, b.nSemDeclarar, b.semDeclarar]; }));
   ok(typeof rank === 'function', 'a confer\u00eancia recortou o rank', typeof rank);
 
   /* O CENARIO SEPARA AS DUAS CONTAS: o mesmo motorista com uma viagem de cada tipo,
@@ -20484,6 +20500,94 @@ console.log('\n== Motorista/Conferente ==');
     'e o par fica "Sem conferência", com a diferença em travessão — virando −500, a ' +
     'tela acusaria uma falta de quinhentas caixas que ninguém viu',
     [soGerente[0].situacao, soGerente[0].difConf]);
+
+  /* ---- A CARGA FOI CONFERIDA E O NUMERO NAO VEIO ----
+   *
+   * Na aba Lancamento Motorista a rota manda a contagem sem o numero (`semContagem`), e
+   * marca a linha. Sem essa marca o par cairia em "Sem quantidade" ou "Sem conferencia":
+   * a tela afirmaria que ninguem contou uma carga contada, e mandaria o escritorio
+   * procurar um conferente que ja' fez o trabalho.
+   *
+   * E NAO DA PARA DIZER "BATEU": faltando um dos dois numeros, afirmar que fecharam e'
+   * otimismo, e afirmar que divergiram e' pessimismo. "Conferido" e' o que se sabe. */
+  var oculto = montarPares([
+    declDe({ qtd: 410 }), lanc({ qtd: null, contagemOculta: true })
+  ]);
+  ok(oculto.length === 1 && oculto[0].situacao === 'Conferido',
+    'com a contagem escondida, o par com declaração fica "Conferido" — não "Bateu" ' +
+    'nem "Divergente", que exigem os dois números, e não "Sem conferência", que manda ' +
+    'procurar quem já contou', oculto[0] && oculto[0].situacao);
+  ok(oculto[0].conferido === 0,
+    'e a coluna Conferido fica em zero, porque o número não chegou — é a Situação que ' +
+    'carrega a resposta aqui, e não a quantidade', oculto[0].conferido);
+
+  var ocultoSoConta = montarPares([lanc({ qtd: null, contagemOculta: true })]);
+  ok(ocultoSoConta[0].situacao === 'Sem Retorno Motorista',
+    'e a carga contada SEM declaração continua "Sem Retorno Motorista" — o que falta ' +
+    'ali é a fala do motorista, e isso não depende de se ver quanto foi contado',
+    ocultoSoConta[0].situacao);
+
+  /* A MARCA E' O QUE SUSTENTA AS DUAS DE CIMA, e esta prova e' a que mede isso: a mesma
+     linha sem a marca volta a ser um par sem conferencia nenhuma. */
+  var semMarca = montarPares([declDe({ qtd: 410 }), lanc({ qtd: null })]);
+  ok(semMarca[0].situacao === 'Sem conferência',
+    'e sem a marca a mesma linha NÃO vira "Conferido" — é a marca que diz que houve ' +
+    'contagem, e não a ausência do número: linha sem número e sem marca é par que ' +
+    'ninguém conferiu', semMarca[0].situacao);
+
+  /* ---- O FILTRO DE SITUACAO SEGUE A TELA ----
+   *
+   * ESTA PROVA NASCEU DE UMA SABOTAGEM QUE ESCAPOU. Desliguei o recorte do filtro e as
+   * nove suites continuaram verdes: a lista de Situacao e' montada dentro de
+   * `montarSelects`, que nenhuma bancada executa, e era mais um pedaco de tela sem
+   * ninguem medindo. E' o mesmo buraco que deixou a contagem vazar pelo rank.
+   *
+   * O QUE ELA COBRA: na aba que nao ve a contagem, "Bateu" e "Divergente" nao existem —
+   * decidi-los exige as duas quantidades, e uma delas nao chega ali. Oferecidos no
+   * filtro, seriam duas opcoes que nunca casam com linha nenhuma, e a mesma lista
+   * alimenta os chips de contagem acima da tabela: nasceriam zerados ao lado dos que
+   * contam, e um chip zerado que nunca enche ensina a ignorar os chips.
+   *
+   * RODA O CODIGO DE VERDADE, recortado do arquivo: lido como texto, ele passaria por
+   * qualquer regex que mencionasse as palavras certas. */
+  var admFil = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var iFil = admFil.indexOf("var ss = document.getElementById('lmSituacao');");
+  /* ATE A CHAVE QUE FECHA O `if`, e nao ate a ultima linha dentro dele: cortado antes
+     dela, o trecho fica com uma chave aberta e o `new Function` estoura em
+     SyntaxError -- foi o que aconteceu na primeira volta desta prova. */
+  var fFil = admFil.indexOf('}', admFil.indexOf('porEscolha(ss, eraS);', iFil));
+  var trechoFil = iFil < 0 || fFil < 0 ? '' : admFil.slice(iFil, fFil + 1);
+  ok(trechoFil.length > 200 && trechoFil.indexOf('dcSituacao') > 0,
+    'a conferência recortou o trecho que monta o filtro de Situação — recorte vazio ' +
+    'faria as duas provas abaixo passarem sem executar nada', trechoFil.length);
+
+  function filtroCom(veConf) {
+    var alvo = { innerHTML: '' };
+    var ref = { innerHTML: '<option value="">Todas</option>' +
+      '<option value="Bateu">Bateu</option>' +
+      '<option value="Divergente">Divergente</option>' +
+      '<option value="Sem conferência">Sem conferência</option>' +
+      '<option value="Sem Retorno Motorista">Sem Retorno Motorista</option>' };
+    new Function('document', 'escolhaDe', 'porEscolha', 'veConferencia', trechoFil)(
+      { getElementById: function (id) { return id === 'lmSituacao' ? alvo : ref; } },
+      function () { return []; },
+      function () { return undefined; },
+      function () { return veConf; });
+    return alvo.innerHTML;
+  }
+
+  var filtroNao = filtroCom(false);
+  ok(filtroNao.indexOf('"Conferido"') > 0 && filtroNao.indexOf('"Bateu"') < 0 &&
+     filtroNao.indexOf('"Divergente"') < 0,
+    'na tela que NÃO vê a contagem, o filtro troca "Bateu" e "Divergente" por ' +
+    '"Conferido" — as duas exigem os dois números, e oferecê-las ali é oferecer um ' +
+    'filtro que nunca casa com linha nenhuma', filtroNao);
+
+  var filtroVe = filtroCom(true);
+  ok(filtroVe.indexOf('"Bateu"') > 0 && filtroVe.indexOf('"Divergente"') > 0 &&
+     filtroVe.indexOf('"Conferido"') < 0,
+    'e na tela que vê, a lista fica inteira e sem "Conferido" — lá esse estado não ' +
+    'existe, e um filtro que nunca casa é ruído dos dois lados', filtroVe);
 
   /* PERFIL DESCONHECIDO NÃO É CONFERÊNCIA. Contado como tal, bastava um lançamento de
      alguém sem perfil para a carga "fechar" sozinha. */

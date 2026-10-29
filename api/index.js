@@ -283,9 +283,19 @@ async function rotaGet(p) {
          tela pediu, e `veDeclaracao`, acima, pelo direito de ver declaracao. O livro do
          cadastro vale em todas as outras rotas; esta e' a excecao, e esta' escrita. */
       var dConc = L.recorteLancamentos(d, d.usuarios, p.quem);
-      return { ok: true, movimentos: L.listaMovimentos(
+      var linhasConc = L.listaMovimentos(
                  L.recorteMundos(dConc.movimentos, quaisMundos),
-                 d.locais, d.tipos, d.usuarios, p, { motoristas: d.motoristas, fornecedores: d.fornecedores }) };
+                 d.locais, d.tipos, d.usuarios, p, { motoristas: d.motoristas, fornecedores: d.fornecedores });
+      /* E A SEGUNDA PENEIRA, pela OUTRA pergunta. O porteiro acima pergunta se esta
+         pessoa ve declaracao, e as duas abas de conciliacao respondem sim. Quem tem so'
+         a de lancamento passa por ele — e ate aqui recebia a contagem do conferente no
+         pacote, com a tela escondendo o numero que a rede tinha acabado de entregar.
+         ULTIMO PASSO DA ROTA, e nao dentro de `listaMovimentos`: ali ela valeria para
+         todas as rotas, e a de Movimentos nao tem esta pergunta — ela ja' nao recebe
+         declaracao nenhuma. */
+      return { ok: true, movimentos: L.veConferencia(euConc)
+                 ? linhasConc
+                 : L.semContagem(linhasConc, d.usuarios) };
     /* A lixeira entende o MESMO `so` que `movimentos`, e pela mesma razão: ela é o
        avesso daquela lista, e uma peneira que valesse só de um lado transformaria a
        tela que restaura num jeito de ver o que a tela que lista esconde. A tela manda

@@ -2152,6 +2152,17 @@
     if (ss && sRef) {
       var eraS = escolhaDe(ss);
       ss.innerHTML = sRef.innerHTML;
+      /* E NESTA TELA "BATEU" E "DIVERGENTE" NAO EXISTEM, porque decidi-los exige as duas
+         quantidades e uma delas nao chega aqui. Oferecidos no filtro, seriam duas opcoes
+         que nunca casam com linha nenhuma — e a lista acima e' tambem a fonte dos chips
+         de contagem, que nasceriam zerados ao lado dos que contam. No lugar das duas vai
+         "Conferido", que e' o estado que esta tela de fato produz. */
+      if (!veConferencia()) {
+        ss.innerHTML = ss.innerHTML
+          .replace(/<option value="Bateu">[\s\S]*?<\/option>/,
+                   '<option value="Conferido">Conferido</option>')
+          .replace(/<option value="Divergente">[\s\S]*?<\/option>/, '');
+      }
       porEscolha(ss, eraS);
     }
     ligarMultis();
@@ -4716,6 +4727,10 @@
       if (m.declaracao) par.declarado += q;
       else if (contouComoConferente(m)) {
         par.conferido += q;
+        /* A MARCA DO SERVIDOR, e nao uma conta daqui: nesta tela a rota manda a linha
+           sem o numero (`semContagem`), e sem a marca o par cairia em "Sem quantidade"
+           — a tela diria que ninguem contou uma carga que foi contada. */
+        if (m.contagemOculta) par.contagemOculta = true;
         /* QUEM CONTOU sai dos lançamentos que contam, e não dos declarados: o motorista
            aparece como autor da própria declaração, e listá-lo aqui faria a coluna
            Conferente dizer o nome de quem não conferiu nada. */
@@ -4870,8 +4885,13 @@
        * e ausência é outra coisa. É a mesma regra das outras colunas desta tabela. */
       par.saidaTotal   = par.tipo === 'Saída'   ? par.declaradoTotal : null;
       par.retornoTotal = par.tipo === 'Retorno' ? par.declaradoTotal : null;
-      if (par.declaradoTotal && par.conferido) {
-        par.situacao = (par.declaradoTotal === par.conferido) ? 'Bateu' : 'Divergente';
+      /* "CONFERIDO" E O QUE SOBRA QUANDO O NUMERO NAO VEM. Sem as duas quantidades
+         nao da para dizer se bateu, e inventar "Bateu" por otimismo — ou "Divergente"
+         por pessimismo — seria a tela afirmando o que ninguem mediu. O estado existe
+         so' na aba que nao ve a contagem; na outra, ele nunca aparece. */
+      if (par.declaradoTotal && (par.conferido || par.contagemOculta)) {
+        par.situacao = par.contagemOculta ? 'Conferido'
+          : (par.declaradoTotal === par.conferido) ? 'Bateu' : 'Divergente';
       } else if (par.declaradoTotal) {
         /* A SAÍDA NÃO ESTÁ PENDENTE DE NADA, e chamá-la de "Sem conferência" dizia o
            contrário. Não existe contagem na chegada de uma carga que está SAINDO — a
@@ -4885,7 +4905,10 @@
          aqui é o lançamento de retorno DO MOTORISTA: alguém contou a carga na chegada, e
          ele não declarou o que trouxe. O nome velho mandava procurar uma saída que não
          era o problema. */
-      else if (par.conferido) par.situacao = 'Sem Retorno Motorista';
+      /* E AQUI A MARCA TAMBEM VALE: a carga chegou e alguem contou, sem o retorno
+         do motorista. O que falta e' a declaracao DELE, e isso nao depende de se
+         ver quanto foi contado. */
+      else if (par.conferido || par.contagemOculta) par.situacao = 'Sem Retorno Motorista';
       /* O QUE SOBRA E UM PAR SEM QUANTIDADE NENHUMA dos dois lados — nao e' o caso de
          "so' declaracao", que era o nome antigo: aquele par agora tem o numero dele na
          coluna, e a situacao dele e' "Sem conferencia", que e' o que de fato falta. */
@@ -5903,8 +5926,12 @@
     /* QUEM NAO APARECE EM NENHUMA DAS DUAS CONTAS SAI DA LISTA: o motorista que so' fez
        saida no periodo nao tem o que responder aqui, e uma linha de zeros no meio do
        rank so' empurra para baixo quem tem numero. */
+    /* E AS CARGAS CONTAM, E NAO SO' AS CAIXAS. Na aba que nao ve a contagem o numero
+       chega nulo, e por soma o motorista que so' aparece em "Sem Retorno Motorista"
+       ficava com zero dos dois lados e caia fora da lista — levando junto a linha dele
+       no bloco de porcentagem, que e' justamente onde ele e' cobrado. */
     return ordem.map(function(k){ return mapa[k]; })
-      .filter(function(b){ return b.declarou || b.semDeclarar; });
+      .filter(function(b){ return b.declarou || b.semDeclarar || b.nSemDeclarar; });
   }
 
   /* O RANK EM TRES BLOCOS, o mesmo desenho dos paineis de Movimentos (`.g` e `.gb`).

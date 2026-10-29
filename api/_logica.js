@@ -768,6 +768,76 @@ function veDeclaracao(u) {
   return abas.some(function (a) { return ABAS_DE_DECLARACAO.indexOf(a) >= 0; });
 }
 
+/* ================= QUEM VE QUANTO FOI CONFERIDO =================
+ *
+ * NAO E A MESMA PERGUNTA DE `veDeclaracao`, e por isso sao duas listas e nao uma.
+ * `veDeclaracao` responde "pode ver a fala do motorista?", e as DUAS abas de conciliacao
+ * respondem sim. Esta responde "pode ver QUANTO o conferente contou?", e so' Movimentos
+ * Motoristas responde sim: a aba Lancamento Motorista diz SE a carga foi conferida, pela
+ * coluna Situacao, e nunca o numero.
+ *
+ * ESCONDER ERA A PORTA, ISTO E A FECHADURA. O `admin.html` ja' tinha o interruptor
+ * `veConferencia` no descritor de cada tela, e a tela parou de mostrar — mas a rota
+ * continuava entregando o numero, e quem abrisse o navegador por baixo o encontrava
+ * inteiro na resposta. Tela que esconde e' conveniencia; o que decide e' quem responde.
+ */
+var ABAS_DE_CONFERENCIA = ['pgLancamentosMotorista'];
+
+function veConferencia(u) {
+  if (!u) return false;
+  var abas = Array.isArray(u.Abas) ? u.Abas : [];
+  if (!abas.length) return ehAdministrador(u);
+  return abas.some(function (a) { return ABAS_DE_CONFERENCIA.indexOf(a) >= 0; });
+}
+
+function semAcentoSimples(s) {
+  var v = String(s == null ? '' : s);
+  return v.normalize ? v.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : v;
+}
+
+/* A CONTAGEM E A LINHA DE QUEM CONFERIU, pela MESMA regra que a tela usa: perfil
+   `conferente`, sem acento e sem caixa — "CONFERENTE" e "Conferente" sao a mesma funcao
+   escrita por duas pessoas em dias diferentes.
+   O PERFIL VEM GRAVADO NA LINHA e, quando nao veio, sai do cadastro pelo id de quem
+   lancou. E' a mesma busca que o `admin.html` faz em `papelDoLancamento`, e no mesmo
+   cadastro: por isso uma linha que ninguem consegue classificar nao e' contagem de
+   nenhum dos dois lados — ela cai em "saida" la' e nao e' marcada aqui. Duas regras
+   diferentes sobre a mesma linha dariam uma contagem que o servidor esconde e a tela
+   soma, ou o contrario. */
+function ehContagem(m, usuarios) {
+  var p = String((m && m.perfil) || '').trim();
+  if (!p) {
+    var u = acharUsuario(usuarios, m && m.usuarioId);
+    p = String((u && u.Perfil) || '').trim();
+  }
+  return !!p && semAcentoSimples(p).trim().toLowerCase() === 'conferente';
+}
+
+/* A PENEIRA DA CONTAGEM, na porta — do mesmo jeito que `semDeclaracao`.
+ *
+ * A LINHA FICA, E SO' O NUMERO SAI. Apagar a linha faria a tela dizer "Sem conferencia"
+ * numa carga que FOI conferida: uma mentira pior que a de hoje, porque manda alguem
+ * procurar um conferente que ja' fez o trabalho. Quem recebeu so' a aba de lancamento
+ * precisa saber que a carga foi conferida — e' a pergunta que aquela tela existe para
+ * responder — e nao quanto.
+ *
+ * `contagemOculta` E A MARCA, e e' ela que sustenta a Situacao do outro lado: sem marca,
+ * o par com o numero zerado cairia em "Sem quantidade", e o rank perderia a linha. */
+function semContagem(linhas, usuarios) {
+  return (linhas || []).map(function (m) {
+    if (!m || m.declaracao || !ehContagem(m, usuarios)) return m;
+    var copia = {};
+    for (var k in m) {
+      if (Object.prototype.hasOwnProperty.call(m, k)) copia[k] = m[k];
+    }
+    copia.qtd = null;
+    copia.qtdEfetiva = null;
+    copia.qtdConferida = null;
+    copia.contagemOculta = true;
+    return copia;
+  });
+}
+
 /* A PENEIRA DA CONTAGEM CEGA, na porta — do mesmo jeito que `recorteTeste` e
    `recorteProprios`. Aplicada em cada consumidor, o proximo nasceria sem ela e
    entregaria a declaracao a quem nao pode ve-la, sem dar erro nenhum.
@@ -3973,6 +4043,8 @@ module.exports = {
   basesDoUsuario: basesDoUsuario, basesEfetivas: basesEfetivas,
   recorteBases: recorteBases, baseEscolhida: baseEscolhida,
   veDeclaracao: veDeclaracao, recorteDeclaracao: recorteDeclaracao,
+  ABAS_DE_CONFERENCIA: ABAS_DE_CONFERENCIA, veConferencia: veConferencia,
+  ehContagem: ehContagem, semContagem: semContagem,
   semDeclaracao: semDeclaracao, MUNDOS: MUNDOS, recorteMundos: recorteMundos,
   mundosPedidos: mundosPedidos,
   PERFIS_DECLARACAO: PERFIS_DECLARACAO,

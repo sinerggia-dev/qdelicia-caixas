@@ -6625,6 +6625,122 @@ console.log('\n== o filtro de apagar conhece todos os campos do de listar ==');
   ok(temDecl(extVe) || (extVe.linhas || []).length >= 0,
     'enquanto o de quem compara continua inteiro');
 
+  /* ---- A FECHADURA: QUEM NAO VE A CONTAGEM NAO A RECEBE ----
+   *
+   * SAO DUAS PERGUNTAS, e ate aqui a rota so' fazia a primeira. `veDeclaracao` responde
+   * "pode ver a fala do motorista?" e as DUAS abas de conciliacao respondem sim. Quem
+   * tem so' `pgLancamentoMotorista` passava por ela e recebia o pacote inteiro, com a
+   * contagem do conferente dentro — a tela escondia o numero que a rede acabava de
+   * entregar.
+   *
+   * MEDIDO NA RESPOSTA, E NAO NA TELA. A prova da tela, no `teste_tela.js`, desenha cada
+   * pedaco e procura a contagem; esta pede a rota com o pedido na mao, que e' o que
+   * sobra para quem abre o navegador por baixo. Uma fecha a porta, a outra a fechadura.
+   */
+  await POST({ acao: 'salvarUsuario', registro: { Nome: 'So Lancamento',
+    Perfil: 'GESTOR', PIN: '445533', AcessoPainel: 'SIM',
+    Abas: ['pgMovimentos', 'pgLancamentoMotorista'] } });
+  const soLanc = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.Nome === 'So Lancamento')[0];
+  /* AS ABAS SAO CONFERIDAS AQUI, e nao pelos predicados: `Ld` ainda nao existe neste
+     ponto do arquivo. O que esta prova precisa garantir e' o CENARIO — que a pessoa
+     tenha a aba de lancamento e nao a de movimentos. Os predicados em si tem prova
+     propria mais abaixo, onde `Ld` ja' esta de pe. */
+  const abasLanc = (soLanc && soLanc.Abas) || [];
+  ok(!!soLanc && abasLanc.indexOf('pgLancamentoMotorista') >= 0 &&
+     abasLanc.indexOf('pgLancamentosMotorista') < 0,
+    'o cenário tem quem passe pelo primeiro porteiro e NÃO pelo segundo — é ele o ' +
+    'caso que esta prova existe para medir, e sem ele tudo abaixo mediria duas vezes a ' +
+    'mesma permissão', abasLanc);
+
+  /* UMA CONTAGEM COM NUMERO PROPRIO, plantada pelo CONFERENTE do cenario. A primeira
+     volta desta prova pegou como sonda o `qtd` da primeira contagem que achou — e era
+     1. "1" aparece em id, em data e em meia duzia de campos do pacote, e a prova
+     reprovou um codigo que estava certo. A sonda so' serve se o numero NAO puder vir de
+     outro lugar. */
+  const SONDA_CONTAGEM = 7777;
+  /* UM CONFERENTE PROPRIO, e nao o `cego` de cima: ele nasceu sem base e sem operacao,
+     de proposito, e dar-lhe as duas aqui mudaria o cenario das provas que ja' o usam.
+     Cenario emprestado e' cenario que muda sem aviso. */
+  await POST({ acao: 'salvarUsuario', registro: { Nome: 'Conferente Sonda',
+    Perfil: 'CONFERENTE', PIN: '445544', AcessoPainel: 'SIM',
+    Abas: ['pgMovimentos'], Operacoes: ['SAIDA', 'RETORNO'],
+    BaseProducao: true, Teste: false,
+    BaseDeclaracao: false, BaseTesteDeclaracao: false } });
+  const contador = (await GET({ acao: 'equipe' })).usuarios
+    .filter((u) => u.Nome === 'Conferente Sonda')[0];
+  const plantio = await POST({ acao: 'movimento', tipo: 'DEVOLUCAO', origemId: 'L003',
+    destinoId: 'L001', dataRef: dia(0), usuarioId: contador && contador.ID,
+    base: 'reais', clientKey: 'k-sonda-contagem',
+    itens: [{ tipoId: 'T001', qtd: SONDA_CONTAGEM }] });
+  ok(!!contador && plantio.ok === true,
+    'a sonda foi plantada como CONTAGEM de um conferente — sem ela esta prova ' +
+    'mediria o pacote procurando um número que nunca entrou nele, e passaria verde ' +
+    'sobre nada', plantio.erro || (contador && contador.ID));
+
+  const pacote = async (quem) => (await GET({ acao: 'conciliacao', quem: quem,
+    limit: 500, mundo: 'declaracao|testeDecl' })).movimentos || [];
+
+  /* O PERFIL DA LINHA VEM VAZIO NA MAIORIA DELAS, e isso nao e' defeito: ele so' e'
+     gravado quando o lancamento o carrega. Quem resolve o resto e' o CADASTRO, pelo id
+     de quem lancou — e' o que o servidor faz em `ehContagem` e o que a tela faz em
+     `papelDoLancamento`.
+     A PRIMEIRA VOLTA DESTA PROVA OLHOU SO' O CAMPO DA LINHA e nao achou a sonda que
+     acabara de plantar: ela reprovou um codigo certo, por medir com uma regua mais
+     curta que a dos dois lados que ela julga. */
+  const equipeToda = (await GET({ acao: 'equipe' })).usuarios || [];
+  const ehConferente = (m) => {
+    const naLinha = String(m.perfil || '').trim();
+    if (naLinha) return naLinha.toUpperCase() === 'CONFERENTE';
+    const u = equipeToda.filter((x) => String(x.ID) === String(m.usuarioId))[0];
+    return String((u && u.Perfil) || '').trim().toUpperCase() === 'CONFERENTE';
+  };
+  const contagensDe = (linhas) => linhas.filter((m) =>
+    m.declaracao !== true && ehConferente(m));
+
+  const pacoteVe = await pacote(compara.ID);
+  const pacoteNao = await pacote(soLanc.ID);
+
+  /* NAO-VACUIDADE PRIMEIRO. Sem uma contagem no cenario, tudo abaixo passaria sobre uma
+     lista vazia — e e' exatamente assim que uma prova fica verde guardando nada. */
+  const contouVe = contagensDe(pacoteVe).filter((m) => Number(m.qtd) > 0);
+  ok(contouVe.some((m) => Number(m.qtd) === SONDA_CONTAGEM),
+    'quem tem a aba de movimentos recebe a contagem do conferente COM o número, e a ' +
+    'sonda plantada está entre elas — sem ela as provas abaixo mediriam uma lista ' +
+    'vazia, ou um número que o pacote também produz por outro caminho',
+    contouVe.map((m) => m.qtd));
+
+  const sonda = String(SONDA_CONTAGEM);
+  const contouNao = contagensDe(pacoteNao);
+  ok(contouNao.length === contagensDe(pacoteVe).length,
+    'e quem não tem a aba recebe as MESMAS linhas — apagadas, a tela dele diria ' +
+    '"Sem conferência" numa carga que foi conferida, e mandaria procurar um conferente ' +
+    'que já fez o trabalho', [contouNao.length, contagensDe(pacoteVe).length]);
+  ok(contouNao.every((m) => m.qtd === null && m.qtdEfetiva === null),
+    'mas sem o número: a linha fica, a quantidade sai',
+    contouNao.map((m) => m.qtd));
+  ok(contouNao.every((m) => m.contagemOculta === true),
+    'e MARCADA — sem a marca, o par cairia em "Sem quantidade" e a tela afirmaria que ' +
+    'ninguém contou uma carga contada');
+  ok(JSON.stringify(pacoteNao).indexOf(sonda) < 0,
+    'e a sonda ' + sonda + ' não aparece em LUGAR NENHUM do pacote dele — medida no ' +
+    'texto inteiro da resposta, e não nos campos que eu lembrei de olhar: o vazamento ' +
+    'seguinte virá por um campo que ninguém listou aqui');
+  ok(JSON.stringify(pacoteVe).indexOf(sonda) > 0,
+    'enquanto no de quem compara ela está lá — a sonda precisa enxergar, senão ela não ' +
+    'prova nada sobre o outro lado');
+
+  /* E A DECLARACAO CONTINUA CHEGANDO. Peneirar demais fecha o vazamento esvaziando a
+     tela, e uma tela vazia tambem nao responde a pergunta dela. */
+  ok(pacoteNao.filter((m) => m.declaracao === true).length ===
+     pacoteVe.filter((m) => m.declaracao === true).length &&
+     pacoteNao.filter((m) => m.declaracao === true).length > 0,
+    'e a declaração do motorista chega inteira aos dois — é o que a tela de ' +
+    'lançamento existe para mostrar, e peneirá-la junto fecharia o vazamento ' +
+    'esvaziando a tela',
+    [pacoteNao.filter((m) => m.declaracao === true).length,
+     pacoteVe.filter((m) => m.declaracao === true).length]);
+
   /* ---- O QUARTO LIVRO: O ENSAIO DA DECLARACAO ----
    *
    * Ele existe para o dia da virada ser so uma troca de marca no cadastro, e nao um
