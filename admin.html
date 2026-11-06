@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=d456e92d">
+<link rel="stylesheet" href="styles.css?v=6029d360">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -577,6 +577,9 @@
     </div>
 
     <div class="corpo-pagina">
+      <!-- AS FALHAS DE GRAVACAO, para o ADMIN: nasce escondida e so' aparece quando o
+           banco recusou algum lancamento que ainda nao foi resolvido. Ver `carregarFalhas`. -->
+      <div id="faixaFalhas" class="faixa-falhas" hidden></div>
 
   <!-- ---------- PAINEL ---------- -->
   <section id="pgPainel" class="pagina">
@@ -1966,7 +1969,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=ec259b78"></script>
+<script src="app.js?v=966a9d5f"></script>
 <script>
 (function(){
   'use strict';
@@ -2059,6 +2062,68 @@
       DADOS.fornecedores = Q.ordenarPorNome(DADOS.fornecedores || []);
     }
   }
+
+  /* ================= AS FALHAS DE GRAVACAO =================
+   * Toda gravacao que o banco recusa fica registrada no servidor (`falhas_gravacao`) e
+   * vira e-mail. Aqui ela vira uma faixa vermelha no topo do painel, so' para o ADMIN,
+   * com o que a pessoa tentou lancar — e e' daqui que se marca "ja' foi relancado".
+   * Nasceu de 04-06/11/2026: dois dias de lancamentos recusados que ninguem viu. */
+  var FALHAS = [];
+  function carregarFalhas(){
+    var s = Q.sessao();
+    var faixa = document.getElementById('faixaFalhas');
+    if (!faixa || !s || !Q.ehAdmin()) { if (faixa) faixa.hidden = true; return; }
+    Q.get({ acao:'falhas', quem: s.id }).then(function(r){
+      FALHAS = (r && r.ok && r.falhas) || [];
+      desenharFalhas(r && r.total);
+    }).catch(function(){ /* sem rede, fica o que estava */ });
+  }
+  function nomeDeId(lista, id){
+    var x = (lista || []).filter(function(i){ return String(i.ID) === String(id); })[0];
+    return x ? (x.Nome || x.ID) : (id || '—');
+  }
+  function resumoDaFalha(f){
+    var p = f.payload || {};
+    var partes = [];
+    if (p.tipo) partes.push(rotuloDoTipoMov ? rotuloDoTipoMov(p.tipo) : p.tipo);
+    if (p.dataRef) partes.push('dia ' + Q.dataBR(p.dataRef));
+    if (p.origemId || p.destinoId) partes.push(nomeDeId(DADOS && DADOS.locais, p.origemId) + ' → ' +
+                                                nomeDeId(DADOS && DADOS.locais, p.destinoId));
+    if (Array.isArray(p.itens)) partes.push(p.itens.map(function(i){
+      return nomeDeId(DADOS && DADOS.tipos, i.tipoCaixaId) + ' ' + Q.num(i.qtd); }).join(', '));
+    if (p.motorista) partes.push('motorista ' + p.motorista);
+    return partes.join(' · ') || ('ação ' + (f.acao || '?'));
+  }
+  function desenharFalhas(total){
+    var faixa = document.getElementById('faixaFalhas');
+    if (!faixa) return;
+    if (!FALHAS.length) { faixa.hidden = true; faixa.innerHTML = ''; return; }
+    faixa.hidden = false;
+    faixa.innerHTML =
+      '<div class="aviso-box erro"><b>⚠ ' + Q.num(total || FALHAS.length) +
+      ' gravação(ões) recusada(s) pelo banco</b> — estes lançamentos NÃO estão no sistema. ' +
+      'O celular de quem lançou guarda e reenvia sozinho; confira se entraram e marque como ' +
+      'resolvido. <details style="margin-top:6px"><summary>ver lista</summary>' +
+      FALHAS.map(function(f){
+        return '<div class="falha-linha" style="margin:6px 0;padding-top:6px;border-top:1px solid var(--linha)">' +
+          '<b>' + Q.esc(Q.dataHoraBR(f.em)) + '</b> · ' + Q.esc(nomeDeId(EQUIPE, f.usuario_id)) +
+          '<br>' + Q.esc(resumoDaFalha(f)) +
+          '<br><small>' + Q.esc(String(f.erro || '').slice(0, 160)) + '</small> ' +
+          '<button class="mini" type="button" data-resolver-falha="' + Q.esc(f.id) + '">já resolvido</button>' +
+          '</div>';
+      }).join('') + '</details></div>';
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target && e.target.closest && e.target.closest('[data-resolver-falha]');
+    if (!b) return;
+    var s = Q.sessao();
+    Q.post({ acao:'resolverFalha', id: b.getAttribute('data-resolver-falha'), usuarioId: s && s.id })
+      .then(function(r){
+        if (!r || !r.ok) throw new Error((r && r.erro) || 'Não consegui marcar.');
+        Q.toast('Marcada como resolvida.', 'ok');
+        carregarFalhas();
+      }).catch(function(err){ Q.toast(err.message, 'erro'); });
+  });
 
   function carregarEquipe(){
     return Q.get({acao:'equipe'}).then(function(r){
@@ -2261,7 +2326,11 @@
       var atual = renovarSessao() || s;
       aplicarSessao(atual);
       ajustarAbasPainel(atual);
+      carregarFalhas();
     });
+    /* E DE NOVO A CADA CINCO MINUTOS, para o painel aberto o dia inteiro no escritorio
+       nao esconder uma falha que aconteceu depois de ele abrir. */
+    setInterval(carregarFalhas, 5 * 60 * 1000);
     Q.carregarDados().then(function(d){ DADOS=d; ordenarTudo(); montarSelects(); desenharCadastros(); }).catch(function(e){ Q.toast(e.message,'erro'); });
     carregarPainel();
   }
@@ -9479,10 +9548,9 @@
       teste: document.getElementById('lcTeste').value === 'teste'
     }).then(function(r){
       btn.disabled=false; btn.textContent='Gravar lançamento';
-      document.getElementById('lcAviso').innerHTML='<div class="aviso-box '+(r.offline?'atencao':'ok')+'">'+
-        (r.offline?'⏳ Sem conexão — guardado na fila.'
-          :'✓ Lançamento de <b>'+total+' caixa(s)</b> gravado'+
-           (document.getElementById('lcTeste').value === 'teste' ? ' <b>como teste</b>' : '')+'.')+'</div>';
+      var av = Q.textoDoEnvio(r, total, '✓ Lançamento de <b>'+total+' caixa(s)</b> gravado'+
+           (document.getElementById('lcTeste').value === 'teste' ? ' <b>como teste</b>' : '')+'.');
+      document.getElementById('lcAviso').innerHTML='<div class="aviso-box '+av.classe+'">'+av.html+'</div>';
       (DADOS.tipos||[]).forEach(function(t){ var el=document.getElementById('lc_'+t.ID); if (el) el.value=''; });
       document.getElementById('lcObs').value=''; document.getElementById('lcRomaneio').value='';
       if (!r.offline) carregarPainel();

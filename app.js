@@ -89,6 +89,15 @@
     if (!payload.clientKey) payload.clientKey = chave();
     if (!navigator.onLine) { enfileirar(payload); return Promise.resolve({ ok: true, offline: true }); }
     return post(payload).then(function (r) {
+      /* O SERVIDOR NAO GRAVOU (o banco recusou). Nao e' erro de preenchimento — a pessoa
+         nao tem o que corrigir. O lancamento vai para a FILA deste aparelho, e a fila
+         reenvia sozinha; a tela diz com todas as letras que NAO gravou. Antes, isto virava
+         um toast de cinco segundos e o lancamento so' existia na tela — bastava a pessoa
+         sair da pagina para perde-lo. (06/11/2026) */
+      if (r && r.ok === false && r.naoGravado) {
+        enfileirar(payload);
+        return { ok: true, offline: true, naoGravado: true, aviso: r.erro };
+      }
       if (!r || r.ok === false) throw new Error((r && r.erro) || 'Erro no servidor.');
       return r;
     }).catch(function (err) {
@@ -3392,9 +3401,19 @@
       var el = document.getElementById(id);
       if (!el) return;
       el.addEventListener('click', function () {
-        sincronizar().then(function (n) { toast(n ? n + ' enviado(s).' : (fila().length ? 'Ainda na fila — sem conexão.' : 'Nada pendente.'), n ? 'ok' : ''); });
+        sincronizar().then(function (n) { toast(n ? n + ' enviado(s).' : (fila().length
+          ? (navigator.onLine ? 'Ainda na fila — o servidor não aceitou. Tenta de novo sozinho.'
+                              : 'Ainda na fila — sem conexão.')
+          : 'Nada pendente.'), n ? 'ok' : ''); });
       });
     });
+    /* A FILA TENTA DE NOVO A CADA MINUTO enquanto houver lancamento preso. Antes ela so'
+       rodava ao abrir a pagina ou ao voltar a internet — e um lancamento que o SERVIDOR
+       recusou, com a internet funcionando, ficava parado ate' alguem recarregar. */
+    setInterval(function () {
+      if (!fila().length || !navigator.onLine) return;
+      sincronizar().then(function (n) { if (n) toast(n + ' lançamento(s) da fila gravado(s).', 'ok'); });
+    }, 60000);
   });
 
   /* ================= O CAMPO DE DATA NÃO FICA EM BRANCO NO CELULAR =================
@@ -3499,6 +3518,25 @@
     return true;
   }
 
+  /* O TEXTO DO AVISO DEPOIS DE ENVIAR, num lugar so' para as tres telas de lancamento.
+     Tres frases: gravado, sem internet, e NAO GRAVADO pelo servidor — esta ultima nao
+     pode parecer a de "sem internet", porque a causa e' outra e o administrador precisa
+     saber. */
+  function textoDoEnvio(r, total, gravado) {
+    if (r && r.naoGravado) {
+      return { classe: 'erro', toast: 'NÃO GRAVADO — ficou guardado neste aparelho.',
+        html: '⚠ <b>NÃO GRAVADO.</b> O servidor recusou este lançamento de <b>' + num(total) +
+          ' caixa(s)</b>. Ele ficou <b>guardado neste aparelho</b> e será reenviado sozinho — ' +
+          '<b>não limpe o navegador</b> até o aviso de fila sumir. O administrador já foi ' +
+          'avisado por e-mail.' };
+    }
+    if (r && r.offline) {
+      return { classe: 'atencao', toast: 'Guardado na fila (offline).',
+        html: '⏳ Sem conexão — <b>' + num(total) + ' caixa(s)</b> na fila. Envia sozinho quando a internet voltar.' };
+    }
+    return { classe: 'ok', toast: '', html: gravado };
+  }
+
   window.QDC = {
     get: get, post: post, enviar: enviar, sincronizar: sincronizar, fila: fila, chave: chave,
     sessao: sessao, lendo: lendo, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
@@ -3520,6 +3558,7 @@
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
     conferirSenha: conferirSenha,
     aplicarTema: aplicarTema, aplicarFundo: aplicarFundo, ajustarEsquemaNativo: ajustarEsquemaNativo, datasVisiveis: datasVisiveis, avisoDeTeto: avisoDeTeto,
+    textoDoEnvio: textoDoEnvio,
     aplicarAparencia: aplicarAparencia,
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
     mudarSuperficie: mudarSuperficie, aparenciaAtual: aparenciaAtual,

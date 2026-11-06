@@ -89,6 +89,8 @@ const tabelas = {
   veiculos: [],
   fornecedores: [],
   pedidos_senha: [],
+  /* As falhas de gravacao: e' aqui que o alerta registra o que o banco recusou. */
+  falhas_gravacao: [],
   config: [
     { chave: 'empresa', valor: 'Qdelícia Frutas' },
     { chave: 'diasPrazoPadrao', valor: '7' }
@@ -117,7 +119,7 @@ function erroUnique(coluna) {
 /* O CORTE DO SUPABASE, simulavel: com `CORTE.movimentos = n`, a leitura devolve so' as n
    primeiras linhas — o que o PostgREST faz calado acima de mil. `CORTE.semMaior` desliga
    a pergunta direta pelo maior id, para provar a ultima trava (o insert) sozinha. */
-const CORTE = { movimentos: 0, semMaior: false };
+const CORTE = { movimentos: 0, semMaior: false, falhasForaDoAr: false };
 
 const falso = Object.assign({}, real, {
   configurado: () => true,
@@ -135,6 +137,15 @@ const falso = Object.assign({}, real, {
     return tabelas[t].map((r) => r.id).sort().pop() || '';
   },
   insert: async (t, linhas) => {
+    if (t === 'falhas_gravacao') {
+      if (CORTE.falhasForaDoAr) throw new Error('banco fora do ar');
+      return linhas.map((l) => {
+        const linha = Object.assign({ id: String(tabelas[t].length + 1), resolvido: false,
+                                      em: new Date().toISOString() }, l);
+        tabelas[t].push(linha);
+        return Object.assign({}, linha);
+      });
+    }
     return linhas.map((l) => {
       if (tabelas[t].some((r) => r.id === l.id)) throw erroUnique('pkey');
       if (t === 'movimentos' && l.client_key &&
@@ -1037,6 +1048,9 @@ async function main() {
     ok(r2.ok !== true && tabelas.movimentos.length === antes2,
       'e quando o id sai repetido, a resposta é ERRO, e NÃO "gravado" — era o "sucesso" ' +
       'falso que fazia o lançamento sumir: a fila do celular apagava achando que tinha ido', r2);
+    ok(r2.naoGravado === true && /NÃO GRAVADO/.test(r2.erro || ''),
+      'e a resposta diz `naoGravado` — é essa marca que faz o celular GUARDAR o lançamento ' +
+      'na fila e reenviar, em vez de a pessoa achar que foi', r2);
     CORTE.movimentos = 0; CORTE.semMaior = false;
 
     const L = require(path.join(__dirname, '..', 'api', '_logica.js'));
@@ -1068,6 +1082,82 @@ async function main() {
       'e a leitura de verdade vai até o fim: ' + TOTAL + ' linhas em páginas de mil, e não ' +
       'as mil primeiras que o servidor entrega num pedido só',
       { linhas: todas && todas.length, pedidos: pedidos });
+  }
+
+  console.log('\n== falha de gravacao: registro e e-mail (06/11/2026) ==');
+  {
+    const alerta = require(path.join(__dirname, '..', 'api', '_alerta.js'));
+    alerta._zerarFreio();
+    process.env.RESEND_API_KEY = 'chave-de-mentira';
+    process.env.ALERTA_EMAIL = 'admin@exemplo.com';
+    const fetchAntes = global.fetch;
+    const enviados = [];
+    global.fetch = async (url, op) => {
+      enviados.push({ url: url, corpo: JSON.parse(op.body), cab: op.headers });
+      return { ok: true, status: 200, text: async () => '{}' };
+    };
+    const antesF = tabelas.falhas_gravacao.length;
+    CORTE.movimentos = tabelas.movimentos.length - 2; CORTE.semMaior = true;
+    let r;
+    try {
+      r = await POST({ acao: 'movimento', tipo: 'AJUSTE', destinoId: 'L001', senha: 'segredo123',
+        foto: 'data:image/png;base64,AAAA', itens: [{ tipoCaixaId: 'T001', qtd: 4321 }],
+        dataRef: dia(0), usuarioId: 'U001', perfil: 'ADMIN' });
+    } finally { CORTE.movimentos = 0; CORTE.semMaior = false; }
+    const f = tabelas.falhas_gravacao[tabelas.falhas_gravacao.length - 1] || {};
+    ok(r.naoGravado === true && tabelas.falhas_gravacao.length === antesF + 1 &&
+       f.acao === 'movimento' && f.usuario_id === 'U001' &&
+       JSON.stringify(f.payload).indexOf('4321') >= 0,
+      'a gravação recusada fica REGISTRADA, com o que a pessoa tentou mandar — é a cópia que ' +
+      'permite refazer o lançamento mesmo que o celular se perca', f);
+    ok(!('senha' in (f.payload || {})) && !('foto' in (f.payload || {})),
+      'e o registro NUNCA guarda senha nem foto', f.payload);
+    const mail = enviados.filter((x) => /api\.resend\.com\/emails/.test(x.url))[0];
+    ok(!!mail && mail.corpo.to[0] === 'admin@exemplo.com' &&
+       /NÃO gravado/.test(mail.corpo.subject) && /4321/.test(mail.corpo.html) &&
+       !/segredo123/.test(mail.corpo.html) && /Bearer chave-de-mentira/.test(mail.cab.Authorization),
+      'e vira E-MAIL para o administrador, na hora, com o resumo do lançamento e sem a senha',
+      mail && { para: mail.corpo.to, assunto: mail.corpo.subject });
+
+    /* O FREIO: com o banco fora do ar, cada tentativa falharia — sem ele, centenas de
+       e-mails. Um por minuto, e o seguinte diz quantas ficaram de fora. */
+    const qtosAntes = enviados.length;
+    CORTE.movimentos = tabelas.movimentos.length - 2; CORTE.semMaior = true;
+    try {
+      await POST({ acao: 'movimento', tipo: 'AJUSTE', destinoId: 'L001',
+        itens: [{ tipoCaixaId: 'T001', qtd: 1 }], dataRef: dia(0), usuarioId: 'U001', perfil: 'ADMIN' });
+    } finally { CORTE.movimentos = 0; CORTE.semMaior = false; }
+    ok(enviados.length === qtosAntes && tabelas.falhas_gravacao.length === antesF + 2,
+      'e a segunda falha no mesmo minuto é registrada mas NÃO vira outro e-mail — o freio ' +
+      'evita a enxurrada no dia em que o banco cair');
+
+    /* SEM O BANCO, O E-MAIL E' A COPIA. */
+    alerta._zerarFreio();
+    CORTE.falhasForaDoAr = true;
+    const res3 = await alerta.falhaDeGravacao(falso, { acao: 'movimento', itens: [{ tipoCaixaId: 'T002', qtd: 77 }] },
+                                              new Error('x'));
+    CORTE.falhasForaDoAr = false;
+    const ultimo = enviados[enviados.length - 1];
+    ok(res3.registrado === false && /única cópia/.test(ultimo.corpo.html) && /77/.test(ultimo.corpo.html),
+      'e quando nem o registro entra no banco, o e-mail diz que é a ÚNICA cópia — e leva o lançamento');
+    global.fetch = fetchAntes;
+    delete process.env.RESEND_API_KEY; delete process.env.ALERTA_EMAIL;
+    alerta._zerarFreio();
+
+    /* A FAIXA DO PAINEL. */
+    const fa = await GET({ acao: 'falhas', quem: 'U001' });
+    const fn = await GET({ acao: 'falhas', quem: 'U003' });
+    ok(fa.ok && fa.total >= 2 && fn.ok && fn.falhas.length === 0,
+      'o administrador vê as falhas abertas; quem não é administrador não vê nada — o registro ' +
+      'guarda o que a pessoa tentou lançar', { admin: fa.total, outro: fn.falhas && fn.falhas.length });
+    const idF = fa.falhas[0].id;
+    const resol = await POST({ acao: 'resolverFalha', id: idF, usuarioId: 'U001' });
+    const fa2 = await GET({ acao: 'falhas', quem: 'U001' });
+    ok(resol.ok && fa2.total === fa.total - 1 &&
+       tabelas.falhas_gravacao.some((x) => x.id === idF && x.resolvido === true),
+      'e marcar como resolvida tira da faixa SEM apagar — a falha continua na tabela');
+    const resolN = await POST({ acao: 'resolverFalha', id: fa2.falhas[0] && fa2.falhas[0].id, usuarioId: 'U003' });
+    ok(resolN.ok === false, 'e só o administrador resolve', resolN);
   }
 
   console.log('\n== a tabela tem teto, as contas nao (06/11/2026) ==');

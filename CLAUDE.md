@@ -1395,6 +1395,16 @@ parte, e exige regerar PDF e Word.
   **Regra:** nunca leia uma tabela inteira sem paginar, e nunca transforme recusa do banco em
   sucesso sem saber exatamente qual restrição recusou.
 
+- **Toda gravação recusada vira alarme (06/11/2026, depois do corte de mil linhas).** O `catch`
+  do roteador, em POST, chama `api/_alerta.js`: grava a tentativa em `falhas_gravacao` (sem
+  senha, PIN nem foto) e manda **e-mail pelo Resend** — `RESEND_API_KEY` e `ALERTA_EMAIL` nas
+  variáveis da Vercel; sem elas o e-mail não sai e o registro continua. Freio de um e-mail por
+  minuto. A resposta é `{ok:false, naoGravado:true, erro:'NÃO GRAVADO — …'}`, e o `enviar()` do
+  `app.js` **põe na fila** em vez de descartar; a fila tenta de novo a cada 60s. O admin vê a
+  faixa vermelha no topo do painel (`carregarFalhas`, rota `falhas`) e marca "já resolvido"
+  (`resolverFalha`). **Nada no alerta pode derrubar a resposta** — é o "NÃO GRAVADO" que faz o
+  celular guardar o lançamento.
+
 - **Substituição de texto casando com o tradutor errado.** Aconteceu duas vezes: um campo
   do usuário foi parar em `formLocalPadrao`, e `Empresa` foi parar no tradutor de LOCAL
   em vez do de MOTORISTA. O sintoma é mudo — salvar responde ok e o valor não vai. Dois

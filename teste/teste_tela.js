@@ -32170,5 +32170,24 @@ console.log('\n== a altura da conciliacao, e "Conferido" ==');
     'e a etiqueta contornada usa tokens já medidos, sem cor nova', regra);
 })();
 
+console.log('\n# a faixa das falhas de gravação');
+(function(){
+  var adm = fs.readFileSync(path.join(__dirname, '..', 'admin.html'), 'utf8');
+  var app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  ok(/<div id="faixaFalhas"[^>]*\shidden/.test(adm),
+    'a faixa das falhas nasce escondida — só aparece quando há falha não resolvida');
+  var abrir = fonteDaFuncao(adm, 'abrirApp');
+  ok(/carregarFalhas\(\)/.test(abrir) && /setInterval\(carregarFalhas/.test(abrir),
+    'o painel CHAMA a busca das falhas ao abrir e de novo a cada poucos minutos');
+  var carregar = fonteDaFuncao(adm, 'carregarFalhas');
+  ok(/Q\.ehAdmin\(\)/.test(carregar) && /acao:'falhas'/.test(carregar),
+    'só o admin pergunta pelas falhas, e pela rota certa');
+  ok(/acao:'resolverFalha'/.test(adm) && /data-resolver-falha/.test(adm),
+    'e cada falha tem como ser marcada como resolvida');
+  var env = fonteDaFuncao(app, 'enviar');
+  ok(/naoGravado/.test(env) && /enfileirar\(/.test(env),
+    'o celular guarda na fila o que o servidor disse que NÃO gravou');
+})();
+
 console.log(falhas ? '\n>>> ' + falhas + ' FALHA(S)\n' : '\n>>> TELAS OK\n');
 process.exit(falhas ? 1 : 0);

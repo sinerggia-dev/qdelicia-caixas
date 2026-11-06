@@ -1767,6 +1767,9 @@ tfoot tr.lin-total:hover td{background:var(--surface-2)}
 .aviso-box{padding:11px 13px;border-radius:10px;font-size:14px;margin:10px 0}
 .aviso-box.ok{background:var(--verde-claro);color:var(--verde-esc)}
 .aviso-box.erro{background:var(--vermelho-claro);color:var(--vermelho)}
+/* A faixa das falhas de gravacao, no topo do painel. */
+.faixa-falhas{margin:0 0 10px}
+.faixa-falhas details summary{cursor:pointer;font-weight:600}
 .aviso-box.info{background:var(--azul-claro);color:var(--azul)}
 .aviso-box.atencao{background:var(--ambar-claro);color:var(--ambar-forte)}
 

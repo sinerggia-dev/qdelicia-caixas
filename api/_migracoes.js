@@ -954,5 +954,26 @@ module.exports = [
       "  'Arranjo da tela desta pessoa (ordem e colunas escondidas). Gravado pela rota",
       "   salvarArranjo; o cadastro de usuario nao mexe nele.';"
     ].join('\n')
+  },
+  {
+    id: '2026-11-06-falhas-de-gravacao',
+    nota: 'registro das gravacoes que o banco recusou, com o que a pessoa tentou mandar',
+    sql: [
+      "-- Nasceu do defeito de 04-06/11/2026: o banco recusou lancamentos por dois dias e a",
+      "-- tela disse 'gravado'. Toda escrita que falha no servidor fica aqui, com o pedido",
+      "-- (sem senha nem foto), e vira e-mail para o administrador. Nada aqui e' apagado.",
+      "create table if not exists public.falhas_gravacao (",
+      "  id            bigserial primary key,",
+      "  em            timestamptz not null default now(),",
+      "  acao          text,",
+      "  usuario_id    text,",
+      "  erro          text,",
+      "  payload       jsonb not null default '{}'::jsonb,",
+      "  resolvido     boolean not null default false,",
+      "  resolvido_por text,",
+      "  resolvido_em  timestamptz",
+      ");",
+      "alter table public.falhas_gravacao enable row level security;"
+    ].join('\n')
   }
 ];

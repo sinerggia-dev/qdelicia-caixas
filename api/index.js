@@ -13,6 +13,7 @@
 
 var L = require('./_logica');
 var db = require('./_supabase');
+var alerta = require('./_alerta');
 var senha = require('./_senha');
 var MIGRACOES = require('./_migracoes');
 
@@ -323,6 +324,15 @@ async function rotaGet(p) {
        tela que restaura num jeito de ver o que a tela que lista esconde. A tela manda
        aqui o mesmo `so` que manda no "Apagar o que está no filtro": quem não pôde apagar
        um lançamento não o encontra aqui para restaurar. */
+    /* AS FALHAS DE GRAVACAO ainda nao resolvidas — a faixa vermelha do painel. So' para
+       quem e' ADMIN: o registro guarda o que a pessoa tentou lancar. */
+    case 'falhas':
+      var euF = L.acharUsuario(d.usuarios, p.quem);
+      if (!euF || !L.ehAdministrador(euF)) return { ok: true, falhas: [] };
+      var todasF = [];
+      try { todasF = await db.selectAll('falhas_gravacao', 'em.desc'); } catch (e) { todasF = []; }
+      var abertas = todasF.filter(function (f) { return f.resolvido !== true; });
+      return { ok: true, total: abertas.length, falhas: abertas.slice(0, 50) };
     case 'lixeira':
       /* E O LIVRO TAMBEM, pela razao que o comentario acima ja' diz: ela e' o avesso da
          lista de Movimentos, e um recorte que valesse so' de um lado transformaria a
@@ -447,6 +457,7 @@ async function rotaPost(p) {
   if (acao === 'limparMovimentos') return await limparMovimentos(p);
   if (acao === 'baseUsuarios') return await baseUsuarios(p);
   if (acao === 'viuTutorial') return await viuTutorial(p);
+  if (acao === 'resolverFalha') return await resolverFalha(p);
   if (acao === 'salvarArranjo') return await salvarArranjo(p);
   if (acao === 'minhaFoto') return await minhaFoto(p);
 
@@ -1032,6 +1043,19 @@ function semLimite(p) {
 function comTeto(lista, p, padrao) {
   var lim = Number((p && p.limit) || padrao);
   return { ok: true, movimentos: lista.slice(0, lim), total: lista.length };
+}
+
+/* O admin marca a falha como resolvida — o lancamento foi refeito, ou era teste. Nao
+   apaga: a falha continua na tabela, so' sai da faixa. */
+async function resolverFalha(p) {
+  var d = await db.carregarTudo();
+  var eu = L.acharUsuario(d.usuarios, p.usuarioId || p.quem);
+  if (!eu || !L.ehAdministrador(eu)) return { ok: false, erro: 'Só o administrador resolve falhas.' };
+  var id = String(p.id || '');
+  if (!id) return { ok: false, erro: 'Qual falha?' };
+  await db.update('falhas_gravacao', id, { resolvido: true, resolvido_por: String(eu.ID),
+                                           resolvido_em: new Date().toISOString() });
+  return { ok: true };
 }
 
 async function salvarArranjo(p) {
@@ -1886,17 +1910,33 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  var pedido = null;
   try {
+    if (req.method === 'POST') pedido = corpo(req);
     var falha = await garantirMigracoes();
-    if (falha) { res.status(200).json({ ok: false, erro: falha }); return; }
+    if (falha) {
+      if (req.method === 'POST') throw new Error('Migração pendente: ' + falha);
+      res.status(200).json({ ok: false, erro: falha }); return;
+    }
 
     var r = req.method === 'POST'
-      ? await rotaPost(corpo(req))
+      ? await rotaPost(pedido)
       : await rotaGet(req.query || {});
     res.status(200).json(r);
   } catch (e) {
     // O detalhe vai para o log da Vercel; para a tela, uma frase que ajuda sem expor o banco.
     console.error('[caixas]', e && e.stack ? e.stack : e);
+    /* GRAVACAO QUE FALHOU NAO PASSA CALADA (06/11/2026). Toda escrita que estoura aqui
+       e' uma gravacao que NAO aconteceu: ela fica registrada em `falhas_gravacao` (com
+       o que a pessoa tentou mandar, sem senha nem foto), vira e-mail para o
+       administrador, e a resposta diz `naoGravado` — e' essa marca que faz o celular
+       guardar o lancamento na fila e reenviar, em vez de a pessoa achar que foi. */
+    if (req.method === 'POST') {
+      try { await alerta.falhaDeGravacao(db, pedido || {}, e); } catch (e3) { /* nunca derruba */ }
+      res.status(200).json({ ok: false, naoGravado: true,
+        erro: 'NÃO GRAVADO — ' + mensagemDeErro(e) + ' O administrador foi avisado.' });
+      return;
+    }
     res.status(200).json({ ok: false, erro: mensagemDeErro(e) });
   }
 };
