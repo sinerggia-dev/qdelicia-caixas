@@ -1557,7 +1557,9 @@ button.mini.perigo{border-color:var(--vermelho);color:var(--vermelho)}
    `grid-column:1/-1` o faz ocupar a linha inteira em qualquer numero de colunas: a
    gaveta tem uma no celular e mais no computador, e uma medida fixa serviria a uma e
    quebraria a outra. */
-.filtro-acao{grid-column:1 / -1;display:flex;margin:2px 0 6px}
+.filtro-acao{position:sticky;bottom:0;z-index:2;display:flex;margin:10px 0 0;
+  padding:10px 0;background:var(--surface);border-top:1px solid var(--linha)}
+.filtro-acao .btn{flex:1 1 auto;min-width:0}
 
 /* O RISCO ENTRE OS DOIS GRUPOS DE CHIP. Eles respondem perguntas diferentes — que
    funcao a pessoa tem, e em que situacao ela esta' — e se somam em vez de se
@@ -2365,6 +2367,9 @@ input[type="password"]::-ms-clear{display:none}
   /* Um campo por linha: dois seletores lado a lado num telefone dão 150px cada, e o
      nome do local não cabe em 150px. */
   .filtros-caixa .grid-filtros{grid-template-columns:1fr}
+  /* O Filtrar preso cobre ate' a borda da folha: sem isto os 12px de respiro do corpo
+     ficavam por baixo dele, e o campo de baixo aparecia espiando sob o botao. */
+  .filtros-caixa__corpo .filtro-acao{bottom:-12px;margin:10px -12px 0;padding:10px 12px 22px}
   /* Os botões empilham e ficam com alvo de dedo. Em linha, cinco deles viravam cinco
      fatias de 60px. */
   .filtros-caixa .linha-btn{flex-direction:column;align-items:stretch}
@@ -3281,7 +3286,10 @@ details.tipos[open] summary::before{content:"▾"}
   /* O trilho acompanha a rolagem: com 500 linhas na tabela, um filtro preso no topo
      da pagina obriga a subir tudo para mexer num campo. */
   .filtros-caixa{position:sticky;top:10px;align-self:start;
-    max-height:calc(100dvh - 20px);overflow:hidden;
+    /* 140px, e nao 20: a gaveta comeca abaixo do titulo da pagina, ~125px do topo. Com
+       20 o pe' dela — onde mora o Filtrar, preso — ficava abaixo da janela ate' a pessoa
+       rolar a pagina, e o botao sumia justamente na primeira visita. */
+    max-height:calc(100dvh - 140px);overflow:hidden;
     background:var(--campo);border:1px solid var(--linha);border-radius:var(--raio);
     cursor:pointer}
   .mov-tela.aberta .filtros-caixa{overflow-y:auto;cursor:default;background:var(--surface)}

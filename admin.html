@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=8239c48c">
+<link rel="stylesheet" href="styles.css?v=0b740408">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -721,8 +721,8 @@
               <!-- As duas datas dividem uma fileira: sozinhas, cada uma custava uma
                    linha inteira do painel para um campo que nao usa metade da largura. -->
               <div class="pop-duplo">
-                <div><label for="rtDe">De</label><input id="rtDe" type="date"></div>
-                <div><label for="rtAte">Até</label><input id="rtAte" type="date"></div>
+                <div><label for="rtDe">Data inicial</label><input id="rtDe" type="date"></div>
+                <div><label for="rtAte">Data final</label><input id="rtAte" type="date"></div>
               </div>
               <p class="erro-data" id="rtErroData" role="alert" hidden></p>
               <label for="verTesteRetornos">Lançamentos</label>
@@ -834,8 +834,8 @@
       <h2>Extrato por cliente<span class="sub">É o documento de cobrança: mostra tudo que saiu, tudo que voltou e o que falta.</span></h2>
       <div class="grid2">
         <div><label for="exLocal">Cliente / Filial</label><select id="exLocal"></select></div>
-        <div><label for="exDe">De</label><input id="exDe" type="date"></div>
-        <div><label for="exAte">Até</label><input id="exAte" type="date"></div>
+        <div><label for="exDe">Data inicial</label><input id="exDe" type="date"></div>
+        <div><label for="exAte">Data final</label><input id="exAte" type="date"></div>
       </div>
       <div class="linha-btn">
         <button class="btn" id="btnGerarExtrato">Gerar extrato</button>
@@ -1157,11 +1157,8 @@
              continuam no pé da gaveta, e a razão está escrita lá embaixo: um apagar que
              some quinhentas linhas não pode ficar ao alcance do mesmo movimento
              distraído que troca uma data. -->
-        <div><label for="mvDe">De</label><input id="mvDe" type="date"></div>
-        <div><label for="mvAte">Até</label><input id="mvAte" type="date"></div>
-        <div class="filtro-acao">
-          <button class="btn" id="btnFiltrarMov" style="flex:0;min-width:140px">Filtrar</button>
-        </div>
+        <div><label for="mvDe">Data inicial</label><input id="mvDe" type="date"></div>
+        <div><label for="mvAte">Data final</label><input id="mvAte" type="date"></div>
 
         <!-- OS CANCELADOS SAO INVISIVEIS POR PADRAO, e isso esta certo: eles nao contam
              em nada, e deixa-los na lista de todo dia seria pedir que a pessoa os
@@ -1217,6 +1214,14 @@
                frase fica escrita no codigo e nunca chega a' tela. Foi o que aconteceu:
                a peca existia e nada chegava nela. -->
           <p class="dica-base" id="mvTesteDica" hidden></p></div>
+      </div>
+      <!-- O FILTRAR FICA NO PÉ DA GAVETA, PRESO À VISTA (sticky), e não colado no
+           "Data final". Colado ali ele parecia parte do campo de data, e no celular ficava
+           no meio da lista: quem mexia num filtro de baixo tinha de subir para achá-lo.
+           Preso ao pé, ele está sempre à vista, de qualquer campo — que era a razão de
+           ele ter subido para junto das datas. -->
+      <div class="filtro-acao">
+        <button class="btn" id="btnFiltrarMov">Filtrar</button>
       </div>
       <div class="linha-btn">
         <!-- LIMPAR E CSV NÃO TÊM MEDIDA AQUI. Eles vivem em dois lugares — o pé desta
@@ -1470,8 +1475,8 @@
                dois contentores disputando a mesma linha nunca cabem numa so' de forma
                confiavel — a busca caia para baixo das datas, e a barra virava duas
                faixas tortas. Filhos diretos, uma regra de quebra so'. -->
-          <div class="bt-campo"><label for="dcDe">De</label><input id="dcDe" type="date"></div>
-          <div class="bt-campo"><label for="dcAte">Até</label><input id="dcAte" type="date"></div>
+          <div class="bt-campo"><label for="dcDe">Data inicial</label><input id="dcDe" type="date"></div>
+          <div class="bt-campo"><label for="dcAte">Data final</label><input id="dcAte" type="date"></div>
           <!-- A BUSCA GERAL procura no que a TELA MOSTRA — motorista, rota, conferente,
                código do lançamento, base, tipo e situação —, e não numa coluna só.
                Procurar dentro de coisa que não está na tela devolve linha que a pessoa
@@ -1694,8 +1699,8 @@
              escrita no CSS e na tela vizinha — "dois contentores disputando a mesma
              linha nunca cabem numa so de forma confiavel". Esta tela nasceu com a
              estrutura errada e ficou. -->
-        <div class="bt-campo"><label for="lmDe">De</label><input id="lmDe" type="date"></div>
-        <div class="bt-campo"><label for="lmAte">Até</label><input id="lmAte" type="date"></div>
+        <div class="bt-campo"><label for="lmDe">Data inicial</label><input id="lmDe" type="date"></div>
+        <div class="bt-campo"><label for="lmAte">Data final</label><input id="lmAte" type="date"></div>
         <div class="bt-campo bt-campo--busca"><label for="lmBusca">Buscar</label>
           <input id="lmBusca" type="search" placeholder="motorista, rota, M000123…"
                  autocomplete="off"></div>
@@ -15161,12 +15166,13 @@
    * Sem nenhuma das duas datas na gaveta, ele vai para o fim: é onde um botão de
    * confirmar faz sentido quando não há par a que se colar. */
   function recolocarAcaoFiltro(g, por){
-    var acao = g.querySelector('.filtro-acao');
-    if (!acao) return;
-    var ancora = por.mvAte || por.mvDe;
-    if (ancora) g.insertBefore(acao, ancora.nextSibling);
-    else g.appendChild(acao);
+    /* FORA DA GRADE, logo depois dela. Mora la' desde o HTML; isto so' garante que
+       nenhuma reordenacao o leve de volta para o meio dos campos. */
+    var acao = g.parentNode && g.parentNode.querySelector('.filtro-acao');
+    if (!acao || acao.parentNode !== g.parentNode) return;
+    if (g.nextSibling !== acao) g.parentNode.insertBefore(acao, g.nextSibling);
   }
+
 
   /* O RÓTULO É A ALÇA, e não a caixinha inteira. Com a caixinha arrastável, começar um
      arrasto em cima do seletor roubava o clique que abre a lista — e um seletor que não

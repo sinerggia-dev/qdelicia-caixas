@@ -354,11 +354,12 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
     'sobre a tela, e quem for mexer vai mexer no lugar que não manda',
     'html: ' + doArquivo.join(' ') + '  |  js: ' + r.padrao.join(' '));
 
-  /* ---- O FILTRAR ANDA COM O PERIODO ---- */
-  ok(r.vista.indexOf('[btnFiltrarMov]') === r.vista.indexOf('mvAte') + 1,
-    'o Filtrar fica logo depois do Até — ele não é campo, então ninguém o reanexava, e ' +
-    'todos os campos iam para depois dele: o botão do formulário abria a gaveta em ' +
-    'PRIMEIRO lugar, antes de haver o que confirmar', r.vista.join(' '));
+  /* ---- O FILTRAR NAO MORA ENTRE OS CAMPOS (06/11/2026, a pedido) ----
+   * Colado no "Ate'" ele parecia parte do campo de data, e no celular ficava no meio da
+   * lista. Agora ele e' o pe' da gaveta, preso a' vista. */
+  ok(r.vista.indexOf('[btnFiltrarMov]') < 0,
+    'o Filtrar não fica no meio dos campos — colado na data final ele parecia parte do ' +
+    'campo, e no celular ficava no meio da lista', r.vista.join(' '));
 
   /* ---- E ACOMPANHA MESMO, quando alguem arrasta o periodo ----
    * Posicao fixa daria certo na ordem de fabrica e errado para quem arrastou — e o
@@ -367,10 +368,8 @@ console.log('\n== a ordem dos filtros de Movimentos e a que a tela monta ==');
                    'mvCaixa', 'mvStatus', 'mvCancelados', 'mvUsuario', 'mvMotorista',
                    'mvTeste'];
   var r2 = rodarOrdem(arrastado);
-  ok(r2.vista.indexOf('[btnFiltrarMov]') === r2.vista.indexOf('mvAte') + 1,
-    'e ele acompanha o período para onde o período for arrastado — numa posição fixa, ' +
-    'o botão daria certo na ordem de fábrica e ficaria longe das datas para quem as ' +
-    'moveu, que é exatamente quem não tem como perceber o erro', r2.vista.join(' '));
+  ok(r2.vista.indexOf('[btnFiltrarMov]') < 0,
+    'e nenhuma reordenação o traz de volta para o meio dos campos', r2.vista.join(' '));
 
   /* ---- A GAVETA REORDENA DE VERDADE, em toda abertura ----
    * Sem a chamada, tudo acima e' teoria sobre uma funcao que ninguem executa. */
@@ -3408,11 +3407,13 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
     'o período vem ANTES de Cancelados — é o recorte que se mexe todo dia, e no pé da ' +
     'gaveta ficava depois de sete campos que quase nunca mudam',
     [pos('id="mvDe"'), pos('id="mvAte"'), pos('id="mvCancelados"')]);
-  ok(pos('id="btnFiltrarMov"') > pos('id="mvAte"') &&
-     pos('id="btnFiltrarMov"') < pos('id="mvCancelados"'),
-    'e o Filtrar vem colado neles — ele é o botão do formulário, e confirmar longe de ' +
-    'onde se digitou obriga a olhar para dois cantos da tela por uma coisa só',
-    pos('id="btnFiltrarMov"'));
+  var iFa = adm.indexOf('id="btnFiltrarMov"');
+  var fimGrade = barra.lastIndexOf('</div>', pos('<div class="filtro-acao">'));
+  ok(pos('<div class="filtro-acao">') > pos('id="mvTeste"') &&
+     !/<(select|input)\b/.test(barra.slice(pos('id="mvTeste"') + 12, pos('<div class="filtro-acao">'))) &&
+     iFa > 0 && iFa < adm.indexOf('id="btnLimparTudo"') && fimGrade > 0,
+    'e o Filtrar sai da grade para o pé dela, ANTES dos botões de risco — no fim da ' +
+    'lista e preso à vista, ele aparece de qualquer campo', [pos('id="btnFiltrarMov"'), iFa]);
 
   /* E OS BOTOES DE RISCO NAO SOBEM: um apagar que some quinhentas linhas nao pode ficar
      ao alcance do mesmo movimento distraido que troca uma data. */
@@ -3423,9 +3424,9 @@ console.log('\n== a barra de Movimentos nao esquece campo ==');
   /* E O BOTAO OCUPA A LINHA INTEIRA DA GRADE: item de grade sem isto herda a largura de
      UMA coluna e fica encolhido no meio da gaveta, parecendo um campo que nao e'. */
   var folhaFa = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
-  ok(/\.filtro-acao\{[^}]*grid-column:1 \/ -1/.test(folhaFa),
-    'e ele ocupa a linha inteira da grade — sem isso herda a largura de UMA coluna e ' +
-    'fica encolhido no meio da gaveta, parecendo um campo que não é',
+  ok(/\.filtro-acao\{[^}]*position:sticky;bottom:0/.test(folhaFa),
+    'e ele fica PRESO ao pé da gaveta enquanto ela rola — fora da grade, sem isso ele ' +
+    'voltaria a sumir para quem está mexendo num filtro lá em cima',
     /\.filtro-acao\{[^}]*\}/.exec(folhaFa));
 
   var leitura = adm.slice(adm.indexOf('function filtroExclusao()'),
