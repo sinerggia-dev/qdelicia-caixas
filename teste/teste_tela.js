@@ -27913,14 +27913,17 @@ console.log('\n== as ações do filtro mudam de lugar ==');
   }
   function montar() {
     var topo = caixa('acoesFiltroTopo'), pe = caixa('linha-btn'), mapa = {};
+    /* O PE' PRESO DA FOLHA, com o Filtrar dentro: e' para o lado dele que o Limpar vai
+       no celular. */
+    var par = caixa('filtro-acao');
     ['btnFiltrarMov', 'btnLimparMov', 'btnCsvMov', 'btnLimparTudo', 'btnLixeira']
       .forEach(function (id) {
         var b = { id: id, parentNode: null };
-        pe.appendChild(b);
+        (id === 'btnFiltrarMov' ? par : pe).appendChild(b);
         mapa[id] = b;
       });
     mapa.acoesFiltroTopo = topo;
-    return { mapa: mapa, topo: topo, pe: pe };
+    return { mapa: mapa, topo: topo, pe: pe, par: par };
   }
   function rodar(estreito, mundo) {
     mundo = mundo || montar();
@@ -27930,7 +27933,9 @@ console.log('\n== as ações do filtro mudam de lugar ==');
        botão foi parar. Com ele, a tela roda e a prova falha dizendo. */
     new Function('document', 'emCartoesPainel', 'window',
       fonte + '\n acomodarAcoesDoFiltro();')(
-      { getElementById: function (id) { return mundo.mapa[id] || null; } },
+      { getElementById: function (id) { return mundo.mapa[id] || null; },
+        querySelector: function (sel) {
+          return sel === '#caixaFiltrosMov .filtro-acao' ? mundo.par : null; } },
       function () { return estreito; },
       { matchMedia: function () { return { matches: false }; } });
     return mundo;
@@ -27941,7 +27946,7 @@ console.log('\n== as ações do filtro mudam de lugar ==');
   }
 
   var pc = rodar(false);
-  ok(ondeEstao(pc) === 'linha-btn,acoesFiltroTopo,acoesFiltroTopo,linha-btn',
+  ok(ondeEstao(pc) === 'filtro-acao,acoesFiltroTopo,acoesFiltroTopo,linha-btn',
     'no computador sobem LIMPAR E CSV, e só eles: os dois agem sobre o que já está na ' +
     'tela. O "Apagar o que está no filtro" fica na gaveta porque some quinhentas ' +
     'linhas, e FILTRAR fica porque confirma o que se acabou de digitar nos campos — ' +
@@ -27951,15 +27956,16 @@ console.log('\n== as ações do filtro mudam de lugar ==');
   /* FILTRAR NÃO SE MEXE EM LARGURA NENHUMA. Medido só no computador, bastaria o corte
      invertido para ele passar a viajar no celular — e lá a gaveta é uma folha que se
      abre inteira: o botão subiria para uma linha de cadeado que nem está na tela. */
-  ok(rodar(true).mapa.btnFiltrarMov.parentNode.id === 'linha-btn' &&
-     rodar(false).mapa.btnFiltrarMov.parentNode.id === 'linha-btn',
+  ok(rodar(true).mapa.btnFiltrarMov.parentNode.id === 'filtro-acao' &&
+     rodar(false).mapa.btnFiltrarMov.parentNode.id === 'filtro-acao',
     'e o Filtrar fica no pé da gaveta nas DUAS larguras — ele é o botão do formulário, ' +
     'e o formulário é a gaveta');
 
   var cel = rodar(true);
-  ok(ondeEstao(cel) === 'linha-btn,linha-btn,linha-btn,linha-btn',
-    'e no celular todos ficam no pé da gaveta, onde sempre estiveram — lá em cima não ' +
-    'há linha de cadeado sobrando', ondeEstao(cel));
+  ok(ondeEstao(cel) === 'filtro-acao,filtro-acao,linha-btn,linha-btn' &&
+     cel.par.filhos.map(function (b) { return b.id; }).join(',') === 'btnFiltrarMov,btnLimparMov',
+    'e no celular o LIMPAR vai para o lado do Filtrar, no pé preso da folha (a pedido): os ' +
+    'dois são o par do formulário, e lado a lado cada um fica com metade da largura', ondeEstao(cel));
 
   /* GIRAR O APARELHO LEVA E TRAZ. Rodado duas vezes sobre o MESMO mundo, o segundo
      resultado tem de ser o do começo — senão o botão fica preso onde a primeira
@@ -27967,15 +27973,35 @@ console.log('\n== as ações do filtro mudam de lugar ==');
   var vaiEVem = montar();
   rodar(false, vaiEVem);
   rodar(true, vaiEVem);
-  ok(ondeEstao(vaiEVem) === 'linha-btn,linha-btn,linha-btn,linha-btn',
+  ok(ondeEstao(vaiEVem) === 'filtro-acao,filtro-acao,linha-btn,linha-btn',
     'e girar o aparelho traz os dois de volta — presos lá em cima, a gaveta do celular ' +
     'ficaria sem eles', ondeEstao(vaiEVem));
   /* E VOLTAM NA ORDEM: ação, ação, ação, e só depois o que tem risco. Anexados no fim,
      o "Apagar" subiria para o meio da fila, entre o Limpar e o CSV. */
   ok(vaiEVem.pe.filhos.map(function (b) { return b.id; }).join(',') ===
-     'btnFiltrarMov,btnLimparMov,btnCsvMov,btnLimparTudo,btnLixeira',
+     'btnCsvMov,btnLimparTudo,btnLixeira',
     'e voltam ANTES do "Apagar" — no fim da fila, o botão de risco subiria para o meio ' +
     'dela', vaiEVem.pe.filhos.map(function (b) { return b.id; }));
+
+  /* ---- O CAMPO DE DATA NO CELULAR NAO FICA EM BRANCO ----
+     Android e iPhone desenham o campo de data vazio sem texto e sem icone. A dica e'
+     do app.js, para as duas telas; e ela precisa acompanhar o valor posto pelo codigo
+     (Limpar, periodo padrao), que nao dispara evento nenhum. */
+  (function () {
+    var appD = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    var cssD = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+    var vd = fonteDaFuncao(appD, 'vestirData');
+    ok(/dd\/mm\/aaaa/.test(vd) && /pointer-events|data-dica/.test(vd + cssD),
+      'o campo de data vazio ganha a dica "dd/mm/aaaa" e o ícone — no celular ele era um ' +
+      'retângulo em branco, e ninguém sabia que ali se escolhe uma data');
+    ok(/defineProperty\(campo, 'value'/.test(vd) && /marcarVazio\(this\)/.test(vd),
+      'e a dica acompanha o valor posto pelo CÓDIGO — o Limpar escreve `.value` direto, ' +
+      'sem evento, e a dica ficaria em cima de uma data preenchida');
+    ok(/@media \(pointer:coarse\)\{\s*\.data-dica\{[^}]*pointer-events:none/.test(cssD) &&
+       /\.data-dica\{display:none\}/.test(cssD),
+      'e só no dedo, e sem roubar o toque: no computador o navegador já desenha a dele, ' +
+      'e a dica por cima deixa o toque passar para o campo que abre o calendário');
+  })();
 
   /* ---- O CORTE É O DE SEMPRE ----
      Uma segunda medida aqui faria a tela trocar de forma em largura diferente do resto

@@ -1487,6 +1487,21 @@ input[type=date]::-webkit-calendar-picker-indicator{
   opacity:1;cursor:pointer;padding:2px;border-radius:4px;transform:scale(1.15)
 }
 input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1;background:var(--neutro)}
+/* A dica do campo de data vazio no celular — ver `vestirData` no app.js. A caixa é
+   transparente para o layout (`display:block`, largura toda); a dica só aparece no dedo. */
+.data-campo{position:relative;display:block}
+.data-dica{display:none}
+@media (pointer:coarse){
+  .data-dica{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;
+    padding:0 12px;pointer-events:none;color:var(--txt3)}
+  .data-campo input[type=date][data-vazio="0"] + .data-dica .data-dica__t{visibility:hidden}
+  /* Onde o navegador do aparelho desenha o texto dele (alguns desenham, o Chrome do
+     Android não), ele fica transparente enquanto vazio — senão as duas dicas se
+     sobrepõem. Preenchido, volta: a data escrita é dele. */
+  .data-campo input[type=date][data-vazio="1"]::-webkit-datetime-edit{color:transparent}
+  /* O ícone nativo, quando existir, some: o nosso fica no lugar dele. */
+  .data-campo input[type=date]::-webkit-calendar-picker-indicator{opacity:0}
+}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--marinho);outline-offset:-1px;border-color:var(--verde)}
 textarea{min-height:70px;resize:vertical}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0 14px}
@@ -2370,6 +2385,9 @@ input[type="password"]::-ms-clear{display:none}
   /* O Filtrar preso cobre ate' a borda da folha: sem isto os 12px de respiro do corpo
      ficavam por baixo dele, e o campo de baixo aparecia espiando sob o botao. */
   .filtros-caixa__corpo .filtro-acao{bottom:-12px;margin:10px -12px 0;padding:10px 12px 22px}
+  /* Filtrar e Limpar lado a lado, metade cada um, no piso de 44px do dedo. */
+  .filtros-caixa__corpo .filtro-acao{gap:10px}
+  .filtros-caixa__corpo .filtro-acao .btn{flex:1 1 0;min-width:0!important;width:auto}
   /* Os botões empilham e ficam com alvo de dedo. Em linha, cinco deles viravam cinco
      fatias de 60px. */
   .filtros-caixa .linha-btn{flex-direction:column;align-items:stretch}

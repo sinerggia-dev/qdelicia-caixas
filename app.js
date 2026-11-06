@@ -3397,6 +3397,82 @@
     });
   });
 
+  /* ================= O CAMPO DE DATA NÃO FICA EM BRANCO NO CELULAR =================
+   *
+   * No computador o Chrome desenha "dd/mm/aaaa" e o ícone do calendário dentro do campo
+   * vazio. No CELULAR (Android e iPhone) o campo de data vazio é um retângulo em branco:
+   * sem texto, sem ícone. Quem abre os filtros não sabe que ali se escolhe uma data — foi
+   * o que o escritório mandou na foto, com os dois campos marcados.
+   *
+   * A DICA É DESENHADA POR CIMA, e não dentro: `input type=date` não aceita placeholder
+   * nem `::before`. Um <span> ao lado, com `pointer-events:none`, deixa o toque passar
+   * para o campo de verdade — que é quem abre o calendário do aparelho.
+   *
+   * SÓ NO DEDO (`pointer:coarse`, na folha de estilo): no computador o navegador já
+   * desenha a dele, e duas dicas uma por cima da outra seriam piores que nenhuma.
+   *
+   * O "VAZIO" PRECISA ACOMPANHAR O VALOR POSTO PELO CÓDIGO. O "Limpar" e o período padrão
+   * escrevem `.value` direto, e isso não dispara evento nenhum — sem o gancho no próprio
+   * `value`, a dica ficaria em cima de uma data preenchida. */
+  function marcarVazio(campo) {
+    if (campo.setAttribute) campo.setAttribute('data-vazio', campo.value ? '0' : '1');
+  }
+  function vestirData(campo) {
+    if (!campo || campo.getAttribute('data-dica-data')) return;
+    campo.setAttribute('data-dica-data', '1');
+    var caixa = document.createElement('span');
+    caixa.className = 'data-campo';
+    campo.parentNode.insertBefore(caixa, campo);
+    caixa.appendChild(campo);
+    var dica = document.createElement('span');
+    dica.className = 'data-dica';
+    dica.setAttribute('aria-hidden', 'true');
+    dica.innerHTML = '<span class="data-dica__t">dd/mm/aaaa</span>' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10">' +
+      '</line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg>';
+    caixa.appendChild(dica);
+    var proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    if (proto && proto.set) {
+      try {
+        Object.defineProperty(campo, 'value', {
+          configurable: true,
+          get: function () { return proto.get.call(this); },
+          set: function (v) { proto.set.call(this, v); marcarVazio(this); }
+        });
+      } catch (e) {}
+    }
+    campo.addEventListener('input', function () { marcarVazio(campo); });
+    campo.addEventListener('change', function () { marcarVazio(campo); });
+    marcarVazio(campo);
+  }
+  function datasVisiveis(raiz) {
+    if (typeof document === 'undefined') return;
+    var lista = (raiz || document).querySelectorAll
+      ? (raiz || document).querySelectorAll('input[type=date]') : [];
+    Array.prototype.forEach.call(lista, vestirData);
+  }
+  if (typeof document !== 'undefined' && typeof window !== 'undefined' && window.HTMLInputElement) {
+    var aoCarregar = function () {
+      datasVisiveis(document);
+      /* Os formulários das janelas (modais) nascem depois, e trazem data também. */
+      if (window.MutationObserver) {
+        new MutationObserver(function (ms) {
+          ms.forEach(function (m) {
+            Array.prototype.forEach.call(m.addedNodes || [], function (n) {
+              if (n.nodeType !== 1) return;
+              if (n.matches && n.matches('input[type=date]')) vestirData(n);
+              else if (n.querySelectorAll) datasVisiveis(n);
+            });
+          });
+        }).observe(document.body, { childList: true, subtree: true });
+      }
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', aoCarregar);
+    else aoCarregar();
+  }
+
   window.QDC = {
     get: get, post: post, enviar: enviar, sincronizar: sincronizar, fila: fila, chave: chave,
     sessao: sessao, lendo: lendo, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
@@ -3417,7 +3493,7 @@
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
     conferirSenha: conferirSenha,
-    aplicarTema: aplicarTema, aplicarFundo: aplicarFundo, ajustarEsquemaNativo: ajustarEsquemaNativo,
+    aplicarTema: aplicarTema, aplicarFundo: aplicarFundo, ajustarEsquemaNativo: ajustarEsquemaNativo, datasVisiveis: datasVisiveis,
     aplicarAparencia: aplicarAparencia,
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
     mudarSuperficie: mudarSuperficie, aparenciaAtual: aparenciaAtual,
