@@ -352,8 +352,12 @@ Ordem de colunas, filtros, cartões, chips e **gráficos**, e as colunas escondi
 gravação passa por `gravarArranjo()` no `admin.html`, que escreve no navegador **e** manda para
 `usuarios.preferencias` (rota `salvarArranjo`). A sessão traz o arranjo de volta e `trazerArranjo()`
 o escreve no navegador em `aplicarSessao` — as funções de desenho continuam lendo o `localStorage`
-como antes. **A largura não viaja**: depende da tela. A marca `_v` separa "nunca sincronizou" (o
-navegador sobe o que tinha) de "voltou ao padrão" (o servidor manda, inclusive apagando).
+como antes. **A largura não viaja**: depende da tela. **Chave por chave**: a que o cadastro tem,
+ele manda; a que só o navegador tem, sobe. "Voltar ao padrão" grava **lista vazia**, não apaga —
+apagada, o outro aparelho subiria a ordem velha de novo. A primeira versão sincronizava pelo
+aparelho que chegasse primeiro (marca `_v`, hoje sem uso) e apagou a ordem de filtros que só o
+computador tinha. No celular arrastar não funciona (toque não dispara `dragstart`): os filtros
+têm **setas ▲▼** dentro do rótulo quando a trava está aberta.
 `salvarUsuario` descarta `Preferencias` — o formulário traz o registro de quando abriu. Um teste
 recusa qualquer `localStorage.setItem/removeItem` de ordem ou ocultas fora dessa função.
 

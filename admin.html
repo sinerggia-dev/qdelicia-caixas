@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=02eb0b1f">
+<link rel="stylesheet" href="styles.css?v=8239c48c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -6893,10 +6893,8 @@
    * A LARGURA NAO VIAJA. Ela depende do tamanho da tela: a coluna alargada no monitor
    * espremeria o resto no celular. Continua por aparelho, como sempre foi.
    *
-   * O NAVEGADOR SE DESCULPA, O SERVIDOR MANDA. Com a marca `_v` no cadastro, o que vem
-   * de la' sobrescreve o local — inclusive apagando. Sem ela, a pessoa nunca
-   * sincronizou: o que este navegador ja' tinha SOBE, e e' assim que o arranjo feito
-   * antes desta mudanca chega ao celular sem ninguem refazer nada. */
+   * CHAVE POR CHAVE: a que o cadastro tem, ele manda; a que so' este navegador tem,
+   * sobe. Ver `trazerArranjo`. */
   function chavesDeArranjo(){
     var k = [K_ORDEM_CHIPS, CARTOES_MOV.kOrdem, FILTROS_MOV.kOrdem, GRAFICOS_MOV.kOrdem];
     [TAB_ATIVOS, TAB_MOV, TAB_DECL, TAB_LANC, TAB_USUARIOS].forEach(function(t){
@@ -6930,8 +6928,16 @@
   /* VARIAS DE UMA VEZ, num pedido so': o "voltar ao padrao" de uma tabela apaga a ordem
      e as escondidas juntas, e dois pedidos poderiam chegar fora de ordem. */
   function gravarArranjos(valores){
-    Object.keys(valores).forEach(function(k){ escreverArranjoLocal(k, valores[k]); });
-    enviarArranjo(valores);
+    /* "VOLTAR AO PADRAO" VAI COMO LISTA VAZIA, e nao como apagar. Apagada, a chave
+       ficaria igual a "nunca mexi" — e o outro aparelho, que ainda tem a ordem velha,
+       a subiria de novo e desfaria o padrao. Vazia, ela diz "padrao" com todas as
+       letras, e quem le obedece. */
+    var envio = {};
+    Object.keys(valores).forEach(function(k){
+      escreverArranjoLocal(k, valores[k]);
+      envio[k] = valores[k] == null ? [] : valores[k];
+    });
+    enviarArranjo(envio);
   }
 
   function enviarArranjo(valores){
@@ -6967,26 +6973,31 @@
   function trazerArranjo(s){
     var p = s && s.preferencias;
     if (!p || typeof p !== 'object') return false;
-    var chaves = chavesDeArranjo();
-    if (!p._v) {
-      var sobe = {}, tem = false;
-      chaves.forEach(function(k){
-        var v = lerArranjoLocal(k);
-        if (v) { sobe[k] = v; tem = true; }
-      });
-      if (tem) enviarArranjo(sobe);
-      return false;
-    }
-    var mudou = false;
-    chaves.forEach(function(k){
-      var srv = Array.isArray(p[k]) ? p[k] : null;
-      if (JSON.stringify(srv) !== JSON.stringify(lerArranjoLocal(k))) {
-        escreverArranjoLocal(k, srv);
-        mudou = true;
+    /* CHAVE POR CHAVE, e nao "o primeiro aparelho manda". A primeira versao subia o
+       navegador inteiro so' enquanto o cadastro estava vazio, e depois o cadastro
+       passava a mandar em tudo: o aparelho que abrisse primeiro depois do deploy
+       ganhava, e a ordem que so' o OUTRO tinha era apagada ao chegar la'. Foi o que
+       aconteceu — o celular subiu as colunas, e a ordem dos filtros do computador
+       nao chegou a lugar nenhum.
+       Agora: a chave que o cadastro tem, o cadastro manda (lista vazia = padrao); a
+       que ele nao tem e este navegador tem, sobe. Nada se perde por ordem de chegada. */
+    var sobe = {}, tem = false, mudou = false;
+    chavesDeArranjo().forEach(function(k){
+      if (Array.isArray(p[k])) {
+        var srv = p[k].length ? p[k] : null;
+        if (JSON.stringify(srv) !== JSON.stringify(lerArranjoLocal(k))) {
+          escreverArranjoLocal(k, srv);
+          mudou = true;
+        }
+        return;
       }
+      var v = lerArranjoLocal(k);
+      if (v) { sobe[k] = v; tem = true; }
     });
+    if (tem) enviarArranjo(sobe);
     return mudou;
   }
+
 
   /* TUDO o que le' o arranjo, de uma vez. Cada peca protegida: na abertura, parte da
      tela ainda nao tem dado, e um tropeco aqui nao pode derrubar a renovacao inteira. */
@@ -15193,9 +15204,53 @@
       if (!lab) return;
       div.setAttribute('data-filtro', id);
       lab.draggable = podeArranjarColunas();
+      /* AS SETAS, PARA O DEDO. Arrastar e' gesto de mouse: no celular o toque nao
+         dispara `dragstart`, e a alca aparecia sem mover nada — foi o que o escritorio
+         mandou na foto, com a trava aberta. Subir e descer um passo funciona com dedo,
+         com luva e no computador, e nao depende de acertar onde soltar. */
+      var setas = div.querySelector('.mover-filtro');
+      if (podeArranjarColunas() && !setas) {
+        setas = document.createElement('span');
+        setas.className = 'mover-filtro';
+        setas.innerHTML =
+          '<button type="button" class="mini" data-mover="-1" aria-label="Subir este filtro">▲</button>'+
+          '<button type="button" class="mini" data-mover="1" aria-label="Descer este filtro">▼</button>';
+        /* DENTRO DO ROTULO, na mesma linha do nome: fora dele, posicionadas por cima,
+           elas cobriam o campo do filtro no celular. Botao dentro de <label> nao
+           repassa o toque para o campo — e' conteudo interativo. */
+        lab.appendChild(setas);
+      } else if (!podeArranjarColunas() && setas && setas.parentNode) {
+        setas.parentNode.removeChild(setas);
+      }
     });
     if (g.getAttribute('data-arrasto-ligado')) return;
     g.setAttribute('data-arrasto-ligado', '1');
+
+    /* UM PASSO, entre os filtros que se VEEM: o escondido (trecho) nao conta como
+       vizinho, senao a seta pareceria nao fazer nada na metade das vezes. A ordem
+       gravada continua a COMPLETA, pela mesma razao do arrasto. */
+    g.addEventListener('click', function(e){
+      var b = e.target && e.target.closest && e.target.closest('[data-mover]');
+      if (!b || !podeArranjarColunas()) return;
+      e.preventDefault();
+      var div = b.closest('[data-filtro]');
+      if (!div) return;
+      var id = div.getAttribute('data-filtro'), passo = Number(b.getAttribute('data-mover'));
+      var por = caixasDeFiltro();
+      var ordem = ordemColunas(FILTROS_MOV);
+      var vis = ordem.filter(function(x){ return !!por[x]; });
+      var i = vis.indexOf(id), j = i + passo;
+      if (i < 0 || j < 0 || j >= vis.length) return;
+      var vizinho = vis[j];
+      var a = ordem.indexOf(id), z = ordem.indexOf(vizinho);
+      ordem[a] = vizinho; ordem[z] = id;
+      guardarOrdem(FILTROS_MOV, ordem);
+      aplicarOrdemFiltros();
+      ligarArrastarFiltros();
+      /* O FOCO SEGUE A SETA, para apertar de novo sem caçar o botão que mudou de lugar. */
+      var mesmo = g.querySelector('[data-filtro="'+id+'"] [data-mover="'+passo+'"]');
+      if (mesmo) mesmo.focus();
+    });
 
     var arrastado = null;
     function caixaDe(e){
@@ -15314,7 +15369,7 @@
          preço escrito: a senha do painel. */
       if (box.hasAttribute('data-so-filtros')) {
         box.innerHTML = colunasDestravadas()
-          ? '<span class="trava__on">Arraste o <b>rótulo</b> para mudar a ordem</span>'+
+          ? '<span class="trava__on">Use <b>▲ ▼</b> ao lado do nome, ou arraste o <b>rótulo</b></span>'+
             '<button class="mini" type="button" data-restaurar-filtros '+
             'title="Devolve os filtros à ordem de fábrica">voltar ao padrão</button>'+
             '<button class="mini" type="button" data-travar '+

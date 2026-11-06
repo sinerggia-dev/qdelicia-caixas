@@ -2167,10 +2167,19 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
       }
     };
     nos.forEach(function (n) {
-      n.rotulo = { draggable: false };
+      n.rotulo = { draggable: false, appendChild: function (x) {
+        n.setas = x;
+        x.parentNode = { removeChild: function () { n.setas = null; } };
+      } };
       n.querySelector = function (sel) {
         if (sel === 'label') return n.campo ? n.rotulo : null;
+        if (sel === '.mover-filtro') return n.setas || null;
         return n.campo ? { id: n.id } : null;
+      };
+      /* As setas de subir e descer entram ao lado do rotulo; aqui so' se anota. */
+      n.insertBefore = function (x) {
+        n.setas = x;
+        x.parentNode = { removeChild: function () { n.setas = null; } };
       };
       n.hasAttribute = function (k) { return k === 'hidden' ? n.escondido : (k in n.attrs); };
       n.getAttribute = function (k) { return n.attrs[k] || null; };
@@ -2193,7 +2202,8 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
       '\n return { ligar: ligarArrastarFiltros, aplicar: aplicarOrdemFiltros };';
     var api = new Function('document', 'localStorage', 'podeVerArranjo',
                            'podeArranjarColunas', fonte)(
-      { querySelector: function () { return g; } },
+      { querySelector: function () { return g; },
+        createElement: function () { return {}; } },
       { getItem: function () { return guardado.v; },
         setItem: function (k, v) { guardado.v = v; guardado.gravacoes++; },
         removeItem: function () { guardado.v = null; } },
@@ -2446,9 +2456,9 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
 
       B.restaurar('ativos');
       ok(ENVIADO.length === 1 && Object.keys(ENVIADO[0]).sort().join(',') === 'k-ocultas,k-ordem' &&
-         ENVIADO[0]['k-ordem'] === null && ENVIADO[0]['k-ocultas'] === null,
-        'e a volta ao padr\u00e3o vai ao SERVIDOR \u2014 ordem e ocultas num pedido s\u00f3, a largura n\u00e3o: ' +
-        'apagada s\u00f3 no navegador, o outro aparelho traria o arranjo antigo de volta',
+         JSON.stringify(ENVIADO[0]['k-ordem']) === '[]' && JSON.stringify(ENVIADO[0]['k-ocultas']) === '[]',
+        'e a volta ao padr\u00e3o vai ao SERVIDOR como lista VAZIA \u2014 ordem e ocultas num pedido s\u00f3, a ' +
+        'largura n\u00e3o: apagada em vez de vazia, o outro aparelho subiria o arranjo antigo de volta',
         ENVIADO);
       ok(apagadas.sort().join(',') === 'k-larg,k-ocultas,k-ordem' && redesenhou === 1,
         'o bot\u00e3o apaga as TR\u00caS prefer\u00eancias da tabela \u2014 ordem, largura e ocultas \u2014 e ' +
@@ -2499,7 +2509,9 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
       travado.gaveta.slice(0, 200));
 
     var aberto = pintar(true, true);
-    ok(/Arraste o <b>rótulo<\/b>/.test(aberto.gaveta),
+    /* AS SETAS VEM PRIMEIRO no texto: no celular arrastar nao funciona, e o celular e'
+       justamente onde a gaveta de filtros mais aparece. */
+    ok(/Use <b>▲ ▼<\/b>/.test(aberto.gaveta) && /arraste o <b>rótulo<\/b>/.test(aberto.gaveta),
       'e destravado ele ENSINA O GESTO — ninguém descobre sozinho que o rótulo de um ' +
       'filtro se arrasta, e sem isto a liberação deixa o administrador olhando para a ' +
       'mesma gaveta de antes', aberto.gaveta.slice(0, 200));
@@ -14347,25 +14359,36 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       'sessão SEM o campo não mexe no navegador — não saber não é "nada guardado", e apagar ' +
       'por isso desfaria o arranjo de alguém');
 
-    /* 2. Nunca sincronizou: sobe o que o navegador ja' tinha. */
+    /* 2. Cadastro sem a chave: sobe o que o navegador ja' tinha, CHAVE POR CHAVE. */
     loja = { k_filtros: '["b","a"]', k_graf: '["motorista","dia"]', qdc_larg_x: '{"a":1}' };
     enviados = [];
     ok(A.trazer({ id: 'U1', preferencias: {} }) === false && enviados.length === 1 &&
        JSON.stringify(enviados[0]) === '{"k_filtros":["b","a"],"k_graf":["motorista","dia"]}' &&
        loja.k_filtros === '["b","a"]',
-      'quem NUNCA sincronizou SOBE o que o navegador tinha — é assim que o arranjo feito no ' +
+      'a chave que o cadastro NÃO tem SOBE do navegador — é assim que o arranjo feito no ' +
       'computador antes desta mudança chega ao celular sem ninguém refazer nada', enviados);
 
-    /* 3. Sincronizado: o servidor manda, inclusive apagando. */
+    /* 3. O DEFEITO QUE FOI AO AR: o celular abriu primeiro e subiu as colunas; o
+       computador, com a ordem dos filtros, chegou depois e teve a ordem APAGADA, porque
+       o cadastro ja' "tinha sido sincronizado". Chave por chave, ela sobe. */
+    loja = { k_filtros: '["mvMotorista","mvDe"]', k_ativos: '["x","y"]' }; enviados = [];
+    A.trazer({ id: 'U1', preferencias: { _v: 1, k_ativos: ['y', 'x'] } });
+    ok(loja.k_filtros === '["mvMotorista","mvDe"]' && enviados.length === 1 &&
+       JSON.stringify(enviados[0]) === '{"k_filtros":["mvMotorista","mvDe"]}' &&
+       loja.k_ativos === '["y","x"]',
+      'o aparelho que chega DEPOIS não perde o que só ele tinha: a ordem dos filtros do ' +
+      'computador sobe, mesmo com o celular tendo sincronizado as colunas antes', [loja, enviados]);
+
+    /* 4. O cadastro manda no que ele tem — e lista VAZIA quer dizer padrao. */
     loja = { k_filtros: '["a","b"]', k_mov_oc: '["x"]' }; enviados = [];
-    var mudou = A.trazer({ id: 'U1', preferencias: { _v: 1, k_filtros: ['mvMotorista', 'mvDe'],
-                                                     k_graf: ['motorista'] } });
+    var mudou = A.trazer({ id: 'U1', preferencias: { k_filtros: ['mvMotorista', 'mvDe'],
+                                                     k_graf: ['motorista'], k_mov_oc: [] } });
     ok(mudou === true && loja.k_filtros === '["mvMotorista","mvDe"]' &&
        loja.k_graf === '["motorista"]' && !('k_mov_oc' in loja) && !enviados.length,
-      'com a marca, o CADASTRO manda: a ordem do computador entra no celular, e o que lá ' +
-      'voltou ao padrão sai daqui também', loja);
-    ok(A.trazer({ id: 'U1', preferencias: { _v: 1, k_filtros: ['mvMotorista', 'mvDe'],
-                                            k_graf: ['motorista'] } }) === false,
+      'o que o cadastro tem, ele manda: a ordem do computador entra no celular, e a lista ' +
+      'VAZIA (voltou ao padrão) apaga a daqui', loja);
+    ok(A.trazer({ id: 'U1', preferencias: { k_filtros: ['mvMotorista', 'mvDe'],
+                                            k_graf: ['motorista'], k_mov_oc: [] } }) === false,
       'e nada mudando, nada é refeito — a renovação passa por aqui a cada abertura');
 
     /* NENHUMA GRAVACAO POR FORA. Uma so' que escreva direto no navegador seria um

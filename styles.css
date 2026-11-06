@@ -3167,6 +3167,12 @@ details.tipos[open] summary::before{content:"▾"}
  * seletor pergunta por ele em vez de por uma classe a parte. Dois lugares dizendo quem
  * arrasta divergem no dia em que so um mudar. */
 .grid-filtros label[draggable="true"]{cursor:grab;user-select:none}
+/* As setas de mudar a ordem: na linha do nome do filtro, à direita, sem cobrir o campo.
+   Pequenas no mouse; alvo de dedo no toque, onde arrastar não funciona. */
+.grid-filtros label:has(.mover-filtro){display:flex;align-items:center;gap:6px}
+.mover-filtro{margin-left:auto;display:flex;gap:4px}
+.mover-filtro button{min-width:30px;height:24px;padding:0 6px;line-height:1}
+@media (pointer:coarse){.mover-filtro{gap:8px}.mover-filtro button{min-width:44px;height:36px}}
 .grid-filtros label[draggable="true"]:active{cursor:grabbing}
 /* E A ALCA SE VE'. A mao do cursor so' aparece depois de encostar o mouse em cima, e no
    celular nao aparece nunca: sem uma marca na tela, a unica forma de descobrir que o

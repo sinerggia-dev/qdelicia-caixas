@@ -1047,7 +1047,7 @@ async function main() {
 
     /* O FORMULARIO DE USUARIO NAO TOCA NO ARRANJO. Ele carrega o registro de quando foi
        aberto; se gravasse o arranjo, desfaria o que a pessoa arrastou nesse meio-tempo. */
-    await POST({ acao: 'salvarUsuario', registro: { ID: idA, Telefone: '81988887777',
+    await POST({ acao: 'salvarUsuario', registro: { ID: idA, Telefone: '81900001234',
       Preferencias: { _v: 1 } } });
     const p3 = await prefs();
     ok(p3.qdc_ordem_graficos_mov_v1 && JSON.stringify(p3.qdc_ordem_graficos_mov_v1) === '["motorista","dia"]',
