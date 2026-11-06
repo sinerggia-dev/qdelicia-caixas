@@ -1391,6 +1391,53 @@ function locaisPermitidos(ids, locais) {
   return peneirarPor(ids, locais);
 }
 
+/* ================= O ARRANJO DA TELA, NA PESSOA =================
+ *
+ * Ordem de colunas, de filtros, de cartoes e de graficos, e quais colunas estao
+ * escondidas. Morava so' no navegador, e por isso o que o admin arrumava no computador
+ * nao chegava ao celular dele.
+ *
+ * SO' AS CHAVES DE ARRANJO, e nao qualquer coisa: a coluna e' lida inteira a cada
+ * visita, e uma rota que guardasse o que viesse viraria deposito. A LARGURA fica de
+ * fora de proposito (`qdc_larg_*` nao passa): ela depende do tamanho da tela.
+ *
+ * `_v` marca que a pessoa ja' sincronizou uma vez. Sem ela nao ha como distinguir
+ * "nunca guardou nada aqui" de "guardou e depois voltou ao padrao" — e no primeiro
+ * caso a tela sobe o que o navegador ja' tinha, no segundo ela obedece. */
+var CHAVE_ARRANJO = /^qdc_(ordem|cols)_[a-z0-9_]{1,60}$/;
+
+function preferenciasDe(u) {
+  var p = u && u.Preferencias;
+  return (p && typeof p === 'object' && !Array.isArray(p)) ? p : {};
+}
+
+function juntarArranjo(atuais, valores) {
+  if (!valores || typeof valores !== 'object' || Array.isArray(valores)) {
+    return { ok: false, erro: 'Nada para guardar.' };
+  }
+  var nova = {};
+  Object.keys(atuais || {}).forEach(function (k) {
+    if (k === '_v' || CHAVE_ARRANJO.test(k)) nova[k] = atuais[k];
+  });
+  var chaves = Object.keys(valores);
+  for (var i = 0; i < chaves.length; i++) {
+    var k = chaves[i], v = valores[k];
+    if (!CHAVE_ARRANJO.test(k)) return { ok: false, erro: 'Preferência desconhecida: ' + k };
+    if (v === null || v === undefined) { delete nova[k]; continue; }
+    if (!Array.isArray(v) || v.length > 100) return { ok: false, erro: 'Arranjo inválido: ' + k };
+    var limpa = [];
+    for (var j = 0; j < v.length; j++) {
+      var id = String(v[j] == null ? '' : v[j]);
+      if (!id || id.length > 80) return { ok: false, erro: 'Arranjo inválido: ' + k };
+      limpa.push(id);
+    }
+    nova[k] = limpa;
+  }
+  if (Object.keys(nova).length > 60) return { ok: false, erro: 'Arranjo grande demais.' };
+  nova._v = 1;
+  return { ok: true, preferencias: nova };
+}
+
 function sessaoDe(u) {
   return {
     id: u.ID, nome: u.Nome, perfil: normalizarPerfil(u.Perfil),
@@ -1414,6 +1461,9 @@ function sessaoDe(u) {
        `podeCancelar` continuam, derivados da lista, para a tela velha em cache. */
     podeCancelar: podeItem(acoesDe(u), 'cancelar'),
     acoes: acoesDe(u),
+    /* O ARRANJO DA TELA viaja na sessao: e' por ela que o celular recebe a ordem que o
+       computador gravou. */
+    preferencias: preferenciasDe(u),
     saidas: Array.isArray(u.Saidas) ? u.Saidas : [],
     destinos: Array.isArray(u.Destinos) ? u.Destinos : [],
     /* DE ONDE A CAIXA VOLTA. Lista propria desde 14/10/2026: antes a origem do retorno
@@ -4071,6 +4121,9 @@ function usuariosPublicos(usuarios) {
       /* VOLTA NA LEITURA porque o formulario a GRAVA — faltando aqui, o cadastro abriria
          desmarcado e o salvar seguinte apagaria o que o admin concedeu, calado. */
       Acoes: acoesDe(u),
+      /* VOLTA NA LEITURA porque a renovacao da sessao do painel e' montada daqui:
+         faltando, o celular nunca receberia a ordem que o computador gravou. */
+      Preferencias: preferenciasDe(u),
       UsuariosVistos: usuariosVistosDe(u),
       /* As SEIS listas de permissão voltam para o painel. Esquecer uma aqui não dá
          erro nenhum: o formulário abre com ela desmarcada e a gravação seguinte escreve
@@ -4148,6 +4201,7 @@ module.exports = {
   aConferirNaChegada: aConferirNaChegada,
   montarConferenciaChegada: montarConferenciaChegada,
   loginPorPin: loginPorPin, sessaoDe: sessaoDe,
+  preferenciasDe: preferenciasDe, juntarArranjo: juntarArranjo, CHAVE_ARRANJO: CHAVE_ARRANJO,
   montarMovimento: montarMovimento, placaAceitavel: placaAceitavel,
   fornecedorDoMovimento: fornecedorDoMovimento,
   ehMotoristaFornecedor: ehMotoristaFornecedor,

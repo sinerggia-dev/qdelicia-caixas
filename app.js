@@ -336,6 +336,7 @@
     if (FUNDOS.indexOf(nome) < 0) nome = FUNDO_PADRAO;
     document.documentElement.setAttribute('data-fundo', nome);
     if (guardar !== false) guardarLocal('qdc_fundo', nome);
+    ajustarEsquemaNativo();
     return nome;
   }
 
@@ -780,6 +781,29 @@
     return lido;
   }
 
+  /* OS CONTROLES QUE O NAVEGADOR DESENHA — o ícone do calendário, a lista de um
+   * <select>, a barra de rolagem — SEGUEM O CAMPO EM QUE ESTÃO, MEDIDO.
+   *
+   * Era só a folha: `color-scheme:light` no fundo claro, `dark` nos outros. Bastava
+   * enquanto os fundos eram cinco escalas fixas; com cor e intensidade livres, um fundo
+   * pode clarear ou escurecer sem trocar de nome, e o ícone ficaria da cor do campo.
+   * Pior: um `color-scheme` errado não dá erro nenhum — o calendário continua lá, só
+   * que invisível, e quem não sabe que ele existe não o procura.
+   *
+   * MEDE `--campo`, e não `--bg`: o ícone mora DENTRO do campo, e é contra ele que tem
+   * de aparecer. CLARO OU ESCURO pelo maior contraste com preto ou com branco — a
+   * mesma pergunta que o navegador responde ao escolher a cor do ícone. */
+  function ajustarEsquemaNativo() {
+    if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') return '';
+    var raiz = document.documentElement;
+    raiz.style.removeProperty('color-scheme');
+    var campo = corLida(getComputedStyle(raiz), '--campo');
+    if (!campo || campo.charAt(0) !== '#') return '';
+    var esquema = contraste(campo, '#000000') >= contraste(campo, '#ffffff') ? 'light' : 'dark';
+    raiz.style.setProperty('color-scheme', esquema);
+    return esquema;
+  }
+
   function aplicarSuperficies(guardar) {
     if (typeof document === 'undefined') return aparenciaAtual();
     var raiz = document.documentElement;
@@ -878,6 +902,8 @@
       });
     });
 
+    /* DEPOIS DE TUDO PINTADO: a intensidade do fundo acabou de mexer em `--campo`. */
+    ajustarEsquemaNativo();
     if (guardar !== false) {
       try { localStorage.setItem('qdc_aparencia', JSON.stringify(APARENCIA)); } catch (e) {}
     }
@@ -3391,7 +3417,7 @@
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
     conferirSenha: conferirSenha,
-    aplicarTema: aplicarTema, aplicarFundo: aplicarFundo,
+    aplicarTema: aplicarTema, aplicarFundo: aplicarFundo, ajustarEsquemaNativo: ajustarEsquemaNativo,
     aplicarAparencia: aplicarAparencia,
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
     mudarSuperficie: mudarSuperficie, aparenciaAtual: aparenciaAtual,

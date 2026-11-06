@@ -2184,6 +2184,10 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
     var fonte = descritorA + '\n' + corpoA('gradeFiltros') + '\n' + corpoA('caixasDeFiltro') +
       '\n' + corpoA('juntarOrdem') +
       '\n' + corpoA('ordemColunas') + '\n' + corpoA('guardarOrdem') +
+      /* A GRAVACAO DE VERDADE, so' sem a ida ao servidor: e' ela que escreve no
+         navegador, e um sosia aqui provaria o sosia. */
+      '\n' + corpoA('gravarArranjo') + '\n' + corpoA('gravarArranjos') +
+      '\n' + corpoA('escreverArranjoLocal') + '\n function enviarArranjo(){}' +
       '\n' + corpoA('aplicarOrdemFiltros') + '\n' + corpoA('recolocarAcaoFiltro') +
       '\n' + corpoA('ligarArrastarFiltros') +
       '\n return { ligar: ligarArrastarFiltros, aplicar: aplicarOrdemFiltros };';
@@ -2425,9 +2429,12 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
       var apagadas = [], redesenhou = 0;
       var fonteBotao =
         corpoA('tabelaDaBarra') + '\n' + corpoA('restaurarColunas') + '\n' +
+        corpoA('gravarArranjos') + '\n' + corpoA('escreverArranjoLocal') + '\n' +
+        'function enviarArranjo(v){ ENVIADO.push(v); }\n' +
         'return { restaurar: restaurarColunas };';
+      var ENVIADO = [];
       var B = new Function('TABELA_DA_BARRA', 'tabelasGerenciaveis', 'localStorage', 'Q',
-                           fonteBotao)(
+                           'ENVIADO', fonteBotao)(
         { ativos: 'Painel de Ativos' },
         function () {
           return [{ modulo: 'Painel de Ativos',
@@ -2435,9 +2442,14 @@ console.log('\n== o administrador arrasta os filtros para a ordem que quiser =='
                          redesenha: function () { redesenhou++; } } }];
         },
         { removeItem: function (k) { apagadas.push(k); } },
-        { toast: function () {} });
+        { toast: function () {} }, ENVIADO);
 
       B.restaurar('ativos');
+      ok(ENVIADO.length === 1 && Object.keys(ENVIADO[0]).sort().join(',') === 'k-ocultas,k-ordem' &&
+         ENVIADO[0]['k-ordem'] === null && ENVIADO[0]['k-ocultas'] === null,
+        'e a volta ao padr\u00e3o vai ao SERVIDOR \u2014 ordem e ocultas num pedido s\u00f3, a largura n\u00e3o: ' +
+        'apagada s\u00f3 no navegador, o outro aparelho traria o arranjo antigo de volta',
+        ENVIADO);
       ok(apagadas.sort().join(',') === 'k-larg,k-ocultas,k-ordem' && redesenhou === 1,
         'o bot\u00e3o apaga as TR\u00caS prefer\u00eancias da tabela \u2014 ordem, largura e ocultas \u2014 e ' +
         'redesenha: restaurando s\u00f3 uma delas, a tabela fica num meio-termo que ningu\u00e9m ' +
@@ -2547,6 +2559,7 @@ console.log('\n== o saldo por tipo de caixa ==');
      regua viraram funcoes compartilhadas pelos dois paineis do par, e sem elas na
      fonte o recorte estoura em vez de medir. */
   var fonteS = corpoS('parG') + corpoS('trilhoG') + corpoS('reguaG') +
+               corpoS('abreSecaoG') + corpoS('alcaG') +
                corpoS('barraSaldoG') + corpoS('painelSaldoG');
   ok(fonteS.length > 600,
     'a conferência recortou o painel do saldo por tipo — recorte vazio faria as provas ' +
@@ -2554,11 +2567,12 @@ console.log('\n== o saldo por tipo de caixa ==');
 
   /* AS FUNCOES RODAM. Lidas no arquivo, a prova responderia "a palavra saldo esta' la'?"
      — e estaria, inclusive numa versao que soma em vez de subtrair. */
-  var S = new Function('Q', 'gLigado', 'tomDeg', fonteS +
+  var S = new Function('Q', 'gLigado', 'tomDeg', 'podeArranjarColunas', fonteS +
     ' return { barra: barraSaldoG, painel: painelSaldoG, regua: reguaG };')(
     { esc: function (x) { return String(x); }, num: function (n) { return String(n); } },
     function () { return false; },
-    function () { return 'rgb(1,2,3)'; });
+    function () { return 'rgb(1,2,3)'; },
+    function () { return false; });
 
   var CAIXAS = [
     { k: 'CX G',    v: 'T1', saida: 4196, retorno: 3000, total: 7196 },
@@ -7822,8 +7836,14 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
        VERDADE, tirada do arquivo, e nao um duble — um duble mediria a regra que
        eu escrevi na bancada. */
     var PECAS = ['qtdQueConta', 'agruparMov', 'cortarG', 'porTotalG', 'parG', 'trilhoG', 'reguaG',
+                 'abreSecaoG', 'alcaG', 'juntarOrdem', 'ordemColunas',
                  'barraG', 'painelG', 'barraSaldoG', 'painelSaldoG',
                  'desenharGraficosMov'];
+    /* O DESCRITOR DOS GRAFICOS, lido do arquivo: e' ele que diz em que ordem os pares
+       saem, e um descritor de mentira aqui provaria a ordem que eu escrevi. */
+    var iGM = adm.indexOf('  var GRAFICOS_MOV = {');
+    var GRAFICOS_MOV_P = iGM < 0 ? null :
+      new Function('return ' + adm.slice(adm.indexOf('{', iGM), adm.indexOf('};', iGM) + 1))();
     var faltando = PECAS.filter(function (n) { return !corpoP(n); });
     ok(!faltando.length,
       'a conferência recortou as peças que desenham os gráficos — faltando uma, o ' +
@@ -7860,7 +7880,9 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
         tipoCaixa: 'CX G', tipoCaixaId: 'T1' }
     ];
     new Function('document', 'Q', 'TETO_G', 'trechoDo', 'sentidoDoMov', 'gLigado',
-                 'tomDeg', 'pintarLegendaMov', 'MOVS_G',
+                 'tomDeg', 'pintarLegendaMov', 'MOVS_G', 'GRAFICOS_MOV',
+                 'podeVerArranjo', 'podeArranjarColunas', 'localStorage',
+      'var GRAF_L; function ligarArrastarGraficos(){}' + String.fromCharCode(10) +
       PECAS.map(corpoP).join(String.fromCharCode(10)) + ' desenharGraficosMov(MOVS_G);')
       .call(null,
         { getElementById: function (id) {
@@ -7875,7 +7897,9 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
         function () {},
         /* A LISTA ENTRA COMO ARGUMENTO: dentro do `new Function` nada do arquivo de
            prova e' visivel, e sem isto o desenho estouraria em vez de medir. */
-        MOVS_G);
+        MOVS_G, GRAFICOS_MOV_P,
+        function () { return false; }, function () { return false; },
+        { getItem: function () { return null; } });
     var titulos = (caixaG.innerHTML.match(/<h3 class="g__t">([^<]+)<\/h3>/g) || [])
       .map(function (x) { return x.replace(/<[^>]+>/g, ''); });
     ok(titulos.length === 10,
@@ -7890,6 +7914,49 @@ console.log('\n== os cinco recortes em gráfico, em Movimentos ==');
         'conforme a largura, e só a vizinhança na ORDEM sobrevive a todas elas',
         titulos[i]);
     });
+
+    /* ---- A ORDEM DO ADMIN, RODADA ----
+     * A pedido: "ter como o primeiro gráfico o rank de motorista". A mesma tela, com o
+     * arranjo guardado pondo o motorista na frente. */
+    {
+      var caixaO = { innerHTML: '' }, ligou = 0;
+      new Function('document', 'Q', 'TETO_G', 'trechoDo', 'sentidoDoMov', 'gLigado',
+                   'tomDeg', 'pintarLegendaMov', 'MOVS_G', 'GRAFICOS_MOV',
+                   'podeVerArranjo', 'podeArranjarColunas', 'localStorage', 'LIGOU',
+        'var GRAF_L; function ligarArrastarGraficos(){ LIGOU(); }' + String.fromCharCode(10) +
+        PECAS.map(corpoP).join(String.fromCharCode(10)) + ' desenharGraficosMov(MOVS_G);')
+        .call(null,
+          { getElementById: function (id) { return id === 'graficosMov' ? caixaO : null; } },
+          { esc: function (x) { return String(x); }, num: function (n) { return String(n); },
+            dataBR: function (d) { return String(d); } },
+          6,
+          function (m) { return m.origem + ' → ' + m.destino; },
+          function (m) { return m.tipo === 'DEVOLUCAO' ? 'retorno' : 'saida'; },
+          function () { return false; },
+          function () { return 'rgb(1,2,3)'; },
+          function () {},
+          MOVS_G, GRAFICOS_MOV_P,
+          function () { return true; }, function () { return true; },
+          { getItem: function (k) {
+              return k === (GRAFICOS_MOV_P || {}).kOrdem ? '["motorista","caixa","dia","trecho","quem"]' : null; } },
+          function () { ligou++; });
+      var tO = (caixaO.innerHTML.match(/<h3 class="g__t">([^<]+)<\/h3>/g) || [])
+        .map(function (x) { return x.replace(/<[^>]+>/g, ''); });
+      ok(tO[0] === 'Por motorista' && tO[1] === 'Saldo por motorista' &&
+         tO[2] === 'Por tipo de caixa' && tO[4] === 'Total por dia' && tO.length === 10,
+        'a ordem guardada MANDA: com o motorista na frente, o par dele abre a grade', tO);
+      ok(tO.indexOf('Total por dia') >= 0 && tO.indexOf('Por dia') < 0,
+        'e o "Total" segue o DIA, e não a primeira posição — com o motorista na frente, ' +
+        '"Total por motorista" diria uma coisa que ele não é', tO);
+      ok((caixaO.innerHTML.match(/data-grafico="motorista"/g) || []).length === 2,
+        'os DOIS painéis do par levam a marca da dimensão — é o par que se move, e soltar ' +
+        'em qualquer um dos dois tem de funcionar');
+      ok(/class="g__c" draggable="true"/.test(caixaO.innerHTML) && ligou === 1,
+        'com a trava aberta, o CABEÇALHO vira alça e o arrasto é ligado — o painel inteiro ' +
+        'não, porque as barras são botões que filtram', ligou);
+      ok(!/draggable/.test(caixaG.innerHTML),
+        'e travado, nenhuma alça: prometer um gesto que não acontece é pior que não prometer');
+    }
 
     /* ---- AS TRES CORES, MEDIDAS NO QUE FOI DESENHADO ---- */
     ok(/gb__s/.test(caixaG.innerHTML) && /gb__d/.test(caixaG.innerHTML),
@@ -11525,13 +11592,14 @@ console.log('\n== a porta de volta, do painel para os lancamentos ==');
     /* `montarSeletoresDeBase` TAMBEM DE MENTIRA: `aplicarSessao` passou a refazer os
        seletores de base, e sem ele a funcao estoura antes de chegar na decisao que se
        quer medir aqui. O que ELE faz tem bancada propria, logo abaixo. */
+    /* `trazerArranjo` e `redesenharDoArranjo` idem: o arranjo tem bancada propria. */
     return new Function('s', 'document', 'Q', 'DADOS', 'ajustarLancamento',
-      'montarSeletoresDeBase',
+      'montarSeletoresDeBase', 'trazerArranjo', 'redesenharDoArranjo',
       fonte + '\n aplicarSessao(s); return !document.getElementById("chipCampo").hidden;')(
       s, { getElementById: function (id) { return alvo[id] || (alvo[id] = {}); },
            body: { classList: { toggle: function () {} } } },
       { quemEsta: function () {}, podeAcao: function () { return true; } },
-      null, function () {}, function () {});
+      null, function () {}, function () {}, function () { return false; }, function () {});
   }
 
   /* Quem nao tem senha de lancamento nao passa do login do app de campo: `loginPorPin`
@@ -12022,7 +12090,7 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
      grava em quatro lugares — esconder, mover, largura e restaurar: tres redesenhando e
      um nao passa igual, e o quarto e justamente o que deixa a tabela mentindo ate alguem
      trocar de aba. Entao a conta e por gravacao. */
-  var gravacoes = fonte.match(/guardar(Ocultas|Ordem|Largura)\(t,|removeItem\(t\.kOrdem\)/g) || [];
+  var gravacoes = fonte.match(/guardar(Ocultas|Ordem|Largura)\(t,|volta\[t\.kOrdem\] = null/g) || [];
   var semRedesenho = [];
   gravacoes.forEach(function (g) {
     var i = fonte.indexOf(g);
@@ -12047,8 +12115,9 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
     'coluna encolheria ao mínimo no meio da digitação');
 
   /* --- restaurar apaga as TRES -------------------------------------------- */
-  ok(/removeItem\(t\.kOrdem\)/.test(fonte) && /removeItem\(t\.kLarg\)/.test(fonte) &&
-     /removeItem\(t\.kOcultas\)/.test(fonte),
+  /* A largura sai so' do navegador; ordem e ocultas saem tambem do servidor. */
+  ok(/volta\[t\.kOrdem\] = null/.test(fonte) && /removeItem\(t\.kLarg\)/.test(fonte) &&
+     /volta\[t\.kOcultas\] = null/.test(fonte) && /gravarArranjos\(volta\)/.test(fonte),
     'restaurar apaga as três preferências de uma vez — uma só deixaria a tabela num ' +
     'meio-termo que ninguém escolheu');
 
@@ -12335,7 +12404,7 @@ console.log('\n== a aba Colunas: gerenciar por módulo ==');
     'posição dos escondidos sem ninguém ver');
   /* A VOLTA AO PADRÃO: sem ela, quem embaralhou onze campos não desfaz a não ser
      arrastando de volta um por um, e nem lembra qual era a ordem. */
-  ok(/function restaurarFiltros\(\)\{[\s\S]{0,200}removeItem\(FILTROS_MOV\.kOrdem\)/.test(adm) &&
+  ok(/function restaurarFiltros\(\)\{[\s\S]{0,200}gravarArranjo\(FILTROS_MOV\.kOrdem, null\)/.test(adm) &&
      /data-restaurar-filtros/.test(adm),
     'e há como voltar ao padrão — sem isso, quem embaralhou onze campos desfaz ' +
     'arrastando um por um, e nem lembra qual era a ordem');
@@ -14241,6 +14310,82 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
     });
   })();
 
+  /* ================= O ARRANJO VIAJA COM A PESSOA =================
+   *
+   * "Eu faço a mudança no computador mas não está alterando no celular." A ordem morava
+   * só no navegador. Agora a sessão traz o arranjo do cadastro, e `trazerArranjo` o
+   * escreve no navegador antes de qualquer desenho. RODADO, com navegador de mentira. */
+  (function () {
+    var src = ['chavesDeArranjo', 'lerArranjoLocal', 'escreverArranjoLocal', 'trazerArranjo']
+      .map(function (n) { return fonteDaFuncao(adm, n); });
+    ok(src.every(function (f) { return f.length > 60; }),
+      'a conferência recortou as quatro peças do arranjo — recorte vazio passaria sem rodar',
+      src.map(function (f) { return f.length; }));
+    var loja = {}, enviados = [];
+    function montar() {
+      return new Function('localStorage', 'enviarArranjo', 'K_ORDEM_CHIPS', 'CARTOES_MOV',
+        'FILTROS_MOV', 'GRAFICOS_MOV', 'TAB_ATIVOS', 'TAB_MOV', 'TAB_DECL', 'TAB_LANC',
+        'TAB_USUARIOS', src.join('\n') + ' return { trazer: trazerArranjo, chaves: chavesDeArranjo };')(
+        { getItem: function (k) { return k in loja ? loja[k] : null; },
+          setItem: function (k, v) { loja[k] = String(v); },
+          removeItem: function (k) { delete loja[k]; } },
+        function (v) { enviados.push(v); },
+        'k_chips', { kOrdem: 'k_cartoes' }, { kOrdem: 'k_filtros' }, { kOrdem: 'k_graf' },
+        { kOrdem: 'k_ativos', kOcultas: 'k_ativos_oc' }, { kOrdem: 'k_mov', kOcultas: 'k_mov_oc' },
+        { kOrdem: 'k_decl', kOcultas: 'k_decl_oc' }, { kOrdem: 'k_lanc', kOcultas: 'k_lanc_oc' },
+        { kOrdem: 'k_users', kOcultas: 'k_users_oc' });
+    }
+    var A = montar();
+    ok(A.chaves().indexOf('k_filtros') >= 0 && A.chaves().indexOf('k_graf') >= 0 &&
+       A.chaves().indexOf('k_mov_oc') >= 0 && A.chaves().join(',').indexOf('larg') < 0,
+      'as chaves que viajam são as de ORDEM e de colunas ESCONDIDAS — filtros e gráficos ' +
+      'inclusive —, e nenhuma de largura', A.chaves());
+
+    /* 1. Sessao de antes desta mudanca: nao mexe em nada. */
+    loja = { k_filtros: '["b","a"]' }; enviados = [];
+    ok(A.trazer({ id: 'U1' }) === false && loja.k_filtros === '["b","a"]' && !enviados.length,
+      'sessão SEM o campo não mexe no navegador — não saber não é "nada guardado", e apagar ' +
+      'por isso desfaria o arranjo de alguém');
+
+    /* 2. Nunca sincronizou: sobe o que o navegador ja' tinha. */
+    loja = { k_filtros: '["b","a"]', k_graf: '["motorista","dia"]', qdc_larg_x: '{"a":1}' };
+    enviados = [];
+    ok(A.trazer({ id: 'U1', preferencias: {} }) === false && enviados.length === 1 &&
+       JSON.stringify(enviados[0]) === '{"k_filtros":["b","a"],"k_graf":["motorista","dia"]}' &&
+       loja.k_filtros === '["b","a"]',
+      'quem NUNCA sincronizou SOBE o que o navegador tinha — é assim que o arranjo feito no ' +
+      'computador antes desta mudança chega ao celular sem ninguém refazer nada', enviados);
+
+    /* 3. Sincronizado: o servidor manda, inclusive apagando. */
+    loja = { k_filtros: '["a","b"]', k_mov_oc: '["x"]' }; enviados = [];
+    var mudou = A.trazer({ id: 'U1', preferencias: { _v: 1, k_filtros: ['mvMotorista', 'mvDe'],
+                                                     k_graf: ['motorista'] } });
+    ok(mudou === true && loja.k_filtros === '["mvMotorista","mvDe"]' &&
+       loja.k_graf === '["motorista"]' && !('k_mov_oc' in loja) && !enviados.length,
+      'com a marca, o CADASTRO manda: a ordem do computador entra no celular, e o que lá ' +
+      'voltou ao padrão sai daqui também', loja);
+    ok(A.trazer({ id: 'U1', preferencias: { _v: 1, k_filtros: ['mvMotorista', 'mvDe'],
+                                            k_graf: ['motorista'] } }) === false,
+      'e nada mudando, nada é refeito — a renovação passa por aqui a cada abertura');
+
+    /* NENHUMA GRAVACAO POR FORA. Uma so' que escreva direto no navegador seria um
+       arranjo que muda aqui e nao chega ao outro aparelho — o defeito de antes, num
+       canto so'. */
+    var porFora = adm.match(/localStorage\.(setItem|removeItem)\([^)]*(kOrdem|kOcultas|K_ORDEM_CHIPS)[^)]*\)/g) || [];
+    ok(!porFora.length,
+      'nenhuma ordem nem coluna escondida é gravada direto no navegador — toda gravação ' +
+      'passa por `gravarArranjo`, que leva junto para o cadastro', porFora);
+    var apl = fonteDaFuncao(adm, 'aplicarSessao');
+    ok(/if \(trazerArranjo\(s\)\) redesenharDoArranjo\(\);/.test(apl),
+      'e `aplicarSessao` traz o arranjo e refaz a tela quando ele mudou — ela roda na ' +
+      'abertura E na renovação, e é a renovação que entrega a ordem nova ao celular');
+    var env = fonteDaFuncao(adm, 'enviarArranjo');
+    ok(/Q\.entrar\(s\)/.test(env) && /eu\.Preferencias = p/.test(env) &&
+       /acao: 'salvarArranjo'/.test(env),
+      'gravar atualiza a sessão e a EQUIPE em memória antes da resposta — sem isso a ' +
+      'próxima renovação traria o arranjo antigo e desfaria o arrasto');
+  })();
+
   /* ================= A ORDEM DOS CHIPS, ARRASTADA =================
    *
    * A pedido do escritorio: a lista da esquerda e' por onde a tela se navega o dia
@@ -14258,6 +14403,8 @@ console.log('\n== a fileira de cartoes do Controle de Caixas ==');
       fonteDaFuncao(adm, 'guardarOrdemDosChips') +
       fonteDaFuncao(adm, 'chipsForaDaFabrica') +
       fonteDaFuncao(adm, 'voltarOrdemDosChips') +
+      fonteDaFuncao(adm, 'gravarArranjo') + fonteDaFuncao(adm, 'gravarArranjos') +
+      fonteDaFuncao(adm, 'escreverArranjoLocal') + ' function enviarArranjo(){}' +
       ' return { ordem: ordemDosChips, guardar: guardarOrdemDosChips,' +
       '          mexida: chipsForaDaFabrica, voltar: voltarOrdemDosChips,' +
       '          padrao: CHIPS_PADRAO };')(
@@ -27887,7 +28034,7 @@ console.log('\n== o total de caixas no cabeçalho do painel ==');
    * A PROVA RODA O CONSTRUTOR. Lida no arquivo, ela responderia "a palavra `soma` está
    * ali?" — e estaria, mesmo somando a lista errada, ou contando linhas em vez de
    * quantidades. A pergunta é outra: DADAS ESTAS BARRAS, QUE NÚMERO SAI NO CABEÇALHO? */
-  var iP = adm.indexOf('  function painelG(i, titulo, lista, nota, campo){');
+  var iP = adm.indexOf('  function painelG(i, titulo, lista, nota, campo, dim){');
   var fonte = iP < 0 ? '' : adm.slice(iP, adm.indexOf('\n  }', iP) + 4);
   ok(fonte.length > 400 && fonte.indexOf('g__soma') > 0,
     'a conferência recortou o construtor do painel — recorte vazio faria as provas ' +
@@ -27900,12 +28047,15 @@ console.log('\n== o total de caixas no cabeçalho do painel ==');
   var fonteR = iR < 0 ? '' : adm.slice(iR, adm.indexOf('\n  }', iR) + 4);
   ok(fonteR.indexOf('Math.max') > 0,
     'e recortou a régua que os dois painéis do par dividem', fonteR.length);
-  var painelG = new Function('Q', 'tomDeg', 'barraG',
-    fonteR + fonte + '\n return painelG;')(
+  var iAS = adm.indexOf('  function abreSecaoG(dim){');
+  var fonteAS = iAS < 0 ? '' : adm.slice(iAS, adm.indexOf('\n  function painelG(', iAS));
+  var painelG = new Function('Q', 'tomDeg', 'barraG', 'podeArranjarColunas',
+    fonteR + fonteAS + fonte + '\n return painelG;')(
     { esc: function (s) { return String(s == null ? '' : s); },
       num: function (n) { return Number(n || 0).toLocaleString('pt-BR'); } },
     function () { return '#000'; },
-    function () { return '<i></i>'; });
+    function () { return '<i></i>'; },
+    function () { return false; });
 
   function soma(html) {
     var m = /<span class="g__soma"[^>]*>([^<]*)</.exec(html);
@@ -29575,9 +29725,17 @@ console.log('\n== o aplicador da aparencia, rodado ==');
     'que não existe', [FOLHA['--bg'], FOLHA['--txt'], FOLHA['--brand']]);
 
   var escrito = {};
+  /* O `color-scheme` NAO E' VARIAVEL: e' a propriedade que diz ao navegador de que cor
+     desenhar o icone do calendario. Vai para uma gaveta propria, para as provas de
+     "nada escrito" continuarem falando de variaveis — e para ele ter prova propria. */
+  var esquemaEscrito = {};
   var raizFalsa = { style: {
-    setProperty: function (k, v) { escrito[k] = String(v); },
-    removeProperty: function (k) { delete escrito[k]; }
+    setProperty: function (k, v) {
+      if (k === 'color-scheme') esquemaEscrito.v = String(v); else escrito[k] = String(v);
+    },
+    removeProperty: function (k) {
+      if (k === 'color-scheme') delete esquemaEscrito.v; else delete escrito[k];
+    }
   } };
   var docFalso = { documentElement: raizFalsa };
   function lerFalso() {
@@ -29602,6 +29760,32 @@ console.log('\n== o aplicador da aparencia, rodado ==');
     'em 100% e sem cor escolhida o aplicador não escreve variável nenhuma — a folha ' +
     'continua sendo a fonte da verdade para quem não mexeu em nada',
     Object.keys(escrito));
+
+  /* ---- O ICONE DO CALENDARIO SEGUE O CAMPO ----
+   * Era invisivel no fundo claro: o `color-scheme` estava preso em `dark` e o navegador
+   * desenhava o icone escuro sobre um campo claro. Quem nao sabe que o calendario existe
+   * nao o procura, entao a prova cobra a decisao, medida contra o `--campo`. */
+  var campoFolha = FOLHA['--campo'];
+  var esperado = campoFolha
+    ? (M.contraste(campoFolha, '#000000') >= M.contraste(campoFolha, '#ffffff') ? 'light' : 'dark')
+    : '';
+  ok(!!esperado && esquemaEscrito.v === esperado,
+    'o esquema dos controles nativos sai do CAMPO medido — preso num valor só, o ícone do ' +
+    'calendário fica da cor do campo e some', [campoFolha, esquemaEscrito.v]);
+  /* E VIRA quando o campo vira: um campo claro pede icone escuro. */
+  var FOLHA_CAMPO = FOLHA['--campo'];
+  FOLHA['--campo'] = '#f4f6f9';
+  M.mudar({ fundoInt: 100 }, false);
+  var noClaro = esquemaEscrito.v;
+  FOLHA['--campo'] = '#10233f';
+  M.mudar({ fundoInt: 100 }, false);
+  var noEscuro = esquemaEscrito.v;
+  FOLHA['--campo'] = FOLHA_CAMPO;
+  M.mudar({ fundoInt: 100 }, false);
+  ok(noClaro === 'light' && noEscuro === 'dark',
+    'e vira com o campo: campo claro pede `light` (ícone escuro), campo escuro pede `dark` ' +
+    '— era o fundo claro com o ícone escuro sumido que o escritório mandou na foto',
+    [noClaro, noEscuro]);
 
   /* ---- O FUNDO MUDA, E A TINTA VAI JUNTO ---- */
   M.mudar({ fundoInt: 140 }, false);

@@ -345,6 +345,27 @@ Duas coisas que **só apareceram medindo no Chrome**, e que nenhum teste de cód
   colunas não enchiam a janela, e esconder uma só esticava as outras. O `colspan` da linha de
   "nada aqui" conta essa folga (`cs.length + 1`).
 
+### O arranjo viaja com a pessoa (06/11/2026, a pedido)
+
+Ordem de colunas, filtros, cartões, chips e **gráficos**, e as colunas escondidas, moravam só no
+`localStorage`: o admin arrumava no computador e o celular seguia na ordem de fábrica. Agora toda
+gravação passa por `gravarArranjo()` no `admin.html`, que escreve no navegador **e** manda para
+`usuarios.preferencias` (rota `salvarArranjo`). A sessão traz o arranjo de volta e `trazerArranjo()`
+o escreve no navegador em `aplicarSessao` — as funções de desenho continuam lendo o `localStorage`
+como antes. **A largura não viaja**: depende da tela. A marca `_v` separa "nunca sincronizou" (o
+navegador sobe o que tinha) de "voltou ao padrão" (o servidor manda, inclusive apagando).
+`salvarUsuario` descarta `Preferencias` — o formulário traz o registro de quando abriu. Um teste
+recusa qualquer `localStorage.setItem/removeItem` de ordem ou ocultas fora dessa função.
+
+Os gráficos de Movimentos Gerais se reordenam pelo `GRAFICOS_MOV`; a unidade é a **dimensão**
+(o par volume + saldo anda junto), a alça é o cabeçalho, e "Total por" segue o **dia**, não a
+primeira posição.
+
+### O ícone do calendário segue o campo
+
+`ajustarEsquemaNativo()` (no `app.js`) mede o `--campo` contra preto e branco e põe o
+`color-scheme` no `<html>`. Preso em `dark`, o ícone do `input[type=date]` sumia no fundo claro.
+
 ## Nada marcado = nada liberado. Marcar é conceder.
 
 **A convenção do projeto, e ela virou em setembro/2026.** Antes, lista vazia queria dizer

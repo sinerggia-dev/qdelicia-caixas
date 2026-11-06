@@ -939,5 +939,20 @@ module.exports = [
       "  'O que esta pessoa pode alterar nos lancamentos. Marcar e conceder; o ADMIN pode",
       "   tudo sempre. A rota confere lendo esta lista, e a senha da operacao vale por cima.';"
     ].join('\n')
+  },
+  {
+    id: '2026-11-06-arranjo-por-usuario',
+    nota: 'a ordem de colunas, filtros, cartoes e graficos passa a viajar com a pessoa',
+    sql: [
+      "-- O ARRANJO DA TELA, guardado na pessoa e nao no navegador. Ate' aqui a ordem dos",
+      "-- filtros, das colunas, dos cartoes e dos graficos morava so' no navegador, e o que",
+      "-- o admin arrumava no computador nao aparecia no celular dele.",
+      "-- Chave -> lista de ids. A largura das colunas fica de fora: depende da tela.",
+      "alter table public.usuarios",
+      "  add column if not exists preferencias jsonb not null default '{}'::jsonb;",
+      "comment on column public.usuarios.preferencias is",
+      "  'Arranjo da tela desta pessoa (ordem e colunas escondidas). Gravado pela rota",
+      "   salvarArranjo; o cadastro de usuario nao mexe nele.';"
+    ].join('\n')
   }
 ];

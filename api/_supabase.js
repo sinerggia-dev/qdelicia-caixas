@@ -229,6 +229,9 @@ var USUARIO = {
       /* AUSENTE (coluna ainda nao criada) fica `undefined`, e nao `[]`: e' o que deixa
          `acoesDe` cair no que valia antes, em vez de tirar tudo de todo mundo. */
       Acoes: r.acoes == null ? undefined : lista(r.acoes),
+      /* O ARRANJO DA TELA. Objeto, e vazio quando a coluna ainda nao existe. */
+      Preferencias: (r.preferencias && typeof r.preferencias === 'object' &&
+                     !Array.isArray(r.preferencias)) ? r.preferencias : {},
       /* `viu_boas_vindas` E O NOME DE NASCENCA da coluna: ela veio com a tela de
          boas-vindas, que saiu. Quem ela marca hoje e o TUTORIAL. A coluna fica como
          esta — migracao aqui e so por acrescimo, e renomear coluna e apagar e
@@ -276,6 +279,7 @@ var USUARIO = {
     if (o.PodeCorrigir !== undefined) r.pode_corrigir = bool(o.PodeCorrigir);
     if (o.PodeCancelar !== undefined) r.pode_cancelar = bool(o.PodeCancelar);
     if (o.Acoes !== undefined) r.acoes = lista(o.Acoes);
+    if (o.Preferencias !== undefined) r.preferencias = o.Preferencias || {};
     if (o.ViuTutorial !== undefined) r.viu_boas_vindas = bool(o.ViuTutorial);
     if (o.UsuariosVistos !== undefined) r.usuarios_vistos = o.UsuariosVistos || [];
     if (o.Teste !== undefined) r.teste = bool(o.Teste);

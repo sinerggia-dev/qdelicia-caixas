@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=df22e57d">
+<link rel="stylesheet" href="styles.css?v=02eb0b1f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -970,10 +970,10 @@
            FORA DAS ABAS do celular, como a tarja: quem busca quer o resultado, e ter de
            lembrar em que aba a busca mora seria uma pergunta a mais antes da pergunta. -->
       <div class="barra-trava">
-        <!-- `data-tem-cartoes`: a fileira de cartões arrastáveis é desta tela, e
-             só dela. -->
+        <!-- `data-tem-cartoes` e `data-tem-graficos`: os cartões e os gráficos
+             arrastáveis são desta tela, e só dela. -->
         <div class="trava-colunas" data-trava-colunas data-tabela="mov"
-             data-tem-cartoes></div>
+             data-tem-cartoes data-tem-graficos></div>
         <div class="barra-trava__acoes" id="acoesFiltroTopo"></div>
         <!-- JUNTAR AS LINHAS DE CADA REGISTRO, só no computador.
              Uma carga de quatro caixas são quatro linhas que repetem data, status,
@@ -1961,7 +1961,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=c6aa3ec6"></script>
+<script src="app.js?v=e334bcf9"></script>
 <script>
 (function(){
   'use strict';
@@ -2221,6 +2221,11 @@
        seletor nao tem o que listar ainda; quando eles chegam, `montarSelects()` chama
        esta mesma funcao. */
     if (DADOS) ajustarLancamento();
+
+    /* O ARRANJO QUE VEIO NA SESSAO vai para o navegador, e e' daqui que o celular passa
+       a mostrar a ordem que o computador gravou. Na abertura nada esta desenhado ainda
+       e basta escrever; na renovacao a tela ja' existe e precisa ser refeita. */
+    if (trazerArranjo(s)) redesenharDoArranjo();
   }
 
   function abrirApp(){
@@ -2312,6 +2317,9 @@
       podeCorrigir: (u.Acoes || []).indexOf('corrigir') >= 0,
       podeCancelar: (u.Acoes || []).indexOf('cancelar') >= 0,
       acoes: Array.isArray(u.Acoes) ? u.Acoes : [],
+      /* O ARRANJO DA TELA, como o `sessaoDe` manda. Faltando aqui, a renovacao o
+         apagaria da sessao e o celular nunca receberia a ordem gravada no computador. */
+      preferencias: (u.Preferencias && typeof u.Preferencias === 'object') ? u.Preferencias : {},
       /* A MARCA DO TUTORIAL acompanha a sessão renovada. Faltando aqui, a renovação a
          apagaria: a pessoa veria o tutorial, seguiria para o app, e no acesso seguinte
          cairia nele de novo — sem nada na tela explicando por quê. */
@@ -4438,6 +4446,14 @@
      E QUEM JA ARRASTOU OS CARTOES NAO PRECISA FAZER NADA: `ordemColunas` descarta o id
      que nao esta' no `padrao`, e a ordem guardada no aparelho continua valendo para os
      seis que ficaram. */
+  /* OS GRAFICOS DE MOVIMENTOS GERAIS, na ordem que o admin escolher. A unidade que se
+     move e' a DIMENSAO, e nao o painel: cada uma tem o par volume + saldo, e o par
+     anda junto — a razao esta em `desenharGraficosMov`. */
+  var GRAFICOS_MOV = {
+    padrao: ['dia', 'trecho', 'motorista', 'quem', 'caixa'],
+    kOrdem: 'qdc_ordem_graficos_mov_v1'
+  };
+
   var CARTOES_MOV = {
     padrao: ['movimentos', 'hoje', 'saida', 'retorno', 'saldo'],
     kOrdem: 'qdc_ordem_cartoes_mov_v1'
@@ -6659,11 +6675,9 @@
         b.addEventListener('click', function(){
           /* Apaga as tres preferencias de uma vez. Restaurar so uma delas deixaria a
              tabela num meio-termo que ninguem escolheu. */
-          try {
-            localStorage.removeItem(t.kOrdem);
-            localStorage.removeItem(t.kLarg);
-            localStorage.removeItem(t.kOcultas);
-          } catch (e) {}
+          try { localStorage.removeItem(t.kLarg); } catch (e) {}
+          var volta = {}; volta[t.kOrdem] = null; volta[t.kOcultas] = null;
+          gravarArranjos(volta);
           t.redesenha(); desenharColunas();
         });
       });
@@ -6862,7 +6876,123 @@
 
   function guardarOrdem(t, ordem){
     if (!podeArranjarColunas()) return;
-    try { localStorage.setItem(t.kOrdem, JSON.stringify(ordem)); } catch (e) {}
+    gravarArranjo(t.kOrdem, ordem);
+  }
+
+  /* ================= O ARRANJO VIAJA COM A PESSOA =================
+   *
+   * A ordem das colunas, dos filtros, dos cartoes e dos graficos — e quais colunas estao
+   * escondidas — moravam SO' no navegador. O admin arrumava os filtros no computador,
+   * abria o celular e via a ordem de fabrica: o arranjo nao tinha como chegar la'.
+   *
+   * Agora o navegador e' uma COPIA: toda gravacao vai tambem para o cadastro da pessoa
+   * (`salvarArranjo`), e a sessao traz de volta o que esta la' (`trazerArranjo`). As
+   * funcoes de desenho continuam lendo o `localStorage`, exatamente como antes — por
+   * isso nenhuma delas precisou mudar.
+   *
+   * A LARGURA NAO VIAJA. Ela depende do tamanho da tela: a coluna alargada no monitor
+   * espremeria o resto no celular. Continua por aparelho, como sempre foi.
+   *
+   * O NAVEGADOR SE DESCULPA, O SERVIDOR MANDA. Com a marca `_v` no cadastro, o que vem
+   * de la' sobrescreve o local — inclusive apagando. Sem ela, a pessoa nunca
+   * sincronizou: o que este navegador ja' tinha SOBE, e e' assim que o arranjo feito
+   * antes desta mudanca chega ao celular sem ninguem refazer nada. */
+  function chavesDeArranjo(){
+    var k = [K_ORDEM_CHIPS, CARTOES_MOV.kOrdem, FILTROS_MOV.kOrdem, GRAFICOS_MOV.kOrdem];
+    [TAB_ATIVOS, TAB_MOV, TAB_DECL, TAB_LANC, TAB_USUARIOS].forEach(function(t){
+      k.push(t.kOrdem);
+      if (t.kOcultas) k.push(t.kOcultas);
+    });
+    return k;
+  }
+
+  function lerArranjoLocal(k){
+    try {
+      var v = JSON.parse(localStorage.getItem(k) || 'null');
+      return Array.isArray(v) ? v : null;
+    } catch (e) { return null; }
+  }
+
+  function escreverArranjoLocal(k, v){
+    try {
+      if (v == null) localStorage.removeItem(k);
+      else localStorage.setItem(k, JSON.stringify(v));
+    } catch (e) {}
+  }
+
+  /* UMA chave. `null` volta ao padrao — aqui e no servidor. */
+  function gravarArranjo(chave, valor){
+    var v = {};
+    v[chave] = valor == null ? null : valor;
+    gravarArranjos(v);
+  }
+
+  /* VARIAS DE UMA VEZ, num pedido so': o "voltar ao padrao" de uma tabela apaga a ordem
+     e as escondidas juntas, e dois pedidos poderiam chegar fora de ordem. */
+  function gravarArranjos(valores){
+    Object.keys(valores).forEach(function(k){ escreverArranjoLocal(k, valores[k]); });
+    enviarArranjo(valores);
+  }
+
+  function enviarArranjo(valores){
+    var s = Q.sessao();
+    if (!s || !s.id) return;
+    /* A SESSAO E A EQUIPE EM MEMORIA SE ATUALIZAM ANTES DA RESPOSTA. A renovacao le' a
+       `EQUIPE` carregada na abertura; sem isto, a proxima renovacao (salvar um
+       usuario, por exemplo) traria o arranjo ANTIGO e desfaria o que acabou de ser
+       arrastado. */
+    var p = {}, antes = s.preferencias || {};
+    Object.keys(antes).forEach(function(k){ p[k] = antes[k]; });
+    Object.keys(valores).forEach(function(k){
+      if (valores[k] == null) delete p[k]; else p[k] = valores[k];
+    });
+    p._v = 1;
+    s.preferencias = p;
+    Q.entrar(s);
+    var eu = (EQUIPE || []).filter(function(x){ return String(x.ID) === String(s.id); })[0];
+    if (eu) eu.Preferencias = p;
+    Q.post({ acao: 'salvarArranjo', usuarioId: s.id, valores: valores })
+      .then(function(r){ if (!r || !r.ok) throw new Error((r && r.erro) || ''); })
+      .catch(function(){
+        /* DITO EM VOZ ALTA: a ordem muda na tela e parece salva. Calado, o celular
+           mostraria a ordem antiga e ninguem saberia por que. */
+        Q.toast('A nova ordem ficou só neste aparelho: não consegui guardar no servidor.', 'erro');
+      });
+  }
+
+  /* Da sessao para o navegador. Devolve se mudou alguma coisa — e so' entao a tela e'
+     refeita. Sessao SEM o campo (de antes desta mudanca) nao mexe em nada: nao saber
+     nao e' o mesmo que "nada guardado", e apagar o arranjo local por isso seria
+     desfazer o trabalho de alguem. */
+  function trazerArranjo(s){
+    var p = s && s.preferencias;
+    if (!p || typeof p !== 'object') return false;
+    var chaves = chavesDeArranjo();
+    if (!p._v) {
+      var sobe = {}, tem = false;
+      chaves.forEach(function(k){
+        var v = lerArranjoLocal(k);
+        if (v) { sobe[k] = v; tem = true; }
+      });
+      if (tem) enviarArranjo(sobe);
+      return false;
+    }
+    var mudou = false;
+    chaves.forEach(function(k){
+      var srv = Array.isArray(p[k]) ? p[k] : null;
+      if (JSON.stringify(srv) !== JSON.stringify(lerArranjoLocal(k))) {
+        escreverArranjoLocal(k, srv);
+        mudou = true;
+      }
+    });
+    return mudou;
+  }
+
+  /* TUDO o que le' o arranjo, de uma vez. Cada peca protegida: na abertura, parte da
+     tela ainda nao tem dado, e um tropeco aqui nao pode derrubar a renovacao inteira. */
+  function redesenharDoArranjo(){
+    try { redesenharArranjaveis(); } catch (e) {}
+    try { aplicarOrdemFiltros(); } catch (e) {}
   }
 
   /* Arrastar um <th> para cima de outro troca as duas de lugar na ordem COMPLETA — nao na
@@ -6934,7 +7064,7 @@
 
   function guardarOcultas(t, lista){
     if (!podeArranjarColunas()) return;
-    try { localStorage.setItem(t.kOcultas, JSON.stringify(lista)); } catch (e) {}
+    gravarArranjo(t.kOcultas, lista);
   }
 
   function guardarLargura(t, id, px){
@@ -7053,7 +7183,7 @@
   function ordemDosChips(){ return juntarOrdem(CHIPS_PADRAO, K_ORDEM_CHIPS); }
 
   function guardarOrdemDosChips(ordem){
-    try { localStorage.setItem(K_ORDEM_CHIPS, JSON.stringify(ordem)); } catch (e) {}
+    gravarArranjo(K_ORDEM_CHIPS, ordem);
   }
 
   function chipsForaDaFabrica(){
@@ -7061,7 +7191,7 @@
   }
 
   function voltarOrdemDosChips(){
-    try { localStorage.removeItem(K_ORDEM_CHIPS); } catch (e) {}
+    gravarArranjo(K_ORDEM_CHIPS, null);
     desenharFluxo();
   }
 
@@ -10768,7 +10898,7 @@
   }
 
   function restaurarCartoes(){
-    try { localStorage.removeItem(CARTOES_MOV.kOrdem); } catch (e) {}
+    gravarArranjo(CARTOES_MOV.kOrdem, null);
     desenharTotaisMov(MOVS || []);
     Q.toast('Ordem dos cartões de volta ao padrão.');
   }
@@ -10946,7 +11076,19 @@
       '</button>';
   }
 
-  function painelG(i, titulo, lista, nota, campo){
+  /* A MARCA DA DIMENSAO na <section>: e' por ela que o arrasto sabe qual par moveu. */
+  function abreSecaoG(dim){
+    return '<section class="g"' + (dim ? ' data-grafico="' + Q.esc(dim) + '"' : '');
+  }
+  /* O CABECALHO E' A ALCA, e nao o painel inteiro: as barras la' dentro sao botoes que
+     filtram a tela, e um painel inteiro arrastavel faria cada clique hesitar entre
+     filtrar e mover. */
+  function alcaG(){
+    return podeArranjarColunas()
+      ? ' draggable="true" title="Arraste para mudar este gráfico de lugar"' : '';
+  }
+
+  function painelG(i, titulo, lista, nota, campo, dim){
     var maior = reguaG(lista);
     /* O TOTAL DE CAIXAS NO CABEÇALHO, ao lado da contagem de linhas. Os dois números
        respondem perguntas diferentes e estavam sendo confundidos: "1 dia" diz quantas
@@ -10961,8 +11103,8 @@
     /* `/ 10`: sao DEZ paineis desde que cada dimensao ganhou o saldo dela, e o degrade
        percorre a fila inteira. Com um divisor menor, os ultimos ficariam fora da escala
        e nasceriam com a mesma cor do penultimo. */
-    return '<section class="g" style="--c1:'+tomDeg(i / 10)+';--c2:'+tomDeg((i + 1) / 10)+'">'+
-      '<div class="g__c"><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
+    return abreSecaoG(dim)+' style="--c1:'+tomDeg(i / 10)+';--c2:'+tomDeg((i + 1) / 10)+'">'+
+      '<div class="g__c"'+alcaG()+'><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
       '<span class="g__soma" title="total de caixas neste painel">'+Q.num(soma)+'</span>'+
       '<span class="g__n">'+Q.esc(nota)+'</span></div>'+
       (lista.length
@@ -11049,11 +11191,11 @@
      cada linha: ali o total diz quanto se mexeu, aqui o saldo diz quanto falta. A
      régua e o trilho são os MESMOS — o par mostra o mesmo desenho e pergunta duas
      coisas diferentes sobre ele. */
-  function painelSaldoG(i, titulo, lista, nota, campo){
+  function painelSaldoG(i, titulo, lista, nota, campo, dim){
     var maior = reguaG(lista);
     var soma = lista.reduce(function(a2, g){ return a2 + (g.retorno - g.saida); }, 0);
-    return '<section class="g" style="--c1:'+tomDeg(i / 10)+';--c2:'+tomDeg((i + 1) / 10)+'">'+
-      '<div class="g__c"><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
+    return abreSecaoG(dim)+' style="--c1:'+tomDeg(i / 10)+';--c2:'+tomDeg((i + 1) / 10)+'">'+
+      '<div class="g__c"'+alcaG()+'><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
       '<span class="g__soma '+(soma ? 'g__soma--saldo' : '')+'" '+
         'title="saldo do recorte: retorno menos saída">'+
         (soma > 0 ? '+' : '')+Q.num(soma)+'</span>'+
@@ -11067,6 +11209,7 @@
   function desenharGraficosMov(L){
     var box = document.getElementById('graficosMov');
     if (!box) return;
+    GRAF_L = L;
     if (!L.length) { box.innerHTML = ''; pintarLegendaMov(L); return; }
 
     /* O DIA VAI EM ORDEM DE DATA, e não de tamanho: tempo tem ordem própria, e
@@ -11104,24 +11247,87 @@
      * duas respostas são plausíveis — ninguém veria. O que muda é a régua e a conta, não
      * o que entra nelas. A ORDEM também é a mesma, por volume: o painel de cima e o de
      * baixo com ordens diferentes obrigariam a procurar a mesma linha duas vezes. */
-    var DIMENSOES = [
-      { t: 'dia',       lista: dias,   campo: 'mvData',      s1: 'dia',    s2: 'dias' },
-      { t: 'trecho',    lista: trecho, campo: 'mvTrecho',    s1: 'trecho', s2: 'trechos' },
-      { t: 'motorista', lista: mot,    campo: 'mvMotorista', s1: 'nome',   s2: 'nomes' },
-      { t: 'quem lançou', lista: quem, campo: 'mvUsuario',   s1: 'nome',   s2: 'nomes' },
-      { t: 'tipo de caixa', lista: caixa, campo: 'mvCaixa',  s1: 'tipo',   s2: 'tipos' }
-    ];
-    /* "Total por dia" e "Por trecho": o primeiro painel é o único que diz "Total", e é
-       de propósito — o dia é a leitura do conjunto, e os outros são recortes dele. */
-    var tituloVol = function(d, i){
-      return i === 0 ? 'Total por dia' : 'Por ' + d.t;
+    var DIMENSOES = {
+      dia:       { t: 'dia',       lista: dias,   campo: 'mvData',      s1: 'dia',    s2: 'dias' },
+      trecho:    { t: 'trecho',    lista: trecho, campo: 'mvTrecho',    s1: 'trecho', s2: 'trechos' },
+      motorista: { t: 'motorista', lista: mot,    campo: 'mvMotorista', s1: 'nome',   s2: 'nomes' },
+      quem:      { t: 'quem lançou', lista: quem, campo: 'mvUsuario',   s1: 'nome',   s2: 'nomes' },
+      caixa:     { t: 'tipo de caixa', lista: caixa, campo: 'mvCaixa',  s1: 'tipo',   s2: 'tipos' }
     };
-    box.innerHTML = DIMENSOES.map(function(d, i){
+    /* "Total por dia" e "Por trecho": o painel do dia é o único que diz "Total", e é
+       de propósito — o dia é a leitura do conjunto, e os outros são recortes dele.
+       PELA DIMENSAO, e nao pela posicao: com o motorista arrastado para o primeiro
+       lugar, "Total por motorista" estaria dizendo uma coisa que ele nao e'. */
+    var tituloVol = function(id, d){
+      return id === 'dia' ? 'Total por dia' : 'Por ' + d.t;
+    };
+    /* NA ORDEM QUE O ADMIN ESCOLHEU. O `i` continua sendo a POSICAO na tela, como nos
+       cartoes: o degrade de cor atravessa a grade uma vez, da primeira a ultima, e
+       passar a posicao de fabrica faria a cor andar embaralhada junto. */
+    box.innerHTML = ordemColunas(GRAFICOS_MOV).map(function(id, i){
+      var d = DIMENSOES[id];
       var nota = pl(d.lista.length, d.s1, d.s2);
-      return painelG(i * 2, tituloVol(d, i), d.lista, nota, d.campo) +
-             painelSaldoG(i * 2 + 1, 'Saldo por ' + d.t, d.lista, nota, d.campo);
+      return painelG(i * 2, tituloVol(id, d), d.lista, nota, d.campo, id) +
+             painelSaldoG(i * 2 + 1, 'Saldo por ' + d.t, d.lista, nota, d.campo, id);
     }).join('');
     pintarLegendaMov(L);
+    ligarArrastarGraficos();
+  }
+
+  /* O ULTIMO RECORTE DESENHADO, para o arrasto refazer os graficos com os mesmos
+     numeros — e nao com `MOVS` cru, que ignoraria a busca. */
+  var GRAF_L = [];
+
+  /* ARRASTAR UM GRAFICO PARA CIMA DE OUTRO poe o par dele naquele lugar. Solta-se em
+     qualquer um dos dois paineis do par, porque e' o par que se move. */
+  function ligarArrastarGraficos(){
+    var box = document.getElementById('graficosMov');
+    if (!box || !podeArranjarColunas()) return;
+    var arrastado = null;
+    Array.prototype.forEach.call(box.querySelectorAll('section[data-grafico]'), function(sec){
+      var id = sec.getAttribute('data-grafico');
+      var alca = sec.querySelector('.g__c[draggable]');
+      if (alca) {
+        alca.addEventListener('dragstart', function(e){
+          arrastado = id;
+          box.querySelectorAll('section[data-grafico="'+id+'"]').forEach(function(x){
+            x.classList.add('arrastando');
+          });
+          try { e.dataTransfer.setData('text/plain', id); } catch (err) {}
+        });
+        alca.addEventListener('dragend', function(){
+          arrastado = null;
+          box.querySelectorAll('.arrastando,.alvo').forEach(function(x){
+            x.classList.remove('arrastando'); x.classList.remove('alvo');
+          });
+        });
+      }
+      sec.addEventListener('dragover', function(e){
+        if (!arrastado) return;
+        e.preventDefault();
+        if (id !== arrastado) sec.classList.add('alvo');
+      });
+      sec.addEventListener('dragleave', function(){ sec.classList.remove('alvo'); });
+      sec.addEventListener('drop', function(e){
+        e.preventDefault();
+        sec.classList.remove('alvo');
+        if (!arrastado || id === arrastado) return;
+        var ordem = ordemColunas(GRAFICOS_MOV);
+        var de = ordem.indexOf(arrastado);
+        if (de < 0) return;
+        ordem.splice(de, 1);
+        ordem.splice(ordem.indexOf(id), 0, arrastado);
+        arrastado = null;
+        guardarOrdem(GRAFICOS_MOV, ordem);
+        desenharGraficosMov(GRAF_L);
+      });
+    });
+  }
+
+  function restaurarGraficos(){
+    gravarArranjo(GRAFICOS_MOV.kOrdem, null);
+    desenharGraficosMov(GRAF_L);
+    Q.toast('Ordem dos gráficos de volta ao padrão.');
   }
 
   /* ================= O AVISO HONESTO =================
@@ -15068,17 +15274,15 @@
   function restaurarColunas(nome){
     var tab = tabelaDaBarra(nome);
     if (!tab) return;
-    try {
-      localStorage.removeItem(tab.kOrdem);
-      localStorage.removeItem(tab.kLarg);
-      localStorage.removeItem(tab.kOcultas);
-    } catch (e) {}
+    try { localStorage.removeItem(tab.kLarg); } catch (e) {}
+    var volta = {}; volta[tab.kOrdem] = null; volta[tab.kOcultas] = null;
+    gravarArranjos(volta);
     tab.redesenha();
     Q.toast('Colunas de volta ao padrão.');
   }
 
   function restaurarFiltros(){
-    try { localStorage.removeItem(FILTROS_MOV.kOrdem); } catch (e) {}
+    gravarArranjo(FILTROS_MOV.kOrdem, null);
     aplicarOrdemFiltros();
     ligarArrastarFiltros();
     Q.toast('Ordem dos filtros de volta ao padrão.');
@@ -15148,6 +15352,10 @@
           (box.hasAttribute('data-tem-cartoes')
             ? '<button class="mini" type="button" data-restaurar-cartoes '+
               'title="Devolve os cartões à ordem de fábrica">ordem dos cartões</button>'
+            : '')+
+          (box.hasAttribute('data-tem-graficos')
+            ? '<button class="mini" type="button" data-restaurar-graficos '+
+              'title="Devolve os gráficos à ordem de fábrica">ordem dos gráficos</button>'
             : '')
         : '<button class="mini trava__btn" type="button" data-destravar '+
           'title="Mover colunas e filtros de lugar pede sua senha do painel">'+
@@ -15206,6 +15414,7 @@
     if (e.target.closest('[data-travar]')) { travarColunas(false); return; }
     if (e.target.closest('[data-restaurar-filtros]')) restaurarFiltros();
     if (e.target.closest('[data-restaurar-cartoes]')) restaurarCartoes();
+    if (e.target.closest('[data-restaurar-graficos]')) restaurarGraficos();
     var bc = e.target.closest('[data-restaurar-colunas]');
     if (bc) restaurarColunas(bc.getAttribute('data-restaurar-colunas'));
   });

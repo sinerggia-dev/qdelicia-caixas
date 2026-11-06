@@ -359,7 +359,14 @@
    o CSS nao alcanca: a lista que abre de um <select>, o calendario de um campo de
    data, a barra de rolagem da propria pagina. Sem isto tudo isso nasce claro por
    baixo de uma tela escura. Estava dito so na tela de entrada. */
-html,body{margin:0;padding:0;color-scheme:dark}
+/* NO `html` SÓ, e o `body` herda. Estava em `html,body`, e o `body` dizendo "escuro"
+   por conta própria desfazia o `color-scheme:light` que o fundo claro põe no `html`:
+   no tema "gelo" o navegador desenhava o ÍCONE DO CALENDÁRIO claro sobre o campo
+   branco, e ele sumia — quem não sabia que havia um calendário ali não o achava.
+   E quem decide de verdade é o `ajustarEsquemaNativo()` do `app.js`, que mede o campo
+   depois de a aparência ser aplicada: a folha é só o ponto de partida. */
+html,body{margin:0;padding:0}
+html{color-scheme:dark}
 body{
   font-family:var(--fonte);
   background:var(--bg);color:var(--txt);font-size:16px;line-height:1.45;
@@ -3183,6 +3190,10 @@ details.tipos[open] summary::before{content:"▾"}
 .tot__c[draggable="true"]{cursor:grab}
 .tot__c.arrastando{opacity:.45;cursor:grabbing}
 .tot__c.alvo{box-shadow:inset 3px 0 0 var(--azul,#4f8ef7)}
+/* Graficos de Movimentos: o cabecalho e' a alca, e o par volume+saldo anda junto. */
+.g__c[draggable="true"]{cursor:grab}
+.g.arrastando{opacity:.45}
+.g.alvo{box-shadow:inset 3px 0 0 var(--brand)}
 .grid-filtros>div.arrastando{opacity:.45}
 /* O ALVO marca a BORDA DE CIMA, e nao a caixa toda: e ali que o campo vai entrar, e um
    realce da caixa inteira nao diz se ele cai antes ou depois dela. */

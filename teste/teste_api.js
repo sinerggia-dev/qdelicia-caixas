@@ -987,6 +987,74 @@ async function main() {
       'recebe uma delas de outra pessoa est\u00e1 no mesmo caso');
   }
 
+  console.log('\n== o arranjo da tela viaja com a pessoa ==');
+  {
+    /* O admin arrumava os filtros no computador e o celular dele seguia na ordem de
+     * fabrica: o arranjo morava so' no navegador. Agora ele mora no cadastro, e a sessao
+     * o leva para qualquer aparelho. */
+    const nv = await POST({ acao: 'salvarUsuario', registro: {
+      Nome: 'Arranjo Viajante', Perfil: 'GESTOR', PIN: '135790' } });
+    ok(nv.ok === true, 'cadastro de ensaio do arranjo criado', nv);
+    const idA = (await GET({ acao: 'equipe' })).usuarios
+      .filter((u) => u.Nome === 'Arranjo Viajante')[0].ID;
+    const prefs = async () => (await GET({ acao: 'equipe' })).usuarios
+      .filter((u) => u.ID === idA)[0].Preferencias;
+
+    const p0 = await prefs();
+    ok(p0 && typeof p0 === 'object' && !p0._v,
+      'cadastro novo nasce sem arranjo e sem a marca de sincronizado \u2014 \u00e9 essa aus\u00eancia que ' +
+      'deixa o primeiro navegador subir o que j\u00e1 tinha', p0);
+
+    const r1 = await POST({ acao: 'salvarArranjo', usuarioId: idA, valores: {
+      qdc_ordem_filtros_mov_v1: ['mvMotorista', 'mvDe'],
+      qdc_ordem_graficos_mov_v1: ['motorista', 'dia'] } });
+    const p1 = await prefs();
+    ok(r1.ok === true && p1._v === 1 &&
+       JSON.stringify(p1.qdc_ordem_filtros_mov_v1) === '["mvMotorista","mvDe"]' &&
+       JSON.stringify(p1.qdc_ordem_graficos_mov_v1) === '["motorista","dia"]',
+      'gravar o arranjo grava no CADASTRO, com a marca de sincronizado \u2014 \u00e9 de l\u00e1 que o ' +
+      'celular l\u00ea a ordem que o computador arrumou', p1);
+
+    const ses = await POST({ acao: 'login', identificador: 'Arranjo Viajante', pin: '135790' });
+    const sessaoA = ses.usuario || ses.sessao || {};
+    ok(sessaoA.preferencias && JSON.stringify(sessaoA.preferencias.qdc_ordem_graficos_mov_v1) ===
+       '["motorista","dia"]',
+      'e a SESS\u00c3O do login leva o arranjo \u2014 sem ele na sess\u00e3o, o outro aparelho s\u00f3 o veria ' +
+      'depois de a equipe carregar, ou nunca', sessaoA.preferencias);
+    const meu = await GET({ acao: 'meuAcesso', id: idA });
+    ok(meu.usuario && meu.usuario.preferencias && meu.usuario.preferencias._v === 1,
+      'e a releitura da sess\u00e3o tamb\u00e9m', meu.usuario && meu.usuario.preferencias);
+
+    await POST({ acao: 'salvarArranjo', usuarioId: idA, valores: {
+      qdc_ordem_filtros_mov_v1: null } });
+    const p2 = await prefs();
+    ok(!('qdc_ordem_filtros_mov_v1' in p2) && p2.qdc_ordem_graficos_mov_v1 && p2._v === 1,
+      '`null` volta ao padr\u00e3o S\u00d3 aquela chave, e a marca fica \u2014 sem ela o navegador ' +
+      'antigo subiria a ordem velha de novo e desfaria o "voltar ao padr\u00e3o"', p2);
+
+    const larg = await POST({ acao: 'salvarArranjo', usuarioId: idA, valores: {
+      qdc_larg_mov_v1: ['120'] } });
+    ok(larg.ok === false,
+      'a LARGURA n\u00e3o viaja \u2014 ela depende da tela, e a do monitor espremeria o celular', larg);
+    const lixo = await POST({ acao: 'salvarArranjo', usuarioId: idA, valores: {
+      qdc_sessao: ['x'] } });
+    ok(lixo.ok === false,
+      'e chave que n\u00e3o \u00e9 de arranjo \u00e9 recusada \u2014 a coluna \u00e9 lida a cada visita, e uma ' +
+      'rota que guardasse qualquer coisa viraria dep\u00f3sito', lixo);
+    const torto = await POST({ acao: 'salvarArranjo', usuarioId: idA, valores: {
+      qdc_ordem_graficos_mov_v1: 'motorista' } });
+    ok(torto.ok === false, 'e valor que n\u00e3o \u00e9 lista \u00e9 recusado', torto);
+
+    /* O FORMULARIO DE USUARIO NAO TOCA NO ARRANJO. Ele carrega o registro de quando foi
+       aberto; se gravasse o arranjo, desfaria o que a pessoa arrastou nesse meio-tempo. */
+    await POST({ acao: 'salvarUsuario', registro: { ID: idA, Telefone: '81988887777',
+      Preferencias: { _v: 1 } } });
+    const p3 = await prefs();
+    ok(p3.qdc_ordem_graficos_mov_v1 && JSON.stringify(p3.qdc_ordem_graficos_mov_v1) === '["motorista","dia"]',
+      'salvar o cadastro N\u00c3O sobrescreve o arranjo, nem quando o formul\u00e1rio manda um \u2014 ' +
+      'ele vem do registro de quando a janela abriu', p3);
+  }
+
   console.log('\n== senha do app de campo: 6 numeros ==');
   // A regra vale para DEFINIR. Barrar no login trancaria para fora quem cadastrou
   // senha antes dela existir — a equipe inteira, de uma vez, no galpao.

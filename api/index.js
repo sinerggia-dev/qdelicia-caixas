@@ -429,6 +429,7 @@ async function rotaPost(p) {
   if (acao === 'limparMovimentos') return await limparMovimentos(p);
   if (acao === 'baseUsuarios') return await baseUsuarios(p);
   if (acao === 'viuTutorial') return await viuTutorial(p);
+  if (acao === 'salvarArranjo') return await salvarArranjo(p);
   if (acao === 'minhaFoto') return await minhaFoto(p);
 
   return { ok: false, erro: 'Ação desconhecida: ' + acao };
@@ -980,6 +981,24 @@ async function viuTutorial(p) {
   return { ok: true };
 }
 
+/* O ARRANJO DA TELA — ordem de colunas, filtros, cartoes e graficos — guardado na
+   PESSOA, e nao no navegador. Guardado so' no navegador, o que o admin arrumava no
+   computador nao chegava ao celular dele. A largura NAO vem: ela depende do tamanho da
+   tela, e a do computador espremeria o celular.
+   Recebe varias chaves de uma vez (`valores`), porque a primeira visita depois do
+   deploy sobe tudo o que o navegador ja' tinha num pedido so'. `null` apaga a chave. */
+async function salvarArranjo(p) {
+  var id = String(p.usuarioId || '');
+  if (!id) return { ok: false, erro: 'Sem usuario.' };
+  var d = await db.carregarTudo();
+  var u = (d.usuarios || []).filter(function (x) { return String(x.ID) === id; })[0];
+  if (!u) return { ok: false, erro: 'Cadastro nao encontrado.' };
+  var r = L.juntarArranjo(L.preferenciasDe(u), p.valores);
+  if (!r.ok) return r;
+  await db.update('usuarios', id, { preferencias: r.preferencias });
+  return { ok: true, preferencias: r.preferencias };
+}
+
 async function baseUsuarios(p) {
   var ids = Array.isArray(p.ids) ? p.ids.map(String) : [];
   if (!ids.length) return { ok: false, erro: 'Nenhum usuário selecionado.' };
@@ -1284,6 +1303,10 @@ async function salvarUsuario(p) {
   // quando o proprio admin define a credencial.
   delete dados.PinProvisorio;
   delete dados.SenhaProvisoria;
+  /* O ARRANJO DA TELA tambem nao vem por aqui: ele tem rota propria, `salvarArranjo`.
+     O formulario de usuario carrega o registro de quando foi aberto, e salvar dali
+     gravaria por cima a ordem que a pessoa arrastou enquanto ele estava aberto. */
+  delete dados.Preferencias;
 
   // A senha do app de campo tem 6 numeros exatos. A regra fica aqui porque a API
   // aceita `salvarUsuario` de qualquer origem: validar so na tela seria enfeite.
