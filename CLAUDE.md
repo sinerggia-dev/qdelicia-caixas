@@ -1383,6 +1383,18 @@ parte, e exige regerar PDF e Word.
 
 ## Armadilhas já pagas
 
+- **O corte de mil linhas do Supabase (04/11/2026) — o pior defeito que este app já teve.**
+  O PostgREST devolve no máximo 1.000 linhas por pedido e corta **calado**. Quando `movimentos`
+  passou de mil, a API só via as mil primeiras; o `novoId` gerava um id que já existia; o banco
+  recusava por chave primária (23505); e o roteador tratava **todo** 23505 como "reenvio da fila"
+  e respondia sucesso. A tela dizia "gravado", a fila do celular apagava o lançamento, e ele não
+  existia. Perdeu-se tudo o que foi lançado de 04/11 ~17h03 até a correção em 06/11 ~15h20 (só o
+  `M001006` entrou). Hoje: `selectAll` pagina até acabar; o próximo id parte de `maiorId()`
+  perguntado ao banco; e só o 23505 do **`client_key`** é sucesso (`L.ehReenvioDuplicado`) — id
+  repetido volta como erro e a fila segura. Os três têm teste, conferidos por sabotagem.
+  **Regra:** nunca leia uma tabela inteira sem paginar, e nunca transforme recusa do banco em
+  sucesso sem saber exatamente qual restrição recusou.
+
 - **Substituição de texto casando com o tradutor errado.** Aconteceu duas vezes: um campo
   do usuário foi parar em `formLocalPadrao`, e `Empresa` foi parar no tradutor de LOCAL
   em vez do de MOTORISTA. O sintoma é mudo — salvar responde ok e o valor não vai. Dois
