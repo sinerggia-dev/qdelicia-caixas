@@ -2976,6 +2976,22 @@ function rotuloCiclo(m, e) {
    ainda sai — com o texto gravado, que e' o piso —, e por isso a bancada enumera as
    chamadas: uma esquecida nao quebra nada, so' deixa aquela tela com os nomes de
    ontem, o que e' exatamente o defeito que se quer evitar. */
+/* A LINHA ENXUTA: so' o que os cartoes, os graficos e a busca de Movimentos Gerais leem.
+   Com os mesmos nomes da linha inteira, para as funcoes da tela nao saberem a diferenca.
+   O historico e a consulta das alteracoes ficam de fora — sao o grosso do peso, e
+   nenhuma conta usa. Campo que uma conta da tela passar a ler TEM de entrar aqui, senao
+   ela conta zero calada; ha' teste comparando os campos lidos com esta lista. */
+var CAMPOS_LEVES = ['id', 'registro', 'lote', 'dataRef', 'dataHora', 'teste', 'declaracao',
+  'tipo', 'origem', 'destino', 'origemId', 'destinoId', 'rota', 'motorista', 'motoristaNome',
+  'veiculo', 'tipoCaixa', 'tipoCaixaId', 'usuario', 'usuarioId', 'qtd', 'qtdEfetiva',
+  'romaneio', 'situacao', 'obs', 'cancelado'];
+function movimentoLeve(m) {
+  var o = {};
+  CAMPOS_LEVES.forEach(function (k) { if (m[k] !== undefined) o[k] = m[k]; });
+  if (m.alterado && m.alterado.por) o.alterado = { por: m.alterado.por };
+  return o;
+}
+
 function listaMovimentos(movimentos, locais, tipos, usuarios, p, cad) {
   p = p || {};
   cad = cad || {};
@@ -4201,7 +4217,7 @@ module.exports = {
   recorteProprios: recorteProprios, recorteLocais: recorteLocais,
   recorteLancamentos: recorteLancamentos, usuariosVistosDe: usuariosVistosDe,
   idsVisiveis: idsVisiveis, NINGUEM: NINGUEM, ativo: ativo, novoId: novoId,
-  ehReenvioDuplicado: ehReenvioDuplicado, novoToken: novoToken,
+  ehReenvioDuplicado: ehReenvioDuplicado, movimentoLeve: movimentoLeve, CAMPOS_LEVES: CAMPOS_LEVES, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   meuAcesso: meuAcesso,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,

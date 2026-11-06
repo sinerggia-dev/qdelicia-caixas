@@ -231,8 +231,22 @@ async function rotaGet(p) {
          dirigiu e o NOME do fornecedor como o cadastro os diz HOJE, com o texto
          gravado na linha como piso. Sem eles aqui, esta tela fica com os nomes de
          ontem e as outras com os de hoje. */
-      return { ok: true, movimentos: L.listaMovimentos(mov.movimentos, d.locais, d.tipos,
-                 d.usuarios, p, { motoristas: d.motoristas, fornecedores: d.fornecedores }) };
+      /* A LISTA TEM TETO, OS NUMEROS NAO. A tabela recebe no maximo `limit` linhas (o
+         celular nao aguenta desenhar milhares), mas os cartoes, os graficos e o CSV
+         precisam de TODAS as do filtro: com o teto de 500, um periodo de tres dias ja'
+         somava so' as 500 mais recentes, e a tela mostrava totais menores que a
+         realidade sem avisar nada (06/11/2026).
+         `total` diz quantas o filtro casou; `resumo` (se pedido) traz todas, enxutas —
+         so' os campos que os cartoes, os graficos e a busca leem, para a resposta
+         caber no limite de tamanho do servidor. `offset` deixa o CSV buscar em paginas. */
+      var todosMov = L.listaMovimentos(mov.movimentos, d.locais, d.tipos, d.usuarios,
+        Object.assign({}, p, { limit: 1e9 }),
+        { motoristas: d.motoristas, fornecedores: d.fornecedores });
+      var limMov = Number(p.limit || 400), offMov = Math.max(0, Number(p.offset || 0));
+      var respMov = { ok: true, movimentos: todosMov.slice(offMov, offMov + limMov),
+                      total: todosMov.length };
+      if (p.resumo) respMov.resumo = todosMov.map(L.movimentoLeve);
+      return respMov;
     /* OS LANCAMENTOS DE QUEM ESTA PERGUNTANDO — a lista do app de campo.
        E uma rota propria e nao um parametro de `movimentos`: por parametro, quem
        chamasse a de Movimentos pedindo "com as minhas" teria trazido declaracao para

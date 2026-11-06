@@ -6830,10 +6830,14 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
      mostrando o recorte inteiro ao lado de três linhas, que é a contradição mais cara
      de explicar que esta tela pode ter. Esta afirmação pedia o NOME `MOVS` e reprovou
      sem nada ter piorado. */
+  /* DESDE 06/11/2026 os cartoes contam TODAS as linhas do filtro (`MOVS_TODOS`), e nao
+     so' as 500 da tabela — mas pela MESMA peneira da busca. */
+  var mdc = adm.slice(adm.indexOf('function movsDasContas()'), adm.indexOf('function avisoDoTeto()'));
   ok(/var L = peneirarMov\(MOVS \|\| \[\]\);/.test(dm) &&
-     /desenharTotaisMov\(L\);/.test(dm),
-    'e são recalculados da lista já peneirada pela busca, a mesma que desenha a tabela');
-  ok(/desenharGraficosMov\(L\);/.test(dm),
+     /var LT = movsDasContas\(\);/.test(dm) && /desenharTotaisMov\(LT\);/.test(dm) &&
+     /peneirarMov\(MOVS_TODOS \|\| MOVS \|\| \[\]\)/.test(mdc),
+    'e são recalculados de TODAS as linhas do filtro, passadas pela mesma busca que peneira a tabela');
+  ok(/desenharGraficosMov\(LT\);/.test(dm),
     'e os gráficos recebem essa MESMA lista — dois recortes na mesma tela dariam dois ' +
     'totais para o mesmo filtro');
 
@@ -6966,7 +6970,7 @@ console.log('\n== os seis totais do recorte, em Movimentos ==');
      resposta — seis zeros e cinco painéis vazios —, e ela é diferente de a tela não ter
      desenhado nada. Deixados depois do `return`, os dois ficariam com o filtro ANTERIOR
      na tela ao lado de "nenhum movimento". */
-  ok(/desenharTotaisMov\(L\);\s*\n\s*desenharGraficosMov\(L\);\s*\n\s*if \(!L\.length\)\{/.test(dm),
+  ok(/desenharTotaisMov\(LT\);\s*\n\s*desenharGraficosMov\(LT\);\s*\n\s*if \(!L\.length\)\{/.test(dm),
     'e são desenhados ANTES do corte da lista vazia — depois dele, um filtro sem ' +
     'resultado mostraria os números do filtro anterior ao lado de "nenhum movimento"');
 
@@ -8862,7 +8866,7 @@ console.log('\n== as colunas da tabela de Movimentos ==');
     'redesenhar não refaz a busca: o desenho é função própria, e é ela que o arrasto chama');
   var cm = adm.indexOf('function carregarMovimentos()');
   var busca = adm.slice(cm, adm.indexOf('\n  }', cm));
-  ok(/MOVS = r\.movimentos;\s*\n\s*desenharMovimentos\(\);/.test(busca),
+  ok(/MOVS = r\.movimentos;[\s\S]{0,600}MOVS_TODOS = [\s\S]{0,300}desenharMovimentos\(\);/.test(busca),
     'a busca guarda o resultado e manda desenhar', busca.slice(-200));
 
   /* O painel proprio desta barra foi embora: esconder, mover e expandir mudaram para a
@@ -26402,7 +26406,9 @@ console.log('\n== a busca rapida, nas duas larguras ==');
   ok(iDes > 0 && iLargura > iDes,
     'a busca peneira ANTES de a tela escolher entre tabela e cartão — depois, uma das ' +
     'duas larguras obedeceria e a outra não', [iDes, iLargura]);
-  var iTot = adm.indexOf('desenharTotaisMov(L);', iDes);
+  /* OS CARTOES LEEM TODAS AS LINHAS DO FILTRO (06/11/2026), mas pela MESMA peneira da
+     busca: `movsDasContas()` passa `MOVS_TODOS` por `peneirarMov`. */
+  var iTot = adm.indexOf('desenharTotaisMov(LT);', iDes);
   ok(iTot > iDes && iTot - iDes < 200,
     'e os cartões de total saem da lista JÁ peneirada — do contrário eles diriam 2.380 ' +
     'caixas onde a lista mostra 60, que é a contradição mais cara de explicar que uma ' +
@@ -27738,6 +27744,29 @@ console.log('\n== as ações do filtro mudam de lugar ==');
     'e voltam ANTES do "Apagar" — no fim da fila, o botão de risco subiria para o meio ' +
     'dela', vaiEVem.pe.filhos.map(function (b) { return b.id; }));
 
+  /* ---- AS CONTAS LEEM SO' O QUE O RESUMO TRAZ ----
+     Os cartoes, os graficos e a busca de Movimentos Gerais passaram a ler as linhas
+     ENXUTAS do servidor. Campo que uma dessas funcoes leia e o resumo nao traga vira
+     `undefined` — e a conta da' zero calada, que e' o defeito que esta mudanca veio
+     tirar. A prova le os campos de verdade das funcoes e compara com a lista do servidor. */
+  (function () {
+    var Lg = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    var lidos = {};
+    ['totaisMov', 'desenharGraficosMov', 'trechoDo', 'sentidoDoMov', 'qtdQueConta', 'alvoDaBusca',
+     'baseDaLinha'].forEach(function (f) {
+      var i = adm.indexOf('  function ' + f + '(');
+      if (i < 0) return;
+      var corpo = adm.slice(i, adm.indexOf('\n  }\n', i));
+      (corpo.match(/\bm\.[a-zA-Z]+/g) || []).forEach(function (x) { lidos[x.slice(2)] = 1; });
+    });
+    var faltam = Object.keys(lidos).filter(function (k) {
+      return Lg.CAMPOS_LEVES.indexOf(k) < 0 && k !== 'alterado';
+    });
+    ok(Object.keys(lidos).length > 10 && !faltam.length,
+      'todo campo que os cartões, os gráficos e a busca leem vem no resumo do servidor — ' +
+      'faltando um, a conta daria zero calada', { faltam: faltam });
+  })();
+
   /* ---- O CAMPO DE DATA NO CELULAR NAO FICA EM BRANCO ----
      Android e iPhone desenham o campo de data vazio sem texto e sem icone. A dica e'
      do app.js, para as duas telas; e ela precisa acompanhar o valor posto pelo codigo
@@ -28343,7 +28372,7 @@ console.log('\n== toda funcao chamada existe ==');
   ];
 
   var i0 = adm.indexOf('    /* ---------- UMA LINHA DA TABELA, ESCRITA NUM LUGAR SÓ ----------');
-  var i1 = adm.indexOf('    box.innerHTML = \'<div class="tabela-wrap">', i0);
+  var i1 = adm.indexOf('    box.innerHTML = avisoDoTeto()+\'<div class="tabela-wrap">', i0);
   ok(i0 > 0 && i1 > i0 && (i1 - i0) > 2000,
     'a conferência recortou o desenho das linhas da tabela de Movimentos — recorte ' +
     'vazio faria tudo abaixo aprovar sem rodar nada', { ini: i0, fim: i1 });

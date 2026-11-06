@@ -1070,6 +1070,29 @@ async function main() {
       { linhas: todas && todas.length, pedidos: pedidos });
   }
 
+  console.log('\n== a tabela tem teto, as contas nao (06/11/2026) ==');
+  {
+    /* A tela de Movimentos Gerais recebia so' as 500 linhas mais recentes e somava os
+       cartoes sobre elas, calada. Agora a rota diz quantas o filtro casou e manda todas,
+       enxutas, para as contas. */
+    const tudo = await GET({ acao: 'movimentos', quem: 'U001', limit: 100000 });
+    const curto = await GET({ acao: 'movimentos', quem: 'U001', limit: 2, resumo: 1 });
+    ok(curto.ok && curto.movimentos.length === 2 && curto.total === tudo.movimentos.length &&
+       Array.isArray(curto.resumo) && curto.resumo.length === tudo.movimentos.length,
+      'com teto de 2 na tabela, a rota diz o TOTAL do filtro e manda TODAS as linhas no ' +
+      'resumo — os cartões contam todas, e a tela sabe que mostra só uma parte',
+      { lista: curto.movimentos && curto.movimentos.length, total: curto.total,
+        resumo: curto.resumo && curto.resumo.length, todas: tudo.movimentos.length });
+    const somaT = tudo.movimentos.reduce((a, m) => a + Number(m.qtdEfetiva != null ? m.qtdEfetiva : m.qtd), 0);
+    const somaR = curto.resumo.reduce((a, m) => a + Number(m.qtdEfetiva != null ? m.qtdEfetiva : m.qtd), 0);
+    ok(somaT === somaR && !('historico' in curto.resumo[0]),
+      'e o resumo soma o MESMO que as linhas inteiras, sem carregar o histórico — é o peso ' +
+      'que ele deixa de fora para caber na resposta', { inteiras: somaT, resumo: somaR });
+    const pag = await GET({ acao: 'movimentos', quem: 'U001', limit: 2, offset: 2 });
+    ok(pag.ok && pag.movimentos.length > 0 && pag.movimentos[0].id === tudo.movimentos[2].id,
+      'e o `offset` pagina na mesma ordem — é por ele que o CSV leva todas as linhas');
+  }
+
   console.log('\n== o arranjo da tela viaja com a pessoa ==');
   {
     /* O admin arrumava os filtros no computador e o celular dele seguia na ordem de

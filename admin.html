@@ -2000,7 +2000,7 @@
   var ABA_PEDIDA = Q.paramUrl('aba');
 
   var ACOES_LANC = [];
-  var DADOS = null, EQUIPE = [], MOTORISTAS = [], VEICULOS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PERFIS_DECL = [], PAINEL = null, EXTRATO = null, MOVS = [], SITUACOES = [];
+  var DADOS = null, EQUIPE = [], MOTORISTAS = [], VEICULOS = [], LOCAIS_PADRAO = [], PEDIDOS_SENHA = [], PERFIS = [], PERFIS_DECL = [], PAINEL = null, EXTRATO = null, MOVS = [], MOVS_TODOS = null, MOVS_TOTAL = 0, PEDIDO_MOV = null, SITUACOES = [];
 
   /* Fica fora de montarSelects porque a lista chega pela `equipe`, que e outra ida de
      rede: montada junto com as demais, ela ainda estaria vazia. */
@@ -10136,15 +10136,20 @@
     /* `Q.lendo` DIZ QUEM ESTA PERGUNTANDO. Esta era a unica das cinco leituras que nao
        mandava recorte nenhum, e por isso mostrava a operacao inteira a quem so podia ver
        os proprios lancamentos. Agora nenhuma tela monta recorte: todas dizem quem sao. */
-    Q.get(Q.lendo({acao:'movimentos', local:f.local, origem:f.origem, destino:f.destino,
+    Q.get(Q.lendo(PEDIDO_MOV = {acao:'movimentos', local:f.local, origem:f.origem, destino:f.destino,
            tipo:f.tipo, fluxo:f.fluxo, caixa:f.caixa, usuario:f.usuario, teste:f.teste,
            situacao:f.situacao, motorista:f.motorista, trecho:f.trecho,
            registro:f.registro,
            cancelados:valorFiltro('mvCancelados'),
-           de:f.de, ate:f.ate, limit:500}))
+           de:f.de, ate:f.ate, limit:(LIMITE_TABELA_MOV || 500), resumo:1}))
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
         MOVS = r.movimentos;
+        /* TODAS AS LINHAS DO FILTRO, enxutas, para os cartoes, os graficos e o CSV — a
+           tabela continua com as `LIMITE_TABELA_MOV` mais recentes. Servidor antigo (sem
+           `resumo`) cai na lista da tabela, como era. */
+        MOVS_TODOS = Array.isArray(r.resumo) ? r.resumo : null;
+        MOVS_TOTAL = Number(r.total) || MOVS.length;
         desenharMovimentos();
         /* AQUI, e não em cada ouvinte: tudo que mexe em filtro termina recarregando, e
            espalhar a pintura faria a pílula sobrar depois de o filtro sair. */
@@ -10914,14 +10919,14 @@
         /* REDESENHA A PARTIR DO QUE ESTÁ NA TELA. Não dá para mover o nó como os filtros
            fazem: ali o `appendChild` preserva o valor do seletor, aqui a varredura de
            cor de TODOS muda quando um se move, e só a remontagem acerta as emendas. */
-        desenharTotaisMov(MOVS || []);
+        desenharTotaisMov(movsDasContas());
       });
     });
   }
 
   function restaurarCartoes(){
     gravarArranjo(CARTOES_MOV.kOrdem, null);
-    desenharTotaisMov(MOVS || []);
+    desenharTotaisMov(movsDasContas());
     Q.toast('Ordem dos cartões de volta ao padrão.');
   }
 
@@ -11354,6 +11359,26 @@
     carregarMovimentos();
   });
 
+  /* ================= A TABELA TEM TETO, AS CONTAS NAO =================
+   *
+   * A tabela desenha no maximo as 500 linhas mais recentes — milhares de linhas travam
+   * o celular. Ate' 06/11/2026 os CARTOES, os GRAFICOS e o CSV tambem contavam so' essas
+   * 500, e a tela nao dizia nada: com 150 a 300 linhas por dia, um filtro de tres dias
+   * ja' mostrava totais menores que a realidade. Agora as contas leem `MOVS_TODOS`, todas
+   * as linhas do filtro, e a tabela avisa quando esta' mostrando so' uma parte. */
+  var LIMITE_TABELA_MOV = 500;
+  function movsDasContas(){
+    return peneirarMov(MOVS_TODOS || MOVS || []);
+  }
+  function avisoDoTeto(){
+    if (!(MOVS_TOTAL > (MOVS || []).length)) return '';
+    return '<div class="aviso-box" style="margin:0 0 8px">Mostrando as <b>'+Q.num(MOVS.length)+
+      '</b> linhas mais recentes de <b>'+Q.num(MOVS_TOTAL)+'</b> no filtro. Os cartões, os '+
+      'gráficos e o CSV contam <b>todas</b>; para ver as outras na lista, estreite o '+
+      'período ou baixe o CSV.'+(BUSCA_MOV ? ' A busca na lista olha só as que estão à vista.' : '')+
+      '</div>';
+  }
+
   function desenharMovimentos(){
     var box = document.getElementById('tabelaMov');
     if (!box) return;
@@ -11367,8 +11392,9 @@
        enquanto a lista mostra três linhas — duas verdades na mesma tela, e a mais cara
        de explicar: os números diriam que há 2.380 caixas onde a lista mostra 60. */
     var L = peneirarMov(MOVS || []);
-    desenharTotaisMov(L);
-    desenharGraficosMov(L);
+    var LT = movsDasContas();
+    desenharTotaisMov(LT);
+    desenharGraficosMov(LT);
     if (!L.length){
       box.innerHTML = '<div class="vazio">'+
         (BUSCA_MOV ? 'Nada na tela com <b>'+Q.esc(BUSCA_MOV)+'</b>. A busca olha só o '+
@@ -11388,7 +11414,7 @@
        data+hora+origem+destino seria adivinhação: dois lançamentos do mesmo minuto na
        mesma rota, feitos por pessoas diferentes, virariam um. */
     if (emCartoesPainel()) {
-      box.innerHTML = barraOrdemMov(L)+cartoesMov(L)+'<div id="correcaoBox"></div>';
+      box.innerHTML = avisoDoTeto()+barraOrdemMov(L)+cartoesMov(L)+'<div id="correcaoBox"></div>';
       ligarAcoesMov(box);
       ligarOrdemMov();
       marcarDiaGrudado();
@@ -11809,7 +11835,7 @@
       return fora.join('');
     }
 
-    box.innerHTML = '<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
+    box.innerHTML = avisoDoTeto()+'<div class="tabela-wrap"><table class="fixa"><thead><tr>'+
       cs.map(function(c){
         var ord = ORDEM_MOV.col === c.id;
         /* A SETA diz em que ordem está, e o `aria-sort` diz o mesmo a quem usa leitor de
@@ -12547,8 +12573,30 @@
   function tagTipo(t){
     return t==='SAIDA'?'azul':(t==='DEVOLUCAO'?'verde':(t==='PERDA'?'vermelha':(t==='TRANSFERENCIA'?'cinza':'amarela')));
   }
+  /* O CSV LEVA TODAS AS LINHAS DO FILTRO, e nao so' as que cabem na tabela. Quando o
+     filtro passa do teto, as linhas inteiras vem do servidor em paginas de 2.000 — o
+     mesmo pedido da tela, so' com `offset` —, e o arquivo so' e' montado com todas. */
+  function linhasDoCsvMov(){
+    if (!(MOVS_TOTAL > MOVS.length) || !PEDIDO_MOV) return Promise.resolve(MOVS);
+    var todas = [], PAG = 2000;
+    function pagina(de){
+      var p = {};
+      Object.keys(PEDIDO_MOV).forEach(function(k){ if (k !== 'resumo') p[k] = PEDIDO_MOV[k]; });
+      p.limit = PAG; p.offset = de;
+      return Q.get(Q.lendo(p)).then(function(r){
+        if (!r || !r.ok) throw new Error((r && r.erro) || 'Falha ao buscar as linhas do CSV.');
+        todas = todas.concat(r.movimentos || []);
+        if ((r.movimentos || []).length === PAG && todas.length < (r.total || 0)) return pagina(de + PAG);
+        return todas;
+      });
+    }
+    return pagina(0);
+  }
+
   document.getElementById('btnCsvMov').addEventListener('click', function(){
     if (!MOVS.length) return Q.toast('Filtre os movimentos primeiro.','erro');
+    if (MOVS_TOTAL > MOVS.length) Q.toast('Montando o CSV com as '+Q.num(MOVS_TOTAL)+' linhas do filtro…');
+    linhasDoCsvMov().then(function(LINHAS_CSV){
     Q.csv('movimentos_'+Q.hoje()+'.csv',
       /* As colunas novas entram AQUI também. O CSV é a tabela levada para fora: uma
          coluna que existe na tela e falta no arquivo faz a conferência de escritório
@@ -12561,7 +12609,7 @@
          numa planilha — agrupando pelo codigo da linha, cada carga viraria quatro
          grupos de um. */
       ['Registro','Item','Movimento','Hora','Criado em','Base','Situacao','Tipo','Origem','Destino','Caixa','Qtd','Conferida','Divergencia','Status','Romaneio','Rota','Motorista','Motorista (completo)','Veiculo','Quem','Alterado por','Alterado em','Obs','Declarada'],
-      MOVS.map(function(m){
+      LINHAS_CSV.map(function(m){
         var a = m.alterado || {};
         return [m.registro||'', m.id,
                 Q.dataBR(m.dataRef),Q.horaBR(m.dataHora),Q.dataDoCarimboBR(m.dataHora),
@@ -12579,6 +12627,7 @@
                 m.veiculo||'',
                 m.usuario,a.por||'',a.em?Q.dataHoraBR(a.em):'',m.obs,m.qtd];
       }));
+    }).catch(function(e){ Q.toast(e.message, 'erro'); });
   });
 
   /* ---------------- cadastros ---------------- */
