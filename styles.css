@@ -3556,6 +3556,18 @@ details.tipos[open] summary::before{content:"▾"}
    faltando saltar. */
 .gb__v--saldo{color:var(--vermelho)}
 .g__soma--saldo{color:var(--vermelho)}
+/* O saldo do painel, colado no total: menor, e vermelho quando não fecha — a mesma cor
+   do pedaço de saldo nas barras. */
+.g__saldo{flex:0 0 auto;font-family:var(--fonte-mono);font-size:clamp(9.5px,.8vw,11px);
+  font-weight:600;color:var(--txt3)}
+/* O TITULO GANHA A LINHA DE CIMA INTEIRA, e os numeros vao para a de baixo. Na mesma
+   linha, total + saldo + contagem espremiam o titulo ate' ele sumir — e sem titulo nao
+   se sabe de que e' o painel. */
+.g__c{flex-wrap:wrap;row-gap:2px}
+.g__c .g__t{flex-basis:100%}
+/* Linha de baixo: a contagem à esquerda, total e saldo à direita. */
+.g__c .g__n{order:1}.g__c .g__soma{order:2}.g__c .g__saldo{order:3;flex-basis:100%;text-align:right}
+.g__saldo--tem{color:var(--vermelho)}
 
 .gb__s{background:var(--azul-cheio)}
 .gb__d{background:var(--verde-cheio)}

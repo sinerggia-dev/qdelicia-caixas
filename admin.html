@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d1520">
 <title>Qdelícia Frutas · Controle de Caixas</title>
-<link rel="stylesheet" href="styles.css?v=cf7c3909">
+<link rel="stylesheet" href="styles.css?v=d456e92d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A fonte do modelo. Carrega DEPOIS do styles.css e nao bloqueia nada: o app roda no
@@ -4451,9 +4451,8 @@
      E QUEM JA ARRASTOU OS CARTOES NAO PRECISA FAZER NADA: `ordemColunas` descarta o id
      que nao esta' no `padrao`, e a ordem guardada no aparelho continua valendo para os
      seis que ficaram. */
-  /* OS GRAFICOS DE MOVIMENTOS GERAIS, na ordem que o admin escolher. A unidade que se
-     move e' a DIMENSAO, e nao o painel: cada uma tem o par volume + saldo, e o par
-     anda junto — a razao esta em `desenharGraficosMov`. */
+  /* OS GRAFICOS DE MOVIMENTOS GERAIS, na ordem que o admin escolher: um painel por
+     dimensao (dia, trecho, motorista, quem lancou, tipo de caixa). */
   var GRAFICOS_MOV = {
     padrao: ['dia', 'trecho', 'motorista', 'quem', 'caixa'],
     kOrdem: 'qdc_ordem_graficos_mov_v1'
@@ -11099,7 +11098,7 @@
       '</button>';
   }
 
-  /* A MARCA DA DIMENSAO na <section>: e' por ela que o arrasto sabe qual par moveu. */
+  /* A MARCA DA DIMENSAO na <section>: e' por ela que o arrasto sabe qual painel moveu. */
   function abreSecaoG(dim){
     return '<section class="g"' + (dim ? ' data-grafico="' + Q.esc(dim) + '"' : '');
   }
@@ -11123,12 +11122,19 @@
        dos cinco painéis ganhasse um recorte próprio, o cabeçalho continuaria somando a
        lista antiga e ninguém veria — os dois números são plausíveis. */
     var soma = lista.reduce(function(a, g){ return a + (g.total || 0); }, 0);
-    /* `/ 10`: sao DEZ paineis desde que cada dimensao ganhou o saldo dela, e o degrade
-       percorre a fila inteira. Com um divisor menor, os ultimos ficariam fora da escala
-       e nasceriam com a mesma cor do penultimo. */
-    return abreSecaoG(dim)+' style="--c1:'+tomDeg(i / 10)+';--c2:'+tomDeg((i + 1) / 10)+'">'+
+    /* O SALDO DO PAINEL, no cabeçalho, ao lado do total. Era o número grande do painel
+       "Saldo por…", que saiu (06/11/2026, a pedido): cada linha daqui já mostra saída,
+       retorno e saldo, com a mesma barra de três cores — o painel do lado repetia tudo,
+       linha por linha, e só o número de cima era dele. Esse número veio para cá. */
+    var saldoP = lista.reduce(function(a, g){ return a + ((g.retorno || 0) - (g.saida || 0)); }, 0);
+    /* `/ 5`: um painel por dimensao. O degrade percorre a fila inteira; com o divisor
+       antigo (10, do tempo em que havia o par) a cor pararia no meio da escala. */
+    return abreSecaoG(dim)+' style="--c1:'+tomDeg(i / 5)+';--c2:'+tomDeg((i + 1) / 5)+'">'+
       '<div class="g__c"'+alcaG()+'><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
       '<span class="g__soma" title="total de caixas neste painel">'+Q.num(soma)+'</span>'+
+      '<span class="g__saldo'+(saldoP ? ' g__saldo--tem' : '')+'" '+
+        'title="saldo do recorte: retorno menos saída">saldo '+
+        (saldoP > 0 ? '+' : '')+Q.num(saldoP)+'</span>'+
       '<span class="g__n">'+Q.esc(nota)+'</span></div>'+
       (lista.length
         ? lista.map(function(g){ return barraG(g, maior, campo); }).join('')
@@ -11176,59 +11182,6 @@
    *
    * O QUE SEPARA OS DOIS PAINÉIS, então, é a PERGUNTA, e não o desenho: o número grande
    * de cada linha e o do cabeçalho. Em cima, quanto se mexeu; aqui, quanto falta. */
-  function barraSaldoG(g, maior, campo){
-    var saldo = g.retorno - g.saida;
-    var pode = campo && g.v != null && g.v !== '';
-    var lig = pode && gLigado(campo, g);
-    var titulo = g.k + ' — saída ' + Q.num(g.saida) + ' · retorno ' + Q.num(g.retorno) +
-      ' · saldo ' + (saldo > 0 ? '+' : '') + Q.num(saldo) +
-      (saldo < 0 ? ' (saiu mais do que voltou)' : saldo > 0 ? ' (voltou mais do que saiu)'
-                                                            : ' (fechado)') +
-      (pode ? (lig ? ' · clique para tirar o filtro' : ' · clique para filtrar por isto')
-            : (g.v === '' ? ' · sem informação não vira filtro' : ''));
-    return '<button class="gb gb--saldo" type="button" title="'+Q.esc(titulo)+'"'+
-      (pode ? ' data-gcampo="'+Q.esc(campo)+'" data-gvalor="'+Q.esc(g.v)+'"'+
-              ' aria-pressed="'+(lig ? 'true' : 'false')+'"'
-            : ' disabled')+'>'+
-      '<span class="gb__r"><span class="gb__k">'+Q.esc(g.k)+'</span>'+
-      /* VERMELHO EM TODO SALDO, a pedido: as tres cores dizem o que a barra MEDE —
-         azul e saida, verde e retorno, vermelho e saldo —, e nao se o numero e bom ou
-         ruim. Quem carrega a direcao e o SINAL, que vem colado no numero.
-         O preco esta' dito: um saldo positivo (voltou mais do que saiu) tambem sai em
-         vermelho. Zero fica sem cor — ele nao e' nem uma coisa nem outra. */
-      '<b class="gb__v '+(saldo ? 'gb__v--saldo' : '')+'">'+
-        (saldo > 0 ? '+' : '')+Q.num(saldo)+'</b></span>'+
-      /* A MESMA LINHA do painel de volume, e nao uma escrita a mao aqui: duas copias
-         divergem na primeira que for mexida, e as duas sao plausiveis. SEM o saldo,
-         porque ele ja e o numero grande desta linha. */
-      parG(g, false)+
-      /* O MESMO TRILHO do painel de volume, e pela mesma razao. Aqui havia um pedaco
-         vermelho sozinho, medido contra uma regua propria: a linha dizia QUANTO falta e
-         nao dizia DE QUE — 2.361 faltando de um movimento de 4.795 e de um de 2.400 sao
-         situacoes diferentes, e o painel nao separava as duas. */
-      trilhoG(g, maior)+
-      '</button>';
-  }
-
-  /* O PAINEL DO SALDO. Separado do `painelG` pelo CABEÇALHO e pelo número grande de
-     cada linha: ali o total diz quanto se mexeu, aqui o saldo diz quanto falta. A
-     régua e o trilho são os MESMOS — o par mostra o mesmo desenho e pergunta duas
-     coisas diferentes sobre ele. */
-  function painelSaldoG(i, titulo, lista, nota, campo, dim){
-    var maior = reguaG(lista);
-    var soma = lista.reduce(function(a2, g){ return a2 + (g.retorno - g.saida); }, 0);
-    return abreSecaoG(dim)+' style="--c1:'+tomDeg(i / 10)+';--c2:'+tomDeg((i + 1) / 10)+'">'+
-      '<div class="g__c"'+alcaG()+'><h3 class="g__t">'+Q.esc(titulo)+'</h3>'+
-      '<span class="g__soma '+(soma ? 'g__soma--saldo' : '')+'" '+
-        'title="saldo do recorte: retorno menos saída">'+
-        (soma > 0 ? '+' : '')+Q.num(soma)+'</span>'+
-      '<span class="g__n">'+Q.esc(nota)+'</span></div>'+
-      (lista.length
-        ? lista.map(function(g){ return barraSaldoG(g, maior, campo); }).join('')
-        : '<p class="g__vazio">sem dados no recorte</p>')+
-      '</section>';
-  }
-
   function desenharGraficosMov(L){
     var box = document.getElementById('graficosMov');
     if (!box) return;
@@ -11253,23 +11206,14 @@
 
     var pl = function(n, s1, s2){ return n + ' ' + (n === 1 ? s1 : s2); };
 
-    /* ================= DOIS PAINEIS POR DIMENSAO =================
+    /* ================= UM PAINEL POR DIMENSAO =================
      *
-     * Cada pergunta é feita duas vezes: QUANTO se mexeu (a barra é saída + retorno) e
-     * QUANTO FALTA (a barra é o saldo). Um trecho com 4.000 de movimento e saldo zero e
-     * outro com 400 de movimento e saldo −400 aparecem quase iguais no painel de
-     * volume — e o segundo é o problema.
-     *
-     * O PAR FICA JUNTO, e não todos os volumes e depois todos os saldos: a grade quebra
-     * em 2, 3 ou 5 colunas conforme a largura da janela, e só a vizinhança na ORDEM
-     * sobrevive a todas elas. Separados, o par ficaria lado a lado numa largura e em
-     * telas diferentes noutra.
-     *
-     * A MESMA LISTA ALIMENTA OS DOIS, e não um agrupamento novo para cada: dois cortes
-     * sobre a mesma pergunta divergiriam no primeiro filtro que só um recebesse, e as
-     * duas respostas são plausíveis — ninguém veria. O que muda é a régua e a conta, não
-     * o que entra nelas. A ORDEM também é a mesma, por volume: o painel de cima e o de
-     * baixo com ordens diferentes obrigariam a procurar a mesma linha duas vezes. */
+     * Eram dois — volume e "Saldo por…" — e o segundo saiu (06/11/2026, a pedido). A
+     * razao de ele existir era um trecho com 4.000 de movimento e saldo zero parecer
+     * igual a um com 400 e saldo −400. Mas cada linha do painel de volume JA' mostra
+     * saida, retorno e saldo, e a barra dela ja' tem o pedaco vermelho do saldo: o
+     * painel do lado era a mesma linha, a mesma barra, na mesma ordem, trocando so' o
+     * numero grande. O total de saldo dele subiu para o cabecalho deste. */
     var DIMENSOES = {
       dia:       { t: 'dia',       lista: dias,   campo: 'mvData',      s1: 'dia',    s2: 'dias' },
       trecho:    { t: 'trecho',    lista: trecho, campo: 'mvTrecho',    s1: 'trecho', s2: 'trechos' },
@@ -11290,8 +11234,7 @@
     box.innerHTML = ordemColunas(GRAFICOS_MOV).map(function(id, i){
       var d = DIMENSOES[id];
       var nota = pl(d.lista.length, d.s1, d.s2);
-      return painelG(i * 2, tituloVol(id, d), d.lista, nota, d.campo, id) +
-             painelSaldoG(i * 2 + 1, 'Saldo por ' + d.t, d.lista, nota, d.campo, id);
+      return painelG(i, tituloVol(id, d), d.lista, nota, d.campo, id);
     }).join('');
     pintarLegendaMov(L);
     ligarArrastarGraficos();
@@ -11301,8 +11244,7 @@
      numeros — e nao com `MOVS` cru, que ignoraria a busca. */
   var GRAF_L = [];
 
-  /* ARRASTAR UM GRAFICO PARA CIMA DE OUTRO poe o par dele naquele lugar. Solta-se em
-     qualquer um dos dois paineis do par, porque e' o par que se move. */
+  /* ARRASTAR UM GRAFICO PARA CIMA DE OUTRO o poe naquele lugar. */
   function ligarArrastarGraficos(){
     var box = document.getElementById('graficosMov');
     if (!box || !podeArranjarColunas()) return;

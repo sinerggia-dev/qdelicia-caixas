@@ -361,9 +361,11 @@ têm **setas ▲▼** dentro do rótulo quando a trava está aberta.
 `salvarUsuario` descarta `Preferencias` — o formulário traz o registro de quando abriu. Um teste
 recusa qualquer `localStorage.setItem/removeItem` de ordem ou ocultas fora dessa função.
 
-Os gráficos de Movimentos Gerais se reordenam pelo `GRAFICOS_MOV`; a unidade é a **dimensão**
-(o par volume + saldo anda junto), a alça é o cabeçalho, e "Total por" segue o **dia**, não a
-primeira posição.
+Os gráficos de Movimentos Gerais se reordenam pelo `GRAFICOS_MOV`: **um painel por dimensão**
+(dia, trecho, motorista, quem lançou, tipo de caixa), a alça é o cabeçalho, e "Total por" segue o
+**dia**, não a primeira posição. O painel "Saldo por…" **saiu** (06/11/2026, a pedido): ele repetia
+a linha e a barra de três cores do painel de volume, e só o número de cima era dele — esse número
+(o saldo do recorte) está agora no cabeçalho de cada painel, ao lado do total.
 
 ### O ícone do calendário segue o campo
 
