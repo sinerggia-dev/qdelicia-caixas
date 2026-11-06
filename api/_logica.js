@@ -1333,6 +1333,15 @@ function idsVisiveis(usuarios, quem) {
   return usuariosVistosDe(u);
 }
 
+/* A RECUSA QUE E' SUCESSO, e so' ela: o banco barrou a linha porque o MESMO lancamento
+   (mesmo `client_key`) ja' esta' gravado — a fila do celular reenviou. Chave primaria
+   repetida e' outra coisa: o lancamento nao entrou. Ver o `catch` de `gravarMovimento`. */
+function ehReenvioDuplicado(corpo, status) {
+  var t = String(corpo || '');
+  if (t.indexOf('23505') < 0 && status !== 409) return false;
+  return /client_key/i.test(t);
+}
+
 function novoId(prefixo, existentes) {
   var largura = prefixo === 'M' ? 6 : 3;
   var max = 0;
@@ -4191,7 +4200,8 @@ module.exports = {
   acharUsuario: acharUsuario,
   recorteProprios: recorteProprios, recorteLocais: recorteLocais,
   recorteLancamentos: recorteLancamentos, usuariosVistosDe: usuariosVistosDe,
-  idsVisiveis: idsVisiveis, NINGUEM: NINGUEM, ativo: ativo, novoId: novoId, novoToken: novoToken,
+  idsVisiveis: idsVisiveis, NINGUEM: NINGUEM, ativo: ativo, novoId: novoId,
+  ehReenvioDuplicado: ehReenvioDuplicado, novoToken: novoToken,
   acharPorIdentificador: acharPorIdentificador, loginPorSenha: loginPorSenha,
   meuAcesso: meuAcesso,
   fluxoPorOrigem: fluxoPorOrigem, fluxoPorPessoa: fluxoPorPessoa,

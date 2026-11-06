@@ -505,8 +505,18 @@ async function gravarMovimento(p) {
       ((nomeLocal && nomeLocal.Nome) || 'neste local') + '.' };
   }
 
+  /* O PROXIMO ID PARTE DO BANCO, e nao so' da lista lida. A lista ja' veio incompleta
+     uma vez (o corte de mil linhas do Supabase, 04/11/2026) e o id calculado dela ja'
+     existia; o banco recusou e o lancamento se perdeu. Uma linha-sentinela com o maior id
+     gravado faz o `novoId` comecar depois dele, seja qual for o tamanho da lista. */
+  var movsBase = d.movimentos;
+  try {
+    var maiorGravado = db.maiorId ? await db.maiorId('movimentos') : '';
+    if (maiorGravado) movsBase = d.movimentos.concat([{ ID: maiorGravado }]);
+  } catch (e) { /* sem a pergunta, segue com a lista — e a trava do insert abaixo segura */ }
+
   var r = L.montarMovimento(p, {
-    movimentos: d.movimentos,
+    movimentos: movsBase,
     agora: agora,
     fornecedor: fornDaLinha,
     /* A BASE VEM DO CADASTRO, e nao mais do nome do perfil. Perfil e cargo; base e
@@ -552,9 +562,13 @@ async function gravarMovimento(p) {
         criados.push({ id: g.id, tipoCaixaId: g.tipo_caixa_id, qtd: Number(g.qtd) });
       });
     } catch (e) {
-      // 23505 = violação de UNIQUE. É a fila offline reenviando: o banco recusou a duplicata,
-      // que é exatamente o comportamento desejado. Para o celular, isso é sucesso.
-      if (String(e.corpo || '').indexOf('23505') >= 0 || e.status === 409) {
+      /* 23505 = violacao de UNIQUE — mas SO' a do `client_key` e' a fila reenviando o que
+         ja' entrou. A da CHAVE PRIMARIA (`movimentos_pkey`) e' id repetido: o lancamento
+         NAO foi gravado. Tratar as duas como sucesso foi o que fez lancamentos sumirem
+         calados a partir de 04/11/2026 — a tela dizia "gravado" e o banco tinha recusado.
+         Agora so' a duplicata de verdade vira sucesso; qualquer outra recusa volta como
+         ERRO, e a fila do celular segura o lancamento e tenta de novo. */
+      if (L.ehReenvioDuplicado(e.corpo, e.status)) {
         return { ok: true, criados: criados, status: r.status, duplicado: true };
       }
       throw e;

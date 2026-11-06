@@ -103,14 +103,37 @@ const real = require(caminhoSupabase);
 function erroUnique(coluna) {
   const e = new Error('duplicate key value violates unique constraint "movimentos_' + coluna + '_key"');
   e.status = 409;
-  e.corpo = '{"code":"23505","message":"duplicate key"}';
+  /* O CORPO COMO O POSTGREST DE VERDADE MANDA, com o nome da restricao. E' por ele que o
+     roteador separa a fila reenviando (`client_key`) do id repetido (`pkey`) — um corpo
+     generico aqui deixaria as duas iguais, e foi tratar as duas iguais que perdeu
+     lancamentos em 04/11/2026. */
+  const restricao = coluna === 'pkey' ? 'movimentos_pkey' : 'movimentos_' + coluna + '_key';
+  e.corpo = JSON.stringify({ code: '23505',
+    details: 'Key (' + (coluna === 'pkey' ? 'id' : coluna) + ')=(x) already exists.',
+    message: 'duplicate key value violates unique constraint "' + restricao + '"' });
   return e;
 }
+
+/* O CORTE DO SUPABASE, simulavel: com `CORTE.movimentos = n`, a leitura devolve so' as n
+   primeiras linhas — o que o PostgREST faz calado acima de mil. `CORTE.semMaior` desliga
+   a pergunta direta pelo maior id, para provar a ultima trava (o insert) sozinha. */
+const CORTE = { movimentos: 0, semMaior: false };
 
 const falso = Object.assign({}, real, {
   configurado: () => true,
   subirArquivo: async () => 'https://fake/arquivo.png',
-  selectAll: async (t) => tabelas[t].map((r) => Object.assign({}, r)),
+  selectAll: async (t) => {
+    const todas = tabelas[t].map((r) => Object.assign({}, r));
+    /* ORDENADA POR ID, como o `order=id` do pedido de verdade: o corte leva as ULTIMAS. */
+    if (t === 'movimentos' && CORTE.movimentos) {
+      return todas.sort((a, b) => (a.id < b.id ? -1 : 1)).slice(0, CORTE.movimentos);
+    }
+    return todas;
+  },
+  maiorId: async (t) => {
+    if (CORTE.semMaior) throw new Error('sem a pergunta');
+    return tabelas[t].map((r) => r.id).sort().pop() || '';
+  },
   insert: async (t, linhas) => {
     return linhas.map((l) => {
       if (tabelas[t].some((r) => r.id === l.id)) throw erroUnique('pkey');
@@ -168,7 +191,10 @@ const falso = Object.assign({}, real, {
       locais: tabelas.locais.map(real.LOCAL.de),
       tipos: tabelas.tipos_caixa.map(real.TIPO.de),
       usuarios: tabelas.usuarios.map(real.USUARIO.de),
-      movimentos: tabelas.movimentos.map(real.MOV.de),
+      /* O CORTE vale aqui tambem: e' por esta leitura que o roteador calcula o proximo id. */
+      movimentos: (CORTE.movimentos
+        ? tabelas.movimentos.slice().sort((a, b) => (a.id < b.id ? -1 : 1)).slice(0, CORTE.movimentos)
+        : tabelas.movimentos).map(real.MOV.de),
       motoristas: tabelas.motoristas.map(real.MOTORISTA.de),
       locaisPadrao: tabelas.locais_padrao.map(real.LOCAL_PADRAO.de),
       pedidosSenha: tabelas.pedidos_senha.filter((r) => r.atendido !== true),
@@ -985,6 +1011,63 @@ async function main() {
     ok((await vendo()).ViuTutorial === false,
       'e resetar a senha do painel devolve igual \u2014 as duas s\u00e3o credencial, e quem ' +
       'recebe uma delas de outra pessoa est\u00e1 no mesmo caso');
+  }
+
+  console.log('\n== lancamento depois de mil linhas (04/11/2026) ==');
+  {
+    /* O DEFEITO QUE FOI AO AR. O Supabase entrega no maximo mil linhas por pedido, e corta
+     * calado. Passada a milesima linha, o proximo id saia das mil visiveis — um id que ja'
+     * existia —, o banco recusava por chave repetida, e o roteador respondia SUCESSO. A
+     * tela dizia "gravado" e o lancamento nao existia. */
+    const antes = tabelas.movimentos.length;
+    CORTE.movimentos = antes - 3;          // as tres ultimas linhas ficam fora da leitura
+    const r1 = await POST({ acao: 'movimento', tipo: 'AJUSTE', destinoId: 'L001',
+      itens: [{ tipoCaixaId: 'T001', qtd: 7 }], dataRef: dia(0), usuarioId: 'U001', perfil: 'ADMIN' });
+    const ids = tabelas.movimentos.map((m) => m.id);
+    ok(r1.ok === true && tabelas.movimentos.length === antes + 1 &&
+       new Set(ids).size === ids.length,
+      'com a leitura CORTADA, o lançamento novo entra mesmo assim, com id que não existe — ' +
+      'o próximo id parte do maior gravado no BANCO, e não da lista que veio', r1);
+
+    CORTE.semMaior = true;                 // sem a pergunta direta: so' o insert segura
+    const antes2 = tabelas.movimentos.length;
+    CORTE.movimentos = antes2 - 3;
+    const r2 = await POST({ acao: 'movimento', tipo: 'AJUSTE', destinoId: 'L001',
+      itens: [{ tipoCaixaId: 'T001', qtd: 9 }], dataRef: dia(0), usuarioId: 'U001', perfil: 'ADMIN' });
+    ok(r2.ok !== true && tabelas.movimentos.length === antes2,
+      'e quando o id sai repetido, a resposta é ERRO, e NÃO "gravado" — era o "sucesso" ' +
+      'falso que fazia o lançamento sumir: a fila do celular apagava achando que tinha ido', r2);
+    CORTE.movimentos = 0; CORTE.semMaior = false;
+
+    const L = require(path.join(__dirname, '..', 'api', '_logica.js'));
+    ok(L.ehReenvioDuplicado('{"code":"23505","message":"duplicate key value violates unique ' +
+         'constraint \\"movimentos_client_key_key\\""}', 409) === true &&
+       L.ehReenvioDuplicado('{"code":"23505","message":"duplicate key value violates unique ' +
+         'constraint \\"movimentos_pkey\\""}', 409) === false &&
+       L.ehReenvioDuplicado('', 500) === false,
+      'só a recusa do `client_key` é reenvio da fila; a da CHAVE PRIMÁRIA é lançamento que ' +
+      'não entrou');
+
+    /* A LEITURA PAGINADA, rodada no `selectAll` DE VERDADE com a rede de mentira. */
+    const fetchAntes = global.fetch;
+    const TOTAL = 2345;
+    let pedidos = 0;
+    global.fetch = async (url) => {
+      pedidos++;
+      const lim = +(/limit=(\d+)/.exec(url) || [])[1];
+      const off = +(/offset=(\d+)/.exec(url) || [0, 0])[1];
+      const corteServidor = Math.min(lim || 1000, 1000);
+      const linhas = [];
+      for (let i = off; i < Math.min(off + corteServidor, TOTAL); i++) linhas.push({ id: 'M' + i });
+      return { ok: true, status: 200, text: async () => JSON.stringify(linhas) };
+    };
+    let todas;
+    try { todas = await real.selectAll('movimentos', 'id'); } finally { global.fetch = fetchAntes; }
+    ok(Array.isArray(todas) && todas.length === TOTAL && pedidos === 3 &&
+       todas[TOTAL - 1].id === 'M' + (TOTAL - 1),
+      'e a leitura de verdade vai até o fim: ' + TOTAL + ' linhas em páginas de mil, e não ' +
+      'as mil primeiras que o servidor entrega num pedido só',
+      { linhas: todas && todas.length, pedidos: pedidos });
   }
 
   console.log('\n== o arranjo da tela viaja com a pessoa ==');

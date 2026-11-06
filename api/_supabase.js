@@ -40,9 +40,44 @@ async function req(caminho, opcoes) {
   try { return JSON.parse(texto); } catch (e) { return texto; }
 }
 
-function selectAll(tabela, ordem) {
-  var q = '/rest/v1/' + tabela + '?select=*' + (ordem ? '&order=' + ordem : '');
-  return req(q, { method: 'GET', headers: cabecalhos() });
+/* ================= LER A TABELA INTEIRA, PAGINA POR PAGINA =================
+ *
+ * O PostgREST do Supabase devolve NO MAXIMO 1.000 linhas por pedido (o `max-rows` do
+ * projeto), e corta calado: sem erro, sem aviso, so' a lista menor. Enquanto `movimentos`
+ * tinha menos de mil linhas, um pedido so' bastava. Em 04/11/2026, por volta das 17h, a
+ * tabela passou de mil — e dali em diante a API so' via as mil primeiras:
+ *   - o que foi lancado depois nao aparecia em tela nenhuma;
+ *   - pior: o `novoId` calculava o proximo id a partir das mil linhas visiveis, gerava um
+ *     id que JA EXISTIA, o banco recusava por chave repetida (23505), e o roteador lia isso
+ *     como "reenvio da fila" e respondia SUCESSO. O lancamento se perdia, e a tela dizia
+ *     que tinha gravado.
+ *
+ * AGORA LE ATE ACABAR. `PAGINA` e' o tamanho que o Supabase entrega por padrao; se um dia
+ * alguem baixar o `max-rows` do projeto, a pagina tem de baixar junto — senao a primeira
+ * pagina vem menor que `PAGINA` e a leitura para achando que terminou. Por isso o limite
+ * tambem vai no pedido (`limit`): quem manda e' este numero, e nao o do servidor. */
+var PAGINA = 1000;
+
+async function selectAll(tabela, ordem) {
+  var todas = [], de = 0;
+  for (;;) {
+    var q = '/rest/v1/' + tabela + '?select=*' + (ordem ? '&order=' + ordem : '') +
+      '&limit=' + PAGINA + '&offset=' + de;
+    var lote = await req(q, { method: 'GET', headers: cabecalhos() });
+    if (!Array.isArray(lote)) return de ? todas : lote;
+    todas = todas.concat(lote);
+    if (lote.length < PAGINA) return todas;
+    de += lote.length;
+  }
+}
+
+/* O MAIOR ID GRAVADO, perguntado ao banco e nao deduzido de uma lista. E' a segunda
+   trava contra o defeito de 04/11: mesmo que a leitura venha incompleta por qualquer
+   motivo, o proximo id parte do que o banco realmente tem. */
+async function maiorId(tabela) {
+  var r = await req('/rest/v1/' + tabela + '?select=id&order=id.desc&limit=1',
+    { method: 'GET', headers: cabecalhos() });
+  return (Array.isArray(r) && r[0] && r[0].id) || '';
 }
 
 function insert(tabela, linhas) {
@@ -540,7 +575,7 @@ async function carregarTudo() {
 
 module.exports = {
   configurado: configurado,
-  selectAll: selectAll, insert: insert, update: update, remover: remover,
+  selectAll: selectAll, maiorId: maiorId, PAGINA: PAGINA, insert: insert, update: update, remover: remover,
   removerVarios: removerVarios, atualizarVarios: atualizarVarios, salvarConfig: salvarConfig,
   rpc: rpc,
   subirArquivo: subirArquivo, carregarTudo: carregarTudo,
