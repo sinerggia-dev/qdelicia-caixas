@@ -1091,6 +1091,15 @@ async function main() {
     const pag = await GET({ acao: 'movimentos', quem: 'U001', limit: 2, offset: 2 });
     ok(pag.ok && pag.movimentos.length > 0 && pag.movimentos[0].id === tudo.movimentos[2].id,
       'e o `offset` pagina na mesma ordem — é por ele que o CSV leva todas as linhas');
+    /* AS OUTRAS LISTAS COM TETO TAMBEM DIZEM O TOTAL — o mesmo corte calado morava nelas. */
+    const meus = await GET({ acao: 'meusLancamentos', quem: 'U001', teste: 'todos', limit: 1 });
+    const meusTudo = await GET({ acao: 'meusLancamentos', quem: 'U001', teste: 'todos', limit: 100000 });
+    ok(meus.ok && meus.movimentos.length <= 1 && meus.total === meusTudo.movimentos.length,
+      'a lista do app de campo diz o TOTAL do filtro, e não só as que vieram — é por ele que ' +
+      'a tela avisa quando está cortada', { veio: meus.movimentos && meus.movimentos.length, total: meus.total });
+    const lix = await GET({ acao: 'lixeira', quem: 'U001', limit: 1 });
+    ok(lix.ok && typeof lix.total === 'number',
+      'e a lixeira também diz o total', lix.total);
   }
 
   console.log('\n== o arranjo da tela viaja com a pessoa ==');

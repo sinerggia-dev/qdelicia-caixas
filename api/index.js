@@ -269,8 +269,11 @@ async function rotaGet(p) {
       var dMeus = L.veDeclaracao(L.acharUsuario(d.usuarios, p.quem))
         ? baseMeus
         : L.semDeclaracao(baseMeus, p.quem);
-      return { ok: true, movimentos: L.listaMovimentos(dMeus.movimentos, d.locais,
-                 d.tipos, d.usuarios, p, { motoristas: d.motoristas, fornecedores: d.fornecedores }) };
+      /* TETO COM TOTAL: a lista vem cortada em `limit`, e o `total` diz quantas o filtro
+         casou — a tela avisa quando mostra so' uma parte, em vez de somar calada. */
+      return comTeto(L.listaMovimentos(dMeus.movimentos, d.locais,
+                 d.tipos, d.usuarios, semLimite(p),
+                 { motoristas: d.motoristas, fornecedores: d.fornecedores }), p, 400);
     /* A PORTA UNICA DA DECLARACAO — a tela Motorista/Conferente, e nada mais.
        Ela traz os DOIS lados do par: a declaracao do motorista e a contagem do
        conferente, que vivem em livros diferentes. Pedindo so o livro de declaracao,
@@ -303,7 +306,8 @@ async function rotaGet(p) {
       var dConc = L.recorteLancamentos(d, d.usuarios, p.quem);
       var linhasConc = L.listaMovimentos(
                  L.recorteMundos(dConc.movimentos, quaisMundos),
-                 d.locais, d.tipos, d.usuarios, p, { motoristas: d.motoristas, fornecedores: d.fornecedores });
+                 d.locais, d.tipos, d.usuarios, semLimite(p),
+                 { motoristas: d.motoristas, fornecedores: d.fornecedores });
       /* E A SEGUNDA PENEIRA, pela OUTRA pergunta. O porteiro acima pergunta se esta
          pessoa ve declaracao, e as duas abas de conciliacao respondem sim. Quem tem so'
          a de lancamento passa por ele — e ate aqui recebia a contagem do conferente no
@@ -311,9 +315,9 @@ async function rotaGet(p) {
          ULTIMO PASSO DA ROTA, e nao dentro de `listaMovimentos`: ali ela valeria para
          todas as rotas, e a de Movimentos nao tem esta pergunta — ela ja' nao recebe
          declaracao nenhuma. */
-      return { ok: true, movimentos: L.veConferencia(euConc)
+      return comTeto(L.veConferencia(euConc)
                  ? linhasConc
-                 : L.semContagem(linhasConc, d.usuarios) };
+                 : L.semContagem(linhasConc, d.usuarios), p, 400);
     /* A lixeira entende o MESMO `so` que `movimentos`, e pela mesma razão: ela é o
        avesso daquela lista, e uma peneira que valesse só de um lado transformaria a
        tela que restaura num jeito de ver o que a tela que lista esconde. A tela manda
@@ -323,13 +327,13 @@ async function rotaGet(p) {
       /* E O LIVRO TAMBEM, pela razao que o comentario acima ja' diz: ela e' o avesso da
          lista de Movimentos, e um recorte que valesse so' de um lado transformaria a
          tela que restaura num jeito de ver o que a tela que lista esconde. */
-      return { ok: true, movimentos: L.listaLixeira(
+      return comTeto(L.listaLixeira(
                  L.recorteDeclaracao(
                    L.recorteBases(
                      L.recorteLancamentos(d, d.usuarios, p.quem),
                      L.acharUsuario(d.usuarios, p.quem)),
                    L.acharUsuario(d.usuarios, p.quem)).movimentos,
-                 d.locais, d.tipos, d.usuarios, p) };
+                 d.locais, d.tipos, d.usuarios, semLimite(p)), p, 300);
     case 'extrato':
       /* O EXTRATO E O DOCUMENTO DE FORA — o que se manda ao cliente. Somando livros que
          quem o gerou nem le', ele vira um papel com um numero que ninguem na empresa
@@ -1015,6 +1019,21 @@ async function viuTutorial(p) {
    tela, e a do computador espremeria o celular.
    Recebe varias chaves de uma vez (`valores`), porque a primeira visita depois do
    deploy sobe tudo o que o navegador ja' tinha num pedido so'. `null` apaga a chave. */
+/* ================= TODA LISTA COM TETO DIZ O TOTAL =================
+ * O mesmo defeito de 06/11 em Movimentos Gerais morava em mais tres telas: a lista vinha
+ * cortada no servidor (2.000, 2.000, 300) e a tela nao tinha como saber que havia mais.
+ * Agora a lista e' montada inteira, cortada AQUI, e a resposta leva `total`. */
+function semLimite(p) {
+  var c = {};
+  Object.keys(p || {}).forEach(function (k) { c[k] = p[k]; });
+  c.limit = 1e9;
+  return c;
+}
+function comTeto(lista, p, padrao) {
+  var lim = Number((p && p.limit) || padrao);
+  return { ok: true, movimentos: lista.slice(0, lim), total: lista.length };
+}
+
 async function salvarArranjo(p) {
   var id = String(p.usuarioId || '');
   if (!id) return { ok: false, erro: 'Sem usuario.' };

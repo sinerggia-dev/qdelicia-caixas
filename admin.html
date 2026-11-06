@@ -1966,7 +1966,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=87537e5f"></script>
+<script src="app.js?v=ec259b78"></script>
 <script>
 (function(){
   'use strict';
@@ -5413,6 +5413,10 @@
       .then(function(r){
         if (!r.ok) throw new Error(r.erro);
         DECLS = r.movimentos || [];
+        /* Cortada em 2.000 no servidor, que diz o total: a tela avisa quando mostra só
+           uma parte, em vez de conciliar calada a metade dos pares. */
+        Q.avisoDeTeto('tabelaDecl', DECLS.length, r.total, 'linhas da conciliação',
+          'Os totais desta tela contam só as que estão à vista.');
         desenharDecl();
       }).catch(function(e){
         box.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';
@@ -10440,6 +10444,8 @@
     Q.get(pedido).then(function(r){
       if (!r.ok) throw new Error(r.erro);
       LIXO = r.movimentos || [];
+      Q.avisoDeTeto('tabelaLixeira', LIXO.length, r.total, 'lançamentos na lixeira — os mais recentes', '',
+        'Os mais antigos continuam guardados, só não cabem nesta lista.');
       desenharLixeira();
     }).catch(function(e){
       box.innerHTML = '<div class="aviso-box erro">'+Q.esc(e.message)+'</div>';

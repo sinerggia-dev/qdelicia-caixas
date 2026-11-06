@@ -719,7 +719,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
-<script src="app.js?v=87537e5f"></script>
+<script src="app.js?v=ec259b78"></script>
 <script>
 (function(){
   'use strict';
@@ -3665,6 +3665,10 @@
       LANC = (r.movimentos || []).filter(function(m){
         return m.tipo === 'SAIDA' || m.tipo === 'TRANSFERENCIA' || m.tipo === 'DEVOLUCAO';
       });
+      /* O SERVIDOR CORTA EM 2.000 e diz o total: passando disso, a tela AVISA — os
+         cartões e os filtros daqui só enxergam o que veio. */
+      Q.avisoDeTeto('listaLanc', (r.movimentos || []).length, r.total,
+        'lançamentos do período', 'Os cartões e os filtros contam só os que estão à vista.');
       montarFiltrosLanc();
       desenharLanc();
     }).catch(function(e){

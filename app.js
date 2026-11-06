@@ -3473,6 +3473,32 @@
     else aoCarregar();
   }
 
+  /* ================= A LISTA CORTADA AVISA QUE FOI CORTADA =================
+   * O servidor manda no maximo N linhas por tela, e desde 06/11/2026 diz tambem o
+   * `total` que o filtro casou. Quando ha' mais do que veio, a tela DIZ — antes ela
+   * mostrava e somava as N calada, e o total parecia menor do que era.
+   * Um aviso so', criado ao lado da lista (id `<alvo>Teto`), escondido quando nao ha
+   * corte. `oQue` e `contas` dizem o que esta' cortado e o que isso afeta naquela tela. */
+  function avisoDeTeto(alvoId, mostradas, total, oQue, contas, dica) {
+    if (typeof document === 'undefined') return false;
+    var alvo = document.getElementById(alvoId);
+    if (!alvo || !alvo.parentNode) return false;
+    var el = document.getElementById(alvoId + 'Teto');
+    var cortou = Number(total) > Number(mostradas);
+    if (!cortou) { if (el) el.hidden = true; return false; }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = alvoId + 'Teto';
+      el.className = 'aviso-box aviso-teto';
+      alvo.parentNode.insertBefore(el, alvo);
+    }
+    el.hidden = false;
+    el.innerHTML = 'Mostrando <b>' + num(mostradas) + '</b> de <b>' + num(total) + '</b> ' +
+      esc(oQue) + '. ' + (contas ? esc(contas) + ' ' : '') +
+      esc(dica == null ? 'Para ver o resto, estreite o período.' : dica);
+    return true;
+  }
+
   window.QDC = {
     get: get, post: post, enviar: enviar, sincronizar: sincronizar, fila: fila, chave: chave,
     sessao: sessao, lendo: lendo, entrar: entrar, sair: sair, ehAdmin: ehAdmin, podeConferir: podeConferir,
@@ -3493,7 +3519,7 @@
     toast: toast, abas: abas, gaveta: gaveta, fecharGaveta: fecharGaveta,
     portaUnica: portaUnica, destinoDa: destinoDa, podePainel: podePainel,
     conferirSenha: conferirSenha,
-    aplicarTema: aplicarTema, aplicarFundo: aplicarFundo, ajustarEsquemaNativo: ajustarEsquemaNativo, datasVisiveis: datasVisiveis,
+    aplicarTema: aplicarTema, aplicarFundo: aplicarFundo, ajustarEsquemaNativo: ajustarEsquemaNativo, datasVisiveis: datasVisiveis, avisoDeTeto: avisoDeTeto,
     aplicarAparencia: aplicarAparencia,
     temaAtual: temaAtual, fundoAtual: fundoAtual, TEMAS: TEMAS, FUNDOS: FUNDOS,
     mudarSuperficie: mudarSuperficie, aparenciaAtual: aparenciaAtual,

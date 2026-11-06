@@ -27767,6 +27767,31 @@ console.log('\n== as ações do filtro mudam de lugar ==');
       'faltando um, a conta daria zero calada', { faltam: faltam });
   })();
 
+  /* ---- TODA LISTA COM TETO AVISA QUANDO FOI CORTADA ----
+     Cada pedido de lista com `limit` tem de, na resposta, ou pedir o `resumo` (que conta
+     tudo) ou chamar `Q.avisoDeTeto` com o `total` — senao a tela mostra a parte como se
+     fosse o todo, que foi o defeito de 06/11. */
+  (function () {
+    var idxT = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    var semAviso = [];
+    [['admin.html', adm], ['index.html', idxT]].forEach(function (par) {
+      var re = /Q\.get\(Q\.lendo\([^)]*?\blimit:/g, m;
+      var txt = par[1];
+      while ((m = re.exec(txt))) {
+        var depois = txt.slice(m.index, m.index + 1800);
+        if (!/resumo:1|avisoDeTeto\(/.test(depois)) semAviso.push(par[0] + '@' + m.index);
+      }
+      var re2 = /Q\.lendo\(\{[^}]*?\blimit:/g;
+      while ((m = re2.exec(txt))) {
+        var dep2 = txt.slice(m.index, m.index + 1800);
+        if (!/resumo:1|avisoDeTeto\(/.test(dep2)) semAviso.push(par[0] + '@' + m.index);
+      }
+    });
+    ok(!semAviso.length,
+      'toda lista com teto ou conta tudo pelo resumo, ou AVISA quando foi cortada — mostrar ' +
+      'a parte como se fosse o todo foi o defeito de 06/11', semAviso);
+  })();
+
   /* ---- O CAMPO DE DATA NO CELULAR NAO FICA EM BRANCO ----
      Android e iPhone desenham o campo de data vazio sem texto e sem icone. A dica e'
      do app.js, para as duas telas; e ela precisa acompanhar o valor posto pelo codigo
