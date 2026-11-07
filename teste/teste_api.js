@@ -1158,6 +1158,20 @@ async function main() {
       'e marcar como resolvida tira da faixa SEM apagar — a falha continua na tabela');
     const resolN = await POST({ acao: 'resolverFalha', id: fa2.falhas[0] && fa2.falhas[0].id, usuarioId: 'U003' });
     ok(resolN.ok === false, 'e só o administrador resolve', resolN);
+
+    /* O BOTAO DE TESTE: sem as variaveis, diz o que falta; com elas, manda. */
+    const t0 = await POST({ acao: 'testarAlerta', usuarioId: 'U001' });
+    ok(t0.ok && t0.enviado === false && /RESEND_API_KEY/.test(t0.motivo),
+      'o teste do alerta, sem configurar, diz QUAL variável falta', t0);
+    const tN = await POST({ acao: 'testarAlerta', usuarioId: 'U003' });
+    ok(tN.ok === false, 'e só o administrador testa o alerta', tN);
+    process.env.RESEND_API_KEY = 're_teste'; process.env.ALERTA_EMAIL = 'eu@x.com';
+    const fAntes2 = global.fetch;
+    global.fetch = async () => ({ ok: false, status: 403, text: async () => '{"message":"domínio não verificado"}' });
+    const t1 = await POST({ acao: 'testarAlerta', usuarioId: 'U001' });
+    global.fetch = fAntes2; delete process.env.RESEND_API_KEY; delete process.env.ALERTA_EMAIL;
+    ok(t1.ok && t1.enviado === false && /403/.test(t1.motivo) && /verificado/.test(t1.motivo),
+      'e quando o Resend recusa, o motivo dele chega inteiro à tela', t1);
   }
 
   console.log('\n== a tabela tem teto, as contas nao (06/11/2026) ==');

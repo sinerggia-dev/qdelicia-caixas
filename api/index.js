@@ -458,6 +458,7 @@ async function rotaPost(p) {
   if (acao === 'baseUsuarios') return await baseUsuarios(p);
   if (acao === 'viuTutorial') return await viuTutorial(p);
   if (acao === 'resolverFalha') return await resolverFalha(p);
+  if (acao === 'testarAlerta') return await testarAlerta(p);
   if (acao === 'salvarArranjo') return await salvarArranjo(p);
   if (acao === 'minhaFoto') return await minhaFoto(p);
 
@@ -1056,6 +1057,21 @@ async function resolverFalha(p) {
   await db.update('falhas_gravacao', id, { resolvido: true, resolvido_por: String(eu.ID),
                                            resolvido_em: new Date().toISOString() });
   return { ok: true };
+}
+
+/* O TESTE DO ALERTA: manda um e-mail de verdade, sem gravar nada e sem passar pelo
+   freio de um por minuto — e devolve o motivo cru quando nao sai, porque o motivo
+   ("sem RESEND_API_KEY", "Resend 403: ...") e' o que diz o que falta configurar. */
+async function testarAlerta(p) {
+  var d = await db.carregarTudo();
+  var eu = L.acharUsuario(d.usuarios, p.usuarioId || p.quem);
+  if (!eu || !L.ehAdministrador(eu)) return { ok: false, erro: 'Só o administrador testa o alerta.' };
+  var r = await alerta.enviarEmail('Teste do alerta — Controle de Caixas',
+    '<div style="font-family:Arial,sans-serif;font-size:14px">' +
+    '<h2 style="margin:0 0 8px">O alerta está funcionando</h2>' +
+    '<p>Este é um teste pedido no painel. Quando o banco recusar um lançamento, ' +
+    'chega um e-mail parecido com este, com o que a pessoa tentou lançar.</p></div>');
+  return { ok: true, enviado: !!r.enviado, motivo: r.motivo || '' };
 }
 
 async function salvarArranjo(p) {

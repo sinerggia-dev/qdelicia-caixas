@@ -86,7 +86,9 @@ async function enviarEmail(assunto, html) {
                              subject: assunto, html: html }),
       signal: ctl ? ctl.signal : undefined
     });
-    return { enviado: r.ok, motivo: r.ok ? '' : ('Resend ' + r.status) };
+    var detalhe = '';
+    if (!r.ok) { try { detalhe = String(await r.text()).slice(0, 300); } catch (e3) {} }
+    return { enviado: r.ok, motivo: r.ok ? '' : ('Resend ' + r.status + (detalhe ? ': ' + detalhe : '')) };
   } catch (e) {
     return { enviado: false, motivo: String(e && e.message || e) };
   } finally { if (t) clearTimeout(t); }

@@ -1830,6 +1830,13 @@
       <h2>Pedidos de senha<span class="sub">Quem não conseguiu entrar no painel e pediu ajuda. Redefina em Usuários → editar → Senha.</span></h2>
       <div id="tabelaPedidos"></div>
     </div>
+    <!-- O TESTE DO ALERTA POR E-MAIL, so' para o ADMIN. Sem ele, a unica forma de saber
+         se o alerta chega seria esperar o banco recusar um lancamento de verdade. -->
+    <div class="card" id="cardAlerta" hidden>
+      <h2>Alerta de gravação por e-mail<span class="sub">Quando o banco recusa um lançamento, chega um e-mail. Teste aqui se ele está chegando.</span></h2>
+      <button class="mini" type="button" id="btnTestarAlerta">Enviar e-mail de teste</button>
+      <p id="alertaResultado" style="margin:8px 0 0"></p>
+    </div>
     <!-- AS SENHAS DAS OPERACOES PROTEGIDAS.
          Era UMA senha para tudo, e o escritorio pediu separadas: quem corrige um numero
          errado nao e' necessariamente quem apaga o cadastro de uma pessoa, e com uma
@@ -2072,6 +2079,8 @@
   function carregarFalhas(){
     var s = Q.sessao();
     var faixa = document.getElementById('faixaFalhas');
+    var cardAl = document.getElementById('cardAlerta');
+    if (cardAl) cardAl.hidden = !(s && Q.ehAdmin());
     if (!faixa || !s || !Q.ehAdmin()) { if (faixa) faixa.hidden = true; return; }
     Q.get({ acao:'falhas', quem: s.id }).then(function(r){
       FALHAS = (r && r.ok && r.falhas) || [];
@@ -2113,6 +2122,17 @@
           '</div>';
       }).join('') + '</details></div>';
   }
+  document.addEventListener('click', function(e){
+    if (!e.target || e.target.id !== 'btnTestarAlerta') return;
+    var s = Q.sessao(), out = document.getElementById('alertaResultado');
+    out.textContent = 'Enviando…';
+    Q.post({ acao:'testarAlerta', usuarioId: s && s.id }).then(function(r){
+      if (!r || !r.ok) throw new Error((r && r.erro) || 'Não consegui testar.');
+      out.textContent = r.enviado
+        ? '✓ Enviado. Confira a caixa de entrada (e o spam) do e-mail configurado.'
+        : '✗ Não saiu: ' + (r.motivo || 'motivo desconhecido') + '.';
+    }).catch(function(err){ out.textContent = '✗ ' + err.message; });
+  });
   document.addEventListener('click', function(e){
     var b = e.target && e.target.closest && e.target.closest('[data-resolver-falha]');
     if (!b) return;
